@@ -14,12 +14,10 @@ use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use std::time::Instant;
 
-/// What the oracle's files take from the game around them.
 mod host {
     pub use angel_delve::rules::lightgallop::{SOUNDS, join_taken, split_taken};
     pub use angel_delve::rules::{HZ, Hero, Input, MAX_PLAYERS};
 
-    /// A knight to seat: the one a fresh run starts with.
     pub fn hero() -> Hero {
         static HERO: std::sync::OnceLock<Hero> = std::sync::OnceLock::new();
         HERO.get_or_init(|| angel_delve::rules::Run::new(1, 1, None).players.values().next().expect("a knight").clone()).clone()
@@ -33,7 +31,6 @@ use oracle::scenes::{self, Step};
 
 const MODULE: &str = "lightgallop-rules";
 
-/// The shipped module's answer, as the host takes it.
 fn bend(ask: &Value) -> Value {
     install_scripted_rules();
     let mut answer = angel_delve::scripted::step(MODULE, ask)
@@ -44,18 +41,15 @@ fn bend(ask: &Value) -> Value {
     answer
 }
 
-/// The oracle's answer to the same ask.
 fn old(ask: &Value) -> Value {
     oracle::answer(MODULE, ask).unwrap_or_else(|error| panic!("the oracle refused {}: {error}", ask["op"]))
 }
 
-/// A bot's keys, as the rules read them: the fields that are not the default.
 fn pressed(answer: &Value) -> Value {
     let input: host::Input = serde_json::from_value(answer["input"].clone()).expect("an input");
     serde_json::to_value(input).expect("an input")
 }
 
-/// The first place two answers part, for a failure worth reading.
 fn first_difference(a: &Value, b: &Value, at: &str) -> Option<String> {
     match (a, b) {
         (Value::Object(x), Value::Object(y)) => {
@@ -70,7 +64,6 @@ fn first_difference(a: &Value, b: &Value, at: &str) -> Option<String> {
     }
 }
 
-/// What a scene got to see, so a green run is known to have covered the game.
 #[derive(Default)]
 struct Seen {
     asks: usize,
@@ -134,8 +127,6 @@ impl Seen {
     }
 }
 
-/// Run a scene with both the module and the oracle answering every ask; the
-/// two must agree to the byte, and the scene goes on from the oracle's answer.
 fn side_by_side(name: &str, scene: &dyn Fn(Step)) -> Seen {
     install_scripted_rules();
     let mut seen = Seen::default();
@@ -207,8 +198,6 @@ fn the_wardens_gate_the_bell_the_tally_and_the_ride_again_tick_the_same() {
     assert!(seen.bell > 0 && seen.tallies > 0 && seen.again > 0, "the bell, the tally and the ride again");
 }
 
-/// The scenes between them cover the game: every sound it makes is heard, and
-/// every kind of thing on the road is met. Only the oracle ticks here.
 #[test]
 fn the_scenes_between_them_make_every_sound() {
     let mut heard = BTreeSet::new();
@@ -225,8 +214,6 @@ fn the_scenes_between_them_make_every_sound() {
     assert!(missing.is_empty(), "never heard: {missing:?}");
 }
 
-/// The adapter the game takes: the session's own types in, the next session
-/// out, checked, against the oracle on the same keys.
 #[test]
 fn the_games_adapter_ticks_a_table_as_the_oracle_does() {
     use angel_delve::rules::lightgallop::Session;
@@ -251,8 +238,6 @@ fn the_games_adapter_ticks_a_table_as_the_oracle_does() {
         theirs = answer["session"].clone();
         let mut mine_json = serde_json::to_value(&mine).unwrap();
         host::split_taken(&mut mine_json);
-        // What the picture remembers (`show`) is the session's own: the module
-        // is never sent it, so it is no part of the parity with the oracle.
         mine_json.as_object_mut().unwrap().remove("show");
         if let Some(at) = first_difference(&mine_json, &theirs, "session") {
             panic!("tick {tick}: the adapter's session parts at {at}");
@@ -262,11 +247,6 @@ fn the_games_adapter_ticks_a_table_as_the_oracle_does() {
     }
 }
 
-// ---- measurements (cargo test ... -- --ignored --nocapture) ----------------------------------
-
-/// Per-tick cost at four riders: the oracle's native tick, and the module's
-/// call as the host makes it (the session laid out, run in the warm isolate,
-/// read back), over a ride of bots.
 #[test]
 #[ignore]
 fn what_a_tick_costs_at_four_riders() {

@@ -15,28 +15,18 @@
 use super::*;
 use crate::realm::{Spoil, Spoils};
 
-/// Ticks a goblin runs after a theft before it is through a door; spread by
-/// its id, so a pair do not leave together.
 pub const RUN_TICKS: u32 = 8 * HZ;
-/// Ticks a goblin that has taken nothing waits for something to take.
 pub const IDLE_TICKS: u32 = 16 * HZ;
 const SCAVENGE_SPEED: f32 = 7.5;
 const FLEE_SPEED: f32 = 10.5;
-/// How long "THIEF!" hangs over a goblin that has just stolen.
 pub const CRY_TICKS: u32 = 2 * HZ;
-/// The most thefts one goblin makes.
 const THEFTS: usize = 4;
-/// What a goblin may take from a knight's pack.
 const TAKES: [Spoil; 4] = [Spoil::Gold, Spoil::Gem, Spoil::Ember, Spoil::Ore];
-/// Percent of a pile one touch takes, at least one.
 const TAKE_SHARE: u32 = 40;
-/// Percent of fight rooms with a goblin in them, by floor, and of those with
-/// a second.
 const GOBLIN_ROOMS: [u32; 6] = [30, 30, 35, 40, 45, 50];
 const GOBLIN_PAIRS: [u32; 6] = [10, 15, 20, 25, 30, 35];
 
 impl Enemy {
-    /// How full the sack is, from 0 (empty) to 3 (bursting).
     pub fn burden(&self) -> u8 {
         let things = self.stash.0.values().filter(|&&n| n > 0).count() + self.loot.len();
         match things {
@@ -47,13 +37,11 @@ impl Enemy {
         }
     }
 
-    /// Running, with something in the sack.
     pub fn fleeing(&self) -> bool {
         self.kind == EnemyKind::Goblin && self.stage == 1
     }
 }
 
-/// Where a room's doors are, a step inside each.
 fn exits(room: &Room) -> Vec<(f32, f32)> {
     let (w, h) = (room.width(), room.height());
     [
@@ -70,9 +58,7 @@ fn exits(room: &Room) -> Vec<(f32, f32)> {
 }
 
 impl Run {
-    /// Now and then a fight room has a loot goblin in it, and more rarely two.
     pub(super) fn maybe_goblin(&mut self) {
-        // A camp is garrisoned; a goblin has no business in it.
         if self.room().kind != RoomKind::Fight
             || self
                 .boss_gates
@@ -100,7 +86,6 @@ impl Run {
         }
     }
 
-    /// A step for every goblin in the room: scavenge, steal, run, get away.
     pub(super) fn tick_thieves(&mut self) {
         let ids: Vec<u32> = self
             .enemies
@@ -111,7 +96,6 @@ impl Run {
                     && e.age >= TELEGRAPH
                     && e.frozen == 0
                     && !e.asleep(self.tick)
-                    // A raider marching for the works is not a pickpocket after a knight's purse.
                     && !self.raider_marches(e)
             })
             .map(|e| e.id)
@@ -130,7 +114,6 @@ impl Run {
             g.cry = g.cry.saturating_sub(1);
             (g.x, g.y, g.timer, g.stage == 1)
         };
-        // Who could be robbed, and who is nearest.
         let knights: Vec<(u32, f32, f32)> = self
             .players
             .iter()
@@ -149,8 +132,6 @@ impl Run {
             if timer >= run {
                 return self.goblin_gets_away(id);
             }
-            // Away from the nearest knight, toward the door that knight is
-            // farthest from, round a shot coming at it.
             let (nx, ny) = nearest.map_or((gx, gy + 1.0), |(_, x, y)| (x, y));
             let door = doors.iter().copied().max_by(|a, b| {
                 let score =
@@ -184,8 +165,6 @@ impl Run {
             if timer >= IDLE_TICKS {
                 return self.goblin_gets_away(id);
             }
-            // Loot on the floor first, then a knight with something to lose,
-            // else a wary distance.
             let item = self
                 .room()
                 .items
@@ -235,7 +214,6 @@ impl Run {
             Mover::Walker,
         );
         if (to.0 - gx).hypot(to.1 - gy) < speed * DT * 0.3 {
-            // Cornered: slip along the wall.
             to = grid.slide(
                 (gx, gy),
                 (-way.1 * speed * DT, way.0 * speed * DT),
@@ -248,7 +226,6 @@ impl Run {
         if way.0 != 0.0 || way.1 != 0.0 {
             g.dir = way;
         }
-        // A touch robs a knight (a rolling one is not there to touch).
         let touch = radius + HERO_RADIUS + 0.3;
         let victim = self
             .players
@@ -261,7 +238,6 @@ impl Run {
         }
     }
 
-    /// A goblin picks up a card lying on the floor, into its sack.
     fn goblin_grabs(&mut self, goblin: usize, item: usize) {
         let at = self.at;
         let taken = self.dungeon.rooms[at].items.swap_remove(item);
@@ -271,8 +247,6 @@ impl Run {
         self.sounds.push("spoil_pickup");
     }
 
-    /// A goblin takes something from a knight: a share of a pile of gold,
-    /// gems, ember or ore, or a card from their hand. Then it runs.
     fn goblin_steals(&mut self, goblin: usize, hero: u32) {
         if self.enemies[goblin].loot.len() + self.enemies[goblin].stash.0.len() >= THEFTS + 2 {
             return;
@@ -322,7 +296,6 @@ impl Run {
         let _ = who;
     }
 
-    /// A goblin gets through a door: what it carries is gone.
     pub(super) fn goblin_gets_away(&mut self, id: u32) {
         if let Some(g) = &mut self.boss_gates {
             g.economy.retire(id);
@@ -348,9 +321,6 @@ impl Run {
         ));
     }
 
-    /// A goblin dies: its sack bursts. What it took from the knights goes
-    /// back to the nearest, what it found lies where it fell, and a pile of
-    /// gold and now and then a prize come on top.
     pub(super) fn goblin_bursts(&mut self, x: f32, y: f32, stash: Spoils, loot: Vec<String>) {
         if let Some(hero) = self
             .players
@@ -398,8 +368,6 @@ impl Run {
 }
 
 impl Hero {
-    /// Something a goblin could take: a pile of gold, gems, ember or ore, or
-    /// a card in hand.
     pub fn stealable(&self) -> bool {
         !self.hand.is_empty() || TAKES.iter().any(|&s| self.carried.get(s) > 0)
     }

@@ -14,23 +14,15 @@ use super::home::Station;
 use super::*;
 use crate::realm::Spoils;
 
-/// The spin's four beats, in ticks: the wheel winds back, runs and slows
-/// (a peg a little farther apart each time), hangs on the wedge before the
-/// one it will take, and the peg lets go.
 pub const WIND: u32 = 12;
 pub const RUN: u32 = 104;
 pub const HANG: u32 = 26;
 pub const DROP: u32 = 10;
-/// How long the wheel spins before it stops.
 pub const SPIN_TICKS: u32 = WIND + RUN + HANG + DROP;
-/// How far back the wheel winds, in radians.
 const BACK: f32 = 0.28;
-/// How near the peg it hangs, and how far it creeps while it does, in wedges.
 const NEAR: f32 = 0.10;
 const CREEP: f32 = 0.04;
 
-/// How a wedge pays: the room cheers to match (fireworks for a grand one,
-/// paper for a fair one, a sigh for the plain road).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Luck {
     Plain,
@@ -43,41 +35,25 @@ pub enum Luck {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum Mode {
-    /// The delve as it always was.
     #[default]
     #[serde(alias = "sponsors")]
     LongWayDown,
-    /// Dark: light only round knights and fires.
     LightsOut,
-    /// Every floor falls in after a while: get down before it does.
     Collapse,
-    /// Every monster is a giant: bigger, tougher, and generous.
     GiantsFeast,
-    /// One great hall a floor, and a horde coming up the stair.
     HoldTheStair,
-    /// Chests in every won room, and half of them bite.
     MimicFair,
-    /// Everyone hits twice as hard. Everyone.
     GlassJaw,
-    /// No small talk: a hall, then the guardian, every floor.
     Gauntlet,
-    /// Turbo: the whole delve runs a third faster.
     Turbo,
-    /// A rune in every fight, and a fresh one while it lasts.
     RuneRush,
-    /// All Random: every knight carries a stranger's ultimate.
     AllRandom,
-    /// No second winds at all (the Pit's Talisman aside).
     Ironman,
-    /// Every floor hides a vault behind a cracked wall.
     HollowWalls,
-    /// Open Floors: every floor one map to explore, its companies waiting
-    /// in their chambers (`depths`).
     OpenFloors,
 }
 
 impl Mode {
-    /// The wheel's wedges, clockwise from the top.
     pub const WHEEL: [Mode; 14] = [
         Mode::LongWayDown,
         Mode::LightsOut,
@@ -114,7 +90,6 @@ impl Mode {
         }
     }
 
-    /// The word in a cue: `wheel:lights_out`.
     pub fn word(self) -> &'static str {
         match self {
             Mode::LongWayDown => "long_way_down",
@@ -134,7 +109,6 @@ impl Mode {
         }
     }
 
-    /// What it does, in a line.
     pub fn says(self) -> &'static str {
         match self {
             Mode::LongWayDown => "the delve as it always was",
@@ -154,7 +128,6 @@ impl Mode {
         }
     }
 
-    /// The name in two or three plain words, for a banner.
     pub fn headline(self) -> &'static str {
         match self {
             Mode::LongWayDown => "LONG WAY DOWN",
@@ -174,7 +147,6 @@ impl Mode {
         }
     }
 
-    /// What it does, in at most three plain words.
     pub fn gist(self) -> &'static str {
         match self {
             Mode::LongWayDown => "THE PLAIN ROAD",
@@ -194,7 +166,6 @@ impl Mode {
         }
     }
 
-    /// What the spoils pay, when they pay more: two words.
     pub fn pay(self) -> Option<&'static str> {
         match self.spoils() {
             (3, 2) => Some("1.5X SPOILS"),
@@ -204,7 +175,6 @@ impl Mode {
         }
     }
 
-    /// How the wedge pays, for the room's cheer.
     pub fn luck(self) -> Luck {
         match self {
             Mode::Collapse | Mode::GlassJaw | Mode::HoldTheStair | Mode::Turbo | Mode::Ironman => Luck::Grand,
@@ -218,7 +188,6 @@ impl Mode {
         }
     }
 
-    /// The rung of Fortune's ladder that opens this wedge.
     pub fn rung(self) -> u8 {
         match self {
             Mode::LongWayDown | Mode::LightsOut | Mode::GiantsFeast | Mode::MimicFair | Mode::OpenFloors => 0,
@@ -229,7 +198,6 @@ impl Mode {
         }
     }
 
-    /// What the spoils carried home are worth, as `(times, over)`.
     pub fn spoils(self) -> (u32, u32) {
         match self {
             Mode::LightsOut | Mode::GiantsFeast => (3, 2),
@@ -245,14 +213,11 @@ impl Mode {
         }
     }
 
-    /// The seconds a floor stands before it collapses.
     pub fn collapse_secs(depth: u32) -> u32 {
         120 + 30 * depth
     }
 }
 
-/// A spin of the wheel: when it began, where it began, and the wedge it
-/// stops on (decided at the pull, played out over `SPIN_TICKS`).
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Spin {
     #[serde(default)]
@@ -262,28 +227,20 @@ pub struct Spin {
     #[serde(deserialize_with = "saved_wedge")]
     pub wedge: u8,
     pub turns: u8,
-    /// Who pulled the lever.
     pub by: u32,
 }
 
-/// Saves made before viewers were retired may still be spinning toward the
-/// removed sponsor wedge. Resume that spin on the ordinary delve instead.
 fn saved_wedge<'de, D: serde::Deserializer<'de>>(de: D) -> Result<u8, D::Error> {
     let wedge = u8::deserialize(de)?;
     Ok(if usize::from(wedge) < Mode::WHEEL.len() { wedge } else { 0 })
 }
 
 impl Spin {
-    /// How far the wheel has turned (radians, clockwise) at `tick`.
     pub fn angle(&self, tick: u64) -> f32 {
         let n = if self.settled { SPIN_TICKS } else { tick.saturating_sub(self.started).min(u64::from(SPIN_TICKS)) as u32 };
         self.angle_at(n)
     }
 
-    /// The wheel's turn `n` ticks after the pull: it winds back, runs with
-    /// a cubic slowing, hangs a hair short of the next peg (the near miss,
-    /// on the wedge beside the one it will take), and then the peg lets go
-    /// and it drops into its wedge with a small swing past.
     pub fn angle_at(&self, n: u32) -> f32 {
         use crate::motion::ease;
         let w = std::f32::consts::TAU / Mode::WHEEL.len() as f32;
@@ -298,8 +255,6 @@ impl Spin {
             return self.from - BACK * ease::out(n as f32 / WIND as f32);
         }
         if n < hang_at {
-            // A start that takes a few ticks to catch, then a cubic slowing
-            // to a standstill.
             let u = (n - run_at) as f32 / RUN as f32;
             let g = ease::out(u) * ease::both(u / 0.06);
             return start + (hang - start) * g;
@@ -313,7 +268,6 @@ impl Spin {
         crawl + (target - crawl) * ease::elastic(d)
     }
 
-    /// The beat `n` ticks in.
     pub fn beat(&self, n: u32) -> Beat {
         match n {
             n if n < WIND => Beat::Wind,
@@ -324,26 +278,20 @@ impl Spin {
         }
     }
 
-    /// How many wedges the wheel turns a tick at tick `n` of the spin
-    /// (negative while it winds back).
     pub fn speed(&self, n: u32) -> f32 {
         let w = std::f32::consts::TAU / Mode::WHEEL.len() as f32;
         (self.angle_at(n) - self.angle_at(n.saturating_sub(1))) / w
     }
 
-    /// The pegs the wheel has carried past the pointer by tick `n`.
     pub fn pegs(&self, n: u32) -> i32 {
         let w = std::f32::consts::TAU / Mode::WHEEL.len() as f32;
         (self.angle_at(n) / w).floor() as i32
     }
 
-    /// Whether a peg went by the pointer on tick `n`.
     pub fn clicked(&self, n: u32) -> bool {
         n > 0 && n < SPIN_TICKS && self.pegs(n) != self.pegs(n - 1)
     }
 
-    /// The wedge a spin that stops on `self.wedge` hangs beside: the one the
-    /// pointer sits on at the near miss.
     pub fn neighbour(&self) -> u8 {
         ((usize::from(self.wedge) + 1) % Mode::WHEEL.len()) as u8
     }
@@ -353,7 +301,6 @@ impl Spin {
     }
 }
 
-/// Where a spin is: the four beats and the rest.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Beat {
     Wind,
@@ -363,23 +310,17 @@ pub enum Beat {
     Landed,
 }
 
-/// The wheel's turn that brings wedge `wedge` under the pointer at the top.
 pub fn rest_angle(wedge: u8) -> f32 {
     let w = std::f32::consts::TAU / Mode::WHEEL.len() as f32;
     std::f32::consts::TAU - (f32::from(wedge) + 0.5) * w
 }
 
-/// Where the hall's plates are, in tiles: the lever before the wheel, and
-/// Fortune's own ledger beside it.
 pub const LEVER: (i32, i32, i32, i32) = (11, 8, 2, 1);
 pub const FORTUNE_PLATE: (i32, i32, i32, i32) = (16, 8, 2, 1);
-/// The Herald's coffer on its pedestal by the west door, and its plate.
 pub const COFFER: (i32, i32, i32, i32) = (3, 3, 2, 2);
 pub const COFFER_PLATE: (i32, i32, i32, i32) = (3, 5, 2, 1);
-/// The wheel on its stand against the north wall, and the benches.
 pub const WHEEL_STAND: (i32, i32, i32, i32) = (9, 1, 6, 6);
 pub const BENCHES: [(i32, i32, i32, i32); 2] = [(3, 10, 7, 2), (14, 10, 7, 2)];
-/// Where Dame Fortune stands, in tiles.
 pub const FORTUNE_AT: (f32, f32) = (7.6, 7.2);
 
 fn inside((col, row, w, h): (i32, i32, i32, i32), x: f32, y: f32) -> bool {
@@ -387,7 +328,6 @@ fn inside((col, row, w, h): (i32, i32, i32, i32), x: f32, y: f32) -> bool {
     c >= col as f32 && c < (col + w) as f32 && r >= row as f32 && r < (row + h) as f32
 }
 
-/// The wedges Fortune's ladder has opened.
 pub fn open_wedges(level: u8) -> Vec<u8> {
     (0..Mode::WHEEL.len() as u8)
         .filter(|&i| Mode::WHEEL[usize::from(i)].rung() <= level)
@@ -395,8 +335,6 @@ pub fn open_wedges(level: u8) -> Vec<u8> {
 }
 
 impl Run {
-    /// Fortune's hall: the lever spins the wheel (once a delve), her plate
-    /// reads her ledger, and the wheel comes to rest on the delve's mode.
     pub(super) fn tick_fortune(&mut self, inputs: &BTreeMap<u32, Input>) {
         if self.room().kind != RoomKind::Fortune {
             return;
@@ -439,7 +377,6 @@ impl Run {
             }
         }
         self.orders.extend(asked);
-        // Fortune greets whoever walks up to her, once per approach.
         let (fx, fy) = (FORTUNE_AT.0 * TILE_UNITS, FORTUNE_AT.1 * TILE_UNITS);
         let near = self
             .players
@@ -474,7 +411,6 @@ impl Run {
                 self.notice("spin");
             }
         }
-        // The pegs click past the pointer as the wheel slows.
         if let Some(spin) = self.spin.filter(|s| !s.done(self.tick)) {
             let n = self.tick.saturating_sub(spin.started) as u32;
             if spin.clicked(n) && spin.speed(n).abs() < 1.0 {
@@ -494,7 +430,6 @@ impl Run {
             if mode.luck() != Luck::Plain {
                 self.sounds.push("gold");
             }
-            // The slam: the room holds still a moment, then shakes.
             self.fx.push(Fx::Shake(match mode.luck() {
                 Luck::Grand => 18,
                 _ => 12,
@@ -503,13 +438,10 @@ impl Run {
         }
     }
 
-    /// All Random: down the stair, each knight is handed one of the other
-    /// knights' ultimates for the delve; any other way down, their own.
     pub(super) fn deal_ults(&mut self) {
         let random = self.mode == Mode::AllRandom;
         let owns: BTreeMap<u32, ults::Ult> = self.players.iter().map(|(&id, h)| (id, self.own_ult(h.knight.as_deref()))).collect();
         for (id, hero) in self.players.iter_mut() {
-            // A recruit carries the ultimate wished for them (`recruit_ults`).
             hero.ult = hero.knight.as_deref().filter(|k| recruit_ults::recruit(k)).map(|_| owns[id]);
             if random {
                 let own = owns[id];
@@ -526,8 +458,6 @@ impl Run {
         }
     }
 
-    /// Ironman: no knight keeps a second wind (the Talisman is the Pit Tyrant's
-    /// own, and still saves).
     pub(super) fn iron(&mut self) {
         if self.mode != Mode::Ironman {
             return;
@@ -537,7 +467,6 @@ impl Run {
         }
     }
 
-    /// All Random: every floor begins with the ultimates half charged.
     pub(super) fn half_charge(&mut self) {
         if self.mode != Mode::AllRandom {
             return;
@@ -547,18 +476,14 @@ impl Run {
         }
     }
 
-    /// Turbo: down in the delve, one tick in four comes free, so every
-    /// three steps of play run four ticks of the delve.
     pub(super) fn turbo(&self) -> bool {
         self.turbo_on() && self.tick % 4 == 3
     }
 
-    /// Turbo is on down here: every fourth tick steps twice.
     pub(super) fn turbo_on(&self) -> bool {
         self.mode == Mode::Turbo && self.dungeon.depth > 0
     }
 
-    /// Glass Jaw: the knights hit and are hit twice as hard.
     pub(super) fn harden(&mut self) {
         let glass = self.mode == Mode::GlassJaw;
         for hero in self.players.values_mut() {
@@ -566,8 +491,6 @@ impl Run {
         }
     }
 
-    /// The Collapse: past a floor's time, the ceiling comes down wherever
-    /// the party stands, faster and faster, until they take the stairs.
     pub(super) fn tick_collapse(&mut self) {
         if self.mode != Mode::Collapse || self.at_home_now() {
             return;
@@ -610,7 +533,6 @@ impl Run {
         }
     }
 
-    /// Mimic Fair: a won room leaves a chest in its middle.
     pub(super) fn fair_chest(&mut self) {
         if self.mode != Mode::MimicFair {
             return;
@@ -625,7 +547,6 @@ impl Run {
         }
     }
 
-    /// Seconds left before this floor collapses, while it stands.
     pub fn collapse_in(&self) -> Option<u32> {
         let at = self.collapse_at.filter(|_| self.mode == Mode::Collapse)?;
         (!self.at_home_now()).then(|| (at.saturating_sub(self.tick) / u64::from(HZ)) as u32)
@@ -633,7 +554,6 @@ impl Run {
 }
 
 impl Spoils {
-    /// Each spoil times `times / over`, rounded up: a riskier delve's pay.
     pub fn scaled(&self, (times, over): (u32, u32)) -> Spoils {
         Spoils(
             self.0

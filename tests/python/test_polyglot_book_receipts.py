@@ -1,4 +1,3 @@
-"""Offline provider receipts and report-export guards, without model calls."""
 import contextlib
 import importlib.util
 import io

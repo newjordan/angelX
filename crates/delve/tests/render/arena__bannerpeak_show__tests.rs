@@ -23,8 +23,6 @@ fn party(seats: u32) -> Run {
 
 fn bots(r: &Run) -> BTreeMap<u32, Input> {
     let Some(s) = r.bannerpeak.as_ref() else { return BTreeMap::new() };
-    // Each knight sets off a little after the one before, so the party runs in a string and not in a
-    // heap: the bots are identical, and real friends never are.
     s.seats
         .keys()
         .filter_map(|&id| {
@@ -35,7 +33,6 @@ fn bots(r: &Run) -> BTreeMap<u32, Input> {
         .collect()
 }
 
-/// Every kind of mark and call a whole adventure leaves, and the tick each first showed.
 #[derive(Default)]
 struct Seen {
     kinds: BTreeMap<String, u32>,
@@ -49,7 +46,6 @@ fn play(seats: u32, limit: u32, mut each: impl FnMut(&Run, u32)) -> Run {
         r.step(&keys);
         each(&r, t);
         if r.bannerpeak.as_ref().is_some_and(|s| s.completed.is_some()) && t > 0 {
-            // Stand a while at the finish so its scores show.
             if r.bannerpeak.as_ref().is_some_and(|s| s.phase == Phase::Finale && s.phase_t > 205) {
                 break;
             }
@@ -127,7 +123,6 @@ fn an_old_save_with_no_show_reads_as_a_quiet_one() {
 
 #[test]
 fn the_picture_never_changes_the_run() {
-    // The same bots on the same map, drawn every tick and not drawn at all, play the same run.
     let mut a = party(3);
     let mut b = party(3);
     for t in 0..600 {
@@ -146,7 +141,6 @@ fn the_knights_are_sprites_in_their_seats_colours_not_boxes() {
     let r = party(4);
     for seat in 1..=4u32 {
         let im = frame_for(&r, 384, 224, Some(seat));
-        // Every seat sees its own knight's plume and tabard in its own tone.
         let tone = crate::render::overworld::ink::ink(super::art::tones(seat)[1]).unwrap();
         let count = (0..224).flat_map(|y| (0..384).map(move |x| (x, y))).filter(|&(x, y)| im.get(x, y) == Some(tone)).count();
         assert!(count >= 14, "seat {seat}'s tabard shows in {count} pixels");
@@ -164,7 +158,6 @@ fn a_blow_shakes_the_world_and_not_the_bar() {
     let mut moved = false;
     for _ in 0..4 {
         let shaken = frame_for(&r, 384, 224, Some(1));
-        // The bar's top row never leaves its place; the world under it does.
         assert!((0..384).all(|x| shaken.get(x, 0) == still.get(x, 0)));
         moved |= (20..200).any(|y| (0..384).any(|x| shaken.get(x, y) != still.get(x, y)));
         let s = r.bannerpeak.as_mut().unwrap();
@@ -184,8 +177,6 @@ fn the_frame_costs_what_it_did_within_a_quarter() {
     println!("frame: {per:.2} ms");
     assert!(per < 400.0, "a frame took {per} ms even for a debug build");
 }
-
-// ------------------------------------------------------------ the proof frames
 
 fn save(dir: &PathBuf, name: &str, frames: &[Vec<crate::render::overworld::Img>]) {
     let out = dir.join(name);
@@ -208,7 +199,6 @@ fn write_bannerpeak_shots() {
     let Ok(dir) = std::env::var("ANGEL_BP_SHOTS") else { return };
     let dir = PathBuf::from(dir);
     let only: Option<BTreeSet<String>> = std::env::var("BP_ONLY").ok().map(|v| v.split(',').map(String::from).collect());
-    // One pass finds the moments; a second replays the same run and draws the windows.
     let seats = 3;
     let (_, seen) = scan(seats);
     println!("{:?}", seen.kinds);
@@ -231,7 +221,6 @@ fn write_bannerpeak_shots() {
             windows.push((name, t.saturating_sub(before), t + after, vec![1]));
         }
     }
-    // The finish, with two seats side by side.
     windows.push(("finale", 0, 0, vec![1, 2]));
     let mut reels: BTreeMap<&str, Vec<Vec<crate::render::overworld::Img>>> = BTreeMap::new();
     let mut finale_from = None;
@@ -265,7 +254,6 @@ fn write_bannerpeak_shots() {
 #[test]
 #[ignore = "times a frame"]
 fn time_bannerpeak_frame() {
-    // The same frame the baseline was timed on: four seats standing at the door, the title up.
     let r = party(4);
     for _ in 0..5 {
         let _ = frame_for(&r, 384, 224, Some(1));
@@ -279,7 +267,6 @@ fn time_bannerpeak_frame() {
         best = best.min(t0.elapsed().as_secs_f64() * 1000.0 / 40.0);
     }
     println!("FRAME_MS {best:.3}");
-    // And one in the thick of it: four bots two hundred ticks in, dust and sparks in the air.
     let mut r = party(4);
     for _ in 0..420 {
         let keys = bots(&r);

@@ -12,15 +12,11 @@ use crate::rules::pennon::{FLOOR, WIDTH, ramparts};
 use crate::render::overworld::arena::{NATIVE_H, NATIVE_W};
 use std::sync::OnceLock;
 
-/// The rows a layer keeps: the world's window.
 const VH: i32 = VIEW_BOTTOM - VIEW_TOP;
-/// How fast each plane slides against the rampart (percent of its pace).
 const FAR: i32 = 12;
 const MID: i32 = 36;
 const WATER: i32 = 80;
-/// Where the walkway stands in a layer's own rows.
 pub(super) const WALK_ROW: i32 = FLOOR + OY - VIEW_TOP;
-/// The moat's surface, in layer rows.
 const MOAT_ROW: i32 = 176;
 
 pub(super) struct Scene {
@@ -31,16 +27,11 @@ pub(super) struct Scene {
     near: [Img; 3],
 }
 
-/// Fires of the far camp and of the engines: layer column and row.
 const FAR_FIRES: [i32; 8] = [30, 98, 176, 247, 318, 389, 440, 478];
-/// The far ridge: its row and how far it rises and falls.
 const FAR_BASE: f32 = 108.0;
 const FAR_AMP: f32 = 13.0;
 const MID_FIRES: [(i32, i32); 5] = [(88, 140), (214, 118), (338, 144), (460, 138), (590, 142)];
-/// Torches on the rampart: world column, and the row they burn at (layer
-/// rows).
 const TORCHES: [i32; 7] = [96, 214, 372, 498, 640, 786, 1010];
-/// Pennant poles along the walk.
 pub(super) const POLES: [i32; 5] = [36, 302, 576, 856, 1172];
 
 fn stop(stops: &[(f32, char)], t: f32, x: i32, y: i32) -> char {
@@ -64,7 +55,6 @@ fn sky() -> Img {
             im.put(x, y, ch);
         }
     }
-    // A warm breath on the horizon, from the fires beyond.
     for y in 118..150 {
         let k = 1.0 - ((y - 134) as f32 / 16.0).abs();
         for x in 0..NATIVE_W {
@@ -73,7 +63,6 @@ fn sky() -> Img {
             }
         }
     }
-    // Stars, and the moon's halo first.
     let moon = (338.0f32, 98.0f32);
     for y in VIEW_TOP..150 {
         for x in 0..NATIVE_W {
@@ -95,7 +84,6 @@ fn sky() -> Img {
         }
         im.put(x, y, ['u', 'U', 'v', 'u'][(hash(i, 3, 0x51) % 4) as usize]);
     }
-    // The moon, a crescent lit from the upper left.
     for y in 78..118 {
         for x in 318..360 {
             let (dx, dy) = (x as f32 - moon.0, y as f32 - moon.1);
@@ -118,7 +106,6 @@ fn sky() -> Img {
     im
 }
 
-/// Long thin cloud, dithered, a wrap of 768 columns.
 fn clouds() -> Img {
     let mut im = Img::new(768, 70);
     for c in 0..9 {
@@ -154,7 +141,6 @@ fn far() -> Img {
             im.put(x, y, ch);
         }
     }
-    // Tents and standards along the ridge.
     for i in 0..14 {
         let x = 10 + i * 36 + (hash(i, 1, 0xf0) % 14) as i32;
         let base = ridge(x, FAR_BASE, FAR_AMP, 1.0) + 3;
@@ -168,7 +154,6 @@ fn far() -> Img {
         im.put(x, base - h - 1, 'g');
         im.put(x, base - h - 2, 'R');
         im.put(x + 1, base - h - 2, 'R');
-        // A lit door.
         im.put(x, base, 'a');
         im.put(x, base - 1, 'o');
     }
@@ -179,7 +164,6 @@ fn mid() -> Img {
     let w = NATIVE_W + (WIDTH - NATIVE_W) * MID / 100 + 8;
     let mut im = Img::new(w, VH);
     let ground = 178;
-    // A low rampart of earth and stakes.
     for x in 0..w {
         let top = ground - 7 - ((x as f32 * 0.09).sin() * 2.0) as i32;
         for y in top..VH {
@@ -192,7 +176,6 @@ fn mid() -> Img {
             }
         }
     }
-    // A siege tower, wheels and a lowered bridge.
     for (base, x, h) in [(ground - 6, 84, 74), (ground - 6, 330, 58), (ground - 6, 520, 66)] {
         let (tw, top) = (26, base - h);
         for y in top..base {
@@ -206,22 +189,18 @@ fn mid() -> Img {
             im.put(x + dx, top, 'o');
             im.put(x + dx, top + 1, 'R');
         }
-        // Slits and a lit loft.
         for k in 0..3 {
             im.rect(x + 6 + (k % 2) * 8, top + 8 + k * 14, 3, 6, 'n');
         }
         im.rect(x + 4, top + 3, 4, 3, 'a');
-        // The drawbridge, down toward the wall.
         for k in 0..16 {
             im.put(x + tw + k, top + 8 + k / 3, 'P');
             im.put(x + tw + k, top + 9 + k / 3, 'b');
         }
-        // Wheels.
         for wx in [x + 3, x + tw - 8] {
             im.ellipse(wx as f32 + 3.0, base as f32 - 1.0, 4.0, 4.0, 'K');
             im.ellipse(wx as f32 + 3.0, base as f32 - 1.0, 2.0, 2.0, 'B');
         }
-        // A black banner on the top.
         for k in 0..9 {
             im.put(x + 4 + k, top - 12 + (k / 3), 'K');
             im.put(x + 4 + k, top - 11 + (k / 3), 'K');
@@ -229,13 +208,11 @@ fn mid() -> Img {
         }
         im.rect(x + 3, top - 14, 1, 14, 'g');
     }
-    // Trebuchets: an A-frame, a long arm and a hanging weight.
     for x in [210, 430, 640] {
         let base = ground - 6;
         im.line(x, base, x + 10, base - 32, 'B');
         im.line(x + 22, base, x + 12, base - 32, 'B');
         im.line(x + 3, base - 12, x + 19, base - 12, 'p');
-        // The arm tilts back, the sling trails.
         im.line(x - 14, base - 22, x + 30, base - 40, 'o');
         im.line(x - 14, base - 23, x + 30, base - 41, 'R');
         im.rect(x + 27, base - 40, 6, 7, 'g');
@@ -243,7 +220,6 @@ fn mid() -> Img {
         im.line(x - 14, base - 22, x - 22, base - 12, 'J');
         im.ellipse((x - 22) as f32, base as f32 - 10.0, 3.0, 3.0, 'G');
     }
-    // Ladders against nothing, leaning.
     for x in [150, 400, 590] {
         let base = ground - 6;
         im.line(x, base, x + 18, base - 40, 'P');
@@ -256,12 +232,10 @@ fn mid() -> Img {
     im
 }
 
-/// The rampart, three seeds (the breaches shift a little with the seed).
 fn near(seed: usize, a: &Art) -> Img {
     let mut im = Img::new(WIDTH, VH);
     for p in ramparts(seed as u64) {
         let (x0, x1) = (p.x, p.x + p.w);
-        // The back wall: dark, crenelled, with a lit coping.
         for x in x0..x1 {
             let crenel = (x - x0) % 24 < 15;
             let h = if crenel { 24 } else { 15 };
@@ -270,14 +244,12 @@ fn near(seed: usize, a: &Art) -> Img {
                 let ch = if dy == h - 1 { 'j' } else if dy >= h - 3 { 'g' } else if (x + y) % 11 == 0 { 'X' } else { 'K' };
                 im.put(x, y, ch);
             }
-            // A seam between blocks.
             if (x - x0) % 24 == 15 || (x - x0) % 24 == 0 {
                 for dy in 0..15 {
                     im.put(x, WALK_ROW - 1 - dy, 'k');
                 }
             }
         }
-        // The walkway's lit edge, then the brick of the wall face.
         for x in x0..x1 {
             im.put(x, WALK_ROW, 'h');
             im.put(x, WALK_ROW + 1, 'J');
@@ -289,12 +261,10 @@ fn near(seed: usize, a: &Art) -> Img {
                 }
             }
         }
-        // The wall's foot in the water, darker.
         for x in x0..x1 {
             for dy in 35..(VH - WALK_ROW - 1).min(60) {
                 im.put(x, WALK_ROW + 1 + dy, if dy > 38 { 'k' } else { 'K' });
             }
-            // A shadow under the lip.
             im.put(x, WALK_ROW + 2, 'K');
             if bayer(x, 1) < 0.5 {
                 im.put(x, WALK_ROW + 3, 'K');
@@ -304,10 +274,8 @@ fn near(seed: usize, a: &Art) -> Img {
             im.stamp(&a.all["merlon"].body, x, WALK_ROW + 3);
         }
     }
-    // The breaches: broken teeth, rubble and an iron tie hanging.
     let ps = ramparts(seed as u64);
     for (i, p) in ps.iter().enumerate() {
-        // The right edge of each plank but the last: a ragged end.
         if i + 1 < ps.len() {
             let edge = p.x + p.w;
             for k in 0..9 {
@@ -316,11 +284,9 @@ fn near(seed: usize, a: &Art) -> Img {
                     im.clear(edge - 1 - k, WALK_ROW + 1 + dy);
                 }
             }
-            // A fallen tie rod, dangling.
             for dy in 0..12 {
                 im.put(edge - 4 - (dy / 5), WALK_ROW + 6 + dy, if dy % 3 == 0 { 'J' } else { 'G' });
             }
-            // Rubble heaped on the near foot.
             for k in 0..14i32 {
                 let h = (7 - (k - 7).abs()).max(0) / 2 + (hash(k, i as i32, 0xb2) % 2) as i32;
                 for dy in 0..h {
@@ -328,7 +294,6 @@ fn near(seed: usize, a: &Art) -> Img {
                 }
             }
         }
-        // The left end of each plank but the first.
         if i > 0 {
             let edge = p.x;
             for k in 0..9 {
@@ -339,7 +304,6 @@ fn near(seed: usize, a: &Art) -> Img {
             }
         }
     }
-    // Torches' brackets on the back wall, and a seat of soot above.
     for &x in &TORCHES {
         if ps.iter().any(|p| x > p.x + 6 && x < p.x + p.w - 6) {
             im.rect(x - 1, WALK_ROW - 17, 3, 6, 'g');
@@ -359,12 +323,9 @@ pub(super) fn scene() -> &'static Scene {
     })
 }
 
-/// Everything behind the actors for a knight at world column `cam`, `t`
-/// ticks into the siege. Returns the canvas with the world laid on it.
 pub(super) fn paint(world: &mut Img, seed: u64, cam: i32, t: u32) {
     let sc = scene();
     world.stamp(&sc.sky, 0, 0);
-    // Twinkling stars.
     {
         let mut pen = Pen::new(world, 400);
         for i in 0..22 {
@@ -379,19 +340,16 @@ pub(super) fn paint(world: &mut Img, seed: u64, cam: i32, t: u32) {
             }
         }
     }
-    // The clouds drift on their own.
     let drift = (cam * 5 / 100 + (t / 11) as i32).rem_euclid(768);
     for k in [-1, 0] {
         world.stamp(&sc.clouds, k * 768 - drift + 768, 22);
     }
-    // The far camp, its fires and their smoke.
     let fx = cam * FAR / 100;
     world.stamp(&sc.far, -fx, VIEW_TOP);
     for (i, &x) in FAR_FIRES.iter().enumerate() {
         let y = ridge(x, FAR_BASE, FAR_AMP, 1.0) + 2;
         flame(world, (x - fx) as f32, (y + VIEW_TOP) as f32, t, i as u32, 1);
     }
-    // The engines.
     let mx = cam * MID / 100;
     world.stamp(&sc.mid, -mx, VIEW_TOP);
     for (i, &(x, y)) in MID_FIRES.iter().enumerate() {
@@ -405,7 +363,6 @@ pub(super) fn paint(world: &mut Img, seed: u64, cam: i32, t: u32) {
     moat(world, cam, t);
     let near = &sc.near[(seed % 3) as usize];
     world.stamp(near, -cam, VIEW_TOP);
-    // Torches burn on the back wall and throw a little light on it.
     for &x in &TORCHES {
         let sx = x - cam;
         if !(-30..NATIVE_W + 30).contains(&sx) {
@@ -421,8 +378,6 @@ pub(super) fn paint(world: &mut Img, seed: u64, cam: i32, t: u32) {
     }
 }
 
-/// Fire arrows and the odd boulder, lobbed over the camp toward the wall: an
-/// arc each, a bright head and a streak that cools behind it.
 fn volleys(im: &mut Img, cam: i32, t: u32) {
     let mut pen = Pen::new(im, 200);
     for k in 0..4u32 {
@@ -443,8 +398,6 @@ fn volleys(im: &mut Img, cam: i32, t: u32) {
     }
 }
 
-/// A tendril of smoke rising off a fire: puffs let go every few ticks,
-/// swelling and thinning as they climb and sway.
 fn smoke(im: &mut Img, base: (f32, f32), t: u32, seed: u32) {
     let mut pen = Pen::new(im, 260);
     for e in 0..7u32 {
@@ -464,8 +417,6 @@ fn smoke(im: &mut Img, base: (f32, f32), t: u32, seed: u32) {
     }
 }
 
-/// A flame of the camp's: a little teardrop that wavers; `size` 1 small,
-/// 2 a torch's.
 pub(super) fn flame(im: &mut Img, x: f32, y: f32, t: u32, seed: u32, size: i32) {
     let (xi, yi) = (x.round() as i32, y.round() as i32);
     if !(-6..NATIVE_W + 6).contains(&xi) {
@@ -485,7 +436,6 @@ pub(super) fn flame(im: &mut Img, x: f32, y: f32, t: u32, seed: u32, size: i32) 
     }
 }
 
-/// A pool of warm light on whatever is there: it brightens, never dims.
 fn pool(im: &mut Img, (cx, cy): (i32, i32), r: i32, t: u32, seed: u32) {
     let flick = 0.85 + 0.15 * ((t as f32 * 0.37 + seed as f32).sin());
     let mut pen = Pen::new(im, 1400);
@@ -504,8 +454,6 @@ fn pool(im: &mut Img, (cx, cy): (i32, i32), r: i32, t: u32, seed: u32) {
     }
 }
 
-/// The moat behind the wall: water in dithered rows sliding at their own
-/// pace, with the camp's fires lying along it in warm strokes.
 fn moat(im: &mut Img, cam: i32, t: u32) {
     let sx = cam * WATER / 100;
     for r in 0..(VH - MOAT_ROW) {
@@ -521,7 +469,6 @@ fn moat(im: &mut Img, cam: i32, t: u32) {
             im.put(x, y, ch);
         }
     }
-    // Fire on the water: short warm dashes under each fire.
     for x in MID_FIRES.iter().map(|f| f.0).chain(FAR_FIRES) {
         let px = x - sx * 3 / 4;
         let mut pen = Pen::new(im, 90);
@@ -539,8 +486,6 @@ fn moat(im: &mut Img, cam: i32, t: u32) {
     }
 }
 
-/// Embers that drift up off the camp and the engines, over everything
-/// behind the actors.
 pub(super) fn embers(im: &mut Img, cam: i32, t: u32) {
     let mut pen = Pen::new(im, 220);
     for (i, &(x, y)) in MID_FIRES.iter().enumerate() {

@@ -12,9 +12,6 @@ use super::map::{MAP_H, MAP_W};
 use super::*;
 
 impl Run {
-    /// Put right what [`crate::wire::drawable`] or [`Run::valid_snapshot`]
-    /// would refuse and can be put right. Returns what was mended, empty
-    /// when nothing was wrong.
     pub fn mend(&mut self) -> Vec<&'static str> {
         let mut mended = Vec::new();
         let rooms = self.dungeon.rooms.len();
@@ -63,11 +60,14 @@ impl Run {
             self.sites.mend();
             mended.push("sites");
         }
+        if !self.home.industry.is_empty() && !self.home.industry.valid(crate::kingdom::catalog()) {
+            self.home.industry = crate::kingdom::Kingdom::default();
+            mended.push("industry");
+        }
         if !self.tune.valid() {
             self.tune = tune::Tune::default();
             mended.push("tune");
         }
-        // A game whose state cannot be read ends.
         macro_rules! end_unless {
             ($($field:ident),*) => {$(
                 if self.$field.as_ref().is_some_and(|s| !s.valid()) {
@@ -86,7 +86,6 @@ impl Run {
             )*};
         }
         end_unless_here!(folly, bats, gantry, powder, hop, race3d);
-        // A game a hall dealt that cannot be read ends, its hall as it was.
         if self.encounter.as_ref().is_some_and(|e| !e.valid(rooms)) {
             self.encounter = None;
             mended.push("encounter");
@@ -118,8 +117,6 @@ impl Run {
         mended
     }
 
-    /// Every way back kept to rooms that exist, with its knights inside the
-    /// room it leads to; a hold past its length lets go.
     fn mend_exits(&mut self, rooms: usize) {
         let sizes: Vec<(f32, f32)> = self.dungeon.rooms.iter().map(|r| (r.width(), r.height())).collect();
         let size = |at: usize| sizes[at];
@@ -152,7 +149,6 @@ impl Run {
     }
 }
 
-/// The kingdom's way back kept on its map; its lists kept to their sizes.
 fn mend_kingdom(k: &mut KingdomState) {
     let (w, h) = (MAP_W as f32 * TILE_UNITS - 1.0, MAP_H as f32 * TILE_UNITS - 1.0);
     let on_map = |x: f32, y: f32, (fx, fy): (f32, f32)| {
@@ -171,7 +167,6 @@ fn mend_kingdom(k: &mut KingdomState) {
     k.seen.truncate(128);
     k.class_held.retain(|id| (1..=MAX_PLAYERS).contains(id));
     k.field_held.retain(|id| (1..=MAX_PLAYERS).contains(id));
-    // The waystations' talks and rally are the moment's: a damaged one goes.
     if !k.stops.valid() {
         k.stops = Default::default();
     }
@@ -179,16 +174,11 @@ fn mend_kingdom(k: &mut KingdomState) {
         std::sync::Arc::make_mut(&mut k.wishes).truncate(crate::realm::MAX_WISHES);
     }
     if !k.valid() {
-        // What is left (a wish's art, the moments) cannot be cut to size here:
-        // the way back goes, the kingdom's own state stays as it was.
         k.return_to = None;
     }
 }
 
-/// Farther than any map (the kingdom is 480 across, a pennon 1200). Past this
-/// a coordinate is a damaged save, not a knock into the wall.
 const POS_LIMIT: f32 = 8192.0;
-/// High enough for any kit and gift, low enough that `hp * 100` fits in `u32`.
 const HP_ABS: u32 = 100_000;
 const FOE_HP_ABS: u32 = 1_000_000;
 const BOON_ABS: u32 = 1_000;
@@ -206,7 +196,6 @@ fn pull(x: &mut f32, y: &mut f32, home: (f32, f32)) -> bool {
     true
 }
 
-/// Clamp a restored knight's hp and gifts so a huge number never reaches play.
 fn mend_hero_bounds(hero: &mut Hero) -> bool {
     let before = (hero.hp, hero.max_hp, hero.boon.plus, hero.boon.cut);
     hero.boon.plus = hero.boon.plus.min(BOON_ABS);
@@ -216,7 +205,6 @@ fn mend_hero_bounds(hero: &mut Hero) -> bool {
     }
     hero.hp = hero.hp.min(HP_ABS);
     hero.fit_hp();
-    // A censer pulse is a few dozen. Past this the heal multiply overflows.
     const CENSER_ABS: u32 = 1_000;
     let censer = hero.censer.min(CENSER_ABS);
     let censer_cut = hero.censer != censer;
@@ -236,9 +224,6 @@ fn mend_foe_hp(enemy: &mut Enemy) -> bool {
     (enemy.hp, enemy.max_hp) != before
 }
 
-/// Pull bodies whose coordinates are nowhere, or far outside any map, back
-/// into the room. A foe only a little outside (a knock) is left where it is;
-/// the shot grid tolerates that on its own.
 fn mend_bodies(run: &mut Run, home: (f32, f32)) -> bool {
     let mut fixed = false;
     for enemy in run.enemies.iter_mut().chain(run.parked.iter_mut()) {

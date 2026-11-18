@@ -22,15 +22,8 @@ use crate::world::works_life as wl;
 use crate::world3d::works_mesh::{self, Covers};
 use crate::world3d::works_site::WET_STONES;
 
-/// How much of a stone's own colour each of the six levels shows, dark to
-/// light: shaded face, face, lit face, the sun on top. The colour is the
-/// castle's own, by its material, put on the flat map's inks.
 const LEVELS: [f32; 6] = [0.20, 0.32, 0.46, 0.62, 0.78, 0.95];
 
-/// A material's colour in the flat map, 0 to 1: the great tower's pale warm
-/// limestone (`materials` of the export) as the 3D view's stone is, the
-/// dressed work a little paler, the roofs' lead and slate cool and dark;
-/// `None` for timber, which is drawn in the map's own browns.
 fn material_colour(name: &str) -> Option<[f32; 3]> {
     match name {
         "ashlar-pale-warm" => Some([0.90, 0.80, 0.63]),
@@ -44,26 +37,19 @@ fn material_colour(name: &str) -> Option<[f32; 3]> {
     }
 }
 
-/// The picture of the castle as built so far and the depth of each pixel.
 pub struct Flat {
     plan: &'static str,
-    /// How many stones are drawn into it.
     laid: u32,
-    /// Where its top left stands in the kingdom's pixels.
     pub at: (i32, i32),
     pub img: Img,
     depth: Vec<f32>,
-    /// How many earth lifts are painted into it.
     dug: usize,
 }
 
-/// Where the picture lies: the castle's bounds, a margin round them.
 fn frame(castle: &Castle) -> ((i32, i32), (i32, i32)) {
     let b = castle.bounds;
     let (ox, oz) = crate::world::works::origin_px();
     let (left, right) = (ox + b[0] * PX_PER_M - 8.0, ox + b[3] * PX_PER_M + 8.0);
-    // The top of the tallest stone, as high up the picture as it stands; the
-    // foot of the nearest.
     let top = oz - b[4] * PX_PER_M - b[5] * PX_PER_M - 8.0;
     let bottom = oz - b[1] * PX_PER_M + 12.0;
     ((left.floor() as i32, top.floor() as i32), ((right - left).ceil() as i32, (bottom - top).ceil() as i32))
@@ -75,16 +61,13 @@ impl Flat {
         Flat { plan: castle.id.as_str(), laid: 0, at, img: Img::new(w, h), depth: vec![f32::MIN; (w * h) as usize], dug: 0 }
     }
 
-    /// Draw stones `from..to` as the state `to` shows them.
     fn lay(&mut self, castle: &'static Castle, covers: &Covers, from: u32, to: u32, laid: u32, lost: &[u32], bands: &[(u32, u8)]) {
         for i in from..to {
-            // A stone a raid knocked out is a gap in the wall.
             if lost.binary_search(&i).is_ok() {
                 continue;
             }
             let stone = &castle.stones[i as usize];
             let c = stone.corners().map(|p| castle.world(p));
-            // Mortar is dark while it is wet.
             let wet = (1.0 - laid.saturating_sub(i + 1) as f32 / WET_STONES as f32).clamp(0.0, 1.0);
             let tone = works_mesh::albedo(castle, stone, i);
             let kind = crate::rules::site::Site::stone_kind(bands, i);
@@ -96,7 +79,6 @@ impl Flat {
                     continue;
                 }
                 let q = ring.map(|k| c[k]);
-                // Outward normal, in the kingdom's frame (x east, y up, z south).
                 let mut n = cross(sub(q[1], q[0]), sub(q[3], q[0]));
                 let mid = [0, 1, 2].map(|k| (q[0][k] + q[2][k]) / 2.0);
                 if dot(n, sub(mid, centre)) < 0.0 {
@@ -107,7 +89,6 @@ impl Flat {
                     continue;
                 }
                 let n = n.map(|v| v / len);
-                // Toward the viewer: south and up, equally.
                 let facing = (n[2] + n[1]) * std::f32::consts::FRAC_1_SQRT_2;
                 if facing <= 0.05 {
                     continue;
@@ -121,9 +102,6 @@ impl Flat {
         self.laid = to;
     }
 
-    /// Paint the ditch dug by the earth lifts done with `laid` stones: dark
-    /// earth under everything, the deeper cut darker. Lifts already painted
-    /// are left.
     fn dig(&mut self, castle: &Castle, laid: u32) {
         let done = castle.earth_done(laid);
         if done <= self.dug {
@@ -132,9 +110,7 @@ impl Flat {
         let (ox, oz) = crate::world::works::origin_px();
         for y in 0..self.img.h {
             for x in 0..self.img.w {
-                // The picture's pixel as the castle's frame, on the floor.
                 let (mx, my) = ((x as f32 + 0.5 + self.at.0 as f32 - ox) / PX_PER_M, -((y as f32 + 0.5 + self.at.1 as f32) - oz) / PX_PER_M);
-                // The causeway before the gate is undug.
                 if mx.abs() < 1.5 && my < 0.0 {
                     continue;
                 }
@@ -145,7 +121,6 @@ impl Flat {
                     }
                 }
                 if deep > 0 {
-                    // Under everything the stones draw.
                     let at = (y * self.img.w + x) as usize;
                     if self.depth[at] == f32::MIN {
                         self.img.set(x, y, ink(if deep > 1 { 'n' } else { 'Z' }).unwrap_or([20, 14, 8]));
@@ -157,18 +132,14 @@ impl Flat {
         self.dug = done;
     }
 
-    /// A face as two triangles on the picture, nearer over farther.
     fn quad(&mut self, q: [[f32; 3]; 4], level: f32, base: Option<[f32; 3]>, wet: f32, top: bool) {
         let p = q.map(|v| [v[0] - self.at.0 as f32, v[2] - v[1] - self.at.1 as f32, v[2]]);
         let pick = |l: f32, edge: bool| -> Rgb {
             let k = (l.round() as usize).min(5);
             let Some(base) = base else {
-                // Timber, in the map's browns; a joint a step darker.
                 let ch = if edge { 'B' } else { ['B', 'P', 'r', 'o', 'O', 't'][k] };
                 return ink(ch).unwrap_or([0, 0, 0]);
             };
-            // A joint: a step darker on a face's low and right edge, darker
-            // still while the mortar is wet.
             let shown = if edge { if wet > 0.3 { 0.14 } else { LEVELS[k.saturating_sub(1)] * 0.8 } } else { LEVELS[k] };
             crate::render::overworld::ink::nearest_plain(base.map(|c| (c * shown * 0.82 * 255.0).clamp(0.0, 255.0)))
         };
@@ -180,13 +151,11 @@ impl Flat {
         for y in iy0..iy1 {
             for x in ix0..ix1 {
                 let (fx, fy) = (x as f32 + 0.5, y as f32 + 0.5);
-                // Inside either triangle of the quad (0 1 2) (0 2 3).
                 let Some(depth) = depth_in(&p, fx, fy) else { continue };
                 let at = (y * self.img.w + x) as usize;
                 if depth + 0.001 < self.depth[at] {
                     continue;
                 }
-                // An edge: the face's last row or column (south and east).
                 let edge = !top && (fy + 1.0 > y1.round() || fx + 1.0 > x1.round());
                 let c = pick(level + if top { 0.0 } else { (fy - y0) / (y1 - y0).max(1.0) * -0.5 }, edge);
                 self.depth[at] = depth;
@@ -206,8 +175,6 @@ fn dot(a: [f32; 3], b: [f32; 3]) -> f32 {
     a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
 
-/// The depth (the floor's `z`) at picture point `(x, y)` if it is inside the
-/// quad `p` (each corner `[x, y, depth]`), else `None`.
 fn depth_in(p: &[[f32; 3]; 4], x: f32, y: f32) -> Option<f32> {
     for tri in [[0, 1, 2], [0, 2, 3]] {
         let (a, b, c) = (p[tri[0]], p[tri[1]], p[tri[2]]);
@@ -225,14 +192,8 @@ fn depth_in(p: &[[f32; 3]; 4], x: f32, y: f32) -> Option<f32> {
     None
 }
 
-// ------------------------------------------------------------ the kept ----
-
-/// The picture made so far (one a plan): grown while `laid` rises, made again
-/// when it falls. Its stones' mortar is dried to the stone last drawn.
 static KEPT: Mutex<Option<Flat>> = Mutex::new(None);
 
-/// The Keep's picture as the run has it, a copy of what is built (cheap: the
-/// picture is kept, a pointer to the last made).
 pub fn flat(castle: &'static Castle, laid: u32) -> Arc<Flat> {
     static LAST: Mutex<Option<(&'static str, u32, Arc<Flat>)>> = Mutex::new(None);
     let laid = laid.min(castle.len());
@@ -252,8 +213,6 @@ pub fn flat(castle: &'static Castle, laid: u32) -> Arc<Flat> {
         *kept = Some(Flat::new(castle));
     }
     let flat = kept.as_mut().expect("made above");
-    // Stones whose mortar was wet are drawn again as it dries: the last
-    // stretch of what is drawn, then what is new.
     let from = flat.laid.saturating_sub(WET_STONES);
     flat.lay(castle, covers, from, laid, laid, &[], &[]);
     flat.dig(castle, laid);
@@ -262,8 +221,6 @@ pub fn flat(castle: &'static Castle, laid: u32) -> Arc<Flat> {
     out
 }
 
-/// [`flat`] with the stones `lost` (sorted) knocked out of it: made whole when the stones standing change,
-/// kept while they do not.
 pub fn flat_gapped(castle: &'static Castle, laid: u32, lost: &[u32]) -> Arc<Flat> {
     if lost.is_empty() {
         return flat(castle, laid);
@@ -291,14 +248,6 @@ pub fn flat_gapped(castle: &'static Castle, laid: u32, lost: &[u32]) -> Arc<Flat
 }
 
 impl Flat {
-    /// The part of the castle that lies behind a knight whose feet are at
-    /// kingdom pixel row `feet` (what is nearer or level with them is not
-    /// in it), and the part in front of it, each as a picture of the view
-    /// (`origin` its top left in the kingdom's pixels, `w` by `h`).
-    ///
-    /// What lies before the knight is opened round it by a stippled
-    /// circle, as the 3D look keeps a knight in sight (`realm_look::REVEAL`):
-    /// `knight` is where they stand on the view, if they are on it.
     pub fn split(&self, origin: (i32, i32), (w, h): (i32, i32), feet: f32, knight: Option<(i32, i32)>) -> (Img, Img) {
         let (mut back, mut front) = (Img::new(w, h), Img::new(w, h));
         let (dx, dy) = (self.at.0 - origin.0, self.at.1 - origin.1);
@@ -312,7 +261,6 @@ impl Flat {
                 }
                 let d = self.depth[(y * self.img.w + x) as usize];
                 if d > feet {
-                    // Opened where it would hide the knight: a ring of dither.
                     if let Some((kx, ky)) = knight {
                         let (px, py) = (x + dx, y + dy);
                         let r = (((px - kx) as f32) / 17.0).hypot(((py - (ky - 9)) as f32) / 23.0);
@@ -330,11 +278,6 @@ impl Flat {
     }
 }
 
-// ----------------------------------------------------------- falsework ----
-
-/// The falsework and the working folk at `laid`, as a picture of its own
-/// with the same top left as the castle's; timber poles, decks and the
-/// crane's frame, a stone on its rope.
 pub fn flat_banded(castle: &'static Castle, laid: u32, lost: &[u32], bands: &[(u32, u8)]) -> Arc<Flat> {
     let laid = laid.min(castle.len());
     let covers = works_mesh::covers(castle);
@@ -348,8 +291,6 @@ pub fn falsework(castle: &'static Castle, laid: u32, tick: u32) -> Img {
     falsework_built(castle, laid, laid, tick)
 }
 
-/// [`falsework`] with the carpenters' bays raised as far as stone `built`
-/// (`rules::hands`); `tick` is the crane's clock in ticks.
 pub fn falsework_built(castle: &'static Castle, laid: u32, built: u32, tick: u32) -> Img {
     let built = built.max(laid);
     let (at, (w, h)) = frame(castle);
@@ -362,7 +303,6 @@ pub fn falsework_built(castle: &'static Castle, laid: u32, built: u32, tick: u32
         let [x0, y0, z0, x1, y1, z1] = f.bx.map(|v| f32::from(v) / 100.0);
         match f.kind {
             Work::Scaffold => {
-                // Poles at the corners, a deck on top, a mid deck on tall bays.
                 let near = [(x0, y0), (x1, y0)];
                 for (x, y) in near {
                     let (px, py0) = project([x, y, z0]);
@@ -391,12 +331,10 @@ pub fn falsework_built(castle: &'static Castle, laid: u32, built: u32, tick: u32
                     im.line(px, py0, px, py1, 'P');
                 }
             }
-            // The crane stands and turns, drawn alive below.
             Work::Crane => {}
             Work::Other => {}
         }
     }
-    // The crane: its mast to the top, the jib out, the stone on its rope.
     if let Some(c) = wl::crane(castle, laid, tick as f32 / crate::rules::HZ as f32) {
         let (mx0, my0) = project([c.at[0], c.at[1], 0.0]);
         let (mx1, my1) = project([c.at[0], c.at[1], c.top]);
@@ -411,14 +349,12 @@ pub fn falsework_built(castle: &'static Castle, laid: u32, built: u32, tick: u32
         im.line(jx, jy, sx, sy - 3, 'b');
         im.rect(sx - 3, sy - 3, 7, 4, 'U');
         im.rect(sx - 3, sy - 3, 7, 1, 'v');
-        // The treadwheel at the mast's foot.
         let (wx, wy) = project([c.at[0] - 0.9, c.at[1], 1.2]);
         for k in 0..4 {
             let a = c.wheel + k as f32 * std::f32::consts::FRAC_PI_2;
             im.line(wx, wy, wx + (a.cos() * 8.0) as i32, wy - (a.sin() * 8.0) as i32, 'o');
         }
     }
-    // The benches the masons cut at, and the heap in the yard.
     if laid < castle.len() {
         let seconds = tick as f32 / crate::rules::HZ as f32;
         for b in wl::BANKERS {
@@ -435,7 +371,6 @@ pub fn falsework_built(castle: &'static Castle, laid: u32, built: u32, tick: u32
         }
         let _ = seconds;
     }
-    // Dust where the last stones landed.
     for p in wl::dust(castle, laid) {
         let (x, y) = project(p.at);
         let r = (p.radius * PX_PER_M * 0.5).max(1.0);
@@ -446,7 +381,6 @@ pub fn falsework_built(castle: &'static Castle, laid: u32, built: u32, tick: u32
     im
 }
 
-/// Whether the Keep's site is in the picture at all: its box touches the view.
 pub fn in_view(castle: &Castle, origin: (i32, i32), (w, h): (i32, i32)) -> bool {
     let (at, (fw, fh)) = frame(castle);
     at.0 < origin.0 + w && at.0 + fw > origin.0 && at.1 < origin.1 + h && at.1 + fh > origin.1

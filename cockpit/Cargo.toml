@@ -14,70 +14,42 @@ autotests = false
 default = ["scryglass-video", "glass", "delve"]
 delve = ["dep:angel-delve", "dep:angel-realm-host", "dep:angel-delve-cart"]
 scryglass-video = ["dotmax/video-playback"]
-# angelX's own window: `ANGEL_GLASS=1` opens the cockpit in a GPU window
-# instead of the terminal (docs/RENDER_FOUNDATION.md). The launcher sets it on
-# any desktop; `--no-default-features` leaves the window out.
 glass = ["dep:angel-glass", "angel-glass/remote", "angel-plug/glass", "angel-delve-cart?/glass", "dep:angel-face"]
 
 [[bin]]
 name = "angel"
 path = "src/main.rs"
 
-# Tiny sibling helper for sandboxed tool spawns: same `--sandbox-exec`
-# contract as the cockpit binary without linking its full shared-object
-# set (the default scryglass-video feature still links file-video decoding
-# through dotmax/video-playback; the cockpit/self-helper fallback pays that
-# loader cost, while a deployed sibling or explicit helper pin can avoid it).
 [[bin]]
 name = "angel-sandbox"
 path = "src/sandbox_main.rs"
 
-# The gold coin's isolated visual verifier draws in the window, so it only
-# builds where the window does.
 [[example]]
 name = "spend_coin_preview"
 required-features = ["glass"]
 
-# The loop card's offline shots, from its production composer.
 [[example]]
 name = "loop_card_preview"
 required-features = ["glass", "delve"]
 
-# Ship-speed profile: thin LTO + one codegen unit buys cross-crate inlining
-# (serde_json/ureq/ratatui hot paths) for a modest compile-time cost; fat LTO
-# was rejected — v8's static archive makes it minutes-slow for ~1% more.
 [profile.release]
 lto = "thin"
 codegen-units = 1
 strip = "symbols"
 
-# Working builds: optimized dependencies without the release build's
-# single codegen unit and link-time pass, so a fresh target directory
-# compiles on every core. `cargo build --profile fast`; ship with release.
 [profile.fast]
 inherits = "release"
 lto = false
 codegen-units = 256
 incremental = true
 
-# The cockpit is a large, frequently edited orchestration crate. LLVM's opt=1
-# pass dominated semantic host edits; leave it unoptimized in the working profile.
-# Delve is lightly optimized below; the remaining engine and window dependencies
-# stay optimized. Release and qualification builds are unchanged.
-# See docs/performance/dev-loop-20261028.md.
 [profile.fast.package.angelX-cockpit]
 opt-level = 0
-# Finer host-only partitions reduce leaf edit codegen without repartitioning
-# optimized dependencies or release. Measured trade-offs and rollback criteria:
-# docs/performance/host-codegen-partitions-20261028.md
 codegen-units = 1024
 
-# Dependency manifests' profiles do not apply to this build. Keep the same
-# working optimization as crates/Cargo.toml when the game builds here.
 [profile.fast.package.angel-delve]
 opt-level = 1
 
-# Optimized development semantics for the test loop; fast remains the launcher default.
 [profile.devfast]
 inherits = "dev"
 opt-level = 1
@@ -91,8 +63,6 @@ opt-level = 2
 [profile.devfast.package.angelX-cockpit]
 opt-level = 1
 
-# The realm host is cut out of the cockpit's game code: the same working
-# optimization as the cockpit's own.
 [profile.fast.package.angel-realm-host]
 opt-level = 1
 
@@ -104,113 +74,56 @@ codegen-units = 1024
 opt-level = 1
 
 [dependencies]
-# Independent Cargo object/fingerprint: host edits do not recompile browser bytes.
 angel-web-bundle = { path = "web-bundle" }
-# Independent Cargo fingerprint: native edits do not rebuild browser assets,
-# and browser/cartridge/HOME changes do not recompile these C modules.
 angel-native = { path = "native" }
 angel-live = { path = "../crates/live", features = ["v8"] }
-# The engine: protocol, commands, clocks and replication (docs/ENGINE.md).
 angel-net = { path = "../crates/net" }
-# The Delve: its rules, renderer and world (docs/ENGINE.md).
 angel-delve = { path = "../crates/delve", features = ["bend-engine"], optional = true }
-# The realm's host side, cut out of this crate: the Delve's browser page (its
-# build script builds and embeds it) and the host modules that need nothing of
-# the cockpit.
 angel-realm-host = { path = "../crates/realm-host", optional = true }
 angel-delve-cart = { path = "delve-cart", optional = true }
 angel-games = { path = "../crates/games" }
 angel-muster = { path = "../crates/muster" }
-# The marks a picture cell carries, the same table the window reads.
 angel-stage = { path = "../crates/stage" }
 angel-plug = { path = "../crates/plug" }
-# The engine's server, which hosts the Delve, and the native client a
-# friend's angelX joins with (`tls`: through Funnel or a relay).
 angel-serve = { path = "../crates/serve", features = ["tls"] }
-# The Round Table: the host-arbitrated work board's rules and client.
 angel-table = { path = "../crates/table" }
-# The GPU window: a ratatui backend, its compositor and its input.
 angel-glass = { path = "../crates/glass", optional = true }
-# angelface, the goddess in the window (docs/ANGELFACE.md): her model, mind
-# and drawing. With the window only.
 angel-face = { path = "../crates/face", optional = true }
-# Keep the terminal UI family on one Ratatui generation. The vendored dotmax
-# manifest carries the same compatibility pin.
-# unstable-rendered-line-info exposes Paragraph::line_count for wrap-aware scroll.
 ratatui = { version = "0.30.2", default-features = false, features = ["crossterm", "unstable-rendered-line-info"] }
-# Maintained Dotmax Bayer RGB sampling is used only by the world raster.
-# Image support shares the cockpit image dependency; video stays feature-gated.
 dotmax = { path = "../vendor/dotmax", features = ["image"] }
 tracing = "0.1"
-# Blocking HTTP for OpenAI-compatible clubs. No async runtime. TLS (rustls) is on
-# so the swarm "phone" can reach external SOTA APIs (e.g. DeepSeek over https);
-# LAN fleet endpoints stay plain http over the tailnet (encrypted by tailscale).
-# `gzip`/`brotli` so compressed pages/APIs are decoded transparently rather than
-# handed back as raw compressed bytes (a model can request `Accept-Encoding: gzip`
-# via http_request, and CDNs compress regardless).
 ureq = { version = "2", path = "../vendor/ureq", default-features = false, features = ["json", "tls", "native-certs", "gzip", "brotli"] }
 url = "2"
-# Transcode non-UTF-8 web pages (Latin-1/Shift_JIS/GBK/…) to UTF-8 before use so
-# a report never quotes mojibake from a legacy or non-English source.
 encoding_rs = "0.8"
 serde_json = "1"
 regex = "1"
-# Use ring's platform-optimized SHA-256 for streaming executable/workspace
-# identity. The in-tree scalar implementation remains for tiny framed values.
 ring = "0.17.14"
-# base64 for multimodal attachments (image/audio → data URLs for vision clubs).
 base64 = "0.22"
-# serde derive for the vendored kestrel recognizer's Pattern.
 serde = { version = "1", features = ["derive", "rc"] }
-# Keep chafa disabled so the image path remains free of libchafa/glib system
-# dependencies.
 ratatui-image = { version = "11.0.6", default-features = false, features = ["crossterm", "image-defaults"] }
 image = "0.25.10"
-# Palette frames for browser seats (the version image already uses).
 png = "0.18"
-# Already in the image/HTTP graph; lazily unpack lossless embedded web assets.
 miniz_oxide = "0.8.9"
-# Runtime module/layout profiles and local Codex configuration parsing.
 toml = "0.8"
 tui-term = "=0.3.4"
 vt100 = "0.16.2"
 portable-pty = "0.9.0"
 unicode-width = "0.2"
 
-# Markdown rendering: pulldown-cmark parses CommonMark → events we walk to build
-# styled ratatui Lines. Syntect gives syntax-highlighted code blocks; the cockpit
-# converts styles directly and does not need the Ratatui-0.29-only syntect-tui shim.
-# Load only the compiled default syntax/theme dumps and the onig parser. Syntect's
-# broad defaults also enable plist/yaml source loaders that the cockpit never calls
-# and unnecessarily enlarge both the release graph and its advisory surface.
 pulldown-cmark = { version = "0.13", default-features = false, features = ["simd"] }
 syntect = { version = "5", default-features = false, features = ["parsing", "regex-onig", "default-syntaxes", "default-themes"] }
-# V8 generics are compiled once behind a small host-callback boundary.
 angel-code-mode = { path = "code-mode" }
 terrain-forge = "0.7.0"
 unicode-segmentation = "=1.13.3"
-# Process-group signalling (killpg) for the sandboxed shell tool: a command that
-# spawns a foreground daemon (a dev server) would otherwise leave the inherited
-# pipes open and wedge the agent loop. std::process::Child only kills the direct
-# child; libc::kill(-pgid) reaps the whole tree. Unix-only, tiny, ubiquitous.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
-# Minimal filesystem sandbox for the agent's autonomous shell tool, adapted from
-# codex-rs linux-sandbox (Apache-2.0). Linux-only; permissive posture needs only
-# landlock (no seccompiler/libc).
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = "0.4"
 
 [dev-dependencies]
-# The Delve's test helpers, for the cockpit's own tests.
 angel-delve = { path = "../crates/delve", features = ["testing", "full-realm-tests", "bend-engine"] }
-# The atomic writers' one-shot fault hooks (host::workspace_store::fault), for
-# the storage regression tests only; a shipped build carries none.
 angel-live = { path = "../crates/live", features = ["fault-hooks"] }
-# The realm host's test-only helpers (`*_for_test`, the ride-compose counter,
-# the grant runners' scripted model) and the source tree it lends the Kernel's
-# paths, for the cockpit's own tests.
 angel-realm-host = { path = "../crates/realm-host", features = ["testing"] }
 angel-delve-cart = { path = "delve-cart", features = ["testing"] }
 

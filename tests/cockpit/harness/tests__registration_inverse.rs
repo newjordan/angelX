@@ -15,9 +15,6 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// What a provider installs: a scratch tree and a live child process. The
-/// inverse kills and reaps the child, then removes the tree — the same shape an
-/// MCP server's teardown has.
 struct ProbeResource {
     dir: PathBuf,
     child: Mutex<Child>,
@@ -48,8 +45,6 @@ impl ProbeResource {
         self.dir.exists()
     }
 
-    /// A reaped child reports an exit status instead of `Ok(None)`; an orphaned
-    /// one keeps running past the test that leaked it.
     fn child_reaped(&self) -> bool {
         let mut child = self.child.lock().unwrap_or_else(|e| e.into_inner());
         matches!(child.try_wait(), Ok(Some(_)))
@@ -73,7 +68,6 @@ impl ProbeResource {
     }
 }
 
-/// A provider whose only job is to be registered and retracted.
 struct ProbeTool {
     name: String,
 }
@@ -106,8 +100,6 @@ fn advertised(registry: &ToolRegistry, name: &str) -> bool {
     registry.defs().iter().any(|def| def.name == name)
 }
 
-// --- the inverse itself -----------------------------------------------------
-
 #[test]
 fn an_inverse_fires_at_most_once() {
     let _lock = crate::tests::env_lock();
@@ -135,8 +127,6 @@ fn dropping_a_live_inverse_still_recovers() {
     assert!(!resource.dir_exists());
     assert!(resource.child_reaped());
 }
-
-// --- scope semantics (LIFO, cascade, guard) ---------------------------------
 
 #[test]
 fn a_scope_fires_inverses_last_registered_first() {
@@ -191,9 +181,6 @@ fn a_nested_scope_disposes_with_its_parent() {
 
 #[test]
 fn a_partial_registration_keeps_only_the_inverses_it_accumulated() {
-    // §5.1.1 Algorithm 1 consults a guard before each step: once it trips, only
-    // the inverses accumulated so far remain. A provider that fails halfway
-    // through installing itself must leave nothing behind.
     let scope = RegistrationScope::new();
     let fired = Arc::new(AtomicUsize::new(0));
 
@@ -201,7 +188,7 @@ fn a_partial_registration_keeps_only_the_inverses_it_accumulated() {
     scope.track_inverse(move || {
         first.fetch_add(1, Ordering::SeqCst);
     });
-    let guard_ok = false; // the second step never happens
+    let guard_ok = false;
     if guard_ok {
         let second = Arc::clone(&fired);
         scope.track_inverse(move || {
@@ -212,8 +199,6 @@ fn a_partial_registration_keeps_only_the_inverses_it_accumulated() {
     assert_eq!(scope.dispose(), 1, "only the accumulated inverse runs");
     assert_eq!(fired.load(Ordering::SeqCst), 1);
 }
-
-// --- registry integration ---------------------------------------------------
 
 #[test]
 fn unregister_retracts_schema_resources_and_activation() {
@@ -294,8 +279,6 @@ fn dispose_registrations_unloads_tracked_providers_and_keeps_builtins() {
 
 #[test]
 fn independent_registrations_recover_in_either_order() {
-    // §3.4 Definition 42 with Theorem 43: effects that commute may be reverted
-    // in any order. Two providers on distinct keys are the commuting case.
     let _lock = crate::tests::env_lock();
     for reverse in [false, true] {
         let alpha = ProbeResource::spawn(&format!("order-alpha-{reverse}"));

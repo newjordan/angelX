@@ -5,7 +5,6 @@ use super::level::level;
 use super::oracle::Route;
 use super::*;
 
-/// A table of `seats` knights, each bot taking the route `route(id)` names.
 fn table(seats: u32) -> Run {
     let mut r = Run::lightgallop_for_test();
     for id in 2..=seats {
@@ -15,7 +14,6 @@ fn table(seats: u32) -> Run {
     r
 }
 
-/// The keys every bot presses this tick.
 fn bots(r: &Run, route: &dyn Fn(u32) -> Route) -> BTreeMap<u32, Input> {
     let s = r.lightgallop.as_ref().unwrap();
     let n = Numbers::default();
@@ -27,7 +25,6 @@ struct Ride {
     cleared: bool,
 }
 
-/// Ride until the tally or `limit` ticks, printing a line every `every`.
 fn ride(r: &mut Run, route: &dyn Fn(u32) -> Route, limit: u32, every: u32) -> Ride {
     for tick in 0..limit {
         let inputs = bots(r, route);
@@ -96,16 +93,12 @@ fn the_clear_report() {
     }
 }
 
-/// Every bot's gold and laurel, as the run holds them.
 fn gold(r: &Run, id: u32) -> u32 {
     r.players[&id].carried.get(Spoil::Gold)
 }
 
 #[test]
 fn a_bot_clears_the_road_at_one_two_four_and_six_seats_by_either_route() {
-    // Recorded tick counts, on the 30 Hz sim: a whole ride with its finale is
-    // two minutes or so for a bot that never errs; a knight's first ride runs
-    // longer. The bounds hold the road to its 2 to 4 minutes.
     for seats in [1, 2, 4, 6] {
         for (name, route) in [
             ("upper", (&|_| Route::Upper) as &dyn Fn(u32) -> Route),
@@ -179,19 +172,15 @@ fn the_purse_is_paid_once_at_the_finale_and_a_repeat_pays_a_token() {
     assert_eq!(paid, [PURSE[rank as usize]; 3], "each seat, the rank's purse, the first time");
     assert!(paid[0] <= 40, "bounded: forty gold a seat at the most");
     assert!(r.marks.contains_key(CAMPAIGN_MARK) && r.home.roundtable[SLOT] & BEGUN != 0);
-    // More ticks at the tally pay nothing more.
     for _ in 0..200 {
         r.step(&BTreeMap::new());
     }
     assert_eq!((1..=3).map(|id| gold(&r, id) - before[id as usize - 1]).collect::<Vec<_>>(), paid);
-    // The records keep the best and the win.
     let rec = &r.home.countryside.games.roundtable[SLOT];
     assert_eq!((rec.plays, rec.wins), (1, 1));
     assert!(rec.best > 400 && rec.best <= 1000);
-    // The laurel on the best rider only.
     let best = r.lightgallop.as_ref().unwrap().tally.as_ref().unwrap().best;
     assert!(r.players.iter().all(|(&id, h)| h.laurel == (id == best)));
-    // Ride again: a token, not the full purse.
     let again = r.players[&1].carried.get(Spoil::Gold);
     r.step(&BTreeMap::from([(1, Input { interact: true, ..Default::default() })]));
     r.step(&BTreeMap::new());
@@ -210,7 +199,6 @@ fn the_tally_waits_for_a_beat_then_one_press_of_e_starts_a_fresh_ride_in_one_tic
     let out = ride(&mut r, &Route::of_seat, 9000, 0);
     assert!(out.cleared);
     let press = BTreeMap::from([(2, Input { interact: true, ..Default::default() })]);
-    // A press at once is the knight's last leap, not a rematch.
     r.step(&press);
     r.step(&BTreeMap::new());
     assert!(r.lightgallop.as_ref().unwrap().tally.is_some());
@@ -228,7 +216,6 @@ fn the_tally_waits_for_a_beat_then_one_press_of_e_starts_a_fresh_ride_in_one_tic
 #[test]
 fn a_scripted_loss_is_swallowed_carried_home_and_riding_again_inside_a_second() {
     let mut r = table(1);
-    // Stand still at the gate until the Dimming comes.
     let mut fell_at = None;
     let mut up_at = None;
     for t in 0..900 {
@@ -246,7 +233,6 @@ fn a_scripted_loss_is_swallowed_carried_home_and_riding_again_inside_a_second() 
     assert!(up - fell <= 30, "back on the road in {} ticks", up - fell);
     let s = r.lightgallop.as_ref().unwrap();
     assert!(s.valid() && s.seats[&1].rider.falls == 1);
-    // And the ride goes on, the world's progress kept: now clear it.
     let out = ride(&mut r, &|_| Route::Upper, 9000, 0);
     assert!(out.cleared, "a loss is a setback, never an ending");
 }
@@ -254,7 +240,6 @@ fn a_scripted_loss_is_swallowed_carried_home_and_riding_again_inside_a_second() 
 #[test]
 fn a_whole_table_downed_at_once_is_carried_to_the_post_and_the_ride_goes_on() {
     let mut r = table(4);
-    // Everyone rides to the first lantern, then stands and waits.
     for _ in 0..900 {
         let inputs = bots(&r, &Route::of_seat);
         r.step(&inputs);
@@ -263,7 +248,6 @@ fn a_whole_table_downed_at_once_is_carried_to_the_post_and_the_ride_goes_on() {
         }
     }
     assert_eq!(r.lightgallop.as_ref().unwrap().last_post(), Some(0), "the first post is lit");
-    // The Gloam sweeps over the whole table in one tick.
     r.lightgallop.as_mut().unwrap().dim = 9000 * 256;
     for _ in 0..60 {
         r.step(&BTreeMap::new());
@@ -304,8 +288,6 @@ fn a_seat_that_retreats_stands_up_and_the_rest_ride_on() {
     r.step(&BTreeMap::new());
     assert!(r.exits.outside.contains_key(&2));
     assert_eq!(r.lightgallop.as_ref().unwrap().seats.keys().copied().collect::<Vec<_>>(), [1, 3]);
-    // The knight outside wanders the kingdom (an idle one would be taken back
-    // in as away) while the others ride on.
     let mut cleared = false;
     for tick in 0..9000u32 {
         let mut inputs = bots(&r, &Route::of_seat);
@@ -392,7 +374,6 @@ fn the_fork_report() {
 use super::oracle::Skill;
 use super::oracle::rider::{Ev, Keys};
 
-/// What a tuning round saw.
 #[derive(Default, Debug)]
 struct Round {
     cleared: bool,
@@ -404,7 +385,6 @@ struct Round {
     caught: u32,
 }
 
-/// One ride with the five numbers as given, every bot of `skill` on `route`.
 fn round(seats: u32, skill: Skill, route: Route, set: &[(&str, f64)], limit: u32) -> Round {
     let mut r = table(seats);
     for &(name, v) in set {

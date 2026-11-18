@@ -7,8 +7,6 @@
 
 use super::*;
 
-// --- code_mode suite --------------------------------------------------------
-
 struct CodeModeEffectProbe;
 
 impl Tool for CodeModeEffectProbe {
@@ -118,9 +116,6 @@ impl Tool for CodeModeBatchProbe {
 
 #[test]
 fn code_mode_orchestrates_real_registry_tools() {
-    // End-to-end: a script that loops over the REAL `reverse` tool, proving
-    // the dispatch interception + V8 host-binding + registry re-entry all
-    // connect (the code_mode.rs unit tests only use a mock invoke).
     let mut reg = ToolRegistry::new();
     reg.register(Box::new(ReverseTool));
     reg.register(Box::new(WordCountTool));
@@ -235,7 +230,6 @@ fn code_mode_large_results_offload_to_handle_receipts() {
     reg.register(Box::new(CodeModeTool::new(&names)));
     let empty = Hooks::default();
 
-    // Build a return value well above the temporary 64-byte offload floor.
     let script = "return 'BULK_MARKER_' + 'z'.repeat(200);";
     let args = serde_json::json!({ "script": script });
     let r = dispatch_with_hooks(&reg, &empty, "code_mode", &args);
@@ -252,7 +246,6 @@ fn code_mode_large_results_offload_to_handle_receipts() {
         "strategy receipt retained: {r}"
     );
 
-    // Recover via explicit disclosure.
     let handle = r
         .split("hnd_")
         .nth(1)
@@ -492,9 +485,6 @@ fn code_mode_default_boundary_excludes_network_and_lsp_tools() {
 
 #[test]
 fn code_mode_nested_call_respects_blocking_hook() {
-    // A PreToolUse hook that blocks `reverse` must also block it when the
-    // call originates from inside a code_mode script (nested dispatch goes
-    // through the same hook gate, surfaced to JS as a throw → run error).
     let mut reg = ToolRegistry::new();
     reg.register(Box::new(ReverseTool));
     let names = reg.bindable_tool_names();
@@ -517,13 +507,11 @@ fn code_mode_nested_call_respects_blocking_hook() {
 
 #[test]
 fn code_mode_tool_call_is_fallback_only() {
-    // Direct .call() (bypassing the loop) must not silently no-op.
     let tool = CodeModeTool::new(&["reverse".to_string()]);
     let err = tool
         .call(&serde_json::json!({ "script": "return 1;" }))
         .unwrap_err();
     assert!(err.contains("dispatch_with_hooks"), "got: {err}");
-    // And the advertised description names the bound tools.
     assert!(tool.def().description.contains("reverse"));
 }
 
@@ -559,8 +547,6 @@ fn code_mode_recipe_contract_rejects_ambiguous_or_effectful_calls() {
     let names = reg.bindable_tool_names();
     reg.register(Box::new(CodeModeTool::new(&names)));
     let hooks = Hooks::default();
-    // Both `script` and `recipe` given: the script runs (unambiguous), with a
-    // one-line notice, instead of the retried exclusivity error.
     let both = dispatch_with_hooks(
         &reg,
         &hooks,

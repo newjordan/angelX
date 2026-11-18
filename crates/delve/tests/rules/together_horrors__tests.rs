@@ -1,7 +1,5 @@
 use super::*;
 
-/// A fight room of the swamp's first floor, emptied, knight one in the
-/// middle and `kind` `dx` units east of them, awake.
 fn duel(kind: EnemyKind, dx: f32) -> Run {
     let mut run = Run::new(11, 1, None);
     run.begin_in(Pack::Swamp);
@@ -16,7 +14,6 @@ fn duel(kind: EnemyKind, dx: f32) -> Run {
     run.enemies.clear();
     run.projectiles.clear();
     let (cx, cy) = (run.room().width() / 2.0, run.room().height() / 2.0);
-    // Dry ground under the duel, so only the horror's own reach counts.
     let (cols, rows) = (run.room().cols, run.room().rows);
     for row in 1..rows - 1 {
         for col in 1..cols - 1 {
@@ -33,7 +30,6 @@ fn duel(kind: EnemyKind, dx: f32) -> Run {
     run
 }
 
-/// Knight one's health, after a first step has settled what they carry.
 fn settled(run: &mut Run) -> u32 {
     run.step(&BTreeMap::new());
     run.players[&1].hp
@@ -67,7 +63,6 @@ fn a_bog_hand_travels_under_the_mire_ripples_then_grabs_and_holds() {
     assert!(hero.hp < full, "the grab hurts");
     assert!(hero.mired > 0, "and holds");
     assert!(run.cues.iter().any(|c| c == "bog_grab"));
-    // Held, a knight walks at the grip's pace.
     let held = run.ground_pace_of(1).unwrap();
     run.players.get_mut(&1).unwrap().mired = 0;
     let free = run.ground_pace_of(1).unwrap();
@@ -81,12 +76,10 @@ fn the_ripples_last_the_whole_tell_and_a_knight_who_steps_out_is_spared() {
     while run.enemies[0].stage != 1 {
         run.step(&still());
     }
-    // The tell runs its full length.
     for _ in 1..HAND_TELL {
         run.step(&still());
         assert_eq!(run.enemies[0].stage, 1);
     }
-    // And whoever leaves the ring is not taken.
     let (x, y) = (run.enemies[0].x, run.enemies[0].y);
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (x - HAND_REACH - 2.0, y);
@@ -116,7 +109,6 @@ fn a_drowned_knight_lifts_its_blade_for_the_whole_windup_then_cleaves() {
     assert_eq!(lifted, DROWNED_WINDUP, "the tell shows for exactly the wind-up");
     assert!(run.players[&1].hp < full, "the cleave lands on whoever stayed in front");
     assert!(run.cues.iter().any(|c| c == "drowned_cleave"));
-    // Then the blade is stuck: a moment to hit back.
     for _ in 0..DROWNED_STUCK - 1 {
         run.step(&still());
         assert_eq!(run.enemies[0].stage, 2);

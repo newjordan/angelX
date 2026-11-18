@@ -21,7 +21,6 @@ fn pushed_ordinal_parses_iso_and_orders_chronologically() {
     let a = pushed_ordinal("2020-01-01T00:00:00Z").unwrap();
     let b = pushed_ordinal("2026-07-19T12:00:00Z").unwrap();
     assert!(b > a, "later push has the larger ordinal");
-    // Reference epoch: 1970-01-01 is day 0.
     assert_eq!(pushed_ordinal("1970-01-01T00:00:00Z"), Some(0));
     assert_eq!(pushed_ordinal("bogus"), None);
     assert_eq!(pushed_ordinal("2026-13-40T00:00:00Z"), None);
@@ -98,9 +97,9 @@ fn parse_github_is_tolerant_of_missing_fields() {
                 "archived": false,
                 "html_url": "https://github.com/rust-lang/rust"
             },
-            { "full_name": "" },                       // dropped: empty name
-            { "description": "no name" },              // dropped: missing name
-            { "full_name": "only/name" }               // kept: everything else defaults
+            { "full_name": "" },
+            { "description": "no name" },
+            { "full_name": "only/name" }
         ]
     });
     let repos = parse_github(&body);
@@ -121,10 +120,10 @@ fn parse_github_is_tolerant_of_missing_fields() {
 fn trusted_repo_url_rejects_anything_but_a_clean_github_record() {
     assert!(trusted_repo_url("https://github.com/rust-lang/rust").is_some());
     assert!(trusted_repo_url("https://github.com/rust-lang/rust/issues").is_none());
-    assert!(trusted_repo_url("http://github.com/a/b").is_none()); // not https
-    assert!(trusted_repo_url("https://evil.com/a/b").is_none()); // wrong host
-    assert!(trusted_repo_url("https://github.com/a/b?x=1").is_none()); // query
-    assert!(trusted_repo_url("https://user@github.com/a/b").is_none()); // creds
+    assert!(trusted_repo_url("http://github.com/a/b").is_none());
+    assert!(trusted_repo_url("https://evil.com/a/b").is_none());
+    assert!(trusted_repo_url("https://github.com/a/b?x=1").is_none());
+    assert!(trusted_repo_url("https://user@github.com/a/b").is_none());
 }
 
 #[test]
@@ -411,7 +410,6 @@ fn repository_snapshot_rejects_oversized_and_nonregular_files_and_cleans_up() {
     assert!(repo_snapshot().err().unwrap().contains("byte limit"));
     std::fs::remove_file(&rules).unwrap();
     let path = std::ffi::CString::new(rules.as_os_str().as_bytes()).unwrap();
-    // SAFETY: the CString is a valid, NUL-terminated path to a new FIFO.
     assert_eq!(unsafe { libc::mkfifo(path.as_ptr(), 0o600) }, 0);
     assert!(repo_snapshot().err().unwrap().contains("regular file"));
     assert_eq!(std::fs::read_dir(tmp).unwrap().count(), 0);

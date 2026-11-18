@@ -46,7 +46,6 @@ fn deli_usage_accounting_forwards_attempts_without_duplicate_aliases() {
         },
     );
     let before = deli.usage_accounting();
-    // Actual Deli iteration plus synthesis: two distinct inner attempts.
     deli.respond("owned bounded task").unwrap();
     let mut after = deli.usage_accounting();
     after.extend(inner.usage_accounting());

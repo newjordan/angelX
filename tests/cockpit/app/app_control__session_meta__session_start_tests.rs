@@ -259,8 +259,6 @@ fn session_start_hook_failure_and_timeout_still_let_the_session_start() {
         started.elapsed()
     );
 
-    // Same hooks file the loader cached. A different command length changes the
-    // cache key, so /clear runs the failing command rather than the sleep.
     let _rewritten = write_hooks(&fixture.root, "echo blocked >&2; exit 7");
     let _timeout = crate::tests::TestEnvGuard::set("ANGEL_HOOK_TIMEOUT", "10");
     let before = app.session.id.clone();

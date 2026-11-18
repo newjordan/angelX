@@ -5,7 +5,6 @@
 use super::super::ink::{Img, hash, vnoise};
 use super::{RockKind, Style};
 
-/// All swamp pictures are authored here rather than borrowed from the realm.
 pub const PLACEHOLDER: bool = false;
 
 pub(super) const STYLE: Style = Style {
@@ -13,10 +12,8 @@ pub(super) const STYLE: Style = Style {
     pool: ('e', 'P'),
 };
 
-/// Silted masonry, from wet shadow to the lichen on its upper lip.
 pub const WALL_RAMP: &[char] = &['s', 'D', 'F', 'e', 'N', 'm', 'j'];
 
-/// Broken roots, sedge and pebbles leave most of the dry causeway as paper.
 pub fn ground(x: i32, y: i32) -> Option<char> {
     let (cx, cy) = (x.div_euclid(9), y.div_euclid(7));
     let h = hash(cx, cy, 831);
@@ -34,8 +31,6 @@ pub fn ground(x: i32, y: i32) -> Option<char> {
     }
 }
 
-/// Thick olive silt, interlocking scum rafts and slow popping bubbles. The
-/// broad stationary islands distinguish it from the blue, flowing deep water.
 pub fn bog_field(
     cv: &mut Img,
     rect: (i32, i32, i32, i32),
@@ -71,8 +66,6 @@ pub fn bog_field(
             if let Some(c) = c {
                 cv.put(x, y, c);
             }
-            // A bubble belongs to a stationary 19x13 silt pocket; only its
-            // tiny rim moves, so the mire never becomes a swimming texture.
             let (bx, by) = (x.div_euclid(19), y.div_euclid(13));
             let h = hash(bx, by, 840);
             let (px, py) = (
@@ -89,8 +82,6 @@ pub fn bog_field(
     }
 }
 
-/// Three silhouettes: a fanned sedge tussock, copper bulrushes, and a
-/// lightning-broken willow stump. All roots end inside their own tile.
 pub fn reeds(cv: &mut Img, x: i32, y: i32, v: u32) {
     let rows: &[&str] = match v % 3 {
         0 => &[
@@ -193,7 +184,6 @@ pub fn reeds(cv: &mut Img, x: i32, y: i32, v: u32) {
     cv.stamp(&Img::from_rows(rows), x - 4, y - 14);
 }
 
-/// Thin broken ribbons. A whole ribbon drifts one pixel every sixteen ticks.
 pub fn mist(x: i32, y: i32, tick: u32) -> Option<char> {
     let drift = (tick / 16 % 512) as i32;
     let xx = x + drift;
@@ -204,8 +194,6 @@ pub fn mist(x: i32, y: i32, tick: u32) -> Option<char> {
         None
     }
 }
-
-// ─── Horrors: authored east-facing ink rows ────────────────────────────────
 
 pub fn bog_hand(stage: u8, _t: u32, tick: u32) -> Img {
     let f = tick / 8 % 2;
@@ -233,7 +221,6 @@ pub fn bog_hand(stage: u8, _t: u32, tick: u32) -> Img {
             15,
         );
     } else if stage == 1 {
-        // Four nails are above the mud for every tick of the warning.
         im.stamp(
             &Img::from_rows(&[
                 ".......khk.........",
@@ -304,7 +291,6 @@ pub fn bog_hand(stage: u8, _t: u32, tick: u32) -> Img {
     im
 }
 
-/// Weed-hung plate, a slit visor and a rust-notched executioner's sword.
 pub fn drowned(stage: u8, _t: u32, tick: u32) -> Img {
     let f = (tick / 8 % 2) as i32;
     let mut im = Img::new(28, 28);
@@ -366,7 +352,6 @@ pub fn drowned(stage: u8, _t: u32, tick: u32) -> Img {
             10 + f,
         );
     } else if stage == 1 {
-        // Both hands raised; a broad blade stays overhead throughout windup.
         im.stamp(
             &Img::from_rows(&[
                 "..................kkk.....",
@@ -392,7 +377,6 @@ pub fn drowned(stage: u8, _t: u32, tick: u32) -> Img {
         im.put(20, 5 + f * 2, 'U');
         im.put(24, 8 + f, 'S');
     } else {
-        // Weight pitched forward, both hands bearing down on the stuck hilt.
         im.stamp(
             &Img::from_rows(&[
                 "kSUhk.......",
@@ -419,7 +403,6 @@ pub fn drowned(stage: u8, _t: u32, tick: u32) -> Img {
 }
 
 pub fn wisp(stage: u8, _t: u32, tick: u32) -> Img {
-    // Four flickers fit the arena's 48-tick pose cache exactly.
     let f = tick / 12 % 4;
     let rows: &[&str] = match stage {
         1 => &[
@@ -491,7 +474,6 @@ pub fn wisp(stage: u8, _t: u32, tick: u32) -> Img {
         im.clear(0, 12);
         im.put(1, 11, 'u');
     }
-    // Four flickers: the tail curls across, and one crown tongue leans east.
     if f >= 2 {
         im.put(10, if stage == 1 { 0 } else { 2 }, 'U');
         im.put(11, if stage == 1 { 1 } else { 3 }, 'u');
@@ -501,8 +483,6 @@ pub fn wisp(stage: u8, _t: u32, tick: u32) -> Img {
     im
 }
 
-/// The bronze reed crown sits between broken antlers. A beard of drowned
-/// roots, a tarnished chain and a vast ragged mantle give him a royal heft.
 const KING: &[&str] = &[
     "...n..............n.........n...",
     "...nP....n........nP.......Pn...",
@@ -543,7 +523,6 @@ pub fn mire_king(raged: bool, tick: u32) -> Img {
     let f = tick / 12 % 2;
     im.stamp(&Img::from_rows(KING), 0, 0);
     if f != 0 {
-        // One shoulder heaves; weeds and the lowest beard root sway.
         im.put(27, 17, 'm');
         im.put(28, 18, 'N');
         im.put(15, 26, 'P');
@@ -553,7 +532,6 @@ pub fn mire_king(raged: bool, tick: u32) -> Img {
     }
     if raged {
         im = im.recolor(&[('2', '4'), ('m', 'l'), ('N', 'E')]);
-        // The brow lowers and the jaw parts; roots wrench through the robe.
         im.line(15, 10, 17, 10, 'k');
         im.line(20, 10, 23, 10, 'k');
         im.line(18, 15, 22, 15, 'k');
@@ -567,8 +545,6 @@ pub fn mire_king(raged: bool, tick: u32) -> Img {
     im
 }
 
-// ─── Blanchefleur ────────────────────────────────────────────────────────
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HorsePose {
     Stand,
@@ -577,8 +553,6 @@ pub enum HorsePose {
     Frightened,
 }
 
-/// Fill a small hand-authored silhouette; unlike the establishing Brush,
-/// sprite planes stay in their exact named inks.
 fn horse_plane(im: &mut Img, points: &[(i32, i32)], c: char) {
     let ymin = points.iter().map(|p| p.1).min().unwrap();
     let ymax = points.iter().map(|p| p.1).max().unwrap();
@@ -597,8 +571,6 @@ fn horse_plane(im: &mut Img, points: &[(i32, i32)], c: char) {
     }
 }
 
-/// Fine-legged and unburdened. Ivory H and i roll through grey flanks to
-/// blue-grey underplanes; timber T warms just the forelock and mane.
 pub fn white_horse(pose: HorsePose) -> Img {
     let mut im = Img::new(56, 48);
     let gait = if let HorsePose::Gallop(f) = pose {
@@ -609,7 +581,6 @@ pub fn white_horse(pose: HorsePose) -> Img {
     let lift = if matches!(gait, Some(1 | 3)) { -2 } else { 0 };
     let frightened = pose == HorsePose::Frightened;
     let graze = pose == HorsePose::Graze;
-    // Tail originates under the croup, with a full root and loose pale ends.
     let tail: &[(i32, i32)] = if gait.is_some() {
         &[
             (10, 22),
@@ -708,7 +679,6 @@ pub fn white_horse(pose: HorsePose) -> Img {
     for pts in &legs[..2] {
         leg(&mut im, pts, false);
     }
-    // The shoulder and neck form one continuous silhouette with the barrel.
     let mut skin = Img::new(56, 48);
     skin.ellipse(23.0, 26.5 + lift as f32, 16.0, 7.0, 'h');
     skin.ellipse(14.0, 26.0 + lift as f32, 6.0, 6.0, 'h');
@@ -794,7 +764,6 @@ pub fn white_horse(pose: HorsePose) -> Img {
     };
     let translated: Vec<_> = head.iter().map(|&(x, y)| (x, y + lift)).collect();
     horse_plane(&mut skin, &translated, 'h');
-    // Ears communicate mood even in the small pasture drawing.
     let ears: &[&[(i32, i32)]] = if graze {
         &[
             &[(43, 34), (42, 29), (45, 33)],
@@ -822,8 +791,6 @@ pub fn white_horse(pose: HorsePose) -> Img {
             }
             let yy = y - lift;
             let c = if yy >= 21 && x < 39 {
-                // A broad lit top, rounded haunch and cool belly, with a quiet
-                // muscular shoulder. These are planes rather than stipple.
                 let volume =
                     1.0 - ((x - 21) as f32 / 18.0).powi(2) - ((yy as f32 - 23.5) / 8.0).powi(2);
                 if volume > 0.74 {
@@ -846,7 +813,6 @@ pub fn white_horse(pose: HorsePose) -> Img {
                     'h'
                 }
             } else {
-                // Neck highlight follows its diagonal, so it flows into the back.
                 let mid = 39 - (yy - 12).max(0) / 3;
                 if x < mid - 2 {
                     'h'
@@ -865,7 +831,6 @@ pub fn white_horse(pose: HorsePose) -> Img {
     for pts in &legs[2..] {
         leg(&mut im, pts, true);
     }
-    // Curved haunch, shoulder muscle and a few separated mane locks.
     im.line(11, 26 + lift, 12, 29 + lift, 'i');
     im.line(12, 29 + lift, 15, 30 + lift, 'J');
     im.line(35, 27 + lift, 34, 30 + lift, 'G');
@@ -910,11 +875,8 @@ pub fn white_coat() -> (char, char, char) {
     ('H', 'h', 'i')
 }
 
-// ─── Bog-timber prison and marsh sign ─────────────────────────────────────
-
 pub fn pen(open: bool, tick: u32) -> Img {
     let mut im = Img::new(64, 64);
-    // Rear lintel is high above her face; two front rails sit below it.
     im.stamp(
         &Img::from_rows(&[
             "....nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn....",
@@ -939,7 +901,6 @@ pub fn pen(open: bool, tick: u32) -> Img {
         im.put(x + 2, 25, 'b');
     }
     if open {
-        // Gate seen edge-on at the left hinge, its diagonal rails foreshortened.
         for y in [34, 54] {
             for dy in 0..4 {
                 im.line(8, y + dy, 19, y - 8 + dy, if dy == 0 { 'o' } else { 'I' });
@@ -960,7 +921,6 @@ pub fn pen(open: bool, tick: u32) -> Img {
         }
         im.line(9, 52, 53, 39, 'b');
         im.line(9, 53, 53, 40, 'P');
-        // The only luminous ornament is the seal that holds the gate shut.
         im.stamp(
             &Img::from_rows(&[
                 "..SSS..", ".SuuuS.", ".Su.uS.", "kP444Pk", "k44644k", "k44k44k", "k44k44k",
@@ -999,8 +959,6 @@ pub fn plaque_icon() -> Img {
     ])
 }
 
-/// The contract the art team's drawings drop into: sizes, the realm palette,
-/// and signal inks (the glowing bank) only where the swamp's art may glow.
 #[cfg(test)]
 mod tests {
     use super::super::super::ink::{BLACK, is_signal, palette_index};
@@ -1012,8 +970,6 @@ mod tests {
             .count()
     }
 
-    /// In the palette, within `w` by `h`, something drawn, and at most
-    /// `glow` signal pixels.
     fn check(what: &str, img: &Img, (w, h): (i32, i32), glow: usize) {
         assert!(
             img.w > 0 && img.h > 0 && img.w <= w && img.h <= h,
@@ -1082,8 +1038,6 @@ mod tests {
         assert_eq!(portrait, mire_king(false, 0));
     }
 
-    /// Every authored state at six native pixels per pixel. Also writes the
-    /// three full establishing paintings separately, for composition review.
     #[test]
     #[ignore]
     fn write_swamp_art_sheet() {
@@ -1249,7 +1203,6 @@ mod tests {
             misted < 64 * 64 * 15 / 100,
             "mist is wisps, not a wall: {misted}"
         );
-        // The bog paints only bog, never glowing.
         let mut cv = Img::new(96, 64);
         let bog = |x: i32, y: i32| (16..64).contains(&x) && (16..48).contains(&y);
         bog_field(&mut cv, (0, 0, 96, 64), &bog, 3);
@@ -1264,7 +1217,6 @@ mod tests {
             }
         }
         assert!(wet > 48 * 32 / 4, "the bog reads: {wet}");
-        // A clump of reeds keeps to its tile and a little above it.
         let mut cv = Img::new(64, 64);
         for v in [0u32, 7, 99, 1234] {
             reeds(&mut cv, 24, 32, v);
@@ -1293,7 +1245,6 @@ mod tests {
             for &tick in &TICKS {
                 for t in [0, 10, 20] {
                     check("bog hand", &bog_hand(stage, t, tick), (24, 24), 0);
-                    // The visor and the blade's edge.
                     check("drowned knight", &drowned(stage, t, tick), (28, 28), 32);
                     check("wisp", &wisp(stage, t, tick), (16, 20), 64);
                 }
@@ -1312,7 +1263,6 @@ mod tests {
             .into_iter()
             .chain((0..4).map(HorsePose::Gallop))
         {
-            // Her eye and the tack's trim; never the coat (below).
             check("the white horse", &white_horse(pose), (56, 48), 40);
         }
         let (hide, dark, mane) = white_coat();
@@ -1324,7 +1274,6 @@ mod tests {
         }
         for open in [false, true] {
             for &tick in &TICKS {
-                // Its lock glows while it holds: state, not dressing.
                 check("the pen", &pen(open, tick), (64, 64), 32);
             }
         }

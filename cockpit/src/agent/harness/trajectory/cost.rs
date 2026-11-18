@@ -17,7 +17,6 @@
 use serde_json::{Value, json};
 use std::path::PathBuf;
 
-/// Metered per-million prices or a nominal monthly subscription fee.
 struct PriceRow {
     #[allow(dead_code)]
     provider: String,
@@ -59,11 +58,9 @@ fn parse_rows(text: &str) -> Vec<PriceRow> {
     prices
         .iter()
         .filter_map(|row| {
-            let provider = row.get("model").and_then(|v| v.as_str())?; // presence gate
+            let provider = row.get("model").and_then(|v| v.as_str())?;
             let model = provider.to_string();
             let provider = field_str(row, "provider");
-            // A row prices a field only when it is present and numeric; the
-            // operator's "unknown" strings deliberately stay unpriced.
             let input = decimal_field(row, "input");
             let output = decimal_field(row, "output");
             let reasoning = decimal_field(row, "reasoning");
@@ -101,7 +98,6 @@ fn parse_rows(text: &str) -> Vec<PriceRow> {
         .collect()
 }
 
-/// Resolution order per the trace contract: env override, user file, embedded.
 fn load_rows() -> (Vec<PriceRow>, &'static str) {
     if let Some(path) = std::env::var_os("ANGEL_PRICES_FILE")
         && let Ok(text) = std::fs::read_to_string(&path)
@@ -123,10 +119,6 @@ fn load_rows() -> (Vec<PriceRow>, &'static str) {
     )
 }
 
-/// Documented family fallback: the row id must be a prefix of the record id
-/// ending at a `-`, `/`, or `:` boundary (`deepseek-v4-flash-exp` matches row
-/// `deepseek-v4-flash`). A bounded prefix shares the family stem by
-/// construction; never a guess across families.
 fn family_prefix(row_model: &str, id: &str) -> bool {
     let Some(rest) = id.strip_prefix(row_model) else {
         return false;
@@ -138,11 +130,6 @@ fn u64_field(usage: &Value, key: &str) -> Option<u64> {
     usage.get(key).and_then(|v| v.as_u64())
 }
 
-/// One record's price features as the leg's plain numbers: token counts and
-/// presence flags exactly as the record reported them, and each rate as whole
-/// cents per million tokens (a rate of `r` USD/M crosses as `r * 100`). A term
-/// is then `tokens * rate_cents` in 1e-8 dollars, which is the native
-/// `round(tokens * rate / 1e6 * 1e8)` without any division.
 #[derive(serde::Serialize)]
 struct CostLegInput {
     subscription: bool,
@@ -172,10 +159,6 @@ struct CostLegInput {
     fee_e8: u64,
 }
 
-/// The leg's answer: which basis applies and, when the record is priced, the
-/// money as e8 numerators. The record's own identity fields (source, model,
-/// confirmed, the row's currency and date) are not decisions; they are copied
-/// from the row when the record is assembled.
 #[derive(serde::Deserialize)]
 struct CostLegDecision {
     basis: String,
@@ -187,9 +170,6 @@ struct CostLegDecision {
     fee_e8: u64,
 }
 
-/// A rate as whole cents per million tokens, or `None` when the leg cannot
-/// carry it exactly (negative, non-finite, or finer than a cent). Those records
-/// keep the native decision; a card with two decimal places never needs more.
 fn rate_cents(rate: Option<f64>) -> Option<(bool, u64)> {
     match rate {
         None => Some((false, 0)),
@@ -201,7 +181,6 @@ fn rate_cents(rate: Option<f64>) -> Option<(bool, u64)> {
     }
 }
 
-/// A Bend Nat is an immediate below 2^48; the four summed terms keep headroom.
 const LEG_NAT_LIMIT: u64 = 1 << 46;
 
 fn fits_leg_nat(tokens: u64, cents: u64) -> bool {
@@ -214,14 +193,10 @@ fn fee_e8(fee: Option<f64>) -> u64 {
     fee.map(|fee| (fee * 1e8).round() as u64).unwrap_or(0)
 }
 
-/// e8 units back to dollars: the same value `round_cents` reports, because both
-/// are the nearest f64 to that exact amount.
 fn e8_dollars(units: u64) -> f64 {
     units as f64 / 1e8
 }
 
-/// Native's separate-reasoning probe: a reasoning total is its own line only
-/// when every attempt declared it separate (and output was reported at all).
 fn reasoning_separate(usage: Option<&Value>, output: Option<u64>, reasoning: Option<u64>) -> bool {
     reasoning.is_some()
         && output.is_some()
@@ -235,8 +210,6 @@ fn reasoning_separate(usage: Option<&Value>, output: Option<u64>, reasoning: Opt
             })
 }
 
-/// The decision's features for one record, or `None` when a rate cannot be
-/// carried exactly.
 fn cost_leg_input(usage: Option<&Value>, row: Option<&PriceRow>) -> Option<CostLegInput> {
     let usage = usage.filter(|value| value.is_object());
     let input = usage.and_then(|usage| u64_field(usage, "input"));
@@ -248,9 +221,6 @@ fn cost_leg_input(usage: Option<&Value>, row: Option<&PriceRow>) -> Option<CostL
     let (rate_uncached_p, rate_uncached_cents) = rate_cents(row.and_then(|row| row.input))?;
     let (rate_output_p, rate_output_cents) = rate_cents(row.and_then(|row| row.output))?;
     let (rate_reasoning_p, rate_reasoning_cents) = rate_cents(row.and_then(|row| row.reasoning))?;
-    // Bounds only, never a decision: a term the leg cannot hold in a Nat keeps
-    // the native record. Uncached tokens are the explicit total or `input`
-    // itself, so `max` of the two reported counts bounds them.
     let cached_term = cache_read.is_some()
         && (uncached_input.is_some()
             || match (cache_read, input) {
@@ -320,8 +290,6 @@ fn cost_leg_input(usage: Option<&Value>, row: Option<&PriceRow>) -> Option<CostL
     })
 }
 
-/// The decision's contract: a basis the native ladder actually produces for
-/// this record. Anything else keeps the native leg.
 fn cost_leg_check(row: Option<&PriceRow>, decision: &CostLegDecision) -> Result<(), String> {
     let expected_fee = row.and_then(|row| row.plan_fee_usd_month);
     match decision.basis.as_str() {
@@ -335,9 +303,6 @@ fn cost_leg_check(row: Option<&PriceRow>, decision: &CostLegDecision) -> Result<
     }
 }
 
-/// The native record as the leg's decision shape, so the parity tests and an
-/// out-of-units record answer the same type. Test-only: the shipped leg is the
-/// fallback now.
 #[cfg(test)]
 fn native_decision(
     model_id: &str,
@@ -360,9 +325,6 @@ fn native_decision(
     }
 }
 
-/// The record the native ladder would report, from the leg's decision. Every
-/// field is either the decided basis and money, or a copy of the row/record
-/// identity that no leg owns.
 fn cost_record(
     model_id: &str,
     usage: Option<&Value>,
@@ -402,9 +364,6 @@ fn cost_record(
             None => unpriced("unreported-usage", "no-price-table"),
         },
         "no-price-row" => unpriced("no-price-row", source),
-        // The native ladder names "no-price-table" when the record reported no
-        // usable usage block at all, and the table source when it reported
-        // fields that no rate priced.
         _ => {
             let priced = usage.filter(|usage| usage.is_object()).is_some_and(|usage| {
                 ["input", "uncached_input", "cache_read", "output", "reasoning"]
@@ -416,8 +375,6 @@ fn cost_record(
     }
 }
 
-/// One record through the `cost` leg. `None` when the leg cannot be consulted
-/// at all.
 fn cost_leg(
     model_id: &str,
     usage: Option<&Value>,
@@ -433,7 +390,6 @@ fn cost_leg(
     Some(cost_record(model_id, usage, row, source, &decision))
 }
 
-/// The record's cost through the live leg when it can decide, else natively.
 fn cost_decided(
     model_id: Option<&str>,
     usage: Option<&Value>,
@@ -450,8 +406,6 @@ fn cost_decided(
     decided.unwrap_or_else(|| cost_with_rows(model_id, usage, rows, source))
 }
 
-/// Compute `cost` for one record from its own `usage` block. Called after the
-/// usage ledger is attached. Subscription marginal cost does not require tokens.
 pub(super) fn cost_for(model_id: Option<&str>, usage: Option<&Value>) -> Value {
     let (rows, source) = load_rows();
     cost_decided(model_id, usage, &rows, source)
@@ -483,8 +437,6 @@ fn cost_with_rows(
         return json!({"paid":null,"cached":null,"currency":null,"price_date":null,
             "basis":"unreported-usage","source":"no-price-table","model":model_id});
     };
-    // Exactly the fields the accounting `usage` block carries, and only when
-    // the provider reported them.
     let input = u64_field(usage, "input");
     let uncached_input = u64_field(usage, "uncached_input");
     let cache_read = u64_field(usage, "cache_read");
@@ -509,9 +461,6 @@ fn cost_with_rows(
             _ => None,
         }
     };
-    // Cached share: tokens billed at the cached rate. Unambiguous when a
-    // separate uncached_input total exists, or under the OpenAI convention
-    // where the input total includes cached tokens (cache_read <= input).
     let cached_tokens = match (cache_read, uncached_input) {
         (Some(cached), Some(_)) => Some(cached),
         (Some(cached), None) if input.is_some_and(|total| cached <= total) => Some(cached),
@@ -522,8 +471,6 @@ fn cost_with_rows(
     if let Some(cost) = cached_cost {
         terms.push(cost);
     }
-    // Uncached input: explicit field, else input minus cached tokens when both
-    // were reported and the cached rate applied.
     let uncached = uncached_input.or_else(|| match (input, cached_tokens) {
         (Some(input), Some(cached)) => input.checked_sub(cached),
         (Some(input), None) => Some(input),
@@ -535,8 +482,6 @@ fn cost_with_rows(
     if let Some(cost) = per_million(output, row.output) {
         terms.push(cost);
     }
-    // Reasoning is priced only when it is a separate reported total; when the
-    // provider includes reasoning in output, its price is already counted.
     let reasoning_separate = reasoning.filter(|_| {
         output.is_some()
             && usage
@@ -562,9 +507,6 @@ fn cost_with_rows(
         "model":model_id})
 }
 
-/// Price the attempts that actually ran. Aggregate club counters can include
-/// retries, failover seats and parallel workers; never price all of them as the
-/// final answering model. Missing worker receipts leave the total unknown.
 pub(super) fn cost_for_attempts(
     answer_model: Option<&str>,
     usage: Option<&Value>,
@@ -646,8 +588,6 @@ pub(super) fn cost_for_attempts(
     })
 }
 
-/// Money is reported to 8 decimal places — sub-cent precision without float
-/// display noise.
 fn round_cents(value: f64) -> f64 {
     (value * 1e8).round() / 1e8
 }

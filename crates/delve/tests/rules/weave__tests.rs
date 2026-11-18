@@ -1,7 +1,5 @@
 use super::*;
 
-/// A calm fight room on floor one with knight one taken up as the Mage,
-/// facing east, monsters placed at `foes`.
 fn mage(foes: &[(EnemyKind, f32, f32)]) -> Run {
     let mut run = Run::new(21, 1, None);
     let fight = run
@@ -27,13 +25,11 @@ fn mage(foes: &[(EnemyKind, f32, f32)]) -> Run {
     run
 }
 
-/// Key `cast` pressed for a tick, then let go for one.
 fn tap(run: &mut Run, cast: u8) {
     run.step(&BTreeMap::from([(1, Input { cast, ..Input::default() })]));
     run.step(&BTreeMap::new());
 }
 
-/// Draw the three essences on keys `keys`, then weave on 4.
 fn weave(run: &mut Run, keys: [u8; 3]) {
     for k in keys {
         tap(run, k);
@@ -146,14 +142,12 @@ fn a_new_spell_fills_a_free_slot_and_a_full_weave_refuses_the_unknown() {
     weave(&mut run, [2, 2, 2]);
     let known = run.players[&1].weave.known.clone();
     assert_eq!(known.len(), 2, "two spells learned into the two slots");
-    // A third mix: no slot for it, nothing cast, nothing learned.
     weave(&mut run, [3, 3, 3]);
     let w = &run.players[&1].weave;
     assert_eq!(w.known, known);
     let storm = spell_of(&[Essence::Storm; 3]).unwrap();
     assert_eq!(w.cooldowns[storm], 0, "the unknown spell was not cast");
     assert!(run.found.as_ref().is_some_and(|f| f.2.contains("NO SLOT")), "{:?}", run.found);
-    // A known one still weaves, once ready.
     let ember = spell_of(&[Essence::Ember; 3]).unwrap();
     run.players.get_mut(&1).unwrap().weave.cooldowns[ember] = 0;
     weave(&mut run, [1, 1, 1]);

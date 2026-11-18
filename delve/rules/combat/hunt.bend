@@ -126,11 +126,6 @@ def hunt.decoys.loop6(+_xs: List<&2, J.Val>, +run: J.Val, +out: J.Val) -> J.Val:
       +out = {J.push(out, cb.of_pair(J.f32(J.get(p, "x")), J.f32(J.get(p, "y")))) : J.Val}
       hunt.decoys.loop6(_t6, run, out)
 
-# The room holds for its party: foes and their shots wait (Run::holding).
-
-def presence.Run.holding(+run: J.Val) -> Bool:
-  Bool.not(String.eq(J.str(J.get(run, "held")), "open"))
-
 # Does the list of tags hold `blow`?
 
 def hunt.has_blow(+blows: J.Val, +blow: U32) -> Bool:

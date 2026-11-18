@@ -26,20 +26,13 @@ use super::holdings::{room_def, Deed, Family, Holding, Holdings, RESTLESS, ROOM_
 use super::occasions::{self, Cause, Dying};
 use serde::{Deserialize, Serialize};
 
-/// The most folk one holding keeps (the painted crowd's own cap).
 pub const MAX_VILLAGERS: usize = 12;
-/// Mouths one sack from the granary feeds for a rent day.
 pub const MOUTHS_PER_SACK: usize = 4;
-/// A mood runs this far either way; at the bottom, folk leave.
 pub const MOOD_CAP: i8 = 5;
 pub const MOOD_LEAVES: i8 = -4;
-/// Rent days unfed a belly remembers.
 pub const HUNGER_CAP: u8 = 3;
-/// Raiders who have held a holding this many rent days start killing.
 pub const RAID_FALLS: u8 = 2;
 
-/// A trade, worked in a standing room of its family — or, for a
-/// labourer, on whichever room is going up.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Trade {
@@ -49,7 +42,6 @@ pub enum Trade {
     Trader,
     Guard,
     Labourer,
-    /// Not yet of age to work a trade; still a mouth at dinner.
     Child,
 }
 
@@ -66,7 +58,6 @@ impl Trade {
         }
     }
 
-    /// The room family this trade staffs, if it staffs one.
     pub fn family(self) -> Option<Family> {
         match self {
             Trade::Brewer => Some(Family::Tavern),
@@ -89,30 +80,20 @@ impl Trade {
     }
 }
 
-/// One inhabitant of a holding.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Villager {
     pub name: String,
     pub trade: Trade,
-    /// How this realm is treating them, `-MOOD_CAP..=MOOD_CAP`.
     #[serde(default)]
     pub mood: i8,
-    /// Rent days since they were last fed, to `HUNGER_CAP`.
     #[serde(default)]
     pub hunger: u8,
-    /// A practiced hand (0..=3): a labourer of skill 2+ lays double.
     #[serde(default)]
     pub skill: u8,
-    /// Rent days worked fed at the trade: every `SEASONS_PER_SKILL`
-    /// of them, the hand is practiced one grade more.
     #[serde(default)]
     pub practiced: u8,
-    /// Years lived. Folk under `COMING_OF_AGE` work no trade; from
-    /// `ELDER` they keep the fireside instead of the walls. A soul
-    /// from an older save (no age written) reads as thirty.
     #[serde(default = "adult_age")]
     pub age: u8,
-    /// Rent days into the current year (`SEASONS_PER_YEAR` to a year).
     #[serde(default)]
     pub seasons: u8,
 }
@@ -121,16 +102,10 @@ fn adult_age() -> u8 {
     30
 }
 
-/// Fed, working rent days per grade of skill.
 pub const SEASONS_PER_SKILL: u8 = 6;
-/// Rent days to a year of a life.
 pub const SEASONS_PER_YEAR: u8 = 12;
-/// When a child takes up a trade.
 pub const COMING_OF_AGE: u8 = 14;
-/// When hands retire from labour and the wall-watch.
 pub const ELDER: u8 = 65;
-/// Stars a holding needs before folk start families in it: a
-/// chartered town, not a camp with a coffer.
 pub const FAMILY_STARS: u8 = 3;
 
 impl Villager {
@@ -169,16 +144,11 @@ pub(super) fn seed_of(key: &str) -> u64 {
     key.bytes().fold(0x2545_F491_4F6C_DD1Du64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01B3))
 }
 
-/// The keeper of a countryside plot, by its id: the same soul keeps
-/// the same bakery in every realm, the way the stewards are a fixed
-/// cast at the Court. The countryside stores the name once given.
 pub fn keeper_name(plot: &str) -> String {
     let h = mix(seed_of(plot) ^ 0x4B45_4550, 7);
     NAMES[(h % NAMES.len() as u64) as usize].to_string()
 }
 
-/// The `n`th migrant ever to come to `key`: always the same soul, so
-/// equal realms name equal folk.
 fn migrant(key: &str, n: u32, trade: Trade) -> Villager {
     let h = mix(seed_of(key), n);
     Villager {
@@ -193,14 +163,10 @@ fn migrant(key: &str, n: u32, trade: Trade) -> Villager {
     }
 }
 
-/// The years allotted to a soul, fixed by their name: nobody rolls
-/// dice with death, and equal realms mourn on the same day.
 fn lifespan(name: &str) -> u8 {
     72 + (mix(seed_of(name), 3) % 18) as u8
 }
 
-/// The trade a migrant to this holding works: the family of the first
-/// standing room nobody staffs yet, else a labourer's hands.
 fn wanted(w: &Holding) -> Trade {
     for room in w.rooms.iter().filter(|r| r.standing()) {
         let Some(def) = room_def(&room.id) else { continue };
@@ -211,14 +177,9 @@ fn wanted(w: &Holding) -> Trade {
     Trade::Labourer
 }
 
-/// The most guests one holding lodges at once.
 pub const MAX_VISITORS: usize = 3;
-/// The longest a guest stays, in rent days.
 pub const VISIT_DAYS: u8 = 3;
 
-/// Who comes visiting, drawn by what stands: a troubadour to a
-/// taproom, a pilgrim to a shrine, a merchant wherever goods or
-/// coin move, a hunter where there are kennels and ranges.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VisitorKind {
@@ -248,14 +209,10 @@ impl VisitorKind {
     }
 }
 
-/// A guest: here for a few rent days, paying their way in kind —
-/// a merchant's grain, a troubadour's songs, a pilgrim's calming
-/// word, a hunter's watch on the walls — and never in gold.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Visitor {
     pub name: String,
     pub kind: VisitorKind,
-    /// Rent days left of the stay, today's included.
     #[serde(default)]
     pub days: u8,
 }
@@ -266,9 +223,6 @@ impl Visitor {
     }
 }
 
-/// One rent day of village life in every holding: folk eat, work,
-/// take the realm's measure, arrive and depart. The lines it says,
-/// for the ledger. Called by `holdings::rent_day`, once a rent day.
 pub fn keep(h: &mut Holdings) -> Vec<String> {
     let mut said = Vec::new();
     let mut told: Vec<String> = Vec::new();
@@ -277,13 +231,10 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
         let w = &mut h.owned[i];
         let name = w.deed().map_or_else(|| w.key.clone(), Deed::name);
         let beds = w.standing();
-        // The last rent day's occasion is over; this one may make its own.
         w.occasion = None;
         let mut short = false;
         let mut dying: Vec<(usize, Dying)> = Vec::new();
 
-        // Dinner first: a sack feeds four mouths. A short granary is
-        // felt by everybody at the table.
         let mouths = w.folk.len();
         if mouths > 0 {
             let sacks = mouths.div_ceil(MOUTHS_PER_SACK) as u32;
@@ -296,7 +247,6 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
             } else {
                 h.stores = 0;
                 short = true;
-                // The frail, already at the end of their belly, starve.
                 for (n, f) in w.folk.iter().enumerate() {
                     if f.hunger >= HUNGER_CAP && occasions::frail(f) {
                         dying.push((n, Dying::Hunger));
@@ -310,7 +260,6 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
             }
         }
 
-        // Beds, raiders and the realm's temper.
         for (n, f) in w.folk.iter_mut().enumerate() {
             if n >= beds {
                 f.cheer(-1);
@@ -320,8 +269,6 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
             }
         }
 
-        // Raiders who have held the place a while kill: a guard first,
-        // else the first grown soul.
         if w.raid >= RAID_FALLS {
             let victim = w
                 .folk
@@ -333,8 +280,6 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
             }
         }
 
-        // Fed labourers lay courses on the room going up here.
-        // Elders keep the fireside; their hands have done enough.
         let hands: u32 = w
             .folk
             .iter()
@@ -351,8 +296,6 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
             }
         }
 
-        // Fed hands at a standing trade grow practiced: seasons of
-        // work, a grade at a time, and the ledger marks the day.
         for f in &mut w.folk {
             if f.hunger > 0 || f.trade == Trade::Child || f.age >= ELDER {
                 continue;
@@ -374,15 +317,11 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
             }
         }
 
-        // A fey mood may take a practiced craftsman's workshop.
         for line in super::fey::tend(w, &mut h.stores, &name) {
             said.push(line.clone());
             told.push(line);
         }
 
-        // A year turns for everybody, twelve rent days at a time.
-        // Children come of age into the trade the holding wants;
-        // the old die in their season, and the village grieves.
         for f in &mut w.folk {
             f.seasons += 1;
             if f.seasons >= SEASONS_PER_YEAR {
@@ -429,7 +368,6 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
             }
         }
 
-        // The miserable walk away, and are missed by name.
         let mut gone = Vec::new();
         w.folk.retain(|f| {
             let stay = f.mood > MOOD_LEAVES;
@@ -440,8 +378,6 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
         });
         said.extend(gone);
 
-        // A soul one step from walking away throws a tantrum; failing
-        // that, a full granary is a feast. A mourning keeps the day.
         let afraid = w.raid > 0 || unrest >= RESTLESS;
         let cause = |n: usize, f: &Villager| {
             if short || f.hunger > 0 {
@@ -462,9 +398,6 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
             told.push(line);
         }
 
-        // Word travels: one migrant a rent day where there is a
-        // steward to receive them, a bed unclaimed, grain left after
-        // dinner, and no raiders at the gate.
         if w.steward.is_some()
             && w.raid == 0
             && unrest < RESTLESS
@@ -478,8 +411,6 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
             w.folk.push(soul);
         }
 
-        // Guests do the day's good they came with, count down their
-        // stay, and take the road when it runs out.
         for guest in &w.visitors {
             match guest.kind {
                 VisitorKind::Merchant => h.stores = (h.stores + 1).min(STORES_CAP),
@@ -491,10 +422,6 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
                 VisitorKind::Pilgrim | VisitorKind::Hunter => {}
             }
         }
-        // A guest whose stay runs out in a fed village with a bed
-        // to spare petitions to settle, and the steward grants it:
-        // a traveler becomes a neighbour, trade and all. The rest
-        // take the road.
         let mut left = Vec::new();
         let guests = std::mem::take(&mut w.visitors);
         for mut guest in guests {
@@ -533,11 +460,6 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
         }
         said.extend(left);
 
-        // And the road brings one more, now and then: drawn by a
-        // room that stands, received by the steward, kept out by
-        // raiders like everybody else. The attempt counter turns
-        // whether or not the road provides, so the gate is a fixed
-        // arithmetic of the holding's history, never dice.
         let drawn: Vec<VisitorKind> = {
             let mut kinds: Vec<VisitorKind> = Vec::new();
             for room in w.rooms.iter().filter(|r| r.standing()) {
@@ -570,12 +492,6 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
             }
         }
 
-        // And where the charter makes it a town, contented folk
-        // start families: now and then, when two grown souls are
-        // settled and fed, a child is born to the holding — one
-        // more mouth, and joy all round. A cradle needs no spare
-        // bed the way a migrant does; if the house is full, the
-        // crowding sours tempers until more rooms stand.
         let parents = w
             .folk
             .iter()

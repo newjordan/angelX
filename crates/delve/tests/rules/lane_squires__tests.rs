@@ -236,7 +236,6 @@ fn yard_hold_hires_once_and_replays_exact_treasury_charge() {
     assert!(durable.settle(&mut bank, &run.lane_squire_orders));
     assert_eq!(durable, run.home.lane_squires);
     assert_eq!(bank, run.treasury);
-    // Holding on the same plate does not buy again; release rearms it.
     run.tick_lane_squire_yard(&BTreeMap::new());
     for _ in 0..home::BUY_HOLD {
         run.tick_lane_squire_yard(&inputs);

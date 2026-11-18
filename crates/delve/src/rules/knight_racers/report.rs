@@ -6,14 +6,11 @@ use super::course::*;
 use super::race::*;
 use std::collections::BTreeMap;
 
-/// What one seat did in a race.
 #[derive(Default, Clone)]
 struct Seat { passes: u32, passed: u32, laps: Vec<f32>, lifted: u32, drafted: u32, boosted: u32, walls: u32, prev_impact: u32, still: u32, still_max: u32, side_slams: u32, prev_slams: u32 }
 
-/// One course's race, measured.
 pub struct Report { pub text: String, pub spread: f32, pub gap_pct: f32, pub gap_s: f32, pub passes_per_lap: f32, pub lead_changes: u32, pub blowouts: u32, pub slams: u32, pub winner: u32, pub clean_won_by: Option<f32> }
 
-/// `rot` turns the pods round the seats: seat n drives pod n-1+rot.
 pub fn report(id: CourseId, clean_seat: Option<u32>, rot: u8) -> Report {
     let mut s = Session::blank_on(id);
     s.join_ids(1..=6);
@@ -21,8 +18,6 @@ pub fn report(id: CourseId, clean_seat: Option<u32>, rot: u8) -> Report {
     let course = s.course();
     let lap = course.lap();
     let mut seats: BTreeMap<u32, Seat> = (1..=6).map(|n| (n, Seat::default())).collect();
-    // A pass counts when the new order has held for two seconds: two pods running side by side
-    // swap places every few ticks and that is not an overtake.
     let mut settled: BTreeMap<(u32, u32), bool> = BTreeMap::new();
     let mut pending: BTreeMap<(u32, u32), (bool, u32)> = BTreeMap::new();
     let (mut lead_changes, mut leader, mut leader_pending) = (0u32, s.order()[0], (s.order()[0], 0u32));
@@ -35,7 +30,6 @@ pub fn report(id: CourseId, clean_seat: Option<u32>, rot: u8) -> Report {
         if s.finished { break; }
         if s.ticks <= COUNTDOWN { continue; }
         let clock = (s.ticks - COUNTDOWN) as f32 / HZ;
-        // Passes: every pair whose running order changed and stayed changed.
         let order = s.order();
         for (i, &a) in order.iter().enumerate() {
             for &b in &order[i + 1..] {
@@ -109,7 +103,6 @@ pub fn report(id: CourseId, clean_seat: Option<u32>, rot: u8) -> Report {
     Report { text: out, spread, gap_pct: (finish[5] / finish[0] - 1.) * 100., gap_s: finish[5] - finish[0], passes_per_lap: total as f32 / course.laps() as f32, lead_changes, blowouts, slams, winner: order[0], clean_won_by }
 }
 
-/// Six pods round the seats, every cup course: what the field did on average.
 struct Summary { spread: f32, pct: f32, ppl: f32, leads: f32, blow: f32, slam: f32, margin: f32, wins: u32, races: u32, text: String }
 
 fn summary(clean: Option<u32>, rotations: u8) -> Summary {
@@ -127,8 +120,6 @@ fn summary(clean: Option<u32>, rotations: u8) -> Summary {
     Summary { spread: spread / n, pct: pct / n, ppl: ppl / n, leads: leads as f32 / n, blow: blow as f32 / n, slam: slam as f32 / n, margin: won / n, wins, races: n as u32, text: all }
 }
 
-/// The CPU field is a race and not a procession: it stays bunched, trades places and the lead, burns
-/// an engine now and then, and bumps without demolishing itself.
 #[test]
 fn the_cpu_field_races_it_is_not_a_procession() {
     let s = summary(None, 6);
@@ -141,8 +132,6 @@ fn the_cpu_field_races_it_is_not_a_procession() {
     assert!(s.slam >= 2. && s.slam < 30., "{:.1} slams a race", s.slam);
 }
 
-/// A good human run (a pilot with no slips in seat 1, the rivals' band measured from it) wins, and
-/// wins clearly: the rubber band never brings it back.
 #[test]
 fn a_clean_run_wins_clearly_against_the_band() {
     let s = summary(Some(1), 6);

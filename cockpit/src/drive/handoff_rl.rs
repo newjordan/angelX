@@ -14,10 +14,8 @@ use serde::{Deserialize, Serialize};
 
 pub(crate) const HANDOFF_RL_STARTER: &str = "hit it chewy";
 
-/// Evidence that the host should demand a forced handoff restart.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct HandoffDemand {
-    /// Compact receipt for the note (submit + result fingerprints).
     pub summary: String,
 }
 
@@ -29,27 +27,17 @@ pub(crate) struct VictoryEntry {
     pub timestamp: String,
 }
 
-/// Where the controller stands, derived from `active`, `last_stop_reason` and
-/// the caps by [`HandoffRlState::phase`]. A cap is only acted on at a turn
-/// boundary, so there is a stretch where the controller is armed and a cap is
-/// already reached.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum HandoffPhase {
-    /// Never started since the last reset.
     Fresh,
-    /// Armed and under every cap.
     Active,
-    /// Armed, but a cap is reached: the next turn boundary stops it. Holds the
-    /// cap in the words `budget_tripped` gives it.
     CapReached(String),
-    /// Stopped, with the reason (the operator, a guard, or a cap).
     Stopped(String),
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct HandoffRlState {
     pub active: bool,
-    /// Operator task / campaign brief (mirrors `/loop` task).
     pub task: String,
     pub winning_baseline: Option<String>,
     pub winning_score: Option<f64>,
@@ -57,25 +45,16 @@ pub(crate) struct HandoffRlState {
     pub victory_board: Vec<VictoryEntry>,
     pub handoff_count: usize,
     pub last_handoff_note: Option<String>,
-    /// Successful submit observed since the last forced roll. Cleared on roll.
     pub pending_submit: bool,
-    /// Last successful submit fingerprint(s), for the injection note.
     pub last_submit_note: Option<String>,
 
-    // --- budgets (0 = off / endless), same contract as LoopState ---
-    /// Max forced rolls (handoff injections). 0 = endless.
     pub max_iters: usize,
-    /// Wall-clock deadline from `started_ms`. 0 = endless.
     pub deadline_secs: u64,
-    /// Cumulative rough token budget across rolls. 0 = endless.
     pub token_budget: usize,
     pub tokens_spent: usize,
     pub started_ms: u64,
-    /// Optional inter-roll cadence hint (workshop/interval parity with `/loop`).
     pub interval_secs: u64,
-    /// Five-day competition profile: unlimited rolls/tokens, fixed deadline.
     pub podrace: bool,
-    /// Why the campaign last stopped (budget / operator).
     pub last_stop_reason: Option<String>,
 }
 
@@ -85,7 +64,6 @@ impl HandoffRlState {
         Self::default()
     }
 
-    /// Arm the campaign with optional hypothesis/task text (budgets applied separately).
     pub fn start(&mut self, hypothesis: Option<&str>) -> String {
         self.active = true;
         self.last_stop_reason = None;
@@ -108,7 +86,6 @@ impl HandoffRlState {
         )
     }
 
-    /// Apply the same workshop settings the agent loop uses.
     pub fn apply_launch_settings(&mut self, settings: &LoopLaunchSettings) {
         self.deadline_secs = settings.deadline_secs;
         self.max_iters = settings.max_iters;
@@ -116,7 +93,6 @@ impl HandoffRlState {
         self.podrace = settings.podrace;
     }
 
-    /// Stop handoff RL mode (does not wipe the victory board or budget counters).
     pub fn stop(&mut self) -> String {
         self.active = false;
         self.pending_submit = false;
@@ -131,7 +107,6 @@ impl HandoffRlState {
         format!("handoff RL paused: inner turn stopped ({reason}); explicit restart required")
     }
 
-    /// Pause/stop because a budget was hit.
     pub fn stop_for_budget(&mut self, why: &str) -> String {
         self.active = false;
         self.pending_submit = false;
@@ -156,7 +131,6 @@ impl HandoffRlState {
         }
     }
 
-    /// Which budget (if any) is exhausted — same contract as the agent loop.
     pub fn budget_tripped(&self) -> Option<String> {
         if self.max_iters > 0 && self.handoff_count >= self.max_iters {
             return Some(format!("max rolls (/handoff-rl max {})", self.max_iters));
@@ -179,7 +153,6 @@ impl HandoffRlState {
         None
     }
 
-    /// True if another forced roll is allowed under current budgets.
     #[cfg(test)]
     pub fn can_force_roll(&self) -> Result<(), String> {
         if !self.active {
@@ -191,7 +164,6 @@ impl HandoffRlState {
         Ok(())
     }
 
-    /// Record a victory on the board with candidate ID, score, and hypothesis.
     pub fn record_victory(&mut self, candidate_id: &str, score: f64, hypothesis: &str) -> String {
         let entry = VictoryEntry {
             candidate_id: candidate_id.trim().to_string(),
@@ -210,7 +182,6 @@ impl HandoffRlState {
         }
         self.current_hypothesis = Some(entry.hypothesis.clone());
         self.victory_board.push(entry);
-        // A scored victory is an explicit submission-result receipt.
         self.pending_submit = true;
         self.last_submit_note = Some(format!("victory {} @ {:.4}", candidate_id.trim(), score));
 
@@ -232,7 +203,6 @@ impl HandoffRlState {
         )
     }
 
-    /// True after an operator-recorded victory that has not yet been rolled.
     #[cfg(test)]
     pub fn victory_demands_handoff(&self) -> bool {
         self.active
@@ -243,9 +213,6 @@ impl HandoffRlState {
                 .is_some_and(|n| n.starts_with("victory "))
     }
 
-    /// Observe one completed turn's tool receipts. Returns a demand when a
-    /// successful submit has been seen (this turn or earlier) **and** a
-    /// score/status/result receipt lands. Prose alone never triggers.
     pub fn observe_turn(
         &mut self,
         outcome_actions: &[String],
@@ -285,16 +252,13 @@ impl HandoffRlState {
         None
     }
 
-    /// Charge rough token usage (same ~chars/4 estimate as the agent loop).
     pub fn charge_tokens(&mut self, text: &str) {
         self.tokens_spent = self.tokens_spent.saturating_add(est_tokens(text));
     }
 
-    /// Status text for `/handoff-rl status`.
     pub fn status_text(&self) -> String {
         let status_str = match self.phase() {
             HandoffPhase::Active => "ACTIVE",
-            // Still armed, but the next turn boundary stops it.
             HandoffPhase::CapReached(_) => "STOPPING",
             HandoffPhase::Fresh | HandoffPhase::Stopped(_) => "INACTIVE",
         };
@@ -382,8 +346,6 @@ impl HandoffRlState {
         lines.join("\n")
     }
 
-    /// Build the forced prompt-injection payload. Increments the roll counter
-    /// and clears the pending-submit latch (consume on build).
     pub fn build_forced_injection(&mut self, candidate_summary: Option<&str>) -> String {
         self.handoff_count += 1;
         self.pending_submit = false;
@@ -395,7 +357,6 @@ impl HandoffRlState {
             .map(|s| format!("{s:.4}"))
             .unwrap_or_else(|| "unscored".to_string());
         let state = HANDOFF_STATE.cells();
-        // With no hypothesis yet, the default one is its page (`⠠⠑⠋`).
         let hyp = self
             .current_hypothesis
             .clone()
@@ -443,10 +404,6 @@ impl HandoffRlState {
                 )
             };
 
-        // Host-enforced prompt injection: not a suggestion. The cockpit wiped
-        // prior turns; this message is the sole user-facing restart payload.
-        // The handoff (`⠠⠙`) and its sequence directive (`⠠⠋`) are routes;
-        // the board state rides after its labels' addresses (`⠠⠑`).
         let note = format!(
             "{starter}\n\n\
             {handoff} roll={roll}\n\
@@ -476,13 +433,11 @@ impl HandoffRlState {
     }
 }
 
-/// Successful submit fingerprint (outcome action or costly fingerprint text).
 pub(crate) fn is_submit_action(action: &str) -> bool {
     let l = action.to_ascii_lowercase();
     l.contains("submit")
 }
 
-/// Score / status / board poll — a *result* receipt, not the submit itself.
 pub(crate) fn is_result_action(action: &str) -> bool {
     let l = action.to_ascii_lowercase();
     if is_submit_action(&l) {
@@ -496,7 +451,6 @@ pub(crate) fn is_result_action(action: &str) -> bool {
 }
 
 fn est_tokens(s: &str) -> usize {
-    // Same rough proxy the agent loop uses: ~4 chars per token.
     s.len().div_ceil(4)
 }
 

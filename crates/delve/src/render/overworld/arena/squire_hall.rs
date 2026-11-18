@@ -37,8 +37,6 @@ fn station_actions(i: usize) -> String {
     format!("{} / {} / UP", ACTIONS[i * 3], ACTIONS[i * 3 + 1])
 }
 
-// The 5x7 font normally advances six pixels for a blank. Three still leaves
-// four clear pixels beside each slash and keeps TRAIN / ROSTER / UP bounded.
 fn station_actions_width(actions: &str) -> i32 {
     text_width(actions) - actions.matches(' ').count() as i32 * 3
 }
@@ -48,7 +46,6 @@ fn station_sign(run: &Run, i: usize) -> Img {
     let mut sign = paper(108, 34);
     let title = format!("{} LV{}", STATIONS[i], [c.recruit, c.hire, c.train][i] + 1);
     sign.text((sign.w - text_width(&title)) / 2, 3, &title, 'O');
-    // Explicit separators keep the three left-to-right slab actions distinct.
     let actions = station_actions(i);
     let mut x = (sign.w - station_actions_width(&actions)) / 2;
     for word in actions.split(' ') {
@@ -65,15 +62,11 @@ fn signs(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Words live on the north wall, above a standing knight's silhouette,
-/// never on the trigger slabs. Each station names its own improvement.
 pub(super) fn yard(cv: &mut Img, _run: &Run) {
     for (i, &(c, r, w, h)) in PLATES.iter().enumerate() {
         let (x, y) = (c * TILE, r * TILE);
         fill(cv, x + 1, y + 1, w * TILE - 2, h * TILE - 2, EDGE);
         fill(cv, x + 2, y + 2, w * TILE - 4, h * TILE - 4, rgb(0x30302b));
-        // Brass chevrons distinguish improvements without a floor word
-        // that the person using it would erase. The dock spells it out.
         if i % 3 == 2 {
             cv.line(x + 10, y + 9, x + 16, y + 4, 'O');
             cv.line(x + 16, y + 4, x + 22, y + 9, 'O');
@@ -171,7 +164,6 @@ fn panel(run: &Run, id: u32, hero: &crate::rules::Hero, plate: usize) -> Panel {
                     .skip(start)
                     .take(r.squires.len().min(3))
                 {
-                    // The active squire already has the detailed lines above.
                     if Some(s.id) != r.active {
                         lines.push((
                             format!("{} {} LV{}", short_name(&s.name), s.kind.name(), s.level),
@@ -294,11 +286,7 @@ fn dock(cv: &Img, im: &Img) -> (i32, i32) {
 }
 
 pub(super) fn board(cv: &mut Img, run: &Run, focus: Option<u32>) {
-    // Sign lettering also belongs above the body layer, not under a helmet
-    // if someone walks north of the trigger slabs.
     signs(cv, run);
-    // Boards is painted after bodies. Dock in the room's native viewport,
-    // not beside a helmet; one seat never reads another seat's company.
     let reading = super::shoppers(run, focus)
         .filter(|(_, h)| h.hp > 0 && !h.absent && !h.stone)
         .filter(|(id, _)| !run.exits.outside.contains_key(id))
@@ -312,8 +300,6 @@ pub(super) fn board(cv: &mut Img, run: &Run, focus: Option<u32>) {
 }
 
 fn figure(kind: Kind, owner: u32) -> Img {
-    // The same material/owner palette as a knight, sampled to a smaller
-    // silhouette, with equipment that remains distinct without a label.
     let source = sprites::knight(owner);
     let mut im = Img::new(13, 13);
     for y in 0..10 {
@@ -349,7 +335,6 @@ fn figure(kind: Kind, owner: u32) -> Img {
             im.rect(10, 7, 2, 2, 'O');
         }
     }
-    // A sash uses exactly the owner's existing seat colour mapping.
     let sash = Img::from_rows(&["777"]).recolor(knights::realm_colours(owner));
     im.stamp(&sash, 4, 10);
     im

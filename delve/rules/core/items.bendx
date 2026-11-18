@@ -1,6 +1,3 @@
-# crates/delve/src/rules/items.rs — items as play cards a knight keeps in hand.
-
-# A Fae Dagger's blink: you are where you were aiming.
 def items.blink(h: J.Val, room: J.Val, barred: Bool) -> J.Val:
     if U32.is_zero(core.u(h, "blink")):
         return h
@@ -18,7 +15,6 @@ def items.blink(h: J.Val, room: J.Val, barred: Bool) -> J.Val:
     h = core.set_u(h, "blink", 0)
     return core.set_u(h, "invulnerable", U32.max(core.u(h, "invulnerable"), 6))
 
-# Censers pulse, and the Sceptre's immunity runs down.
 def items.Run.tick_items(run: J.Val) -> J.Val:
     pulses: [J.Val] = []
     players: J.Val = J.get(run, "players")

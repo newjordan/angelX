@@ -34,51 +34,37 @@ use std::sync::OnceLock;
 pub const TILE: i32 = 16;
 pub const SCREEN_W: i32 = 16;
 pub const SCREEN_H: i32 = 11;
-/// The authored screens' own grid: the realm as it was first drawn.
 pub const AUTHORED_X: i32 = 4;
 pub const AUTHORED_Y: i32 = 4;
-/// The authored rows (all of them now: the March is grown, not authored).
-pub const HEARTLAND_Y: i32 = AUTHORED_Y;
-/// A chunk: the cut of the map for the 3D blockout and paint pass. Biome
-/// borders and big features follow chunk edges.
 pub const CHUNK_W: i32 = 24;
 pub const CHUNK_H: i32 = 16;
 pub const CHUNKS_X: i32 = 10;
 pub const CHUNKS_Y: i32 = 11;
 pub const MAP_W: i32 = CHUNK_W * CHUNKS_X;
 pub const MAP_H: i32 = CHUNK_H * CHUNKS_Y;
-/// The realm in 16x11 screens, for views a screen at a time.
-pub const SCREENS_X: i32 = MAP_W / SCREEN_W;
-pub const SCREENS_Y: i32 = MAP_H / SCREEN_H;
-/// The kingdom's size before it opened (112 x 121), which old saves carry.
 pub const LEGACY_MAP: (i32, i32) = (112, 121);
 
-/// The chunk each authored screen stands in, row-major by authored screen;
-/// `None` for the two sea screens, whose sea the Coast grows itself.
 const SET_PIECES: [Option<(i32, i32)>; (AUTHORED_X * AUTHORED_Y) as usize] = [
-    Some((1, 1)), // (0,0) Observatory hill and the Dark Forest
-    Some((4, 1)), // (1,0) The Mines
-    Some((7, 1)), // (2,0) Dragon Keep
-    None,         // (3,0) North coast
-    Some((0, 3)), // (0,1) Gatehouse and harbour
-    Some((3, 3)), // (1,1) Castle town
-    Some((6, 3)), // (2,1) The Lists
-    Some((9, 4)), // (3,1) Repo wards
-    Some((0, 5)), // (0,2) The Swamp
-    Some((3, 5)), // (1,2) The Village
-    Some((5, 7)), // (2,2) Homecoming road and the fields
-    None,         // (3,2) South sea
-    Some((2, 5)), // (0,3) Market gardens and the School
-    Some((4, 5)), // (1,3) Artisan quarter
-    Some((5, 5)), // (2,3) Colosseum
-    Some((7, 5)), // (3,3) Knights' tournament
+    Some((1, 1)),
+    Some((4, 1)),
+    Some((7, 1)),
+    None,
+    Some((0, 3)),
+    Some((3, 3)),
+    Some((6, 3)),
+    Some((9, 4)),
+    Some((0, 5)),
+    Some((3, 5)),
+    Some((5, 7)),
+    None,
+    Some((2, 5)),
+    Some((4, 5)),
+    Some((5, 5)),
+    Some((7, 5)),
 ];
 
-/// Where the two sea screens' coordinates land, should anything name them.
 const SEA_CHUNKS: [(i32, i32); 2] = [(9, 0), (9, 7)];
 
-/// The realm tile of authored screen `(ax, ay)`'s top-left: centred in its
-/// chunk, four tiles in from each side and two from the top.
 pub fn screen_origin(ax: i32, ay: i32) -> (i32, i32) {
     let (ax, ay) = (ax.clamp(0, AUTHORED_X - 1), ay.clamp(0, AUTHORED_Y - 1));
     let (cx, cy) = SET_PIECES[(ay * AUTHORED_X + ax) as usize]
@@ -89,8 +75,6 @@ pub fn screen_origin(ax: i32, ay: i32) -> (i32, i32) {
     )
 }
 
-/// Every set piece: the authored screen and the realm tile of its top-left.
-/// None stand in the blank-slate plan.
 pub fn set_pieces() -> impl Iterator<Item = ((i32, i32), (i32, i32))> {
     let stands = super::plan::full();
     (0..AUTHORED_Y).flat_map(move |ay| {
@@ -100,9 +84,6 @@ pub fn set_pieces() -> impl Iterator<Item = ((i32, i32), (i32, i32))> {
     })
 }
 
-/// The realm's own structures, in realm tiles (`STRUCTURES` moved by
-/// [`place_tile`]): what stands inside the set pieces. None in the
-/// blank-slate plan.
 pub fn structures() -> &'static [(i32, i32, i32, i32)] {
     static IN_REALM: OnceLock<Vec<(i32, i32, i32, i32)>> = OnceLock::new();
     IN_REALM
@@ -121,15 +102,12 @@ pub fn structures() -> &'static [(i32, i32, i32, i32)] {
         .as_slice()
 }
 
-/// Whether realm tile `(x, y)` lies inside a set piece.
 pub fn in_set_piece(x: i32, y: i32) -> bool {
     set_pieces().any(|(_, (ox, oy))| {
         (ox..ox + SCREEN_W).contains(&x) && (oy..oy + SCREEN_H).contains(&y)
     })
 }
 
-/// An authored tile `(tx, ty)` moved to its place in the realm. A tile just
-/// past an authored screen's edge goes with that screen.
 pub fn place_tile(tx: i32, ty: i32) -> (i32, i32) {
     let (ax, ay) = (
         tx.div_euclid(SCREEN_W).clamp(0, AUTHORED_X - 1),
@@ -139,7 +117,6 @@ pub fn place_tile(tx: i32, ty: i32) -> (i32, i32) {
     (ox + tx - ax * SCREEN_W, oy + ty - ay * SCREEN_H)
 }
 
-/// An authored pixel point moved to its place in the realm.
 pub fn place_px(x: i32, y: i32) -> (i32, i32) {
     let (sw, sh) = (SCREEN_W * TILE, SCREEN_H * TILE);
     let (ax, ay) = (
@@ -150,9 +127,7 @@ pub fn place_px(x: i32, y: i32) -> (i32, i32) {
     (ox * TILE + x - ax * sw, oy * TILE + y - ay * sh)
 }
 
-/// Authored screens, row-major: `(ax, ay)` at index `ay * AUTHORED_X + ax`.
 const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] = [
-    // (0,0) Observatory hill and the Dark Forest
     [
         "TTTTTTTTTTTTTTTT",
         "TTTTTTT.......^^",
@@ -166,7 +141,6 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "TTTTT...=.....TT",
         "TTTTTTTT=TTTTTTT",
     ],
-    // (1,0) The Mines
     [
         "^^^^^^^^^^^^^^^^",
         "^^^^^^^..^^^^^^^",
@@ -180,7 +154,6 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "^^^^=.a..a.^^^^^",
         "^^^^=^^^^^^^^^^^",
     ],
-    // (2,0) Dragon Keep
     [
         "^^^^^^^^^^^^^^^^",
         "^^aaadaaaaaadaa^",
@@ -194,7 +167,6 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "^^^^^aaaaaa^^^^^",
         "^^^^^^^^^^^^^^^^",
     ],
-    // (3,0) North coast
     [
         "~~~~~~~~~~~~~~~~",
         "~~~~~~~~~~~~~~~~",
@@ -208,7 +180,6 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "^^^ss~~~~~~~~~~~",
         "^^^Tss~~~~~~~~~~",
     ],
-    // (0,1) Gatehouse and harbour
     [
         "~~~sTTTT=TTTTTTT",
         "~~~sT...=......T",
@@ -222,7 +193,6 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "~~~~ss........TT",
         "~~~~~sTTTTTTTTTT",
     ],
-    // (1,1) Castle town
     [
         "TTTT=TTTTTTTTTTT",
         "T...=..........T",
@@ -236,7 +206,6 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T......=.......T",
         "TTTTTTT=TTTTTTTT",
     ],
-    // (2,1) The Lists
     [
         "TTTTTTTTTTTTTTTT",
         "T..............T",
@@ -250,7 +219,6 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T......=.......T",
         "TTTTTTT=TTTTTTTT",
     ],
-    // (3,1) Repo wards
     [
         "TTTTTTTTTTTTTTTT",
         "T.............s~",
@@ -264,7 +232,6 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T.......=....ss~",
         "TTTTTTTTTTTTTss~",
     ],
-    // (0,2) The Swamp
     [
         "~~~~~~TTTTTTTTTT",
         "~~~~%%%%%%%%%%%T",
@@ -278,7 +245,6 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "~~~~~%%%%%%%TTTT",
         "~~~~~~~~TTTTTTTT",
     ],
-    // (1,2) The Village — the fleet
     [
         "TTTTTTT=TTTTTTTT",
         "T......=.......T",
@@ -290,9 +256,8 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T..............T",
         "T..............T",
         "T..............T",
-        "TTTTTTT=TTTTTTTT", // south gate into the new working precinct
+        "TTTTTTT=TTTTTTTT",
     ],
-    // (2,2) Homecoming road and the fields
     [
         "TTTTTTT=TTTTTTTT",
         "T......=.......T",
@@ -306,7 +271,6 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T......=....ss~~",
         "TTTTTTTTTTTss~~~",
     ],
-    // (3,2) South sea
     [
         "TTTTTTTTTTTss~~~",
         "TTTTTTTTsss~~~~~",
@@ -320,9 +284,6 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "~~~~~~~~~~~~~~~~",
         "~~~~~~~~~~~~~~~~",
     ],
-    // The new southern precinct. Existing screens and place coordinates stay
-    // fixed; the village's single south gate is the only original terrain edit.
-    // (0,3) Market gardens
     [
         "TTTTTTTTTTTTTTTT",
         "TT...cccc....TTT",
@@ -334,9 +295,8 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T.cccc=..cccc..T",
         "T.....=..cccc..T",
         "TT....=.......TT",
-        "TTTTTT=TTTTTTTTT", // south gate to the March
+        "TTTTTT=TTTTTTTTT",
     ],
-    // (1,3) Artisan quarter — workshops around a public market street
     [
         "TTTTTTT=TTTTTTTT",
         "T......=.......T",
@@ -348,9 +308,8 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T......=.......T",
         "T......=.......T",
         "T.cccc.=.cccc..T",
-        "TTTTTTT=TTTTTTTT", // south gate to the March
+        "TTTTTTT=TTTTTTTT",
     ],
-    // (2,3) Colosseum: clear approach along both sides to the south gate
     [
         "TTTTTTTTTTTTTTTT",
         "T..............T",
@@ -362,9 +321,8 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T.=..........=.T",
         "T.============.T",
         "T...........=..T",
-        "TTTTTTTTTTTT=TTT", // south gate to the March, clear of the sign
+        "TTTTTTTTTTTT=TTT",
     ],
-    // (3,3) Knights' tournament: the training tilt and the competitors' camp
     [
         "TTTTTTTTTTTTTTTT",
         "T..............T",
@@ -376,17 +334,15 @@ const AUTHORED: [[&str; SCREEN_H as usize]; (AUTHORED_X * AUTHORED_Y) as usize] 
         "T.=............T",
         "T.============.T",
         "T..=...........T",
-        "TTT=TTTTTTTTTTTT", // south gate to the March, clear of the sign
+        "TTT=TTTTTTTTTTTT",
     ],
 ];
 
-/// The terrain grid of the default realm.
 pub struct Realm {
     tiles: Vec<u8>,
 }
 
 impl Realm {
-    /// The default realm, built once.
     pub fn get() -> &'static Realm {
         static REALM: OnceLock<Realm> = OnceLock::new();
         REALM.get_or_init(Realm::build)
@@ -401,7 +357,6 @@ impl Realm {
         for ((ax, ay), (ox, oy)) in set_pieces() {
             for (ly, row) in Realm::authored_rows(ax, ay).iter().enumerate() {
                 for (lx, b) in row.bytes().enumerate() {
-                    // The hedge round a set piece opens onto its biome.
                     let rim = lx == 0 || ly == 0 || lx == SCREEN_W as usize - 1 || ly == SCREEN_H as usize - 1;
                     if rim && b == b'T' {
                         continue;
@@ -412,8 +367,6 @@ impl Realm {
             }
         }
         super::wild::finish(&mut tiles);
-        // The Keep and the Dragon Keep are great castles now: their walls
-        // stand on plain ground, whatever was drawn or grew inside them.
         for (foot, ground) in [(super::castles::KEEP, b'.'), (super::castles::DRAGON_KEEP, b'a')] {
             let (tx, ty, tw, th) = foot;
             for y in ty..ty + th {
@@ -426,25 +379,19 @@ impl Realm {
         Realm { tiles }
     }
 
-    /// The blank-slate realm: open meadow edge to edge
-    /// (`super::plan::tabula`). Pure: a test builds it without the global.
     pub fn tabula() -> Realm {
         Realm { tiles: super::plan::tabula::terrain() }
     }
 
-    /// Terrain at a tile; off-map reads clamp to the nearest edge tile so
-    /// edges never grow seams.
     pub fn at(&self, x: i32, y: i32) -> u8 {
         let (x, y) = (x.clamp(0, MAP_W - 1), y.clamp(0, MAP_H - 1));
         self.tiles[(y * MAP_W + x) as usize]
     }
 
-    /// Terrain under a world pixel.
     pub fn at_px(&self, wx: i32, wy: i32) -> u8 {
         self.at(wx.div_euclid(TILE), wy.div_euclid(TILE))
     }
 
-    /// An authored screen's rows, in the authored grid.
     pub fn authored_rows(ax: i32, ay: i32) -> &'static [&'static str; SCREEN_H as usize] {
         &AUTHORED[(ay.clamp(0, AUTHORED_Y - 1) * AUTHORED_X + ax.clamp(0, AUTHORED_X - 1)) as usize]
     }
@@ -454,56 +401,53 @@ pub fn walkable(t: u8) -> bool {
     matches!(t, b'=' | b':' | b'H' | b'.' | b's' | b'c' | b'a' | b'%')
 }
 
-/// Every tile a structure stands on; the knight walks around them. Road
-/// tiles inside a footprint (the gatehouse arch) stay open.
 pub const STRUCTURES: [(i32, i32, i32, i32); 44] = [
-    (22, 12, 3, 3), // keep
-    (21, 12, 1, 3), // keep turrets
+    (22, 12, 3, 3),
+    (21, 12, 1, 3),
     (25, 12, 1, 3),
-    (26, 12, 1, 2), // rookery
-    (28, 12, 2, 2), // chapel
-    (17, 12, 2, 2), // round table
-    (17, 17, 2, 2), // smithy
-    (28, 17, 2, 2), // scriptorium
-    (25, 17, 1, 1), // well
-    (20, 17, 1, 2), // market
-    (26, 20, 2, 1), // garden
-    (5, 14, 2, 2),  // gatehouse
-    (9, 2, 2, 2),   // observatory
-    (23, 1, 2, 2),  // mine mouth
-    (39, 2, 3, 3),  // dragon keep
-    (36, 19, 1, 1), // quintain
-    (41, 19, 3, 1), // standings board
-    (42, 26, 2, 2), // windmill
-    (18, 24, 2, 2), // cottages
+    (26, 12, 1, 2),
+    (28, 12, 2, 2),
+    (17, 12, 2, 2),
+    (17, 17, 2, 2),
+    (28, 17, 2, 2),
+    (25, 17, 1, 1),
+    (20, 17, 1, 2),
+    (26, 20, 2, 1),
+    (5, 14, 2, 2),
+    (9, 2, 2, 2),
+    (23, 1, 2, 2),
+    (39, 2, 3, 3),
+    (36, 19, 1, 1),
+    (41, 19, 3, 1),
+    (42, 26, 2, 2),
+    (18, 24, 2, 2),
     (21, 24, 2, 2),
     (25, 24, 2, 2),
     (28, 24, 2, 2),
-    (18, 29, 2, 2), // forge
-    (21, 29, 2, 2), // weaver
-    (24, 29, 2, 2), // cooper
-    (27, 29, 2, 2), // granary
-    (30, 29, 1, 1), // village well
-    (51, 13, 2, 2), // wards
+    (18, 29, 2, 2),
+    (21, 29, 2, 2),
+    (24, 29, 2, 2),
+    (27, 29, 2, 2),
+    (30, 29, 1, 1),
+    (51, 13, 2, 2),
     (56, 13, 2, 2),
     (58, 19, 2, 2),
-    (17, 34, 2, 2), // new artisan cottages
+    (17, 34, 2, 2),
     (20, 34, 2, 2),
     (25, 34, 2, 2),
     (28, 34, 2, 2),
-    (17, 40, 3, 2),  // smith's working bay
-    (21, 40, 2, 2),  // loom
-    (24, 40, 2, 2),  // cooper
-    (27, 40, 3, 2),  // granary
-    (30, 36, 1, 1),  // precinct well
-    (35, 34, 10, 6), // colosseum
-    (50, 34, 2, 2),  // tournament pavilions
+    (17, 40, 3, 2),
+    (21, 40, 2, 2),
+    (24, 40, 2, 2),
+    (27, 40, 3, 2),
+    (30, 36, 1, 1),
+    (35, 34, 10, 6),
+    (50, 34, 2, 2),
     (60, 34, 2, 2),
-    (60, 40, 2, 1), // tournament stable
-    (9, 34, 5, 4),  // Sloptomizer School of Magic, beside the market gardens
+    (60, 40, 2, 1),
+    (9, 34, 5, 4),
 ];
 
-/// Every place on the default realm.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Place {
     Keep,
@@ -514,19 +458,12 @@ pub enum Place {
     Chapel,
     RoundTable,
     Observatory,
-    /// The tournament ground and its quintain — the loop and the ladder.
     Lists,
-    /// Coding and competition loops: the measured-candidates path.
     Mines,
-    /// A submission in flight or an acceptance gate judging the work.
     DragonKeep,
-    /// Research and exploration loops.
     DarkForest,
-    /// Stalled loops, blocked verifiers, awaiting approval.
     Swamp,
-    /// A finished loop walking the loot home.
     Fields,
-    /// The fleet's hamlet: cottages for the heads, the forge, the granary.
     Village,
     Wards,
     ArtisanQuarter,
@@ -559,14 +496,10 @@ impl Place {
         Place::School,
     ];
 
-    /// Whether the place stands on the map the plan lays out: all of them in
-    /// the full plan, only the Keep (a tiny castle, with no door) in the
-    /// blank-slate plan.
     pub fn on_map(self) -> bool {
         super::plan::full() || self == Place::Keep
     }
 
-    /// HUD name.
     pub fn label(self) -> &'static str {
         match self {
             Place::Keep => "KEEP",
@@ -592,8 +525,6 @@ impl Place {
         }
     }
 
-    /// Footprint in tiles: `(tx, ty, tw, th)`. Regions are marked by the
-    /// tile the knight stands on.
     pub fn footprint(self) -> (i32, i32, i32, i32) {
         match self {
             Place::Keep => (22, 12, 3, 3),
@@ -620,8 +551,6 @@ impl Place {
         }
     }
 
-    /// The tile the knight stands on to work here — always on a road or open
-    /// ground in front of the door.
     pub fn stand(self) -> (i32, i32) {
         match self {
             Place::Keep => (23, 15),
@@ -647,9 +576,6 @@ impl Place {
         }
     }
 
-    /// The stand tile in the realm. In the blank-slate plan the Keep's is the
-    /// tile before the tiny castle, and a place that is not on the map stands
-    /// there too (whatever points at it points at the Keep).
     pub fn stand_world(self) -> (i32, i32) {
         if super::plan::tabula() {
             return super::plan::tabula::KEEP_STAND;
@@ -658,8 +584,6 @@ impl Place {
         place_tile(tx, ty)
     }
 
-    /// The footprint in the realm (the tiny castle's, for the Keep, in the
-    /// blank-slate plan; a place that is not on the map is the Keep's too).
     pub fn footprint_world(self) -> (i32, i32, i32, i32) {
         if super::plan::tabula() {
             return super::plan::tabula::KEEP;
@@ -669,7 +593,6 @@ impl Place {
         (x, y, tw, th)
     }
 
-    /// Which realm screen holds this place.
     pub fn screen(self) -> (i32, i32) {
         let (tx, ty) = self.stand_world();
         (tx / SCREEN_W, ty / SCREEN_H)

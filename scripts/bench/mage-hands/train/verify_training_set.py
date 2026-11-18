@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""Independent audit of the assembled Mage training dataset.
-
-Re-implements every check from the raw files on disk. It does not import the
-builder's validator, so a bug in the builder cannot validate itself.
-"""
 from __future__ import annotations
 
 import hashlib
@@ -197,9 +192,6 @@ def main(argv=None) -> int:
             keys = [(r["screen"], r["target"], tuple(r["box"]), r["answer"]) for r in loaded[split]]
             if len(keys) != len(set(keys)):
                 raise AssertionError(f"duplicate supervision rows in {split}")
-        # A label_id is an annotation, not a row: the 1x/2x/3x zoom cascade
-        # renders the same annotation several times. That is intended, but the
-        # views must agree on what is being clicked and how it is supervised.
         views = Counter()
         for split in SPLITS:
             by_id: dict[str, list[dict]] = {}

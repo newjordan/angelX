@@ -14,8 +14,6 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 IMPORT = runpy.run_path(str(ROOT / 'scripts/slot-art-import.py'))
 BANK = ROOT / 'crates/delve/assets/art-slots'
-# Art deliveries and review output live outside the checkout, under
-# ANGEL_ART_ARTIFACTS (default ~/angel-art).
 ART = Path(os.environ.get('ANGEL_ART_ARTIFACTS') or Path.home()/'angel-art')
 SOURCES = ART/'art-prod/slots'
 ROOMS = ['cinder', 'latch', 'mossbell', 'brasswake', 'rafterwake', 'pennon']
@@ -51,8 +49,6 @@ def main():
         if room:
             meta['pieces'] = [dict(index=0, source_rect_xywh=[0, 0, sheet.width, sheet.height], alpha_area=sheet.width*sheet.height)]
             meta['warnings'] = ['Opaque room: explicit full-sheet measurement; original metadata retained in provenance.']
-        # Threshold before reduction; retain the largest connected alpha body
-        # in each measured door crop, dropping detached chips and source fringe.
         pixels = list(sheet.get_flattened_data())
         pixels = [c[:3] + (255,) if c[3] >= 128 else (0, 0, 0, 0) for c in pixels]
         sheet.putdata(pixels)

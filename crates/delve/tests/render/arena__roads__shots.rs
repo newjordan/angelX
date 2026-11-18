@@ -13,7 +13,6 @@ fn save(dir: &std::path::Path, name: &str, img: &Img) {
         .unwrap();
 }
 
-/// A lone knight standing at tile `(x, y)` on the kingdom, a moment settled.
 fn at(tile: (f32, f32)) -> Run {
     let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
     run.walk_kingdom(None);
@@ -43,8 +42,6 @@ fn write_roads_shots() {
     arrival(&dir);
 }
 
-/// Four knights step down from the coach at the next halt: side by side on
-/// the apron, the lantern burning, the dust still in the air.
 fn arrival(dir: &std::path::Path) {
     let mut run = Run::at_home(41, 4, None, Default::default(), Default::default());
     for id in 2..=4 {
@@ -68,7 +65,6 @@ fn arrival(dir: &std::path::Path) {
     save(dir, "roads-11-coach-arrival", &frame_for(&run, 384, 224, Some(1)));
 }
 
-/// The signposts at a fork by a way down, and the way down's own sign.
 fn forks(dir: &std::path::Path) {
     let geo = crate::render::overworld::kingdom::geography(&[]);
     for (name, shot) in [("The Delve", "roads-08-fork-delve"), ("The Mines", "roads-09-fork-mines"), ("The Swamp", "roads-10-fork-swamp")] {
@@ -86,7 +82,6 @@ fn press(run: &mut Run, id: u32) {
     run.step(&BTreeMap::from([(id, crate::rules::Input { interact: true, ..Default::default() })]));
 }
 
-/// Knight `id` at halt `name`'s apron, beside its keeper.
 fn beside(run: &mut Run, id: u32, name: &str) {
     let i = crate::world::waystations::STOPS.iter().position(|s| s.name == name).unwrap();
     let p = crate::world::waystations::placed().iter().find(|p| p.stop == i).unwrap();
@@ -96,8 +91,6 @@ fn beside(run: &mut Run, id: u32, name: &str) {
     hero.stone = false;
 }
 
-/// A halt as a party meets it: nobody near, the keeper's key, the greeting,
-/// where to, then a rally and a coach's lantern.
 fn halts(dir: &std::path::Path) {
     let mut run = Run::at_home(41, 2, None, Default::default(), Default::default());
     run.join_seat(2, "Sir Boots");
@@ -132,7 +125,6 @@ fn halts(dir: &std::path::Path) {
         run.step(&BTreeMap::new());
     }
     save(dir, "roads-06-halt-rallied", &frame_for(&run, 384, 224, Some(1)));
-    // The party's other knight, far off, sees the arrow.
     for _ in 0..40 {
         run.step(&BTreeMap::new());
     }

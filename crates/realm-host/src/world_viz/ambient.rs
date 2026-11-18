@@ -92,7 +92,6 @@ fn matrix() -> &'static Matrix {
     })
 }
 
-// Existing material colors only: scene decoration never consumes state colors.
 const WARM: [[u8; 3]; 6] = [
     [0x78, 0x46, 0x20],
     [0x92, 0x4f, 0x1d],
@@ -119,10 +118,6 @@ pub(super) fn frame(building: Building, pose: Pose) -> RgbaImage {
     image
 }
 
-/// Apply the existing low-resolution material animation as colour deltas to
-/// the source painting. Looking for palette colours in the full-colour source
-/// would silently drop the masks; using the admitted plate keeps their exact
-/// placement, phase, reduced-motion behavior and architecture exclusions.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn detail_frame(building: Building, pose: Pose) -> RgbaImage {
     if building == Building::Observatory {
@@ -152,9 +147,6 @@ pub(super) fn detail_frame(building: Building, pose: Pose) -> RgbaImage {
     image
 }
 
-/// The Observatory's physical home for presented assets. Four held candle
-/// phases share one cached mesh; the crystal itself is steady. The detail
-/// frame supports native art review, and a hidden world requests no frames.
 fn scrying_frame(pose: Pose, detail: bool) -> &'static RgbaImage {
     static SMALL: [OnceLock<RgbaImage>; 4] = [const { OnceLock::new() }; 4];
     static LARGE: [OnceLock<RgbaImage>; 4] = [const { OnceLock::new() }; 4];
@@ -203,7 +195,6 @@ pub(super) fn animate(image: &mut RgbaImage, effects: &[Effect], pose: Pose) {
                 let rgb = [pixel[0], pixel[1], pixel[2]];
                 match effect.kind {
                     Kind::Flame => {
-                        // Gentle brightness travel inside the flame, never a whole-room pulse.
                         let phase = if pose.mode == 2 {
                             pose.phase / 2
                         } else {
@@ -220,8 +211,6 @@ pub(super) fn animate(image: &mut RgbaImage, effects: &[Effect], pose: Pose) {
                         }
                     }
                     Kind::Water if pose.mode == 2 => {
-                        // A downward highlight band repeats seamlessly every 32 source pixels.
-                        // Material masking keeps cliffs and vegetation inside the box untouched.
                         let band = (py + 32 - u32::from(pose.phase) * 2) % 32;
                         if band < 5
                             && let Some(i) = WATER.iter().position(|c| *c == rgb)
@@ -247,7 +236,6 @@ const PLATES: [&[u8]; 8] = [
     include_bytes!("../../../../cockpit/assets/realm/ambient/observatory-mountain.png"),
 ];
 
-// Same approved painting and version as each corresponding PLATES entry.
 const DETAIL_PLATES: [&[u8]; 8] = [
     include_bytes!("../../../../cockpit/assets/realm/ambient/keep-waterfall-source.png"),
     include_bytes!("../../../../cockpit/assets/realm/ambient/gatehouse-mountain-v2-source.png"),
@@ -268,8 +256,6 @@ pub(super) fn detail_plate(building: Building) -> &'static RgbaImage {
             .expect("embedded original ambient painting is valid")
             .to_rgb8();
         assert_eq!(source.dimensions(), (1340, 1174));
-        // The palette admission script center-crops to round(width / aspect)
-        // before resizing. Preserve that crop so the old masks still align.
         let crop_h = (f64::from(source.width()) * f64::from(HEIGHT) / f64::from(WIDTH))
             .round_ties_even() as u32;
         let crop = image::imageops::crop_imm(
@@ -302,8 +288,6 @@ pub(super) fn plate(building: Building) -> &'static RgbaImage {
 }
 
 impl World {
-    /// Open the assets' room immediately, even when scenery ticks are paused.
-    /// Like the school visit, this moves the view, not the working knight.
     pub fn visit_scrying_tower(&mut self) {
         self.visit_overworld("observatory");
         if let Some((_, _, label)) = self.overworld_view.as_mut() {
@@ -329,9 +313,6 @@ impl World {
         Pose::at(self.tick, motion)
     }
 
-    /// New tool traffic and operator map travel share the existing destination.
-    /// Only an admitted animation phase changes the cache; off is a true still.
-    /// The high bits keep the ambient key distinct from other scene domains.
     pub fn ambient_scene_sequence(&self, motion: MotionMode) -> u64 {
         let pose = self.ambient_pose(motion);
         let phase = if self.ambient_building() == Building::Observatory {

@@ -11,56 +11,32 @@ use angel_glass::scene::{
     Camera, Material, MeshData, MeshRef, Node, Projection, Sampling, Scene, Transform,
 };
 
-/// Decoded payload cap. Checked before the JSON tree is built.
 pub const SCENE_BYTES: usize = 1 << 20;
-/// Nodes in one scene. Under the window's own node cap.
 pub const SCENE_NODES: usize = 256;
-/// Inline vertices across one scene.
 pub const SCENE_VERTICES: usize = 4_096;
-/// Inline indices across one scene.
 pub const SCENE_INDICES: usize = 12_288;
-/// A scene target, a video frame, or a showcase panel, on a side.
 pub const SIZE_MAX: u32 = 2_048;
 
-/// A parsed scene plus the inline meshes its nodes name by index
-/// (`MeshRef::Uploaded(i)` is a placeholder until the store mints ids).
 #[derive(Debug)]
 pub struct Wired {
     pub scene: Scene,
-    /// Parallel to the placeholder upload indices.
     pub meshes: Vec<MeshData>,
-    /// The camera as the program wrote it, for tweens to move.
     pub view: View,
-    /// The nodes whose mesh is a glTF asset, to be hung with its nodes.
     pub gltf: Vec<GltfRef>,
-    /// Nodes that show a program picture on their mesh: the node's index,
-    /// the picture's program id and how it is sampled. The window's id
-    /// for it is found where the pictures are (`glass_dialect`).
     pub pictures: Vec<(usize, u32, Sampling)>,
-    /// Nodes whose mesh's groups are dressed one by one (`faces`, `edge`):
-    /// how, made into the node's `face_materials` once the pictures'
-    /// window ids are known ([`Dress::materials`]).
     pub dress: Vec<(usize, Dress)>,
 }
 
-/// A cube's or a rounded cube's groups, dressed: each face's program
-/// picture (`None`: the node's own material), and for a rounded cube its
-/// edges' material.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Dress {
-    /// Six for a cube, seven for a rounded cube (the last its edges).
     pub groups: usize,
     pub faces: Vec<Option<u32>>,
     pub edge: Option<Material>,
 }
 
-/// The most entries `faces` holds: a cube's six.
 pub const FACES: usize = 6;
 
 impl Dress {
-    /// The node's `face_materials`: face `i` its picture (the window's id
-    /// `gpu(i)` gives, read linear, tinted by the node's colour, never
-    /// chrome) or the node's own material; the edge its own, or the node's.
     pub fn materials(&self, node: &Material, gpu: impl Fn(usize) -> Option<u32>) -> Vec<Material> {
         (0..self.groups)
             .map(|g| {
@@ -81,8 +57,6 @@ impl Dress {
     }
 }
 
-/// A camera as the wire names it: where it is, what it looks at, and its
-/// field of view (perspective only).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct View {
     pub eye: [f32; 3],
@@ -91,18 +65,13 @@ pub struct View {
     pub fov: Option<f32>,
 }
 
-/// A node whose mesh is `{"kind":"gltf","asset":N}`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GltfRef {
-    /// The node's place in the scene's nodes.
     pub node: usize,
     pub asset: u32,
-    /// The asset's scene to hang; `None` for the file's own.
     pub scene: Option<u32>,
 }
 
-/// Node ids a program may name are below this; the ids above are the
-/// window's own, for an asset's nodes.
 pub const NODE_ID_LIMIT: u64 = 1 << 63;
 
 #[derive(Debug)]
@@ -117,8 +86,6 @@ impl WireError {
     }
 }
 
-/// Parse one envelope. `bytes` is the decoded payload; the caller has
-/// already enforced [`SCENE_BYTES`].
 pub fn parse(bytes: &[u8]) -> Result<Wired, WireError> {
     if bytes.len() > SCENE_BYTES {
         return Err(WireError::new("EFBIG", format!("scene payload is capped at {SCENE_BYTES} bytes")));
@@ -300,7 +267,6 @@ fn node_of(
     })
 }
 
-/// A number in 0..1, 0 when absent: `chrome`, `liquid`, an edge's `glow`.
 fn unit_of(value: Option<&serde_json::Value>, name: &str) -> Result<f32, WireError> {
     let v = f32_of(value, name, 0.0)?;
     if !(0.0..=1.0).contains(&v) {
@@ -309,10 +275,6 @@ fn unit_of(value: Option<&serde_json::Value>, name: &str) -> Result<f32, WireErr
     Ok(v)
 }
 
-/// A node's `faces` (up to six program picture ids or nulls, for a cube
-/// or a rounded cube) and `edge` (`{"color":[r,g,b,a],"glow":g}`, for a
-/// rounded cube): how its groups are dressed, or `None` when it says
-/// neither.
 fn dress_of(value: &serde_json::Value, index: usize, node: &Node) -> Result<Option<Dress>, WireError> {
     let (faces_v, edge_v) = (value.get("faces"), value.get("edge"));
     if faces_v.is_none() && edge_v.is_none() {
@@ -356,7 +318,6 @@ fn dress_of(value: &serde_json::Value, index: usize, node: &Node) -> Result<Opti
             };
             let glow = unit_of(obj.get("glow"), "edge glow")?;
             let base = &node.material;
-            // Glowing, it is its own light: unlit, as bright as it says.
             let lit = base.lit && glow <= 0.0;
             let material = Material { lit, emissive: base.emissive.max(glow), glow, liquid: base.liquid, ..Material::color(color) };
             Some(material)
@@ -365,9 +326,6 @@ fn dress_of(value: &serde_json::Value, index: usize, node: &Node) -> Result<Opti
     Ok(Some(Dress { groups, faces, edge }))
 }
 
-/// A node's `picture` (a program picture id, shown on its mesh by the
-/// mesh's uvs, tinted by its colour) and its `sampling`, `linear` (the
-/// default) or `nearest`.
 fn picture_of(value: &serde_json::Value, index: usize) -> Result<Option<(usize, u32, Sampling)>, WireError> {
     let sampling = match value.get("sampling") {
         None => Sampling::Linear,
@@ -423,7 +381,6 @@ fn mesh_of(
             if !(0.0..=0.5).contains(&radius) {
                 return Err(WireError::new("EINVAL", "mesh radius must be in 0..0.5"));
             }
-            // Kept in thousandths of a unit, so the mesh is one of a few.
             let radius = (radius * 1000.0).round().clamp(0.0, f32::from(angel_glass::scene::ROUND_RADIUS)) as u16;
             MeshRef::RoundCube { radius, segments: u16_of(obj.get("segments"), "mesh segments", 4, 1, 16)? }
         }
@@ -431,8 +388,6 @@ fn mesh_of(
     })
 }
 
-/// `{"kind":"gltf","asset":N[,"scene":k]}`: an asset `asset` uploaded,
-/// hung from this node.
 fn gltf_of(value: &serde_json::Value, index: usize) -> Result<GltfRef, WireError> {
     let obj = value.as_object().ok_or_else(|| WireError::new("EINVAL", "mesh is not a name or an object"))?;
     unknown(obj, &["kind", "asset", "scene"], "gltf mesh")?;
@@ -489,7 +444,6 @@ fn inline(
     if indices_v.len() > SCENE_INDICES || indices.saturating_add(indices_v.len()) > SCENE_INDICES {
         return Err(WireError::new("EFBIG", format!("inline indices are capped at {SCENE_INDICES}")));
     }
-    // Lengths are inside the cap: allocate only now.
     let mut positions = Vec::with_capacity(positions_v.len());
     for (i, p) in positions_v.iter().enumerate() {
         positions.push(vec3(Some(p), "position", [0.0, 0.0, 0.0]).map_err(|_| {
@@ -597,8 +551,6 @@ fn check_graph(nodes: &[Node]) -> Result<(), WireError> {
     Ok(())
 }
 
-/// The rotation of a camera at `eye` looking at `target`, `up` as near
-/// its up as can be.
 pub(crate) fn look_rotation(eye: [f32; 3], target: [f32; 3], up: [f32; 3]) -> Result<[f32; 4], WireError> {
     let forward = [target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]];
     let fl = len3(forward);
@@ -613,12 +565,9 @@ pub(crate) fn look_rotation(eye: [f32; 3], target: [f32; 3], up: [f32; 3]) -> Re
     }
     let right = scale3(right, 1.0 / rl);
     let up = cross(right, f);
-    // The camera looks down its own -Z, so its +Z in the world is -forward.
     quat_from_basis(right, up, [-f[0], -f[1], -f[2]])
 }
 
-/// The unit quaternion `a` turned toward `b` by `t`, along the shorter
-/// arc, at an even angular speed; `t` past 0..1 carries on round.
 pub fn slerp(a: [f32; 4], b: [f32; 4], t: f32) -> [f32; 4] {
     let a = angel_glass::scene::quat_normalize(a);
     let mut b = angel_glass::scene::quat_normalize(b);
@@ -760,7 +709,6 @@ fn cross(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
     ]
 }
 
-/// A pixel size the program named, `1..=SIZE_MAX` on each side.
 pub fn pixel_size(width: u32, height: u32) -> Result<(u32, u32), WireError> {
     if width == 0 || height == 0 || width > SIZE_MAX || height > SIZE_MAX {
         return Err(WireError::new(
@@ -916,7 +864,6 @@ mod tests {
         assert_eq!(edge.tint, [0.0, 1.0, 1.0, 1.0]);
         assert!(!edge.lit && edge.glow == 0.8 && edge.emissive == 0.8, "a glowing edge is its own light");
         assert_eq!(edge.liquid, 0.5, "it wobbles with its node, so the seams hold");
-        // Made into the node's materials once the pictures' ids are known.
         let node = wired.scene.nodes[0].material;
         let made = d.materials(&node, |g| [Some(40), None, Some(50)].get(g).copied().flatten());
         assert_eq!(made.len(), 7);
@@ -927,8 +874,6 @@ mod tests {
         assert_eq!(made[2].source, angel_glass::scene::TextureSource::Picture(50));
         assert!(made[3..6].iter().all(|m| *m == node), "faces past the list are the node's");
         assert_eq!(made[6], edge);
-        // A cube has six groups and no edge; an edge without a colour takes
-        // the node's, and without glow is lit as the node is.
         let (_, d) = &wired.dress[1];
         assert_eq!((d.groups, d.faces[5], d.edge), (6, Some(7), None));
         let (_, d) = &wired.dress[2];
@@ -973,7 +918,6 @@ mod tests {
             assert_eq!(err.code, *code, "{node} -> {}", err.message);
             assert!(err.message.contains(needle), "{node}: {} does not contain {needle}", err.message);
         }
-        // Not finite: JSON has no NaN, and a number past f32 is refused.
         let err = parse(br#"{"v":1,"scene":{"nodes":[{"id":1,"chrome":1e300}]}}"#).expect_err("huge");
         assert!(err.message.contains("node chrome is not finite"), "{}", err.message);
     }
@@ -985,8 +929,6 @@ mod tests {
         assert_eq!(pixel_size(8, 4).unwrap(), (8, 4));
     }
 
-    /// The demo's own scene wires, not a copy that can drift: the first
-    /// scene is a raw string, the per-frame scene a format string.
     #[test]
     fn the_demo_cube_wire_is_lit_from_the_stated_eye() {
         let source = include_str!("../../examples/glass_demo.rs");

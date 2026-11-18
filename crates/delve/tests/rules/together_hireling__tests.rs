@@ -58,8 +58,6 @@ fn hired_he_goes_down_the_stair_and_the_tab_clears() {
     assert!(!run.marks.contains_key("hired"));
 }
 
-/// A first-floor fight room, emptied and calmed, knight one and Beaumains
-/// side by side; a bat frozen in the far corner keeps the fight on.
 fn with_beaumains() -> Run {
     let mut run = down(true);
     let room = run
@@ -76,9 +74,6 @@ fn with_beaumains() -> Run {
     if let Some(bat) = run.enemies.last_mut() {
         bat.frozen = u32::MAX / 2;
     }
-    // Re-pinned 2026-11-02: the Crypt's art-pack scenery grows pillars where
-    // the old fixtures stood; stand the pair on clear floor near the room's
-    // left, or a wedged knight hires no one and throws nothing.
     let mut spot = None;
     'find: for gy in 3..20 {
         for gx in 2..8 {
@@ -100,7 +95,6 @@ fn with_beaumains() -> Run {
 #[test]
 fn he_throws_knives_at_the_nearest_monster_from_a_few_steps_off() {
     let mut run = with_beaumains();
-    // A bat a few steps off the hireling, on the same clear floor.
     let (hx, hy) = (run.hireling.as_ref().unwrap().x, run.hireling.as_ref().unwrap().y);
     run.spawn_at_for_test(EnemyKind::Bat, hx + 3.0, hy);
     let mark = run.enemies.last().unwrap().id;
@@ -172,7 +166,6 @@ fn he_follows_the_party_through_the_doors() {
 
 #[test]
 fn he_is_no_knight_of_the_party() {
-    // A guardian doesn't grow for him.
     let mut run = down(true);
     let stairs = run
         .dungeon
@@ -184,12 +177,8 @@ fn he_is_no_knight_of_the_party() {
     let boss = run.enemies.iter().find(|e| e.boss.is_some()).unwrap();
     let guardian = &run.bosses[usize::from(boss.boss.unwrap())];
     let scaled = u64::from(guardian.hp) * u64::from(run.guardian_toughness()) / 100 * u64::from(run.boss_health()) / 100;
-    // Re-pinned 2026-11-02: a guardian stands at 70% of its scaled health
-    // (the operator's boss tuning, `Run::spawn_boss`), still one knight's
-    // worth: the hireling adds nothing to it.
     let worth = (scaled * 70 / 100).max(1) as u32;
     assert_eq!(boss.max_hp, worth, "one knight's worth");
-    // And the party falls when its knights do, whether he stands or not.
     let mut run = with_beaumains();
     let hero = run.players.get_mut(&1).unwrap();
     (hero.hp, hero.winds, hero.talisman) = (0, 0, false);
@@ -220,7 +209,6 @@ fn a_ravage_throws_him_too() {
     assert!(run.hireling.as_ref().unwrap().hp < hp);
 }
 
-/// Each summoning card, the minion it calls, and that minion's cue word.
 const SUMMONS: [(&str, AllyKind); 9] = [
     ("hearth-bell", AllyKind::Brownie),
     ("rime-whistle", AllyKind::Moth),
@@ -255,7 +243,6 @@ fn orb(x: f32, y: f32, vx: f32, vy: f32) -> Projectile {
     }
 }
 
-/// The ally, moved to `(x, y)` and ready to act.
 fn ready(run: &mut Run, (x, y): (f32, f32)) {
     let hire = run.hireling.as_mut().unwrap();
     (hire.x, hire.y, hire.cooldown) = (x, y, 0);
@@ -265,7 +252,6 @@ fn ready(run: &mut Run, (x, y): (f32, f32)) {
 fn every_summoning_card_calls_its_own_minion_at_once_and_none_throws() {
     for (card, kind) in SUMMONS {
         let mut run = fight_with(false, &[card]);
-        // A bat held far off keeps the fight on, out of every minion's sight.
         foe_at(&mut run, EnemyKind::Bat, (44.0, 3.0), u32::MAX / 2);
         assert_eq!(
             run.book.get(card).and_then(Card::summon).map(|s| s.0),
@@ -303,7 +289,6 @@ fn a_minion_comes_on_the_tick_its_card_is_played_even_if_its_caller_falls() {
     foe_at(&mut run, EnemyKind::Bat, (44.0, 3.0), u32::MAX / 2);
     let hero = run.players.get_mut(&1).unwrap();
     (hero.hp, hero.winds, hero.talisman) = (1, 0, false);
-    // A second knight keeps the party standing.
     run.join("Matt");
     run.projectiles.push(orb(12.0, 12.0, 0.0, 0.0));
     play(&mut run, 1);
@@ -339,7 +324,6 @@ fn a_summons_takes_the_slot_from_a_minion_but_never_from_beaumains() {
         run.found.as_ref().map(|f| f.2.as_str()),
         Some("Beaumains will not share the road with it")
     );
-    // The other cards still play.
     run.players.get_mut(&1).unwrap().play_cooldown = 0;
     play(&mut run, 2);
     assert_eq!(run.players[&1].hand, ["rime-whistle"]);
@@ -432,7 +416,6 @@ fn a_brownie_catches_a_shot_then_rests() {
 
 #[test]
 fn a_rime_moth_freezes_for_its_cards_frost_and_a_thawed_foe_walks_free_a_while() {
-    // A friend's whistle with a longer frost: the frost is the played card's.
     let mut run = fight_with(false, &[]);
     let card = cards::check("long-whistle", "name Long Whistle\nkind play\nmoth 80\n")
         .unwrap()
@@ -444,7 +427,6 @@ fn a_rime_moth_freezes_for_its_cards_frost_and_a_thawed_foe_walks_free_a_while()
     play(&mut run, 1);
     assert_eq!(foe(&run, bat).frozen, 80, "frozen on the tick it came");
     assert!(run.cues.iter().any(|c| c == "moth_chill"));
-    // Through the frost and the thaw: never frozen again on the tick it thaws.
     let mut thawed = 0;
     for _ in 0..80 + MOTH_REST - 5 {
         run.enemies.iter_mut().for_each(|e| e.hp = e.max_hp);
@@ -518,8 +500,6 @@ fn a_wisp_and_an_ash_sprite_move_foes_only_over_open_floor() {
     ] {
         let mut run = fight_with(false, &[card]);
         play(&mut run, 1);
-        // Open floor: a skeleton held still on a clear stretch of the room
-        // is moved a step along it.
         let (x, y) = {
             let grid = Grid {
                 room: run.room(),
@@ -548,8 +528,6 @@ fn a_wisp_and_an_ash_sprite_move_foes_only_over_open_floor() {
         } else {
             assert!(after < before - 1.0, "pulled: {before} to {after}");
         }
-        // Against stone: a skeleton standing on the last floor tile before
-        // the east wall (shoved at it) or the west wall (pulled at it).
         run.enemies.clear();
         let room = run.room();
         let (cols, w) = (room.cols as i32, room.width());
@@ -671,7 +649,6 @@ fn a_leech_sips_blood_not_bone_and_mends_its_caller_by_half() {
     let mut run = fight_with(false, &["marrow-sip"]);
     play(&mut run, 1);
     ready(&mut run, (20.0, 12.0));
-    // A skeleton is nearer, but has nothing in it.
     let bones = foe_at(&mut run, EnemyKind::Skeleton, (21.0, 12.0), u32::MAX / 2);
     let imp = foe_at(&mut run, EnemyKind::Imp, (24.0, 12.0), u32::MAX / 2);
     let hero = run.players.get_mut(&1).unwrap();
@@ -681,7 +658,6 @@ fn a_leech_sips_blood_not_bone_and_mends_its_caller_by_half() {
     run.sip_for_leech(&mut hire);
     assert_eq!(foe(&run, bones).hp, bone_hp, "no blood in bone");
     assert_eq!(foe(&run, imp).hp, imp_hp - LEECH_SIP);
-    // The sip is lifesteal: it lands within the second's two, like a leech.
     let mended = stakes::landed(LEECH_SIP / 2, stakes::Mend::Party, run.players[&1].stakes)
         .min(stakes::LEECH_PER_SECOND);
     assert_eq!(
@@ -728,8 +704,6 @@ fn a_summons_belongs_on_a_play_card() {
     assert!(cards::check("x", "name X\nkind play\nlinnet 1\n").is_ok());
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_minion_shots -- --ignored`:
-/// each minion beside a knight, in a real frame, for the eye.
 #[test]
 #[ignore]
 fn write_minion_shots() {
@@ -751,7 +725,6 @@ fn write_minion_shots() {
         out.extend(img.rgb_bytes());
         std::fs::write(dir.join(format!("minion_{}.ppm", kind.word())), out).unwrap();
     }
-    // And the nine cards that call them, lying where their secrets left them.
     let mut run = fight_with(false, &[]);
     foe_at(&mut run, EnemyKind::Skeleton, (36.0, 8.0), u32::MAX / 2);
     let at = run.at;

@@ -73,7 +73,6 @@ fn heroes(n: u32) -> Heroes {
     r.players.clone()
 }
 
-/// What a run of lockstep ticks saw, to prove the scripts reached the branches they name.
 #[derive(Default)]
 struct Seen {
     ticks: u32,
@@ -167,8 +166,6 @@ fn diff(want: &Value, got: &Value, path: &str) -> Option<String> {
     }
 }
 
-/// One tick through the native rules and through the module, from the same session.
-/// `s` becomes the module's session; every part of the answer must equal the oracle's.
 fn compare(label: &str, tick: u32, s: &mut Session, inputs: &Held, heroes: &Heroes, seen: &mut Seen) {
     let before = s.clone();
     let mut native = s.clone();
@@ -187,7 +184,6 @@ fn compare(label: &str, tick: u32, s: &mut Session, inputs: &Held, heroes: &Hero
     seen.note(&before, s, &got.cues, got.leaving.len(), got.won.is_some());
 }
 
-/// The module's bot against the native one, for every seat at the table.
 fn compare_bots(label: &str, tick: u32, s: &Session, heroes: &Heroes, seen: &mut Seen) {
     for (&id, hero) in heroes.iter().filter(|(id, _)| s.seats.contains_key(id)) {
         let want = plan::bot(s, id);
@@ -262,7 +258,6 @@ fn some_note(r: &mut Rng) -> Note {
     }
 }
 
-/// A point near something a knight might want: a villager, the pot, the doors, the well, a lantern.
 fn near(r: &mut Rng, s: &Session) -> (i32, i32) {
     let ground = s.world.ground(s.clock, s.nums.day, true);
     let mut pts: Vec<(i32, i32)> = vec![town::INK_POT, town::REED_STACK, town::NORTH_DOOR, town::SOUTH_DOOR, town::WELL, town::BELL_POST];
@@ -325,8 +320,6 @@ fn knight_noise(r: &mut Rng, s: &Session, k: &mut Knight) {
     k.read = if r.chance(50) { 0 } else { r.range(0, 60) };
 }
 
-/// Scatter a session over the town's states: any hour, any phase, any Ledger, any
-/// door, wisps in every mood, knights wherever a favour may be done. It stays one a run may hold.
 fn perturb(r: &mut Rng, s: &mut Session) {
     let before = s.clone();
     s.nums.day = [3000, 3000, 1800, 2400, 6000, 4001, 1801][r.below(7) as usize];
@@ -352,7 +345,6 @@ fn perturb(r: &mut Rng, s: &mut Session) {
         0 => end - r.range(0, 3).min(end),
         1 => fin - 2 + r.range(0, 4),
         2 => (day / 2).saturating_sub(2) + r.range(0, 4),
-        // One draw for the base: separate draws could take more than it holds.
         3 => {
             let at = day * r.range(0, 2);
             at - r.range(0, 2).min(at)
@@ -469,7 +461,6 @@ fn random_inputs(r: &mut Rng, ids: &[u32]) -> Held {
     out
 }
 
-/// Some knights away or turned to stone, as a table is when people come and go.
 fn roster(r: &mut Rng, base: &Heroes) -> Heroes {
     let mut h = base.clone();
     for id in 1..=6u32 {
@@ -487,8 +478,6 @@ fn roster(r: &mut Rng, base: &Heroes) -> Heroes {
     h
 }
 
-/// Bots with a blank Ledger play whole games: the module's session against the
-/// native one every tick, and their keys against the native bots' every few.
 #[test]
 fn bots_play_whole_games_and_every_tick_agrees() {
     let mut all = Seen::default();
@@ -517,8 +506,6 @@ fn bots_play_whole_games_and_every_tick_agrees() {
     assert!(all.bots > 1000, "bot presses compared: {}", all.bots);
 }
 
-/// Noisy keys on a learned Ledger and a short day, so a few thousand ticks cross dusk, the Final
-/// Hours, a fall and a bell, at every table size.
 #[test]
 fn noisy_keys_on_a_learned_ledger_agree_every_tick() {
     let mut all = Seen::default();
@@ -546,9 +533,6 @@ fn noisy_keys_on_a_learned_ledger_agree_every_tick() {
     assert!(all.phases.len() >= 3, "{:?}", all.phases);
 }
 
-/// Thousands of random valid towns, one random-keyed tick each: every hour of the loop, every
-/// phase, every Ledger, wisps in every mood, knights beside every favour, rosters with people
-/// away, sounds still owed from before.
 #[test]
 fn random_towns_agree_after_one_tick() {
     let mut all = Seen::default();
@@ -587,8 +571,6 @@ fn random_towns_agree_after_one_tick() {
     assert!(all.notes.len() >= 8, "{:?}", all.notes);
 }
 
-/// People come and go through a long noisy loop: tabs hidden, a knight turned to stone, a late
-/// arrival who sits down at the well, the parked who return where they stood.
 #[test]
 fn knights_who_come_and_go_agree_every_tick() {
     let base = heroes(6);
@@ -620,7 +602,6 @@ fn knights_who_come_and_go_agree_every_tick() {
     assert!(seen.parked > 200 && seen.away > 20, "parked {} away {}", seen.parked, seen.away);
 }
 
-/// The module's bot presses what the native bot presses in towns it has never played itself into.
 #[test]
 fn the_module_bot_presses_what_the_native_bot_presses() {
     let mut r = Rng(0xb07_b07_b07_b07);
@@ -631,7 +612,6 @@ fn the_module_bot_presses_what_the_native_bot_presses() {
         let mut s = Session::new(&h);
         perturb(&mut r, &mut s);
         if r.chance(50) {
-            // a bot's world: the Ledger full, so every task is on the table
             s.memory.facts = 255;
             s.memory.masks = r.below(4) as u8;
         }
@@ -640,9 +620,6 @@ fn the_module_bot_presses_what_the_native_bot_presses() {
     assert!(seen.bots > 3_000, "{}", seen.bots);
 }
 
-/// A knight stood beside each villager in turn, at any hour: the Ledger lines the module
-/// writes, and the facts it learns, come from where it places the villager, and the whole
-/// session must still be the native one's (the native schedule is `folk::figure`).
 #[test]
 fn a_knight_beside_any_villager_at_any_hour_agrees() {
     let h = heroes(2);
@@ -672,9 +649,6 @@ fn percentile(sorted: &[u128], p: f64) -> u128 {
     sorted[((sorted.len() as f64 - 1.0) * p).round() as usize]
 }
 
-/// `cargo test --profile fast --bin angel -- moonfall_rules_cost --ignored --nocapture`: what a
-/// tick costs through the module at one and four seats, against the native tick, and how big
-/// the frame and the answer are. The Delve ticks at 30 Hz: 33,333 us a frame for everything.
 #[test]
 #[ignore = "measures"]
 fn moonfall_rules_cost() {
@@ -718,7 +692,6 @@ fn moonfall_rules_cost() {
             percentile(&native, 0.5)
         );
     }
-    // The bot: one call per bot per tick.
     let h = heroes(4);
     let mut s = Session::new(&h);
     let mut costs = Vec::new();

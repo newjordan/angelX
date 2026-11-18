@@ -46,67 +46,42 @@ use crate::render::overworld::Img;
 use crate::rules::Run;
 use crate::world::finds::{self, Find};
 
-/// The first id of a chunk's extra blocks' nodes, clear of its set's own.
 const EXTRA_IDS: u64 = 0x7e00_0000;
 
-/// How many runs' lots are kept made: a host's run and a seat's view of it.
 const KEPT: usize = 4;
 
-/// What a run stands in the kingdom that the chunks' sets have not.
 pub struct Lots {
-    /// Its own number: the same blocks and cuts, the same key.
     pub key: u64,
-    /// Each chunk's share, in the order of the chunks' numbers.
     pub shares: Vec<Share>,
-    /// The party's wishes' names, carved on the ground of their door rows.
     pub plaques: Vec<Plaque>,
 }
 
-/// A wish's name on the ground before it.
 #[derive(Clone)]
 pub struct Plaque {
-    /// The chunk it lies in.
     pub index: u32,
-    /// Its top-left, the kingdom's pixels.
     pub at: (i32, i32),
     pub img: Img,
 }
 
-/// One chunk's share of what a run stands.
 pub struct Share {
     pub index: u32,
-    /// Where its own set's blocks are cut away, `[x0, z0, x1, z1]` in the
-    /// kingdom's pixels: the party's lots, and where a place a wish moved stood.
     pub clear: Vec<[f32; 4]>,
-    /// What stands in it that its set has not, in the kingdom's pixels.
     pub extras: Vec<Shape>,
-    /// The tiles of its lots a building stands on.
     pub tiles: Vec<(i32, i32)>,
-    /// The box its extras fill, low and high corners.
     pub bounds: ([f32; 3], [f32; 3]),
-    /// The chunk cut, by the uncut chunk's key (`None`: nothing of it to cut).
     cut: Mutex<Option<(u64, Option<Arc<Chunk>>)>>,
-    /// The lamps its extras light (a campfire, a shrine's candle), the
-    /// kingdom's pixels: light = activity.
     pub lamps: Vec<angel_stage::set::SetLamp>,
-    /// Its extras as a set of their own (`set lots`), for a page across a
-    /// wire to fill lit as it fills a chunk (the accents of a lit window or
-    /// a fire kept), and that set's number.
     pub text: Arc<str>,
     pub key: u64,
     lines: Vec<String>,
-    /// Its extras lit and toned (the realm), by the key of the chunk.
     lit: Mutex<Option<(u64, Arc<Vec<Node>>)>>,
 }
 
 impl Lots {
-    /// Chunk `index`'s share, if anything stands in it or is cut from it.
     pub fn share(&self, index: u32) -> Option<&Share> {
         self.shares.binary_search_by_key(&index, |s| s.index).ok().map(|i| &self.shares[i])
     }
 
-    /// Chunk `chunk` as this run draws it: cut where a lot clears it, else
-    /// as it is.
     pub fn chunk(&self, chunk: &Arc<Chunk>) -> Arc<Chunk> {
         match self.share(chunk.index) {
             Some(share) => share.cut(chunk),
@@ -114,13 +89,10 @@ impl Lots {
         }
     }
 
-    /// Whether nothing stands and nothing is cut.
     pub fn is_empty(&self) -> bool {
         self.shares.is_empty() && self.plaques.is_empty()
     }
 
-    /// Lay the party's names on `img` (whose top-left is the kingdom's
-    /// pixel `origin`), those in the chunks `laid` says.
     pub fn lay_plaques(&self, img: &mut Img, origin: (i32, i32), laid: &dyn Fn(u32) -> bool) {
         for p in self.plaques.iter().filter(|p| laid(p.index)) {
             img.stamp(&p.img, p.at.0 - origin.0, p.at.1 - origin.1);
@@ -129,10 +101,6 @@ impl Lots {
 }
 
 impl Share {
-    /// Chunk `chunk` (this share's) with what its set stands where this share
-    /// clears cut away: its set's lines there commented out, a box's pieces
-    /// off the cleared ground after it. The same chunk when nothing of it stands
-    /// there. Made once a chunk.
     pub fn cut(&self, chunk: &Arc<Chunk>) -> Arc<Chunk> {
         let mut kept = self.cut.lock().unwrap_or_else(|e| e.into_inner());
         if let Some((key, cut)) = kept.as_ref()
@@ -181,10 +149,6 @@ impl Share {
         any.then(|| lines.join("\n") + "\n")
     }
 
-    /// Its extras as the realm draws them (docs/REALM-MONOLITH.md): each its
-    /// kind's tone, lit; a fire or a window an accent in its own colour; in
-    /// the kingdom's world (unplaced), ids clear of chunk `chunk`'s own.
-    /// Made once a chunk.
     pub fn lit(&self, chunk: &Chunk) -> Arc<Vec<Node>> {
         let mut kept = self.lit.lock().unwrap_or_else(|e| e.into_inner());
         if let Some((key, nodes)) = kept.as_ref()
@@ -218,9 +182,6 @@ impl Share {
 
 }
 
-/// Whether a shape that is not a box, its footprint `foot`, stands on
-/// cleared ground `r`: its middle on it, or well over its edge (a crown
-/// spilling a hair over the lot's edge stays).
 fn stands_on(foot: [f32; 4], r: [f32; 4]) -> bool {
     let middle = [(foot[0] + foot[2]) / 2.0, (foot[1] + foot[3]) / 2.0];
     let inside = middle[0] > r[0] && middle[0] < r[2] && middle[1] > r[1] && middle[1] < r[3];
@@ -228,14 +189,9 @@ fn stands_on(foot: [f32; 4], r: [f32; 4]) -> bool {
     inside || over
 }
 
-// ----------------------------------------------------------- the pieces ----
-
-/// One thing a run stands: the chunk it stands in, its blocks (the
-/// kingdom's pixels), the ground it clears, and the tiles it stands on.
 #[derive(Clone, Debug, Default)]
 struct Piece {
     chunk: (i32, i32),
-    /// Its blocks as set lines (the realm's, `realm_mono::Piece::line`).
     lines: Vec<String>,
     clear: Vec<[f32; 4]>,
     tiles: Vec<(i32, i32)>,
@@ -243,7 +199,6 @@ struct Piece {
 }
 
 impl Piece {
-    /// A piece of what the realm stands (`realm_place::Stood`).
     fn stood(chunk: (i32, i32), stood: super::realm_place::Stood) -> Self {
         Piece {
             chunk,
@@ -254,9 +209,6 @@ impl Piece {
     }
 }
 
-/// The kit piece that stands for wish `wish` on a building footprint of
-/// `foot` tiles: the first of its name's words, then of its words in its
-/// maker's own, that names something the kit builds; else by its size.
 pub fn kit_for(wish: &Wish, foot: (i32, i32)) -> Kit {
     const TABLE: &[(&[&str], Kit)] = &[
         (&["beacon", "tower", "spire", "watchtower", "turret", "lookout"], Kit::Tower),
@@ -288,8 +240,6 @@ pub fn kit_for(wish: &Wish, foot: (i32, i32)) -> Kit {
     })
 }
 
-/// Its blocks as shapes, read as a set reads them (each line as the set
-/// file's: the chunks' sets and these agree to the pixel).
 fn shapes_of(lines: &[String]) -> Vec<Shape> {
     let mut text = String::from("set lots\ncamera room 16 16\n");
     for l in lines {
@@ -305,8 +255,6 @@ fn shapes_of(lines: &[String]) -> Vec<Shape> {
     }
 }
 
-/// What the party's wishes stand, and where their places a wish moved
-/// stand now. Made once a set of wishes (the lots' search scans the wild).
 fn built(wishes: &Arc<Vec<Wish>>) -> Arc<(Vec<Piece>, Vec<Plaque>)> {
     type Kept = Mutex<VecDeque<(Arc<Vec<Wish>>, Arc<(Vec<Piece>, Vec<Plaque>)>)>>;
     static MADE: Kept = Mutex::new(VecDeque::new());
@@ -334,7 +282,6 @@ fn build_wishes(wishes: &[Wish]) -> (Vec<Piece>, Vec<Plaque>) {
     let land = Land::of(&geo);
     let bare = kingdom::land();
     let mut pieces = Vec::new();
-    // A place a wish moved: cut where it stood, stood where it stands.
     let same = |a: &Build, b: &Build| a.kit == b.kit && a.foot == b.foot;
     let terrain = super::realm_ground::terrain();
     for b in land.builds.iter().filter(|b| !bare.builds.iter().any(|o| same(o, b))) {
@@ -350,7 +297,6 @@ fn build_wishes(wishes: &[Wish]) -> (Vec<Piece>, Vec<Plaque>) {
     let mut plaques = Vec::new();
     for (wish, lot) in wishes.iter().zip(lots.iter()) {
         let Some(lot) = lot else { continue };
-        // The building on its rows, its door row open before it.
         let foot = (lot.tx, lot.ty, lot.tw, (lot.th - 1).max(1));
         let seed = crate::render::overworld::ink::hash(lot.tx * 7 + lot.tw, lot.ty * 5 + lot.th, 983);
         let b = Build { name: wish.name.clone(), place: None, kit: kit_for(wish, (foot.2, foot.3)), foot, face: Face::South, seed };
@@ -373,8 +319,6 @@ fn tiles_of((c, r, w, h): blockout::Rect) -> Vec<(i32, i32)> {
     (r..r + h).flat_map(|y| (c..c + w).map(move |x| (x, y))).collect()
 }
 
-/// The kit piece a find stands as, its footprint's width and depth (the
-/// kingdom's pixels), and how far its middle is from its tile's.
 pub fn find_piece(kind: finds::Kind) -> (Kit, f32, f32, f32) {
     use finds::Kind as F;
     match kind {
@@ -389,9 +333,6 @@ pub fn find_piece(kind: finds::Kind) -> (Kit, f32, f32, f32) {
     }
 }
 
-/// Find `find` (number `i` of the run's, found or not) standing on its tile,
-/// as its flat art stands it there, its foot on the tile's foot, in the
-/// realm's language (`realm_place::find`).
 fn find_blocks(find: &Find, i: usize, found: bool) -> Piece {
     let (_, w, d, dx) = find_piece(find.kind);
     let t = TILE;
@@ -401,8 +342,6 @@ fn find_blocks(find: &Find, i: usize, found: bool) -> Piece {
     Piece::stood(chunk, super::realm_place::find(find.kind, foot, 0x5eed ^ i as u32, found))
 }
 
-/// The herald's two answer posts (`rules::crown::herald`), while he is out:
-/// a timber post, its crossbar and the board hung from it.
 fn herald_posts(wishes: &[Wish]) -> Vec<Piece> {
     let geo = crate::world::kingdom::geography(wishes);
     let Some((_, posts)) = crate::rules::crown::herald(&geo) else {
@@ -427,23 +366,16 @@ fn herald_posts(wishes: &[Wish]) -> Vec<Piece> {
         .collect()
 }
 
-/// The Great Shaft's head on the Delve gate's crown, at the tier the run has
-/// raised the shaft to (`rules::stockyard`): one more piece the chunk's own set
-/// has not, stood as its heap's, in the chunk the gate is in.
 fn shaft_head(tier: crate::rules::stockyard::Tier) -> Piece {
-    // The chunks are made with no wishes, so the gate is where they stand it.
     let geo = crate::world::kingdom::geography(&[]);
     let gate = chunks::delve_gate_on(&geo);
     let chunk = (gate.foot.0.div_euclid(chunks::CHUNK.0), gate.foot.1.div_euclid(chunks::CHUNK.1));
     Piece::stood(chunk, super::realm_place::shaft_head(&gate, tier))
 }
 
-/// What the run is made from, to keep its lots by.
 #[derive(Clone, PartialEq)]
 struct Made {
     tier: crate::rules::stockyard::Tier,
-    /// The industry is the hillside kingdom: its own lift is a building of the works
-    /// (`works_kit`, a piece a tier), and this head would be a second at the gate.
     hill: bool,
     wishes: Arc<Vec<Wish>>,
     finds: Vec<(usize, Find)>,
@@ -451,9 +383,6 @@ struct Made {
     herald: bool,
 }
 
-/// What run `run` stands in the kingdom that the chunks' sets have not
-/// (made once for what it is made from, [`KEPT`] kept); `None` when it
-/// stands nothing.
 pub fn of(run: &Run) -> Option<Arc<Lots>> {
     type Kept = Mutex<VecDeque<(Made, Option<Arc<Lots>>)>>;
     static KEPT_LOTS: Kept = Mutex::new(VecDeque::new());
@@ -490,12 +419,8 @@ pub fn of(run: &Run) -> Option<Arc<Lots>> {
     lots
 }
 
-/// The pieces dealt out to their chunks: each piece's blocks to the chunk it
-/// stands in, the ground it clears to every chunk whose blocks may stand on
-/// it (a crown spills over its chunk's edge), its tiles to the chunk each is in.
 fn assemble(pieces: Vec<Piece>, plaques: Vec<Plaque>) -> Lots {
     let mut shares: Vec<Share> = Vec::new();
-    // Chunk `index`'s share's place in `shares`, a new one if it has none.
     fn share(shares: &mut Vec<Share>, index: u32) -> usize {
         match shares.binary_search_by_key(&index, |s| s.index) {
             Ok(i) => i,
@@ -577,11 +502,6 @@ fn assemble(pieces: Vec<Piece>, plaques: Vec<Plaque>) -> Lots {
     Lots { key, shares, plaques }
 }
 
-// ------------------------------------------------------------ proofs ----
-
-/// A wish as a `.wish` file of the realm's catalog says it
-/// (`cockpit/assets/realm/wishes/`): `name`, `words`, `near`, then `art`
-/// and its rows. Built, raised `raised`.
 #[cfg(any(test, feature = "testing"))]
 pub fn read_wish(id: &str, text: &str, raised: u32) -> Option<Wish> {
     let mut wish = Wish {
@@ -617,9 +537,6 @@ pub fn read_wish(id: &str, text: &str, raised: u32) -> Option<Wish> {
     (!wish.name.is_empty() && !wish.art.is_empty()).then_some(wish)
 }
 
-/// The realm's catalog wishes of `ids` (`cockpit/assets/realm/wishes/`), as
-/// built, each wished beside `near`, raised in that order: the party's lots
-/// for a proof.
 #[cfg(any(test, feature = "testing"))]
 pub fn proof_wishes(ids: &[&str], near: &str) -> Vec<Wish> {
     let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../cockpit/assets/realm/wishes");

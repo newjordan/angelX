@@ -191,7 +191,7 @@ fn blocked_retry_respects_pacing_manual_pause_stop_and_interrupt() {
         for command in ["pause", "stop", "interrupt"] {
             let mut app = crate::seed_preview_app();
             app.loop_ctl = running(root);
-            app.loop_ctl.iteration = 2; // provider error coincides with the watchdog threshold
+            app.loop_ctl.iteration = 2;
             let before = Instant::now();
             app.loop_harvest_error_with_tools(
                 "HTTP 402: billing not configured".into(),

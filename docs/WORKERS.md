@@ -46,6 +46,13 @@ records. A worker failure is shown as an unavailable report.
 apply. Graph writers share one process lease. Conductor hands its graph and
 ledger paths to child workers and reloads their completed writes.
 
+`--out` redirects tick artifacts, not the shared graph. The repo-dossier compiler
+also uses `<out>/graph.json` when no graph override is configured; its lease uses
+that same target. Empty or missing `--graph` operands are usage errors. Dossier
+and Habitsmith support `--dry-run`: mining, compilation and proposal previews do
+not write graphs, drafts, budgets or worker state, and do not acquire a graph
+lease. A refresh preview passes freshly mined facts to its next phase in memory.
+
 `/cut` runs its read-only report module on demand and requires Node.js. It reads the authored manifest but never prints the
 authored bodies. The native host still owns capture and verification; the report
 does not change evidence or the graph. Each report has a 10-second deadline,

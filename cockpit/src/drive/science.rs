@@ -13,24 +13,18 @@
 //! replaceable analysis module is invoked per request; it receives no ambient
 //! credentials and its implementation does not make network calls.
 
-#![allow(dead_code)] // wired incrementally: parsers + synthesis land before the tool/MCP surface.
+#![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 #[cfg(test)]
 use std::time::Duration;
 
-/// Public literature responses are metadata, never an unbounded download.
-/// Twenty-five records from any supported index fit comfortably beneath this
-/// ceiling, while a broken or hostile endpoint cannot consume arbitrary RAM.
 const SCIENCE_RESPONSE_MAX_BYTES: usize = 2 * 1024 * 1024;
 const MAX_TITLE_CHARS: usize = 500;
 const MAX_AUTHOR_CHARS: usize = 160;
 pub(crate) const MAX_QUERY_CHARS: usize = 500;
 
-/// A private copy of the complete currently declared JS dependency set.
-/// All workers for one synthesis use these exact bytes, even when the source
-/// files are edited while requests are running. Drop removes the generation.
 #[derive(Debug)]
 struct ScienceSnapshot {
     generation: crate::platform::worker_snapshot::Snapshot,
@@ -50,9 +44,6 @@ enum ExtractionProtocol {
     Batch,
 }
 
-/// Identity of the shipped v1 entry point, before capability negotiation was
-/// introduced. Unknown entry points must identify themselves explicitly; a
-/// generic worker failure is never mistaken for the older protocol.
 const LEGACY_ENTRY_SHA256: &str =
     "2e6ed05d3a64b2f2c0a6a568595ee1063a297fdf2fb75fbcd8e5312e8eeb3f59";
 
@@ -75,9 +66,6 @@ impl ScienceSnapshot {
             generation,
             protocol,
         });
-        // Import the staged dependency set and exercise a side-effect-free
-        // empty fold before admitting network work. This is a readiness probe,
-        // not a guarantee about arbitrary future inputs.
         match snapshot.protocol {
             ExtractionProtocol::Legacy => {
                 let probe: Vec<usize> =
@@ -114,17 +102,11 @@ impl ScienceSnapshot {
     }
 }
 
-/// A scientific literature index we can query. Each maps to one free JSON API.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum Source {
-    /// OpenAlex — 250M+ works, open catalog, no key. The spine of the fan-out.
     OpenAlex,
-    /// Crossref — DOI registration metadata, strong on venues and references.
     Crossref,
-    /// Semantic Scholar — CS/ML-strong graph, carries influential-citation signal.
     SemanticScholar,
-    /// Europe PMC — biomedical + life sciences, key-less JSON. Broadens the fan
-    /// beyond the ML-heavy indices into biology, chemistry and clinical work.
     EuropePmc,
 }
 
@@ -147,7 +129,6 @@ impl Source {
         }
     }
 
-    /// Every source the bench fans a query across.
     pub(crate) fn all() -> [Source; 4] {
         [
             Source::OpenAlex,
@@ -158,13 +139,11 @@ impl Source {
     }
 }
 
-/// One work, normalized across sources so the folder can dedupe and rank them.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Paper {
     pub(crate) title: String,
     pub(crate) authors: Vec<String>,
     pub(crate) year: Option<u32>,
-    /// Bare DOI, lowercased, no `https://doi.org/` prefix — the dedupe key.
     pub(crate) doi: Option<String>,
     pub(crate) url: Option<String>,
     pub(crate) citations: u64,
@@ -172,11 +151,6 @@ pub(crate) struct Paper {
 }
 
 impl Paper {
-    /// Dedupe identity: the DOI when we have one; otherwise a composite of
-    /// title + first author + year. A bare-title key silently merges distinct
-    /// works that share a generic or degenerate title, so DOI-less records key
-    /// on more than the title, and a title that squashes to nothing keys
-    /// uniquely rather than collapsing every empty-title record into one.
     fn key(&self) -> String {
         if let Some(doi) = self.doi.as_deref().and_then(normalize_doi) {
             return format!("doi:{doi}");
@@ -197,8 +171,6 @@ impl Paper {
         format!("t:{title}|a:{first_author}|y:{}", self.year.unwrap_or(0))
     }
 
-    /// A citation-safe locator. Cached records are revalidated here as well as
-    /// at ingestion so an older or manually edited cache cannot inject a link.
     fn citation_locator(&self) -> Option<CitationLocator> {
         if let Some(doi) = self.doi.as_deref().and_then(normalize_doi) {
             return Some(CitationLocator::Doi(format!("https://doi.org/{doi}")));
@@ -209,7 +181,6 @@ impl Paper {
             .map(CitationLocator::Source)
     }
 
-    /// A one-line digest with an attributable, validated citation locator.
     pub(crate) fn line(&self) -> String {
         let safe_authors = self
             .authors
@@ -248,25 +219,19 @@ enum CitationLocator {
     Source(String),
 }
 
-/// The folded result of a fan-out: the ranked reading list plus which sources
-/// answered, ready to render or hand to the model.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct Synthesis {
     pub(crate) query: String,
     pub(crate) papers: Vec<Paper>,
     pub(crate) sources_hit: Vec<Source>,
     pub(crate) notes: Vec<String>,
-    /// Pre-deduplication candidates retain enough evidence to re-rank a cached
-    /// search under the next policy generation. Old cache files omit them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     candidates: Option<Vec<Paper>>,
-    /// Per-request immutable code generation; never persisted in the cache.
     #[serde(skip)]
     snapshot: Option<std::sync::Arc<ScienceSnapshot>>,
 }
 
 impl Synthesis {
-    /// A compact plaintext digest — the reading list, one paper per line.
     pub(crate) fn digest(&self, limit: usize) -> String {
         let mut out = format!(
             "synthesis · \"{}\" · {} works\n",
@@ -280,9 +245,6 @@ impl Synthesis {
     }
 }
 
-/// Fan `query` across every [`Source`], fold into one deduplicated, ranked
-/// reading list. A source that errors is noted and skipped — a down index
-/// degrades the result, it never fails the call.
 pub(crate) fn synthesize(query: &str, per_source: usize) -> Synthesis {
     synthesize_impl(query, per_source, &|source, query, limit, snapshot| {
         search(source, query, limit, snapshot).map(SourcePayload::Raw)
@@ -290,9 +252,7 @@ pub(crate) fn synthesize(query: &str, per_source: usize) -> Synthesis {
 }
 
 enum SourcePayload {
-    /// The native HTTP worker returns parsed but otherwise untrusted metadata.
     Raw(serde_json::Value),
-    /// Offline test injection retains the same fan-out seam without network IO.
     #[cfg(test)]
     Papers(Vec<Paper>),
 }
@@ -302,11 +262,6 @@ enum SourceWorkerOutcome {
     Panicked,
 }
 
-/// Injected fan-out core. Exactly one scoped worker owns each fixed source;
-/// every worker is joined, then outcomes are reduced in [`Source::all`] order.
-/// That keeps diagnostics and source provenance deterministic even when the
-/// network completes in reverse order. A worker panic is source-attributed and
-/// degraded like any other unavailable index rather than unwinding the tool.
 #[cfg(test)]
 fn synthesize_with<F>(query: &str, per_source: usize, searcher: &F) -> Synthesis
 where
@@ -358,8 +313,6 @@ where
             .collect::<Vec<_>>()
     });
 
-    // Keep outcomes in source order. Raw bodies are mapped together after all
-    // native HTTP workers have completed; this module performs no HTTP calls.
     let mut ordered = Vec::with_capacity(outcomes.len());
     let mut batch = Vec::new();
     for (source, outcome) in outcomes {
@@ -389,8 +342,6 @@ where
         ordered.push((source, result));
     }
     if !batch.is_empty() && snapshot.protocol == ExtractionProtocol::Legacy {
-        // The exact previously shipped entry point is known to support the
-        // single-source protocol. Do not retry generic batch failures here.
         for (index, source, count, body) in batch.drain(..) {
             let result = science_worker(
                 &snapshot,
@@ -476,8 +427,6 @@ where
     }
 }
 
-/// Fold via a replaceable policy module. The native host owns each paper,
-/// its citation validation and identity; the worker returns indices only.
 #[cfg(test)]
 fn fold(papers: Vec<Paper>) -> Result<Vec<Paper>, String> {
     let snapshot = ScienceSnapshot::load()?;
@@ -552,8 +501,6 @@ fn science_worker_limited<T: serde::de::DeserializeOwned>(
     serde_json::from_slice(&output).map_err(|e| format!("invalid science module result: {e}"))
 }
 
-/// Query one source. Networked; the pure `parse_*` folders below carry the
-/// logic and are what the tests exercise.
 fn search(
     src: Source,
     query: &str,
@@ -585,11 +532,6 @@ fn search(
         .call()
         .map_err(|e| e.to_string())?;
     let body = read_bounded_json(response.into_reader(), SCIENCE_RESPONSE_MAX_BYTES)?;
-    // Distinguish schema drift or a 200 error-envelope (the expected result
-    // container is absent) from a legitimate empty result set (container present
-    // but empty). The former is a degraded source worth a note, not a silent
-    // "no matches" — [`synthesize_with`] folds the Err into the briefing's
-    // skipped-sources line.
     if !result_container_present(src, &body) {
         return Err(format!(
             "unexpected response shape (missing `{}`)",
@@ -599,8 +541,6 @@ fn search(
     Ok(body)
 }
 
-/// The JSON path each source's result array lives at — used to explain a
-/// schema-drift skip and to tell "container missing" from "container empty".
 fn container_key(src: Source) -> &'static str {
     match src {
         Source::OpenAlex => "results",
@@ -620,8 +560,6 @@ fn result_container_present(src: Source, v: &serde_json::Value) -> bool {
     container.is_some_and(serde_json::Value::is_array)
 }
 
-/// A module can select source fields but never creates a trusted citation:
-/// the native host validates every returned identifier and sanitizes all text.
 #[derive(Deserialize)]
 struct ExtractedPaper {
     title: Option<String>,
@@ -678,8 +616,6 @@ fn parse_papers_with(
     admit_extracted(source, extracted, record_count)
 }
 
-/// Preserve integer identities before the JavaScript boundary. Provider years
-/// and citation counts stay exact even above JavaScript's safe integer range.
 fn prepare_provider_body(source: Source, body: &mut serde_json::Value) -> Option<usize> {
     let records = source_records_mut(source, body)?;
     let record_count = records.len();
@@ -708,8 +644,6 @@ fn prepare_provider_body(source: Source, body: &mut serde_json::Value) -> Option
     Some(record_count)
 }
 
-/// Convert untrusted module output using the same native limits and citation
-/// validation as the single-provider path.
 fn admit_extracted(
     source: Source,
     extracted: Vec<ExtractedPaper>,
@@ -764,7 +698,6 @@ fn admit_extracted(
     Ok(papers)
 }
 
-// Existing offline parser fixtures use these compatibility names.
 #[cfg(test)]
 fn parse_openalex(v: &serde_json::Value) -> Vec<Paper> {
     parse_papers(Source::OpenAlex, v).expect("science extraction")
@@ -782,23 +715,15 @@ fn parse_europepmc(v: &serde_json::Value) -> Vec<Paper> {
     parse_papers(Source::EuropePmc, v).expect("science extraction")
 }
 
-/// Plausible publication-year band. The module deliberately avoids the wall
-/// clock (see [`Paper::score`]), so this is a fixed band, not `now()`: it only
-/// has to reject a corrupt or hostile future/ancient year that would otherwise
-/// collapse the recency signal and hijack the "freshest" anchor.
 const MIN_PLAUSIBLE_YEAR: u32 = 1500;
 const MAX_PLAUSIBLE_YEAR: u32 = 2100;
 
-/// Accept a year only within the plausible band; anything else is dropped to
-/// `None` (unknown) rather than trusted.
 fn sane_year(y: u64) -> Option<u32> {
     u32::try_from(y)
         .ok()
         .filter(|y| (MIN_PLAUSIBLE_YEAR..=MAX_PLAUSIBLE_YEAR).contains(y))
 }
 
-/// Normalize a DOI only when it follows the DOI handbook's practical ASCII
-/// shape: `10.` plus a 4–9 digit registrant and a non-empty safe suffix.
 fn normalize_doi(raw: &str) -> Option<String> {
     let raw = raw.trim();
     let lower = raw.to_ascii_lowercase();
@@ -829,9 +754,6 @@ fn normalize_doi(raw: &str) -> Option<String> {
     Some(doi.to_string())
 }
 
-/// Admit only the fixed HTTPS record family owned by the declared source.
-/// Query strings, fragments, credentials, ports, and ambiguous paths are not
-/// useful citations and are rejected rather than echoed into a tool result.
 fn trusted_source_url(source: Source, raw: &str) -> Option<String> {
     let parsed = url::Url::parse(raw.trim()).ok()?;
     if parsed.scheme() != "https"
@@ -886,8 +808,6 @@ fn valid_record_path(value: &str) -> bool {
     !value.is_empty() && value.len() <= 512 && value.split('/').all(valid_record_component)
 }
 
-/// Keep one terminal row per record even when an upstream index contains
-/// control characters, bidi overrides, zero-width separators, or huge fields.
 pub(crate) fn sanitize_metadata(raw: &str, max_chars: usize) -> String {
     let without_controls: String = raw
         .chars()
@@ -935,7 +855,6 @@ fn read_bounded_json(reader: impl Read, max_bytes: usize) -> Result<serde_json::
     serde_json::from_slice(&bytes).map_err(|e| format!("invalid JSON response: {e}"))
 }
 
-/// Squash a title to a dedupe key: lowercase alphanumerics only, no spaces.
 fn normalize_title(t: &str) -> String {
     t.chars()
         .filter(|c| c.is_alphanumeric())
@@ -943,8 +862,6 @@ fn normalize_title(t: &str) -> String {
         .collect()
 }
 
-/// Minimal percent-encoding for a query string — enough for the fan-out URLs
-/// without pulling in a URL crate. Spaces → `+`, anything non-unreserved → `%XX`.
 fn urlencode(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
@@ -959,20 +876,10 @@ fn urlencode(s: &str) -> String {
     out
 }
 
-// ─── persistence: a TTL cache so repeat queries are instant and offline ──────
-
-/// Where synthesis results memoize (`~/.angelX/science/<hash>.json`). `None`
-/// outside a HOME, so unit-test worlds never touch the disk.
 fn cache_dir() -> Option<std::path::PathBuf> {
     std::env::var_os("HOME").map(|h| std::path::Path::new(&h).join(".angelX").join("science"))
 }
 
-/// Synthesize with a disk cache: a fresh hit (younger than `ttl_secs`) returns
-/// without touching the network. Falls straight through to [`synthesize`] when
-/// there is no HOME or the cache is stale/missing. Only a *complete* fan-out is
-/// memoized (non-empty AND no skipped/errored source): a total whiff never
-/// sticks, and a partial outage (some indices momentarily down) is not pinned as
-/// a thin reading list for the full TTL — it is re-tried next call.
 pub(crate) fn synthesize_cached(query: &str, per_source: usize, ttl_secs: u64) -> Synthesis {
     let key = format!("{:016x}", fnv1a_str(&format!("{per_source}:{query}")));
     let path = cache_dir().map(|d| d.join(format!("{key}.json")));
@@ -1011,7 +918,6 @@ pub(crate) fn synthesize_cached(query: &str, per_source: usize, ttl_secs: u64) -
     syn
 }
 
-/// A cached [`Synthesis`] iff the file exists and its mtime is within `ttl_secs`.
 fn read_fresh(path: &std::path::Path, ttl_secs: u64) -> Option<Synthesis> {
     let age = std::fs::metadata(path)
         .ok()?
@@ -1025,16 +931,11 @@ fn read_fresh(path: &std::path::Path, ttl_secs: u64) -> Option<Synthesis> {
     serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()
 }
 
-/// How long a cache entry may sit before the opportunistic prune removes it.
-/// Far past the read TTL (1h) — this is a disk-hygiene horizon, not freshness.
 const CACHE_PRUNE_SECS: u64 = 7 * 24 * 3600;
 
 fn write_cache(path: &std::path::Path, syn: &Synthesis) {
     if let Some(dir) = path.parent() {
         let _ = std::fs::create_dir_all(dir);
-        // Piggyback disk hygiene on the write (never on the hot read path):
-        // entries older than the horizon are dead — the TTL expired days ago —
-        // so the cache dir can't accumulate one file per query forever.
         prune_stale(dir, CACHE_PRUNE_SECS);
     }
     if let Ok(raw) = crate::platform::secrets::to_redacted_vec(syn) {
@@ -1042,8 +943,6 @@ fn write_cache(path: &std::path::Path, syn: &Synthesis) {
     }
 }
 
-/// Delete `.json` cache entries in `dir` older than `horizon_secs`. Best-effort:
-/// any IO error skips the file — hygiene must never fail a synthesis.
 fn prune_stale(dir: &std::path::Path, horizon_secs: u64) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
@@ -1073,8 +972,6 @@ fn fnv1a_str(s: &str) -> u64 {
     h
 }
 
-// Analysis and briefing are loaded per invocation. The host formats each
-// citation first so a worker cannot bypass the native URL/DOI checks.
 #[derive(Deserialize)]
 struct ScienceAnalysis {
     brief: String,
@@ -1156,8 +1053,6 @@ impl Synthesis {
     }
 }
 
-/// The `/science <query>` command body: synthesize (cached, 1h TTL) and return a
-/// briefing. No query → usage. Mirrors `crate::drive::habits::run`.
 pub(crate) fn run(arg: Option<&str>) -> String {
     let Some(query) = arg.map(str::trim).filter(|q| !q.is_empty()) else {
         return "usage: /science <query>\n  fans the query across OpenAlex, Crossref, Semantic \

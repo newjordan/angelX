@@ -11,7 +11,6 @@ pub(crate) struct LoopCampaignContext {
     pub task: String,
     pub verify: Option<String>,
     pub club: Arc<dyn Club>,
-    /// Explicit operator bounds only. None means unbounded.
     pub deadline: Option<Instant>,
     pub remaining_tokens: Option<usize>,
 }
@@ -70,14 +69,12 @@ impl RlState {
         self.loop_context.is_some()
     }
 
-    /// The id of the loop this controller is bound to, if any.
     pub(crate) fn bound_loop_id(&self) -> Option<&str> {
         self.loop_context
             .as_ref()
             .map(|context| context.loop_id.as_str())
     }
 
-    /// The verifier the bound loop measures with, if any.
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn bound_verify(&self) -> Option<&str> {
         self.loop_context
@@ -87,8 +84,6 @@ impl RlState {
 
     pub(crate) fn bind_loop(&mut self, context: LoopCampaignContext) {
         if self.loop_account_owner.as_deref() != Some(&context.loop_id) {
-            // A retiring worker retains its old counter and can never charge
-            // a replacement loop after it observes cancellation.
             self.loop_tokens = Arc::new(AtomicUsize::new(0));
             self.loop_account_owner = Some(context.loop_id.clone());
         }
@@ -102,8 +97,6 @@ impl RlState {
         self.loop_context = Some(context);
     }
 
-    /// A campaign belongs to the whole loop, not to an individual model turn.
-    /// Pausing/stopping/detaching the loop cancels its work, including a verifier.
     pub(crate) fn end_loop(&mut self) {
         self.research.stop();
         if self.loop_owner.is_some() {
@@ -284,7 +277,6 @@ impl RlState {
             else {
                 continue;
             };
-            // A run-id lookup is workspace scoped. Default recall is also loop scoped.
             if id.is_none()
                 && self
                     .loop_context
@@ -308,16 +300,10 @@ impl RlState {
         Ok(results)
     }
 
-    /// The loop's campaign and research ledgers for the next iteration.
-    /// `invite` is false while the verifier is blocked or a submission is
-    /// overdue: research is not an acceptable outcome for that iteration, so
-    /// the invitation (`⠪⠋⠪⠛⠪⠓`) stays off and only the history rides.
     pub(crate) fn loop_context_text(&self, workspace: &Path, invite: bool) -> String {
         if !self.loop_enabled() {
             return String::new();
         }
-        // `⠪⠋⠪⠛⠪⠓`: the campaign, research-path and loop_research words are
-        // the ledger pages; the history below is the data.
         use crate::agent::harness::book::ow_ledgers;
         let mut text = if invite {
             format!(
@@ -333,8 +319,6 @@ impl RlState {
         match self.retained_results(workspace, None, 3) {
             Ok(results) => {
                 for result in results {
-                    // Keep the fresh iteration compact; full objectives, policies,
-                    // evidence and errors remain accessible through results/artifacts.
                     let mut summary = json!({"run_id": result["run_id"], "status": result["status"],
                         "outcome": result["outcome"], "artifacts": result["artifacts"]});
                     if !result["outcome"].is_null() {
@@ -361,8 +345,6 @@ impl Drop for RlState {
     }
 }
 
-/// Loop limits remain explicit. Campaign model usage is estimated just like
-/// the parent loop and is returned to its cumulative ledger between iterations.
 struct CampaignBudget {
     cancel: Arc<AtomicBool>,
     tokens: Arc<AtomicUsize>,
@@ -601,8 +583,6 @@ impl Club for CampaignClub {
     }
 }
 
-/// A campaign's `⡪` route: live while it runs; settled with its decision
-/// beside it, and the no-spread page when its last round could not learn.
 fn campaign_route(status: &Value) -> Option<String> {
     use crate::agent::harness::book::d2467_research as research;
     let mut cells = research::cells(&research::campaign(status));

@@ -1,5 +1,3 @@
-# Case wrappers for knight_racers.rs, race_wagers.rs and votes.rs.
-
 def gcase.knight_racers.Session.join_ids(+i: J.Val) -> J.Val:
   J.set(J.obj(), "s", knight_racers.Session.join_ids(J.get(i, "s"), gc.us(J.get(i, "ids"))))
 

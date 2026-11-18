@@ -1,13 +1,6 @@
-# crates/delve/src/rules/griffinwing/boss.rs — the Gloam Wyrm: three lamps in
-# cold-light shields, three phases. A turned bolt opens the lit lamp's shield;
-# a charged lock breaks the lamp open; its flame goes out and the Wyrm reels
-# into the next phase.
-
-# How far ahead of the formation the Wyrm's head holds.
 def griffinwing.boss.HEAD() -> U32:
   griffinwing.types.dm(340)
 
-# How long a lamp's shield stays open after a turned bolt, in ticks.
 def griffinwing.boss.OPEN() -> U32:
   150
 
@@ -17,22 +10,18 @@ def griffinwing.boss.RISE_T() -> U32:
 def griffinwing.boss.HURT_T() -> U32:
   70
 
-# The lamps' places about the head, across and up.
 def griffinwing.boss.LAMP.x(+k: U32) -> U32:
   Bool.pick(U32, U32.is_eq(k, 0), gw.neg(griffinwing.types.dm(45)), Bool.pick(U32, U32.is_eq(k, 1), griffinwing.types.dm(45), 0))
 
 def griffinwing.boss.LAMP.z(+k: U32) -> U32:
   Bool.pick(U32, U32.is_eq(k, 2), griffinwing.types.dm(42), griffinwing.types.dm(10))
 
-# How far in front of its face the lamps hang.
 def griffinwing.boss.FRONT() -> U32:
   griffinwing.types.dm(40)
 
-# The head's height above the rail's line, resting.
 def griffinwing.boss.HIGH() -> U32:
   griffinwing.types.dm(12)
 
-# How wide the coils' gap and the roar's column are, half.
 def griffinwing.boss.GAP_HALF() -> U32:
   griffinwing.types.dm(30)
 
@@ -45,12 +34,9 @@ def griffinwing.boss.COIL_T() -> U32:
 def griffinwing.boss.ROAR_T() -> U32:
   26
 
-# What a coil or the roar does to a craft it catches.
 def griffinwing.boss.BLOW() -> U32:
   35
 
-# The Wyrm rises out of the roost (or, after a fall, is back in its place, its
-# lamps as they were).
 def griffinwing.boss.Session.rise(+s0: J.Val) -> J.Val:
   griffinwing.boss.Session.rise.go(ga.su(s0, "cp", griffinwing.rail.BOSS_AT()))
 
@@ -59,7 +45,6 @@ def griffinwing.boss.Session.rise.go(+s: J.Val) -> J.Val:
     _ => ga.sv(s, "boss", ga.su(gw.sets(ga.sv(J.get(s, "boss"), "marks", J.JA{[]}), "st", "Rise"), "ticks", griffinwing.boss.RISE_T())),
     _ => griffinwing.boss.Session.rise.make(s))
 
-# Lamp `k`, spawned: the new session in {"s", "r"}; the lamps' ids in `ids`.
 def griffinwing.boss.Session.rise.make(+s: J.Val) -> J.Val:
   griffinwing.boss.Session.rise.fin(
     griffinwing.boss.Session.rise.lamp(
@@ -100,19 +85,14 @@ def griffinwing.boss.Beast.new(+lamps: J.Val) -> J.Val:
   +b11 = ga.su(b10, "atk", 0)
   ga.su(b11, "seq", 0)
 
-# How long the Wyrm rests between attacks: shorter the more knights fly and the
-# later the phase.
 def griffinwing.boss.Session.rest(+s: J.Val, +phase: U32) -> U32:
   U32.max((64 - (4 * (griffinwing.Session.pressure(s) - 1 : U32) : U32) - (8 * phase : U32) : U32), 34)
 
-# The Wyrm's tick. The Wyrm is taken out of the session while it acts.
 def griffinwing.boss.Session.step_boss(+s: J.Val, +n: J.Val) -> J.Val:
   gw.ifj(J.is_null(J.get(s, "boss")),
     _ => s,
     _ => griffinwing.boss.Session.step_boss.sway(ga.sv(s, "boss", J.JNull{}), J.get(s, "boss"), n))
 
-# The head holds its place ahead and sways; it rises from below; the lamps
-# follow it and their shields time out.
 def griffinwing.boss.Session.step_boss.sway(+s: J.Val, +b0: J.Val, +n: J.Val) -> J.Val:
   griffinwing.boss.Session.step_boss.lamps(s,
     ga.si(ga.si(b0, "x", griffinwing.types.tri(ga.u(s, "t"), 260, griffinwing.types.dm(24))), "z",
@@ -124,7 +104,6 @@ def griffinwing.boss.Session.step_boss.lamps(+s: J.Val, +b: J.Val, +n: J.Val) ->
     griffinwing.boss.Session.step_boss.lamp(griffinwing.boss.Session.step_boss.lamp(griffinwing.boss.Session.step_boss.lamp(s, b, 0), b, 1), b, 2),
     b, n)
 
-# Lamp `k`: placed about the head; an open shield counts down.
 def griffinwing.boss.Session.step_boss.lamp(+s: J.Val, +b: J.Val, +k: U32) -> J.Val:
   griffinwing.boss.Session.step_boss.lamp2(s, b, k, griffinwing.combat.Session.bombers_ram.at(ga.items(s, "foes"), J.u32(J.nth(J.get(b, "lamps"), k)), 0))
 
@@ -144,7 +123,6 @@ def griffinwing.boss.Session.step_boss.shield(+f: J.Val) -> J.Val:
 def griffinwing.boss.Session.step_boss.shield2(+f: J.Val) -> J.Val:
   gw.ifj(U32.is_zero(ga.u(f, "ticks")), _ => gw.sets(f, "st", "Shut"), _ => f)
 
-# The lit lamp is out: the Wyrm reels (or dies), and its spits are gone.
 def griffinwing.boss.Session.step_boss.lit(+s: J.Val, +b: J.Val, +n: J.Val) -> J.Val:
   gw.ifj(Bool.and(
       griffinwing.boss.Session.step_boss.out(ga.items(s, "foes"), J.u32(J.nth(J.get(b, "lamps"), U32.min(ga.u(b, "phase"), 2)))),
@@ -152,7 +130,6 @@ def griffinwing.boss.Session.step_boss.lit(+s: J.Val, +b: J.Val, +n: J.Val) -> J
     _ => griffinwing.boss.Session.step_boss.reel(s, b),
     _ => griffinwing.boss.Session.step_boss.act(s, b, n))
 
-# `foes.find(|f| f.id == lit).is_some_and(|f| f.st == Broken)`
 def griffinwing.boss.Session.step_boss.out(+fs: List<&2, J.Val>, +lit: U32) -> Bool:
   match fs:
     case Nil{}:
@@ -165,7 +142,6 @@ def griffinwing.boss.Session.step_boss.reel(+s: J.Val, +b0: J.Val) -> J.Val:
     griffinwing.Session.sound(ga.sv(s, "bolts", J.JA{griffinwing.boss.Session.step_boss.owned(ga.items(s, "bolts"))}), "boss_roar"),
     ga.sv(b0, "marks", J.JA{[]}))
 
-# bolts.retain(|x| x.owner != 0)
 def griffinwing.boss.Session.step_boss.owned(+bs: List<&2, J.Val>) -> List<&2, J.Val>:
   match bs:
     case Nil{}:
@@ -181,13 +157,11 @@ def griffinwing.boss.Session.step_boss.reel2(+s: J.Val, +b: J.Val) -> J.Val:
       _ => ga.su(gw.sets(b, "st", "Dying"), "ticks", griffinwing.DYING()),
       _ => ga.su(gw.sets(b, "st", "Hurt"), "ticks", griffinwing.boss.HURT_T())))
 
-# The attack pattern of the phase: [0], [1, 0], [2, 0, 1, 0].
 def griffinwing.boss.Session.step_boss.pat(+phase: U32, +i: U32) -> U32:
   gw.ifu(U32.is_eq(phase, 0), _ => 0,
     _ => gw.ifu(U32.is_eq(phase, 1), _ => Bool.pick(U32, U32.is_eq(U32.mod(i, 2), 0), 1, 0),
       _ => Bool.pick(U32, U32.is_eq(U32.mod(i, 4), 0), 2, Bool.pick(U32, U32.is_eq(U32.mod(i, 4), 2), 1, 0))))
 
-# The Wyrm's state: what it does this tick.
 def griffinwing.boss.Session.step_boss.act(+s: J.Val, +b: J.Val, +n: J.Val) -> J.Val:
   gw.ifj(gw.isn(b, "st", "Rise"),
     _ => griffinwing.boss.Session.step_boss.rise(s, gw.subs(b, "ticks", 1)),
@@ -215,7 +189,6 @@ def griffinwing.boss.Session.step_boss.idle(+s: J.Val, +b: J.Val, +n: J.Val) -> 
 def griffinwing.boss.Session.step_boss.idle2(+s: J.Val, +b: J.Val, +n: J.Val) -> J.Val:
   griffinwing.boss.Session.step_boss.put(griffinwing.boss.Session.begin_tell(s, b, n))
 
-# A pair {"s", "b"} put back as the session with its Wyrm.
 def griffinwing.boss.Session.step_boss.put(+r: J.Val) -> J.Val:
   ga.sv(J.get(r, "s"), "boss", J.get(r, "b"))
 
@@ -229,14 +202,11 @@ def griffinwing.boss.Session.step_boss.tell(+s: J.Val, +b: J.Val) -> J.Val:
         _ => ga.sv(griffinwing.Session.sound(s, "boss_roar"), "boss", ga.su(gw.sets(b, "st", "Roar"), "ticks", griffinwing.boss.ROAR_T())))),
     _ => ga.sv(s, "boss", b))
 
-# The coils sweep the window / the roar's column: each knight flying and
-# caught is struck, then the attack's ticks run down.
 def griffinwing.boss.Session.step_boss.sweep(+s: J.Val, +b: J.Val) -> J.Val:
   griffinwing.boss.Session.step_boss.sweep.done(
     griffinwing.boss.Session.step_boss.sweep.each(s, griffinwing.boss.Session.flying_ids(s, ga.ids(J.get(s, "seats"))), ga.u(b, "gap"), ga.u(b, "col"), gw.isn(b, "st", "Coil")),
     gw.subs(b, "ticks", 1))
 
-# The ids of the knights flying, in seat order.
 def griffinwing.boss.Session.flying_ids(+s: J.Val, +ids: List<&2, U32>) -> List<&2, U32>:
   match ids:
     case Nil{}:
@@ -268,7 +238,6 @@ def griffinwing.boss.Session.step_boss.sweep.done(+s: J.Val, +b: J.Val) -> J.Val
       _ => ga.sv(ga.su(gw.sets(b, "st", "Idle"), "ticks", griffinwing.boss.Session.rest(s, ga.u(b, "phase"))), "marks", J.JA{[]}),
       _ => b))
 
-# A lamp went out: it reels, then the next phase, and the Wyrm calls kites.
 def griffinwing.boss.Session.step_boss.hurt(+s: J.Val, +b: J.Val) -> J.Val:
   gw.ifj(U32.is_zero(ga.u(b, "ticks")),
     _ => griffinwing.boss.Session.step_boss.hurt2(s, ga.su(b, "phase", (ga.u(b, "phase") + 1 : U32))),
@@ -285,7 +254,6 @@ def griffinwing.boss.Session.step_boss.hurt3(+s: J.Val, +b: J.Val) -> J.Val:
       0, (1 + U32.div(griffinwing.Session.pressure(s), 3) : U32)),
     "boss", b)
 
-# for k in 0..hunters { act(Hunter { side: if k % 2 == 0 { -1 } else { 1 } }) }
 def griffinwing.boss.Session.step_boss.hunters(+s: J.Val, +k: U32, +n: U32) -> J.Val:
   gw.ifj(U32.is_lt(k, n),
     _ => griffinwing.boss.Session.step_boss.hunters(
@@ -300,7 +268,6 @@ def griffinwing.boss.Session.step_boss.dying(+s: J.Val, +b: J.Val) -> J.Val:
       _ => s),
     "boss", b)
 
-# An attack's footprints are locked and shown for the tell's ticks. {"s", "b"}.
 def griffinwing.boss.Session.begin_tell(+s: J.Val, +b: J.Val, +n: J.Val) -> J.Val:
   gw.ifj(J.is_null(griffinwing.combat.Session.target(s, 0)),
     _ => J.set(J.set(J.obj(), "s", s), "b", ga.su(gw.sets(b, "st", "Idle"), "ticks", 30)),
@@ -319,8 +286,6 @@ def griffinwing.boss.Session.begin_tell.fin(+r: J.Val, +n: J.Val) -> J.Val:
   J.set(J.set(J.obj(), "s", griffinwing.Session.sound(J.get(r, "s"), "vent_fire")), "b",
     ga.su(gw.sets(J.get(r, "b"), "st", "Tell"), "ticks", U32.max(ga.u(n, "tell"), 40)))
 
-# The spit: a footprint for each knight asked for, a knight asked for twice is
-# aimed at to either side.
 def griffinwing.boss.Session.begin_tell.spit(+s: J.Val, +b: J.Val) -> J.Val:
   griffinwing.boss.Session.begin_tell.say(s,
     griffinwing.boss.Session.begin_tell.marks(s, b, 0,
@@ -352,7 +317,6 @@ def griffinwing.boss.Session.begin_tell.say(+s: J.Val, +b: J.Val, +unused: J.Val
       _ => s)),
     "b", b)
 
-# The coil: the gap it sweeps from the side its turn names.
 def griffinwing.boss.Session.begin_tell.coil(+s: J.Val, +b0: J.Val, +n: J.Val) -> J.Val:
   griffinwing.boss.Session.begin_tell.coil2(s,
     ga.si(b0, "side", gw.ifu(U32.is_eq(U32.mod(ga.u(b0, "seq"), 2), 0), _ => gw.neg(1), _ => 1)),
@@ -365,7 +329,6 @@ def griffinwing.boss.Session.begin_tell.coil2(+s: J.Val, +b: J.Val, +n: J.Val, +
 def griffinwing.boss.Session.begin_tell.coil3(+s: J.Val, +b: J.Val, +gap: U32) -> J.Val:
   J.set(J.set(J.obj(), "s", s), "b", ga.push(ga.si(b, "gap", gap), "marks", ga.pair_i(gap, 0)))
 
-# The roar: a column where the next knight in turn flies.
 def griffinwing.boss.Session.begin_tell.roar(+s: J.Val, +b: J.Val) -> J.Val:
   griffinwing.boss.Session.begin_tell.roar2(s, b,
     gw.ifu(J.is_null(griffinwing.combat.Session.target(s, (ga.u(b, "seq") + 1 : U32))), _ => 0, _ => ga.nu(griffinwing.combat.Session.target(s, (ga.u(b, "seq") + 1 : U32)), 0)))
@@ -373,8 +336,6 @@ def griffinwing.boss.Session.begin_tell.roar(+s: J.Val, +b: J.Val) -> J.Val:
 def griffinwing.boss.Session.begin_tell.roar2(+s: J.Val, +b: J.Val, +col: U32) -> J.Val:
   J.set(J.set(J.obj(), "s", s), "b", ga.push(ga.si(b, "col", col), "marks", ga.pair_i(col, 0)))
 
-# The Wyrm's spit: a Gloam bolt for each locked mark, from its mouth, each
-# owing its return to the lit lamp.
 def griffinwing.boss.Session.spit(+s: J.Val, +b: J.Val) -> J.Val:
   griffinwing.Session.sound(
     griffinwing.boss.Session.spit.each(s, b, ga.items(b, "marks"), J.u32(J.nth(J.get(b, "lamps"), U32.min(ga.u(b, "phase"), 2)))),

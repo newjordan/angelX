@@ -1,6 +1,3 @@
-# Lanternward's fixed numbers, as the Rust rules had them (pixels unless said;
-# ticks are 1/30 s; a Q is 256 to the pixel, so a length in Q is the pixels
-# times 256). A negative number is its two's-complement word.
 import Base
 
 def limit() -> U32: 108000
@@ -153,7 +150,6 @@ def rest_ticks() -> U32: 60
 def beacon_ticks() -> U32: 90
 
 def max_players() -> U32: 6
-# ----- the codes: enums as the numbers the adapter writes -----------------
 def a_free() -> U32: 0
 def a_slash() -> U32: 1
 def a_lunge() -> U32: 2
@@ -232,7 +228,6 @@ def atk_beam() -> U32: 0
 def atk_slam() -> U32: 1
 def atk_summon() -> U32: 2
 
-# Danger shapes: none, a capsule, a circle, a fan, a ring.
 def dg_none() -> U32: 0
 def dg_capsule() -> U32: 1
 def dg_circle() -> U32: 2
@@ -268,7 +263,6 @@ def hold_carried() -> U32: 1
 def hold_lying() -> U32: 2
 def hold_spent() -> U32: 3
 
-# The buttons the adventure reads, as one mask.
 def b_lock() -> U32: 1
 def b_guard() -> U32: 2
 def b_sword() -> U32: 4
@@ -281,7 +275,6 @@ def stop_kill() -> U32: 2
 def stop_phase() -> U32: 3
 def stop_boss() -> U32: 4
 
-# How a blow comes and what came of it for the knight.
 def h_melee() -> U32: 0
 def h_bolt() -> U32: 1
 def h_beam() -> U32: 2

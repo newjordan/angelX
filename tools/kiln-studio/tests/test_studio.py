@@ -1,8 +1,3 @@
-"""kiln-studio's own tests: the eyes, the vfx realm guard, the MCP protocol,
-the library and the review votes. No model is called.
-
-    python3 -m unittest discover -s tools/kiln-studio/tests
-"""
 import json
 import os
 import subprocess
@@ -16,7 +11,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE))
 _HOME = tempfile.TemporaryDirectory()
-os.environ["KILN_HOME"] = _HOME.name  # jobs, the library and lessons go here, not to ~/.angelX/kiln
+os.environ["KILN_HOME"] = _HOME.name
 
 from studio import realm  # noqa: E402
 from studio.backends import BackendError  # noqa: E402
@@ -112,7 +107,6 @@ class Lighter(unittest.TestCase):
         self.assertIn(b"Pixel Art Lighter v 3.5.22", page)
         self.assertIn(b"Red Hat Sprite", page)
         self.assertNotIn(b"cloudflareinsights", page)
-        # Up is positive Y, written in the green channel. That is the game's green-up map.
         self.assertIn(
             b'(direction.includes("up") ? s : direction.includes("down") ? -s : 0)',
             page,

@@ -2,7 +2,6 @@
 use super::*;
 use std::io::Read;
 
-/// Parse only the first Make dependency rule; phony rules cannot add coverage.
 fn dependencies(bytes: &[u8]) -> Option<Vec<PathBuf>> {
     let text = std::str::from_utf8(bytes).ok()?;
     let line = text.lines().next()?;
@@ -65,8 +64,6 @@ fn bounded_dep(path: &Path, target: &Path, remaining_bytes: &mut u64) -> Option<
     dependencies(&bytes)
 }
 
-/// Cargo owns the JSON records; read only depfiles derived from their artifacts
-/// while the fresh private target still exists. Never enumerate a target tree.
 pub(crate) fn cargo_evidence(
     stdout: &str,
     private_target: &Path,

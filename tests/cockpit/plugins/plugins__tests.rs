@@ -7,7 +7,6 @@ use super::*;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-/// A scratch folder for one test, removed afterwards.
 struct Temp(PathBuf);
 
 impl Temp {
@@ -77,8 +76,6 @@ fn chmod_x(path: &Path) {
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
 }
 
-/// A git repository at `root/repo` holding the new plugin `id` at
-/// `plugins/<id>` and a file beside it, committed; with a setup when asked.
 fn published(root: &Path, id: &str, setup: bool) -> (PathBuf, PathBuf, String) {
     let repo = root.join("repo");
     std::fs::create_dir_all(&repo).unwrap();
@@ -105,7 +102,6 @@ fn published(root: &Path, id: &str, setup: bool) -> (PathBuf, PathBuf, String) {
     (repo, folder, commit)
 }
 
-/// The registry entry for the plugin at `folder`, committed at `commit` in `repo`.
 fn entry_for(repo: &Path, folder: &Path, commit: &str) -> Entry {
     let config = check::folder(folder, Level::Publish).config.unwrap();
     let plugin = config.plugin.unwrap();
@@ -183,8 +179,6 @@ fn ids_are_short_lowercase_words() {
 
 #[test]
 fn the_tree_digest_matches_its_spec_vector() {
-    // The vector scripts/plugins/check-registry.py and a plain sha256sum of
-    // the spec give (docs/PLUGINS.md, "The digest").
     let entries = vec![
         digest::Entry {
             path: "link".into(),
@@ -263,7 +257,6 @@ fn a_folder_and_its_commit_digest_the_same_and_the_fetch_takes_only_that_folder(
         digest::digest(&files),
         digest::digest_folder(&folder).unwrap()
     );
-    // Written back out, the files digest the same again.
     let out = temp.path().join("out");
     digest::write_folder(&out, &files).unwrap();
     assert_eq!(digest::digest_folder(&out).unwrap(), digest::digest(&files));
@@ -349,11 +342,9 @@ fn registry_entries_are_held_to_the_public_rules() {
     assert!(!with(|e| e.description = "two\nlines".into()).is_empty());
     assert!(!with(|e| e.authors.clear()).is_empty());
     assert!(!with(|e| e.license.clear()).is_empty());
-    // A private registry may name a file repository.
     let mut private = sample();
     private.repository = "file:///srv/plugins/repo".into();
     assert!(!private.problems(true).is_empty() && private.problems(false).is_empty());
-    // Two ids may not claim one folder.
     let text = registry::upsert(
         &registry::upsert("", &sample()).unwrap().0,
         &Entry {
@@ -370,7 +361,6 @@ fn registry_entries_are_held_to_the_public_rules() {
             .iter()
             .any(|problem| problem.contains("same folder"))
     );
-    // Unknown fields are refused.
     assert!(Registry::parse("[x]\nlabel = \"X\"\nmystery = 1\n", "test").is_err());
 }
 
@@ -466,7 +456,6 @@ fn a_new_plugin_works_and_passes_its_own_check() {
     let config = report.config.unwrap();
     assert_eq!(config.commands[0].name, "hello-world");
     assert_eq!(config.tools[0].name, "hello_world_hello");
-    // Its tool runs as a cartridge tool does.
     let output = std::process::Command::new(folder.join("bin/hello"))
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -485,7 +474,6 @@ fn a_new_plugin_works_and_passes_its_own_check() {
         String::from_utf8_lossy(&output.stdout).trim(),
         "Hello, Ada, from the hello-world plugin."
     );
-    // A folder in use is never written over; an angelX command is no id.
     assert!(
         scaffold::create("hello-world", Some(&folder), "Tester")
             .unwrap_err()
@@ -608,14 +596,12 @@ fn install_verifies_the_digest_then_writes_the_plugin_beside_its_receipt() {
     );
     assert!(receipt.files.contains(&"cartridge.toml".to_owned()));
     assert_eq!(found.config.unwrap().id, "hello");
-    // The files it wrote are the reviewed tree, byte for byte.
     let written: Vec<digest::Entry> = digest::read_folder(dest)
         .unwrap()
         .into_iter()
         .filter(|file| !file.path.starts_with("runtime/"))
         .collect();
     assert_eq!(digest::digest(&written), entry.sha256);
-    // No staging is left behind.
     let staging = paths.cartridges.join(".staging");
     assert!(std::fs::read_dir(&staging).map_or(true, |mut listing| listing.next().is_none()));
 }
@@ -644,7 +630,6 @@ fn a_digest_that_does_not_match_installs_nothing() {
                 .read_dir()
                 .is_ok_and(|mut l| l.next().is_some())
     );
-    // A registry that names another version than the plugin is refused too.
     let entry = Entry {
         version: "9.9.9".into(),
         ..entry_for(&repo, &folder, &commit)
@@ -912,7 +897,6 @@ fn the_cli_searches_shows_installs_lists_updates_and_removes() {
     assert!(
         matches!(run(&["install", "nope"]), Err(cli::Failure::Failed(text)) if text.contains("no plugin `nope`"))
     );
-    // A malformed entry is refused before anything is fetched for it.
     let saved = std::fs::read_to_string(&paths.registry).unwrap();
     write(
         Path::new(&paths.registry),
@@ -939,7 +923,6 @@ fn the_cli_searches_shows_installs_lists_updates_and_removes() {
 fn submit_builds_the_entry_from_the_pushed_commit_and_writes_it_into_a_registry() {
     let temp = Temp::new("submit");
     let (repo, folder, commit) = published(temp.path(), "hello", false);
-    // The author's working clone; the first repository stands in for GitHub.
     let clone = temp.path().join("clone");
     git(
         temp.path(),
@@ -968,10 +951,8 @@ fn submit_builds_the_entry_from_the_pushed_commit_and_writes_it_into_a_registry(
         "the remote of the clone"
     );
     assert_eq!(entry.sha256, digest::digest_folder(&folder).unwrap());
-    // The public registry would want an https repository.
     let public = submit::prepare(&paths, &work, None, None, true, None);
     assert!(public.err().unwrap().contains("public https"));
-    // An uncommitted change stops a HEAD submission.
     write(&work.join("NOTES.md"), "draft\n");
     assert!(
         submit::prepare(&paths, &work, None, None, false, None)
@@ -980,7 +961,6 @@ fn submit_builds_the_entry_from_the_pushed_commit_and_writes_it_into_a_registry(
             .contains("not committed")
     );
     std::fs::remove_file(work.join("NOTES.md")).unwrap();
-    // A commit that was never pushed cannot be fetched back.
     write(&work.join("NOTES.md"), "local\n");
     git(&clone, &["add", "-A"]);
     git(&clone, &["commit", "-q", "-m", "local only"]);
@@ -990,11 +970,9 @@ fn submit_builds_the_entry_from_the_pushed_commit_and_writes_it_into_a_registry(
             .unwrap()
             .contains("push the commit")
     );
-    // An explicit commit is taken as it is in the repository.
     let pinned = submit::prepare(&paths, &work, Some(&commit), None, false, None).unwrap();
     assert_eq!(pinned.entry.sha256, entry.sha256);
     assert!(submit::prepare(&paths, &work, Some("--upload-pack=x"), None, false, None).is_err());
-    // Into a registry file, then installed from it.
     let file = Path::new(&paths.registry);
     write(file, "# test registry\n\n");
     assert!(

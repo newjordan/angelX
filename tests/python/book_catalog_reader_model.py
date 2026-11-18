@@ -1,4 +1,3 @@
-"""Prototype reader: verify a coherent source manifest; no fallback."""
 import hashlib,json
 from pathlib import Path
 from publish import EXPECTED,SCHEMA,read_bounded,validate

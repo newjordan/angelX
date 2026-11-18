@@ -13,16 +13,9 @@ use super::super::ink::{bayer, ink, nearest_plain, vnoise, Img, Rgb, BLACK};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
-/// Steps a facet's shade is resolved to, and how many depths it fades by.
 const STEPS: usize = 24;
 const FADES: usize = 8;
 
-/// A ramp's soft tones, baked once: for each of `FADES` depths and `STEPS`
-/// shades, its two neighbouring inks mixed and dimmed toward black by
-/// distance, then put back on the realm's palette (or on the ramp's own
-/// inks, for a ramp of signal inks that mark game state). A surface steps
-/// gently down its own material into the night instead of flickering
-/// between three inks in a checker.
 fn tones(ramp: &'static [char]) -> &'static [Rgb] {
     static TABLES: OnceLock<Mutex<HashMap<(usize, usize), &'static [Rgb]>>> = OnceLock::new();
     let key = (ramp.as_ptr() as usize, ramp.len());
@@ -53,25 +46,19 @@ fn tones(ramp: &'static [char]) -> &'static [Rgb] {
     table
 }
 
-/// The realm's stage light, matching the sprite kit's top-left sun.
 const LIGHT_DIR: [f32; 3] = [-0.5, -0.62, 0.6];
 
-/// A pinhole camera: authored once per attraction.
 pub(super) struct Cam {
     pub(super) eye: [f32; 3],
     pub(super) fwd: [f32; 3],
     pub(super) right: [f32; 3],
     pub(super) up: [f32; 3],
-    /// Horizontal focal length in pixels.
     pub(super) focal: f32,
-    /// Screen centre the focal length is stated against.
     pub(super) cx: f32,
     pub(super) cy: f32,
 }
 
 impl Cam {
-    /// A camera at `eye`, turned `yaw_deg` from +y toward +x and pitched
-    /// `pitch_deg` up, with a horizontal field of `fov_deg` across `w`.
     pub(super) fn look(
         eye: [f32; 3],
         yaw_deg: f32,
@@ -103,7 +90,6 @@ impl Cam {
         }
     }
 
-    /// A world point on screen: `(x, y, depth)`; `None` behind the eye.
     pub(super) fn project(&self, p: [f32; 3]) -> Option<(i32, i32, f32)> {
         let d = [p[0] - self.eye[0], p[1] - self.eye[1], p[2] - self.eye[2]];
         let z = d[0] * self.fwd[0] + d[1] * self.fwd[1] + d[2] * self.fwd[2];
@@ -120,25 +106,19 @@ impl Cam {
     }
 }
 
-/// How a facet's surface is dressed, sampled in world space so seams and
-/// grain line up across abutting quads.
 #[derive(Clone, Copy)]
 pub(super) enum Tex {
-    /// One even tone: the lambert shade and nothing else.
     Flat,
-    /// Sawn planks: seams every `every` units along `axis`, grain between.
     Planks {
         axis: usize,
         every: f32,
         grain: f32,
         seed: u32,
     },
-    /// A painted sea for a backdrop: rolling crests in the paint.
     Waves { seed: u32 },
 }
 
 impl Tex {
-    /// The texture's multiplier on the shade, `0..=1` darker to lighter.
     fn shade(self, wx: f32, wy: f32) -> f32 {
         match self {
             Tex::Flat => 1.0,
@@ -167,24 +147,18 @@ impl Tex {
     }
 }
 
-/// A lit surface quad: four points (counter-clockwise seen from the front)
-/// shaded onto `ramp` (dark → light).
 pub(super) struct Facet {
     pub(super) pts: [[f32; 3]; 4],
     pub(super) ramp: &'static [char],
     pub(super) tex: Tex,
 }
 
-/// Paint `facet` with the camera. Far facets first; the caller sorts.
-/// Shading is per pixel: perspective-correct world coordinates inside the
-/// quad feed the texture, the texture feeds the ramp, and distance dims the
-/// lot toward the stage's night.
 pub(super) fn facet(cv: &mut Img, cam: &Cam, f: &Facet) {
     let mut corners = [(0i32, 0i32, 0f32); 4];
     for (slot, &p) in f.pts.iter().enumerate() {
         match cam.project(p) {
             Some(s) => corners[slot] = s,
-            None => return, // authored scenes keep facets whole on screen
+            None => return,
         }
     }
     let (u, v) = (
@@ -218,8 +192,6 @@ pub(super) fn facet(cv: &mut Img, cam: &Cam, f: &Facet) {
     };
     let lambert = (n[0] * LIGHT_DIR[0] + n[1] * LIGHT_DIR[1] + n[2] * LIGHT_DIR[2]) * flip * 0.5
         + 0.5;
-    // Perspective-correct world position: interpolate the corner positions
-    // weighted by inverse depth, which is affine in screen space.
     let inv: [f32; 4] = [
         1.0 / corners[0].2,
         1.0 / corners[1].2,
@@ -227,16 +199,13 @@ pub(super) fn facet(cv: &mut Img, cam: &Cam, f: &Facet) {
         1.0 / corners[3].2,
     ];
     let world_at = |sx: f32, sy: f32| -> [f32; 3] {
-        // Bilinear over the quad in screen space on inverse-depth-weighted
-        // corners; the weights need no normalization because everything is
-        // divided by their sum at the end.
         let tx = ((sx - corners[0].0 as f32)
             / (corners[1].0 as f32 - corners[0].0 as f32 + 1e-6))
         .clamp(0.0, 1.0);
         let ty = ((sy - corners[0].1 as f32)
             / (corners[3].1 as f32 - corners[0].1 as f32 + 1e-6))
         .clamp(0.0, 1.0);
-        let mut acc = [0.0f32; 4]; // x*w, y*w, z*w, w
+        let mut acc = [0.0f32; 4];
         for (i, &(x, y, _)) in corners.iter().enumerate() {
             let _ = (x, y);
             let (b0, b1) = match i {
@@ -250,8 +219,6 @@ pub(super) fn facet(cv: &mut Img, cam: &Cam, f: &Facet) {
             acc[1] += f.pts[i][1] * wgt;
             acc[3] += wgt;
         }
-        // World x and y for the texture, and the depth along the view: the
-        // weights' sum is the interpolated inverse depth.
         let inv_w = 1.0 / acc[3];
         [acc[0] * inv_w, acc[1] * inv_w, inv_w]
     };
@@ -299,8 +266,6 @@ pub(super) fn facet(cv: &mut Img, cam: &Cam, f: &Facet) {
             for x in xa..=xb {
                 let [wx, wy, depth] = world_at(x as f32 + 0.5, y as f32 + 0.5);
                 let tex = f.tex.shade(wx, wy);
-                // Distance falls off into the stage's night, per pixel, so
-                // a long surface (a canopy, a floor) darkens as it recedes.
                 let fade = (((depth - 10.0) * (1.0 / 30.0)).clamp(0.0, 1.0) * (FADES - 1) as f32) as usize;
                 let shade = (lambert * tex).clamp(0.0, 1.0);
                 let step = (shade * (STEPS - 1) as f32 + 0.5) as usize;
@@ -311,8 +276,6 @@ pub(super) fn facet(cv: &mut Img, cam: &Cam, f: &Facet) {
     }
 }
 
-/// A contact shadow pooled under a world point on the ground plane: a
-/// squashed dark ellipse, the stage's one concession to gravity.
 pub(super) fn shadow(cv: &mut Img, cam: &Cam, p: [f32; 3], radius: f32) {
     let ground = [p[0], p[1], 0.02];
     let Some((x, y, z)) = cam.project(ground) else {
@@ -320,7 +283,6 @@ pub(super) fn shadow(cv: &mut Img, cam: &Cam, p: [f32; 3], radius: f32) {
     };
     let rx = (cam.focal * radius / z) as i32;
     let ry = (rx as f32 * 0.38) as i32;
-    // A solid core thinning out at its rim: soft, never a striped patch.
     for dy in -ry..=ry {
         for dx in -rx..=rx {
             let (fx, fy) = (dx as f32 / rx.max(1) as f32, dy as f32 / ry.max(1) as f32);
@@ -332,9 +294,6 @@ pub(super) fn shadow(cv: &mut Img, cam: &Cam, p: [f32; 3], radius: f32) {
     }
 }
 
-/// A billboard sprite at a world point, `world_h` tall (a fraction of a
-/// tile), scaled by depth and stamped upright through the camera. The scale
-/// is quantized to eighths so a glide never shimmers between sizes.
 pub(super) fn billboard(cv: &mut Img, cam: &Cam, sprite: &Img, p: [f32; 3], world_h: f32) {
     let Some((x, y, z)) = cam.project(p) else {
         return;
@@ -348,7 +307,6 @@ pub(super) fn billboard(cv: &mut Img, cam: &Cam, sprite: &Img, p: [f32; 3], worl
     cv.stamp(&im, x - im.w / 2, y - im.h);
 }
 
-/// Order a facet list far-to-near and paint it.
 pub(super) fn paint(cv: &mut Img, cam: &Cam, facets: &mut Vec<(f32, Facet)>) {
     facets.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
     for (_, f) in facets.iter() {
@@ -357,7 +315,6 @@ pub(super) fn paint(cv: &mut Img, cam: &Cam, facets: &mut Vec<(f32, Facet)>) {
     facets.clear();
 }
 
-/// The depth of a point, for sorting billboards among facets.
 pub(super) fn depth(cam: &Cam, p: [f32; 3]) -> f32 {
     let d = [p[0] - cam.eye[0], p[1] - cam.eye[1], p[2] - cam.eye[2]];
     d[0] * cam.fwd[0] + d[1] * cam.fwd[1] + d[2] * cam.fwd[2]

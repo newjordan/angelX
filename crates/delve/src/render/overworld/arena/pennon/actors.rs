@@ -10,16 +10,13 @@ use super::{Art, art, foe_pose, knight};
 use crate::rules::Run;
 use crate::rules::pennon::{Area, Beat, FLOOR, Foe, Lane, Q, Session};
 
-/// What a draw knows: the knight looked through, the camera and the clock.
 pub(super) struct Cx<'a> {
     pub run: &'a Run,
     pub s: &'a Session,
     pub d: &'a Lane,
     pub id: u32,
     pub cam: i32,
-    /// The siege's own tick (the show's).
     pub t: u32,
-    /// The run's tick, for the figures' own cycles.
     pub tick: u64,
 }
 
@@ -32,7 +29,6 @@ impl Cx<'_> {
     }
 }
 
-/// The sprite a foe stands in.
 pub(super) fn foe_img<'a>(a: &'a Art, f: &Foe, tick: u64) -> &'a Img {
     let pose = foe_pose(f, tick);
     let prefix = if f.captain { "captain" } else { "sentry" };
@@ -79,7 +75,6 @@ pub(super) fn foe_img<'a>(a: &'a Art, f: &Foe, tick: u64) -> &'a Img {
     &a.all[&key].body
 }
 
-/// A soft dark ellipse on the walkway under a body `rx` wide.
 pub(super) fn shadow(world: &mut Img, cx: i32, rx: i32) {
     let y = FLOOR + OY + 2;
     for dy in 0..3 {
@@ -92,7 +87,6 @@ pub(super) fn shadow(world: &mut Img, cx: i32, rx: i32) {
     }
 }
 
-/// The hazard of the captain's blow: a taped-off box that blinks faster.
 fn danger(im: &mut Img, z: Area, cx: &Cx, stage: usize) {
     let (on, period) = match stage {
         0 => (1, 5),
@@ -119,8 +113,6 @@ fn danger(im: &mut Img, z: Area, cx: &Cx, stage: usize) {
     }
 }
 
-/// A sentry's aim: dashes that fill in as the tell runs, ending in an arrow
-/// at the height the bolt will keep.
 fn aim_line(im: &mut Img, from: (i32, i32), to: (i32, i32), stage: usize) {
     let (dx, dy) = (to.0 - from.0, to.1 - from.1);
     let length = dx.abs().max(dy.abs()).max(1);
@@ -135,7 +127,6 @@ fn aim_line(im: &mut Img, from: (i32, i32), to: (i32, i32), stage: usize) {
     im.line(to.0, to.1, to.0 - 4, to.1 + 4, '2');
 }
 
-/// A pennon's bar of three pips over its head once it has been struck.
 fn pips(world: &mut Img, f: &Foe, x: i32, top: i32) {
     if f.captain || f.hp == 0 || f.hp == 3 {
         return;
@@ -147,7 +138,6 @@ fn pips(world: &mut Img, f: &Foe, x: i32, top: i32) {
     }
 }
 
-/// The wards lying on the walk, bobbing, until they are taken.
 fn wards(world: &mut Img, cx: &Cx, a: &Art) {
     for (n, x) in [340, 848].into_iter().enumerate() {
         if cx.d.pickups[n] || !(-30..420).contains(&cx.x(x)) {
@@ -155,7 +145,6 @@ fn wards(world: &mut Img, cx: &Cx, a: &Art) {
         }
         let bob = (((cx.tick as f32) * 0.12 + n as f32).sin() * 2.0).round() as i32;
         let (sx, sy) = (cx.x(x), cx.y(FLOOR));
-        // A warm ring on the stone beneath, breathing.
         let r = 11 + ((cx.tick / 6 + n as u64) % 3) as i32;
         for dx in -r..=r {
             if bayer(sx + dx, sy) < 0.55 && dx.abs() > r - 3 {
@@ -173,7 +162,6 @@ fn wards(world: &mut Img, cx: &Cx, a: &Art) {
     }
 }
 
-/// A pennant on the walk, its flag waving down the wind.
 fn poles(world: &mut Img, cx: &Cx, a: &Art) {
     let flag = &a.all["pennant"].body;
     for (i, &x) in super::scene::POLES.iter().enumerate() {
@@ -183,7 +171,6 @@ fn poles(world: &mut Img, cx: &Cx, a: &Art) {
         }
         let top = cx.y(FLOOR) - flag.h + 1;
         for xx in 0..flag.w {
-            // The pole stays; the cloth ripples from its hoist.
             let k = (xx as f32 - 6.0).max(0.0) / 14.0;
             let ripple = ((cx.t as f32 * 0.22 + xx as f32 * 0.5 + i as f32 * 2.0).sin() * 1.6 * k).round() as i32;
             for yy in 0..flag.h {
@@ -195,15 +182,12 @@ fn poles(world: &mut Img, cx: &Cx, a: &Art) {
     }
 }
 
-/// Draw everything that stands on the walk, back to front.
 pub(super) fn draw(world: &mut Img, cx: &Cx) {
     let a = art();
     let d = cx.d;
     poles(world, cx, a);
     wards(world, cx, a);
-    // Ghosts first: the other knights, behind this one.
     ghosts(world, cx);
-    // The foes, their tells under them.
     for (i, f) in d.foes.iter().enumerate() {
         let fx = cx.x(f.x);
         if !(-80..460).contains(&fx) {
@@ -261,7 +245,6 @@ pub(super) fn draw(world: &mut Img, cx: &Cx) {
     knight_draw(world, cx);
 }
 
-/// Bolts, with a tail; the knight's gold, the sentries' red.
 fn shots(world: &mut Img, cx: &Cx, a: &Art) {
     let mut pen = super::super::pfx::Pen::new(world, 600);
     for s in &cx.d.shots {
@@ -273,19 +256,16 @@ fn shots(world: &mut Img, cx: &Cx, a: &Art) {
         let key = if s.enemy { "enemy-bolt" } else { "bolt" };
         let pic = &a.all[key].body;
         let (x, y) = (cx.x(s.x / Q), cx.y(s.y / Q));
-        // The bolt points where it goes.
         let pic = if !s.enemy && s.vx < 0 && s.vy == 0 { super::super::rafterwake::flip(pic) } else { pic.clone() };
         pen.cv.stamp(&pic, x - pic.w / 2, y - pic.h / 2);
     }
 }
 
-/// The other knights, faint and dithered, at their own places on this wall.
 fn ghosts(world: &mut Img, cx: &Cx) {
     for (&gid, g) in &cx.s.lanes {
         if gid == cx.id || g.finish.is_some() {
             continue;
         }
-        // Standing in this knight's own footprints: the rail has them.
         if (g.x / Q - cx.d.x / Q).abs() < 22 && g.ground.is_some() == cx.d.ground.is_some() {
             continue;
         }
@@ -293,7 +273,6 @@ fn ghosts(world: &mut Img, cx: &Cx) {
         if !(-50..440).contains(&sx) {
             continue;
         }
-        // Down in a pit or crumpled: a blink.
         if g.down > 0 && (g.y / Q > FLOOR + 30 || cx.t / 3 % 2 == 0) {
             continue;
         }
@@ -309,7 +288,6 @@ fn ghosts(world: &mut Img, cx: &Cx) {
                 }
             }
         }
-        // A pip over the head in the knight's own ink.
         let mark = super::super::knights::seat_mark(gid);
         world.stamp(&faint, x, y);
         let (hx, hy) = (sx, y + 2);
@@ -319,26 +297,21 @@ fn ghosts(world: &mut Img, cx: &Cx) {
     }
 }
 
-/// The knight looked through: its shadow, its sprite and what it wears.
 fn knight_draw(world: &mut Img, cx: &Cx) {
     let d = cx.d;
     let sx = cx.x(d.x / Q);
-    // Down in the moat: nothing stands there.
     if d.down > 0 && d.y / Q > FLOOR + 30 {
         return;
     }
-    // Set back down after a fall: a few ticks of blinking.
     if d.hurt > 0 && d.down == 0 && cx.t / 2 % 2 == 0 {
         return;
     }
     let overlap = d.foes.iter().any(|f| (f.x - d.x / Q).abs() < 48);
     let mut pic = knight(cx.run, cx.id, usize::from(d.pose), d.dir, overlap);
-    // Struck: a white frame, then the crumple.
     let down = cx.s.show.downs.iter().rev().find(|k| k.seat == cx.id && !k.ward).map(|k| cx.t.saturating_sub(k.born));
     if down.is_some_and(|a| a < 3) {
         pic = juice::impact_frame(&pic, 'i');
     }
-    // A landing squashes the boot down a pixel or two.
     let land = cx.s.show.since(crate::rules::pennon::show::Puff::Land, cx.id).filter(|&a| a < 6);
     let (mut w, mut h) = (pic.w, pic.h);
     if let Some(a) = land {
@@ -362,7 +335,6 @@ fn knight_draw(world: &mut Img, cx: &Cx) {
     }
     let y = cx.y(d.y / Q) - 46 + (48 - h) + 0;
     world.stamp(&pic, sx - w / 2, y);
-    // The ward round it: a ring of light that turns.
     if d.ward > 0 {
         let c = (sx as f32, cx.y(d.y / Q) as f32 - 22.0);
         let mut pen = super::super::pfx::Pen::new(world, 300);

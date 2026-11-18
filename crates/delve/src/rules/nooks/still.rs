@@ -8,23 +8,17 @@
 use super::*;
 
 pub const CAULDRON: (i32, i32, i32, i32) = (11, 3, 2, 2);
-/// Where Mother Mort stands, behind the cauldron.
 pub const MORT: (f32, f32) = (12.0, 2.6);
 pub const BLOCKS: [(i32, i32, i32, i32); 3] = [CAULDRON, (2, 1, 5, 2), (17, 1, 5, 2)];
-/// The jars (where a knight stands, tiles) and what goes in each.
 pub const JARS: [((f32, f32), Spoil, &str); 3] = [
     ((7.5, 7.5), Spoil::Bone, "BONE"),
     ((12.0, 8.5), Spoil::Wax, "WAX"),
     ((16.5, 7.5), Spoil::Ore, "ORE"),
 ];
-/// Brews a knight may brew a floor; brews between burps.
 pub const BREWS: u8 = 2;
 pub const BURP_EVERY: u16 = 3;
-/// What a full hand gets from a potion instead.
 pub const SPLASH_MEND: u32 = 20;
 
-/// The first serving teaches the recipe; the second brings Mort's house special.
-/// Keep this independent of RNG so saved runs and guests agree on the reward.
 fn serving(pair: (usize, usize), brew: u8) -> Option<(&'static str, &'static str)> {
     match (pair, brew >= BREWS) {
         ((0, 1), false) => Some(("potion", "A HEALING POTION!")),
@@ -36,7 +30,6 @@ fn serving(pair: (usize, usize), brew: u8) -> Option<(&'static str, &'static str
     }
 }
 
-/// Announce the reward actually delivered, not the dish that could not fit.
 fn serving_message(pair: (usize, usize), brew: u8, full: bool) -> &'static str {
     if full {
         return if pair == (0, 1) {
@@ -135,7 +128,6 @@ impl Run {
 mod tests {
     use super::*;
 
-    /// Exercise the real interaction, not only the recipe lookup table.
     #[test]
     fn mort_second_brew_delivers_special_and_enforces_limit() {
         for (a, b, reward) in [(0, 1, "mooncrab-cracker"), (1, 2, "powderplum-tart"), (0, 2, "firefly-sorbet")] {

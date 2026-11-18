@@ -12,12 +12,10 @@ name = "delve-dev-host"
 path = "src/main.rs"
 
 [dependencies]
-# The fight and kingdom scenes are the art kit's own fixtures.
 angel-delve = { path = "..", features = ["testing"] }
 serde_json = "1"
 angel-net = { path = "../../net" }
 angel-serve = { path = "../../serve" }
-# The Bend rules modules, run in V8 as the cockpit and realm host run them.
 angel-live = { path = "../../live", features = ["v8"] }
 
 [[bin]]

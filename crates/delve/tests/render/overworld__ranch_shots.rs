@@ -87,7 +87,6 @@ fn write_ranch_shots() {
         r.home.ranch.wins = wins;
         save(name, &frame(&r, 384, 224));
     }
-    // Helios alone, large: standing and at the gallop in the sun.
     for (name, im) in [
         ("06-helios-stand", draft(HELIOS, Pose::Stand, 2.0, None, false)),
         ("07-helios-gallop-fire", draft(HELIOS, Pose::Gallop(1), 2.0, Some(30), false)),

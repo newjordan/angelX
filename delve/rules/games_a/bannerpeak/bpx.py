@@ -1,35 +1,4 @@
 #!/usr/bin/env python3
-"""bpx: a small typed layer over Bend for the bannerpeak port. `src/X.bpx` -> `X.bend`.
-
-Bend 2 refuses a `match` on a computed value, wants every reused value marked `+`, and has
-no signed integers, so a faithful translation of an imperative Rust module is mostly
-plumbing. bpx writes the plumbing. The source is Rust-shaped, indented like Python:
-
-    module bannerpeak.body                  every `fn` below is named bannerpeak.body.<name>
-    use layout.WIDTH layout.HEIGHT          consts of other modules, by short name
-    const Q: i32 = 256                      a const (its value is inlined; a def is written too)
-    enum Move: Ground Air Wall              a unit enum: a String in the J tree
-    struct Body:                            a J object in serde shape: its fields' types
-      x: i32
-      plank: Option<u16>
-    extern fn Body.valid(self: Body) -> bool = bannerpeak.body.Body.valid
-    fn Body.step(self: Body mut, c: Cmd, out: Vec<Ev> mut) -> bool:
-      let (fx, fy) = self.foot()
-      self.vx += 3
-      if self.vy < 0 && !c.jump:
-        return false
-      out.push(Ev{k: "Skid", s: "", a: 0, b: 0})
-      true
-
-Types: i32 i16 i8 (signed, a two's-complement U32), u32 u16 u8 usize (U32), bool, str,
-J (a J.Val), unit, structs (J objects), Option<T>, Vec<T> (a J array), Map<T> (a J object
-keyed by decimal id), (A, B) tuples, list<T> (a Bend List of u32). A `mut` parameter is
-`&mut` in Rust: the def returns (result, mut1, mut2, ...) and callers rebind. Control flow:
-`if / elif / else`, `return`, calls, assignments, `let`. There are no loops: recurse. An
-`if` becomes its own def over the live variables (Bend cannot match a computed value).
-
-Run:  python3 bpx.py [src/X.bpx ...]     (default: every src/*.bpx, writing X.bend beside)
-"""
 import pathlib
 import re
 import sys
@@ -40,9 +9,6 @@ MASK = 0xFFFFFFFF
 class Err(Exception):
     pass
 
-
-# ---------------------------------------------------------------- types
-
 SIGNED = {"i32", "i16", "i8", "isize"}
 UNSIGNED = {"u32", "u16", "u8", "usize"}
 
@@ -52,15 +18,13 @@ def is_int(t):
 
 
 class Reg:
-    """Everything the sources declare."""
-
     def __init__(self):
-        self.structs = {}  # name -> {field: type}
-        self.enums = {}  # name -> [variants]
-        self.consts = {}  # full name -> (type, value)
-        self.short_consts = {}  # short name -> [full]
-        self.fns = {}  # full bend name -> Sig
-        self.methods = {}  # (Type, method) -> full bend name
+        self.structs = {}
+        self.enums = {}
+        self.consts = {}
+        self.short_consts = {}
+        self.fns = {}
+        self.methods = {}
 
     def type_of(self, s):
         s = s.strip()
@@ -83,7 +47,6 @@ class Reg:
 
 
 def bt(t):
-    """The Bend type text."""
     if t in ("i", "u"):
         return "U32"
     if t == "bool":
@@ -112,9 +75,6 @@ def nest_type(parts):
 
 def tshow(t):
     return str(t)
-
-
-# ---------------------------------------------------------------- lexing
 
 TOKEN = re.compile(r"""
     \s+ |
@@ -168,9 +128,6 @@ def split_top(s, sep=","):
     if cur.strip():
         out.append(cur.strip())
     return out
-
-
-# ---------------------------------------------------------------- expression parser
 
 PREC = [["||"], ["&&"], ["==", "!=", "<", ">", "<=", ">="], ["|"], ["^"], ["&"], ["<<", ">>"], ["+", "-"], ["*", "/", "%"]]
 
@@ -331,9 +288,6 @@ def parse_expr(src):
         raise Err(f"trailing {p.peek()[1]!r} in {src!r}")
     return e
 
-
-# ---------------------------------------------------------------- statements
-
 class Fn:
     def __init__(self, name, params, ret, body, extern=None, line=0):
         self.name, self.params, self.ret, self.body = name, params, ret, body
@@ -343,7 +297,7 @@ class Fn:
 
 class Sig:
     def __init__(self, bend, params, ret):
-        self.bend, self.params, self.ret = bend, params, ret  # params: [(name, type, mut)]
+        self.bend, self.params, self.ret = bend, params, ret
         self.muts = [i for i, p in enumerate(params) if p[2]]
 
 
@@ -379,7 +333,6 @@ def strip_comment(line):
 
 
 def logical_lines(text):
-    """(indent, text, lineno) with open brackets joined."""
     out, buf, bind, bno = [], "", 0, 0
     depth = 0
     for no, raw in enumerate(text.splitlines(), 1):
@@ -405,7 +358,6 @@ def strip_str(s):
 
 
 def find_assign(s):
-    """Index of a top-level assignment operator in a statement, with its operator text."""
     depth = 0
     t = strip_str(s)
     for i, ch in enumerate(t):
@@ -427,7 +379,6 @@ def find_assign(s):
 
 
 def parse_block(lines, i, ind):
-    """Statements at indent `ind` starting at lines[i]; returns (stmts, next i)."""
     out = []
     while i < len(lines) and lines[i][0] >= ind:
         if lines[i][0] > ind:
@@ -497,20 +448,16 @@ def parse_sub(lines, i, ind):
         raise Err("empty block")
     return parse_block(lines, i, lines[i][0])
 
-
-# ---------------------------------------------------------------- the compiler
-
 class Compiler:
     def __init__(self, reg):
         self.reg = reg
-        self.out = []  # finished bend text blocks
+        self.out = []
         self.counter = 0
         self.ntmp = 0
         self.nif = 0
         self.last_type = None
         self.module = None
 
-    # --- names
     def resolve_const(self, name, module):
         reg = self.reg
         cands = [f"{module}.{name}", f"bannerpeak.{name}", name]
@@ -536,13 +483,11 @@ class Compiler:
             ty, m = name.rsplit(".", 1)
             if (ty, m) in reg.methods:
                 return reg.fns[reg.methods[(ty, m)]]
-            # module-qualified: layout.movers -> bannerpeak.layout.movers
             for full, sig in reg.fns.items():
                 if full.endswith("." + name):
                     return sig
         return None
 
-    # --- compile one fn
     def compile_fn(self, fn):
         reg = self.reg
         self.fn = fn
@@ -574,7 +519,6 @@ class Compiler:
         self.ntmp += 1
         return f"_{base}{self.ntmp}"
 
-    # --- projections out of a call's result
     def proj(self, name, parts_types, idx):
         n = len(parts_types)
         if n == 1:
@@ -591,7 +535,6 @@ class Compiler:
             return texts[0]
         return "(" + texts[0] + ", " + self.mk_tuple(texts[1:]) + ")"
 
-    # --- blocks
     def block(self, stmts, env, mode, mvars):
         env = dict(env)
         lines = []
@@ -631,7 +574,6 @@ class Compiler:
                 pre = []
                 text, t = self.expr(st[1], env, pre, stmt=True)
                 lines += pre
-                # a value-less statement: a call already rebound what it mutates
             elif kind == "return":
                 pre = []
                 e = st[1]
@@ -653,7 +595,6 @@ class Compiler:
                 lines += self.merge_if(st, env)
             else:
                 raise Err(f"statement {kind}")
-        # fell off the end
         if mode == "fn":
             if self.sig.ret != "unit":
                 raise Err(f"{self.fn.name}: ends without a value")
@@ -675,13 +616,11 @@ class Compiler:
             return "Unit{}"
         return self.mk_tuple(texts)
 
-    # --- if
     def used_vars(self, env, text):
         t = strip_str(text)
         return [v for v in env if re.search(r"(?<![\w.])" + re.escape(v) + r"(?![\w])", t)]
 
     def lift(self, kind, cond_text, arms, env, rtype_bend):
-        """A def that matches `c` and runs one arm; returns the call text."""
         self.nif += 1
         name = f"{self.fn.bend}.if{self.nif}"
         body = "\n".join(arms[0]) + "\n" + "\n".join(arms[1])
@@ -728,13 +667,11 @@ class Compiler:
                 lines.append(f"+{v} = {self.proj(tn, tys, k)}")
         return lines
 
-    # --- assignment
     def assign(self, lhs, op, rhs, env, pre):
         if op != "=":
             bop = op[:-1]
             rhs = ("bin", bop, lhs, rhs)
         root, steps = self.lvalue(lhs)
-        # type of the target
         t = self.path_type(root, steps, env)
         text, rt = self.expr(rhs, env, pre, expect=t)
         text = self.coerce(text, self.last_type, t)
@@ -783,7 +720,6 @@ class Compiler:
         raise Err(f"index into {tshow(t)}")
 
     def store(self, root, steps, value_text, t, env, pre):
-        """root.steps = value (a bend value of type t)."""
         if not steps:
             pre.append(f"+{root} : {bt(env[root])} = {value_text}")
             return
@@ -808,7 +744,6 @@ class Compiler:
         inner = self.set_path(f"bannerpeak.u.at({cur}, {itext})", steps, k + 1, et, wtext, pre, env)
         return f"bannerpeak.u.put({cur}, {itext}, {inner})"
 
-    # --- conversions between bend values and J
     def to_j(self, text, t, pre=None):
         if t == "i":
             return f"J.of_i32({text})"
@@ -843,22 +778,17 @@ class Compiler:
         raise Err(f"from_j {tshow(t)}")
 
     def coerce(self, text, have, want):
-        """Literals and Nones adapt to the wanted type."""
         if have == "lit" and want in ("i", "u"):
             return text
         if want == "unit":
             return text
         return text
 
-    # --- expressions
     def expr(self, e, env, pre, expect=None, stmt=False):
-        """Returns (bend text, type); hoisted statements go to `pre`. self.last_type: the
-        type of a literal before it adapted ('lit') or the type."""
         text, t = self.expr_(e, env, pre, expect, stmt)
         self.last_type = t
         if t == "lit":
             t2 = expect if expect in ("i", "u") else "u"
-            # a negative literal in an unsigned context is a two's complement i32
             return text, t2
         return text, t
 
@@ -976,7 +906,6 @@ class Compiler:
         if op in ("&&", "||"):
             return self.logic(e, env, pre)
         arith = op in ("+", "-", "*", "/", "%", "<<", ">>", "&", "|", "^")
-        # evaluate operands; literals adapt to the other side
         ex = expect if arith else None
         ta, tta = self.expr(a, env, pre, ex)
         la = self.last_type
@@ -1034,7 +963,6 @@ class Compiler:
             st = ("if", cond, [("assign", ("var", tn), "=", b)], [])
             env2.update({v: env[v] for v in env})
             lines = self.merge_if(st, env2)
-            # merge_if rebinds tn (and whatever the effects changed) in env's scope
             pre += lines
             env[tn] = "bool"
             return tn, "bool"
@@ -1044,7 +972,6 @@ class Compiler:
         return f"Bool.or({ta}, {tb})", "bool"
 
     def effects(self, e):
-        """Whether evaluating the expression can change a variable."""
         if not isinstance(e, tuple):
             return False
         k = e[0]
@@ -1098,10 +1025,8 @@ class Compiler:
                 raise Err(f"{name} literal misses {f}")
         return text, ("struct", name)
 
-    # --- calls
     def call(self, e, env, pre, expect, stmt):
         _, name, args = e
-        # builtins
         b = self.builtin_call(name, args, env, pre, expect)
         if b is not None:
             return b
@@ -1112,7 +1037,6 @@ class Compiler:
 
     def mcall(self, e, env, pre, expect, stmt):
         _, recv, name, args = e
-        # type of the receiver
         rt = self.peek_type(recv, env)
         b = self.builtin_method(recv, rt, name, args, env, pre, expect)
         if b is not None:
@@ -1125,7 +1049,6 @@ class Compiler:
         raise Err(f"method {name} on {tshow(rt)}")
 
     def peek_type(self, e, env):
-        """The static type of an expression without emitting it."""
         tmp = []
         saved = (self.ntmp, self.nif, self.last_type if hasattr(self, "last_type") else None)
         text, t = self.expr(e, env, tmp)
@@ -1133,7 +1056,6 @@ class Compiler:
         return t
 
     def apply(self, sig, args, recv, env, pre, stmt):
-        """Call a declared fn. recv: the method receiver expression, if any."""
         full_args = ([recv] if recv is not None else []) + list(args)
         if len(full_args) != len(sig.params):
             raise Err(f"{sig.bend}: {len(sig.params)} arguments, got {len(full_args)}")
@@ -1167,7 +1089,6 @@ class Compiler:
             return "Unit{}", "unit"
         return self.proj(tn, parts, 0), sig.ret
 
-    # --- builtins
     def builtin_call(self, name, args, env, pre, expect):
         if name in ("min", "max") and len(args) == 2:
             return self.minmax(name, args[0], args[1], env, pre, expect)
@@ -1349,7 +1270,6 @@ def always_returns(stmts):
 
 
 def assigned(stmts, env, comp):
-    """Names of variables from outside the block that the statements assign."""
     out = set()
     declared = set()
 
@@ -1420,12 +1340,10 @@ def assigned(stmts, env, comp):
                 walk(st[3])
 
     walk(stmts)
-    # `&&`/`||` with effects introduce temporaries; they are local
     return {v for v in out if v in env}
 
 
 def compile_case(comp, reg, spec, module):
-    """case NAME: key=param, ... => key=part, ...  (NAME a fn; unnamed keys are the names)."""
     if ":" in spec:
         name, _, rest = spec.partition(":")
         name, rest = name.strip(), rest.strip()
@@ -1482,11 +1400,7 @@ def compile_case(comp, reg, spec, module):
 
 
 def encode(comp, text, t, lines):
-    """A bend value of type t as a J value (tuples as arrays)."""
     return comp.to_j(text, t, lines)
-
-
-# ---------------------------------------------------------------- files
 
 class Source:
     def __init__(self, reg):
@@ -1642,7 +1556,6 @@ def resolve_types(reg, fns):
 def main(argv):
     here = pathlib.Path(__file__).resolve().parent
     files = [pathlib.Path(a) for a in argv] or sorted((here / "src").glob("*.bpx"))
-    # every source is read first: a call may name a fn declared in a later file
     reg = Reg()
     sources = []
     allfiles = sorted((here / "src").glob("*.bpx"), key=lambda p: (p.stem != "world", p.stem != "layout", p.stem))

@@ -30,8 +30,6 @@ use std::sync::OnceLock;
 pub mod people;
 pub mod works;
 
-/// A kept level: its room, its slug in the data, its cell on the home
-/// floor's grid, and its map.
 pub struct Def {
     pub kind: RoomKind,
     pub slug: &'static str,
@@ -50,9 +48,6 @@ macro_rules! level {
     };
 }
 
-/// Every kept level, top down. The cells are a row of their own far north
-/// east of everything else on the floor (the kingdom's map is at (20, -20)),
-/// well beyond any loop settlement's dig.
 pub const LEVELS: [Def; 10] = [
     level!(BomGate, "the-gate", 24),
     level!(BomGreatHall, "the-great-hall", 25),
@@ -66,11 +61,8 @@ pub const LEVELS: [Def; 10] = [
     level!(BomForges, "the-forges", 33),
 ];
 
-/// The surface level, with the trade depot: the fort's door from the
-/// kingdom opens here.
 pub const TOP: RoomKind = RoomKind::BomGate;
 
-/// Each level's room and cell, for `world::ROOMS`.
 pub const CELLS: [(RoomKind, (i32, i32)); LEVELS.len()] = {
     let mut out = [(TOP, (0, 0)); LEVELS.len()];
     let mut i = 0;
@@ -81,7 +73,6 @@ pub const CELLS: [(RoomKind, (i32, i32)); LEVELS.len()] = {
     out
 };
 
-/// Where level `kind` stands in `LEVELS`, if it is one.
 pub const fn index(kind: RoomKind) -> Option<usize> {
     Some(match kind {
         RoomKind::BomGate => 0,
@@ -98,22 +89,13 @@ pub const fn index(kind: RoomKind) -> Option<usize> {
     })
 }
 
-/// A room that is a level of Bomrekedan.
 pub const fn is_level(kind: RoomKind) -> bool {
     index(kind).is_some()
 }
 
-/// The kingdom's door to the fort is built on the free lot nearest this
-/// tile: on the Greenwood's eastern edge, in the forest a few tiles short of
-/// the Highlands' first hills (`world::kingdom::build`; the lot is (66, 18),
-/// its door at (67, 21)).
 pub const GATE_GOAL: (i32, i32) = (66, 20);
-/// The door's name on the kingdom's map.
 pub const GATE_NAME: &str = "Gate of Bomrekedan";
 
-/// The clear 3x3 by the trade depot on the surface level, and the floor
-/// tile below it a party comes in on from the kingdom (`kingdom.json`
-/// `levels[0].entrance`).
 pub const ENTRANCE: (i32, i32, i32, i32) = (36, 52, 3, 3);
 pub const ARRIVAL: (f32, f32) = (38.5, 55.5);
 
@@ -128,12 +110,7 @@ const fn door(
     Entrance { id, room, at, to: Dest::Room(to, arrive), label, needs: None }
 }
 
-/// The fort's stairs, each a plate on both of its levels, and the depot's
-/// plate back out. A link's `arrive` is a tile; a party stands on its
-/// middle. Printed from `kingdom.json` by the tests' `print_doors`.
 pub const DOORS: [Entrance; 19] = [
-    // Out to the kingdom: back to the door on its map (`rules::kingdom`),
-    // or for a party that never came that way, the Delve's gate.
     door("bomrekedan-out", TOP, ENTRANCE, RoomKind::Gate, super::GATE_FRONT, "OUT TO THE KINGDOM"),
     door("bom-gate-down", RoomKind::BomGate, (61, 63, 2, 2), RoomKind::BomGreatHall, (61.5, 62.5), "DOWN TO THE GREAT HALL"),
     door("bom-great-hall-up", RoomKind::BomGreatHall, (61, 63, 2, 2), RoomKind::BomGate, (61.5, 61.5), "UP TO THE GATE"),
@@ -155,25 +132,15 @@ pub const DOORS: [Entrance; 19] = [
     door("bom-forges-up", RoomKind::BomForges, (38, 23, 1, 3), RoomKind::BomBarracks, (41.5, 23.5), "UP TO THE BARRACKS"),
 ];
 
-/// A level as the import laid it.
 pub struct Level {
     pub kind: RoomKind,
     pub slug: &'static str,
-    /// As the fort names it ("The Farms and Stills"), and in capitals for
-    /// a board.
     pub name: &'static str,
     pub title: String,
-    /// Its depth in the fort (DF's z): the surface is the highest.
     pub z: i32,
-    /// Tiles across and down, and where its top left is in the fort.
     pub size: (usize, usize),
     pub origin: (i32, i32),
-    /// The ground, row by row, as the game's tiles: a `>` that is no plate
-    /// of `DOORS` is plain floor.
     pub tiles: Vec<Tile>,
-    /// What stands on each tile (`b` bed, `W` workshop, ...) and what each
-    /// natural wall is made of (`s` soil, `i` iron ore, ...), a byte a
-    /// tile, `b' '` for nothing: the README's keys.
     pub dress: Vec<u8>,
     pub rock: Vec<u8>,
 }
@@ -187,17 +154,14 @@ impl Level {
         grid[y as usize * w + x as usize]
     }
 
-    /// What stands on tile `(x, y)`, `b' '` for nothing.
     pub fn dress_at(&self, x: i32, y: i32) -> u8 {
         self.at(&self.dress, x, y)
     }
 
-    /// What the natural wall at `(x, y)` is made of, `b' '` for none.
     pub fn rock_at(&self, x: i32, y: i32) -> u8 {
         self.at(&self.rock, x, y)
     }
 
-    /// Whether this is the surface, open to the sky.
     pub fn surface(&self) -> bool {
         self.kind == TOP
     }
@@ -221,7 +185,6 @@ fn inside((c, r, w, h): (i32, i32, i32, i32), x: i32, y: i32) -> bool {
 
 type Lines = dyn Iterator<Item = &'static str>;
 
-/// The next line, a header `key` and its value.
 fn field(lines: &mut Lines, key: &str) -> Result<&'static str, String> {
     let line = lines.next().ok_or(format!("no {key}"))?;
     line.strip_prefix(key)
@@ -237,8 +200,6 @@ fn pair(text: &str) -> Result<(i64, i64), String> {
     }
 }
 
-/// A grid under its header `key`, `h` rows of `w` bytes (a short row is
-/// padded with nothing).
 fn grid(lines: &mut Lines, key: &str, (w, h): (usize, usize)) -> Result<Vec<u8>, String> {
     field(lines, key)?;
     let mut out = Vec::with_capacity(w * h);
@@ -253,7 +214,6 @@ fn grid(lines: &mut Lines, key: &str, (w, h): (usize, usize)) -> Result<Vec<u8>,
     Ok(out)
 }
 
-/// One level's file read (the README's format).
 pub fn parse(def: &Def) -> Result<Level, String> {
     read(def).map_err(|e| format!("{}: {e}", def.slug))
 }
@@ -302,7 +262,6 @@ fn read(def: &Def) -> Result<Level, String> {
     })
 }
 
-/// Every level, read once.
 pub fn levels() -> &'static [Level] {
     static LEVELS_READ: OnceLock<Vec<Level>> = OnceLock::new();
     LEVELS_READ.get_or_init(|| {
@@ -313,23 +272,18 @@ pub fn levels() -> &'static [Level] {
     })
 }
 
-/// Level `kind`, if it is one.
 pub fn level(kind: RoomKind) -> Option<&'static Level> {
     index(kind).map(|i| &levels()[i])
 }
 
-/// The size level `kind` is laid at, if it is one.
 pub fn size(kind: RoomKind) -> Option<(usize, usize)> {
     level(kind).map(|l| l.size)
 }
 
-/// Level `kind`'s name for a board ("THE GREAT HALL").
 pub fn title(kind: RoomKind) -> Option<&'static str> {
     level(kind).map(|l| l.title.as_str())
 }
 
-/// Level `kind`'s room at `cell`: its ground, every plate of `DOORS` in it
-/// stairs, nothing else in it.
 pub fn room(kind: RoomKind, cell: (i32, i32)) -> Room {
     static ROOMS: OnceLock<Vec<Room>> = OnceLock::new();
     let rooms = ROOMS.get_or_init(|| {
@@ -354,7 +308,6 @@ pub fn room(kind: RoomKind, cell: (i32, i32)) -> Room {
     room
 }
 
-/// A rect in level coordinates, as `kingdom.json` writes one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 pub struct Rect {
     pub x: i32,
@@ -363,8 +316,6 @@ pub struct Rect {
     pub h: i32,
 }
 
-/// A place of the fort (`kingdom.json` `places`): a room, a workshop, a
-/// zone, on its level (`None`: a level not kept), with all else it carries.
 #[derive(Clone, Debug, Deserialize)]
 pub struct Place {
     pub id: String,
@@ -378,7 +329,6 @@ pub struct Place {
     pub more: BTreeMap<String, serde_json::Value>,
 }
 
-/// The whole of `kingdom.json`, read once.
 pub fn kingdom() -> &'static serde_json::Value {
     static KINGDOM: OnceLock<serde_json::Value> = OnceLock::new();
     KINGDOM.get_or_init(|| {
@@ -387,7 +337,6 @@ pub fn kingdom() -> &'static serde_json::Value {
     })
 }
 
-/// Every place of the fort, read once.
 pub fn places() -> &'static [Place] {
     static PLACES: OnceLock<Vec<Place>> = OnceLock::new();
     PLACES.get_or_init(|| {
@@ -395,7 +344,6 @@ pub fn places() -> &'static [Place] {
     })
 }
 
-/// The places on level `kind`.
 pub fn places_on(kind: RoomKind) -> impl Iterator<Item = &'static Place> {
     let slug = index(kind).map(|i| LEVELS[i].slug);
     places().iter().filter(move |p| slug.is_some() && p.level.as_deref() == slug)

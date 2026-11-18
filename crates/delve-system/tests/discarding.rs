@@ -31,7 +31,6 @@ fn a_state_the_caller_does_not_read_back_is_not_cloned_and_changes_nothing() {
     let input = BTreeMap::from([(1, Input { move_x: 1, fire: true, ..Default::default() })]);
     let began = Instant::now();
     for tick in 0..60 {
-        // The host puts a thing of its own on the run between ticks, so the worker is sent a delta.
         if tick % 7 == 3 {
             a.cues.push(format!("host says {tick}"));
             b.cues.push(format!("host says {tick}"));

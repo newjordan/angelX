@@ -46,7 +46,6 @@ struct PolicyLease {
 impl Drop for PolicyLease {
     fn drop(&mut self) {
         use std::os::fd::AsRawFd;
-        // SAFETY: this object owns the descriptor until after the unlock call.
         unsafe {
             libc::flock(self.file.as_raw_fd(), libc::LOCK_UN);
         }
@@ -131,9 +130,6 @@ impl PolicyStore {
         task_type: &str,
         credits: &[CreditRow],
     ) -> Result<RoutingPolicy, String> {
-        // Different swarm runs may finish at the same time. Hold one
-        // cross-process lease across the load/modify/atomic-save transaction so
-        // their post-action evidence cannot overwrite one another.
         let _lease = self.acquire_lease()?;
         let mut policy = self.load()?;
         if policy.applied_run_ids.iter().any(|seen| seen == run_id) {
@@ -202,7 +198,6 @@ impl PolicyStore {
             .open(&path)
             .map_err(|e| format!("open {}: {e}", path.display()))?;
         secure_file(&path)?;
-        // SAFETY: `file` owns a live descriptor for the lifetime of PolicyLease.
         let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
         if rc != 0 {
             return Err(format!(

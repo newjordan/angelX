@@ -12,18 +12,12 @@
 //! climber does. Each knight antes a tenth of their gold, as at any folly.
 use super::*;
 
-/// How long the climb lasts, after the title card.
 pub const CLIMB_TIME: u32 = 60 * HZ;
-/// A keg every this many ticks, and its rolling pace (units a second).
 pub const KEG_EVERY: u32 = HZ * 3 / 2;
 pub const KEG_PACE: f32 = 9.0;
-/// How many kegs roll at once, at most.
 pub const KEGS: usize = 8;
-/// Kegs jumped that make a gold to keep.
 pub const JUMPS_PER_GOLD: u16 = 2;
 
-/// The scaffold: girders (`=`) on rows 2, 5 and 8, the floor below. The
-/// room's own doors are kept wherever they stand.
 const SCAFFOLD: [&str; ROWS] = [
     "################################################",
     "#..............................................#",
@@ -40,18 +34,14 @@ const SCAFFOLD: [&str; ROWS] = [
     "################################################",
     "################################################",
 ];
-/// The top girder's row: standing on it is the summit.
 pub const TOP_ROW: i32 = 2;
 
-/// A keg, in 1/16 units so the folly stays exact and comparable.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Keg {
     pub x: i32,
     pub y: i32,
-    /// Rolling east (1) or west (-1); falling while `drop` > 0.
     pub dir: i8,
     pub drop: i32,
-    /// Knights who have jumped it (each scores it once).
     pub cleared: Vec<u32>,
 }
 
@@ -66,8 +56,6 @@ pub struct Gantry {
     pub room: usize,
     pub t: u32,
     pub kegs: Vec<Keg>,
-    /// Kegs each knight has jumped, the highest girder each has reached
-    /// (0 the floor, 3 the summit), and each one's ante.
     pub jumped: BTreeMap<u32, u16>,
     pub height: BTreeMap<u32, u8>,
     pub ante: BTreeMap<u32, u32>,
@@ -90,7 +78,6 @@ impl Gantry {
     }
 }
 
-/// Which girder (0 floor .. 3 summit) a body standing at `y` (units) is on.
 fn girder(y: f32) -> u8 {
     let row = (y / TILE_UNITS) as i32;
     match row {
@@ -102,7 +89,6 @@ fn girder(y: f32) -> u8 {
 }
 
 impl Run {
-    /// On a floor with a side-on hall, that hall is the floor's gantry.
     pub(super) fn pick_gantry(&mut self) {
         self.gantry = None;
         self.gantry_room = None;
@@ -116,8 +102,6 @@ impl Run {
             .position(|r| r.kind == RoomKind::Ledge && !r.cleared && r.cols == SCAFFOLD[0].len());
     }
 
-    /// Into the gantry: the scaffold goes up (doors kept), the antes go in,
-    /// and the ogre takes his place.
     pub(super) fn start_gantry(&mut self, index: usize) {
         let room = &mut self.dungeon.rooms[index];
         for (row, line) in SCAFFOLD.iter().enumerate() {
@@ -151,8 +135,6 @@ impl Run {
         self.cues.push("folly".into());
     }
 
-    /// The climb's tick: kegs roll and fall, knights are caught or clear
-    /// them, and the summit ends it.
     pub(super) fn tick_gantry(&mut self) {
         let Some(mut g) = self.gantry.take() else {
             return;
@@ -167,7 +149,6 @@ impl Run {
             return;
         }
         let cols = self.room().cols as i32;
-        // The ogre rolls one off the top girder, eastward.
         if (g.t - folly::TITLE).is_multiple_of(KEG_EVERY) && g.kegs.len() < KEGS {
             g.kegs.push(Keg {
                 x: (3.0 * TILE_UNITS * 16.0) as i32,
@@ -186,7 +167,6 @@ impl Run {
             let under = room.tile(col, row + 1);
             let footed = matches!(under, Tile::Ledge | Tile::Block);
             if k.drop > 0 || !footed {
-                // Falling: down until something under it, then roll back.
                 k.y += step * 2;
                 k.drop += 1;
                 let (_, ny) = k.pos();
@@ -202,7 +182,6 @@ impl Run {
             let (x, _) = k.pos();
             x > 0.5 && x < (cols as f32 - 0.5) * TILE_UNITS
         });
-        // Knights: caught, or clear in the air; and how high each has got.
         let start = (3.3, (10.0 + 0.5) * TILE_UNITS - ledge::FOOT);
         let mut summit = None;
         for (&id, hero) in self.players.iter_mut().filter(|(_, h)| h.hp > 0 && !h.stone) {
@@ -215,7 +194,6 @@ impl Run {
                 let above = ky - hero.y;
                 if (0.0..0.9).contains(&above) || (hero.y - ky).abs() < 0.6 {
                     if hero.invulnerable == 0 && !k.cleared.contains(&id) {
-                        // Bowled over: back to the bottom, unhurt.
                         (hero.x, hero.y) = start;
                         hero.vy = 0.0;
                         hero.invulnerable = HZ;

@@ -63,7 +63,6 @@ fn empty_or_unrelated_summary_done_events_do_not_create_visible_content() {
 
 #[test]
 fn parse_responses_event_covers_done_ignore_and_error_fallbacks() {
-    // A bare `[DONE]` (data-prefixed or not) is a usage-less completion.
     assert!(matches!(
         parse_responses_event("data: [DONE]"),
         ResponseEvent::Done(None)
@@ -72,7 +71,6 @@ fn parse_responses_event_covers_done_ignore_and_error_fallbacks() {
         parse_responses_event("[DONE]"),
         ResponseEvent::Done(None)
     ));
-    // Malformed JSON and a blank line are ignored, never an error.
     assert!(matches!(
         parse_responses_event("data: {not json"),
         ResponseEvent::Ignore
@@ -81,27 +79,22 @@ fn parse_responses_event_covers_done_ignore_and_error_fallbacks() {
         parse_responses_event("   "),
         ResponseEvent::Ignore
     ));
-    // A text delta with no `delta` field degrades to Ignore.
     assert!(matches!(
         parse_responses_event(r#"data: {"type":"response.output_text.delta"}"#),
         ResponseEvent::Ignore
     ));
-    // The plain `response.reasoning_text.delta` variant also maps to Reasoning.
     assert!(matches!(
         parse_responses_event(r#"data: {"type":"response.reasoning_text.delta","delta":"r"}"#),
         ResponseEvent::Reasoning(r) if r == "r"
     ));
-    // An `error`-type frame reads `/error/message`.
     assert!(matches!(
         parse_responses_event(r#"data: {"type":"error","error":{"message":"boom"}}"#),
         ResponseEvent::Failed(m, _) if m == "boom"
     ));
-    // A failure with a top-level `message`.
     assert!(matches!(
         parse_responses_event(r#"data: {"type":"response.failed","message":"top"}"#),
         ResponseEvent::Failed(m, _) if m == "top"
     ));
-    // A failure with no message at all falls back to the default text.
     assert!(matches!(
         parse_responses_event(r#"data: {"type":"response.failed"}"#),
         ResponseEvent::Failed(m, _) if m == "request failed"

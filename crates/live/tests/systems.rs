@@ -133,7 +133,6 @@ fn bad_api_migration_and_state_keep_the_original_serving() {
         assert_eq!(host.status().swaps, 1);
     }
     fixture.publish(5, "ok");
-    // Host validation also rejects the candidate's copied checkpoint.
     let deadline = Instant::now() + Duration::from_secs(5);
     while host.status().rejected < 4 {
         let _ = host.apply(state.clone(), json!({"delta":0}), |s| {
@@ -290,7 +289,6 @@ fn pure_computations_finish_before_handoff_and_validate_outputs_without_a_checkp
     let (mut host, output) = running.join().unwrap();
     assert_eq!(output["value"], 4);
     assert_eq!(output["pid"], first["pid"]);
-    // Even a fully prepared image waits for a validated checkpoint boundary.
     assert_eq!(
         host.compute("counter.quote", 1, json!({"base":4}), |_| Ok(()))
             .unwrap()["pid"],

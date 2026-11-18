@@ -42,8 +42,6 @@ fn apc(intake: &mut Intake, engine: &mut FakeEngine, s: &str) {
     intake.handle(Media::Apc(s.as_bytes().to_vec()), engine);
 }
 
-// ---------------------------------------------------------------- splitter
-
 #[test]
 fn escape_intermediate_then_escape_passes_both_bytes_once() {
     let input = b"\x1b(\x1b[31mX";
@@ -81,9 +79,6 @@ fn apc_introducer_then_can_does_not_hold_text() {
 
 #[test]
 fn stray_dcs_lets_output_through() {
-    // `cat` of a binary: a stray `ESC P A`. The engine's DCS ends at the
-    // next ESC, so the splitter must too, and the prompt reaches the
-    // screen instead of waiting for an ST that may never come.
     let input = b"\x1bPAjunk\x1b[32mprompt$ \x1b[0m";
     let (text, _) = reads(&[input]);
     assert_eq!(text, input.to_vec(), "held back; got {:?}", String::from_utf8_lossy(&text));
@@ -98,8 +93,6 @@ fn stray_dcs_does_not_hide_media() {
 
 #[test]
 fn pass_through_bodies_are_not_held() {
-    // A stray DCS followed by 8 MiB of output: the bytes go out as they
-    // arrive, whatever the lifted-body cap is.
     let mut s = Splitter::with_body_cap(1024);
     let mut pieces = Vec::new();
     s.split(b"\x1bPA", &mut pieces);
@@ -155,9 +148,6 @@ fn random_cuts(rng: &mut Rng, input: &[u8]) -> Vec<Vec<u8>> {
     out
 }
 
-/// Streams where nothing can be lifted (no `G`, `q`, `F`): the text out
-/// must be the input exactly, one read or many. ESC ESC is excluded
-/// (guarded separately).
 #[test]
 fn fuzzed_no_lift_streams_pass_byte_exact() {
     let alphabet: &[u8] = b"\x1b\x1b\x1b\x1b[]_P\\\x07137;$+( am=>x\x18\x1a\r\n0";
@@ -186,9 +176,6 @@ fn fuzzed_no_lift_streams_pass_byte_exact() {
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
-/// The review's narrowed fuzzer: the same as above without the classes it
-/// reported separately (ESC ESC, ESC + intermediate, pass-through
-/// APC/OSC).
 #[test]
 fn fuzzed_streams_without_the_known_classes_pass_byte_exact() {
     let alphabet: &[u8] = b"\x1b\x1b\x1b\x1b[]_P\\\x07137;$+( am=>x\x18\x1a\r\n0";
@@ -223,7 +210,6 @@ fn fuzzed_streams_without_the_known_classes_pass_byte_exact() {
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
-/// Mixed streams of complete text and media segments, random splits.
 #[test]
 fn fuzzed_mixed_text_and_media_segments_match_the_one_shot_result() {
     let text_segs: &[&[u8]] = &[
@@ -283,8 +269,6 @@ fn fuzzed_mixed_text_and_media_segments_match_the_one_shot_result() {
 
 #[test]
 fn sgr0_then_media_is_lifted() {
-    // ncurses sgr0 on xterm terminfo is `ESC ( B ESC [ m`; an image right
-    // after `ESC ( B` must still be lifted.
     let input = b"\x1b(B\x1b_Ga=T,f=24,s=1,v=1,i=1;////\x1b\\";
     let (text, media) = reads(&[input]);
     assert_eq!(media.len(), 1, "text {:?}", String::from_utf8_lossy(&text));
@@ -300,7 +284,6 @@ fn sgr0_then_sixel_is_lifted() {
 
 #[test]
 fn escape_paren_b_ends_at_b() {
-    // `ESC ( B` then CR LF: the escape ends at `B`.
     let mut s = Splitter::default();
     let mut pieces = Vec::new();
     s.split(b"\x1b(B", &mut pieces);
@@ -311,11 +294,8 @@ fn escape_paren_b_ends_at_b() {
     assert_eq!(out, 3, "ESC ( B is complete and should go out in this read");
 }
 
-// ------------------------------------------------------------ APC graphics
-
 #[test]
 fn a_chunked_transmission_without_an_id_decodes() {
-    // The spec's send-png: `a=T,f=100,m=1` (no i), then `m=1`, then `m=0`.
     let mut intake = Intake::new(1);
     intake.set_cell((1, 1));
     let mut engine = FakeEngine::new();
@@ -336,7 +316,6 @@ fn a_chunked_transmission_without_an_id_decodes() {
 
 #[test]
 fn an_empty_final_chunk_completes_the_transmission() {
-    // The spec's send-png ends with `ESC _ G m=0 ; ESC \` — no data.
     let mut intake = Intake::new(1);
     intake.set_cell((1, 1));
     let mut engine = FakeEngine::new();
@@ -371,7 +350,6 @@ fn a_delete_aborts_an_open_transmission() {
     intake.set_cell((1, 1));
     let mut engine = FakeEngine::new();
     apc(&mut intake, &mut engine, "Ga=T,f=24,s=1,v=1,i=5,m=1;////");
-    // A delete must abort the partial upload (spec); then a new upload.
     apc(&mut intake, &mut engine, "Ga=d");
     apc(&mut intake, &mut engine, "Ga=T,f=24,s=2,v=1,i=6,m=1;////");
     apc(&mut intake, &mut engine, "Gm=0;////");
@@ -427,12 +405,11 @@ fn delete_z_reads_the_z_key_after_d() {
 
 #[test]
 fn delete_p_reads_x_and_y_wherever_they_sit() {
-    // Spec example `a=d,d=p,x=3,y=4`: the cell at column 3, row 4 (1-based).
     let mut intake = Intake::new(1);
     intake.set_cell((1, 1));
     let mut engine = FakeEngine::new();
     apc(&mut intake, &mut engine, "Ga=T,f=24,s=1,v=1,i=1,C=1;////");
-    engine.cursor = (3, 2); // row 4, column 3, 1-based
+    engine.cursor = (3, 2);
     apc(&mut intake, &mut engine, "Ga=T,f=24,s=1,v=1,i=2,C=1;////");
     apc(&mut intake, &mut engine, "Ga=d,d=p,x=3,y=4");
     let left: Vec<u32> = intake.placements.iter().map(|p| p.picture).collect();
@@ -470,7 +447,7 @@ fn delete_i_takes_showings_in_the_scrollback_too() {
     intake.set_cell((1, 1));
     let mut engine = FakeEngine::new();
     apc(&mut intake, &mut engine, "Ga=T,f=24,s=1,v=1,i=1,C=1;////");
-    engine.scrolled = 30; // line 0 is now in the scrollback
+    engine.scrolled = 30;
     apc(&mut intake, &mut engine, "Ga=d,d=i,i=1");
     assert!(intake.placements.is_empty(), "d=i deletes all of image 1's placements");
 }
@@ -544,8 +521,6 @@ fn a_sixel_does_not_replace_an_apc_image_with_the_same_id() {
 }
 
 fn test_dir(name: &str) -> std::path::PathBuf {
-    // Under the crate's own target, never the repo root or a temp dir of
-    // the machine's; each test makes and removes its own.
     std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../target/intake-test-files")
         .join(name)
@@ -572,9 +547,6 @@ fn a_file_transmission_reads_a_real_png() {
 
 #[test]
 fn a_temporary_file_transmission_does_not_unlink_through_dotdot() {
-    // The path names /tmp, then climbs out with `..` into this test's own
-    // directory (not under /tmp, /dev/shm or TMPDIR). The path is encoded
-    // once: the payload is the base64 path.
     let dir = test_dir("tt");
     std::fs::create_dir_all(&dir).unwrap();
     let file = dir.join("tty-graphics-protocol.png");
@@ -617,15 +589,12 @@ fn a_file_transmission_on_a_fifo_does_not_block() {
     });
     let finished = rx.recv_timeout(std::time::Duration::from_secs(2)).is_ok();
     if !finished {
-        // Unblock the open so the thread can end.
         let _ = std::fs::OpenOptions::new().write(true).open(&fifo);
     }
     let _ = handle.join();
     let _ = std::fs::remove_dir_all(&dir);
     assert!(finished, "File::open on a FIFO blocked the reader for 2 s");
 }
-
-// ---------------------------------------------------------------- sixel
 
 fn sixel_px(intake: &Intake, x: u32, y: u32) -> [u8; 4] {
     let k = intake.pictures.last().unwrap();
@@ -635,11 +604,6 @@ fn sixel_px(intake: &Intake, x: u32, y: u32) -> [u8; 4] {
 
 #[test]
 fn sixel_codes_draw_their_six_bit_pattern() {
-    // P1 0 means a 2:1 pixel aspect under the DEC table, so the body
-    // carries raster attributes `"1;1` (Pan=1, Pad=1: a square pixel) and
-    // a band is six device rows. `@` = 0x40: value 1, the top row only.
-    // `A` = 0x41: value 2, row 1. `?` = 0x3f: value 0, nothing. P2=1 so
-    // untouched pixels stay clear.
     let mut intake = Intake::new(1);
     intake.set_cell((8, 16));
     let mut engine = FakeEngine::new();
@@ -687,7 +651,6 @@ fn a_large_sixel_pan_does_not_spin() {
 
 #[test]
 fn a_30k_sixel_body_stays_within_the_budget() {
-    // 30 KiB of sixel: about 2.9 GB if every set bit were listed.
     let mut body = b"q".to_vec();
     for _ in 0..4400 {
         body.extend_from_slice(b"!8192~$");
@@ -700,7 +663,6 @@ fn a_30k_sixel_body_stays_within_the_budget() {
 
 #[test]
 fn the_dec_aspect_table_by_p1() {
-    // DEC: P1 0,1 -> 2:1; 2 -> 5:1; 3,4 -> 3:1; 5,6 -> 2:1; 7,8,9 -> 1:1.
     let h = |p1: &str| {
         let mut intake = Intake::new(1);
         intake.set_cell((8, 16));
@@ -714,7 +676,6 @@ fn the_dec_aspect_table_by_p1() {
 
 #[test]
 fn both_c_and_r_move_the_cursor_by_the_box() {
-    // Spec: the cursor moves by the placement rectangle (c x r).
     let mut intake = Intake::new(1);
     intake.set_cell((1, 1));
     let mut engine = FakeEngine::new();
@@ -724,9 +685,6 @@ fn both_c_and_r_move_the_cursor_by_the_box() {
 
 #[test]
 fn a_frame_stream_frees_each_frame_it_replaces_once() {
-    // A video's frames (anonymous puts at one cell, cursor held) each
-    // replace the last. The window hears every replaced frame's id once,
-    // so it can reuse the texture, and never the frame on screen.
     let mut intake = Intake::new(1);
     intake.set_cell((1, 1));
     let mut engine = FakeEngine::new();
@@ -751,7 +709,6 @@ fn a_delete_that_frees_data_frees_the_window_picture() {
     let view = || View { top: 0, rows: 24, alternate: false };
     apc(&mut intake, &mut engine, "Ga=T,f=24,s=2,v=1,i=7,C=1,q=2;////////");
     let gpu = intake.describe(view()).placements[0].gpu;
-    // Lowercase keeps the data: the picture can be placed again.
     apc(&mut intake, &mut engine, "Ga=d,d=i,i=7,q=2");
     assert!(intake.describe(view()).freed.is_empty());
     apc(&mut intake, &mut engine, "Ga=d,d=I,i=7,q=2");
@@ -760,9 +717,6 @@ fn a_delete_that_frees_data_frees_the_window_picture() {
 
 #[test]
 fn both_c_and_r_fill_the_box_whatever_the_shape() {
-    // A 16:9 frame sent over a wide pane (omaradio's milkdrop) covers the
-    // whole pane, as programs written for this dialect see elsewhere;
-    // shrinking it to its shape left most of the pane empty.
     let mut intake = Intake::new(1);
     intake.set_cell((10, 20));
     let mut engine = FakeEngine::new();
@@ -770,7 +724,6 @@ fn both_c_and_r_fill_the_box_whatever_the_shape() {
     apc(&mut intake, &mut engine, &format!("Ga=T,f=24,s=16,v=9,i=1,c=60,r=6,C=1;{payload}"));
     let p = intake.placements.last().unwrap();
     assert_eq!((p.width, p.height), (60.0, 6.0));
-    // One side alone still follows the picture's shape.
     apc(&mut intake, &mut engine, &format!("Ga=T,f=24,s=16,v=9,i=2,c=8,C=1;{payload}"));
     let p = intake.placements.last().unwrap();
     assert_eq!(p.width, 8.0);
@@ -797,8 +750,6 @@ fn a_virtual_placement_draws_nothing_and_moves_no_cursor() {
         String::from_utf8_lossy(&engine.fed)
     );
 }
-
-// ------------------------------------------------------------- store/wiring
 
 #[test]
 fn placements_are_capped_and_describe_stays_quick() {
@@ -850,8 +801,6 @@ fn relative_placements_against_the_cap_stay_quick_and_leave_with_their_parent() 
         box_rows: 0,
     };
     intake.place(showing(1, None));
-    // Age evicts the oldest. The parent must outlive the flood so each put
-    // past the cap removes a relative, not the root of every chain.
     intake.placements[0].seq = u64::MAX;
 
     let started = std::time::Instant::now();
@@ -874,9 +823,6 @@ fn relative_placements_against_the_cap_stay_quick_and_leave_with_their_parent() 
         "a chain under the parent is still stored"
     );
 
-    // Evict the parent by age. The flood leaves the store under the cap,
-    // so fill until the oldest showing — the parent — is the one removed.
-    // Its children, and the chains under them, go with it.
     intake.placements.iter_mut().find(|p| p.placement_id == Some(1)).unwrap().seq = 0;
     let mut filler = 0u32;
     while intake.placements.iter().any(|p| p.placement_id == Some(1)) && filler < 9_000 {
@@ -896,26 +842,20 @@ fn relative_placements_against_the_cap_stay_quick_and_leave_with_their_parent() 
 
 #[test]
 fn primary_scrollback_showings_survive_the_alternate_screen() {
-    // The session measures history from the active grid: the alternate
-    // grid holds none, so while it is up the engine reports history 0.
-    // The store keeps the primary screen's counts apart, so its
-    // placements above the screen are not pruned.
     let mut intake = Intake::new(1);
     intake.set_cell((1, 1));
     let mut engine = FakeEngine { scrolled: 10, ..FakeEngine::new() };
     apc(&mut intake, &mut engine, "Ga=T,f=24,s=1,v=1,i=1,C=1;////");
-    intake.set_scrolled_primary(30, 30, 24); // primary: picture's line 10 is in history
-    intake.set_scrolled_alternate(30, 24); // alternate up: its own count, from 0
+    intake.set_scrolled_primary(30, 30, 24);
+    intake.set_scrolled_alternate(30, 24);
     intake.describe(View { top: 30, rows: 24, alternate: true });
-    intake.set_scrolled_primary(30, 30, 24); // back on the primary screen
+    intake.set_scrolled_primary(30, 30, 24);
     let d = intake.describe(View { top: 0, rows: 24, alternate: false });
     assert_eq!(d.placements.len(), 1, "the primary picture in the scrollback was dropped");
 }
 
 #[test]
 fn clear_screen_on_the_alternate_screen_takes_only_its_own() {
-    // ED 2 on the alternate screen: the alternate showing goes, the
-    // primary one (hidden under it) stays.
     let mut intake = Intake::new(1);
     intake.set_cell((1, 1));
     let mut engine = FakeEngine::new();
@@ -933,7 +873,6 @@ fn covered_takes_only_in_cell_pictures_under_the_area() {
     intake.set_cell((1, 1));
     let mut engine = FakeEngine::new();
     apc(&mut intake, &mut engine, "Ga=T,f=24,s=1,v=1,i=1,C=1;////");
-    // Text written at column 50 of row 0.
     intake.covered(
         false,
         Area {

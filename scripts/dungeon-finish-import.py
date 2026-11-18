@@ -2,14 +2,9 @@ from pathlib import Path
 import importlib.util,json,hashlib,os,shutil
 from PIL import Image
 root=Path(__file__).resolve().parents[1];out=root/'crates/delve/assets/art-slots'
-# The source art left the repository on 2026-10-20 for the archive (its
-# README.md says what each folder is); ANGEL_SOURCE_ART names it
-# (default ~/angelX-archive/2026-10-20/source-art).
 source=Path(os.environ.get('ANGEL_SOURCE_ART') or Path.home()/'angelX-archive/2026-10-20/source-art')/'dungeon-src'
 spec=importlib.util.spec_from_file_location('imp',root/'scripts/slot-art-import.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 reqs=m.requests(root/'crates/delve/assets/art-slots/dgn.requests.json')
-# The production detector joined neighboring cells. Review rectangles partition
-# the delivered 4x3 grid; the original sheets and measurements remain read-only.
 for slot in ['dgn.odoor.mines','dgn.odoor.keep','dgn.odoor.fungal','dgn.hud.chrome']:
  src=Path(os.environ.get('ANGEL_ART_ARTIFACTS') or Path.home()/'angel-art')/'art-prod/slots'/slot/'v01';dst=source/slot;dst.mkdir(parents=True,exist_ok=True)
  sheet=src/('source-sheet-3.png' if slot.endswith('mines') else 'source-sheet.png')

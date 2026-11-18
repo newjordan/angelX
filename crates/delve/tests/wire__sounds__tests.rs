@@ -7,8 +7,6 @@ use crate::rules::{HZ, Input, Phase, bosses};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
-/// The shipped effects, as the bundle names them (`crates/web/delve/sounds.list`):
-/// `sfx/<name>.mp3` is `<name>`, `sfx/knights/<clip>.mp3` is `knights-<clip>`.
 fn shipped() -> BTreeSet<String> {
     let sfx = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../cockpit/assets/dungeon/sfx");
     let mut names = BTreeSet::new();
@@ -23,7 +21,6 @@ fn shipped() -> BTreeSet<String> {
     names
 }
 
-/// Every Rust file of the rules.
 fn rules_files() -> Vec<PathBuf> {
     let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
     let mut files = vec![src.join("rules.rs")];
@@ -34,7 +31,6 @@ fn rules_files() -> Vec<PathBuf> {
             if path.is_dir() {
                 dirs.push(path);
             } else if path.extension().is_some_and(|e| e == "rs")
-                // A test module beside the rules plays stand-in names, not sounds.
                 && !path.file_stem().is_some_and(|s| s == "tests" || s.to_string_lossy().ends_with("_tests"))
             {
                 files.push(path);
@@ -44,7 +40,6 @@ fn rules_files() -> Vec<PathBuf> {
     files
 }
 
-/// The text from just after an open bracket to its close.
 fn bracketed(text: &str) -> &str {
     let mut depth = 1;
     let mut quoted = false;
@@ -67,16 +62,12 @@ fn bracketed(text: &str) -> &str {
     text
 }
 
-/// The quoted names in `text` that could be a sound's.
 fn quoted_names(text: &str) -> impl Iterator<Item = &str> {
     text.split('"').skip(1).step_by(2).filter(|s| {
         !s.is_empty() && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_' || b == b'/')
     })
 }
 
-/// Where the rules hand a sound over: a run's or a session's sound list, a
-/// sound helper, a side-scroller's `say`, Moonfall's own `cues`, and the
-/// named hooks (`SOUND_*`, `CALL_SOUND`, `CHAIN_PITCH`).
 const SINKS: [&str; 8] = [
     "sounds.push(",
     "sounds.extend(",
@@ -88,17 +79,14 @@ const SINKS: [&str; 8] = [
     "cues.push(",
 ];
 
-/// Every sound name the rules' source hands over at a sink, with where.
 fn named_sounds() -> BTreeMap<String, String> {
     let mut found = BTreeMap::new();
     for file in rules_files() {
         let raw = std::fs::read_to_string(&file).unwrap();
-        // Comments say what a sound is for; only code names one.
         let text: String = raw.lines().map(|l| l.split("//").next().unwrap_or("")).collect::<Vec<_>>().join("\n");
         let place = file.file_name().unwrap().to_string_lossy().to_string();
         let mut spans: Vec<&str> = Vec::new();
         for sink in SINKS {
-            // A run's `cues` are the chorus's moments; only Moonfall's are sounds.
             if sink == "cues.push(" && !file.to_string_lossy().contains("moonfall") {
                 continue;
             }
@@ -111,8 +99,6 @@ fn named_sounds() -> BTreeMap<String, String> {
             }
         }
         for span in spans {
-            // A knight's clip is named by its moment (`chatter::clip`): those
-            // are checked whole below.
             if span.contains("clip(") {
                 continue;
             }
@@ -135,7 +121,6 @@ fn every_sound_the_rules_name_plays_a_shipped_file() {
     for name in crate::rules::chatter::names() {
         assert!(shipped.contains(&sound_file(name)), "the knights' `{name}` has no file");
     }
-    // The boss fights' own cues (`furnace`, `court`, `rubble`).
     for name in ["clang", "crack_open", "vent_fire", "armour_fall", "shield_block", "rock_land"] {
         assert!(named.contains_key(name) && shipped.contains(name), "{name}");
     }
@@ -157,20 +142,15 @@ fn a_hook_without_its_own_take_plays_its_stand_in() {
     ] {
         assert!(shipped.contains(&sound_file(hook)), "{hook}");
     }
-    // Everything else keeps its own name.
     assert_eq!(sound_file("hit_blade"), "hit_blade");
     assert_eq!(sound_file("knights/a_cheer_1"), "knights-a_cheer_1");
 }
 
-/// What one fight sounded like, a name at a time, at the seat's page: what
-/// the rules pushed and what the page played after `client::sound_gap`.
 #[derive(Default)]
 struct Heard {
     pushed: u32,
     played: u32,
-    /// The most played in any one second.
     peak: u32,
-    /// The longest run of ticks, one after another, that pushed it.
     streak: u32,
     run: u32,
     last_push: Option<u32>,
@@ -178,9 +158,6 @@ struct Heard {
     window: Vec<u32>,
 }
 
-/// Four knights fight `run` for `seconds`, kept on their feet and aiming at
-/// the nearest foe, the room filled again when it clears: each sound that
-/// reached the wire, pushed and played.
 fn listen(mut run: Run, seconds: u32) -> BTreeMap<String, Heard> {
     for seat in 2..=4 {
         run.join_seat(seat, &format!("Knight {seat}"));
@@ -229,7 +206,6 @@ fn listen(mut run: Run, seconds: u32) -> BTreeMap<String, Heard> {
                 h.streak = h.streak.max(h.run);
                 h.last_push = Some(t);
             }
-            // The page's own gap (`DelveClient::events`).
             let gap = crate::client::sound_gap(&name) * HZ / 1000;
             if h.last_play.is_some_and(|at| t.wrapping_sub(at) < gap) {
                 continue;
@@ -244,9 +220,6 @@ fn listen(mut run: Run, seconds: u32) -> BTreeMap<String, Heard> {
     heard
 }
 
-/// `cargo test sound_rates -- --ignored --nocapture`: each name's sounds a
-/// second, pushed and played, its busiest second and its longest run of
-/// ticks, in an ordinary fight and against every guardian.
 #[test]
 #[ignore]
 fn sound_rates() {

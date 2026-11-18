@@ -5,8 +5,6 @@ use std::io::Read as _;
 #[cfg(target_os = "linux")]
 use std::net::TcpListener;
 
-/// The client's row in `/proc/net/tcp` for the connection from local port
-/// `local` to remote port `remote`: its timer kind and the centiseconds left.
 fn timer_of(local: u16, remote: u16) -> Option<(String, u64)> {
     let table = std::fs::read_to_string("/proc/net/tcp").ok()?;
     let local = format!(":{local:04X}");
@@ -21,11 +19,6 @@ fn timer_of(local: u16, remote: u16) -> Option<(String, u64)> {
     })
 }
 
-/// Every provider socket asks the kernel to probe its peer: a host that
-/// vanishes mid-stream (powered off, dropped off the tailnet) fails the read
-/// about 90 s after its last byte instead of holding the turn forever. The
-/// server here reads the request and says nothing, like a model thinking; the
-/// probe timer is armed for 30 s of silence, and a live peer answers it.
 #[cfg(target_os = "linux")]
 #[test]
 fn every_provider_socket_probes_whether_its_peer_still_exists() {
@@ -61,10 +54,6 @@ fn every_provider_socket_probes_whether_its_peer_still_exists() {
     );
 }
 
-/// The route deck's accessors run on the UI thread. With a cold model cache
-/// (a follow-backend seat whose rig is powered off), none of them may fetch
-/// `/models`: one 2 s readiness timeout per dead rig froze model picking for
-/// six seconds. The blackhole peer accepts and never answers; it only counts.
 #[cfg(target_os = "linux")]
 #[test]
 fn picker_accessors_never_fetch_model_id_from_a_dead_peer() {

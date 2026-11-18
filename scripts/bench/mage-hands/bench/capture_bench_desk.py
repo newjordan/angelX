@@ -1,14 +1,3 @@
-"""Desktop half of the Mage grounding bench: scenes on a private nested
-Hyprland seat, ground truth from AT-SPI widget extents.
-
-Run under its own session bus (see run_capture.sh for the a11y bus + shim):
-  dbus-run-session -- bash bench/run_bench_capture.sh <out> <nested-sig> <wl-socket>
-
-A scene is one or more apps launched into the seat (tiled side by side when
-more than one), optional keystrokes, then one screenshot. Every window's
-widgets map to screen pixels through that window's origin in the nested
-compositor; widgets covered by another window (a floating dialog) are dropped.
-"""
 import json
 import os
 import re
@@ -56,7 +45,6 @@ def lo(kind, profile):
 
 
 H = home
-# (scene, theme, [argv...], keys-after-ready). Two argv = tiled side by side.
 SCENES = [
     ("nautilus-home", DARK, [["nautilus", "--new-window", H]], []),
     ("nautilus-docs-light", LIGHT, [["nautilus", "--new-window", f"{H}/Documents"]], []),
@@ -95,7 +83,6 @@ SCENES = [
     ("pair-omacalc-nautilus", DARK, [["omacalc"], ["nautilus", "--new-window", H]], []),
 ]
 if os.environ.get("SCENES_JSON"):
-    # Training scenes: [[name, "dark"|"light", [[argv...], ...], [keys...]], ...]; "{H}" -> home, "{lo-THEME-KIND}" -> libreoffice
     def _argv(a, theme):
         if a and a[0].startswith("{lo-"):
             return lo(a[0][4:-1], "lo-" + theme)
@@ -108,7 +95,7 @@ ROLES = {
     "tab", "list item", "table cell", "tree item", "slider", "check menu item",
     "radio menu item", "search box", "password text", "icon", "label", "table column header",
 }
-INTERNAL = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)+$")  # icon names / widget ids, not visible text
+INTERNAL = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)+$")
 
 
 def hypr(*a):
@@ -160,7 +147,7 @@ def walk(node, origin, acc, depth=0):
                     x0, y0 = e.x + origin[0], e.y + origin[1]
                     acc.append({"role": role, "name": name[:80], "box": [x0, y0, x0 + e.width, y0 + e.height]})
         n = node.get_child_count()
-        if n > 300:  # spreadsheet grids expose millions of cells
+        if n > 300:
             return
         for i in range(n):
             walk(node.get_child_at_index(i), origin, acc, depth + 1)
@@ -169,7 +156,6 @@ def walk(node, origin, acc, depth=0):
 
 
 def windows_of(app):
-    """Top-level frames/dialogs of an AT-SPI app: (node, title)."""
     out_ = []
     for i in range(app.get_child_count()):
         w = app.get_child_at_index(i)
@@ -221,7 +207,6 @@ for name, theme, argvs, post in SCENES:
         if pid not in pids:
             continue
         for win, title in windows_of(app):
-            # Match the AT-SPI window to its compositor window by title, else by pid.
             match = [c for c in new if c["title"] == title] or [c for c in new if c["pid"] == pid]
             if not match:
                 continue

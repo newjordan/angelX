@@ -1,8 +1,5 @@
 use super::*;
 
-/// A party of `n` in the first room, its middle cleared to open floor, no
-/// monsters, everyone awake and standing in a row across the middle with
-/// a knight's spacing between them, knight 1 on the left.
 fn party(n: u32) -> Run {
     let mut run = Run::new(7, 1, None);
     for id in 2..=n {
@@ -33,7 +30,6 @@ fn ride() -> Input {
     Input { ride: true, ..Input::default() }
 }
 
-/// Knight `id` taps the ride key: down a tick, up the next.
 fn tap(run: &mut Run, id: u32) {
     press(run, &[(id, ride())]);
     press(run, &[]);
@@ -53,11 +49,9 @@ fn ground(run: &Run, (x, y): (f32, f32)) -> bool {
     ground_at(&grid, (x, y))
 }
 
-/// Everyone from 2 to `n` climbs on, in order: a tower on knight 1.
 fn tower(n: u32) -> Run {
     let mut run = party(n);
     for id in 2..=n {
-        // Step up beside the tower, then climb.
         let (x, y) = at(&run, 1);
         run.players.get_mut(&id).unwrap().x = x + 2.0;
         run.players.get_mut(&id).unwrap().y = y;
@@ -73,19 +67,16 @@ fn a_knight_climbs_on_rides_along_and_hops_off() {
     assert_eq!(run.shoulders.riders(1), &[2]);
     assert_eq!(run.shoulders.carrier_of(2), Some(1));
     assert_eq!(at(&run, 2), at(&run, 1), "the rider sits on the carrier");
-    // The carrier walks; the rider's own walk keys do nothing.
     let start = at(&run, 1);
     for _ in 0..20 {
         press(&mut run, &[(1, walk(1, 0)), (2, walk(0, 1))]);
         assert_eq!(at(&run, 2), at(&run, 1));
     }
     assert!(at(&run, 1).0 > start.0 + 5.0, "the carrier walked");
-    // The rider can still shoot from up there.
     let before = run.projectiles.len();
     press(&mut run, &[(2, Input { aim_x: 1, fire: true, ..Input::default() })]);
     assert!(run.projectiles.len() > before, "a rider fires");
     press(&mut run, &[]);
-    // Held, the key does nothing more; let go and pressed again, it hops off.
     tap(&mut run, 2);
     assert!(run.shoulders.stacks.is_empty());
     let (c, r) = (at(&run, 1), at(&run, 2));
@@ -129,8 +120,6 @@ fn the_whole_party_stacks_five_high_and_each_new_rider_goes_on_top() {
 fn a_rider_climbing_on_a_rider_goes_to_the_top_of_their_tower() {
     let mut run = party(3);
     tap(&mut run, 2);
-    // Knight 3 steps up to the tower: the rider and the carrier stand on
-    // one spot, and either way it is the top they climb to.
     let (x, y) = at(&run, 2);
     (run.players.get_mut(&3).unwrap().x, run.players.get_mut(&3).unwrap().y) = (x + 2.0, y);
     tap(&mut run, 3);
@@ -141,7 +130,6 @@ fn a_rider_climbing_on_a_rider_goes_to_the_top_of_their_tower() {
 fn a_tower_walks_slower_for_every_rider() {
     let mut lone = party(6);
     let mut stacked = tower(6);
-    // Clear of the tower, so only knight 1 walks.
     let (a0, b0) = (at(&lone, 1).0, at(&stacked, 1).0);
     for _ in 0..15 {
         press(&mut lone, &[(1, walk(1, 0))]);
@@ -193,7 +181,6 @@ fn a_side_on_hall_or_stone_brings_a_tower_down() {
 #[test]
 fn riders_go_through_a_doorway_with_their_carrier() {
     let mut run = tower(3);
-    // The party goes on to the next room as the rules move it.
     let next = (0..run.dungeon.rooms.len()).find(|&i| i != run.at && run.dungeon.rooms[i].kind == RoomKind::Fight).unwrap();
     run.enter_for_test(next);
     press(&mut run, &[]);
@@ -223,7 +210,6 @@ fn hostile(x: f32, y: f32, vx: f32, damage: u32) -> Projectile {
 #[test]
 fn a_hit_on_a_tower_lands_on_the_carrier_and_the_riders_take_a_share() {
     let mut run = tower(3);
-    // Rider 3 is still in grace from an earlier hit.
     run.players.get_mut(&3).unwrap().invulnerable = 20;
     let (x, y) = at(&run, 1);
     let hp: Vec<u32> = (1..=3).map(|id| run.players[&id].hp).collect();
@@ -239,7 +225,6 @@ fn a_hit_on_a_tower_lands_on_the_carrier_and_the_riders_take_a_share() {
     assert!(run.players[&2].invulnerable > 0 && run.players[&2].invulnerable <= ward, "and then has their own grace");
 }
 
-/// Knight 1 carries knight 2 at `(x, y)`, aiming along `aim`.
 fn carrier_at(x: f32, y: f32, aim: (f32, f32)) -> Run {
     let mut run = party(2);
     for (id, hero) in run.players.iter_mut() {
@@ -251,7 +236,6 @@ fn carrier_at(x: f32, y: f32, aim: (f32, f32)) -> Run {
     run
 }
 
-/// Step until nobody is in the air (or a second passes).
 fn land(run: &mut Run) {
     for _ in 0..HZ {
         if run.shoulders.flights.is_empty() {
@@ -261,7 +245,6 @@ fn land(run: &mut Run) {
     }
 }
 
-/// A room as wide as an open floor's widest chamber, all floor inside.
 fn wide_room(run: &mut Run) {
     let at = run.at;
     run.dungeon.rooms[at].regrow(48, 20);
@@ -283,7 +266,6 @@ fn a_throw_carries_one_hallway_along_the_aim() {
     let reach = (flight.to.0 - flight.from.0).hypot(flight.to.1 - flight.from.1);
     assert!((reach - THROW_REACH).abs() <= 0.25, "a clear throw carries {reach}, a hallway is {THROW_REACH}");
     assert!(run.shoulders.stacks.is_empty());
-    // Mid-air it rises, and nobody can touch it.
     for _ in 0..THROW_TICKS / 2 {
         press(&mut run, &[]);
     }
@@ -294,14 +276,11 @@ fn a_throw_carries_one_hallway_along_the_aim() {
     assert!((x - flight.to.0).abs() < 1e-3 && (y - flight.to.1).abs() < 1e-3);
     assert!(run.players[&2].invulnerable > 0, "lands with a moment's grace");
     assert!(run.players[&2].targetable());
-    // The carrier waits before throwing again.
     assert!(run.shoulders.rearm.contains_key(&1));
 }
 
 #[test]
 fn the_throw_is_the_open_floors_hallway_measured() {
-    // Every passage between two chambers of 200 open floors, mouth to
-    // mouth, in tiles.
     let mut lengths = Vec::new();
     for seed in 0..200u64 {
         let mut rng = Rng::new(seed.wrapping_mul(0x9e37_79b9) ^ 0x5eed);
@@ -316,8 +295,6 @@ fn the_throw_is_the_open_floors_hallway_measured() {
             } else {
                 i32::from(cb.rect.1) - i32::from(ca.rect.1 + ca.rect.3)
             };
-            // Mouth to mouth: the rock between the chambers and the
-            // doorway cut through each one's wall.
             lengths.push(gap + 2);
         }
     }
@@ -345,7 +322,6 @@ fn a_knight_in_the_air_is_untouchable() {
     let hp = run.players[&2].hp;
     assert!(!run.players[&2].targetable());
     let (x, y) = at(&run, 2);
-    // A shot straight through where the flier is, every tick of the way.
     for _ in 0..THROW_TICKS {
         if run.shoulders.flight(2).is_none() {
             break;
@@ -368,7 +344,6 @@ fn the_landing_slams_the_monsters_round_it_and_throws_them_back() {
     }
     for e in &mut run.enemies {
         (e.hp, e.max_hp) = (500, 500);
-        // Held where they stand until the slam.
         e.frozen = 10 * HZ;
     }
     let before: Vec<(f32, f32)> = run.enemies.iter().map(|e| (e.x, e.y)).collect();
@@ -394,7 +369,6 @@ fn a_throw_at_a_wall_lands_short_of_it_on_the_floor() {
     let mut run = carrier_at(6.0, 20.0, (1.0, 0.0));
     wide_room(&mut run);
     let at_ = run.at;
-    // A wall across the hall eight tiles on, and a pit before it.
     for row in 1..19 {
         run.dungeon.rooms[at_].set(10, row, Tile::Wall);
         run.dungeon.rooms[at_].set(9, row, Tile::Hazard);
@@ -418,8 +392,6 @@ fn a_throw_flies_over_a_pit_and_lands_beyond_it() {
             run.dungeon.rooms[at_].set(col, row, Tile::Hazard);
         }
     }
-    // The far end of the throw lands in a second pit: it comes back to the
-    // last floor before it.
     let end = ((6.0 + THROW_REACH) / TILE_UNITS) as usize;
     for row in 1..19 {
         for col in end - 1..end + 2 {
@@ -468,8 +440,6 @@ fn towers_and_flights_go_over_the_wire_and_read_back() {
     assert!(!run.shoulders.flights.is_empty() && !run.shoulders.stacks.is_empty());
     let copy = run.wire_copy();
     assert_eq!(copy.shoulders, run.shoulders);
-    // The client sees the riders seated and leaves them, and the flier, to
-    // the server's ticks; it draws its own carrier ahead at the tower's pace.
     assert!(!copy.predictable(2) && !copy.predictable(4));
     assert!(copy.predictable(1));
     let mut ahead = copy.clone();
@@ -480,7 +450,6 @@ fn towers_and_flights_go_over_the_wire_and_read_back() {
     }
     let (a, s) = (at(&ahead, 1), at(&sim, 1));
     assert!((a.0 - s.0).abs() < 1e-3 && (a.1 - s.1).abs() < 1e-3, "predicted {a:?}, stepped {s:?}");
-    // Drawn with the carrier ahead, the riders are drawn on it.
     let before = sim.pose();
     let mine = ahead.players[&1].clone();
     sim.drawn_with(&before, 0.5, Some((1, &mine)), |drawn| {
@@ -488,14 +457,10 @@ fn towers_and_flights_go_over_the_wire_and_read_back() {
             assert_eq!(at(drawn, id), (mine.x, mine.y), "rider {id} sits on the carrier as drawn");
         }
     });
-    // An empty tower state is left out of the tree.
     let lone = party(2).wire_copy();
     assert!(lone.shoulders.quiet());
 }
 
-/// A simple bot for the tower sim: the carrier keeps its distance from the
-/// nearest monster and the riders aim at the nearest and fire; anyone on
-/// their own feet does as the carrier.
 fn bot(run: &Run, id: u32) -> Input {
     let hero = &run.players[&id];
     let near = run
@@ -510,7 +475,6 @@ fn bot(run: &Run, id: u32) -> Input {
     let (ax, ay) = (step(dx / d), step(dy / d));
     let mut input = Input { aim_x: ax, aim_y: ay, fire: true, ..Input::default() };
     if !run.shoulders.riding(id) {
-        // Kite: back off when close, close in when far, else circle.
         let (mx, my) = if d < 7.0 {
             (-dx / d, -dy / d)
         } else if d > 13.0 {
@@ -523,10 +487,6 @@ fn bot(run: &Run, id: u32) -> Input {
     input
 }
 
-/// Six knights in a real fight, five on the first's shoulders, played by
-/// bots for `secs` (the carrier throws the top rider at a crowd every few
-/// seconds, and they climb back on). Returns the monsters' health taken,
-/// the throws and the seconds the tower stood.
 fn tower_fight(seed: u64, secs: u32, stack: bool) -> (u32, u32, u32) {
     let mut run = Run::new(seed, 1, None);
     for id in 2..=6 {
@@ -537,8 +497,6 @@ fn tower_fight(seed: u64, secs: u32, stack: bool) -> (u32, u32, u32) {
     for hero in run.players.values_mut() {
         (hero.idle, hero.stone) = (false, false);
     }
-    // Health the monsters lose, followed by each one's id: the waves
-    // through a door add to the room, and the fallen are swept away.
     let mut seen: BTreeMap<u32, u32> = run.enemies.iter().map(|e| (e.id, e.hp)).collect();
     let mut dealt = 0;
     let mut throws = 0;
@@ -547,8 +505,6 @@ fn tower_fight(seed: u64, secs: u32, stack: bool) -> (u32, u32, u32) {
     for t in 0..secs * HZ {
         let mut inputs: BTreeMap<u32, Input> = run.players.keys().map(|&id| (id, bot(&run, id))).collect();
         if stack && key_up {
-            // Climb on whoever stands near the carrier; the carrier throws
-            // when a crowd is near its aim.
             for id in 2..=6 {
                 let free = !run.shoulders.carried(id);
                 let near = run.players.get(&id).zip(run.players.get(&1)).is_some_and(|(a, b)| (a.x - b.x).hypot(a.y - b.y) <= RIDE_REACH);
@@ -556,9 +512,6 @@ fn tower_fight(seed: u64, secs: u32, stack: bool) -> (u32, u32, u32) {
                     inputs.get_mut(&id).unwrap().ride = true;
                 }
                 if free && !near {
-                    // Walk back to the carrier to climb on again, round the
-                    // room's walls and blocks (a throw can land a knight
-                    // behind one), along the floor toward its next tile.
                     let (a, b) = (&run.players[&id], &run.players[&1]);
                     let to = crate::rules::depths::open_path(&run.dungeon.rooms[run.at], (a.x, a.y), (b.x, b.y), false)
                         .and_then(|path| path.get(1).copied())
@@ -568,7 +521,6 @@ fn tower_fight(seed: u64, secs: u32, stack: bool) -> (u32, u32, u32) {
                     (i.move_x, i.move_y) = (dx.signum() as i8 * i8::from(dx.abs() > 0.5), dy.signum() as i8 * i8::from(dy.abs() > 0.5));
                 }
             }
-            // The carrier holds still for the party to climb back on.
             if run.shoulders.riders(1).len() < MAX_RIDERS {
                 let i = inputs.get_mut(&1).unwrap();
                 (i.move_x, i.move_y) = (0, 0);
@@ -593,7 +545,6 @@ fn tower_fight(seed: u64, secs: u32, stack: bool) -> (u32, u32, u32) {
             }
         }
         stood += u32::from(run.shoulders.riders(1).len() == MAX_RIDERS);
-        // Topped up, so the fight runs its length.
         for hero in run.players.values_mut() {
             hero.hp = hero.hp.max(hero.max_hp / 2);
         }

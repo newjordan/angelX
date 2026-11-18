@@ -7,8 +7,6 @@ from PIL import Image
 ROOT=Path(__file__).resolve().parents[1]
 A=runpy.run_path(str(ROOT/'scripts/boss-art.py'))
 I=runpy.run_path(str(ROOT/'scripts/boss-library-import.py'))
-# Keep the established 15 L* body separation and 80% source-alpha coverage,
-# but compare every sample with its own graded floor, rather than an old sprite.
 BODY_DELTA = 15.0
 VISIBLE_ALPHA_FLOOR = .80
 EDGE_DELTA = 10.0
@@ -19,8 +17,6 @@ def failures(median_delta, visible_fraction, edge_fraction, pose='rest'):
     result = []
     if median_delta + 1e-6 < BODY_DELTA:
         result.append('body median floor contrast')
-    # The retained envelope gate samples rest, as it did before this change.
-    # Both poses must independently pass local median and silhouette contrast.
     if pose == 'rest' and visible_fraction + 1e-6 < VISIBLE_ALPHA_FLOOR:
         result.append('body floor-contrast coverage')
     if edge_fraction + 1e-6 < EDGE_COVERAGE:
@@ -48,8 +44,6 @@ def contrast_metrics(body, floor, points, edge):
 
 
 def silhouette_edge(alpha, radius):
-    # The outer two logical pixels include both the contour and its inner rim.
-    # Include transparency beyond the canvas so a crop edge cannot disappear.
     return {p for p in alpha if any((p[0]+dx,p[1]+dy) not in alpha
             for dy in range(-radius,radius+1) for dx in range(-radius,radius+1))}
 
@@ -136,8 +130,6 @@ def main():
     errors=[]
     for entry in entries:
         boss=Path(entry['boss']).stem
-        # Earlier body recipes are not provenance for library pixels. Their
-        # unchanged effects still pass every native palette/shape/timing gate.
         errors+=A['numeric_gates']([copy.deepcopy(entry)])
         for role in ('projectile','tell','impact'):
             for i,frame in enumerate(entry['frames'][role]):

@@ -48,67 +48,48 @@ pub use loads::Load;
 #[path = "../../../../tests/render/works_kit__tests.rs"]
 mod tests;
 
-/// Steps in a working loop. A caller picks the rate: eight a second reads
-/// as work; `frame` is any count and wraps.
 pub const FRAMES: u32 = 8;
 
-/// Steps a building is raised in: 0 pegged out, 1 footings, 2 walls up,
-/// 3 roofing.
 pub const STEPS: u8 = 4;
 
-/// What a building is doing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum State {
-    /// Being raised, step `0..STEPS`.
     Building(u8),
-    /// Finished and stopped.
     Idle,
-    /// Running: every moving part moving.
     Working,
-    /// Cold: this good is not coming in.
     Starved(Load),
-    /// Stock piled outside: this good cannot go out.
     BackedUp(Load),
 }
 
 impl State {
-    /// How many pictures a loop of it has: [`FRAMES`] working, else one.
     pub fn frames(self) -> u32 {
         if self == State::Working { FRAMES } else { 1 }
     }
 }
 
-/// What a building is raised of: what its construction piles up.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Mat {
     Stone,
     Timber,
     Brick,
-    /// Dug, not built: pits, ponds, ditches.
     Earth,
 }
 
-/// What one drawing is given.
 pub(crate) struct Ctx {
     pub im: Img,
     pub w: i32,
     pub h: i32,
-    /// The footprint's depth in pixels: the bottom rows of the picture.
     pub d: i32,
-    /// The animation step.
     pub t: u32,
-    /// Running.
     pub work: bool,
     pub seed: u32,
 }
 
 impl Ctx {
-    /// The last row of the picture: the footprint's front edge.
     pub fn foot(&self) -> i32 {
         self.h - 1
     }
 
-    /// The first row of the footprint.
     pub fn yard(&self) -> i32 {
         self.h - self.d
     }
@@ -116,10 +97,8 @@ impl Ctx {
 
 pub(crate) struct Plan {
     pub id: &'static str,
-    /// The footprint in tiles, width by depth.
     pub w: i32,
     pub d: i32,
-    /// Pixels the picture rises over its footprint.
     pub rise: i32,
     pub mat: Mat,
     pub draw: fn(&mut Ctx),
@@ -131,8 +110,6 @@ const fn plan(id: &'static str, w: i32, d: i32, rise: i32, mat: Mat, draw: fn(&m
 
 use Mat::{Brick, Earth, Stone, Timber};
 
-/// Every plan of the hillside's catalogue (art/plans.txt), in its order, then
-/// the carter's yard, the castle's stockyard, the camp and the shaft heads.
 pub(crate) static PLANS: &[Plan] = &[
     plan("field-quarry", 3, 2, 10, Stone, stone::field_quarry),
     plan("rubble-pit", 2, 2, 4, Earth, stone::rubble_pit),
@@ -192,23 +169,19 @@ pub(crate) static PLANS: &[Plan] = &[
     plan("conduit", 1, 1, 14, Stone, power::conduit),
     plan("enchanter", 2, 2, 44, Stone, power::enchanter),
     plan("forge", 4, 2, 32, Stone, fire::royal_forge),
-    // What the first kit left undrawn: the lift's first and last steps, the vines, the arcade and the swape.
     plan("hod-gang", 1, 1, 24, Timber, gaps::hod_gang),
     plan("great-crane", 1, 1, 56, Timber, gaps::great_crane),
     plan("vineyard", 1, 1, 10, Earth, gaps::vineyard),
     plan("wine-press", 1, 1, 22, Timber, gaps::wine_press),
     plan("aqueduct", 7, 1, 28, Stone, gaps::aqueduct),
     plan("swape", 1, 1, 12, Timber, gaps::swape),
-    // What stands against the Deep (`rules::deep_raid`).
     plan("palisade", 1, 1, 14, Timber, defence::palisade),
     plan("wood-gate", 2, 1, 22, Timber, defence::wood_gate),
     plan("watchtower", 2, 2, 44, Timber, defence::watchtower),
     plan("brazier", 1, 1, 14, Stone, defence::brazier),
-    // The sim's yards and the founding camp (one tile: the sim keeps it so).
     plan("carters-yard", 3, 2, 18, Timber, yards::carters_yard),
     plan("castle-yard", 3, 2, 28, Stone, yards::castle_yard),
     plan("camp", 1, 1, 28, Timber, yards::camp),
-    // The heads of the Great Shaft's lift, one a tier, a tile each.
     plan("shaft-hand", 1, 1, 22, Timber, yards::shaft_hand),
     plan("shaft-windlass", 1, 1, 22, Timber, yards::shaft_windlass),
     plan("shaft-gin", 1, 1, 24, Timber, yards::shaft_gin),
@@ -220,24 +193,18 @@ pub(crate) fn find(id: &str) -> Option<&'static Plan> {
     PLANS.iter().find(|p| p.id == id)
 }
 
-/// Every plan id this kit draws.
 pub fn plans() -> impl Iterator<Item = &'static str> {
     PLANS.iter().map(|p| p.id)
 }
 
-/// The footprint of plan `id` in tiles, width and depth.
 pub fn size(id: &str) -> Option<(i32, i32)> {
     find(id).map(|p| (p.w, p.d))
 }
 
-/// The picture's size in pixels: the footprint's width, its depth and what
-/// rises over it. Its bottom edge stands on the footprint's.
 pub fn sprite_size(id: &str) -> Option<(i32, i32)> {
     find(id).map(|p| (p.w * 16, p.d * 16 + p.rise))
 }
 
-/// Plan `id` in `state` at animation step `frame` (any count, it wraps),
-/// or nothing for a plan this kit does not draw. Made once and shared.
 pub fn flat(id: &str, state: State, frame: u32) -> Option<Arc<Img>> {
     let index = PLANS.iter().position(|p| p.id == id)?;
     let frame = if state.frames() > 1 { frame % state.frames() } else { 0 };
@@ -258,7 +225,6 @@ fn seed_of(id: &str) -> u32 {
     id.bytes().fold(7u32, |h, b| h.wrapping_mul(31).wrapping_add(u32::from(b)))
 }
 
-/// The finished building at step `t`, running or not.
 fn body(p: &Plan, work: bool, t: u32) -> Img {
     let (w, h) = (p.w * 16, p.d * 16 + p.rise);
     let mut c = Ctx { im: Img::new(w, h), w, h, d: p.d * 16, t, work, seed: seed_of(p.id) };
@@ -284,19 +250,15 @@ fn make(p: &Plan, state: State, t: u32) -> Img {
     }
 }
 
-/// The board over a starved building: what is not coming in, framed red.
 fn starved_sign(im: &mut Img, load: Load) {
     let (x, y) = sign_at(im);
     sign(im, x, y, load, '7');
 }
 
-/// Where a plan's board stands: before its door, or, on a plan too narrow
-/// for that (a well, a wall), over its top corner.
 fn sign_at(im: &Img) -> (i32, i32) {
     if im.w <= 16 { (0, 0) } else { (1, im.h - 24) }
 }
 
-/// A board on a post: `load`'s picture inside a frame of `frame`.
 fn sign(im: &mut Img, x: i32, y: i32, load: Load, frame: char) {
     for k in 0..8 {
         im.put(x + 5, y + 12 + k, 'o');
@@ -308,8 +270,6 @@ fn sign(im: &mut Img, x: i32, y: i32, load: Load, frame: char) {
     im.stamp(&icon, x + 1, y + 1);
 }
 
-/// Stock piled in the yard, the way out blocked: heaps of `load` in front
-/// and to the right, and an amber board.
 fn backed_up(im: &mut Img, p: &Plan, load: Load) {
     let (w, h) = (im.w, im.h);
     let seed = seed_of(p.id);
@@ -324,9 +284,6 @@ fn backed_up(im: &mut Img, p: &Plan, load: Load) {
     sign(im, x, y, load, '4');
 }
 
-/// A building being raised: step 0 pegs the ground out, the rest show the
-/// finished building from its foot up to how far the work has got, with
-/// the scaffold against it and its materials in the yard.
 fn raise(p: &Plan, step: u8) -> Img {
     let fin = body(p, false, 0);
     let (w, h) = (fin.w, fin.h);
@@ -335,8 +292,6 @@ fn raise(p: &Plan, step: u8) -> Img {
     let footing = p.d * 16;
     match p.mat {
         Mat::Earth => {
-            // Dug from one end: the finished work to the left of a ragged
-            // line, pegs and cord to the right.
             let frac = [0.0, 0.3, 0.62, 0.9][step as usize];
             let edge = (w as f32 * frac) as i32;
             for y in 0..h {
@@ -366,8 +321,6 @@ fn raise(p: &Plan, step: u8) -> Img {
         }
         _ => {
             if step == 0 {
-                // Pegged out: cord between four stakes round the footprint,
-                // the ground scuffed, a heap of what it will be made of.
                 paint::earth(&mut im, w as f32 / 2.0, h as f32 - footing as f32 / 2.0 - 2.0, w as f32 * 0.46, footing as f32 * 0.42, seed);
                 let (y0, y1) = (h - footing + 4, h - 5);
                 let (x0, x1) = (4, w - 5);
@@ -395,7 +348,6 @@ fn raise(p: &Plan, step: u8) -> Img {
                         }
                     }
                 }
-                // Roofing: bare rafters where the roof is not yet on.
                 if step == 3 {
                     let r = (h as f32 * 0.14) as i32;
                     for k in 0..3 {
@@ -405,7 +357,6 @@ fn raise(p: &Plan, step: u8) -> Img {
                     }
                     im.line(w / 2, cut - r, w / 2, cut + 2, 'o');
                 }
-                // The scaffold against the face and its planks.
                 let top = (cut - 12).max(1);
                 let rows = [cut + 1, (cut + h) / 2 - 2];
                 paint::scaffold(&mut im, &[2, w / 2, w - 4], top, h - 1, &rows);
@@ -424,7 +375,6 @@ fn raise(p: &Plan, step: u8) -> Img {
     im
 }
 
-/// A building not yet drawn: a plain house in its footprint.
 pub(crate) fn placeholder(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     paint::earth(&mut c.im, w as f32 / 2.0, h as f32 - 8.0, w as f32 * 0.45, 8.0, c.seed);

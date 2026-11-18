@@ -1,7 +1,5 @@
 use super::*;
 
-/// Floor one's entrance as a fight, knight one at its middle, the Pit Tyrant
-/// at `(x, y)`.
 fn pit_with(x: f32, y: f32) -> Run {
     let mut run = Run::new(21, 1, None);
     run.enter_for_test(0);
@@ -52,7 +50,6 @@ fn the_slam_gathers_in_a_ring_then_strikes_and_throws_whoever_is_in_it() {
     let mut ring = None;
     let mut hp = 0;
     for _ in 0..8 * HZ {
-        // Held still, and unhurt by anything but the slam.
         run.projectiles.clear();
         let hero = run.players.get_mut(&1).unwrap();
         (hero.x, hero.y) = (24.0, 14.0);

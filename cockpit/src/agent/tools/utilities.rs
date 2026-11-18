@@ -48,7 +48,6 @@ impl Tool for PresentTool {
     }
 }
 
-/// A one-string tool; `text` is the address of its page.
 fn string_param(name: &str, desc: &str, text: &str) -> ToolDef {
     ToolDef {
         name: name.to_string(),

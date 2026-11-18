@@ -20,10 +20,8 @@ use angel_kiln::{Grain, Ink, Palette};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-/// The cartridge's own frost nova, read where it is installed.
 const CARTRIDGE: &str = ".angelX/cartridges/vfx/examples/frost-nova.recipe.json";
 
-/// Digits three by five, for frame numbers.
 const DIGITS: [[&str; 5]; 10] = [
     ["111", "101", "101", "101", "111"],
     ["010", "110", "010", "010", "111"],
@@ -41,7 +39,6 @@ fn ink(k: char) -> Ink {
     Palette::realm().ink(k).expect("a realm ink")
 }
 
-/// The room's floor under an effect: dark stone, a seam every tile.
 fn floor(w: u32, h: u32, tile: u32) -> Indexed {
     let mut f = Indexed::new(w, h);
     f.fill(ink('K'));
@@ -55,7 +52,6 @@ fn floor(w: u32, h: u32, tile: u32) -> Indexed {
     f
 }
 
-/// A number drawn at `(x, y)`, each of its pixels `s` square.
 fn number(img: &mut Indexed, n: u32, x: i32, y: i32, s: u32, c: Ink) {
     for (i, ch) in n.to_string().bytes().enumerate() {
         for (r, row) in DIGITS[(ch - b'0') as usize].iter().enumerate() {
@@ -154,7 +150,6 @@ fn main() {
         inks.sort_unstable();
         inks.dedup();
         let (w4, h4) = (w * 4, h * 4);
-        // The GIFs, on the floor.
         for (scale, suffix) in [(1, ""), (3, "-3x")] {
             let mut gif = Gif::new(w4 * scale, h4 * scale, p).unwrap();
             for f in &g4 {
@@ -164,7 +159,6 @@ fn main() {
             }
             write(&out.join(format!("{}{suffix}.gif", s.name)), &gif.finish().unwrap());
         }
-        // The sheet: each frame, grain 1 four times over beside grain 4.
         let cols = if w4 * 2 > 400 { 2 } else { 3 };
         let (cell_w, cell_h) = (w4 * 2 + 4, h4 + 14);
         let rows = n.div_ceil(cols);
@@ -182,7 +176,6 @@ fn main() {
             sheet.blit(&b, x + w4 as i32 + 2, y, 1);
         }
         write(&out.join(format!("{}-sheet.png", s.name)), &encode::png(&sheet, p).unwrap());
-        // The busiest frame, close up.
         let busiest = (0..n as usize).max_by_key(|&f| g4[f].px.iter().filter(|&&v| v != 0).count()).unwrap_or(0);
         let mut key = floor(w4, h4, 64);
         key.blit(&g4[busiest], 0, 0, 1);
@@ -196,7 +189,6 @@ fn main() {
         keys.push((s.name.clone(), both));
         println!("{:<26} {:>6} {:>4} {:>9.3} {:>9.3} {:>6}", s.name, n, s.fx.fps(), ms4, ms1, inks.len());
     }
-    // The catalog: every effect's busiest frame, grain 1 beside grain 4.
     if !keys.is_empty() {
         let cw = keys.iter().map(|k| k.1.w).max().unwrap_or(0) + 6;
         let ch = keys.iter().map(|k| k.1.h).max().unwrap_or(0) + 6;
@@ -219,10 +211,6 @@ fn main() {
     println!("written to {}", out.display());
 }
 
-/// The cartridge's own frost nova (its native sheet, frames side by side)
-/// beside kiln's import of the same recipe and kiln's own, every other
-/// frame, twice over: the cartridge's, the import at grain 4 and at grain 1,
-/// and kiln's at grain 4 and at grain 1.
 fn compare(v1: &Path, shots: &[Shot], to: &Path) -> Result<(), String> {
     let file = std::fs::File::open(v1).map_err(|e| e.to_string())?;
     let mut r = png::Decoder::new(std::io::BufReader::new(file)).read_info().map_err(|e| e.to_string())?;
@@ -276,10 +264,8 @@ fn compare(v1: &Path, shots: &[Shot], to: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// A picture as the colour at each of its pixels, none where it is clear.
 type Pixels<'a> = Box<dyn Fn(u32, u32) -> Option<[u8; 3]> + 'a>;
 
-/// The colour at `(x, y)` of a picture drawn `n` times over, none if clear.
 fn px_of(img: &Indexed, x: u32, y: u32, n: u32) -> Option<[u8; 3]> {
     let (x, y) = (x / n, y / n);
     if x >= img.w || y >= img.h {

@@ -2,7 +2,6 @@
 use super::*;
 use crate::rules::{home::Home, world};
 
-/// The party on the Strand, the keeper's errand taken, far from the crab.
 fn on_the_strand() -> Run {
     let mut run = Run::at_home(13, 7, None, Home::default(), Spoils::default());
     run.join_seat(2, "Two");
@@ -26,7 +25,6 @@ fn the_crab_runs_from_the_nearest_knight_and_keeps_to_the_sand() {
         run.tick_coastal(&still());
     }
     let crab = run.crab.clone().unwrap();
-    // The knights are west of it: it went east.
     assert!(crab.x > start.x, "{start:?} -> {crab:?}");
     let tile = run.room().tile((crab.x / TILE_UNITS) as i32, (crab.y / TILE_UNITS) as i32);
     assert_eq!(tile, Tile::Floor, "never into the water");
@@ -63,7 +61,6 @@ fn whoever_grabs_it_gets_the_oil_and_the_crown_and_a_friend_sees_it() {
     assert!(run.found.as_ref().unwrap().2.contains("TWO GOT THE OIL"));
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_crab_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_crab_shots() {
@@ -79,7 +76,6 @@ fn write_crab_shots() {
         std::fs::write(dir.join(format!("{name}.ppm")), out).unwrap();
     };
     let mut run = on_the_strand();
-    // Both knights chase it east.
     let east = BTreeMap::from([
         (1, Input { move_x: 1, ..Default::default() }),
         (2, Input { move_x: 1, ..Default::default() }),

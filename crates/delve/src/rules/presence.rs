@@ -10,28 +10,18 @@
 
 use super::*;
 
-/// A knight back from away is warded this long: a second.
 pub const WAKE_WARD: u32 = HZ;
 
-/// Why the room holds its foes (`Run::held`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Hold {
-    /// Play on.
     #[default]
     Open,
-    /// The party has just arrived: every player here is still to see the
-    /// room on screen.
     Arriving,
-    /// Nobody is here: every knight's player is away.
     Empty,
 }
 
 impl Run {
-    /// Whether knight `id`'s player is here. Away, the knight is stone;
-    /// back, it is itself again (still stone if it keeps vigil) and warded
-    /// a moment. Said every tick, it holds the knight to it whatever else
-    /// set its stone meanwhile.
     pub fn set_away(&mut self, id: u32, away: bool) {
         let Some(hero) = self.players.get_mut(&id) else {
             return;
@@ -43,7 +33,6 @@ impl Run {
             }
             hero.stone = true;
         } else if hero.away {
-            // Back: still stone, unseen and unhurt, until its player moves.
             hero.away = false;
             hero.idle = hero.hp > 0;
             hero.stone = hero.idle || hero.vigil;
@@ -51,20 +40,13 @@ impl Run {
         }
     }
 
-    /// A round begins: every standing knight is stone, unseen and unhurt,
-    /// until its player first moves, fires, dashes, swings or presses E.
     pub fn rest_until_moved(&mut self) {
-        // Only knights a player is here for: the host's empty place and a
-        // seat whose player is away are not waiting to move.
         for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.absent && !h.away) {
             hero.idle = true;
             hero.stone = true;
         }
     }
 
-    /// An idle knight wakes on its player's first move this round. E is a
-    /// move: a friend who joins at the Delve's door and presses E under its
-    /// ENTER sign goes in, not stays stone.
     pub(super) fn wake_on_first_move(hero: &mut Hero, input: &Input) {
         if hero.idle
             && !hero.away
@@ -80,10 +62,6 @@ impl Run {
         }
     }
 
-    /// Whether knight `id` is nobody's at all: the host's own place, kept
-    /// for a host who plays no knight. Absent, it is away (stone, unseen,
-    /// unhurt), counts for nothing in the party (`Run::party_len`), and is
-    /// never sent to a client (`wire::publish`), so no screen draws it.
     pub fn set_absent(&mut self, id: u32, absent: bool) {
         let Some(hero) = self.players.get_mut(&id) else {
             return;
@@ -94,18 +72,14 @@ impl Run {
         }
     }
 
-    /// Hold the room, or let it play (`Hold`).
     pub fn hold(&mut self, hold: Hold) {
         self.held = hold;
     }
 
-    /// The room holds this tick: foes and their shots wait.
     pub fn holding(&self) -> bool {
         self.held != Hold::Open
     }
 
-    /// While the room holds, no knight is hurt: every one is warded
-    /// through the tick.
     pub(super) fn ward_while_held(&mut self) {
         if !self.holding() {
             return;

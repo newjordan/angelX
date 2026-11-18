@@ -56,7 +56,6 @@ fn creator_dev_entry_consumes_all_gameplay_and_does_not_touch_the_run() {
     );
     assert_eq!(serde_json::to_value(c.newest().unwrap()).unwrap(), original);
     assert!(c.choices().is_empty());
-    // No key that closes the scroll leaks through to a room's pause menu.
     assert_eq!(c.command(&tap(button::MENU)), DelveCmd::neutral());
     assert!(!c.creation.session.open && !c.menu);
     assert_ne!(c.command(&held(button::RIGHT)), DelveCmd::neutral());
@@ -120,7 +119,6 @@ fn creator_draws_in_both_flat_frames_and_the_glass_screen_layer() {
     c.exact = true;
     host.send(&mut c);
     c.set_knob("creator_open", 1.0);
-    // Settle the opening without advancing the fight or requiring a window.
     c.creation.session.opened = 0;
     for kept in &mut c.kept {
         kept.run.tick = 24;
@@ -145,9 +143,6 @@ fn creator_draws_in_both_flat_frames_and_the_glass_screen_layer() {
     }
 }
 
-/// The Test drive end to end, on scripted hands: the Creator's grant, then the walk, the strikes and
-/// a meeting on the fixture floor. Entirely offline; writes `target/creator-shots/slice2/test-drive-384/*.png`
-/// (frames at 12 per second of game time) and a 768-wide set; the packager makes the looping GIFs.
 #[test]
 #[ignore]
 fn write_test_drive_frames() {
@@ -189,7 +184,6 @@ fn write_test_drive_frames() {
         }
         *n += 1;
     };
-    // One tick of hands, recorded.
     macro_rules! tick_with {
         ($hands:expr) => {{
             editor.hands(&$hands, tick);
@@ -197,8 +191,6 @@ fn write_test_drive_frames() {
             tick += 1;
         }};
     }
-    // Waypoints over the floor, breadth-first on a half-unit grid with the drive's own feet box,
-    // so the scripted creature walks round the rocks as a player would.
     let route = |editor: &creation::Editor, to: (f32, f32)| -> Vec<(f32, f32)> {
         let floor = editor.floor.as_ref().unwrap();
         let from = editor.session.drive.as_ref().map_or(floor.spawn, |d| (d.x, d.y));
@@ -255,18 +247,15 @@ fn write_test_drive_frames() {
         let f = e.floor.as_ref().expect("the fixture floor stands once the drive begins");
         (f.spawn, f.friend, f.foes.clone())
     };
-    // The floor is built by the first drive tick.
     for _ in 0..14 {
         tick_with!(Hands::default());
     }
     let (spawn, friend, foes) = floor(&editor);
     let _ = (spawn, friend, &foes);
-    // Walk to the comparison knight and meet him.
     let go = |editor: &mut creation::Editor, to: (f32, f32), tick: &mut u64, n: &mut usize, next: &mut f64, run: &mut crate::rules::Run, frames: &mut dyn FnMut(&mut creation::Editor, u64, &mut usize, &mut f64, &mut crate::rules::Run)| {
         let way = route(editor, to);
         assert!(!way.is_empty(), "a way to {to:?} over the fixture floor");
         for (i, w) in way.iter().enumerate().skip(1) {
-            // Every second cell is a waypoint, and the last one is the goal.
             if i % 2 == 1 && i + 1 < way.len() {
                 continue;
             }
@@ -284,7 +273,6 @@ fn write_test_drive_frames() {
     for _ in 0..50 {
         tick_with!(Hands::default());
     }
-    // Then to the first foe, and two blows.
     let to = editor.floor.as_ref().unwrap().standing((foes[0].0 - 5.0, foes[0].1 + 1.0));
     go(&mut editor, to, &mut tick, &mut n, &mut next_frame, &mut run, &mut frames);
     for _ in 0..2 {
@@ -311,33 +299,25 @@ fn the_wish_line_is_kept_by_the_open_creator_and_never_reaches_the_host() {
     host.send(&mut c);
     let words = br#"{"words":"a flaming bone axe with a skull pommel"}"#;
     let original = serde_json::to_value(c.newest().unwrap()).unwrap();
-    // Closed: the Creator keeps nothing, so a wish goes to the host as it always did.
     assert!(!c.keep_action(2, words));
     assert!(!c.keep_action(1, br#"{"wish":"x"}"#));
     assert_eq!(c.controls(), CONTROLS);
     c.set_knob("creator_open", 1.0);
     assert!(c.creation.session.open);
-    // Open: the shell's text line is the Creator's Wish line, titled so, and its words are kept.
     assert!(c.controls().contains(r#""title":"Wish it""#) && c.controls().contains("skull pommel"));
     assert!(c.keep_action(2, words), "the words were taken here, so nothing is sent");
     let s = &c.creation.session;
     assert!(s.forge() && s.weapon.kind == crate::rules::creation::WeaponKind::Haft);
     assert_eq!(s.chat.lines.len(), 2);
     assert_eq!(s.chat.lines[0].text, "a flaming bone axe with a skull pommel");
-    // A pick (kind 1) and unreadable words are swallowed too, changing nothing; other kinds pass.
     let before = c.creation.session.clone();
     assert!(c.keep_action(1, br#"{"wish":"x"}"#) && c.keep_action(2, b"not json"));
     assert_eq!(c.creation.session, before);
     assert!(!c.keep_action(9, br#"{"from":0,"to":1}"#), "a drag in the hand is the host's");
     assert!(!c.keep_action(0x100, b""), "the engine's own kinds are never kept");
-    // The run is untouched by all of it.
     assert_eq!(serde_json::to_value(c.newest().unwrap()).unwrap(), original);
 }
 
-/// Slice 3: the Hero's Test drive end to end on scripted hands: the grant, the walks in all four
-/// directions, two smashes beside a foe and a meeting. Offline; writes
-/// `target/creator-shots/slice3/test-drive-384/*.png` (12 frames per second of game time) and a
-/// 768-wide set; the packager makes the looping GIFs.
 #[test]
 #[ignore]
 fn write_slice3_drive_frames() {
@@ -389,7 +369,6 @@ fn write_slice3_drive_frames() {
             (d.x, d.y) = at;
         }};
     }
-    // The floor is built by the first drive tick; then the creature stands and breathes.
     for _ in 0..14 {
         step!(Hands::default());
     }
@@ -400,7 +379,6 @@ fn write_slice3_drive_frames() {
     for _ in 0..40 {
         step!(Hands::default());
     }
-    // The four walks, each from open floor with ground to cover.
     for (label, hands, from, ticks) in [
         ("east", Hands { x: 127, ..Default::default() }, (13.0f32, 24.0f32), 34),
         ("west", Hands { x: -127, ..Default::default() }, (34.0, 24.0), 34),
@@ -419,7 +397,6 @@ fn write_slice3_drive_frames() {
         eprintln!("walk {label}: ({:.1},{:.1}) to ({:.1},{:.1})", start.0, start.1, d.x, d.y);
         assert!((d.x - start.0).hypot(d.y - start.1) > 4.0, "the creature walked {label}");
     }
-    // Two smashes beside the first foe.
     put_at!((foes[0].0 - 4.0, foes[0].1 + 1.0));
     for _ in 0..6 {
         step!(Hands::default());
@@ -430,7 +407,6 @@ fn write_slice3_drive_frames() {
             step!(Hands::default());
         }
     }
-    // A meeting with the comparison knight, then the last breaths.
     put_at!((friend.0 + 7.0, friend.1 + 2.0));
     for _ in 0..4 {
         step!(Hands::default());
@@ -454,7 +430,6 @@ fn the_test_drive_flips_a_heros_looks_with_the_number_keys_and_keeps_walking() {
     assert_eq!(editor.session.creation.look.as_deref(), Some("a6-crusader"));
     editor.hands(&tap(button::SLOT3), 2);
     assert_eq!(editor.session.creation.look.as_deref(), Some("frog-knight"));
-    // A look flips in the same tick the creature walks: the keys do not swallow one another.
     let before = editor.session.drive.as_ref().map(|d| d.x);
     let mut both = Hands { x: 127, ..Default::default() };
     both.pressed = button::SLOT1;
@@ -464,11 +439,9 @@ fn the_test_drive_flips_a_heros_looks_with_the_number_keys_and_keeps_walking() {
     assert!(after > before, "and the creature walked on ({before:?} to {after:?})");
     editor.hands(&tap(button::SLOT4), 4);
     assert!(editor.session.creation.look.is_none(), "there is no fourth look");
-    // A role with no looks ignores them.
     editor.session.creation.role = Role::Monster;
     editor.hands(&tap(button::SLOT2), 5);
     assert!(editor.session.creation.look.is_none());
-    // The builder pages keep the number keys for their rows.
     let mut pages = creation::Editor::default();
     pages.session.open(0, "Ada");
     pages.session.go(Step::Paint, 0);
@@ -476,10 +449,6 @@ fn the_test_drive_flips_a_heros_looks_with_the_number_keys_and_keeps_walking() {
     assert_eq!((pages.session.row, pages.session.creation.look.is_none()), (2, true));
 }
 
-/// Slice 4: each of the Hero's three looks through the same Test drive tour (the grant, four walks, two
-/// smashes beside a foe, a meeting), and one drive in which the number keys flip the looks while the
-/// knight walks and strikes. Offline; writes `target/creator-shots/slice4/drive-<look>-384/*.png` (12 frames
-/// per second of game time) and a 768-wide set; the packager makes the looping GIFs.
 #[test]
 #[ignore]
 fn write_slice4_drive_frames() {
@@ -489,7 +458,6 @@ fn write_slice4_drive_frames() {
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/creator-shots"))
         .join("slice4");
-    // (tag, the look's index, whether the keys flip it during the drive)
     for (tag, look, flip) in [("2d", 0usize, false), ("3d", 1, false), ("kiln", 2, false), ("flip", 0, true)] {
         let names = [format!("drive-{tag}-384"), format!("drive-{tag}-768")];
         for dir in &names {
@@ -544,7 +512,6 @@ fn write_slice4_drive_frames() {
         };
         let key = |n: usize| Hands { pressed: [button::SLOT1, button::SLOT2, button::SLOT3][n], ..Default::default() };
         if flip {
-            // One drive, three looks: walk east, flip, walk on, flip, strike, flip back and strike again.
             put_at!((13.0f32, 24.0f32));
             for _ in 0..6 {
                 step!(Hands::default());
@@ -625,11 +592,9 @@ fn the_test_drive_binds_the_cast_and_the_fall_to_the_games_own_ultimate_and_bomb
     let mut editor = creation::Editor::default();
     editor.session.open(0, "Ada");
     editor.session.go(Step::Drive, 0);
-    // The 2D knight has no cast and no death clip: R and X do nothing.
     editor.hands(&tap(button::X4), 1);
     editor.hands(&tap(button::X1), 2);
     assert!(editor.session.drive.as_ref().is_some_and(|d| d.act.is_none()), "no clip, no cast");
-    // The A6 casts on R and lies down on X; a second X gets it up again.
     editor.hands(&tap(button::SLOT2), 3);
     assert_eq!(editor.session.creation.look.as_deref(), Some("a6-crusader"));
     editor.hands(&Hands::default(), 4);
@@ -647,7 +612,6 @@ fn the_test_drive_binds_the_cast_and_the_fall_to_the_games_own_ultimate_and_bomb
     assert!(editor.session.drive.as_ref().unwrap().down(130), "and it stays down");
     editor.hands(&tap(button::X1), 131);
     assert!(matches!(editor.session.drive.as_ref().unwrap().acting(131), Some((Act::Rose, 0))), "X again gets it up");
-    // The keys only count in the Test drive: on a builder page they are not rows.
     let mut pages = creation::Editor::default();
     pages.session.open(0, "Ada");
     pages.session.go(Step::Paint, 0);
@@ -655,7 +619,6 @@ fn the_test_drive_binds_the_cast_and_the_fall_to_the_games_own_ultimate_and_bomb
     assert!(pages.session.drive.is_none());
 }
 
-/// A new knight in the Sozzled Griffin, as the game begins a session with the rite on.
 fn newcomer_in_the_bar() -> Run {
     let mut run = crate::rules::rite::tests::realm_with("Ada", home::Home::default());
     run.walk_alehouse();
@@ -666,7 +629,6 @@ fn newcomer_in_the_bar() -> Run {
     run
 }
 
-/// The rite's invitation keys: N held, C pressed.
 fn rite_keys() -> angel_net::input::Hands {
     angel_net::input::Hands { held: button::MAP, pressed: button::X11, ..Default::default() }
 }
@@ -677,21 +639,17 @@ fn a_newcomers_screen_is_invited_and_n_with_c_opens_the_creator_while_c_alone_st
     assert!(host.run.owes_rite(1));
     let mut c = client(Some(0));
     host.send(&mut c);
-    // Arriving in the bar: the slip is up, the Creator is not, and the knight plays on.
     assert!(c.creation.invite.shown(host.run.tick).is_some_and(|(_, slip)| slip), "the full slip first");
     assert!(!c.creation.session.open);
     assert_ne!(c.command(&held(button::RIGHT)), DelveCmd::neutral(), "the knight is not held");
-    // C alone is the shoulder ride even while the rite is owed; N held and C opens the Creator.
     assert!(c.command(&tap(button::X11)).input().ride, "C alone rides");
     assert!(!c.creation.session.open);
     assert_eq!(c.command(&rite_keys()), DelveCmd::neutral());
     assert!(c.creation.session.open);
-    // Esc puts it off; the slip shrinks to its hint and the knight is as free as before.
     assert_eq!(c.command(&tap(button::MENU)), DelveCmd::neutral());
     assert!(!c.creation.session.open);
     assert!(c.creation.invite.shown(host.run.tick + 1000).is_some_and(|(_, slip)| !slip), "then the corner hint");
     assert!(!c.menu, "nothing was left open behind it");
-    // It can be opened again.
     c.command(&rite_keys());
     assert!(c.creation.session.open);
 }
@@ -714,7 +672,6 @@ fn what_is_brought_to_life_goes_to_the_host_once_and_the_host_keeps_it_credited_
     let mut c = client(Some(0));
     host.send(&mut c);
     c.command(&rite_keys());
-    // A minion, through the pages to Life, and sealed there.
     c.creation.session.creation.role = Role::Minion;
     c.creation.session.creation.name = "Pip".into();
     let tick = host.run.tick;
@@ -724,10 +681,8 @@ fn what_is_brought_to_life_goes_to_the_host_once_and_the_host_keeps_it_credited_
     let sent = c.take_actions();
     assert_eq!(sent.len(), 1);
     assert_eq!(sent[0].0, rite::ACTION);
-    // The next press closes the scroll and sends nothing twice.
     c.command(&tap(button::OK));
     assert!(c.take_actions().is_empty());
-    // The host reads it as the run's command and keeps it for the realm.
     let made: Made = serde_json::from_slice(&sent[0].1).expect("a Creator piece");
     let line = host.run.contribute(1, made).unwrap();
     assert!(line.contains("Pip"), "{line}");

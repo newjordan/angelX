@@ -4,25 +4,18 @@
 
 use crate::palette::{Ink, Palette};
 
-/// A part's number in a raster; 0 is none.
 pub type PartId = u16;
 
-/// An indexed picture with depth.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Raster {
     pub w: u32,
     pub h: u32,
-    /// The ink of each pixel, row by row; 0 is clear.
     pub ink: Vec<Ink>,
-    /// How near each pixel's surface is (larger is nearer the viewer);
-    /// `f32::NEG_INFINITY` where nothing is drawn.
     pub depth: Vec<f32>,
-    /// The part that drew each pixel; 0 where none did.
     pub part: Vec<PartId>,
 }
 
 impl Raster {
-    /// A clear `w` x `h` picture.
     pub fn new(w: u32, h: u32) -> Raster {
         let n = (w * h) as usize;
         Raster { w, h, ink: vec![Ink::CLEAR; n], depth: vec![f32::NEG_INFINITY; n], part: vec![0; n] }
@@ -32,23 +25,18 @@ impl Raster {
         (x >= 0 && y >= 0 && (x as u32) < self.w && (y as u32) < self.h).then(|| (y as u32 * self.w + x as u32) as usize)
     }
 
-    /// The ink at `(x, y)`; clear off the picture.
     pub fn get(&self, x: i32, y: i32) -> Ink {
         self.at(x, y).map_or(Ink::CLEAR, |i| self.ink[i])
     }
 
-    /// The depth at `(x, y)`.
     pub fn depth_at(&self, x: i32, y: i32) -> f32 {
         self.at(x, y).map_or(f32::NEG_INFINITY, |i| self.depth[i])
     }
 
-    /// The part at `(x, y)`.
     pub fn part_at(&self, x: i32, y: i32) -> PartId {
         self.at(x, y).map_or(0, |i| self.part[i])
     }
 
-    /// Lay `ink` at `(x, y)` if it is at least as near as what is there.
-    /// Returns whether it was laid.
     pub fn put(&mut self, x: i32, y: i32, ink: Ink, depth: f32, part: PartId) -> bool {
         match self.at(x, y) {
             Some(i) if depth >= self.depth[i] => {
@@ -61,20 +49,16 @@ impl Raster {
         }
     }
 
-    /// Lay `ink` at `(x, y)` over whatever is there, keeping its depth and
-    /// part (line work, decals, recolours).
     pub fn paint(&mut self, x: i32, y: i32, ink: Ink) {
         if let Some(i) = self.at(x, y) {
             self.ink[i] = ink;
         }
     }
 
-    /// Whether `(x, y)` holds an ink.
     pub fn is_inked(&self, x: i32, y: i32) -> bool {
         !self.get(x, y).is_clear()
     }
 
-    /// RGBA bytes, row by row; clear is transparent.
     pub fn to_rgba(&self, palette: &Palette) -> Vec<u8> {
         let mut out = Vec::with_capacity(self.ink.len() * 4);
         for &ink in &self.ink {
@@ -86,12 +70,10 @@ impl Raster {
         out
     }
 
-    /// The game's ink rows: one string a row, one key a pixel, `.` clear.
     pub fn ink_rows(&self, palette: &Palette) -> Vec<String> {
         self.ink.chunks(self.w as usize).map(|row| row.iter().map(|&i| palette.key(i)).collect()).collect()
     }
 
-    /// The box round every inked pixel, `(x, y, w, h)`; none when clear.
     pub fn bounds(&self) -> Option<(u32, u32, u32, u32)> {
         let (mut x0, mut y0, mut x1, mut y1) = (u32::MAX, u32::MAX, 0, 0);
         for y in 0..self.h {

@@ -24,18 +24,14 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-/// The Delve's client: the same one a browser runs as wasm.
 pub type Client = angel_delve::client::DelveClient;
 
-/// How long a new seat waits for its welcome and the run before play
-/// begins without them.
 const WELCOME_WAIT: Duration = Duration::from_secs(2);
 
 #[path = "together_seat/keys.rs"]
 mod keys;
 use keys::Key;
 
-/// A seat's newest picture: `px` is `w * h` words, `0xAARRGGBB`.
 #[derive(Clone)]
 pub struct Picture {
     pub w: u32,
@@ -44,7 +40,6 @@ pub struct Picture {
 }
 
 impl Picture {
-    /// As the renderer's image, for the terminal's picture path.
     pub fn img(&self) -> angel_delve::render::overworld::Img {
         angel_delve::render::overworld::Img::from_words(
             self.w as i32,
@@ -53,7 +48,6 @@ impl Picture {
         )
     }
 
-    /// The pixel at (x, y), black outside.
     pub fn rgb(&self, x: u32, y: u32) -> [u8; 3] {
         if x >= self.w || y >= self.h {
             return [0, 0, 0];
@@ -78,36 +72,23 @@ struct CachedState {
     media_origin: Option<(String, angel_serve::client::Trust)>,
 }
 
-/// One seat: its client and link, the keys waiting for them, and the
-/// one-off actions waiting to go.
 struct Core {
     inner: Mutex<Inner>,
     lines: Mutex<Vec<String>>,
     picture: Mutex<Option<Picture>>,
     state: Mutex<CachedState>,
     keys: Mutex<Vec<Key>>,
-    /// Taps waiting, each its own press: one goes to the sampler once the
-    /// one before has been sampled, so their order is the order they came.
     taps: Mutex<VecDeque<u32>>,
-    /// Actions in the order they were made, a larger one in pieces, sent no
-    /// faster than `together_gear::PIECE_EVERY`.
     outbox: Mutex<VecDeque<(u32, Vec<u8>)>>,
     sent: Mutex<Option<Instant>>,
     epoch: Instant,
-    /// Thrown things in the air on the newest frame, for the GPU window to
-    /// lift (`ui::glass::lifted`); empty in a terminal.
     lifted: Mutex<Arc<Vec<angel_delve::render::overworld::arena::Lifted>>>,
-    /// The newest frame in parts, for the GPU window to draw
-    /// (`ui::glass::stage`); `None` in a terminal.
     scene: Mutex<Option<Arc<angel_delve::render::overworld::arena::RoomScene>>>,
 }
 
-/// One seat, shared by the terminal's thread and the render workers.
 #[derive(Clone)]
 pub struct Seat {
     core: Arc<Core>,
-    /// The seat's own render worker, for pictures painted in half blocks
-    /// (Kitty's go through the viewer's).
     worker: Arc<std::sync::OnceLock<crate::game_pipeline::Pipeline>>,
 }
 
@@ -165,14 +146,10 @@ impl Seat {
         seat
     }
 
-    /// A seat on this angelX's own server, waiting (a moment at most) for
-    /// its welcome and the run, so its first keys are its knight's.
     pub fn local(conn: LocalConn, name: &str) -> Seat {
         Seat::local_with(conn, name, LinkOptions::default())
     }
 
-    /// A place on this angelX's own server that only watches: a host who
-    /// plays no knight, whose seat is a friend's.
     pub fn watching(conn: LocalConn, name: &str) -> Seat {
         let options = LinkOptions { caps: angel_net::proto::caps::WATCH, ..LinkOptions::default() };
         Seat::local_with(conn, name, options)
@@ -181,8 +158,6 @@ impl Seat {
     fn local_with(conn: LocalConn, name: &str, options: LinkOptions) -> Seat {
         let seat = Seat::of(NativeLink::local(conn, name, options));
         let until = Instant::now() + WELCOME_WAIT;
-        // No command goes before the run is in: the first is sampled at the
-        // seat's first tick, with its knight to play.
         loop {
             let mut inner = lock(&seat.core.inner);
             let now_ms = seat.core.now_ms(Instant::now());
@@ -201,11 +176,8 @@ impl Seat {
         }
     }
 
-    /// A seat in a friend's delve, from their share link
-    /// (`https://castle.ts.net/#KEY`, `http://192.168.1.5:8790/#KEY`).
     pub fn connect(link: &str, name: &str) -> Result<Seat, String> {
         let link = NativeLink::connect(link, name, LinkOptions::default())?;
-        // The host's paintings are fetched from beside its socket.
         if let Some((url, trust)) = link.remote() {
             crate::services::paint_host(url, trust);
         }
@@ -216,46 +188,32 @@ impl Seat {
         keys::push(&mut lock(&self.core.keys), key);
     }
 
-    /// Everything held now (`angel_net::input::button`): a key held and let
-    /// go between two frames is still pressed for a command.
     pub fn set_held(&self, bits: u32) {
         self.key(Key::Held(bits));
     }
 
-    /// A press and its release at once: a key the client takes as a press
-    /// (the ballot's, the menu's). Taps go one a command, in order: two in
-    /// one command would be taken in the client's order, not theirs.
     pub fn tap(&self, bits: u32) {
         if bits != 0 {
             lock(&self.core.taps).push_back(bits);
         }
     }
 
-    /// Taps of `bits` not yet given to the sampler, taken back: a menu
-    /// opened and left before its tap went out never holds the knight.
     pub fn untap(&self, bits: u32) {
         lock(&self.core.taps).retain(|&tap| tap != bits);
     }
 
-    /// Let go of everything (the terminal lost focus, a menu took the keys).
     pub fn release_all(&self) {
         self.key(Key::Release);
     }
 
-    /// A one-off action (`together_gear`): in pieces when it is large.
     pub fn action(&self, kind: u32, body: &[u8]) {
         lock(&self.core.outbox).extend(together_gear::pieces(kind, body));
     }
 
-    /// One display frame at `now`: the keys in, what arrived taken, and
-    /// the seat's own screen drawn. The commands are `tick`'s, on the
-    /// terminal's own thread.
     pub fn frame(&self, now: Instant) -> Option<Picture> {
         self.core.frame(now)
     }
 
-    /// The seat's next frame, drawn at `now` on its own render worker; the
-    /// newest finished one is `picture`. Only the newest asked for is drawn.
     pub fn request(&self, now: Instant) {
         let worker = self
             .worker
@@ -271,9 +229,6 @@ impl Seat {
         );
     }
 
-    /// The newest frame in parts (the GPU window's), drawn at `now` on the
-    /// seat's own render worker, waiting at most `budget` for it; the one
-    /// before stands in while the worker catches up.
     pub fn draw_scene(
         &self,
         now: Instant,
@@ -295,18 +250,14 @@ impl Seat {
         lock(&self.core.scene).clone()
     }
 
-    /// Whether a frame in parts has been drawn yet.
     pub fn has_scene(&self) -> bool {
         lock(&self.core.scene).is_some()
     }
 
-    /// Thrown things in the air on the newest frame drawn, in its pixels.
     pub fn lifted(&self) -> Arc<Vec<angel_delve::render::overworld::arena::Lifted>> {
         Arc::clone(&lock(&self.core.lifted))
     }
 
-    /// The seat's next frame as the renderer's image, for the terminal's
-    /// picture path to make on its own worker.
     pub fn drawer(
         &self,
     ) -> impl FnOnce(Instant) -> angel_delve::render::overworld::Img + Send + 'static {
@@ -320,11 +271,6 @@ impl Seat {
         }
     }
 
-    /// The keys in, what arrived taken, the commands and actions due sent,
-    /// with nothing drawn: the seat plays at the command rate whether or
-    /// not its room is on screen (its frames are drawn on a render worker
-    /// when it is). A frame being drawn elsewhere is never waited for: it
-    /// does the same.
     pub fn set_knob(&self, name: &str, value: f64) -> bool {
         let Ok(mut inner) = self.core.inner.lock() else { return false };
         inner.link.set_knob(name, value).is_some()
@@ -341,9 +287,6 @@ impl Seat {
         core.sync_state(&mut inner);
     }
 
-    /// The seat's player has left the game's screen: what arrived taken,
-    /// pings sent and no commands (`NativeLink::idle`), so the host's server
-    /// counts the seat away and keeps its knight out of harm's way.
     pub fn idle(&self, now: Instant) {
         let core = &self.core;
         let Ok(mut inner) = core.inner.try_lock() else {
@@ -355,9 +298,6 @@ impl Seat {
         core.sync_state(&mut inner);
     }
 
-    /// Whether the seat's ballot is open, as its client shows it (at once,
-    /// before the run says so); `None` while keys wait to be sampled, so
-    /// the client has not taken them yet.
     pub fn ballot_open(&self) -> Option<bool> {
         if !lock(&self.core.keys).is_empty() || !lock(&self.core.taps).is_empty() {
             return None;
@@ -371,7 +311,6 @@ impl Seat {
         lock(&self.core.state).ballot_open
     }
 
-    /// The activity menu after this client's pending keys have been sampled.
     pub fn menu_open(&self) -> Option<bool> {
         if !lock(&self.core.keys).is_empty() || !lock(&self.core.taps).is_empty() {
             return None;
@@ -385,8 +324,6 @@ impl Seat {
         lock(&self.core.state).menu_open
     }
 
-    /// Lines the seat's client made (`sfx <name>`, `say <name>: <words>`,
-    /// `notice <words>`, `music <track>`) since the last look.
     pub fn take_lines(&self) -> Vec<String> {
         if let Ok(mut inner) = self.core.inner.try_lock() {
             let lines = inner.link.take_lines();
@@ -397,7 +334,6 @@ impl Seat {
         std::mem::take(&mut *lock(&self.core.lines))
     }
 
-    /// The last picture drawn.
     pub fn picture(&self) -> Option<Picture> {
         lock(&self.core.picture).clone()
     }
@@ -409,7 +345,6 @@ impl Seat {
         lock(&self.core.state).status.clone()
     }
 
-    /// The knight this seat plays, once seated.
     pub fn knight(&self) -> Option<u32> {
         if let Ok(inner) = self.core.inner.try_lock() {
             return inner
@@ -421,18 +356,14 @@ impl Seat {
         lock(&self.core.state).knight
     }
 
-    /// The run as this seat's client holds it: the newest tick it has.
     pub fn run(&self) -> Option<Run> {
         self.run_arc().map(|run| (*run).clone())
     }
 
-    /// Bytes this seat's socket has read and written since it joined.
     pub fn socket_bytes(&self) -> (u64, u64) {
         lock(&self.core.inner).link.bytes()
     }
 
-    /// Shared reference to the newest run this seat's client holds, avoiding
-    /// a deep clone when the snapshot tick has not changed.
     pub fn run_arc(&self) -> Option<Arc<Run>> {
         if let Ok(mut inner) = self.core.inner.try_lock() {
             self.core.sync_state(&mut inner);
@@ -458,7 +389,6 @@ impl Seat {
         lock(&self.core.state).run.clone()
     }
 
-    /// Leave on purpose: the seat is freed.
     pub fn bye(&self) {
         lock(&self.core.inner).link.bye();
     }
@@ -508,8 +438,6 @@ impl Core {
         };
     }
 
-    /// The keys heard since the last frame, into the sampler, in order;
-    /// the actions due, sent.
     fn feed(&self, inner: &mut Inner, now: Instant) {
         let keys = std::mem::take(&mut *lock(&self.keys));
         for key in keys {
@@ -517,7 +445,6 @@ impl Core {
             match key {
                 Key::Held(bits) => hands.set_held(bits),
                 Key::Release => {
-                    // Something let go is said at once; nothing held needs no word.
                     let was = hands.peek();
                     if was.held != 0 || was.pressed != 0 {
                         let now_ms = self.now_ms(now);
@@ -580,10 +507,6 @@ impl Core {
     }
 }
 
-/// What the delve's server sends knight `knight`'s seat of `run` (its share
-/// of the tick's tree, encoded as a whole snapshot), the run that seat's
-/// client reads back from it, and the picture the client draws: what a
-/// friend gets, for the tests of what reaches one.
 #[cfg(any(test, feature = "testing"))]
 pub fn guest_view(
     run: &Run,
@@ -633,7 +556,6 @@ pub fn guest_view(
     (body, read, picture.img())
 }
 
-/// The key the Delve's client takes for a move on the ballot.
 pub fn ballot_bits(action: super::together_shooter::votes::Action) -> u32 {
     use super::together_shooter::votes::Action;
     match action {
@@ -653,10 +575,6 @@ pub fn ballot_bits(action: super::together_shooter::votes::Action) -> u32 {
     }
 }
 
-/// The buttons that press `input` on a seat's client: a terminal's keys,
-/// read through the Delve's controls (`angel_delve::client::CONTROLS`), the
-/// same buttons a browser's keyboard presses. The menu, the ballot and a
-/// floor's plate are this terminal's own to drive, so none of theirs is here.
 pub fn bits(input: &Input) -> u32 {
     let mut bits = 0;
     let mut on = |yes: bool, bit: u32| {
@@ -675,16 +593,13 @@ pub fn bits(input: &Input) -> u32 {
     on(input.leave_held, button::MENU);
     on(input.fire, button::FIRE);
     on(input.dash, button::JUMP);
-    // E meets the world and takes gear alike, as the client reads USE.
     on(input.interact || input.take, button::USE);
     on(input.swing, button::ALT);
     on(input.bomb, button::X1);
     on(input.play != 0, button::X2);
     on(input.vigil, button::X3);
     on(input.ult, button::X4);
-    // The ride key (`rules::shoulders`): C in the Delve's controls.
     on(input.ride, button::X11);
-    // The next-card key (`Hero::cycle_hand`): P in the Delve's controls.
     on(input.cycle, button::X12);
     for (slot, bit) in [button::SLOT1, button::SLOT2, button::SLOT3, button::SLOT4]
         .into_iter()

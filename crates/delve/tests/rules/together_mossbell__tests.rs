@@ -16,7 +16,6 @@ fn game(n: u32) -> Run {
         },
     )]));
     assert!(r.mossbell.is_some());
-    // These tests play the tables, not the title and the countdown (`mossbell_waits_for_the_countdown`).
     r.mossbell.as_mut().unwrap().intro = 0;
     r
 }
@@ -502,8 +501,6 @@ fn mossbell_host_replays_the_visible_tick_and_all_bot_rounds_can_pay() {
     );
     for seats in [1, 2, 4, 2, 4] {
         let mut r = game(seats);
-        // A keeper's fall and the jackpot hold the room a few ticks (hit-stop), so the
-        // clock takes a little over a minute of steps.
         for _ in 0..LENGTH + 120 {
             if r.mossbell.as_ref().unwrap().left == 0 {
                 break;
@@ -581,7 +578,6 @@ fn mossbell_waits_for_the_countdown_then_every_table_plays_at_once() {
     let s = r.mossbell.as_ref().unwrap();
     assert_eq!(s.intro, INTRO);
     let before: Vec<_> = s.tables.values().map(|t| t.ball.clone()).collect();
-    // A press during the title launches nothing and costs no time on the clock.
     for _ in 0..INTRO - 1 {
         r.step(&BTreeMap::from([(2, Input { fire: true, ..Default::default() })]));
     }
@@ -616,7 +612,6 @@ fn mossbell_bell_pays_double_for_every_table_at_once() {
         b.step(Stroke::default(), &t, age, 1, 0);
         assert_eq!(b.score, 100 * pay, "the keeper at age {age}");
     }
-    // The clock tolls the room once at the start of each window.
     let mut s = Session::new(1..=2, 5);
     s.intro = 0;
     for age in 0..LENGTH {
@@ -669,7 +664,6 @@ fn mossbell_show_rides_the_wire_and_an_old_snapshot_loads() {
     assert!(s.valid());
     let back: Session = serde_json::from_slice(&serde_json::to_vec(s).unwrap()).unwrap();
     assert_eq!(serde_json::to_vec(&back).unwrap(), serde_json::to_vec(s).unwrap());
-    // A snapshot from before the show existed still loads, with a quiet book and no countdown.
     let mut old: serde_json::Value = serde_json::to_value(s).unwrap();
     old.as_object_mut().unwrap().remove("show");
     old.as_object_mut().unwrap().remove("intro");

@@ -1,5 +1,3 @@
-# crates/delve/src/rules/critters.rs: the third company (biters, moles, pavises,
-# leeches, marksmen, mirrorlings, spitters, ringers, geodes, hounds).
 import Base
 
 def critters.EnemyKind.critter(kind: String) -> Bool:
@@ -7,7 +5,6 @@ def critters.EnemyKind.critter(kind: String) -> Bool:
     Bool.or(Bool.or(Bool.or(String.eq(kind, "leech"), String.eq(kind, "marksman")), Bool.or(String.eq(kind, "mirrorling"), String.eq(kind, "spitter"))),
       Bool.or(Bool.or(String.eq(kind, "ringer"), String.eq(kind, "geode")), String.eq(kind, "hound"))))
 
-# A bog hand under the mire (horrors::sunk).
 def horrors.Enemy.sunk(enemy: Enemy) -> Bool:
   Bool.and(String.eq(enemy.kind, "bog_hand"), U32.is_lt(enemy.stage, 2))
 
@@ -29,13 +26,11 @@ def critters.Enemy.hurts_by_touch(enemy: Enemy) -> Bool:
   busy: Bool = Bool.and(enemy.signature.active, Bool.or(Bool.or(U32.is_eq(enemy.stage, signatures.TELL()), U32.is_eq(enemy.stage, signatures.JUMP())), Bool.or(U32.is_eq(enemy.stage, signatures.DAZED()), U32.is_eq(enemy.stage, signatures.WIND()))))
   Bool.and(Bool.and(Bool.not(critters.Enemy.buried(enemy)), Bool.not(critters.Enemy.latched(enemy))), Bool.and(Bool.not(charge), Bool.not(busy)))
 
-# The way a raised tower shield faces, if it is up.
 def critters.Enemy.shield_up(enemy: Enemy) -> (F32, F32)?:
   if Bool.and(String.eq(enemy.kind, "pavise"), U32.is_lt(enemy.stage, 3)):
     return Some{enemy.dir}
   None{}
 
-# A blow struck the raised shield; true if it knocked the shield aside.
 def critters.guard_struck(enemy: Enemy, damage: U32) -> (Enemy, Bool):
   enemy.guard = RS.u_sat_add(enemy.guard, RS.u_max(damage, 1))
   if U32.is_lt((enemy.guard * 100 : U32), (RS.u_max(enemy.max_hp, 1) * critters.GUARD_BREAK() : U32)):
@@ -45,7 +40,6 @@ def critters.guard_struck(enemy: Enemy, damage: U32) -> (Enemy, Bool):
   enemy.timer = RS.u_sat_sub(critters.PAVISE_PANT(), critters.GUARD_DOWN())
   (enemy, True{})
 
-# Does the raised shield turn a shot flying (vx, vy)?
 def critters.blocks(enemy: Enemy, vx: F32, vy: F32) -> Bool:
   match (critters.Enemy.shield_up(enemy) : (F32, F32)?):
     case None{}:
@@ -55,7 +49,6 @@ def critters.blocks(enemy: Enemy, vx: F32, vy: F32) -> Bool:
       speed: F32 = RS.f_max(cb.hyp(vx, vy), 0.001)
       return (RS.f_neg((vx * fx + vy * fy : F32)) / speed >= F32.cos(RS.f_to_radians(critters.PAVISE_ARC())) : F32)
 
-# A ring of bell strikes quickens a monster: it covers half again its step.
 def critters.quicken(enemy: Enemy, fx: F32, fy: F32, room: Room, barred: Bool) -> Enemy:
   if U32.is_eq(enemy.rung, 0):
     return enemy
@@ -72,7 +65,6 @@ def critters.quicken(enemy: Enemy, fx: F32, fy: F32, room: Room, barred: Bool) -
   enemy.y = ny
   enemy
 
-# Is the straight line a to b free of props and stone?
 def critters.clear_line(room: Room, barred: Bool, ax: F32, ay: F32, bx: F32, by: F32) -> Bool:
   steps: U32 = RS.f_as_i32(RS.f_max(F32.ceil((cb.hyp((bx - ax : F32), (by - ay : F32)) / 0.5 : F32)), 1.0))
   for k0: U32 in cb.range(RS.u_sat_sub(steps, 1)):
@@ -81,7 +73,6 @@ def critters.clear_line(room: Room, barred: Bool, ax: F32, ay: F32, bx: F32, by:
       return False{}
   True{}
 
-# Like foes.keep_off, but it stands still when it sees nobody.
 def critters.keep_off(enemy: Enemy, room: Room, barred: Bool, mover: U32, r: F32, seen: Bool, dist: F32, cx: F32, cy: F32, near: F32, far: F32, speed: F32) -> Enemy:
   side: F32 = Bool.pick(F32, U32.is_eq(U32.mod(enemy.id, 2), 0), 1.0, F32.neg(1.0))
   wx: F32 = (RS.f_neg(cy) * side : F32)
@@ -105,7 +96,6 @@ def critters.crit_push(deeds: Deeds, key: String, v: J.Val) -> Deeds:
   deeds.crit = J.set(deeds.crit, key, J.push(J.get(deeds.crit, key), v))
   deeds
 
-# The last shot a knight made that a mirrorling can copy.
 def critters.seen_shot(shots: J.Val) -> J.Val:
   items: [J.Val] = List.reverse(&2, J.Val, J.items(shots))
   for s: Projectile in items:
@@ -113,8 +103,6 @@ def critters.seen_shot(shots: J.Val) -> J.Val:
       return s
   J.JNull{}
 
-# One of the third company's steps. False for any other monster.
-# Answers (enemy, shots, deeds, handled).
 def critters.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds, Bool):
   kind: String = enemy.kind
   if Bool.not(critters.EnemyKind.critter(kind)):

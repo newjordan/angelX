@@ -5,8 +5,6 @@
 
 use super::*;
 
-/// Every knob a bare turn reads, pinned off, so the only thing that can end
-/// the turn early is the idle watcher.
 fn quiet() -> Vec<EnvGuard> {
     vec![
         EnvGuard::set("ANGEL_BACKPLANE", "0"),
@@ -28,7 +26,6 @@ fn quiet() -> Vec<EnvGuard> {
     ]
 }
 
-/// A tool that returns at once.
 struct Quick(&'static str);
 
 impl Tool for Quick {
@@ -47,9 +44,6 @@ impl Tool for Quick {
     }
 }
 
-/// A tool that works for `ms` milliseconds and then returns, unless the turn's
-/// cancel flag goes up first. It stands in for a tool whose own idle
-/// escalation settles inside the watcher's grace window.
 struct Slow {
     name: &'static str,
     ms: u64,
@@ -84,8 +78,6 @@ impl Tool for Slow {
     }
 }
 
-/// Two calls in one batch, both read-only so the harness runs them in
-/// parallel; then a plain answer.
 struct TwoCallsThenAnswer {
     hops: AtomicUsize,
 }
@@ -116,12 +108,6 @@ impl Club for TwoCallsThenAnswer {
     }
 }
 
-/// The turn idle limit and the tool idle limit are both one second, so a
-/// tool-idle escalation is "due within the grace" and the watcher owes the
-/// slow call its three seconds. The quick call returns first. Before the
-/// watcher counted calls, that one result cleared "a tool is running" while
-/// the slow call still ran, the grace was lost, and the turn was cut as idle a
-/// second in.
 #[test]
 fn a_finished_sibling_does_not_take_the_grace_from_a_call_still_running() {
     let _lock = crate::tests::env_lock();
@@ -172,8 +158,6 @@ fn a_finished_sibling_does_not_take_the_grace_from_a_call_still_running() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// With one call in flight, nothing changed: the grace holds and the turn
-/// settles. Pins the single-call behaviour the counter must keep.
 #[test]
 fn a_lone_slow_call_keeps_its_grace() {
     struct OneCallThenAnswer {

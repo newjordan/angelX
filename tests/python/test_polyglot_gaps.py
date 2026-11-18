@@ -1,4 +1,3 @@
-"""Request-gap diagnostics retain observed actions and incomplete clocks."""
 import contextlib
 import importlib.util
 import io

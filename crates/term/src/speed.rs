@@ -16,11 +16,9 @@ use crate::intake::{Intake, Splitter};
 use crate::intake::Piece;
 use crate::session::pump;
 
-/// The harness's full-screen grid on a 1080p output.
 pub(crate) const ROWS: usize = 39;
 pub(crate) const COLS: usize = 154;
 
-/// A small deterministic generator, so every run feeds the same bytes.
 pub(crate) struct Rng(u64);
 
 impl Rng {
@@ -52,8 +50,6 @@ fn build(target: usize, mut line: impl FnMut() -> Vec<u8>) -> Vec<u8> {
     out
 }
 
-/// The workloads of the harness's `tput.py`, by name, at `scale` of its
-/// sizes, for a `rows` by `cols` screen.
 pub(crate) fn workloads(scale: f64, rows: usize, cols: usize) -> Vec<(&'static str, Vec<u8>)> {
     let size = |mb: usize| ((mb << 20) as f64 * scale) as usize;
     let mut rng = Rng::new(7);
@@ -148,9 +144,6 @@ pub(crate) fn engine(rows: usize, cols: usize) -> Engine {
     Engine::new(rows, cols, HostInfo { colors: [[0xd0; 3], [0, 0, 0], [0xff; 3]], cell_px: (10, 20) })
 }
 
-/// The reader thread's path for one stream, cut into reads of `read`
-/// bytes: split, then pump. Returns the replies, so nothing is optimized
-/// away.
 pub(crate) fn feed(engine: &mut Engine, intake: &mut Intake, splitter: &mut Splitter, stream: &[u8], read: usize) -> usize {
     let mut replies = 0;
     let mut pieces = Vec::new();
@@ -162,25 +155,16 @@ pub(crate) fn feed(engine: &mut Engine, intake: &mut Intake, splitter: &mut Spli
     replies
 }
 
-/// This thread's CPU time in seconds: steadier than the wall clock on a
-/// machine other work shares.
 fn cpu_seconds() -> f64 {
     let mut t = libc::timespec { tv_sec: 0, tv_nsec: 0 };
-    // SAFETY: `t` is a valid timespec for the call to fill.
     unsafe { libc::clock_gettime(libc::CLOCK_THREAD_CPUTIME_ID, &mut t) };
     t.tv_sec as f64 + t.tv_nsec as f64 * 1e-9
 }
 
-/// The stream written into a pseudo-terminal by another thread and read
-/// back as the reader thread reads it: the pty's own read sizes and the
-/// system calls are part of what is timed. Returns the reader's CPU
-/// seconds.
 fn feed_pty(engine: &mut Engine, intake: &mut Intake, splitter: &mut Splitter, stream: &[u8]) -> f64 {
     use std::io::{Read, Write};
     use std::os::fd::FromRawFd;
     let (mut master, mut slave) = (0, 0);
-    // SAFETY: openpty fills the two descriptors; the termios is a plain
-    // struct cfmakeraw fills before it is applied.
     unsafe {
         assert_eq!(libc::openpty(&mut master, &mut slave, std::ptr::null_mut(), std::ptr::null(), std::ptr::null()), 0);
         let mut tio: libc::termios = std::mem::zeroed();
@@ -188,7 +172,6 @@ fn feed_pty(engine: &mut Engine, intake: &mut Intake, splitter: &mut Splitter, s
         libc::cfmakeraw(&mut tio);
         libc::tcsetattr(slave, libc::TCSANOW, &tio);
     }
-    // SAFETY: both descriptors were just opened and are owned here.
     let (reader, mut writer) = unsafe { (std::fs::File::from_raw_fd(master), std::fs::File::from_raw_fd(slave)) };
     let fd = reader.try_clone().ok().map(std::os::fd::OwnedFd::from);
     let mut reader: Box<dyn Read> = if env("GLASS_BENCH_AHEAD", 1) == 1 {
@@ -242,9 +225,6 @@ fn speed() {
         }
         let mut best = f64::MAX;
         let mut best_cpu = f64::MAX;
-        // One terminal for every round, as the harness runs each workload
-        // three times in one window: after the first, the history is full
-        // and scrolling recycles rows rather than allocating them.
         let (mut e, mut i, mut s) = (engine(ROWS, COLS), Intake::new(angel_glass::LAYER_PICTURES), Splitter::default());
         e.set_fast(env("GLASS_BENCH_SLOW", 0) == 0);
         for _ in 0..rounds {
@@ -268,9 +248,6 @@ fn speed() {
     }
 }
 
-/// A random stream of what programs write: text, UTF-8, controls, CSI
-/// and plain escapes, pass-through and lifted strings of every dialect,
-/// torn and aborted sequences, and stray bytes.
 pub(crate) fn random_stream(rng: &mut Rng, len: usize) -> Vec<u8> {
     const PARTS: &[&[u8]] = &[
         b"hello", b"world ", b"\r\n", b"\n", b"\r", b"\t", b"\x08", b"\x07", b"x", b"0123456789",
@@ -301,7 +278,6 @@ pub(crate) fn random_stream(rng: &mut Rng, len: usize) -> Vec<u8> {
     while out.len() < len {
         match rng.below(12) {
             0 => out.push(rng.below(256) as u8),
-            // A CSI near and past the head cap, ended or not.
             2 => {
                 out.extend_from_slice(b"\x1b[");
                 out.extend((0..250 + rng.below(20)).map(|i| if i % 4 == 3 { b';' } else { b'1' }));
@@ -310,10 +286,7 @@ pub(crate) fn random_stream(rng: &mut Rng, len: usize) -> Vec<u8> {
                 }
             }
             1 => out.extend((0..rng.below(40)).map(|_| 0x20 + rng.below(95) as u8)),
-            // A long run, as plain output is: across lines, wrapping.
             3 => out.extend((0..rng.below(400)).map(|_| 0x20 + rng.below(95) as u8)),
-            // A long run of text past ASCII: wide, narrow, marks that join
-            // the cell before, a C1 control, and ASCII between.
             4 => {
                 const TEXT: [&str; 12] = ["漢", "字", "é", "Ж", "🙂", "\u{301}", "─", "\u{85}", "a", "b c", "\u{200b}", "\u{ff21}"];
                 for _ in 0..rng.below(120) {
@@ -326,7 +299,6 @@ pub(crate) fn random_stream(rng: &mut Rng, len: usize) -> Vec<u8> {
     out
 }
 
-/// Cut `stream` at `cuts` random points.
 pub(crate) fn random_cuts(rng: &mut Rng, stream: &[u8], cuts: usize) -> Vec<usize> {
     let mut at: Vec<usize> = (0..cuts).map(|_| rng.below(stream.len() + 1)).collect();
     at.push(0);
@@ -336,8 +308,6 @@ pub(crate) fn random_cuts(rng: &mut Rng, stream: &[u8], cuts: usize) -> Vec<usiz
     at
 }
 
-/// The splitter's bulk path gives the pieces the byte-at-a-time steps
-/// give, piece for piece, however the stream is cut into reads.
 #[test]
 fn splitter_bulk_matches_byte_steps() {
     let mut rng = Rng::new(11);
@@ -373,11 +343,6 @@ fn splitter_bulk_matches_byte_steps() {
     }
 }
 
-/// While the store holds nothing that text could move, the reader feeds
-/// a read's text pieces to the engine at once. That leaves the grid, the
-/// cursor, the scroll count, the replies and the store exactly as
-/// feeding them one at a time does, for random streams with pictures
-/// coming and going between the text.
 #[test]
 fn a_feed_of_many_pieces_matches_one_at_a_time() {
     let mut rng = Rng::new(31);
@@ -404,9 +369,6 @@ fn a_feed_of_many_pieces_matches_one_at_a_time() {
                     }
                 }
             }
-            // An open synchronized update holds bytes in the parser (a
-            // UTF-8 character half read before it among them) until it
-            // ends; the frame is held meanwhile. End it, then compare.
             e.settle();
             let view = crate::intake::View { top: e.top_line(), rows: rows as u16, alternate: e.alternate_screen() };
             let shown: Vec<(f32, f32, f32, f32)> =
@@ -423,10 +385,6 @@ fn a_feed_of_many_pieces_matches_one_at_a_time() {
     }
 }
 
-/// Writing plain text runs straight into the grid leaves every cell of
-/// history and screen, the cursor, the pen, the modes, the scroll count
-/// and the replies exactly as the parser alone does, for random streams
-/// cut into random reads, on small screens that wrap and scroll a lot.
 #[test]
 fn plain_runs_match_the_parser() {
     let mut rng = Rng::new(23);
@@ -458,8 +416,6 @@ fn plain_runs_match_the_parser() {
     }
 }
 
-/// How long one draw holds the engine for the cells: `view::paint` of a
-/// full harness-sized screen of coloured text. Ignored by default.
 #[test]
 #[ignore]
 fn paint_speed() {

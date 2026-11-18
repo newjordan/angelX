@@ -34,33 +34,19 @@
 
 use super::*;
 
-/// How far ahead of a knight's middle a raised shield's face stands, in
-/// arena units: past the body's reach (`HERO_RADIUS` and a shot's
-/// thickness, 0.58), at the outer edge of the shield as it is drawn held
-/// out to the side (seven pixels).
 pub const SHIELD_REACH: f32 = 0.9;
-/// A shield's face spans this many degrees either side of its aim.
 pub const SHIELD_ARC: f32 = 65.0;
-/// A shield knocked aside stays down as long as a pavise's: a second.
 pub const SHIELD_DOWN: u32 = critters::GUARD_DOWN;
-/// Once it has turned nothing for this long (a second, longer than the
-/// gaps inside a volley), a shield's wear drains, from its most to none
-/// in `SHIELD_MEND` (two seconds): it mends between volleys, never in one.
 pub const SHIELD_CALM: u32 = HZ;
 pub const SHIELD_MEND: u32 = 2 * HZ;
 
-/// What a shot in flight meets at a knight, and where along its step this
-/// tick (0 where it was, 1 where it is).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Meet {
     pub t: f32,
-    /// Stopped by the raised shield, at `at` on its face.
     pub shield: bool,
     pub at: (f32, f32),
 }
 
-/// Whether `hero`'s raised shield faces what comes along `(dx, dy)` (the
-/// way it travels).
 pub fn turns(hero: &Hero, (dx, dy): (f32, f32)) -> bool {
     let speed = dx.hypot(dy);
     hero.shielding
@@ -68,8 +54,6 @@ pub fn turns(hero: &Hero, (dx, dy): (f32, f32)) -> bool {
         && -(dx * hero.aim_x + dy * hero.aim_y) / speed >= SHIELD_ARC.to_radians().cos()
 }
 
-/// The point on `hero`'s shield face (round `centre`) that looks toward
-/// `toward`; the face's middle when that is off the arc.
 pub fn face(hero: &Hero, centre: (f32, f32), toward: (f32, f32)) -> (f32, f32) {
     let (mut ux, mut uy) = unit(toward.0 - centre.0, toward.1 - centre.1);
     if ux * hero.aim_x + uy * hero.aim_y < SHIELD_ARC.to_radians().cos() {
@@ -78,8 +62,6 @@ pub fn face(hero: &Hero, centre: (f32, f32), toward: (f32, f32)) -> (f32, f32) {
     (centre.0 + ux * SHIELD_REACH, centre.1 + uy * SHIELD_REACH)
 }
 
-/// Where a step from `a` to `b` first comes within `r` of `c`, as a share
-/// of the step; 0 when it starts there.
 pub fn entry(a: (f32, f32), b: (f32, f32), c: (f32, f32), r: f32) -> Option<f32> {
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
     let (fx, fy) = (a.0 - c.0, a.1 - c.1);
@@ -100,13 +82,8 @@ pub fn entry(a: (f32, f32), b: (f32, f32), c: (f32, f32), r: f32) -> Option<f32>
     (0.0..=1.0).contains(&t).then_some(t)
 }
 
-/// What a hostile shot stepping from `a` to `b` meets at `hero`, whose
-/// middle is at `centre` and whose body a shot touches within `body`:
-/// the raised shield's face first, or the body (turned there if it came
-/// at the face). `None` if it passes them by.
 pub fn meets(hero: &Hero, centre: (f32, f32), a: (f32, f32), b: (f32, f32), body: f32) -> Option<Meet> {
     let cos_arc = SHIELD_ARC.to_radians().cos();
-    // The face: crossing into the shield's reach within its arc.
     let at_face = hero
         .shielding
         .then(|| entry(a, b, centre, SHIELD_REACH))
@@ -125,36 +102,24 @@ pub fn meets(hero: &Hero, centre: (f32, f32), a: (f32, f32), b: (f32, f32), body
     }
     let t = entry(a, b, centre, body).unwrap_or(0.0);
     if turns(hero, (b.0 - a.0, b.1 - a.1)) {
-        // Already inside the face's reach, coming at it: stopped on the
-        // face, toward where it came from.
         return Some(Meet { t, shield: true, at: face(hero, centre, a) });
     }
     Some(Meet { t, shield: false, at: b })
 }
 
-/// How heavy a shot is to a shield, 1 to 3: by what it would have dealt,
-/// and a bursting pattern shot a step heavier.
 pub fn weight(shot: &Projectile) -> u8 {
     let by_damage = 1 + u8::from(shot.damage >= 14) + u8::from(shot.damage >= 22);
     (by_damage + u8::from(shot.traits.path.bursts())).min(3)
 }
 
-/// What a knight's shield has turned lately: its meter.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Wear {
-    /// What it has turned and not yet shaken off, in hundredths of a point
-    /// of damage: at `Wear::most` it is knocked aside.
     #[serde(default, skip_serializing_if = "zero")]
     pub worn: u32,
-    /// Ticks until the wear starts to drain: every shot turned sets it
-    /// again.
     #[serde(default, skip_serializing_if = "zero")]
     pub calm: u32,
-    /// Knocked aside: ticks until it can be raised again.
     #[serde(default, skip_serializing_if = "zero")]
     pub down: u32,
-    /// Everything it has turned this run, for the balance sims: never sent
-    /// or saved.
     #[serde(
         default,
         skip_serializing_if = "crate::rules::runtime_state::omit",
@@ -164,20 +129,14 @@ pub struct Wear {
 }
 
 impl Wear {
-    /// Unworn and in hand: nothing worth sending.
     pub fn fresh(&self) -> bool {
         self.worn == 0 && self.calm == 0 && self.down == 0
     }
 
-    /// The most a knight of `max_hp` health's shield turns before it is
-    /// knocked aside, in hundredths of a point: `critters::GUARD_BREAK`
-    /// percent of their health, as a pavise's (a 110-health knight's turns
-    /// 37.4).
     pub fn most(max_hp: u32) -> u32 {
         max_hp.max(1) * critters::GUARD_BREAK
     }
 
-    /// How much more it can turn, 1 unworn to 0 knocked aside.
     pub fn left(&self, max_hp: u32) -> f32 {
         if self.down > 0 {
             return 0.0;
@@ -185,19 +144,14 @@ impl Wear {
         1.0 - (self.worn as f32 / Wear::most(max_hp) as f32).min(1.0)
     }
 
-    /// Knocked aside, how far it has come back: 0 just struck down, 1 in
-    /// hand again.
     pub fn back(&self) -> f32 {
         1.0 - self.down.min(SHIELD_DOWN) as f32 / SHIELD_DOWN as f32
     }
 
-    /// Whether there is anything to show: worn, or knocked aside.
     pub fn showing(&self) -> bool {
         self.worn > 0 || self.down > 0
     }
 
-    /// A tick: a shield knocked aside comes back to hand, and once calm the
-    /// wear drains.
     pub(super) fn rest(&mut self, max_hp: u32) {
         if self.down > 0 {
             self.down -= 1;
@@ -208,7 +162,6 @@ impl Wear {
         }
     }
 
-    /// It turned `damage`; whether that knocked it aside, its wear gone.
     pub(super) fn take(&mut self, damage: u32, max_hp: u32) -> bool {
         self.turned = self.turned.saturating_add(damage);
         self.worn = self.worn.saturating_add(damage.max(1) * 100);
@@ -226,10 +179,6 @@ impl Wear {
 }
 
 impl Hero {
-    /// This knight's raised shield turned `damage` (what it would have
-    /// dealt, as the shot carries it): it wears (`Wear`). Whether that
-    /// knocked it aside: then it drops, and what comes after this tick
-    /// meets the knight.
     pub fn shield_turned(&mut self, damage: u32) -> bool {
         if self.guard != cards::Guard::Shield {
             self.shield_wear.turned = self.shield_wear.turned.saturating_add(damage);
@@ -244,9 +193,6 @@ impl Hero {
 }
 
 impl Run {
-    /// Knight `id`'s raised shield stopped something of `kind` coming along
-    /// `way`, at `at` on its face (which looks out along `out`): the clang,
-    /// and the block for the picture.
     pub(super) fn shield_block(&mut self, id: u32, at: (f32, f32), out: (f32, f32), way: (f32, f32), kind: Shot, weight: u8) {
         self.sounds.push("shield_block");
         self.feel.block(id, at, out, way, kind, weight);

@@ -156,7 +156,6 @@ fn duplicate_context_is_dropped() {
 #[test]
 fn cap_evicts_oldest_closed_shard_first() {
     let dir = test_dir("evict");
-    // Big enough for roughly one ~280-byte record, so day two forces eviction.
     let cfg = cfg_in(&dir, 300);
     let mut state = WriterState::default();
     process_job(
@@ -235,7 +234,6 @@ fn teacher_arming_matches_label_or_resolved_driver() {
 fn still_status_renders_disarmed_and_armed_fixtures() {
     let dir = test_dir("status");
     let still = dir.join("still");
-    // Disarmed, nothing on disk: every line degrades gracefully.
     let cfg = BarrelCfg {
         enabled: false,
         teachers: Vec::new(),
@@ -246,7 +244,6 @@ fn still_status_renders_disarmed_and_armed_fixtures() {
     assert!(text.contains("capture: disarmed"));
     assert!(text.contains("no captures yet"));
     assert!(text.contains("no tick export yet"));
-    // Armed with both status artifacts present.
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::create_dir_all(&still).unwrap();
     std::fs::write(
@@ -302,18 +299,14 @@ fn from_env_defaults_are_off_and_bounded() {
         "ANGEL_BARREL_DIR",
         "ANGEL_BARREL_MAX_MB",
     ] {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(k) };
     }
     let cfg = BarrelCfg::from_env();
     assert!(!cfg.enabled, "capture is default-off");
     assert!(cfg.teachers.is_empty());
     assert_eq!(cfg.max_bytes, 1024 * 1024 * 1024);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_BARREL", "1") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_BARREL_TEACHERS", " Grok , glm ,") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_BARREL_MAX_MB", "2") };
     let cfg = BarrelCfg::from_env();
     assert!(cfg.enabled);
@@ -324,7 +317,6 @@ fn from_env_defaults_are_off_and_bounded() {
         "ANGEL_BARREL_TEACHERS",
         "ANGEL_BARREL_MAX_MB",
     ] {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(k) };
     }
 }

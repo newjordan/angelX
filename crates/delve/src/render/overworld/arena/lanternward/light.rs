@@ -8,14 +8,8 @@ use super::scene::View;
 use crate::rules::lanternward::{self as lw, Pk, world::Q};
 use std::collections::BTreeMap;
 
-/// Lamplight on dark stone, as the realm's own inks: brown at the dim end
-/// of the ramp, amber and gold toward the heart of a pool.
 const LAMPLIGHT: [char; 9] = ['n', 'b', 'I', 'B', 'P', 'r', 'R', 'o', 'O'];
 
-/// A floor colour pulled toward lamplight by `k` (0 to 1), as an ink of the
-/// ramp: how bright the floor was and how strong the light is pick the step.
-/// A frame meets a handful of floor colours, so the answers are kept in a
-/// small table (colour and strength to ink) as it goes.
 struct Warm {
     seen: [(u32, u8, Rgb); 64],
 }
@@ -43,16 +37,11 @@ impl Warm {
     }
 }
 
-/// A flicker in `0..=1`, quick and uneven, for how brightly a light burns.
 pub(super) fn flicker(tick: u32, seed: i32) -> f32 {
     let (a, b) = (hash(tick as i32 / 2, seed, 5) & 7, hash(tick as i32 / 5, seed, 9) & 7);
     (a + b) as f32 / 14.0
 }
 
-/// The dots of a pool, relative to its middle: `(dx, dy, strength in
-/// twentieths)`. A pool's pattern depends only on its size, how warm it is and
-/// where its middle falls on the dither's four-pixel cycle, so each is worked
-/// out once and kept.
 type Dots = std::rc::Rc<Vec<(i16, i16, u8)>>;
 
 thread_local! {
@@ -79,7 +68,6 @@ fn dots(r: i32, power20: u8, (cx, cy): (i32, i32)) -> Dots {
             if d2 >= 1.0 {
                 continue;
             }
-            // How lit this dot is: bright at the heart, nothing at the rim.
             let t = 1.0 - d2;
             let k = t * t.sqrt() * power;
             if bayer(cx + dx, cy + dy) < k * 0.95 {
@@ -98,15 +86,11 @@ fn dots(r: i32, power20: u8, (cx, cy): (i32, i32)) -> Dots {
     d
 }
 
-/// One pool of lamplight on the floor at `(cx, cy)`: `r` pixels wide, `power`
-/// how warm its heart is (0.3 is a gentle hint). Dithered, so the edge is a
-/// stipple the floor shows through; it breathes with the flame it belongs to.
 fn pool(im: &mut Img, warm: &mut Warm, (cx, cy): (i32, i32), r: i32, power: f32, seed: i32, tick: u32) {
     if r <= 0 || cx < -r || cy < -r || cx > 384 + r || cy > 224 + r {
         return;
     }
     let live = 0.86 + 0.28 * flicker(tick, seed);
-    // Strength in twentieths, in coarse steps so the same few patterns come round again.
     let p20 = (((power * live * 20.0) / 2.0).round() as u8) * 2;
     for &(dx, dy, k) in dots(r, p20, (cx, cy)).iter() {
         let (x, y) = (cx + i32::from(dx), cy + i32::from(dy));
@@ -116,9 +100,6 @@ fn pool(im: &mut Img, warm: &mut Warm, (cx, cy): (i32, i32), r: i32, power: f32,
     }
 }
 
-/// Every steady light on a lit floor: braziers, the resting bowl, the ember,
-/// the great lamp, the Beacon, a bolt of light in flight, an open lamp-heart,
-/// and the knights' own lanterns, which swell and pulse when they flare.
 pub(super) fn pools(im: &mut Img, v: &View) {
     let s = v.s;
     let mut warm = Warm::new();
@@ -133,7 +114,6 @@ pub(super) fn pools(im: &mut Img, v: &View) {
             Pk::Beacon if p.t > 0 => (40, 0.45),
             _ => continue,
         };
-        // A brazier that is about to burn out shrinks and gutters.
         let low = if p.kind == Pk::Brazier && p.on == 0 { (i32::from(p.t) * 100 / 90).clamp(35, 100) } else { 100 };
         pool(im, &mut warm, (x, y), r * low / 100, power, i as i32, v.tick);
     }
@@ -149,21 +129,17 @@ pub(super) fn pools(im: &mut Img, v: &View) {
     if s.inv.lantern {
         for (&id, k) in &s.seats {
             if k.act == lw::Act::Down || !k.flaring() {
-                // A lantern at rest leaves a small warm patch under the knight.
                 if k.act != lw::Act::Down {
                     pool(im, &mut warm, (v.x(k.x), v.y(k.y) + 4), 20, 0.3, 200 + id as i32, v.tick);
                 }
                 continue;
             }
-            // A flare: a bigger pool that breathes on the beat.
             let breathe = [0, 2, 4, 2][(v.tick / 3 % 4) as usize];
             pool(im, &mut warm, (v.x(k.x), v.y(k.y) + 4), 54 + breathe, 0.6, 200 + id as i32, v.tick);
         }
     }
 }
 
-/// How lit each 2 by 2 cell of the screen is, 0 dark to 3 full, row by row
-/// (`CELLS_W` by `CELLS_H`): the rules' own idea of who can be seen.
 pub(super) fn levels(v: &View) -> Vec<u8> {
     let lights = v.s.lights();
     let mut out = Vec::with_capacity(CELLS_W * CELLS_H);
@@ -179,21 +155,16 @@ pub(super) fn levels(v: &View) -> Vec<u8> {
 const CELLS_W: usize = 192;
 const CELLS_H: usize = 112;
 
-/// A short table of uneven numbers 0 to 7, for the edge of a light.
 const NOISE: [u8; 64] = [
     3, 6, 1, 4, 7, 0, 5, 2, 6, 2, 7, 3, 1, 5, 0, 4, 0, 5, 3, 7, 2, 6, 4, 1, 7, 1, 4, 0, 5, 3, 6, 2,
     2, 4, 0, 6, 3, 7, 1, 5, 5, 0, 6, 2, 4, 1, 7, 3, 1, 7, 2, 5, 0, 4, 3, 6, 4, 3, 5, 1, 6, 2, 0, 7,
 ];
 
-/// The edge of a light shimmers: the flames, not the camera, move it. `-0.5` to `0.5`.
 fn shimmer(v: &View, cx: i32, cy: i32) -> f32 {
     let at = (cx / 3 + (cy / 3) * 5 + v.tick as i32 / 4).rem_euclid(64) as usize;
     f32::from(NOISE[at]) / 7.0 - 0.5
 }
 
-/// Before the bodies are drawn: the floor a Gloam light reaches takes the
-/// colour of lamplight, thick where it is bright and thinning to a fringe
-/// (only floor, so no figure is ever tinted).
 pub(super) fn lit_floor(im: &mut Img, v: &View, levels: &[u8]) {
     let mut warm = Warm::new();
     let breathe = 0.04 * flicker(v.tick, 61);
@@ -217,8 +188,6 @@ pub(super) fn lit_floor(im: &mut Img, v: &View, levels: &[u8]) {
     }
 }
 
-/// The Gloam: only light shows the floor. Dithered, so the reach of a lantern
-/// is a soft stipple rather than a ring, shimmering along its edge.
 pub(super) fn gloam(im: &mut Img, v: &View, levels: &[u8]) {
     for cy in 0..CELLS_H {
         for cx in 0..CELLS_W {

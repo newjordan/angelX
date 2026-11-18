@@ -10,15 +10,6 @@ import ./rider.bend as D
 import ./world.bend as W
 import ./session.bend as N
 
-# What a bot presses: it reads the road ahead the way a player does (a bramble
-# to clear, a snuffer to roll through, a loop to take at speed, a line of foes to
-# chain, a gate to break) and presses the same keys.
-#
-# The bot's own settings ride in slots 192 to 197: which way through the fork (0
-# the high rails, 1 the valley, 2 by seat: odd seats high, even low), whether the
-# bot uses the spur, rolls, how many pixels late it hops, how often it lifts off
-# the pace (0: never), and which knight it is.
-
 type Th is Data:
   Th{jump_on: U32, jump_dx: U32, roll_at: U32, chain: U32, warden_on: U32, warden_dx: U32}
 
@@ -47,7 +38,6 @@ def th_warden_dx(+t: Th) -> U32:
     case Th{jump_on, jump_dx, roll_at, chain, warden_on, warden_dx}:
       warden_dx
 
-# One foe ahead, as the bot sees it.
 def look_one(+rd: L.Road, +st: S.Sl, +f: L.Fs, +i: U32, +x: U32, +y: U32, +speed: U32, +rspeed: U32, +lag: U32, +skill_roll: U32, +reach: U32, +t: Th) -> Th:
   match t:
     case Th{jump_on, jump_dx, roll_at, chain, warden_on, warden_dx}:
@@ -80,7 +70,6 @@ def look_go(+fs: List<&2, L.Fs>, +rd: L.Road, +st: S.Sl, +i: U32, +x: U32, +y: U
       +near = Bool.and(M.ge(W.fs_x(f), lo), M.le(W.fs_x(f), hi))
       look_go(rest, rd, st, (i + 1 : U32), x, y, speed, rspeed, lag, skill_roll, reach, lo, hi, look_step(near, rd, st, f, i, x, y, speed, rspeed, lag, skill_roll, reach, t))
 
-# Whether a snuffer within a few strides ahead is worth a hop.
 def snuffer_go(+fs: List<&2, L.Fs>, +rd: L.Road, +st: S.Sl, +i: U32, +x: U32, +speed: U32, +lo: U32, +hi: U32) -> Bool:
   match fs:
     case Nil{}:
@@ -91,7 +80,6 @@ def snuffer_go(+fs: List<&2, L.Fs>, +rd: L.Road, +st: S.Sl, +i: U32, +x: U32, +s
              Bool.and(M.ge((W.foe_x(rd, f, H.elapsed(st)) - x : U32), 30), M.le((W.foe_x(rd, f, H.elapsed(st)) - x : U32), (speed * 9 : U32)))))))
       Bool.or(hit, snuffer_go(rest, rd, st, (i + 1 : U32), x, speed, lo, hi))
 
-# Whether a floater (still up) stands within `hi - lo` of the rider.
 def floater_go(+fs: List<&2, L.Fs>, +st: S.Sl, +i: U32, +lo: U32, +hi: U32) -> Bool:
   match fs:
     case Nil{}:
@@ -99,7 +87,6 @@ def floater_go(+fs: List<&2, L.Fs>, +st: S.Sl, +i: U32, +lo: U32, +hi: U32) -> B
     case Con{f, rest}:
       Bool.or(Bool.and(Bool.and(M.ge(W.fs_x(f), lo), M.le(W.fs_x(f), hi)), Bool.and(M.eq(W.fs_kind(f), 1), M.gt(W.foe_hp(st, i), 0))), floater_go(rest, st, (i + 1 : U32), lo, hi))
 
-# The column of the fork's mouth: the portal that only a fast rider is carried through.
 def fork_go(+ps: List<&2, T.Portal>, +path: T.Path) -> U32:
   match ps:
     case Nil{}:
@@ -109,8 +96,6 @@ def fork_go(+ps: List<&2, T.Portal>, +path: T.Path) -> U32:
         case T.Portal{s, dir, min_speed, to_path, to_s}:
           Bool.pick(U32, M.gt(min_speed, 0), M.div(T.sm_x(T.sample(path, s)), 256), fork_go(rest, path))
 
-# Whether a loop's mouth (a portal that carries any rider forward) is a stride or
-# two ahead and the run is short.
 def mouth_go(+ps: List<&2, T.Portal>, +path: T.Path, +x: U32, +short: Bool) -> Bool:
   match ps:
     case Nil{}:
@@ -122,7 +107,6 @@ def mouth_go(+ps: List<&2, T.Portal>, +path: T.Path, +x: U32, +short: Bool) -> B
           +hit = Bool.and(M.eq(min_speed, 0), Bool.and(M.eq(dir, 1), Bool.and(M.lt(x, px), Bool.and(M.lt((px - x : U32), 220), short))))
           Bool.or(hit, mouth_go(rest, path, x, short))
 
-# What a bot presses: the run, and whether down, jump and spur are held.
 type Pr is Data:
   Pr{x: U32, down: U32, jump: U32, spur: U32}
 
@@ -146,7 +130,6 @@ def pr_spur(+p: Pr) -> U32:
     case Pr{x, down, jump, spur}:
       spur
 
-# Stuck at the foot of a wall: crouch and rev a charge, then go.
 def revving(+st: S.Sl, +b: U32, +x: U32) -> Pr:
   +low = M.lt(R.charge(st, b), 1100)
   Pr{R.dir(st, b), M.b2u(low), M.b2u(Bool.and(low, Bool.and(Bool.not(M.nz(R.jump_key(st, b))), U32.is_eq(U32.mod(H.elapsed(st), 2), 0)))), 0}
@@ -156,7 +139,6 @@ def rail_links(+p: T.Path) -> Bool:
     case T.Path{kind, n, depth, len, pts, no, np, ns, po, pp, ps, portals}:
       M.nz(no)
 
-# The keys for the road ahead of knight `b`, riding as the bot's settings say.
 def think_go(+rd: L.Road, +st: S.Sl, +b: U32, +id: U32, +x: U32, +y: U32, +rspeed: U32, +speed: U32, +reach: U32, +th: Th) -> Pr:
   +grounded = D.grounded(st, b)
   +air = Bool.not(grounded)
@@ -217,7 +199,6 @@ def think(+rd: L.Road, +st: S.Sl, +b: U32, +id: U32) -> Pr:
       Bool.and(M.eq(R.charge(st, b), 0), Bool.and(M.gt(R.coyote(st, b), 0), M.gt(x, 40))))))
   think_pick(Bool.or(M.nz(R.crouch(st, b)), wedged), rd, st, b, id, x, y, rspeed, speed, M.min((speed * 22 + 60 : U32), 420))
 
-# The keys for knight `id`, riding as the settings say (route 2: by seat).
 def drive(+rd: L.Road, +st: S.Sl, +id: U32) -> Pr:
   +b = N.sb(id)
   +k = think(rd, st, b, id)

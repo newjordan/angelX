@@ -17,7 +17,6 @@ use std::path::PathBuf;
 
 pub(crate) type Keys = BTreeMap<u32, Input>;
 
-/// The shoot with `seats` knights at the table, on a floor laid for them.
 pub(crate) fn fresh_for(seats: u32) -> Run {
     let mut r = Run::new(41, 1, None);
     for id in 2..=seats {
@@ -34,15 +33,11 @@ pub(crate) fn fresh_for(seats: u32) -> Run {
     for h in r.players.values_mut() {
         h.carried.add(Spoil::Gold, 50);
     }
-    // Fortune's dare card is shown as a party arrives on a floor and lifts
-    // long before they find a folly: the reel starts after it.
     r.dare = None;
     r.enter_for_test(r.folly_room.expect("a hall on floor two"));
     r
 }
 
-/// Knights who drink their potions: any under two fifths of their health is
-/// mended, so a gunner bot lives out the minute (a bite still shows).
 fn mend(r: &mut Run) {
     for h in r.players.values_mut() {
         if h.hp > 0 && h.hp * 5 < h.max_hp * 2 {
@@ -55,8 +50,6 @@ pub(crate) fn fresh() -> Run {
     fresh_for(4)
 }
 
-/// What a gunner presses: aim at the nearest bat and fire, drifting about a
-/// post along the room's middle (each seat its own place along it).
 pub(crate) fn keys(run: &Run) -> Keys {
     let Some(shoot) = run.bats.as_ref() else { return Keys::new() };
     if shoot.titled() || shoot.done {
@@ -89,11 +82,9 @@ pub(crate) fn keys(run: &Run) -> Keys {
         .collect()
 }
 
-/// The ticks that matter, found by playing the shoot through once unseen.
 #[derive(Debug, Default)]
 struct Marks {
     first_flock: Option<u32>,
-    /// A run of three or more, the seat and its size.
     streaks: Vec<(u32, u32, u8)>,
     flocks: Vec<(u32, u32)>,
     bites: Vec<(u32, u32)>,
@@ -149,7 +140,6 @@ fn save(dir: &PathBuf, n: usize, sheet: &Img) {
     image::save_buffer(dir.join(format!("f{n:04}.png")), &sheet.rgb_bytes(), sheet.w as u32, sheet.h as u32, image::ColorType::Rgb8).unwrap();
 }
 
-/// Play again, writing a frame of `seat`'s screen every tick in `[from, to)`.
 fn record_for(root: &PathBuf, name: &str, seats: u32, from: u32, to: u32, seat: u32, also: Option<u32>) {
     let dir = root.join(name);
     let _ = std::fs::remove_dir_all(&dir);
@@ -217,10 +207,6 @@ fn write_belfry_reel() {
     }
 }
 
-/// The Belfry Shoot's frame time: four gunners play to the middle of the
-/// minute, then seat one's screen is drawn twice a tick, as the belfry draws
-/// it and as the room was drawn before it (`belfry_shoot::OFF`), so both
-/// see the same game; and each part of the belfry is timed alone.
 #[test]
 #[ignore = "times the Belfry Shoot's frames"]
 fn belfry_frame_time() {
@@ -232,7 +218,6 @@ fn belfry_frame_time() {
         mend(&mut r);
         r.step(&k);
     }
-    // A warm-up, so the scenery's bake is not counted.
     let _ = frame_for(&r, 384, 224, Some(1));
     belfry_set_off(true);
     let _ = frame_for(&r, 384, 224, Some(1));
@@ -240,8 +225,6 @@ fn belfry_frame_time() {
     let (mut new, mut old) = (Vec::new(), Vec::new());
     let mut parts = [f64::MAX; 3];
     let mut sums = [0.0f64; 3];
-    // Each frame is drawn several times and its quickest taken: the draw is
-    // the same each time, so what is slower is the machine's other work.
     let best = |r: &Run, n: usize| {
         (0..n)
             .map(|_| {
@@ -284,12 +267,6 @@ fn belfry_frame_time() {
     println!("belfry parts (ms): floor {:.2}, over {:.2}, screen {:.2}", parts[0], parts[1], parts[2]);
 }
 
-/// The belfry draws through the whole minute and its finish, for a lone
-/// knight, a full table and six seats, and the shoot it draws is the same
-/// twice (the host's and a mirror's are one). Its pixels are the same twice
-/// too (`the_belfry_pixels_are_the_same_twice`, which wants the process to
-/// itself: another test's global switches, the calm screen among them,
-/// change a frame).
 #[test]
 fn the_belfry_draws_through_the_whole_minute_the_same_twice() {
     belfry_digests(false);

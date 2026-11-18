@@ -15,7 +15,6 @@ pub(super) fn holes(cv: &mut Img, run: &Run) {
         let reach = HOLE_REACH * UNIT;
         let core = HOLE_CORE * UNIT;
         if hole.warn > 0 {
-            // The warning: a ring drawing in, a dark seed at the middle.
             let k = 1.0 - hole.warn as f32 / HOLE_WARN as f32;
             let r = reach * (1.0 - 0.45 * k);
             let n = (TAU * r / 2.0) as i32;
@@ -29,13 +28,11 @@ pub(super) fn holes(cv: &mut Img, run: &Run) {
             disc(cv, (x, y), core * k, 'k');
             continue;
         }
-        // Open: the arms first, then the core over them.
         let fade = (hole.left as f32 / 12.0).min(1.0);
         for arm in 0..3 {
             let base = arm as f32 * TAU / 3.0 - tick * 0.08;
             let mut r = reach;
             while r > core {
-                // A spiral: the angle turns as it nears the middle.
                 let a = base + (reach - r) / reach * 3.2;
                 let ink = if r > reach * 0.66 {
                     'q'
@@ -50,7 +47,6 @@ pub(super) fn holes(cv: &mut Img, run: &Run) {
                 r -= 1.4;
             }
         }
-        // Motes of the floor, dragged in along the arms.
         for m in 0..10 {
             let life = ((tick * 0.6 + m as f32 * 13.0) % 40.0) / 40.0;
             let r = reach * (1.0 - life) + core * life;
@@ -58,7 +54,6 @@ pub(super) fn holes(cv: &mut Img, run: &Run) {
             cv.put(x + (a.cos() * r) as i32, y + (a.sin() * r) as i32, 'J');
         }
         disc(cv, (x, y), core, 'k');
-        // The rim: a cold light round the dark, flickering.
         let n = (TAU * core) as i32 + 6;
         for i in 0..n {
             let a = i as f32 / n as f32 * TAU;

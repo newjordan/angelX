@@ -15,7 +15,6 @@ fn fight(run: &mut Run) {
     run.enter_for_test(room);
 }
 
-/// A calm, cleared room, the knight in the middle, nothing else.
 fn quiet() -> Run {
     let mut run = Run::new(4, 1, None);
     fight(&mut run);
@@ -29,7 +28,6 @@ fn quiet() -> Run {
     run
 }
 
-/// A critter put in the quiet room, past its spawn telegraph.
 fn put(run: &mut Run, kind: EnemyKind, x: f32, y: f32) -> usize {
     run.spawn_at_for_test(kind, x, y);
     let enemy = run.enemies.last_mut().unwrap();
@@ -67,7 +65,6 @@ const KINDS: [EnemyKind; 11] = [
     EnemyKind::Hound,
 ];
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_critter_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_critter_shots() {
@@ -95,7 +92,6 @@ fn write_critter_shots() {
     }
 }
 
-/// Every critter at every stage on black paper, two animation frames each.
 #[test]
 #[ignore]
 fn write_critter_sheet() {
@@ -121,8 +117,6 @@ fn write_critter_sheet() {
     save(&sheet, "critter_sheet");
 }
 
-/// Step the run `n` ticks with no input, noting the first enemy's stage and
-/// place each tick.
 fn watch(run: &mut Run, n: u32) -> Vec<(u8, (f32, f32))> {
     let mut seen = Vec::new();
     for _ in 0..n {
@@ -133,7 +127,6 @@ fn watch(run: &mut Run, n: u32) -> Vec<(u8, (f32, f32))> {
     seen
 }
 
-/// How many ticks the first enemy spent in `stage`, over `seen`.
 fn spent(seen: &[(u8, (f32, f32))], stage: u8) -> u32 {
     seen.iter().filter(|s| s.0 == stage).count() as u32
 }
@@ -142,8 +135,6 @@ fn first(seen: &[(u8, (f32, f32))], stage: u8) -> Option<usize> {
     seen.iter().position(|s| s.0 == stage)
 }
 
-/// A knight standing still, a critter `dx` off on its left, with open floor
-/// between them: the first long clear row of the room.
 fn duel(kind: EnemyKind, dx: f32) -> Run {
     let mut run = quiet();
     let room = run.room();
@@ -207,7 +198,6 @@ fn a_room_that_starts_with_a_biter_has_a_swarm_of_four() {
 #[test]
 fn a_mole_is_untouchable_underground_and_bursts_after_its_crack() {
     let mut run = duel(EnemyKind::Mole, 9.0);
-    // Buried: a knight's arrow flies on, and the touch does nothing.
     run.enemies[0].stage = 1;
     let (x, y) = (run.enemies[0].x, run.enemies[0].y);
     run.projectiles.push(shot(x - 0.1, y, 4.0, 0.0, false));
@@ -215,7 +205,6 @@ fn a_mole_is_untouchable_underground_and_bursts_after_its_crack() {
     run.step(&BTreeMap::new());
     assert!(run.enemies[0].buried());
     assert_eq!(run.enemies[0].hp, hp, "the arrow passed over");
-    // Let it dig, crack and burst under the standing knight.
     let before = run.players[&1].hp;
     let seen = watch(&mut run, 200);
     let tell = first(&seen, 2).expect("the crack opens");
@@ -238,14 +227,12 @@ fn a_mole_burst_misses_a_knight_who_moved_away() {
     for _ in 0..MOLE_TELL + 4 {
         run.step(&BTreeMap::new());
     }
-    // Health is held to the knight's cap, never cut by the burst.
     assert_eq!(run.players[&1].hp, before.min(run.players[&1].hp_cap()));
 }
 
 #[test]
 fn a_pavise_turns_shots_from_the_front_and_not_from_behind() {
     let mut run = duel(EnemyKind::Pavise, 8.0);
-    // It faces the knight on its right.
     run.step(&BTreeMap::new());
     let (x, y, hp) = (run.enemies[0].x, run.enemies[0].y, run.enemies[0].hp);
     assert!(run.enemies[0].dir.0 > 0.5);
@@ -284,7 +271,6 @@ fn a_pavise_battered_from_the_front_drops_its_shield_for_a_second() {
     let mut run = duel(EnemyKind::Pavise, 8.0);
     run.step(&BTreeMap::new());
     let hp = run.enemies[0].hp;
-    // Shot after shot from the front: turned, until enough has been turned.
     let mut broke = None;
     for n in 0..60 {
         run.projectiles.clear();
@@ -300,13 +286,11 @@ fn a_pavise_battered_from_the_front_drops_its_shield_for_a_second() {
     let n = broke.expect("the guard breaks");
     assert!(n >= 1, "not on the first shot");
     assert!(run.sounds.contains(&"clang"));
-    // Down for a second: the next shot from the front lands.
     run.projectiles.clear();
     let (x, y) = (run.enemies[0].x, run.enemies[0].y);
     run.projectiles.push(shot(x + 1.0, y, -6.0, 0.0, false));
     run.step(&BTreeMap::new());
     assert!(run.enemies[0].hp < hp, "the front is open");
-    // And up again after it, with the count started over.
     for _ in 0..crate::rules::HZ + 2 {
         run.step(&BTreeMap::new());
     }
@@ -354,7 +338,6 @@ fn a_marksman_draws_its_line_holds_it_and_looses_one_bolt() {
         if e.stage == 1 {
             tell_ticks += 1;
             if e.timer >= AIM_LOCK {
-                // Held still: the knight sidesteps and the line does not.
                 match locked {
                     None => locked = Some(e.dir),
                     Some(d) => assert_eq!(d, e.dir),
@@ -378,7 +361,6 @@ fn a_marksman_draws_its_line_holds_it_and_looses_one_bolt() {
 #[test]
 fn a_mirrorling_answers_with_a_copy_of_the_last_shot_after_a_flash() {
     let mut run = duel(EnemyKind::Mirrorling, 8.0);
-    // The knight looses an arrow.
     tick(
         &mut run,
         Input {
@@ -427,7 +409,6 @@ fn a_spitter_swells_spits_and_leaves_a_puddle_that_stings() {
     }
     assert!(landed, "a puddle");
     assert!(swelled >= SPIT_SWELL, "after the swell: {swelled}");
-    // Stand in it: it stings; it dries up.
     let (px, py) = (run.critters.puddles[0].x, run.critters.puddles[0].y);
     run.enemies.clear();
     let hero = run.players.get_mut(&1).unwrap();
@@ -448,7 +429,6 @@ fn a_spitter_swells_spits_and_leaves_a_puddle_that_stings() {
 fn a_ringer_quickens_the_monsters_near_it_for_a_few_seconds() {
     let mut run = duel(EnemyKind::Ringer, 10.0);
     put(&mut run, EnemyKind::Dummy, 12.0, 12.0);
-    // A dummy is not quickened; use a skeleton far from the knight's reach.
     run.enemies.pop();
     put(&mut run, EnemyKind::Skeleton, 12.0, 12.0);
     let mut rung = false;
@@ -523,7 +503,6 @@ fn a_geode_glows_then_bursts_a_ring_and_splits_in_two_when_it_falls() {
 #[test]
 fn a_hound_crouches_marks_its_line_and_rushes_down_it_dropping_embers() {
     let mut run = duel(EnemyKind::Hound, 9.0);
-    // Straight down the lane: it has just decided to go.
     run.enemies[0].stage = 1;
     run.enemies[0].dir = (1.0, 0.0);
     let before = run.players[&1].hp;
@@ -657,7 +636,6 @@ fn a_leech_shaken_off_by_a_wall_never_lands_inside_it() {
         run.step(&BTreeMap::new());
     }
     assert!(run.enemies[0].latched());
-    // Hard by the west wall, aiming east: the throw goes west, at the wall.
     let row = (run.players[&1].y / TILE_UNITS) as i32;
     let x = TILE_UNITS * 1.0 + 0.6;
     run.players.get_mut(&1).unwrap().x = x;

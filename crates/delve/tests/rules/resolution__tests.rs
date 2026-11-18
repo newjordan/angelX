@@ -32,8 +32,6 @@ fn the_deep_counts_its_own_floors() {
 fn by_level_a_knight_climbs_as_the_realm_keeps_them() {
     let mut run = run_on(1);
     let id = *run.players.keys().next().unwrap();
-    // The realm keeps prowess under the knight's key (their company knight, else the
-    // lowercased name), not under the name as typed.
     run.players.get_mut(&id).unwrap().name = "Ada".into();
     let key = crate::rules::talents::knight_key(&run.players[&id]);
     assert_eq!(rung_by(&run, id, Rule::Level), Rung::BASE, "a knight the realm has not met is level 1");

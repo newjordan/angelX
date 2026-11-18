@@ -1,7 +1,5 @@
 use super::*;
 
-// WriterJob::Save carries a bound history snapshot; SessionRecord is
-// assembled on the session-saver thread.
 const _: fn(SaveSnapshot) -> WriterJob = WriterJob::Save;
 
 #[test]
@@ -276,8 +274,6 @@ fn session_binding_rejects_cross_project_and_legacy_records() {
     assert_eq!(list_dir_for(&dir, &alpha).len(), 1);
     assert!(list_dir_for(&dir, &beta).is_empty());
 
-    // Even an explicit/colliding sink id cannot overwrite a snapshot that
-    // is already bound to another project.
     let colliding_beta = Session::at_for(dir.clone(), "alpha".to_string(), &beta);
     let mismatch = colliding_beta.save(&[
         ChatMsg::system("BETA_OVERWRITE"),
@@ -395,9 +391,6 @@ fn file_size_failure_reports_failed_retains_snapshot_and_cleans_temp() {
         let workspace = root.join("workspace");
         let session = Session::at_for(root.join("sessions"), "probe".into(), &workspace);
         let original = std::fs::read(session.path()).unwrap();
-        // This is kernel EFBIG injection, not a claim of a full filesystem.
-        // Retain the hard ceiling and restore the original soft limit even
-        // on panic, so coverage/profile output can complete during exit.
         struct RestoreLimit {
             limit: libc::rlimit,
             signal: libc::sighandler_t,
@@ -691,7 +684,6 @@ fn resume_repairs_a_trailing_tool_intent_as_outcome_unknown() {
     assert_eq!(repaired[2].role, ChatRole::Tool);
     assert_eq!(repaired[2].tool_call_id.as_deref(), Some("effect-1"));
     assert!(repaired[2].content.contains("outcome unknown"));
-    // What to check before a retry is the `⠰⠙` page on the line after.
     let check = crate::agent::harness::book::d56_replies::UNKNOWN_OUTCOME;
     assert!(
         repaired[2]

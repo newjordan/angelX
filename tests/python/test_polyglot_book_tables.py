@@ -1,4 +1,3 @@
-"""Legacy book tables must retain request attempts and per-field coverage."""
 import contextlib
 import importlib.util
 import io

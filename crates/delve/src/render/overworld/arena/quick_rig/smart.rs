@@ -21,9 +21,7 @@ use serde_json::json;
 
 use super::auto::{contact_mask, defaults, median, np_clip, py_round, Fitted, PartDef, LAYOUT};
 
-/// Outline inks (`OUTLINE`).
 const OUTLINE: &str = "kKZXdnfs";
-/// Material families (`FAMILIES`): ink -> family index.
 fn family(c: char) -> Option<usize> {
     const FAMILIES: [&str; 10] = [
         "kKZXgjGJhiH",
@@ -46,7 +44,6 @@ fn is_ink(c: char) -> bool {
     c != '.'
 }
 
-/// 4-connected components (`_components`): labels 1..=n, 0 = none.
 fn components(mask: &[Vec<bool>]) -> (Vec<Vec<i64>>, usize) {
     let h = mask.len();
     let w = mask.first().map(|r| r.len()).unwrap_or(0);
@@ -72,8 +69,6 @@ fn components(mask: &[Vec<bool>]) -> (Vec<Vec<i64>>, usize) {
     (lab, n)
 }
 
-/// Give every unlabelled pixel of the mask the label of a nearest labelled
-/// neighbour (`_spread`); unreachable pixels become torso.
 fn spread(mut labels: Vec<Vec<&'static str>>, mask: &[Vec<bool>]) -> Vec<Vec<&'static str>> {
     let h = mask.len();
     let w = mask.first().map(|r| r.len()).unwrap_or(0);
@@ -119,7 +114,6 @@ fn spread(mut labels: Vec<Vec<&'static str>>, mask: &[Vec<bool>]) -> Vec<Vec<&'s
     labels
 }
 
-/// The material-families vector of one row's interior pixels.
 fn families(ink: &[Vec<char>], inner: &[Vec<bool>], y: usize, c0: usize, c1: usize) -> Option<Vec<f64>> {
     let mut out = vec![0.0f64; 10];
     let mut sum = 0.0;
@@ -138,7 +132,6 @@ fn families(ink: &[Vec<char>], inner: &[Vec<bool>], y: usize, c0: usize, c1: usi
     }
 }
 
-/// The plan of a fitted silhouette: `"biped"` or `"robe"`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Plan {
     Biped,
@@ -154,15 +147,11 @@ impl Plan {
     }
 }
 
-/// A silhouette fit: the base rig fields plus the reading plan.
 pub struct SmartFitted {
     pub fit: Fitted,
     pub plan: Plan,
 }
 
-/// `smartfit.fit`: silhouette fit with the proportional fit as the base.
-/// `None` means the Python would return the base rig unchanged (no readable
-/// outline / no neck), which the caller turns into the proportional fit.
 fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
     let h = ink.len();
     let w = ink.first().map(|r| r.len()).unwrap_or(0);
@@ -170,7 +159,6 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
     let dark: Vec<Vec<bool>> = (0..h)
         .map(|y| (0..w).map(|x| OUTLINE.contains(ink[y][x]) && m[y][x]).collect())
         .collect();
-    // border = m & ~(shifted neighbours all inside)
     let mut border = vec![vec![false; w]; h];
     let mut border_sum = 0usize;
     let mut dark_border = 0usize;
@@ -203,10 +191,8 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
     let y0 = *yy.first()? as i64;
     let y1 = *yy.last()? as i64;
     let height = (y1 - y0 + 1) as f64;
-    // width[y] = inner row pixel count
     let width: Vec<usize> = (0..h).map(|y| (0..w).filter(|&x| inner[y][x]).count()).collect();
 
-    // Neck: the lowest strong material change under the head.
     let cx = median(xx.clone());
     let half = std::cmp::max(2, py_round(height * 0.17) as i64) as usize;
     let c0 = std::cmp::max(0, cx as i64 - half as i64) as usize;
@@ -215,8 +201,6 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
     let hi = (y0 + (height * 0.55) as i64) as usize;
     let mut scores: Vec<(usize, f64)> = Vec::new();
     for y in lo..=hi {
-        // An outline band has no interior ink. Python skips that row; `?`
-        // would abandon the whole silhouette and fall back to proportions.
         let Some(below) = families(ink, &inner, y, c0, c1) else {
             continue;
         };
@@ -238,8 +222,6 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
     let neck = if !strong.is_empty() {
         *strong.last().unwrap() as i64
     } else {
-        // One material head to toe (a skeleton, a slime): the neck is the
-        // narrowest row.
         let full: Vec<usize> = (0..h).map(|y| (0..w).filter(|&x| m[y][x]).count()).collect();
         let rows: Vec<usize> = (lo..=hi).filter(|&y| full[y] > 0).collect();
         if rows.is_empty() {
@@ -248,7 +230,6 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
         *rows.iter().min_by_key(|&&y| (full[y], y)).unwrap() as i64 + 1
     };
 
-    // Hips: the highest row from which one gap between two legs runs to the floor.
     let gap = |y: i64, near: f64, reach: f64| -> Option<i64> {
         if y < 0 || y as usize >= h {
             return None;
@@ -295,7 +276,7 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
     };
     let mut split_i: i64;
     if robe {
-        hip = Some(y1); // only the hem row belongs to the feet
+        hip = Some(y1);
         split_i = py_round(cx) as i64;
     } else {
         split_i = split.unwrap_or(py_round(cx) as i64);
@@ -312,7 +293,6 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
         }
     }
 
-    // Arms: interior masses beside the torso, cut off from it by the outline.
     let mut arm: BTreeMap<char, Vec<Vec<bool>>> = BTreeMap::new();
     let mut wings: Option<Vec<Vec<bool>>> = None;
     let arm_floor = if !robe {
@@ -339,7 +319,6 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
         if mid.is_empty() {
             continue;
         }
-        // torso_id = the most frequent component under the centre line
         let mut torso_id = mid[0];
         let mut best_count = 0;
         for &cand in &mid {
@@ -367,7 +346,7 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
                 }
             }
             if ys.len() < 2 || (*ys.iter().min().unwrap() as f64) > start as f64 + height * 0.2 {
-                continue; // a leg or a stray, not an arm
+                continue;
             }
             let med = median(xs.iter().map(|&v| v as f64).collect());
             let side = if med < cx { 'b' } else { 'f' };
@@ -397,7 +376,6 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
                 let xmax = *xs.iter().max().unwrap();
                 for y in 0..h {
                     for x in 0..w {
-                        // the shoulder pixels above the cut belong to the piece too
                         if inner[y][x]
                             && y as i64 >= neck
                             && (y as i64) < start
@@ -409,7 +387,7 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
                     }
                 }
                 if rank == 0 {
-                    arm.insert(*side, piece); // the mass nearest the body is the arm
+                    arm.insert(*side, piece);
                 } else {
                     for y in 0..h {
                         for x in 0..w {
@@ -453,7 +431,6 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
         }
     }
 
-    // free = inner & unlabelled
     let free = |labels: &Vec<Vec<&'static str>>| -> Vec<Vec<bool>> {
         (0..h)
             .map(|y| (0..w).map(|x| inner[y][x] && labels[y][x] == "").collect())
@@ -503,7 +480,6 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
             }
         }
     }
-    // A side with no readable arm keeps the proportional cut.
     for side in ['b', 'f'] {
         if !arm.contains_key(&side) {
             for prefix in ["upper_arm_", "lower_arm_", "hand_"] {
@@ -521,8 +497,6 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
     }
     let mut labels = spread(labels, &m);
 
-    // Every contact part needs at least one pixel: a hidden hand or foot
-    // takes the end of its limb, or the body pixel nearest where it would be.
     for s_ in ['b', 'f'] {
         for (distal, chain, joint) in [
             ("hand_", vec!["lower_arm_", "upper_arm_"], "wrist_"),
@@ -617,8 +591,6 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
                 }
             }
             if !xs.is_empty() {
-                // pivot on the torso side of a thick arm, so it swings
-                // without leaving the body
                 let wide = (xs.iter().cloned().fold(f64::MIN, f64::max) - xs.iter().cloned().fold(f64::MAX, f64::min) + 1.0) as i64;
                 let xmax = xs.iter().cloned().fold(f64::MIN, f64::max);
                 let xmin = xs.iter().cloned().fold(f64::MAX, f64::min);
@@ -742,8 +714,8 @@ fn smart_fit(ink: &[Vec<char>], base: &Fitted) -> Option<SmartFitted> {
         ],
         clips: defaults(height),
     };
-    let _ = robe_flag(); // silence unused when robe branch above sets nothing
-    robe = robe; // keep the final plan value
+    let _ = robe_flag();
+    robe = robe;
     Some(SmartFitted {
         fit,
         plan: if robe { Plan::Robe } else { Plan::Biped },
@@ -767,8 +739,6 @@ fn base_mask(base: &Fitted, name: &str) -> Vec<Vec<bool>> {
         .unwrap_or_default()
 }
 
-/// The Python `smartfit.fit` on a parsed ink grid: silhouette fit, or the
-/// proportional base rig when the drawing has no readable silhouette.
 pub fn fit_smart(grid: &[Vec<char>]) -> Result<SmartFitted, String> {
     let base = super::auto::fit_proportional(&grid.to_vec())?;
     match smart_fit(&grid, &base) {
@@ -780,13 +750,10 @@ pub fn fit_smart(grid: &[Vec<char>]) -> Result<SmartFitted, String> {
     }
 }
 
-/// The silhouette plan for these rows: "biped" or "robe".
 pub fn plan_smart(grid: &[Vec<char>]) -> Result<&'static str, String> {
     Ok(fit_smart(grid)?.plan.as_str())
 }
 
-/// `rig.json` for a silhouette fit (schema + `"plan"`), matching the Python
-/// `quick.save_rig(smartfit.fit(...))`.
 pub fn rig_json_smart(fitted: &SmartFitted) -> Result<String, String> {
     let fit = &fitted.fit;
     let mut joints = serde_json::Map::new();
@@ -812,7 +779,6 @@ pub fn rig_json_smart(fitted: &SmartFitted) -> Result<String, String> {
         } else {
             json!(point[0])
         };
-        // tip y is Python round(..., 3): a whole value stays 22.0, not 22.
         let py = if *name == "tip" || point[1].fract() != 0.0 {
             json!(point[1])
         } else {

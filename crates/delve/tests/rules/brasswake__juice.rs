@@ -23,7 +23,6 @@ fn bots(r: &Run) -> Keys {
     r.brasswake.as_ref().map_or_else(Keys::new, |s| s.lanes.iter().map(|(&id, l)| (id, l.bot_input(LENGTH - s.left))).collect())
 }
 
-/// How long a seat's screen takes to draw over a bot's round: mean and worst of the middle nine tenths.
 #[test]
 #[ignore = "measures the picture's cost"]
 fn brasswake_frame_times() {
@@ -45,8 +44,6 @@ fn brasswake_frame_times() {
     let p95 = times[times.len() * 95 / 100];
     println!("brasswake frame: mean {mean:.3} ms, p95 {p95:.3} ms over {} frames", times.len());
 }
-
-// ─── the proof: reels of the real run ────────────────────────────────────────
 
 use crate::render::overworld::Img;
 use std::path::{Path, PathBuf};
@@ -76,15 +73,12 @@ impl Reel {
     }
 }
 
-/// What a lane's bot does, but late: a seat idles for `lag` ticks of the round first so the seats differ.
 fn lagged(r: &Run, lag: &dyn Fn(u32) -> u32) -> Keys {
     let Some(s) = r.brasswake.as_ref() else { return Keys::new() };
     let elapsed = LENGTH - s.left;
     s.lanes.iter().map(|(&id, l)| (id, if elapsed < lag(id) { Input::default() } else { l.bot_input(elapsed) })).collect()
 }
 
-/// One bot-driven table, recording seats' own screens over windows of the round.
-/// `windows`: (name, first tick, last tick, step), ticks counted from the press of E.
 fn run_reels(root: &Path, seats: u32, windows: &[(&str, u32, u32, &[u32])], mut tweak: impl FnMut(&mut Run, u32)) {
     let mut r = table(seats);
     let mut reels: Vec<(u32, u32, Reel)> = windows.iter().map(|&(n, a, b, shown)| (a, b, Reel::new(root, n, shown))).collect();
@@ -104,7 +98,6 @@ fn run_reels(root: &Path, seats: u32, windows: &[(&str, u32, u32, &[u32])], mut 
     }
 }
 
-/// A day's log of the bot round: the ticks of the moments, to choose windows from.
 #[test]
 #[ignore = "writes the proof"]
 fn brasswake_timeline() {
@@ -136,8 +129,6 @@ fn brasswake_timeline() {
     }
 }
 
-/// The reels of a bot-driven table. `BRASS_WIN` names the windows as `name:first:last:seats`, comma
-/// separated, ticks counted from the press of E and seats as digits (`12` shows seats one and two).
 #[test]
 #[ignore = "writes the proof"]
 fn write_brasswake_proof() {
@@ -156,7 +147,6 @@ fn write_brasswake_proof() {
     run_reels(&root, seats, &windows, |_, _| {});
 }
 
-/// The end screen: a posed finish, stepped on so its clock runs.
 #[test]
 #[ignore = "writes the proof"]
 fn write_brasswake_podium() {
@@ -174,7 +164,6 @@ fn write_brasswake_podium() {
     println!("podium: {} frames", reel.n);
 }
 
-/// A posed moment of the review set, stepped on a little so its marks and clocks run.
 #[test]
 #[ignore = "writes the proof"]
 fn write_brasswake_moments() {
@@ -191,8 +180,6 @@ fn write_brasswake_moments() {
         println!("moment {moment}: {} frames", reel.n);
     }
 }
-
-// ─── the show: marks, weights, calls ─────────────────────────────────────────
 
 use crate::rules::brasswake::{
     Beat, Foe, Lane, Session,
@@ -235,7 +222,6 @@ fn a_jab_a_cross_and_a_kick_are_three_weights_and_the_kick_holds_the_aisle_longe
         }
         now += 1;
     }
-    // (The count is read after the tick that set it ran once.)
     assert_eq!(holds[0], t.brass_stop - 1, "a jab holds as long as the knob says");
     assert_eq!(holds[1], t.brass_stop - 1);
     assert_eq!(holds[2], t.brass_stop, "a kick holds a tick longer, on this aisle only");
@@ -252,12 +238,10 @@ fn a_kill_pays_its_bounty_in_the_mark_and_a_keeper_falls_as_a_finale() {
     assert_eq!(m.kind.weight(), Weight::Kill);
     assert_eq!(d.foes[0].beat, Beat::Defeat);
     assert_eq!(d.freeze, t.brass_stop + 1);
-    // The fallen count the ticks they have lain.
     for n in 1..=4u64 {
         d.step_at(Input::default(), &t, n * 3, 0, 0);
     }
     assert!(d.foes[0].ticks > 0 && d.valid());
-    // A keeper.
     let mut k = Lane::new(41);
     k.wave = 3;
     k.x = 700;
@@ -282,7 +266,6 @@ fn a_taken_blow_a_slam_and_a_broken_cask_each_leave_a_mark() {
     assert!(d.show.marks.iter().any(|m| matches!(m.kind, Kind::Quake { hit: true, rush: false, .. })));
     assert!(d.show.marks.iter().any(|m| matches!(m.kind, Kind::Hurt { guarded: false, .. })));
     assert_eq!(d.hp, 5);
-    // A cask that lands on the mark.
     let mut e = close_lane();
     e.incoming.push(crate::rules::brasswake::Cask {
         danger: crate::rules::brasswake::Danger { x: 140, y: 138, w: 40, h: 24 },
@@ -292,7 +275,6 @@ fn a_taken_blow_a_slam_and_a_broken_cask_each_leave_a_mark() {
     });
     e.step_at(Input::default(), &t, 20, 0, 20);
     assert!(e.show.marks.iter().any(|m| matches!(m.kind, Kind::Smash { hit: true, from: 2 })));
-    // Marks go when they are old, and the book stays inside its bounds.
     for n in 0..60u64 {
         e.step_at(Input::default(), &t, 21 + n, 0, 21);
     }
@@ -307,13 +289,11 @@ fn the_table_hears_who_leads_who_reached_the_keeper_and_a_team_kick() {
     s.call_the_table(100);
     assert_eq!(s.show.leader, Some(2));
     assert!(s.show.list.iter().any(|c| c.cry == Cry::Lead && c.who == 2));
-    // No change of lead, no second call.
     s.call_the_table(101);
     assert_eq!(s.show.list.iter().filter(|c| c.cry == Cry::Lead).count(), 1);
     s.lanes.get_mut(&3).unwrap().score = 90;
     s.call_the_table(102);
     assert!(s.show.list.iter().any(|c| c.cry == Cry::Lead && c.who == 3));
-    // The first to reach the keeper is called once.
     s.lanes.get_mut(&1).unwrap().wave = 3;
     s.lanes.get_mut(&1).unwrap().foes = vec![Foe::new(920, 150, true)];
     s.call_the_table(103);
@@ -322,7 +302,6 @@ fn the_table_hears_who_leads_who_reached_the_keeper_and_a_team_kick() {
     s.call_the_table(104);
     assert_eq!(s.show.list.iter().filter(|c| c.cry == Cry::Keeper).count(), 1);
     assert_eq!(s.show.first_keeper, Some(1));
-    // Two aisles kick within ten ticks of each other: a team kick, once, then it rests.
     assert!(!s.show.kicked(1, 200));
     assert!(s.show.kicked(2, 205));
     assert!(!s.show.kicked(3, 207), "a team kick rests");
@@ -343,7 +322,6 @@ fn the_show_rides_the_wire_and_an_old_snapshot_loads_with_a_quiet_one() {
     let json = serde_json::to_string(s).unwrap();
     let back: Session = serde_json::from_str(&json).unwrap();
     assert_eq!(serde_json::to_string(&back).unwrap(), json);
-    // A snapshot from before the show: the fields are simply missing.
     let mut old: serde_json::Value = serde_json::from_str(&json).unwrap();
     let o = old.as_object_mut().unwrap();
     o.remove("show");
@@ -355,7 +333,6 @@ fn the_show_rides_the_wire_and_an_old_snapshot_loads_with_a_quiet_one() {
     let loaded: Session = serde_json::from_value(old).unwrap();
     assert!(loaded.valid() && loaded.show.quiet());
     assert!(loaded.lanes.values().all(|d| d.show.quiet()));
-    // A quiet lane writes nothing.
     let fresh = serde_json::to_string(&Lane::new(41)).unwrap();
     assert!(!fresh.contains("\"show\""));
 }

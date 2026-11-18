@@ -24,7 +24,6 @@ pub(crate) const LEADS: Route = Route::new(SHELF_CELL, '⠁');
 pub(crate) const FILES: Route = Route::new(SHELF_CELL, '⠃');
 pub(crate) const EXEC: Route = Route::new(SHELF_CELL, '⠉');
 
-/// A named saturation rung, encoded as its native book page address.
 pub(crate) fn escalation(rung: usize) -> Option<String> {
     (rung < 9).then(|| super::d3_roles::pages(ESCALATE, [rung + 1]))
 }

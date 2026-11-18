@@ -257,7 +257,6 @@ impl CardMotion {
     }
 }
 
-// Rebuild the bounded lookup cache when decoding JSON; it is never wire data.
 #[cfg(feature = "remote")]
 impl<'de> serde::Deserialize<'de> for CardMotion {
     fn deserialize<D: serde::Deserializer<'de>>(decoder: D) -> Result<Self, D::Error> {

@@ -67,7 +67,6 @@ fn crypt_fight(depth: u32) -> Run {
     panic!("no fight room");
 }
 
-/// The named bodies of a frame, by the seat their key says.
 fn named_bodies(run: &Run) -> Vec<crate::render::overworld::arena::Body> {
     let scene = scene_for(run, NATIVE_W, NATIVE_H, Some(1));
     scene.figures.iter().flat_map(|f| f.bodies.iter().filter(|b| b.named.is_some()).cloned()).collect()
@@ -86,20 +85,16 @@ fn the_rigs_knight_is_named_as_it_is_stamped() {
         let n = b.named.as_ref().unwrap();
         let p = parts(&n.key).expect("a key");
         assert_eq!((p[0], p[2], p[5]), ("knight", "idle", "r"), "{}", n.key);
-        // Each seat's own design (`quick_rig::Design`).
         let seat: u32 = p[4].strip_prefix("seat").and_then(|s| s.parse().ok()).expect("a seat's colours");
         assert_eq!(p[1], quick_rig::Design::of_seat(seat).name(), "{}", n.key);
         assert!(seat == 1 || seat == 2, "{}", n.key);
         assert!(n.dress.contains("shield-across"), "{} carries its shield across: {}", n.key, n.dress);
         assert!(n.dress.starts_with("bow"), "the knight's bow: {}", n.dress);
         assert_eq!(n.rung.px(), 16, "the run's first floor");
-        // Its feet on the rig's pivot: the bottom of its own ink, in the middle.
         let [x, y] = n.pivot;
         assert!((0..b.img.w).contains(&x) && (0..b.img.h).contains(&y));
         let lowest = (0..b.img.h).rev().find(|&yy| (0..b.img.w).any(|xx| b.img.get(xx, yy).is_some())).unwrap();
         assert!((y - lowest).abs() <= 1, "feet at {y}, lowest ink {lowest}");
-        // Its bare body: the figure's size, every pixel of it the figure's
-        // but where what it carries is stamped over it.
         let bare = n.bare.as_ref().expect("its bare body");
         assert_eq!((bare.w, bare.h), (b.img.w, b.img.h));
         let (mut same, mut inked, mut over) = (0, 0, 0);
@@ -118,7 +113,6 @@ fn the_rigs_knight_is_named_as_it_is_stamped() {
         assert!(inked > 60 && same * 10 >= inked * 8, "mostly as stamped: {same} of {inked}");
         assert!(over > 4, "the bow and shield are not the body ({over} px)");
     }
-    // Faced left: the same frame turned over, its name and feet with it.
     let right: Vec<_> = bodies.iter().map(|b| (b.named.clone().unwrap(), b.img.w)).collect();
     for h in run.players.values_mut() {
         h.aim_x = -1.0;
@@ -163,14 +157,12 @@ fn a_knight_facing_up_or_down_carries_it_beside_the_side_it_is_drawn_on() {
         }
         named_bodies(run)
     };
-    // At the sides: no facing of its own, the key as it was.
     for aim in [(1.0, 0.0), (-1.0, 0.0), (1.0, 0.7), (-1.0, -0.7)] {
         for b in ask(&mut run, aim) {
             let n = b.named.unwrap();
             assert_eq!((n.vertical, n.faced_key()), (None, None), "{aim:?}");
         }
     }
-    // Up and down the room: `u` and `d`, and the key still the rig's side.
     for (aim, facing) in [((0.0, -1.0), 'u'), ((0.0, 1.0), 'd'), ((0.3, -1.0), 'u'), ((-0.5, 1.0), 'd')] {
         let bodies = ask(&mut run, aim);
         assert_eq!(bodies.len(), 2, "{aim:?}");
@@ -181,7 +173,6 @@ fn a_knight_facing_up_or_down_carries_it_beside_the_side_it_is_drawn_on() {
             assert!(is_key(&faced) && faced.ends_with(&format!("/{facing}")), "{faced}");
             assert_eq!(&key[..key.len() - 1], &faced[..faced.len() - 1], "the same figure");
             assert!(key.ends_with(if aim.0 < -0.3 { "/l" } else { "/r" }), "{aim:?}: still the side it is drawn on: {key}");
-            // Turned over, a knight seen from behind is the same drawing on either hand.
             assert_eq!(n.mirrored(b.img.w).faced_key(), n.faced_key());
         }
     }
@@ -192,10 +183,8 @@ fn a_blow_bends_a_name_into_another_width_on_the_same_feet() {
     let mut bare = Img::new(51, 3);
     bare.put(2, 1, '7');
     let n = Named { key: "knight/realm/hurt/1/seat1/r".into(), dress: "bare".into(), pivot: [25, 40], rung: crate::rules::resolution::Rung::BASE, bare: Some(Arc::new(bare)), vertical: Some('d') };
-    // The same picture: the same feet, but the body alone is the upright one's, so it goes.
     let same = n.bent(51, 51);
     assert_eq!((same.pivot, same.bare.is_none(), same.vertical), ([25, 40], true, Some('d')));
-    // The bend widens the picture and the game stands it by its middle (`stand`): the feet are put where the upright picture's are.
     for to in [52, 53, 55] {
         let b = n.bent(51, to);
         let upright_left = 100 - 51 / 2;

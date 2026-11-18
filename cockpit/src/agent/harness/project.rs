@@ -2,43 +2,22 @@
 
 use super::*;
 
-// ---------------------------------------------------------------------------
-// Project context — discover AGENTS.md conventions for a separate repository
-// guidance message; filesystem text never receives System authority. Walk from the
-// workspace dir up to the git root, collecting AGENTS.md (+ AGENTS.override.md) at
-// each level, concatenated git-root→workspace (broadest context first). Capped;
-// `ANGEL_PROJECT_DOC=0` disables, `ANGEL_PROJECT_DOC_MAX_BYTES` resizes.
-// ---------------------------------------------------------------------------
-
-/// Filenames scanned for project docs, in per-directory precedence order.
 pub(crate) const PROJECT_DOC_FILENAMES: &[&str] = &["AGENTS.md", "AGENTS.override.md"];
-/// Default ceiling on the concatenated project-doc block (matches Codex's 32 KiB).
 pub(crate) const DEFAULT_PROJECT_DOC_MAX_BYTES: usize = 32 * 1024;
-/// Where a scoped project doc's middle was elided: `⠸⠉⠁`, between the elision
-/// marks.
 const PROJECT_DOC_TRUNCATION_MARK: &str = "\n…⠸⠉⠁…\n";
-/// The project-doc byte count, `⠸⠉⠃`, the count beside it.
 pub(crate) const PROJECT_DOC_BYTES_MARKER: &str = "⠸⠉⠃";
 
-/// Is `dir` a git root? Requires a *real* marker — a `.git` directory containing
-/// `HEAD` (a repo) or a `.git` file (a worktree) — not merely a `.git` entry, so
-/// a stray empty `.git` (e.g. left in `/tmp`) doesn't masquerade as a root.
 pub(crate) fn is_git_root(dir: &Path) -> bool {
     let g = dir.join(".git");
     g.is_file() || g.join("HEAD").exists()
 }
 
-/// Concatenate the AGENTS.md docs found from the git root down to `start`
-/// (inclusive), in that order. If no git root ancestor exists, only `start`
-/// itself is considered (never walk the whole filesystem). Pure over the fs;
-/// "" if none.
 pub(crate) fn discover_project_docs(start: &Path, max_bytes: usize) -> String {
     if max_bytes == 0 {
         return String::new();
     }
     let start = start.canonicalize().unwrap_or_else(|_| start.to_path_buf());
 
-    // Find the git root by walking up from `start`.
     let mut git_root: Option<PathBuf> = None;
     let mut probe: Option<&Path> = Some(start.as_path());
     while let Some(dir) = probe {
@@ -49,8 +28,6 @@ pub(crate) fn discover_project_docs(start: &Path, max_bytes: usize) -> String {
         probe = dir.parent();
     }
 
-    // Directory chain to scan, ordered git-root → start (broadest first). With no
-    // git root, just the start dir (Codex: "only the cwd is considered").
     let chain: Vec<PathBuf> = match &git_root {
         Some(root) => {
             let mut v = Vec::new();
@@ -88,10 +65,6 @@ pub(crate) fn discover_project_docs(start: &Path, max_bytes: usize) -> String {
     fit_project_docs(&docs, max_bytes)
 }
 
-/// Fit root→workspace instruction sections into one exact byte budget. Every
-/// scope first receives a fair share; unused share from short files flows from
-/// deepest scope upward. Oversized sections retain both their provenance/head
-/// and their tail, where repositories commonly place exceptions and commands.
 fn fit_project_docs(docs: &[String], max_bytes: usize) -> String {
     if docs.is_empty() || max_bytes == 0 {
         return String::new();
@@ -157,10 +130,6 @@ fn truncate_project_doc(doc: &str, max_bytes: usize) -> String {
     )
 }
 
-/// The scoped guidance block for `workspace`'s project docs (AGENTS.md walked from
-/// the workspace up to its git root), or "" when disabled or none found. Injected
-/// after the skills catalog. Rooted at the *active* workspace so the project
-/// context always matches where the tools actually operate.
 pub fn project_context(workspace: &Path) -> String {
     if !env_flag("ANGEL_PROJECT_DOC", true) {
         return String::new();
@@ -177,9 +146,6 @@ pub fn project_context(workspace: &Path) -> String {
     )
 }
 
-/// The isolated last-resort workspace (`~/.angelX/workspace`). Still the fallback
-/// for headless `--task` (benchmark harnesses rely on it) and the base for
-/// delegation worktrees / media resolution — but no longer the TUI default.
 pub fn default_workspace() -> PathBuf {
     std::env::var_os("HOME")
         .map(PathBuf::from)
@@ -187,25 +153,16 @@ pub fn default_workspace() -> PathBuf {
         .join(".angelX/workspace")
 }
 
-/// The process's current directory (the TUI's default workspace — "operate on
-/// the directory you launched me in", like Claude Code), or `.` if it can't be
-/// read. A `fn() -> PathBuf` so it can be passed as a `resolve_workspace` fallback.
 pub fn current_dir_workspace() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
-/// Resolve the active workspace root once, from a single precedence order shared
-/// by the TUI and headless `--task`: an `explicit` path (positional arg /
-/// `--workspace`) wins, else `$ANGEL_WORKSPACE`, else the caller's `fallback`
-/// (the TUI passes [`current_dir_workspace`]; `--task` passes [`default_workspace`]).
 pub fn resolve_workspace(explicit: Option<PathBuf>, fallback: fn() -> PathBuf) -> PathBuf {
     explicit
         .or_else(|| std::env::var_os("ANGEL_WORKSPACE").map(PathBuf::from))
         .unwrap_or_else(fallback)
 }
 
-/// Run a (trusted, un-sandboxed) git command in `workspace`, with a fixed
-/// identity so commits succeed without global git config.
 pub(crate) fn git_timeout() -> Option<Duration> {
     match std::env::var("ANGEL_GIT_TIMEOUT")
         .ok()
@@ -216,9 +173,6 @@ pub(crate) fn git_timeout() -> Option<Duration> {
     }
 }
 
-/// Leading `git` args for unconfined harness git in an agent workspace. The
-/// agent's sandboxed shell can write `.git/config` and `.git/hooks`; harness git
-/// must not execute an fsmonitor command or hook planted there.
 pub(crate) const GIT_NO_WORKSPACE_EXEC: [&str; 4] = [
     "-c",
     "core.fsmonitor=false",
@@ -236,8 +190,6 @@ pub(crate) fn run_git(workspace: &Path, args: &[&str]) -> Result<String, String>
         .arg("-C")
         .arg(workspace)
         .args(args)
-        // Harness git operations are unattended. Never let a credential helper
-        // or editor turn delegation into an invisible, unbounded prompt.
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_MERGE_AUTOEDIT", "no");
     let timeout = git_timeout();
@@ -260,10 +212,6 @@ pub(crate) fn run_git(workspace: &Path, args: &[&str]) -> Result<String, String>
     }
 }
 
-/// Ensure `workspace` belongs to a git repo with at least one commit (so
-/// `worktree add … HEAD` works), returning that repository's top-level path.
-/// A workspace may be a subdirectory of an existing repository; it must never
-/// be silently converted into a nested repository.
 pub(crate) fn ensure_git_workspace(workspace: &Path) -> Result<PathBuf, String> {
     std::fs::create_dir_all(workspace).map_err(|e| format!("mkdir workspace: {e}"))?;
     let canonical_workspace = workspace

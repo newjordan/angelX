@@ -20,81 +20,46 @@
 use super::*;
 use std::sync::OnceLock;
 
-/// What a knight may carry out of the bazaar.
 pub const POCKETS: usize = 6;
-/// A pigeon-sized second, a room's worth of seconds: fixed numbers.
 const SECOND: u32 = HZ;
 
-/// Something a card cannot say.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Rule {
-    /// A share of the knight's own damage, always (percent, signed).
     Damage(i32),
-    /// A share of their rate of fire (signed: less means a longer wait).
     Fire(i32),
-    /// A share of their pace.
     Pace(i32),
-    /// A share of every wound they take.
     Hurt(i32),
-    /// A share of the gold they pick up.
     Gold(i32),
-    /// Every `every`th shot flies `turn` radians off its aim.
     Veer { every: u32, turn: f32 },
-    /// Damage to one kind of monster, and to all the rest (percent of
-    /// normal).
     Versus { kind: EnemyKind, only: i32, rest: i32 },
-    /// Damage at or under half health, and over it (percent, signed).
     Wounded { low: i32, high: i32 },
-    /// Damage at full health, and short of it (percent, signed).
     Hale { full: i32, hurt: i32 },
-    /// Damage after standing still for a second (percent, signed).
     Still(i32),
-    /// Damage in a room's first `secs` seconds, and after them.
     Opening { secs: u32, first: i32, after: i32 },
-    /// Every `secs` seconds a pigeon takes `gold` from the purse.
     Pigeon { secs: u32, gold: u32 },
-    /// A new room's first `ward` seconds untouched; the knight poses for
-    /// `pose` ticks before they may shoot.
     Entrance { ward: u32, pose: u32 },
-    /// A new room's door takes `pct` of the gold carried.
     Tax(u32),
-    /// A new room's door costs `fee` gold, or the knight's health in its
-    /// stead.
     Devil { fee: u32, health: u32 },
-    /// The first blow in each room is turned aside whole.
     Bucket,
-    /// Under three tenths of health, once a room, a biscuit mends two
-    /// fifths of it.
     Biscuit,
-    /// A cleared room mends the knight by `heal`.
     Snack(u32),
-    /// Hex, chill and bog hold nothing of the knight.
     Tinfoil,
-    /// Every `secs` seconds the fireflies nip the knight for `hp`.
     Fireflies { secs: u32, hp: u32 },
-    /// Goods in the bazaar cost `off` percent less to this knight.
     Coupon(u32),
 }
 
-/// One curio of the bazaar.
 pub struct Curio {
     pub id: &'static str,
     pub name: &'static str,
-    /// Its price in gold.
     pub price: u32,
-    /// The vendor's line.
     pub says: &'static str,
-    /// What it gives and what it costs, plainly, for its board.
     pub boon: &'static str,
     pub bane: &'static str,
-    /// The card words it holds (`cards::SPECS`), with their numbers.
     pub words: &'static [(&'static str, u32)],
     pub rules: &'static [Rule],
-    /// Which little picture stands for it, and in which two inks.
     pub icon: Icon,
 }
 
-/// The shapes the bazaar draws a curio as.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Icon {
     Boot,
@@ -123,7 +88,6 @@ const fn c(
 
 use Rule::*;
 
-/// The catalogue: thirty-three, every one tested (`tests/rules/curios__tests.rs`).
 pub const CURIOS: [Curio; 33] = [
     c("boots-mild-inconvenience", "Boots of Mild Inconvenience", 70, Icon::Boot,
         "They do go quickly. The sneezing is mostly the boots' fault.",
@@ -259,12 +223,10 @@ pub const CURIOS: [Curio; 33] = [
         &[("size", 1)], &[Fire(-10)]),
 ];
 
-/// The catalogue entry called `id`.
 pub fn get(id: &str) -> Option<&'static Curio> {
     CURIOS.iter().find(|c| c.id == id).or_else(|| super::fey::artifact(id))
 }
 
-/// Whether every word on every curio passes the card checker's list.
 pub fn clean() -> bool {
     CURIOS.iter().all(|c| {
         [c.id, c.name, c.says, c.boon, c.bane]
@@ -273,9 +235,6 @@ pub fn clean() -> bool {
     })
 }
 
-/// A curio's held card: its boon in the card vocabulary, checked the way
-/// every card is. Never in the book. A curio of rules alone has none (a
-/// hold card needs an effect).
 fn card_of(c: &Curio) -> Option<Card> {
     if c.words.is_empty() {
         return None;
@@ -297,7 +256,6 @@ fn cards_all() -> &'static Vec<Option<Card>> {
     CARDS.get_or_init(|| CURIOS.iter().map(card_of).collect())
 }
 
-/// The held cards of the curios in `pockets`, for `Bonus::within`.
 pub fn held(pockets: &Pockets) -> Vec<&'static Card> {
     pockets
         .items
@@ -307,23 +265,18 @@ pub fn held(pockets: &Pockets) -> Vec<&'static Card> {
         .collect()
 }
 
-/// A knight's pockets: what they bought, and the small memory the rules
-/// need of the room they stand in.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Pockets {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub items: Vec<String>,
-    /// Ticks since the room was entered, and since the knight last moved.
     #[serde(default, skip_serializing_if = "no")]
     pub clock: u32,
     #[serde(default, skip_serializing_if = "no")]
     pub still: u32,
-    /// What this room has already spent: bit 0 the bucket, bit 1 the biscuit.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub bucket: bool,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub biscuit: bool,
-    /// Where the knight stood a tick ago.
     #[serde(default, skip_serializing_if = "at_rest")]
     pub last: (f32, f32),
 }
@@ -345,7 +298,6 @@ impl Pockets {
         self.items.iter().any(|i| i == id)
     }
 
-    /// Every rule the pockets carry, in the order bought.
     pub fn rules(&self) -> impl Iterator<Item = Rule> + '_ {
         self.items
             .iter()
@@ -361,15 +313,11 @@ impl Pockets {
     }
 }
 
-/// Percent of normal, from signed shares added together (never under a
-/// tenth of normal: a bane is a cost, not a way to stop playing).
 fn percent(shares: i32) -> u32 {
     (100 + shares).max(10) as u32
 }
 
 impl Hero {
-    /// The share of the knight's damage that curios make of it, percent
-    /// of normal, before the monster is known (`versus` knows it).
     pub fn curio_damage(&self) -> u32 {
         if self.pockets.items.is_empty() {
             return 100;
@@ -392,8 +340,6 @@ impl Hero {
         percent(shares)
     }
 
-    /// Percent of normal the monster `kind` takes from this knight's hits,
-    /// on top of `curio_damage`.
     pub fn curio_versus(&self, kind: EnemyKind) -> u32 {
         let mut k = 100;
         for rule in self.pockets.rules() {
@@ -404,17 +350,14 @@ impl Hero {
         k
     }
 
-    /// Percent of normal the wait between this knight's shots lasts.
     pub fn curio_wait(&self) -> u32 {
         if self.pockets.items.is_empty() {
             return 100;
         }
         let shares: i32 = self.pockets.rules().map(|r| if let Fire(n) = r { n } else { 0 }).sum();
-        // Fire 30% faster waits 100/130 as long; 20% slower, 100/80.
         10_000 / percent(shares)
     }
 
-    /// The pace curios leave this knight, as a multiplier.
     pub fn curio_pace(&self) -> f32 {
         if self.pockets.items.is_empty() {
             return 1.0;
@@ -423,7 +366,6 @@ impl Hero {
         percent(shares) as f32 / 100.0
     }
 
-    /// Percent of normal the wounds this knight takes come to.
     pub fn curio_hurt(&self) -> u32 {
         if self.pockets.items.is_empty() {
             return 100;
@@ -432,7 +374,6 @@ impl Hero {
         percent(shares)
     }
 
-    /// Gold that `n` picked up comes to, with the curios' share.
     pub fn curio_gold(&self, n: u32) -> u32 {
         if self.pockets.items.is_empty() {
             return n;
@@ -441,7 +382,6 @@ impl Hero {
         (n * percent(shares) + 50) / 100
     }
 
-    /// How far off its aim shot number `loosed` flies, in radians.
     pub fn curio_veer(&self, loosed: u32) -> f32 {
         let mut turn = 0.0;
         for rule in self.pockets.rules() {
@@ -455,13 +395,10 @@ impl Hero {
         turn
     }
 
-    /// Percent off the bazaar's prices for this knight.
     pub fn curio_coupon(&self) -> u32 {
         self.pockets.rules().map(|r| if let Coupon(n) = r { n } else { 0 }).sum::<u32>().min(50)
     }
 
-    /// The blow `damage`, as the bucket leaves it: `None` if the bucket
-    /// turned it aside whole.
     pub(super) fn curio_turns(&mut self, damage: u32) -> Option<u32> {
         if !self.pockets.bucket && self.pockets.rules().any(|r| r == Bucket) {
             self.pockets.bucket = true;
@@ -470,7 +407,6 @@ impl Hero {
         Some(damage * self.curio_hurt() / 100)
     }
 
-    /// After a blow: the biscuit, if it is time.
     pub(super) fn curio_biscuit(&mut self) {
         if self.hp > 0
             && self.hp * 10 < self.max_hp * 3
@@ -482,8 +418,6 @@ impl Hero {
         }
     }
 
-    /// The knight walks into a delve's room (`entered`) or any other room:
-    /// the room's memory is fresh, and the doors take what they take.
     pub(super) fn curio_enters(&mut self, delving: bool) {
         if self.pockets.is_empty() {
             return;
@@ -518,7 +452,6 @@ impl Hero {
         }
     }
 
-    /// Gold out of the purse, at most what is there.
     pub fn spend_gold(&mut self, gold: u32) {
         let mut price = Spoils::default();
         price.add(Spoil::Gold, gold.min(self.carried.get(Spoil::Gold)));
@@ -527,9 +460,6 @@ impl Hero {
 }
 
 impl Run {
-    /// One tick of every pocket: the room's clock, stillness, the pigeon,
-    /// the fireflies and the foil. Between the host's steps only; a client
-    /// never runs it.
     pub(super) fn tick_pockets(&mut self) {
         let tick = self.tick;
         for (&id, hero) in self.players.iter_mut() {
@@ -541,7 +471,6 @@ impl Run {
             let moved = (hero.x - p.last.0).hypot(hero.y - p.last.1) > 0.02;
             p.still = if moved { 0 } else { p.still.saturating_add(1) };
             p.last = (hero.x, hero.y);
-            // Each knight's own beat, so a party's pigeons do not strike as one.
             let beat = tick + u64::from(id) * 7;
             let rules: Vec<Rule> = hero.pockets.rules().collect();
             for rule in rules {
@@ -563,7 +492,6 @@ impl Run {
         }
     }
 
-    /// A room is cleared: the snack.
     pub(super) fn curios_clear(&mut self) {
         for hero in self.players.values_mut() {
             if hero.hp == 0 || hero.pockets.items.is_empty() {

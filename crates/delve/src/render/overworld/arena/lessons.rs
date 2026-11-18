@@ -8,7 +8,6 @@ use crate::rules::Run;
 use crate::rules::home::{BUY_HOLD, numeral};
 use crate::rules::talents::{ECTOR_AT, LECTERNS, LEVELS, profile_key, lectern_at};
 
-/// The lecterns and their plates, as the yard's scenery has them.
 pub(super) fn furniture(cv: &mut Img) {
     let stand_im = Img::from_rows(&LECTERN);
     for (i, &plate) in LECTERNS.iter().enumerate() {
@@ -19,7 +18,6 @@ pub(super) fn furniture(cv: &mut Img) {
     }
 }
 
-/// A lectern's plate: dark, its numeral's dots in brass, gold when stood on.
 fn slate(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), lit: bool, side: usize) {
     let (x, y, pw, ph) = (c * TILE + 1, r * TILE + 1, w * TILE - 2, h * TILE - 2);
     super::super::chrome::floor_plate(cv, (x, y, pw, ph), lit, true);
@@ -35,7 +33,6 @@ fn slate(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), lit: bool, side: usiz
     }
 }
 
-/// Sir Ector, and the plates knights stand on.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     let (x, y) = at(ECTOR_AT.0 * 2.0, ECTOR_AT.1 * 2.0);
     stand(cv, &Img::from_rows(&ECTOR), x, y);
@@ -46,10 +43,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The lesson a knight standing at a lectern reads: its talent, what it
-/// does, and whether it is theirs to learn yet.
 pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
-    // The seat's own knight at a lectern (`shoppers`).
     let Some((hero, side)) = super::shoppers(run, focus)
         .map(|(_, h)| h)
         .filter(|h| h.hp > 0)
@@ -93,12 +87,10 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     }
     let holding = ready && prowess.next().is_some();
     if holding {
-        // A row for the hold's bar.
         lines.push((String::new(), 'h'));
     }
     let mut board = home::board(&lines);
     if holding {
-        // The hold, filling under its words.
         let bar_w = 40;
         let (bx, by) = ((board.w - bar_w) / 2, board.h - 8);
         let fill = (hero.buying.min(BUY_HOLD) * (bar_w as u32 - 2) / BUY_HOLD) as i32;
@@ -110,7 +102,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     cv.stamp(&board, x, y);
 }
 
-/// A lectern: a book open on a stand.
 const LECTERN: [&str; 9] = [
     ".TTTTTTTT.",
     "TccccTcccT",
@@ -123,7 +114,6 @@ const LECTERN: [&str; 9] = [
     "..bbbbbb..",
 ];
 
-/// Sir Ector: white-bearded, in mail and leather, his staff beside him.
 pub(super) const ECTOR: [&str; 17] = [
     "....HHHH.......",
     "...HiiiiH......",

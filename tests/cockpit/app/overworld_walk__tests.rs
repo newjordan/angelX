@@ -159,7 +159,6 @@ fn miniviz_only_rendered_dungeon_sprite_opens_gate_menu() {
     let cx = gate.tx * TILE + gate.tw * TILE / 2;
     let cy = (gate.ty + gate.th) * TILE - 15;
     app.realm.world.delve_called = true;
-    // A pre-existing run makes the gate resumable without waiting for travel.
     app.start_shooter(None);
     app.collapse_dungeon();
     app.realm.dungeon.intro = None;

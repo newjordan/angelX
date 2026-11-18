@@ -53,26 +53,18 @@ use std::collections::{HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
 use std::sync::Mutex;
 
-/// Per-process bound on distinct paths retained for stale-tag recovery.
 const SNAP_MAX_PATHS: usize = 48;
-/// Versions kept per path (oldest dropped first). Enough for a short edit chain.
 const SNAP_MAX_VERSIONS: usize = 6;
 
-/// One observed whole-file version, keyed by its content tag.
 #[derive(Debug, Clone)]
 struct Snapshot {
     text: String,
     tag: String,
 }
 
-/// Session-scoped store of full-file versions the model has actually seen
-/// (via `read_file` / successful writes). Stale hashline tags resolve back to
-/// these texts so recovery can remap anchors onto the live file.
 #[derive(Default)]
 struct SnapshotStore {
-    /// Path → ring of versions (front = newest).
     by_path: HashMap<String, VecDeque<Snapshot>>,
-    /// Recency list of paths (front = newest); enforces `SNAP_MAX_PATHS`.
     order: VecDeque<String>,
 }
 
@@ -92,7 +84,6 @@ impl SnapshotStore {
         let tag = content_tag(&normalised);
         self.touch_path(path);
         let ring = self.by_path.entry(path.to_string()).or_default();
-        // Fuse identical content: refresh to front, reuse tag.
         if let Some(pos) = ring
             .iter()
             .position(|s| s.tag == tag && s.text == normalised)
@@ -149,19 +140,14 @@ fn snapshot_store() -> std::sync::MutexGuard<'static, SnapshotStore> {
     }
 }
 
-/// Record a whole-file version the model has observed. Returns the content tag
-/// (same as [`content_tag`]). Call after successful reads and writes so a later
-/// stale hashline patch can recover.
 pub(crate) fn record_snapshot(path: &str, text: &str) -> String {
     snapshot_store().record(path, text)
 }
 
-/// Drop retained versions for `path` (after REM, or when deliberately forgetting).
 pub(crate) fn invalidate_snapshot(path: &str) {
     snapshot_store().invalidate(path);
 }
 
-/// Move retained history from `from` to `to` after a successful MV.
 pub(crate) fn relocate_snapshot(from: &str, to: &str) {
     snapshot_store().relocate(from, to);
 }
@@ -170,17 +156,10 @@ fn lookup_snapshot(path: &str, tag: &str) -> Option<String> {
     snapshot_store().by_hash(path, tag).map(str::to_string)
 }
 
-/// Short content tag for a file: the low 32 bits of a hash over the file's
-/// newline-normalised text, as 8 lowercase hex chars. Any real edit flips it;
-/// its only job is to notice the file changed under the model, so a short tag is
-/// enough (and keeps the header the model must echo tiny).
 pub(crate) fn content_tag(text: &str) -> String {
     let normalised = normalise_newlines(text);
     let mut hasher = DefaultHasher::new();
     normalised.hash(&mut hasher);
-    // Low 32 bits → 8 hex. DefaultHasher isn't stable across Rust versions, but
-    // the tag is only ever compared within one process against a file we just
-    // read, so cross-version stability is irrelevant.
     format!("{:08x}", (hasher.finish() & 0xffff_ffff) as u32)
 }
 
@@ -188,9 +167,6 @@ fn normalise_newlines(text: &str) -> String {
     text.replace("\r\n", "\n").replace('\r', "\n")
 }
 
-/// Whether `patch` looks like a hashline patch (vs a freeform/unified diff), so
-/// the dispatcher can route it. We require the Begin/End envelope plus at least
-/// one `[path#tag]` section header, which the other formats never carry.
 pub(crate) fn looks_like_hashline(patch: &str) -> bool {
     let mut saw_begin = false;
     let mut saw_section = false;
@@ -205,11 +181,8 @@ pub(crate) fn looks_like_hashline(patch: &str) -> bool {
     saw_begin && saw_section
 }
 
-/// If `line` is a `[PATH#TAG]` header, return `(path, tag)`.
 fn is_section_header(line: &str) -> Option<(&str, &str)> {
     let inner = line.strip_prefix('[')?.strip_suffix(']')?;
-    // TAG is the substring after the LAST '#', so paths may themselves contain
-    // '#'. TAG must be non-empty and all hex.
     let hash = inner.rfind('#')?;
     let (path, tag) = (&inner[..hash], &inner[hash + 1..]);
     if path.is_empty() || tag.is_empty() || !tag.bytes().all(|b| b.is_ascii_hexdigit()) {
@@ -220,41 +193,25 @@ fn is_section_header(line: &str) -> Option<(&str, &str)> {
 
 #[derive(Debug, Clone, PartialEq)]
 enum Op {
-    /// Replace inclusive 1-based range `start..=end` with `body`.
     Swap {
         start: usize,
         end: usize,
         body: Vec<String>,
     },
-    /// Delete inclusive 1-based range `start..=end`.
     Del { start: usize, end: usize },
-    /// Insert `body` before line `at` (1-based).
     InsPre { at: usize, body: Vec<String> },
-    /// Insert `body` after line `at` (1-based).
     InsPost { at: usize, body: Vec<String> },
-    /// Insert `body` at the very top of the file.
     InsHead { body: Vec<String> },
-    /// Insert `body` at the very bottom of the file.
     InsTail { body: Vec<String> },
-    /// Replace the multi-line construct that begins on `at`.
     SwapBlk { at: usize, body: Vec<String> },
-    /// Delete the multi-line construct that begins on `at`.
     DelBlk { at: usize },
-    /// Insert `body` after the end of the construct that begins on `at`.
     InsBlkPost { at: usize, body: Vec<String> },
 }
 
-/// Outcome of applying one hashline section — the dispatcher commits these
-/// transactionally (all-or-nothing across the patch).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum SectionPlan {
-    /// Rewrite `path` to `content` (may also be a no-op rewrite after pure MV
-    /// content transform — the move itself is separate).
     Update { path: String, content: String },
-    /// Delete `path` entirely.
     Remove { path: String },
-    /// Write final content at `to`, remove `from`. Line edits (if any) were
-    /// applied against `from` first.
     Move {
         from: String,
         to: String,
@@ -267,9 +224,7 @@ pub(crate) struct Section {
     pub(crate) path: String,
     tag: String,
     ops: Vec<Op>,
-    /// Delete the whole file. Incompatible with line ops / `move_to`.
     remove: bool,
-    /// After applying line ops (or with no line ops: pure rename), move here.
     move_to: Option<String>,
 }
 
@@ -279,11 +234,8 @@ impl Section {
     }
 }
 
-/// Parse a hashline patch into its file sections. Returns a human-readable error
-/// on any malformed header, op, or body row so the model can self-correct.
 pub(crate) fn parse(patch: &str) -> Result<Vec<Section>, String> {
     let mut lines = patch.lines().peekable();
-    // Skip to the Begin marker (tolerate leading prose/fences the model added).
     let mut started = false;
     for line in lines.by_ref() {
         if line.trim() == "*** Begin Patch" {
@@ -320,7 +272,6 @@ pub(crate) fn parse(patch: &str) -> Result<Vec<Section>, String> {
             });
             continue;
         }
-        // Blank line between ops is harmless.
         if trimmed.trim().is_empty() {
             continue;
         }
@@ -352,7 +303,6 @@ pub(crate) fn parse(patch: &str) -> Result<Vec<Section>, String> {
             if dest.is_empty() {
                 return Err(format!("hashline: {}: empty MV destination", section.path));
             }
-            // Quoted destinations (spaces) — strip one pair of matching quotes.
             let dest = unquote_path(dest)?;
             if section.remove {
                 return Err(format!(
@@ -372,8 +322,6 @@ pub(crate) fn parse(patch: &str) -> Result<Vec<Section>, String> {
                 section.path
             ));
         }
-        // Op headers introduce an operation; a `+` body row is consumed by the
-        // op parser via the shared `lines` iterator.
         let op = parse_op(head, &mut lines)?;
         section.ops.push(op);
     }
@@ -404,8 +352,6 @@ fn finalize(sections: Vec<Section>) -> Result<Vec<Section>, String> {
     Ok(sections)
 }
 
-/// Collect the following `+`-prefixed body rows until a non-body line. The
-/// iterator is left positioned so the caller's loop sees that next line.
 fn take_body<'a, I>(lines: &mut std::iter::Peekable<I>) -> Vec<String>
 where
     I: Iterator<Item = &'a str>,
@@ -417,8 +363,6 @@ where
             body.push(rest.to_string());
             lines.next();
         } else if t.trim().is_empty() {
-            // A blank physical line inside a body is ambiguous; treat it as the
-            // body's end (use a bare `+` for an intentional blank row).
             break;
         } else {
             break;
@@ -427,7 +371,6 @@ where
     body
 }
 
-/// Parse `A` or `A.=B` into an inclusive 1-based `(start, end)`.
 fn parse_range(spec: &str) -> Result<(usize, usize), String> {
     let spec = spec.trim();
     if let Some((a, b)) = spec.split_once(".=") {
@@ -460,7 +403,6 @@ fn parse_op<'a, I>(head: &str, lines: &mut std::iter::Peekable<I>) -> Result<Op,
 where
     I: Iterator<Item = &'a str>,
 {
-    // Op headers optionally end in ':' to introduce a body.
     if let Some(rest) = head.strip_prefix("SWAP.BLK ") {
         let at = parse_lid(rest.trim().trim_end_matches(':'))?;
         let body = take_body(lines);
@@ -506,27 +448,17 @@ where
     Err(format!("hashline: unrecognised op `{head}`"))
 }
 
-/// Apply a section against live file content and produce a [`SectionPlan`].
-/// Outcome of planning one section, with an optional recovery note when the
-/// live file drifted but anchors remapped cleanly onto it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PlanOutcome {
     pub(crate) plan: SectionPlan,
-    /// Set when the patch tag was stale and session snapshot recovery remapped
-    /// anchors onto the live file. Surfaced on the apply receipt.
     pub(crate) recovery_note: Option<String>,
 }
 
-/// Verifies the section tag (stale-patch guard) before any transform. When the
-/// tag is stale but a session snapshot still holds the version the model read,
-/// attempts line-map recovery (fail closed on ambiguity).
 #[cfg(test)]
 pub(crate) fn plan_section(current: &str, section: &Section) -> Result<SectionPlan, String> {
     Ok(plan_section_detailed(current, section)?.plan)
 }
 
-/// Like [`plan_section`], but also returns a recovery note when stale-tag
-/// recovery succeeded so the dispatcher can surface it on the receipt.
 pub(crate) fn plan_section_detailed(
     current: &str,
     section: &Section,
@@ -540,8 +472,6 @@ pub(crate) fn plan_section_detailed(
         base_text = current.to_string();
         work_section = section.clone();
     } else if section.remove {
-        // REM on a drifted file is too dangerous to auto-recover — the model
-        // may have intended to delete a different revision.
         return Err(format!(
             "hashline: stale patch for {} — file tag is #{live} but the patch was written \
              against #{}.\n{}",
@@ -586,7 +516,6 @@ pub(crate) fn plan_section_detailed(
     }
 
     let content = if work_section.ops.is_empty() {
-        // Pure MV — content is unchanged.
         base_text
     } else {
         apply_line_ops(&base_text, &work_section)?
@@ -618,18 +547,13 @@ pub(crate) fn plan_section_detailed(
     })
 }
 
-/// Build a map of unchanged 1-based lines from `prev` → `curr` via LCS of lines,
-/// then remap every op anchor. All anchors must share one consistent offset and
-/// the anchored line text must still match — fail closed otherwise.
 fn try_recover_ops(
     snapshot: &str,
     live: &str,
     section: &Section,
 ) -> Result<(Section, String), String> {
     if section.ops.is_empty() && section.move_to.is_some() {
-        // Pure rename: content is whatever is live; no anchors to remap.
         let mut remapped = section.clone();
-        // Force the section tag to match live so apply_line_ops path is unused.
         remapped.tag = content_tag(live);
         return Ok((
             remapped,
@@ -654,8 +578,6 @@ fn try_recover_ops(
             .get(&line)
             .copied()
             .ok_or_else(|| format!("anchor line {line} was deleted or changed in the live file"))?;
-        // Anchored text must still match (line map only tracks equal lines, so
-        // this is a belt-and-braces check).
         if prev_lines.get(line - 1) != curr_lines.get(mapped - 1) {
             return Err(format!("anchor line {line} text diverged"));
         }
@@ -718,7 +640,6 @@ fn try_recover_ops(
     }
 
     if offsets.is_empty() {
-        // Only head/tail inserts — safe to apply on live as-is.
     } else {
         let first = offsets[0];
         if !offsets.iter().all(|o| *o == first) {
@@ -740,13 +661,9 @@ fn try_recover_ops(
     Ok((remapped, note))
 }
 
-/// Longest common subsequence of equal lines → map of 1-based prev line → curr.
-/// O(n·m) on line counts; fine for the hashline annotate ceiling (~512 KiB).
 fn build_line_map(prev: &[&str], curr: &[&str]) -> HashMap<usize, usize> {
     let n = prev.len();
     let m = curr.len();
-    // Classic LCS DP with pair backtrack. Cap pathological blow-ups: if both
-    // sides are huge, fall back to a greedy sequential match.
     const DP_CAP: usize = 4_000;
     if n == 0 || m == 0 {
         return HashMap::new();
@@ -797,14 +714,10 @@ fn greedy_line_map(prev: &[&str], curr: &[&str]) -> HashMap<usize, usize> {
     map
 }
 
-/// Apply a section's line ops to `current` file content. Preserves the file's
-/// dominant line ending and trailing-newline convention.
 fn apply_line_ops(current: &str, section: &Section) -> Result<String, String> {
     let uses_crlf = current.contains("\r\n");
     let had_trailing_newline = current.ends_with('\n');
     let normalised = normalise_newlines(current);
-    // `lines()` drops a trailing empty element for a trailing '\n'; that's the
-    // behaviour we want (line count = content lines).
     let orig: Vec<&str> = normalised.lines().collect();
     let n = orig.len();
 
@@ -822,14 +735,6 @@ fn apply_line_ops(current: &str, section: &Section) -> Result<String, String> {
     Ok(result)
 }
 
-/// Resolve a multi-line construct beginning on 1-based line `at`.
-///
-/// Heuristics (first match wins):
-/// 1. Markdown heading (`#`…`######`) → section until next same-or-higher heading
-/// 2. Unmatched `{`/`[`/`(` on the opener line → brace-matched closer
-/// 3. Indent block → take consecutive lines deeper-indented than the opener
-///
-/// Single-line constructs are rejected so the model uses plain SWAP/DEL/INS.
 pub(crate) fn resolve_block(lines: &[&str], at: usize) -> Result<(usize, usize), String> {
     let n = lines.len();
     if at < 1 || at > n {
@@ -893,7 +798,6 @@ fn markdown_heading_level(line: &str) -> Option<usize> {
     if !(1..=6).contains(&level) {
         return None;
     }
-    // Must be `# ` or bare `#` with rest of line, not `#!` shebang-ish.
     let rest = &trimmed[level..];
     if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
         Some(level)
@@ -902,10 +806,6 @@ fn markdown_heading_level(line: &str) -> Option<usize> {
     }
 }
 
-/// Brace-match from the first `{` on or after line `at`. Only curly braces
-/// define a multi-line block — parentheses in `fn foo()` / `def bar():` must
-/// not count as a same-line open/close (that would reject every function
-/// header before indent resolution can run).
 fn match_brace_block(lines: &[&str], at: usize) -> Option<usize> {
     let n = lines.len();
     let mut depth: i32 = 0;
@@ -931,9 +831,6 @@ fn match_brace_block(lines: &[&str], at: usize) -> Option<usize> {
     None
 }
 
-/// Yield structural code characters, skipping string/char literals and
-/// line comments (`//`, `#` for Python-ish). Not a full lexer — good enough to
-/// not trip on braces inside strings for the common case.
 fn scan_code_chars(line: &str) -> impl Iterator<Item = char> + '_ {
     let mut out = Vec::new();
     let bytes = line.as_bytes();
@@ -953,14 +850,10 @@ fn scan_code_chars(line: &str) -> impl Iterator<Item = char> + '_ {
             i += 1;
             continue;
         }
-        // Line comments.
         if b == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'/' {
             break;
         }
         if b == b'#' && !line.trim_start().starts_with("#!") {
-            // Keep shebang-ish first-line hashes out; otherwise `#` starts a comment.
-            // Only treat as comment when it looks like Python/shell (preceded by
-            // whitespace or start), not `#[derive]` / rust attributes.
             let at_start = i == 0 || bytes[i - 1].is_ascii_whitespace();
             if at_start {
                 break;
@@ -977,19 +870,14 @@ fn scan_code_chars(line: &str) -> impl Iterator<Item = char> + '_ {
     out.into_iter()
 }
 
-/// Indent suite: opener line establishes a baseline indent; consume following
-/// blank lines and deeper-indented lines until a non-blank line at ≤ baseline.
 fn match_indent_block(lines: &[&str], at: usize) -> Option<usize> {
     let n = lines.len();
     let baseline = leading_indent(lines[at - 1]);
-    // Need at least one deeper line to count as a block.
     let mut end = at;
     let mut saw_body = false;
     for i in (at + 1)..=n {
         let line = lines[i - 1];
         if line.trim().is_empty() {
-            // Blank lines are part of the suite only once we've seen body, and
-            // only if something deeper or same-suite continues after.
             if saw_body {
                 end = i;
             }
@@ -1004,8 +892,6 @@ fn match_indent_block(lines: &[&str], at: usize) -> Option<usize> {
         }
     }
     if saw_body {
-        // Trim trailing blanks from the suite so DEL.BLK doesn't eat the
-        // separator blank before the next sibling.
         while end > at && lines[end - 1].trim().is_empty() {
             end -= 1;
         }
@@ -1023,7 +909,6 @@ fn leading_indent(line: &str) -> usize {
 }
 
 fn apply_ops(orig: &[&str], n: usize, ops: &[Op], path: &str) -> Result<Vec<String>, String> {
-    // Expand block ops into concrete line ranges first, against ORIGINAL lines.
     let mut expanded: Vec<Op> = Vec::with_capacity(ops.len());
     for op in ops {
         match op {
@@ -1053,9 +938,6 @@ fn apply_ops(orig: &[&str], n: usize, ops: &[Op], path: &str) -> Result<Vec<Stri
         }
     }
 
-    // Validate ranges and build per-line directives against ORIGINAL numbering.
-    // `claimed[i]` marks original line i (1-based) as consumed by a SWAP/DEL so
-    // overlaps are rejected rather than silently mis-applied.
     let mut claimed = vec![false; n + 2];
     let mut swap_start: Vec<Option<(usize, Vec<String>)>> = vec![None; n + 2];
     let mut del_start: Vec<Option<usize>> = vec![None; n + 2];
@@ -1111,7 +993,6 @@ fn apply_ops(orig: &[&str], n: usize, ops: &[Op], path: &str) -> Result<Vec<Stri
             }
             Op::InsHead { body } => head.extend(body.clone()),
             Op::InsTail { body } => tail.extend(body.clone()),
-            // Block ops already expanded.
             Op::SwapBlk { .. } | Op::DelBlk { .. } | Op::InsBlkPost { .. } => unreachable!(),
         }
     }

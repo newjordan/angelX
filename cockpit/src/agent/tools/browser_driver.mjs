@@ -1,7 +1,3 @@
-// angel browser driver: Chromium CDP over the global WebSocket (Node >= 22).
-// Zero npm dependencies. Protocol: one JSON command per stdin line, one JSON
-// reply per stdout line: {id, ok, result|error}. Spawned by the `browser`
-// tool with the CDP port as argv[2]; Chromium itself is owned by Rust.
 import { createInterface } from "node:readline";
 import { writeFile } from "node:fs/promises";
 

@@ -22,28 +22,19 @@ pub(crate) mod submit;
 
 use std::path::PathBuf;
 
-/// The registry angelX reads when `ANGEL_PLUGIN_REGISTRY` names no other.
 pub(crate) const DEFAULT_REGISTRY: &str =
     "https://raw.githubusercontent.com/newjordan/angelX/main/plugins/registry.toml";
-/// The repository submissions open their pull requests on.
 pub(crate) const UPSTREAM: &str = "newjordan/angelX";
-/// The registry's path inside that repository.
 pub(crate) const REGISTRY_FILE: &str = "plugins/registry.toml";
 
-/// Where plugins go and where the manager keeps its own files.
 #[derive(Clone, Debug)]
 pub(crate) struct Paths {
-    /// The folder plugins are installed into: one cartridge folder each.
     pub(crate) cartridges: PathBuf,
-    /// The registry cache and the staging area for fetches.
     pub(crate) state: PathBuf,
-    /// `ANGEL_PLUGIN_REGISTRY`, else the default: a URL or a local file.
     pub(crate) registry: String,
 }
 
 impl Paths {
-    /// `ANGEL_PLUGIN_DIR` (else `~/.angelX/cartridges`), `~/.angelX/plugins`
-    /// and `ANGEL_PLUGIN_REGISTRY` (else [`DEFAULT_REGISTRY`]).
     pub(crate) fn from_env() -> Self {
         let home = crate::platform::workspace_store::angel_dir();
         let cartridges = std::env::var_os("ANGEL_PLUGIN_DIR")
@@ -62,8 +53,6 @@ impl Paths {
         }
     }
 
-    /// Whether the cartridge loader reads [`Self::cartridges`]; with
-    /// `ANGEL_CARTRIDGES` pointing elsewhere, installed plugins would not load.
     pub(crate) fn loaded(&self) -> bool {
         let canonical = |path: &std::path::Path| path.canonicalize().unwrap_or(path.to_path_buf());
         let target = canonical(&self.cartridges);
@@ -73,7 +62,6 @@ impl Paths {
     }
 }
 
-/// A version: `MAJOR.MINOR.PATCH`, with an optional `-pre` suffix.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Version {
     numbers: [u64; 3],
@@ -123,7 +111,6 @@ impl PartialOrd for Version {
 }
 
 impl Ord for Version {
-    /// Numbers first; a pre-release comes before its release.
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.numbers
             .cmp(&other.numbers)
@@ -136,13 +123,10 @@ impl Ord for Version {
     }
 }
 
-/// This binary's version, which a plugin's `angelx` requirement is held to.
 pub(crate) fn running_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
-/// A plugin id: a lowercase word of 2 to 32 letters, digits and `-`,
-/// starting with a letter. It names the plugin's folder.
 pub(crate) fn valid_id(id: &str) -> bool {
     (2..=32).contains(&id.len())
         && id.starts_with(|c: char| c.is_ascii_lowercase())

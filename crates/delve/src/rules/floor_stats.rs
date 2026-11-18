@@ -26,18 +26,12 @@
 
 use super::*;
 
-/// Ticks of fight a wish needs on either side of it to be measured.
 pub const SETTLE: u64 = 5 * HZ as u64;
-/// Shots a knight must loose, and the hits in a hundred they must land,
-/// for their aim to be honoured.
 pub const AIMED: u32 = 20;
 pub const TRUE_AIM: u32 = 50;
-/// The most wishes a floor's tally keeps.
 const WISHES: usize = 32;
-/// Ticks a seat's plate gives the results before the floor's own title.
 pub const SHOWN: u8 = 200;
 
-/// One knight's floor.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Line {
@@ -47,36 +41,27 @@ pub struct Line {
     pub shots: u32,
     pub hits: u32,
     pub falls: u32,
-    /// Fallen friends this knight raised from their skulls.
     pub raised: u32,
     pub gold: u32,
-    /// Ticks the knight stood in a fight.
     pub fought: u32,
 }
 
 impl Line {
-    /// Hits for every hundred shots, when there were shots.
     pub fn aim(&self) -> Option<u32> {
         (self.shots > 0).then(|| (self.hits.min(self.shots) * 100 / self.shots).min(100))
     }
 }
 
-/// Wishes a knight made together, and how they fought before and since:
-/// damage dealt and ticks stood in a fight.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Wished {
     pub knight: u32,
     pub names: Vec<String>,
-    /// Over the delve before the first of them.
     pub before: (u64, u64),
-    /// From then until the knight's next wish, or the floor's end.
     pub after: (u64, u64),
 }
 
 impl Wished {
-    /// Damage dealt over the knight's old pace, and the pace's rise in
-    /// percent; nothing when either side had too little fight to tell.
     pub fn impact(&self) -> Option<(i64, i64)> {
         let ((bd, bt), (ad, at)) = (self.before, self.after);
         if bt < SETTLE || at < SETTLE || bd == 0 {
@@ -87,7 +72,6 @@ impl Wished {
         Some((ad as i64 - expected, gain))
     }
 
-    /// The wishes' names as one: "Twin Bolts", "Twin Bolts and Fork".
     pub fn name(&self) -> String {
         match self.names.as_slice() {
             [] => String::new(),
@@ -97,18 +81,13 @@ impl Wished {
     }
 }
 
-/// A floor as it is played (`Run::floor_tally`).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Tally {
-    /// The tick the floor began.
     pub began: u64,
     pub knights: BTreeMap<u32, Line>,
     pub wishes: Vec<Wished>,
-    /// Each knight's damage and ticks in a fight over the whole delve:
-    /// the pace a wish is measured against.
     pub pace: BTreeMap<u32, (u64, u64)>,
-    /// The gold each knight carried at the last tick.
     pub purse: BTreeMap<u32, u32>,
 }
 
@@ -117,8 +96,6 @@ impl Tally {
         self.knights.entry(id).or_default()
     }
 
-    /// Knight `id` was granted `name`: one with the wish before it when no
-    /// fight came between them.
     pub fn wished(&mut self, id: u32, name: &str) {
         let pace = self.pace.get(&id).copied().unwrap_or_default();
         let full = self.wishes.len() >= WISHES;
@@ -138,8 +115,6 @@ impl Tally {
         }
     }
 
-    /// A tick of the floor: what each knight dealt, and who stood in a
-    /// fight.
     pub fn count(&mut self, id: u32, dealt: u32, fighting: bool) {
         let fought = u64::from(fighting);
         let line = self.line(id);
@@ -152,32 +127,26 @@ impl Tally {
         }
     }
 
-    /// A new floor: its lines and wishes start over; the delve's pace and
-    /// the purses carry on.
     pub fn next_floor(&mut self, tick: u64) {
         self.began = tick;
         self.knights.clear();
         self.wishes.clear();
     }
 
-    /// A new delve: nothing carries over.
     pub fn new_delve(&mut self, tick: u64) {
         *self = Tally { began: tick, purse: std::mem::take(&mut self.purse), ..Tally::default() };
     }
 }
 
-/// How a floor ended.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum End {
-    /// The party took the stairs down.
     #[default]
     Cleared,
     Won,
     Fallen,
 }
 
-/// An honour, and what it is for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Honour {
@@ -202,7 +171,6 @@ impl Honour {
     }
 }
 
-/// A knight's floor on the results board.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Row {
@@ -212,69 +180,49 @@ pub struct Row {
     pub honours: Vec<Honour>,
 }
 
-/// The wish that did the most this floor.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Impact {
     pub knight: u32,
     pub name: String,
     pub wish: String,
-    /// Damage over the knight's old pace (or, unmeasured, all they dealt
-    /// with it).
     pub damage: u32,
-    /// The pace's rise in percent; none when it could not be measured.
     pub gain: Option<u32>,
 }
 
-/// A floor closed (`Run::floor_results`).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Results {
     pub depth: u32,
     pub end: End,
-    /// Ticks the floor took.
     pub ticks: u64,
     pub rows: Vec<Row>,
     pub mvp: Option<u32>,
     pub wish: Option<Impact>,
-    /// The tick the floor was closed.
     pub at: u64,
-    /// A finished run's deeds (`Run::deeds`), each an achievement's id, in
-    /// the order earned.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub deeds: Vec<String>,
-    /// Steps a finished run's verdict has stood.
     pub stood: u32,
-    /// The floor was a village of the Deep: what the party left it with.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub village: Option<Left>,
-    /// A finished run's ledger, what each knight earned in the delve, for
-    /// the road ahead (`rewards`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ledger: Option<super::rewards::Ledger>,
 }
 
-/// A village of the Deep as the party leaves it (`Results::village`): its
-/// name, how lit it is, the errands it gave and the wishes made for it.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Left {
     pub town: String,
     pub hope: u8,
     pub shines: bool,
-    /// Errands the village has asked of the realm, and how many are done.
     pub errands: u8,
     pub done: u8,
-    /// Wishes standing in the city.
     pub wishes: u8,
-    /// The newest wish made for it this visit: what was built, and for
-    /// whom.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wish: Option<(String, String)>,
 }
 
 impl Results {
-    /// The tally closed, for the party in `players`.
     pub fn of(tally: &Tally, players: &BTreeMap<u32, Hero>, depth: u32, end: End, tick: u64) -> Results {
         let mut rows: Vec<Row> = players
             .iter()
@@ -287,8 +235,6 @@ impl Results {
             })
             .collect();
         let party = rows.len();
-        // Each honour goes to whoever tops it, ties shared; the "most"
-        // honours only in a party, where there is someone to beat.
         let mut honour = |honour: Honour, value: &dyn Fn(&Line) -> Option<u64>, alone: bool| {
             if party < 2 && !alone {
                 return;
@@ -328,9 +274,6 @@ impl Results {
     }
 }
 
-/// The knight with the biggest share of the floor's kills and damage, each
-/// counted as a share of the party's, and half a share for the friends
-/// they raised; none on a floor where nobody did anything.
 fn mvp(rows: &[Row]) -> Option<u32> {
     let total = |f: fn(&Line) -> u32| rows.iter().map(|r| u64::from(f(&r.line))).sum::<u64>();
     let (kills, damage, raised) = (total(|l| l.kills), total(|l| l.damage), total(|l| l.raised));
@@ -342,9 +285,6 @@ fn mvp(rows: &[Row]) -> Option<u32> {
         .map(|s| s.3)
 }
 
-/// The floor's most impactful wish among the party in `players`: the most
-/// damage over its knight's old pace; or, when none could be measured, the
-/// one held while its knight dealt the most.
 pub fn impact(tally: &Tally, players: &BTreeMap<u32, Hero>) -> Option<Impact> {
     let name = |id: u32| players.get(&id).map_or_else(String::new, |h| h.shown_name());
     let here = || tally.wishes.iter().filter(|w| players.get(&w.knight).is_some_and(|h| !h.absent));
@@ -372,8 +312,6 @@ pub fn impact(tally: &Tally, players: &BTreeMap<u32, Hero>) -> Option<Impact> {
 }
 
 impl Run {
-    /// The floor's tick: what each knight dealt (`feel::tick_feel`), who
-    /// stood in a fight, the gold they picked up.
     pub(super) fn tally_floor(&mut self, dealt: &BTreeMap<u32, u32>) {
         if self.dungeon.depth == 0 || !self.active() {
             return;
@@ -394,14 +332,12 @@ impl Run {
         }
     }
 
-    /// The floor is behind the party: its results, for the plate.
     pub(super) fn close_floor(&mut self, end: End) {
         let mut results = Results::of(&self.floor_tally, &self.players, self.floor(), end, self.tick);
         results.village = self.leaving_village();
         self.floor_results = Some(results);
     }
 
-    /// The run is won or has fallen: the floor it ended on is closed.
     pub(super) fn close_run(&mut self) {
         if !self.over() || self.dungeon.depth == 0 {
             return;
@@ -413,7 +349,6 @@ impl Run {
         }
     }
 
-    /// A step of a finished run's verdict: its results count it.
     pub(super) fn stand_verdict(&mut self) {
         if self.over()
             && let Some(results) = self.floor_results.as_mut().filter(|r| r.end != End::Cleared)
@@ -422,25 +357,19 @@ impl Run {
         }
     }
 
-    /// How long a finished run's verdict stands with nobody asking to go
-    /// (`again`): longer when it has deeds to show.
     pub fn verdict_hold(&self) -> u32 {
         let results = self.floor_results.as_ref().filter(|r| r.end != End::Cleared);
         let deeds = results.map_or(0, |r| r.deeds.len());
-        // A run with results ends on the road ahead (`rewards`).
         let road = if results.is_some() { ROAD_HOLD } else { 0 };
         super::again::VERDICT_HOLD + if deeds > 0 { DEEDS_HOLD } else { 0 } + road
     }
 
-    /// The results a seat is shown now, and for how many ticks they have
-    /// shown: a floor's in the plate's first part, a run's at its verdict.
     pub fn results_showing(&self, seat: Option<u32>) -> Option<(&Results, u32)> {
         let results = self.floor_results.as_ref()?;
         if results.end != End::Cleared {
             if !self.over() {
                 return None;
             }
-            // The verdict stands a moment on the room before its results.
             return results.stood.checked_sub(VERDICT_FIRST).map(|age| (results, age));
         }
         let plate = self.floor_plate(seat)?;
@@ -448,11 +377,8 @@ impl Run {
     }
 }
 
-/// Ticks the verdict stands on the room before its results come up, and
-/// the longer it stands with deeds to show.
 pub const VERDICT_FIRST: u32 = 3 * HZ / 2;
 pub const DEEDS_HOLD: u32 = 8 * HZ;
-/// The longer it stands for the road ahead that ends it (`rewards`).
 pub const ROAD_HOLD: u32 = 6 * HZ;
 
 #[cfg(test)]

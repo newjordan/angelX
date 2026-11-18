@@ -104,8 +104,6 @@ fn name(s: &Session, id: u32, n: usize) -> String {
         |f| f.hero.name.to_uppercase().chars().take(n).collect(),
     )
 }
-/// How the seat `me` calls a knight: `YOU` for themselves, else the name
-/// (`KNIGHT n` for a knight who still carries the default `You`).
 fn called(s: &Session, id: u32, me: u32, n: usize) -> String {
     if id == me {
         return "YOU".into();
@@ -146,10 +144,6 @@ fn pickup(kind: Pickup) -> Img {
     }
     im
 }
-/// The seat's own eyes: the knight's height, and when they fall, a camera
-/// that sinks, looks up and turns to whoever did it; at the winning blow, a
-/// punch in.
-/// Ticks into the winning blow's moment: the freeze sweeps the first six, the play after carries on.
 fn beat(run: &Run, s: &Session) -> u32 {
     if run.hitstop.frozen() { 6 - run.hitstop.left.min(6) } else { s.ended + 6 }
 }
@@ -168,7 +162,6 @@ fn camera(run: &Run, s: &Session, f: &Fighter) -> View3 {
         }
     }
     if s.winner.is_some() {
-        // The freeze sweeps the first of the punch; the play after carries on from there.
         fov = 1.45 - 0.32 * ease::out((beat(run, s) as f32 / 18.).min(1.));
     }
     View3 { pos: v3(f.hero.x, f.hero.y, z), heading_rad: yaw, pitch, fov_rad: fov }
@@ -181,7 +174,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     let Some(id) = seat else {
         return (Img::black(384, 224), Img::new(384, 224));
     };
-    // The end: once the winning blow has had its moment, the podium owns the screen.
     if s.winner.is_some() && s.ended >= moments::FINALE {
         return (podium::scene(s, id, s.ended), Img::new(384, 224));
     }
@@ -203,7 +195,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
         24.,
         Backdrop::Dark([8, 8, 9]),
     );
-    // The crowd is up for a kill and for the last blow; a hush otherwise. Knights each stand in a small shadow.
     let fever = s
         .show
         .blows
@@ -213,7 +204,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
         .fold(if s.winner.is_some() { 1.0 } else { 0.0f32 }, f32::max)
         .clamp(0.0, 1.0);
     let feet: Vec<(f32, f32)> = s.fighters.iter().filter(|(other, f)| **other != id && f.alive()).map(|(_, f)| (f.hero.x, f.hero.y)).collect();
-    // The pit takes light from the fight: a blow's flash, a bolt in flight, a muzzle.
     let mut flashes: Vec<pit::Flash> = Vec::new();
     for b in &s.show.blows {
         let age = b.age(s.ticks);
@@ -240,7 +230,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     }
     let mut small = pit::paint(rgba.as_raw(), &depth, &view, s.ticks, fever, &feet, &flashes, 192, 90);
     world::braziers(&mut small, &depth, &view, s.ticks);
-    // A knight just slain stays a moment in one flash of light before the burst takes them.
     let dying = |who: u32| s.show.blows.iter().any(|b| b.target == who && b.weight >= crate::rules::juice::Weight::Kill && b.age(s.ticks) < 4);
     let mut actors: Vec<_> = s
         .fighters
@@ -251,8 +240,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     actors.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
     let leader = s.order().first().copied().filter(|l| s.fighters[l].kills > 0);
     for (_, other, rival) in actors {
-        // A fresh ward blinks; a struck knight stands in one light ink, squashed and
-        // knocked back along the blow, then springs home.
         if rival.protection > 0 && (s.ticks / 2) % 2 == 0 {
             continue;
         }
@@ -286,7 +273,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
                 && rival.alive()
                 && dm::sight((f.hero.x, f.hero.y), (rival.hero.x, rival.hero.y))
             {
-                // A quiet warm tab names the seat; a thin bar shows their health; the leader wears a crown.
                 word(&mut small, x - 2, y - 9, &other.to_string(), true);
                 let share = rival.hero.hp as f32 / rival.hero.max_hp.max(1) as f32;
                 small.rect(x - 7, y - 12, 14, 3, 'k');
@@ -382,7 +368,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
             90,
         );
     }
-    // The blows' weight shakes the world (not the HUD); a hit-stop's own ticks keep it alive.
     let phase = u64::from(s.ticks) * 3 + u64::from(run.hitstop.left) * 5;
     let mut shake = juice::shake(
         s.show
@@ -390,7 +375,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
             .iter()
             .filter(|b| b.owner == id || b.target == id || dm::sight((f.hero.x, f.hero.y), (b.x, b.y)))
             .map(|b| {
-                // Blows you take or land are felt in full; the rest across the arena at a third.
                 let mine = b.owner == id || b.target == id;
                 (if mine { b.weight } else { b.weight.min(crate::rules::juice::Weight::Solid) }, b.age(s.ticks) + if mine { 0 } else { 3 })
             }),
@@ -431,8 +415,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     if f.alive() {
         held(&mut im, f, s.melee.swings.iter().find(|w| w.owner == id && w.ttl > 0).map(|w| (w.combo, w.ttl)));
     }
-    // Blows: sparks where they land, a knight's end in shards and smoke, damage that
-    // rises off what you struck, and the mark at your own crosshair.
     for b in &s.show.blows {
         let age = b.age(s.ticks);
         let seen = b.target != id && dm::sight((f.hero.x, f.hero.y), (b.x, b.y));
@@ -509,7 +491,6 @@ fn held(im: &mut Img, f: &Fighter, swing: Option<(u8, u8)>) {
         return;
     }
     let h = &f.hero;
-    // What the world was where the weapon will be drawn, so only the weapon is greyed below.
     let behind: Vec<Option<[u8; 3]>> = (105..180).flat_map(|py| (130..255).map(move |px| (px, py))).map(|(px, py)| im.get(px, py)).collect();
     let bob = (f.bob.sin() * 3.) as i32;
     let kick = if f.flash > 0 { -3 } else { 0 };
@@ -534,7 +515,6 @@ fn held(im: &mut Img, f: &Fighter, swing: Option<(u8, u8)>) {
             im.set(x + dx, y + 3, [99, 97, 94]);
         }
     };
-    // Gauntlets sit below the arm; each silhouette is original pixel work.
     steel(im, x - 23, y + 14, 18, 24);
     steel(im, x + 10, y + 14, 18, 24);
     if h.arm.as_deref() == Some("flask-bandolier") {
@@ -595,7 +575,6 @@ fn held(im: &mut Img, f: &Fighter, swing: Option<(u8, u8)>) {
         let flash = enlarge(&toned(&flash), 2.);
         im.stamp(&flash, x - flash.w / 2, y - 29);
     }
-    // The held art uses the same restrained ramp as the knight sprites.
     for py in 105..180 {
         for px in 130..255 {
             if let Some(c) = im.get(px, py) {
@@ -638,7 +617,6 @@ fn held(im: &mut Img, f: &Fighter, swing: Option<(u8, u8)>) {
         im.set(192, 90 + dy, [114, 112, 108]);
     }
 }
-/// The browser's surrounding bands use the round's kit and timers too.
 pub(super) fn band(run: &Run) -> Option<Img> {
     run.deathmatch.as_ref()?;
     let mut im = Img::black(384, super::BAND_H);

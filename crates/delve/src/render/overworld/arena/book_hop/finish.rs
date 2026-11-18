@@ -17,28 +17,21 @@ use crate::rules::hop::{CROSSINGS_PER_GOLD, Hop};
 use crate::rules::hop_show::ARCHIVE_GOLD;
 use crate::rules::Run;
 
-/// Ticks the live finish plays before the scene cuts to the reading room.
 pub(super) const FINALE: u32 = 48;
-/// Ticks the reading room stands, and the ticks its iris takes to open.
 pub(super) const HALL: u32 = 270;
 const OPEN: u32 = 14;
-/// Ticks the room dissolves back into the hall at the end.
 const LEAVE: u32 = 12;
 
-/// Ticks since the minute ended, while the finish is still the show.
 pub(super) fn age(h: &Hop, now: u32) -> Option<u32> {
     h.show.since_end(now).filter(|&e| e < FINALE + HALL)
 }
 
-/// The knights by crossings, most first, ties to the lower seat.
 fn order(h: &Hop) -> Vec<u32> {
     let mut ids: Vec<u32> = h.crossings.keys().copied().collect();
     ids.sort_by_key(|id| (std::cmp::Reverse(h.crossings[id]), *id));
     ids
 }
 
-/// The live finish, `e` ticks after the last: a flash, the film's bars, the
-/// call, and the iris shutting for the reading room.
 pub(super) fn finale(led: &mut Ledger, over: &mut Img, run: &Run, h: &Hop, e: u32, focus: Option<u32>) {
     let Some(end) = h.show.ended else { return };
     if e < 8 {
@@ -71,10 +64,8 @@ pub(super) fn finale(led: &mut Ledger, over: &mut Img, run: &Run, h: &Hop, e: u3
     juice::iris(over, (NATIVE_W / 2, NATIVE_H / 2 - 10), out, 'k');
 }
 
-/// The arched window's span: left, right, top, and the foot of the glass.
 const GLASS: (i32, i32, i32, i32) = (140, 244, 10, 98);
 
-/// Whether a pixel lies in the window's arch.
 fn in_glass(x: i32, y: i32) -> bool {
     let (l, r, top, foot) = GLASS;
     if x < l || x >= r || y < top || y >= foot {
@@ -90,7 +81,6 @@ fn in_glass(x: i32, y: i32) -> bool {
     }
 }
 
-/// The night in the window: a dithered sky, a moon, stars, the roofs.
 fn night(tick: u32) -> Img {
     let (l, r, top, foot) = GLASS;
     let mut im = Img::black(NATIVE_W, foot);
@@ -127,12 +117,10 @@ fn night(tick: u32) -> Img {
     im
 }
 
-/// The reading room's wall of books, its window, and the gallery rail.
 fn room(im: &mut Img, age: u32, glass: &Img) {
     for row in 0..7 {
         set::bookcase_row(im, row * 16, NATIVE_W, 40 + row as u32, row >= 4);
     }
-    // The window: the night in an arch, gilt round it, a stone sill.
     let (l, r, top, foot) = GLASS;
     for y in top - 3..foot + 3 {
         for x in l - 3..r + 3 {
@@ -149,14 +137,12 @@ fn room(im: &mut Img, age: u32, glass: &Img) {
     }
     im.rect(l - 6, foot, r - l + 12, 6, 'u');
     im.rect(l - 6, foot, r - l + 12, 1, 'v');
-    // The gallery rail the owls stand on.
     im.rect(0, 104, NATIVE_W, 8, 'B');
     im.rect(0, 104, NATIVE_W, 1, 'o');
     im.rect(0, 111, NATIVE_W, 1, 'b');
     for x in (10..NATIVE_W).step_by(46) {
         im.rect(x, 105, 3, 7, 'p');
     }
-    // The floor: dark boards, a rug under the steps.
     for y in 112..NATIVE_H {
         for x in 0..NATIVE_W {
             let board = ((y - 112) / 6) % 2;
@@ -174,7 +160,6 @@ fn room(im: &mut Img, age: u32, glass: &Img) {
             }
         }
     }
-    // Lamps on stands at either side, flickering.
     for x in [20, NATIVE_W - 22] {
         im.rect(x, 126, 2, 40, 'g');
         im.rect(x - 4, 120, 10, 7, 'g');
@@ -191,7 +176,6 @@ fn room(im: &mut Img, age: u32, glass: &Img) {
     }
 }
 
-/// Light from above onto the winner, a dither behind the steps.
 fn spot(im: &mut Img, cx: i32, floor: i32, k: f32) {
     for y in 112..floor {
         let half = 22.0 + (y - 112) as f32 * 0.6;
@@ -204,15 +188,12 @@ fn spot(im: &mut Img, cx: i32, floor: i32, k: f32) {
     }
 }
 
-/// The reading room for a seat, `e` ticks after the minute ended.
 pub(super) fn scene(led: &mut Ledger, run: &Run, h: &Hop, e: u32, focus: Option<u32>) -> Img {
     let Some(end) = h.show.ended else { return Img::black(NATIVE_W, NATIVE_H) };
     let age = e.saturating_sub(FINALE);
     let now = run.tick as u32;
     let mut im = Img::black(NATIVE_W, NATIVE_H);
     let mut glass = night(now);
-    // Fireworks over the roofs, three launchers in turn, laid on the sky so
-    // the window clips them.
     if age >= 6 {
         let (l, r, top, foot) = GLASS;
         for (j, (x, apex, ramp)) in [(l as f32 + 24.0, top as f32 + 30.0, ramps::GOLD), ((l + r) as f32 / 2.0, top as f32 + 18.0, ramps::EMBER), (r as f32 - 24.0, top as f32 + 34.0, ramps::HOLY)].into_iter().enumerate() {
@@ -224,7 +205,6 @@ pub(super) fn scene(led: &mut Ledger, run: &Run, h: &Hop, e: u32, focus: Option<
         }
     }
     room(&mut im, age, &glass);
-    // The owls along the rail: watching, then wild once the winner is called.
     let fever = age >= 10;
     for k in 0..9 {
         let hsh = hash(k, 3, 0x61);
@@ -247,7 +227,6 @@ pub(super) fn scene(led: &mut Ledger, run: &Run, h: &Hop, e: u32, focus: Option<
             Some(Place { sprite: knights::figure(hero, id), name: called(run, id, focus, 9), line: format!("{} ACROSS", h.crossings[&id]) })
         })
         .collect();
-    // The kit draws each rank, name and score on its step: claim their boxes.
     let area = (0, 0, NATIVE_W, floor + 6);
     for stand in juice::podium_stands((NATIVE_W, NATIVE_H), area, &places) {
         if age >= stand.words_at {
@@ -257,7 +236,6 @@ pub(super) fn scene(led: &mut Ledger, run: &Run, h: &Hop, e: u32, focus: Option<
         }
     }
     let head = juice::podium(&mut im, area, &places, age);
-    // The laurel over the winner once they have stood a moment.
     if age >= 44 && rivals {
         let k = (((age - 44) as f32) / 10.0).min(1.0);
         let bob = ((age as f32 * 0.2).sin() * 1.5) as i32;
@@ -271,7 +249,6 @@ pub(super) fn scene(led: &mut Ledger, run: &Run, h: &Hop, e: u32, focus: Option<
         im.rect(x - 2, y - 10, 5, 6, '@');
         im.rect(x - 4, y - 7, 9, 3, '5');
     }
-    // Rivals below the podium, small and plain: their seat's ink and count.
     for (k, &id) in ranks.iter().enumerate().skip(3) {
         if age < 24 + k as u32 * 3 {
             continue;
@@ -282,12 +259,10 @@ pub(super) fn scene(led: &mut Ledger, run: &Run, h: &Hop, e: u32, focus: Option<
     }
     if age >= 14 {
         juice::confetti(&mut im, (0, 0, NATIVE_W, NATIVE_H), age, 9, 140);
-        // Loose pages from the shelves, drifting down among the paper.
         let mut pen = Pen::new(&mut im, 220);
         let pages = Spray { gravity: 0.011, drag: 0.025, stagger: 4.0, ..Spray::round(77, 22, (192.0, 4.0), (0.5, 2.4), (60.0, 110.0)) };
         pages.each(age as f32 - 14.0, |m| pfx::mote(&mut pen, &m, Shape::Flake, ramps::BONE, 1, now as u64));
     }
-    // The winner, big, off the top.
     if age >= 6 {
         let title = if !rivals {
             if h.crossings.values().all(|&n| n == 0) { "TIME UP".to_string() } else { "WELL HOPPED".to_string() }
@@ -299,7 +274,6 @@ pub(super) fn scene(led: &mut Ledger, run: &Run, h: &Hop, e: u32, focus: Option<
         let sub = if end.waves > 0 { format!("ARCHIVE LIT {}", end.waves) } else { format!("{} ACROSS", h.show.team) };
         led.banner(&mut im, "winner", 14, &title, &sub, age - 6, 64, Tone::Warm, 3);
     }
-    // What the seat looking takes home, counting up; and the table's tally.
     if age >= 24 {
         let mine = focus.and_then(|id| h.crossings.get(&id).map(|&n| (id, n)));
         let gold = mine.map_or(0, |(id, n)| {
@@ -310,7 +284,6 @@ pub(super) fn scene(led: &mut Ledger, run: &Run, h: &Hop, e: u32, focus: Option<
     }
     if age >= 30 {
         led.small(&mut im, "table", 6, 203, &format!("TABLE {} ACROSS", h.show.team), 'o');
-        // A reason to go again: light the archive (once more).
         let hook = if end.waves == 0 { "LIGHT THE ARCHIVE".to_string() } else { format!("LIGHT IT {} TIMES", end.waves + 1) };
         led.small(&mut im, "again", 6, 212, &hook, 'h');
         let fresh = end.most > end.was;
@@ -322,10 +295,8 @@ pub(super) fn scene(led: &mut Ledger, run: &Run, h: &Hop, e: u32, focus: Option<
             led.small(&mut im, "pot line", NATIVE_W - 6 - text_width(line), 212, line, 'h');
         }
     }
-    // The way home: a thin bar filling along the bottom edge.
     let filled = (NATIVE_W as u32 * age.min(HALL) / HALL) as i32;
     im.rect(0, NATIVE_H - 1, filled, 1, 'o');
-    // The iris opening from the finale's black, and the room dissolving at the end.
     juice::iris(&mut im, (NATIVE_W / 2, 100), 1.0 - ((e as f32 - FINALE as f32) / OPEN as f32).clamp(0.0, 1.0), 'k');
     let left = FINALE + HALL - e;
     if left < LEAVE {

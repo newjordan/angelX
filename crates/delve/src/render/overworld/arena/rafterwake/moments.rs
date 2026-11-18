@@ -11,23 +11,15 @@ use crate::rules::rafterwake::{
     show::{Cry, Kind},
 };
 
-/// The title card holds this many ticks of the countdown, then three beats of `BEAT`.
 pub(super) const TITLE: u32 = 36;
 pub(super) const BEAT: u32 = 24;
-/// Ticks the GO shows after the start.
 pub(super) const GO: u32 = 28;
-/// Ticks a table's call and a mark's banner stay up.
 const CALL: u32 = 56;
-/// Ticks a number hangs over a struck keeper.
 pub(super) const POP: u32 = 30;
-/// The banner's top row at rest, in window rows.
 pub(super) const BANNER_Y: i32 = 18;
-/// The centre of the countdown's digits and of the GO, in window pixels, and the box they claim.
 pub(super) const COUNT_AT: (i32, i32) = (139, 66);
 const COUNT_BOX: Rect = (WIN.0 + 139 - 88, WIN.1 + 66 - 58, 176, 116);
 
-/// The pixels the kit's `banner` marks on the window, `age` ticks in: the rails, the words and the
-/// line under them, as one box in window pixels.
 pub(super) fn banner_rect(w: i32, y: i32, title: &str, sub: &str, age: u32, cap: i32) -> Rect {
     let tw = text_width(title).max(1);
     let rest = ((w - 24) / tw).clamp(1, cap.max(1));
@@ -48,7 +40,6 @@ pub(super) fn banner_rect(w: i32, y: i32, title: &str, sub: &str, age: u32, cap:
     (x0, y0, x1 - x0, y1 - y0)
 }
 
-/// A banner on show.
 #[derive(Clone, Debug)]
 pub(super) struct Banner {
     pub title: String,
@@ -58,26 +49,20 @@ pub(super) struct Banner {
     pub life: u32,
     pub cap: i32,
     pub rank: u8,
-    /// Whose moment it calls, if one knight's.
     pub who: Option<u32>,
-    /// Its box on the screen.
     pub rect: Rect,
 }
 
-/// A number over a struck keeper.
 #[derive(Clone, Debug)]
 pub(super) struct Pop {
     pub text: String,
-    /// Where it started, in window pixels.
     pub at: (i32, i32),
     pub age: u32,
     pub scale: i32,
     pub ink: char,
-    /// Its box on the screen now.
     pub rect: Rect,
 }
 
-/// One beat of the countdown, or the GO.
 #[derive(Clone, Debug)]
 pub(super) struct Count {
     pub label: &'static str,
@@ -86,10 +71,8 @@ pub(super) struct Count {
     pub go: bool,
 }
 
-/// Everything the moments put on the screen at one tick.
 #[derive(Clone, Debug, Default)]
 pub(super) struct Plan {
-    /// Every line the pen writes on the screen, the fixed words and the admitted dynamic ones.
     pub words: Vec<Word>,
     pub banner: Option<Banner>,
     pub pops: Vec<Pop>,
@@ -97,7 +80,6 @@ pub(super) struct Plan {
 }
 
 impl Plan {
-    /// Every box the plan claims, with a name for it.
     pub fn claims(&self) -> Vec<(String, Rect, Option<u32>)> {
         let mut out: Vec<_> = self.words.iter().map(|w| (format!("{} {:?}", w.kind, w.text), w.rect(), w.who)).collect();
         if let Some(b) = &self.banner {
@@ -120,7 +102,6 @@ fn banner_of(title: String, sub: String, tone: Tone, age: u32, life: u32, cap: i
     })
 }
 
-/// The loudest banner alive on `v`'s screen.
 fn banner(v: &View) -> Option<Banner> {
     let (s, d, now, me) = (v.s, v.d, v.now, v.me);
     let elapsed = v.elapsed();
@@ -170,12 +151,10 @@ fn banner(v: &View) -> Option<Banner> {
     all.into_iter().max_by_key(|b| (b.rank, u32::MAX - b.age))
 }
 
-/// A point of the tower in window pixels.
 pub(super) fn at_win(v: &View, x: i32, y: i32) -> (i32, i32) {
     (x + hud::PAD, y - v.cam())
 }
 
-/// The numbers over a struck keeper, placed where they meet nothing claimed.
 fn pops(v: &View, taken: &[Rect]) -> Vec<Pop> {
     let mut out: Vec<Pop> = Vec::new();
     for m in &v.d.show.marks {
@@ -197,8 +176,6 @@ fn pops(v: &View, taken: &[Rect]) -> Vec<Pop> {
     out
 }
 
-/// Where each knight stands in the line-up before the start, in tower pixels: the viewer where
-/// the round begins, the rest in a row beside them, by seat.
 pub(super) fn lineup(v: &View, id: u32) -> i32 {
     if id == v.me {
         return v.d.x / Q;
@@ -207,8 +184,6 @@ pub(super) fn lineup(v: &View, id: u32) -> i32 {
     v.d.x / Q + 30 * slot
 }
 
-/// How far a rival's picture is still on its way from the line-up to its real place, in tower
-/// pixels, `age` ticks into the round (it runs in over the first second).
 pub(super) fn arriving(v: &View, id: u32) -> i32 {
     let el = v.elapsed();
     if id == v.me || v.intro().is_none() && el >= 30 {
@@ -218,8 +193,6 @@ pub(super) fn arriving(v: &View, id: u32) -> i32 {
     ((lineup(v, id) - v.s.lanes[&id].x / Q) as f32 * k) as i32
 }
 
-/// Name tags for the knights in view (and the viewer's own `YOU`), most near the viewer first,
-/// each only where it meets nothing claimed.
 fn tags(v: &View, taken: &mut Vec<Rect>) -> Vec<Word> {
     let mut out = Vec::new();
     let cam = v.cam();
@@ -237,7 +210,6 @@ fn tags(v: &View, taken: &mut Vec<Rect>) -> Vec<Word> {
         let name = v.name(id, 8);
         let w = text_width(&name) + 4;
         let (x, y) = if intro {
-            // Under the line-up, two rows so neighbours never meet.
             let (sx, _) = at_win(v, lineup(v, id), 0);
             row += 1;
             (sx - w / 2, WIN.1 + (lane.y / Q - cam) + 8 + (row % 2) * 11)
@@ -257,7 +229,6 @@ fn tags(v: &View, taken: &mut Vec<Rect>) -> Vec<Word> {
     out
 }
 
-/// The countdown beat showing, if any.
 fn count(v: &View) -> Option<Count> {
     if let Some(t) = v.intro() {
         let beat = t.checked_sub(TITLE)? / BEAT;
@@ -268,7 +239,6 @@ fn count(v: &View) -> Option<Count> {
     (el < GO).then_some(Count { label: "GO", age: el, life: GO, go: true })
 }
 
-/// The chain's chip: `X3` over the top left of the window while the landings run.
 fn chip(v: &View) -> Option<Word> {
     let d = v.d;
     (d.chain >= 2 && d.down == 0 && v.intro().is_none()).then(|| {
@@ -277,7 +247,6 @@ fn chip(v: &View) -> Option<Word> {
     })
 }
 
-/// Everything the moments put on `v`'s screen now.
 pub(super) fn plan(v: &View) -> Plan {
     let mut words = hud::fixed_words(v);
     let mut taken: Vec<Rect> = Vec::new();
@@ -301,8 +270,6 @@ pub(super) fn plan(v: &View) -> Plan {
     Plan { words, banner, pops, count }
 }
 
-/// Paint what the plan calls for onto the window overlay (window pixels): the banner, the numbers,
-/// the countdown. The pen's words are painted by the caller, in screen pixels.
 pub(super) fn paint(over: &mut Img, plan: &Plan) {
     if let Some(c) = &plan.count {
         juice::countdown(over, COUNT_AT, c.label, c.age, c.life, c.go);

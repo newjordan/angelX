@@ -14,8 +14,6 @@ use serde::{Deserialize, Serialize};
 const MAX_SOURCE_BYTES: usize = 64 * 1024;
 const MAX_PAGE_BYTES: usize = 4096;
 const SCHEMA: &str = "angel.book-catalog/v1";
-// Frozen v1 route/page shape. Future additive TOC changes require a new
-// snapshot schema and their own frozen shape; retain this one for old sessions.
 const V1_SHAPE: &str = r#"{"⠄":{"⠁":7,"⠃":3,"⠉":3,"⠊":3,"⠋":4,"⠑":3,"⠓":3,"⠙":6,"⠚":5,"⠛":6},"⠅":{"⠁":10,"⠃":4,"⠉":3,"⠊":0,"⠋":0,"⠑":0,"⠓":0,"⠙":0,"⠛":5},"⠇":{"⠁":4,"⠃":3,"⠉":4,"⠋":3,"⠑":4,"⠓":5,"⠙":0,"⠛":3},"⠈":{"⠁":3,"⠃":3,"⠉":2,"⠊":2,"⠋":3,"⠑":3,"⠓":4,"⠙":2,"⠚":5,"⠛":8},"⠌":{"⠁":2,"⠃":1,"⠉":3,"⠊":8,"⠋":5,"⠑":8,"⠓":3,"⠙":3,"⠚":6,"⠛":6},"⠍":{"⠁":6,"⠃":7,"⠉":4,"⠊":3,"⠋":3,"⠑":4,"⠓":7,"⠙":5,"⠚":9,"⠛":5},"⠎":{"⠁":0,"⠃":3,"⠉":1,"⠊":1,"⠋":4,"⠑":1,"⠓":3,"⠙":1,"⠚":1,"⠛":2},"⠏":{"⠁":4,"⠃":2,"⠉":4,"⠊":3,"⠋":1,"⠑":5,"⠓":2,"⠙":3,"⠚":5,"⠛":2},"⠐":{"⠁":4,"⠃":4,"⠉":5,"⠊":8,"⠋":2,"⠑":4,"⠓":3,"⠙":7,"⠚":4,"⠛":9},"⠕":{"⠁":2,"⠃":1,"⠉":4,"⠊":7,"⠋":2,"⠑":4,"⠓":1,"⠙":2,"⠚":6,"⠛":1},"⠗":{"⠁":4,"⠃":10,"⠉":6,"⠊":3,"⠋":1,"⠑":1,"⠓":2,"⠙":1,"⠚":7,"⠛":2},"⠘":{"⠁":6,"⠃":7,"⠉":5,"⠊":10,"⠋":5,"⠑":4,"⠓":6,"⠙":4,"⠚":10,"⠛":10},"⠜":{"⠁":3,"⠃":5,"⠉":4,"⠊":2,"⠋":1,"⠑":3,"⠓":1,"⠙":1,"⠚":5,"⠛":5},"⠝":{"⠁":3,"⠃":3,"⠉":3,"⠊":2,"⠋":6,"⠑":5,"⠓":8,"⠙":4,"⠚":1,"⠛":2},"⠞":{"⠁":2,"⠃":2,"⠉":4,"⠊":1,"⠋":10,"⠑":3,"⠓":3,"⠙":2,"⠚":1,"⠛":3},"⠟":{"⠁":0,"⠃":0,"⠉":0,"⠊":6,"⠋":0,"⠑":0,"⠓":8,"⠙":0,"⠚":3,"⠛":3},"⠠":{"⠁":4,"⠃":7,"⠉":8,"⠊":9,"⠋":7,"⠑":6,"⠓":9,"⠙":8,"⠚":9,"⠛":7},"⠡":{"⠁":6,"⠃":7,"⠉":5,"⠊":4,"⠋":4,"⠑":5,"⠓":3,"⠙":3,"⠚":3,"⠛":2},"⠣":{"⠁":1,"⠃":7,"⠉":9,"⠋":1,"⠑":9,"⠙":3,"⠛":4},"⠥":{"⠁":2,"⠃":2,"⠉":3,"⠊":4,"⠋":1,"⠑":1,"⠓":2,"⠙":1,"⠚":2,"⠛":2},"⠧":{"⠁":3,"⠃":4,"⠉":0,"⠊":2,"⠋":5,"⠑":4,"⠓":0,"⠙":5,"⠚":3,"⠛":5},"⠨":{"⠁":3,"⠃":10,"⠉":8,"⠊":6,"⠋":3,"⠑":9,"⠓":7,"⠙":6,"⠚":4,"⠛":2},"⠩":{"⠁":10,"⠃":4,"⠉":4,"⠊":10,"⠋":4,"⠑":9,"⠓":10,"⠙":8,"⠚":2,"⠛":5},"⠪":{"⠁":1,"⠃":1,"⠉":1,"⠊":8,"⠋":7,"⠑":1,"⠓":5,"⠙":1,"⠚":10,"⠛":2},"⠫":{"⠁":5,"⠃":2,"⠉":4,"⠊":8,"⠋":5,"⠑":5,"⠓":6,"⠙":10,"⠚":7,"⠛":5},"⠬":{"⠁":6,"⠃":8,"⠉":2,"⠊":2,"⠋":7,"⠑":4,"⠓":4,"⠙":5,"⠚":2,"⠛":9},"⠭":{"⠁":4,"⠃":2,"⠉":3,"⠊":9,"⠋":0,"⠑":2,"⠓":4,"⠙":2,"⠚":1,"⠛":2},"⠮":{"⠁":6,"⠃":6,"⠉":6,"⠋":2,"⠑":2,"⠓":2,"⠙":1,"⠛":2},"⠯":{"⠁":4,"⠃":5,"⠉":1,"⠋":1,"⠑":1,"⠙":3,"⠛":2},"⠰":{"⠁":4,"⠃":7,"⠉":10,"⠊":5,"⠋":9,"⠑":9,"⠓":5,"⠙":10,"⠚":4,"⠛":10},"⠱":{"⠁":6,"⠃":6,"⠉":3,"⠊":3,"⠋":6,"⠑":2,"⠓":1,"⠙":4,"⠚":7,"⠛":1},"⠳":{"⠁":4,"⠃":4,"⠉":1,"⠊":8,"⠋":2,"⠑":1,"⠓":3,"⠙":4,"⠚":1,"⠛":1},"⠵":{"⠁":1,"⠃":1,"⠉":2,"⠊":1,"⠋":5,"⠑":1,"⠓":3,"⠙":3,"⠚":3,"⠛":1},"⠷":{"⠁":2,"⠃":5,"⠉":4,"⠋":1,"⠑":6,"⠙":3},"⠸":{"⠁":5,"⠃":7,"⠉":2,"⠊":4,"⠋":7,"⠑":9,"⠓":3,"⠙":7,"⠚":7,"⠛":3},"⠹":{"⠁":4,"⠃":10,"⠉":8,"⠊":2,"⠋":10,"⠑":10,"⠓":4,"⠙":3,"⠚":10,"⠛":4},"⠺":{"⠁":4,"⠃":3,"⠉":2,"⠊":1,"⠋":1,"⠑":2,"⠓":0,"⠙":4,"⠚":2,"⠛":0},"⠻":{"⠁":7,"⠃":3,"⠉":2,"⠊":3,"⠋":1,"⠑":3,"⠓":2,"⠙":4,"⠚":6,"⠛":1},"⠽":{"⠁":7,"⠃":10,"⠉":5,"⠋":9,"⠑":5,"⠙":6,"⠛":10},"⠾":{"⠁":9,"⠃":4,"⠉":1,"⠋":6,"⠑":4,"⠙":1,"⠛":1},"⡅":{"⠁":4,"⠃":3,"⠉":4},"⡌":{"⠁":4,"⠃":1,"⠉":1,"⠋":1,"⠑":3,"⠓":1,"⠙":1,"⠛":5},"⡞":{"⠁":2,"⠃":10,"⠉":4,"⠊":9,"⠋":4,"⠑":3,"⠓":10,"⠙":10,"⠚":8,"⠛":10},"⡨":{"⠁":7,"⠃":10,"⠉":5},"⡪":{"⠁":0,"⠃":0,"⠉":0,"⠊":0,"⠋":0,"⠑":0,"⠓":3,"⠙":0,"⠚":1,"⠛":0},"⡫":{"⠁":0,"⠃":0,"⠉":0,"⠋":0,"⠑":0,"⠙":0,"⠛":0},"⡬":{"⠁":10,"⠃":10,"⠉":8,"⠊":9,"⠋":10,"⠑":9,"⠓":9,"⠙":9,"⠚":10,"⠛":8},"⡯":{"⠁":8,"⠃":10,"⠉":4,"⠙":7},"⡸":{"⠁":9,"⠃":9,"⠉":6,"⠋":6,"⠑":5,"⠙":3,"⠛":4},"⢞":{"⠁":10,"⠃":10,"⠉":5,"⠊":10,"⠋":10,"⠑":1,"⠓":9,"⠙":9,"⠚":3,"⠛":3},"⣞":{"⠁":10,"⠃":2,"⠉":5,"⠋":1,"⠑":6,"⠙":5,"⠛":6},"⣬":{"⠁":4,"⠃":6,"⠉":7}}"#;
 const MANIFEST_V1_SCHEMA: &str = "angel.book-source-manifest/v1";
 const MANIFEST_V2_SCHEMA: &str = "angel.book-source-manifest/v2";
@@ -89,7 +87,6 @@ pub(crate) struct Catalog {
     chapters: BTreeMap<String, BTreeMap<String, Vec<String>>>,
     #[serde(skip)]
     identity: OnceLock<String>,
-    /// In-memory turn context; excluded from the persisted book and its digest.
     #[serde(skip)]
     pub(crate) tool_generation: Option<Arc<super::super::core_catalog::Generation>>,
 }
@@ -138,7 +135,6 @@ impl Catalog {
     pub(crate) fn baseline() -> Self {
         let mut chapters = BTreeMap::new();
         for primary in super::TOC {
-            // The operator-locked advisory chapter always remains native.
             if primary.cell == super::d3456_advisories::CELL {
                 continue;
             }
@@ -171,7 +167,6 @@ impl Catalog {
         load_published(&root, &manifest)
     }
 
-    /// Select a complete generation for a new independent conversation.
     pub(crate) fn fresh() -> Result<Self, String> {
         let root = crate::platform::runtime_paths::root().join("cockpit/book");
         if entry_present(&root.join("catalog-manifest.json"))
@@ -189,7 +184,6 @@ impl Catalog {
         serde_json::to_vec(self).expect("book catalog serializes")
     }
 
-    /// Stable content identity; computed at most once per immutable generation.
     pub(crate) fn identity(&self) -> &str {
         self.identity
             .get_or_init(|| crate::knowledge::cut::sha256_hex(&self.bytes()))
@@ -267,8 +261,6 @@ impl Catalog {
     }
 }
 
-// A dangling symlink, or an inaccessible entry, is an attempted bundle and
-// must reach the normal validation path instead of selecting legacy fallback.
 fn entry_present(path: &std::path::Path) -> bool {
     match std::fs::symlink_metadata(path) {
         Ok(_) => true,
@@ -357,7 +349,6 @@ fn parse_marked(
             .or_default()
             .push(page);
     }
-    // Empty sections are represented by native metadata without any records.
     for (route, pages) in expected {
         let values = routes.entry(route.clone()).or_default();
         if values.len() != pages.len() {
@@ -484,7 +475,6 @@ fn owners() -> &'static Mutex<Owners> {
     OWNERS.get_or_init(|| Mutex::new(BTreeMap::new()))
 }
 
-/// Publish an in-flight turn's catalog for UI-owned auxiliary seats.
 pub(crate) struct OwnerScope {
     owner: usize,
     token: u64,
@@ -515,15 +505,12 @@ pub(crate) fn publish_owner(owner: usize, catalog: &Arc<Catalog>) -> OwnerScope 
 pub(crate) fn for_owner(owner: usize) -> Option<Arc<Catalog>> {
     let guard = owners().lock().ok()?;
     let entries = guard.get(&owner)?;
-    // A reused cancel handle cannot identify one of two live turns. Refuse
-    // that ambiguous owner instead of giving either turn the other's book.
     if entries.len() != 1 {
         return None;
     }
     entries[0].1.upgrade()
 }
 
-/// Resolve and persist a conversation's generation before its first request.
 pub(crate) fn bind_turn(
     history: &mut [crate::agent::club::ChatMsg],
 ) -> Result<Arc<Catalog>, String> {
@@ -532,9 +519,6 @@ pub(crate) fn bind_turn(
         let bytes = super::generation_store::load(&digest)?;
         return Ok(Arc::new(Catalog::from_bytes(&bytes)?));
     }
-    // A public run_turn caller may have no durable message yet. Keep that
-    // turn on the embedded baseline; the caller marks any messages it creates
-    // as legacy before returning, so a later turn cannot switch underneath it.
     if !history.iter().any(|message| {
         matches!(
             message.role,

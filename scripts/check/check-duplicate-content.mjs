@@ -1,15 +1,4 @@
 #!/usr/bin/env node
-// Repo-wide duplicate-content guard.
-//
-// Every byte-identical pair in a repository is either a deliberate record or an
-// accident that will silently drift. This check makes the difference explicit:
-// a duplicate group passes only when a named rule states why it exists. A new,
-// unexplained duplicate fails the gate instead of accumulating unnoticed.
-//
-// Offline and dependency-free (stdlib + `git ls-files`). Exit codes:
-//   0  every duplicate group is explained by a rule
-//   1  at least one duplicate group is unexplained (or --strict and any group exists)
-//   2  the check could not run
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
@@ -18,16 +7,12 @@ import { pathToFileURL } from 'node:url'
 
 const SCRIPT = 'check-duplicate-content'
 
-// --- path matching -------------------------------------------------------
-
-/** Compile a `/`-separated glob (`**`, `*`, `?`) into an anchored RegExp. */
 export function globToRegExp(glob) {
   let out = '^'
   for (let i = 0; i < glob.length; i += 1) {
     const ch = glob[i]
     if (ch === '*') {
       if (glob[i + 1] === '*') {
-        // `**/` may match zero path segments; bare `**` matches everything.
         if (glob[i + 2] === '/') {
           out += '(?:.*/)?'
           i += 2
@@ -56,23 +41,10 @@ function asRegExp(glob) {
   return compiled.get(glob)
 }
 
-/** True when `path` (repo-relative, `/`-separated) matches any glob. */
 export function matchesAny(path, globs) {
   return globs.some((g) => asRegExp(g).test(path))
 }
 
-// --- rules ---------------------------------------------------------------
-
-// Each rule names a reason a duplicate group is allowed to exist. A group is
-// explained by the first rule whose constraints all hold.
-//
-// Constraint fields (all optional, all must hold):
-//   all_match      every member matches at least one glob
-//   some_match     at least one member matches a glob
-//   each_match     every glob has at least one matching member
-//   all_basenames  every member basename is in the list
-//   max_bytes      largest member size is at most this
-//   min_members    group has at least this many members
 export const DEFAULT_RULES = [
   {
     id: 'art-slot-kits',
@@ -243,6 +215,37 @@ export const DEFAULT_RULES = [
       ],
     ],
   },
+  {
+    id: 'cartridge-example-license',
+    reason:
+      'Each example cartridge under docs/examples/cartridges is installed on its own, so it carries the repository MIT license text beside its sources.',
+    exact_paths: [
+      [
+        'LICENSE',
+        'docs/examples/cartridges/dig/LICENSE',
+        'docs/examples/cartridges/lean-kernel/LICENSE',
+        'docs/examples/cartridges/rea/LICENSE',
+      ],
+    ],
+  },
+  {
+    id: 'quick-rig-fixtures-and-samples',
+    reason:
+      'The delve quick-rig tests read their own fixture copies of the bestiary sketches so they run without tools/; tools/sprite-rig/samples/bestiary keeps the originals for the rig tool. Each tree builds and tests on its own.',
+    all_match: [
+      'crates/delve/tests/fixtures/quick-rig/**',
+      'tools/sprite-rig/samples/bestiary/*.txt',
+    ],
+    each_match: ['crates/delve/tests/fixtures/quick-rig/**'],
+  },
+  {
+    id: 'art-engine-per-world',
+    reason:
+      'The lanternward and moonfall worlds each carry the same art/engine.py beside their art, so either world regenerates its pieces without the other.',
+    exact_paths: [
+      ['crates/delve/assets/lanternward/art/engine.py', 'crates/delve/assets/moonfall/art/engine.py'],
+    ],
+  },
 ]
 
 function ruleMatches(rule, group) {
@@ -272,14 +275,10 @@ function ruleMatches(rule, group) {
   return true
 }
 
-/** First rule that explains the group, or `null` when the duplicate is unexplained. */
 export function explainGroup(group, rules = DEFAULT_RULES) {
   return rules.find((rule) => ruleMatches(rule, group)) || null
 }
 
-// --- inventory -----------------------------------------------------------
-
-/** Tracked files, repo-relative and `/`-separated. */
 export function listTrackedFiles(root) {
   const out = execFileSync('git', ['-C', root, 'ls-files', '-z'], {
     encoding: 'buffer',
@@ -295,12 +294,8 @@ export function listTrackedFiles(root) {
 
 const sha256 = (path) => createHash('sha256').update(readFileSync(path)).digest('hex')
 
-/**
- * Group tracked files by content hash. Only regular, non-symlink files count.
- * Returns groups of two or more members, largest redundant payload first.
- */
 export function findDuplicateGroups(root, files = listTrackedFiles(root)) {
-  const byHash = new Map()
+  const bySize = new Map()
   for (const rel of files) {
     const abs = resolve(root, rel)
     let stat
@@ -310,9 +305,17 @@ export function findDuplicateGroups(root, files = listTrackedFiles(root)) {
       continue
     }
     if (!stat.isFile()) continue
-    const digest = sha256(abs)
-    if (!byHash.has(digest)) byHash.set(digest, [])
-    byHash.get(digest).push({ path: rel, size: stat.size })
+    if (!bySize.has(stat.size)) bySize.set(stat.size, [])
+    bySize.get(stat.size).push({ path: rel, size: stat.size })
+  }
+  const byHash = new Map()
+  for (const members of bySize.values()) {
+    if (members.length < 2) continue
+    for (const member of members) {
+      const digest = sha256(resolve(root, member.path))
+      if (!byHash.has(digest)) byHash.set(digest, [])
+      byHash.get(digest).push(member)
+    }
   }
   const groups = []
   for (const [digest, members] of byHash) {
@@ -331,7 +334,6 @@ export function findDuplicateGroups(root, files = listTrackedFiles(root)) {
   )
 }
 
-/** Run the full inventory and classify each group. */
 export function auditDuplicateContent(root, { rules = DEFAULT_RULES, files } = {}) {
   const tracked = files || listTrackedFiles(root)
   const groups = findDuplicateGroups(root, tracked)
@@ -361,8 +363,6 @@ export function auditDuplicateContent(root, { rules = DEFAULT_RULES, files } = {
     status: unexplained.length ? 'fail' : 'pass',
   }
 }
-
-// --- cli -----------------------------------------------------------------
 
 function parseArgs(argv) {
   const opts = { root: process.cwd(), json: false, strict: false, receipt: null }

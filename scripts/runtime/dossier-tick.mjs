@@ -3,33 +3,7 @@ import { workerPaths } from './worker-paths.mjs'
 import { existsSync, realpathSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { boundedSpawnSync } from './bounded-child.mjs'
-// dossier-tick — the idle-time fact verifier (Repo Dossier D4,
-// docs/WORKERS.md).
-//
-// One headless, cron-driven tick: when the box is idle and within budget, it
-// refreshes the dossier facts from the live experience ledger, picks the
-// stalest/most-uncertain facts by EIG (proposeDossierProbe — scoreHypotheses
-// verbatim × staleness), verifies them with cheap deterministic probes, folds
-// the verdicts back through updateBeliefs, and recompiles the per-repo
-// artifacts the cockpit injects at session start (D3). The sibling of
-// reflex-tick (M5): same gate stack (kill switch, idle, daily budget,
-// lockfile, heartbeat), pointed outward at the user's repos instead of inward
-// at angel's config.
-//
-// Probe tiers:
-//   • P0 (always allowed) — side-effect-free checks: the workspace root still
-//     exists, the command's binary is still on PATH. Weak evidence for a
-//     ritual (supports at low confidence), strong when something is missing.
-//   • P1 (ANGEL_DOSSIER_PROBE_RITUALS=1, clean git tree only) — actually
-//     re-run the fact's command in its repo, bounded by a timeout. Decisive
-//     either way. Off by default: running builds unattended is a policy
-//     decision, not a default.
-//
-// Dossier facts are PERPETUAL: updateBeliefs would conclude a hypothesis at
-// confidence ≥ 0.6, but a concluded fact drops out of the scorer and would
-// never be re-probed — so after every verdict the fact is flipped back to
-// 'testing' and stamped lastVerifiedAt (which is what the compile-side decay
-// clock reads). Evidence edges accumulate; conclusions don't.
+import { spawnSync } from 'node:child_process'
 
 import {
   mineRepoFacts,
@@ -57,18 +31,21 @@ import {
   angelTtyRunning,
 } from './idle.mjs'
 
-// ─── pure probe logic ────────────────────────────────────────────────────────
-
-/** Kill switch: ANGEL_DOSSIER=0 disables the whole loop (same var as D3). */
 export function killed(env = {}) {
   return String(env.ANGEL_DOSSIER ?? '').trim() === '0'
 }
 
-// ─── CLI — the one tick ──────────────────────────────────────────────────────
+export function commandAvailable(token, cwd) {
+  if (!token) return null
+  const result = spawnSync('sh', ['-c', 'command -v "$1" >/dev/null 2>&1', 'angel-dossier-probe', token], {
+    encoding: 'utf8', timeout: 5000, maxBuffer: 4096, ...(cwd ? { cwd } : {}),
+  })
+  return result.status === 0 ? true : result.status === 1 ? false : null
+}
 
-async function cli(argv) {
+async function cli(argv, selectedGraph) {
   const fs = await import('./private-store-fs.mjs')
-  const { execFileSync, spawnSync } = await import('node:child_process')
+  const { execFileSync } = await import('node:child_process')
   const { fileURLToPath } = await import('node:url')
   const { dirname, join } = await import('node:path')
   const os = await import('node:os')
@@ -86,7 +63,7 @@ async function cli(argv) {
   const maxProbes = Number(flag('--max', '3'))
   const stateDir = flag('--state-dir', workerPaths().dossier)
   const outDir = flag('--out', process.env.ANGEL_DOSSIER_DIR || workerPaths().dossier)
-  const graphPath = flag('--graph', workerPaths().graph)
+  const graphPath = selectedGraph ?? flag('--graph', workerPaths().graph)
   const ledgerPath = flag('--ledger', process.env.ANGEL_EXPERIENCE_LOG) || workerPaths().ledger
   const cutDir = flag('--cut', process.env.ANGEL_CUT_DIR || workerPaths().cut)
   const idleMs = Number(flag('--idle-min', '15')) * 60_000
@@ -97,7 +74,7 @@ async function cli(argv) {
   const now = Date.now()
   const nowIso = new Date(now).toISOString()
   const today = nowIso.slice(0, 10)
-  fs.mkdirSync(stateDir, { recursive: true })
+  if (!dryRun) fs.mkdirSync(stateDir, { recursive: true })
   const heartbeatPath = join(stateDir, 'heartbeat.json')
   const budgetPath = join(stateDir, 'budget.json')
   const lockPath = join(stateDir, 'lock')
@@ -110,14 +87,12 @@ async function cli(argv) {
   }
   const writeHeartbeat = (hb) => fs.writeFileSync(heartbeatPath, JSON.stringify(hb, null, 2))
 
-  // ── gates (the reflex-tick stack, dossier-flavored) ──
   const isKilled = killed(process.env)
   const angelTty = angelTtyRunning(execFileSync)
   let newestLedgerMs = null
   try {
     newestLedgerMs = fs.statSync(ledgerPath).mtimeMs
   } catch {
-    /* no ledger yet */
   }
   const idle = force || isIdle({ angelTty, newestLedgerMs, now, idleMs })
   let budget = rollBudget(readJson(budgetPath, null), today, cap)
@@ -149,7 +124,6 @@ async function cli(argv) {
     return 0
   }
 
-  // ── lockfile (this state dir's heartbeat and budget; the graph has its own lease) ──
   const holder = dryRun ? null : tickLockHolder(readJson(lockPath, null), now)
   if (holder) {
     writeHeartbeat(
@@ -185,18 +159,12 @@ async function cli(argv) {
           .filter(Boolean)
       : []
 
-    // 1. Refresh facts from the live ledger (observational only).
-    // The ledger proves recurrence; The Cut carries the direct machine verdicts
-    // from source writes. The interactive miner already combines both — the
-    // unattended tick must consume the same evidence pool or the flywheel stops
-    // at the manifest and never materializes a dossier fact.
     const mined = mineRepoFacts(rows, collectManifest(cutDir))
     for (const [key, rec] of Object.entries(mined)) {
       if (onlyRepo && key !== onlyRepo) continue
       ingestRepoFacts(graph, key, rec, { now: nowIso })
     }
 
-    // 2. Probe the top-EIG stale facts, within budget.
     const { ranking } = proposeDossierProbe(graph, onlyRepo, { now: nowIso, limit: maxProbes * 2 })
     const probes = []
     for (const target of ranking) {
@@ -205,15 +173,9 @@ async function cli(argv) {
       const root = node.repoRoot
       const token = commandToken(node.factText)
       const rootExists = !!root && fs.existsSync(root)
-      let binaryFound = false
-      if (token) {
-        const which = spawnSync('which', [token], { encoding: 'utf8' })
-        binaryFound = which.status === 0
-      }
+      const binaryFound = rootExists ? commandAvailable(token, root) : null
       let verdict = p0Verdict(node, { rootExists, binaryFound })
 
-      // P1: re-run the command, only when explicitly enabled, the p0 pass
-      // found everything present, and the repo tree is clean.
       if (ritualsOn && rootExists && binaryFound) {
         const porcelain = spawnSync('git', ['-C', root, 'status', '--porcelain'], {
           encoding: 'utf8',
@@ -247,7 +209,6 @@ async function cli(argv) {
 
     if (dryRun) return 0
 
-    // 3. Persist graph, recompile touched artifacts, settle the books.
     fs.writeFileSync(graphPath, JSON.stringify(graph.serialize(), null, 2))
     fs.mkdirSync(outDir, { recursive: true })
     const touched = [...new Set([...Object.keys(mined), ...probes.map((p) => p.repoKey)])].filter(

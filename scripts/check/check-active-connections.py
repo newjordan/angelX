@@ -11,6 +11,7 @@ from pathlib import Path
 import os
 import re
 import tomllib
+from urllib.parse import unquote, urlsplit
 
 ROOTS = ('cockpit/src', 'cockpit/code-mode/src', 'cockpit/delve-cart/src', 'scripts', 'lib', 'tests', 'bin')
 SKIP = {'off-limits', 'target', 'node_modules', '__pycache__'}
@@ -60,7 +61,21 @@ def audit(root):
         else:
             targets = [(ref, kind.startswith('new')) for kind, ref in JS_REF.findall(content)]
         for target, allow_directory in targets:
-            resolved = Path(os.path.abspath(path.parent / target))
+            pathname = target
+            if path.suffix != '.rs':
+                try:
+                    pathname = urlsplit(target).path
+                    if re.search(r'%(?![0-9a-fA-F]{2})|%2[fF]', pathname):
+                        raise ValueError('invalid file URL escape')
+                    if (not allow_directory or os.name == 'nt') and re.search(r'%5[cC]', pathname):
+                        raise ValueError('encoded backslash is not a module pathname')
+                    pathname = unquote(pathname, errors='strict')
+                    if '\0' in pathname:
+                        raise ValueError('invalid URL pathname')
+                except (ValueError, UnicodeError):
+                    missing.append({'source': name, 'target': target})
+                    continue
+            resolved = Path(os.path.abspath(path.parent / pathname))
             if not safe_file(root, resolved, allow_directory):
                 missing.append({'source': name, 'target': target})
             else:

@@ -4,8 +4,6 @@ fn argv(list: &[&str]) -> Vec<String> {
     list.iter().map(|arg| arg.to_string()).collect()
 }
 
-/// One production-format read of a local fake command: a far deadline and no
-/// cancellation, exactly like a real clipboard attempt.
 fn run(program: &str, args: &[&str], limit: usize) -> ToolRead {
     read_tool(
         &ReadControl::default(),
@@ -47,13 +45,9 @@ fn missing_backend_names_the_session_and_the_install() {
     assert!(wayland.contains("wl-clipboard"), "{wayland}");
     let x11 = select_backend(false, true, false, false).unwrap_err();
     assert!(x11.contains("xclip"), "{x11}");
-    // A Wayland session without wl-paste must not silently pick a backend it
-    // cannot run, nor pretend xclip is installed.
     assert!(select_backend(true, false, false, true).is_err());
 }
 
-/// Every read names its MIME family: tool-side inference must never deliver
-/// raster bytes to the text fallback (or an HTML fragment as prose).
 #[test]
 fn every_read_names_its_mime_family() {
     for (backend, flag) in [(Backend::Wayland, "--type"), (Backend::X11, "-t")] {
@@ -232,8 +226,6 @@ fn decoded_size_ignores_base64_padding() {
     assert_eq!(decoded_bytes(&image("")), 0);
 }
 
-// ---- bounded runs against local fake commands (no clipboard) ----
-
 #[test]
 fn a_healthy_read_returns_the_tool_bytes() {
     let read = run("/bin/sh", &["-c", "printf hello"], 64);
@@ -243,9 +235,6 @@ fn a_healthy_read_returns_the_tool_bytes() {
     );
 }
 
-/// The limit is the answer even though the ended child exits non-zero: the
-/// caller must report "too large", not "tool failed" and not fall through to
-/// a text read of the same bytes.
 #[test]
 fn an_oversized_read_reports_the_limit_before_the_exit_status() {
     let payload = "x".repeat(200);
@@ -256,7 +245,6 @@ fn an_oversized_read_reports_the_limit_before_the_exit_status() {
 
 #[test]
 fn an_empty_read_is_distinct_from_a_launch_failure() {
-    // A tool that ran and offered nothing is "empty", never a partial success.
     let read = run("/bin/sh", &["-c", "exit 3"], 64);
     assert!(matches!(read, ToolRead::Empty(_)), "{read:?}");
     let missing = run("/nonexistent/angel-clipboard-tool", &[], 64);
@@ -266,8 +254,6 @@ fn an_empty_read_is_distinct_from_a_launch_failure() {
     );
 }
 
-/// A tool that exits non-zero while a descendant still holds the pipe is
-/// reported with its status, not as a partial success.
 #[test]
 fn a_tool_that_exits_nonzero_behind_a_descendant_reports_its_status() {
     let read = run("/bin/sh", &["-c", "sleep 30 & exit 3"], 64);
@@ -277,8 +263,6 @@ fn a_tool_that_exits_nonzero_behind_a_descendant_reports_its_status() {
     );
 }
 
-/// A tool that closes stdout and then keeps running must not hold the read:
-/// the answer is complete at EOF, and the tool is ended and reaped.
 #[test]
 fn a_tool_that_closes_stdout_while_alive_is_ended() {
     let control = ReadControl::default();
@@ -303,8 +287,6 @@ fn a_tool_that_closes_stdout_while_alive_is_ended() {
     );
 }
 
-/// A descendant that inherits the pipe keeps it open after the tool exits;
-/// the read must end at the tool's own exit and kill the group.
 #[test]
 fn a_descendant_holding_the_pipe_cannot_wedge_the_read() {
     let descendant_file =
@@ -351,8 +333,6 @@ fn a_descendant_holding_the_pipe_cannot_wedge_the_read() {
     assert_eq!(control.pid.load(Ordering::Acquire), 0);
 }
 
-/// Cancelling a read ends its tool immediately and reports the cancel instead
-/// of a partial answer.
 #[test]
 fn a_canceled_read_ends_its_tool() {
     let control = Arc::new(ReadControl::default());
@@ -384,8 +364,6 @@ fn a_canceled_read_ends_its_tool() {
     assert_eq!(control.pid.load(Ordering::Acquire), 0);
 }
 
-/// The production classifier, driven by local fake commands: an oversized
-/// image is reported as such and never falls back to reading text.
 #[test]
 fn an_oversized_image_is_reported_and_the_text_fallback_is_not_consulted() {
     let oversized = format!("head -c {} /dev/zero", MAX_IMAGE_ATTACHMENT_BYTES + 1);

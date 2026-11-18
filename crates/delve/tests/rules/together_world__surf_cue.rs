@@ -1,5 +1,3 @@
-// Inputs arrive after a world snapshot was painted: a gold wave is permission
-// to brace, not a prediction of the next simulation tick.
 fn shield_surfing_accepts_only_the_published_gold_wave() {
     use super::super::pastimes::{CREST_WINDOW, Surf, WAVE_LEANS, WAVE_TICKS};
     for phase in 0..WAVE_TICKS {
@@ -16,8 +14,6 @@ fn shield_surfing_accepts_only_the_published_gold_wave() {
     }
 }
 
-// Run through the established host/mirror regression entry point. All walking
-// and six-wave input comes from Run::step; no hero/round coordinates are injected.
 fn shield_surfing_walks_in_and_clears_each_last_gold_frame() {
     use super::super::pastimes::{Game, WAVE_LEANS, WAVE_TICKS};
 
@@ -56,9 +52,6 @@ fn shield_surfing_walks_in_and_clears_each_last_gold_frame() {
             assert_eq!(run.pastimes, state, "restore preserves the published crest and key latches");
             restored = true;
         }
-        // Brace on the LAST published gold frame, not the beginning of the
-        // window used by the old full-course check. Hold across wave one's
-        // boundary; the lifeguard's held F/opposite lean must not steal control.
         let last_gold = phase == WAVE_TICKS - 1;
         let held = wave == 1 && phase < 5;
         run.step(&BTreeMap::from([
@@ -100,7 +93,6 @@ fn shield_surfing_walks_in_and_clears_each_last_gold_frame() {
     assert_eq!(run.home.countryside.games.surf, records);
     assert_eq!(run.score, score + result, "holding F after the finish must not pay twice");
     assert_eq!(run.treasury, treasury, "surf practice does not create treasury gold");
-    // Retrying requires a real step off and back onto U, not a pad reset.
     walk_pastime_to(&mut run, 2, (3.0, 11.0), false);
     walk_pastime_to(&mut run, 2, Game::Surf.start(), false);
     assert_eq!(run.home.countryside.games.surf.plays, 2);

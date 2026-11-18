@@ -15,10 +15,6 @@ pub(crate) struct BackgroundTelemetry {
     pub(crate) other_ms: u128,
 }
 
-/// UTF-8 bytes of results produced in this turn, after tool-internal limits
-/// and post-write diagnostics, before the harness output cap. Prior-turn
-/// history is excluded. Retained includes replacement receipts; aged is net
-/// shrinkage in-place, dropped is initial admission loss or removed messages.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize)]
 pub(crate) struct ToolsOutput {
     pub(crate) produced_bytes: u64,
@@ -102,8 +98,6 @@ pub(crate) fn produced(id: &str, produced: u64, retained: u64) {
     CURRENT.with(|cell| {
         if let Some(meter) = cell.borrow().as_ref() {
             let mut state = meter.0.lock().unwrap_or_else(|e| e.into_inner());
-            // Pair repeated provider IDs in protocol order, retaining every
-            // result occurrence rather than overwriting an earlier call.
             state.outputs.entry(id.into()).or_default().push(retained);
             state.output.produced_bytes += produced;
             state.output.dropped_bytes += produced.saturating_sub(retained);
@@ -127,7 +121,6 @@ pub(crate) fn observe(history: &[ChatMsg]) {
                     current
                         .entry(id)
                         .or_default()
-                        // A stamp tail is the harness's, not the tool's output.
                         .push(
                             (message.content.len()
                                 - crate::agent::harness::book::ledger::tail_bytes(&message.content))
@@ -139,9 +132,6 @@ pub(crate) fn observe(history: &[ChatMsg]) {
             let mut dropped = 0;
             state.outputs.retain(|id, bytes| {
                 let now = current.get(id.as_str()).map(Vec::as_slice).unwrap_or(&[]);
-                // Context pruning/compaction removes the oldest complete
-                // protocol region. Align suffixes; any older incoming-turn
-                // history sharing an ID is outside this turn's inventory.
                 let keep = bytes.len().min(now.len());
                 let remove = bytes.len() - keep;
                 dropped += bytes.drain(..remove).sum::<u64>();

@@ -8,17 +8,12 @@ use std::collections::BTreeSet;
 use std::sync::{Mutex, OnceLock};
 
 pub const SCHEMA: u32 = 8;
-/// Shared live-session bound, including rules-only worker builds and Glass views.
 pub const MAX_TICK: u64 = 1 << 32;
-// Hide the reference syntax from serde's implicit-borrow inference: the
-// deserializer interns owned text and never borrows from the input frame.
 pub type Symbol = &'static str;
 thread_local! {
     static CAPTURING: Cell<bool> = const { Cell::new(false) };
     static RULES_ONLY: Cell<bool> = const { Cell::new(false) };
-    /// A step's capture: the book's cards go without their pictures.
     static STEP_ONLY: Cell<bool> = const { Cell::new(false) };
-    /// The book's cards are being written for a step.
     static BARE_CARDS: Cell<bool> = const { Cell::new(false) };
 }
 struct Scope(bool);
@@ -54,7 +49,6 @@ pub struct Checkpoint {
 }
 
 impl Checkpoint {
-    /// Move an already-serialized state tree into its wire envelope.
     pub fn into_value(self) -> serde_json::Value {
         serde_json::Value::Object(serde_json::Map::from_iter([
             ("schema".into(), self.schema.into()),
@@ -71,9 +65,6 @@ pub fn capture(run: &Run) -> Result<Checkpoint, String> {
     })
 }
 
-/// Rules do not consume character appearance bytes. Keep them in the host's
-/// Glass resource owner instead of sending every animation frame on each tick.
-/// Full capture/saves/wire remain complete and unchanged.
 pub fn capture_for_rules(run: &Run) -> Result<Checkpoint, String> {
     struct RulesScope(bool);
     impl Drop for RulesScope {
@@ -94,11 +85,6 @@ pub fn serialize_avatar<S: serde::Serializer>(
         avatar.serialize(serializer)
     }
 }
-/// The rules' view of a run for one step: `capture_for_rules`, and the
-/// book's cards without their pictures. No rule reads a card's art and no
-/// step changes it; at 30 steps a second it was most of what crossed to the
-/// rules worker, captured, diffed, restored and cloned every time. The host
-/// lays it back on the step's result (`lay_book_art`).
 pub fn capture_for_step(run: &Run) -> Result<Checkpoint, String> {
     struct StepScope(bool);
     impl Drop for StepScope {
@@ -110,7 +96,6 @@ pub fn capture_for_step(run: &Run) -> Result<Checkpoint, String> {
     capture_for_rules(run)
 }
 
-/// The book's cards, bare of their art in a step's capture.
 pub fn serialize_book_cards<S: serde::Serializer>(
     cards: &Vec<super::cards::Card>,
     serializer: S,
@@ -128,7 +113,6 @@ pub fn serialize_book_cards<S: serde::Serializer>(
     cards.serialize(serializer)
 }
 
-/// A card's art: none while the book is written for a step.
 pub fn serialize_card_art<S: serde::Serializer>(
     art: &Vec<String>,
     serializer: S,
@@ -140,9 +124,6 @@ pub fn serialize_card_art<S: serde::Serializer>(
     }
 }
 
-/// The host's card art back on a step's result: each bare card in `next`'s
-/// book takes the picture its card in `host`'s book has. A card the step
-/// added keeps its own.
 pub fn lay_book_art(next: &mut Run, host: &Run) {
     let art: std::collections::HashMap<&str, &Vec<String>> = host
         .book
@@ -185,8 +166,6 @@ pub fn restore(state: Checkpoint) -> Result<Run, String> {
     restore_parts(state.schema, &state.run)
 }
 
-/// Decode directly from an RPC envelope without cloning its entire JSON tree.
-/// Retain the same schema, completeness and unknown-envelope-field checks.
 pub fn restore_value(state: &serde_json::Value) -> Result<Run, String> {
     let fields = state
         .as_object()
@@ -273,8 +252,6 @@ fn restore_parts(schema: u32, state: &serde_json::Value) -> Result<Run, String> 
         return restore_parts(6, &migrated);
     }
     if schema == 6 {
-        // Epoch/definition cannot be reconstructed from today's occupants or
-        // slot catalogue. The old owner must drain its own requests first.
         if !state.get("module_casts").and_then(serde_json::Value::as_array)
             .is_some_and(Vec::is_empty)
         { return Err("schema 6 has unresolved ability requests; drain before reload".into()); }
@@ -283,8 +260,6 @@ fn restore_parts(schema: u32, state: &serde_json::Value) -> Result<Run, String> 
     if schema == 7 {
         let mut migrated = state.clone();
         let fields = migrated.as_object_mut().ok_or("invalid schema 7 Run")?;
-        // A downgraded clean envelope may contain the new neutral defaults,
-        // but an older schema must never carry live reservation state.
         if fields.get("squire_company_reserved").is_some_and(|v| v != &serde_json::Value::Bool(false))
             || fields.get("squire_company_claimed").is_some_and(|v| v != &serde_json::Value::Bool(false))
             || fields.get("squire_pending_delves").is_some_and(|v| v.as_u64() != Some(0))
@@ -309,7 +284,6 @@ fn restore_parts(schema: u32, state: &serde_json::Value) -> Result<Run, String> 
         slot.validate()?;
     }
     super::scrolls::validate_run(&run)?;
-    // Missing transient fields would otherwise take durable-save defaults.
     if !matches_shape(&run, state) {
         return Err("incomplete or incompatible Delve live checkpoint".into());
     }
@@ -396,9 +370,6 @@ impl<'a> serde::Serializer for ShapeCheck<'a> {
     fn serialize_u128(self, _: u128) -> Result<(), ShapeError> {
         self.0.is_number().then_some(()).ok_or(ShapeError)
     }
-    // JSON transport may change the last f64 bit representing an f32.
-    // Typed deserialization has already checked values; completeness is
-    // about fields, not spelling or float formatting.
     fn serialize_f32(self, v: f32) -> Result<(), ShapeError> {
         let ok = if v.is_finite() {
             self.0.is_number()
@@ -784,9 +755,6 @@ pub fn hit_ward<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
     }
 }
 
-// Rules use static IDs for sounds, feats and entrance names. Decode them once,
-// with a hard process-wide memory ceiling, rather than leaking on every tick or
-// accepting unbounded strings. Repeated snapshots reuse the same references.
 fn symbol(s: String) -> Result<&'static str, String> {
     static SYMBOLS: OnceLock<Mutex<BTreeSet<&'static str>>> = OnceLock::new();
     let mut ids = SYMBOLS
@@ -855,12 +823,10 @@ mod step_art_tests {
         let mut restored = restore_value(&step).unwrap();
         assert!(restored.book.cards.iter().all(|c| c.art.is_empty()), "a step's book is bare");
         assert_eq!(restored.book.cards.len(), run.book.cards.len());
-        // The rules' full capture (a session handed to another owner) keeps it.
         let full = restore_value(&capture_for_rules(&run).unwrap().into_value()).unwrap();
         assert_eq!(full.book.cards, run.book.cards);
         lay_book_art(&mut restored, &run);
         assert_eq!(restored.book.cards, run.book.cards, "the host's art is laid back");
-        // Outside a step's capture nothing is bare.
         let again = restore_value(&capture_for_rules(&run).unwrap().into_value()).unwrap();
         assert_eq!(again.book.cards, run.book.cards);
     }

@@ -12,7 +12,6 @@ const K: Knobs = Knobs {
     ledge: 3000,
 };
 
-/// A flat stage: `air` empty rows over a floor two rows thick of `tile`.
 fn flat_of(width: usize, air: usize, tile: &str) -> World {
     let mut rows: Vec<String> = Vec::new();
     for _ in 0..air {
@@ -28,7 +27,6 @@ fn flat(width: usize, air: usize) -> World {
     flat_of(width, air, "#")
 }
 
-/// A body, its stage and the keys it has been given.
 struct Rig {
     world: World,
     body: Body,
@@ -40,7 +38,6 @@ struct Rig {
 }
 
 impl Rig {
-    /// The body stands at `x` tiles (its left edge), feet on `floor_row`'s top.
     fn on(world: World, x: i32, floor_row: i32) -> Rig {
         Rig {
             body: Body::new(x * TILE, floor_row * TILE),
@@ -85,9 +82,6 @@ impl Rig {
     }
 }
 
-/// One jump with the key held for `hold` ticks, the run continuing (`x`)
-/// until the body is down again. Returns the rise in pixels, the ticks in
-/// the air and the distance covered.
 fn arc(r: &mut Rig, x: i8, hold: usize, crouch: usize) -> (i32, usize, i32) {
     let (x0, y0) = r.px();
     let (mut apex, mut air) = (0, 0);
@@ -103,7 +97,6 @@ fn arc(r: &mut Rig, x: i8, hold: usize, crouch: usize) -> (i32, usize, i32) {
     (apex, air, (r.px().0 - x0).abs())
 }
 
-/// The body running at top speed on a long flat stage.
 fn runner() -> Rig {
     let mut r = Rig::on(flat(260, 20), 2, 20);
     r.run(1, 40);
@@ -155,7 +148,6 @@ fn a_tapped_jump_is_short_and_a_held_one_is_tall() {
     assert!(tap >= 14, "a tap still leaves the floor by a tile: {tap}");
 }
 
-/// Ticks until the body would touch down if left alone, found on a copy.
 fn ticks_until_ground(r: &Rig) -> i32 {
     let mut b = r.body.clone();
     for n in 0..80 {
@@ -173,7 +165,6 @@ fn a_press_just_before_landing_is_kept_for_the_buffer() {
     for (early, expect) in [(1, true), (3, true), (5, true), (6, false), (9, false)] {
         let mut r = Rig::on(flat(30, 12), 5, 12);
         r.run(0, 4);
-        // A short hop, then fall; press `early` ticks before the floor.
         r.keys(0, true, false, false, false);
         r.keys(0, true, false, false, false);
         let jumps_before = r
@@ -187,7 +178,6 @@ fn a_press_just_before_landing_is_kept_for_the_buffer() {
             pressed |= press;
             r.keys(0, press, false, false, false);
             if pressed && r.body.ground {
-                // One more tick for the buffered press to act on the floor.
                 r.keys(0, false, false, false, false);
                 break;
             }
@@ -248,7 +238,6 @@ fn running_has_acceleration_and_a_skid() {
     }
     let t = to_top.expect("reaches top speed");
     assert!((14..=26).contains(&t), "top speed in {t} ticks");
-    // Reversing at speed skids, then turns.
     let mut skid_ticks = 0;
     for _ in 0..40 {
         r.keys(-1, false, false, false, false);
@@ -261,7 +250,6 @@ fn running_has_acceleration_and_a_skid() {
     }
     assert!(skid_ticks >= 3, "a skid you can see: {skid_ticks} ticks");
     assert!(r.saw(|e| matches!(e, Ev::Skid)));
-    // Letting go coasts to a stop in about half a second.
     let mut s = runner();
     let mut ticks = 0;
     while s.body.vx != 0 && ticks < 60 {
@@ -271,8 +259,6 @@ fn running_has_acceleration_and_a_skid() {
     assert!((8..=22).contains(&ticks), "stops in {ticks} ticks");
 }
 
-/// Three hops in rhythm, `wait` ticks of running between landings: each hop's
-/// rise.
 fn hops(hop_window: u32, wait: usize) -> Vec<i32> {
     let mut r = runner();
     r.knobs.hop = hop_window;
@@ -301,13 +287,10 @@ fn three_landings_in_rhythm_make_a_triple_jump() {
 
 #[test]
 fn the_hop_window_is_the_knob_and_waiting_loses_the_chain() {
-    // Still in time, a few ticks after landing.
     let in_time = hops(10, 6);
     assert!(in_time[2] >= 115, "{in_time:?}");
-    // Past the window, the chain is gone.
     let late = hops(10, 12);
     assert!(late[2] <= late[0] + 6, "{late:?}");
-    // A longer window forgives the wait; none at all never chains.
     let wide = hops(20, 12);
     assert!(wide[2] >= 115, "{wide:?}");
     let none = hops(0, 0);
@@ -330,7 +313,6 @@ fn a_long_jump_is_low_and_much_longer_than_a_run_jump() {
     let mut run = runner();
     let (run_apex, _, run_dist) = arc(&mut run, 1, 40, 0);
     let mut long = runner();
-    // Crouch while running; jump with the crouch still held.
     long.keys(1, false, true, false, false);
     long.keys(1, false, true, false, false);
     let (apex, _, dist) = arc(&mut long, 1, 40, 3);
@@ -356,7 +338,6 @@ fn crouch_then_jump_standing_is_a_backflip() {
     assert!(b.px().0 < x0, "and backwards");
 }
 
-/// A shaft four tiles wide with a floor.
 fn shaft(rows: usize) -> World {
     let mut v: Vec<String> = Vec::new();
     for _ in 0..rows {
@@ -440,7 +421,6 @@ fn a_slam_hovers_drops_and_lands_with_a_shock_and_a_hitstop() {
     assert!(landed, "the slam lands");
     assert_eq!(r.body.freeze, 3, "a hit-stop on the knight");
     assert_eq!(r.body.mode, Move::Recover);
-    // A jump pressed on landing springs high.
     r.keys(0, false, false, false, false);
     r.keys(0, false, false, false, false);
     r.keys(0, false, false, false, false);
@@ -503,7 +483,6 @@ fn a_head_that_clips_a_block_rim_slips_past_and_a_full_hit_bumps() {
         "..........",
         "#########.",
     ];
-    // Directly beneath: bump, with the block's cell reported.
     let mut r = Rig::on(World::parse(&rows), 4, 10);
     r.body.x = 72 * Q;
     r.run(0, 3);
@@ -511,7 +490,6 @@ fn a_head_that_clips_a_block_rim_slips_past_and_a_full_hit_bumps() {
         r.keys(0, true, false, false, false);
     }
     assert!(r.saw(|e| matches!(e, Ev::Bump { x: 4, y: 5 })));
-    // Clipping the rim by two pixels: slides past, no bump.
     let mut r = Rig::on(World::parse(&rows), 4, 10);
     r.body.x = 60 * Q;
     r.run(0, 3);
@@ -560,7 +538,6 @@ fn a_raised_shield_springs_a_friend_higher_than_a_jump() {
     let mut a = Rig::on(stage.clone(), 10, 20);
     a.run(0, 4);
     let (own, _, _) = arc(&mut a, 0, 40, 0);
-    // The friend stands bracing; the other lands on that shield and jumps.
     let mut guard = Body::new(10 * TILE, 20 * TILE);
     let mut spring = Body::new(10 * TILE, 20 * TILE - 80);
     spring.ground = false;
@@ -583,7 +560,6 @@ fn a_raised_shield_springs_a_friend_higher_than_a_jump() {
         if spring.ground && spring.plank.is_some() {
             standing += 1;
         }
-        // Press once it has stood a moment, then hold it down.
         let jump = standing >= 3;
         let c = Cmd {
             jump,
@@ -598,11 +574,6 @@ fn a_raised_shield_springs_a_friend_higher_than_a_jump() {
     let rise = (shield.p.y * Q - top) / Q;
     assert!(rise > own + 30, "springs {rise}px against a jump's {own}");
 }
-
-// ---------------------------------------------------------------------
-// The tuning table's physical rows (`cargo test -p angel-delve --lib
-// write_bannerpeak_feel_table -- --ignored --nocapture`): what each knob
-// does to the body, in pixels and ticks, the others at their shipped values.
 
 fn latest_coyote_press(grace: u32) -> usize {
     let rows = [

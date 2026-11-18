@@ -29,30 +29,24 @@ use crate::render::world3d::mesh::Mesh;
 use crate::render::world3d::raster::{self, Backdrop, Firelight, View3};
 use std::sync::OnceLock;
 
-/// The race owns the screen while it runs and while its board is up.
 pub(super) fn takeover(run: &Run) -> bool {
     run.race3d_showing()
 }
 
-/// A seat's ink, as its knight wears it.
 fn seat_ink(id: u32) -> char {
     kn::seat_cloth(id)
 }
 
 std::thread_local! {
-    /// The moving things' mesh, rebuilt each frame into the same buffer.
     static MOVERS: std::cell::RefCell<Mesh> = std::cell::RefCell::new(Mesh::new());
 }
 
-/// The race as the arena's two layers: the 3D course as scenery, the
-/// knights and the HUD as the figures over it.
 pub(super) fn layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img) {
     let race = run.race3d.as_ref().expect("a race is showing");
     let (w, h) = (NATIVE_W, NATIVE_H);
     let seat = focus
         .filter(|id| race.riders.contains_key(id))
         .or_else(|| race.order().first().copied());
-    // The podium has the screen once the last frame has been held.
     if legible && finish::on_podium(race) {
         let age = finish::ended(race).unwrap_or(0).saturating_sub(finish::OPENS);
         return (finish::podium(run, race, seat, age), Img::new(w, h));
@@ -78,8 +72,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img)
         )
     });
     let mut scene = dots(rgba.as_raw(), w, h);
-    // Wind, dust and rings go down under the knights; sparks, debris and
-    // bursts over them.
     let lens = fx::Lens { view: &view, w, h, race, seat, track: r3::track(race.course) };
     let (back, front) = fx::layers(&lens, moments::surge(race));
     if let Some(back) = &back {
@@ -90,7 +82,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img)
         scene.stamp(front, 0, 0);
     }
     world_over(&mut scene, race, seat, &view, legible);
-    // The world shakes to the blow; the heads-up display stays still.
     let (dx, dy) = moments::shake(run, race, seat);
     if (dx, dy) != (0, 0) {
         let mut shaken = Img::black(w, h);
@@ -102,8 +93,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img)
     (scene, over)
 }
 
-/// A course point a little past either end of the track, carried on along
-/// the end's heading, so a camera behind the start line has somewhere to be.
 fn world(t: &r3::Track, s: f32, x: f32, z: f32) -> V3 {
     if t.looped { let p = t.world(s, x, z); return v3(p[0], p[1], p[2]); }
     let end = t.len();
@@ -113,13 +102,11 @@ fn world(t: &r3::Track, s: f32, x: f32, z: f32) -> V3 {
     v3(w[0] + yaw.cos() * beyond, w[1] + yaw.sin() * beyond, w[2])
 }
 
-/// The chase camera behind `seat`'s ride, looking a way down the course.
 fn camera(race: &Race3d, seat: Option<u32>, w: i32, h: i32) -> View3 {
     let t = r3::track(race.course);
     if race.course == Course::Touge {
         let r = seat.and_then(|id| race.riders.get(&id));
         let (s, x, heading) = r.map_or((0.0, 0.0, 0.0), |r| (r.s, r.x, r.drift.heading));
-        // Speed widens the view, and a boost or a perfect shift's kick more.
         let rush = r.map_or(0.0, |r| {
             ((r.vs - 12.0).max(0.0) / 14.0).min(1.0) * 0.16
                 + if r.drift.boost > 0 || r.drift.kick > 0 { 0.08 } else { 0.0 }
@@ -135,9 +122,7 @@ fn camera(race: &Race3d, seat: Option<u32>, w: i32, h: i32) -> View3 {
     };
     let me = seat.and_then(|id| race.riders.get(&id));
     let (s, x, z) = me.map_or((r3::track(race.course).post(0.0) + 2.0, 0.0, 0.0), |r| build::drawn_at(t, r));
-    // Once home, the camera stays by the line and the ride runs on without it.
     let s = if me.is_some_and(|r| r.finish.is_some()) { s.min(t.finish + 3.0) } else { s };
-    // A ball off the edge drops away under a camera that stays at the rail.
     let (eye_z, look_z) = match race.course {
         Course::Griffin => (z + up, z + 0.4),
         _ => (z.max(0.0) + up, if z < 0.0 { z } else { 0.0 }),
@@ -155,10 +140,6 @@ fn camera(race: &Race3d, seat: Option<u32>, w: i32, h: i32) -> View3 {
     }
 }
 
-// ─── the frame on black paper ───────────────────────────────────────────────
-
-/// The raster's colours on the realm's palette, by a 32-step cube built
-/// once (the palette's nearest plain ink for each cell).
 fn snap(c: [u8; 3]) -> Rgb {
     static CUBE: OnceLock<Vec<Rgb>> = OnceLock::new();
     let cube = CUBE.get_or_init(|| {
@@ -176,25 +157,15 @@ fn snap(c: [u8; 3]) -> Rgb {
     cube[(usize::from(c[0] >> 3) << 10) | (usize::from(c[1] >> 3) << 5) | usize::from(c[2] >> 3)]
 }
 
-/// The frame on black paper, as light falling off into the night: each
-/// pixel is its own ink, lifted to a readable floor and stepped down by its
-/// tone, so a lit surface fades smoothly toward black. Where it has faded
-/// below `DUSK_LO` it is black paper; between `DUSK_LO` and `DUSK_HI` the
-/// last of the light thins out in an ordered dither, a narrow fringe at the
-/// edge of each pool and not a screen over every surface.
 fn dots(rgba: &[u8], w: i32, h: i32) -> Img {
     dots_with(rgba, w, h, (12.0, 140.0, 1.1, 66.0))
 }
 
-/// The fringe, in the brightest channel of the faded ink.
 const DUSK_LO: f32 = 22.0;
 const DUSK_HI: f32 = 34.0;
 
 pub(super) fn dots_with(rgba: &[u8], w: i32, h: i32, k: (f32, f32, f32, f32)) -> Img {
     let (black_point, white_point, gamma, ink_floor) = k;
-    // The tone's ramp by whole luma, and the readable floor's lift by the
-    // brightest channel: 256 entries each, built once a frame, so a pixel
-    // costs table reads and a few multiplies, no powers.
     let ramp: [f32; 256] = std::array::from_fn(|l| {
         let tone = ((l as f32 - black_point) / (white_point - black_point)).clamp(0.0, 1.0).powf(gamma);
         tone.powf(0.8)
@@ -207,7 +178,6 @@ pub(super) fn dots_with(rgba: &[u8], w: i32, h: i32, k: (f32, f32, f32, f32)) ->
             let c = [rgba[i], rgba[i + 1], rgba[i + 2]];
             let luma = (77 * u32::from(c[0]) + 150 * u32::from(c[1]) + 29 * u32::from(c[2])) >> 8;
             let peak = c[0].max(c[1]).max(c[2]);
-            // The ink at a readable floor, then down the tone's ramp.
             let mut lift = floor[usize::from(peak)] * ramp[luma as usize];
             let bright = f32::from(peak.max(1)) * lift;
             if bright < DUSK_HI {
@@ -215,7 +185,6 @@ pub(super) fn dots_with(rgba: &[u8], w: i32, h: i32, k: (f32, f32, f32, f32)) ->
                     px.push(BLACK);
                     continue;
                 }
-                // The fringe's flecks keep the fringe's own dim ink.
                 lift = DUSK_HI / f32::from(peak.max(1));
             }
             let lifted = c.map(|v| (f32::from(v) * lift).min(255.0) as u8);
@@ -225,9 +194,6 @@ pub(super) fn dots_with(rgba: &[u8], w: i32, h: i32, k: (f32, f32, f32, f32)) ->
     Img::from_rgb(w, h, &px)
 }
 
-// ─── the knights in their rides ─────────────────────────────────────────────
-
-/// A sprite turned upside down: a knight thrown from a cart.
 fn flip_v(im: &Img) -> Img {
     let mut out = Img::new(im.w, im.h);
     for y in 0..im.h {
@@ -240,8 +206,6 @@ fn flip_v(im: &Img) -> Img {
     out
 }
 
-/// Stamp `sprite` standing on world point `feet`, `tall` world units high,
-/// wherever the scene in front of `anchor` (its depth) leaves it showing.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn stand(scene: &mut Img, depth: &[f32], view: &View3, sprite: &Img, feet: V3, anchor: V3, tall: f32, w: i32, h: i32) -> Option<(i32, i32)> {
     let (fx, fy, fd) = raster::project_point(view, w as usize, h as usize, feet)?;
@@ -265,9 +229,6 @@ pub(super) fn stand(scene: &mut Img, depth: &[f32], view: &View3, sprite: &Img, 
     Some((fx.round() as i32, y0))
 }
 
-/// A racer as the chase camera sees them, from behind: their class's own
-/// figure (running inside a ball, standing in a tub or astride a griffin)
-/// in the seat's trim, or the realm's knight for a knight of no class.
 fn racer(run: &Run, id: u32, course: Course, rider: &Rider) -> Img {
     let Some(hero) = run.players.get(&id) else {
         return sprites::knight(id);
@@ -288,7 +249,6 @@ fn racer(run: &Run, id: u32, course: Course, rider: &Rider) -> Img {
 #[allow(clippy::too_many_arguments)]
 fn knights(scene: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, view: &View3, depth: &[f32], w: i32, h: i32) {
     let t = r3::track(race.course);
-    // Far riders first so near ones overlap them.
     let mut field: Vec<(f32, u32, &Rider)> = race
         .riders
         .iter()
@@ -301,14 +261,11 @@ fn knights(scene: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, view: &
     field.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
     for (near, id, rider) in field {
         if race.course == Course::Touge && Some(id) == seat { continue; }
-        // A rival right at the lens would fill the screen: leave them out
-        // until they pull ahead or drop back.
         if Some(id) != seat && (near < 2.4 * 2.4 || build::hidden(race, seat, id)) {
             continue;
         }
         let (s, x, z) = build::drawn_at(t, rider);
         let mut sprite = racer(run, id, race.course, rider);
-        // The engines come up before the green: a tremble on the grid.
         let idle = if race.titled() && race.t + 45 >= TITLE {
             ((race.t as f32 * 2.3).sin().abs() * 0.05) * (race.t + 45 - TITLE) as f32 / 45.0
         } else {
@@ -335,7 +292,6 @@ fn knights(scene: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, view: &
             Course::Touge => (world(t, s, x, z + 0.4), world(t, s, x, z + 0.6), 0.9),
             Course::Griffin => (world(t, s, x, z + 0.16), world(t, s, x, z + 0.3), 0.8),
         };
-        // A blow: the white impact frame, then the squash and stretch.
         if let Some((weight, age)) = fx::struck(race, id) {
             if age < weight.flash() {
                 sprite = juice::impact_frame(&sprite, 'H');
@@ -349,9 +305,6 @@ fn knights(scene: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, view: &
     }
 }
 
-// ─── the HUD ────────────────────────────────────────────────────────────────
-
-/// Text `k` times its size, centred on `cx`.
 fn big(over: &mut Img, cx: i32, y: i32, text: &str, ink: char, k: f32) -> i32 {
     let mut im = Img::new(text_width(text), 7);
     im.text(0, 0, text, super::super::chrome::dusk_mark(ink));
@@ -360,7 +313,6 @@ fn big(over: &mut Img, cx: i32, y: i32, text: &str, ink: char, k: f32) -> i32 {
     im.h
 }
 
-/// A dark plate behind words, with a thin rule round it.
 fn plate(over: &mut Img, x: i32, y: i32, w: i32, h: i32) {
     super::super::chrome::panel(over, (x, y, w, h), super::super::chrome::Tone::SLATE);
 }
@@ -375,8 +327,6 @@ fn place_word(n: usize) -> String {
     format!("{n}{suffix}")
 }
 
-/// The joke a crash earns: two or three words, picked by how many times
-/// this knight has crashed already.
 pub(super) fn crash_words(wreck: Wreck, crashes: u16) -> &'static str {
     let pick = |words: &[&'static str]| words[usize::from(crashes) % words.len()];
     match wreck {
@@ -391,7 +341,6 @@ pub(super) fn crash_words(wreck: Wreck, crashes: u16) -> &'static str {
     }
 }
 
-/// The haul's little picture: a shard, a nugget, a ring.
 fn haul_icon(over: &mut Img, course: Course, x: i32, y: i32) {
     match course {
         Course::Touge => {},
@@ -413,13 +362,9 @@ fn haul_icon(over: &mut Img, course: Course, x: i32, y: i32) {
     }
 }
 
-/// What stands over the course in the world's own space, shaken with it:
-/// feathers about a tumbling griffin, stars about a bonked ball, the rope
-/// that hauls a fallen knight back, and a place tag over each rival.
 fn world_over(over: &mut Img, race: &Race3d, seat: Option<u32>, view: &View3, legible: bool) {
     let (w, h) = (over.w, over.h);
     let t = r3::track(race.course);
-    // Feathers about a tumbling or ruffled griffin, stars round a bonked ball.
     for (&id, rider) in &race.riders {
         let (s, x, z) = build::drawn_at(t, rider);
         let Some((px, py, d)) = raster::project_point(view, w as usize, h as usize, world(t, s, x, z + 0.6)) else {
@@ -451,11 +396,9 @@ fn world_over(over: &mut Img, race: &Race3d, seat: Option<u32>, view: &View3, le
                 }
             }
         }
-        // The rope that hauls a fallen knight back.
         if matches!(rider.wreck, Wreck::Fall | Wreck::Gap) && rider.crash > 0 && rider.crash <= r3::CRASH / 3 {
             over.line(px, 0, px, py - spread / 2, 'P');
         }
-        // A tag over each other knight: their place, in their own ink.
         if Some(id) != seat && legible && d > 1.0 && (0..w).contains(&px) && py > 10 && !build::hidden(race, seat, id) {
             let tag = race.place(id).to_string();
             over.text(px - 2, py - spread - 9, &tag, seat_ink(id));
@@ -463,9 +406,6 @@ fn world_over(over: &mut Img, race: &Race3d, seat: Option<u32>, view: &View3, le
     }
 }
 
-/// The heads-up display and the race's moments over everything: place and
-/// clock, the field's strip, the start, the calls, the flying numbers, the
-/// finish.
 fn hud(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, lens: &fx::Lens, legible: bool) {
     let (w, h) = (over.w, over.h);
     if !legible {
@@ -473,11 +413,9 @@ fn hud(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, lens: &fx::L
     }
     let me = seat.and_then(|id| race.riders.get(&id));
     if let Some(age) = finish::ended(race) {
-        // The last frame is held: who won, then the iris.
         finish::frozen(over, run, race, seat, age);
         return;
     }
-    // The field down the course: a strip, a pip for each knight, a flag.
     let (sx, sy, sw) = (w / 2 - 80, 8, 160);
     over.rect(sx, sy + 2, sw, 1, 'g');
     over.rect(sx + sw, sy - 2, 1, 6, 'h');
@@ -498,7 +436,6 @@ fn hud(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, lens: &fx::L
     }
     if let (Some(me), Some(id)) = (me, seat) {
         let place = race.place(id);
-        // The place swells when it changes.
         let swell = 2.0 + moments::place_bump(race, id) * 1.0;
         big(over, 26, 4, &place_word(place), if place == 1 { 'O' } else { 'h' }, swell);
         if race.course == Course::Touge {
@@ -507,7 +444,6 @@ fn hud(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, lens: &fx::L
             over.text(8, 46, &format!("CORNER {}", if me.drift.corner > 0 { me.drift.corner / HZ } else { me.drift.last_corner / HZ }), 'J');
             drift_hud(over, me);
         } else {
-            // The haul counter swells as a "+1" lands on it.
             let pulse = moments::counter_pulse(race, id);
             haul_icon(over, race.course, 8, 24);
             big(over, 18 + (3.0 * pulse) as i32, 23 - (pulse * 2.0) as i32, &format!("{}", me.haul), if pulse > 0.0 { 'O' } else { 'h' }, 1.0 + pulse);
@@ -515,7 +451,6 @@ fn hud(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, lens: &fx::L
     }
     let secs = format!("{}", race.left());
     big(over, w - 22, 4, &secs, if race.left() <= 10 { '7' } else { 'h' }, 2.0);
-    // The two keys, small and dim along the bottom.
     let [(k1, w1), (k2, w2)] = race.course.keys();
     let hint = if race.course == Course::Touge { "W GAS  S BRAKE  SPACE DRIFT  F SHIFT".into() } else { format!("{k1} {w1}   {k2} {w2}") };
     let hw = text_width(&hint);
@@ -529,7 +464,6 @@ fn hud(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, lens: &fx::L
     }
 }
 
-/// Plain charge plates and cockpit rails are swappable placeholders.
 fn drift_hud(over: &mut Img, me: &Rider) {
     let d = &me.drift;
     let stage = if d.boost > 0 { d.boost_stage as usize } else { d.stage() };
@@ -552,8 +486,6 @@ fn drift_hud(over: &mut Img, me: &Rider) {
     tach(over, me);
 }
 
-/// The gearbox: the gear, big, and the revs across a bar whose top fifth
-/// is the perfect shift; it goes green there and red on the limiter.
 fn tach(over: &mut Img, me: &Rider) {
     let d = &me.drift;
     let (x, y, w) = (over.w / 2 + 70, over.h - 45, 64);
@@ -570,11 +502,6 @@ fn tach(over: &mut Img, me: &Rider) {
     }
 }
 
-// ─── the Griffin Eyrie ──────────────────────────────────────────────────────
-
-/// The Eyrie's yard: crags either side, the perch between them with its
-/// great nest of branches, a brazier by the master's post, and the gorge's
-/// edge falling away at the top.
 pub(super) fn eyrie_scenery(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
     for &(c, r, w, h) in &r3::EYRIE_ROCKS[..2] {
         let (px, py, pw, ph) = (c * TILE, r * TILE, w * TILE, h * TILE);
@@ -592,7 +519,6 @@ pub(super) fn eyrie_scenery(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
         );
         cv.stamp(&rock, px, py);
     }
-    // The perch: a stone stump crowned with a nest.
     let (c, r, w, h) = r3::EYRIE_ROCKS[2];
     let (px, py, pw, ph) = (c * TILE, r * TILE, w * TILE, h * TILE);
     let stump = kit::blob(pw, ph, &[(pw as f32 * 0.5, ph as f32 * 0.6, pw as f32 * 0.42, ph as f32 * 0.5)], &['k', 'x', 'g', 'j'], 0.4, 37, 1.5);
@@ -602,14 +528,12 @@ pub(super) fn eyrie_scenery(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
         let x = px + 6 + k * 4;
         cv.line(x, py + 4 + k % 2 * 2, x + 5, py + 8 - k % 2 * 2, if k % 3 == 0 { 'P' } else { 'I' });
     }
-    // The take-off ring before the perch, scuffed into the turf in gold.
     let (rx, ry) = ((r3::PERCH.0 * TILE as f32) as i32, (r3::PERCH.1 * TILE as f32) as i32 + 22);
     for k in 0..48 {
         let a = k as f32 / 48.0 * std::f32::consts::TAU;
         let (x, y) = (rx + (a.cos() * 26.0) as i32, ry + (a.sin() * 11.0) as i32);
         cv.put(x, y, if k % 6 == 0 { '4' } else { 'a' });
     }
-    // Feathers about the yard, and the master's brazier.
     for k in 0..12 {
         let (fx, fy) = (40 + (kit_hash(k, 1) % 300) as i32, 90 + (kit_hash(k, 2) % 110) as i32);
         cv.line(fx, fy, fx + 2, fy - 1, if k % 2 == 0 { 'h' } else { 'o' });
@@ -624,8 +548,6 @@ fn kit_hash(k: i32, s: u32) -> u32 {
     super::super::ink::hash(k, k * 3, s)
 }
 
-/// The Eyrie's figures: a griffin on the nest (two of them, preening),
-/// the griffin master at the post, and the word by the perch.
 pub(super) fn eyrie_figures(over: &mut Img, run: &Run) {
     if run.race3d_showing() {
         return;
@@ -634,7 +556,6 @@ pub(super) fn eyrie_figures(over: &mut Img, run: &Run) {
     let beat = (run.tick / 10 % 4) as i32;
     for (k, dx) in [(0, -26), (1, 18)] {
         let (gx, gy) = (px + dx, py - 34 + (k * 3));
-        // Tawny body, white head, gold beak, wings stirring.
         over.rect(gx, gy, 12, 7, 'o');
         over.rect(gx + 1, gy + 1, 10, 2, 'O');
         over.rect(gx + 2, gy + 7, 2, 4, 'r');
@@ -651,7 +572,6 @@ pub(super) fn eyrie_figures(over: &mut Img, run: &Run) {
         }
         over.line(gx + if k == 0 { -2 } else { 13 }, gy + 2, gx + if k == 0 { -6 } else { 17 }, gy + 6, 'o');
     }
-    // The griffin master, a leather-aproned figure with a hood.
     let (mx, my) = (px + 34, py + 2);
     over.rect(mx, my - 14, 7, 6, 'B');
     over.rect(mx + 1, my - 12, 5, 3, 't');

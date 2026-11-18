@@ -2,7 +2,6 @@
 
 use super::*;
 
-/// Places that find nothing and say nothing.
 fn deaf() -> Places {
     Places {
         resource: |_| None,
@@ -17,7 +16,6 @@ fn a_folder_beside_the_binary_joins_the_page_by_name() {
     std::fs::create_dir_all(dir.join("inner")).unwrap();
     std::fs::write(dir.join("crypt.mp3"), b"ID3crypt").unwrap();
     std::fs::write(dir.join("a-boss.mp3"), b"ID3boss").unwrap();
-    // A name the page could not carry is left out, and so is a folder.
     std::fs::write(dir.join("two words.mp3"), b"ID3").unwrap();
     let mut files = Vec::new();
     let sounds = add_folder(&dir, "music-", &mut files, &deaf());
@@ -32,7 +30,6 @@ fn a_folder_beside_the_binary_joins_the_page_by_name() {
     assert_eq!(files[1].0, "music-crypt.mp3");
     assert_eq!(files[1].1, b"ID3crypt");
     assert_eq!(files[1].2, "audio/mpeg");
-    // A folder that is not there adds nothing.
     assert!(add_folder(&dir.join("gone"), "music-", &mut files, &deaf()).is_empty());
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -49,7 +46,6 @@ fn the_page_takes_its_beside_folders_from_the_places_it_is_lent() {
         "no music is compiled in"
     );
     assert_eq!(BESIDE, &[("music-", "cockpit/assets/dungeon/music")]);
-    // Nowhere to look: the page opens without music and a line says so.
     SAID.lock().unwrap().clear();
     let bare = bundle(&Places {
         resource: |_| None,
@@ -63,8 +59,6 @@ fn the_page_takes_its_beside_folders_from_the_places_it_is_lent() {
     );
     assert_eq!(SAID.lock().unwrap().len(), 1);
     assert!(SAID.lock().unwrap()[0].contains("cockpit/assets/dungeon/music"));
-    // This checkout has the music beside the host: every track in the folder
-    // joins the page's sounds and is served as the file read off disk.
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let dir = repo.join("cockpit/assets/dungeon/music");
     assert!(dir.is_dir(), "the checkout carries its music");
@@ -115,7 +109,6 @@ fn the_page_takes_its_beside_folders_from_the_places_it_is_lent() {
         served += 1;
     }
     assert!(served > 0, "the music folder has tracks");
-    // The effects stay compiled in.
     assert!(manifest["hit"].is_string());
 }
 

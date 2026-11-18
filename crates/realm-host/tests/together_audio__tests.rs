@@ -7,14 +7,10 @@ fn every_named_sound_and_track_has_a_file() {
         let file = dir.join("sfx").join(format!("{name}.mp3"));
         let size = std::fs::metadata(&file).map(|m| m.len()).unwrap_or(0);
         assert!(size > 1_000, "{name}: {size} bytes");
-        // The wheel's clicks last as long as its spin, and a few great moments
-        // (a guardian's fall, the hand's drag, the gate, the circle's bell)
-        // ring a little longer; everything else is short.
         let most = match *name {
             "wheel_spin" => 4.6,
             "boss_death" | "hell_gate_rise" => 3.2,
             "hand_drag" | "circle_toll" => 2.6,
-            // The audition's long takes (2026-10-24) and the Bard's lullaby.
             "boss_fall" | "boss_roar" | "crack_open" | "hell_gate_enter" | "wish_grant" => 2.6,
             _ => 1.6,
         };
@@ -40,7 +36,6 @@ fn every_bard_slice_and_lullaby_has_a_file_the_mixer_can_name() {
     for name in bard::names() {
         assert!(all.contains(name), "{name} is not in the mixer's names");
         let size = std::fs::metadata(dir.join("sfx").join(format!("{name}.mp3"))).map(|m| m.len()).unwrap_or(0);
-        // A slice is a beat and its 16 ms tail (0.416 s, a little over 5 kB at 96 kbit/s); a Lullaby, a bar and a half.
         let seconds = size as f32 / SFX_BYTES_PER_SECOND;
         let (lo, hi) = if bard::is_slice(name) { (0.3, 0.6) } else { (1.5, 3.2) };
         assert!((lo..hi).contains(&seconds), "{name}: {seconds} s");
@@ -60,10 +55,8 @@ fn the_bards_song_is_let_through_when_other_effects_fill_the_mixer() {
         audio.sfx(name, now);
     }
     assert_eq!(audio.played, MAX_AT_ONCE, "the mixer is full");
-    // A missed slice is a hole in the music: the song is never the effect that is let go.
     audio.sfx(bard::slice(0, 12), now);
     assert_eq!(audio.played, MAX_AT_ONCE + 1);
-    // A tapped fire restarting the opening over itself is let go; the next beat is its own name.
     audio.sfx(bard::slice(0, 12), now + Duration::from_millis(120));
     assert_eq!(audio.played, MAX_AT_ONCE + 1);
     audio.sfx(bard::slice(0, 13), now + Duration::from_millis(400));
@@ -91,7 +84,6 @@ fn only_a_few_effects_sound_at_once() {
         audio.sfx(name, now);
     }
     assert_eq!(audio.played, MAX_AT_ONCE);
-    // Once the first ones end, more may play.
     audio.sfx("bomb", now + Duration::from_secs(3));
     assert_eq!(audio.played, MAX_AT_ONCE + 1);
 }

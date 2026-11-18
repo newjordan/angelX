@@ -13,8 +13,6 @@ use crate::rules::minions::{GRAVECALLER, RISE};
 use crate::rules::{EnemyKind, HZ, Input, Phase, Run, phrasebook};
 use std::collections::BTreeMap;
 
-/// A colour wished over the dead's whole bodies, as the host's learner
-/// writes one.
 const BRIGHT_PINK: &str = "wish bright-pink | Bright Pink
 say make my ghouls bright pink | pink ghouls | pink dead
 tier max_hp 10 :: Your dead turn bright pink, and 10 more health.
@@ -31,8 +29,6 @@ fn seat() -> (i32, i32) {
     (NATIVE_W, NATIVE_H + party::BAND_H + party::HUD_H)
 }
 
-/// The Gravecaller in an open fight room, awake, facing the viewer, with
-/// three wishes held.
 fn field() -> Run {
     let mut run = fight_with(false, &[]);
     assert!(run.take_up(1, GRAVECALLER));
@@ -44,7 +40,6 @@ fn field() -> Run {
     run
 }
 
-/// Knight 1's wish for `to`, granted as the host grants a learned one.
 fn wished(run: &mut Run, entry: Option<&str>, id: &str, to: Target) {
     let wish = match entry {
         Some(text) => phrasebook::read(text).remove(0),
@@ -76,10 +71,6 @@ fn wait(run: &mut Run, ticks: u32) {
     }
 }
 
-/// His whole company out and at work on a skeleton and a goblin: the
-/// totem planted ahead, the ghoul gone after the goblin, and the warden
-/// (who keeps so close to his caller that the robe hides him) stood a
-/// little clear of him for the picture.
 fn company(run: &mut Run) {
     foe(run, EnemyKind::Skeleton, (12.0, 21.0));
     foe(run, EnemyKind::Goblin, (24.0, 12.0));
@@ -115,7 +106,6 @@ fn write_dead_wish_shots() {
         save_img(name, &img, 3);
     };
 
-    // His company as it was, and in the bright pink wished for them.
     let mut plain = field();
     company(&mut plain);
     shot("dead_wishes_01_company_plain", &plain);
@@ -124,7 +114,6 @@ fn write_dead_wish_shots() {
     company(&mut run);
     shot("dead_wishes_02_company_pink", &run);
 
-    // A tombstone's zombies come up pink too.
     let mut zombies = run.clone();
     foe(&mut zombies, EnemyKind::Skeleton, (22.0, 22.0));
     zombies.players.get_mut(&1).unwrap().ult_charge = crate::rules::ults::ULT_FULL;
@@ -132,14 +121,12 @@ fn write_dead_wish_shots() {
     wait(&mut zombies, 4 * HZ);
     shot("dead_wishes_03_zombies_pink", &zombies);
 
-    // A helm wished for him and his dead alike: on his head and on theirs.
     let mut helmed = field();
     wished(&mut helmed, Some(BRIGHT_PINK), "bright-pink", Target::Dead);
     wished(&mut helmed, None, "great-helm", Target::Both);
     company(&mut helmed);
     shot("dead_wishes_04_helm_for_both", &helmed);
 
-    // Close: each of his dead plain, in pink, and in pink with the helm.
     let mut figures: Vec<Img> = Vec::new();
     for kind in [AllyKind::Ghoul, AllyKind::Warden, AllyKind::Totem, AllyKind::Zombie] {
         let body = Img::from_rows(rows_of(kind));
@@ -161,8 +148,6 @@ fn write_dead_wish_shots() {
     }
     save_img("dead_wishes_05_sheet", &sheet, 6);
 
-    // His scroll asks whom the wish is for: his dead, from his words; and
-    // turned to both.
     let scroll = |run: &Run, w: i32, h: i32| {
         in_seat(|| {
             let mut img = frame_for(run, w, view_rows(h), Some(1));
@@ -179,7 +164,6 @@ fn write_dead_wish_shots() {
     save_img("dead_wishes_08_scroll_384", &scroll(&asking, 384, 224), 2);
 }
 
-/// What an ally of `kind` is drawn from (`hireling::rows_of`).
 fn rows_of(kind: AllyKind) -> &'static [&'static str] {
     match kind {
         AllyKind::Ghoul => &super::GHOUL[..],

@@ -279,8 +279,6 @@ fn terminal_closes_range_but_official_corrections_remain_append_only() {
     assert!(state.append_durable(&mut authority, &closed).is_err());
 }
 
-/// The three reduced states and the receipts that produced them, so a table of
-/// candidate events can be run against each arm.
 struct LegFixture {
     start: EpisodeStartedV1,
     started: EpisodeEventV1,
@@ -325,15 +323,11 @@ fn leg_fixture() -> LegFixture {
     }
 }
 
-/// Recompute the canonical digest, so a mutated event still has a matching
-/// chain and reaches the state arm under test.
 fn resealed(mut event: EpisodeEventV1) -> EpisodeEventV1 {
     event.event_sha256 = event.canonical_sha256().unwrap();
     event
 }
 
-/// A throwaway policy module, so a deliberately out-of-contract leg can be
-/// pinned without touching the shipped one.
 fn temporary_policy_leg(id: &str, render: &str) -> angel_live::Program {
     let root = std::env::temp_dir().join(format!("angel-episode-leg-{}-{id}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
@@ -375,7 +369,6 @@ fn verify<T: PartialEq + std::fmt::Debug>(
     );
 }
 
-/// Permits are opaque, so acceptance and the message are what parity can mean.
 fn verify_permit<T>(
     label: &str,
     native: &Result<T, String>,
@@ -400,8 +393,6 @@ fn verify_permit<T>(
     );
 }
 
-/// Every branch of the reducer, once through the shipped leg and once through
-/// the untouched Rust arms: acceptance, next phase, stored sequence and message.
 #[test]
 fn the_shipped_episode_reducer_leg_matches_the_native_state_machine() {
     let leg = crate::agent::harness::live_policy::shipped_leg("episode-reducer");
@@ -640,8 +631,6 @@ fn the_shipped_episode_reducer_leg_matches_the_native_state_machine() {
         verify_permit(&format!("evidence/{label}"), &native, live);
     }
 
-    // The live evidence permit carries the same terminal flag: a candidate link
-    // is refused through it exactly when the native permit refuses one.
     let live_closed_permit = fixture
         .closed
         .evidence_permit_with(Some(leg.clone()))
@@ -782,8 +771,6 @@ fn the_shipped_episode_reducer_leg_matches_the_native_state_machine() {
     }
 }
 
-/// An out-of-contract append and an out-of-contract phase both fall back to the
-/// native arms, so a bad hot edit never moves the episode's state machine.
 #[test]
 fn an_out_of_contract_episode_reducer_leg_keeps_the_native_decision() {
     use crate::agent::harness::live_policy::LegSource;
@@ -835,7 +822,6 @@ fn an_out_of_contract_episode_reducer_leg_keeps_the_native_decision() {
     );
 }
 
-/// 200 decisions through the pinned generation, for the receipt's timing note.
 #[test]
 fn the_episode_reducer_leg_decides_in_microseconds() {
     use crate::agent::harness::live_policy::shipped_leg;
@@ -881,8 +867,6 @@ fn the_episode_reducer_leg_decides_in_microseconds() {
     );
 }
 
-/// With no live generation offered, the shipped module still answers and the
-/// receipt says where the answer came from.
 #[test]
 fn a_turn_with_no_live_generation_uses_the_shipped_episode_reducer() {
     use crate::agent::harness::live_policy::LegSource;

@@ -16,26 +16,16 @@ use angel_live::realm::{Facts, HostCx, RealmHost, Visit};
 use crossterm::event::KeyEvent;
 use ratatui_core::layout::Rect;
 
-/// The game's state: the delve, the walk, the miniworld and the party room.
 pub struct GameHost {
-    /// The miniworld: the artifacts pane's default content.
     pub world: World,
-    /// Opt-in local prototype of cooperative world gameplay and game authoring.
     pub together: Together,
-    /// The delve: its run, the host's server, the card screen, the forge.
     pub dungeon: DungeonView,
-    /// Walk mode: the operator's own figure on the mini-viz map.
     pub walk: Walk,
-    /// Stamped by the draw that laid out the overworld map: its cells and the
-    /// view of the map they show.
     pub overworld_map: Option<(Rect, world_viz::overworld::View)>,
-    /// The facts of the harness's loop, as the cockpit last gave them
-    /// ([`GameHost::set_loop`]); the settlement reads them.
     pub loop_summary: LoopSummary,
 }
 
 impl GameHost {
-    /// A host on this miniworld, with no delve open.
     pub fn new(world: World) -> Self {
         Self {
             world,
@@ -47,24 +37,18 @@ impl GameHost {
         }
     }
 
-    /// The loop facts the settlement reads from now on.
     pub fn set_loop(&mut self, summary: LoopSummary) {
         self.loop_summary = summary;
     }
 
-    /// The island's realm (the play economy), loaded beside the world's
-    /// rewards on first use.
     pub fn economy(&mut self) -> &mut crate::together_realm::Realm {
         self.dungeon.collect_settled(true);
         crate::control::economy(&mut self.dungeon.realm, &self.world)
     }
 
-    /// Fold the loop's receipts into the settlement's map, once a loop has an
-    /// id (the cockpit's per-frame step).
     pub fn sync_loop(&mut self, summary: &LoopSummary) {
         let player = crate::control::host_name();
         let wing = crate::together_shooter::home::Station::Wing;
-        // Every frame: while the realm is away settling, its copy answers.
         let tavern = match self.dungeon.realm_shown() {
             Some(realm) => realm.home.level(wing) >= 1,
             None => self.economy().home.level(wing) >= 1,
@@ -72,9 +56,6 @@ impl GameHost {
         self.world.sync_settlement(summary, &player, tavern);
     }
 
-    /// This host for one call, in the cockpit's context. The session holds
-    /// each part of the game by itself, so the controls borrow them as they
-    /// would fields of one struct.
     pub fn session<'a>(&'a mut self, cx: &'a mut dyn HostCx) -> Session<'a> {
         Session {
             world: &mut self.world,
@@ -87,7 +68,6 @@ impl GameHost {
         }
     }
 
-    /// This host read-only: what the cockpit asks while it draws.
     pub fn view(&self) -> View<'_> {
         View {
             world: &self.world,
@@ -99,7 +79,6 @@ impl GameHost {
     }
 }
 
-/// The game's state, shared: the questions it answers (`control::queries`).
 #[derive(Clone, Copy)]
 pub struct View<'a> {
     pub world: &'a World,
@@ -109,7 +88,6 @@ pub struct View<'a> {
     pub overworld_map: &'a Option<(Rect, world_viz::overworld::View)>,
 }
 
-/// The game's controls for the length of one call.
 pub struct Session<'a> {
     pub world: &'a mut World,
     pub together: &'a mut Together,
@@ -121,12 +99,10 @@ pub struct Session<'a> {
 }
 
 impl<'a> Session<'a> {
-    /// What the cockpit's state is now.
     pub(crate) fn facts(&self) -> Facts {
         self.cx.facts()
     }
 
-    /// The game's state, read-only.
     pub(crate) fn view(&self) -> View<'_> {
         View {
             world: self.world,
@@ -137,7 +113,6 @@ impl<'a> Session<'a> {
         }
     }
 
-    /// Say a line in the transcript, as the system.
     pub(crate) fn system_msg(&mut self, text: impl Into<String>) {
         self.cx.say(text.into());
     }

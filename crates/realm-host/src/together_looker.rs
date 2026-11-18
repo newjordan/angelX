@@ -44,20 +44,14 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-/// At most this many body-makers run at once: the pipeline is a GPU and CPU
-/// hog, so a second look waits for the first.
 pub const MAX_RUNNING: usize = 1;
 
-/// The rung a body-maker draws at (`resolution::BODY_RUNG`).
 pub const RUNG: u32 = 64;
 
-/// The body-maker to run, if one is set: `ANGEL_WISH_CHAR`, else
-/// `~/.angelX/wish-char` when it is executable.
 pub fn command() -> Option<PathBuf> {
     command_in(std::env::var_os("ANGEL_WISH_CHAR"), std::env::var_os("HOME").map(PathBuf::from))
 }
 
-/// [`command`], given the environment's words.
 pub fn command_in(named: Option<std::ffi::OsString>, home: Option<PathBuf>) -> Option<PathBuf> {
     if let Some(named) = named.filter(|c| !c.is_empty()) {
         return Some(PathBuf::from(named));
@@ -78,32 +72,24 @@ fn executable(path: &Path) -> bool {
     }
 }
 
-/// Where a workspace keeps its wished looks: one folder a card, and the
-/// composed `pack.json` the window watches.
 pub fn looks_dir(workspace: &Path) -> PathBuf {
     workspace.join(".angel/dungeon/looks")
 }
 
-/// One body-maker job: the look's card, its words, the seat it was asked at
-/// and the folders it works and lands in.
 #[derive(Clone, Debug)]
 pub struct Job {
     pub card: String,
     pub name: String,
     pub words: String,
     pub seat: u32,
-    /// The job's own folder, under the card's painter folder.
     pub out: PathBuf,
-    /// `.angel/dungeon/looks`.
     pub looks: PathBuf,
 }
 
-/// The design a seat's plain knight is, as its keys name it.
 pub fn design_of(seat: u32) -> &'static str {
     Design::of_seat(seat).name()
 }
 
-/// The job for the look `card` (the knight's `words`) asked at `seat`.
 pub fn job(workspace: &Path, card: &str, name: &str, words: &str, seat: u32) -> Job {
     Job {
         card: card.to_string(),
@@ -116,7 +102,6 @@ pub fn job(workspace: &Path, card: &str, name: &str, words: &str, seat: u32) -> 
 }
 
 impl Job {
-    /// The JSON the body-maker reads on stdin.
     pub fn input(&self) -> String {
         serde_json::json!({
             "card": self.card,
@@ -133,8 +118,6 @@ impl Job {
     }
 }
 
-/// A job that has ended: what it came to. `Ok`: its folder checked and is
-/// kept in the looks folder.
 pub struct Finished {
     pub job: Job,
     pub outcome: Result<(), String>,
@@ -145,12 +128,10 @@ struct Running {
     child: Box<dyn Service>,
 }
 
-/// The body-makers running and those waiting, and the roster last composed.
 #[derive(Default)]
 pub struct Lookers {
     running: Vec<Running>,
     queue: VecDeque<(PathBuf, Job)>,
-    /// Jobs that could not be started, said at the next tick.
     failed: Vec<Finished>,
     composed: Option<Vec<(String, u32)>>,
 }
@@ -164,20 +145,13 @@ impl std::fmt::Debug for Lookers {
     }
 }
 
-/// What one look at the body-makers found.
 #[derive(Default)]
 pub struct Tick {
-    /// The jobs that ended.
     pub finished: Vec<Finished>,
-    /// The cards of knights drawn whole whose set is not in the looks
-    /// folder (it was deleted): the host puts their worn ink back.
     pub missing: Vec<String>,
 }
 
 impl Lookers {
-    /// Draw for `job` with `command`, now or when the body-maker is free. A
-    /// knight's older ask for the same card is let go: its result would be
-    /// of other words.
     pub fn start(&mut self, command: PathBuf, job: Job) {
         self.queue.retain(|(_, queued)| queued.card != job.card);
         self.running.retain_mut(|run| {
@@ -214,10 +188,6 @@ impl Lookers {
         }
     }
 
-    /// A few times a second: collect the jobs that ended (their folders
-    /// checked and kept), start the next, and compose `pack.json` again if
-    /// the knights drawn whole (`bodies`, `Run::mirror_bodies`) are not the
-    /// ones it was last composed for.
     pub fn tick(&mut self, workspace: &Path, bodies: &[(String, u32)]) -> Tick {
         let mut tick = Tick { finished: std::mem::take(&mut self.failed), ..Tick::default() };
         let mut still = Vec::new();
@@ -237,8 +207,6 @@ impl Lookers {
         self.pump();
         let looks = looks_dir(workspace);
         if self.composed.as_deref() != Some(bodies) {
-            // A knight whose set landed this tick is drawn whole only once
-            // the run says so: the tick after composes it.
             match compose(&looks, bodies) {
                 Ok(composed) => {
                     tick.missing = composed.missing;
@@ -250,7 +218,6 @@ impl Lookers {
         tick
     }
 
-    /// Kill every body-maker and forget the queue.
     pub fn stop(&mut self) {
         self.queue.clear();
         for mut run in std::mem::take(&mut self.running) {
@@ -267,24 +234,19 @@ impl Drop for Lookers {
 
 fn spawn(command: &Path, job: &Job) -> std::io::Result<Box<dyn Service>> {
     std::fs::create_dir_all(&job.out)?;
-    // An older run's folder is never this run's.
     let _ = std::fs::remove_dir_all(job.out.join("pack"));
     let input = job.input();
     std::fs::write(job.out.join("job.json"), &input)?;
-    // The body-maker's own talk goes to its folder, never the terminal.
     let log = std::fs::OpenOptions::new().create(true).append(true).open(job.out.join("char.log"))?;
     let mut run = Command::new(command);
     run.stdin(Stdio::piped()).stdout(log.try_clone()?).stderr(log).current_dir(&job.out);
     let mut child = crate::services::spawn_service(&mut run)?;
     if let Some(mut stdin) = child.take_stdin() {
-        // One short line: a body-maker that never reads it is not waited on.
         let _ = stdin.write_all(input.as_bytes());
     }
     Ok(child)
 }
 
-/// A finished job's `pack/` as the game's loader reads it, and the asked
-/// seat's: or why not.
 pub fn check(pack: &Path, job: &Job) -> Result<(), String> {
     let manifest = pack.join("pack.json");
     let text = std::fs::read_to_string(&manifest).map_err(|_| "it left no pack/pack.json".to_string())?;
@@ -315,7 +277,6 @@ pub fn check(pack: &Path, job: &Job) -> Result<(), String> {
     Ok(())
 }
 
-/// Keep a checked job's pack in the looks folder, as `<card>/`.
 fn land(job: &Job) -> Result<(), String> {
     let pack = job.out.join("pack");
     check(&pack, job)?;
@@ -342,21 +303,12 @@ fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// What a composing found.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Composed {
-    /// `pack.json` was written or taken away.
     pub changed: bool,
-    /// The cards of `bodies` whose set is not in the folder.
     pub missing: Vec<String>,
 }
 
-/// `looks/pack.json` for these knights (`(card, seat)`, `Run::mirror_bodies`):
-/// each card's set re-keyed to its seat (the seat's design and colours, the
-/// facing and frames as they are), its files named under the card's folder.
-/// Written beside and put in place, and only when it differs, so a window
-/// reads a new one only when the looks changed; none (no file) when no
-/// knight is drawn whole.
 pub fn compose(looks: &Path, bodies: &[(String, u32)]) -> std::io::Result<Composed> {
     let mut art: Vec<serde_json::Value> = Vec::new();
     let mut missing = Vec::new();
@@ -380,7 +332,6 @@ pub fn compose(looks: &Path, bodies: &[(String, u32)]) -> std::io::Result<Compos
                     entry[field] = file.into();
                 }
             }
-            // The name is a person's label; the file says where it is.
             if let Some(object) = entry.as_object_mut() {
                 object.remove("name");
             }
@@ -412,8 +363,6 @@ pub fn compose(looks: &Path, bodies: &[(String, u32)]) -> std::io::Result<Compos
     Ok(Composed { changed: true, missing })
 }
 
-/// A figure's key for the knight at `seat`: its design and colours, the rest
-/// as it was.
 pub fn rekey(key: &str, seat: u32) -> Option<String> {
     let mut parts = figure_keys::parts(key)?.map(str::to_string);
     parts[1] = design_of(seat).to_string();

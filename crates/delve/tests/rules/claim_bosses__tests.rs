@@ -17,8 +17,6 @@ pub(crate) fn fixture(kind: Guardian) -> (Run, industry::Deposit) {
     run.waves = Default::default();
     run.dungeon.rooms[room].cleared = true;
     run.phase = Phase::Exploring;
-    // A review/test arena with no incidental obstacles. The ordinary room
-    // remains responsible for walls, doors and real projectile collision.
     for y in 1..run.room().rows - 1 {
         for x in 1..run.room().cols - 1 {
             if matches!(
@@ -64,8 +62,6 @@ pub(crate) fn start(kind: Guardian) -> (Run, industry::Deposit) {
 }
 
 fn finish_precursors(run: &mut Run, d: &industry::Deposit) {
-    // These isolated signature/admission fixtures start after the precursor
-    // fight. The full play_claim scenario below wins it with ordinary inputs.
     run.tick_ore_sentries(d);
     assert_eq!(run.enemies.len(), 2);
     for e in &mut run.enemies { e.hp = 0; }
@@ -191,9 +187,6 @@ fn claim_boss_is_valid_beside_authentic_floor_gates_and_pays_after_actual_death(
     h.y = d.y;
     run.tick_industry(&press(), run.tick);
     assert!(run.valid_snapshot());
-    // finish_room may already have discovered and defeated the precursors
-    // while clearing the native camp. Never kill an already-started guardian
-    // in this precursor-only fixture step.
     let ore: BTreeSet<_> = run
         .enemies
         .iter()
@@ -272,16 +265,12 @@ fn claim_boss_signatures_warn_then_strike_then_offer_recovery() {
                 "{kind:?} {:?} gives a recovery window",
                 up.kind
             );
-            // Slams plant their warned ground rings at begin, beams/bursts and
-            // moving strikes materialize only after the wind-up.
             assert!(struck || !begin.ravages.is_empty() || !begin.bursts.is_empty());
             assert!(!e.hurts_by_touch());
         }
     }
 }
 
-/// Uses only visible shot and signature geometry. Eight-way keyboard inputs,
-/// the ordinary starter bow, one potion and normal health/cooldowns are kept.
 fn claim_fight_input(run: &Run) -> Input {
     use crate::rules::balance_sim_tests::{bot_input, dir8};
     let mut input = bot_input(run, 1);
@@ -422,7 +411,6 @@ fn claim_boss_starter_bow_wins_ironroot_and_claim_delivers_mined_ore() {
         "the starter knight survives without health resets"
     );
     assert!(!run.home.industry.claims[&d.id].secured);
-    // Walk back to the visible vein. The real interaction then secures it.
     for _ in 0..HZ * 20 {
         let h = &run.players[&1];
         if (h.x - d.x).hypot(h.y - d.y) < 2.0 {
@@ -452,8 +440,6 @@ fn claim_boss_starter_bow_wins_ironroot_and_claim_delivers_mined_ore() {
         0,
         "the kill unlocks potential, not free ore"
     );
-    // Starter building supplies pay for a connected outpost. Real simulation
-    // seconds construct it, extract into its buffer, and carry ore to camp.
     run.home
         .industry
         .apply(

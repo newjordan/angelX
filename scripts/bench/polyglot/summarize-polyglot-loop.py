@@ -51,8 +51,6 @@ def measured_usage(usage):
         value = value if value is not None and value >= 0 else None
         count = reports.get(field)
         count = count if isinstance(count, int) and not isinstance(count, bool) and count >= 0 else None
-        # Earlier envelopes have no per-field coverage. Preserve their reported
-        # counters while keeping the absence of a completeness claim visible.
         complete = valid_attempts and count == attempts and coherent and value is not None
         values[key] = value if complete or ("attempts" not in usage and not reports and coherent) else None
         subtotals[key] = value
@@ -66,6 +64,12 @@ def summarize_trace(record, trace):
     usage = angel.get("usage") or {}
     timing = angel.get("timing") or {}
     task = (record.get("task") or {}).get("data") or {}
+    record_name = task.get("name")
+    trace_task = trace.get("task")
+    trace_data = trace_task.get("data") if isinstance(trace_task, dict) else None
+    trace_name = trace_data.get("name") if isinstance(trace_data, dict) else None
+    conflict = (isinstance(record_name, str) and bool(record_name)
+                and isinstance(trace_name, str) and bool(trace_name) and record_name != trace_name)
     rewards = trace.get("rewards") or {}
     score = numeric((rewards.get("technical_outcome") or {}).get("score"))
     verifier = info.get("heldout_verification") or {}
@@ -80,7 +84,8 @@ def summarize_trace(record, trace):
     live = identity.get("live")
     live = live if isinstance(live, dict) else {}
     return {
-        "task": task.get("name"), "score": score, "solved": score == 1,
+        "task": None if conflict else record_name, "score": score, "solved": score == 1,
+        **({"identity_conflict": {"record": record_name, "trace": trace_name}} if conflict else {}),
         "task_wall_s": task_wall, "verifier_wall_s": verifier_wall,
         "model_s": milliseconds(timing.get("model_ms")),
         "tool_s": milliseconds(timing.get("tool_ms")),
@@ -94,8 +99,6 @@ def summarize_trace(record, trace):
         "usage_reported_subtotals": usage_subtotals, "usage_metric_coverage": usage_coverage,
         "usage_complete": (usage.get("core_complete") is True and token_fields["input_tokens"] is not None
                            and token_fields["output_tokens"] is not None),
-        # The binary plus the live-module legs the turn pinned; None for cells
-        # recorded before the harness reported it.
         "identity_sha256": identity.get("combined_sha256"),
         "executable_sha256": identity.get("executable_sha256"),
         "live_sha256": live.get("sha256"),
@@ -258,8 +261,6 @@ def paired(baseline, candidate):
     unknown_contract = sorted(key for key in keys if baseline["manifest"].get(key) is None or candidate["manifest"].get(key) is None)
     return {
         "baseline": baseline["path"], "candidate": candidate["path"],
-        # Which identity each cell ran under, and whether the binary or the
-        # live-module legs differ. None when a cell never reported identity.
         "identity": {"baseline": sorted(base_ids), "candidate": sorted(cand_ids),
                      "executable_changed": changed("executable_sha256"),
                      "legs_changed": changed("live_sha256")},

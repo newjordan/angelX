@@ -15,8 +15,6 @@ mod weapon;
 pub use baked::{Baked, Motion, Reel, Way};
 pub use drive::{FRIEND_LINES, Floor};
 
-/// How the art that shows this creation times its clips (the drive's own timing for it): the host
-/// says it to the session before it steps the Test drive (`Session::timing`).
 pub fn timing(creation: &crate::rules::creation::Creation) -> crate::rules::creation::Timing {
     baked::for_creation(creation).timing()
 }
@@ -27,16 +25,11 @@ const SCROLL_W: i32 = 232;
 const SCROLL_H: i32 = 188;
 const INK: char = 'n';
 const SOFT: char = 'P';
-/// The selection band's highlight: the scroll's palest paper, one step above the
-/// sheet's own `T`, so the picked row reads at a glance in the page's own inks.
 const BAND: char = '$';
 const RED: char = 'B';
 pub const REVEAL_TICK: u64 = 18;
 pub const SEAL_TICK: u64 = 32;
 
-/// The future bake supplies native pixel frames through this boundary. Empty,
-/// oversized or zero-duration atlases never reach the frame painter. The
-/// feet are at the bottom centre of each cell (the biped's stage anchor).
 #[derive(Clone, Debug)]
 pub struct PreviewAtlas {
     frames: Vec<Img>,
@@ -66,8 +59,6 @@ impl PreviewAtlas {
     }
 }
 
-/// What the world draws of a made creature (the rite): its baked figure, idling or walking east or
-/// west, scaled to stand no taller than `high` pixels. The game's camera, the Creator's own art.
 pub fn world_creature(c: &Creation, east: bool, walking: bool, tick: u64, high: i32) -> Img {
     let way = if east { Way::East } else { Way::West };
     let motion = if walking { Motion::Walk(way) } else { Motion::Idle };
@@ -75,14 +66,11 @@ pub fn world_creature(c: &Creation, east: bool, walking: bool, tick: u64, high: 
     shrunk(&im, high)
 }
 
-/// A made weapon as the world hangs it: the Creator's own assembled picture, upright, no taller than
-/// `high` and no wider than `wide`.
 pub fn world_weapon(w: &WeaponCreation, wide: i32, high: i32) -> Option<Img> {
     let (im, _) = weapon::display(w, None, (wide, high), (wide, high))?;
     Some(im)
 }
 
-/// `im` scaled by the nearest whole ratio down so it is no taller than `high`.
 fn shrunk(im: &Img, high: i32) -> Img {
     if im.h <= high || im.h <= 0 {
         return im.clone();
@@ -99,11 +87,6 @@ fn shrunk(im: &Img, high: i32) -> Img {
     out
 }
 
-/// One feed point for real creature atlases. Until then a baked set stands in (`baked`): the
-/// registry picks it by role (the in-game Bailiff, or a real creature's set for the roles that
-/// have one), drawn through the boss library's own dressing, reshaped by height and bulk, dyed by
-/// the main pigment, turned through its eight ways when the set has them. Assembled anatomy belongs
-/// to the future bake, and the stage says so.
 pub fn creature_preview(creation: &Creation, tick: u64, atlas: Option<&PreviewAtlas>) -> Img {
     if let Some(atlas) = atlas {
         return atlas.frames[(tick / atlas.frame_ticks % atlas.frames.len() as u64) as usize].clone();
@@ -122,13 +105,10 @@ fn pigments(p: Pigment) -> [char; 3] {
     }
 }
 
-/// Paint over the room only, before the client lifts in its party/HUD bands.
-/// Terminals keep their own UI. Native pixels are never fractionally scaled.
 pub fn paint(out: &mut Img, session: &Session, tick: u64, atlas: Option<&PreviewAtlas>) {
     paint_with(out, session, tick, atlas, None);
 }
 
-/// `paint`, with the fixture floor the Test drive stands the creature on (dev builds).
 pub fn paint_with(out: &mut Img, session: &Session, tick: u64, atlas: Option<&PreviewAtlas>, floor: Option<&Floor>) {
     if !session.open || out.w < WIDTH || out.h < 150 {
         return;
@@ -155,9 +135,6 @@ pub fn paint_with(out: &mut Img, session: &Session, tick: u64, atlas: Option<&Pr
     );
 }
 
-/// The rite's invitation to the Creator on a newcomer's screen (`rite`): `shown` is the slip's age
-/// in ticks and whether it is the full slip (the first seconds) or the corner hint (after). Drawn in
-/// the Creator's own paper, never while the Creator is open. It takes no key but the one it names.
 pub fn paint_invite(out: &mut Img, shown: Option<(u64, bool)>, creator_open: bool) {
     let Some((age, slip)) = shown else { return };
     if creator_open || out.w < WIDTH {
@@ -176,7 +153,6 @@ pub fn paint_invite(out: &mut Img, shown: Option<(u64, bool)>, creator_open: boo
     } else {
         centred(&mut im, 4, "N+C: YOUR RITE", RED, true);
     }
-    // The slip slides down from above the screen as it arrives, the hint just sits.
     let drop = if slip { (ease::back((age as f32 / 12.0).min(1.0)) * (h + 6) as f32) as i32 - h } else { 0 };
     let x = if slip { (out.w - w * k) / 2 } else { out.w - (w + 5) * k };
     out.stamp_times(&im, x, (6 + drop) * k, k);
@@ -184,8 +160,6 @@ pub fn paint_invite(out: &mut Img, shown: Option<(u64, bool)>, creator_open: boo
 
 fn frame(session: &Session, tick: u64, h: i32, atlas: Option<&PreviewAtlas>) -> Img {
     let calm = super::viewer::calm();
-    // Opaque black also covers the geometry beneath a glass RoomScene's
-    // screen layer. Flat frames and GPU scenes must show the same stage.
     let mut out = Img::black(WIDTH, h);
     let compact = h < HEIGHT;
     let scroll_h = if compact { h - 22 } else { SCROLL_H };
@@ -212,8 +186,6 @@ fn frame(session: &Session, tick: u64, h: i32, atlas: Option<&PreviewAtlas>) -> 
     );
     let mut back = Img::new(WIDTH, h);
     let mut front = Img::new(WIDTH, h);
-    // The wish's hanging seal would cover this editor's footer. Keep the
-    // margin magic, then land its same wax stamp in the review's reserved bay.
     if !calm {
         genie::magic(
             &mut back,
@@ -260,7 +232,6 @@ fn frame(session: &Session, tick: u64, h: i32, atlas: Option<&PreviewAtlas>) -> 
     out
 }
 
-/// The flow's stops along the top: a creature's seven (the Test drive last), a weapon's six.
 fn progress(im: &mut Img, session: &Session) {
     im.line(12, 18, 372, 18, 'P');
     let flow = session.flow();
@@ -289,7 +260,6 @@ fn progress(im: &mut Img, session: &Session) {
     }
 }
 
-/// Words broken at spaces to `cols` characters.
 fn wrap(text: &str, cols: usize) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
     for word in text.split_whitespace() {
@@ -304,7 +274,6 @@ fn wrap(text: &str, cols: usize) -> Vec<String> {
     lines
 }
 
-/// A shut row's badge: a small wax seal with a padlock pressed into it.
 fn lock_seal(im: &mut Img, x: i32, y: i32) {
     genie::seal(im, x, y, 0, false);
     for (dx, dy) in [(4, 1), (5, 1)] {
@@ -318,16 +287,10 @@ fn lock_seal(im: &mut Img, x: i32, y: i32) {
     im.put(x + 5, y + 6, 'b');
 }
 
-/// The hub's MADE bar, like the role page's POWER gauge: six cells, the sealed makings filled.
-/// Rows the made bar takes, rows the notice strip takes, and rows the whole foot
-/// reserves under the last wish row. The bar keeps a pixel of paper clear of the
-/// keys line below it.
 const MADE_H: i32 = 15;
 const NOTE_H: i32 = 13;
 const FOOT_ROOM: i32 = 30;
 
-/// A shut row's lettering drawn whole in the scroll's lighter ink, then eaten back
-/// to the paper by a sparse dither, so it dims against an open row and still reads.
 fn dim_text(im: &mut Img, x: i32, y: i32, s: &str, eat: char) -> i32 {
     let end = im.text(x, y, s, SOFT);
     for py in y..y + 7 {
@@ -420,7 +383,6 @@ fn stamp_wished(im: &mut Img, ink: &[String], tick: u64, centre: i32, foot: i32)
 }
 
 fn hub_face(im: &mut Img, session: &Session, h: i32) {
-    // The header, ruled like the maker's pages: the scroll's name, then the question.
     centred(im, 13, "THE WISH SCROLL", INK, true);
     for (a, b) in [(25, 68), (164, 207)] {
         im.line(a, 16, b, 16, SOFT);
@@ -442,8 +404,6 @@ fn hub_face(im: &mut Img, session: &Session, h: i32) {
         let open = session.gate.open(row);
         let on = session.row == i;
         if on {
-            // The maker's selection band, laid solid so it reads at a glance:
-            // palest parchment across the whole row and the scroll's red down its left.
             im.rect(19, y - 2, SCROLL_W - 38, row_h + 1, BAND);
             im.line(18, y - 2, 18, y + row_h - 1, RED);
         }
@@ -455,12 +415,9 @@ fn hub_face(im: &mut Img, session: &Session, h: i32) {
         let eat = if on { BAND } else { 't' };
         let name_x = 40;
         let name_w = text_width(row.title()) + i32::from(on);
-        // The need (or why it is shut): lighter ink, on the right when the row has the room,
-        // beneath when not. A word that would touch the name goes beneath instead.
           let cost = if open { row.need() } else { row.grey(session.gate) };
           let margin = SCROLL_W - 21;
           let gap = name_x + name_w + 8;
-          // Notes stay on the right, cut to fit. A second line runs into the next row at 384.
           let note = cut_to(cost, margin - gap);
           if on {
               bold(im, name_x, y + 1, row.title(), INK);
@@ -527,7 +484,6 @@ fn scroll(session: &Session, tick: u64, h: i32) -> Img {
         false,
     );
     let footer = h - 43;
-    // The Wish row is pinned under the list on every builder page.
     let wish_y = footer - 17;
     let top = 38;
     if session.step == Step::Life {
@@ -538,11 +494,8 @@ fn scroll(session: &Session, tick: u64, h: i32) -> Img {
     } else {
         let count = session.row_count();
         let room = wish_y - 3 - top;
-        // A creature's Paint page with a fifth row (a Hero's Look) keeps its colour chips: the rows
-        // give up the room the chips need (the four-row page is laid out as it always was).
         let chips = if session.step == Step::Paint && !session.forge() && count > 4 { 14 } else { 0 };
         let row_h = ((room - chips) / count as i32).clamp(13, 17);
-        // Short views scroll the rows just as the tavern mirror does.
         let visible = (room / row_h).max(1).min(count as i32) as usize;
         let start = session.row.min(count - 1).saturating_sub(visible - 1).min(count - visible);
         for (n, row) in (start..start + visible).enumerate() {
@@ -581,8 +534,6 @@ fn scroll(session: &Session, tick: u64, h: i32) -> Img {
     im
 }
 
-/// The Wish row (or, in the chat, the field the player speaks into): a seal marked T, the words
-/// "WISH IT", and the last thing said.
 fn wish_slip(im: &mut Img, s: &Session, tick: u64, y: i32, field: bool) {
     let selected = field || s.on_wish_row();
     if selected {
@@ -595,7 +546,6 @@ fn wish_slip(im: &mut Img, s: &Session, tick: u64, y: i32, field: bool) {
         }
         im.line(18, y - 2, 18, y + 11, RED);
     }
-    // The seal of the numbered rows, marked T for the shell's own wish key.
     im.ellipse(23.0 + 5.5, y as f32 - 1.0 + 5.5, 6.0, 6.0, if selected { '8' } else { 'p' });
     im.ellipse(23.0 + 5.0, y as f32 - 1.0 + 5.0, 4.5, 4.5, if selected { 'B' } else { 'R' });
     im.text(26, y + 1, "T", 'T');
@@ -621,7 +571,6 @@ fn wish_slip(im: &mut Img, s: &Session, tick: u64, y: i32, field: bool) {
     im.text(98, y + 1, &value, if selected { RED } else { SOFT });
 }
 
-/// The conversation, newest at the foot: the player's lines in ink, the genie's in red-brown.
 fn transcript(im: &mut Img, s: &Session, top: i32, bottom: i32) {
     let mut lines: Vec<(String, char)> = Vec::new();
     for l in &s.chat.lines {
@@ -682,7 +631,6 @@ fn swatches(im: &mut Img, s: &Session, y: i32) {
     }
 }
 
-/// A weapon's derived numbers: nothing here is typed in; each comes from its parts.
 fn weapon_numbers(im: &mut Img, s: &Session, y: i32, bottom: i32) {
     let p = s.weapon.powers();
     let st = &p.stats;
@@ -735,7 +683,6 @@ fn choice_row(im: &mut Img, s: &Session, row: usize, y: i32, row_h: i32) {
     } else {
         let value = s.row_value(row).to_uppercase();
         let ink = if selected { RED } else { SOFT };
-        // Parts and kinds get their own column, leaving the full name legible at 384.
         if matches!(s.step, Step::Parts | Step::Type) {
             let x = if s.step == Step::Type { 88 } else { 94 };
             im.text(x, y + 1, &value, ink);
@@ -821,7 +768,7 @@ fn life_words(im: &mut Img, s: &Session, footer: i32) {
         };
         if s.granted.is_some() {
             centred(im, 102, if forge { "A NEW EDGE, IN INK." } else { "A NEW SOUL, IN INK." }, RED, false);
-            return; // Below is the wax seal's bay, above the power gauge.
+            return;
         }
         let line = if valid.is_err() {
             "THE WISH NEEDS MENDING"
@@ -844,7 +791,6 @@ fn life_words(im: &mut Img, s: &Session, footer: i32) {
 
 const WEAPON_BUDGET_SHOWN: u16 = crate::rules::creation::WEAPON_BUDGET;
 
-/// The genie's few words beside the stage.
 fn words(s: &Session) -> String {
     let (used, budget) = s.power();
     if s.chat.open && !s.chat.quip.is_empty() {
@@ -895,7 +841,6 @@ fn stage(im: &mut Img, session: &Session, tick: u64, h: i32, atlas: Option<&Prev
     };
     centred(&mut name, 16, &sub, SOFT, false);
     im.stamp(&name, 242, 26);
-    // A low stone stage, from the same overhead camera as a boss's feet.
     im.ellipse(centre as f32, foot as f32 + 3.0, 52.0, 15.0, 'b');
     im.ellipse(centre as f32, foot as f32, 52.0, 14.0, 'P');
     im.ellipse(centre as f32, foot as f32 - 1.0, 49.0, 12.0, 'K');
@@ -909,7 +854,6 @@ fn stage(im: &mut Img, session: &Session, tick: u64, h: i32, atlas: Option<&Prev
     let mut reveal = age.map_or(1.0, |a| {
         ease::out(a.saturating_sub(REVEAL_TICK) as f32 / 14.0)
     });
-    // What was just wished steps out of the ink again.
     if !calm && let Some(at) = session.chat.said_at {
         let since = tick.saturating_sub(at);
         if since < 16 && session.granted.is_none() {
@@ -932,7 +876,6 @@ fn stage(im: &mut Img, session: &Session, tick: u64, h: i32, atlas: Option<&Prev
         } else {
             None
         };
-        // Standing on its pommel, or lying along the slab: whichever shrinks it less.
         match weapon::display(&session.weapon, mark, (112, foot - 56), (128, foot - 62)) {
             Some((mut fitted, k)) => {
                 if !calm {
@@ -943,7 +886,6 @@ fn stage(im: &mut Img, session: &Session, tick: u64, h: i32, atlas: Option<&Prev
             None => (Img::new(1, 1), "".to_string()),
         }
     } else {
-        // Only a real stand-in is captioned as one: a finished character from the pipeline is named.
         let set = baked::for_creation(c);
         let caption = if atlas.is_some() {
             "YOUR CREATURE".to_string()
@@ -995,8 +937,6 @@ fn stage(im: &mut Img, session: &Session, tick: u64, h: i32, atlas: Option<&Prev
             );
         }
     }
-    // A set whose standing frames are authored off the library's sole row says so in its record.
-    // (a set with eight ways turns on the stage, and each way declares its own sole edge).
     let lower = if on_stage || forge || atlas.is_some() {
         0
     } else {
@@ -1016,8 +956,6 @@ fn stage(im: &mut Img, session: &Session, tick: u64, h: i32, atlas: Option<&Prev
             }
         }
     }
-    // Small engraving, clear about the borrowed figure during this slice. A weapon's names the part
-    // the picker is on instead, and its ratio sits at the corner of the plate.
     let mut engraving = caption.clone();
     if forge {
         if !caption.is_empty() {
@@ -1042,7 +980,6 @@ fn stage(im: &mut Img, session: &Session, tick: u64, h: i32, atlas: Option<&Prev
             im.line(x - 2, y, x + 2, y, 'o');
         }
     }
-    // The genie remains at the scroll's foot, the same painted character.
     let cheering = age.is_some_and(|a| a >= SEAL_TICK)
         || session.chat.said_at.is_some_and(|at| !calm && tick.saturating_sub(at) < 24 && session.chat.open);
     let mood = if cheering {
@@ -1063,7 +1000,6 @@ fn stage(im: &mut Img, session: &Session, tick: u64, h: i32, atlas: Option<&Prev
     }
 }
 
-/// The same speech paper, with its little tail facing the genie beside it.
 fn speech(words: &str) -> Img {
     let bubble = genie::bubble(words, 88);
     let height = bubble.h - 5;

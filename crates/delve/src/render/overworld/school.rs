@@ -14,8 +14,6 @@ use super::map::{Place, TILE};
 use super::scene::Prop;
 use super::scene::Motion;
 
-/// A bounded, read-only mirror of the Sloptomizer's contextual evidence.
-/// Counts are not rewards, task wins, or proof of a better model.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct SchoolSnapshot {
     pub active: bool,
@@ -25,7 +23,6 @@ pub struct SchoolSnapshot {
     pub inconclusive: u32,
 }
 
-/// Named levels make room depth explicit without adding research actions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Room {
     Study,
@@ -91,7 +88,6 @@ fn school(active: bool) -> &'static Img {
                 image.rect(x + 7, y + 38, 2, 6, if index == 1 { '2' } else { 'Q' });
                 image.line(x + 8, y, x + 8, y + 6, 'T');
             }
-            // An open book in the gable: a school, recognisable at map scale.
             image.rect(33, 39, 15, 10, 's');
             image.line(34, 41, 40, 43, 'H');
             image.line(40, 43, 46, 41, 'H');
@@ -103,8 +99,6 @@ fn school(active: bool) -> &'static Img {
     })[usize::from(active)]
 }
 
-/// Two elves and two wizards, in the realm's monochrome character style.
-/// Pointed ears and hats stay legible independently of live signal colors.
 fn residents() -> &'static [Img; 4] {
     static RESIDENTS: OnceLock<[Img; 4]> = OnceLock::new();
     RESIDENTS.get_or_init(|| {
@@ -161,7 +155,6 @@ fn pace(tick: u32, motion: Motion, span: u32) -> i32 {
     step.min(span * 2 - step) as i32
 }
 
-/// The grounds use authored coordinates, translated with all other places.
 pub(super) fn stage(
     snapshot: SchoolSnapshot,
     tick: u32,
@@ -207,7 +200,6 @@ pub(super) fn stage(
             fire: false,
         });
     }
-    // The evidence cabinet remains quiet until an actual receipt arrives.
     if snapshot.observations > 0 {
         let mut cabinet = Img::new(14, 19);
         cabinet.rect(1, 3, 12, 15, 'P');
@@ -252,7 +244,6 @@ fn caption(image: &mut Img, y: i32, text: &str, ink: char) {
     image.text((image.w - text_width(text)) / 2, y, text, ink);
 }
 
-/// A narrow terminal gets a small complete room, not a crop of a large one.
 fn compact_room(room: Room, snapshot: SchoolSnapshot, w: i32, h: i32) -> Img {
     let mut image = Img::black(w.max(1), h.max(1));
     let vault = room == Room::Vault;
@@ -309,8 +300,6 @@ fn compact_room(room: Room, snapshot: SchoolSnapshot, w: i32, h: i32) -> Img {
     image
 }
 
-/// A small room rendered at native pixel scale. Large panes reveal its dark
-/// surroundings; narrow panes get their own compact composition.
 pub(super) fn render_room(
     room: Room,
     snapshot: SchoolSnapshot,
@@ -326,7 +315,6 @@ pub(super) fn render_room(
     let (rw, rh) = (w.clamp(96, 288), h.clamp(96, 192));
     let mut image = Img::black(rw, rh);
     let vault = room == Room::Vault;
-    // Exposed earth above the vault makes the second level read underground.
     image.rect(5, 21, rw - 10, rh - 39, if vault { 's' } else { 'n' });
     image.rect(9, 39, rw - 18, rh - 61, if vault { 'x' } else { 'I' });
     for y in (23..39).step_by(4) {
@@ -368,7 +356,6 @@ pub(super) fn render_room(
     }
     let (cx, cy) = (rw / 2 + 5, (rh / 2 + 6).max(64));
     if vault {
-        // Paired receipts sit on opposite sides of the same comparison desk.
         image.rect(cx - 24, cy - 14, 48, 27, 'P');
         image.frame(cx - 24, cy - 14, 48, 27, 'o');
         image.line(cx, cy - 13, cx, cy + 11, 'n');
@@ -411,7 +398,6 @@ pub(super) fn render_room(
     {
         image.stamp(&cast[index], x, y - cast[index].h);
     }
-    // A single truthful readout; abbreviations expand in the school guide.
     let evidence = if snapshot.observations == 0 {
         "NO RECEIPTS YET".to_string()
     } else if rw >= 230 {
@@ -422,7 +408,6 @@ pub(super) fn render_room(
     } else {
         format!("OBS {}  +/- {}", snapshot.observations, snapshot.contrasts)
     };
-    // Bound long counts to the available row without altering their meaning.
     let ink = if snapshot.inconclusive > 0 { '@' } else { 'H' };
     if text_width(&evidence) <= rw - 8 {
         caption(&mut image, rh - 13, &evidence, ink);

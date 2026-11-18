@@ -26,44 +26,28 @@
 
 use std::sync::OnceLock;
 
-/// Kingdom pixels in a metre: a tile is 1.5 m and 16 px.
 pub const PX_PER_M: f32 = 16.0 / 1.5;
 
-/// The tile corner every castle's middle stands on (the Keep's site).
 pub const ORIGIN: (i32, i32) = (133, 81);
 
-/// The tiles a castle's solid grid spans on a side, centred on [`ORIGIN`].
 pub const GRID: i32 = 28;
 
-/// Half of [`GRID`].
 pub const HALF: i32 = GRID / 2;
 
-/// A tile that is never blocked.
 pub const NEVER: u32 = u32::MAX;
 
-/// Set in a tile's baked `need` when it is the ditch that blocks it (a pit:
-/// stops feet, not shots) and not a wall.
 pub const DITCH: u32 = 1 << 31;
 
-/// How high a wall must stand to stop a knight: a knee, in metres.
 pub const KNEE: f32 = 0.5;
 
-/// What the baked file starts with.
 const MAGIC: &[u8; 4] = b"ACB1";
 
-/// Sample points to a tile's side, and how many of a tile's samples a wall
-/// (an eighth of it: a shell of 0.6 m split across two tiles still shuts
-/// both) or a ditch (half of it) must cover before the tile is blocked.
 const PER_SIDE: usize = 8;
 const WALL_SAMPLES: usize = PER_SIDE * PER_SIDE / 8;
 const DITCH_SAMPLES: usize = PER_SIDE * PER_SIDE / 2;
 
-/// Roles that never block a walker: the deck over the ditch, its chains and
-/// the portcullis (the gate stays open).
 const WALKABLE_ROLES: [&str; 3] = ["drawbridge", "chain", "portcullis"];
 
-/// One stone: its material and role (indexes into the castle's tables) and
-/// its shape, in centimetres.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Stone {
     pub mat: u8,
@@ -71,18 +55,13 @@ pub struct Stone {
     pub shape: Shape,
 }
 
-/// An axis-aligned box, or eight corners (a wedge, a voussoir, a battered
-/// face) in the architect's order: corners 0 to 3 are one face's ring and 4
-/// to 7 the opposite face's, in the same order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shape {
-    /// `[x0, y0, z0, x1, y1, z1]`.
     Box([i16; 6]),
     Hex([[i16; 3]; 8]),
 }
 
 impl Stone {
-    /// The box round the stone, `[x0, y0, z0, x1, y1, z1]`, in centimetres.
     pub fn aabb(&self) -> [i16; 6] {
         match self.shape {
             Shape::Box(b) => b,
@@ -99,7 +78,6 @@ impl Stone {
         }
     }
 
-    /// The eight corners in metres: a box's in the architect's ring order.
     pub fn corners(&self) -> [[f32; 3]; 8] {
         let m = |v: i16| f32::from(v) / 100.0;
         match self.shape {
@@ -112,7 +90,6 @@ impl Stone {
     }
 }
 
-/// A stage of the build (a lift of the keep, the curtain, the roofs).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Stage {
     pub id: String,
@@ -121,46 +98,34 @@ pub struct Stage {
     pub count: u32,
 }
 
-/// What the falsework is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Work {
-    /// Putlog scaffolding climbing the walls.
     Scaffold,
-    /// A treadwheel crane's frame, one a lift.
     Crane,
-    /// Timber centring under an arch.
     Centring,
     Other,
 }
 
-/// A piece of falsework: there from stone `appears` (it stands once `laid >=
-/// appears`) until stone `gone` is laid (`laid < gone`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Falsework {
     pub kind: Work,
     pub appears: u32,
     pub gone: u32,
     pub mat: u8,
-    /// `[x0, y0, z0, x1, y1, z1]`, centimetres.
     pub bx: [i16; 6],
 }
 
-/// Earth moved: a ring of ground dug down (or raised) by `depth` between
-/// `ring` and `hole`, as soon as stone `at` is laid.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Earth {
     pub at: u32,
     pub raise: bool,
-    /// Centimetres, castle frame `(x, y)`.
     pub ring: Vec<[i16; 2]>,
     pub hole: Vec<[i16; 2]>,
     pub depth: i16,
 }
 
-/// A castle, baked.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Castle {
-    /// Its plan: `great-tower`.
     pub id: String,
     pub seed: u32,
     pub materials: Vec<String>,
@@ -169,15 +134,11 @@ pub struct Castle {
     pub stones: Vec<Stone>,
     pub falsework: Vec<Falsework>,
     pub earth: Vec<Earth>,
-    /// Per tile of the [`GRID`] by [`GRID`] about [`ORIGIN`], row by row: the
-    /// `laid` at which the tile is blocked ([`NEVER`]: it never is).
     pub solid: Vec<u32>,
-    /// The box the stones fill, metres.
     pub bounds: [f32; 6],
 }
 
 impl Castle {
-    /// How many stones the castle is.
     pub fn len(&self) -> u32 {
         self.stones.len() as u32
     }
@@ -186,7 +147,6 @@ impl Castle {
         self.stones.is_empty()
     }
 
-    /// The name of material `m` and of role `r`.
     pub fn material(&self, m: u8) -> &str {
         self.materials.get(usize::from(m)).map_or("", String::as_str)
     }
@@ -195,8 +155,6 @@ impl Castle {
         self.roles.get(usize::from(r)).map_or("", String::as_str)
     }
 
-    /// The stage stone `index` belongs to (the last stage that begins at or
-    /// before it).
     pub fn stage_of(&self, index: u32) -> usize {
         self.stages
             .iter()
@@ -204,19 +162,14 @@ impl Castle {
             .unwrap_or(0)
     }
 
-    /// The stage the next stone to be laid (`laid`) is in; the last stage
-    /// once the castle stands.
     pub fn stage_at(&self, laid: u32) -> usize {
         self.stage_of(laid.min(self.len().saturating_sub(1)))
     }
 
-    /// The tiles the castle's solid grid spans on the map: `(x, y, w, h)`.
     pub fn tiles(&self) -> (i32, i32, i32, i32) {
         (ORIGIN.0 - HALF, ORIGIN.1 - HALF, GRID, GRID)
     }
 
-    /// A tile's baked word: its `need` and whether the ditch is what blocks
-    /// it ([`NEVER`] outside the grid).
     fn word(&self, tx: i32, ty: i32) -> u32 {
         let (i, j) = (tx - ORIGIN.0 + HALF, ty - ORIGIN.1 + HALF);
         if i < 0 || j < 0 || i >= GRID || j >= GRID {
@@ -225,8 +178,6 @@ impl Castle {
         self.solid.get((j * GRID + i) as usize).copied().unwrap_or(NEVER)
     }
 
-    /// The `laid` at which map tile `(tx, ty)` is blocked: [`NEVER`] if it
-    /// never is.
     pub fn need(&self, tx: i32, ty: i32) -> u32 {
         match self.word(tx, ty) {
             NEVER => NEVER,
@@ -234,19 +185,15 @@ impl Castle {
         }
     }
 
-    /// Whether the ditch (a pit, not a wall) is what blocks map tile `(tx, ty)`.
     pub fn is_ditch(&self, tx: i32, ty: i32) -> bool {
         let w = self.word(tx, ty);
         w != NEVER && w & DITCH != 0
     }
 
-    /// Whether map tile `(tx, ty)` is blocked with `laid` stones standing.
     pub fn blocked(&self, tx: i32, ty: i32, laid: u32) -> bool {
         laid >= self.need(tx, ty)
     }
 
-    /// Whether map tile `(tx, ty)` is blocked with `laid` stones standing and the stones `lost`
-    /// (sorted) knocked out: a wall whose stone that closed the tile is gone is a breach.
     pub fn blocked_without(&self, tx: i32, ty: i32, laid: u32, lost: &[u32]) -> bool {
         if !self.blocked(tx, ty, laid) {
             return false;
@@ -254,22 +201,15 @@ impl Castle {
         self.is_ditch(tx, ty) || lost.is_empty() || self.need(tx, ty).checked_sub(1).is_none_or(|stone| lost.binary_search(&stone).is_err())
     }
 
-    /// The earth lifts done with `laid` stones standing.
     pub fn earth_done(&self, laid: u32) -> usize {
         self.earth.iter().filter(|e| e.at <= laid).count()
     }
 
-    /// Where a point of the castle's frame (metres) stands in the kingdom's
-    /// pixels: `[x, y, z]` with `y` up.
     pub fn world(&self, [x, y, z]: [f32; 3]) -> [f32; 3] {
         let (ox, oz) = origin_px();
         [ox + x * PX_PER_M, z * PX_PER_M, oz - y * PX_PER_M]
     }
 
-    // ----------------------------------------------------------- the bake --
-
-    /// The castle `text` (`angel-castle/v1` JSON) as the game keeps it, named
-    /// `id`.
     pub fn from_json(id: &str, text: &str) -> Result<Castle, String> {
         use serde_json::Value;
         let v: Value = serde_json::from_str(text).map_err(|e| format!("not JSON: {e}"))?;
@@ -312,7 +252,6 @@ impl Castle {
                 for k in 0..6 {
                     b[k] = cm(&a[2 + k])?;
                 }
-                // A box is lo to hi whatever order the architect wrote it in.
                 for k in 0..3 {
                     if b[k] > b[k + 3] {
                         b.swap(k, k + 3);
@@ -367,7 +306,6 @@ impl Castle {
         }
         let mut bounds = [0.0f32; 6];
         for (k, b) in v["bounds"].as_array().ok_or("bounds are missing")?.iter().take(6).enumerate() {
-            // Whole centimetres, as the file keeps them.
             bounds[k] = (b.as_f64().unwrap_or(0.0) * 100.0).round() as f32 / 100.0;
         }
         let mut castle = Castle {
@@ -386,13 +324,9 @@ impl Castle {
         Ok(castle)
     }
 
-    /// Each tile's `need`: a wall that reaches a knee, or a dug ditch.
     fn bake_solid(&self) -> Vec<u32> {
-        // Samples an eighth of a tile apart over the grid.
         let side = GRID as usize * PER_SIDE;
         let step = 1.5 / PER_SIDE as f32;
-        // The sample `(sx, sy)`'s point, castle metres: `sy` counts south from
-        // the grid's north edge, as the map's rows do.
         let at = |sx: usize, sy: usize| -> (f32, f32) {
             let x = (sx as f32 + 0.5) * step - HALF as f32 * 1.5;
             let y = -((sy as f32 + 0.5) * step - HALF as f32 * 1.5);
@@ -401,13 +335,11 @@ impl Castle {
         let mut first = vec![NEVER; side * side];
         for (index, stone) in self.stones.iter().enumerate() {
             let [x0, y0, z0, x1, y1, z1] = stone.aabb().map(|v| f32::from(v) / 100.0);
-            // Stones that stand on the ground and reach a knee; not a deck.
             if z0 >= 0.9 || z1 <= KNEE || WALKABLE_ROLES.contains(&self.role(stone.role)) {
                 continue;
             }
             let lo = |v: f32| (((v + HALF as f32 * 1.5) / step).floor() as i32).clamp(0, side as i32 - 1) as usize;
             let (sx0, sx1) = (lo(x0), lo(x1));
-            // North is down the rows: y1 is the northern edge.
             let row = |y: f32| (((HALF as f32 * 1.5 - y) / step).floor() as i32).clamp(0, side as i32 - 1) as usize;
             let (sy0, sy1) = (row(y1), row(y0));
             for sy in sy0..=sy1 {
@@ -424,7 +356,6 @@ impl Castle {
         let mut solid = vec![NEVER; (GRID * GRID) as usize];
         for j in 0..GRID {
             for i in 0..GRID {
-                // The tile's middle, castle metres.
                 let (mx, my) = ((i - HALF) as f32 * 1.5 + 0.75, -((j - HALF) as f32 * 1.5 + 0.75));
                 let in_apron = apron.is_some_and(|[x0, y0, x1, y1]| mx >= x0 && mx <= x1 && my >= y0 && my <= y1);
                 let mut needs: Vec<u32> = Vec::new();
@@ -437,7 +368,6 @@ impl Castle {
                             needs.push(n);
                         }
                         let (x, y) = at(sx, sy);
-                        // The causeway before the gate stays undug.
                         if x.abs() < 1.5 && y < 0.0 {
                             continue;
                         }
@@ -449,7 +379,6 @@ impl Castle {
                     }
                 }
                 needs.sort_unstable();
-                // A wall wins where a wall stands in the ditch's edge.
                 let mut word = if in_apron { NEVER } else { needs.get(WALL_SAMPLES - 1).copied().unwrap_or(NEVER) };
                 if word == NEVER {
                     for (k, e) in self.earth.iter().enumerate().take(8) {
@@ -464,13 +393,7 @@ impl Castle {
         solid
     }
 
-    /// The ground just inside the gate: the row of tiles north of the
-    /// gatehouse's inner end, across the passage and a few metres either side.
-    /// A footing's edge across the way (the forebuilding's, here) must never
-    /// shut a whole tile and with it the only way into the bailey, so the
-    /// tiles there are never blocked by stonework. `[x0, y0, x1, y1]`, metres.
     fn apron(&self) -> Option<[f32; 4]> {
-        // The gate's own stones: jambs within the passage's reach, south of the bailey.
         let mouth = self
             .stones
             .iter()
@@ -482,11 +405,6 @@ impl Castle {
         (mouth > f32::MIN).then_some([-6.0, mouth, 6.0, mouth + 1.5])
     }
 
-    // ---------------------------------------------------------- the bytes --
-
-    /// The castle as the baked file: its tables, then every stone as varints
-    /// (a lay order is spatially coherent, so each stone is a small step from
-    /// the one before).
     pub fn encode(&self) -> Vec<u8> {
         let mut w = Writer::default();
         w.bytes.extend_from_slice(MAGIC);
@@ -573,7 +491,6 @@ impl Castle {
         w.bytes
     }
 
-    /// A castle from the baked file.
     pub fn decode(bytes: &[u8]) -> Result<Castle, String> {
         let mut r = Reader { bytes, at: 0 };
         if r.take(4)? != MAGIC {
@@ -663,7 +580,6 @@ impl Castle {
     }
 }
 
-/// Whether `(x, y)` (metres) is inside the polygon `poly` (centimetres).
 fn inside(poly: &[[i16; 2]], x: f32, y: f32) -> bool {
     if poly.len() < 3 {
         return false;
@@ -681,12 +597,10 @@ fn inside(poly: &[[i16; 2]], x: f32, y: f32) -> bool {
     inside
 }
 
-/// Whether point `(x, y)` (metres) is within the dug ground of `earth`.
 pub fn dug(e: &Earth, x: f32, y: f32) -> bool {
     inside(&e.ring, x, y) && !inside(&e.hole, x, y)
 }
 
-/// The kingdom's pixel under the castle's middle.
 pub fn origin_px() -> (f32, f32) {
     (ORIGIN.0 as f32 * 16.0, ORIGIN.1 as f32 * 16.0)
 }
@@ -752,7 +666,6 @@ impl Reader<'_> {
         Ok(((v >> 1) as i32) ^ -((v & 1) as i32))
     }
 
-    /// A count of at most `most` things.
     fn count(&mut self, most: u32) -> Result<usize, String> {
         let n = self.uint()?;
         if n > most { Err(format!("{n} things is too many")) } else { Ok(n as usize) }
@@ -764,22 +677,14 @@ impl Reader<'_> {
     }
 }
 
-// --------------------------------------------------------- the loaded ones --
-
-/// Whether the Works stands on this map: the Keep's site is the blank-slate
-/// plan's (`world::plan`); the old realm has its own castles and the site is
-/// inert there.
 pub fn on_map() -> bool {
     super::plan::tabula()
 }
 
-/// The plans the game ships, each baked from `angel-castle/v1`.
 pub const PLANS: [&str; 1] = ["great-tower"];
 
-/// The Keep's plan.
 pub const KEEP: &str = "great-tower";
 
-/// Castle `plan`, loaded once; `None` for a plan this build does not know.
 pub fn castle(plan: &str) -> Option<&'static Castle> {
     static GREAT_TOWER: OnceLock<Castle> = OnceLock::new();
     match plan {
@@ -790,7 +695,6 @@ pub fn castle(plan: &str) -> Option<&'static Castle> {
     }
 }
 
-/// What each stone of castle `plan` rests on (`works_siege`), derived once from its stones.
 pub fn rests(plan: &str) -> Option<&'static super::works_siege::Rests> {
     static GREAT_TOWER: OnceLock<super::works_siege::Rests> = OnceLock::new();
     match plan {

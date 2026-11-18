@@ -21,7 +21,6 @@ use angel_delve::render::overworld::arena::{self, stage_frame::StageMaker};
 use angel_delve::world3d::{self, room};
 use angel_gpu::{Core, Draw, Frame, Instance, Picture, Stage};
 
-/// The stage's picture id, as the cockpit names the Delve's.
 const STAGE: u32 = 0x00FA_57A4;
 
 fn main() -> ExitCode {
@@ -50,13 +49,10 @@ fn run() -> Result<(), String> {
     }
     let out = out.ok_or(usage)?;
     if items.is_empty() {
-        // Lit, every item stands up with no plate.
         items = world3d::pilot::all().iter().map(|i| i.id().to_string()).collect();
     }
     std::fs::create_dir_all(&out).map_err(|e| format!("{}: {e}", out.display()))?;
     let mut gpu = Gpu::new()?;
-    // As the cockpit's window has the Delve: its frames in parts, its
-    // pickups and shots as shapes.
     arena::draw_parts_outside(true);
     arena::props_meshes(true);
     let (w, h) = arena::seat_size();
@@ -75,8 +71,6 @@ fn run() -> Result<(), String> {
             let name = if on { format!("{id}.png") } else { format!("{id}-flat.png") };
             write_png(&out.join(&name), size, &pixels)?;
             if on {
-                // Round each knight: where the stage's tilted floor has its feet
-                // (the camera is the room's, under the band).
                 let tilt = angel_stage::Tilt::for_stage(arena::stage_frame::TILT, (w, h)).ok_or("no tilt")?;
                 for (feet, crop) in [(proof.behind, format!("{id}-behind.png")), (proof.in_front, format!("{id}-front.png"))] {
                     let at = tilt.floor([feet[0] - scene.camera.0, feet[1] - scene.camera.1]);
@@ -120,9 +114,6 @@ impl Gpu {
         Ok(Self { core, device })
     }
 
-    /// A Delve frame as a stage, drawn into a texture `size` pixels as the
-    /// window draws a stage in its cells, on black (the cockpit blacks the
-    /// Delve's cells), and read back.
     fn stage(&mut self, frame: angel_stage::Frame, size: (u32, u32)) -> Vec<u8> {
         for p in frame.pictures {
             self.core.upload(Picture { id: p.id, width: p.width, height: p.height, rgba: p.rgba, cols: 0, rows: 0 });
@@ -170,7 +161,6 @@ impl Gpu {
     }
 }
 
-/// The part of `pixels` (`size`) in `rect`, black past its edges.
 fn crop_of(pixels: &[u8], size: (u32, u32), (x0, y0, w, h): (i32, i32, i32, i32)) -> Vec<u8> {
     let mut out = vec![0u8; (w * h * 4) as usize];
     for y in 0..h {

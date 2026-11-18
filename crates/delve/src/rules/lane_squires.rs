@@ -122,7 +122,6 @@ impl Company {
         }
         true
     }
-    /// One board per delve, stable across reconnects and every client's step.
     pub fn refresh(&mut self, season: u64) {
         if self.season == Some(season) {
             return;
@@ -147,8 +146,6 @@ impl Company {
             let roll = season
                 .wrapping_mul(6364136223846793005)
                 .wrapping_add(u64::from(self.day) * 17 + n as u64);
-            // The first board rotates all five trades; better boards add
-            // choices and trained recruits, rather than locking healing out.
             self.offers.push(Recruit {
                 id: self.next_id,
                 name: NAMES[(roll % NAMES.len() as u64) as usize].into(),
@@ -285,7 +282,6 @@ impl Company {
             Action::Train => self.train(who, gold),
         }
     }
-    /// Replay the sim's requests against the real treasury, in player order.
     pub fn settle(&mut self, treasury: &mut Spoils, orders: &[Order]) -> bool {
         if orders.is_empty() {
             return false;
@@ -470,7 +466,6 @@ impl Run {
             let (ux, uy) = unit(x - s.x, y - s.y);
             match kind {
                 Kind::Ninja => {
-                    // Approach the far side of the quarry, away from its knight.
                     let (fx, fy) = unit(x - home.0, y - home.1);
                     goal = (x + fx * 1.1, y + fy * 1.1);
                 }
@@ -532,8 +527,6 @@ impl Run {
                 Mover::Hero,
             );
         }
-        // Shots and bodies use the same grace as allies. Squires never eat
-        // loot or keep a wiped party in play; shields physically intercept.
         if s.grace == 0 && s.smoke == 0 {
             let shot = self
                 .projectiles
@@ -709,8 +702,6 @@ impl Run {
     }
 }
 
-/// The same tile geometry as walking and shots; no healing or bomb through
-/// a wall just because its target lies inside a radius.
 fn sight(room: &Room, from: (f32, f32), to: (f32, f32)) -> bool {
     let distance = (to.0 - from.0).hypot(to.1 - from.1);
     let steps = (distance / (TILE_UNITS * 0.2)).ceil() as usize;

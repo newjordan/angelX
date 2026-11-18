@@ -1,10 +1,3 @@
-"""The critic: a vision pass over a shot, against the brief and the rubric.
-
-Each critic model (claude, codex; both by default, in parallel) looks at the
-grain ladder shot with the eyes' findings beside it and answers JSON held to
-SCHEMA: a 0-10 score per rubric line, an overall, a summary, strengths,
-faults and fixes. The panel's scores are averaged; variants rank by overall.
-"""
 import json
 import threading
 from pathlib import Path
@@ -90,14 +83,13 @@ def _one(name, png, brief, workdir, facts, findings, budget):
 
 
 def critique(png, brief, workdir, panel=None, facts=None, findings=None, ledger=None, budget=420, stage="critic", **tags):
-    """The panel's verdict on one shot: {scores, overall, by: {model: verdict}, errors}."""
     names = list(panel or DEFAULT)
     results = {}
 
     def go(n):
         try:
             results[n] = _one(n, png, brief, workdir, facts, findings, budget)
-        except Exception as e:  # a model that can't be reached is reported, not fatal
+        except Exception as e:
             results[n] = (models_error(n, e), None)
 
     threads = [threading.Thread(target=go, args=(n,)) for n in names]

@@ -7,7 +7,6 @@ use crate::rules::home::bend_cases::{Cases, Mix, keep, state, states, to};
 use crate::rules::{Input, Run};
 use serde_json::{Value, json};
 
-/// The parts of a Run these rules read and write, as the state tree holds them.
 fn view(run: &Run) -> Value {
     keep(&state(run), &["tick", "players", "idle", "held", "fellowship", "seat_sounds"])
 }
@@ -17,7 +16,6 @@ fn pick_seat(run: &Run, m: &mut Mix) -> u32 {
     ids[m.below(ids.len() as u64) as usize]
 }
 
-/// Dress a state so the paths a fresh corpus state never takes are taken.
 fn stir(run: &mut Run, m: &mut Mix) {
     for hero in run.players.values_mut() {
         hero.away = m.chance(25);
@@ -109,7 +107,6 @@ fn record_fellowship() {
             hero.stone = m.chance(15);
         }
         let ids: Vec<u32> = run.players.keys().copied().collect();
-        // Some of the party wait in ways, some already called and rung.
         let mut waiting = Vec::new();
         for &id in &ids {
             if m.chance(60) {

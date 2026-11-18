@@ -1,11 +1,6 @@
-# crates/delve/src/rules/griffinwing/bot.rs — a bot's hands: what a scripted
-# knight presses to fly Griffinwing. An Option<(a, b)> is null or [a, b].
-
-# How long F is held before it is a charge (the flight's own number).
 def griffinwing.bot.HOLD_AT_BOT() -> U32:
   7
 
-# A steady scatter in `-span..=span` from a knight, a tick and a salt.
 def griffinwing.bot.noise(+id: U32, +t: U32, +salt: U32, +span: U32) -> U32:
   griffinwing.bot.noise.mix(U32.xor(U32.xor((id * 2654435761 : U32), (t * 2246822507 : U32)), (salt * 3266489909 : U32)), span)
 
@@ -21,15 +16,12 @@ def griffinwing.bot.noise.fin2(+h2: U32, +span: U32) -> U32:
 def griffinwing.bot.noise.fin3(+h: U32, +span: U32) -> U32:
   (U32.mod(h, (2 * span + 1 : U32)) - span : U32)
 
-# `steer`: -1, 0 or 1 toward `to`, with a dead zone.
 def griffinwing.bot.steer(+from: U32, +to: U32, +dead: U32) -> U32:
   Bool.pick(U32, U32.is_le(gw.abs((to - from : U32)), dead), 0, gw.sig((to - from : U32)))
 
-# What knight `id` presses this tick, with a sure hand.
 def griffinwing.bot.Session.bot_input(+s: J.Val, +id: U32) -> J.Val:
   griffinwing.bot.Session.bot_with(s, id, griffinwing.Nums.default(), False{})
 
-# The Input J: the default, with the keys set.
 def griffinwing.bot.Input.make(+mx: U32, +my: U32, +ax: U32, +ay: U32, +fire: Bool, +dash: Bool, +bomb: Bool, +swing: Bool) -> J.Val:
   i0 = rules.Input.default()
   i1 = ga.si(i0, "move_x", mx)
@@ -41,7 +33,6 @@ def griffinwing.bot.Input.make(+mx: U32, +my: U32, +ax: U32, +ay: U32, +fire: Bo
   i7 = ga.sb(i6, "bomb", bomb)
   ga.sb(i7, "swing", swing)
 
-# What knight `id` presses this tick, for the numbers `n` stand at.
 def griffinwing.bot.Session.bot_with(+s: J.Val, +id: U32, +n: J.Val, +novice: Bool) -> J.Val:
   gw.ifj(Bool.not(ga.has_key(J.get(s, "seats"), id)),
     _ => rules.Input.default(),
@@ -54,12 +45,10 @@ def griffinwing.bot.Session.bot_with.seated(+s: J.Val, +id: U32, +n: J.Val, +nov
       _ => rules.Input.default(),
       _ => griffinwing.bot.Session.bot_with.plan(s, id, n, novice, c, griffinwing.flight.Session.craft_s(s, c))))
 
-# Where to be, whether to roll, whether to brake: the plan, then the hands.
 def griffinwing.bot.Session.bot_with.plan(+s: J.Val, +id: U32, +n: J.Val, +novice: Bool, +c: J.Val, +s_c: U32) -> J.Val:
   griffinwing.bot.Session.bot_with.hands(s, id, n, novice, c, s_c,
     griffinwing.bot.Session.plan(s, id, n, novice, c, s_c))
 
-# The plan: {"want": null | [x, z], "rolls", "brake", "threat": null | [t, px, pz, gloam]}.
 def griffinwing.bot.Session.plan(+s: J.Val, +id: U32, +n: J.Val, +novice: Bool, +c: J.Val, +s_c: U32) -> J.Val:
   griffinwing.bot.Session.plan.react(s, id, n, novice, c, s_c,
     Bool.and(griffinwing.combat.Session.latched(s, id), Bool.and(U32.is_zero(ga.u(c, "rest")), U32.is_zero(ga.u(c, "roll")))),
@@ -67,8 +56,6 @@ def griffinwing.bot.Session.plan(+s: J.Val, +id: U32, +n: J.Val, +novice: Bool, 
     griffinwing.bot.Session.threat(s, c, s_c),
     gw.ifj(griffinwing.bot.Session.reflector(s, id), _ => griffinwing.bot.Session.intercept(s, s_c), _ => J.JNull{}))
 
-# A friend with a kite on their tail, level with this knight: brake until the
-# chaser is in front.
 def griffinwing.bot.Session.plan.chaser(+fs: List<&2, J.Val>, +id: U32, +s_c: U32) -> Bool:
   match fs:
     case Nil{}:
@@ -85,15 +72,12 @@ def griffinwing.bot.Session.plan.react(+s: J.Val, +id: U32, +n: J.Val, +novice: 
       _ => griffinwing.bot.Session.plan.dodge(s, id, n, novice, c, s_c, rolls0, brake0, threat),
       _ => griffinwing.bot.Session.plan.spots(s, id, n, c, s_c, J.JNull{}, rolls0, brake0, threat)))
 
-# The Wyrm's lamp is shut: be where its spit will be, and roll. A novice meets
-# the Wyrm's spit half the time.
 def griffinwing.bot.Session.plan.seek(+s: J.Val, +id: U32, +n: J.Val, +novice: Bool, +c: J.Val, +s_c: U32, +brake0: Bool, +threat: J.Val, +seek: J.Val) -> J.Val:
   griffinwing.bot.Session.plan.spots(s, id, n, c, s_c, J.JA{[J.of_i32(ga.nu(seek, 1)), J.of_i32(ga.nu(seek, 2))]},
     Bool.and(Bool.or(Bool.not(novice), gw.ge(griffinwing.bot.noise(id, U32.div(ga.u(s, "t"), 60), 5, 1), 0)),
       Bool.and(U32.is_zero(ga.u(c, "rest")), Bool.and(U32.is_zero(ga.u(c, "roll")), U32.is_le(ga.nu(seek, 0), gw.ifu(novice, _ => 6, _ => 8))))),
     brake0, threat)
 
-# A hostile bolt will cross: roll into a Gloam bolt, or make room.
 def griffinwing.bot.Session.plan.dodge(+s: J.Val, +id: U32, +n: J.Val, +novice: Bool, +c: J.Val, +s_c: U32, +rolls0: Bool, +brake0: Bool, +threat: J.Val) -> J.Val:
   griffinwing.bot.Session.plan.dodge2(s, id, n, novice, c, s_c, rolls0, brake0, threat,
     Bool.and(Bool.and(U32.is_zero(ga.u(c, "rest")), U32.is_zero(ga.u(c, "roll"))),
@@ -112,7 +96,6 @@ def griffinwing.bot.Session.plan.dodge2(+s: J.Val, +id: U32, +n: J.Val, +novice:
           griffinwing.bot.Session.room_from(c, ga.nu(threat, 1), ga.nu(threat, 2), n), rolls0, brake0, threat),
         _ => griffinwing.bot.Session.plan.spots(s, id, n, c, s_c, J.JNull{}, rolls0, brake0, threat))))
 
-# Still no place to be: away from a footprint, a corridor, the next prop.
 def griffinwing.bot.Session.plan.spots(+s: J.Val, +id: U32, +n: J.Val, +c: J.Val, +s_c: U32, +want: J.Val, +rolls: Bool, +brake: Bool, +threat: J.Val) -> J.Val:
   griffinwing.bot.Session.plan.fin(
     griffinwing.bot.Session.plan.props(s, id, n, c, s_c,
@@ -127,8 +110,6 @@ def griffinwing.bot.Session.plan.spots(+s: J.Val, +id: U32, +n: J.Val, +c: J.Val
 def griffinwing.bot.Session.plan.fin(+w: J.Val, +rolls: Bool, +threat: J.Val) -> J.Val:
   ga.sv(ga.sb(w, "rolls", rolls), "threat", threat)
 
-# The next thing on the rail to thread or take, when nothing else says where to
-# be. {"want", "brake"}.
 def griffinwing.bot.Session.plan.props(+s: J.Val, +id: U32, +n: J.Val, +c: J.Val, +s_c: U32, +want: J.Val, +brake: Bool) -> J.Val:
   gw.ifj(J.is_null(want),
     _ => griffinwing.bot.Session.plan.prop(s, id, n, c, s_c, ga.items(s, "props"), brake),
@@ -157,7 +138,6 @@ def griffinwing.bot.Session.plan.take(+s: J.Val, +id: U32, +n: J.Val, +c: J.Val,
           _ => ga.sb(ga.sv(J.obj(), "want", ga.pair_i(gw.neg((gw.sig(ga.u(p, "x")) * griffinwing.types.dm(20) : U32)), ga.u(c, "z"))), "brake", brake),
           _ => griffinwing.bot.Session.plan.prop(s, id, n, c, s_c, t, brake)))))
 
-# The hands: steer, roll, aim, fire, bomb.
 def griffinwing.bot.Session.bot_with.hands(+s: J.Val, +id: U32, +n: J.Val, +novice: Bool, +c: J.Val, +s_c: U32, +plan: J.Val) -> J.Val:
   griffinwing.bot.Session.bot_with.roll(s, id, n, novice, c, s_c, plan,
     gw.ifj(J.is_null(J.get(plan, "want")), _ => ga.pair_i(0, 0), _ => J.get(plan, "want")))
@@ -176,13 +156,10 @@ def griffinwing.bot.Session.bot_with.roll2(+s: J.Val, +id: U32, +n: J.Val, +novi
         my, 0, 0, False{}, U32.is_zero(U32.and(ga.u(c, "keys"), griffinwing.flight.K_DASH())), False{}, ga.b(plan, "brake")),
       _ => griffinwing.bot.Session.bot_with.shoot(s, id, n, novice, c, s_c, mx, my, ga.b(plan, "brake"))))
 
-# What to shoot: a kite on a friend's tail, a lamp that is open, a flight to
-# sweep, the nearest foe.
 def griffinwing.bot.Session.bot_with.shoot(+s: J.Val, +id: U32, +n: J.Val, +novice: Bool, +c: J.Val, +s_c: U32, +mx: U32, +my: U32, +brake: Bool) -> J.Val:
   griffinwing.bot.Session.bot_with.shoot2(s, id, n, novice, c, s_c, mx, my, brake,
     griffinwing.bot.Session.lockable(ga.items(s, "foes"), s_c))
 
-# foes.filter(|f| near = if Latched { dm(15) } else { dm(40) }; f.lockable() && (near..=dm(480)).contains(f.s - s_c))
 def griffinwing.bot.Session.lockable(+fs: List<&2, J.Val>, +s_c: U32) -> List<&2, J.Val>:
   match fs:
     case Nil{}:
@@ -193,7 +170,6 @@ def griffinwing.bot.Session.lockable(+fs: List<&2, J.Val>, +s_c: U32) -> List<&2
         _ => Con{f, griffinwing.bot.Session.lockable(t, s_c)},
         _ => griffinwing.bot.Session.lockable(t, s_c))
 
-# The foes of the list that are not lamps.
 def griffinwing.bot.Session.fliers(+fs: List<&2, J.Val>) -> List<&2, J.Val>:
   match fs:
     case Nil{}:
@@ -201,7 +177,6 @@ def griffinwing.bot.Session.fliers(+fs: List<&2, J.Val>) -> List<&2, J.Val>:
     case Con{+f, +t}:
       gw.ifjl(gw.isn(f, "kind", "Lamp"), _ => griffinwing.bot.Session.fliers(t), _ => Con{f, griffinwing.bot.Session.fliers(t)})
 
-# The first foe of the list in this state / kind, or null.
 def griffinwing.bot.Session.first_kind(+fs: List<&2, J.Val>, +kind: String) -> J.Val:
   match fs:
     case Nil{}:
@@ -209,7 +184,6 @@ def griffinwing.bot.Session.first_kind(+fs: List<&2, J.Val>, +kind: String) -> J
     case Con{+f, +t}:
       gw.ifj(gw.isn(f, "kind", kind), _ => f, _ => griffinwing.bot.Session.first_kind(t, kind))
 
-# `lockable.filter(Latched).min_by_key(|f| f.s)`: the first of the least `s`.
 def griffinwing.bot.Session.latched_first(+fs: List<&2, J.Val>, +best: J.Val) -> J.Val:
   match fs:
     case Nil{}:
@@ -218,7 +192,6 @@ def griffinwing.bot.Session.latched_first(+fs: List<&2, J.Val>, +best: J.Val) ->
       griffinwing.bot.Session.latched_first(t,
         gw.ifj(Bool.and(gw.isn(f, "st", "Latched"), Bool.or(J.is_null(best), gw.lt(ga.u(f, "s"), ga.u(best, "s")))), _ => f, _ => best))
 
-# `fliers.filter(!in_locks).min_by_key(|f| |f.x - c.x| + |f.z - c.z|)`
 def griffinwing.bot.Session.sweep_next(+fs: List<&2, J.Val>, +c: J.Val, +best: J.Val, +bd: U32) -> J.Val:
   match fs:
     case Nil{}:
@@ -240,7 +213,6 @@ def griffinwing.bot.Session.in_locks(+ls: List<&2, J.Val>, +id: U32) -> Bool:
     case Con{+l, +t}:
       Bool.or(U32.is_eq(ga.u(l, "foe"), id), griffinwing.bot.Session.in_locks(t, id))
 
-# `fliers.min_by_key(|f| (f.s - s_c, f.id))`
 def griffinwing.bot.Session.nearest(+fs: List<&2, J.Val>, +s_c: U32, +best: J.Val) -> J.Val:
   match fs:
     case Nil{}:
@@ -270,7 +242,6 @@ def griffinwing.bot.Session.bot_with.shoot4(+s: J.Val, +id: U32, +n: J.Val, +nov
   griffinwing.bot.Session.bot_with.fire(s, id, n, novice, c, s_c, mx, my, brake, lamp_open, latched, fliers, held, target,
     griffinwing.bot.Session.aim(s, id, novice, c, s_c, target))
 
-# The reticle's key presses toward the target: [aim_x, aim_y].
 def griffinwing.bot.Session.aim(+s: J.Val, +id: U32, +novice: Bool, +c: J.Val, +s_c: U32, +target: J.Val) -> J.Val:
   gw.ifj(J.is_null(target),
     _ => ga.pair_i(griffinwing.bot.steer(ga.u(c, "rx"), 0, griffinwing.flight.RET_V()), gw.neg(griffinwing.bot.steer(ga.u(c, "rz"), 0, griffinwing.flight.RET_V()))),
@@ -293,7 +264,6 @@ def griffinwing.bot.Session.bot_with.fire(+s: J.Val, +id: U32, +n: J.Val, +novic
   griffinwing.bot.Session.bot_with.bomb(s, c, s_c, mx, my, brake, fliers, aim,
     griffinwing.bot.Session.fire_key(s, id, n, novice, c, lamp_open, latched, fliers, held, target))
 
-# Whether F is held down this tick.
 def griffinwing.bot.Session.fire_key(+s: J.Val, +id: U32, +n: J.Val, +novice: Bool, +c: J.Val, +lamp_open: J.Val, +latched: J.Val, +fliers: List<&2, J.Val>, +held: Bool, +target: J.Val) -> Bool:
   gw.ifb(held,
     _ => Bool.not(griffinwing.bot.Session.fire_done(s, id, n, novice, c, lamp_open, latched, fliers)),
@@ -312,9 +282,6 @@ def gw.len_j(+xs: List<&2, J.Val>) -> U32:
     case Con{+h, +t}:
       (1 + gw.len_j(t) : U32)
 
-# Hold until the locks are in or the charge is full, then let go. A lamp wants
-# the whole charge; a flight, whatever is in hand. A novice lets go early now and
-# then, a lamp's charge unfinished.
 def griffinwing.bot.Session.fire_done(+s: J.Val, +id: U32, +n: J.Val, +novice: Bool, +c: J.Val, +lamp_open: J.Val, +latched: J.Val, +fliers: List<&2, J.Val>) -> Bool:
   griffinwing.bot.Session.fire_done2(n, c, griffinwing.types.Craft.lock_total(ga.items(c, "locks")),
     Bool.and(novice, U32.is_eq(griffinwing.bot.noise(id, U32.div(ga.u(s, "t"), 90), 3, 2), 0)),
@@ -326,7 +293,6 @@ def griffinwing.bot.Session.fire_done2(+n: J.Val, +c: J.Val, +total: U32, +early
     _ => Bool.or(Bool.and(U32.is_ge(ga.u(c, "charge"), ga.u(n, "charge")), U32.is_ge(total, 2)), Bool.and(early, U32.is_ge(ga.u(c, "charge"), U32.div(ga.u(n, "charge"), 2)))),
     _ => Bool.or(Bool.and(U32.is_ge(total, want_locks), U32.is_ge(ga.u(c, "charge"), U32.div(ga.u(n, "charge"), 2))), U32.is_ge(ga.u(c, "charge"), ga.u(n, "charge"))))
 
-# Starfall when worn down in a crowded sky.
 def griffinwing.bot.Session.bot_with.bomb(+s: J.Val, +c: J.Val, +s_c: U32, +mx: U32, +my: U32, +brake: Bool, +fliers: List<&2, J.Val>, +aim: J.Val, +fire: Bool) -> J.Val:
   griffinwing.bot.Input.make(mx, my, ga.nu(aim, 0), ga.nu(aim, 1), fire, False{},
     Bool.and(gw.le(ga.u(c, "shield"), 35),
@@ -341,8 +307,6 @@ def griffinwing.bot.Session.crowd(+fs: List<&2, J.Val>, +s_c: U32) -> U32:
     case Con{+f, +t}:
       (Bool.to_u32(gw.lt((ga.u(f, "s") - s_c : U32), griffinwing.types.dm(260))) + griffinwing.bot.Session.crowd(t, s_c) : U32)
 
-# Whether this knight is one of the rollers: the even seats, and any knight at
-# all when no even seat is flying.
 def griffinwing.bot.Session.reflector(+s: J.Val, +id: U32) -> Bool:
   Bool.or(U32.is_zero(U32.mod(id, 2)), Bool.not(griffinwing.bot.Session.even_flying(s, ga.ids(J.get(s, "seats")))))
 
@@ -353,8 +317,6 @@ def griffinwing.bot.Session.even_flying(+s: J.Val, +ids: List<&2, U32>) -> Bool:
     case Con{+k, +t}:
       Bool.or(Bool.and(U32.is_zero(U32.mod(k, 2)), griffinwing.types.Craft.flying(gw.craft_of(s, k))), griffinwing.bot.Session.even_flying(s, t))
 
-# While the lit lamp is shut, the soonest of the Wyrm's spits that is owed to
-# it: [ticks, x, z] or null.
 def griffinwing.bot.Session.intercept(+s: J.Val, +s_c: U32) -> J.Val:
   gw.ifj(J.is_null(J.get(s, "boss")),
     _ => J.JNull{},
@@ -372,7 +334,6 @@ def griffinwing.bot.Session.shut(+fs: List<&2, J.Val>, +lit: U32) -> Bool:
     case Con{+f, +t}:
       Bool.or(Bool.and(U32.is_eq(ga.u(f, "id"), lit), gw.isn(f, "st", "Shut")), griffinwing.bot.Session.shut(t, lit))
 
-# The first of the least ticks.
 def griffinwing.bot.Session.intercept3(+bs: List<&2, J.Val>, +s_c: U32, +lit: U32, +best: J.Val) -> J.Val:
   match bs:
     case Nil{}:
@@ -389,8 +350,6 @@ def griffinwing.bot.Session.intercept4(+b: J.Val, +t: List<&2, J.Val>, +s_c: U32
       J.JA{[J.JU{ticks}, J.of_i32((ga.u(b, "x") + (ga.u(b, "vx") * ticks : U32) : U32)), J.of_i32((ga.u(b, "z") + (ga.u(b, "vz") * ticks : U32) : U32))]}),
     _ => griffinwing.bot.Session.intercept3(t, s_c, lit, best))
 
-# The soonest hostile bolt that will pass near this craft's plane: [ticks to it,
-# x, z where it will cross, whether it is a Gloam bolt] or null.
 def griffinwing.bot.Session.threat(+s: J.Val, +c: J.Val, +s_c: U32) -> J.Val:
   griffinwing.bot.Session.threat2(ga.items(s, "bolts"), c, s_c, J.JNull{})
 
@@ -415,9 +374,6 @@ def griffinwing.bot.Session.threat4(+b: J.Val, +t: List<&2, J.Val>, +c: J.Val, +
     _ => griffinwing.bot.Session.threat2(t, c, s_c, J.JA{[J.JU{ticks}, J.of_i32(px), J.of_i32(pz), J.JBool{gw.isn(b, "shot", "Gloam")}]}),
     _ => griffinwing.bot.Session.threat2(t, c, s_c, best))
 
-# Where to go to be clear of the point `(ox, oz)`: four ways out of it (left,
-# right, up, down), those the steer box allows, the one that ends farthest from
-# it; the last of equals wins (`max_by_key`).
 def griffinwing.bot.Session.room_from(+c: J.Val, +ox: U32, +oz: U32, +n: J.Val) -> J.Val:
   griffinwing.bot.Session.room_from.pick(c, ox, oz, n,
     ga.pair_i(0, 0), 0, 0)
@@ -443,8 +399,6 @@ def griffinwing.bot.Session.room_from.cmp(+c: J.Val, +ox: U32, +oz: U32, +n: J.V
     _ => griffinwing.bot.Session.room_from.pick(c, ox, oz, n, ga.pair_i(x, z), d, (k + 1 : U32)),
     _ => griffinwing.bot.Session.room_from.pick(c, ox, oz, n, best, bd, (k + 1 : U32)))
 
-# A footprint locked on this craft (a turret's, a bomber's lane): the place to
-# be instead. [x, z] or null.
 def griffinwing.bot.Session.footprint_away(+s: J.Val, +c: J.Val, +n: J.Val) -> J.Val:
   griffinwing.bot.Session.footprint_away.foes(s, c, n, ga.items(s, "foes"))
 
@@ -466,7 +420,6 @@ def griffinwing.bot.Session.footprint_away.marks(+s: J.Val, +c: J.Val, +n: J.Val
         _ => griffinwing.bot.Session.room_from(c, ga.nu(m, 0), ga.nu(m, 1), n),
         _ => griffinwing.bot.Session.footprint_away.marks(s, c, n, t, mt))
 
-# The Wyrm's coil wants the gap, its roar wants the column left. [x, z] or null.
 def griffinwing.bot.Session.boss_corridor(+s: J.Val, +c: J.Val, +n: J.Val) -> J.Val:
   gw.ifj(J.is_null(J.get(s, "boss")),
     _ => J.JNull{},

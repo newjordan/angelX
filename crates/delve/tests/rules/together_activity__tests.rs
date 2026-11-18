@@ -7,12 +7,10 @@ fn every_game_names_fields_the_run_has_and_a_name_of_its_own() {
     let Ok(Value::Struct(fields)) = value::to_value(&run) else {
         panic!("a run is a struct");
     };
-    // Optional activity fields may be absent while inactive.
     let live = value::to_value(&Run::forest_road_for_test()).unwrap();
     let mut adventures: Vec<_> = roundtable::games()
         .map(|a| value::to_value(&Run::roundtable_for_test(a.slug).unwrap()).unwrap())
         .collect();
-    // A hall's dealt game is optional too, and absent until a hall deals one.
     let mut dealt = Run::new(3, 9, None);
     dealt.pick_folly();
     let hall = dealt.deal_for_test(encounter::Kind::WaxMaze).expect("a hall");
@@ -61,7 +59,6 @@ fn a_race_hall_takes_every_key_and_the_quiet_floor_takes_none() {
         },
     )]);
     assert!(run.ride(&keys).is_none(), "no ride on a quiet floor");
-    // The first floor that holds a race, walked into.
     let mut raced = (0..80u64)
         .find_map(|seed| {
             let mut r = Run::new(seed, 1, None);

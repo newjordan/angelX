@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# decide_capture.sh <bin-dir> <label> <scenario> — walk the real harness to a
-# scenario's decision point with the scripted stub model (decide/scenarios.json)
-# and keep every request it sent: out/<label>.jsonl. Arm: ANGEL_BOOK_INTRO.
 set -euo pipefail
 if [[ $# != 3 || ! "$2" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
   printf 'Usage: %s <bin-dir> <label> <scenario>\n' "$0" >&2

@@ -56,7 +56,6 @@ fn the_page_lays_out_numbered_rows_and_each_row_is_clickable() {
     assert_eq!(items.len(), 3);
     assert_eq!(items[1].1, Hit::Item(1));
     assert_eq!(composed.cursor, Some(items[1].0.y), "the pill row is the picked row");
-    // The title is the card's own to set; the composer leaves its rows clear.
     assert!(!shown.lines().take(3).any(|l| l.contains("Connect")));
 }
 
@@ -115,7 +114,6 @@ fn the_cockpit_draws_the_menu_over_everything() {
     assert!(shown.contains("Connect angelX to an AI model"), "{shown}");
     assert!(shown.contains("Paste an API key"));
     assert!(!app.setup.hits.is_empty());
-    // A click on a row goes through the hit it drew.
     let (rect, _) = app
         .setup
         .hits

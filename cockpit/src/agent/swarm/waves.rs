@@ -39,8 +39,6 @@ pub(crate) enum Decision {
 }
 
 impl Decision {
-    /// The leg contract: a stop names a reason, and an expand asks for at
-    /// least one more proposer. Anything else keeps the native decision.
     pub(crate) fn check(&self) -> Result<(), String> {
         match self {
             Decision::Stop(_) => Ok(()),
@@ -80,14 +78,10 @@ pub(crate) fn decide_wave(i: WaveInputs) -> Decision {
     decide_wave_with_source(i).0
 }
 
-/// Every float comparison and the grown size are computed in Rust (Bend has no
-/// f64); the leg owns the stop order, the expand choice and the clamps.
 pub(crate) fn decide_wave_with_source(i: WaveInputs) -> (Decision, live_policy::LegSource) {
     live_policy::decide_shipped(LEG, &decide_wave_input(i), Decision::check)
 }
 
-/// The leg's input record: the float comparisons resolved to booleans and the
-/// grown size resolved to an integer, because Bend has no f64.
 pub(crate) fn decide_wave_input(i: WaveInputs) -> serde_json::Value {
     serde_json::json!({
         "kind": "wave",
@@ -117,18 +111,13 @@ pub(crate) fn next_wave_size(current: usize, growth: f64, remaining: usize) -> u
     next.max(1).min(remaining)
 }
 
-/// The scale gate's emitted record.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
 pub(crate) struct GateOut {
     pub(crate) gate: GateAction,
 }
 
-/// The decision part of `scale::scale_signal_at`: the dominant share and the
-/// entropy are floored to the relaxed/escalated flags natively (Bend has no
-/// f64), and the leg orders relax before escalate before hold.
 pub(crate) fn gate_at(relax: bool, escalate: bool) -> (GateAction, live_policy::LegSource) {
     let input = gate_input(relax, escalate);
-    // A dominant pool must relax; anything else is out of contract.
     let check = move |out: &GateOut| match (relax, out.gate) {
         (true, GateAction::Relax) | (false, _) => Ok(()),
         (true, _) => Err(format!(

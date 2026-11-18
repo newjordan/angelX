@@ -98,8 +98,6 @@ fn an_afk_seat_cannot_stall_the_vote() {
 
 #[test]
 fn all_pool_games_seat_six_including_the_fallen_and_end_on_their_clock() {
-    // Knights Wish ticks through the Bend leg, so its seating test runs in the cockpit
-    // (`deathmatch_seats_six_including_the_fallen_and_ends_on_the_crossroads_clock`).
     for game in Game::ALL.into_iter().filter(|g| *g != Game::Deathmatch) {
         let mut run = stairs(3, 6);
         run.players.get_mut(&2).unwrap().hp = 0;
@@ -189,7 +187,6 @@ fn the_fallen_sapper_drops_a_keg_in_the_same_yard_each_seat_sees() {
     for _ in 0..u32::from(pastimes::FUSE) + 2 { run.step(&BTreeMap::new()); }
     assert!(run.pastimes.heat.as_ref().unwrap().done.contains_key(&2));
     assert!(run.valid_snapshot());
-    // A survivor always outranks the sapper already out of the yard.
     run.pastimes.round.as_mut().unwrap().left = 1;
     run.step(&BTreeMap::new());
     assert_eq!(run.crossroads.as_ref().unwrap().order.last(), Some(&2));
@@ -347,7 +344,6 @@ fn deathmatch_pool_shots() {
         image::save_buffer(dir.join(format!("{name}.png")), &im.rgba_bytes(),
             im.w as u32, im.h as u32, image::ColorType::Rgba8).unwrap();
     };
-    // Find a real deterministic deal, rather than inserting the card by hand.
     let mut run = (1..=64).find_map(|seed| {
         let mut run = stairs(3, 6);
         run.seed = seed;
@@ -366,7 +362,6 @@ fn deathmatch_pool_shots() {
     save(&run, "playing");
 }
 
-/// What the race's own pilot would press for each knight, as keys.
 fn racer_keys(run: &Run) -> BTreeMap<u32, Input> {
     let race = run.knight_racers.as_ref().unwrap();
     race.bot_drives_all().into_iter().filter(|(id, _)| run.players.contains_key(id)).map(|(id, d)| {
@@ -374,8 +369,6 @@ fn racer_keys(run: &Run) -> BTreeMap<u32, Input> {
     }).collect()
 }
 
-/// A knight who never drives does not hold the floor: the sprint's clock calls the race and the
-/// order stands.
 #[test]
 fn the_sprint_clock_calls_the_race_when_nobody_reaches_the_flag() {
     let mut run = stairs(3, 2);
@@ -408,7 +401,6 @@ fn the_knight_racers_card_runs_a_quarter_lap_sprint_and_pays_the_purse_in_finish
     assert_eq!(Game::Racers.name(), "KNIGHT RACERS");
     let old: Game = serde_json::from_str("\"gander\"").expect("an old save's joust card still loads");
     assert_eq!(old, Game::Racers);
-    // `ANGEL_CROSSROADS_PROOF=dir` keeps the cards, the race every ten seconds and the purse as PNGs.
     let proof = std::env::var_os("ANGEL_CROSSROADS_PROOF").map(std::path::PathBuf::from);
     let shot = |run: &Run, name: &str| if let Some(dir) = &proof {
         std::fs::create_dir_all(dir).unwrap();
@@ -461,7 +453,6 @@ fn a_knight_who_never_drives_cannot_hold_the_racers_card_past_its_time() {
     run.crossroads.as_mut().unwrap().choices = [Game::Racers, Game::Powder, Game::Shaft];
     vote(&mut run, 1, 1);
     assert!(run.knight_racers.as_ref().unwrap().cars.values().filter(|c| c.cpu).count() == 5, "a lone knight races five rivals");
-    // The sprint's clock calls it, well inside the card's own backstop.
     let flag = crate::rules::knight_racers::race::COUNTDOWN + RACERS_LIMIT;
     for _ in 0..flag + 2 { run.step(&BTreeMap::new()); }
     assert_eq!(run.crossroads.as_ref().unwrap().stage, Stage::Results);

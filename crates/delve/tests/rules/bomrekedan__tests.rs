@@ -28,8 +28,6 @@ fn name_of(slug: &str) -> String {
     json_levels().iter().find(|l| l["slug"] == slug).unwrap()["name"].as_str().unwrap().to_uppercase()
 }
 
-/// `DOORS` as `kingdom.json` has them: the depot's plate out, then each
-/// level's links as the file lists them.
 fn doors_from_json() -> Vec<(String, RoomKind, (i32, i32, i32, i32), RoomKind, (f32, f32), String)> {
     let top = &json_levels()[0];
     let mut out = vec![(
@@ -45,7 +43,6 @@ fn doors_from_json() -> Vec<(String, RoomKind, (i32, i32, i32, i32), RoomKind, (
         for link in level["links"].as_array().unwrap() {
             let to = link["to"].as_str().unwrap();
             let dir = link["direction"].as_str().unwrap();
-            // Where one lands: the far level's own link back, its `arrive`.
             let back = json_levels().iter().find(|l| l["slug"] == to).unwrap()["links"]
                 .as_array()
                 .unwrap()
@@ -90,13 +87,9 @@ fn the_levels_are_the_ones_the_import_kept_top_down() {
         assert_eq!(CELLS[i], (def.kind, def.cell));
     }
     assert!(!is_level(RoomKind::Gate) && !is_level(RoomKind::MusterTent));
-    // Deeper down the file, deeper in the fort.
     assert!(levels().windows(2).all(|w| w[0].z > w[1].z));
 }
 
-/// The levels ride in every save and every guest's first snapshot of the
-/// home floor (`Floor::rooms`, their ground one run-length string a room):
-/// ten levels of the fort stay a few kilobytes each.
 #[test]
 fn the_levels_cost_a_save_and_a_snapshot_little() {
     let r = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
@@ -120,12 +113,9 @@ fn every_level_reads_at_its_declared_size_and_is_a_valid_room() {
         assert_eq!((room.kind, room.cell, room.cols, room.rows), (def.kind, def.cell, w, h));
         assert!(room.valid_snapshot(), "{}", def.slug);
         assert_eq!(size_of(def.kind), Some((w, h)));
-        // Its border is wall, as the import crops it.
         for x in 0..w as i32 {
             assert_eq!((room.tile(x, 0), room.tile(x, h as i32 - 1)), (Tile::Wall, Tile::Wall), "{} col {x}", def.slug);
         }
-        // Every `>` of the file is a plate of `DOORS`, and every plate's
-        // every tile a `>`.
         let tiles: Vec<&str> = def.data.lines().skip(6).take(h).collect();
         for (y, row) in tiles.iter().enumerate() {
             for (x, ch) in row.bytes().enumerate() {
@@ -135,7 +125,6 @@ fn every_level_reads_at_its_declared_size_and_is_a_valid_room() {
             }
         }
     }
-    // A wrong file is refused, not half read.
     let bad = Def { kind: RoomKind::BomGate, slug: "the-gate", cell: (0, 0), data: "LEVEL the-gate\nNAME X\nZ 1\nSIZE 2 1\nORIGIN 0 0\nTILES\n.Q\n" };
     assert!(parse(&bad).is_err());
 }
@@ -160,8 +149,6 @@ fn the_doors_are_kingdom_jsons_links() {
     }
 }
 
-/// `DOORS` written from `kingdom.json`, to paste over the const when the
-/// import changes.
 #[test]
 #[ignore = "prints DOORS from kingdom.json"]
 fn print_doors() {
@@ -187,8 +174,6 @@ fn every_stair_is_two_way_and_lands_on_open_floor() {
             .unwrap_or_else(|| panic!("{} has no stair back", e.id));
         assert_eq!(back.at, e.at, "{}: one rect on both levels", e.id);
         let room = room(to, (0, 0));
-        // The whole party lands on plain floor, off every plate: five tiles
-        // in a row about where it stands, and the four-knight fan on them.
         let (tx, ty) = (x.floor() as i32, y.floor() as i32);
         for dx in -2..=2 {
             assert_eq!(room.tile(tx + dx, ty), Tile::Floor, "{} lands at {tx},{ty}", e.id);
@@ -198,7 +183,6 @@ fn every_stair_is_two_way_and_lands_on_open_floor() {
             assert!(entrance_at(to, hx.floor() as i32, ty).is_none(), "{} lands on a plate", e.id);
         }
     }
-    // The up and down plates of a level are apart.
     for def in &LEVELS {
         let mine: Vec<_> = DOORS.iter().filter(|e| e.room == def.kind).collect();
         for (i, a) in mine.iter().enumerate() {
@@ -217,11 +201,7 @@ fn run() -> Run {
     r
 }
 
-/// The party stands on `e` long enough to take it (a step first, where
-/// they stand: one arriving on stairs steps off before they work).
 fn take(r: &mut Run, e: &Entrance) {
-    // A long walk with no keys down would leave the knights away, and an
-    // away knight takes no stair (`fellowship`).
     r.idle.clear();
     r.step(&BTreeMap::new());
     let (x, y) = entrance_centre(e);
@@ -233,8 +213,6 @@ fn take(r: &mut Run, e: &Entrance) {
     }
 }
 
-/// Out by the depot's plate: each knight leaves for the kingdom on their
-/// own (`exits`), the last one out closing the fort behind them.
 fn take_out(r: &mut Run) {
     take(r, door("bomrekedan-out"));
     for _ in 0..4 * DESCEND_HOLD {
@@ -245,7 +223,6 @@ fn take_out(r: &mut Run) {
     }
 }
 
-/// Through the kingdom's door: E at the Gate of Bomrekedan.
 fn in_at_the_gate(r: &mut Run) -> (f32, f32) {
     let geo = crate::rules::map::geography(&r.kingdom.wishes);
     let site = geo.sites.iter().find(|s| s.room == TOP).expect("the gate's door on the kingdom's map");
@@ -273,7 +250,6 @@ fn the_kingdoms_door_opens_on_the_gate_and_the_depots_plate_leads_back_to_it() {
     assert_eq!(r.kingdom.return_to.as_ref().unwrap().root, TOP);
     let saved: Run = serde_json::from_slice(&serde_json::to_vec(&r).unwrap()).unwrap();
     assert!(saved.valid_snapshot());
-    // Standing a while by the plate takes nobody anywhere.
     for _ in 0..DESCEND_HOLD * 2 {
         r.step(&BTreeMap::new());
     }
@@ -301,7 +277,6 @@ fn a_party_walks_down_every_stair_to_the_forges_and_back_up_and_out() {
         for h in r.players.values() {
             assert!(r.settlement_walkable_for_test(h.x, h.y), "{} lands on open ground", e.id);
         }
-        // The visit is still the gate's.
         assert_eq!(r.kingdom.return_to.as_ref().unwrap().root, TOP);
     }
     assert!(r.valid_snapshot());
@@ -334,14 +309,12 @@ fn everyone_of_the_fort_is_read_and_stands_on_their_own_level() {
         assert_eq!(p.slot, slot);
         assert!(seen.insert(p.id), "{} twice", p.id);
         let r = raw.iter().find(|r| r["id"] == p.id).unwrap();
-        // On the level the import had them on, or their district's.
         let want = r["level"].as_str().or(r["district"].as_str()).unwrap();
         assert_eq!(LEVELS[index(p.level).unwrap()].slug, want, "{}", p.name);
         assert_eq!(p.from_data, r["level"].is_string());
         assert!(!p.name.is_empty() && p.name.is_ascii(), "{:?}", p.name);
         assert!(!p.lines.is_empty());
     }
-    // Every level the data names has its people, and `on` is theirs alone.
     for def in &LEVELS {
         let here = people::on(def.kind);
         assert!(here.iter().all(|p| p.level == def.kind));
@@ -349,7 +322,6 @@ fn everyone_of_the_fort_is_read_and_stands_on_their_own_level() {
         eprintln!("{}: {} people", def.slug, here.len());
     }
     assert!(people::on(RoomKind::Gate).is_empty());
-    // Of every people the fort has.
     for race in [people::Race::Dwarf, people::Race::Human, people::Race::Erinys, people::Race::Gnoll] {
         assert!(all.iter().any(|p| p.race == race), "{race:?}");
     }
@@ -380,8 +352,6 @@ fn every_person_stands_on_open_floor_clear_of_the_stairs_and_each_other() {
                     assert_ne!(room.tile(x + dx, y + dy), Tile::Stairs, "{} beside a stair", p.name);
                 }
             }
-            // Wherever their round takes them, at every moment, they are on
-            // a floor tile of their level.
             for tick in (0..p.period * p.route.len() as u64 * 2).step_by(7) {
                 let (x, y) = p.at(tick);
                 assert_eq!(room.tile(x.floor() as i32, y.floor() as i32), Tile::Floor, "{} at tick {tick}", p.name);
@@ -389,7 +359,6 @@ fn every_person_stands_on_open_floor_clear_of_the_stairs_and_each_other() {
             }
         }
     }
-    // Those the game had on a kept level stand where it had them, or near.
     let json = people_json();
     let mut moved = 0;
     for p in people::all().iter().filter(|p| p.from_data) {
@@ -410,7 +379,6 @@ fn a_fresh_e_beside_someone_has_them_say_their_line() {
     let p = &people::on(kind)[0];
     r.arrive(i, p.at(r.tick));
     r.step(&BTreeMap::new());
-    // The knight stands on the very spot they will be at next tick.
     let stand = |r: &mut Run| {
         let (x, y) = p.at(r.tick + 1);
         for h in r.players.values_mut() {
@@ -432,7 +400,6 @@ fn a_fresh_e_beside_someone_has_them_say_their_line() {
     assert!((sx - hx).hypot(sy - hy) < people::TALK_REACH + 0.5, "{} is out of reach", speaker.name);
     assert!(line.contains(" of the ") && line.contains(": "), "{line}");
     eprintln!("{line}");
-    // Holding E says nothing more; a fresh press speaks again.
     r.found = None;
     stand(&mut r);
     r.step(&e);
@@ -442,7 +409,6 @@ fn a_fresh_e_beside_someone_has_them_say_their_line() {
     stand(&mut r);
     r.step(&e);
     assert!(r.found.is_some());
-    // Far from anyone, E says nothing.
     r.found = None;
     r.step(&BTreeMap::new());
     let lone = (1..r.room().cols as i32 - 1)
@@ -472,14 +438,12 @@ fn names_come_out_in_the_delves_letters() {
 
 #[test]
 fn a_party_that_never_came_by_the_kingdom_is_given_its_door_back() {
-    // Arriving on a lower level of an old save, the visit is the gate's.
     let mut r = Run::at_home(7, 1, None, Default::default(), Default::default());
     r.raise_kingdom();
     let i = room_of(&r.dungeon, RoomKind::BomForges).unwrap();
     r.arrive(i, (38.5, 22.5));
     assert_eq!(r.kingdom.return_to.as_ref().unwrap().root, TOP);
     assert!(r.valid_snapshot());
-    // Lower levels have no door on the map; the top level does.
     assert!(crate::rules::map::outdoor(TOP));
     assert!(LEVELS[1..].iter().all(|d| !crate::rules::map::outdoor(d.kind)));
     assert!(places_on(RoomKind::BomGreatHall).count() > 0);
@@ -493,10 +457,6 @@ fn pad(floor: &mut crate::rules::Floor, n: usize) {
     }
 }
 
-/// A home that already filled the old 128 slots still receives every fort
-/// level, and now the whole surface too: the world is never cut to fit a
-/// crowded settlement (2026-11-07: the roads lane's `HOME_ROOM_LIMIT` fix
-/// folded into the fort's admission).
 #[test]
 fn a_full_old_home_still_receives_the_fort_and_the_surface() {
     let mut floor = crate::rules::layout::undercroft(crate::rules::Pack::Crypt);
@@ -511,9 +471,6 @@ fn a_full_old_home_still_receives_the_fort_and_the_surface() {
     assert!(!world::raise_world(&mut floor), "a second raise changes nothing");
 }
 
-/// A home nearly at its surface budget still gets every fort level in the
-/// slots kept for them; the surface rooms that no longer fit are counted,
-/// not dropped in silence.
 #[test]
 fn a_home_past_the_surface_budget_still_receives_the_fort_and_counts_what_is_held_back() {
     let mut floor = crate::rules::layout::undercroft(crate::rules::Pack::Crypt);
@@ -526,7 +483,6 @@ fn a_home_past_the_surface_budget_still_receives_the_fort_and_counts_what_is_hel
     assert!(floor.fort_admit.line().contains("HELD BACK"));
 }
 
-/// Past the new cap the levels that do not fit are named.
 #[test]
 fn a_home_past_the_cap_names_the_levels_it_leaves_out() {
     let mut floor = crate::rules::layout::undercroft(crate::rules::Pack::Crypt);
@@ -540,8 +496,6 @@ fn a_home_past_the_cap_names_the_levels_it_leaves_out() {
     assert!(floor.rooms.len() <= world::HOME_ROOM_LIMIT);
 }
 
-/// Untouched saved ground follows a re-import. Goods stay, and the works
-/// ledger is not rewritten.
 #[test]
 fn untouched_saved_ground_follows_the_import_and_goods_stay() {
     let mut floor = crate::rules::layout::undercroft(crate::rules::Pack::Crypt);
@@ -581,8 +535,6 @@ fn untouched_saved_ground_follows_the_import_and_goods_stay() {
     assert_eq!(serde_json::to_string(&r.home).unwrap(), before);
 }
 
-/// A knight standing where a re-import closes the ground is moved to the
-/// level's arrival, and told.
 #[test]
 fn a_knight_on_closed_ground_is_set_on_the_arrival() {
     let mut r = run();

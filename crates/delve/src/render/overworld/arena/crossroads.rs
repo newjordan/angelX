@@ -42,7 +42,6 @@ pub(super) fn frame(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
             centred(&mut card, 12, &format!("{}{}", i + 1, if picked { " YOUR VOTE" } else if selected { " <" } else { "" }), 'h');
             centred(&mut card, 29, game.name(), 'h');
             centred(&mut card, 47, game.words(), 'J');
-            // The prize uses the same grey drawing as a gold pickup.
             if let Some((pw, ph, gold)) = pickup_cards::picture(16) {
                 let fit = 24.0 / (*pw).max(*ph) as f32;
                 let (iw, ih) = ((*pw as f32 * fit) as u32, (*ph as f32 * fit) as u32);

@@ -33,40 +33,26 @@
 
 use super::*;
 
-/// Straps to undo, then do up again.
 pub const STRAPS: u8 = 3;
-/// Ticks a pee and a poop take behind the door.
 pub const PEE_TICKS: u32 = 36;
 pub const POOP_TICKS: u32 = 96;
-/// Ticks of each run between the pit box and the door.
 pub const RUN_TICKS: u32 = 24;
-/// How long the choice is waited for before it is a pee.
 pub const CHOOSE_WAIT: u32 = 5 * HZ;
-/// How long a strap stage is waited for before the hands do it anyway.
 pub const PATIENCE: u32 = 8 * HZ;
-/// Marker positions within this of the middle are clean, or good.
 pub const PERFECT_BAND: f32 = 0.07;
 pub const GOOD_BAND: f32 = 0.18;
-/// Ticks the hands are locked after a good hit, and after a miss.
 const LOCK_GOOD: u32 = 6;
 const LOCK_MISS: u32 = 16;
-/// A stop at or under this many ticks is a quick one.
 pub const QUICK_PEE: u32 = 8 * HZ;
 pub const QUICK_POOP: u32 = 11 * HZ;
-/// How long the buffs last, and how much they give, in percent.
 pub const SPEED_TICKS: u32 = 12 * HZ;
 pub const DAMAGE_TICKS: u32 = 10 * HZ;
 pub const BUFF: u32 = 15;
-/// The mending a stop gives, and a poop's extra.
 pub const MEND: u32 = 10;
 pub const POOP_MEND: u32 = 10;
-/// What leaving a floor un-relieved costs, in percent of full health.
 pub const UNWASHED_COST: u32 = 25;
-/// How far the pit box is from the door.
 const BOX_DISTANCE: f32 = 4.6;
-/// Armour tumbles, bounces, then settles; dressing reverses its flight.
 pub const FLIGHT_TICKS: u32 = 18;
-/// The finish stripe is partway from the door to the dressing spot.
 pub const FINISH_PROGRESS: f32 = 0.45;
 pub const RESULT_TICKS: u32 = 3 * HZ;
 
@@ -111,7 +97,6 @@ impl Stage {
     }
 }
 
-/// How a press on the bar went.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Grade {
@@ -130,7 +115,6 @@ impl Grade {
     }
 }
 
-/// The whole job, using fixed time and accuracy thresholds (including dressing).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Quality {
@@ -164,46 +148,34 @@ pub fn quality(total: u32, poop: bool, loose: u32, misses: u32) -> Quality {
     }
 }
 
-/// A short celebration after the clock stops, carried in guest snapshots too.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Result {
     pub quality: Quality,
     pub total: u32,
     pub left: u32,
-    /// Whether this completed stop set the party's best at the time it finished.
     #[serde(default)]
     pub party_record: bool,
 }
 
-/// A stop under way.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Stop {
     pub stage: Stage,
-    /// Ticks in this stage, and in the whole stop.
     pub t: u32,
     pub total: u32,
-    /// Straps done in this stage; ticks the hands are locked.
     pub straps: u8,
     pub lock: u32,
-    /// The marker's phase, 0 to 2 (out and back along the bar).
     pub phase: f32,
-    /// The last press: how it went, and the stop tick it happened on.
     pub last: Option<(Grade, u32)>,
-    /// Ticks each stage took, once it is over.
     pub times: [u32; 6],
     pub poop: bool,
-    /// The stick has been let go of since the door opened.
     pub ready: bool,
-    /// An action key was down last tick.
     pub pressed: bool,
-    /// The pit box and the door.
     pub from: (f32, f32),
     pub door: (f32, f32),
     #[serde(default)]
     pub lane: u8,
     #[serde(default)]
     pub waiting: bool,
-    /// Stop ticks at which each piece left / returned: helm, shoulder, chest.
     #[serde(default)]
     pub tossed: [Option<u32>; 3],
     #[serde(default)]
@@ -212,7 +184,6 @@ pub struct Stop {
     pub loose: u32,
     #[serde(default)]
     pub misses: u32,
-    /// The split at the line, recorded once, before dressing.
     #[serde(default)]
     pub finish: Option<u32>,
 }
@@ -251,7 +222,6 @@ impl Stop {
         )
     }
 
-    /// The marker on its bar, 0 to 1.
     pub fn marker(&self) -> f32 {
         if self.phase < 1.0 {
             self.phase
@@ -260,18 +230,14 @@ impl Stop {
         }
     }
 
-    /// Ticks one sweep of the bar takes, quickening strap by strap.
     pub fn period(straps: u8) -> f32 {
         [36.0, 30.0, 25.0][usize::from(straps.min(2))]
     }
 
-    /// The time on the clock for the stage under way, in ticks.
     pub fn clock(&self) -> u32 {
         self.total
     }
 
-    /// How much of the stage's fixed wait has passed, 0 to 1 (the choice,
-    /// the seat).
     pub fn progress(&self) -> f32 {
         match self.stage {
             Stage::Inside => self.t as f32 / self.stay() as f32,
@@ -282,13 +248,10 @@ impl Stop {
         .clamp(0.0, 1.0)
     }
 
-    /// How long this stop's seat lasts.
     pub fn stay(&self) -> u32 {
         if self.poop { POOP_TICKS } else { PEE_TICKS }
     }
 
-    /// What the knight is wearing mid-stop, as a stage of dress
-    /// (`gear::stage`'s), or none while health decides.
     pub fn bare(&self) -> Option<u8> {
         Some(match self.stage {
             Stage::Strip => match self.straps {
@@ -306,14 +269,10 @@ impl Stop {
     }
 }
 
-/// What a knight has done at the privy, and what it left them with.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Pit {
     pub stop: Option<Stop>,
-    /// Stops finished this delve.
     pub visits: u32,
-    /// Ticks left of the speed buff (a poop's) and the damage buff (a
-    /// quick stop's).
     pub speed: u32,
     pub damage: u32,
     #[serde(default)]
@@ -322,7 +281,6 @@ pub struct Pit {
 
 impl Pit {
     pub fn tick(&mut self) {
-        // The new result window consumes no playable seconds of the old buffs.
         if self.result.is_none() {
             self.speed = self.speed.saturating_sub(1);
             self.damage = self.damage.saturating_sub(1);
@@ -335,7 +293,6 @@ impl Pit {
         }
     }
 
-    /// The stride a speed buff gives.
     pub fn pace(&self) -> f32 {
         if self.speed > 0 {
             1.0 + BUFF as f32 / 100.0
@@ -344,7 +301,6 @@ impl Pit {
         }
     }
 
-    /// Percent added to a knight's damage.
     pub fn hit(&self) -> u32 {
         if self.damage > 0 { BUFF } else { 0 }
     }
@@ -354,36 +310,28 @@ impl Pit {
     }
 }
 
-/// One knight's line on the board.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Entry {
     pub seat: u32,
     pub name: String,
-    /// Their best time, and their last, in ticks.
     pub best: u32,
     pub last: u32,
     pub stops: u32,
 }
 
-/// The party's privy times.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Board {
     pub entries: Vec<Entry>,
 }
 
-/// How a time stood against the board when it was set.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Record {
-    /// Nothing special.
     None,
-    /// The knight's own best.
     Personal,
-    /// The party's best.
     Party,
 }
 
 impl Board {
-    /// The lines, fastest first.
     pub fn ranked(&self) -> Vec<&Entry> {
         let mut all: Vec<&Entry> = self.entries.iter().collect();
         all.sort_by_key(|e| (e.best, e.seat));
@@ -394,7 +342,6 @@ impl Board {
         self.entries.iter().map(|e| e.best).min()
     }
 
-    /// A finished stop of `ticks` for knight `seat`.
     pub fn set(&mut self, seat: u32, name: &str, ticks: u32) -> Record {
         let party = self.best();
         match self.entries.iter_mut().find(|e| e.seat == seat) {
@@ -431,15 +378,10 @@ impl Board {
     }
 }
 
-/// What a stop did that the run must make so.
 pub(super) enum Event {
-    /// A stage began (for a sound).
     Stage(Stage),
-    /// A press on the bar, and how it went.
     Press(Grade),
-    /// The knight crossed the stripe, exactly once per stop.
     Finish,
-    /// The stop is over.
     Done {
         total: u32,
         poop: bool,
@@ -447,12 +389,10 @@ pub(super) enum Event {
     },
 }
 
-/// Seconds, as the board writes them.
 pub fn seconds(ticks: u32) -> String {
     format!("{}.{:02}", ticks / HZ, (ticks % HZ) * 100 / HZ)
 }
 
-/// How a press at `marker` grades.
 pub fn grade(marker: f32) -> Grade {
     let off = (marker - 0.5).abs();
     if off <= PERFECT_BAND {
@@ -469,7 +409,6 @@ fn is_press(input: &Input) -> bool {
 }
 
 impl Room {
-    /// Adjacent south-facing stalls only where booth and approach fit on floor.
     pub fn privy_stalls(&self) -> Vec<(f32, f32)> {
         let Some(door) = self.privy() else {
             return Vec::new();
@@ -489,8 +428,6 @@ impl Room {
         stalls
     }
 
-    /// Where a stop's knight stands to be armed and disarmed: some way
-    /// south of the privy's door, on clear floor.
     pub fn pit_box(&self) -> Option<(f32, f32)> {
         let (px, py) = self.privy()?;
         let clear = |x: f32, y: f32| {
@@ -514,7 +451,6 @@ impl Room {
     }
 }
 
-/// Start a stop for `hero`, if the privy is free to them.
 pub(super) fn begin(hero: &mut Hero, from: (f32, f32), door: (f32, f32)) {
     hero.pit.result = None;
     hero.pit.stop = Some(Stop::begin(from, door));
@@ -526,11 +462,8 @@ pub(super) fn begin(hero: &mut Hero, from: (f32, f32), door: (f32, f32)) {
     hero.aim_y = -1.0;
 }
 
-/// One tick of a knight's stop. Their keys are the stop's, and nothing
-/// else.
 pub(super) fn step(hero: &mut Hero, input: Input, admitted: bool, events: &mut Vec<Event>) {
     let Some(stop) = hero.pit.stop.as_mut() else {
-        // A privy tick count with no stop (an old save): let it run out.
         hero.privy = hero.privy.saturating_sub(1);
         return;
     };
@@ -543,8 +476,6 @@ pub(super) fn step(hero: &mut Hero, input: Input, admitted: bool, events: &mut V
     let mut next = false;
     match stop.stage {
         Stage::Dress => {
-            // The strip's skillshot was the bar for both: each piece flies
-            // home as it came off, and nothing more is pressed.
             if stop.straps < STRAPS {
                 for piece in &mut stop.fitted {
                     piece.get_or_insert(stop.total);
@@ -588,7 +519,6 @@ pub(super) fn step(hero: &mut Hero, input: Input, admitted: bool, events: &mut V
                     }
                 }
             } else if stop.t >= PATIENCE && stop.straps < STRAPS {
-                // Fingers get there in the end.
                 stop.last = Some((Grade::Missed, stop.total));
                 stop.misses += 6;
                 for piece in 0..3 {
@@ -691,9 +621,7 @@ pub(super) fn step(hero: &mut Hero, input: Input, admitted: bool, events: &mut V
     }
 }
 
-/// Lines the privy wall keeps, oldest first out.
 pub const WALL: usize = 8;
-/// What a knight scratches on the wall on the way out.
 const SCRAWLS: [&str; 6] = [
     "{} WAS HERE",
     "{} SAT HERE AND PONDERED",
@@ -704,12 +632,10 @@ const SCRAWLS: [&str; 6] = [
 ];
 
 impl Run {
-    /// How many lines are on the wall, for picking the next scrawl.
     fn pits_scrawled(&self) -> usize {
         self.home.privy_wall.len()
     }
 
-    /// Knight `id`'s stop, as the HUD reads it.
     pub(super) fn pit_hud(&self, id: u32, keys: &hud::Keys) -> Option<hud::PitHud> {
         let stop = self.players.get(&id)?.pit.stop.as_ref()?;
         let strap = stop.stage.straps();
@@ -738,7 +664,6 @@ impl Run {
         })
     }
 
-    /// One owner per stall. Busy runners keep it; queued knights are oldest-first.
     pub(super) fn pit_admissions(&self) -> std::collections::BTreeSet<u32> {
         let mut owners = BTreeMap::new();
         for (&id, hero) in &self.players {
@@ -760,7 +685,6 @@ impl Run {
         owners.values().map(|&(_, id)| id).collect()
     }
 
-    /// A knight at a Sanctuary privy's door is waved into the pit box.
     pub(super) fn visit_privy(&mut self) {
         if self.phase != Phase::Exploring {
             return;
@@ -820,7 +744,6 @@ impl Run {
         }
     }
 
-    /// What the stops did this tick: sounds, the clock's records, rewards.
     pub(super) fn pit_events(&mut self, events: Vec<(u32, Event)>) {
         let (depth, here) = (self.dungeon.depth, self.at);
         for (id, event) in events {
@@ -849,7 +772,6 @@ impl Run {
                     hero.mend(mend, super::stakes::Mend::Rest);
                     hero.relieved = Some((depth, here));
                     hero.pit.visits += 1;
-                    // Publish the finished time before opening its grade window.
                     let name = hero.shown_name();
                     let record = self.pits.set(id, &name, total);
                     hero.pit.result = Some(Result {
@@ -865,7 +787,6 @@ impl Run {
                     if quick {
                         hero.pit.damage = DAMAGE_TICKS;
                     }
-                    // A line on the wall for the next knight to read.
                     let first: String = name
                         .split_whitespace()
                         .last()
@@ -902,9 +823,6 @@ impl Run {
         }
     }
 
-    /// Leaving a floor: a knight who never went loses a quarter of their
-    /// health, but never the last point. One knight's visit counts for the
-    /// whole party: one trip to the privy a floor is enough.
     pub(super) fn unwashed_toll(&mut self) {
         let depth = self.dungeon.depth;
         if self.players.values().any(|h| h.relieved.map(|(d, _)| d) == Some(depth)) {
@@ -916,7 +834,6 @@ impl Run {
                 continue;
             }
             if hero.relieved.map(|(d, _)| d) != Some(depth) {
-                // A knight fresh from the Royal Soak is let off, once.
                 if hero.scrubbed {
                     hero.scrubbed = false;
                     continue;
@@ -936,8 +853,6 @@ impl Run {
         }
     }
 
-    /// A great end reached: any knight standing who never once used a
-    /// privy has beaten the whole Delve unwashed.
     pub(super) fn unwashed_check(&mut self) {
         if self.players.values().any(|h| h.hp > 0 && h.pit.visits == 0) {
             self.notice("unwashed");

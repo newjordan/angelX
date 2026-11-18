@@ -112,8 +112,6 @@ fn chat_roles_align_and_color_wrapped_rows_without_restyling_structured_output()
         Paragraph::new(rendered)
             .wrap(Wrap { trim: false })
             .render(area, &mut buf);
-        // Last user row hugs the right edge; reply begins at the left. Body
-        // phosphor differs from default prose; gold remains on the agent tag.
         let user_end = area.y + message_height(&messages[0], width) - 2;
         assert_eq!(buf[(area.right() - 1, user_end)].symbol(), "d");
         assert_eq!(
@@ -126,7 +124,6 @@ fn chat_roles_align_and_color_wrapped_rows_without_restyling_structured_output()
         assert_ne!(buf[(area.x + 6, agent_y)].fg, crate::ui::hud::HUD_PHOSPHOR);
     }
 
-    // Do not tint syntax spans, indent/align tables, or recolor tool/status rows.
     for (role, text) in [
         (
             Role::Angel,
@@ -235,8 +232,6 @@ fn corrective_user_paste_keeps_code_columns_and_multiline_mouse_copy_unpadded() 
             assert_eq!(mouse::extract_text_in(&buf, &selection, area), text);
         }
     }
-    // A long single-line paste also must not generate leading alignment blanks
-    // on its soft-wrapped continuation rows.
     let messages = [Message::new(Role::User, "word word word word word word")];
     let mut renders = Vec::new();
     let rendered = lines(&messages, "", false, 12, &mut renders);

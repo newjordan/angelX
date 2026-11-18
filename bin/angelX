@@ -1,89 +1,6 @@
 #!/usr/bin/env bash
-# angelX — boot the Angel cockpit: the terminal-first TUI shell.
-#
-# On a desktop the cockpit opens in angelX's own window (glass), from an app
-# launcher or typed in a terminal; from a terminal the window goes off on its
-# own and the prompt comes back. `--term` keeps the cockpit in the terminal, as
-# does tmux, SSH, or no display.
-#
-# Type `angelX` inside a project, or `angelX /path/to/project`, to load the cockpit —
-# a Rust/ratatui agent harness: chat with model agents (Tab to switch), ^G for a
-# full PTY shell pane, ^T for a braille chart, `/show` images, `/sessions` +
-# `/resume` for crash-safe session history.
-#
-# `angelX setup` opens the cockpit on its setup menu (/setup), which connects a
-# model (a local server, an API key or a plan login) and saves it to
-# ~/.angelX/angel.env. With nothing configured anywhere, the first interactive
-# launch opens the menu by itself. `angelX setup --text` is the same thing as
-# plain questions, for a terminal the cockpit cannot draw in.
-#
-# `angelX plugin` finds, installs, updates and publishes plugins: cartridges
-# from the public registry (docs/PLUGINS.md). `angelX plugin help` lists it all.
-#
-# `angelX update` refreshes the local CLI alias that points at this launcher;
-# full checkouts also refresh their optional desktop entry. A prebuilt install
-# (install.sh) updates to the latest release instead.
-#
-# This IS the customized TUI shell. It lives in cockpit/. Every ordinary
-# source launch checks current code with Cargo (or explicit experimental Blaze) and opens
-# only that result.
-# `angelX build` prepares the same incremental build without opening a cockpit;
-# `build --release` selects shipping optimization. A failed source check never
-# falls back to an old image. Background preparation is explicit, never a reason
-# for ordinary `angelX` to open yesterday's code.
-# Delve rules can be rebuilt and swapped while this process runs: npm run dev:systems.
-#
-# Knobs (all optional):
-#   ANGEL_BRAIN_KEY   bearer key for a self-hosted model server that wants one.
-#                     Keys and settings load from ~/.angelX/angel.env, then from
-#                     this checkout's gitignored .angel.auto.env and .angel.env.
-#                     Host-level files (~/.config/host_env/api_keys.sh and the
-#                     like) load only with ANGEL_HOST_ENV=1.
-#   ANGEL_SETUP=0     never open the setup menu by itself
-#   ANGEL_WORKSPACE   workspace directory to open. Defaults to the launch cwd.
-#   ANGEL_NO_BUILD=1  require an existing binary; never build, even if missing
-#   ANGEL_NO_BUILD=0  check/build current source before launch (source default);
-#                     failure never runs an older image. Unchanged code is
-#                     reused only after the selected compiler confirms freshness.
-#   ANGEL_BUILD_BACKEND=auto  qualified Cargo path; blaze opts into experimental wrapper
-#   ANGEL_RESOLVE_MISE=1     explicitly refresh PATH via trusted mise configuration
-#   ANGEL_BLAZE_BIN   explicit Blaze executable (no global Cargo wrapper)
-#   ANGEL_BLAZE_MODE  wrapper (default; Cargo compatibility) or standalone
-#   ANGEL_NATIVE_MODULES=1
-#                     opt into existing native module reloads (500 ms checks).
-#                     `angelX build --modules` publishes only changed modules;
-#                     no Cargo rebuild or cockpit restart. Default: disabled.
-#   `angelX build --background` prepares changes without opening a cockpit.
-#                     Ordinary launches still verify current source themselves.
-#   ANGEL_BIND_SOURCE=0
-#                     do not bake the source digest (sha256 of `git archive HEAD`)
-#                     into the binary; `angel --build-info --json` then says
-#                     "unbound". Development defaults to unbound; release binds
-#                     clean source. ANGEL_BIND_SOURCE=1 opts in for development.
-#   ANGEL_API_CLUBS   optional API-provider allowlist (comma-separated).
-#                     Unset, * or all: configured providers are available.
-#                     Empty or none: OAuth and local models only.
-#   ANGEL_DEV=1       run an unoptimized debug build instead of fast (faster
-#                     compile, slower runtime — handy mid-edit)
-#   ANGEL_FAST=1      use the incremental `fast` profile (source default):
-#                     lighter optimization for cockpit/Delve, parallel codegen,
-#                     and no cross-crate LTO. ANGEL_FAST=0 selects release.
-#                     Prebuilt installs default to their shipped release image.
-#   ANGEL_RELEASE=1   select release unless an explicit profile, ANGEL_DEV or
-#                     ANGEL_FAST=1 wins.
-#   ANGEL_DELVE_WEB=0 omit the browser bundle in development profiles;
-#                     normal builds include it, and release rejects omission.
-#   ANGEL_YOLO=1      unrestricted operator profile: no approvals, sandbox,
-#                     subprocess/HTTP/formation deadlines, descendant cleanup,
-#                     credential scrubbing, or automatic agent-loop stops
-#   ANGEL_COMP_MODE=1 (or --comp)
-#                     ultra-lean high-speed harness: tables miniworld / 3D /
-#                     Kitty graphics simulation for sub-millisecond frames while
-#                     keeping all tools available on demand
 set -euo pipefail
 
-# Resolve a path to its canonical location. GNU `readlink -f` is not on stock
-# macOS; prefer realpath, then readlink -f, then Python.
 _angel_realpath() {
   local p="$1"
   if command -v realpath >/dev/null 2>&1; then
@@ -96,9 +13,6 @@ _angel_realpath() {
   python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$p"
 }
 
-# A selected launch image must be a regular executable. Nonblocking open lets
-# invalid special-file inputs fail before a hash read can wait for a writer.
-# Admission alone does no content scan; only the private image needs a digest.
 _angel_image_sha256() {
   python3 - "$1" "${2:-hash}" <<'PY'
 import hashlib, os, stat, sys
@@ -116,13 +30,9 @@ print(digest.hexdigest())
 PY
 }
 
-# Derive the repo root from this script's own location (bin/ is directly under
-# the root). Resolves symlinks so a linked launcher still works on Linux and macOS.
 ANGEL_DIR="$(cd "$(dirname "$(_angel_realpath "${BASH_SOURCE[0]}")")/.." && pwd)"
 COCKPIT_DIR="$ANGEL_DIR/cockpit"
 export ANGEL_RESOURCE_DIR="${ANGEL_RESOURCE_DIR:-$ANGEL_DIR}"
-# A prebuilt install (install.sh) carries its binaries and PREBUILT.json and
-# runs them as shipped. ANGEL_NO_BUILD=0 rebuilds from the included source.
 ANGEL_PREBUILT=0
 if [ -f "$ANGEL_DIR/PREBUILT.json" ]; then
   ANGEL_PREBUILT=1
@@ -132,18 +42,9 @@ if [ -f "$ANGEL_DIR/PREBUILT.json" ]; then
   fi
 fi
 LAUNCH_CWD="$(pwd -P)"
-# Only the invoking environment may intentionally override a bare launch.
 LAUNCH_WORKSPACE="${ANGEL_WORKSPACE:-}"
 
-# Credential-free syntax preflight. Only a mode-position token selects a machine
-# grammar; its remaining values are opaque. Do this before mise, logs or env files.
 _launch_invalid() { printf 'angelX: %s\n' "$1" >&2; exit 2; }
-# Python is used only for byte/Unicode admission, not model or account policy.
-# Match Rust str::trim's Unicode White_Space set (Python isspace also admits
-# U+001C..U+001F, which Rust deliberately does not).
-# Decide only short printable ASCII here. Everything else uses the original
-# Unicode/byte validator. Function-local C collation must not leak to Python or
-# the application. Keep the regex in a variable for Bash 3.2 parser support.
 _launch_ascii_text() {
   local LC_ALL=C
   local printable='^[ -~]+$'
@@ -159,7 +60,6 @@ _launch_text() {
   if _launch_ascii_text "$1" "$2"; then
     return 0
   else
-    # 3 means outside the deliberately narrow fast path, not invalid input.
     [ "$?" = 3 ] || return 2
   fi
   python3 - "$1" "$2" <<'PY'
@@ -195,8 +95,6 @@ while [ $# -gt 0 ]; do
     --comp | --lean | --turbo | --angelturbo)
       [ "$LAUNCH_COMP" = 0 ] || _launch_invalid 'duplicate global option'
       LAUNCH_COMP=1; shift ;;
-    # The cockpit in angelX's own GPU window (docs/RENDER_FOUNDATION.md), or
-    # in the terminal it was typed in.
     --glass)
       export ANGEL_GLASS=1; shift ;;
     --term)
@@ -204,9 +102,6 @@ while [ $# -gt 0 ]; do
     *) break ;;
   esac
 done
-# Remote glass (docs/REMOTE_GLASS.md): `angelX <host>[:<session>]` attaches
-# to a cockpit session on another machine. A word that is not a directory
-# here and reads as a host is one; a directory stays the workspace.
 SESSION_MODE=0
 if [ $# -gt 0 ] && [ "${1#-}" = "$1" ] && [ ! -d "$1" ] && [ "$1" != update ] && [ "$1" != reset-terminal ] && [ "$1" != setup ] && [ "$1" != build ] && [ "$1" != plugin ] && [ "$1" != plugins ] \
   && printf '%s' "$1" | grep -qE '^[A-Za-z0-9_][A-Za-z0-9._@-]*(:[A-Za-z0-9._-]*)?$|^:[A-Za-z0-9._-]+$'; then
@@ -214,8 +109,6 @@ if [ $# -gt 0 ] && [ "${1#-}" = "$1" ] && [ ! -d "$1" ] && [ "$1" != update ] &&
   case "${1:-}" in --term | --glass) FORWARD_ARGS+=("$1"); shift ;; esac
   [ $# -eq 0 ] || _launch_invalid 'usage: angelX <host>[:<session>] [--term]'
 fi
-# Preserve the launcher's directory-only positional convenience. It is never
-# interpreted as prompt text, and may precede a machine mode.
 if [ "$SESSION_MODE" = 1 ]; then
   :
 elif [ $# -gt 0 ] && [ "${1#-}" = "$1" ] && [ "$1" != update ] && [ "$1" != reset-terminal ] && [ "$1" != setup ] && [ "$1" != build ] && [ "$1" != plugin ] && [ "$1" != plugins ]; then
@@ -252,18 +145,11 @@ case "${1:-}" in
     [ $# -eq 1 ] || _launch_invalid 'inspection options take no additional arguments'
     HEADLESS_MODE=1; FORWARD_ARGS=("$@"); set -- ;;
   update | reset-terminal | setup) FORWARD_ARGS=("$@"); set -- ;;
-  # `angelX plugin …` (docs/PLUGINS.md): find, install and publish plugins.
   plugin | plugins)
     shift; HEADLESS_MODE=1; FORWARD_ARGS=(--plugin "$@"); set -- ;;
-  # Remote glass: attach, list and end sessions, and the far end of an attach
-  # (run by `ssh <host> angelX --session-host <name>`; its stdout is the link).
   --session-host | --attach | --sessions | --kill-session)
     SESSION_MODE=1; FORWARD_ARGS=("$@"); set -- ;;
 esac
-# A prebuilt says in PREBUILT.json whether its binary carries the window
-# ("glass": true, or glass among its "features"). One built without it (0.2.4
-# and older) has nowhere to open a window, and a detached terminal cockpit
-# would vanish, so it stays here.
 GLASS_REFUSED=0
 if [ "$HEADLESS_MODE" = 0 ] && [ "$ANGEL_PREBUILT" = 1 ] && [ "${ANGEL_NO_BUILD:-}" = 1 ] \
   && ! grep -qE '"glass": *true|"features":[[:space:]]*"[^"]*glass' "$ANGEL_DIR/PREBUILT.json"; then
@@ -271,10 +157,6 @@ if [ "$HEADLESS_MODE" = 0 ] && [ "$ANGEL_PREBUILT" = 1 ] && [ "${ANGEL_NO_BUILD:
   export ANGEL_GLASS=0
   GLASS_REFUSED=1
 fi
-# On a desktop the cockpit opens in its own window: angelX needs no terminal
-# emulator. It stays in the terminal when asked (--term, ANGEL_GLASS=0), inside
-# tmux (a session meant to outlive the desktop), over SSH, or with no display.
-# A prebuilt without the window was set to the terminal just above.
 if [ -z "${ANGEL_GLASS:-}" ] && [ "$HEADLESS_MODE" = 0 ] \
   && [ -z "${TMUX:-}" ] && [ -z "${SSH_CONNECTION:-}${SSH_TTY:-}" ] \
   && { [ -n "${WAYLAND_DISPLAY:-}" ] || [ -n "${DISPLAY:-}" ] || [ "$(uname -s)" = Darwin ]; }; then
@@ -312,7 +194,6 @@ while [ $# -gt 0 ]; do
       [ $# -ge 2 ] || _launch_invalid 'launch selector requires a value'
       _launch_text selector "$2" || _launch_invalid 'launch selector requires nonblank UTF-8 within 1024 bytes, without surrounding whitespace'
       FORWARD_ARGS+=("$1" "$2"); shift 2 ;;
-    # The window or the terminal, given after the workspace or other options.
     --term)
       export ANGEL_GLASS=0; shift ;;
     --glass)
@@ -327,34 +208,20 @@ while [ $# -gt 0 ]; do
 done
 [ "$MODEL_SEEN$DRIVER_SEEN" != 10 ] || _launch_invalid '--model requires an explicit concrete --driver'
 [ "$DRAFT_SEEN$RESUME_SEEN" != 11 ] || _launch_invalid 'initial text cannot be combined with --resume'
-# bash 3.2 (stock macOS) treats an empty "${arr[@]}" as unbound under set -u.
 set -- ${FORWARD_ARGS[@]+"${FORWARD_ARGS[@]}"}
-# `angelX setup` is the cockpit opened on its setup menu, in the current
-# directory. `--text`, or input that is not a terminal, keeps the plain
-# questions below.
 if [ "$HEADLESS_MODE" = 0 ] && [ "${1:-}" = setup ] && [ "${2:-}" != --text ] && [ -t 0 ] && [ -t 1 ]; then
   [ "$#" -eq 1 ] || _launch_invalid 'usage: angelX setup [--text]'
   export ANGEL_OPEN_SETUP=1
   set --
 fi
 if [ "$HEADLESS_MODE" = 0 ] && [ "${1:-}" != update ] && [ "${1:-}" != reset-terminal ] && [ "${1:-}" != setup ]; then
-  # Bind interactive workspace before executable shell configuration can cd or
-  # switch it. Native startup receives this canonical root through the env.
   selected_workspace="${WORKSPACE_ARG:-${LAUNCH_WORKSPACE:-$LAUNCH_CWD}}"
   [[ "$selected_workspace" = /* ]] || selected_workspace="$LAUNCH_CWD/$selected_workspace"
   [ -d "$selected_workspace" ] || _launch_invalid 'workspace must be an existing directory'
   WORKSPACE_ARG="$(cd -- "$selected_workspace" && pwd -P)" || _launch_invalid 'workspace is inaccessible'
 fi
 
-# rustc/cargo live next to the toolchain, not behind ~/.cargo/bin/cargo.
-# That file is a rustup symlink whose fake proxy execs `$1` as a toolchain
-# binary (`cargo build` → .../bin/build → "No such file"). That failed every
-# rebuild and the launcher used to boot yesterday's image anyway.
 export PATH="$HOME/.local/bin:$PATH"
-# Inherit the terminal's resolved PATH by default. `mise env` can run config
-# hooks and open a trust/install prompt; it must not gate every source launch.
-# An operator who needs Omarchy wrapper resolution can explicitly request it
-# outside confinement, after trusting/configuring their tool manager.
 if [ "${ANGEL_RESOLVE_MISE:-0}" = 1 ] && command -v mise >/dev/null 2>&1; then
   if resolved_path=$(mise env --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["PATH"])'); then
     export PATH="$resolved_path"
@@ -363,10 +230,6 @@ if [ "${ANGEL_RESOLVE_MISE:-0}" = 1 ] && command -v mise >/dev/null 2>&1; then
   fi
 fi
 
-# --- launch diagnostics (temporary) — trace how far the icon launch gets ------
-# Assign in this shell, not $(...), so modern Bash logging needs no clock child.
-# macOS system Bash 3.2 lacks printf's time format; preserve its date fallback.
-# Read the clock each time: trusted configuration can change TZ after entry.
 if (( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 2) )); then
   _angel_log_time() {
     unset _ANGEL_LOG_STAMP
@@ -388,17 +251,9 @@ else
 fi
 mkdir -p "$HOME/.angelX"
 exec 9>>"$HOME/.angelX/launch.log"
-# Never persist task prompts or evaluator flags. Headless callers may place
-# secrets, held-out task text, or grader commands in argv; the launch log needs
-# only enough metadata to diagnose lifecycle failures.
 _angel_log_datetime
 echo "=== $_ANGEL_LOG_STAMP launch  tty=$(tty 2>/dev/null)  term=${TERM:-?}  argc=$# ===" >&9
 
-# A killed cockpit can strand the host terminal in application mouse mode. In
-# that state ordinary drag selection appears completely dead even though no
-# angel process remains. Keep a launcher-side recovery path independent of the
-# Rust teardown/panic hook: disable the exact crossterm mouse modes (in reverse
-# enable order), bracketed paste, and the alternate screen, then show the cursor.
 _restore_terminal() {
   [ -t 1 ] || return 0
   printf '\033[?2004l\033[?1006l\033[?1015l\033[?1003l\033[?1002l\033[?1000l\033[?25h\033[?1049l'
@@ -419,12 +274,9 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-# When launched from a desktop icon the window would vanish on a fatal error
-# before you could read it. Pause on the fatal paths if we're on a real TTY.
 _die() {
   echo "angelX: $*" >&2
   [ -t 0 ] && read -rsn1 -p "press any key to close…" _ && echo
-  # With no terminal at all (a launcher opening the window), say it on the desktop.
   [ -t 2 ] || _desktop_note "$*"
   exit 1
 }
@@ -439,8 +291,6 @@ _update() {
 
   [ "$#" -eq 0 ] || _die "usage: angelX update"
 
-  # A prebuilt install updates by installing the latest release beside this
-  # one (install.sh keeps the previous release until the next update).
   if [ "$ANGEL_PREBUILT" = 1 ]; then
     ANGELX_HOME="$(cd "$ANGEL_DIR/../.." && pwd)" exec sh "$ANGEL_DIR/install.sh"
   fi
@@ -476,8 +326,6 @@ if [ "${1:-}" = "update" ]; then
   exit 0
 fi
 
-# Keyboard-accessible repair for a terminal left in mouse-capture mode by an
-# earlier hard kill. This intentionally does no build and launches no cockpit.
 if [ "${1:-}" = "reset-terminal" ]; then
   [ "$#" -eq 1 ] || _die "usage: angelX reset-terminal"
   _restore_terminal
@@ -485,26 +333,13 @@ if [ "${1:-}" = "reset-terminal" ]; then
   exit 0
 fi
 
-# Determine whether this is a machine-facing command before loading any env
-# files. Runner processes inherit the caller's explicit environment, but must
-# not silently import unrelated secrets from broad home-directory shell files.
-# HEADLESS_MODE was selected by syntactic position during preflight above.
-
 if [ "$HEADLESS_MODE" = "1" ]; then
-  # Explicit opt-in only. This file is trusted shell configuration, so naming it
-  # is an operator action; unset means inherit the launcher's existing env only.
   if [ -n "${ANGEL_RUNNER_ENV_FILE:-}" ]; then
     [ -f "$ANGEL_RUNNER_ENV_FILE" ] || _die "cannot find ANGEL_RUNNER_ENV_FILE at $ANGEL_RUNNER_ENV_FILE"
     # shellcheck disable=SC1090
     set -a; . "$ANGEL_RUNNER_ENV_FILE"; set +a
   fi
 else
-  # Interactive convenience: angelX's own settings (`angelX setup` writes
-  # ~/.angelX/angel.env) and the checkout's ignored env files always load, the
-  # checkout's last so it wins. Generic home env files are other tools' shell
-  # code and load only when ANGEL_HOST_ENV=1 (exported, or set in .angel.env);
-  # angelX's files are then re-read so they still override the broad host
-  # defaults.
   _angel_source_env() {
     # shellcheck disable=SC1090
     [ -f "$1" ] && { set -a; . "$1"; set +a; }
@@ -523,29 +358,20 @@ else
     done
   fi
 
-  # `angelX setup`, and the first launch on a machine where nothing names a
-  # model: no settings file, no remembered route, no provider key, no local
-  # server address and no ChatGPT or Grok login. It runs before the provider
-  # defaults below, so it sees only what the operator configured.
   _angel_needs_setup() {
     [ "${ANGEL_SETUP:-1}" != 0 ] && [ -t 0 ] && [ -t 1 ] || return 1
     [ ! -e "$HOME/.angelX/angel.env" ] && [ ! -e "$HOME/.angelX/brain-route.json" ] || return 1
     [ -z "${ANGEL_DRIVER:-}${ANGEL_LOCAL_URL:-}${ANGEL_LOCAL_URLS:-}${ANGEL_OPENAI_AUTH_JSON:-}" ] || return 1
     [ ! -f "${CODEX_HOME:-$HOME/.codex}/auth.json" ] && [ ! -f "${GROK_HOME:-$HOME/.grok}/auth.json" ] || return 1
-    # Key names the cockpit reads (agent/club/bag.rs and discovery.rs).
     ! compgen -v | grep -qE '^(ANGEL_[A-Z0-9_]+_KEY|(OPENAI|DEEPSEEK|XAI|GROK|GLM|ZAI|ZHIPU|BIGMODEL|KIMI|MOONSHOT|OPENROUTER|CEREBRAS|META|QWEN|DASHSCOPE|LONGCAT|ANTHROPIC)_API_KEY)$'
   }
   if [ "${1:-}" = setup ]; then
     [ "$#" -eq 1 ] || { [ "$#" -eq 2 ] && [ "$2" = --text ]; } || _die "usage: angelX setup [--text]"
     exec bash "$ANGEL_DIR/scripts/runtime/angel-setup.sh"
   fi
-  # Nothing names a model yet: the cockpit opens on its setup menu.
   if _angel_needs_setup; then
     export ANGEL_OPEN_SETUP=1
   fi
-  # Shared credential/default files must not switch the user's working project.
-  # An explicit caller export and --workspace remain supported; machine runner
-  # env files above keep their deliberate invocation-local selection.
   if [ -n "$LAUNCH_WORKSPACE" ]; then
     export ANGEL_WORKSPACE="$LAUNCH_WORKSPACE"
   else
@@ -553,33 +379,22 @@ else
   fi
 fi
 
-# Explicit CLI authority wins trusted interactive/runner configuration.
 [ "$LAUNCH_YOLO" = 0 ] || export ANGEL_YOLO=1
 if [ "$LAUNCH_COMP" = 1 ]; then export ANGEL_COMP_MODE=1 ANGEL_TURBO=1; fi
-# Explicit build commands still respect the strict no-build latch. A prebuilt
-# install supplies its default above, so opt in with ANGEL_NO_BUILD=0 there.
 if [ "$BUILD_ONLY" = 1 ]; then
   [ "${ANGEL_NO_BUILD:-}" != 1 ] || _die 'ANGEL_NO_BUILD=1 forbids builds'
   export ANGEL_NO_BUILD=0
 fi
 
-# Apply the user's optional provider allowlist before any binary is launched, even
-# when ANGEL_NO_BUILD selects an older image without the Rust registration gate.
 # shellcheck source=../scripts/check/angel-club-policy.sh
 . "$ANGEL_DIR/scripts/check/angel-club-policy.sh"
 
-# Workspace was parsed before env-file effects; machine argv remains opaque.
 WORKSPACE_DIR="${WORKSPACE_ARG:-${ANGEL_WORKSPACE:-$LAUNCH_CWD}}"
-# Env files may run shell statements; relative selection always belongs to the
-# directory from which the operator launched, regardless of later shell cwd.
 [[ "$WORKSPACE_DIR" = /* ]] || WORKSPACE_DIR="$LAUNCH_CWD/$WORKSPACE_DIR"
 [ -d "$WORKSPACE_DIR" ] || _die "cannot find workspace at $WORKSPACE_DIR"
 WORKSPACE_DIR="$(cd "$WORKSPACE_DIR" && pwd -P)"
 export ANGEL_WORKSPACE="$WORKSPACE_DIR"
 
-# Native-module development alone opts into the existing reload threads.
-# Ordinary startup gains no compiler, file probes or watchers. Explicit paths
-# (including an empty path to disable one module) retain operator authority.
 if [ "${ANGEL_NATIVE_MODULES:-0}" = 1 ]; then
   export ANGEL_SKILL_ROUTER_MODULE="${ANGEL_SKILL_ROUTER_MODULE-$COCKPIT_DIR/target/native/skill_router.so}"
   export ANGEL_ACTIVITY_CLASSIFIER_MODULE="${ANGEL_ACTIVITY_CLASSIFIER_MODULE-$COCKPIT_DIR/target/native/activity_classifier.so}"
@@ -591,12 +406,6 @@ if [ "$BUILD_MODULES" = 1 ]; then
   exit 0
 fi
 
-# Machine-facing commands preserve stdout/stderr as public API streams and do
-# not pull the TUI's FFmpeg/WebGPU build graph into a runner-only host.
-
-# Non-secret provider/model defaults for the SOTA base team. Provider keys still
-# come only from the sourced env files above; these just make the intended roster
-# explicit when a key is present.
 export ANGEL_DEEPSEEK_MODEL="${ANGEL_DEEPSEEK_MODEL:-deepseek-v4-pro}"
 export ANGEL_GROK_MODEL="${ANGEL_GROK_MODEL:-${GROK_MODEL:-grok-4.6}}"
 export ANGEL_OPENROUTER_MODEL="${ANGEL_OPENROUTER_MODEL:-tencent/hy3:free}"
@@ -604,18 +413,8 @@ export ANGEL_CEREBRAS_MODEL="${ANGEL_CEREBRAS_MODEL:-${CEREBRAS_MODEL:-cerebras}
 export ANGEL_GLM_MODEL="${ANGEL_GLM_MODEL:-glm-5.3}"
 export ANGEL_LONGCAT_MODEL="${ANGEL_LONGCAT_MODEL:-LongCat-2.0}"
 
-# Working builds use the `fast` profile (cockpit/Cargo.toml): the release
-# profile's single codegen unit and thin-LTO link take minutes per edit on
-# this crate, which made every launch a wait. Selection rules, in order:
-# ANGEL_DEV=1 debug, ANGEL_FAST=1 fast, ANGEL_RELEASE=1/ANGEL_FAST=0 release,
-# a launch that builds from source fast, and anything that only *selects* a
-# binary (ANGEL_NO_BUILD=1, prebuilt installs) release — prebuilt packages
-# and older checkouts carry their binary at target/release, and a selection
-# default must not move under them.
 PROFILE="release"
 CARGO_BUILD_ARGS=(--locked --release)
-# Source work uses incremental compilation. Installed bundles and explicitly
-# selected/hashed launch images retain their release layout and identity.
 DEFAULT_FAST=1
 if [ "$ANGEL_PREBUILT" = "1" ] || [ -n "${ANGEL_LAUNCH_BINARY:-}" ]; then DEFAULT_FAST=0; fi
 if [ -n "$BUILD_PROFILE" ]; then
@@ -635,15 +434,9 @@ case "$PROFILE" in
 esac
 SKIP_DEFAULT_FEATURES=0
 [ "${ANGEL_VIDEO:-1}" != "0" ] || SKIP_DEFAULT_FEATURES=1
-# Inspection must not silently select a smaller application than plain angelX.
-# Only an explicit headless feature opt-out may change the build.
 if [ "$HEADLESS_MODE" = "1" ] && [ "${ANGEL_HEADLESS_DEFAULT_FEATURES:-1}" = "0" ]; then
   SKIP_DEFAULT_FEATURES=1
 fi
-# Stock macOS has no FFmpeg; the default scryglass-video feature would fail the
-# rebuild. It links FFmpeg's libraries through pkg-config, and a Homebrew
-# ffmpeg on PATH is not enough without pkg-config, so build video only when
-# pkg-config finds them.
 if [ "$(uname -s)" = "Darwin" ] && ! pkg-config --exists libavcodec libavformat libswscale 2>/dev/null; then
   SKIP_DEFAULT_FEATURES=1
 fi
@@ -656,14 +449,9 @@ fi
 if [ "$SKIP_DEFAULT_FEATURES" = "1" ]; then
   CARGO_BUILD_ARGS+=(--no-default-features)
 fi
-# One application/feature set for the window, terminal and inspection commands.
-# Switching entrypoints must not relink the host or benchmark a leaner variant.
 CARGO_BUILD_ARGS+=(--features "$CARGO_FEATURES")
 BIN="$COCKPIT_DIR/target/$PROFILE/angel"
 RUN_PROFILE="$PROFILE"
-# Only an explicit no-build request may choose an already completed image.
-# Ordinary source launches build the selected profile from current source,
-# regardless of which old executable has the newest timestamp.
 if [ "$PROFILE" = fast ] && [ -z "${ANGEL_FAST:-}" ] && [ "$BUILD_ONLY" = 0 ] \
   && [ "${ANGEL_NO_BUILD:-}" = 1 ] && [ -z "${ANGEL_LAUNCH_BINARY:-}" ] \
   && [ -x "$COCKPIT_DIR/target/release/angel" ] \
@@ -679,18 +467,12 @@ if [ -n "${ANGEL_LAUNCH_BINARY:-}" ]; then
   _angel_image_sha256 "$BIN" check || _die "cannot verify selected launch binary"
 fi
 
-# Blaze is project-local: never enable a user-global Cargo wrapper. Keep its
-# compiler/ABI artifacts separate from the stable Cargo profile directories.
 BUILD_BACKEND="${ANGEL_BUILD_BACKEND:-auto}"
 BLAZE=""
 case "$BUILD_BACKEND" in
   auto|cargo|blaze) ;;
   *) _die 'ANGEL_BUILD_BACKEND must be auto, cargo or blaze' ;;
 esac
-# The pinned Blaze wrapper reproduced a stale executable after edit -> restore,
-# despite a successful Rust fallback. Keep it explicitly selectable for research,
-# but never auto-select it for the long-term development launch path.
-# See reports/performance/dev-rebuild-baseline-20261028.json.
 if [ "${ANGEL_NO_BUILD:-}" != 1 ] && [ "$BUILD_BACKEND" = blaze ]; then
   if [ -n "${ANGEL_BLAZE_BIN:-}" ]; then
     [ -x "$ANGEL_BLAZE_BIN" ] || _die "Blaze is not installed at ANGEL_BLAZE_BIN=$ANGEL_BLAZE_BIN"
@@ -723,14 +505,8 @@ else
   BUILD_BACKEND=cargo
 fi
 
-# The selected compiler owns graph/freshness. Every normal source launch checks
-# it, including after background builds or failed edits. No timestamp-only
-# heuristic or earlier background success can authorize running a stale image.
-# Installed bundles and explicit no-build/hashed images retain their contracts.
 _angel_rust_host_triple() {
   local host arch compiler info probe_ok
-  # Resolve the already-installed compiler before PATH: a rustc shim may start
-  # an interactive tool-manager trust/install prompt before the cockpit opens.
   if [ -n "${1:-}" ]; then
     for compiler in "${RUSTUP_HOME:-$HOME/.rustup}"/toolchains/"$1"-*/bin/rustc; do
       [ -x "$compiler" ] || continue
@@ -748,8 +524,6 @@ _angel_rust_host_triple() {
     done
   fi
   if command -v rustc >/dev/null 2>&1; then
-    # Discovery used to run inside a command substitution. Handle failures
-    # explicitly now that errexit also applies in this shell.
     host=$(rustc -vV 2>/dev/null | awk '/^host:/{print $2; exit}') || true
     [ -n "$host" ] && {
       _ANGEL_RUST_HOST="$host"
@@ -773,8 +547,6 @@ _angel_cargo() {
   if [ -f "$ANGEL_DIR/rust-toolchain.toml" ]; then
     channel=$(awk -F'"' '/^channel[[:space:]]*=/{print $2; exit}' "$ANGEL_DIR/rust-toolchain.toml")
   fi
-  # Reuse successful metadata only inside this launch and for the exact compiler
-  # path eventually selected below. Never trust inherited or persisted values.
   unset _ANGEL_PROBE_RUSTC _ANGEL_PROBE_RUSTC_INFO _ANGEL_RUST_HOST
   _ANGEL_PROBE_RUSTC=""
   _ANGEL_PROBE_RUSTC_INFO=""
@@ -788,7 +560,6 @@ _angel_cargo() {
     "$HOME/.local/bin/cargo"
   do
     [ -n "$tc" ] && [ -x "$tc" ] || continue
-    # Reject the broken rustup proxy (symlink named cargo → rustup script).
     if [ -L "$tc" ]; then
       dest=$(readlink "$tc" 2>/dev/null || true)
       case "$dest" in
@@ -798,12 +569,7 @@ _angel_cargo() {
     CARGO="$tc"
     return 0
   done
-  # A fresh rustup holds only its default toolchain, and the build below runs
-  # with RUSTUP_AUTO_INSTALL=0: install the pinned one and its browser target
-  # together. A minimal toolchain alone defers a missing-target failure until
-  # the nested browser build, after native compilation has already begun.
   if [ -n "$channel" ] && command -v rustup >/dev/null 2>&1; then
-    # Repair/install may replace rustc at the very same pathname.
     _ANGEL_PROBE_RUSTC=""
     _ANGEL_PROBE_RUSTC_INFO=""
     echo "angelX: installing Rust $channel (rust-toolchain.toml) with rustup…" >&2
@@ -813,9 +579,6 @@ _angel_cargo() {
       return 0
     fi
   fi
-  # Homebrew or distro Rust keeps cargo outside rustup. Take the cargo on PATH
-  # once it answers; the broken shim fails `cargo -V` and lands on the message
-  # below.
   tc=$(command -v cargo 2>/dev/null || true)
   if [ -n "$tc" ] && "$tc" -V >/dev/null 2>&1; then
     CARGO="$tc"
@@ -842,23 +605,13 @@ if [ "${ANGEL_NO_BUILD:-}" != "1" ]; then
       wrapper|standalone) ;;
       *) _die 'ANGEL_BLAZE_MODE must be wrapper or standalone' ;;
     esac
-    # One transaction covers in-place patching and the private launch copy.
-    # flock is tied to the shared open file description; Python acquires it
-    # portably, and this shell retains it after Python exits. Close it in the
-    # compiler child so a long-lived Blaze daemon cannot retain the lease.
     mkdir -p "$CARGO_TARGET_DIR"
     exec 8>"$CARGO_TARGET_DIR/.angel-launch.lock"
     python3 -c 'import fcntl; fcntl.flock(8, fcntl.LOCK_EX)'       || _die 'cannot acquire Blaze build/launch lock'
-    # Blaze owns its pinned Rust ABI/toolchain. Never inject stable Cargo's
-    # rustc or build metadata into the daemon's compiler environment.
     unset RUSTC RUSTDOC ANGEL_BUILD_RUSTC
     if [ "$BLAZE_MODE" = standalone ]; then
       BUILD_COMMAND=("$BLAZE")
     else
-      # Upstream's supported Cargo workspace-wrapper protocol, scoped to this
-      # invocation. Full standalone currently cannot compile clang-sys's build
-      # script used by FFmpeg. Rust builds unsupported units from current source;
-      # Blaze can serve incremental executable edits once its daemon is loaded.
       blaze_sysroot=$("$BLAZE" toolchain --path) || _die 'cannot locate Blaze toolchain'
       [ -x "$blaze_sysroot/bin/cargo" ] && [ -x "$blaze_sysroot/bin/rustc" ]         || _die 'Blaze toolchain is missing cargo or rustc'
       blaze_wrapper="$(dirname "$BLAZE")/ra-jit-rustc"
@@ -874,8 +627,6 @@ if [ "${ANGEL_NO_BUILD:-}" != "1" ]; then
     _angel_cargo
     BUILD_COMMAND=("$CARGO")
     cargo_dir="$(dirname "$CARGO")"
-    # Pin the toolchain rustc next to cargo so a rustup proxy cannot start a
-    # rust-src download mid-compile (that race failed the Mac mini rebuild).
     if [ -x "$cargo_dir/rustc" ]; then
       export RUSTC="$cargo_dir/rustc"
     fi
@@ -887,16 +638,6 @@ if [ "${ANGEL_NO_BUILD:-}" != "1" ]; then
     fi
   fi
   export ANGEL_BUILD_PROFILE="$PROFILE"
-  # --- source identity -------------------------------------------------------
-  # Bind release binaries to the committed build-input trees so
-  # `angel --build-info --json` reports a real cockpit_source_sha256 (see
-  # scripts/check/cockpit-source-digest.sh) instead of "unbound". Only a clean
-  # build-input tree is bound;
-  # a dirty one prints one line and builds unbound. An operator-provided
-  # ANGEL_BUILD_SOURCE_SHA256 is kept as-is; ANGEL_BIND_SOURCE=0 skips binding.
-  # Cargo fingerprints option_env!: baking a changed live-module tree into a
-  # working image would recompile Rust after a JS-only commit. Development
-  # profiles therefore leave source identity unbound unless explicitly asked.
   DEFAULT_BIND_SOURCE=1
   [ "$PROFILE" = "release" ] || DEFAULT_BIND_SOURCE=0
   SOURCE_BIND="unbound"
@@ -920,10 +661,7 @@ if [ "${ANGEL_NO_BUILD:-}" != "1" ]; then
   echo "$_ANGEL_LOG_STAMP   $BUILD_BACKEND ${BUILD_COMMAND[*]}  git=$(git -C "$ANGEL_DIR" rev-parse --short HEAD 2>/dev/null || echo '?')  source=$SOURCE_BIND" >&9
   mkdir -p "$HOME/.angelX"
   cargo_log="$HOME/.angelX/cargo.log"
-  if [ "${ANGEL_HOT_SYSTEMS:-1}" != "0" ]; then
-    # This target builds rules and their protocol, without cockpit/provider/V8
-    # or renderer code. Later edits can be published while this host stays up:
-    # npm run dev:systems
+  if [ "${ANGEL_DELVE:-1}" != "0" ] && [ "${ANGEL_HOT_SYSTEMS:-1}" != "0" ]; then
     node "$ANGEL_DIR/scripts/dev/systems.mjs" delve || _die "Delve system build failed"
   fi
   _angel_log_datetime
@@ -939,21 +677,10 @@ if [ "$BUILD_ONLY" = "1" ]; then
   exit 0
 fi
 
-# --- multi-instance isolation ------------------------------------------------
-# Concurrent cockpits share this checkout. Each launch runs a private hardlink
-# of the freshly built binary, so a later launch's rebuild renames a new file
-# over target/<profile>/angel without ever yanking the image (or
-# /proc/self/exe) out from under a live instance. Each owner removes only its
-# own link on exit. PID visibility can be restricted by a namespace or sandbox,
-# so failure of kill -0 must never authorize deleting another owner's link.
 RUN_DIR="$COCKPIT_DIR/target/$RUN_PROFILE/run"
 mkdir -p "$RUN_DIR"
-# Random suffixes also avoid collisions between equal PIDs in namespaces.
 RUN_BIN=$(mktemp "$RUN_DIR/angel-$$-XXXXXXXX")
 _angel_copy_launch_image() {
-  # A failed link (e.g. cross-filesystem) can require a large copy. Preserve
-  # early rejection of a wrong pin before paying that cost; verify the final
-  # copied image below as well, since this source pathname can still change.
   if [ -n "${ANGEL_LAUNCH_BINARY:-}" ]; then
     local selected_sha
     selected_sha=$(_angel_image_sha256 "$BIN") || _die "cannot verify selected launch binary"
@@ -962,31 +689,20 @@ _angel_copy_launch_image() {
   cp -p "$BIN" "$RUN_BIN"
 }
 if [ "$BUILD_BACKEND" = blaze ]; then
-  # Blaze patches executable bytes in place. A hardlink would patch a running
-  # cockpit too; copy (CoW where available) into the private launch inode.
   _angel_copy_launch_image || _die 'cannot copy Blaze launch image'
   exec 8>&-
 else
   ln -f "$BIN" "$RUN_BIN" 2>/dev/null || _angel_copy_launch_image
 fi
-# The selected pathname can be replaced after admission. Hash the private image
-# that actually executes, not both it and the (potentially different) source.
 if [ -n "${ANGEL_LAUNCH_BINARY:-}" ]; then
   launch_sha=$(_angel_image_sha256 "$RUN_BIN") || _die "cannot verify launch image"
   [ "$launch_sha" = "$ANGEL_LAUNCH_BINARY_SHA256" ] || _die "launch image SHA-256 differs"
 fi
 
-# Another instance may be live. Retained crash links conservatively select a
-# separate log; also match older cockpits running target/<profile>/angel
-# directly. Interleaved stderr from two cockpits is unreadable, so secondary
-# instances get their own file and never rotate the primary one.
 OTHER_LIVE=0
 for other in "$COCKPIT_DIR"/target/*/run/angel-* "$COCKPIT_DIR"/target/blaze/*/run/angel-*; do
   [ -e "$other" ] && [ "$other" != "$RUN_BIN" ] && OTHER_LIVE=1
 done
-# Machine commands write to their caller's streams and never rotate cockpit
-# logs. Modern instances already left run links above; only a primary
-# interactive launch needs the legacy direct-executable process-table scan.
 if [ "$HEADLESS_MODE" != 1 ] && [ "$OTHER_LIVE" != 1 ]; then
   pgrep -f "$COCKPIT_DIR/target/(release|fast|debug)/angel( |\$)" >/dev/null 2>&1 && OTHER_LIVE=1
 fi
@@ -997,12 +713,7 @@ export ANGEL_ERR_FILE="$ERR_FILE"
 cd "$WORKSPACE_DIR" || _die "cannot cd to workspace directory $WORKSPACE_DIR"
 _angel_log_time
 echo "$_ANGEL_LOG_STAMP   run $RUN_BIN  workspace=$WORKSPACE_DIR  err=$ERR_FILE" >&9
-# --- temporary: capture stderr + exit code (rc>128 => killed by signal rc-128) ---
 export RUST_BACKTRACE=1
-# Rotate the accumulated stderr log once it passes 1 MiB so a debugging session
-# reads THIS run's noise, not months of history. One .old generation is kept.
-# Only the primary instance rotates: a mv while another cockpit holds the file
-# open would silently split its stream into the .old generation.
 if [ "$HEADLESS_MODE" != "1" ]; then
   if [ "$OTHER_LIVE" != "1" ] && [ -f "$ERR_FILE" ] \
     && [ "$(stat -f%z "$ERR_FILE" 2>/dev/null || stat -c%s "$ERR_FILE" 2>/dev/null || echo 0)" -gt 1048576 ]; then
@@ -1011,15 +722,11 @@ if [ "$HEADLESS_MODE" != "1" ]; then
   _angel_log_datetime
   echo "=== $_ANGEL_LOG_STAMP cockpit stderr ===" >>"$ERR_FILE"
 fi
-# Whether the desktop swallows a window started from a terminal (Hyprland's
-# misc:enable_swallow, with a misc:swallow_regex naming the terminals): then
-# the glass window can take the terminal's place.
 _swallows() {
   [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null 2>&1 \
     && hyprctl getoption misc:enable_swallow 2>/dev/null | grep -qE '^(bool: true|int: 1)' \
     && hyprctl getoption misc:swallow_regex 2>/dev/null | grep -qE '^str: .*[^[:space:]]'
 }
-# The cockpit in the terminal it was typed in.
 _run_here() {
   ANGEL_TERMINAL_ARMED=1
   if "$RUN_BIN" "$@" 2>>"$ERR_FILE"; then
@@ -1030,9 +737,6 @@ _run_here() {
   _restore_terminal
   ANGEL_TERMINAL_ARMED=0
 }
-# The cockpit marks ANGEL_GLASS_READY once its window is up. One that ends
-# without it never had a window (no GPU adapter, no display it can use), so the
-# terminal it was typed in runs it instead, and says why.
 _window_failed() {
   echo "angelX: no window could open here (see $ERR_FILE); running in the terminal" >&2
   _angel_log_time
@@ -1040,25 +744,18 @@ _window_failed() {
   export ANGEL_GLASS=0
 }
 if [ "$SESSION_MODE" = "1" ]; then
-  # Remote glass speaks on stdout (the far end of an attach) or opens its own
-  # window: no terminal handling and no detaching here.
   if "$RUN_BIN" "$@"; then
     cockpit_rc=0
   else
     cockpit_rc=$?
   fi
 elif [ "$HEADLESS_MODE" = "1" ]; then
-  # stdout and stderr are runner protocol surfaces. Do not hide diagnostics in a
-  # private log and do not append terminal-reset escape bytes to JSON stdout.
   if "$RUN_BIN" "$@"; then
     cockpit_rc=0
   else
     cockpit_rc=$?
   fi
 elif [ "${ANGEL_GLASS:-}" = "1" ] && [ -t 1 ] && _swallows; then
-  # The window was asked for from a terminal whose compositor swallows: it
-  # stays attached, so the window opens in the terminal's place and the
-  # terminal comes back when it closes. Its input is the window's own.
   export ANGEL_GLASS_READY="$RUN_BIN.ready"
   rm -f -- "$ANGEL_GLASS_READY"
   if "$RUN_BIN" "$@" </dev/null 2>>"$ERR_FILE"; then
@@ -1073,10 +770,6 @@ elif [ "${ANGEL_GLASS:-}" = "1" ] && [ -t 1 ] && _swallows; then
     _run_here "$@"
   fi
 elif [ "${ANGEL_GLASS:-}" = "1" ] && [ -t 1 ]; then
-  # The window was asked for from a terminal: it goes off on its own, so the
-  # prompt comes back and closing the terminal leaves the window open. The
-  # launcher waits for the window to be up; a cockpit that ends first runs
-  # here instead. The window removes its own launch image when it closes.
   export ANGEL_GLASS_READY="$RUN_BIN.ready"
   rm -f -- "$ANGEL_GLASS_READY" "$ANGEL_GLASS_READY.exit" "$ANGEL_GLASS_READY.left"
   detached='"$0" "$@" 2>>"$ANGEL_ERR_FILE"; r=$ANGEL_GLASS_READY
@@ -1096,7 +789,6 @@ elif [ "${ANGEL_GLASS:-}" = "1" ] && [ -t 1 ]; then
     _window_failed
     _run_here "$@"
   else
-    # Still starting after half a minute: it cleans up after itself.
     [ -e "$ANGEL_GLASS_READY" ] || : >"$ANGEL_GLASS_READY.left"
     echo "angelX: opened in its own window (--term keeps it here)" >&2
     _angel_log_time

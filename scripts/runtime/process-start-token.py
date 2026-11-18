@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""Return the Darwin libproc birth token used by Rust process receipts."""
 import ctypes
 import sys
 
 
 class ProcBsdInfo(ctypes.Structure):
-    # Fixed-width layout matches libc::proc_bsdinfo in the locked libc crate.
     _fields_ = [
         ('pbi_flags', ctypes.c_uint32),
         ('pbi_status', ctypes.c_uint32),

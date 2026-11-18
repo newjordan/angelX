@@ -60,7 +60,6 @@ fn mcp_retirement_stops_term_ignoring_wrapper_children_and_reader() {
 
 #[cfg(unix)]
 fn assert_blocked_write_obeys_deadline(notification: bool) {
-    // `exec` leaves one owned process holding stdin open without reading it.
     let spec = ServerSpec {
         name: "blocked-writer".into(),
         command: "/bin/sh".into(),
@@ -148,8 +147,6 @@ for line in sys.stdin:
         let observed = receiver.recv_timeout(Duration::from_millis(500));
         let completed = observed.is_ok();
         let elapsed = started.elapsed();
-        // Always release the lock before joining, including the old unbounded
-        // implementation. The real server and child are owned by this client.
         drop(held);
         let result =
             observed.unwrap_or_else(|_| receiver.recv_timeout(Duration::from_secs(2)).unwrap());
@@ -238,15 +235,11 @@ fn build_notification_has_no_id() {
 fn parse_response_matches_id_and_surfaces_errors() {
     let ok = r#"{"jsonrpc":"2.0","id":3,"result":{"ok":true}}"#;
     assert_eq!(parse_response(ok, 3), Some(Ok(json!({"ok": true}))));
-    // wrong id -> skip
     assert_eq!(parse_response(ok, 4), None);
-    // a notification (no id) -> skip
     let notif = r#"{"jsonrpc":"2.0","method":"log","params":{}}"#;
     assert_eq!(parse_response(notif, 3), None);
-    // error response -> Some(Err)
     let err = r#"{"jsonrpc":"2.0","id":3,"error":{"code":-32601,"message":"no method"}}"#;
     assert_eq!(parse_response(err, 3), Some(Err("no method".to_string())));
-    // garbage -> skip
     assert_eq!(parse_response("not json", 3), None);
 }
 
@@ -255,7 +248,7 @@ fn parse_tools_list_extracts_tools() {
     let result = json!({
         "tools": [
             { "name": "search", "description": "web search", "inputSchema": {"type": "object"} },
-            { "name": "fetch" } // missing desc/schema -> defaults
+            { "name": "fetch" }
         ]
     });
     let tools = parse_tools_list(&result);
@@ -471,8 +464,6 @@ fn server_command_withholds_inherited_secrets_and_applies_spec_env_after() {
         args: vec!["-c".into(), "env".into()],
         env: vec![("EXA_API_KEY".into(), "from-mcp-json".into())],
     };
-    // The parent's environment: provider keys the server must not see, a
-    // same-named key the spec overrides, and ordinary variables.
     let inherited = || {
         ["OPENAI_API_KEY", "GH_TOKEN", "EXA_API_KEY", "HOME", "PATH"]
             .into_iter()
@@ -523,9 +514,6 @@ fn strip_inherited_secrets_defaults_on_and_is_not_bypassed_by_yolo() {
     assert!(!strip_inherited_secrets());
 }
 
-/// End to end through `spawn_in`: a live server child cannot read a
-/// secret-named variable the cockpit holds, while the key its spec sets
-/// arrives. Ignored with its siblings (spawns /bin/sh).
 #[test]
 #[ignore = "spawns a /bin/sh mock server; run with --ignored"]
 fn spawned_server_child_does_not_see_inherited_secrets() {
@@ -555,13 +543,9 @@ done
     );
 }
 
-/// End-to-end round-trip against a tiny mock MCP server written in `sh` —
-/// proves spawn + initialize + tools/list + tools/call over real stdio pipes.
-/// Ignored by default (depends on /bin/sh); run with `--ignored`.
 #[test]
 #[ignore = "spawns a /bin/sh mock server; run with --ignored"]
 fn live_stdio_roundtrip_against_mock() {
-    // A line-oriented JSON-RPC echo: replies to initialize/tools/list/tools/call.
     let script = r#"
 while IFS= read -r line; do
   id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
@@ -586,9 +570,6 @@ done
     assert_eq!(tools[1].def().name, "mock__mcp");
 }
 
-/// A tool keeps its stable provider after the underlying process exits. The
-/// next call resolves a fresh process generation without rebuilding the
-/// registry or rediscovering tool definitions.
 #[test]
 #[ignore = "spawns /bin/sh mock servers; run with --ignored"]
 fn crashed_server_is_replaced_without_registry_rebuild() {
@@ -626,9 +607,6 @@ done
     assert_eq!(provider.generation(), 2);
 }
 
-/// A transport failure during a potentially mutating tool call may have
-/// happened after the server accepted the request. Restart for subsequent
-/// work, but never replay that ambiguous call automatically.
 #[test]
 #[ignore = "spawns /bin/sh mock servers; run with --ignored"]
 fn failed_tool_call_restarts_but_is_not_replayed() {
@@ -659,9 +637,6 @@ done
     );
 }
 
-/// Read-only MCP methods are safe to replay once. Persist one crash marker
-/// outside the subprocess so the replacement generation can answer the
-/// same request and prove the bounded retry path end to end.
 #[test]
 #[ignore = "spawns /bin/sh mock servers; run with --ignored"]
 fn failed_read_only_request_restarts_and_replays_once() {
@@ -703,8 +678,6 @@ done
     let _ = std::fs::remove_file(marker);
 }
 
-/// A second discovery pass reuses the warm server (no respawn) — the `/cd`
-/// registry-rebuild path. Same mock server; ignored with its sibling.
 #[test]
 #[ignore = "spawns a /bin/sh mock server; run with --ignored"]
 fn rediscovery_reuses_the_warm_server() {
@@ -752,7 +725,6 @@ done
         "a different project must get a fresh process and cwd: {notes:?}"
     );
     let _ = std::fs::remove_dir(&foreign_workspace);
-    // A changed spec must NOT reuse the warm client.
     let mut changed = specs.clone();
     changed[0].env = vec![("X".into(), "1".into())];
     let (_, notes) = discover_from_specs(&changed, Duration::from_secs(5), &workspace);

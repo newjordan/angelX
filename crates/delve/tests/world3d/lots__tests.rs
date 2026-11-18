@@ -5,10 +5,8 @@
 use super::*;
 use crate::world::wishes::lots as wish_lots;
 
-/// The catalog wishes the proofs build, all beside the Village.
 const BUILT: [&str; 4] = ["tavern", "wayside-shrine", "fellowship-stone", "beacon-tower"];
 
-/// A run out in the kingdom with the catalog's `ids` built beside `near`.
 fn run_with(ids: &[&str], near: &str) -> Run {
     let mut run = kingdom::proof_run(&[[1344.0, 1408.0]]);
     run.kingdom.wishes = Arc::new(proof_wishes(ids, near));
@@ -21,7 +19,6 @@ fn the_catalog_reads_and_each_wish_finds_its_nearest_piece() {
     assert_eq!(wishes.len(), 7, "every catalog wish reads");
     let kits: Vec<Kit> = wishes.iter().map(|w| kit_for(w, (2, 2))).collect();
     assert_eq!(kits, [Kit::Cottage, Kit::Shrine, Kit::Flags, Kit::Tower, Kit::Hall, Kit::Hall, Kit::Chapel]);
-    // Nothing the kit names: by its size.
     let mut plain = wishes[0].clone();
     (plain.name, plain.words) = ("Something".into(), "a thing for the realm".into());
     assert_eq!(kit_for(&plain, (1, 1)), Kit::Well);
@@ -49,7 +46,6 @@ fn a_built_wish_stands_on_its_lots_building_rows_and_clears_the_lot() {
             })
             .collect();
         assert!(on_lot.iter().any(|s| s.at[1] + s.size[1] >= 12.0), "{lot:?}: something stands up on it");
-        // Its door row stays open: nothing over a boot's height there.
         assert!(
             on_lot.iter().filter(|s| fit::overlaps(fit::footprint(s), door)).all(|s| s.at[1] + s.size[1] <= blockout::LOW || s.at[1] >= blockout::HEADROOM),
             "{lot:?}: its door row open"
@@ -57,9 +53,7 @@ fn a_built_wish_stands_on_its_lots_building_rows_and_clears_the_lot() {
         assert!(share.clear.contains(&[x0, z0, x1, z1]), "{lot:?}: the lot cleared of its chunk's own");
         assert!(lots.plaques.iter().any(|p| p.at.1 >= (lot.ty + lot.th - 1) * 16 && p.at.1 < (lot.ty + lot.th) * 16), "its name on its door row");
     }
-    // The same run, the same lots.
     assert_eq!(of(&run).unwrap().key, lots.key);
-    // A build raised, a build cleared: what stands changes with them.
     let mut fewer = run.clone();
     fewer.kingdom.wishes = Arc::new(run.kingdom.wishes[..2].to_vec());
     let less = of(&fewer).expect("two still stand");
@@ -73,8 +67,6 @@ fn a_built_wish_stands_on_its_lots_building_rows_and_clears_the_lot() {
 
 #[test]
 fn what_a_chunk_stands_on_a_lot_is_cut() {
-    // The first grove of the Greenwood's corner chunk, and a box (a hedge
-    // or a step of rock) somewhere: cleared, as a lot clears its ground.
     let registry = kingdom::chunks();
     let (chunk, tree, block) = (0..kingdom::COUNT as u32)
         .filter_map(|i| registry.chunk(i))
@@ -101,11 +93,9 @@ fn what_a_chunk_stands_on_a_lot_is_cut() {
     assert_eq!(cut.set.id, chunk.set.id);
     let tree_at = |set: &Set| set.shapes.iter().any(|s| s.shape == tree.shape && s.at == tree.at);
     assert!(tree_at(&chunk.set) && !tree_at(&cut.set), "the tree on the lot is gone");
-    // The box stands on as the half of it off the lot.
     let kept: Vec<&Shape> = cut.set.shapes.iter().filter(|s| s.kind == block.kind && s.at[1] == block.at[1] && fit::overlaps(fit::footprint(s), [a, b, c, d])).collect();
     assert!(kept.iter().all(|s| fit::footprint(s)[0] >= half[2] - 0.5), "nothing of the box left on the lot");
     assert!(!kept.is_empty(), "the rest of the box stands: {block:?} cut {:?} by {:?}", cut.text.lines().filter(|l| l.contains("cut for a lot")).collect::<Vec<_>>(), lots.share(chunk.index).map(|s| s.clear.clone()));
-    // Made once; a chunk nothing stands on is itself.
     assert!(Arc::ptr_eq(&lots.chunk(&chunk), &cut));
     let other = registry.chunk((chunk.index + 1) % kingdom::COUNT as u32).unwrap();
     assert!(Arc::ptr_eq(&lots.chunk(&other), &other));
@@ -132,7 +122,6 @@ fn the_runs_finds_stand_on_their_tiles_and_change_as_they_are_found() {
         assert!(on_it.iter().any(|s| s.at[1] + s.size[1] >= 5.0), "{find:?} stands up");
         assert!(share.clear.is_empty() || share.clear.iter().all(|r| !(r[0] < x && x < r[2] && r[1] < front - 1.0 && front - 1.0 < r[3])), "{find:?}: nothing cleared under it");
     }
-    // A ruin's cache goes when it is found; a shrine's candle burns.
     let (i, ruin) = *finds.iter().find(|(_, f)| f.kind == crate::world::finds::Kind::Ruin).expect("a ruin");
     let index = kingdom::index(ruin.at.0.div_euclid(chunks::CHUNK.0), ruin.at.1.div_euclid(chunks::CHUNK.1)).unwrap();
     let before = lots.share(index).unwrap().extras.len();
@@ -172,8 +161,6 @@ fn a_window_and_a_page_are_sent_the_lots_as_extra_blocks_that_follow_the_party()
         let frame = maker.make(&scene, |_| None);
         let world = frame.props.as_ref().and_then(|p| p.world.clone()).expect("the world");
         let extra: Vec<&Node> = world.extra.iter().filter(|n| n.id & 0xffff_ffff >= EXTRA_IDS).collect();
-        // To a window as lit extra blocks; to a page as a set of their own
-        // a chunk, which it fills lit (a window's or a fire's accent kept).
         let by_set = world.set.iter().chain(&world.more).any(|r| lots.shares.iter().any(|s| s.key == r.key && r.text.as_deref() == Some(&*s.text)));
         assert!(if png_plates { extra.is_empty() && by_set } else { !extra.is_empty() && !by_set }, "the party's builds go with the blocks");
         let mut ids: Vec<u64> = world.floor.iter().chain(&world.blocks).chain(&world.extra).map(|n| n.id).collect();
@@ -181,7 +168,6 @@ fn a_window_and_a_page_are_sent_the_lots_as_extra_blocks_that_follow_the_party()
         ids.sort_unstable();
         ids.dedup();
         assert_eq!(ids.len(), n, "a node an id");
-        // Every patch they wear went as a picture, or none does.
         let sent: Vec<u32> = frame.pictures.iter().map(|p| p.id).collect();
         for node in &extra {
             if let angel_stage::scene::TextureSource::Picture(id) = node.material.source {
@@ -189,8 +175,6 @@ fn a_window_and_a_page_are_sent_the_lots_as_extra_blocks_that_follow_the_party()
             }
         }
         if png_plates {
-            // Across the wire they go by their sets, read back as they went;
-            // a chunk cut for a lot goes as its own set.
             let mut out = Vec::new();
             angel_stage::wire::encode(&frame, &[], &mut out);
             let back = angel_stage::wire::decode(&out).expect("it reads").frame.props.unwrap().world.unwrap();
@@ -200,8 +184,6 @@ fn a_window_and_a_page_are_sent_the_lots_as_extra_blocks_that_follow_the_party()
             assert!(keys.iter().all(|k| scene.chunks.iter().any(|c| c.key == *k) || shares.contains(k)), "a chunk cut for a lot by its own set");
         }
     }
-    // The party clears its last build: the next frame stands one fewer (a
-    // build cleared before others would let a later one take its lot).
     let last = wish_lots(&run.kingdom.wishes)[BUILT.len() - 1].expect("the last one's lot");
     let mut cleared = run.clone();
     cleared.kingdom.wishes = Arc::new(run.kingdom.wishes[..BUILT.len() - 1].to_vec());
@@ -226,8 +208,6 @@ fn off_the_kingdom_in_3d_nothing_changes() {
     assert_eq!(arena::frame_for(&run, arena::NATIVE_W, arena::NATIVE_H, Some(1)), flat, "off again, as it always was");
 }
 
-/// `cargo test -p angel-delve lots_dump -- --ignored --nocapture`: where the
-/// proof's builds and the run's finds stand, chunk by chunk.
 #[test]
 #[ignore = "prints where the lots stand"]
 fn lots_dump() {

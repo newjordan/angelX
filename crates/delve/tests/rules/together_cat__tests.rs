@@ -1,7 +1,6 @@
 use super::*;
 use crate::realm::Spoil;
 
-/// Floor one's entrance, quiet, Lady Tallow beside knight one.
 fn with_tallow() -> Run {
     let mut run = Run::new(13, 1, None);
     run.enter_for_test(0);
@@ -99,7 +98,6 @@ fn friends_see_her_too() {
 #[test]
 fn a_pillar_in_her_way_does_not_keep_her() {
     let mut run = with_tallow();
-    // A pillar between her and a pile of gold, square across her path.
     let room = run.at;
     for row in 5..9 {
         run.dungeon.rooms[room].set_for_test(15, row, Tile::Block);

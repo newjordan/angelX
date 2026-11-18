@@ -73,8 +73,6 @@ def quantize(name):
                 elif r >= 145 and g >= 100 and r > b * 1.4:
                     allowed = GOLD
             elif name == "banner":
-                # The pale heraldry and iron rod are matte gray. Rust-red cloth
-                # uses legal nonemissive inks, never fire's brighter red 7.
                 if max(r, g, b) - min(r, g, b) < 35:
                     allowed = "kKXgjGJhi"
                 else:
@@ -85,7 +83,6 @@ def quantize(name):
 
 
 def retouch(grids):
-    # Literal ink patches: '_' preserves the source, '.' erases it.
     operations = json.loads((TOOLS / "sprite-3-retouch.json").read_text())
     for name, patches in operations.items():
         for patch in patches:
@@ -101,11 +98,9 @@ def lock_animation_parts(grids):
     opened = grids["chest_open"]
     for y in range(BASE_ROW, 16):
         opened[y] = chest[y][:]
-    # Preserve the original bands' position, width, highlights and shadows.
     for y in range(1, 15):
         for x in IRON_COLUMNS:
             opened[y][x] = chest[y][x]
-    # One authoritative fixture beneath the flame: no head/shaft/bracket drift.
     for y in range(FLAME_END, 20):
         grids["sconce_b"][y] = grids["sconce_a"][y][:]
 
@@ -162,7 +157,6 @@ def review_sheet(images):
 def qa(images):
     directory = TOOLS / "sprite-3-qa"
     directory.mkdir(exist_ok=True)
-    # All four sprites on plain charcoal for unobstructed silhouette inspection.
     strip = Image.new("RGB", (672, 216), PALETTE["k"])
     draw = ImageDraw.Draw(strip)
     font = ImageFont.load_default(size=16)

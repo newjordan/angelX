@@ -18,7 +18,7 @@ from spriterig.delve.source import palette
 def compare(native, actual, root, out, zoom=8, kit=None):
     if zoom < 1:
         raise ValueError('zoom must be a positive integer')
-    N.load_fits(root)  # fail missing/invalid canonical table, even on a pure preview
+    N.load_fits(root)
     pal = palette(root)
     refs = N.select_frames(N.load_native(native, pal), kit=kit)
     actual = Path(actual)
@@ -42,13 +42,11 @@ def compare(native, actual, root, out, zoom=8, kit=None):
             pixels = np.array(image.convert('RGBA'))
         expected = N.rows_rgba(ref['rows'], pal)
         equal = pixels.shape == expected.shape and np.array_equal(pixels, expected)
-        # The manifest must describe those same pixels and resolved native fit.
         equal = equal and (got['w'], got['h']) == (ref['w'], ref['h'])
         equal = equal and got['rows'] == ref['rows'] and got['fit'] == ref['fit'] and got['mirror'] == ref['mirror']
         if not equal:
             failures.append(list(key))
         pairs.append((ref, expected, pixels, equal))
-    # Same uncropped coordinate system, same zoom for both subjects and diff.
     shown = pairs[:16]
     cw = max(max(a.shape[1], b.shape[1]) for _, a, b, _ in shown) * zoom + 20
     ch = max(max(a.shape[0], b.shape[0]) for _, a, b, _ in shown) * zoom + 36

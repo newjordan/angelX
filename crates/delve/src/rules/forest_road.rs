@@ -216,7 +216,6 @@ impl Foe {
                 self.beat = Beat::Attack;
                 self.ticks = 12;
                 if self.kind == Kind::Archer {
-                    // A one-second ballistic arc lands on the frozen warning.
                     let dx = self.danger.x + self.danger.w / 2 - self.x;
                     shots.push(Shot {
                         x: self.x * Q,
@@ -363,7 +362,6 @@ impl Knight {
             self.y = p.floor * Q;
             self.vy = 0;
         }
-        // Low log hurdles have collision, but cannot trap a checkpoint respawn.
         for x in [1060, 1860, 3600, 4480, 5320, 6240] {
             if (self.x / Q - x).abs() < 18 && self.y / Q > p.floor - 18 {
                 self.x = (x - 18 * self.dir) * Q;
@@ -401,7 +399,6 @@ pub struct Session {
     pub elapsed: u32,
     pub checkpoint: usize,
     pub chains: [u32; 2],
-    /// None before chain breaking; 0..89 snap/stand, 90+ thanks/return.
     pub freeing: Option<u32>,
     pub completed: Option<u32>,
     pub started: bool,
@@ -471,8 +468,6 @@ impl Session {
             });
         }
         let now_seats = self.knights.len() as u32;
-        // Departures keep the encounter's health. Rejoining an already
-        // provisioned seat must not scale it a second time.
         let provisioned = self.foes.iter().map(|foe| {
             let per_seat = match foe.kind {
                 Kind::Wagon => p.wagon_hp_per_seat,
@@ -650,7 +645,6 @@ impl Session {
                     {
                         e.hp = e.hp.saturating_sub(shot.damage);
                         e.flinch = 6;
-                        // Consume a rail at this target; it can still hit a second foe next tick.
                         if shot.pierce > 0 {
                             shot.pierce -= 1;
                             shot.x = (e.x + (w / 2 + 2) * shot.vx.signum()) * Q;
@@ -837,7 +831,6 @@ impl Run {
                 if k.cooldown > cooldown {
                     if let Some(hero) = self.players.get_mut(&id) {
                         if hero.weapon == Weapon::Notes || classes::is_bard(hero) {
-                            // No shot sound: the held trigger plays the song (below).
                         } else {
                             self.sounds.push(classes::shot_sound(hero).unwrap_or(match hero.weapon {
                                 Weapon::Bow => "shot_bow",
@@ -850,8 +843,6 @@ impl Run {
                         }
                     }
                 }
-                // The Bard's song, as on foot: held, it plays on at its own
-                // clock; let go, it stops and keeps its place (`bard::strum`).
                 let held = k.hp > 0 && inputs.get(&id).is_some_and(|i| i.fire);
                 if let Some(hero) = self.players.get_mut(&id).filter(|h| h.weapon == Weapon::Notes || classes::is_bard(h)) {
                     super::bard::strum(id, hero, held, &mut self.seat_sounds);
@@ -898,8 +889,6 @@ impl Run {
             self.start_forest_road();
             return true;
         }
-        // The Forest's mouth and the Old Oak stand on the full plan's map only
-        // (`crate::world::plan`): on the blank-slate plan that ground is open hillside.
         let on_map = crate::world::plan::full();
         if on_map
             && self.room().kind == RoomKind::Kingdom

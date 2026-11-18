@@ -10,7 +10,6 @@ fn endless_command_clears_caps_and_rearms_cap_stopped_campaign() {
     app.handoff_rl.deadline_secs = 900;
     app.handoff_rl.token_budget = 123;
     let reason = app.handoff_rl.budget_tripped().unwrap();
-    // L01 names the operator's own command in the notice: "max rolls (/handoff-rl max 2)".
     assert!(
         reason.starts_with("max rolls (") && reason.contains('2'),
         "{reason}"
@@ -214,8 +213,6 @@ fn forced_injection_starts_with_hit_it_chewy_and_wipes_pending() {
 
     let note = st.build_forced_injection(Some("promoted cand-win after 100 tests passed"));
     assert!(note.starts_with("hit it chewy"));
-    // `⠠⠙` is the forced handoff (the prompt-injection procedure), `⠠⠋` its
-    // sequence directive; the board state rides after `⠠⠑` labels.
     use crate::agent::harness::book::d6_long_run::{HANDOFF, HANDOFF_STATE, SEQUENCE};
     assert!(
         note.contains(&format!("{} roll=1\n", HANDOFF.cells())),
@@ -251,17 +248,15 @@ fn classify_submit_vs_result_actions() {
     assert!(!is_submit_action("outcome:shell:board status"));
 }
 
-/// The operator loop: force inject → (work) → submit → result → force inject…
 #[test]
 fn handoff_cycle_submit_result_then_force_ad_infinitum() {
     let mut st = HandoffRlState::new();
     st.start(Some("compete on board"));
-    st.max_iters = 0; // endless
+    st.max_iters = 0;
     st.deadline_secs = 0;
     st.token_budget = 0;
 
     for roll in 1..=8 {
-        // First inject (or re-inject after result).
         let note = st.build_forced_injection(Some(&format!("roll-{roll} start")));
         assert!(
             note.starts_with("hit it chewy"),
@@ -274,14 +269,12 @@ fn handoff_cycle_submit_result_then_force_ad_infinitum() {
         assert_eq!(st.handoff_count, roll);
         assert!(!st.pending_submit);
 
-        // Work happens; submit alone does not demand.
         assert!(
             st.observe_turn(&["shell:board submit cand".into()], "submitted")
                 .is_none()
         );
         assert!(st.pending_submit);
 
-        // Result lands → demand.
         let demand = st
             .observe_turn(
                 &["outcome:shell:board status abc".into()],
@@ -290,7 +283,6 @@ fn handoff_cycle_submit_result_then_force_ad_infinitum() {
             .expect("result after submit must demand handoff");
         assert!(demand.summary.contains("submit:"));
         assert!(demand.summary.contains("result:"));
-        // Pending stays latched until the next build_forced_injection.
         assert!(st.pending_submit);
     }
     assert_eq!(st.handoff_count, 8);
@@ -299,9 +291,6 @@ fn handoff_cycle_submit_result_then_force_ad_infinitum() {
 
 #[test]
 fn status_does_not_say_active_beside_a_tripped_cap() {
-    // A cap is only acted on at a turn boundary, so between the moment it is
-    // reached and the next boundary the controller is still armed. The status
-    // must not call that plain ACTIVE while it prints the cap as tripped.
     let mut by_rolls = HandoffRlState::new();
     by_rolls.start(None);
     by_rolls.max_iters = 2;
@@ -349,7 +338,6 @@ fn status_keeps_its_words_for_every_other_state() {
     );
     assert!(text.contains("  last stop: stopped by user"), "{text}");
 
-    // A campaign the cap already stopped keeps showing both lines, truthfully.
     let mut capped = HandoffRlState::new();
     capped.start(None);
     capped.max_iters = 1;
@@ -382,7 +370,7 @@ fn phase_names_the_states_the_flags_stand_for() {
         HandoffPhase::CapReached(why) => assert!(why.contains("max rolls"), "{why}"),
         other => panic!("a reached cap is not {other:?}"),
     }
-    st.max_iters = 5; // raising the cap before the boundary rearms it
+    st.max_iters = 5;
     assert_eq!(st.phase(), HandoffPhase::Active);
 
     st.stop();

@@ -15,7 +15,6 @@
 //! remain in the operator-visible echo; the harness appends a short steer so
 //! the model sees the intent without re-parsing the raw word.
 
-/// Which magic keywords fired in a user message.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct MagicEffects {
     pub(crate) ultrathink: bool,
@@ -29,10 +28,6 @@ impl MagicEffects {
         self.ultrathink || self.orchestrate || self.workflowz || self.handoff_rl
     }
 
-    /// Bounded harness note injected as a replaceable turn-context fragment.
-    /// Empty when nothing fired.
-    /// The keywords the operator wrote, as `⠗` routes; their words are the
-    /// ledger pages.
     pub(crate) fn steer_note(&self) -> Option<String> {
         use crate::agent::harness::book::r_relentless::{
             HANDOFF_RL, ORCHESTRATE, ULTRATHINK, WORKFLOWZ,
@@ -53,8 +48,6 @@ impl MagicEffects {
     }
 }
 
-/// Scan operator prose for magic keywords. Strips fenced code, inline code,
-/// and simple path/URL-like tokens before matching whole words.
 pub(crate) fn scan(text: &str) -> MagicEffects {
     let prose = strip_non_prose(text);
     let mut effects = MagicEffects::default();
@@ -88,14 +81,11 @@ fn contains_whole_alias(text: &str, alias: &str) -> bool {
     })
 }
 
-/// Drop fenced blocks (``` … ```), inline `code`, and contiguous path/URL
-/// tokens so keywords only fire as free-standing prose words.
 fn strip_non_prose(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let bytes = text.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
-        // Fenced code block.
         if bytes[i] == b'`' && i + 2 < bytes.len() && bytes[i + 1] == b'`' && bytes[i + 2] == b'`' {
             i += 3;
             while i + 2 < bytes.len() {
@@ -108,7 +98,6 @@ fn strip_non_prose(text: &str) -> String {
             out.push(' ');
             continue;
         }
-        // Inline code span.
         if bytes[i] == b'`' {
             i += 1;
             while i < bytes.len() && bytes[i] != b'`' {
@@ -120,8 +109,6 @@ fn strip_non_prose(text: &str) -> String {
             out.push(' ');
             continue;
         }
-        // Path / URL-ish: skip contiguous runs that look like identifiers joined
-        // by / or :// so `path/to/orchestrate.rs` never fires.
         if looks_like_path_start(bytes, i) {
             while i < bytes.len() {
                 let b = bytes[i];
@@ -151,12 +138,10 @@ fn strip_non_prose(text: &str) -> String {
 }
 
 fn looks_like_path_start(bytes: &[u8], i: usize) -> bool {
-    // `./` `../` `/abs` `scheme://` or `ident/`
     if bytes[i] == b'/' || bytes[i] == b'.' {
         return true;
     }
     if bytes[i].is_ascii_alphanumeric() {
-        // Look ahead for `/` or `://` within the same token.
         let mut j = i;
         while j < bytes.len()
             && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'-' || bytes[j] == b'_')

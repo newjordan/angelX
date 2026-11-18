@@ -1,6 +1,3 @@
-// BM25, k1=1.5 and b=0.75: the original native shortlist policy, now editable
-// together with index.js. Candidates contain only tools already admitted by
-// the native registry; this module ranks them and cannot grant new tools.
 const tokens = value => value.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []
 
 exports.rank = (task, candidates) => {

@@ -42,8 +42,6 @@ fn provider_usage_http_cache_aliases_preserve_family_fields() {
         (anthropic.input, anthropic.cache_read, anthropic.cache_write),
         (Some(100), Some(20), Some(4))
     );
-    // These are separate wire schemas, both with a nested cache-write
-    // field. Parsing does not guess or recombine their prompt totals.
     for (value, expected) in [
         (
             json!({"input_tokens":100,"input_tokens_details":{"cached_tokens":20,"cache_write_tokens":10}}),

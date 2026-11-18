@@ -388,6 +388,9 @@ python3 ../scripts/check/compare-golden-frames.py /work/tmp/golden-before /work/
 ```
 
 It prints `all 42 scenes identical`, or each scene that moved, with the rows and cells.
+Exit codes are `0` for identical nonempty captures, `1` for visual differences or missing
+scene files, and `2` for invalid evidence (including empty captures or malformed cell maps).
+The comparator's offline regression suite is `npm run test:golden-frames`.
 
 ### Working on Knights Wish (the Delve)
 

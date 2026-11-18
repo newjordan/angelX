@@ -1,6 +1,3 @@
-# crates/delve/src/rules/griffinwing.rs — `Session::valid` and `Session::repair`.
-
-# A position bound: -40_000_000..=40_000_000.
 def gw.wide(+v: U32) -> Bool:
   gw.far(v, 40000000)
 
@@ -81,7 +78,6 @@ def griffinwing.Session.valid.bolts(+bs: List<&2, J.Val>) -> Bool:
           U32.is_le(ga.u(b, "dmg"), 1000)]),
         griffinwing.Session.valid.bolts(t))
 
-# `done.is_none_or(|d| d <= elapsed)`, `boss.is_none_or(Beast::valid)`
 def griffinwing.Session.valid.done(+d: J.Val, +elapsed: U32) -> Bool:
   Bool.or(J.is_null(d), U32.is_le(J.u32(d), elapsed))
 
@@ -116,7 +112,6 @@ def griffinwing.Session.valid(+s: J.Val) -> Bool:
     griffinwing.Session.valid.props(ga.items(s, "props")),
     griffinwing.Session.valid.bolts(ga.items(s, "bolts"))])
 
-# Mend what a bad save broke.
 def griffinwing.Session.repair(+s0: J.Val) -> J.Val:
   griffinwing.Session.repair.lists(
     griffinwing.Session.repair.scalars(
@@ -125,7 +120,6 @@ def griffinwing.Session.repair(+s0: J.Val) -> J.Val:
           ga.sv(s0, "seats", griffinwing.Session.repair.keep(J.get(s0, "seats"), ga.ids(J.get(s0, "seats")))),
           "elapsed", U32.min(ga.u(s0, "elapsed"), griffinwing.LIMIT())))))
 
-# seats.retain(|&id, _| (1..=MAX_PLAYERS).contains(&id))
 def griffinwing.Session.repair.keep(+seats: J.Val, +ids: List<&2, U32>) -> J.Val:
   match ids:
     case Nil{}:
@@ -133,8 +127,6 @@ def griffinwing.Session.repair.keep(+seats: J.Val, +ids: List<&2, U32>) -> J.Val
     case Con{+id, +t}:
       griffinwing.Session.repair.keep(gw.ifj(gw.within(id, 1, rules.MAX_PLAYERS()), _ => seats, _ => J.del(seats, U32.show(id))), t)
 
-# for each seat: joined = joined.min(elapsed); a craft that is not valid is
-# made anew at its slot.
 def griffinwing.Session.repair.seats(+s: J.Val) -> J.Val:
   griffinwing.Session.repair.seats.go(s, ga.ids(J.get(s, "seats")))
 
@@ -156,21 +148,18 @@ def griffinwing.Session.repair.seat(+s: J.Val, +id: U32, +seat: J.Val) -> J.Val:
         _ => J.get(seat, "craft"),
         _ => griffinwing.types.Craft.new(griffinwing.flight.slot.x(id), griffinwing.flight.slot.z(id))))))
 
-# stage, t, cp, mode_t held to their bounds.
 def griffinwing.Session.repair.scalars(+s0: J.Val) -> J.Val:
   griffinwing.Session.repair.scalars.cp(ga.su(ga.su(ga.su(s0, "stage", U32.min(ga.u(s0, "stage"), 2)), "t", U32.min(ga.u(s0, "t"), griffinwing.LIMIT())), "mode_t", U32.min(ga.u(s0, "mode_t"), griffinwing.LIMIT())))
 
 def griffinwing.Session.repair.scalars.cp(+s: J.Val) -> J.Val:
   ga.su(s, "cp", U32.min(ga.u(s, "cp"), U32.max(ga.u(s, "t"), griffinwing.rail.BOSS_AT())))
 
-# The lists cut to their bounds, the riders and foes that cannot be kept dropped.
 def griffinwing.Session.repair.lists(+s0: J.Val) -> J.Val:
   +s1 = gw.trunc(gw.trunc(gw.trunc(gw.trunc(gw.trunc(s0, "foes", griffinwing.types.MAX_FOES()), "props", griffinwing.types.MAX_PROPS()), "bolts", griffinwing.types.MAX_BOLTS()), "calls", griffinwing.types.MAX_CALLS()), "fx", griffinwing.types.MAX_FX())
   +s2 = ga.sv(s1, "wing", J.truncate(J.JA{griffinwing.Session.repair.wing(ga.items(s1, "wing"), 0)}, griffinwing.types.WING()))
   +s3 = ga.sv(s2, "foes", J.JA{griffinwing.Session.repair.foes(ga.items(s2, "foes"))})
   griffinwing.Session.repair.checks(ga.su(s3, "paid", U32.and(ga.u(s3, "paid"), 63)))
 
-# wing.retain(|w| (7..=10).contains(&w.id) && w.craft.valid())
 def griffinwing.Session.repair.wing(+ws: List<&2, J.Val>, +unused: U32) -> List<&2, J.Val>:
   match ws:
     case Nil{}:
@@ -180,7 +169,6 @@ def griffinwing.Session.repair.wing(+ws: List<&2, J.Val>, +unused: U32) -> List<
         _ => Con{w, griffinwing.Session.repair.wing(t, 0)},
         _ => griffinwing.Session.repair.wing(t, 0))
 
-# foes.retain(|f| f.hp <= f.full && (1..=MAX_PLAYERS).contains(&f.seats))
 def griffinwing.Session.repair.foes(+fs: List<&2, J.Val>) -> List<&2, J.Val>:
   match fs:
     case Nil{}:
@@ -190,8 +178,6 @@ def griffinwing.Session.repair.foes(+fs: List<&2, J.Val>) -> List<&2, J.Val>:
         _ => Con{f, griffinwing.Session.repair.foes(t)},
         _ => griffinwing.Session.repair.foes(t))
 
-# A boss that is not valid goes; a tally that is not valid is cleared; and what
-# is left, if the session is still not valid, is no beat to resume.
 def griffinwing.Session.repair.checks(+s0: J.Val) -> J.Val:
   griffinwing.Session.repair.last(
     ga.sv(ga.sv(

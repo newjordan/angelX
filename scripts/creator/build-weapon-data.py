@@ -1,14 +1,4 @@
 #!/usr/bin/env python3
-"""Pack the Weapon builder's library into the two files the Creator embeds.
-
-Reads kwpixel's weapon parts (library-v2/weapon_*/w5w.*) and its assembled weapons
-(army/arms/weapons/*/weapon.json) and writes:
-  crates/delve/assets/creator/weapons/weapons.json   part metadata + library recipes
-  crates/delve/assets/creator/weapons/parts.png       every part at native size, shelf-packed
-
-Pillow only. Joint and anchor positions are stored in native px, (master - 2) / 5, exactly as
-army/arms/tools/assemble.py reads them.
-"""
 import json
 import sys
 from pathlib import Path
@@ -49,12 +39,10 @@ for meta_path in sorted((KW / 'library-v2').glob('weapon_*/w5w.*/part.json')):
         'materials': meta.get('materials', []),
         'tags': meta.get('tags', []),
         'size': [im.width, im.height],
-        # First and last opaque columns: the tip and the reach are measured on these.
         'alpha_cols': [im.getchannel('A').getbbox()[0], im.getchannel('A').getbbox()[2] - 1],
     })
     images.append(im)
 
-# Shelf pack, widest shelf 256 px.
 shelf_w = 256
 x = y = row_h = 0
 for p, im in zip(parts, images):

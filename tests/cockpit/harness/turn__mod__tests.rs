@@ -5,8 +5,6 @@ fn unproductive_escalation_notice_default_and_env_override() {
     let _lock = crate::tests::env_lock();
     let _escalate = crate::tests::TestEnvGuard::unset("ANGEL_UNPRODUCTIVE_STREAK_ESCALATE");
 
-    // The advisory notice defaults to hop 8 in every mode; there is no stop
-    // policy at all — the streak can never end a turn.
     assert_eq!(configured_unproductive_escalate(true, false), 8);
     assert_eq!(configured_unproductive_escalate(true, true), 8);
     assert_eq!(configured_unproductive_escalate(false, false), 8);
@@ -236,7 +234,7 @@ fn trace_schema_timing_retry_samples_reconcile_once() {
     timing.note_model_retry_wait(Duration::from_millis(30));
     timing.note_model_wait(Duration::from_millis(200));
     timing.note_model_span(150, 350);
-    timing.note_tool_batch(Duration::from_millis(80)); // two parallel 80ms tools
+    timing.note_tool_batch(Duration::from_millis(80));
     timing.note_tool_call("a", Duration::from_millis(80));
     timing.note_tool_call("b", Duration::from_millis(80));
     timing.note_visible(170);
@@ -248,8 +246,8 @@ fn trace_schema_timing_retry_samples_reconcile_once() {
     );
     assert_eq!(t.calls["model_calls"][1]["retry_of"], 0);
     assert_eq!(t.calls["model_calls"].as_array().unwrap().len(), 2);
-    assert_eq!(t.model_ms, 330); // backoff is included exactly once
-    assert_eq!(t.tool_ms, 80); // parallel members are not summed
+    assert_eq!(t.model_ms, 330);
+    assert_eq!(t.tool_ms, 80);
     assert_eq!(t.residual_ms, 90);
     assert_eq!(
         t.wall_ms,
@@ -337,8 +335,6 @@ fn p05b_scripted_sse_separates_progress_from_answer_in_timing_ledger() {
 
 #[test]
 fn task_timing_accumulator_never_underflows_other_ms() {
-    // Clock skew or tiered reruns can hand finalize a turn elapsed smaller
-    // than the accumulated waits: `other_ms` must clamp at zero, not wrap.
     let mut timing = TaskTimingAccumulator::default();
     timing.note_model_wait(Duration::from_millis(5_000));
     timing.note_tool_batch(Duration::from_millis(2_000));
@@ -365,10 +361,8 @@ fn only_failed_or_unknown_job_completions_are_failures() {
         persistence_error: None,
     };
     use crate::agent::harness::book::p_processes::{DONE, FAILED, any_failed, completions};
-    // A clean exit is `⠏⠃` and never a stop fact.
     assert!(!any_failed(&[mk(Some(0))]));
     assert_eq!(completions(&[mk(Some(0))])[0].route, DONE);
-    // Non-zero, signal-death (None) and wait-error (None) are `⠏⠉`.
     assert!(any_failed(&[mk(Some(1))]));
     assert!(any_failed(&[mk(None)]));
     assert!(!any_failed(&[]));
@@ -389,7 +383,6 @@ fn wire_of(outcome: &TurnOutcome) -> (&'static str, bool, bool, bool) {
     )
 }
 
-/// The two outcome constructors, for every reason a caller builds with them.
 #[test]
 fn outcome_constructors_give_each_stop_reason_its_pinned_flags() {
     assert_eq!(
@@ -409,9 +402,6 @@ fn outcome_constructors_give_each_stop_reason_its_pinned_flags() {
     }
 }
 
-/// `needs_pro` is only ever the fast tier's intermediate outcome (the ladder
-/// re-runs the turn on the escalation seat and discards it), so no public
-/// caller sees it; its flags are pinned here through the tier runner itself.
 #[test]
 fn needs_pro_on_the_fast_tier_stops_true_false_false() {
     let _lock = crate::tests::env_lock();
@@ -468,7 +458,6 @@ fn needs_pro_on_the_fast_tier_stops_true_false_false() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// The one table, pinned. `idle_timeout` has no row: nothing constructs it.
 #[test]
 fn stop_flags_table_is_pinned() {
     use TurnStopReason::*;
@@ -515,10 +504,6 @@ fn a_failure_built_by_new_carries_the_table_flags() {
     assert_eq!(Some(failure.flags()), CaptureFailure.flags());
 }
 
-/// What each late verdict keeps of the turn it lands on. These are today's
-/// values, including the combinations a table could not produce
-/// (`interrupt` with `max_hops_reached`, `idle_timeout` with either value of
-/// `interrupted`).
 #[test]
 fn the_two_late_verdicts_keep_what_they_say_they_keep() {
     use TurnStopReason::*;

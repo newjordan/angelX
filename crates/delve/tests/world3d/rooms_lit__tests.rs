@@ -14,7 +14,6 @@ fn crypt_fight() -> Room {
     floor.rooms.iter().find(|r| r.kind == RoomKind::Fight).expect("a fight room").clone()
 }
 
-/// The ground's height at the middle of tile `(c, r)`.
 fn height(set: &Set, (c, r): (i32, i32)) -> f32 {
     set.ground.as_ref().expect("a ground").height_at((c as f32 + 0.5) * TILE, (r as f32 + 0.5) * TILE)
 }
@@ -47,8 +46,6 @@ fn every_items_room_and_every_seeded_room_stands_up_lit_with_no_plate() {
             let lit = lit_for(room, pack).unwrap_or_else(|| panic!("{pack:?} {:?}: lit", room.kind));
             assert_eq!(lit.tone, Tone::Delve(pack));
             for piece in lit.every_piece() {
-                // The ground: at the floor line wherever a knight walks, sunk
-                // under every hazard.
                 for r in piece.tiles.1..piece.tiles.1 + piece.tiles.3 {
                     for c in piece.tiles.0..piece.tiles.0 + piece.tiles.2 {
                         let h = height(&piece.set, (c, r));
@@ -75,13 +72,11 @@ fn what_burns_is_drawn_by_the_frame_and_lit_by_lamps() {
     assert!(!piece.flames.is_empty(), "torches by the doors, braziers in the corners");
     assert!(piece.set.shapes.iter().all(|s| s.kind != Kind::Fire), "no fire in the set itself: the frame draws it");
     assert!(!piece.set.lamps.is_empty() && piece.set.lamps.len() <= piece.flames.len(), "a lamp to a flame or a cluster of them");
-    // Fought, the flames are accents, full; won, low embers, not lights.
     let fire = Tone::Delve(Pack::Crypt).flame();
     let fought = flame_nodes(&[Arc::clone(&piece)], Activity::Fought, 0.0, fire);
     let cleared = flame_nodes(&[Arc::clone(&piece)], Activity::Cleared, 0.0, fire);
     assert!(fought.iter().all(|n| n.material.accent));
     assert!(cleared.iter().all(|n| !n.material.accent));
-    // Lava burns whatever the room does: its lamps are steady.
     let lava_room = super::super::pilot::item("hellforge-lava-ford").expect("an item").room();
     let lava = lit_for(&lava_room, Pack::Hellforge).expect("lit").piece((0, 0)).expect("reads");
     assert!(!lava.lava.is_empty() && lava.steady.iter().any(|&s| s), "lava and its steady lamps");
@@ -104,7 +99,6 @@ fn a_lit_room_is_the_same_set_on_a_window_and_on_a_page() {
     let reveal = staged.look.reveal.expect("the knight's chest kept in sight");
     assert_eq!(reveal.at, [60.0, 13.0, 80.0], "on the stage, scrolled with the room");
     assert_eq!(staged.meshes.len(), 1, "its ground");
-    // A page makes the same world from the set's text, but baked for performance.
     let (key, text) = staged.sets[0].clone();
     let (scale, offset) = world.placing((40.0, 20.0), ([0.0, 0.0], 1.0));
     let mut sets = angel_stage::set::Sets::default();
@@ -114,14 +108,11 @@ fn a_lit_room_is_the_same_set_on_a_window_and_on_a_page() {
         ..Default::default()
     };
     assert!(sets.fill(&mut far));
-    // The page bakes the blocks into uploaded meshes, so far fewer nodes.
     assert!(far.meshes.len() >= 1, "ground plus baked meshes");
     assert_eq!(far.meshes[0].0, staged.meshes[0].0, "the ground's mesh first");
-    // Baking reduces the node count: the page has far fewer nodes than the window.
     assert!(far.floor.len() + far.blocks.len() < staged.floor.len() + staged.blocks.len(),
         "baking reduces nodes: page {} vs window {}",
         far.floor.len() + far.blocks.len(), staged.floor.len() + staged.blocks.len());
-    // And a page sent the text of its host's room keeps it by its key.
     assert!(receive(lit.key, &lit.text().expect("a one-screen room's text")));
     assert!(!receive(1, "not a set"));
 }
@@ -175,28 +166,22 @@ fn a_delves_floor_is_lit_along_its_doors_and_dark_toward_its_rim() {
     let (w, h) = (room.cols as f32 * TILE, room.rows as f32 * TILE);
     let (cx, cz) = (w / 2.0, h / 2.0);
     let light = |x: f32, z: f32| floor_light(&room, &doors, x, z);
-    // Half way along a door's lane the floor is brighter than the floor beside it.
     let (dx, dz) = doors[0];
     let (mx, mz) = ((dx + cx) / 2.0, (dz + cz) / 2.0);
     assert!(light(mx, mz) > 1.15, "a lane's middle is lit ({})", light(mx, mz));
-    // The lane ends: across it, further than a door two tiles wide and a lane's
-    // width can reach, the floor is as the rim's dark alone leaves it.
     let (ex, ez) = (cx - dx, cz - dz);
     let len = ex.hypot(ez);
     let across = TILE * (LANE_WIDTH + 3.5);
     let aside = [-1.0, 1.0].map(|s| light(mx - s * ez / len * across, mz + s * ex / len * across));
     assert!(aside[0].min(aside[1]) < light(mx, mz) - 0.2, "its edge falls away ({aside:?})");
-    // The room's corner furthest from every lane is the darkest the floor gets.
     let corner = [(TILE, TILE), (w - TILE, TILE), (TILE, h - TILE), (w - TILE, h - TILE)]
         .into_iter()
         .min_by(|a, b| light(a.0, a.1).total_cmp(&light(b.0, b.1)))
         .expect("a corner");
     assert!(light(corner.0, corner.1) < 0.7, "the rim is dark ({})", light(corner.0, corner.1));
     assert!(light(corner.0, corner.1) > 1.0 - RIM_DARK - 0.001, "no darker than the rim's most");
-    // With no door there is only the rim: the middle is as it was.
     assert_eq!(floor_light(&room, &[], cx, cz), 1.0);
     assert!(floor_light(&room, &[], corner.0, corner.1) < 0.7);
-    // Nothing is ever dark or bright without bound.
     for j in 0..=40 {
         for i in 0..=40 {
             let k = light(w * i as f32 / 40.0, h * j as f32 / 40.0);
@@ -211,17 +196,14 @@ fn only_a_whole_delve_room_has_its_floor_lit_from_its_doors() {
     let dressing = dressing_for(&room, Pack::Crypt).expect("a dressing");
     let (cols, rows) = (room.cols as i32, room.rows as i32);
     assert!(floor_doors(&room, &dressing, (0, 0, cols, rows)).is_some());
-    // A piece of an open floor's map has no middle of its own.
     assert!(floor_doors(&room, &dressing, (0, 0, cols - 1, rows)).is_none());
     assert!(floor_doors(&room, &dressing, (2, 0, cols, rows)).is_none());
-    // Nor does a place of the kingdom, indoors or out, have a delve's dark.
     let place = super::super::pilot::every().into_iter().find(|i| !matches!(i.dressing.setting, Setting::Dungeon(_))).expect("a place");
     let room = place.room();
     let whole = (0, 0, room.cols as i32, room.rows as i32);
     assert!(floor_doors(&room, &place.dressing, whole).is_none(), "{}", place.id());
 }
 
-/// An open floor's map and its dressing.
 fn open_map() -> (Room, Dressing) {
     let floor = layout::open_floor(2, Pack::Crypt, 2, &mut Rng::new(11));
     let map = floor.rooms.iter().find(|r| r.kind == RoomKind::Depths).expect("an open floor's map").clone();
@@ -238,8 +220,6 @@ fn an_open_floors_passages_open_on_their_chambers_through_mouths() {
         for (c, r) in m.jambs {
             assert_eq!(map.tile(c, r), Tile::Wall, "{m:?}: walled either side");
         }
-        // A step into the chamber from the gap's middle is floor, the gap
-        // itself a few tiles wide.
         let tile = |k: f32| (((m.at[0] + m.into[0] as f32 * k) / TILE).floor() as i32, ((m.at[1] + m.into[1] as f32 * k) / TILE).floor() as i32);
         let (c, r) = tile(TILE / 2.0);
         assert!(blockout::walkable(map.tile(c, r)), "{m:?}: the chamber's floor lies before it");
@@ -253,8 +233,6 @@ fn an_open_floor_is_lit_at_its_mouths_and_dark_toward_its_walls() {
     let whole = (0, 0, map.cols as i32, map.rows as i32);
     let light = open_light(&map, &d, whole).expect("a delve's open map is lit");
     let plain = OpenLight { map: &map, mouths: Vec::new() };
-    // In a lane the floor is brighter than the same floor without the mouth,
-    // past a lane's length it is not.
     let one = OpenLight { map: &map, mouths: vec![light.mouths[0]] };
     let m = light.mouths[0];
     let at = |k: f32| (m.at[0] + m.into[0] as f32 * k, m.at[1] + m.into[1] as f32 * k);
@@ -262,7 +240,6 @@ fn an_open_floor_is_lit_at_its_mouths_and_dark_toward_its_walls() {
     assert!(one.at(x, z) > plain.at(x, z) * 1.3, "a lane's middle is lit ({} against {})", one.at(x, z), plain.at(x, z));
     let (x, z) = at((MOUTH_REACH + 1.0) * TILE);
     assert_eq!(one.at(x, z), plain.at(x, z), "past its length, a mouth lights nothing");
-    // Beside a wall the floor is dark; far from every wall it is as it was.
     let beside = (0..map.rows as i32)
         .flat_map(|r| (0..map.cols as i32).map(move |c| (c, r)))
         .find(|&(c, r)| blockout::walkable(map.tile(c, r)) && map.tile(c + 1, r) == Tile::Wall)
@@ -274,7 +251,6 @@ fn an_open_floor_is_lit_at_its_mouths_and_dark_toward_its_walls() {
         .flat_map(|r| (0..map.cols as i32).map(move |c| (c, r)))
         .any(|(c, r)| plain.at((c as f32 + 0.5) * TILE, (r as f32 + 0.5) * TILE) == 1.0);
     assert!(middle, "a chamber's middle is far enough from its walls to be lit as it was");
-    // Nothing is dark or bright without bound.
     for j in 0..60 {
         for i in 0..80 {
             let k = light.at(i as f32 * 2.1 * TILE, j as f32 * 1.4 * TILE);
@@ -300,8 +276,6 @@ fn an_open_floor_burns_braziers_on_what_a_knight_cannot_walk() {
                 let (c, r) = (crop.0 + (f.at[0] / TILE).floor() as i32, crop.1 + (f.at[2] / TILE).floor() as i32);
                 assert!((tiles.0..tiles.0 + tiles.2).contains(&c) && (tiles.1..tiles.1 + tiles.3).contains(&r), "{c},{r}: in its own piece");
                 match map.tile(c, r) {
-                    // On a wall that looks on a chamber from the north, west
-                    // or east, never on the near wall; or on what stands.
                     Tile::Wall => {
                         assert!([(0, 1), (1, 0), (-1, 0)].iter().any(|&(dc, dr)| blockout::walkable(map.tile(c + dc, r + dr))), "{c},{r}: a wall that looks on floor");
                         on_walls += 1;
@@ -314,12 +288,10 @@ fn an_open_floor_burns_braziers_on_what_a_knight_cannot_walk() {
         }
     }
     assert!(flames >= 20 && on_walls >= 10, "braziers along its walls and on what stands: {flames}, {on_walls} on walls");
-    // Each is a flame of its piece's set with a lamp over it.
     assert!(pieces.iter().map(|p| p.flames.len()).sum::<usize>() >= flames);
     for piece in &pieces {
         assert!(piece.flames.is_empty() || !piece.set.lamps.is_empty(), "a piece that burns has lamps");
     }
-    // Only an open delve floor: a room's own braziers are the generator's.
     let room = crypt_fight();
     let dressing = dressing_for(&room, Pack::Crypt).expect("a dressing");
     let whole = (0, 0, room.cols as i32, room.rows as i32);
@@ -335,16 +307,12 @@ fn the_west_wall_of_a_tall_room_is_open_to_the_low_sun() {
     let lit = lit_for(&room, Pack::Crypt).expect("lit");
     let set = &lit.piece((0, 0)).expect("reads").set;
     let (w, _) = lit.stage();
-    // Whether a line along x through the wall, at height `y` and `z` across,
-    // meets any of the set.
     let clear = |z: f32, y: f32, (x0, x1): (f32, f32)| {
         !set.shapes.iter().any(|s| {
             let (hx, hz) = (s.size[0] / 2.0, s.size[2] / 2.0);
             s.at[0] - hx < x1 && s.at[0] + hx > x0 && s.at[2] - hz < z && s.at[2] + hz > z && s.at[1] <= y && s.at[1] + s.size[1] >= y
         })
     };
-    // An opening is a sill and a lintel with nothing between: the way a
-    // ray of the low sun takes through the wall's thickness is clear.
     let (sill, lintel) = (rooms_lit_mass::SHAFT_SILL, rooms_lit_mass::SHAFT_TOP);
     let frames = |set: &Set, east: bool| -> Vec<(f32, f32)> {
         set.shapes
@@ -364,23 +332,15 @@ fn the_west_wall_of_a_tall_room_is_open_to_the_low_sun() {
         assert!(!clear(a - 1.0, (sill + lintel) / 2.0, (-26.0, 10.0)), "and the wall stands beside it");
     }
     assert!(frames(set, true).is_empty(), "the east wall is not opened: the sun is in the west");
-    // Only a delve has that sun: the kingdom's halls stand as they were.
     let hall = super::super::pilot::item("kings-hall").expect("an item").room();
     let hall = lit_for(&hall, Pack::Crypt).expect("lit").piece((0, 0)).expect("reads");
     assert!(frames(&hall.set, false).is_empty() && frames(&hall.set, true).is_empty());
 }
 
-/// The players' complaint after the first night in the deep: "the 3d maps
-/// were too dark, we couldnt see obstacles or things in the map". A delve's
-/// floor is lit above the ladder's void, whichever floor it is, by the look
-/// that room is drawn through (the brand guide's step 1 or better, docs/
-/// BRAND.md), and the look is inside the guide's own numbers.
 #[test]
 fn a_delves_floor_is_lit_off_the_void_on_every_floor_of_the_deep() {
     use super::super::rooms_lit_look::look;
     use angel_stage::look::{luminance, unit_rgb};
-    // The packs that stand up by default: the dragon's lair on floor 3, and
-    // the floors below (`world3d::room::stands_in_mode`).
     for pack in [Pack::Hellforge, Pack::Archive, Pack::Fungal, Pack::Unknown] {
         let floor = layout::floor_party(2, pack, 2, &mut Rng::new(5));
         let room = floor.rooms.iter().find(|r| r.kind == RoomKind::Fight).expect("a fight room");
@@ -390,23 +350,15 @@ fn a_delves_floor_is_lit_off_the_void_on_every_floor_of_the_deep() {
         tones.sort_unstable();
         let median = f32::from(tones[tones.len() / 2]) / 100.0;
         let look = look(Tone::Delve(pack), &[], 0.0, [0.0; 3], 200.0, None);
-        // (Its ramps' own breaches of the ladder are another matter.)
         let breaches: Vec<_> = angel_stage::brand::audit_look(&look).into_iter().filter(|b| b.rule.starts_with("sun") || b.rule.starts_with("lamp")).collect();
         assert!(breaches.is_empty(), "{pack:?}: the sun is outside the guide: {breaches:?}");
         let sun = look.sun.expect("a sun");
-        // A face turned up, in the light, over the ambient: the floor.
         let level = median * (sun.ambient + sun.strength * sun.toward_unit()[1]);
-        // The void is step 0; a floor under the next is a floor that cannot
-        // be seen (the first night's floors were far under it).
         let least = luminance(unit_rgb(look.ramp[1]));
         assert!(level >= least, "{pack:?}: the floor is lit to {level:.3}, under the ladder's step 1 ({least:.3})");
     }
 }
 
-/// What stands in a delve is lit at its edge: the tops of its walls and
-/// pillars are a step lighter than their faces, the growth of the deep is
-/// not the darkest of the mass kinds; a room above (a hall, a place) has
-/// neither.
 #[test]
 fn a_delves_set_catches_the_tops_of_what_stands_and_lifts_its_growth() {
     let room = crypt_fight();
@@ -432,8 +384,6 @@ fn class_is_mass_or_prop(kind: Kind) -> bool {
     matches!(class_of(kind), Class::Mass | Class::Prop)
 }
 
-/// `cargo test -p angel-delve --release lit_room_timings -- --ignored --nocapture`:
-/// how long a lit room's set and an open floor's piece take to make.
 #[test]
 #[ignore = "prints timings"]
 fn lit_room_timings() {

@@ -1,38 +1,26 @@
-# crates/delve/src/rules/griffinwing.rs — the Run's hooks: ADVENTURE and
-# ACTIVITY (the shell's registrations), the door, the tick and the finish.
-# `run` is the checkpoint's `run` object. Cross-group state it touches:
-# `forest`, `home.roundtable`, `home.countryside.games.roundtable`, `marks`,
-# `found`, `cues`, `sounds`, the heroes' `carried` and `laurel`.
-
 def griffinwing.NAME() -> String:
   "Griffinwing"
 
-# The Dark Forest's room is the one an adventure runs in.
 def griffinwing.Run.in_forest(+run: J.Val) -> Bool:
   String.eq(J.str(J.get(rules.Run.room(run), "kind")), "forest")
 
 def griffinwing.Run.griffinwing_showing(+run: J.Val) -> Bool:
   Bool.and(griffinwing.Run.in_forest(run), Bool.not(J.is_null(J.get(run, "griffinwing"))))
 
-# `home.roundtable[SLOT]`: the flags settled into the Home.
 def griffinwing.Run.flags(+run: J.Val) -> U32:
   ga.nu(J.get(J.get(run, "home"), "roundtable"), griffinwing.SLOT())
 
-# `home.countryside.games.roundtable`: five records (best, wins, plays).
 def griffinwing.Run.records(+run: J.Val) -> J.Val:
   J.get(J.get(J.get(J.get(run, "home"), "countryside"), "games"), "roundtable")
 
 def griffinwing.Score.default() -> J.Val:
   ga.su(ga.su(ga.su(J.obj(), "best", 0), "wins", 0), "plays", 0)
 
-# The record of this game.
 def griffinwing.Run.record(+run: J.Val) -> J.Val:
   gw.ifj(J.is_null(J.nth(griffinwing.Run.records(run), griffinwing.SLOT())),
     _ => griffinwing.Score.default(),
     _ => J.nth(griffinwing.Run.records(run), griffinwing.SLOT()))
 
-# The five records, with this game's replaced (all five are written: absent
-# means none had one).
 def griffinwing.Run.put_record(+run: J.Val, +rec: J.Val) -> J.Val:
   ga.sv(run, "home",
     ga.sv(J.get(run, "home"), "countryside",
@@ -44,7 +32,6 @@ def griffinwing.Run.put_record(+run: J.Val, +rec: J.Val) -> J.Val:
               _ => griffinwing.Run.records(run)),
             griffinwing.SLOT(), rec)))))
 
-# `home.roundtable[SLOT] |= flags`; the array is left out when all zero.
 def griffinwing.Run.put_flags(+run: J.Val, +flags: U32) -> J.Val:
   ga.sv(run, "home", griffinwing.Run.put_flags.home(J.get(run, "home"), griffinwing.Run.put_flags.words(J.get(J.get(run, "home"), "roundtable"), flags)))
 
@@ -65,14 +52,12 @@ def griffinwing.Run.all_zero(+ws: List<&2, J.Val>) -> Bool:
     case Con{+w, +t}:
       Bool.and(U32.is_zero(J.u32(w)), griffinwing.Run.all_zero(t))
 
-# The notice line: `found = Some((tick, 0, text))`.
 def griffinwing.Run.found(+run: J.Val, +text: String) -> J.Val:
   ga.sv(run, "found", J.JA{[J.get(run, "tick"), J.JU{0}, J.JS{text}]})
 
 def griffinwing.Run.sound(+run: J.Val, +name: String) -> J.Val:
   ga.push(run, "sounds", J.JS{name})
 
-# The party at the door, let in.
 def griffinwing.Run.start_griffinwing(+run: J.Val) -> J.Val:
   gw.ifj(Bool.not(griffinwing.Run.in_forest(run)),
     _ => run,
@@ -92,7 +77,6 @@ def griffinwing.Run.start_griffinwing.fin(+run: J.Val) -> J.Val:
       griffinwing.NAME() ++ ": hold Esc to return."),
     "play_card")
 
-# `present`: the heroes not outside (those who left the run for the kingdom).
 def griffinwing.Run.present(+players: J.Val, +outside: J.Val, +ids: List<&2, U32>) -> J.Val:
   match ids:
     case Nil{}:
@@ -109,7 +93,6 @@ def griffinwing.Run.tick_griffinwing(+run: J.Val, +inputs: J.Val) -> J.Val:
       griffinwing.Run.present(J.get(run, "players"), J.get(J.get(run, "exits"), "outside"), ga.ids(J.get(run, "players"))),
       griffinwing.Nums.of(J.get(run, "tune")))))
 
-# r = {"s": the stepped session, "out": {"sounds", "leave"}}
 def griffinwing.Run.tick_griffinwing.step(+run: J.Val, +r: J.Val) -> J.Val:
   griffinwing.Run.tick_griffinwing.settle(
     griffinwing.Run.tick_griffinwing.sounds(run, ga.items(J.get(r, "out"), "sounds")),
@@ -127,7 +110,6 @@ def griffinwing.Run.tick_griffinwing.settle(+run: J.Val, +s: J.Val, +leave: List
     _ => griffinwing.Run.tick_griffinwing.put(griffinwing.Run.settle_griffinwing(run, s), leave),
     _ => griffinwing.Run.tick_griffinwing.put(gw.pk(run, s), leave))
 
-# w = {"s": run, "c": session}
 def griffinwing.Run.tick_griffinwing.put(+w: J.Val, +leave: List<&2, J.Val>) -> J.Val:
   griffinwing.Run.tick_griffinwing.leaves(ga.sv(gw.ps(w), "griffinwing", gw.pc(w)), leave)
 
@@ -138,16 +120,12 @@ def griffinwing.Run.tick_griffinwing.leaves(+run: J.Val, +ids: List<&2, J.Val>) 
     case Con{+id, +t}:
       griffinwing.Run.tick_griffinwing.leaves(exits.Run.leave_activity(run, J.u32(id)), t)
 
-# The Wyrm is down: the party's Home is marked and the purse is paid, once for
-# each knight who flew it home, however often this is called. Answers
-# {"s": the run, "c": the session}.
 def griffinwing.Run.settle_griffinwing(+run: J.Val, +s: J.Val) -> J.Val:
   griffinwing.Run.settle_griffinwing.pay(run, s,
     gw.ifs(J.is_null(J.get(s, "medal")), _ => "Bronze", _ => ga.s(s, "medal")),
     griffinwing.Session.purse(s), Bool.not(ga.b(s, "settled")),
     ga.ids(J.get(s, "seats")), gw.ifu(J.is_null(J.get(s, "done")), _ => 0, _ => J.u32(J.get(s, "done"))))
 
-# for id in the seats that sat before the Wyrm fell: pay once.
 def griffinwing.Run.settle_griffinwing.pay(+run: J.Val, +s: J.Val, +medal: String, +purse: U32, +first: Bool, +ids: List<&2, U32>, +flown: U32) -> J.Val:
   match ids:
     case Nil{}:
@@ -160,7 +138,6 @@ def griffinwing.Run.settle_griffinwing.pay(+run: J.Val, +s: J.Val, +medal: Strin
           medal, purse, first, t, flown),
         _ => griffinwing.Run.settle_griffinwing.pay(run, s, medal, purse, first, t, flown))
 
-# hero.carried.add(Gold, purse); hero.laurel = medal == Gold
 def griffinwing.Run.settle_griffinwing.hero(+run: J.Val, +id: U32, +medal: String, +purse: U32) -> J.Val:
   gw.ifj(ga.has_key(J.get(run, "players"), id),
     _ => ga.sv(run, "players", ga.put_at(J.get(run, "players"), id,
@@ -174,7 +151,6 @@ def griffinwing.Run.settle_griffinwing.first(+run: J.Val, +s: J.Val, +medal: Str
     _ => gw.pk(griffinwing.Run.settle_griffinwing.begun(run, s, medal), ga.sb(s, "settled", True{})),
     _ => gw.pk(run, s))
 
-# The news and the Home's marks: once a run.
 def griffinwing.Run.settle_griffinwing.begun(+run: J.Val, +s: J.Val, +medal: String) -> J.Val:
   griffinwing.Run.settle_griffinwing.begun2(
     gw.ifj(String.eq(medal, "Gold"),
@@ -196,17 +172,12 @@ def griffinwing.Run.settle_griffinwing.begun3(+run: J.Val, +medal: String, +rec:
       "play_card"),
     "cues", J.JS{"pastime_won"})
 
-# ─── ADVENTURE ──────────────────────────────────────────────────────────────
-
-# Whether its state, if any, is one a run may hold.
 def griffinwing.ADVENTURE.valid(+run: J.Val) -> Bool:
   gw.ifb(J.is_null(J.get(run, "griffinwing")), _ => True{}, _ => griffinwing.Session.valid(J.get(run, "griffinwing")))
 
-# End its run: the state cleared.
 def griffinwing.ADVENTURE.clear(+run: J.Val) -> J.Val:
   J.del(run, "griffinwing")
 
-# The knights its run seats.
 def griffinwing.ADVENTURE.seated(+run: J.Val) -> J.Val:
   J.JA{griffinwing.ADVENTURE.seated.ids(ga.ids(J.get(J.get(run, "griffinwing"), "seats")))}
 
@@ -217,29 +188,20 @@ def griffinwing.ADVENTURE.seated.ids(+ids: List<&2, U32>) -> List<&2, J.Val>:
     case Con{+id, +t}:
       Con{J.JU{id}, griffinwing.ADVENTURE.seated.ids(t)}
 
-# What a bot presses for knight `id`.
 def griffinwing.ADVENTURE.bot(+run: J.Val, +id: U32) -> J.Val:
   gw.ifj(Bool.and(Bool.not(J.is_null(J.get(run, "griffinwing"))), ga.has_key(J.get(run, "players"), id)),
     _ => griffinwing.bot.Session.bot_with(J.get(run, "griffinwing"), id, griffinwing.Nums.of(J.get(run, "tune")), False{}),
     _ => rules.Input.default())
 
-# ─── ACTIVITY ───────────────────────────────────────────────────────────────
-
 def griffinwing.ACTIVITY.on(+run: J.Val) -> Bool:
   griffinwing.Run.griffinwing_showing(run)
 
-# A ride's tick: it plays, then gives the keys the rest of the tick sees (an
-# empty set: it took them all). {"run", "inputs"}.
 def griffinwing.ACTIVITY.ride(+run: J.Val, +inputs: J.Val) -> J.Val:
   ga.sv(ga.sv(J.obj(), "run", griffinwing.Run.tick_griffinwing(run, inputs)), "inputs", J.obj())
 
-# It is over: its state cleared.
 def griffinwing.ACTIVITY.end(+run: J.Val) -> J.Val:
   J.del(run, "griffinwing")
 
-# What a finished run pays into the realm at the save, once: the marks become
-# flags in the Home. `realm` is {"home": {"roundtable": [..]}}; answers
-# {"realm", "settled": {"changed", "said"}}.
 def griffinwing.settle(+realm: J.Val, +marks: J.Val) -> J.Val:
   griffinwing.settle.flags(realm,
     U32.or(gw.ifu(J.has(marks, griffinwing.CAMPAIGN_MARK()), _ => griffinwing.BEGUN(), _ => 0),
@@ -261,7 +223,6 @@ def griffinwing.settle.done(+realm: J.Val, +flags: U32, +changed: Bool) -> J.Val
         _ => J.JA{[J.JA{[J.JS{"griffinwing"}, J.JS{griffinwing.NAME() ++ ": the last beacon is lit."}]}]},
         _ => J.JA{[]})))
 
-# The shell's `showing` and `start` entries are the Run's methods themselves.
 def griffinwing.ADVENTURE.showing(+run: J.Val) -> Bool:
   griffinwing.Run.griffinwing_showing(run)
 

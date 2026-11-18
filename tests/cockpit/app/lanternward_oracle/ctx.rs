@@ -5,16 +5,11 @@ use super::kit::*;
 use super::world::*;
 use super::*;
 
-/// Where the party stands on keys: shared, like the Delve's own.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Hold {
-    /// Not found yet.
     Unfound,
-    /// Carried by a seat, last seen here.
     Carried(u8, i32, i32),
-    /// Put down where its carrier fell.
     Lying(i32, i32),
-    /// Spent on the door.
     Spent,
 }
 
@@ -24,7 +19,6 @@ pub struct Party {
     pub lantern: bool,
     pub small_keys: u8,
     pub boss: Hold,
-    /// Heart containers found.
     pub containers: u8,
 }
 
@@ -46,7 +40,6 @@ impl Default for Party {
     }
 }
 
-/// The item held up for all to see, whose it is and for how long.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Banner {
     pub item: Item,
@@ -55,8 +48,6 @@ pub struct Banner {
 }
 
 impl Session {
-    /// The nearest thing in reach and in front of the knight that E would
-    /// act on.
     pub(super) fn context(&self, k: &Seat) -> Ctx {
         if k.carry == Carry::Pot {
             return Ctx::Throw;
@@ -73,7 +64,6 @@ impl Session {
                 Pk::Sign => Ctx::Read(i as u8),
                 Pk::Folk => Ctx::Talk(i as u8),
                 Pk::Lever if p.on == 0 => Ctx::Pull(i as u8),
-                // A bomb pot is too heavy to lift: break it.
                 Pk::Pot if p.on == 0 && p.id == 0 => Ctx::Lift(i as u8),
                 Pk::Ember => Ctx::Flame,
                 Pk::Brazier if !p.lit() && k.taper > 0 => Ctx::Light(i as u8),
@@ -87,7 +77,6 @@ impl Session {
             if d > CTX_REACH * Q {
                 continue;
             }
-            // Facing it, or close enough to be at it from any side.
             if d > 12 * Q && dot(k.face, unit(dx, dy)) < CTX_FRONT {
                 continue;
             }
@@ -102,8 +91,6 @@ impl Session {
         matches!(self.inv.boss, Hold::Carried(c, _, _) if c == k.id)
     }
 
-    /// E pressed with a thing in reach. False when there is nothing to do
-    /// (the caller rolls or hops).
     pub(super) fn use_context(&mut self, id: u32, k: &mut Seat, r: &Rules, ev: &mut Events) -> bool {
         match self.context_for(id, k) {
             Ctx::None => false,
@@ -186,12 +173,10 @@ impl Session {
                 ev.sound("door_open");
                 true
             }
-            // Held, not pressed: the pass over the fallen and the beacon.
             Ctx::Revive(_) | Ctx::Relight => true,
         }
     }
 
-    /// As `context`, for a knight who is out of the map for the tick.
     fn context_for(&self, _id: u32, k: &Seat) -> Ctx {
         self.context(k)
     }
@@ -206,7 +191,6 @@ impl Session {
         self.grant(id, k, item, r, ev);
     }
 
-    /// An item comes to the party; its finder holds it up.
     pub(super) fn grant(&mut self, id: u32, k: &mut Seat, item: Item, r: &Rules, ev: &mut Events) {
         match item {
             Item::Map => self.inv.map = true,
@@ -251,7 +235,6 @@ impl Session {
         });
     }
 
-    /// Ticks a brazier lit from an ember burns: shorter the more hands.
     pub(super) fn burn_ticks(&self) -> u16 {
         let s = self.seats.len().max(1) as u16;
         BURN.saturating_sub(BURN_STEP * (s - 1)).max(BURN_MIN)
@@ -261,8 +244,6 @@ impl Session {
         self.room == 4 && self.stage >= 3
     }
 
-    /// A crystal wakes: the chime, and whatever it is wired to (the stage
-    /// rows read `Prop::on`).
     pub(super) fn light_crystal(&mut self, i: usize, ev: &mut Events) {
         if self.props[i].on == 1 {
             return;
@@ -272,8 +253,6 @@ impl Session {
         self.solved(x, y, ev);
     }
 
-    /// Start a block sliding one tile the way it was pushed, if the place is
-    /// open.
     pub(super) fn start_slide(&mut self, b: usize) {
         let (dx, dy) = match self.props[b].on {
             1 => (1, 0),
@@ -284,8 +263,6 @@ impl Session {
         let (x, y) = (self.props[b].x, self.props[b].y);
         let (nx, ny) = (x + dx * TILE * Q, y + dy * TILE * Q);
         let p = plan(usize::from(self.room));
-        // A block never goes where it could not be pushed out again: not onto
-        // a tile against a wall or a pit, so none is ever stuck for good.
         let (dtx, dty) = (tile_of(nx), tile_of(ny));
         let against = [(1, 0), (-1, 0), (0, 1), (0, -1)]
             .iter()

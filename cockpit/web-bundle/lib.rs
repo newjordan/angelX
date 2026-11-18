@@ -10,12 +10,6 @@ mod pack_asset;
 
 include!(concat!(env!("OUT_DIR"), "/delve_web.rs"));
 
-// Keep generated assets behind a small non-inlined interface. On the pinned
-// rustc/fast profile, returning a reachable private bundle static serialized its
-// bytes into cross-crate metadata. The generated embedded() instead uses local
-// promoted constants; callers still use the dependency's compiled object code.
-// Recheck metadata sizes when changing compiler, profile or inlining policy.
-/// Original lengths for the losslessly packed embedded assets.
 #[inline(never)]
 pub fn packed() -> &'static [(&'static str, usize)] { PACKED }
 #[inline(never)]

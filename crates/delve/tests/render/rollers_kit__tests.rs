@@ -53,7 +53,6 @@ fn the_rollers_turn_and_the_swape_swings_and_a_still_one_does_not() {
     for dir in 1..4 {
         assert!(*swape_flat(0, State::Idle, 0) != *swape_flat(dir, State::Idle, 0), "a swape faces its way");
     }
-    // Raised in steps.
     let steps: Vec<usize> = (0..4).map(|s| lit(&swape_flat(1, State::Building(s), 0))).collect();
     assert!(steps.windows(2).all(|w| w[0] != w[1]), "{steps:?}");
 }
@@ -73,14 +72,11 @@ fn a_good_on_the_line_is_in_its_own_colours_and_a_jam_blinks() {
 
 #[test]
 fn a_slot_runs_with_the_way_the_tile_faces() {
-    // East: from the west edge to the east, mid-height.
     let xs: Vec<f32> = (0..SLOTS).map(|i| slot_at(1, i, 0.0).0).collect();
     assert!(xs.windows(2).all(|w| w[0] < w[1]) && xs[0] > 0.0 && xs[SLOTS - 1] < TILE as f32);
     assert!((slot_at(1, 0, 0.0).1 - 8.0).abs() < 0.01);
-    // West runs the other way, south down, north up.
     assert!(slot_at(3, 0, 0.0).0 > slot_at(3, SLOTS - 1, 0.0).0);
     assert!(slot_at(2, 0, 0.0).1 < slot_at(2, SLOTS - 1, 0.0).1);
     assert!(slot_at(0, 0, 0.0).1 > slot_at(0, SLOTS - 1, 0.0).1);
-    // The drawing lags the sim: with a slot taken off it is that much further back.
     assert!(slot_at(1, 1, 1.0).0 < slot_at(1, 1, 0.0).0);
 }

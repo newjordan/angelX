@@ -1,5 +1,3 @@
-// Intended in reinforce.rs's existing tests module. No candidate prose is
-// promoted to EvaluatorEvidence; all three receipts execute owned commands.
 #[test]
 fn coding_eval_uses_only_successful_owned_evidence() {
     let _lock = crate::tests::env_lock();

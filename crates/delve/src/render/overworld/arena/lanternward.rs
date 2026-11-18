@@ -22,15 +22,10 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     (scene::draw(run, focus), Img::new(384, 224))
 }
 
-/// The cells draw the same room; the terminal's own text is printed over the
-/// picture's top rows and its last two (`cockpit .../art/roundtable/lanternward.rs`).
 pub(super) fn terminal_layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     layers(run, focus)
 }
 
-/// The door on the walking map: a stone arch over a dark stair, a lantern
-/// hung in it, the name over it and E under it. The lantern burns once the
-/// Beacon has been lit.
 pub(super) fn kingdom(im: &mut Img, run: &Run, origin: (i32, i32)) {
     let (x, y) = (
         rules::ENTRY.0 * 16 + 8 - origin.0,
@@ -40,7 +35,6 @@ pub(super) fn kingdom(im: &mut Img, run: &Run, origin: (i32, i32)) {
     if x < -(text_width(&name) / 2) - 8 || x > 392 + text_width(&name) / 2 || !(-24..248).contains(&y) {
         return;
     }
-    // Posts, lintel, the dark between.
     im.rect(x - 9, y - 12, 4, 17, 'j');
     im.rect(x + 6, y - 12, 4, 17, 'j');
     im.rect(x - 10, y - 15, 21, 4, 'G');
@@ -49,7 +43,6 @@ pub(super) fn kingdom(im: &mut Img, run: &Run, origin: (i32, i32)) {
     for step in 0..3 {
         im.rect(x - 4, y - 7 + step * 4, 9, 1, 'g');
     }
-    // The hanging lantern.
     im.rect(x, y - 11, 1, 3, 'h');
     im.rect(x - 2, y - 8, 5, 6, 'g');
     let lit = run.home.roundtable[rules::SLOT] & rules::BEGUN != 0;

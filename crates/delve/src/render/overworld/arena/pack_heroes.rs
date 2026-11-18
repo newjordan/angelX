@@ -9,8 +9,6 @@ use crate::rules::{Hero, knights};
 
 include!("pack_heroes_frames.rs");
 
-/// The recruits the pack dresses: the company's knights without a figure of
-/// their own.
 const KITS: &[&str] = &[
     "astrolabe", "bellweather", "brasswrit", "brine", "bront", "coalglass", "corvin",
     "cuckoosmith", "elian", "fenella", "iole", "iona", "ivo", "linet", "lys", "maelis",
@@ -24,7 +22,6 @@ pub(super) fn owns(kit: Option<&str>) -> bool {
     kit.is_some_and(|k| KITS.contains(&k))
 }
 
-/// The frames a kit's arm calls for, and whether a gun goes in its hand.
 struct Set {
     idle: &'static [[&'static str; 18]],
     side: &'static [[&'static str; 18]],
@@ -60,8 +57,6 @@ pub(super) fn figure(h: &Hero) -> Img {
     if h.aim_x < 0.0 { im.flip_h() } else { im }
 }
 
-/// A frame in the knight's colours, with a handgonne in the forward hand
-/// (the rightmost hand, the figure faces right) for a gunner.
 fn dress(kit: &str, rows: &[&str; 18], gun: bool) -> Img {
     let mut im = Img::from_rows(rows);
     if gun {

@@ -11,29 +11,22 @@ use super::{TILE, alehouse, at, notices};
 use crate::rules::hall_voices::{CALL_TICKS, TITLE_TICKS};
 use crate::rules::{RoomKind, Run};
 
-/// The most letters of a said line on one row of its plate.
 const ROW_LETTERS: usize = 24;
-/// How far over a speaker's feet their head is (pixels): a knight's body.
 const HEAD: i32 = 26;
 
-/// Where a plate sits against its speaker.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Side {
     Above,
     Right,
     Left,
     Below,
-    /// Clear of every board, tailless: when the speaker's own sides are taken.
     Free,
 }
 
-/// A said line on its plate: black paper in a timber rim, amber letters,
-/// a small tail toward the speaker on the `side` it hangs from.
 fn plate_img(text: &str, side: Side) -> (Img, i32, i32) {
     let lines = alehouse::wrap(text, ROW_LETTERS);
     let w = lines.iter().map(|l| text_width(l)).max().unwrap_or(0) + 9;
     let h = lines.len() as i32 * 9 + 4;
-    // The box's own place inside the picture, which leaves room for the tail.
     let (ox, oy, iw, ih) = match side {
         Side::Free => (0, 0, w, h),
         Side::Above => (0, 0, w, h + 3),
@@ -73,11 +66,6 @@ fn meets(a: (i32, i32, i32, i32), b: (i32, i32, i32, i32)) -> bool {
     a.0 - 2 < b.0 + b.2 && b.0 < a.0 + a.2 + 2 && a.1 - 2 < b.1 + b.3 && b.1 < a.1 + a.3 + 2
 }
 
-/// Every line up in the room, on a plate by its speaker: over their head if
-/// that is clear, else beside them or under; kept clear of the `taken`
-/// boards, and added to them. A plate pops up into place, holds to be
-/// read, and dithers away (`notices::board_from`). `origin` is the room
-/// pixel at the picture's top-left.
 pub(super) fn plates(cv: &mut Img, run: &Run, origin: (i32, i32), taken: &mut Vec<(i32, i32, i32, i32)>) {
     for call in run.calls_up() {
         let (fx, fy) = call.voice.feet();
@@ -99,7 +87,6 @@ pub(super) fn plates(cv: &mut Img, run: &Run, origin: (i32, i32), taken: &mut Ve
                 Side::Free => clamp(x - w / 2, 2, w, h),
             };
             if side == Side::Free {
-                // Down past whatever is in the way.
                 while let Some(t) = taken.iter().find(|&&t| meets((px, py, w, h), t)) {
                     py = t.1 + t.3 + 3;
                 }
@@ -118,9 +105,6 @@ pub(super) fn plates(cv: &mut Img, run: &Run, origin: (i32, i32), taken: &mut Ve
     }
 }
 
-/// The name of the place the party has just come into, on black paper at
-/// the top of a seat's view (under a prompt board when one is up), with a
-/// line of what is true there. It comes up, holds, and dithers away.
 pub(super) fn title(cv: &mut Img, run: &Run, taken: &mut Vec<(i32, i32, i32, i32)>) {
     let Some(age) = run.title_age() else { return };
     let Some((name, line)) = run.place_title() else { return };
@@ -143,15 +127,11 @@ pub(super) fn title(cv: &mut Img, run: &Run, taken: &mut Vec<(i32, i32, i32, i32
     taken.push((x, y, w, h));
 }
 
-/// Where the inn's front stands in the courtyard (its top-left, pixels).
 fn inn_origin() -> (i32, i32) {
     let (dc, dr, dw, dh) = crate::rules::alehouse::COURTYARD_DOOR;
     (dc * TILE + dw * TILE / 2 - alehouse::INN_W / 2, (dr + dh) * TILE - alehouse::INN_H)
 }
 
-/// A soft warm lift round `(x, y)`, `rx` wide and `ry` tall at most, thinning
-/// to the edge through the dither, drawn only where it adds light. A fire's
-/// glow on what is near it; `power` (0 to 1) is how strong.
 pub(super) fn ember_glow(cv: &mut Img, x: i32, y: i32, rx: i32, ry: i32, power: f32) {
     for dy in -ry..=ry {
         for dx in -rx..=rx {
@@ -164,21 +144,14 @@ pub(super) fn ember_glow(cv: &mut Img, x: i32, y: i32, rx: i32, ry: i32, power: 
     }
 }
 
-/// The dragon's head over the inn's door, awake. Its eye blinks now and
-/// then; with a knight in the courtyard the eye brightens, its slit turns
-/// after the nearest and a warm glow rings it; the nostril smokes in a curl
-/// when the party has just come in, and again now and then while a knight
-/// stands near.
 pub(super) fn dragon(cv: &mut Img, run: &Run) {
     if run.room().kind != RoomKind::Gate {
         return;
     }
     let (x0, y0) = inn_origin();
-    // The eye and the nostril as the head draws them (head at 16, 16).
     let (ex, ey) = (x0 + 16 + 28, y0 + 16 + 15);
     let nose = (x0 + 16 + 5, y0 + 16 + 16);
     let tick = run.tick;
-    // The nearest knight standing in the courtyard, from the eye.
     let near = run
         .players
         .values()
@@ -192,7 +165,6 @@ pub(super) fn dragon(cv: &mut Img, run: &Run) {
     let blinking = (tick + 40) % 160 < 4;
     let (cx, cy) = (ex as f32, ey as f32 + 0.5);
     if blinking {
-        // The lid comes down over the eye.
         cv.ellipse(cx, cy, 3.6, 2.2, 'f');
         cv.ellipse(cx, cy, 2.8, 1.6, 'l');
         cv.line(ex - 3, ey, ex + 3, ey, 'f');
@@ -207,7 +179,6 @@ pub(super) fn dragon(cv: &mut Img, run: &Run) {
         cv.line(ex + turn, ey - 1, ex + turn, ey + 2, 'k');
         cv.put(ex - 1, ey - 1, 'H');
     }
-    // The smoke: puffs off the snout, growing as they thin and lean away.
     let arrived = run.title_age().is_some_and(|age| age < 75);
     let snorting = watching.is_some() && tick % 180 < 60;
     if arrived || snorting {

@@ -7,10 +7,6 @@ use super::arms::Sortie;
 use super::flight::Struck;
 
 impl Run {
-    /// What follows the shots: the arms' synergies and the ultimates,
-    /// the room's works, small games, items, pickups and small secrets,
-    /// the chains, bursts and blasts the shots set off, hexes and mends,
-    /// the pit stop and the places.
     pub(super) fn aftermath(
         &mut self,
         inputs: &BTreeMap<u32, Input>,
@@ -65,7 +61,6 @@ impl Run {
         self.tick_hunters();
         self.tick_tallow();
         self.pet_tallow(inputs);
-        // The follies and the rooms' small games (`activity::FOLLIES`).
         self.tick_follies(inputs);
         self.tick_pots();
         self.tick_cage(inputs);
@@ -120,16 +115,13 @@ impl Run {
             self.cues.push("frost_leap".into());
         }
         if sortie.bombs > 0 && self.open_map() {
-            // On an open map only a bomb by the crack brings it down.
             for &at in &sortie.booms {
                 self.blast_wall_open(at);
             }
         } else if sortie.bombs > 0 {
-            // Small rooms keep their forgiving wall-breaking rule.
             self.blast_wall(None);
         }
         for (_, mend) in mends {
-            // The most hurt knight standing is mended.
             if let Some(hero) = self
                 .players
                 .values_mut()
@@ -144,8 +136,6 @@ impl Run {
         self.projectiles.retain(|p| p.ttl > 0);
         self.pit_events(std::mem::take(&mut sortie.pit_events));
         self.visit_privy();
-        // The Undercroft's rooms, the barony, the holdings, the College, the
-        // ranch and the merchant (`activity::PLACES`).
         self.tick_places(inputs);
         self.rain_embers();
         self.tick_traps();

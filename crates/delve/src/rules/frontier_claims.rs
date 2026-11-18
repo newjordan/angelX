@@ -23,8 +23,6 @@ impl Run {
         if self.dungeon.depth > 0 {
             return Err("Return to the kingdom's Claims desk to release a claim".into());
         }
-        // Keep any death ledger. Rediscovering this same seam must never
-        // respawn defeated sentries or mint a second guardian reward.
         self.home
             .industry
             .apply(catalog(), Command::ReleaseClaim(key.into()))

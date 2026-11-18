@@ -1,5 +1,3 @@
-// Coastal cases extend the existing world host/mirror/save regression, not a
-// private replacement verifier. Throws below use real Input, never flight edits.
 fn coastal_adventure_regression(mut run: Run) {
     use super::super::{
         Grid, HERO_RADIUS, Mover, coastal as coast, countryside as c,
@@ -19,7 +17,6 @@ fn coastal_adventure_regression(mut run: Run) {
             },
         )])
     };
-    // The keeper's errand answers the interact key; the pot answers F.
     let meet = |id| {
         BTreeMap::from([(
             id,
@@ -29,7 +26,6 @@ fn coastal_adventure_regression(mut run: Run) {
             },
         )])
     };
-    // Every coastal door is walked both ways, with four genuinely distinct seats.
     for &(a, b) in TRAILS
         .iter()
         .filter(|(a, b)| coast::PLACES.contains(a) || coast::PLACES.contains(b))
@@ -50,7 +46,6 @@ fn coastal_adventure_regression(mut run: Run) {
                 2 => (run.room().width() / 2.0, run.room().height() - 1.9),
                 _ => (1.9, run.room().height() / 2.0),
             };
-            // A doorway takes the whole party (`fellowship`): all walk it.
             for h in run.players.values_mut() {
                 (h.x, h.y) = (x, y);
             }
@@ -92,7 +87,6 @@ fn coastal_adventure_regression(mut run: Run) {
             assert_eq!(friend.at, run.at);
         }
     }
-    // Low-tide pickup is ordered, spatial, party-shared, and repeat safe.
     run.marks.clear();
     run.arrive(
         room_of(&run.dungeon, RoomKind::Strand).unwrap(),
@@ -130,7 +124,6 @@ fn coastal_adventure_regression(mut run: Run) {
     );
     run.tick_coastal(&meet(2));
     assert_eq!(coast::stage(&run.home.countryside, &run.marks), 3);
-    // Optional coast visits cannot reset or add requirements to old six places.
     let mut old: c::Country =
         serde_json::from_value(serde_json::json!({"visited":63,"ramble_paid":true,"built":4}))
             .unwrap();
@@ -197,7 +190,6 @@ fn coastal_adventure_regression(mut run: Run) {
         }
     }
     marks.clear();
-    // Defaulting one new record doesn't reset the existing arrays or sled.
     let records:pastimes::Records=serde_json::from_value(serde_json::json!({"best":[321,0,0,0],"plays":[1,0,0,0],"wins":[1,0,0,0],"sled":{"best":456,"plays":2,"wins":1}})).unwrap();
     assert!(records.valid());
     assert_eq!(records.best_for(Game::Pot), 0);
@@ -208,7 +200,6 @@ fn coastal_adventure_regression(mut run: Run) {
         room_of(&run.dungeon, RoomKind::Strand).unwrap(),
         Game::Pot.start(),
     );
-    // One owner on P; the host stands away. Other people's F cannot charge it.
     for (&id, h) in &mut run.players {
         (h.x, h.y) = if id == 2 {
             (8.0, 14.0)
@@ -242,8 +233,6 @@ fn coastal_adventure_regression(mut run: Run) {
             .charge,
         0
     );
-    // Reviewer counterexample: accepted saved flights at both vertical bounds
-    // must either remain valid or finish as a miss, never poison the live mirror.
     for dz in [-240, 240] {
         let mut edge = serde_json::to_value(&run).unwrap();
         let p = &mut edge["pastimes"]["round"]["put"];
@@ -262,7 +251,6 @@ fn coastal_adventure_regression(mut run: Run) {
         assert_eq!(edge.wire_copy().pastimes, edge.pastimes);
     }
     let score = run.score;
-    // At 45 degrees each target is reachable with distinct powers and winds.
     for charge in [16, 20, 30] {
         for _ in 0..charge {
             run.step(&fire(2));
@@ -319,7 +307,6 @@ fn coastal_adventure_regression(mut run: Run) {
     run.step(&fire(2));
     assert!(run.pastimes.round.is_none());
     assert_eq!(run.score, after, "step off P to retry");
-    // A new attempt can fail through poor aim; owner loss and timeout clean up.
     run.players.get_mut(&2).unwrap().x = 12.0;
     run.step(&BTreeMap::new());
     run.players.get_mut(&2).unwrap().x = 8.0;

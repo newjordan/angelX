@@ -181,8 +181,6 @@ def fit_size(size, maximum):
         k = max(1, min(mw // w, mh // h))
         return w * k, h * k
     scale = min(np.float32(mw) / np.float32(w), np.float32(mh) / np.float32(h))
-    # Convert the f32 *product* to float64 only for rounding. Adding .5 in
-    # f32 would introduce a second rounding absent from Rust's f32::round.
     return tuple(min(m, max(1, int(np.floor(float(np.float32(n) * scale) + .5))))
                  for n, m in ((w, mw), (h, mh)))
 
@@ -199,7 +197,6 @@ def sample_frames(frames, box, size):
 def fitted_frames(frames, part, repair=False):
     box = ink_bounds(frames)
     size = box[2:]
-    # Authoring repair must not enlarge a drawing that already fits.
     target = size if repair and all(n <= m for n, m in zip(size, part['size'])) else (part['size'] if part.get('stretch', False) and not repair else fit_size(size, part['size']))
     return sample_frames(frames, box, target)
 
@@ -244,7 +241,6 @@ def author_png(path, pal, part, slot, count=1):
     frames = []
     for i in range(count):
         cell = rgba[:, i * w:(i + 1) * w]
-        # Bounded chunks avoid H*W*palette temporary memory on large inputs.
         rgb = cell[..., :3].reshape(-1, 3).astype(np.int32)
         indices = np.empty(len(rgb), dtype=np.intp)
         for start in range(0, len(rgb), 4096):
@@ -284,7 +280,7 @@ def dress(frame, sprites):
         rows = frames[(frame['tick'] // TICKS_PER_FRAME) % len(frames)]
         w, h = len(rows[0]), len(rows)
         x, y = part_origin(part, (w, h))
-        y -= max(0, y + h - frame['h'])  # no bottom padding / feet drift
+        y -= max(0, y + h - frame['h'])
         pieces.append((rows, x, y, part['under']))
     pad = max([0] + [-x for rows, x, y, under in pieces] +
               [x + len(rows[0]) - frame['w'] for rows, x, y, under in pieces])
@@ -302,8 +298,6 @@ def dress(frame, sprites):
         rows = [row[::-1] for row in rows]
     result = copy.deepcopy(frame)
     result.update(w=w, h=h, rows=rows, worn_padding=[pad, top])
-    # Preserve any exporter-specific metadata verbatim; only known coordinate
-    # fields (the Body) are translated. worn_padding records our additional shift.
     result['fit']['bounds'][0] += pad
     result['fit']['bounds'][1] += top
     for part in PARTS:
@@ -324,7 +318,6 @@ def export_frames(frames, pal, out, zoom=8):
         Image.fromarray(rows_rgba(frame['rows'], pal)).save(out / image)
         records.append(dict(frame, image=image))
     write_json(out / 'frames.json', {'version': 1, 'frames': records})
-    # Preview only the first 32; *all* selected frames are exported, at 1:1.
     shown = records[:32]
     cw = max(f['w'] for f in frames) * zoom + 16
     ch = max(f['h'] for f in frames) * zoom + 44
@@ -368,7 +361,6 @@ def export_animation(frames, pal, out, fps=5):
             metadata.append(dict(frame, offset=[x,y]))
         name = f'animation-{n:03d}'
         strip.save(out / (name+'.png'))
-        # GIF is preview only; RGBA strip and JSON are the lossless assets.
         cells[0].save(out / (name+'.gif'), save_all=True, append_images=cells[1:],
                       duration=round(1000/fps), loop=0, disposal=2)
         index.append(dict(kit=kit,view=view,size=[w,h],fps=fps,loop=True,

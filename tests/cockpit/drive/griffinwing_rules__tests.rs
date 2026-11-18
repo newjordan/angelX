@@ -25,7 +25,6 @@ fn engine() {
     crate::agent::harness::live_policy::install_scripted_rules();
 }
 
-/// A table of `seats` knights.
 fn table(seats: u32) -> Heroes {
     engine();
     let mut run = Run::new(7, 1, None);
@@ -35,7 +34,6 @@ fn table(seats: u32) -> Heroes {
     run.players.clone()
 }
 
-/// What the tests saw the sessions do, to prove the scripts reached the branches they name.
 #[derive(Debug, Default)]
 struct Seen {
     ticks: u32,
@@ -116,7 +114,6 @@ impl Seen {
     }
 }
 
-/// The first place two sessions differ, as a path into their JSON.
 fn first_difference(a: &Value, b: &Value, path: &str) -> Option<String> {
     match (a, b) {
         (Value::Object(x), Value::Object(y)) => {
@@ -144,7 +141,6 @@ fn first_difference(a: &Value, b: &Value, path: &str) -> Option<String> {
     }
 }
 
-/// Two sessions from one start, one ticked by the module and one by the oracle.
 struct Pair {
     native: Session,
     bent: Session,
@@ -152,8 +148,6 @@ struct Pair {
     nums: Nums,
     seen: Seen,
     at: String,
-    /// Set once the oracle's session is one a run may not hold (`Session::valid`): the adapter
-    /// refuses such an answer, so the raw answers are held to each other once and the pair stops.
     ended: bool,
     refused: Vec<String>,
 }
@@ -194,7 +188,6 @@ impl Pair {
             .map(|(&id, _)| id)
             .collect()
     }
-    /// One tick on each side, and every word of them compared.
     fn tick(&mut self, inputs: &Inputs) -> Out {
         let keys: Inputs = inputs
             .iter()
@@ -220,16 +213,12 @@ impl Pair {
             return self.refuse(&asked, &keys, want);
         }
         let got = self.bent.step(inputs, &self.heroes, &self.nums);
-        // What the picture remembers (`show`) is the session's own: the module
-        // is never sent it and the oracle's step never writes it, so it is no
-        // part of the parity between them.
         self.bent.show = Default::default();
         if self.native != self.bent || want.sounds != got.sounds || want.leave != got.leave {
             let (a, b) = (
                 serde_json::to_value(&self.native).unwrap(),
                 serde_json::to_value(&self.bent).unwrap(),
             );
-            // GRIFFINWING_DUMP=<file> keeps the tick that parted, as the module is asked it
             if let Ok(path) = std::env::var("GRIFFINWING_DUMP") {
                 let ask = serde_json::json!({"op": "tick", "session": asked, "keys": keys, "here": self.here(), "nums": self.nums});
                 let sounds: Vec<usize> = want
@@ -254,7 +243,6 @@ impl Pair {
         self.seen.look(&self.native, &want, before);
         want
     }
-    /// The oracle made a session `valid` refuses: the module is asked directly, and its answer must be the oracle's.
     fn refuse(&mut self, asked: &Session, keys: &Inputs, want: Out) -> Out {
         let ask = serde_json::json!({"op": "tick", "session": asked, "keys": keys, "here": self.here(), "nums": self.nums});
         let raw: Value = angel_delve::scripted::step(MODULE, &ask).expect("the module answers");
@@ -287,7 +275,6 @@ impl Pair {
         self.ended = true;
         want
     }
-    /// The bots' hands on this tick, from both sides (and held to each other).
     fn hands(&mut self, skill: bot::Skill) -> Inputs {
         let ids: Vec<u32> = self.native.seats.keys().copied().collect();
         let mut out = Inputs::new();
@@ -347,7 +334,6 @@ fn hand(x: &mut Xs, hold: bool) -> Input {
     }
 }
 
-/// Bots fly the adventure, the tally and the leaving.
 fn flown(seats: u32, skill: bot::Skill, nums: Nums, limit: u32) -> Seen {
     let mut pair = Pair::new(seats, nums, &format!("{seats} {skill:?} bots"));
     let mut fin = 0;
@@ -374,7 +360,6 @@ fn flown(seats: u32, skill: bot::Skill, nums: Nums, limit: u32) -> Seen {
     pair.seen
 }
 
-/// Random hands and a table that comes and goes, from a start somewhere.
 fn wandered(seats: u32, seed: u64, start: u8, ticks: u32) -> Seen {
     let mut pair = Pair::new(
         seats,
@@ -436,7 +421,6 @@ fn wandered(seats: u32, seed: u64, start: u8, ticks: u32) -> Seen {
     pair.seen
 }
 
-/// A table that fires and nothing else: it is wiped, again and again.
 fn idle(seats: u32, ticks: u32, from_the_roost: bool) -> Seen {
     let mut pair = Pair::new(seats, Nums::default(), &format!("{seats} idle"));
     if from_the_roost {
@@ -470,8 +454,6 @@ fn idle(seats: u32, ticks: u32, from_the_roost: bool) -> Seen {
     pair.seen
 }
 
-/// A session of odd, valid states: foes of every kind in every stance, bolts of every arm, the Wyrm in
-/// every state, knights down, rolling, holding a lock, a table of any size.
 fn odd(x: &mut Xs, seats: u32, heroes: &Heroes) -> Session {
     let nums = Nums::default();
     let mut s = Session::new(heroes);
@@ -668,7 +650,6 @@ fn odd(x: &mut Xs, seats: u32, heroes: &Heroes) -> Session {
                 f.on = x.pick(&who);
             }
             if x.chance(7) {
-                // provisioned for one seat: the table that now sits down scales it up by its share
                 f.seats = 1;
                 f.full = kind.health();
                 f.hp = f.hp.min(f.full);
@@ -776,7 +757,6 @@ fn odd(x: &mut Xs, seats: u32, heroes: &Heroes) -> Session {
                 Wyrm::Dying,
             ]);
             if b.phase == 2 && b.st == Wyrm::Hurt {
-                // the last lamp's fall is the Wyrm's death, not a third phase
                 b.st = Wyrm::Dying;
             }
             b.ticks = x.range(0, 70) as u32;
@@ -838,7 +818,6 @@ fn nums_of(x: &mut Xs) -> Nums {
     }
 }
 
-/// Odd states, a few ticks each, with the bots' hands asked of every one.
 fn strange(seed: u64, sessions: u32) -> Seen {
     let mut x = Xs(seed);
     let mut seen = Seen::default();
@@ -1055,13 +1034,10 @@ fn the_hour_runs_out_and_the_ticks_stop_counting() {
     assert_eq!(pair.bent.elapsed, LIMIT);
 }
 
-// ───────────────────────── measurements ─────────────────────────
-
 fn percentile(sorted: &[f64], q: f64) -> f64 {
     sorted[((sorted.len() - 1) as f64 * q) as usize]
 }
 
-/// What a tick costs at four knights: the oracle's, the module's whole ask, and the share of a frame.
 #[test]
 #[ignore = "measures"]
 fn per_tick_cost_at_four_knights() {
@@ -1106,7 +1082,6 @@ fn per_tick_cost_at_four_knights() {
     );
 }
 
-/// The longest run, every table size, both hands: the sweep the default tests sample.
 #[test]
 #[ignore = "the whole sweep"]
 fn the_whole_sweep_parts_nowhere() {

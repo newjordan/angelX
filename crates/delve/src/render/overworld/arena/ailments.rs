@@ -17,17 +17,12 @@ use super::{UNIT, wishfx};
 use crate::rules::{Run, skills};
 use std::f32::consts::TAU;
 
-/// The most motes the marks paint in a pass, every figure together.
 const BUDGET: u32 = 1600;
 
-/// A hex: the frog's own green into the genie's teal.
 const HEX: Ramp = Ramp(['Y', 'C', '3', '2', '1', '0']);
-/// Bog: the dark of the mud, its wet sheen.
 const MUD: Ramp = Ramp(['M', 'A', 'P', 'I', 'b', 'n']);
-/// A dream: the night's teal to its dark.
 const DREAM: Ramp = Ramp(['w', '3', '2', '1', 'q', '0']);
 
-/// What ails a figure.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Ail {
     Burn,
@@ -44,8 +39,6 @@ impl Ail {
     pub(super) const ALL: [Ail; 8] = [Ail::Burn, Ail::Chill, Ail::Poison, Ail::Stun, Ail::Sleep, Ail::Bleed, Ail::Hex, Ail::Mire];
 }
 
-/// A figure as the marks see it: its feet, how tall and wide it stands, a
-/// seed of its own.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Body {
     pub feet: (f32, f32),
@@ -63,7 +56,6 @@ impl Body {
     }
 }
 
-/// Over the figures: each monster's ailments and each knight's.
 pub(super) fn over(cv: &mut Img, run: &Run) {
     let mut pen = Pen::new(cv, BUDGET);
     let tick = run.tick;
@@ -114,12 +106,10 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
     }
 }
 
-/// A monster held in a Stillhour: stood still in time, not stunned.
 pub(super) fn held_in_time(run: &Run, e: &crate::rules::Enemy) -> bool {
     run.spheres.iter().any(|s| (e.x - s.x).hypot(e.y - s.y) < s.r)
 }
 
-/// Draw ailment `a` on `body` at `tick`.
 pub(super) fn mark(pen: &mut Pen, a: Ail, body: &Body, tick: u64) {
     match a {
         Ail::Burn => burn(pen, body, tick),
@@ -133,17 +123,12 @@ pub(super) fn mark(pen: &mut Pen, a: Ail, body: &Body, tick: u64) {
     }
 }
 
-/// Where `i` of a figure's loops is, `life` ticks round: how far through
-/// it (0 to 1) and which time round.
 fn looped(i: u32, seed: u32, life: f32, tick: u64) -> (f32, i32) {
     let start = unit(i as i32, seed as i32, 0x10f) * life;
     let t = tick as f32 + start;
     ((t % life) / life, (t / life) as i32)
 }
 
-/// Burning: three or four tongues of flame licking up the figure's sides
-/// and middle, each its own height and flicker, white-gold at the root and
-/// red at the tip; a glow at its foot, and embers going up off it.
 fn burn(pen: &mut Pen, b: &Body, tick: u64) {
     let r = ramps::FIRE;
     let t = tick as f32;
@@ -181,8 +166,6 @@ fn burn(pen: &mut Pen, b: &Body, tick: u64) {
     }
 }
 
-/// Chilled: a crust of ice pushed up round the figure's feet, glints
-/// coming and going on it, and flakes falling about it.
 fn chill(pen: &mut Pen, b: &Body, tick: u64) {
     let r = ramps::FROST;
     let half = (b.w * 0.55).round() as i32;
@@ -216,8 +199,6 @@ fn chill(pen: &mut Pen, b: &Body, tick: u64) {
     }
 }
 
-/// Poisoned: green bubbles rising off the figure and popping at the top
-/// of their rise, a drip or two falling off it, a sick glow at its feet.
 fn poison(pen: &mut Pen, b: &Body, tick: u64) {
     let r = ramps::POISON;
     pen.glow((b.feet.0, b.feet.1), b.w * 0.7 + 6.0, 0.4, r, 0.75);
@@ -227,7 +208,6 @@ fn poison(pen: &mut Pen, b: &Body, tick: u64) {
         let x = b.feet.0 + (unit(i as i32 + n * 11, b.seed as i32, 0xd1) - 0.5) * b.w * 0.9 + (k * 8.0 + i as f32).sin() * 1.5;
         let y = b.feet.1 - b.h * 0.3 - k * (b.h * 0.8 + 6.0);
         if k > 0.86 {
-            // It pops: four flecks out from where it was.
             let s = ((k - 0.86) / 0.14 * 3.0) as i32 + 1;
             for (dx, dy) in [(-s, 0), (s, 0), (0, -s), (0, s)] {
                 pen.light(x.round() as i32 + dx, y.round() as i32 + dy, r.step(1));
@@ -246,7 +226,6 @@ fn poison(pen: &mut Pen, b: &Body, tick: u64) {
     }
 }
 
-/// A five-pixel star, its arms in `arm`.
 fn star(pen: &mut Pen, x: i32, y: i32, core: char, arm: char, big: bool) {
     pen.put(x, y, core);
     for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
@@ -259,8 +238,6 @@ fn star(pen: &mut Pen, x: i32, y: i32, core: char, arm: char, big: bool) {
     }
 }
 
-/// Stunned: three stars going round over its head, the near ones big and
-/// bright, the far ones small, on a faint ring of their way.
 fn stun(pen: &mut Pen, b: &Body, tick: u64) {
     let c = (b.head().0, b.head().1 - 3.0);
     let (rx, ry) = (b.w * 0.35 + 4.0, 2.2);
@@ -284,13 +261,9 @@ fn stun(pen: &mut Pen, b: &Body, tick: u64) {
     }
 }
 
-/// The Zs a sleeper breathes out, small and big.
 const SMALL_Z: [&str; 4] = ["####", "..#.", ".#..", "####"];
 const BIG_Z: [&str; 5] = ["#####", "...#.", "..#..", ".#...", "#####"];
 
-/// Asleep: three Zs drifting up off its head by turns, swaying, growing
-/// and cooling as they rise, each in a dark rim so it reads on any floor,
-/// thinning away at the top.
 fn sleep(pen: &mut Pen, b: &Body, tick: u64) {
     let head = b.head();
     for i in 0..3u32 {
@@ -319,8 +292,6 @@ fn sleep(pen: &mut Pen, b: &Body, tick: u64) {
     }
 }
 
-/// Bleeding: two cuts across it, drops running down from them and falling
-/// to a pool spreading under its feet.
 fn bleed(pen: &mut Pen, b: &Body, tick: u64) {
     let r = ramps::BLOOD;
     let cuts = [(-0.2, 0.62, 1.0), (0.18, 0.4, -1.0)];
@@ -331,7 +302,6 @@ fn bleed(pen: &mut Pen, b: &Body, tick: u64) {
             pen.put(x, y, if j == 0 { '7' } else { 'p' });
             pen.put(x, y + 1, '8');
         }
-        // A drop running down from it, then off and falling.
         let (k, _) = looped(i as u32, b.seed, 24.0, tick);
         let fall = ease::inward(k) * (b.feet.1 - at.1);
         let (x, y) = (at.0.round() as i32, (at.1 + 1.0 + fall).round() as i32);
@@ -340,7 +310,6 @@ fn bleed(pen: &mut Pen, b: &Body, tick: u64) {
             pen.put(x, y - 1, 'p');
         }
     }
-    // The pool under it, spreading and still.
     let grow = 0.6 + 0.4 * ((tick as f32 * 0.02 + b.seed as f32).sin() * 0.5 + 0.5);
     let (rx, ry) = (b.w * 0.45 * grow + 2.0, 2.0 * grow + 0.5);
     for dy in -(ry.ceil() as i32)..=(ry.ceil() as i32) {
@@ -355,8 +324,6 @@ fn bleed(pen: &mut Pen, b: &Body, tick: u64) {
     }
 }
 
-/// Hexed: the hex's sigil turning over the frog, motes of it going round,
-/// flickering and breaking as the hex wears out.
 fn hex(pen: &mut Pen, b: &Body, tick: u64) {
     let c = (b.head().0, b.head().1 - 6.0);
     let t = tick as f32;
@@ -368,8 +335,6 @@ fn hex(pen: &mut Pen, b: &Body, tick: u64) {
     }
 }
 
-/// Mired: sunk in a bog to the ankles — mud over the feet, its sheen, bubbles
-/// coming up and popping, and fingers of it reaching up the legs.
 fn mire(pen: &mut Pen, b: &Body, tick: u64) {
     let (rx, ry) = (b.w * 0.6 + 2.0, 3.0);
     let base = (b.feet.0, b.feet.1 - 1.0);

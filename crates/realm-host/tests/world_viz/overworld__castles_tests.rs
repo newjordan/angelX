@@ -53,7 +53,6 @@ fn the_serving_knight_rides_out_of_his_castle_and_home_again() {
     let scene = world.overworld_scene();
     assert_eq!(scene.march.lead, Some(kimi));
     assert_eq!(scene.march.raised, vec![kimi]);
-    // A turn calls him out to the Keep; when it ends he rides home.
     world.note_serving(&serving("kimi", &[], true));
     world.turn_started();
     ride(&mut world, 600);
@@ -128,7 +127,6 @@ fn a_formation_rides_out_together_and_stands_down_home() {
     assert!(world.overworld_scene().march.riders.is_empty());
 }
 
-/// `ANGEL_OVERWORLD_SHOTS=<dir> cargo test write_castle_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_castle_shots() {
@@ -193,8 +191,6 @@ fn write_castle_shots() {
             &super::frame_at(&s, view),
         );
     }
-    // A live ride: Kimi's knight out of his castle to the Keep, then a change
-    // of club with a formation seated.
     let mut world = crate::world_viz::World::new(7);
     world.note_serving(&serving("kimi", &[], false));
     ride(&mut world, 4);

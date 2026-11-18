@@ -7,38 +7,27 @@
 use crate::render::overworld::ink::{Img, hash};
 use crate::render::overworld::material;
 
-/// A family of goods. The sim has a hundred goods; the eye needs about
-/// thirty looks, so each good maps to the nearest ([`Load::of`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Load {
-    /// Rough blocks from a quarry face.
     Stone,
-    /// Small broken stone: the wall's core.
     Rubble,
-    /// Dressed blocks: ashlar, quoins, voussoirs.
     Ashlar,
-    /// Burnt lime, slaked lime.
     Lime,
-    /// Mortar in a tub.
     Mortar,
     Sand,
     Clay,
     Brick,
-    /// Logs, poles, bark.
     Timber,
-    /// Planks, beams, shingles, joists.
     Planks,
     Charcoal,
     Coal,
     Ore,
-    /// Bloom, wrought iron, nails, steel.
     Iron,
     Lead,
     Slate,
     Grain,
     Flour,
     Bread,
-    /// Ale, water-casks, anything in a barrel.
     Ale,
     Hemp,
     Rope,
@@ -47,7 +36,6 @@ pub enum Load {
     Cloth,
     Water,
     Glass,
-    /// Anything else: a crate.
     Crate,
 }
 
@@ -83,8 +71,6 @@ impl Load {
         Load::Crate,
     ];
 
-    /// The look of a good, by the sim's good id (`delve/kingdom/frontier.json`):
-    /// the id's own words first, then the family it belongs to.
     pub fn of(good: &str) -> Load {
         let has = |w: &str| good.contains(w);
         match good {
@@ -152,7 +138,6 @@ impl Load {
         }
     }
 
-    /// How a heap of it is built: a stack of items, or a mound that pours.
     fn style(self) -> Style {
         match self {
             Load::Lime | Load::Sand | Load::Grain | Load::Clay | Load::Charcoal | Load::Coal | Load::Rubble | Load::Mortar | Load::Hemp | Load::Wool | Load::Glass | Load::Ore => Style::Mound,
@@ -160,7 +145,6 @@ impl Load {
         }
     }
 
-    /// The ramp a mound is shaded on, dark to light.
     pub(super) fn ramp(self) -> &'static [char] {
         match self {
             Load::Lime => &['G', 'j', 'h', 'i', 'H'],
@@ -179,7 +163,6 @@ impl Load {
         }
     }
 
-    /// One item of a stack, ink rows, five or six wide.
     fn item(self) -> &'static [&'static str] {
         match self {
             Load::Stone => &[".hhhh.", "hJJJJG", "JJJGGj", ".GGjj."],
@@ -201,7 +184,6 @@ impl Load {
         }
     }
 
-    /// The colour that stands for it on a map or a sign (an ink).
     pub fn ink(self) -> char {
         self.ramp()[3]
     }
@@ -213,16 +195,12 @@ enum Style {
     Mound,
 }
 
-/// A heap of `load` standing on row `foot`, centred on `cx`, about `w`
-/// wide and `h` high (a mound as wide as that; a stack as many items).
 pub fn heap(im: &mut Img, cx: i32, foot: i32, w: i32, h: i32, load: Load, seed: u32) {
     match load.style() {
         Style::Mound => {
-            // A half-ellipse standing on its foot: nothing below the row.
             let keep = |_: i32, y: i32| y < foot;
             let (rx, ry) = (w as f32 / 2.0, h as f32 * 1.15);
             material::lobe(im, (cx as f32, foot as f32 - 1.0), (rx, ry), load.ramp(), seed, 1.4, 0.35, &keep);
-            // A few pieces on it, so a mound of ore is not a mound of dirt.
             sprinkle(im, cx, foot, w, h, load, seed);
         }
         Style::Stack => {
@@ -234,7 +212,6 @@ pub fn heap(im: &mut Img, cx: i32, foot: i32, w: i32, h: i32, load: Load, seed: 
                 let n = cols - r;
                 let left = cx - (n * iw) / 2;
                 for k in 0..n {
-                    // A stack is never quite square: every other block a pixel up.
                     let jitter = i32::from(hash(k, r, seed) % 5 == 0);
                     im.stamp(&item, left + k * iw, foot - ih - r * (ih - 1) - jitter);
                 }
@@ -243,7 +220,6 @@ pub fn heap(im: &mut Img, cx: i32, foot: i32, w: i32, h: i32, load: Load, seed: 
     }
 }
 
-/// The little marks that tell a mound what it is.
 fn sprinkle(im: &mut Img, cx: i32, foot: i32, w: i32, h: i32, load: Load, seed: u32) {
     let marks: &[(char, i32)] = match load {
         Load::Ore => &[('v', 5), ('U', 4)],
@@ -261,7 +237,6 @@ fn sprinkle(im: &mut Img, cx: i32, foot: i32, w: i32, h: i32, load: Load, seed: 
             if v % every == 0 {
                 let x = cx - w / 2 + k;
                 let y = foot - 1 - (v >> 3) % h.max(1);
-                // Only on the mound: where there is ink already.
                 if im.get(x, y).is_some() {
                     im.put(x, y, ch);
                 }
@@ -270,8 +245,6 @@ fn sprinkle(im: &mut Img, cx: i32, foot: i32, w: i32, h: i32, load: Load, seed: 
     }
 }
 
-/// The sign-sized picture of a good: one or two of it, eight pixels square
-/// at most, for a board over a building that has run out of it.
 pub fn icon(load: Load) -> Img {
     let mut im = Img::new(9, 9);
     match load.style() {

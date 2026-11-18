@@ -1,7 +1,6 @@
 use super::*;
 use crate::realm::{Spoil, Spoils};
 
-// Review regressions deliberately exercise runtime effects, not source text.
 fn train_to(r: &mut Run, level: u8) {
     let key = owner_key(&r.players[&1]);
     r.home.squires_lodge.rosters.get_mut(&key).unwrap().members[0].level = level;
@@ -44,7 +43,6 @@ fn review_detached_owner_reserves_one_body_across_personal_exit_and_reentry() {
     let s = r.players.get_mut(&1).unwrap().squire.as_mut().unwrap();
     s.body.hp = 29;
     s.body.cooldown = 43;
-    // Use the real optional-activity exit and re-entry, not a new body.
     r.dungeon.rooms[r.at].kind = RoomKind::Ledge;
     assert!(r.leave_activity(1));
     assert!(r.exits.outside.contains_key(&1));
@@ -223,7 +221,6 @@ fn review_support_healing_uses_stakes_scaling_budget_and_accounting() {
                     "{kind:?} {stakes:?} count={count}"
                 );
                 HEALED.with(|h| assert_eq!(h.borrow()[Mend::Passive as usize], after - before));
-                // All supports share the recipient's existing per-second budget.
                 for h in r.players.values_mut() {
                     h.passive = 1000;
                     h.squire.as_mut().unwrap().support = 0;
@@ -280,7 +277,7 @@ fn review_wounded_patient_cannot_starve_trained_skull_escort() {
         h.hp = 0;
         h.fell = 1;
         h.skull_at = Some((20.0, 12.0));
-        foe(&mut r, 18.0, 12.0); // even retreat pressure cannot override the errand
+        foe(&mut r, 18.0, 12.0);
         for _ in 0..180 {
             let h = r.players.get_mut(&1).unwrap();
             h.hp = 30;
@@ -325,7 +322,7 @@ fn review_interception_orders_nearest_hero_and_companion_and_ignores_inactive_bo
             2 => h.absent = true,
             3 => h.away = true,
             4 => s.owner = "stale identity".into(),
-            _ => (s.body.x, s.body.y) = (22.0, 12.0), // hero is first
+            _ => (s.body.x, s.body.y) = (22.0, 12.0),
         }
         let h = r.players.get_mut(&2).unwrap();
         (h.x, h.y) = (18.0, 12.0);
@@ -344,8 +341,6 @@ fn review_interception_orders_nearest_hero_and_companion_and_ignores_inactive_bo
             traits: Default::default(),
             ttl: HZ,
         });
-        // Direct authoritative flight avoids room recovery/rename sync changing
-        // the deliberately inactive body before the interception test.
         let mut sortie = r.knights_turn(&BTreeMap::new());
         r.shots_fly(&mut sortie);
         assert!(
@@ -665,7 +660,6 @@ fn six_squires_coexist_with_global_hireling_and_minions_without_scaling() {
             .collect::<Vec<_>>(),
         ['7', '1', 'A', '4', '2', 'c']
     );
-    // Duplicate names cannot create two instances of the same companion.
     r.players.get_mut(&2).unwrap().name = r.players[&1].name.clone();
     r.sync_squires();
     assert!(r.players[&2].squire.is_none());
@@ -730,7 +724,6 @@ fn ninja_flanks_backstabs_throws_stars_and_vanishes() {
     let mut r = fight(Kind::Ninja);
     train_to(&mut r, 3);
     let i = foe(&mut r, 16.0, 12.0);
-    // Owner west, ninja east: a true flanking backstab.
     {
         let s = r.players.get_mut(&1).unwrap().squire.as_mut().unwrap();
         s.body.x = 18.0;

@@ -32,8 +32,6 @@ fn hall(run: &mut Run) -> &mut crate::rules::pastimes::Gander {
     run.pastimes.round.as_mut().unwrap().gander.as_mut().unwrap()
 }
 
-/// The verb: a flap kicks the goose up and gravity pulls it back; steering
-/// walks it along a ledge. No formula, just the five numbers.
 #[test]
 fn a_flap_climbs_and_gravity_falls_back() {
     let mut run = joust_hall(1);
@@ -54,8 +52,6 @@ fn a_flap_climbs_and_gravity_falls_back() {
     assert!(run.valid_snapshot());
 }
 
-/// The tar's hand: it rises for a low rider, takes them, and the hand
-/// sinks; the rider is back on the middle ledge in well under a second.
 #[test]
 fn the_tar_hand_takes_a_low_rider() {
     let mut run = joust_hall(1);
@@ -68,22 +64,18 @@ fn the_tar_hand_takes_a_low_rider() {
     run.tick_pastimes(&BTreeMap::new());
     let g = hall(&mut run);
     assert!(g.hand.is_some(), "the hand rose (frame 1 of 4)");
-    // The rise takes four frames, then the hand closes.
     for _ in 0..4 {
         run.tick_pastimes(&BTreeMap::new());
     }
     let g = hall(&mut run);
     assert!(g.riders[0].y < TAR_ROW * 256, "lifted out of the tar");
     assert!(run.valid_snapshot());
-    // The hand sinks again once the rider is clear of it.
     for _ in 0..12 {
         run.tick_pastimes(&BTreeMap::new());
     }
     assert!(hall(&mut run).hand.is_none(), "the hand sank");
 }
 
-/// THE SHARED HALL: every knight in the heat rides the same hall, at the
-/// same time — one hall on the round, not one copy per knight.
 #[test]
 fn one_hall_for_the_whole_heat() {
     let mut run = joust_hall(2);
@@ -91,8 +83,6 @@ fn one_hall_for_the_whole_heat() {
     run.step(&BTreeMap::new());
     let heat = run.pastimes.heat.clone().expect("a heat begins");
     assert_eq!(heat.seats, vec![1, 2]);
-    // Seat two's round is a marker: the hall itself lives once, on the
-    // round, and both seats' views carry that same hall.
     assert!(run.pastimes.heats.contains_key(&2));
     let riders = hall(&mut run).riders.len();
     assert_eq!(riders, 5, "two knights plus the three rival waves");
@@ -105,15 +95,11 @@ fn one_hall_for_the_whole_heat() {
     assert!(run.valid_snapshot());
 }
 
-/// The clack between two knights: a lance coming down on a friend unhorses
-/// that friend and scores. This is the point of Joust.
 #[test]
 fn a_lance_coming_down_on_a_friend_unhorses_that_friend() {
     let mut run = joust_hall(2);
     put(&mut run, 1, Game::Gander.start());
     run.step(&BTreeMap::new());
-    // Park seat one above seat two — the rivals are parked far away so the
-    // pass is only between the two knights.
     {
         let g = hall(&mut run);
         g.riders[0].x = 8 * 256;
@@ -144,14 +130,11 @@ fn a_lance_coming_down_on_a_friend_unhorses_that_friend() {
     assert!(run.valid_snapshot());
 }
 
-/// The egg: an unhorsed rider drops one that rolls on the ledge; touch it
-/// in time for a bonus point, leave it and it hatches into a rival.
 #[test]
 fn an_egg_left_on_the_ledge_hatches_into_a_rival() {
     let mut run = joust_hall(1);
     put(&mut run, 1, Game::Gander.start());
     run.step(&BTreeMap::new());
-    // Drop an egg on the west ledge, far from every rider.
     {
         let g = hall(&mut run);
         g.eggs.clear();
@@ -167,14 +150,11 @@ fn an_egg_left_on_the_ledge_hatches_into_a_rival() {
             g.riders[i].down = 30 * crate::rules::HZ;
         }
     }
-    // It rolls, untouched, until its time is up: then it hatches — a rival
-    // rider is up and riding where the egg lay.
     let mut hatched = false;
     for _ in 0..(GANDER_HATCH + 30) {
         run.tick_pastimes(&BTreeMap::new());
         let g = hall(&mut run);
         if g.eggs.is_empty() && g.riders[1 + 0].down == 0 && g.riders[1].lane == LEDGES[0].2 * 256 {
-            // The first rival slot is up again, riding the egg's ledge.
             hatched = true;
             break;
         }
@@ -183,7 +163,6 @@ fn an_egg_left_on_the_ledge_hatches_into_a_rival() {
     assert!(run.valid_snapshot());
 }
 
-/// The egg bonus: touching it in time is worth a clack.
 #[test]
 fn touching_an_egg_in_time_pays_a_bonus() {
     let mut run = joust_hall(1);
@@ -213,18 +192,11 @@ fn touching_an_egg_in_time_pays_a_bonus() {
     assert!(run.valid_snapshot());
 }
 
-/// The heat still crowns the most unhorsings in 75 seconds, and pays the
-/// winner; the lone knight has the rival waves.
 #[test]
 fn the_clock_crowns_the_most_unhorsings() {
     let mut run = joust_hall(2);
     put(&mut run, 1, Game::Gander.start());
     run.step(&BTreeMap::new());
-    // Seat one racks up three clacks on friends and rivals alike; the
-    // rivals are parked under the lance, both knights in play. A clack
-    // pays one, and the egg it drops can pay one more — so count >= 3.
-    // The unhorsed need their stun and respawn to clear between passes, so
-    // park the next victim under the lance until three clacks have landed.
     for _ in 0..60 {
         if hall(&mut run).tally[0] >= 3 {
             break;
@@ -242,13 +214,11 @@ fn the_clock_crowns_the_most_unhorsings() {
             g.riders[v].dy = 0;
             g.riders[v].stun = 0;
             g.riders[v].clash = 0;
-            // Clear any egg the last clack dropped, so each pass pays one.
             g.eggs.clear();
         }
         run.tick_pastimes(&BTreeMap::new());
     }
     assert!(hall(&mut run).tally[0] >= 3, "three clacks (plus any eggs)");
-    // Let the clock run out: the podium crowns seat one.
     for _ in 0..(Game::Gander.time() + 10) {
         run.tick_pastimes(&BTreeMap::new());
     }
@@ -260,8 +230,6 @@ fn the_clock_crowns_the_most_unhorsings() {
     assert!(run.valid_snapshot());
 }
 
-/// The five numbers hold — with the hatch time replacing the respawn wait
-/// as number four (the round-two trade the brief asked for).
 #[test]
 fn the_five_numbers_hold() {
     assert_eq!(GANDER_FLAP_KICK, 52);
@@ -271,9 +239,6 @@ fn the_five_numbers_hold() {
     assert_eq!(Game::Gander.time(), 75 * HZ);
 }
 
-/// Offline plates: the start, two knights mid-heat with a clack, an egg,
-/// the tar's hand, and the podium.
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve write_gander_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_gander_shots() {
@@ -296,11 +261,9 @@ fn write_gander_shots() {
             .unwrap();
     };
     let mut run = joust_hall(2);
-    // Start: the start mark in the joust hall, board up.
     save(&run, 1, "gander2-01-start.png");
     put(&mut run, 1, Game::Gander.start());
     run.step(&BTreeMap::new());
-    // Mid-heat: two knights in the shared hall, one clacking the other.
     for _ in 0..30 {
         run.step(&fire(1));
         run.step(&fire(2));
@@ -321,7 +284,6 @@ fn write_gander_shots() {
     run.step(&BTreeMap::new());
     save(&run, 1, "gander2-02-clack.png");
     save(&run, 2, "gander2-02-clack-seat2.png");
-    // An egg on the ledge and the tar's hand mid-rise.
     {
         let g = hall(&mut run);
         g.eggs.clear();
@@ -335,12 +297,10 @@ fn write_gander_shots() {
         g.riders[0].y = TAR_ROW * 256 - 10;
         g.riders[0].dy = 0;
     }
-    // Let the hand rise to its spread-finger frame before the capture.
     for _ in 0..2 {
         run.step(&BTreeMap::new());
     }
     save(&run, 1, "gander2-03-egg-hand.png");
-    // Podium: the clock runs out, the crown and the booby prize.
     for _ in 0..(Game::Gander.time() + 10) {
         run.step(&BTreeMap::new());
     }

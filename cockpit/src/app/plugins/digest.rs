@@ -33,13 +33,10 @@ impl Kind {
     }
 }
 
-/// One file of a plugin tree.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Entry {
-    /// Relative, `/`-separated.
     pub(crate) path: String,
     pub(crate) kind: Kind,
-    /// The file's bytes, or a symlink's target.
     pub(crate) bytes: Vec<u8>,
 }
 
@@ -51,7 +48,6 @@ pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     hex(ring::digest::digest(&SHA256, bytes).as_ref())
 }
 
-/// The digest of `entries`, in any order.
 pub(crate) fn digest(entries: &[Entry]) -> String {
     let mut sorted: Vec<&Entry> = entries.iter().collect();
     sorted.sort_by(|left, right| left.path.as_bytes().cmp(right.path.as_bytes()));
@@ -72,15 +68,12 @@ pub(crate) fn digest(entries: &[Entry]) -> String {
     hex(context.finish().as_ref())
 }
 
-/// Every file under `dir`, as the digest reads it. A `.git` folder and the
-/// install receipt are not part of a plugin.
 pub(crate) fn read_folder(dir: &Path) -> Result<Vec<Entry>, String> {
     let mut entries = Vec::new();
     walk(dir, "", &mut entries)?;
     Ok(entries)
 }
 
-/// The digest of the files under `dir`.
 pub(crate) fn digest_folder(dir: &Path) -> Result<String, String> {
     Ok(digest(&read_folder(dir)?))
 }
@@ -137,7 +130,6 @@ fn walk(dir: &Path, prefix: &str, entries: &mut Vec<Entry>) -> Result<(), String
     Ok(())
 }
 
-/// Git's rule: a file is executable when its owner may run it.
 #[cfg(unix)]
 fn executable(meta: &std::fs::Metadata) -> bool {
     use std::os::unix::fs::PermissionsExt;
@@ -149,7 +141,6 @@ fn executable(_meta: &std::fs::Metadata) -> bool {
     false
 }
 
-/// Write `entries` under `dir`, which must not exist yet.
 pub(crate) fn write_folder(dir: &Path, entries: &[Entry]) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     for entry in entries {
@@ -196,8 +187,6 @@ pub(crate) fn write_folder(dir: &Path, entries: &[Entry]) -> Result<(), String> 
     Ok(())
 }
 
-/// A relative path of plain names: no `..`, no `.`, nothing absolute, and no
-/// `.git` (the place git keeps its own files).
 pub(crate) fn safe_path(path: &str) -> bool {
     !path.is_empty()
         && !path.starts_with('/')

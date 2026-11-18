@@ -9,8 +9,6 @@ fn seat() -> (i32, i32) {
     (NATIVE_W, NATIVE_H + party::BAND_H + party::HUD_H)
 }
 
-/// `n` knights in the first fight of the floor, knights 2 to `n` up on
-/// knight 1's shoulders, the monsters held a moment so the tower is seen.
 fn tower(seed: u64, n: u32) -> Run {
     let mut run = Run::new(seed, 1, None);
     for id in 2..=n {
@@ -26,7 +24,6 @@ fn tower(seed: u64, n: u32) -> Run {
     for hero in run.players.values_mut() {
         (hero.idle, hero.stone) = (false, false);
     }
-    // The rest stand back in a row, and come up to the tower one by one.
     let (x, y) = (run.players[&1].x, run.players[&1].y);
     for id in 2..=n {
         let hero = run.players.get_mut(&id).unwrap();
@@ -42,8 +39,6 @@ fn tower(seed: u64, n: u32) -> Run {
     run
 }
 
-/// The tower's keys on tick `t`: the carrier walks a slow square, the
-/// riders aim at the nearest monster and shoot.
 fn keys(run: &Run, t: u32) -> BTreeMap<u32, Input> {
     let carrier = &run.players[&1];
     let near = run.enemies.iter().filter(|e| e.hp > 0).min_by(|a, b| {
@@ -79,9 +74,6 @@ fn save(dir: &std::path::Path, name: &str, run: &Run) {
         .unwrap();
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_shoulder_shots -- --ignored`:
-/// frames of a two-high and a six-high tower walking and shooting, and a
-/// throw off the top, every other tick for a frame sequence.
 #[test]
 #[ignore]
 fn write_shoulder_shots() {
@@ -103,8 +95,6 @@ fn write_shoulder_shots() {
             }
         }
     }
-    // The throw: the whole party up, the carrier turns and throws the top
-    // knight across the room into the monsters.
     let mut run = tower(23, 6);
     let carrier = &run.players[&1];
     let near = run.enemies.iter().filter(|e| e.hp > 0).max_by(|a, b| {
@@ -127,10 +117,6 @@ fn write_shoulder_shots() {
     }
 }
 
-/// `ANGEL_SHOULDER_SNAP=<file> cargo test write_shoulder_snapshot -- --ignored`:
-/// a dev host's starting run (`delve-dev-host --snapshot`) for the browser
-/// proof: six knights in the first fight, knights 2 to 6 in a ring close
-/// round knight 1, so each seat can climb on with C alone.
 #[test]
 #[ignore]
 fn write_shoulder_snapshot() {
@@ -149,8 +135,6 @@ fn write_shoulder_snapshot() {
         .expect("a fight on floor one");
     run.enter_for_test(index);
     let (x, y) = (run.room().width() * 0.3, run.room().height() * 0.62);
-    // Clear floor round the party, and a handful of monsters across the
-    // room to shoot at.
     let at = run.at;
     let (c0, r0) = ((x / crate::rules::TILE_UNITS) as i32, (y / crate::rules::TILE_UNITS) as i32);
     for r in r0 - 3..=r0 + 3 {
@@ -165,7 +149,6 @@ fn write_shoulder_snapshot() {
     let (w, h) = (run.room().width(), run.room().height());
     for (i, e) in run.enemies.iter_mut().enumerate() {
         (e.x, e.y) = (w * 0.78, h * (0.25 + 0.1 * i as f32));
-        // Held still and hardy: targets for the proof, not a threat.
         (e.hp, e.max_hp, e.frozen) = (4000, 4000, 150 * crate::rules::HZ);
     }
     run.waves = Default::default();

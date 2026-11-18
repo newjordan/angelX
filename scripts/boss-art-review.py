@@ -54,7 +54,6 @@ for name in names:
             page+=f'<section><p>{name.upper()} / EFFECT STAGE {age} / V{kit} / ACTUAL CELLS</p>'+cells(a.output/'terminal'/(stem+'-cells.json'))+'</section>'
     room.save(a.output/(name+'-effects-room-1x.png'))
     (a.output/(name+'-effects-terminal.html')).write_text(page+'</main>')
-# Exact native rows and every authored animation frame, without smoothing.
 import runpy
 root=Path(__file__).resolve().parents[1]
 workflow=runpy.run_path(str(root/'scripts/boss-art.py'))
@@ -83,7 +82,6 @@ for i,entry in enumerate(entries):
             fd.text((20+j*220,20+row*110),role+f' {j}',fill=(194,180,148))
     fx.save(a.output/(name+'-vfx-review.png'))
 sheet.save(a.output/'native-review.png')
-# Busy-room gate also covers both old-body captures, whose effect banks differ.
 for name in names:
     sheet=Image.new('RGB',(1192,1930),(8,11,14));d=ImageDraw.Draw(sheet)
     for row,(label,source,variant) in enumerate([

@@ -131,7 +131,15 @@ function currentInstallIdentity(layout) {
 
 export function recoverInterruptedInstall(sandboxRoot, prefix = join(sandboxRoot, 'prefix')) {
   const layout = prefixLayout(sandboxRoot, prefix)
-  if (!existsSync(layout.journal)) return { recovered: false }
+  if (!existsSync(layout.journal)) {
+    const info = lstatSync(layout.rollbackDirectory, { throwIfNoEntry: false })
+    if (info) {
+      if (!info.isDirectory() || info.isSymbolicLink()) fail('rollback staging must be a non-symlink directory')
+      if (!currentInstallIdentity(layout)) fail('cannot clean rollback staging without a valid installed pair')
+      rmSync(layout.rollbackDirectory, { recursive: true })
+    }
+    return { recovered: false }
+  }
   const journal = readJson(layout.journal, 'install journal')
   if (
     journal.schema !== INSTALL_JOURNAL_SCHEMA ||
@@ -150,8 +158,15 @@ export function recoverInterruptedInstall(sandboxRoot, prefix = join(sandboxRoot
   }
   const rollbackMetadata = readJson(layout.rollbackMetadata, 'rollback metadata')
   validateInstallCandidate(layout.rollbackBinary, rollbackMetadata)
-  renameSync(layout.rollbackBinary, layout.binary)
-  renameSync(layout.rollbackMetadata, layout.metadata)
+  copyExecutable(layout.rollbackBinary, layout.binary)
+  const temporaryMetadata = `${layout.metadata}.tmp-${process.pid}`
+  copyFileSync(layout.rollbackMetadata, temporaryMetadata)
+  renameSync(temporaryMetadata, layout.metadata)
+  const restored = currentInstallIdentity(layout)
+  if (restored.binary_sha256 !== journal.previous.binary_sha256 ||
+      restored.metadata_sha256 !== journal.previous.metadata_sha256) {
+    fail('restored installation differs from the install journal')
+  }
   rmSync(layout.journal)
   rmSync(layout.rollbackDirectory, { recursive: true })
   return { recovered: true, restored_binary_sha256: sha256File(layout.binary) }

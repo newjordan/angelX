@@ -28,11 +28,9 @@ pub use angel_delve::realm::Haul;
 
 pub const MAX_WORDS: usize = 160;
 pub const MAX_NAME: usize = 28;
-/// Wish art is at most this many ink pixels on a side (two overworld tiles).
 pub const ART: usize = 32;
 pub const MAX_BYTES: usize = 8192;
 
-/// The island's play economy.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Realm {
     #[serde(default)]
@@ -40,33 +38,24 @@ pub struct Realm {
     #[serde(default)]
     pub vote_hints: std::collections::BTreeSet<String>,
     pub treasury: Spoils,
-    /// Everything each player ever banked, by name.
     #[serde(default)]
     pub brought: BTreeMap<String, Spoils>,
     #[serde(default)]
     pub wishes: Vec<Wish>,
-    /// Floors cleared per delve pack name — the wild places reclaimed.
     #[serde(default)]
     pub reclaimed: BTreeMap<String, u32>,
     #[serde(default)]
     pub raids_won: u32,
-    /// Delves that reached the bottom of the Unknown and found the Grail.
     #[serde(default)]
     pub grails: u32,
-    /// The Undercroft as the party has built it out.
     #[serde(default)]
     pub home: crate::together_shooter::home::Home,
-    /// Last legacy lodge payment batch, retained for checkpoint migration.
     #[serde(default)]
     pub squires_paid_batch: u64,
-    /// Host-local practice game; malformed practice data must never discard the
-    /// surrounding realm's treasury, home or progression during load/save.
     #[serde(default, deserialize_with = "crate::chivalry::deserialize_saved")]
     pub chivalry: crate::chivalry::Chivalry,
     #[serde(skip)]
     path: Option<PathBuf>,
-    /// Receipt and balance publish in one file transaction. Old game command
-    /// IDs are never evicted while their session can still be restored.
     #[serde(default)]
     settlements: BTreeMap<String, settlement::Cursor>,
     #[serde(skip)]
@@ -74,7 +63,6 @@ pub struct Realm {
 }
 
 impl Realm {
-    /// The realm beside a world rewards file (`<key>.json` → `<key>.realm.json`).
     pub fn beside(rewards: Option<&Path>) -> Realm {
         let path = rewards.map(|p| p.with_extension("realm.json"));
         let bytes = path
@@ -84,8 +72,6 @@ impl Realm {
             .and_then(|bytes| serde_json::from_slice::<Realm>(bytes).ok())
             .unwrap_or_default();
         *realm.stamp.get_mut() = bytes.as_deref().map(angel_live::host::sha256_hex);
-        // The old practice game's mount and tending move into the realm's
-        // stable, once.
         if realm.home.stable == Default::default() && realm.chivalry != Default::default() {
             realm.home.stable.selected = realm.chivalry.selected;
             realm.home.stable.tended = realm.chivalry.tended;
@@ -108,7 +94,6 @@ impl Realm {
         settlement::save(self).map_err(std::io::Error::other)
     }
 
-    /// Put a knight's haul in the treasury under their name.
     pub fn bank(&mut self, name: &str, spoils: &Spoils) {
         self.treasury.merge(spoils);
         self.brought
@@ -117,7 +102,6 @@ impl Realm {
             .merge(spoils);
     }
 
-    /// Plain words become an asked wish. Returns its id.
     pub fn ask(&mut self, by: &str, words: &str) -> Result<String, String> {
         let words: String = words
             .chars()
@@ -156,7 +140,6 @@ impl Realm {
         Ok(unique)
     }
 
-    /// A checked draft fills in its wish (or a catalog wish adds itself).
     pub fn draft(&mut self, draft: Draft) -> Result<(), String> {
         let full = self.wishes.len() >= MAX_WISHES;
         match self.wishes.iter_mut().find(|w| w.id == draft.id) {
@@ -194,15 +177,12 @@ impl Realm {
         }
     }
 
-    /// Offer the catalog's wishes the island does not have yet.
     pub fn offer_catalog(&mut self) {
         let earned: &[(&str, &str)] = if self.raids_won > 0 {
             catalog::AFTER_VICTORY
         } else {
             &[]
         };
-        // The plans a surveyor raises are no longer waiting here, unpaid. One
-        // already raised this way stays standing.
         self.wishes.retain(|w| {
             w.status == Status::Built || crate::together_shooter::raisings::plan(&w.id).is_none()
         });
@@ -217,7 +197,6 @@ impl Realm {
         }
     }
 
-    /// Pay for a drafted wish from the treasury and raise it.
     pub fn grant(&mut self, id: &str) -> Result<String, String> {
         let raised = self
             .wishes
@@ -246,7 +225,6 @@ impl Realm {
             ));
         }
         self.treasury.take(&wish.price);
-        // Credit the price to whoever brought those spoils, in proportion.
         let mut paid = Vec::new();
         for (name, brought) in &self.brought {
             let mut share = Spoils::default();
@@ -266,7 +244,6 @@ impl Realm {
         Ok(format!("{} rises in the realm", wish.name))
     }
 
-    /// Wishes standing in the realm, for the overworld.
     pub fn built(&self) -> Vec<Wish> {
         let mut built: Vec<Wish> = self
             .wishes
@@ -275,29 +252,23 @@ impl Realm {
             .cloned()
             .collect();
         built.sort_by_key(|w| w.raised);
-        // What the knights raised stands too, each on the lot they chose: the
-        // ground holds no more than `MAX_WISHES` of both.
         let raised = crate::together_shooter::raisings::standing(&self.home.raised);
         built.truncate(angel_delve::realm::MAX_WISHES.saturating_sub(raised.len()));
         built.extend(raised);
         built
     }
 
-    /// The overworld reads built wishes from here, without file access.
     fn publish(&self) {
         crate::realm_standing::publish(std::sync::Arc::new(self.built()));
     }
 }
 
-/// The wishes standing in the realm, as last loaded or saved (the slot lives
-/// in the realm host, whose overworld reads it).
 pub use crate::realm_standing::standing_wishes;
 
 fn slug(text: &str) -> String {
     crate::together_shooter::cards::slug(text)
 }
 
-/// A checked `.wish` draft.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Draft {
     pub id: String,
@@ -309,7 +280,6 @@ pub struct Draft {
     pub near: String,
 }
 
-/// Places a wish may stand near (the overworld's `Place` names).
 pub const NEAR: &[&str] = &[
     "keep",
     "gatehouse",
@@ -328,7 +298,6 @@ pub const NEAR: &[&str] = &[
     "village",
 ];
 
-/// Check a `.wish` file. `id` is the asked wish it drafts (its file name).
 pub fn check(id: &str, raw: &str) -> Result<(Draft, Vec<String>), Vec<String>> {
     let mut errors = Vec::new();
     let mut notes = Vec::new();
@@ -409,7 +378,6 @@ pub fn check(id: &str, raw: &str) -> Result<(Draft, Vec<String>), Vec<String>> {
     if !art.is_empty() && inked == 0 {
         errors.push("art has no inked pixel".into());
     }
-    // A bigger landmark costs more: two gold of worth per inked pixel at least.
     let floor = inked * 2;
     if errors.is_empty() && price.worth() < floor {
         let add = floor - price.worth();
@@ -436,7 +404,6 @@ pub fn check(id: &str, raw: &str) -> Result<(Draft, Vec<String>), Vec<String>> {
     ))
 }
 
-/// What angelX gets asked when the host grants an asked wish.
 pub fn brief(wish: &Wish, path: &Path, treasury: &Spoils) -> String {
     format!(
         "Draft a wish for our angelX realm as a data file. Write ONLY the file {path} (and its sprite sheet, if you paint one) — no code changes.\n\n\

@@ -1,8 +1,3 @@
-// Thin adapter for the 3D races' Bend leg. The tick takes the race the way the
-// saves and the wire hold it (names for enums, a map of riders, a u64 of rings,
-// a null for "not home yet") and answers in the same shape. Every
-// representation trick lives here: enum indices, the rings' two halves, f32
-// rounding, the Bend lists. The rules are in race3d-rules.bend.
 const rules = require('./race3d-rules.compiled')
 
 const nil = { $: 'Nil' }
@@ -17,12 +12,10 @@ const f = value => Math.fround(Number.isFinite(value) ? value : 0)
 const u = value => (Number.isFinite(value) ? Math.trunc(value) >>> 0 : 0)
 const b = value => value === true
 
-// The enums, in the order the Bend codes them.
 const COURSES = ['Shaft', 'Cart', 'Griffin', 'Touge']
 const WRECKS = ['None', 'Fall', 'Bonk', 'Buffer', 'Gap', 'Timber', 'Tumble', 'SpinOut']
 const GROUNDS = ['Floor', 'Bridge', 'Crossing', 'Lodestone', 'Sluice', 'Collapse', 'Sorter', 'Rails', 'Trestle', 'Gorge']
 const KINDS = ['Gem', 'Ring', 'Gargoyle', 'Timber']
-// The room's sounds by the Bend's codes.
 const SOUNDS = { 0: 'roll', 1: 'clang', 2: 'gold', 3: 'knight_fall', 4: 'helmet_pop', 5: 'rock_land', 6: 'wheel_land', 7: 'wheel_spin', 8: 'swing', 9: 'shot_bolt', 10: 'hit_arrow', 11: 'step_wet', 12: 'circle_toll', 14: 'play_card' }
 const code = (names, name) => {
   const index = names.indexOf(name)
@@ -30,7 +23,6 @@ const code = (names, name) => {
   return index
 }
 
-// A u64 crosses as a number, and the Bend holds it as two u32 halves.
 const HALF = 4294967296
 
 const drift = value => ({
@@ -113,8 +105,6 @@ const track = value => ({
   gaps: cons(value.gaps.map(gap)),
 })
 
-// One rider's seat for the tick: the keys it holds (none, when the host sent
-// none), whether it stands, and the sine the sluice reads at its position.
 const one = (id, ask) => {
   const held = ask.inputs[id] || {}
   return {
@@ -133,8 +123,6 @@ const one = (id, ask) => {
   }
 }
 
-// The planks are a map of plank to the tick it began to go; the Bend holds
-// them as a flat list of pairs.
 const flat = planks => cons(Object.entries(planks).flatMap(([plank, when]) => [u(Number(plank)), u(when)]))
 const unflat = list => {
   const out = {}
@@ -160,8 +148,6 @@ const tickIn = ask => {
   }
 }
 
-// A rider back as the saves hold it: what the Bend carries as indices, halves
-// and zeros goes back to names, a u64 and null.
 const riderOut = ({ $, id, drift: { $: _, stage, ...drift }, wreck, rings_hi, rings_lo, fin, ...rest }) => ({
   ...rest,
   drift: { ...drift, boost_stage: stage },

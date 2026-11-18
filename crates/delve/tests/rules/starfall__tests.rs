@@ -5,8 +5,6 @@
 use super::*;
 use crate::rules::phrasebook;
 
-/// A run whose party stands in a plain fight room it has cleared, with
-/// the floor's quiet moments brought up to `moments`.
 fn quiet(seed: u64, knights: u32, moments: usize) -> Run {
     let mut run = Run::new(seed, 1, None);
     for id in 2..=knights {
@@ -42,7 +40,6 @@ fn steps(run: &mut Run, n: u64) {
     }
 }
 
-/// Until the floor's first star falls, at most `limit` ticks.
 fn until_star(run: &mut Run, limit: u64) -> bool {
     for _ in 0..limit {
         run.step(&BTreeMap::new());
@@ -71,7 +68,6 @@ fn a_floors_stars_come_once_or_twice_never_at_its_first_room() {
 fn a_star_crosses_a_still_room_at_the_floors_moment_and_every_knight_catches_its_wish() {
     let mut run = quiet(7, 3, 0);
     let (_, at) = run.star_plan();
-    // Short of the floor's moment, nothing comes, and nothing is written.
     let mut early = quiet(7, 3, at[0] - 1);
     steps(&mut early, QUIET * 3);
     assert!(early.starfall.star.is_none() && Starfall::omit(&early.starfall), "short of its moment");
@@ -99,7 +95,6 @@ fn no_star_comes_while_anything_fights_or_a_boss_is_awake() {
             assert!(run.starfall.due.is_none() && run.starfall.star.is_none(), "not in a fight");
         }
     }
-    // In the floor boss's own room, cleared, there is no star either.
     let mut boss = Run::new(4, 1, Some("Matt"));
     boss.boss_gates = None;
     let room = boss.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Stairs).unwrap();
@@ -144,7 +139,6 @@ fn a_star_wish_is_free_and_lands_one_step_up_before_a_super_wish() {
     assert!(!hero.star_wish, "spent");
     assert_eq!((hero.wishes, hero.great_wishes), (0, 1), "and nothing of the knight's own");
     assert!(run.starfall.granted.iter().any(|g| g.knight == 1), "its moment is drawn");
-    // The super wish is the knight's next.
     run.offer_wish(1, &volley.name, Some(&volley)).unwrap();
     assert!(run.players[&1].offer.as_ref().is_some_and(|o| o.great && !o.star));
 }
@@ -186,7 +180,6 @@ fn the_fallen_star_is_the_first_toucher_s_wish_and_otherwise_fades() {
     let mut run = quiet(7, 2, 0);
     run.star_falls_for_test();
     let land = run.starfall.star.as_ref().unwrap().land;
-    // It lands on open floor, a walk from the party.
     let grid = Grid { room: run.room(), barred: false };
     assert_eq!(grid.tile_at(land.0, land.1), Tile::Floor);
     for h in run.players.values() {
@@ -203,7 +196,6 @@ fn the_fallen_star_is_the_first_toucher_s_wish_and_otherwise_fades() {
     steps(&mut run, 1);
     assert!(matches!(run.starfall.star.as_ref().unwrap().fall, Fall::Taken { knight: 2, .. }), "the star is theirs");
     assert_eq!(run.players[&2].wishes, before + 1);
-    // Nobody's: it fades.
     let mut left = quiet(7, 1, 0);
     left.star_falls_for_test();
     let land = left.starfall.star.as_ref().unwrap().land;
@@ -249,7 +241,6 @@ fn a_star_survives_the_save_and_an_empty_sky_writes_nothing() {
 fn a_star_crosses_an_open_floors_map_once_its_chambers_have_been_cleared() {
     let mut run = Run::new(9, 1, None);
     run.open_floor_for_test(2);
-    // The companies sleep far off; the party's chambers are still.
     run.enemies.clear();
     let (_, at) = run.star_plan();
     if let Some(o) = run.dungeon.open.as_mut() {
@@ -268,9 +259,6 @@ fn a_star_crosses_an_open_floors_map_once_its_chambers_have_been_cleared() {
     assert_eq!(grid.tile_at(land.0, land.1), Tile::Floor);
 }
 
-/// How often stars come on real floors: `cargo test star_frequency --
-/// --ignored --nocapture`. For each floor, the rooms a party could clear
-/// against the floor's plan: the stars it would see if it cleared them all.
 #[test]
 #[ignore]
 fn star_frequency() {

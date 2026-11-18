@@ -11,11 +11,8 @@ use crate::motion::{self, ease};
 use crate::rules::cinder_show::Cells;
 use std::f32::consts::{FRAC_PI_2, PI};
 
-/// The kiln spirit's middle, where its cracks break out.
 pub(super) const KILN: (f32, f32) = (311.0, 112.0);
-/// Where the pots that popped are fed to him.
 pub(super) const EAT: (f32, f32) = (288.0, 98.0);
-/// Where the meter takes a spark in.
 pub(super) const METER_AT: (f32, f32) = (311.0, 62.0);
 
 fn ramp_of(colour: usize) -> Ramp {
@@ -27,7 +24,6 @@ fn ramp_of(colour: usize) -> Ramp {
     }
 }
 
-/// The middle of the cells popped.
 pub(super) fn centroid(by: &[Cells; 4]) -> (f32, f32) {
     let (mut sx, mut sy, mut n) = (0.0, 0.0, 0.0);
     for cells in by {
@@ -41,9 +37,6 @@ pub(super) fn centroid(by: &[Cells; 4]) -> (f32, f32) {
     if n == 0.0 { (0.0, 0.0) } else { (sx / n, sy / n) }
 }
 
-/// Pots popping: a warm flash where each stood, shards of each in its own colour thrown up and out,
-/// chips that fall, hot sparks, a ring that grows with the chain and rays when it is one. `age` ticks
-/// since they popped.
 pub(super) fn pop(world: &mut Img, by: &[Cells; 4], chain: u8, gain: u8, age: u32, seed: u32, tick: u64) {
     let mut pen = Pen::new(world, 1200);
     let c = centroid(by);
@@ -51,7 +44,6 @@ pub(super) fn pop(world: &mut Img, by: &[Cells; 4], chain: u8, gain: u8, age: u3
     let big = chain >= 2 || gain >= 6;
     for (colour, cells) in by.iter().enumerate() {
         for (x, y) in cells.each() {
-            // Twelve cells' worth of shards is plenty; a big pop throws harder instead.
             if shown >= 12 {
                 break;
             }
@@ -84,7 +76,6 @@ pub(super) fn pop(world: &mut Img, by: &[Cells; 4], chain: u8, gain: u8, age: u3
                 let stars = Spray::round(sd ^ 0x33, 1, at, (0.4, 1.4), (10.0, 18.0));
                 stars.each(age as f32, |m| pfx::mote(&mut pen, &m, Shape::Star, ramps::GOLD, 1, tick));
             }
-            // A dithered flash of warm light around each cell for the first ticks.
             if age < 4 {
                 let k = 0.62 * (1.0 - age as f32 / 4.0);
                 for yy in py - 3..py + CH + 3 {
@@ -108,7 +99,6 @@ pub(super) fn pop(world: &mut Img, by: &[Cells; 4], chain: u8, gain: u8, age: u3
     }
 }
 
-/// A pair coming to rest: dust off each pot's feet, and for a dropped pair the streaks it fell in.
 pub(super) fn land(world: &mut Img, a: (u8, u8), b: (u8, u8), hard: bool, from: u8, age: u32, seed: u32, tick: u64) {
     let mut pen = Pen::new(world, 260);
     for (n, (x, y)) in [a, b].into_iter().enumerate() {
@@ -144,7 +134,6 @@ pub(super) fn land(world: &mut Img, a: (u8, u8), b: (u8, u8), hard: bool, from: 
     }
 }
 
-/// Slag breaking on the stack: a ring along the floor, chips thrown up in ember, a puff of smoke.
 pub(super) fn slag(world: &mut Img, col: u8, row: u8, hit: bool, age: u32, seed: u32, tick: u64) {
     let mut pen = Pen::new(world, 320);
     let (px, py) = cell(usize::from(col), usize::from(row));
@@ -164,8 +153,6 @@ pub(super) fn slag(world: &mut Img, col: u8, row: u8, hit: bool, age: u32, seed:
     smoke.each(age as f32, |m| pfx::mote(&mut pen, &m, Shape::Dot, ramps::SMOKE, 2, tick));
 }
 
-/// The kiln cracking: rings out of his body, rays, and a spray of crock from his sides. The last
-/// stage is the biggest by far.
 pub(super) fn stage(world: &mut Img, n: u8, age: u32, seed: u32, tick: u64) {
     let last = n >= 3;
     let mut pen = Pen::new(world, 900);
@@ -192,7 +179,6 @@ pub(super) fn stage(world: &mut Img, n: u8, age: u32, seed: u32, tick: u64) {
     sparks.each(a, |m| pfx::mote(&mut pen, &m, Shape::Spark, ramps::GOLD, 2, tick));
 }
 
-/// Pots reaching the kiln's mouth: sparks and a small ring where they are eaten.
 pub(super) fn eat(world: &mut Img, gain: u8, age: u32, seed: u32, tick: u64) {
     let mut pen = Pen::new(world, 260);
     let sparks = Spray { gravity: 0.1, ..Spray::round(seed, 6 + u32::from(gain.min(24)) / 2, EAT, (1.4, 4.0), (8.0, 16.0)) };
@@ -200,8 +186,6 @@ pub(super) fn eat(world: &mut Img, gain: u8, age: u32, seed: u32, tick: u64) {
     pen.shock(EAT, 2.0 + age as f32 * 3.0, 1.8, 0.8, ramps::EMBER, age as f32 / 10.0);
 }
 
-/// The spark that carries a pop's cracks from the board to the meter: it arcs up, then dives, with
-/// a tail of three. `age` runs from the pop; it flies from tick 3 to `hud::FLY`.
 pub(super) fn carry(world: &mut Img, from: (f32, f32), gain: u8, age: u32) {
     const START: u32 = 3;
     if age < START || age >= hud::FLY {
@@ -216,7 +200,6 @@ pub(super) fn carry(world: &mut Img, from: (f32, f32), gain: u8, age: u32) {
     }
 }
 
-/// Steam off the kiln's lid: three puffs a beat apart, rising and thinning.
 pub(super) fn steam(world: &mut Img, tick: u64) {
     for i in 0..3 {
         let period = 58;
@@ -235,7 +218,6 @@ pub(super) fn steam(world: &mut Img, tick: u64) {
     }
 }
 
-/// The hearth's embers rising behind the kiln.
 pub(super) fn embers(world: &mut Img, tick: u64) {
     for i in 0..14 {
         let h = hash(i, 7, 0xe3);

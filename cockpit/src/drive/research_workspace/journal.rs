@@ -99,7 +99,6 @@ impl Journal {
                 );
             }
         }
-        // Consumers are navigable in both directions. Only explicit links count.
         let mut consumers: HashMap<&str, Vec<usize>> = HashMap::with_capacity(self.records.len());
         for (idx, record) in self.records.iter().enumerate() {
             for (id, _) in &record.links {
@@ -176,7 +175,7 @@ impl Journal {
         self.stamp = Some(stamp);
         if self.issue.is_some() {
             return Ok(());
-        } // Broken chains require replacement/recovery.
+        }
         file.seek(SeekFrom::Start(self.offset))
             .map_err(|_| "research journal seek failed")?;
         let mut bytes = Vec::new();
@@ -212,7 +211,7 @@ impl Journal {
         if self.pending.len() > MAX_LINE {
             return Err("research event exceeds line limit");
         }
-        Ok(()) // A final partial line waits for the writer; it is never projected.
+        Ok(())
     }
 
     fn accept(&mut self, line: &[u8], root: &Path) -> Result<(), &'static str> {
@@ -267,7 +266,6 @@ impl Journal {
             Status::Running => State::Running,
             Status::Failed => State::Failed,
             Status::Inconclusive => State::Inconclusive,
-            // An external report of passing is not a native verification receipt.
             Status::Completed | Status::Recorded => State::Recorded,
         };
         let mut entry = Entry::new(

@@ -12,22 +12,16 @@ fn rows(rows: &[&str]) -> Img {
     Img::from_rows(rows)
 }
 
-/// The slime radius its picture is drawn for one to one: a bigger one is
-/// enlarged by its radius over this (the smallest split stands at its art).
 pub(super) const SLIME_REACH: f32 = 0.65;
 
-/// The mini-viz hero in seat `id`'s colours.
 pub(super) fn knight(id: u32) -> Img {
     kit::knight().recolor(super::knights::realm_colours(id))
 }
 
-/// A knight of the company in their own colours.
 pub fn knight_in(colours: &[(char, char)]) -> Img {
     kit::knight().recolor(colours)
 }
 
-/// A fallen knight: the helm on its side, the plume in the dust.
-/// A hexed knight: a frog in a tiny helmet, hopping.
 pub(super) fn frog(tick: u32) -> Img {
     let hop = (tick / 6).is_multiple_of(2);
     rows(&[
@@ -42,9 +36,6 @@ pub(super) fn frog(tick: u32) -> Img {
     ])
 }
 
-/// The loot goblin, facing right: a small green thief with long ears, a
-/// brown vest and a sack over its back that swells as it takes. `burden` is
-/// the sack (0 none, 3 bursting); `running` has it bolting, legs pumping.
 pub fn goblin(burden: u8, running: bool, tick: u32) -> Img {
     super::foe_material::pose(
         64 + EnemyKind::Goblin as u8,
@@ -79,7 +70,6 @@ fn goblin_raw(burden: u8, running: bool, tick: u32) -> Img {
         legs[0],
         legs[1],
     ]);
-    // The sack hangs behind, bobbing a pixel as it runs.
     let sack = match burden {
         0 => None,
         1 => Some(rows(&["..R..", ".oOo.", "oOOOo", "oOOOo", ".ooo."])),
@@ -108,7 +98,6 @@ fn goblin_raw(burden: u8, running: bool, tick: u32) -> Img {
     im
 }
 
-/// A statue: the same figure in the structure greys, by brightness.
 pub(super) fn stone(im: &Img) -> Img {
     const RAMP: [char; 7] = ['g', 'j', 'G', 'J', 'h', 'i', 'H'];
     let mut out = Img::new(im.w, im.h);
@@ -176,7 +165,6 @@ pub(super) fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
                 "HHj......XjGjjXjjGjX......jHH",
                 ".H.......XXHHXXXHHXX.......H.",
             ]);
-            // Its breath flickers in its maw.
             if flap {
                 im.recolor(&[('6', '@'), ('@', '6')])
             } else {
@@ -232,8 +220,6 @@ pub(super) fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
                 "J....J..XXX..J....J"
             },
         ]),
-        // Small, quick and many, but each one a spider: grey legs splayed
-        // round a lit body, two gold eyes.
         EnemyKind::Spiderling if flap => rows(&[
             "J..J.....J..J",
             ".J..J...J..J.",
@@ -258,8 +244,6 @@ pub(super) fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
             "..J.......J..",
             ".J.........J.",
         ]),
-        // Wings up and wings down round the same small body, so the bat
-        // flutters in place.
         EnemyKind::Bat if flap => rows(&[
             "r.............b",
             "tr...........br",
@@ -284,8 +268,6 @@ pub(super) fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
             "rb....b.b....br",
             "b....r...r....b",
         ]),
-        // Rounded skull, separate ribs and joints, a small warm bow. The
-        // two planted feet keep the old fifteen-row ground line.
         EnemyKind::Skeleton => rows(&[
             "...iHi.....",
             "..iHHHi....",
@@ -400,8 +382,6 @@ pub(super) fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
             },
         ]),
         EnemyKind::Slime => {
-            // Four authored gel poses, all in the original 12 x 10 cell.
-            // The eyes and contact line remain steady through the squash.
             let crest = match (tick / 4) % 4 {
                 0 => ["....llll....", "..lyyylllF..", ".lyyllllllF."],
                 1 => [".....ll.....", "...lyylll...", ".lyyylllllF."],
@@ -422,7 +402,6 @@ pub(super) fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
             ])
         }
         EnemyKind::Goblin => goblin_raw(0, false, tick),
-        // A squat green thing with its bomb held out, the fuse lit.
         EnemyKind::Hob => {
             let spark = if (tick / 2).is_multiple_of(2) {
                 '6'
@@ -459,8 +438,6 @@ pub(super) fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
             "..rR...Rr..b.",
             "..nn...nn....",
         ]),
-        // The Lich: an ice-crowned skull, eyes lit teal, frost in both
-        // hands, a slate robe.
         EnemyKind::Lich => rows(&[
             "....W.W.W....",
             "....WWWWW....",
@@ -481,8 +458,6 @@ pub(super) fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
             "..uuSSSSSuu..",
             ".uuuSuuuSuuu.",
         ]),
-        // The Hollow One: stones floating round a void, a cold light at
-        // its heart; its crown of stones turns with `flap`.
         EnemyKind::Hollow => rows(&[
             if flap {
                 ".......gjj......."
@@ -509,8 +484,6 @@ pub(super) fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
             "..gJhj.....jhJg..",
             "...gj.......jg...",
         ]),
-        // The Hexer: a hooded witch, eyes lit in the hood's dark, her
-        // staff's frog-green orb flaring now and then.
         EnemyKind::Hexer => {
             let top = if (tick / 16).is_multiple_of(3) {
                 ["........YCY..", ".........CwC.", "...XXX..YCY.."]
@@ -532,7 +505,6 @@ pub(super) fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
                 "..nn..nn.....",
             ])
         }
-        // A serpent coiled up a stake, head raised to spit.
         EnemyKind::Ward => rows(&[
             "..EEEE..",
             if flap { ".E7EE7E." } else { ".E8EE8E." },
@@ -549,33 +521,18 @@ pub(super) fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
         ]),
         EnemyKind::Dummy => kit::quintain(true, tick / 3),
         EnemyKind::Dragon => dragon(tick),
-        // Bosses draw their own art (arena.rs); this is never reached.
         EnemyKind::Boss => Img::new(1, 1),
-        // Humphrey at rest between poses: the shamble, drawn front on.
         EnemyKind::Risen => risen_raw(RisenPose::Walk, RisenDir::South, (tick / 14) % 2),
-        // The Broodmarrow at rest, seams dark.
         EnemyKind::Broodmarrow => broodmarrow_raw(false, tick),
-        // The Oathbound at rest: the oath holds, the visor is dark.
         EnemyKind::Oathbound => oathbound_raw(false, tick),
-        // The Whirlgrave, mid-lean.
         EnemyKind::Whirlgrave => whirlgrave_raw(tick),
-        // The Fungelder at rest: seams dark, the sack shut.
         EnemyKind::Fungelder => fungelder_raw(false, tick),
-        // The swamp's horrors, at their most themselves: a hand risen.
         EnemyKind::BogHand => super::swamp::raw(kind, 2, 0, tick),
         EnemyKind::Drowned | EnemyKind::Wisp => super::swamp::raw(kind, 0, 0, tick),
         _ => super::critters::figure_raw(kind, 0, 0, tick),
     }
 }
 
-// ─── Humphrey the Risen ──────────────────────────────────────────────────────
-// The countryside's former neighbor: gaunt, green, permanently cross about
-// his hedge. Every southern and northern pose stands on the same 21-row
-// ground line and the side ones on a 19-row one, so he never bobs between
-// poses; his eyes go gold the moment he means it — that is state, so it is
-// signal ink.
-
-/// What Humphrey is doing with himself this tick.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum RisenPose {
     Idle,
@@ -586,7 +543,6 @@ pub(super) enum RisenPose {
     Rest,
 }
 
-/// Which way he means it. East is authored; the arena flips it for west.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum RisenDir {
     South,
@@ -624,8 +580,6 @@ fn risen_raw(pose: RisenPose, dir: RisenDir, frame: u32) -> Img {
     }
 }
 
-/// The slack-jawed face, shared by the southern poses: two socket glints,
-/// two cheek wounds, a hanging jaw with a tooth in it.
 const RISEN_FACE: [&str; 8] = [
     "................",
     "......kkkk.....",
@@ -637,7 +591,6 @@ const RISEN_FACE: [&str; 8] = [
     "....kikkiik....",
 ];
 
-/// The back of his head, for the northern poses: patchy hair, no face.
 const RISEN_CROWN: [&str; 8] = [
     "................",
     "......kkkk.....",
@@ -652,7 +605,6 @@ const RISEN_CROWN: [&str; 8] = [
 fn risen_south_walk(step: bool) -> Img {
     let mut sheet: Vec<&str> = RISEN_FACE.to_vec();
     sheet.extend(if step {
-        // Stride open: feet apart, both knuckles down.
         [
             "....iiiiiii....",
             "...iiiiiiiii...",
@@ -669,7 +621,6 @@ fn risen_south_walk(step: bool) -> Img {
             "................",
         ]
     } else {
-        // Stride closed: feet together, one hand lifted mid-swing.
         [
             "....iiiiiii....",
             "...iiiiiiiii...",
@@ -876,7 +827,6 @@ fn risen_north_walk(step: bool) -> Img {
 fn risen_north_idle(sway: bool) -> Img {
     let mut im = risen_north_walk(false);
     if sway {
-        // The slow shift of a man mostly compost: hair sinks a hair.
         for x in 6..=8 {
             im.put(x, 2, '.');
             im.put(x, 3, 'k');
@@ -993,13 +943,9 @@ fn risen_north_rest(pant: bool) -> Img {
     ])
 }
 
-/// Side on, facing east: the hunch reads best in profile — head craned
-/// ahead of the shoulders, knuckles down by the shins. Every pose stands
-/// on the same nineteen-row ground line.
 fn risen_east(pose: RisenPose, frame: u32) -> Img {
     let step = frame == 1;
     match pose {
-        // Doubled over, hands on knees, having a think about exercise.
         RisenPose::Rest => rows(&[
             "................",
             "................",
@@ -1021,7 +967,6 @@ fn risen_east(pose: RisenPose, frame: u32) -> Img {
             "....yy...yy.....",
             "................",
         ]),
-        // Coiled: both arms swept up and back, gold eye on the target.
         RisenPose::WindUp => rows(&[
             "..mm............",
             "..mmm...........",
@@ -1043,7 +988,6 @@ fn risen_east(pose: RisenPose, frame: u32) -> Img {
             "....yy.....yy...",
             "................",
         ]),
-        // The shove: forty-five degrees of neighbor, palms first.
         RisenPose::Shove => rows(&[
             "................",
             "................",
@@ -1065,7 +1009,6 @@ fn risen_east(pose: RisenPose, frame: u32) -> Img {
             "....kb....bk....",
             "...yy.....yy....",
         ]),
-        // Struck: knocked back on the heel, arms up, wounds lit.
         RisenPose::Hit => rows(&[
             "........kkk.....",
             ".......kmmmk....",
@@ -1087,7 +1030,6 @@ fn risen_east(pose: RisenPose, frame: u32) -> Img {
             "................",
             "................",
         ]),
-        // Standing stare: weight even, arms dead straight.
         RisenPose::Idle => rows(&[
             ".......kkk......",
             "......kmmmk.....",
@@ -1109,7 +1051,6 @@ fn risen_east(pose: RisenPose, frame: u32) -> Img {
             ".....yy..yy.....",
             "................",
         ]),
-        // The shamble: stride open, then closed; a lurch, a drag.
         RisenPose::Walk if step => rows(&[
             ".......kkk......",
             "......kmmmk.....",
@@ -1155,7 +1096,6 @@ fn risen_east(pose: RisenPose, frame: u32) -> Img {
     }
 }
 
-/// A greater demon: charcoal hide over molten seams, ribbed wings behind.
 fn demon(flap: bool) -> Img {
     let mut im = Img::new(27, 25);
     let lift = i32::from(flap);
@@ -1198,8 +1138,6 @@ fn demon(flap: bool) -> Img {
     im
 }
 
-/// A crypt's headstone: a rounded slab with a cross cut in it. Each of the
-/// few dozen a floor shows is shaped once per thread and copied after.
 pub(super) fn tomb(v: u32) -> Img {
     thread_local! {
         static CUT: std::cell::RefCell<std::collections::HashMap<u32, Img>> =
@@ -1231,7 +1169,6 @@ fn carve_tomb(v: u32) -> Img {
         1.6,
     );
     let mut im = kit::shaded_rim(&im);
-    // The cross cut into it: a dark groove with a lit lip on its left.
     im.line(8, 4, 8, 10, 'x');
     im.line(6, 6, 10, 6, 'x');
     im.line(7, 5, 7, 5, 'U');
@@ -1240,8 +1177,6 @@ fn carve_tomb(v: u32) -> Img {
     im
 }
 
-/// A bookcase in the Drowned Archive: a timber frame, three shelves of
-/// spines in the realm's muted inks, each case shelved its own way.
 pub(super) fn shelf(v: u32) -> Img {
     const SPINES: [char; 8] = ['r', 'B', 'q', 'E', 'o', 'p', 'R', 'u'];
     let mut im = Img::new(16, 16);
@@ -1262,8 +1197,6 @@ pub(super) fn shelf(v: u32) -> Img {
     im
 }
 
-/// A mushroom of the Fungal Deep, grown tall as a knight: a spotted cap
-/// over a pale stem. Each one its own colour.
 pub(super) fn mushroom(v: u32) -> Img {
     let (cap, rim, spot) = match v % 3 {
         0 => ('p', 'B', 'T'),
@@ -1299,8 +1232,6 @@ pub(super) fn mushroom(v: u32) -> Img {
     im
 }
 
-/// A pillar of the Unknown: dark stone with one eye in it, that looks,
-/// and now and then blinks.
 pub(super) fn eye_pillar(v: u32, frame: u32) -> Img {
     let mut im = Img::new(16, 16);
     im.rect(2, 0, 12, 16, 'X');
@@ -1323,8 +1254,6 @@ pub(super) fn eye_pillar(v: u32, frame: u32) -> Img {
     im
 }
 
-/// Iron bars across a two-tile doorway; `across` when the doorway runs
-/// east–west along a north or south wall, so the bars stand upright.
 pub(super) fn portcullis(across: bool) -> Img {
     let (w, h) = if across { (32, 16) } else { (16, 32) };
     let mut im = Img::new(w, h);
@@ -1341,7 +1270,6 @@ pub(super) fn portcullis(across: bool) -> Img {
             im.put(x, y, ink);
         }
     }
-    // The jamb stones the bars run between.
     if across {
         im.rect(0, 0, 1, h, 'U');
         im.rect(w - 1, 0, 1, h, 'U');
@@ -1352,8 +1280,6 @@ pub(super) fn portcullis(across: bool) -> Img {
     im
 }
 
-/// Two tiles of steps going down into the dark; a grate lies over them
-/// while the room is still being fought.
 pub(super) fn stairs(open: bool) -> Img {
     const RAMP: [char; 8] = ['v', 'U', 'u', 'S', 'x', 's', 'K', 'K'];
     let mut im = Img::new(32, 32);
@@ -1377,7 +1303,6 @@ pub(super) fn stairs(open: bool) -> Img {
     im
 }
 
-/// The kit's brazier: blazing while the room is fought, embers once clear.
 pub(super) fn brazier(blazing: bool, tick: u32, seed: u32) -> Img {
     let mut im = kit::brazier(tick, seed);
     if !blazing {
@@ -1392,8 +1317,6 @@ pub(super) fn brazier(blazing: bool, tick: u32, seed: u32) -> Img {
     im
 }
 
-/// A sapper's keg on the floor: its fuse sparks, faster and red once it
-/// is armed.
 pub(super) fn keg(fuse: u32, armed: bool, tick: u32) -> Img {
     let mut im = rows(&[
         "...6...", "...o...", ".bBBBb.", "bBIBIBb", "bBBBBBb", "bBIBIBb", ".bBBBb.",
@@ -1418,8 +1341,6 @@ pub(super) fn keg(fuse: u32, armed: bool, tick: u32) -> Img {
     im
 }
 
-/// Lady Tallow: sitting, trotting (two steps), or hissing; a coin in her
-/// mouth when she's fetching one home. Drawn facing right.
 pub(super) fn tallow(moving: bool, hissing: bool, carrying: bool, tick: u32) -> Img {
     let mut im = if hissing {
         rows(&[
@@ -1475,12 +1396,10 @@ pub(super) fn tallow(moving: bool, hissing: bool, carrying: bool, tick: u32) -> 
     im
 }
 
-/// The Flesher's hook, its barb red.
 pub(super) fn hook() -> Img {
     rows(&["..WW.", ".W..W", "....W", "7..W.", "7WW.."])
 }
 
-/// A hob's bomb in flight.
 pub(super) fn bomb(tick: u32) -> Img {
     let mut im = rows(&["..c.", ".Vu.", "uUSx", ".xx."]);
     if (tick / 2).is_multiple_of(2) {
@@ -1489,12 +1408,10 @@ pub(super) fn bomb(tick: u32) -> Img {
     im
 }
 
-/// A shot drawn along its flight in native pixels: the head at `(x, y)`.
 pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind: Shot) {
     let length = vx.hypot(vy).max(1e-3);
     let (ux, uy) = (vx / length, vy / length);
     let along = |cv: &mut Img, inks: &[char]| {
-        // Tail first, so the head always shows.
         for (k, &ink) in inks.iter().enumerate().rev() {
             let k = k as f32;
             cv.put(
@@ -1511,7 +1428,6 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
         cv.put(x, y, core);
     };
     match kind {
-        // A thrown blade, spinning: its turn follows where it is.
         Shot::Blade => {
             let turn = ((x + y).rem_euclid(8)) / 2;
             let arms: [(i32, i32); 2] = match turn {
@@ -1536,7 +1452,6 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
             cv.put(x + 1, y + 1, 'g');
         }
         Shot::Bone => {
-            // A tumbling bone: knuckles at both ends, across its flight.
             let (px, py) = (-uy, ux);
             for k in -2..=2 {
                 let ink = if k == -2 || k == 2 { 'H' } else { 'h' };
@@ -1549,14 +1464,12 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
             cv.put(x, y, 'H');
         }
         Shot::Orb => blot(cv, '9', '2'),
-        // The Lich's frost: a pale star of ice.
         Shot::Frost => {
             blot(cv, '9', 'V');
             for (dx, dy) in [(-2, 0), (2, 0), (0, -2), (0, 2)] {
                 cv.put(x + dx, y + dy, 'z');
             }
         }
-        // The Hexer's bolt: a frog-green glow.
         Shot::Hex => {
             blot(cv, '9', 'Y');
             for (dx, dy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] {
@@ -1564,7 +1477,6 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
             }
         }
         Shot::Ember => blot(cv, 'c', 'o'),
-        // Pilgrim's Arrow: a long shaft of light, its head ablaze.
         Shot::Sacred => {
             along(cv, &['9', 'c', '6', '@', '@', 'o', 'P', 'S', 's']);
             let (px, py) = (-uy, ux);
@@ -1581,15 +1493,11 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
                 );
             }
         }
-        // A heat-seeker: a steel nose, a red band, smoke behind.
         Shot::Missile => along(cv, &['H', 'J', '7', 'J', 'G', 'g', 'g']),
-        // The monsters' pattern shots, one look to a delve.
-        // The Crypt's wisp: a pale ghost-light trailing a cold tail.
         Shot::Wisp => {
             along(cv, &['9', '3', '2', 'q', 'S']);
             blot(cv, '9', '3');
         }
-        // The Mines' ore: a tumbling lump, bright where it catches light.
         Shot::Ore => {
             for (dx, dy, ink) in [
                 (-1, -1, 'o'),
@@ -1605,7 +1513,6 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
                 cv.put(x + dx, y + dy, ink);
             }
         }
-        // Dragon Keep's flame: a teardrop, white-hot at the head.
         Shot::Flame => {
             along(cv, &['c', '@', 'o', 'P', 's']);
             let (px, py) = (-uy, ux);
@@ -1618,7 +1525,6 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
             }
             cv.put(x, y, 'c');
         }
-        // The Archive's torn page: a pale leaf with a line of ink, tumbling.
         Shot::Page => {
             let flat = (x + y).rem_euclid(6) < 3;
             let (w, h) = if flat { (2, 1) } else { (1, 2) };
@@ -1629,14 +1535,12 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
             }
             cv.put(x, y, 'Q');
         }
-        // The Fungal Deep's spore: a green puff with a ring of motes.
         Shot::Spore => {
             blot(cv, 'Y', 'C');
             for (dx, dy) in [(-2, -2), (2, 2)] {
                 cv.put(x + dx, y + dy, 'y');
             }
         }
-        // The Unknown's eye: a white almond round a dark pupil.
         Shot::Eye => {
             for (dx, dy, ink) in [
                 (-2, 0, '1'),
@@ -1658,8 +1562,6 @@ pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), kind:
 
 }
 
-/// A checked rune weapon changes colour and silhouette, never game rules.
-/// Its colours are signal inks: a forged shot is a player's live state.
 pub(super) fn forged_shot(cv: &mut Img, x: i32, y: i32, colour: &str, shape: &str) {
     if shape == "note" {
         let im = super::class_looks::bard::note();
@@ -1709,7 +1611,6 @@ pub(super) fn forged_shot(cv: &mut Img, x: i32, y: i32, colour: &str, shape: &st
     cv.put(x, y, core);
 }
 
-/// A treasure chest that has teeth: the lid gapes and snaps on its hop.
 pub(super) fn mimic(tick: u32) -> Img {
     if (tick / 6) % 6 < 3 {
         rows(&[
@@ -1740,10 +1641,6 @@ pub(super) fn mimic(tick: u32) -> Img {
     }
 }
 
-/// A floor plate set with spike holes, at rest (scenery): an iron slab let
-/// into the floor, its corners worn round, its upper and left edges
-/// catching the light and its lower and right ones in shadow, each hole
-/// dark with a lit lip below it.
 pub(super) fn spike_plate() -> Img {
     let mut im = Img::new(32, 32);
     let (x0, y0, x1, y1) = (1, 1, 30, 30);
@@ -1751,7 +1648,6 @@ pub(super) fn spike_plate() -> Img {
         for x in x0..=x1 {
             let (n, s, w, e) = (y - y0, y1 - y, x - x0, x1 - x);
             let (v, h) = (n.min(s), w.min(e));
-            // The worn corners.
             if v + h < 2 {
                 continue;
             }
@@ -1760,8 +1656,6 @@ pub(super) fn spike_plate() -> Img {
             im.put(
                 x,
                 y,
-                // The face stays near black, so light crossing it never
-                // shows as a patch.
                 match (ring, lit) {
                     (0, true) => 'u',
                     (0, false) => 'x',
@@ -1783,7 +1677,6 @@ pub(super) fn spike_plate() -> Img {
     im
 }
 
-/// The spikes themselves: tips rattling in their holes, or fully up.
 pub(super) fn spikes_out(up: bool, tick: u32) -> Img {
     let mut im = Img::new(32, 32);
     for (i, y) in (5..28).step_by(6).enumerate() {
@@ -1802,7 +1695,6 @@ pub(super) fn spikes_out(up: bool, tick: u32) -> Img {
     im
 }
 
-/// A wall vent's grille, and its glow while it draws breath.
 pub(super) fn vent(glow: u32) -> Img {
     let mut im = Img::new(6, 10);
     im.frame(0, 0, 6, 10, 'J');
@@ -1819,7 +1711,6 @@ pub(super) fn vent(glow: u32) -> Img {
     im
 }
 
-/// Where a rock will land: a closing ring of warning, the rock above it.
 pub(super) fn falling_rock(fall: u32, total: u32) -> (Img, i32) {
     let k = fall as f32 / total.max(1) as f32;
     let r = 3.0 + k * 9.0;
@@ -1835,7 +1726,6 @@ pub(super) fn falling_rock(fall: u32, total: u32) -> (Img, i32) {
             );
         }
     }
-    // The rock drops from above, faster as it lands.
     let height = (k * k * 60.0) as i32;
     (im, height)
 }
@@ -1846,7 +1736,6 @@ pub(super) fn rock() -> Img {
     ])
 }
 
-/// A falling ember of hell's: a coal, its heart flickering.
 pub(super) fn ember(tick: u32) -> Img {
     let core = if (tick / 3).is_multiple_of(2) { '6' } else { '5' };
     let mut im = rows(&["..878..", ".7@@@7.", "87@6@78", ".7@@@7.", "..878.."]);
@@ -1854,7 +1743,6 @@ pub(super) fn ember(tick: u32) -> Img {
     im
 }
 
-/// Where an ember landed: cinders flung out, dimming as they go.
 pub(super) fn cinders(left: u32) -> Img {
     let mut im = Img::new(24, 12);
     let spread = 12 - left as i32;
@@ -1881,7 +1769,6 @@ pub(super) fn dust(left: u32) -> Img {
     im
 }
 
-/// A sprite turned a quarter clockwise, about its own box.
 pub(super) fn quarter_turn(im: &Img) -> Img {
     let mut out = Img::new(im.h, im.w);
     for y in 0..im.h {
@@ -1894,16 +1781,11 @@ pub(super) fn quarter_turn(im: &Img) -> Img {
     out
 }
 
-/// The Sanctuary's wishing dais: three stone steps, an arcane ring turning
-/// on its top, a writing table with the Scroll of One Wish open on it,
-/// candles at its corners and motes rising off the scroll. `wishing`: a
-/// wish is being forged, and the ring burns and turns faster.
 pub(super) fn dais(tick: u32, wishing: bool) -> Img {
     const W: i32 = 56;
     const H: i32 = 44;
     let mut im = Img::new(W, H);
     let cx = W / 2;
-    // Three steps, widest at the foot, each with a lit lip and a shadowed riser.
     for (k, (half, top)) in [(27, 36), (23, 31), (19, 26)].into_iter().enumerate() {
         let bottom = top + 6;
         im.rect(cx - half, top, half * 2, bottom - top, 'u');
@@ -1911,12 +1793,10 @@ pub(super) fn dais(tick: u32, wishing: bool) -> Img {
         im.line(cx - half, bottom - 1, cx + half - 1, bottom - 1, 'S');
         im.put(cx - half, top, 'U');
         im.put(cx + half - 1, top, 'U');
-        // Worn joints along each riser.
         for x in (cx - half + 3 + k as i32..cx + half - 2).step_by(7) {
             im.put(x, top + 3, 'S');
         }
     }
-    // The ring on the dais top: an ellipse of runes, turning.
     let speed = if wishing { 0.22 } else { 0.05 };
     let turn = tick as f32 * speed;
     let (rx, ry, ry0) = (17.0, 3.2, 28.5);
@@ -1927,7 +1807,6 @@ pub(super) fn dais(tick: u32, wishing: bool) -> Img {
         im.put(x.round() as i32, y.round() as i32, ink);
     }
     for k in 0..8 {
-        // A rune: a short upright stroke with a tick, riding the ring.
         let a = turn + k as f32 / 8.0 * std::f32::consts::TAU;
         let (x, y) = (
             (cx as f32 + a.cos() * rx).round() as i32,
@@ -1938,7 +1817,6 @@ pub(super) fn dais(tick: u32, wishing: bool) -> Img {
         im.put(x, y - 2, bright);
         im.put(x + if k % 2 == 0 { 1 } else { -1 }, y - 2, '1');
     }
-    // The writing table: a timber top on turned legs.
     im.rect(cx - 11, 17, 22, 2, 'B');
     im.line(cx - 11, 17, cx + 10, 17, 'o');
     for x in [cx - 9, cx + 8] {
@@ -1946,7 +1824,6 @@ pub(super) fn dais(tick: u32, wishing: bool) -> Img {
         im.put(x, 23, 'p');
     }
     im.line(cx - 9, 25, cx + 8, 25, 'b');
-    // The scroll, open on the table: parchment between two rolled ends.
     im.rect(cx - 7, 10, 14, 7, '$');
     im.line(cx - 7, 10, cx + 6, 10, 'c');
     for (y, from, to) in [(12, -5, 3), (13, -5, 4), (15, -5, 1)] {
@@ -1957,11 +1834,9 @@ pub(super) fn dais(tick: u32, wishing: bool) -> Img {
         im.put(x, 9, 'O');
         im.put(x, 17, 'r');
     }
-    // A wax seal at the scroll's foot.
     im.put(cx + 3, 15, '7');
     im.put(cx + 4, 15, '7');
     im.put(cx + 3, 16, '8');
-    // Candles at the corners of the top step.
     for x in [cx - 17, cx + 16] {
         im.line(x, 21, x, 26, 'c');
         im.put(
@@ -1975,7 +1850,6 @@ pub(super) fn dais(tick: u32, wishing: bool) -> Img {
         );
         im.put(x, 19, '@');
     }
-    // Motes rising off the scroll, a few at a time.
     let motes = if wishing { 7 } else { 3 };
     for m in 0..motes {
         let life = 24;
@@ -1989,8 +1863,6 @@ pub(super) fn dais(tick: u32, wishing: bool) -> Img {
     im
 }
 
-/// A Sanctuary's privy: a timber booth under a peaked roof, a crescent
-/// moon cut in its door, an iron latch. Its door is its bottom middle.
 pub(super) fn privy() -> Img {
     rows(&[
         "..............nn..............",
@@ -2023,7 +1895,6 @@ pub(super) fn privy() -> Img {
     ])
 }
 
-/// Hung on a shut privy door: OCCUPIED, in the 5x7 hand on a dark board.
 pub(super) fn occupied() -> Img {
     let word = "OCCUPIED";
     let w = super::super::ink::text_width(word) + 6;
@@ -2033,7 +1904,6 @@ pub(super) fn occupied() -> Img {
     im
 }
 
-/// A morningstar: a spiked iron ball (drawn by a Codex Sol agent).
 pub(super) fn morningstar() -> Img {
     rows(&[
         "....J....",
@@ -2048,18 +1918,8 @@ pub(super) fn morningstar() -> Img {
     ])
 }
 
-// ─── the dimensional attractions ─────────────────────────────────────────────
-// A second coat of paint for the carnival booths, drawn by a Codex Sol
-// agent on this pass: prize ducks with some pride in them, a shelf worth
-// winning, a lamp that actually lamplights, a knight who commits to the
-// spin, and a plum with wings for the mine trolley.
-
-/// The booth's prize duck in four acts: two steps of the waddle, the tip,
-/// and the lie-down. Cream over tan shade, orange beak, entirely asking
-/// for it.
 pub(super) fn carnival_duck(pose: u8) -> Img {
     match pose {
-        // Waddle A: tail flicked up, weight over the planted left leg.
         0 => rows(&[
             "..........kkkk..",
             ".........k999kk.",
@@ -2076,7 +1936,6 @@ pub(super) fn carnival_duck(pose: u8) -> Img {
             ".....t.....tt...",
             "....ttt.........",
         ]),
-        // Waddle B: tail down, the right leg takes the weight instead.
         1 => rows(&[
             "..........kkkk..",
             ".........k999kk.",
@@ -2093,7 +1952,6 @@ pub(super) fn carnival_duck(pose: u8) -> Img {
             "....tt....t.....",
             "..........ttt...",
         ]),
-        // The tip: forty-five degrees over, both wings up in alarm.
         2 => rows(&[
             ".....kk...kk....",
             "kk..k99k.k99k...",
@@ -2110,7 +1968,6 @@ pub(super) fn carnival_duck(pose: u8) -> Img {
             ".tt..tt.........",
             "ttt..ttt........",
         ]),
-        // Flat on its back: belly to the sun, beak to the sky, X for eyes.
         _ => rows(&[
             "................",
             "................",
@@ -2130,8 +1987,6 @@ pub(super) fn carnival_duck(pose: u8) -> Img {
     }
 }
 
-/// The top shelf of the knock-'em-down booth: a stuffed bear, a knitted
-/// rabbit and a dried fish in a bow, all waiting for a very lucky peasant.
 pub(super) fn prize_shelf() -> Img {
     let bear = rows(&[
         "..kk....kk..",
@@ -2171,11 +2026,9 @@ pub(super) fn prize_shelf() -> Img {
     im.stamp(&bear, 1, 1);
     im.stamp(&rabbit, 17, 1);
     im.stamp(&fish, 32, 3);
-    // The plank they sit on: a lit top edge, a worn face, a shaded lip.
     im.rect(0, 11, 48, 1, 'r');
     im.rect(0, 12, 48, 1, 'I');
     im.rect(0, 13, 48, 1, 'B');
-    // End brackets and a few iron nails, so the prizes feel shelved.
     im.rect(0, 9, 1, 5, 'B');
     im.rect(47, 9, 1, 5, 'B');
     im.put(8, 12, 'k');
@@ -2184,10 +2037,7 @@ pub(super) fn prize_shelf() -> Img {
     im
 }
 
-/// A fairground lamp on an iron post under a green enamel shade; lit, the
-/// bulb burns a low amber over the evening's trade, dark otherwise.
 pub(super) fn booth_lamp(lit: bool) -> Img {
-    // The whole lamp's canvas, so the bulb and post below the shade show.
     let mut im = Img::new(10, 16);
     im.stamp(
         &rows(&[
@@ -2229,15 +2079,10 @@ pub(super) fn booth_lamp(lit: bool) -> Img {
     im
 }
 
-/// A knight on rollerblades in the jester's half-pipe: `spin` picks the
-/// quarter turn of the trick — the plume gives it away — `airborne` balls
-/// him up mid-air while the ramp gets pumped otherwise. The `7` red is his
-/// team's colour, which is state, not paint.
 pub(super) fn skater(spin: u16, airborne: bool, direction: i8) -> Img {
     let quarter = (spin / 144) % 4;
     let im = if airborne {
         match quarter {
-            // Upright: plume up-left, visor right, wheels down.
             0 => rows(&[
                 ".77...........",
                 "..777.........",
@@ -2256,7 +2101,6 @@ pub(super) fn skater(spin: u16, airborne: bool, direction: i8) -> Img {
                 "....kggk.kggk.",
                 "....kJJk.kJJk.",
             ]),
-            // Quarter turn: head swings right, plume sweeps low-left.
             1 => rows(&[
                 "..............",
                 "..............",
@@ -2275,7 +2119,6 @@ pub(super) fn skater(spin: u16, airborne: bool, direction: i8) -> Img {
                 ".kkk.kkkkkkkkk",
                 "..............",
             ]),
-            // Inverted: wheels to the sky, shield low, plume dragging.
             2 => rows(&[
                 "...kJJk.kJJk..",
                 "...kggk.kggk..",
@@ -2294,8 +2137,6 @@ pub(super) fn skater(spin: u16, airborne: bool, direction: i8) -> Img {
                 ".....kiiihk77.",
                 "......kkkkk.77",
             ]),
-            // Quarter back: head left, shield high, plume sweeping off the
-            // helm's corner so the trail stays pinned to the knight.
             _ => rows(&[
                 "...kjjk...77..",
                 "..kGjjjk..77..",
@@ -2316,8 +2157,6 @@ pub(super) fn skater(spin: u16, airborne: bool, direction: i8) -> Img {
             ]),
         }
     } else {
-        // Pumping the transition: crouch through the first half of each
-        // stroke, rise through the second; wheels never leave the coping.
         if spin % 144 < 72 {
             rows(&[
                 "..............",
@@ -2361,7 +2200,6 @@ pub(super) fn skater(spin: u16, airborne: bool, direction: i8) -> Img {
     if direction < 0 { im.flip_h() } else { im }
 }
 
-/// The booth's BB rifle at rest on the counter; `fired` lights the muzzle.
 pub(super) fn bb_gun(fired: bool) -> Img {
     let mut im = rows(&[
         "........................................",
@@ -2395,7 +2233,6 @@ pub(super) fn bb_gun(fired: bool) -> Img {
     im
 }
 
-/// The gold ring that marks where a launch window wants to be.
 pub(super) fn gold_ring_marker() -> Img {
     rows(&[
         "...55...", "..5..5..", ".5.44.5.", "5.4..4.5", "5.4..4.5", ".5.44.5.", "..5..5..",
@@ -2403,10 +2240,6 @@ pub(super) fn gold_ring_marker() -> Img {
     ])
 }
 
-/// The Broodmarrow at rest: a hill of timber hide, seams stitched shut,
-/// horned lumps dozing on its shoulders. `ripping` is its wind-up: the
-/// seams come alight (state — so, and only so, signal ink) and its eyes
-/// go from coals to lanterns.
 pub(super) fn broodmarrow(ripping: bool, tick: u32) -> Img {
     super::foe_material::pose(
         64 + EnemyKind::Broodmarrow as u8,
@@ -2418,24 +2251,20 @@ pub(super) fn broodmarrow(ripping: bool, tick: u32) -> Img {
 fn broodmarrow_raw(ripping: bool, tick: u32) -> Img {
     let sway = (tick / 14).is_multiple_of(2);
     let mut im = rows(&[
-        // Horns, and the dozing lumps of the brood on each shoulder.
         "..T..h....h......h....h..T..",
         ".tT..b....b......b....b..Tt.",
         ".tT..bbb..bbb..bbb..bbb..Tt.",
         ".tT.bIb..bIb....bIb..bIb.Tt.",
         ".tT.bbbb.bbbRRRRbbb.bbbb.Tt.",
         ".tbRbbbb..bRRRRRRb..bbbbRbt.",
-        // A small cross head, sunk between its own shoulders.
         ".bRrrbb...RrIRRIrR...bbrrRb.",
         ".bRrrrbb..RrRnnRrR..bbrrrRb.",
         ".bRrrrrbbbRrRRRRrRbbbrrrrRb.",
-        // The mound, and the stitched seams the children come through.
         "bRrrrrrrrrrrrrrrrrrrrrrrrrRb",
         "bRrrppprrrpppppppprrrppprrRb",
         "bRrprrprrprrpppprrprrprrprRb",
         ".bprrrrrpprrrrrrrrpprrrrrpb.",
         ".bbrrrrrpprrrrrrrrpprrrrrbb.",
-        // The pale belly, and legs too short for the rest of it.
         "..brrrrrroooooooooorrrrrrb..",
         "..brrrrrooOOooooOOoorrrrrb..",
         "...bbrrooOOOOooOOOOoorrbb...",
@@ -2448,17 +2277,12 @@ fn broodmarrow_raw(ripping: bool, tick: u32) -> Img {
             "........nb..rbbr..bn........"
         },
     ]);
-    // The wind-up is the warning: seams to signal orange, every eye in
-    // the mound to signal red. At rest, none of this figure is signal.
     if ripping {
         im = im.recolor(&[('p', '@'), ('I', '7')]);
     }
     im
 }
 
-/// An impling in flight: wings out, teeth first, entirely its father's
-/// son. Its eyes are signal because being thrown at a knight IS state.
-/// A critter's glob in the air, as `critters` dots it on the frame.
 pub(super) fn glob() -> Img {
     rows(&[".y.", "mYy", ".ym"])
 }
@@ -2481,9 +2305,6 @@ fn flung_impling_raw(tick: u32) -> Img {
     ])
 }
 
-/// One of the Oathbound: a grave-knight in stone-bleak plate, the oath
-/// stitched down its breast. `grieving` lights the visor's slit red —
-/// alone is a state, so the red is earned.
 pub(super) fn oathbound(grieving: bool, tick: u32) -> Img {
     super::foe_material::pose(
         64 + EnemyKind::Oathbound as u8,
@@ -2520,8 +2341,6 @@ pub(super) fn oathbound_raw(grieving: bool, tick: u32) -> Img {
     im
 }
 
-/// The Whirlgrave: a leaning gravestone, stone-bleak, its rune guttering.
-/// The lean is the tell; the swirl around it is drawn by the arena.
 fn whirlgrave_raw(tick: u32) -> Img {
     let grind = (tick / 9).is_multiple_of(2);
     rows(&[
@@ -2546,10 +2365,6 @@ fn whirlgrave_raw(tick: u32) -> Img {
     ])
 }
 
-/// The Fungelder: a small hooded gardener hugging a great spore-sack,
-/// seams stitched shut. `winding` is its lob's wind-up: the seams come
-/// alight and its eyes glow — state, so, and only so, signal ink. At
-/// rest no part of it is signal: a gardener is only a gardener.
 pub(super) fn fungelder(winding: bool, tick: u32) -> Img {
     super::foe_material::pose(
         64 + EnemyKind::Fungelder as u8,
@@ -2561,14 +2376,11 @@ pub(super) fn fungelder(winding: bool, tick: u32) -> Img {
 fn fungelder_raw(winding: bool, tick: u32) -> Img {
     let step = (tick / 12).is_multiple_of(2);
     let mut im = rows(&[
-        // The hood, and a pale face under it that has seen every harvest.
         "....EEEEE......",
         "...EEFFEEE.....",
         "...EFckkcFE....",
         "...EFFccFFE....",
         "....EFFFFE.....",
-        // The sack: a hill of hide with its seams stitched shut, held
-        // in two small hands that have done this for years.
         "..bBBBBBBBb....",
         ".bIIIIIIIIIb...",
         ".bIirrrrrrIb...",
@@ -2580,7 +2392,6 @@ fn fungelder_raw(winding: bool, tick: u32) -> Img {
         "..bbIIIIIIbb...",
         ".ccbBBBBBBbcc..",
         "..c.nnnnnn.c...",
-        // Feet too small for the rest of the afternoon.
         if step {
             "....pp..pp....."
         } else {
@@ -2588,20 +2399,16 @@ fn fungelder_raw(winding: bool, tick: u32) -> Img {
         },
         "....PP..PP.....",
     ]);
-    // The wind-up is the warning: seams and eyes to signal spore-glow.
     if winding {
         im = im.recolor(&[('r', '3'), ('k', '3')]);
     }
     im
 }
 
-/// The Big Ripper's round cheeks and small brass crown, in the same 32-pixel
-/// cell as the guardian file. State expressions are overlaid by signatures.
 pub(super) fn ripper() -> Img {
     static BODY: std::sync::OnceLock<Img> = std::sync::OnceLock::new();
     BODY.get_or_init(|| {
         let mut im = Img::new(32, 32);
-        // Ears, cheeks, belly: deliberately overlapping rounded masses.
         for (x, y, rx, ry) in [
             (3.0, 10.0, 2.0, 4.0),
             (28.0, 10.0, 2.0, 4.0),
@@ -2619,7 +2426,6 @@ pub(super) fn ripper() -> Img {
         im.line(7, 8, 12, 7, 'y');
         im.put(6, 9, 'y');
         im.put(4, 9, 'M');
-        // Heavy sleepy lids, separated from the funny little mouth.
         for x in [11, 20] {
             im.ellipse(x as f32, 11.0, 3.0, 2.0, 'D');
             im.line(x - 2, 9, x + 2, 9, 'L');
@@ -2632,7 +2438,6 @@ pub(super) fn ripper() -> Img {
         im.put(12, 18, 'i');
         im.put(19, 18, 'i');
         im.line(13, 21, 19, 22, 'm');
-        // Tiny feet and a brass buckle ground the otherwise round mound.
         im.ellipse(9.0, 28.0, 4.0, 1.5, 'b');
         im.ellipse(24.0, 28.0, 4.0, 1.5, 'b');
         im.line(7, 27, 10, 27, 'r');
@@ -2640,7 +2445,6 @@ pub(super) fn ripper() -> Img {
         im.rect(12, 25, 8, 2, 'b');
         im.ellipse(16.0, 25.0, 2.0, 2.0, 'r');
         im.put(15, 24, 't');
-        // Rounded lobes at three crown tips; the warm rim is interrupted.
         im.rect(8, 3, 16, 3, 'b');
         im.rect(9, 3, 14, 2, 'o');
         for x in [10, 16, 22] {
@@ -2655,8 +2459,6 @@ pub(super) fn ripper() -> Img {
     .clone()
 }
 
-/// A red-scaled dragon with a continuous rising neck, two ribbed wings and
-/// a tapering curled tail. Both body states bake once; only breath is live.
 fn dragon(tick: u32) -> Img {
     static REST: std::sync::OnceLock<Img> = std::sync::OnceLock::new();
     static FIRE: std::sync::OnceLock<Img> = std::sync::OnceLock::new();
@@ -2665,7 +2467,6 @@ fn dragon(tick: u32) -> Img {
         .get_or_init(|| dragon_body(breathing))
         .clone();
     if breathing {
-        // The old mouth position, timing and flame footprint stay fixed.
         for k in 0..30 {
             let spread = k / 4;
             let jitter = (hash(k, tick as i32, 231) % 5) as i32 - 2;
@@ -2692,8 +2493,6 @@ fn dragon(tick: u32) -> Img {
 }
 
 fn dragon_body(breathing: bool) -> Img {
-    // Scanline membranes let the scallops curve between the long spars;
-    // shading and texture are cached, never sampled on a hot frame.
     fn membrane(im: &mut Img, spans: &[(i32, i32)], y0: i32, far: bool) {
         for (row, &(left, right)) in spans.iter().enumerate() {
             let y = y0 + row as i32;
@@ -2779,7 +2578,6 @@ fn dragon_body(breathing: bool) -> Img {
         6,
         false,
     );
-    // Warm leading edge, long fingers, cool thin scalloped membrane.
     im.line(8, 12, 24, 6, 'R');
     im.line(24, 6, 34, 28, 'R');
     im.line(24, 7, 12, 19, 'r');
@@ -2787,8 +2585,6 @@ fn dragon_body(breathing: bool) -> Img {
     im.line(26, 12, 25, 27, 'r');
     im.line(10, 13, 23, 8, 'o');
     im.put(24, 6, 't');
-    // A tapering hooked tail, with black space separating the curl from
-    // the haunch. Overlapping curve samples are baked into one smooth form.
     for layer in 0..2 {
         for i in 0..=40 {
             let t = i as f32 / 40.0;
@@ -2817,7 +2613,6 @@ fn dragon_body(breathing: bool) -> Img {
             im.put(x, y, 'R');
         }
     }
-    // Smooth barrel; coloured contours describe volume without erasing scales.
     let mut hide = Img::new(72, 46);
     for y in 22..=40 {
         for x in 15..=46 {
@@ -2839,7 +2634,6 @@ fn dragon_body(breathing: bool) -> Img {
             }
         }
     }
-    // One continuous neck curve, not a stack of rounded lumps.
     let neck = [
         (48, 53),
         (46, 55),
@@ -2885,8 +2679,6 @@ fn dragon_body(breathing: bool) -> Img {
             );
         }
     }
-    // Overlapping scale rows follow the hide. Each little warm arc has a
-    // dark lower seam; gaps between groups keep this from becoming a checker.
     for y in (11..37).step_by(3) {
         for x in (12..57).step_by(4) {
             let x = x + if (y / 3) % 2 == 0 { 2 } else { 0 };
@@ -2898,7 +2690,6 @@ fn dragon_body(breathing: bool) -> Img {
         }
     }
     im.stamp(&hide, 0, 0);
-    // Segmented throat and belly: ember red at rest, a local gold core on fire.
     for (x, y, width) in [
         (50, 18, 3),
         (47, 21, 3),
@@ -2921,7 +2712,6 @@ fn dragon_body(breathing: bool) -> Img {
             im.put(x + 1, y - 1, '5');
         }
     }
-    // Separate bent legs, weight-bearing toes, ivory claws.
     for (x, y) in [(22, 35), (40, 35)] {
         im.ellipse(x as f32, y as f32, 3.0, 4.0, 'p');
         im.ellipse((x - 1) as f32, (y - 1) as f32, 2.0, 3.0, '7');
@@ -2932,7 +2722,6 @@ fn dragon_body(breathing: bool) -> Img {
             im.put(x + dx, y + 6, 'i');
         }
     }
-    // Horns, swept ear, angular muzzle and separated jaw keep a dragon's head.
     im.line(48, 9, 45, 4, 'u');
     im.line(45, 4, 46, 4, 'i');
     im.line(52, 8, 51, 3, 'u');
@@ -2946,7 +2735,6 @@ fn dragon_body(breathing: bool) -> Img {
     im.line(54, 16, 59, 16, '8');
     im.line(55, 17, 58, 17, 'R');
     im.put(56, 17, 'i');
-    // Broken dorsal spines and scale flashes on the tail, never a full rim.
     for (x, y) in [
         (46, 18),
         (43, 22),

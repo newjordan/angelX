@@ -10,8 +10,6 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
-/// Read the repository's visible top-level directory names for the district
-/// layer. Any filesystem error disables the layer rather than delaying startup.
 pub fn scan_workspace_districts(root: &std::path::Path) -> Vec<String> {
     let entries = match std::fs::read_dir(root) {
         Ok(entries) => entries,
@@ -48,10 +46,6 @@ pub fn scan_workspace_districts(root: &std::path::Path) -> Vec<String> {
 
 impl AppWorld for Delve {
     fn raise(session_disabled: bool, workspace: &Path) -> Self {
-        // Decode the miniviz location/rider sources away from both startup and
-        // the first draw. The viewer deliberately leaves frame one on the
-        // braille fallback, so this worker has a full fast-tick interval to
-        // finish before illustrated world playback begins.
         world_viz::warm_cinematic_assets();
         let mut world = if session_disabled {
             World::new(7)
@@ -68,8 +62,6 @@ impl AppWorld for Delve {
         console: &dyn Console,
     ) {
         crate::realm_services::install(processes);
-        // And the cockpit's answers the realm host asks for (posture, stage,
-        // repository identity, the village's HTTP).
         crate::realm_hooks::install(ambient_stage_sim_allowed, console);
     }
 
@@ -89,11 +81,7 @@ impl AppWorld for Delve {
 
     #[cfg(feature = "glass")]
     fn draw_in_window() {
-        // Thrown things in the Delve fly in the window, lifted toward the camera,
-        // instead of in the game's picture.
         crate::world_viz::overworld::arena::draw_lifted_outside(true);
-        // The window draws the Delve's frames from their parts (a stage); only a
-        // terminal is handed the finished picture.
         crate::world_viz::overworld::arena::draw_parts_outside(true);
     }
 

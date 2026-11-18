@@ -15,20 +15,10 @@ pub(crate) struct LoopExperimentRequest {
     pub workspace: PathBuf,
     pub artifact_dir: PathBuf,
     pub task: String,
-    /// Zero means uncapped: the leaf runs until it answers, is cancelled, or
-    /// exhausts an operator-set token budget. Productive work is never capped
-    /// by default; a controller may still pin a bound for a specific run.
     pub max_hops: usize,
-    /// Zero means no deadline. A positive value arms the controller's deadline
-    /// watcher and bounds the verifier process with the time left.
     pub deadline_secs: u64,
-    /// Conservatively reserved by the controller; zero means no token cap.
     pub token_budget: u64,
-    /// Pinned by the controller, never taken from the child's answer.
     pub verify_command: Option<String>,
-    /// Optional policy note applied to this attempt's system prompt. The
-    /// reinforcement reflector proposes it; the controller supplies it, and it
-    /// is never taken from the child's own text.
     pub policy_note: Option<String>,
 }
 
@@ -51,7 +41,6 @@ pub(crate) struct LoopExperimentResult {
     pub model_phase_entered: bool,
     pub rollout_id: Option<String>,
     pub patch_sha256: Option<String>,
-    /// Hash of exact persisted result bytes; not recursively serialized.
     #[serde(skip)]
     pub result_sha256: Option<String>,
     pub stop_reason: String,
@@ -61,18 +50,11 @@ pub(crate) struct LoopExperimentResult {
     pub patch_path: Option<PathBuf>,
     pub requested_route: crate::agent::club::RouteIdentity,
     pub resolved_route: crate::agent::club::RouteIdentity,
-    /// Conservative text estimate, not provider billing or shared-club deltas.
     pub estimated_tokens: u64,
     pub verification: Option<LoopExperimentVerification>,
-    /// Physical verifier evidence produced by the evaluator-owned execution of
-    /// `verify_command`. Never serialized: a caller scores this evidence, it
-    /// cannot reconstruct evidence from a receipt or from candidate text.
     #[serde(skip)]
     pub evidence: Option<crate::drive::reinforce::EvaluatorEvidence>,
-    /// Content-addressed path of the persisted evidence artifact, when the
-    /// append-only store accepted it.
     pub evidence_path: Option<PathBuf>,
-    /// Typed capture is optional and never grants objective progress to parent.
     pub training_capture: Option<serde_json::Value>,
 }
 
@@ -80,23 +62,18 @@ pub(crate) struct LoopExperimentResult {
 struct SnapshotFile {
     sha256: String,
     executable: bool,
-    /// The target a reproduced symlink names. Its text is hashed and recreated
-    /// in the copy; the snapshot never reads through it.
     #[serde(skip_serializing_if = "Option::is_none")]
     symlink: Option<PathBuf>,
 }
 
-/// One inventoried path as the snapshot copies it.
 enum LiveEntry {
     File {
         bytes: Vec<u8>,
         executable: bool,
     },
-    /// A final-component symlink, reproduced as a link (see [`symlink_entry`]).
     Link(PathBuf),
 }
 
-/// Resolve `.` and `..` lexically; `None` when a `..` climbs above the start.
 fn normalize_lexically(path: &Path) -> Option<PathBuf> {
     let mut out = PathBuf::new();
     for part in path.components() {
@@ -113,13 +90,6 @@ fn normalize_lexically(path: &Path) -> Option<PathBuf> {
     Some(out)
 }
 
-/// Whether a symlink at `path` (relative to the snapshot `root`) naming
-/// `target` can be reproduced without aliasing the live tree. A relative link
-/// must resolve to an active path inside the tree, so it points at the copy's
-/// own file (`libfoo.so -> libfoo.so.1`). An absolute link must lie outside the
-/// tree and must not be the tree or one of its ancestors, both as written and
-/// as resolved (`libcrypto.so -> /usr/lib/.../libcrypto.so.3`). Everything else
-/// could lead the copy back into the live source or its quarantine.
 fn link_is_admissible(root: &Path, path: &Path, target: &Path) -> bool {
     if target.is_absolute() {
         let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
@@ -142,11 +112,6 @@ fn active_relative(path: &Path) -> bool {
         })
 }
 
-/// Resolve and create one owned, outside-the-source destination: the nearest
-/// existing ancestor is canonicalized first (so a symlinked parent cannot land
-/// inside the source or the quarantine), excluded paths are refused before
-/// anything is created, and the leaf must be new. Shared by the unique artifact
-/// directory and the frozen source, so both get the same protection.
 fn resolve_owned_destination(
     workspace: &Path,
     destination: &Path,
@@ -203,9 +168,6 @@ fn check_cancel(cancel: &AtomicBool) -> Result<(), String> {
     }
 }
 
-/// Time left for one bounded child of the attempt. A zero deadline means the
-/// operator declined a time cap, so the child is bounded by cancellation alone
-/// rather than by a fabricated giant timeout.
 fn remaining_bound(deadline_secs: u64, elapsed: Duration) -> Option<Duration> {
     (deadline_secs > 0).then(|| Duration::from_secs(deadline_secs).saturating_sub(elapsed))
 }
@@ -242,9 +204,6 @@ fn git_output_with_limit(
         .env("GIT_CONFIG_NOSYSTEM", "1")
         .env("GIT_CONFIG_GLOBAL", "/dev/null")
         .env_remove("GIT_TEMPLATE_DIR");
-    // The ordinary tool transcript cap is 1 MiB, smaller than a real active
-    // source path inventory. Redirect only stdout to an owned bounded spool;
-    // retain the existing cancellation/process-group boundary for execution.
     static GIT_SPOOL_SEQ: AtomicU64 = AtomicU64::new(0);
     let spool = std::env::temp_dir().join(format!(
         "angel-experiment-git-{}-{}-{}",
@@ -272,8 +231,6 @@ fn git_output_with_limit(
     let stdout_path = spool.join("stdout");
     let mut forwarding_policy = None;
     let mut forwarding = if confine_forwarder {
-        // Candidate Git filters/config execute in this process. They receive
-        // no write authority outside their working tree and this owned spool.
         let mut writable_roots = vec![spool.clone()];
         if args.first() != Some(&"ls-files") {
             writable_roots.push(root.to_path_buf());
@@ -292,8 +249,6 @@ fn git_output_with_limit(
     } else {
         Command::new("/bin/sh")
     };
-    // Ignore SIGXFSZ (inherited across exec) so an over-bound write fails with
-    // EFBIG and a nonzero exit instead of killing Git and dumping core.
     forwarding
         .args([
             "-c",
@@ -361,7 +316,6 @@ fn open_directory_beneath(root: &Path, relative: &Path) -> Result<std::fs::File,
     for part in relative.components() {
         let name =
             std::ffi::CString::new(part.as_os_str().as_bytes()).map_err(|e| e.to_string())?;
-        // SAFETY: retained directory descriptor and a single checked component.
         let fd = unsafe {
             libc::openat(
                 directory.as_raw_fd(),
@@ -375,7 +329,6 @@ fn open_directory_beneath(root: &Path, relative: &Path) -> Result<std::fs::File,
                 std::io::Error::last_os_error()
             ));
         }
-        // SAFETY: openat returned one owned descriptor.
         directory = unsafe { std::fs::File::from_raw_fd(fd) };
     }
     Ok(directory)
@@ -405,9 +358,6 @@ fn active_files(root: &Path, cancel: &AtomicBool) -> Result<Vec<PathBuf>, String
         ];
         args.extend_from_slice(ACTIVE_PATHS);
         let output = git_output(root, &args, cancel)?;
-        // Gitlinks are directory entries without the trailing slash emitted for
-        // untracked repositories. Read their index mode, not filesystem type:
-        // an uninitialized gitlink must fail rather than disappear as a deletion.
         let mut staged_args = vec!["ls-files", "--stage", "-z", "--"];
         staged_args.extend_from_slice(ACTIVE_PATHS);
         let staged = git_output(root, &staged_args, cancel)?;
@@ -437,8 +387,6 @@ fn active_files(root: &Path, cancel: &AtomicBool) -> Result<Vec<PathBuf>, String
             if !active_relative(&path) {
                 return Err("experiment enumeration contained an excluded or escaping path".into());
             }
-            // Preserve live bytes in both embedded repositories and initialized
-            // tracked submodules; never check out the recorded gitlink commit.
             if bytes.ends_with(b"/") || gitlinks.contains(bytes) {
                 if !nested_seen.insert(path.clone()) {
                     continue;
@@ -457,8 +405,6 @@ fn active_files(root: &Path, cancel: &AtomicBool) -> Result<Vec<PathBuf>, String
                     };
                     #[cfg(not(target_os = "linux"))]
                     let nested = root.join(&path);
-                    // An empty/uninitialized submodule directory would make Git
-                    // discover its parent repository. Reject that before inventory.
                     let git_prefix = git_output(&nested, &["rev-parse", "--show-prefix"], cancel)?;
                     if git_prefix != b"\n" {
                         return Err(format!(
@@ -487,9 +433,6 @@ fn active_files(root: &Path, cancel: &AtomicBool) -> Result<Vec<PathBuf>, String
     Ok(paths)
 }
 
-/// Walk every component through directory descriptors: no directory symlink
-/// can lead this snapshot into excluded or external content, and a final
-/// symlink is recorded as a link, never followed ([`symlink_entry`]).
 #[cfg(unix)]
 fn read_live_file(root: &Path, path: &Path) -> Result<Option<LiveEntry>, String> {
     use std::os::fd::{AsRawFd, FromRawFd};
@@ -509,20 +452,17 @@ fn read_live_file(root: &Path, path: &Path) -> Result<Option<LiveEntry>, String>
             | libc::O_NOFOLLOW
             | libc::O_NONBLOCK
             | if last { 0 } else { libc::O_DIRECTORY };
-        // SAFETY: a valid retained directory descriptor and NUL-terminated name.
         let fd = unsafe { libc::openat(directory.as_raw_fd(), name.as_ptr(), flags) };
         if fd < 0 {
             let error = std::io::Error::last_os_error();
             if error.kind() == std::io::ErrorKind::NotFound {
                 return Ok(None);
             }
-            // `O_NOFOLLOW` on a final symlink fails with ELOOP.
             if last && error.raw_os_error() == Some(libc::ELOOP) {
                 return symlink_entry(&directory, &name, root, path).map(Some);
             }
             return Err(format!("snapshot refuses {}: {error}", path.display()));
         }
-        // SAFETY: openat returned a new owned descriptor.
         let file = unsafe { std::fs::File::from_raw_fd(fd) };
         if !last {
             directory = file;
@@ -559,10 +499,6 @@ fn read_live_file(root: &Path, path: &Path) -> Result<Option<LiveEntry>, String>
     Err("empty snapshot path".into())
 }
 
-/// Read a final-component symlink's target through its directory descriptor
-/// and admit it when [`link_is_admissible`]. A build tree's `lib/libcrypto.so ->
-/// /usr/lib/.../libcrypto.so.3` made every deep experiment of a night-long loop
-/// fail at setup (2026-09-24) while the snapshot refused all symlinks.
 #[cfg(unix)]
 fn symlink_entry(
     directory: &std::fs::File,
@@ -573,8 +509,6 @@ fn symlink_entry(
     use std::os::fd::AsRawFd;
     use std::os::unix::ffi::OsStringExt;
     let mut buffer = vec![0u8; libc::PATH_MAX as usize];
-    // SAFETY: a valid retained directory descriptor, a NUL-terminated name and
-    // an owned buffer of the stated length.
     let read = unsafe {
         libc::readlinkat(
             directory.as_raw_fd(),
@@ -633,7 +567,6 @@ fn snapshot_live(
                         if let Some(parent) = at.parent() {
                             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
                         }
-                        // Never chmod a link: that would follow it to its target.
                         std::os::unix::fs::symlink(&target, &at).map_err(|e| e.to_string())?;
                     }
                     manifest.insert(
@@ -686,19 +619,11 @@ fn manifest_hash(manifest: &BTreeMap<PathBuf, SnapshotFile>) -> Result<String, S
         .map_err(|e| e.to_string())
 }
 
-/// Digest of the active source exactly as an experiment sees it: tracked plus
-/// untracked non-ignored files, quarantine excluded, no symlink following.
-/// Shares the one walker with [`run_loop_experiment`].
 pub(crate) fn source_snapshot_digest(source: &Path, cancel: &AtomicBool) -> Result<String, String> {
     let manifest = snapshot_live(source, None, cancel)?;
     manifest_hash(&manifest)
 }
 
-/// Materialize the active source into `destination` and commit it as a frozen
-/// baseline. This is the same no-follow snapshot every experiment copies, with
-/// modes preserved, so a caller never needs its own copier: ignored heavy
-/// artifacts stay out, dirty operator edits are included, and cancellation,
-/// quarantine exclusions and source protection come along.
 pub(crate) fn freeze_active_source(
     source: &Path,
     destination: &Path,
@@ -737,9 +662,6 @@ pub(crate) fn freeze_active_source(
     manifest_hash(&manifest)
 }
 
-/// Tree hash of the committed state in `root` (content and modes only, so two
-/// copies of the same bytes agree regardless of commit metadata). Used to prove
-/// an attempt actually started from the case's frozen source.
 pub(crate) fn committed_tree_hash(root: &Path, cancel: &AtomicBool) -> Result<String, String> {
     let bytes = git_output(root, &["rev-parse", "HEAD^{tree}"], cancel)?;
     let hash = String::from_utf8_lossy(&bytes).trim().to_string();
@@ -748,12 +670,6 @@ pub(crate) fn committed_tree_hash(root: &Path, cancel: &AtomicBool) -> Result<St
         .ok_or_else(|| "frozen source has no committed tree".to_string())
 }
 
-/// Binary patch of the candidate's *current* changes against the frozen
-/// baseline, optionally limited to `paths` (relative to `root`). `git diff HEAD`
-/// covers staged and unstaged edits alike, so a change made after the attempt's
-/// own `git add` is still part of what gets bound and checked. New, nonignored
-/// files after that recorded snapshot are not represented in Git's diff; refuse
-/// them explicitly rather than letting unbound code enter the verifier.
 pub(crate) fn candidate_patch_since_baseline(
     root: &Path,
     paths: &[String],
@@ -770,8 +686,6 @@ pub(crate) fn candidate_patch_since_baseline(
     git_output(root, &args, cancel)
 }
 
-/// Resolve configuration before the child can mutate its workspace. A store
-/// beneath either writable root cannot serve as training authority.
 fn recovery_authority(working: &Path, scratch: &Path) -> Result<Option<PathBuf>, String> {
     fn resolved(path: &Path) -> Result<PathBuf, String> {
         let path = if path.is_absolute() {
@@ -830,8 +744,6 @@ pub(crate) fn run_loop_experiment(
     {
         return Err("experiment workspace resolves into excluded content".into());
     }
-    // Resolve the caller's artifact path before any subprocess changes cwd.
-    // Sandbox grants and all descendants must refer to the same owned root.
     if !request.artifact_dir.is_absolute() {
         request.artifact_dir = std::env::current_dir()
             .map_err(|e| format!("resolve experiment launch directory: {e}"))?
@@ -870,8 +782,6 @@ pub(crate) fn run_loop_experiment(
         let cancel_watch = Arc::clone(&cancel);
         let finished_ref = &finished;
         let expired_ref = &expired;
-        // A zero deadline declines a time cap: no watcher is armed at all, so
-        // the leaf is bounded by cancellation (and any token budget) alone.
         if request.deadline_secs > 0 {
             scope.spawn(move || {
                 while !finished_ref.load(Ordering::Acquire) {
@@ -922,19 +832,9 @@ pub(crate) fn run_loop_experiment(
             let _git_scope = capture_enabled
                 .then(|| super::workspace_state::ConfinedRecoveryGit::new(&working))
                 .transpose()?;
-            // Every experiment gets the full coding grant: network, the GPU and
-            // scratch space. A confined capture registry once cut deep
-            // experiments off the board CLI and the device nodes.
             let registry = Grant::Code.registry(&working, None, &cargo);
-            // Every recovery leaf is an experiment, even without training capture.
-            // Its raw log must not become legacy imitation before evaluation.
             let _eval_label = EvalLabelScope::new();
-            // Operator-declined caps stay declined: the native turn receives no
-            // hop cap and no timeout, and is bounded by cancellation (plus any
-            // token budget) exactly like an ordinary interactive turn.
             let hop_cap = (request.max_hops > 0).then_some(request.max_hops);
-            // `⠜⠛`: the leaf's contract is the ledger pages (its Code grant
-            // carries `read_file`).
             let mut system = super::book::ar_seats::EXPERIMENT.cells();
             if let Some(note) = request
                 .policy_note
@@ -966,8 +866,6 @@ pub(crate) fn run_loop_experiment(
                 }
                 serde_json::json!({"events":trace, "omitted_events":omitted, "per_field_character_limit":4096})
             });
-            // Estimate each checkpoint conservatively; this can charge a repeated
-            // tool checkpoint twice, but never reads overlapping provider totals.
             let checkpoint = |messages: &[ChatMsg]| {
                 check_cancel(&cancel)?;
                 let bytes = messages.iter().fold(0u64, |sum, message| {
@@ -1016,8 +914,6 @@ pub(crate) fn run_loop_experiment(
                     result.error = Some(failure.message);
                 }
             }
-            // Even a stopped turn keeps its working snapshot. Export is optional
-            // when cancellation prevents trusted Git from running.
             if !cancel.load(Ordering::Acquire) {
                 let mut add = vec!["add", "-A", "--"];
                 add.extend_from_slice(ACTIVE_PATHS);
@@ -1046,10 +942,6 @@ pub(crate) fn run_loop_experiment(
                     .filter(|command| !command.trim().is_empty())
                 {
                     let candidate_sha256 = manifest_hash(&snapshot_live(&working, None, &cancel)?)?;
-                    // One evaluator-owned execution path for every attempt: the
-                    // verifier runs sandboxed and network-denied and returns the
-                    // physical evidence a reward may be scored from. Typed
-                    // capture stays opt-in and never changes what was measured.
                     let execution = crate::drive::reinforce::recovery_eval::run(
                         crate::drive::reinforce::recovery_eval::RecoveryEvalRequest {
                             command,
@@ -1131,9 +1023,6 @@ pub(crate) fn run_loop_experiment(
                                     let row_path =
                                         request.artifact_dir.join("training-trajectory.jsonl");
                                     if !row_path.exists() {
-                                        // This is an actual producer observation, not a measured
-                                        // label. Missing decision remains missing even if an
-                                        // inbox writer later changes its claimed reward.
                                         let mut row = trajectory_record(
                                             club.label(),
                                             &history,
@@ -1173,8 +1062,6 @@ pub(crate) fn run_loop_experiment(
                                     }
                                 }
                             }
-                            // The evidence leaves the attempt with the result:
-                            // scoring never reconstructs it from text.
                             result.evidence = Some(evidence);
                         }
                         Err(reason) => {
@@ -1203,10 +1090,7 @@ pub(crate) fn run_loop_experiment(
     } else if cancel.load(Ordering::Acquire) {
         result.stop_reason = "interrupt".into();
     }
-    // Process settlement does not discard evidence: keep the working copy,
-    // including ignored probe logs and evaluator-generated files, on every path.
     let result_bytes = serde_json::to_vec_pretty(&result).map_err(|e| e.to_string())?;
-    // The experiment receipt is the durable record of the run: fsync tier.
     crate::platform::workspace_store::write_private_atomic(
         &request.artifact_dir.join("result.json"),
         &result_bytes,

@@ -61,8 +61,6 @@ pub(crate) struct State {
     wishes: Option<(Option<Making>, u32)>,
 }
 
-/// A pixel frame as `▀` half blocks (fg top, bg bottom), aspect kept and
-/// letterboxed on black paper.
 pub fn paint_halfblock_frame(frame: &mut Frame, area: Rect, img: &overworld::Img) {
     if area.width == 0 || area.height == 0 || img.w <= 0 || img.h <= 0 {
         return;
@@ -71,8 +69,6 @@ pub fn paint_halfblock_frame(frame: &mut Frame, area: Rect, img: &overworld::Img
     let scale = (grid_w / img.w as f32).min(grid_h / img.h as f32);
     let (draw_w, draw_h) = (img.w as f32 * scale, img.h as f32 * scale);
     let (ox, oy) = ((grid_w - draw_w) / 2.0, (grid_h - draw_h) / 2.0);
-    // Each half-block pixel is the mean of the map pixels it covers (at most
-    // 4×4), not one of them: a moving picture keeps its colours steady.
     let sample = |gx: f32, gy: f32| -> Color {
         let span = |g: f32, o: f32| {
             let from = ((g - 0.5 - o) / scale).floor() as i32;
@@ -126,7 +122,6 @@ fn world_sample_size(viewer: &dyn Screen<Pixels>, area: Rect) -> (usize, usize) 
         .unwrap_or((usize::from(area.width), usize::from(area.height)))
 }
 
-/// Map pixels per half-block pixel on terminals without graphics.
 const HALFBLOCK_MAP_PX: i32 = 2;
 
 impl StageWorld for Delve {
@@ -162,8 +157,6 @@ impl StageWorld for Delve {
         self.walk.on && RealmHost::walk_map_shown(self, facts)
     }
 
-    /// The caption while the visitor walks: the door at hand and the keys, in
-    /// plain words.
     fn walk_caption(&self) -> (Line<'static>, bool) {
         use crate::world_viz::overworld::DoorOpens;
         let text = Style::new().fg(angel_plug::palette::HUD_TEXT);
@@ -466,9 +459,6 @@ impl Delve {
         }
     }
 
-    /// A running quest's picture: the region it's out in, walked as the Delve's
-    /// crawl (with two lines under its picture for what the party is doing) or
-    /// as the older expedition.
     fn live_adventure(
         &mut self,
         frame: &mut Frame,
@@ -513,12 +503,6 @@ impl Delve {
         }
     }
 
-    /// The Realm route's base layer: the pixel overworld. The camera's scale is
-    /// locked to the terminal's cell size and the view takes the pane's shape,
-    /// so a larger pane (or a zoomed-out terminal) shows more of the realm
-    /// rather than a bigger picture of the same place. Image-capable terminals
-    /// get the frame through the graphics protocol; any other terminal gets it
-    /// in half blocks.
     fn overworld(
         &mut self,
         frame: &mut Frame,
@@ -536,10 +520,7 @@ impl Delve {
             }
         }
         let mut scene = self.overworld_scene(facts);
-        // A school room is drawn in the map's place; only the map can be walked.
         let walkable = scene.school_room.is_none();
-        // Under an open dialog the map draws in half blocks: a terminal image
-        // would repaint over the dialog each time the map moves.
         let covered = facts.occluders.iter().any(|dialog| dialog.intersects(area));
         if viewer.map_pixels_native() && !covered {
             let (cell_w, cell_h) = viewer.map_cell_pixels();
@@ -549,9 +530,6 @@ impl Delve {
             let lazy = overworld::LazyFrame::new(scene.clone(), view_w, view_h, scale);
             let (frame_w, frame_h) = lazy.size();
             let key = scene.key() ^ (u64::from(frame_w) << 32 | u64::from(frame_h)).rotate_left(11);
-            // In the window the mini-viz presents these pixels itself;
-            // the viewer's encode/decode round trip below is for
-            // terminal graphics protocols.
             if viewer.console().picture(
                 key,
                 (frame_w, frame_h),
@@ -575,10 +553,6 @@ impl Delve {
                 return;
             }
         }
-        // Ordinary terminals, and the first frame while an image encodes: two
-        // map pixels per half-block pixel, the view shaped like the pane. The
-        // camera keeps to that two-pixel grid, so a moving view shifts whole
-        // half-block pixels instead of resampling (and shimmering) every one.
         let snap = |c: f32| (c / HALFBLOCK_MAP_PX as f32).round() * HALFBLOCK_MAP_PX as f32;
         scene.camera = (snap(scene.camera.0), snap(scene.camera.1));
         let (view_w, view_h) = (
@@ -595,19 +569,13 @@ impl Delve {
         );
     }
 
-    /// The live scene, plus the travel and arrival glass the stage is showing.
     pub fn overworld_scene(&self, facts: &StageFacts) -> overworld::Scene {
         let mut scene = self.world.overworld_scene_moving(facts.motion);
-        // Travel and arrival cues, which used to take the whole pane, become a
-        // glass over the map: the ride while the knight travels, the place's
-        // painting when he arrives.
         if overworld::glass_enabled()
             && self.world.overworld_view_label().is_none()
             && !self.world.graph_visiting()
             && !self.walk.on
         {
-            // A serving knight rides home to his own castle, not the Keep: the
-            // Keep's ride and arrival glass would say otherwise.
             let home = self.world.overworld_home().is_some();
             scene.glass = match facts.cue {
                 StageCue::Arrival(destination) | StageCue::Journey(destination)
@@ -628,8 +596,6 @@ impl Delve {
         scene
     }
 
-    /// An explicitly entered room has one synchronous Dotmax presentation. The
-    /// original source art never goes through the native image worker.
     pub fn dotmax_interior(
         &mut self,
         frame: &mut Frame,
@@ -662,8 +628,6 @@ impl Delve {
             viewer.paint_dots(frame, area, &facts.workspace, tag, &image);
             true
         };
-        // An operator-opened tower is a cached still in competition mode. It does
-        // not restart ambient simulation or its fast tick.
         (explicit_still || facts.compose_allowed)
             .then(paint)
             .unwrap_or(false)
@@ -678,8 +642,6 @@ impl StageArt for Delve {
         facts: &StageFacts,
         viewer: &mut dyn Screen<Pixels>,
     ) -> bool {
-        // A running quest leaves the town map for the actual region mesh. A
-        // deliberate /world visit (including the school) keeps its chosen place.
         if self.world.live_adventure_view() {
             self.live_adventure(frame, viewer, facts, area);
             return true;
@@ -865,8 +827,6 @@ impl StageArt for Delve {
     ) {
         let blocked = RealmHost::controls_blocked(self, facts);
         let now = Instant::now();
-        // The host's delve as its newest tick stands (the words around the
-        // room read it), and the seat whose own client draws the room.
         let screen = self.view().screen();
         let deck = self
             .dungeon
@@ -884,8 +844,6 @@ impl StageArt for Delve {
             .as_ref()
             .map(|d| self.dungeon.wish_upgrades(d.player))
             .unwrap_or_default();
-        // The room goes out as the terminal's own picture this frame: its
-        // cells under it need not be drawn.
         let native = viewer.graphics() == Graphics::Kitty
             && viewer.map_pixels_native()
             && !blocked
@@ -930,7 +888,6 @@ impl StageArt for Delve {
             );
             true
         } else if let Some(joined) = &self.dungeon.joined {
-            // Cells drawn from the seat's own picture, made off this thread.
             let picture = if native {
                 None
             } else {
@@ -974,9 +931,6 @@ impl StageArt for Delve {
                 native,
             )
         } else if let Some((snapshot, knight)) = &screen {
-            // Cells are drawn from the seat's own picture: made on its own
-            // worker while the server steps on its own thread, and here when
-            // the delve is stepped by hand (tests), so a test sees this frame's.
             let seat = self.dungeon.shooter.seat(*knight);
             let picture = if native {
                 None
@@ -1037,9 +991,6 @@ impl StageArt for Delve {
                 &self.dungeon.notice,
             )
         } && !blocked;
-        // The wish scroll's choices, the wish sealed, the genie freed: the
-        // seat's picture carries them when it is shown whole; in cells,
-        // the scroll's own half-block version.
         if !native
             && self.dungeon.forge.draft.is_none()
             && self.dungeon.activity_menu.is_none()
@@ -1053,8 +1004,6 @@ impl StageArt for Delve {
                 crate::shooter_viz::offer_box(frame, root, &snapshot.run, *knight);
             }
         }
-        // Text overlays must stay above the game: fall back to cells while a
-        // dialog owns input instead of placing an image over its buttons.
         if !blocked
             && self.dungeon.intro.is_none()
             && self.dungeon.forge.draft.is_none()
@@ -1070,9 +1019,6 @@ impl StageArt for Delve {
                 crate::shooter_viz::render_seat(frame, viewer, &seat, root, true, now);
             }
         }
-        // Couch friends retain the activity's camera; the departed host has
-        // a small view of their own safe entrance alongside it, from the
-        // host's own seat.
         if self.dungeon.hosting.is_none()
             && self.dungeon.activity_menu.is_none()
             && !self.dungeon.cards_open

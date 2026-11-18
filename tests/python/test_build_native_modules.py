@@ -1,4 +1,3 @@
-"""Edit-to-load builds must be incremental and preserve running generations."""
 import ctypes
 import json
 import os
@@ -79,8 +78,8 @@ class NativeModuleBuildTests(unittest.TestCase):
         self.assertIn('1 compiled', result.stderr)
         self.assertEqual(ctypes.CDLL(str(self.outputs()['verify_shell'])).answer(), 1)
 
+
     def compiler_probe(self):
-        """Compiler events, not a speed threshold, prove overlap and reaping."""
         wrapper = self.root / 'compiler with spaces'
         wrapper.write_text(f'''#!{sys.executable}
 import json, os, subprocess, sys, time

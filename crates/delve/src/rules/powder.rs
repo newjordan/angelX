@@ -11,15 +11,11 @@ use super::*;
 use std::collections::BTreeSet;
 
 pub const POWDER_TIME: u32 = 60 * HZ;
-/// A keg's fuse, its reach in tiles, and how long its fire shows.
 pub const FUSE: u32 = 2 * HZ;
 pub const REACH: i32 = 2;
 pub const FIRE: u32 = HZ / 3;
-/// Kegs a knight may have lit at once.
 pub const KEGS_EACH: usize = 2;
-/// Crates a sooting costs.
 pub const SOOT: u16 = 3;
-/// Crates broken that make a gold to keep.
 pub const CRATES_PER_GOLD: u16 = 4;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,18 +29,14 @@ pub struct Keg {
 pub struct Powder {
     pub room: usize,
     pub t: u32,
-    /// Crate tiles still standing (`y * cols + x`).
     pub crates: BTreeSet<u16>,
     pub kegs: Vec<Keg>,
-    /// Tiles on fire and for how long more.
     pub fire: Vec<((i32, i32), u32)>,
     pub broken: BTreeMap<u32, u16>,
     pub ante: BTreeMap<u32, u32>,
-    /// Each knight's corner (tiles), and who held the bomb key last tick.
     pub corners: BTreeMap<u32, (i32, i32)>,
     pub held: Vec<u32>,
     pub done: bool,
-    /// What lately went off, for the picture (`powder_show`).
     #[serde(default, skip_serializing_if = "powder_show::PowderShow::quiet")]
     pub show: powder_show::PowderShow,
 }
@@ -68,17 +60,12 @@ impl Powder {
     }
 }
 
-/// The pillars: every second tile in both directions, inside the walls.
 pub fn pillar(x: i32, y: i32) -> bool {
     x % 2 == 0 && y % 2 == 0
 }
 
 impl Run {
-    /// A finished or abandoned powder board must not block the floor's doors.
-    /// This also repairs older saves where the activity ended before its
-    /// temporary pillars and crates were removed.
     pub(super) fn clear_finished_powder_board(&mut self) {
-        // Any hall dealt the Powder Room (the folly hall or a second one).
         let index = self.at;
         if self.encounter_at(index) != Some(encounter::Kind::PowderRoom) {
             return;
@@ -90,7 +77,6 @@ impl Run {
         self.clear_powder_board(index);
     }
 
-    /// Remove only the board's interior blocks; doors and outer walls stay.
     pub(super) fn clear_powder_board(&mut self, index: usize) {
         let Some(room) = self.dungeon.rooms.get_mut(index) else { return };
         let mut changed = false;
@@ -107,12 +93,10 @@ impl Run {
         }
     }
 
-    /// Into the powder store: pillars, crates, a corner each, and the antes.
     pub(super) fn start_powder(&mut self, index: usize) {
         let room = &mut self.dungeon.rooms[index];
         let (cols, rows) = (room.cols as i32, room.rows as i32);
         let corners = [(1, 1), (cols - 2, rows - 2), (cols - 2, 1), (1, rows - 2)];
-        // The doors' mouths and the corners stay clear.
         let doors: Vec<(i32, i32)> = (0..rows)
             .flat_map(|y| (0..cols).map(move |x| (x, y)))
             .filter(|&(x, y)| room.tile(x, y) == Tile::Door)
@@ -159,8 +143,6 @@ impl Run {
         self.cues.push("folly".into());
     }
 
-    /// The store's tick: kegs dropped and blown, crates broken, knights
-    /// sooted, and the end.
     pub(super) fn tick_powder(&mut self, inputs: &BTreeMap<u32, Input>) {
         let Some(mut p) = self.powder.take() else {
             return;
@@ -172,7 +154,6 @@ impl Run {
         p.t += 1;
         let now = self.tick as u32;
         p.show.tick(now);
-        // The bomb key drops kegs here; the ordinary throw waits.
         for hero in self.players.values_mut() {
             hero.bomb_cooldown = hero.bomb_cooldown.max(2);
         }
@@ -201,12 +182,10 @@ impl Run {
             }
         }
         p.held = held;
-        // Fuses; a blast sets the next keg in its cross going at once.
         let mut blasts = Vec::new();
         for k in p.kegs.iter_mut() {
             k.fuse = k.fuse.saturating_sub(1);
         }
-        // How far down a chain each keg that went off was (for the picture).
         let mut linked: BTreeMap<(i32, i32), u8> = BTreeMap::new();
         let mut went = Vec::new();
         while let Some(i) = p.kegs.iter().position(|k| k.fuse == 0) {
@@ -245,7 +224,6 @@ impl Run {
             self.sounds.push("bomb");
             self.fx.push(Fx::Shake(3));
         }
-        // Kegs that set one another off are a chain, called once.
         if went.len() >= 2 && went.iter().any(|&(_, d)| d > 0) {
             let root = went.iter().find(|&&(_, d)| d == 0).map_or(0, |&(who, _)| who);
             p.show.chained(now, root, went.len().min(255) as u8);
@@ -260,7 +238,6 @@ impl Run {
             f.1 = f.1.saturating_sub(1);
         }
         p.fire.retain(|f| f.1 > 0);
-        // Sooted: back to the corner, three crates the poorer.
         let burning: Vec<(i32, i32)> = p.fire.iter().map(|f| f.0).collect();
         for (&id, hero) in self.players.iter_mut().filter(|(_, h)| h.hp > 0 && !h.stone) {
             let from = tile(hero.x, hero.y);
@@ -320,8 +297,6 @@ impl Run {
             self.sounds.push("play_card");
             self.cues.push("pastime_won".into());
         }
-        // The heaviest blast of the tick shakes the room and holds it a
-        // breath: a chain or a kill more than a lone keg.
         let heaviest = p.show.blasts.iter().filter(|b| b.born == now).map(|b| b.weight).max();
         if let Some(weight) = heaviest {
             use juice::Weight::*;

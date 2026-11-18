@@ -70,9 +70,6 @@ mod creator;
 use creator::mirror_action;
 mod creation;
 
-/// The knight whose client draws a host's shared screen. A local couch
-/// creator takes priority over room location; P1 wins when both are open.
-/// Hosted or solo screens never switch to another knight.
 pub fn screen_knight(run: &Run, couch: bool) -> u32 {
     if !couch || run.players.get(&1).is_some_and(|h| h.mirror.open) {
         1
@@ -87,74 +84,20 @@ pub fn screen_knight(run: &Run, couch: bool) -> u32 {
     }
 }
 
-/// Ticks kept: the interpolation delay (50 ms is a tick and a half) and room for
-/// snapshots that bunch up on the way.
 const KEEP: usize = 8;
-/// A page's HD drawing among the pictures it fetches (`painting_wanted`):
-/// `hd/<file>`, from the host's `/hd/<file>` (docs/LADDER.md, "The
-/// browser").
 pub const HD_PREFIX: &str = "hd/";
-/// A stick leaning past this much (of 127) counts as that way: the rules
-/// take each axis as -1, 0 or 1.
 const STICK_LEAN: i8 = 51;
-/// A correction bigger than this (in run units) is a jump, not a slip: it is
-/// shown at once rather than eased.
 const SNAP: f32 = 4.0;
-/// A correction smaller than this (run units) is no correction a player
-/// could see: a panel does not count it.
 const SEEN_CORRECTION: f32 = 0.05;
-/// Predictions remembered per command, for measuring corrections.
 const SHOWN_KEPT: usize = 64;
-/// A ballot action waits at most this long for the run to take it; then it
-/// is dropped (a host that does not keep the ballot).
 const VOTE_WAIT_TICKS: u32 = 3 * HZ;
-/// Leaving an activity, or skipping a floor plate, is asked for at most
-/// this long; the run says when it has happened.
 const ASK_TICKS: u32 = HZ;
-/// Ballot actions waiting at most.
 const VOTES_QUEUED: usize = 64;
-/// A ghost and a new shot of the server's further apart than this (run
-/// units, where each is drawn) are not one shot.
 const HANDOVER_REACH: f32 = 2.5;
-/// A ghost whose command the server answered with no shot to match waits
-/// this long for one (the server loosed it a tick later), then goes.
 const GHOST_GRACE_MS: f64 = 100.0;
-/// The gap between a ghost and the server's shot that took its place is
-/// eased out over this long, unless the `shot_ease_ms` knob moved it.
 pub const SHOT_EASE_MS: f64 = 120.0;
-/// Ghosts kept at most (a stalled link stops piling them up).
 const GHOSTS_KEPT: usize = 96;
 
-/// The keyboard, pad and sticks of the old browser seat (guest.html), and
-/// the buttons a touch layout will show.
-///
-/// Keys: WASD walk, the arrows aim, F fires, E meets the world and takes
-/// gear, Space dashes (so does Shift with a walk), Q swings, X throws a
-/// bomb, Z drinks the first card and P puts it at the back (the next one
-/// up), 1-4 cast, G keeps vigil, R the ultimate,
-/// M , . ; ' the five skills, C climbs on a friend's shoulders (and hops
-/// off, or throws the top rider for a carrier), V the ballot (arrows, 1-5, 0, N and Esc in
-/// it), N held lays the whole floor's map over the view (the minimap is
-/// always in its corner). Hold Esc / pad Menu for half a second to leave a
-/// mini-game; outside mini-games Esc opens the room menu and
-/// Enter/Backspace leaves.
-/// While fallen, Left/Right watch living allies, Space watches the body,
-/// and Esc opens the down menu (Up/Down, Enter, or 1-4). N still holds the map.
-/// The Gravecaller's guard also raises his Skeleton Wall; hold vigil for
-/// six tenths of a second to spend his corpse gauge on a golem.
-///
-/// Pad: A dashes, B swings, X bombs, Y meets the world, LB is the
-/// ultimate, RB and RT fire, back keeps vigil, start is Menu, L3 the ballot, R3 drinks,
-/// the d-pad walks; with LT held the face buttons and RB are the skills and
-/// the d-pad the four spells, LB the ride key, R3 the next-card key, and back held is the map. The right stick aims
-/// and fires.
-///
-/// A page lays its windows by the rest: the wish line's title, placeholder
-/// and keys (`text`), the way out of the offers (`choices`), the action a
-/// card dragged onto another in the hand goes as (`drag`: `{from, to}`, onto
-/// the plates the `slots` line says), and `view`, the native
-/// rows the seat's bands take above and below the room's view
-/// (`party::BAND_H`, `party::HUD_H`), so a line over the room keeps off them.
 macro_rules! controls {
     ($title:literal, $placeholder:literal, $send:literal) => {
         concat!(
@@ -194,8 +137,6 @@ macro_rules! controls {
     };
 }
 
-/// The first steps' hints' timings (`arena::primer::Knobs`), in seconds, on
-/// the dev panel: this viewer's own.
 fn primer_knobs(k: &arena::primer::Knobs) -> Vec<Knob> {
     let d = arena::primer::Knobs::default();
     let secs = |t: u32| f64::from(t) / f64::from(crate::rules::HZ);
@@ -242,10 +183,7 @@ fn set_primer_knob(k: &mut arena::primer::Knobs, name: &str, value: f64) -> Opti
 
 pub const CONTROLS: &str = controls!("Make a wish", "Wish for anything, in your words", "the genie offers how");
 const NAME_CONTROLS: &str = controls!("Mirror name", "Type a short name, then Enter", "save name");
-/// The Creator's Wish line: the same text line the wish scroll uses, its words kept here
-/// (`keep_action`) so nothing reaches the host while the Creator is open.
 const CREATOR_CONTROLS: &str = controls!("Wish it", "A flaming bone axe with a skull pommel", "ask the genie");
-/// What each of the Delve's buttons is (see `CONTROLS`).
 mod key {
     pub const TEAM: u32 = OK | SHIFT;
     use angel_net::input::button::*;
@@ -258,68 +196,41 @@ mod key {
     pub const SPELLS: [u32; 4] = [SLOT1, SLOT2, SLOT3, SLOT4];
     pub const BALLOT: u32 = X10;
     pub const RATE5: u32 = X11;
-    /// C (LT+LB on a pad): climb on a friend's shoulders, hop off, or as
-    /// a carrier throw the top rider (`shoulders`). The same button as 5
-    /// in the ballot, since only one of the two is ever up: outside the
-    /// ballot 5 is the ride key too.
     pub const RIDE: u32 = X11;
     pub const CLEAR: u32 = X12;
-    /// P (LT+R3 on a pad): the first card in hand to the back, the next
-    /// one up (`Input::cycle`). The same button as 0 in the ballot, since
-    /// only one of the two is ever up: outside the ballot 0 is the
-    /// next-card key too.
     pub const CYCLE: u32 = X12;
-    /// N in the ballot: not tried yet. Held outside it, the map: the same
-    /// button, since only one of the two is ever up.
     pub const UNTRIED: u32 = MAP;
     pub const MAP_KEY: u32 = MAP;
-    /// Enter, Backspace: leave the game in this room.
     pub const LEAVE: u32 = OK;
 }
 
-/// Our hand's plates on the screen: each card's slot in hand and its
-/// plate, `(x, y, w, h)` in the frame's pixels (`arena::seat_hand_plates`).
 type Plates = Vec<(usize, (i32, i32, i32, i32))>;
 
-/// One kept tick.
 struct Kept {
     tick: u32,
     run: Run,
     pose: Pose,
 }
 
-/// One of our knight's shots drawn ahead of the server: loosed by command
-/// `seq` as the client steps it, from where the knight was drawn, until the
-/// server's own shot takes its place.
 struct Ghost {
     seq: u32,
-    /// As loosed: at the muzzle, before its first step.
     shot: Projectile,
-    /// When the server answered its command with no shot to match yet.
     answered: Option<f64>,
 }
 
-/// One of our knight's shots in the newest tick, as the server sent it,
-/// known again from tick to tick (`wire::SAME_SHOT`): what is left to ease
-/// of the gap to the ghost it replaced.
 struct Mine {
     x: f32,
     y: f32,
     kind: Shot,
-    /// The ghost's place less the server shot's, when it took over.
     gap: (f32, f32),
     since: f64,
 }
 
-/// The ballot as this seat drives it: actions wait in order until the run
-/// shows the seat took them (its serial), and the ballot shows open or shut
-/// at once, before the run says so.
 #[derive(Default)]
 struct Ballot {
     queue: VecDeque<Vote>,
     serial: u64,
     open: bool,
-    /// Ticks the front action has waited.
     waited: u32,
 }
 
@@ -328,144 +239,74 @@ pub struct DelveClient {
     knight: Option<u32>,
     tree: Option<Value>,
     names: Reader,
-    /// The run last read, kept so a patch puts back only what it named.
     guest: wire::Guest,
     kept: VecDeque<Kept>,
-    /// Where each command first put our knight, to measure corrections.
     shown: VecDeque<(u32, f32, f32)>,
     last_ack: u32,
     offset: (f32, f32),
     offset_at: f64,
-    /// Where our knight was last drawn, in run units and in frame pixels
-    /// (tests and probes).
     drawn: Option<(f32, f32)>,
     drawn_px: Option<(f32, f32)>,
-    /// Thrown things in the air on the last frame, for a window that lifts
-    /// them toward the camera (`arena::lifted`); empty unless it asks.
     lifted: Vec<arena::Lifted>,
-    /// The last frame in parts, for a window that draws it itself
-    /// (`arena::draw_parts_outside`); `None` unless it asks.
     scene: Option<std::sync::Arc<arena::RoomScene>>,
-    /// What a page that draws stages has been sent, and the size of each
-    /// picture it holds (`GameClient::stage`).
     stage: arena::stage_frame::StageMaker,
     stage_sizes: BTreeMap<u32, (u32, u32)>,
-    /// The paintings the page fetches and draws (`arena::paintings`).
     paintings: arena::paintings::PagePaintings,
-    /// The HD drawings of the sprites shown, from the installed pack
-    /// (`arena::hd_pack`): each sent with the first frame that names it. A
-    /// browser installs none (it has no folder to read one from), so its
-    /// page is sent the inks, as ever.
     hd: arena::hd_pack::HdArt,
-    /// A page's HD art (`hd_manifest`): the host's manifest, each drawing's
-    /// pixels fetched by the page the first time a figure on its screen
-    /// asks for it (`painting_wanted`'s `hd/<file>`). None until the page
-    /// asks for HD art (`?hd=1`), and always in a window, whose pack is
-    /// installed from its own folder.
     hd_page: Option<arena::hd_pack::Pack>,
-    /// Where our knight's own shots were last drawn, in frame pixels
-    /// (probes: a fire key to its shot on screen, and how far from the
-    /// knight it showed).
     drawn_shots_px: Vec<(f32, f32)>,
-    /// The nearest of them to the knight, in run units.
     drawn_shot_gap: Option<f32>,
     ballot: Ballot,
-    /// The activity menu (Esc in a room's game): the knight waits.
     menu: bool,
-    /// Opt-in dev scroll; its recipe and controls never enter the Run.
     creation: creation::Editor,
-    /// A fallen seat's camera and menu, never part of a command or run.
     down: Option<Down>,
-    /// A wish scroll's choice tapped (1 to 3, 0 to roll it up), for the
-    /// next command.
     picked: Option<u8>,
-    /// Latest pointer action awaits exactly one command sample.
     builder_pressed: std::collections::VecDeque<crate::rules::builder_input::BuilderAction>,
-    /// The tile a mouse button was last down or dragged over in the walking world, while it is held.
     world_drag: Option<(u8, u8)>,
-    /// The map key is held, with nothing else having the keys: the whole
-    /// floor's map is laid over the view (`arena::MapView`). Kept here, in
-    /// the seat's own screen, and never sent or run.
     map_held: bool,
-    /// Ticks left asking to leave the room's game, and to skip the plate.
     leaving: u32,
     skipping: u32,
-    /// The drawn view's music, and the last said to the shell.
     music: Option<&'static str>,
     said_music: Option<Option<&'static str>>,
-    /// Our hand's plates on the drawn screen (`arena::seat_hand_plates`),
-    /// the tick they were read at, and the last said to the shell
-    /// (`slots`), for a page that drags a card onto another.
     plates: Plates,
     plates_tick: Option<u32>,
     said_plates: Plates,
-    /// A change in this seat's room allowance, said once by the shell.
     wish_notice: Option<&'static str>,
-    /// Our knight rubbed the wish altar's lamp (`rules::altar`): the shell
-    /// opens its wish line, once a rub.
     ask: bool,
-    /// The hub row the next `ask` opens: 0 power, 1 reforge, 2 look.
     wish_row: Option<u8>,
-    /// A wrong-row line, said once to the host.
     pending_notice: Option<String>,
-    /// A wish of ours that landed, said once by the shell.
     granted: Option<String>,
-    /// The tick each sound last played on.
     sounded: BTreeMap<String, u32>,
-    /// Every frame exactly as `arena::frame_for` draws it (a screenshot, a
-    /// test), rather than live (`frame_for_live`).
     exact: bool,
-    /// The duel state actually drawn when the next counter is sampled.
     latch_seen: Option<(u64, i8)>,
     moss_seen: Option<u64>,
     brass_seen: Option<u64>,
     rafter_seen: Option<u64>,
-    /// Corrections of our knight so far, and how far they moved it in all,
-    /// for a developer's panel.
     corrections: u32,
     corrected: f64,
-    /// Our knight's shots ahead of the server, oldest first; the server's,
-    /// in the order the newest tick has them, and that tick (run ticks).
     ghosts: Vec<Ghost>,
     mine: Vec<Mine>,
     mine_tick: Option<u64>,
-    /// Where the ghosts fly: the party, the floor and the room (a door
-    /// leaves them behind).
     ghost_place: Option<(u64, u32, usize)>,
-    /// What this frame's steps ahead loosed (command, shot), the coming
-    /// tick's step taken by the knight then, and the own shots drawn.
     loosed: Vec<(u32, Projectile)>,
     lead: (f32, f32),
     drawn_shots: Vec<Projectile>,
-    /// The `shot_ease_ms` knob.
     shot_ease_ms: f64,
     viewer: crate::render::viewer::Preferences,
-    /// The first steps' hints on this seat's own view (`arena::primer`).
     primer: arena::primer::Primer,
-    /// For a developer's panel: ghosts handed to the server's shots and the
-    /// gaps eased in all, and ghosts the server never matched.
     handovers: u32,
-    /// The key of the lit room's set the tree last carried (`wire::WORLD_ITEM`).
     world_item: u64,
-    /// The keys of the kingdom's chunks the tree last carried (`wire::take_world_chunks`).
     world_chunks: Vec<u64>,
     handed: f64,
     unmatched: u32,
-    /// Every shot the last frame drew: whether it was our knight's, and
-    /// where (tests).
     #[cfg(test)]
     drawn_all: Vec<(bool, f32, f32)>,
 }
 
 impl DelveClient {
     pub fn new(seat: Option<u32>, params: Params) -> DelveClient {
-        // How far down rooms stand up in 3D (docs/WORLD-3D.md).
         crate::world3d::room::set_mode(params.mode());
-        // And whether the first floor is the Atari board (experimental).
         crate::render::overworld::arena::atari::set(params.atari);
-        // The first shown frame used to pay for sheet decode, the font and the
-        // scenery cache (~16 ms at 384 wide). Build that once here, which the
-        // page does at connect, before the first presented frame.
         crate::render::overworld::arena::warm_first_shown();
         DelveClient {
             seat,
@@ -482,8 +323,6 @@ impl DelveClient {
             drawn_px: None,
             lifted: Vec::new(),
             scene: None,
-            // Shots as flat sprites until the page says it draws props; a
-            // room in 3D's plate as its PNG, which the page decodes itself.
             stage: { let mut stage = arena::stage_frame::StageMaker::for_wire(); if params.mode() == crate::world3d::room::Mode::Always { stage.flat_shots = false; } stage },
             stage_sizes: BTreeMap::new(),
             paintings: Default::default(),
@@ -539,15 +378,11 @@ impl DelveClient {
         }
     }
 
-    /// Draw every frame exactly as `arena::frame_for` does, the torch step
-    /// included, rather than live.
     pub fn exact(mut self) -> DelveClient {
         self.exact = true;
         self
     }
 
-    /// The frame's size (the GPU scales it): the party's band over the
-    /// room's view and the HUD's band under it.
     pub fn size(&self) -> (u32, u32) {
         (arena::NATIVE_W as u32, (arena::NATIVE_H + arena::BAND_H + arena::HUD_H) as u32)
     }
@@ -556,46 +391,34 @@ impl DelveClient {
         self.seat
     }
 
-    /// The newest run held.
     pub fn newest(&self) -> Option<&Run> {
         self.kept.back().map(|k| &k.run)
     }
 
-    /// The newest tick held.
     pub fn newest_tick(&self) -> Option<u32> {
         self.kept.back().map(|k| k.tick)
     }
 
-    /// Thrown things in the air on the last frame drawn, in its pixels
-    /// (`arena::lifted`); empty unless `arena::draw_lifted_outside` is on.
     pub fn lifted(&self) -> &[arena::Lifted] {
         &self.lifted
     }
 
-    /// The last frame drawn, in parts (`arena::RoomScene`); `None` unless
-    /// `arena::draw_parts_outside` is on, when the frame itself is not drawn.
     pub fn scene(&self) -> Option<std::sync::Arc<arena::RoomScene>> {
         self.scene.clone()
     }
 
-    /// Where our knight was last drawn, in run units.
     pub fn drawn_at(&self) -> Option<(f32, f32)> {
         self.drawn
     }
 
-    /// Whether the ballot is open for this seat, as it shows.
     pub fn ballot_open(&self) -> bool {
         self.ballot.open
     }
 
-    /// Whether the activity menu is up.
     pub fn menu_open(&self) -> bool {
         self.menu
     }
 
-    /// Whether the full map is up: its key is held, and neither the ballot
-    /// nor the activity menu has the keys. It changes only this seat's
-    /// picture.
     pub fn map_open(&self) -> bool {
         self.map_held
     }
@@ -621,24 +444,17 @@ impl DelveClient {
         }
     }
 
-    /// The correction still showing at `now`.
     fn easing(&self, now: f64, over_ms: f64) -> (f32, f32) {
         let left = if over_ms > 0.0 { (1.0 - (now - self.offset_at) / over_ms).clamp(0.0, 1.0) as f32 } else { 0.0 };
         (self.offset.0 * left, self.offset.1 * left)
     }
 
-    /// Our knight as the newest tick has them, walked on by the commands
-    /// the server has not answered and `partial` of a tick of the hands held
-    /// now; with its kingdom camera following, and any correction easing.
     fn own(&mut self, view: &View<DelveCmd>) -> Option<Hero> {
         let knight = self.knight?;
         let walk = self.walk(&view.hands);
         let coming = self.coming(&view.hands);
         self.loosed.clear();
         let newest = &mut self.kept.back_mut()?.run;
-        // A knight its keys do not move (a ride, the privy, a Bladewind, a
-        // side-on hall) is drawn from the server's ticks, between two like
-        // everyone else, never held at the newest.
         if self.creation.session.open || newest.players.get(&knight).is_some_and(|h| h.mirror.open) {
             self.ghosts.clear();
             self.shown.clear();
@@ -660,8 +476,6 @@ impl DelveClient {
                 follow_camera(hero, w, h, ease);
             }
         };
-        // Each command steps the knight, then its fire key as the sim's
-        // would: what it looses flies ahead as ghosts (`own_shots`).
         let mut fired = Vec::new();
         let first = newest.tick + 1;
         for (i, (seq, cmd)) in view.pending.iter().enumerate() {
@@ -673,15 +487,8 @@ impl DelveClient {
         }
         let after = newest.players.get(&knight).map(|h| (h.x, h.y, h.camera))?;
         self.lead = (0.0, 0.0);
-        // Part of the coming tick, along the hands held now: held only, as
-        // a press acts once, when its command is sampled. The whole tick is
-        // walked, then drawn `partial` of the way, so what shows is on the
-        // path the server will step (a part-tick slide can reach where a
-        // whole one stops at a wall).
         if let Some(walk) = walk.filter(|_| view.partial > 0.0) {
             newest.predict(knight, walk);
-            // The coming command's fire key, the presses since the last
-            // command with it: a shot shows on the next display frame.
             if let Some(coming) = coming
                 && let Some(hero) = newest.players.get(&knight)
             {
@@ -701,18 +508,13 @@ impl DelveClient {
             }
         }
         let mut hero = newest.players.get(&knight)?.clone();
-        // The newest tick, as the server had it, stays as it was: its place,
-        // and the roll, guard and mana the steps ahead ran.
         newest.players.insert(knight, server.clone());
 
-        // The server answered more of our commands: compare its word with
-        // what we showed for the last one it took.
         if view.ack != self.last_ack {
             self.last_ack = view.ack;
             if let Some(&(_, sx, sy)) = self.shown.iter().find(|(seq, _, _)| *seq == view.ack) {
                 let (ex, ey) = (sx - server.x, sy - server.y);
                 if ex != 0.0 || ey != 0.0 {
-                    // What a panel counts: a correction a player could see.
                     let off = ex.hypot(ey);
                     if off > SEEN_CORRECTION {
                         self.corrections += 1;
@@ -742,8 +544,6 @@ impl DelveClient {
         Some(hero)
     }
 
-    /// Arena movement uses the same fixed-step walk as its host. Only the
-    /// own camera is predicted: the host alone awards damage and kills.
     fn deathmatch_own(&self, view: &View<DelveCmd>) -> Option<(u32, crate::rules::deathmatch::Fighter)> {
         let id = self.knight?;
         let s = self.kept.back()?.run.deathmatch.as_ref()?;
@@ -763,8 +563,6 @@ impl DelveClient {
         Some((id, f))
     }
 
-    /// The input the hands walk with between two commands, or nothing while
-    /// a menu, the ballot or a plate has the keys.
     fn walk(&self, hands: &Hands) -> Option<Input> {
         let run = self.newest()?;
         let knight = self.knight?;
@@ -775,27 +573,17 @@ impl DelveClient {
         Some(play(hands.held, hands.held, hands))
     }
 
-    /// The coming command's input, as `command` will make it of these hands
-    /// (held and pressed alike), or nothing while a menu, the ballot or a
-    /// plate has the keys.
     fn coming(&self, hands: &Hands) -> Option<Input> {
         self.walk(hands)?;
         let cmd = DelveCmd { held: play(hands.held, hands.held, hands), pressed: presses(hands.pressed, hands.held) };
         Some(cmd.input())
     }
 
-    /// Where knight `knight` is: the party, the floor and the room.
     fn place_of(run: &Run, knight: u32) -> (u64, u32, usize) {
         let at = run.exits.outside.get(&knight).map_or(run.at, |e| e.at);
         (run.raid_id, run.dungeon.depth, at)
     }
 
-    /// Our knight's own shots for this frame, into `drawn_shots`: the
-    /// server's from the newest tick flown on to where the knight is drawn,
-    /// and the ghosts it has not yet answered. A command that still fires
-    /// keeps the ghosts it first loosed (the coming command's are made anew
-    /// each frame); the server's new shots take the places of the ghosts of
-    /// the commands it answered; ghosts that went nowhere go.
     fn own_shots(&mut self, view: &View<DelveCmd>) {
         self.drawn_shots.clear();
         let (Some(knight), Some(newest)) = (self.knight, self.kept.back().map(|k| &k.run)) else {
@@ -811,10 +599,6 @@ impl DelveClient {
         let coming = last.wrapping_add(1);
         let answered = |seq: u32| seq.wrapping_sub(view.ack) as i32 <= 0;
         let partial = view.partial.clamp(0.0, 1.0);
-        // Flight, in ticks: a ghost's since its command played (the coming
-        // command's part of a tick, from where the knight is drawn now: the
-        // coming step not yet taken); the server's shots', from the newest
-        // tick to where the knight is drawn.
         let ahead = view.pending.len() as f32 + partial;
         let lead = (self.lead.0 * (1.0 - partial), self.lead.1 * (1.0 - partial));
         let ghost_at = |g: &Ghost| {
@@ -836,9 +620,6 @@ impl DelveClient {
         let over = self.ghosts.len().saturating_sub(GHOSTS_KEPT);
         self.ghosts.drain(..over);
 
-        // A new tick: the server's shots known again by where last tick's
-        // would be; a new one takes the place of the nearest ghost of the
-        // same kind whose command the server has answered.
         if self.mine_tick != Some(newest.tick) {
             let step = 1.0 / HZ as f32;
             let dt = self.mine_tick.map_or(0.0, |t| newest.tick.wrapping_sub(t) as f32) * step;
@@ -882,8 +663,6 @@ impl DelveClient {
             self.mine_tick = Some(newest.tick);
         }
 
-        // A ghost the server answered with nothing to match goes after a
-        // little; one that met stone or a monster goes at once.
         for g in &mut self.ghosts {
             if answered(g.seq) && g.answered.is_none() {
                 g.answered = Some(now);
@@ -918,8 +697,6 @@ impl DelveClient {
         });
     }
 
-    /// Whether to draw from the tick at `render` rather than the newest: not
-    /// when our knight or the party has gone through a door since.
     fn same_place(&self, at: usize) -> bool {
         let (Some(then), Some(now)) = (self.kept.get(at), self.kept.back()) else {
             return false;
@@ -934,7 +711,6 @@ impl DelveClient {
             && room(&then.run) == room(&now.run)
     }
 
-    /// A ballot action, shown at once and sent until the run takes it.
     fn vote(&mut self, action: Action) {
         if self.ballot.queue.len() >= VOTES_QUEUED {
             return;
@@ -949,8 +725,6 @@ impl DelveClient {
         }
     }
 
-    /// Ballot actions the run has taken are done; the ballot shows as the
-    /// run has it once none wait.
     fn settle_ballot(&mut self) {
         let (Some(knight), Some(run)) = (self.knight, self.kept.back().map(|k| &k.run)) else {
             return;
@@ -971,7 +745,6 @@ impl DelveClient {
         }
     }
 
-    /// The ballot's keys, pressed this tick.
     fn ballot_keys(&mut self, pressed: u32) {
         let on = |bits: u32| pressed & bits != 0;
         if on(key::BALLOT) {
@@ -1002,10 +775,6 @@ impl DelveClient {
     }
 }
 
-/// The game's input from the buttons: `bits` for every flag, `slots` for the
-/// Side-on (a ledge hall, a Wanted showdown) the keys read as a
-/// platformer's: Space jumps, up aims and shoots straight up, down drops
-/// through a plank, and Shift with a direction rolls.
 fn side_on_keys(input: &mut Input, held: u32) {
     let up = input.move_y < 0;
     let jump = held & button::JUMP != 0;
@@ -1023,7 +792,6 @@ fn side_on_keys(input: &mut Input, held: u32) {
     }
 }
 
-/// card, spell and skill keys, and the sticks from `hands`.
 fn play(bits: u32, slots: u32, hands: &Hands) -> Input {
     let on = |b: u32| bits & b != 0;
     let axis = |v: i8| -> i8 {
@@ -1060,9 +828,6 @@ fn play(bits: u32, slots: u32, hands: &Hands) -> Input {
     }
 }
 
-/// The input of the bits pressed since the last command: the flags and the
-/// slots, no sticks (the sampler sweeps a tapped direction into the stick).
-/// Shift pressed while walking is a dash pressed.
 fn presses(pressed: u32, held: u32) -> Input {
     let walking = key::WALK.iter().any(|&k| held & k != 0);
     let mut input = play(pressed, pressed, &Hands::default());
@@ -1070,8 +835,6 @@ fn presses(pressed: u32, held: u32) -> Input {
     input
 }
 
-/// The shortest gap between two of the same sound, in ms: rapid fire never
-/// piles into noise (the host's mixer's own gaps, `together_audio`).
 pub(crate) fn sound_gap(name: &str) -> u32 {
     match name {
         "gas_release" | "wheel_spin" | "wheel_land" => 1500,
@@ -1080,7 +843,6 @@ pub(crate) fn sound_gap(name: &str) -> u32 {
         "spell_cast" => 250,
         "shot_bow" | "shot_crossbow" | "shot_handgonne" | "shot_bolt" | "shot_arcane" | "shot_spark" => 70,
         "hit" | "hit_blade" | "hit_axe" | "hit_arrow" | "hit_bolt" | "hit_blast" | "hit_magic" | "hit_note" => 60,
-        // Every let-go of the Bard's song is heard: a dropped rest is music that runs on.
         n if n == crate::rules::bard::REST => 0,
         n if crate::rules::bard::is_slice(n) => 300,
         n if crate::rules::bard::is_bard_sound(n) => 800,
@@ -1093,31 +855,24 @@ pub(crate) fn sound_gap(name: &str) -> u32 {
         "kill" => 90,
         "gore_kick" | "gore_thunk" | "gore_chop" | "gore_splat" | "gore_bones" | "gore_burst" => 110,
         "swing" | "roll" | "shield_block" | "clang" | "spike" | "vent_fire" => 150,
-        // The blades (`rules::melee`): a whoosh by the arm, a contact by its
-        // weight, a turned bullet's ting and whizz.
         "swing_sword" | "swing_axe" | "swing_maul" | "swing_spear" | "swing_cleaver" => 150,
         "hit_flesh_light" | "hit_flesh_medium" | "hit_flesh_heavy" => 70,
         "parry" => 250,
         "parry_whizz" => 150,
         "gore_behead" | "gore_head_thud" | "gore_bisect" | "gore_slump" => 110,
-        // Magic by family (`rules::vfx::Voice`): a cast as `spell_cast`, a
-        // spell's break a little more than a shot's hit.
         "cast_fire" | "cast_frost" | "cast_holy" | "cast_storm" | "cast_poison" | "cast_arcane" | "cast_earth" => 250,
         "impact_fire" | "impact_frost" | "impact_holy" | "impact_storm" | "impact_poison" | "impact_arcane"
         | "impact_earth" => 90,
-        // The wish moments: the lamp, the genie, a landing, the fairies.
         "lamp_rub" => 600,
         "genie_appear" => 800,
         "wish_land" | "wish_land_grand" | "wish_land_mythic" => 1000,
         "fairy_wish" => 1500,
-        // The steps up (`rules::rewards`).
         "level_up" | "rung_up" | "relic_find" | "deepest_yet" | "sky_lit" => 1000,
         _ => 200,
     }
 }
 
 impl DelveClient {
-    /// The tile of the walking world under a frame pixel, when the builder is out in the flat view.
     fn world_tile(&self, frame_x:u32, frame_y:u32)->Option<(u8,u8)> {
         let (knight, run) = self.knight.zip(self.newest())?;
         if !crate::rules::hillside::building(run, knight) || crate::world3d::enabled() {
@@ -1128,9 +883,6 @@ impl DelveClient {
         arena::hill_tile_at(run,knight,x as i32,y as i32)
     }
 
-    /// An action of the mouse for the host. On the desk the newest click wins and never replays an
-    /// older one; in the walking world they are kept in order, one a command (a click then its
-    /// release are two), a run of moves as the last of them.
     fn mouse_action(&mut self, action: crate::rules::builder_input::BuilderAction, world: bool) {
         use crate::rules::builder_input::BuilderAction::Hold;
         if !world {
@@ -1144,7 +896,6 @@ impl DelveClient {
         }
     }
 
-    /// Open the wish hub for this knight. `prefer` is the lamp or the mirror; none is T's fitting row.
     fn open_wish_hub(&mut self, prefer: Option<crate::rules::creation::HubRow>) {
         if !crate::rules::creation::wish_hub_enabled() {
             return;
@@ -1181,8 +932,6 @@ impl GameClient for DelveClient {
     }
 
     fn snapshot(&mut self, tick: u32, whole: bool, body: &[u8]) -> Result<(), Malformed> {
-        // Names the patch touched, when it is a struct's. `None` is a whole
-        // tree, or a patch this does not know field by field.
         let mut fields = None;
         let mut shots = wire::Shots::Rebuild;
         if whole {
@@ -1191,7 +940,6 @@ impl GameClient for DelveClient {
             self.tree = Some(self.names.value(&mut b)?);
             b.end()?;
         } else if body.is_empty() {
-            // Nothing changed: the newest run stands for this tick too.
             if let Some(last) = self.kept.back_mut() {
                 last.tick = last.tick.max(tick);
             }
@@ -1209,8 +957,6 @@ impl GameClient for DelveClient {
         let run = self.guest.read(tree, fields.as_deref(), &shots).map_err(|_| Malformed)?;
         let known = fields.as_ref();
         let touched = |name: &str| known.is_none_or(|names| names.iter().any(|n| n == name));
-        // The room on show's lit set, when the host sends one (a page has no
-        // asset folder for its landmark): kept, once for each room.
         if touched(wire::WORLD_ITEM)
             && let Some(Value::U(key)) = tree.field(wire::WORLD_ITEM).and_then(|i| i.field("key"))
             && self.world_item != *key
@@ -1218,9 +964,6 @@ impl GameClient for DelveClient {
             self.world_item = *key;
             wire::take_world_item(tree);
         }
-        // The kingdom's chunks near this seat's view, when the world is in
-        // 3D out there: kept as the tree carries them. A fight does not
-        // resend them, so the key list is not built again.
         if touched(wire::WORLD_CHUNKS) {
             let chunk_keys: Vec<u64> = match tree.field(wire::WORLD_CHUNKS) {
                 Some(Value::Map(entries)) => entries.iter().filter_map(|(_, c)| match c.field("key") {
@@ -1241,19 +984,14 @@ impl GameClient for DelveClient {
             arena::prepare_entry(&run, self.knight);
         }
         if self.kept.back().is_some_and(|k| k.tick >= tick) {
-            // A new connection's ticks start over.
             self.kept.clear();
         }
-        // What the run now says ends: a game left (or no longer leavable),
-        // a plate gone.
         let (can_leave, plate) = self
             .knight
             .map_or((false, false), |k| (run.can_leave_activity(k), run.floor_plate(Some(k)).is_some()));
         if let (Some(id), Some(previous)) = (self.knight, self.newest()) {
-            // A newer rub of the lamp than we had seen: open the wish line.
             let rub = run.lamp.rubbed.get(&id);
             let ask = rub.is_some() && rub != previous.lamp.rubbed.get(&id) && previous.raid_id == run.raid_id;
-            // A grant of ours landed since: say so.
             let seen = previous.lamp.landed.last().map(|l| l.tick);
             let granted = run
                 .lamp
@@ -1262,8 +1000,6 @@ impl GameClient for DelveClient {
                 .rev()
                 .find(|l| l.knight == id && seen.is_none_or(|t| l.tick > t))
                 .map(|landed| format!("Your wish is granted: {}", landed.name.split(". ").next().unwrap_or(&landed.name)));
-            // A wish asked for opens the genie's own typed line and nothing else: the hub does not
-            // come up over it (it took the typed words for itself and they never reached the genie).
             self.ask |= ask;
             if granted.is_some() {
                 self.granted = granted;
@@ -1278,7 +1014,6 @@ impl GameClient for DelveClient {
                 self.wish_notice =
                     Some(if run.can_wish(id) { "Wish spent: more held. E at the genie's lamp." } else { "Wish spent: none held." });
             } else if !same_window && run.can_wish(id) && run.players.get(&id).is_some_and(|h| h.shape.is_some() && h.unmade(&run.book)) {
-                // A knight still a shape: the wishes are for making them.
                 self.wish_notice = Some("You are a shape. Press T: wish yourself into being.");
             } else if !same_window && run.can_wish(id) {
                 self.wish_notice = Some(if window.great {
@@ -1294,9 +1029,6 @@ impl GameClient for DelveClient {
                 self.wish_notice = Some("Mirror name: press T, type a short name, then Enter.");
             }
         }
-        // A knight who owes the realm their rite is invited to the Creator as they arrive, whether
-        // they began the session or came into one running: a slip on their own screen that opens
-        // it with C, and puts itself off to a corner hint after a few seconds (`rite`).
         if let Some(id) = self.knight {
             self.creation.invite.update(run.owes_rite(id), run.tick);
         }
@@ -1340,7 +1072,6 @@ impl GameClient for DelveClient {
             if self.creation.session.open { return DelveCmd::neutral(); }
         }
         if !self.creation.session.open && self.creation.invite.up() && hands.held & button::MAP != 0 && hands.pressed & key::RIDE != 0 {
-            // The rite's invitation: N held and C opens the Creator. C alone is always the shoulder ride.
             self.set_knob("creator_open", 1.0);
             if self.creation.session.open {
                 self.creation.invite.opened();
@@ -1375,8 +1106,6 @@ impl GameClient for DelveClient {
         let (Some(knight), Some(run)) = (self.knight, self.newest()) else {
             return DelveCmd::neutral();
         };
-        // The creator owns all controls, even if an older menu/ballot or a
-        // queued leave request was still up when its snapshot arrived.
         if run.players.get(&knight).is_some_and(|h| h.mirror.open) {
             self.menu = false;
             self.leaving = 0;
@@ -1386,21 +1115,16 @@ impl GameClient for DelveClient {
             self.ballot.queue.clear();
             self.ballot.open = false;
             let mut cmd = DelveCmd::neutral();
-            // Axes are held input, not fresh presses every tick. The sim's
-            // creator fallback applies its repeat delay to these directions.
             cmd.held = play(0, 0, hands);
             cmd.pressed.mirror = mirror_action(hands);
             return cmd;
         }
-        // The team chord is combat input, never an Enter in a dialog.
         let pressed = if (hands.held | hands.pressed) & key::TEAM == key::TEAM {
             hands.pressed & !key::TEAM
         } else { hands.pressed };
         let can_leave = run.can_leave_activity(knight);
         let hold_leave = run.can_hold_leave(knight);
         let plate = run.floor_plate(Some(knight)).is_some();
-        // Only a knight standing in a live delve plays: a fallen one, or a
-        // run that is won or wiped, sends nothing but its way out.
         let playable = run.active() && run.players.get(&knight).is_some_and(|h| h.hp > 0);
         let over = run.over();
         let side_on = run.side_on();
@@ -1447,14 +1171,10 @@ impl GameClient for DelveClient {
             return DelveCmd::neutral();
         }
 
-        // A press while the floor's plate shows dismisses it, and nothing else.
         if plate && pressed != 0 {
             self.skipping = ASK_TICKS;
         }
         if hold_leave { self.menu = false; }
-        // The wish scroll's choices are open on this knight's view: the
-        // menu key rolls it up and the spell keys (or a tap, `choose`) pick,
-        // for the run to take (`Run::offer_inputs`); nothing pauses.
         if playable && scroll_open {
             let mut cmd = DelveCmd::neutral();
             cmd.held = play(hands.held, hands.held, hands);
@@ -1468,8 +1188,6 @@ impl GameClient for DelveClient {
             self.menu = false;
             return cmd;
         }
-        // Outside mini-games Esc pauses this room (Esc again resumes); Enter or
-        // Backspace leaves it, paused or not. The ballot shuts first.
         if can_leave && !hold_leave && !plate {
             if pressed & button::MENU != 0 && (self.menu || !self.ballot.open) {
                 self.menu = !self.menu;
@@ -1507,15 +1225,12 @@ impl GameClient for DelveClient {
         } else if self.ballot.open || !self.ballot.queue.is_empty() {
             cmd.pressed.vote = self.ballot.queue.front().copied();
         } else if over {
-            // On the verdict's board, Enter (or R, the host's own key) asks
-            // to go back to the kingdom (`Run::ask_again`).
             cmd.pressed.again = pressed & (button::OK | key::ULT) != 0;
         } else if playable {
             cmd.held = play(hands.held, hands.held, hands);
             cmd.pressed = presses(hands.pressed, hands.held);
             if side_on {
                 side_on_keys(&mut cmd.held, hands.held);
-                // A tap of Space is a jump here, never a roll.
                 cmd.pressed.dash = pressed & button::SHIFT != 0 && cmd.held.move_x != 0 && (pressed | hands.held) & key::TEAM != key::TEAM;
             }
         }
@@ -1526,8 +1241,6 @@ impl GameClient for DelveClient {
                 cmd.pressed.move_y=cmd.held.move_y;
             }
         }
-        // The race gate's menus (and its results board) take Enter as a pick: Enter is no key of the
-        // race itself, so E, F and Space are not the only ways to say yes.
         if pressed & button::OK != 0 && self.newest().is_some_and(|r| r.knight_racers_showing()) {
             cmd.pressed.interact = true;
         }
@@ -1576,8 +1289,6 @@ impl GameClient for DelveClient {
         let own = self.own(view);
         let deathmatch_own = self.deathmatch_own(view);
         self.drawn = own.as_ref().map(|h| (h.x, h.y));
-        // The map key is held (the ballot and the activity menu have it for
-        // their own: N is "not tried yet" in the ballot).
         let map_held = view.hands.held & key::MAP_KEY != 0 && view.hands.held & button::SHIFT == 0;
         self.map_held = if let Some(down) = &self.down {
             down.map || map_held && down.menu.is_none()
@@ -1590,8 +1301,6 @@ impl GameClient for DelveClient {
         };
         self.map_held &= !self.creation.session.open;
         let full = self.map_held;
-        // Our own shots go with our knight: ahead of the server when it is,
-        // between two ticks like everyone's when it is not.
         if own.is_some() {
             self.own_shots(view);
         } else {
@@ -1622,7 +1331,6 @@ impl GameClient for DelveClient {
         let mut scene = None;
         let parts = arena::parts_outside();
         let _scenery = arena::wire_scenery(parts && self.stage.png_plates);
-        // The room's view between the party's band and the HUD's.
         let room_h = arena::view_rows(h as i32) as u32;
         let mut latch_seen = None;
         let mut moss_seen = None;
@@ -1631,7 +1339,6 @@ impl GameClient for DelveClient {
         let mut shots_px = std::mem::take(&mut self.drawn_shots_px);
         shots_px.clear();
         let mut shot_gap = None;
-        // The hand's plates are read again once a tick, not every frame.
         let plates_due = self.plates_tick != Some(self.kept[after].tick);
         let mut plates = None;
         #[cfg(test)]
@@ -1641,12 +1348,8 @@ impl GameClient for DelveClient {
         let primer = &mut self.primer;
         let creation = &self.creation.session;
         let floor = self.creation.floor.as_ref();
-        // A seat's view, its HUD in the band under it (`arena::in_seat`).
         let img = arena::with_deathmatch_prediction(deathmatch_own, || arena::with_watch(watching, || arena::in_seat(|| self.kept[after].run.drawn_with_shots(&pose, alpha, knight.zip(own.as_ref()), ahead, |run| arena::stand_back::with(run, knight, full, || {
             let seat_view = watching.or(knight).and_then(|k| run.view_for_seat(k));
-            // The whole floor's map and the band's cards are the whole
-            // party's, read from the run in full: a seat's own view leaves
-            // out the knights who stand in another room.
             let party = seat_view.as_ref().filter(|v| v.players.len() != run.players.len()).map(|_| run.players.clone());
             let map = arena::MapView { full, model: full.then(|| run.floor_map(knight)), party };
             let run = seat_view.as_ref().unwrap_or(run);
@@ -1656,7 +1359,6 @@ impl GameClient for DelveClient {
             latch_seen = knight.and_then(|id| run.latch.as_ref()?.duels.get(&id))
                 .map(|d| (run.tick, d.guard));
             music = run.music();
-            // A watcher has no hand to drag.
             if plates_due {
                 plates = Some(if watching.is_some() { Vec::new() } else {
                     knight.map_or_else(Vec::new, |k| arena::seat_hand_plates(run, Some(k), w as i32, h as i32))
@@ -1682,19 +1384,13 @@ impl GameClient for DelveClient {
                 lifted = arena::seat_lifted(run, w as i32, h as i32, knight, alpha);
             }
             if parts {
-                // The window draws the parts; no picture is made here. Floor
-                // fixtures are solid shapes only in a room that stands up
-                // in 3D (the deep floors, `world3d::room::stands`); the 2D
-                // world keeps its own sprites.
                 arena::props_meshes(!self.stage.flat_shots && crate::world3d::room::stands_here(run));
-                // What lies on the floor turns there as a card, in 2D too.
                 arena::pickup_cards(!self.stage.flat_shots);
                 let mut parts = if exact {
                     arena::scene_for(run, w as i32, room_h as i32, knight)
                 } else {
                     arena::scene_for_live(run, w as i32, room_h as i32, knight)
                 };
-                // Only this scene is drawn for a page that draws props.
                 arena::props_meshes(false);
                 arena::pickup_cards(false);
                 arena::presence_marks(&mut parts.screen, run, knight);
@@ -1718,8 +1414,6 @@ impl GameClient for DelveClient {
             } else {
                 arena::frame_for_live(run, w as i32, room_h as i32, knight)
             };
-            // Who is here: "AWAY" over an absent player's knight, and the
-            // room's banner while it holds for the party.
             arena::presence_marks(&mut img, run, knight);
             crate::render::escape::paint(&mut img, run, knight);
             crate::render::genie::paint(&mut img, run, knight);
@@ -1730,7 +1424,6 @@ impl GameClient for DelveClient {
             if let Some(hud) = &down_hud { hud.paint(&mut img); }
             crate::render::viewer::options(&mut img, full, self.viewer);
             if knight.is_some_and(|k| run.tripping(k)) {
-                // The room's view alone goes strange; the bands stay read.
                 let top = arena::BAND_H * (img.w / arena::NATIVE_W).max(1);
                 crate::render::viewer::trip_rows(&mut img, run.tick, top, top + room_h as i32);
             }
@@ -1762,7 +1455,6 @@ impl GameClient for DelveClient {
         {
             crate::render::viewer::soften(&mut img);
             for (out, &word) in frame.px.iter_mut().zip(img.words()) {
-                // Transparent is the black paper.
                 *out = if word >> 24 == 0 { 0xff00_0000 } else { word };
             }
         }
@@ -1794,9 +1486,6 @@ impl GameClient for DelveClient {
                 None => "music".to_string(),
             });
         }
-        // Where our hand's plates are, whenever they move: `slots` and
-        // `[slot, x, y, w, h]` for each card, in the frame's pixels. A page
-        // starts with none.
         if self.said_plates != self.plates {
             self.said_plates = self.plates.clone();
             let quads: Vec<String> = self
@@ -1896,22 +1585,14 @@ impl GameClient for DelveClient {
     fn dev_stats(&self, out: &mut Vec<(&'static str, f64)>) {
         out.push(("corrections", f64::from(self.corrections)));
         out.push(("corrected_units", (self.corrected * 1000.0).round() / 1000.0));
-        // Own shots drawn ahead: ghosts flying now, ghosts the server's
-        // shots took over and the gaps eased in all, and ghosts it never
-        // matched.
         out.push(("shot_ghosts", self.ghosts.len() as f64));
         out.push(("shot_handovers", f64::from(self.handovers)));
         out.push(("shot_handed_units", (self.handed * 1000.0).round() / 1000.0));
         out.push(("shot_unmatched", f64::from(self.unmatched)));
-        // Where our knight was last drawn, in run units: a probe times a
-        // walk by it whatever the camera does.
         if let Some((x, y)) = self.drawn {
             out.push(("own_x", (f64::from(x) * 1000.0).round() / 1000.0));
             out.push(("own_y", (f64::from(y) * 1000.0).round() / 1000.0));
         }
-        // Our knight's own shots on the last frame, and the nearest one's
-        // distance from the knight there, in frame pixels: a probe times a
-        // fire key to its shot by them, and sees whether it left the knight.
         out.push(("own_shots", self.drawn_shots_px.len() as f64));
         if let Some((kx, ky)) = self.drawn_px
             && let Some(&(x, y)) = self.drawn_shots_px.iter().min_by(|a, b| {
@@ -1932,9 +1613,6 @@ impl GameClient for DelveClient {
         self.drawn_px
     }
 
-    /// The wish scroll's choices, when it is open on our knight's view:
-    /// "1 As you said: Triple Volley I", one a line; and on a summoner's,
-    /// whom it is for, turned with 4 ("4 For: your dead").
     fn choices(&self) -> String {
         if self.creation.session.hub {
             return (0..6).filter_map(crate::rules::creation::HubRow::from_index).enumerate().map(|(i, row)| {
@@ -1966,8 +1644,6 @@ impl GameClient for DelveClient {
             .unwrap_or_default()
     }
 
-    /// Choice `n` tapped; the line after the choices on a summoner's scroll
-    /// turns whom it is for (4); any past the three rolls the scroll up.
     fn choose(&mut self, n: u32) {
         if self.creation.session.hub {
             self.set_knob("wish_pick", f64::from(n + 1));
@@ -2013,10 +1689,6 @@ impl GameClient for DelveClient {
 
     fn pointer(&mut self, frame_x:u32, frame_y:u32, button:u8)->bool {
         if self.menu || self.ballot.open || self.down.is_some() || self.map_held {return false;}
-        // The builder out in the world (the hillside): a click is a tile of the ground, in the
-        // flat view (in 3D the floor is tipped, and the keys lay what the ghost shows). Held and
-        // dragged, it lays a row as the knight's walking with E held does. The builder's strip at
-        // the view's foot is the hotbar's.
         if let Some((knight, run)) = self.knight.zip(self.newest())
             && crate::rules::hillside::building(run, knight)
         {
@@ -2049,10 +1721,6 @@ impl GameClient for DelveClient {
         true
     }
 
-    /// "Upgrade what you hold" beside the wish line: each ladder our knight
-    /// holds (`Run::upgrades`) as "1\tPermanent Mirrors\tI → II\tTwo mirrors
-    /// circle you.\tupgrade Permanent Mirrors", one held in full as MAX with
-    /// no words, and the note when none can be picked.
     fn picks(&self) -> String {
         if self.creation.session.hub {
             let row = crate::rules::creation::HubRow::from_index(self.creation.session.row);
@@ -2089,14 +1757,10 @@ impl GameClient for DelveClient {
     }
 
     fn stage(&mut self, now_ms: f64, out: &mut Vec<u8>) -> bool {
-        // From the next frame on, frames come in parts.
         arena::draw_parts_outside(true);
         let Some(scene) = self.scene.clone() else {
             return false;
         };
-        // A painting the page has is drawn in its inks' place, and an HD
-        // drawing in its sprite's, their pictures sent with the first frame
-        // that names them.
         let (mut painted, mut drawn) = (Vec::new(), Vec::new());
         let calm = self.viewer.calm_screen;
         let mut frame = self.stage.make_with(
@@ -2114,8 +1778,6 @@ impl GameClient for DelveClient {
             self.stage_sizes.insert(p.id, (p.width, p.height));
         }
         let sizes = &self.stage_sizes;
-        // The props (and a room in 3D, and its figures) lie after some of the
-        // layers; the wire counts quads.
         let props = frame.props.as_ref();
         let world = props.and_then(|p| p.world.as_ref());
         let marks = [props.map_or(0, |p| p.at), world.map_or(0, |w| w.at), world.map_or(0, |w| w.figures_at)];
@@ -2123,8 +1785,6 @@ impl GameClient for DelveClient {
             angel_stage::expand_marks(&frame.layers, &marks, (now_ms / 1000.0) as f32, |id| sizes.get(&id).copied());
         if let Some(props) = &mut frame.props {
             props.at = under[0];
-            // (The world's floor and blocks go by their set's reference: the
-            // page makes them itself.)
             if let Some(world) = &mut props.world {
                 (world.at, world.figures_at) = (under[1], under[2]);
             }
@@ -2140,10 +1800,6 @@ impl GameClient for DelveClient {
         self.hd.forget();
     }
 
-    /// The Creator's Wish line: while the scroll is open the words typed in the shell's text line
-    /// (action kind 2, `{"words": ..}`) are the genie's to read, and nothing is sent to the host,
-    /// so no wish is spent. A wish pick (kind 1) is swallowed the same way.
-    /// A thing brought to life in the Creator, on its way to the host (`rite`).
     fn take_actions(&mut self) -> Vec<(u32, Vec<u8>)> {
         std::mem::take(&mut self.creation.outbox)
     }
@@ -2181,7 +1837,6 @@ impl GameClient for DelveClient {
 
     fn stage_props(&mut self, on: bool) {
         if self.stage.flat_shots == on {
-            // A page that changed how it draws has none of the other way's pictures.
             self.stage.flat_shots = !on;
             self.stage.forget();
             self.stage_sizes.clear();
@@ -2217,13 +1872,10 @@ impl GameClient for DelveClient {
     fn hd_manifest(&mut self, json: &str, scale: u32, rung: u32) -> bool {
         match arena::hd_pack::Pack::from_manifest(json) {
             Ok(pack) => {
-                // The page's `?ladder=`: every knight on one rung, to look.
                 if let Some(rung) = crate::rules::resolution::Rung::of(rung) {
                     crate::rules::resolution::set_rule(Some(crate::rules::resolution::Rule::Fixed(rung)));
                 }
                 self.hd_page = Some(pack);
-                // No finer than the page shows the game's pixels at: past
-                // it a drawing is sampled down, and nearest, it shimmers.
                 self.hd.max_scale = Some(scale.max(1));
                 self.hd.forget();
                 true
@@ -2233,9 +1885,6 @@ impl GameClient for DelveClient {
     }
 }
 
-/// The card screen a page shows on Tab: the knight's arm, held cards, hand
-/// and spells, what they add up to, whether a wish is open, and the wishes
-/// the scroll knows, each with how far up its ladder this knight is.
 pub fn sheet(run: &Run, knight: u32) -> String {
     use std::fmt::Write;
     let Some(hero) = run.players.get(&knight) else {
@@ -2325,8 +1974,6 @@ pub fn sheet(run: &Run, knight: u32) -> String {
     if let Some(wish) = run.wish_hud(knight) {
         let _ = writeln!(out, "\nWISHES  {} held: {} (three at the start, two each floor, a super wish each boss)", wish.remaining(), wish.state());
     }
-    // The identity start: what this knight has wished of themselves, and
-    // what each wish bestowed, in the words of whatever granted it.
     if let Some(m) = hero.making(&run.book) {
         let shape = m.shape.map_or("shape", crate::rules::identity::Shape::name);
         let _ = writeln!(out, "\nYOUR MAKING  the {shape}{}", if m.made() { ", whole" } else { "" });
@@ -2351,9 +1998,6 @@ pub fn sheet(run: &Run, knight: u32) -> String {
     } else {
         "No wishes held: each floor brings two, and its boss a super wish"
     };
-    // The wishes this knight made in their own words, apart from the
-    // scroll's: what each is now, from the run's own cards (a seat's copy
-    // of the phrasebook may not know a wish the host's scroll learned).
     let mine: Vec<&str> = run
         .makers
         .iter()
@@ -2376,7 +2020,6 @@ pub fn sheet(run: &Run, knight: u32) -> String {
         };
         let _ = writeln!(out, "{said}");
     }
-    // The subplot: the genie's shackle, and the party's gauge toward it.
     let _ = writeln!(
         out,
         "\nTHE GENIE  {}/{}  {}",
@@ -2391,8 +2034,6 @@ pub fn sheet(run: &Run, knight: u32) -> String {
             .rev()
             .find(|&t| hero.deck.contains(&wish.card_id(t)))
             .map_or(0, |t| t + 1);
-        // The next tier, counted as the grant counts it, so the sheet locks
-        // what the grant refuses and nothing else.
         let lock = (level < tiers).then(|| run.locked(knight, wish, level)).flatten();
         let next = match &lock {
             Some(why) => format!("LOCKED: {why}"),

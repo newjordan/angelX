@@ -12,8 +12,6 @@ use super::prim;
 use super::rng::Rng;
 use super::*;
 
-/// Every material id the shader knows about. A tri tagged with anything else
-/// would land in the palette's default bucket and quietly render wrong.
 const ALL_MATS: [u8; 35] = [
     mat::MOONLIGHT,
     mat::EMBER,
@@ -52,7 +50,6 @@ const ALL_MATS: [u8; 35] = [
     mat::CRYSTAL,
 ];
 
-/// Exact byte image of a triangle stream — the determinism probe.
 fn digest(m: &Mesh) -> Vec<u32> {
     let mut out = Vec::with_capacity(m.tris.len() * 16);
     for t in &m.tris {
@@ -73,7 +70,6 @@ fn digest(m: &Mesh) -> Vec<u32> {
     out
 }
 
-/// Budget + hygiene sweep. `min_z` is the floor for non-WATER geometry.
 fn check_with_floor(name: &str, m: &Mesh, max_tris: usize, min_z: f32) {
     assert!(!m.tris.is_empty(), "{name}: emitted no triangles");
     assert!(
@@ -156,7 +152,6 @@ fn assert_has(name: &str, m: &Mesh, wanted: &[u8]) {
     }
 }
 
-/// Every builder under one seed: budget, normals, materials, ground floor.
 #[test]
 fn generators_are_budgeted_and_hygienic() {
     let s = 0xC0FF_EE01_u64;
@@ -181,11 +176,6 @@ fn generators_are_budgeted_and_hygienic() {
     check("tree", &tree(s), 60);
 }
 
-/// The measured triangle counts behind the table in `arch.rs`'s module doc.
-/// The doc quotes real numbers, so there has to be a one-command way to
-/// re-measure them after a generator changes.
-///
-/// `cargo test --bin angel print_the_triangle_budget -- --ignored --nocapture`
 #[test]
 #[ignore = "manual: prints the measured triangle counts for the arch.rs doc table"]
 fn print_the_triangle_budget() {
@@ -222,8 +212,6 @@ fn print_the_triangle_budget() {
     }
 }
 
-/// The same sweep across a spread of seeds — jitter must never push a builder
-/// over budget or produce a degenerate face.
 #[test]
 fn generators_hold_across_seeds() {
     for s in 0..24u64 {
@@ -244,8 +232,6 @@ fn generators_hold_across_seeds() {
     }
 }
 
-/// A terrain grid is capped at 20 × 20 cells, so no patch size can blow the
-/// budget however large it is asked to be.
 #[test]
 fn terrain_grid_is_capped() {
     for &(w, d) in &[(4.0_f32, 4.0_f32), (40.0, 40.0), (400.0, 400.0)] {
@@ -255,7 +241,6 @@ fn terrain_grid_is_capped() {
     }
 }
 
-/// Rivers cut below z = 0 and are tagged WATER; nothing else ever is.
 #[test]
 fn only_water_dips_below_ground() {
     let opts = TerrainOpts {
@@ -281,8 +266,6 @@ fn only_water_dips_below_ground() {
     );
 }
 
-/// Footprints and heights match the doc comments — camera staging depends on
-/// these numbers being true.
 #[test]
 fn footprints_match_docs() {
     let s = 42u64;
@@ -292,7 +275,7 @@ fn footprints_match_docs() {
         &round_tower(5.0, 1.5, s),
         (-2.05, 2.05),
         (-2.05, 2.05),
-        (7.6, 9.1), // +1.10 more when the seed grants a banner mast
+        (7.6, 9.1),
     );
     assert_bbox(
         "curtain_wall",
@@ -314,13 +297,9 @@ fn footprints_match_docs() {
         &observatory(s),
         (-2.65, 2.65),
         (-2.65, 2.65),
-        // The sighting tube, not the dome, is the highest thing on it.
         (7.35, 7.85),
     );
-    // The dressing has to land *on* its tower, never outside its eave.
     for &(h, rad) in &[(5.6_f32, 1.6_f32), (4.0, 1.2)] {
-        // The rim birds hang a little past the eave on purpose; nothing may
-        // reach past the tower's own banner mast.
         let reach = rad * 1.34 + 0.30;
         assert_bbox(
             "rookery_dressing",
@@ -385,8 +364,6 @@ fn footprints_match_docs() {
     }
 }
 
-/// Materials that must be present, because the shader keys real behaviour off
-/// them (WINDOW is emissive, BOOKS is shelf fill, WATER is reflective).
 #[test]
 fn semantic_materials_are_tagged() {
     let s = 5u64;
@@ -411,7 +388,6 @@ fn semantic_materials_are_tagged() {
         &rookery_dressing(5.6, 1.6, s),
         &[mat::STONE, mat::STONE_DARK],
     );
-    // The forge *is* its fire: without EMBER the Smithy vantage is a shed.
     assert_has(
         "forge",
         &forge(s),
@@ -458,9 +434,6 @@ fn semantic_materials_are_tagged() {
             mat::BOOKS,
             mat::WOOD,
             mat::WINDOW,
-            // The hall is lit by candle and hearth, and both are live flame:
-            // the hero interior breathes with the other seven or it is the one
-            // dead room in the realm.
             mat::FIRE,
             mat::DOOR,
         ],
@@ -475,11 +448,9 @@ fn semantic_materials_are_tagged() {
         &[mat::GRASS],
     );
 
-    // Trees cover both kinds across seeds, and every seed grows both parts.
     for s in 0..10u64 {
         assert_has("tree", &tree(s), &[mat::TRUNK, mat::FOLIAGE]);
     }
-    // Some tower seed must fly a banner.
     assert!(
         (0..16u64).any(|s| round_tower(5.0, 1.3, s)
             .tris
@@ -489,8 +460,6 @@ fn semantic_materials_are_tagged() {
     );
 }
 
-/// Same seed → byte-identical triangle stream. This is the world3d
-/// determinism law; a frame cache keyed on scene state depends on it.
 #[test]
 fn generators_are_deterministic() {
     macro_rules! same {
@@ -518,8 +487,6 @@ fn generators_are_deterministic() {
     same!("hamlet_scene", hamlet_scene(7));
 }
 
-/// Different seeds must actually produce different geometry — a builder that
-/// ignores its seed would silently make every cottage in a row a clone.
 #[test]
 fn seeds_change_the_geometry() {
     fn variety(name: &str, f: impl Fn(u64) -> Mesh) {
@@ -553,14 +520,10 @@ fn seeds_change_the_geometry() {
     variety("court_scene", court_scene);
 }
 
-/// The composed vista: one call, a whole scene, inside the ~5k whole-scene
-/// budget with room left for the renderer agent's props.
 #[test]
 fn court_scene_is_a_staged_vista() {
     for s in [0u64, 1, 7, 99] {
         let m = court_scene(s);
-        // Buildings are sunk 0.12 into displaced ground and the bridge stands
-        // in the river bed, so the non-water floor sits below zero here.
         check_with_floor("court_scene", &m, 5000, -0.60);
         assert!(
             m.tris.len() > 2500,
@@ -596,15 +559,8 @@ fn court_scene_is_a_staged_vista() {
     }
 }
 
-/// The approach corridor. The travel sweep runs the east verge of the road
-/// (`world3d::ROAD_NEAR/BANK/FAR`), and the ride's camera flies it at eye
-/// height — so anything built within a few tiles of that polyline is a wall in
-/// the face for a third of the journey, which is the one composition the world
-/// vista law forbids outright. This is the guard that keeps the hamlet off the
-/// road: it failed at the old spacing (1.7 tiles) and is why the cottages moved.
 #[test]
 fn the_approach_corridor_stays_clear_of_the_sweep() {
-    // The two straight runs `world3d::road_pose` interpolates.
     const SWEEP: [((f32, f32), (f32, f32)); 2] =
         [((0.6, -14.4), (4.3, -19.4)), ((4.3, -19.4), (4.6, -26.5))];
     const FLOOR: f32 = 3.0;
@@ -614,23 +570,13 @@ fn the_approach_corridor_stays_clear_of_the_sweep() {
         let (dx, dy) = (b.0 - a.0, b.1 - a.1);
         let len = (dx * dx + dy * dy).sqrt();
         for tri in &m.tris {
-            // Ground planes are what the camera *stands on*; only built mass
-            // counts as something it can walk into.
             if matches!(tri.mat, mat::GRASS | mat::PATH | mat::WATER | mat::FLOOR) {
                 continue;
             }
             for p in tri.v {
-                // The bridge is the road. A parapet at the camera's elbow
-                // while it crosses the river is the ride working, not a wall
-                // in the face. (Footprint: `bridge(9.0)` at (0, -22) along y.)
                 if p.x.abs() <= 2.2 && p.y <= -16.0 {
                     continue;
                 }
-                // Only mass the sweep goes *past* counts. The gatehouse the
-                // road runs into is the destination, and a destination is
-                // allowed to fill the frame — that is what arriving looks
-                // like. It projects off the near end of the run, so the
-                // strict-interior test excludes it without a special case.
                 let along = ((p.x - a.0) * dx + (p.y - a.1) * dy) / (len * len);
                 if !(0.02..0.98).contains(&along) {
                     continue;
@@ -648,9 +594,6 @@ fn the_approach_corridor_stays_clear_of_the_sweep() {
     }
 }
 
-/// The forge is only a forge because of its fire, and the fire has to be
-/// *inside the shed*, at working height, facing the mouth — an EMBER quad on
-/// the roof or behind the back wall would light nothing.
 #[test]
 fn the_forge_is_about_its_fire() {
     for s in 0..8u64 {
@@ -687,8 +630,6 @@ fn hamlet_scene_is_cheap() {
     );
 }
 
-/// Crenellation teeth have to survive the Bayer screen: a tooth narrower than
-/// roughly half a tile disappears at vista range.
 #[test]
 fn merlon_teeth_are_dot_legible() {
     let mut m = Mesh::new();
@@ -711,7 +652,6 @@ fn merlon_teeth_are_dot_legible() {
         "merlon width {width} is too fine for the dot grid"
     );
 
-    // The cap keeps a very long run inside budget without shrinking teeth.
     let mut long = Mesh::new();
     let n2 = prim::merlons(
         &mut long,
@@ -727,10 +667,6 @@ fn merlon_teeth_are_dot_legible() {
     assert_eq!(n2, 14, "tooth count must clamp to max_teeth");
 }
 
-/// The raven has to *be* a bird at braille scale, and the three features that
-/// make it one are measurable: the head stands above the back, the beak reaches
-/// past the breast, and the tail lifts clear of the perch. Pin all three, plus
-/// the documented footprint the tower dressing places against.
 #[test]
 fn the_raven_reads_as_a_bird() {
     let mut m = Mesh::new();
@@ -756,9 +692,6 @@ fn the_raven_reads_as_a_bird() {
         hi.z
     );
 
-    // Sample the silhouette's height at three places along the body. The head
-    // must out-top the back, and the tail must sit below both — a shape that
-    // only ever descends is a paper dart, which is what the first pass drew.
     let top_at = |y: f32| {
         m.tris
             .iter()
@@ -771,8 +704,6 @@ fn the_raven_reads_as_a_bird() {
     assert!(head > back, "no head: head {head:.3} back {back:.3}");
     assert!(tail < back, "no tail drop: tail {tail:.3} back {back:.3}");
 
-    // The cross plane is a lump, not a second profile — twelve triangles all
-    // in, and nothing sticking out sideways past the body.
     let mut crossed = Mesh::new();
     prim::raven(&mut crossed, V3::ZERO, v3(1.0, 0.0, 0.0), 1.0, mat::STONE);
     assert_eq!(crossed.tris.len(), 12);
@@ -784,7 +715,6 @@ fn the_raven_reads_as_a_bird() {
         hi.y
     );
 
-    // A zero axis must drop the bird rather than emit NaN normals.
     let mut degenerate = Mesh::new();
     prim::bird_profile(&mut degenerate, V3::ZERO, V3::ZERO, 1.0, mat::STONE);
     prim::bird_profile(
@@ -800,8 +730,6 @@ fn the_raven_reads_as_a_bird() {
     );
 }
 
-/// A light shaft has to have a *body*: two of its three faces must turn toward
-/// a camera looking down the room's long axis, or the beam renders as a line.
 #[test]
 fn a_light_shaft_turns_a_face_toward_an_axial_camera() {
     let mut m = Mesh::new();
@@ -816,7 +744,6 @@ fn a_light_shaft_turns_a_face_toward_an_axial_camera() {
     );
     check("light_shaft", &m, 12);
     assert_eq!(m.tris.len(), 7, "three quads and a sill cap");
-    // The room's axis is +x; count the faces with a real x component.
     let facing = m.tris.iter().filter(|t| t.normal.x.abs() > 0.25).count();
     assert!(
         facing >= 4,
@@ -832,8 +759,6 @@ fn a_light_shaft_turns_a_face_toward_an_axial_camera() {
     );
 }
 
-/// Degenerate faces never reach the mesh — that is what guarantees the
-/// unit-normal invariant the shader relies on.
 #[test]
 fn degenerate_faces_are_dropped() {
     let mut m = Mesh::new();
@@ -857,7 +782,6 @@ fn degenerate_faces_are_dropped() {
     assert!((m.tris[0].normal.length() - 1.0).abs() < 1e-5);
 }
 
-/// The seeded stream is a pure function of the seed and stays in range.
 #[test]
 fn rng_is_pure_and_bounded() {
     let draw = |seed: u64| -> Vec<u32> {
@@ -879,8 +803,6 @@ fn rng_is_pure_and_bounded() {
     }
 }
 
-/// `V3` is `Copy`, so the bbox helper must not have been fooled by a
-/// zero-length mesh, and empty meshes report `None` rather than panicking.
 #[test]
 fn bbox_handles_the_empty_mesh() {
     assert!(prim::bbox(&Mesh::new()).is_none());

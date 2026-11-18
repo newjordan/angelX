@@ -11,17 +11,13 @@
 use crate::*;
 use std::collections::BTreeMap;
 
-/// Minutes of history a good keeps.
 pub const HOUR: usize = 60;
-/// Minutes a works keeps.
 pub const RECENT: usize = 5;
 
-/// One good's last hour, a slot a minute (slot = minute mod 60).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Series {
     pub made: [u16; HOUR],
     pub used: [u16; HOUR],
-    /// The camp's store at the minute's end.
     pub stock: [u32; HOUR],
 }
 impl Default for Series {
@@ -30,15 +26,11 @@ impl Default for Series {
     }
 }
 
-/// How one works spent its recent minutes (slot = minute mod 5).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Flow {
-    /// The minute last written, and the minute it was first seen.
     pub minute: u64,
     pub since: u64,
-    /// Batches finished in each minute.
     pub batches: [u16; RECENT],
-    /// Seconds at work, and seconds held up (starved, backed up, no crew, no way), in each minute.
     pub worked: [u8; RECENT],
     pub lost: [u8; RECENT],
 }
@@ -58,8 +50,6 @@ impl Flow {
     }
 }
 
-/// What a works did over a window: batches, seconds at work, seconds held up, and the
-/// seconds the window covers.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Window {
     pub batches: u32,
@@ -68,11 +58,9 @@ pub struct Window {
     pub seconds: u32,
 }
 impl Window {
-    /// Batches a minute over the window, or 0 when it has seen none of it.
     pub fn per_min(&self) -> f32 {
         if self.seconds < 20 { 0.0 } else { self.batches as f32 * 60.0 / self.seconds as f32 }
     }
-    /// Share of the window a works was held up, in percent.
     pub fn lost_percent(&self) -> u32 {
         if self.seconds == 0 { 0 } else { (self.lost * 100 / self.seconds).min(100) }
     }
@@ -80,20 +68,15 @@ impl Window {
 
 #[derive(Clone, Debug, Default)]
 pub struct Books {
-    /// The minute in hand (second / 60), and the minute the books were opened.
     pub minute: u64,
     pub began: u64,
     pub opened: bool,
     pub goods: BTreeMap<String, Series>,
     pub works: BTreeMap<u32, Flow>,
-    /// Brought in from outside in the minute in hand, and what the kingdom held when it began.
     brought: BTreeMap<String, u32>,
     start: BTreeMap<String, u32>,
 }
 
-/// The books are a read-out, never part of what a kingdom is: two kingdoms that differ
-/// only in what they have written down are the same kingdom (a saved one, read back, has
-/// no books at all).
 impl PartialEq for Books {
     fn eq(&self, _: &Self) -> bool {
         true
@@ -121,7 +104,6 @@ impl Books {
         let s = (minute % RECENT as u64) as usize;
         f.batches[s] = f.batches[s].saturating_add(1);
     }
-    /// One second of a works' life: at work, held up, or neither.
     pub fn note_second(&mut self, id: u32, working: bool, held_up: bool) {
         let (minute, f) = (self.minute, self.flow(id));
         f.to(minute);
@@ -137,7 +119,6 @@ impl Books {
         self.works.entry(id).or_insert_with(|| Flow { minute, since: minute, ..Flow::default() })
     }
 
-    /// The works' last few minutes: up to four whole ones and the one in hand.
     pub fn window(&self, id: u32, second: u64) -> Window {
         let Some(f) = self.works.get(&id) else { return Window::default() };
         let mut w = Window::default();
@@ -161,7 +142,6 @@ impl Books {
         w
     }
 
-    /// The whole minutes the books hold of a good, oldest first: `(made, used, stock)`.
     pub fn minutes(&self, good: &str) -> Vec<(u16, u16, u32)> {
         let Some(s) = self.goods.get(good) else { return Vec::new() };
         let closed = self.minute.saturating_sub(self.began).min(HOUR as u64 - 1);
@@ -176,7 +156,6 @@ impl Books {
 }
 
 impl Kingdom {
-    /// Once a second, first thing: when a minute has turned, close the one before it.
     pub(crate) fn books_roll(&mut self, c: &Catalog) {
         let minute = self.second / 60;
         if self.books.opened && self.books.minute == minute {
@@ -191,8 +170,6 @@ impl Kingdom {
             books.start = totals.iter().map(|(r, t, _)| (r.clone(), *t)).collect();
             return;
         }
-        // The minute that ended: what was used is what the start and the making and the
-        // bringing in add up to, less what is left.
         let ended = books.minute;
         for (r, total, amount) in &totals {
             let s = books.goods.entry(r.clone()).or_default();
@@ -202,10 +179,8 @@ impl Kingdom {
             let used = (start + u32::from(s.made[i]) + brought).saturating_sub(*total);
             s.used[i] = used.min(u32::from(u16::MAX)) as u16;
             s.stock[i] = *amount;
-            // (Minutes with nothing to say keep no row: a good never touched is not listed.)
         }
         books.goods.retain(|r, s| s.made.iter().any(|n| *n > 0) || s.used.iter().any(|n| *n > 0) || s.stock.iter().any(|n| *n > 0) || totals.iter().any(|(g, t, _)| g == r && *t > 0));
-        // Minutes skipped (the game was paused) are empty ones.
         for m in (ended + 1)..=minute.min(ended + HOUR as u64) {
             for s in books.goods.values_mut() {
                 let i = slot(m);

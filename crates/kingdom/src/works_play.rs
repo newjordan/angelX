@@ -26,12 +26,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::Cause;
 use crate::works_layout::{self as lay, Layout};
 
-/// The castles in the order the ages raise them, with the pace the works are
-/// sized to (stones a minute while the masons are at the wall).
 pub(crate) const AGES: [(&str, f64); 3] = [("motte-and-bailey", 22.0), ("shell-keep", 45.0), ("great-tower", 70.0)];
 
-/// The knights' timetable: a seam is won below and brought home at this second.
-/// Each yield is what a quarry on it brings up a shift.
 pub(crate) const SEAMS: &[(&str, u64, &[(&str, u32)])] = &[
     ("mines-1", 1500, &[("limestone", 4), ("iron-ore", 2)]),
     ("crypt-1", 2400, &[("coal", 2), ("bone", 1)]),
@@ -41,96 +37,67 @@ pub(crate) const SEAMS: &[(&str, u64, &[(&str, u32)])] = &[
     ("mines-4", 10200, &[("limestone", 8), ("coal", 2)]),
 ];
 
-/// Where the stockyard goes: below the Keep's south-east corner by the camp, outside the walls.
 const YARD_PLAN: Tile = (147, 96);
 
-/// A flow (see `Roadwork::flow`: eighty times a kilogram a second) of about a quarter of a
-/// tonne a minute over this many tiles or more is a ropeway's work, not the roads'.
 const ROPE_FLOW: u32 = 200;
 const ROPE_LENGTH: i16 = 14;
 
-/// Charcoal the kingdom keeps in hand (clamps stop at this much, wherever it lies).
 const CHARCOAL_STOCK: u32 = 60;
 
-/// The most lodges a player raises at one wall.
 const MAX_LODGES: u32 = 8;
 
-/// A flow of about a fifth of a tonne a minute over this many tiles or more gets a warehouse at its source.
 const HUB_FLOW: u32 = 150;
 const HUB_LENGTH: i16 = 18;
 
-/// The goods the charts follow through the whole colony.
 const WATCHED: [&str; 16] = [
     "timber", "charcoal", "limestone", "quicklime", "lime-putty", "sand", "mortar", "ashlar", "quoin", "plank", "beam", "pole", "bread", "iron-ore", "coal", "nails",
 ];
 
-/// Seconds a good must have been short, without a break, before another maker of it is asked for.
 const SHORT_FOR: u64 = 240;
 
-/// Seconds between one extra maker asked for and the next, of the same kind.
 const EXPAND_EVERY: u64 = 150;
 
-/// A lift is raised when the quarries ask for this percent of what it lifts a shift.
 const SHAFT_FILL: u32 = 60;
 
-/// A number the balance runs may move without a rebuild: `KNOB_<NAME>=value`.
 fn knob(name: &str, default: u64) -> u64 {
     std::env::var(format!("KNOB_{name}")).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
 }
 
-/// Camps that fell timber in the opening hour; every other camp cuts coppice.
 fn opening_fellers() -> f64 {
     std::env::var("OPENING_FELLERS").ok().and_then(|v| v.parse().ok()).unwrap_or(2.0)
 }
 
-/// Until this second a player saving for the next purchase saves the timber too.
 const SAVE_TIMBER_UNTIL: u64 = 2400;
 
-/// Whether the scripted player also uses the late tiers (mule trains, the vineyard and press, the
-/// aqueduct and the water hoist). They are in the game and tested; they are off in the balance run,
-/// which measured no gain from them and some risk to a young colony (`TIERS=1` turns them on).
 fn tiers() -> bool {
     std::env::var("TIERS").is_ok()
 }
 
-/// Whether the scripted player lays rollerways between the works that send each other the most (`FACTORY=1`):
-/// the continuous line, tried against the carts that carry those legs otherwise. `FACTORY=hands` lays the
-/// hand-chain only.
 fn factory() -> Option<String> {
     std::env::var("FACTORY").ok()
 }
 
-/// A flow this heavy (kilos lately between two works) over a stretch this long is a rollerway's: the
-/// shortest is a few tiles, which a hand-chain does, and the longest what the player will lay by hand.
 const ROLLER_FLOW: u32 = 60;
 const ROLLER_MIN: i16 = 4;
 const ROLLER_MAX: i16 = 40;
 const MAX_ROLLER_LINES: usize = 8;
 
-/// A flow this heavy over this many tiles or more is a railway's: no oxen, no hands, and a wagon train that does not
-/// slow with the distance as a cart does (`transport_bench`: eight carts carry fourteen stones a minute over forty-eight
-/// tiles, eight wagons twenty-four).
 const RAIL_FLOW: u32 = 120;
 const RAIL_LENGTH: i16 = 22;
 const MAX_RAILWAYS: usize = 3;
 
-/// A flow of about a tenth of a tonne a minute, over at least this many tiles, is a string of
-/// mules' work (less than a ropeway's, more than a cart should be sent for).
 const MULE_FLOW: u32 = 90;
 const MULE_LENGTH: i16 = 10;
 const MAX_MULE_LINES: usize = 6;
 
-/// What the knights bank every ten minutes.
 const PURSE: u32 = 30;
 
-/// Plans in the order a player raises them; what is not here comes last.
 const RANK: &[&str] = &[
     "carters-yard", "ditch-gang", "field-quarry", "woodsman-camp", "sawpit", "farmstead", "well", "clamp", "mill", "bakery", "mason", "lodge", "carpentry", "hod-gang", "wheelwright", "smithy", "pasture", "tanyard", "claim-quarry", "brewery", "bloomery", "forge-shop",
     "banker", "lime-kiln", "slaking-pit", "sand-pit", "mortar-mill", "tracing-floor", "retting-pond", "ropewalk",
     "lead-works", "slater", "ashery", "glassworks", "weaving-shed", "vineyard", "wine-press", "aqueduct",
 ];
 
-/// Where each kind of work goes when it has no partner to stand beside.
 fn anchor(plan: &str) -> Tile {
     match plan {
         "woodsman-camp" => (139, 98),
@@ -150,18 +117,14 @@ fn anchor(plan: &str) -> Tile {
     }
 }
 
-/// What the player means a building to be.
 #[derive(Clone, Debug)]
 struct Made {
     plan: String,
-    /// The plan, with `#1` after it for the second step of a chain a shop cannot feed itself.
     key: String,
-    /// The recipes it may be switched among, best first.
     pool: Vec<String>,
     switched: u64,
 }
 
-/// One sampled minute of the game, for the charts.
 #[derive(Clone, Debug, serde::Serialize)]
 pub(crate) struct Sample {
     pub t: u64,
@@ -176,39 +139,28 @@ pub(crate) struct Sample {
     pub buildings: BTreeMap<String, u32>,
     pub yards: usize,
     pub carts: usize,
-    /// Carts standing free, orders no cart could take, and tiles where carts are held up.
     pub free_carts: usize,
     pub unserved: usize,
     pub jams: usize,
-    /// Units the carts delivered in the last minute.
     pub hauled_per_min: u32,
-    /// Point-to-point lines laid (tramways, ropeways, chutes, barges).
     pub lines: usize,
     pub shaft: u32,
     pub shaft_moved: u32,
-    /// Goods held anywhere (camp, benches, warehouses), and made over the whole game, for the chains the curve turns on.
     pub held: BTreeMap<String, u32>,
     pub made: BTreeMap<String, u32>,
-    /// Goods that went off, over the whole game.
     pub lost: BTreeMap<String, u32>,
-    /// Shifts at the wall so far, by what held the masons: [their pace, the yard's stock, a hold].
     pub shifts: [u32; 3],
     pub holds: BTreeMap<String, u32>,
-    /// Seconds each kind of work has spent working, starved, backed up and without a crew, summed over its buildings.
     pub util: BTreeMap<String, [u32; 4]>,
 }
 
 pub(crate) struct Player {
     pub k: Kingdom,
-    /// The age in hand: an index into `AGES`.
     pub age: usize,
     req: Requirement,
-    /// How many of each plan the ages so far have asked for, and the recipes
-    /// each plan's machines are asked to run.
     target: BTreeMap<String, u32>,
     shares: BTreeMap<String, BTreeMap<String, f64>>,
     made: BTreeMap<u32, Made>,
-    /// Seams brought home and the quarry on each.
     seams: BTreeMap<&'static str, Option<u32>>,
     camp_goods: BTreeSet<String>,
     wall: BTreeSet<String>,
@@ -217,70 +169,41 @@ pub(crate) struct Player {
     quiet_since: Option<(u64, String)>,
     pub first_stone: Option<u64>,
     pub stage_times: Vec<(u64, String)>,
-    /// When each castle stood finished.
     pub finished: Vec<(String, u64)>,
     stones_before: u32,
     hamlets: usize,
     pub coin_banked: u32,
     pub foreman: BTreeMap<&'static str, u32>,
-    /// When a plan was last given another maker for a choked bench.
     expanded: BTreeMap<String, u64>,
-    /// How many of each plan the solver asked for, at the pace of the age in hand.
     solved: BTreeMap<String, u32>,
     pub samples: Vec<Sample>,
-    /// What the player raised and when, for the timeline.
     pub built: Vec<(u64, String)>,
-    /// What each failed attempt said last, by what the player was trying.
     why: BTreeMap<String, (u64, String)>,
-    /// Goods the player could not pay a bill for lately, with the second it was noted.
     missing: BTreeMap<String, u64>,
-    /// A cart line carries more than twelve carts can: the ropeway is the next thing to raise.
     rope_project: bool,
-    /// A middling flow over rough ground: mules are wanted.
     mule_project: bool,
-    /// The works a rollerway joins, from and to, so none is laid twice.
     roller_pairs: Vec<(u32, u32)>,
-    /// The works a railway joins.
     rail_pairs: Vec<(u32, u32)>,
-    /// The drive from the aqueduct to the hoist, tile by tile, once it has been planned.
     drive: Vec<Tile>,
-    /// Since when the water hoist has stood without power.
     unpowered_since: Option<u64>,
-    /// Ten-second shifts at the wall by what held the masons: their own pace (the yard could pay
-    /// for more), the yard's stock (it could not), or a hold with no stones at all.
     pub shifts: [u32; 3],
-    /// Shifts lost to a hold, by what the hold was.
     pub holds: BTreeMap<String, u32>,
-    /// Seconds the player's rounds are offset by: another hand at the same game, for judging a
-    /// change against the run-to-run spread (`JITTER=n`).
     jitter: u64,
-    /// Goods the player could not pay a bill for, and since when it has been so without a break.
     short_since: BTreeMap<String, u64>,
-    /// What the Clerk has named as the limit, and how many looks in a row have named it.
     limit_seen: Option<((String, String), u32)>,
-    /// Cart-seconds spent in each phase (idle, return, fetch, queue, loading, haul, wait, unloading), for
-    /// finding where the carts' time goes.
     pub cart_seconds: [u64; 8],
-    /// Kilograms and tiles hauled loaded between kinds of work (kilogram-tiles, kilograms carried by the tile), and the tile
-    /// each cart stood on last second.
     pub haul_stats: BTreeMap<(String, String), (u64, u64)>,
     cart_tiles: BTreeMap<(u32, usize), Tile>,
-    /// The camp's streets and rows (`works_layout`).
     layout: Layout,
 
     pub done: bool,
-    /// Scripted delves already paid home, depths rising.
     pub delves: u32,
-    /// The last return plate.
     pub plate: String,
 }
 
 impl Player {
-    /// The bot on the hillside as the game builds it: every work its drawn size, on the real map.
     pub fn new() -> Self {
         let c = catalog();
-        // The seed only moves the river's meander and the ragged edges of the woods; the places a
-        // castle needs never move. `SEED=n` plays the same game on another hillside.
         let seed = std::env::var("SEED").ok().and_then(|s| s.parse().ok()).unwrap_or(7);
         let mut k = Kingdom::default();
         k.found_hillside(c, seed);
@@ -359,12 +282,10 @@ impl Player {
         self.k.second
     }
 
-    /// Sizes the works to the castle of this age. Targets only ever grow.
     fn plan_age(&mut self) {
         let c = catalog();
         let (castle, pace) = AGES[self.age];
         let mut opts = SolveOptions::new(castle, pace);
-        // A player lays works close: a typical haul is a short one.
         opts.distance = 8;
         opts.shaft_distance = 8;
         opts.fleet_growth = true;
@@ -374,11 +295,7 @@ impl Player {
         for pl in self.req.plants.iter().filter(|x| camp_only.plans.contains(&x.plan)) {
             *shares.entry(pl.plan.clone()).or_default().entry(pl.recipe.clone()).or_default() += pl.machines;
         }
-        // The earthworks are dug by a few gangs at once, quickly.
         shares.entry("ditch-gang".into()).or_default().insert("dig-earth".into(), 2.0);
-        // Woodsmen keep to one task each, so a camp is never switched from timber to poles and
-        // back: the timber camps cut coppice, one camp keeps the poles, one the bark. Only the
-        // opening hour fells, because timber cannot wait and a felled wood is a wood given up.
         let w = shares.entry("woodsman-camp".into()).or_default();
         let poles = w.remove("coppice-poles").unwrap_or(0.0);
         let bark = w.remove("strip-bark").unwrap_or(0.0);
@@ -390,11 +307,9 @@ impl Player {
         }
         shares.entry("woodsman-camp#poles".into()).or_default().insert("coppice-poles".into(), poles.ceil().max(1.0));
         shares.entry("woodsman-camp#bark".into()).or_default().insert("strip-bark".into(), bark.ceil().max(1.0));
-        // The first hour's stone comes off the hillside: one field quarry, one mason's yard.
         for (plan, recipe) in [("field-quarry", "win-field-stone"), ("mason", "dress")] {
             shares.entry(plan.into()).or_default().entry(recipe.into()).or_insert(1.0);
         }
-        // Workshops that make several things may be switched among them.
         for plan in ["sawpit", "carpentry", "forge-shop", "wheelwright", "pasture", "farmstead", "banker"] {
             let Some(p) = c.plans.get(plan) else { continue };
             let pool = shares.entry(plan.into()).or_default();
@@ -404,13 +319,10 @@ impl Player {
                 }
             }
         }
-        // The smith keeps every tool and the steel as well as the wall's needs.
         let smith = shares.entry("smithy".into()).or_default();
         for r in ["make-steel", "resteel-axe", "resteel-pick", "resteel-chisel", "resteel-trowel", "make-axe", "make-pick", "make-chisel", "make-trowel"] {
             smith.entry(r.into()).or_insert(0.01);
         }
-        // A shop cannot feed itself from its own bench: the step that eats what another
-        // step of the same plan makes goes in its own building.
         let mut keyed: BTreeMap<String, BTreeMap<String, f64>> = BTreeMap::new();
         for (plan, rs) in &shares {
             if plan.contains('#') {
@@ -425,8 +337,6 @@ impl Player {
                 *keyed.entry(key).or_default().entry(r.clone()).or_default() += m;
             }
         }
-        // Oxen are what the carts wait on, once the camp age is over: one pasture keeps to them
-        // and the others to the herd. (In the first hour every pair of hands is wanted elsewhere.)
         if self.age >= 1 {
             if let Some(p) = keyed.get_mut("pasture") {
                 p.remove("rear-ox");
@@ -444,21 +354,15 @@ impl Player {
         *t = (*t).max(1 + self.age as u32);
         let t = self.target.entry("ditch-gang".into()).or_default();
         *t = (*t).max(2);
-        // One carter's yard from the start; the carters ask for more when the stalls are full.
         let t = self.target.entry("carters-yard".into()).or_default();
         *t = (*t).max(1);
         self.shares = keyed;
         self.wall = c.castles[castle].stages.iter().flat_map(|s| crate::site::stage_needs(c, s).into_keys()).collect();
         self.wall.extend(["pole".to_string(), "centring".to_string()]);
-        // The masons: lodges beside the yard.
         let t = self.target.entry("lodge".into()).or_default();
         *t = (*t).max(self.req.lodges);
     }
 
-    // ---- placing -----------------------------------------------------
-
-    /// Whether a work of `plan` may stand with its top-left tile on `tile`: its ground is clear and its own, and
-    /// it is on no planned street.
     fn fits(&self, plan: &str, tile: Tile) -> bool {
         let c = catalog();
         let camp = self.k.camp();
@@ -473,7 +377,6 @@ impl Player {
             && self.k.check_footprint(c, plan, tile).is_ok()
     }
 
-    /// Why a work may not stand with its top-left tile on `tile`, for finding out why a row has no room.
     fn why_not(&self, plan: &str, tile: Tile) -> String {
         let c = catalog();
         let camp = self.k.camp();
@@ -497,7 +400,6 @@ impl Player {
         self.k.check_site(c, plan, tile).and_then(|_| self.k.check_footprint(c, plan, tile)).err().unwrap_or_default()
     }
 
-    /// Lays the street tiles a work on a row needs, if the camp has the timber for them and the work.
     fn lay_streets(&mut self, tiles: &[Tile], plan: &str) -> bool {
         let c = catalog();
         let missing: Vec<Tile> = tiles.iter().copied().filter(|t| !self.k.roads.contains(t)).collect();
@@ -512,9 +414,6 @@ impl Player {
         true
     }
 
-    /// The tile for a work in the rows of its zone: the place nearest the works it trades with, a tile clear of its
-    /// neighbours on each side, with the streets to it laid. `None`: no row has room (the ring search takes over);
-    /// `Some(Err)`: there is room but the camp cannot yet pay for the streets.
     fn place(&mut self, plan: &str, pool: &[String]) -> Option<Result<Tile, String>> {
         let c = catalog();
         if plan == "ditch-gang" {
@@ -522,8 +421,6 @@ impl Player {
         }
         let (span, depth) = self.k.dims(&c.plans[plan]);
         let (w, h) = (i16::from(span) + 1, i16::from(depth) + 1);
-        // The woodsmen's rows stand at the southern wood; when it has been felled to the last, they go where the
-        // timber is.
         if plan == "woodsman-camp" {
             let at = self.wood_anchor();
             if !(130..=160).contains(&at.0) || !(95..=100).contains(&at.1) {
@@ -538,12 +435,10 @@ impl Player {
             let mut x = row.cursor.min(row.x0);
             while x + w - 1 <= row.x1 {
                 let tile = Layout::top_left(&row, x, w, h);
-                // A tile's gap on each side, so every work can be got round and a swape stood between neighbours.
                 let gap = |dx: i16| (0..h).all(|dy| self.k.at((x + dx, tile.1 + dy)).is_none());
                 if x >= row.cursor.min(row.x0) && gap(-1) && gap(w) && self.fits(plan, tile) {
                     let (cx, cy) = (i32::from(x) * 2 + i32::from(w), i32::from(tile.1) * 2 + i32::from(h));
                     let dist = (cx - i32::from(target.0) * 2).abs() + (cy - i32::from(target.1) * 2).abs();
-                    // The first row of the zone is preferred a little: its stands are the ones set aside for it.
                     let score = dist + 8 * rank as i32;
                     if best.is_none_or(|b| score < b.0) {
                         best = Some((score, ri, x, tile));
@@ -564,7 +459,6 @@ impl Player {
         Some(Ok(tile))
     }
 
-    /// The next ditch gang's place: by the stockyard, with its swape's tile free too.
     fn gang_slot(&mut self) -> Option<Result<Tile, String>> {
         let c = catalog();
         let n = self.k.buildings.values().filter(|b| b.plan == "ditch-gang").count();
@@ -582,8 +476,6 @@ impl Player {
         Some(Ok(gang))
     }
 
-    /// A swape between a ditch gang and the stockyard, set to the spoil: the gang's earth goes into the yard by
-    /// the arm, not the carts.
     fn lift_spoil(&mut self, gang: Tile) {
         let c = catalog();
         let Some(&(_, swape, dir)) = lay::GANGS.iter().find(|(g, _, _)| *g == gang) else { return };
@@ -599,7 +491,6 @@ impl Player {
         }
     }
 
-    /// The nearest tile a plan may stand on, keeping to the roads where it can.
     fn spot(&self, plan: &str, near: Tile) -> Option<Tile> {
         let c = catalog();
         let connected_net = self.k.camp_road_net();
@@ -623,7 +514,6 @@ impl Player {
                             && u != self.k.gate()
                             && ((u.0 - self.k.camp().0).abs() > 1 || (u.1 - self.k.camp().1).abs() > 1)
                     });
-                    // The tiles round the whole footprint, not just its corner.
                     let own = self.k.footprint(&c.plans[plan], t);
                     let round: Vec<Tile> = own
                         .iter()
@@ -652,10 +542,6 @@ impl Player {
         best.map(|(_, t)| t)
     }
 
-    /// Whether a work at `t` could be joined to the camp's roads: some run of open ground leads
-    /// from beside it to the roads, or to the camp's own doorstep. (A hollow among the walls, the
-    /// reserved ground of the keep and the neighbours' backs has no way out, and a work built in
-    /// it stands idle for ever.)
     fn connectable(&self, t: Tile, net: &BTreeSet<Tile>) -> bool {
         use std::collections::VecDeque;
         let camp = self.k.camp();
@@ -686,17 +572,12 @@ impl Player {
         false
     }
 
-    /// Whether a building at `t` would take the last open side of a neighbour: a work walled in by
-    /// its neighbours can never be joined to the roads, and stands idle for ever.
     fn walls_in(&self, t: Tile) -> bool {
         crate::economy::neighbours(t).into_iter().filter(|n| self.k.at(*n).is_some()).any(|n| {
             !crate::economy::neighbours(n).into_iter().any(|m| m != t && self.k.at(m).is_none() && self.k.world.contains(m))
         })
     }
 
-    /// Where a new building of this plan should stand: beside what it trades
-    /// with, weighted by what moves (a carpenter turning one beam into four
-    /// joists stands by the wall, not by the sawpit).
     fn near(&self, plan: &str, pool: &[String]) -> Tile {
         let c = catalog();
         if plan == "woodsman-camp" {
@@ -715,7 +596,6 @@ impl Player {
             for (g, q) in &rec.outputs {
                 let mut takers: Vec<Tile> = self.made.iter().filter(|(id, m)| self.takes(**id, m, g)).map(|(id, _)| self.k.buildings[id].tile).collect();
                 if self.wall.contains(g) {
-                    // The yard is staked early; where it will stand is known before.
                     takers.push(self.yard().map_or(YARD_PLAN, |y| self.k.buildings[&y].tile));
                 }
                 for t in &takers {
@@ -733,8 +613,6 @@ impl Player {
         (x.round() as i16, y.round() as i16)
     }
 
-    /// The edge of the wood with the most standing timber for its distance from the camp:
-    /// the woods run out, and a player moves on to the next.
     fn wood_anchor(&self) -> Tile {
         let camp = self.k.camp();
         let mut best: Option<(f64, Tile)> = None;
@@ -744,7 +622,6 @@ impl Player {
             if left < cap * 0.4 {
                 continue;
             }
-            // Just outside the wood, on the side towards the camp.
             let x = camp.0.clamp(r.0, r.2);
             let y = if camp.1 < r.1 { r.1 - 1 } else if camp.1 > r.3 { r.3 + 1 } else { camp.1 };
             let dist = f64::from((x - camp.0).abs() + (y - camp.1).abs());
@@ -763,9 +640,6 @@ impl Player {
         self.k.sites.keys().next_back().copied()
     }
 
-    // ---- who makes and who takes what --------------------------------
-
-    /// The goods a building puts out.
     fn outputs_of(&self, id: u32) -> Vec<String> {
         let c = catalog();
         let Some(b) = self.k.buildings.get(&id) else { return vec![] };
@@ -787,10 +661,7 @@ impl Player {
         let c = catalog();
         m.pool.iter().any(|r| c.recipes[r].inputs.contains_key(g)) && self.k.buildings.contains_key(&id)
     }
-    // ---- roads ---------------------------------------------------------------
 
-    /// Joins a building to the camp's roads: a spur to the nearest road, the way a
-    /// player lays one. Goods are carried by the shared pool from then on.
     fn connect(&mut self, id: u32) -> bool {
         let c = catalog();
         if self.k.connected().contains(&id) {
@@ -809,8 +680,6 @@ impl Player {
         }
     }
 
-    // ---- building -------------------------------------------------------
-
     fn beds_planned(&self) -> usize {
         let c = catalog();
         self.k.buildings.values().map(|b| usize::from(c.plans[&b.plan].housing)).sum()
@@ -820,13 +689,11 @@ impl Player {
         self.made.values().filter(|m| m.key == key).count() as u32
     }
 
-    /// Raises one building of `plan`, if it can be paid for. Ok(false) waits.
     fn raise(&mut self, key: &str) -> Result<bool, String> {
         let c = catalog();
         let plan = key.split('#').next().unwrap();
         let p = &c.plans[plan];
         if !p.requires.iter().all(|r| self.k.researched.contains(r)) {
-            // The charter is the first thing to raise.
             let missing: Vec<String> = p.requires.iter().filter(|r| !self.k.researched.contains(*r)).cloned().collect();
             for r in missing {
                 self.research(&r);
@@ -844,14 +711,12 @@ impl Player {
             }
             return Ok(false);
         }
-        // Hands: a post is raised only when someone idle can man it.
         let idle = self.k.population.citizens.values().filter(|x| x.job.is_none()).count();
         let building = self.k.buildings.values().filter(|b| b.construction > 0).count();
         if p.workers > 0 && idle < usize::from(p.workers) + building.min(2) {
             { let now = self.now(); self.why.insert(format!("raise {plan}"), (now, "hands".into())); }
             return Ok(false);
         }
-        // A recipe the machine starts on: the one furthest short of its share.
         let rs: Vec<(String, f64)> = self.shares.get(key).map(|m| m.iter().map(|(r, s)| (r.clone(), *s)).collect()).unwrap_or_default();
         let mut have: BTreeMap<String, f64> = BTreeMap::new();
         for (id, m) in &self.made {
@@ -940,14 +805,12 @@ impl Player {
         }
     }
 
-    /// Stakes the castle of this age out, over the last one's ground.
     fn found_castle(&mut self) -> bool {
         let c = catalog();
         if !self.k.researched.contains("masonry") && !self.research("masonry") {
             return false;
         }
         let castle = AGES[self.age].0;
-        // The old stockyard serves the new castle.
         let yard_tile = match self.yard() {
             Some(y) => self.k.buildings[&y].tile,
             None if self.fits("castle-yard", lay::YARD) => lay::YARD,
@@ -996,8 +859,6 @@ impl Player {
         }
     }
 
-    // ---- the knights ----------------------------------------------------
-
     fn knights(&mut self) -> bool {
         let c = catalog();
         let mut acted = false;
@@ -1021,7 +882,6 @@ impl Player {
                 self.log.push((self.now(), format!("the knights bring home {id}")));
             }
             if self.seams[id].is_none() {
-                // A quarry on it, as soon as the first charter and a crew allow.
                 if !self.k.researched.contains("charter") && !self.research("charter") {
                     continue;
                 }
@@ -1038,8 +898,6 @@ impl Player {
         }
         acted
     }
-
-    // ---- the foreman ------------------------------------------------------
 
     fn build_hamlet(&mut self) -> bool {
         let c = catalog();
@@ -1069,7 +927,6 @@ impl Player {
         false
     }
 
-    /// A hut is two beds for six timber, and quick; the first homes are huts.
     fn build_hut(&mut self) -> bool {
         let c = catalog();
         if !covers(&self.k.stock, &c.plans["hut"].cost) {
@@ -1098,7 +955,6 @@ impl Player {
         self.k.total(g)
     }
 
-    /// What a workshop is asked to hold: some minutes of the castle's pace.
     fn want_stock(&self, g: &str) -> f64 {
         let rate = self.req.goods.get(g).copied().unwrap_or(0.0);
         let floor = self.extra_want(g);
@@ -1108,13 +964,11 @@ impl Player {
         (rate * 6.0).max(floor).max(12.0)
     }
 
-    /// Whether the stock could feed a recipe's first batch.
     fn shop_can_run(&self, recipe: &str) -> bool {
         let c = catalog();
         c.recipes[recipe].inputs.iter().all(|(g, n)| self.stock_of(g) >= *n)
     }
 
-    /// Goods the player wants in hand for its own use beyond the wall's.
     fn extra_want(&self, g: &str) -> f64 {
         match g {
             "plank" => 60.0,
@@ -1139,12 +993,10 @@ impl Player {
         }
     }
 
-    /// Switches a workshop that makes several things to whichever is most short.
     fn rebalance(&mut self, report: &Report) -> bool {
         let c = catalog();
         let now = self.now();
         let mut acted = false;
-        // Goods some workshop is starved of, by how many.
         let mut starved: BTreeMap<String, u32> = BTreeMap::new();
         for (id, st) in &report.status {
             if *st != Status::Inputs {
@@ -1160,8 +1012,6 @@ impl Player {
             }
         }
         let ids: Vec<u32> = self.made.iter().filter(|(_, m)| m.pool.len() > 1 && now >= m.switched + 60).map(|(&i, _)| i).collect();
-        // What the wall is waiting on is made first, whatever else the bench was asked for: a
-        // player sets one bench to the portcullis when the gate is the last thing standing.
         let gating: Option<String> = self.site().and_then(|s| match self.k.site_allowance(c, s, 99).hold {
             Hold::Short { resource } => Some(resource),
             _ => None,
@@ -1186,7 +1036,6 @@ impl Player {
         }
         for id in ids {
             let b = &self.k.buildings[&id];
-            // A bench stalled with its shelf full may be switched mid-batch: it is not working.
             if b.construction > 0 || (b.progress > 0 && report.status.get(&id) != Some(&Status::Storage)) {
                 continue;
             }
@@ -1197,7 +1046,6 @@ impl Player {
                 let mut urgency: f64 = 0.0;
                 let biggest = f64::from(rec.outputs.values().copied().max().unwrap_or(1).max(1));
                 for (g, q) in &rec.outputs {
-                    // A co-product counts for less than what the recipe is for.
                     let share = f64::from(*q) / biggest;
                     let want = self.want_stock(g);
                     let mut u: f64 = 0.0;
@@ -1205,7 +1053,6 @@ impl Player {
                         let have = f64::from(self.stock_of(g));
                         u = u.max(((want - have) / want).max(0.0) * 0.6);
                     }
-                    // A bill the player could not pay lately, or a workshop starved of it.
                     if self.missing.get(g).is_some_and(|t| now < t + 120) {
                         u = u.max(1.0);
                     }
@@ -1214,13 +1061,10 @@ impl Player {
                     }
                     urgency = urgency.max(u * share);
                 }
-                // A recipe that eats a worn tool is wanted by how many wait.
-                // (Worn tools lying on another smith's bench are counted: they are waiting for a smith set to them.)
                 if let Some(worn) = rec.inputs.keys().find(|g| g.starts_with("worn-")) {
                     let n = f64::from(self.k.total(worn));
                     urgency = if n < 4.0 { 0.0 } else { urgency.max((n / 4.0).min(2.0) * 0.9) };
                 }
-                // Inputs must be there to run at all.
                 let inputs_ok = rec.inputs.keys().all(|g| self.stock_of(g) > 0);
                 if !inputs_ok {
                     urgency *= 0.2;
@@ -1233,13 +1077,10 @@ impl Player {
                 }
             }
             if let Some((u, r)) = best {
-                // A recipe whose input is out of stock and made by another recipe of the
-                // same shop hands its urgency on: forge the iron before the nails.
                 let mut pick = (u, r);
                 for r2 in &pool {
                     let rec2 = &c.recipes[r2];
                     if rec2.inputs.keys().any(|g| self.stock_of(g) == 0 && c.recipes[&pick.1].outputs.contains_key(g)) {
-                        // pick makes something r2 lacks: fine as it is
                     }
                 }
                 let rec = &c.recipes[&pick.1];
@@ -1266,11 +1107,9 @@ impl Player {
         let mut acted = false;
         let people = self.k.population.citizens.len();
         let report = self.k.report(c);
-        // Beds ahead of the people: huts at first, then hamlets.
         if self.beds_planned() < people + 4 + people / 4 {
             acted |= if self.hamlets < 1 && self.now() < 1200 { self.build_hut() } else { self.build_hamlet() };
         }
-        // A wood that has run dry: the camp is taken down and raised at the next wood.
         let dry: Vec<(u32, Tile)> = report
             .status
             .iter()
@@ -1285,8 +1124,6 @@ impl Player {
                 acted = true;
             }
         }
-        // Whatever the roads did not reach is joined to the camp; a work that cannot be joined
-        // because its neighbours have walled it in is pulled down and raised again elsewhere.
         let connected = self.k.connected();
         let lonely: Vec<u32> = self.k.buildings.iter().filter(|(id, b)| b.construction == 0 && !connected.contains(id)).map(|(&id, _)| id).collect();
         for id in lonely {
@@ -1304,7 +1141,6 @@ impl Player {
                 Err(_) => {}
             }
         }
-        // Oxen standing unfed: the camp is short of hay.
         if self.k.road_report(c).yards.iter().any(|y| y.carts > 0 && !y.fed) {
             let now = self.now();
             self.missing.insert("fodder".into(), now);
@@ -1339,14 +1175,10 @@ impl Player {
             acted |= self.frustrations();
         }
         acted |= self.lessons(&report);
-        // Switching a bench to what the camp wants is a glance, not a job: it does not count
-        // as the player having something to do.
         self.rebalance(&report);
         acted
     }
 
-    /// A camp that fells takes the wood down for good; the opening hour needs the timber faster than coppice gives it, and
-    /// then the wood is spared: a felling camp is set to coppice once its wood is down to half, or the hour is out.
     fn spare_the_woods(&mut self) -> bool {
         let c = catalog();
         let mut acted = false;
@@ -1372,17 +1204,12 @@ impl Player {
         acted
     }
 
-    /// The benches that would eat the iron for goods nobody wants are held to a stock
-    /// target: the smith's steel and tools, the wheelwright's vehicles and buckets.
     fn set_limits(&mut self) {
         let c = catalog();
         let ids: Vec<u32> = self.made.iter().filter(|(_, m)| matches!(m.plan.as_str(), "smithy" | "wheelwright" | "clamp") || m.plan == "claim-quarry" || m.key == "pasture#oxen").map(|(&i, _)| i).collect();
         for id in ids {
             let b = &self.k.buildings[&id];
-            // A clamp burns the woods: charcoal is made against a stock, not for its own sake.
             let limit = match b.plan.as_str() {
-                // A seam worth its coal or its ore is paused when the stockyard has plenty: every
-                // unit it sends up the Great Shaft is a unit of limestone that waits below.
                 "claim-quarry" => {
                     let main = b
                         .claim
@@ -1390,8 +1217,6 @@ impl Player {
                         .and_then(|q| self.k.claims.get(q))
                         .and_then(|q| q.output().into_iter().max_by(|a, b| a.1.cmp(&b.1).then(b.0.cmp(&a.0))))
                         .map(|(g, _)| g);
-                    // The seam's own bench holds 24 and the camp keeps 12 or so: a limit under that is
-                    // reached the moment the camp is full, and the seam stops till the camp draws on it.
                     match main.as_deref() {
                         Some("coal") | Some("iron-ore") | Some("slate-block") | Some("galena") | Some("bone") => 30,
                         _ => 0,
@@ -1408,10 +1233,6 @@ impl Player {
         }
     }
 
-    /// The carters: the pool is sized to the orders that wait. A cart is bought when
-    /// none stands free and orders wait; another yard is raised when the yards have no
-    /// stall left. Carts, oxen and harness come from the wheelwright, the pasture and
-    /// the tanyard, which the want list keeps at work.
     fn carters(&mut self) -> bool {
         let c = catalog();
         let roads = self.k.road_report(c);
@@ -1419,7 +1240,6 @@ impl Player {
         let mut acted = false;
         let now = self.now();
         let spare = self.k.amount("cart").min(self.k.amount("ox")).min(self.k.amount("harness"));
-        // A yard's first carts come from the founding train.
         let empty = roads.yards.iter().find(|y| y.carts == 0).map(|y| y.id);
         let waiting = roads.unserved.iter().filter(|u| !u.no_road).count();
         let want = if empty.is_some() {
@@ -1449,8 +1269,6 @@ impl Player {
                 }
             }
             None => {
-                // Every stall is taken and orders still wait: another yard, once the camp has the hands for a carter
-                // and the stock for the stalls.
                 if self.now() < 900 {
                     return acted;
                 }
@@ -1463,11 +1281,6 @@ impl Player {
         acted
     }
 
-    /// What a player does when the wall waits: reads the Clerk, goes to the bottom of the chain it
-    /// names, and if that is a maker working flat out, or a good nothing makes, builds another.
-    /// The want list is the solver's guess at the pace; this is the colony's own count of what the
-    /// wall is short of. A limit must show on three looks in a row (a minute and a half) before
-    /// anything is built, so a batch that is simply on its way is not mistaken for a shortage.
     fn invest(&mut self) -> bool {
         let c = catalog();
         let Some(site) = self.site() else { return false };
@@ -1493,14 +1306,9 @@ impl Player {
         self.expand(&plan, &good)
     }
 
-    /// Asks for one more maker of `good`: of `plan` if it is named, else of the first plan the
-    /// camp can raise that makes it. One at a time (the last is built before the next is asked
-    /// for), at most three times what the solver sized, and not more than once in a while.
     fn expand(&mut self, plan: &str, good: &str) -> bool {
         let c = catalog();
         let now = self.now();
-        // The earthworks are dug by the two gangs at the stockyard, each lifting its spoil by swape; a third gang with no
-        // arm to the yard only fills its shelf for the carts.
         if plan == "ditch-gang" {
             return false;
         }
@@ -1519,7 +1327,6 @@ impl Player {
         let (key, recipe) = match recipe_key {
             Some(x) => x,
             None => {
-                // Not on the list yet: the plan's first recipe for the good.
                 let Some(r) = c.plans[&plan].recipes.iter().find(|r| c.recipes[*r].outputs.contains_key(good)).cloned() else { return false };
                 (plan.clone(), r)
             }
@@ -1541,9 +1348,6 @@ impl Player {
         true
     }
 
-    /// A bill the player cannot pay, again and again, for minutes together: the goods are not
-    /// being made fast enough, and another maker is the answer. (`missing` is noted each time a
-    /// purchase or a charter fails for want of a good.)
     fn frustrations(&mut self) -> bool {
         let now = self.now();
         let noted: Vec<(String, u64)> = self.missing.iter().map(|(g, t)| (g.clone(), *t)).collect();
@@ -1554,8 +1358,6 @@ impl Player {
                 self.short_since.entry(g).or_insert(now);
             }
         }
-        // Only the sawn timber that every charter and every works is paid in: the first hour is short
-        // of everything, and a player does not build a maker of each.
         let long: Vec<String> = self
             .short_since
             .iter()
@@ -1565,16 +1367,12 @@ impl Player {
         let c = catalog();
         let mut acted = false;
         for g in long {
-            // What the Clerk finds at the bottom of the chain behind the good: a maker working
-            // flat out (build another), a good nothing makes (build the maker). Anything else, a
-            // road, a crew or a bench short of its own input, is not mended by more of the same.
             let did = match self.k.causes_for(c, &g).last() {
                 Some(Cause::Capacity { plan, good }) => self.expand(plan, good),
                 Some(Cause::NoMaker { good }) => self.expand("", good),
                 _ => false,
             };
             if did {
-                // One maker for a spell of shortage: the next waits for a new spell.
                 self.short_since.remove(&g);
                 acted = true;
             }
@@ -1582,13 +1380,10 @@ impl Player {
         acted
     }
 
-    /// When nothing holds the masons up but their own pace, a player raises another lodge:
-    /// what a want list from the solver cannot know is how fast the wall really goes.
     fn bottlenecks(&mut self) -> bool {
         let c = catalog();
         let now = self.now();
         let mut acted = false;
-        // Another lodge when the masons are the limit.
         if let Some(site) = self.site() {
             if self.k.clerk(c, site).unhindered {
                 let lodges = self.count("lodge");
@@ -1605,10 +1400,6 @@ impl Player {
         acted
     }
 
-    /// The lifting tiers at the wall, each raising the one before it in place: hods and ladders
-    /// (raised with the first lodge), the treadwheel crane once the shell keep is begun, the great
-    /// crane once the great tower is. A crane is worth +40 percent (+80) on every mason in range,
-    /// which is cheaper than another lodge's four hands.
     fn cranes(&mut self) -> bool {
         let c = catalog();
         if self.age == 0 {
@@ -1618,7 +1409,6 @@ impl Player {
         let Some(site) = self.site() else { return false };
         let Some(yard) = self.k.sites.get(&site).and_then(|s| self.k.buildings.get(&s.yard)).map(|y| y.tile) else { return false };
         let near = |b: &Building| (b.tile.0 - yard.0).abs() + (b.tile.1 - yard.1).abs() <= i16::from(c.works.lodge_range);
-        // The tier in hand, nearest the wall: the highest crane stands there.
         let best = self
             .k
             .buildings
@@ -1637,8 +1427,6 @@ impl Player {
         let _ = key;
         for r in &next.requires {
             if !self.k.researched.contains(r) {
-                // The charters cost planks the wall's own works need: one at a time, and only
-                // when the camp has them to spare.
                 if self.k.amount("plank") >= 40 {
                     self.research(r);
                 }
@@ -1654,9 +1442,6 @@ impl Player {
         false
     }
 
-    /// A warehouse beside a maker whose goods go a long way in bulk: the maker pushes to it
-    /// the moment its bench fills, so many carts can fetch at once instead of three waiting
-    /// on a bench that holds twenty-four.
     fn warehouses(&mut self) -> bool {
         let c = catalog();
         if self.now() < 600 || !self.k.buildings.values().any(|b| b.plan == "carters-yard") {
@@ -1675,7 +1460,6 @@ impl Player {
                 continue;
             }
             let at = a.tile;
-            // One warehouse stands by a maker; a second is not a better answer.
             let covered = self.k.buildings.values().any(|w| c.plans[&w.plan].hub && (w.tile.0 - at.0).abs() + (w.tile.1 - at.1).abs() <= 6);
             if covered {
                 continue;
@@ -1692,14 +1476,10 @@ impl Player {
         false
     }
 
-    /// Where the roads fall short, a player builds beyond them: a street that jams is
-    /// widened by a second lane of road beside it, and a heavy flow over a long way gets
-    /// its own ropeway (the charter, then the rope, the poles and the buckets, then the line).
     fn infrastructure(&mut self) -> bool {
         let c = catalog();
         let mut acted = false;
         let roads = self.k.road_report(c);
-        // A jammed street: lay a road beside every jammed tile that has ground to spare.
         let jammed: Vec<Tile> = roads.jams.iter().take(4).map(|(t, _)| *t).collect();
         for t in jammed {
             let mut laid = 0;
@@ -1707,7 +1487,6 @@ impl Player {
                 if laid >= 2 || self.k.roads.contains(&n) || self.k.at(n).is_some() || !self.k.world.contains(n) {
                     continue;
                 }
-                // Beside the street, not across a gate or the camp's own doorstep.
                 if n == self.k.gate() || (n.0 - self.k.camp().0).abs() + (n.1 - self.k.camp().1).abs() <= 1 {
                     continue;
                 }
@@ -1718,7 +1497,6 @@ impl Player {
                 }
             }
         }
-        // A middling flow a middling way: a string of mules, which needs neither road nor track.
         if self.age >= 1 && tiers() {
             let mut mid: Vec<((u32, u32), u32)> = self.k.roadwork.flow.iter().filter(|(_, v)| **v >= MULE_FLOW && **v < ROPE_FLOW).map(|(k, v)| (*k, *v)).collect();
             mid.sort_by_key(|(k, v)| (std::cmp::Reverse(*v), *k));
@@ -1749,7 +1527,6 @@ impl Player {
                 }
             }
         }
-        // A heavy flow a long way: its own ropeway.
         let mut heavy: Vec<((u32, u32), u32)> = self.k.roadwork.flow.iter().filter(|(_, v)| **v >= ROPE_FLOW).map(|(k, v)| (*k, *v)).collect();
         heavy.sort_by_key(|(k, v)| (std::cmp::Reverse(*v), *k));
         for ((from, to), _) in heavy {
@@ -1757,8 +1534,6 @@ impl Player {
                 continue;
             }
             let (a, b) = (self.k.buildings[&from].tile, self.k.buildings[&to].tile);
-            // The wall's own stockyard is fed by the carts, which bring the last few stones' worth
-            // as readily as the first thousand; a ropeway keeps a full bucket line to itself.
             if (a.0 - b.0).abs() + (a.1 - b.1).abs() < ROPE_LENGTH || c.plans[&self.k.buildings[&to].plan].yard {
                 continue;
             }
@@ -1792,20 +1567,14 @@ impl Player {
         acted
     }
 
-    /// The tile a rollerway or a swape may stand on.
     fn clear_for_line(&self, t: Tile) -> bool {
         let c = catalog();
         self.k.check_roller_site(c, Piece::Roller, t).is_ok() && self.k.rails.cells.get(&t).is_none()
     }
 
-    /// A way for a rollerway from work `from` to work `to`: a tile for a loading swape beside `from`, the
-    /// rollers laid over clear ground, a tile for an unloading swape beside `to`. The shortest of a few
-    /// tries, as `(loader, way it faces, rollers in order, unloader, way it faces)`.
     fn roller_way(&self, from: u32, to: u32) -> Option<(Tile, Dir, Vec<Tile>, Tile, Dir)> {
         let (a, b) = (self.k.buildings.get(&from)?, self.k.buildings.get(&to)?);
         let near = |t: Tile, of: &Building| of.tile.0.abs_diff(t.0) + of.tile.1.abs_diff(t.1);
-        // Where a loader may stand beside `from`, facing away from it; where an unloader may stand beside `to`,
-        // facing at it.
         let mut loaders: Vec<(Tile, Dir)> = Vec::new();
         for t in self.k.covered(a) {
             for d in Dir::ALL {
@@ -1833,7 +1602,6 @@ impl Player {
                     continue;
                 }
                 let (start, end) = (dl.step(l), du.back().step(u));
-                // Breadth first over clear ground from the first roller to the last.
                 let mut parent: BTreeMap<Tile, Tile> = BTreeMap::from([(start, start)]);
                 let mut queue = std::collections::VecDeque::from([start]);
                 let limit = ROLLER_MAX as usize;
@@ -1870,8 +1638,6 @@ impl Player {
         best.map(|(_, w)| w)
     }
 
-    /// Lays a rollerway where the carts' heaviest flows run: a swape each end and the way between, a
-    /// hand-chain when it is short and the charter is not yet won, rollers once it is. One at a time.
     fn rollerways(&mut self) -> bool {
         let c = catalog();
         if self.age == 0 || self.roller_pairs.len() >= MAX_ROLLER_LINES || self.site().is_none() {
@@ -1892,8 +1658,6 @@ impl Player {
             if dist < ROLLER_MIN {
                 continue;
             }
-            // The good the line is for: one that the first makes and the second takes, and the swapes are
-            // set to it so that nothing else gets on the line to stop it.
             let makes: BTreeSet<String> = {
                 let b = &self.k.buildings[&from];
                 let mut g: BTreeSet<String> = b.output.keys().cloned().collect();
@@ -1905,7 +1669,6 @@ impl Player {
             let takes: BTreeSet<String> = self.k.target_levels(c, to).map(|l| l.keys().cloned().collect()).unwrap_or_default();
             let Some(good) = makes.intersection(&takes).max_by_key(|g| (c.resources[*g].weight, (*g).clone())).cloned() else { continue };
             let Some((l, dl, way, u, du)) = self.roller_way(from, to) else { continue };
-            // The hand-chain for a short way before the charter, or always on `hands`; else rollers.
             let chain = hands_only || (way.len() <= 8 && !self.k.researched.contains("rollerways"));
             if !chain && !self.k.researched.contains("rollerways") && !self.research("rollerways") {
                 return false;
@@ -1924,7 +1687,6 @@ impl Player {
                 ok &= trial.apply(c, Command::Roller { piece, tile: t, dir }).is_ok();
             }
             if !ok {
-                // Short of something, most likely: say what, and try again when the camp has it.
                 let mut cost = Stock::new();
                 for g in ["timber", "nails", "rope"] {
                     cost.insert(g.into(), way.len() as u32 + 8);
@@ -1946,9 +1708,6 @@ impl Player {
         false
     }
 
-    /// A railway where the carts' heaviest flows run a long way: one gesture, the charter first. Not between a work and
-    /// the camp's stores or the stockyard (the carts bring the last stones as readily as the first thousand), nor where a
-    /// line of another kind runs already.
     fn railways(&mut self) -> bool {
         let c = catalog();
         if self.age == 0 || self.k.rails.routes.len() >= MAX_RAILWAYS {
@@ -1996,8 +1755,6 @@ impl Player {
         false
     }
 
-    /// Notes what a purchase is short of, for the benches to make: only goods the camp can ever
-    /// hold enough of, for a purchase is paid out of the camp's stock and nothing more.
     fn note_short(&mut self, cost: &Stock) {
         let c = catalog();
         let now = self.now();
@@ -2008,21 +1765,14 @@ impl Player {
         }
     }
 
-    /// Whether anyone in the colony has reached mastery in a trade.
     fn has_master(&self) -> bool {
         let rules = crate::population::Rules::of(catalog(), true);
         self.k.population.citizens.values().any(|p| p.best(&rules).1 >= 3)
     }
 
-    /// The Great Shaft is the first big purchase. A lift is raised as soon as the quarries would
-    /// fill it, not once it has been seen to run full: every unit the colony gets from below
-    /// goes through it, and a stall at the shaft stalls everything behind. The water hoist and
-    /// the ley lift need power and are worth less than the gin without it, so the player stops
-    /// at the lift that lifts most unpowered.
     fn shaft(&mut self, report: &Report) -> bool {
         let c = catalog();
         let lifts: Vec<u32> = self.k.buildings.iter().filter(|(_, b)| c.plans[&b.plan].shaft > 0).map(|(&id, _)| id).collect();
-        // The lift is manned before anything else: everything from below goes through it.
         for id in &lifts {
             if self.k.buildings[id].priority < 2 {
                 let _ = self.k.apply(c, Command::Priority { building: *id, priority: 2 });
@@ -2059,25 +1809,17 @@ impl Player {
                     self.built.push((self.now(), format!("raised the shaft to {}", next.name)));
                     return true;
                 }
-                // What the next lift lacks is what the works are asked to make: horses for a
-                // gin, cramps for the iron.
                 self.note_short(&next.cost);
             }
         }
         false
     }
 
-    /// The Great Shaft's tier above the gin runs on a drive: when the seams ask for all the gin
-    /// lifts (twenty-four a shift) and more, a player raises an aqueduct beside the shaft, lays
-    /// shafts from it to the hoist, and raises the gin to the water hoist, which lifts three
-    /// times its twelve on the drive. If the drive fails the hoist is switched to hand work, for
-    /// an unpowered hoist lifts nothing.
     fn powered_hoist(&mut self, report: &Report) -> bool {
         let c = catalog();
         let Some((hid, hoist)) = self.k.buildings.iter().find(|(_, b)| c.plans[&b.plan].shaft > 0).map(|(&i, b)| (i, b.clone())) else { return false };
         let now = self.now();
         if hoist.plan == "shaft-water" {
-            // Watch the drive: a hoist that has stood unpowered for three minutes is put to hand work.
             let on = self.k.energy_report(c).powered(PowerKind::Mechanical, hid);
             if hoist.construction > 0 || on || !hoist.power_enabled {
                 self.unpowered_since = None;
@@ -2104,7 +1846,6 @@ impl Player {
         if asks < report.shaft + 12 {
             return false;
         }
-        // The source: an aqueduct beside the shaft.
         let Some(aq) = self.k.buildings.iter().find(|(_, b)| b.plan == "aqueduct").map(|(&i, b)| (i, b.clone())) else {
             let t = self.target.entry("aqueduct".into()).or_default();
             *t = (*t).max(1);
@@ -2115,13 +1856,10 @@ impl Player {
         if aqueduct.construction > 0 || report.status.get(&aid) != Some(&Status::Working) {
             return false;
         }
-        // The drive, planned once: the shortest way over open ground from the aqueduct's foot to
-        // the hoist, and laid a few tiles a round.
         if self.drive.is_empty() {
             match self.plan_drive(aqueduct.tile, hoist.tile) {
                 Some(path) => self.drive = path,
                 None => {
-                    // No way through: pull the aqueduct down and raise it elsewhere.
                     if self.k.apply(c, Command::Demolish(aqueduct.tile)).is_ok() {
                         self.made.remove(&aid);
                         self.built.push((now, "pulled down an aqueduct with no way to the shaft".into()));
@@ -2146,7 +1884,6 @@ impl Player {
             }
             return laid > 0;
         }
-        // The drive is whole: raise the hoist and fit it to the drive.
         for r in ["engines"] {
             if !self.k.researched.contains(r) {
                 self.research(r);
@@ -2162,7 +1899,6 @@ impl Player {
         false
     }
 
-    /// The shortest run of open ground for a drive from beside `from` to beside `to`.
     fn plan_drive(&self, from: Tile, to: Tile) -> Option<Vec<Tile>> {
         use std::collections::VecDeque;
         let kind = PowerKind::Mechanical;
@@ -2197,7 +1933,6 @@ impl Player {
         None
     }
 
-    /// A trade with no one to oversee it: a lesson at the teachers, for coin.
     fn lessons(&mut self, report: &Report) -> bool {
         let c = catalog();
         let rules = crate::population::Rules::of(c, true);
@@ -2211,19 +1946,16 @@ impl Player {
         if report.population.idle == 0 {
             wanting.retain(|_| false);
         }
-        // A master smith makes the steel the tools are re-steeled with.
         let no_master = !self.k.population.citizens.values().any(|p| p.skill("smith", &rules) >= 3);
         if no_master && self.k.amount("steel") < 14 && self.k.buildings.values().any(|b| b.plan == "smithy") {
             wanting.insert(0, "smith".into());
         }
-        // The masons and the carters come first: the wall and the roads wait on them.
         const FIRST: [&str; 4] = ["lime-burner", "setter", "carter", "sawyer"];
         wanting.sort_by_key(|t| FIRST.iter().position(|f| f == t).unwrap_or(FIRST.len()));
         for trade in wanting.into_iter().take(1) {
             if self.k.amount("coin") < c.works.tuition {
                 continue;
             }
-            // The best hand at the trade takes the lesson; else an idler.
             let pupil = self
                 .k
                 .population
@@ -2243,10 +1975,6 @@ impl Player {
         false
     }
 
-    // ---- the day ------------------------------------------------------------
-
-    /// Bread for the people there are and the people about to come: the chain
-    /// from field to oven is sized to them, not to the wall.
     fn food_plan(&mut self) {
         let people = (self.k.population.citizens.len().max(24) + 16) as f64;
         let bread = people / 1.5;
@@ -2259,8 +1987,6 @@ impl Player {
             let t = self.target.entry(plan.into()).or_default();
             *t = (*t).max(n);
         }
-        // The founders' train brings six hundred fodder, which twelve oxen eat in a working day and a half: a farm
-        // to grow more is raised when it runs low.
         let hay = if self.k.amount("fodder") < 250 { self.shares.get("farmstead").and_then(|m| m.get("grow-fodder")).copied().unwrap_or(0.4).ceil().max(1.0) as u32 } else { 0 };
         let t = self.target.entry("farmstead".into()).or_default();
         *t = (*t).max(grain + hay);
@@ -2269,7 +1995,6 @@ impl Player {
         sh.insert("grow-fodder".into(), f64::from(hay));
     }
 
-    /// The ropeway's chain: hemp, a retting pond, a ropewalk.
     fn rope_plan(&mut self) {
         if !self.rope_project {
             return;
@@ -2287,9 +2012,6 @@ impl Player {
         }
     }
 
-    /// How many works of a kind the opening hour raises, whatever the want list asks for: a young camp has a dozen
-    /// pairs of hands, and a person puts them where the wall's first stones wait (planks, joists, the lodge), not on
-    /// the whole of the chain the castle will want at its pace.
     fn opening_cap(&self, key: &str) -> u32 {
         let t = self.now();
         if t >= 3600 {
@@ -2299,22 +2021,16 @@ impl Player {
         let planks = self.k.amount("plank");
         match key {
             "woodsman-camp" => by(&[(0, 2), (900, 3)]),
-            // Scaffold poles are wanted the day the lodge is, and the bark when the tanyard is.
             "woodsman-camp#poles" => by(&[(0, 0), (knob("POLES_AT", 60), 1)]),
             "woodsman-camp#bark" => by(&[(0, 0), (700, 1)]),
             "sawpit" => by(&[(0, 1), (1800, 2)]),
-            // The bread chain is the first thing the colony lives on: a farm, a well, a mill and two ovens by the
-            // third minute give it bread to grow on (thirty-six a minute is bread for fifty mouths), a clamp for
-            // the ovens' fuel.
             "clamp" => by(&[(0, 1), (1500, 2), (3000, 3)]),
             "farmstead" => by(&[(0, 1), (1500, 2), (2400, 3)]),
             "well" => by(&[(0, 1), (900, 2)]),
             "mill" => 1,
             "bakery" => by(&[(0, 2), (3600, 3)]),
             "mason" => by(&[(0, 0), (knob("MASON_AT", 0), 1)]),
-            // A lodge is raised when the blocks and planks for it are in hand.
             "lodge" => if self.k.amount("block") >= 6 && planks >= 8 { u32::MAX } else { self.count("lodge") },
-            // The joinery charter is twelve planks, and the shop six.
             "carpentry" => if t >= knob("CARP_T", 0) && self.count("sawpit") > 0 && u64::from(planks) >= knob("CARP_PLANKS", 6) { u32::MAX } else { self.count("carpentry") },
             "pasture" | "pasture#oxen" => by(&[(0, 0), (700, 1)]),
             "brewery" => by(&[(0, 0), (2400, 1)]),
@@ -2325,7 +2041,6 @@ impl Player {
         }
     }
 
-    /// Raises what the age's list still lacks, in order.
     fn agenda(&mut self) -> bool {
         self.food_plan();
         self.rope_plan();
@@ -2334,13 +2049,7 @@ impl Player {
         plans.sort_by_key(|p| (RANK.iter().position(|r| *r == p.split('#').next().unwrap()).unwrap_or(RANK.len()), p.clone()));
         let c = catalog();
         let mut raised = 0;
-        // A player who cannot yet pay for the next thing on the list does not spend the goods
-        // on something further down it: he saves them. Without this the bakery waits on stone
-        // for an hour while every cheaper work takes the stone as it comes, and the colony
-        // never has bread for the people it needs.
         let mut saving: BTreeSet<String> = BTreeSet::new();
-        // The first purchase of all is the castle's stockyard and the staking of the ground: the
-        // ditch cannot be dug before it, and every minute it waits is a minute off the end.
         if self.site().is_none() {
             for (g, n) in [("plank", 18), ("stone", 40)] {
                 if self.k.amount(g) < n {
@@ -2371,17 +2080,12 @@ impl Player {
                     }
                     Ok(false) => {
                         let p = &c.plans[&base];
-                        // In the first forty minutes everything is short, timber included, and the bread
-                        // chain must not lose it to cheaper works. After that timber comes in all day
-                        // from the camps and is not saved for: it is the goods that come in a few at
-                        // a time (stone, planks, blocks, iron) that the cheaper works would eat.
                         let young = self.now() < SAVE_TIMBER_UNTIL;
                         for (g, n) in &p.cost {
                             if (young || g != "timber") && self.k.amount(g) < *n {
                                 saving.insert(g.clone());
                             }
                         }
-                        // The charter it waits on is saved for too.
                         for r in p.requires.iter().filter(|r| !self.k.researched.contains(*r)) {
                             if let Some(t) = c.tech(r) {
                                 for (g, n) in &t.cost {
@@ -2403,7 +2107,6 @@ impl Player {
         acted
     }
 
-    /// One delve about every eight minutes, depths rising, evening pace only.
     fn scripted_delve(&mut self, t: u64) {
         if !crate::pace::evening() {
             return;
@@ -2423,7 +2126,6 @@ impl Player {
         self.log.push((t, self.plate.clone()));
     }
 
-    /// One second of play: the player acts, the world turns, the masons shift.
     pub fn tick(&mut self) {
         let c = catalog();
         let t = self.now();
@@ -2434,8 +2136,6 @@ impl Player {
             self.coin_banked += PURSE;
         }
         if (t + self.jitter) % crate::pace::act_every() == 0 {
-            // The castle is staked out once the camp can feed itself: the stone
-            // and the stockyard are the first hour's, not the first minute's.
             if self.site().is_none() {
                 acted |= self.found_castle();
             }
@@ -2444,7 +2144,6 @@ impl Player {
                 *d = (*d).max(1);
             }
             acted |= self.knights();
-            // Wine for the masters, once there is a master to drink it.
             if self.age >= 1 && tiers() && self.has_master() {
                 for (plan, recipe) in [("vineyard", "grow-grapes"), ("wine-press", "press-wine")] {
                     let t = self.target.entry(plan.into()).or_default();
@@ -2452,7 +2151,6 @@ impl Player {
                     self.shares.entry(plan.into()).or_default().insert(recipe.into(), 1.0);
                 }
             }
-            // Hands to carry up to the masons once there are stones to carry, and not before.
             if self.first_stone.is_some() {
                 let h = self.target.entry("hod-gang".into()).or_default();
                 *h = (*h).max(1);
@@ -2473,7 +2171,6 @@ impl Player {
                 acted |= self.foreman();
             }
         }
-        // The player waits when nothing has been done for three minutes.
         match (&self.quiet_since, acted) {
             (None, false) => {
                 let why = self.why.iter().filter(|(_, (at, _))| t < at + 30).max_by_key(|(_, (at, _))| *at).map_or("nothing left to do".to_string(), |(k, (_, v))| format!("{k}: {v}"));
@@ -2607,8 +2304,6 @@ impl Player {
     }
 }
 
-/// Plays every castle in turn from the founding stock; stops when the last
-/// stands or the hours run out.
 pub(crate) fn play(hours: f64, progress: bool) -> Player {
     let mut p = Player::new();
     for i in 0..(hours * 3600.0) as u64 {
@@ -2651,7 +2346,6 @@ pub(crate) fn play(hours: f64, progress: bool) -> Player {
     p
 }
 
-/// A look at every building, for finding why a chain is not running.
 pub(crate) fn dump(p: &Player) {
     let c = catalog();
     let r = p.k.report(c);
@@ -2775,7 +2469,6 @@ fn report(p: &Player) {
     }
 }
 
-/// Writes the timeline the charts read: every sampled minute, and what was built when.
 pub(crate) fn write_timeline(p: &Player, path: &str) {
     let json = serde_json::json!({
         "castles": AGES.iter().map(|(c, pace)| serde_json::json!({"castle": c, "pace_per_min": pace})).collect::<Vec<_>>(),
@@ -2803,10 +2496,6 @@ fn zz_all() {
     }
 }
 
-/// The camp age, played whole from the founding stock by the player above, on the real map with every work its drawn
-/// size: the motte and bailey (544 pieces of earth and timber, no Delve stone) stands in an hour and a half or so (four
-/// starts: 65 to 103 minutes). The first pieces cannot be set before the ditch and the mound are dug, the colony must
-/// have grown on bread it baked, and the carts, oxen and harness the founders brought have to last the lines.
 #[test]
 fn the_camp_age_raises_the_motte_and_bailey_on_the_real_map_in_under_two_hours() {
     let c = catalog();
@@ -2824,18 +2513,11 @@ fn the_camp_age_raises_the_motte_and_bailey_on_the_real_map_in_under_two_hours()
     assert!(p.first_stone.is_some_and(|t| t > 600), "the earth is dug before the first piece is set");
     assert!(p.k.population.citizens.len() >= 24, "bread brought newcomers: {}", p.k.population.citizens.len());
     assert!(p.k.cart_count() >= 12, "the carts bought: {}", p.k.cart_count());
-    // The player writes to nothing but through commands: the log is all the knights' and steps.
     assert!(p.log.iter().all(|(_, m)| m.starts_with("the knights") || m.starts_with("quarry on")));
-    // Where the player waits with nothing affordable to raise, once the first minutes are past. The aim is no wait over
-    // three minutes; the camp age still has a few longer ones while the masons catch up with the carts, so the bound
-    // here is the measured ten minutes.
     let long: Vec<_> = p.waits.iter().filter(|(from, _, _)| *from > 600 && *from < done).filter(|(a, b, _)| b - a > 600).collect();
     assert!(long.is_empty(), "long waits: {long:?}");
 }
 
-/// The stockyard stands by the camp's own road, two ditch gangs by it, each lifting its spoil into the yard by a swape
-/// standing between them and it: the earthworks (a ditch, a mound and a bank, forty-four tonnes of earth) are done in
-/// a quarter of an hour, which the carts, hauling it as they hauled everything, took the best part of an hour over.
 #[test]
 fn the_earthworks_are_lifted_into_the_yard_by_swape_in_a_quarter_of_an_hour() {
     let mut p = Player::new();
@@ -2856,8 +2538,6 @@ fn the_earthworks_are_lifted_into_the_yard_by_swape_in_a_quarter_of_an_hour() {
     assert!(p.k.valid(catalog()));
 }
 
-/// A finished castle gives way to the next age's over the same ground, and the
-/// old stockyard serves the new works.
 #[test]
 fn a_finished_castle_gives_way_to_the_next_over_the_same_ground() {
     let c = catalog();
@@ -2871,7 +2551,6 @@ fn a_finished_castle_gives_way_to_the_next_over_the_same_ground() {
         }
     }
     assert!(!p.finished.is_empty());
-    // The player founds the shell keep as the age turns.
     assert_eq!(p.k.sites.len(), 1, "the finished motte and bailey was retired");
     let id = p.site().unwrap();
     assert_eq!(p.k.sites[&id].plan, "shell-keep");
@@ -2879,8 +2558,6 @@ fn a_finished_castle_gives_way_to_the_next_over_the_same_ground() {
     assert!(p.k.valid(c));
 }
 
-/// Every age from founding stock to the great tower, with the timeline for charts.
-/// `TIMELINE_OUT=/path.json HOURS=8 cargo test ... zz_all -- --ignored --nocapture`.
 #[test]
 #[ignore]
 fn the_three_castles_from_the_founding_stock() {
@@ -2894,9 +2571,6 @@ fn the_three_castles_from_the_founding_stock() {
     assert!(!p.finished.is_empty());
 }
 
-/// The founding hillside round the camp, one character a tile: `#` the Keep's ground, `T` forest,
-/// `s` field stone, `c` clay, `~` river, `:` sand, `o` a model house's camp, `+` the camp and the
-/// gate, `.` open meadow. For laying out the camp (`cargo test ... zz_map -- --ignored --nocapture`).
 #[test]
 #[ignore]
 fn zz_map() {
@@ -2928,7 +2602,6 @@ fn zz_map() {
     }
 }
 
-/// What the want list asks for at the start of each age (`cargo test ... zz_targets -- --ignored --nocapture`).
 #[test]
 #[ignore]
 fn zz_targets() {

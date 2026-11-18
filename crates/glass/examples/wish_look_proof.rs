@@ -68,7 +68,6 @@ impl State {
     }
 }
 
-/// The Crypt's first fight room with two seats side by side, no foes.
 fn room(aim: (f32, f32)) -> Option<Run> {
     let mut found = None;
     for seed in 3..11u64 {
@@ -119,7 +118,6 @@ fn countdown_for(ticks: &[u32], duration: u32, k: usize) -> u32 {
 }
 
 fn apply(run: &mut Run, state: State) {
-    // Walk, run, stroke and idle for both seats, so the gaits can be compared; hurt and fall for the asker alone.
     let everyone = matches!(state, State::Walk(_) | State::Run(_) | State::Slash(_) | State::Idle(_));
     for (&id, hero) in run.players.iter_mut() {
         let mine = id == ASKER;
@@ -196,7 +194,6 @@ fn run() -> Result<(), String> {
     std::fs::create_dir_all(&watched).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(out.join("rooms")).map_err(|e| e.to_string())?;
 
-    // The window as the cart sets it up: no pack of its own, a folder it watches.
     hd_pack::install(None);
     let mut watch = hd_pack::LooksWatch::new(None);
     watch.set_dir(watched.clone());
@@ -211,7 +208,6 @@ fn run() -> Result<(), String> {
 
     for phase in ["before", "after"] {
         if phase == "after" {
-            // The job lands: the host composes `pack.json` in the folder the window watches. The watch finds it by itself.
             copy_dir(&looks_src, &watched).map_err(|e| e.to_string())?;
             now += Duration::from_secs(5);
             if !watch.refresh(now) {
@@ -237,7 +233,6 @@ fn run() -> Result<(), String> {
             for state in states {
                 let mut run = room(aim).ok_or("no fight room on the Crypt's first floor")?;
                 if phase == "after" {
-                    // What the host's `MirrorBody` does once the set is in the looks folder.
                     let name = run.players[&ASKER].name.clone();
                     run.home.wardrobe.mirror_looks.insert(name, Look { words: WORDS.into(), worn: looks::Sprite::default(), body: false });
                     if !run.set_mirror_body(&card, WORDS, true) {
@@ -266,7 +261,6 @@ fn run() -> Result<(), String> {
                 });
                 frame.pictures.extend(drawn);
                 let pixels = gpu.stage(frame, size);
-                // A crop fixed per facing and phase, from where the two knights are in the room.
                 let (cx, cy) = scene.camera;
                 let bodies: Vec<_> = scene.figures.iter().flat_map(|f| &f.bodies).filter(|b| b.named.is_some()).collect();
                 let room_box = *crop.get_or_insert_with(|| {
@@ -295,12 +289,10 @@ fn run() -> Result<(), String> {
                 if matches!(state, State::Idle(0)) {
                     write_png(&out.join("rooms").join(format!("{phase}-{facing}.png")), size, &pixels)?;
                 }
-                // The proof's claims, checked on every frame.
                 let mut state_ok = true;
                 match (phase, by[1].is_some(), by[0].is_some()) {
                     ("before", true, _) | ("before", _, true) => state_ok = false,
                     ("after", false, _) => {
-                        // The rig's die clip is 75 ticks; once it is over the game draws bones, which have no name.
                         let bones = matches!(state, State::Fallen(age) if age >= DIE.iter().sum::<u32>());
                         state_ok = bones && key2.is_empty();
                     }

@@ -14,8 +14,6 @@ use std::path::{Path, PathBuf};
 pub(crate) struct TaskCliArgs {
     pub(crate) json: bool,
     pub(crate) workspace: Option<PathBuf>,
-    /// Named sandbox posture for the run (`sealed`). `None` keeps the
-    /// ordinary permissive/mandatory ladder assembled ad hoc by each tool.
     pub(crate) sandbox_profile: Option<String>,
     pub(crate) task_id: Option<String>,
     pub(crate) run_id: Option<String>,
@@ -59,17 +57,10 @@ impl fmt::Display for TaskCliError {
     }
 }
 
-/// Named sandbox postures a headless task may request. `sealed` is the S02
-/// host read/network isolation profile: deny-by-default reads outside the
-/// resolved allow-list, netless, mandatory — never widened, not even by YOLO.
 pub(crate) fn valid_sandbox_profile(value: &str) -> bool {
     matches!(value, "sealed")
 }
 
-/// Parse the arguments following either `--task` or `--task-json`.
-///
-/// `--task-json --task ...` and `--task --task-json ...` are both accepted so
-/// evaluators can treat JSON as a modifier without changing ordinary task mode.
 pub(crate) fn parse_task_args(
     first: &str,
     args: impl IntoIterator<Item = String>,
@@ -388,10 +379,6 @@ pub(crate) enum TaskStartupStopReason {
     NoRoute,
 }
 
-/// Work cadence for a task or competition turn. Pace is deliberately separate
-/// from competition mode: a long-horizon competition still needs its tools and
-/// telemetry, but must not inherit a rapid-fire submit loop merely because the
-/// standing goal mentions a leaderboard.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum TaskPace {
     Rapid,
@@ -414,10 +401,6 @@ pub(crate) struct TaskPaceResolution {
     pub(crate) source: String,
 }
 
-/// The headless task's system prompt: its personality type (the full Driver,
-/// or the compact core with `ANGEL_TASK_COMPACT_PROMPT`), the resolved pace
-/// (`⠍⠁` / `⠍⠃`) and, with `ANGEL_TASK_CODING_DISCIPLINE`, the repair
-/// discipline (`⠽⠑`). The workspace map follows in a message of its own.
 pub(crate) fn task_system_prompt(workspace: &Path, specialists: &[String]) -> String {
     let pace = resolved_task_pace().map(|pace| match pace {
         TaskPace::Rapid => super::book::m_method::RAPID,
@@ -432,7 +415,6 @@ pub(crate) fn task_system_prompt(workspace: &Path, specialists: &[String]) -> St
     )
 }
 
-/// The pace headless startup resolved, if this process is a task.
 pub(crate) fn resolved_task_pace() -> Option<TaskPace> {
     std::env::var("ANGEL_TASK_PACE_RESOLVED")
         .ok()
@@ -484,8 +466,6 @@ fn prompt_requests_rapid_pace(prompt: &str) -> bool {
     .any(|needle| super::ascii_contains_ignore_case(prompt, needle))
 }
 
-/// Resolve pace from explicit operator configuration or task intent.
-/// Execution budgets do not select a slower cadence.
 pub(crate) fn resolve_task_pace(prompt: &str) -> TaskPaceResolution {
     let requested = std::env::var("ANGEL_TASK_PACE")
         .unwrap_or_else(|_| "auto".to_string())
@@ -512,11 +492,6 @@ pub(crate) fn resolve_task_pace(prompt: &str) -> TaskPaceResolution {
             source: "prompt".to_string(),
         };
     }
-    // Operator law 2026-09-11: an unbounded or long budget is NOT a request for
-    // slow-burn cadence. With hop/deadline caps off by default (L00/L01) every
-    // competition loop was inferred DEEP and told "submit only when the operator
-    // explicitly asks" — the loop ran for hours with measured candidates and
-    // zero submissions. Depth is opted into by words or ANGEL_TASK_PACE=deep only.
     TaskPaceResolution {
         requested,
         pace: TaskPace::Rapid,
@@ -524,9 +499,6 @@ pub(crate) fn resolve_task_pace(prompt: &str) -> TaskPaceResolution {
     }
 }
 
-/// Pace visible to the live turn loop. Headless startup stamps a resolved value
-/// so receipt generation and turn policy cannot independently classify the same
-/// task; interactive turns fall back to the latest operator message.
 pub(crate) fn configured_task_pace(history: &[super::ChatMsg]) -> TaskPace {
     if let Ok(value) = std::env::var("ANGEL_TASK_PACE_RESOLVED")
         && let Some(pace) = parse_task_pace(&value)
@@ -554,16 +526,7 @@ impl TaskStartupStopReason {
     }
 }
 
-/// Resolve the per-turn hop guard from `ANGEL_MAX_HOPS`.
-///
-/// The harness uses `Option<usize>` for the guard, where `None` is unbounded. The
-/// public environment contract uses `0` for that same meaning, so normalize it
-/// here instead of accidentally passing `Some(0)` to the turn loop (which would
-/// stop before the first provider call). Headless and interactive turns are
-/// unbounded by default; only a positive operator override enables this cap.
 pub(crate) fn configured_max_hops() -> Option<usize> {
-    // Launch config in release: the worker asks once per turn. Tests keep the
-    // live read so EnvGuard hop caps stay visible.
     #[cfg(not(test))]
     {
         static HOPS: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock::new();
@@ -573,77 +536,31 @@ pub(crate) fn configured_max_hops() -> Option<usize> {
     parse_task_max_hops(std::env::var("ANGEL_MAX_HOPS").ok().as_deref())
 }
 
-/// Install the production headless coding policy without changing interactive
-/// TUI turns or overriding an evaluator/operator ablation. These are the same
-/// bounded values used by the pinned Prime harness: enough reconnaissance to
-/// locate the edit, then an action-or-explain boundary; once a mutation exists,
-/// reserve the final six hops for verification or a diagnostic-backed fix.
-/// Mutation thrash / peripheral fan-out defaults come from the Roll 07
-/// retained-failure analysis (identical multi_edit replay and docs/testdata
-/// fan-out without core library hits).
-///
-/// Production headless also defaults **Treebeard auto** (RLM/HiQ strategy root
-/// when hop budget ≥ floor) and **relentless execution** so stalled pure-text
-/// hops re-enter tool use. Classic ReAct ablation still wins with
-/// `ANGEL_TASK_TREEBEARD=0` (or explicit `ANGEL_LANE=…`).
 pub(crate) fn apply_task_runtime_defaults(prompt: &str) -> TaskPaceResolution {
     for (key, value) in [
-        // Run limits are off unless the operator supplies a positive override.
         ("ANGEL_MAX_HOPS", "0"),
         ("ANGEL_TURN_DEADLINE_SECS", "0"),
-        // Free preturn map (repo_recon + symbol/lockfile packet) so paid hops
-        // are not spent on first-pass reading (expensive reading fix).
         ("ANGEL_TASK_RECON", "repo"),
-        // The coding repair discipline (`⠽⠑`) on the headless entry warpath.
         ("ANGEL_TASK_CODING_DISCIPLINE", "1"),
-        // Always inject workspace root + shallow file inventory so paid hops
-        // are not spent on `find /` / `$HOME` thrash under YOLO.
         ("ANGEL_TASK_WORKSPACE_MAP", "1"),
-        // Stalled pure-text hops → force tool-backed progress (same latch as
-        // /relentless); explicit 0 still disables.
         ("ANGEL_RELENTLESS_EXECUTION", "1"),
-        // RLM/HiQ by default for professional hop budgets; set
-        // ANGEL_TASK_TREEBEARD=0 for classic ReAct ablation control.
         ("ANGEL_TASK_TREEBEARD", "auto"),
-        // Mark the process as headless `--task` so tools can apply task-only
-        // orientation without changing interactive TUI behavior.
         ("ANGEL_TASK_ACTIVE", "1"),
-        // Resolved exactly once below. Typed CLI and operator environment
-        // values retain precedence over this auto default.
         ("ANGEL_TASK_PACE", "auto"),
     ] {
         if std::env::var_os(key).is_none() {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::set_var(key, value) };
         }
     }
     let pace = resolve_task_pace(prompt);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TASK_PACE_RESOLVED", pace.pace.as_str()) };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TASK_PACE_SOURCE", &pace.source) };
     maybe_apply_task_treebeard_lane();
     pace
 }
 
-/// A workspace of at most this many files is small enough that the map shows
-/// the whole of it.
 const SMALL_WORKSPACE_FILES: usize = 40;
 
-/// Route a headless task in a small workspace onto the light start: no recon
-/// packet, no tool bubble, and only the tools that read, write and run. The
-/// map already names every file, so a search tool has nothing left to find.
-/// Size is the signal because it is known before the first request and task
-/// text is not: across the 136-task board, task length had a 0.01 correlation
-/// with how many calls a task took. `read_file` returns plain text here: the
-/// files are short enough to edit by their own words, and the line anchors
-/// cost about 6% of a task's input. The same route turns on the measured
-/// speed stack: the up-front read as context, a test run after a write-only
-/// response, the stop at a full green run, the brevity block ahead of the
-/// map, collapsed copies of a locked loop and one Cargo home per process
-/// (DeepSeek Flash, 2026-11-11: 136/136 on three seeds; held-out tests 113 of
-/// 133; Go 36/36). Must run before [`apply_task_runtime_defaults`]; a value
-/// already in the environment wins, so `0` turns any of them off.
 pub(crate) fn apply_small_workspace_route(workspace: &Path) {
     if !workspace_is_small(workspace) {
         return;
@@ -663,22 +580,13 @@ pub(crate) fn apply_small_workspace_route(workspace: &Path) {
         (crate::agent::tools::build::CARGO_HOME_REUSE_ENV, "1"),
     ] {
         if std::env::var_os(key).is_none() {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::set_var(key, value) };
         }
     }
 }
 
-/// On in a small workspace's headless task ([`apply_small_workspace_route`]);
-/// `0` turns it off. After a response that only writes files, the
-/// harness adds one `run_tests` call to that response, so the result of the
-/// write and the result of the tests reach the model together. Measured on
-/// small workspaces, where the model's next response is otherwise always the
-/// test run (about 1.9 s and one full request on DeepSeek Flash, 2026-11-10).
 pub(crate) const TEST_AFTER_WRITE_ENV: &str = "ANGEL_TASK_TEST_AFTER_WRITE";
 
-/// See [`TEST_AFTER_WRITE_ENV`]. A response that also runs something is left
-/// alone: the model has already chosen its own check.
 pub(crate) fn append_test_after_write(calls: &mut Vec<crate::agent::club::ToolCall>, hop: usize) {
     if !super::env_flag(TEST_AFTER_WRITE_ENV, false) {
         return;
@@ -702,20 +610,12 @@ pub(crate) fn append_test_after_write(calls: &mut Vec<crate::agent::club::ToolCa
     }
 }
 
-/// On in a small workspace's headless task, and only with
-/// [`TEST_AFTER_WRITE_ENV`]; `0` turns it off. When the
-/// harness-added test run passes in full, the turn stops there with the test
-/// summary as its answer instead of asking the model for a closing message
-/// (about 2.5 s and 240 output tokens of a 7 s easy task on DeepSeek Flash,
-/// 2026-11-10). The stop goes through the same checks as a model's stop.
 pub(crate) const END_AT_GREEN_ENV: &str = "ANGEL_TASK_END_AT_GREEN";
 
 pub(crate) fn end_at_green() -> bool {
     super::env_flag(END_AT_GREEN_ENV, false) && super::env_flag(TEST_AFTER_WRITE_ENV, false)
 }
 
-/// The summary line of a test result in which at least one test passed and
-/// none failed, was skipped or was ignored: `tests: 7 passed, 0 failed, 0 …`.
 pub(crate) fn full_green_line(result: &str) -> Option<String> {
     let line = result.lines().next()?;
     let summary = line.split(" — ").next()?.trim();
@@ -727,9 +627,6 @@ pub(crate) fn full_green_line(result: &str) -> Option<String> {
         .then(|| summary.to_string())
 }
 
-/// The answer of a turn that stopped at green: a completion notice written by
-/// the harness, since no model message closes the turn. It says so, names the
-/// files changed and carries the test summary (`tests: 7 passed, 0 failed, …`).
 pub(crate) fn completion_notice(
     summary: &str,
     edited: &std::collections::BTreeSet<String>,
@@ -750,21 +647,10 @@ pub(crate) fn completion_notice(
     notice
 }
 
-/// Set by [`apply_small_workspace_route`]; `0` leaves the reading to the model.
 pub(crate) const SMALL_WORKSPACE_PREREAD_ENV: &str = "ANGEL_TASK_PREREAD";
 
-/// A small workspace is read up front only when all of its files, as
-/// `read_file` returns them, fit in this many bytes.
 const SMALL_WORKSPACE_PREREAD_BYTES: usize = 32 * 1024;
 
-/// Read a small workspace before the first request. The map names every file
-/// and the model's first move is to read them, which costs a whole model round
-/// trip (1.2 s of a 9.4 s easy task on DeepSeek Flash, 2026-11-09). The reads
-/// go through the real `read_file` tool and enter the history as the calls the
-/// model would have made, so the model sees nothing it could not have fetched
-/// and no new prompt text. Licence and lock files are skipped, as are files
-/// that are not text. A workspace that does not fit is left alone: half a
-/// workspace would look like all of it.
 pub(crate) fn preread_small_workspace(
     registry: &super::ToolRegistry,
     workspace: &Path,
@@ -807,8 +693,6 @@ pub(crate) fn preread_small_workspace(
         return;
     }
     if super::env_flag(PREREAD_AS_CONTEXT_ENV, false) {
-        // The same `read_file` text, as data in the task's context: no
-        // assistant turn the model did not write.
         let mut text = String::new();
         for (call, result) in calls.iter().zip(&results) {
             let path = call.args["path"].as_str().unwrap_or_default();
@@ -824,10 +708,6 @@ pub(crate) fn preread_small_workspace(
     history.extend(results);
 }
 
-/// A file read up front arrives whole: `read_file` serves 200 lines a page, and
-/// a longer file left at its first page costs the model a round trip to fetch
-/// the rest (6 to 9 of 136 first calls on DeepSeek Flash, 2026-11-11, about
-/// 1.5 s each). Follows the page's own `next offset` note, at most 20 pages.
 fn read_remaining_pages(registry: &super::ToolRegistry, path: &str, first: String) -> String {
     let mut whole = String::new();
     let mut page = first;
@@ -847,9 +727,6 @@ fn read_remaining_pages(registry: &super::ToolRegistry, path: &str, first: Strin
     whole
 }
 
-/// A page's text without its trailing continuation note, and the offset the
-/// note names: `…[more content; next offset N]` (with its stamp line after it)
-/// or `[truncated: … next offset N]`.
 fn split_next_offset(page: &str) -> Option<(&str, u64)> {
     let at = page
         .rfind("[more content; next offset ")
@@ -868,28 +745,10 @@ fn split_next_offset(page: &str) -> Option<(&str, u64)> {
     Some((body, next))
 }
 
-/// On in a small workspace's headless task; `0` turns it off. The up-front
-/// read reaches the model as data in the
-/// task's context (each file's path and its `read_file` text) instead of an
-/// assistant turn of tool calls the model never wrote. Measured 2026-11-11 on
-/// the ten hardest DeepSeek Flash tasks: missed runs had reasoning text on 6%
-/// of their turns, solved runs on 61-81%; with the read sent as a silent
-/// assistant turn, 13 of 59 runs missed, without it 1 of 102.
 pub(crate) const PREREAD_AS_CONTEXT_ENV: &str = "ANGEL_TASK_PREREAD_AS_CONTEXT";
 
-/// On in a small workspace's headless task; `0` turns it off. The up-front
-/// read leaves out package manifests and
-/// tool configuration (`package.json`, `Cargo.toml`, `babel.config.js`, …);
-/// the map still names them. Measured 2026-11-11: with nothing read up front,
-/// DeepSeek Flash opened `package.json` on 0 of 26 tasks, `babel.config.js` on
-/// 0 of 26 and `Cargo.toml` on 0 of 4, while every one of them was read up
-/// front and sent uncached in the first request. Build scripts that name the
-/// targets (`CMakeLists.txt`, 9 of 10 opened) are still read.
 pub(crate) const PREREAD_SKIP_MANIFESTS_ENV: &str = "ANGEL_TASK_PREREAD_SKIP_MANIFESTS";
 
-/// Off unless set to `1`. The up-front read leaves out test files (a name
-/// with `test` or `spec` in it, or a file under `test/` or `tests/`); the map
-/// still names them and the harness test run still reports on them.
 pub(crate) const PREREAD_SKIP_TESTS_ENV: &str = "ANGEL_TASK_PREREAD_SKIP_TESTS";
 
 fn is_manifest_or_tool_config(name: &str) -> bool {
@@ -925,8 +784,6 @@ fn is_test_file(rel: &str) -> bool {
             .any(|word| matches!(word, "test" | "tests" | "spec" | "specs"))
 }
 
-/// A file worth reading up front: text that `read_file` returns whole, and
-/// not a licence or a lock file.
 fn preread_candidate(root: &Path, rel: &str) -> bool {
     let name = rel.rsplit('/').next().unwrap_or(rel);
     let upper = name.to_ascii_uppercase();
@@ -945,7 +802,6 @@ fn preread_candidate(root: &Path, rel: &str) -> bool {
     if super::env_flag(PREREAD_SKIP_TESTS_ENV, false) && is_test_file(rel) {
         return false;
     }
-    // A file larger than the whole budget would arrive cut short.
     std::fs::read(root.join(rel)).is_ok_and(|bytes| {
         bytes.len() <= SMALL_WORKSPACE_PREREAD_BYTES && std::str::from_utf8(&bytes).is_ok()
     })
@@ -958,21 +814,8 @@ fn workspace_is_small(workspace: &Path) -> bool {
     collect_workspace_rel_paths(&root, SMALL_WORKSPACE_FILES + 1).len() <= SMALL_WORKSPACE_FILES
 }
 
-/// Names the private cache root a headless task installed in place of the
-/// shared `~/.cache`. [`crate::agent::sandbox::SandboxPolicy::permissive`]
-/// reads it to stop granting the shared cache.
 pub(crate) const TASK_CACHE_HOME_ENV: &str = "ANGEL_TASK_CACHE_HOME";
 
-/// Give a headless task its own empty `XDG_CACHE_HOME`.
-///
-/// The shared `~/.cache` is a sandbox writable root, and every sandboxed launch
-/// alias-scans its writable roots. Once a tool cache there hard-links files
-/// to paths outside the grants (`~/.cache/mise` → `~/.local/share/mise/installs`,
-/// 8,190 aliases on 2026-10-28), each launch takes the Bubblewrap alias path:
-/// 0.93 s per process against 0.01 s for an empty root, paid by every shell
-/// call, test run and post-write check. A private cache keeps that protection
-/// and drops the cost. An operator `XDG_CACHE_HOME` that names some other
-/// directory is kept; `ANGEL_TASK_PRIVATE_CACHE=0` keeps the shared cache.
 pub(crate) fn install_private_task_cache() -> Option<PathBuf> {
     let dir = install_private_task_cache_in(&std::env::temp_dir())?;
     remove_at_exit(dir.clone());
@@ -986,7 +829,6 @@ pub(crate) fn install_private_task_cache_in(base: &Path) -> Option<PathBuf> {
             "0" | "off" | "false" | "no"
         )
     });
-    // A nested task inherits its parent's private cache; it never owns it.
     if off || std::env::var_os(TASK_CACHE_HOME_ENV).is_some_and(|value| !value.is_empty()) {
         return None;
     }
@@ -1011,7 +853,6 @@ pub(crate) fn install_private_task_cache_in(base: &Path) -> Option<PathBuf> {
             .create(&dir)
             .ok()?;
     }
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe {
         std::env::set_var("XDG_CACHE_HOME", &dir);
         std::env::set_var(TASK_CACHE_HOME_ENV, &dir);
@@ -1019,8 +860,6 @@ pub(crate) fn install_private_task_cache_in(base: &Path) -> Option<PathBuf> {
     Some(dir)
 }
 
-/// Remove the private task cache when the process exits normally
-/// (`std::process::exit` and a return from `main` both run `atexit`).
 fn remove_at_exit(dir: PathBuf) {
     static DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
     extern "C" fn remove() {
@@ -1033,16 +872,6 @@ fn remove_at_exit(dir: PathBuf) {
     }
 }
 
-/// Optional headless Treebeard (RLM/HiQ) activation when `ANGEL_LANE` is unset.
-///
-/// `ANGEL_TASK_TREEBEARD`:
-/// - unset — leave the global Treebeard default alone
-/// - `0` / `off` / `false` — force `ANGEL_LANE=default` (ReAct ablation)
-/// - `1` / `on` / `always` — force `ANGEL_LANE=treebeard` for this `--task`
-/// - `auto` — treebeard when hop budget is unbounded or
-///   `>= ANGEL_TASK_TREEBEARD_HOPS` (default **32**)
-///
-/// Explicit `ANGEL_LANE` always wins. Interactive TUI never calls this.
 pub(crate) fn maybe_apply_task_treebeard_lane() {
     if std::env::var_os("ANGEL_LANE").is_some() {
         return;
@@ -1055,7 +884,6 @@ pub(crate) fn maybe_apply_task_treebeard_lane() {
         return;
     }
     if matches!(mode.as_str(), "0" | "off" | "false" | "no") {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var("ANGEL_LANE", "default") };
         return;
     }
@@ -1067,14 +895,13 @@ pub(crate) fn maybe_apply_task_treebeard_lane() {
                 .and_then(|v| v.trim().parse::<usize>().ok())
                 .unwrap_or(32);
             match configured_max_hops() {
-                None => true, // unbounded = long
+                None => true,
                 Some(h) => h >= floor,
             }
         }
         _ => false,
     };
     if enable {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var("ANGEL_LANE", "treebeard") };
     }
 }
@@ -1087,9 +914,6 @@ fn parse_task_max_hops(raw: Option<&str>) -> Option<usize> {
     }
 }
 
-/// Stopped task-mode outcomes are machine failures by default even though the
-/// truthful JSON/stdout note is still emitted. Explicitly opt into the legacy
-/// zero-exit behavior only for a caller that grades the envelope itself.
 pub(crate) fn task_strict_exit() -> bool {
     parse_task_strict_exit(std::env::var("ANGEL_TASK_STRICT_EXIT").ok().as_deref())
 }
@@ -1101,64 +925,16 @@ fn parse_task_strict_exit(raw: Option<&str>) -> bool {
     )
 }
 
-// ---------------------------------------------------------------------------
-// Warm start — the workspace context blocks headless `--task` used to skip.
-// ---------------------------------------------------------------------------
-
-/// The workspace warm-start for headless `--task`, mirroring the blocks the
-/// interactive bootstrap injects (`bootstrap::build_system_prompt`) minus the
-/// ones that only make sense with a human at the keyboard and the full TUI
-/// toolbelt.
-///
-/// Why it exists: `--task` is the seat EVERY autonomous coding run goes through
-/// (the Conductor's code rung included) and it opened **cold** — no verified
-/// rituals, no standing traps, no "last session here". A capable model dropped
-/// into a large repo with no map re-reads its way into the churn guard instead
-/// of writing code. Measured 2026-07-11: two headless runs on real backlog items
-/// burned 588s and 676s and died in the re-read guard with zero writes.
-///
-/// What rides along, and why it earns its tokens:
-///   * the **work context** — but only once a human has CONFIRMED it. The mode it
-///     carries (internal-dev velocity vs public-facing-care) governs secret
-///     hygiene for an agent that writes and commits unattended, and it is ~3
-///     lines. The *unconfirmed* branch of that block is deliberately dropped: it
-///     instructs the agent to call `work_landing` — a tool task mode does not
-///     register — and to confirm with a user who is not there. In an unattended
-///     seat that is pure churn, which is the exact failure being fixed.
-///   * the **repo dossier** — verified rituals, standing traps, and where the
-///     last session left off, confidence-gated by `ANGEL_DOSSIER_MIN_BELIEF`
-///     (default 0.70) so a low-belief guess is *withheld*, never asserted.
-///
-/// What deliberately does NOT ride along: the self-model
-/// (`self_model::self_context`). A read-only `self_map` is available on demand
-/// only with an explicit ANGEL_SELF_SRC pin. The context block is by far the
-/// largest of the blocks, and it maps the
-/// *cockpit's own* source — irrelevant to the arbitrary repo a headless task
-/// usually runs in, and self-modification priming is the last thing an
-/// unattended seat needs.
-///
-/// Both halves render to an empty string when there is nothing confident to say,
-/// so a workspace angel has never seen pays exactly zero tokens.
 pub(crate) fn task_system_contract(workspace: &Path) -> String {
     let mut block = String::new();
-    // The workspace map is harness-derived (an absolute root and file names,
-    // no repository text), so it stays in the System contract: inside the
-    // JSON workspace-context carrier Flash read the escaped map next to the
-    // `workspace` field and prefixed the directory name to its paths (two
-    // read_file errors per js-duration-parser run on the 2026-09-07 merge);
-    // in the System prompt it navigated cleanly (arena r4, 2026-08-10 note).
     block.push_str(&task_workspace_map_block(workspace));
     block
 }
 
-/// Headless tasks use the compact core (`⠽⠉` / `⠽⠙`) and the skill referral
-/// unless explicitly disabled. Keep the bootstrap and standalone execution
-/// prepend on the same flag parser.
 pub(crate) fn task_compact_prompt_enabled() -> bool {
     super::env_flag("ANGEL_TASK_COMPACT_PROMPT", true)
 }
 
-/// Repository-derived context is data; callers must use a non-System carrier.
 pub(crate) fn task_warm_start(workspace: &Path) -> String {
     let mut block = String::new();
     block.push_str(&task_work_context_block(workspace));
@@ -1173,8 +949,6 @@ pub(crate) fn task_warm_start(workspace: &Path) -> String {
             &dossier,
         ));
     }
-    // Caddy M06b: cost-aware recipes/hazards card right after the dossier
-    // block — only entries relevant to this workspace's verifier family.
     let card = crate::knowledge::caddy::render_card_for_task(
         workspace,
         crate::knowledge::caddy::card_cap(),
@@ -1193,10 +967,6 @@ pub(crate) fn task_warm_start(workspace: &Path) -> String {
     block
 }
 
-/// Free preturn workspace orientation: absolute root + shallow file inventory.
-/// Measured 2026-08-10: without this, Flash under YOLO spent 14/16 hops on
-/// `find /` and `$HOME` scans before touching the fixture (js-duration-parser /
-/// js-retry-plan max_hops fails). Off with `ANGEL_TASK_WORKSPACE_MAP=0`.
 fn task_workspace_map_block(workspace: &Path) -> String {
     if !super::env_flag("ANGEL_TASK_WORKSPACE_MAP", false) {
         return String::new();
@@ -1208,8 +978,6 @@ fn task_workspace_map_block(workspace: &Path) -> String {
     let max_bytes =
         super::env_usize("ANGEL_TASK_WORKSPACE_MAP_BYTES", 6 * 1024).clamp(512, 32 * 1024);
     let entries = collect_workspace_rel_paths(&root, max_entries);
-    // `⠍⠓` frames the map: its labels and its note (stay inside the root) are
-    // the ledger pages; the root and the inventory are the data.
     let mut body = format!(
         "\n{}\n`{}`\n",
         super::book::m_method::MAP_NOTE.cells(),
@@ -1224,7 +992,6 @@ fn task_workspace_map_block(workspace: &Path) -> String {
         body.push_str("…\n");
     }
     if body.len() > max_bytes {
-        // Keep the header + root line even if the list is long.
         let mut end = max_bytes;
         while end > 0 && !body.is_char_boundary(end) {
             end -= 1;
@@ -1242,7 +1009,6 @@ fn collect_workspace_rel_paths(root: &Path, max_entries: usize) -> Vec<String> {
         let Ok(mut entries) = std::fs::read_dir(&dir) else {
             continue;
         };
-        // Stable order so the prompt prefix stays cache-friendly across runs.
         let mut batch: Vec<_> = entries.by_ref().flatten().collect();
         batch.sort_by_key(|e| e.file_name());
         for entry in batch {
@@ -1280,9 +1046,6 @@ fn collect_workspace_rel_paths(root: &Path, max_entries: usize) -> Vec<String> {
     out
 }
 
-/// Continual-harness warm-start for headless `--task` (same renderer as the
-/// interactive system prompt). Suppress with `ANGEL_CONTINUAL_HARNESS=0` or
-/// `ANGEL_CONTINUAL_HARNESS_TASK=0` for hermetic benchmarks.
 fn task_continual_harness_block(workspace: &Path) -> String {
     if !super::env_flag("ANGEL_CONTINUAL_HARNESS_TASK", true) {
         return String::new();
@@ -1290,12 +1053,6 @@ fn task_continual_harness_block(workspace: &Path) -> String {
     crate::drive::continual_harness::context_block(workspace)
 }
 
-/// The dossier warm-start block for headless task mode: the *same* renderer the
-/// TUI uses (`dossier::context_block` — one renderer, one confidence gate, one
-/// size cap), suppressible on its own with `ANGEL_DOSSIER_TASK=0` for operators
-/// who want a hermetic headless prompt (benchmarks pinning an exact preamble)
-/// without killing the block for interactive sessions too. `ANGEL_DOSSIER=0`
-/// still kills both.
 fn task_dossier_block(workspace: &Path) -> String {
     if crate::agent::backplane::active() {
         return String::new();
@@ -1306,9 +1063,6 @@ fn task_dossier_block(workspace: &Path) -> String {
     crate::knowledge::dossier::context_block(workspace)
 }
 
-/// The work-context block for headless task mode — **confirmed contexts only**
-/// (see [`task_warm_start`]). Reuses `work_landing::render_block`; honors the
-/// existing `ANGEL_WORK_LANDING` kill switch, so no new knob.
 fn task_work_context_block(workspace: &Path) -> String {
     if !super::env_flag("ANGEL_WORK_LANDING", true) {
         return String::new();
@@ -1385,9 +1139,7 @@ pub(crate) struct TaskRuntimeConfig {
     pub(crate) requested_task_pace: String,
     pub(crate) task_pace: String,
     pub(crate) task_pace_source: String,
-    /// Zero is the public spelling for explicitly unbounded.
     pub(crate) max_hops: usize,
-    /// Zero is the public spelling for explicitly unbounded.
     pub(crate) deadline_secs: usize,
     pub(crate) tool_profile: String,
     pub(crate) rollout_capture: String,
@@ -1478,7 +1230,6 @@ pub(crate) struct TaskJsonEnvelope {
     pub(crate) formation_budget: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub(crate) budget_exhausted: bool,
-    /// Compatibility field: spend exceeded allocation; no reservation was denied.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub(crate) reservation_denied: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
@@ -1493,7 +1244,6 @@ pub(crate) struct TaskJsonEnvelope {
     pub(crate) hop_stream_cuts: Vec<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) last_credited_progress: Option<serde_json::Value>,
-    /// Sandbox ceiling in force for tool subprocesses: "sealed" | "yolo" | "ordinary" (S02).
     pub(crate) sandbox_profile: &'static str,
     pub(crate) version: u8,
     pub(crate) kind: &'static str,
@@ -1525,12 +1275,8 @@ pub(crate) struct TaskJsonEnvelope {
     pub(crate) elapsed_ms: u128,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) timing: Option<TaskTimingTelemetry>,
-    /// Per-call tool ledger of the turn (hop, tool, exec, err, class, verify,
-    /// ms, bytes); omitted when no tool was dispatched.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) tools: Vec<serde_json::Value>,
-    /// M05: caddy memory-health summary (counts only) for this workspace's
-    /// recipe/hazard stores.
     pub(crate) tools_output: super::turn::background::ToolsOutput,
     pub(crate) store_rotations: Vec<serde_json::Value>,
     pub(crate) memory_health: crate::knowledge::caddy::StoreHealthSummary,
@@ -1540,7 +1286,6 @@ pub(crate) struct TaskJsonEnvelope {
     pub(crate) accepted: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) rollout_id: Option<String>,
-    /// Capture failures do not replace the answer or stop an optional-capture run.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub(crate) rollout_capture_errors: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1574,14 +1319,10 @@ pub(crate) struct TaskJsonContext {
     pub(crate) runtime: Option<TaskRuntimeConfig>,
     pub(crate) session_id: Option<String>,
     pub(crate) artifacts: Vec<String>,
-    /// M05: caddy memory-health summary (counts only), set by the task
-    /// runner before the envelope is assembled.
     pub(crate) memory_health: crate::knowledge::caddy::StoreHealthSummary,
 }
 
 fn graph_incomplete_stop_reason(reason: &str) -> &'static str {
-    // A node-failure label names the node by id; an id that says "cancelled"
-    // is still a node failure.
     if reason == "cancelled" || (!reason.starts_with("node_failed") && reason.contains("cancelled"))
     {
         "cancelled"
@@ -1604,13 +1345,8 @@ impl TaskJsonEnvelope {
         outcome: TurnOutcome,
         history: &[super::ChatMsg],
     ) -> Self {
-        // The turn's own measurement wins; a caller-supplied context timing
-        // (none today) would only cover work outside the observed turn.
         ctx.timing = outcome.timing.or(ctx.timing);
         ctx.tools = outcome.tools.clone();
-        // Caddy v0 write-back: fold this task's tool receipts into the
-        // per-repo recipe/hazard store. The envelope has no metadata map, so
-        // the counts surface on stderr instead of as new top-level keys.
         let (caddy_recipes, caddy_hazards) =
             crate::knowledge::caddy::write_back_from_history(&ctx.workspace, history);
         if caddy_recipes + caddy_hazards > 0 {
@@ -1751,8 +1487,6 @@ impl TaskJsonEnvelope {
             timing.refresh_task_lifecycle();
             ctx.elapsed_ms = timing.envelope_wall_ms.unwrap_or(ctx.elapsed_ms);
         }
-        // Preserve existing stop vocabulary for unaffected tasks. Process kills
-        // use their shared receipt reason, including cleanup after an answer.
         let stop_reason = if ctx.tools.iter().any(|tool| tool["status"] == "killed") {
             match stop_reason {
                 "interrupt" => "cancelled",

@@ -64,7 +64,6 @@ fn pan_bounds_letterboxing_and_resize_are_deterministic() {
 #[test]
 fn actual_source_pattern_crop_is_not_a_120k_thumbnail() {
     let mut source = image::RgbaImage::from_pixel(2048, 2048, image::Rgba([0, 0, 0, 255]));
-    // 2px stripes and distinctive colored corners vanish in a 346px preview.
     for y in 0..64 {
         for x in 0..64 {
             source.put_pixel(
@@ -109,8 +108,6 @@ fn actual_source_pattern_crop_is_not_a_120k_thumbnail() {
 
 #[test]
 fn source_backed_sampling_has_output_only_allocation_and_bounded_work() {
-    // A virtual admitted 32MP source proves the sampler only needs a borrowed
-    // view, not contiguous crop pixels. No 128MiB fixture or RSS benchmark.
     struct CountedSource {
         reads: std::cell::Cell<u64>,
     }
@@ -136,7 +133,6 @@ fn source_backed_sampling_has_output_only_allocation_and_bounded_work() {
         };
         let transform = view.transform((8192, 4000), (256, 128));
         let output = transform.sample(&source);
-        // The only heap constructor in sample is RgbaImage::new(pw, ph).
         assert_eq!(output.as_raw().capacity(), 256 * 128 * 4);
         let bound = if transform.scale < 1.0 {
             4 * 8192 * 4000
@@ -145,7 +141,6 @@ fn source_backed_sampling_has_output_only_allocation_and_bounded_work() {
         };
         assert!(source.reads.get() <= bound);
         if zoom == FIT {
-            // 1px strokes retain fractional coverage, not nearest aliasing.
             assert_eq!(output.get_pixel(128, 64)[0], 32);
         }
     }

@@ -240,7 +240,6 @@ fn write_powered_village_review() {
     pointer(&mut run, BuilderAction::Selection(charter as u16));
     pointer(&mut run, BuilderAction::Confirm);
     assert!(run.home.industry.researched.contains("masonry"));
-    // The player reallocates two workers now that the first brick home is built.
     for name in ["clay-pit", "brick-kiln"] {
         let id = run
             .home
@@ -285,7 +284,6 @@ fn write_powered_village_review() {
         assert!(run.home.industry.roads.contains(&(x, 9)));
     }
     build(&mut run, "waterwheel", wheel);
-    // A northern shaft avoids the finished archway, preserving its road.
     plan(&mut run, "drive-shaft");
     for x in 12..=wheel.0 {
         pointer(

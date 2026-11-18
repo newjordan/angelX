@@ -11,7 +11,6 @@ fn label() -> &'static Img {
     })
 }
 
-/// Shared mini-game exit HUD. The fill uses only the host's transport counter.
 pub fn paint(out: &mut Img, run: &Run, focus: Option<u32>) {
     let id = focus.unwrap_or(1);
     if !run.can_hold_leave(id) { return; }

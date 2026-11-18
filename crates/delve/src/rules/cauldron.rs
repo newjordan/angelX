@@ -34,43 +34,24 @@
 use super::cards::{self, Card, Effect, Rarity, Shape};
 use super::*;
 
-/// How near a knight stands to brew, in arena units from the pot's middle.
 pub const REACH: f32 = 3.6;
-/// How far a stirring knight may wander before the pot lets them go.
 pub const LET_GO: f32 = REACH + 2.0;
-/// The pot's girth: a knight walking into it is eased back out. It is
-/// round a point a stride north of its middle, so a knight passing behind
-/// it walks clear of its rim.
 pub const GIRTH: f32 = 2.0;
 pub const GIRTH_NORTH: f32 = 1.0;
-/// How far round the rim a knight pressed against it slides each tick.
 pub const SLIDE: f32 = 0.18;
-/// The guardian's fall has the screen first (its super wish's sign): the
-/// pot rises after it, taking a second to climb out of the floor.
 pub const RISE_DELAY: u32 = 3 * HZ;
 pub const RISE_TICKS: u32 = HZ;
-/// When each thrown card lands in the pot, after the brew is asked for.
 pub const SPLASH: [u32; 2] = [9, 18];
-/// The pot boils over: the brew is decided and the cards change.
 pub const PUFF: u32 = 2 * HZ;
-/// The new card is all the way up out of the steam.
 pub const RISEN: u32 = PUFF + HZ;
-/// How long a brew shows over the pot, from the brew.
 pub const SHOWN: u32 = PUFF + 4 * HZ;
-/// A frog misfire's frog, and the hiccups, in ticks.
 pub const FROG_TICKS: u32 = 5 * HZ;
 pub const HICCUP_TICKS: u32 = 6 * HZ;
-/// Out of a hundred: below `MISFIRE` the pot misfires; below `COMMON` a
-/// common brew; below `RARE` a potent one; the rest perfect.
 pub const MISFIRE: u64 = 12;
 pub const COMMON: u64 = 62;
 pub const RARE: u64 = 92;
-/// The most a brew may do a second in the tests' measure (`power`): two
-/// Cabbage Storms' worth, the strongest of the delve's own spells.
 pub const POWER_BUDGET: f32 = 29.5;
 
-/// What a spell is made of, for what it brews into: read from its words,
-/// its look's colour, then what it does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Essence {
@@ -103,7 +84,6 @@ impl Essence {
         }
     }
 
-    /// The essence of spell `card`.
     pub fn of(card: &Card) -> Essence {
         let words = format!("{} {}", card.id, card.name).to_ascii_lowercase();
         let says = |list: &[&str]| list.iter().any(|w| words.contains(w));
@@ -129,7 +109,6 @@ impl Essence {
                 Effect::Cast(Shape::Meteor) | Effect::Nova(_) | Effect::Bombs(_) => {
                     return Essence::Fire;
                 }
-                // An area cast is made of its element.
                 Effect::Area(area) => {
                     use cards::Element;
                     return match area.element {
@@ -157,21 +136,14 @@ impl Essence {
     }
 }
 
-/// One line of a recipe, its number at a common brew.
 #[derive(Clone, Copy, Debug)]
 pub enum Line {
-    /// `<word> <n>`: nova, ward, heal, bombs, cabbages.
     N(&'static str, u32),
-    /// `cast bolt|ring|meteor`.
     Cast(&'static str),
-    /// `hedge 1` / `imposture 1`: no number to grow.
     One(&'static str),
-    /// `summon N swarm|guard|turret`.
     Summon(u32, &'static str),
 }
 
-/// What two essences brew into: its name, its line of text, its shot's
-/// look, its recharge at a common brew, and what it does.
 #[derive(Clone, Copy, Debug)]
 pub struct Recipe {
     pub pair: (Essence, Essence),
@@ -185,7 +157,6 @@ pub struct Recipe {
 
 use Essence::{Arcane, Fire, Frost, Garden, Life, Trick};
 
-/// Every pair of essences, once, in either order.
 pub const RECIPES: [Recipe; 21] = [
     Recipe { pair: (Fire, Fire), id: "wildfire", name: "Wildfire", text: "The room catches. You do not.", look: ("ember", "star"), cooldown: 16, lines: &[Line::N("nova", 40), Line::N("bombs", 1)] },
     Recipe { pair: (Fire, Frost), id: "steam-burst", name: "Steam Burst", text: "Scalding steam bursts out of you, and hides you a breath.", look: ("ice", "wave"), cooldown: 14, lines: &[Line::N("nova", 35), Line::N("ward", 1)] },
@@ -210,7 +181,6 @@ pub const RECIPES: [Recipe; 21] = [
     Recipe { pair: (Arcane, Arcane), id: "twin-moons", name: "Twin Moons", text: "Two moons circle you, and stars fly out.", look: ("steel", "star"), cooldown: 18, lines: &[Line::Summon(2, "guard"), Line::Cast("bolt")] },
 ];
 
-/// The recipe two essences brew, in either order.
 pub fn recipe(a: Essence, b: Essence) -> &'static Recipe {
     let (a, b) = if a <= b { (a, b) } else { (b, a) };
     RECIPES
@@ -219,7 +189,6 @@ pub fn recipe(a: Essence, b: Essence) -> &'static Recipe {
         .expect("every pair of essences has a recipe")
 }
 
-/// How strong a brew comes out.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Tier {
@@ -255,7 +224,6 @@ impl Tier {
         }
     }
 
-    /// A number grown for the tier: a quarter more, a half more.
     fn grow(self, n: u32) -> u32 {
         match self {
             Tier::Common => n,
@@ -264,7 +232,6 @@ impl Tier {
         }
     }
 
-    /// A perfect brew comes round two seconds sooner.
     fn recharge(self, s: u32) -> u32 {
         match self {
             Tier::Perfect => s.saturating_sub(2),
@@ -273,11 +240,7 @@ impl Tier {
     }
 }
 
-/// The card file a recipe makes at a tier: the delve's own vocabulary, for
-/// `cards::check` to bound like any other.
 pub fn card_text(recipe: &Recipe, tier: Tier) -> String {
-    // Creatures take their while to call: a spell's recharge is at least
-    // the vocabulary's floor for its count (`cards`' summon line).
     let floor = recipe
         .lines
         .iter()
@@ -317,8 +280,6 @@ pub fn card_text(recipe: &Recipe, tier: Tier) -> String {
     out
 }
 
-/// The most a spell line may carry (the card vocabulary's own bounds): a
-/// grown brew stops there rather than be clamped.
 fn most(word: &str) -> u32 {
     match word {
         "cabbages" => 8,
@@ -333,7 +294,6 @@ fn most(word: &str) -> u32 {
     }
 }
 
-/// The card a recipe makes at a tier, checked.
 pub fn brewed_card(recipe: &Recipe, tier: Tier) -> Card {
     let id = format!("brew-{}{}", recipe.id, tier.suffix());
     cards::check(&id, &card_text(recipe, tier))
@@ -341,22 +301,17 @@ pub fn brewed_card(recipe: &Recipe, tier: Tier) -> Card {
         .card
 }
 
-/// The silly, harmless ways a brew goes wrong. Both cards come back.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Misfire {
-    /// The brewer is a frog for five seconds.
     Frog,
-    /// The pot throws confetti.
     Confetti,
-    /// The brewer hiccups bubbles for six seconds.
     Hiccups,
 }
 
 impl Misfire {
     pub const ALL: [Misfire; 3] = [Misfire::Frog, Misfire::Confetti, Misfire::Hiccups];
 
-    /// Its one line over the pot.
     pub fn says(self) -> &'static str {
         match self {
             Misfire::Frog => "Misfire! Ribbit.",
@@ -366,17 +321,14 @@ impl Misfire {
     }
 }
 
-/// What a brew came to.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Outcome {
-    /// A new spell: its card id, its name and how strong.
     Spell { card: String, name: String, tier: Tier },
     Misfire(Misfire),
 }
 
 impl Outcome {
-    /// Its one line over the pot.
     pub fn says(&self) -> String {
         match self {
             Outcome::Spell { name, .. } => name.clone(),
@@ -385,8 +337,6 @@ impl Outcome {
     }
 }
 
-/// The brew of two spell cards: decided by the seed, the floor, the knight
-/// and the cards, in either order.
 pub fn decide(seed: u64, depth: u32, knight: u32, a: &Card, b: &Card) -> (Outcome, Option<Card>) {
     let (first, second) = if a.id <= b.id { (a, b) } else { (b, a) };
     let roll = mix(seed
@@ -423,9 +373,6 @@ fn fnv(s: &str) -> u64 {
     })
 }
 
-/// A spell's strength a second, the tests' yardstick: what it does at
-/// once (a bolt's hit, a cabbage's thump, a nova's on every monster about,
-/// a second of ward, a creature) over its recharge.
 pub fn power(card: &Card) -> f32 {
     let points: f32 = card
         .effects
@@ -436,8 +383,6 @@ pub fn power(card: &Card) -> f32 {
             Effect::Cast(Shape::Bolt) => 32.0,
             Effect::Cast(Shape::Ring) => 96.0,
             Effect::Cast(Shape::Meteor) => 96.0,
-            // Strokes on a crowd, the tests' measure: three in full and the
-            // rest at a quarter (`aoe`), a size up about a third more.
             Effect::Area(area) => {
                 let base = match area.form {
                     cards::Form::Wave | cards::Form::Nova => 120.0,
@@ -468,8 +413,6 @@ pub fn power(card: &Card) -> f32 {
     points / card.cooldown.max(1) as f32
 }
 
-/// A brew the host's model is asked to make new: whose it is, where it was
-/// brewed, the two cards that went in, and the stand-in the pot gave.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Brewing {
     pub knight: u32,
@@ -480,15 +423,11 @@ pub struct Brewing {
 }
 
 impl Brewing {
-    /// The id the brew's own spell takes in the run's book: one a delve, a
-    /// floor and a knight, as brews are.
     pub fn card_id(&self) -> String {
         format!("brewed-{:06x}-f{}-k{}", self.raid & 0xff_ffff, self.depth, self.knight)
     }
 }
 
-/// A spell already taken, as a brew must not copy it: its id, its name and
-/// its effect mix (`effect_mix`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Taken {
@@ -497,8 +436,6 @@ pub struct Taken {
     pub mix: Vec<String>,
 }
 
-/// What a spell does, in words, without its numbers: `cast ring`, `nova`,
-/// `summon swarm`, sorted.
 pub fn effect_mix(card: &Card) -> Vec<String> {
     let mut words: Vec<String> = card
         .effects
@@ -515,8 +452,6 @@ pub fn effect_mix(card: &Card) -> Vec<String> {
     words
 }
 
-/// A name as a brew compares it: its letters and digits, without the
-/// pot's `Potent`/`Perfect` or a wish's tier numeral.
 fn bare(name: &str) -> String {
     let words: Vec<String> = name
         .split_whitespace()
@@ -537,9 +472,6 @@ fn bare(name: &str) -> String {
     words.concat()
 }
 
-/// Every spell a brew must not copy: the run's book (the delve's own, the
-/// workspace's, those brewed before), the pot's recipes, and the
-/// phrasebook's spell wishes.
 pub fn taken(book: &cards::Book) -> Vec<Taken> {
     let mut out: Vec<Taken> = book
         .cards
@@ -565,18 +497,12 @@ pub fn taken(book: &cards::Book) -> Vec<Taken> {
     out
 }
 
-/// What the pot measures a spell by (`power`), for a brief: keep in step
-/// with it.
 pub fn power_note() -> String {
     format!(
         "A spell's power is what it does at once over its cooldown in seconds: nova 3 a point (it hits every monster about), cabbages 34 each, cast bolt 32, cast ring 96, cast meteor 96, heal 2 a point, ward 25 a second, bombs 40 each, hedge 90, imposture 90, summon swarm 30 each, guard 25 each, turret 80 each; summed, then divided by the cooldown. A brew may come to at most {POWER_BUDGET} (two Cabbage Storms): nova 40 with bombs 1 on a 16 second cooldown is (120 + 40) / 16 = 10.0."
     )
 }
 
-/// Why a spell the host's model brewed from `inputs` is turned away, past
-/// what the card checker bounds: it must be a spell, within the power
-/// budget, drawn, named and mixed like no spell already `taken` (and like
-/// neither input), with cabbages only when a cabbage went in.
 pub fn faults(card: &Card, inputs: [&Card; 2], taken: &[Taken]) -> Vec<String> {
     let mut faults = Vec::new();
     if card.kind != cards::Kind::Spell {
@@ -632,17 +558,12 @@ pub fn faults(card: &Card, inputs: [&Card; 2], taken: &[Taken]) -> Vec<String> {
     faults
 }
 
-/// Words that make a card a creature: a pet or a beast thrown in.
 const CREATURES: [&str; 32] = [
     "cat", "kitten", "kitty", "dog", "puppy", "pup", "hound", "pet", "crab", "rat", "mouse", "bird",
     "owl", "frog", "toad", "snake", "bee", "wasp", "spider", "wolf", "fox", "beast", "critter",
     "monkey", "pig", "goose", "chicken", "duck", "bat", "lizard", "hamster", "ferret",
 ];
 
-/// A pet and a shot in the pot (the user, 2026-10-19: "if you put a cat, or
-/// pet and a bullet spell in the cauldron you should get homing bullets of
-/// that type"): the creature card, when one input is a creature (it summons,
-/// or its name or text names a beast) and the other shoots.
 pub fn pet_shot(inputs: [&Card; 2]) -> Option<&Card> {
     let creature = |c: &Card| {
         c.effects.iter().any(|e| matches!(e, Effect::Summon(..)))
@@ -659,50 +580,38 @@ pub fn pet_shot(inputs: [&Card; 2]) -> Option<&Card> {
     }
 }
 
-/// A knight at the pot, choosing.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Stir {
     pub knight: u32,
-    /// The spell slots picked (0–3), oldest first; two at most.
     #[serde(default)]
     pub picks: Vec<u8>,
 }
 
-/// A brew in the pot, from the press of E to its card risen.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Brew {
     pub knight: u32,
-    /// The tick it was thrown in.
     pub at: u64,
-    /// The two slots, as picked, and the cards that were in them.
     pub slots: [u8; 2],
     pub cards: [String; 2],
     pub outcome: Outcome,
-    /// The puff has come and the cards have changed.
     #[serde(default)]
     pub done: bool,
 }
 
-/// The floor's pot.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Cauldron {
-    /// Where it stands: the delve, the floor, the room, the spot.
     pub raid: u64,
     pub depth: u32,
     pub room: usize,
     pub x: f32,
     pub y: f32,
-    /// The tick it rose.
     pub rose: u64,
-    /// The knights who have brewed here (once a knight a floor).
     #[serde(default)]
     pub brewed: Vec<u32>,
     #[serde(default)]
     pub stirs: Vec<Stir>,
     #[serde(default)]
     pub brews: Vec<Brew>,
-    /// Each knight's spell key and E as they were last tick, so a key held
-    /// down counts once.
     #[serde(default)]
     pub keys: Vec<(u32, u8, bool)>,
 }
@@ -716,12 +625,10 @@ impl Cauldron {
         self.brewed.contains(&knight)
     }
 
-    /// Knight `knight`'s brew, if they have brewed here.
     pub fn brew(&self, knight: u32) -> Option<&Brew> {
         self.brews.iter().find(|b| b.knight == knight)
     }
 
-    /// The brew showing over the pot now: the newest still in its show.
     pub fn showing(&self, tick: u64) -> Option<&Brew> {
         self.brews
             .iter()
@@ -737,21 +644,15 @@ impl Cauldron {
     }
 }
 
-/// What the pot asks of knight `id` beside it, for its prompt.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Ask {
-    /// Press E to start.
     Brew,
-    /// Picking: this many picked so far.
     Pick(usize),
-    /// Brewed here already this floor.
     Brewed,
-    /// Fewer than two spells to throw in.
     Short,
 }
 
 impl Run {
-    /// The pot on this floor, while the party stands in its room.
     pub fn cauldron_here(&self) -> Option<&Cauldron> {
         self.cauldron.as_ref().filter(|c| {
             c.raid == self.raid_id && c.depth == self.dungeon.depth && c.room == self.at && !self.at_home_now()
@@ -765,7 +666,6 @@ impl Run {
             .filter(|c| c.raid == raid && c.depth == depth && c.room == at && !home)
     }
 
-    /// What the pot asks of knight `id`, when they stand within reach.
     pub fn cauldron_ask(&self, id: u32) -> Option<Ask> {
         let pot = self.cauldron_here()?;
         if self.tick < pot.rose + u64::from(RISE_TICKS) {
@@ -786,7 +686,6 @@ impl Run {
         })
     }
 
-    /// The floor's guardian has fallen: the pot rises beside its stairs.
     pub(super) fn raise_cauldron(&mut self) {
         if self.at_home_now() {
             return;
@@ -806,10 +705,6 @@ impl Run {
         self.cues.push("cauldron".into());
     }
 
-    /// A clear spot for the pot: a few strides beside the stairs (inside the
-    /// guardian's chamber on an open floor), clear of the altar, the privy,
-    /// the banner and anything lying on the floor; else beside the room's
-    /// middle.
     fn cauldron_spot(&self) -> Option<(f32, f32)> {
         let room = self.room();
         let inside = |c: i32, r: i32| match self.open_here() {
@@ -845,12 +740,10 @@ impl Run {
             keep_off.extend(room.privy().map(|(x, y)| (x, y, 5.0)));
             keep_off.extend(room.field_banner().map(|(x, y)| (x, y, 4.0)));
         }
-        // The wish altar's lamp (`altar`), wherever this room keeps one.
         keep_off.extend(self.wish_altar().map(|(x, y)| (x, y, 6.0)));
         if stairs.2 > 0.0 {
             keep_off.push((sc * TILE_UNITS, sr * TILE_UNITS, 4.5));
         }
-        // West of the stairs first, then east, then above and below.
         const AROUND: [(f32, f32); 10] = [
             (-4.5, 0.0),
             (4.5, 0.0),
@@ -872,10 +765,6 @@ impl Run {
         })
     }
 
-    /// The pot's tick, before the knights move: who steps up, what they
-    /// pick, the brews boiling over, and the knights eased out of the pot.
-    /// The keys it answered are taken out of what the rest of the tick
-    /// sees: a spell key at the pot picks, it does not cast.
     pub(super) fn tend_cauldron(&mut self, inputs: &BTreeMap<u32, Input>) -> Option<BTreeMap<u32, Input>> {
         let rose = self.cauldron_here()?.rose;
         let tick = self.tick;
@@ -886,7 +775,6 @@ impl Run {
             self.sounds.push("hand_rise");
             self.fx.push(Fx::Shake(4));
         }
-        // Brews whose puff has come.
         let due: Vec<usize> = {
             let pot = self.cauldron_here()?;
             (0..pot.brews.len())
@@ -913,9 +801,6 @@ impl Run {
             pot.keys = keys;
             (pot.x, pot.y)
         };
-        // The pot is iron: a knight walking into it slides round it, the way
-        // they are walking, so a straight walk at the stairs carries past the
-        // rim instead of being eased back onto the near side every tick.
         let y = y - GIRTH_NORTH;
         let ids: Vec<u32> = self.players.keys().copied().collect();
         for id in ids {
@@ -929,8 +814,6 @@ impl Run {
                 continue;
             }
             let (ux, uy) = if d < 0.01 { (0.0, 1.0) } else { (dx / d, dy / d) };
-            // The side they are already on, unless that tangent fights the
-            // way they are walking: then the other way round, and they go past.
             let side = if dx.abs() > 0.05 { dx.signum() } else if dy >= 0.0 { 1.0 } else { -1.0 };
             let prefer = if (-uy) * side >= 0.0 { (-uy, ux) } else { (uy, -ux) };
             let walk = inputs.get(&id).copied().map(|i| (f32::from(i.move_x), f32::from(i.move_y))).unwrap_or((0.0, 0.0));
@@ -951,7 +834,6 @@ impl Run {
         taken
     }
 
-    /// Knight `id`'s keys at the pot this tick: true when the pot took them.
     fn brew_keys(&mut self, id: u32, input: Input) -> bool {
         let Some(pot) = self.cauldron_here() else {
             return false;
@@ -983,7 +865,6 @@ impl Run {
                     self.sounds.push("door_pass");
                 }
             }
-            // Every spell key and E belongs to the pot while choosing.
             return true;
         }
         if pressed_use && able && far <= REACH && self.cauldron_ask(id) == Some(Ask::Brew) {
@@ -1002,7 +883,6 @@ impl Run {
         }
     }
 
-    /// Slot `slot` picked or put back; a third pick lets go of the first.
     fn pick(&mut self, id: u32, slot: u8) {
         let learned = self
             .players
@@ -1026,8 +906,6 @@ impl Run {
         self.sounds.push("card_pickup");
     }
 
-    /// The two picked spells go into the pot: out of their slots now, and
-    /// what they brew is decided.
     fn throw_in(&mut self, id: u32, slots: [u8; 2]) {
         let Some(hero) = self.players.get(&id) else {
             return;
@@ -1036,8 +914,6 @@ impl Run {
         let [Some(a), Some(b)] = names else {
             return;
         };
-        // Bound workshop relics are reusable equipment, not ingredients that
-        // can be melted down and then issued again for free at the armory.
         if super::kingdom_gear::item(&a).is_some() || super::kingdom_gear::item(&b).is_some() {
             return;
         }
@@ -1054,11 +930,6 @@ impl Run {
                             *bar = None;
                         }
                     }
-                    // A wished spell brewed away leaves the wish list too:
-                    // its ladder marker goes, so the sheet no longer shows
-                    // it held and the wish may be made again from its first
-                    // tier (Mirror Copies brewed into a Mirror Hall stayed
-                    // on the sheet, uncastable, 2026-10-19).
                     hero.deck.retain(|c| *c != gone || !c.starts_with("wish-"));
                 }
                 hero.spell_cooldowns[s] = 0;
@@ -1082,8 +953,6 @@ impl Run {
         self.cues.push("cauldron_brew".into());
     }
 
-    /// Brew `i` boils over: the new spell goes into the first slot picked,
-    /// or a misfire does its silly thing and hands both cards back.
     fn boil_over(&mut self, i: usize) {
         let Some(brew) = self.cauldron_here_mut().map(|p| {
             p.brews[i].done = true;
@@ -1104,8 +973,6 @@ impl Run {
                 let placed = card.is_some_and(|card| self.book.insert(card));
                 if placed {
                     self.give_back(id, brew.slots[0], &outcome_card(&brew.outcome));
-                    // The recipe's spell stands in while the host's model
-                    // brews one of the brew's own (`brewed`).
                     self.brewing.push(Brewing {
                         knight: id,
                         raid: self.raid_id,
@@ -1116,7 +983,6 @@ impl Run {
                     self.sounds.push("wish_grant");
                     self.found = Some((self.tick, id, format!("brewed {name}")));
                 } else {
-                    // The book is full: the pot gives the cards back.
                     self.give_back(id, brew.slots[0], &brew.cards[0]);
                     self.give_back(id, brew.slots[1], &brew.cards[1]);
                 }
@@ -1127,7 +993,6 @@ impl Run {
                 if let Some(hero) = self.players.get_mut(&id) {
                     match m {
                         Misfire::Frog => {
-                            // Not a hex: no ward from the next, no tally.
                             hero.hexed = hero.hexed.max(FROG_TICKS + hexer::HEX_IMMUNE);
                             (hero.shielding, hero.walling, hero.dash_ticks) = (false, false, 0);
                         }
@@ -1140,11 +1005,6 @@ impl Run {
         }
     }
 
-    /// The host's model brewed `card` for brew `ask`: checked against the
-    /// pot's own bounds (`faults`), it goes into the run's book under the
-    /// brew's own id and takes the stand-in's place in the knight's slot
-    /// and bar. Its name, or why it was turned away; turned away, the
-    /// stand-in stays.
     pub fn brewed(&mut self, ask: &Brewing, mut card: Card) -> Result<String, Vec<String>> {
         card.id = ask.card_id();
         let (Some(a), Some(b)) = (self.book.get(&ask.cards[0]), self.book.get(&ask.cards[1])) else {
@@ -1157,8 +1017,6 @@ impl Run {
         super::brew_jobs::install(self, ask, card).map_err(|error| vec![error])
     }
 
-    /// Spell `card` back into knight `id`'s slot `slot`, or the first empty
-    /// one, or at their feet when every slot has filled since.
     fn give_back(&mut self, id: u32, slot: u8, card: &str) {
         let Some(hero) = self.players.get_mut(&id) else {
             return;
@@ -1173,7 +1031,6 @@ impl Run {
             Some(s) => {
                 hero.spells[s] = Some(card.to_string());
                 hero.spell_cooldowns[s] = 0;
-                // A wished spell handed back is the wish held again.
                 if card.starts_with("wish-") && !hero.deck.iter().any(|c| c == card) {
                     hero.deck.push(card.to_string());
                     hero.rebonus(&self.book);

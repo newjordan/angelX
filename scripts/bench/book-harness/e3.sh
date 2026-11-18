@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# e3.sh <rounds> <route>... — E3: live /loop sessions on heesch. Each round
-# runs the intro and bare arms of every route at the same time (same provider
-# conditions), then waits. Labels: e3-<route>-<intro|bare>-<round>.
-# BIN (default h) is the build directory; LABEL_TAG adds a tag to the labels.
 set -u
 if (( $# < 2 )) || [[ ! "$1" =~ ^[1-9][0-9]*$ ]]; then
   printf 'Usage: %s <positive rounds> <route>...\n' "$0" >&2

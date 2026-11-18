@@ -16,26 +16,18 @@ pub use preparation::PreparedAssets;
 pub mod live;
 pub use live::{LiveAsset, LiveAssets};
 
-/// Every response says where scripts, sockets and media may come from.
-/// Scripts only from this host, and wasm may compile; sockets to any host
-/// (`ws:`/`wss:` are named because older Safari does not count a socket
-/// to this host as `'self'`), and later a relay's; inline styles are
-/// allowed so the shell page can carry its own few rules.
 pub const CSP: &str = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' ws: wss:; \
 img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; \
 manifest-src 'self'; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
-/// A request's head, read.
 pub struct Request<'a> {
     pub method: &'a str,
     pub path: &'a str,
-    /// HTTP/1.0 closes after one response unless asked not to.
     pub http10: bool,
     headers: Vec<(&'a str, &'a str)>,
 }
 
 impl<'a> Request<'a> {
-    /// The head (without its blank line), or `None` when it is not one.
     pub fn parse(head: &'a str) -> Option<Request<'a>> {
         let mut lines = head.split("\r\n");
         let mut first = lines.next()?.split(' ');
@@ -64,7 +56,6 @@ impl<'a> Request<'a> {
         self.headers.iter().find(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, v)| *v)
     }
 
-    /// Whether a comma-separated header lists `token` (any case).
     pub fn lists(&self, name: &str, token: &str) -> bool {
         self.headers
             .iter()
@@ -73,7 +64,6 @@ impl<'a> Request<'a> {
             .any(|t| t.trim().eq_ignore_ascii_case(token))
     }
 
-    /// The client takes gzip (`gzip;q=0` says it does not).
     pub fn takes_gzip(&self) -> bool {
         self.headers
             .iter()
@@ -87,25 +77,18 @@ impl<'a> Request<'a> {
             })
     }
 
-    /// The connection stays open for another request.
     pub fn keep_alive(&self) -> bool {
         if self.http10 { self.lists("connection", "keep-alive") } else { !self.lists("connection", "close") }
     }
 }
 
-/// The browser's half of a game, as the browser runtime builds it: the
-/// shell page, whose `{{asset:NAME}}` marks become the files' content
-/// names, and the files (JS, wasm, sounds) by name.
 #[derive(Clone, Debug, Default)]
 pub struct ClientBundle {
     pub index_html: String,
-    /// (name, bytes, MIME type)
     pub files: Vec<(String, Vec<u8>, String)>,
 }
 
 impl ClientBundle {
-    /// A directory's `index.html` and every other file in it (not in
-    /// subdirectories), typed by extension.
     pub fn from_dir(dir: &Path) -> io::Result<ClientBundle> {
         let index_html = std::fs::read_to_string(dir.join("index.html"))?;
         let mut files = Vec::new();
@@ -122,7 +105,6 @@ impl ClientBundle {
         Ok(ClientBundle { index_html, files })
     }
 
-    /// What a host without a bundle serves: a page that says so.
     pub fn placeholder() -> ClientBundle {
         ClientBundle {
             index_html: "<!doctype html><meta charset=utf-8><title>angelX</title>\
@@ -133,7 +115,6 @@ impl ClientBundle {
     }
 }
 
-/// A file's MIME type from its extension.
 pub fn mime_for(name: &str) -> &'static str {
     let ext = name.rsplit_once('.').map_or("", |(_, e)| e).to_ascii_lowercase();
     match ext.as_str() {
@@ -157,8 +138,6 @@ pub fn mime_for(name: &str) -> &'static str {
     }
 }
 
-/// Whether gzip is worth trying: text, wasm and a TrueType font shrink;
-/// images and sound are compressed already.
 fn compressible(mime: &str) -> bool {
     mime.starts_with("text/")
         || mime.starts_with("application/wasm")
@@ -168,12 +147,10 @@ fn compressible(mime: &str) -> bool {
         || mime.starts_with("font/ttf")
 }
 
-/// A body ready to send, and its gzip when that is smaller.
 pub struct Body {
     pub mime: String,
     pub plain: Vec<u8>,
     pub gzip: Option<Vec<u8>>,
-    /// A strong validator, for the page (the files never change).
     pub etag: String,
 }
 
@@ -187,10 +164,6 @@ impl Body {
         Self::with_etag_until(mime, plain, etag, &AtomicBool::new(false))
     }
 
-    /// `with_etag`, abandoned with the "cancelled" error once `cancel` is set.
-    /// The best gzip of a 44 MB wasm is seconds of work, so it is fed to the
-    /// encoder in chunks with a look at the flag between them; the bytes it
-    /// writes are the same as for one `write_all`.
     fn with_etag_until(mime: &str, plain: Vec<u8>, etag: String, cancel: &AtomicBool) -> io::Result<Body> {
         let gzip = if compressible(mime) {
             let mut enc = GzEncoder::new(Vec::new(), Compression::best());
@@ -206,11 +179,8 @@ impl Body {
     }
 }
 
-/// Plain bytes handed to the gzip encoder between looks at a cancel flag:
-/// a few milliseconds of work at the best level.
 const GZIP_CHUNK: usize = 64 * 1024;
 
-/// The error a cancelled capture or preparation stops with.
 pub(crate) fn cancelled() -> io::Error {
     io::Error::other("browser capture cancelled")
 }
@@ -219,9 +189,6 @@ fn check_cancel(cancel: &AtomicBool) -> io::Result<()> {
     if cancel.load(Ordering::Acquire) { Err(cancelled()) } else { Ok(()) }
 }
 
-/// Build-generated preparation for one exact immutable file. The build helper
-/// captures its input bytes before computing the digest and best gzip. Runtime
-/// reuse requires exact name, MIME and byte equality, never a mutable path.
 #[derive(Clone, Copy)]
 pub struct StaticFile {
     name: &'static str,
@@ -232,8 +199,6 @@ pub struct StaticFile {
 }
 impl StaticFile {
     pub const FORMAT: u32 = 1;
-    /// Construct only from `build::capture_static` generated Rust. The digest
-    /// and gzip belong to these exact captured bytes; no disk cache is trusted.
     pub const fn generated(
         name: &'static str,
         mime: &'static str,
@@ -245,21 +210,14 @@ impl StaticFile {
     }
 }
 
-/// The bundle as served: the page with its marks filled, and the files by
-/// content name.
 pub struct Assets {
     pub index: Body,
-    /// "<hash>.<ext>" to body.
     pub files: HashMap<String, Body>,
 }
 
-/// Hex digits of a content hash in a file's served name: 64 bits, so two
-/// versions of a file never share a name.
 const NAME_HASH: usize = 16;
 
 impl Assets {
-    /// Hash and compress everything once, at start. A mark naming a file
-    /// the bundle does not have is an error.
     pub fn prepare(bundle: &ClientBundle) -> io::Result<Assets> {
         Self::prepare_static(bundle, &[])
     }
@@ -268,10 +226,6 @@ impl Assets {
         Self::prepare_until(bundle, prepared, &AtomicBool::new(false))
     }
 
-    /// `prepare_static` for a generation whose owner can go away: `cancel` is
-    /// read between files, between hashing and compressing, and inside both,
-    /// so a dropped owner's worker stops within milliseconds with the
-    /// "cancelled" error instead of finishing seconds of work for nobody.
     pub(crate) fn prepare_until(bundle: &ClientBundle, prepared: &[StaticFile], cancel: &AtomicBool) -> io::Result<Assets> {
         let known: HashMap<_, _> = prepared.iter().map(|p| (p.name, p)).collect();
         let mut files = HashMap::new();
@@ -322,7 +276,6 @@ impl Assets {
     }
 }
 
-/// A response head with the headers every response carries.
 pub fn head(status: &str, extra: &[(&str, &str)], len: usize, keep_alive: bool) -> Vec<u8> {
     let mut out = format!(
         "HTTP/1.1 {status}\r\nContent-Length: {len}\r\nContent-Security-Policy: {CSP}\r\n\
@@ -339,7 +292,6 @@ pub fn head(status: &str, extra: &[(&str, &str)], len: usize, keep_alive: bool) 
     out.into_bytes()
 }
 
-/// A short plain-text response (errors).
 pub fn plain(status: &str, text: &str, keep_alive: bool, extra: &[(&str, &str)]) -> Vec<u8> {
     let mut headers = vec![("Content-Type", "text/plain; charset=utf-8"), ("Cache-Control", "no-store")];
     headers.extend_from_slice(extra);
@@ -348,7 +300,6 @@ pub fn plain(status: &str, text: &str, keep_alive: bool, extra: &[(&str, &str)])
     out
 }
 
-/// A body: gzip when the client takes it, nothing after the head for HEAD.
 pub fn body(req: &Request, body: &Body, cache: &str, keep_alive: bool) -> Vec<u8> {
     if req.header("if-none-match").is_some_and(|tag| tag == body.etag) {
         return head("304 Not Modified", &[("Cache-Control", cache), ("ETag", &body.etag)], 0, keep_alive);
@@ -371,18 +322,13 @@ pub fn body(req: &Request, body: &Body, cache: &str, keep_alive: bool) -> Vec<u8
     out
 }
 
-/// The most a painting may be (a game's paint store keeps no bigger).
 pub const MAX_PAINTING: u64 = 4 * 1024 * 1024;
 
-/// Whether `name` names a painting: `<sha256>.png`, the hash in 64 lower-case
-/// hex digits (as the Delve's `looks::paint_name` has it), and nothing else.
 pub fn painting_name(name: &str) -> bool {
     name.strip_suffix(".png")
         .is_some_and(|sha| sha.len() == 64 && sha.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')))
 }
 
-/// The painting `name` from `dir` (`/paint/<sha256>.png`): named by its
-/// content, so kept for good; 404 for any other name, or none there.
 pub fn painting(req: &Request, dir: Option<&Path>, name: &str, keep_alive: bool) -> Vec<u8> {
     let missing = || plain("404 Not Found", "not here", keep_alive, &[]);
     let Some(dir) = dir.filter(|_| painting_name(name)) else {
@@ -408,12 +354,8 @@ pub fn painting(req: &Request, dir: Option<&Path>, name: &str, keep_alive: bool)
     out
 }
 
-/// The most an HD pack's file may be: its manifest, or one drawing.
 pub const MAX_HD_FILE: u64 = 4 * 1024 * 1024;
 
-/// Whether `name` is a file an HD pack serves (`/hd/<name>`): its
-/// `pack.json`, or a PNG in its folder, by a path of lower-case letters,
-/// digits, `-`, `_`, `@` and `.`, in folders, none of them `.` or `..`.
 pub fn hd_name(name: &str) -> bool {
     name == "pack.json"
         || (name.len() <= 256
@@ -426,9 +368,6 @@ pub fn hd_name(name: &str) -> bool {
             }))
 }
 
-/// The HD pack's file `name` from `dir` (`/hd/<name>`), checked again each
-/// time by its size and age (a pack is redrawn in place); 404 for any other
-/// name, or none there.
 pub fn hd_file(req: &Request, dir: Option<&Path>, name: &str, keep_alive: bool) -> Vec<u8> {
     let missing = || plain("404 Not Found", "not here", keep_alive, &[]);
     let Some(dir) = dir.filter(|_| hd_name(name)) else {
@@ -447,8 +386,6 @@ pub fn hd_file(req: &Request, dir: Option<&Path>, name: &str, keep_alive: bool) 
         return missing();
     };
     if !name.ends_with(".png") {
-        // The manifest is text that shrinks well (a thousand entries are a
-        // couple of hundred KB plain): gzip for a page that takes it.
         return match Body::new("application/json", bytes) {
             Ok(manifest) => body(req, &manifest, REVALIDATE, keep_alive),
             Err(_) => missing(),
@@ -463,9 +400,7 @@ pub fn hd_file(req: &Request, dir: Option<&Path>, name: &str, keep_alive: bool) 
     out
 }
 
-/// Files are named by their content, so a browser keeps them for good.
 pub const IMMUTABLE: &str = "public, max-age=31536000, immutable";
-/// The page names the files, so it is checked every time (cheaply, by ETag).
 pub const REVALIDATE: &str = "no-cache";
 
 #[cfg(test)]
@@ -493,7 +428,6 @@ mod tests {
             assert!(page.contains(&format!("/a/{name}")), "{page}");
         }
         let wasm = assets.files.values().find(|b| b.mime == "application/wasm").unwrap();
-        // Eight bytes do not shrink, so no gzip is kept for them.
         assert!(wasm.gzip.is_none());
         let js = assets.files.values().find(|b| b.mime.starts_with("text/javascript")).unwrap();
         assert!(js.gzip.as_ref().unwrap().len() < js.plain.len());
@@ -501,8 +435,6 @@ mod tests {
 
     #[test]
     fn chunked_gzip_is_byte_for_byte_the_one_shot_gzip() {
-        // Cancellation checks feed the encoder in chunks; the bytes that
-        // reach a browser, and the build's prebuilt gzip, must not change.
         let plain: Vec<u8> = (0..3 * GZIP_CHUNK + 777).map(|i| ((i * i) >> 5) as u8 & 0x1f).collect();
         let mut one_shot = GzEncoder::new(Vec::new(), Compression::best());
         one_shot.write_all(&plain).unwrap();
@@ -516,17 +448,14 @@ mod tests {
     fn a_cancelled_preparation_stops_with_the_cancelled_error() {
         let flag = AtomicBool::new(true);
         let mut b = bundle();
-        // Cancelled before it starts: no file is hashed.
         let error = Assets::prepare_until(&b, &[], &flag).err().expect("cancelled");
         assert_eq!(error.to_string(), "browser capture cancelled");
-        // Cancelled inside one large file's compression.
         b.files = vec![("big.wasm".into(), vec![3; 4 * GZIP_CHUNK], "application/wasm".into())];
         b.index_html = "{{asset:big.wasm}}".into();
         let error = Body::with_etag_until("application/wasm", b.files[0].1.clone(), "\"e\"".into(), &flag)
             .err()
             .expect("cancelled");
         assert_eq!(error.to_string(), "browser capture cancelled");
-        // The same bundle, not cancelled, is prepared.
         assert!(Assets::prepare_until(&b, &[], &AtomicBool::new(false)).is_ok());
     }
 

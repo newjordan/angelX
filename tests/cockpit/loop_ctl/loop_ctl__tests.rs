@@ -142,7 +142,7 @@ fn loop_sota_prefers_in_hand_deepseek_over_openai() {
         "deepseek-v4-flash",
         &labels,
         &avail,
-        /*allow_openai=*/ false,
+        false,
         None,
     );
     assert_eq!(pick.as_deref(), Some("deepseek-v4-flash"));
@@ -170,10 +170,8 @@ fn loop_sota_skips_openai_when_disallowed_even_if_first() {
     let avail = vec![true, true, true];
     let pick = preferred_loop_sota_label("practice", &labels, &avail, false, None);
     assert_eq!(pick.as_deref(), Some("glm"));
-    // Pin still wins when operator explicitly wants openai.
     let pinned = preferred_loop_sota_label("practice", &labels, &avail, false, Some("openai"));
     assert_eq!(pinned.as_deref(), Some("openai"));
-    // Empty when only openai is available and disallowed.
     let only_oai = preferred_loop_sota_label("practice", &["openai".into()], &[true], false, None);
     assert_eq!(only_oai, None);
 }
@@ -372,8 +370,6 @@ fn podrace_submission_clock_steers_a_measured_but_unsubmitted_run() {
         ..Default::default()
     };
 
-    // Measured on iteration 1; two more iterations without a submission
-    // make it overdue (directive), two beyond that reinforce the directive.
     let mut app = crate::seed_preview_app();
     app.loop_ctl = podrace();
     app.terminal_focused = false;
@@ -412,7 +408,6 @@ fn podrace_submission_clock_steers_a_measured_but_unsubmitted_run() {
         LoopStatus::Running,
         "4 iterations since: continue with submission steering"
     );
-    // `⠘⠁⠋`: the board is the instrument; the counts ride beside the page.
     assert_eq!(
         app.loop_ctl.last_setback.as_deref(),
         Some(
@@ -426,7 +421,6 @@ fn podrace_submission_clock_steers_a_measured_but_unsubmitted_run() {
     assert!(app.loop_ctl.wake_at.is_some());
     assert!(!app.take_attention_request());
 
-    // A submission receipt silences the clock for good.
     let mut app = crate::seed_preview_app();
     app.loop_ctl = podrace();
     app.loop_harvest_with_tools("DIRECTION: measure".into(), measured("a"));
@@ -451,8 +445,6 @@ fn podrace_submission_clock_steers_a_measured_but_unsubmitted_run() {
             .contains("SUBMISSION OVERDUE")
     );
 
-    // A new measured winner after a submission re-arms the clock: one upload
-    // must not retire submission steering for the rest of the run.
     app.loop_harvest_with_tools("DIRECTION: new winner".into(), measured("c"));
     assert!(app.loop_ctl.first_measured_iteration.is_some(), "re-armed");
     assert!(!app.loop_submission_overdue());
@@ -467,7 +459,6 @@ fn podrace_submission_clock_steers_a_measured_but_unsubmitted_run() {
         .as_deref()
         .is_some_and(|s| s.starts_with(crate::agent::harness::book::d45_iteration::SUBMIT_DUE)));
 
-    // Knob 0: never fires.
     let mut app = crate::seed_preview_app();
     app.loop_ctl = podrace();
     app.loop_ctl.first_submission_iters = 0;
@@ -573,7 +564,6 @@ fn loop_ctl_blocked_repeat_escalates_and_continues_by_default() {
         Some(failed.verifier_failure_details[0].failure_digest.clone());
     app.loop_harvest_error_with_tools("fixture tool failed".into(), failed.clone());
     app.loop_harvest("VERIFY blocked: please restore it".into());
-    // Three identical blocked iterations: escalation recorded, instruction issued, loop still running.
     assert_ne!(app.loop_ctl.status, LoopStatus::Paused);
     assert_eq!(app.loop_ctl.escalations.len(), 1);
     assert_eq!(
@@ -604,7 +594,7 @@ fn loop_ctl_blocked_repeat_pause_ledger_and_gauge() {
         root.join("loop.json").to_str().unwrap(),
     );
     let _mirror = crate::tests::TestEnvGuard::unset("ANGEL_LOOP_STATE_DIR");
-    let _limit = crate::tests::TestEnvGuard::set("ANGEL_LOOP_BLOCKED_REPEAT_LIMIT", "3"); // explicit operator cap: pause semantics under test
+    let _limit = crate::tests::TestEnvGuard::set("ANGEL_LOOP_BLOCKED_REPEAT_LIMIT", "3");
     let mut app = crate::seed_preview_app();
     app.loop_ctl = LoopState {
         status: LoopStatus::Running,
@@ -639,7 +629,6 @@ fn loop_ctl_blocked_repeat_pause_ledger_and_gauge() {
             .to_string()
             .contains("⠳⠁")
     );
-    // Model-only repetition still counts as an unresolved blocked iteration.
     app.loop_harvest("VERIFY blocked: please restore it".into());
     assert_eq!(app.loop_ctl.status, LoopStatus::Paused);
     assert!(app.loop_ctl.wake_at.is_none());
@@ -665,7 +654,6 @@ fn loop_ctl_blocked_repeat_pause_ledger_and_gauge() {
     let saved: serde_json::Value =
         serde_json::from_slice(&std::fs::read(root.join("loop.json")).unwrap()).unwrap();
     assert_eq!(saved["escalations"][0], *entry);
-    // The operator sees it in /loop status.
     let status = app.loop_status_text();
     assert!(
         status.contains("escalated 1× · last verifier_blocked_repeat (iterations 1–3)"),
@@ -752,7 +740,6 @@ fn blocked_verifier_rides_first_in_the_iteration_prompt() {
     let blocked_at = prompt
         .find("⠳⠁")
         .expect("the blocked block rides the prompt");
-    // The blocker's words are the `⠳⠁` pages, not wire prose.
     let blocked_pages = crate::agent::harness::book::ou_checkpoints::BLOCKED
         .sub()
         .pages
@@ -805,7 +792,6 @@ fn podrace_first_candidate_clock_steers_unmeasured_runs() {
         ..Default::default()
     };
 
-    // Default clock: three unmeasured iterations steer the next measurement.
     let mut app = crate::seed_preview_app();
     app.loop_ctl = podrace();
     app.terminal_focused = false;
@@ -838,7 +824,6 @@ fn podrace_first_candidate_clock_steers_unmeasured_runs() {
     assert!(app.loop_ctl.wake_at.is_some());
     assert!(!app.take_attention_request());
 
-    // An armed blocker diagnostic rides the continuation directive.
     let mut app = crate::seed_preview_app();
     app.loop_ctl = podrace();
     app.loop_ctl.verifier_blocked = Some("benchctl measure-job: missing required --golden".into());
@@ -853,7 +838,6 @@ fn podrace_first_candidate_clock_steers_unmeasured_runs() {
             .contains("missing required --golden")
     );
 
-    // One measured candidate keeps the run alive past the clock.
     let mut app = crate::seed_preview_app();
     app.loop_ctl = podrace();
     app.loop_harvest_with_tools(
@@ -872,7 +856,6 @@ fn podrace_first_candidate_clock_steers_unmeasured_runs() {
     assert_eq!(app.loop_ctl.measured_candidates, 1);
     assert!(app.loop_ctl.wake_at.is_some(), "continuation armed");
 
-    // Knob 0: the clock never fires.
     let mut app = crate::seed_preview_app();
     app.loop_ctl = podrace();
     app.loop_ctl.first_candidate_iters = 0;
@@ -881,7 +864,6 @@ fn podrace_first_candidate_clock_steers_unmeasured_runs() {
     }
     assert_eq!(app.loop_ctl.status, LoopStatus::Running);
 
-    // Non-podrace loops are unaffected even with the knob armed.
     let mut app = crate::seed_preview_app();
     app.loop_ctl = podrace();
     app.loop_ctl.podrace = false;
@@ -1018,9 +1000,6 @@ fn acceptance_memo_workspace(tag: &str) -> (PathBuf, PathBuf) {
     git(&["config", "user.email", "angel@example.invalid"]);
     git(&["config", "user.name", "Angel Test"]);
     std::fs::write(workspace.join("candidate.txt"), "one\n").unwrap();
-    // Keep the process sentinel inside the fixture workspace but ignored,
-    // so counting executions does not itself mutate the candidate
-    // fingerprint under test.
     std::fs::write(workspace.join(".gitignore"), ".gate-runs.txt\n").unwrap();
     git(&["add", "candidate.txt", ".gitignore"]);
     git(&["commit", "-q", "-m", "seed"]);
@@ -1046,11 +1025,6 @@ fn execute_acceptance_plan_for_test(
     match prepare_acceptance_gate(state, command, workspace) {
         AcceptanceGatePlan::Replay(result) => (result, false),
         AcceptanceGatePlan::Execute(run) => {
-            // A literal process sentinel proves memo admission controls
-            // process creation. Production execution is independently
-            // covered by `run_accept_cmd_*`; its evaluator sandbox is
-            // intentionally read-only outside ephemeral scratch, so it
-            // cannot publish a durable sentinel by design.
             let output = std::process::Command::new("sh")
                 .arg("-c")
                 .arg(command)
@@ -1098,9 +1072,6 @@ fn unchanged_red_acceptance_executes_once_and_survives_state_reload() {
         1
     );
 
-    // Exercise the actual persisted-state loader, not just an in-memory
-    // clone: a process callback/resume may retain the red receipt only when
-    // its cryptographic workspace key still matches.
     let state_file = root.join("state.json");
     std::fs::write(&state_file, serde_json::to_vec(&state).unwrap()).unwrap();
     let mut reloaded = load_from_path(state_file).expect("memoized loop state reloads");
@@ -1198,7 +1169,6 @@ fn ambiguous_workspace_fingerprint_never_reuses_red_acceptance() {
     ));
     let workspace = root.join("not-a-git-workspace");
     std::fs::create_dir_all(&workspace).unwrap();
-    // Stop Git discovery before an enclosing worktree when TMPDIR is local.
     std::fs::write(workspace.join(".git"), "invalid fixture git marker\n").unwrap();
     let sentinel = workspace.join("gate-runs.txt");
     let command = red_sentinel_command(&sentinel, "ambiguous");
@@ -1219,8 +1189,6 @@ fn ambiguous_workspace_fingerprint_never_reuses_red_acceptance() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-// Real evaluator checks need a Git-backed candidate, not the live angelX
-// checkout. Keep the fingerprint small and independent of concurrent work.
 struct AcceptanceFixture(PathBuf, PathBuf);
 
 impl AcceptanceFixture {
@@ -1350,8 +1318,6 @@ fn run_accept_cmd_zero_threshold_preserves_valid_green_and_partial_rewards() {
 #[test]
 fn run_accept_cmd_scores_test_output_via_rlvr() {
     let fixture = AcceptanceFixture::new("rlvr");
-    // A libtest summary is scored through evaluator-owned LEVI/reinforce
-    // evidence: both the parsed result and the command exit must be green.
     let green = run_accept_cmd(
         "echo 'test result: ok. 5 passed; 0 failed; 0 ignored;'",
         None,
@@ -1385,8 +1351,6 @@ fn run_accept_cmd_scores_test_output_via_rlvr() {
         forged_green.summary
     );
 
-    // Reward-hack guard: a "green" with zero executed tests is NOT a pass,
-    // even though the reward parser might read it as 1.0.
     let empty = run_accept_cmd(
         "echo 'test result: ok. 0 passed; 0 failed; 0 ignored;'",
         None,
@@ -1403,8 +1367,6 @@ fn run_accept_cmd_scores_test_output_via_rlvr() {
 #[test]
 fn run_accept_cmd_rejects_count_regression() {
     let fixture = AcceptanceFixture::new("count-regression");
-    // Baseline was 5 passing; a later all-green with only 3 passing means tests
-    // were deleted/disabled to fake a pass → rejected even though reward == 1.0.
     let regressed = run_accept_cmd(
         "echo 'test result: ok. 3 passed; 0 failed; 0 ignored;'",
         Some(5),
@@ -1417,7 +1379,6 @@ fn run_accept_cmd_rejects_count_regression() {
         regressed.summary
     );
     assert!(regressed.summary.contains("REJECTED"));
-    // Same count as baseline (or more) with all green is accepted.
     let ok = run_accept_cmd(
         "echo 'test result: ok. 5 passed; 0 failed; 0 ignored;'",
         Some(5),
@@ -1429,7 +1390,6 @@ fn run_accept_cmd_rejects_count_regression() {
 
 #[test]
 fn count_passed_parses_summary_in_dir() {
-    // count_passed_in reads the global sandbox/timeout env other tests flip under the lock.
     let _lock = crate::tests::env_lock();
     assert_eq!(
         count_passed_in(
@@ -1439,7 +1399,6 @@ fn count_passed_parses_summary_in_dir() {
         7
     );
     assert_eq!(count_passed_in("echo 'no tests here'", Path::new(".")), 0);
-    // The baseline runs in the given dir — the same root verify uses.
     assert_eq!(
         count_passed_in(
             "[ -e Cargo.toml ] && echo 'test result: ok. 1 passed; 0 failed;'",
@@ -1462,7 +1421,6 @@ fn count_passed_does_not_pin_a_partial_green_prefix_as_the_baseline() {
             "stream {stream}"
         );
     }
-    // A completed red suite still supplies its actual pre-edit pass count.
     assert_eq!(
         count_passed_in(
             "printf 'test result: FAILED. 7 passed; 2 failed;\\n'; exit 1",
@@ -1475,7 +1433,6 @@ fn count_passed_does_not_pin_a_partial_green_prefix_as_the_baseline() {
 #[cfg(target_os = "linux")]
 #[test]
 fn count_passed_drains_noisy_stderr_before_the_summary() {
-    // count_passed_in reads the global sandbox/timeout env other tests flip under the lock.
     let _lock = crate::tests::env_lock();
     assert_eq!(
         count_passed_in(
@@ -1502,8 +1459,6 @@ fn count_passed_timeout_returns_zero_instead_of_sticking_baselining() {
 
 #[test]
 fn steer_notes_persist_and_default() {
-    // Mid-run steers recorded on a loop must survive a crash/resume, and a
-    // pre-steering state file (no field) must still load.
     let mut st = LoopState::configured_from_env();
     st.steer_notes.push("focus the parser".to_string());
     st.status = LoopStatus::Running;
@@ -1537,7 +1492,6 @@ fn deli_flag_persists_and_loads() {
     let mut st = LoopState::configured_from_env();
     st.deli = true;
     st.status = LoopStatus::Running;
-    // serde roundtrip keeps the deli flag.
     let json = serde_json::to_string(&st).unwrap();
     let back: LoopState = serde_json::from_str(&json).unwrap();
     assert!(back.deli);
@@ -1545,8 +1499,6 @@ fn deli_flag_persists_and_loads() {
 
 #[test]
 fn self_run_fields_persist_and_default() {
-    // A self run's identity (worktree branch, live root, prior workspace)
-    // must survive a crash so /self integrate|discard still work after it.
     let mut st = LoopState::configured_from_env();
     st.self_edit = true;
     st.self_branch = Some("angel/self-42".to_string());
@@ -1562,8 +1514,6 @@ fn self_run_fields_persist_and_default() {
         back.self_prev_workspace.as_deref(),
         Some(Path::new("/home/user/project"))
     );
-    // A pre-self-loop state file (all the old fields, none of the self ones)
-    // still loads: the self fields default off.
     let mut v = serde_json::to_value(LoopState::default()).unwrap();
     let obj = v.as_object_mut().unwrap();
     obj.remove("self_edit");
@@ -1603,7 +1553,6 @@ fn linked_worktree_state_survives_recreated_link_path() {
 
     let loop_file = root.join("loop.json");
     let prior = std::env::var_os("ANGEL_LOOP_FILE");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_LOOP_FILE", &loop_file) };
     let mut state = LoopState {
         workspace: Some(linked.clone()),
@@ -1627,9 +1576,7 @@ fn linked_worktree_state_survives_recreated_link_path() {
     assert_eq!(loaded.steer_notes, vec!["retain identity"]);
 
     match prior {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(value) => unsafe { std::env::set_var("ANGEL_LOOP_FILE", value) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_LOOP_FILE") },
     }
     let _ = std::fs::remove_dir_all(&root);
@@ -1644,7 +1591,6 @@ fn adventure_quest_walks_the_regions_end_to_end() {
         crate::delve::world_viz::Region::CastleTown
     );
 
-    // A podrace competition loop starts.
     app.loop_ctl = LoopState {
         status: LoopStatus::Running,
         task: "optimize the kernel benchmark and submit".into(),
@@ -1658,8 +1604,6 @@ fn adventure_quest_walks_the_regions_end_to_end() {
         crate::delve::world_viz::Region::TheMines
     );
 
-    // Stalled iterations sink the quest into the swamp (pivot 1 → the
-    // first stale count already reads level 3).
     for n in 1..=3 {
         app.loop_harvest(format!("DIRECTION: drift {n}"));
     }
@@ -1669,8 +1613,6 @@ fn adventure_quest_walks_the_regions_end_to_end() {
         crate::delve::world_viz::Region::Swamp
     );
 
-    // A measurement receipt shows activity but does not establish
-    // an objective improvement from the coordinator's prose.
     app.loop_harvest_with_tools(
         "DIRECTION: tuned the pipeline — improved latency".into(),
         ToolStripSnapshot {
@@ -1686,7 +1628,6 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     );
     assert_eq!(app.realm.world.quest().treasures(), 0);
 
-    // Submitting puts the hero in the Dragon Keep.
     app.loop_harvest_with_tools(
         "DIRECTION: submit the best candidate".into(),
         ToolStripSnapshot {
@@ -1701,7 +1642,6 @@ fn adventure_quest_walks_the_regions_end_to_end() {
         crate::delve::world_viz::Region::DragonKeep
     );
 
-    // The run finishes ok — loot walks home, then idles back in town.
     app.loop_finish(LoopStatus::Done, "findings goal met");
     app.adventure_mirror_drain();
     assert_eq!(
@@ -1767,7 +1707,6 @@ fn findings_carry_when_they_were_found() {
             task: "speed up the kernel".into(),
             workspace: Some(root.to_path_buf()),
             findings: vec!["legacy finding".into(), "fresh finding".into()],
-            // The legacy row predates stamping.
             finding_stamps: vec![
                 FindingStamp::default(),
                 FindingStamp {
@@ -1865,7 +1804,6 @@ fn measurements_come_back_with_their_results() {
             ),
             "{prompt}"
         );
-        // The same receipt again is not a second measurement or a second row.
         app.loop_harvest_with_tools(
             "DIRECTION: look again".into(),
             ToolStripSnapshot {
@@ -1903,10 +1841,8 @@ fn the_first_iteration_waits_for_its_brief_and_refreshes_never_wait() {
             std::thread::sleep(Duration::from_millis(50));
         }
         let text = app.loop_ctl.brief.clone().expect("brief gathered");
-        // The headings are `⠘⠛` page addresses (`⠘⠛⠁` machine).
         assert!(text.contains("⠘⠛⠁\n"), "{text}");
         assert!(text.contains("NOTES.md (8 B, just now)"), "{text}");
-        // A due refresh gathers in the background without holding the run.
         app.loop_ctl.brief_ms = 1;
         assert!(app.loop_brief_ready());
         assert!(app.loop_brief_job.is_some());
@@ -1952,7 +1888,6 @@ fn a_steer_is_answered_once_then_rides_as_standing_guidance() {
             "{prompt}"
         );
         assert!(!prompt.contains("⠪⠙"), "{prompt}");
-        // A new note is asked; the old one stays standing.
         app.loop_ctl.status = LoopStatus::Running;
         app.loop_note_steer("now look at the leader");
         let prompt = app
@@ -1978,7 +1913,6 @@ fn an_idle_iteration_waits_and_a_steer_wakes_it() {
             ..Default::default()
         };
         app.terminal_focused = false;
-        // A status-only reply: a few calls, nothing to show.
         let before = Instant::now();
         app.loop_harvest_with_tools(
             "Yes. The slot is still validating.".into(),
@@ -1992,10 +1926,8 @@ fn an_idle_iteration_waits_and_a_steer_wakes_it() {
             wake >= before + Duration::from_secs(LOOP_IDLE_WAIT_SECS),
             "idle iterations wait"
         );
-        // A steer wakes it at once.
         app.loop_note_steer("the result is in, go");
         assert!(app.loop_ctl.wake_at.unwrap() <= Instant::now());
-        // A working iteration keeps the configured cadence (zero).
         app.loop_ctl.status = LoopStatus::Running;
         app.loop_harvest_with_tools(
             "DIRECTION: measure the fold".into(),
@@ -2017,15 +1949,11 @@ fn an_operator_wrap_up_lets_the_loop_end_without_an_acceptance_command() {
             workspace: Some(root.to_path_buf()),
             ..Default::default()
         };
-        // Without an operator note a done claim is still refused.
         let mut app = crate::seed_preview_app();
         app.loop_ctl = running();
         app.terminal_focused = false;
         app.loop_harvest("All done.\nLOOP_DONE".into());
         assert_eq!(app.loop_ctl.status, LoopStatus::Running);
-        // A note that asks for something else does not let it either: the
-        // cuda loop's only note was a hint, and its LOOP_DONE ended the run
-        // overnight (2026-10-16).
         let mut app = crate::seed_preview_app();
         app.loop_ctl = running();
         app.loop_ctl.steer_notes = vec![
@@ -2034,7 +1962,6 @@ fn an_operator_wrap_up_lets_the_loop_end_without_an_acceptance_command() {
         app.terminal_focused = false;
         app.loop_harvest("Stopped after the one verifier as requested.\nLOOP_DONE".into());
         assert_eq!(app.loop_ctl.status, LoopStatus::Running);
-        // Asked to wrap up, the model may close the run.
         let mut app = crate::seed_preview_app();
         app.loop_ctl = running();
         app.loop_ctl.steer_notes = vec!["ok get a submission in and wrap up please".into()];
@@ -2074,7 +2001,6 @@ fn heartbeat_keeps_loop_state_live_during_a_long_iteration() {
         workspace: Some(root.clone()),
         awaiting_turn: true,
         tool_calls_total: 7,
-        // The iteration launched 61 seconds ago; nothing has written since.
         updated_ms: now_ms().saturating_sub(61_000),
         ..Default::default()
     };
@@ -2091,17 +2017,12 @@ fn heartbeat_keeps_loop_state_live_during_a_long_iteration() {
         "heartbeat refreshed updated_ms: {}",
         saved.updated_ms
     );
-    // The published count includes the in-flight strip; the in-memory settled
-    // count is untouched, so the iteration-boundary harvest cannot double-count.
     assert_eq!(saved.tool_calls_total, 8);
     assert_eq!(app.loop_ctl.tool_calls_total, 7);
 
-    // A second heartbeat inside the minute writes nothing new.
     app.loop_heartbeat();
     assert_eq!(load().unwrap().updated_ms, saved.updated_ms);
 
-    // Between iterations (no turn in flight) the heartbeat is inert: the
-    // schedule/harvest paths own the file there.
     app.loop_ctl.awaiting_turn = false;
     app.loop_ctl.updated_ms = now_ms().saturating_sub(120_000);
     app.loop_heartbeat();
@@ -2112,9 +2033,6 @@ fn heartbeat_keeps_loop_state_live_during_a_long_iteration() {
 
 #[test]
 fn provider_spend_replaces_the_iteration_estimates() {
-    // Pinning seat 2026-09-25: 18 iterations and ~930 tool rounds recorded
-    // ~72K tokens, because only the opening prompt and the reply were estimated.
-    // Iteration start charged a 4K estimate of the request.
     let mut st = LoopState {
         tokens_spent: 4_000,
         tokens: LoopTokenSplit {
@@ -2125,7 +2043,6 @@ fn provider_spend_replaces_the_iteration_estimates() {
         iteration_input_estimate: 4_000,
         ..Default::default()
     };
-    // The turn's ~100 hops resent the context: 9M prompt, 8M of it cache reads.
     st.settle_turn_spend(9_000_000, 8_000_000, 60_000);
     let settled = LoopTokenSplit {
         paid_input: 1_000_000,
@@ -2135,7 +2052,6 @@ fn provider_spend_replaces_the_iteration_estimates() {
     };
     assert_eq!(st.tokens, settled);
     assert_eq!(st.tokens_spent, 9_060_000);
-    // The harvest adds no reply estimate on top of the provider's count.
     evidence::apply_reply_with_tools(
         &mut st,
         "DIRECTION: carrier loader\nFINDING: a correct loader is a wash",
@@ -2144,7 +2060,6 @@ fn provider_spend_replaces_the_iteration_estimates() {
     assert_eq!(st.tokens, settled);
     assert_eq!(st.tokens_spent, 9_060_000);
 
-    // A route that counts cache reads outside its input (read > input).
     let mut separate = LoopState::default();
     separate.settle_turn_spend(2_000, 50_000, 500);
     assert_eq!(
@@ -2157,7 +2072,6 @@ fn provider_spend_replaces_the_iteration_estimates() {
         }
     );
 
-    // A route that reports nothing keeps the reply estimate.
     let mut unreported = LoopState::default();
     evidence::apply_reply_with_tools(
         &mut unreported,
@@ -2167,8 +2081,6 @@ fn provider_spend_replaces_the_iteration_estimates() {
     assert!(unreported.tokens.output > 0 && unreported.tokens_spent > 0);
 }
 
-/// A mistyped ANGEL_COMP_PACKAGE still falls back to the default worker
-/// profile; the loop start notice names the fallback.
 #[test]
 fn an_unknown_cartridge_is_named_at_loop_start() {
     let _guard = crate::tests::env_lock();
@@ -2185,8 +2097,6 @@ fn an_unknown_cartridge_is_named_at_loop_start() {
     let _ = std::fs::remove_file(tmp);
 }
 
-/// The iteration's DIRECTION is kept for its acceptance verdict (the
-/// Sloptomizer's observation), repeats included; a reply naming none clears it.
 #[test]
 fn each_harvest_records_the_direction_its_verdict_observes() {
     let _guard = crate::tests::env_lock();

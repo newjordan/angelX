@@ -59,7 +59,6 @@ http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
         .spawn()
         .expect("python3 available");
     let url = format!("http://127.0.0.1:{PORT}");
-    // Wait for the mock to come up.
     let probe = (0..50)
         .find_map(|_| {
             std::thread::sleep(Duration::from_millis(100));

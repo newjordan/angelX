@@ -14,15 +14,12 @@ def stop_children(parent, children, grace=12):
     try:
         for pid in children:
             if pid == os.getpid():
-                continue  # A recycled job PID must not stop this helper itself.
+                continue
             try:
                 descriptor = os.pidfd_open(pid)
             except ProcessLookupError:
                 continue
             try:
-                # Open the stable handle first. A recycled numeric PID can
-                # never redirect its signal; only this driver's direct jobs
-                # qualify for cancellation, including newly exited zombies.
                 fields = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
                 if int(fields[1]) != parent:
                     continue

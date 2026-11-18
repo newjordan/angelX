@@ -4,13 +4,8 @@
 
 use serde::{Deserialize, Serialize};
 
-/// How long without a heartbeat before a peer counts as gone.
 pub const STALE_AFTER_MS: u128 = 90_000;
 
-/// One instance's heartbeat. `activity` is a short operator-facing state
-/// (`idle`, `turn`, `loop`, …); `detail` is optional human context (the
-/// current goal or task label). Load fields let a reader aggregate a fleet
-/// view without any external probe binary.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Heartbeat {
     pub schema: String,

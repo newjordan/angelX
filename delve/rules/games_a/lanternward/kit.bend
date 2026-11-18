@@ -1,14 +1,3 @@
-# crates/delve/src/rules/lanternward/kit.rs — the knight: a body, a lock-on, a
-# sword, a shield, a lantern and a hop.
-#
-# Seat J (serde): {id, joined, x, y, z, face:[x,y], hp, max_hp, gems, bombs,
-# flame, taper, act, t, n, mv:[x,y], push:[x,y], pusht, step, chain, queued,
-# charge, shield, guard_cd, lock, lock_t, unlock_t, relock, inv, ward, freeze,
-# swing, lamp, lamp_cd, carry, ctx, read, aim:[i8,i8], held, safe:[x,y],
-# cam:[x,y], rev, beep, item}. Act and Carry are their names; Lock is null,
-# {"Foe": id}, {"Prop": i} or "Boss". The seat being stepped is `s["$k"]`.
-
-# The seven buttons the adventure reads, as one byte.
 def lanternward.kit.buttons(+i: J.Val) -> U32:
   (Bool.to_u32(ga.b(i, "ult")) * 1 + Bool.to_u32(ga.b(i, "dash")) * 2 + Bool.to_u32(ga.b(i, "swing")) * 4
     + Bool.to_u32(ga.b(i, "interact")) * 8 + Bool.to_u32(ga.b(i, "fire")) * 16 + Bool.to_u32(ga.b(i, "bomb")) * 32 : U32)
@@ -27,7 +16,6 @@ def lanternward.kit.Seat.new(+id: U32, +joined: U32, +x: U32, +y: U32) -> J.Val:
   +k10 = ga.su(ga.sv(k9, "aim", ga.pair_i(0, 0)), "held", 0)
   ga.sv(ga.su(ga.su(ga.sv(ga.sv(k10, "safe", ga.pair_i(x, y)), "cam", ga.pair_i(x, y)), "rev", 0), "beep", 0), "item", J.JNull{})
 
-# Whether every number is one a save or the wire may carry.
 def lanternward.kit.Seat.valid(+k: J.Val, +id: U32, +elapsed: U32, +w: U32, +h: U32) -> Bool:
   Bool.and(
     Bool.and(lanternward.kit.Seat.valid.a(k, id, elapsed, w, h), lanternward.kit.Seat.valid.b(k)),
@@ -94,9 +82,6 @@ def lanternward.kit.Seat.airborne(+k: J.Val) -> Bool:
 def lanternward.kit.Session.lantern_owned(+s: J.Val) -> Bool:
   ga.b(ga.v(s, "inv"), "lantern")
 
-# ---- lock-on targets ----
-
-# Where a lock holds: null, or [x, y].
 def lanternward.kit.Session.lock_point(+s: J.Val, +l: J.Val) -> J.Val:
   lanternward.kit.lock_point.tag(lanternward.tag(l), J.u32(lanternward.payload(l)), s)
 
@@ -149,8 +134,6 @@ def lanternward.kit.lock_point.prop.target(t: Bool, +p: J.Val) -> J.Val:
     case False{}:
       J.JNull{}
 
-# Everything a lock may hold: [lock, x, y, hostile] in order: foes, the
-# Warden's heart, then the props that can be targeted.
 def lanternward.kit.targets.foes(+fs: List<&2, J.Val>) -> List<&2, J.Val>:
   match fs:
     case Nil{}:
@@ -184,7 +167,6 @@ def lanternward.kit.Session.targets(+s: J.Val) -> List<&2, J.Val>:
   List.append(&2, J.Val, lanternward.kit.targets.foes(ga.items(s, "foes")),
     List.append(&2, J.Val, lanternward.kit.targets.boss(J.get(s, "boss")), lanternward.kit.targets.props(ga.items(s, "props"), 0)))
 
-# Whether the knight's lock is of something still there and in reach.
 def lanternward.kit.Session.lock_holds(+s: J.Val, +k: J.Val, +l: J.Val) -> Bool:
   lanternward.kit.lock_holds.pt(lanternward.kit.Session.lock_point(s, l), k, lanternward.R(s, "lock"))
 
@@ -195,8 +177,6 @@ def lanternward.kit.lock_holds.pt(+p: J.Val, +k: J.Val, +lock: U32) -> Bool:
     case _:
       RS.i_le(lanternward.world.dist((ga.nu(p, 0) - ga.u(k, "x") : U32), (ga.nu(p, 1) - ga.u(k, "y") : U32)), RS.i_div((lock * 3 : U32), 2))
 
-# The nearest thing in front of the knight, a foe before a switch; with
-# nothing in front, the nearest at all. The key is (not hostile, not front, d).
 def lanternward.kit.pick_target.go(+ts: List<&2, J.Val>, +s: J.Val, +k: J.Val, +skip: J.Val, +bk: J.Val, +bl: J.Val) -> J.Val:
   match ts:
     case Nil{}:
@@ -231,7 +211,6 @@ def lanternward.kit.pick_target.reach(ok: Bool, +d: U32, +t: J.Val, +rest: List<
         Bool.to_u32(RS.i_lt(lanternward.world.dot_unit(ga.nu(ga.v(k, "face"), 0), ga.nu(ga.v(k, "face"), 1), (ga.nu(t, 1) - ga.u(k, "x") : U32), (ga.nu(t, 2) - ga.u(k, "y") : U32)), 0)),
         d, t, rest, s, k, skip, bk, bl)
 
-# Lexicographic key (a, b, d) < best.
 def lanternward.kit.pick_target.key(+a: U32, +b: U32, +d: U32, +t: J.Val, +rest: List<&2, J.Val>, +s: J.Val, +k: J.Val, +skip: J.Val, +bk: J.Val, +bl: J.Val) -> J.Val:
   +kk = {J.JA{[J.JU{a}, J.JU{b}, J.of_i32(d)]} : J.Val}
   +better = Bool.or(J.is_null(bl), lanternward.kit.key_lt(a, b, d, bk))
@@ -246,8 +225,6 @@ def lanternward.kit.key_lt(+a: U32, +b: U32, +d: U32, +bk: J.Val) -> Bool:
 def lanternward.kit.Session.pick_target(+s: J.Val, +k: J.Val, +skip: J.Val) -> J.Val:
   lanternward.kit.pick_target.go(lanternward.kit.Session.targets(s), s, k, skip, J.JNull{}, J.JNull{})
 
-# The next target in the direction the knight pressed, as seen from the
-# current one.
 def lanternward.kit.cycle.go(+ts: List<&2, J.Val>, +s: J.Val, +k: J.Val, +cx: U32, +cy: U32, +wx: U32, +wy: U32, +bd: U32, +bl: J.Val) -> J.Val:
   match ts:
     case Nil{}:
@@ -293,8 +270,6 @@ def lanternward.kit.cycle_target.want(want: U32 & U32, +cur: J.Val, +s: J.Val, +
   (+wx, +wy) = want
   lanternward.kit.cycle.go(lanternward.kit.Session.targets(s), s, k, ga.nu(cur, 0), ga.nu(cur, 1), wx, wy, 0, J.JNull{})
 
-# ---- one tick of one knight ----
-
 def lanternward.kit.act_code(+a: String) -> U32:
   Bool.pick(U32, String.eq(a, "Free"), 0,
     Bool.pick(U32, String.eq(a, "Slash"), 1,
@@ -307,11 +282,9 @@ def lanternward.kit.act_code(+a: String) -> U32:
                   Bool.pick(U32, String.eq(a, "Item"), 8,
                     Bool.pick(U32, String.eq(a, "Down"), 9, 10))))))))))
 
-# Put the knight in `$k` back at the table.
 def lanternward.kit.put_k(+s: J.Val, +id: U32) -> J.Val:
   J.del(ga.sv(s, "seats", ga.put_at(J.get(s, "seats"), id, J.get(s, "$k"))), "$k")
 
-# One tick of one knight.
 def lanternward.kit.Session.step_seat(+s: J.Val, +id: U32, +inp: J.Val) -> J.Val:
   lanternward.kit.step_seat.has(ga.has_key(J.get(s, "seats"), id), s, id, inp)
 
@@ -349,7 +322,6 @@ def lanternward.kit.step_seat.unchain(yes: Bool, +s: J.Val) -> J.Val:
     case False{}:
       s
 
-# A sign being read counts down and is put away at zero.
 def lanternward.kit.step_seat.read(none: Bool, +s: J.Val) -> J.Val:
   match none:
     case True{}:
@@ -361,7 +333,6 @@ def lanternward.kit.step_seat.read.go(+t: U32, +s: J.Val) -> J.Val:
   lanternward.ksv(s, "read",
     Bool.pick(J.Val, U32.is_eq(t, 0), J.JNull{}, ga.pair(J.nth(lanternward.kv(s, "read"), 0), J.JU{t})))
 
-# A blade that landed holds its owner a moment.
 def lanternward.kit.step_seat.freeze(+s: J.Val, +id: U32, +inp: J.Val, +mask: U32, +press: U32) -> J.Val:
   lanternward.kit.step_seat.freeze.go(U32.is_gt(lanternward.ku(s, "freeze"), 0), s, id, inp, mask, press)
 
@@ -391,7 +362,6 @@ def lanternward.kit.step_seat.act.go(+code: U32, +s: J.Val, +id: U32, +inp: J.Va
         lanternward.kit.Session.face_and_move(lanternward.kit.Session.lock_on(s, id, mask, press, inp), inp),
         id, mask, press, inp)
 
-# Holding an item overhead, then putting it down.
 def lanternward.kit.step_seat.item(done: Bool, +s: J.Val) -> J.Val:
   match done:
     case False{}:
@@ -399,13 +369,9 @@ def lanternward.kit.step_seat.item(done: Bool, +s: J.Val) -> J.Val:
     case True{}:
       lanternward.ks(lanternward.ksv(lanternward.ksn(s, "act", "Free"), "item", J.JNull{}), "t", 0)
 
-# Things that go on whatever the knight is doing, then the camera, then back
-# to the table.
 def lanternward.kit.step_seat.fin(+s: J.Val, +id: U32) -> J.Val:
   lanternward.kit.put_k(lanternward.kit.Session.camera(lanternward.kit.Session.upkeep(s)), id)
 
-# The lantern's flame comes back: slowly anywhere, quickly at a resting
-# brazier or beside a friend's flare.
 def lanternward.kit.refill.rest(+ps: List<&2, J.Val>, +kx: U32, +ky: U32) -> Bool:
   match ps:
     case Nil{}:
@@ -457,7 +423,6 @@ def lanternward.kit.refill.flaring(flaring: Bool, +s: J.Val) -> J.Val:
 def lanternward.kit.Session.upkeep(+s: J.Val) -> J.Val:
   lanternward.kit.upkeep.ctx(lanternward.kit.upkeep.beep(lanternward.kit.upkeep.safe(s)))
 
-# The last spot the knight stood on solid ground not beside a ledge.
 def lanternward.kit.upkeep.safe(+s: J.Val) -> J.Val:
   lanternward.kit.upkeep.safe.go(
     Bool.and(
@@ -497,7 +462,6 @@ def lanternward.kit.upkeep.ledge(+room: U32, +tx: U32, +ty: U32) -> Bool:
 def lanternward.kit.upkeep.pit_at(+room: U32, +tx: U32, +ty: U32) -> Bool:
   U32.is_eq(lanternward.world.Plan.at(room, tx, ty), 61)
 
-# The heart beep: a low knight chirps now and then.
 def lanternward.kit.upkeep.beep(+s: J.Val) -> J.Val:
   lanternward.kit.upkeep.beep.go(
     Bool.and(lanternward.kit.Seat.up(J.get(s, "$k")), U32.is_le(lanternward.ku(s, "hp"), 8)), s)
@@ -530,8 +494,6 @@ def lanternward.kit.upkeep.ctx.go(free: Bool, +s: J.Val) -> J.Val:
     case False{}:
       lanternward.ksv(s, "ctx", J.JS{"None"})
 
-# ---- lock-on ----
-
 def lanternward.kit.Session.lock_on(+s: J.Val, +id: U32, +mask: U32, +press: U32, +inp: J.Val) -> J.Val:
   lanternward.kit.lock_on.go(
     Bool.and(U32.is_ne(U32.and(mask, 1), 0), lanternward.kit.Seat.up(J.get(s, "$k"))), s, press, inp)
@@ -553,7 +515,6 @@ def lanternward.kit.lock_on.drop(had: Bool, +s: J.Val) -> J.Val:
   lanternward.ksv(
     Bool.pick(J.Val, had, lanternward.ks(s, "unlock_t", 10), s), "lock", J.JNull{})
 
-# A lock that no longer holds lets go and waits a few ticks to re-lock.
 def lanternward.kit.lock_on.keep(lost: Bool, +s: J.Val, +press: U32, +inp: J.Val) -> J.Val:
   match lost:
     case True{}:
@@ -564,7 +525,6 @@ def lanternward.kit.lock_on.keep(lost: Bool, +s: J.Val, +press: U32, +inp: J.Val
 def lanternward.kit.lock_on.lost(+s: J.Val) -> J.Val:
   lanternward.ks(lanternward.ksv(s, "lock", J.JNull{}), "relock", 6)
 
-# A fresh press of an aim key while locked cycles to the next target that way.
 def lanternward.kit.lock_on.fresh(+s: J.Val, +press: U32, +inp: J.Val) -> J.Val:
   lanternward.kit.lock_on.cycle(
     Bool.and(
@@ -629,9 +589,6 @@ def lanternward.kit.take_lock.face(f: U32 & U32, +s: J.Val) -> J.Val:
     Bool.pick(J.Val, Bool.and(U32.is_eq(fx, 0), U32.is_eq(fy, 0)), s, lanternward.ksv(s, "face", ga.pair_i(fx, fy))),
     "card_pickup")
 
-# ---- facing and walking ----
-
-# Face a locked target, else the aim keys, else the way walked.
 def lanternward.kit.Session.face_and_move(+s: J.Val, +inp: J.Val) -> J.Val:
   lanternward.kit.face_and_move.go(
     lanternward.kit.Session.lock_point(s, lanternward.kv(s, "lock")), s, inp)
@@ -677,7 +634,6 @@ def lanternward.kit.face_and_move.face(f: U32 & U32, +s: J.Val, +inp: J.Val) -> 
 def lanternward.kit.face_and_move.move(+s: J.Val, +inp: J.Val) -> J.Val:
   lanternward.kit.face_and_move.push(lanternward.kis(s, "act", "Free"), s, inp)
 
-# Only a free knight is carried by a push and walks.
 def lanternward.kit.face_and_move.push(free: Bool, +s: J.Val, +inp: J.Val) -> J.Val:
   match free:
     case False{}:
@@ -723,8 +679,6 @@ def lanternward.kit.face_and_move.go2(+wx: U32, +wy: U32, +vx: U32, +vy: U32, +s
     case _:
       lanternward.kit.Session.orbit(s, ga.nu(pt, 0), ga.nu(pt, 1), wx, wy)
 
-# Walk about a locked target: the sideways part of the step goes round it at
-# the same distance, the rest closes or opens it.
 def lanternward.kit.Session.orbit(+s: J.Val, +tx: U32, +ty: U32, +vx: U32, +vy: U32) -> J.Val:
   lanternward.kit.orbit.go(
     (lanternward.ku(s, "x") - tx : U32), (lanternward.ku(s, "y") - ty : U32), s, tx, ty, vx, vy)
@@ -772,8 +726,6 @@ def lanternward.kit.orbit.to(u: U32 & U32, +want: U32, +s: J.Val, +tx: U32, +ty:
     (tx + lanternward.world.mul_div(ux, want, 256) - lanternward.ku(s, "x") : U32),
     (ty + lanternward.world.mul_div(uy, want, 256) - lanternward.ku(s, "y") : U32))
 
-# Move a body by (dx, dy), a whole axis at a time so it slides along a wall;
-# leans on a block it meets; falls into a pit it walks into.
 def lanternward.kit.Session.shove(+s: J.Val, +dx: U32, +dy: U32) -> J.Val:
   lanternward.kit.shove.fall(
     Bool.not(Bool.or(lanternward.kit.Seat.airborne(J.get(s, "$k")), lanternward.NAME_IN(ga.s(J.get(s, "$k"), "act"), ["Roll", "Hop", "Plunge"]))),
@@ -815,7 +767,6 @@ def lanternward.kit.shove.y.try(ok: Bool, +s: J.Val, +dy: U32) -> J.Val:
     case False{}:
       lanternward.kit.Session.lean(s, 0, RS.i_signum(dy))
 
-# `airborne` was decided before the move (Rust reads it first).
 def lanternward.kit.shove.fall(+ground: Bool, +s: J.Val) -> J.Val:
   lanternward.kit.shove.fall.go(
     Bool.and(Bool.and(ground, lanternward.props.Session.pit(s, lanternward.ku(s, "x"), lanternward.ku(s, "y"))), lanternward.kis(s, "act", "Free")),
@@ -828,7 +779,6 @@ def lanternward.kit.shove.fall.go(drop: Bool, +s: J.Val) -> J.Val:
     case True{}:
       lanternward.ks(lanternward.ks(lanternward.ksv(lanternward.ks(lanternward.ksn(s, "act", "Fall"), "t", 0), "lock", J.JNull{}), "lamp", 0), "shield", 0)
 
-# A body pressing on a block: after a moment of leaning, it slides.
 def lanternward.kit.Session.lean(+s: J.Val, +sx: U32, +sy: U32) -> J.Val:
   lanternward.kit.lean.find(
     lanternward.kit.lean.block(ga.items(s, "props"), 0,
@@ -904,12 +854,9 @@ def lanternward.kit.hurting.end(done: Bool, +s: J.Val) -> J.Val:
     case True{}:
       lanternward.ks(lanternward.ksn(s, "act", "Free"), "t", 0)
 
-# ---- the verbs ----
-
 def lanternward.kit.Session.verbs(+s: J.Val, +id: U32, +mask: U32, +press: U32, +inp: J.Val) -> J.Val:
   lanternward.kit.verbs.charge(lanternward.kit.verbs.shield(s, mask), id, mask, press, inp)
 
-# The shield: held on the ground with a free arm.
 def lanternward.kit.verbs.shield(+s: J.Val, +mask: U32) -> J.Val:
   lanternward.kit.verbs.shield.go(
     Bool.and(
@@ -938,7 +885,6 @@ def lanternward.kit.verbs.shield.sound(first: Bool, +s: J.Val) -> J.Val:
     case False{}:
       s
 
-# The sword button held builds the spin.
 def lanternward.kit.verbs.charge(+s: J.Val, +id: U32, +mask: U32, +press: U32, +inp: J.Val) -> J.Val:
   lanternward.kit.verbs.recover(
     lanternward.kit.verbs.charge.go(Bool.and(U32.is_ne(U32.and(mask, 4), 0), U32.is_eq(lanternward.ku(s, "shield"), 0)), s),
@@ -960,7 +906,6 @@ def lanternward.kit.verbs.charge.mark(full: Bool, +s: J.Val) -> J.Val:
     case True{}:
       lanternward.props.Session.fx(lanternward.sound(s, "spell_cast"), "Spark", lanternward.ku(s, "x"), (lanternward.ku(s, "y") - 2048 : U32), 1)
 
-# A swing's recovery gives way to a dodge or the shield.
 def lanternward.kit.Session.recovering(+k: J.Val) -> Bool:
   Bool.pick(Bool, String.eq(ga.s(k, "act"), "Slash"),
     U32.is_gt(ga.u(k, "t"), (lanternward.kit.slash_wind(RS.u_min(ga.u(k, "n"), 2)) + lanternward.kit.slash_active(RS.u_min(ga.u(k, "n"), 2)) : U32)),
@@ -1021,7 +966,6 @@ def lanternward.kit.verbs.act.go(+code: U32, +s: J.Val, +id: U32, +mask: U32, +p
     case _:
       s
 
-# Letting the sword go ends the winding; a wound spin goes off. Then the lamp.
 def lanternward.kit.verbs.release(+s: J.Val, +id: U32, +mask: U32) -> J.Val:
   lanternward.kit.Session.lantern(
     lanternward.kit.verbs.release.go(U32.is_eq(U32.and(mask, 4), 0), s), id, mask)
@@ -1049,7 +993,6 @@ def lanternward.kit.verbs.release.spin(go: Bool, +s: J.Val) -> J.Val:
 def lanternward.kit.Session.free(+s: J.Val, +id: U32, +press: U32, +inp: J.Val) -> J.Val:
   lanternward.kit.free.shield(U32.is_gt(lanternward.ku(s, "shield"), 0), s, id, press, inp)
 
-# A shield up trades the sword and the hop for a wall; E still meets the world.
 def lanternward.kit.free.shield(up: Bool, +s: J.Val, +id: U32, +press: U32, +inp: J.Val) -> J.Val:
   match up:
     case True{}:
@@ -1073,7 +1016,6 @@ def lanternward.kit.free.sword(go: Bool, +s: J.Val, +id: U32, +press: U32, +inp:
     case False{}:
       lanternward.kit.free.ctx(U32.is_ne(U32.and(press, 8), 0), s, id, press, inp)
 
-# Whether the stick pushes toward the locked target, for a lunge.
 def lanternward.kit.free.forward(+pt: J.Val, +s: J.Val, +inp: J.Val) -> Bool:
   match pt:
     case J.JNull{}:
@@ -1137,8 +1079,6 @@ def lanternward.kit.free.bomb.fuse(room: Bool, +s: J.Val, +id: U32) -> J.Val:
         ga.su(ga.su(ga.si(ga.si(J.obj(), "x", (lanternward.ku(s, "x") + lanternward.kface(s, 0) * 12 : U32)),
           "y", (lanternward.ku(s, "y") + lanternward.kface(s, 1) * 12 : U32)), "t", 75), "owner", U32.and(id, 255)))
 
-# ---- the sword ----
-
 def lanternward.kit.Session.begin_slash(+s: J.Val, +step: U32) -> J.Val:
   lanternward.sound(
     lanternward.ksv(
@@ -1185,7 +1125,6 @@ def lanternward.kit.swinging.slash.sweep.go(active: Bool, +n: U32, +s: J.Val, +i
     case True{}:
       lanternward.kit.swinging.slash.chain(n, lanternward.kit.swinging.slash.freeze(n, lanternward.kit.Session.sweep(s, id, lanternward.kit.slash_reach(n), lanternward.kit.slash_cos(n), lanternward.kit.slash_damage(n), U32.is_eq(n, 2))))
 
-# A landed blade holds its owner a moment.
 def lanternward.kit.swinging.slash.freeze(+n: U32, +s: J.Val) -> J.Val:
   lanternward.kit.swinging.freeze(ga.b(s, "$ret"), Bool.pick(U32, U32.is_eq(n, 2), 4, 2), J.del(s, "$ret"))
 
@@ -1205,7 +1144,6 @@ def lanternward.kit.swinging.slash.chain(+n: U32, +s: J.Val) -> J.Val:
         "step", Bool.pick(U32, U32.is_eq(n, 2), 0, (n + 1 : U32))),
       s))
 
-# The recovery ends: free again, and a queued press starts the next slash.
 def lanternward.kit.swinging.slash.end(+n: U32, +s: J.Val) -> J.Val:
   lanternward.kit.swinging.slash.end.go(
     U32.is_ge(lanternward.ku(s, "t"), (lanternward.kit.slash_wind(n) + lanternward.kit.slash_active(n) + lanternward.kit.slash_rest(n) : U32)), s)
@@ -1274,8 +1212,6 @@ def lanternward.kit.swinging.spin.end.go(done: Bool, +s: J.Val) -> J.Val:
     case False{}:
       s
 
-# A swing's arc: whether (x, y) lies within `reach` px (plus `extra`) of the
-# knight and, unless the swing is a full circle, in front of the knight.
 def lanternward.kit.inside(+k: J.Val, +reach: U32, +cos: U32, +x: U32, +y: U32, +extra: U32) -> Bool:
   lanternward.kit.inside.d(lanternward.world.dist((x - ga.u(k, "x") : U32), (y - ga.u(k, "y") : U32)), k, reach, cos, x, y, extra)
 
@@ -1289,8 +1225,6 @@ def lanternward.kit.inside.d(+d: U32, +k: J.Val, +reach: U32, +cos: U32, +x: U32
 def lanternward.kit.hit_slot(+id: U32) -> U32:
   RS.u_min((id - 1 : U32), 5)
 
-# Every foe, pot, blade-cut thing and iron bolt inside the arc is struck once.
-# `$ret` is true when something was hurt.
 def lanternward.kit.Session.sweep(+s: J.Val, +id: U32, +reach: U32, +cos: U32, +dmg: U32, +heavy: Bool) -> J.Val:
   lanternward.kit.sweep.fin(
     lanternward.kit.sweep.bolts(
@@ -1331,7 +1265,6 @@ def lanternward.kit.sweep.foe(hit: Bool, +s: J.Val, +id: U32, +dmg: U32, +i: U32
           lanternward.eset(s, "foes", i, "hit", J.set_nth(lanternward.ev(s, "foes", i, "hit"), lanternward.kit.hit_slot(id), J.JU{lanternward.ku(s, "swing")})),
           i, dmg, lanternward.ku(s, "x"), lanternward.ku(s, "y")))
 
-# hurt_foe / hurt_boss left whether they hurt in `$ret`: fold it into `$landed`.
 def lanternward.kit.sweep.landed(+s: J.Val) -> J.Val:
   lanternward.kit.sweep.landed.go(ga.b(s, "$ret"), J.del(s, "$ret"))
 
@@ -1445,8 +1378,6 @@ def lanternward.kit.sweep.heavy(hard: Bool, +s: J.Val) -> J.Val:
     case False{}:
       s
 
-# A lunge's line: from the knight out ahead, narrow and long. `$ret` is true
-# when it landed.
 def lanternward.kit.Session.lunge_hit(+s: J.Val, +id: U32) -> J.Val:
   lanternward.kit.lunge_hit.go(
     lanternward.variant("Capsule",
@@ -1518,10 +1449,6 @@ def lanternward.kit.lunge_hit.boss.hit(hit: Bool, +s: J.Val, +id: U32) -> J.Val:
           ga.sv(s, "boss", ga.sv(J.get(s, "boss"), "hit", J.set_nth(ga.v(J.get(s, "boss"), "hit"), lanternward.kit.hit_slot(id), J.JU{lanternward.ku(s, "swing")}))),
           3, lanternward.ku(s, "x"), lanternward.ku(s, "y"), id))
 
-# ---- dodges ----
-
-# E with nothing to do: a roll along the walk, or, locked on, the hop the
-# stick asks for.
 def lanternward.kit.Session.begin_dodge(+s: J.Val, +inp: J.Val) -> J.Val:
   lanternward.kit.begin_dodge.go(
     lanternward.world.unit(ga.u(inp, "move_x"), ga.u(inp, "move_y")),
@@ -1550,7 +1477,6 @@ def lanternward.kit.begin_dodge.roll.go(+vx: U32, +vy: U32, +s: J.Val) -> J.Val:
       ga.pair_i(RS.i_div((vx * 1100 : U32), 256), RS.i_div((vy * 1100 : U32), 256))),
     "face", ga.pair_i(vx, vy))
 
-# Locked on: forward, back or to a side relative to the lock.
 def lanternward.kit.begin_dodge.hop(+wx: U32, +wy: U32, +pt: J.Val, +s: J.Val) -> J.Val:
   lanternward.kit.begin_dodge.hop.fwd(
     lanternward.world.unit((ga.nu(pt, 0) - lanternward.ku(s, "x") : U32), (ga.nu(pt, 1) - lanternward.ku(s, "y") : U32)), wx, wy, s)
@@ -1626,7 +1552,6 @@ def lanternward.kit.hopping.move(+s: J.Val, +press: U32) -> J.Val:
       lanternward.kit.Session.shove(s, ga.nu(lanternward.kv(s, "mv"), 0), ga.nu(lanternward.kv(s, "mv"), 1)), s),
     press)
 
-# A parabola, peaking mid-hop.
 def lanternward.kit.hopping.z(+s: J.Val, +press: U32) -> J.Val:
   lanternward.kit.hopping.plunge(
     lanternward.ksi(
@@ -1641,7 +1566,6 @@ def lanternward.kit.hopping.plunge(+s: J.Val, +press: U32) -> J.Val:
       Bool.pick(U32, Bool.and(U32.is_ge(lanternward.ku(s, "t"), 2), U32.is_le(lanternward.ku(s, "t"), 14)),
         RS.u_max(lanternward.ku(s, "inv"), 1), lanternward.ku(s, "inv"))))
 
-# The jump attack: straight down on whatever is below.
 def lanternward.kit.hopping.jump(go: Bool, +s: J.Val) -> J.Val:
   match go:
     case True{}:
@@ -1674,7 +1598,6 @@ def lanternward.kit.Session.plunging(+s: J.Val, +id: U32) -> J.Val:
 def lanternward.kit.plunging.fall(+s: J.Val, +id: U32) -> J.Val:
   lanternward.kit.plunging.down(U32.is_eq(lanternward.ku(s, "z"), 0), s, id)
 
-# Down: the blow lands in a ring about the knight.
 def lanternward.kit.plunging.down(grounded: Bool, +s: J.Val, +id: U32) -> J.Val:
   match grounded:
     case False{}:
@@ -1702,8 +1625,6 @@ def lanternward.kit.plunging.end(+hit: Bool, +s: J.Val) -> J.Val:
 
 def lanternward.kit.plunging.thud(+s: J.Val) -> J.Val:
   ga.su(lanternward.sound(s, "rock_land"), "shake", RS.u_max(ga.u(s, "shake"), 8))
-
-# ---- the lantern ----
 
 def lanternward.kit.Session.lantern(+s: J.Val, +id: U32, +mask: U32) -> J.Val:
   lanternward.kit.lantern.owned(
@@ -1746,7 +1667,6 @@ def lanternward.kit.lantern.burn.go(flaring: Bool, +s: J.Val) -> J.Val:
         U32.is_eq(RS.u_sat_sub(lanternward.ku(s, "flame"), 1), 0),
         lanternward.ks(s, "flame", RS.u_sat_sub(lanternward.ku(s, "flame"), 1)))
 
-# Sputters out: the knight cannot flare again for a bit.
 def lanternward.kit.lantern.out(dead: Bool, +s: J.Val) -> J.Val:
   match dead:
     case False{}:
@@ -1754,7 +1674,6 @@ def lanternward.kit.lantern.out(dead: Bool, +s: J.Val) -> J.Val:
     case True{}:
       lanternward.sound(lanternward.ks(lanternward.ks(s, "lamp", 0), "lamp_cd", 45), "mana_empty")
 
-# A tap throws a bolt of light on the release.
 def lanternward.kit.lantern.release(+s: J.Val, +id: U32) -> J.Val:
   lanternward.kit.lantern.tap(
     Bool.and(
@@ -1811,10 +1730,6 @@ def lanternward.kit.lantern.bolt(+ax: U32, +ay: U32, +s: J.Val, +id: U32) -> J.V
       s),
     "shot_spark")
 
-# ---- camera ----
-
-# The view eases to the knight, leaning toward a lock; a fresh lock swings it
-# in fast, a let-go eases it back slowly.
 def lanternward.kit.Session.camera(+s: J.Val) -> J.Val:
   lanternward.kit.camera.lock(lanternward.kit.Session.lock_point(s, lanternward.kv(s, "lock")), s)
 
@@ -1827,8 +1742,6 @@ def lanternward.kit.camera.lock(+pt: J.Val, +s: J.Val) -> J.Val:
         (lanternward.ku(s, "x") + RS.i_div((RS.i_mul((ga.nu(pt, 0) - lanternward.ku(s, "x") : U32), 38)), 100) : U32),
         (lanternward.ku(s, "y") + RS.i_div((RS.i_mul((ga.nu(pt, 1) - lanternward.ku(s, "y") : U32), 38)), 100) : U32), s)
 
-# The Warden stands head and shoulders over a knight: while it is up and not
-# the lock, the view leans toward it, up to 52 px.
 def lanternward.kit.camera.boss(+tx: U32, +ty: U32, +s: J.Val) -> J.Val:
   lanternward.kit.camera.boss.go(
     Bool.and(
@@ -1856,7 +1769,6 @@ def lanternward.kit.camera.pull.fin(+pull: U32, +d: U32, +dx: U32, +dy: U32, +tx
   lanternward.kit.camera.cue(
     (tx + lanternward.world.mul_div(dx, pull, d) : U32), (ty + lanternward.world.mul_div(dy, pull, d) : U32), s)
 
-# A door or a switch that came right: every view looks at it a moment.
 def lanternward.kit.camera.cue(+tx: U32, +ty: U32, +s: J.Val) -> J.Val:
   lanternward.kit.camera.cue.has(J.is_null(J.get(s, "cue")), tx, ty, s)
 

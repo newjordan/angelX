@@ -1,5 +1,3 @@
-"""Campaigns retain planned attempts and report failed child runs."""
-
 import json
 import os
 from pathlib import Path

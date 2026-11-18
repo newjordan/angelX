@@ -3,9 +3,7 @@
 
 use super::Template;
 
-/// One-screen rooms: 11 by 6 quadrants.
 pub const SMALL: &[Template] = &[
-    // The Bone Chapel: twin nave pillars and a tomb pair by the altar; fight down the open aisle.
     [
         "...........",
         ".##..##..#.",
@@ -14,7 +12,6 @@ pub const SMALL: &[Template] = &[
         "...........",
         "...........",
     ],
-    // The Slid Tombs: sarcophagi dragged out of line into a diagonal; slalom between them.
     [
         "...........",
         ".##........",
@@ -23,7 +20,6 @@ pub const SMALL: &[Template] = &[
         "...........",
         "...........",
     ],
-    // The Weeping Vault: a flooded vault in the corner, a pillar pair across it; shoot over the water.
     [
         "#..........",
         "#.~~....#..",
@@ -32,7 +28,6 @@ pub const SMALL: &[Template] = &[
         "...........",
         "...........",
     ],
-    // The Ossuary Wall: niched bones and loose stones in an open hall; a duel at range.
     [
         "##.........",
         "####...###.",
@@ -43,9 +38,7 @@ pub const SMALL: &[Template] = &[
     ],
 ];
 
-/// Bigger rooms: quadrants of the sizes in `rooms::SIZES`.
 pub const GREAT: &[&[&str]] = &[
-    // The Chapel Apse: a broken apse arch off the corner, its floor flooded; the dead wait in the curve.
     &[
         "...............",
         "..###.##.......",
@@ -57,7 +50,6 @@ pub const GREAT: &[&[&str]] = &[
         "...............",
         "...............",
     ],
-    // The Reliquary Aisle: three reliquaries a side down the aisle and a casket at the crossing; long lanes.
     &[
         "#...............",
         "####..##..##....",
@@ -69,7 +61,6 @@ pub const GREAT: &[&[&str]] = &[
         "................",
         "................",
     ],
-    // The Drowned Ossuary: two sunken tombs and sliding water; wade the dry diagonal.
     &[
         "................",
         "..~~~...##......",
@@ -81,7 +72,6 @@ pub const GREAT: &[&[&str]] = &[
         "................",
         "................",
     ],
-    // The Flooded Gallery: a moat straight across the gallery and shelf-butts beyond it; fight over the water.
     &[
         ".................",
         "..##.##.##.##....",
@@ -93,7 +83,6 @@ pub const GREAT: &[&[&str]] = &[
         ".................",
         ".................",
     ],
-    // The Sepulchre Field: tombs set on the half-step so the ranks interleave; no straight lane through.
     &[
         "...................",
         "...................",
@@ -107,7 +96,6 @@ pub const GREAT: &[&[&str]] = &[
         "...................",
         "...................",
     ],
-    // The Processional: pillar pairs and casket butlers along the walk, pooled crossings between; circle the pillars.
     &[
         "....................",
         "..#....#....#.......",
@@ -121,7 +109,6 @@ pub const GREAT: &[&[&str]] = &[
         "....................",
         "....................",
     ],
-    // The Crypt Beneath the Crypt: older tombs on the half-step and a black channel below; mind the water.
     &[
         "....................",
         ".##...##...##.......",
@@ -135,7 +122,6 @@ pub const GREAT: &[&[&str]] = &[
         "....................",
         "....................",
     ],
-    // The Catacomb Shelves: shelf-racks stepping down the diagonal into a pooled undercroft; slide fight.
     &[
         "####...................",
         "####.###...............",
@@ -151,7 +137,6 @@ pub const GREAT: &[&[&str]] = &[
         ".......................",
         ".......................",
     ],
-    // The Bone Cathedral: a tomb rank, a broken reliquary screen and a high altar at the crossing.
     &[
         "####...................",
         "####...................",

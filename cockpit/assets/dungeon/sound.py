@@ -1,30 +1,9 @@
 #!/usr/bin/env python3
-"""Generate the Delve's sound effects and music with ElevenLabs.
-
-  sfx/<name>.mp3    — ElevenLabs sound-effects API, trimmed to under 1.5 s,
-                      mono 96k, peak-normalised then loudness-matched.
-  music/<track>.mp3 — ElevenLabs music API (composition plans), mono 96k,
-                      loudness-normalised, ends faded into the start so the
-                      loop seam is soft.
-
-Needs ELEVENLABS_API_KEY. Existing files are kept: delete one to regenerate
-it. Arguments limit the run to those names (e.g. `sound.py shot_bow crypt`).
-
-Credits are limited: the shipped SFX and the sanctuary track came from here;
-the other music is CC0 from OpenGameArt (pack.py). Prefer free packs for new
-sounds, and run level.py after any change.
-
-Levels (see sfx/README.md): music files sit at -20 LUFS, SFX at about
--18 LUFS short-term with -2 dBTP peaks; the knights' voices (knights.py)
-are levelled quieter still. See sfx/README.md for the runtime levels.
-"""
 import json, os, pathlib, subprocess, sys, tempfile, urllib.request
 
 HERE = pathlib.Path(__file__).resolve().parent
 KEY = os.environ.get('ELEVENLABS_API_KEY', '')
 
-# Short, dry, readable game sounds. A black-paper pixel knight game: crisp,
-# a little retro, never muddy or long.
 SFX = {
     'shot_bow': 'a single short wooden bow twang releasing an arrow, crisp, close, dry, game sound effect',
     'shot_crossbow': 'a heavy crossbow trigger clack and bolt release thunk, short, punchy, dry, game sound effect',
@@ -55,8 +34,6 @@ SFX = {
     'mana_empty': 'out of magic power: short dull descending fizzle, game sound effect',
 }
 
-# Composition plans for loops: 60–90 s, no vocals. Fantasy meets a little
-# synth: the realm is a kingdom of knights in a world still being computed.
 COMMON_NEG = ['vocals', 'singing', 'choir', 'spoken word', 'pop', 'EDM drop']
 
 
@@ -143,8 +120,6 @@ def make_sfx(name, prompt):
     with tempfile.TemporaryDirectory() as tmp:
         src = pathlib.Path(tmp) / 'raw.mp3'
         src.write_bytes(raw)
-        # Trim leading silence, cap at 1.4 s with a short fade, mono, then
-        # bring peaks to -2 dBTP and the body to about -18 LUFS.
         ffmpeg('-i', str(src), '-af',
                'silenceremove=start_periods=1:start_threshold=-45dB,'
                'areverse,silenceremove=start_periods=1:start_threshold=-50dB,areverse,'
@@ -165,7 +140,6 @@ def make_music(name, body):
         src.write_bytes(raw)
         dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', str(src)],
                                    capture_output=True, text=True).stdout.strip())
-        # A soft seam: fade the last 2.5 s and the first 0.4 s.
         ffmpeg('-i', str(src), '-af',
                f'afade=t=in:d=0.4,afade=t=out:st={max(dur - 2.5, 0):.2f}:d=2.5,loudnorm=I=-20:TP=-2:LRA=11',
                '-ac', '1', '-ar', '44100', '-b:a', '96k', str(out))

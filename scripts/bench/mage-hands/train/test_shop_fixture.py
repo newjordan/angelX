@@ -1,4 +1,3 @@
-"""Fixture-only verification. Does not exercise a model or claim agent success."""
 import importlib.util
 from pathlib import Path
 import re

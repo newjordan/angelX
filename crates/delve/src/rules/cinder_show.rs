@@ -9,22 +9,15 @@ use super::cinder::{COLS, CRACKS, ROWS};
 use super::juice::Weight;
 use serde::{Deserialize, Serialize};
 
-/// Ticks the longest mark (a kiln stage breaking) stays on the books.
 pub const MARK_LIFE: u32 = 64;
-/// Ticks a call stays up.
 pub const CALL_LIFE: u32 = 66;
-/// Cracks a knight needs alone on top before the table calls the lead.
 pub const LEAD_MIN: u16 = 6;
-/// Cracks at which the table calls match point.
 pub const POINT: u16 = 30;
-/// The two front runners are neck and neck from here, if they are within `CLOSE_BY` cracks.
 pub const CLOSE_AT: u16 = 27;
 pub const CLOSE_BY: u16 = 3;
 const MOST_MARKS: usize = 12;
 const MOST_CALLS: usize = 6;
 
-/// A set of the board's sixty cells (`y * COLS + x`), in two halves so no number is wider than 30
-/// bits.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Cells {
     pub lo: u32,
@@ -50,31 +43,21 @@ impl Cells {
     fn valid(&self) -> bool {
         self.lo < 1 << 30 && self.hi < 1 << 30
     }
-    /// The cells in the set, row by row.
     pub fn each(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
         (0..ROWS).flat_map(|y| (0..COLS).map(move |x| (x, y))).filter(|&(x, y)| self.has(x, y))
     }
 }
 
-/// What happened on a board.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Kind {
-    /// A pair came to rest on its two cells; `hard` when it was dropped, from row `from`.
     Land { a: (u8, u8), b: (u8, u8), hard: bool, from: u8 },
-    /// Pots popped: the cells by pot colour (1 to 3, then slag), which link of a chain it was, and
-    /// the cracks it took off the kiln.
     Pop { by: [Cells; 4], chain: u8, gain: u8 },
-    /// Slag came down column `col` and settled on row `row`; `hit` when it fell into the pair in
-    /// play (a cough), `near` when it landed in the pair's own column.
     Slag { col: u8, row: u8, hit: bool, near: bool },
-    /// The kiln crossed a stage: 1 and 2 crack it, 3 splits it for good.
     Stage { n: u8 },
-    /// The stack topped out.
     Cough,
 }
 
 impl Kind {
-    /// Ticks a mark of this kind stays on the books.
     pub fn life(self) -> u32 {
         match self {
             Kind::Land { .. } => 16,
@@ -84,7 +67,6 @@ impl Kind {
             Kind::Cough => 40,
         }
     }
-    /// How a mark weighs, for the kit's shake and flash.
     pub fn weight(self) -> Weight {
         match self {
             Kind::Land { .. } => Weight::Graze,
@@ -103,7 +85,6 @@ impl Kind {
     }
 }
 
-/// A thing that happened, and when (the board's own tick).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Mark {
     pub kind: Kind,
@@ -111,13 +92,11 @@ pub struct Mark {
 }
 
 impl Mark {
-    /// Ticks since it happened at `now`.
     pub fn age(&self, now: u32) -> u32 {
         now.saturating_sub(self.born)
     }
 }
 
-/// One board's marks.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Show {
     pub marks: Vec<Mark>,
@@ -138,7 +117,6 @@ impl Show {
                 Kind::Cough => true,
             })
     }
-    /// Let go what is old at `now`.
     pub fn tick(&mut self, now: u32) {
         self.marks.retain(|m| m.age(now) < m.kind.life());
     }
@@ -148,37 +126,26 @@ impl Show {
         }
         self.marks.push(Mark { kind, born: now });
     }
-    /// The marks born on this very tick.
     pub fn fresh(&self, now: u32) -> impl Iterator<Item = &Mark> {
         self.marks.iter().filter(move |m| m.born == now)
     }
-    /// The heaviest mark born on this very tick.
     pub fn heaviest(&self, now: u32) -> Option<Weight> {
         self.fresh(now).map(|m| m.kind.weight()).max()
     }
 }
 
-/// What the whole table hears.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Cry {
-    /// A knight took the lead.
     Lead,
-    /// A chain of this many links.
     Chain(u8),
-    /// A knight cracked the kiln's first (1) or second (2) stage.
     Stage(u8),
-    /// A knight is within a chain of cracking it.
     Point,
-    /// A knight's stack topped out.
     Cough,
-    /// A knight cracked the kiln.
     Cracked,
-    /// Two knights are close to the end and a few cracks apart.
     Close,
 }
 
 impl Cry {
-    /// How loud: the call with the higher rank stays on top.
     pub fn rank(self) -> u8 {
         match self {
             Cry::Cracked => 9,
@@ -205,15 +172,11 @@ impl Call {
     }
 }
 
-/// The table's calls and what they were judged against.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Calls {
     pub list: Vec<Call>,
-    /// Who is ahead now, if one knight is alone in front.
     pub leader: Option<u32>,
-    /// Knights whose match point has been called.
     pub pointed: Vec<u32>,
-    /// Whether the table has been told the race is close.
     #[serde(default)]
     pub close: bool,
 }
@@ -239,7 +202,6 @@ impl Calls {
         }
         self.list.push(Call { cry, who, born: now });
     }
-    /// Knight `who`'s board made these marks this tick: call the ones the table should hear.
     pub fn report<'a>(&mut self, who: u32, fresh: impl Iterator<Item = &'a Mark>, now: u32) {
         for m in fresh {
             match m.kind {
@@ -251,7 +213,6 @@ impl Calls {
             }
         }
     }
-    /// Everyone's cracks now: the lead changes hands, a knight reaches match point.
     pub fn standings(&mut self, now: u32, scores: &[(u32, u16)]) {
         let top = scores.iter().map(|&(_, c)| c).max().unwrap_or(0);
         let ahead: Vec<u32> = scores.iter().filter(|&&(_, c)| c == top && top >= LEAD_MIN).map(|&(id, _)| id).collect();

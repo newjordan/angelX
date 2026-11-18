@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
+import { once } from 'node:events'
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -187,7 +188,6 @@ test('launcher logging uses the builtin clock without external date on modern Ba
     if (mode !== 'no-build') {
       const cargo = readFileSync(join(fixture.home, '.angelX/cargo.log'), 'utf8')
       assert.match(cargo, /^=== \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} .*cargo --locked/)
-      // Trusted runner configuration changes TZ after the first log entry.
       const offset = mode === 'inspection' ? '-10:00' : 'Z'
       const cargoStamp = cargo.match(/^=== (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/)[1]
       const parsed = Date.parse(cargoStamp.replace(' ', 'T') + offset)
@@ -201,7 +201,6 @@ test('launcher logging keeps external date fallback for pre-4.2 Bash', (t) => {
   const fixture = launchFixture(t)
   const launcher = join(fixture.source, 'bin/angelX')
   const source = readFileSync(launcher, 'utf8')
-  // Force only version selection in this private copy; no production override.
   const gate = 'if (( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 2) )); then'
   assert.equal(source.split(gate).length, 2, 'must find one version gate')
   writeFileSync(launcher, source.replace(gate, 'if false; then'))
@@ -297,8 +296,6 @@ test('host discovery never supplies metadata for a different selected compiler',
   const selected = join(rustupHome, 'toolchains/fixture-pinned-x86_64-unknown-linux-gnu/bin')
   for (const bin of [discovered, selected]) mkdirSync(bin, { recursive: true })
   writeFileSync(join(fixture.source, 'rust-toolchain.toml'), '[toolchain]\nchannel = "fixture-pinned"\n')
-  // The first installed compiler supplies the host used to select a different
-  // sibling Cargo. Equal host triples do not make their full metadata equal.
   for (const [bin, name] of [[discovered, 'discovered'], [selected, 'selected']]) {
     writeFileSync(join(bin, 'rustc'), `#!/bin/sh\nprintf '${name}\\n' >> "$HOME/compiler-probes"\nprintf 'rustc ${name}\\nhost: x86_64-unknown-linux-gnu\\n'\n`, { mode: 0o755 })
   }
@@ -359,8 +356,6 @@ test('fresh pinned Rust provisioning includes the browser target before the firs
   const fixture = launchFixture(t)
   const commands = join(fixture.home, '.local/bin')
   const cargo = join(commands, 'cargo')
-  // A fresh Rust home has no selected compiler yet. The rustup shim is
-  // modeled below; no real installation or network request is made.
   copyFileSync(cargo, join(commands, 'fixture-cargo'))
   rmSync(cargo)
   writeFileSync(join(fixture.source, 'rust-toolchain.toml'), '[toolchain]\nchannel = "fixture-pinned"\ntargets = ["wasm32-unknown-unknown"]\n')
@@ -656,8 +651,6 @@ test('only explicit background build commands schedule a worker; normal inspecti
   assert.equal(fixture.status(), null)
 })
 
-// Exercise the real launch path with a compiler stub and profile probes.
-// No Rust build or user configuration is needed.
 function buildFixture(t, { prebuilt = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'angel-build-profile-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
@@ -722,6 +715,67 @@ for (const [name, env, profile, flags] of [
     assert.deepEqual(fixture.builds(), [{ args: ['build', '--locked', ...flags, '--no-default-features', '--features', 'glass,delve'], profile }])
   })
 }
+
+test('hot-system build honors Delve opt-out and still gates enabled launches', (t) => {
+  for (const [name, env, buildsWorker, expectedStatus] of [
+    ['Delve disabled', { ANGEL_DELVE: '0', ANGEL_HOT_SYSTEMS: '1' }, false, 0],
+    ['Delve enabled', { ANGEL_HOT_SYSTEMS: '1' }, true, 0],
+    ['worker explicitly disabled', { ANGEL_HOT_SYSTEMS: '0' }, false, 0],
+    ['no-build launch', { ANGEL_HOT_SYSTEMS: '1', ANGEL_NO_BUILD: '1' }, false, 0],
+    ['worker failure', { ANGEL_HOT_SYSTEMS: '1', FIXTURE_WORKER_FAIL: '1' }, true, 1],
+  ]) {
+    const fixture = launchFixture(t)
+    writeFileSync(join(fixture.home, '.local/bin/node'), '#!/bin/sh\nprintf "%s\\n" "$*" >> "$HOME/worker-builds"\n[ "${FIXTURE_WORKER_FAIL:-0}" != 1 ]\n', { mode: 0o755 })
+    const result = fixture.run(['--version'], env)
+    assert.equal(result.status, expectedStatus, `${name}: ${result.stderr}`)
+    assert.equal(existsSync(join(fixture.home, 'worker-builds')), buildsWorker, name)
+    if (buildsWorker) assert.equal(readFileSync(join(fixture.home, 'worker-builds'), 'utf8').trim(), `${fixture.source}/scripts/dev/systems.mjs delve`)
+    if (expectedStatus) {
+      assert.equal(result.stdout, '', 'worker failure must not launch a stale cockpit')
+      assert.equal(fixture.builds().length, 0)
+    }
+  }
+})
+
+test('systems watcher rebuilds when its protocol dependency changes', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'angel-systems-watch-'))
+  let child
+  t.after(async () => {
+    if (child && child.exitCode === null && child.signalCode === null) {
+      const done = once(child, 'exit')
+      child.kill('SIGTERM')
+      await done
+    }
+    rmSync(root, { recursive: true, force: true })
+  })
+  for (const dir of ['scripts/dev', 'scripts/live', 'cockpit/assets/dungeon', 'crates/net/src', 'toolbin', 'target/fast']) mkdirSync(join(root, dir), { recursive: true })
+  copyFileSync(fileURLToPath(new URL('../../scripts/dev/systems.mjs', import.meta.url)), join(root, 'scripts/dev/systems.mjs'))
+  for (const file of ['crates/Cargo.toml', 'crates/Cargo.lock']) writeFileSync(join(root, file), '# fixture\n')
+  writeFileSync(join(root, 'rust-toolchain.toml'), 'channel = "fixture"\n')
+  const protocol = join(root, 'crates/net/src/lib.rs')
+  writeFileSync(protocol, '// original\n')
+  const cargo = join(root, 'toolbin/cargo')
+  writeFileSync(cargo, '#!/bin/sh\necho build >> "$FIXTURE_BUILD_LOG"\nprintf worker > "$CARGO_TARGET_DIR/fast/angel-delve-system"\n', { mode: 0o755 })
+  writeFileSync(join(root, 'toolbin/rustup'), '#!/bin/sh\nprintf "%s\\n" "$FIXTURE_CARGO"\n', { mode: 0o755 })
+  const log = join(root, 'builds')
+  const count = () => existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').length : 0
+  let diagnostics = ''
+  child = spawn(process.execPath, [join(root, 'scripts/dev/systems.mjs'), '--watch'], {
+    env: { ...process.env, PATH: `${join(root, 'toolbin')}:/usr/bin:/bin`, CARGO_TARGET_DIR: join(root, 'target'), ANGEL_DELVE_SYSTEM: join(root, 'worker'), FIXTURE_CARGO: cargo, FIXTURE_BUILD_LOG: log },
+    stdio: ['ignore', 'ignore', 'pipe'],
+  })
+  child.stderr.on('data', (data) => { diagnostics += data })
+  await until(() => count() === 1 && existsSync(join(root, 'worker')))
+  const inputs = [protocol, join(root, 'scripts/live/bend.mjs'), ...['boss', 'wish', 'room', 'vfx', 'pastime'].map(ext => join(root, `cockpit/assets/dungeon/fixture.${ext}`))]
+  for (const [index, path] of inputs.entries()) {
+    writeFileSync(path, `// changed worker input ${index}\n`)
+    await until(() => {
+      assert.equal(child.exitCode, null, diagnostics)
+      return count() === index + 2
+    })
+  }
+  assert.equal(readFileSync(join(root, 'worker'), 'utf8'), 'worker')
+})
 
 test('ANGEL_DELVE=0 builds the console without the Delve', (t) => {
   const fixture = buildFixture(t)
@@ -851,7 +905,6 @@ test('Blaze failure never falls back to Cargo or a cached image', (t) => {
 test('Blaze launch image is copied, not hardlinked to the in-place patch target', (t) => {
   const fixture = launchFixture(t, { blaze: true })
   const tool = join(fixture.source, 'cockpit/target/tools/blaze/b383b0bcf5da33816809b00a37e1c36a0e761efb/blaze')
-  // Emit a program that changes the original target while the launch image runs.
   writeFileSync(tool, `#!/bin/sh
 mkdir -p "$CARGO_TARGET_DIR/fast"
 printf '#!/bin/sh\nprintf "#!/bin/sh\\necho changed\\n" > "$CARGO_TARGET_DIR/fast/angel"\nprintf "private-image-ok\\n"\n' > "$CARGO_TARGET_DIR/fast/angel"
@@ -894,7 +947,6 @@ test('explicit Blaze wrapper builds the full application with its own Rust ABI',
 test('short printable ASCII launch text avoids Python while preserving arguments', (t) => {
   const fixture = launchFixture(t)
   writeFileSync(join(fixture.home, '.local/bin/python3'), '#!/bin/sh\nprintf "called\\n" >> "$HOME/python-calls"\nexec /usr/bin/python3 "$@"\n', { mode: 0o755 })
-  // Echo argv without another language runtime, keeping locale state observable.
   writeFileSync(join(fixture.source, 'cockpit/target/release/angel'), '#!/bin/sh\nprintf "locale=%s\\n" "$LC_ALL"\nprintf "<%s>\\n" "$@"\n')
   const env = { ANGEL_NO_BUILD: '1', LC_ALL: 'C.UTF-8', PATH: `${fixture.home}/.local/bin:/usr/bin:/bin` }
   for (const args of [
@@ -922,7 +974,7 @@ test('non-ASCII and long launch text retains real Python validation and failure 
   const cases = [
     [['--draft', '日本語'], 0],
     [['--driver', '\u00a0x'], 2],
-    [['--driver', '\u001cx'], 0], // Rust's explicit whitespace set is not Python str.strip().
+    [['--driver', '\u001cx'], 0],
     [['--draft', 'x'.repeat(1025)], 0],
     [['--driver', 'x'.repeat(1025)], 2],
     [['--draft', '\t\n'], 2],

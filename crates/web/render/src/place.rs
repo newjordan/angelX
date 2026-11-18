@@ -7,19 +7,12 @@
 //! 768 wide in a 1280 window is only 1x), or not even 1x fits, it is fitted
 //! instead, still nearest, rather than shown small or cropped.
 
-/// A whole-number scale is kept while it fills at least this share of what
-/// fitting the frame would.
 pub const MIN_FILL: f64 = 0.8;
 
-/// The dev panel's `scale` knob: 0 as above, 1 whole numbers whenever 1x
-/// fits, 2 always fitted. Anything else is 0.
 pub fn mode(m: u32) -> u8 {
     if m == 1 || m == 2 { m as u8 } else { 0 }
 }
 
-/// Where a `frame`-sized picture goes in a `screen`-sized canvas: x, y (from
-/// the top), width, height, in the canvas's pixels. Never empty, never past
-/// the canvas.
 pub fn fit(screen: (u32, u32), frame: (u32, u32), mode: u8) -> [u32; 4] {
     let (cw, ch) = (screen.0.max(1), screen.1.max(1));
     let (w, h) = (frame.0.max(1), frame.1.max(1));
@@ -45,8 +38,6 @@ pub fn fit(screen: (u32, u32), frame: (u32, u32), mode: u8) -> [u32; 4] {
 mod tests {
     use super::*;
 
-    /// What `present.js`'s `fit` gives for the same inputs, taken from that
-    /// function itself (node, 2026-10-16): screen, frame, scale knob, box.
     #[test]
     fn the_box_is_the_one_present_js_fits() {
         type Case = ((u32, u32), (u32, u32), u8, [u32; 4]);

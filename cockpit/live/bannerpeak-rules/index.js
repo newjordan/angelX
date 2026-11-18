@@ -1,8 +1,3 @@
-// Thin adapter for Bannerpeak's authored rules. Plain JSON in, the compiled
-// leg's answer out: which tiles a cell is, whether they are solid and whether a
-// knight may come up through them all live in map.bend and tiles.bend, and King
-// Cinder's tick and his slam in boss.bend. Rust owns the session, the knight's
-// shape, the saves and the wire.
 const rules = require('./bannerpeak-rules.compiled.js')
 
 const word = value => (Number.isFinite(value) ? Math.trunc(value) >>> 0 : 0)
@@ -24,7 +19,6 @@ const planks = list => {
   return out
 }
 
-// A list of records in, the same list as Bend's cons cells out (and back).
 const cons = (values, shape) => {
   let list = { $: 'Nil' }
   for (let at = values.length - 1; at >= 0; at--) list = { $: 'Con', head: shape(values[at]), tail: list }
@@ -36,7 +30,6 @@ const cells = (list, shape) => {
   return out
 }
 
-// The feet of the seats standing, in seat order, in six fixed slots.
 const feet = values => {
   const slots = (values || []).slice(0, 6).map(pair => [word(pair[0]), word(pair[1])])
   while (slots.length < 6) slots.push([0, 0])
@@ -118,7 +111,6 @@ const answer = value => {
   }
 }
 
-// King Cinder's tick, and the slam that takes a plate off his crown.
 const tick = input => {
   if (!input || !input.boss) throw Error('bannerpeak-rules: no boss')
   const next = rules.bannerpeak_boss(

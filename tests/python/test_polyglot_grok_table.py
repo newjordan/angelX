@@ -1,4 +1,3 @@
-"""Offline checks that Grok's legacy table shares conservative proxy accounting."""
 import contextlib
 import importlib.util
 import io

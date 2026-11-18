@@ -9,11 +9,6 @@
 
 use super::*;
 
-/// The brevity instruction and where it belongs in `messages` (right after the
-/// leading system block), or `None` when the mode is off or already applied.
-/// Returned as an index + text so the caller splices it into the outbound JSON
-/// — the history itself is never cloned for this (it used to be, every hop).
-/// `ANGEL_SOTA_CAVEMAN` decides when set; unset, a self-hosted link is on.
 pub(crate) fn sota_caveman_insert(
     messages: &[ChatMsg],
     self_hosted: bool,
@@ -33,20 +28,12 @@ pub(crate) fn sota_caveman_insert(
     Some((insert_at, sota_caveman_instruction()))
 }
 
-/// On when `ANGEL_TASK_STABLE_FIRST=1`, which a small workspace's headless
-/// task sets by default. The brevity block is the same in every request, but
-/// it lands after the leading system block, which in a headless task ends
-/// with the workspace map, so it can never be served from a provider's prefix
-/// cache. On, it goes right after the first system message, ahead of the map:
-/// 128 more cached tokens per first request on DeepSeek Flash (1664 -> 1792,
-/// measured 2026-11-11).
 pub(crate) const STABLE_FIRST_ENV: &str = "ANGEL_TASK_STABLE_FIRST";
 
 fn stable_first() -> bool {
     std::env::var(STABLE_FIRST_ENV).is_ok_and(|v| v.trim() == "1")
 }
 
-/// The operator's explicit `ANGEL_SOTA_CAVEMAN` choice, if any.
 pub(crate) fn sota_caveman_enabled() -> Option<bool> {
     #[cfg(not(test))]
     {
@@ -65,8 +52,6 @@ fn sota_caveman_enabled_from_env() -> Option<bool> {
         .map(|v| !matches!(v.as_str(), "0" | "false" | "no" | "off" | "none"))
 }
 
-/// The brevity warpath: the marker, the `ANGEL_SOTA_CAVEMAN_LEVEL` level and
-/// the rules (`⠵⠁⠵⠉⠵⠋` for full). Their words are `ledger://⠵`, verbatim.
 pub(crate) fn sota_caveman_instruction() -> String {
     #[cfg(not(test))]
     {

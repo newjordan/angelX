@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""knights_gen: knights::COMPANY as Bend (delve/rules/core/knights_data.bend), from the Rust source."""
 import pathlib, re, json
 root = pathlib.Path(__file__).resolve().parents[4]
 text = (root / "crates/delve/src/rules/knights.rs").read_text()

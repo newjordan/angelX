@@ -1,29 +1,4 @@
 #!/usr/bin/env python3
-"""bendx (the core group's copy): structured Bend. `(A, B)` is the affine pair `A & B` (what PORTING.md says a
-function hands back); inside `[..]`/`..?` it is the reusable Sigma. Split a tuple two at a time.
-
-Rust function bodies are statement-shaped (early return, if/else, loops with
-continue/break, rebinding). Bend 2 has none of that: a `match` takes only a
-parameter, there is no `if`, and a pair is split only by a def that receives it.
-bendx takes a def body written with those statements and emits plain Bend, one
-def per control point (continuation passing), so the translation can follow the
-Rust line by line. Expressions are Bend, passed through untouched.
-
-    python3 delve/rules/combat/_tools/bendx.py [file.bendx ...]    (default: all beside it)
-
-writes foo.bend next to foo.bendx.  Source forms (inside `def f(a: T, b: U) -> R:`):
-
-    x: T = EXPR            new variable      x = EXPR       rebind (type kept)
-    (a: T, b: U) = EXPR    split a pair      (a, b: U) = ... rebinds a
-    if C: / elif C: / else:                  return EXPR
-    for e: T in LIST: / for (a: T, b: U) in LIST:   continue / break
-    while C:
-    match (EXPR : T):  with  case Pat{x: T, y: U}:  blocks
-    EXPR                   (the last statement) the result
-
-Types: `(A, B, C)` a Data tuple, `[T]` List<&2, T>, `T?` Maybe<&2, T>.
-Every parameter is reusable (`+`). Lines starting with `#` are comments.
-"""
 import pathlib
 import re
 import sys
@@ -34,9 +9,6 @@ IDENT = re.compile(r"[A-Za-z_][A-Za-z_0-9]*(?:\.[A-Za-z_0-9?]+)*")
 
 class Err(Exception):
     pass
-
-
-# ---------------------------------------------------------------- types
 
 def split_top(s, sep=","):
     out, depth, cur, q = [], 0, [], False
@@ -57,8 +29,6 @@ def split_top(s, sep=","):
 
 
 def ty(s, data=False):
-    """Sugar -> Bend type text. `(A, B)` is the affine pair `A & B` (a function
-    result), or the reusable Sigma inside `[..]` / `..?` (a thing in a list)."""
     s = s.strip()
     if s.endswith("?") and not s.endswith("??"):
         return "Maybe<&2, %s>" % ty(s[:-1], True)
@@ -76,7 +46,6 @@ def ty(s, data=False):
 
 
 def is_data(t):
-    """Whether values of the type may be reused (a `+` parameter): not an affine pair."""
     d = 0
     for i, ch in enumerate(t):
         if ch in "(<[{":
@@ -109,9 +78,6 @@ def sigma(ts, data=False):
     if not is_data(rest):
         rest = "(%s)" % rest
     return "%s & %s" % (ts[0], rest)
-
-
-# ---------------------------------------------------------------- lines
 
 class Line:
     def __init__(self, ind, text, no):
@@ -154,9 +120,6 @@ def logical(src):
     if cur is not None:
         raise Err("unbalanced brackets at line %d" % no0)
     return out
-
-
-# ---------------------------------------------------------------- parse
 
 def find_eq(text):
     d, q = 0, False
@@ -262,9 +225,6 @@ def child_ind(lines, i, ind, ln):
         raise Err("line %d: empty block" % ln.no)
     return lines[i].ind
 
-
-# ---------------------------------------------------------------- analysis
-
 def idents(text):
     return {m for m in IDENT.findall(text) if "." not in m}
 
@@ -324,9 +284,6 @@ def assigned(stmts):
             for _, b in s[3]:
                 a |= assigned(b)
     return a
-
-
-# ---------------------------------------------------------------- emit
 
 class Cont:
     def __init__(self, name, params):
@@ -417,7 +374,6 @@ def bind_types(p, env):
 
 
 def case_pattern(text, env):
-    """`Some{x: F32}` -> (`Some{+x}`, {x: F32})."""
     bound = {}
 
     def conv(s):
@@ -560,7 +516,6 @@ def lift_loop(ctx, s, env, kn, ind):
         pat, lst, elem_t, pnames = None, None, None, set()
     carried = assigned(blk) & set(env) - pnames
     p0 = uses(blk, None, True) | carried | (set(kn.params) if kn else set())
-    # a nested loop's continue/break stay inside it; ordinary ones count here
     if s[0] == "while":
         p0 |= idents(cond)
     P = ordered(p0 - pnames, env)
@@ -588,14 +543,10 @@ def lift_loop(ctx, s, env, kn, ind):
             body += block(ctx, blk, env2, cont, lc2, "      ")
         add_def(ctx, name, header, body, ctx.ret)
         return ["%s%s(%s)" % (ind, name, ", ".join([lst] + P))]
-    # while: loop header is the lifted if on the condition
     inner = [("if", [(cond, blk + [("continue", no)])], [("break", no)], no)]
     body = block(ctx, inner, env2, None, lc2, "  ")
     add_def(ctx, name, header, body, ctx.ret)
     return ["%s%s(%s)" % (ind, name, ", ".join(P))]
-
-
-# ---------------------------------------------------------------- top level
 
 def parse_params(s):
     out = []
@@ -642,7 +593,6 @@ def compile_text(src, origin):
 
 
 def keep_comments(src):
-    """Top-level comment blocks survive in front of the def that follows."""
     return src
 
 

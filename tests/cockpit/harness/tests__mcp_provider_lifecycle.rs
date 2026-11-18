@@ -22,10 +22,6 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-/// A stdio MCP server with no SDK dependency: it records its own pid, then
-/// answers `initialize` / `tools/list` / `tools/call`. This is the same fixture
-/// shape `mcp.rs` uses for its warm-reuse tests, with the pid added so teardown
-/// is observable from outside the process.
 const MOCK_SERVER: &str = r#"
 echo $$ > "$MCP_PID_FILE"
 while IFS= read -r line; do
@@ -69,8 +65,6 @@ fn pid_alive(pid: u32) -> bool {
     Path::new(&format!("/proc/{pid}")).exists()
 }
 
-/// Wait for the pid to leave the process table. Kill+wait happens when the last
-/// provider reference drops, so this is the observable end state of an unload.
 fn wait_for_reaped(pid: u32, budget: Duration) -> bool {
     let deadline = Instant::now() + budget;
     while Instant::now() < deadline {
@@ -82,7 +76,6 @@ fn wait_for_reaped(pid: u32, budget: Duration) -> bool {
     !pid_alive(pid)
 }
 
-/// Register one server's tools the way `bootstrap::install_mcp_tools` does.
 fn register_composition(registry: &mut ToolRegistry, composition: McpComposition) -> usize {
     let (tools, teardown) = composition.into_parts();
     let scope = ProviderScope::new(tools.len(), teardown);
@@ -93,7 +86,6 @@ fn register_composition(registry: &mut ToolRegistry, composition: McpComposition
     registered
 }
 
-/// A plain child process standing in for a provider's owned resource.
 struct LiveChild {
     child: Arc<Mutex<Child>>,
     reaps: Arc<AtomicUsize>,
@@ -136,8 +128,6 @@ impl LiveChild {
     }
 }
 
-// --- scope semantics --------------------------------------------------------
-
 #[test]
 fn a_provider_unloads_only_when_its_last_registration_goes() {
     let teardowns = Arc::new(AtomicUsize::new(0));
@@ -173,8 +163,6 @@ fn a_provider_unloads_only_when_its_last_registration_goes() {
     assert_eq!(scope.remaining(), 0);
 }
 
-// --- registry path, real child ---------------------------------------------
-
 #[test]
 fn unregister_prefix_unloads_a_provider_and_reaps_its_child() {
     let _lock = crate::tests::env_lock();
@@ -187,7 +175,6 @@ fn unregister_prefix_unloads_a_provider_and_reaps_its_child() {
     }
     assert!(pid_alive(pid), "the provider's child starts alive");
 
-    // Partial retraction leaves the provider (and its child) up.
     assert!(registry.unregister("childmock__a"));
     assert_eq!(scope.remaining(), 2);
     assert!(pid_alive(pid), "two registrations still hold the provider");
@@ -235,8 +222,6 @@ impl Tool for Probe {
     }
 }
 
-// --- the real thing: a live MCP server, dropped mid-session ----------------
-
 #[test]
 #[ignore = "spawns a real MCP server subprocess; run with --ignored"]
 fn dropping_a_live_mcp_server_retracts_its_schemas_and_reaps_its_child() {
@@ -276,7 +261,6 @@ fn dropping_a_live_mcp_server_retracts_its_schemas_and_reaps_its_child() {
         "pong"
     );
 
-    // Drop the server mid-session: retract its tools, reap its process.
     let drop_at = Instant::now();
     assert_eq!(registry.unregister_prefix("mockmcp__"), 2);
     let drop_ms = drop_at.elapsed().as_millis();
@@ -303,7 +287,6 @@ fn dropping_a_live_mcp_server_retracts_its_schemas_and_reaps_its_child() {
         "dropping a server must not orphan its child"
     );
 
-    // Adding it back is a fresh process, not the warm one we dropped.
     let readd_at = Instant::now();
     let (mut again, notes) =
         crate::agent::mcp::discover_compositions(&[spec], Duration::from_secs(10), &root);

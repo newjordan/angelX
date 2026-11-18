@@ -373,7 +373,6 @@ fn a_spell_casts_in_its_familys_voice_and_its_bolt_breaks_the_same_way() {
         }
     }
     assert!(run.enemies[0].hp < 10000, "the bolt struck");
-    // It breaks as fire, and the bow's own hit is not rung over it.
     assert!(heard.contains(&"impact_fire"), "{heard:?}");
     assert!(!heard.iter().any(|s| ["hit", "hit_arrow", "hit_magic", "hit_bolt"].contains(s)), "{heard:?}");
 }

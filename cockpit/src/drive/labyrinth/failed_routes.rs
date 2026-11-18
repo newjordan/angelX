@@ -31,8 +31,6 @@ fn check(value: &Value) -> bool {
     if digest(value) {
         return true;
     }
-    // Earlier structured check descriptions identify the retained own code
-    // and output separately instead of pointing at the complete receipt.
     text(&value["id"], 240)
         && [
             ("code_path", "code_sha256"),

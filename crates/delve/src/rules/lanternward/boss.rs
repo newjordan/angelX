@@ -14,18 +14,14 @@ pub enum Ws {
     Tell,
     Strike,
     Recover,
-    /// Its beam parried: shutter wide open and a double blow waiting.
     Stagger,
     Dying,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Atk {
-    /// A beam swept across a fan (two, in the last phase).
     Beam,
-    /// A ring along the ground: hop it or roll through it.
     Slam,
-    /// Snuffers climb out of the fissures.
     Summon,
 }
 
@@ -36,22 +32,18 @@ pub struct Warden {
     pub hp: u32,
     pub full: u32,
     pub prov: u8,
-    /// 0, 1 or 2: thirds of its health.
     pub phase: u8,
     pub st: Ws,
     pub t: u16,
     pub atk: Atk,
     pub n: u8,
     pub danger: Danger,
-    /// The beam's middle, and how far it has swept.
     pub aim: i32,
     pub sweep: i32,
-    /// The tick each seat last had light on the heart.
     pub lit: [u32; 6],
     pub hit: [u32; 6],
     pub struck: u8,
     pub dead: u16,
-    /// Its health when the phase began: where a retry starts it.
     pub start: u32,
     pub face: (i32, i32),
     pub flinch: u8,
@@ -63,7 +55,6 @@ impl Warden {
         WARDEN_R * Q
     }
 
-    /// Whether every number is one a save or the wire may carry.
     pub fn valid(&self) -> bool {
         self.hp <= self.full
             && self.full <= WARDEN_HP * MAX_PLAYERS
@@ -76,17 +67,14 @@ impl Warden {
             && self.start <= self.full
     }
 
-    /// The lamp-heart's place: in its chest, toward where it faces.
     pub fn heart(&self) -> (i32, i32) {
         (self.x + self.face.0 * 9, self.y + self.face.1 * 9)
     }
 
-    /// How many knights' light the shutter wants.
     pub fn need(&self, seats: u32) -> u32 {
         if self.phase >= 1 { seats.min(2) } else { 1 }
     }
 
-    /// Whether the shutter is open at tick `now`.
     pub fn exposed(&self, now: u32, seats: u32) -> bool {
         if self.st == Ws::Stagger {
             return true;
@@ -95,7 +83,6 @@ impl Warden {
         lit >= self.need(seats)
     }
 
-    /// How long the shutter has left open, 0 if shut.
     pub fn open_for(&self, now: u32, seats: u32) -> u32 {
         if !self.exposed(now, seats) {
             return 0;

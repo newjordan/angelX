@@ -15,12 +15,9 @@ use crate::motion::{self, Spring, ease};
 use crate::rules::Run;
 use crate::rules::fortune::{Beat, Luck, Mode};
 
-/// The wheel's own radius at rest.
 pub(super) const R0: f32 = 40.0;
 const LAMPS: i32 = 28;
 
-/// How far the wheel has swelled (as a share of its radius): it crouches as
-/// it winds back, looms while it runs, and slams back on its landing.
 pub(super) fn swell(s: Option<&Show>) -> f32 {
     let Some(s) = s else { return 0.0 };
     if let Some(since) = s.since {
@@ -37,8 +34,6 @@ pub(super) fn swell(s: Option<&Show>) -> f32 {
     }
 }
 
-/// How much of the wheel outside the winning wedge is dimmed behind the
-/// reveal (0 to 0.55), for the dither.
 pub(super) fn veil(s: &Show) -> f32 {
     let Some(l) = s.since else { return 0.0 };
     let up = ease::out((l as f32 - 6.0) / 10.0);
@@ -46,7 +41,6 @@ pub(super) fn veil(s: &Show) -> f32 {
     0.55 * up * down
 }
 
-/// The wheel and its pointer, hub at `hub()`.
 pub(super) fn draw(cv: &mut Img, run: &Run, s: Option<&Show>) {
     let (hx, hy) = hub();
     let w = TAU / Mode::WHEEL.len() as f32;
@@ -60,7 +54,6 @@ pub(super) fn draw(cv: &mut Img, run: &Run, s: Option<&Show>) {
     let lit_neighbour = s.filter(|s| matches!(s.beat, Beat::Hang)).map(|s| s.spin.neighbour());
     let dim = s.map_or(0.0, veil);
     let clock = s.map_or(tick * 4, |s| s.clock(run));
-    // At speed the wedges smear along their path; the dividers go.
     let smear = (speed.min(2.0)) * w;
     let blink = (tick / 6).is_multiple_of(2);
     let reach = r_out.ceil() as i32 + 2;
@@ -72,7 +65,6 @@ pub(super) fn draw(cv: &mut Img, run: &Run, s: Option<&Show>) {
                 continue;
             }
             if r > r_out - 3.5 {
-                // The frame: gold, a light edge and a dark underside.
                 let ink = if r > r_out - 1.0 { if dy < 0.0 { 'T' } else { 'o' } } else if r > r_out - 2.4 { 'O' } else { 'r' };
                 cv.put(x, y, ink);
                 continue;
@@ -81,7 +73,6 @@ pub(super) fn draw(cv: &mut Img, run: &Run, s: Option<&Show>) {
                 cv.put(x, y, if r < 2.5 { '6' } else { '4' });
                 continue;
             }
-            // The wedge under this pixel, smeared back along the turn.
             let base = (dy.atan2(dx) + FRAC_PI_2 - rot).rem_euclid(TAU);
             let a = if smear > 0.02 { (base + smear * (bayer(x, y) - 0.5)).rem_euclid(TAU) } else { base };
             let index = ((a / w) as usize).min(Mode::WHEEL.len() - 1);
@@ -92,7 +83,6 @@ pub(super) fn draw(cv: &mut Img, run: &Run, s: Option<&Show>) {
             let ink = if lit && (edge || fract < 0.07 || fract > 0.93) && r > 7.0 {
                 if blink { 'T' } else { '6' }
             } else if lit && r > 7.0 && open.contains(&(index as u8)) {
-                // The wedge in the light: its bright ink, a band of gold chasing out along it.
                 let (dark, light) = wedge_ink(Mode::WHEEL[index]);
                 let band = ((r - 7.0) * 0.35 - (clock / 3) as f32).rem_euclid(4.0) < 1.0;
                 if band { '6' } else if bayer(x, y) < 0.3 { 'T' } else if r < r_out * 0.55 { light } else { dark }
@@ -109,18 +99,15 @@ pub(super) fn draw(cv: &mut Img, run: &Run, s: Option<&Show>) {
             } else {
                 let (dark, light) = wedge_ink(Mode::WHEEL[index]);
                 let mut ink = if r < r_out * 0.55 { dark } else { light };
-                // Ordered-dither bands on a fast wheel: it reads as turning.
                 if smear > 0.3 && bayer(x + (clock as i32) / 2, y) < 0.18 {
                     ink = if r < r_out * 0.55 { light } else { dark };
                 }
                 ink
             };
-            // The dimmed wedges behind the reveal: black paper by the dither.
             let ink = if dim > 0.0 && !is_win && bayer(x, y) < dim { 'k' } else { ink };
             cv.put(x, y, ink);
         }
     }
-    // Pegs, one on every wedge's edge, just inside the frame.
     if smear < 0.5 {
         for i in 0..Mode::WHEEL.len() {
             let ang = i as f32 * w + rot - FRAC_PI_2;
@@ -128,7 +115,6 @@ pub(super) fn draw(cv: &mut Img, run: &Run, s: Option<&Show>) {
             cv.rect(px.round() as i32 - 1, py.round() as i32 - 1, 2, 2, 'T');
         }
     }
-    // Each wedge's mark, thinning with speed.
     let keep = (1.0 - (speed - 0.25) / 0.6).clamp(0.0, 1.0);
     if keep > 0.0 {
         for (i, mode) in Mode::WHEEL.iter().enumerate() {
@@ -153,8 +139,6 @@ pub(super) fn draw(cv: &mut Img, run: &Run, s: Option<&Show>) {
     }
 }
 
-/// A sprite stamped through the ordered dither: `keep` of its pixels, and `dim` of those
-/// taken away again.
 fn stamp_thin(cv: &mut Img, im: &Img, x: i32, y: i32, keep: f32, dim: f32) {
     for yy in 0..im.h {
         for xx in 0..im.w {
@@ -167,9 +151,6 @@ fn stamp_thin(cv: &mut Img, im: &Img, x: i32, y: i32, keep: f32, dim: f32) {
     }
 }
 
-/// The lamps on the frame: still bulbs twinkling, a chase while it turns,
-/// the ones at the pointer fluttering as it hangs, all of them flashing
-/// when it lands.
 fn lamps(cv: &mut Img, run: &Run, s: Option<&Show>, (hx, hy): (i32, i32), r_out: f32, clock: u32) {
     let tick = run.tick as u32;
     for k in 0..LAMPS {
@@ -206,21 +187,16 @@ fn lamps(cv: &mut Img, run: &Run, s: Option<&Show>, (hx, hy): (i32, i32), r_out:
     }
 }
 
-/// The pointer: a gold flapper on a pivot over the rim, pushed aside by each
-/// peg and snapping back (ringing, while the wheel is slow), hung hard against
-/// the peg while the wheel hangs.
 fn pointer(cv: &mut Img, s: Option<&Show>, (hx, hy): (i32, i32), r_out: f32, clock: u32) {
     let pivot_y = hy - r_out.round() as i32 - 4;
     let (rot, speed) = s.map_or((0.0, 0.0), |s| (s.rot, s.speed.abs()));
     let mut push = if speed > 1.0 {
-        // Too fast to read each peg: it buzzes.
         0.25 + 0.2 * motion::math::sin(clock as f32 * 2.3)
     } else {
         show::push(rot)
     };
     if let Some(s) = s {
         if let Some(age) = s.since_click(10) {
-            // The snap back overshoots the other way, then rings down.
             let a = age as f32;
             push = push.min(0.0) - 0.55 * motion::math::exp(-0.45 * a) * motion::math::cos(a * 1.5);
         }
@@ -247,8 +223,6 @@ fn pointer(cv: &mut Img, s: Option<&Show>, (hx, hy): (i32, i32), r_out: f32, clo
     cv.rect(hx - 1, pivot_y - 1, 3, 2, 'k');
 }
 
-/// The landing: the shock off the pointer, sparks, the wedge's flare and a
-/// ring of light round the whole wheel, each as the wedge's luck asks.
 fn landing(cv: &mut Img, s: &Show, (hx, hy): (i32, i32), r_out: f32, l: u32, clock: u32) {
     let tip = (hx as f32, hy as f32 - r_out + 6.0);
     let (flare, ring) = match s.luck {
@@ -273,8 +247,6 @@ fn landing(cv: &mut Img, s: &Show, (hx, hy): (i32, i32), r_out: f32, l: u32, clo
     }
 }
 
-/// Sparks thrown off the pointer by a peg as the wheel slows: a few, off
-/// to the side the peg was going.
 pub(super) fn clicks(cv: &mut Img, run: &Run, s: &Show) {
     let Some(age) = s.since_click(7) else { return };
     if s.speed.abs() > 0.6 {

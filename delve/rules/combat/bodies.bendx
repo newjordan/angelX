@@ -1,6 +1,3 @@
-# crates/delve/src/rules/bodies.rs: what a knight in a monster's body fights with.
-# `Arms` is a transient value: {"kind": "bite", reach, arc, damage, drain, every}
-# or {"kind": "volley", chain: [[emitter, shot], ...], damage, every}.
 import Base
 
 def bodies.bite(kind: String, reach: F32, arc: F32, damage: U32, every: U32) -> J.Val:
@@ -83,9 +80,6 @@ def bodies.cast(name: String, emitter: String, shot: String, damage: U32, chain:
   o = J.set(o, "stun", J.of_u32(stun))
   J.set(o, "chill", J.of_u32(chill))
 
-# The spell a knight in this body casts (null for none): {name, emitter, shot,
-# damage, chain, stun, chill}. Rimeleap's bounces and the hex's ticks are
-# lich::BOUNCES and hexer::HEX_TICKS.
 def bodies.spell(kind: String) -> J.Val:
   if String.eq(kind, "lich"):
     return bodies.cast("Rimeleap", "seeker", "frost", 30, lich.BOUNCES(), 0, 2)

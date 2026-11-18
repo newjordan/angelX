@@ -11,8 +11,6 @@ pub struct Site {
     pub api: u32,
     pub id: String,
     pub player: String,
-    // Use the existing Floor codec; the command's equality/replay compares its
-    // captured value without adding equality to every authored map structure.
     pub floor: serde_json::Value,
     pub exhibits: Vec<exhibits::Marker>,
 }

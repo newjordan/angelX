@@ -14,9 +14,7 @@ use crate::rules::{Input, Run, phrasebook};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-/// The window round a scene's middle, in native pixels.
 const CROP: (i32, i32) = (192, 120);
-/// How much bigger a window is saved.
 const K: u32 = 3;
 
 struct Film {
@@ -30,7 +28,6 @@ impl Film {
         dir
     }
 
-    /// The window round arena point `at` (and the whole room, `whole`).
     fn frame(&self, run: &Run, scene: &str, n: usize, at: (f32, f32), whole: bool) {
         let dir = self.scene(scene);
         let img = frame_for(run, NATIVE_W, NATIVE_H, Some(1));
@@ -51,9 +48,6 @@ fn save(img: &Img, k: u32, path: &std::path::Path) {
     image::RgbaImage::from_raw(img.w as u32 * k, img.h as u32 * k, rgba).unwrap().save(path).unwrap();
 }
 
-/// A fight room with three skeletons standing in a loose line east of
-/// the knight, who stands west of the middle facing them; the room's own
-/// monsters are gone, and nothing has been shot yet.
 fn range(knight: usize) -> Run {
     let mut run = Run::new(11, 1, Some("Knight"));
     let i = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
@@ -69,15 +63,12 @@ fn range(knight: usize) -> Run {
     run
 }
 
-/// Where the knight stands on the range, and where the skeletons stand.
 fn marks(run: &Run) -> ((f32, f32), [(f32, f32); 3]) {
     let (w, h) = (run.room().width(), run.room().height());
     let me = (w * 0.3, h * 0.55);
     (me, [(me.0 + 11.0, me.1 - 3.0), (me.0 + 13.0, me.1), (me.0 + 10.0, me.1 + 3.5)])
 }
 
-/// Everyone back on their marks, the knight whole, no monster's shot in
-/// the air: the range keeps still between frames.
 fn hold(run: &mut Run) {
     let (me, foes) = marks(run);
     if let Some(h) = run.players.get_mut(&1) {
@@ -96,8 +87,6 @@ fn step_with(run: &mut Run, input: Input) {
     run.step(&BTreeMap::from([(1, input)]));
 }
 
-/// The wishes these shots grant: the phrasebook's own spells, and wishes
-/// in players' words with five tiers each.
 const WISHES: &str = "\
 wish frost-nova | Frost Nova
 kind spell
@@ -206,7 +195,6 @@ fn wish(id: &str) -> phrasebook::Wish {
         .unwrap_or_else(|| panic!("no wish {id}: {faults:?}"))
 }
 
-/// Grant `id` to knight `seat` `times` times (one tier a grant).
 fn grant(run: &mut Run, seat: u32, id: &str, times: u32) {
     let w = wish(id);
     for _ in 0..times {
@@ -214,8 +202,6 @@ fn grant(run: &mut Run, seat: u32, id: &str, times: u32) {
     }
 }
 
-/// A spell wished, cast at the skeletons, filmed every `every` ticks for
-/// `ticks`.
 fn spell(film: &Film, scene: &str, id: &str, knight: usize, ticks: u32, every: u32) {
     let mut run = range(knight);
     grant(&mut run, 1, id, 1);
@@ -238,7 +224,6 @@ fn spell(film: &Film, scene: &str, id: &str, knight: usize, ticks: u32, every: u
     }
 }
 
-/// A wished arm firing at the skeletons: a burst of shots, and the hits.
 fn fire(film: &Film, scene: &str, id: &str, tier: u32) {
     let mut run = range(0);
     grant(&mut run, 1, id, tier);
@@ -261,7 +246,6 @@ fn write_magic_shots() {
     let film = Film { dir: PathBuf::from(dir) };
     let only = std::env::var("ANGEL_MAGIC_ONLY").unwrap_or_default();
     let wanted = |s: &str| only.is_empty() || only.split(',').any(|o| s.starts_with(o));
-    // The spells, cast and landed.
     for (scene, id, knight, ticks) in [
         ("spell-firebolt", "firebolt", 0usize, 32u32),
         ("spell-spark-ring", "spark-ring", 0, 32),
@@ -289,7 +273,6 @@ fn write_magic_shots() {
             step_with(&mut run, Input::default());
         }
     }
-    // An ultimate: Gareth's Trebuchet, and Lynette's Lady's Veil.
     for (scene, knight) in [("ult-trebuchet", 2usize), ("ult-ladys-veil", 1), ("ult-stillhour", 6)] {
         if !wanted(scene) {
             continue;
@@ -314,7 +297,6 @@ fn write_magic_shots() {
     if wanted("fairy") {
         fairy(&film);
     }
-    // Wished arms, each from its own words.
     for id in [
         "poop-worms", "buttcheek-bullets", "ice-shatter", "life-steal-bullets", "storm-bolts", "holy-arrows",
         "dragon-fire", "bee-swarm", "shadow-darts", "lucky-coins", "bubble-gun", "rose-petals", "song-shots",
@@ -330,8 +312,6 @@ fn write_magic_shots() {
     }
 }
 
-/// The lamp: a knight at the altar rubs it, the wish goes out (the lamp
-/// smokes), and it lands on them.
 fn lamp(film: &Film) {
     let mut run = Run::new(11, 3, Some("Ada"));
     run.outfit(1, &crate::rules::knights::COMPANY[1]);
@@ -382,7 +362,6 @@ fn lamp(film: &Film) {
     }
 }
 
-/// The Gnome's Garden held: the fairies pay every knight a fairy wish.
 fn fairy(film: &Film) {
     use crate::rules::nooks::{self, Nook, gnome};
     let mut run = Run::new(41, 1, None);
@@ -419,8 +398,6 @@ fn fairy(film: &Film) {
     }
 }
 
-/// Wishes at each tier, I to V, on five knights in a row: what the
-/// highest tiers wear about them.
 fn tiers(film: &Film) {
     for id in ["dragon-fire", "ice-shatter", "poop-worms", "life-steal-bullets", "purple-drank-armor", "buttcheek-bullets"] {
         let mut run = Run::new(11, 5, Some("Ada"));
@@ -440,7 +417,6 @@ fn tiers(film: &Film) {
             }
         }
         let scene = format!("tiers-{id}");
-        // The grants' own flourishes go first.
         for _ in 0..70 {
             run.step(&BTreeMap::new());
         }
@@ -454,19 +430,15 @@ fn tiers(film: &Film) {
                 film.frame(&run, &scene, t as usize, (w * 0.5, h * 0.5), t == 18);
             }
             if t == 18 {
-                // The same, for a viewer who keeps the screen calm.
                 let calm = crate::render::viewer::Preferences { calm_screen: true };
                 crate::render::viewer::with(calm, || film.frame(&run, &format!("{scene}-calm"), 18, (w * 0.5, h * 0.5), false));
             }
-            // Walking, to see what trails them.
             let walk = Input { move_x: if (t / 12) % 2 == 0 { 1 } else { -1 }, ..Default::default() };
             run.step(&(1..=5u32).map(|k| (k, walk)).collect());
         }
     }
 }
 
-/// Everyone on given marks, by monster id: the knight at `me`, each foe
-/// at its own place, the knight whole and no monster's shot in the air.
 fn hold_at(run: &mut Run, me: (f32, f32), foes: &[(u32, (f32, f32))], whole: bool) {
     if let Some(h) = run.players.get_mut(&1) {
         (h.x, h.y) = me;
@@ -484,16 +456,12 @@ fn hold_at(run: &mut Run, me: (f32, f32), foes: &[(u32, (f32, f32))], whole: boo
     run.projectiles.retain(|p| !p.hostile);
 }
 
-/// Each knight of the company casting their own ultimate at the
-/// skeletons, from the call to its last ember.
 fn ultimate(film: &Film, knight: usize, ticks: u32, every: u32) {
     use crate::rules::ults::{ULT_FULL, Ult};
     let ult = Ult::ALL[knight];
     let scene = format!("ult-{:02}-{}", knight, ult.word().replace('_', "-"));
     let mut run = range(knight);
     let (me, mut spots) = marks(&run);
-    // The Butcher must have one close to take hold of; the Composer's
-    // chord, Midas and the Lullaby reach a little nearer than the range.
     match ult {
         Ult::Dismember => spots[0] = (me.0 + 4.8, me.1),
         Ult::GrandChord | Ult::MidasTouch | Ult::Lullaby => {
@@ -501,7 +469,6 @@ fn ultimate(film: &Film, knight: usize, ticks: u32, every: u32) {
         }
         _ => {}
     }
-    // Who the ultimate itself moves is left where it puts them.
     let pin_knight = !matches!(ult, Ult::Bladewind | Ult::Desertion);
     let pin_foes = !matches!(ult, Ult::GrandChord);
     let foes: Vec<(u32, (f32, f32))> = run.enemies.iter().zip(spots).map(|(e, at)| (e.id, at)).collect();
@@ -515,7 +482,6 @@ fn ultimate(film: &Film, knight: usize, ticks: u32, every: u32) {
         if t % every == 0 {
             film.frame(&run, &scene, t as usize, mid, t == 6);
         }
-        // Midas's gold is meant to take them: the rest stay whole.
         let here = run.players.get(&1).map_or(me, |h| (h.x, h.y));
         let pinned: Vec<(u32, (f32, f32))> = if pin_foes { foes.clone() } else { Vec::new() };
         hold_at(&mut run, if pin_knight { me } else { here }, &pinned, ult != Ult::MidasTouch);
@@ -528,8 +494,6 @@ fn ultimate(film: &Film, knight: usize, ticks: u32, every: u32) {
     }
 }
 
-/// What ails them: monsters burning, chilled and poisoned; stunned, asleep
-/// and bleeding; and three knights hexed, chilled and mired.
 fn ailing(film: &Film) {
     use crate::rules::skills::{Ailment, Bane};
     for (scene, which) in [("ail-foes-burn-chill-poison", 0), ("ail-foes-stun-sleep-bleed", 1)] {
@@ -563,7 +527,6 @@ fn ailing(film: &Film) {
             run.step(&BTreeMap::new());
         }
     }
-    // Three knights: hexed, chilled by the Lich, held in a bog.
     let mut run = Run::new(11, 3, Some("Ada"));
     run.join_seat(2, "Bo");
     run.join_seat(3, "Cy");
@@ -592,8 +555,6 @@ fn ailing(film: &Film) {
     }
 }
 
-/// Every ailment on a monster and on a knight, side by side, a row a
-/// frame: the marks alone over plain figures on the dark.
 fn ail_sheet(film: &Film) {
     use super::super::ailments::{Ail, Body, mark};
     let skel = super::super::sprites::enemy(EnemyKind::Skeleton, 0);
@@ -621,7 +582,6 @@ fn ail_sheet(film: &Film) {
     }
 }
 
-/// A wished arm firing at skeletons that fall to it: the kill layers.
 fn fire_to_kill(film: &Film, scene: &str, id: &str, tier: u32) {
     let mut run = range(0);
     grant(&mut run, 1, id, tier);
@@ -678,9 +638,6 @@ fn write_magic2_shots() {
     }
 }
 
-/// A spell's shots carry its slot's mark and the breaks they make carry
-/// it too; the knight's own shots loosed in the same breath carry none, so
-/// only the spell's are drawn as the spell's.
 #[test]
 fn a_spells_shots_and_breaks_carry_its_mark_and_the_knights_own_do_not() {
     let mut run = range(0);

@@ -11,12 +11,10 @@ use super::at;
 use crate::rules::feel::TRACER_TICKS;
 use crate::rules::{Run, Shot};
 
-/// Under the figures: what stuck in the stone.
 pub(super) fn under(cv: &mut Img, run: &Run) {
     super::melee::under(cv, run);
     for shaft in &run.feel.stuck {
         let (x, y) = at(shaft.x, shaft.y);
-        // The head buried; the shaft and fletching stand out of the wall.
         let inks: &[char] = match shaft.kind {
             Shot::Bolt => &['V', 'R', 'R', 'R', 'b'],
             _ => &['J', 'o', 'o', 'o', 'T'],
@@ -32,8 +30,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Over the figures: tracers, embers, coins. (Sparks, muzzles, smoke and
-/// deaths are drawn under the shots in flight: `vfx`.)
 pub(super) fn over(cv: &mut Img, run: &Run) {
     super::melee::over(cv, run);
     tracers(cv, run);
@@ -42,7 +38,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
     guardian_beats(cv, run);
 }
 
-/// A rail's line: bright and whole when new, then thinning to dots.
 fn tracers(cv: &mut Img, run: &Run) {
     for t in &run.feel.tracers {
         let (a, b) = (at(t.from.0, t.from.1), at(t.to.0, t.to.1));
@@ -56,7 +51,6 @@ fn tracers(cv: &mut Img, run: &Run) {
             'U'
         };
         for i in 0..=steps {
-            // As it fades, the line breaks up.
             if !fresh && i % 2 == 1 {
                 continue;
             }
@@ -70,7 +64,6 @@ fn tracers(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Fire Arrows: embers trailing each burning arrow.
 fn embers(cv: &mut Img, run: &Run) {
     for shot in run.projectiles.iter().filter(|p| p.traits.fire) {
         let (x, y) = at(shot.x, shot.y);
@@ -88,11 +81,9 @@ fn embers(cv: &mut Img, run: &Run) {
     }
 }
 
-/// A room's end: coins, each a small gold disc with a glint, flying home.
 fn coins(cv: &mut Img, run: &Run) {
     for (n, c) in run.feel.coins.iter().enumerate() {
         let (x, y) = at(c.x, c.y);
-        // A coin turns as it flies: wide, then edge-on.
         let edge = (c.age / 3 + n as u32).is_multiple_of(3);
         let rim = if edge {
             [(0, -1), (0, 1)].as_slice()
@@ -109,8 +100,6 @@ fn coins(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Guardians get a wider, slower floor mark than a common death. Slate,
-/// never a screen flash; their existing hand/loot choreography keeps playing.
 pub(super) fn guardian_beats(cv: &mut Img, run: &Run) {
     use crate::rules::spectacle::PHASE_MARK;
     if let Some(mark) = run.spectacle.phase.filter(|p| p.room == run.at) {
@@ -149,8 +138,6 @@ fn beat_ring(cv: &mut Img, x: i32, y: i32, age: u64, life: u64, reach: f32) {
     }
 }
 
-/// A small take springs up, overshoots, then rests at its original height.
-/// This is only the label; it never moves a knight or pauses their hand.
 pub(super) fn pickup_lift(age: u64) -> i32 {
     if age >= 16 { return 0; }
     let back = crate::motion::ease::back_by(age as f32 / 16.0, 1.70158);

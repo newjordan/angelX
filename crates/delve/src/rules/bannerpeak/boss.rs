@@ -14,51 +14,38 @@ use serde::{Deserialize, Serialize};
 
 pub const WIDTH: i32 = 48;
 pub const HEIGHT: i32 = 64;
-/// His head, from the floor, standing and kneeling.
 pub const HEAD_UP: i32 = 64;
 pub const HEAD_DOWN: i32 = 44;
-/// A plate per phase, per seat.
 pub const PHASES: u8 = 3;
 pub const BOSS_ID: u16 = 300;
 pub const REACH: i32 = 100;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Attack {
-    /// He drops his weight: a wave runs out along the floor each way.
     Stomp,
-    /// An arm sweeps the floor in front of him.
     Sweep,
-    /// Columns of embers fall where the knights stand.
     Embers,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Beat {
-    /// Asleep until a knight walks in.
     Dormant,
     Rest,
     Tell,
     Strike,
-    /// Kneeling: the crown is low.
     Wince,
-    /// Between crowns.
     Rage,
-    /// The last crown is down.
     Down,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Hazard {
-    /// Left, top, width, height in pixels.
     pub x: i32,
     pub y: i32,
     pub w: i32,
     pub h: i32,
-    /// A wave's pixels a tick (0 for the others).
     pub vx: i32,
-    /// Ticks of warning before it hurts.
     pub tell: u32,
-    /// Ticks it hurts for.
     pub live: u32,
 }
 
@@ -73,18 +60,13 @@ impl Hazard {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Boss {
-    /// Centre, pixels.
     pub x: i32,
     pub beat: Beat,
     pub kind: Attack,
     pub t: u32,
-    /// The crown: 0 to 2, then 3 for all three down.
     pub phase: u8,
-    /// Plates of this crown still on.
     pub plates: u8,
-    /// Attacks done since he last knelt.
     pub count: u8,
-    /// How high the head is, pixels above the floor.
     pub head: i32,
     pub head_before: i32,
     pub x_before: i32,
@@ -92,12 +74,10 @@ pub struct Boss {
     pub hazards: Vec<Hazard>,
 }
 
-/// The floor of the arena, pixel row.
 pub fn floor() -> i32 {
     (SUMMIT.oy + 12) * TILE
 }
 
-/// Where he stands to begin with, pixels.
 pub fn home() -> i32 {
     info().cinder.0 * TILE + TILE / 2
 }
@@ -138,12 +118,10 @@ impl Boss {
     pub fn defeated(&self) -> bool {
         self.beat == Beat::Down
     }
-    /// The body: what a touch from the side hurts.
     pub fn body(&self) -> (i32, i32, i32, i32) {
         let f = floor();
         (self.x - WIDTH / 2 + 4, f - self.head + 4, self.x + WIDTH / 2 - 4, f)
     }
-    /// The head, as a platform to stand on.
     pub fn plank(&self, before: bool) -> Plank {
         let (x, head) = if before {
             (self.x_before, self.head_before)
@@ -157,15 +135,12 @@ impl Boss {
             lift: false,
         }
     }
-    /// The crown's box while he kneels.
     pub fn crown(&self) -> Option<(i32, i32, i32, i32)> {
         (self.beat == Beat::Wince).then(|| {
             let top = floor() - self.head;
             (self.x - 18, top - 10, self.x + 18, top)
         })
     }
-    /// A seat more at the table: its plate comes with it, and the share of the
-    /// crown already knocked off stays knocked off.
     pub fn seated(&mut self, was: u8, now: u8) {
         if now > was && self.phase < PHASES {
             self.plates += now - was;
@@ -173,8 +148,6 @@ impl Boss {
     }
 }
 
-/// What the leg is handed: the tick number, how many sit, the feet of the
-/// knights standing, and King Cinder as the save and the wire know him.
 #[derive(Serialize)]
 struct Ask<'a> {
     op: &'static str,
@@ -184,7 +157,6 @@ struct Ask<'a> {
     boss: &'a Boss,
 }
 
-/// A slam, with the feet it landed at.
 #[derive(Serialize)]
 struct AskSlam<'a> {
     op: &'static str,
@@ -193,13 +165,11 @@ struct AskSlam<'a> {
     boss: &'a Boss,
 }
 
-/// The tick's answer: the fight as it stands now.
 #[derive(Deserialize)]
 struct Next {
     boss: Boss,
 }
 
-/// The slam's answer: the fight, and whether a plate came off the crown.
 #[derive(Deserialize)]
 struct Slammed {
     boss: Boss,
@@ -207,8 +177,6 @@ struct Slammed {
 }
 
 impl Boss {
-    /// Whether an answer is a fight this session can hold: the crowns, the
-    /// plates and the hazards a tick may carry.
     fn sound(&self) -> bool {
         self.phase <= PHASES
             && self.plates <= crate::rules::MAX_PLAYERS as u8
@@ -216,9 +184,6 @@ impl Boss {
             && self.hazards.len() <= 64
     }
 
-    /// One tick. `at` are the feet of the knights standing; `seats` how many
-    /// sit. The beats, the warnings, the blows and the hazards are the leg's;
-    /// this is the adapter that asks it and applies the answer.
     pub fn step(&mut self, at: &[(i32, i32)], seats: u8, elapsed: u32) {
         #[cfg(test)]
         super::install_oracle();
@@ -237,7 +202,6 @@ impl Boss {
         }
     }
 
-    /// A slam landed with its feet at `(x, y)` pixels: whether a plate fell.
     pub fn slam(&mut self, x: i32, y: i32) -> bool {
         #[cfg(test)]
         super::install_oracle();

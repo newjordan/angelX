@@ -76,6 +76,55 @@ class ActiveConnectionsTest(unittest.TestCase):
             with patch.object(module.os, 'walk', side_effect=AssertionError('unsafe enumeration')):
                 self.assertEqual(module.audit(root)['source_files_checked'], 0)
 
+    def test_javascript_references_use_file_url_pathnames(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'scripts').mkdir()
+            (root / 'scripts/dep.mjs').write_text('export const value = 42;')
+            (root / 'scripts/hash#name.mjs').write_text('export const value = 42;')
+            (root / 'scripts/question?name.mjs').write_text('export const value = 42;')
+            (root / 'scripts/percent%name.mjs').write_text('export const value = 42;')
+            (root / 'scripts/bad%.mjs').write_text('export const value = 42;')
+            (root / 'scripts/bad%GG.mjs').write_text('export const value = 42;')
+            (root / 'scripts/nested').mkdir()
+            (root / 'scripts/nested/dep.mjs').write_text('export const value = 42;')
+            for target in ('./dep.mjs', './dep.mjs?fixture=1', './dep.mjs#fixture',
+                           './%64ep.mjs', './hash%23name.mjs', './question%3Fname.mjs',
+                           './percent%25name.mjs'):
+                with self.subTest(target=target):
+                    (root / 'scripts/main.mjs').write_text(f'import {{ value }} from "{target}";')
+                    self.assertTrue(module.audit(root)['ok'])
+                    (root / 'scripts/main.mjs').write_text(f'const value = new URL("{target}", import.meta.url);')
+                    self.assertTrue(module.audit(root)['ok'])
+            for target in ('./absent.mjs?fixture=1', './%FF.mjs', './%00.mjs',
+                           './bad%.mjs', './bad%GG.mjs', './nested%2Fdep.mjs', './nested%2fdep.mjs'):
+                with self.subTest(target=target):
+                    (root / 'scripts/main.mjs').write_text(f'import "{target}";')
+                    self.assertEqual(module.audit(root)['missing_literal_targets'],
+                                     [{'source': 'scripts/main.mjs', 'target': target}])
+
+    def test_rust_include_targets_keep_literal_filesystem_semantics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'cockpit/src').mkdir(parents=True)
+            (root / 'cockpit/src/main.rs').write_text('include!("table%23literal.rs");')
+            (root / 'cockpit/Cargo.toml').write_text('[[bin]]\nname="fixture"\npath="src/main.rs"\n')
+            (root / 'cockpit/src/table%23literal.rs').write_text('const VALUE: u8 = 1;')
+            self.assertTrue(module.audit(root)['ok'])
+
+
+    @unittest.skipIf(module.os.name == 'nt', 'POSIX file URLs permit literal backslash filenames')
+    def test_encoded_backslash_differs_between_url_targets_and_imports(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'scripts').mkdir()
+            (root / 'scripts/back\\name.mjs').write_text('export const value = 42;')
+            (root / 'scripts/main.mjs').write_text('const value = new URL("./back%5Cname.mjs", import.meta.url);')
+            self.assertTrue(module.audit(root)['ok'])
+            (root / 'scripts/main.mjs').write_text('import "./back%5Cname.mjs";')
+            self.assertEqual(module.audit(root)['missing_literal_targets'],
+                             [{'source': 'scripts/main.mjs', 'target': './back%5Cname.mjs'}])
+
 
 if __name__ == '__main__':
     unittest.main()

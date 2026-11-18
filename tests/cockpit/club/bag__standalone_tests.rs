@@ -22,12 +22,10 @@ fn openai_codex_driver_preserves_resolved_slot_for_explicit_and_default_route() 
             .collect(),
         active: 1,
     }];
-    // Bag::standard supplies this same preference for an unset ANGEL_DRIVER.
     for _ in 0..2 {
         assert_eq!(resolve_driver(&mut agents, "openai"), Some(0));
         assert_eq!(agents[0].active, 1);
     }
-    // An explicit model-name route remains selectable.
     assert_eq!(resolve_driver(&mut agents, "gpt-6-astra"), Some(0));
     assert_eq!(agents[0].active, 0);
 }
@@ -49,8 +47,6 @@ fn daybreak_driver_keeps_the_model_its_seat_started_on() {
         club: Arc::new(DaybreakSlot),
         available: Arc::new(AtomicBool::new(true)),
     };
-    // The openai seat first, as the bag builds them; ANGEL_DAYBREAK_MODEL
-    // started the Daybreak seat on its second model.
     let mut agents = vec![
         Agent {
             name: "openai".into(),
@@ -69,9 +65,6 @@ fn daybreak_driver_keeps_the_model_its_seat_started_on() {
         "ANGEL_DRIVER=daybreak keeps gpt-6-luna"
     );
 
-    // `--driver daybreak` with no model keeps it too, rather than finding
-    // every Daybreak slot and refusing the launch as ambiguous. (The openai
-    // seat's own clubs are labelled "openai".)
     let mut bag = Bag::for_render_test(&[("openai", &[("gpt-6.1-sol", true)])]);
     bag.agents.extend(agents.drain(1..));
     assert_eq!(bag.select_launch_route("daybreak", None), Ok(()));
@@ -81,9 +74,6 @@ fn daybreak_driver_keeps_the_model_its_seat_started_on() {
 #[cfg(test)]
 #[test]
 fn k3_driver_aliases_resolve_to_the_kimi_seat() {
-    // The Kimi Code plan calls the model `k3`; the sota-link alias is `kimi`.
-    // Every spelling an operator might pin must resolve to that seat — a miss
-    // here is the silent smartest-available fallback seen on rig B.
     struct KimiSeat;
     impl Club for KimiSeat {
         fn label(&self) -> &str {

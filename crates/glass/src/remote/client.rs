@@ -25,13 +25,8 @@ use super::wire::{self, CardChange, Down, Feedback, Grid, Hash, Kind, Up, WireCa
 use crate::scene::MeshData;
 use crate::{GridSize, Host, LockExt, Options};
 
-/// The most bytes of blobs a window keeps between links. Within one link
-/// it keeps all it was sent (the session counts on it); a new link starts
-/// from the newest that fit.
 const KEEP_BYTES: usize = 1 << 30;
 
-/// One end of a link to a session: what the window reads and writes, and
-/// the process carrying it (an `ssh`), ended when the link is let go.
 pub struct Link {
     pub reader: Box<dyn Read + Send>,
     pub writer: Box<dyn Write + Send>,
@@ -47,13 +42,9 @@ impl Link {
     }
 }
 
-/// Why connecting failed: worth another try, or not.
 #[derive(Debug)]
 pub enum Fail {
-    /// Say it once and stop (the far angelX is too old, or the versions
-    /// differ).
     Fatal(String),
-    /// Say it and try again.
     Again(String),
 }
 
@@ -65,22 +56,15 @@ impl std::fmt::Display for Fail {
     }
 }
 
-/// How an attach ended.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
-    /// The operator detached (the key, or closing the window); the session
-    /// runs on.
     Detached,
-    /// The session ended, saying why.
     Ended(String),
 }
 
-/// Say hello over `link` and wait for the session's. On success the link
-/// is ready for messages, and the session's name is returned.
 pub fn handshake(link: &mut Link, kind: Kind, size: GridSize, have: Vec<Hash>, who: &str) -> Result<String, Fail> {
     let hello = Up::Hello { version: wire::VERSION, kind, size, have, who: who.to_string() };
     if let Err(e) = wire::write(&mut link.writer, &hello) {
-        // The far end may already have said why; read it below.
         let _ = e;
     }
     if let Err(said) = wire::await_magic(&mut link.reader) {
@@ -107,7 +91,6 @@ pub fn handshake(link: &mut Link, kind: Kind, size: GridSize, have: Vec<Hash>, w
     }
 }
 
-/// A picture as the session last sent it.
 pub struct Shown {
     pub id: u32,
     pub hash: Hash,
@@ -118,8 +101,6 @@ pub struct Shown {
     pub rgba: Arc<Vec<u8>>,
 }
 
-/// What any window keeps of a session: the grid, the blobs and the latest
-/// picture of each id. The window and the terminal both draw from it.
 #[derive(Default)]
 pub struct Screen {
     pub size: GridSize,
@@ -128,23 +109,17 @@ pub struct Screen {
     pub cells: Vec<Cell>,
     pub cursor: Option<(u16, u16)>,
     pub card: Option<WireCard>,
-    /// The grid was replaced whole since `changed` was last taken.
     pub full: bool,
-    /// Cells changed since last taken.
     pub changed: Vec<usize>,
     blobs: HashMap<Hash, (Arc<Vec<u8>>, u64)>,
     blob_bytes: usize,
     pictures: HashMap<u32, Shown>,
     meshes: HashMap<Hash, Arc<MeshData>>,
-    /// The last pictures sent, any id, as the session keeps them: the
-    /// bases of deltas (`wire::RECENT`).
     recent: std::collections::VecDeque<(Hash, Arc<Vec<u8>>)>,
     tick: u64,
 }
 
 impl Screen {
-    /// Take one message's state. Returns false for messages that carry
-    /// nothing a screen keeps (the window acts on those itself).
     pub fn take(&mut self, down: &Down) -> bool {
         match down {
             Down::Size(size) => self.size = *size,
@@ -201,7 +176,6 @@ impl Screen {
         self.pictures.insert(shown.id, shown);
     }
 
-    /// Hold a blob.
     pub fn keep(&mut self, hash: Hash, raw: Vec<u8>) {
         self.tick += 1;
         self.blob_bytes += raw.len();
@@ -214,7 +188,6 @@ impl Screen {
         self.blobs.get(hash).map(|(b, _)| Arc::clone(b))
     }
 
-    /// A mesh from its blob, decoded once.
     pub fn mesh(&mut self, hash: &Hash) -> Option<Arc<MeshData>> {
         if let Some(mesh) = self.meshes.get(hash) {
             return Some(Arc::clone(mesh));
@@ -230,8 +203,6 @@ impl Screen {
         self.pictures.get(&id)
     }
 
-    /// The blobs to name in the next hello: the newest that fit the budget
-    /// (the rest are let go).
     pub fn held(&mut self) -> Vec<Hash> {
         if self.blob_bytes > KEEP_BYTES {
             let mut by_age: Vec<(u64, Hash, usize)> = self.blobs.iter().map(|(h, (b, t))| (*t, *h, b.len())).collect();
@@ -278,7 +249,6 @@ impl Screen {
     }
 }
 
-/// A card back from the wire.
 fn card(wire: &WireCard) -> Option<crate::card::Card> {
     let [x, y, w, h] = wire.area;
     let mut buffer = Buffer::empty(Rect::new(0, 0, w, h));
@@ -299,8 +269,6 @@ fn card(wire: &WireCard) -> Option<crate::card::Card> {
     Some(card)
 }
 
-/// Whether a key is the detach key: Ctrl+\ (as `dtach` has it). A terminal
-/// reports it as Ctrl+4 too.
 pub fn is_detach(event: &Event) -> bool {
     matches!(
         event,
@@ -316,10 +284,6 @@ enum Ev {
     Detach,
 }
 
-/// Open a glass window on the session behind `link` (already through its
-/// [`handshake`]). `connect` makes a fresh link when this one breaks,
-/// given the blobs the window holds; `label` names the session in the
-/// window (its host and name).
 pub fn attach_window<C>(options: Options, link: Link, label: String, connect: C) -> Result<Outcome, String>
 where
     C: FnMut(GridSize, Vec<Hash>) -> Result<Link, Fail> + Send + 'static,
@@ -335,8 +299,6 @@ where
     let (tx, rx) = mpsc::channel::<Ev>();
     let writer: Arc<Mutex<Option<Box<dyn Write + Send>>>> = Arc::new(Mutex::new(None));
     let closed = Arc::new(AtomicBool::new(false));
-    // The window's input goes up the link; resizes and the detach key
-    // come back here too.
     match host.input_reader() {
         Ok(mut input) => {
             let (writer, tx, host, closed) = (Arc::clone(&writer), tx.clone(), host.clone(), Arc::clone(&closed));
@@ -377,8 +339,6 @@ where
     let mut seen = (0u32, 0u32, 0i32);
     let mut title = String::new();
     loop {
-        // A live link: read it on its own thread, write from this one and
-        // the input thread.
         generation += 1;
         {
             let (tx, mut reader, g) = (tx.clone(), std::mem::replace(&mut link.reader, Box::new(io::empty())), generation);
@@ -437,9 +397,6 @@ where
         if closed.load(Ordering::Acquire) {
             return Outcome::Detached;
         }
-        // The link broke: say so over the last picture of the session and
-        // attach again until it works, the operator detaches, or it is
-        // clear it never will.
         *writer.lock_recover() = None;
         link.close();
         eprintln!("REMOTE: the link to {label} broke ({lost}); reconnecting");
@@ -472,7 +429,6 @@ where
     }
 }
 
-/// Act on one message. `Some` ends the attach.
 #[allow(clippy::too_many_arguments)]
 fn apply(
     host: &Host,
@@ -587,15 +543,12 @@ fn present(host: &Host, backend: &mut crate::GlassBackend, screen: &Screen) {
     let _ = backend.flush();
 }
 
-/// Draw the whole grid again (a new grid, or the window's own size changed).
 fn redraw(backend: &mut crate::GlassBackend, screen: &Screen) {
     let _ = backend.clear();
     let cols = usize::from(screen.cols.max(1));
     let _ = backend.draw(screen.cells.iter().enumerate().map(|(i, cell)| ((i % cols) as u16, (i / cols) as u16, cell)));
 }
 
-/// A line across the top of the last picture of the session, presented at
-/// once: the link's state while there is no session to draw.
 fn banner(backend: &mut crate::GlassBackend, screen: &Screen, text: &str) {
     redraw(backend, screen);
     let cols = screen.cols.max(text.chars().count() as u16);
@@ -614,7 +567,6 @@ fn banner(backend: &mut crate::GlassBackend, screen: &Screen, text: &str) {
     let _ = backend.flush();
 }
 
-/// What the operator did to the showcase panel, up to the session.
 fn report_showcase(
     host: &Host,
     writer: &Arc<Mutex<Option<Box<dyn Write + Send>>>>,

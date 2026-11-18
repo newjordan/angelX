@@ -315,8 +315,6 @@ fn signatures_engine_fits_native_chambers_and_moves_without_clipping_stone() {
         };
         let start = engine(&run);
         let mut moved = false;
-        // Its walk can stall on a pillar until it lays its rails (105
-        // ticks, then the tell); the dash always moves it.
         for _ in 0..300 {
             let (x, y, radius) = engine(&run);
             let grid = Grid {

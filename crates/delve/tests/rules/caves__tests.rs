@@ -22,8 +22,6 @@ fn place(host: &mut Run, who: u32, at: (i32, i32)) {
     seat.step_dy = 0;
 }
 
-/// The nearest open cell, by walking, that has a cell `wanted` beside it:
-/// where to stand, which way to face, and that cell.
 fn stand_beside(
     host: &Run,
     from: (i32, i32),
@@ -32,7 +30,6 @@ fn stand_beside(
     stand_facing(host, from, wanted, |_, _| true)
 }
 
-/// `stand_beside`, where the stand and the way faced also suit `site`.
 fn stand_facing(
     host: &Run,
     from: (i32, i32),
@@ -58,7 +55,6 @@ fn stand_facing(
     None
 }
 
-/// The cells to walk from `from` to `to`, not counting `from`; never over the lamp unless it is `to`.
 fn path(host: &Run, from: (i32, i32), to: (i32, i32)) -> Vec<(i32, i32)> {
     let cave = host.caves.view();
     let exit = exit_cell(host.caves.seed);
@@ -88,7 +84,6 @@ fn path(host: &Run, from: (i32, i32), to: (i32, i32)) -> Vec<(i32, i32)> {
     out
 }
 
-/// Walk `who` to `to` on real inputs, a cell every `MOVE_EVERY` ticks. `each` sees the run after every tick.
 fn walk(host: &mut Run, who: u32, to: (i32, i32), each: &mut dyn FnMut(&Run)) {
     for next in path(host, seat_at(host, who), to) {
         let at = seat_at(host, who);
@@ -269,7 +264,6 @@ fn a_blast_breaks_hard_rock_and_its_bursts_die_away() {
         assert_eq!(crumble.at, if here == wall { tick } else { tick + 2 }, "the outer breaks follow the middle");
     }
     assert!(bursts.iter().any(|b| b.kind == BURST_CRUMBLE && (i32::from(b.x), i32::from(b.y)) == wall));
-    // Held, the cast does not go off again until the knight has rested.
     host.step(&BTreeMap::from([(1, cast)]));
     assert_eq!(host.caves.seats[&1].magic, world::MAGIC_MAX - world::BLAST_COST, "a second blast the next tick");
     rest(&mut host, BURST_KEPT + 4, &mut |_| {});
@@ -291,7 +285,6 @@ fn a_cast_opens_hard_rock_in_front_of_the_knight() {
         let cast = Input { cast: 1, aim_x: aim.0 as i8, aim_y: aim.1 as i8, ..Input::default() };
         host.tick_caves(&BTreeMap::from([(1, cast)]));
         assert!(host.caves.cell(wall.0, wall.1).is_some_and(|c| !c.wall()), "cast {n} left the hard rock sealed");
-        // Past the rest after a blast, on ticks the meter does not refill on.
         host.tick += 33;
     }
     assert_eq!(host.caves.seats[&1].magic, 0, "three blasts empty the meter");
@@ -390,8 +383,6 @@ fn plain_boots_slide_on_ice_and_grip_boots_do_not() {
     }
 }
 
-/// A cell of ice with eight more open ice cells east of it, the row clear of
-/// any wall's face: four open cells to its north all the way along.
 fn ice_run(host: &Run) -> Option<(i32, i32)> {
     let cave = host.caves.view();
     let ice = |x: i32, y: i32| cave.at(x, y).is_some_and(|c| c.open() && c.ice() && c.fluid == 0);
@@ -413,7 +404,6 @@ fn open_flood(cave: &world::Cave, sx: i32, sy: i32) -> usize {
     seen.len()
 }
 
-/// The fewest loose cells to dig from `(sx, sy)` to open ground in `region`, up to two.
 fn digs_into(cave: &world::Cave, sx: i32, sy: i32, region: u8) -> Option<u8> {
     let w = world::MAP_W;
     let h = world::MAP_H;
@@ -534,7 +524,6 @@ fn write_cave_stills() {
     play(Some(&dir));
 }
 
-/// A seat's whole screen, as a player has it: the party's band, the view, the HUD's band.
 fn screen(host: &Run, who: u32) -> crate::ink::Img {
     let (w, h) = party::seat_size();
     seat_frame(host, w as i32, h as i32, Some(who))
@@ -547,14 +536,12 @@ fn save(dir: &Path, name: &str, im: &crate::ink::Img) {
         .expect("a still written");
 }
 
-/// Every tick's screen for seat 1, appended raw, with where each stretch starts.
 struct Film {
     frames: std::fs::File,
     count: u32,
     marks: String,
 }
 
-/// The film, if one is being made. Shared by the steps below.
 struct Reel(std::cell::RefCell<Option<Film>>);
 
 impl Reel {
@@ -573,9 +560,6 @@ impl Reel {
     }
 }
 
-/// Two knights go in by the first floor's mouth; one digs loose rock, blasts
-/// hard rock, slides on the frost's ice and leaves by the lamp. With `out`,
-/// every tick's screen and the measured costs are written there.
 fn play(out: Option<&Path>) {
     let reel = Reel(std::cell::RefCell::new(out.map(|dir| Film {
         frames: std::fs::File::create(dir.join("frames.rgb")).expect("frames file"),
@@ -588,7 +572,6 @@ fn play(out: Option<&Path>) {
     let hold = Input { interact: true, ..Input::default() };
     reel.mark("room");
     for _ in 0..60 {
-        // The draw thread, still outside: this warms the arrival.
         let outside = frame_for(&host, 384, 224, Some(1));
         assert_eq!((outside.w, outside.h), (384, 224));
         reel.shot(&host);
@@ -609,7 +592,6 @@ fn play(out: Option<&Path>) {
     reel.mark("enter");
     rest(&mut host, 20, &mut each);
 
-    // Loose rock, faced from the south and clear of the lamp: three hits of a held shovel.
     let exit = exit_cell(host.caves.seed);
     let clear = |at: (i32, i32)| (at.0 - exit.0).abs() + (at.1 - exit.1).abs() >= 7;
     let (stand, aim, wall) =
@@ -634,7 +616,6 @@ fn play(out: Option<&Path>) {
     walk(&mut host, 1, wall, &mut each);
     assert_eq!(seat_at(&host, 1), wall, "the knight walks through the hole");
 
-    // The same from the side and from above, for the film.
     for (name, way) in [("dig-east", (1, 0)), ("dig-south", (0, 1))] {
         let Some((stand, aim, wall)) =
             stand_facing(&host, seat_at(&host, 1), |c| c.wall() && c.loose(), |at, aim| aim == way && clear(at))
@@ -652,7 +633,6 @@ fn play(out: Option<&Path>) {
         rest(&mut host, 45, &mut each);
     }
 
-    // Pacing by the arrival with nothing else going on: what a frame costs mid-stride.
     reel.mark("pace");
     let spawn = spawn_cell(host.caves.seed);
     walk(&mut host, 1, spawn, &mut each);
@@ -677,7 +657,6 @@ fn play(out: Option<&Path>) {
         walked[59]
     ));
 
-    // What the cave costs the host's tick with two knights in it, one walking.
     let mut probe = host.clone();
     let t0 = std::time::Instant::now();
     for n in 0..60u32 {
@@ -686,7 +665,6 @@ fn play(out: Option<&Path>) {
     }
     costs.push_str(&format!("tick_caves_us mean {}\n", t0.elapsed().as_micros() / 60));
 
-    // Hard rock, faced from the south: one blast.
     let (stand, aim, wall) = stand_facing(
         &host,
         seat_at(&host, 1),
@@ -718,7 +696,6 @@ fn play(out: Option<&Path>) {
         blasting[69]
     ));
 
-    // The frost: a slide in plain boots.
     let ice = ice_run(&host).expect("a run of ice");
     place(&mut host, 1, ice);
     reel.mark("ice");
@@ -740,7 +717,6 @@ fn play(out: Option<&Path>) {
     }
     assert!(seat_at(&host, 1).0 - let_go.0 >= 3, "plain boots did not slide");
 
-    // Back at the arrival, and out by the lamp.
     let spawn = spawn_cell(host.caves.seed);
     place(&mut host, 1, spawn);
     reel.mark("leave");
@@ -904,7 +880,6 @@ fn add_guest(host: &mut Run, id: u32, name: &str) {
     host.players.insert(id, guest);
 }
 
-/// Pictures and costs for the cave fix. Not part of the ordinary suite.
 #[test]
 #[ignore = "writes the cf2 proof stills; run with --ignored"]
 fn write_cf2_proof() {
@@ -916,7 +891,6 @@ fn write_cf2_proof() {
     add_guest(&mut delve, 2, "Bram");
     stand_on(&mut delve, 1, 8, 8);
     let (mx, my, _, _) = FLOOR_MOUTH.at;
-    // Beside the arch, near enough for the label, not standing in the opening.
     stand_on(&mut delve, 2, mx + 1, my + 1);
     save(dir, "mouth-delve-full.png", &screen(&delve, 2));
     crop_still(dir, "mouth-delve-full.png", "mouth-delve.png", 0, 150, 180, 130);
@@ -943,8 +917,6 @@ fn write_cf2_proof() {
     boots.enter_one(1, false);
     let grip = grip_cell(boots.caves.seed);
     let blades = blades_cell(boots.caves.seed);
-    // Untaken, in the lamp, the knight three cells off so the pair is in plain
-    // view. Tick 4 keeps the glint on.
     let grip_stand = stand_off(&boots, grip);
     place(&mut boots, 1, grip_stand);
     boots.tick = 4;
@@ -1073,7 +1045,6 @@ fn crop_still(dir: &Path, src: &str, dst: &str, x: u32, y: u32, w: u32, h: u32) 
         .expect("cropped still");
 }
 
-/// Each untaken pair at 1x and 3x, then the HUD after each pair is taken.
 fn write_boots_sheet(
     dir: &Path,
     grip: &crate::ink::Img,
@@ -1092,9 +1063,6 @@ fn write_boots_sheet(
     sheet(dir, "boots.png", &[&grip_1, &grip_3, &blades_1, &blades_3, &hud_g, &hud_b]);
 }
 
-/// A window on the floor around a pair. The proof stands one cell east of it.
-/// An open cell three away from `cell`, for a still where the knight does not
-/// stand over the pair.
 fn stand_off(host: &Run, cell: (i32, i32)) -> (i32, i32) {
     let cave = host.caves.view();
     [(3, 0), (-3, 0), (0, 3), (0, -3), (2, 2), (-2, 2), (2, -2), (-2, -2), (2, 0), (-2, 0)]
@@ -1145,7 +1113,6 @@ fn walk_onto(host: &mut Run, who: u32, at: (i32, i32)) {
     assert_eq!(seat_at(host, who), at, "did not step onto the pair");
 }
 
-/// The cave's own corner, where a taken pair is named after it is gone from the floor.
 fn pack_crop() -> (i32, i32, i32, i32) {
     (0, party::BAND_H + world::NATIVE_H - 16, 240, 16)
 }

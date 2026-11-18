@@ -171,7 +171,6 @@ impl Cursor {
             .and_then(|hero| hero.avatar.as_ref())
             .is_some_and(|avatar| Some(avatar.source_id.as_str()) == self.installed.as_deref())
     }
-    /// Capture only an owned step boundary; no Run or frame data is cloned.
     pub fn before_step(&mut self, run: &Run, player: u32) {
         self.before = if self.owns(run, player) && self.matches_avatar(run, player) {
             let hero = &run.players[&player];
@@ -193,12 +192,10 @@ impl Cursor {
     }
     pub fn retire_explicitly(&mut self) {
         self.retired = true;
-        // The explicit avatar API transferred intent even if bytes are identical.
         self.installed = None;
         self.before = None;
     }
     pub fn clear(&self, run: &mut Run, player: u32) {
-        // Matching content is insufficient authority to mutate a replacement seat.
         if self.raid != run.raid_id || self.epoch != run.seat_epoch(player) {
             return;
         }
@@ -217,7 +214,6 @@ impl Cursor {
     }
 }
 impl Graph {
-    // Called only at activation. An existing cursor never silently adopts a new seat.
     pub fn activate(
         &self,
         mut previous: Option<Cursor>,
@@ -292,8 +288,6 @@ impl Graph {
         }
         cursor.last_tick = Some(run.tick);
         let hero = &run.players[&player];
-        // Footstep phase wraps to zero while walking; it is not a movement fact.
-        // Match the simulation's teleport exclusion, but retain real slow motion.
         let moving = before.is_some_and(|before| {
             let distance = (hero.x - before.position.0).hypot(hero.y - before.position.1);
             before.tick.checked_add(1) == Some(run.tick)
@@ -303,7 +297,6 @@ impl Graph {
                 && distance > 0.0
                 && distance < 2.5
         });
-        // Facts come from authoritative simulation, never client presentation state.
         let fact = |fact: Fact| match fact {
             Fact::Moving => moving,
             Fact::Attacking => hero.swing > 0 || hero.fire_cooldown > 0,

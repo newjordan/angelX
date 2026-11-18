@@ -25,7 +25,6 @@ fn spell_cards_require_cooldown_and_accept_cast_shapes() {
 #[test]
 fn every_builtin_card_passes_its_own_checker_and_has_art() {
     let book = Book::builtin();
-    // Check the source registry before insertion can silently replace duplicates.
     let mut ids = std::collections::BTreeSet::new();
     for &(id, raw) in BUILTIN {
         assert!(ids.insert(id), "duplicate built-in card id: {id}");
@@ -57,7 +56,6 @@ fn a_friend_card_is_checked_like_runes() {
         "rarity weights"
     );
 
-    // Past its range, and past what a deck may hold (damage 40).
     let loud = check("x", "name X\nkind hold\ndamage 900\n").unwrap();
     assert_eq!(loud.card.effects, [Effect::Damage(40)]);
     assert!(loud.notes.iter().any(|n| n.contains("clamped")));
@@ -92,7 +90,6 @@ fn arm_cards_take_plain_weapons_or_forge_runes() {
         "g",
         "name G\nkind arm\nbolt damage=999 speed=20 every=1 range=48\n",
     );
-    // The Forge's tier-I ceiling holds on cards too: capped or rejected.
     if let Ok(checked) = greedy {
         let Some(Arm::Forged(weapon)) = checked.card.arm else {
             panic!("a rune card forges")
@@ -107,8 +104,6 @@ fn held_bonuses_stack_up_to_their_caps() {
     let quiver = book.get("ember-quiver").unwrap();
     let five = std::iter::repeat_n(quiver, 5);
     assert_eq!(Bonus::of(five).damage, 40, "five quivers stop at the cap");
-    // Mail is worn in whole pieces: copies of one shirt make one piece
-    // (1 + a half + a quarter), a second kind of mail the second.
     let mail = book.get("mail").unwrap();
     assert_eq!(Bonus::of([mail, mail, mail, mail]).armor, 1);
     let plate = check("plate", "name Plate\nkind hold\narmor 1\n").unwrap().card;
@@ -120,7 +115,6 @@ fn held_bonuses_stack_up_to_their_caps() {
 fn copies_of_one_card_give_less_each() {
     let book = Book::builtin();
     let quiver = book.get("ember-quiver").unwrap();
-    // 25, then half of it, then a quarter, then nothing.
     assert_eq!(Bonus::of([quiver]).damage, 25);
     assert_eq!(Bonus::of([quiver, quiver]).damage, 38);
     assert_eq!(Bonus::of([quiver, quiver, quiver]).damage, 40, "44, capped");
@@ -128,7 +122,6 @@ fn copies_of_one_card_give_less_each() {
     let three = Bonus::of([spurs, spurs, spurs]).speed;
     let four = Bonus::of([spurs, spurs, spurs, spurs]).speed;
     assert_eq!(three, four, "a fourth copy adds nothing");
-    // Different cards still add: each its own first copy.
     let draw = book.get("quick-draw").unwrap();
     assert_eq!(Bonus::of([quiver, draw]).damage, 25);
     assert_eq!(Bonus::of([quiver, draw]).rate, 20);
@@ -338,9 +331,6 @@ fn ordinary_three_floor_delves_find_two_or_three_distinct_spells() {
         "32 three-floor delves found {learned} distinct spells ({:.2} per delve)",
         learned as f32 / 32.0
     );
-    // Re-pinned 2026-11-02: Astra's art pass widened the spell book; the
-    // wish altars now offer from a richer deck and a delve finds one more
-    // spell every three floors. The band moves, the shape holds.
     assert!(
         (64..=104).contains(&learned),
         "{learned} spells in 32 delves"
@@ -361,10 +351,8 @@ fn a_held_card_promises_no_more_than_a_deck_may_hold() {
         assert_eq!(checked.card.effects, [effect], "{line}");
         assert!(!checked.notes.is_empty(), "{line} says it was clamped");
     }
-    // A play or spell card's own numbers are not held, and keep their range.
     let nova = held("name X\nkind spell\ncooldown 30\nnova 120\n");
     assert_eq!(nova.card.effects, [Effect::Nova(120)]);
-    // What a learned wish may use, with the ranges it will keep.
     let effects = hold_effects();
     assert!(effects.contains("max_hp 5-40"), "{effects}");
     assert!(effects.contains("chain 1-1"), "{effects}");
@@ -373,7 +361,6 @@ fn a_held_card_promises_no_more_than_a_deck_may_hold() {
     assert!(!effects.contains("3 damage per hit"), "{effects}");
 }
 
-/// A wish's card, as the phrasebook names them (`wish-<id>-<tier>`).
 fn wish_card(id: &str, name: &str, lines: &str) -> Card {
     check(&format!("wish-{id}-1"), &format!("name {name}\nkind hold\n{lines}\n")).unwrap().card
 }
@@ -384,7 +371,6 @@ fn wishes_of_one_word_give_less_each_further_one() {
     let b = wish_card("harder", "Harder Hits", "damage 20");
     let c = wish_card("hardest", "Hardest Hits", "damage 20");
     assert_eq!(Bonus::of([&a]).damage, 20);
-    // 20, then half of 20: 30 is over the wish cap of 25.
     assert_eq!(Bonus::of([&a, &b]).damage, wish_cap("damage"));
     let r1 = wish_card("q1", "Quick", "rate 10");
     let r2 = wish_card("q2", "Quicker", "rate 10");
@@ -447,8 +433,6 @@ fn a_creature_bullet_is_its_own_recipe() {
     assert_eq!(Bonus::of([&tadpoles]).homing, 1);
 }
 
-/// The first of the private table's refused words, which its list keeps in
-/// rot13 as `NOT_FOR_WORK` does, so no source file here spells it.
 #[cfg(private_table)]
 fn a_slur() -> String {
     super::super::private_table::NOT_AT_THE_TABLE[0]
@@ -463,7 +447,6 @@ fn a_slur() -> String {
 
 #[test]
 fn a_card_not_safe_for_work_is_turned_away() {
-    // A public build has no private table: every card stays safe for work.
     #[cfg(not(private_table))]
     {
         let rude = check("wish-rude-1", "name Big Dick Energy\nkind hold\nhoming 1\n").unwrap_err();
@@ -471,8 +454,6 @@ fn a_card_not_safe_for_work_is_turned_away() {
         let said = check("wish-rude-1", "name Loud Bullets\nkind hold\ntext Bullets that swear like a sailor: fuck.\nhoming 1\n").unwrap_err();
         assert!(said.errors.iter().any(|e| e.contains("`fuck`")), "{:?}", said.errors);
     }
-    // Dev's private table grants a rude ask as asked (`private_table`,
-    // 028003d68); only its slurs are turned away.
     #[cfg(private_table)]
     {
         assert!(check("wish-rude-1", "name Big Dick Energy\nkind hold\nhoming 1\n").is_ok());
@@ -480,11 +461,9 @@ fn a_card_not_safe_for_work_is_turned_away() {
         let said = check("wish-rude-1", &format!("name Loud Bullets\nkind hold\ntext Bullets that say {slur}.\nhoming 1\n")).unwrap_err();
         assert!(said.errors.iter().any(|e| e.contains(&format!("`{slur}` is not for this game"))), "{:?}", said.errors);
     }
-    // Whole words only, and toilet humour stays.
     for fine in ["Cocktail Bullets", "Fart Cannon", "Poop Armor", "Peacock Shot"] {
         assert!(check("wish-fine-1", &format!("name {fine}\nkind hold\nhoming 1\n")).is_ok(), "{fine}");
     }
-    // Every card the game ships is safe for work.
     for card in &Book::builtin().cards {
         assert_eq!(not_for_work(&format!("{} {} {}", card.id, card.name, card.text)), None, "{}", card.id);
     }
@@ -497,8 +476,6 @@ fn found_cards_need_no_recipe() {
     assert_eq!(Bonus::of([fork]).fork, 1);
 }
 
-/// The class pieces the school's trials once handed over: now found like
-/// any other rare card, on the floor and in chests, by whoever walks there.
 const CLASS_GEAR: [&str; 14] = [
     "crescent-quiver",
     "rookery-longbow",
@@ -527,9 +504,7 @@ fn class_gear_is_an_ordinary_find_in_the_book() {
         assert!(!card.is_spoil(), "{id} is a card, not a material");
         dropped += u32::from(card.drop > 0);
     }
-    // The stronger pieces turn up in chests alone; the lesser ones drop too.
     assert_eq!(dropped, 7);
-    // A chest and a monster's drop can hold them.
     let mut rng = Rng::new(7);
     let mut seen = std::collections::BTreeSet::new();
     for _ in 0..4000 {
@@ -555,8 +530,6 @@ fn closing_time_cards_are_checked_registered_and_untruncated() {
     }
 }
 
-/// Exercise the public loot entry points, not just positive source weights.
-/// Each channel is checked separately so chest rolls cannot hide broken drops.
 #[test]
 fn builtin_world_loot_reaches_every_eligible_card_in_each_region() {
     use std::collections::BTreeSet;
@@ -660,7 +633,6 @@ fn allocation_free_loot_roll_preserves_weighted_table_replay() {
                 let expected = (!table.is_empty())
                     .then(|| book.cards[reference.pick(&table)].id.clone());
                 assert_eq!(book.roll(&mut candidate, weight), expected);
-                // Also catches accidental RNG consumption for empty tables.
                 assert_eq!(candidate.clone().next(), reference.clone().next());
             }
         }

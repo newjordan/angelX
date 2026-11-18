@@ -7,8 +7,6 @@ struct OwnedCommand {
 
 impl Drop for OwnedCommand {
     fn drop(&mut self) {
-        // Release and join even during assertion unwinding: no fixture may
-        // disappear while its command thread still owns the workspace.
         let _ = std::fs::write(self.root.join("release-old"), "release\n");
         if let Some(worker) = self.worker.take() {
             let _ = worker.join();
@@ -19,8 +17,6 @@ impl Drop for OwnedCommand {
 fn held_baseline_command(app: &mut crate::App, root: &Path) -> OwnedCommand {
     let workspace = root.to_path_buf();
     let (terminal, rx) = std::sync::mpsc::channel();
-    // Use the actual baseline command path with a test-owned terminal sender.
-    // Completion publication is deliberately controlled by an owned file.
     let worker = std::thread::spawn(move || {
         let result = count_passed_in(
             "printf 'started\\n' > old-started; while [ ! -f release-old ]; do sleep 0.01; done; printf 'completed\\n' > old-completed; printf 'test result: ok. 999 passed; 0 failed; 0 ignored;\\n'",
@@ -102,7 +98,7 @@ fn real_baseline_repin_waits_for_old_command_then_captures_new_predicate_once() 
         assert!(!root.join("new-baseline-runs").exists());
         assert!(!root.join("old-completed").exists());
         assert!(app.loop_pending.is_some());
-        drop(guard); // release command, join its thread, then consume its actual terminal result
+        drop(guard);
         drain_commands(&mut app);
         assert_eq!(
             app.loop_ctl.baseline_passed, None,

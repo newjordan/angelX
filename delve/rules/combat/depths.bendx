@@ -1,7 +1,5 @@
-# crates/delve/src/rules/depths.rs: the open map (so far: the leashes).
 import Base
 
-# The open map, when the party stands on it (null otherwise).
 def depths.Run.open_here(run: Run) -> J.Val:
   open: J.Val = J.get(J.get(run.dungeon, "open"), "map")
   rooms: J.Val = J.get(run.dungeon, "rooms")
@@ -12,8 +10,6 @@ def depths.Run.open_here(run: Run) -> J.Val:
     return J.get(run.dungeon, "open")
   J.JNull{}
 
-# The leash rect of each chamber: its stone and LEASH round it. An array of
-# [x0, y0, x1, y1].
 def depths.Run.leashes(run: Run) -> J.Val:
   open: J.Val = depths.Run.open_here(run)
   out: J.Val = J.JA{Nil{}}
@@ -35,12 +31,9 @@ def depths.Run.leashes(run: Run) -> J.Val:
     out = J.push(out, J.JA{[J.of_f32((x0 - depths.LEASH() : F32)), J.of_f32((y0 - depths.LEASH() : F32)), J.of_f32((x1 + depths.LEASH() : F32)), J.of_f32((y1 + depths.LEASH() : F32))]})
   out
 
-# The party stands on an open floor's map.
 def depths.Run.open_map(run: Run) -> Bool:
   Bool.not(J.is_null(depths.Run.open_here(run)))
 
-# Something fights the party: in a room, anything left in it; on an open map,
-# a company awake.
 def depths.Run.fight_on(run: Run) -> Bool:
   if depths.Run.open_map(run):
     for e: Enemy in J.items(run.enemies):
@@ -49,7 +42,5 @@ def depths.Run.fight_on(run: Run) -> Bool:
     return False{}
   rules.Run.foes_left(run)
 
-# The moment is a fight: a room's Phase::Fighting, or a company awake on an
-# open map.
 def depths.Run.fighting(run: Run) -> Bool:
   Bool.or(String.eq(run.phase, "fighting"), Bool.and(depths.Run.open_map(run), depths.Run.fight_on(run)))

@@ -1,7 +1,3 @@
-// Trencher Toss: launch a plate, steer the goose to catch it.
-// Tests cover initialization, validation, plate flight, catching, and game completion.
-
-/// A run standing on the Trencher pad in GooseGreen, round live.
 fn trencher_run() -> Run {
     use super::super::pastimes::Game;
     let mut run = at_the_gate();
@@ -12,8 +8,6 @@ fn trencher_run() -> Run {
     run
 }
 
-/// Toss one plate, fly it to its final tick, park the goose `offset`
-/// from its landing, and step the tick it comes down.
 fn trencher_land_one(offset: i32) -> Run {
     let mut run = trencher_run();
     run.step(&BTreeMap::from([(1, Input { fire: true, ..Default::default() })]));
@@ -71,7 +65,6 @@ fn trencher_miss_adds_mistake() {
 fn trencher_three_mistakes_ends_game() {
     let mut run = trencher_run();
     for i in 0..3 {
-        // Wait out the between-plates pause, then toss and whiff again.
         while run.pastimes.round.as_ref().is_some_and(|r| r.trencher.as_ref().unwrap().wait > 0) {
             run.step(&BTreeMap::default());
         }
@@ -145,7 +138,6 @@ fn trencher_far_miss_sulks_without_popup() {
 
 #[test]
 fn trencher_near_miss_earns_the_gasp() {
-    // Just outside the catch reach: still a mistake, but a dramatic one.
     let run = trencher_land_one(200);
     let round = run.pastimes.round.as_ref().unwrap();
     assert_eq!(round.mistakes, 1, "a near miss still counts as a miss");

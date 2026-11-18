@@ -17,29 +17,21 @@
 
 use super::*;
 
-/// One room in this many holds a frog.
 pub const ONE_IN: u64 = 5;
-/// How near a knight must come for a frog to leap, and how long the leap is.
 pub const BOARD_REACH: f32 = 2.8;
 pub const LEAP_TICKS: u32 = 9;
-/// How long a hop lasts, and the rest between hops.
 pub const HOP_TICKS: u32 = 10;
 const REST_MIN: u32 = 36;
-/// A frogged monster's hop: one every this many ticks, of this far.
 pub const HOP_WINDOW: u32 = 14;
 pub const MONSTER_HOP: f32 = 1.3;
-/// The puff each way, and how long the new figure stays in the Sanctuary.
 pub const PUFF: u64 = 20;
 pub const LINGER: u64 = 6 * HZ as u64;
-/// What each gift is worth, in percent (and the princess's health).
 pub const CLOWN_CUT: u32 = 25;
 pub const PRINCESS_HEALTH: u32 = 10;
 pub const PRINCE_DAMAGE: u32 = 25;
 pub const PRINCE_RATE: u32 = 20;
-/// Roughly one in this many frogs turns out a clown (one in three).
 const CLOWN_ONE_IN: u32 = 3;
 
-/// Who the frog was.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Gift {
@@ -49,7 +41,6 @@ pub enum Gift {
 }
 
 impl Gift {
-    /// The herald's line when they appear.
     pub fn herald(self) -> &'static str {
         match self {
             Gift::Princess => {
@@ -62,7 +53,6 @@ impl Gift {
         }
     }
 
-    /// The short plate over them.
     pub fn plate(self) -> &'static str {
         match self {
             Gift::Princess => "PRINCESS: FULL MEND, +10 MAX HP",
@@ -71,7 +61,6 @@ impl Gift {
         }
     }
 
-    /// What the HUD says for the rest of the floor.
     pub fn perk(self) -> &'static str {
         match self {
             Gift::Princess => "the princess's blessing: +10 max health this floor",
@@ -81,17 +70,12 @@ impl Gift {
     }
 }
 
-/// What a knight carries from a frog's gift until the floor is left.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Boon {
-    /// Percent added to their damage, and to their rate of fire.
     pub damage: u32,
     pub rate: u32,
-    /// Health added to their most (the princess's), and taken from it (the
-    /// clown's), both given back when the floor is left.
     pub plus: u32,
     pub cut: u32,
-    /// Whose gift it is, for the HUD.
     pub from: Option<Gift>,
 }
 
@@ -101,24 +85,18 @@ impl Boon {
     }
 }
 
-/// A frog about the room.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Wild {
     pub x: f32,
     pub y: f32,
-    /// Where the hop began and ends, and ticks left in it.
     pub from: (f32, f32),
     pub to: (f32, f32),
     pub hop: u32,
-    /// Ticks until the next hop.
     pub rest: u32,
-    /// Leaping at a knight: who, and ticks left.
     pub leap: Option<(u32, u32)>,
-    /// Which way it faces: 1 or -1.
     pub face: i8,
 }
 
-/// A figure standing in a Sanctuary where a frog was.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Shown {
     pub gift: Gift,
@@ -134,7 +112,6 @@ pub struct Field {
 }
 
 impl Wild {
-    /// Where the frog is drawn: along its hop, lifted by it.
     pub fn lift(&self) -> f32 {
         if let Some((_, left)) = self.leap {
             let k = 1.0 - left as f32 / LEAP_TICKS as f32;
@@ -150,8 +127,6 @@ impl Wild {
 
 
 impl Run {
-    /// A roll of `n` sides that never touches the run's own generator: the
-    /// frogs come and go without moving anything else's dice.
     fn chance_of(&self, salt: u64, n: u64) -> u64 {
         mix(self.seed
             ^ self.raid_id.rotate_left(23)
@@ -160,9 +135,7 @@ impl Run {
             % n.max(1)
     }
 
-    /// Entering a room for the first time: about one in five has a frog.
     pub(super) fn maybe_frog(&mut self, index: usize, first_visit: bool) {
-        // The Wax Maze's lanes are the wax's and the wraiths'.
         if !first_visit
             || self.simple_creation()
             || self.side_on()
@@ -191,7 +164,6 @@ impl Run {
         self.drop_frog();
     }
 
-    /// A frog on open floor, well away from the knights.
     pub(super) fn drop_frog(&mut self) {
         let room = &self.dungeon.rooms[self.at];
         let mut spot = None;
@@ -225,14 +197,11 @@ impl Run {
         }
     }
 
-    /// Once a tick: frogs hop and leap; a fallen carrier drops theirs; the
-    /// figures in a Sanctuary take their leave.
     pub(super) fn tick_frogs(&mut self) {
         let tick = self.tick;
         self.frogs
             .shown
             .retain(|s| tick.saturating_sub(s.born) < LINGER + PUFF);
-        // A fallen knight drops their frog where they fell.
         let mut dropped = Vec::new();
         for hero in self.players.values_mut() {
             if hero.rider && hero.hp == 0 {
@@ -255,12 +224,10 @@ impl Run {
         if self.frogs.wild.is_empty() {
             return;
         }
-        let grid_room = self.dungeon.rooms[self.at].clone();
         let grid = Grid {
-            room: &grid_room,
+            room: &self.dungeon.rooms[self.at],
             barred: true,
         };
-        // Who is already spoken for by a leaping frog.
         let spoken: Vec<u32> = self
             .frogs
             .wild
@@ -301,7 +268,6 @@ impl Run {
                 }
                 continue;
             }
-            // A knight near enough, free of a frog and not already spoken for.
             if let Some(&(id, ..)) = standing
                 .iter()
                 .filter(|s| s.3 && !spoken.contains(&s.0))
@@ -324,7 +290,6 @@ impl Run {
             } else if frog.rest > 0 {
                 frog.rest -= 1;
             } else {
-                // The next hop: a few steps any way there is floor.
                 let h = mix(salt ^ (n as u64 + 1).wrapping_mul(0x9e37_79b9));
                 let angle = (h % 628) as f32 / 100.0;
                 let reach = 1.4 + ((h >> 12) % 18) as f32 / 10.0;
@@ -350,7 +315,6 @@ impl Run {
         }
     }
 
-    /// A Sanctuary reached: every frog carried hops down and is someone.
     pub(super) fn frogs_arrive(&mut self) {
         let riders: Vec<(u32, f32, f32)> = self
             .players
@@ -389,7 +353,6 @@ impl Run {
         }
     }
 
-    /// A gift to the whole party, until the floor is left.
     pub fn give(&mut self, gift: Gift) {
         for hero in self.players.values_mut() {
             match gift {
@@ -418,7 +381,6 @@ impl Run {
         }
     }
 
-    /// The floor is left: every gift is given back.
     pub(super) fn lift_gifts(&mut self) {
         for hero in self.players.values_mut() {
             if !hero.boon.any() {
@@ -428,7 +390,6 @@ impl Run {
                 .saturating_sub(hero.boon.plus)
                 .max(1);
             hero.boon = Boon::default();
-            // Health grown under the clown's curse never lifts above the cap.
             hero.fit_hp();
             hero.hp = if hero.hp == 0 { 0 } else { hero.hp.clamp(1, hero.max_hp) };
         }

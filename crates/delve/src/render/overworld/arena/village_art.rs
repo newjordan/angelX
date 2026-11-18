@@ -90,7 +90,6 @@ fn paint(
     true
 }
 
-/// Static structure housing, with separately animated moving parts when active.
 pub(super) fn paint_module(
     im: &mut Img,
     id: &str,
@@ -109,8 +108,6 @@ pub(super) fn paint_module(
         return false;
     }
     {
-        // These overlays share source-space anchors with their static housing.
-        // A stopped machine keeps its rotor; an unlit kiln loses only its fire.
         let moving = match id {
             "brick-kiln" if active => Some("kiln-fire"),
             "waterwheel" => Some("wheel-rotor"),
@@ -138,8 +135,6 @@ pub(super) fn paint_module(
     true
 }
 
-/// Four authored cottage, wall and gate stages. Returns false when a plan has no authored
-/// construction sequence, allowing the caller's normal site marker to remain.
 pub(super) fn paint_construction(
     im: &mut Img,
     building: &str,
@@ -199,7 +194,6 @@ pub(super) fn paint_blueprint(
     )
 }
 
-/// N=1, E=2, S=4, W=8. Corners are authored for screen-axis orthogonal roads.
 pub(super) fn paint_wall(
     im: &mut Img,
     connections: u8,
@@ -248,8 +242,6 @@ pub(super) fn paint_bridge(im: &mut Img, horizontal: bool, x: i32, y: i32, size:
     )
 }
 
-/// `tick` uses the simulation's 30Hz clock; walk and work use manifest timing.
-/// All eight frames use one scale, so carried tools never change body size.
 pub(super) fn paint_citizen(
     im: &mut Img,
     role: &str,

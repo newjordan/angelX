@@ -29,7 +29,7 @@ fn recruit(kind: Kind, id: u32, level: u8) -> Squire {
 
 fn yard() -> Run {
     let mut home = Home::default();
-    home.squires.board = 2; // all five preview recruits, at their rule level
+    home.squires.board = 2;
     home.squires.hall = 2;
     home.squires.training = 2;
     let mut treasury = Spoils::default();
@@ -100,14 +100,11 @@ fn save(dir: &Path, name: &str, im: &Img, scale: u32) {
     .unwrap_or_else(|e| panic!("writing {name}: {e}"));
 }
 
-/// Six real knight kits, six owned squires, plus one deliberately felled
-/// shield-bearer. No game stepping: the evidence isn't dependent on AI RNG.
 fn dungeon_company() -> Run {
     let mut run = crate::rules::hireling::testing::fight_with(false, &[]);
     for id in 2..=6 {
         run.join_seat(id, &format!("Knight {id}"));
     }
-    // The first six catalogue entries are actual knight kits, not placeholders.
     for (i, kit) in crate::rules::knights::COMPANY.iter().take(6).enumerate() {
         assert!(run.take_up(i as u32 + 1, kit.id));
     }
@@ -125,7 +122,6 @@ fn dungeon_company() -> Run {
     run.floor_plates.clear();
     run.tick = 112;
     run.phase = Phase::Fighting;
-    // Two staggered ranks keep every knight and every companion visible.
     for id in 1..=6 {
         let column = (id - 1) % 3;
         let row = (id - 1) / 3;
@@ -136,8 +132,6 @@ fn dungeon_company() -> Run {
         let kind = TYPES[(id as usize - 1) % TYPES.len()];
         let squire = recruit(kind, id + 100, 3);
         let hp = squire.health();
-        // Tests construct the public data, without needing a rules-only
-        // constructor or inventing a rendering hook on the gameplay side.
         let body = Hireling {
             kind: AllyKind::Beaumains,
             x: x - 2.8,
@@ -177,8 +171,6 @@ fn dungeon_company() -> Run {
             rescued: false,
         });
     }
-    // A few still foes give the frame a clear dungeon context without
-    // obscuring the company, which is the subject of this evidence.
     for (kind, x, y) in [
         (EnemyKind::Skeleton, 40.0, 10.0),
         (EnemyKind::Demon, 40.0, 20.0),
@@ -274,7 +266,7 @@ fn squire_board_respects_focus_and_rendering_does_not_spend() {
     reader(&mut run, Action::Train(0));
     run.join_seat(2, "Other");
     let other = run.players.get_mut(&2).unwrap();
-    (other.x, other.y) = (4.0, 13.0); // no squire plate
+    (other.x, other.y) = (4.0, 13.0);
     let original_yard = run.home.squires.clone();
     let original_gold = run.treasury.get(Spoil::Gold);
     let mut mine = Img::new(384, 224);
@@ -305,7 +297,7 @@ fn write_squire_shots() {
     run.home.squires.training = 2;
     {
         let hero = run.players.get_mut(&1).unwrap();
-        (hero.x, hero.y) = (25.0, 16.0); // away from all boards
+        (hero.x, hero.y) = (25.0, 16.0);
     }
     save(&dir, "squires-01-yard-recruits", &whole(&run, Some(1)), 3);
     reader(&mut run, Action::Hire(0));

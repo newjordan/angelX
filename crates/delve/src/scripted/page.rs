@@ -7,18 +7,12 @@ use serde_json::Value;
 
 #[link(wasm_import_module = "angel")]
 unsafe extern "C" {
-    /// Render module `id` on the JSON `input`. The page keeps its answer and
-    /// says how many bytes it is.
     fn rules(id: *const u8, id_len: usize, input: *const u8, input_len: usize) -> u32;
-    /// Copy the page's kept answer into `out`, which holds as many bytes as
-    /// `rules` said.
     fn rules_take(out: *mut u8);
 }
 
 pub(super) fn engine(id: &str, input: &Value) -> Result<Value, String> {
     let input = input.to_string();
-    // SAFETY: the page reads `id` and `input` during the call, and writes
-    // exactly the length it returned into `answer`, during the next.
     let len = unsafe { rules(id.as_ptr(), id.len(), input.as_ptr(), input.len()) } as usize;
     let mut answer = vec![0u8; len];
     unsafe { rules_take(answer.as_mut_ptr()) };

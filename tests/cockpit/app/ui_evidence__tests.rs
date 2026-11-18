@@ -102,12 +102,9 @@ fn evidence_media_resolves_inside_the_workspace_only() {
     assert_eq!(media.label(), "iteration-7.md");
     assert!(matches!(media, crate::ui::media::Media::Confined { .. }));
 
-    // Not called evidence: a report alone stays a link.
     assert!(evidence_media("Wrote [notes](reports/iteration-7.md).", root).is_none());
-    // Outside the workspace, source code and missing files never open.
     let rest = format!("Evidence: [outside]({}) [code](main.rs) [gone](missing.png)", stray.display());
     assert!(evidence_media(&rest, root).is_none());
-    // An absolute path inside the workspace resolves like a relative one.
     let absolute = format!("Evidence: [report]({})", root.join("reports/iteration-7.md").display());
     assert!(evidence_media(&absolute, root).is_some());
 }

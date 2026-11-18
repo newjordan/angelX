@@ -5,10 +5,8 @@ use super::{Sprite, place};
 pub struct Part {
     pub anchor: (i32, i32),
     pub size: (i32, i32),
-    /// Hats and shoes meet a surface with their bottom edge.
     pub bottom: bool,
     pub under: bool,
-    /// Clothing covers the body rectangle; weapons and crests retain aspect.
     #[serde(default)]
     pub stretch: bool,
 }
@@ -47,7 +45,6 @@ impl Part {
     }
 }
 
-/// Coordinates refer to the actual body, excluding weapons and headroom.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Body {
     pub bounds: [i32; 4],
@@ -117,15 +114,12 @@ impl Body {
         })
     }
 
-    /// Unplaced legacy art describes a whole figure, rather than a torso.
     pub fn whole(self) -> Part {
         let [x, y, w, h] = self.bounds;
         Part::new((x + w / 2, y + h / 2), (w, h))
     }
 }
 
-/// One stable, rectangular ink box across all frames; animation cannot
-/// change the fit or pull the anchor from side to side.
 pub fn ink_bounds(frames: &[Vec<String>]) -> Option<[i32; 4]> {
     let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, -1, -1);
     for frame in frames {
@@ -143,8 +137,6 @@ pub fn ink_bounds(frames: &[Vec<String>]) -> Option<[i32; 4]> {
     (x1 >= x0).then_some([x0, y0, x1 - x0 + 1, y1 - y0 + 1])
 }
 
-/// Aspect-preserving integer dimensions. Sampling is always nearest pixel.
-/// Small native art keeps its scale; larger bodies grow it by whole factors.
 pub fn fit_size((w, h): (i32, i32), (mw, mh): (i32, i32)) -> (i32, i32) {
     if w <= mw && h <= mh {
         let k = (mw / w.max(1)).min(mh / h.max(1)).max(1);
@@ -157,8 +149,6 @@ pub fn fit_size((w, h): (i32, i32), (mw, mh): (i32, i32)) -> (i32, i32) {
     )
 }
 
-/// Repair an oversized local drawing without dropping its outer pixels.
-/// Keep every frame on the same coordinate system and do not enlarge it.
 pub fn repair(sprite: &mut Sprite, part: Part) {
     let Some([x, y, w, h]) = ink_bounds(&sprite.frames) else {
         return;
@@ -187,8 +177,6 @@ pub fn repair(sprite: &mut Sprite, part: Part) {
         .collect();
 }
 
-/// Native pixel profiles shared with the CPU authoring tool. Invalid shipped
-/// data is a programming error, never a silently approximated fit.
 pub fn profile(name: &str) -> Body {
     #[derive(serde::Deserialize)]
     struct Table {

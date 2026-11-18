@@ -1,16 +1,6 @@
-# crates/delve/src/rules/pastimes/{put,cart,trencher,longbow}.rs — the Run
-# halves: one tick of a round whose game keeps its own struct. Each takes
-# the Run, the round, the tick's inputs, the knights who may play
-# (`elig`: objects {id, x, y}) and those who tapped fire, and answers
-# (run, (round, still_going)).
-
-# ---- shared by the festival games --------------------------------------
-
-# An eligible entry.
 def pastimes.elig(+id: U32, +x: F32, +y: F32) -> J.Val:
   gb.sf(gb.sf(gb.su(J.obj(), "id", id), "x", x), "y", y)
 
-# The entry for a knight, or null.
 def pastimes.find_el(+elig: List<&2, J.Val>, +id: U32) -> J.Val:
   match elig:
     case Nil{}:
@@ -31,7 +21,6 @@ def pastimes.tapped_has(+tapped: List<&2, U32>, +id: U32) -> Bool:
     case Con{t, rest}:
       Bool.or(U32.is_eq(t, id), pastimes.tapped_has(rest, id))
 
-# `inputs.get(&id).filter(valid).copied().unwrap_or_default()`.
 def pastimes.input_of(+inputs: J.Val, +id: U32) -> J.Val:
   pastimes.input_of.go(J.get(inputs, U32.show(id)))
 
@@ -41,18 +30,14 @@ def pastimes.input_of.go(+i: J.Val) -> J.Val:
   else:
     J.obj()
 
-# round.score_popup = 8, with its text and place.
 def pastimes.popup(+round: J.Val, +text: String, +x: U32, +y: U32) -> J.Val:
   gb.si(gb.si(gb.ss(gb.su(round, "score_popup", 8), "score_popup_text", text), "score_popup_x", x), "score_popup_y", y)
 
-# round.mistakes = round.mistakes.saturating_add(1).min(20).
 def pastimes.mistake(+round: J.Val) -> J.Val:
   gb.su(round, "mistakes", U32.min(gb.sadd(gb.u(round, "mistakes"), 1), 20))
 
 def pastimes.progress1(+round: J.Val) -> J.Val:
   gb.su(round, "progress", (gb.u(round, "progress") + 1 : U32))
-
-# ---- put.rs ---------------------------------------------------------------
 
 def pastimes.put.TARGETS(+i: U32) -> U32:
   match i:
@@ -63,7 +48,6 @@ def pastimes.put.TARGETS(+i: U32) -> U32:
     case _:
       20
 
-# Put::wind
 def pastimes.put.Put.wind(+progress: U32) -> U32:
   match U32.min(progress, 2) as U32:
     case 0:
@@ -77,11 +61,9 @@ def pastimes.put.Put.new(+owner: U32) -> J.Val:
   p0: J.Val = gb.su(gb.su(gb.su(gb.su(J.obj(), "owner", owner), "angle", 45), "charge", 0), "shots", 0)
   gb.su(gb.su(gb.si(J.set(gb.su(p0, "wait", 0), "flight", J.JNull{}), "landing_x", 0), "landing_flash", 0), "target_glow", 0)
 
-# Pot::valid
 def pastimes.put.Pot.valid(+p: J.Val) -> Bool:
   Bool.and(Bool.and(Bool.and(RS.i_ge(gb.i(p, "x"), 256), RS.i_le(gb.i(p, "x"), 5632)), Bool.and(RS.i_ge(gb.i(p, "z"), 1), RS.i_le(gb.i(p, "z"), 3000))), Bool.and(Bool.and(RS.i_ge(gb.i(p, "dx"), 1), RS.i_le(gb.i(p, "dx"), 260)), Bool.and(U32.is_le(RS.i_abs(gb.i(p, "dz")), 240), Bool.and(U32.is_gt(gb.u(p, "left"), 0), U32.is_le(gb.u(p, "left"), 90)))))
 
-# Run::tick_put
 def pastimes.put.Run.tick_put(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>) -> J.Val & (J.Val & Bool):
   p: J.Val = J.get(round, "put")
   me: J.Val = pastimes.find_el(elig, gb.u(p, "owner"))
@@ -160,9 +142,6 @@ def pastimes.put.finish(+run: J.Val, +round: J.Val) -> J.Val & (J.Val & Bool):
   else:
     (run, (r1, True{}))
 
-# ---- cart.rs --------------------------------------------------------------
-
-# Run::tick_cart
 def pastimes.cart.Run.tick_cart(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
   c: J.Val = J.get(round, "cart")
   driver: U32 = gb.u(c, "driver")
@@ -225,12 +204,9 @@ def pastimes.cart.land(+run: J.Val, +round: J.Val) -> J.Val & (J.Val & Bool):
   run1: J.Val = Bool.pick(J.Val, U32.is_eq(gb.u(c, "air_left"), 1), gb.sound(run, "rock_land"), run)
   (run1, (J.set(round, "cart", gb.su(c, "air_left", gb.ssub(gb.u(c, "air_left"), 1))), True{}))
 
-# ---- trencher.rs ----------------------------------------------------------
-
 def pastimes.trencher.CATCH() -> U32:
   180
 
-# Run::tick_trencher
 def pastimes.trencher.Run.tick_trencher(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
   t: J.Val = J.get(round, "trencher")
   owner: U32 = gb.u(t, "owner")
@@ -273,8 +249,6 @@ def pastimes.trencher.fly(+run: J.Val, +round: J.Val, +t: J.Val, +plate: J.Val) 
 def pastimes.trencher.done(+run: J.Val, +round: J.Val) -> J.Val & (J.Val & Bool):
   (run, (round, U32.is_lt(gb.u(round, "mistakes"), 3)))
 
-# ---- longbow.rs -----------------------------------------------------------
-
 def pastimes.longbow.WINDS(+i: U32) -> U32:
   match i:
     case 0:
@@ -286,7 +260,6 @@ def pastimes.longbow.WINDS(+i: U32) -> U32:
     case _:
       RS.i_neg(2)
 
-# Longbow::wind
 def pastimes.longbow.Longbow.wind(+progress: U32) -> U32:
   pastimes.longbow.WINDS(U32.min(progress, 3))
 
@@ -295,17 +268,14 @@ def pastimes.longbow.Longbow.new(+owner: U32) -> J.Val:
   l1: J.Val = gb.su(gb.su(gb.su(gb.si(gb.si(gb.si(J.set(gb.si(l0, "aim", 3072), "flight", J.JNull{}), "ground_x", 0), "ground_y", 0), "x", 0), "wait", 0), "hit_burst", 0), "ground_arrow", 0)
   J.del(J.set(l1, "arrow_trail", J.JA{[]}), "x")
 
-# Longbow::target_at: the popinjay's place at an age, in 1/256 tiles.
 def pastimes.longbow.Longbow.target_at(+age: U32, +progress: U32) -> U32:
   phase: U32 = U32.mod((age + progress * 30 : U32), 120)
   RS.i_add(1792, U32.div((U32.min(phase, (120 - phase : U32)) * 2560 : U32), 60))
 
-# Arrow::y: the arrow's height by power and time of flight.
 def pastimes.longbow.Arrow.y(+a: J.Val) -> U32:
   rise: U32 = RS.f_as_u32((((bowcountry.LINE() - bowcountry.ROPE() : F32)) * 256.0 : F32))
   RS.i_sub(RS.f_as_i32((bowcountry.LINE() * 256.0 : F32)), U32.div((rise * U32.min(gb.u(a, "power"), 15) * (30 - gb.u(a, "left") : U32) : U32), 450))
 
-# Run::tick_longbow
 def pastimes.longbow.Run.tick_longbow(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>) -> J.Val & (J.Val & Bool):
   b: J.Val = J.get(round, "longbow")
   owner: U32 = gb.u(b, "owner")
@@ -314,7 +284,6 @@ def pastimes.longbow.Run.tick_longbow(+run: J.Val, +round: J.Val, +inputs: J.Val
   else:
     pastimes.longbow.stand(run, round, b, pastimes.input_of(inputs, owner))
 
-# The archer stands on the line at their aim.
 def pastimes.longbow.stand(+run: J.Val, +round: J.Val, +b: J.Val, +input: J.Val) -> J.Val & (J.Val & Bool):
   hero: J.Val = J.get(J.get(run, "players"), U32.show(gb.u(b, "owner")))
   if J.is_null(hero):
@@ -365,8 +334,6 @@ def pastimes.longbow.land(+run: J.Val, +round: J.Val, +b: J.Val, +a: J.Val) -> J
     b1: J.Val = gb.si(gb.si(gb.su(b, "ground_arrow", 6), "ground_x", gb.i(a, "x")), "ground_y", pastimes.longbow.Arrow.y(a))
     pastimes.longbow.end(gb.found(gb.sound(run, "clang"), owner, msg), gb.su(round, "mistakes", (gb.u(round, "mistakes") + 1 : U32)), J.set(gb.su(b1, "wait", 15), "arrow_trail", J.JA{[]}))
 
-# The wait after a landing is set where the landing happened; the round is
-# lost when the quiver is empty and nothing is in the air.
 def pastimes.longbow.end(+run: J.Val, +round: J.Val, +b: J.Val) -> J.Val & (J.Val & Bool):
   b1: J.Val = Bool.pick(J.Val, J.is_null(J.get(b, "flight")), b, b)
   lost: Bool = Bool.and(Bool.and(U32.is_lt(gb.u(round, "progress"), 3), U32.is_ge(gb.u(b, "arrows"), 6)), J.is_null(J.get(b, "flight")))

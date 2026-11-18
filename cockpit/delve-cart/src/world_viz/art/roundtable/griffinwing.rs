@@ -31,9 +31,6 @@ fn put(frame: &mut Frame, area: Rect, row: u16, text: String, fg: Color) {
     );
 }
 
-/// The keys, longest first. The shell's "Esc: leave" bar owns the last 24
-/// columns of the bottom row, so the row is the longest of these that stops a
-/// column short of it: whole words, never one cut by the bar.
 const KEYS: [&str; 3] = [
     " WASD fly  ARROWS aim  F fire/lock  SPACE roll  E spur  Q brake  X bomb",
     " WASD fly ARROWS aim F fire SPACE roll E spur Q brake X bomb",
@@ -165,8 +162,6 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
                 (format!("   PURSE +{}G for each knight", s.purse()), GOLD),
                 (String::new(), DIM),
             ];
-            // What each knight did, a row each (the picture's own small
-            // rows do not survive a cell).
             for (&id, knight) in &s.seats {
                 let name = run
                     .players
@@ -183,9 +178,6 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
             }
             rows.push((String::new(), DIM));
             rows.push(("   E to return".to_string(), DIM));
-            // The block stands over the picture's own tally panel, whose
-            // rows the cells smear: it is cleared to the panel's foot first,
-            // so no half-row of it shows between the lines.
             let top = area.height * 6 / 28;
             let foot = area.height.saturating_sub(2);
             for row in top..foot {
@@ -245,14 +237,10 @@ mod tests {
             .collect()
     }
 
-    /// The bottom row's keys and the shell's "Esc: leave" bar share it: at
-    /// 96 columns and at a narrower 80 the keys are whole words, and the bar
-    /// is whole too (the keys do not run under it).
     #[test]
     fn the_keys_row_stops_short_of_the_leave_bar_at_any_width() {
         let mut r = Run::griffinwing_for_test();
         r.step(&BTreeMap::new());
-        // Holding Esc brings the bar up.
         for _ in 0..4 {
             r.step(&BTreeMap::new());
         }
@@ -292,7 +280,6 @@ mod tests {
             "the keys are printed along the bottom"
         );
         assert!(all.contains("THUNDERHEAD RUN 1/3"));
-        // To the end: the tally prints its medal and the purse.
         for _ in 0..8000 {
             let i = r.roundtable_inputs();
             r.step(&i);
@@ -308,9 +295,6 @@ mod tests {
         );
     }
 
-    /// The tally on the cells: the picture's own panel is smeared to nothing
-    /// at four dots a cell, so the rows print each knight and stand over a
-    /// block cleared to the panel's foot, with no half-row of picture between.
     #[test]
     fn the_tally_prints_every_knights_row_over_a_cleared_block() {
         use angel_delve::rules::griffinwing::{Medal, Tally};
@@ -354,7 +338,6 @@ mod tests {
             );
         }
         assert!(all.contains("2650 PTS"), "the points are printed:\n{all}");
-        // From the panel's top to its foot: words or empty, never picture.
         for (y, text) in rows.iter().enumerate().take(26).skip(6) {
             assert!(
                 !text
@@ -365,8 +348,6 @@ mod tests {
         }
     }
 
-    /// `ANGEL_ARENA_SHOTS=<dir> cargo test --bin angel write_griffinwing_terminal_review
-    /// -- --ignored` writes the cells as drawn (a picture and the text).
     #[test]
     #[ignore = "writes Griffinwing's terminal review pictures"]
     fn write_griffinwing_terminal_review() {

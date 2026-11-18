@@ -143,17 +143,13 @@ fn idle_agent_bay_keeps_compact_trusted_route_capabilities_visible() {
 
 #[test]
 fn roomy_header_owns_agent_identity_telemetry_and_capabilities() {
-    // The info header is opt-in since 2026-07-22 (ANGEL_AGENT_INFO_HEADER);
-    // this test exercises the restored layout, so it opts in scoped.
     let _guard = env_lock();
     struct HeaderEnv;
     impl Drop for HeaderEnv {
         fn drop(&mut self) {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::remove_var("ANGEL_AGENT_INFO_HEADER") };
         }
     }
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_AGENT_INFO_HEADER", "1") };
     let _header = HeaderEnv;
     let mut app = seed_preview_app();

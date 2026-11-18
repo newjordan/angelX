@@ -50,7 +50,6 @@ fn benchmark_json_becomes_a_card_with_its_local_score() {
         card.contains("- track pinning (higher is better): Maximize"),
         "{card}"
     );
-    // The card's labels are `⠘⠓` page addresses; the values are the data.
     assert!(card.contains("⠘⠓⠃ candidates/pinning"), "{card}");
     assert!(
         card.contains("⠘⠓⠙ ./benchmark.sh pinning (in challenge/)"),
@@ -106,7 +105,6 @@ fn workspace_map_names_nested_repos_and_folds_sibling_runs() {
     );
     let map = workspace_map(&root, &walk);
     assert!(map.contains("(not a git repository)"), "{map}");
-    // The map's labels are `⠘⠛` page addresses; the counts are the data.
     assert!(map.contains("⠘⠛⠛ n=1"), "{map}");
     assert!(map.contains("⠘⠛⠓"), "{map}");
     assert!(map.contains("  challenge/"), "{map}");

@@ -1,11 +1,3 @@
-"""Checked host-clock phases between consecutive captured requests.
-
-Tool time is the span from the first call to the last balanced completion,
-as in the original diagnostics, rather than the sum of concurrent tool times.
-Events identify tool names, not invocation IDs; no per-invocation claim is made.
-Response latency is done minus arrival, including proxy/transport work and
-completion logging after forwarding; it is not provider computation time.
-"""
 import collections
 import importlib.util
 import json

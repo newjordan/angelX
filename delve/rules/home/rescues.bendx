@@ -1,14 +1,9 @@
-# crates/delve/src/rules/rescues.rs — rescues: someone in a cage, who goes home up the stair and
-# stays. Written in bendx (delve/rules/core/_tools/bendx.py). A Captive is
-# {who, room, x, y, freed: tick|null}; a Resident is a J object {id, name, pack, gives, home_at}.
-
 def rescues.resident_row(id: String, name: String, pack: String, gives: String, x: F32, y: F32) -> J.Val:
     return J.set(J.set(J.set(J.set(J.set(J.obj(), "id", J.JS{id}), "name", J.JS{name}), "pack", J.JS{pack}), "gives", J.JS{gives}), "home_at", J.JA{[J.JF{x}, J.JF{y}]})
 
 def rescues.RESIDENTS() -> [J.Val]:
     return [rescues.resident_row("mabel", "Mabel", "cavern", "her stew: 15 more health for every knight", 9.0, 11.6), rescues.resident_row("anselm", "Brother Anselm", "crypt", "his blessing: one more second wind a delve", 3.9, 8.7), rescues.resident_row("pip", "Pip", "archive", "his maps: every floor drawn whole on arrival", 15.4, 2.8), rescues.resident_row("maud", "Maud", "fungal", "her ale: a potion for every knight on the way down", 16.2, 11.4)]
 
-# The resident with this id, or null.
 def rescues.resident(id: String) -> J.Val:
     for r: J.Val in rescues.RESIDENTS():
         if String.eq(core.s(r, "id"), id):
@@ -18,12 +13,9 @@ def rescues.resident(id: String) -> J.Val:
 def rescues.CAGE_REACH() -> F32:
     return 3.0
 
-# The home's residents (a set of ids, as an array), does it hold this one.
 def rescues.lives_here(run: J.Val, id: String) -> Bool:
     return home.util.str_has(J.get(J.get(run, "home"), "residents"), id)
 
-# `Run::residents_help`: what the people at home do for a delve, at the top of the stair:
-# Anselm's blessing and Maud's ale.
 def rescues.Run.residents_help(run: J.Val) -> J.Val:
     blessed: Bool = rescues.lives_here(run, "anselm")
     ale: Bool = rescues.lives_here(run, "maud")
@@ -36,7 +28,6 @@ def rescues.Run.residents_help(run: J.Val) -> J.Val:
         players = J.set(players, k, h)
     return J.set(run, "players", players)
 
-# `Run::pips_map`: Pip's maps: a floor drawn whole as the party arrives.
 def rescues.Run.pips_map(run: J.Val) -> J.Val:
     if Bool.not(rescues.lives_here(run, "pip")):
         return run
@@ -46,8 +37,6 @@ def rescues.Run.pips_map(run: J.Val) -> J.Val:
         rooms = List.append(&2, J.Val, rooms, [core.set_b(r, "visited", True{})])
     return J.set(run, "dungeon", J.set(dungeon, "rooms", J.JA{rooms}))
 
-# `Run::greet_residents`: the people at home speak as a knight walks up to them, once per
-# approach.
 def rescues.Run.greet_residents(run: J.Val) -> J.Val:
     near: U32 = 0
     dug: Bool = False{}
@@ -72,7 +61,6 @@ def rescues.Run.greet_residents(run: J.Val) -> J.Val:
         bit = (bit + 1 : U32)
     return J.set(run, "met", J.JU{near})
 
-# `Run::tick_cage`: the cage each tick: holding E beside it frees whoever is inside.
 def rescues.Run.tick_cage(run: J.Val, inputs: J.Val) -> J.Val:
     captive: J.Val = J.get(run, "captive")
     if J.is_null(captive):
@@ -85,7 +73,6 @@ def rescues.Run.tick_cage(run: J.Val, inputs: J.Val) -> J.Val:
     cx: F32 = core.f(captive, "x")
     cy: F32 = core.f(captive, "y")
     at_room: J.Val = J.nth(J.get(J.get(run, "dungeon"), "rooms"), core.u(run, "at"))
-    # The Mire King holds the pen while he stands.
     if Bool.and(String.eq(core.s(captive, "who"), swamp.HORSE()), Bool.not(core.b(at_room, "cleared"))):
         trying: U32 = 0
         for (k: String, h: J.Val) in J.int_fields(players):

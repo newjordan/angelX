@@ -42,7 +42,6 @@ fn nonregular_open_fixture() {
     ] {
         let path = root.join(label);
         let name = std::ffi::CString::new(path.as_os_str().as_bytes()).unwrap();
-        // SAFETY: name is a live, NUL-terminated path in this fixture's directory.
         assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
         let worker_path = path.clone();
         let (send, receive) = mpsc::channel();
@@ -55,8 +54,6 @@ fn nonregular_open_fixture() {
         let result = match first {
             Ok(result) => result,
             Err(mpsc::RecvTimeoutError::Timeout) => {
-                // Release the old blocking implementation before asserting,
-                // so even the red regression leaves no blocked worker.
                 let peer = OpenOptions::new()
                     .read(true)
                     .write(true)

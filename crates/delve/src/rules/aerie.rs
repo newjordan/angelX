@@ -10,17 +10,12 @@ use super::countryside::Country;
 use super::{BTreeMap, HZ, Input, Room, RoomKind, Run, Spoil, Spoils, TILE_UNITS, Tile};
 use serde::{Deserialize, Serialize};
 
-/// One lap of a pigeon's figure of eight (ticks), how near a shot must come
-/// (units), and how often it poops.
 const LAP: u32 = 8 * HZ;
 const BONK: f32 = 1.3;
 const POOP_EVERY: u32 = 3 * HZ;
 const POOP_REACH: f32 = 1.2;
-/// A bare-handed knight's swing reaches it as it swoops past.
 const SWING_REACH: f32 = 2.2;
 
-/// The chase: a paper on the ground (which, where), each knight's bonks,
-/// and each knight's poop.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Pigeons {
     pub dropped: Option<(u8, f32, f32)>,
@@ -36,8 +31,6 @@ impl Pigeons {
     }
 }
 
-/// Where paper `i`'s pigeon flies at `tick`, in units: a figure of eight
-/// over the middle of its room.
 pub fn pigeon_at(room: &Room, i: usize, tick: u64) -> (f32, f32) {
     let t = ((tick + i as u64 * u64::from(LAP) / 3) % u64::from(LAP)) as f32 / LAP as f32
         * std::f32::consts::TAU;
@@ -48,7 +41,6 @@ pub fn pigeon_at(room: &Room, i: usize, tick: u64) -> (f32, f32) {
     )
 }
 
-/// The paper whose pigeon is up in this room, if one is.
 pub fn flying(kind: RoomKind, stage: u8, papers: u8, pigeons: Option<&Pigeons>) -> Option<usize> {
     let i = DOCUMENTS.iter().position(|d| d.0 == kind)?;
     (stage == 1 && papers & (1 << i) == 0 && pigeons.is_none_or(|p| p.dropped.is_none_or(|d| usize::from(d.0) != i)))
@@ -73,7 +65,6 @@ pub const DOCUMENTS: [(RoomKind, (f32, f32), &str); 3] = [
 pub const FLIGHT: (i32, i32, i32, i32) = (19, 10, 2, 1);
 pub const ROOKERY_FLIGHT: (i32, i32, i32, i32) = (4, 10, 2, 1);
 
-/// Commission stage and found-paper mask include pending private intents.
 pub fn progress(country: &Country, marks: &BTreeMap<String, u32>) -> (u8, u8) {
     let mut stage = country.post;
     let mut papers = country.minutes;
@@ -94,7 +85,6 @@ pub fn progress(country: &Country, marks: &BTreeMap<String, u32>) -> (u8, u8) {
 }
 
 pub fn shape(room: &mut Room) {
-    // Sculptures leave a two-tile crossroad and every objective approach open.
     let blocks: &[(usize, usize, usize, usize)] = match room.kind {
         RoomKind::Belfry => &[(3, 2, 2, 3), (19, 2, 2, 3)],
         RoomKind::Aqueduct => &[(7, 2, 2, 3), (15, 2, 2, 3), (7, 10, 2, 2), (15, 10, 2, 2)],
@@ -139,7 +129,6 @@ impl Run {
         if self.home.countryside.aerie_visited & (1 << i) == 0 {
             self.marks.insert(VISIT_MARKS[i].into(), 1);
         }
-        // No quest actions while an arcade round is playing.
         if self.pastimes.round.is_some() {
             return;
         }
@@ -166,7 +155,6 @@ impl Run {
                 action = Some((id, if stage == 0 { 0 } else { 4 }));
                 break;
             }
-            // A dropped paper is picked up where it fell.
             if let Some((i, x, y)) = self.pigeons.as_ref().and_then(|p| p.dropped) {
                 if DOCUMENTS[usize::from(i)].0 == kind && (h.x - x).hypot(h.y - y) < 1.4 * TILE_UNITS {
                     action = Some((id, usize::from(i) + 1));
@@ -194,8 +182,6 @@ impl Run {
         self.found = Some((self.tick, id, message));
     }
 
-    /// This room's pigeon: shots bonk it (it drops the paper), and it poops
-    /// on whoever stands beneath.
     fn tick_pigeon(&mut self, kind: RoomKind, papers: u8) {
         let mut p = self.pigeons.take().unwrap_or_default();
         if let Some(i) = flying(kind, 1, papers, Some(&p)) {
@@ -214,7 +200,6 @@ impl Run {
                 .find(|(_, h)| h.hp > 0 && h.swing > 0 && (h.x - x).hypot(h.y - y) < SWING_REACH)
                 .map(|(&id, _)| id);
             if let Some(owner) = shot.or(swung) {
-                // The shooter, else the nearest knight, takes the bonk.
                 let by = if self.players.contains_key(&owner) {
                     owner
                 } else {
@@ -224,7 +209,6 @@ impl Run {
                         .map_or(0, |(&id, _)| id)
                 };
                 *p.bonks.entry(by).or_default() += 1;
-                // The paper lands under it, or at its old spot if that's rock.
                 let floor = self.room().tile((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32) == Tile::Floor;
                 let at = if floor { (x, y) } else { (DOCUMENTS[i].1.0 * TILE_UNITS, DOCUMENTS[i].1.1 * TILE_UNITS) };
                 p.dropped = Some((i as u8, at.0, at.1));
@@ -248,8 +232,6 @@ impl Run {
         self.pigeons = Some(p);
     }
 
-    /// A knight's shot right at this room's pigeon, as if aimed well; the
-    /// spot its paper fell, if one did.
     #[cfg(any(test, feature = "testing"))]
     pub fn bonk_pigeon_for_test(&mut self, by: u32) -> Option<(f32, f32)> {
         let kind = self.room().kind;
@@ -276,7 +258,6 @@ impl Run {
         self.pigeons.as_ref()?.dropped.map(|d| (d.1, d.2))
     }
 
-    /// The minutes in: the best bonker is crowned and everyone is cleaned.
     fn crown_the_bonker(&mut self, giver: u32) -> String {
         let p = self.pigeons.take().unwrap_or_default();
         let best = p

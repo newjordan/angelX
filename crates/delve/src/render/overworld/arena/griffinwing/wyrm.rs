@@ -22,34 +22,21 @@ use crate::rules::griffinwing::trig::Det;
 use crate::rules::griffinwing::{Beast, Kind, Mode, PACE, Session, St, VICTORY, Wyrm, boss, rail, rail::units};
 
 const TAU: f32 = std::f32::consts::TAU;
-/// Ticks the Wyrm takes dying, as the rules run them.
 const DYING_TICKS: f32 = 60.0;
-/// Ticks the wreck is worth drawing after the last lamp breaks.
 pub(super) const WRECK_LIFE: u32 = 100;
-/// When the last part of the Wyrm lets go (ticks after its last lamp).
 const LAST_START: u32 = 56;
-/// How far ahead of the head the lamps hang, and how high over it the crown
-/// lamp sits, in units (the sim's own numbers).
 const FRONT: f32 = 4.0;
 const CROWN: f32 = 4.2;
-/// How far the rail runs in a tick, in units.
 fn pace() -> f32 {
     units(PACE)
 }
 
-// ─── the pose ──────────────────────────────────────────────────────────────
-
-/// What a glow is lit with.
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
 enum Glow {
-    /// Unlit: dark stone.
     #[default]
     Dark,
-    /// The cold light of the roost.
     Cold,
-    /// A flame: gold.
     Fire,
-    /// Coals: orange, the hottest.
     Coals,
 }
 
@@ -64,37 +51,23 @@ impl Glow {
     }
 }
 
-/// How the Wyrm stands: its head's turn and thrust, its jaw, its frill, what
-/// burns, and how far the body is wound.
 #[derive(Clone, Copy, Default, Debug)]
 pub(super) struct Pose {
-    /// Up lifts the face, down drops it.
     pitch: f32,
-    /// Toward the right is positive.
     yaw: f32,
     roll: f32,
-    /// Units the head is thrust toward the eye (negative: drawn back).
     shove: f32,
-    /// 0 shut, 1 gaping.
     jaw: f32,
-    /// 0 laid flat, 1 spread, a little over is a bristle.
     flare: f32,
     mouth: Glow,
     eyes: Glow,
-    /// 0 to 1: how hard the throat and the neck's belly burn.
     heat: f32,
-    /// 0 to 1: a band of light climbing the neck toward the head (negative:
-    /// none).
     wave: f32,
-    /// 0 to 1: the body wound for a sweep.
     wind: f32,
-    /// 0 to 1: the death's sag.
     droop: f32,
-    /// A white frame: the blow just struck.
     flash: bool,
 }
 
-/// The pose of beast `b` at `tick`.
 fn pose_of(b: &Beast, tick: u32) -> Pose {
     let t = tick as f32;
     let side = f32::from(b.side);
@@ -115,7 +88,6 @@ fn pose_of(b: &Beast, tick: u32) -> Pose {
         }
         Wyrm::Idle => {}
         Wyrm::Tell => {
-            // The wind-up fills the last forty ticks of the tell.
             let k = (1.0 - ticks / 40.0).clamp(0.0, 1.0);
             let pulse = 0.5 + 0.5 * (t * (0.3 + 0.5 * k)).dsin();
             match b.atk {
@@ -173,7 +145,6 @@ fn pose_of(b: &Beast, tick: u32) -> Pose {
             p.roll = 0.05 * (t * 1.7).dsin();
         }
         Wyrm::Hurt => {
-            // Reeling: thrown back and rolled, then hanging, the eyes out.
             let hit = ((ticks - 52.0) / 18.0).clamp(0.0, 1.0);
             p.shove = -2.8 * hit;
             p.roll = 0.36 * hit * (t * 0.9).dsin();
@@ -197,7 +168,6 @@ fn pose_of(b: &Beast, tick: u32) -> Pose {
     p
 }
 
-/// The pose of a Wyrm that has fallen and left only its parts.
 fn wreck_pose() -> Pose {
     pose_of(
         &Beast {
@@ -218,19 +188,11 @@ fn wreck_pose() -> Pose {
     )
 }
 
-// ─── the head's frame ──────────────────────────────────────────────────────
-
-/// The neck's pivot in the head's own coordinates (along, across, up): the
-/// head turns about it.
-/// How big the head is drawn against the numbers below.
 const SIZE: f32 = 1.45;
 const NA: f32 = 3.0;
 const NC: f32 = -1.2;
-/// The jaw's hinge.
 const HINGE: (f32, f32) = (1.2, -1.3);
 
-/// The head's frame: `a` runs back from the face (away from the eye), `b` to
-/// the right and `c` up, turned by the pose.
 #[derive(Clone, Copy)]
 struct Fr {
     n: V3,
@@ -256,14 +218,10 @@ impl Fr {
         }
     }
 
-    /// A point of the head, in its own coordinates (drawn `SIZE` times its
-    /// measure about the head's middle, so it stands in the canyon's scale).
     fn p(&self, a: f32, b: f32, c: f32) -> V3 {
         self.n + self.a * (a * SIZE - NA) + self.b * (b * SIZE) + self.c * (c * SIZE - NC)
     }
 
-    /// A point of the jaw, in the head's coordinates when shut, swung open
-    /// by `alpha` about the hinge.
     fn jaw(&self, alpha: f32, a: f32, b: f32, c: f32) -> V3 {
         let (s, co) = alpha.dsin_cos();
         let (da, dc) = (a - HINGE.0, c - HINGE.1);
@@ -271,10 +229,6 @@ impl Fr {
     }
 }
 
-// ─── the way a part breaks off ─────────────────────────────────────────────
-
-/// A transform a part goes through once it is off: a turn about an axis
-/// through a pivot, and a move.
 #[derive(Clone, Copy)]
 struct Xf {
     on: bool,
@@ -306,7 +260,6 @@ impl Xf {
     }
 }
 
-/// The parts of the Wyrm that come away, in the order a table lists them.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(usize)]
 enum Part {
@@ -328,36 +281,25 @@ enum Part {
 
 const PARTS: usize = 14;
 
-/// When each part lets go (ticks after the last lamp), how it is thrown
-/// (along, across, up in the head's axes, units a tick), what it turns about
-/// (the same axes) and how fast (radians a tick), and where it turns.
 struct Break {
     start: u32,
     vel: (f32, f32, f32),
     spin: (f32, f32, f32),
     rate: f32,
     pivot: (f32, f32, f32),
-    /// Whether the throw and the pivot are in the rail's own axes (the body,
-    /// which hangs from the roost, not from the head's turn) and not the head's.
     rail: bool,
 }
 
 const BREAKS: [Break; PARTS] = [
-    // The skull: last, and slowly.
     Break { start: 44, vel: (-0.02, 0.0, -0.05), spin: (0.0, 1.0, 0.0), rate: 0.05, pivot: (0.0, 0.0, 0.0), rail: false },
-    // The jaw drops off its hinge.
     Break { start: 30, vel: (-0.1, 0.0, -0.08), spin: (0.0, 1.0, 0.0), rate: 0.1, pivot: (1.2, 0.0, -1.3), rail: false },
-    // The horns tumble out and up.
     Break { start: 8, vel: (-0.04, -0.3, 0.16), spin: (1.0, 0.0, 0.0), rate: 0.13, pivot: (1.0, -4.0, 4.0), rail: false },
     Break { start: 16, vel: (-0.04, 0.3, 0.16), spin: (1.0, 0.0, 0.0), rate: -0.13, pivot: (1.0, 4.0, 4.0), rail: false },
     Break { start: 22, vel: (-0.14, 0.0, 0.2), spin: (0.0, 1.0, 0.0), rate: -0.12, pivot: (-1.0, 0.0, 5.0), rail: false },
-    // The hooks go with the lamps they held.
     Break { start: 12, vel: (-0.1, -0.2, -0.04), spin: (0.0, 0.0, 1.0), rate: 0.1, pivot: (-1.0, -4.0, 0.5), rail: false },
     Break { start: 20, vel: (-0.1, 0.2, -0.04), spin: (0.0, 0.0, 1.0), rate: -0.1, pivot: (-1.0, 4.0, 0.5), rail: false },
-    // The frill folds away behind.
     Break { start: 26, vel: (0.1, -0.16, -0.02), spin: (0.0, 0.0, 1.0), rate: 0.07, pivot: (3.0, -3.0, 4.0), rail: false },
     Break { start: 34, vel: (0.1, 0.16, -0.02), spin: (0.0, 0.0, 1.0), rate: -0.07, pivot: (3.0, 3.0, 4.0), rail: false },
-    // The neck lets go in lengths, head first.
     Break { start: 38, vel: (0.02, -0.06, -0.1), spin: (1.0, 0.0, 0.0), rate: 0.04, pivot: (3.4, 0.0, -4.6), rail: true },
     Break { start: 44, vel: (0.0, 0.07, -0.12), spin: (1.0, 0.0, 0.0), rate: -0.04, pivot: (4.4, 3.6, -9.0), rail: true },
     Break { start: 50, vel: (0.0, -0.06, -0.14), spin: (1.0, 0.0, 0.0), rate: 0.03, pivot: (5.6, -3.6, -13.6), rail: true },
@@ -365,10 +307,6 @@ const BREAKS: [Break; PARTS] = [
     Break { start: 52, vel: (0.04, 0.12, -0.14), spin: (0.0, 0.0, 1.0), rate: 0.03, pivot: (8.0, -9.0, -9.0), rail: true },
 ];
 
-/// Where the parts that still hold on at the end let go, and when: the tick
-/// after the last lamp, and the place as fixed-point (along, across, up) from
-/// the head's middle, for the blasts that ride the body down. The horns are
-/// not here: a lamp struck each of them off before.
 pub(super) fn break_points() -> Vec<(u32, [i32; 3])> {
     let q = |v: f32| (v * 256.0) as i32;
     [
@@ -396,21 +334,15 @@ pub(super) fn break_points() -> Vec<(u32, [i32; 3])> {
     .collect()
 }
 
-/// Gravity on a part that has let go, units a tick a tick.
 const G: f32 = 0.03;
-/// Ticks after it lets go that a part has fallen out of the picture.
 const GONE_AFTER: u32 = 46;
 
-/// Where the Wyrm stands for one frame: the head's place, its rail frame, its
-/// pose and, once it has fallen, how long ago.
 struct Scene {
     head: V3,
     f: V3,
     r: V3,
     pose: Pose,
-    /// Ticks since the last lamp broke (None: not falling).
     age: Option<u32>,
-    /// How many lamps are out (0 to 3), and when the last two broke.
     out: u32,
     horn_cut: [Option<u32>; 2],
     tick: u32,
@@ -418,14 +350,11 @@ struct Scene {
     phase: u8,
     atk: u8,
     st: Wyrm,
-    /// The lamps' places in the world, left, right, crown.
     lamps: [V3; 3],
-    /// How far the coil's slabs are in (0 to 1).
     sweep: f32,
 }
 
 impl Scene {
-    /// The transform of `part` as the fall's age is.
     fn xf(&self, part: Part, fr: &Fr) -> Xf {
         match self.age {
             Some(age) => self.xf_at(part, fr, age),
@@ -433,24 +362,17 @@ impl Scene {
         }
     }
 
-    /// The transform of `part` `age` ticks after the last lamp broke. The path
-    /// a part takes is a guide of its own: a throw along the head's axes, the
-    /// world's gravity and the pace the head stopped holding, which
-    /// `guides` draws for the shots.
     fn xf_at(&self, part: Part, fr: &Fr, age: u32) -> Xf {
         let br = &BREAKS[part as usize];
         if age < br.start {
             return Xf::ID;
         }
         if age >= br.start + GONE_AFTER {
-            // Long gone: out of the picture, far down.
             return Xf { on: true, pivot: fr.n, axis: V3::UP, c: 1.0, s: 0.0, disp: V3::UP * -200.0 };
         }
         let t = (age - br.start) as f32;
         let (ax, bx, cx) = self.axes(br, fr);
         let vel = ax * br.vel.0 + bx * br.vel.1 + cx * br.vel.2;
-        // A part that has let go stays where it was in the world, not on the
-        // head that goes on holding its pace ahead of the wing.
         let held = pace() * (age.min(DYING_TICKS as u32) as f32 - br.start.min(DYING_TICKS as u32) as f32);
         let disp = vel * t - self.f * held + V3::UP * (-0.5 * G * t * t);
         let axis = (ax * br.spin.0 + bx * br.spin.1 + cx * br.spin.2).normalize();
@@ -465,7 +387,6 @@ impl Scene {
         }
     }
 
-    /// The axes a part's throw and turn are in: the head's own or the rail's.
     fn axes(&self, br: &Break, fr: &Fr) -> (V3, V3, V3) {
         if br.rail {
             (self.f, self.r, V3::UP)
@@ -474,7 +395,6 @@ impl Scene {
         }
     }
 
-    /// Where a part turns, in the world.
     fn pivot_of(&self, br: &Break, fr: &Fr) -> V3 {
         let (a, b, c) = br.pivot;
         if br.rail {
@@ -485,9 +405,6 @@ impl Scene {
     }
 }
 
-// ─── the emitters ──────────────────────────────────────────────────────────
-
-/// Triangles into a mesh, through the transform of the part being built.
 struct Out<'a> {
     m: &'a mut Mesh,
     xf: Xf,
@@ -499,21 +416,17 @@ impl Out<'_> {
         self.m.push_tri(v, uv, material);
     }
 
-    /// A quad a, b, c, d with its own uv from the edge lengths.
     fn quad(&mut self, a: V3, b: V3, c: V3, d: V3, material: u8) {
         let (u, v) = ((b - a).length(), (d - a).length());
         self.tri(a, b, c, [[0.0, 0.0], [u, 0.0], [u, v]], material);
         self.tri(a, c, d, [[0.0, 0.0], [u, v], [0.0, v]], material);
     }
 
-    /// A quad with uvs given at the corners.
     fn quad_uv(&mut self, p: [V3; 4], uv: [[f32; 2]; 4], material: u8) {
         self.tri(p[0], p[1], p[2], [uv[0], uv[1], uv[2]], material);
         self.tri(p[0], p[2], p[3], [uv[0], uv[2], uv[3]], material);
     }
 
-    /// A box between two quads of four corners each, in the same order: its
-    /// four long faces, and the ends where asked.
     fn prism(&mut self, c0: [V3; 4], c1: [V3; 4], caps: (bool, bool), material: u8) {
         for i in 0..4 {
             let j = (i + 1) % 4;
@@ -527,8 +440,6 @@ impl Out<'_> {
         }
     }
 
-    /// A four-sided spike from a square at `base` (half a width `w`, laid
-    /// across `side`) to `tip`.
     fn spike(&mut self, base: V3, tip: V3, w: f32, side: V3, material: u8) {
         let axis = (tip - base).normalize();
         let s = (side - axis * side.dot(axis)).normalize() * w;
@@ -541,7 +452,6 @@ impl Out<'_> {
     }
 }
 
-/// A Catmull-Rom curve through `pts`, `per` samples to a span.
 fn spline(pts: &[V3], per: usize) -> Vec<V3> {
     let n = pts.len();
     let mut out = Vec::with_capacity((n - 1) * per + 1);
@@ -564,7 +474,6 @@ fn spline(pts: &[V3], per: usize) -> Vec<V3> {
     out
 }
 
-/// A ring of a tube: its centre, its two axes and its radius.
 #[derive(Clone, Copy)]
 struct Ring {
     p: V3,
@@ -573,8 +482,6 @@ struct Ring {
     r: f32,
 }
 
-/// Rings along `path`, the radius from `radius(t)` (t from 0 to 1 along it),
-/// the first axis kept as near `across` as the path lets it.
 fn rings(path: &[V3], across: V3, radius: impl Fn(f32) -> f32) -> Vec<Ring> {
     let n = path.len();
     (0..n)
@@ -595,19 +502,14 @@ fn rings(path: &[V3], across: V3, radius: impl Fn(f32) -> f32) -> Vec<Ring> {
         .collect()
 }
 
-/// The unit circle in `sides` steps.
 fn circle(sides: usize) -> Vec<(f32, f32)> {
     (0..sides)
         .map(|j| (j as f32 / sides as f32 * TAU).dsin_cos())
         .collect()
 }
 
-/// What a face of a tube is made of: by its ring, whether it looks at the
-/// eye, and how it burns.
 type Skin<'a> = &'a dyn Fn(usize, bool) -> u8;
 
-/// A tube along `rs[from..=to]`: its faces are `skin(ring, belly)` where
-/// belly is whether the face looks toward the eye.
 #[allow(clippy::too_many_arguments)]
 fn tube(o: &mut Out, rs: &[Ring], from: usize, to: usize, sides: usize, to_eye: V3, scale: f32, skin: Skin) {
     let dirs = circle(sides);
@@ -645,7 +547,6 @@ fn tube(o: &mut Out, rs: &[Ring], from: usize, to: usize, sides: usize, to_eye: 
     }
 }
 
-/// A rounded cap of spikes on a tube's last ring (a horn's tip, a coil's end).
 fn point(o: &mut Out, r: &Ring, tip: V3, sides: usize, material: u8) {
     let dirs = circle(sides);
     for j in 0..sides {
@@ -657,9 +558,6 @@ fn point(o: &mut Out, r: &Ring, tip: V3, sides: usize, material: u8) {
     }
 }
 
-// ─── the head ──────────────────────────────────────────────────────────────
-
-/// The angles of the frill's spines from straight up, and how long each runs.
 const FRILL: [(f32, f32); 7] = [
     (-1.3, 4.2),
     (-0.88, 5.4),
@@ -670,13 +568,11 @@ const FRILL: [(f32, f32); 7] = [
     (1.3, 4.2),
 ];
 
-/// The skin of the head's scales, plates, bone and hooks.
 const SCALE: u8 = mat::STABLE_ROOF;
 const PLATE: u8 = mat::STABLE_WALL;
 const HORN: u8 = mat::STABLE_TIMBER;
 const BELLY: u8 = mat::STABLE_FLOOR;
 const WEB: u8 = mat::TACK_LEATHER;
-/// The coil's slab, near the eye: the scale in a darker coat.
 const SLAB: u8 = mat::HAY;
 
 fn horn_path(fr: &Fr, side: f32) -> Vec<V3> {
@@ -698,7 +594,6 @@ fn horn_rings(fr: &Fr, side: f32) -> Vec<Ring> {
     rings(&path, fr.a, |t| 0.95 * (1.0 - t) + 0.08)
 }
 
-/// The head: skull, brow, eyes, snout, jaw, teeth, horns, crest and hooks.
 fn skull(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
     let p = &sc.pose;
     let alpha = p.jaw * 0.62;
@@ -709,8 +604,6 @@ fn skull(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
     let fp = |a: f32, b: f32, c: f32| fr.p(a, b, c);
     let flashed = |m: u8| if p.flash { mat::MOONLIGHT } else { m };
 
-    // The core: cranium, snout, brows, eyes, nostrils, the roof of the mouth
-    // and its teeth.
     o.xf = sc.xf(Part::Core, fr);
     o.prism(
         [fp(2.6, -2.3, 3.0), fp(2.6, 2.3, 3.0), fp(2.6, 3.3, -1.6), fp(2.6, -3.3, -1.6)],
@@ -724,7 +617,6 @@ fn skull(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
         (false, true),
         flashed(PLATE),
     );
-    // A ridge down the nose, and the brows barred over the eyes.
     o.prism(
         [fp(-0.5, -0.35, 2.5), fp(-0.5, 0.35, 2.5), fp(-0.5, 0.35, 0.3), fp(-0.5, -0.35, 0.3)],
         [fp(-4.0, -0.3, 0.6), fp(-4.0, 0.3, 0.6), fp(-4.0, 0.3, 0.3), fp(-4.0, -0.3, 0.3)],
@@ -738,7 +630,6 @@ fn skull(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
             (true, true),
             flashed(PLATE),
         );
-        // The eye: a slit slanted under the brow.
         o.quad(
             fp(-1.45, 0.8 * s, 0.55),
             fp(-1.45, 2.3 * s, 0.95),
@@ -746,7 +637,6 @@ fn skull(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
             fp(-1.45, 0.8 * s, 0.95),
             eye,
         );
-        // A nostril.
         o.quad(
             fp(-4.45, 0.62 * s, -0.05),
             fp(-4.45, 0.28 * s, -0.05),
@@ -754,13 +644,10 @@ fn skull(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
             fp(-4.45, 0.62 * s, 0.22),
             if p.mouth == Glow::Coals { mat::EMBER } else { stone },
         );
-        // Upper teeth along the lip, long fangs at the front.
         for (a, b, len) in [(-4.15f32, 0.72f32, 1.7f32), (-3.2, 1.0, 0.9), (-2.1, 1.35, 0.8), (-1.0, 1.55, 0.7)] {
             let base = fp(a, b * s, -1.0);
             o.spike(base, base - fr.c * len, 0.2 + len * 0.06, fr.b, HORN);
         }
-        // Spikes along the cheek, swept out and back: the skull's outline is
-        // no box.
         for (a, b0, c0, tb, ta, tc) in [
             (2.2f32, 3.1f32, 0.6f32, 5.4f32, 3.3f32, 1.4f32),
             (1.0, 3.0, -0.2, 5.0, 1.2, -0.3),
@@ -769,7 +656,6 @@ fn skull(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
             o.spike(fp(a, b0 * s, c0), fp(ta, tb * s, tc), 0.42, fr.c, HORN);
         }
     }
-    // The roof of the mouth: the maw seen when the jaw is down.
     o.quad(
         fp(-0.4, -1.5, -1.15),
         fp(-0.4, 1.5, -1.15),
@@ -778,8 +664,6 @@ fn skull(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
         stone,
     );
 
-    // The jaw: a wedge from its hinge to a blunt chin, its teeth rising, the
-    // throat and tongue lit as the tell lights them.
     o.xf = sc.xf(Part::Jaw, fr);
     let jp = |a: f32, b: f32, c: f32| fr.jaw(alpha, a, b, c);
     o.prism(
@@ -788,9 +672,7 @@ fn skull(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
         (false, true),
         flashed(PLATE),
     );
-    // The floor of the mouth, lit by the throat.
     o.quad(jp(1.0, -1.7, -1.2), jp(1.0, 1.7, -1.2), jp(-3.9, 0.85, -0.95), jp(-3.9, -0.85, -0.95), if p.heat > 0.2 { mouth } else { stone });
-    // The throat, lit.
     o.quad(
         fr.p(0.6, -1.7, -1.1),
         fr.p(0.6, 1.7, -1.1),
@@ -806,10 +688,8 @@ fn skull(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
         }
     }
 
-    // A barb under the chin.
     o.spike(jp(-3.9, 0.0, -1.7), jp(-4.5, 0.0, -3.5), 0.42, fr.b, HORN);
 
-    // The horns.
     for (k, (part, side)) in [(Part::HornL, -1.0f32), (Part::HornR, 1.0)].into_iter().enumerate() {
         o.xf = sc.xf(part, fr);
         let hr = &rs.horns[k];
@@ -817,11 +697,9 @@ fn skull(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
             Some(_) => 5,
             None => hr.len() - 1,
         };
-        // A collar of dark stone at the root.
         tube(o, hr, 0, 1, 5, -fr.a, 1.0, &|_, _| stone);
         tube(o, hr, 1, keep, 5, -fr.a, 1.0, &|_, _| flashed(HORN));
         if sc.horn_cut[k].is_some() {
-            // The stump, charred where it was struck off.
             point(o, &hr[keep], hr[keep].p + fr.c * 0.2, 5, mat::EMBER);
         } else {
             point(o, &hr[hr.len() - 1], hr[hr.len() - 1].p + (hr[hr.len() - 1].p - hr[hr.len() - 2].p).normalize() * 0.9, 5, HORN);
@@ -829,8 +707,6 @@ fn skull(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
         let _ = side;
     }
 
-    // The crest horn, and the hooks that hold the lanterns out, the first
-    // lamp's hook dark once it is out.
     o.xf = sc.xf(Part::Crest, fr);
     tube(o, &rs.crest, 0, rs.crest.len() - 1, 5, -fr.a, 1.0, &|_, _| flashed(HORN));
     cradle(o, fr, sc.lamps[2], 0.0);
@@ -842,11 +718,9 @@ fn skull(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
         cradle(o, fr, sc.lamps[k], 0.0);
     }
 
-    // The frill.
     spread(o, sc, fr, p.flare);
 }
 
-/// A brass cradle round a lamp's place, open toward the eye.
 fn cradle(o: &mut Out, fr: &Fr, at_: V3, lift: f32) {
     let c = at_ + fr.a * 1.2 + fr.c * lift;
     let (w, h) = (0.55, 0.5);
@@ -858,11 +732,10 @@ fn cradle(o: &mut Out, fr: &Fr, at_: V3, lift: f32) {
     );
 }
 
-/// The fan of spines behind the head, and the web between them.
 fn spread(o: &mut Out, sc: &Scene, fr: &Fr, flare: f32) {
     let f = flare.clamp(0.0, 1.4);
     let hub = fr.p(2.7, 0.0, 0.3);
-    let torn = sc.out; // a spine goes with each lamp
+    let torn = sc.out;
     let mut tips: Vec<Option<(V3, V3)>> = Vec::new();
     for (i, &(phi, len)) in FRILL.iter().enumerate() {
         let (sp, cp) = (phi * (0.75 + 0.25 * f)).dsin_cos();
@@ -870,7 +743,6 @@ fn spread(o: &mut Out, sc: &Scene, fr: &Fr, flare: f32) {
         let up = fr.b * sp + fr.c * cp;
         let base = hub + up * 2.6;
         let tip = hub + up * (2.6 + reach) + fr.a * (1.6 + 1.2 * (1.0 - f).max(0.0) + reach * 0.12);
-        // The outermost spines are the first to go.
         let gone = (i == 0 && torn >= 1) || (i == 6 && torn >= 2) || (i == 1 && torn >= 3);
         tips.push(if gone { None } else { Some((base, tip)) });
     }
@@ -880,7 +752,6 @@ fn spread(o: &mut Out, sc: &Scene, fr: &Fr, flare: f32) {
         let Some((base, tip)) = t else { continue };
         o.spike(*base, *tip, 0.5, fr.a, HORN);
         if let Some(Some((b2, t2))) = tips.get(i + 1) {
-            // The web between two spines, scalloped.
             let mid = (*base + *b2) * 0.5;
             let tm = (*tip + *t2) * 0.5;
             let notch = mid.lerp(tm, 0.52);
@@ -891,9 +762,6 @@ fn spread(o: &mut Out, sc: &Scene, fr: &Fr, flare: f32) {
     }
 }
 
-// ─── the neck and the coils ────────────────────────────────────────────────
-
-/// Every ring path of the Wyrm built once a frame.
 struct Rings {
     horns: [Vec<Ring>; 2],
     crest: Vec<Ring>,
@@ -907,8 +775,6 @@ fn rings_for(sc: &Scene, fr: &Fr, nominal: V3) -> Rings {
     let t = sc.tick as f32;
     let p = &sc.pose;
     let wind = p.wind;
-    // The roost's coils: the neck bends in an S out of the mist, more
-    // widely the tighter the body winds, and sags in death.
     let sway = |k: f32, amp: f32| (t * 0.045 + k).dsin() * amp * (1.0 + 1.1 * wind);
     let at_ = |a: f32, b: f32, c: f32| nominal + f * a + r * b + V3::UP * c;
     let droop = p.droop;
@@ -953,11 +819,9 @@ fn rings_for(sc: &Scene, fr: &Fr, nominal: V3) -> Rings {
     Rings { horns, crest, hooks, neck, loop_ }
 }
 
-/// The neck and the coil behind it.
 fn body(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
     let p = &sc.pose;
     let n = rs.neck.len();
-    // Chunks the neck breaks in (ring ranges).
     let chunks = [
         (Part::Neck0, 0, n * 3 / 10),
         (Part::Neck1, n * 3 / 10, n * 5 / 10),
@@ -972,8 +836,6 @@ fn body(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
                 return SCALE;
             }
             let t = i as f32 / (n - 1) as f32;
-            // A band of light climbing the neck to the head, and the whole
-            // belly smouldering as the heat rises.
             let climbing = p.wave >= 0.0 && ((1.0 - t) - p.wave * 1.15).abs() < 0.09;
             let burning = p.heat > 0.5 && t < 0.2;
             if climbing || burning {
@@ -993,7 +855,6 @@ fn body(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
             }
         };
         tube(o, &rs.neck, a, b, 8, eye_dir, 1.0, &skin);
-        // Spikes down both edges of the neck, outward.
         for i in (a..b).step_by(2) {
             let ring = &rs.neck[i];
             for s in [-1.0f32, 1.0] {
@@ -1002,7 +863,6 @@ fn body(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
             }
         }
     }
-    // The coil behind, in the roost's mist.
     o.xf = sc.xf(Part::Coil, fr);
     let m = rs.loop_.len();
     let skin = |i: usize, belly: bool| if belly && i % 3 == 0 { BELLY } else { SCALE };
@@ -1016,14 +876,10 @@ fn body(o: &mut Out, sc: &Scene, fr: &Fr, rs: &Rings) {
     point(o, &last, last.p + (last.p - rs.loop_[m - 2].p).normalize() * 1.6, 8, SCALE);
 }
 
-// ─── the Wyrm in the scene ─────────────────────────────────────────────────
-
-/// How many of the Wyrm's three lamps are out.
 fn lamps_out(s: &Session) -> u32 {
     s.foes.iter().filter(|f| f.kind == Kind::Lamp && f.st == St::Broken).count() as u32
 }
 
-/// The tick a lamp was broken, by how many were out when it went.
 fn lamp_born(s: &Session, n: u32) -> Option<u32> {
     s.show
         .fx
@@ -1032,25 +888,18 @@ fn lamp_born(s: &Session, n: u32) -> Option<u32> {
         .map(|f| f.born)
 }
 
-/// The age of the Wyrm's fall (ticks since its last lamp broke), and where
-/// its head was when it did (along, across, up): `None` when it has not
-/// fallen or the wreck is no longer worth drawing.
 pub(super) fn fall_of(s: &Session) -> Option<(u32, i32, i32, i32)> {
     let f = s.show.fx.iter().find(|f| f.what == What::WyrmDown)?;
     let age = f.age(s.elapsed);
     (age < WRECK_LIFE).then_some((age, f.s, f.x, f.z))
 }
 
-/// The Wyrm as this frame has it: its place and pose, the head's frame and
-/// every curve its body is laid along. `None` when there is none to draw.
 fn build(s: &Session) -> Option<(Scene, Fr, Rings)> {
     let anchor = units(s.anchor());
     let tick = s.elapsed;
     let fall = fall_of(s);
     let (head_s, x, z, pose, st, phase, atk, side, age) = match (&s.boss, fall) {
         (Some(b), fall) => {
-            // The fall's own record while it lasts; on the way home and at the
-            // tally the Wyrm has been dying as long as the flight has run.
             let dying = DYING_TICKS as u32;
             let age = if b.st != Wyrm::Dying {
                 None
@@ -1061,20 +910,15 @@ fn build(s: &Session) -> Option<(Scene, Fr, Rings)> {
                     _ => fall.map(|(a, ..)| a).or(Some(dying.saturating_sub(b.ticks))),
                 }
             };
-            // Dying, it holds its pace ahead of the wing; once done it stays
-            // where it stood, and what is left of it falls.
             let settled = age.map_or(0.0, |a| a.saturating_sub(DYING_TICKS as u32) as f32 * pace());
             (anchor + units(boss::HEAD) - settled, units(b.x), units(b.z), pose_of(b, tick), b.st, b.phase, b.atk, f32::from(b.side), age)
         }
         (None, Some((age, fs, fx_, fz))) => {
-            // The Wyrm is gone and its parts fall: held where the head stood
-            // when it was done dying.
             let s_end = units(fs) + FRONT + pace() * DYING_TICKS;
             (s_end, units(fx_), units(fz) - CROWN, wreck_pose(), Wyrm::Dying, 2, 0, 1.0, Some(age))
         }
         (None, None) => return None,
     };
-    // Nothing is left of it once its last part has fallen out of the picture.
     if age.is_some_and(|a| a >= LAST_START + GONE_AFTER) {
         return None;
     }
@@ -1110,13 +954,11 @@ fn build(s: &Session) -> Option<(Scene, Fr, Rings)> {
     Some((sc, fr, rs))
 }
 
-/// The Wyrm, or the parts of it that are left, into `m`.
 pub(super) fn draw(m: &mut Mesh, s: &Session) {
     let Some((sc, fr, rs)) = build(s) else { return };
     let mut o = Out { m, xf: Xf::ID };
     skull(&mut o, &sc, &fr, &rs);
     body(&mut o, &sc, &fr, &rs);
-    // A horn struck off by a lamp's going spins away from where it broke.
     for (k, n) in [(0usize, 1u32), (1, 2)] {
         if let Some(born) = lamp_born(s, n) {
             let age = sc.tick.saturating_sub(born);
@@ -1128,27 +970,18 @@ pub(super) fn draw(m: &mut Mesh, s: &Session) {
     let _ = (sc.head, sc.phase, sc.atk, sc.st, sc.sweep);
 }
 
-/// Where the Wyrm's mouth is in the world (the throat of the roar's shaft and
-/// where the spit starts).
 pub(super) fn mouth(s: &Session) -> Option<V3> {
     let (_, fr, _) = build(s)?;
     Some(fr.p(MOUTH.0, MOUTH.1, MOUTH.2))
 }
 
-/// The mouth, in the head's own coordinates.
 const MOUTH: (f32, f32, f32) = (-5.5, 0.0, -1.0);
 
-/// A guide line: world points and the ink to draw them in.
 pub(super) struct Guide {
     pub pts: Vec<V3>,
     pub ink: char,
 }
 
-/// Every path the Wyrm is drawn along or moves on, as guides for the debug
-/// layer of the shots: the curves its neck, coil, horns, crest and hooks are
-/// laid on, the arc each part takes when it falls, the spit's lines from the
-/// mouth to its locked marks, the sweep's path in from the walls and the
-/// roar's column.
 pub(super) fn guides(s: &Session) -> Vec<Guide> {
     let Some((sc, fr, rs)) = build(s) else { return Vec::new() };
     let line = |v: &[Ring], ink: char| Guide { pts: v.iter().map(|r| r.p).collect(), ink };
@@ -1169,7 +1002,6 @@ pub(super) fn guides(s: &Session) -> Vec<Guide> {
                 .step_by(4)
                 .map(|t| sc.xf_at(part, &fr, br.start + t).apply(from))
                 .collect();
-            // Only the arcs still to come or in flight.
             if age < br.start + 40 {
                 out.push(Guide { pts, ink: '9' });
             }
@@ -1228,8 +1060,6 @@ const ALL_PARTS: [Part; PARTS] = [
     Part::Coil,
 ];
 
-/// The transform of the tip of horn `k` `age` ticks after it was struck off:
-/// a throw out and up, a turn end over end and the world's gravity.
 fn severed_xf(fr: &Fr, rs: &Rings, k: usize, age: u32) -> Xf {
     let hr = &rs.horns[k];
     let side = if k == 0 { -1.0f32 } else { 1.0 };
@@ -1241,8 +1071,6 @@ fn severed_xf(fr: &Fr, rs: &Rings, k: usize, age: u32) -> Xf {
     Xf { on: true, pivot, axis, c, s, disp }
 }
 
-/// The tip of horn `k` after it was struck off `age` ticks ago, turning end
-/// over end and falling.
 fn severed(o: &mut Out, fr: &Fr, rs: &Rings, k: usize, age: u32) {
     let hr = &rs.horns[k];
     o.xf = severed_xf(fr, rs, k, age);
@@ -1252,10 +1080,6 @@ fn severed(o: &mut Out, fr: &Fr, rs: &Rings, k: usize, age: u32) {
     o.xf = Xf::ID;
 }
 
-/// The coil's body sweeping in over the canyon's width: a banded slab of
-/// serpent from the wall `x0` toward the gap's edge `x1`, `reach` (0 to 1) of
-/// the way, flat along the rail and tall, its tip rounded; the face toward the
-/// eye is the pale belly.
 pub(super) fn coil_slab(m: &mut Mesh, s: f32, x0: f32, x1: f32, reach: f32, tick: u32) {
     let (f, _, _) = frame(s);
     let inward = if x1 > x0 { 1.0 } else { -1.0 };
@@ -1267,7 +1091,6 @@ pub(super) fn coil_slab(m: &mut Mesh, s: f32, x0: f32, x1: f32, reach: f32, tick
     const SIDES: usize = 10;
     let mut o = Out { m, xf: Xf::ID };
     let dirs = circle(SIDES);
-    // The section's half height and half depth along the rail.
     let section = |t: f32| {
         let close = ((1.0 - t) / 0.2).clamp(0.0, 1.0);
         let k = 0.1 + 0.9 * close * (2.0 - close);
@@ -1279,7 +1102,6 @@ pub(super) fn coil_slab(m: &mut Mesh, s: f32, x0: f32, x1: f32, reach: f32, tick
         at(s, x0 + inward * len * t, wob)
     };
     let mut v = 0.0;
-    // A scale on the slab is half a unit across: it is near the eye.
     const K: f32 = 0.5;
     for i in 0..N - 1 {
         let (ta, tb) = (i as f32 / (N - 1) as f32, (i + 1) as f32 / (N - 1) as f32);

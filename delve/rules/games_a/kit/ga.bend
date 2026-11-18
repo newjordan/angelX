@@ -1,11 +1,3 @@
-# ga.* — small readers and writers over the J tree that the games_a group's
-# modules share. Not Rust functions: invented helpers, named ga.<x>.
-#
-# A missing field reads as its Rust Default (0, False, "", []). Writers put
-# exactly what serde writes: integers as JU (u8/u16/u32) or of_i32 (i8/i16/i32,
-# two's complement U32 in, negative integers out), floats as JF.
-
-# Readers: field `k` of object `o`.
 def ga.v(+o: J.Val, +k: String) -> J.Val:
   J.get(o, k)
 
@@ -21,15 +13,12 @@ def ga.b(+o: J.Val, +k: String) -> Bool:
 def ga.s(+o: J.Val, +k: String) -> String:
   J.str(J.get(o, k))
 
-# Item `i` of array `a`.
 def ga.nu(+a: J.Val, +i: U32) -> U32:
   J.u32(J.nth(a, i))
 
 def ga.nf(+a: J.Val, +i: U32) -> F32:
   J.f32(J.nth(a, i))
 
-# Writers: field `k` of `o` set to a u8/u16/u32, an i32, an f32, a bool,
-# a string, any J value.
 def ga.su(o: J.Val, +k: String, +v: U32) -> J.Val:
   J.set(o, k, J.JU{v})
 
@@ -48,8 +37,6 @@ def ga.ss(o: J.Val, +k: String, +v: String) -> J.Val:
 def ga.sv(o: J.Val, +k: String, v: J.Val) -> J.Val:
   J.set(o, k, v)
 
-# `#[serde(skip_serializing_if = ...)]`: a zero / false / null value is left
-# out of the object.
 def ga.su_skip.if(zero: Bool, o: J.Val, +k: String, +v: U32) -> J.Val:
   match zero:
     case True{}:
@@ -80,7 +67,6 @@ def ga.sv_skip.if(none: Bool, o: J.Val, +k: String, v: J.Val) -> J.Val:
 def ga.sv_skip(o: J.Val, +k: String, +v: J.Val) -> J.Val:
   ga.sv_skip.if(J.is_null(v), o, k, v)
 
-# Pickers (both arms are evaluated: keep them cheap and total).
 def ga.pu(+c: Bool, +a: U32, +b: U32) -> U32:
   Bool.pick(U32, c, a, b)
 
@@ -93,8 +79,6 @@ def ga.pb(+c: Bool, +a: Bool, +b: Bool) -> Bool:
 def ga.pv(+c: Bool, a: J.Val, b: J.Val) -> J.Val:
   Bool.pick(J.Val, c, a, b)
 
-# A decimal object key, and entry `id` of an object keyed by decimal id
-# (a BTreeMap<u32, _>).
 def ga.key(+n: U32) -> String:
   U32.show(n)
 
@@ -104,11 +88,9 @@ def ga.at(+m: J.Val, +id: U32) -> J.Val:
 def ga.put_at(m: J.Val, +id: U32, v: J.Val) -> J.Val:
   J.set(m, U32.show(id), v)
 
-# Whether an object has the decimal key.
 def ga.has_key(+m: J.Val, +id: U32) -> Bool:
   J.has(m, U32.show(id))
 
-# The ids of an object keyed by decimal id, ascending (BTreeMap order).
 def ga.ids.go(xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> List<&2, U32>:
   match xs:
     case Nil{}:
@@ -119,7 +101,6 @@ def ga.ids.go(xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> List<&2, U32>:
 def ga.ids(+m: J.Val) -> List<&2, U32>:
   ga.ids.go(J.int_fields(m))
 
-# A two-item array / three-item array.
 def ga.pair(a: J.Val, b: J.Val) -> J.Val:
   J.JA{[a, b]}
 
@@ -132,11 +113,9 @@ def ga.pair_i(+x: U32, +y: U32) -> J.Val:
 def ga.trio(a: J.Val, b: J.Val, c: J.Val) -> J.Val:
   J.JA{[a, b, c]}
 
-# a.saturating_sub(b) on unsigned.
 def ga.ssub(+a: U32, +b: U32) -> U32:
   Bool.pick(U32, U32.is_ge(a, b), (a - b : U32), 0)
 
-# a.saturating_add(b) on u8 / u16 / u32.
 def ga.sadd8(+a: U32, +b: U32) -> U32:
   U32.min((a + b : U32), 255)
 
@@ -146,14 +125,12 @@ def ga.sadd16(+a: U32, +b: U32) -> U32:
 def ga.sadd32(+a: U32, +b: U32) -> U32:
   Bool.pick(U32, U32.is_lt((a + b : U32), a), 4294967295, (a + b : U32))
 
-# Array helpers over the J array of an object field.
 def ga.items(+o: J.Val, +k: String) -> List<&2, J.Val>:
   J.items(J.get(o, k))
 
 def ga.push(+o: J.Val, +k: String, v: J.Val) -> J.Val:
   J.set(o, k, J.push(J.get(o, k), v))
 
-# `Vec::remove(i)` / `Vec::retain` by position: drop item `i` of a list.
 def ga.remove_nth(+xs: List<&2, J.Val>, +n: Nat) -> List<&2, J.Val>:
   match xs n:
     case Nil{} _:
@@ -163,27 +140,21 @@ def ga.remove_nth(+xs: List<&2, J.Val>, +n: Nat) -> List<&2, J.Val>:
     case Con{h, t} 1n+p:
       Con{h, ga.remove_nth(t, p)}
 
-# Number of items of a list as a U32.
 def ga.count(+xs: List<&2, J.Val>) -> U32:
   U32.from_nat(List.length(&2, J.Val, xs))
 
-# `s` is the J string `name` (a unit enum variant in serde shape).
 def ga.is(+s: J.Val, +name: String) -> Bool:
   String.eq(J.str(s), name)
 
-# A tile name (`Tile`, serde snake_case) is one of the stones that stop a body.
 def ga.stone(+t: J.Val) -> Bool:
   Bool.or(ga.is(t, "wall"), ga.is(t, "block"))
 
-# `a.max(b)` / `a.min(b)` on u32 and the Option's `unwrap_or`.
 def ga.umax(+a: U32, +b: U32) -> U32:
   U32.max(a, b)
 
 def ga.umin(+a: U32, +b: U32) -> U32:
   U32.min(a, b)
 
-# The object with only the keys `ks` of `o` (those it has), for comparing the
-# part of a run a function changes.
 def ga.pick(+o: J.Val, +ks: List<&2, String>) -> J.Val:
   ga.pick.go(o, ks, J.obj())
 
@@ -201,11 +172,9 @@ def ga.pick.put(has: Bool, +o: J.Val, +k: String, +acc: J.Val) -> J.Val:
     case False{}:
       acc
 
-# {room, barred}: a `Grid`.
 def ga.grid(+room: J.Val, +barred: Bool) -> J.Val:
   ga.sv(ga.sb(J.obj(), "barred", barred), "room", room)
 
-# A J array of [x, y] pairs as a list of Bend pairs.
 def ga.xys(+a: J.Val) -> List<&2, Sigma<&2, &2, F32, _ => F32>>:
   ga.xys.go(J.items(a))
 
@@ -219,6 +188,5 @@ def ga.xys.go(+xs: List<&2, J.Val>) -> List<&2, Sigma<&2, &2, F32, _ => F32>>:
 def ga.ps(+c: Bool, +a: String, +b: String) -> String:
   Bool.pick(String, c, a, b)
 
-# The number of fields of an object.
 def ga.nfields(+o: J.Val) -> U32:
   U32.from_nat(List.length(&2, Sigma<&2, &2, String, _ => J.Val>, J.fields(o)))

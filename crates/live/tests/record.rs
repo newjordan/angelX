@@ -78,7 +78,6 @@ fn the_recorder_writes_a_replayable_tape_and_never_fails_an_apply() {
         ]
     );
 
-    // A tape that cannot be written costs the host nothing.
     fs::write(root.join("file"), "x").unwrap();
     unsafe { std::env::set_var("ANGEL_SYSTEM_RECORD", root.join("file/under")) };
     let mut broken = host(&root);

@@ -1,6 +1,3 @@
-// Thin adapter for the Bend promotion gate. Plain JSON in, the compiled gate's
-// verdict out: no ordering, thresholds or arithmetic live here. Scores travel
-// as exact f32 values and the margin travels back as raw f32 bits.
 const gate = require('./promotion.compiled')
 
 const nil = { $: 'Nil' }

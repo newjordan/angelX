@@ -379,8 +379,6 @@ pub(crate) struct RoundReceipt {
     pub(crate) failure: Option<String>,
 }
 
-/// Deterministic scheduler output. Only campaign code can construct this from a
-/// validated active contract; a future swarm adapter consumes it internally.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ExecutionRequest {
     pub(crate) campaign_id: String,

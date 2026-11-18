@@ -1,4 +1,3 @@
-"""The site renderer cannot distinguish missing measurements from numeric zero."""
 import contextlib
 import copy
 import hashlib

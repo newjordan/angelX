@@ -21,8 +21,6 @@ fn the_music_is_not_in_the_binary_and_every_track_reaches_the_page() {
         .and_then(|rest| rest.split("</script>").next())
         .expect("the page carries its sounds");
     let manifest: serde_json::Value = serde_json::from_str(json).expect("the sounds are JSON");
-    // This checkout has the music beside the binary, so every track the
-    // game names is in the page and served from the files read off disk.
     let tracks: Vec<&str> = [HOME, REST, DUNGEON, BOSS]
         .into_iter()
         .flatten()
@@ -43,6 +41,5 @@ fn the_music_is_not_in_the_binary_and_every_track_reaches_the_page() {
             .unwrap_or_else(|| panic!("{track} is served"));
         assert!(file.1.len() > 10_000, "{track} is a whole track");
     }
-    // The effects stay compiled in.
     assert!(manifest["hit"].is_string());
 }

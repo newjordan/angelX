@@ -9,7 +9,6 @@ use serde_json::{Value, json};
 #[derive(Default)]
 pub(super) struct ResearchState {
     active: Option<ResearchRun>,
-    /// Loop verdicts folded into the Sloptomizer (see `observe_loop_verdict`).
     loop_observations: Arc<Mutex<LoopObservations>>,
     notified_run: Option<String>,
 }
@@ -67,8 +66,6 @@ fn scope_root(
     learning_scope(workspace, &context.club.route_identity(), task, verify)
 }
 
-/// One learner per objective: loop_research runs, verified /loop iterations
-/// and rl_campaign rounds on the same task, verifier and route share a state.
 fn learning_scope(
     workspace: &Path,
     route: &crate::agent::club::RouteIdentity,
@@ -83,17 +80,10 @@ fn learning_scope(
         ))
 }
 
-/// Whether /loop verdicts and rl_campaign rounds teach the Sloptomizer
-/// (`ANGEL_LOOP_OBSERVE`, default on). An ablation switch for measuring the
-/// shared learner: off means only "do not teach", never "refuse".
 fn loop_observe_enabled() -> bool {
     crate::agent::harness::env_flag("ANGEL_LOOP_OBSERVE", true)
 }
 
-/// The Sloptomizer keys an idea by its exact text, so a loop's direction and a
-/// campaign's proposal take one form before they are observed: routes and
-/// ledger addresses dropped, whitespace collapsed. The same idea from /loop and
-/// from a campaign then lands in the same learning bucket.
 pub(super) fn idea_form(text: &str) -> String {
     text.split_whitespace()
         .map(|word| {
@@ -106,11 +96,6 @@ pub(super) fn idea_form(text: &str) -> String {
         .join(" ")
 }
 
-/// A measured rl_campaign round is a paired observation for the Sloptomizer:
-/// the reflector's proposal, whether it was promoted over the incumbent, and
-/// the measured mean reward difference, in the learning scope loop_research
-/// uses for the same task, verifier and route. A round without evaluator
-/// receipts carries no physical evidence and is not observed.
 pub(super) fn observe_campaign_round(
     workspace: &Path,
     route: &crate::agent::club::RouteIdentity,
@@ -147,9 +132,6 @@ pub(super) fn observe_campaign_round(
     .map(|_| ())
 }
 
-/// One measured result updates existing fitness learning and the shared
-/// relationship memory. Context failure is reported without erasing a reward
-/// already learned or withholding the experiment's result.
 fn teach(
     workspace: &Path,
     scope: &Path,
@@ -203,8 +185,6 @@ fn flag(args: &Value, key: &str, fallback: bool) -> Result<bool, String> {
     })
 }
 
-/// A run's record with the `⡪` routes its state raises (live, a verdict, a
-/// red baseline, a learning error), their evidence in the workspace ledger.
 fn routed(workspace: &Path, mut record: Value) -> Value {
     if record["kind"] == "labyrinth-campaign" {
         record["warpath"] = json!(book::labyrinth_campaign::COORDINATOR.cells());
@@ -244,14 +224,10 @@ fn campaign_outcome_status(value: &Value) -> &str {
         RunStatus::BudgetExhausted => "budget_exhausted",
         RunStatus::Deadline => "deadline",
         RunStatus::ExecutionBlocked => "execution_blocked",
-        // A run never comes back ready or running, and a word this build never
-        // wrote is not a finished outcome.
         RunStatus::Ready | RunStatus::Running | RunStatus::Unrecognised(_) => "failed",
     }
 }
 
-/// Advice with its evidence note as its `⡪⠓` pages, and the cold-start page
-/// when no observation stands behind its ranking yet.
 fn routed_advice(mut value: Value) -> Value {
     if let Some(advice) = value.get_mut("advice") {
         if advice.get("evidence_note").is_some() {
@@ -272,8 +248,6 @@ fn persist(dir: &Path, record: &Value) -> Result<(), String> {
 }
 
 impl RlState {
-    /// Deliver a settled experiment to the current turn once. Polling this
-    /// reads in-memory scalars; the model need not burn tool calls waiting.
     pub(crate) fn take_research_notice(&mut self, workspace: &Path) -> Option<String> {
         let run = self.research.active.as_ref()?;
         if !run.done.load(Ordering::Acquire) {
@@ -306,20 +280,12 @@ impl RlState {
             evidence
         ))
     }
-    /// The live observer and explicit experiments use one objective context.
     pub(crate) fn research_objective(&self, fallback: &str) -> (String, Option<String>) {
         self.loop_context.as_ref().map_or_else(
             || (fallback.to_string(), None),
             |context| (context.task.clone(), context.verify.clone()),
         )
     }
-    /// A loop_research run is in flight.
-    /// A verified /loop iteration is an observation for the Sloptomizer: the
-    /// direction it named, the acceptance verdict, and the evidence digests,
-    /// in the learning scope loop_research uses for this loop (its task,
-    /// verifier and route), so `suggest` ranks ideas with the loop's own
-    /// history. Unpaired, like a run without compare. Runs off the caller's
-    /// thread; the store's lock orders it against a research run's learning.
     pub(crate) fn observe_loop_verdict(
         &self,
         workspace: &Path,
@@ -438,7 +404,6 @@ impl RlState {
                 "available":self.loop_enabled(), "engine":"sloptomizer", "experimental":true,
                 "methods":["pareto","bandit","memory"],
                 "actions":["options","context","suggest","run","campaign","status","results","stop"],
-                // The notes are `⠪⠚` pages; the facts around them are data.
                 "execution":ow_ledgers::RESEARCH_EXECUTION,
                 "learning":ow_ledgers::RESEARCH_LEARNING,
                 "runtime":ow_ledgers::RESEARCH_RUNTIME,
@@ -491,8 +456,6 @@ impl RlState {
                     }
                     let mut result = bridge::transform(&scope, request, cancel)?;
                     result["labyrinth"] = json!(crate::drive::labyrinth::context(workspace,&task));
-                    // Cross-model relationships are contextual evidence, kept
-                    // distinct from the route's measured fitness statistics.
                     match super::research_live::context(workspace, &task, verify.as_deref(), cancel) {
                         Ok(relations) => result["advice"]["relations"] = book::d12467_sloptomizer::data_value(&relations),
                         Err(error) => result["advice"]["relations_error"] = json!(error),
@@ -509,8 +472,6 @@ impl RlState {
                     return Err(ow_ledgers::RESEARCH_ACTIVE.into());
                 }
                 let book = super::campaign_book()?;
-                // Probe before spending model calls; invalid/missing state never
-                // silently falls back to fresh learning.
                 let advice_started = Instant::now();
                 let advice = bridge::transform(&scope, json!({"action":"suggest","task":task,"methods":if use_memory { vec!["memory"] } else { vec![] }}),cancel)?;
                 let id = new_run_id();
@@ -610,8 +571,6 @@ impl RlState {
         Ok(rows)
     }
 
-    /// The loop's research history: data beside `⠪⠓`, whose words are the
-    /// ledger pages.
     pub(super) fn research_context(&self, workspace: &Path) -> String {
         let mut text = String::new();
         match self.research_results(workspace, None, 3) {
@@ -625,7 +584,6 @@ impl RlState {
                         fields.remove("warpath");
                     }
                     let summary = summary.to_string();
-                    // Full evidence and errors remain in results/artifacts.
                     text.push_str(&summary.chars().take(4000).collect::<String>());
                     text.push('\n');
                 }
@@ -643,8 +601,6 @@ impl RlState {
 #[path = "../../../../tests/cockpit/labyrinth/rl__tests.rs"]
 mod labyrinth_rl_tests;
 
-/// Only a completed, persisted physical verifier contributes a learning event.
-/// Cancelled/unverified/model-error attempts still retain their artifacts.
 fn measured(result: &LoopExperimentResult) -> Option<bool> {
     let verification = result.verification.as_ref()?;
     let evidence = result.evidence.as_ref()?;
@@ -727,7 +683,6 @@ fn run(
     if cancel.load(Ordering::Acquire) {
         return Err("research cancelled after baseline".into());
     }
-    // The attempt reads its labels off `⠘⠊`; the idea and memory are data.
     let mut candidate_task = format!(
         "{task}\n\n{}\n{}\n\n{}\n{}",
         d45_iteration::RESEARCH_APPROACH,

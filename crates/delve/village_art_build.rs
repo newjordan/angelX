@@ -83,8 +83,6 @@ pub fn build(out: &str, watched: &mut Vec<PathBuf>) {
     );
 }
 
-/// Stable source-space anchors and one shared scale across the whole clip.
-/// Alpha trimming saves pixels, but does not alter the scale or ground point.
 pub fn prepare_group(
     frames: &[(image::RgbaImage, [f64; 2])],
     reference: f64,

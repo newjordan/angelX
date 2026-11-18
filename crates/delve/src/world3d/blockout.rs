@@ -57,83 +57,49 @@ use crate::render::overworld::arena::stage_frame::TILT;
 use crate::render::overworld::ink::{hash, vnoise};
 use crate::rules::{Pack, Room, Tile};
 
-/// Stage pixels to a tile.
 pub const TILE: f32 = 16.0;
-/// The plate the art lane paints, and the capture it paints over.
 pub const PLATE: (u32, u32) = (1536, 1024);
-/// The ground slab's thickness under the floor line.
 pub const SLAB: f32 = 4.0;
-/// The tallest thing that may lie on ground a knight walks: a boot.
 pub const LOW: f32 = 4.0;
-/// A lintel or an arch may span ground a knight walks above this: clear of
-/// a knight's head and plume.
 pub const HEADROOM: f32 = 30.0;
-/// The most of one walkable tile one wall or prop may hide from the camera.
 pub const HIDE_ONE: f32 = 0.45;
-/// The most of one walkable tile everything together may hide.
 pub const HIDE_ALL: f32 = 0.5;
 
-/// The far wall's and the side walls' height: well over a knight, and
-/// never out of the plate.
 const WALL: f32 = 48.0;
-/// A doorway's height, under its lintel.
 const DOOR: f32 = 32.0;
-/// The near wall: a parapet on the room's outer edge and a step inside it,
-/// both trimmed for the camera.
 const PARAPET: f32 = 16.0;
 const STEP: f32 = 8.0;
-/// How far water, lava and spores lie under the floor line.
 const WATER_DROP: f32 = 3.0;
 const LAVA_DROP: f32 = 2.0;
 
-/// A rectangle of tiles: column, row, width, height.
 pub type Rect = (i32, i32, i32, i32);
 
-/// A rectangle of tiles in stage pixels: x0, z0, x1, z1.
 pub fn px((c, r, w, h): Rect) -> [f32; 4] {
     [c as f32 * TILE, r as f32 * TILE, (c + w) as f32 * TILE, (r + h) as f32 * TILE]
 }
 
-/// A tile a knight can stand on.
 pub fn walkable(tile: Tile) -> bool {
     matches!(tile, Tile::Floor | Tile::Door | Tile::Stairs | Tile::Bog | Tile::Ledge)
 }
 
-// ------------------------------------------------------------ the words ----
-
-/// The surface kinds of docs/WORLD-3D.md, "Surface kinds": the set
-/// format's own.
 pub use angel_stage::set::Kind;
 
-/// The built-in shapes a set may name (`angel_stage::shapes::NAMES`): the
-/// first four, and the primitive library (`angel_stage::primitives`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shape {
     Box,
     Sphere,
     Gem,
     Cone,
-    /// A round column, a tree's trunk, a tower.
     Cylinder,
-    /// A cylinder narrowing to 0.6 across at the top.
     Frustum,
-    /// A ramp, full height at the back (-z), nothing at the front.
     Wedge,
-    /// A pitched roof, its ridge along x.
     Gable,
-    /// A hipped roof, its ridge along x.
     Hip,
-    /// A square spire.
     Pyramid,
-    /// A wall block with a round-topped opening through it along z.
     Arch,
-    /// Steps rising toward the back (-z).
     Stairs,
-    /// A boulder, lumped by its seed.
     Rock(u16),
-    /// A clump of foliage, puffed by its seed.
     Blob(u16),
-    /// A fence of this many posts along x, two rails between them.
     Fence(u16),
 }
 
@@ -156,7 +122,6 @@ impl Shape {
         Shape::Fence(4),
     ];
 
-    /// Its name in `angel_stage::shapes`.
     pub fn name(self) -> &'static str {
         match self {
             Shape::Box => "box",
@@ -177,9 +142,6 @@ impl Shape {
         }
     }
 
-    /// Its name as a set writes it: a seeded or counted shape with its
-    /// number (`rock-7`, `fence-5`) once the shapes know the suffix, the
-    /// plain name until then.
     pub fn written(self) -> String {
         let n = match self {
             Shape::Rock(n) | Shape::Blob(n) | Shape::Fence(n) => n,
@@ -190,21 +152,14 @@ impl Shape {
     }
 }
 
-// ----------------------------------------------------------- the blocks ----
-
-/// One line of a set: a shape of a kind, the middle of its foot, its size.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Solid {
     pub shape: Shape,
     pub kind: Kind,
-    /// The middle of its foot: x, y (its bottom), z.
     pub at: [f32; 3],
-    /// Its extent along x, y, z before the turn.
     pub size: [f32; 3],
-    /// Degrees about the vertical, counter-clockwise seen from above.
     pub turn: f32,
     pub id: Option<String>,
-    /// The primitive of the coming library that would read better.
     pub todo: Option<&'static str>,
 }
 
@@ -213,7 +168,6 @@ impl Solid {
         Self { shape, kind, at, size, turn: 0.0, id: None, todo: None }
     }
 
-    /// A box over the footprint `[x0, z0, x1, z1]`, its bottom at `y`, `h` high.
     pub fn block(kind: Kind, [x0, z0, x1, z1]: [f32; 4], y: f32, h: f32) -> Self {
         Self::new(Shape::Box, kind, [(x0 + x1) / 2.0, y, (z0 + z1) / 2.0], [x1 - x0, h, z1 - z0])
     }
@@ -246,7 +200,6 @@ impl Solid {
         self.at[1] + self.size[1]
     }
 
-    /// Its footprint `[x0, z0, x1, z1]` (a turned one's bounding square).
     pub fn footprint(&self) -> [f32; 4] {
         let (hx, hz) = (self.size[0] / 2.0, self.size[2] / 2.0);
         let (hx, hz) = if self.turn.rem_euclid(180.0) == 0.0 {
@@ -258,12 +211,10 @@ impl Solid {
         [self.at[0] - hx, self.at[2] - hz, self.at[0] + hx, self.at[2] + hz]
     }
 
-    /// Points on it whose hull, seen by any camera, is its outline.
     pub fn outline(&self) -> Vec<[f32; 3]> {
         let [cx, y0, cz] = self.at;
         let [sx, sy, sz] = self.size;
         let (s, c) = self.turn.to_radians().sin_cos();
-        // Counter-clockwise seen from above: +x turns toward -z.
         let place = |lx: f32, y: f32, lz: f32| [cx + lx * c + lz * s, y, cz - lx * s + lz * c];
         let (hx, hy, hz) = (sx / 2.0, sy / 2.0, sz / 2.0);
         match self.shape {
@@ -314,7 +265,6 @@ impl Solid {
                 points
             }
             Shape::Rock(_) | Shape::Blob(_) => {
-                // Inside the unit cube and round: the sphere's outline holds it.
                 let mut points = vec![place(0.0, y0, 0.0), place(0.0, y0 + sy, 0.0)];
                 for ring in 1..8 {
                     let (sin_t, cos_t) = (ring as f32 / 8.0 * std::f32::consts::PI).sin_cos();
@@ -359,37 +309,23 @@ impl Solid {
     }
 }
 
-/// What a run of a set's lines is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Role {
-    /// The ground slab under the floor line.
     Ground,
-    /// Water, lava or spores, below the floor line.
     Hazard,
-    /// The room's walls, or its edge of woods, hedge or rock.
     Wall,
-    /// A doorway's leaf, lintel, posts and torches.
     Door,
-    /// What stands on the room's blocked tiles, and the boot-high things
-    /// on its open ground.
     Prop,
 }
 
-/// A run of a set's lines under one comment: a wall, a prop.
 #[derive(Clone, Debug)]
 pub struct Group {
     pub name: String,
     pub role: Role,
-    /// The tiles it stands for, when it is a prop.
     pub rect: Option<Rect>,
     pub solids: Vec<Solid>,
-    /// Where each of its parts begins in `solids`: a part (a tile of wall,
-    /// one tree) is sized for the camera on its own.
     pub parts: Vec<usize>,
-    /// The least share of its heights a part kept for the camera (1: all).
     pub kept: f32,
-    /// Whether a part that would sink to a boot's height is squashed to a
-    /// ceiling instead (`fit`): the second wave's props, not the pilot's.
     pub squash: bool,
 }
 
@@ -409,9 +345,6 @@ impl Group {
     }
 }
 
-// ---------------------------------------------------------- the dressing ----
-
-/// The trees of a wood.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Leaf {
     Oak,
@@ -419,7 +352,6 @@ pub enum Leaf {
     Pine,
 }
 
-/// How a room of the world is closed, as `world::edge_of` draws it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Edge {
     Wood(Leaf),
@@ -427,169 +359,86 @@ pub enum Edge {
     Rock,
 }
 
-/// What an outdoor room's open ground is, away from its roads.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Field {
     Grass,
-    /// Grass and mud in patches (`world::field`'s noise for the marsh).
     Marsh,
     Sand,
-    /// Bare trodden earth: a yard.
     Earth,
-    /// Snow on the high ground (plaster-coloured in the capture).
     Snow,
-    /// Grass with patches of grey scree (`world::field`'s noise).
     Scree,
 }
 
-/// The kind of place a room is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Setting {
-    /// A hall of the world: dressed stone walls, flagstones, braziers in
-    /// the corners (`world::indoor`).
     Indoor,
-    /// A room of the open world, closed by its edge.
     Outdoor { edge: Edge, field: Field },
-    /// A hall of dressed stone with no braziers: the College's rooms.
     Hall,
-    /// An open court inside stone walls: its field, its paving where the
-    /// dressing says, no braziers.
     Courtyard { field: Field },
-    /// A chamber of a delve, in its pack's stone.
     Dungeon(Pack),
 }
 
-/// What stands on a rectangle of a room's tiles.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Prop {
-    /// The smith's hearth: a stone bed, its coals, the hood over them.
     Hearth,
-    /// An anvil on its stump.
     Anvil,
-    /// An armour rack against the wall.
     Rack,
-    /// A water trough `depth` deep at the south of its tiles, `height` high.
     Trough { depth: f32, height: f32 },
-    /// A market stall: a counter, its goods, an awning on posts. A stall
-    /// that faces north has its counter at the north of its tiles.
     Stall { north: bool, goods: Kind },
-    /// A stone market cross on its steps.
     Cross,
-    /// A long timber building under thatch, with stall doors (x, width in
-    /// stage pixels) on its front.
     Barn { doors: &'static [(f32, f32)] },
-    /// A beam across a way through, over head height, from one building to
-    /// the next.
     Arch,
-    /// A fence of rails on posts along its tiles.
     Fence,
-    /// A cottage: walls, a roof, a door and windows on its front.
     Cottage { walls: Kind, roof: Kind, windows: u8 },
-    /// A broad tree: a trunk, a canopy.
     Tree,
-    /// A staked-out building site: corner stakes, a cord round them,
-    /// boards and stones waiting.
     Site,
-    /// A boarded jetty on posts at the water's edge.
     Jetty,
-    /// A travel plate or stair a knight stands on: a low platform.
     Plate(Kind),
-    /// Two posts and a bar over head height across a way in.
     Gate,
-    /// Rushes standing in water.
     Reeds,
-    /// Something boot-high on open ground (bar iron, a board), by name.
     Low(Kind, &'static str),
-    /// A low heap on open ground (coal, hay), by name.
     Heap(Kind, &'static str),
-    /// The Crypt: a tomb or, where the block is two tiles both ways, a pillar.
     Tomb,
-    /// The Mines: boulders, one to a tile.
     Boulder,
-    /// Dragon Keep: a cooling slag heap.
     Slag,
-    /// The Fungal Deep: a mushroom to a tile.
     Mushroom,
-    /// The Swamp: a tussock of rushes on dry ground, one to a tile (its
-    /// blocked tiles, as its painter draws reeds there).
     Tussock,
-    /// The Archive: a bookcase.
     Shelf,
-    /// The Unknown: a standing shard.
     Shard,
-    /// Indoors: a crate.
     Crate,
-    /// A tower: a drum of stone under a cap, its window lit; with `sails`
-    /// a windmill's, with `lamp` a beacon's.
     Tower { walls: Kind, cap: Kind, height: f32, sails: bool, lamp: bool },
-    /// A fenced yard, a step up from the ground, its floor of `floor`; with
-    /// `drying`, cloth hung out on a cord between two poles.
     Pen { floor: Kind, drying: bool },
-    /// Tiered benches or steps of `Kind`, rising toward the side named.
     Stand(Kind, Side),
-    /// A tent or marquee of cloth.
     Tent(Kind),
-    /// Natural rock standing up: a mass with peaks, snow-capped when `cap`.
     Outcrop { cap: Option<Kind> },
-    /// A stack of cut logs.
     Logs,
-    /// A clipped hedge.
     Hedge,
-    /// A column, a pier or a post of `kind`, `height` high; with `lamp` a
-    /// fire on its top. It stands from the bed under the floor line.
     Column { kind: Kind, height: f32, lamp: bool },
-    /// A long hay rick.
     Rick,
-    /// A broken wall with a doorway into the dark.
     Ruin,
-    /// A boarded van on wheels under a canvas tilt.
     Van,
-    /// A wash vat: a coopered tub of water.
     Vat,
-    /// The players' stage: boards, a curtained backdrop, footlights.
     Stage,
-    /// The archery butts: a turf bank with straw butts on it.
     Butts,
-    /// An open shed: a roof on posts over a bench.
     Shed,
-    /// Wheat stooks in rows.
     Stooks,
-    /// A table, desk, counter or bench `height` high, its top of `top`.
     Table { top: Kind, height: f32 },
-    /// A tall case against the wall: a bookcase or a board, its face of
-    /// `face`.
     Case { body: Kind, face: Kind, height: f32 },
-    /// An iron pot on its fire in a stone ring.
     Cauldron,
-    /// A basin of water round a spout.
     Fountain,
-    /// A furnace: a stone body, a hood, its mouth lit or cold.
     Furnace { lit: bool },
-    /// A dais: two steps and a seat on them, a banner behind.
     Dais,
-    /// A well with its little roof on two posts.
     Well,
-    /// A flat deck or rug on open ground, a step above it (a wooden one on
-    /// piles).
     Deck(Kind),
-    /// A flag store: a timber hut with flagpoles on its roof.
     Flags,
-    /// A rail on posts a knight cannot pass, its lower rail thick enough to
-    /// show the tile it closes (a barrier, a hitching rail, a cliff rail).
     Rail,
-    /// A stairwell's stone ring round dark water.
     Shaft,
-    /// A telescope on its stand.
     Telescope,
-    /// A block of dressed `kind`, `height` high: a plinth, a pedestal, a
-    /// parapet.
     Plinth { kind: Kind, height: f32 },
-    /// Dame Fortune's wheel on its timber stand, red drapes either side.
     Wheel,
 }
 
 impl Prop {
-    /// Its name in the set's comments and ids.
     pub fn word(self) -> &'static str {
         match self {
             Prop::Hearth => "hearth",
@@ -675,7 +524,6 @@ impl Prop {
         }
     }
 
-    /// Whether it is one of the second wave's props (`Group::squash`).
     pub fn squashes(self) -> bool {
         !matches!(
             self,
@@ -708,54 +556,35 @@ impl Prop {
         )
     }
 
-    /// Whether it stands on ground a knight walks (and is built to be
-    /// boot-high there, or high over it), not on blocked tiles.
     pub fn on_open_ground(self) -> bool {
         matches!(self, Prop::Low(..) | Prop::Heap(..) | Prop::Arch | Prop::Gate | Prop::Jetty | Prop::Plate(_) | Prop::Deck(_))
     }
 }
 
-/// What is fixed to the face of a room's far (north) wall, over the floor
-/// and within the wall's own thickness: it never stands on a tile.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Fix {
-    /// A window, lit.
     Window,
-    /// A banner of cloth.
     Banner,
-    /// A hearth in the wall: its surround and its fire.
     Hearth,
-    /// A lamp or brazier on a bracket.
     Lamp,
 }
 
-/// A fixture on the far wall: what it is, and its middle along the wall in
-/// stage pixels.
 pub type Fixture = (Fix, f32);
 
-/// What a room's tiles are, read off the painters that draw it today.
 #[derive(Clone, Copy, Debug)]
 pub struct Dressing {
-    /// The set's id: lower case letters, digits and `-`.
     pub id: &'static str,
     pub title: &'static str,
     pub setting: Setting,
-    /// Tiles of road or path through an outdoor room.
     pub roads: &'static [Rect],
     pub props: &'static [(Rect, Prop)],
-    /// What the game draws that the blocks leave to the paint (things on
-    /// open ground a knight walks through), for the art lane.
     pub notes: &'static [&'static str],
-    /// Tiles of paving (cobbles, flags) through an open room: a road kind.
     pub paved: &'static [Rect],
-    /// What is fixed to the far wall.
     pub fixtures: &'static [Fixture],
-    /// What the place is, in a sentence, for the painter.
     pub what: &'static str,
 }
 
 impl Dressing {
-    /// The empty dressing: an item names its own fields over it.
     pub const BASE: Dressing = Dressing {
         id: "",
         title: "",
@@ -769,19 +598,12 @@ impl Dressing {
     };
 }
 
-// ------------------------------------------------------------ the camera ----
-
-/// The game's camera on a room: the Delve's stage camera at its tilt, for
-/// a stage the room's size.
 pub struct View {
     tilt: Tilt,
     pub size: (u32, u32),
-    /// What the camera moves the world by: nothing for a room, the stage's
-    /// middle less the centre for a stretch of the kingdom (`camera chunk`).
     offset: [f32; 2],
 }
 
-/// A solid's outline on the screen: a convex polygon, counter-clockwise.
 #[derive(Clone)]
 pub struct Hull {
     points: Vec<[f32; 2]>,
@@ -795,34 +617,26 @@ impl View {
         Self { tilt, size, offset: [0.0, 0.0] }
     }
 
-    /// The camera a set names with `camera chunk <w> <h> centre <cx> <cz>`:
-    /// the room camera for a stage of `size`, the world moved so the floor
-    /// point `centre` is where the stage's middle is.
     pub fn chunk(size: (u32, u32), centre: [f32; 2]) -> Self {
         let tilt = Tilt::for_stage(TILT, size).expect("the kingdom is seen at a tilt");
         let offset = [size.0 as f32 / 2.0 - centre[0], size.1 as f32 / 2.0 - centre[1]];
         Self { tilt, size, offset }
     }
 
-    /// Where a point of the room's world lands on the stage.
     pub fn screen(&self, [x, y, z]: [f32; 3]) -> [f32; 2] {
         let p = [x + self.offset[0], z + self.offset[1]];
         let floor = self.tilt.floor(p);
         [floor[0], floor[1] - y * self.tilt.scale_at(p)]
     }
 
-    /// A solid's outline on the screen, above the floor line: what lies
-    /// below it is under the ground and hides nothing.
     pub fn hull(&self, solid: &Solid) -> Hull {
         Hull::of(solid.outline().into_iter().map(|[x, y, z]| self.screen([x, y.max(0.0), z])).collect())
     }
 
-    /// The share of tile `(col, row)`'s floor that `hulls` hide.
     pub fn hidden(&self, hulls: &[Hull], tile: (i32, i32)) -> f32 {
         self.hidden_by(&hulls.iter().collect::<Vec<_>>(), tile)
     }
 
-    /// The tile's floor on the screen: the bounds of its corners.
     pub(crate) fn tile_bounds(&self, (col, row): (i32, i32)) -> [f32; 4] {
         let (x0, z0, x1, z1) = (col as f32 * TILE, row as f32 * TILE, (col + 1) as f32 * TILE, (row + 1) as f32 * TILE);
         bounds(&[
@@ -894,7 +708,6 @@ impl Hull {
         Self { points: hull, bounds }
     }
 
-    /// Whether `p` lies strictly inside.
     pub fn contains(&self, p: [f32; 2]) -> bool {
         if self.points.len() < 3 || !(p[0] > self.bounds[0] && p[0] < self.bounds[2] && p[1] > self.bounds[1] && p[1] < self.bounds[3]) {
             return false;
@@ -907,13 +720,10 @@ impl Hull {
     }
 }
 
-/// The hulls of what in `solids` stands taller than a boot: what can hide
-/// the floor.
 pub fn occluders<'a>(view: &View, solids: impl IntoIterator<Item = &'a Solid>) -> Vec<Hull> {
     solids.into_iter().filter(|s| s.top() > LOW).map(|s| view.hull(s)).collect()
 }
 
-/// The walkable tiles of a room.
 pub fn open_tiles(room: &Room) -> Vec<(i32, i32)> {
     (0..room.rows as i32)
         .flat_map(|r| (0..room.cols as i32).map(move |c| (c, r)))
@@ -921,9 +731,6 @@ pub fn open_tiles(room: &Room) -> Vec<(i32, i32)> {
         .collect()
 }
 
-/// Whether `solids`, set among the hulls already `placed`, keep the floor in
-/// view: alone they hide no more than [`HIDE_ONE`] of any walkable tile, and
-/// with everything placed before them no more than [`HIDE_ALL`].
 pub(crate) fn keeps_in_view(view: &View, open: &[(i32, i32)], placed: &[Hull], solids: &[Solid]) -> bool {
     let hulls = occluders(view, solids);
     if hulls.is_empty() {
@@ -938,10 +745,6 @@ pub(crate) fn keeps_in_view(view: &View, open: &[(i32, i32)], placed: &[Hull], s
     })
 }
 
-/// Whether `solids`, made of `before` (a lit room's masses,
-/// `rooms_lit_mass`), hide no walkable tile of `open` more than `before`
-/// did, a hair over, as the camera `view` sees them: what the generator
-/// kept in view stays in view.
 pub fn worst_hidden_ok(view: &View, open: &[(i32, i32)], solids: &[Solid], before: &[Solid]) -> bool {
     let (now, then) = (occluders(view, solids), occluders(view, before));
     if now.is_empty() {
@@ -954,9 +757,6 @@ pub fn worst_hidden_ok(view: &View, open: &[(i32, i32)], solids: &[Solid], befor
         .all(|&t| view.hidden_by(&now, t) <= view.hidden_by(&then, t) + 0.02)
 }
 
-/// Scale a group's heights by `keep` (its bottoms and tops together, so
-/// what stands on what still does), to the half pixel below. What lies
-/// below the floor line stays where it is.
 fn scaled(solids: &[Solid], keep: f32) -> Vec<Solid> {
     let down = |v: f32| if v <= 0.0 { v } else { (v * keep * 2.0).floor() / 2.0 };
     solids
@@ -971,8 +771,6 @@ fn scaled(solids: &[Solid], keep: f32) -> Vec<Solid> {
         .collect()
 }
 
-/// Squash solids to a ceiling `cap` pixels high: what stands above it is cut
-/// off there, and what lies wholly above it is gone.
 fn capped(solids: &[Solid], cap: f32) -> Vec<Solid> {
     solids
         .iter()
@@ -986,12 +784,6 @@ fn capped(solids: &[Solid], cap: f32) -> Vec<Solid> {
         .collect()
 }
 
-/// Size solids for the camera ([`keeps_in_view`]): all their heights when
-/// that keeps the floor in view, else the largest share of them that does.
-/// A part whose first solid (its body, the one that stands on its blocked
-/// tiles) would fall to a boot's height that way is squashed to a ceiling
-/// instead, the lowest that still shows it (a furnace's hood and flue come
-/// off before its body does).
 pub fn fit(solids: &[Solid], view: &View, open: &[(i32, i32)], placed: &[Hull], squash: bool) -> (Vec<Solid>, f32) {
     if keeps_in_view(view, open, placed, solids) {
         return (solids.to_vec(), 1.0);
@@ -1024,8 +816,6 @@ pub fn fit(solids: &[Solid], view: &View, open: &[(i32, i32)], placed: &[Hull], 
     (trimmed, lo)
 }
 
-/// Size each of a group's parts for the camera, in turn ([`fit`]), among
-/// what is `placed` already; each part's outline joins it.
 pub fn trim(group: &mut Group, view: &View, open: &[(i32, i32)], placed: &mut Vec<Hull>) {
     let mut ends: Vec<usize> = group.parts.iter().skip(1).copied().collect();
     ends.push(group.solids.len());
@@ -1039,9 +829,6 @@ pub fn trim(group: &mut Group, view: &View, open: &[(i32, i32)], placed: &mut Ve
     group.solids = solids;
 }
 
-/// Join boxes that lie end to end along a run with the same kind, bottom,
-/// height and breadth: a wall's tiles, once each is sized, as few lines as
-/// there are heights.
 pub(crate) fn join_runs(solids: Vec<Solid>) -> Vec<Solid> {
     let mut out: Vec<Solid> = Vec::with_capacity(solids.len());
     for s in solids {
@@ -1072,16 +859,10 @@ pub(crate) fn join_runs(solids: Vec<Solid>) -> Vec<Solid> {
     out
 }
 
-// ------------------------------------------------------------- the room ----
-
-/// The room's blockout as a set file.
 pub fn room_set(room: &Room, dressing: &Dressing) -> String {
     room_set_with(room, dressing, None)
 }
 
-/// The room's blockout as a set file, with the item's hand-placed landmark
-/// (the text of its `landmark.set`, see [`landmark`]) appended after the
-/// generated groups.
 pub fn room_set_with(room: &Room, dressing: &Dressing, landmark: Option<&str>) -> String {
     let mut out = write(room, dressing, &blockout(room, dressing));
     if let Some(text) = landmark {
@@ -1093,8 +874,6 @@ pub fn room_set_with(room: &Room, dressing: &Dressing, landmark: Option<&str>) -
     out
 }
 
-/// The room's blockout: its ground, hazards, walls, doors and props, each
-/// sized for the camera.
 pub fn blockout(room: &Room, dressing: &Dressing) -> Vec<Group> {
     let view = View::of(room);
     let open = open_tiles(room);
@@ -1109,8 +888,6 @@ pub fn blockout(room: &Room, dressing: &Dressing) -> Vec<Group> {
             trim(group, &view, &open, &mut placed);
         }
         if group.role == Role::Wall {
-            // The wall's own blocks first, so they join, then what stands on
-            // them.
             let (mut wall, rest): (Vec<Solid>, Vec<Solid>) =
                 std::mem::take(&mut group.solids).into_iter().partition(|s| s.shape == Shape::Box && s.bottom() < 0.0);
             cutaway(&mut wall);
@@ -1130,9 +907,6 @@ pub fn blockout(room: &Room, dressing: &Dressing) -> Vec<Group> {
     groups
 }
 
-/// What is fixed to the far wall's inner face: boxes set into the wall's own
-/// thickness (never on a tile, the face at z = [`TILE`]), a pixel or two
-/// proud of it.
 fn fixtures(d: &Dressing) -> Option<Group> {
     if d.fixtures.is_empty() {
         return None;
@@ -1157,9 +931,6 @@ fn fixtures(d: &Dressing) -> Option<Group> {
     Some(Group::of_parts(Role::Prop, "fixed to the far wall: windows, banners, hearths, lamps", parts))
 }
 
-/// A run of wall tiles the camera cut down (a side wall before a side door)
-/// as one low stretch at the height of its lowest tile, then the step up:
-/// one cutaway, not a stair of teeth. A slope would read better still.
 fn cutaway(wall: &mut [Solid]) {
     let full = wall.iter().map(Solid::top).fold(0.0, f32::max);
     let mut k = 0;
@@ -1180,9 +951,6 @@ fn cutaway(wall: &mut [Solid]) {
     }
 }
 
-/// Torches flank every doorway of a delve but the near wall's: on the
-/// wall's face where the wall stands tall, on its top where the camera cut
-/// it down.
 fn torches(room: &Room, d: &Dressing, groups: &[Group]) -> Option<Group> {
     if !matches!(d.setting, Setting::Dungeon(_)) {
         return None;
@@ -1193,7 +961,6 @@ fn torches(room: &Room, d: &Dressing, groups: &[Group]) -> Option<Group> {
     for (side, from, to) in door_gaps(room) {
         let (a, b) = (from as f32 * TILE, to as f32 * TILE);
         for t in [a - 8.0, b + 8.0] {
-            // On the wall's inner face, standing a pixel proud of it.
             let (x, z) = match side {
                 Side::North => (t, TILE),
                 Side::West => (TILE, t),
@@ -1223,9 +990,6 @@ fn torches(room: &Room, d: &Dressing, groups: &[Group]) -> Option<Group> {
     (!parts.is_empty()).then(|| Group::of_parts(Role::Door, "torches by the doors", parts))
 }
 
-/// Rectangles of equal cells, row-major, each as wide and then as tall as
-/// it goes: a room's runs of equal tiles as few blocks as a greedy pass
-/// finds.
 pub fn merge<T: Copy + PartialEq>(cols: usize, rows: usize, cells: &[Option<T>]) -> Vec<(Rect, T)> {
     let mut done = vec![false; cols * rows];
     let mut out = Vec::new();
@@ -1267,7 +1031,6 @@ pub(crate) fn inside((c, r, w, h): Rect, col: i32, row: i32) -> bool {
     col >= c && col < c + w && row >= r && row < r + h
 }
 
-/// The floor of a delve's chambers.
 fn pack_floor(pack: Pack) -> Kind {
     match pack {
         Pack::Cavern | Pack::Fungal | Pack::Swamp => Kind::Ground,
@@ -1275,7 +1038,6 @@ fn pack_floor(pack: Pack) -> Kind {
     }
 }
 
-/// A delve's walls and its blocks' default.
 fn pack_wall(pack: Pack) -> Kind {
     match pack {
         Pack::Cavern | Pack::Fungal | Pack::Swamp => Kind::Rock,
@@ -1283,15 +1045,11 @@ fn pack_wall(pack: Pack) -> Kind {
     }
 }
 
-/// What a room's hazard tiles are and how far below the floor they lie;
-/// none for a pit, a hole in the floor into the dark.
 fn hazard_of(setting: Setting) -> Option<(Kind, f32)> {
     match setting {
         Setting::Indoor | Setting::Hall | Setting::Courtyard { .. } | Setting::Outdoor { .. } => Some((Kind::Water, WATER_DROP)),
         Setting::Dungeon(Pack::Cavern | Pack::Archive | Pack::Swamp) => Some((Kind::Water, WATER_DROP)),
-        // Lava: the brightest thing in the keep.
         Setting::Dungeon(Pack::Hellforge) => Some((Kind::Fire, LAVA_DROP)),
-        // A spore pool: a sunken slick, glowing.
         Setting::Dungeon(Pack::Fungal) => Some((Kind::Mud, LAVA_DROP)),
         Setting::Dungeon(Pack::Crypt | Pack::Unknown) => None,
     }
@@ -1310,7 +1068,6 @@ fn ground_kind(room: &Room, d: &Dressing, col: i32, row: i32) -> Option<Kind> {
         Setting::Dungeon(pack) => pack_floor(pack),
         Setting::Outdoor { field, .. } | Setting::Courtyard { field } => {
             if tile == Tile::Wall {
-                // The earth under the wood, the flags under the stone.
                 if matches!(d.setting, Setting::Courtyard { .. }) { Kind::Floor } else { Kind::Ground }
             } else if d.paved.iter().any(|&r| inside(r, col, row)) {
                 Kind::Road
@@ -1372,7 +1129,6 @@ fn hazards(room: &Room, d: &Dressing) -> Option<Group> {
     Some(Group::new(Role::Hazard, format!("{what}, {drop} below the floor line"), solids))
 }
 
-/// A side of a room.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Side {
     North,
@@ -1392,9 +1148,6 @@ impl Side {
     }
 }
 
-/// Runs of `want` tiles along each side's border, `[from, to)` along it:
-/// the north and south rows whole (their corners with them), the west and
-/// east columns between them.
 pub fn border_runs(room: &Room, want: Tile) -> Vec<(Side, i32, i32)> {
     let (cols, rows) = (room.cols as i32, room.rows as i32);
     let mut out = Vec::new();
@@ -1422,7 +1175,6 @@ pub fn border_runs(room: &Room, want: Tile) -> Vec<(Side, i32, i32)> {
     out
 }
 
-/// The footprint of a run along a side: the whole border tile's depth.
 fn run_rect(room: &Room, side: Side, from: i32, to: i32) -> [f32; 4] {
     let (w, h) = (room.cols as f32 * TILE, room.rows as f32 * TILE);
     let (a, b) = (from as f32 * TILE, to as f32 * TILE);
@@ -1434,8 +1186,6 @@ fn run_rect(room: &Room, side: Side, from: i32, to: i32) -> [f32; 4] {
     }
 }
 
-/// The near wall's two tiers over `[x0, x1)`: a step over the inner half
-/// of its tiles, a parapet over the outer.
 fn near_wall(kind: Kind, room: &Room, x0: f32, x1: f32, step: f32, parapet: f32) -> [Solid; 2] {
     let h = room.rows as f32 * TILE;
     [
@@ -1444,7 +1194,6 @@ fn near_wall(kind: Kind, room: &Room, x0: f32, x1: f32, step: f32, parapet: f32)
     ]
 }
 
-/// A brazier on a wall's top: a bowl and its flame.
 fn brazier(x: f32, y: f32, z: f32, small: bool) -> [Solid; 2] {
     let (bowl, flame) = if small { (8.0, 6.0) } else { (10.0, 8.0) };
     [
@@ -1473,7 +1222,6 @@ fn walls(room: &Room, d: &Dressing) -> Vec<Group> {
         };
         groups.push(Group::of_parts(Role::Wall, name, parts));
     }
-    // Wall tiles off the border: a wall standing in the room.
     let cells: Vec<Option<()>> = (0..rows)
         .flat_map(|r| (0..cols).map(move |c| (c, r)))
         .map(|(c, r)| {
@@ -1495,14 +1243,10 @@ fn walls(room: &Room, d: &Dressing) -> Vec<Group> {
     groups
 }
 
-/// The footprint of tile `k` of a side's run.
 fn run_tile(room: &Room, side: Side, k: i32) -> [f32; 4] {
     run_rect(room, side, k, k + 1)
 }
 
-/// Dressed stone or a delve's rock, a part to each tile: the far and side
-/// walls at full height (a side wall's tiles before a doorway lower, so the
-/// way in stays in view), the near wall a parapet; braziers on the corners.
 fn masonry(room: &Room, side: Side, from: i32, to: i32, kind: Kind, braziers: bool) -> Vec<Vec<Solid>> {
     let cols = room.cols as i32;
     let corner = |k: i32| braziers && matches!(side, Side::North | Side::South) && (k == 0 || k == cols - 1);
@@ -1525,9 +1269,6 @@ fn masonry(room: &Room, side: Side, from: i32, to: i32, kind: Kind, braziers: bo
         .collect()
 }
 
-/// A run of an outdoor room's edge, a part to each tile or tree: a wood of
-/// trees over undergrowth (and a taller row of them beyond the far edge), a
-/// clipped hedge, or boulders on the mountain's rock. The near edge is low.
 fn edge_run(room: &Room, side: Side, from: i32, to: i32, edge: Edge, d: &Dressing) -> Vec<Vec<Solid>> {
     let rect = run_rect(room, side, from, to);
     let seed = 71 + d.id.bytes().map(u32::from).sum::<u32>();
@@ -1537,7 +1278,6 @@ fn edge_run(room: &Room, side: Side, from: i32, to: i32, edge: Edge, d: &Dressin
         Edge::Rock => Kind::Rock,
     };
     if side == Side::South {
-        // A clipped hedge is lower still along the near edge.
         let low = if edge == Edge::Hedge { 0.6 } else { 0.75 };
         let [step, parapet] = near_wall(mass, room, rect[0], rect[2], STEP / 2.0, PARAPET * low);
         let prim = match edge {
@@ -1548,7 +1288,6 @@ fn edge_run(room: &Room, side: Side, from: i32, to: i32, edge: Edge, d: &Dressin
         let parapet = if prim == "box" { parapet } else { parapet.todo(prim) };
         return vec![vec![step, parapet]];
     }
-    // Along the run: where it starts and ends, in stage pixels.
     let (lo, hi) = match side {
         Side::North | Side::South => (rect[0], rect[2]),
         Side::West | Side::East => (rect[1], rect[3]),
@@ -1562,7 +1301,6 @@ fn edge_run(room: &Room, side: Side, from: i32, to: i32, edge: Edge, d: &Dressin
         }
         Edge::Rock => {
             for k in from..to {
-                // The far edge stands high, the sides lower.
                 let high = if side == Side::North { 26.0 } else { 16.0 };
                 parts.push(vec![Solid::block(Kind::Rock, run_tile(room, side, k), -SLAB, high + SLAB).todo("rock")]);
             }
@@ -1586,8 +1324,6 @@ fn edge_run(room: &Room, side: Side, from: i32, to: i32, edge: Edge, d: &Dressin
                 parts.push(tree_at(leaf, x, z, v, side, spread).to_vec());
             }
             if side == Side::North {
-                // The wood goes on beyond the far edge, taller, save where a
-                // road leaves through a door.
                 for k in from..to {
                     if (k - 1..=k + 1).any(|c| room.tile(c, 0) == Tile::Door) {
                         continue;
@@ -1608,8 +1344,6 @@ fn edge_run(room: &Room, side: Side, from: i32, to: i32, edge: Edge, d: &Dressin
     parts
 }
 
-/// Where along a side's run thing `k`, `spread` across along the run,
-/// stands: about the middle of its tile, jittered, kept within the run.
 fn along(room: &Room, side: Side, k: i32, v: u32, spread: f32, lo: f32, hi: f32) -> (f32, f32) {
     let jitter = (v % 7) as f32 - 3.0;
     let at = (k as f32 * TILE + 8.0 + jitter).clamp(lo + spread / 2.0, (hi - spread / 2.0).max(lo + spread / 2.0));
@@ -1621,8 +1355,6 @@ fn along(room: &Room, side: Side, k: i32, v: u32, spread: f32, lo: f32, hi: f32)
     }
 }
 
-/// One tree of a wood's edge: a trunk and a crown kept within its tile
-/// across the edge.
 fn tree_at(leaf: Leaf, x: f32, z: f32, v: u32, side: Side, spread: f32) -> [Solid; 2] {
     let trunk_h = 9.0 + (v >> 4 & 3) as f32;
     let across = TILE;
@@ -1637,7 +1369,6 @@ fn tree_at(leaf: Leaf, x: f32, z: f32, v: u32, side: Side, spread: f32) -> [Soli
     [trunk, crown]
 }
 
-/// Contiguous door tiles along each side.
 pub fn door_gaps(room: &Room) -> Vec<(Side, i32, i32)> {
     border_runs(room, Tile::Door)
 }
@@ -1656,8 +1387,6 @@ fn doors(room: &Room, d: &Dressing) -> Vec<Group> {
         let mut parts = Vec::new();
         match masonry {
             Some(stone) => {
-                // The leaf just outside the wall's outer face, the lintel
-                // over the way.
                 parts.push(match side {
                     Side::North => vec![
                         Solid::block(Kind::Door, [a, -2.0, b, 0.0], -SLAB, DOOR + SLAB).id(&id),
@@ -1671,13 +1400,10 @@ fn doors(room: &Room, d: &Dressing) -> Vec<Group> {
                         Solid::block(Kind::Door, [w, a, w + 2.0, b], -SLAB, DOOR + SLAB).id(&id),
                         Solid::block(stone, [w - TILE, a, w, b], DOOR, WALL - DOOR).todo("arch"),
                     ],
-                    // The near wall is low: an open way out, its sill.
                     Side::South => vec![Solid::block(Kind::Door, [a, h, b, h + 2.0], -SLAB, SLAB + 1.0).id(&id)],
                 });
             }
             None => {
-                // A road leaves through a gap in the edge, between two posts
-                // at its outer face.
                 for p in [a - 3.0, b + 3.0] {
                     let (foot, tall) = match side {
                         Side::North => ([p - 1.5, 1.0, p + 1.5, 4.0], 18.0),
@@ -1698,9 +1424,6 @@ fn doors(room: &Room, d: &Dressing) -> Vec<Group> {
     groups
 }
 
-// ------------------------------------------------------------ the props ----
-
-/// The setting's own prop for blocked tiles no dressing names.
 fn default_prop(setting: Setting) -> Prop {
     match setting {
         Setting::Indoor | Setting::Hall => Prop::Crate,
@@ -1717,8 +1440,6 @@ fn default_prop(setting: Setting) -> Prop {
     }
 }
 
-/// A blocked tile of Bomrekedan, from the import's DRESS key. `None` when
-/// the room is not a fort level, so the setting's own block stands.
 fn fort_block(room: &Room, c: i32, r: i32) -> Option<Prop> {
     let level = crate::rules::world::bomrekedan::level(room.kind)?;
     let key = level.dress_at(c, r);
@@ -1763,7 +1484,6 @@ fn props(room: &Room, d: &Dressing) -> Vec<Group> {
             add(sub, prop, &mut claimed);
         }
     }
-    // Bomrekedan's trees stay one tile: a merged crown would hide the path.
     if let Some(level) = crate::rules::world::bomrekedan::level(room.kind) {
         if level.surface() {
             for r in 0..rows as i32 {
@@ -1777,9 +1497,6 @@ fn props(room: &Room, d: &Dressing) -> Vec<Group> {
             }
         }
     }
-    // What no dressing names: the setting's own blocks, and a plate on
-    // every stair. A fort level names its blocked tiles from the import's
-    // DRESS grid instead of one boulder over the whole floor.
     let rest: Vec<Option<Prop>> = (0..rows as i32)
         .flat_map(|r| (0..cols as i32).map(move |c| (c, r)))
         .map(|(c, r)| {
@@ -1802,12 +1519,6 @@ fn props(room: &Room, d: &Dressing) -> Vec<Group> {
     groups
 }
 
-/// The rectangles a prop named over `rect` stands on: the rectangle itself
-/// when it is all blocked tiles (or holds none, as a prop on open ground, in
-/// the water or a plot's footprint does), else the blocked tiles it holds
-/// that no other prop has taken, in as few rectangles as a greedy pass
-/// finds. A dressing may so name a region and let its blocked tiles be what
-/// they are, as a game's clearing of a doorway's fan has left them.
 fn clipped(room: &Room, rect: Rect, prop: Prop, claimed: &[bool]) -> Vec<Rect> {
     if prop.on_open_ground() || matches!(prop, Prop::Site | Prop::Reeds) {
         return vec![rect];
@@ -1826,14 +1537,10 @@ fn clipped(room: &Room, rect: Rect, prop: Prop, claimed: &[bool]) -> Vec<Rect> {
     merge(cols, rows, &cells).into_iter().map(|(rect, ())| rect).collect()
 }
 
-/// Whether any tile just north of `rect` (across its columns) is ground a
-/// knight walks: then a tall thing on it sits back to the south.
 fn open_north(room: &Room, (c, r, w, _): Rect) -> bool {
     (c..c + w).any(|x| walkable(room.tile(x, r - 1)))
 }
 
-/// A prop's solids in the parts the camera sizes one at a time: a pillar's
-/// plinth (which shows its tiles blocked) apart from its column.
 fn parts(prop: Prop, rect: Rect, room: &Room) -> Vec<Vec<Solid>> {
     let mut solids = build(prop, rect, room);
     if solids.first().is_some_and(|s| s.id.as_deref() == Some("pillar")) {
@@ -1851,22 +1558,18 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
     match prop {
         Prop::Hearth => vec![
             Solid::block(Kind::Stone, [x0 + 2.0, z0 + 2.0, x1 - 2.0, z1 - 2.0], 0.0, 14.0).id(word),
-            // The coals, always hot.
             Solid::block(Kind::Fire, [x0 + 12.0, z0 + 14.0, x1 - 12.0, z1 - 6.0], 14.0, 2.0),
-            // The hood over them, and its chimney.
             Solid::block(Kind::Stone, [cx - 24.0, z0 + 2.0, cx + 24.0, z0 + 14.0], 14.0, 26.0).todo("frustum"),
             Solid::block(Kind::Stone, [cx - 10.0, z0 + 2.0, cx + 10.0, z0 + 10.0], 40.0, 14.0),
         ],
         Prop::Anvil if x1 - x0 < 24.0 => vec![
             Solid::block(Kind::Trunk, [cx - 3.5, z1 - 10.0, cx + 3.5, z1 - 3.0], 0.0, 6.0).todo("cylinder"),
             Solid::block(Kind::Metal, [cx - 6.0, z1 - 10.0, cx + 4.0, z1 - 4.0], 6.0, 4.0).id(word),
-            // The horn.
             Solid::new(Shape::Gem, Kind::Metal, [cx + 6.5, 7.0, z1 - 7.0], [5.0, 2.5, 3.5]).todo("cone"),
         ],
         Prop::Anvil => vec![
             Solid::block(Kind::Trunk, [cx - 5.0, z1 - 11.0, cx + 5.0, z1 - 3.0], 0.0, 7.0).todo("cylinder"),
             Solid::block(Kind::Metal, [cx - 10.0, z1 - 11.0, cx + 7.0, z1 - 4.0], 7.0, 5.0).id(word),
-            // The horn.
             Solid::new(Shape::Gem, Kind::Metal, [cx + 11.0, 8.0, z1 - 7.5], [8.0, 3.0, 4.0]).todo("cone"),
         ],
         Prop::Rack => {
@@ -1891,7 +1594,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
         }
         Prop::Stall { north, goods } => {
             let mut s = Vec::new();
-            // The counter, its goods, the awning on four posts.
             let (counter, awning, awning_y) = if north {
                 ([x0 + 2.0, z0 + 6.0, x1 - 2.0, z0 + 14.0], [x0 + 1.0, z0 + 14.0, x1 - 1.0, z1 - 1.0], 22.0)
             } else {
@@ -1910,7 +1612,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
             s
         }
         Prop::Cross => {
-            // Its steps over all its tiles, the shaft and arms on the upper.
             let z = z1 - 11.0;
             vec![
                 Solid::block(Kind::Stone, [x0 + 1.0, z0 + 3.0, x1 - 1.0, z1 - 1.0], 0.0, 5.0).id(word).todo("stairs"),
@@ -1972,8 +1673,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
         }
         Prop::Tree => {
             let (w, depth) = (x1 - x0, z1 - z0);
-            // A broad crown over most of its tiles, toward the south, on a
-            // short trunk at their south edge.
             let crown_d = depth * 0.6;
             let crown_z = z1 - crown_d / 2.0 - 3.0;
             vec![
@@ -1987,19 +1686,15 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
             for (sx, sz) in [(a, n), (b, n), (a, s_), (b, s_)] {
                 s.push(Solid::block(Kind::Wood, [sx - 1.0, sz - 1.0, sx + 1.0, sz + 1.0], 0.0, 7.0));
             }
-            // The surveyor's cord round the stakes.
             s.push(Solid::block(Kind::Cloth, [a, n - 0.5, b, n + 0.5], 5.0, 1.0).id(word).todo("fence"));
             s.push(Solid::block(Kind::Cloth, [a, s_ - 0.5, b, s_ + 0.5], 5.0, 1.0).todo("fence"));
             s.push(Solid::block(Kind::Cloth, [a - 0.5, n, a + 0.5, s_], 5.0, 1.0).todo("fence"));
             s.push(Solid::block(Kind::Cloth, [b - 0.5, n, b + 0.5, s_], 5.0, 1.0).todo("fence"));
-            // A stack of boards and a heap of stone, waiting.
             s.push(Solid::block(Kind::Wood, [a + 5.0, s_ - 9.0, a + 21.0, s_ - 3.0], 0.0, 3.0));
             for k in 0..3 {
                 let (sx, sz) = (b - 8.0 + k as f32 * 3.0, s_ - 2.0 - (k % 2) as f32 * 3.0);
                 s.push(Solid::new(Shape::Gem, Kind::Rock, [sx, 0.0, sz], [5.0, 4.0, 5.0]).turned(30.0 * k as f32).todo("rock"));
             }
-            // Where the plot's footprint takes in a travel plate or open
-            // floor, nothing is staked on it.
             s.retain(|sol| on_blocks(room, sol));
             s
         }
@@ -2028,8 +1723,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
         Prop::Tomb => {
             let (w, depth) = (x1 - x0, z1 - z0);
             if w >= 2.0 * TILE && depth >= 2.0 * TILE {
-                // A pillar: a square column at the south of its tiles, on a
-                // plinth, under a capital.
                 let (pz0, pz1) = (z1 - 10.0, z1 - 3.0);
                 vec![
                     Solid::block(Kind::Stone, [x0 + 1.0, z0 + 1.0, x1 - 1.0, z1 - 1.0], 0.0, 5.0).id("pillar"),
@@ -2037,7 +1730,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
                     Solid::block(Kind::Stone, [cx - 7.0, pz0 - 1.0, cx + 7.0, pz1 + 1.0], 27.0, 3.0),
                 ]
             } else {
-                // A sarcophagus and its lid.
                 vec![
                     Solid::block(Kind::Stone, [x0 + 2.0, z0 + 2.0, x1 - 2.0, z1 - 2.0], 0.0, 9.0).id(word),
                     Solid::block(Kind::Stone, [x0 + 1.0, z0 + 1.0, x1 - 1.0, z1 - 1.0], 9.0, 3.0),
@@ -2050,7 +1742,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
         }, word),
         Prop::Slag => vec![
             Solid::new(Shape::Sphere, Kind::Rock, [cx, 0.0, cz], [x1 - x0 - 3.0, 12.0, z1 - z0 - 3.0]).id(word).todo("blob"),
-            // Still glowing in its cracks.
             Solid::new(Shape::Gem, Kind::Fire, [cx + (v % 5) as f32 - 2.0, 8.0, cz], [6.0, 5.0, 6.0]),
         ],
         Prop::Mushroom => per_tile(rect, |tx, tz, h| {
@@ -2069,7 +1760,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
             }
             out
         }, word),
-        // The Archive paints a shelf on every blocked tile.
         Prop::Shelf => per_tile(rect, |tx, tz, h| {
             vec![Solid::block(Kind::Wood, [tx - 7.5, tz - 7.5, tx + 7.5, tz + 7.5], 0.0, 24.0 + (h % 3) as f32 * 2.0)]
         }, word),
@@ -2083,16 +1773,13 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
             let mut s = vec![Solid::block(walls, [a, c, b, d], 0.0, height).id(word).todo("cylinder")];
             let mut top = height;
             if lamp {
-                // The lamp room: a lit box under the cap.
                 s.push(Solid::block(Kind::Fire, [cx - w * 0.3, cz - depth * 0.3, cx + w * 0.3, cz + depth * 0.3], top, 6.0));
                 top += 6.0;
             }
             s.push(Solid::new(Shape::Cone, cap, [cx, top, cz], [w + 4.0, w * 0.6 + 4.0, depth + 4.0]).todo("pyramid"));
-            // A slit window on the front, lit.
             let wy = (height * 0.55).max(6.0);
             s.push(Solid::block(Kind::Window, [cx - 2.0, d - 0.5, cx + 2.0, d + 1.0], wy, 6.0));
             if sails {
-                // Four sails on a hub, on the front face.
                 let hub = height * 0.7;
                 let reach = ((w.min(depth)) * 0.5 + 6.0).min(hub - 2.0).max(8.0);
                 s.push(Solid::block(Kind::Wood, [cx - 1.0, d, cx + 1.0, d + 1.5], hub - reach, reach * 2.0));
@@ -2105,7 +1792,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
         Prop::Pen { floor, drying } => {
             let (a, b, c, d) = (x0 + 1.0, x1 - 1.0, z0 + 1.0, z1 - 1.0);
             let mut s = vec![Solid::block(floor, [a, c, b, d], 0.0, 6.0).id(word)];
-            // Posts at the corners and every tile along the edges.
             let mut xs = vec![a + 1.0];
             let mut x = x0 + TILE;
             while x < x1 - 4.0 {
@@ -2137,7 +1823,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
                 s.push(Solid::block(Kind::Wood, [px_ - 0.5, c, px_ + 0.5, d], 9.0, 1.5).todo("fence"));
             }
             if drying {
-                // Two poles and a cord, kite cloth pegged along it.
                 let zc = cz;
                 for px_ in [a + 3.0, b - 3.0] {
                     s.push(Solid::block(Kind::Wood, [px_ - 1.0, zc - 1.0, px_ + 1.0, zc + 1.0], 0.0, 20.0));
@@ -2158,7 +1843,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
             let step = (hi - lo) / n as f32;
             let mut s = Vec::new();
             for k in 0..n {
-                // Tier `k`, the lowest first, at the open side.
                 let (a, b) = match rise {
                     Side::North | Side::West => (hi - (k + 1) as f32 * step, hi - k as f32 * step),
                     Side::South | Side::East => (lo + k as f32 * step, lo + (k + 1) as f32 * step),
@@ -2177,7 +1861,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
             vec![
                 Solid::block(cloth, [x0 + 1.0, z0 + 1.0, x1 - 1.0, z1 - 1.0], 0.0, 9.0).id(word),
                 Solid::new(Shape::Cone, cloth, [cx, 9.0, cz], [w + 2.0, 12.0, depth + 2.0]).todo("pyramid"),
-                // The way in, on the front.
                 Solid::block(Kind::Door, [cx - 3.0, z1 - 1.5, cx + 3.0, z1 - 0.5], 0.0, 7.0),
             ]
         }
@@ -2207,7 +1890,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
                 }
                 s.push(log);
             }
-            // The cut ends, toward the viewer.
             let n = ((x1 - x0 - 8.0) / 9.0).floor().max(1.0) as i32;
             for k in 0..n {
                 let ex = x0 + 4.0 + (x1 - x0 - 8.0) * (k as f32 + 0.5) / n as f32;
@@ -2232,7 +1914,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
         ],
         Prop::Ruin => {
             let mut s = vec![Solid::block(Kind::Stone, [x0 + 1.0, z0 + 2.0, x1 - 1.0, z1 - 1.0], 0.0, 15.0).id(word)];
-            // The crenels that still stand along the front.
             let mut x = x0 + 2.0;
             while x < x1 - 6.0 {
                 if hash((x as i32) / 4, rect.1, 41) % 3 != 0 {
@@ -2240,7 +1921,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
                 }
                 x += 6.0;
             }
-            // Moss along the top, a doorway into the dark.
             s.push(Solid::block(Kind::Foliage, [x0 + 3.0, z0 + 3.0, x1 - 3.0, z0 + 6.0], 15.0, 1.0));
             s.push(Solid::block(Kind::Door, [cx - 3.0, z1 - 1.5, cx + 3.0, z1 - 0.5], 0.0, 9.0));
             s
@@ -2250,7 +1930,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
             vec![
                 Solid::block(Kind::Wood, [a, c, b, d], 3.0, 9.0).id(word),
                 Solid::new(Shape::Sphere, Kind::Cloth, [cx, 12.0, cz], [b - a, 10.0, d - c]).todo("gable"),
-                // Under the floor of the van, the axle and its wheels.
                 Solid::block(Kind::Trunk, [a + 3.0, c + 2.0, a + 5.0, d - 2.0], 0.0, 3.0),
                 Solid::block(Kind::Trunk, [b - 5.0, c + 2.0, b - 3.0, d - 2.0], 0.0, 3.0),
                 Solid::new(Shape::Sphere, Kind::Wood, [a + 4.0, 0.0, d + 0.5], [2.0, 7.0, 7.0]),
@@ -2266,7 +1945,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
             let (a, b) = (x0 + 1.0, x1 - 1.0);
             let mut s = vec![
                 Solid::block(Kind::Wood, [a, z0 + 3.0, b, z1 - 1.0], 0.0, 6.0).id(word),
-                // The curtained backdrop.
                 Solid::block(Kind::Cloth, [a, z0 + 1.0, b, z0 + 3.0], 0.0, 22.0),
             ];
             let n = 3;
@@ -2290,7 +1968,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
             for (px_, pz) in [(x0 + 2.0, z0 + 2.0), (x1 - 2.0, z0 + 2.0), (x0 + 2.0, z1 - 2.0), (x1 - 2.0, z1 - 2.0)] {
                 s.push(Solid::block(Kind::Wood, [px_ - 1.0, pz - 1.0, px_ + 1.0, pz + 1.0], 0.0, 18.0));
             }
-            // The bench under it, and what is on it.
             s.push(Solid::block(Kind::Wood, [x0 + 4.0, z0 + 3.0, x1 - 4.0, z0 + 10.0], 0.0, 8.0));
             s.push(Solid::block(Kind::Crop, [x0 + 6.0, z0 + 4.0, x1 - 6.0, z0 + 9.0], 8.0, 1.5));
             s
@@ -2322,7 +1999,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
             vec![
                 Solid::block(Kind::Stone, [x0 + 2.0, z0 + 2.0, x1 - 2.0, z1 - 2.0], 0.0, 6.0).id(word),
                 Solid::new(Shape::Sphere, Kind::Metal, [cx, 6.0, cz], [w - 2.0, 9.0, depth - 2.0]),
-                // The fire under the pot, showing at its front.
                 Solid::new(Shape::Cone, Kind::Fire, [cx, 0.5, z1 - 3.0], [7.0, 5.0, 4.0]),
             ]
         }
@@ -2336,10 +2012,8 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
             let mouth = (x1 - x0 - 8.0).clamp(8.0, 20.0);
             vec![
                 Solid::block(Kind::Stone, [x0 + 1.0, z0 + 1.0, x1 - 1.0, z1 - 1.0], 0.0, 22.0).id(word),
-                // The hood and its flue.
                 Solid::block(Kind::Stone, [cx - (x1 - x0) * 0.3, z0 + 1.0, cx + (x1 - x0) * 0.3, z0 + 8.0], 22.0, 10.0).todo("frustum"),
                 Solid::block(Kind::Stone, [cx - 3.0, z0 + 1.0, cx + 3.0, z0 + 6.0], 32.0, 12.0),
-                // The mouth: black while cold, the brightest thing in the room lit.
                 Solid::block(if lit { Kind::Fire } else { Kind::Metal }, [cx - mouth / 2.0, z1 - 1.5, cx + mouth / 2.0, z1 - 0.5], 3.0, 10.0),
             ]
         }
@@ -2347,7 +2021,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
             let mut s = vec![
                 Solid::block(Kind::Stone, [x0 + 0.5, z0 + 0.5, x1 - 0.5, z1 - 0.5], 0.0, 3.0).id(word).todo("stairs"),
                 Solid::block(Kind::Stone, [x0 + 4.0, z0 + 3.0, x1 - 4.0, z1 - 5.0], 3.0, 3.0),
-                // The seat of dressed stone, and the banner on the wall behind.
                 Solid::block(Kind::Stone, [cx - 6.0, z0 + 4.0, cx + 6.0, z0 + 13.0], 6.0, 13.0),
             ];
             if z0 <= TILE + 0.5 {
@@ -2365,7 +2038,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
         Prop::Deck(kind) => {
             let mut s = vec![Solid::block(kind, [x0 + 1.0, z0 + 1.0, x1 - 1.0, z1 - 1.0], 0.0, if kind == Kind::Rug { 0.6 } else { 1.5 }).id(word)];
             if kind == Kind::Wood {
-                // On piles.
                 for (px_, pz) in [(x0 + 2.0, z0 + 2.0), (x1 - 2.0, z0 + 2.0), (x0 + 2.0, z1 - 2.0), (x1 - 2.0, z1 - 2.0)] {
                     s.push(Solid::block(Kind::Wood, [px_ - 1.0, pz - 1.0, px_ + 1.0, pz + 1.0], -SLAB, SLAB));
                 }
@@ -2393,8 +2065,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
         Prop::Wheel => {
             let (a, b) = (x0 + 1.0, x1 - 1.0);
             vec![
-                // The stand's podium, its A-frame, the wheel on it facing the
-                // room with its pointer, the drapes.
                 Solid::block(Kind::Wood, [a, z0 + 2.0, b, z1 - 1.0], 0.0, 8.0).id(word),
                 Solid::block(Kind::Wood, [cx - 21.0, z1 - 6.0, cx - 18.0, z1 - 3.0], 8.0, 14.0),
                 Solid::block(Kind::Wood, [cx + 18.0, z1 - 6.0, cx + 21.0, z1 - 3.0], 8.0, 14.0),
@@ -2426,7 +2096,6 @@ fn build(prop: Prop, rect: Rect, room: &Room) -> Vec<Solid> {
     }
 }
 
-/// Whether every tile a solid's footprint touches is a blocked one.
 fn on_blocks(room: &Room, s: &Solid) -> bool {
     let [x0, z0, x1, z1] = s.footprint();
     let (c0, c1) = (((x0 + 0.5) / TILE).floor() as i32, ((x1 - 0.5) / TILE).floor() as i32);
@@ -2434,8 +2103,6 @@ fn on_blocks(room: &Room, s: &Solid) -> bool {
     (r0..=r1).all(|r| (c0..=c1).all(|c| room.tile(c, r) == Tile::Block))
 }
 
-/// Something to each tile of `rect`, from its middle and a hash of it; the
-/// first solid named `word`.
 fn per_tile(rect: Rect, mut each: impl FnMut(f32, f32, u32) -> Vec<Solid>, word: &str) -> Vec<Solid> {
     let (c, r, w, h) = rect;
     let mut out = Vec::new();
@@ -2450,7 +2117,6 @@ fn per_tile(rect: Rect, mut each: impl FnMut(f32, f32, u32) -> Vec<Solid>, word:
     out
 }
 
-/// Every id in a set once: a word used by more than one prop is numbered.
 pub(crate) fn name_ids(groups: &mut [Group]) {
     let mut count: HashMap<String, usize> = HashMap::new();
     for s in groups.iter().flat_map(|g| &g.solids) {
@@ -2470,13 +2136,6 @@ pub(crate) fn name_ids(groups: &mut [Group]) {
     }
 }
 
-// ---------------------------------------------------------- the landmark ----
-
-/// The crate's own asset folder, as it was built: where the landmark
-/// overlays are written and the generator's tests read them. A portable
-/// build (`ANGEL_PORTABLE_BUILD=1`, the release packages) names no build
-/// folder, so it reads the package's own: `ANGEL_RESOURCE_DIR`, which the
-/// launcher sets, else the first folder above the binary that holds it.
 pub fn landmark_folder() -> std::path::PathBuf {
     const OWN: &str = "crates/delve/assets/world3d";
     if let Some(dir) = option_env!("ANGEL_SOURCE_DELVE_DIR") {
@@ -2496,28 +2155,15 @@ pub fn landmark_folder() -> std::path::PathBuf {
         .clone()
 }
 
-/// Where an item's landmark overlay lives: `assets/world3d/<item>/landmark.set`.
 pub fn landmark_path(id: &str) -> std::path::PathBuf {
     landmark_folder().join(id).join("landmark.set")
 }
 
-/// The item's landmark overlay, when it has one: shape lines of the set
-/// format (no `set`, `camera` or `plate` line) that the generator appends to
-/// the item's generated set. It is where a place's signature structure (a
-/// windmill's tower and sails, an aqueduct's arches) is placed by hand on the
-/// room's blocked tiles, as the generator cannot know it.
 pub fn landmark(id: &str) -> Option<String> {
     std::fs::read_to_string(landmark_path(id)).ok()
 }
 
-/// A landmark overlay's blocks, or every line of it that is refused. It is
-/// read by the set format's own parser (`angel_stage::set::Set::parse`: the
-/// built-in shapes and the primitive library, their `-<n>` suffixes, every
-/// kind), held to shape lines only, each with a size on every axis. The
-/// hulls know the built-ins the generator uses; a primitive of the library
-/// is held to its bounding block, which hides at least as much.
 pub fn landmark_solids(text: &str) -> Result<Vec<Solid>, Vec<String>> {
-    // The overlay under a set's head, so its lines keep their numbers past it.
     const HEAD: &str = "set landmark\ncamera room 1 1\n";
     const HEAD_LINES: usize = 2;
     let mut refused: Vec<(usize, String)> = Vec::new();
@@ -2562,17 +2208,6 @@ pub fn landmark_solids(text: &str) -> Result<Vec<Solid>, Vec<String>> {
     Err(refused.into_iter().map(|(line, why)| format!("landmark line {line}: {why}")).collect())
 }
 
-/// How the overlay `landmark` breaks the room's agreement with the game, in
-/// words; none when it keeps it. It is held to what the generator holds
-/// itself to:
-///
-/// - what stands on the floor (it begins lower than [`HEADROOM`]) stands
-///   only on tiles a knight cannot walk: walls, blocks and hazards;
-/// - it hides no more than [`HIDE_ONE`] of any walkable tile from the game's
-///   camera by itself, nor more than [`HIDE_ALL`] with everything the
-///   generator placed ([`blockout`]'s `groups`);
-/// - it keeps to the plate, with the margin the capture leaves round the
-///   stage, and its ids are its own.
 pub fn landmark_faults(room: &Room, groups: &[Group], landmark: &[Solid]) -> Vec<String> {
     let mut faults = Vec::new();
     for s in landmark.iter().filter(|s| s.bottom() < HEADROOM) {
@@ -2605,7 +2240,6 @@ pub fn landmark_faults(room: &Room, groups: &[Group], landmark: &[Solid]) -> Vec
             faults.push(format!("the landmark and the room hide {:.0}% of walkable tile {t:?}", together * 100.0));
         }
     }
-    // The plate holds the stage and its margin.
     let (w, h) = (room.cols as f32 * TILE, room.rows as f32 * TILE);
     let room_for = 1.0 - 2.0 * angel_stage::set::PLATE_MARGIN;
     let scale = (PLATE.0 as f32 * room_for / w).min(PLATE.1 as f32 * room_for / h);
@@ -2630,9 +2264,6 @@ pub fn landmark_faults(room: &Room, groups: &[Group], landmark: &[Solid]) -> Vec
     faults
 }
 
-// ------------------------------------------------------------- the text ----
-
-/// A number as a set writes it: whole when it is, else to the hundredth.
 pub fn num(v: f32) -> String {
     let r = (v * 100.0).round() / 100.0;
     if r == r.trunc() {
@@ -2643,7 +2274,6 @@ pub fn num(v: f32) -> String {
     }
 }
 
-/// A solid as a line of a set.
 pub fn line(s: &Solid) -> String {
     let mut l = format!(
         "{:<6} {:<7} at {} {} {} size {} {} {}",

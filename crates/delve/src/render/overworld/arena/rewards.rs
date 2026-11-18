@@ -30,11 +30,8 @@ use crate::rules::Hero;
 use crate::rules::rewards::{self as rules_rewards, Kind, Step, constellation, numeral};
 use std::f32::consts::TAU;
 
-/// The most motes the moments paint in a pass.
 const BUDGET: u32 = 1400;
 
-/// A knight's step and where they stand: their feet and their middle, in
-/// room pixels.
 fn knights_steps(run: &Run) -> impl Iterator<Item = (&Step, f32, &Hero, ((f32, f32), (f32, f32)))> {
     run.rewards.playing(run.tick).filter(|(s, _)| !s.kind.banner()).filter_map(move |(s, age)| {
         let hero = run.players.get(&s.knight).filter(|h| !h.absent && h.privy == 0)?;
@@ -42,7 +39,6 @@ fn knights_steps(run: &Run) -> impl Iterator<Item = (&Step, f32, &Hero, ((f32, f
     })
 }
 
-/// Under the figures: what lights the floor at a knight's feet.
 pub(super) fn under(cv: &mut Img, run: &Run) {
     let mut pen = Pen::new(cv, BUDGET / 2);
     for (s, age, _, (feet, _)) in knights_steps(run) {
@@ -62,9 +58,7 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Over the figures: what rises from and stands over a knight.
 pub(super) fn over(cv: &mut Img, run: &Run) {
-    // A tier's numeral goes over the rest, so it is never under a pillar.
     let mut all: Vec<(Step, f32, (f32, f32), (f32, f32))> =
         knights_steps(run).map(|(s, age, _, (feet, mid))| (s.clone(), age, feet, mid)).collect();
     all.sort_by_key(|(s, ..)| matches!(s.kind, Kind::Tier { .. }));
@@ -79,7 +73,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Over the view, after the camera: the party's banners.
 pub(super) fn screen(cv: &mut Img, run: &Run, origin: (i32, i32)) {
     for (s, age) in run.rewards.playing(run.tick).filter(|(s, _)| s.kind.banner()) {
         let age = age as f32;
@@ -92,9 +85,6 @@ pub(super) fn screen(cv: &mut Img, run: &Run, origin: (i32, i32)) {
     }
 }
 
-// ─── letters ─────────────────────────────────────────────────────────────────
-
-/// `text` in `ink`, `k` times the font's size.
 fn letters(text: &str, ink: char, k: i32) -> Img {
     let mut small = Img::new(text_width(text).max(1), 7);
     small.text(0, 0, text, ink);
@@ -112,10 +102,6 @@ fn letters(text: &str, ink: char, k: i32) -> Img {
     out
 }
 
-/// A tier's numeral (from 0) in strokes of its own, seven pixels high: the
-/// font's I has feet that run together into I:I:I and its V is round, so
-/// the ones and fives here share one beam over and under, and the five is
-/// sharp.
 fn roman(tier: u8, ink: char) -> Img {
     const V: [&str; 7] = ["#...#", "#...#", ".#.#.", ".#.#.", ".#.#.", "..#..", "..#.."];
     let ones = |n: i32| -> Img {
@@ -150,7 +136,6 @@ fn roman(tier: u8, ink: char) -> Img {
     }
 }
 
-/// `im` at `k` times its size.
 fn bigger(im: &Img, k: i32) -> Img {
     let mut out = Img::new(im.w * k, im.h * k);
     for y in 0..out.h {
@@ -163,8 +148,6 @@ fn bigger(im: &Img, k: i32) -> Img {
     out
 }
 
-/// A wish's name in at most `room` letters: whole when it fits, else its
-/// last words that do, else cut.
 pub(super) fn short_name(name: &str, room: usize) -> String {
     let name = name.to_uppercase();
     if name.chars().count() <= room {
@@ -180,8 +163,6 @@ pub(super) fn short_name(name: &str, room: usize) -> String {
     name.chars().take(room).collect()
 }
 
-/// `im` lit from above: its top rows in `hi`, the rest in `lo`, a line of
-/// `glint` across its top, so a numeral reads as cast metal.
 fn cast(im: &Img, hi: char, lo: char, glint: char) -> Img {
     let mut out = Img::new(im.w, im.h);
     let top = (0..im.h).find(|&y| (0..im.w).any(|x| im.get(x, y).is_some())).unwrap_or(0);
@@ -196,7 +177,6 @@ fn cast(im: &Img, hi: char, lo: char, glint: char) -> Img {
     out
 }
 
-/// `im` ringed in a pixel of `edge`, so it reads over any floor.
 fn outlined(im: &Img, edge: char) -> Img {
     let mut out = Img::new(im.w + 2, im.h + 2);
     for y in 0..im.h {
@@ -212,7 +192,6 @@ fn outlined(im: &Img, edge: char) -> Img {
     out
 }
 
-/// `im` squashed to `s` of its height (0 to past 1) about its middle row.
 fn squashed(im: &Img, s: f32) -> Img {
     let h = ((im.h as f32 * s).round() as i32).max(1);
     let mut out = Img::new(im.w, h);
@@ -227,7 +206,6 @@ fn squashed(im: &Img, s: f32) -> Img {
     out
 }
 
-/// Two images side by side on one foot, `gap` apart.
 fn beside(a: &Img, b: &Img, gap: i32) -> Img {
     let h = a.h.max(b.h);
     let mut out = Img::new(a.w + gap + b.w, h);
@@ -236,7 +214,6 @@ fn beside(a: &Img, b: &Img, gap: i32) -> Img {
     out
 }
 
-/// One image over another, centred, `gap` apart.
 fn over_under(a: &Img, b: &Img, gap: i32) -> Img {
     let w = a.w.max(b.w);
     let mut out = Img::new(w, a.h + gap + b.h);
@@ -245,23 +222,15 @@ fn over_under(a: &Img, b: &Img, gap: i32) -> Img {
     out
 }
 
-/// A label `im` over a knight: its foot `lift` pixels over their feet,
-/// centred on them, popping up into place at `age` and lifting away at the
-/// end of `life` (`notices::board_from`).
 fn over_head(cv: &mut Img, im: &Img, feet: (f32, f32), lift: f32, age: f32, life: f32) {
     let x = (feet.0 - im.w as f32 / 2.0).round() as i32;
     let y = (feet.1 - lift).round() as i32 - im.h;
     super::notices::board_from(cv, im, (x, y), age, Some(life), 6.0);
 }
 
-// ─── a level ─────────────────────────────────────────────────────────────────
-
-/// A level's beats: the gold drawn in, the throw of the pillar, its
-/// follow-through as it thins, and the number standing to be read.
 const LEVEL: crate::motion::Beats = crate::motion::Beats::new(9.0, 5.0, 22.0, 54.0);
 
 fn level_floor(pen: &mut Pen, feet: (f32, f32), age: f32, seat: u32) {
-    // Gold drawn in to the feet.
     if age < LEVEL.action_at() {
         let t = share(age, 0.0, LEVEL.action_at());
         for m in 0..10 {
@@ -273,7 +242,6 @@ fn level_floor(pen: &mut Pen, feet: (f32, f32), age: f32, seat: u32) {
         }
         return;
     }
-    // Thrown out: a ring past its size and an echo a beat behind it.
     let since = LEVEL.since_action(age);
     for (lag, ramp) in [(0.0, ramps::HOLY), (4.0, ramps::GOLD)] {
         let t = share(since - lag, 0.0, 16.0);
@@ -289,14 +257,11 @@ fn level_over(cv: &mut Img, feet: (f32, f32), mid: (f32, f32), age: f32, level: 
     let since = LEVEL.since_action(age);
     {
         let mut pen = Pen::new(cv, BUDGET / 2);
-        // The pillar: thrown up out of the feet, wide and white, thinning
-        // through its follow-through.
         if (0.0..LEVEL.follow + LEVEL.action).contains(&since) {
             let reach = 52.0 * ease::out(share(since, 0.0, LEVEL.action));
             let thin = ease::inward(share(since, LEVEL.action, LEVEL.follow));
             let half = 4.0 * (1.0 - thin) + 0.6;
             for y in (feet.1 - reach).floor() as i32..=feet.1.ceil() as i32 {
-                // Brightest at the foot, failing toward the top.
                 let up = (feet.1 - y as f32) / reach.max(1.0);
                 for x in (feet.0 - half).floor() as i32..=(feet.0 + half).ceil() as i32 {
                     let d = ((x as f32 + 0.5 - feet.0).abs() / half).min(1.0);
@@ -304,8 +269,6 @@ fn level_over(cv: &mut Img, feet: (f32, f32), mid: (f32, f32), age: f32, level: 
                     if i < 0.12 || bayer(x, y) > i * 1.6 {
                         continue;
                     }
-                    // The halo goes behind the knight; only the hot core
-                    // burns over them, and only at the throw.
                     if pen.has(x, y) && (i < 0.55 || since > LEVEL.action + 2.0) {
                         continue;
                     }
@@ -313,7 +276,6 @@ fn level_over(cv: &mut Img, feet: (f32, f32), mid: (f32, f32), age: f32, level: 
                 }
             }
         }
-        // Chevrons climbing either side, a beat apart.
         for c in 0..3 {
             let t = share(since, 2.0 + c as f32 * 7.0, 26.0);
             if t <= 0.0 || t >= 1.0 {
@@ -331,15 +293,12 @@ fn level_over(cv: &mut Img, feet: (f32, f32), mid: (f32, f32), age: f32, level: 
                 }
             }
         }
-        // Twinkles about the number once it stands.
         for m in 0..5 {
             let t = share(age, 18.0 + m as f32 * 6.0, 14.0);
             let at = (mid.0 + (unit(m, seat as i32, 51) - 0.5) * 40.0, feet.1 - 30.0 - unit(m, seat as i32, 52) * 14.0);
             pen.twinkle(at, 2.0, t, ramps::GOLD);
         }
     }
-    // LEVEL and its number, slammed down: four times the font, then three,
-    // then the twice it rests at.
     let at = LEVEL.action_at() + 3.0;
     if age >= at {
         let d = age - at;
@@ -351,10 +310,6 @@ fn level_over(cv: &mut Img, feet: (f32, f32), mid: (f32, f32), age: f32, level: 
     }
 }
 
-// ─── a tier ──────────────────────────────────────────────────────────────────
-
-/// A tier's light: the genie's teal for the first two, gold for the third
-/// and fourth, violet for the fifth; and its numeral's inks.
 fn tier_light(tier: u8) -> (Ramp, (char, char, char)) {
     match tier {
         0 | 1 => (ramps::GENIE, ('3', '2', 'w')),
@@ -363,22 +318,18 @@ fn tier_light(tier: u8) -> (Ramp, (char, char, char)) {
     }
 }
 
-/// Ticks between one flip of the numeral and the next.
 const FLIP: f32 = 7.0;
-/// When the first flip begins.
 const FIRST_FLIP: f32 = 7.0;
 
 fn tier_over(cv: &mut Img, feet: (f32, f32), age: f32, from: u8, tier: u8, wish: &str, seat: u32) {
     let life = 60.0;
     let flips = u32::from(tier.saturating_sub(from)).max(1);
     let done = FIRST_FLIP + flips as f32 * FLIP;
-    // Which numeral stands now, and how far through its flip.
     let n = (((age - FIRST_FLIP) / FLIP).floor().max(-1.0) + 1.0).min(flips as f32) as u32;
     let showing = from + n as u8;
     let into = age - FIRST_FLIP - (n as f32 - 1.0) * FLIP;
     let (ramp, (hi, lo, glint)) = tier_light(showing);
     let s = if n == 0 {
-        // Before the first flip it closes up into it.
         1.0 - ease::inward(share(age, FIRST_FLIP - 3.0, 3.0))
     } else {
         ease::back(share(into, 0.0, 5.0))
@@ -387,7 +338,6 @@ fn tier_over(cv: &mut Img, feet: (f32, f32), age: f32, from: u8, tier: u8, wish:
     let center = (feet.0, feet.1 - foot - 7.0);
     {
         let mut pen = Pen::new(cv, BUDGET / 2);
-        // Rays behind it from the third tier on, turning; more at the fifth.
         if tier >= 2 && age >= FIRST_FLIP {
             let (rays, reach) = if tier >= 4 { (12, 16.0) } else { (8, 9.0) };
             let power = share(age, FIRST_FLIP, 6.0) * (1.0 - ease::inward(share(age, done + 18.0, 20.0)));
@@ -411,7 +361,6 @@ fn tier_over(cv: &mut Img, feet: (f32, f32), age: f32, from: u8, tier: u8, wish:
                 }
             }
         }
-        // Sparks off each flip.
         for f in 1..=flips {
             let at = FIRST_FLIP + (f as f32 - 1.0) * FLIP;
             let spray = Spray { gravity: 0.08, ..Spray::round(seat * 31 + f, 12, center, (1.4, 2.8), (10.0, 18.0)) };
@@ -444,16 +393,11 @@ fn tier_over(cv: &mut Img, feet: (f32, f32), age: f32, from: u8, tier: u8, wish:
     }
 }
 
-// ─── a rung ──────────────────────────────────────────────────────────────────
-
-/// The figure's box a lens closes on: half its width and its height.
 const LENS: (f32, f32) = (8.0, 18.0);
 
 fn rung_over(cv: &mut Img, feet: (f32, f32), age: f32, px: u32) {
     let life = 105.0;
     let mut pen = Pen::new(cv, BUDGET / 2);
-    // The corners close in, a little past, and settle; at the end they
-    // open out again and go.
     let close = track(&[key(0.0, 2.6, Ease::Linear), key(12.0, 0.92, Ease::Out), key(17.0, 1.0, Ease::Both), key(88.0, 1.0, Ease::Linear), key(104.0, 2.2, Ease::In)], age);
     let gone = ease::in_quad(share(age, 90.0, 14.0));
     let (hw, top) = (LENS.0 * close + 2.0, LENS.1 * (0.5 + 0.5 * close));
@@ -471,7 +415,6 @@ fn rung_over(cv: &mut Img, feet: (f32, f32), age: f32, px: u32) {
             }
         }
     }
-    // The line sweeping foot to crown, the figure glinting fine behind it.
     let sweep = share(age, 16.0, 14.0);
     if sweep > 0.0 && sweep < 1.0 {
         let y = (b - (b - t) * ease::both(sweep)).round() as i32;
@@ -490,7 +433,6 @@ fn rung_over(cv: &mut Img, feet: (f32, f32), age: f32, px: u32) {
             }
         }
     }
-    // The ladder's pips beside the figure, the new rung filling.
     let pips = share(age, 26.0, 4.0);
     if pips > 0.0 && gone < 1.0 {
         let x0 = (r + 4.0).round() as i32;
@@ -515,7 +457,6 @@ fn rung_over(cv: &mut Img, feet: (f32, f32), age: f32, px: u32) {
         }
     }
     drop(pen);
-    // Its pixels named over the figure, a little after the lens finds it.
     let at = 30.0;
     if age >= at {
         let number = outlined(&cast(&letters(&px.to_string(), 'W', 2), 'w', 'V', 'w'), 'k');
@@ -526,13 +467,10 @@ fn rung_over(cv: &mut Img, feet: (f32, f32), age: f32, px: u32) {
     }
 }
 
-// ─── a relic ─────────────────────────────────────────────────────────────────
-
 fn relic_over(cv: &mut Img, feet: (f32, f32), mid: (f32, f32), age: f32, name: &str, seat: u32) {
     let life = 75.0;
     {
         let mut pen = Pen::new(cv, BUDGET / 2);
-        // Light straight down onto them, narrowing as it goes.
         let ray = 1.0 - ease::inward(share(age, 3.0, 18.0));
         if ray > 0.0 {
             let half = 2.0 + 4.0 * ray;
@@ -548,7 +486,6 @@ fn relic_over(cv: &mut Img, feet: (f32, f32), mid: (f32, f32), age: f32, name: &
                 }
             }
         }
-        // A star flares on them: four arms out and back.
         let flare = ease::bump(share(age, 2.0, 14.0));
         if flare > 0.0 {
             let arm = (14.0 * flare).round() as i32;
@@ -560,7 +497,6 @@ fn relic_over(cv: &mut Img, feet: (f32, f32), mid: (f32, f32), age: f32, name: &
                 }
             }
         }
-        // A ring of sparks, thrown and falling.
         let spray = Spray { gravity: 0.07, ..Spray::round(seat * 17 + 5, 16, mid, (1.6, 3.2), (14.0, 24.0)) };
         spray.each(age - 3.0, |m| pen.streak(m.at, m.vel, 2.5, ramps::GOLD, m.k));
         for m in 0..4 {
@@ -569,7 +505,6 @@ fn relic_over(cv: &mut Img, feet: (f32, f32), mid: (f32, f32), age: f32, name: &
             pen.twinkle(at, 2.0, t, ramps::HOLY);
         }
     }
-    // RELIC, struck over the take line that names it (`marks::takes`).
     let _ = name;
     let at = 6.0;
     if age >= at {
@@ -580,10 +515,6 @@ fn relic_over(cv: &mut Img, feet: (f32, f32), mid: (f32, f32), age: f32, name: &
     }
 }
 
-// ─── the party's banners ─────────────────────────────────────────────────────
-
-/// The row a banner `h` tall stands on: the top band where no knight is,
-/// else the lower, else the middle (`notices::board_row`).
 fn banner_row(run: &Run, h: i32) -> i32 {
     let (ox, oy) = view_origin(run, None);
     let clear = |top: i32| {
@@ -596,7 +527,6 @@ fn banner_row(run: &Run, h: i32) -> i32 {
     [18, NATIVE_H - h - 34].into_iter().find(|&top| clear(top)).unwrap_or_else(|| super::notices::board_row(run, h, false))
 }
 
-/// A floor deeper than the realm has stood on.
 fn record(cv: &mut Img, run: &Run, age: f32, floor: u32) {
     let life = 120.0;
     let slam = 9.0;
@@ -613,13 +543,11 @@ fn record(cv: &mut Img, run: &Run, age: f32, floor: u32) {
     let (w, h) = (inner.w.max(150) + 16, 7 + 3 + 14 + 3 + 7 + 10);
     let mut board = Img::new(w + 1, h + 1);
     chrome::panel(&mut board, (0, 0, w, h), Tone::FRAMED);
-    // The number slams at its rest's size: the board stays the size it rests at.
     let rest_h = 7 + 3 + 14 + 3 + 7;
     board.stamp(&inner, (w - inner.w) / 2, 5 + (rest_h - inner.h) / 2);
     let y = banner_row(run, h);
     let x = (NATIVE_W - w) / 2;
     super::notices::board_in(cv, &board, (x, y), age, Some(life));
-    // Its landing throws sparks off the board's edges, and it jolts.
     let mut pen = Pen::new(cv, BUDGET / 3);
     for (n, (sx, dir)) in [(x as f32 + 4.0, std::f32::consts::PI), (x as f32 + w as f32 - 4.0, 0.0)].into_iter().enumerate() {
         let spray = Spray { angle: dir, spread: 1.6, gravity: 0.1, ..Spray::round(40 + n as u32, 10, (sx, y as f32 + h as f32 / 2.0), (1.8, 3.4), (10.0, 18.0)) };
@@ -632,15 +560,8 @@ fn record(cv: &mut Img, run: &Run, age: f32, floor: u32) {
     }
 }
 
-// ─── the sky ─────────────────────────────────────────────────────────────────
-
-/// A constellation's figure: strokes through its stars, on a 48 by 28
-/// chart.
 type Strokes = &'static [&'static [(f32, f32)]];
 
-/// The eight figures, in `rules::rewards::CONSTELLATIONS` order: the lamp,
-/// the crown, the grail, the dragon, the flamingo, the gnome, the key, the
-/// comet.
 const FIGURES: [Strokes; 8] = [
     &[&[(2.0, 8.0), (14.0, 15.0), (20.0, 21.0), (30.0, 21.0), (36.0, 15.0), (30.0, 13.0), (20.0, 13.0), (14.0, 15.0)], &[(36.0, 15.0), (43.0, 12.0), (41.0, 19.0), (36.0, 15.0)], &[(30.0, 13.0), (25.0, 8.0), (20.0, 13.0)]],
     &[&[(6.0, 24.0), (5.0, 9.0), (14.0, 17.0), (24.0, 4.0), (34.0, 17.0), (43.0, 9.0), (42.0, 24.0), (6.0, 24.0)], &[(14.0, 21.0), (24.0, 20.0), (34.0, 21.0)]],
@@ -652,18 +573,13 @@ const FIGURES: [Strokes; 8] = [
     &[&[(39.0, 4.0), (44.0, 7.0), (42.0, 12.0), (36.0, 10.0), (39.0, 4.0)], &[(36.0, 10.0), (21.0, 16.0), (5.0, 23.0)], &[(41.0, 12.0), (24.0, 21.0), (10.0, 27.0)], &[(37.0, 7.0), (19.0, 10.0), (2.0, 14.0)]],
 ];
 
-/// Constellation `index`'s figure.
 fn figure(index: u32) -> Strokes {
     FIGURES[(index % FIGURES.len() as u32) as usize]
 }
 
-/// Constellation `index`'s stars on its chart, in the order they fill: its
-/// corners in the order its strokes are drawn, then as many more as it
-/// takes along its longest runs.
 pub(super) fn stars(index: u32) -> Vec<(f32, f32)> {
     let want = rules_rewards::size(index) as usize;
     let strokes = figure(index);
-    // Each corner once, with where it lies along the drawing.
     let mut placed: Vec<((f32, f32), f32)> = Vec::new();
     let mut runs: Vec<((f32, f32), (f32, f32), f32)> = Vec::new();
     let mut along = 0.0f32;
@@ -681,7 +597,6 @@ pub(super) fn stars(index: u32) -> Vec<(f32, f32)> {
         }
     }
     placed.truncate(want);
-    // More along the longest runs, each run split as evenly as it may.
     let mut splits = vec![1u32; runs.len()];
     let length = |r: &((f32, f32), (f32, f32), f32)| (r.1.0 - r.0.0).hypot(r.1.1 - r.0.1);
     while placed.len() + splits.iter().map(|s| (s - 1) as usize).sum::<usize>() < want && !runs.is_empty() {
@@ -700,10 +615,6 @@ pub(super) fn stars(index: u32) -> Vec<(f32, f32)> {
     placed.into_iter().map(|(p, _)| p).collect()
 }
 
-/// A chart of constellation `index` at `(x, y)`, `k` pixels a chart unit:
-/// its first `lit` stars bright (`glints`: some of them with a twinkle
-/// `phase` each), the rest faint, and its strokes drawn on in `line` as
-/// `drawn` goes 0 to 1.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn chart(cv: &mut Img, (x, y): (i32, i32), k: f32, index: u32, lit: usize, drawn: f32, line: char, glints: &[(usize, f32)]) {
     let mut pen = Pen::new(cv, BUDGET);
@@ -751,9 +662,6 @@ pub(super) fn chart(cv: &mut Img, (x, y): (i32, i32), k: f32, index: u32, lit: u
     }
 }
 
-/// A constellation whole: drawn star by star on a night board, its
-/// strokes run through them, the whole of it flaring, and its name, who
-/// lit it, and the gift it leaves.
 fn lit(cv: &mut Img, run: &Run, age: f32, index: u32, by: &str) {
     let life = 150.0;
     let k = 2.0;
@@ -774,7 +682,6 @@ fn lit(cv: &mut Img, run: &Run, age: f32, index: u32, by: &str) {
     } else {
         (0..shown.min(n)).map(|i| (i, share(age, 8.0 + i as f32, 6.0))).collect()
     };
-    // A night of faint stars behind it.
     for sy in 3..ch as i32 + 5 {
         for sx in 3..w - 3 {
             if super::super::ink::hash(sx, sy, 0x5ca) % 61 == 0 {
@@ -795,8 +702,6 @@ fn lit(cv: &mut Img, run: &Run, age: f32, index: u32, by: &str) {
     super::notices::board_in(cv, &board, ((NATIVE_W - w) / 2, y), age, Some(life));
 }
 
-/// The sky's gift handed out: a board says so, and a star falls to each
-/// knight.
 fn gift(cv: &mut Img, run: &Run, (ox, oy): (i32, i32), age: f32, wishes: u8) {
     let life = 105.0;
     let words = if wishes == 1 { "A WISH MORE EACH".to_string() } else { format!("{wishes} WISHES MORE EACH") };
@@ -835,27 +740,17 @@ fn gift(cv: &mut Img, run: &Run, (ox, oy): (i32, i32), age: f32, wishes: u8) {
     }
 }
 
-// ─── the road ahead ──────────────────────────────────────────────────────────
-
-/// Where the road ahead's rows stand, between its headline and the
-/// party's panel, and the most a row is high.
 const ROAD_TOP: i32 = 37;
 const ROAD_FOOT: i32 = 150;
 const ROAD_ROW: i32 = 26;
-/// The party's panel, and the line under it.
 const PANEL: (i32, i32, i32, i32) = (8, 153, NATIVE_W - 16, 56);
 const ROAD_HINT_Y: i32 = 214;
-/// Steps a count takes to tick up.
 const COUNT: f32 = 24.0;
 
-/// A tier's numeral ink on the board.
 fn tier_ink(tier: u8) -> char {
     tier_light(tier).1.0
 }
 
-/// One knight's ledger as words, each in its ink: the level (and the step
-/// up to it), the experience (`xp_shown` of it, ticking up), the wishes,
-/// the best tier, relics and the rung.
 fn earned_words(e: &crate::rules::rewards::Earned, xp_shown: u32) -> Vec<(String, char)> {
     let mut out = Vec::new();
     if e.level > e.from_level && e.from_level > 0 {
@@ -887,8 +782,6 @@ fn earned_words(e: &crate::rules::rewards::Earned, xp_shown: u32) -> Vec<(String
     out
 }
 
-/// `words` along a line from `x` to `right`, two spaces between, as many
-/// as fit; the first `shown` letters of them.
 fn lay(cv: &mut Img, (x, y): (i32, i32), right: i32, words: &[(String, char)], shown: usize) {
     let (mut cx, mut left) = (x, shown);
     for (text, ink) in words {
@@ -903,16 +796,9 @@ fn lay(cv: &mut Img, (x, y): (i32, i32), right: i32, words: &[(String, char)], s
     }
 }
 
-/// A finished run's last word, `age` steps in: THE ROAD AHEAD. Each
-/// knight's row slides in with what they earned this delve, its count
-/// ticking up, and under it what comes next for them; then the party's
-/// panel: the realm's sky with this delve's stars lighting on it, and what
-/// lies ahead (a record, the Deep's next village or its road, the next
-/// constellation). Black paper, as the results before it.
 pub(super) fn road_page(run: &Run, age: u32) -> Img {
     let mut cv = Img::black(NATIVE_W, NATIVE_H);
     let a = age as f32;
-    // The headline, its letters set down two a step.
     let text = "THE ROAD AHEAD";
     let set = (age as usize * 2).min(text.len());
     let head = letters(&text[..set], 'i', 2);
@@ -968,11 +854,9 @@ pub(super) fn road_page(run: &Run, age: u32) -> Img {
         let name: String = hero.shown_name().to_uppercase().chars().take(10).collect();
         let (l1, l2) = if tall { (y + 4, y + 14) } else { (y + (bh - 16).max(0) / 2, y + (bh - 16).max(0) / 2 + 8) };
         cv.text(x0 + 44, l1, &name, if up { 't' } else { 'i' });
-        // What they earned, the experience ticking up.
         let counted = (e.xp as f32 * ease::out(share(a, start + 3.0, COUNT))).round() as u32;
         let words = earned_words(&e, counted);
         lay(&mut cv, (x0 + 44 + text_width(&name).max(60) + 8, l1), NATIVE_W - 10, &words, usize::MAX);
-        // What comes next, typed on once the counts have landed.
         let from = start + 3.0 + COUNT * 0.6;
         if a >= from {
             let mut next: Vec<(String, char)> = vec![("NEXT".into(), 'G')];
@@ -981,7 +865,6 @@ pub(super) fn road_page(run: &Run, age: u32) -> Img {
             lay(&mut cv, (x0 + 44, l2), NATIVE_W - 10, &next, shown);
         }
     }
-    // The party's panel: the sky and the road.
     let at = 10.0 + n as f32 * 5.0 + COUNT;
     if a >= at {
         let d = a - at;
@@ -994,7 +877,6 @@ pub(super) fn road_page(run: &Run, age: u32) -> Img {
             _ => None,
         });
         let text_x = if let Some((index, placed)) = sky {
-            // This delve's stars light on it one after another.
             let new = run.ledger_shown().earned.values().map(|e| e.wishes as usize).sum::<usize>().min(placed as usize);
             let first = placed as usize - new;
             let lit_now = first + ((d - 6.0) / 2.0).clamp(0.0, new as f32) as usize;

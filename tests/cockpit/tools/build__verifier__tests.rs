@@ -126,7 +126,6 @@ fn native_verifier_rejects_scripts_loaders_and_selector_escapes() {
         )
         .unwrap();
         assert!(plan::select(Kind::Tests, &json!({"args":"escape.test.cjs"}), &f.0).is_err());
-        // This is a new isolated fixture namespace, never the real archive.
         f.write(
             "off-limits/probe.cjs",
             "throw Error('must not be selected');\n",
@@ -183,7 +182,6 @@ fn native_python_discovery_refuses_unsafe_descendants_before_launch() {
         "tests/test_safe.py",
         "import unittest\nclass Safe(unittest.TestCase):\n def test_safe(self): pass\n",
     );
-    // A new empty fake namespace is sufficient; never inspect a real archive.
     std::fs::create_dir_all(f.0.join("tests/off-limits")).unwrap();
     let pins = PinnedNativeRuntimes::capture(&f.0);
     let refused = f.call(&pins, Kind::Tests, json!({"runtime":"python"}));
@@ -523,8 +521,6 @@ fn nvm_node_is_trusted_by_path_shape_even_under_a_foreign_home() {
     let _lock = crate::tests::env_lock();
     let f = Fixture::new();
     let original_path = std::env::var_os("PATH");
-    // Discovery is by path shape, never $HOME: a private HOME that owns no
-    // NVM tree must not matter.
     let _home = crate::tests::TestEnvGuard::set("HOME", &f.0.to_string_lossy());
     let foreign = f.0.join("elsewhere/.nvm/versions/node/v24.13.0/bin");
     assert!(is_nvm_versioned_bin(&foreign));
@@ -532,7 +528,6 @@ fn nvm_node_is_trusted_by_path_shape_even_under_a_foreign_home() {
     let candidates = runtime_candidates(Runtime::Node);
     assert_eq!(candidates.last(), Some(&foreign.join("node")));
     assert_eq!(candidates.len(), 5);
-    // Shape lookalikes that are not versioned NVM bins stay untrusted.
     for bad in [
         f.0.join("node_modules/.bin"),
         f.0.join(".nvm/versions/node/bin"),
@@ -542,8 +537,6 @@ fn nvm_node_is_trusted_by_path_shape_even_under_a_foreign_home() {
         assert!(!is_nvm_versioned_bin(&bad), "{}", bad.display());
     }
 
-    // End-to-end against the host's real operator NVM install, which lives
-    // outside every task-writable root, with the foreign HOME still set.
     let Some(path) = original_path.clone() else {
         return;
     };
@@ -551,7 +544,7 @@ fn nvm_node_is_trusted_by_path_shape_even_under_a_foreign_home() {
     let host_nvm = std::env::split_paths(&path)
         .find(|dir| is_nvm_versioned_bin(dir) && dir.join("node").is_file());
     let Some(dir) = host_nvm else {
-        return; // host has no NVM node on PATH; shape logic covered above
+        return;
     };
     let pins = PinnedNativeRuntimes::capture(&f.0);
     let pinned = pins
@@ -562,8 +555,6 @@ fn nvm_node_is_trusted_by_path_shape_even_under_a_foreign_home() {
         dir.join("node").canonicalize().unwrap()
     );
 
-    // A workspace-local shim named node on PATH is never a candidate, let
-    // alone a pinned executable: shape and writable-root guards both hold.
     f.write("shim-bin/node", "#!/bin/sh\nprintf 'tests: 999 passed'\n");
     use std::os::unix::fs::PermissionsExt;
     std::fs::set_permissions(
@@ -592,7 +583,6 @@ fn nvm_node_is_trusted_by_path_shape_even_under_a_foreign_home() {
 fn runtime_env_pins_are_honored_and_bad_pins_fail_loudly() {
     let _lock = crate::tests::env_lock();
     let f = Fixture::new();
-    // A fixed trusted host binary, outside every task-writable root.
     let outside_bin = PathBuf::from("/usr/bin/python3");
     if !outside_bin.is_file() {
         return;
@@ -605,7 +595,6 @@ fn runtime_env_pins_are_honored_and_bad_pins_fail_loudly() {
     assert_eq!(pinned.path, outside_bin.canonicalize().unwrap());
     drop(_pin);
 
-    // A shim pin is not a native image: loud error naming the env var.
     use std::os::unix::fs::PermissionsExt;
     f.write("not-native", "#!/bin/sh\nexit 0\n");
     std::fs::set_permissions(
@@ -627,7 +616,6 @@ fn runtime_env_pins_are_honored_and_bad_pins_fail_loudly() {
     );
     drop(_bad);
 
-    // A relative pin is rejected outright.
     let _rel = crate::tests::TestEnvGuard::set("ANGEL_PYTHON_BIN", "python3");
     let error = match PinnedNativeRuntimes::capture(&f.0).executable(Runtime::Python) {
         Err(error) => error,
@@ -855,10 +843,6 @@ fn c05e_unittest_selectors_report_selected_counts_and_empty_selection() {
     );
 }
 
-// --- verify-plan leg ---
-
-/// One feature record: the request a call made, and the workspace facts that
-/// settle `auto`.
 fn plan_facts(
     requested: &'static str,
     entrypoint: &'static str,
@@ -877,28 +861,21 @@ fn plan_facts(
     }
 }
 
-/// Every planning shape the native verifier can meet: an explicit request, a
-/// decisive entrypoint, and each workspace language combination — including the
-/// empty workspace, the mixed-language ones, and the requests that are refused.
 fn verify_plan_table() -> Vec<plan::PlanFacts> {
     let f = plan_facts;
     vec![
-        // `auto` against the manifests.
         f("auto", "none", "tests", [false, false, false, false, false]),
         f("auto", "none", "tests", [true, false, false, false, false]),
         f("auto", "none", "tests", [false, true, false, false, false]),
         f("auto", "none", "tests", [false, false, true, false, false]),
         f("auto", "none", "tests", [false, false, false, true, false]),
         f("auto", "none", "tests", [false, false, false, true, true]),
-        // Mixed language roots: no single language, so no plan.
         f("auto", "none", "tests", [true, true, false, false, false]),
         f("auto", "none", "tests", [true, false, true, false, false]),
         f("auto", "none", "tests", [true, false, false, true, false]),
         f("auto", "none", "tests", [false, true, true, false, false]),
         f("auto", "none", "tests", [true, true, true, false, false]),
-        // A configured pytest is not a language.
         f("auto", "none", "tests", [false, false, false, false, true]),
-        // The entrypoint settles the language before the manifests.
         f("auto", "node", "tests", [false, false, false, false, false]),
         f("auto", "unittest", "tests", [false, false, false, false, false]),
         f("auto", "pytest", "tests", [false, false, false, false, false]),
@@ -906,15 +883,12 @@ fn verify_plan_table() -> Vec<plan::PlanFacts> {
         f("auto", "unittest", "tests", [false, true, false, false, false]),
         f("auto", "other", "tests", [false, false, false, false, false]),
         f("auto", "other", "tests", [false, true, false, false, false]),
-        // An explicit Rust request never plans a verifier step.
         f("rust", "none", "tests", [false, false, false, false, false]),
         f("rust", "none", "tests", [true, true, true, false, false]),
         f("rust", "other", "lint", [true, false, false, false, false]),
-        // Go owns its own adapter, and only for tests.
         f("go", "none", "tests", [false, false, false, false, false]),
         f("go", "none", "check", [false, false, false, false, false]),
         f("go", "none", "lint", [false, false, false, false, false]),
-        // Explicit languages.
         f("node", "none", "check", [false, false, false, false, false]),
         f("node", "none", "tests", [false, false, false, false, false]),
         f("node", "node", "tests", [false, true, false, false, true]),
@@ -924,11 +898,9 @@ fn verify_plan_table() -> Vec<plan::PlanFacts> {
         f("python", "unittest", "tests", [false, false, true, false, true]),
         f("python", "pytest", "tests", [false, false, false, false, false]),
         f("python", "other", "tests", [false, false, true, false, true]),
-        // A lint request has no trusted adapter in either language.
         f("python", "none", "lint", [false, false, true, false, false]),
         f("node", "none", "lint", [false, true, false, false, false]),
         f("auto", "none", "lint", [false, false, true, false, false]),
-        // The caller's own tool decides check or tests.
         f("auto", "none", "check", [false, true, false, false, false]),
     ]
 }
@@ -965,7 +937,6 @@ fn verify_plan_leg_falls_back_when_its_answer_breaks_the_contract() {
         r#"{"api_version":1,"id":"bad-plan","kind":"policy","entry":"index.js","probe":{}}"#,
     )
     .unwrap();
-    // A verify step with no mode: the host has no argv to build from it.
     std::fs::write(
         module.join("index.js"),
         "module.exports={apiVersion:1,render:()=>({route:2,runtime:1,mode:0,driver:0,reject:0})}",
@@ -996,7 +967,6 @@ fn verify_plan_leg_falls_back_when_its_answer_breaks_the_contract() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// Reported, not asserted: a leg decision is a pure in-process call.
 #[test]
 fn verify_plan_leg_decides_in_microseconds() {
     let leg = crate::agent::harness::live_policy::shipped_leg("verify-plan");

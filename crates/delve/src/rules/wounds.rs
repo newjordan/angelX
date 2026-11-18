@@ -4,9 +4,6 @@
 use super::*;
 
 impl Run {
-    /// The knights' wounds: a monster's touch, the fallen marked, vigils
-    /// and second winds, and what each knight lost this tick (from
-    /// `before`) told; a guardian's rage and its beats (`boss_beats`).
     pub(super) fn tally_wounds(
         &mut self,
         before: Vec<(u32, u32)>,
@@ -33,7 +30,6 @@ impl Run {
                 hero.attack_hurt(damage);
             }
         }
-        // A knight keeping vigil mends the living knights within its reach.
         if self.tick.is_multiple_of(u64::from(VIGIL_MEND_EVERY)) {
             let wards: Vec<(f32, f32)> = self
                 .players
@@ -62,7 +58,6 @@ impl Run {
         self.mark_hits();
         for ((was, max), (&id, hero)) in before.into_iter().zip(self.players.iter()) {
             if hero.hp < was {
-                // The floor's tally: the blow taken, and a fall.
                 if self.dungeon.depth > 0 {
                     let line = self.floor_tally.line(id);
                     line.taken = line.taken.saturating_add(was - hero.hp);
@@ -90,8 +85,6 @@ impl Run {
                 && ((!raged && e.raged) || (frozen == 0 && e.frozen > 0) || self.boss_phase(e) != phase)
             {
                 self.hitstop.request(&self.tune, hitstop::Impact::Phase);
-                // Staggers keep their existing hit response; a new pattern gets
-                // its own quiet sign, without adding shake or another pause.
                 let enraged = !raged && e.raged;
                 if enraged || self.boss_phase(e) != phase {
                     self.spectacle.phase = Some(spectacle::PhaseMark {

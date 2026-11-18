@@ -1,8 +1,6 @@
 use angel_delve::rules::{Input, Run, Triumph, runtime_state as state};
 use std::collections::BTreeMap;
 
-/// An older checkpoint made from today's Run: schema 8 added the squire
-/// company's reservation state, which no earlier save carries.
 fn before_schema_eight(run: &mut serde_json::Value) {
     let fields = run.as_object_mut().unwrap();
     for name in ["squire_company_reserved", "squire_company_claimed", "squire_pending_delves"] {
@@ -26,7 +24,6 @@ fn live_checkpoint_keeps_queues_latches_and_private_state_without_changing_saves
     let saved_before = serde_json::to_value(&run).unwrap();
     assert!(saved_before.get("cues").is_none());
     let snapshot = state::capture(&run).unwrap();
-    // Exercise private fields through the public versioned handoff contract.
     let mut json = snapshot.run;
     json["descend_for"] = "stair".into();
     json["lever_held"] = 3.into();
@@ -54,7 +51,6 @@ fn live_checkpoint_keeps_queues_latches_and_private_state_without_changing_saves
         })
         .is_err()
     );
-    // Ordinary save/wire decoding continues to ignore private live-only fields.
     let durable: Run = serde_json::from_value(json.clone()).unwrap();
     assert!(durable.cues.is_empty());
     assert!(durable.kingdom.door_latched.is_empty());

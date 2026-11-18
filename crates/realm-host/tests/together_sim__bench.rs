@@ -73,10 +73,6 @@ fn kingdom_four() -> Run {
     run
 }
 
-/// One scene on the engine: the step and the publish (the cockpit's
-/// snapshot and the tree, once a tick) on the server's sim; each friend's
-/// share of the tree diffed and encoded on its own writer; one seat's
-/// client reading each tick and drawing a frame.
 fn engine_scene(name: &str, mut run: Run) {
     use crate::together_seat::Client;
     use angel_delve::wire;

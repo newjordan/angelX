@@ -26,7 +26,6 @@ const T0: u128 = 10_000_000;
 #[test]
 fn no_guardian_no_giant() {
     assert_eq!(guardian_state(&[], T0), GuardianState::Absent);
-    // A fallen knight alone does not conjure a giant into the realm.
     assert_eq!(
         guardian_state(&[peer("turn", T0 - 200_000)], T0),
         GuardianState::Absent
@@ -61,7 +60,6 @@ fn giant_pose_dwarfs_a_villager() {
         assert!(giant_position(state, (10, 10), Some((20, 20))).is_some());
     }
     assert!(giant_pose(GuardianState::Absent).is_none());
-    // Kneeling happens at the granary, not the keep.
     let pos = giant_position(GuardianState::Resurrecting, (10, 10), Some((20, 20))).unwrap();
     assert_eq!(pos, (20.5, 21.4));
 }

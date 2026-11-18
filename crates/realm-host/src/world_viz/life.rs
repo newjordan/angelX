@@ -4,18 +4,11 @@
 use super::*;
 use crate::retro_noise;
 
-// The one vivid color in the realm's signal-residue layer.  It is deliberately
-
-/// Growth tiers 5–8 live past the hamlet's (garden/well/lanterns/banners at
-/// 10/24/42/64 — `hearth.rs`). Each is a visible landmark of its own.
 pub const TIER_DOCKS: u32 = 96;
 pub const TIER_WINDMILL: u32 = 132;
 pub const TIER_MARKET: u32 = 172;
 pub const TIER_KEEP_TOWERS: u32 = 216;
 
-/// The full town ladder: the hamlet's tiers 1–4 (`hearth.tier`) extended with
-/// the realm's own structures 5–8. Everything growth-related keys on this —
-/// the hearth's own ladder stays the hamlet's business.
 pub fn town_tier(prosperity: u32) -> u32 {
     match prosperity {
         p if p >= TIER_KEEP_TOWERS => 8,
@@ -30,9 +23,6 @@ pub fn town_tier(prosperity: u32) -> u32 {
     }
 }
 
-/// The realm's slow sky, folded from the persisted beat clock: fair spells,
-/// drifting cloud decks, and soft drizzle. One fbm sample per beat — the
-/// weather is continuous across sessions because the clock is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Weather {
     Fair,
@@ -41,8 +31,6 @@ pub enum Weather {
     Clearing,
 }
 
-/// Recovery is visible long enough to survive normal redraw pacing, but is
-/// bounded in the persisted hearth clock rather than wall time.
 pub const CLEARING_BEATS: u64 = 6;
 
 impl Weather {
@@ -65,9 +53,6 @@ impl Weather {
     }
 }
 
-/// Weather at a given beat: a slow two-octave walk, salted per world so every
-/// realm keeps its own climate. Fair is the mode — clouds and drizzle are
-/// passing moods, like the quota storms but gentler.
 pub fn weather_for_beats(beats: u64, seed: u64) -> Weather {
     let t = beats as f32;
     let walk = 0.68 * retro_noise::value_noise(t * 0.021, 0.5, seed ^ 0x0005_EA50)
@@ -81,15 +66,10 @@ pub fn weather_for_beats(beats: u64, seed: u64) -> Weather {
     }
 }
 
-/// The coarse cache-bucket contribution: two weather bits ride the hearth's
-/// render bucket so the terrain memo can never serve a stale sky.
 pub fn weather_bucket(beats: u64, seed: u64) -> u32 {
     weather_for_beats(beats, seed).bucket()
 }
 
-/// A healthy fleet head walking the cottage↔granary path. The zero-allocation
-/// Manhattan out-and-back is staggered by cottage order and driven only by the
-/// slow render bucket, so equal worlds always produce equal positions.
 pub(super) fn villager_walk_position(
     cottage: (usize, usize),
     granary: (usize, usize),
@@ -117,8 +97,6 @@ pub(super) fn villager_walk_position(
 }
 
 impl World {
-    /// Outcome weather overlays the pure hearth clock. Red can only worsen the
-    /// clock's weather; it can never turn a naturally wet beat bright.
     pub(super) fn outcome_weather(&self) -> Weather {
         if self.clearing_until_beat > self.hearth.beats {
             return Weather::Clearing;
@@ -134,17 +112,12 @@ impl World {
         }
     }
 
-    /// Replace only the existing two weather bits in HearthState's render
-    /// bucket. No finer outcome state enters terrain or cinematic caches.
     pub(super) fn outcome_hearth_render_bucket(&self) -> u32 {
         let clock_weather = weather_for_beats(self.hearth.beats, self.seed).bucket();
         let bucket = self.hearth.render_bucket(self.seed);
         bucket ^ ((clock_weather ^ self.outcome_weather().bucket()) << 8)
     }
 
-    /// Growth fanfare: a tier crossing announces itself once — fireworks over
-    /// the town and a gold flash naming what rose. Session-side only; the
-    /// persisted prosperity keeps boot-time worlds from re-announcing history.
     pub fn note_growth_announcements(&mut self) {
         let tier = life::town_tier(self.renown.min(u64::from(u32::MAX)) as u32);
         if tier <= self.growth_announced {
@@ -166,10 +139,6 @@ impl World {
         self.flash_gain(note.to_string(), 46);
     }
 
-    /// First-person camera shifting: once the knight has settled and the
-    /// arrival dissolve has played, the saddle camera sways in a slow arc —
-    /// the facade keeps shifting against the sky instead of sitting frozen.
-    /// Zero while travelling or pre-settle, so rides and dissolves stay true.
     pub(super) fn orbit_sway(&self) -> f32 {
         if self.riding() || self.settle_ticks < cinematics::ARRIVAL_HOLD_TICKS {
             return 0.0;

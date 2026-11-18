@@ -94,7 +94,6 @@ impl View {
             .round() as i64;
         self.clamp(source, pixels);
     }
-    /// Positive motion moves the image with the hand (camera center goes left/up).
     pub fn pan(&mut self, dx: f64, dy: f64, source: (u32, u32), pixels: (u32, u32)) {
         let t = self.transform(source, pixels);
         self.x -= (dx / t.scale / source.0.max(1) as f64 * UNIT as f64).round() as i64;
@@ -109,11 +108,6 @@ impl Transform {
             self.center.1 + (point.1 - self.pixels.1 as f64 / 2.0) / self.scale,
         )
     }
-    /// Borrow the source; allocate only the RGBA viewport (<=4MP at admission).
-    /// Downscale integrates each source pixel's area coverage, preserving thin
-    /// strokes without aliasing. Magnification uses fractional bilinear samples.
-    /// No crop copy, weight table, or source-width × output-height float image:
-    /// scratch is constant (four f64 channel sums), including at extreme zoom.
     pub fn raster(self, source: &image::DynamicImage) -> image::DynamicImage {
         image::DynamicImage::ImageRgba8(self.sample(source))
     }
@@ -176,8 +170,6 @@ pub(crate) struct Inspector {
     pub view: View,
     pub source: Option<(u32, u32)>,
     pub scene: Option<Rect>,
-    /// Input authority belongs to the last painted SAME identity/geometry.
-    /// Desired view may advance while that protocol is still on screen.
     pub painted: Option<View>,
     pub viewport: Option<Rect>,
     pub pixels: (u32, u32),

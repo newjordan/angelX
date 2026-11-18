@@ -14,25 +14,17 @@ use crate::render::Frame;
 
 use super::{Rgba, text_width};
 
-/// The sheet's ground.
 pub const PAPER: [u8; 4] = [0x18, 0x17, 0x16, 255];
-/// The default floor and its tile lines.
 pub const FLOOR: [u8; 4] = [0x2a, 0x28, 0x26, 255];
 pub const FLOOR_LINE: [u8; 4] = [0x33, 0x31, 0x2e, 255];
-/// Words on the sheet.
 pub const INK: [u8; 4] = [0xc7, 0xc4, 0xbb, 255];
 pub const DIM: [u8; 4] = [0x7a, 0x7c, 0x72, 255];
 
-/// How a sheet is laid out.
 #[derive(Clone, Debug)]
 pub struct ShotOpts {
-    /// The zoom row's pixels per screen pixel of true size.
     pub zoom: u32,
-    /// A reference picture and the grain it is drawn at.
     pub reference: Option<(Rgba, Grain)>,
-    /// A floor tile at grain 1 (16 px a tile), tiled under every panel.
     pub floor: Option<Rgba>,
-    /// Socket marks on the zoom.
     pub sockets: bool,
     pub title: String,
 }
@@ -43,7 +35,6 @@ impl Default for ShotOpts {
     }
 }
 
-/// The colours socket marks are drawn in, by name.
 pub fn socket_colour(name: &str) -> [u8; 4] {
     match name {
         "grip" => [0xff, 0x50, 0x50, 255],
@@ -56,8 +47,6 @@ pub fn socket_colour(name: &str) -> [u8; 4] {
     }
 }
 
-/// A panel's ground, `w` x `h` screen pixels, at `per` screen pixels a
-/// game pixel: the floor tiled, or the default floor with a line every tile.
 pub fn ground(w: u32, h: u32, per: u32, floor: Option<&Rgba>) -> Rgba {
     if let Some(f) = floor {
         return Rgba::tiled(f, w, h, per);
@@ -74,7 +63,6 @@ pub fn ground(w: u32, h: u32, per: u32, floor: Option<&Rgba>) -> Rgba {
     out
 }
 
-/// A reference's figure box, `(x, y, w, h)`, by its opaque pixels.
 fn figure_box(img: &Rgba) -> Option<(i32, i32, i32, i32)> {
     let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
     for y in 0..img.h as i32 {
@@ -87,7 +75,6 @@ fn figure_box(img: &Rgba) -> Option<(i32, i32, i32, i32)> {
     (x0 <= x1).then_some((x0, y0, x1 - x0 + 1, y1 - y0 + 1))
 }
 
-/// One panel: a frame at `per` screen pixels a game pixel on its ground.
 fn panel(frame: &Frame, per: u32, floor: Option<&Rgba>, sockets: bool) -> Rgba {
     let g = frame.grain.0 as u32;
     let (w, h) = (frame.raster.w / g * per, frame.raster.h / g * per);
@@ -108,8 +95,6 @@ fn panel(frame: &Frame, per: u32, floor: Option<&Rgba>, sockets: bool) -> Rgba {
     out
 }
 
-/// A reference in a panel the canvas's size, at `per` screen pixels a game
-/// pixel, its figure's foot at the canvas's pivot.
 fn ref_panel(r: &Rgba, rg: Grain, canvas: (u32, u32), pivot: [f32; 2], per: u32, floor: Option<&Rgba>) -> Rgba {
     let (w, h) = (canvas.0 * per, canvas.1 * per);
     let mut out = ground(w, h, per, floor);
@@ -123,7 +108,6 @@ fn ref_panel(r: &Rgba, rg: Grain, canvas: (u32, u32), pivot: [f32; 2], per: u32,
     out
 }
 
-/// Panels in a row with their labels above, `gap` apart.
 fn row(panels: &[(String, Rgba)], gap: u32) -> Rgba {
     let w = panels.iter().map(|(l, p)| p.w.max(text_width(l, 2))).sum::<u32>() + gap * (panels.len() as u32 + 1);
     let h = panels.iter().map(|(_, p)| p.h).max().unwrap_or(0) + 14 + gap;
@@ -137,7 +121,6 @@ fn row(panels: &[(String, Rgba)], gap: u32) -> Rgba {
     out
 }
 
-/// Rows stacked, the first under a title.
 fn stack(title: &str, rows: &[Rgba]) -> Rgba {
     let w = rows.iter().map(|r| r.w).max().unwrap_or(0).max(text_width(title, 2) + 16);
     let h = rows.iter().map(|r| r.h).sum::<u32>() + 18;
@@ -151,9 +134,6 @@ fn stack(title: &str, rows: &[Rgba]) -> Rgba {
     out
 }
 
-/// The sheet for one moment: `frames` is the moment at each grain. The top
-/// row is the grain ladder at true screen size (and the reference); under
-/// it, grains 1 and 4 (and the reference) at `zoom` times that.
 pub fn sheet(frames: &[Frame], canvas: (u32, u32), pivot: [f32; 2], opts: &ShotOpts) -> Rgba {
     let floor = opts.floor.as_ref();
     let mut top = Vec::new();
@@ -181,8 +161,6 @@ pub fn sheet(frames: &[Frame], canvas: (u32, u32), pivot: [f32; 2], opts: &ShotO
     stack(&opts.title, &[row(&top, 8), row(&zoom, 8)])
 }
 
-/// A clip's frames side by side at `per` screen pixels a game pixel, each
-/// numbered, with the frame before it as a faint ghost when `onion`.
 pub fn strip(frames: &[Frame], per: u32, onion: bool, sockets: bool, floor: Option<&Rgba>, title: &str) -> Rgba {
     let mut panels = Vec::new();
     for (i, f) in frames.iter().enumerate() {
@@ -204,18 +182,12 @@ pub fn strip(frames: &[Frame], per: u32, onion: bool, sockets: bool, floor: Opti
     stack(title, &[row(&panels, 6)])
 }
 
-/// A clip's frames on their ground at `per` screen pixels a game pixel,
-/// ready for a GIF.
 pub fn reel(frames: &[Frame], per: u32, floor: Option<&Rgba>) -> Vec<Rgba> {
     frames.iter().map(|f| panel(f, per, floor, false)).collect()
 }
 
-/// The realm's inks a GIF's floor is laid in: its ground and its tile lines.
 pub const GIF_FLOOR: (char, char) = ('g', 'X');
 
-/// A clip's frames on a floor at `per` screen pixels a game pixel, every
-/// pixel one of the realm's inks (a GIF's palette is the realm's): the
-/// floor tile, when given, is read ink by nearest ink.
 pub fn reel_inks(frames: &[Frame], per: u32, floor: Option<&Rgba>) -> Vec<Raster> {
     let p = Palette::realm();
     let nearest = |c: [u8; 4]| -> Ink {

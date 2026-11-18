@@ -22,19 +22,15 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap};
 
-/// Seconds a vehicle waits at its dock for a full load before it leaves with
-/// what it has.
 pub const PATIENCE: u32 = 15;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Phase {
-    /// At the origin dock, waiting for goods and a berth.
     #[default]
     Idle,
     Loading,
     Out,
-    /// At the destination, waiting for a berth or for room.
     Waiting,
     Unloading,
     Back,
@@ -46,27 +42,17 @@ pub struct Vehicle {
     pub phase: Phase,
     pub resource: String,
     pub amount: u32,
-    /// Seconds left at a berth, seconds idle at the dock, or tenths of a
-    /// second travelled, according to the phase.
     pub clock: u32,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LineStats {
-    /// Units delivered since the line was laid.
     pub moved: u64,
     pub trips: u32,
-    /// Vehicle-seconds (times eight, fading by an eighth each shift) spent
-    /// idle at the origin with nothing to carry.
     pub starved: u32,
-    /// The same for vehicles held up by a full destination, a busy berth or a
-    /// dock with nothing the destination wants.
     pub queued: u32,
-    /// Vehicle-seconds (times eight, fading alike) spent loading, travelling
-    /// or unloading: the line at work.
     pub busy: u32,
-    /// Units delivered in each of the last six ten-second shifts, oldest first.
     pub recent: [u16; 6],
     pub shift: u16,
 }
@@ -76,21 +62,15 @@ pub struct Line {
     pub kind: LineKind,
     pub from: u32,
     pub to: u32,
-    /// The tiles it runs over, the first at the origin building and the last
-    /// at the destination.
     pub path: Vec<Tile>,
-    /// Tenths of a second to cross loaded, and to come back empty (zero when
-    /// the vehicles return at once).
     pub forward: u32,
     pub back: u32,
     pub fleet: Vec<Vehicle>,
     pub stats: LineStats,
-    /// Seconds the oxen's fodder lasts.
     #[serde(default)]
     pub fed: u16,
 }
 
-/// What the player reads off a line to find a bottleneck.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LineRow {
     pub id: u32,
@@ -99,26 +79,17 @@ pub struct LineRow {
     pub to: u32,
     pub length: usize,
     pub vehicles: usize,
-    /// Units a minute the fleet could carry with goods always waiting and a
-    /// berth always free.
     pub capacity_per_min: u32,
-    /// Units a minute actually delivered over the last minute.
     pub observed_per_min: u32,
     pub cut: bool,
     pub state: LineState,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LineState {
-    /// The road is cut.
     Cut,
-    /// The oxen have no fodder.
     Unfed,
-    /// Vehicles wait at the origin: nothing to carry, so the cause is upstream.
     Starved,
-    /// Vehicles wait at the destination: it is full or its berths are busy, so
-    /// the cause is downstream.
     Backed,
-    /// Every vehicle is out working: the line itself is the limit.
     Saturated,
     Flowing,
 }
@@ -139,7 +110,6 @@ impl Line {
     pub fn length(&self) -> usize {
         self.path.len().saturating_sub(1)
     }
-    /// Seconds for one vehicle to go out, unload, come back and load.
     pub fn cycle(&self, spec: &LineSpec) -> u32 {
         (self.forward + self.back).div_ceil(10) + 2 * u32::from(spec.dwell)
     }
@@ -152,7 +122,6 @@ impl Line {
     }
 }
 
-/// Shared scratch for one second of hauling, so no vehicle sees stale room.
 struct Yard {
     reserved: BTreeMap<(u32, String), u32>,
     busy: BTreeMap<u32, u8>,
@@ -165,12 +134,6 @@ impl Kingdom {
         &c.lines[line.kind.key()]
     }
 
-    // Stores: the camp keeps its goods in the kingdom's stock; depots keep
-    // them in their output store; workshops and yards take deliveries into
-    // their input buffer and give out of their output buffer.
-
-    /// Goods a building will accept, as target levels, or `None` for the camp
-    /// and depots that accept anything up to their cap.
     pub(crate) fn target_levels(&self, c: &Catalog, id: u32) -> Option<Stock> {
         let b = self.buildings.get(&id)?;
         let p = &c.plans[&b.plan];
@@ -181,11 +144,9 @@ impl Kingdom {
             return Some(Stock::new());
         }
         if p.stalls > 0 {
-            // A carter's yard asks only for its oxen's fodder, which the roads bring.
             return Some(c.lines["cart"].upkeep.iter().map(|(g, n)| (g.clone(), (n * b.carts.len() as u32 * 2).max(2))).collect());
         }
         if p.watch > 0 {
-            // A watchtower asks the roads for a full quiver.
             return Some(Stock::from([(crate::defence::ARROW.to_string(), u32::from(p.quiver).min(p.input_cap()))]));
         }
         if p.yard {
@@ -228,8 +189,6 @@ impl Kingdom {
         }
     }
 
-    /// How many more units of `r` a destination can take, counting what is
-    /// already on its way.
     fn room(&self, c: &Catalog, yard: &Yard, id: u32, r: &str) -> u32 {
         let reserved = yard.reserved.get(&(id, r.to_string())).copied().unwrap_or(0);
         let have = self.have_at(c, id, r);
@@ -294,10 +253,7 @@ impl Kingdom {
         take(store, &Stock::from([(r.into(), n)]));
     }
 
-    /// A line is intact while whatever it rides is there: a cart line needs
-    /// every road tile it uses.
     pub fn line_intact(&self, c: &Catalog, line: &Line) -> bool {
-        // Oxen that have not been fed do not pull.
         if !c.lines[line.kind.key()].upkeep.is_empty() && line.fed == 0 {
             return false;
         }
@@ -343,8 +299,6 @@ impl Kingdom {
                 yard.targets.insert(line.to, self.target_levels(c, line.to));
             }
         }
-        // Whoever goes first this second changes with the second, so no line
-        // owns the cargo at a shared depot.
         let mut ids: Vec<u32> = self.lines.keys().copied().collect();
         let turn = (self.second % ids.len() as u64) as usize;
         ids.rotate_left(turn);
@@ -358,8 +312,6 @@ impl Kingdom {
             if self.second % 10 == 0 {
                 line.stats.recent.rotate_left(1);
                 line.stats.recent[5] = std::mem::take(&mut line.stats.shift);
-                // Waiting is remembered for about a minute and a half, so the
-                // report describes the line as it is, not as it was built.
                 line.stats.starved -= line.stats.starved.div_ceil(8);
                 line.stats.queued -= line.stats.queued.div_ceil(8);
                 line.stats.busy -= line.stats.busy.div_ceil(8);
@@ -377,8 +329,6 @@ impl Kingdom {
                 v.clock += 1;
                 let free = yard.busy.get(&from).copied().unwrap_or(0) < self.berths_of(c, from);
                 let mut best: Option<(u32, String)> = None;
-                // Goods waiting that the destination cannot take is a blocked
-                // line, not a starved one: the cure lies downstream.
                 let mut blocked = false;
                 if free && intact {
                     for r in self.store_resources(c, from) {
@@ -493,7 +443,6 @@ impl Kingdom {
         v.phase = if line.back == 0 { Phase::Idle } else { Phase::Back };
     }
 
-    /// Goods riding a line's vehicles or a cart, for the supply ledger.
     pub(crate) fn hauled(&self, resource: &str) -> u32 {
         self.lines
             .values()
@@ -506,10 +455,6 @@ impl Kingdom {
             + self.railed(resource)
     }
 
-    // ---- planning and laying -------------------------------------------
-
-    /// Tiles a line may not cross: deep water, anything built that cannot be
-    /// walked through, a castle's ground. Bridges count as land.
     fn line_open(&self, c: &Catalog) -> Vec<bool> {
         let (w, _) = self.world.bounds();
         let w = w as usize;
@@ -535,7 +480,6 @@ impl Kingdom {
         open
     }
 
-    /// Tiles carrying some line's track, which nothing else may be built on.
     pub fn track_tiles(&self) -> BTreeSet<Tile> {
         self.lines
             .values()
@@ -544,10 +488,6 @@ impl Kingdom {
             .collect()
     }
 
-    /// The shortest way a line of this kind can go between two buildings, or
-    /// why there is none. Carts prefer roads, trams and chutes ride new track
-    /// or shared track, a chute only goes downhill, a barge stays on the river
-    /// between two quays, and a rope goes straight over anything.
     pub fn plan_path(&self, c: &Catalog, kind: LineKind, from: u32, to: u32) -> Result<Vec<Tile>, String> {
         let (building_a, building_b) = (self.buildings.get(&from).ok_or("no building to start from")?, self.buildings.get(&to).ok_or("no building to end at")?);
         let (a, b) = (building_a.tile, building_b.tile);
@@ -561,8 +501,6 @@ impl Kingdom {
         let at = |t: Tile| t.1 as usize * w + t.0 as usize;
         let inside = |t: Tile| t.0 >= 0 && t.1 >= 0 && t.0 < width && t.1 < height;
         let path = if kind == LineKind::Rope {
-            // The straight staircase: x first then y, which the renderer can
-            // draw as one cable with a pylon every few tiles.
             let mut path = vec![a];
             let mut cur = a;
             while cur != b {
@@ -596,15 +534,10 @@ impl Kingdom {
                 }
             };
             let height_of = |t: Tile| self.world.height(t);
-            // A cart line between buildings the camp already reaches stays on the
-            // camp's roads at both docks, so it can never strand a crew on an
-            // island of road; one end that is not yet connected joins the other.
             let net = if kind == LineKind::Cart { self.camp_road_net() } else { BTreeSet::new() };
             let on_net = |t: &Tile| net.contains(t);
             let a_net = docks_a.iter().any(on_net);
             let b_net = docks_b.iter().any(on_net);
-            // Dijkstra from every tile touching the origin to any tile touching
-            // the destination.
             let mut best = vec![u32::MAX; open.len()];
             let mut parent: Vec<Option<Tile>> = vec![None; open.len()];
             let mut queue = BinaryHeap::new();
@@ -650,7 +583,6 @@ impl Kingdom {
                 path.push(p);
                 cursor = p;
             }
-            // The building's own tile each end of the way touches.
             let touching = |building: &Building, dock: Tile| self.covered(building).find(|t| neighbours(*t).contains(&dock)).unwrap_or(building.tile);
             let first = *path.last().expect("a way");
             path.push(touching(building_a, first));
@@ -669,7 +601,6 @@ impl Kingdom {
         Ok(path)
     }
 
-    /// The road tiles the camp's walkers can reach.
     pub fn camp_road_net(&self) -> BTreeSet<Tile> {
         let mut seen = BTreeSet::new();
         let mut queue: std::collections::VecDeque<Tile> =
@@ -682,14 +613,11 @@ impl Kingdom {
         seen
     }
 
-    /// Tenths of a second to cross `path`, either way.
     fn crossing(&self, spec: &LineSpec, path: &[Tile], reverse: bool) -> u32 {
         let against = if spec.against == 0 { spec.speed } else { spec.against };
         let mut total = 0u32;
         for pair in path.windows(2) {
             let (p, q) = if reverse { (pair[1], pair[0]) } else { (pair[0], pair[1]) };
-            // The river runs south, so +y is with the current; a lateral step
-            // costs the mean of the two.
             let step = match q.1.cmp(&p.1) {
                 std::cmp::Ordering::Greater => spec.speed,
                 std::cmp::Ordering::Less => against,
@@ -701,8 +629,6 @@ impl Kingdom {
     }
 
     fn check_line_path(&self, c: &Catalog, kind: LineKind, from: u32, to: u32, path: &[Tile]) -> Result<(), String> {
-        // A line runs from a tile of one building to a tile of the other (a building
-        // has its footprint: the line's first and last tiles are what it covers).
         let a: Vec<Tile> = self.covered(&self.buildings[&from]).collect();
         let b: Vec<Tile> = self.covered(&self.buildings[&to]).collect();
         if path.len() < 2 || !a.contains(&path[0]) || !b.contains(&path[path.len() - 1]) {
@@ -799,7 +725,6 @@ impl Kingdom {
         for (r, n) in &spec.vehicle_cost {
             add(&mut cost, r, n * u32::from(vehicles));
         }
-        // A cart line rides roads, laying the missing ones at the road's price.
         let mut roads = Vec::new();
         if kind == LineKind::Cart {
             for &t in inner {
@@ -858,7 +783,6 @@ impl Kingdom {
             let line = self.lines.get_mut(&id).unwrap();
             line.fleet.resize(usize::from(vehicles), Vehicle::default());
         } else if vehicles < have {
-            // Only empty vehicles waiting at the dock can be sold.
             let line = self.lines.get_mut(&id).unwrap();
             let mut sell = usize::from(have - vehicles);
             let mut kept = Vec::new();
@@ -882,7 +806,6 @@ impl Kingdom {
         Ok(format!("{} {}s on the line", self.lines[&id].fleet.len(), spec.vehicle))
     }
 
-    /// Takes a line down: its cargo goes to the camp, never into the void.
     pub(crate) fn remove_line(&mut self, id: u32) -> bool {
         let Some(line) = self.lines.remove(&id) else { return false };
         for v in line.fleet {
@@ -902,17 +825,12 @@ impl Kingdom {
         }
     }
 
-    /// Every line, read as a bottleneck hunter would: capacity, what it really
-    /// moved and what its vehicles spent their time doing.
     pub fn line_report(&self, c: &Catalog) -> Vec<LineRow> {
         self.lines
             .iter()
             .map(|(&id, l)| {
                 let spec = &c.lines[l.kind.key()];
                 let cut = !self.line_intact(c, l) && !(!spec.upkeep.is_empty() && l.fed == 0);
-                // Judged on where the vehicles' time has gone lately: waiting at
-                // the origin for goods, waiting at the destination for room, or
-                // working. A line is at capacity when it has no slack at all.
                 let (s, q, b) = (l.stats.starved, l.stats.queued, l.stats.busy);
                 let unfed = !spec.upkeep.is_empty() && l.fed == 0;
                 let state = if unfed {

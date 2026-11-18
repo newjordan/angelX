@@ -7,14 +7,8 @@ const MAX_MANIFEST_BYTES: u64 = 128 * 1024;
 const MAX_FILES: usize = 256;
 const MAX_ENTRIES: usize = 10_000;
 
-/// The live leg that owns the verifier's planning decision. Every filesystem and
-/// lexical job stays in Rust: manifest reads, confinement, globbing, source
-/// discovery, argv text and the byte limits become the facts below, and the leg
-/// answers which step runs and which request is refused.
 const VERIFY_PLAN: &str = "verify-plan";
 
-/// Step codes shared with `cockpit/live/verify-plan`; `step_contract` keeps a
-/// live answer inside this table.
 const ROUTE_RUST: u32 = 0;
 const ROUTE_GO: u32 = 1;
 const ROUTE_VERIFY: u32 = 2;
@@ -44,8 +38,6 @@ const AMBIGUOUS_LANGUAGE: &str = "root language is absent or ambiguous; set runt
 const LINT_UNSUPPORTED: &str = "no trusted {} linter adapter is installed; syntax checking is available through check, while custom linters can run through shell without trusted verification credit";
 const GO_NEEDS_TESTS: &str = "Go adapter supports tests only";
 
-/// One planning decision's inputs: the request the tool call made, and the
-/// workspace facts the native planner would have read.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub(super) struct PlanFacts {
     pub(super) requested: &'static str,
@@ -58,8 +50,6 @@ pub(super) struct PlanFacts {
     pub(super) has_pytest_config: bool,
 }
 
-/// The `verify-plan` leg's answer: which route the plan takes, and the step it
-/// runs when there is one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
 pub(super) struct Step {
     pub(super) route: u32,
@@ -91,7 +81,6 @@ impl Step {
     }
 }
 
-/// The language a plan may run in, or the fact that the workspace settles none.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Language {
     Rust,
@@ -136,8 +125,6 @@ fn kind_code(kind: Kind) -> &'static str {
     }
 }
 
-/// A workspace with exactly one recognizable language plans for it; none at all,
-/// or several, is refused rather than guessed.
 fn detected(facts: &PlanFacts) -> Language {
     let python = facts.has_pyproject_toml || facts.has_python_setup;
     match (facts.has_cargo_toml, facts.has_package_json, python) {
@@ -156,8 +143,6 @@ fn auto_language(facts: &PlanFacts) -> Language {
     }
 }
 
-/// pytest is selected by an explicit request, or by a configured pytest when the
-/// entrypoint is not an explicit unittest one.
 fn python_driver(facts: &PlanFacts) -> u32 {
     if facts.entrypoint == "pytest"
         || (facts.entrypoint != "unittest" && facts.has_pytest_config)
@@ -168,9 +153,6 @@ fn python_driver(facts: &PlanFacts) -> u32 {
     }
 }
 
-/// Native oracle: the planning decision the live leg must reproduce. The
-/// language is settled first, then the kind; an explicit `rust` request never
-/// reaches a verifier plan.
 #[cfg(test)]
 fn step_native(facts: &PlanFacts) -> Step {
     let language = match facts.requested {
@@ -211,9 +193,6 @@ fn step_native(facts: &PlanFacts) -> Step {
     }
 }
 
-/// Reject a live step the facts cannot justify, so a bad edit keeps the native
-/// plan instead of steering a run. Each clause states an invariant the native
-/// planner already holds, without restating how it decides.
 fn step_contract(facts: &PlanFacts, step: &Step) -> Result<(), String> {
     if step.route > ROUTE_REJECT
         || step.runtime > RUNTIME_GO
@@ -301,7 +280,6 @@ fn refusal(step: &Step) -> String {
     }
 }
 
-/// The shipped leg's answer for one feature record, for the parity tests.
 #[cfg(test)]
 pub(super) fn plan_step_with(
     facts: &PlanFacts,
@@ -317,7 +295,6 @@ pub(super) fn plan_step_with(
     )
 }
 
-/// The native oracle alone, for comparison.
 #[cfg(test)]
 pub(super) fn plan_step_native(facts: &PlanFacts) -> Step {
     step_native(facts)
@@ -335,12 +312,6 @@ pub(super) struct Plan {
     pub checked_files: usize,
 }
 
-/// Bytecode is read only from the interpreter's own library: the entries on
-/// `sys.path` before the bootstrap inserts anything. Every other module, the
-/// project's first of all, compiles from its source, so a stale or planted
-/// project `.pyc` cannot stand in for it; `-B` keeps the run from writing any.
-/// The library itself keeps its install-time bytecode instead of recompiling
-/// unittest and its imports on every run (~150 ms of a ~190 ms run).
 macro_rules! source_only_prelude {
     () => {
         "import sys, importlib.machinery as m; assert sys.dont_write_bytecode, 'isolated bytecode flags unavailable'; std=tuple(p for p in sys.path if p)\n\
@@ -382,8 +353,6 @@ fn manifest(root: &Path, name: &str) -> Result<Option<String>, String> {
 pub(super) fn select(kind: Kind, args: &Value, root: &Path) -> Result<Selection, String> {
     let requested = requested_code(args)?;
     let entrypoint = entrypoint_code(args);
-    // An explicit language settles the plan without reading the workspace; only
-    // `auto` reads the manifests it decides from.
     let mut facts = PlanFacts {
         requested,
         entrypoint,
@@ -412,7 +381,6 @@ pub(super) fn select(kind: Kind, args: &Value, root: &Path) -> Result<Selection,
         facts.has_python_setup = ["setup.py", "setup.cfg", "pytest.ini"]
             .iter()
             .any(|name| resolved.join(name).is_file());
-        // pytest is configured by an ini, a conftest, or a pyproject table.
         facts.has_pytest_config = resolved.join("pytest.ini").exists()
             || resolved.join("conftest.py").exists()
             || pyproject
@@ -559,9 +527,6 @@ fn node_tests(
     }
     selected.extend(extra);
     if selected.is_empty() {
-        // Avoid an unbounded Node-owned recursive search (which could enter
-        // generated or quarantined directories). Explicit selectors remain
-        // available for projects with a different test naming convention.
         selected = sources(root, Runtime::Node, &[])?
             .into_iter()
             .filter(|name| {
@@ -611,8 +576,6 @@ fn node_tests(
         }
     }
     if !has_files {
-        // Pattern-only options must not hand recursive discovery to Node.
-        // Reuse the bounded no-argument file selection, then retain the flags.
         let discovered = node_tests(root, None, Vec::new())?;
         argv.extend_from_slice(&discovered[2..]);
         if argv.len() > MAX_FILES + 8 {
@@ -628,10 +591,6 @@ fn python_tests(root: &Path, extra: Vec<String>) -> Result<Vec<String>, String> 
     } else {
         root.to_path_buf()
     };
-    // Exercism-style suites name tests `foo_test.py` (suffix), not
-    // `test_foo.py` (prefix); unittest's default `test*.py` finds zero of
-    // them, exits 5, and the run_tests receipt degrades to "no tests ran".
-    // Default to the pattern that matches both shapes.
     let mut pattern = "*test*.py".to_string();
     let mut top = None;
     let mut modules = Vec::new();
@@ -703,9 +662,6 @@ fn python_tests(root: &Path, extra: Vec<String>) -> Result<Vec<String>, String> 
         index += 1;
     }
     let start = confined(root, &start)?;
-    // unittest owns recursive discovery after launch. Preflight its entire
-    // selected tree, since silently skipping a path here would not stop the
-    // runner from entering it later.
     let files = discover_sources(root, &start, Runtime::Python, true)?;
     validate_source_files(&files, Runtime::Python, true)?;
     let mut argv = vec![
@@ -737,7 +693,6 @@ fn python_tests(root: &Path, extra: Vec<String>) -> Result<Vec<String>, String> 
                 "unittest module selectors cannot be combined with discovery selectors".into(),
             );
         }
-        // Validate imported workspace modules as strictly as discovery.
         discover_sources(root, root, Runtime::Python, true)?;
         argv.truncate(5);
         argv.extend(modules);
@@ -870,7 +825,6 @@ fn discover_sources(
             let entry = entry.map_err(|e| e.to_string())?;
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            // Check the namespace before querying metadata or descending.
             if name == "off-limits" {
                 if strict_tree {
                     return Err("unittest discovery contains a quarantined off-limits entry; select a narrower start directory".into());

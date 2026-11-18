@@ -40,7 +40,6 @@ impl Seat {
         self.start.elapsed().as_secs_f64() * 1000.0
     }
 
-    /// Run the link for `ms`, holding `bits`.
     fn run(&mut self, ms: f64, bits: u32) {
         let until = self.now() + ms;
         self.rt.hands().set_held(bits);
@@ -92,8 +91,6 @@ impl Seat {
         Some((me.x, me.y))
     }
 
-    /// The room our knight stands in: the party's, or the one it waits
-    /// outside in.
     fn my_room<'r>(&self, run: &'r Run) -> &'r angel_delve::rules::Room {
         run.exits.outside.get(&self.knight()).map_or(run.room(), |e| &run.dungeon.rooms[e.at])
     }
@@ -110,7 +107,6 @@ impl Seat {
         })
     }
 
-    /// Walk to `goal` (units) along the room's open tiles; true if reached.
     fn walk_to(&mut self, goal: (f32, f32), avoid_stairs: bool, max_ms: f64) -> bool {
         let started = self.now();
         let room_then = self.room();
@@ -126,7 +122,6 @@ impl Seat {
             };
             let near = (me.0 - goal.0).hypot(me.1 - goal.1);
             if near < 0.6 {
-                // Let what is in flight land, then look again.
                 self.run(300.0, 0);
                 if let Some(me) = self.at()
                     && (me.0 - goal.0).hypot(me.1 - goal.1) < 0.9
@@ -148,7 +143,6 @@ impl Seat {
             } else if dy < -0.2 {
                 bits |= button::UP;
             }
-            // Stuck: wiggle sideways a moment.
             if self.now() - last.0 > 900.0 {
                 if last.1.is_some_and(|p| (p.0 - me.0).hypot(p.1 - me.1) < 0.3) {
                     let side = if bits & (button::LEFT | button::RIGHT) != 0 { button::UP } else { button::RIGHT };
@@ -157,7 +151,6 @@ impl Seat {
                 last = (self.now(), Some(me));
             }
             if near < 3.0 {
-                // Close: one tick's walk, then wait for it to land.
                 self.run(34.0, bits);
                 self.run(150.0, 0);
             } else {
@@ -168,7 +161,6 @@ impl Seat {
         false
     }
 
-    /// Out of the room by its nearest open doorway on the edge.
     fn leave_by_door(&mut self) -> bool {
         let Some(run) = self.run_state() else { return false };
         let room = self.my_room(run);
@@ -203,8 +195,6 @@ impl Seat {
         false
     }
 
-    /// The centre of the next tile on the shortest open path from `me` to
-    /// `goal`, by tiles.
     fn next_point(&self, me: (f32, f32), goal: (f32, f32), avoid_stairs: bool) -> Option<(f32, f32)> {
         let run = self.run_state()?;
         let room = self.my_room(run);
@@ -226,7 +216,6 @@ impl Seat {
         let mut prev = vec![u32::MAX; (cols * rows) as usize];
         let mut queue = VecDeque::from([to]);
         prev[idx(to.0, to.1)] = idx(to.0, to.1) as u32;
-        // From the goal back, so each tile knows its next step toward it.
         while let Some((c, r)) = queue.pop_front() {
             if (c, r) == from {
                 break;
@@ -282,8 +271,6 @@ fn main() {
     }
     seat.run(500.0, 0);
     seat.say(&format!("seated as knight {}", seat.knight()));
-    // `--active SECS`: a friend playing on where they stand, aiming about,
-    // and nothing else.
     if let Some(secs) = args.iter().position(|a| a == "--active").and_then(|i| args.get(i + 1)).and_then(|s| s.parse::<f64>().ok()) {
         let until = seat.now() + secs * 1000.0;
         let aims = [button::AIM_LEFT, button::AIM_RIGHT];
@@ -323,7 +310,6 @@ fn main() {
         if park {
             seat.say(&format!("parked at {name}'s stand; seat token {}", seat.rt.seat_token()));
             println!("TOKEN {}", seat.rt.seat_token());
-            // Gone without a goodbye: the seat waits for its resume.
             std::process::exit(0);
         }
         let before = seat.room();
@@ -344,7 +330,6 @@ fn main() {
         let post = if after == before { detail(&seat) } else { String::new() };
         seat.say(&format!("{name} ({room}): E at its stand → {} [{pre}] [{post}]", if after != before { "ENTERED" } else { "nothing" }));
         if after != before {
-            // Into the place: try its own entrances, then leave.
             try_entrances(&mut seat);
             if !seat.room().starts_with("Kingdom") {
                 let out = seat.leave_by_door();
@@ -363,8 +348,6 @@ fn main() {
     }
 }
 
-/// Each entrance in the room the party stands in: stand on its stair a
-/// while, and say where it went.
 fn try_entrances(seat: &mut Seat) {
     let Some(kind) = seat.run_state().map(|r| r.room().kind) else { return };
     for e in world::ENTRANCES.iter().filter(|e| e.room == kind) {

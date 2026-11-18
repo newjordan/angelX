@@ -1,47 +1,4 @@
 #!/usr/bin/env python3
-"""Third act: can Mage check its own click, and through which channel?
-
-`web_loop_bench.py` measures one shot. `web_loop_retry.py` measured the only
-verifier a headless controller had without a model — "did the frame change near
-where I clicked" — and found it asymmetric: an unchanged frame is evidence a
-click failed; a changed frame is not evidence it worked (a neighbour's focus
-ring counts as a change).
-
-This script asks whether the *model* can close that loop, and compares the two
-channels it could use:
-
-  nl        ask it in language, over a before/after composite of the clicked
-            region: "did the click activate <target>? YES or NO."
-  reground  ask it in its own native channel — a pointing question — about the
-            *state the click was supposed to produce*: "click the control that
-            is outlined in red" (the fixture's visible answer to a click). A
-            verifier that points at the control it just clicked has confirmed
-            the activation; one that points elsewhere has not.
-
-Every target gets two real mouse clicks, so both classes are measured on the
-same scene:
-
-  real   the shipped ground cascade's answer
-  decoy  a point 60-170 px away on page background, probed and confirmed inert
-         by the page's own counters
-
-The page answers a click in two modes, which is what makes the result
-interpretable:
-
-  ring   the activated control is outlined in red
-  none   activation leaves no visible mark anywhere (CSS suppresses it); the
-         DOM counters still move, so the ground truth is unchanged
-
-`none` is the control: with no state marker to point at, a verifier that still
-claims success is inventing it. So the claim is not "the model's accuracy" but
-the gap between P(verified | actuated) in `ring` and in `none`, against the
-pixel rule on the identical crops.
-
-Usage (Chrome, node, PIL venv; the model already serving on 127.0.0.1:30001):
-
-  $PY -I web_loop_verify.py --work ~/mage/verify --verifier reground \\
-      --mode ring [--fixture-limit N] [--real 0] [--out ...jsonl]
-"""
 import argparse, importlib.util, json, math, os, re, sys, time
 from PIL import Image, ImageDraw
 
@@ -58,17 +15,15 @@ def _load(name, alias):
 W = _load("web_loop_bench", "wlb")
 R = _load("web_loop_retry", "wlr")
 
-PANEL = (1920, 540)        # one panel of the before/after composite
-CROP = (640, 180)          # CSS px of the screen shown in each panel
-PIX_THRESH = 20            # differing crop pixels that count as "the crop changed"
-STATE_Q = "the control that is outlined in red"   # a state, not an instruction
+PANEL = (1920, 540)
+CROP = (640, 180)
+PIX_THRESH = 20
+STATE_Q = "the control that is outlined in red"
 
 
 def slug(s):
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:40]
 
-
-# ----------------------------------------------------------- channel 1: language
 NL_SYS = ("You inspect two screenshots of the same region of a desktop, one from just before a "
           "mouse click and one from just after. Answer the question on the first line with one "
           "word, YES or NO, then at most one sentence of reasoning.")
@@ -92,21 +47,11 @@ def ask_nl(composite, target, tokens=96):
     m = re.search(r"\b(yes|no)\b", head) or re.search(r"\b(yes|no)\b", txt.lower())
     return (m.group(1) == "yes" if m else None), txt[:600], len(txt)
 
-
-# ------------------------------------------------------- channel 2: re-grounding
 def ask_reground(post, view):
-    """Point at the click's visible result, in the model's own coordinate channel."""
     at, passes = W.ground(post, STATE_Q, cap=(1920, 1080), zooms=(2, 3))
     return at, passes
 
-
-# ------------------------------------------------------------------ the frame work
 def crop_pad(im, x, y, crop=CROP):
-    """A `crop` window centred on (x, y); out-of-frame area is black.
-
-    Padding keeps the click at the panel centre for targets at the top edge too,
-    so "the click landed at the centre" is literally true in every pair.
-    """
     w, h = im.size
     cw, ch = crop
     x0, y0 = int(round(x - cw / 2)), int(round(y - ch / 2))
@@ -132,14 +77,7 @@ def changed_in_crop(before, after, x, y):
     d = ImageChops.difference(a.convert("L"), b.convert("L"))
     return sum(d.histogram()[11:])
 
-
-# ------------------------------------------------------------------ the fixture
 def page_html(mode):
-    """The bench fixture, with the page's visible answer to a click switched off in `none`.
-
-    `none` is not "no truth": the DOM counters still move, so the arm scores
-    against the same ground truth. Only the visible answer is suppressed.
-    """
     html = W.fixture_html()
     if mode == "none":
         html = html.replace(".hit { outline:2px solid #d33; outline-offset:1px; }", ".hit { }")
@@ -149,7 +87,6 @@ def page_html(mode):
 
 
 def reset_marks(drv):
-    """Each target is an independent trial: no ring from an earlier click."""
     drv.call("eval", {"expr": "document.querySelectorAll('.hit').forEach(e=>e.classList.remove('hit'));"
                               "var s=document.getElementById('status'); if(s) s.textContent='last action: none';"
                               "window.__act=Object.create(null); 'ok'"})
@@ -161,7 +98,6 @@ def act_state(drv):
 
 
 def pick_decoy(drv, truth, view, elems, spin):
-    """A point 60-170 px from the target centre that is provably page background."""
     b = truth["box"]
     cx, cy = (b[0] + b[2]) / 2, (b[1] + b[3]) / 2
     others = [e["box"] for e in elems]
@@ -181,7 +117,6 @@ def pick_decoy(drv, truth, view, elems, spin):
 
 
 def judge(point, truth_box, click, scale=1.0):
-    """Did the verifier point at the control the click was meant for?"""
     if point is None:
         return None
     x, y = point[0] / scale, point[1] / scale
@@ -190,8 +125,6 @@ def judge(point, truth_box, click, scale=1.0):
     return {"at": [round(x, 1), round(y, 1)], "on_target": bool(inside),
             "to_click_px": round(((x - click[0]) ** 2 + (y - click[1]) ** 2) ** 0.5, 1)}
 
-
-# ------------------------------------------------------------------ one target
 def row_pair(drv, name, truth, kind, url, view, mode, a):
     out = {"kind": kind, "target": name, "id": truth.get("id"), "mode": mode,
            "verifier": a.verifier}
@@ -227,7 +160,6 @@ def row_pair(drv, name, truth, kind, url, view, mode, a):
             rec["secs"] = round(time.time() - t0, 1)
         return rec
 
-    # 1) the decoy: a real click on background, so nothing may answer
     dec = pick_decoy(drv, truth, view, elems, hash(name) % 8)
     if dec is not None:
         state0 = act_state(drv)
@@ -238,7 +170,6 @@ def row_pair(drv, name, truth, kind, url, view, mode, a):
         out["decoy"] = check(pre, after, dec, False, pre) | {"at": list(dec), "inert": inert}
         pre = after
 
-    # 2) the real thing: shipped cascade -> real click -> the page's answer
     at, passes = W.ground(pre, name, cap=(1920, 1080), zooms=(2, 3))
     if at is None:
         out["parsed"] = False
@@ -289,12 +220,10 @@ def tally(rows):
     dead = [r for r in real if not r["actuated"]]
     return {
         "n_targets": len(rows), "n_real": len(real), "n_actuated": len(act), "n_decoy": len(dec),
-        # the verifier's two jobs, same pairs, both channels
         "says_done_on_actuated": rate([r["says_done"] for r in act]),
         "says_not_done_on_failed": rate([not r["says_done"] if r["says_done"] is not None else None for r in dead]),
         "says_not_done_on_decoy": rate([not d["says_done"] if d["says_done"] is not None else None for d in dec]),
         "unparsed": rate([r["says_done"] is None for r in real]),
-        # the pixel rule on the identical crops
         "pixel_done_on_actuated": rate([r["pixel_changed"] for r in act]),
         "pixel_not_done_on_failed": rate([not r["pixel_changed"] for r in dead]),
         "pixel_not_done_on_decoy": rate([not d["pixel_changed"] for d in dec]),
@@ -339,8 +268,6 @@ def main():
             httpd, url = W.serve(a.work)
             drv.call("nav", {"url": url})
             elems = drv.call("elements")["elements"]
-            # the same 26 targets web_loop_bench.py scores, in the same order, so
-            # these arms pair with the grounding arms already on record
             rows = [(n, W.box_of(elems, id=i)) for i, _k, n in W.FIXTURE_TARGETS]
             rows = [r for r in rows if r[1]]
             if a.fixture_limit:

@@ -29,7 +29,6 @@ fn the_goose_chases_the_thief_and_takes_the_sail_back() {
     put(&mut run, 1, (CLOTH.0 * TILE_UNITS, CLOTH.1 * TILE_UNITS + 1.0));
     press(&mut run, 1);
     assert_eq!(run.heist.as_ref().unwrap().carrier, 1);
-    // The thief stands still: the goose arrives and pecks.
     for _ in 0..HZ * 2 {
         run.tick += 1;
         run.tick_windcountry(&BTreeMap::new());
@@ -49,7 +48,6 @@ fn a_friends_honk_draws_it_off_the_thief() {
     put(&mut run, 2, (g.0 - 2.0, g.1 + 2.0));
     press(&mut run, 2);
     assert_eq!(run.heist.as_ref().unwrap().honked.map(|h| h.0), Some(2));
-    // It turns on the honker, not the thief.
     for _ in 0..HZ {
         run.tick += 1;
         run.tick_windcountry(&BTreeMap::new());
@@ -73,7 +71,6 @@ fn off_the_green_with_the_sail_wins_it_and_the_crown() {
     assert!(run.found.as_ref().unwrap().2.contains("TWO GOT THE SAIL AWAY"));
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_heist_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_heist_shots() {

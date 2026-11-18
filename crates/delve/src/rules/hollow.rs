@@ -8,23 +8,16 @@
 
 use super::*;
 
-/// The hole's warning, how long it pulls, how far it reaches, how hard it
-/// pulls (a knight walks at 13), and the burning core.
 pub const HOLE_WARN: u32 = HZ;
 pub const HOLE_PULL: u32 = 3 * HZ;
 pub const HOLE_REACH: f32 = 7.0;
 const PULL: f32 = 7.5;
 pub const HOLE_CORE: f32 = 1.6;
 const CORE_BURN: u32 = 8;
-/// Damage that breaks the Hollow One's channel.
 pub const BREAK: u32 = 120;
-/// A hole every eleven seconds, a bolt every two.
 const HOLE_EVERY: u32 = 11 * HZ;
 const BOLT_EVERY: u32 = 2 * HZ;
 
-/// A Black Hole: where, how long its warning and its pull have left, and
-/// the Hollow One keeping it open (with its health when it began, to know
-/// when a blow breaks the channel).
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Hole {
     pub x: f32,
@@ -35,7 +28,6 @@ pub struct Hole {
     pub owner_hp: u32,
 }
 
-/// The Hollow One's step. False for any other monster.
 pub(super) fn act(
     enemy: &mut Enemy,
     heroes: &[(f32, f32)],
@@ -47,7 +39,6 @@ pub(super) fn act(
         return false;
     }
     enemy.timer += 1;
-    // Keeping a hole open: still, until the hole's time is out.
     if enemy.stage == 1 {
         if enemy.timer >= HOLE_WARN + HOLE_PULL {
             (enemy.stage, enemy.timer) = (0, 0);
@@ -64,7 +55,6 @@ pub(super) fn act(
     };
     let (cx, cy) = unit(tx - enemy.x, ty - enemy.y);
     let dist = (tx - enemy.x).hypot(ty - enemy.y);
-    // Float between nine and thirteen steps off, drifting sideways between.
     let side = if enemy.id.is_multiple_of(2) { 1.0 } else { -1.0 };
     let way = if dist < 9.0 {
         (-cx, -cy)
@@ -108,9 +98,6 @@ pub(super) fn act(
 }
 
 impl Run {
-    /// Holes open, warn, pull and burn, and close: when their time is out,
-    /// when the Hollow One keeping one falls, or when a blow breaks its
-    /// channel.
     pub(super) fn tick_holes(&mut self, opened: Vec<(f32, f32, u32)>) {
         for (x, y, owner) in opened {
             let owner_hp = self
@@ -160,7 +147,6 @@ impl Run {
                 if d > HOLE_REACH {
                     continue;
                 }
-                // The pull: stronger toward the middle (none at the middle).
                 if d > 0.05 {
                     let pull = PULL * (1.0 - 0.4 * d / HOLE_REACH) * DT;
                     let (ux, uy) = unit(dx, dy);

@@ -26,11 +26,9 @@ use super::cultures::{Culture, WHEEL};
 use super::*;
 use crate::rules::bosses::{self, Boss, Stage, Windup};
 
-/// Every dread's id starts so.
 pub const PREFIX: &str = "deep-";
 
 impl Culture {
-    /// The people's dread, as its file names it, and the file.
     pub fn dread(self) -> (&'static str, &'static str) {
         match self {
             Culture::Capfolk => ("deep-glow-drinker", include_str!("../../../../../cockpit/assets/dungeon/bosses/deep-glow-drinker.boss")),
@@ -44,8 +42,6 @@ impl Culture {
         }
     }
 
-    /// What the dread took from the people, as the village says it when it
-    /// falls.
     pub fn dread_took(self) -> &'static str {
         match self {
             Culture::Capfolk => "THE GLOW IT DRANK GOES HOME",
@@ -60,27 +56,20 @@ impl Culture {
     }
 }
 
-/// Whether `boss` is one of the Deep's dreads.
 pub fn is(boss: &Boss) -> bool {
     boss.id.starts_with(PREFIX)
 }
 
-/// The people whose dread `id` is.
 pub fn culture_of(id: &str) -> Option<Culture> {
     WHEEL.into_iter().find(|c| c.dread().0 == id)
 }
 
-/// The village floor `floor` stands above, if it does: its dread waits at
-/// this floor's stair.
 pub fn guards(floor: u32) -> Option<u32> {
     (floor >= ROAD && is_village(floor + 1)).then_some(floor + 1)
 }
 
-/// The most a dread grows: by its eighth chapter it is all it will be.
 const GROWS_TO: u32 = 7;
 
-/// `culture`'s dread as it stands in chapter `chapter` (the village's,
-/// from 1). Every number stays inside the boss checker's own bounds.
 pub fn boss(culture: Culture, chapter: u32) -> Boss {
     let (id, raw) = culture.dread();
     let mut b = bosses::check(id, raw).expect("a dread passes the boss checker").0;
@@ -88,8 +77,6 @@ pub fn boss(culture: Culture, chapter: u32) -> Boss {
     b.hp = (b.hp + 40 * up).min(900);
     b.rage = (b.rage + 0.02 * up as f32).min(0.6);
     if let Some(sig) = b.windups.first_mut() {
-        // Its signature: sooner, harder, fuller, and from the third
-        // chapter on it opens the fight with it.
         sig.every = sig.every.saturating_sub(20 * up).max(150);
         sig.damage = (sig.damage + up).min(20);
         sig.shots = (sig.shots + up / 2).min(most_shots(sig.kind));
@@ -100,8 +87,6 @@ pub fn boss(culture: Culture, chapter: u32) -> Boss {
             sig.from = Stage::Open;
         }
     }
-    // Its second charge-up: not the first time it is met; in its rage the
-    // second; from the middle of the fight after that.
     match up {
         0 => b.windups.truncate(1),
         1 => {
@@ -119,9 +104,6 @@ pub fn boss(culture: Culture, chapter: u32) -> Boss {
     b
 }
 
-/// A dread the road has stirred `stir` times (`road::Descent::stir`): a
-/// little more of it and a little angrier, its signature a little sooner.
-/// Every number stays inside the same bounds `boss` keeps.
 pub fn awaken(b: &mut Boss, stir: u8) {
     let s = u32::from(stir.min(road::MOST_STIR));
     b.hp = (b.hp + STIR_HP * s).min(900);
@@ -131,13 +113,10 @@ pub fn awaken(b: &mut Boss, stir: u8) {
     }
 }
 
-/// What each stir adds: health, rage, and ticks off its signature's wait.
 pub const STIR_HP: u32 = 40;
 pub const STIR_RAGE: f32 = 0.03;
 pub const STIR_SOONER: u32 = 15;
 
-/// The most shots a charge-up of `kind` may throw (`bosses::check`'s own
-/// bounds).
 fn most_shots(kind: Windup) -> u32 {
     match kind {
         Windup::Slam => 3,
@@ -147,9 +126,6 @@ fn most_shots(kind: Windup) -> u32 {
 }
 
 impl Run {
-    /// The dread at this floor's stair, if this floor of the Deep stands
-    /// above a village: its place in the run's bosses, put there at the
-    /// end of the list (or made its chapter's strength) if need be.
     pub(in crate::rules) fn ready_dread(&mut self) -> Option<usize> {
         let village = self.deep_floor().and_then(guards)?;
         let mut fresh = boss(self.home.deep.culture_at(village), chapter(village));
@@ -167,16 +143,12 @@ impl Run {
         Some(self.bosses.len() - 1)
     }
 
-    /// Where this floor's dread stands in the run's bosses, if this floor
-    /// keeps one and it is there.
     pub(in crate::rules) fn dread_at(&self) -> Option<usize> {
         let village = self.deep_floor().and_then(guards)?;
         let id = self.home.deep.culture_at(village).dread().0;
         self.bosses.iter().position(|b| b.id == id)
     }
 
-    /// The dread `id` has fallen: the village below hears it, and the
-    /// realm keeps it.
     pub(in crate::rules) fn dread_felled(&mut self, id: &str, name: &str) {
         let (Some(culture), Some(village)) = (culture_of(id), self.deep_floor().and_then(guards)) else {
             return;

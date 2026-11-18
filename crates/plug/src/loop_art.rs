@@ -20,8 +20,6 @@ pub struct Sprite {
     pub rgba: &'static [u8],
 }
 
-/// The sizes the films are made at: the window's cell, and the film's
-/// and the goal shot's boxes in cells.
 #[cfg(feature = "glass")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ArtKey {

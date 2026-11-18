@@ -13,35 +13,23 @@ use super::super::ink::{BLACK, Img, hash, rgb, text_width};
 use super::*;
 use crate::rules::floor_stats::{End, Honour, Impact, Results, Row, SHOWN};
 
-/// Steps a count takes to tick up, and a stamp to land.
 const COUNT: u32 = 24;
 const SLAM: u32 = 3;
-/// Steps between one honour's stamp and the next.
 const HONOUR_GAP: u32 = 5;
-/// Steps a finished run's floor stands whole before its deeds come up,
-/// and between one deed and the next.
 const READ: u32 = 60;
 const DEED_GAP: u32 = 10;
-/// Steps a finished run's deeds stand whole before the road ahead.
 const DEEDS_READ: u32 = 150;
-/// The most deeds the board lists; the rest are counted.
 const DEEDS: usize = 6;
-/// The board's columns: a heading and the right edge of its numbers.
 const COLUMNS: [(&str, i32); 5] = [("KILLS", 136), ("DAMAGE", 176), ("TAKEN", 210), ("AIM", 240), ("GOLD", 268)];
-/// Where a row's name and its honours begin, and the most of a name shown.
 const NAME_X: i32 = 44;
 const NAME_CHARS: usize = 11;
 const HONOUR_X: i32 = 276;
-/// The headings and the rows share the board between the headline and
-/// the wish: the headings this high, the rows at most `ROW_H` each.
 const BLOCK_TOP: i32 = 36;
 const BLOCK_FOOT: i32 = 154;
 const HEAD_H: i32 = 12;
 const ROW_H: i32 = 26;
-/// The wish's panel and the line under it.
 const WISH: (i32, i32, i32, i32) = (40, 157, NATIVE_W - 80, 52);
 const HINT_Y: i32 = 214;
-/// Warm for what was won, greys for the rest.
 const WARM: char = 't';
 const WARM_DIM: char = 'o';
 const FIGURE: char = 'i';
@@ -50,7 +38,6 @@ const LABEL: char = 'G';
 const QUIET: char = 'g';
 const ROW_FILL: char = 'k';
 const MVP_FILL: char = 'K';
-/// The wish's seal: dark grey in a brass rim, a black line inside it.
 const SEAL: Tone = Tone {
     lip: None,
     fill: &[rgb(0x151614)],
@@ -58,7 +45,6 @@ const SEAL: Tone = Tone {
     hairline: Some(BLACK),
 };
 
-/// When each part of the board comes in, in steps.
 #[derive(Clone, Copy)]
 struct Beats {
     n: u32,
@@ -66,7 +52,6 @@ struct Beats {
     honours: u32,
     mvp: u32,
     wish: u32,
-    /// A finished run's deeds, after its floor has been read.
     deeds: u32,
 }
 
@@ -91,24 +76,20 @@ impl Beats {
         10 + i.min(self.n) * self.stagger
     }
 
-    /// When a row's counts start ticking up.
     fn count(&self, i: u32) -> u32 {
         self.row(i) + 3
     }
 }
 
-/// `t` of the way, eased out: quick to start, settling at the end.
 fn ease(t: f32) -> f32 {
     crate::motion::ease::out(t)
 }
 
-/// `value` as it stands `age` steps into a count that starts at `start`.
 fn counted(value: u32, age: u32, start: u32) -> u32 {
     let t = age.saturating_sub(start) as f32 / COUNT as f32;
     (value as f32 * ease(t)).round() as u32
 }
 
-/// The results as a frame, `w` by `h`, `age` steps in.
 pub fn frame(run: &Run, results: &Results, age: u32, w: i32, h: i32) -> Img {
     let native = board(run, results, age);
     if w == NATIVE_W && h == NATIVE_H {
@@ -124,8 +105,6 @@ pub fn frame(run: &Run, results: &Results, age: u32, w: i32, h: i32) -> Img {
     }
     let (ox, oy) = ((w - tw) / 2, (h - th) / 2);
     if tw < NATIVE_W * 2 / 3 {
-        // Too small for the board's letters: its headline, its MVP and its
-        // wish, in letters the size the screen has.
         compact(&mut out, results, (ox, oy, tw, th));
         return out;
     }
@@ -139,13 +118,10 @@ pub fn frame(run: &Run, results: &Results, age: u32, w: i32, h: i32) -> Img {
     out
 }
 
-/// The board at native size.
 fn board(run: &Run, results: &Results, age: u32) -> Img {
     let mut cv = Img::black(NATIVE_W, NATIVE_H);
     let beats = Beats::of(results);
     let deeds_at = (!results.deeds.is_empty() && results.end != End::Cleared).then_some(beats.deeds);
-    // A finished run's last word is the road ahead (`rewards`): after its
-    // deeds have been read, or where they would have come.
     if results.end != End::Cleared {
         let road_at = beats.deeds + deeds_at.map_or(0, |_| results.deeds.len().min(DEEDS) as u32 * DEED_GAP + DEEDS_READ);
         if let Some(d) = age.checked_sub(road_at) {
@@ -160,7 +136,6 @@ fn board(run: &Run, results: &Results, age: u32) -> Img {
     }
     let (rh, head, top) = layout(results.rows.len());
     if age >= 8 {
-        // Each heading over its own column, a short rule under it.
         for (label, right) in COLUMNS.into_iter().chain([("HONOURS", HONOUR_X + text_width("HONOURS") - 1)]) {
             let w = text_width(label);
             let x = right - w + 1;
@@ -176,12 +151,10 @@ fn board(run: &Run, results: &Results, age: u32) -> Img {
     }
     wish(&mut cv, results.wish.as_ref(), results.village.as_ref(), &beats, age);
     hint(&mut cv, run, results, age);
-    // The MVP's tag lands hard: the board jolts.
     let jolt = age.checked_sub(beats.mvp + SLAM).filter(|&d| d < 4 && results.mvp.is_some());
     if let Some(d) = jolt {
         cv = shifted(&cv, [1, -1, 1, 0][d as usize]);
     }
-    // The board closes onto the floor's own plate.
     if results.end == End::Cleared {
         let left = u32::from(SHOWN).saturating_sub(age) as i32;
         if left < 7 {
@@ -196,9 +169,6 @@ fn board(run: &Run, results: &Results, age: u32) -> Img {
     cv
 }
 
-/// The rows' height, where the headings stand and where the first row
-/// does, for `n` knights: headings and rows together, centred between the
-/// headline and the wish.
 fn layout(n: usize) -> (i32, i32, i32) {
     let n = n.max(1) as i32;
     let rh = ((BLOCK_FOOT - BLOCK_TOP - HEAD_H) / n).min(ROW_H);
@@ -206,8 +176,6 @@ fn layout(n: usize) -> (i32, i32, i32) {
     (rh, head, head + HEAD_H)
 }
 
-/// The board's headline, its letters set down one a step, and the time
-/// the floor took under it.
 fn title(cv: &mut Img, results: &Results, age: u32, deeds: bool) {
     let text = headline(results);
     let shown = age.saturating_sub(1) as usize;
@@ -216,7 +184,6 @@ fn title(cv: &mut Img, results: &Results, age: u32, deeds: bool) {
     let x = (NATIVE_W - w) / 2;
     let set: String = text.chars().take(shown).collect();
     big(cv, x, 7, &set, FIGURE, k);
-    // The letter landing now, a step warm.
     if shown >= 1 && shown <= text.chars().count() {
         let last: String = text.chars().nth(shown - 1).into_iter().collect();
         big(cv, x + (shown as i32 - 1) * 6 * k, 7, &last, WARM, k);
@@ -236,7 +203,6 @@ fn title(cv: &mut Img, results: &Results, age: u32, deeds: bool) {
 
 fn headline(results: &Results) -> String {
     match (&results.village, results.end) {
-        // A village of the Deep is left, not cleared (`deep::village`).
         (Some(left), End::Cleared) => format!("LEFT {}", left.town),
         (Some(left), End::Won) => format!("HOME FROM {}", left.town),
         (_, End::Cleared) => format!("FLOOR {} CLEARED", results.depth),
@@ -245,8 +211,6 @@ fn headline(results: &Results) -> String {
     }
 }
 
-/// What a village was left with: how lit, the errands it gave, the
-/// wishes standing in it.
 fn village_line(left: &crate::rules::floor_stats::Left) -> String {
     let light = if left.shines {
         "IT SHINES".to_string()
@@ -267,22 +231,18 @@ fn village_line(left: &crate::rules::floor_stats::Left) -> String {
     format!("{light}  {errands}  {wishes}")
 }
 
-/// A knight's honours in the order the board shows them: the shortest
-/// names first, so the count of the rest fits beside the last line.
 fn honours_shown(r: &Row) -> Vec<Honour> {
     let mut shown = r.honours.clone();
     shown.sort_by_key(|h| h.title().len());
     shown
 }
 
-/// One knight's row, `i` of the party, at `y`, `rh` high.
 #[allow(clippy::too_many_arguments)]
 fn row(cv: &mut Img, run: &Run, results: &Results, r: &Row, (i, y, rh): (u32, i32, i32), most: u32, beats: &Beats, age: u32) {
     let start = beats.row(i);
     if age < start {
         return;
     }
-    // It slides in from the left and settles.
     let slide = (start + 6).saturating_sub(age) as i32;
     let x0 = -(slide * slide) / 2;
     let tall = rh >= 24;
@@ -295,9 +255,7 @@ fn row(cv: &mut Img, run: &Run, results: &Results, r: &Row, (i, y, rh): (u32, i3
             cv.put(x, y, WARM_DIM);
         }
     }
-    // The seat's colour down its edge, as the party band marks it.
     cv.rect(bx, y, 2, bh, super::party::seat_ink(r.id));
-    // The knight as the party band shows them, head and shoulders.
     let well_h = if tall { 22 } else { bh - 2 };
     if let Some(hero) = run.players.get(&r.id) {
         let rim = if crowned { chrome::BRASS_RIM } else { chrome::COLD_RIM };
@@ -306,7 +264,6 @@ fn row(cv: &mut Img, run: &Run, results: &Results, r: &Row, (i, y, rh): (u32, i3
         if tall {
             cv.stamp(&bust, x0 + 13, y + 2);
         } else {
-            // A short well holds the bust at the figure's own size.
             let mut small = Img::new(bust.w / 2, bust.h / 2);
             for sy in 0..small.h {
                 for sx in 0..small.w {
@@ -318,7 +275,6 @@ fn row(cv: &mut Img, run: &Run, results: &Results, r: &Row, (i, y, rh): (u32, i3
             cv.stamp(&small, x0 + 25 - small.w / 2, y + 1 + (well_h - small.h) / 2);
         }
     }
-    // The name, and under it a fall or a friend raised.
     let name: String = r.name.to_uppercase().chars().take(NAME_CHARS).collect();
     let line_y = if tall { y + 4 } else { y + (bh - 7) / 2 };
     cv.text(x0 + NAME_X, line_y, &name, if crowned { WARM } else { FIGURE });
@@ -335,7 +291,6 @@ fn row(cv: &mut Img, run: &Run, results: &Results, r: &Row, (i, y, rh): (u32, i3
         }
         cv.text(x0 + NAME_X, y + 13, &said.join("  "), LABEL);
     }
-    // The counts tick up together, and ring warm a moment as they land.
     let landed = age >= from + COUNT;
     let ringing = landed && age < from + COUNT + 3;
     let ink = if ringing { WARM } else if landed { SETTLED } else { FIGURE };
@@ -352,17 +307,12 @@ fn row(cv: &mut Img, run: &Run, results: &Results, r: &Row, (i, y, rh): (u32, i3
         let cell = cell.unwrap_or_else(|| "-".to_string());
         cv.text(x0 + right - text_width(&cell) + 1, line_y, &cell, if age < from { QUIET } else { ink });
     }
-    // The knight's share of the floor's damage along the row's foot,
-    // filling as it counts.
     let (sx, sw, sy) = (x0 + NAME_X, COLUMNS[4].1 - NAME_X + 1, y + bh - 1);
     cv.rect(sx, sy, sw, 1, 'K');
     if most > 0 {
         let lit = (counted(line.damage, age, from) as i64 * sw as i64 / most as i64) as i32;
         cv.rect(sx, sy, lit, 1, if crowned { WARM_DIM } else { 'j' });
     }
-    // The honours, stamped on one by one once every count has landed: a
-    // medal and its name a line, and on the last line the count of those
-    // with no line of their own, rising as each is struck.
     let before: u32 = results.rows.iter().take(i as usize).map(|r| r.honours.len() as u32).sum();
     let lines = if tall { 2 } else { 1 };
     let shown = honours_shown(r);
@@ -380,12 +330,10 @@ fn row(cv: &mut Img, run: &Run, results: &Results, r: &Row, (i, y, rh): (u32, i3
             cv.text(at, hy, &format!("+{more}"), if fresh { WARM } else { LABEL });
         }
     }
-    // The MVP's tag across the foot of the bust.
     if mvp && age >= beats.mvp {
         let d = age - beats.mvp;
         let tag_y = y + well_h - 8;
         if d < SLAM {
-            // Falling in, twice its size.
             big(cv, x0 + 8, tag_y - 10 + d as i32 * 3, "MVP", WARM, 2);
         } else {
             chrome::panel(cv, (x0 + 13, tag_y, 23, 9), Tone::KEY);
@@ -397,8 +345,6 @@ fn row(cv: &mut Img, run: &Run, results: &Results, r: &Row, (i, y, rh): (u32, i3
     }
 }
 
-/// An honour's medal and its name, `d` steps after it was struck: the
-/// medal thrown down large, then set, a puff of dust where it lands.
 fn stamp(cv: &mut Img, (x, y): (i32, i32), honour: Honour, d: u32) {
     if d < SLAM {
         let k = (SLAM + 1 - d) as i32;
@@ -424,8 +370,6 @@ fn stamp(cv: &mut Img, (x, y): (i32, i32), honour: Honour, d: u32) {
     }
 }
 
-/// A medal on its ribbon, five pixels wide and seven high: each honour its
-/// own mark on the face.
 fn medal(cv: &mut Img, x: i32, y: i32, honour: Honour) {
     const MEDAL: [&str; 7] = ["p...p", "pp.pp", ".ooo.", "oOOOo", "oOOOo", "oOOOo", ".ooo."];
     for (dy, row) in MEDAL.iter().enumerate() {
@@ -448,8 +392,6 @@ fn medal(cv: &mut Img, x: i32, y: i32, honour: Honour) {
     }
 }
 
-/// Dust thrown out round `(x, y)`, `d` steps after the blow, as far as
-/// `reach` pixels.
 fn dust(cv: &mut Img, x: i32, y: i32, d: u32, reach: i32) {
     let spread = 2 + d as i32 * reach / 6;
     for k in 0..6 {
@@ -459,23 +401,18 @@ fn dust(cv: &mut Img, x: i32, y: i32, d: u32, reach: i32) {
     }
 }
 
-/// The floor's most impactful wish: a seal that opens from its middle, the
-/// wish's name set in it letter by letter, then what it did.
 fn wish(cv: &mut Img, impact: Option<&Impact>, village: Option<&crate::rules::floor_stats::Left>, beats: &Beats, age: u32) {
     let Some(d) = age.checked_sub(beats.wish) else {
         return;
     };
     let (x, y, w, h) = WISH;
-    // The panel opens out from its middle.
     let open = ease(d as f32 / 6.0);
     let pw = ((w as f32 * open) as i32).max(8);
     chrome::panel(cv, (x + (w - pw) / 2, y, pw, h), SEAL);
     if d < 6 {
         return;
     }
-    // Open, it wears the delivered HUD kit's plate rim, as the bar does.
     super::hud_art::rim(cv, "ready", (x, y, w, h), 3);
-    // Leaving a village: the wish made for it this visit, if one was.
     if let (None, Some((gift, by))) = (impact, village.and_then(|v| v.wish.as_ref())) {
         let head = format!("A WISH FOR {}", village.map_or("", |v| v.town.as_str()));
         cv.text(x + (w - text_width(&head)) / 2, y + 7, &head, LABEL);
@@ -495,7 +432,6 @@ fn wish(cv: &mut Img, impact: Option<&Impact>, village: Option<&crate::rules::fl
         cv.text(x + (w - text_width(none)) / 2, y + 24, none, 'h');
         return;
     };
-    // The name, a letter a step, twice the size when it fits.
     let name = impact.wish.to_uppercase();
     let k = if text_width(&name) * 2 <= w - 16 { 2 } else { 1 };
     let nw = text_width(&name) * k;
@@ -505,7 +441,6 @@ fn wish(cv: &mut Img, impact: Option<&Impact>, village: Option<&crate::rules::fl
     big(cv, nx, ny, &set, WARM, k);
     let whole = shown >= name.chars().count();
     let done = 6 + name.chars().count() as u32;
-    // Once whole: a rule run out to either side, and sparks round it.
     if whole {
         let reach = (((d - done) as i32) * 6).min((w - nw) / 2 - 12);
         let ry = ny + 7 * k / 2;
@@ -526,7 +461,6 @@ fn wish(cv: &mut Img, impact: Option<&Impact>, village: Option<&crate::rules::fl
     if !whole || d < done + 3 {
         return;
     }
-    // What it did, counting up.
     let from = beats.wish + done + 3;
     let who = impact.name.to_uppercase();
     let said = match impact.gain {
@@ -537,9 +471,6 @@ fn wish(cv: &mut Img, impact: Option<&Impact>, village: Option<&crate::rules::fl
     cv.text(x + (w - text_width(&said)) / 2, y + 37, &said, ink);
 }
 
-/// Sparks winking either side of the wish's name, in `zones` (each a
-/// span across) between `top` and `foot`, from the moment it is whole:
-/// each at its own place, for its own moment.
 fn sparks(cv: &mut Img, zones: [(i32, i32); 2], (top, foot): (i32, i32), age: u32) {
     for k in 0..8u32 {
         let life = 14;
@@ -565,9 +496,6 @@ fn sparks(cv: &mut Img, zones: [(i32, i32); 2], (top, foot): (i32, i32), age: u3
     }
 }
 
-/// A finished run's deeds, `d` steps after they came up: the best boxes
-/// first, each struck down in turn, its name set in warm and what it was
-/// for under it.
 fn deeds(cv: &mut Img, ids: &[String], d: u32) {
     use crate::rules::feats::{Tier, feat};
     let rank = |t: Tier| match t {
@@ -581,7 +509,6 @@ fn deeds(cv: &mut Img, ids: &[String], d: u32) {
     let more = earned.len().saturating_sub(DEEDS);
     earned.truncate(DEEDS);
     const DH: i32 = 24;
-    // The list stands under the headline, the best box first.
     let top = BLOCK_TOP + 6;
     let (x, w) = (44, NATIVE_W - 88);
     for (k, f) in earned.iter().enumerate() {
@@ -593,7 +520,6 @@ fn deeds(cv: &mut Img, ids: &[String], d: u32) {
         let x0 = x - slide * slide / 2;
         cv.rect(x0, y, w, DH - 3, ROW_FILL);
         cv.rect(x0, y, 2, DH - 3, WARM_DIM);
-        // The box of its grade, struck down.
         let boxed = super::fortune::loot_box(f.tier).recolor(&[('w', 'k')]);
         let (bx, by) = (x0 + 8, y + (DH - 3 - boxed.h) / 2);
         if e < SLAM {
@@ -615,7 +541,6 @@ fn deeds(cv: &mut Img, ids: &[String], d: u32) {
         if e < SLAM + 6 {
             dust(cv, bx + 6, by + 4, e - SLAM, 12);
         }
-        // Its name, two letters a step, its grade at the right.
         let tx = x0 + 28;
         let grade = f.tier.name().to_uppercase();
         let room = ((x0 + w - 6 - text_width(&grade) - 8 - tx + 1) / 6).max(0) as usize;
@@ -635,8 +560,6 @@ fn deeds(cv: &mut Img, ids: &[String], d: u32) {
     }
 }
 
-/// `text` in at most `room` letters, cut at a word with three dots when
-/// it is longer.
 fn clipped(text: &str, room: usize) -> String {
     let text = text.to_uppercase();
     if text.chars().count() <= room {
@@ -655,8 +578,6 @@ fn clipped(text: &str, room: usize) -> String {
     out
 }
 
-/// The line at the board's foot: the key that goes on, or the way back
-/// from a finished run.
 fn hint(cv: &mut Img, run: &Run, results: &Results, age: u32) {
     if age < 16 {
         return;
@@ -669,8 +590,6 @@ fn hint(cv: &mut Img, run: &Run, results: &Results, age: u32) {
     cv.text((NATIVE_W - text_width(&line)) / 2, HINT_Y, &line, LABEL);
 }
 
-/// The board where the screen is too small for it: its headline, its MVP
-/// and its wish, a line each.
 fn compact(out: &mut Img, results: &Results, (x, y, w, h): (i32, i32, i32, i32)) {
     let mut lines: Vec<(String, char)> = vec![(headline(results), FIGURE)];
     if let Some(left) = &results.village {
@@ -690,7 +609,6 @@ fn compact(out: &mut Img, results: &Results, (x, y, w, h): (i32, i32, i32, i32))
     }
 }
 
-/// `text` at `k` times the font's size, a pixel to a block.
 fn big(cv: &mut Img, x: i32, y: i32, text: &str, ink: char, k: i32) {
     if text.is_empty() {
         return;
@@ -710,7 +628,6 @@ fn big(cv: &mut Img, x: i32, y: i32, text: &str, ink: char, k: i32) {
     }
 }
 
-/// `im` moved `dy` pixels down (up when negative), black where it left.
 fn shifted(im: &Img, dy: i32) -> Img {
     let mut out = Img::black(im.w, im.h);
     for y in 0..im.h {

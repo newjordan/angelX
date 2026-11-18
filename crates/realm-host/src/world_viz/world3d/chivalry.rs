@@ -5,11 +5,8 @@ use super::arch::prim;
 use super::math::v3;
 use super::mesh::{Mesh, mat};
 
-/// Additive warm village dressing on the *existing* ordinary court mesh.
 pub fn village_dressing() -> Mesh {
     let mut m = Mesh::new();
-    // Low-poly facing accents, rather than full stable props: the old court
-    // retains its <5000-triangle budget. This addition is only 43 triangles.
     for (x, y) in [(-9.2, -18.4), (-5.7, -18.4), (-2.2, -18.4)] {
         prim::quad(
             &mut m,
@@ -62,7 +59,6 @@ pub fn village_dressing() -> Mesh {
             mat::HAY,
         );
     }
-    // Five hanging flags share a rope and its two poles, not five tall posts.
     for x in [-9.0, -4.2] {
         prim::quad(
             &mut m,

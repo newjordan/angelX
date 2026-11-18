@@ -53,8 +53,6 @@ thread_local! {
         const { std::cell::RefCell::new(None) };
 }
 
-/// A root scope creates one allowance only when the thread has no inherited
-/// handle. Nested `run_turn` entries therefore retain their parent's budget.
 pub(crate) struct DescendantBudgetScope {
     previous: Option<DescendantBudgetHandle>,
 }
@@ -69,9 +67,6 @@ impl DescendantBudgetScope {
         Self { previous }
     }
 
-    /// Install the root handle in a newly spawned thread. Callers obtain the
-    /// handle before spawning; an absent context is a programming error rather
-    /// than an excuse to mint a second allowance.
     pub(crate) fn inherit(handle: DescendantBudgetHandle) -> Self {
         let previous = DESCENDANT_BUDGET.with(|slot| slot.borrow_mut().replace(handle));
         Self { previous }

@@ -322,7 +322,6 @@ fn settle_interrupted(app: &mut crate::App, held: &Held) {
 fn a_steer_releasing_the_request_does_not_pause_the_loop() {
     fixture("steer-release", |root| {
         let (mut app, held, _calls) = held_app(root);
-        // What queue_steer does while the provider holds the request.
         app.steer_queue
             .push(ChatMsg::user("look at the carrier first"));
         app.thinking.as_mut().unwrap().steer_interrupt_fired = true;
@@ -349,8 +348,6 @@ fn a_buffered_provider_token_after_a_steer_does_not_pause_the_loop() {
         assert!(held.cancel.load(Ordering::Acquire));
         assert!(app.thinking.as_ref().unwrap().steer_interrupt_fired);
         assert_eq!(app.steer_queue.len(), 1);
-        // An event already in flight can arrive after queue_steer cancelled
-        // the provider, before its terminal Interrupt settles the iteration.
         held.events
             .send(crate::agent::harness::TurnEvent::Token(
                 "buffered provider token".into(),
@@ -379,7 +376,6 @@ fn a_buffered_provider_token_after_a_steer_does_not_pause_the_loop() {
 fn an_interrupt_without_a_queued_steer_still_pauses_the_loop() {
     fixture("plain-interrupt", |root| {
         let (mut app, held, _calls) = held_app(root);
-        // Esc drops queued steers; the interrupt is the operator's.
         app.thinking.as_mut().unwrap().steer_interrupt_fired = true;
         settle_interrupted(&mut app, &held);
         assert_eq!(app.loop_ctl.status, LoopStatus::Paused);
@@ -388,8 +384,6 @@ fn an_interrupt_without_a_queued_steer_still_pauses_the_loop() {
 
 #[test]
 fn a_loop_turn_folds_the_provider_spend_into_loop_tokens() {
-    // Pinning seat 2026-09-25: the loop recorded only its own estimates, never
-    // the tokens the provider reported for the iteration's hops.
     struct Metered;
     impl Club for Metered {
         fn label(&self) -> &str {
@@ -442,8 +436,6 @@ fn a_loop_turn_folds_the_provider_spend_into_loop_tokens() {
             )))
             .unwrap();
         app.advance();
-        // 3.0M prompt (2.81M of it cache reads) and 40K output this turn; the
-        // 77-token estimate is gone and no reply estimate rides on top.
         assert_eq!(app.loop_ctl.tokens.cached_input, 2_810_000);
         assert_eq!(app.loop_ctl.tokens.output, 40_000);
         assert!(

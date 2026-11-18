@@ -27,7 +27,6 @@ fn every_ease_starts_at_zero_and_ends_at_one() {
     for e in Ease::ALL {
         assert!(e.at(0.0).abs() < 1e-4, "{e:?} at 0: {}", e.at(0.0));
         assert!((e.at(1.0) - 1.0).abs() < 1e-4, "{e:?} at 1: {}", e.at(1.0));
-        // Clamped either side, and never NaN.
         assert_eq!(e.at(-3.0), e.at(0.0), "{e:?}");
         assert_eq!(e.at(7.0), e.at(1.0), "{e:?}");
         assert!(!e.at(f32::NAN).is_nan(), "{e:?}");
@@ -49,9 +48,7 @@ fn the_overshoots_go_past_and_the_anticipation_pulls_back() {
     assert!((-0.12..-0.08).contains(&least(Ease::Anticipate)));
     assert!((1.2..1.35).contains(&most(Ease::Elastic)), "elastic: {}", most(Ease::Elastic));
     assert!((1.12..1.25).contains(&most(Ease::Spring)), "spring: {}", most(Ease::Spring));
-    // A bounce lands three times before it rests, never above its floor.
     assert!(most(Ease::Bounce) <= 1.0 && least(Ease::Bounce) >= 0.0);
-    // Out leads In everywhere inside.
     for i in 1..100 {
         let t = i as f32 / 100.0;
         assert!(ease::out(t) > ease::inward(t));
@@ -59,8 +56,6 @@ fn the_overshoots_go_past_and_the_anticipation_pulls_back() {
     }
 }
 
-/// The eases the magic kit drew with before they moved here, written out,
-/// so every effect built on them keeps its pixels.
 #[test]
 fn the_kits_eases_are_unchanged() {
     for i in -10..=110 {
@@ -89,12 +84,10 @@ fn beats_fall_in_order() {
     assert_eq!(b.at(-1.0), Beat::Done);
     assert_eq!((b.action_at(), b.follow_at(), b.settle_at(), b.total()), (4.0, 8.0, 12.0, 20.0));
     assert_eq!(b.since_action(2.0), -2.0);
-    // A pose winds back, throws past the mark and settles on it.
     let pose: Vec<f32> = (0..20).map(|t| b.pose(t as f32, 0.3)).collect();
     assert!(pose[3] < -0.2);
     assert!(pose[8] > 1.1);
     assert!((pose[13] - 1.0).abs() < 1e-6);
-    // No beat at all is no anticipation: the action from the first tick.
     let snap = Beats::new(0.0, 3.0, 3.0, 6.0);
     assert!(matches!(snap.at(0.0), Beat::Action(_)));
 }
@@ -123,16 +116,13 @@ fn a_spring_comes_to_rest_where_it_is_pulled() {
         assert_eq!(s.at(0.0, 3.0, 9.0, 0.0), 3.0);
         assert!((s.at(300.0, 3.0, 9.0, 0.0) - 9.0).abs() < 1e-3, "{s:?}");
         assert!(s.kick(300.0, 1.0).abs() < 1e-3, "{s:?}");
-        // Between ticks it is between the ticks' poses.
         let (a, b, m) = (s.ease(5.0), s.ease(6.0), s.ease(5.5));
         assert!((m - (a + b) / 2.0).abs() < 1e-6);
     }
     let peak = |s: Spring| (0..90).map(|t| s.ease(t as f32)).fold(f32::MIN, f32::max);
     assert!(peak(Spring::SNAPPY) < 1.12, "snappy barely passes: {}", peak(Spring::SNAPPY));
     assert!(peak(Spring::WOBBLY) > 1.4, "wobbly rings: {}", peak(Spring::WOBBLY));
-    // A kick goes the way it was kicked first.
     assert!(Spring::SOFT.kick(3.0, 1.0) > 0.0);
-    // Past ten seconds it is simply at rest.
     assert_eq!(Spring::WOBBLY.at(1.0e6, 0.0, 2.0, 0.0), Spring::WOBBLY.at(1.0e6 + 0.5, 0.0, 2.0, 0.0));
 }
 
@@ -151,8 +141,6 @@ fn squash_keeps_the_area_and_an_arc_lands() {
     assert_eq!(on(7, 2), 6);
 }
 
-/// The camera's shake as it was drawn before it moved here, with the
-/// system's sine: the same pixels.
 #[test]
 fn the_shake_is_the_shake_it_was() {
     let before = |tick: u64, left: u32, full: u32, reach: f32| {
@@ -184,9 +172,6 @@ fn an_impact_holds_then_falls_and_a_flash_blinks_out() {
     assert_eq!(lit, [true, true, false, true, false, true, false, false]);
 }
 
-/// Every value this module makes, in bits: a machine that computes any
-/// one of them differently fails here, before a friend's mirror draws a
-/// different pixel from the host.
 #[test]
 fn the_same_bits_on_every_machine() {
     let mut h = 0xcbf2_9ce4_8422_2325u64;

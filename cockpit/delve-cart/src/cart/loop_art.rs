@@ -7,7 +7,6 @@ use ratatui::{buffer::Buffer, layout::Rect, style::Color};
 use std::sync::OnceLock;
 
 #[cfg(feature = "glass")]
-/// The films are never drawn wider than this: a larger window scales.
 const MOST_FILM_PX: u32 = 1400;
 
 impl LoopArtArt for Delve {
@@ -114,7 +113,6 @@ impl LoopArtArt for Delve {
 
 #[cfg(feature = "glass")]
 fn sheet(film: &card::Film) -> Sheet {
-    // As many to a row as keep the sheet inside a texture's side.
     let cols = (8192 / film.width.max(1)).clamp(1, film.frames.len().max(1) as u32) as usize;
     let (width, height, rgba) = film.sheet(cols);
     Sheet {

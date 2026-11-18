@@ -13,14 +13,11 @@ fn scratch(tag: &str) -> std::path::PathBuf {
     path
 }
 
-/// Braille numerals: the subcategory alphabet (⠁1 … ⠚0).
 const DIGITS: [char; 10] = ['⠁', '⠃', '⠉', '⠙', '⠑', '⠋', '⠛', '⠓', '⠊', '⠚'];
 
 #[test]
 fn the_first_layer_is_cells_that_are_neither_digits_nor_tray_glyphs() {
-    // Volume I is the letters k–z; later volumes open on the contractions.
     const LETTERS: &str = "⠅⠇⠍⠝⠕⠏⠟⠗⠎⠞⠥⠧⠺⠭⠽⠵";
-    // Lowered cells read as digits; a primary never uses them.
     const LOWERED: &str = "⠂⠆⠒⠲⠢⠖⠶⠦⠔⠴";
     let mut seen = std::collections::HashSet::new();
     for primary in TOC {
@@ -60,7 +57,6 @@ fn the_first_layer_is_cells_that_are_neither_digits_nor_tray_glyphs() {
         letters.eq(LETTERS.chars()),
         "Volume I is k–z, in order, first"
     );
-    // Volume I is in chapter order: the file listing reads as it.
     let names = TOC
         .iter()
         .take(16)
@@ -212,7 +208,6 @@ fn a_warpath_is_at_most_six_cells_and_evidence_reaches_the_ledger() {
     assert_eq!(cells, "⠧⠁⠧⠋⠇⠁", "in order, deduplicated, three routes");
     assert_eq!(cells.chars().count(), 6);
     assert!(ledger::is_warpath_line(&cells));
-    // The route past the cap still has its evidence in the ledger.
     assert!(ledger::read(&root, "⠭⠁").unwrap().contains("third hop"));
     assert!(
         ledger::read(&root, "⠧⠁")
@@ -267,8 +262,6 @@ fn the_ledger_decodes_the_toc_a_primary_a_route_and_a_warpath() {
     assert!(deli.contains("→ ") && deli.contains("consult_model") && deli.contains("\"deli\""));
     let path = ledger::read(&root, "⠧⠁⠧⠋⠟⠁").unwrap();
     assert!(path.contains("failed") && path.contains("`shell`") && path.contains("deli"));
-    // The first free sub on the first layer: a digit past a chapter's last
-    // section.
     let unattached = TOC
         .iter()
         .find(|primary| primary.subs.len() < DIGITS.len())
@@ -315,10 +308,6 @@ fn the_stop_checkpoint_leads_with_the_most_pressing_facts_then_deli() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// polyglot-v1 rust-robot-name (DeepSeek V4.1 Flash, 2026-11-01): a prompt
-/// paste-back ending in DSML tool markup, nothing changed, stood on its second
-/// answer. With the workspace unchanged it is a failed call: it stops again,
-/// a bounded number of times; once the workspace changed, the answer stands.
 #[test]
 fn unexecuted_tool_markup_with_no_change_does_not_stand() {
     let paste = "You are angel …\n<functions>…</functions>\n<｜DSML｜invoke name=\"read_file\">\
@@ -420,8 +409,6 @@ fn a_renumbered_repeat_with_the_same_outcome_is_the_same_batch() {
         execution: ExecutionOutcome::Failed,
         verification: VerificationOutcome::NotApplicable,
     };
-    // One hop: `cargo test > /tmp/o<n>.txt`, the same panic under a new thread
-    // id, or (paging) a different output each time.
     let hop = |loops: &mut l_loops::Loops, n: usize, output: String, mutated: bool| {
         let call = ToolCall {
             id: format!("c{n}"),
@@ -537,8 +524,6 @@ fn warpath_lines_strip_from_summaries_and_accounting() {
 
 #[test]
 fn every_advertised_read_file_carries_the_direction() {
-    // Bench and headless hops advertise the lean tool set: without the
-    // direction there, every warpath is undecodable noise to the model.
     let lean = crate::agent::harness::registry::lean_read_file_description();
     assert!(lean.contains(DIRECTION), "{lean}");
 }
@@ -629,7 +614,6 @@ fn hygiene_shows_once_at_the_first_tool_result() {
 fn cues_appear_when_the_models_actions_make_them_relevant() {
     let mut cues = w_workflow::Cues::default();
     let _ = cues.take();
-    // Serial single reads: the batch cue on the third, once.
     for _ in 0..2 {
         cues.observe_calls(["read_file"]);
         assert!(cues.take().is_empty());
@@ -638,7 +622,6 @@ fn cues_appear_when_the_models_actions_make_them_relevant() {
     assert_eq!(cues.take()[0].route, w_workflow::BATCH);
     cues.observe_calls(["grep"]);
     assert!(cues.take().is_empty(), "the batch cue appears once");
-    // A batched hop resets the run.
     let mut fresh = w_workflow::Cues::default();
     let _ = fresh.take();
     fresh.observe_calls(["read_file"]);
@@ -646,7 +629,6 @@ fn cues_appear_when_the_models_actions_make_them_relevant() {
     fresh.observe_calls(["read_file"]);
     fresh.observe_calls(["read_file"]);
     assert!(fresh.take().is_empty());
-    // A clean run is a finish cue only after edits, once per edit.
     cues.observe_clean_run("cargo test");
     assert!(
         cues.take().is_empty(),
@@ -664,13 +646,6 @@ fn cues_appear_when_the_models_actions_make_them_relevant() {
     );
 }
 
-/// The hint prompts as they stood at 9af8d7f, verbatim, each with the book
-/// addresses that must rebuild it. A page dropped, merged or paraphrased fails
-/// here: the book is a refactor of these hints, never a reduction.
-
-
-/// Every page of an address run, in order: a section gives all its pages, a
-/// page address gives that page.
 fn verbatim_pages(cells: &str) -> String {
     let mut out = Vec::new();
     for address in ledger::addresses(cells).expect(cells) {
@@ -711,8 +686,6 @@ fn every_original_hint_is_rebuilt_verbatim_from_its_pages() {
     ).expect("valid original book hints fixture");
     assert_eq!(originals.version, 1);
     assert_eq!(originals.hints.len(), 502);
-    // A length-framed digest of the original compiled Rust literals ensures
-    // no row, ordering, address, text, or whitespace can disappear silently.
     let mut framed = Vec::new();
     for (cells, original) in &originals.hints {
         for text in [cells, original] {
@@ -762,7 +735,6 @@ fn pages_are_single_sentences_and_types_resolve() {
             );
         }
     }
-    // A type renders the prompt it replaces in full.
     let driver = ledger::read(&root, "⠽⠃").unwrap();
     for original in [
         "You are Angel — the Driver for this workspace.",
@@ -774,7 +746,6 @@ fn pages_are_single_sentences_and_types_resolve() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A page sent alone is named where it lives; each name reads its sentence.
 #[test]
 fn the_long_runs_named_pages_read_their_sentences() {
     let root = scratch("named-pages");
@@ -858,13 +829,11 @@ fn the_long_runs_named_pages_read_their_sentences() {
         let page = ledger::read(&root, address).unwrap_or_else(|error| panic!("{error}"));
         assert!(page.contains(words), "{address} reads {page}");
     }
-    // The pages without the blocked attempt skip exactly that sentence.
     let open = ledger::read(&root, d45_iteration::NO_CANDIDATE).unwrap();
     assert!(!open.contains("was blocked"), "{open}");
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A club that reads the route it was handed, then answers from the page.
 struct LedgerReadingClub {
     hops: std::sync::atomic::AtomicUsize,
 }
@@ -941,8 +910,6 @@ fn a_connected_seat_reads_its_routes_through_the_ledger_reader() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A club that reads off the ledger on every hop but one: `script[n]` is the
-/// path it asks for on hop `n`; past the script it answers.
 struct GuessingReaderClub {
     script: Vec<&'static str>,
     offered: std::sync::Mutex<Vec<usize>>,
@@ -981,8 +948,6 @@ impl crate::agent::club::Club for GuessingReaderClub {
     }
 }
 
-/// Reads that miss `MISSED_HOPS` hops in a row take the reader away and say
-/// so; a read that lands in between resets the count.
 #[test]
 fn a_connected_seat_that_keeps_missing_is_asked_to_answer() {
     let root = scratch("connect-missed");
@@ -1018,9 +983,6 @@ fn a_connected_seat_that_keeps_missing_is_asked_to_answer() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A text-only mixture stage is connected: the stage call is offered the
-/// ledger reader alone, reads its route, is refused anything off the ledger,
-/// and reads the evidence of the workspace its turn entered.
 #[test]
 fn a_text_only_swarm_stage_is_offered_the_ledger_reader_and_reads_its_route() {
     let root = scratch("connect-swarm");
@@ -1051,8 +1013,6 @@ fn a_text_only_swarm_stage_is_offered_the_ledger_reader_and_reads_its_route() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A fanned-out stage runs on a detached worker thread; it still reads the
-/// ledger of the workspace its caller entered.
 #[test]
 fn a_fanned_out_swarm_stage_reads_its_callers_ledger() {
     let root = scratch("connect-fanout");
@@ -1081,8 +1041,6 @@ fn a_fanned_out_swarm_stage_reads_its_callers_ledger() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A seat with no tool channel (the CLI research scout, an out-of-process
-/// peer) hears the pages recited: the verbatim sentences, from the book.
 #[test]
 fn a_seat_with_no_tool_channel_hears_its_pages_recited() {
     use d3_roles::pages;
@@ -1100,8 +1058,6 @@ fn a_seat_with_no_tool_channel_hears_its_pages_recited() {
     );
 }
 
-/// A seat that never stops reading is cut off: the last hop offers no tool.
-/// A seat that reads the ledger many times before it answers.
 struct LongReader {
     reads: std::sync::atomic::AtomicUsize,
 }
@@ -1144,8 +1100,6 @@ fn a_connected_seat_reads_as_long_as_it_wants() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// Volume VI: every page a reply names resolves to its verbatim sentence, and
-/// the marks kept as `&str` beside their detectors are exactly their addresses.
 #[test]
 fn the_replies_pages_resolve_and_their_marks_are_their_addresses() {
     use d46_recovery as r;
@@ -1312,7 +1266,6 @@ fn the_replies_pages_resolve_and_their_marks_are_their_addresses() {
             "{cells} decodes to its page"
         );
     }
-    // Every page of the replies' own chapters has its constant: none is idle.
     for primary in [&d46_recovery::PRIMARY, &d56_replies::PRIMARY] {
         for sub in primary.subs {
             if [
@@ -1322,7 +1275,7 @@ fn the_replies_pages_resolve_and_their_marks_are_their_addresses() {
             ]
             .contains(&sub.route)
             {
-                continue; // sent whole, as a route
+                continue;
             }
             for number in 1..=sub.pages.len() {
                 let cells = r::Page::new(sub.route, number).cells();
@@ -1330,7 +1283,6 @@ fn the_replies_pages_resolve_and_their_marks_are_their_addresses() {
             }
         }
     }
-    // Marks stay `&str` consts beside their detectors: each is its page.
     assert_eq!(
         crate::agent::harness::HOOK_BLOCKED_PREFIX,
         format!("{} ", p::HOOK_BLOCKED.cells())
@@ -1363,17 +1315,12 @@ fn the_replies_pages_resolve_and_their_marks_are_their_addresses() {
             crate::agent::harness::AGED_TAIL
         )
     );
-    // A hook denial saved before the marker became a page is still a denial.
     assert!(crate::agent::harness::is_hook_blocked_result(
         "[angel-hook-blocked/v1] tool 'shell' blocked by PreToolUse hook: hook timed out"
     ));
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A failed reply keeps its facts inline — the path and tags, the redirection
-/// target, the seconds, the next offset — while the directive it used to spell
-/// out is gone from the result and rides as a page address that decodes to
-/// the original words.
 #[test]
 fn a_failed_reply_keeps_its_facts_and_sends_the_way_back_as_a_page() {
     use crate::agent::harness::Tool;
@@ -1392,7 +1339,6 @@ fn a_failed_reply_keeps_its_facts_and_sends_the_way_back_as_a_page() {
         );
     };
 
-    // A stale edit: the tags stay, re-reading is the page.
     std::fs::write(root.join("a.rs"), "fn a() {}\n").unwrap();
     let stale = crate::agent::tools::file::StrReplaceTool { root: root.clone() }
         .call(&serde_json::json!({
@@ -1411,7 +1357,6 @@ fn a_failed_reply_keeps_its_facts_and_sends_the_way_back_as_a_page() {
         "fn a() {}\n"
     );
 
-    // A shell rejection: the out-of-scope target and the editable paths stay.
     {
         let _guard = crate::tests::env_lock();
         let _active = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACTIVE", "1");
@@ -1434,7 +1379,6 @@ fn a_failed_reply_keeps_its_facts_and_sends_the_way_back_as_a_page() {
         assert!(!root.join("notes.txt").exists());
     }
 
-    // A timeout: the seconds and the kill stay; the knob is the page.
     let timeout = crate::agent::harness::timeout_note(120, None);
     assert!(
         timeout.contains("[timed out after 120s — process killed]"),
@@ -1446,7 +1390,6 @@ fn a_failed_reply_keeps_its_facts_and_sends_the_way_back_as_a_page() {
         "raise/disable via ANGEL_TOOL_TIMEOUT",
     );
 
-    // Pagination: the counts and the next offset stay; how to page is the page.
     let dir = root.join("listing");
     std::fs::create_dir_all(&dir).unwrap();
     for name in ["a", "b", "c", "d", "e"] {
@@ -1470,8 +1413,6 @@ fn a_failed_reply_keeps_its_facts_and_sends_the_way_back_as_a_page() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A tool-less seat that reads the route its prompt opens with, then answers
-/// with its scripted reply; it keeps the page it read.
 struct RouteReader {
     reply: &'static str,
     read: std::sync::Mutex<Option<String>>,
@@ -1525,9 +1466,6 @@ impl crate::agent::club::Club for RouteReader {
     }
 }
 
-/// The knowledge graph's extractor has no workspace tools: it is connected,
-/// offered the ledger reader alone, reads the route its prompt opens with,
-/// and its reply still folds into the store.
 #[test]
 fn a_knowledge_graph_extraction_seat_is_connected_and_reads_its_route() {
     let root = scratch("connect-kg");
@@ -1600,8 +1538,6 @@ fn a_locked_loop_is_sent_with_its_copies_collapsed_when_switched_on() {
             args: serde_json::json!({ "command": "npx jest dbg.spec.js" }),
         }])
     };
-    // The same probe, the same output but for its timing digits, four times,
-    // with a loop stamp after each copy; a different call in between.
     let mut history = vec![ChatMsg::system("standing"), ChatMsg::user("task")];
     for hop in 0..4 {
         history.push(probe(hop));
@@ -1648,8 +1584,6 @@ fn a_locked_loop_is_sent_with_its_copies_collapsed_when_switched_on() {
             "⛔⠇⠓⠃\n\n⠇⠓⠃ name the assumption behind the repeated call and check what could change its answer",
         ]
     );
-    // The view never ends where an earlier one did: each further copy closes
-    // the request with the next page, starting from the count.
     let mut longer = history.clone();
     longer.push(probe(4));
     longer.push(ChatMsg::tool("call_4", "len 19 over false\nTime: 0.049 s"));
@@ -1658,10 +1592,8 @@ fn a_locked_loop_is_sent_with_its_copies_collapsed_when_switched_on() {
     let three: Vec<ChatMsg> = history[..14].to_vec();
     assert!(closing(&three).starts_with("⛔⠇⠁ ×3\n\n⠇⠁ You've repeated"), "{}", closing(&three));
 
-    // Two sightings are not a locked loop yet.
     let short: Vec<ChatMsg> = history[..8].to_vec();
     assert_eq!(l_loops::collapse_repeats(&short).len(), short.len());
-    // A changed outcome is not a copy.
     let mut changed = history.clone();
     changed[12] = ChatMsg::tool("call_2", "len 20 over true\nTime: 0.029 s");
     assert!(l_loops::collapse_repeats(&changed).len() > sent.len());

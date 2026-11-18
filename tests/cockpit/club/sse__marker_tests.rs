@@ -28,7 +28,6 @@ fn full_markers_in_one_chunk_split() {
 
 #[test]
 fn markers_across_chunk_boundaries() {
-    // Every marker is cut mid-tag at a chunk boundary.
     let (r, c) = split_feed(&["pre<thi", "nk>why</thi", "nk>post"]);
     assert_eq!(r, "why");
     assert_eq!(c, "prepost");
@@ -69,8 +68,6 @@ fn unclosed_think_ends_as_reasoning_never_content() {
 
 #[test]
 fn lenient_first_close_without_open_tag() {
-    // Ollama/llama.cpp style: the open tag lives in the prefill, so the
-    // first marker seen is the close tag.
     let (r, c) = split_feed(&["step by step reasoning</think>final answer"]);
     assert_eq!(r, "step by step reasoning");
     assert_eq!(c, "final answer");
@@ -296,4 +293,82 @@ fn response_tag_split_across_chunks() {
     let (r, c) = split_feed(&["<think>r</think><respo", "nse>answer"]);
     assert_eq!(r, "r");
     assert_eq!(c, "answer");
+}
+
+#[test]
+fn response_tag_after_a_whitespace_only_chunk() {
+    let (r, c) = split_feed(&["<think>why</think>", "\n\n", "<response>answer</response>"]);
+    assert_eq!(r, "why");
+    assert_eq!(c, "answer");
+}
+
+#[test]
+fn response_tag_cut_after_its_first_byte() {
+    let (r, c) = split_feed(&["<think>why</think>", "<", "response>answer"]);
+    assert_eq!(r, "why");
+    assert_eq!(c, "answer");
+}
+
+#[test]
+fn response_tag_cut_after_a_whitespace_only_chunk() {
+    let (r, c) = split_feed(&["<think>why</think>", " ", "<resp", "onse>answer"]);
+    assert_eq!(r, "why");
+    assert_eq!(c, "answer");
+}
+
+#[test]
+fn whitespace_only_chunks_after_think_close_match_one_shot() {
+    let (r, c) = split_feed(&["<think>a</think>", "\n", "\n", "Hello"]);
+    assert_eq!(r, "a");
+    assert_eq!(c, "Hello");
+}
+
+#[test]
+fn response_tag_after_answer_text_stays_verbatim() {
+    let (r, c) = split_feed(&["<think>a</think>", "\n", "x", "<response>y"]);
+    assert_eq!(r, "a");
+    assert_eq!(c, "x<response>y");
+}
+
+#[test]
+fn whitespace_after_a_chunk_final_response_tag_is_skipped() {
+    let (r, c) = split_feed(&["<think>a</think>", "<response>", "\nanswer"]);
+    assert_eq!(r, "a");
+    assert_eq!(c, "answer");
+    let (_, c) = split_feed(&["<think>a</think><response>", "\n", "  answer"]);
+    assert_eq!(c, "answer");
+    let (_, c) = split_feed(&["<think>a</think><response>", "x", " y"]);
+    assert_eq!(c, "x y");
+}
+
+#[test]
+fn a_streamed_prefill_think_moves_earlier_content_to_reasoning() {
+    let mut acc = StreamAccumulator {
+        markers_on: Some(true),
+        ..StreamAccumulator::default()
+    };
+    let _ = acc.apply_chunk(&chunk("step by "));
+    let _ = acc.apply_chunk(&chunk("step"));
+    let d = acc.apply_chunk(&chunk("</think>answer"));
+    assert_eq!(d.content.as_deref(), Some("answer"));
+    assert_eq!(acc.take_reasoning(), "step by step");
+    match acc.into_reply(false) {
+        ClubReply::Text(t) => assert_eq!(t, "answer"),
+        other => panic!("expected text reply, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_stream_without_markers_keeps_its_content() {
+    let mut acc = StreamAccumulator {
+        markers_on: Some(true),
+        ..StreamAccumulator::default()
+    };
+    let _ = acc.apply_chunk(&chunk("plain "));
+    let _ = acc.apply_chunk(&chunk("answer"));
+    assert_eq!(acc.take_reasoning(), "");
+    match acc.into_reply(false) {
+        ClubReply::Text(t) => assert_eq!(t, "plain answer"),
+        other => panic!("expected text reply, got {other:?}"),
+    }
 }

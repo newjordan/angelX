@@ -8,21 +8,12 @@ use super::*;
 
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub enum Fx {
-    /// Shake the screen for at least this many ticks.
     Shake(u32),
-    /// A chain hit's spark, from one monster to the next.
     Spark(Spark),
 }
 
-/// No more sparks than this on screen at once.
 const MAX_SPARKS: usize = 32;
 
-/// A knight's pace on the ground under them, in units a second, before what
-/// they are doing (a roll, a spin, a raised shield): their speed bonus, a
-/// privy's waddle, a web, haste, a frog's hop, a chill, a kingdom road
-/// (`roads`, in the kingdom) and the Lay of Haste. The step walks by it, and
-/// so do the host's paint-ahead and the browser's slide: a picture never
-/// disagrees with the knight's own screen about how fast they go.
 pub fn ground_pace(
     hero: &Hero,
     webs: &[hunters::Web],
@@ -60,16 +51,11 @@ pub fn ground_pace(
     pace
 }
 
-/// Whether one more spark fits under the cap, counting this tick's sparks
-/// still waiting for `present`.
 pub fn sparks_room(sparks: &[Spark], fx: &[Fx]) -> bool {
     sparks.len() + fx.iter().filter(|f| matches!(f, Fx::Spark(_))).count() < MAX_SPARKS
 }
 
 impl Run {
-    /// Knight `id`'s ground pace where they stand: in the party's room, or
-    /// in the room they stepped out to, where the party's webs and song
-    /// do not reach.
     pub fn ground_pace_of(&self, id: u32) -> Option<f32> {
         let hero = self.players.get(&id)?;
         let outside = self.exits.outside.contains_key(&id);
@@ -84,15 +70,11 @@ impl Run {
         Some(ground_pace(hero, webs, song, roads.as_deref(), &self.tune))
     }
 
-    /// The tick's start, after a ride has played: what it showed, then the
-    /// shake eases a tick.
     pub(super) fn fade(&mut self) {
         self.show_fx();
         self.shake = self.shake.saturating_sub(1);
     }
 
-    /// The tick's end: the rest of its events into the picture, and the
-    /// sparks age.
     pub(super) fn present(&mut self) {
         self.show_fx();
         for spark in &mut self.sparks {
@@ -102,8 +84,6 @@ impl Run {
         self.age_gore();
     }
 
-    /// Shakes take the strongest; sparks come in under the cap (also as the
-    /// step ends, for what its watchers showed after the tick).
     pub(super) fn show_fx(&mut self) {
         for fx in std::mem::take(&mut self.fx) {
             match fx {

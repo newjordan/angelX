@@ -18,7 +18,6 @@ use crate::agent::hashline::SectionPlan;
 
 const MAX_STAGED: usize = 32;
 
-/// One planned filesystem mutation held off disk until accept.
 #[derive(Debug, Clone)]
 pub(crate) enum StagedAction {
     Update {
@@ -60,7 +59,6 @@ impl StagedAction {
     }
 }
 
-/// A multi-file proposed batch (one `apply_patch` / hashline call).
 #[derive(Debug, Clone)]
 pub(crate) struct StagedBatch {
     pub(crate) id: u32,
@@ -82,7 +80,6 @@ impl StagedBatch {
         for n in &self.notes {
             out.push_str(&format!("  note: {n}\n"));
         }
-        // How to accept or reject is the `⠨⠑` pages; the id rides beside them.
         out.push_str(&format!(
             "{} id={}\n",
             crate::agent::harness::book::d46_recovery::run(&[
@@ -111,7 +108,6 @@ impl StageStore {
         if self.next_id == 0 {
             self.next_id = 1;
         }
-        // Evict oldest if full.
         while self.batches.len() >= MAX_STAGED {
             if let Some(oldest) = self.batches.keys().copied().min() {
                 self.batches.remove(&oldest);
@@ -164,7 +160,6 @@ fn store() -> std::sync::MutexGuard<'static, StageStore> {
     }
 }
 
-/// Build staged actions from hashline section plans + original bytes.
 pub(crate) fn actions_from_hashline_plans(
     plans: Vec<(SectionPlan, Vec<u8>, Option<String>)>,
 ) -> (Vec<StagedAction>, Vec<String>) {
@@ -198,7 +193,6 @@ pub(crate) fn actions_from_hashline_plans(
     (actions, notes)
 }
 
-/// Stage a batch; returns the agent-facing card.
 pub(crate) fn stage_batch(
     workspace: &Path,
     mut actions: Vec<StagedAction>,
@@ -207,10 +201,6 @@ pub(crate) fn stage_batch(
     if actions.is_empty() {
         return Err("nothing to stage".into());
     }
-    // Retain paths relative to the proposal's original spelling before pinning
-    // its root. Absolute paths through a workspace alias must keep working when
-    // accepted through the canonical spelling, without following a retargeted
-    // alias at commit time.
     let normalize = |path: &mut String| -> Result<(), String> {
         *path = workspace_relative(workspace, Path::new(path))?
             .to_string_lossy()
@@ -269,8 +259,6 @@ pub(crate) fn reject(workspace: &Path, id: u32, reason: Option<&str>) -> Result<
     ))
 }
 
-/// Accept a staged batch: apply all actions transactionally to `workspace`
-/// (must match the batch workspace root).
 pub(crate) fn accept(workspace: &Path, id: u32, reason: Option<&str>) -> Result<String, String> {
     let workspace = WorkspaceBoundary::cached(workspace).canonical_root;
     let batch = store().take(&workspace, id).ok_or_else(|| {
@@ -292,7 +280,6 @@ pub(crate) fn accept(workspace: &Path, id: u32, reason: Option<&str>) -> Result<
     })
 }
 
-/// Apply staged actions to disk (shared with live hashline commit path).
 pub(crate) fn commit_actions(
     root: &Path,
     actions: Vec<StagedAction>,

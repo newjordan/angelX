@@ -30,26 +30,15 @@
 use super::pastimes::Game;
 use super::*;
 
-/// Every encounter's title card: how long the name and its one line of how to
-/// play stand over the game.
 pub const TITLE_TICKS: u32 = 4 * HZ;
-/// How long the payout card holds the room once a game is settled.
 pub const PAYOUT_TICKS: u32 = 5 * HZ;
-/// The most a game's ticks may count: past this a saved game is not one.
 const LONGEST: u32 = 10 * 60 * HZ;
-/// From this floor a second hall may deal a game, and the chance of it in
-/// percent. Fixed numbers, one each.
 pub const SECOND_FROM: u32 = 2;
 pub const SECOND_PERCENT: u64 = 40;
 
-/// How long a hosted game runs before it is cut, in ticks. A campaign or a
-/// match that could run past about three minutes ends here, the knights who
-/// are ahead paid (`Kind::cap`).
 pub const CAP: u32 = 3 * 60 * HZ;
-/// The race's grace after the last knight is home, as the crossroads keeps.
 pub const GRACE: u32 = 2 * HZ;
 
-/// One game a random room can deal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Kind {
@@ -67,14 +56,9 @@ pub enum Kind {
     ShaftRun,
     GriffinRun,
     TorchlightTouge,
-    /// One of the kingdom's arcade games, played on its own stage in the hall
-    /// (`ARCADE`).
     Arcade(Game),
 }
 
-/// The arcade games a hall deals, each on the stage of its own kingdom room.
-/// The Powder Keg is the Powder Room folly, so it is not here; `LEFT_OUT` says
-/// why the others of the old map are not.
 pub const ARCADE: [Game; 18] = [
     Game::Broadsheet,
     Game::Barrel,
@@ -96,9 +80,6 @@ pub const ARCADE: [Game; 18] = [
     Game::Gander,
 ];
 
-/// The games that lost their door on the blank-slate map and are not dealt to
-/// a hall, and the reason for each (a test holds every arcade game to being
-/// dealt, the Powder Room, or here).
 pub const LEFT_OUT: &[(&str, &str)] = &[
     (
         "SIEGE TRAIL",
@@ -118,7 +99,6 @@ pub const LEFT_OUT: &[(&str, &str)] = &[
 ];
 
 impl Kind {
-    /// Every game of the pool, in the order the seed picks from.
     pub const ALL: [Kind; 14] = [
         Kind::WaxMaze,
         Kind::BelfryShoot,
@@ -156,7 +136,6 @@ impl Kind {
         }
     }
 
-    /// One short line of how to play, in capitals for the pixel font.
     pub fn words(self) -> &'static str {
         match self {
             Kind::WaxMaze => "EAT THE WAX, DODGE THE WRAITHS",
@@ -177,12 +156,10 @@ impl Kind {
         }
     }
 
-    /// One of the four follies: they run, stake and pay themselves.
     pub fn folly(self) -> bool {
         matches!(self, Kind::WaxMaze | Kind::BelfryShoot | Kind::PowderRoom | Kind::BookHop)
     }
 
-    /// Won together: everyone is paid on a win. The rest play each other.
     pub fn co_op(self) -> bool {
         matches!(
             self,
@@ -190,8 +167,6 @@ impl Kind {
         )
     }
 
-    /// An adventure of the Round Table, hosted in the hall as it is in the
-    /// Dark Forest.
     pub fn adventure(self) -> Option<&'static roundtable::Adventure> {
         roundtable::adventure(match self {
             Kind::Lanternward => "lanternward",
@@ -205,19 +180,14 @@ impl Kind {
         })
     }
 
-    /// Whether the room's own cap is what limits it (a campaign, a match, a
-    /// race): the card shows the cap's clock. The arcade rounds and the race
-    /// hall keep clocks of their own on the screen.
     pub fn cut_by_cap(self) -> bool {
         self.co_op() || matches!(self, Kind::KnightRacers | Kind::KnightsWish)
     }
 
-    /// The fewest knights it can be dealt to: a free-for-all needs a rival.
     pub fn least(self) -> usize {
         if self == Kind::KnightsWish { 2 } else { 1 }
     }
 
-    /// The race hall's course, for the three that ride the race hall.
     pub fn course(self) -> Option<race3d::Course> {
         match self {
             Kind::ShaftRun => Some(race3d::Course::Shaft),
@@ -227,13 +197,10 @@ impl Kind {
         }
     }
 
-    /// The most ticks it runs before it is cut. The follies and the race
-    /// hall keep their own clocks, which are all under it.
     pub fn cap(self) -> u32 {
         CAP
     }
 
-    /// What a solo-safe game stands in for one that needs a rival.
     fn stand_in(self) -> Kind {
         match self {
             Kind::KnightsWish => Kind::KnightRacers,
@@ -242,8 +209,6 @@ impl Kind {
     }
 }
 
-/// The folly an old floor's hall was dealt before the pool: the rotation the
-/// seed's pick replaced, kept for a save that has none.
 pub fn legacy(depth: u32) -> Kind {
     match depth % 3 {
         1 => Kind::WaxMaze,
@@ -253,55 +218,37 @@ pub fn legacy(depth: u32) -> Kind {
     }
 }
 
-/// What a knight was at the door, put back when the game is over: health and
-/// armour, and the gear they were dressed in.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Kept {
     pub hp: u32,
     pub armor: u32,
     pub gear: u8,
     pub gear_was: u8,
-    /// Where they stood in the hall, in units.
     pub x: i32,
     pub y: i32,
 }
 
-/// How a settled game ended and what it paid, for the payout card.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct End {
-    /// Whether the table won (a game for the table) or anybody was paid.
     pub won: bool,
-    /// Whether the cap ended it.
     pub capped: bool,
-    /// The knights in the order they are paid.
     pub order: Vec<u32>,
-    /// Gold each knight is paid, the ante returned and the pot included.
     pub paid: BTreeMap<u32, u32>,
-    /// Ticks the card has left.
     pub left: u32,
 }
 
-/// The game a hall is playing now.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Live {
     pub room: usize,
     pub kind: Kind,
-    /// Ticks since it opened.
     pub t: u32,
-    /// The knights it seats: every living knight in the room as it opened,
-    /// less those who have walked out.
     pub seats: Vec<u32>,
-    /// What each antes (a folly keeps its own).
     pub ante: BTreeMap<u32, u32>,
     pub kept: BTreeMap<u32, Kept>,
-    /// The hall as it was, while a stage of another kind stands in its place.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hall: Option<Box<Room>>,
-    /// Ticks the table has been all home, for the race's grace.
     #[serde(default)]
     pub home: u32,
-    /// An arcade game's heat is judged: the knights who won their round, best
-    /// first.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fin: Option<Vec<u32>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -332,41 +279,30 @@ impl Live {
             })
     }
 
-    /// Whether the title card is up.
     pub fn titled(&self) -> bool {
         self.t < TITLE_TICKS
     }
 
-    /// Whole seconds of the clock left, counting to the cap.
     pub fn left(&self) -> u32 {
         self.kind.cap().saturating_sub(self.t).div_ceil(HZ)
     }
 }
 
-/// A floor's encounter hall and the game it deals.
 pub type Door = (usize, Kind);
 
 #[cfg(any(test, feature = "testing"))]
 impl Run {
-    /// Deal the folly hall `kind`: the fixtures that draw or play one particular
-    /// game of the pool. `None` when the floor has no such hall.
     pub fn deal_for_test(&mut self, kind: Kind) -> Option<usize> {
         let index = self.folly_room?;
         self.encounter_rooms = vec![(index, kind)];
         Some(index)
     }
 
-    /// Deal the folly hall the rotation's game for this floor (the Wax Maze on
-    /// the first, the Belfry Shoot on the second ...): what the floors dealt
-    /// before the pool, for the fixtures that draw or play those follies.
     pub fn deal_legacy_for_test(&mut self) -> Option<usize> {
         self.deal_for_test(legacy(self.dungeon.depth))
     }
 }
 
-/// The pick for hall number `slot` of a floor: the seed's choice from the
-/// pool, never a game the floor before dealt nor one this floor has. Pure:
-/// it draws from no dice, so dealing never changes a floor or the next.
 pub fn pick(seed: u64, raid: u64, depth: u32, slot: usize, party: usize, avoid: &[Kind]) -> Kind {
     let salt = mix(seed ^ raid.rotate_left(11) ^ u64::from(depth).rotate_left(5) ^ (slot as u64 + 1).rotate_left(23));
     let choose = |pool: &[Kind], salt: u64| {
@@ -377,19 +313,16 @@ pub fn pick(seed: u64, raid: u64, depth: u32, slot: usize, party: usize, avoid: 
     let pool = pool();
     let kind = choose(&pool, salt);
     if kind.least() > party {
-        // A free-for-all needs a rival: a lone knight is dealt a game for one.
         let solo: Vec<Kind> = pool.iter().copied().filter(|k| k.least() <= party).collect();
         return choose(&solo, mix(salt ^ 0x5010));
     }
     kind
 }
 
-/// Every game the seed may deal.
 pub fn pool() -> Vec<Kind> {
     Kind::ALL.into_iter().chain(ARCADE.map(Kind::Arcade)).collect()
 }
 
-/// An arcade game's goal in one line (its own intro board has the keys).
 fn arcade_words(game: Game) -> &'static str {
     match game {
         Game::Broadsheet => "POST THE PAPERS IN THE GOLD BOXES",
@@ -416,9 +349,6 @@ fn arcade_words(game: Game) -> &'static str {
 }
 
 impl Run {
-    /// The game hall `index` deals, if it is an encounter room: the pick
-    /// the floor was dealt, or (an old save's folly hall) the rotation it
-    /// would have had.
     pub fn encounter_at(&self, index: usize) -> Option<Kind> {
         if let Some(&(_, kind)) = self.encounter_rooms.iter().find(|&&(room, _)| room == index) {
             return Some(kind);
@@ -426,23 +356,16 @@ impl Run {
         (self.folly_room == Some(index)).then(|| legacy(self.dungeon.depth))
     }
 
-    /// Whether hall `index` hosts a game of any kind (a folly, a gantry, a
-    /// race hall, or an encounter): the rooms nothing else is raised in.
     pub fn hosts_game(&self, index: usize) -> bool {
         [self.folly_room, self.gantry_room, self.race3d_room].contains(&Some(index))
             || self.encounter_rooms.iter().any(|&(room, _)| room == index)
     }
 
-    /// A new floor starts: what this one dealt is what the next must not.
     pub(super) fn roll_encounters(&mut self) {
         self.encounter_prev = self.encounter_rooms.iter().map(|&(_, kind)| kind).collect();
         self.encounter_rooms.clear();
     }
 
-    /// Deal the floor's games: its folly hall (`pick_folly`) takes the seed's
-    /// pick, and from the second floor a second hall may take another.
-    /// Never the start, a boss's camp or a guardian's room, nor the way down
-    /// (`pick_folly` keeps to halls); never a game the floor before dealt.
     pub(super) fn pick_encounters(&mut self) {
         self.encounter_rooms.clear();
         if self.dungeon.depth == 0 {
@@ -472,7 +395,6 @@ impl Run {
                 })
                 .collect()
         };
-        // A spare hall, else a spare fight room (as the folly hall is picked).
         let mut halls = of(RoomKind::Hall);
         if halls.is_empty() {
             halls = of(RoomKind::Fight);
@@ -487,31 +409,22 @@ impl Run {
         self.encounter_rooms.push((halls[at], two));
     }
 
-    /// An encounter is under way in the hall the party stands in.
     pub fn encounter_running(&self) -> bool {
         self.encounter.as_ref().is_some_and(|e| e.room == self.at)
     }
 
-    /// An encounter that this module hosts (not a folly) is under way in this
-    /// room: the games that ask whether the stage is theirs.
     pub fn encounter_hosts(&self) -> bool {
         self.encounter.as_ref().is_some_and(|e| e.room == self.at && !e.kind.folly())
     }
 
-    /// The stage an adventure of the Round Table plays on: the Dark Forest's
-    /// room at its kingdom door, or the hall an encounter dealt it.
     pub fn on_stage(&self) -> bool {
         self.room().kind == RoomKind::Forest || self.encounter_hosts()
     }
 
-    /// Whether the room's game is paid here and not by the game itself: the
-    /// crossroads' vote or an encounter.
     pub fn host_pays(&self) -> bool {
         self.crossroads.is_some() || self.encounter_hosts()
     }
 
-    /// Walk the party into hall `index` and open its game for every living
-    /// knight in it.
     pub(super) fn start_encounter(&mut self, index: usize, from: Option<usize>, dealt: Kind) {
         let seats: Vec<u32> = self
             .players
@@ -519,7 +432,6 @@ impl Run {
             .filter(|(_, h)| h.hp > 0 && !h.stone && !h.absent && !h.away)
             .map(|(&id, _)| id)
             .collect();
-        // A free-for-all is never dealt to a lone knight, whoever has left.
         let kind = if dealt.least() > seats.len() { dealt.stand_in() } else { dealt };
         if kind != dealt {
             for door in &mut self.encounter_rooms {
@@ -536,8 +448,6 @@ impl Run {
                 (id, Kept { hp: h.hp, armor: h.armor, gear: h.gear, gear_was: h.gear_was, x: at(h.x * 16.0), y: at(h.y * 16.0) })
             })
             .collect();
-        // The games say how to play in a line of their own at a kingdom door;
-        // here the title card does, and whatever was on the notice stays.
         let notice = self.found.clone();
         self.encounter = Some(Live {
             room: index,
@@ -557,7 +467,6 @@ impl Run {
             Kind::PowderRoom => self.start_powder(index),
             Kind::BookHop => self.start_book_hop(index),
             _ => {
-                // Everyone antes a tenth of what they carry, as at a folly.
                 let mut stake = self.players.clone();
                 stake.retain(|id, _| seats.contains(id));
                 let (ante, _) = folly::take_antes(&mut stake);
@@ -570,9 +479,6 @@ impl Run {
                     live.ante = ante;
                 }
                 self.open_hosted(index, kind, &seats);
-                // A game that would not open (its engine is missing) is never
-                // left standing as an empty room: the stake goes back and the
-                // hall deals the Wax Maze, which needs nothing.
                 if !self.hosted_open(kind, self.encounter.as_ref()) {
                     self.refund_ante();
                     self.encounter = None;
@@ -590,7 +496,6 @@ impl Run {
         self.cues.push("folly".into());
     }
 
-    /// Raise the hosted game itself.
     fn open_hosted(&mut self, index: usize, kind: Kind, seats: &[u32]) {
         match kind {
             Kind::Lanternward => self.start_lanternward(),
@@ -605,19 +510,14 @@ impl Run {
                     self.start_race3d_hosted(index, course, seats);
                 }
             }
-            // Its stage is raised on the first tick, after the hall's own
-            // entry has run (`tick_encounter`).
             Kind::Arcade(_) => {}
             _ => {}
         }
     }
 
-    /// An arcade game on its own stage: the hall is put by and the game's room
-    /// stands in its place, every knight on its pad with a round of their own.
     fn start_arcade(&mut self, index: usize, game: Game, seats: &[u32]) {
         let cell = self.dungeon.rooms[index].cell;
         let mut stage = world::world_room(game.room(), cell);
-        // A stage's own stairs and doors are no way out of the hall.
         for row in 0..stage.rows as i32 {
             for col in 0..stage.cols as i32 {
                 match stage.tile(col, row) {
@@ -635,7 +535,6 @@ impl Run {
         if let Some(live) = &mut self.encounter {
             live.hall = Some(Box::new(hall));
         }
-        // Side by side on the pad, as clear of stone as the stage allows.
         let (px, py) = game.start();
         let grid = Grid { room: &self.dungeon.rooms[index], barred: false };
         let mut spots = Vec::new();
@@ -654,8 +553,6 @@ impl Run {
         self.start_encounter_pastime(game, seats, &spots);
     }
 
-    /// The heat is judged (`pastimes::judge_heat`): who won their round, best
-    /// first. A round nobody won is the room's loss.
     pub(super) fn heat_to_encounter(&mut self, heat: &pastimes::Heat) {
         let mut winners: Vec<u32> = heat
             .seats
@@ -672,8 +569,6 @@ impl Run {
         }
     }
 
-    /// One lap of a cup course the seed and the floor pick, every knight on the
-    /// grid; a lone knight races five rivals, two or more race each other.
     fn start_encounter_race(&mut self, seats: &[u32]) {
         let humans: Vec<(u32, String)> = seats
             .iter()
@@ -692,14 +587,11 @@ impl Run {
         self.knight_racers = Some(s);
     }
 
-    /// The race hall's course, staked by this module and not by the race.
     fn start_race3d_hosted(&mut self, index: usize, course: race3d::Course, seats: &[u32]) {
         let scores = seats.iter().map(|&id| (id, 0u32)).collect();
         self.open_race3d(index, course, BTreeMap::new(), scores, true);
     }
 
-    /// Whether the hosted game's state is up (`live` is the game being asked
-    /// about, which the caller may hold off the run for the moment).
     fn hosted_open(&self, kind: Kind, live: Option<&Live>) -> bool {
         match kind {
             Kind::Lanternward => self.lanternward.is_some(),
@@ -717,7 +609,6 @@ impl Run {
         }
     }
 
-    /// Put every knight's ante back in their pockets.
     fn refund_ante(&mut self) {
         let Some(live) = &mut self.encounter else {
             return;
@@ -729,8 +620,6 @@ impl Run {
         }
     }
 
-    /// Hold every seated knight above zero: a knight never falls in a random
-    /// room, and nothing here can end the run.
     pub(super) fn keep_hearts(&mut self) {
         let Some(live) = &self.encounter else {
             return;
@@ -745,11 +634,7 @@ impl Run {
         }
     }
 
-    /// The tick of the room's game, after the game's own: who has left, the
-    /// clock, the end and the payout.
     pub(super) fn tick_encounter(&mut self, inputs: &BTreeMap<u32, Input>) {
-        // An arcade game's stage is raised on the first tick, then its round
-        // plays on it.
         if let Some(live) = &self.encounter
             && let Kind::Arcade(game) = live.kind
             && live.room == self.at
@@ -771,7 +656,6 @@ impl Run {
             return;
         };
         if live.room != self.at || live.room >= self.dungeon.rooms.len() {
-            // The party has left the hall: its game is over.
             self.unstage(live);
             return;
         }
@@ -792,7 +676,6 @@ impl Run {
             return;
         }
         if live.kind.folly() {
-            // A folly runs, stakes and pays itself: it is over when its state is.
             if self.folly_over(&live) {
                 self.close_encounter(live);
             } else {
@@ -810,7 +693,6 @@ impl Run {
         self.encounter = Some(live);
     }
 
-    /// Whether the folly the hall played is done.
     fn folly_over(&self, live: &Live) -> bool {
         let here = |room: usize| room == live.room;
         match live.kind {
@@ -822,13 +704,9 @@ impl Run {
         }
     }
 
-    /// Whether a hosted game is over, how, and the knights in the order they
-    /// are paid. `None` while it goes on.
     fn encounter_result(&self, live: &mut Live) -> Option<(bool, bool, Vec<u32>)> {
         let capped = live.t >= live.kind.cap();
         let seats = live.seats.clone();
-        // A game whose state has gone (a restored save missing it) is over,
-        // the stake lost.
         if !self.hosted_open(live.kind, Some(live)) {
             return Some((false, false, Vec::new()));
         }
@@ -871,7 +749,6 @@ impl Run {
                     return Some((!winners.is_empty(), false, winners));
                 }
                 if capped {
-                    // A long round (the siege) is cut: those who had won theirs are paid.
                     let heat = self.pastimes.heat.as_ref()?;
                     let mut won: Vec<(u32, u16, u8)> = heat
                         .done
@@ -888,12 +765,9 @@ impl Run {
         }
     }
 
-    /// The first objective of a campaign: what a few minutes' play can win.
     pub fn objective_met(&self, kind: Kind) -> bool {
         match kind {
-            // The first room's door taken to the second.
             Kind::Lanternward => self.lanternward.as_ref().is_some_and(|s| s.room >= 1 || s.done.is_some()),
-            // The first favour done: a gate opened, the ink taken, the ditch filled.
             Kind::Moonfall => self.moonfall.as_ref().is_some_and(|s| {
                 s.completed.is_some()
                     || s.world.has(moonfall::state::NORTH_OPEN)
@@ -901,18 +775,13 @@ impl Run {
                     || s.world.has(moonfall::state::INK_TAKEN)
                     || s.world.has(moonfall::state::DITCH_FILLED)
             }),
-            // The first banner raised.
             Kind::Bannerpeak => self.bannerpeak.as_ref().is_some_and(|s| s.banners != 0 || s.completed.is_some()),
-            // The first beat flown.
             Kind::Griffinwing => self.griffinwing.as_ref().is_some_and(|s| s.stage >= 1 || s.done.is_some()),
-            // The first lantern post lit, or the first bell rung.
             Kind::Lightgallop => self.lightgallop.as_ref().is_some_and(|s| s.posts != 0 || s.bell_t.is_some()),
             _ => false,
         }
     }
 
-    /// The game is settled: stakes, purse and wish paid, and the payout card
-    /// up for `PAYOUT_TICKS`.
     fn settle_encounter(&mut self, live: &mut Live, won: bool, capped: bool, order: Vec<u32>) {
         let mut paid: BTreeMap<u32, u32> = BTreeMap::new();
         let co_op = live.kind.co_op();
@@ -921,15 +790,12 @@ impl Run {
             if !live.seats.contains(&id) || !self.players.contains_key(&id) {
                 continue;
             }
-            // A game for the table pays everyone the first place's purse.
             let place = if co_op { 0 } else { place };
             let mut gold = crossroads::gold(place);
             let mut spoils = Spoils::default();
             spoils.add(Spoil::Gold, gold);
             self.tally_coin(&spoils);
             self.bank.push(Haul { hero: id, spoils, why: "encounter prize".into() });
-            // The ante comes back to the winner of a game for the table, and
-            // the pot goes to the first of a game between them.
             let back = if co_op {
                 live.ante.get(&id).copied().unwrap_or(0)
             } else if place == 0 {
@@ -952,7 +818,6 @@ impl Run {
             paid.insert(id, gold);
         }
         let any = !paid.is_empty();
-        // The card lists them in the order they were paid in.
         let order: Vec<u32> = order.into_iter().filter(|id| paid.contains_key(id)).collect();
         live.end = Some(End { won: won && any, capped, order, paid, left: PAYOUT_TICKS });
         self.sounds.push(if any { "gold" } else { "door_seal" });
@@ -961,8 +826,6 @@ impl Run {
         }
     }
 
-    /// The payout card is down: the game ends, the room is cleared and its
-    /// doors open, the knights as they came in.
     fn close_encounter(&mut self, live: Live) {
         let room = live.room;
         self.unstage(live);
@@ -976,8 +839,6 @@ impl Run {
         self.sounds.push("door_open");
     }
 
-    /// End a game: its state cleared, the hall put back, and every knight's
-    /// health and gear as they were at the door.
     pub(super) fn unstage(&mut self, mut live: Live) {
         match live.kind {
             Kind::WaxMaze | Kind::BelfryShoot | Kind::PowderRoom | Kind::BookHop => {}
@@ -1011,7 +872,6 @@ impl Run {
         self.encounter = None;
     }
 
-    /// The party has left the hall (or the floor changed): end the game.
     pub(super) fn abandon_encounter(&mut self) {
         if let Some(live) = self.encounter.take() {
             self.unstage(live);
@@ -1019,14 +879,10 @@ impl Run {
     }
 }
 
-/// The knights of `seats` in `order`: the humans' running order, a rival's
-/// seat dropped.
 fn standing(order: &[u32], seats: &[u32]) -> Vec<u32> {
     order.iter().copied().filter(|id| seats.contains(id)).collect()
 }
 
-/// A race's result: the knights in order. A lone knight against rivals is
-/// paid only for first place overall, as a win is.
 fn ranked(order: &[u32], seats: &[u32], capped: bool) -> (bool, bool, Vec<u32>) {
     let humans = standing(order, seats);
     if seats.len() == 1 && order.first() != seats.first() {

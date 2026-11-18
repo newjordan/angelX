@@ -26,8 +26,6 @@ fn inside(x: i32, y: i32) -> bool {
     x >= 0 && y >= 0 && x < MAP_W && y < MAP_H
 }
 
-/// One kind of clump a biome grows: its tile, its chance per thousand
-/// grid cells, and its half-widths across and down.
 struct Clump {
     tile: u8,
     chance: u32,
@@ -39,29 +37,17 @@ const fn clump(tile: u8, chance: u32, rx: (i32, i32), ry: (i32, i32)) -> Clump {
     Clump { tile, chance, rx, ry }
 }
 
-/// What each biome grows, by grid cell of 8x6 tiles, in `Biome::ALL` order.
 const CLUMPS: [&[Clump]; 11] = [
-    // Castle Town: ornamental clumps and garden plots on the greens.
     &[clump(b'T', 420, (1, 2), (1, 1)), clump(b'c', 140, (2, 3), (1, 1))],
-    // Greenwood: groves with glades between.
     &[clump(b'T', 760, (2, 4), (1, 3)), clump(b'~', 40, (1, 2), (1, 1))],
-    // The Highlands: outcrops and pines, a tarn.
     &[clump(b'^', 280, (1, 3), (1, 2)), clump(b'T', 260, (1, 2), (1, 2)), clump(b'~', 30, (1, 2), (1, 1))],
-    // The Wastes: scree, lava pools, dead trees.
     &[clump(b'^', 220, (1, 3), (1, 2)), clump(b'L', 80, (1, 2), (1, 1)), clump(b'd', 300, (2, 3), (1, 2))],
-    // The Coast: dunes, a few pines and rocks.
     &[clump(b'T', 150, (1, 2), (1, 2)), clump(b'^', 120, (1, 2), (1, 1)), clump(b's', 220, (2, 3), (1, 2))],
-    // The Fen: meres, reeds, alders.
     &[clump(b'~', 330, (1, 3), (1, 2)), clump(b'T', 120, (1, 2), (1, 1)), clump(b'd', 180, (1, 2), (1, 1))],
-    // The Tilt-Yards: open paddocks.
     &[clump(b'T', 300, (1, 2), (1, 2))],
-    // The Fairground: one big field.
     &[clump(b'T', 260, (1, 2), (1, 1))],
-    // Wind Country: crop strips, a stone on a hilltop.
     &[clump(b'c', 330, (2, 3), (1, 1)), clump(b'T', 160, (1, 2), (1, 1)), clump(b'^', 70, (1, 1), (1, 1))],
-    // Longbow Country: fields and copses.
     &[clump(b'c', 250, (2, 3), (1, 1)), clump(b'T', 280, (1, 3), (1, 2))],
-    // The March: groves, fields, a few rocks.
     &[clump(b'T', 420, (1, 3), (1, 2)), clump(b'c', 150, (2, 3), (1, 1)), clump(b'^', 80, (1, 2), (1, 1))],
 ];
 
@@ -69,7 +55,6 @@ fn clumps(b: Biome) -> &'static [Clump] {
     CLUMPS[usize::from(b.index())]
 }
 
-/// The ground a biome lays before anything grows on it.
 fn ground(b: Biome, x: i32, y: i32) -> u8 {
     match b {
         Biome::Wastes if vnoise(x as f32 / 6.0, y as f32 / 5.0, 476) > 0.42 => b'a',
@@ -78,7 +63,6 @@ fn ground(b: Biome, x: i32, y: i32) -> u8 {
     }
 }
 
-/// How the border between two biomes is drawn.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Edge {
     River,
@@ -87,8 +71,6 @@ pub enum Edge {
     Hedge,
 }
 
-/// The border on the chunk edge above chunk `(cx, cy)` (`across`) or left
-/// of it, between biomes `a` and `b`.
 pub fn edge(a: Biome, b: Biome, across: bool, cx: i32, cy: i32) -> Option<Edge> {
     if a == b {
         return None;
@@ -108,16 +90,11 @@ pub fn edge(a: Biome, b: Biome, across: bool, cx: i32, cy: i32) -> Option<Edge> 
     })
 }
 
-/// Grow the realm's ground around the set pieces and under the roads
-/// (`roads` is the laid road width at each tile).
 pub fn grow(roads: &[u8]) -> Vec<u8> {
     let near = road_distance(roads, 4);
     let mut keep = vec![false; N];
-    // The set pieces, the fixed lots (the Delve's gate, the College) and
-    // the castles keep a tile of open ground round them.
     let gate = super::wishes::DELVE_GATE;
     let school = super::college::LOT;
-    // Each castle keeps its footprint and the ground before its gate.
     let fixed = set_pieces()
         .map(|(_, (ox, oy))| (ox, oy, SCREEN_W, SCREEN_H))
         .chain([(gate.tx, gate.ty, gate.tw, gate.th), (school.tx, school.ty, school.tw, school.th)])
@@ -147,14 +124,11 @@ pub fn grow(roads: &[u8]) -> Vec<u8> {
     t
 }
 
-/// Once the set pieces stand in the grown ground: their water and rock
-/// run on past their edges, and meadow by water turns to shore.
 pub fn finish(t: &mut [u8]) {
     bleed(t);
     shore(t);
 }
 
-/// The steps from each tile to the nearest road tile, up to `cap`.
 fn road_distance(roads: &[u8], cap: u8) -> Vec<u8> {
     let mut d = vec![cap; N];
     let mut frontier: Vec<(i32, i32)> = Vec::new();
@@ -210,14 +184,11 @@ fn grow_clumps(t: &mut [u8], open: &impl Fn(i32, i32) -> bool) {
                     if !open(x, y) || biome::at(x, y) != home {
                         continue;
                     }
-                    // Crop strips are fields, square-cornered; the rest
-                    // are ragged rounds.
                     let fit = c.tile == b'c' || {
                         let (fx, fy) = (dx as f32 / (rx as f32 + 0.5), dy as f32 / (ry as f32 + 0.5));
                         let ragged = (hash(x, y, 464) % 100) as f32 / 300.0;
                         fx * fx + fy * fy <= 0.85 + ragged
                     };
-                    // Dead trees stand apart, not in a thicket.
                     let sparse = c.tile != b'd' || hash(x, y, 465).is_multiple_of(3);
                     if fit && sparse {
                         t[idx(x, y)] = c.tile;
@@ -228,10 +199,6 @@ fn grow_clumps(t: &mut [u8], open: &impl Fn(i32, i32) -> bool) {
     }
 }
 
-/// Streams in the Highlands and lava in the Wastes: from a spring among
-/// the rocks a course runs down the chunk, a fall wherever it leaves rock,
-/// and settles in a pool. About half the Highlands' chunks have one, a
-/// third of the Wastes'.
 fn watercourses(t: &mut [u8], open: &impl Fn(i32, i32) -> bool) {
     for cy in 0..CHUNKS_Y {
         for cx in 0..CHUNKS_X {
@@ -251,7 +218,6 @@ fn watercourses(t: &mut [u8], open: &impl Fn(i32, i32) -> bool) {
             if !open(x, top) || !open(x, top + 1) {
                 continue;
             }
-            // It springs from a rock face: a fall between two crags.
             for side in [x - 1, x + 1] {
                 if open(side, top) {
                     t[idx(side, top)] = b'^';
@@ -265,7 +231,6 @@ fn watercourses(t: &mut [u8], open: &impl Fn(i32, i32) -> bool) {
                 }
                 t[idx(x, y)] = if t[idx(x, y)] == b'^' { drop } else { run };
                 end = Some((x, y));
-                // Now and then it steps aside, staying joined.
                 let side = match hash(x, y, 478) % 4 {
                     0 => -1,
                     1 => 1,
@@ -291,8 +256,6 @@ fn watercourses(t: &mut [u8], open: &impl Fn(i32, i32) -> bool) {
     }
 }
 
-/// Each castle of the March stands on a rise: a crescent of rock behind it
-/// and down its flanks, open toward its road.
 fn rises(t: &mut [u8], near: &[u8]) {
     for (tx, ty, tw, _) in super::houses::footprints() {
         for x in tx - 2..tx + tw + 2 {
@@ -312,7 +275,6 @@ fn rises(t: &mut [u8], near: &[u8]) {
     }
 }
 
-/// Mountains along the Highlands' and the Wastes' north rim.
 fn mountains(t: &mut [u8], open: &impl Fn(i32, i32) -> bool) {
     for x in 0..MAP_W {
         if !matches!(biome::at(x, 0), Biome::Highlands | Biome::Wastes) {
@@ -328,7 +290,6 @@ fn mountains(t: &mut [u8], open: &impl Fn(i32, i32) -> bool) {
 }
 
 fn borders(t: &mut [u8], near: &[u8], keep: &[bool]) {
-    // `across`: the edge along the top of chunk (cx, cy); else its left.
     for cy in 0..CHUNKS_Y {
         for cx in 0..CHUNKS_X {
             for across in [true, false] {
@@ -351,7 +312,6 @@ fn borders(t: &mut [u8], near: &[u8], keep: &[bool]) {
                 let at = |along: i32, off: i32| if across { (along, line + off) } else { (line + off, along) };
                 let mut last = None;
                 for along in start..start + len {
-                    // The line wanders up to two tiles off the edge.
                     let wander = vnoise(along as f32 / 9.0, line as f32 / 3.0, 468);
                     let shift = match kind {
                         Edge::River => -((wander * 3.0) as i32).min(2),
@@ -372,7 +332,6 @@ fn borders(t: &mut [u8], near: &[u8], keep: &[bool]) {
                     };
                     match kind {
                         Edge::River => {
-                            // Two tiles of water, joined where it bends.
                             for off in from - 1..=to {
                                 put(t, off, b'~');
                             }
@@ -383,8 +342,6 @@ fn borders(t: &mut [u8], near: &[u8], keep: &[bool]) {
                             }
                         }
                         Edge::Ridge => {
-                            // Rock two deep, ragged; a pass at every road
-                            // and a notch now and then for a climber.
                             let notch = hash(along / 3, line, 469) % 9 == 0;
                             for off in [shift - 1, shift] {
                                 if !gap(off) && !notch {
@@ -399,7 +356,6 @@ fn borders(t: &mut [u8], near: &[u8], keep: &[bool]) {
                             }
                         }
                         Edge::Hedge => {
-                            // A hedgerow: a line of trees with field gates.
                             if !gap(shift) && hash(along / 2, line, 472) % 5 != 0 {
                                 put(t, shift, b'T');
                             }
@@ -410,7 +366,6 @@ fn borders(t: &mut [u8], near: &[u8], keep: &[bool]) {
             }
         }
     }
-    // The Kingsriver rises in a pool at its eastern end.
     let (sx, sy) = (8 * CHUNK_W - 1, 3 * CHUNK_H - 1);
     for y in sy - 2..=sy + 1 {
         for x in sx - 2..=sx + 2 {
@@ -421,11 +376,9 @@ fn borders(t: &mut [u8], near: &[u8], keep: &[bool]) {
     }
 }
 
-/// The sea along the east rim and the estuary along the Fen's west rim.
 fn seas(t: &mut [u8]) {
     for y in 0..MAP_H {
         let wobble = vnoise(y as f32 / 8.0, 0.5, 473);
-        // Out past the Repo Wards, whose quay runs to its own sea.
         let east = if (60..82).contains(&y) { 236 } else { 226 + (wobble * 6.0) as i32 };
         for x in east..MAP_W {
             t[idx(x, y)] = b'~';
@@ -439,8 +392,6 @@ fn seas(t: &mut [u8]) {
     }
 }
 
-/// A set piece's water and shore run on a tile or two past its edge, so a
-/// mere it was drawn with does not stop at a straight line.
 fn bleed(t: &mut [u8]) {
     for ((ax, ay), (ox, oy)) in set_pieces() {
         let rows = super::map::Realm::authored_rows(ax, ay);
@@ -468,7 +419,6 @@ fn bleed(t: &mut [u8]) {
     }
 }
 
-/// Meadow touching open water becomes shore (set pieces keep their own).
 fn shore(t: &mut [u8]) {
     let src = t.to_vec();
     for y in 0..MAP_H {

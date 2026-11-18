@@ -7,10 +7,8 @@
 use super::parts::{self, BASE, NEUTRAL_WEIGHT, Part, Slot};
 use serde::{Deserialize, Serialize};
 
-/// The four racers of the knight racers example, in its order.
 pub const KIT: [&str; 4] = ["Excalibur", "Bastion", "Wraith", "Crown"];
 
-/// The parts of each starting racer, in `Slot::ALL` order.
 const KIT_PARTS: [[&str; 8]; 4] = [
     ["gryphon_six", "lancer_wedge", "hover_discs", "triple_organ", "bare_crest", "bare_plate", "black_iron", "blue_glow"],
     ["bastion_block", "bastion_wagon", "hover_discs", "twin_spire", "ram_horns", "bare_plate", "banner_red", "brass_trim"],
@@ -18,9 +16,6 @@ const KIT_PARTS: [[&str; 8]; 4] = [
     ["crown_cathedral", "crown_throne", "hover_discs", "grand_organ", "crown_crest", "bare_plate", "sun_gold", "silver_trim"],
 ];
 
-/// One part id in every slot. The ids are the catalogue's (`parts`); a field
-/// that is missing or names nothing the catalogue knows is read as the
-/// default racer's part (`sound`).
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Build {
@@ -35,23 +30,18 @@ pub struct Build {
 }
 
 impl Default for Build {
-    /// Excalibur, the first of the starting kit.
     fn default() -> Build {
         Build::kit(0)
     }
 }
 
 impl Build {
-    /// A starting racer: 0 Excalibur, 1 Bastion, 2 Wraith, 3 Crown.
     pub fn kit(i: usize) -> Build {
         let p = KIT_PARTS[i % KIT_PARTS.len()];
         let s = |k: usize| p[k].to_string();
         Build { engine: s(0), chassis: s(1), running: s(2), exhaust: s(3), crest: s(4), armour: s(5), paint: s(6), trim: s(7) }
     }
 
-    /// Which starting racer a knight with this name begins with: the same one
-    /// on every host and every game, and mostly a different one for each of
-    /// the knights in a room.
     pub fn starting(name: &str) -> Build {
         let mut h: u32 = 0x811c_9dc5;
         for b in super::ledger::key(name).bytes() {
@@ -62,18 +52,14 @@ impl Build {
         Build::kit((h >> 30) as usize % KIT.len())
     }
 
-    /// A build from one id per slot, in `Slot::ALL` order (the race's career keeps it so), made
-    /// sound.
     pub fn from_ids(ids: &[String; 8]) -> Build {
         Build { engine: ids[0].clone(), chassis: ids[1].clone(), running: ids[2].clone(), exhaust: ids[3].clone(), crest: ids[4].clone(), armour: ids[5].clone(), paint: ids[6].clone(), trim: ids[7].clone() }.sound()
     }
 
-    /// One id per slot, in `Slot::ALL` order.
     pub fn ids(&self) -> [String; 8] {
         Slot::ALL.map(|s| self.id(s).to_string())
     }
 
-    /// The id in a slot.
     pub fn id(&self, slot: Slot) -> &str {
         match slot {
             Slot::Engine => &self.engine,
@@ -100,8 +86,6 @@ impl Build {
         }
     }
 
-    /// The part worn in a slot. A build that has been made `sound` always has
-    /// one; for any other the default racer's part stands in.
     pub fn part(&self, slot: Slot) -> &'static Part {
         parts::part(self.id(slot))
             .filter(|p| p.slot == slot)
@@ -109,18 +93,14 @@ impl Build {
             .expect("the default racer wears a part in every slot")
     }
 
-    /// Every part worn, in `Slot::ALL` order.
     pub fn worn(&self) -> [&'static Part; 8] {
         Slot::ALL.map(|s| self.part(s))
     }
 
-    /// Whether every slot holds a part of the catalogue that fits it.
     pub fn is_sound(&self) -> bool {
         Slot::ALL.iter().all(|&s| parts::part(self.id(s)).is_some_and(|p| p.slot == s))
     }
 
-    /// This build with every slot that holds nothing the catalogue fits put
-    /// back to the default racer's part.
     pub fn sound(mut self) -> Build {
         let kit = Build::kit(0);
         for s in Slot::ALL {
@@ -131,8 +111,6 @@ impl Build {
         self
     }
 
-    /// Put `part` in its slot. False (and nothing changes) when it is
-    /// already there, or is not in the catalogue.
     pub fn fit(&mut self, part_id: &str) -> bool {
         let Some(p) = parts::part(part_id) else { return false };
         if self.id(p.slot) == p.id {
@@ -142,39 +120,25 @@ impl Build {
         true
     }
 
-    /// What this build adds up to.
     pub fn stats(&self) -> Stats {
         Stats::of(self)
     }
 
-    /// Which slots differ from another build.
     pub fn differs(&self, other: &Build) -> Vec<Slot> {
         Slot::ALL.into_iter().filter(|&s| self.id(s) != other.id(s)).collect()
     }
 }
 
-/// A racer's numbers, whole and on a scale of 0 to 100 (`weight` is the load
-/// it carries). The race reads these; the garage shows them as bars.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Stats {
-    /// How fast it can go flat out.
     pub speed: i32,
-    /// How quickly it gets there.
     pub accel: i32,
-    /// How well it takes a corner.
     pub handling: i32,
-    /// How much a hit costs it.
     pub armour: i32,
-    /// What it all weighs. Heavy racers pay for it in speed, acceleration and
-    /// handling: this is what armour is bought against.
     pub weight: i32,
 }
 
 impl Stats {
-    /// A build's numbers: the bare racer's, plus every part's, with the
-    /// weight above `NEUTRAL_WEIGHT` taken back off speed (a fifth of it),
-    /// acceleration (a half) and handling (a third), and a racer lighter than
-    /// neutral given the same back. Each is held to 0..=100.
     pub fn of(b: &Build) -> Stats {
         let mut raw = BASE;
         for p in b.worn() {
@@ -196,12 +160,10 @@ impl Stats {
         }
     }
 
-    /// The five numbers in the order the panel shows them.
     pub fn bars(&self) -> [(&'static str, i32); 5] {
         [("SPEED", self.speed), ("ACCEL", self.accel), ("HANDLING", self.handling), ("ARMOUR", self.armour), ("WEIGHT", self.weight)]
     }
 
-    /// `self` minus `other`, number by number: what a swap changes.
     pub fn delta(&self, other: &Stats) -> Stats {
         Stats {
             speed: self.speed - other.speed,
@@ -216,7 +178,6 @@ impl Stats {
         *self == Stats::default()
     }
 
-    /// The race's reading of a stat: 0.0 to 1.0.
     pub fn unit(v: i32) -> f32 {
         v.clamp(0, 100) as f32 / 100.0
     }

@@ -14,7 +14,6 @@ pub fn quad(m: &mut Mesh, a: V3, b: V3, c: V3, d: V3, k: u8) {
     m.push_quad(a, b, c, d, k);
 }
 
-/// An axis-aligned box from `lo` to `hi`.
 pub fn cuboid(m: &mut Mesh, lo: V3, hi: V3, k: u8) {
     let p = |x: bool, y: bool, z: bool| {
         v3(if x { hi.x } else { lo.x }, if y { hi.y } else { lo.y }, if z { hi.z } else { lo.z })
@@ -28,13 +27,10 @@ pub fn cuboid(m: &mut Mesh, lo: V3, hi: V3, k: u8) {
     m.push_quad(p(t, f, f), p(t, t, f), p(t, t, t), p(t, f, t), k);
 }
 
-/// The same box centred on `c` with half-sizes `h`.
 pub fn block(m: &mut Mesh, c: V3, h: V3, k: u8) {
     cuboid(m, c - h, c + h, k);
 }
 
-/// An n-gon prism along +x from `x0` to `x1`, centred on (y, z), radii r0 to
-/// r1.
 pub fn barrel(m: &mut Mesh, [x0, x1]: [f32; 2], [y, z]: [f32; 2], [r0, r1]: [f32; 2], n: usize, k: u8, caps: bool) {
     let ring = |x: f32, r: f32, i: usize| {
         let a = i as f32 / n as f32 * TAU + PI / n as f32;
@@ -51,14 +47,11 @@ pub fn barrel(m: &mut Mesh, [x0, x1]: [f32; 2], [y, z]: [f32; 2], [r0, r1]: [f32
     }
 }
 
-/// A frame (u, w) perpendicular to an axis.
 fn frame(ax: V3) -> (V3, V3) {
     let u = ax.cross(if ax.z.abs() > 0.9 { v3(1.0, 0.0, 0.0) } else { V3::UP }).normalize();
     (u, ax.cross(u))
 }
 
-/// A prism or frustum between two points: `r0` at `a`, `r1` at `b`, `n`
-/// sides.
 pub fn cyl(m: &mut Mesh, a: V3, b: V3, [r0, r1]: [f32; 2], n: usize, k: u8, caps: bool) {
     let (u, w) = frame((b - a).normalize());
     let ring = |p: V3, r: f32, i: usize| {
@@ -77,7 +70,6 @@ pub fn cyl(m: &mut Mesh, a: V3, b: V3, [r0, r1]: [f32; 2], n: usize, k: u8, caps
     }
 }
 
-/// Four-sided cone from a ring at `base` (radius r) to a tip.
 pub fn spike(m: &mut Mesh, base: V3, tip: V3, r: f32, k: u8) {
     let (u, w) = frame((tip - base).normalize());
     let at = |i: usize| {
@@ -89,12 +81,10 @@ pub fn spike(m: &mut Mesh, base: V3, tip: V3, r: f32, k: u8) {
     }
 }
 
-/// An n-sided cone.
 pub fn cone(m: &mut Mesh, base: V3, tip: V3, r: f32, n: usize, k: u8) {
     cyl(m, base, tip, [r, 0.0], n, k, true);
 }
 
-/// A flat n-gon facing +z, centred on `c`.
 pub fn disc(m: &mut Mesh, c: V3, r: f32, n: usize, k: u8) {
     for i in 0..n {
         let (a0, a1) = (i as f32 / n as f32 * TAU, (i + 1) as f32 / n as f32 * TAU);
@@ -102,7 +92,6 @@ pub fn disc(m: &mut Mesh, c: V3, r: f32, n: usize, k: u8) {
     }
 }
 
-/// A square bar of half-width `w` between two points.
 pub fn beam(m: &mut Mesh, a: V3, b: V3, w: f32, k: u8) {
     let (u, v) = frame((b - a).normalize());
     let (u, v) = (u * w, v * w);
@@ -117,7 +106,6 @@ pub fn beam(m: &mut Mesh, a: V3, b: V3, w: f32, k: u8) {
     m.push_quad(c(b, 1.0, 1.0), c(b, -1.0, 1.0), c(b, -1.0, -1.0), c(b, 1.0, -1.0), k);
 }
 
-/// A hanging chain: alternating links edge-on and face-on.
 pub fn chain(m: &mut Mesh, a: V3, b: V3, w: f32, k: u8) {
     let n = ((b - a).length() / (w * 5.5)).max(1.0) as usize;
     for i in 0..n {
@@ -127,8 +115,6 @@ pub fn chain(m: &mut Mesh, a: V3, b: V3, w: f32, k: u8) {
     }
 }
 
-/// Move, turn about +z and scale the triangles from `first` on: how a part
-/// built at the origin is set where it belongs.
 pub fn place(m: &mut Mesh, first: usize, scale: f32, yaw: f32, at: V3) {
     let (s, c) = yaw.sin_cos();
     for t in &mut m.tris[first..] {
@@ -145,7 +131,6 @@ pub fn place(m: &mut Mesh, first: usize, scale: f32, yaw: f32, at: V3) {
     }
 }
 
-/// The corners of the box a mesh fills.
 pub fn bounds(m: &Mesh) -> Option<(V3, V3)> {
     let mut it = m.tris.iter().flat_map(|t| t.v);
     let first = it.next()?;

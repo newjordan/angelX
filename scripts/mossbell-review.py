@@ -55,8 +55,6 @@ def tell_review(root, gates, before):
             n=sum(abs(gates.lightness(p)-gates.lightness(q))>=7.5 for p,q in zip(ims[i].get_flattened_data(),ims[i+1].get_flattened_data()))
             changed={(x,y) for y in range(cbox[1],cbox[3]) for x in range(cbox[0],cbox[2])
                      if bufs[i][x,y]!=bufs[i+1][x,y]}
-            # A front advances only where new jaw/stem pixels occupy floor.
-            # Colour changes behind that front cannot satisfy this gate.
             fresh={((x0+x)//4,(y0+y)//8) for x,y in fronts[i+1]-fronts[i]}
             advance=len(changed & fresh)
             print(f'{prefix} {i}->{i+1}: {n} pixels >=7.5 L*, {len(changed)} actual cells, {advance} advancing cells')
@@ -161,7 +159,6 @@ def run(a):
     assert all(f'K{i}' in ''.join(row(chain,y) for y in range(28)) for i in [2,3,4])
     print('podium: YOU WIN 40G + CROWN; SCORE and all values share a terminal right edge; K2-K4 names')
     print('cell glyphs: CHAIN X3, 1  YOU  1375, 60 S; podium has no zero jackpot time')
-    # Every pair of the nine body states must differ in the actual Keeper cells.
     bufs=[cells(root/'terminal'/(n+'-cells.ansi')) for n in states]
     counts=[sum(a[x,y]!=b[x,y] for y in range(5,12) for x in range(47,60)) for i,a in enumerate(bufs) for b in bufs[i+1:]]
     assert min(counts)>0

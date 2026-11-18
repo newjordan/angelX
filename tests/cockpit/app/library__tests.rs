@@ -162,7 +162,6 @@ fn catalog_shelf_opens_by_stable_id_without_network_or_model_state() {
 #[test]
 fn ask_tutor_handoff_is_editable_attributed_and_does_not_claim_source_access() {
     let lesson = local_lesson("Poisson distribution").unwrap();
-    // The handoff is `⠬⠛`; its words are the pages, the lesson's facts data.
     use crate::agent::harness::book::ing_drivers::TUTOR_HANDOFF;
     let prompt = lesson.ask_tutor_prompt();
     assert!(
@@ -179,7 +178,6 @@ fn ask_tutor_handoff_is_editable_attributed_and_does_not_claim_source_access() {
     assert!(pages.starts_with("Tutor me on “{topic}”"));
     assert!(pages.contains("do not claim you have read its content"));
     assert!(pages.contains("wait for my answer before continuing"));
-    // The steps ride as their addresses; the operator reads them recited.
     for step in lesson_step_addresses(lesson.discipline) {
         assert!(prompt.contains(&step), "{step} missing from {prompt}");
     }
@@ -300,9 +298,6 @@ fn teaching_note_names_provenance_and_next_concepts() {
 
 #[test]
 fn every_lesson_closes_with_deterministic_recall_practice() {
-    // Every shelf must deliver a lesson whose Recall section is
-    // deterministic (same lesson, same prompt) and names that lesson's
-    // resident tutor.
     for shelf in catalog_shelves() {
         let lesson = local_lesson_for_shelf(shelf.id).expect("shelf lesson");
         let once = lesson.recall_prompt();
@@ -318,8 +313,6 @@ fn every_lesson_closes_with_deterministic_recall_practice() {
             rendered.contains("Recall · answer from memory, then check above"),
             "offline render embeds the recall section: {rendered}"
         );
-        // The Ask Tutor handoff inherits the SAME recall practice, so the
-        // tutor checks the answers instead of re-reading the material.
         let handoff = lesson.ask_tutor_prompt();
         use crate::agent::harness::book::ing_drivers::{TUTOR_HANDOFF, TUTOR_RECALL};
         assert!(

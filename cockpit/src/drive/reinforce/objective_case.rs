@@ -26,28 +26,13 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
-/// Prefix every generated candidate receipt carries, so the attempt this sample
-/// came from can be resolved without trusting prose.
 const ATTEMPT_MARKER: &str = "attempt ";
-/// Bounds for the reflection evidence pack: reflection needs the shape of what
-/// happened, never a whole trajectory or a huge diff.
 const PACK_ANSWER_CHARS: usize = 400;
 const PACK_PATCH_CHARS: usize = 600;
 const PACK_TOOL_ERRORS: usize = 3;
 
-/// Display-only sink for a measurement the evaluator took part in. The
-/// authoritative verdict is always the receipt consumed by the promotion gate;
-/// this only lets the RL stage show every measured attempt.
-///
-/// The two durations are the actual recorded times of one attempt:
-/// `generation_ms` is the candidate's own generation time (the engine's
-/// `Candidate::latency`, measured by the generator around the attempt) and
-/// `verification_ms` is the evaluator-run verifier's wall time for that same
-/// sample. Neither is synthesised or clamped.
 pub(crate) type MeasurementSink = Arc<dyn Fn(f32, u64, u64) + Send + Sync>;
 
-/// The case identity lines an evaluator observes. Framework-authored, derived
-/// from the frozen source digest and the verifier digest only.
 fn case_identity(fixture_sha256: &str, command_sha256: &str) -> String {
     let mut lines = vec![
         format!("angel.rlvr.objective-case/v1 source {fixture_sha256}"),
@@ -73,10 +58,6 @@ fn bounded(text: &str, chars: usize) -> String {
     out
 }
 
-/// Bounded, inspectable summary of what one attempt did, read from the attempt's
-/// own artifacts: its answer, the patch it authored, and its tool errors. The
-/// physical verifier verdict is appended by the caller from the receipt, never
-/// from this text.
 pub(crate) fn attempt_evidence_pack(attempt: &Path) -> String {
     let result: serde_json::Value = std::fs::read_to_string(attempt.join("result.json"))
         .ok()
@@ -148,16 +129,12 @@ pub(crate) fn attempt_evidence_pack(attempt: &Path) -> String {
     pack
 }
 
-/// Evaluator-owned measurement of one objective case.
 pub(crate) struct ObjectiveCaseEvaluator {
     spec: EvaluatorSpec,
     fixture_root: PathBuf,
     command: String,
     inventory_command: String,
     attempts_root: PathBuf,
-    /// Owner-declared verifier inputs (relative paths). Empty means the operator
-    /// named no verifier-owned scope, so the case can only be measured
-    /// exploration and is never releasable.
     verifier_scope: Vec<String>,
     fixture_digest: String,
     fixture_tree: String,
@@ -166,8 +143,6 @@ pub(crate) struct ObjectiveCaseEvaluator {
 }
 
 impl ObjectiveCaseEvaluator {
-    /// `fixture_root` is the frozen case source; `attempts_root` bounds which
-    /// working copies this evaluator may measure.
     pub(crate) fn new(
         fixture_root: &Path,
         command: &str,
@@ -199,22 +174,15 @@ impl ObjectiveCaseEvaluator {
         })
     }
 
-    /// Report every measurement this evaluator takes to the RL stage.
     pub(crate) fn with_measurement_sink(mut self, sink: MeasurementSink) -> Self {
         self.sink = Some(sink);
         self
     }
 
-    /// True when the operator declared the inputs this case's verifier owns.
     pub(crate) fn has_verifier_scope(&self) -> bool {
         !self.verifier_scope.is_empty()
     }
 
-    /// Resolve and bind the candidate's attempt: it must be one of this
-    /// campaign's attempts, it must have been asked this case's objective, it
-    /// must have started from this case's frozen source, and the recorded patch
-    /// must still be exactly the staged change in its working copy. A swapped,
-    /// forged or partially coped attempt fails here, before any measurement.
     fn bind_attempt(
         &self,
         candidate_output: &str,
@@ -270,9 +238,6 @@ impl ObjectiveCaseEvaluator {
         Ok((attempt, working))
     }
 
-    /// The declared verifier inputs must be untouched by the candidate: an agent
-    /// may author code and tests outside the scope, but it may not rewrite the
-    /// thing that judges it.
     fn verifier_inputs_untouched(&self, working: &Path) -> Result<(), String> {
         if self.verifier_scope.is_empty() {
             return Ok(());
@@ -291,9 +256,6 @@ impl ObjectiveCaseEvaluator {
         Ok(())
     }
 
-    /// Run the operator's verifier in `working` under evaluator-owned execution,
-    /// bounded only by the campaign's own cancellation. The receipt path binds
-    /// the evidence to the case's frozen identity (`spec.outcome_contract()`).
     fn measure(
         &self,
         working: &Path,
@@ -313,10 +275,6 @@ impl ObjectiveCaseEvaluator {
         )
     }
 
-    /// Physical measurement of one attempt, for the training batch: same
-    /// execution boundary, no receipt store. The second value is the verifier's
-    /// own verdict text, so a red attempt is explainable rather than mysterious;
-    /// the third is the verifier's measured wall time for this sample.
     pub(crate) fn measure_attempt(
         &self,
         candidate_output: &str,
@@ -374,9 +332,6 @@ impl PolicyEvaluator for ObjectiveCaseEvaluator {
         let (attempt, working) = self.bind_attempt(&request.candidate.output, request.task)?;
         let candidate_bytes = std::fs::read(attempt.join("candidate.patch"))
             .map_err(|error| format!("candidate attempt has no patch to measure: {error}"))?;
-        // Inventory: the framework's own case identity, executed (not asserted)
-        // in the same workspace as the outcome — the receipt pair must share one
-        // start state — under the same bound policy.
         let inventory = EvaluatorEvidence::run_shell_for_objective(
             "objective case identity",
             &self.inventory_command,

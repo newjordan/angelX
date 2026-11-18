@@ -16,8 +16,6 @@ pub(super) fn travel_near(run: &Run)->bool {
 pub(super) fn scenery(cv: &mut Img, run: &Run) {
     match run.room().kind {
         RoomKind::GooseGreen => {
-            // A striped picnic marquee, a long hedge with its bench, and
-            // the goose's own shed.
             let (x, y) = (3 * TILE, 2 * TILE);
             m::block(cv, (x + 4, y + 8, 5 * TILE - 8, 2 * TILE - 8), m::ramp::TIMBER, true, 210);
             for n in 0..5 * TILE {
@@ -41,12 +39,8 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             m::sign(cv, 11 * TILE, 10 * TILE + 4, "NO GOOSE REFUNDS", 'T');
         }
         RoomKind::Kitewright => {
-            // The kite workshop, cloth drying on racks, baskets stacked.
             m::house(cv, (3 * TILE + 2, 2 * TILE - 10, 6 * TILE - 4, 3 * TILE + 8), &m::House { roof: m::ramp::TILE, stone: false, windows: 2 }, 214);
             m::fence(cv, 15 * TILE, 21 * TILE - 2, 4 * TILE - 2);
-            // Kite cloth hung out to dry on a cord between two poles: each
-            // piece pegged at its corners, falling in soft folds lit from
-            // the west, its hem uneven.
             let (x0, x1, cord) = (15 * TILE + 1, 21 * TILE - 4, 2 * TILE + 1);
             for px in [x0, x1] {
                 cv.line(px, cord - 2, px, 4 * TILE - 8, 'P');
@@ -78,7 +72,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                 m::hay(cv, bx * TILE + 4, by * TILE - 1, 5.0, 215 + k as u32);
             }
             m::block(cv, (15 * TILE, 11 * TILE - 4, 3 * TILE, TILE + 4), m::ramp::TIMBER, true, 219);
-            // Two kites up on their strings, the trade's sign in the air.
             for (k, (kx, ky)) in [(10 * TILE + 4, 2 * TILE + 2), (13 * TILE + 12, TILE + 10)].into_iter().enumerate() {
                 let (a, b) = if k == 0 { ('R', 'o') } else { ('u', 'U') };
                 for d in 0..7 {
@@ -95,7 +88,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             m::sign(cv, 14 * TILE, 5 * TILE, "BASKETS NOT INCLUDED", 'T');
         }
         RoomKind::SignalHill => {
-            // The signal hut, the flag store, and two rocky outcrops.
             m::house(cv, (3 * TILE + 2, 2 * TILE - 10, 4 * TILE - 4, 2 * TILE + 8), &m::House { roof: m::ramp::SLATE, stone: true, windows: 1 }, 220);
             m::block(cv, (16 * TILE + 2, 2 * TILE - 4, 5 * TILE - 4, 2 * TILE + 4), m::ramp::TIMBER, true, 221);
             for (n, x) in (16 * TILE + 6..21 * TILE - 6).step_by(12).enumerate() {
@@ -140,9 +132,6 @@ pub(super) fn figures(cv:&mut Img,run:&Run) {
             if let Some(r)=run.pastimes.round.as_ref().filter(|r|r.game==Game::Trencher) {
                 let t=r.trencher.as_ref().unwrap();
                 let landing=Trencher::target(r.progress)*TILE/256;
-                // The ring breathes in as the plate arrives, turns green
-                // while the goose stands in reach, and flashes in the
-                // last beats before the plate comes down.
                 let in_reach=t.goose.abs_diff(Trencher::target(r.progress))<=TRENCHER_CATCH as u32;
                 let (gap,ring_ink)=match &t.flight {
                     Some(p)=>{
@@ -156,7 +145,6 @@ pub(super) fn figures(cv:&mut Img,run:&Run) {
                 cv.line(landing-gap,8*TILE,landing+gap,8*TILE,ring_ink);
                 cv.line(landing-gap,8*TILE-3,landing-gap,8*TILE+3,ring_ink);cv.line(landing+gap,8*TILE-3,landing+gap,8*TILE+3,ring_ink);
                 let gx=t.goose*TILE/256;
-                // A caught plate earns a hop and a honk; a missed one, a droop.
                 let lift=if t.celebrate>0 && (t.celebrate/3)%2==0 {2} else {0};
                 let droop=if t.sulk>0 {3} else {0};
                 let gy=8*TILE-lift;
@@ -172,14 +160,12 @@ pub(super) fn figures(cv:&mut Img,run:&Run) {
                 if let Some(p)=&t.flight {
                     let elapsed=TRENCHER_FLIGHT-p.left;
                     let arc_at=|e:u32|(e*(TRENCHER_FLIGHT-e)*48/(TRENCHER_FLIGHT*TRENCHER_FLIGHT)) as i32;
-                    // Ghost plates where the spin was a few ticks ago.
                     for (back,width) in [(10u32,6i32),(5,8)] {
                         if elapsed>back {
                             let gx_plate=(p.x-TRENCHER_WINDS[usize::from(r.progress.min(2))]*back as i32)*TILE/256;
                             cv.rect(gx_plate-width/2,7*TILE-arc_at(elapsed-back),width,2,'o');
                         }
                     }
-                    // The plate spins: broad, tilting, edge-on, and back.
                     let width=[10,7,4,7][(elapsed/5%4) as usize];
                     cv.rect(p.x*TILE/256-width/2,7*TILE-arc_at(elapsed),width,2,'O');
                     cv.text(landing-16,9*TILE,"CATCH",'i');
@@ -189,7 +175,6 @@ pub(super) fn figures(cv:&mut Img,run:&Run) {
         _=>{}
     }
 }
-/// Whether the green's heist board is up: the sail job waits there.
 pub(super) fn heist_board(run:&Run)->bool {
     let stage=w::stage(&run.home.countryside,&run.marks);
     run.pastimes.round.is_none() && match run.room().kind {
@@ -200,14 +185,12 @@ pub(super) fn heist_board(run:&Run)->bool {
     }
 }
 
-/// The picnic sail, folded: a striped bundle.
 fn sail(cv:&mut Img,x:i32,y:i32) {
     cv.rect(x-6,y-5,12,7,'9');
     for dx in [-4,0,4] { cv.rect(x+dx,y-5,2,7,'R'); }
     cv.line(x-6,y+2,x+5,y+2,'u');
 }
 
-/// The goose (big, cross, beak open when it's after someone) and the sail.
 fn heist(cv:&mut Img,run:&Run) {
     let h=run.heist.clone().unwrap_or(w::Heist{goose:w::guard(),..Default::default()});
     match run.players.get(&h.carrier).filter(|_|h.carrier!=0) {
@@ -227,7 +210,6 @@ fn heist(cv:&mut Img,run:&Run) {
     cv.rect(x+face*8-(if face<0{2}else{0}),y-17+waddle,3,2,'@');
     if angry { cv.rect(x+face*8-(if face<0{2}else{0}),y-15+waddle,3,1,'@'); }
     for dx in [-3,2] { cv.line(x+dx,y+2,x+dx,y+5+(waddle*if dx<0{1}else{-1}),'@'); }
-    // Behind its head, so it never lands on the sail over a thief beside it.
     if h.startled>0 { cv.text(if face>0 {x-40} else {x+8},y-24,"HONK!",'O'); }
     if let Some((id,_))=h.honked { if let Some(k)=run.players.get(&id) { let (kx,ky)=at(k.x,k.y); cv.text(kx-10,ky-30,"HONK",'O'); } }
 }

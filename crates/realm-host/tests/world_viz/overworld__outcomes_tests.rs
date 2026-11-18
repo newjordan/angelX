@@ -24,7 +24,6 @@ fn receipts_distinguish_execution_verification_and_unresolved_work() {
         (NotStarted, NotApplicable, Seal::Unresolved),
         (Denied, NotApplicable, Seal::Unresolved),
         (Cancelled, NotApplicable, Seal::Unresolved),
-        // A verifier label cannot turn an unexecuted call into a victory.
         (Cancelled, Passed, Seal::Unresolved),
     ] {
         assert_eq!(seal_of(outcome(execution, verification)), seal);
@@ -191,7 +190,6 @@ fn outcome_receipts_change_the_landmark_picture_and_stay_on_palette() {
                 .pixels()
                 .all(|pixel| pixel == BLACK || palette_index(pixel).is_some())
         );
-        // Same opt-in review output as the existing deed-scene tests.
         if let Some(dir) = std::env::var_os("ANGEL_OVERWORLD_SHOTS") {
             let dir = std::path::PathBuf::from(dir);
             std::fs::create_dir_all(&dir).unwrap();
@@ -212,7 +210,6 @@ fn every_place_keeps_its_seal_on_the_full_map_and_only_the_newest_shows_where_al
     seals.note(Place::Chapel, green, 20);
     let shown = seals.shown(40);
     if angel_delve::world::plan::tabula() {
-        // The newest receipt, at the Lists, alone.
         assert_eq!(shown.len(), 1);
         assert_eq!((shown[0].place, shown[0].seal), (Place::Lists, Seal::Failed));
     } else {

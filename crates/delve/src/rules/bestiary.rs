@@ -5,7 +5,6 @@
 
 use super::*;
 
-/// One entry: the kind, its name in the book, the Herald's note.
 pub struct Entry {
     pub kind: EnemyKind,
     pub name: &'static str,
@@ -220,7 +219,6 @@ pub const ENTRIES: [Entry; 41] = [
     },
 ];
 
-/// The key a kind is counted under (the same as its kill mark's).
 pub fn key(kind: EnemyKind) -> String {
     format!("{kind:?}")
 }
@@ -229,7 +227,6 @@ pub fn key(kind: EnemyKind) -> String {
 #[path = "../../tests/rules/together_bestiary__tests.rs"]
 mod tests;
 
-/// Guardians keep individual pages, counted by their existing trophy identity.
 pub struct GuardianEntry {
     pub id: &'static str,
     pub name: &'static str,

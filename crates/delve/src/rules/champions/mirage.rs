@@ -15,55 +15,31 @@ use super::super::ults::{self, Phantom};
 use super::*;
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
-// ─── Swashbuckle ─────────────────────────────────────────────────────────────
-
-/// How far the dash runs before it meets a wall (arena units: 5.5 tiles),
-/// and what the first wall it meets makes of that (the whole dash's budget
-/// is then this many times as long, once).
 pub const SWASH_REACH: f32 = 11.0;
 pub const SWASH_TRIPLE: f32 = 3.0;
-/// How fast it runs (arena units a second), and the longest step it takes
-/// at a time: a wall is never skipped.
 pub const SWASH_SPEED: f32 = 26.0;
 const SWASH_STEP: f32 = 0.1;
-/// How many times a wall turns the dash, the most it may be steered a tick
-/// (90 degrees a second) and how long (ticks) the knight is untouchable at
-/// most, the dash over or not.
 pub const SWASH_REBOUNDS: u8 = 2;
 pub const SWASH_TURN: f32 = FRAC_PI_2 * DT;
 pub const SWASH_INVULN: u32 = HZ;
-/// The flurry that follows: how many slashes, the ticks between them, and
-/// each one's reach and arc, and its blow (the foil's, times 12 in 10).
 pub const SWASH_SLASHES: u8 = 4;
 pub const SWASH_EVERY: u32 = 8;
 pub const SWASH_SLASH_REACH: f32 = 4.0;
 pub const SWASH_SLASH_ARC: f32 = 30.0;
-/// How long the image left where the dash began stands.
 pub const SWASH_IMAGE: u32 = 4 * HZ;
-/// The foil's blow when its card is lost to the knight, for the slashes.
 const FOIL_DAMAGE: u32 = 14;
 
-/// A dash and its flurry, on the knight: where the dash is heading and how
-/// much of its way is left, and the slashes still to come. Left out of a
-/// save while the knight is still.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Swash {
-    /// The whole distance the dash may run (zero when it is not running),
-    /// and how far it has run.
     pub budget: f32,
     pub run: f32,
-    /// How many walls have turned it, and whether the first has tripled it.
     pub bounces: u8,
     pub tripled: bool,
-    /// The way it is heading (a unit vector).
     pub hx: f32,
     pub hy: f32,
-    /// The aim held this tick, if any: where the dash is steered.
     pub steer: (f32, f32),
-    /// Ticks of the dash the knight has been untouchable for.
     pub shielded: u32,
-    /// The flurry: slashes to come and ticks until the next.
     pub slashes: u8,
     pub wait: u32,
 }
@@ -73,14 +49,11 @@ impl Swash {
         *self == Swash::default()
     }
 
-    /// The dash is running.
     pub fn dashing(&self) -> bool {
         self.budget > 0.0
     }
 }
 
-/// Whether the dash may stand at `(x, y)`: floor the knight fits on, in the
-/// room, and not a door or stairs, which would take the knight out of it.
 fn dash_clear(grid: &Grid, x: f32, y: f32) -> bool {
     let r = HERO_RADIUS;
     grid.clear(x, y, r, Mover::Hero)
@@ -94,14 +67,6 @@ fn dash_clear(grid: &Grid, x: f32, y: f32) -> bool {
 }
 
 impl Hero {
-    /// One tick of the dash, in place of the walk (`own_step`): the heading
-    /// turned a little toward the aim held, the knight untouchable, and the
-    /// dash run in steps no longer than `SWASH_STEP`. A wall turns it: the
-    /// heading is reflected off it (the axis it met flipped, both at a
-    /// corner), and the first wall to do so makes the dash three times as
-    /// long, what has run counting against that. A third wall, or the
-    /// budget spent, ends it where the knight stands, on open floor, and
-    /// the flurry begins.
     pub(in crate::rules) fn swash_run(&mut self, grid: &Grid) {
         let mut s = self.champ.swash;
         if s.steer != (0.0, 0.0) {
@@ -111,8 +76,6 @@ impl Hero {
             (s.hx, s.hy) = ((cur + turn).cos(), (cur + turn).sin());
         }
         if s.shielded < SWASH_INVULN {
-            // Held through this tick's hits; the next tick's turn takes it
-            // back down unless the dash still has its second to spend.
             self.invulnerable = self.invulnerable.max(1);
             s.shielded += 1;
         }
@@ -137,8 +100,6 @@ impl Hero {
                 s.tripled = true;
                 s.budget = SWASH_REACH * SWASH_TRIPLE;
             }
-            // Which axis the wall stands across; a corner, or a clip of one
-            // that neither axis alone meets, turns both.
             let (along_x, along_y) = (!dash_clear(grid, x + dx, y), !dash_clear(grid, x, y + dy));
             if along_x == along_y {
                 (s.hx, s.hy) = (-s.hx, -s.hy);
@@ -154,7 +115,6 @@ impl Hero {
             s.slashes = SWASH_SLASHES;
             s.wait = 0;
         }
-        // Facing: where it heads, unless the knight aims.
         if s.steer == (0.0, 0.0) {
             (self.aim_x, self.aim_y) = (s.hx, s.hy);
         }
@@ -162,17 +122,11 @@ impl Hero {
     }
 }
 
-// ─── Echo Strike ─────────────────────────────────────────────────────────────
-
-/// Echo Strike: how many thrusts, how long they have to be made, how long
-/// after a thrust its echo lands (ticks), and the share of the thrust's
-/// blow the echo deals (percent).
 pub const ECHO_THRUSTS: u8 = 3;
 pub const ECHO_TICKS: u32 = 6 * HZ;
 pub const ECHO_DELAY: u32 = 9;
 pub const ECHO_SHARE: u32 = 50;
 
-/// A thrust to be struck again from where it was made.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Echo {
     pub owner: u32,
@@ -184,8 +138,6 @@ pub struct Echo {
     pub wait: u32,
 }
 
-/// Echo Strike: the knight's thrust, made with the stance up, is struck
-/// once more from the same place after `ECHO_DELAY` ticks.
 pub(in crate::rules) fn echo_thrust(
     echoes: &mut Vec<Echo>,
     hero: &mut Hero,
@@ -207,28 +159,16 @@ pub(in crate::rules) fn echo_thrust(
         reach,
         arc,
         damage: (damage * ECHO_SHARE / 100).max(1),
-        // Struck on the tick `ECHO_DELAY` after the thrust (the field's tick
-        // that pushes it counts one).
         wait: ECHO_DELAY + 1,
     });
 }
 
-// ─── the dodge, the swap and the hall ────────────────────────────────────────
-
-/// The decoy a dodge roll leaves: how long it stands.
 pub const DECOY_TICKS: u32 = HZ * 3 / 2;
 
-/// Mirror Swap: how far the blink goes when there is no image to change
-/// places with, how long the image it leaves stands, and how long the knight
-/// is untouchable after either (ticks, counting the one it is cast on).
 pub const SWAP_BLINK: f32 = 4.0;
 pub const SWAP_IMAGE: u32 = 4 * HZ;
 pub const SWAP_SHIELD: u32 = 12;
 
-/// Hall of Mirrors: how many images, how long they stand, how fast they run,
-/// how near a foe they strike from, the ticks between one image's strikes,
-/// the share of a thrust's blow each deals (percent), and how far round the
-/// knight they start.
 pub const HALL_IMAGES: usize = 3;
 pub const HALL_TICKS: u32 = 6 * HZ;
 pub const HALL_SPEED: f32 = 14.0;
@@ -237,14 +177,12 @@ pub const HALL_EVERY: u32 = 10;
 pub const HALL_SHARE: u32 = 70;
 const HALL_RING: f32 = 2.4;
 
-/// Whether the knight's dodge roll leaves a decoy, and a place for one.
 pub(in crate::rules) fn decoy(phantoms: &mut Vec<Phantom>, hero: &Hero, id: u32) {
     if of(hero) == Some(Champion::MirageDuelist) && phantoms.len() < spells::IMPOSTURE_MAX {
         phantoms.push(Phantom::standing(id, (hero.x, hero.y), DECOY_TICKS));
     }
 }
 
-/// The blow of the knight's thrust: the foil's, as forged on the arm.
 fn thrust_damage(hero: &Hero) -> u32 {
     hero.scaled(hero.forged.as_ref().and_then(|w| w.melee).map_or(FOIL_DAMAGE, |m| m.damage))
 }
@@ -255,9 +193,6 @@ fn unit_or(ax: f32, ay: f32, fallback: (f32, f32)) -> (f32, f32) {
 }
 
 impl Run {
-    /// Swashbuckle, cast: the dash is set running along the aim (it moves
-    /// from the next tick, `Hero::swash_run`), an image is left where it
-    /// began, and the voice goes up once.
     pub(in crate::rules) fn swashbuckle(&mut self, id: u32) {
         let Some(hero) = self.players.get_mut(&id).filter(|h| h.hp > 0) else {
             return;
@@ -267,13 +202,9 @@ impl Run {
         hero.champ.swash = Swash { budget: SWASH_REACH, hx: ax, hy: ay, ..Swash::default() };
         let at = (hero.x, hero.y);
         ults::add_image(&mut self.phantoms, Phantom::standing(id, at, SWASH_IMAGE));
-        // Once a cast, at the start: the Duelist's "bing bong" (`sfx/mirage_bing_bong.mp3`).
         self.sounds.push("mirage_bing_bong");
     }
 
-    /// The slashes that follow the dash: one every `SWASH_EVERY` ticks,
-    /// each along the aim held that tick, struck at every foe in its arc,
-    /// with the images' share beside it.
     pub(in crate::rules) fn swash_flurry(&mut self, id: u32) {
         let Some(hero) = self.players.get_mut(&id) else {
             return;
@@ -288,7 +219,6 @@ impl Run {
         }
         s.slashes -= 1;
         s.wait = SWASH_EVERY - 1;
-        // The last slash leaves nothing of the dash on the knight.
         if s.slashes == 0 {
             hero.champ.swash = Swash::default();
         }
@@ -333,10 +263,6 @@ impl Run {
         self.sounds.push("swing_spear");
     }
 
-    /// Mirror Swap: the knight changes places with their nearest image (the
-    /// image takes the spot the knight left and stands there), or with none
-    /// to change with, blinks a short way along the aim and leaves one. The
-    /// knight is untouchable a moment after either.
     pub(in crate::rules) fn mirror_swap(&mut self, id: u32) {
         let Some(hero) = self.players.get(&id).filter(|h| h.hp > 0) else {
             return;
@@ -358,7 +284,6 @@ impl Run {
             Some(k) => {
                 let image = &mut self.phantoms[k];
                 let to = (image.x, image.y);
-                // It stands where the knight stood, and no longer charges.
                 (image.x, image.y, image.dx, image.dy) = (hx, hy, 0.0, 0.0);
                 image.fixed = true;
                 image.charge = false;
@@ -380,8 +305,6 @@ impl Run {
         }
     }
 
-    /// Hall of Mirrors, cast: three images ring the knight, and run at the
-    /// nearest foe (`tick_mirrors`). A recast replaces them.
     pub(in crate::rules) fn hall_of_mirrors(&mut self, id: u32) {
         let Some(hero) = self.players.get_mut(&id) else {
             return;
@@ -407,8 +330,6 @@ impl Run {
         }
     }
 
-    /// The Hall's images, a tick: each runs at the nearest foe and, near it,
-    /// strikes it every `HALL_EVERY` ticks for a share of the knight's blow.
     pub(in crate::rules) fn tick_mirrors(&mut self) {
         if !self.phantoms.iter().any(|p| p.charge) {
             return;
@@ -423,7 +344,6 @@ impl Run {
                     self.phantoms[k] = p;
                     continue;
                 };
-                // The nearest foe, by the same ordering every blow on a crowd uses.
                 if let Some(&i) = aoe::reached(&self.enemies, (p.x, p.y), |_| true).first() {
                     let e = &self.enemies[i];
                     let (dx, dy) = (e.x - p.x, e.y - p.y);
@@ -446,8 +366,6 @@ impl Run {
         }
     }
 
-    /// The echoes of Echo Strike, a tick: each waits its beat, then strikes
-    /// from where the thrust was made.
     pub(in crate::rules) fn tick_echoes(&mut self) {
         if self.champions.echoes.is_empty() {
             return;

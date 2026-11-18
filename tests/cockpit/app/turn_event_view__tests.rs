@@ -2,9 +2,6 @@ use super::*;
 
 #[test]
 fn gate_denials_keep_their_transcript_line() {
-    // Present-tense "denying" used to miss the failure marks and match the
-    // routine prefix instead, so a retracted answer only ever showed up in
-    // the strip's collapsed "(N notes)" counter.
     assert!(!notice_rides_strip(
         "edited workspace is not yet verified; denying unsupported completion (2/2)"
     ));
@@ -14,8 +11,6 @@ fn gate_denials_keep_their_transcript_line() {
     assert!(!notice_rides_strip(
         "verification gate released by operator; accepting the completion unverified"
     ));
-    // Routine policy murmurs ride the strip; a failure mark always wins
-    // over a routine prefix (capsule *denied* keeps its transcript line).
     assert!(notice_rides_strip(
         "action capsule · 3 scoped operation(s) ready · local preview only, no model call"
     ));
@@ -109,9 +104,6 @@ fn cache_stable_boundary_receipt_rides_the_strip() {
 
 #[test]
 fn notice_rides_strip_keeps_timeout_notices() {
-    // "timed out" (space) was already a failure mark. Hyphenated
-    // "timed-out", "timeout"/"timeouts", and present-tense "failing"
-    // still matched a routine prefix and vanished into the strip.
     let timeout_note = crate::agent::harness::timeout_note(120, None);
     assert_eq!(
         timeout_note,
@@ -132,7 +124,6 @@ fn notice_rides_strip_keeps_timeout_notices() {
     ));
     assert!(!notice_rides_strip("code_mode: execution timed out"));
     assert!(!notice_rides_strip("acceptance check kept failing"));
-    // Routine prefixes stay on the strip unless they also carry a failure mark.
     assert!(notice_rides_strip(
         "trimmed 3 recent tool result(s) to fit the active context window"
     ));
@@ -198,11 +189,9 @@ fn gauge_rows_round_trip_count_and_body() {
     assert!(row.ends_with("×7"), "{row}");
     assert_eq!(activity_gauge_count(&row), Some(7));
     assert_eq!(activity_notice_body(&row), Some(note));
-    // First occurrences carry no suffix; body still extracts.
     let first = notice_text(note);
     assert_eq!(activity_gauge_count(&first), None);
     assert_eq!(activity_notice_body(&first), Some(note));
-    // Non-notice activity rows (trace lines, tallies) are never gauges.
     assert_eq!(activity_notice_body("T: read(file=a)"), None);
     assert_eq!(
         activity_gauge_count("⚒ 14 tools · shell×9 read×3 · 38s"),

@@ -1,13 +1,4 @@
 #!/usr/bin/env python3
-"""Ink every Lanternward frame and write
-src/render/overworld/arena/lanternward/art_data.rs.
-
-    python3 emit.py
-
-Frames are cropped to their ink and carry their offset from the slot's
-top-left corner; the bank pads them back to the slot's size. Inks are the
-realm's, so a character here is the colour the stage draws.
-"""
 import json
 import sys
 from pathlib import Path

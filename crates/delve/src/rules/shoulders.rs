@@ -38,62 +38,37 @@
 use super::*;
 use std::collections::BTreeSet;
 
-/// The most riders on one carrier: the rest of a full party.
 pub const MAX_RIDERS: usize = MAX_PLAYERS as usize - 1;
-/// How near another knight (middle to middle) the ride key climbs on: a
-/// little more than a party's spacing (`stand_apart`).
 pub const RIDE_REACH: f32 = 2.8;
-/// What each rider takes off the carrier's pace, as a share of it.
 pub const PACE_PER_RIDER: f32 = 0.06;
-/// The share of a hit on the carrier each rider takes, in percent.
 pub const RIDER_SHARE: u32 = 33;
-/// How far a throw carries on clear ground, in units: one hallway, the
-/// open floors' passages from mouth to mouth as `layout::open_floor` cuts
-/// them (measured over 200 floors, 1831 passages: median 12 tiles, half of
-/// them 10 to 18; see the tests).
 pub const THROW_REACH: f32 = 12.0 * TILE_UNITS;
-/// How long a whole throw is in the air: three quarters of a second.
 pub const THROW_TICKS: u32 = HZ * 3 / 4;
-/// The fewest ticks a short throw (stopped by a wall) is in the air.
 const THROW_LEAST: u32 = HZ / 4;
-/// The top of the arc, in units above the floor.
 pub const THROW_PEAK: f32 = 6.0;
-/// A carrier throws once every this many ticks.
 pub const THROW_REARM: u32 = 3 * HZ;
-/// The grace a thrown knight lands with, in ticks.
 pub const LAND_WARD: u32 = HZ / 2;
-/// The slam: how far round the landing it strikes, what it deals as one
-/// stroke, how far it throws the monsters back and how long they reel.
 pub const SLAM_REACH: f32 = 4.5;
 pub const SLAM_DAMAGE: u32 = 45;
 pub const SLAM_KNOCK: f32 = 4.0;
 pub const SLAM_STUN: u32 = HZ * 2 / 5;
-/// How long a slam's ring shows, in ticks.
 pub const SLAM_SHOWN: u32 = 14;
-/// The sounds (the SFX are to come; the names are the hooks, and play
-/// stand-ins meanwhile: `wire::STAND_INS`).
 pub const SOUND_CLIMB: &str = "shoulder_climb";
 pub const SOUND_HOP: &str = "shoulder_hop";
 pub const SOUND_THROW: &str = "shoulder_throw";
 pub const SOUND_SLAM: &str = "shoulder_slam";
 
-/// The party's towers and the knights in the air.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Shoulders {
-    /// Each carrier and the riders on them, the lowest first.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub stacks: BTreeMap<u32, Vec<u32>>,
-    /// Knights thrown, in the air.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub flights: Vec<Flight>,
-    /// Ticks until each carrier can throw again.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub rearm: BTreeMap<u32, u32>,
-    /// Landings, for their rings: where, and the tick.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub slams: Vec<Slam>,
-    /// The knights whose ride key was down last tick: a press acts once.
     #[serde(
         default,
         skip_serializing_if = "crate::rules::runtime_state::omit",
@@ -102,8 +77,6 @@ pub struct Shoulders {
     keys: BTreeSet<u32>,
 }
 
-/// A knight in the air: thrown by `by` from `from` to `to`, `age` of
-/// `ticks` along, in room `at` of floor `depth`.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Flight {
     pub knight: u32,
@@ -116,7 +89,6 @@ pub struct Flight {
     pub depth: u32,
 }
 
-/// A landing's slam, for its ring.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Slam {
     pub x: f32,
@@ -125,22 +97,17 @@ pub struct Slam {
 }
 
 impl Flight {
-    /// How far along it is, 0 thrown to 1 landed.
     pub fn progress(&self) -> f32 {
         (self.age as f32 / self.ticks.max(1) as f32).clamp(0.0, 1.0)
     }
 
-    /// Height above the floor, in units, `t` of the way along.
     pub fn height_at(&self, t: f32) -> f32 {
         let t = t.clamp(0.0, 1.0);
-        // A short throw rises less.
         let reach = (self.to.0 - self.from.0).hypot(self.to.1 - self.from.1);
         let peak = THROW_PEAK * (0.45 + 0.55 * (reach / THROW_REACH).min(1.0));
         4.0 * peak * t * (1.0 - t)
     }
 
-    /// How far along a knight drawn at `(x, y)` is: for a drawing between
-    /// two ticks, where the blend put them.
     pub fn progress_at(&self, (x, y): (f32, f32)) -> f32 {
         let (dx, dy) = (self.to.0 - self.from.0, self.to.1 - self.from.1);
         let len = dx * dx + dy * dy;
@@ -157,23 +124,18 @@ impl Flight {
 }
 
 impl Shoulders {
-    /// Nothing to send.
     pub fn quiet(&self) -> bool {
         self.stacks.is_empty() && self.flights.is_empty() && self.rearm.is_empty() && self.slams.is_empty()
     }
 
-    /// The carrier knight `id` rides on, if they ride.
     pub fn carrier_of(&self, id: u32) -> Option<u32> {
         self.stacks.iter().find(|(_, riders)| riders.contains(&id)).map(|(&c, _)| c)
     }
 
-    /// Whether knight `id` rides on someone's shoulders.
     pub fn riding(&self, id: u32) -> bool {
         self.carrier_of(id).is_some()
     }
 
-    /// How high up a tower knight `id` is: 0 on their own feet or carrying,
-    /// 1 on the carrier's shoulders, and so on up.
     pub fn level(&self, id: u32) -> usize {
         self.stacks
             .values()
@@ -181,28 +143,22 @@ impl Shoulders {
             .map_or(0, |i| i + 1)
     }
 
-    /// The riders on knight `id`, the lowest first (none if they carry no one).
     pub fn riders(&self, id: u32) -> &[u32] {
         self.stacks.get(&id).map_or(&[], Vec::as_slice)
     }
 
-    /// Knight `id`'s flight, if they are in the air.
     pub fn flight(&self, id: u32) -> Option<&Flight> {
         self.flights.iter().find(|f| f.knight == id)
     }
 
-    /// Whether knight `id` is in a tower or in the air: their keys do not
-    /// walk them, so a client draws them from the server's ticks.
     pub fn carried(&self, id: u32) -> bool {
         self.riding(id) || self.flight(id).is_some()
     }
 
-    /// Knight `id`'s pace, as a share of their own: slower for every rider.
     pub fn pace(&self, id: u32) -> f32 {
         1.0 - PACE_PER_RIDER * self.riders(id).len() as f32
     }
 
-    /// Every rider moved onto their carrier, in `players`.
     pub(super) fn seat_riders(&self, grid: &Grid, players: &mut BTreeMap<u32, Hero>) {
         for (carrier, riders) in &self.stacks {
             let Some((x, y)) = players.get(carrier).map(|h| (h.x, h.y)) else {
@@ -210,9 +166,6 @@ impl Shoulders {
             };
             for rider in riders {
                 if let Some(hero) = players.get_mut(rider) {
-                    // A rider sits on the carrier, through a wall or an open
-                    // doorway. Only a barred door on the way holds them:
-                    // that is the carrier crossing the seal.
                     let was = (hero.x, hero.y);
                     (hero.x, hero.y) = grid.across_bar(was, (x, y));
                 }
@@ -237,17 +190,11 @@ impl Shoulders {
     }
 }
 
-/// What the start of a tick kept for its end: each carrier's health then.
 pub(super) struct Ledger {
     carried: Vec<(u32, u32)>,
 }
 
 impl Run {
-    /// The tower's turn at the start of a tick's play, before the knights':
-    /// towers that can no longer stand come down, the knights in the air
-    /// fly on (and land), the ride keys act, and the riders' and the
-    /// fliers' keys are cut to what they may do. Returns the inputs the
-    /// rest of the tick plays.
     pub(super) fn shoulders_begin(&mut self, inputs: &BTreeMap<u32, Input>) -> (Option<BTreeMap<u32, Input>>, Ledger) {
         let quiet = self.shoulders.quiet() && !inputs.values().any(|i| i.ride) && self.shoulders.keys.is_empty();
         if quiet {
@@ -291,9 +238,6 @@ impl Run {
         (Some(out), Ledger { carried })
     }
 
-    /// The tower's turn at the end of a tick's play: each rider takes their
-    /// share of what their carrier lost, and sits back on them wherever
-    /// the tick (a door, the stairs) put them.
     pub(super) fn shoulders_end(&mut self, ledger: Ledger) {
         for (carrier, was) in ledger.carried {
             let Some(now) = self.players.get(&carrier).map(|h| h.hp) else {
@@ -326,7 +270,6 @@ impl Run {
                 self.room_hurt = true;
             }
         }
-        // A rider felled by their share falls off at once.
         self.topple();
         let grid = Grid {
             room: &self.dungeon.rooms[self.at],
@@ -341,7 +284,6 @@ impl Run {
         self.shoulders.slams.retain(|s| tick.saturating_sub(s.tick) < u64::from(SLAM_SHOWN));
     }
 
-    /// Whether knight `id` can be in a tower or carry one.
     fn steady(&self, id: u32) -> bool {
         !self.exits.outside.contains_key(&id)
             && self.players.get(&id).is_some_and(|h| {
@@ -361,15 +303,10 @@ impl Run {
             })
     }
 
-    /// Whether this room lets towers stand: top-down, and no ride (the
-    /// lists, a race) holding the reins.
     fn towers_stand(&self) -> bool {
         !self.side_on() && !activity::RIDES.iter().any(|ride| (ride.on)(self))
     }
 
-    /// Towers that cannot stand come down: a carrier who cannot carry
-    /// throws everyone off; a rider who cannot ride falls off. A flight
-    /// whose room is gone (the party went on) ends where the knight is.
     fn topple(&mut self) {
         let stands = self.towers_stand();
         let carriers: Vec<u32> = self.shoulders.stacks.keys().copied().collect();
@@ -405,8 +342,6 @@ impl Run {
         }
     }
 
-    /// `riders` off `carrier`'s shoulders, each onto clear ground beside
-    /// the carrier.
     pub(super) fn set_down(&mut self, carrier: u32, riders: &[u32]) {
         let Some(at) = self.players.get(&carrier).map(|h| (h.x, h.y)) else {
             return;
@@ -426,7 +361,6 @@ impl Run {
         }
     }
 
-    /// The knights in the air fly one tick on, and land at the end.
     fn fly_on(&mut self) {
         let barred = self.barred();
         let at = self.at;
@@ -450,7 +384,6 @@ impl Run {
         }
     }
 
-    /// Knight `flight.knight` lands: their grace, and the slam round them.
     fn slam(&mut self, flight: Flight) {
         let (x, y) = flight.to;
         let id = flight.knight;
@@ -499,7 +432,6 @@ impl Run {
         if heavy {
             self.hitstop.request(&self.tune, hitstop::Impact::Heavy);
         }
-        // The monsters' shots round the landing pop.
         let feel = &mut self.feel;
         self.projectiles.retain(|p| {
             let kept = !p.hostile || (p.x - x).hypot(p.y - y) > SLAM_REACH;
@@ -510,8 +442,6 @@ impl Run {
         });
     }
 
-    /// The ride keys pressed this tick, in seat order: a rider hops off, a
-    /// carrier throws the top rider, anyone else near a knight climbs on.
     fn ride_keys(&mut self, inputs: &BTreeMap<u32, Input>) {
         let down: BTreeSet<u32> = inputs
             .iter()
@@ -547,8 +477,6 @@ impl Run {
         }
     }
 
-    /// The tower knight `id` climbs onto: that of the nearest knight in
-    /// reach standing on their own feet or in a tower with room on top.
     fn climbable(&self, id: u32) -> Option<u32> {
         let me = self.players.get(&id)?;
         self.players
@@ -562,7 +490,6 @@ impl Run {
             .map(|(_, base)| base)
     }
 
-    /// Carrier `id` throws their top rider along their aim.
     fn throw_top(&mut self, id: u32) {
         if self.shoulders.rearm.contains_key(&id) {
             return;
@@ -592,9 +519,6 @@ impl Run {
     }
 }
 
-/// Whether a knight can be set down at `(x, y)`: every corner of them on
-/// dry floor or bog inside the room (never a wall, a prop, a pit, a
-/// doorway or the stairs).
 fn ground_at(grid: &Grid, (x, y): (f32, f32)) -> bool {
     let r = HERO_RADIUS;
     let (w, h) = (grid.room.width(), grid.room.height());
@@ -604,9 +528,6 @@ fn ground_at(grid: &Grid, (x, y): (f32, f32)) -> bool {
     })
 }
 
-/// Where a throw from `from` along `way` lands: `reach` on, over props,
-/// pits and monsters, but short of the first wall, doorway or edge of the
-/// room; then back along the line to the last spot a knight can stand.
 pub(super) fn landing(grid: &Grid, from: (f32, f32), way: (f32, f32), reach: f32) -> (f32, f32) {
     let steps = (reach / 0.25).ceil().max(1.0) as u32;
     let (w, h) = (grid.room.width(), grid.room.height());
@@ -627,14 +548,10 @@ pub(super) fn landing(grid: &Grid, from: (f32, f32), way: (f32, f32), reach: f32
     best
 }
 
-/// Clear ground beside `at` for a knight hopping down, toward `prefer`
-/// first and round from there, away from the knights set down (`taken`);
-/// `at` itself when there is none.
 fn beside(grid: &Grid, at: (f32, f32), prefer: (f32, f32), taken: &[(f32, f32)]) -> (f32, f32) {
     let start = prefer.1.atan2(prefer.0);
     for reach in [1.6f32, 2.4, 3.2] {
         for k in 0..8 {
-            // 0, +45, -45, +90, -90 ... degrees from the preferred side.
             let turn = ((k + 1) / 2) as f32 * if k % 2 == 1 { 1.0 } else { -1.0 } * std::f32::consts::FRAC_PI_4;
             let a = start + turn;
             let spot = (at.0 + a.cos() * reach, at.1 + a.sin() * reach);

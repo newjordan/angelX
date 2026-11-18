@@ -9,7 +9,6 @@ fn job(id: u64, oracle: Arc<dyn Oracle>) -> Job {
     Job { id, oracle, brief: format!("wish number {id}"), sheets: dir.join("sheets"), paint: dir.join("paint") }
 }
 
-/// Every answer from `runners` until `n` are back, or `within` passes.
 fn gather(runners: &Runners, n: usize, within: Duration) -> Vec<Done> {
     let start = Instant::now();
     let mut done = Vec::new();
@@ -26,7 +25,6 @@ fn the_entry_is_read_out_of_a_reply_with_its_fence_and_chatter() {
     assert_eq!(entry_of(&reply).as_deref(), Some(STARLIGHT));
     assert_eq!(entry_of(STARLIGHT).as_deref(), Some(STARLIGHT));
     assert!(entry_of("I cannot do that.").is_none());
-    // Two entries: the first is the wish.
     let two = format!("{STARLIGHT}\n{DEVILS_SPELL}");
     assert_eq!(entry_of(&two).unwrap().trim_end(), STARLIGHT.trim_end());
 }
@@ -54,7 +52,6 @@ fn six_wishes_are_written_at_once_not_one_after_another() {
     assert_eq!(done.len(), 6);
     assert!(done.iter().all(|d| d.result.is_ok()));
     assert_eq!(club.most_inside.load(Ordering::SeqCst), 6, "all six in flight together");
-    // One after another would be 2.4 s; together, about one call's time.
     assert!(took < delay * 3, "six wishes took {took:?}");
     assert!(done.iter().all(|d| d.timing.queued < Duration::from_millis(200)), "none waited for a runner");
 }
@@ -92,8 +89,6 @@ fn an_entry_takes_a_new_id_when_the_book_has_its_own() {
 
 #[test]
 fn a_call_that_times_out_is_asked_once_more_with_longer_and_the_wish_lands() {
-    // DeepSeek Flash on wave36's fresh box: the first call ran past the
-    // clubs' 60 s bound; the retry, given longer, answers.
     let club = Scripted::new(
         &["ERR: decode response: timed out reading response", STARLIGHT],
         Duration::ZERO,
@@ -106,7 +101,6 @@ fn a_call_that_times_out_is_asked_once_more_with_longer_and_the_wish_lands() {
     let asked = club.asked.lock().unwrap();
     assert_eq!(asked.len(), 2, "one retry");
     assert_eq!(asked[0], asked[1], "the same wish asked again");
-    // A 60 s club bound is raised for a grant's call, and more for its retry.
     assert_eq!(*club.bounds.lock().unwrap(), vec![GRANT_CALL, GRANT_RETRY]);
 }
 

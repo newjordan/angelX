@@ -5,7 +5,6 @@
 pub use angel_delve::realm::chivalry::*;
 use serde::{Deserialize, Serialize};
 
-/// The two places of horsemanship in the world, by the names commands use.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Place {
     Stables,
@@ -28,8 +27,6 @@ impl Place {
     }
 }
 
-/// The practice game's old save: only the mount and the tending are kept,
-/// and they move into the realm's stable once (`Realm::beside`).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Chivalry {
@@ -37,7 +34,6 @@ pub struct Chivalry {
     pub tended: [bool; 3],
 }
 
-/// The old practice subtree, decoded leniently.
 pub fn deserialize_saved<'de, D>(deserializer: D) -> Result<Chivalry, D::Error>
 where
     D: serde::Deserializer<'de>,

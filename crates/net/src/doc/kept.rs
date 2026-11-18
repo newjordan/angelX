@@ -8,13 +8,8 @@
 use super::value::{self, Value};
 use serde::ser::{self, Serialize};
 
-/// How deep into a field that changed its parts are fingerprinted one by
-/// one and built again only when they changed: the monsters, each
-/// monster's fields, and theirs; below that a part is built whole.
 pub const KEPT_DEPTH: u32 = 3;
 
-/// A part of the run as last published: its fingerprint, what it was
-/// published as, and its own parts, by place.
 #[derive(Default)]
 pub struct Node {
     name: &'static str,
@@ -24,27 +19,18 @@ pub struct Node {
     parts: Vec<Node>,
 }
 
-/// The fields last published, in the run's order.
 #[derive(Default)]
 pub struct Fields {
     root: Node,
-    /// Where the next field was found last time.
     at: usize,
     print: Vec<u8>,
 }
 
 impl Fields {
-    /// Ready for the tick's fields, in the run's order.
     pub fn start(&mut self) {
         self.at = 0;
     }
 
-    /// Field `name`: what it was published as when its fingerprint (with
-    /// `key`, what else its shape depends on) is unchanged; else built
-    /// again, its unchanged parts kept (`cached`), and shaped by `shape`.
-    /// With no `key` it is built again every tick (it changes every tick:
-    /// fingerprinting it whole would be for nothing), and with `ages` it is
-    /// a list of things whose `age` is sent as the tick they were born.
     pub fn field(
         &mut self,
         name: &'static str,
@@ -67,7 +53,6 @@ impl Fields {
         self.at = i + 1;
         let node = &mut parts[i];
         node.revision = None;
-        // The shape is the node's own: kept beside what it was built from.
         if let Some(key) = key {
             self.print.clear();
             value.print(&mut self.print)?;
@@ -75,7 +60,6 @@ impl Fields {
             if node.print == self.print
                 && let Some(kept) = &node.value
             {
-                // The bytes match. The room they sit in may be a storm's.
                 fit(&mut node.print);
                 fit(&mut self.print);
                 return Ok(kept.clone());
@@ -84,7 +68,6 @@ impl Fields {
             fit(&mut node.print);
             fit(&mut self.print);
         }
-        // Its parts as last built, before their shape.
         if node.parts.is_empty() {
             node.parts.push(Node::default());
         }
@@ -95,10 +78,6 @@ impl Fields {
         Ok(built)
     }
 
-    /// Reuse a field before fingerprinting when its authoritative revision is
-    /// unchanged. The caller must cover every value/shape change in `revision`
-    /// and replace this cache after restoring or replacing that authority.
-    /// Failed construction never publishes the new revision.
     pub fn revision_field(
         &mut self,
         name: &'static str,
@@ -120,9 +99,6 @@ impl Fields {
         Ok(built)
     }
 
-    /// What the cache holds, one line a top-level field: its name, its own
-    /// fingerprint, every part's fingerprints, their spare room, and how
-    /// many parts.
     #[doc(hidden)]
     pub fn held(&self) -> Vec<(&'static str, usize, usize, usize, usize)> {
         self.root
@@ -136,11 +112,6 @@ impl Fields {
     }
 }
 
-/// A fingerprint keeps a little spare room for the next tick of the same
-/// size, and gives the rest back. A bullet storm's print is far larger
-/// than the field that holds it once the storm has passed; the scratch
-/// buffer is swapped into whichever field changed last, and that room
-/// would stay for the rest of the run.
 pub fn fit(buf: &mut Vec<u8>) {
     let len = buf.len();
     let cap = buf.capacity();
@@ -155,9 +126,6 @@ pub fn fit(buf: &mut Vec<u8>) {
 }
 
 impl Node {
-    /// Cache an already-built projection through the same shared subtree
-    /// interning used by typed fields. Custom erased fields need not expose
-    /// their original private/native data to the generic serializer.
     pub fn retain_built(&mut self, value: Value, depth: u32) -> Value {
         let kept = intern(self.value.as_ref(), value, depth);
         self.value = Some(kept.clone());
@@ -178,8 +146,6 @@ impl Node {
     }
 }
 
-/// `value` as `node` last saw it when its fingerprint is unchanged; else
-/// built again with its parts `depth` levels down each kept the same way.
 fn cached<T: Serialize + ?Sized>(
     node: &mut Node,
     value: &T,
@@ -209,14 +175,10 @@ fn cached<T: Serialize + ?Sized>(
     Ok(built)
 }
 
-/// A container shared (`Value::Shared`) so the next tick can keep it.
 fn share_container(value: Value) -> Value {
     if container(&value) { Value::shared(value) } else { value }
 }
 
-/// `new`, keeping the parts of `old` (what it was last published as) that it
-/// has unchanged, `depth` levels down; each part it has new made shareable.
-/// `old` itself when nothing changed.
 pub fn intern(old: Option<&Value>, new: Value, depth: u32) -> Value {
     let Some(old) = old else {
         return share(new, depth);
@@ -252,7 +214,6 @@ pub fn intern(old: Option<&Value>, new: Value, depth: u32) -> Value {
                 items.iter().map(|item| item.field("id").and_then(Value::as_id)).collect()
             };
             match (ids(was), ids(&items)) {
-                // Things with ids: each kept by its id.
                 (Some(was_ids), Some(new_ids)) => {
                     let built = items
                         .into_iter()
@@ -311,8 +272,6 @@ pub fn intern(old: Option<&Value>, new: Value, depth: u32) -> Value {
     if same { old.clone() } else { Value::shared(built) }
 }
 
-/// A part of a container being built again: the old part when unchanged
-/// (clearing `same` when not).
 fn keep(before: Option<&Value>, value: Value, depth: u32, same: &mut bool) -> Value {
     let kept = intern(before, value, depth);
     let reused = match (before, &kept) {
@@ -328,8 +287,6 @@ fn container(value: &Value) -> bool {
     matches!(value.get(), Value::Struct(_) | Value::Seq(_) | Value::Map(_) | Value::Some(_) | Value::Variant(..))
 }
 
-/// `value` made shareable, its parts `depth` levels down too, so the next
-/// tick can keep them.
 fn share(value: Value, depth: u32) -> Value {
     if !container(&value) {
         return value;
@@ -348,8 +305,6 @@ fn share(value: Value, depth: u32) -> Value {
     })
 }
 
-/// The run's fields one by one (a struct's `Serialize`), each to `each`
-/// with its name; anything but a struct is refused.
 pub struct EachField<F>(pub F);
 
 pub struct EachFieldStruct<F>(F);
@@ -368,15 +323,12 @@ where
     }
 }
 
-/// A field handed on without its type.
 pub mod erased {
     use super::*;
 
-    /// What `EachField` hands on: the field, to fingerprint and build.
     pub trait Field {
         fn print(&self, out: &mut Vec<u8>) -> Result<(), value::Error>;
         fn build(&self) -> Result<Value, value::Error>;
-        /// Built from its parts as `node` last saw them (`Parts`).
         fn cached(&self, node: &mut Node, depth: u32, ages: Option<u64>, print: &mut Vec<u8>) -> Result<Value, value::Error>;
     }
 
@@ -480,8 +432,6 @@ where
     }
 }
 
-/// A value built from its parts, each kept from `parts` when unchanged
-/// (`cached`, `depth` levels further down).
 struct Parts<'a> {
     parts: &'a mut Vec<Node>,
     depth: u32,
@@ -489,8 +439,6 @@ struct Parts<'a> {
     ages: Ages,
 }
 
-/// Things whose age runs a tick at a time, sent as the tick they were born
-/// (`wire::reckon_ages`), on tick `.0`: a list of them, or one of them.
 #[derive(Clone, Copy)]
 enum Ages {
     No,
@@ -499,7 +447,6 @@ enum Ages {
 }
 
 impl<'a> Parts<'a> {
-    /// Part `i` (a field `name`, or `""`): kept when it is the same part.
     fn part<T: Serialize + ?Sized>(&mut self, i: usize, name: &'static str, value: &T) -> Result<Value, value::Error> {
         if i == self.parts.len() {
             self.parts.push(Node { name, ..Node::default() });
@@ -510,7 +457,6 @@ impl<'a> Parts<'a> {
     }
 }
 
-/// A container being built from its parts.
 struct Built<'a> {
     parts: Parts<'a>,
     items: Vec<Value>,
@@ -527,8 +473,6 @@ impl<'a> Built<'a> {
     fn item<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<(), value::Error> {
         let i = self.items.len();
         let built = match self.parts.ages {
-            // Each thing's age changes every tick: it is built again, its
-            // other parts kept.
             Ages::Items(tick) => {
                 if i == self.parts.parts.len() {
                     self.parts.parts.push(Node::default());
@@ -855,8 +799,6 @@ mod revision_tests {
             .unwrap();
         assert_ne!(first, second);
         assert_eq!((prints.get(), builds.get()), (0, 3));
-        // A refused outer frame can reuse the newly built cache on retry;
-        // the owner's published tree/revision remains a separate transaction.
         cache.start();
         assert_eq!(
             cache
@@ -865,7 +807,6 @@ mod revision_tests {
             second
         );
         assert_eq!(builds.get(), 3);
-        // Restore/new-session owner creates a new cache even with equal stamp.
         cache = Fields::default();
         cache.start();
         let restored = cache

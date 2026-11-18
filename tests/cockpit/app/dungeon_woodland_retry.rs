@@ -1,4 +1,3 @@
-// Extend the established failed-save -> checkpoint -> restore -> retry gate.
 fn woodland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     use crate::delve::together_realm::Spoil;
     use crate::delve::together_shooter::{
@@ -14,7 +13,6 @@ fn woodland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     app.realm.dungeon.shooter.set(Some(Run::at_home(14, 7, None, home, before.clone())));
     {
         let r = app.realm.dungeon.shooter.edit().unwrap();
-        // The job, the Boot (it kicks the first try), the Hat, the Beard, the pot.
         for i in [0, 1, 1, 2, 3, 4] {
             let (kind, at) = wood::ERRAND[i];
             r.arrive(world::room_of(&r.dungeon, kind).unwrap(), at);
@@ -86,7 +84,6 @@ fn woodland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     let paid = app.economy().treasury.clone();
     assert!(app.settle_home());
     assert_eq!(app.economy().treasury, paid);
-    // Active airborne cart and ninth start-pad bit survive session restart.
     let r = app.realm.dungeon.shooter.edit().unwrap();
     r.arrive(
         world::room_of(&r.dungeon, RoomKind::Timberyard).unwrap(),
@@ -153,7 +150,6 @@ fn woodland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     fixture.allow_saves();
     assert!(app.settle_home());
     assert_eq!(app.economy().home.countryside.games.cart.wins, 1);
-    // The cart's first win pays its once-only purse, and nothing else moves.
     let mut expected = paid.clone();
     expected.add(Spoil::Gold, c::FIRST_WIN_GOLD);
     assert_eq!(app.economy().treasury, expected);

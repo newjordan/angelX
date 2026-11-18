@@ -1,4 +1,3 @@
-/// The race hall uses the same 3D scene in cells, with live, legible words.
 pub(super) fn paint(
     frame: &mut ratatui::Frame,
     area: ratatui::layout::Rect,

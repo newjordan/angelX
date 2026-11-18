@@ -23,8 +23,6 @@ impl Drop for FixtureDir {
     }
 }
 
-// A catalog-backed fixture Club avoids Codex's unrelated constructor env knobs
-// and authentication setup; restore_from and CatalogLoad::resolve are real paths.
 struct PinnedRoute {
     catalog: CatalogLoad,
     requested: Mutex<String>,
@@ -96,8 +94,6 @@ fn pinned_route(effort: &str) -> Arc<PinnedRoute> {
 
 #[test]
 fn gate1_common_restore_preserves_applicable_provider_pin_after_route_restore() {
-    // Explicit preference path + injected pin presence exercise the shared
-    // production path without cfg!(test)'s wrapper bypass or ambient pin/HOME/auth reads.
     let root = FixtureDir::new("preferences");
     let path = root.0.join("brain-route.json");
     std::fs::write(&path, r#"{"v":1,"agent":"openai","driver":"openai","model":"gate1-model","reasoning_effort":"high"}"#).unwrap();
@@ -105,7 +101,7 @@ fn gate1_common_restore_preserves_applicable_provider_pin_after_route_restore() 
         let club = pinned_route(requested);
         let mut bag = Bag::for_reasoning_render_test();
         bag.replace_in_hand_club_for_test(club.clone());
-        assert!(bag.restore_route(1, 0)); // Before restoration: unrelated namespace.
+        assert!(bag.restore_route(1, 0));
         let result = crate::platform::route_preferences::restore_from(
             &mut bag,
             &path,
@@ -167,7 +163,6 @@ fn gate1_legacy_json_malformed_window_drops_only_that_budget() {
         let load =
             CatalogLoad::load_checked(None, || checked_model_catalog_from_path(path.clone()));
         assert_eq!(load.source, Source::Legacy);
-        // Codex's own cache shape is not ours to police: the route stays usable.
         assert!(
             load.resolve(OPENAI_LUNA_MODEL, Some(OPENAI_LUNA_EFFORT), true)
                 .is_ok()

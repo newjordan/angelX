@@ -3,9 +3,6 @@ import ../lib/j.bend as J
 import ../lib/bj.bend as B
 import ../build/rules.bend as R
 
-# One case per stdin line, BJ1: {"fn": name, "in": input, "out": expected}.
-# Answers one line per case: `ok <fn>` or `bad <fn> <what the port gave>`.
-
 def verdict?(+fn: String, +got: J.Val, +want: J.Val) -> String:
   verdict.if(J.eq(got, want), fn, got)
 

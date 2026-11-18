@@ -227,8 +227,6 @@ fn raw_observation_is_persisted_before_comparator_failure() {
     assert_eq!(journal.observations().len(), 1);
 }
 
-/// Every feature combination the disposition reads, including sequences above
-/// a U32 and the saturated end of the cursor.
 fn decision_table() -> Vec<ObservationDecisionInputV1> {
     let kinds = [BoardObservationKindV1::Full, BoardObservationKindV1::Delta];
     let priors = [
@@ -277,8 +275,6 @@ fn decision_table() -> Vec<ObservationDecisionInputV1> {
     rows
 }
 
-/// The shipped leg and the native rule must agree on every disposition, and the
-/// leg must be the one that answered.
 #[test]
 fn live_board_reducer_leg_matches_every_native_disposition() {
     use crate::agent::harness::live_policy::{LegSource, decide_shipped};
@@ -306,8 +302,6 @@ fn live_board_reducer_leg_matches_every_native_disposition() {
     assert!(checked >= 30, "only {checked} inputs were compared");
 }
 
-/// A throwaway policy module, so a deliberately out-of-contract leg can be
-/// pinned without touching the shipped one.
 fn temporary_board_leg(id: &str, render: &str) -> angel_live::Program {
     let root = std::env::temp_dir().join(format!("angel-board-leg-{}-{id}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
@@ -332,8 +326,6 @@ fn temporary_board_leg(id: &str, render: &str) -> angel_live::Program {
         .unwrap_or_else(|| panic!("fixture leg {id} did not publish"))
 }
 
-/// A verdict outside the contract is rejected and the native rule answers, so a
-/// bad hot edit never moves the canonical board.
 #[test]
 fn an_out_of_contract_disposition_falls_back_to_the_native_rule() {
     use crate::agent::harness::live_policy::{LegSource, decide_with};
@@ -341,7 +333,6 @@ fn an_out_of_contract_disposition_falls_back_to_the_native_rule() {
         "board-reducer-gap",
         "module.exports={apiVersion:1,render:()=>({decision:'gap'})}",
     );
-    // A full snapshot rebuilds the board, so `gap` is not an admissible verdict.
     let row = ObservationDecisionInputV1::new(
         false,
         false,
@@ -401,19 +392,11 @@ fn board_reducer_leg_decides_in_microseconds() {
     );
 }
 
-// --- the parity oracle ------------------------------------------------------
-//
-// The native disposition rule, moved here out of production: the shipped
-// `board-reducer` leg decides every disposition now, and this copy exists so
-// the parity table can prove the two still agree.
-
 impl ObservationDecisionInputV1 {
     fn sequence(hi: u32, lo: u32) -> u64 {
         (u64::from(hi) << 32) | u64::from(lo)
     }
 
-    /// The native rule, in the order the reducer applies it: duplicate, then
-    /// stale ordering, then a sequence gap, then replacement.
     fn native(&self) -> ObservationDecisionV1 {
         if self.identity_conflict {
             return ObservationDecisionV1::Conflict;

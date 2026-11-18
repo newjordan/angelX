@@ -11,8 +11,6 @@ fn input(fire: bool) -> BTreeMap<u32, Input> {
     )])
 }
 
-/// A wish of every family (`combos`), held: every super effect's recipe
-/// made, so a test of what a super effect does needs no other wish.
 pub(crate) fn combo_kit(run: &mut Run, id: u32) {
     let kit = cards::check(
         "wish-kit-1",
@@ -43,8 +41,6 @@ fn fight(run: &mut Run) {
     run.enter_for_test(room);
 }
 
-/// The floor's boss room, entered: its gates set aside, so the stairs
-/// room is the boss's (`floor_boss_here`).
 fn boss_fight(run: &mut Run) {
     run.boss_gates = None;
     let room = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Stairs).unwrap();
@@ -79,15 +75,11 @@ fn a_super_wish_takes_two_steps_and_a_refused_wish_spends_nothing() {
     combo_kit(&mut run, 1);
     assert_eq!(run.wish(1, &volley).unwrap(), "Triple Volley II", "a super wish first, two steps up the ladder");
     assert_eq!((run.players[&1].wishes, run.players[&1].great_wishes), (1, 0));
-    // The step above is every knight's now (no teacher holds the third
-    // tier): the plain wish takes it.
     assert!(run.wish(1, &volley).unwrap().ends_with("III"));
     assert_eq!(run.players[&1].wishes, 0);
-    // A ladder at its top refuses, and the plain wish is still held.
     run.give_wishes(1, 0);
     assert!(run.wish(1, &volley).is_err());
     assert_eq!(run.players[&1].wishes, 1);
-    // A super wish with one step left takes it and leaves a plain wish.
     let fork = phrasebook::get("fork").unwrap();
     run.grant(2, &fork).unwrap();
     run.grant(2, &fork).unwrap();
@@ -129,7 +121,6 @@ fn wish_hud_reads_each_knights_held_wishes_without_changing_the_wire() {
     assert_eq!(run.wish_hud(3), Some(WishHud::Fallen));
     assert_eq!(run.wish_hud(99), None);
 
-    // A legacy local HUD can still be read; this is not a Run/wire field.
     let mut legacy = serde_json::to_value(run.hud(1, &Keys::FIRST).unwrap()).unwrap();
     legacy.as_object_mut().unwrap().remove("wishes");
     assert_eq!(serde_json::from_value::<hud::Hud>(legacy).unwrap().wishes, None);
@@ -160,7 +151,6 @@ fn a_granted_volley_flies_three_wide_on_its_cadence_and_climbs() {
         }
     }
     assert!(run.players[&1].loosed >= 10);
-    // Granted again: the tighter cadence replaces the first.
     run.window = Some(Default::default());
     run.grant(1, &volley).unwrap();
     assert_eq!(run.players[&1].bonus.volley, 6);
@@ -176,7 +166,6 @@ fn a_granted_volley_flies_three_wide_on_its_cadence_and_climbs() {
 
 #[test]
 fn bouncing_homing_chaining_mending_shots_do_what_they_say() {
-    // The entrance room: open floor, no pillars in a shot's way.
     let mut run = Run::new(4, 2, Some("Matt"));
     combo_kit(&mut run, 1);
     run.calm_for_test();
@@ -189,12 +178,10 @@ fn bouncing_homing_chaining_mending_shots_do_what_they_say() {
         (bonus.bounce, bonus.homing, bonus.chain, bonus.mend),
         (1, 1, 1, 1)
     );
-    // Bounce: a shot at the west wall comes back.
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (8.0, 10.0);
     hero.fire_cooldown = 0;
     run.enemies.clear();
-    // The room clears (and sweeps its shots) before the test shot.
     run.step(&BTreeMap::new());
     run.players.get_mut(&1).unwrap().fire_cooldown = 0;
     run.step(&BTreeMap::from([(
@@ -212,7 +199,6 @@ fn bouncing_homing_chaining_mending_shots_do_what_they_say() {
     assert!(came_back, "a bounced shot flies back east");
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_wish_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_wish_shots() {
@@ -273,7 +259,6 @@ fn a_thrown_blade_flies_out_and_comes_home_and_morningstars_strike() {
     run.step(&BTreeMap::new());
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y, hero.fire_cooldown) = (24.0, 16.0, 0);
-    // Nothing in reach: the blade is thrown.
     run.step(&input(true));
     let blade = run
         .projectiles
@@ -294,7 +279,6 @@ fn a_thrown_blade_flies_out_and_comes_home_and_morningstars_strike() {
         run.projectiles.iter().all(|p| p.kind != Shot::Blade),
         "and was caught"
     );
-    // A morningstar strikes what it touched, on its next beat.
     combo_kit(&mut run, 1);
     run.window = Some(Default::default());
     run.grant(1, &phrasebook::get("morningstar").unwrap())
@@ -308,7 +292,6 @@ fn a_thrown_blade_flies_out_and_comes_home_and_morningstars_strike() {
     assert!(run.enemies.first().is_none_or(|e| e.hp < hp), "struck");
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_melee_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_melee_shots() {
@@ -360,7 +343,6 @@ fn write_melee_shots() {
     save(&run, "melee_throw_orbit");
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_flourish_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_flourish_shots() {
@@ -475,8 +457,6 @@ fn a_learned_wish_s_grant_names_its_grade_and_what_its_super_effect_waits_on() {
 
 #[test]
 fn upgrade_words_grant_the_next_tier_of_the_wish_held_and_learn_nothing() {
-    // The last game: "upgrade pasta armor" was learned as a new Upgraded
-    // Pasta beside the Pasta Armor its knight held (2026-10-19).
     let book = phrasebook::read(&format!(
         "{}\n{}\nwish pasta-armor | Pasta Armor\nsay pasta armor | noodle armor | lasagne plate\n\
 tier armor 1 :: Lasagne.\ntier armor 2 :: Thicker.\ntier armor 2; max_hp 15 :: Full.\n",
@@ -488,8 +468,6 @@ tier armor 1 :: Lasagne.\ntier armor 2 :: Thicker.\ntier armor 2; max_hp 15 :: F
     run.give_wishes(2, 0);
     run.wish(1, &pasta).unwrap();
     let deck = run.players[&1].deck.clone();
-    // What the host does with the words: a known wish is granted, only an
-    // unknown one is learned.
     let found = phrasebook::find_in(&book, "upgrade my pasta armor", &deck)
         .expect("a known wish, not one to learn");
     assert_eq!(found.id, "pasta-armor");
@@ -499,7 +477,6 @@ tier armor 1 :: Lasagne.\ntier armor 2 :: Thicker.\ntier armor 2; max_hp 15 :: F
     assert!(hero.deck.contains(&"wish-pasta-armor-2".to_string()));
     assert!(!hero.deck.contains(&"wish-pasta-armor-1".to_string()), "the tier below is let go");
     assert_eq!(hero.wishes, 0, "a wish spent on each");
-    // A knight holding none of it learns it as before.
     assert!(phrasebook::find_in(&book, "upgrade my pasta armor", &[]).is_none());
 }
 
@@ -509,7 +486,6 @@ fn together_a_wish_that_does_not_go_through_is_given_back() {
     let hero = run.players.get_mut(&1).unwrap();
     hero.wishes = 2;
     hero.great_wishes = 1;
-    // A super wish is spent first, and comes back as a super wish.
     assert_eq!(run.spend_wish(1), Some(true));
     run.refund_wish(1, true);
     assert_eq!((run.players[&1].wishes, run.players[&1].great_wishes), (2, 1));
@@ -521,10 +497,6 @@ fn together_a_wish_that_does_not_go_through_is_given_back() {
 
 #[test]
 fn every_knight_may_wish_every_tier_of_every_wish() {
-    // Nothing but the floor holds a wish back: a knight who has done
-    // nothing at all is granted Blood Drinker, the Awakened Fork and every
-    // tier of every wish, the third too, with no teacher walked; the fourth
-    // and fifth deep enough down (`overclass::top_tier`).
     for wish in phrasebook::book().iter() {
         let mut run = Run::new(4, 1, Some("Friend"));
         run.dungeon.depth = crate::rules::FLOORS;
@@ -540,8 +512,6 @@ fn every_knight_may_wish_every_tier_of_every_wish() {
 
 #[test]
 fn a_fresh_knight_takes_the_cards_a_rank_once_kept_on_the_floor() {
-    // The vamp card and the awakened fork were Master cards, left lying for
-    // someone who could take them. Everyone can.
     for card in ["leech-fang", "awakened-fork"] {
         let mut run = Run::new(4, 1, Some("Friend"));
         run.calm_for_test();
@@ -570,8 +540,6 @@ fn knight_line(run: &mut Run, id: u32) -> String {
         .join("\n")
 }
 
-/// `refund_wish` gives it back and the knight who wished hears why, on
-/// their own screen, not the room's.
 #[test]
 fn a_refunded_wish_tells_the_knight_why() {
     let mut run = Run::new(5, 1, Some("Matt"));
@@ -588,8 +556,6 @@ fn a_refunded_wish_tells_the_knight_why() {
     assert!(knight_line(&mut run, 2).is_empty(), "the other knight is not told");
 }
 
-/// A further step that cannot be granted (`grant_more`) gives a plain
-/// wish back and says why, the same line the scroll's second step uses.
 #[test]
 fn a_further_step_that_cannot_land_tells_the_knight_why() {
     let mut run = Run::new(5, 1, Some("Matt"));
@@ -606,11 +572,6 @@ fn a_further_step_that_cannot_land_tells_the_knight_why() {
     assert!(line.contains("all four spell slots are full"), "{line}");
 }
 
-/// How far a ladder climbs on each floor (`top_tier`): its third at home
-/// and on the first floor, its fourth from the second, its fifth from
-/// Dragon Keep's down. Every wish the first floor gives, its three and its
-/// boss's super wish, spent on one ladder stop at the third there; the
-/// wishes a delve has given by Dragon Keep's floor reach the fifth.
 #[test]
 fn the_fifth_tier_is_a_deep_delves_and_never_the_first_floors() {
     let reach: Vec<usize> = (0..=DEEPEST).map(top_tier).collect();
@@ -624,8 +585,6 @@ fn the_fifth_tier_is_a_deep_delves_and_never_the_first_floors() {
     assert!(run.players[&1].deck.contains(&heavy.card_id(2)), "the third on the first floor");
     assert!(!run.players[&1].deck.iter().any(|c| c == &heavy.card_id(3) || c == &heavy.card_id(4)));
     assert!(run.players[&1].wishes > 0, "what the floor cannot give is kept, not spent");
-    // By Dragon Keep's floor a delve has given its start's wishes, two a
-    // floor below and a super wish (two steps) a boss: past five steps.
     let given = u32::from(START_WISHES) + 2 * u32::from(FLOOR_WISHES) + 2 * 2;
     assert!(given >= phrasebook::MAX_TIERS as u32);
     run.dungeon.depth = FLOORS;
@@ -635,8 +594,6 @@ fn the_fifth_tier_is_a_deep_delves_and_never_the_first_floors() {
     assert!(run.players[&1].deck.contains(&heavy.card_id(4)), "the fifth, deep enough down");
 }
 
-/// A wish's fourth and fifth mark their plate on the skills bar; below
-/// them the bar's icons travel as they always did.
 #[test]
 fn a_wished_spells_high_tiers_mark_its_plate_and_lower_ones_send_nothing_new() {
     let firebolt = phrasebook::get("firebolt").unwrap();

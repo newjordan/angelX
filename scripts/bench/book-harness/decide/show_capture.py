@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-"""show_capture.py <capture.jsonl> — per request: the new messages since the last
-request, with every line-start braille stamp and any introduction text."""
 import json, re, sys
 STAMP = re.compile(r"(?m)^([⠀-⣿]+)")
 prev = 0

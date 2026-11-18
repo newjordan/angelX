@@ -5,20 +5,14 @@
 use super::*;
 use super::super::bowcountry::{LINE, ROPE};
 
-/// An arrow's time in the air, and the draw that carries it to the rope.
 pub const FLIGHT: u32 = HZ;
 pub const FULL_DRAW: u32 = HZ / 2;
-/// How near the popinjay a hit must land (1/256 tile).
 pub const HIT: u32 = 160;
-/// Ticks the particle burst plays after a hit.
 pub const HIT_BURST: u8 = 12;
-/// Arrows in the quiver, and the wind (1/256 tile a tick) for each hit so far.
 pub const ARROWS: u8 = 6;
 pub const WINDS: [i32; 4] = [-3, 3, 0, -2];
-/// The popinjay's run along the rope (tile columns) and its round trip.
 pub const RUN: (i32, i32) = (7, 17);
 pub const PERIOD: u32 = 4 * HZ;
-/// Where an archer may stand on the line (1/256 tile).
 pub const AIM: (i32, i32) = (4 * 256, 20 * 256);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,8 +23,6 @@ pub struct Arrow {
     pub left: u32,
 }
 impl Arrow {
-    /// Its height (1/256 tile): from the line towards the rope, as far as
-    /// the draw carries it.
     pub fn y(&self) -> i32 {
         let rise = ((LINE - ROPE) * 256.0) as u32;
         (LINE * 256.0) as i32
@@ -40,23 +32,17 @@ impl Arrow {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Longbow {
     pub owner: u32,
-    /// Where the archer stands on the line (1/256 tile).
     pub aim: i32,
-    /// Ticks F has been held.
     pub draw: u32,
     pub arrows: u8,
     pub flight: Option<Arrow>,
     pub wait: u32,
-    /// Ticks left of the hit-burst particle effect (feathers/wood chips).
     #[serde(default)]
     pub hit_burst: u8,
-    /// Last 6 arrow positions in flight (for trail rendering).
     #[serde(default)]
     pub arrow_trail: Vec<(i32, i32)>,
-    /// Ticks remaining for arrow stuck in ground after a miss.
     #[serde(default)]
     pub ground_arrow: u8,
-    /// Position of the grounded arrow (miss landing spot).
     #[serde(default)]
     pub ground_x: i32,
     #[serde(default)]
@@ -69,8 +55,6 @@ impl Longbow {
     pub fn wind(progress: u8) -> i32 {
         WINDS[usize::from(progress.min(3))]
     }
-    /// The popinjay at `age` ticks into a round: a steady run along the
-    /// rope and back, so a knight can learn to lead it.
     pub fn target_at(age: u32, progress: u8) -> i32 {
         let phase = (age + u32::from(progress) * HZ) % PERIOD;
         let span = (RUN.1 - RUN.0) * 256;
@@ -103,7 +87,6 @@ impl Longbow {
     }
 }
 impl Run {
-    /// One tick of one archer's round. False once it is lost.
     pub(super) fn tick_longbow(&mut self, r: &mut Round, inputs: &BTreeMap<u32, Input>, eligible: &[(u32, f32, f32)]) -> bool {
         let b = r.longbow.as_mut().unwrap();
         if !eligible.iter().any(|&(id, _, _)| id == b.owner) {
@@ -111,7 +94,6 @@ impl Run {
             return false;
         }
         let input = inputs.get(&b.owner).filter(|i| i.valid()).copied().unwrap_or_default();
-        // The archer toes the line: walking moves the aim, drawing holds still.
         if let Some(hero) = self.players.get_mut(&b.owner) {
             if b.draw == 0 && b.flight.is_none() {
                 b.aim = ((hero.x / TILE_UNITS * 256.0) as i32).clamp(AIM.0, AIM.1);
@@ -120,7 +102,6 @@ impl Run {
             hero.y = LINE * TILE_UNITS;
         }
         if let Some(mut a) = b.flight.take() {
-            // Track arrow position for trail rendering (keep last 6).
             b.arrow_trail.push((a.x, a.y()));
             if b.arrow_trail.len() > 6 {
                 b.arrow_trail.remove(0);
@@ -151,7 +132,6 @@ impl Run {
                         b.owner,
                         if a.power < FULL_DRAW { "TOO SHORT! DRAW LONGER." } else { "MISS! LEAD IT." }.into(),
                     ));
-                    // Arrow stuck in ground with dust puff.
                     b.ground_arrow = 6;
                     b.ground_x = a.x;
                     b.ground_y = a.y();
@@ -166,7 +146,6 @@ impl Run {
             b.hit_burst = b.hit_burst.saturating_sub(1);
             b.ground_arrow = b.ground_arrow.saturating_sub(1);
         } else if input.fire && b.arrows < ARROWS {
-            // Draw sound: play "swing" when the draw starts (first frame)
             if b.draw == 0 { self.sounds.push("swing"); }
             b.draw = (b.draw + 1).min(HZ);
         } else if b.draw > 0 {

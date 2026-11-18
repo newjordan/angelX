@@ -30,7 +30,6 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
     let s_c = s.craft_s(&craft);
     if want("griffinwing.bot.Session.threat") {
         let mut c = s.clone();
-        // a few hostile bolts sent at the craft's plane
         for _ in 0..rng.below(4) {
             let to = (s_c + rng.range(40, 2200), craft.x + rng.range(-300, 300), craft.z + rng.range(-200, 200));
             let v = (PACE - rng.range(20, 90), rng.range(-30, 30), rng.range(-30, 30));
@@ -73,7 +72,6 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
     if want("griffinwing.bot.Session.footprint_away") {
         for _ in 0..3 {
             let mut c = s.clone();
-            // a tell near the craft
             let kind = [Kind::Turret, Kind::Bomber, Kind::Wisp, Kind::Kite][rng.below(4) as usize];
             let id2 = c.next_id();
             c.foes.push(Foe {

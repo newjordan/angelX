@@ -11,8 +11,6 @@ use std::time::{Duration, Instant};
 use crate::together_grants::{GRANT_CALL, GRANT_MOST};
 use crate::together_shooter::salvage::{self, Design, Plan, Vessel};
 
-/// A build out with the model: its plan, the fleet as it stood, when it
-/// went, and where the answer lands.
 #[derive(Clone, Debug)]
 pub struct Job {
     pub(crate) plan: Plan,
@@ -22,13 +20,11 @@ pub struct Job {
 }
 
 impl Job {
-    /// The pieces the build was asked for, by number.
     pub fn ids(&self) -> Vec<u32> {
         self.plan.pieces.iter().map(|p| p.id).collect()
     }
 }
 
-/// The host's shipwrights: the build in hand, if any.
 #[derive(Clone, Debug, Default)]
 pub struct Shipwright {
     pub job: Option<Job>,
@@ -48,15 +44,11 @@ impl Shipwright {
                 }
             });
         if spawned.is_err() {
-            // No thread to ask on: the fallback makes her at once.
             *answer.lock().unwrap_or_else(|e| e.into_inner()) = Some(Err("no shipwright thread".into()));
         }
         self.job = Some(Job { plan, fleet, started: Instant::now(), answer });
     }
 
-    /// The build whose answer is in (or that has waited past
-    /// `GRANT_MOST`): the job and the design to build, the model's or the
-    /// fallback's, and whether the model made it.
     pub fn landed(&mut self) -> Option<(Job, Design, bool)> {
         let job = self.job.as_ref()?;
         let answer = job.answer.lock().ok().and_then(|mut a| a.take());

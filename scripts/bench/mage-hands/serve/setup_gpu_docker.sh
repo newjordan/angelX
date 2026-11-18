@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Give Docker the GPU (NVIDIA Container Toolkit + CDI spec), then start the
-# Mage reference container. Run as root.
 set -eu
 MAGE=${MAGE_ROOT:-$HOME/mage}  # the mage working folder: bench/, desk/, bin/, venv/
 pacman -S --needed --noconfirm nvidia-container-toolkit

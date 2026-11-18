@@ -12,14 +12,11 @@ use crate::*;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Goods that only the Delve gives: a quarry charter's rock and what comes up
-/// with it, and the gold that pays the wages.
 fn delve_goods(c: &Catalog) -> BTreeSet<String> {
     let mut v: BTreeSet<String> = c.geology.values().flat_map(|g| std::iter::once(g.stone.clone()).chain(g.also.iter().cloned())).collect();
     v.insert("coin".into());
     v
 }
-/// Goods the systems around the sim use directly.
 const SYSTEM_USES: [&str; 5] = ["coin", "livery", "pole", "centring", "food"];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -41,8 +38,6 @@ fn note(code: &'static str, subject: &str, message: String) -> Finding {
     Finding { severity: Severity::Note, code, subject: subject.into(), message }
 }
 
-/// What the founding camp can ever have, given its stock, its founders and
-/// (optionally) the Delve's seams.
 #[derive(Clone, Debug, Default)]
 pub struct Reach {
     pub goods: BTreeSet<String>,
@@ -52,8 +47,6 @@ pub struct Reach {
     pub trades: BTreeSet<String>,
 }
 
-/// The trades that can be filled from the founders: the founders' own, and
-/// every trade a reachable trade can supervise.
 fn reachable_trades(c: &Catalog) -> BTreeSet<String> {
     let mut have: BTreeSet<String> = c.founders.iter().map(|(t, _)| t.clone()).collect();
     have.insert("labourer".into());
@@ -70,11 +63,9 @@ fn reachable_trades(c: &Catalog) -> BTreeSet<String> {
     }
 }
 
-/// The closure of everything that can be raised from founding stock.
 pub fn reach(c: &Catalog, with_delve: bool) -> Reach {
     let mut r = Reach { trades: reachable_trades(c), ..Reach::default() };
     r.goods.extend(c.hillside_starter.keys().cloned());
-    // Plans the hillside begins with or the game places.
     r.plans.insert("camp".into());
     r.plans.insert("shaft-hand".into());
     r.plans.insert("castle-yard".into());
@@ -114,13 +105,12 @@ pub fn reach(c: &Catalog, with_delve: bool) -> Reach {
                 continue;
             }
             let Some((_, plan)) = c.plans.iter().find(|(pk, p)| r.plans.contains(*pk) && p.recipes.contains(k)) else { continue };
-            let patch_ok = true; // woods and the outcrop are always there at founding
+            let patch_ok = true;
             if patch_ok && rec.inputs.keys().all(|g| r.goods.contains(g)) && (plan.tool.is_empty() || r.goods.contains(&plan.tool)) {
                 r.recipes.insert(k.clone());
                 r.goods.extend(rec.outputs.keys().cloned());
             }
         }
-        // Wear returns every tool as its worn state.
         for p in c.plans.values() {
             if !p.tool.is_empty() && r.plans.iter().any(|k| c.plans[k].tool == p.tool) {
                 r.goods.insert(format!("worn-{}", p.tool));
@@ -132,12 +122,10 @@ pub fn reach(c: &Catalog, with_delve: bool) -> Reach {
     }
 }
 
-/// Every check the design is held to.
 pub fn check(c: &Catalog) -> Vec<Finding> {
     let mut f = Vec::new();
     let reserved: BTreeSet<&String> = c.reserved.iter().collect();
     let delve = delve_goods(c);
-    // -- every good has a maker --
     let mut made: BTreeSet<String> = delve.clone();
     for rec in c.recipes.values() {
         made.extend(rec.outputs.keys().cloned());
@@ -147,14 +135,12 @@ pub fn check(c: &Catalog) -> Vec<Finding> {
             made.insert(format!("worn-{}", p.tool));
         }
     }
-    // The valley's own claim goods and extractor outputs.
     made.extend(["iron-ore", "coal", "crystal", "ember"].map(String::from));
     for g in c.resources.keys() {
         if !made.contains(g) && !reserved.contains(g) {
             f.push(err("no-maker", g, format!("{g} is made by no recipe, claim or tool wear")));
         }
     }
-    // -- every good has a use --
     let mut used: BTreeSet<String> = SYSTEM_USES.iter().map(|s| s.to_string()).collect();
     for rec in c.recipes.values() {
         used.extend(rec.inputs.keys().cloned());
@@ -200,7 +186,6 @@ pub fn check(c: &Catalog) -> Vec<Finding> {
             f.push(err("no-use", g, format!("{g} is used by no recipe, building, charter, line, bill or meal")));
         }
     }
-    // -- every building is reachable from founding stock; the camp age needs no Delve --
     let full = reach(c, true);
     let camp = reach(c, false);
     for (k, p) in &c.plans {
@@ -223,8 +208,6 @@ pub fn check(c: &Catalog) -> Vec<Finding> {
                 .collect::<BTreeSet<_>>()
                 .into_iter()
                 .collect();
-            // Valley-only goods (arms, wardstones) are made on the hillside too
-            // but need ore; any good still unreached is a design hole.
             f.push(err(
                 "unreachable",
                 g,
@@ -232,16 +215,12 @@ pub fn check(c: &Catalog) -> Vec<Finding> {
             ));
         }
     }
-    // -- no bootstrapping cycle: a good whose every maker needs a good that
-    //    needs it back, with none to begin with, is unreachable above; here we
-    //    name the cycle for the report --
     for g in c.resources.keys() {
         if full.goods.contains(g) || reserved.contains(g) {
             continue;
         }
         f.push(note("cycle", g, format!("{g} is not reachable; check for a loop that needs its own product to start")));
     }
-    // -- every line of every castle's bill has a chain --
     for (key, castle) in &c.castles {
         let r = if key == "motte-and-bailey" { &camp } else { &full };
         for stage in &castle.stages {
@@ -260,14 +239,12 @@ pub fn check(c: &Catalog) -> Vec<Finding> {
                 }
             }
         }
-        // The scaffold the site stands on is made too.
         for g in ["pole", "centring"] {
             if !r.goods.contains(g) {
                 f.push(err("site-chain", key, format!("the site's scaffold wants {g}, which cannot be made")));
             }
         }
     }
-    // -- tools are a loop: every tool class can be made and re-steeled --
     for p in c.plans.values().filter(|p| !p.tool.is_empty()) {
         let t = &p.tool;
         let makes = c.recipes.iter().any(|(_, r)| r.outputs.contains_key(t) && r.inputs.contains_key(&format!("worn-{t}")));
@@ -275,7 +252,6 @@ pub fn check(c: &Catalog) -> Vec<Finding> {
             f.push(err("tool-loop", t, format!("no smith re-steels worn {t}s")));
         }
     }
-    // -- every trade a building needs can be filled --
     for (k, p) in &c.plans {
         if p.hillside && !p.trade.is_empty() && !full.trades.contains(&p.trade) {
             f.push(err("trade", k, format!("nobody can ever hold the {} trade", p.trade)));
@@ -284,22 +260,15 @@ pub fn check(c: &Catalog) -> Vec<Finding> {
     f
 }
 
-// ---------------------------------------------------------------- solver
-
 #[derive(Clone, Debug)]
 pub struct SolveOptions {
     pub castle: String,
     pub stones_per_min: f64,
-    /// The rock the banker cuts: limestone, freestone, flint, basalt, tufa, voidstone or field.
     pub rock: String,
-    /// Fit every machine with its powered drive (twice the pace, demand units).
     pub powered: bool,
     pub haul: LineKind,
-    /// Typical haul between works, and from the shaft head, in tiles.
     pub distance: u32,
     pub shaft_distance: u32,
-    /// Count the oxen, carts and harness the fleet's growth takes (over an
-    /// hour and a half). The camp age has no iron for tyres and does not.
     pub fleet_growth: bool,
 }
 impl SolveOptions {
@@ -322,37 +291,28 @@ pub struct Plant {
     pub plan: String,
     pub recipe: String,
     pub batches_per_min: f64,
-    /// Machines fully busy at the pace the recipe runs.
     pub machines: f64,
     pub count: u32,
     pub workers: u32,
     pub power: u32,
 }
-/// One flow of goods between two kinds of works, and the carts it keeps busy.
-/// Carts are pooled, so these are shares of the pool, not carts of their own.
 #[derive(Clone, Debug)]
 pub struct LineNeed {
     pub good: String,
     pub from: String,
     pub to: String,
     pub per_min: f64,
-    /// Kilograms a minute.
     pub kilos_per_min: f64,
     pub kind: LineKind,
-    /// Carts' worth of work, rounded up for display; the pool is sized on the sum.
     pub vehicles: u32,
-    /// Loads a minute (a load is a tonne).
     pub loads_per_min: f64,
-    /// A flow this heavy over this far is a tramway's work, not the roads'.
     pub tramway: bool,
 }
 #[derive(Clone, Debug, Default)]
 pub struct Requirement {
     pub options: Option<SolveOptions>,
-    /// Goods needed per minute, wall and works together.
     pub goods: BTreeMap<String, f64>,
     pub plants: Vec<Plant>,
-    /// Machines to raise per building plan (recipes on one plan share).
     pub buildings: BTreeMap<String, u32>,
     pub workers: u32,
     pub posts_by_trade: BTreeMap<String, u32>,
@@ -361,35 +321,22 @@ pub struct Requirement {
     pub lodges: u32,
     pub power_units: u32,
     pub lines: Vec<LineNeed>,
-    /// Carts in the pool, and the carter's yards that stable them.
     pub vehicles: u32,
     pub yards: u32,
-    /// Units a shift the Great Shaft must lift, and the plan that does it.
     pub shaft_per_shift: f64,
     pub shaft_plan: Option<String>,
     pub claims: BTreeMap<String, f64>,
-    /// Tools worn per minute, by class.
     pub tool_wear: BTreeMap<String, f64>,
     pub people: u32,
     pub beds: u32,
-    /// Coin a minute in wages.
     pub coin_per_min: f64,
     tree: Value,
 }
 
-/// The share of return legs that run empty: a cart that has just unloaded takes
-/// the next load near it, so most of the way back carries something.
 const EMPTY_RETURNS: f64 = 0.4;
-/// A flow needing this many carts over ten tiles or more wants a tramway.
 const TRAMWAY_CARTS: f64 = 6.0;
-/// How full the carts really run: a work asks for its goods in batches and a cart takes what is
-/// asked, so the scripted player's carts carried 520 kg a trip on a 1000 kg cart. The solver
-/// sizes the pool for that, not for a perfect load.
 const LOAD_FILL: f64 = 0.55;
 
-/// Carts' worth of work to move `units_per_min` of a good `dist` tiles: loads a
-/// minute (a cart takes a tonne, so a heavy good fills it in ten units and
-/// nails in five hundred) times the seconds a load keeps a cart.
 fn carts_for(c: &Catalog, good: &str, units_per_min: f64, dist: u32) -> f64 {
     let spec = &c.lines["cart"];
     let kilos = f64::from(c.resources.get(good).map_or(50, |r| r.kilos()));
@@ -422,12 +369,10 @@ fn plan_of(c: &Catalog, recipe: &str) -> Option<String> {
     c.plans.iter().find(|(_, p)| p.hillside && p.recipes.iter().any(|r| r == recipe)).map(|(k, _)| k.clone())
 }
 
-/// Solves the whole tree for `o.stones_per_min`.
 pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
     let castle = c.castles.get(&o.castle).ok_or("unknown castle")?;
     let stones = f64::from(castle.stones());
     let rate = o.stones_per_min;
-    // The wall's own demand, from the bill, per minute at this pace.
     let mut wall: BTreeMap<String, f64> = BTreeMap::new();
     let mut total_need = Stock::new();
     let mut lifts = 0u32;
@@ -447,16 +392,13 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
     for (g, q) in &total_need {
         wall.insert(g.clone(), f64::from(*q) / stones * rate);
     }
-    // Scaffold stock wears out as lifts finish.
     *wall.entry("pole".into()).or_default() += f64::from(lifts * c.works.poles_worn) / stones * rate;
     *wall.entry("centring".into()).or_default() += f64::from(arch_lifts * c.works.centring_worn) / stones * rate;
 
-    // Chosen makers and the tools' special loop.
     let mut maker: BTreeMap<String, String> = BTreeMap::new();
     let mut goods: BTreeSet<String> = wall.keys().cloned().collect();
     let mut frontier: Vec<String> = goods.iter().cloned().collect();
     let tool_classes: BTreeSet<String> = c.plans.values().filter(|p| !p.tool.is_empty()).map(|p| p.tool.clone()).collect();
-    // The people eat and the oxen are fed: those goods belong to the tree too.
     let mut seeds: Vec<String> = vec![c.diet.staple.clone()];
     seeds.extend(c.diet.skilled.get(1).cloned());
     seeds.extend(c.lines[o.haul.key()].upkeep.keys().cloned());
@@ -468,8 +410,6 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
             frontier.push(g);
         }
     }
-    // Worn tools are re-steeled: the smith's inputs belong to the tree even
-    // though nothing in the wall asks for a tool.
     for t in &tool_classes {
         if goods.insert(t.clone()) {
             frontier.push(t.clone());
@@ -492,14 +432,11 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
             maker.insert(g, r);
         }
     }
-    // Extra demands the economy makes of itself: bread and ale for the people,
-    // fodder for the oxen, steel and charcoal for the smith: found by iteration.
     let delve = delve_goods(c);
     let mut runs: BTreeMap<String, f64> = BTreeMap::new();
     let mut extra: BTreeMap<String, f64> = BTreeMap::new();
     let mut result = Requirement { options: Some(o.clone()), ..Requirement::default() };
     for _ in 0..60 {
-        // Demand per good: wall + inputs of every running recipe + extras - co-products.
         let mut demand: BTreeMap<String, f64> = wall.clone();
         for (g, n) in &extra {
             *demand.entry(g.clone()).or_default() += n;
@@ -516,7 +453,6 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
                 }
             }
         }
-        // Tools worn out come back as worn tools, one for one.
         let mut wear: BTreeMap<String, f64> = BTreeMap::new();
         for (pk, p) in c.plans.iter().filter(|(_, p)| !p.tool.is_empty() && p.hillside) {
             let busy: f64 = result.plants.iter().filter(|x| &x.plan == pk).map(|x| x.machines).sum();
@@ -526,7 +462,6 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
             *co.entry(format!("worn-{t}")).or_default() += w;
             *demand.entry(t.clone()).or_default() += 0.0;
         }
-        // New runs from demand.
         let mut moved = 0.0f64;
         let mut next: BTreeMap<String, f64> = BTreeMap::new();
         for (g, r) in &maker {
@@ -538,7 +473,6 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
             moved = moved.max((n - runs.get(r).copied().unwrap_or(0.0)).abs());
         }
         runs = next;
-        // Plants from runs.
         let mut plants = Vec::new();
         for (r, n) in runs.iter().filter(|(_, n)| **n > 1e-9) {
             let Some(pk) = plan_of(c, r) else { continue };
@@ -553,7 +487,6 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
             plants.push(Plant { plan: pk, recipe: r.clone(), batches_per_min: *n, machines, ..Plant::default() });
         }
         result.plants = plants;
-        // People and what they eat.
         let mut by_plan: BTreeMap<String, f64> = BTreeMap::new();
         for x in &result.plants {
             *by_plan.entry(x.plan.clone()).or_default() += x.machines;
@@ -567,7 +500,6 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
                 skilled += m.ceil() / f64::from(c.works.posts_per_supervisor.max(1));
             }
         }
-        // The masons at the wall, the shaft's crew, the ditchers are counted below.
         let masons = (rate / (f64::from(c.works.mason_credit) / 100.0 * 6.0)).ceil();
         people += masons;
         let staple = 60.0 / 90.0;
@@ -576,8 +508,6 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
         if let Some(e) = c.diet.skilled.get(1) {
             ex.insert(e.clone(), skilled * staple);
         }
-        // The oxen's fodder, found from the carts the flows below keep busy: every
-        // input of every recipe is hauled from its maker, and so is the wall's.
         let spec = &c.lines[o.haul.key()];
         let mut veh = 0.0;
         for x in &result.plants {
@@ -593,14 +523,11 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
         for (g, n) in &spec.upkeep {
             *ex.entry(g.clone()).or_default() += f64::from(*n) * veh.ceil() * 60.0 / f64::from(spec.upkeep_seconds.max(1));
         }
-        // The fleet itself is built over the first hour and a half: carts from
-        // the wheelwright, oxen reared, harness stitched.
         if o.haul == LineKind::Cart && o.fleet_growth {
             for g in ["cart", "ox", "harness"] {
                 *ex.entry(g.to_string()).or_default() += veh.ceil() / 90.0;
             }
         }
-        // Wages for the skilled, paid in the Delve's coin.
         let coin = skilled * f64::from(c.works.wage_journeyman) * 60.0 / f64::from(c.works.wage_seconds.max(1));
         *ex.entry("coin".into()).or_default() += coin;
         let delta = ex.iter().map(|(g, n)| (n - extra.get(g).copied().unwrap_or(0.0)).abs()).fold(0.0, f64::max);
@@ -609,7 +536,6 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
             break;
         }
     }
-    // Final accounting.
     let mut demand: BTreeMap<String, f64> = wall.clone();
     for (g, n) in &extra {
         *demand.entry(g.clone()).or_default() += n;
@@ -645,15 +571,12 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
     result.masons = (rate / (f64::from(c.works.mason_credit) / 100.0 * 6.0)).ceil() as u32;
     result.lodges = result.masons.div_ceil(u32::from(c.plans["lodge"].workers.max(1)));
     result.workers += result.masons;
-    // Claims and the shaft: every good no recipe makes that the Delve supplies.
     for (g, n) in &demand {
         if !maker.contains_key(g) && delve.contains(g) && g != "coin" {
             result.claims.insert(g.clone(), *n);
         }
     }
     result.shaft_per_shift = result.claims.values().sum::<f64>() / 6.0;
-    // (A lift is rated in blocks a minute: a shift lifts a sixth of that.)
-    // The lowest lift that raises enough, counting a powered drive's gain.
     let mut tiers: Vec<(u32, &String)> = c
         .plans
         .iter()
@@ -666,8 +589,6 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
         .find(|(per_minute, _)| f64::from(*per_minute) >= result.shaft_per_shift * 6.0)
         .or(tiers.last())
         .map(|(_, k)| (*k).clone());
-    // Transport: every input flow of every recipe, and the wall's, is carried from
-    // its maker by the shared pool of carts.
     let spec = &c.lines[o.haul.key()];
     let mut total = 0.0;
     let mut flows: Vec<(String, String, String, f64, u32)> = Vec::new();
@@ -707,7 +628,6 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
     }
     result.vehicles = total.ceil() as u32;
     result.yards = result.vehicles.div_ceil(c.plans.get("carters-yard").map_or(12, |p| u32::from(p.stalls)).max(1));
-    // Tools in the loop, and the people and beds.
     for (pk, p) in c.plans.iter().filter(|(_, p)| !p.tool.is_empty() && p.hillside) {
         let busy: f64 = result.plants.iter().filter(|x| &x.plan == pk).map(|x| x.machines).sum();
         *result.tool_wear.entry(p.tool.clone()).or_default() += busy * 60.0 / (f64::from(p.tool_life.max(1)) * 10.0);
@@ -720,8 +640,6 @@ pub fn solve(c: &Catalog, o: &SolveOptions) -> Result<Requirement, String> {
     Ok(result)
 }
 
-/// The requirement as a tree, from the wall down: each good with what makes
-/// it, how many machines and people that takes, and what that needs in turn.
 fn tree(c: &Catalog, o: &SolveOptions, maker: &BTreeMap<String, String>, runs: &BTreeMap<String, f64>, req: &Requirement) -> Value {
     let name = |g: &str| c.resources.get(g).map_or(g.to_string(), |r| r.name.clone());
     let delve = delve_goods(c);
@@ -783,7 +701,6 @@ fn tree(c: &Catalog, o: &SolveOptions, maker: &BTreeMap<String, String>, runs: &
     json!({"set_in_the_wall": {"stones_per_min": o.stones_per_min, "needs": wall}})
 }
 
-/// The goods the wall itself asks for, per minute.
 fn wall_goods(c: &Catalog, o: &SolveOptions) -> Vec<(String, f64)> {
     let castle = &c.castles[&o.castle];
     let stones = f64::from(castle.stones());
@@ -804,7 +721,6 @@ fn round(x: f64) -> f64 {
 }
 
 impl Requirement {
-    /// The whole answer as JSON: the tree, then the flat counts.
     pub fn json(&self, c: &Catalog) -> Value {
         let o = self.options.as_ref().expect("solved");
         json!({

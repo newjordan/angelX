@@ -1,9 +1,5 @@
 const leg = require('./swarm-waves.compiled.js')
 
-// Thin adapter: the host resolves every float comparison natively (no f64 in
-// Bend), so the wave leg receives the stop predicates as booleans and the
-// grown wave size as a precomputed integer; swarm-waves.bend owns the stop
-// order, the expand choice and every integer clamp.
 const count = value => (Number.isInteger(value) && value >= 0 && value <= 0xffffffff ? value : 0)
 const flag = value => value === true
 const REASONS = {

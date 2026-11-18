@@ -93,7 +93,6 @@ impl Parser {
                     }
                 }
                 '&' => {
-                    // Alignment markers are layout instructions, not notation.
                     self.at += 1;
                     nodes.push(Node::Text("  ".into()));
                 }
@@ -181,7 +180,6 @@ impl Parser {
                 Some(Node::Fraction(Box::new(numerator), Box::new(denominator)))
             }
             "sqrt" => {
-                // Preserve an optional root index compactly: ³√x, or ⁿ√x.
                 self.skip_spaces();
                 let index = if self.peek() == Some('[') {
                     self.at += 1;
@@ -235,8 +233,6 @@ impl Parser {
             "quad" => Some(Node::Text("  ".into())),
             "qquad" => Some(Node::Text("    ".into())),
             "begin" | "end" => {
-                // Environment names are TeX control structure. Keep the body
-                // readable; row separators and alignment marks are handled.
                 let _ = self.required_group(depth);
                 None
             }
@@ -298,7 +294,6 @@ fn attach_script(nodes: &mut Vec<Node>, kind: char, script: Node) {
     nodes.push(Node::Script { base, sub, sup });
 }
 
-/// Render inline LaTeX as compact Unicode mathematical notation.
 pub fn inline(source: &str) -> String {
     if source.len() <= MAX_MATH_BYTES {
         if let Some(text) = Parser::new(source)
@@ -311,9 +306,6 @@ pub fn inline(source: &str) -> String {
     bounded_source(source).to_owned()
 }
 
-/// Render display LaTeX as centered terminal rows. Fractions retain a stacked
-/// numerator/rule/denominator when the expression fits; very wide expressions
-/// fall back to safe cell-bounded inline rows.
 pub fn display(source: &str, width: usize) -> Vec<String> {
     if width == 0 {
         return vec![String::new()];
@@ -348,10 +340,6 @@ pub fn display(source: &str, width: usize) -> Vec<String> {
     )
 }
 
-// Bound intermediate strings before rendering, including the multiplicative
-// growth of nested accents and scripts. Oversized expressions fall back to source.
-// Track scalar count separately: accents add one mark per character, not per
-// UTF-8 byte. This remains conservative for conditional script/fraction syntax.
 fn inline_bound(node: &Node) -> (usize, usize) {
     match node {
         Node::Text(text) => (text.len(), text.chars().count()),

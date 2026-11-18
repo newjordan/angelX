@@ -17,8 +17,6 @@ fn seat() -> (i32, i32) {
     (NATIVE_W, NATIVE_H + party::BAND_H + party::HUD_H)
 }
 
-/// The Gravecaller (knight 1) and the Archer (knight 2) in an open fight
-/// room, awake, side by side.
 fn field() -> Run {
     let mut run = fight_with(false, &[]);
     run.join_seat(2, "Wren");
@@ -33,7 +31,6 @@ fn field() -> Run {
     run
 }
 
-/// A foe standing still where it is put, awake.
 fn foe(run: &mut Run, kind: EnemyKind, at: (f32, f32)) -> u32 {
     let id = foe_at(run, kind, at, u32::MAX / 2);
     let foe = run.enemies.last_mut().unwrap();
@@ -77,7 +74,6 @@ fn write_minion_shots() {
         save_img(name, &img, 3);
     };
 
-    // At his bench in the tavern, a knight walking up to him.
     let mut run = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
     run.walk_alehouse();
     run.floor_plates.clear();
@@ -90,7 +86,6 @@ fn write_minion_shots() {
     }
     shot("minions_01_tavern", &run);
 
-    // Beside the Archer: a hero's size, toward the viewer.
     let mut run = field();
     let archer = run.players.get_mut(&2).unwrap();
     (archer.x, archer.y) = (18.0, 15.0);
@@ -98,15 +93,12 @@ fn write_minion_shots() {
     wait(&mut run, 2);
     shot("minions_02_beside_a_knight", &run);
 
-    // Raising a ghoul: staff up, the flare, the dead climbing out.
     let mut run = field();
     foe(&mut run, EnemyKind::Skeleton, (30.0, 8.0));
     cast(&mut run, 1, (1, 0));
     wait(&mut run, 6);
     shot("minions_03_raise", &run);
 
-    // His whole company at work: a mark on the skeleton he fires at, the
-    // ghoul on it, the warden roaring before him, the totem spitting fire.
     let mut run = field();
     let marked = foe(&mut run, EnemyKind::Skeleton, (24.0, 10.0));
     foe(&mut run, EnemyKind::Skeleton, (8.0, 22.0));
@@ -121,7 +113,6 @@ fn write_minion_shots() {
     assert_eq!(run.minions.quarry.get(&1), Some(&marked));
     shot("minions_04_company", &run);
 
-    // The Tombstone, its zombies up and taking hold.
     let mut run = field();
     foe(&mut run, EnemyKind::Skeleton, (22.0, 9.0));
     foe(&mut run, EnemyKind::Skeleton, (25.0, 13.0));
@@ -132,7 +123,6 @@ fn write_minion_shots() {
     wait(&mut run, 4 * HZ);
     shot("minions_06_tombstone_zombies", &run);
 
-    // A soul rip, the souls streaming home.
     let mut run = field();
     cast(&mut run, 1, (1, 0));
     wait(&mut run, RISE_WAIT);
@@ -146,7 +136,6 @@ fn write_minion_shots() {
     run.step(&BTreeMap::new());
     shot("minions_07_soul_rip", &run);
 
-    // At heel: the rings at their feet.
     let mut run = field();
     foe(&mut run, EnemyKind::Skeleton, (36.0, 6.0));
     cast(&mut run, 1, (1, 0));
@@ -156,9 +145,6 @@ fn write_minion_shots() {
     wait(&mut run, HZ);
     shot("minions_08_heel", &run);
 
-    // Close: every way the Gravecaller is drawn (stand, a step, the
-    // strike) beside the realm's knight and the Archer, then his dead and
-    // the stone.
     let run = field();
     let mut figures: Vec<Img> = vec![super::super::knights::figure(&run.players[&2], 2)];
     let mut knight = run.players[&2].clone();
@@ -185,5 +171,4 @@ fn write_minion_shots() {
     save_img("minions_09_sheet", &sheet, 6);
 }
 
-/// Long enough for the raised to be out of the ground.
 const RISE_WAIT: u32 = crate::rules::minions::RISE + 2;

@@ -25,80 +25,51 @@ use super::missions;
 use super::*;
 use std::collections::BTreeSet;
 
-/// A node, link or marker's place in the map: today the room's index in
-/// the floor.
 pub type NodeId = usize;
 
-/// How much of a node the party knows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum NodeState {
-    /// Nothing: not on the map. (`Run::floor_map` leaves these out.)
     Unknown,
-    /// Seen through a doorway of a visited room: an outline and a "?".
     Seen,
-    /// A knight has stood in it, and its foes are not all done.
     Visited,
-    /// Visited, and its foes are done.
     Cleared,
 }
 
 impl NodeState {
-    /// Whether a knight has stood in it.
     pub fn visited(self) -> bool {
         self >= NodeState::Visited
     }
 }
 
-/// What a place is, once it is known. A node only seen has none
-/// (`NodeKind::Unknown`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NodeKind {
     Unknown,
-    /// The way in, on the first floor.
     Entrance,
-    /// A chamber to fight in.
     Chamber,
-    /// A stone passage between chambers.
     Passage,
-    /// The safe room with the reforge altar.
     Sanctuary,
     Treasure,
-    /// The stairs down (and the guardian that keeps them).
     Stairs,
-    /// The dragon's lair, and the Unknown's threshold.
     Lair,
-    /// A vault behind a cracked wall, found.
     Vault,
     Pit,
     Wanted,
-    /// A side-on hall of planks and pits.
     Ledge,
-    /// A lived-in dead end off a fight room.
     Nook,
-    /// A reclaimed floor's forge-hall.
     Forge,
-    /// A held floor's steward's hall.
     Hold,
 }
 
-/// A mark on a known node. A node carries the ones that are true of it,
-/// most important first.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Icon {
-    /// The floor's guardian, still to fall.
     Guardian,
-    /// A route chief, still to fall.
     Chief,
-    /// The stairs down.
     Stairs,
     Sanctuary,
     Entrance,
     Treasure,
-    /// The travelling peddler's camp.
     Merchant,
-    /// The Boss Key, lying here.
     Key,
-    /// A vault, found.
     Vault,
     Pit,
     Wanted,
@@ -106,12 +77,9 @@ pub enum Icon {
     Nook,
     Forge,
     Hold,
-    /// A mission the seat's knight holds is done here (`missions`): on
-    /// that seat's own map only.
     Mission,
 }
 
-/// A rectangle in map units.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Rect {
     pub x: f32,
@@ -125,7 +93,6 @@ impl Rect {
         (self.x + self.w / 2.0, self.y + self.h / 2.0)
     }
 
-    /// The smallest rectangle holding both.
     pub fn union(&self, other: &Rect) -> Rect {
         let (x0, y0) = (self.x.min(other.x), self.y.min(other.y));
         let (x1, y1) = (
@@ -141,59 +108,43 @@ impl Rect {
     }
 }
 
-/// One place on the map.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Node {
     pub id: NodeId,
     pub rect: Rect,
     pub kind: NodeKind,
     pub state: NodeState,
-    /// Empty until a knight has stood here.
     pub icons: Vec<Icon>,
 }
 
-/// A doorway between two nodes, as the line between the two edges it
-/// joins (map units). It leads on from `a` to `b` whichever way a knight
-/// walks it.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Link {
     pub a: NodeId,
     pub b: NodeId,
     pub from: (f32, f32),
     pub to: (f32, f32),
-    /// The Boss Key's door, shut for want of the key.
     pub locked: bool,
 }
 
-/// A counted knight on the map.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Marker {
     pub knight: u32,
-    /// What the party calls them.
     pub name: String,
     pub node: NodeId,
-    /// Where they stand, in map units, inside their node's rectangle.
     pub at: (f32, f32),
-    /// The seat this map is for.
     pub own: bool,
-    /// Their player is away: they stand as stone.
     pub away: bool,
     pub fallen: bool,
-    /// They carry the Boss Key.
     pub key: bool,
 }
 
-/// What the party knows of its floor.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct FloorMap {
-    /// Which floor of the delve, and whose it is (0: there is no map here,
-    /// as at home).
     pub depth: u32,
     pub pack: Option<Pack>,
     pub nodes: Vec<Node>,
     pub links: Vec<Link>,
     pub party: Vec<Marker>,
-    /// The node the seat stands in (the party's, for no seat).
     pub here: Option<NodeId>,
 }
 
@@ -202,49 +153,35 @@ impl FloorMap {
         self.nodes.iter().find(|n| n.id == id)
     }
 
-    /// Where the seat's own marker stands.
     pub fn own(&self) -> Option<&Marker> {
         self.party.iter().find(|m| m.own)
     }
 
-    /// The smallest rectangle holding every node.
     pub fn bounds(&self) -> Option<Rect> {
         self.nodes.iter().map(|n| n.rect).reduce(|a, b| a.union(&b))
     }
 
-    /// Whether any node is known.
     pub fn is_empty(&self) -> bool {
         self.nodes.is_empty()
     }
 }
 
-/// A knight and where they stand: their seat, the room, the spot in it, and
-/// the knight themselves (none where only the exits know of them).
 type Standing<'a> = (u32, usize, (f32, f32), Option<&'a Hero>);
 
-/// How far in from its cell's edge a room's rectangle sits, so two rooms
-/// that touch leave room for the doorway between them.
 const INSET: f32 = 0.125;
 
 impl Run {
-    /// The floor as the party knows it, for `seat`'s screen (`None`: for
-    /// the party's room, between the knights). Empty where there is no
-    /// floor to map: at home, and in the world above the Delve.
     pub fn floor_map(&self, seat: Option<u32>) -> FloorMap {
         let floor = &self.dungeon;
         let rooms = &floor.rooms;
         if floor.depth == 0 || rooms.is_empty() || self.room().kind.in_world() {
             return FloorMap::default();
         }
-        // Where each counted knight stands: in the party's room, or in the
-        // room they went out to wait in (`exits.outside`).
         let room_of = |id: u32| self.exits.outside.get(&id).map_or(self.at, |e| e.at);
         let mut standing: Vec<Standing> = Vec::new();
         for (&id, hero) in self.players.iter().filter(|(_, h)| !h.absent) {
             standing.push((id, room_of(id), (hero.x, hero.y), Some(hero)));
         }
-        // A party member's own view leaves out those waiting outside; the
-        // exits still say where each one stands.
         for (&id, entry) in &self.exits.outside {
             if !self.players.contains_key(&id) {
                 let spot = entry.party.get(&id).copied().unwrap_or_default();
@@ -254,15 +191,12 @@ impl Run {
         standing.retain(|&(_, room, _, _)| room < rooms.len());
         let occupied: BTreeSet<usize> = standing.iter().map(|&(_, room, _, _)| room).collect();
 
-        // A vault is no part of the floor until its wall is blown.
         let hidden = |i: usize| {
             rooms[i].kind == RoomKind::Secret
                 && !floor.secret.is_some_and(|s| s.vault == i && s.found)
         };
         let visited = |i: usize| !hidden(i) && (rooms[i].visited || occupied.contains(&i));
 
-        // Seen: through a doorway of a visited room. Every doorway of a
-        // visited room is a link.
         let mut seen = BTreeSet::new();
         let mut doors: BTreeSet<(usize, usize)> = BTreeSet::new();
         for from in (0..rooms.len()).filter(|&i| visited(i)) {
@@ -276,9 +210,6 @@ impl Run {
                 doors.insert((from.min(to), from.max(to)));
             }
         }
-        // The safe room's war map charts the whole floor: every room an
-        // outline, every doorway drawn, what each holds still to be found
-        // (`freedom`).
         if self.freedom.charted {
             for from in (0..rooms.len()).filter(|&i| !hidden(i)) {
                 if !visited(from) {
@@ -300,8 +231,6 @@ impl Run {
             _ => None,
         };
         let carrier = self.key_bearer();
-        // The rooms the seat's own missions name: the guardian's, and the
-        // way down.
         let spots = seat.map(|id| self.mission_floor_spots(id)).unwrap_or_default();
         let down = rooms
             .iter()
@@ -375,7 +304,6 @@ impl Run {
                 continue;
             };
             let ((ax, ay), (bx, by)) = (ra.centre(), rb.centre());
-            // Out of `a`'s edge that faces `b`, into `b`'s that faces `a`.
             let edge = |r: &Rect, toward: (f32, f32), (cx, cy): (f32, f32)| {
                 let (dx, dy) = (toward.0 - cx, toward.1 - cy);
                 if dx.abs() >= dy.abs() {
@@ -432,13 +360,10 @@ impl Run {
         }
     }
 
-    /// The room whose guardian is still to fall, for the map's skull.
     fn guardian_icon_room(&self) -> Option<usize> {
         match &self.boss_gates {
             Some(g) => {
                 let kind = self.dungeon.rooms.get(g.guardian)?.kind;
-                // A stairs room with no guardian_boss is a plain fight; only
-                // the last floor's dragon and the threshold keep one anyway.
                 let keeps = g.guardian_boss.is_some()
                     || matches!(kind, RoomKind::Lair | RoomKind::Threshold);
                 (keeps && !g.guardian_defeated).then_some(g.guardian)
@@ -453,7 +378,6 @@ impl Run {
     }
 }
 
-/// What a room kind is, on the map.
 fn kind_of(kind: RoomKind) -> NodeKind {
     match kind {
         RoomKind::Start => NodeKind::Entrance,
@@ -473,7 +397,6 @@ fn kind_of(kind: RoomKind) -> NodeKind {
     }
 }
 
-/// The icon a room kind carries of its own, if any.
 fn kind_icon(kind: RoomKind) -> Option<Icon> {
     match kind {
         RoomKind::Start => Some(Icon::Entrance),

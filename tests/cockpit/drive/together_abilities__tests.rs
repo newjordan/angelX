@@ -168,8 +168,6 @@ fn animated_loadout_reaches_the_live_sim_and_rebinds_after_edit() {
         sim.pump(now);
         sim.latch();
     };
-    // A local projection is available before Link finishes connecting. Wait
-    // until the seat is playing and the authoritative hero has returned.
     let ready_deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
     loop {
         pump(&mut sim);
@@ -472,7 +470,6 @@ fn independent_animation_provider_replaces_live_pixels_and_preserves_phase_and_s
             .iter()
             .all(|status| status.error.is_none())
     );
-    // A re-added provider permits a fresh cold selector, without creating seats.
     assert!(
         cold.snapshot()
             .statuses
@@ -967,8 +964,6 @@ fn same_tick_replacement_fences_cast_before_after_step_returns_early() {
     assert_eq!(runtime.groups.values().map(|g| g.casts.len()).sum::<usize>(), 1);
     run.leave(2);
     run.join_seat(2, "Replacement");
-    // Re-entrant same-tick processing normally returns immediately. It must
-    // still retire the prior owner's work before the return.
     runtime.after_step(&mut run);
     assert!(runtime.groups.values().all(|group| group.casts.is_empty()));
     assert_eq!(runtime.effects, 1);
@@ -1294,7 +1289,6 @@ fn invalid_actual_batch_does_not_partially_apply_and_cancel_does_not_replay() {
     assert_eq!(runtime.effects, 0);
     assert_eq!(run.players[&1].mana, 100.0);
     assert!(runtime.groups.values().any(|group| group.fault.is_some()));
-    // A resource update in the same generation cannot clear quarantine.
     select(&mut registry, "bloom 1 2");
     runtime.set_sources(sources(&registry), &mut run);
     assert!(runtime.groups.values().any(|group| group.fault.is_some()));
@@ -1371,7 +1365,6 @@ fn bounded_capacity_defers_once_and_unaffordable_starts_do_not_stall_active_cast
             .all(|group| group.casts.is_empty() && group.fault.is_none())
     );
     assert_eq!(runtime.pending.len(), 1);
-    // Re-observing a committed tick cannot issue the projectile again.
     runtime.after_step(&mut run);
     assert_eq!(runtime.effects, 2);
     select(&mut registry, "cancel 1");
@@ -1449,8 +1442,6 @@ fn four_player_executable_ability_tick_cost() {
     let fixture = Fixture::new();
     let effects = fixture.root.join("ability-effects/effects.js");
     let mut graphs = std::fs::read_to_string(&effects).unwrap();
-    // Continuous four-player emissions exercise the adapter, with one-tick
-    // graph lives so the fixture does not intentionally fill its VFX budget.
     graphs.push_str("\nfor(const bank of Object.values(exports.banks)) for(const graph of Object.values(bank)) {graph.ticks=1; for(const node of graph.nodes) node.keys=node.keys.slice(0,1)}\n");
     std::fs::write(effects, graphs).unwrap();
     fixture.edit(
@@ -2548,7 +2539,6 @@ fn authored_graph_drives_real_gameplay_pixels_reload_phase_and_isolates_seats() 
         .unwrap()
         .pixels_at(run.tick)
         .to_vec();
-    // Actual rule admission, not a manually assigned animation fact.
     runtime.before_step(&mut run);
     run.step(&BTreeMap::from([(
         1,
@@ -2668,7 +2658,6 @@ fn authored_graph_drives_real_gameplay_pixels_reload_phase_and_isolates_seats() 
         accepted,
         "bad graph must retain whole last-good loadout"
     );
-    // Held shielding is a neutral gameplay fact, and release routes back through authored policy.
     run.players.get_mut(&1).unwrap().guard = angel_delve::rules::cards::Guard::Shield;
     runtime.before_step(&mut run);
     run.step(&BTreeMap::from([(
@@ -2686,7 +2675,6 @@ fn authored_graph_drives_real_gameplay_pixels_reload_phase_and_isolates_seats() 
     runtime.after_step(&mut run);
     assert!(!run.players[&1].shielding);
     assert_eq!(graph_state(&run, 1), "rest");
-    // Repeated same-tick observers cannot consume a second edge or reset phase.
     let phase = run.players[&1]
         .avatar
         .as_ref()
@@ -2757,7 +2745,6 @@ fn graph_missing_provider_retains_live_generation_cold_defaults_reactivates_and_
         accepted,
         "live dependency removal must retain last-good whole generation"
     );
-    // Cold restored selector fixture: captured state, not a production durable profile.
     let output = registry
         .dispatch(
             angel_live::kernel::Kind::Command,
@@ -2845,8 +2832,6 @@ fn graph_missing_provider_retains_live_generation_cold_defaults_reactivates_and_
         pointer,
         "steady graph ticks copied frames"
     );
-    // Visibility and ownership are separate: an absent/away seat can return
-    // without a new epoch, including a provider replacement while hidden.
     let visibility_epoch = run.seat_epoch(2);
     let before_hidden = run.players[&2]
         .avatar
@@ -3252,9 +3237,6 @@ fn graph_movement_remains_walking_when_real_consecutive_steps_wrap_footstep_phas
     run.step(&input);
     runtime.after_step(&mut run);
     assert_eq!(graph_state(&run, 1), "walk");
-    // Probe the next real step's exact f32 displacement. Seed only the
-    // unrelated footstep phase so this continuously held input lands exactly
-    // on spectacle's 3.4 threshold, without moving/teleporting the hero.
     let mut probe = run.clone();
     let (x, y) = (run.players[&1].x, run.players[&1].y);
     probe.step(&input);
@@ -3289,7 +3271,6 @@ fn graph_movement_remains_walking_when_real_consecutive_steps_wrap_footstep_phas
         "rest",
         "stopping must clear the per-tick movement fact"
     );
-    // Reused room indices on another floor/topology are not locomotion.
     for topology_edit in [false, true] {
         runtime.before_step(&mut run);
         let x = run.players[&1].x;
@@ -3321,7 +3302,6 @@ fn graph_movement_sampling_rejects_pause_repeats_teleports_room_changes_and_owne
     run.works.perils.clear();
     let mut runtime = Runtime::default();
     runtime.set_sources(sources(&registry), &mut run);
-    // Repeated observers and a pause cannot interpret between-frame edits as a step.
     runtime.before_step(&mut run);
     run.players.get_mut(&2).unwrap().x += 0.1;
     runtime.after_step(&mut run);
@@ -3347,7 +3327,6 @@ fn graph_movement_sampling_rejects_pause_repeats_teleports_room_changes_and_owne
         .as_ref()
         .unwrap()
         .phase_offset;
-    // No actual step, even if position changes: don't consume walk->rest or reset phase.
     runtime.before_step(&mut run);
     run.players.get_mut(&2).unwrap().x += 0.1;
     runtime.after_step(&mut run);
@@ -3363,7 +3342,6 @@ fn graph_movement_sampling_rejects_pause_repeats_teleports_room_changes_and_owne
             .phase_offset,
         offset
     );
-    // Fresh consecutive real step, then an in-step teleport-sized discontinuity.
     runtime.before_step(&mut run);
     run.step(&BTreeMap::new());
     run.players.get_mut(&2).unwrap().x += 10.0;
@@ -3378,7 +3356,6 @@ fn graph_movement_sampling_rejects_pause_repeats_teleports_room_changes_and_owne
         "rest",
         "room transitions are not locomotion samples"
     );
-    // A sample admitted for one epoch cannot animate or clear the replacement.
     runtime.before_step(&mut run);
     let mut replacement = run.players[&2].avatar.clone().unwrap();
     replacement.animation.as_mut().unwrap().phase_offset = 5;
@@ -3404,7 +3381,6 @@ fn graph_rehost_retains_owner_phase_and_does_not_invent_movement() {
     let mut run = fight();
     run.enemies.clear();
     run.works.perils.clear();
-    // An old footstep accumulator must not invent motion on a new server clock.
     run.players.get_mut(&1).unwrap().stride = 2.0;
     sim.set(Some(run));
     sim.set_live_characters(registry.snapshot().resources.values());
@@ -3458,7 +3434,6 @@ fn v12_sim(registry: &Registry) -> crate::delve::together_sim::Sim {
     run.enemies.clear();
     run.works.perils.clear();
     sim.set(Some(run));
-    // Selection precedes the actual Link handshake, matching real startup.
     sim.set_live_characters(registry.snapshot().resources.values());
     sim.set_controls(crate::delve::together_sim::Controls {
         active: true,
@@ -3539,7 +3514,6 @@ fn v12_same_option_reselect_reclaims_after_independent_assignment_but_plain_relo
     assert_eq!(sim.as_ref().unwrap().seat_epoch(1), epoch);
     let reclaimed = v12_avatar(&sim, 1);
     assert_ne!(reclaimed, independent);
-    // The admission revision is not part of animation content identity/phase.
     character(&mut registry, "graph adventure 1");
     sim.set_live_characters(registry.snapshot().resources.values());
     assert_eq!(v12_avatar(&sim, 1), reclaimed);
@@ -3631,8 +3605,6 @@ fn v12_replacement_seat_graph_tombstone_survives_off_clip_art_and_ability_change
     run.players.get_mut(&2).unwrap().avatar = Some(new_avatar.clone());
     runtime.before_step(&mut run);
     runtime.after_step(&mut run);
-    // A genuinely new occupant can issue an explicit command, but the graph
-    // contract lacks the native context needed to distinguish delayed old work.
     character(&mut registry, "graph adventure 2");
     runtime.set_sources(sources(&registry), &mut run);
     assert_eq!(
@@ -3670,7 +3642,6 @@ fn v12_replacement_seat_graph_tombstone_survives_off_clip_art_and_ability_change
             "ordinary transition erased old graph owner tombstone: {args}"
         );
     }
-    // Even deleting all sources/cursors cannot erase retained graph ownership.
     runtime.set_sources(vec![], &mut run);
     character(&mut registry, "graph adventure 2");
     runtime.set_sources(sources(&registry), &mut run);
@@ -3680,7 +3651,6 @@ fn v12_replacement_seat_graph_tombstone_survives_off_clip_art_and_ability_change
             .as_ref()
             .is_some_and(|a| a.source_id.contains(':'))
     );
-    // Existing unleased cast/cancel still operates for the replacement actor.
     runtime.before_step(&mut run);
     run.step(&BTreeMap::from([(
         2,
@@ -3736,8 +3706,6 @@ fn v12_retired_independent_avatar_survives_graphless_fallback_return_and_art_rel
     )
     .unwrap();
     std::fs::write(&selector, code.replace("const initial = () => ({ choices: {}, cancelled: {}, soundBanks: {}, effectBanks: {}, artChoices: {}, animationChoices: {} })", "const initial = () => require('./v12-captured.json')")).unwrap();
-    // A fresh registry models the actual graph-less pending/default publication,
-    // then feeds that publication to the existing native owner (not a new owner).
     let mut fallback = fixture.registry();
     assert!(
         sources(&fallback).iter().all(|resource| resource

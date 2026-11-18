@@ -13,7 +13,6 @@ fn save(dir: &std::path::Path, run: &Run, name: &str) {
     std::fs::write(dir.join(format!("{name}.ppm")), out).unwrap();
 }
 
-/// Three knights standing about a cleared fight room.
 fn room(seed: u64) -> Run {
     let mut run = Run::new(seed, 1, Some("Matt"));
     run.join_seat(3, "Ada");
@@ -52,7 +51,6 @@ fn write_starfall_shots() {
     let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else { return };
     let dir = std::path::PathBuf::from(dir).join("starfall");
     std::fs::create_dir_all(&dir).unwrap();
-    // The star crossing, its dive and its landing, frame by frame.
     let mut run = room(7);
     run.star_falls_for_test();
     let start = run.tick;
@@ -65,7 +63,6 @@ fn write_starfall_shots() {
         run.step(&BTreeMap::new());
         hold(&mut run);
     }
-    // The shard lying, late in its life, and fading.
     let shard = dir.join("shard");
     std::fs::create_dir_all(&shard).unwrap();
     let mut late = run.clone();
@@ -80,13 +77,11 @@ fn write_starfall_shots() {
         late.step(&BTreeMap::new());
         hold(&mut late);
     }
-    // A knight takes it.
     let catch = dir.join("catch");
     std::fs::create_dir_all(&catch).unwrap();
     let land = run.starfall.star.as_ref().unwrap().land;
     let from = (run.players[&2].x, run.players[&2].y);
     for f in 0..90u64 {
-        // Knight 2 walks to it, and on.
         let t = (f as f32 / 14.0).min(1.0);
         if let Some(h) = run.players.get_mut(&2) {
             (h.x, h.y) = (from.0 + (land.0 - from.0) * t, from.1 + (land.1 - from.1) * t);
@@ -96,7 +91,6 @@ fn write_starfall_shots() {
         }
         run.step(&BTreeMap::new());
     }
-    // A star wish landing on knight 1.
     let wish = dir.join("wish");
     std::fs::create_dir_all(&wish).unwrap();
     let mut w = room(7);
@@ -112,7 +106,6 @@ fn write_starfall_shots() {
         w.step(&BTreeMap::new());
         hold(&mut w);
         if f % 4 == 3 {
-            // The scroll as the seat's client paints it over the room.
             let mut img = crate::render::overworld::arena::frame_for(&w, 768, 448, Some(1));
             crate::render::genie::paint(&mut img, &w, Some(1));
             let mut out = format!("P6\n{} {}\n255\n", img.w, img.h).into_bytes();

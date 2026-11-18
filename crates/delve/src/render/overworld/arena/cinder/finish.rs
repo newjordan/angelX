@@ -11,28 +11,21 @@ use crate::motion::ease;
 use crate::rules::Run;
 use crate::rules::cinder::Session;
 
-/// Ticks the play screen is held, shaking, after a cracked kiln and after the clock runs out.
 pub(super) const FINALE: u32 = 46;
 pub(super) const TIME_UP: u32 = 26;
-/// Ticks the iris takes to close on the play screen and to open on the podium.
 pub(super) const WIPE: u32 = 10;
-/// The podium's box and its floor.
 const STAGE: Rect = (0, 0, 384, 176);
 const FLOOR: i32 = 170;
-/// Ticks each step's knight takes to settle before the name and line are shown.
 const SHOW: [u32; 3] = [34, 26, 18];
 
 pub(super) fn held(s: &Session) -> u32 {
     if s.won { FINALE } else { TIME_UP }
 }
 
-/// The first three of the table, in order, and the rest.
 fn places(s: &Session) -> Vec<u32> {
     s.order.iter().copied().filter(|id| s.boards.contains_key(id)).collect()
 }
 
-/// The words that go under the steps and the rest of the screen's lines, as the scene shows them
-/// `age` ticks after the podium opened.
 pub(super) fn words(run: &Run, s: &Session, id: u32, age: u32) -> Vec<Word> {
     let order = places(s);
     let mut out = Vec::new();
@@ -50,7 +43,6 @@ pub(super) fn words(run: &Run, s: &Session, id: u32, age: u32) -> Vec<Word> {
         out.push(Word { x: cx[i] - text_width(&name) / 2, y: FLOOR + 2, text: name, ink: 'i' });
         out.push(Word { x: cx[i] - text_width(&line) / 2, y: FLOOR + 11, text: line, ink: if i == 0 { 't' } else { 'h' } });
     }
-    // Fourth place on, small, down the left.
     if age >= 24 {
         for (k, &who) in order.iter().enumerate().skip(3) {
             let line = format!("{} {} {}", k + 1, hud::called(run, who, id, 6), s.boards[&who].cracks);
@@ -83,14 +75,12 @@ pub(super) fn words(run: &Run, s: &Session, id: u32, age: u32) -> Vec<Word> {
     out
 }
 
-/// One cheering crock, hopping on the spot.
 fn cheer(im: &mut Img, x: i32, age: u32, phase: u32) {
     let small = &art().small;
     let hop = if (age + phase * 5) / 5 % 2 == 0 { 0 } else { 3 };
     im.stamp(small, x, 112 - hop);
 }
 
-/// A warm wreath over the winner's head.
 fn laurel(im: &mut Img, at: (i32, i32), age: u32) {
     let k = (age as f32 / 10.0).min(1.0);
     let bob = ((age as f32 * 0.2).sin() * 1.5) as i32;
@@ -103,10 +93,8 @@ fn laurel(im: &mut Img, at: (i32, i32), age: u32) {
     }
 }
 
-/// The podium scene for seat `id`, `age` ticks after it opened.
 pub(super) fn scene(run: &Run, s: &Session, id: u32, age: u32) -> Img {
     let mut im = Img::black(384, 224);
-    // The floor of the hall: dark flags with a warm line at the steps' feet.
     for y in 112..224 {
         for x in 0..384 {
             let flag = ((x / 24) + (y - 112) / 12) % 2 == 0;
@@ -117,7 +105,6 @@ pub(super) fn scene(run: &Run, s: &Session, id: u32, age: u32) -> Img {
     }
     let order = places(s);
     let winner = order.first().copied().unwrap_or(id);
-    // Fireworks over the hall, three launchers in turn, when the kiln is broken.
     if s.won && age >= 6 {
         for (j, (x, top, ramp)) in [(70.0, 56.0, ramps::GOLD), (192.0, 34.0, ramps::EMBER), (314.0, 60.0, ramps::BONE)].into_iter().enumerate() {
             let t = age as i32 - 6 - j as i32 * 17;
@@ -127,7 +114,6 @@ pub(super) fn scene(run: &Run, s: &Session, id: u32, age: u32) -> Img {
             }
         }
     }
-    // The little crocks, real sprites, in the corners of the hall.
     if age >= 10 {
         for (n, x) in [4, 32, 322, 350].into_iter().enumerate() {
             cheer(&mut im, x, age, n as u32);
@@ -145,7 +131,6 @@ pub(super) fn scene(run: &Run, s: &Session, id: u32, age: u32) -> Img {
     if age >= 14 && s.won {
         juice::confetti(&mut im, (0, 0, 384, 224), age, 9, 150);
     }
-    // The call over it all.
     if age >= 4 {
         let (title, sub, tone) = if !s.won {
             ("THE KILN HOLDS".to_string(), "MOST CRACKS WIN".to_string(), Tone::Steel)
@@ -162,7 +147,6 @@ pub(super) fn scene(run: &Run, s: &Session, id: u32, age: u32) -> Img {
     for w in words(run, s, id, age) {
         im.text(w.x, w.y, &w.text, w.ink);
     }
-    // The iris opening from the finale's black.
     juice::iris(&mut im, (192, 100), 1.0 - (age as f32 / WIPE as f32).min(1.0), 'k');
     im
 }

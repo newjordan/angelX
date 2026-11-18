@@ -1,9 +1,3 @@
-# crates/delve/src/rules/layout.rs and world/routing.rs — a floor's cells: how
-# they grow, and what they become (`Plan`). Cells are LayCell (i32 as U32 two's
-# complement: adding a direction is a plain U32 add). `usize::MAX` is
-# 4294967295 here too, as the "no door leads" / "none" mark.
-
-# North, east, south, west.
 def layout.DX(+d: U32) -> U32:
   match d:
     case 1:
@@ -22,20 +16,17 @@ def layout.DY(+d: U32) -> U32:
     case _:
       0
 
-# The room grid a floor grows in.
 def layout.GRID() -> U32:
   5
 
 def layout.mix64.shift(+h: W.W, +n: U32) -> W.W:
   W.xor(h, W.shr(h, n))
 
-# rules.rs `mix`: the finisher the floor shapes are hashed with.
 def layout.mix(+h0: W.W) -> W.W:
   h1: W.W = W.mul(layout.mix64.shift(h0, 33), W.W{4283543511, 3981806797})
   h2: W.W = W.mul(layout.mix64.shift(h1, 33), W.W{3301882366, 444984403})
   layout.mix64.shift(h2, 33)
 
-# An i32 widened to u64 (`as u64`): sign-extended.
 def layout.sext(+v: U32) -> W.W:
   if U32.is_ge(v, 2147483648):
     W.W{4294967295, v}
@@ -58,7 +49,6 @@ def layout.cells.nth(+cells: List<&2, LayCell>, +i: U32) -> LayCell:
 def layout.cells.has(+cells: List<&2, LayCell>, +x: U32, +y: U32) -> Bool:
   U32.is_ne(layout.cells.pos(cells, x, y), 4294967295)
 
-# The index of the cell (x, y), or usize::MAX.
 def layout.cells.pos(+cells: List<&2, LayCell>, +x: U32, +y: U32) -> U32:
   layout.cells.pos.go(cells, x, y, 0)
 
@@ -77,7 +67,6 @@ def layout.cell.is(+c: LayCell, +x: U32, +y: U32) -> Bool:
     case LayCell{cx: U32, cy: U32}:
       Bool.and(U32.is_eq(cx, x), U32.is_eq(cy, y))
 
-# How many of the four sides of (x, y) hold a cell of the list.
 def layout.cells.links(+cells: List<&2, LayCell>, +x: U32, +y: U32) -> U32:
   layout.cells.links.go(cells, x, y, 0)
 
@@ -87,13 +76,9 @@ def layout.cells.links.go(+cells: List<&2, LayCell>, +x: U32, +y: U32, +d: U32) 
   else:
     (Bool.to_u32(layout.cells.has(cells, (x + layout.DX(d) : U32), (y + layout.DY(d) : U32))) + layout.cells.links.go(cells, x, y, (d + 1 : U32)) : U32)
 
-# Approach floors
-# ---------------
-
 def layout.near_grid(+v: U32) -> Bool:
   U32.is_lt(v, 5)
 
-# Keep the approach floors' established seed stream.
 def layout.approach_cells(+requested: U32, +rng: W.W) -> List<&2, LayCell> & W.W:
   layout.approach.grow(Con{LayCell{2, 2}, Nil{}}, U32.min(requested, 25), rng, 4096)
 
@@ -114,8 +99,6 @@ def layout.approach.grow(+cells: List<&2, LayCell>, +want: U32, +rng: W.W, +left
       else:
         layout.approach.grow(cells, want, rng2, (left - 1 : U32))
 
-# The fallback: connected expansion, the first free cell beside the first cell
-# that has one.
 def layout.approach.fill(+cells: List<&2, LayCell>, +want: U32) -> List<&2, LayCell>:
   if U32.is_ge(layout.cells.len(cells), want):
     cells
@@ -159,10 +142,6 @@ def layout.approach.find.dir(+all: List<&2, LayCell>, +h: LayCell, +d: U32) -> L
     else:
       layout.approach.find.dir(all, h, (d + 1 : U32))
 
-# Tunnels (world/routing.rs)
-# --------------------------
-
-# TunnelVariant::for_depth: 0 gallery, 1 warrens, 2 karst.
 def layout.tunnel_variant(+depth: U32) -> U32:
   layout.tunnel_variant.mod(U32.sub(depth, 3), U32.is_lt(depth, 3))
 
@@ -172,7 +151,6 @@ def layout.tunnel_variant.mod(+d: U32, +under: Bool) -> U32:
   else:
     U32.mod(d, 3)
 
-# A sorted, duplicate-free cell list (a BTreeSet<(i32, i32)> of non-negative cells).
 def layout.set.insert(+set: List<&2, LayCell>, +x: U32, +y: U32) -> List<&2, LayCell>:
   match set as List<&2, LayCell>:
     case Nil{}:
@@ -187,7 +165,6 @@ def layout.set.insert(+set: List<&2, LayCell>, +x: U32, +y: U32) -> List<&2, Lay
         else:
           Con{h, layout.set.insert(t, x, y)}
 
-# Every free cell beside the cells, in (x, y) order.
 def layout.tunnel.frontier(+cells: List<&2, LayCell>, +all: List<&2, LayCell>, +width: U32, +acc: List<&2, LayCell>) -> List<&2, LayCell>:
   match cells as List<&2, LayCell>:
     case Nil{}:
@@ -218,7 +195,6 @@ def layout.absdiff(+a: U32, +b: U32) -> U32:
   else:
     (b - a : U32)
 
-# The Manhattan distance between two cells.
 def layout.tunnel.manhattan(+c: LayCell, +l: LayCell) -> U32:
   LayCell{x: U32, y: U32} of LayCell = c
   LayCell{lx: U32, ly: U32} of LayCell = l
@@ -239,7 +215,6 @@ def layout.cells.last(+cells: List<&2, LayCell>) -> LayCell:
       else:
         layout.cells.last(t)
 
-# (degree, distance to the last cell) as one comparable number.
 def layout.tunnel.gallery_key(+c: LayCell, +all: List<&2, LayCell>, +last: LayCell) -> U32:
   (layout.tunnel.degree(c, all) * 65536 + layout.tunnel.manhattan(c, last) : U32)
 
@@ -277,7 +252,6 @@ def layout.tunnel.keep_degree(+fr: List<&2, LayCell>, +all: List<&2, LayCell>, +
       else:
         layout.tunnel.keep_degree(t, all, deg)
 
-# A stable insertion by the cell's y.
 def layout.tunnel.by_y(+fr: List<&2, LayCell>) -> List<&2, LayCell>:
   match fr as List<&2, LayCell>:
     case Nil{}:
@@ -295,7 +269,6 @@ def layout.tunnel.by_y.ins(+c: LayCell, +sorted: List<&2, LayCell>) -> List<&2, 
       else:
         Con{h, layout.tunnel.by_y.ins(c, t)}
 
-# The frontier narrowed the way the variant favours.
 def layout.tunnel.narrow(+variant: U32, +fr: List<&2, LayCell>, +all: List<&2, LayCell>) -> List<&2, LayCell>:
   match variant:
     case 0:
@@ -307,7 +280,6 @@ def layout.tunnel.narrow(+variant: U32, +fr: List<&2, LayCell>, +all: List<&2, L
     case _:
       layout.tunnel.keep_degree(fr, all, layout.tunnel.max_degree(fr, all, 0))
 
-# xorshift64 (the tunnel's own generator): one step.
 def layout.tunnel.xorshift(+r0: W.W) -> W.W:
   r1: W.W = W.xor(r0, W.shl(r0, 13))
   r2: W.W = W.xor(r1, W.shr(r1, 7))
@@ -327,15 +299,11 @@ def layout.tunnel.grow(+variant: U32, +cells: List<&2, LayCell>, +want: U32, +wi
       pick: LayCell = layout.cells.nth(narrowed, W.rem_u32(r, n))
       layout.tunnel.grow(variant, List.append(&2, LayCell, cells, [pick]), want, width, r)
 
-# `tunnel_cells(variant, seed, width, requested)`.
 def layout.tunnel_cells(+variant: U32, +seed: W.W, +width: U32, +requested: U32) -> List<&2, LayCell>:
   if Bool.or(Bool.or(U32.is_eq(width, 0), U32.is_gt(width, 16)), U32.is_eq(requested, 0)):
     Nil{}
   else:
     layout.tunnel.grow(variant, [LayCell{layout.half(width), layout.half(width)}], U32.min(requested, (width * width : U32)), width, W.or(seed, W.W{0, 1}))
-
-# Plan
-# ----
 
 def layout.list.u32_nth(+xs: List<&2, U32>, +i: U32) -> U32:
   match xs as List<&2, U32>:
@@ -376,7 +344,6 @@ def layout.list.u32_fill(+n: U32, +v: U32) -> List<&2, U32>:
   else:
     Con{v, layout.list.u32_fill((n - 1 : U32), v)}
 
-# Breadth-first distances from the entrance (cell 0): level by level.
 def layout.Plan.bfs(+cells: List<&2, LayCell>, +dist: List<&2, U32>, +frontier: List<&2, U32>, +d: U32) -> List<&2, U32>:
   match frontier as List<&2, U32>:
     case Nil{}:
@@ -385,7 +352,6 @@ def layout.Plan.bfs(+cells: List<&2, LayCell>, +dist: List<&2, U32>, +frontier: 
       (dist2: List<&2, U32>, next: List<&2, U32>) = layout.Plan.bfs.level(cells, dist, frontier, d, Nil{})
       layout.Plan.bfs(cells, dist2, next, (d + 1 : U32))
 
-# One level: every undiscovered neighbour of the frontier gets distance d + 1.
 def layout.Plan.bfs.level(+cells: List<&2, LayCell>, +dist: List<&2, U32>, +frontier: List<&2, U32>, +d: U32, +next: List<&2, U32>) -> List<&2, U32> & List<&2, U32>:
   match frontier as List<&2, U32>:
     case Nil{}:
@@ -404,7 +370,6 @@ def layout.Plan.bfs.dirs(+cells: List<&2, LayCell>, +dist: List<&2, U32>, +rest:
     else:
       layout.Plan.bfs.dirs(cells, dist, rest, d, next, x, y, (k + 1 : U32))
 
-# The index of the last maximum of dist over 1..n.
 def layout.Plan.far(+dist: List<&2, U32>, +i: U32, +n: U32, +best: U32) -> U32:
   if U32.is_ge(i, n):
     best
@@ -414,7 +379,6 @@ def layout.Plan.far(+dist: List<&2, U32>, +i: U32, +n: U32, +best: U32) -> U32:
     else:
       layout.Plan.far(dist, (i + 1 : U32), n, best)
 
-# The last maximum of (dead end, dist, i) over 1..n but `far` (usize::MAX when none).
 def layout.Plan.treasure(+cells: List<&2, LayCell>, +dist: List<&2, U32>, +far: U32, +i: U32, +n: U32, +best: U32) -> U32:
   if U32.is_ge(i, n):
     best
@@ -450,8 +414,6 @@ def layout.Plan.through(+cells: List<&2, LayCell>, +i: U32) -> Bool:
     case LayCell{x: U32, y: U32}:
       U32.is_eq(layout.cells.links(cells, x, y), 2)
 
-# The pass-through cells that may become halls: not far, not the treasure,
-# through-cells, distance past one; ascending index.
 def layout.Plan.hall_candidates(+cells: List<&2, LayCell>, +dist: List<&2, U32>, +far: U32, +treasure: U32, +i: U32, +n: U32) -> List<&2, U32>:
   if U32.is_ge(i, n):
     Nil{}
@@ -461,7 +423,6 @@ def layout.Plan.hall_candidates(+cells: List<&2, LayCell>, +dist: List<&2, U32>,
     else:
       layout.Plan.hall_candidates(cells, dist, far, treasure, (i + 1 : U32), n)
 
-# The first candidate of greatest distance.
 def layout.Plan.hall_best(+dist: List<&2, U32>, +xs: List<&2, U32>, +best: U32) -> U32:
   match xs as List<&2, U32>:
     case Nil{}:
@@ -482,7 +443,6 @@ def layout.list.u32_remove(+xs: List<&2, U32>, +v: U32) -> List<&2, U32>:
       else:
         Con{h, layout.list.u32_remove(t, v)}
 
-# Sorted by (distance descending, index), the first `k`.
 def layout.Plan.halls_top(+dist: List<&2, U32>, +xs: List<&2, U32>, +k: U32) -> List<&2, U32>:
   if U32.is_eq(k, 0):
     Nil{}

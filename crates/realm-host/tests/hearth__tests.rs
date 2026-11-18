@@ -30,7 +30,6 @@ fn warmth_eases_toward_local_fleet_target() {
         "warmth should rise with local models: {}",
         h.warmth
     );
-    // Fleet leaves: warmth decays back.
     for _ in 0..400 {
         h.beat(0, 0, 0, false, 10);
     }
@@ -76,7 +75,6 @@ fn serde_roundtrip_and_forward_compat() {
     let json = serde_json::to_string(&h).unwrap();
     let back: HearthState = serde_json::from_str(&json).unwrap();
     assert_eq!(back.prosperity, 7);
-    // Old files without the hearth key deserialize via Default.
     let old: Option<HearthState> = serde_json::from_str::<serde_json::Value>("{}")
         .ok()
         .and_then(|v| serde_json::from_value(v["hearth"].clone()).ok());

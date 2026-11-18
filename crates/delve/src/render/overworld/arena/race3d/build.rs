@@ -15,15 +15,12 @@ fn p(t: &Track, s: f32, x: f32, z: f32) -> V3 {
     v3(w[0], w[1], w[2])
 }
 
-/// The course's own frame at `s`: along, across (to the right) and up.
 fn frame(t: &Track, s: f32) -> (V3, V3, V3) {
     let yaw = t.at(s).yaw;
     let (sin, cos) = yaw.sin_cos();
     (v3(cos, sin, 0.0), v3(-sin, cos, 0.0), V3::UP)
 }
 
-/// A surface lying along the course from `s0` to `s1`, across `x0..x1`, at
-/// height `z`, in steps of `step`.
 fn floor(m: &mut Mesh, t: &Track, s0: f32, s1: f32, x0: f32, x1: f32, z: f32, step: f32, material: u8) {
     let mut s = s0;
     while s < s1 - 1e-3 {
@@ -33,7 +30,6 @@ fn floor(m: &mut Mesh, t: &Track, s0: f32, s1: f32, x0: f32, x1: f32, z: f32, st
     }
 }
 
-/// A face standing along the course at `x`, from `z0` to `z1`.
 fn wall(m: &mut Mesh, t: &Track, s0: f32, s1: f32, x: f32, z0: f32, z1: f32, step: f32, material: u8) {
     let mut s = s0;
     while s < s1 - 1e-3 {
@@ -43,15 +39,12 @@ fn wall(m: &mut Mesh, t: &Track, s0: f32, s1: f32, x: f32, z0: f32, z1: f32, ste
     }
 }
 
-/// A box set square to the course at `s`: centred at `(x, z)` across and
-/// up, `half` its half-extents along, across and up.
 pub(super) fn block(m: &mut Mesh, t: &Track, s: f32, x: f32, z: f32, half: (f32, f32, f32), material: u8) {
     let (f, r, u) = frame(t, s);
     let base = p(t, s, x, z);
     cuboid(m, base, f * half.0, r * half.1, u * half.2, material);
 }
 
-/// A box from its centre and three half-axes.
 pub(super) fn cuboid(m: &mut Mesh, c: V3, a: V3, b: V3, h: V3, material: u8) {
     let corner = |i: f32, j: f32, k: f32| c + a * i + b * j + h * k;
     let faces = [
@@ -67,7 +60,6 @@ pub(super) fn cuboid(m: &mut Mesh, c: V3, a: V3, b: V3, h: V3, material: u8) {
     }
 }
 
-/// A diamond: a gem shard, a nugget.
 pub(super) fn diamond(m: &mut Mesh, c: V3, r: f32, turn: f32, material: u8) {
     let (s, co) = turn.sin_cos();
     let a = v3(co * r, s * r, 0.0);
@@ -81,7 +73,6 @@ pub(super) fn diamond(m: &mut Mesh, c: V3, r: f32, turn: f32, material: u8) {
     }
 }
 
-/// A hoop facing along `f`: a ring of `n` flat quads.
 pub(super) fn hoop(m: &mut Mesh, c: V3, r_axis: V3, u_axis: V3, radius: f32, thick: f32, n: usize, material: u8) {
     for i in 0..n {
         let a0 = i as f32 / n as f32 * std::f32::consts::TAU;
@@ -91,9 +82,6 @@ pub(super) fn hoop(m: &mut Mesh, c: V3, r_axis: V3, u_axis: V3, radius: f32, thi
     }
 }
 
-// ─── the courses ────────────────────────────────────────────────────────────
-
-/// The course's fixed mesh, built once.
 pub(super) fn course(course: Course) -> &'static Mesh {
     static MESHES: [OnceLock<Mesh>; 4] = [const { OnceLock::new() }; 4];
     let t = r3::track(course);
@@ -105,7 +93,6 @@ pub(super) fn course(course: Course) -> &'static Mesh {
     }
 }
 
-/// A mine timbering set: two posts and a cap across, square to the course.
 fn timbering(m: &mut Mesh, t: &Track, s: f32, half_w: f32, high: f32) {
     for side in [-1.0, 1.0] {
         block(m, t, s, side * half_w, high * 0.5 - 1.0, (0.18, 0.18, high * 0.5 + 1.0), mat::WOOD);
@@ -113,7 +100,6 @@ fn timbering(m: &mut Mesh, t: &Track, s: f32, half_w: f32, high: f32) {
     block(m, t, s, 0.0, high, (0.2, half_w + 0.2, 0.2), mat::WOOD);
 }
 
-/// A hung lantern and the pool it throws on the floor.
 fn lantern(m: &mut Mesh, t: &Track, s: f32, x: f32, high: f32, pool: bool) {
     block(m, t, s, x, high, (0.16, 0.16, 0.2), mat::FIRE);
     block(m, t, s, x, high + 0.3, (0.05, 0.05, 0.12), mat::WOOD);
@@ -131,7 +117,6 @@ fn lantern(m: &mut Mesh, t: &Track, s: f32, x: f32, high: f32, pool: bool) {
     }
 }
 
-/// Plain road, barrier, mountain and torch meshes; no bespoke texture art.
 fn touge(t: &Track) -> Mesh {
     let mut m = Mesh::new();
     let mut s = 0.0;
@@ -163,9 +148,7 @@ fn touge(t: &Track) -> Mesh {
         }
         s = e;
     }
-    // A visible line shared by all three laps.
     floor(&mut m, t, 0.0, 0.7, -4.8, 4.8, 0.04, 0.7, mat::ARMOR);
-    // The boost pads: an ember bed with three fire bars across it.
     let mut start = 0.0;
     while start < t.len() {
         if r3::pad_lies(t, start) {
@@ -190,7 +173,6 @@ fn shaft(t: &Track) -> Mesh {
         let half = at.width * 0.5;
         match at.ground {
             Ground::Bridge => {
-                // Boards across with gaps between, over nothing at all.
                 for k in 0..2 {
                     let b0 = s + k as f32 * 0.5;
                     floor(&mut m, t, b0, b0 + 0.42, -half, half, 0.0, 0.42, mat::STABLE_FLOOR);
@@ -202,7 +184,6 @@ fn shaft(t: &Track) -> Mesh {
                 }
             }
             Ground::Collapse => {
-                // Sound planks only; the rotten ones are drawn as they stand.
                 let plank = (s / 2.0) as u16;
                 if !r3::rotten(plank) {
                     floor(&mut m, t, s, e, -half, half, 0.0, 1.0, mat::STABLE_FLOOR);
@@ -215,14 +196,12 @@ fn shaft(t: &Track) -> Mesh {
             }
             _ => floor(&mut m, t, s, e, -half, half, 0.0, 1.0, mat::STABLE_FLOOR),
         }
-        // An open edge is roped in gold, so the drop is never a guess.
         if !at.walls {
             for side in [-1.0f32, 1.0] {
                 let x = side * half;
                 floor(&mut m, t, s, e, x - 0.06, x + 0.06, 0.03, 1.0, mat::HAY);
             }
         }
-        // The rails that keep a ball on, where there are any.
         if at.walls {
             for side in [-1.0, 1.0] {
                 wall(&mut m, t, s, e, side * half, -0.05, 0.7, 1.0, mat::STABLE_TIMBER);
@@ -230,8 +209,6 @@ fn shaft(t: &Track) -> Mesh {
         }
         s = e;
     }
-    // The shaft itself: rock close about the walled runs, far off and deep
-    // round the open ones.
     let mut s = 0.0f32;
     while s < len - 0.5 {
         let at = t.at(s);
@@ -241,13 +218,11 @@ fn shaft(t: &Track) -> Mesh {
         for side in [-1.0, 1.0] {
             wall(&mut m, t, s, e, side * out, deep, 5.0, 2.0, mat::ROCK);
             if !at.walls {
-                // The ledge the open stretch leaves either side.
                 floor(&mut m, t, s, e, side * half, side * out, -1.6, 2.0, mat::ROCK);
             }
         }
         s = e;
     }
-    // Timbering every six tiles, a lantern every twelve.
     let mut s = 3.0f32;
     while s < len - 2.0 {
         let at = t.at(s);
@@ -260,7 +235,6 @@ fn shaft(t: &Track) -> Mesh {
         }
         s += 6.0;
     }
-    // The crossings' rails across the way.
     for &post in &t.posts {
         if t.at(post).ground == Ground::Crossing {
             for ds in [6.0, 13.0] {
@@ -272,8 +246,6 @@ fn shaft(t: &Track) -> Mesh {
             }
         }
     }
-    // Brannoc's ore-sorter: a hopper of chutes over a furnace mouth, and
-    // the ranked bins it drops into.
     let sorter = t.posts[t.posts.len() - 1];
     block(&mut m, t, sorter + 12.0, 0.0, 2.6, (1.2, 3.0, 2.6), mat::STONE_DARK);
     block(&mut m, t, sorter + 10.7, 0.0, 1.0, (0.1, 1.4, 0.7), mat::EMBER);
@@ -305,7 +277,6 @@ fn gallery(t: &Track) -> Mesh {
             let mid = s + 0.5;
             let broken = r3::broken(t, mid, lane);
             if !broken {
-                // A sleeper, and the two rails on it.
                 block(&mut m, t, mid, lx, 0.05, (0.14, 0.75, 0.05), mat::WOOD);
                 for k in [-0.45, 0.45] {
                     floor(&mut m, t, s, e, lx + k - 0.05, lx + k + 0.05, 0.14, 1.0, mat::ARMOR);
@@ -317,7 +288,6 @@ fn gallery(t: &Track) -> Mesh {
         }
         s = e;
     }
-    // Buffer stops where a line ends.
     for (i, w) in t.samples.windows(2).enumerate() {
         for lane in 0..3u8 {
             let bit = 1 << lane;
@@ -356,7 +326,6 @@ fn gallery(t: &Track) -> Mesh {
         }
         s += 6.0;
     }
-    // The end of the line: an ore tip and its lamp.
     let end = t.posts[t.posts.len() - 1];
     block(&mut m, t, end + 15.0, 0.0, 1.6, (0.6, 2.4, 1.6), mat::STONE_DARK);
     block(&mut m, t, end + 14.3, 0.0, 2.4, (0.1, 0.4, 0.4), mat::FIRE);
@@ -371,7 +340,6 @@ fn gorge(t: &Track) -> Mesh {
         let at = t.at(s);
         let e = (s + 2.0).min(len);
         let half = at.width * 0.5;
-        // The river at the bottom, the cliffs in two steps either side.
         floor(&mut m, t, s, e, -half, half, -9.0, 2.0, mat::WATER);
         for side in [-1.0f32, 1.0] {
             wall(&mut m, t, s, e, side * half, -9.0, 1.5, 2.0, mat::ROCK);
@@ -381,7 +349,6 @@ fn gorge(t: &Track) -> Mesh {
         }
         s = e;
     }
-    // The Keep's towers on the rims, lit windows facing the gorge.
     let mut s = 20.0f32;
     let mut k = 0;
     while s < len - 60.0 {
@@ -403,7 +370,6 @@ fn gorge(t: &Track) -> Mesh {
         let material = if rampart { mat::STONE } else { mat::STONE_DARK };
         block(&mut m, t, b.s + b.len * 0.5, x, z, (b.len * 0.5, half.0, half.1), material);
         if rampart {
-            // Crenellations along its top.
             let mut cx = b.x.0 + 0.6;
             while cx < b.x.1 - 0.4 {
                 block(&mut m, t, b.s + b.len * 0.5, cx, b.z.1 + 0.3, (b.len * 0.5, 0.35, 0.3), mat::STONE);
@@ -413,8 +379,6 @@ fn gorge(t: &Track) -> Mesh {
             block(&mut m, t, b.s + b.len * 0.5, x, b.z.1 + 0.25, (b.len * 0.35, half.0 * 0.7, 0.25), mat::STONE);
         }
     }
-    // The mouth: a stone perch and a lit arch, so the start is a gate and
-    // not a dark slot of water. The flight line stays in the middle.
     floor(&mut m, t, 0.0, 12.0, -4.2, 4.2, -1.4, 2.0, mat::STONE);
     for side in [-1.0, 1.0] {
         block(&mut m, t, 8.0, side * 5.6, 3.2, (0.7, 0.7, 4.6), mat::STONE);
@@ -423,8 +387,6 @@ fn gorge(t: &Track) -> Mesh {
     }
     block(&mut m, t, 8.0, 0.0, 7.4, (0.8, 6.4, 0.45), mat::STONE);
     block(&mut m, t, 8.2, 0.0, 6.2, (0.12, 1.1, 0.8), mat::BANNER);
-    // Ribs and lanterns down the gorge, the same reading the shaft gets
-    // from its timbering. Spans sit under the flight line.
     let mut rib = 22.0f32;
     let mut k = 0;
     while rib < len - 40.0 {
@@ -440,7 +402,6 @@ fn gorge(t: &Track) -> Mesh {
         rib += 18.0;
         k += 1;
     }
-    // The Keep at the end of the gorge: a great wall, a gate, two towers.
     let gate = t.finish;
     block(&mut m, t, gate + 2.0, 0.0, 4.0, (1.0, 10.0, 13.0), mat::STONE);
     block(&mut m, t, gate + 0.95, 0.0, 0.0, (0.05, 2.2, 3.0), mat::DOOR);
@@ -454,13 +415,7 @@ fn gorge(t: &Track) -> Mesh {
     m
 }
 
-// ─── what moves ─────────────────────────────────────────────────────────────
-
-/// A knight's ball: bronze, silver, white enamel or crystal by seat, and
-/// the band colour that goes with it.
 pub(super) fn ball_material(seat: u32) -> (u8, u8) {
-    // Metals that hold the lamplight, so a ball reads from behind as well
-    // as it does with the moon on it.
     match seat {
         1 => (mat::STABLE_TIMBER, mat::CLOTH_GOLD),
         2 => (mat::ARMOR, mat::CLOTH_BLUE),
@@ -471,12 +426,9 @@ pub(super) fn ball_material(seat: u32) -> (u8, u8) {
     }
 }
 
-/// A cage ball: a rim round its outline as the camera sees it, and two
-/// ribs across that turn as it rolls.
 pub(super) fn ball(m: &mut Mesh, c: V3, f: V3, r: V3, spin: f32, seat: u32) {
     let (metal, band) = ball_material(seat);
     let (s, co) = spin.sin_cos();
-    // The roll turns about the across axis.
     let fwd = f * co + V3::UP * s;
     let up = V3::UP * co - f * s;
     hoop(m, c, r, V3::UP, BALL_R - 0.07, 0.09, 18, metal);
@@ -484,20 +436,17 @@ pub(super) fn ball(m: &mut Mesh, c: V3, f: V3, r: V3, spin: f32, seat: u32) {
     hoop(m, c, r, up, BALL_R - 0.09, 0.08, 14, band);
 }
 
-/// An ore cart: a tub on four wheels, tipped by `tip` radians.
 pub(super) fn cart(m: &mut Mesh, c: V3, f: V3, r: V3, tip: f32, seat: u32) {
     let (s, co) = tip.sin_cos();
     let fwd = f * co + V3::UP * s;
     let up = V3::UP * co - f * s;
     let (_, band) = ball_material(seat);
     let at = |a: f32, b: f32, h: f32| c + fwd * a + r * b + up * h;
-    // Floor, then four sides, open on top: lantern-lit timber.
     cuboid(m, at(0.0, 0.0, 0.2), fwd * 0.6, r * 0.5, up * 0.05, mat::STABLE_TIMBER);
     cuboid(m, at(0.62, 0.0, 0.47), fwd * 0.04, r * 0.52, up * 0.27, mat::STABLE_TIMBER);
     cuboid(m, at(-0.62, 0.0, 0.47), fwd * 0.04, r * 0.52, up * 0.27, mat::STABLE_TIMBER);
     cuboid(m, at(0.0, 0.52, 0.47), fwd * 0.62, r * 0.04, up * 0.27, mat::STABLE_TIMBER);
     cuboid(m, at(0.0, -0.52, 0.47), fwd * 0.62, r * 0.04, up * 0.27, mat::STABLE_TIMBER);
-    // Iron bands round the rim, one in the knight's colour.
     cuboid(m, at(0.64, 0.0, 0.73), fwd * 0.05, r * 0.56, up * 0.04, band);
     cuboid(m, at(-0.64, 0.0, 0.73), fwd * 0.05, r * 0.56, up * 0.04, band);
     cuboid(m, at(0.0, 0.54, 0.73), fwd * 0.66, r * 0.04, up * 0.04, mat::ARMOR);
@@ -507,9 +456,6 @@ pub(super) fn cart(m: &mut Mesh, c: V3, f: V3, r: V3, tip: f32, seat: u32) {
     }
 }
 
-/// A griffin seen from behind and above: a tawny lion's body tapering to
-/// a tufted tail, an eagle's white head, and broad wings beating with
-/// `beat`, tipped up a little so they read from the saddle.
 pub(super) fn griffin(m: &mut Mesh, c: V3, f: V3, r: V3, beat: f32, roll: f32, seat: u32) {
     let (s, co) = roll.sin_cos();
     let right = r * co + V3::UP * s;
@@ -519,10 +465,8 @@ pub(super) fn griffin(m: &mut Mesh, c: V3, f: V3, r: V3, beat: f32, roll: f32, s
     cuboid(m, c - f * 0.55, f * 0.2, right * 0.16, up * 0.12, mat::HORSE_BAY);
     cuboid(m, c + f * 0.7 + up * 0.14, f * 0.2, right * 0.17, up * 0.17, mat::HORSE_GREY);
     cuboid(m, c + f * 0.95 + up * 0.1, f * 0.1, right * 0.05, up * 0.05, mat::CLOTH_GOLD);
-    // The tail: a tuft on a line.
     let tail = c - f * 1.15 + up * 0.05;
     m.push_quad(tail + right * 0.18, tail - right * 0.18, tail - right * 0.1 - f * 0.4, tail + right * 0.1 - f * 0.4, mat::HORSE_CHESTNUT);
-    // A saddle cloth in the knight's colour.
     cuboid(m, c + up * 0.17, f * 0.22, right * 0.26, up * 0.02, band);
     let lift = beat.sin() * 0.5;
     for side in [-1.0f32, 1.0] {
@@ -534,8 +478,6 @@ pub(super) fn griffin(m: &mut Mesh, c: V3, f: V3, r: V3, beat: f32, roll: f32, s
     }
 }
 
-/// A gargoyle on the wing: a hunched stone body, horns, two coal eyes and
-/// beating stone wings.
 pub(super) fn gargoyle(m: &mut Mesh, c: V3, f: V3, r: V3, beat: f32) {
     cuboid(m, c, f * 0.45, r * 0.45, V3::UP * 0.5, mat::STONE);
     cuboid(m, c - f * 0.2 + V3::UP * 0.62, f * 0.3, r * 0.3, V3::UP * 0.22, mat::STONE);
@@ -551,8 +493,6 @@ pub(super) fn gargoyle(m: &mut Mesh, c: V3, f: V3, r: V3, beat: f32) {
     }
 }
 
-/// Where a rider is drawn: its course position, except while the rope
-/// hauls a fallen knight back up for the last third of the crash.
 pub(super) fn drawn_at(t: &Track, rider: &Rider) -> (f32, f32, f32) {
     let hoist = r3::CRASH / 3;
     if matches!(rider.wreck, Wreck::Fall | Wreck::Gap) && rider.crash > 0 && rider.crash <= hoist {
@@ -569,8 +509,6 @@ pub(super) fn drawn_at(t: &Track, rider: &Rider) -> (f32, f32, f32) {
     (if t.looped { rider.s.rem_euclid(t.len()) } else { rider.s }, rider.x, rider.z)
 }
 
-/// Whether a rival is left out of `seat`'s view: one just behind or beside
-/// the seat's ride is between it and the camera, and would fill the lens.
 pub(super) fn hidden(race: &Race3d, seat: Option<u32>, id: u32) -> bool {
     let t = r3::track(race.course);
     let Some(me) = seat.filter(|&s| s != id).and_then(|s| race.riders.get(&s)) else {
@@ -581,19 +519,14 @@ pub(super) fn hidden(race: &Race3d, seat: Option<u32>, id: u32) -> bool {
     };
     let (mine, theirs) = (drawn_at(t, me).0, drawn_at(t, other).0);
     if race.course == Course::Touge {
-        // A first-person lens can sit inside the neighbouring team's rig
-        // when they run abreast. Reuse the chase view's near-rival hiding:
-        // the whole rig appears once it pulls clear ahead of the cockpit.
         let gap = (theirs - mine + t.len() * 0.5).rem_euclid(t.len()) - t.len() * 0.5;
         return gap > -CAMERA_BACK - 1.0 && gap < 3.0;
     }
     theirs < mine - 1.2 && theirs > mine - CAMERA_BACK - 1.0
 }
 
-/// How far behind its ride a camera sits, at most.
 pub(super) const CAMERA_BACK: f32 = 5.6;
 
-/// Everything that moves this frame, into `m`.
 pub(super) fn movers(m: &mut Mesh, race: &Race3d, seat: Option<u32>) {
     m.tris.clear();
     let t = r3::track(race.course);
@@ -607,7 +540,6 @@ pub(super) fn movers(m: &mut Mesh, race: &Race3d, seat: Option<u32>) {
                 diamond(m, p(t, item.s, item.x, item.z + bob), 0.16, tick * 0.08 + i as f32, material);
             }
             ItemKind::Ring => {
-                // A ring this knight has flown goes dull.
                 let mine = seat.and_then(|id| race.riders.get(&id)).is_some_and(|r| r.rings & (1u64 << i) != 0);
                 let (_, rt, up) = frame(t, item.s);
                 let material = if mine { mat::STONE_DARK } else { mat::CLOTH_GOLD };
@@ -630,7 +562,6 @@ pub(super) fn movers(m: &mut Mesh, race: &Race3d, seat: Option<u32>) {
                     diamond(m, p(t, cs, cx, 0.75), 0.3, 0.3, mat::ROCK);
                 }
             }
-            // Rotten planks still standing, and the ones going.
             let mut s = 0.0f32;
             while s < t.len() {
                 if t.at(s).ground == Ground::Collapse {
@@ -674,7 +605,6 @@ pub(super) fn movers(m: &mut Mesh, race: &Race3d, seat: Option<u32>) {
                 let forward = f * cos + rt * sin;
                 let right = rt * cos - f * sin;
                 let c = p(t, s, x, z);
-                // Existing tub geometry stands in for a chariot cockpit.
                 cart(m, c, forward, right, 0.0, id);
                 for side in [-1.0, 1.0] {
                     let horse = c + forward * 2.8 + right * (side * 0.55);

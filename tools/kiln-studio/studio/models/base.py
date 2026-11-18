@@ -1,12 +1,3 @@
-"""One interface for the owner's models.
-
-    adapter.ask(prompt, images=(), workdir=..., budget=seconds) -> Answer
-
-An Answer is the model's last text, the files it wrote in workdir, and what
-the call cost: seconds, and the tokens, dollars and turns the model reports.
-Every call is appended to the ledger a caller passes, so a job can account
-for its time and calls.
-"""
 import json
 import os
 import subprocess
@@ -43,8 +34,6 @@ class Answer:
 
 
 class Ledger:
-    """The calls a job made, one JSON line each, in calls.jsonl."""
-
     def __init__(self, path=None):
         self.path = Path(path) if path else None
         self.lock = threading.Lock()
@@ -64,11 +53,10 @@ class Ledger:
 
 class Adapter:
     name = ""
-    vision = False  # can look at images
-    agentic = False  # runs tools (kiln's MCP) in a workdir
+    vision = False
+    agentic = False
 
     def available(self):
-        """(True, what) when callable, else (False, why)."""
         raise NotImplementedError
 
     def ask(self, prompt, images=(), workdir=None, budget=600, **opts):
@@ -76,7 +64,6 @@ class Adapter:
 
 
 def files_in(workdir, since):
-    """Files in workdir changed at or after `since`, relative, logs left out."""
     if not workdir:
         return []
     root = Path(workdir)
@@ -88,10 +75,6 @@ def files_in(workdir, since):
 
 
 def run_logged(cmd, log_path, stdin_text=None, cwd=None, env=None, timeout=600, alive=None, stall=None):
-    """Run a model CLI with its output in log_path; (exit code, seconds). The
-    code is None on a timeout, and "stalled" when `alive` (a test on the
-    log's text) has not passed `stall` seconds in. A killed run's process
-    group is killed."""
     t0 = time.time()
     seen = alive is None
     with open(log_path, "w") as log:

@@ -20,8 +20,6 @@ fn fnv(bytes: &[u8]) -> u64 {
     h
 }
 
-/// Where the realm keeps water, lava and falls: the first tile of each kind in reading order, so the
-/// frames below look at ground that moves with the step.
 fn first_of(kinds: &[u8]) -> Option<(i32, i32)> {
     let realm = map::Realm::get();
     (0..MAP_H)
@@ -54,13 +52,10 @@ fn spots() -> Vec<(&'static str, (f32, f32))> {
     spots
 }
 
-/// One frame's hash: the scene drawn the way the window draws it, at one map pixel to a pixel.
 fn hash_of(scene: &Scene, w: i32, h: i32) -> u64 {
     fnv(&frame_sized(scene, w, h).rgba_scaled(1))
 }
 
-/// The frames, in the order they are drawn: one scene's steps, the view then moving to the next
-/// spot, again and again, as a window that is left running and then walked does.
 fn frames() -> Vec<(String, u64)> {
     let mut out = Vec::new();
     let mut lit = Scene::resting();
@@ -85,15 +80,12 @@ fn frames() -> Vec<(String, u64)> {
             scene.knight.y = y;
             for tick in [0u32, 1, 2, 3, 4, 5, 11, 12] {
                 scene.tick = tick;
-                // Two sizes: the window's own, and a wider one a bigger window shows.
                 for (w, h) in [(344, 224), (421, 253)] {
                     out.push((format!("{label}/{name}/t{tick}/{w}x{h}"), hash_of(&scene, w, h)));
                 }
             }
         }
     }
-    // The same scene again after the cached layers were built for other views: first in nothing
-    // alike, then coming back to a view already drawn.
     let mut scene = Scene::resting();
     for tick in [7u32, 8, 7] {
         scene.tick = tick;
@@ -120,8 +112,6 @@ fn the_ambient_frames_are_the_frames_the_map_always_drew() {
 
 #[test]
 fn a_view_drawn_again_after_other_views_is_the_same_frame() {
-    // What is kept belongs to its view: draw A, then B, then A again, and each step of A must come
-    // out as it did the first time.
     let spots = [(11.0 * TILE as f32, 12.0 * TILE as f32), (30.0 * TILE as f32, 25.0 * TILE as f32)];
     let mut scene = Scene::resting();
     let mut round = |scene: &mut Scene| {
@@ -138,14 +128,11 @@ fn a_view_drawn_again_after_other_views_is_the_same_frame() {
     let first = round(&mut scene);
     let second = round(&mut scene);
     assert_eq!(first, second);
-    // And the other spot's frames are not the first's: the key is the view.
     assert_ne!(first[0], first[4]);
 }
 
 #[test]
 fn only_the_tiles_that_move_depend_on_the_ambient_step() {
-    // The kept ground leaves every tile but the moving ones as it was drawn once: so no other
-    // tile's marks may change with the step, whatever the ground is made of there.
     let realm = map::Realm::get();
     for ty in 0..MAP_H {
         for tx in 0..MAP_W {
@@ -170,8 +157,6 @@ fn only_the_tiles_that_move_depend_on_the_ambient_step() {
     }
 }
 
-/// `light::dusk` as it was written before the view's field was kept: every pixel works out the light on
-/// it, the ambient's wander and its steps for itself.
 fn dusk_as_it_was(cv: &mut Img, realm: &map::Realm, lights: &[light::Light], (ox, oy): (i32, i32), ambient: f32) {
     use super::ink::{BLACK, bayer, vnoise};
     let (w, h) = (cv.w as f32, cv.h as f32);
@@ -210,7 +195,6 @@ fn dusk_as_it_was(cv: &mut Img, realm: &map::Realm, lights: &[light::Light], (ox
     }
 }
 
-/// `light::vignette` as it was written before its table was kept.
 fn vignette_as_it_was(f: &mut Img, top: i32) {
     use super::ink::bayer;
     let (w, h) = (f.w as f32, (f.h - top) as f32);
@@ -229,13 +213,11 @@ fn vignette_as_it_was(f: &mut Img, top: i32) {
     }
 }
 
-/// A picture of the realm's inks scattered over black paper, the same for the same seed.
 fn scattered(w: i32, h: i32, seed: u32) -> Img {
     let inks: Vec<char> = "RoOtTHivVWzYySshgGuUMAaB@5w".chars().collect();
     let mut img = Img::black(w, h);
     for y in 0..h {
         for x in 0..w {
-            // Runs of one ink, as sprites and the ground leave them, and black paper between.
             let cell = ink::hash(x / 5, y / 3, seed);
             if cell % 7 < 3 {
                 continue;
@@ -249,8 +231,6 @@ fn scattered(w: i32, h: i32, seed: u32) -> Img {
 #[test]
 fn the_light_over_a_view_is_the_light_it_always_was() {
     let realm = map::Realm::get();
-    // Views in the realm and half off it; lights that burn (fire) and lights that do not, in the view,
-    // across its edge, and out of reach.
     for (ox, oy, w, h) in [(300, 260, 173, 121), (-40, -30, 90, 70), (MAP_W * TILE - 60, MAP_H * TILE - 50, 90, 80)] {
         let lights = [
             light::Light { x: (ox + 40) as f32, y: (oy + 30) as f32, r: 34.0, s: 0.55, fire: true },
@@ -260,7 +240,6 @@ fn the_light_over_a_view_is_the_light_it_always_was() {
             light::Light { x: (ox + w + 500) as f32, y: (oy + 500) as f32, r: 30.0, s: 0.5, fire: true },
         ];
         let field = light::DuskField::new(ox, oy, w, h);
-        // The same field serves every ambient and every set of lights a window draws over this view.
         for ambient in [light::DUSK, 0.84, 1.0, 0.3, light::DUSK] {
             for lights in [&lights[..], &lights[..2], &lights[..0]] {
                 let picture = scattered(w, h, (ox + oy).unsigned_abs());
@@ -291,8 +270,6 @@ fn the_rim_of_a_view_is_the_rim_it_always_was() {
     }
 }
 
-/// Hashed from the drawing before the ambient layers were kept (`ANGEL_PRINT_AMBIENT_FRAMES=1` prints the
-/// table the current drawing makes).
 const GOLDEN: &[(&str, u64)] = &[
     ("quiet/keep/t0/344x224", 0x367268720a0f079a),
     ("quiet/keep/t0/421x253", 0xafb9300a9b1d5e99),

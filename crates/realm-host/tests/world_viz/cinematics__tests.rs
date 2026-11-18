@@ -25,7 +25,6 @@ fn cast_work_poses_follow_correlated_active_work_and_return_to_rest() {
         super::rider_frame_key(&world).pose(Side::RedLeft),
         Pose::Mounted
     );
-    // A visible label alone must never animate a craftsman at another site.
     world.settle_at_for_test(super::Building::Smithy);
     world.activity = "work on victory".into();
     assert_eq!(
@@ -100,8 +99,6 @@ fn scenery_scatter_is_deterministic_world_anchored_and_capped() {
     assert!(!first.is_empty());
     assert!(first.len() <= super::SCENERY_SPRITE_CAP);
 
-    // This small window stays below the cap, so shared world cells must
-    // have byte-identical sprites after a one-cell window shift.
     let left = synthetic_scatter(
         91,
         100,
@@ -373,7 +370,6 @@ fn settled_camera_uses_each_authored_vista_mark() {
     let mut world = World::new(42);
     for building in BUILDINGS {
         world.settle_at_for_test(building);
-        // The deterministic table pose precedes the retained breathing sway.
         world.settle_ticks = 0;
         let (_, view) = world.travel_scene();
         let (camera, heading, eye_lift) = world.vista_camera_pose(building);
@@ -528,8 +524,6 @@ fn first_person_landmarks_have_doored_fronts_and_deep_footprints() {
     for building in BUILDINGS {
         world.target = building;
         let pos = world.building_pos(building);
-        // Keep the saddle several cells off the frontage so its mandatory
-        // open camera cell cannot erase any part of the kit under test.
         world.avatar_vis = (pos.0 as f32 + 6.0, pos.1 as f32 + 6.0);
         let origin_x = world.avatar_vis.0.round() as i32 - FP_WINDOW;
         let origin_y = world.avatar_vis.1.round() as i32 - FP_WINDOW;
@@ -599,7 +593,6 @@ fn quarter_view_geometry_retains_front_and_return_walls() {
     let front = world.travel_facade_front(pos);
     let behind = world.travel_facade_behind(pos);
     let footprint = travel_landmark_footprint(building);
-    // Put the window around the same front-and-side diagonal used below.
     world.avatar_vis = (
         pos.0 as f32 + front.0 * 7.0 + axis.0 as f32 * 4.0,
         pos.1 as f32 + front.1 * 7.0 + axis.1 as f32 * 4.0,
@@ -839,8 +832,6 @@ fn cinematic_key_tracks_ambient_bits_and_only_slow_bucket_crossings() {
     world.note_tool_call("science_search", "web sources");
     let landmark = world.active_research_landmark().unwrap();
     world.settle_at_for_test(landmark);
-    // Stay clear of both the ambient and rider frame boundaries: this
-    // assertion isolates active-work keying rather than animation motion.
     world.tick = super::AMBIENT_TICK_TICKS * 100 + 1;
     let live = world.cinematic_key();
     world.tick += 1;

@@ -36,7 +36,6 @@ impl Run {
         let stats = kind.stats(level, self.home.squire_academy.yard);
         match kind {
             Kind::Healer => {
-                // Lowest health fraction, not nearest or lowest absolute HP.
                 let target = self.players.iter().filter(|(_, h)| h.hp > 0 && !h.absent && !h.stone
                     && (h.hp < h.max_hp || (level >= 2 && (h.hexed > 0 || h.chilled > 0 || h.mired > 0)))
                     && (h.x - body.x).hypot(h.y - body.y) <= stats.reach)
@@ -53,7 +52,6 @@ impl Run {
             Kind::Ninja => {
                 if let Some(i) = self.squire_target(body, stats.reach) {
                     let e = &self.enemies[i];
-                    // Flank is relative to the knight, never a random teleport.
                     let backstab = body.summoner.and_then(|id| self.players.get(&id))
                         .is_some_and(|h| (h.x - e.x) * (body.x - e.x) + (h.y - e.y) * (body.y - e.y) < 0.);
                     self.academy_squire_hit(body, i, stats.damage * if backstab { 2 } else { 1 });
@@ -87,7 +85,6 @@ impl Run {
             Kind::Alchemist => {
                 if let Some(i) = self.squire_target(body, stats.reach) {
                     let (x, y) = (self.enemies[i].x, self.enemies[i].y);
-                    // Bombs do not stun bosses or rewrite their movement.
                     let victims: Vec<_> = self.enemies.iter().enumerate().filter(|(_, e)| e.hp > 0 && e.age >= TELEGRAPH && e.kind != EnemyKind::Dummy
                         && (e.x - x).hypot(e.y - y) < 2.8).map(|(i, _)| i).collect();
                     for i in victims { self.academy_squire_hit(body, i, stats.damage); }
@@ -101,8 +98,6 @@ impl Run {
     pub(super) fn squire_special(&mut self, c: &mut Companion) {
         let Some(kind) = c.body.kind.squire() else { return; };
         if kind == Kind::Healer && c.level >= 3 && c.special == 0 {
-            // Assist a skull where it lies, or in a friend's hands. Never steal
-            // it into a separate inventory, and clear a carrier on revival.
             let target = self.players.iter().filter(|(_, h)| h.hp == 0 && !h.absent && h.fell > 0
                 && self.tick >= h.fell.saturating_add(super::super::skulls::SKULL_SETTLE))
                 .find_map(|(&id, h)| {
@@ -126,7 +121,6 @@ impl Run {
                 }
             } else { c.reviving = None; }
         } else if c.special == 0 && kind == Kind::Ninja && c.level >= 3 && c.body.hp * 2 < c.body.max_hp {
-            // Smoke is a short safe retreat, not permanent stealth.
             c.body.invulnerable = c.body.invulnerable.max(HZ);
             c.special = 8 * HZ;
             self.cues.push("squire_smoke".into());
@@ -140,7 +134,6 @@ impl Run {
             }
         }
     }
-    /// Adjust existing collision-safe hireling movement for class tactics.
     pub(in crate::rules) fn squire_way(&self, body: &Hireling, way: (f32, f32)) -> (f32, f32) {
         let Some(kind) = body.kind.squire() else { return way; };
         if kind == Kind::Ninja {
@@ -162,7 +155,6 @@ impl Run {
                 return if (x - body.x).hypot(y - body.y) > 1.8 { unit(x - body.x, y - body.y) } else { (0., 0.) };
             }
         }
-        // Ranger keeps a longer firing lane; healers stay close to their owner.
         if kind == Kind::Ranger {
             if let Some(i) = self.squire_target(body, 22.) {
                 let e = &self.enemies[i]; let d = (e.x - body.x).hypot(e.y - body.y);

@@ -1,8 +1,3 @@
-# The rooms as the tick reads them: one record per row, a tile to a nibble
-# (0 open ground, 1 wall, 2 bars, 3 pit, 4 the way on), eight tiles to a word, and
-# the row's width in the last word. `at` answers wall for anything past the
-# edge, the same answer the Rust ground gives. Written from the floor plans in
-# ground.bend; the ground parity test reads every tile through both.
 import Base
 import ./r.bend as R
 import ./l.bend as L
@@ -147,10 +142,8 @@ def pick0(c: Bool, +room: U32) -> List<&2, R.W8>:
     case False{}:
       pick1(U32.is_lt(room, 2), room)
 
-# The grid of a room, the way `plan(room.min(ROOMS - 1))` clamps it.
 def of(+room: U32) -> List<&2, R.W8>: pick0(U32.is_lt(room, 1), room)
 
-# The word that holds tile column tx (0 to 4).
 def word(+r: R.W8, +i: U32) -> U32:
   Bool.pick(U32, U32.is_eq(i, 0), R.W8.g0(r),
   Bool.pick(U32, U32.is_eq(i, 1), R.W8.g1(r),
@@ -160,15 +153,12 @@ def word(+r: R.W8, +i: U32) -> U32:
 def tile(+r: R.W8, +tx: U32) -> U32:
   U32.and(U32.shrn(word(r, U32.shrn(tx, 3n)), U32.to_nat(U32.mul(U32.and(tx, 7), 4))), 15)
 
-# The class of the tile at column tx, row ty (tile units, signed words): a wall
-# past any edge.
 def at_row(+r: R.W8, +tx: U32) -> U32:
   Bool.pick(U32, U32.is_lt(tx, R.W8.g7(r)), tile(r, tx), 1)
 
 def at(+rows: List<&2, R.W8>, +tx: U32, +ty: U32) -> U32:
   at_row(L.get8(rows, U32.to_nat(ty)), tx)
 
-# The room's width and height in tiles.
 def width(+rows: List<&2, R.W8>) -> U32: R.W8.g7(L.get8(rows, 0n))
 
 def height(+rows: List<&2, R.W8>) -> U32: L.len8(rows)

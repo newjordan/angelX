@@ -23,8 +23,6 @@ fn provider_usage_deepseek_null_detail_keeps_native_cache_hit() {
     assert_eq!(c.cache_usage().read_input_tokens, 75);
 }
 
-/// DeepSeek bills no cache write (prompt = hit + miss), so its miss field
-/// makes uncached input exact instead of unknown.
 #[test]
 fn provider_usage_deepseek_miss_settles_uncached_input() {
     let c = HttpClub::new("usage-fixture", "http://127.0.0.1:9/v1", "fixture", None);

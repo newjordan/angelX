@@ -1,18 +1,4 @@
 #!/usr/bin/env bash
-# package-prebuilt.sh — wrap a source release and one target's binaries into
-# the package that install.sh downloads.
-#
-#   scripts/release/package-prebuilt.sh MANIFEST BIN_DIR OUT_DIR
-#
-# MANIFEST is the source release manifest (`npm run release:evidence`), with
-# its archive beside it. BIN_DIR is build-prebuilt.sh's output for one target.
-# OUT_DIR receives angelX-<target>.tar.gz, a copy of install.sh, and a
-# SHA256SUMS covering every package in OUT_DIR. Upload all of them to the
-# GitHub release: install.sh fetches them by these fixed names.
-#
-# A package is the source release unpacked, plus the binaries in
-# cockpit/target/release/, glass in bin/, and PREBUILT.json at the top. bin/angelX sees
-# PREBUILT.json and runs the shipped binaries instead of building them.
 set -euo pipefail
 
 usage() { echo "usage: package-prebuilt.sh MANIFEST BIN_DIR OUT_DIR" >&2; exit 2; }
@@ -26,7 +12,6 @@ fail() { echo "package-prebuilt: $*" >&2; exit 1; }
 [ -f "$manifest" ] || fail "no manifest at $manifest"
 [ -f "$bin_dir/build.json" ] || fail "no build.json in $bin_dir"
 
-# Every identity the package claims is checked here, before anything is written.
 ids=$(
   python3 - "$manifest" "$bin_dir" <<'PY'
 import hashlib, json, os, sys

@@ -1,7 +1,5 @@
 //! Lossless storage for embedded browser assets, decoded only on demand.
 
-/// `None` means the bytes are already plain; `Some(n)` bounds decoded output.
-// The build script encodes; the runtime decodes. Each compiles this source.
 #[allow(dead_code)]
 pub fn pack(plain: &[u8]) -> (Vec<u8>, Option<usize>) {
     if plain.len() >= 4096 {

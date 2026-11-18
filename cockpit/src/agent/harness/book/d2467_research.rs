@@ -25,11 +25,8 @@ pub(crate) const ADVICE: Route = Route::new(CELL, '⠓');
 pub(crate) const STALL: Route = Route::new(CELL, '⠊');
 pub(crate) const CAMPAIGN: Route = Route::new(CELL, '⠚');
 
-// `⡪⠓`: the Sloptomizer's evidence note (verbatim, from its runner) and the
-// cold-start page, each sent as its address.
 pub(crate) const EVIDENCE_NOTE: &str = "⡪⠓⠁⡪⠓⠃";
 pub(crate) const COLD: &str = "⡪⠓⠉";
-// `⡪⠚`: a campaign round with no advantage spread.
 pub(crate) const NO_SPREAD: &str = "⡪⠚⠁";
 
 pub(crate) const PRIMARY: Primary = Primary {
@@ -127,9 +124,6 @@ pub(crate) const PRIMARY: Primary = Primary {
     ],
 };
 
-/// The routes a research run's record raises: live while it runs; after it,
-/// the verdict its measurements carry, or the baseline that never let the
-/// candidate start, and whether its learning stuck.
 pub(crate) fn research(record: &Value) -> Vec<Route> {
     if record["running"] == true {
         return vec![LIVE];
@@ -158,8 +152,6 @@ pub(crate) fn research(record: &Value) -> Vec<Route> {
     }
 }
 
-/// The routes a campaign's status raises: live while it runs, its verdict
-/// once it settled.
 pub(crate) fn campaign(status: &Value) -> Vec<Route> {
     match status["status"].as_str() {
         Some("running") => vec![LIVE],
@@ -168,20 +160,16 @@ pub(crate) fn campaign(status: &Value) -> Vec<Route> {
     }
 }
 
-/// A settled campaign whose last round had no advantage spread. The outcome
-/// is as a campaign's status carries it (`{"Ok": …}` or `{"Err": …}`), or bare.
 pub(crate) fn no_spread(outcome: &Value) -> bool {
     outcome.get("Ok").unwrap_or(outcome)["advantage_variance"]
         .as_f64()
         .is_some_and(|variance| variance == 0.0)
 }
 
-/// Advice with no observations behind its ranking yet.
 pub(crate) fn cold_advice(advice: &Value) -> bool {
     advice["observations"].as_u64() == Some(0)
 }
 
-/// Routes as the cells of one `warpath` field.
 pub(crate) fn cells(routes: &[Route]) -> String {
     routes.iter().map(|route| route.cells()).collect()
 }

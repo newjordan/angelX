@@ -177,7 +177,7 @@ fn assert_unwritten_queue_expiry<T>(fixture: &HotFixture, held: T) {
     let observed = receiver.recv_timeout(Duration::from_millis(500));
     let completed = observed.is_ok();
     let elapsed = started.elapsed();
-    drop(held); // Every regression path releases its lock before join/assert.
+    drop(held);
     let result =
         observed.unwrap_or_else(|_| receiver.recv_timeout(Duration::from_secs(2)).unwrap());
     worker.join().unwrap();
@@ -331,8 +331,6 @@ fn cache_queue_during_pull_preserves_unreceived_push_and_client_reuse() {
         }
         std::thread::sleep(Duration::from_millis(1));
     };
-    // The request owns rx while queued for stdin, so the cache lock can be
-    // acquired before its first received notification without a timing race.
     let held_cache = fixture.client.diagnostics.lock().unwrap();
     drop(held_stdin);
     let observed = receiver.recv_timeout(Duration::from_millis(500));
@@ -352,8 +350,6 @@ fn cache_queue_during_pull_preserves_unreceived_push_and_client_reuse() {
             .contains("timed out waiting for diagnostics cache")
     );
     fixture.assert_warm();
-    // Reuse the ordinary push collector: the previous request's notification
-    // was never consumed and still grounds a later call.
     fixture.client.supports_pull.store(false, Ordering::Relaxed);
     let retry = fixture.tool().call(&json!({"path": "queued.rs"})).unwrap();
     assert!(retry.contains("deferred evidence"), "{retry}");
@@ -416,8 +412,6 @@ fn failed_write_pool_queue_is_bounded_and_explicit_retry_replaces_invalid_client
     );
     assert!(fixture.ctx.pool.warm_clients().is_empty());
 
-    // An explicit call replaces the invalid record, opens version1 on the
-    // fresh process, and does not inherit the failed frame/document version.
     std::fs::write(fixture.root.join("queued.rs"), "fn retried() {}\n").unwrap();
     assert!(
         fixture
@@ -440,7 +434,6 @@ fn failed_write_pool_queue_is_bounded_and_explicit_retry_replaces_invalid_client
             json!({"method": "textDocument/didOpen", "version": 1})
         ]
     );
-    // Late cleanup of the old caller must not evict this replacement.
     fixture
         .ctx
         .pool
@@ -469,7 +462,6 @@ fn fifo_document_is_rejected_without_waiting_for_a_writer_or_touching_the_client
         let path = fixture.root.join("queued.rs");
         std::fs::remove_file(&path).unwrap();
         let raw = std::ffi::CString::new(path.as_os_str().as_bytes()).unwrap();
-        // SAFETY: the owned fixture pathname is NUL terminated and absent.
         assert_eq!(unsafe { libc::mkfifo(raw.as_ptr(), 0o600) }, 0);
         let tool = fixture.tool();
         let (sender, receiver) = mpsc::channel();
@@ -481,8 +473,6 @@ fn fifo_document_is_rejected_without_waiting_for_a_writer_or_touching_the_client
         let completed = observed.is_ok();
         let elapsed = started.elapsed();
         if !completed {
-            // Release the old blocking read on a red regression path before
-            // join/assertion; no helper process or open pipe is left behind.
             let mut writer = std::fs::OpenOptions::new()
                 .write(true)
                 .custom_flags(libc::O_NONBLOCK)
@@ -558,7 +548,6 @@ fn reader_failure_invalidates_cached_clean_reports_and_explicit_retry_opens_a_ne
                 .unwrap()
                 .contains("clean")
         );
-        // A healthy, unchanged document reuses its complete cached evidence.
         assert!(fixture.tool().call(&hot_args()).unwrap().contains("clean"));
         fixture.assert_warm();
         let trigger = PathBuf::from(format!("{}.trigger", fixture.trace.display()));
@@ -571,8 +560,6 @@ fn reader_failure_invalidates_cached_clean_reports_and_explicit_retry_opens_a_ne
             fixture.client.unusable.load(Ordering::Acquire),
             "reader did not finish: {mode}"
         );
-        // The service intentionally stays alive; transport health must not be
-        // inferred from the direct child's liveness or a previous clean push.
         assert!(fixture.client.child.lock().unwrap().alive());
         let uri = fixture.uri();
         assert!(

@@ -148,7 +148,6 @@ fn the_stairs_clear_every_down_choice_as_soon_as_the_revive_snapshot_arrives() {
     host.run.floor_plates.clear();
     host.send(&mut c);
     assert_eq!(c.command(&held(button::RIGHT)).held.move_x, 1);
-    // A fresh fall gets the banner back and starts by watching an ally.
     host.run.players.get_mut(&1).unwrap().hp = 0;
     host.send(&mut c);
     let down = c.down.as_ref().unwrap();
@@ -189,7 +188,6 @@ fn the_camera_follows_the_named_ally_and_the_body_in_both_render_paths() {
     let parts_screen = c.scene.as_ref().unwrap().screen.clone();
     arena::draw_parts_outside(false);
     let frame = draw(&mut c, Hands::default());
-    // The browser's stage screen and the flat client share the entire banner.
     for y in 10..70 {
         for x in 12..372 {
             let y = y + arena::BAND_H;

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 
 import { sha256File } from '../../scripts/release/release-evidence.mjs'
@@ -111,6 +113,74 @@ test('interrupted replacement restores the verified binary and refuses corrupt r
   writeFileSync(layout.rollbackBinary, 'corrupt rollback\n', { mode: 0o755 })
   assert.throws(() => recoverInterruptedInstall(root), /differs from the install journal/u)
   assert.equal(existsSync(layout.journal), true)
+})
+
+for (const boundary of ['binary', 'metadata', 'journal']) {
+  test(`interrupted recovery can restart after restoring ${boundary}`, (t) => {
+    const { root, candidate, metadata } = fixture(t)
+    installCandidate({ sandboxRoot: root, candidate, metadata })
+    const layout = prefixLayout(root)
+    writeFileSync(layout.metadata, JSON.stringify(metadata, null, 4) + '\n\n')
+    const beforeMetadata = readFileSync(layout.metadata)
+    injectInterruptedReplacement(root)
+    const script = `
+      import fs from 'node:fs';
+      import { syncBuiltinESMExports } from 'node:module';
+      const [url, root, binary, metadata, journal, boundary] = process.argv.slice(1);
+      const rename = fs.renameSync, remove = fs.rmSync;
+      fs.renameSync = (...args) => {
+        const result = rename(...args);
+        if ((boundary === 'binary' && args[1] === binary) ||
+            (boundary === 'metadata' && args[1] === metadata)) process.exit(86);
+        return result;
+      };
+      fs.rmSync = (...args) => {
+        const result = remove(...args);
+        if (boundary === 'journal' && args[0] === journal) process.exit(86);
+        return result;
+      };
+      syncBuiltinESMExports();
+      const { recoverInterruptedInstall } = await import(url);
+      recoverInterruptedInstall(root);
+      process.exit(87);
+    `
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', script,
+      pathToFileURL(join(process.cwd(), 'scripts/release/verify-release-install.mjs')).href,
+      root, layout.binary, layout.metadata, layout.journal, boundary],
+    { encoding: 'utf8', timeout: 10_000 })
+    assert.ifError(result.error)
+    assert.equal(result.status, 86, result.stderr)
+    assert.equal(existsSync(layout.journal), boundary !== 'journal')
+    assert.equal(recoverInterruptedInstall(root).recovered, boundary !== 'journal')
+    assert.equal(sha256File(layout.binary), metadata.binary.sha256)
+    assert.deepEqual(readFileSync(layout.metadata), beforeMetadata)
+    assert.equal(existsSync(layout.journal), false)
+    assert.equal(existsSync(layout.rollbackDirectory), false)
+    assert.equal(installCandidate({ sandboxRoot: root, candidate, metadata }).replaced, true)
+    assert.equal(existsSync(layout.rollbackDirectory), false)
+  })
+}
+
+test('orphan rollback cleanup validates the installed pair before deleting recovery evidence', (t) => {
+  const { root, candidate, metadata } = fixture(t)
+  installCandidate({ sandboxRoot: root, candidate, metadata })
+  const layout = prefixLayout(root)
+  mkdirSync(layout.rollbackDirectory)
+  const evidence = join(layout.rollbackDirectory, 'retained-evidence')
+  writeFileSync(evidence, 'keep until installed pair is validated\n')
+  writeFileSync(layout.binary, 'invalid current binary\n')
+  assert.throws(() => recoverInterruptedInstall(root), /differs from its source-bound install metadata/u)
+  assert.equal(readFileSync(evidence, 'utf8'), 'keep until installed pair is validated\n')
+})
+
+test('orphan rollback cleanup rejects dangling staging symlinks without changing the install', (t) => {
+  const { root, candidate, metadata } = fixture(t)
+  installCandidate({ sandboxRoot: root, candidate, metadata })
+  const layout = prefixLayout(root)
+  symlinkSync(join(root, 'missing-target'), layout.rollbackDirectory)
+  assert.throws(() => recoverInterruptedInstall(root), /rollback staging must be a non-symlink directory/u)
+  assert.equal(lstatSync(layout.rollbackDirectory).isSymbolicLink(), true)
+  assert.equal(sha256File(layout.binary), metadata.binary.sha256)
 })
 
 test('installed probe is networkless, checkout-free, and limited to lifecycle state', (t) => {

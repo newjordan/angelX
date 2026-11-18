@@ -16,16 +16,8 @@ fn party(slug: &str, seats: u32) -> Run {
     r
 }
 
-/// The adventures whose terminal picture is the native scene without its
-/// pixel words, because the cockpit prints those words as text rows (four
-/// pixels to a cell is too coarse to read them). Everyone else's terminal
-/// picture is the native one, exactly.
 const TERMINAL_WORDS_AS_ROWS: [&str; 1] = ["bannerpeak"];
 
-/// The window asks the arena for a room in parts (`scene_for`). The
-/// adventures stand in the Dark Forest's room, as the Forest Road does, so a
-/// room that "comes apart" would draw the forest and never the adventure:
-/// each must stay one picture, which is `frame_for`'s.
 #[test]
 fn an_adventure_and_the_forest_road_stay_one_picture_on_the_parts_route() {
     use super::super::scene_for;
@@ -85,8 +77,6 @@ fn each_stub_draws_its_own_scene_on_both_routes() {
     }
 }
 
-/// The stub scene itself (`stub_layers`), not any adventure's own: once a
-/// builder draws the real game these still hold for the block scene.
 const LOOK: Look = Look {
     name: "Test",
     backdrop: 'x',

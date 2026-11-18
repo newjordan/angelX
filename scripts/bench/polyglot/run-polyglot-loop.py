@@ -79,8 +79,6 @@ def confined_directory(root: Path, relative: str, prefix: str | None = None) -> 
 def copy_tree_snapshot(source: Path, target: Path, ignore_python_cache: bool = True) -> dict[str, str]:
     expected = tree_manifest(source, ignore_python_cache)
     if not target.exists():
-        # Preserve any link introduced during a copy rather than following it.
-        # The post-copy manifests then reject the link before evaluation starts.
         shutil.copytree(source, target, symlinks=True,
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc") if ignore_python_cache else None)
     actual = tree_manifest(target, ignore_python_cache)
@@ -130,8 +128,6 @@ def snapshot_fixtures(bench: Path, output: Path, selected: list[dict]) -> dict[s
     manifests = {}
     for row in selected:
         source = confined_directory(bench, row["fixture"], "fixtures")
-        # The evaluator deliberately confines fixtures to tasks.json's parent.
-        # Symlinking the historical fixture root would violate that contract.
         manifests[row["name"]] = copy_tree_snapshot(source, output / row["fixture"], ignore_python_cache=False)
     return manifests
 
@@ -159,8 +155,6 @@ def checked_resource_source(source: Path, expected_digest: str) -> dict[str, str
     trusted_digest = sha256(trusted_script)
     if sha256(script) != trusted_digest:
         raise ValueError("resource digest helper does not match the runner's trusted helper; unsupported helper version")
-    # Run the supported helper at its resource path: BASH_SOURCE must resolve
-    # the candidate checkout, rather than the runner's own source inventory.
     result = subprocess.run(["bash", str(script)], cwd=source, text=True,
                             capture_output=True, timeout=60)
     confined_directory(source, "scripts/check")
@@ -176,8 +170,6 @@ def checked_resource_source(source: Path, expected_digest: str) -> dict[str, str
 
 
 def snapshot_resources(source_root: Path, target: Path) -> dict[str, str]:
-    # Retain the scripts tree's tracked support tools without carrying ignored
-    # benchmark wires, dependency installs or caches into a runtime bundle.
     tracked = subprocess.check_output(["git", "-C", str(source_root), "ls-files", "-z", "--", "scripts"], timeout=30)
     script_paths = [Path(os.fsdecode(name)) for name in tracked.split(b"\0") if name]
     script_manifest = {}
@@ -225,9 +217,6 @@ def evaluator_environment(bench: Path, package_root: Path, model: str,
                           effort: str, wall: int, codex_home: Path) -> dict[str, str]:
     real_home = Path.home()
     agent_path = f"{bench}/toolbin:/usr/local/bin:/usr/bin:/bin"
-    # An allowlist keeps host credentials, feature switches and operator config
-    # out of the evaluator and each agent. The direct Codex seat uses its own
-    # ephemeral auth directory; the proxy placeholder is not a real credential.
     return {
         "HOME": str(real_home),
         "USER": real_home.name,
@@ -271,11 +260,11 @@ def wait_evaluator_exit(process: subprocess.Popen, timeout: float, cancelled_sig
 def terminate_group(process: subprocess.Popen, grace_secs: float = 15) -> None:
     """Retire an owned session before consuming its leader's wait status."""
     if process.returncode is not None:
-        return  # A consumed status no longer proves ownership of this PGID.
+        return
     try:
         os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
     except ChildProcessError:
-        return  # Another reaper released the PID; never signal a recycled group.
+        return
     try:
         os.killpg(process.pid, signal.SIGTERM)
     except ProcessLookupError:
@@ -285,8 +274,6 @@ def terminate_group(process: subprocess.Popen, grace_secs: float = 15) -> None:
         wait_evaluator_exit(process, grace_secs)
     except subprocess.TimeoutExpired:
         pass
-    # The unreaped direct child still reserves the leader PID/PGID. Descendants
-    # may outlive it or ignore TERM; signal the group before releasing that PID.
     try:
         os.killpg(process.pid, signal.SIGKILL)
     except ProcessLookupError:
@@ -304,14 +291,11 @@ def run_evaluator(command, *, env, cwd, log, timeout, manifest, grace_secs=15, c
     process = None
     interrupts = (signal.SIGINT, signal.SIGTERM)
     previous_handlers = {sig: signal.getsignal(sig) for sig in interrupts}
-    # Do not deliver cancellation between spawning and recording the group.
     previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, interrupts)
     cancellation = None
 
     def cancelled(signum, _frame):
         nonlocal cancellation
-        # Record cancellation rather than throwing from an arbitrary cleanup
-        # instruction. The owned-child observation loop handles the first signal.
         if cancellation is None:
             cancellation = signum
 
@@ -320,9 +304,6 @@ def run_evaluator(command, *, env, cwd, log, timeout, manifest, grace_secs=15, c
             signal.signal(sig, cancelled)
         try:
             try:
-                # The spawn mask is inherited across exec. Restore the caller's
-                # mask in this same-PID launcher before running the evaluator,
-                # so TERM reaches its ordinary handler during cleanup.
                 launcher = ("import os,signal,sys; "
                             f"signal.pthread_sigmask(signal.SIG_SETMASK, {json.dumps(sorted(previous_mask))}); "
                             "signal.signal(signal.SIGINT, signal.SIG_DFL); "
@@ -345,7 +326,6 @@ def run_evaluator(command, *, env, cwd, log, timeout, manifest, grace_secs=15, c
                 manifest["runner_interrupted"] = True
             return 128 + interruption.signum
         finally:
-            # Further signals cannot interrupt owned-group and HOME cleanup.
             for sig in interrupts:
                 signal.signal(sig, signal.SIG_IGN)
             try:
@@ -402,7 +382,6 @@ def main() -> int:
     catalog_bytes = task_path.read_bytes()
     catalog = json.loads(catalog_bytes)
     selected = select_tasks(catalog, args.per_language, args.task)
-    # Preserve exact public rows and their relative fixture layout.
     python = bench / "prime_v1/.venv/bin/python"
     evaluator = bench / "prime_v1/.venv/bin/eval"
     adapter = bench / "prime_v1/angel_action_v1"
@@ -517,8 +496,6 @@ def main() -> int:
                 f"model = {json.dumps(args.model)}\nmodel_reasoning_effort = {json.dumps(args.effort)}\n"
             )
         env = evaluator_environment(bench, package_root, args.model, args.effort, args.wall_secs, codex_home)
-        # Verify Python resolved the copied adapter, not the editable historical
-        # package in site-packages. Record the real evaluator installation too.
         inspection = json.loads(subprocess.check_output([
             str(python), "-c",
             "import json,sys,importlib.metadata,angel_action_v1,verifiers.v1; "

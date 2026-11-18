@@ -9,19 +9,12 @@
 use super::wishes::Lot;
 use std::sync::OnceLock;
 
-/// A halt's ground: seven tiles across, three of building and yard and a
-/// fourth of apron in front, where the coach sets a party down.
 pub const W: i32 = 7;
 pub const H: i32 = 4;
-/// How far down the road from its authored spot the search may move a halt to
-/// find open ground, in road tiles.
 #[cfg(any(test, feature = "testing"))]
 const REACH: i32 = 24;
-/// No two halts nearer than this, in tiles.
 pub const SPACING: i32 = 18;
 
-/// One halt, as authored: what it is called, who keeps it, what the keeper
-/// says in greeting, and the road tile it stands nearest.
 pub struct Stop {
     pub name: &'static str,
     pub keeper: &'static str,
@@ -29,8 +22,6 @@ pub struct Stop {
     pub near: (i32, i32),
 }
 
-/// The ring the coaches run, in order: each stop's coach goes onward to the
-/// next and back to the one before; the last runs on to the first.
 pub const STOPS: [Stop; 11] = [
     Stop {
         name: "Harbour Halt",
@@ -100,34 +91,22 @@ pub const STOPS: [Stop; 11] = [
     },
 ];
 
-/// A halt as it stands: the ground it holds, and the tiles its parts keep.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Placed {
     pub stop: usize,
-    /// The halt's `W` x `H` tiles.
     pub rect: Lot,
-    /// Where the keeper stands, before the shelter's door.
     pub keeper: (i32, i32),
-    /// The coach post, where the coach stands waiting.
     pub coach: (i32, i32),
-    /// The rally pole's foot.
     pub rally: (i32, i32),
-    /// The road tile it stands nearest.
     pub road: (i32, i32),
 }
 
 impl Placed {
-    /// Where a party set down here stands, in tiles: the apron before the
-    /// coach, centred.
     pub fn apron(&self) -> (f32, f32) {
         (self.rect.tx as f32 + 3.5, self.rect.ty as f32 + 3.4)
     }
 }
 
-/// Where each halt stands, in ring order: its ground's top-left tile and the
-/// road tile it stands nearest. What `search` finds on the realm's roads;
-/// `the_halts_stand_where_the_search_finds_them` keeps the two equal, so a
-/// change to the map that moves a halt's ground says so.
 const SPOTS: [((i32, i32), (i32, i32)); STOPS.len()] = [
     ((36, 49), (38, 53)),
     ((102, 35), (100, 36)),
@@ -154,10 +133,8 @@ fn placed_at(stop: usize, (tx, ty): (i32, i32), road: (i32, i32)) -> Placed {
     }
 }
 
-/// Every halt, in ring order.
 pub fn placed() -> &'static [Placed] {
     static PLACED: OnceLock<Vec<Placed>> = OnceLock::new();
-    // No halt stands on the blank-slate plan's hillside (`super::plan`).
     PLACED.get_or_init(|| {
         if super::plan::tabula() {
             return Vec::new();
@@ -166,7 +143,6 @@ pub fn placed() -> &'static [Placed] {
     })
 }
 
-/// The stop after `i` round the ring, and the one before it.
 pub fn onward(i: usize) -> usize {
     (i + 1) % STOPS.len()
 }
@@ -175,10 +151,6 @@ pub fn back(i: usize) -> usize {
     (i + STOPS.len() - 1) % STOPS.len()
 }
 
-/// The search for the table: for each stop, the open ground along its road
-/// nearest the authored spot, kept off every door, lot, banner and thing of
-/// the realm with no wishes raised, off the regions' names and the other
-/// halts.
 #[cfg(any(test, feature = "testing"))]
 pub fn search() -> Vec<Placed> {
     use super::kingdom::name_strips;
@@ -194,8 +166,6 @@ pub fn search() -> Vec<Placed> {
     let strips = name_strips();
     let mut out: Vec<Placed> = Vec::new();
     for (i, stop) in STOPS.iter().enumerate() {
-        // The roads' tiles within `REACH` steps of the authored spot, by
-        // how far along the road they lie.
         let Some(start) = (-6..=6)
             .flat_map(|dy| (-6..=6).map(move |dx| (stop.near.0 + dx, stop.near.1 + dy)))
             .filter(|&(x, y)| road(x, y))
@@ -218,8 +188,6 @@ pub fn search() -> Vec<Placed> {
             }
         }
         let mut best: Option<(i32, Lot, (i32, i32))> = None;
-        // Ground with room all round first, then closer quarters, and last
-        // the mire's boardwalks.
         for (margin, keep_off, door, mire) in [(2, 4, 9, false), (1, 3, 7, false), (1, 2, 6, false), (1, 2, 6, true)] {
             if best.is_some() {
                 break;
@@ -227,8 +195,6 @@ pub fn search() -> Vec<Placed> {
             for y0 in stop.near.1 - REACH..=stop.near.1 + REACH {
                 for x0 in stop.near.0 - REACH..=stop.near.0 + REACH {
                     let rect = Lot { tx: x0, ty: y0, tw: W, th: H };
-                    // Open meadow, sand or ash under it, or ground cleared
-                    // already, and no road; the ground round it walkable.
                     let fits = (y0 - margin..y0 + H + margin).all(|y| {
                         (x0 - margin..x0 + W + margin).all(|x| {
                             floor(x, y)
@@ -248,9 +214,6 @@ pub fn search() -> Vec<Placed> {
                     {
                         continue;
                     }
-                    // The nearest road to the keeper's door, as near as the
-                    // ground allows, and the nearest along the road to the
-                    // authored spot.
                     let front = (x0 + 2, y0 + H - 1);
                     let Some((r, d)) = (-5..=5)
                         .flat_map(|dy| (-5..=5).map(move |dx| (front.0 + dx, front.1 + dy)))
@@ -274,8 +237,6 @@ pub fn search() -> Vec<Placed> {
     out
 }
 
-/// The halt whose keeper a knight at `(x, y)` (units) stands within `reach`
-/// units of, nearest first.
 pub fn keeper_near(x: f32, y: f32, reach: f32) -> Option<usize> {
     let tile = crate::rules::TILE_UNITS;
     placed()

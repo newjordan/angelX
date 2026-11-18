@@ -202,3 +202,28 @@ fn deli_consult_keeps_pinned_effort_through_all_rounds_and_synthesis() {
     .unwrap();
     assert_eq!(club.0.load(Ordering::Acquire), 3);
 }
+
+
+#[test]
+fn deli_engages_on_endless_and_disengages_in_timed_or_budgeted_endgame() {
+    use crate::drive::deli::{LoopRunwaySnapshot, check_deli_runway_with};
+
+    let endless = LoopRunwaySnapshot::default();
+    assert!(check_deli_runway_with(2, 50_000_000, Some(endless), None, None, None).is_ok());
+
+    let four_hr_mid = LoopRunwaySnapshot {
+        started_ms: 1_000_000,
+        deadline_secs: 14_400,
+        ..Default::default()
+    };
+    assert!(check_deli_runway_with(2, 1_000_000 + 7_200_000, Some(four_hr_mid), None, None, None).is_ok());
+
+    let err_time = check_deli_runway_with(2, 1_000_000 + 13_680_000, Some(four_hr_mid), None, None, None)
+        .expect_err("Deli must disengage near end of 4h timer");
+    assert!(err_time.reason.contains("endgame cutoff"), "{}", err_time.reason);
+
+    assert!(check_deli_runway_with(2, 1_000_000, None, None, None, Some((12.0, Some(20.0)))).is_ok());
+    let err_budget = check_deli_runway_with(2, 1_000_000, None, None, None, Some((1.8, Some(20.0))))
+        .expect_err("Deli must disengage in last 10% of credit budget");
+    assert!(err_budget.reason.contains("endgame runway floor"), "{}", err_budget.reason);
+}

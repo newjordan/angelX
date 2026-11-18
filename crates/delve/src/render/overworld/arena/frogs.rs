@@ -16,7 +16,6 @@ fn rows(rows: &[&str]) -> Img {
     Img::from_rows(rows)
 }
 
-/// A frog on the floor: sitting, or stretched out mid-hop.
 pub(super) fn frog(tick: u32, hopping: bool, blink: bool) -> Img {
     let eye = if blink { 'l' } else { 'K' };
     let white = if blink { 'l' } else { 'c' };
@@ -44,7 +43,6 @@ pub(super) fn frog(tick: u32, hopping: bool, blink: bool) -> Img {
     }
 }
 
-/// The frog on a shoulder: small, and sitting tight.
 pub(super) fn perched(blink: bool) -> Img {
     let eye = if blink { 'l' } else { 'K' };
     let white = if blink { 'l' } else { 'c' };
@@ -56,8 +54,6 @@ pub(super) fn perched(blink: bool) -> Img {
     ])
 }
 
-/// A puff of smoke `k` of the way through (0 to 1): a ring of grey cloud
-/// that swells and thins, with gold sparks coming off it.
 fn puff(k: f32, seed: u32) -> Img {
     let size = 26;
     let mut im = Img::new(size, size);
@@ -68,7 +64,6 @@ fn puff(k: f32, seed: u32) -> Img {
         for x in 0..size {
             let (dx, dy) = (x as f32 - cx, (y as f32 - cy) * 1.15);
             let d = dx.hypot(dy);
-            // A lumpy edge, so it reads as cloud and not a disc.
             let lump = (hash(x / 3, y / 3, seed) % 100) as f32 / 100.0 * 2.4;
             if d < r + lump - 1.0 {
                 let shade = d / (r + 1.0) + (hash(x, y, seed + 7) % 3) as f32 * 0.08;
@@ -171,8 +166,6 @@ fn figure(gift: Gift, tick: u32) -> Img {
     }
 }
 
-/// A figure at a puff's stage: the frog first, the cloud swelling over the
-/// swap, then the figure; the same in reverse as they leave.
 pub(super) fn transform(gift: Gift, age: u64, tick: u32) -> (Img, Option<Img>) {
     let linger_end = PUFF + LINGER;
     if age < PUFF {
@@ -196,7 +189,6 @@ pub(super) fn transform(gift: Gift, age: u64, tick: u32) -> (Img, Option<Img>) {
     }
 }
 
-/// Frogs hopping about the room.
 pub(super) fn wild(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     for f in &run.frogs.wild {
@@ -213,19 +205,14 @@ fn draw_wild(cv: &mut Img, f: &Wild, tick: u32) {
     if f.face < 0 {
         im = im.flip_h();
     }
-    // Its shadow stays on the ground.
     cv.rect(x - 3, y, 7, 1, 'k');
     cv.stamp(&im, x - im.w / 2, y - im.h + 1 - lift);
 }
 
-/// A frog on a knight's shoulder, bobbing a little as they walk. `(x, y)`
-/// is the knight's feet in native pixels.
 pub(super) fn shoulder(cv: &mut Img, hero: &Hero, x: i32, y: i32, tick: u32) {
     if !hero.rider || hero.frog() {
         return;
     }
-    // Walking moves the knight's place, and the bob follows their steps;
-    // standing still, it sits.
     let step = ((hero.x + hero.y) * 2.2).floor() as i32;
     let bob = i32::from(step.rem_euclid(2) == 0 && hero.rolling().is_none());
     let side = if hero.aim_x < -0.3 { -1 } else { 1 };
@@ -233,7 +220,6 @@ pub(super) fn shoulder(cv: &mut Img, hero: &Hero, x: i32, y: i32, tick: u32) {
     cv.stamp(&im, x + side * 4 - im.w / 2, y - 10 + bob);
 }
 
-/// The figures a frog became, standing in the Sanctuary with their puff.
 pub(super) fn shown(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     for s in &run.frogs.shown {
@@ -250,7 +236,6 @@ pub(super) fn shown(cv: &mut Img, run: &Run) {
     }
 }
 
-/// What each figure gives, on a plate over them while they stay.
 pub(super) fn plates(cv: &mut Img, run: &Run) {
     for s in &run.frogs.shown {
         let age = run.tick.saturating_sub(s.born);

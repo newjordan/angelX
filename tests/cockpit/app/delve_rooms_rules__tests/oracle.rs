@@ -27,9 +27,6 @@
 
 use angel_delve::rules::layout::Pack;
 
-/// The top-left quadrant of a room's 22x12 interior: `.` floor, `#` block,
-/// `~` hazard, `,` bog. The column next to the vertical mirror and the row
-/// next to the horizontal one are the door lanes.
 pub type Template = [&'static str; 6];
 
 mod archive;
@@ -40,19 +37,12 @@ mod hellforge;
 mod swamp;
 mod unknown;
 
-/// The quadrant sizes of the bigger rooms (interior halves less the lanes):
-/// a party's rooms (34x20, 42x24, 48x28) and the great halls the packs lay
-/// (32x20, 36x20, 40x24).
 pub const SIZES: [(usize, usize); 6] = [(15, 9), (16, 9), (17, 9), (19, 11), (20, 11), (23, 13)];
 
-/// How often, in percent, a bigger room of a size someone has drawn is one
-/// of theirs rather than the pillared grid.
 pub const AUTHORED_SHARE: u32 = 75;
 
-/// The least share of a room's interior, in percent, left as floor.
 pub const LEAST_FLOOR: usize = 55;
 
-/// A pack's hand-drawn one-screen quadrants.
 pub fn small(pack: Pack) -> &'static [Template] {
     match pack {
         Pack::Crypt => crypt::SMALL,
@@ -65,7 +55,6 @@ pub fn small(pack: Pack) -> &'static [Template] {
     }
 }
 
-/// Every quadrant a pack has drawn for the bigger rooms, of any size.
 pub fn all_great(pack: Pack) -> &'static [&'static [&'static str]] {
     match pack {
         Pack::Crypt => crypt::GREAT,
@@ -78,7 +67,6 @@ pub fn all_great(pack: Pack) -> &'static [&'static [&'static str]] {
     }
 }
 
-/// A pack's hand-drawn quadrants `w` wide and `h` high.
 pub fn great(pack: Pack, w: usize, h: usize) -> Vec<&'static [&'static str]> {
     all_great(pack)
         .iter()

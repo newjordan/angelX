@@ -15,24 +15,17 @@ use crate::ui::mouse::{self, PaneId};
 use crate::ui::panels::PanelKind;
 use ratatui::layout::{Constraint, Layout, Rect};
 
-/// Priority class for a surface.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum SurfaceRole {
-    /// Transcript, input, tool strip — never drop for visuals.
     TextCritical,
-    /// Scryglass / agent bay chrome — may be deferred, thinned, or externalized.
     Backdrop,
 }
 
-/// How backdrop surfaces are hosted.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub enum BackdropMode {
-    /// Paint agent bay + Scryglass in-process (today's default).
     #[default]
     InProcess,
-    /// Skip backdrop paint; transcript owns the full cockpit body (speed / headless).
     Off,
-    /// Reserved: external backdrop process (future). Behaves as InProcess until wired.
     Lazy,
 }
 
@@ -57,10 +50,6 @@ pub(crate) fn invalidate_backdrop_cache() {
 }
 
 impl BackdropMode {
-    /// `ANGEL_BACKDROP=off|0|false` → Off; `lazy` → Lazy; else InProcess.
-    ///
-    /// Production path caches the first read (process-lifetime knobs). Tests
-    /// re-read so `TestEnvGuard` can exercise synonyms.
     pub fn from_env() -> Self {
         #[cfg(not(test))]
         {
@@ -108,20 +97,14 @@ impl BackdropMode {
     }
 }
 
-/// Whether panel borders **overlap** (shared junction cells) or sit with a gap.
-/// Shared junctions look dense but let reverse-video / native selection bleed
-/// across columns; gapped layout isolates clipboard surfaces cleanly.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub enum SurfaceJoin {
-    /// Historical condensed chrome: `spacing(-1)`.
     #[default]
     SharedBorder,
-    /// One empty cell between panels so selection cannot straddle columns.
     Gap,
 }
 
 impl SurfaceJoin {
-    /// Production caches the first env read; tests re-read for guard coverage.
     pub fn from_env() -> Self {
         #[cfg(not(test))]
         {
@@ -154,21 +137,15 @@ impl SurfaceJoin {
     }
 }
 
-/// One laid-out surface for this frame.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SurfaceRect {
     pub kind: PanelKind,
     pub role: SurfaceRole,
-    /// Outer framed rect (includes border).
     pub frame: Rect,
-    /// Clipboard-eligible content rect known at layout time (transcript prose).
-    /// AgentBay is a backdrop here; its renderer separately registers the exact
-    /// text viewport after reserving portraits and controls.
     pub copy_rect: Option<Rect>,
 }
 
 impl SurfaceRect {
-    /// Map to mouse pane id (backdrop host / hit-test).
     #[allow(dead_code)]
     pub fn pane_id(&self) -> Option<PaneId> {
         match self.kind {
@@ -189,7 +166,6 @@ impl SurfaceRect {
     }
 }
 
-/// Full cockpit-body layout for one frame (not header/input).
 #[derive(Clone, Debug, Default)]
 pub struct CockpitSurfacePlan {
     pub surfaces: Vec<SurfaceRect>,
@@ -227,24 +203,18 @@ impl CockpitSurfacePlan {
     }
 }
 
-/// Inputs needed to split the cockpit body without touching `App`.
 #[derive(Clone, Copy, Debug)]
 pub struct CockpitLayoutInput {
     pub area: Rect,
     pub agent_active: bool,
     pub artifacts_active: bool,
-    /// Trace pane has content (live or previous-turn reasoning, or a bg job) —
-    /// agent bay takes up to 80% of the side column.
     pub reasoning_visible: bool,
     pub side_width: u16,
-    /// Cap for idle agent bay (portrait card) height before min with column.
     pub idle_agent_height_cap: u16,
     pub backdrop: BackdropMode,
     pub join: SurfaceJoin,
 }
 
-/// Agent-bay height while the trace pane has content (up to 80% of the side
-/// column, leaving a compact miniviz plate).
 #[cfg(test)]
 pub(crate) fn reasoning_agent_height(column_height: u16) -> u16 {
     reasoning_agent_height_percent(column_height, 80)
@@ -273,17 +243,12 @@ fn reasoning_agent_height_percent(column_height: u16, percent: u16) -> u16 {
         .min(column_height)
 }
 
-/// Minimum outer size for a bordered side panel (border + one content cell).
-/// Below this the column is useless and used to emit zero-width/height frames
-/// that still registered as AgentBay/Artifacts hit targets.
 const MIN_SIDE_OUTER: u16 = 3;
 
-/// Pure layout: cockpit body → transcript (+ optional side column surfaces).
 pub fn plan_cockpit_surfaces(input: CockpitLayoutInput) -> CockpitSurfacePlan {
     plan_cockpit_surfaces_at_height(input, None)
 }
 
-/// Animated geometry shares exactly the same clamping, copy and hit surfaces.
 pub(crate) fn plan_cockpit_surfaces_at_height(
     input: CockpitLayoutInput,
     agent_height: Option<u16>,
@@ -308,9 +273,6 @@ pub(crate) fn plan_cockpit_surfaces_with_policy(
         return plan;
     }
 
-    // Clamp requested side width to the room left of the transcript Min(24).
-    // A zero (or sub-border) request must not still open the column — that
-    // produced AgentBay/Artifacts frames with width/height 0 (A6).
     let side_w = input
         .side_width
         .min(area.width.saturating_sub(24))
@@ -332,9 +294,6 @@ pub(crate) fn plan_cockpit_surfaces_with_policy(
             .spacing(input.join.spacing())
             .areas(area);
 
-    // If layout still collapsed the column (pathological spacing / clamp), fall
-    // back to full-body transcript rather than publishing empty / sub-min
-    // backdrop rects (A6: width 1–2 used to slip past the zero-only check).
     if right_area.width < MIN_SIDE_OUTER || right_area.height < MIN_SIDE_OUTER {
         plan.surfaces.push(transcript_surface(area));
         return plan;
@@ -344,13 +303,11 @@ pub(crate) fn plan_cockpit_surfaces_with_policy(
 
     let (agent_area, artifacts_area) = match (input.agent_active, input.artifacts_active) {
         (true, true) => {
-            // Need room for two min-height plates (and optional shared junction).
             let min_split = match input.join {
-                SurfaceJoin::SharedBorder => 5, // 3 + 3 − 1
-                SurfaceJoin::Gap => 7,          // 3 + 3 + 1
+                SurfaceJoin::SharedBorder => 5,
+                SurfaceJoin::Gap => 7,
             };
             if right_area.height < min_split {
-                // Prefer one full-height plate over two empty/inverted bands.
                 (Some(right_area), None)
             } else {
                 let agent_h = if let Some(height) = agent_height {
@@ -364,12 +321,9 @@ pub(crate) fn plan_cockpit_surfaces_with_policy(
                         .min(max_agent_h)
                         .min(right_area.height)
                 };
-                // Reserve the other plate's minimum outer height, plus the Gap
-                // spacer row when join is Gap. SharedBorder overlaps by one so
-                // only the sibling Min(3) needs reserving (A6).
                 let reserve_other = match input.join {
                     SurfaceJoin::SharedBorder => 3,
-                    SurfaceJoin::Gap => 4, // Min(3) + spacing(1)
+                    SurfaceJoin::Gap => 4,
                 };
                 let agent_h = agent_h
                     .max(3)
@@ -397,10 +351,7 @@ pub(crate) fn plan_cockpit_surfaces_with_policy(
         push_backdrop(&mut plan, PanelKind::Artifacts, frame);
     }
 
-    // If both backdrop pushes were skipped (empty / sub-min geometry), reclaim
-    // full body rather than leaving a narrowed transcript with no side column.
     if plan.surfaces.len() == 1 {
-        // only transcript from left_area — widen back to full cockpit body
         plan.surfaces.clear();
         plan.surfaces.push(transcript_surface(area));
     }
@@ -409,8 +360,6 @@ pub(crate) fn plan_cockpit_surfaces_with_policy(
 }
 
 fn push_backdrop(plan: &mut CockpitSurfacePlan, kind: PanelKind, frame: Rect) {
-    // A6: never publish a backdrop hit-target that cannot host Borders::ALL +
-    // one content cell (or is sub-min outer).
     if frame.width < MIN_SIDE_OUTER || frame.height < MIN_SIDE_OUTER {
         return;
     }
@@ -427,17 +376,9 @@ fn push_backdrop(plan: &mut CockpitSurfacePlan, kind: PanelKind, frame: Rect) {
 }
 
 fn transcript_copy_rect(frame: Rect) -> Option<Rect> {
-    // Panel-level prose (no tool-strip reservation). Live registration must call
-    // [`transcript_live_copy_rect`] with the current strip height so selection
-    // cannot cover the status/loading strip chrome.
     transcript_live_copy_rect(frame, 0)
 }
 
-/// Clipboard prose inside a transcript outer frame after reserving `strip_h`
-/// bottom rows for the live tool strip and one column for the scroll rail.
-///
-/// A6: `strip_h == 0` matches the static plan copy rect; a positive strip must
-/// shrink the copy surface so reverse-video / OSC-52 never sample strip cells.
 pub fn transcript_live_copy_rect(frame: Rect, strip_h: u16) -> Option<Rect> {
     let inner = mouse::inner_border(frame);
     if inner.width == 0 || inner.height == 0 {
@@ -471,9 +412,6 @@ fn transcript_surface(frame: Rect) -> SurfaceRect {
     }
 }
 
-/// Whether a pane's registered text viewport may own clipboard selection.
-/// AgentBay's outer frame is a backdrop and is NOT eligible: its renderer
-/// registers only the reasoning/process-output text, without portrait or chrome.
 pub fn pane_accepts_clipboard(pane: PaneId) -> bool {
     matches!(pane, PaneId::Transcript | PaneId::AgentBay)
 }

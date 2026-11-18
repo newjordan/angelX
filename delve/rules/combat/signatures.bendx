@@ -1,38 +1,30 @@
-# crates/delve/src/rules/signatures.rs: the guardians' stage machines and the
-# caps that hold every guardian's shots to its stage of the fight.
 import Base
 
 def signatures.BANK() -> U32:
   (bosses.VOLLEY_MOST() * rules.HZ() : U32)
 
-# Is a State the default one (what serde leaves off the wire)?
 def signatures.State.quiet(sig: Sig) -> Bool:
   Bool.and(Bool.and(Bool.and(Bool.not(sig.active), U32.is_eq(sig.cycle, 0)), Bool.and(U32.is_eq(sig.left, 0), U32.is_eq(sig.bounces, 0))),
     Bool.and(Bool.and(Bool.and(U32.is_eq(J.len(sig.rails), 0), U32.is_eq(sig.rail, 0)), Bool.and(cb.pair_zero(sig.jump_from), Bool.not(sig.babies))),
       Bool.and(Bool.and(U32.is_eq(sig.windup, 0), cb.pair_zero(sig.mark)), Bool.and(Bool.and(U32.is_eq(sig.spent, 0), U32.is_eq(sig.blow, 0)), Bool.not(sig.lingering)))))
 
-# The enemy's "signature" key is left off while the State is quiet.
 def signatures.State.quiet.set(enemy: Enemy, key: String, sig: Sig) -> J.Val:
   cb.skip.if(signatures.State.quiet(sig), enemy, key, sig)
 
 def signatures.special(boss: Boss) -> Bool:
   Bool.or(String.eq(boss.id, signatures.RIPPER()), String.eq(boss.id, signatures.ENGINE()))
 
-# It may shoot this tick: not mid-signature, nor winding up or spent after a
-# charge-up (an outlaw keeps its own stages).
 def signatures.shooting(enemy: Enemy, boss: Boss, wanted: Bool) -> Bool:
   if signatures.special(boss):
     return U32.is_eq(enemy.stage, 0)
   Bool.or(Bool.or(wanted, U32.is_eq(J.len(boss.windups), 0)), U32.is_eq(enemy.stage, 0))
 
-# What a shot weighs against the caps: itself, and the ring it bursts into.
 def signatures.weight(shot: Projectile) -> U32:
   burst: J.Val = J.get(shot.traits.path.then, "burst")
   if J.is_null(burst):
     return 1
   (1 + J.u32(J.nth(burst, 0)) : U32)
 
-# The charge-up it will wind up next, if one is due in `stage`.
 def signatures.due(enemy: Enemy, boss: Boss, stage: String) -> U32?:
   if Bool.or(signatures.special(boss), Bool.or(U32.is_ne(enemy.stage, 0), enemy.signature.lingering)):
     return None{}
@@ -53,11 +45,6 @@ def signatures.due(enemy: Enemy, boss: Boss, stage: String) -> U32?:
     return Some{k}
   None{}
 
-# Hold a guardian to its stage's caps for one tick: its volleys this tick
-# (shots[from..]) fly whole or not at all, keeping back what a due charge-up
-# will need; its charge-up's burst, paid for as it began, is trimmed to the
-# room left. `standing` is what the room's hostile shots already weigh, `heads`
-# the knights standing. Answers (enemy, shots); the bursts are drained.
 def signatures.hold(enemy: Enemy, boss: Boss, shots: J.Val, from: U32, bursts: J.Val, standing: U32, heads: U32) -> (Enemy, J.Val):
   stage: String = bosses.Boss.stage(boss, enemy.hp, enemy.max_hp)
   per_second: U32 = bosses.Stage.per_second(stage)
@@ -95,5 +82,3 @@ def signatures.hold(enemy: Enemy, boss: Boss, shots: J.Val, from: U32, bursts: J
       left = (left - w : U32)
       shots = J.push(shots, shot)
   (enemy, shots)
-
-# press::Wits::calm lives with press; the enemy's key is left off while calm.

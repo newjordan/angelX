@@ -1,7 +1,5 @@
 use super::*;
 
-/// Floor one of the Crypt, Brother Anselm in a cage in its treasure room,
-/// knight one beside the cage.
 fn at_the_cage() -> Run {
     let mut run = Run::new(4, 1, None);
     run.begin_in(Pack::Crypt);

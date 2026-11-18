@@ -4,12 +4,10 @@
 use super::*;
 use crate::render::overworld::Img;
 
-/// A party of four on floor `depth` of circle `circle` (0: above).
 fn circle_floor(circle: u32, depth: u32) -> Run {
     crate::rules::party_scale_tests::circle_run(3, depth, 4, crate::rules::party_scale_tests::Kit::Kit, circle)
 }
 
-/// Each unguarded chamber's company: (its size, its elites).
 fn companies(run: &Run) -> Vec<(usize, usize)> {
     let o = run.dungeon.open.as_ref().expect("an open floor");
     (0..o.chambers.len())
@@ -38,7 +36,6 @@ fn every_company_of_a_circle_is_a_horde_led_by_champions() {
     assert!(count(&fifth) > count(&first), "{} against {}", count(&fifth), count(&first));
 }
 
-/// A fight room with knight 1 at its middle and one skeleton in its corner.
 fn ember_room(circle: u32) -> Run {
     let mut run = Run::new(4, 1, None);
     let room = run
@@ -54,7 +51,6 @@ fn ember_room(circle: u32) -> Run {
     run.spectacle.circle = circle;
     run.spawn_at_for_test(EnemyKind::Skeleton, 8.0, 6.0);
     run.enemies[0].frozen = 100_000;
-    // A tick for the skeleton to take on its circle's strength.
     run.step_sim_for_test(&BTreeMap::new());
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (24.0, 14.0);
@@ -72,7 +68,6 @@ fn an_ember_burns_a_knight_once_a_ward_and_spares_the_monsters() {
     let (sx, sy) = (run.enemies[0].x, run.enemies[0].y);
     let foe_hp = run.enemies[0].hp;
     let full = run.players[&1].hp;
-    // Two embers land on the knight at once, and one on the skeleton.
     run.rocks = vec![ember(24.0, 14.0, 1), ember(24.2, 14.1, 1), ember(sx, sy, 1)];
     run.step_sim_for_test(&BTreeMap::new());
     let hero = &run.players[&1];
@@ -81,7 +76,6 @@ fn an_ember_burns_a_knight_once_a_ward_and_spares_the_monsters() {
     assert!(lost * 100 <= hero.max_hp * crate::rules::hero::ONE_HIT_MOST, "one hit's worth at most: {lost}");
     assert!(hero.invulnerable > 0, "the ward after a hit holds");
     assert_eq!(run.enemies[0].hp, foe_hp, "hell's fire spares its own");
-    // Another lands inside the ward: nothing.
     let after = hero.hp;
     run.rocks.push(ember(24.0, 14.0, 1));
     run.step_sim_for_test(&BTreeMap::new());
@@ -121,8 +115,6 @@ fn save(img: &Img, dir: &std::path::Path, name: &str) {
     std::fs::write(dir.join(format!("{name}.ppm")), out).unwrap();
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_hell_shots -- --ignored`: embers
-/// falling about a knight in the Second Circle, and one landing.
 #[test]
 #[ignore]
 fn write_hell_shots() {

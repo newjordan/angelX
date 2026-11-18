@@ -3,7 +3,6 @@
 use super::*;
 use crate::world::waystations as halts;
 
-/// A halt's place in the ring, by its name.
 fn stop(name: &str) -> usize {
     halts::STOPS.iter().position(|s| s.name == name).unwrap_or_else(|| panic!("no halt called {name}"))
 }
@@ -16,13 +15,11 @@ fn answer(id: u32, key: u8) -> BTreeMap<u32, Input> {
     BTreeMap::from([(id, Input { cast: key, ..Default::default() })])
 }
 
-/// A fresh press of E: let go, then down.
 fn tap(run: &mut Run, id: u32) {
     run.step(&BTreeMap::new());
     run.step(&press(id));
 }
 
-/// Where a knight stands to speak with halt `i`'s keeper (units).
 fn beside(i: usize) -> (f32, f32) {
     let p = halts::placed().iter().find(|p| p.stop == i).unwrap();
     ((p.keeper.0 as f32 + 0.5) * TILE_UNITS, (p.keeper.1 as f32 + 1.4) * TILE_UNITS)
@@ -46,7 +43,6 @@ fn party(seats: u32) -> Run {
     run
 }
 
-/// Knight `id` beside halt `i`'s keeper with the where-to open.
 fn asking(run: &mut Run, id: u32, i: usize) {
     put(run, id, beside(i));
     tap(run, id);
@@ -132,13 +128,10 @@ fn a_knight_too_far_from_the_post_is_left_behind_and_a_rally_is_called_for_them(
     assert_eq!(run.kingdom.stops.rally.map(|r| usize::from(r.stop)), Some(to));
     assert!((run.players[&2].x - far.0).abs() < 1.0, "the far knight did not ride");
     assert!(run.found.as_ref().unwrap().2.contains("1 LEFT BEHIND"));
-    // Their arrow points to the halt the coach went to.
     let goal = run.kingdom_goal(2).unwrap();
     assert_eq!(goal.name, format!("RALLY: {}", halts::STOPS[to].name.to_uppercase()));
     assert_eq!(goal.stand, halts::placed().iter().find(|p| p.stop == to).unwrap().keeper);
-    // The ones who rode are there already: their arrow is the usual one.
     assert!(!run.kingdom_goal(1).unwrap().name.starts_with("RALLY"));
-    // They come near it, and the rally stands down.
     put(&mut run, 2, beside(to));
     run.step(&BTreeMap::new());
     assert!(run.kingdom.stops.rally.is_none());
@@ -193,12 +186,10 @@ fn the_halts_state_saves_loads_and_an_old_save_without_it_loads() {
     assert!(json.get("stops").is_some());
     let back: crate::rules::kingdom::State = serde_json::from_value(json.clone()).unwrap();
     assert_eq!(back.stops, run.kingdom.stops);
-    // A kingdom from before the halts: no `stops` at all.
     let mut old = json;
     old.as_object_mut().unwrap().remove("stops");
     let back: crate::rules::kingdom::State = serde_json::from_value(old).unwrap();
     assert!(back.stops.is_idle());
-    // An idle kingdom writes nothing of it.
     let idle = serde_json::to_value(crate::rules::kingdom::State::default()).unwrap();
     assert!(idle.get("stops").is_none());
 }

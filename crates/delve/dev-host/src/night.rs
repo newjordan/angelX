@@ -57,8 +57,6 @@ impl Night {
     }
 
     pub fn tick(&mut self, run: &mut Run) {
-        // Never remove an Asked until a verified result (or explicit failure)
-        // settles it. Keeping it in Run also keeps it in external snapshots.
         for asked in &run.asked.clone() {
             if !self.pending.iter().any(|p| p.asked == *asked) {
                 let Some(next) = self.next.checked_add(1) else { eprintln!("night nonce exhausted"); break };
@@ -69,7 +67,6 @@ impl Night {
                 self.dirty = true;
             }
         }
-        // Worker sends only bounded files. No disk operations on this thread.
         for _ in 0..32 {
             match self.from_worker.try_recv() {
                 Ok(Update::Book(text)) => { phrasebook::install(text, Vec::new()); }
@@ -106,10 +103,6 @@ fn parse_pending(v: &Value) -> Result<Vec<Pending>, String> {
     }).collect()
 }
 
-// Result schema: {"nonce": N, "asked": <the exact asked object>,
-// "wish_id": "learned-id"} or {"nonce": N, "asked": ..., "fail": "reason"}.
-// A named wish MUST be in the learned declarative book; never substitute a
-// nearby stock phrase. Failures refund by the same rules as the cockpit.
 fn settle(run: &mut Run, p: &Pending, v: &Value) -> bool {
     if v["nonce"].as_u64() != Some(p.nonce) ||
         serde_json::from_value::<Asked>(v["asked"].clone()).ok().as_ref() != Some(&p.asked) ||
@@ -138,8 +131,6 @@ fn settle(run: &mut Run, p: &Pending, v: &Value) -> bool {
         run.refund_told(asked.knight, asked.great, why);
     } else if let Some(w) = wish {
         if !w.learned { return false; }
-        // Learned entries must actually match the player's words. The file
-        // cannot use a different ID to grant an unrelated card.
         let deck = run.players.get(&asked.knight).map(|h| h.deck.clone()).unwrap_or_default();
         if phrasebook::find_for(&asked.words, &deck).as_ref().map(|x| x.id.as_str()) != Some(w.id.as_str()) { return false; }
         let was = run.aim_wish(asked.knight, &w, asked.target);
@@ -197,8 +188,6 @@ fn worker(dir: PathBuf, rx: Receiver<State>, tx: SyncSender<Update>, mut durable
                 .and_then(|bytes| atomic(&dir.join(CHECKPOINT), &bytes).map_err(|e| e.to_string())) {
                 Ok(()) => {
                     durable_pending = s.pending.clone();
-                    // Rebuild the outbox from checkpoint on restart; publishing
-                    // duplicates is safe because nonce is the request key.
                     for p in &s.pending {
                         if published.insert(p.nonce) {
                             let line = json!({"nonce":p.nonce,"asked":p.asked,"player":p.name});
@@ -217,7 +206,6 @@ fn worker(dir: PathBuf, rx: Receiver<State>, tx: SyncSender<Update>, mut durable
                 if errors.is_empty() && tx.try_send(Update::Book(text)).is_ok() { last_book = bytes; }
             }
         }
-        // A result is eligible only after its request is durably checkpointed.
         for p in &durable_pending {
             if let Some(bytes) = bounded(&dir.join("results").join(format!("{}.json", p.nonce)))
                 && let Ok(v) = serde_json::from_slice(&bytes) {

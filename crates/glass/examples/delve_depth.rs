@@ -37,7 +37,6 @@ fn main() -> ExitCode {
     }
 }
 
-/// Four knights in a fight room of floor `depth`, its monsters many.
 fn fight(depth: u32) -> Run {
     let mut run = Run::new(11, 1, Some("Knight"));
     for (id, name) in [(2, "Goose"), (3, "Wren"), (4, "Ash")] {
@@ -51,8 +50,6 @@ fn fight(depth: u32) -> Run {
     run
 }
 
-/// One tick of the fight: every knight walks a little circle and fires
-/// round it; nobody falls and the room fills again when it is won.
 fn step(run: &mut Run, at: usize) {
     let t = run.tick as f32 / HZ as f32;
     let inputs: BTreeMap<u32, Input> = (1..=4u32)
@@ -60,7 +57,6 @@ fn step(run: &mut Run, at: usize) {
             let a = t * 0.9 + id as f32 * 1.57;
             let input = Input {
                 move_x: if (a * 0.5).sin() > 0.6 { 1 } else if (a * 0.5).sin() < -0.6 { -1 } else { 0 },
-                // Up into the room, sweeping across it.
                 aim_x: ((a * 2.3).cos() * 1.4).round() as i8,
                 aim_y: -1,
                 fire: true,
@@ -103,13 +99,10 @@ fn run() -> Result<(), String> {
     arena::props_meshes(true);
     arena::pickup_cards(true);
     let (w, h) = arena::seat_size();
-    // The same deep fight drawn 2D (`Mode::Off`) is the fair measure of
-    // what standing it up costs; floor 2 is the black look's own.
     for (name, depth, mode) in [("floor2-2d", 2u32, Mode::Deep), ("floor4-2d", room::DEEP, Mode::Off), ("floor4-3d", room::DEEP, Mode::Deep)] {
         room::set_mode(mode);
         let mut run = fight(depth);
         let at = run.at;
-        // Into the fight before measuring: shots in the air, monsters up.
         for _ in 0..90 {
             step(&mut run, at);
         }
@@ -119,7 +112,6 @@ fn run() -> Result<(), String> {
         let (mut nodes, mut layers, mut pictures, mut shots) = (0usize, 0usize, 0usize, 0usize);
         for n in 0..frames {
             step(&mut run, at);
-            // The client draws in the props it says it can (`client.rs`).
             arena::props_meshes(room::stands_here(&run));
             let t0 = Instant::now();
             let scene = Arc::new(arena::seat_scene(&run, w as i32, h as i32, Some(1)));
@@ -158,7 +150,6 @@ fn run() -> Result<(), String> {
             room::stands_here(&run),
         );
     }
-    // The beat: coming down into the deep, frame by frame.
     room::set_mode(Mode::Deep);
     let mut run = fight(room::DEEP);
     let at = run.at;
@@ -183,8 +174,6 @@ fn run() -> Result<(), String> {
         }
         step(&mut run, at);
     }
-    // Powers change dimensions: on floor 2, the first knight taught a
-    // wish's third tier, their shots raised among the others' low ones.
     {
         let mut run = fight(2);
         let at = run.at;
@@ -194,8 +183,6 @@ fn run() -> Result<(), String> {
         for _ in 0..75 {
             step(&mut run, at);
         }
-        // A ring of every kind of shot from each of two knights: the
-        // taught one's (left) raised, the other's (right) low.
         run.enemies.clear();
         run.projectiles.clear();
         for (owner, x) in [(1u8, 16.0f32), (2, 32.0)] {
@@ -221,8 +208,6 @@ fn run() -> Result<(), String> {
         println!("dimensions: {raised} of {} shots raised on floor 2 ({owned} the first knight's, its wish tier {tier:?})", scene.shots.len());
         write_png(&out.join("dimensions.png"), size, &pixels)?;
     }
-    // The way down: each floor's first room as the party comes into it,
-    // and the dragon's lair, the first room that stands up.
     let mut run = Run::new(9, 1, Some("Knight"));
     run.join_seat(2, "Goose");
     for depth in 1..=angel_delve::rules::DEEPEST {
@@ -241,7 +226,6 @@ fn run() -> Result<(), String> {
             println!("{name}: {:?} on floor {}, {:?}, stands up {}", run.room().kind, run.dungeon.depth, run.dungeon.pack, room::stands_here(run));
             write_png(&out.join(format!("{name}.png")), size, &pixels)
         };
-        // Past the beat: the room as it stands.
         run.deep_beat = None;
         shoot(&run, format!("way-{depth}"), &mut gpu)?;
         if depth == angel_delve::rules::FLOORS {
@@ -288,9 +272,6 @@ impl Gpu {
         Ok(Self { core, device, target: None })
     }
 
-    /// A Delve frame as a stage, drawn into a texture `size` pixels as the
-    /// window draws a stage in its cells, on black, waited on; read back
-    /// when `read`.
     fn stage(&mut self, frame: angel_stage::Frame, size: (u32, u32), read: bool) -> Option<Vec<u8>> {
         for p in frame.pictures {
             self.core.upload(Picture { id: p.id, width: p.width, height: p.height, rgba: p.rgba, cols: 0, rows: 0 });

@@ -48,11 +48,10 @@ fn failed_goal_checkpoint_retries_without_consuming_rounds_or_mutating_live_goal
         let mut app = app_with_goal();
         let before = serde_json::to_vec(app.goal.as_ref().unwrap()).unwrap();
         let committed = std::fs::read(root.join("store/goal.json")).unwrap();
-        // Exact owned path blocker: ENOTDIR-like I/O failure, not filesystem filling.
         std::fs::rename(root.join("store"), root.join("retained-store")).unwrap();
         std::fs::write(root.join("store"), b"owned parent blocker").unwrap();
         for _ in 0..3 {
-            app.loop_ctl.wake_at = None; // exercise the next timer expiration without sleeping
+            app.loop_ctl.wake_at = None;
             let start = Instant::now();
             app.loop_arm();
             assert_eq!(app.loop_ctl.status, LoopStatus::Running);
@@ -94,7 +93,6 @@ fn failed_goal_checkpoint_retries_without_consuming_rounds_or_mutating_live_goal
         }
         std::fs::remove_file(root.join("store")).unwrap();
         std::fs::rename(root.join("retained-store"), root.join("store")).unwrap();
-        // Exercise the successful reservation directly, without any model call.
         assert_eq!(app.loop_goal_gate(), Ok(None));
         let goal = app.goal.as_ref().unwrap();
         assert_eq!(

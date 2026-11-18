@@ -13,17 +13,14 @@ use angel_net::doc::wire::Reader;
 use angel_net::input::Hands;
 use angel_net::proto::Welcome;
 
-/// A guest's view of the table.
 #[derive(Default)]
 pub struct TableClient {
     names: Reader,
     tree: Option<Value>,
-    /// The seat this client plays, from its welcome.
     pub seat: Option<u32>,
 }
 
 impl TableClient {
-    /// The board as last published, once a snapshot has landed.
     pub fn board(&self) -> Option<Board> {
         self.tree.as_ref().and_then(Board::from_value)
     }

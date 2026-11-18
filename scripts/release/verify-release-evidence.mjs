@@ -222,8 +222,10 @@ function validateManifestEntries(manifest) {
     if (paths.has(entry.path) || (previous && entry.path <= previous)) {
       fail(`release manifest entries are duplicate or unsorted: ${entry.path}`)
     }
-    if ([...paths].some((path) => entry.path.startsWith(`${path}/`))) {
-      fail(`release manifest has a file/directory collision: ${entry.path}`)
+    for (let slash = entry.path.indexOf('/'); slash !== -1; slash = entry.path.indexOf('/', slash + 1)) {
+      if (paths.has(entry.path.slice(0, slash))) {
+        fail(`release manifest has a file/directory collision: ${entry.path}`)
+      }
     }
     if (entry.mode !== '100644' && entry.mode !== '100755') {
       fail(`release manifest has an unsupported mode: ${entry.path}`)
@@ -470,7 +472,6 @@ export function buildExtractedRelease(sourceRoot, manifest, { v8Archive }) {
         'cockpit/Cargo.toml',
         '--bin',
         'angel',
-        // What build-prebuilt.sh ships: the window, without video decoding.
         '--no-default-features',
         '--features',
         'glass,delve',

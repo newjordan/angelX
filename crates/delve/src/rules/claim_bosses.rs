@@ -15,12 +15,9 @@ pub enum Guardian {
 
 impl Guardian {
     pub const ALL: [Self; 3] = [Self::Ironroot, Self::Cindermaw, Self::Amethyst];
-    /// The guardian of a seam whose claim is of `resource`: an ore, or the
-    /// quarry stone of its pack, by the sentries that hold it (`geology`).
     pub fn for_resource(resource: &str) -> Option<Self> {
         super::geology::guard_for(resource).map(Self::for_kind)
     }
-    /// The guardian that stands behind a set of sentries.
     pub fn for_kind(kind: super::ore_threats::OreKind) -> Self {
         use super::ore_threats::OreKind;
         match kind {
@@ -140,8 +137,6 @@ impl Encounter {
 }
 
 impl Run {
-    /// Called after discovery and before secure. E challenges once; repeated E
-    /// cannot create copies. An abandoned body must be challenged afresh.
     pub(super) fn tick_claim_guardian(
         &mut self,
         deposit: &industry::Deposit,
@@ -192,8 +187,6 @@ impl Run {
             return;
         }
         let definition = kind.definition();
-        // Leave a readable arrival gap. A blocked vein never creates a boss in
-        // a wall or directly on a knight, and never silently grants the claim.
         let grid = Grid {
             room: self.room(),
             barred: self.barred(),
@@ -242,7 +235,6 @@ impl Run {
         let enemy = self.enemies.last_mut().expect("spawned guardian");
         (enemy.x, enemy.y, enemy.origin_x, enemy.origin_y) = (x, y, x, y);
         enemy.home = home;
-        // An arrival hold provides an unambiguous start without surprise hits.
         enemy.frozen = HZ;
         self.kingdom.claim_bosses.insert(
             deposit.id.clone(),
@@ -271,8 +263,6 @@ impl Run {
             .is_some_and(|e| e.defeated)
     }
 
-    /// An admitted body is independently bounded by its claim encounter. It
-    /// does not borrow the floor's finite camp or emission budget.
     pub(super) fn admitted_claim_guardian(&self, enemy: &Enemy) -> bool {
         enemy.kind == EnemyKind::Boss
             && enemy.camp_slot.is_none()
@@ -294,8 +284,6 @@ impl Run {
             })
     }
 
-    /// Only the normal death settlement calls this. Missing/parked/retired
-    /// enemies provide no victory evidence. The returned IDs may pay once.
     pub(super) fn settle_claim_guardians(&mut self) -> BTreeSet<u32> {
         let fallen: BTreeSet<_> = self
             .enemies
@@ -310,8 +298,6 @@ impl Run {
                     "{} defeated. Return to the vein and press E to secure the claim.",
                     encounter.guardian.name()
                 ));
-                // Claim unlocking is deliberately not a resource payout. The
-                // mine is still the only way the kingdom obtains this output.
             }
         }
         fallen

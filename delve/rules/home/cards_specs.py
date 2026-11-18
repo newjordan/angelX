@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""Writes delve/rules/home/_cards_specs.bend from SPECS in crates/delve/src/rules/cards.rs.
-
-The effect vocabulary of the card checker: one row per `Spec` (word, the effect's
-serde name, its bounds, whether a held card may carry it, whether a spent one may).
-"""
 import pathlib
 import re
 

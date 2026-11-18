@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Compose delivered Mossbell material; retain rule-owned registration masks."""
 import argparse
 import hashlib
 import importlib.util
@@ -10,8 +9,6 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / 'crates/delve/assets/mossbell/composed'
-# Art deliveries and review output live outside the checkout, under
-# ANGEL_ART_ARTIFACTS (default ~/angel-art).
 DELIVERIES = Path(os.environ.get('ANGEL_ART_ARTIFACTS') or Path.home()/'angel-art')/'art-prod/slots'
 spec = importlib.util.spec_from_file_location('slots', Path(__file__).with_name('slot-art-import.py'))
 slots = importlib.util.module_from_spec(spec)
@@ -19,7 +16,6 @@ spec.loader.exec_module(slots)
 
 
 def three_slice(im, width, caps, stretch=False):
-    """Fixed native caps, repeated middle. No horizontal rescaling of the ends."""
     left, right = caps
     assert width >= left + right and im.width > left + right
     out = Image.new('RGBA', (width, im.height))
@@ -36,7 +32,6 @@ def three_slice(im, width, caps, stretch=False):
 
 
 def native(im, height):
-    # Source conversion only. Composition never enlarges the native end caps.
     im, _ = slots.despill(im)
     im = im.resize((round(im.width * height / im.height), height), Image.Resampling.BOX)
     out = Image.new('RGBA', im.size)
@@ -67,7 +62,6 @@ def run(check=False):
         folder = DELIVERIES/f'mossbell.{kind}.geometry-1'/'v01'
         path = folder/'source-sheet.png'
         x,y,w,h = json.loads((folder/'source-sheet.json').read_text())['pieces'][0]['source_rect_xywh']
-        # One half of the paired crown delivery supplies a single leaf bar.
         if kind == 'crown': w = 215
         crop = Image.open(path).convert('RGBA').crop((x,y,x+w,y+h))
         save(f'source-{kind}.png', crop)
@@ -77,8 +71,6 @@ def run(check=False):
         save(f'native-{kind}.png', pieces[kind])
     for scale, tag in [(5/4,'legacy'),(8/5,'current')]:
         fx = lambda x: int(x*scale)
-        # A bar is registered by its physical pivot and tip; slope is an integer
-        # column shear, not a sprite rotation that moves or inflates the rail.
         span = fx(70)-fx(37)
         bar = three_slice(pieces['flippers'], int(33*scale)+1, (4,3))
         save(f'{tag}-paddle.png',bar)
@@ -100,8 +92,6 @@ def run(check=False):
             save(f'{tag}-flippers-{state}.png',pair)
         width = fx(150)-fx(7)
         for stage in range(4):
-            # Preserve the existing progressive reach, including the last bud's
-            # clearance from the plunger wall, at both presentation widths.
             guide = Image.open(DEST.parent/f'root-vines-{stage}.png').convert('RGBA')
             reach = (guide.getbbox()[2]*width + guide.width-1)//guide.width
             root = Image.new('RGBA',(width,11))
@@ -115,8 +105,6 @@ def run(check=False):
             for y in range(24):
                 for x in range(width):
                     guide.putpixel((x,y),original.getpixel((x*original.width//width,y)))
-            # The existing growing jaws own the air gap and outside contour.
-            # The leaf's straight middle stretches inside those registered jaws.
             crown = Image.new('RGBA',(width,24))
             solid = {(x,y) for y in range(24) for x in range(width)
                      if guide.getpixel((x,y))[3] and guide.getpixel((x,y))[:3] != (24,43,43)}
@@ -128,8 +116,6 @@ def run(check=False):
                     row = [x for x in xs if (x <= width//2 if side == 0 else x > width//2)]
                     if not row: continue
                     for x in row:
-                        # Project the delivered material into the old solid jaw.
-                        # Transparent source gutters must not perforate its tell.
                         sx = x if side == 0 else width-1-x
                         column = [yy for yy in range(6) if leaf.getpixel((sx,yy))[3]]
                         assert column, (stage, x)

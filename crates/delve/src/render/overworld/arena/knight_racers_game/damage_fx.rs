@@ -12,32 +12,21 @@
 use super::*;
 use super::pods::{look_of, pod, SCALE};
 
-/// Ticks a puff of smoke lives, and how many one engine can have at once.
 const LIFE: f32 = 40.;
 const PUFFS: u32 = 12;
-/// Nearer than this to the lens (and fully there by `FULL`) a pod's effects shrink away with the pod.
 const GONE: f32 = 6.;
 const FULL: f32 = 18.;
-/// Longest the smoke trails behind its engine, metres.
 const TRAIL: f32 = 9.;
 
-/// What a puff is made of.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Stuff {
-    /// Black-to-grey smoke off a hot or worn engine.
     Smoke,
-    /// The pale steam of a blown pod while the squires patch it.
     Steam,
-    /// A tongue of flame off a burning nozzle.
     Flame,
-    /// A coal flung off it.
     Spark,
-    /// A shard of the blowout's burst: flame, then coal, then smoke.
     Shard(u8),
 }
 
-/// One mark hung in the air: where, how big (metres across, half), how old it is (0 fresh to 1 gone),
-/// and how much it matters (0..1; the drawing thins the faint ones on a crowded screen).
 #[derive(Clone, Copy, Debug)]
 pub struct Puff {
     pub at: V3,
@@ -47,27 +36,21 @@ pub struct Puff {
     pub weight: f32,
 }
 
-/// A repeatable roll in 0..1.
 fn roll(a: u32, b: u32, c: u32) -> f32 {
     let mut x = a.wrapping_mul(0x9E37_79B1) ^ b.wrapping_mul(0x85EB_CA6B) ^ c.wrapping_mul(0xC2B2_AE35) ^ 0x1B87_3593;
     x ^= x >> 15; x = x.wrapping_mul(0x2C1B_3C6D); x ^= x >> 12; x = x.wrapping_mul(0x297A_2D39); x ^= x >> 15;
     (x >> 8) as f32 / (1u32 << 24) as f32
 }
 
-/// Nearer than this to the lens a puff is gone, and it is full size by `PUFF_FULL`: the chase lens rides a
-/// few lengths behind its pod, so the smoke that trails an engine back toward it (up to `TRAIL` metres)
-/// would otherwise fill the picture.
 const PUFF_GONE: f32 = 3.;
 const PUFF_FULL: f32 = 11.;
 
-/// How much of a puff of radius `r` at `p` is left for a lens at `eye`: it shrinks away as it nears the lens.
 pub fn near_lens(p: V3, eye: V3, r: f32) -> f32 {
     let dist = (eye - p).length();
     let near = ((dist - PUFF_GONE) / (PUFF_FULL - PUFF_GONE)).clamp(0., 1.);
     r * near * near * (3. - 2. * near)
 }
 
-/// The smoke, flame and burst off one pod's engines, for a lens at `eye`. Nothing for a sound pod.
 pub fn puffs(race: &rules::Session, seat: u32, c: &rules::Car, eye: V3) -> Vec<Puff> {
     let mut out = Vec::new();
     let sick = c.heat.iter().any(|h| *h > 0.42) || c.wear.iter().any(|w| *w > 0.12) || c.blown();
@@ -79,7 +62,6 @@ pub fn puffs(race: &rules::Session, seat: u32, c: &rules::Car, eye: V3) -> Vec<P
     let k = ((dist - GONE) / (FULL - GONE)).clamp(0., 1.);
     let scale = SCALE * k * k * (3. - 2. * k);
     if scale < 0.04 { return out; }
-    // The pod's own frame, as `pods::add` sets it down.
     let (yaw_s, yaw_c) = (pose(c.d).2 + c.yaw - c.vy * 0.012).sin_cos();
     let road = race.course().frame(c.route, c.d.rem_euclid(lap));
     let (roll_s, roll_c) = (-road.bank - c.vy * 0.018).clamp(-0.5, 0.5).sin_cos();
@@ -93,7 +75,6 @@ pub fn puffs(race: &rules::Session, seat: u32, c: &rules::Car, eye: V3) -> Vec<P
     let back = rotate(v3(-1., 0., 0.));
     let into_trail = (c.v / 40.).clamp(0.15, 1.) * TRAIL;
     for i in 0..2usize {
-        // Engine 0 is the pod's lesser-y side, the left of the picture.
         let side = if i == 0 { -1. } else { 1. };
         let tail = o + rotate(v3(-p.len * 0.5, side * p.gap, p.z + 0.1)) * scale;
         let (heat, wear) = (c.heat[i], c.wear[i]);
@@ -102,28 +83,24 @@ pub fn puffs(race: &rules::Session, seat: u32, c: &rules::Car, eye: V3) -> Vec<P
         let mut smoke = (((heat - 0.42) / 0.33).clamp(0., 1.)).max(((wear - 0.12) / 0.3).clamp(0., 1.) * 0.7);
         let fire = ((heat - 0.72) / 0.28).clamp(0., 1.);
         if blowing { smoke = smoke.max(1. - age_blow / rules::race::engines::BLOWOUT_TICKS as f32 * 0.6); }
-        // Smoke: puffs left behind in the air, rising and swelling as they go and thinning as they do.
         let n = (smoke * PUFFS as f32).ceil() as u32;
         for j in 0..n {
             let age = (t / LIFE + j as f32 / PUFFS as f32 + roll(seat, i as u32, 3)).fract();
             let jx = roll(seat + j, i as u32, 11) - 0.5;
             let jy = roll(seat + j, i as u32, 12) - 0.5;
             let sit = if blowing { 1. } else { 0. };
-            // A blown pod sits still: its smoke goes straight up instead of trailing.
             let pos = tail + back * (into_trail * age * (1. - 0.8 * sit)) + v3(jx * 0.9 * age, jy * 0.9 * age, (1.2 + 2.6 * sit) * age * scale);
             let r = (0.3 + 1.0 * age) * (0.6 + 0.4 * smoke) * scale;
             let r = near_lens(pos, eye, r);
             if r < 0.04 { continue; }
             out.push(Puff { at: pos, r, age, stuff: if blowing && age > 0.35 { Stuff::Steam } else { Stuff::Smoke }, weight: smoke });
         }
-        // Fire: a tongue off the nozzle, and coals flung off it.
         if fire > 0. && !blowing {
             let flick = |s: f32| 0.75 + 0.5 * (t * 0.9 + s).sin().abs();
             for q in 0..2 {
                 let len = (1.1 + 2.4 * fire) * flick(q as f32 * 2.1 + i as f32) * scale;
                 let lift = rotate(v3(0., (q as f32 - 0.5) * 0.35, 0.18 * q as f32)) * scale;
                 let base = tail + lift;
-                // The tongue is a chain of puffs, fat and white at the nozzle and thin and red at the tip.
                 for b in 0..5 {
                     let u = b as f32 / 4.;
                     let at = base + back * (len * u) + v3(0., 0., 0.3 * scale * u * u);
@@ -140,7 +117,6 @@ pub fn puffs(race: &rules::Session, seat: u32, c: &rules::Car, eye: V3) -> Vec<P
                 out.push(Puff { at: pos, r, age, stuff: Stuff::Spark, weight: fire });
             }
         }
-        // The burst: shards of flame thrown out of the nacelle in the first half second.
         if blowing && age_blow < 18. {
             let u = age_blow / 18.;
             for q in 0..14u32 {
@@ -197,7 +173,6 @@ mod tests {
             let m = fx(&race, &car);
             m.iter().map(|p| p.at.y).sum::<f32>() / m.len() as f32 - point(car.d, car.y, 0.).y
         };
-        // The sim's engine 0 is the pod's greater-lateral side; whichever side of the world that is, the two differ.
         let (a, b) = (side([0.7, 0.1]), side([0.1, 0.7]));
         assert!((a - b).abs() > 1., "the two engines smoke from different sides: {a} {b}");
     }

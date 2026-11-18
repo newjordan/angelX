@@ -16,10 +16,6 @@ use std::path::Path;
 
 pub(crate) const FLYWHEEL_ADAPTER_ID: &str = "flywheel-shadow";
 
-/// Read-only (`shadow`) `CompetitionAdapterV1` over a flywheel state directory:
-/// identity from `board.json`, board and personal observations from the raw
-/// `api-rows.json` capture. No method writes; unsupported capabilities are
-/// typed failures, never panics, never fabricated rows.
 #[derive(Debug)]
 pub(crate) struct FlywheelAdapterV1 {
     identity: AdapterIdentityV1,

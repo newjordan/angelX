@@ -280,7 +280,6 @@ test('public inventory rejects operator paths and live fleet coordinates', (t) =
     () => assertPublicReleaseEntries(root, [entry(sourcePath)]),
     /machine-specific absolute home path/u,
   )
-  // A repository folder named home is not a home directory.
   write(sourceFile, '//! The Bend port (`delve/rules/home/cards.bend`, `./home/x.bend`).\n')
   assert.doesNotThrow(() => assertPublicReleaseEntries(root, [entry(sourcePath)]))
 
@@ -536,9 +535,6 @@ test('source release admits exactly the public embedded skill assets', () => {
 })
 
 test('sound folders the binary leaves out ship in the source archive beside it', () => {
-  // crates/web/delve/sounds.list marks a folder `beside` to keep it out of the
-  // `angel` binary (the music): the host reads it from the package at run
-  // time, so every file in it must enter the source archive the package is.
   const list = readFileSync(join(ROOT, 'crates/web/delve/sounds.list'), 'utf8')
   const beside = list
     .split('\n')
@@ -601,7 +597,6 @@ test('embedded include admission accepts multiline literals and rejects dynamic 
   }
 })
 
-// An engine crate's root: the nearest directory above the source with a Cargo.toml.
 function engineCrateRoot(source) {
   let dir = dirname(source)
   while (dir !== 'crates' && !existsSync(join(ROOT, dir, 'Cargo.toml'))) dir = dirname(dir)
@@ -609,8 +604,6 @@ function engineCrateRoot(source) {
 }
 
 test('every target the cockpit manifest declares ships, so the archive builds on its own', () => {
-  // Cargo refuses a manifest whose declared bin, example, test or bench file
-  // is missing, so one left out of the archive breaks `release:verify`.
   const manifest = readFileSync(join(ROOT, 'cockpit/Cargo.toml'), 'utf8')
   const shipped = (path) => RELEASE_PATHS.some((entry) => path === entry || path.startsWith(`${entry}/`))
   const defaults = { bin: 'src/bin', example: 'examples', test: 'tests', bench: 'benches' }
@@ -629,8 +622,6 @@ test('every target the cockpit manifest declares ships, so the archive builds on
 test('embedded allowlist equals every compile-time include target of the packaged crates', () => {
   const included = new Map()
   const crates = ['cockpit/src', 'tests/cockpit', 'crates', 'vendor/dotmax/src', 'vendor/ureq/src']
-  // Inspect the code being compiled, including newly added modules and excluding
-  // deleted ones. Publication separately requires clean, committed build inputs.
   const sources = command(ROOT, 'git', [
     'ls-files',
     '-z',
@@ -647,8 +638,6 @@ test('embedded allowlist equals every compile-time include target of the package
   for (const source of sources) {
     const text = readFileSync(join(ROOT, source), 'utf8')
     for (const match of text.matchAll(literal)) {
-      // CARGO_MANIFEST_DIR is the crate root (cockpit/ or vendor/<crate>/);
-      // plain includes are relative to the including file's directory.
       const crateRoot = source.startsWith('vendor/')
         ? source.split('/').slice(0, 2).join('/')
         : source.startsWith('crates/')
@@ -659,15 +648,10 @@ test('embedded allowlist equals every compile-time include target of the package
         .split(sep)
         .join('/')
       assertSafeReleasePath(target)
-      // A vendored crate's own tests/ fixtures are never built from the
-      // archive (only the cockpit's test targets are), so they stay outside.
       if (/^vendor\/[^/]+\/tests\//u.test(target)) continue
       if (!included.has(target)) included.set(target, [])
       included.get(target).push(source)
     }
-    // A build script writes includes into generated code from inputs it reads
-    // at build time (as cockpit/build.rs does); the package's own build proves
-    // those inputs ship. Source files must stay literal.
     if (source.endsWith('/build.rs')) continue
     assert.doesNotMatch(
       text,
@@ -774,8 +758,6 @@ test('release index inventory excludes ignored fixture build debris without dele
   command(root, 'git', ['commit', '--quiet', '-m', 'tracked fixture'])
 
   const debris = join(root, fixtureRoot, 'target/.rustc_info.json')
-  // Ignored build output carries host-specific state that must never be
-  // inventoried, yet the gate must not delete a developer's caches either.
   const hostState = ['', 'home', 'u', '.rustup', 'toolchains', 'local'].join('/')
   write(debris, `{"rustc_fingerprint":"${hostState}"}\n`)
 
@@ -833,8 +815,6 @@ test('Node dependency policy requires registry integrity, licenses, and MIT root
 })
 
 test('source packages include build-script modules and the bundled font license', () => {
-  // The cockpit's script compiles cartridges; the realm host's builds the
-  // Delve's browser page, with a working-build helper module beside it.
   const shipped = (path) => RELEASE_PATHS.some((entry) => path === entry || path.startsWith(`${entry}/`))
   const realm = readFileSync(join(ROOT, 'crates/realm-host/build.rs'), 'utf8')
   assert.ok(/#\[path\s*=\s*"([^"]+)"\]/u.test(realm), 'the realm host build script has a module dependency')

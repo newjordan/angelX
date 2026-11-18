@@ -39,7 +39,6 @@ fn a_scripted_call_runs_inside_the_worker_process() {
         "settings": angel_delve::settings::get(),
         "phrasebook": angel_delve::rules::phrasebook::snapshot()
     });
-    // The first implementation prepares in the background; ask until it serves.
     let started = std::time::Instant::now();
     let (next, _) = loop {
         match system.apply(state.clone(), event.clone(), |_| Ok(())) {
@@ -51,7 +50,6 @@ fn a_scripted_call_runs_inside_the_worker_process() {
         }
     };
     let next = runtime_state::restore_value(&next).unwrap();
-    // The worker's own process answered; this test process installed nothing.
     let scripted: Vec<_> = next
         .cues
         .iter()

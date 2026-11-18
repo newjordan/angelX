@@ -132,7 +132,6 @@ def audit_dataset(directory):
             if label['split'] != 'train' or not label['family'].startswith('replay-'):
                 raise ValueError('replay belongs only in training')
             name = (element.get('text') or element.get('label') or '').strip()
-            # Check the exact source name, never a substring (Cart != Cartoon).
             kinds = ('button', 'link', 'dropdown', 'tab', 'menu', 'menu item', 'checkbox',
                      'option', 'text field', 'number field', 'column header', 'item')
             forms = {f'"{name}"', f'the {name} icon'}
@@ -173,7 +172,6 @@ def audit_dataset(directory):
             im.load()
             rgb = im.convert('RGB')
             pixel_hash = hashlib.sha256(f'{im.width}x{im.height}:RGB:'.encode()+rgb.tobytes()).hexdigest()
-            # Reject empty/solid-color captures; not a substitute for visual review.
             if all(lo == hi for lo, hi in rgb.getextrema()):
                 raise ValueError('solid-color screenshot')
             image_data['screens/'+name] = {'sha256': digest, 'pixels': pixel_hash, 'size': list(im.size)}

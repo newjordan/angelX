@@ -10,7 +10,6 @@ fn seat() -> (i32, i32) {
     (NATIVE_W, NATIVE_H + super::super::party::BAND_H + super::super::party::HUD_H)
 }
 
-/// Steps until the run's clock reads `tick` (an impact's hold stops it).
 fn tick_to(run: &mut Run, tick: u64, keys: &BTreeMap<u32, Input>) {
     while run.tick < tick {
         run.step(keys);
@@ -23,8 +22,6 @@ fn press(run: &mut Run, input: Input) {
     tick_to(run, t + 2, &BTreeMap::new());
 }
 
-/// A party of three on an open floor, its guardian just fallen, the pot
-/// risen; Galahad a step south of it with three spells, the others by.
 fn risen(seed: u64) -> Run {
     let mut run = Run::new(seed, 7, None);
     run.join_seat(2, "Wren");
@@ -60,8 +57,6 @@ fn risen(seed: u64) -> Run {
     run
 }
 
-/// The first seed from `from` whose brew of slots 1 and 2 comes to what
-/// `want` asks, thrown in: the run and the tick it was thrown.
 fn thrown(from: u64, want: impl Fn(&Outcome) -> bool) -> (Run, u64) {
     for seed in from..from + 400 {
         let mut run = risen(seed);
@@ -82,7 +77,6 @@ fn thrown(from: u64, want: impl Fn(&Outcome) -> bool) -> (Run, u64) {
     panic!("no seed brewed it");
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_cauldron_shots -- --ignored`.
 #[test]
 #[ignore]
 fn write_cauldron_shots() {
@@ -100,7 +94,6 @@ fn write_cauldron_shots() {
             .save(dir.join(format!("{name}.png")))
             .unwrap();
     };
-    // Rising, then waiting with its prompt.
     let mut run = risen(17);
     let rose = run.cauldron_here().unwrap().rose;
     tick_to(&mut run, rose + 12, &BTreeMap::new());
@@ -114,7 +107,6 @@ fn write_cauldron_shots() {
     save("cauldron-04-picking-one", &run);
     press(&mut run, Input { cast: 2, ..Input::default() });
     save("cauldron-05-picking-two", &run);
-    // A spell brewed, through its whole show.
     let (mut run, at) = thrown(17, |o| matches!(o, Outcome::Spell { .. }));
     for (name, age) in [
         ("cauldron-06-thrown", 5u64),
@@ -129,12 +121,9 @@ fn write_cauldron_shots() {
         tick_to(&mut run, at + age, &BTreeMap::new());
         save(name, &run);
     }
-    // A potent or perfect brew's rim.
     let (mut run, at) = thrown(400, |o| matches!(o, Outcome::Spell { tier, .. } if *tier != crate::rules::cauldron::Tier::Common));
     tick_to(&mut run, at + 110, &BTreeMap::new());
     save("cauldron-14-potent", &run);
-    // The room-by-room delve: the guardian's stairs room, and the first
-    // floor's, which becomes a Sanctuary round Tobbin's anvil.
     for (name, depth) in [("cauldron-15-stairs-room", 2u32), ("cauldron-16-sanctuary", 1)] {
         let mut run = Run::new(23, 7, None);
         run.join_seat(2, "Wren");
@@ -156,7 +145,6 @@ fn write_cauldron_shots() {
         tick_to(&mut run, pot.rose + 60, &BTreeMap::new());
         save(name, &run);
     }
-    // Misfires.
     for (name, kind) in [("confetti", Misfire::Confetti), ("hiccups", Misfire::Hiccups), ("frog", Misfire::Frog)] {
         let (mut run, at) = thrown(1, |o| *o == Outcome::Misfire(kind));
         for age in [66u64, 100] {

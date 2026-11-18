@@ -110,8 +110,6 @@ fn live_snapshot_preserves_initialized_submodule_and_refuses_missing_or_escaping
             before
         );
 
-        // Leave the indexed gitlink in place but remove its checkout. An
-        // empty directory must not cause Git to inventory the parent again.
         let parked = root.join("parked-submodule");
         std::fs::rename(&checkout, &parked).unwrap();
         std::fs::create_dir(&checkout).unwrap();
@@ -135,7 +133,6 @@ fn live_snapshot_preserves_initialized_submodule_and_refuses_missing_or_escaping
 #[test]
 fn snapshot_prunes_owned_excluded_fixture_and_rejects_symlink_escape() {
     fixture(|root, source| {
-        // This is an owned temporary fixture, never the real archive.
         let excluded = source.join("off-limits");
         std::fs::create_dir(&excluded).unwrap();
         std::os::unix::fs::symlink(
@@ -158,9 +155,6 @@ fn snapshot_prunes_owned_excluded_fixture_and_rejects_symlink_escape() {
 #[test]
 fn snapshot_reproduces_links_that_cannot_alias_the_live_tree() {
     fixture(|root, source| {
-        // A build tree's link to a system library (a GPU host's
-        // lib/libcrypto.so -> /usr/lib/.../libcrypto.so.3) and an in-tree
-        // soname link are reproduced as links, never followed.
         let system = root.join("system");
         std::fs::create_dir(&system).unwrap();
         std::fs::write(system.join("libcrypto.so.3"), "system library\n").unwrap();
@@ -191,11 +185,9 @@ fn snapshot_reproduces_links_that_cannot_alias_the_live_tree() {
             manifest[Path::new("lib/libcrypto.so")].symlink.as_deref(),
             Some(system.join("libcrypto.so.3").as_path())
         );
-        // A link-free entry serializes as before, so existing digests hold.
         let entry = serde_json::to_string(&manifest[Path::new("candidate.txt")]).unwrap();
         assert!(!entry.contains("symlink"), "{entry}");
 
-        // Links that could lead the copy back into the live tree are refused.
         for (name, target) in [
             ("up", PathBuf::from("../..")),
             ("quarantine", PathBuf::from("off-limits/secret")),
@@ -337,8 +329,6 @@ fn nested_git_inventory_copies_live_source_and_preserves_tracked_ignored_baselin
     });
 }
 
-/// Explicit local read-only source acceptance. Set the source path only for
-/// an authorized active workspace; the copied fixture always lives in /tmp.
 #[test]
 #[ignore = "requires an explicitly scoped active source via ANGEL_EXPERIMENT_SNAPSHOT_SOURCE"]
 fn actual_active_source_snapshot_without_model() {

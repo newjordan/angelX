@@ -1,8 +1,3 @@
-# crates/delve/src/rules/exhibits.rs — where each LOCAL RESEARCH stand is, and whether a knight
-# stands beside one. A Marker is {room, col, row, stand: [col, row]}. Written in bendx.
-# (`Marker::valid` and `Run::enter_settlement` are the host's admission and are not stepped.)
-
-# A knight at (x, y) in room `at` stands on this exhibit's spot.
 def exhibits.Marker.beside(m: J.Val, at: U32, x: F32, y: F32) -> Bool:
     if Bool.not(U32.is_eq(core.u(m, "room"), at)):
         return False{}
@@ -11,8 +6,6 @@ def exhibits.Marker.beside(m: J.Val, at: U32, x: F32, y: F32) -> Bool:
     reach: F32 = F32.mul(layout.TILE_UNITS(), 0.7)
     return Bool.and(F32.is_le(F32.abs(F32.sub(x, sx)), reach), F32.is_le(F32.abs(F32.sub(y, sy)), reach))
 
-# Knight `id` stands beside one of this settlement's LOCAL RESEARCH exhibits, where E reads it
-# rather than meeting the world.
 def exhibits.Run.beside_exhibit(run: J.Val, id: U32) -> Bool:
     if Bool.not(home.Run.at_home_now(run)):
         return False{}

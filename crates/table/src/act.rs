@@ -3,6 +3,7 @@
 //! remainder after its third line). Human-readable on purpose — a
 //! probe or a friend's script can speak it without this crate.
 
+use angel_net::codec::{Bytes, put_varint};
 use crate::Op;
 
 pub const NEW: u32 = 1;
@@ -16,7 +17,6 @@ pub const REJECT: u32 = 101;
 pub const MERGE: u32 = 102;
 pub const CLOSE: u32 = 103;
 
-/// An op as `(kind, body)` for `NativeLink::action` / `GameServer::action`.
 pub fn encode(op: &Op) -> (u32, Vec<u8>) {
     match op {
         Op::NewIssue { title, body } => (NEW, format!("{title}\n{body}").into_bytes()),
@@ -36,12 +36,8 @@ pub fn encode(op: &Op) -> (u32, Vec<u8>) {
     }
 }
 
-/// An op back from an action body. `None` is malformed; the server
-/// ignores it (an action must never close a connection).
 pub fn decode(kind: u32, body: &[u8]) -> Option<Op> {
     if kind == SUBMIT {
-        // The bundle tail is raw bytes; parse it below without
-        // requiring the whole body to be UTF-8.
         let mut it = body.splitn(2, |b| *b == b'\n');
         let id = std::str::from_utf8(it.next()?).ok()?.trim().parse().ok()?;
         let tail = it.next()?;
@@ -72,15 +68,9 @@ pub fn decode(kind: u32, body: &[u8]) -> Option<Op> {
     })
 }
 
-/// A piece of a larger action body (`angel_net` caps a client
-/// message at 1024 bytes; patch bundles laugh at that). Header:
-/// three varints — the real kind, the piece count, this piece's
-/// index — then the piece's bytes. The same shape the Delve's gear
-/// uploads use.
 pub const PIECE: u32 = 200;
 const PIECE_BYTES: usize = 700;
 
-/// An action as one or more wire-ready pieces.
 pub fn pieces(kind: u32, body: &[u8]) -> Vec<(u32, Vec<u8>)> {
     if body.len() <= PIECE_BYTES {
         return vec![(kind, body.to_vec())];
@@ -100,7 +90,6 @@ pub fn pieces(kind: u32, body: &[u8]) -> Vec<(u32, Vec<u8>)> {
         .collect()
 }
 
-/// One seat's action arriving in pieces, reassembled on the server.
 #[derive(Default)]
 pub struct Assembler {
     kind: u32,
@@ -108,16 +97,14 @@ pub struct Assembler {
 }
 
 impl Assembler {
-    /// Feed one action; `Some((kind, body))` when a whole action is
-    /// ready (at once for anything that is not a piece).
     pub fn feed(&mut self, kind: u32, body: &[u8]) -> Option<(u32, Vec<u8>)> {
         if kind != PIECE {
             return Some((kind, body.to_vec()));
         }
-        let mut rest = body;
-        let real = take_varint(&mut rest)? as u32;
-        let total = take_varint(&mut rest)? as usize;
-        let index = take_varint(&mut rest)? as usize;
+        let mut rest = Bytes::new(body);
+        let real = rest.varint().ok()? as u32;
+        let total = rest.varint().ok()? as usize;
+        let index = rest.varint().ok()? as usize;
         if total == 0 || total > 8192 || index >= total {
             return None;
         }
@@ -125,42 +112,13 @@ impl Assembler {
             self.kind = real;
             self.parts = vec![None; total];
         }
-        self.parts[index] = Some(rest.to_vec());
+        self.parts[index] = Some(rest.rest.to_vec());
         if self.parts.iter().all(Option::is_some) {
             let whole: Vec<u8> =
                 self.parts.drain(..).flat_map(|p| p.expect("all present")).collect();
             Some((real, whole))
         } else {
             None
-        }
-    }
-}
-
-fn put_varint(out: &mut Vec<u8>, mut v: u64) {
-    loop {
-        let byte = (v & 0x7f) as u8;
-        v >>= 7;
-        if v == 0 {
-            out.push(byte);
-            return;
-        }
-        out.push(byte | 0x80);
-    }
-}
-
-fn take_varint(bytes: &mut &[u8]) -> Option<u64> {
-    let mut v: u64 = 0;
-    let mut shift = 0;
-    loop {
-        let (&byte, rest) = bytes.split_first()?;
-        *bytes = rest;
-        v |= u64::from(byte & 0x7f) << shift;
-        if byte & 0x80 == 0 {
-            return Some(v);
-        }
-        shift += 7;
-        if shift > 63 {
-            return None;
         }
     }
 }
@@ -210,8 +168,6 @@ mod tests {
         assert!(wire.iter().all(|(_, b)| b.len() <= 1024), "every piece fits a client message");
         let mut assembler = Assembler::default();
         let mut whole = None;
-        // Out of order, as a lossy day might deliver (the transport
-        // is ordered, but the assembler must not care).
         for (k, b) in wire.iter().rev() {
             if let Some(done) = assembler.feed(*k, b) {
                 whole = Some(done);

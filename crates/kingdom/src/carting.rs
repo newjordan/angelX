@@ -28,66 +28,43 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
 
-/// Seconds between one planning pass and the next.
 pub const PLAN_EVERY: u64 = 2;
-/// Seconds an idle cart stands where it unloaded before heading home.
 pub const IDLE_HOME: u32 = 30;
-/// Seconds a cart waits with goods a full store will not take before it
-/// carries them to the camp.
 pub const PATIENCE: u32 = 20;
 const NONE: u16 = u16::MAX;
-/// Carts that can cross the camp's open yard abreast.
 pub const CAMP_LANES: u16 = 6;
-/// Tiles the camp is reckoned further than it stands when a work chooses where to fetch from.
 pub const CAMP_DETOUR: u16 = 8;
-/// The farthest, in tiles, a maker pushes its goods to a store.
 pub const PUSH_RANGE: u16 = 14;
-/// A want waiting for a cart grows more urgent: one point every this many seconds.
 pub const AGE_SECONDS: u64 = 2;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CartPhase {
-    /// Standing, free to take an order.
     #[default]
     Idle,
-    /// Free and heading back to its yard; it can still be given an order.
     Return,
-    /// Going to fetch an order.
     Fetch,
-    /// At the pickup, waiting for a berth.
     Queue,
     Loading,
-    /// Loaded, going to the drop.
     Haul,
-    /// At the drop, waiting for a berth or for room.
     Wait,
     Unloading,
 }
 
-/// One cart and its ox.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Cart {
-    /// A road tile, or the yard's own tile while it is parked there.
     pub tile: Tile,
     pub phase: CartPhase,
-    /// The building it fetches from and the one it delivers to.
     pub from: u32,
     pub to: u32,
-    /// What it was sent to fetch.
     pub order: Stock,
-    /// What is aboard.
     pub load: Stock,
-    /// The tiles still to cross, the next one last.
     pub route: Vec<Tile>,
-    /// Tenths of a second into the tile in hand, or seconds left at a berth.
     pub clock: u32,
-    /// Seconds spent standing idle, or held up at a berth.
     pub idle: u32,
 }
 
-/// Maps with tuple keys cannot be JSON object keys: they are saved as lists of pairs.
 mod pairs {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use std::collections::BTreeMap;
@@ -99,52 +76,36 @@ mod pairs {
     }
 }
 
-/// An order no cart could take at the last planning pass.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Unserved {
     pub from: u32,
     pub to: u32,
     pub good: String,
     pub units: u32,
-    /// No road joins the two places, rather than no free cart.
     pub no_road: bool,
 }
 
-/// What the roads have done lately, for the Clerk and the charts.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Roadwork {
-    /// Where carts have been held up lately, by road tile: thirty times the
-    /// carts that have been waiting there, so thirty is one cart held there
-    /// all the time.
     #[serde(with = "pairs")]
     pub crowd: BTreeMap<Tile, u16>,
-    /// Orders left over at the last pass, the most pressing first.
     pub unserved: Vec<Unserved>,
-    /// Carts free at the last pass.
     pub free: u16,
     pub moved: u64,
-    /// Kilograms delivered over the whole game, and trips made.
     pub kilos: u64,
     pub trips: u32,
-    /// Units delivered in each of the last six ten-second shifts, oldest first.
     pub recent: [u16; 6],
     pub shift: u16,
-    /// Cart-seconds (times eight, fading by an eighth each shift) at work, standing
-    /// free, and held up in a jam or at a berth.
     pub busy: u32,
     pub free_for: u32,
     pub held: u32,
-    /// Kilograms carried between each pair of buildings lately (from, to): about
-    /// seventy times a kilogram a second, fading by an eighth each shift.
     #[serde(with = "pairs")]
     pub flow: BTreeMap<(u32, u32), u32>,
-    /// The second each want (building, good) was first left waiting for a cart.
     #[serde(with = "pairs")]
     pub waiting: BTreeMap<(u32, String), u64>,
 }
 
-/// One carter's yard, as the player reads it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct YardRow {
     pub id: u32,
@@ -155,18 +116,14 @@ pub struct YardRow {
     pub crewed: bool,
 }
 
-/// The roads, as the player reads them.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RoadReport {
     pub yards: Vec<YardRow>,
     pub carts: usize,
     pub free: usize,
-    /// Units a minute actually delivered over the last minute.
     pub observed_per_min: u32,
-    /// Units a minute the carts could carry on a haul of ten tiles.
     pub capacity_per_min: u32,
     pub unserved: Vec<Unserved>,
-    /// Tiles where carts are held up, with how much (thirty is one cart held all the time).
     pub jams: Vec<(Tile, u16)>,
 }
 
@@ -182,7 +139,6 @@ impl Net {
     fn has(&self, t: Tile) -> bool {
         t.0 >= 0 && t.1 >= 0 && (t.0 as usize) < self.w && (t.1 as usize) < self.h && self.road[self.at(t)]
     }
-    /// Road tiles a cart standing at `t` can start from.
     fn starts(&self, t: Tile) -> Vec<Tile> {
         if self.has(t) {
             vec![t]
@@ -190,7 +146,6 @@ impl Net {
             neighbours(t).into_iter().filter(|n| self.has(*n)).collect()
         }
     }
-    /// Steps from the nearest of `sources` to every road tile.
     fn bfs(&self, sources: &[Tile]) -> Vec<u16> {
         let mut dist = vec![NONE; self.road.len()];
         let mut queue = VecDeque::new();
@@ -216,7 +171,6 @@ impl Net {
     }
 }
 
-/// A want: a building is short of a good.
 struct Want {
     to: u32,
     good: String,
@@ -233,18 +187,13 @@ struct Order {
 
 struct Tick {
     net: Net,
-    /// Carts on each road tile, moving, at this moment.
     occ: BTreeMap<Tile, u16>,
-    /// Cart-seconds held up on each tile this second.
     crowd: BTreeMap<Tile, u16>,
-    /// Carts at a berth of each building.
     busy: BTreeMap<u32, u8>,
     capacity: u32,
     lanes: u16,
-    /// The camp's yard takes this many carts abreast; a road tile takes `lanes`.
     camp: Tile,
     jam: u32,
-    /// Cart-seconds this second: at work, free, held up.
     work: u32,
     free: u32,
     held: u32,
@@ -252,13 +201,9 @@ struct Tick {
 }
 
 impl Kingdom {
-    // ---- reading ---------------------------------------------------------
-
-    /// Kilograms one cart takes.
     pub fn cart_capacity(c: &Catalog) -> u32 {
         u32::from(c.lines["cart"].capacity)
     }
-    /// Units of `good` that fill a cart.
     pub fn cart_lot(c: &Catalog, good: &str) -> u32 {
         (Self::cart_capacity(c) / c.resources.get(good).map_or(50, |r| r.kilos())).max(1)
     }
@@ -275,13 +220,11 @@ impl Kingdom {
                 road[t.1 as usize * w + t.0 as usize] = true;
             }
         }
-        // The camp is a yard the carts drive through, so the roads on either side of it meet.
         let camp = self.camp();
         road[camp.1 as usize * w + camp.0 as usize] = true;
         Net { w, h, road }
     }
 
-    /// Road tiles beside a building, where carts stand to load and unload.
     fn docks(&self, c: &Catalog, net: &Net, id: u32) -> Vec<Tile> {
         let Some(b) = self.buildings.get(&id) else { return vec![] };
         let _ = c;
@@ -296,25 +239,19 @@ impl Kingdom {
         docks.into_iter().collect()
     }
 
-    /// Carts that have lately been held up on a tile, on average.
     fn heat(&self, t: Tile) -> u32 {
         u32::from(self.roadwork.crowd.get(&t).copied().unwrap_or(0)) / 30
     }
 
-    /// Every cart in the realm.
     pub fn cart_count(&self) -> usize {
         self.buildings.values().map(|b| b.carts.len()).sum()
     }
 
-    /// Whether a yard's oxen are fed and its carter at work.
     fn yard_active(&self, c: &Catalog, status: &BTreeMap<u32, Status>, id: u32) -> bool {
         let Some(b) = self.buildings.get(&id) else { return false };
         c.plans[&b.plan].stalls > 0 && b.fed > 0 && status.get(&id) == Some(&Status::Working)
     }
 
-    // ---- the pool --------------------------------------------------------
-
-    /// Sets the number of carts in a yard, buying or selling the difference.
     pub(crate) fn set_carts(&mut self, c: &Catalog, yard: u32, carts: u16) -> Result<String, String> {
         let b = self.buildings.get(&yard).ok_or("no such building")?;
         let p = &c.plans[&b.plan];
@@ -344,7 +281,6 @@ impl Kingdom {
                 b.carts.push(Cart { tile, ..Cart::default() });
             }
         } else if carts < have {
-            // Only carts standing idle in the yard can be sold.
             let b = self.buildings.get_mut(&yard).unwrap();
             let mut sell = usize::from(have - carts);
             let mut kept = Vec::new();
@@ -368,7 +304,6 @@ impl Kingdom {
         Ok(format!("{} carts in the yard", self.buildings[&yard].carts.len()))
     }
 
-    /// A yard pulled down: its cargo goes to the camp and its carts are sold.
     pub(crate) fn release_carts(&mut self, c: &Catalog, carts: Vec<Cart>) {
         let spec = &c.lines["cart"];
         for cart in &carts {
@@ -381,9 +316,6 @@ impl Kingdom {
         }
     }
 
-    /// Old saves laid cart lines between pairs of buildings. The roads carry
-    /// that traffic now: the lines come down, their cargo goes to the camp and
-    /// their vehicles go back into the stock.
     pub(crate) fn retire_cart_lines(&mut self, c: &Catalog) {
         let old: Vec<u32> = self.lines.iter().filter(|(_, l)| l.kind == LineKind::Cart).map(|(&id, _)| id).collect();
         for id in old {
@@ -396,8 +328,6 @@ impl Kingdom {
             }
         }
     }
-
-    // ---- one second of the roads ------------------------------------------
 
     pub(crate) fn haul_roads(&mut self, c: &Catalog, capacity: u32, status: &BTreeMap<u32, Status>) {
         let yards: Vec<u32> = self.buildings.iter().filter(|(_, b)| !b.carts.is_empty()).map(|(&id, _)| id).collect();
@@ -432,16 +362,11 @@ impl Kingdom {
                 }
             }
         }
-        // Whoever steps first changes with the second, so no yard has first call
-        // on a berth.
         let turn = (self.second % yards.len() as u64) as usize;
         let mut order = yards.clone();
         order.rotate_left(turn);
         for y in order {
             if !self.yard_active(c, status, y) {
-                // A yard that stands still (no carter, no fodder) keeps its loads aboard but
-                // gives up the orders it had not yet filled, so the goods are not held for carts
-                // that will not come.
                 for cart in &mut self.buildings.get_mut(&y).unwrap().carts {
                     if matches!(cart.phase, CartPhase::Fetch | CartPhase::Queue | CartPhase::Loading) {
                         cart.order.clear();
@@ -461,7 +386,6 @@ impl Kingdom {
             }
             self.buildings.get_mut(&y).unwrap().carts = carts;
         }
-        // A jam is remembered: where carts were held up this second.
         for (&tile, &n) in &t.crowd {
             let e = self.roadwork.crowd.entry(tile).or_default();
             *e = e.saturating_add(n);
@@ -505,7 +429,6 @@ impl Kingdom {
                         cart.clock = 0;
                         cart.phase = CartPhase::Return;
                     } else {
-                        // Stranded off the roads: it walks home.
                         cart.tile = home;
                     }
                 }
@@ -534,7 +457,6 @@ impl Kingdom {
                 }
                 let there = cart.order.keys().any(|g| self.avail(c, cart.from, g, cart.to) > 0);
                 if !there {
-                    // Someone else took what it came for.
                     return self.drop_order(cart);
                 }
                 if t.busy.get(&cart.from).copied().unwrap_or(0) < berths(self, cart.from) {
@@ -578,7 +500,6 @@ impl Kingdom {
                             cart.clock = 0;
                             cart.phase = CartPhase::Haul;
                         }
-                        // No road to the drop: the load goes back where it came from.
                         None => {
                             cart.to = cart.from;
                             let docks = self.docks(c, &t.net, cart.to);
@@ -606,8 +527,6 @@ impl Kingdom {
                 }
                 let space = cart.to == 1 || cart.load.iter().any(|(g, _)| self.unloadable(c, t, cart.to, g) > 0);
                 if !space {
-                    // The store is full: a load held up for long enough goes to the camp,
-                    // which takes anything.
                     cart.idle += 1;
                     t.held += 1;
                     if cart.idle >= PATIENCE {
@@ -626,7 +545,6 @@ impl Kingdom {
                     cart.idle = 0;
                     t.work += 1;
                 } else {
-                    // Waiting for a berth is only a queue.
                     t.held += 1;
                 }
             }
@@ -670,12 +588,10 @@ impl Kingdom {
         }
     }
 
-    /// Units of `good` the place can take this moment, whatever is on the way.
     fn unloadable(&self, c: &Catalog, t: &Tick, id: u32, good: &str) -> u32 {
         self.cap_at(c, id, t.capacity).saturating_sub(self.have_at(c, id, good))
     }
 
-    /// An order that cannot be filled: the cart is free again.
     fn drop_order(&self, cart: &mut Cart) {
         cart.order.clear();
         cart.from = 0;
@@ -686,8 +602,6 @@ impl Kingdom {
         cart.phase = if cart.load.is_empty() { CartPhase::Idle } else { CartPhase::Wait };
     }
 
-    /// Takes the cart along its route for one second. Each tile costs its
-    /// time, longer when more carts are on it than the road takes.
     fn advance(&self, t: &mut Tick, cart: &mut Cart, spec: &LineSpec) -> bool {
         cart.clock += u32::from(crate::pace::travel_clock());
         loop {
@@ -696,7 +610,6 @@ impl Kingdom {
                 return true;
             };
             if !t.net.has(next) {
-                // The road is cut ahead: it waits for it to be mended.
                 t.held += 1;
                 return false;
             }
@@ -724,8 +637,6 @@ impl Kingdom {
         }
     }
 
-    /// The cheapest way along the roads, counting what traffic has done to
-    /// each tile; the route is returned with its next tile last.
     fn route_to(&self, t: &Tick, from: Tile, goals: &[Tile]) -> Option<Vec<Tile>> {
         self.route_net(&t.net, from, goals)
     }
@@ -753,8 +664,6 @@ impl Kingdom {
                     path.push(p);
                     cursor = p;
                 }
-                // `path` runs goal back to start. A start that is the tile the
-                // cart already stands on is not a step to take.
                 if path.last() == Some(&from) {
                     path.pop();
                 }
@@ -775,10 +684,6 @@ impl Kingdom {
         None
     }
 
-    // ---- planning ---------------------------------------------------------
-
-    /// What a building asks the roads to bring it, as the level it likes to
-    /// keep and the priority of the asking.
     fn pull_levels(&self, c: &Catalog, id: u32) -> (Stock, i32) {
         if id == 1 {
             return (c.camp_stock.iter().map(|(g, n)| (g.clone(), *n)).collect(), 60);
@@ -796,16 +701,11 @@ impl Kingdom {
             let fodder: Stock = c.lines["cart"].upkeep.iter().map(|(g, n)| (g.clone(), (n * b.carts.len() as u32 * 2).max(2))).collect();
             return (fodder, base + 40);
         }
-        // Never ask for more than the store holds: a cart that cannot unload goes round again.
         let cap = p.input_cap();
         let levels = self.target_levels(c, id).unwrap_or_default().into_iter().map(|(g, n)| (g, n.min(cap))).collect();
         (levels, if p.yard { base + 20 } else { base })
     }
 
-    /// Whether a point-to-point line already carries `good` to `to`. A line whose vehicles
-    /// stand idle at its origin (nothing to carry), or that is cut or unfed, is not carrying
-    /// anything: the roads fetch the good from wherever else it is held, so a work is never
-    /// left short for want of the one maker its line happens to run from.
     fn line_feeds(&self, c: &Catalog, idle_lines: &BTreeSet<u32>, to: u32, good: &str) -> bool {
         self.lines.iter().filter(|(id, _)| !idle_lines.contains(id)).map(|(_, l)| l).any(|l| {
             l.to == to
@@ -824,7 +724,6 @@ impl Kingdom {
         })
     }
 
-    /// Whether any building standing uses `good` in a recipe it can run.
     fn consumed_somewhere(&self, c: &Catalog, good: &str) -> bool {
         self.buildings.values().any(|b| {
             let p = &c.plans[&b.plan];
@@ -833,7 +732,6 @@ impl Kingdom {
     }
 
     fn plan_roads(&mut self, c: &Catalog, t: &Tick, yards: &[u32], status: &BTreeMap<u32, Status>) {
-        // Who is free, and what is already promised.
         let mut out_res: BTreeMap<(u32, String), u32> = BTreeMap::new();
         let mut in_res: BTreeMap<(u32, String), u32> = BTreeMap::new();
         let mut available: Vec<(u32, usize)> = Vec::new();
@@ -860,7 +758,6 @@ impl Kingdom {
             }
         }
         self.roadwork.free = available.len() as u16;
-        // Without a free cart there is nothing to assign; the last pass's list stands.
         if available.is_empty() && !self.roadwork.unserved.is_empty() {
             return;
         }
@@ -871,7 +768,6 @@ impl Kingdom {
         for &id in &ids {
             docks.insert(id, self.docks(c, net, id));
         }
-        // Who holds what, ready to be fetched.
         let mut holders: BTreeMap<String, Vec<(u32, u32)>> = BTreeMap::new();
         for &id in &ids {
             let Some(b) = self.buildings.get(&id) else { continue };
@@ -896,8 +792,6 @@ impl Kingdom {
                 .map(|r| r.id)
                 .collect()
         };
-        // What the wall is waiting on is fetched however little there is: the last few
-        // stones of a stage are never held up for want of a full cart.
         let gating: Vec<(u32, String)> = self
             .sites
             .iter()
@@ -906,7 +800,6 @@ impl Kingdom {
                 _ => None,
             })
             .collect();
-        // What is wanted.
         let mut wants: Vec<Want> = Vec::new();
         for &id in &ids {
             let Some(b) = self.buildings.get(&id) else { continue };
@@ -924,16 +817,10 @@ impl Kingdom {
                     continue;
                 }
                 let deficit = target - have - coming;
-                // A bench that is nearly out asks for whatever there is; a full one waits
-                // until it is half empty.
-                // The wall's yard and the camp send for a quarter of what they keep; a bench for half.
                 let batch = (target / 8).max(1);
                 let share = if id == 1 || c.plans.get(&self.buildings[&id].plan).is_some_and(|p| p.yard) { 4 } else { 2 };
                 let gated = gating.iter().any(|(y, r)| *y == id && *r == g);
                 let mut threshold = if have + coming < batch || gated { 1 } else { lot(&g).min((target / share).max(1)) };
-                // The camp's level is what purchases are paid out of, and a purchase as dear as the level (twelve
-                // iron ore for the second charter, thirty beams for the great crane) could never be made if the camp
-                // stopped one lot short of it: a store of building goods is topped up to its level, a few at a time.
                 if id == 1 && deficit < threshold && c.resources.get(&g).is_some_and(|r| r.shelf == 0) && g != "fodder" && !c.diet.labourer.iter().chain(&c.diet.skilled).chain(&c.diet.master).any(|d| d.split('|').any(|x| x == g)) {
                     threshold = deficit;
                 }
@@ -941,13 +828,10 @@ impl Kingdom {
                     continue;
                 }
                 let urgency = (100 * (target - (have + coming).min(target)) / target) as i32;
-                // People come first: the camp's bread and ale, and the oxen's fodder.
                 let people = if id == 1 && c.diet.labourer.iter().chain(&c.diet.skilled).any(|d| d.split('|').any(|x| x == g)) { 80 } else { 0 };
                 wants.push(Want { to: id, good: g, deficit, threshold, prio: prio + urgency + people });
             }
         }
-        // The longer a bench has waited, the more urgent its goods: nothing starves behind
-        // louder neighbours.
         let now = self.second;
         let mut waiting: BTreeMap<(u32, String), u64> = BTreeMap::new();
         for w in &mut wants {
@@ -977,15 +861,10 @@ impl Kingdom {
                     cut = true;
                     continue;
                 }
-                // A bench that holds all its shelf can hold is always worth a trip, whatever the
-                // asker's lot: the camp asks bread in lots of thirty and a bakery's shelf holds
-                // twenty-four, so without this the camp's bread was fetched only when it was nearly out.
                 let full = s != 1 && self.buildings.get(&s).is_some_and(|hb| hb.output.get(&w.good).copied().unwrap_or(0) >= c.plans[&hb.plan].output_cap());
                 if have < w.threshold.min(w.deficit) && !full {
                     continue;
                 }
-                // The nearest wins; a maker's own bench before a store, and the camp, which every
-                // cart crosses, counts as a few tiles further than it is.
                 let rank = if s == 1 { 2 } else if self.buildings[&s].output.contains_key(&w.good) && !c.plans[&self.buildings[&s].plan].hub { 0 } else { 1 };
                 let key = (d + if s == 1 { CAMP_DETOUR } else { 0 }, rank, s, have);
                 if best.is_none_or(|b| (key.0, key.1, key.2) < (b.0, b.1, b.2)) {
@@ -1004,9 +883,6 @@ impl Kingdom {
                 None => {}
             }
         }
-        // Makers whose benches are filling push to the nearest store with room, but only
-        // goods somebody wants and only a short way: a store is a stock held for the works
-        // around it, not a place to dump whatever a bench makes.
         let wanted: BTreeSet<&str> = wants.iter().map(|w| w.good.as_str()).chain(c.camp_stock.keys().map(String::as_str)).collect();
         let hubs: Vec<u32> = ids
             .iter()
@@ -1032,7 +908,6 @@ impl Kingdom {
                     continue;
                 }
                 let map = maps.entry(p).or_insert_with(|| net.bfs(&docks[&p]));
-                // Nearest store with room: a warehouse, or the camp while it is under its level.
                 let mut best: Option<(u16, u32, u32)> = None;
                 for &h in hubs.iter().chain(std::iter::once(&1)) {
                     let room = if h == 1 {
@@ -1056,12 +931,10 @@ impl Kingdom {
                 }
             }
         }
-        // Orders in the order of their need; one cart each.
         let mut list: Vec<Order> = orders.into_values().collect();
         list.sort_by(|a, b| b.prio.cmp(&a.prio).then(a.from.cmp(&b.from)).then(a.to.cmp(&b.to)));
         let capacity = Self::cart_capacity(c);
         for mut o in list {
-            // Trim to a cart's load, the most pressing goods first by name order.
             let mut room = capacity;
             let mut goods = Stock::new();
             for (g, n) in std::mem::take(&mut o.goods) {
@@ -1075,15 +948,12 @@ impl Kingdom {
             if goods.is_empty() {
                 continue;
             }
-            // The nearest free cart that can reach both ends.
             let map = maps.entry(o.from).or_insert_with(|| net.bfs(&docks[&o.from]));
             let mut pick: Option<(u16, usize)> = None;
             let reach = net.near(map, &docks[&o.to]) != NONE;
             if reach {
                 for (k, &(y, i)) in available.iter().enumerate() {
                     let cart = &self.buildings[&y].carts[i];
-                    // A cart parked in its yard sets out from any road tile that touches the yard, not only
-                    // from the neighbours of the yard's corner.
                     let starts = if cart.tile == self.buildings[&y].tile && !net.has(cart.tile) { docks[&y].clone() } else { net.starts(cart.tile) };
                     let d = net.near(map, &starts);
                     if d != NONE && pick.is_none_or(|p| d < p.0) {
@@ -1102,7 +972,6 @@ impl Kingdom {
                     }
                     let route = self.route_to(t, start, &docks[&o.from]);
                     let cart = &mut self.buildings.get_mut(&y).unwrap().carts[i];
-                    // A cart already at the dock has nothing to cross.
                     cart.route = route.unwrap_or_default();
                     cart.from = o.from;
                     cart.to = o.to;
@@ -1123,8 +992,6 @@ impl Kingdom {
         unserved.truncate(24);
         self.roadwork.unserved = unserved;
     }
-
-    // ---- reading the roads -------------------------------------------------
 
     pub fn road_report(&self, c: &Catalog) -> RoadReport {
         let report = self.report(c);
@@ -1147,11 +1014,9 @@ impl Kingdom {
             });
         }
         r.observed_per_min = self.roadwork.recent.iter().map(|&n| u32::from(n)).sum();
-        // A round trip of ten tiles each way, loaded one way.
         let cycle = 2 * 10 * u32::from(spec.speed) / 10 + 2 * u32::from(spec.dwell);
         r.capacity_per_min = r.carts as u32 * 10 * 60 / cycle.max(1);
         r.unserved = self.roadwork.unserved.clone();
-        // Half a cart held up all the time is a jam.
         let mut jams: Vec<(Tile, u16)> = self
             .roadwork
             .crowd
@@ -1165,7 +1030,6 @@ impl Kingdom {
         r
     }
 
-    /// The way a road runs from the camp, in a few words: "the east road".
     pub fn road_name(&self, tile: Tile) -> String {
         let camp = self.camp();
         let (dx, dy) = (i32::from(tile.0 - camp.0), i32::from(tile.1 - camp.1));
@@ -1184,12 +1048,10 @@ impl Kingdom {
         format!("the {way} road")
     }
 
-    /// Goods on carts, for the ledger.
     pub(crate) fn carted(&self, resource: &str) -> u32 {
         self.buildings.values().flat_map(|b| &b.carts).map(|x| x.load.get(resource).copied().unwrap_or(0)).sum()
     }
 
-    /// Kilograms aboard a cart, for tests and the charts.
     pub fn cart_load_kilos(c: &Catalog, cart: &Cart) -> u32 {
         Self::kilos(c, &cart.load)
     }

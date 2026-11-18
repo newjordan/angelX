@@ -14,7 +14,6 @@ use super::*;
 use angel_glass::scene::{mat_point, AlphaMode, Camera, MeshRef, Scene, TextureSource, Transform};
 use glb::Gltf;
 
-/// Base64, as a program sends its payloads.
 pub(super) fn b64(bytes: &[u8]) -> String {
     glb::base64(bytes)
 }
@@ -27,8 +26,6 @@ fn near3(a: [f32; 3], b: [f32; 3]) -> bool {
     (0..3).all(|k| near(a[k], b[k]))
 }
 
-/// A unit quad in XY, two triangles, with normals, uvs, colours and a
-/// material, hung one node below a root.
 fn quad_file() -> Gltf {
     let mut g = Gltf::default();
     let pos = g.floats(&[0., 0., 0., 1., 0., 0., 1., 1., 0., 0., 1., 0.], "VEC3");
@@ -50,8 +47,6 @@ fn code(result: Result<Loaded, super::glass_scene::WireError>) -> (&'static str,
         Err(e) => (e.code, e.message),
     }
 }
-
-// ------------------------------------------------------------ sound files
 
 #[test]
 fn a_glb_made_in_code_loads_its_meshes_materials_and_tree() {
@@ -115,7 +110,6 @@ fn materials_map_metallic_roughness_and_emissive_onto_the_lit_path() {
     assert_eq!(m.emissive, 1.0);
     assert_eq!(m.tint, [1.0, 0.5, 0.0, 1.0], "the emissive colour is what shows");
     assert_eq!(m.alpha, AlphaMode::Blend);
-    // The file's numbers are kept for a physically based path.
     let mut g = quad_file();
     g.materials[0] = r#"{"pbrMetallicRoughness":{"metallicFactor":0.25,"roughnessFactor":0.75},"emissiveFactor":[0.1,0.2,0.3],"alphaMode":"MASK","alphaCutoff":0.4}"#.into();
     let pbr = load(&g.glb()).expect("pbr").asset.materials[0].pbr.clone();
@@ -135,7 +129,6 @@ fn a_primitive_without_normals_takes_flat_ones() {
     let mesh = &a.prims[0].mesh;
     assert_eq!(mesh.positions.len(), 6, "each triangle has its own three vertices");
     assert!(near3(mesh.normals[0], [0.0, 0.0, 1.0]));
-    // (0,0,0), (0,0,1), (1,0,0): counter-clockwise seen from +y.
     assert!(near3(mesh.normals[3], [0.0, 1.0, 0.0]));
     assert_eq!(a.vertices, 6);
 }
@@ -152,7 +145,6 @@ fn strips_and_fans_become_triangle_lists_and_points_are_skipped() {
     g.node(format!(r#"{{"mesh":{mesh}}}"#));
     let a = load(&g.glb()).expect("strip and fan").asset;
     assert_eq!(a.prims.len(), 2);
-    // glTF's strip: triangle i is p(i), p(i + 1 + i % 2), p(i + 2 - i % 2).
     assert_eq!(a.prims[0].mesh.indices, vec![0, 1, 2, 1, 3, 2, 2, 3, 4], "a strip keeps every triangle's winding");
     assert_eq!(a.prims[1].mesh.indices, vec![1, 2, 0, 2, 3, 0, 3, 4, 0]);
     assert_eq!(a.skipped.primitives, 1);
@@ -172,8 +164,6 @@ fn the_samplers_model_loads_with_step_linear_and_cubic_spline_keys() {
     for kind in [Interp::Linear, Interp::Step, Interp::CubicSpline] {
         assert!(kinds.contains(&kind), "{kind:?} in {kinds:?}");
     }
-    // The first gem's spline runs through a sine's quarter points with the
-    // sine's own slopes, so between them it stays on the sine.
     let gem = a.clips[0].channels.iter().find(|c| c.interp == Interp::CubicSpline).unwrap();
     for t in [0.4f32, 1.1, 2.6, 5.2] {
         let want = 0.16 * (std::f32::consts::TAU / 6.0 * t).sin();
@@ -183,13 +173,8 @@ fn the_samplers_model_loads_with_step_linear_and_cubic_spline_keys() {
     assert!(a.materials.iter().any(|m| m.material.emissive > 0.5), "the gems glow");
 }
 
-// ------------------------------------------------------------ the tree
-
 #[test]
 fn the_tree_places_nodes_by_hand_computed_matrices() {
-    // Parent: moved (1, 0, 0), a quarter turn about z, scaled 2. Child:
-    // moved (1, 0, 0) under it. The child's origin is the parent's local
-    // (1, 0, 0): scaled to (2, 0, 0), turned to (0, 2, 0), moved to (1, 2, 0).
     let h = std::f32::consts::FRAC_1_SQRT_2;
     let mut g = Gltf::default();
     let child = g.node(r#"{"translation":[1,0,0],"scale":[1,3,1]}"#.into());
@@ -203,16 +188,12 @@ fn the_tree_places_nodes_by_hand_computed_matrices() {
     let worlds = scene.world_matrices();
     let child_world = worlds[inst.places[child].unwrap() as usize].expect("placed");
     assert!(near3(mat_point(&child_world, [0.0, 0.0, 0.0]), [1.0, 2.0, -5.0]));
-    // The child's own +y, scaled 3 then 2, turned to -x: (0, 1, 0) lands
-    // at (1, 2, -5) + (-6, 0, 0).
     assert!(near3(mat_point(&child_world, [0.0, 1.0, 0.0]), [-5.0, 2.0, -5.0]));
-    // +x of the child is the parent's +x scaled 2, turned to +y.
     assert!(near3(mat_point(&child_world, [1.0, 0.0, 0.0]), [1.0, 4.0, -5.0]));
 }
 
 #[test]
 fn a_node_matrix_decomposes_into_its_translation_rotation_and_scale() {
-    // Column-major: T(3, 4, 5) * Rz(90) * S(1, 2, 3).
     let m = [0.0, 1.0, 0.0, 0.0, -2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 3.0, 4.0, 5.0, 1.0];
     let t = decompose(&m).expect("finite");
     assert!(near3(t.translation, [3.0, 4.0, 5.0]));
@@ -220,14 +201,12 @@ fn a_node_matrix_decomposes_into_its_translation_rotation_and_scale() {
     let h = std::f32::consts::FRAC_1_SQRT_2;
     let q = t.rotation;
     assert!(near(q[2].abs(), h) && near(q[3].abs(), h) && near(q[0], 0.0) && near(q[1], 0.0), "{q:?}");
-    // Rebuilt, it is the same matrix.
     let back = t.matrix();
     for c in 0..4 {
         for r in 0..4 {
             assert!(near(back[c][r], m[c * 4 + r]), "{back:?}");
         }
     }
-    // A mirror keeps its handedness in the scale.
     let mirror = [-1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0];
     let t = decompose(&mirror).unwrap();
     assert!(near3(t.scale, [-1.0, 1.0, 1.0]));
@@ -259,7 +238,6 @@ fn cyclic_doubly_parented_and_deep_trees_are_refused() {
     assert!(m.contains("deeper"), "{m}");
     let (c, _) = tree((0..=ASSET_NODES).map(|_| "{}".to_string()).collect());
     assert_eq!(c, "EFBIG");
-    // A scene root that has a parent, and a default scene past the end.
     let mut g = Gltf { nodes: vec![r#"{"children":[1]}"#.into(), "{}".into()], ..Default::default() };
     g.add_scene(&[1]);
     assert!(code(load(&g.glb())).1.contains("not a root"));
@@ -269,8 +247,6 @@ fn cyclic_doubly_parented_and_deep_trees_are_refused() {
     assert_eq!(code(load(&g.glb())).0, "EINVAL");
 }
 
-// -------------------------------------------------------- broken files
-
 #[test]
 fn every_truncation_of_a_glb_is_refused_and_none_panics() {
     let whole = quad_file().glb();
@@ -279,7 +255,6 @@ fn every_truncation_of_a_glb_is_refused_and_none_panics() {
         assert_ne!(c, "OK", "a glb cut at {len} of {} bytes", whole.len());
     }
     assert_eq!(code(load(&whole)).0, "OK");
-    // A .gltf cut short is not JSON.
     let text = quad_file().gltf();
     for len in [0, 1, text.len() / 3, text.len() / 2, text.len() - 1] {
         assert_ne!(code(load(&text[..len])).0, "OK", "a gltf cut at {len}");
@@ -308,7 +283,6 @@ fn chunk_and_header_lengths_that_lie_are_refused() {
         let (c, m) = code(load(&bytes));
         assert!(c == "EBADF" || c == "EINVAL", "{what}: {c} {m}");
     }
-    // The BIN chunk cut short of the buffer's byteLength.
     let mut short = whole.clone();
     let bin_len = u32::from_le_bytes(short[bin_at..bin_at + 4].try_into().unwrap());
     short[bin_at..bin_at + 4].copy_from_slice(&(bin_len - 8).to_le_bytes());
@@ -334,16 +308,13 @@ fn huge_accessor_counts_are_refused_before_anything_is_read() {
     assert_eq!(c, "EFBIG", "{m}");
     let (c, m) = with_count(u64::MAX, 0);
     assert_eq!(c, "EFBIG", "{m}");
-    // Within the caps but past the bytes its view has.
     let (c, m) = with_count(5, 0);
     assert_eq!(c, "EBADF", "{m}");
     assert!(m.contains("runs past"), "{m}");
-    // The indices, past the cap and past their view.
     let (c, _) = with_count(4_000_000_000, 4);
     assert_eq!(c, "EFBIG");
     let (c, _) = with_count(9, 4);
     assert_eq!(c, "EBADF");
-    // A stride that lies, a view past its buffer.
     let mut g = quad_file();
     g.views[0] = g.views[0].replace(r#""byteLength":48"#, r#""byteLength":48,"byteStride":4"#);
     assert_eq!(code(load(&g.glb())).0, "EINVAL");
@@ -359,15 +330,12 @@ fn indices_and_references_out_of_range_are_refused() {
         assert_eq!(c, "EINVAL", "{needle}: {m}");
         assert!(m.contains(needle), "{needle} not in {m}");
     };
-    // A vertex index past the four vertices.
     let mut g = quad_file();
     let end = g.bin.len();
     g.bin[end - 12..end - 10].copy_from_slice(&7u16.to_le_bytes());
     let (c, m) = code(load(&g.glb()));
     assert_eq!(c, "EINVAL", "{m}");
     assert!(m.contains("out of range of its 4 vertices"), "{m}");
-    // POSITION naming an accessor that is not there (the gltf crate's own
-    // validator would index past its list here).
     let mut g = quad_file();
     g.meshes[0] = g.meshes[0].replace(r#""POSITION":0"#, r#""POSITION":99"#);
     refused(&g, "accessor 99 is out of range");
@@ -383,7 +351,6 @@ fn indices_and_references_out_of_range_are_refused() {
     let mut g = quad_file();
     g.materials[0] = r#"{"pbrMetallicRoughness":{"baseColorTexture":{"index":4}}}"#.into();
     refused(&g, "texture 4, out of range");
-    // Animation channels naming a node or a sampler that is not there.
     let mut g = quad_file();
     let t = g.floats(&[0.0, 1.0], "SCALAR");
     let v = g.floats(&[0.0; 6], "VEC3");
@@ -394,7 +361,6 @@ fn indices_and_references_out_of_range_are_refused() {
     let v = g.floats(&[0.0; 6], "VEC3");
     g.animation(format!(r#"{{"channels":[{{"sampler":3,"target":{{"node":0,"path":"translation"}}}}],"samplers":[{{"input":{t},"output":{v}}}]}}"#));
     refused(&g, "sampler 3, out of range");
-    // A sparse index past the accessor.
     let mut g = quad_file();
     let si = g.view(&[9u8, 0, 0, 0]);
     let sv = g.view(&[0u8; 12]);
@@ -417,10 +383,8 @@ fn json_that_would_grow_past_its_size_is_refused_unparsed() {
     text.push_str("]}");
     let (c, m) = code(load(text.as_bytes()));
     assert_eq!(c, "EFBIG", "{m}");
-    // Braces inside strings are not counted.
     let quoted = format!(r#"{{"asset":{{"version":"2.0","generator":"{}"}}}}"#, "{".repeat(JSON_STRUCTURES + 5));
     assert_eq!(code(load(quoted.as_bytes())).0, "OK");
-    // Deep nesting stops at the JSON reader's depth, not the stack.
     let deep = format!(r#"{{"asset":{{"version":"2.0"}},"extras":{}{}}}"#, "[".repeat(10_000), "]".repeat(10_000));
     assert_eq!(code(load(deep.as_bytes())).0, "EBADF");
 }
@@ -440,7 +404,6 @@ fn foreign_buffers_versions_and_required_extensions_are_refused() {
     let v1 = r#"{"asset":{"version":"1.0"}}"#;
     assert_eq!(code(load(v1.as_bytes())).0, "EINVAL");
     assert_eq!(code(load(b"PNG not a model")).0, "EBADF");
-    // An image named by an external uri is skipped, the model kept.
     let mut g = quad_file();
     g.images.push(r#"{"uri":"wood.png"}"#.into());
     g.textures.push(r#"{"source":0}"#.into());
@@ -480,14 +443,11 @@ fn fuzzed_glbs_never_panic() {
             loaded += 1;
         }
     }
-    // Most single-byte flips land in the float data and still load.
     assert!(loaded > 0);
 }
 
 #[test]
 fn caps_on_vertices_primitives_and_keys_hold() {
-    // One primitive past the window's per-mesh vertex cap, refused from its
-    // count alone.
     let mut g = Gltf::default();
     g.view(&[0u8; 12]);
     g.accessor(format!(r#"{{"bufferView":0,"componentType":5126,"count":{},"type":"VEC3"}}"#, angel_glass::scene::MAX_MESH_VERTICES + 1));
@@ -495,7 +455,6 @@ fn caps_on_vertices_primitives_and_keys_hold() {
     g.node(format!(r#"{{"mesh":{mesh}}}"#));
     let (c, m) = code(load(&g.glb()));
     assert_eq!(c, "EFBIG", "{m}");
-    // Primitives sharing one big accessor until the asset's cap is reached.
     let n = 262_143usize;
     let mut g = Gltf::default();
     let pos = g.floats(&vec![0.0; n * 3], "VEC3");
@@ -506,7 +465,6 @@ fn caps_on_vertices_primitives_and_keys_hold() {
     g.node(format!(r#"{{"mesh":{mesh}}}"#));
     let (c, m) = code(load(&g.glb()));
     assert_eq!(c, "EFBIG", "{m}");
-    // Too many primitives, and too many keyframe values.
     let mut g = quad_file();
     let prim = glb::primitive(&[("POSITION", 0)], Some(4), None, None);
     g.meshes[0] = format!(r#"{{"primitives":[{}]}}"#, vec![prim; ASSET_PRIMITIVES + 1].join(","));
@@ -518,8 +476,6 @@ fn caps_on_vertices_primitives_and_keys_hold() {
     g.animation(format!(r#"{{"channels":[{{"sampler":0,"target":{{"node":0,"path":"scale"}}}}],"samplers":[{{"input":{t},"output":{t}}}]}}"#));
     assert_eq!(code(load(&g.glb())).0, "EFBIG");
 }
-
-// ------------------------------------------------------------- sampling
 
 fn channel(path: Path, interp: Interp, times: &[f32], values: &[[f32; 4]]) -> Channel {
     Channel { node: 0, path, interp, times: times.to_vec(), values: values.to_vec() }
@@ -535,9 +491,6 @@ fn clips_sample_step_linear_cubic_spline_and_slerp() {
     assert_eq!(step.sample(0.99)[0], 1.0);
     assert_eq!(step.sample(1.0)[0], 2.0);
     assert_eq!(step.sample(1.5)[0], 2.0);
-    // Cubic spline, keys at 0 and 2 (span 2): v0 = 0, out-tangent b0 = 1,
-    // v1 = 1, in-tangent a1 = 0. At u = 0.5: h00 = 0.5, h10 = 0.125,
-    // h01 = 0.5, h11 = -0.125, so p = 0.125 * 2 * 1 + 0.5 * 1 = 0.75.
     let cubic = channel(
         Path::Translation,
         Interp::CubicSpline,
@@ -546,7 +499,6 @@ fn clips_sample_step_linear_cubic_spline_and_slerp() {
     );
     assert!(near(cubic.sample(1.0)[0], 0.75), "{:?}", cubic.sample(1.0));
     assert!(near(cubic.sample(2.0)[0], 1.0));
-    // A quarter turn about z, sampled halfway: an eighth turn.
     let h = std::f32::consts::FRAC_1_SQRT_2;
     let rot = channel(Path::Rotation, Interp::Linear, &[0.0, 1.0], &[[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, h, h]]);
     let q = rot.sample(0.5);
@@ -573,9 +525,6 @@ fn playback_loops_runs_out_and_keeps_its_place_through_changes() {
     assert!(!p.moving(4000, 2.0));
 }
 
-// -------------------------------------------------------------- the wire
-
-/// A store and an engine, fed `glass;` bodies as a program writes them.
 pub(super) struct Rig {
     pub(super) intake: Intake,
     engine: FakeEngine,
@@ -602,7 +551,6 @@ impl Rig {
     }
 }
 
-/// A clip on the quad file: node 0 moves from x 0 to x 4 over 2 seconds.
 fn animated_file() -> Gltf {
     let mut g = quad_file();
     let t = g.floats(&[0.0, 2.0], "SCALAR");
@@ -631,7 +579,6 @@ fn an_asset_goes_up_in_pieces_and_answers_with_what_it_holds() {
         reply,
         "\x1b_glass;r=1;OK;nodes=2,meshes=1,primitives=1,vertices=4,triangles=2,materials=1,textures=1,clips=1,seconds=2\x1b\\"
     );
-    // A scene hangs it from node 5; the node's colour tints every material.
     let reply = rig.send(&format!("scene;id=9;s=64;v=64;px=0,0,64,64;r=2;{}", scene_json(3)));
     assert!(reply.contains("r=2;OK"), "{reply}");
     let scene = rig.intake.expansion.scene(9).expect("scene");
@@ -646,10 +593,8 @@ fn an_asset_goes_up_in_pieces_and_answers_with_what_it_holds() {
     assert_eq!(uploads.len(), 1);
     assert_eq!(uploads[0].0, mesh_id);
     assert_eq!(uploads[0].1.positions.len(), 4);
-    // Sent again, the scene does not send the asset's meshes again.
     rig.send(&format!("scene;id=9;s=64;v=64;px=0,0,64,64;{}", scene_json(3)));
     assert!(rig.intake.expansion.take_mesh_uploads().is_empty());
-    // Its world: the asset's root hangs from node 5 at z -3.
     let worlds = scene_worlds(&rig, 9);
     assert!(worlds.iter().flatten().any(|m| near3(mat_point(m, [0.0; 3]), [1.0, 2.0, -3.0])), "the quad's node");
 }
@@ -659,7 +604,6 @@ fn a_node_shows_a_program_picture_on_its_mesh() {
     let mut rig = Rig::new();
     let quad = r#"{"v":1,"scene":{"nodes":[{"id":1,"mesh":"cube","picture":4,"color":[1,1,1,0.5]},{"id":2,"mesh":"quad","picture":4,"sampling":"nearest"}]}}"#;
     let b64 = |s: &str| glb::base64(s.as_bytes());
-    // Not uploaded yet: refused by name.
     let reply = rig.send(&format!("scene;id=9;s=64;v=64;px=0,0,64,64;r=1;{}", b64(quad)));
     assert!(reply.contains("EINVAL") && reply.contains("no picture 4"), "{reply}");
     assert!(rig.send("picture;id=4;f=24;s=1;v=1;r=2;////").contains("r=2;OK"));
@@ -670,8 +614,6 @@ fn a_node_shows_a_program_picture_on_its_mesh() {
     assert_eq!(scene.nodes[0].material.sampling, angel_glass::scene::Sampling::Linear);
     assert_eq!(scene.nodes[0].material.tint[3], 0.5);
     assert_eq!(scene.nodes[1].material.sampling, angel_glass::scene::Sampling::Nearest);
-    // The same id sent again (a video's next frame) still shows on the
-    // next scene sent.
     assert!(rig.send("picture;id=4;f=24;s=1;v=1;r=4;AAAA").contains("r=4;OK"));
     rig.send(&format!("scene;id=9;s=64;v=64;px=0,0,64,64;{}", b64(quad)));
     let scene = rig.intake.expansion.scene(9).expect("scene");
@@ -707,30 +649,24 @@ fn play_drives_a_clip_on_the_fake_clock_and_sleeps_when_still() {
     assert_eq!(rig.intake.animation_deadline(), Some(1016), "one display frame on");
     rig.intake.tick_animations(1500);
     assert!(near(quad_x(&rig), 1.0), "a quarter of the way: {}", quad_x(&rig));
-    // It loops by default: 2.5 s in is 0.5 s in.
     rig.intake.tick_animations(3500);
     assert!(near(quad_x(&rig), 1.0));
-    // Paused, it holds and wakes nothing.
     rig.send("play;id=9;pause=1");
     rig.intake.tick_animations(3600);
     assert!(near(quad_x(&rig), 1.0));
     assert_eq!(rig.intake.animation_deadline(), None);
-    // Seek and speed while paused, then resume: it carries on from there.
     rig.send("play;id=9;t=1;speed=0.5;pause=0");
     rig.intake.tick_animations(4000);
     assert!(near(quad_x(&rig), 2.0));
     rig.intake.tick_animations(5000);
     assert!(near(quad_x(&rig), 3.0), "half speed: {}", quad_x(&rig));
-    // Once through, it ends on the last pose and sleeps.
     rig.send("play;id=9;loop=0;speed=1");
     rig.intake.tick_animations(5000);
     rig.intake.tick_animations(9000);
     assert!(near(quad_x(&rig), 4.0));
     assert_eq!(rig.intake.animation_deadline(), None);
-    // Stop goes back to the file's own pose.
     rig.send("play;id=9;stop=1");
     assert!(near(quad_x(&rig), 1.0), "the rest pose: {}", quad_x(&rig));
-    // The scene sent again while playing keeps its place.
     rig.send("play;id=9");
     rig.intake.tick_animations(10_000);
     rig.intake.tick_animations(11_000);
@@ -765,7 +701,6 @@ fn asset_and_play_errors_name_themselves() {
     assert!(rig.send("play;id=4;clip=2;r=1").contains("EINVAL:asset 3 has 1 clips"));
     assert!(rig.send("play;id=4;node=6;r=1").contains("EINVAL:no glTF asset hangs from node 6"));
     assert!(rig.send("play;id=4;speed=40;r=1").contains("EINVAL:speed= must be"));
-    // A node id in the window's own range is refused on the wire.
     let reserved = glb::base64(br#"{"v":1,"scene":{"nodes":[{"id":9223372036854775808}]}}"#);
     assert!(rig.send(&format!("scene;id=5;s=8;v=8;px=0,0,8,8;r=1;{reserved}")).contains("below 2^63"));
 }
@@ -779,7 +714,6 @@ fn assets_are_capped_in_count_and_removed_by_id() {
     }
     let full = rig.send(&format!("asset;id=999;r=1;{b64}"));
     assert!(full.contains("ENOMEM"), "{full}");
-    // The same id replaces, and is not counted twice.
     assert!(rig.send(&format!("asset;id=0;r=1;{b64}")).contains("OK"));
     rig.send("remove;asset=0-9");
     assert!(rig.send(&format!("asset;id=999;r=1;{b64}")).contains("OK"));
@@ -801,10 +735,6 @@ fn an_asset_from_a_path_follows_the_file_medium_rules() {
     }
 }
 
-// ------------------------------------------------------------- skins
-
-/// Where the Mixamo characters are kept on the machine that has them
-/// (`GLASS_MIXAMO`, else `~/models/mixamo`); they are not in the repository.
 fn mixamo_dir() -> std::path::PathBuf {
     std::env::var_os("GLASS_MIXAMO").map_or_else(
         || std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default().join("models/mixamo"),
@@ -812,9 +742,6 @@ fn mixamo_dir() -> std::path::PathBuf {
     )
 }
 
-/// The skinned vertices of every skinned node of scene `id`: each node's
-/// mesh's positions through its joints (angel_stage's own maths, which the
-/// mesh shader mirrors).
 fn skinned_points(rig: &Rig, id: u32, uploads: &[(u32, std::sync::Arc<angel_glass::scene::MeshData>)]) -> Vec<[f32; 3]> {
     use angel_glass::scene::{mat_point, skin_matrix};
     let scene = rig.intake.expansion.scene(id).expect("scene");
@@ -831,7 +758,6 @@ fn skinned_points(rig: &Rig, id: u32, uploads: &[(u32, std::sync::Arc<angel_glas
     out
 }
 
-/// The box `points` fill: its least and most corners.
 fn bounds(points: &[[f32; 3]]) -> ([f32; 3], [f32; 3]) {
     let mut lo = [f32::INFINITY; 3];
     let mut hi = [f32::NEG_INFINITY; 3];
@@ -847,8 +773,6 @@ fn bounds(points: &[[f32; 3]]) -> ([f32; 3], [f32; 3]) {
 #[test]
 #[ignore = "reads the Mixamo characters from $GLASS_MIXAMO (else ~/models/mixamo); skips any that is not there"]
 fn the_mixamo_characters_load_bend_at_rest_and_play() {
-    // (file, skins, clips, base colour pictures decoded: a PNG, a JPEG
-    // both materials share, none, none)
     let files = [("Michelle.glb", 1, 2, 1usize), ("Soldier.glb", 2, 4, 1), ("Xbot.glb", 1, 7, 0), ("man.glb", 1, 10, 0)];
     let mut seen = 0;
     for (k, (file, skins, clips, textures)) in files.into_iter().enumerate() {
@@ -865,8 +789,6 @@ fn the_mixamo_characters_load_bend_at_rest_and_play() {
         assert!(loaded.images.len() >= textures, "{file}: {} textures decoded", loaded.images.len());
         assert!(a.skins.iter().all(|s| s.joints.len() <= ASSET_JOINTS && s.inverse_bind.len() == s.joints.len()));
         assert!(a.prims.iter().all(|p| !p.mesh.joints.is_empty()), "{file}: every primitive is skinned");
-        // Through the dialect, as a program sends it: read from its path,
-        // hung in a scene, at rest, then playing.
         let mut rig = Rig::new();
         let id = 10 + k as u32;
         let reply = rig.send(&format!("asset;id={id};t=f;r=1;{}", glb::base64(path.to_string_lossy().as_bytes())));
@@ -878,18 +800,14 @@ fn the_mixamo_characters_load_bend_at_rest_and_play() {
         let uploads = rig.intake.expansion.take_mesh_uploads();
         let skinned = rig.intake.expansion.scene(9).expect("scene").nodes.iter().filter(|n| n.skin.is_some()).count();
         assert!(skinned >= skins, "{file}: {skinned} skinned nodes");
-        // At rest the figure stands about a person's height, feet near the
-        // floor: its joints and inverse bind matrices agree.
         let rest = skinned_points(&rig, 9, &uploads);
         let (lo, hi) = bounds(&rest);
         eprintln!("{file}: at rest {lo:?}..{hi:?}");
         let height = hi[1] - lo[1];
         assert!((1.2..2.3).contains(&height), "{file}: {height} tall at rest");
         assert!(lo[1].abs() < 0.3, "{file}: its feet at {}", lo[1]);
-        // Every material is the host's chrome.
         let s = rig.intake.expansion.scene(9).expect("scene");
         assert!(s.nodes.iter().filter(|n| n.mesh.is_some()).all(|n| n.material.chrome == 1.0 && n.material.liquid == 0.3));
-        // Playing: two moments apart bend it differently, and stay sound.
         assert!(rig.send("play;id=9;clip=0;r=3").contains("r=3;OK"));
         rig.intake.tick_animations(1000);
         rig.intake.tick_animations(1400);
@@ -902,8 +820,6 @@ fn the_mixamo_characters_load_bend_at_rest_and_play() {
         assert!(moved > 0.01, "{file}: the clip bends it ({moved})");
         let (lo, hi) = bounds(&two);
         assert!(hi[1] - lo[1] < 3.0 && lo[1] > -1.0, "{file}: still a figure while it plays: {lo:?}..{hi:?}");
-        // Every clip, at a few moments: sound, and still a figure (a dance
-        // may bounce and travel, never fly apart).
         let mut clock = 3000;
         for clip in 0..clips {
             assert!(rig.send(&format!("play;id=9;clip={clip};r=4")).contains("r=4;OK"), "{file} clip {clip}");
@@ -922,8 +838,6 @@ fn the_mixamo_characters_load_bend_at_rest_and_play() {
     if seen < files.len() {
         return;
     }
-    // The performance bar's scene: three figures and sixty shapes, sent
-    // again whole every display frame. What the intake spends on each.
     let mut rig = Rig::new();
     for (k, file) in ["Xbot.glb", "Michelle.glb", "Soldier.glb"].iter().enumerate() {
         let path = mixamo_dir().join(file);
@@ -954,12 +868,6 @@ fn the_mixamo_characters_load_bend_at_rest_and_play() {
     eprintln!("a 63-node scene with three figures, sent again, ticked and taken: {each:.3} ms a frame");
 }
 
-/// Two joints and a triangle they bend: joint A (node 0) at the origin,
-/// joint B (node 1) a unit up from it, the mesh (node 2) skinned by them,
-/// all under a root (node 3). Bound where they stand: A's inverse bind is
-/// the identity, B's a unit down. Vertex 0 (1, 1, 0) follows B, vertex 1
-/// (-1, 1, 0) both by half, vertex 2 (0, 2, 0) A. One clip turns B a
-/// quarter about z over a second.
 fn skinned_file(joints_u16: bool) -> Gltf {
     let mut g = Gltf::default();
     let pos = g.floats(&[1., 1., 0., -1., 1., 0., 0., 2., 0.], "VEC3");
@@ -1012,14 +920,12 @@ fn a_skin_is_read_with_its_joints_weights_and_inverse_bind_matrices() {
         assert_eq!(mesh.weights[1], [0.5, 0.5, 0.0, 0.0]);
         assert_eq!(a.bytes, 3 * VERTEX_BYTES + 3 * INDEX_BYTES + 3 * SKIN_BYTES, "a skinned vertex costs its joints too");
     }
-    // A skin with no inverse bind matrices binds at the identity.
     let mut g = skinned_file(false);
     g.extra = vec![r#""skins":[{"joints":[0,1]}]"#.into()];
     let a = load(&g.glb()).expect("loads").asset;
     assert!(a.skins[0].inverse_bind.iter().all(|m| *m == angel_glass::scene::IDENTITY_MATRIX));
 }
 
-/// The triangle's three points in the world, through its skin.
 fn bent(rig: &Rig) -> Vec<[f32; 3]> {
     let scene = rig.intake.expansion.scene(9).expect("scene");
     let worlds = scene.world_matrices();
@@ -1037,19 +943,13 @@ fn a_skinned_asset_rests_in_its_bind_pose_and_bends_as_its_clip_turns_a_joint() 
     let mut rig = Rig::new();
     assert!(rig.send(&format!("asset;id=3;r=1;{}", glb::base64(&skinned_file(false).glb()))).contains("r=1;OK"));
     rig.send(&format!("scene;id=9;s=64;v=64;px=0,0,64,64;{}", scene_json(3)));
-    // At rest it is its bind pose: the triangle as the file gave it, where
-    // the host node (z -3) puts it.
     let rest = bent(&rig);
     for (got, want) in rest.iter().zip([[1.0, 1.0, -3.0], [-1.0, 1.0, -3.0], [0.0, 2.0, -3.0]]) {
         assert!(near3(*got, want), "rest: {got:?} != {want:?}");
     }
-    // The skinned node's joints are the asset's nodes as this scene has them.
     let scene = rig.intake.expansion.scene(9).expect("scene");
     let skin = scene.nodes.iter().find_map(|n| n.skin.clone()).expect("a skin");
     assert!(skin.joints.iter().all(|id| scene.nodes.iter().any(|n| n.id == *id)));
-    // A second in, B has turned a quarter: by hand, vertex 0 goes (1, 1)
-    // -> (1, 0) -> (0, 1) -> (0, 2); vertex 1 is half of (-1, 1) and half
-    // of (0, 0); vertex 2 stays with A.
     rig.send("play;id=9;loop=0");
     rig.intake.tick_animations(1000);
     rig.intake.tick_animations(2000);
@@ -1057,7 +957,6 @@ fn a_skinned_asset_rests_in_its_bind_pose_and_bends_as_its_clip_turns_a_joint() 
     for (got, want) in turned.iter().zip([[0.0, 2.0, -3.0], [-0.5, 0.5, -3.0], [0.0, 2.0, -3.0]]) {
         assert!(near3(*got, want), "turned: {got:?} != {want:?}");
     }
-    // Stopped, it rests in its bind pose again.
     rig.send("play;id=9;stop=1");
     assert_eq!(bent(&rig), rest);
 }
@@ -1070,12 +969,10 @@ fn skins_are_capped_and_their_errors_name_themselves() {
         code(load(&g.glb()))
     };
     let joints = |n: usize| (0..n).map(|i| (i % 2).to_string()).collect::<Vec<_>>().join(",");
-    // 256 joints a skin is the most; one more is refused by name.
     assert_eq!(skins(format!(r#""skins":[{{"joints":[{}]}}]"#, joints(ASSET_JOINTS))).0, "OK");
     let (c, m) = skins(format!(r#""skins":[{{"joints":[{}]}}]"#, joints(ASSET_JOINTS + 1)));
     assert_eq!(c, "EFBIG");
     assert!(m.contains("skin 0 has 257 joints; the cap is 256"), "{m}");
-    // 64 skins an asset.
     let many = |n: usize| format!(r#""skins":[{}]"#, vec![r#"{"joints":[0,1]}"#; n].join(","));
     assert_eq!(skins(many(ASSET_SKINS)).0, "OK");
     let (c, m) = skins(many(ASSET_SKINS + 1));
@@ -1095,7 +992,6 @@ fn skins_are_capped_and_their_errors_name_themselves() {
     let mut g = skinned_file(false);
     g.nodes[2] = r#"{"mesh":0,"skin":4}"#.into();
     assert!(code(load(&g.glb())).1.contains("node 2 names skin 4, out of range"));
-    // Joints without weights, and the other way round.
     for (drop, needle) in [("WEIGHTS_0", "JOINTS_0 without WEIGHTS_0"), ("JOINTS_0", "WEIGHTS_0 without JOINTS_0")] {
         let mut g = skinned_file(false);
         let attrs = if drop == "WEIGHTS_0" { r#""POSITION":0,"NORMAL":1,"JOINTS_0":2"# } else { r#""POSITION":0,"NORMAL":1,"WEIGHTS_0":3"# };
@@ -1106,8 +1002,6 @@ fn skins_are_capped_and_their_errors_name_themselves() {
 
 #[test]
 fn other_uv_sets_and_extensions_used_but_not_required_are_taken() {
-    // A base colour texture on TEXCOORD_2 of three sets: its uvs are that
-    // set's.
     let mut g = quad_file();
     let sets: Vec<usize> = (0..3).map(|s| g.floats(&[s as f32, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "VEC2")).collect();
     let tex = g.png_texture(&glb::png(1, 1, &[255, 0, 0, 255]), false);
@@ -1122,8 +1016,6 @@ fn other_uv_sets_and_extensions_used_but_not_required_are_taken() {
     let a = load(&g.glb()).expect("an extension used but not required is passed over").asset;
     assert_eq!(a.prims[0].mesh.uvs[0], [2.0, 0.0], "TEXCOORD_2's uvs");
 }
-
-// ------------------------------------------------- faces, edges, finish
 
 #[test]
 fn faces_show_uploaded_pictures_and_a_missing_one_is_refused_by_name() {
@@ -1156,7 +1048,6 @@ fn faces_show_uploaded_pictures_and_a_missing_one_is_refused_by_name() {
     let cube = &scene.nodes[1];
     assert_eq!(cube.face_materials.len(), 6);
     assert_eq!(picture(&cube.face_materials[0]), Some(five));
-    // A colour tween moves the faces with the node; the edge keeps its own.
     assert!(rig.send("tween;id=9;node=1;color=0,0,1,1;dur=0;r=6").contains("OK"));
     rig.intake.tick_animations(1000);
     rig.intake.tick_animations(1100);

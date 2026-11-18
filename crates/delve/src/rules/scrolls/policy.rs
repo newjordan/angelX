@@ -34,8 +34,6 @@ impl Intent {
         }
     }
 }
-/// Metadata needed to write a choice. No executable lines, sprites, media,
-/// avatar or whole-world state cross the policy RPC.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Entry {
@@ -86,8 +84,6 @@ impl Entry {
     fn fits(&self, making: Option<&identity::Making>) -> bool {
         making.is_none_or(|m| m.asks().first().is_some_and(|ask| ask.accepts(self.answers)))
     }
-    /// How far its ladder climbs on a floor whose top tier is `top`
-    /// (`overclass::top_tier`): its length, or that floor's reach.
     fn room(&self, top: usize) -> usize {
         self.tiers.len().min(top + 1)
     }
@@ -111,16 +107,11 @@ pub struct Facts {
     pub max_hp: u32,
     pub wishes: u8,
     pub great_wishes: u8,
-    /// Fairy wishes held (`nooks::gnome`): a wish to spend like any other.
     #[serde(default)]
     pub fairy_wishes: u8,
-    /// A shooting star's wish held (`starfall`): spent first, free, one
-    /// step and never a super wish.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub star_wish: bool,
     pub deck: Vec<String>,
-    /// The floor the knight stands on: a ladder climbs to its fourth and
-    /// fifth tiers only deep enough down (`overclass::top_tier`).
     #[serde(default)]
     pub depth: u32,
     pub making: Option<identity::Making>,
@@ -184,8 +175,6 @@ pub struct Decision {
     pub blood_price: u32,
 }
 pub type ResultValue = Result<Decision, String>;
-/// Native-only capture owns resolved definitions. The worker receives Request
-/// metadata; accepted IDs resolve exclusively through this immutable capture.
 pub struct Capture {
     pub request: Request,
     book: Arc<Vec<Wish>>,
@@ -393,8 +382,6 @@ impl Request {
         {
             return Err("No wishes held: each floor brings two, and its boss a super wish.".into());
         }
-        // A shooting star's wish is said before any of the knight's own:
-        // free, one step, never a super one (`starfall`).
         let star = self.facts.star_wish;
         let said = self.said.as_str();
         let wish = self.known.as_ref();
@@ -438,8 +425,6 @@ impl Request {
             });
         }
         let hero = &self.facts;
-        // A knight still unmade wishes only themselves, with plain wishes:
-        // a super wish waits for the whole knight (`identity`).
         let making = self.facts.making.clone();
         let great = !star && hero.great_wishes > 0 && making.is_none();
         if let Some(m) = &making {
@@ -456,12 +441,9 @@ impl Request {
                 return Err(format!("{} {ask}", m.first()));
             }
         }
-        // Freeing the genie takes a super wish, star or no star.
         if genie::frees(said) && wish.is_none() && making.is_none() {
             return self.freedom(hero.great_wishes > 0);
         }
-        // A summoner's scroll asks whom it is for, his dead first when the
-        // words name them (`dead_wishes`).
         let target = self.facts.summoner.then(|| {
             if super::super::dead_wishes::named(said)
                 || self
@@ -481,8 +463,6 @@ impl Request {
                 ^ u64::from(self.facts.player).rotate_left(29)
                 ^ u64::from(self.facts.genie.sealed).wrapping_mul(0x9e37_79b9),
         );
-        // A ladder climbs as far as this floor lets it (`overclass::top_tier`):
-        // past that, its tier waits for a deeper floor, as the grant says.
         let top = overclass::top_tier(hero.depth);
         let (name, ladder) = match wish {
             Some(w) => {
@@ -512,11 +492,8 @@ impl Request {
             cost: if star { "the star's, free".into() } else { String::new() },
             tip: None,
         }];
-        // Bolder when the ladder has the step and the floor gives it; the
-        // genie's whim when it has not, or now and then when he feels like it.
         let bolder = !star && ladder.is_none_or(|(w, tier)| tier + usize::from(steps) < w.room(top));
         let asked = ladder.map(|(w, _)| w.id.as_str());
-        // His whim is a step further when a wish has the step, else as strong.
         let whim = self
             .whim(&deck, asked, steps + 1, roll, making.as_ref(), top)
             .map(|w| (w, steps + 1))
@@ -541,8 +518,6 @@ impl Request {
                 tip: None,
             }
         });
-        // A star's wish is one step: the star gives no more for blood, so
-        // its scroll offers the words and the genie's whim at that step.
         let whim = if star {
             self.whim(&deck, asked, steps, roll, making.as_ref(), top).map(|other| {
                 let tier = other.next_tier(&deck).unwrap_or(0);
@@ -571,8 +546,6 @@ impl Request {
                 tip: None,
             })
         } else if great && whim.as_ref().is_none_or(|w| w.steps <= steps) {
-            // A super wish with nowhere further to go: one step now, and a
-            // plain wish kept for later.
             Some(Choice {
                 take: Take::Split,
                 wish: id_of.clone(),
@@ -587,7 +560,6 @@ impl Request {
         };
         choices.extend(middle);
         if star {
-            // Wished upon a star: nothing to bargain with, and nothing owed.
             let lines = [
                 "A star heard you! How should it land?",
                 "Wish upon a star: it costs you nothing.",

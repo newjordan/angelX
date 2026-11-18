@@ -6,7 +6,6 @@ use super::*;
 use crate::render::overworld::kingdom as geography;
 use crate::rules::pastimes::{FIRE, FUSE, Game};
 
-/// A party of `seats` in the kingdom, by the Keep.
 fn kingdom(seats: u32) -> Run {
     let mut r = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
     for id in 3..=seats {
@@ -18,7 +17,6 @@ fn kingdom(seats: u32) -> Run {
     r
 }
 
-/// The Colosseum's door on the kingdom's map.
 fn colosseum_site(r: &Run) -> usize {
     let geo = geography::geography(&r.kingdom.wishes);
     geo.sites
@@ -27,7 +25,6 @@ fn colosseum_site(r: &Run) -> usize {
         .expect("the Colosseum has a door on the map")
 }
 
-/// In through the Colosseum's door, as E at its stand does.
 fn in_the_hall(seats: u32) -> Run {
     let mut r = kingdom(seats);
     let site = colosseum_site(&r);
@@ -35,7 +32,6 @@ fn in_the_hall(seats: u32) -> Run {
     let h = r.players.get_mut(&1).unwrap();
     (h.x, h.y) = ((stand.0 as f32 + 0.5) * TILE_UNITS, (stand.1 as f32 + 0.7) * TILE_UNITS);
     let e = Input { interact: true, ..Default::default() };
-    // A fresh press: the E that walked into the kingdom is let go first.
     r.step(&BTreeMap::new());
     r.step(&BTreeMap::from([(1, e)]));
     r.step(&BTreeMap::new());
@@ -47,11 +43,8 @@ fn place(r: &mut Run, id: u32, (x, y): (f32, f32)) {
     (h.x, h.y) = (x * TILE_UNITS, y * TILE_UNITS);
 }
 
-/// The party stands on plate `at` until it has gone through it: a gate
-/// takes the whole fellowship (`fellowship`).
 fn take(r: &mut Run, at: (i32, i32, i32, i32)) {
     let from = r.room().kind;
-    // Off any plate first, so the next one is a fresh step.
     r.step(&BTreeMap::new());
     let ids: Vec<u32> = r.players.keys().copied().collect();
     for id in ids {
@@ -84,7 +77,6 @@ fn the_door_leads_to_the_hall_its_gates_to_the_arenas_and_back_out() {
     assert!(r.kingdom.return_to.is_some(), "a visit from the kingdom");
     let stand = r.kingdom.return_to.as_ref().map(|b| (b.x, b.y)).unwrap();
 
-    // The west gate: Powder Keg, and back.
     take(&mut r, colosseum::GATES[0]);
     assert_eq!(r.room().kind, RoomKind::KegYard);
     assert_eq!(colosseum::game_in(r.room().kind), Some(Game::Powder));
@@ -94,7 +86,6 @@ fn the_door_leads_to_the_hall_its_gates_to_the_arenas_and_back_out() {
     let (gx, gy) = colosseum::GATE_FRONT[0];
     assert!((x - gx).abs() < 2.0 && (y - gy).abs() < 1.0, "before the west gate, at {x},{y}");
 
-    // The east gate: Gander Joust, and back.
     take(&mut r, colosseum::GATES[1]);
     assert_eq!(r.room().kind, RoomKind::GanderHall);
     assert_eq!(colosseum::game_in(r.room().kind), Some(Game::Gander));
@@ -103,8 +94,6 @@ fn the_door_leads_to_the_hall_its_gates_to_the_arenas_and_back_out() {
     let (x, _) = tiles(&r, 1);
     assert!((x - colosseum::GATE_FRONT[1].0).abs() < 2.0, "before the east gate, at {x}");
 
-    // The leave key in an arena also comes back to the hall, and the visit
-    // still returns to the kingdom from there.
     take(&mut r, colosseum::GATES[0]);
     assert_eq!(r.room().kind, RoomKind::KegYard);
     for id in [1, 2] {
@@ -114,8 +103,6 @@ fn the_door_leads_to_the_hall_its_gates_to_the_arenas_and_back_out() {
     assert_eq!(r.room().kind, RoomKind::ColosseumHall, "out of the arena is the hall");
     assert!(r.kingdom.return_to.is_some(), "the hall still knows the way out");
 
-    // The great door: back to the kingdom, outside the Colosseum. Each
-    // knight goes out on their own feet, as at the College's gate.
     place(&mut r, 2, (12.0, 12.5));
     take(&mut r, colosseum::GREAT_DOOR);
     assert_eq!(r.room().kind, RoomKind::Kingdom);
@@ -132,7 +119,6 @@ fn an_arena_gate_stays_shut_while_its_heat_runs() {
     place(&mut r, 1, Game::Gander.start());
     r.step(&BTreeMap::new());
     assert!(r.pastimes.heat.is_some(), "the heat begins on the mark");
-    // A rider flung onto the gate does not carry the party out.
     for _ in 0..2 * HZ {
         place(&mut r, 2, (2.0, 10.0));
         r.step(&BTreeMap::new());
@@ -155,7 +141,6 @@ fn the_old_watch_and_the_marsh_are_places_again() {
         }
         assert!(r.pastimes.round.is_none() && r.pastimes.heat.is_none(), "the old pad in {kind:?} is gone");
     }
-    // The two arena games are each played in their own Colosseum room.
     assert_eq!(Game::Powder.room(), RoomKind::KegYard);
     assert_eq!(Game::Gander.room(), RoomKind::GanderHall);
 }
@@ -170,7 +155,6 @@ fn two_knights_in_the_keg_yard_crown_a_winner() {
     r.tick_pastimes(&BTreeMap::new());
     let heat = r.pastimes.heat.as_ref().expect("a heat for both knights");
     assert_eq!(heat.seats.len(), 2, "every knight in the arena plays");
-    // Knight 2 drops a keg where they stand and waits in its cross.
     r.tick_pastimes(&key(2, (0, 0), true));
     for _ in 0..u32::from(FUSE) + u32::from(FIRE) + 4 {
         r.tick_pastimes(&key(1, (0, 0), false));
@@ -187,9 +171,6 @@ fn two_knights_in_the_keg_yard_crown_a_winner() {
 
 #[test]
 fn an_old_save_loads() {
-    // A checkpoint from before the Colosseum: no hall and no arenas on the
-    // home floor, the party in the Old Watch with a Powder Keg heat on (as
-    // it was played there), and the records the games kept then.
     let mut old = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
     old.home.countryside.games.powder.best = 420;
     old.home.countryside.games.powder.plays = 3;
@@ -209,28 +190,23 @@ fn an_old_save_loads() {
     assert!(r.valid_snapshot());
     assert!(r.pastimes.round.as_ref().is_some_and(|r| r.game == Game::Powder));
     assert_eq!(world::room_of(&r.dungeon, RoomKind::ColosseumHall), None);
-    // The realm rises around it: the Colosseum's rooms are added.
     let (home, treasury) = (r.home.clone(), r.treasury.clone());
     r.rebuild_home(home, treasury);
     for kind in colosseum::ROOMS {
         assert!(world::room_of(&r.dungeon, kind).is_some(), "{kind:?} added");
     }
-    // The old heat in the Old Watch is let go; the records are kept.
     r.step(&BTreeMap::new());
     assert!(r.pastimes.round.is_none() && r.pastimes.heat.is_none());
     assert_eq!(r.room().kind, RoomKind::Ruins);
     assert_eq!(r.home.countryside.games.best_for(Game::Powder), 420);
     assert_eq!(r.home.countryside.games.plays_for(Game::Gander), 2);
     assert!(r.valid_snapshot());
-    // Every game keeps its place in the list (saved masks index by it).
     assert_eq!(Game::Powder.index(), 16);
     assert_eq!(Game::Gander.index(), 17);
     assert_eq!(Game::Peal.index(), 19);
     assert_eq!(Game::ALL.len(), 20);
 }
 
-/// The frames, to look at:
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve write_colosseum_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_colosseum_shots() {
@@ -247,7 +223,6 @@ fn write_colosseum_shots() {
             .save(dir.join(name))
             .unwrap();
     };
-    // Outside, at the Colosseum's door.
     let mut r = kingdom(2);
     let site = colosseum_site(&r);
     let stand = geography::geography(&r.kingdom.wishes).sites[site].stand;
@@ -256,13 +231,11 @@ fn write_colosseum_shots() {
         r.step(&BTreeMap::new());
     }
     save(&r, 1, "1-outside.png");
-    // In the entrance hall.
     let mut r = in_the_hall(2);
     for _ in 0..20 {
         r.step(&BTreeMap::new());
     }
     save(&r, 1, "2-hall.png");
-    // The Powder Keg yard, before the heat and mid-heat with two knights.
     take(&mut r, colosseum::GATES[0]);
     settle(&mut r);
     save(&r, 1, "3-yard-arrive.png");
@@ -280,12 +253,10 @@ fn write_colosseum_shots() {
         r.step(&key(2, (1, 0), false));
     }
     save(&r, 1, "4-yard-heat.png");
-    // Out through the yard's gate once the heat is done: back in the hall.
     r.pastimes.leave();
     take(&mut r, colosseum::YARD_GATE);
     settle(&mut r);
     save(&r, 1, "5-back-in-hall.png");
-    // The Gander Joust hall mid-heat: both knights aloft, leaning apart.
     take(&mut r, colosseum::GATES[1]);
     settle(&mut r);
     save(&r, 1, "6-gander-arrive.png");
@@ -298,7 +269,6 @@ fn write_colosseum_shots() {
         r.step(&ride(1, 1, i % 3 == 0));
         r.step(&ride(2, -1, i % 4 == 0));
     }
-    // Seat one dives on seat two over the middle ledge: the clack to come.
     {
         let g = r.pastimes.round.as_mut().and_then(|r| r.gander.as_mut()).unwrap();
         for (k, (x, y, face)) in [(9 * 256, 4 * 256 + 40, 1), (11 * 256, 6 * 256, -1)].into_iter().enumerate() {
@@ -308,7 +278,6 @@ fn write_colosseum_shots() {
     }
     r.step(&BTreeMap::new());
     save(&r, 1, "7-gander-heat.png");
-    // The Old Watch and the Marsh, places again: no pads on their floors.
     for (kind, name) in [(RoomKind::Ruins, "8-old-watch.png"), (RoomKind::Marsh, "9-marsh.png")] {
         let mut r = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
         r.floor_plates.clear();
@@ -318,7 +287,6 @@ fn write_colosseum_shots() {
     }
 }
 
-/// A few quiet ticks: the arrival's blink is over.
 fn settle(r: &mut Run) {
     for _ in 0..40 {
         r.step(&BTreeMap::new());

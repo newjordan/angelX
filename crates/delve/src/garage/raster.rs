@@ -13,21 +13,18 @@ use super::look::{Surf, fog_colour, surface};
 use crate::render::world3d::math::V3;
 use crate::render::world3d::mesh::Mesh;
 
-/// A pinhole camera, looking along `fwd`.
 #[derive(Clone, Copy, Debug)]
 pub struct Camera {
     pub eye: V3,
     pub fwd: V3,
     pub right: V3,
     pub up: V3,
-    /// Focal length, in pixels.
     pub focal: f32,
     pub w: usize,
     pub h: usize,
 }
 
 impl Camera {
-    /// A camera at `eye` looking at `target`, `fov` radians across `w` pixels.
     pub fn look(eye: V3, target: V3, fov: f32, w: usize, h: usize) -> Camera {
         let fwd = (target - eye).normalize();
         let right = fwd.cross(V3::UP).normalize();
@@ -35,7 +32,6 @@ impl Camera {
         Camera { eye, fwd, right, up, focal: w as f32 * 0.5 / (fov * 0.5).tan(), w, h }
     }
 
-    /// A world point as (x, y, depth) on the screen; none behind the lens.
     pub fn project(&self, p: V3) -> Option<(f32, f32, f32)> {
         let d = p - self.eye;
         let z = d.dot(self.fwd);
@@ -48,7 +44,6 @@ impl Camera {
         })
     }
 
-    /// The world point at depth `z` seen through the middle of pixel (x, y).
     fn unproject(&self, x: usize, y: usize, z: f32) -> V3 {
         let sx = (x as f32 + 0.5 - self.w as f32 * 0.5) / self.focal;
         let sy = (self.h as f32 * 0.5 - y as f32 - 0.5) / self.focal;
@@ -56,30 +51,24 @@ impl Camera {
     }
 }
 
-/// A lamp: light that falls to nothing at `reach`.
 #[derive(Clone, Copy, Debug)]
 pub struct Light {
     pub pos: V3,
     pub colour: [f32; 3],
     pub reach: f32,
-    /// A glow drawn round the lamp itself, in pixels at 10 units' distance.
     pub halo: f32,
 }
 
-/// The whole shop's lighting.
 #[derive(Clone, Debug)]
 pub struct Lighting {
     pub ambient: [f32; 3],
     pub lamps: Vec<Light>,
 }
 
-/// The buffers one frame is drawn in.
 pub struct Raster {
     pub w: usize,
     pub h: usize,
-    /// 1 / depth of the nearest surface at each pixel; 0 for none.
     inv_z: Vec<f32>,
-    /// Which triangle: mesh in the top byte, triangle in the rest, plus one.
     hit: Vec<u32>,
     pub rgb: Vec<[u8; 3]>,
 }
@@ -89,19 +78,16 @@ impl Raster {
         Raster { w, h, inv_z: vec![0.0; w * h], hit: vec![0; w * h], rgb: vec![[0; 3]; w * h] }
     }
 
-    /// The depth at a pixel, if anything was drawn there.
     pub fn depth(&self, x: usize, y: usize) -> Option<f32> {
         let i = self.inv_z[y * self.w + x];
         (i > 0.0).then(|| 1.0 / i)
     }
 
-    /// Which pixels the meshes cover and how near.
     pub fn visibility(&mut self, cam: &Camera, meshes: &[&Mesh]) {
         self.inv_z.fill(0.0);
         self.hit.fill(0);
         for (mi, mesh) in meshes.iter().enumerate() {
             for (ti, t) in mesh.tris.iter().enumerate() {
-                // into the camera's space: x right, y up, z forward
                 let c = t.v.map(|p| {
                     let d = p - cam.eye;
                     [d.dot(cam.right), d.dot(cam.up), d.dot(cam.fwd)]
@@ -152,7 +138,6 @@ impl Raster {
         }
     }
 
-    /// Light the covered pixels; the rest is the shop's dark.
     pub fn shade(&mut self, cam: &Camera, meshes: &[&Mesh], lights: &Lighting, sky: [u8; 3]) {
         let mut surf = Surf::default();
         for y in 0..self.h {
@@ -174,7 +159,6 @@ impl Raster {
         }
     }
 
-    /// Add a soft glow round each lamp that has one and is not hidden.
     pub fn halos(&mut self, cam: &Camera, lights: &Lighting) {
         for l in &lights.lamps {
             if l.halo <= 0.0 {
@@ -191,7 +175,6 @@ impl Raster {
                     if k <= 0.0 {
                         continue;
                     }
-                    // hidden behind something nearer than the lamp: no glow
                     let i = y * self.w + x;
                     if self.inv_z[i] > 0.0 && 1.0 / self.inv_z[i] < z - 0.5 {
                         continue;
@@ -205,7 +188,6 @@ impl Raster {
     }
 }
 
-/// The polygon of a triangle in camera space that is in front of `near`.
 fn clip_near(c: &[[f32; 3]; 3], near: f32) -> ([[f32; 3]; 4], usize) {
     let mut out = [[0.0; 3]; 4];
     let mut n = 0;
@@ -225,10 +207,8 @@ fn clip_near(c: &[[f32; 3]; 3], near: f32) -> ([[f32; 3]; 4], usize) {
     (out, n)
 }
 
-/// One lit surface point.
 fn light(s: &Surf, p: V3, n: V3, to_eye: V3, depth: f32, lights: &Lighting) -> [u8; 3] {
     let mut c = [0.0f32; 3];
-    // a little sky bounce, more on what faces up
     let sky = 0.55 + 0.45 * n.z.max(0.0);
     for (k, v) in c.iter_mut().enumerate() {
         *v = s.albedo[k] * lights.ambient[k] * sky;
@@ -257,7 +237,6 @@ fn light(s: &Surf, p: V3, n: V3, to_eye: V3, depth: f32, lights: &Lighting) -> [
     let mut out = [0u8; 3];
     for k in 0..3 {
         let lit = c[k] + s.glow[k];
-        // roll off toward white softly, never clip hard
         let mapped = 1.0 - (-lit * 1.45).exp();
         let v = mapped * (1.0 - haze) + fog[k] * haze;
         out[k] = (v.clamp(0.0, 1.0).powf(0.92) * 255.0) as u8;

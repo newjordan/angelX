@@ -7,14 +7,10 @@ use super::{Img, View};
 use crate::rules::juice::Weight;
 use crate::rules::lightgallop::{Session, level::level, show::Kind};
 
-/// Ticks a banner stands.
 const CALL_LIFE: u32 = 62;
-/// The title card's.
 pub(super) const TITLE_LIFE: u32 = 78;
-/// Where the spark counter sits: what the flying "+1" lands on.
 pub(super) const COUNTER: (i32, i32) = (46, 17);
 
-/// A call: what it says, the line under it, its ink and how old it is.
 pub(super) struct Call {
     pub title: String,
     pub sub: String,
@@ -23,8 +19,6 @@ pub(super) struct Call {
     pub life: u32,
 }
 
-/// The call standing for `me`: the loudest of what happened lately, the
-/// newest first among equals, or the title card as the ride begins.
 pub(super) fn call(s: &Session, me: u32) -> Option<Call> {
     let lvl = level();
     let mut best: Option<(u8, u32, Call)> = None;
@@ -54,12 +48,10 @@ pub(super) fn call(s: &Session, me: u32) -> Option<Call> {
     best.map(|(_, _, c)| c)
 }
 
-/// The call, a banner in the sky under the heads-up display.
 pub(super) fn banner(im: &mut Img, c: &Call) {
     juice::banner(im, 40, &c.title, &c.sub, c.age, c.life, c.tone, 3);
 }
 
-/// How long ago `me` last took a spark or popped a foe, if lately.
 pub(super) fn last_gain(s: &Session, me: u32) -> Option<u32> {
     s.show
         .fx
@@ -70,7 +62,6 @@ pub(super) fn last_gain(s: &Session, me: u32) -> Option<u32> {
         .min()
 }
 
-/// Each spark and each foe `me` just took flies to the counter as a "+1".
 pub(super) fn fly_ups(im: &mut Img, s: &Session, v: &View, me: u32) {
     let mut shown = 0;
     for f in s.show.fx.iter().rev() {
@@ -78,7 +69,6 @@ pub(super) fn fly_ups(im: &mut Img, s: &Session, v: &View, me: u32) {
         if u32::from(f.seat) != me || !matches!(f.kind, Kind::Spark | Kind::Pop) || age >= 16 {
             continue;
         }
-        // One flying at a time is a flourish; more is a crowd.
         if shown >= 1 {
             continue;
         }
@@ -88,7 +78,6 @@ pub(super) fn fly_ups(im: &mut Img, s: &Session, v: &View, me: u32) {
     }
 }
 
-/// A red rim for a blow on `me`, and the dark rim of speed.
 pub(super) fn rims(im: &mut Img, s: &Session, me: u32) {
     let Some(seat) = s.seats.get(&me) else { return };
     let area = (0, 31, 384, 193);
@@ -96,7 +85,6 @@ pub(super) fn rims(im: &mut Img, s: &Session, me: u32) {
         let age = f.age(s.elapsed);
         let life = if f.kind == Kind::Fall { 22 } else { 12 };
         if age == 0 && f.weight >= Weight::Kill {
-            // A blow that big pales the whole picture for a tick, through a thin dither.
             for y in 31..224 {
                 for x in 0..384 {
                     if crate::render::overworld::ink::bayer(x, y) < 0.2 {
@@ -115,9 +103,6 @@ pub(super) fn rims(im: &mut Img, s: &Session, me: u32) {
     }
 }
 
-/// The kit's `vignette` (a dithered rim of `fill` along the edges of a box, `k`
-/// how strong, `depth` pixels deep), visiting only the rim's own pixels: the
-/// rim of speed is drawn every frame at pace, and the kit's walks the whole box.
 fn rim(im: &mut Img, (bx, by, bw, bh): (i32, i32, i32, i32), k: f32, depth: i32, fill: char) {
     if k <= 0.0 {
         return;

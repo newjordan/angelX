@@ -17,11 +17,8 @@
 
 use serde::{Deserialize, Serialize};
 
-/// The schema this reader knows. Another schema is another contract.
 pub const SCHEMA: &str = "vec.board/1";
 
-/// The counters, in the board's `quest` object. A questline names them by
-/// these words; nothing else in the realm may (`questline` checks).
 pub const COUNTERS: [&str; 7] = [
     "vec_data_staged",
     "vec_heart_proxy_runs",
@@ -32,25 +29,18 @@ pub const COUNTERS: [&str; 7] = [
     "vec_heart_top10",
 ];
 
-/// The prefix the campaign's counters own: a questline naming a counter
-/// with it names the campaign's, and must name one of `COUNTERS`.
 pub const PREFIX: &str = "vec_";
 
-/// The most a board may weigh: it is a few kilobytes.
 pub const MAX_BYTES: usize = 256 * 1024;
 
-/// The most a counter may read. A count past it is not a count.
 pub const MAX_COUNT: u64 = 1_000_000;
 
-/// The campaign's counters as the board last said them. Zeros until a
-/// board is read; zeros again when the board goes missing or wrong.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Campaign {
     counts: [u32; COUNTERS.len()],
 }
 
 impl Campaign {
-    /// A board's bytes, read. Never panics: anything wrong reads as zeros.
     pub fn parse(bytes: &[u8]) -> Campaign {
         Campaign::read(bytes).unwrap_or_default()
     }
@@ -59,7 +49,6 @@ impl Campaign {
         if bytes.len() > MAX_BYTES {
             return None;
         }
-        // serde_json stops at 128 levels of nesting, with an error.
         let board: serde_json::Value = serde_json::from_slice(bytes).ok()?;
         if board.get("schema")?.as_str()? != SCHEMA {
             return None;
@@ -68,8 +57,6 @@ impl Campaign {
         let mut counts = [0; COUNTERS.len()];
         for (count, name) in counts.iter_mut().zip(COUNTERS) {
             if let Some(value) = quest.get(name) {
-                // Only a whole number: a negative, a fraction, a string, a
-                // bool or a null is a board gone wrong, and so is the rest.
                 let n = value.as_u64().filter(|&n| n <= MAX_COUNT)?;
                 *count = n as u32;
             }
@@ -77,7 +64,6 @@ impl Campaign {
         Some(Campaign { counts })
     }
 
-    /// The count of `counter`: 0 for one the campaign does not keep.
     pub fn count(&self, counter: &str) -> u32 {
         COUNTERS
             .iter()
@@ -85,23 +71,19 @@ impl Campaign {
             .map_or(0, |i| self.counts[i])
     }
 
-    /// Every counter with its count, in the board's order.
     pub fn counts(&self) -> impl Iterator<Item = (&'static str, u32)> + '_ {
         COUNTERS.iter().copied().zip(self.counts.iter().copied())
     }
 
-    /// Nothing counted yet (or no board to read).
     pub fn is_empty(&self) -> bool {
         self.counts.iter().all(|&n| n == 0)
     }
 }
 
-/// Whether `counter` is one of the campaign's.
 pub fn is_counter(counter: &str) -> bool {
     COUNTERS.contains(&counter)
 }
 
-/// Whether `counter` is in the campaign's reserved words (its prefix).
 pub fn reserved(counter: &str) -> bool {
     counter.starts_with(PREFIX)
 }

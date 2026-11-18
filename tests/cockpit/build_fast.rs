@@ -27,11 +27,8 @@ fn delve_build_does_not_watch_a_missing_kit() {
     );
 }
 
-// Shared encoder/decoder: the build script and lazy browser loader use this
-// exact source, so these tests do not substitute a test-only packing format.
 #[path = "../../cockpit/bundle_bytes.rs"]
 mod bundle_bytes;
 
-// The Delve build script shares this focused build-input policy gate.
 #[path = "../../crates/delve/build_watch.rs"]
 mod delve_build_watch;

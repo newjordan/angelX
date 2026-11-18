@@ -151,8 +151,6 @@ impl RolloutRecorder {
         })
     }
 
-    /// Observe actual harness dispatch truth, never model claims. Later mutations
-    /// and non-passing verifier attempts invalidate a previous green candidate.
     pub(crate) fn observe_task_verifier(
         &mut self,
         call: &crate::agent::club::ToolCall,
@@ -219,9 +217,6 @@ impl RolloutRecorder {
         }
     }
 
-    /// Observe the already-redacted Cut machine result at the post-write seam.
-    /// Only typed facts and digests survive; command, directory, diagnostics,
-    /// operator text, and provider text are never copied into the evidence body.
     pub(crate) fn observe_cut_machine(&mut self, machine: &serde_json::Value) {
         let RecorderState::Active(active) = &mut self.state else {
             return;
@@ -271,9 +266,6 @@ impl RolloutRecorder {
         active.cut_evidence.push(observation);
     }
 
-    /// Bind the final Cut reward to one immutable evidence manifest. Successive
-    /// post-write observations are inputs to this one receipt, never competing
-    /// reward owners.
     pub(crate) fn attach_cut_reward(
         &mut self,
         reward: Option<f32>,
@@ -311,9 +303,6 @@ impl RolloutRecorder {
         self.attach_reward(receipt)
     }
 
-    /// Attach one independently owned reward before sealing. The same receipt
-    /// is idempotent; a different owner, contract, value, or evidence digest
-    /// fails closed and makes the rollout ineligible.
     pub(crate) fn attach_reward(&mut self, receipt: RewardReceipt) -> Result<(), String> {
         receipt.validate()?;
         let RecorderState::Active(active) = &mut self.state else {
@@ -366,9 +355,6 @@ impl RolloutRecorder {
         if active.finished {
             return Err("cannot attach compatibility data to a sealed rollout".to_string());
         }
-        // The compatibility payload contains semantic metadata derived from
-        // turn history. Shadow mode is digest-only, so do not even evaluate
-        // the lazy snapshot closure outside Local capture.
         if active.manifest.capture.mode != CaptureMode::Local {
             return Ok(());
         }
@@ -416,9 +402,6 @@ impl RolloutRecorder {
             return Err("rollout is already sealed".to_string());
         }
         if active.signals.capture_failed {
-            // Once a write fails, never append a second request onto a journal
-            // whose previous event may be torn. The provider turn continues;
-            // finalization will seal the valid prefix as incomplete.
             return Ok(None);
         }
         let request = semantic_request(
@@ -539,7 +522,6 @@ impl RolloutRecorder {
                 InfrastructureClass::ProviderUnavailable
             },
             retryable,
-            // Error bodies can contain provider details. Persist a digest only.
             detail_sha256: crate::knowledge::cut::sha256_hex(error.as_bytes()),
         };
         let outcome = if emitted_answer {
@@ -627,9 +609,6 @@ impl RolloutRecorder {
             active.signals.capture_failed = true;
         }
         if active.signals.capture_failed {
-            // A failed append can leave an unterminated fragment. Re-anchor the
-            // cursor to the audited complete prefix before adding the terminal
-            // exclusion event; recovery never guesses past corrupt evidence.
             let events = active.store.audit_journal(&active.manifest.rollout_id)?;
             active
                 .store
@@ -996,9 +975,6 @@ pub(super) fn action_digest(action: &RecordedAction) -> Result<String, String> {
 }
 
 fn contains_likely_secret(text: &str) -> bool {
-    // Rollouts certify exact policy bytes. Reject sensitive bodies instead of
-    // rewriting them after their digest/task binding has been established.
-    // Decode JSON too: quoted or escaped credentials must not evade detection.
     if crate::platform::secrets::contains_secret(text) {
         return true;
     }
@@ -1006,9 +982,6 @@ fn contains_likely_secret(text: &str) -> bool {
 }
 
 fn contains_transport_secret(text: &str) -> bool {
-    // Inspect decoded values independently. A whitespace scan over serialized
-    // JSON can join a description tail to the next field name (for example
-    // `capability keywords","type":"string"`) and invent a credential.
     if let Ok(value) = serde_json::from_str::<serde_json::Value>(text) {
         return transport_value_contains_secret(&value);
     }
@@ -1047,9 +1020,6 @@ fn transport_value_contains_secret(value: &serde_json::Value) -> bool {
     }
 }
 
-/// Audit and seal one process-lost rollout without replaying model or tool
-/// effects. The operator-facing audit command is a later plan phase; keeping
-/// this entry point dormant does not make it part of the ordinary turn path.
 #[allow(dead_code)]
 pub(crate) fn recover_rollout(
     store: &RolloutStore,

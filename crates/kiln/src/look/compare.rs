@@ -11,35 +11,24 @@ use crate::palette::Palette;
 
 use super::Rgba;
 
-/// What two pictures share and where they part.
 #[derive(Clone, Debug)]
 pub struct Comparison {
     pub a: Side,
     pub b: Side,
-    /// The silhouettes' overlap over their union, feet together.
     pub iou: f32,
-    /// How far the reference is moved to set its feet on the first's.
     pub shift: (i32, i32),
-    /// Opaque pixels that hold the same colour, feet together.
     pub same: u32,
-    /// Inks both use.
     pub shared: Vec<char>,
 }
 
-/// One picture's numbers.
 #[derive(Clone, Debug)]
 pub struct Side {
     pub w: u32,
     pub h: u32,
-    /// Its figure's box, `(x, y, w, h)`.
     pub figure: Option<(i32, i32, i32, i32)>,
-    /// Its figure's pixels.
     pub px: u32,
-    /// Its inks by key, most first; `?` for a colour that is no realm ink.
     pub inks: Vec<(char, u32)>,
-    /// Pixels in no realm ink.
     pub off_palette: u32,
-    /// Its figure's mean lightness, 0..1.
     pub luma: f32,
 }
 
@@ -78,7 +67,6 @@ fn side(img: &Rgba) -> Side {
     }
 }
 
-/// Compare `a` with the reference `b`, both at one grain.
 pub fn compare(a: &Rgba, b: &Rgba) -> Comparison {
     let (sa, sb) = (side(a), side(b));
     let shift = match (sa.figure, sb.figure) {
@@ -109,7 +97,6 @@ pub fn compare(a: &Rgba, b: &Rgba) -> Comparison {
 }
 
 impl Comparison {
-    /// The comparison as text.
     pub fn text(&self, a_name: &str, b_name: &str) -> String {
         let mut s = String::new();
         let line = |s: &mut String, name: &str, x: &Side| {
@@ -150,8 +137,6 @@ impl Comparison {
     }
 }
 
-/// The two side by side and their silhouettes laid over each other, each
-/// pixel `scale` square.
 pub fn picture(a: &Rgba, b: &Rgba, c: &Comparison, scale: u32) -> Rgba {
     let (dx, dy) = c.shift;
     let (x0, y0) = (0.min(dx), 0.min(dy));

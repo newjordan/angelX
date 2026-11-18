@@ -78,7 +78,6 @@ fn the_log_says_what_the_party_is_doing() {
     assert!(walk[0].contains("leads the way"), "{walk:?}");
     let rest = log(&clock(Region::TheMines, 1, 40 * 60, Work::Rest), None);
     assert!(rest[0].contains("rests"), "{rest:?}");
-    // A knight alone is named, not called a party.
     let alone = log(
         &Clock {
             party: 1,
@@ -89,7 +88,6 @@ fn the_log_says_what_the_party_is_doing() {
     assert!(alone[0].starts_with("Sir Percival rests"), "{alone:?}");
 }
 
-/// Crawl frames for a look: `ANGEL_CRAWL_SHOTS=dir cargo test --bin angel -- --ignored write_crawl_shots`
 #[test]
 #[ignore]
 fn write_crawl_shots() {
@@ -125,7 +123,6 @@ fn write_crawl_shots() {
             clock(Region::DragonKeep, 5, 40 * 60 + 120, Work::Forge),
         ),
     ];
-    // A treasure hall on some floor of the Mines, and a stair just taken.
     let treasure = (0..60usize)
         .find(|&i| {
             let plan = plan(Region::TheMines, LoopKind::Coding, i / party::STATIONS);
@@ -146,8 +143,6 @@ fn write_crawl_shots() {
             ),
         ])
         .collect();
-    // Connected site shots use the production settlement renderer and actual
-    // event transitions, not alternate art or a frame-time progression script.
     let mut site = crate::together_settlement::Site::new(77, "Miner");
     for (name, receipts) in [
         ("settlement-player-hall", 0),
@@ -182,7 +177,6 @@ fn write_crawl_shots() {
     }
 }
 
-/// The braille a terminal shows for a frame, drawn as dots.
 fn terminal_preview(cells: &angel_delve::render::braille::ColoredBrailleImage) -> image::RgbaImage {
     let mut output = image::RgbaImage::from_pixel(
         cells.width as u32 * 8,
@@ -214,7 +208,6 @@ fn terminal_preview(cells: &angel_delve::render::braille::ColoredBrailleImage) -
     output
 }
 
-/// A real world in a coding loop, its scryglass pane showing the crawl.
 fn looping() -> crate::world_viz::World {
     use crate::world_viz::{AdventureEvent, Building, World};
     let mut world = World::new(42);
@@ -244,8 +237,6 @@ fn a_loop_shows_the_crawl_in_the_scryglass_and_says_what_happens() {
     assert!(!world.crawl_log(MotionMode::Full)[0].is_empty());
 }
 
-/// What the terminal shows through a turn of a coding loop:
-/// `ANGEL_CRAWL_SHOTS=dir cargo test --bin angel -- --ignored write_crawl_terminal_shots`
 #[test]
 #[ignore]
 fn write_crawl_terminal_shots() {
@@ -308,7 +299,6 @@ fn write_crawl_terminal_shots() {
     }
 }
 
-/// How long a frame takes at a Kitty pane's size (printed, not asserted).
 #[test]
 #[ignore]
 fn time_a_crawl_frame() {
@@ -330,8 +320,6 @@ fn time_a_crawl_frame() {
     );
 }
 
-/// A record's guardian keeps the pane even once the loop is home, says
-/// what's happening as the fight goes, and is gone after three minutes.
 #[test]
 fn a_promoted_record_brings_a_guardian_the_party_beats() {
     use crate::world_viz::AdventureEvent;
@@ -375,8 +363,6 @@ fn a_promoted_record_brings_a_guardian_the_party_beats() {
     );
 }
 
-/// The fight goes back and forth: the guardian's health falls as the party
-/// presses, climbs as it rallies; won, it ends at nothing; lost, whole.
 #[test]
 fn the_fight_goes_back_and_forth() {
     let won: Vec<f32> = (0..7200)
@@ -390,8 +376,6 @@ fn the_fight_goes_back_and_forth() {
     assert!(lost > 0.99, "lost, it's whole: {lost}");
 }
 
-/// A promotion that didn't come: the guardian holds, and the party falls
-/// back; two minutes, then the crawl again.
 #[test]
 fn a_promotion_that_didnt_come_is_a_retreat() {
     use crate::world_viz::AdventureEvent;
@@ -416,7 +400,6 @@ fn a_promotion_that_didnt_come_is_a_retreat() {
     assert!(world.crawl_clock(MotionMode::Full).fight.is_none());
 }
 
-/// The fight, frame by frame: `ANGEL_CRAWL_SHOTS=dir cargo test --bin angel -- --ignored write_record_fight_shots`
 #[test]
 #[ignore]
 fn write_record_fight_shots() {
@@ -454,8 +437,6 @@ fn write_record_fight_shots() {
     }
 }
 
-/// A record's fight as a terminal shows it:
-/// `ANGEL_CRAWL_SHOTS=dir cargo test --bin angel -- --ignored write_fight_terminal_shots`
 #[test]
 #[ignore]
 fn write_fight_terminal_shots() {
@@ -483,10 +464,6 @@ fn write_fight_terminal_shots() {
     }
 }
 
-/// A preview film of the crawl, frame by frame, with the two lines under
-/// each: a walk to a hall, each kind of work in it, a record's fight at 4x
-/// and a retreat's end at 8x.
-/// `ANGEL_CRAWL_FILM=dir cargo test --bin angel -- --ignored write_crawl_film`
 #[test]
 #[ignore]
 fn write_crawl_film() {
@@ -503,7 +480,6 @@ fn write_crawl_film() {
         verification: VerificationOutcome::NotApplicable,
     };
     let mut world = looping();
-    // A formation of three, so the party shows.
     world.note_adventure(AdventureEvent::Party { size: 3 });
     let mut frames: Vec<(String, String, String)> = Vec::new();
     let mut shoot = |world: &crate::world_viz::World, part: &str| {
@@ -514,7 +490,6 @@ fn write_crawl_film() {
         let said = world.crawl_log(MotionMode::Full);
         frames.push((part.to_string(), said[0].clone(), said[1].clone()));
     };
-    // The walk to the next hall, at twice the pace.
     for _ in 0..200 {
         if !world.crawl_log(MotionMode::Full)[0].contains("leads the way") {
             break;
@@ -524,7 +499,6 @@ fn write_crawl_film() {
             world.tick();
         }
     }
-    // Each kind of work in the hall, in real time.
     let mut call = 0;
     for (tool, seconds) in [
         (None, 4),
@@ -548,7 +522,6 @@ fn write_crawl_film() {
             world.note_tool_result_event(&id, tool, "done", done);
         }
     }
-    // A record: the fight, at four times its pace.
     world.note_adventure(AdventureEvent::RecordPromoted {
         score: Some("948.94M".into()),
     });
@@ -558,8 +531,6 @@ fn write_crawl_film() {
             world.tick();
         }
     }
-    // Another day: a promotion that didn't come, its last minute at eight
-    // times.
     world.note_adventure(AdventureEvent::PromotionFailed {
         score: Some("951.02M".into()),
     });
@@ -583,8 +554,6 @@ fn write_crawl_film() {
     .unwrap();
 }
 
-/// The crawl as a small corner pane shows it (braille cells):
-/// `ANGEL_CRAWL_SHOTS=dir cargo test --bin angel -- --ignored write_corner_shots`
 #[test]
 #[ignore]
 fn write_corner_shots() {
@@ -622,8 +591,6 @@ fn write_corner_shots() {
     }
 }
 
-/// A measurement coming in is a chest the party prises open, for ten
-/// seconds; a stalled loop's torch gutters.
 #[test]
 fn a_measurement_is_a_chest_and_a_stall_gutters_the_torch() {
     use crate::world_viz::AdventureEvent;
@@ -649,8 +616,6 @@ fn a_measurement_is_a_chest_and_a_stall_gutters_the_torch() {
     assert_ne!(frame(&calm, (96, 72)), frame(&stalled, (96, 72)));
 }
 
-/// A chest found, and a stalled loop's dark:
-/// `ANGEL_CRAWL_SHOTS=dir cargo test --bin angel -- --ignored write_loop_event_shots`
 #[test]
 #[ignore]
 fn write_loop_event_shots() {
@@ -695,7 +660,6 @@ fn write_loop_event_shots() {
     }
 }
 
-/// A sconce and a banner on the wall, close: `ANGEL_CRAWL_SHOTS=dir cargo test --bin angel -- --ignored write_fixture_shots`
 #[test]
 #[ignore]
 fn write_fixture_shots() {
@@ -726,7 +690,6 @@ fn write_fixture_shots() {
     hung.sort();
     for kind in [dungeon::SCONCE, dungeon::BANNER] {
         let Some(((x, y, dx, dy), _)) = hung.iter().copied().find(|((x, y, dx, dy), k)| {
-            // Room for the eye to stand two cells off the face.
             *k == kind
                 && plan
                     .dungeon
@@ -756,10 +719,6 @@ fn write_fixture_shots() {
     }
 }
 
-/// The braille review set: what the terminal's braille shows for the crawl
-/// (the scryglass) and for arena rooms pushed through the same converter.
-/// Each shot is saved as the RGB source and as the braille cells, drawn as
-/// dots. `ANGEL_BRAILLE_SHOTS=dir cargo test --bin angel -- --ignored write_braille_shots`
 #[test]
 #[ignore]
 fn write_braille_shots() {
@@ -787,7 +746,6 @@ fn write_braille_shots() {
     ] {
         save(name, &frame(&at, ((cols * 2) as u32, (rows * 4) as u32)));
     }
-    // The scryglass outside a loop: the settled vista, a ride, an interior.
     {
         use crate::telemetry::ToolEventId;
         use crate::world_viz::{Building, World};
@@ -811,7 +769,6 @@ fn write_braille_shots() {
             preview("glass-keep-inside", &inside);
         }
     }
-    // The 3D interiors, at the guard tests' sizes.
     for building in [crate::world_viz::Building::Chapel, crate::world_viz::Building::Keep] {
         let mut world = crate::world_viz::World::new(42);
         world.settle_at_for_test(building);
@@ -839,8 +796,6 @@ fn write_braille_shots() {
     }
 }
 
-/// How long the braille encoder takes for a crawl frame (printed, not
-/// asserted): `cargo test --bin angel time_braille_encoder -- --ignored --nocapture`.
 #[test]
 #[ignore]
 fn time_braille_encoder() {

@@ -1,15 +1,6 @@
-# crates/delve/src/rules/exits.rs — a retreat is a seat's decision. The last
-# departure tears down the room; earlier departures wait safely at the
-# entrance while friends play on.
-#
-# `run.exits` is {entry: null | {at, party: {id: [x, y]}}, holding?: {id: ticks},
-# outside: {id: {at, party}}}. A seat's id is the decimal key. Views a host
-# draws for a seat (`view_for_seat`, `outside_view`) are not ported.
-
 def exits.LEAVE_TICKS() -> U32:
   15
 
-# The kinds of room a retreat leaves (`exits::room`).
 def exits.room(+kind: String) -> Bool:
   if Bool.and(world.RoomKind.in_world(kind), Bool.not(String.eq(kind, "kingdom"))):
     True{}
@@ -43,7 +34,6 @@ def exits.is_outside(+run: J.Val, +id: U32) -> Bool:
 def exits.Run.leave_progress(+run: J.Val, +id: U32) -> U32:
   J.u32(J.get(J.get(exits.state(run), "holding"), U32.show(id)))
 
-# A state with its holding map set; serde leaves it out when empty.
 def exits.holding_put(+st: J.Val, +holding: J.Val) -> J.Val:
   if U32.is_eq(world.obj_len(holding), 0):
     J.del(st, "holding")
@@ -61,7 +51,6 @@ def exits.holding_set(+run: J.Val, +id: U32, +ticks: U32) -> J.Val:
 def exits.holding_clear(+run: J.Val) -> J.Val:
   exits.set_state(run, J.del(exits.state(run), "holding"))
 
-# Whether the stage kept in `key` (a mini-game's state) belongs to this room.
 def exits.stage_here(+run: J.Val, +key: String) -> Bool:
   s: J.Val = J.get(run, key)
   Bool.and(Bool.not(J.is_null(s)), U32.is_eq(J.u32(J.get(s, "room")), J.u32(J.get(run, "at"))))
@@ -69,7 +58,6 @@ def exits.stage_here(+run: J.Val, +key: String) -> Bool:
 def exits.is_some(+run: J.Val, +key: String) -> Bool:
   Bool.not(J.is_null(J.get(run, key)))
 
-# A game with its own stage or rules, including its result board.
 def exits.Run.minigame_showing(+run: J.Val) -> Bool:
   a: Bool = Bool.or(Bool.or(forest_road.Run.forest_road_showing(run), roundtable.Run.roundtable_showing(run)), Bool.or(cinder.Run.cinder_showing(run), latch.Run.latch_showing(run)))
   b: Bool = Bool.or(Bool.or(mossbell.Run.mossbell_showing(run), brasswake.Run.brasswake_showing(run)), Bool.or(rafterwake.Run.rafterwake_showing(run), pennon.Run.pennon_showing(run)))
@@ -118,7 +106,6 @@ def exits.Run.can_hold_leave(+run: J.Val, +id: U32) -> Bool:
   else:
     False{}
 
-# The seats' ids in order, the first six.
 def exits.ids(+run: J.Val) -> List<&2, U32>:
   List.take(&2, U32, exits.ids.go(J.int_fields(J.get(run, "players"))), 6n)
 
@@ -144,7 +131,6 @@ def world.parse_id.go(+m: Maybe<&2, U32>) -> U32:
     case Some{v: U32}:
       v
 
-# Drop the holds of seats that are gone.
 def exits.holding_retain(+run: J.Val, +ids: List<&2, U32>) -> J.Val:
   st: J.Val = exits.state(run)
   exits.set_state(run, exits.holding_put(st, exits.holding_keep(J.fields(J.get(st, "holding")), ids, J.obj())))
@@ -169,14 +155,11 @@ def world.key_val(+p: Sigma<&2, &2, String, _ => J.Val>) -> J.Val:
     case (k: String, v: J.Val):
       v
 
-# Each seat's leave hold: held long enough, the seat leaves its activity and
-# its keys are blanked this tick (the first six of them).
 def exits.Run.tick_leave_hold(+run: J.Val, +inputs: J.Val) -> J.Val & List<&2, Maybe<&2, U32>>:
   ids: List<&2, U32> = exits.ids(run)
   (run2: J.Val, blanks: List<&2, U32>) = exits.tick_leave_hold.go(exits.holding_retain(run, ids), ids, inputs, Nil{})
   (run2, exits.blank_slots(blanks, 6))
 
-# The blanked ids first, then none up to `n` slots.
 def exits.blank_slots(+blanks: List<&2, U32>, +n: U32) -> List<&2, Maybe<&2, U32>>:
   if U32.is_eq(n, 0):
     Nil{}
@@ -202,12 +185,10 @@ def exits.tick_leave_hold.go(+run: J.Val, +ids: List<&2, U32>, +inputs: J.Val, +
         else:
           exits.tick_leave_hold.go(exits.holding_set(run, id, ticks), rest, inputs, blanks)
 
-# `inputs.get(&id).is_some_and(|i| i.valid() && i.leave_held)`.
 def world.leave_held(+inputs: J.Val, +id: U32) -> Bool:
   i: J.Val = J.get(inputs, U32.show(id))
   Bool.and(Bool.not(J.is_null(i)), Bool.and(rules.Input.valid(i), J.bool(J.get(i, "leave_held"))))
 
-# Where each knight stood in the room left, kept inside it.
 def exits.inside(+x: F32, +top: F32) -> F32:
   if RS.f_is_finite(x):
     RS.f_clamp(x, 0.0, top)
@@ -222,7 +203,6 @@ def exits.entry_party(+players: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +w:
       k: J.Val = world.key_val(p)
       exits.entry_party(t, w, h, J.set(acc, world.key_str(p), J.JA{[J.JF{exits.inside(J.f32(J.get(k, "x")), w)}, J.JF{exits.inside(J.f32(J.get(k, "y")), h)}]}))
 
-# `remember_activity_entry`: keep where the party stood in the room they leave.
 def exits.Run.remember_activity_entry(+run: J.Val, +index: U32) -> J.Val:
   if U32.is_eq(index, J.u32(J.get(run, "at"))):
     run
@@ -235,7 +215,6 @@ def exits.Run.remember_activity_entry(+run: J.Val, +index: U32) -> J.Val:
       entry: J.Val = J.set(J.set(J.obj(), "at", J.get(run, "at")), "party", exits.entry_party(J.fields(J.get(run, "players")), layout.Room.width(r), layout.Room.height(r), J.obj()))
       exits.set_state(run1, J.set(exits.state(run1), "entry", entry))
 
-# `[folly_room, gantry_room, race3d_room].contains(&Some(index))`.
 def exits.stage_room(+run: J.Val, +index: U32) -> Bool:
   Bool.or(Bool.or(exits.opt_is(run, "folly_room", index), exits.opt_is(run, "gantry_room", index)), exits.opt_is(run, "race3d_room", index))
 
@@ -243,7 +222,6 @@ def exits.opt_is(+run: J.Val, +key: String, +index: U32) -> Bool:
   v: J.Val = J.get(run, key)
   Bool.and(Bool.not(J.is_null(v)), U32.is_eq(J.u32(v), index))
 
-# The entry a leaving party goes back to (`activity_return`), or none.
 def exits.Run.activity_return(+run: J.Val) -> Maybe<&2, J.Val>:
   match colosseum.Run.arena_return(run) as Maybe<&2, J.Val>:
     case Some{hall: J.Val}:
@@ -259,7 +237,6 @@ def exits.activity_return.kingdom(+run: J.Val) -> Maybe<&2, J.Val>:
   else:
     exits.activity_return.entry(run)
 
-# Each knight's spot from the kingdom return (its own, else the party's x, y).
 def exits.back_party(+players: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +back: J.Val, +acc: J.Val) -> J.Val:
   match players as List<&2, Sigma<&2, &2, String, _ => J.Val>>:
     case Nil{}:
@@ -277,8 +254,6 @@ def exits.activity_return.entry(+run: J.Val) -> Maybe<&2, J.Val>:
   else:
     Some{entry}
 
-# Old saves predate the entry journal: an optional delve hall has one return
-# door, surface rooms return to the Undercroft.
 def exits.activity_return.old(+run: J.Val) -> Maybe<&2, J.Val>:
   dungeon: J.Val = J.get(run, "dungeon")
   d: U32 = exits.first_neighbour(dungeon, J.u32(J.get(run, "at")), 0)
@@ -297,7 +272,6 @@ def exits.all_at(+players: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +spot: J
     case Con{p: Sigma<&2, &2, String, _ => J.Val>, t: List<&2, Sigma<&2, &2, String, _ => J.Val>>}:
       exits.all_at(t, spot, J.set(acc, world.key_str(p), spot))
 
-# The first room beside room `at` through any door (usize::MAX for none).
 def exits.first_neighbour(+dungeon: J.Val, +at: U32, +d: U32) -> U32:
   if U32.is_ge(d, 4):
     4294967295
@@ -305,7 +279,6 @@ def exits.first_neighbour(+dungeon: J.Val, +at: U32, +d: U32) -> U32:
     n: U32 = layout.Floor.neighbour_or_max(dungeon, at, d)
     Bool.pick(U32, U32.is_ne(n, 4294967295), n, exits.first_neighbour(dungeon, at, (d + 1 : U32)))
 
-# A knight let out of whatever held them: stones, vigils, shields, spells.
 def exits.release_activity_controls(+h: J.Val) -> J.Val:
   h1: J.Val = hero.Hero.dress(J.set(J.set(J.set(J.set(J.set(J.set(h, "stone", J.JBool{False{}}), "vigil", J.JBool{False{}}), "vigil_key", J.JBool{False{}}), "vigil_rearm", J.JU{0}), "privy", J.JU{0}), "pit", exits.pit_cleared(J.get(h, "pit"))))
   h2: J.Val = J.set(J.set(J.set(J.set(h1, "gear_was", J.get(h1, "gear")), "dash_ticks", J.JU{0}), "vy", J.JF{0.0}), "jump_held", J.JBool{False{}})
@@ -316,7 +289,6 @@ def exits.release_activity_controls(+h: J.Val) -> J.Val:
 def exits.pit_cleared(+pit: J.Val) -> J.Val:
   J.set(J.set(pit, "stop", J.JNull{}), "result", J.JNull{})
 
-# `Run::leave_activity`: knight `id` leaves; the last one out closes the place.
 def exits.Run.leave_activity(+run: J.Val, +id: U32) -> J.Val & Bool:
   if Bool.not(exits.Run.can_leave_activity(run, id)):
     (run, False{})
@@ -336,7 +308,6 @@ def exits.leave_privy(+run: J.Val, +id: U32) -> J.Val:
   h2: J.Val = Bool.pick(J.Val, J.is_null(at), h1, J.set(J.set(h1, "x", J.nth(at, 0)), "y", J.nth(at, 1)))
   exits.set_hero(run, id, h2)
 
-# `Room::pit_box`: where a pit stop's box stands, or null (home's games).
 def exits.pit_box(+room: J.Val) -> J.Val:
   pitstop.Room.pit_box(room)
 
@@ -389,7 +360,6 @@ def exits.leave_activity.behind(+h: J.Val, +behind: Maybe<&2, U32>) -> J.Val:
 def exits.ids_all(+run: J.Val) -> List<&2, U32>:
   exits.ids.go(J.int_fields(J.get(run, "players")))
 
-# The knights not waiting outside.
 def exits.remaining(+run: J.Val, +ids: List<&2, U32>) -> List<&2, U32>:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -400,7 +370,6 @@ def exits.remaining(+run: J.Val, +ids: List<&2, U32>) -> List<&2, U32>:
       else:
         Con{h, exits.remaining(run, t)}
 
-# Everyone is outside or away.
 def exits.all_out_or_away(+run: J.Val, +ids: List<&2, U32>) -> Bool:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -411,7 +380,6 @@ def exits.all_out_or_away(+run: J.Val, +ids: List<&2, U32>) -> Bool:
       else:
         False{}
 
-# A leaver's scores in the game stages come off.
 def exits.forfeit_stage(+run: J.Val, +id: U32) -> J.Val:
   k: String = U32.show(id)
   r1: J.Val = exits.drop_in(run, "folly", "eaten", k)
@@ -422,7 +390,6 @@ def exits.forfeit_stage(+run: J.Val, +id: U32) -> J.Val:
   r6: J.Val = exits.drop_in(exits.drop_in(exits.drop_in(r5, "nook", "score", k), "nook", "jars", k), "nook", "brews", k)
   exits.drop_in(r6, "race3d", "riders", k)
 
-# Remove entry `k` of the map `field` in the stage kept in `key`, if there is one.
 def exits.drop_in(+run: J.Val, +key: String, +field: String, +k: String) -> J.Val:
   s: J.Val = J.get(run, key)
   if J.is_null(s):
@@ -430,8 +397,6 @@ def exits.drop_in(+run: J.Val, +key: String, +field: String, +k: String) -> J.Va
   else:
     J.set(run, key, J.set(s, field, J.del(J.get(s, field), k)))
 
-# A knight waits outside while friends play on inside. Once everyone still
-# inside is away, the place closes and the party is whole again.
 def exits.Run.close_behind_the_away(+run: J.Val) -> J.Val:
   if U32.is_eq(world.obj_len(J.get(exits.state(run), "outside")), 0):
     run
@@ -467,7 +432,6 @@ def exits.inside_all_away(+run: J.Val, +ids: List<&2, U32>) -> Bool:
       else:
         False{}
 
-# The first seat's entry in the outside map.
 def exits.close_first(+run: J.Val) -> J.Val:
   match J.int_fields(J.get(exits.state(run), "outside")) as List<&2, Sigma<&2, &2, String, _ => J.Val>>:
     case Nil{}:
@@ -485,7 +449,6 @@ def exits.rejoin_away(+run: J.Val, +ids: List<&2, U32>) -> J.Val:
       else:
         exits.rejoin_away(run, t)
 
-# Knight `id`, waiting outside, back in with the party.
 def exits.Run.rejoin(+run: J.Val, +id: U32) -> J.Val:
   st: J.Val = exits.state(run)
   run1: J.Val = exits.set_state(run, J.set(st, "outside", J.del(J.get(st, "outside"), U32.show(id))))
@@ -497,7 +460,6 @@ def exits.Run.rejoin(+run: J.Val, +id: U32) -> J.Val:
   else:
     run1
 
-# Everyone back to where they walked to (or went in), the place cleared.
 def exits.Run.finish_activity_return(+run: J.Val, +back: J.Val) -> J.Val:
   positions: J.Val = exits.positions(run, back, J.fields(J.get(run, "players")), J.obj())
   run1: J.Val = exits.set_state(run, exits.State.default())
@@ -534,7 +496,6 @@ def exits.put_back(+run: J.Val, +positions: J.Val, +players: List<&2, Sigma<&2, 
       h1: J.Val = Bool.pick(J.Val, J.is_null(spot), h, J.set(J.set(h, "x", J.nth(spot, 0)), "y", J.nth(spot, 1)))
       exits.put_back(J.set(run, "players", J.set(J.get(run, "players"), k, exits.release_activity_controls(h1))), positions, t)
 
-# `clear_game_stages(room)`: end the stage kept for this room (null: every one).
 def exits.Run.clear_game_stages(+run: J.Val, +room: J.Val) -> J.Val:
   keys: List<&2, String> = ["folly", "bats", "gantry", "powder", "hop", "nook", "race3d"]
   exits.clear_stages(run, room, keys)
@@ -550,7 +511,6 @@ def exits.clear_stages(+run: J.Val, +room: J.Val, +keys: List<&2, String>) -> J.
       else:
         exits.clear_stages(run, room, t)
 
-# Standing inside the doorway just recorded, or the nearest clear tile.
 def exits.Run.safe_activity_return(+run: J.Val, +id: U32, +at: U32) -> J.Val:
   room: J.Val = layout.Floor.room(J.get(run, "dungeon"), at)
   if exits.has_hero(run, id):
@@ -565,8 +525,6 @@ def exits.Run.safe_activity_return(+run: J.Val, +id: U32, +at: U32) -> J.Val:
   else:
     run
 
-# On an open floor's map the threshold crossed is a door tile in a chamber's wall:
-# the knight comes out at its landing.
 def exits.safe_return.open_door(+run: J.Val, +room: J.Val, +at: U32, +h: J.Val) -> J.Val:
   open: J.Val = J.get(J.get(run, "dungeon"), "open")
   if Bool.and(Bool.not(J.is_null(open)), U32.is_eq(J.u32(J.get(open, "map")), at)):
@@ -583,7 +541,6 @@ def exits.set_xy(+h: J.Val, +p: Sigma<&2, &2, F32, _ => F32>) -> J.Val:
     case (x: F32, y: F32):
       J.set(J.set(h, "x", J.JF{x}), "y", J.JF{y})
 
-# Not in stone: else the nearest clear tile's middle.
 def exits.safe_return.clear(+room: J.Val, +h: J.Val) -> J.Val:
   if rules.Grid.clear(room, False{}, J.f32(J.get(h, "x")), J.f32(J.get(h, "y")), 0.42, 0):
     h
@@ -623,8 +580,6 @@ def exits.nearest.cols(+room: J.Val, +y: U32, +x: U32, +rows: U32, +cols: U32, +
     else:
       exits.nearest.cols(room, y, (x + 1 : U32), rows, cols, hx, hy, best, bd)
 
-# Seats outside the room walk freely and can rejoin at their entry point.
-# Their bodies leave the activity's working set: the detached heroes.
 def exits.Run.detached_seats(+run: J.Val, +inputs: J.Val) -> J.Val & J.Val:
   run1: J.Val = exits.walk_outside(run, exits.outside_ids(run), inputs)
   ids: List<&2, U32> = exits.detach_ids(run1, exits.ids_all(run1), inputs)
@@ -650,7 +605,6 @@ def exits.detach(+run: J.Val, +ids: List<&2, U32>, +out: J.Val) -> J.Val & J.Val
       k: String = U32.show(id)
       exits.detach(J.set(run, "players", J.del(J.get(run, "players"), k)), t, J.set(out, k, exits.hero(run, id)))
 
-# Each waiting seat walks the room it waits in, or comes back in at its entry.
 def exits.walk_outside(+run: J.Val, +ids: List<&2, U32>, +inputs: J.Val) -> J.Val:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -685,7 +639,6 @@ def exits.walk_free(+run: J.Val, +id: U32, +input: J.Val, +back: J.Val) -> J.Val
   camera: J.Val = Bool.pick(J.Val, layout.Room.is_kind(room, "kingdom"), J.JA{[J.JF{nx}, J.JF{(ny - 1.0 : F32)}]}, J.JNull{})
   exits.set_hero(run, id, J.set(h3, "camera", camera))
 
-# `clear_activity`: the rides end with the room, the working sets empty.
 def exits.Run.clear_activity(+run: J.Val) -> J.Val:
   r1: J.Val = exits.Run.clear_game_stages(rules.Run.end_outside_activities(run), J.JNull{})
   r1a: J.Val = J.set(J.set(J.set(r1, "forest", forest.Forest.leave(J.get(r1, "forest"))), "college", college.Dialogue.default()), "pastimes", pastimes.Pastimes.leave(J.get(r1, "pastimes")))

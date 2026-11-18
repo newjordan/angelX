@@ -69,8 +69,6 @@ fn write_arcade_review() {
                         .iter()
                         .map(|c| json!({"glyph":c.symbol(),"fg":rgb(c.fg),"bg":rgb(c.bg)}))
                         .collect();
-                    // Sample precisely the authored alpha, after the real grade and at
-                    // native coordinates; the floor contributes no body presence.
                     let sprite = arcade::sprite(kit, &state, index, seat);
                     let anchor = &arcade::manifest(kit)["anchor"];
                     let ox = 192 - anchor[0].as_i64().unwrap() as i32;
@@ -151,7 +149,6 @@ fn write_arcade_review() {
                         }
                     }
                     evidence.push(json!({"file":format!("{kit}/{file}"),"seat":seat,"hash":hash(&bytes),"presence_percent":percent,"lit_cells":occupied.len(),"cells_hash":hash(&serde_json::to_vec(&cells).unwrap()),"eye_dark_pixels":face_dark[0],"moustache_dark_pixels":face_dark[1]}));
-                    // All original buffers remain auditable, not just cropped pictures.
                     std::fs::write(
                         out.join(format!("{kit}-{state}-{index}-seat{seat}-cells.json")),
                         serde_json::to_vec(&cells).unwrap(),

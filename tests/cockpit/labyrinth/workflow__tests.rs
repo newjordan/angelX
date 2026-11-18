@@ -522,7 +522,6 @@ fn omitted_claim_ids_require_one_exact_statement_unless_the_node_id_matches() {
             reviewed
                 .claims
                 .insert("ev.duplicate".into(), reviewed.claims["ev.claim"].clone());
-            // An existing identity remains authoritative even when another statement matches.
             merge_nodes(&workspace.0, &mut knowledge, &bundle, &reviewed).unwrap();
         } else {
             bundle.nodes[0]["statement"] = json!("the sampled cases pass ");
@@ -719,8 +718,6 @@ fn preview_is_read_only_and_final_checks_must_cover_the_exact_generated_research
             );
         }
     }
-    // A valid proposal changed after those executions is still untested.
-    // Schema/range validation cannot substitute for consuming its exact bytes.
     bundle.frontier = Some(json!({"sizes":[{"size":6,"realized":[0,1]}]}));
     let frontier = bundle.frontier.clone().unwrap();
     update_writer(&workspace.0, &mut bundle, |report| {

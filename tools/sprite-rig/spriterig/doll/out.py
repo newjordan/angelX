@@ -1,4 +1,3 @@
-"""Canvas -> RGBA / sheets / GIFs / JSON for the doll animator."""
 import json
 import numpy as np
 from PIL import Image, ImageDraw
@@ -33,7 +32,6 @@ def bbox(frames, pad=2):
 
 
 def tile(frames, scale=3, bg=(34, 32, 44), labels=None, cols=None, floor=None):
-    """Frames (same size) -> one PIL image grid, scaled nearest, on a backdrop."""
     h, w = frames[0].shape
     cols = cols or len(frames)
     rows = (len(frames) + cols - 1) // cols
@@ -56,7 +54,6 @@ def save_gif(images, path, fps):
 
 
 def save_sheet(frames, path_png, meta):
-    """Horizontal strip PNG (transparent) + sibling JSON with per-frame events."""
     h, w = frames[0].shape
     im = Image.new("RGBA", (w * len(frames), h), (0, 0, 0, 0))
     for i, f in enumerate(frames):

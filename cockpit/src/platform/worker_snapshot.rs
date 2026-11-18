@@ -22,8 +22,6 @@ impl Drop for Snapshot {
 }
 
 impl Snapshot {
-    /// Copy all declared relative paths, then own the private directory until
-    /// this snapshot is dropped. Failures never leave a partial snapshot live.
     pub(crate) fn capture(root: &Path, files: &[&str], label: &str) -> Result<Self, String> {
         if label.is_empty() || !label.bytes().all(|c| c.is_ascii_lowercase() || c == b'-') {
             return Err("invalid worker snapshot label".into());

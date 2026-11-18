@@ -95,7 +95,6 @@ mod tests {
                 .port(),
             2
         );
-        // Abandoned replies are discarded; the same pool remains usable.
         std::thread::sleep(Duration::from_millis(90));
         assert_eq!(
             resolver

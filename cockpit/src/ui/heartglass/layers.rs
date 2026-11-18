@@ -22,10 +22,7 @@ use super::plate::{self, CloudView, Ink, Typeset, View};
 use super::{Grid, Layout};
 use crate::ui::orrery::segment_rect;
 
-/// The Heartglass's layer group ("HART").
 const GROUP: u32 = 0x4841_5254;
-/// Its pictures: the scene, the plate, the clock's three, the scanlines, the
-/// flare's banner, and one title a stage from `TITLES`.
 const PICTURES: u32 = LAYER_PICTURES + 0x4845_0000;
 pub(crate) const SCENE: u32 = PICTURES;
 const PLATE: u32 = PICTURES + 1;
@@ -36,27 +33,16 @@ const SCANLINES: u32 = PICTURES + 5;
 const BANNER: u32 = PICTURES + 6;
 const TITLES: u32 = PICTURES + 0x10;
 
-/// Frames a second the thread describes, as the Orrery.
 const FPS: f32 = 30.0;
-/// Pixels of picture to a shown pixel: the plate and the scene are drawn
-/// twice their shown size and shrunk by the layer, so a leaned plate's
-/// text and the heart's points stay smooth.
 pub(crate) const SCALE: f32 = 2.0;
-/// How long a new window size holds before the plate is drawn for it.
 const SETTLE: Duration = Duration::from_millis(250);
-/// The scene's texture is never larger than this a side.
 const MAX_SCENE_SIDE: u32 = 1400;
 
-/// The plate's colours as the layers want them.
 const PLATE_FILL: [f32; 4] = [0.008, 0.016, 0.032, 0.87];
 const ROSE: [f32; 4] = [1.0, 0.30, 0.42, 1.0];
 const CYAN: [f32; 4] = [0.35, 0.85, 1.0, 1.0];
 const GOLD: [f32; 4] = [1.0, 0.78, 0.30, 1.0];
 
-/// The panel's typeface: Share Tech Mono, carried in the binary and set
-/// down once under `~/.angelX/fonts` for the font loader, which reads a
-/// file. `ANGEL_GLASS_HEART_FONT` names another (a family or a file); the
-/// window's own font stands in when the file cannot be written.
 fn heart_font() -> String {
     const SHARE_TECH_MONO: &[u8] = include_bytes!("../../../assets/fonts/ShareTechMono-Regular.ttf");
     if let Ok(family) = std::env::var("ANGEL_GLASS_HEART_FONT")
@@ -67,7 +53,6 @@ fn heart_font() -> String {
     let dir = crate::platform::workspace_store::angel_subdir("fonts");
     let path = dir.join("ShareTechMono-Regular.ttf");
     let current = std::fs::read(&path).is_ok_and(|bytes| bytes == SHARE_TECH_MONO);
-    // Written aside and renamed in, so another window never reads half a file.
     let written = current || {
         let aside = dir.join(format!(".ShareTechMono-{}.ttf", std::process::id()));
         std::fs::create_dir_all(&dir).is_ok()
@@ -81,16 +66,11 @@ fn heart_font() -> String {
     }
 }
 
-/// The panel's font, cached per size: loading runs fontconfig.
 struct Fonts {
     family: String,
-    /// The window's own font, and the size (picture pixels) under which
-    /// the floating HUD sets its text in it; 0 for never (the plate).
     small_family: String,
     small_below: f32,
     pagers: HashMap<(bool, u32), angel_glass::page::Pager>,
-    /// A size failed to load since this was last cleared: fontconfig can
-    /// fail under load, so what was drawn without it is drawn again later.
     missed: bool,
 }
 
@@ -131,23 +111,15 @@ impl Typeset for Fonts {
     }
 }
 
-/// What is on the GPU and on screen, so each thing goes up only when it
-/// changed.
 struct Show {
     fonts: Fonts,
-    /// The cloud the meshes were made from, and what they are.
     meshes_of: Option<Arc<Cloud>>,
     built: Vec<Built>,
     view: Option<CloudView>,
-    /// Meshes must go up again (first show, or shown again after hiding).
     stale: bool,
     plate_key: Option<(Layout, Option<Arc<Campaign>>, Option<CloudView>)>,
-    /// A layout the window has just changed to, and since when: while a
-    /// window is being sized the plate is stretched, and drawn afresh once
-    /// the size has held for [`SETTLE`].
     settling: Option<(Layout, Instant)>,
     titles_key: Option<(Option<Arc<Cloud>>, u32)>,
-    /// When text that failed to set (no font yet) is tried again.
     retry_text: Option<Instant>,
     scanlines_key: Option<(u32, u32)>,
     clock: [String; 3],
@@ -157,12 +129,9 @@ struct Show {
     before: Option<Arc<Campaign>>,
     flare: Option<Flare>,
     shown: bool,
-    /// The floating HUD's own state (`/heart float`).
     float: float::Float,
 }
 
-/// The thread: polls the folder, keeps the GPU's copies fresh and
-/// describes a frame 30 times a second while the panel is wanted.
 pub(crate) fn run(host: Host) {
     let started = Instant::now();
     let dir = super::campaign::home();
@@ -220,8 +189,6 @@ pub(crate) fn run(host: Host) {
             continue;
         }
         let t = started.elapsed().as_secs_f32();
-        // `/heart demo` (and leaving it by naming a look) swaps the
-        // watcher wholesale: demo serves from memory, real from folder.
         if super::demo() != demo_on {
             demo_on = super::demo();
             watcher = if demo_on {
@@ -258,8 +225,6 @@ pub(crate) fn run(host: Host) {
         }
         show.float.release_zones(&host);
         if show.float.active {
-            // From the floating look: the clock and titles again, in the
-            // plate's font.
             show.float.active = false;
             show.clock = Default::default();
             show.titles_key = None;
@@ -276,7 +241,6 @@ pub(crate) fn run(host: Host) {
     }
 }
 
-/// A path with the home folder written `~`.
 fn tilde(path: &std::path::Path) -> String {
     let text = path.display().to_string();
     match std::env::var("HOME") {
@@ -287,7 +251,6 @@ fn tilde(path: &std::path::Path) -> String {
     }
 }
 
-/// Unix seconds now.
 fn wall_clock() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -316,8 +279,6 @@ impl Show {
             host.set_layer_group(GROUP, Vec::new());
             host.remove_scene(SCENE);
             self.shown = false;
-            // Shown again later, everything goes up again: a long hide may
-            // have let the window's budgets drop the meshes and pictures.
             self.stale = true;
             self.plate_key = None;
             self.titles_key = None;
@@ -328,7 +289,6 @@ impl Show {
         }
     }
 
-    /// A new board: a new official score since the last one flares.
     fn board_changed(&mut self, campaign: Option<Arc<Campaign>>, t: f32) {
         if let (Some(now), Some(before)) = (campaign.as_ref(), self.before.as_ref())
             && let Some((row, _)) = now.new_official_since(before)
@@ -354,8 +314,6 @@ impl Show {
         self.upload_meshes(host, &cloud);
         self.retry_due();
 
-        // The plate, when anything printed on it changed; a new size only
-        // once it has settled, so sizing a window does not draw it per frame.
         let drawn_layout = self.plate_key.as_ref().map(|k| &k.0);
         let settled = match (&self.settling, drawn_layout) {
             _ if drawn_layout.is_none_or(|d| d == layout) => {
@@ -384,14 +342,12 @@ impl Show {
             self.clock = Default::default();
         }
 
-        // The stage titles, once per cloud and width.
         self.stage_titles(host, &cloud, campaign.as_deref(), layout.heart.w, settled);
 
         if self.fonts.missed && self.retry_text.is_none() {
             self.retry_text = Some(Instant::now() + Duration::from_secs(3));
         }
 
-        // The scanlines over the viewport, once per size.
         let size = (
             (layout.heart.w * SCALE).round() as u32,
             (layout.heart.h * SCALE).round() as u32,
@@ -404,7 +360,6 @@ impl Show {
         self.clock_pictures(host, campaign.as_deref());
         let flare = self.flare_and_banner(host, t, campaign.as_deref());
 
-        // The scene: the heart turning, every frame.
         let scene_size = (
             (layout.heart.w * SCALE)
                 .round()
@@ -422,7 +377,6 @@ impl Show {
         host.set_layer_group(GROUP, layers);
     }
 
-    /// The stages' meshes, when the cloud changed or the panel came back.
     fn upload_meshes(&mut self, host: &Host, cloud: &Option<Arc<Cloud>>) {
         let new_cloud = match (&self.meshes_of, cloud) {
             (Some(a), Some(b)) => !Arc::ptr_eq(a, b),
@@ -450,8 +404,6 @@ impl Show {
         }
     }
 
-    /// Text that could not be set for want of a font is set again a little
-    /// later: the plate, the modules and the titles are drawn afresh.
     fn retry_due(&mut self) {
         if self.retry_text.is_some_and(|at| Instant::now() >= at) {
             self.retry_text = None;
@@ -462,8 +414,6 @@ impl Show {
         self.fonts.missed = false;
     }
 
-    /// The stage titles, once per cloud and viewport width (a new width
-    /// once it has settled).
     fn stage_titles(
         &mut self,
         host: &Host,
@@ -495,7 +445,6 @@ impl Show {
         }
     }
 
-    /// The clock's pictures, when their text changed.
     fn clock_pictures(&mut self, host: &Host, campaign: Option<&Campaign>) {
         if let Some(c) = campaign {
             let (countdown, reset, age) = plate::clock_text(c, wall_clock());
@@ -525,7 +474,6 @@ impl Show {
         }
     }
 
-    /// The flare's strength now, and its banner when one is wanted.
     fn flare_and_banner(&mut self, host: &Host, t: f32, campaign: Option<&Campaign>) -> f32 {
         let flare = self.flare.as_ref().map_or(0.0, |f| f.strength(t));
         if self.flare.as_ref().is_some_and(|f| f.over(t)) {
@@ -547,7 +495,6 @@ impl Show {
         flare
     }
 
-    /// The layer set for this frame, back to front.
     fn layers(&self, l: &Layout, t: f32, flare: f32, campaign: Option<&Campaign>) -> Vec<Layer> {
         let p = l.panel;
         let centre = p.centre();
@@ -562,8 +509,6 @@ impl Show {
         let ours = now.is_some_and(|m| self.built[m.to].predicted);
         let mut out: Vec<Layer> = Vec::with_capacity(96);
 
-        // The cast shadow on the terminal's floor, unturned, and the
-        // plate's own light pooling under its near edge.
         for (id, (dx, dy, h, a)) in [
             (0u64, (8.0f32, 28.0f32, 0.42f32, 0.16f32)),
             (1, (4.0, 14.0, 0.28, 0.22)),
@@ -584,12 +529,10 @@ impl Show {
         pool.additive = true;
         out.push(pool);
 
-        // The plate.
         let mut plate = leaned(3, 1, [p.x, p.y, p.w, p.h], LayerKind::Solid(PLATE_FILL));
         plate.breathe = 1.0;
         out.push(plate);
 
-        // Behind the heart: its aura, beating, and the projector's light.
         let v = l.heart;
         let size = ((v.w * SCALE) as u32, (v.h * SCALE) as u32);
         let at =
@@ -620,7 +563,6 @@ impl Show {
             out.push(light);
         }
 
-        // The heart itself, the scanlines over it, and a slow sweep.
         out.push(leaned(
             6,
             3,
@@ -640,7 +582,6 @@ impl Show {
         band.additive = true;
         out.push(band);
 
-        // The printed plate.
         out.push(leaned(
             9,
             5,
@@ -648,8 +589,6 @@ impl Show {
             LayerKind::Picture(PLATE),
         ));
 
-        // The clock: the countdown under COLLAB ENDS, the reset over the
-        // right column, the ticker's age at its right.
         if campaign.is_some() {
             let (w, h) = self.clock_size[0];
             if w > 0.0 {
@@ -681,8 +620,6 @@ impl Show {
             }
         }
 
-        // The stage's title, top left in the viewport, crossfading with
-        // the scan; the rail's highlight sliding to the stage coming in.
         if let Some(m) = now {
             let n = self.built.len();
             let mut title = |i: usize, opacity: f32, id: u64| {
@@ -728,7 +665,6 @@ impl Show {
             );
             glow.additive = true;
             out.push(glow);
-            // How long the stage has been held, as a line under its label.
             let held = if m.scanning() {
                 0.0
             } else {
@@ -742,7 +678,6 @@ impl Show {
             );
             bar.additive = true;
             out.push(bar);
-            // The scan's line across the viewport while a stage builds.
             if m.scanning()
                 && let Some(c) = at([0.0, heart::scan_height(m.k), 0.0])
             {
@@ -769,7 +704,6 @@ impl Show {
             }
         }
 
-        // Our best on each board: a live ember on the head of its bar.
         if let Some(c) = campaign {
             let domain = plate::domain(Some(c));
             for (i, (row, board)) in l.rows.iter().zip(&c.boards).enumerate() {
@@ -792,8 +726,6 @@ impl Show {
             }
         }
 
-        // The rim of light round the plate, and the bracket chrome: an L
-        // at each corner, a little out from the rim.
         let (bx, by, bw, bh) = (p.x - 3.0, p.y - 3.0, p.w + 6.0, p.h + 6.0);
         for (id, edge) in [
             (50u64, [bx, by, bw, 1.5]),
@@ -819,7 +751,6 @@ impl Show {
             (x0, y1, 1.0, -1.0),
             (x1, y1, -1.0, -1.0),
         ] {
-            // The arm along the edge and the arm down the side, from the corner.
             let across = [
                 if sx > 0.0 { cx } else { cx - arm },
                 if sy > 0.0 { cy } else { cy - 3.0 },
@@ -840,8 +771,6 @@ impl Show {
             }
         }
 
-        // The heartbeat's trace in the title strip: the newest beat at the
-        // right, older ones fading off to the left, a bright head.
         let e = plate::ecg_strip(l.title);
         const SAMPLES: usize = 40;
         const WINDOW: f32 = 2.6;
@@ -879,7 +808,6 @@ impl Show {
             out.push(dot);
         }
 
-        // Motes rising through the viewport.
         let mut motes = Layer::new(
             70,
             8,
@@ -898,8 +826,6 @@ impl Show {
         motes.additive = true;
         out.push(motes);
 
-        // A newly landed official score: the heart flares, sparks fly, the
-        // board's row lights and a banner says what landed.
         if let Some(f) = &self.flare {
             let age = t - f.at;
             if let Some(c) = at([0.0, 0.0, 0.0]) {
@@ -957,7 +883,6 @@ impl Show {
     }
 }
 
-/// Whether two optional `Arc`s are the same value by pointer.
 fn same<T>(a: &Option<Arc<T>>, b: &Option<Arc<T>>) -> bool {
     match (a, b) {
         (Some(a), Some(b)) => Arc::ptr_eq(a, b),
@@ -966,7 +891,6 @@ fn same<T>(a: &Option<Arc<T>>, b: &Option<Arc<T>>) -> bool {
     }
 }
 
-/// How far into its hold the stage in front is, 0 to 1.
 fn hold_fraction(t: f32, n: usize) -> f32 {
     if n < 2 {
         return 1.0;
@@ -975,8 +899,6 @@ fn hold_fraction(t: f32, n: usize) -> f32 {
     ((t.rem_euclid(slot) - heart::SCAN) / heart::HOLD).clamp(0.0, 1.0)
 }
 
-/// The viewport's scanlines: a dark line every third shown pixel, and a
-/// faint dark edge so the heart sits in a lens. Straight RGBA.
 fn scanlines((w, h): (u32, u32)) -> Ink {
     let mut rgba = vec![0u8; (w * h * 4) as usize];
     for y in 0..h {

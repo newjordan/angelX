@@ -128,7 +128,6 @@ pub enum Reply {
     Wishes(Vec<wish::Claim>),
     WishCompleted(Option<wish::Completion>),
     Votes(Option<VoteBatch>),
-    /// Existing model mend response; no completion has been committed.
     Rejected(Vec<String>),
 }
 

@@ -31,35 +31,22 @@
 
 use crate::codec::{Bytes, Malformed, put_blob, put_f64, put_str, put_varint};
 
-/// Raised whenever a message's layout changes; both ends refuse a mismatch.
 pub const PROTOCOL: u32 = 3;
 
-/// Nothing a client sends may be longer (a `Hello` with a long name included).
 pub const MAX_CLIENT_MESSAGE: usize = 1024;
-/// A whole document snapshot of the Delve is a few hundred KB; nothing is
-/// allowed near this.
 pub const MAX_SERVER_MESSAGE: usize = 8 << 20;
-/// Join keys and seat tokens: 128 bits in base32 is 26 characters.
 pub const MAX_KEY: usize = 64;
-/// Bytes, not characters.
 pub const MAX_NAME: usize = 48;
 pub const MAX_GAME: usize = 32;
-/// Commands in one `Cmds` (a tab that was busy sends what piled up).
 pub const MAX_CMDS: usize = 8;
 pub const MAX_CMD: usize = 96;
 pub const MAX_EVENTS: usize = 256;
-/// The knob table and the stats, as JSON text.
 pub const MAX_JSON: usize = 64 * 1024;
 
-/// What a client can do, sent in its `Hello`.
 pub mod caps {
-    /// A touch screen: show the touch controls.
     pub const TOUCH: u32 = 1;
-    /// WebGL is there for presenting.
     pub const WEBGL: u32 = 2;
-    /// An angelX terminal, not a browser.
     pub const NATIVE: u32 = 4;
-    /// Only watching: never take a seat.
     pub const WATCH: u32 = 8;
 }
 
@@ -68,15 +55,12 @@ pub enum ToServer<'a> {
     Hello {
         protocol: u32,
         game: &'a str,
-        /// The session's join key, from the link.
         join: &'a str,
-        /// A seat token from an earlier `Welcome` to take that seat back, or empty.
         resume: &'a str,
         name: &'a str,
         caps: u32,
     },
     Cmds {
-        /// The newest snapshot tick the client has applied.
         applied: u32,
         cmds: Vec<(u32, &'a [u8])>,
     },
@@ -93,21 +77,13 @@ pub enum ToServer<'a> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Reject {
-    /// The client speaks another protocol version: reload the page.
     Protocol = 1,
-    /// The join key or seat token is not this session's.
     Key = 2,
-    /// Every seat and every watcher's place is taken.
     Full = 3,
-    /// The host has closed the session to newcomers.
     Locked = 4,
-    /// The host removed this player.
     Kicked = 5,
-    /// The host is shutting the session down.
     Stopping = 6,
-    /// The client asked for a game this session is not playing.
     Game = 7,
-    /// The client broke a limit (too fast, too long, malformed).
     Abuse = 8,
 }
 
@@ -131,15 +107,11 @@ impl Reject {
 pub struct Welcome<'a> {
     pub protocol: u32,
     pub game: &'a str,
-    /// `None`: watching, no seat.
     pub seat: Option<u32>,
-    /// Keep this to take the seat back after a dropped connection.
     pub seat_token: &'a str,
     pub tick_hz: u32,
     pub snapshot_hz: u32,
-    /// The server's tick when this was written.
     pub tick: u32,
-    /// Whatever the game's client needs before its first snapshot.
     pub params: &'a [u8],
 }
 
@@ -152,9 +124,7 @@ pub enum ToClient<'a> {
     },
     Snapshot {
         tick: u32,
-        /// The last command seq this seat's step consumed (0: none yet).
         ack: u32,
-        /// Whole state, or a patch against the last snapshot this client got.
         whole: bool,
         body: &'a [u8],
     },
@@ -169,11 +139,9 @@ pub enum ToClient<'a> {
     Notice {
         text: &'a str,
     },
-    /// The server's knobs (`knob::table_json`).
     Knobs {
         json: &'a str,
     },
-    /// The server's numbers for this seat, once a second, when asked.
     Stats {
         json: &'a str,
     },
@@ -234,8 +202,6 @@ impl<'a> ToServer<'a> {
         out
     }
 
-    /// Read one client message. Anything longer than `MAX_CLIENT_MESSAGE`,
-    /// with bytes left over, or over any limit is malformed.
     pub fn decode(bytes: &'a [u8]) -> Result<ToServer<'a>, Malformed> {
         if bytes.len() > MAX_CLIENT_MESSAGE {
             return Err(Malformed);
@@ -279,7 +245,6 @@ impl<'a> ToClient<'a> {
                 out.push(WELCOME);
                 put_varint(out, u64::from(w.protocol));
                 put_str(out, w.game);
-                // Seat + 1, so 0 is "watching".
                 put_varint(out, w.seat.map_or(0, |s| u64::from(s) + 1));
                 put_str(out, w.seat_token);
                 put_varint(out, u64::from(w.tick_hz));
@@ -364,7 +329,6 @@ impl<'a> ToClient<'a> {
                     1 => true,
                     _ => return Err(Malformed),
                 };
-                // The body runs to the end of the message.
                 let body = b.take(b.rest.len())?;
                 return Ok(ToClient::Snapshot { tick, ack, whole, body });
             }

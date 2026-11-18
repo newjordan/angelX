@@ -12,8 +12,6 @@ impl Layouts {
 
     pub(crate) fn partial_height(&mut self, text: &str, width: usize, refresh: bool) -> u16 {
         if self.partial.as_deref() != Some(text) {
-            // Replacement/shrink invalidates all old partial geometry. Append
-            // keeps a completed prefix useful while the latest snapshot wraps.
             if self
                 .partial
                 .as_ref()
@@ -62,8 +60,6 @@ impl Layouts {
             }
             return Some(buffer);
         }
-        // A reader's visible viewport takes priority over refreshing the latest
-        // height, otherwise an always-growing stream could starve scrollback.
         self.request(
             &Message::new(Role::Angel, text),
             width,

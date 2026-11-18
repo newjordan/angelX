@@ -100,8 +100,6 @@ fn asset_copy_shortcuts_queue_the_selected_file_without_taking_a_composer_draft(
     assert!(!app.world_buttons.iter().any(|(_, button)| *button == WorldButton::AssetCopy(scryglass::StageCopyTarget::Image)), "shelf cannot offer a frame before playback");
     app.on_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE));
     assert!(app.pending_stage_copy.is_some());
-    // This fixture has no process output, so the newer request stops before
-    // transport while still proving that an earlier queued copy is superseded.
     assert!(app.last_background_output.is_none());
     app.input = "/copy live".into();
     app.submit();
@@ -189,8 +187,6 @@ fn show_work_wait(app: &mut App, width: u16, height: u16) -> String {
     loop {
         let screen = render_app_text(app, width, height);
         if app.scryglass.media_ready() {
-            // A decoder can change to Fault at the end of a draw; paint the
-            // visible diagnostic too before checking what the operator sees.
             return render_app_text(app, width, height);
         }
         assert!(
@@ -450,7 +446,6 @@ fn show_work_captured_reply_rejects_replaced_output_directory() {
         "the earlier card cannot follow the replacement alias on later decode"
     );
     std::fs::remove_file(workspace.join("angel_test_output")).unwrap();
-    // Even an in-workspace alias is refused before following its target.
     symlink(
         workspace.join("off-limits"),
         workspace.join("angel_test_output"),
@@ -509,7 +504,6 @@ fn compact_session_warning_preempts_clip_prone_header_chrome() {
     );
     let buffer = terminal.backend().buffer();
     let warning = "SESSION SAVE DEGRADED";
-    // Compare terminal cells, not UTF-8 byte offsets after the box border.
     let (warning_y, warning_x) = (0..buffer.area.height)
         .find_map(|y| {
             (0..buffer.area.width.saturating_sub(warning.len() as u16))
@@ -603,9 +597,6 @@ fn agent_summary_uses_structured_cell_bounded_realm_pulse() {
     );
 }
 
-/// Deterministic render fixture that always exercises the real `ui()` path.
-/// Scenario methods mutate only display state; the injected instant advances
-/// Scryglass visibility without wall-clock sleeps.
 struct CockpitScenario {
     app: App,
     #[cfg(feature = "delve")]
@@ -800,9 +791,6 @@ fn reinforce_stage_switches_between_branch_research_and_sankey_lenses() {
 #[cfg(feature = "delve")]
 #[test]
 fn cockpit_scenario_baselines_cover_representative_sizes() {
-    // Renders world/scenario ink, which reads ANGEL_WORLD_INK per cell: hold
-    // the crate env lock (and pin the default quantizer) so a concurrent
-    // env-mutating test can never repaint these baselines mid-run.
     let _guard = env_lock();
     let _mode = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_INK");
     let _map = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_MAP");
@@ -904,8 +892,6 @@ fn settled_or_hidden_realm_does_not_request_fast_tick() {
         .app
         .scryglass
         .sync_arrival(Some(scryglass::Building::Smithy));
-    // Simulate the draw contract: a renderable Scryglass surface re-earns
-    // visible-stage cadence for this frame.
     scenario.app.world_pane_visible = true;
     scenario.app.scryglass.set_stage_visibility(true, true);
     assert!(scenario.app.needs_fast_tick());
@@ -926,7 +912,6 @@ fn compact_core_draw_resets_prior_stage_visibility_and_fast_tick() {
     crate::drive::comp_mode::invalidate_cache();
     crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = seed_preview_app();
-    // This fixture isolates Stage cadence after the startup sword is gone.
     app.startup_intro.dismiss(
         std::time::Instant::now(),
         crate::ui::viz::lifecycle_viz::MotionMode::Off,
@@ -954,9 +939,6 @@ fn compact_core_draw_resets_prior_stage_visibility_and_fast_tick() {
     assert!(!app.needs_fast_tick());
 }
 
-/// A6: compact Core (<100 cols or <30 rows) must register the same prose-only
-/// transcript copy rect as the wide path — never the full inner (scroll rail /
-/// tool-strip chrome used to be clipboard-eligible).
 #[test]
 fn compact_core_registers_prose_only_transcript_copy_rect() {
     let _lock = env_lock();
@@ -967,7 +949,6 @@ fn compact_core_registers_prose_only_transcript_copy_rect() {
     crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = seed_preview_app();
     assert!(app.thinking.is_none(), "preview is idle");
-    // Compact terminal → full-body Core transcript path in `ui`.
     let _ = render_app_text(&mut app, 80, 24);
     let frame = app
         .panel_frames
@@ -978,14 +959,12 @@ fn compact_core_registers_prose_only_transcript_copy_rect() {
         .rect_of(mouse::PaneId::Transcript)
         .expect("transcript copy hit-target");
     let inner = mouse::inner_border(frame);
-    // Idle ambience is chrome too: it must never enter copied prose.
     let expected =
         surfaces::transcript_live_copy_rect(frame, 1).expect("usable compact prose rect");
     assert_eq!(
         pane, expected,
         "compact copy pane must match live prose geometry\n pane={pane:?}\n expected={expected:?}\n frame={frame:?}"
     );
-    // Must not be the full chrome-free inner (rail is the last column).
     assert_ne!(
         pane, inner,
         "full inner_border must not be the copy hit-target"
@@ -1002,7 +981,6 @@ fn compact_core_registers_prose_only_transcript_copy_rect() {
         );
     }
 
-    // Wide path stays consistent (same helper).
     let mut wide = seed_preview_app();
     let _ = render_app_text(&mut wide, 144, 48);
     let wframe = wide
@@ -1290,8 +1268,6 @@ fn comp_mode_skips_scryglass_catalog_and_lesson_body_without_slowing_default() {
     );
 }
 
-/// Comp / lean keeps Scryglass route identity, and no mode paints the live
-/// town into the world pane's caption.
 #[cfg(feature = "delve")]
 #[test]
 fn hidden_comp_skips_live_world_title_without_slowing_default() {
@@ -1353,9 +1329,6 @@ fn hidden_comp_skips_live_world_title_without_slowing_default() {
     );
 }
 
-/// Comp / lean keeps Quintain / Tiltyard / Round Table / Observatory route
-/// chrome but must not build loop_viz / rl_viz / graph / observatory titles
-/// (status / iter / step / report counts) every frame.
 #[cfg(feature = "delve")]
 #[test]
 fn hidden_comp_skips_live_stage_route_title_without_slowing_default() {
@@ -1433,8 +1406,6 @@ fn hidden_comp_skips_live_stage_route_title_without_slowing_default() {
     );
 }
 
-/// Comp / lean keeps Scryglass title chrome but must not build ride captions,
-/// the Formation strip, or tick reveal/arrival timers.
 #[cfg(feature = "delve")]
 #[test]
 fn hidden_and_comp_mode_skip_scryglass_accessories_without_slowing_default() {
@@ -1491,10 +1462,7 @@ fn hidden_and_comp_mode_skip_dotmax_without_slowing_default() {
     use crate::tests::TestEnvGuard;
     use crate::ui::scryglass::{StageRoute, StageSurface};
     let _lock = env_lock();
-    // The 3D ride path; the overworld map hosts the Realm route by default.
     let _ride = crate::tests::TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
-    // This contract inspects text cells; native generated-dot transport has
-    // its own pixel, continuity, geometry and ordinary-terminal checks.
     let _text_dots = TestEnvGuard::set("ANGEL_DOTMAX_PITCH", "text");
     let _off = TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _backdrop = TestEnvGuard::unset("ANGEL_BACKDROP");
@@ -1700,9 +1668,6 @@ fn hidden_and_comp_mode_skip_world_mirrors_without_slowing_default() {
     );
 }
 
-/// Comp / lean still lays Stage chrome, so `world_pane_visible` stays true.
-/// Leftover knight/sparkle flags must not pin the scenery cadence — `world.tick`
-/// is already skipped, so dest would never catch up.
 #[test]
 fn hidden_comp_does_not_steal_stage_column_for_ceremony() {
     use crate::tests::TestEnvGuard;
@@ -1907,8 +1872,6 @@ fn miniviz_dancers_still_select_and_paint_assets_when_visible() {
         false,
         crate::ui::viz::loop_viz::hammertime_active(&running)
     ));
-    // Paused iterations keep the hammerdancers on stage (425e67d8): the loop
-    // is still alive, only the cadence is held.
     assert!(draw::miniviz_dancer_paint_allowed(
         true,
         crate::ui::viz::loop_viz::hammertime_active(&LoopState {
@@ -1936,8 +1899,6 @@ fn miniviz_dancers_still_select_and_paint_assets_when_visible() {
     assert!(left.width > 0 && right.width > 0);
 }
 
-/// Z4: the quest line owns the world pane's caption row while an adventure is
-/// running, and the pane's own border carries the quest's weather.
 #[cfg(feature = "delve")]
 #[test]
 fn the_quest_hud_and_its_border_reach_the_world_pane() {
@@ -1981,7 +1942,6 @@ fn the_quest_hud_and_its_border_reach_the_world_pane() {
         "decorative footer labels stay out of miniviz"
     );
 
-    // Deep fog tints the pane's own border amber — chrome, not plate.
     let buffer = terminal.backend().buffer();
     let ambered = (0..buffer.area.height).any(|y| {
         (0..buffer.area.width).any(|x| {
@@ -1993,19 +1953,11 @@ fn the_quest_hud_and_its_border_reach_the_world_pane() {
     assert!(ambered, "a danger-2 quest ambers the world pane border");
 }
 
-/// Z5 §1: off Castle Town the quest owns the pane.
-///
-/// The live run (2026-09-06) had a coding loop in The Mines while a
-/// `write_file` walked the town knight to the Smithy — and the Smithy's
-/// ARRIVAL establishing shot took the pane, with the Mines plate underneath
-/// and the Z4 HUD gone. The ride surface has to survive the arrival, and the
-/// arrival has to come back the moment the quest is home again.
 #[cfg(feature = "delve")]
 #[test]
 fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
     use crate::drive::loop_ctl::LoopStatus;
     let _lock = env_lock();
-    // The 3D ride path; the overworld map hosts the Realm route by default.
     let _ride = crate::tests::TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _turbo = crate::tests::TestEnvGuard::unset("ANGEL_TURBO");
@@ -2016,11 +1968,8 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
     app.scryglass.navigate(scryglass::StageRoute::Realm);
-    // Baseline the arrival tracker on the world's parked Keep, exactly as the
-    // first live frame does.
     let _first = render_app_text(&mut app, 144, 48);
 
-    // A coding loop puts the party in The Mines (adventure::home_region).
     app.loop_ctl.status = LoopStatus::Running;
     app.loop_ctl.iteration = 3;
     app.loop_ctl.task = "implement the tool-arrival seam".into();
@@ -2032,8 +1981,6 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
     );
     assert!(app.realm.world.quest_owns_pane());
 
-    // The live tool path: classify → journey → the knight settles at the
-    // landmark, which is what arms the ARRIVAL overlay.
     let call_id = crate::agent::harness::ToolEventId("z5-quest-arrival".into());
     app.realm.world
         .note_tool_call_event(call_id.clone(), "write_file", "cockpit/src/lib.rs");
@@ -2079,11 +2026,6 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
         "the quiet world keeps its controls (floated from the dock)\n{screen}"
     );
 
-    // Home again: the loop finishes, the Homecoming walk expires, and the
-    // town's own arrivals resume untouched.
-    // (`App::loop_finish` sets exactly this and then persists the loop state
-    // to the workspace's store; the mirror only ever reads the status, and a
-    // rendering test must not write a shared file.)
     app.loop_ctl.status = LoopStatus::Done;
     app.adventure_mirror_drain();
     for _ in 0..130 {
@@ -2198,8 +2140,6 @@ fn explicitly_opened_tower_keeps_its_asset_doorway_in_competition_mode() {
     );
 }
 
-/// The loop's crawl: the Realm pane walks the Delve while a loop runs, and
-/// two lines under the picture say what the party is doing.
 #[cfg(feature = "delve")]
 #[test]
 fn a_loops_crawl_says_what_the_party_does_under_its_picture() {
@@ -2231,9 +2171,6 @@ fn a_loops_crawl_says_what_the_party_does_under_its_picture() {
     );
 }
 
-/// A loop steps up to the quintain and the pane follows it to the Loop
-/// view: out in a region, that view is the crawl too, and the loop's numbers
-/// stay under it.
 #[cfg(feature = "delve")]
 #[test]
 fn the_quintain_shows_the_loops_crawl_with_its_numbers() {

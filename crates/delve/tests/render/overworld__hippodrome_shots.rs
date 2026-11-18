@@ -1,4 +1,3 @@
-// Extends the existing offline world exporter with actual input races and HUD checks.
 fn hippodrome_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
     use crate::rules::{Input,HZ,world,countryside as c,hippodrome as h,race_wagers as w,pastimes::{Game,LAP}};
     use crate::realm::Spoil;
@@ -26,8 +25,6 @@ fn hippodrome_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
         let ch=round.chariot.as_ref().unwrap();
         let i=if ch.bog>0 {3} else {usize::from(ch.distance/LAP)};
         if !captures[i] {check(&r);save(&format!("world-chariot-{i}.png"),&native(&r));captures[i]=true;}
-        // Clip the first centre-lane barrel, then steer clear: staying on
-        // that lane for all three laps correctly loses to the rivals.
         let steer=if captures[3] && ch.lane>136 {-1} else {0};
         r.step(&input(steer,-1,t==1));
     }
@@ -56,7 +53,6 @@ fn hippodrome_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
             check(&p);save(&format!("world-{id}-{state}.png"),&native(&p));
         }
     }
-    // Real selection and actual race state; no fabricated results or treasury rewards.
     r.home.countryside.wager_mask=0;r.home.countryside.wager_tickets=[0;3];r.treasury.add(Spoil::Gold,30);
     for heat in 0..3 {
         go(&mut r,RoomKind::Hippodrome,h::BOOTH);r.step(&empty);check(&r);save(&format!("world-bookie-{heat}.png"),&native(&r));

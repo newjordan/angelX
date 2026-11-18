@@ -138,7 +138,6 @@ impl Entry {
     }
 }
 
-/// Text is always terminal-safe, bounded, and separate from private reasoning.
 pub(crate) fn bounded(text: &str, cap: usize) -> String {
     let mut chars = text
         .chars()
@@ -206,8 +205,6 @@ pub(crate) struct Workspace {
 }
 
 impl Workspace {
-    /// The existing project-bound session is the persistence authority. Restore
-    /// only retained tool exchanges, without inventing lost structured verdicts.
     pub(crate) fn ensure_session(&mut self, scope: &str, history: &[ChatMsg]) {
         if self.scope == scope {
             return;
@@ -236,9 +233,6 @@ impl Workspace {
             .take(RECORD_CAP)
             .collect();
         for call in calls.into_iter().rev() {
-            // Bound restoration across the whole retained history, not per
-            // message. Large parallel batches cannot turn resume into a scan
-            // and serialization of every argument in the conversation.
             self.start(
                 &ToolEventId(call.id.clone()),
                 &call.name,
@@ -363,8 +357,6 @@ impl Workspace {
                 .iter()
                 .any(|entry| Some(&entry.id) == self.selected.as_ref())
         {
-            // An inspector keeps its detached item visible through a live update
-            // in the caller; list selection clamps only when its source expired.
             self.selected = self.visible.first().map(|entry| entry.id.clone());
             self.reveal_selection = true;
         }

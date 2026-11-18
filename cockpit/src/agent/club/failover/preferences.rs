@@ -87,9 +87,6 @@ fn read_override(path: &Path, base: &MoaPreferences) -> Result<MoaPreferences, S
     Ok(candidate)
 }
 
-/// Capture once per roster or wrapper. A missing or invalid explicit override
-/// leaves the embedded order in effect; no workspace-relative file is read by
-/// default. The captured `Arc` does not change during that construction.
 pub(crate) fn moa_preferences() -> Arc<MoaPreferences> {
     let path = std::env::var_os("ANGEL_MOA_PREFERENCES").filter(|v| !v.is_empty());
     capture(path.as_deref().map(Path::new))

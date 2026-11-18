@@ -1,9 +1,7 @@
-// Called from the established host/mirror/world regression.
 fn aerie_adventure_regression(mut run: Run) {
     use super::super::{aerie as a, countryside as c};
     use crate::realm::{Spoil, Spoils};
     use std::collections::BTreeMap;
-    // The clerk, the minutes and the plot answer the interact key.
     let meet = || {
         BTreeMap::from([(
             1,
@@ -41,7 +39,6 @@ fn aerie_adventure_regression(mut run: Run) {
     for i in [2usize, 0, 1] {
         let (kind, at, _) = a::DOCUMENTS[i];
         run.arrive(room_of(&run.dungeon, kind).unwrap(), at);
-        // Nothing to pick up until the pigeon is bonked.
         run.step(&meet());
         assert_eq!(a::progress(&run.home.countryside, &run.marks).1 & (1 << i), 0);
         let (x, y) = run.bonk_pigeon_for_test(1).expect("a pigeon up");

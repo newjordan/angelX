@@ -170,9 +170,6 @@ fn retired_competition_fields_stay_null_and_are_enforced() {
         let receipt = audit(&store, &serde_json::to_vec(&request).unwrap()).unwrap();
         assert_eq!(receipt["baseline"], Value::Null);
         assert_eq!(receipt["competition"], Value::Null);
-        // A stored decision that carries a baseline or a non-tests contract
-        // no longer has a scorer to replay it, so it fails closed even when it
-        // is filed under its own digest.
         let path = store.join(format!(
             "{}.decision.json",
             request["decision_sha256"].as_str().unwrap()
@@ -276,7 +273,7 @@ fn emit_owned_coding_training_fixture_for_consumer() {
             .to_string_lossy()
             .starts_with("angel-coding-training-owned-")
     );
-    let workspace = setup(&root); // create_dir refuses existing operator content
+    let workspace = setup(&root);
     let (_, request) = real_producer(&root, &workspace);
     std::fs::write(
         root.join("request.json"),

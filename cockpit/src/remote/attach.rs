@@ -10,10 +10,6 @@ use angel_glass::remote::{Fail, Kind, Link, Outcome, Status, handshake, wire};
 
 use super::Target;
 
-/// The angelX to run on the far side: `ANGEL_REMOTE_ANGELX` when set (a
-/// test checkout), else the first of `angelX` on its PATH, the fleet's
-/// `~/.local/bin/angelX` and a checkout at `~/angelX`. `ANGEL_REMOTE_ENV`
-/// (`NAME=value` words) is set for it there.
 fn remote_command(args: &str) -> String {
     let chosen = std::env::var("ANGEL_REMOTE_ANGELX").unwrap_or_default();
     let env: String = std::env::var("ANGEL_REMOTE_ENV")
@@ -35,14 +31,10 @@ fn quote(text: &str) -> String {
     format!("'{}'", text.replace('\'', "'\\''"))
 }
 
-/// The process carrying a link: `ssh -T <host> angelX --session-host
-/// <name>`, or this binary's own `--session-host` for a session here.
 fn spawn(target: &Target) -> io::Result<Child> {
     let mut command = match &target.host {
         Some(host) => {
             let mut c = Command::new("ssh");
-            // No terminal on the far side: the link is binary. Keepalives
-            // notice a dead link within seconds, so the window reconnects.
             c.args(["-T", "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=3", "-o", "ConnectTimeout=10"])
                 .arg(host)
                 .arg(remote_command(&format!("--session-host {}", target.name)));
@@ -65,14 +57,10 @@ fn self_exe() -> io::Result<std::path::PathBuf> {
     }
 }
 
-/// The far side's stderr: echoed while connecting (a launcher building
-/// there says so), and its last lines kept to explain a failure.
 #[derive(Clone, Default)]
 struct Said(Arc<Mutex<(Vec<String>, bool)>>);
 
 impl Said {
-    /// Lines are echoed only once connecting is slow (a build there): a
-    /// quick failure is explained in one line instead.
     fn listen(&self, stderr: impl Read + Send + 'static, echo: bool) {
         let said = self.clone();
         said.0.lock().unwrap().1 = echo;
@@ -101,7 +89,6 @@ impl Said {
     }
 }
 
-/// A link to the session, through its hello.
 fn connect(target: &Target, kind: Kind, size: GridSize, have: Vec<wire::Hash>, echo: bool) -> Result<Link, Fail> {
     let mut child = spawn(target).map_err(|e| Fail::Fatal(format!("could not run ssh: {e}")))?;
     let said = Said::default();
@@ -118,7 +105,6 @@ fn connect(target: &Target, kind: Kind, size: GridSize, have: Vec<wire::Hash>, e
             Ok(link)
         }
         Err(fail) => {
-            // Let the far side finish saying why.
             if let Some(child) = link.child.as_mut() {
                 let until = Instant::now() + Duration::from_secs(2);
                 while Instant::now() < until && matches!(child.try_wait(), Ok(None)) {
@@ -133,8 +119,6 @@ fn connect(target: &Target, kind: Kind, size: GridSize, have: Vec<wire::Hash>, e
     }
 }
 
-/// A failed hello with what the far side said on stderr: an angelX that
-/// does not know `--session-host` is too old, and says so in one line.
 fn explain(fail: Fail, said: &str) -> Fail {
     let old = said.contains("unknown or trailing interactive argument")
         || said.contains("unknown option")
@@ -153,8 +137,6 @@ fn whoami() -> String {
     format!("{user}@{host}")
 }
 
-/// Whether to attach in a window: asked for, or the launcher's own rule
-/// (a desktop, outside tmux and SSH).
 fn window_wanted(asked: Option<bool>) -> bool {
     if let Some(asked) = asked {
         return asked;
@@ -172,8 +154,6 @@ fn window_wanted(asked: Option<bool>) -> bool {
     }
 }
 
-/// Attach to `target`'s session (started when it has none by that name),
-/// in a glass window or, with no display, in this terminal.
 pub(super) fn attach(target: &Target, window: Option<bool>) -> io::Result<()> {
     let label = target.label();
     let window = window_wanted(window);
@@ -211,7 +191,6 @@ fn fail(label: &str, fail: Fail) -> io::Error {
     io::Error::other(format!("{label}: {fail}"))
 }
 
-/// `--sessions [host]`: the sessions on this machine, or on `host`.
 pub(super) fn sessions(host: Option<&str>) -> io::Result<()> {
     if let Some(host) = host {
         return over_ssh(host, "--sessions");
@@ -225,12 +204,9 @@ pub(super) fn sessions(host: Option<&str>) -> io::Result<()> {
     for name in names {
         match probe(&name, false) {
             Ok(status) => found.push(status),
-            // Nothing listens: a session that died without cleaning up.
             Err(e) if matches!(e.kind(), io::ErrorKind::ConnectionRefused | io::ErrorKind::NotFound) => {
                 let _ = std::fs::remove_file(super::socket(&name)?);
             }
-            // Something listens but did not answer as this angelX would
-            // (another version): say so and leave it be.
             Err(e) => println!("{name}: running, but it did not answer this angelX ({e}); it may be another version"),
         }
     }
@@ -260,7 +236,6 @@ pub(super) fn sessions(host: Option<&str>) -> io::Result<()> {
     Ok(())
 }
 
-/// `--kill-session [host:]name`.
 pub(super) fn kill(target: &Target) -> io::Result<()> {
     if let Some(host) = &target.host {
         return over_ssh(host, &format!("--kill-session :{}", target.name));
@@ -275,7 +250,6 @@ fn over_ssh(host: &str, args: &str) -> io::Result<()> {
     if status.success() { Ok(()) } else { Err(io::Error::other(format!("{host}: {status}"))) }
 }
 
-/// Ask a session on this machine who it is, and maybe to end.
 fn probe(name: &str, kill: bool) -> io::Result<Status> {
     let mut stream = std::os::unix::net::UnixStream::connect(super::socket(name)?)?;
     stream.set_read_timeout(Some(Duration::from_secs(3)))?;

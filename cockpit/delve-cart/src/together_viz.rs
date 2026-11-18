@@ -22,8 +22,6 @@ fn clipped_line(frame: &mut Frame, area: Rect, value: &str, color: Color) {
     );
 }
 
-/// A dedicated full-terminal game surface. Returns whether all action hints
-/// are visible, so an undersized or unpainted game never accepts hidden keys.
 pub(crate) fn render_game(
     frame: &mut Frame,
     together: &Together,

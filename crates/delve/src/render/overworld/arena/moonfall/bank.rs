@@ -17,7 +17,6 @@ struct Anim {
     durations: Vec<u32>,
 }
 
-/// The painted frame, as the stage draws it: opaque pixels only.
 fn painted(bytes: &[u8], size: [i32; 2]) -> Img {
     let png = image::load_from_memory(bytes).expect("Moonfall slot").to_rgba8();
     assert_eq!([png.width() as i32, png.height() as i32], size, "slot registration");
@@ -54,8 +53,6 @@ fn bank() -> &'static BTreeMap<(String, String), Anim> {
     })
 }
 
-/// The painted frame of `state` at animation tick `tick`, when every frame of
-/// that state is painted.
 pub(super) fn frame(id: &str, state: &str, tick: u32) -> Option<&'static Img> {
     let anim = bank().get(&(format!("moonfall.{id}"), state.to_owned()))?;
     let mut time = tick % anim.durations.iter().sum::<u32>().max(1);

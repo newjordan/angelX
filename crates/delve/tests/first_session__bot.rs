@@ -27,38 +27,20 @@ use crate::rules::{EnemyKind, HZ, Input, Phase, Run, TELEGRAPH};
 use crate::ink::Img;
 use std::collections::{BTreeMap, VecDeque};
 
-/// How a beginner plays: every timing and every chance, in ticks and in
-/// percent.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Beginner {
-    /// Ticks between looks at the screen; the keys are held in between.
     pub think: u32,
-    /// How far off an aim goes either way, in degrees.
     pub aim_slop: f32,
-    /// Ticks a foe must have been awake and in sight before the beginner
-    /// turns on it.
     pub notice: u32,
-    /// Percent of looks spent walking some other way for a moment.
     pub wander: u32,
-    /// Percent of looks a shot coming close is side-stepped.
     pub dodge: u32,
-    /// Ticks a line in the room's view must be up before it is read.
     pub read: u32,
-    /// Percent chance, each second a line in the bands is up, that the
-    /// beginner glances at it and reads it.
     pub glance: u32,
-    /// Ticks spent looking round a place on coming into it.
     pub look: u32,
-    /// Ticks to type a wish once its line is open.
     pub typing: u32,
-    /// Ticks spent reading the scroll's offers before choosing one.
     pub ponder: u32,
-    /// Ticks between tries of a key nobody has named, while nothing known
-    /// works.
     pub fumble: u32,
-    /// Ticks after one wish before the next is made.
     pub between: u32,
-    /// Ticks between looks at the screen's words (a frame drawn and read).
     pub every: u32,
 }
 
@@ -82,7 +64,6 @@ impl Default for Beginner {
     }
 }
 
-/// What a key does, as a beginner thinks of it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Key {
     Walk,
@@ -106,11 +87,8 @@ impl Key {
     }
 }
 
-/// The keys a beginner tries, in turn, when nothing it knows does anything.
 const FUMBLE: [Key; 5] = [Key::Dash, Key::Use, Key::Fire, Key::Swing, Key::Wish];
 
-/// The keys a line on the screen names: a key's own token beside other
-/// words ("T TO MAKE THEM", "E: BE THIS KNIGHT", "WISH 3 T", "F SHOOT").
 pub fn teaches(line: &str) -> Vec<Key> {
     let up = line.to_uppercase();
     let words: Vec<&str> = up
@@ -139,8 +117,6 @@ pub fn teaches(line: &str) -> Vec<Key> {
     keys
 }
 
-/// A key the HUD's tray names under its slot's picture (the weapon's F,
-/// the roll's SPC): a cap alone, read at a glance as that slot's key.
 pub fn keycap(line: &str) -> Option<Key> {
     match line.trim() {
         "F" => Some(Key::Fire),
@@ -149,26 +125,16 @@ pub fn keycap(line: &str) -> Option<Key> {
     }
 }
 
-/// Where on the screen a line was drawn: the room's view, the wish scroll
-/// over it, or the bands above and below it (the party's cards, the HUD).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Layer {
     View,
     Scroll,
     Band,
-    /// A notice the host sent, shown by the page as a toast (`boot.js`
-    /// `toast`, `TOAST_MS`).
     Toast,
 }
 
-/// How long the page shows a toast, in ticks (`TOAST_MS`, 2.5 s).
 pub const TOAST_TICKS: u64 = 75;
 
-/// Knight `id`'s screen as its seat draws it: from the run its client
-/// has, the tick's tree read back through the seat's share of it
-/// (`wire::publish`, `seat_tree`, `read`). That leaves out what a client
-/// never hears of (the host's own empty place, the floor's tally, the
-/// dice), so a picture that leans on one is caught here as in a browser.
 pub fn seat_screen(run: &mut Run, id: u32, primer: &mut arena::primer::Primer) -> Screen {
     let seat = crate::wire::seat_of(id);
     let mirror = crate::wire::publish(run)
@@ -181,11 +147,6 @@ pub fn seat_screen(run: &mut Run, id: u32, primer: &mut arena::primer::Primer) -
     }
 }
 
-/// A seat's whole screen for knight `id`, as its client draws it (the room's
-/// view, the presence marks, the scroll, the bands): the picture, every line
-/// on it with the layer it was written in, and the boards up over the view.
-/// A line written on a picture bigger than the view (a room's whole canvas,
-/// cropped to the view by the camera) counts only where the crop shows it.
 pub fn screen(run: &Run, id: u32, primer: &mut arena::primer::Primer) -> Screen {
     let (w, h) = arena::seat_size();
     let (w, h) = (w as i32, h as i32);
@@ -212,8 +173,6 @@ pub fn screen(run: &Run, id: u32, primer: &mut arena::primer::Primer) -> Screen 
         let ((), scroll) = said::read(|| crate::render::genie::paint(&mut img, run, focus));
         let scrolled = !scroll.lines.is_empty();
         lines.extend(scroll.lines.into_iter().map(|l| (Layer::Scroll, l.text)));
-        // The first steps' hints, over the view as the client paints them.
-        // Its keycap and its word are one plate, read together.
         let ((), hints) = said::read(|| primer.paint(&mut img, run, id));
         if !hints.lines.is_empty() {
             lines.push((Layer::View, hints.lines.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join(" ")));
@@ -227,75 +186,47 @@ pub fn screen(run: &Run, id: u32, primer: &mut arena::primer::Primer) -> Screen 
     })
 }
 
-/// What a seat's screen showed (`screen`).
 pub struct Screen {
     pub img: Img,
     pub lines: Vec<(Layer, String)>,
-    /// The boards up over the view, their area in pixels together.
     pub boards: u32,
-    /// The wish scroll is open over the view.
     pub scroll: bool,
 }
 
-/// One line the screen showed.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Shown {
     pub layer: Option<Layer>,
-    /// Session ticks it was first and last up.
     pub first: u64,
     pub last: u64,
-    /// Ticks it was up, and whether the beginner read it (and when).
     pub up: u64,
     pub read: Option<u64>,
-    /// Ticks it was up in the room's view while a foe was awake: words
-    /// over a fight.
     pub over_fight: u64,
 }
 
-/// What the beginner was doing while it held no keys.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Idle {
-    /// Looking round a place just come into.
     Looking,
-    /// Reading a line, or the scroll.
     Reading,
-    /// Typing a wish.
     Typing,
-    /// Fallen.
     Down,
-    /// Nothing to do it knows of.
     Lost,
 }
 
-/// A session's log.
 #[derive(Clone, Debug, Default)]
 pub struct Session {
     pub seed: u64,
     pub ticks: u64,
-    /// The first time each thing happened, in session ticks.
     pub firsts: BTreeMap<&'static str, u64>,
-    /// Keys learned: when, and from what (a line read, or a key tried).
     pub learned: BTreeMap<Key, (u64, String)>,
-    /// Every place come into: when, and what it was.
     pub places: Vec<(u64, String)>,
-    /// The first floor's chambers with a company, in the order first stood
-    /// in, this run (a run begun again begins it again).
     pub chambers: Vec<usize>,
-    /// Falls: when, and the chamber (its place in `chambers`, from 1) or
-    /// the place it happened in.
     pub falls: Vec<(u64, String)>,
-    /// Runs lost and begun again at the tavern.
     pub wipes: u32,
     pub kills: u32,
     pub wishes: Vec<(u64, String)>,
     pub idle: BTreeMap<Idle, u64>,
     pub shown: BTreeMap<String, Shown>,
-    /// Ticks the knight stood with keys held and did not move: walls,
-    /// corners, the crowd.
     pub stuck: u64,
-    /// Ticks in a fight (a foe awake near), and of those, with a board up
-    /// over the view (and their area together, pixel-ticks), and with the
-    /// wish scroll open.
     pub fight: u64,
     pub boards_over_fight: u64,
     pub board_area_over_fight: u64,
@@ -307,12 +238,10 @@ impl Session {
         self.firsts.entry(what).or_insert(at);
     }
 
-    /// Seconds from the link to `what`, if it happened.
     pub fn secs(&self, what: &str) -> Option<f32> {
         self.firsts.get(what).map(|&t| t as f32 / HZ as f32)
     }
 
-    /// Falls in the first `n` chambers fought.
     pub fn falls_in_first(&self, n: usize) -> usize {
         self.falls
             .iter()
@@ -320,7 +249,6 @@ impl Session {
             .count()
     }
 
-    /// The key was learned by `secs` seconds in.
     pub fn knows_by(&self, key: Key, secs: f32) -> bool {
         self.learned.get(&key).is_some_and(|(t, _)| *t as f32 / HZ as f32 <= secs)
     }
@@ -329,38 +257,26 @@ impl Session {
         self.idle.values().sum::<u64>() as f32 / HZ as f32
     }
 
-    /// Seconds words lay over the room's view in a fight.
-    /// Seconds a board stood over the view in a fight, and of how many
-    /// seconds of fighting.
     pub fn boards_over_fights(&self) -> (f32, f32) {
         (self.boards_over_fight as f32 / HZ as f32, self.fight as f32 / HZ as f32)
     }
 }
 
-/// What the beginner is about.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Mode {
     Going,
-    /// Standing still to look round, until the tick.
     Looking(u64),
-    /// The wish line is open: typing, until the tick.
     Typing(u64),
-    /// The scroll is open: reading its offers, until the tick.
     Pondering(u64),
 }
 
-/// A host-side act the beginner asks for: what the page sends, which the
-/// host answers (the wish line's words, offered on the scroll).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Ask {
     Wish(String),
 }
 
-/// The words a beginner types into the wish line, tried in turn until one
-/// is a wish the phrasebook knows.
 pub const WORDS: [&str; 5] = ["fire faster", "more health", "triple shot", "faster", "bigger sword"];
 
-/// The beginner at knight `id`'s keys.
 pub struct Newbie {
     pub id: u32,
     pub knobs: Beginner,
@@ -369,28 +285,19 @@ pub struct Newbie {
     held: Input,
     next_think: u64,
     path: Vec<(i32, i32)>,
-    /// The place the knight is in: depth, room, kind.
     place: Option<(u32, usize, RoomKind)>,
-    /// Ticks each foe has been awake and in sight.
     seen_foes: BTreeMap<u32, u32>,
-    /// The key being tried, and when it was pressed.
     trying: Option<(Key, u64)>,
     tried: usize,
     last_try: u64,
-    /// Ticks since the knight last did anything that worked.
     since_progress: u64,
-    /// Health when the wish line was opened: a blow while typing lets it go.
     typing_hp: u32,
     wish_words: usize,
-    /// Where the walk keys are taking the knight between looks.
     steer: Option<Goal>,
-    /// Since when the knight has stood at a goal to use or take, and the
-    /// things it gave up taking.
     at_goal: Option<u64>,
     given_up: Vec<(f32, f32)>,
     last_at: (f32, f32),
     pub log: Session,
-    /// Ticks since the link opened.
     pub t: u64,
 }
 
@@ -402,14 +309,12 @@ fn mix(mut x: u64) -> u64 {
     x ^ (x >> 33)
 }
 
-/// An eighth of a turn for a direction: the arrow keys' aims.
 fn dir8(dx: f32, dy: f32) -> (i8, i8) {
     let a = dy.atan2(dx);
     let k = ((a / std::f32::consts::FRAC_PI_4).round() as i32).rem_euclid(8);
     [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)][k as usize]
 }
 
-/// Nothing but floor between two points: a foe the beginner can see.
 fn sight(run: &Run, from: (f32, f32), to: (f32, f32)) -> bool {
     let room = run.room();
     let d = (to.0 - from.0).hypot(to.1 - from.1);
@@ -430,8 +335,6 @@ fn walkable(t: Tile, barred: bool, stairs: bool) -> bool {
     }
 }
 
-/// The tiles from `from` to `to` over the room's walkable floor, stairs only
-/// where `stairs_ok` says (a stair walked onto by chance goes somewhere).
 fn path(run: &Run, from: (f32, f32), to: (f32, f32), stairs_ok: &dyn Fn(i32, i32) -> bool) -> Option<Vec<(i32, i32)>> {
     let room = run.room();
     let cell = |(x, y): (f32, f32)| ((x / TILE_UNITS).floor() as i32, (y / TILE_UNITS).floor() as i32);
@@ -469,15 +372,11 @@ fn path(run: &Run, from: (f32, f32), to: (f32, f32), stairs_ok: &dyn Fn(i32, i32
     None
 }
 
-/// Where the beginner heads in the place it stands in, and what for.
 #[derive(Clone, Copy, Debug)]
 struct Goal {
     to: (f32, f32),
-    /// The stair tiles it may walk onto: the goal's own.
     stairs: (i32, i32, i32, i32),
-    /// Press use on getting there (a door on the kingdom).
     use_there: bool,
-    /// Take what lies there (a weapon).
     take: bool,
 }
 
@@ -528,7 +427,6 @@ impl Newbie {
         (self.rng % 100) < u64::from(percent)
     }
 
-    /// True `n` times in `d`.
     fn odds(&mut self, n: u64, d: u64) -> bool {
         self.rng = mix(self.rng.wrapping_add(0x9e37_79b9_7f4a_7c15));
         self.rng % d.max(1) < n
@@ -553,8 +451,6 @@ impl Newbie {
         *self.log.idle.entry(why).or_default() += 1;
     }
 
-    /// The words on the screen this look: each line's time up, and what the
-    /// beginner read in them.
     pub fn saw(&mut self, run: &Run, seen: &Screen, ticks: u64) {
         let fight = self.in_fight(run);
         if fight {
@@ -582,7 +478,6 @@ impl Newbie {
             let read = match layer {
                 Layer::View | Layer::Scroll | Layer::Toast => long_enough,
                 Layer::Band => {
-                    // A glance now and then: `glance` percent a second.
                     let odds = u64::from(self.knobs.glance) * ticks;
                     self.odds(odds, 100 * u64::from(HZ)) && long_enough
                 }
@@ -597,7 +492,6 @@ impl Newbie {
         }
     }
 
-    /// A foe awake near the knight: a fight.
     fn in_fight(&self, run: &Run) -> bool {
         let Some(me) = run.players.get(&self.id) else { return false };
         run.enemies.iter().any(|e| {
@@ -609,7 +503,6 @@ impl Newbie {
         run.enemies.iter().any(|e| e.hp > 0 && !e.dormant && e.kind != EnemyKind::Dummy && e.age >= TELEGRAPH)
     }
 
-    /// Where to go in the place the knight is in.
     fn goal(&self, run: &Run) -> Option<Goal> {
         let me = run.players.get(&self.id)?;
         match run.room().kind {
@@ -634,9 +527,6 @@ impl Newbie {
                 if run.at != o.map {
                     return self.door_out(run);
                 }
-                // Something lying near that the knight lacks, labelled
-                // E TAKE: the cache's weapon, a helm or mail a kill dropped.
-                // A beginner goes for what shines.
                 let room = &run.dungeon.rooms[run.at];
                 let wanted = |card: &str| match card {
                     "iron-helm" => !me.owned.helmet,
@@ -662,8 +552,6 @@ impl Newbie {
                     let s = (y..y + h).flat_map(|r| (x..x + w).map(move |c| (c, r))).find(|&(c, r)| room.tile(c, r) == Tile::Stairs)?;
                     return Some(rect_goal((s.0, s.1, 1, 1)));
                 }
-                // The nearest chamber with a company still in it, the
-                // guardian's last.
                 let nearest = o
                     .chambers
                     .iter()
@@ -679,8 +567,6 @@ impl Newbie {
                     .map(|(_, c)| c);
                 let target = nearest.unwrap_or(g);
                 let index = o.chambers.iter().position(|c| std::ptr::eq(c, target)).unwrap_or(usize::from(o.guardian));
-                // Its middle; once there, the last of its company wherever
-                // they stand, as a player hunts the last of a room.
                 let (cx, cy) = target.centre();
                 let spot = run.open_spots(o.map, (cx, cy), 1).first().copied().unwrap_or((cx, cy));
                 let inside = target.holds(me.x, me.y, 0.0);
@@ -697,8 +583,6 @@ impl Newbie {
         }
     }
 
-    /// The nearest way out of a side place: an entrance's stair, or a doorway
-    /// on the room's edge.
     fn door_out(&self, run: &Run) -> Option<Goal> {
         let me = run.players.get(&self.id)?;
         let kind = run.room().kind;
@@ -726,20 +610,17 @@ impl Newbie {
         best.map(|(_, g)| g)
     }
 
-    /// The chamber of the first floor the knight stands in, if any.
     fn chamber(&self, run: &Run) -> Option<usize> {
         let o = run.dungeon.open.as_ref().filter(|o| run.at == o.map && run.dungeon.depth == 1)?;
         let me = run.players.get(&self.id)?;
         o.chambers.iter().position(|c| c.holds(me.x, me.y, 0.0))
     }
 
-    /// The keys for this tick, and anything asked of the host.
     pub fn input(&mut self, run: &Run) -> (Input, Option<Ask>) {
         let Some(me) = run.players.get(&self.id) else {
             return (Input::default(), None);
         };
         let me = me.clone();
-        // A new place: look round it first.
         let place = (run.dungeon.depth, run.at, run.room().kind);
         if self.place != Some(place) {
             self.log.places.push((self.t, format!("{:?} (floor {}, room {})", place.2, place.0, place.1)));
@@ -775,15 +656,12 @@ impl Newbie {
                 self.mode = Mode::Going;
             }
             Mode::Typing(until) => {
-                // The wish line holds the keys; a blow makes the beginner
-                // let it go and fight.
                 if me.hp < self.typing_hp {
                     self.mode = Mode::Going;
                 } else if self.t < until {
                     self.idle(Idle::Typing);
                     return (Input::default(), None);
                 } else {
-                    // Enter: the words go to the host, which unrolls the scroll.
                     let words = WORDS[self.wish_words % WORDS.len()].to_string();
                     self.wish_words += 1;
                     self.mode = Mode::Pondering(self.t + u64::from(self.knobs.ponder));
@@ -793,14 +671,11 @@ impl Newbie {
             }
             Mode::Pondering(until) => {
                 if me.offer.is_none() {
-                    // The scroll did not open (the words were not a wish it
-                    // knew), or it was taken: back to the game.
                     self.mode = Mode::Going;
                 } else if self.t < until {
                     self.idle(Idle::Reading);
                     return (Input::default(), None);
                 } else {
-                    // "1 2 3 CHOOSE": the first.
                     self.mode = Mode::Going;
                     return (Input { cast: 1, ..Input::default() }, None);
                 }
@@ -817,8 +692,6 @@ impl Newbie {
             self.held = input;
         }
         let mut input = self.held.clone();
-        // On the way somewhere: the walk keys follow the path tick by tick,
-        // as a hand lets go of a key at a corner.
         if let Some(goal) = self.steer {
             (input.move_x, input.move_y) = self.walk(run, &me, goal);
         }
@@ -828,18 +701,15 @@ impl Newbie {
         (input, None)
     }
 
-    /// The walk keys toward `goal` along the room's floor.
     fn walk(&mut self, run: &Run, me: &crate::rules::Hero, goal: Goal) -> (i8, i8) {
         let here = ((me.x / TILE_UNITS).floor() as i32, (me.y / TILE_UNITS).floor() as i32);
         let centre = |(c, r): (i32, i32)| ((c as f32 + 0.5) * TILE_UNITS, (r as f32 + 0.5) * TILE_UNITS);
-        // A tile reached (its middle near enough) is passed.
         while self.path.len() > 1 && {
             let (x, y) = centre(self.path[0]);
             self.path[0] == here && (x - me.x).abs() < 0.45 && (y - me.y).abs() < 0.45 || self.path[1] == here
         } {
             self.path.remove(0);
         }
-        // The way again when it is lost (off the path), or now and then.
         let on = self.path.first().is_some_and(|&(c, r)| (c - here.0).abs() + (r - here.1).abs() <= 1);
         if !on || self.t.is_multiple_of(u64::from(2 * HZ)) {
             let (sc, sr, sw, sh) = goal.stairs;
@@ -863,7 +733,6 @@ impl Newbie {
 
     fn think(&mut self, run: &Run, me: &crate::rules::Hero) -> Input {
         let mut input = Input::default();
-        // Foes in sight, and how long each has been noticed.
         let awake: Vec<(u32, f32, f32)> = run
             .enemies
             .iter()
@@ -878,11 +747,8 @@ impl Newbie {
         }
         let noticed = |a: &&(u32, f32, f32)| self.seen_foes.get(&a.0).is_some_and(|&t| t >= self.knobs.notice);
         let nearest = |a: &&(u32, f32, f32), b: &&(u32, f32, f32)| (a.1 - me.x).hypot(a.2 - me.y).total_cmp(&(b.1 - me.x).hypot(b.2 - me.y));
-        // A foe in sight is fought; one heard behind a wall is gone after.
         let target = awake.iter().filter(noticed).filter(|a| sight(run, (me.x, me.y), (a.1, a.2))).min_by(nearest).copied();
         let behind = awake.iter().filter(noticed).min_by(nearest).copied();
-        // A known wish and a calm moment: the line opens (T). One wish at a
-        // time: the next waits a while (`between`).
         let calm = target.is_none() && awake.is_empty();
         let rested = self.log.wishes.last().is_none_or(|(at, _)| self.t >= at + u64::from(self.knobs.between));
         if self.knows(Key::Wish) && run.can_wish(self.id) && me.offer.is_none() && rested && calm && !self.in_fight(run) {
@@ -890,7 +756,6 @@ impl Newbie {
             self.typing_hp = me.hp;
             return input;
         }
-        // A key being tried: what came of it is judged after the step.
         if let Some((key, _)) = self.trying {
             self.press(&mut input, key, target.map(|t| (t.1, t.2)), me);
             return input;
@@ -900,7 +765,6 @@ impl Newbie {
             let d = dx.hypot(dy).max(0.01);
             let ranged = !me.unarmed();
             let want = if ranged { 6.0 } else { 1.2 };
-            // In: along the floor toward it; close: a beginner's shuffle about.
             if d > want + 1.0 {
                 self.steer = Some(Goal { to: (tx, ty), stairs: (0, 0, 0, 0), use_there: false, take: false });
             } else if self.roll(40) {
@@ -908,7 +772,6 @@ impl Newbie {
                 (input.move_x, input.move_y) = dir8(-dy * side, dx * side);
             }
             if self.knows(Key::Fire) {
-                // An aim off by up to `aim_slop` either way.
                 let slop = (self.unit() * 2.0 - 1.0) * self.knobs.aim_slop.to_radians();
                 let a = dy.atan2(dx) + slop;
                 (input.aim_x, input.aim_y) = dir8(a.cos(), a.sin());
@@ -921,7 +784,6 @@ impl Newbie {
             if self.knows(Key::Swing) && d < 2.4 && self.roll(30) {
                 input.swing = true;
             }
-            // A shot coming close: sometimes side-stepped.
             if let Some(p) = run.projectiles.iter().filter(|p| p.hostile && p.ttl > 0).find(|p| (p.x - me.x).hypot(p.y - me.y) < 3.0)
                 && self.roll(self.knobs.dodge)
             {
@@ -931,7 +793,6 @@ impl Newbie {
             }
             return input;
         }
-        // A fight heard but not seen: round the wall toward it.
         if let Some((_, tx, ty)) = behind {
             self.steer = Some(Goal { to: (tx, ty), stairs: (0, 0, 0, 0), use_there: false, take: false });
             return input;
@@ -944,7 +805,6 @@ impl Newbie {
         };
         let near = (goal.to.0 - me.x).hypot(goal.to.1 - me.y);
         if near < 0.9 && (goal.use_there || goal.take) {
-            // A thing that will not come after a few tries is let be.
             let at = *self.at_goal.get_or_insert(self.t);
             if goal.take && self.t - at > u64::from(4 * HZ) {
                 self.given_up.push(goal.to);
@@ -959,7 +819,6 @@ impl Newbie {
             return input;
         }
         self.at_goal = None;
-        // A wander now and then: a beginner looks about as it goes.
         if self.roll(self.knobs.wander) {
             let a = self.unit() * std::f32::consts::TAU;
             (input.move_x, input.move_y) = dir8(a.cos(), a.sin());
@@ -969,7 +828,6 @@ impl Newbie {
         input
     }
 
-    /// Try the next key nobody has named, when its turn comes.
     fn fumble(&mut self, input: &mut Input, at: Option<(f32, f32)>, me: &crate::rules::Hero) {
         if self.t.saturating_sub(self.last_try) < u64::from(self.knobs.fumble) {
             return;
@@ -996,7 +854,6 @@ impl Newbie {
             Key::Dash => input.dash = true,
             Key::Swing => input.swing = true,
             Key::Wish => {
-                // T opens the wish line: seen at once.
                 self.learn(Key::Wish, "tried T: the wish line opened".into());
                 self.trying = None;
             }
@@ -1004,8 +861,6 @@ impl Newbie {
         }
     }
 
-    /// What `after` compares against: the knight and its place before the
-    /// step (the whole run is too dear to copy every tick).
     pub fn before(&self, run: &Run) -> Before {
         Before {
             hero: run.players.get(&self.id).cloned(),
@@ -1017,7 +872,6 @@ impl Newbie {
         }
     }
 
-    /// After the step: what the keys did.
     pub fn after(&mut self, before: &Before, run: &Run, input: &Input) {
         let (Some(was), Some(now)) = (before.hero.as_ref(), run.players.get(&self.id)) else {
             self.t += 1;
@@ -1070,7 +924,6 @@ impl Newbie {
             self.log.wishes.push((self.t, name));
             self.log.first("first wish", self.t);
         }
-        // What a tried key did.
         if let Some((key, at)) = self.trying {
             let worked = match key {
                 Key::Fire => fired,
@@ -1096,7 +949,6 @@ impl Newbie {
     }
 }
 
-/// The knight and its place before a step.
 pub struct Before {
     hero: Option<crate::rules::Hero>,
     depth: u32,
@@ -1106,11 +958,6 @@ pub struct Before {
     chamber: Option<usize>,
 }
 
-/// A new delve as the live box begins one (`ANGEL_DELVE_OPEN=1`,
-/// `ANGEL_DELVE_HOST_KNIGHT=0`, the cockpit's `start_shooter`): the
-/// Undercroft's run, a naked start, the host's own knight's place empty,
-/// the party in the Sozzled Griffin; and the friend from the link seated as
-/// knight 2 in the company's colours.
 pub fn live_start(seed: u64, raid: u64) -> Run {
     let _open = crate::settings::scoped(crate::settings::Settings { open_floors: true, ..Default::default() });
     let mut run = Run::at_home(seed, raid, None, Default::default(), Default::default());
@@ -1126,9 +973,6 @@ pub fn live_start(seed: u64, raid: u64) -> Run {
     run
 }
 
-/// A session filmed: its seat's screen every `every` ticks, appended as raw
-/// RGB to `<dir>/film.rgb` (`<dir>/film.txt` says the size and each frame's
-/// tick); GIFs are cut from it afterwards (ffmpeg's rawvideo).
 pub struct Film {
     pub dir: std::path::PathBuf,
     pub every: u64,
@@ -1156,9 +1000,6 @@ impl Film {
     }
 }
 
-/// The live box's start with the beginner as knight 1 instead (a dev host's
-/// first seat: `delve-dev-host --scene live --newbie`): the same tavern, the
-/// same naked start and open floors, and no empty place beside it.
 pub fn live_start_first(seed: u64, raid: u64) -> Run {
     let _open = crate::settings::scoped(crate::settings::Settings { open_floors: true, ..Default::default() });
     let mut run = Run::at_home(seed, raid, None, Default::default(), Default::default());
@@ -1172,23 +1013,15 @@ pub fn live_start_first(seed: u64, raid: u64) -> Run {
     run
 }
 
-/// The beginner at its seat, a tick at a time: it looks at its screen,
-/// presses its keys, the host answers what it asked, the run steps, and it
-/// sees what came of it. A run lost begins again at the tavern (as
-/// `rules::again` takes the party back), with all the beginner learned.
 pub struct Driver {
     pub bot: Newbie,
     pub seed: u64,
     pub raid: u64,
-    /// How a lost run begins again.
     pub start: fn(u64, u64) -> Run,
     lost_at: Option<u64>,
     toasts: Vec<(u64, String)>,
     trace: bool,
-    /// The seat's first steps' hints (`arena::primer`), as its client keeps
-    /// them.
     pub primer: arena::primer::Primer,
-    /// A run begun again takes the environment's knobs (`knobs_from_env`).
     pub tuned: bool,
 }
 
@@ -1207,8 +1040,6 @@ impl Driver {
         }
     }
 
-    /// The host's notices this tick: those for this seat are the page's
-    /// toasts.
     pub fn heard(&mut self, run: &Run, notices: &[crate::wire::Event]) {
         let t = self.bot.t;
         for event in notices {
@@ -1219,8 +1050,6 @@ impl Driver {
         self.toasts.retain(|(at, _)| t < at + TOAST_TICKS);
     }
 
-    /// One tick of `run`, the beginner's keys beside `others` (the other
-    /// seats'), stepped here. `film` keeps a frame when one is due.
     pub fn tick(&mut self, run: &mut Run, others: &BTreeMap<u32, Input>, film: Option<&Film>) {
         let t = self.bot.t;
         if run.phase == Phase::Wiped {
@@ -1320,9 +1149,6 @@ impl Driver {
     }
 }
 
-/// The game's knobs for a measurement, from the environment: `FS_TUNE`
-/// (`name=value,...`, the server's knobs, `Tune::set`) and `FS_PRIMER=0`
-/// (the first steps' hints off), so one change can be measured alone.
 pub fn knobs_from_env(run: &mut Run, primer: &mut arena::primer::Primer) {
     if let Ok(tune) = std::env::var("FS_TUNE") {
         for pair in tune.split(',').filter(|p| !p.is_empty()) {
@@ -1338,14 +1164,10 @@ pub fn knobs_from_env(run: &mut Run, primer: &mut arena::primer::Primer) {
     }
 }
 
-/// One first session: the beginner at knight 2 of `live_start(seed)`, for
-/// `secs` seconds or until it has left the first floor.
 pub fn play(seed: u64, knobs: Beginner, secs: u32, film: Option<&Film>) -> Session {
     play_tuned(seed, knobs, secs, film, false)
 }
 
-/// `play`, with the game's knobs from the environment when `tuned`
-/// (`knobs_from_env`: the sim's FS_TUNE and FS_PRIMER).
 pub fn play_tuned(seed: u64, knobs: Beginner, secs: u32, film: Option<&Film>, tuned: bool) -> Session {
     let mut run = live_start(seed, 1);
     let mut driver = Driver::new(seed, knobs, 2, live_start);

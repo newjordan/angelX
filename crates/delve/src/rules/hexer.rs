@@ -8,25 +8,19 @@
 
 use super::*;
 
-/// How long a knight is a frog, and how long after that no hex takes.
 pub const HEX_TICKS: u32 = 5 * HZ / 2;
 pub const HEX_IMMUNE: u32 = 3 * HZ;
-/// A frog's pace, against a knight's.
 pub const FROG_PACE: f32 = 0.7;
-/// The Hexer's bolt and her spit, on their beats.
 const HEX_EVERY: u32 = 4 * HZ;
 const SPIT_EVERY: u32 = 2 * HZ;
-/// Hexed this often in a delve for Kiss Me, I'm a Knight.
 const RIBBIT: u32 = 3;
 
 impl Hero {
-    /// Hexed, and still a frog.
     pub fn frog(&self) -> bool {
         self.hexed > HEX_IMMUNE
     }
 }
 
-/// The Hexer's step. False for any other monster.
 pub(super) fn act(
     enemy: &mut Enemy,
     heroes: &[(f32, f32)],
@@ -45,7 +39,6 @@ pub(super) fn act(
     let (cx, cy) = unit(tx - enemy.x, ty - enemy.y);
     let dist = (tx - enemy.x).hypot(ty - enemy.y);
     enemy.timer += 1;
-    // Keep between nine and thirteen steps off, sidling between.
     let side = if enemy.id.is_multiple_of(2) { 1.0 } else { -1.0 };
     let way = if target.is_none() {
         (0.0, 0.0)
@@ -93,13 +86,10 @@ pub(super) fn act(
 }
 
 impl Run {
-    /// A hex bolt found knight `id`: a frog, unless still warded from the
-    /// last.
     pub(super) fn hex(&mut self, id: u32) {
         let Some(hero) = self.players.get_mut(&id) else {
             return;
         };
-        // Warded from the last, or under a Pendragon Sceptre.
         if hero.hexed > 0 || hero.immune > 0 {
             return;
         }
@@ -114,7 +104,6 @@ impl Run {
         }
     }
 
-    /// Hexes wear off.
     pub(super) fn tick_hexes(&mut self) {
         for hero in self.players.values_mut() {
             hero.hexed = hero.hexed.saturating_sub(1);

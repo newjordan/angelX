@@ -9,9 +9,6 @@ use super::deepseek_messages::{Flavor, to_messages_body_for};
 use super::*;
 use serde_json::{Value, json};
 
-/// Knobs that shape outbound messages (splices, effort, dialect, cache
-/// markers). Tests scrub them while holding the crate env lock so a hop pair
-/// cannot be built under two different configurations.
 const PREFIX_ENV: &[&str] = &[
     "ANGEL_REASONING_EFFORT",
     "ANGEL_DEEPSEEK_REASONING_EFFORT",
@@ -50,7 +47,6 @@ impl PrefixEnv {
         let mut previous = Vec::with_capacity(keys.len());
         for &key in keys {
             previous.push((key, std::env::var_os(key)));
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::remove_var(key) };
         }
         resync_prefix_caches();
@@ -62,9 +58,7 @@ impl Drop for PrefixEnv {
     fn drop(&mut self) {
         for (key, value) in self.previous.drain(..).rev() {
             match value {
-                // TODO: Audit that the environment access only happens in single-threaded code.
                 Some(value) => unsafe { std::env::set_var(key, value) },
-                // TODO: Audit that the environment access only happens in single-threaded code.
                 None => unsafe { std::env::remove_var(key) },
             }
         }
@@ -103,10 +97,6 @@ fn read_call(id: &str, path: &str) -> ToolCall {
     }
 }
 
-/// The conversation every route grows through: a reasoned tool call, its
-/// result, a reasoned final answer, a new ask, and a second reasoned tool call
-/// whose result is the newest message. Each hop is a request the agent loop
-/// actually sends.
 fn growing_hops(reasoning: &[&str; 3]) -> Vec<Vec<ChatMsg>> {
     let hop1 = vec![
         ChatMsg::system(system_prompt()),
@@ -176,10 +166,6 @@ fn messages_hops(club: &HttpClub, flavor: Flavor, reasoning: &[&str; 3]) -> Vec<
         .collect()
 }
 
-/// Request N's serialized messages must be a literal prefix of request N+1's,
-/// and the next byte must continue the array with one more message: a string
-/// prefix without the comma would also hold if an element were truncated or
-/// rewritten at the boundary.
 fn assert_serialized_prefix(route: &str, previous: &Value, next: &Value) {
     let previous_items = previous
         .as_array()
@@ -222,8 +208,6 @@ fn assert_hops_are_prefixes(route: &str, hops: &[Value]) {
     }
 }
 
-/// A prefix check alone passes when a route silently drops the newest message:
-/// every new turn must actually appear in the request that carries it.
 fn assert_turn_present(route: &str, hop: &Value, needle: &str) {
     assert!(
         hop.to_string().contains(needle),
@@ -251,9 +235,6 @@ fn assert_route_prefixes(route: &str, hops: &[Value]) {
     assert_hops_are_prefixes(route, hops);
 }
 
-/// A replaying route must keep the reasoning it already sent in the prefix;
-/// dropping it would re-prefill the provider's cached tokens even though every
-/// remaining message stayed in order.
 fn assert_reasoning_replays(route: &str, hops: &[Value], reasoning: &[&str; 3]) {
     let latest = hops.last().expect("a hop").to_string();
     for thought in reasoning {
@@ -264,8 +245,6 @@ fn assert_reasoning_replays(route: &str, hops: &[Value], reasoning: &[&str; 3]) 
     }
 }
 
-/// The cache-control markers move by design; strip them to check the
-/// token-bearing content prefix that the provider actually caches.
 fn without_cache_control(value: &Value) -> Value {
     match value {
         Value::Object(map) => Value::Object(
@@ -289,9 +268,6 @@ fn assert_content_route_prefixes(route: &str, hops: &[Value]) {
     assert_content_hops_are_prefixes(route, hops);
 }
 
-/// A route selection is part of the fixture: if URL/model inference stops
-/// resolving to the dialect under test, the test must fail rather than quietly
-/// exercise the generic OpenAI spelling.
 fn assert_dialect(club: &HttpClub, expected: ReasoningDialect, route: &str) {
     assert_eq!(
         club.reasoning_dialect(),
@@ -339,9 +315,6 @@ fn openrouter_claude_club() -> HttpClub {
     )
 }
 
-/// The OpenRouter Claude route is selected by the vendor-prefixed model: its
-/// body must carry the Anthropic cache breakpoints, not the generic OpenAI
-/// messages array.
 fn assert_openrouter_claude_route(club: &HttpClub, hops: &[Value]) {
     assert_dialect(club, ReasoningDialect::OpenAiEffort, "openrouter claude");
     assert!(
@@ -483,9 +456,6 @@ fn openrouter_claude_content_stays_a_byte_prefix_without_cache_markers() {
     assert_content_route_prefixes("openrouter claude chat", &hops);
 }
 
-/// The Claude vendor slug must keep selecting the OpenRouter Anthropic cache
-/// path; otherwise the ignored strict tests would quietly exercise the generic
-/// OpenAI body and report a false prefix break.
 #[test]
 fn openrouter_claude_route_keeps_its_anthropic_cache_wire() {
     let _lock = crate::tests::env_lock();

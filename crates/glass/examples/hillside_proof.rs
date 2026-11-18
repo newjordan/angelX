@@ -23,7 +23,6 @@ use angel_gpu::{Core, Draw, Frame, Instance, Picture, Stage};
 
 const STAGE: u32 = 0x00FA_57A4;
 
-/// What each 3D frame cost the game before the GPU had it: the scene, then the stage maker.
 static TIMES: std::sync::Mutex<Vec<(u64, u64)>> = std::sync::Mutex::new(Vec::new());
 
 
@@ -54,7 +53,6 @@ fn run() -> Result<(), String> {
         }
     }
     let scene = scene.ok_or_else(usage)?;
-    // A window that draws scenes (the kingdom's 3D is only for one).
     arena::props_meshes(true);
     if !angel_delve::world::plan::tabula() {
         return Err("needs the blank-slate plan standing: ANGEL_REALM_PLAN=tabula".into());
@@ -64,7 +62,6 @@ fn run() -> Result<(), String> {
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let gpu = if dry { None } else { Some(Gpu::new()?) };
     if !dry {
-        // A window that draws scenes: the kingdom's 3D is only for one.
         arena::draw_parts_outside(true);
         arena::props_meshes(true);
     }
@@ -77,7 +74,6 @@ fn run() -> Result<(), String> {
     }
 }
 
-/// Frames of a reel: a frame every `every` ticks, 3D and flat.
 struct Reel {
     gpu: Option<Gpu>,
     dir: PathBuf,
@@ -116,14 +112,11 @@ impl Reel {
     }
 }
 
-// ---------------------------------------------------------------- the pilot ----
-
 fn tile_of(run: &Run) -> (i16, i16) {
     let h = &run.players[&1];
     ((h.x / TILE_UNITS) as i16, (h.y / TILE_UNITS) as i16)
 }
 
-/// Walk to the middle of `to`, holding `extra` besides the walking.
 fn go(reel: &mut Reel, run: &mut Run, to: (i16, i16), extra: Input) -> Result<(), String> {
     let (tx, ty) = ((f32::from(to.0) + 0.5) * TILE_UNITS, (f32::from(to.1) + 0.5) * TILE_UNITS);
     for _ in 0..1500 {
@@ -132,7 +125,6 @@ fn go(reel: &mut Reel, run: &mut Run, to: (i16, i16), extra: Input) -> Result<()
         if dx.abs() < 0.3 && dy.abs() < 0.3 {
             return Ok(());
         }
-        // One axis at a time, the longer first, so the knight walks straight lines.
         let (mx, my) = if dx.abs() >= dy.abs() { (dx.signum() as i8, 0) } else { (0, dy.signum() as i8) };
         reel.tick(run, Input { move_x: mx, move_y: my, ..extra })?;
     }
@@ -149,10 +141,6 @@ fn tool(run: &mut Run, tool: Tool) {
     run.kingdom.industry.get_mut(&1).expect("a board").plan = i;
 }
 
-// ----------------------------------------------------------------- the world ----
-
-/// A hillside run on open ground, rich, the Great Shaft a ley lift (the proof is of the
-/// lines, not of how slowly three blocks a minute come up).
 fn hill(x: f32, y: f32) -> Run {
     let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
     run.walk_kingdom(None);
@@ -191,10 +179,6 @@ fn win_seam(run: &mut Run) {
     run.home.industry.secure("mines-3");
 }
 
-// ------------------------------------------------------------------ the scenes ----
-
-/// A small works at work, the knight walking through it: frames of the kit's pieces at their
-/// states, carts on the roads, people at their posts.
 fn works(reel: &mut Reel) -> Result<(), String> {
     let mut run = hill(150.5, 100.5);
     let c = catalog();
@@ -217,16 +201,12 @@ fn works(reel: &mut Reel) -> Result<(), String> {
     k.apply(c, Command::Carts { yard, carts: 4 })?;
     reel.every = 15;
     reel.wait(&mut run, 90)?;
-    // The knight walks the length of it.
     go(reel, &mut run, (146, 100), Input::default())?;
     go(reel, &mut run, (146, 99), Input::default())?;
     go(reel, &mut run, (163, 99), Input::default())?;
     reel.wait(&mut run, 4)
 }
 
-/// The lead's proof: a knight lays a ropeway (it was a tramway before the rails) from a quarry to a banker by walking it, goods run
-/// on it, the flow overlay shows the one wagon is the bottleneck (the quarry backs up amber, the
-/// banker waits red), a second line from the quarry to a second banker clears it.
 fn line(reel: &mut Reel) -> Result<(), String> {
     let mut run = hill(168.5, 101.5);
     let c = catalog();
@@ -241,13 +221,10 @@ fn line(reel: &mut Reel) -> Result<(), String> {
     for id in [quarry, a, b] {
         k.apply(c, Command::Connect(id))?;
     }
-    // No carts: the lines are the only way the rock goes from the quarry to the cutters.
     reel.every = 20;
     reel.wait(&mut run, 20)?;
-    // The builder comes out, the tool is a tramway.
     press(reel, &mut run, Input { cast: 4, ..Default::default() })?;
     tool(&mut run, Tool::Line(LineKind::Rope));
-    // Stand by the quarry's west face, looking at it; press E, walk west holding it, let go at the banker.
     go(reel, &mut run, (169, 101), Input::default())?;
     press(reel, &mut run, Input { move_x: 1, ..Default::default() })?;
     reel.tick(&mut run, Input { interact: true, ..Default::default() })?;
@@ -256,14 +233,12 @@ fn line(reel: &mut Reel) -> Result<(), String> {
     reel.tick(&mut run, Input::default())?;
     println!("first line: {}", run.kingdom.industry[&1].message);
     reel.wait(&mut run, 150)?;
-    // The overlay.
     if let Some(v) = angel_delve::world::hillside::of(&run) {
         println!("marks {:?}", v.marks.iter().map(|m| (m.heat, m.words.clone())).collect::<Vec<_>>());
         println!("buildings {:?}", v.buildings.iter().map(|b| (b.plan.clone(), format!("{:?}", b.status), b.crew)).collect::<Vec<_>>());
     }
     press(reel, &mut run, Input { dash: true, ..Default::default() })?;
     reel.wait(&mut run, 30)?;
-    // The second line: from the quarry's south face to the second banker.
     tool(&mut run, Tool::Line(LineKind::Rope));
     go(reel, &mut run, (169, 104), Input::default())?;
     go(reel, &mut run, (171, 104), Input::default())?;
@@ -282,14 +257,12 @@ fn line(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// A large works: sixty buildings, thirty carts, a hundred people, and what a frame costs.
 fn big(reel: &mut Reel) -> Result<(), String> {
     let mut run = hill(160.5, 108.5);
     let c = catalog();
     win_seam(&mut run);
     let yard = raise(&mut run, "carters-yard", (143, 98))?;
     let mut ids = vec![yard];
-    // Every kind of work the hillside builds that its ground suits, round and round.
     let menu: Vec<&String> = c.hillside_menu.iter().filter(|p| !c.plans[*p].yard && c.plans[*p].connector.is_none() && c.plans[*p].stalls == 0 && c.plans[*p].replaces.is_none()).collect();
     run.home.industry.population = angel_delve::kingdom::population::Population::founders_of(60);
     let mut n = 0usize;
@@ -391,9 +364,6 @@ impl Gpu {
         }
     }
 
-    /// A Delve frame as a stage, drawn into a texture `size` pixels as the
-    /// window draws a stage in its cells, on black, and (when `read`) read
-    /// back; else waited for.
     fn stage(&mut self, mut frame: angel_stage::Frame, size: (u32, u32), read: bool) -> Vec<u8> {
         self.upload(std::mem::take(&mut frame.pictures));
         self.core.set_stage(

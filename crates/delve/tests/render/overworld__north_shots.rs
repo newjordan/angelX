@@ -1,4 +1,3 @@
-// Included in the established world render exporter, not a separate host.
 fn northern_world_shots(source: &Run, save: &impl Fn(&str, &Img)) {
     use crate::rules::{RoomKind, Run, countryside as c, pastimes::{self, Game}, world};
     use std::collections::BTreeMap;
@@ -16,8 +15,6 @@ fn northern_world_shots(source: &Run, save: &impl Fn(&str, &Img)) {
         place(&mut run, kind, (12.0, 7.0));
         shot(name, &run);
     }
-    // Board suppression and HUD clearance at every quest state and at the
-    // minimum room width. Reuse the exporter's actual four-knight loadout.
     for stage in 0..=6 {
         run.home.countryside.forecast = stage;
         for kind in [RoomKind::Rookery, RoomKind::Observatory] {
@@ -61,7 +58,6 @@ fn northern_world_shots(source: &Run, save: &impl Fn(&str, &Img)) {
     super::pastimes::boards(&mut board, &run);
     assert!((0..board.h).any(|y| (0..board.w).any(|x| board.get(x, y).is_some())), "sled controls rendered");
     for &(gx, gy) in &pastimes::SLED_GATES {
-        // The markers extend a full tile plus twelve pixels from each gate.
         let (x, y) = at((gx * 2) as f32, (gy * 2) as f32);
         for py in y - TILE - 12..=y + TILE + 16 {
             for px in x - 6..=x + 9 {

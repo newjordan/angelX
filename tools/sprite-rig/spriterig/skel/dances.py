@@ -37,7 +37,6 @@ def main(argv=None):
             s = time.time()
             f2.append(_row([b.rgba(b.frame(R, h, facing=0, cam=cam)[0], pal) for b in bbs])); t2 += time.time() - s; n2 += len(bbs)
         _gif(f2, os.path.join(a.out, f"{d}_2d.gif"), a.fps, 4)
-    # dance party: each 2D character a different dance, orbiting camera
     N = int(a.secs * 1.5 * a.fps)
     party = []
     for i in range(N):

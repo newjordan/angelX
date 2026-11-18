@@ -8,8 +8,6 @@ pub enum Graphics {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PortalCacheKey {
-    // Only live sprite scenes retain an earlier frame while encoding. Bind that
-    // continuity to the same workspace/region, never another media surface.
     pub sequence: u64,
     pub width: u16,
     pub height: u16,

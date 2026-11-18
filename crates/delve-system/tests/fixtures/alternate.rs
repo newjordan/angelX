@@ -24,8 +24,6 @@ fn main() {
             },
             home: |request| {
                 let mut result = request.evaluate()?;
-                // A separately linked economy policy, triggered only by this fixture's
-                // explicit fact so unrelated terminal scenarios retain their baseline.
                 if request.transfer.marks.contains_key("native_policy_probe") {
                     result.treasury.add(angel_delve::realm::Spoil::Gold, 7);
                     result.changed = true;
@@ -33,9 +31,6 @@ fn main() {
                 Ok(result)
             },
             brew: |request| {
-                // This alternate authored policy accepts any structurally valid
-                // spell, replacing the original brew power/name rules. Ownership
-                // and card-format bounds still belong to the host contract.
                 request.validate()?;
                 let mut card = request.card.clone();
                 card.id = request.work.result_id.clone();
@@ -60,8 +55,6 @@ fn main() {
                 Ok(result)
             },
             paint: |request| {
-                // Changed catalogue admission policy. The commit port still admits
-                // only the captured visual fields; it cannot rewrite game behavior.
                 request.validate()?;
                 Ok(angel_delve::rules::card_paint::Decision {
                     accepted: request

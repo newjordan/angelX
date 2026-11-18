@@ -32,8 +32,6 @@ pub struct Decision {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Update {
-    /// Exact catalogue entry observed during admission. A late completion may
-    /// not overwrite a newer paint or a new definition under the same ID.
     pub expected: Card,
     pub art: Vec<String>,
     pub looks: Looks,
@@ -52,8 +50,6 @@ pub(crate) fn valid_card(card: &Card) -> bool {
         && cards::check(&card.id, &card.definition_file())
             .is_ok_and(|checked| checked.card.art == card.art && checked.card.looks == card.looks)
 }
-/// Authorship metadata and visual progress are independent of game behavior.
-/// Changes to any other field require a deliberate new definition/grant.
 pub(crate) fn same_definition(current: &Card, authored: &Card) -> bool {
     let mut authored = authored.clone();
     authored.by = current.by.clone();
@@ -61,8 +57,6 @@ pub(crate) fn same_definition(current: &Card, authored: &Card) -> bool {
     authored.looks = current.looks.clone();
     authored == *current
 }
-// Legacy identity derives body parts from worn attachment metadata. Treat that
-// classification as retained game state until it has its own explicit contract.
 pub(crate) fn retains_identity(current: &Card, painted: &Card) -> bool {
     super::identity::piece_of(current) == super::identity::piece_of(painted)
         && super::dead_wishes::colours_body(current) == super::dead_wishes::colours_body(painted)
@@ -161,7 +155,6 @@ pub fn deliver(run: &mut Run, updates: &[Update]) -> Result<bool, String> {
         changed |= card.art != update.art || card.looks != update.looks;
         card.art = update.art.clone();
         card.looks = update.looks.clone();
-        // Every ID already exists: capacity cannot fail after preparation.
         run.book.insert(card);
     }
     Ok(changed)

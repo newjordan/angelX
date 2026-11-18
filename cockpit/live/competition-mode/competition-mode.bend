@@ -1,52 +1,22 @@
 import Base
 
-# Competition-mode engagement for one operator turn, and the shell inventory
-# classification that decides whether a command is a board digest or recon
-# thrash. The host owns every text scan: it finds the current operator turn and
-# the standing goal block, lowercases and searches them for the launch phrases,
-# strips leading env assignments off a shell command, splits the argv into
-# classified words, and reports whether a `git show` carries a listing flag or a
-# `rev:path` blob word. This module owns the decisions that follow.
-#
-# Native twins, still the fallback and the parity oracle, in
-# `cockpit/src/agent/harness/turn/competition.rs`:
-#   * `competition_mode_trigger` — the env flag first, else the first launch
-#     phrase in the current operator turn, else a competitive standing goal. The
-#     leg answers with an index into the host's phrase table, so the phrase
-#     string itself never crosses into Bend;
-#   * `ls_cmd_is_recursive_listing` — an `ls` word followed by a recursive flag;
-#   * `git_show_is_inventory_thrash` — only `git show REV:path` is a legal tip
-#     blob digest;
-#   * `shell_cmd_is_inventory_thrash` — the inventory command table plus the two
-#     scans above.
-
-# One whitespace-split argv word, classified by the host.
 type Token is Data:
-  # The word `ls` after any `/`-prefix, which opens the listing scan.
   Ls{}
-  # Any other non-flag word (`cat`, `handoff.md`).
   Word{}
-  # `--recursive`/`--recurse` (also `--recursive=`/`--recurse=`), or a short
-  # cluster holding `r`.
   Recursive{}
-  # Every other flag, and every leading env assignment.
   Plain{}
 
-# What engaged competition mode. `Phrase` carries a table index, never text.
 type Trigger is Data:
   Env{}
   Phrase{index: U32}
   Goal{}
   NoTrigger{}
 
-# Where a shell command's first non-assignment word sits in the host's tables.
 type First is Data:
   InventoryWord{}
   GitWord{}
   OtherWord{}
 
-# The `git show` facts: both argv words present, a listing/summary flag, the
-# `REV -- path` pathspec form, and a `REV:path` blob word.
 type Git is Data:
   Git{has_git: Bool, has_show: Bool, list_flag: Bool, pathspec: Bool, blob: Bool}
 
@@ -61,8 +31,6 @@ def verdict(yes: Bool) -> Verdict:
     case False{}:
       Clear{}
 
-# A recursive flag only counts after an `ls` word was seen, so the scan carries
-# that state forward and stops at the first flag only a listing accepts.
 def ls_scan(xs: List<Token>, +seen: Bool) -> Bool:
   match xs:
     case Nil{}:
@@ -85,9 +53,6 @@ def ls_scan(xs: List<Token>, +seen: Bool) -> Bool:
 def recursive_of(tokens: List<Token>) -> Verdict:
   verdict(ls_scan(tokens, False{}))
 
-# `git show` is legal only as a tip blob read: a listing/summary flag or the
-# `REV -- path` pathspec form is history inventory, and so is a show with no
-# blob word at all.
 def show_after_flags(pathspec: Bool, blob: Bool) -> Bool:
   match pathspec:
     case True{}:
@@ -132,8 +97,6 @@ def any_true(xs: List<Bool>) -> Bool:
         case False{}:
           any_true(t)
 
-# The first phrase the host matched wins, exactly as the native `find` does, and
-# its list position is the answer.
 def phrase_at(xs: List<Bool>, +at: U32) -> Trigger:
   match xs:
     case Nil{}:
@@ -180,10 +143,6 @@ def after_env(env: Bool, phrases: List<Bool>, present: Bool, goal_phrases: List<
 def trigger(env: Bool, phrases: List<Bool>, present: Bool, goal_phrases: List<Bool>) -> Trigger:
   after_env(env, phrases, present, goal_phrases)
 
-# Every branch below answers `true`, so the order of the scans cannot change the
-# answer. `GitWord` is only reached once the `git show` scan already said the
-# command is not a blob read, which is why that branch is the host's argv table
-# alone.
 def shell_first(first: First, git_args: List<Bool>) -> Bool:
   match first:
     case InventoryWord{}:

@@ -1,9 +1,6 @@
-// Included in atlas::tests to exercise the production locked snapshot path.
 #[test]
 fn adversarial_memory_same_basename_projects_do_not_share_records() {
     let _guard = crate::tests::env_lock();
-    // Fixtures live inside the authorized worktree's TMPDIR. Stop Git from
-    // treating two standalone fixture directories as subdirectories of this repo.
     let _ceiling = crate::tests::TestEnvGuard::set(
         "GIT_CEILING_DIRECTORIES",
         &std::env::temp_dir().to_string_lossy(),
@@ -57,7 +54,6 @@ fn adversarial_memory_promotion_rechecks_locked_record_eligibility() {
                 Ok(())
             })
             .unwrap();
-        // The first handle deliberately retains its previously eligible cache.
         assert!(!service.item(&item.id).unwrap().stale);
         let result = service.promote(&item.id, Some(&item.content_digest));
         assert!(result.is_err(), "{change} record promoted: {result:?}");

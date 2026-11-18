@@ -8,13 +8,9 @@ use std::path::{Path, PathBuf};
 
 pub type Rgb = [u8; 3];
 
-/// How braille cells are drawn. The realm, the Delve and the minimaps are
-/// braille, so this is the look of most of the pictures.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BrailleStyle {
-    /// Round dots with space between them, as a braille font draws them.
     Dots,
-    /// Each dot fills its eighth of the cell: braille as a 2×4 pixel grid.
     Pixels,
 }
 
@@ -59,25 +55,16 @@ impl Default for Palette {
 #[derive(Clone, Debug)]
 pub struct Options {
     pub title: String,
-    /// The Wayland app id and X11 class, for window rules.
     pub app_id: String,
-    /// A fontconfig family name, or a path to a font file.
     pub font_family: String,
-    /// Points: 96 dpi at scale 1.
     pub font_size: f32,
     pub palette: Palette,
-    /// Opacity of the default background. Cells with their own background
-    /// colour stay opaque.
     pub background_opacity: f32,
-    /// Logical pixels around the grid.
     pub padding: f32,
     pub braille: BrailleStyle,
-    /// Coverage curve for text: above 1 thins light-on-dark strokes.
     pub text_gamma: f32,
-    /// Initial window size in cells.
     pub columns: u16,
     pub rows: u16,
-    /// A picture behind the text, and how it shows.
     pub background_image: Option<PathBuf>,
     pub background_layout: crate::wallpaper::Layout,
     pub background_tint: f32,
@@ -107,8 +94,6 @@ impl Default for Options {
 }
 
 impl Options {
-    /// `glass.conf` (written with the defaults on the first launch), then
-    /// the `ANGEL_GLASS_*` overrides.
     pub fn from_environment() -> Self {
         let mut options = Self::default();
         match glass_config_path() {
@@ -124,7 +109,6 @@ impl Options {
         options
     }
 
-    /// The settings as a `glass.conf`.
     pub fn to_conf(&self) -> String {
         let hex = |c: Rgb| format!("#{:02x}{:02x}{:02x}", c[0], c[1], c[2]);
         let mut out = String::from(
@@ -134,7 +118,6 @@ impl Options {
         let mut line = |key: &str, value: String| out.push_str(&format!("{key} {value}\n"));
         line("font_family", self.font_family.clone());
         line("font_size", format!("{}", self.font_size));
-        // Padding is kept in points, as the font size is.
         line(
             "window_padding_width",
             format!("{}", self.padding * 72.0 / 96.0),
@@ -181,7 +164,6 @@ impl Options {
         std::fs::rename(partial, path)
     }
 
-    /// The background image settings, when there is an image.
     pub fn wallpaper(&self) -> Option<crate::wallpaper::Settings> {
         Some(crate::wallpaper::Settings {
             path: self.background_image.clone()?,
@@ -231,7 +213,6 @@ impl Options {
     }
 }
 
-/// Glass's own settings: `ANGEL_GLASS_CONFIG`, else `~/.angelX/glass.conf`.
 fn glass_config_path() -> Option<PathBuf> {
     if let Some(path) = std::env::var_os("ANGEL_GLASS_CONFIG").filter(|p| !p.is_empty()) {
         return Some(PathBuf::from(path));
@@ -248,7 +229,6 @@ fn expand_home(path: &str) -> PathBuf {
     }
 }
 
-/// A config is a few kilobytes; anything past this is not read.
 const MAX_CONFIG_BYTES: u64 = 1 << 20;
 
 fn apply_conf(options: &mut Options, path: &Path) {
@@ -293,12 +273,10 @@ fn apply_conf(options: &mut Options, path: &Path) {
             }
             "window_padding_width" => {
                 if let Some(padding) = value.split_whitespace().next().and_then(number) {
-                    // In points, as the font size is.
                     options.padding = (padding * 96.0 / 72.0).clamp(0.0, 512.0);
                 }
             }
             "background_image" => {
-                // A relative path is relative to the config file.
                 options.background_image = (value != "none" && !value.is_empty()).then(|| {
                     let image = expand_home(value);
                     match path.parent() {
@@ -352,23 +330,16 @@ fn set_color(slot: &mut Rgb, value: &str) {
     }
 }
 
-/// A finite number from config text or the environment. Rust's float
-/// parser accepts `nan`, `inf` and overflowing exponents, and a NaN font
-/// size or opacity would flow straight into cell metrics and the clear
-/// colour, so anything non-finite is no number at all.
 fn number(value: &str) -> Option<f32> {
     value.parse().ok().filter(|v: &f32| v.is_finite())
 }
 
-/// A finite number clamped to a sane range for its setting.
 fn ranged(value: &str, lo: f32, hi: f32) -> Option<f32> {
     number(value).map(|v| v.clamp(lo, hi))
 }
 
 pub(crate) fn parse_hex(value: &str) -> Option<Rgb> {
     let hex = value.trim().strip_prefix('#')?;
-    // The slicing below pairs bytes; a multibyte string of the right byte
-    // length would otherwise panic on a non-char-boundary.
     if !hex.is_ascii() {
         return None;
     }
@@ -430,7 +401,6 @@ mod tests {
 
     #[test]
     fn hex_colors_reject_multibyte_without_panicking() {
-        // Six bytes, but the pair boundaries fall inside the characters.
         assert_eq!(parse_hex("#界界"), None);
         assert_eq!(parse_hex("#ééé"), None);
         assert_eq!(parse_hex("#12é456"), None);
@@ -451,9 +421,6 @@ mod tests {
 
     #[test]
     fn an_oversized_config_is_capped_not_swallowed_whole() {
-        // Settings past the read cap never apply: a hostile or accidental
-        // giant file must not be read into memory unbounded on the startup
-        // path.
         let mut text = String::from("font_size 20\n");
         text.push_str(&"# filler\n".repeat(300_000));
         text.push_str("font_size 99\n");

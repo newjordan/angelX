@@ -13,7 +13,6 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 pub const WEAPON_VERSION: u8 = 1;
-/// One weapon's share of a hero's 50 points (SPEC-CREATOR 5, wishit `WEAPON_BUDGET`).
 pub const WEAPON_BUDGET: u16 = 20;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -37,7 +36,6 @@ pub struct PartStat {
     pub cost: i32,
 }
 
-/// One library part: native pixel size, joints, anchors and the numbers it carries.
 #[derive(Clone, Debug, Deserialize)]
 pub struct KitPart {
     pub id: String,
@@ -58,7 +56,6 @@ pub struct KitPart {
     pub tags: Vec<String>,
     pub size: [i32; 2],
     pub alpha_cols: [i32; 2],
-    /// Where its pixels sit in `parts.png`.
     pub rect: [i32; 4],
 }
 
@@ -124,7 +121,6 @@ pub struct KitSpell {
     pub power: i32,
 }
 
-/// A library weapon as baked: the standard the builder is tested against.
 #[derive(Clone, Debug, Deserialize)]
 pub struct KitWeapon {
     pub id: String,
@@ -167,7 +163,6 @@ impl Kit {
     }
 }
 
-/// What the player chooses first: the type fixes the slot chain and the joint class.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WeaponKind {
@@ -209,7 +204,6 @@ impl WeaponKind {
             Self::Wand => "A small focus",
         }
     }
-    /// The chain, pommel end to tip. A bow's grip and string are fixed.
     pub fn slots(self) -> &'static [&'static str] {
         match self {
             Self::Blade => &["pommel", "grip", "guard", "blade"],
@@ -252,11 +246,9 @@ pub fn slot_label(slot: &str, kind: WeaponKind, class: u8) -> &'static str {
     }
 }
 
-/// What the picker calls a library part: "w5w.pommel-skull" reads "skull pommel".
 pub fn part_name(p: &KitPart) -> String {
     let mut t: Vec<&str> = p.short().split('-').collect();
     let slot = t.remove(0);
-    // A head is named by what it is: "head-axe-war" is a war axe head.
     if matches!(t.first(), Some(&("axe" | "hammer" | "club" | "mace" | "spear" | "staff" | "wand" | "scythe"))) {
         t.reverse();
     }
@@ -267,7 +259,6 @@ pub fn part_name(p: &KitPart) -> String {
     format!("{} {slot}", t.join(" "))
 }
 
-/// A library material ramp: the paint remaps whole ramps, index for index.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Material {
@@ -330,7 +321,6 @@ impl Material {
         .into_iter()
         .find(|m| m.ramp() == name)
     }
-    /// What the Paint page calls it.
     pub fn label(self) -> &'static str {
         match self {
             Self::Plate => "Steel",
@@ -347,7 +337,6 @@ impl Material {
             Self::GagPink => "Rose",
         }
     }
-    /// The ramp a school's glow is painted in.
     pub fn of_school(school: School) -> Self {
         match school {
             School::Fire => Self::Cloth,
@@ -363,13 +352,9 @@ impl Material {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WeaponPaint {
-    /// Every steel pixel (the `plate` ramp).
     pub metal: Material,
-    /// Every wood, rag and leather pixel; Leather leaves them as made.
     pub binding: Material,
-    /// Tint of the magic parts (a staff's head, a gem); `None` leaves them as made.
     pub glow: Option<School>,
-    /// A single part's metal, such as a gold guard.
     pub slot_metal: BTreeMap<String, Material>,
 }
 
@@ -388,7 +373,6 @@ impl Default for WeaponPaint {
 pub struct WeaponPart {
     pub slot: String,
     pub part_id: String,
-    /// Percent; 100 as made. Preview-sized only: the bake redraws the whole weapon.
     pub scale: u16,
 }
 
@@ -402,7 +386,6 @@ impl WeaponPart {
     }
 }
 
-/// The editor's choices: no stats, abilities or costs are ever typed in.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WeaponCreation {
     pub id: String,
@@ -411,10 +394,7 @@ pub struct WeaponCreation {
     pub created: u64,
     pub kind: WeaponKind,
     pub parts: Vec<WeaponPart>,
-    /// Length in native pixels of the part that stretches (a haft, or a straight blade): a plain
-    /// middle slice is cut or repeated, so a longer blade keeps its tip and its fuller.
     pub stretch: Option<u16>,
-    /// An enchant gem on a blade or a haft.
     pub gem: Option<School>,
     pub paint: WeaponPaint,
 }
@@ -425,10 +405,8 @@ impl Default for WeaponCreation {
     }
 }
 
-/// Where each part sits, relative to the top-left of the assembled canvas (as `weapon.json` says).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Placed {
-    /// Index into `kit().parts`.
     pub kit: usize,
     pub slot: String,
     pub off: (i32, i32),
@@ -441,20 +419,15 @@ pub struct Placed {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Assembly {
-    /// In draw order, back to front; gems last.
     pub placed: Vec<Placed>,
     pub size: (i32, i32),
     pub grip: (i32, i32),
     pub grip2: Option<(i32, i32)>,
-    /// The last opaque column, measured on the parts' own alpha.
     pub tip_x: i32,
     pub cast: Option<(i32, i32)>,
-    /// Joint positions along the axis, for the ghost the picker draws.
     pub joints: Vec<(i32, i32)>,
 }
 
-/// The source column of each output column when a haft is resized to `len` (a plain middle
-/// slice is removed or repeated): shared by the geometry here and the pixels in the renderer.
 pub struct HaftCut {
     pub cols: Vec<i32>,
     w: i32,
@@ -517,7 +490,6 @@ impl HaftCut {
     pub fn is_empty(&self) -> bool {
         self.cols.is_empty()
     }
-    /// A source x (a joint or an anchor) in the resized part.
     pub fn map(&self, x: i32) -> i32 {
         let x = x.clamp(0, self.w - 1);
         if self.d >= 0 {
@@ -530,7 +502,6 @@ impl HaftCut {
     }
 }
 
-/// One part as placed: size, joints and anchors after a haft cut or a preview scale.
 struct Fitted {
     size: (i32, i32),
     prox: Option<(i32, i32)>,
@@ -587,12 +558,10 @@ fn z_of(slot: &str) -> u8 {
     }
 }
 
-/// Everything derived from a weapon's parts, as integers so a snapshot stays comparable.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WeaponStats {
     pub damage: i32,
     pub speed: i32,
-    /// Native px from the grip to the tip, in tenths of a tile (as `weapon.json` says `reach`).
     pub reach_tenths: i32,
     pub mass_hundredths: i32,
     pub block: i32,
@@ -618,7 +587,6 @@ pub struct WeaponPowers {
     pub school: Option<School>,
 }
 
-/// A sealed weapon: the recipe plus what the library derives from it. Art is baked later.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WeaponV1 {
     pub version: u8,
@@ -636,13 +604,10 @@ pub struct WeaponV1 {
     pub art: Option<String>,
 }
 
-/// What a part costs at a preview scale: size is power, a part drawn bigger costs in proportion
-/// (rounded up), a smaller one in proportion (rounded down).
 pub fn scaled_cost(base: i32, scale: u16) -> i32 {
     (base * i32::from(scale) + if scale > 100 { 99 } else { 0 }) / 100
 }
 
-/// Python's `round`: halves to even, as the arms tools derived their numbers.
 fn round_even(v: f32) -> i32 {
     let r = v.round();
     if (v - v.trunc()).abs() == 0.5 && r as i32 % 2 != 0 {
@@ -653,7 +618,6 @@ fn round_even(v: f32) -> i32 {
 }
 
 impl WeaponCreation {
-    /// A fresh weapon of a type, from its first compatible part in every slot.
     pub fn of_kind(kind: WeaponKind) -> Self {
         let mut w = Self {
             id: "local-weapon".into(),
@@ -710,7 +674,6 @@ impl WeaponCreation {
         w
     }
 
-    /// A library weapon as a recipe (the builder's start from "pick one of the arms library").
     pub fn from_library(id: &str) -> Option<Self> {
         let k = kit();
         let lw = k.weapons.iter().find(|w| w.id == id)?;
@@ -753,7 +716,6 @@ impl WeaponCreation {
         })
     }
 
-    /// The chosen part's cost in `slot`, at its scale.
     pub fn part_cost(&self, slot: &str) -> Option<i32> {
         let wp = self.chosen(slot)?;
         Some(scaled_cost(kit().part(&wp.part_id)?.stat.cost, wp.scale))
@@ -763,7 +725,6 @@ impl WeaponCreation {
         self.parts.iter().find(|p| p.slot == slot)
     }
 
-    /// The joint class every part of the chain must share, driven by the head.
     pub fn joint_class(&self) -> u8 {
         match self.kind {
             WeaponKind::Wand => 6,
@@ -809,12 +770,10 @@ impl WeaponCreation {
         }
     }
 
-    /// The library parts a slot may take now: only what mates, so nothing refused later.
     pub fn candidates(&self, slot: &str) -> Vec<&'static KitPart> {
         kit().parts.iter().filter(|p| self.fits(slot, p)).collect()
     }
 
-    /// Only a shield's rim may be left empty.
     pub fn optional(&self, slot: &str) -> bool {
         self.kind == WeaponKind::Shield && slot == "rim"
     }
@@ -833,7 +792,6 @@ impl WeaponCreation {
         let part = kit().part(id).ok_or("Unknown part")?;
         let mut next = self.clone();
         if slot == "head" && self.kind == WeaponKind::Haft {
-            // The head sets the joint class; a butt and a haft of another class would not mate.
             next.parts.retain(|p| p.slot != "head");
             next.parts.push(WeaponPart::new("head", &part.id));
             for s in ["pommel", "haft"] {
@@ -859,7 +817,6 @@ impl WeaponCreation {
             next.parts.retain(|p| p.slot != slot);
             next.parts.push(WeaponPart::new(slot, &part.id));
         }
-        // A shield's rim must match its face.
         if self.kind == WeaponKind::Shield && slot == "face" {
             let ok = next
                 .chosen("rim")
@@ -881,7 +838,6 @@ impl WeaponCreation {
         if next.name.starts_with("Wished ") {
             next.name = next.generic_name();
         }
-        // A new part may stretch less or more than the last: keep the length it can have.
         if let (Some(len), Some((_, lo, hi))) = (next.stretch, next.natural_len()) {
             next.stretch = Some(i32::from(len).clamp(lo, hi) as u16);
         }
@@ -889,7 +845,6 @@ impl WeaponCreation {
         Ok(())
     }
 
-    /// "Wished axe": a plain name drawn from what the weapon is, until the player names it.
     pub fn generic_name(&self) -> String {
         let tip = self
             .chosen(match self.kind {
@@ -929,7 +884,6 @@ impl WeaponCreation {
         }
     }
 
-    /// The slot whose part may stretch: a haft or shaft, or a straight blade (not a scythe).
     pub fn stretch_slot(&self) -> Option<&'static str> {
         match self.kind {
             WeaponKind::Blade => Some("blade"),
@@ -945,14 +899,12 @@ impl WeaponCreation {
         Ok(())
     }
 
-    /// (natural length, shortest, longest) of the stretching part.
     pub fn natural_len(&self) -> Option<(i32, i32, i32)> {
         let w = kit().part(&self.chosen(self.stretch_slot()?)?.part_id)?.size[0];
         let (lo, hi) = HaftCut::bounds(w);
         Some((w, lo, hi))
     }
 
-    /// The enchant gem's school, or the focus's own.
     pub fn school(&self) -> Option<School> {
         if self.kind.is_focus() {
             self.chosen("head")
@@ -963,7 +915,6 @@ impl WeaponCreation {
         }
     }
 
-    /// Which placed part hosts the gem: the first with a socket among guard, head, pommel.
     fn gem_host_of(&self) -> Option<&WeaponPart> {
         ["guard", "head", "pommel"].iter().find_map(|s| {
             let p = self.chosen(s)?;
@@ -991,7 +942,6 @@ impl WeaponCreation {
         Ok(())
     }
 
-    /// Place every part on the axis, proximal onto distal, as `assemble.py` does.
     pub fn assemble(&self) -> Option<Assembly> {
         let k = kit();
         let mut placed: Vec<(usize, (i32, i32), Fitted, bool, u16, Option<u16>, String)> = Vec::new();
@@ -1045,7 +995,6 @@ impl WeaponCreation {
                 }
             }
         }
-        // The enchant gem sits on its host's socket.
         let mut gem_placed = None;
         if let (Some(gp), Some(host)) = (self.gem_part(), self.gem_host_of()) {
             let h = placed.iter().find(|q| q.6 == host.slot)?;
@@ -1066,7 +1015,6 @@ impl WeaponCreation {
         );
         let rel = |q: &(usize, (i32, i32), Fitted, bool, u16, Option<u16>, String)| (q.1 .0 - lo.0, q.1 .1 - lo.1);
         let tip_x = all().map(|q| q.1 .0 + q.2.last_col).max()? - lo.0;
-        // The hand: a grip's own anchor (one hand), or a fraction along a haft (two hands).
         let two = matches!(self.kind, WeaponKind::Staff)
             || (self.kind == WeaponKind::Haft && self.joint_class() == 11);
         let gq = placed.iter().find(|q| q.6 == "grip" || q.6 == "haft");
@@ -1131,7 +1079,6 @@ impl WeaponCreation {
         })
     }
 
-    /// Stats, abilities and spells, derived from parts the way `assemble.py` derives them.
     pub fn powers(&self) -> WeaponPowers {
         let k = kit();
         let mut parts: Vec<(&KitPart, u16)> = Vec::new();
@@ -1153,7 +1100,6 @@ impl WeaponCreation {
             s.sp += p.stat.sp;
             s.cost += scaled_cost(p.stat.cost, *scale);
         }
-        // Mass counts both bow limbs; damage and cost count one.
         let mut mass: f32 = parts
             .iter()
             .map(|(p, sc)| p.mass * (f32::from(*sc) / 100.0).powi(2))
@@ -1187,7 +1133,6 @@ impl WeaponCreation {
         };
         let kf = if self.kind == WeaponKind::Shield { 0.18 } else { 0.45 };
         let speed = round_even(11.0 - kf * mass + s.spd as f32).clamp(1, 12);
-        // `reach` is the grip-to-tip distance in tenths of a tile: ten native pixels to the tile.
         let reach_tenths = round_even(reach_px);
         let mut stats = WeaponStats {
             damage: s.dmg,
@@ -1202,7 +1147,6 @@ impl WeaponCreation {
         if self.kind == WeaponKind::Bow {
             stats.range = Some(round_even(stats.reach() * 1.6 + s.dmg as f32));
         }
-        // Abilities: the union over parts (chain order, then the gem), a level from the whole damage.
         let level = 1 + i32::from(s.dmg >= 7) + i32::from(s.dmg >= 10);
         let mut seen: Vec<&str> = Vec::new();
         let mut abilities: Vec<Ability> = Vec::new();
@@ -1264,7 +1208,6 @@ impl WeaponCreation {
         }
     }
 
-    /// Budget points spent (the parts' costs).
     pub fn spent(&self) -> u16 {
         self.powers().stats.cost.max(0) as u16
     }

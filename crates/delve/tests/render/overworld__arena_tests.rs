@@ -16,7 +16,6 @@ fn on_palette(img: &Img) -> bool {
         .all(|c| c == BLACK || super::super::ink::palette_index(c).is_some())
 }
 
-/// A run standing in the first room of `kind`, `ticks` into its fight.
 fn scene(seed: u64, kind: RoomKind, ticks: u32) -> Run {
     let mut run = Run::new(seed, 1, Some("Friend"));
     let index = run
@@ -92,9 +91,6 @@ fn shots_and_figures_show_at_full_ink_over_the_dark_room() {
     assert!(run.projectiles.iter().any(|p| p.hostile));
     let img = frame(&run, 135, 78);
     let f = Field::fit(135, 78);
-    // A shot still under the monster that loosed it is behind its body,
-    // which the brand guide holds under the knights (docs/BRAND.md); every
-    // other shot is at full ink.
     let covered = |p: &crate::rules::Projectile| {
         run.enemies.iter().any(|e| (p.x - e.x).hypot(p.y - e.y) < e.radius() + 0.4)
     };
@@ -130,7 +126,6 @@ fn barred_doors_open_when_the_room_is_cleared() {
     };
     let barred = lit(&frame(&run, 135, 78));
     run.calm_for_test();
-    // Slimes split as they fall, and geodes: fell everything that is left.
     for _ in 0..4 {
         for enemy in &mut run.enemies {
             enemy.hp = 0;
@@ -141,7 +136,6 @@ fn barred_doors_open_when_the_room_is_cleared() {
     assert!(barred > open + 4, "bars {barred} vs open {open}");
 }
 
-/// Offline renders for review: `ANGEL_ARENA_SHOTS=<dir> cargo test ... -- --ignored`.
 #[test]
 #[ignore]
 fn write_arena_shots() {
@@ -235,9 +229,6 @@ fn write_arena_shots() {
         }
         save(&format!("{name}.ppm"), &frame(&run, NATIVE_W, NATIVE_H));
     }
-    // The hippodrome on race day, beside the joust's shots: the field in
-    // house banners at the gate, spread down the straights, and coming
-    // round the west end — the SNES-floor sheets at braille density.
     {
         use crate::realm::chivalry::{Horse, Stable, bloodline};
         use crate::rules::chariot::GATE_TICKS;
@@ -266,8 +257,6 @@ fn write_arena_shots() {
         }
         save("hippodrome_race.ppm", &frame(&run, NATIVE_W, NATIVE_H));
         save("hippodrome_race_term.ppm", &frame(&run, 135, 78));
-        // Every course under the following camera, field strung out a
-        // third of a lap in where the bends are interesting.
         for (t, track) in crate::rules::chariot::TRACKS.iter().enumerate() {
             {
                 let race = run.chariot.as_mut().unwrap();
@@ -281,12 +270,11 @@ fn write_arena_shots() {
             save(&format!("hippodrome_{name}.ppm"), &frame(&run, NATIVE_W, NATIVE_H));
             run.chariot.as_mut().unwrap().traps.clear();
         }
-        // A friend at the reins of a rival team, from each seat's own view.
         {
             let mut coop = run.clone();
             coop.join_seat(2, "Friend");
             let race = coop.chariot.as_mut().unwrap();
-            race.track = 1; // The Serpent
+            race.track = 1;
             race.seat_friend(2, "Friend");
             let lap = race.course().lap;
             race.racers[0].dist = lap * 0.32;
@@ -309,9 +297,6 @@ fn write_arena_shots() {
 
 #[test]
 fn dungeon_native_pixels_keep_opening_enemies_visible_and_lazy_frame_exact() {
-    // The first floor's opening room is bare of foes now (the wishing room,
-    // 2026-11-02): read the first fight room the fixture's own way, a
-    // second in, where its foes stand whole.
     let mut run = scene(17, RoomKind::Fight, crate::rules::HZ);
     assert!(!run.enemies.is_empty());
     let img = frame(&run, 480, 280);
@@ -371,7 +356,6 @@ fn scenery_keeps_to_material_banks_on_black_paper() {
             paper > img.pixels().count() / 2,
             "{pack:?}: drawn on black paper, never filled ({paper})"
         );
-        // Only fire may burn in the signal bank: braziers and torches.
         let signal = img
             .pixels()
             .filter(|&c| super::super::ink::is_signal(c))
@@ -380,17 +364,11 @@ fn scenery_keeps_to_material_banks_on_black_paper() {
     }
 }
 
-/// The bestiary reads beside the knight (`stature`): every monster at rest
-/// stands at least `FOE_MIN` tall and shows on black paper, no frame or pose
-/// of one shrinks to a dot, a slime's last split is not drawn under its art, every
-/// boss's own art is taller than a knight, and a boss stands at least a
-/// knight and a half tall, the floor's guardian two knights.
 #[test]
 fn every_foe_reads_beside_the_knight() {
     use super::stature::{CHIEF, FOE_MIN, GUARDIAN, KNIGHT};
     use crate::rules::EnemyKind as K;
     use crate::rules::bestiary::ENTRIES;
-    // The box round what is drawn, and the share of it lighter than `g`.
     let seen = |im: &Img| {
         let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, -1, -1);
         for y in 0..im.h {
@@ -498,14 +476,10 @@ fn every_foe_reads_beside_the_knight() {
 
 #[test]
 fn the_heroes_are_the_mini_viz_knight() {
-    // Freeze the legacy art contract; quick-rig geometry is tested separately.
     quick_rig::with_legacy_knight(|| {
         let mut run = scene(11, RoomKind::Fight, 0);
         run.enemies.clear();
         run.projectiles.clear();
-        // Toward the viewer, at rest with nothing in hand, the arena's knight is
-        // the mini-viz's to the pixel; any other way they stand is the same
-        // hero turned, stepping or armed.
         {
             let hero = run.players.get_mut(&1).unwrap();
             (hero.aim_x, hero.aim_y) = (0.0, 1.0);
@@ -573,7 +547,6 @@ fn a_great_hall_is_seen_through_a_camera_that_follows_its_knight() {
         (NATIVE_W, NATIVE_H),
         "one screen, whatever the hall"
     );
-    // The other knight is out of sight, so the view's edge points to them.
     let (_, over) = layers(&run, Some(1), true);
     let blue = super::super::ink::ink('1').unwrap();
     let edge = (0..NATIVE_W)
@@ -593,7 +566,6 @@ fn an_ordinary_room_never_moves_the_camera() {
     assert_eq!(camera(&run, None), (0, 0));
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_great_hall_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_great_hall_shots() {
@@ -685,7 +657,6 @@ fn write_home_shots() {
     }
     built.deepest = 3;
     let mut run = Run::at_home(17, 1, Some("Friend"), built, treasury.clone());
-    // Knight one reads the forge's ledger, half-way through a purchase.
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (8.0, 7.0);
     hero.buying = 10;
@@ -730,7 +701,6 @@ fn write_fortune_shots() {
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (24.0, 17.0);
     save("fortune-hall.png", &native(&run));
-    // Pull the lever.
     let fire = BTreeMap::from([(
         1,
         Input {
@@ -750,7 +720,6 @@ fn write_fortune_shots() {
     }
     save("fortune-landed.png", &native(&run));
     eprintln!("landed on {:?}", run.mode);
-    // Lights Out and Giant's Feast on floor one.
     for (name, mode) in [
         ("lights-out", Mode::LightsOut),
         ("giants", Mode::GiantsFeast),
@@ -906,7 +875,6 @@ fn write_foe_shots() {
         }
         run.phase = crate::rules::Phase::Fighting;
         if name == "slime" {
-            // One already split.
             run.enemies[1].hp = 0;
         }
         for _ in 0..ticks {
@@ -1037,7 +1005,6 @@ fn write_feat_shots() {
         run.step(&BTreeMap::new());
     }
     save("coffer-unboxing.png", &native(&run));
-    // A banner in a fight.
     let mut run = Run::new(5, 1, Some("Friend"));
     let fight = run
         .dungeon
@@ -1365,7 +1332,6 @@ fn write_pit_shots() {
             .save(dir.join(name))
             .unwrap();
     };
-    // A floor with a pit, its Pit Tyrant awake.
     let mut run = Run::new(3, 1, Some("Friend"));
     let mut pit = None;
     for _ in 0..4 {
@@ -1441,7 +1407,6 @@ fn write_guardian_shots() {
             if !meets {
                 continue;
             }
-            // Close enough that the camera has the guardian in view.
             let (bx, by) = run
                 .enemies
                 .iter()
@@ -1557,9 +1522,6 @@ fn write_rescue_shots() {
     save("rescue-residents.png", &native(&run));
 }
 
-/// Power runes: the eight orbs side by side, one on a fight room's floor
-/// with a hasted knight, motes gathering before one wells up, and a knight
-/// under Invisibility among the monsters.
 #[test]
 #[ignore]
 fn write_rune_shots() {
@@ -1619,8 +1581,6 @@ fn write_rune_shots() {
     save("rune-invisible.png", &native(&run), 3);
 }
 
-/// Fortune's wheel with its third rung bought: eleven wedges, the third rung's
-/// three among them, and the wheel at rest on Turbo.
 #[test]
 #[ignore]
 fn write_third_rung_wheel_shots() {
@@ -1646,7 +1606,6 @@ fn write_third_rung_wheel_shots() {
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (24.0, 17.0);
     save("fortune-wheel-third-rung.png", &native(&run));
-    // And with the fourth rung: fourteen wedges.
     let mut four = Home::default();
     four.levels.insert(Station::Wheel, 4);
     let mut wheel = Run::at_home(17, 1, None, four, Spoils::default());
@@ -1667,7 +1626,6 @@ fn write_third_rung_wheel_shots() {
         run.step(&BTreeMap::new());
     }
     save("fortune-landed-turbo.png", &native(&run));
-    // Fortune's ledger, selling her third rung.
     let mut home = Home {
         deepest: 3,
         ..Home::default()
@@ -1683,8 +1641,6 @@ fn write_third_rung_wheel_shots() {
     save("fortune-ledger-third-rung.png", &native(&run));
 }
 
-/// The Hexer: in a Crypt room with her bolt on its way, and the knight it
-/// found, a frog in a tiny helmet.
 #[test]
 #[ignore]
 fn write_hexer_shots() {
@@ -1742,8 +1698,6 @@ fn write_hexer_shots() {
     save("hexer-frog.png", &native(&run));
 }
 
-/// Secret rooms: the cracked wall in its fight room, the wall blown by a
-/// knight's bomb, and the vault behind it.
 #[test]
 #[ignore]
 fn write_secret_shots() {
@@ -1800,7 +1754,6 @@ fn write_secret_shots() {
     run.enter_for_test(secret.vault);
     run.step(&BTreeMap::new());
     save("secret-vault.png", &native(&run));
-    // Snibbet's vault, and the hush money.
     let mut run = (0..400u64)
         .map(|seed| {
             let mut run = Run::new(seed, 1, None);
@@ -1825,7 +1778,6 @@ fn write_secret_shots() {
     save("secret-snibbet-paid.png", &native(&run));
 }
 
-/// Merlin by the Winding Stair, a knight walking up to him.
 #[test]
 #[ignore]
 fn write_merlin_shot() {
@@ -1854,9 +1806,6 @@ fn write_merlin_shot() {
         .unwrap();
 }
 
-/// The west wing: the Trophy Hall's rubble and Tobbin's plate (its ledger
-/// up), the tavern with Maud at her bar, the rumour board read, and a knight
-/// at the Siege Perilous; and the dry tavern before Maud is home.
 #[test]
 #[ignore]
 fn write_tavern_shots() {
@@ -1887,7 +1836,6 @@ fn write_tavern_shots() {
             .position(|r| r.kind == kind)
             .unwrap()
     };
-    // Before: the rubble, the plate, its ledger.
     let home = Home {
         deepest: 1,
         ..Home::default()
@@ -1898,7 +1846,6 @@ fn write_tavern_shots() {
     (hero.x, hero.y) = centre(WING_PLATE);
     run.step(&BTreeMap::new());
     save("wing-rubble.png", &native(&run));
-    // After: the tavern, Maud at her bar.
     let mut home = Home {
         deepest: 2,
         ..Home::default()
@@ -1915,7 +1862,6 @@ fn write_tavern_shots() {
     }
     run.step(&BTreeMap::new());
     save("tavern.png", &native(&run));
-    // A knight at the stout's tap, the hold half done.
     let tap = crate::rules::tavern::TAPS[1];
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = centre(tap);
@@ -1930,8 +1876,6 @@ fn write_tavern_shots() {
         run.step(&fire);
     }
     save("tavern-tap.png", &native(&run));
-    // Sir Dinadan's stage: a knight at the Iron Hymn's plate, a song
-    // already asked for, so the notes rise.
     let plate = crate::rules::tavern::SONG_PLATES[1];
     let mut asked = run.home.clone();
     asked.song = Some("haste".into());
@@ -1943,7 +1887,6 @@ fn write_tavern_shots() {
     }
     run.step(&BTreeMap::new());
     save("tavern-stage.png", &native(&run));
-    // Down the stair with the song: two knights close enough to hear it.
     run.descend_for_test();
     run.calm_for_test();
     for (id, at) in [(1, (20.0, 14.0)), (2, (24.0, 16.0))] {
@@ -1952,7 +1895,6 @@ fn write_tavern_shots() {
     }
     run.step(&BTreeMap::new());
     save("song-heard.png", &native(&run));
-    // The dry tavern, Maud still in her cage.
     home.residents.clear();
     let mut run = Run::at_home(5, 1, None, home, Default::default());
     run.enter_for_test(room(&run, RoomKind::Tavern));
@@ -1960,8 +1902,6 @@ fn write_tavern_shots() {
     save("tavern-dry.png", &native(&run));
 }
 
-/// The Lich in the Drowned Archive: Rimeleap leaping between two
-/// knights, the first of them rimed with chill.
 #[test]
 #[ignore]
 fn write_lich_shots() {
@@ -1995,7 +1935,6 @@ fn write_lich_shots() {
     run.enemies.clear();
     run.rune = None;
     run.hallowed = None;
-    // Open floor near each wanted spot.
     let open = |run: &Run, (x, y): (f32, f32)| -> (f32, f32) {
         let room = run.room();
         let (c0, r0) = ((x / 2.0) as i32, (y / 2.0) as i32);
@@ -2049,7 +1988,6 @@ fn write_lich_shots() {
     save("lich-chain.png", &native(&run));
 }
 
-/// The item cards on a floor, and a knight under a Pendragon Sceptre.
 #[test]
 #[ignore]
 fn write_item_shots() {
@@ -2083,8 +2021,6 @@ fn write_item_shots() {
         .unwrap();
 }
 
-/// The Late-Fee Leviathan on the Drowned Archive's stairs: its Ravage
-/// rippling, then bursting ring by ring, and a knight thrown.
 #[test]
 #[ignore]
 fn write_ravage_shots() {
@@ -2120,12 +2056,10 @@ fn write_ravage_shots() {
         }) else {
             continue;
         };
-        // A beat before its Ravage.
         boss.age = 209;
         let (bx, by) = (boss.x, boss.y);
         run.calm_for_test();
         run.enemies.retain(|e| e.boss.is_some());
-        // Fortune's dare board would hide the guardian.
         run.dare = None;
         for (k, hero) in run.players.values_mut().enumerate() {
             (hero.x, hero.y) = (bx - 4.0 + k as f32 * 9.0, by + 5.0 + k as f32 * 2.0);
@@ -2142,14 +2076,11 @@ fn write_ravage_shots() {
                 hero.hp = hero.max_hp;
             }
             run.step(&BTreeMap::new());
-            // No hit's blink in a still.
             for hero in run.players.values_mut() {
                 hero.invulnerable = 0;
             }
             let age = run.ravages.first().map_or(0, |r| r.age);
             if age == 1 {
-                // The lane toward knight one, so the still shows one knight
-                // in it and the other not.
                 let hero = &run.players[&1];
                 let ravage = &mut run.ravages[0];
                 ravage.lane = (hero.y - ravage.y).atan2(hero.x - ravage.x);
@@ -2170,9 +2101,6 @@ fn write_ravage_shots() {
     panic!("no delve met the Leviathan");
 }
 
-/// Beaumains: at his table in the tavern with a knight on his plate, then
-/// hired and waiting by the Winding Stair, then fighting beside the party,
-/// and felled.
 #[test]
 #[ignore]
 fn write_hireling_shots() {
@@ -2225,12 +2153,10 @@ fn write_hireling_shots() {
         run.step(&fire);
     }
     save("beaumains-table.png", &native(&run));
-    // Hired: he waits by the stair.
     home.hire = Some("beaumains".into());
     let mut run = Run::at_home(5, 1, None, home, Default::default());
     run.step(&BTreeMap::new());
     save("beaumains-stair.png", &native(&run));
-    // Down the stair, in a fight beside the knight.
     run.descend_for_test();
     let room = run
         .dungeon
@@ -2240,10 +2166,7 @@ fn write_hireling_shots() {
         .unwrap();
     run.enter_for_test(room);
     run.calm_for_test();
-    // Fortune's dare board would hide the top of the room.
     run.dare = None;
-    // The knight in the middle of the room, Beaumains at his side, and the
-    // monsters coming on.
     let (w, h) = (run.room().width(), run.room().height());
     run.players.get_mut(&1).unwrap().x = w / 2.0 - 4.0;
     run.players.get_mut(&1).unwrap().y = h / 2.0;
@@ -2271,7 +2194,6 @@ fn write_hireling_shots() {
         hire.invulnerable = 0;
     }
     save("beaumains-fighting.png", &native(&run));
-    // Felled, he lies where he fell.
     if let Some(hire) = run.hireling.as_mut() {
         hire.hp = 0;
     }
@@ -2282,8 +2204,6 @@ fn write_hireling_shots() {
     save("beaumains-down.png", &native(&run));
 }
 
-/// The Hollow One and its Black Hole: the warning ring, then the hole open
-/// with two knights in its pull.
 #[test]
 #[ignore]
 fn write_hollow_shots() {
@@ -2348,8 +2268,6 @@ fn write_hollow_shots() {
     save("hollow-hole.png", &native(&run));
 }
 
-/// A sheet of the overworld kit's world pieces, for building world rooms
-/// in the realm's own hand: `ANGEL_ARENA_SHOTS=<dir> ... write_world_kit_sheet`.
 #[test]
 #[ignore]
 fn write_world_kit_sheet() {
@@ -2415,8 +2333,6 @@ fn write_world_kit_sheet() {
         .unwrap();
 }
 
-/// The world above the Delve, room by room, and the Undercroft's stair up:
-/// `ANGEL_ARENA_SHOTS=<dir> ... write_world_shots`.
 #[test]
 #[ignore]
 fn write_world_shots() {
@@ -2436,9 +2352,6 @@ fn write_world_shots() {
     };
     let mut run = Run::at_home(17, 1, Some("Friend"), Home::default(), Default::default());
     run.come_to_the_gate();
-    // Follow the corrected northern roads through the real travel step. The
-    // setup starts just inside the origin's southern door; no arrival is
-    // injected into the affected room. Capture the complete four-knight fan.
     for (origin, destination, label) in [
         (RoomKind::Caravan, RoomKind::Lists, "lists"),
         (RoomKind::Mummers, RoomKind::MineHead, "mine-head"),
@@ -2449,14 +2362,9 @@ fn write_world_shots() {
         r.arrive(world::room_of(&r.dungeon, origin).unwrap(), (12.0, 12.0));
         for _ in 0..crate::rules::HZ {
             if r.room().kind != origin { break; }
-            // Seat two starts within the two-tile southern doorway; the
-            // outer seats wait inside the origin until the party crosses.
             r.step(&BTreeMap::from([(2, Input { move_y: 1, ..Default::default() })]));
         }
         assert_eq!(r.room().kind, destination);
-        // Arrival grants a brief blinking grace. Let it expire through the
-        // normal step before claiming the capture shows four visible bodies.
-        // No movement or artificial sprite/lighting state is injected here.
         for _ in 0..crate::rules::HZ {
             r.step(&BTreeMap::new());
         }
@@ -2466,8 +2374,6 @@ fn write_world_shots() {
             assert_eq!(hero.invulnerable, 0);
         }
         assert!(r.valid_snapshot());
-        // Verify the scenery gap and the animated crowd independently of
-        // knight/HUD pixels and of renderer lighting or PNG compression.
         if destination == RoomKind::Lists {
             let mut gap = Img::new(r.room().cols as i32 * TILE, r.room().rows as i32 * TILE);
             let mut lights = Vec::new();
@@ -2491,7 +2397,6 @@ fn write_world_shots() {
         run.tick += 1;
     }
     save("world-gate.png", &native(&run));
-    // A knight at the gate's stair, its board up and its ring half full.
     let mut stair = run.clone();
     let (gx, gy) = world::entrance_centre(&world::ENTRANCES[0]);
     let hero = stair.players.get_mut(&1).unwrap();
@@ -2521,8 +2426,6 @@ fn write_world_shots() {
         r.arrive(i, (12.0, 9.5));
         save(name, &native(&r));
     }
-    // The host's real step starts each course; capture its shared objectives
-    // and instruction board, not a separately invented screenshot state.
     use crate::rules::{countryside, pastimes::Game};
     for (game, name) in [
         (Game::Broadsheet, "world-broadsheet-round.png"),
@@ -2544,8 +2447,6 @@ fn write_world_shots() {
         assert!(r.valid_snapshot());
         save(name, &native(&r));
     }
-    // Illustration fixtures for the four completed works. No live treasury is
-    // charged and no operator game is started by the image exporter.
     for (plot, name) in countryside::PLOTS.iter().zip([
         "world-bakery-built.png",
         "world-beacon-built.png",
@@ -2673,15 +2574,12 @@ fn write_world_shots() {
             &native(&r),
         );
     }
-    // The Undercroft with its stair up to the gate, a knight before it.
     let mut cellar = run.clone();
     let e = &world::ENTRANCES[0];
     cellar.take_entrance(e);
     save("world-undercroft-stair-up.png", &native(&cellar));
 }
 
-/// The stables and a bout at the lists, played through real keys:
-/// `ANGEL_ARENA_SHOTS=<dir> ... write_joust_shots`.
 #[test]
 #[ignore]
 fn write_joust_shots() {
@@ -2712,8 +2610,6 @@ fn write_joust_shots() {
             },
         )])
     };
-    // The stables: Cinder saddled and tended in the yard, a knight reading
-    // Mist's stall, a friend by the groom.
     let home = Home {
         stable: Stable {
             selected: Mount::Cinder,
@@ -2734,7 +2630,6 @@ fn write_joust_shots() {
         run.tick += 1;
     }
     save("joust-stables.png", &native(&run));
-    // The lists at rest, a knight on the mount plate.
     let mut run = Run::at_home(17, 1, None, Home::default(), Default::default());
     let lists = world::room_of(&run.dungeon, RoomKind::Lists).unwrap();
     run.arrive(lists, (1.9, 8.5));
@@ -2747,7 +2642,6 @@ fn write_joust_shots() {
     }
     run.step(&keys(false, false, 0));
     save("joust-ready.png", &native(&run));
-    // The first course: spur, aim at the open target, strike at the moment.
     run.step(&keys(true, false, 0));
     let m = run.joust.as_ref().unwrap().meeting();
     let guard = run.joust.as_ref().unwrap().guard;
@@ -2777,7 +2671,6 @@ fn write_joust_shots() {
             save(name, &native(&run));
         }
     }
-    // The second course, the same way: Sir Kay goes over.
     run.step(&keys(true, false, 0));
     let guard = run.joust.as_ref().unwrap().guard;
     let aim = if guard == Aim::High {
@@ -2807,9 +2700,6 @@ fn write_joust_shots() {
     save("joust-verdict.png", &native(&run));
 }
 
-/// King Brannoc's barony, stage by stage: his camp at the mine-head, his
-/// mission, the gate-hall rising, his hall inside, and a forge-hall below
-/// from ruin to burning: `ANGEL_ARENA_SHOTS=<dir> ... write_barony_shots`.
 #[test]
 #[ignore]
 fn write_barony_shots() {
@@ -2853,10 +2743,8 @@ fn write_barony_shots() {
         deepest: 3,
         ..Home::default()
     };
-    // His camp, the night he came up the shaft.
     let run = in_room(home(&b), RoomKind::MineHead, (12.0, 11.5), 40);
     save("barony-camp.png", &native(&run));
-    // Met: his mission at the plate before him.
     b.court = barony::Court::Met;
     b.mission = Some(crate::rules::bounties::Pinned {
         id: "workings".into(),
@@ -2864,14 +2752,11 @@ fn write_barony_shots() {
     });
     let run = in_room(home(&b), RoomKind::MineHead, (8.0, 10.5), 41);
     save("barony-mission.png", &native(&run));
-    // The Upper Workings his: miners going down, porters coming up; a
-    // knight reading the ruin's price.
     b.mission = None;
     b.done.push("workings".into());
     let mut run = in_room(home(&b), RoomKind::MineHead, (6.0, 7.5), 300);
     run.players.get_mut(&1).unwrap().buying = 9;
     save("barony-hall-plate.png", &native(&run));
-    // The gate-hall going up: rubble, walls, roof, front, and done.
     for (p, tick) in [(10u32, 130u64), (40, 260), (65, 400), (90, 520)] {
         let mut bb = b.clone();
         let labour = barony::work("hall").unwrap().labour * p / 100;
@@ -2890,7 +2775,6 @@ fn write_barony_shots() {
     sworn.court = Court::Sworn;
     let run = in_room(home(&sworn), RoomKind::MineHead, (15.0, 11.0), 300);
     save("barony-hall-done.png", &native(&run));
-    // Inside: the King on his seat; the war table; the ledger.
     let mut inside = sworn.clone();
     let mut paid = Spoils::default();
     paid.add(Spoil::Gold, 3000);
@@ -2920,7 +2804,6 @@ fn write_barony_shots() {
     save("barony-war-table.png", &native(&run));
     let run = in_room(home(&inside), RoomKind::KingsHall, (3.5, 4.6), 62);
     save("barony-ledger.png", &native(&run));
-    // A forge-hall below: in ruin, rising, rebuilt and cold, burning.
     let forge_shot = |bb: &barony::Barony, name: &str, at: (f32, f32), tick: u64| {
         let mut run = Run::at_home(17, 1, None, home(bb), treasury.clone());
         run.dungeon.pack = Pack::Cavern;
@@ -2932,7 +2815,6 @@ fn write_barony_shots() {
             .position(|r| r.kind == RoomKind::Forge)
             .unwrap();
         run.enter_for_test(i);
-        // Fortune's dare board would cover the chimney: a shot of the room.
         run.dare = None;
         let hero = run.players.get_mut(&1).unwrap();
         (hero.x, hero.y) = (at.0 * 2.0, at.1 * 2.0);
@@ -2955,7 +2837,6 @@ fn write_barony_shots() {
     let mut lit = cold.clone();
     lit.lit.push("ore-forge".into());
     forge_shot(&lit, "forge-lit.png", (12.0, 11.5), 44);
-    // The realm's share of the ore, out through the gate courtyard.
     let mut market = lit.clone();
     market.court = Court::Sworn;
     for tick in (0..3000u64).step_by(5) {
@@ -2973,8 +2854,6 @@ fn write_barony_shots() {
     }
 }
 
-/// Frame time of the world's rooms at their busiest, against the
-/// Undercroft's: `cargo test --release frame_time_of_the_world -- --ignored --nocapture`.
 #[test]
 #[ignore]
 fn frame_time_of_the_world() {
@@ -3033,7 +2912,6 @@ fn frame_time_of_the_world() {
         lists.step(&BTreeMap::new());
     }
     time("Lists, a bout", lists);
-    // And the simulation step at the mine-head with every folk route live.
     let mut run = Run::at_home(17, 1, None, home, Default::default());
     let i = world::room_of(&run.dungeon, RoomKind::MineHead).unwrap();
     run.arrive(i, (12.0, 10.0));
@@ -3103,7 +2981,6 @@ fn merchant_art_and_price_boards_are_seeded_and_on_palette() {
 
 #[test]
 fn a_purchase_at_the_peddler_shows_on_the_buyers_screen_alone() {
-    // 2026-10-19: "buying a potion should only show you your own popup".
     use crate::rules::{TILE_UNITS, merchant::{Goods, STAND_TICKS, plates}};
     let mut run = Run::new(23, 7, Some("Friend"));
     let camp = run.merchant_camp().unwrap();
@@ -3127,13 +3004,10 @@ fn a_purchase_at_the_peddler_shows_on_the_buyers_screen_alone() {
     let mine = says(&run, Some(1)).expect("the buyer reads their board");
     assert!(mine.iter().any(|l| l.starts_with("BOUGHT")), "{mine:?}");
     assert!(mine.iter().any(|l| l == "POTION"), "{mine:?}");
-    // The friend across the room is shown nothing of it, in pixels too.
     assert_eq!(says(&run, Some(2)), None);
     let mut theirs = Img::new(NATIVE_W, NATIVE_H);
     merchant::boards(&mut theirs, &run, Some(2));
     assert!(theirs.pixels().all(|p| p == BLACK));
-    // At the next plate, the friend reads their own offer and purse, still
-    // to buy, never the buyer's purchase.
     let other = (0..camp.offers.len()).find(|&i| i != potion).unwrap();
     let (c, r) = plates(run.room().kind)[other];
     let friend = run.players.get_mut(&2).unwrap();
@@ -3166,8 +3040,6 @@ include!("overworld__lineup_shots.rs");
 
 include!("overworld__art_pass_shots.rs");
 
-/// The risen sheet for review: every pose in every direction, west flipped
-/// from east. `ANGEL_ARENA_SHOTS=<dir> cargo test write_risen_sheet -- --ignored`.
 #[test]
 #[ignore]
 fn write_risen_sheet() {
@@ -3222,9 +3094,6 @@ fn write_risen_sheet() {
     png.save(dir.join("risen-sheet.png")).unwrap();
 }
 
-/// Humphrey's animation reels for review, as numbered frames:
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_risen_reels -- --ignored`,
-/// then assemble with ffmpeg (see scripts/README or the release notes).
 #[test]
 #[ignore]
 fn write_risen_reels() {
@@ -3241,7 +3110,6 @@ fn write_risen_reels() {
     std::fs::create_dir_all(&sheet_dir).unwrap();
     std::fs::create_dir_all(&hunt_dir).unwrap();
 
-    // Reel one: the sprite set, cycling poses and directions on dark paper.
     let beats: [(RisenPose, u32, usize); 11] = [
         (RisenPose::Idle, 0, 4),
         (RisenPose::Idle, 1, 4),
@@ -3276,9 +3144,6 @@ fn write_risen_reels() {
         }
     }
 
-    // Reel two: the hunt, in the game's own frame. Humphrey claws in,
-    // shambles over, shoves the knight flat, is felled, dragged under by
-    // the hand, and claws straight back up — larger.
     let mut run = crate::rules::Run::at_home(
         17,
         1,
@@ -3289,8 +3154,6 @@ fn write_risen_reels() {
     run.come_to_the_gate();
     let fair = world::room_of(&run.dungeon, RoomKind::Fairground).unwrap();
     run.arrive(fair, (12.0, 7.0));
-    // A festival worth interrupting: three rounds, one win, and a party
-    // stood about long enough for the compost to stir.
     run.home.countryside.games.plays[Game::Barrel.index() as usize] = 3;
     run.home.countryside.games.wins[Game::Barrel.index() as usize] = 1;
     let calm: BTreeMap<u32, Input> = BTreeMap::new();
@@ -3311,7 +3174,6 @@ fn write_risen_reels() {
     let mut f = 0u32;
     for t in 0..(13 * HZ as usize) {
         if t == 8 {
-            // Close the commute for the reel; he starts a few strides out.
             let (hx, hy) = {
                 let h = run.players.get(&hero_id).unwrap();
                 (h.x, h.y)
@@ -3327,7 +3189,6 @@ fn write_risen_reels() {
         }
         run.step(&calm);
         if let Some(h) = run.players.get_mut(&hero_id) {
-            // The knight stands their ground for the whole reel.
             h.hp = h.max_hp;
         }
         if t % 2 == 0 {
@@ -3338,14 +3199,12 @@ fn write_risen_reels() {
             png.save(hunt_dir.join(format!("f_{f:04}.png"))).unwrap();
             f += 1;
         }
-        // After the hand has taken him, he claws straight back (bigger).
         if felled_at.is_some_and(|at| t == at + 5 * HZ as usize) {
             run.home.countryside.humphrey_dig = 0;
         }
     }
 }
 
-/// Stills of the dimensional stages for review.
 #[test]
 #[ignore]
 fn write_3d_stage_shots() {
@@ -3365,7 +3224,6 @@ fn write_3d_stage_shots() {
         .unwrap();
         png.save(dir.join(name)).unwrap();
     };
-    // The duck range: start a round, sweep the gun, let some BBs fly.
     let mut run = crate::rules::Run::at_home(
         17,
         1,
@@ -3397,8 +3255,6 @@ fn write_3d_stage_shots() {
     }
     save("duck-late.png", &native(&run));
 
-    // The half-pipe: pump along the wall, then catch whatever air the
-    // published windows allow.
     let mut run = crate::rules::Run::at_home(
         17,
         1,
@@ -3429,7 +3285,6 @@ fn write_3d_stage_shots() {
     save("pipe-late.png", &native(&run));
 }
 
-/// Animation reels of the dimensional stages.
 #[test]
 #[ignore]
 fn write_3d_reels() {
@@ -3445,7 +3300,6 @@ fn write_3d_reels() {
     std::fs::create_dir_all(&duck_dir).unwrap();
     std::fs::create_dir_all(&pipe_dir).unwrap();
 
-    // The range: a gunner works the near rail, leading the ducks.
     let mut run = crate::rules::Run::at_home(
         17,
         1,
@@ -3493,7 +3347,6 @@ fn write_3d_reels() {
         }
     }
 
-    // The pipe: pump the walls, catch the window, spin what spins.
     let mut run = crate::rules::Run::at_home(
         17,
         1,
@@ -3550,7 +3403,6 @@ fn write_3d_reels() {
     }
 }
 
-/// Every signature pose through the same native frame sent to browser seats.
 #[test]
 #[ignore = "offline boss art review"]
 fn write_new_boss_shots() {
@@ -3613,7 +3465,6 @@ fn write_new_boss_shots() {
         save(name, &run);
     }
     let mut rip = base.clone();
-    // Keep this action's whole launch corridor in the review camera.
     let room = &mut rip.dungeon.rooms[rip.at];
     for y in 9..16 {
         for x in 5..20 {
@@ -3745,8 +3596,6 @@ fn kingdom_entrance_prompts_stay_clear_as_cameras_move_past_every_sign() {
     for site in &geo.sites {
         run.walk_kingdom(Some(site.stand));
         let a = frame_for(&run, NATIVE_W, NATIVE_H, Some(1));
-        // Put another knight and an edge marker in the prompt's band,
-        // while camera easing moves the building's own sign across it.
         let hero = run.players.get_mut(&1).unwrap();
         hero.camera = Some((hero.x - 6.0, hero.y + 8.0));
         let origin = camera(&run, Some(1));
@@ -3772,7 +3621,6 @@ fn kingdom_entrance_prompts_stay_clear_as_cameras_move_past_every_sign() {
     }
 }
 
-/// ANGEL_ARENA_SHOTS=<dir> cargo test write_kingdom_shots -- --ignored --nocapture
 #[test]
 #[ignore]
 fn write_kingdom_shots() {
@@ -3792,8 +3640,6 @@ fn write_kingdom_shots() {
     let mut run = Run::at_home(41, 1, Some("Friend"), Home::default(), Default::default());
     run.walk_kingdom(Some(kingdom::keep_stand()));
     let geo = kingdom::geography(&run.kingdom.wishes);
-    // A continuous road walk from the Keep to the College. Route through
-    // actual collision, sampling camera frames as the knight advances.
     let from = kingdom::keep_stand();
     let to = geo
         .sites
@@ -4012,7 +3858,6 @@ fn kingdom_frame_times() {
     );
 }
 
-/// Naked-start review: real E pickups and the shared arena/tray renderer.
 #[test]
 #[ignore]
 fn write_naked_start_shots() {
@@ -4070,8 +3915,6 @@ fn write_naked_start_shots() {
     save("05-punch.png", &frame(&naked, 768, 448));
 }
 
-/// The floor's distance to a wall, as it was walked pixel by pixel: the
-/// reckoning by tiles gives the same everywhere.
 #[test]
 fn a_floor_pixels_distance_to_the_wall_is_the_walk_it_was() {
     let walked = |room: &Room, x: i32, y: i32| -> i32 {
@@ -4115,7 +3958,6 @@ fn an_away_knight_is_marked_and_a_holding_room_says_so() {
     run.hold(crate::rules::Hold::Arriving);
     let mut img = frame_for(&run, NATIVE_W, NATIVE_H, Some(1));
     presence_marks(&mut img, &run, Some(1));
-    // The banner sits at the top in the middle; the tag over knight 2.
     let changed = |x0: i32, y0: i32, x1: i32, y1: i32| {
         (y0..y1).any(|y| (x0..x1).any(|x| img.get(x, y) != plain.get(x, y)))
     };
@@ -4123,7 +3965,6 @@ fn an_away_knight_is_marked_and_a_holding_room_says_so() {
     let (x, y) = frame_px(&run, NATIVE_W, NATIVE_H, Some(1), run.players[&2].x, run.players[&2].y);
     assert!(changed(x - 10, y - 30, x + 10, y - 19), "the tag");
     assert!(on_palette(&img));
-    // Two away side by side: the second tag sits above the first.
     run.set_away(1, true);
     let hero = run.players[&2].clone();
     let one = run.players.get_mut(&1).unwrap();
@@ -4149,26 +3990,20 @@ fn knights_waiting_at_a_doorway_are_told_to_wait_and_friends_where() {
     let banner = |before: &Img, after: &Img| {
         (12..33).any(|y| (NATIVE_W / 2 - 40..NATIVE_W / 2 + 40).any(|x| after.get(x, y) != before.get(x, y)))
     };
-    // The waiting knight's own screen, and a friend's.
     let (before, mine) = marked(&run, 1);
     let (friend_before, friends) = marked(&run, 2);
     assert!(banner(&before, &mine), "the waiting are told to wait");
     assert!(banner(&friend_before, &friends), "the friends are shown where");
     assert_ne!(mine.words(), friends.words(), "different words to each");
     assert!(on_palette(&mine) && on_palette(&friends));
-    // It flashes for the waiting knight: a third of a second later it differs.
     run.tick += u64::from(crate::rules::HZ / 3);
     let (_, later) = marked(&run, 1);
     assert_ne!(mine.words(), later.words(), "the words flash");
-    // Nobody waiting: nothing drawn.
     run.fellowship.waiting.clear();
     let (before, quiet) = marked(&run, 1);
     assert_eq!(quiet.words(), before.words());
 }
 
-/// A window that lifts thrown things toward the camera gets each one's
-/// ground point where `frame_px` would put it and its flight's progress;
-/// the frame leaves the bomb out while that is on.
 #[test]
 fn lifted_reports_bombs_in_flight_on_the_frame() {
     let mut run = Run::new(33, 1, None);
@@ -4188,7 +4023,6 @@ fn lifted_reports_bombs_in_flight_on_the_frame() {
     assert!((bomb.k - 0.5).abs() < 1e-6, "{}", bomb.k);
     let (x, y) = frame_px(&run, w, h, None, 30.0, 12.0);
     assert_eq!((bomb.x, bomb.y), (x as f32, y as f32));
-    // Half a tick on, the flight has moved on by half a tick.
     let later = super::lifted(&run, w, h, None, 0.5)[0];
     assert!(later.k > bomb.k);
     let sprite = lifted_sprite(LiftedKind::Bomb, bomb.variant);
@@ -4208,7 +4042,6 @@ fn a_scene_in_parts_composes_to_the_frame() {
         scene(5, RoomKind::Start, 10),
         scene(7, RoomKind::Treasure, 20),
     ];
-    // A great hall, its camera away from the corner.
     let mut hall = Run::new(0, 1, Some("Friend"));
     let stairs = hall
         .dungeon
@@ -4235,14 +4068,12 @@ fn a_scene_in_parts_composes_to_the_frame() {
             );
         }
     }
-    // The great hall's camera is off its corner, and the parts follow it.
     let hall = runs.last().unwrap();
     assert_ne!(scene_for(hall, NATIVE_W, NATIVE_H, Some(1)).camera, (0.0, 0.0));
 }
 
 #[test]
 fn the_still_art_is_the_same_while_nothing_changes() {
-    // The one-slot drawing belongs to this test until both looks finish.
     let _pin = scenery::pin_scene_cache();
     let mut run = scene(11, RoomKind::Fight, 0);
     let a = scene_for(&run, NATIVE_W, NATIVE_H, Some(1)).ground.unwrap();
@@ -4291,7 +4122,6 @@ fn a_figure_names_the_sprites_stood_up_in_it() {
     }
 }
 
-/// `cargo test --release -p angel-delve --lib parts_cost -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn parts_cost() {
@@ -4305,7 +4135,6 @@ fn parts_cost() {
             }
             t.elapsed().as_secs_f64() * 1000.0 / n as f64
         };
-        // Warm the scenery cache first, as a live seat has it.
         let _ = frame_for_live(&run, NATIVE_W, NATIVE_H, Some(1));
         let whole = time(&|| {
             std::hint::black_box(frame_for_live(&run, NATIVE_W, NATIVE_H, Some(1)));
@@ -4337,9 +4166,6 @@ fn parts_cost() {
     }
 }
 
-/// The Wax Maze's own marks keep to the palette: the wax, the holy water,
-/// the crypt, and the kings in every mood (their robes a half-tone), and
-/// the strip of standings over the view.
 #[test]
 fn the_wax_maze_keeps_to_the_palette() {
     use super::super::ink::{BLACK, palette_index};
@@ -4374,17 +4200,12 @@ fn the_wax_maze_keeps_to_the_palette() {
         wax_maze::screen(&mut screen, &run, Some(1), (0, 0));
         assert!(on_palette(&screen), "the strip");
     }
-    // Something was drawn: the kings are there.
     let (pw, ph) = room_px(run.room());
     let mut room = Img::new(pw, ph);
     wax_maze::wraiths(&mut room, &run);
     assert!(room.pixels().count() > 0 && (0..ph).any(|y| (0..pw).any(|x| room.get(x, y).is_some())));
 }
 
-/// A whole Wax Maze, played by bots from the title to the hall, for one knight
-/// and for four: every layer the maze draws stays on the palette at every
-/// moment it makes a fuss (the title, bites, the holy water, a catch, a
-/// touch, the finish and the hall), and nothing panics.
 #[test]
 fn the_wax_maze_stays_on_the_palette_through_a_whole_match() {
     use super::super::ink::{BLACK, palette_index};
@@ -4399,7 +4220,6 @@ fn the_wax_maze_stays_on_the_palette_through_a_whole_match() {
             let Some(maze) = run.folly.as_ref() else { break };
             let show = &maze.show;
             let now = run.tick as u32;
-            // The first of each kind of moment, and every thirtieth tick.
             let moment = [
                 ("splash", !show.splashes.is_empty()),
                 ("catch", !show.catches.is_empty()),
@@ -4430,9 +4250,6 @@ fn the_wax_maze_stays_on_the_palette_through_a_whole_match() {
     }
 }
 
-/// Four knights in a cleared room of the first floor with a doorway north,
-/// three of them waiting in it and the fourth down by the south wall: the
-/// fourth is called to the fellowship (`Run::fellowship_call`).
 fn fellowship_called() -> Run {
     let mut run = Run::new(31, 1, Some("Friend"));
     for id in 3..=4 {
@@ -4460,7 +4277,6 @@ fn fellowship_called() -> Run {
     run
 }
 
-/// A seat's whole screen, the band under the view included.
 fn fellowship_shot(run: &Run, focus: u32) -> Img {
     let (w, h) = (NATIVE_W, NATIVE_H + party::BAND_H + party::HUD_H);
     seat_scene(run, w, h, Some(focus)).compose()
@@ -4470,23 +4286,18 @@ fn fellowship_shot(run: &Run, focus: u32) -> Img {
 fn the_knight_the_fellowship_calls_sees_a_blinking_arrow_and_the_rest_do_not() {
     let mut run = fellowship_called();
     let blink = u64::from(crate::rules::HZ / 3);
-    // On a lit beat: the called knight's screen has the arrow.
     run.tick = run.tick / (2 * blink) * (2 * blink);
     let mut unheard = run.clone();
     unheard.fellowship.called.clear();
     assert_ne!(fellowship_shot(&run, 4).rgb_bytes(), fellowship_shot(&unheard, 4).rgb_bytes());
-    // The three who wait see nothing new.
     for id in 1..=3 {
         assert_eq!(fellowship_shot(&run, id).rgb_bytes(), fellowship_shot(&unheard, id).rgb_bytes(), "knight {id}");
     }
-    // On the dark beat it is gone: it blinks.
     run.tick += blink;
     unheard.tick += blink;
     assert_eq!(fellowship_shot(&run, 4).rgb_bytes(), fellowship_shot(&unheard, 4).rgb_bytes());
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_fellowship_call_shots -- --ignored`:
-/// the called knight's screen on the arrow's lit beat, three times native size.
 #[test]
 #[ignore]
 fn write_fellowship_call_shots() {
@@ -4508,10 +4319,6 @@ fn write_fellowship_call_shots() {
     }
 }
 
-/// The identity start in shots (`rules::identity`): the six shapes, the
-/// first floor's three rooms on the Atari board (the body, the weapon, the
-/// ultimate), the party as the wishes made them, and their sheets.
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve --lib write_identity_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_identity_shots() {
@@ -4526,7 +4333,6 @@ fn write_identity_shots() {
         let raw = image::RgbaImage::from_raw(img.w as u32, img.h as u32, img.rgba_bytes()).unwrap();
         image::imageops::resize(&raw, img.w as u32 * k, img.h as u32 * k, image::imageops::FilterType::Nearest)
     };
-    // As the arena dresses a knight: the figure, what it wears, its mark.
     let close = |run: &Run, id: u32| {
         let hero = &run.players[&id];
         let bodied = hero.making(&run.book).is_some_and(|m| m.parts.iter().any(|p| p == "body"));
@@ -4570,7 +4376,6 @@ fn write_identity_shots() {
     };
     line_up(&mut run);
     png(&frame(&run, 768, 448), 1).save(dir.join("01-room-one-the-body.png")).unwrap();
-    // The ball, thrown.
     let mut thrown = run.clone();
     let mut flying = 0;
     for t in 0..40 {
@@ -4592,8 +4397,6 @@ fn write_identity_shots() {
         );
     }
     png(&frame(&thrown, 768, 448), 1).save(dir.join("02-the-ball-thrown.png")).unwrap();
-    // What a model granting the wishes might write: three of the players'
-    // own words, decided and explained on the scroll's line.
     let learned = phrasebook::read(concat!(
         "## learned in this workspace\n",
         "wish ogre-hide | Ogre Hide\nsay an ogre with a stone hide\n",
@@ -4612,8 +4415,6 @@ fn write_identity_shots() {
     let grant = |run: &mut Run, id: u32, wish: &str| {
         run.wish(id, &known(wish)).unwrap_or_else(|e| panic!("{wish}: {e}"));
     };
-    // Room one: the body. Ada and Dag in their own words; Bors with the
-    // scroll's plain answer (no model); Cai picks the Great Helm.
     grant(&mut run, 1, "ogre-hide");
     run.grant_neutral(2).unwrap();
     run.players.get_mut(&2).unwrap().wishes -= 1;
@@ -4624,7 +4425,6 @@ fn write_identity_shots() {
     png(&frame(&run, 768, 448), 1).save(dir.join("03-room-two-the-weapon.png")).unwrap();
     let bodies: Vec<Img> = [1, 2, 3, 4].into_iter().map(|id| close(&run, id)).collect();
     png(&row(&bodies), 8).save(dir.join("04-bodies-close.png")).unwrap();
-    // Room two: the weapon.
     grant(&mut run, 1, "tree-club");
     run.grant_neutral(2).unwrap();
     run.players.get_mut(&2).unwrap().wishes -= 1;
@@ -4633,7 +4433,6 @@ fn write_identity_shots() {
     run.enter(2, Some(2));
     line_up(&mut run);
     png(&frame(&run, 768, 448), 1).save(dir.join("05-room-three-the-ultimate.png")).unwrap();
-    // Room three: the ultimate. Then they are whole.
     grant(&mut run, 1, "dragon-roar");
     run.grant_neutral(2).unwrap();
     run.players.get_mut(&2).unwrap().wishes -= 1;
@@ -4651,19 +4450,14 @@ fn write_identity_shots() {
         sheets.push('\n');
     }
     std::fs::write(dir.join("08-character-sheets.txt"), sheets).unwrap();
-    // The second floor is the ordinary game, in its ordinary look.
     run.descend_for_test();
     line_up(&mut run);
     png(&frame(&run, 768, 448), 1).save(dir.join("09-floor-two-ordinary.png")).unwrap();
     atari::set(false);
 }
 
-// ── The holdings' rooms, drawn ─────────────────────────────────────────────
-
 #[test]
 fn every_holdings_room_has_sound_bespoke_art() {
-    // Sixteen by fourteen is the bay's own size; the blank fallback is
-    // one empty row, and ragged rows lose the width.
     for room in crate::rules::holdings::ROOMS {
         let art = holdings::room_art(room.id);
         assert_eq!(

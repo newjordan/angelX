@@ -19,9 +19,6 @@ mod definition_bundle;
 mod discovery;
 use discovery::SearchOptions;
 
-/// A bounded source observation for Atlas. Reuse discovery's hard exclusions,
-/// and reject aliases at every component so an allowed name cannot reach an
-/// excluded tree. This remains confined even in an unrestricted shell profile.
 pub(crate) fn atlas_source(root: &Path, supplied: &str) -> Result<(String, String), String> {
     let relative = confine_nav_target(root, supplied)?;
     let policy = discovery::Policy::new(root, SearchOptions::default());
@@ -40,9 +37,6 @@ pub(crate) fn atlas_source(root: &Path, supplied: &str) -> Result<(String, Strin
     Ok((path.to_string(), source))
 }
 
-/// Lexical workspace check shared by read-only navigation tools. Outside,
-/// escaping, NUL, and overlong targets are refused with the same wording as
-/// write tools — never a silent empty listing.
 const NAV_PATH_MAX_CHARS: usize = 2048;
 
 pub(crate) fn confine_nav_target(root: &Path, supplied: &str) -> Result<PathBuf, String> {
@@ -55,13 +49,8 @@ pub(crate) fn confine_nav_target(root: &Path, supplied: &str) -> Result<PathBuf,
     workspace_relative(root, Path::new(supplied))
 }
 
-/// True if a trimmed source line begins a notable top-level/item declaration
-/// (Rust/Python/JS/Go/Java-ish), after stripping common leading modifiers. A
-/// cheap repomap heuristic — not a parser, but enough to navigate a file.
 pub(crate) fn is_outline_decl(line: &str) -> bool {
     let mut s = line.trim_start();
-    // Visibility / export modifiers. Do not strip Rust `static`/`const` here —
-    // those are declaration keywords and must still match KW.
     const MODS: &[&str] = &[
         "pub(crate) ",
         "pub(super) ",
@@ -102,19 +91,17 @@ pub(crate) fn is_outline_decl(line: &str) -> bool {
         "def ",
         "class ",
         "function ",
-        "func ",      // Go
-        "interface ", // Go / TS / Java
-        "package ",   // Go / Java
+        "func ",
+        "interface ",
+        "package ",
         "macro_rules!",
     ];
     if KW.iter().any(|k| s.starts_with(k)) {
         return true;
     }
-    // Java `static` methods after visibility was stripped: `static void run(`.
     while let Some(rest) = s.strip_prefix("static ") {
         s = rest.trim_start();
     }
-    // Method-ish residual: "void run(" / "String name(" (not fields ending in ';').
     if s.contains('(') && !s.trim_end().ends_with(';') {
         let head = s.split('(').next().unwrap_or("");
         let tokens: Vec<&str> = head.split_whitespace().collect();
@@ -138,9 +125,6 @@ impl Tool for OutlineTool {
     fn call(&self, args: &Value) -> Result<String, String> {
         let path = args["path"].as_str().ok_or("missing 'path'")?;
         confine_nav_target(&self.root, path)?;
-        // Same did-you-mean hints as read_file: a path-guess miss should cost
-        // one corrected call, not a listing round trip (12 bare misses in one
-        // night's trajectories, mostly outline/list_dir).
         let bytes = confined_read(&self.root, Path::new(path)).map_err(|error| {
             crate::agent::tools::file::with_missing_path_hints(&self.root, Path::new(path), error)
         })?;
@@ -208,7 +192,6 @@ impl Tool for ListDirTool {
     }
 }
 
-/// Max `path:line:text` lines any grep returns.
 pub(crate) const GREP_MAX_LINES: usize = 300;
 pub(crate) const GREP_MAX_CONTEXT_LINES: usize = 10;
 pub(crate) const SEARCH_FILE_MAX_BYTES: usize = 2 * 1024 * 1024;
@@ -289,9 +272,6 @@ fn grep_start_paths(args: &Value) -> Result<Vec<PathBuf>, String> {
         Value::Array(paths) => !paths.is_empty(),
         _ => true,
     });
-    // `path` + `paths` together used to be a hard schema error the model kept
-    // retrying (916 live occurrences). Merge instead: `path` first, then
-    // `paths`, deduplicated in order. Only a missing/unusable scope fails.
     let mut requested: Vec<String> = Vec::new();
     if let Some(path) = single {
         requested.push(
@@ -395,8 +375,6 @@ fn grep_skip_files(
     Ok(skipped)
 }
 
-/// Resolve every requested scope before reading search content. Each path is
-/// descriptor-checked independently, then the union is sorted and deduplicated.
 fn collect_grep_files(
     root: &Path,
     starts: &[PathBuf],
@@ -406,9 +384,6 @@ fn collect_grep_files(
     let mut files = BTreeSet::new();
     for start in starts {
         let start = workspace_relative(root, start)?;
-        // Reject an excluded scope before even probing whether it is a file or
-        // directory. In particular, quarantine names must never be listed as a
-        // side effect of argument validation.
         if !start.as_os_str().is_empty() && !options.path_allowed(&start) {
             return Err("grep path is excluded by workspace search policy".to_string());
         }
@@ -567,9 +542,6 @@ fn receipt_names(paths: impl IntoIterator<Item = PathBuf>) -> String {
     }
 }
 
-/// Race-resistant regex search. File discovery and each read are descriptor-
-/// relative, so a directory swapped to an outbound symlink is skipped or
-/// rejected instead of becoming a read outside the workspace.
 #[allow(clippy::too_many_arguments)]
 fn grep_confined_many(
     root: &Path,
@@ -623,10 +595,6 @@ fn grep_confined_many_with_options(
         })
         .collect::<Vec<_>>();
 
-    // Diversity caps matter only when files compete for the same response.
-    // Preserve the legacy capacity of an explicitly scoped single-file grep;
-    // callers use that shape for dense, contextual inspection and historically
-    // received up to the global response budget.
     let (match_cap, result_line_cap) = if files.len() > 1 {
         (GREP_MAX_MATCHES_PER_FILE, GREP_MAX_RESULT_LINES_PER_FILE)
     } else {
@@ -736,10 +704,6 @@ fn grep_confined(
     )
 }
 
-/// Enumerate the same broad set users expect from ripgrep: tracked files plus
-/// untracked, non-ignored files in a Git worktree. Git only supplies names; all
-/// metadata/content access still goes through the confined descriptor layer.
-/// A non-Git workspace falls back to the secure walker.
 fn search_workspace_files(
     root: &Path,
     start: &Path,
@@ -755,16 +719,10 @@ fn search_workspace_files_with_options(
     options: SearchOptions,
 ) -> Result<Vec<PathBuf>, String> {
     debug_assert!(!start.is_absolute());
-    // A scoped grep should not first enumerate every tracked path in a large
-    // repository only to discard almost all of them locally. Git's pathspec
-    // preserves its ignore/untracked semantics and is merely a name source;
-    // every actual metadata/content operation below remains descriptor-confined.
     let start_pathspec = (!start.as_os_str().is_empty())
         .then(|| start.to_str())
         .flatten();
     let git_args = git_listing_args(start_pathspec);
-    // A nested workspace must not inherit an ancestor repository's ignore of
-    // the workspace itself (e.g. the cohort under .tmp). Its own rules apply.
     if options.no_ignore || !workspace_is_git_root(root) {
         return discovery::walk(root, start, max_files, options);
     }
@@ -816,8 +774,6 @@ fn git_listing_args(start: Option<&str>) -> Vec<&str> {
 const GIT_OUTPUT_CAP_BYTES: usize = 1 << 20;
 
 fn parse_git_file_listing(raw: &str) -> Option<Vec<PathBuf>> {
-    // `run_git` retains at most 1 MiB of stdout. Exactly hitting that boundary
-    // is ambiguous, and a missing terminal NUL proves the final path is partial.
     if raw.len() >= GIT_OUTPUT_CAP_BYTES || (!raw.is_empty() && !raw.ends_with('\0')) {
         return None;
     }
@@ -838,11 +794,6 @@ fn search_dir_excluded(name: &str) -> bool {
     name.starts_with('.') || matches!(name, "target" | "node_modules" | "off-limits")
 }
 
-/// Return bounded, deterministic candidates for a missing model-supplied path.
-/// Candidates must share the requested basename and pass the same workspace
-/// search policy as grep/find. A longer matching suffix wins, so a request for
-/// `scripts/tool.mjs` prefers `plugins/x/scripts/tool.mjs` over an unrelated
-/// `examples/tool.mjs`. This helper never reads or substitutes a candidate.
 pub(crate) fn suggest_workspace_paths(root: &Path, requested: &Path, limit: usize) -> Vec<String> {
     const MAX_CANDIDATE_FILES: usize = 50_000;
     const MAX_CANDIDATE_CHARS: usize = 240;
@@ -908,8 +859,6 @@ pub(crate) fn suggest_workspace_paths(root: &Path, requested: &Path, limit: usiz
         .collect()
 }
 
-/// Test-only reference scanner: recursive literal-substring scan, skipping
-/// `.git`/`target`/`node_modules`/hidden dirs and binary/large files.
 #[cfg(test)]
 pub(crate) fn grep_fallback(dir: &Path, needle: &str, ignore_case: bool) -> Result<String, String> {
     let needle_cmp = if ignore_case {
@@ -941,7 +890,7 @@ pub(crate) fn grep_fallback(dir: &Path, needle: &str, ignore_case: bool) -> Resu
                 continue;
             };
             if bytes.iter().take(8000).any(|&b| b == 0) {
-                continue; // binary
+                continue;
             }
             let text = String::from_utf8_lossy(&bytes);
             let rel = path.strip_prefix(dir).unwrap_or(&path).display();
@@ -967,20 +916,12 @@ pub(crate) fn grep_fallback(dir: &Path, needle: &str, ignore_case: bool) -> Resu
     }
 }
 
-/// Glob match (`*`/`?` within a path segment, `**` across segments) of a
-/// forward-slash path against a pattern. Dependency-free.
 pub(crate) fn glob_match(pattern: &str, path: &str) -> bool {
     let pat: Vec<&str> = pattern.split('/').collect();
     let txt: Vec<&str> = path.split('/').collect();
     match_segments(&pat, &txt)
 }
 fn match_segments(pat: &[&str], txt: &[&str]) -> bool {
-    // Iterative greedy match at the path-segment level (`**` == "zero or more
-    // whole segments"), mirroring `wildcard` below. O(|pat|*|txt|). The old
-    // recursive `for i in 0..=txt.len()` form re-explored ~C(d+k,k) failing
-    // combinations for a pattern with k `**` segments against a depth-d path, so
-    // a single model-supplied glob like `**/**/.../nope.rs` (with no timeout on
-    // this in-process CPU) could wedge the agent turn for minutes-to-hours.
     let (mut pi, mut ti) = (0usize, 0usize);
     let (mut star, mut star_ti): (Option<usize>, usize) = (None, 0);
     while ti < txt.len() {
@@ -992,7 +933,6 @@ fn match_segments(pat: &[&str], txt: &[&str]) -> bool {
             star_ti = ti;
             pi += 1;
         } else if let Some(sp) = star {
-            // Backtrack: let the last `**` swallow one more segment.
             pi = sp + 1;
             star_ti += 1;
             ti = star_ti;
@@ -1000,7 +940,6 @@ fn match_segments(pat: &[&str], txt: &[&str]) -> bool {
             return false;
         }
     }
-    // Trailing `**` segments match the empty remainder.
     while pi < pat.len() && pat[pi] == "**" {
         pi += 1;
     }
@@ -1012,9 +951,6 @@ fn seg_match(pat: &str, txt: &str) -> bool {
     wildcard(&p, &t)
 }
 fn wildcard(p: &[char], t: &[char]) -> bool {
-    // Iterative greedy two-pointer glob: O(|p|*|t|), no recursion. The old
-    // branch-recursion form (`wildcard(&p[1..], t) || wildcard(p, &t[1..])`)
-    // backtracked exponentially on `*`-heavy segments like `*a*a*...*b`.
     let (mut pi, mut ti) = (0usize, 0usize);
     let (mut star, mut star_ti): (Option<usize>, usize) = (None, 0);
     while ti < t.len() {
@@ -1082,17 +1018,6 @@ impl Tool for FindFilesTool {
     }
 }
 
-// ---------------------------------------------------------------------------
-// file_search — fuzzy filename finder (the Codex `file-search` capability). Codex
-// uses the `nucleo` crate; we keep the cockpit dep-free with a compact fzf-style
-// subsequence scorer. Complements find_files (glob) and grep (content): you type
-// a fragment of a path and get the best-matching files, ranked.
-// ---------------------------------------------------------------------------
-
-/// fzf-style fuzzy score of `query` against `path`, or `None` if `query` isn't a
-/// (case-insensitive) subsequence of `path`. Higher is better. Rewards matches
-/// at segment/word boundaries and camel humps, consecutive runs, and basename
-/// hits; penalizes gaps and long paths.
 pub(crate) fn fuzzy_score(query: &str, path: &str) -> Option<i32> {
     let qstr: String = query
         .to_lowercase()
@@ -1121,9 +1046,9 @@ pub(crate) fn fuzzy_score(query: &str, path: &str) -> Option<i32> {
             }
             if let Some(p) = prev {
                 if p + 1 == i {
-                    score += 8; // consecutive
+                    score += 8;
                 } else {
-                    score -= ((i - p - 1) as i32).min(6); // gap penalty
+                    score -= ((i - p - 1) as i32).min(6);
                 }
             }
             score += 1;
@@ -1132,10 +1057,9 @@ pub(crate) fn fuzzy_score(query: &str, path: &str) -> Option<i32> {
         }
     }
     if qi < q.len() {
-        return None; // not a subsequence
+        return None;
     }
 
-    // Basename emphasis: typing part of a filename should rank that file high.
     let pl = path.to_lowercase();
     let base = pl.rsplit('/').next().unwrap_or(&pl);
     if base.starts_with(&qstr) {
@@ -1143,13 +1067,10 @@ pub(crate) fn fuzzy_score(query: &str, path: &str) -> Option<i32> {
     } else if base.contains(&qstr) {
         score += 50;
     }
-    // Brevity: prefer the more concise of equally-good matches.
     score -= (lchars.len() as i32) / 16;
     Some(score)
 }
 
-/// Rank `paths` by `fuzzy_score(query, …)`, returning the top `limit`. Ties break
-/// by shorter path, then lexicographically — fully deterministic.
 pub(crate) fn rank_paths(query: &str, paths: &[String], limit: usize) -> Vec<String> {
     let mut scored: Vec<(i32, &str)> = paths
         .iter()
@@ -1185,7 +1106,6 @@ impl Tool for FileSearchTool {
         confine_nav_target(&self.root, query)?;
         let limit = args["limit"].as_u64().unwrap_or(20).clamp(1, 200) as usize;
 
-        // Walk the workspace, mirroring find_files' skip rules; bound exploration.
         let paths: Vec<String> = search_workspace_files_with_options(
             &self.root,
             Path::new(""),
@@ -1205,9 +1125,6 @@ impl Tool for FileSearchTool {
     }
 }
 
-/// One workspace scan for several definition names. `repo_recon` uses this to
-/// avoid rereading the same repository once per task term; direct callers can
-/// likewise resolve a small concept set in one tool round-trip.
 pub(crate) fn defs_regex_many(names: &[&str]) -> String {
     let alternatives = names
         .iter()
@@ -1225,7 +1142,6 @@ pub(crate) fn is_ident_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
-/// `word` appears in `hay` bounded by non-identifier chars (whole-word).
 #[cfg(test)]
 pub(crate) fn word_present(hay: &str, word: &str) -> bool {
     let bytes = hay.as_bytes();
@@ -1240,8 +1156,6 @@ pub(crate) fn word_present(hay: &str, word: &str) -> bool {
     false
 }
 
-/// Dependency-free heuristic (ripgrep fallback): a line mentioning `name` as a
-/// word AND carrying a definition keyword. Looser than the regex.
 #[cfg(test)]
 pub(crate) fn line_defines(line: &str, name: &str) -> bool {
     if !word_present(line, name) {

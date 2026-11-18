@@ -129,7 +129,6 @@ impl Blueprint {
             effect: self.effect,
         };
         while item.points() > ITEM_BUDGET {
-            // Reduce the largest weighted axis; ties resolve deterministically.
             if item.power > 1 && 2 * item.power >= item.speed.max(item.range) {
                 item.power -= 1;
             } else if item.range > 1 && item.range >= item.speed {
@@ -181,8 +180,6 @@ impl Item {
         } else {
             damage
         };
-        // The aggregate damage ceiling is checked AFTER all modifiers. Spread
-        // splits this total; it never multiplies it by the projectile count.
         let damage = damage.min(36).min(cooldown * 8);
         AttackStats {
             damage,
@@ -541,9 +538,6 @@ impl Run {
                 moves.insert(*id, (hero.x + dx * steps, hero.y + dy * steps, steps));
             }
         }
-        // Party movement is simultaneous: swaps and following a vacated tile
-        // work regardless of actor or arrival order. Equal destinations cancel
-        // both moves; cancellations propagate through blocked convoys.
         let conflicts: Vec<_> = moves
             .iter()
             .filter(|(id, (x, y, _))| {

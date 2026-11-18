@@ -4,24 +4,18 @@
 //! the first-party API asks beyond it: adaptive thinking bound to its prefix,
 //! effort, signed thinking replayed verbatim, cache breakpoints, the version,
 //! beta and workspace headers, and refusals.
+//! `ANGEL_ANTHROPIC_THINKING_BINDING=0` sends plain adaptive thinking with no
+//! beta header, for a relay that admits only the published request fields.
 
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 
-/// The API version every request names.
 pub(super) const API_VERSION: &str = "2023-06-01";
-/// Lets a request bind thinking blocks to their prefix and choose what happens
-/// when the prefix no longer matches (`block_binding`).
 pub(super) const THINKING_BINDING_BETA: &str = "thinking-binding-controls-2026-08-01";
-/// The output cap when no operator limit is set: the Messages API requires one.
 pub(crate) const DEFAULT_MAX_TOKENS: u32 = 32_000;
-/// The effort sent when nothing names one.
 pub(crate) const DEFAULT_EFFORT: &str = "medium";
 const EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 
-/// The Messages endpoint for the seat's base URL, which may name the API root
-/// (`https://api.anthropic.com`) or its `/v1` (a forwarder at
-/// `http://127.0.0.1:N/v1`); `/v1` is never doubled.
 pub(super) fn messages_url(base_url: &str) -> String {
     let base = base_url.trim().trim_end_matches('/');
     if base.ends_with("/v1/messages") {
@@ -33,22 +27,24 @@ pub(super) fn messages_url(base_url: &str) -> String {
     }
 }
 
-/// Every header a Messages request carries besides `Content-Type`.
+pub(super) fn binding_controls() -> bool {
+    crate::agent::harness::env_flag("ANGEL_ANTHROPIC_THINKING_BINDING", true)
+}
+
 pub(super) fn request_headers(key: &str, workspace: Option<&str>) -> Vec<(&'static str, String)> {
     let mut headers = vec![
         ("x-api-key", key.to_string()),
         ("anthropic-version", API_VERSION.to_string()),
-        ("anthropic-beta", THINKING_BINDING_BETA.to_string()),
     ];
+    if binding_controls() {
+        headers.push(("anthropic-beta", THINKING_BINDING_BETA.to_string()));
+    }
     if let Some(workspace) = workspace.map(str::trim).filter(|id| !id.is_empty()) {
         headers.push(("anthropic-workspace-id", workspace.to_string()));
     }
     headers
 }
 
-/// The effort rung the API takes for a requested one. Thinking cannot be
-/// turned off on this family, so `none`/`minimal` ask for the least of it;
-/// anything else unknown takes the default.
 pub(super) fn effort(requested: Option<&str>) -> &'static str {
     let requested = requested
         .map(|effort| effort.trim().to_ascii_lowercase())
@@ -76,10 +72,6 @@ fn is_signed_thinking(block: &Value) -> bool {
     }
 }
 
-/// The signed thinking blocks one assistant turn carried, read back from its
-/// private reasoning slot. Anything that is not this seat's own JSON (another
-/// seat's plain-text reasoning, a block without its signature) goes back as
-/// nothing: the API cannot verify an unsigned block.
 pub(super) fn replay_blocks(reasoning: &str) -> Vec<Value> {
     match serde_json::from_str::<Value>(reasoning) {
         Ok(Value::Array(blocks)) => blocks.into_iter().filter(is_signed_thinking).collect(),
@@ -87,8 +79,6 @@ pub(super) fn replay_blocks(reasoning: &str) -> Vec<Value> {
     }
 }
 
-/// The thinking blocks of a whole (non-streamed) reply, as the private
-/// reasoning slot keeps them.
 pub(super) fn replay_json(content: &[Value]) -> Option<String> {
     let blocks = content
         .iter()
@@ -98,9 +88,6 @@ pub(super) fn replay_json(content: &[Value]) -> Option<String> {
     (!blocks.is_empty()).then(|| Value::Array(blocks).to_string())
 }
 
-/// The thinking blocks of one streamed reply, kept verbatim (text, signature,
-/// redacted data) by content-block index, so the next hop replays exactly what
-/// the API sent.
 #[derive(Default)]
 pub(super) struct ThinkingCapture {
     blocks: BTreeMap<u64, Value>,
@@ -137,7 +124,6 @@ impl ThinkingCapture {
         self.append(index, "signature", signature);
     }
 
-    /// The reply's blocks in stream order, as one JSON array.
     pub(super) fn take_json(&mut self) -> Option<String> {
         let blocks = std::mem::take(&mut self.blocks)
             .into_values()
@@ -147,9 +133,6 @@ impl ThinkingCapture {
     }
 }
 
-/// Messages usage in the Chat fields angelX's accounting reads: prompt is the
-/// whole input (uncached + cache read + cache write), and both cache counts
-/// ride beside it so receipts split cached from uncached input.
 pub(super) fn chat_usage(usage: &Map<String, Value>) -> Value {
     let count = |key: &str| usage.get(key).and_then(Value::as_u64).unwrap_or(0);
     let (input, read, write) = (
@@ -165,7 +148,6 @@ pub(super) fn chat_usage(usage: &Map<String, Value>) -> Value {
     })
 }
 
-/// The error a `refusal` stop becomes, naming the classifier's category.
 pub(super) fn refusal_error(details: Option<&Value>) -> Value {
     let field = |key: &str| {
         details
@@ -190,15 +172,14 @@ fn mark_cache(block: Option<&mut Value>) {
     }
 }
 
-/// Finish a translated body for the first-party API: adaptive thinking whose
-/// blocks the API drops (rather than failing) when angelX's own history edits
-/// changed their prefix, the effort, no assistant prefill, and the cache
-/// breakpoints on the last tool, the last system block and the last block of
-/// the final message.
 pub(super) fn finish_body(body: &mut Map<String, Value>, chat: &Value) -> Result<(), String> {
     body.insert(
         "thinking".into(),
-        json!({"type": "adaptive", "block_binding": {"prefix_mismatch_behavior": "drop_block"}}),
+        if binding_controls() {
+            json!({"type": "adaptive", "block_binding": {"prefix_mismatch_behavior": "drop_block"}})
+        } else {
+            json!({"type": "adaptive"})
+        },
     );
     body.insert(
         "output_config".into(),
@@ -208,8 +189,6 @@ pub(super) fn finish_body(body: &mut Map<String, Value>, chat: &Value) -> Result
         .get_mut("messages")
         .and_then(Value::as_array_mut)
         .ok_or("Anthropic Messages: the request carries no messages")?;
-    // The model answers a user turn; a trailing assistant turn is a prefill the
-    // API rejects.
     while messages
         .last()
         .is_some_and(|message| message["role"] == "assistant")
@@ -231,6 +210,14 @@ pub(super) fn finish_body(body: &mut Map<String, Value>, chat: &Value) -> Result
                 .and_then(|items| items.last_mut()),
         );
     }
+    mark_cache(
+        body.get_mut("system")
+            .and_then(Value::as_array_mut)
+            .and_then(|blocks| {
+                let standing = blocks.len().checked_sub(2)?;
+                blocks.get_mut(standing)
+            }),
+    );
     Ok(())
 }
 

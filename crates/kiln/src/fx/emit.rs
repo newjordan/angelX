@@ -10,8 +10,6 @@ use super::rng::unit;
 use super::Plan;
 use std::f32::consts::TAU;
 
-/// Draw `p`'s motes alive at frame `t`. A looping effect of `period`
-/// frames also draws the motes still alive from the round before.
 pub(crate) fn draw(pen: &mut Pen, p: &Plan, t: f32, period: Option<f32>) {
     let born = if p.rate > 0.0 { ((p.t1 - p.t0) * p.rate).ceil().max(0.0) as u32 } else { 0 };
     let n = (p.count + born).min(MOST_MOTES);
@@ -28,12 +26,9 @@ pub(crate) fn draw(pen: &mut Pen, p: &Plan, t: f32, period: Option<f32>) {
     }
 }
 
-/// Mote `i` of `p`, born at frame `s`, `age` frames into its `life`, at
-/// frame `t`.
 fn mote(p: &Plan, i: u32, s: f32, age: f32, life: f32, t: f32) -> Mote {
     let u = |salt: u32| unit(i as i32, p.seed as i32, salt);
     let k = age / life;
-    // An overshooting ease runs a mote's clock past its mark and home.
     let clock = if p.ease.overshoots() { life * p.ease.at(k) } else { age };
     let spin = p.spin.to_radians();
     let size = p.size.0 + (p.size.1 - p.size.0) * k;

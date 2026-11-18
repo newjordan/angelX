@@ -364,7 +364,6 @@ impl Club for ProofClub {
     }
 
     fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
-        // Each role's task opens on its route (`⠠⠛` … `⠠⠚`).
         use crate::agent::harness::book::d6_long_run::{
             IMPLEMENTER, INVESTIGATOR, REVIEWER, TEST_AUTHOR,
         };

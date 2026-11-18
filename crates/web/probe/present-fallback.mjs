@@ -1,15 +1,3 @@
-// Which way the page draws, and what it does when a way fails
-// (docs/GLASS_CORE.md, step 1.3): headless Chromium over CDP, never a visible
-// browser. It joins a running host's page in each of these conditions and
-// checks the presenter the page ends up with, and what it said in the console:
-//
-//   node crates/web/probe/present-fallback.mjs <link> [--plain-link <link>]
-//
-// <link> is a host serving a bundle built with the renderer (`WASM_BINDGEN=...
-// crates/web/build.sh web/delve delve`, then `delve-dev-host --bundle ...`),
-// with its key; --plain-link one serving a bundle built without it (no
-// wasm-bindgen at hand), for the cases that need none. Prints one line per case
-// and exits 1 if any failed. Node built-ins only.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -37,8 +25,8 @@ let closed = false;
 const close = () => {
   if (closed) return;
   closed = true;
-  try { proc.kill('SIGKILL'); } catch { /* gone */ }
-  try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* held */ }
+  try { proc.kill('SIGKILL'); } catch { }
+  try { fs.rmSync(profile, { recursive: true, force: true }); } catch { }
 };
 process.on('exit', close);
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { close(); process.exit(1); });
@@ -46,7 +34,7 @@ for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { close
 let target;
 for (let i = 0; i < 50 && !target; i++) {
   await sleep(200);
-  try { target = (await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json()).find(t => t.type === 'page'); } catch { /* not up */ }
+  try { target = (await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json()).find(t => t.type === 'page'); } catch { }
 }
 if (!target) { close(); throw new Error('chromium did not come up'); }
 const ws = new WebSocket(target.webSocketDebuggerUrl);
@@ -83,12 +71,9 @@ const until = async (expr, ms, what) => {
   throw new Error('timed out waiting for ' + what);
 };
 
-// Join `url` with `init` run first in the page (to break something), and let
-// `act` do what it will once the game is playing. Returns what the page says.
 let visits = 0;
 async function visit(url, init, act) {
   console_ = [];
-  // A link that differs only in its #key would be a jump, not a load.
   url = withParam(url, 'case', String(++visits));
   const script = init ? (await send('Page.addScriptToEvaluateOnNewDocument', { source: init })).identifier : null;
   try {
@@ -106,8 +91,6 @@ async function visit(url, init, act) {
     await sleep(400);
     const framesA = await evaluate('__angel.frames');
     await sleep(500);
-    // What the screen shows: the canvas read in the task of a frame (the only
-    // time a WebGPU or WebGL canvas can be), then counted for lit pixels.
     await evaluate("window.__shot = null; { const keep = __angel.onframe; __angel.onframe = (...a) => { __shot = document.getElementById('screen').toDataURL('image/png'); __angel.onframe = keep; }; }");
     await until('window.__shot !== null', 5000, 'a frame to read');
     const lit = await evaluate(`(async () => {
@@ -163,8 +146,6 @@ try {
   await send('Runtime.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
 
-  // A browser that has just started may have no GPU process yet, and its first
-  // requestAdapter answers none: draw with present.js once first.
   await visit(withParam(link, 'present', 'legacy'));
   console_ = [];
   check('navigator.gpu there: the WebGPU renderer', await visit(link), { presenter: /^gpu-webgpu$/, say: [[/drawing with the webgpu renderer/, 1]] });

@@ -72,9 +72,6 @@ def request_count(payload, key):
                 try:
                     json.dumps(measured, allow_nan=False)
                 except ValueError as error:
-                    # json.load accepts NaN, which the old counter did not
-                    # retry. Keep independent finite fields; flag the bad
-                    # receipt without creating extra provider requests.
                     error_class, usage_invalid = type(error).__name__, True
         except urllib.error.HTTPError as error:
             status, error_class = error.code, type(error).__name__
@@ -84,7 +81,6 @@ def request_count(payload, key):
             except Exception:
                 pass
         except Exception as error:
-            # Preserve the existing policy: all non-HTTP exceptions retry.
             error_class, retry = type(error).__name__, True
         if error_class is not None and not usage_invalid:
             measured = None
@@ -95,7 +91,6 @@ def request_count(payload, key):
         attempts.append(outcome)
         if not retry:
             break
-        # Include the old final exhausted backoff as well as its five tries.
         time.sleep(3 * (attempt + 1))
     details = measured.get("prompt_tokens_details") if measured is not None else None
     cached = (receipt.number(details.get("cached_tokens")) if isinstance(details, dict) and "cached_tokens" in details
@@ -124,8 +119,6 @@ def capture_plans(labels, out_dir, at):
         if not label or label in (".", "..") or Path(label).name != label:
             raise ValueError("label must name a capture inside the output directory")
         sources.append(out_dir / (label + ".jsonl"))
-    # Every destination must be distinct from every selected input, including
-    # later labels: tokcount-<label> may itself name a selected capture.
     try:
         resolved_sources = [source.resolve() for source in sources]
         for label in labels:

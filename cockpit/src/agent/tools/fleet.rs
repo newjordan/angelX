@@ -13,9 +13,6 @@ use serde_json::Value;
 use std::process::Command;
 use std::time::Duration;
 
-/// Run a read-only recon command with a snappy deadline, returning combined
-/// stdout+stderr (capped). A missing binary or non-zero exit becomes an `Err`
-/// with whatever the tool printed, so the caller can try the next probe.
 fn run_recon(program: &str, args: &[&str], timeout_secs: u64) -> Result<String, String> {
     let mut cmd = Command::new(program);
     cmd.args(args);
@@ -39,19 +36,6 @@ fn run_recon(program: &str, args: &[&str], timeout_secs: u64) -> Result<String, 
     Ok(clip_head_tail(text.trim(), 12_000, ""))
 }
 
-/// Head/tail-clip `text` to at most `max` bytes, keeping both ends and
-/// marking the elision with a truthful snipped-bytes marker.
-///
-/// Contract (deliberately total — no budget hangs or over-runs):
-/// * always returns valid UTF-8 (every cut snaps to a char boundary);
-/// * `max == 0` returns the empty string;
-/// * text at or under `max` is returned unchanged;
-/// * if `max` cannot hold even the shortest honest marker, the result is a
-///   plain head clip of at most `max` bytes with **no** marker — never an
-///   impossible or lying one;
-/// * otherwise the returned string, marker included, is at most `max` bytes
-///   and states exactly how many bytes were snipped. `note` is appended
-///   inside the marker when non-empty.
 fn clip_head_tail(text: &str, max: usize, note: &str) -> String {
     if text.len() <= max {
         return text.to_string();
@@ -63,11 +47,8 @@ fn clip_head_tail(text: &str, max: usize, note: &str) -> String {
             format!("…[truncated; snipped {snipped} bytes; {note}]")
         }
     };
-    // The widest marker any candidate can need (snipped <= text.len(), so its
-    // digit count is bounded by this one's).
     let marker_len = marker(text.len()).len();
     if max < marker_len {
-        // No honest marker fits: plain head clip, no marker.
         let end = (0..=max.min(text.len()))
             .rev()
             .find(|&i| text.is_char_boundary(i))
@@ -94,19 +75,12 @@ fn clip_head_tail(text: &str, max: usize, note: &str) -> String {
             &text[tail_start..]
         );
         if candidate.len() <= max || keep == 0 {
-            // keep == 0 collapses to the bare marker, which fits because
-            // marker(text.len()).len() <= max; so this always terminates.
             return candidate;
         }
         keep = keep.saturating_sub(candidate.len() - max);
     }
 }
 
-/// Format the nvidia-smi CSV rows (`index, name, driver, util, mem.used,
-/// mem.total, temp, power.draw, power.limit`) into compact per-GPU lines.
-/// Fields nvidia-smi reports as `[N/A]` (e.g. dedicated-VRAM numbers on
-/// unified-memory parts) are omitted rather than echoed.
-/// Pure → testable.
 pub(crate) fn format_nvidia_csv(csv: &str) -> String {
     fn known(f: &str) -> bool {
         !f.is_empty() && f != "[N/A]"
@@ -145,10 +119,6 @@ pub(crate) fn format_nvidia_csv(csv: &str) -> String {
         lines.join("\n")
     }
 }
-
-// ---------------------------------------------------------------------------
-// gpu_stat — local GPU utilization/VRAM/thermals/processes.
-// ---------------------------------------------------------------------------
 
 pub(crate) struct GpuStatTool;
 
@@ -206,10 +176,6 @@ impl Tool for GpuStatTool {
     }
 }
 
-// ---------------------------------------------------------------------------
-// fleet_status — tailnet peers (the rig fleet rides on Tailscale).
-// ---------------------------------------------------------------------------
-
 pub(crate) struct FleetStatusTool;
 
 impl Tool for FleetStatusTool {
@@ -225,10 +191,6 @@ impl Tool for FleetStatusTool {
         })
     }
 }
-
-// ---------------------------------------------------------------------------
-// vast_instances — rented pods (read-only; costs money while running).
-// ---------------------------------------------------------------------------
 
 pub(crate) struct VastInstancesTool;
 
@@ -246,9 +208,6 @@ impl Tool for VastInstancesTool {
     }
 }
 
-/// Register the read-only fleet recon tools, gated on `ANGEL_FLEET_TOOLS`
-/// (default on). Missing CLIs surface as call-time messages, not
-/// registration failures — the catalog stays stable across heterogeneous rigs.
 pub(crate) fn maybe_register_fleet_tools(r: &mut ToolRegistry) {
     if env_flag("ANGEL_FLEET_TOOLS", true) {
         r.register(Box::new(GpuStatTool));

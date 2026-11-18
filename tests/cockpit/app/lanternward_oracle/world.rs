@@ -7,11 +7,9 @@
 
 pub const Q: i32 = 256;
 pub const TILE: i32 = 16;
-/// One tile in `Q` pixels, a power of two: `x >> TILE_SHIFT` is the column.
 pub const TILE_SHIFT: i32 = 12;
 pub const ROOMS: usize = 5;
 
-/// The integer square root, rounded down.
 pub fn isqrt(n: i64) -> i64 {
     if n < 2 {
         return n.max(0);
@@ -26,14 +24,10 @@ pub fn isqrt(n: i64) -> i64 {
     }
 }
 
-/// How long `(dx, dy)` is, in its own units.
 pub fn dist(dx: i32, dy: i32) -> i32 {
     isqrt(i64::from(dx) * i64::from(dx) + i64::from(dy) * i64::from(dy)) as i32
 }
 
-/// `(dx, dy)` as a vector of length `Q`; nothing for no length. Short
-/// vectors are scaled up first, so `(1, 1)` is as true a direction as
-/// `(1000, 1000)`.
 pub fn unit(dx: i32, dy: i32) -> (i32, i32) {
     let big = i64::from(dx.unsigned_abs().max(dy.unsigned_abs()));
     if big == 0 {
@@ -48,13 +42,10 @@ pub fn unit(dx: i32, dy: i32) -> (i32, i32) {
     )
 }
 
-/// The dot product of two `Q` vectors, in `Q`.
 pub fn dot(a: (i32, i32), b: (i32, i32)) -> i32 {
     ((i64::from(a.0) * i64::from(b.0) + i64::from(a.1) * i64::from(b.1)) / i64::from(Q)) as i32
 }
 
-/// Sine of a whole-degree angle in `Q` (Bhaskara's rational, good to a
-/// fifth of a percent).
 pub fn sin_q(deg: i32) -> i32 {
     let d = deg.rem_euclid(360);
     let (d, sign) = if d >= 180 { (d - 180, -1) } else { (d, 1) };
@@ -66,19 +57,15 @@ pub fn cos_q(deg: i32) -> i32 {
     sin_q(deg + 90)
 }
 
-/// The `Q` direction of a whole-degree angle.
 pub fn dir(deg: i32) -> (i32, i32) {
     (cos_q(deg), sin_q(deg))
 }
 
-/// The whole-degree angle of `(dx, dy)`, 0 for no length.
 pub fn angle_of(dx: i32, dy: i32) -> i32 {
     let u = unit(dx, dy);
     if u == (0, 0) {
         return 0;
     }
-    // The whole degree whose direction lies closest to `u`: of those that
-    // point its way, the one with the least sideways error.
     let mut best = (i32::MAX, 0);
     for d in 0..360 {
         let c = dir(d);
@@ -93,25 +80,18 @@ pub fn angle_of(dx: i32, dy: i32) -> i32 {
     best.1
 }
 
-/// The turn from angle `a` to angle `b`, -180 to 180.
 pub fn turn(a: i32, b: i32) -> i32 {
     (b - a + 180).rem_euclid(360) - 180
 }
 
-/// A tile's column or row of a position in `Q` pixels.
 pub fn tile_of(v: i32) -> i32 {
     v >> TILE_SHIFT
 }
 
-/// The middle of tile `t`, in `Q` pixels.
 pub fn middle(t: i32) -> i32 {
     t * TILE * Q + TILE * Q / 2
 }
 
-/// One room's picture of itself: its floor plan and whether the Gloam holds
-/// it dark. Letters: `#` wall, `.` floor, `=` pit, `V` bars (bolts pass),
-/// `@` a seat's start, `C` a resting brazier, `Q` the way on; the rest are
-/// things that stand on the floor (`props::Pk::of`).
 pub struct Plan {
     pub name: &'static str,
     pub rows: &'static [&'static str],
@@ -125,7 +105,6 @@ impl Plan {
     pub fn h(&self) -> i32 {
         self.rows.len() as i32
     }
-    /// The letter at a tile; wall beyond the edge.
     pub fn at(&self, tx: i32, ty: i32) -> u8 {
         if tx < 0 || ty < 0 || ty >= self.h() {
             return b'#';
@@ -136,7 +115,6 @@ impl Plan {
             .copied()
             .unwrap_or(b'#')
     }
-    /// Every tile with this letter, row by row.
     pub fn find(&self, c: u8) -> Vec<(i32, i32)> {
         let mut out = Vec::new();
         for (y, row) in self.rows.iter().enumerate() {
@@ -150,13 +128,10 @@ impl Plan {
     }
 }
 
-/// Walls and bars stop a body for good; the rest is for the props.
 pub fn wall(c: u8) -> bool {
     matches!(c, b'#' | b'V')
 }
 
-/// The closet a secret hides, as tiles `(x0, y0, x1, y1)`, drawn black until
-/// it is opened.
 pub fn closet(room: usize) -> Option<(i32, i32, i32, i32)> {
     match room {
         1 => Some((28, 13, 28, 13)),

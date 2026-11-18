@@ -62,7 +62,6 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
         ),
         INK,
     );
-    // The banners as eight cells, the table as a line.
     let mut banners = String::from(" ");
     for n in 0..8 {
         banners.push_str(if s.banners & (1 << n) != 0 { "[#] " } else { "[ ] " });
@@ -120,8 +119,6 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
     if me.is_some_and(|k| k.bubble.is_some()) {
         centre(frame, 6, " IN A BUBBLE: STEER TO A FRIEND ", WARM, true);
     }
-    // What the sign beside a knight says, and what the shut door waits for: the
-    // picture's own pixel words are too fine for cells.
     if s.phase == Phase::Play && s.announce.is_none() {
         if let Some(k) = me {
             let (fx, fy) = k.body.foot();

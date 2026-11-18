@@ -11,13 +11,9 @@ use super::rooms::*;
 use super::*;
 use crate::rules::barony::{self, SEAT_PLATE};
 
-/// How near a knight stands to talk (tiles).
 pub const TALK_REACH: f32 = 3.0;
-/// How long a knight holds E on a heap to dig it out.
 pub const DIG_HOLD: u32 = HZ * 2;
-/// The most monsters a hall's set-piece raises on top of its own, all told.
 pub const RAISE_CAP: u8 = 6;
-/// A mark the realm has not answered is sent again this often.
 const RESEND: u64 = 10 * HZ as u64;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,17 +22,13 @@ pub enum Who {
     Keeper,
 }
 
-/// A knight's conversation: with whom, and which page they are on.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Talk {
     pub who: Who,
-    /// 0: their greeting; 1: what they ask; 2: what they tell of the hall.
     pub page: u8,
     pub opened: u64,
 }
 
-/// What a knight's talk shows: who speaks, what they say, and the answers
-/// on 1, 2 and 3.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TalkView {
     pub who: Who,
@@ -46,43 +38,29 @@ pub struct TalkView {
     pub answers: Vec<String>,
 }
 
-/// A lost hall's set-piece at play.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct HallPlay {
     pub room: usize,
-    /// Which hall, by place in `HALLS`.
     pub hall: u8,
-    /// 0: the keeper waits; 1: under way; 2: played out.
     pub stage: u8,
-    /// How it was won: `fight`, `bargain`, `rite` or `freed`.
     pub how: String,
-    /// The tick its mark was last sent.
     pub sent: u64,
-    /// The party is in the hall now.
     pub inside: bool,
-    /// The fight: who was raised (a body's id, and whether it is the
-    /// chief), how many guards have fallen, whether the chief has.
     pub foes: Vec<(u32, bool)>,
     pub slain: u8,
     pub chief_down: bool,
-    /// The rite: the lamps kindled so far, in order.
     pub lit: Vec<u8>,
-    /// The dig: the heaps dug out (a bit each).
     pub dug: u8,
-    /// Monsters raised by the set-piece, all told.
     pub raised: u8,
 }
 
-/// The run's reclaiming at play.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Play {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub talks: BTreeMap<u32, Talk>,
-    /// Knights holding E now: a press is a new bit.
     #[serde(default, skip_serializing_if = "no_bits")]
     pub held: u8,
-    /// The floor's lost hall, once the party is in it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hall: Option<HallPlay>,
 }
@@ -107,7 +85,6 @@ fn inside((col, row, w, h): (i32, i32, i32, i32), x: f32, y: f32) -> bool {
 }
 
 impl Run {
-    /// The floor's lost hall set-piece, while the party is in its room.
     pub fn hall_play(&self) -> Option<&HallPlay> {
         self.reclaim
             .hall
@@ -115,12 +92,10 @@ impl Run {
             .filter(|p| p.room == self.at && self.room().kind == RoomKind::DwarfHall)
     }
 
-    /// Whether the lost hall of this room is the King's already.
     pub fn hall_held(&self) -> bool {
         hall_of(self.dungeon.pack).is_some_and(|(_, h)| self.home.barony.halls.is_held(h.id))
     }
 
-    /// Knight `id` is within reach of tile point `at`.
     fn reclaim_near(&self, id: u32, at: (f32, f32), reach: f32) -> bool {
         self.players
             .get(&id)
@@ -131,11 +106,9 @@ impl Run {
         self.players.get(&id).is_some_and(|h| h.hp > 0 && !h.stone && inside(area, h.x, h.y))
     }
 
-    /// The keeper's spot now, if there is one in this room.
     pub fn keeper_at(&self) -> Option<(f32, f32)> {
         let play = self.hall_play()?;
         let (i, _) = hall_of(self.dungeon.pack)?;
-        // A freed smith stands; a hall's fight has no keeper to talk to.
         let present = match (i, play.stage) {
             (0, 1) => false,
             (0, 2) => self.home.barony.halls.how("gallery") != Some("fight") || self.hall_held(),
@@ -144,7 +117,6 @@ impl Run {
         present.then_some(KEEPER_AT[i])
     }
 
-    /// Who knight `id` could speak to where they stand.
     fn speaker_near(&self, id: u32) -> Option<Who> {
         let b = &self.home.barony;
         if b.court >= Court::Met
@@ -158,13 +130,10 @@ impl Run {
             return Some(Who::King);
         }
         let at = self.keeper_at()?;
-        // Heaps are dug with E, not talked over.
         let digging = hall_of(self.dungeon.pack).is_some_and(|(i, _)| i == 2) && DIGS.iter().any(|d| self.reclaim_standing(id, *d));
         (self.reclaim_near(id, at, TALK_REACH) && !digging).then_some(Who::Keeper)
     }
 
-    /// The keys a knight in talk gives up before the rest of the tick sees
-    /// them: 1, 2 and 3 answer rather than cast.
     pub(in crate::rules) fn reclaim_inputs(&mut self, inputs: &BTreeMap<u32, Input>) -> Option<BTreeMap<u32, Input>> {
         if self.reclaim.talks.is_empty() {
             return None;
@@ -182,7 +151,6 @@ impl Run {
         changed.then_some(out)
     }
 
-    /// One tick of the reclaiming: talks, then the hall the party is in.
     pub(in crate::rules) fn tick_reclaim(&mut self, inputs: &BTreeMap<u32, Input>) {
         let held = self
             .players
@@ -191,7 +159,6 @@ impl Run {
             .fold(0u8, |bits, &id| bits | 1 << (id & 7));
         let pressed = held & !self.reclaim.held;
         self.reclaim.held = held;
-        // Whoever has walked off has ended their talk.
         let gone: Vec<u32> = self
             .reclaim
             .talks
@@ -217,8 +184,6 @@ impl Run {
         self.tick_hall(inputs, pressed);
     }
 
-    /// E on an open talk: on to what they ask; at the ask, away when there is
-    /// nothing to answer; from the hall's lore, back to the ask.
     fn talk_on(&mut self, id: u32, talk: Talk) {
         let numbered = self
             .reclaim_view(id)
@@ -241,7 +206,6 @@ impl Run {
         }
     }
 
-    /// What knight `id`'s talk shows.
     pub fn reclaim_view(&self, id: u32) -> Option<TalkView> {
         let talk = self.reclaim.talks.get(&id)?;
         Some(match talk.who {
@@ -392,7 +356,6 @@ impl Run {
         })
     }
 
-    /// Knight `id` answers with 1, 2 or 3.
     pub(in crate::rules) fn reclaim_answer(&mut self, id: u32, pick: u8) {
         let Some(talk) = self.reclaim.talks.get(&id).cloned() else {
             return;
@@ -468,7 +431,6 @@ impl Run {
         }
     }
 
-    /// The keeper's ask taken: the hall's set-piece begins.
     fn begin_set_piece(&mut self) {
         let Some((i, _)) = hall_of(self.dungeon.pack) else {
             return;
@@ -485,7 +447,6 @@ impl Run {
         }
     }
 
-    /// Nubbin takes his boar, and his kin their bombs.
     fn raise_chief(&mut self) {
         let Some(p) = self.reclaim.hall.as_mut() else {
             return;
@@ -518,7 +479,6 @@ impl Run {
         self.shake = self.shake.max(6);
     }
 
-    /// The hall the party stands in: its set-piece, a tick.
     fn tick_hall(&mut self, inputs: &BTreeMap<u32, Input>, pressed: u8) {
         let in_hall = !self.at_home_now() && self.room().kind == RoomKind::DwarfHall;
         if !in_hall {
@@ -548,7 +508,6 @@ impl Run {
         if held {
             p.stage = 2;
         }
-        // Back in after leaving mid-fight: the clan is where it was left.
         if !p.inside {
             p.inside = true;
             self.reclaim.hall = Some(p.clone());
@@ -567,14 +526,12 @@ impl Run {
             *self.marks.entry(won_mark(i, &p.how)).or_default() += 1;
         }
         if p.how == "bargain" && p.stage == 2 && !held && tick >= p.sent + RESEND {
-            // The realm could not take the toll: ask again at the chair.
             p.stage = 0;
             p.how.clear();
         }
         self.reclaim.hall = Some(p);
     }
 
-    /// The chief's fight: who is down, and the hall won when all are.
     fn tick_fight(&mut self, p: &mut HallPlay) {
         if p.stage != 1 {
             return;
@@ -598,7 +555,6 @@ impl Run {
         }
     }
 
-    /// The rite: a knight beside a lamp, pressing E, kindles it.
     fn tick_rite(&mut self, p: &mut HallPlay, pressed: u8) {
         if p.stage != 1 {
             return;
@@ -639,7 +595,6 @@ impl Run {
         }
     }
 
-    /// The dig: a knight standing on a heap, holding E, digs it out.
     fn tick_dig(&mut self, p: &mut HallPlay, inputs: &BTreeMap<u32, Input>) {
         if p.stage != 1 {
             return;
@@ -688,7 +643,6 @@ impl Run {
         }
     }
 
-    /// A set-piece played out: the mark goes to the realm.
     fn hall_won(&mut self, p: &mut HallPlay, how: &str, line: &str) {
         p.stage = 2;
         p.how = how.into();
@@ -699,8 +653,6 @@ impl Run {
         self.found = Some((self.tick, 0, line.into()));
     }
 
-    /// The realm's word on the halls changed: what stands now shows.
-    /// Called from `barony_news` with the halls before.
     pub(in crate::rules) fn reclaim_news(&mut self, before: &Halls) {
         let now = &self.home.barony.halls;
         for w in &now.won {

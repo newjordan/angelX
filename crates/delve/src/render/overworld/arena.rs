@@ -18,21 +18,17 @@
 //! pixels.
 
 mod boss_art;
-/// The boss library's own dressing (material grade, rim light, breath), for the Creator's preview feed.
 pub(crate) use boss_art::{breathe as library_breathe, breathing as library_breathing, dress as library_dress};
 mod entrance_art;
-/// Review-only native/browser selector: zero is production; 1..4 are recipe trials.
 #[cfg(feature = "boss-library-review")]
 #[unsafe(no_mangle)]
 pub extern "C" fn boss_library_review(sample: u32) {
     boss_art::library_review(sample as usize);
 }
-/// Export the same shaded receiver without boss figures or nameplates.
 #[cfg(feature = "testing")]
 pub fn boss_floor_review<T>(draw: impl FnOnce() -> T) -> T {
     boss_art::library_floor_review(draw)
 }
-/// Review-only display trials; all simulation geometry remains unchanged.
 #[cfg(feature = "testing")]
 #[unsafe(no_mangle)]
 pub extern "C" fn boss_effect_review(sample: u32) {
@@ -98,19 +94,14 @@ mod floor_stats;
 mod flourishes;
 mod autorig;
 
-/// A wished creature's ink, walked and struck by the autorig. None when the
-/// figure will not stand or the rig is turned off.
 pub(crate) fn wished_pose(rows: &[&str], tick: u64) -> Option<super::ink::Img> {
     autorig::stage_pose(rows, tick)
 }
 
-/// The picture the delve room stamps for this hero, and the foot in it.
-/// The cave stands these pixels and no other body.
 pub(crate) fn room_figure(run: &crate::rules::Run, id: u32, hero: &crate::rules::Hero) -> (super::ink::Img, Option<[i32; 2]>) {
     let (dressed, _) = figures::dressed_knight(run, id, hero);
     let mut image = dressed.image;
     let mut pivot = dressed.pivot;
-    // The room mirrors a knight who faces left. The foot's row does not move.
     if hero.aim_x < -0.3 {
         let w = image.w;
         image = image.flip_h();
@@ -132,7 +123,6 @@ pub mod primer;
 mod critters;
 mod forest;
 mod forest_road;
-// The Round Table adventures: the shared stage, then one file each.
 mod room_paint;
 mod module_effects;
 mod roundtable;
@@ -149,10 +139,7 @@ mod ground_marks;
 mod lightgallop;
 mod knight_racers;
 mod deathmatch;
-/// The shared juice kit: shake, banners, countdowns, podiums (`rules::juice` keeps the state).
 pub(crate) mod juice;
-/// A browser's own arena movement, replayed ahead of the host. Damage and
-/// every other seat still come from the authoritative round.
 pub fn with_deathmatch_prediction<T>(own: Option<(u32, crate::rules::deathmatch::Fighter)>, draw: impl FnOnce() -> T) -> T {
     deathmatch::with_prediction(own, draw)
 }
@@ -184,7 +171,6 @@ mod claim_bosses;
 mod ore_threats;
 pub mod knights;
 mod mirror;
-/// Validated animation assets and shared equipment sockets.
 pub mod quick_rig;
 pub mod factory;
 mod wear;
@@ -206,8 +192,6 @@ pub(crate) fn notice_board(lines: &[(String, char)]) -> Img {
     home::board(lines)
 }
 
-/// The colours a seat's knight wears, as ink swaps on the kit's knight: the
-/// company's own where it gave some, else the seat's.
 pub(crate) fn seat_colours(run: &Run, id: u32) -> &[(char, char)] {
     match run.players.get(&id).map(|h| h.colours()) {
         Some(own) if !own.is_empty() => own,
@@ -249,10 +233,8 @@ mod runes;
 mod scenery;
 mod seat;
 pub mod stand_back;
-/// The tile of the ground a click lands on in the flat view of the hillside works.
 pub use kingdom::hillside_art::{slot_at as hill_slot_at, tile_at as hill_tile_at};
 
-/// How tall the builder's strip at the view's foot is, in the view's pixels.
 pub fn hill_strip_height() -> i32 {
     kingdom::hillside_art::STRIP_H
 }
@@ -266,12 +248,10 @@ pub mod swamp_art;
 pub mod siege_stage;
 mod stature;
 
-/// Exact protected furnace pigment for terminal half-cell sampling.
 pub fn cell_signature_core(c: [u8; 3]) -> bool {
     boss_art::cell_signature_core(c)
 }
 
-/// Cached local combat ink at the native kit's terminal brightness.
 pub fn cell_effect_ink(c: [u8; 3]) -> Option<[u8; 3]> {
     boss_art::cell_effect_ink(c)
 }
@@ -379,7 +359,6 @@ pub use room_scene::{
 #[cfg(any(test, feature = "testing"))]
 pub use hippodrome::race_camera;
 
-/// The Delve's folk, for the loop's crawl to meet in its halls.
 pub fn crawl_figure(who: &str) -> Option<Img> {
     let rows: &[&str] = match who {
         "merlin" => &home::MERLIN,
@@ -396,15 +375,10 @@ pub fn crawl_figure(who: &str) -> Option<Img> {
     Some(Img::from_rows(rows))
 }
 
-/// A monster of the Delve, for the crawl.
 pub fn crawl_enemy(kind: crate::rules::EnemyKind, tick: u32) -> Img {
     sprites::enemy(kind, tick)
 }
 
-/// A standing thing of the Delve's halls, for the crawl: a tomb, a rock, a
-/// mushroom, an eye-pillar, a fire.
-/// The frog sprites, for a sheet: frog, hopping, perched, a puff at three
-/// stages, and the three figures.
 #[cfg(any(test, feature = "testing"))]
 pub fn frog_sprites(tick: u32) -> Vec<Img> {
     use crate::rules::frogs::Gift;
@@ -422,7 +396,6 @@ pub fn frog_sprites(tick: u32) -> Vec<Img> {
     out
 }
 
-/// A critter at a stage of its move, for a sheet.
 #[cfg(any(test, feature = "testing"))]
 pub fn critter_figure(
     kind: crate::rules::EnemyKind,
@@ -442,7 +415,6 @@ pub fn crawl_prop(what: &str, tick: u32) -> Img {
         _ => sprites::brazier(true, tick, 7),
     }
 }
-/// The crawl uses the same compact room signs as the playable arena.
 pub fn crawl_sign(label: &str) -> Img {
     super::kit::district_sign(label)
 }
@@ -501,22 +473,15 @@ use crate::rules::{
     TILE_UNITS, Tile, Trap, VIGIL_REACH, WIDTH, ledge::FOOT,
 };
 
-/// Pixels per tile: the overworld's.
 const TILE: i32 = 16;
-/// Pixels per arena unit.
 pub const UNIT: f32 = TILE as f32 / TILE_UNITS;
-/// The native view: one screen of room. A great hall is drawn whole and the
-/// camera shows this much of it.
 pub const NATIVE_W: i32 = COLS as i32 * TILE;
 pub const NATIVE_H: i32 = ROWS as i32 * TILE;
 
-/// An arena point in native pixels.
 fn at(ux: f32, uy: f32) -> (i32, i32) {
     ((ux * UNIT).floor() as i32, (uy * UNIT).floor() as i32)
 }
 
-/// Where the native room lands in a `w`x`h` frame: native pixel `n` goes to
-/// `o + n * num / den`.
 #[derive(Clone, Copy, Debug)]
 struct Field {
     ox: i32,
@@ -550,13 +515,11 @@ impl Field {
         )
     }
 
-    /// An arena point in frame pixels.
     fn px(&self, ux: f32, uy: f32) -> (i32, i32) {
         let (nx, ny) = at(ux, uy);
         self.map(nx, ny)
     }
 
-    /// Fit `scenery` with `figures` over it into `out`.
     fn blit(&self, scenery: &Img, figures: &Img, out: &mut Img) {
         self.blit_ranked(scenery, figures, out, None, None);
     }
@@ -571,7 +534,6 @@ impl Field {
     ) {
         if self.den == 1 {
             let k = self.num;
-            // The guest frame is native size: one tight pass, no bounds checks.
             if k == 1
                 && self.ox == 0
                 && self.oy == 0
@@ -595,11 +557,6 @@ impl Field {
             }
             return;
         }
-        // Reduction. A figure, shot or loot mark always wins its footprint
-        // (live state first, then the brightest), so black paper never
-        // swallows one. Scenery keeps its brightest mark only where it
-        // covers a third of the footprint: walls stay, sparse floor marks
-        // fade instead of turning into noise.
         let rank = |c: Rgb| {
             let l = 299 * u32::from(c[0]) + 587 * u32::from(c[1]) + 114 * u32::from(c[2]);
             if alerts.is_some_and(|inks| inks.contains(&c)) { l + 2_000_000 }
@@ -647,10 +604,8 @@ impl Field {
     }
 }
 
-/// The floor's place in the realm.
 struct Style {
     rock: RockKind,
-    /// Bare-paper ink under a light: `(cool, firelit)`.
     pool: (char, char),
 }
 
@@ -684,11 +639,6 @@ fn style(pack: Pack) -> Style {
     }
 }
 
-// ─── ground marks ────────────────────────────────────────────────────────────
-
-// ─── the room ────────────────────────────────────────────────────────────────
-
-/// The door lanes of each side, as `(col, row)` of the first of two tiles.
 fn doors(room: &Room) -> [(i32, i32); 4] {
     let (cols, rows) = (room.cols as i32, room.rows as i32);
     [
@@ -703,26 +653,20 @@ fn corner(room: &Room, col: i32, row: i32) -> bool {
     (col == 0 || col == room.cols as i32 - 1) && (row == 0 || row == room.rows as i32 - 1)
 }
 
-/// The room's full size in native pixels.
 fn room_px(room: &Room) -> (i32, i32) {
     (room.cols as i32 * TILE, room.rows as i32 * TILE)
 }
 
-/// Stamp `im` with its feet at native `(x, y)`.
 fn stand(cv: &mut Img, im: &Img, x: i32, y: i32) {
     note_body(im, x - im.w / 2, y - im.h + 1);
     paintings::stood((im.w, im.h), (x - im.w / 2, y - im.h + 1));
     cv.stamp(im, x - im.w / 2, y - im.h + 1);
 }
 
-/// While a figure is taken apart, the sprites it stands up are noted with
-/// their look's key, so a window can draw an HD picture of that look in
-/// their place (`room_scene::Body`).
 fn note_body(im: &Img, x: i32, y: i32) {
     with_capture(|capture| {
         if let Some(bodies) = &mut capture.member {
             let key = room_scene::look_key(im);
-            // The name given for this look (`capture::name_next`), if any.
             let named = match capture.pending_name.take() {
                 Some((look, named)) if look == key => Some(named),
                 other => {
@@ -735,13 +679,7 @@ fn note_body(im: &Img, x: i32, y: i32) {
     });
 }
 
-/// Feet at a world point. A live frame keeps the fractional pixel as
-/// ordered dither (`stamp_sub`), so a step smaller than one pixel still
-/// changes the picture. A snapshot stays on the integer cell.
 fn stand_at(cv: &mut Img, im: &Img, ux: f32, uy: f32, dy: i32) {
-    // Same integer anchor as `stand` (`w / 2` truncates). The fractional
-    // pixel is added after that, so an odd-width foe does not slide half
-    // a pixel off the snapshot, and a whole pixel still matches `stamp`.
     let px = ux * UNIT;
     let py = uy * UNIT;
     let (x, y) = (px.floor() as i32, py.floor() as i32);
@@ -756,14 +694,11 @@ fn stand_at(cv: &mut Img, im: &Img, ux: f32, uy: f32, dy: i32) {
     }
 }
 
-/// The part of a pixel an arena point stands past its whole pixel (`at`).
 fn pixel_fraction(ux: f32, uy: f32) -> (f32, f32) {
     let (px, py) = (ux * UNIT, uy * UNIT);
     (px - px.floor(), py - py.floor())
 }
 
-/// The house rule for "press E here": the key and a word or two, shown only
-/// while a knight stands within reach of the spot (pixels `(x, y)`).
 pub(super) fn near_prompt(cv: &mut Img, run: &Run, (x, y): (i32, i32), label: &str) {
     let reach = 2.5 * TILE as f32;
     let near = run.players.values().any(|h| {
@@ -779,7 +714,6 @@ pub(super) fn near_prompt(cv: &mut Img, run: &Run, (x, y): (i32, i32), label: &s
     chrome::label(cv, (lx, ly), &label, 'O', chrome::Tone::KEY);
 }
 
-/// A way that is shut: two planks nailed across it.
 pub(super) fn shut_planks(cv: &mut Img, x: i32, y: i32, w: i32) {
     cv.line(x + 1, y + 1, x + w - 2, y + TILE - 3, 'B');
     cv.line(x + 1, y + TILE - 3, x + w - 2, y + 1, 'B');
@@ -787,7 +721,6 @@ pub(super) fn shut_planks(cv: &mut Img, x: i32, y: i32, w: i32) {
     cv.line(x + 2, y + TILE - 3, x + w - 1, y + 1, 'r');
 }
 
-/// A way that is open: a small arrow up the stair.
 pub(super) fn open_arrow(cv: &mut Img, x: i32, y: i32) {
     for k in 0..4 {
         cv.line(x - k, y + k, x + k, y + k, '9');
@@ -795,10 +728,8 @@ pub(super) fn open_arrow(cv: &mut Img, x: i32, y: i32) {
     cv.line(x, y + 4, x, y + 8, '9');
 }
 
-/// The clay pots along a room's walls, and the shards of broken ones.
 fn clay_pots(cv: &mut Img, run: &Run) {
     if atari::here(run) {
-        // On the Atari board a pot is a grey block of a prop.
         let (x, y, w, h) = cv.span();
         let mut layer = Img::window(cv.w, cv.h, (x, y, w, h));
         clay_pots_drawn(&mut layer, run);
@@ -809,9 +740,6 @@ fn clay_pots(cv: &mut Img, run: &Run) {
 }
 
 fn clay_pots_drawn(cv: &mut Img, run: &Run) {
-    // A round clay pot: a lit rim over its mouth, a narrow neck, a belly lit
-    // from the left and turning into shade on the right, a foot, and the
-    // cue line under it (a gameplay object keeps its pixels).
     let pot = Img::from_rows(&[
         "..roooP..",
         "...PrP...",
@@ -837,20 +765,8 @@ fn clay_pots_drawn(cv: &mut Img, run: &Run) {
     }
 }
 
-/// One view of the room, 16 pixels to a tile: lit scenery, and the figures
-/// over it on a layer of their own.
-/// `legible`: the frame is drawn at native size or larger, so the 5x7 hand
-/// of in-world boards can be read (a reduced frame leaves them to the HUD).
-/// How near (in tiles) a knight stands to what a big board is about before
-/// the board shows.
 const READING_REACH: f32 = 3.5;
 
-/// The knights a shop's board is read for on this screen: the seat's own
-/// knight alone (`focus`), or every knight where the screen plays no one
-/// knight (a couch, a watcher). A counter's board, its price, purse and hold
-/// bar, is the buyer's, so a friend at the next plate never puts theirs over
-/// yours (2026-10-19: "buying a potion should only show you your own popup",
-/// "personal purchasing on the buttons").
 pub(super) fn shoppers(
     run: &Run,
     focus: Option<u32>,
@@ -861,7 +777,6 @@ pub(super) fn shoppers(
         .map(|(&id, h)| (id, h))
 }
 
-/// A standing knight within `reach` tiles of tile point `spot`.
 pub(super) fn knight_near(run: &Run, spot: (f32, f32), reach: f32) -> bool {
     run.players.values().any(|h| {
         h.hp > 0
@@ -869,10 +784,6 @@ pub(super) fn knight_near(run: &Run, spot: (f32, f32), reach: f32) -> bool {
     })
 }
 
-/// The big boards (a game's rules, an errand, a plot's price) keep out of
-/// the way: they show while a game is on, or while a knight stands by a
-/// game's ring, a building plot or a road's stair. Walking about, the view
-/// is the world's.
 fn reading(run: &Run) -> bool {
     use crate::rules::{countryside, pastimes::Game, world};
     if run.pastimes.round.is_some() || coastal::board_visible(run) || woodland::board_visible(run)
@@ -885,7 +796,6 @@ fn reading(run: &Run) -> bool {
         return true;
     }
     let kind = run.room().kind;
-    // A Colosseum arena is its game: its board is always up.
     if crate::rules::colosseum::is_arena(kind) {
         return true;
     }
@@ -906,8 +816,6 @@ fn reading(run: &Run) -> bool {
 fn layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img) {
     let (scenery, mut over) = scene_layers(run, focus, legible);
     votes::panel(&mut over, run, focus);
-    // A random room's game: its card (the Round Table's own screens carry it
-    // from `roundtable`).
     if !run.roundtable_showing() {
         encounter::panel(&mut over, run, focus);
     }
@@ -934,8 +842,6 @@ fn scene_layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img) {
         at(WIDTH, HEIGHT),
         "a tile is two arena units"
     );
-    // A dimensional pastime takes the whole canvas: its own screen, not a
-    // corner of the room.
     if stage::takeover(run) {
         return stage::layers(run, focus, legible);
     }
@@ -944,22 +850,17 @@ fn scene_layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img) {
     let mut over = crop(&over, origin);
     let mut scenery = crop(&scenery_cached(run), origin);
     if run.circle() > 0 && !run.at_home_now() {
-        // Below a hell gate the rooms are lit from underneath.
         gate::tint(&mut scenery, run.circle());
     }
     if run.mode == crate::rules::fortune::Mode::LightsOut && !run.at_home_now() && !run.in_deep_village() {
         lights_out(&mut scenery, &mut over, run, origin);
     }
-    // A library boss's own graded ground (`boss_art`).
     if !atari::here(run) {
         boss_art::library_ground(&mut scenery, run, origin);
     }
-    // The swamp's fog: the same dark, in patches.
     if swamp::fogged(run) {
         swamp::fog(&mut scenery, &mut over, run, origin);
     }
-    // The skills bar's veil: the room's still art darkened under it; all
-    // that stands, moves or marks the floor keeps its full ink.
     if legible && !hud_in_band() && let Some(rect) = tray::bar_rect(run, focus, NATIVE_W, NATIVE_H) {
         room_scene::darken(&mut scenery, rect);
     }
@@ -967,15 +868,11 @@ fn scene_layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img) {
     (scenery, over)
 }
 
-/// The room's moving parts in room pixels, over its still art: what stands
-/// and moves in it, the marks over them and the room's boards.
 fn room_layer(run: &Run, focus: Option<u32>, legible: bool) -> Img {
     let (pw, ph) = room_px(run.room());
     let mut over = Img::new(pw, ph);
     let list = room_list(run, focus, legible);
     if atari::here(run) {
-        // What lies on the board's floor is held to its inks and blocks;
-        // what stands over it is drawn as its own (`figures_with`).
         let (ground, rest) = list.split(Layer::Ground);
         ground.paint(&mut over);
         atari::board(&mut over);
@@ -986,8 +883,6 @@ fn room_layer(run: &Run, focus: Option<u32>, legible: bool) -> Img {
     over
 }
 
-// Keep the live mirror in the shared list: both flat frames and layered
-// scenes use it, including the low layer split by `room_scene`.
 fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawList<'_> {
     let mut list = room_paint::room_list(run, focus, legible);
     list.add(Layer::Ground, move |cv| mirror::wall(cv, run));
@@ -995,20 +890,15 @@ fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawList<'_> {
     list
 }
 
-/// The screen's own marks, after the camera's crop, in view pixels: the
-/// tray, the arrows to the way on, the boards and banners.
 fn screen_marks(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool, origin: (i32, i32)) {
     let banner = legible.then(|| run.banner_now()).flatten();
     let mut screen = DrawList::default();
-    // A seat's view has neither: they sit in the band below it.
     let hud_here = legible && !hud_in_band();
     screen.add(Layer::Screen, |cv| {
         if hud_here {
-            // The tray goes under the edge marks, which must stay in sight.
             tray::corner(cv, run, focus);
         }
     });
-    // The minimap sits under the edge marks too.
     screen.add(Layer::Screen, |cv| {
         if hud_here {
             dungeon_map::minimap(cv, run, focus);
@@ -1018,7 +908,6 @@ fn screen_marks(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool, orig
     screen.add(Layer::Screen, |cv| way_on_marker(cv, run, origin, run.tick as u32));
     screen.add(Layer::Screen, |cv| {
         if let Some(((x, y), name)) = run.home_way() {
-            // Bobbing over the Winding Stair, pointing down into it.
             let bob = [0.0, 1.0, 2.0, 1.0][(run.tick / 6 % 4) as usize];
             let (px, py) = at(x, y);
             let (sx, sy) = ((px - origin.0) as f32, (py - origin.1) as f32 - 44.0 - bob);
@@ -1026,11 +915,8 @@ fn screen_marks(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool, orig
         }
     });
     screen.add(Layer::Screen, |cv| fellowship_arrow(cv, run, focus, origin));
-    // The seat's own missions with a spot in this room (a teacher, a ring).
     screen.add(Layer::Screen, |cv| kingdom::missions::spots(cv, run, focus, origin));
     screen.add(Layer::Screen, |cv| heat_board(cv, run));
-    // The arcade's own HUD plaques (and the intro board) live here, not on
-    // the room's boards, so a window tilts them out of the picture (`pastimes::boards`).
     screen.add(Layer::Screen, |cv| team::panel(cv, run, focus));
     screen.add(Layer::Screen, |cv| if reading(run) { pastimes::boards(cv, run); });
     screen.add(Layer::Screen, |cv| wax_maze::screen(cv, run, focus, origin));
@@ -1043,12 +929,8 @@ fn screen_marks(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool, orig
     screen.add(Layer::Screen, |cv| book_hop::screen(cv, run, focus, origin));
     screen.add(Layer::Screen, |cv| field_banner(cv, run, origin, focus));
     screen.add(Layer::Screen, |cv| verdict(cv, run));
-    // The party's steps up: a record, a constellation lit, the sky's gift
-    // (`rewards`).
     screen.add(Layer::Screen, |cv| if legible { rewards::screen(cv, run, origin); });
     screen.add(Layer::Screen, |cv| if legible { boss_title(cv, run); });
-    // A new knight's rite: the scroll's question, the piece made, the stair
-    // that turned them back (`rite`).
     screen.add(Layer::Screen, |cv| if legible { rite_wall::screen(cv, run, focus); });
     screen.add(Layer::Screen, |cv| gate::card(cv, run));
     screen.add(Layer::Screen, |cv| wanted::poster(cv, run, legible));
@@ -1065,9 +947,7 @@ fn screen_marks(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool, orig
     });
     screen.add(Layer::Screen, |cv| college::prompt(cv, run, focus, legible));
     screen.add(Layer::Screen, |cv| if legible { college::dialogue(cv, run); });
-    // The Deep's boards: a village's name, hope and talk, the errands' tracker.
     screen.add(Layer::Screen, |cv| if legible { deep_village::screen(cv, run, focus); });
-    // A knight's talk with the King or a lost hall's keeper.
     screen.add(Layer::Screen, |cv| if legible { reclaim::screen(cv, run, focus); });
 
     screen.add(Layer::Screen, |cv| {
@@ -1080,12 +960,7 @@ fn screen_marks(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool, orig
     screen.paint(cv);
 }
 
-/// A sprite drawn `k` times its size, nearest-neighbour: a giant.
-/// The most a card's own shot art spans before it is drawn at twice size,
-/// in pixels: about a bolt's.
 const CARD_SHOT_SIDE: i32 = 8;
-/// The most a card's own shot art spans drawn on the canvas's own pixels:
-/// the footprint of `CARD_SHOT_SIDE` at twice size, four times the detail.
 const CARD_FINE_SIDE: i32 = 2 * CARD_SHOT_SIDE;
 
 fn enlarge(im: &Img, k: f32) -> Img {
@@ -1104,11 +979,6 @@ fn enlarge(im: &Img, k: f32) -> Img {
     out
 }
 
-/// `im` drawn `k` times its size with none of it cropped: bigger, each
-/// pixel repeated as `enlarge` does; smaller, each pixel the brightest of
-/// the opaque ones it covers if they fill a quarter of its box, so a thin
-/// line of art stays a line, a bright core stays bright and a shot's whole
-/// look is still there.
 pub(super) fn resized(im: &Img, k: f32) -> Img {
     if k >= 1.0 {
         return enlarge(im, k);
@@ -1141,7 +1011,6 @@ pub(super) fn resized(im: &Img, k: f32) -> Img {
     out
 }
 
-/// One view composed at native size.
 #[cfg_attr(not(test), allow(dead_code))]
 fn native(run: &Run) -> Img {
     let (mut cv, over) = layers(run, None, true);
@@ -1149,56 +1018,40 @@ fn native(run: &Run) -> Img {
     cv
 }
 
-/// The room the party stands in, as a `w`x`h` pixel frame.
 pub fn frame(run: &Run, w: i32, h: i32) -> Img {
     frame_for(run, w, h, None)
 }
 
-/// The view a given knight's camera shows (`None`: between the knights).
-/// Where an arena point lands in the `w`x`h` frame `frame_for` draws of
-/// `run` for `focus` (the screen shake left out): for a client's probes.
 pub fn frame_px(run: &Run, w: i32, h: i32, focus: Option<u32>, ux: f32, uy: f32) -> (i32, i32) {
     let (cx, cy) = camera(run, focus);
     let (nx, ny) = at(ux, uy);
     Field::fit(w, h).map(nx - cx, ny - cy)
 }
 
-/// A seat's whole screen, `w` by `h` (`seat_size`): the party's band
-/// along its top, the room's view below it as `frame_for` draws it with
-/// nothing over it, and the HUD's band under that (`hud_band`).
 pub fn seat_frame(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
     seat_frame_with(run, w, h, focus, &MapView::default())
 }
 
-/// `seat_frame` with what the seat's client asks of the map (`MapView`).
 pub fn seat_frame_with(run: &Run, w: i32, h: i32, focus: Option<u32>, map: &MapView) -> Img {
     stand_back::with(run, focus, map.full, || in_seat(|| party::lift_frame_with(&frame_for(run, w, view_rows(h), focus), run, focus, map)))
 }
 
-/// A seat's whole screen as parts (`seat_frame`, in parts): the bands in
-/// its screen marks, the room's parts moved down between them.
 pub fn seat_scene(run: &Run, w: i32, h: i32, focus: Option<u32>) -> RoomScene {
     seat_scene_with(run, w, h, focus, &MapView::default())
 }
 
-/// `seat_scene` with what the seat's client asks of the map (`MapView`).
 pub fn seat_scene_with(run: &Run, w: i32, h: i32, focus: Option<u32>, map: &MapView) -> RoomScene {
     stand_back::with(run, focus, map.full, || in_seat(|| party::lift_with(scene_for(run, w, view_rows(h), focus), run, focus, map)))
 }
 
-/// Where an arena point lands on a seat's whole screen `w` by `h`
-/// (`frame_px` below the band).
 pub fn seat_px(run: &Run, w: i32, h: i32, focus: Option<u32>, ux: f32, uy: f32) -> (i32, i32) {
     let band = band_rows(h);
     let (x, y) = frame_px(run, w, view_rows(h), focus, ux, uy);
     (x, y + band)
 }
 
-/// One Knight Racers pod on a turntable, for the course and pod select screens.
 pub fn racer_garage(look: usize, seat: u32, turn: f32, ticks: u32) -> Img { knight_racers::garage(look, seat, turn, ticks) }
 
-/// Sheet decode, the font and the scenery cache, once per process, before a
-/// frame is shown. 384 by 216 is the wide size a page draws first.
 pub fn warm_first_shown() {
     static ONCE: std::sync::OnceLock<()> = std::sync::OnceLock::new();
     ONCE.get_or_init(|| {
@@ -1222,8 +1075,6 @@ fn cave_shake(run: &Run, im: Img) -> Img {
 }
 
 pub fn frame_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
-    // Draw thread. While a knight stands on a cave mouth, the ground it will
-    // arrive on is drawn ahead, so the first frame inside is an ordinary one.
     super::cave_seat::warm_mouth(run, focus);
     if let Some(id) = focus.filter(|id| run.caves.inside(*id)) {
         return cave_shake(run, super::cave_seat::cave_seat_frame(run, id, w, h));
@@ -1231,7 +1082,6 @@ pub fn frame_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
     if industry::showing(run, focus) || industry::frontier(run) { return industry::frame(run,w,h,focus); }
     if crossroads::showing(run) { return crossroads::frame(run, w, h, focus); }
     if crossroads::pastime(run) || encounter::pastime(run) {
-        // These arenas use their surface stage while the delve waits below.
         let mut arena = run.clone();
         arena.dungeon.depth = 0;
         arena.dungeon.open = None;
@@ -1245,9 +1095,6 @@ pub fn frame_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
     frame_v1(run, w, h, focus)
 }
 
-/// The full art layers for the actual terminal cell painter: the pastimes'
-/// own screens, the Forest Road, the Round Table adventures and the race,
-/// at twice the native grain. `None` for any other room.
 pub fn terminal_layers(run: &Run, focus: Option<u32>) -> Option<(Img, Img)> {
     if industry::showing(run, focus) || industry::frontier(run) { let im=industry::frame(run,NATIVE_W,NATIVE_H,focus); return Some((im,Img::new(NATIVE_W,NATIVE_H))); }
     if crossroads::showing(run) || crossroads::pastime(run) || encounter::pastime(run) {
@@ -1273,8 +1120,6 @@ pub fn terminal_layers_live(run: &Run, focus: Option<u32>) -> Option<(Img, Img)>
     during_live(|| terminal_layers(run, focus))
 }
 
-/// The scenes the tests, the cockpit's tests, the smoke run and the dev host
-/// share (`testing`).
 #[cfg(any(test, feature = "testing"))]
 #[path = "../../../tests/render/arena__fixtures.rs"]
 pub mod testing;
@@ -1322,7 +1167,6 @@ pub fn frame_v1(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
     if snap {
         return out;
     }
-    // A room in 3D is true colour, its plate never snapped (`world3d`).
     if dungeon_art::supported(run) && laid_plate(run).is_none() {dungeon_art::palette_frame(out)} else {out}
 }
 
@@ -1420,7 +1264,6 @@ mod boss_polish_shots;
 #[path = "../../../tests/render/arena__wayfarers__shots.rs"]
 mod wayfarers_shots;
 
-/// Snapshot only on worker admission; the expensive compose is lazy.
 pub struct LazyFrame {
     run: Run,
     w: u32,
@@ -1447,21 +1290,16 @@ impl AsRef<[u8]> for LazyFrame {
     }
 }
 
-/// A seat's overlay layer as its screen shows it (cropped to its view):
-/// the marks, names and boards drawn over the scenery.
 #[cfg(any(test, feature = "testing"))]
 pub fn overlay_for_test(run: &Run, focus: Option<u32>) -> Img {
     layers(run, focus, true).1
 }
 
-/// A dread of the Deep at rest as `.boss` art rows (`deep_village`).
 #[cfg(any(test, feature = "testing"))]
 pub fn dread_art_for_test(culture: crate::rules::deep::Culture) -> Vec<String> {
     deep_village::dread_rows(culture)
 }
 
-/// A great room whole, its still art and everything over it, uncropped:
-/// for shots that look at a whole village of the Deep at once.
 #[cfg(any(test, feature = "testing"))]
 pub fn whole_room_for_test(run: &Run) -> Img {
     let mut cv = (*scenery_cached(run)).clone();
@@ -1478,7 +1316,6 @@ pub fn privy_panel_for_test(cv: &mut Img, run: &Run, focus: Option<u32>) {
 #[path = "../../../tests/render/overworld__scenery_sheet.rs"]
 mod scenery_sheet;
 
-/// Shared label positions for the table's terminal overlay.
 pub fn mossbell_labels(run:&Run,focus:Option<u32>)->Vec<(i32,i32,String)>{mossbell::labels(run,focus)}
 
 pub fn brasswake_labels(run:&Run,focus:Option<u32>)->Vec<(i32,i32,String)>{brasswake::labels(run,focus)}

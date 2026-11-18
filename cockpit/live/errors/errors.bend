@@ -1,9 +1,5 @@
 import Base
 
-# Provider-failure policy for one failed request. The host reduces the error to
-# the flags below and owns every piece of text matching; this module only
-# decides. The host checks each verdict: it may be stricter than the native
-# policy, never looser.
 type Shape is Data:
   Status{}
   Transport{}
@@ -28,12 +24,9 @@ def retry_of(verdict: Verdict) -> Bool:
     case Verdict{class, retry, delay}:
       retry
 
-# A 4xx says the request itself is wrong, except the timeout, too-early and
-# rate-limit statuses.
 def client_fault(+status: U32) -> Bool:
   (status >= 400 : U32) && (status <= 499 : U32) && Bool.not(U32.is_eq(status, 408) || U32.is_eq(status, 425) || U32.is_eq(status, 429))
 
-# The same request would fail the same way again.
 def permanent(veto: Bool, config: Bool, cert: Bool, auth: Bool, quota: Bool, rejected: Bool, status: U32) -> Bool:
   veto || config || cert || auth || quota || rejected || client_fault(status)
 
@@ -62,12 +55,9 @@ def room(bounded: Bool, attempt: U32, budget: U32) -> Bool:
     case True{}:
       (attempt < budget : U32)
 
-# Text that was already shown is only replayed after a cut stream, where the
-# display is retracted first.
 def replay(permanent: Bool, answered: Bool, stream: Bool, capped: Bool, room: Bool) -> Bool:
   Bool.not(permanent) && (Bool.not(answered) || stream) && Bool.not(capped) && room
 
-# min(backoff * step, cap) with no wrap-around.
 def pace_over(over: Bool, backoff: U32, step: U32, cap: U32) -> U32:
   match over:
     case True{}:

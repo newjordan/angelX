@@ -12,17 +12,8 @@ use super::super::mesh::{Mesh, mat};
 use super::prim::{self, F_ALL, F_NX, F_NZ, F_PX, F_SIDES, F_SIDES_TOP};
 use super::rng::{Rng, sub_seed};
 
-/// Long-hall library, exterior. **Footprint 13.0 × 8.7 tiles**
-/// (x −6.5..6.5 including the roof oversail, y −5.0..3.7 including the portico
-/// steps and the flank buttresses), **~9.8 tiles tall** to the lantern finial.
-/// Centred on the origin, ground at z = 0, entrance portico on the −y face.
-///
-/// Battered plinth → aisle walls with corner pilasters and eight weathered
-/// buttresses → twelve tall arched WINDOW bays → steep pitched ROOF with a
-/// fascia'd eave and a ridge crest → an octagonal crossing lantern that breaks
-/// the ridge → a four-column portico over an arched DOOR.
 pub fn library(seed: u64) -> Mesh {
-    let mut r = Rng::new(sub_seed(seed, 0x4C_49_42_52)); // "LIBR"
+    let mut r = Rng::new(sub_seed(seed, 0x4C_49_42_52));
     let mut m = Mesh::new();
 
     let hx = 6.0_f32;
@@ -31,7 +22,6 @@ pub fn library(seed: u64) -> Mesh {
     let z_eave = 4.60 + r.jitter(0.10);
     let z_ridge = z_eave + 2.80 + r.jitter(0.15);
 
-    // Plinth + walls.
     prim::battered(
         &mut m,
         0.0,
@@ -52,8 +42,6 @@ pub fn library(seed: u64) -> Mesh {
         F_SIDES,
     );
 
-    // Corner pilasters — they thicken the corners so the mass does not look
-    // like a folded sheet in silhouette.
     for &(sx, sy) in &[(-1.0_f32, -1.0_f32), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)] {
         let cx = sx * (hx - 0.30);
         let cy = sy * (hy - 0.30);
@@ -78,7 +66,6 @@ pub fn library(seed: u64) -> Mesh {
         );
     }
 
-    // Flank buttresses with a sloped weathering top.
     for &sy in &[-1.0_f32, 1.0] {
         for &x in &[-5.10_f32, -2.55, 2.55, 5.10] {
             let y_in = sy * hy;
@@ -91,7 +78,6 @@ pub fn library(seed: u64) -> Mesh {
                 mat::STONE,
                 F_SIDES,
             );
-            // Weathering: the outer top edge slopes back into the wall.
             prim::quad(
                 &mut m,
                 v3(x - 0.31, y_out, top),
@@ -103,12 +89,11 @@ pub fn library(seed: u64) -> Mesh {
         }
     }
 
-    // Tall arched window bays, one per structural bay.
     let win_w = 0.95;
     let bays = [-5.55_f32, -3.83, -1.28, 1.28, 3.83, 5.55];
     for &sy in &[-1.0_f32, 1.0] {
         let y = sy * (hy + 0.02);
-        let right = v3(sy, 0.0, 0.0); // keeps UV handedness consistent per face
+        let right = v3(sy, 0.0, 0.0);
         for &x in &bays {
             prim::arched_panel(
                 &mut m,
@@ -123,7 +108,6 @@ pub fn library(seed: u64) -> Mesh {
         }
     }
 
-    // Roof, gable ends, rose windows.
     prim::gable_roof(
         &mut m,
         0.0,
@@ -150,7 +134,6 @@ pub fn library(seed: u64) -> Mesh {
         );
     }
 
-    // Crossing lantern — the spike that breaks the ridge line.
     let lan_r = 1.15;
     let lan_base = z_ridge - 0.80;
     let lan_top = lan_base + 1.90;
@@ -204,7 +187,6 @@ pub fn library(seed: u64) -> Mesh {
         mat::ROOF,
     );
 
-    // Portico: steps, four columns, entablature, pediment.
     for i in 0..3 {
         let f = i as f32;
         let z0 = f * 0.18;
@@ -264,7 +246,6 @@ pub fn library(seed: u64) -> Mesh {
         );
     }
 
-    // Main door under the portico, with a heavy stone surround.
     prim::arched_panel(
         &mut m,
         v3(-1.05, -3.03, 0.54),
@@ -289,19 +270,8 @@ pub fn library(seed: u64) -> Mesh {
     m
 }
 
-/// Library interior — the reading hall. **Footprint 11.4 × 5.4 tiles**
-/// (the inside face of the shell), **6.8 tiles to the ceiling ridge**, centred
-/// on the origin with the FLOOR at z = 0.
-///
-/// Everything faces inward: FLOOR slab, four wall panels with ten arched
-/// WINDOW bays, an open timber ceiling on five tie beams, six free-standing
-/// BOOKS cases in two rows with WOOD carcasses, wall shelving on both end
-/// walls, two long reading tables, a hearth and a few candle glows.
-///
-/// Detail here runs finer than the exterior builders (down to ~0.2 tiles)
-/// because interiors are only ever seen from inside the room.
 pub fn library_interior(seed: u64) -> Mesh {
-    let mut r = Rng::new(sub_seed(seed, 0x49_4E_54_52)); // "INTR"
+    let mut r = Rng::new(sub_seed(seed, 0x49_4E_54_52));
     let mut m = Mesh::new();
 
     let hx = 5.70_f32;
@@ -309,7 +279,6 @@ pub fn library_interior(seed: u64) -> Mesh {
     let z_wall = 4.40;
     let z_ridge = 6.80;
 
-    // Floor and shell.
     prim::quad(
         &mut m,
         v3(-hx, -hy, 0.0),
@@ -325,7 +294,6 @@ pub fn library_interior(seed: u64) -> Mesh {
         mat::STONE,
         F_SIDES,
     );
-    // Open timber ceiling.
     prim::quad(
         &mut m,
         v3(-hx, -hy, z_wall),
@@ -352,7 +320,6 @@ pub fn library_interior(seed: u64) -> Mesh {
         );
     }
 
-    // Arched window bays on both flanks.
     let win_w = 0.85;
     for &sy in &[-1.0_f32, 1.0] {
         let y = sy * (hy - 0.02);
@@ -371,20 +338,8 @@ pub fn library_interior(seed: u64) -> Mesh {
         }
     }
 
-    // Shelf stacks projecting off the −y wall, like a real library.
-    //
-    // They used to run *along* the room in two rows either side of a centre
-    // aisle, and that arrangement has exactly one camera: down the aisle. From
-    // there both rows are edge-on, so the hall rendered as a brown corridor
-    // with a bright hole at the end and not a single book face in it — the
-    // whole reason the hero interior came back for another pass. Turned
-    // ninety degrees they present their long faces to anyone standing toward
-    // the −x end, and because each one hides part of the next they telescope
-    // into a receding rhythm instead of a flat wall of spines. The near half
-    // of the room stays open, which is what the hearth needs to be seen past
-    // them.
     let mut stack = Mesh::new();
-    let (sw, sd, sh) = (1.60_f32, 0.56_f32, 2.50_f32); // reach into the room, thickness, height
+    let (sw, sd, sh) = (1.60_f32, 0.56_f32, 2.50_f32);
     prim::boxed(
         &mut stack,
         v3(-sd * 0.5, -sw, 0.0),
@@ -416,8 +371,6 @@ pub fn library_interior(seed: u64) -> Mesh {
         ],
     );
 
-    // A low run of shelving under the +y bays, so the wall the stacks do not
-    // reach is still a library wall and not bare masonry.
     prim::boxed(
         &mut m,
         v3(-4.70, hy - 0.54, 0.0),
@@ -437,7 +390,6 @@ pub fn library_interior(seed: u64) -> Mesh {
         );
     }
 
-    // Wall shelving on both end walls.
     for &sx in &[-1.0_f32, 1.0] {
         let x = sx * (hx - 0.28);
         prim::boxed(
@@ -461,9 +413,6 @@ pub fn library_interior(seed: u64) -> Mesh {
         }
     }
 
-    // Two long reading tables down the open half of the room, plus candle
-    // glows. Shifted +x off the old symmetric pair: the staged eye stands at
-    // x ≈ −4, and a table centred on −2.6 put the camera *inside* it.
     for &tx in &[-1.10_f32, 2.90] {
         prim::boxed(
             &mut m,
@@ -494,7 +443,6 @@ pub fn library_interior(seed: u64) -> Mesh {
         }
     }
 
-    // Hearth on the +x end wall.
     let hearth_x = hx - 0.05;
     prim::boxed(
         &mut m,
@@ -514,8 +462,6 @@ pub fn library_interior(seed: u64) -> Mesh {
         mat::FIRE,
     );
 
-    // Door out on −y behind the eye, nudged by seed so two halls are not
-    // twins. It sits west of the first stack rather than under one of them.
     let door_x = -4.30 + r.jitter(0.35);
     prim::rect_panel(
         &mut m,
@@ -527,10 +473,6 @@ pub fn library_interior(seed: u64) -> Mesh {
         mat::DOOR,
     );
 
-    // Moonlight through a +y bay, landing on the flags between the stacks and
-    // the hearth. The hall is otherwise lit entirely by candle and fire, and a
-    // room with only warm light in it has no depth cue left but distance — one
-    // cold source is what puts air back in it.
     let shaft_x = 2.30_f32;
     prim::quad(
         &mut m,

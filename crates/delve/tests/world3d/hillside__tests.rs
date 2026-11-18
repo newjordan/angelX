@@ -18,7 +18,6 @@ fn a_path_is_split_into_its_straight_runs_corners_in_both() {
 #[test]
 fn the_roads_about_the_keep_are_runs_and_the_far_ones_are_left_plain() {
     let keep = [119, 67, 146, 94];
-    // A road from the gate south, a street across it, and a road far off.
     let mut tiles: Vec<(i16, i16)> = (95..=105).map(|y| (133, y)).collect();
     tiles.extend((136..=142).map(|x| (x, 100)));
     tiles.extend((20..=30).map(|x| (x, 20)));
@@ -27,13 +26,10 @@ fn the_roads_about_the_keep_are_runs_and_the_far_ones_are_left_plain() {
     assert_eq!(runs.len(), 2, "{runs:?}");
     assert_eq!(runs[0], [133, 95, 133, 105], "the longest first");
     assert_eq!(runs[1], [136, 100, 142, 100]);
-    // Two tiles are not a run; a cap on how many.
     assert!(road_runs(&road(&[(130, 96), (131, 96)]), keep).is_empty());
     let many: Vec<(i16, i16)> = (0..20).flat_map(|k| (125..=131).map(move |x| (x, 96 + k))).collect();
     assert!(road_runs(&road(&many), keep).len() <= ROAD_RUNS);
 }
-
-// ------------------------------------------------------------- baking ----
 
 use crate::kingdom::{Command, catalog};
 use crate::rules::Run;
@@ -69,7 +65,6 @@ fn a_works_is_a_few_meshes_not_a_node_a_block() {
     let baked = of(&run, WHOLE, None).expect("the hillside");
     let nodes = legacy_nodes(&run, WHOLE);
     assert!(nodes.len() > 300, "{} blocks", nodes.len());
-    // A mesh a building (two where something shines in it), a few for the roads, none a block.
     assert!(baked.parts.len() * 8 < nodes.len(), "{} meshes for {} blocks", baked.parts.len(), nodes.len());
     for p in &baked.parts {
         assert_eq!(p.baked.mesh.validate(), Ok(()), "{:?}", p.baked.role);
@@ -80,7 +75,6 @@ fn a_works_is_a_few_meshes_not_a_node_a_block() {
     let mut ids: Vec<u32> = baked.parts.iter().map(|p| p.baked.id).collect();
     ids.sort_unstable();
     ids.dedup();
-    // Two sawpits of one size share a mesh: fewer meshes than parts.
     assert!(ids.len() < baked.parts.len(), "{} ids for {} parts", ids.len(), baked.parts.len());
 }
 
@@ -89,7 +83,6 @@ fn what_is_baked_fills_the_box_the_blocks_filled() {
     let run = works();
     let baked = of(&run, WHOLE, None).expect("the hillside");
     let nodes = legacy_nodes(&run, WHOLE);
-    // The box round every block, the way a node places it, against the box round every mesh.
     let extent = |lo: &mut [f32; 3], hi: &mut [f32; 3], p: [f32; 3]| {
         for k in 0..3 {
             lo[k] = lo[k].min(p[k]);
@@ -124,11 +117,9 @@ fn a_mesh_is_kept_until_what_is_in_it_changes() {
     let b = of(&run, WHOLE, None).expect("the hillside");
     let ids = |h: &HillNodes| h.parts.iter().map(|p| p.baked.id).collect::<Vec<_>>();
     assert_eq!(ids(&a), ids(&b), "the same frame again makes nothing");
-    // The view moving over the same works makes nothing either: a chunk's roads are the chunk's.
     let c = of(&run, [100.0, 100.0, 3900.0, 2900.0], None).expect("the hillside");
     assert_eq!(ids(&a).len(), ids(&c).len());
     assert_eq!(ids(&a), ids(&c));
-    // A road laid in a chunk is a new mesh for that chunk, the rest are the ones they were.
     let mut run = run;
     let k = &mut run.home.industry;
     let before: std::collections::BTreeSet<u32> = ids(&a).into_iter().collect();
@@ -160,12 +151,10 @@ fn a_block_that_shines_and_water_are_meshes_of_their_own() {
     let baked = hill_mesh::bake(&solids, [100.0, 0.0, 200.0], |t| t);
     let roles: Vec<_> = baked.iter().map(|b| b.role).collect();
     assert_eq!(roles, vec![hill_mesh::PartRole::Plain, hill_mesh::PartRole::Water, hill_mesh::PartRole::Accent]);
-    // The stone's tone is its vertices' colour; the fire's is its own, to the pixel.
     let tone = Kind::Stone.tone();
     assert!(baked[0].mesh.colors.iter().all(|c| (c[0] - tone).abs() < 1e-6 && c[3] == 1.0));
     let [r, g, b] = Kind::Fire.capture();
     assert!(baked[2].mesh.colors.iter().all(|c| (c[0] - f32::from(r) / 255.0).abs() < 1e-6 && (c[1] - f32::from(g) / 255.0).abs() < 1e-6 && (c[2] - f32::from(b) / 255.0).abs() < 1e-6));
-    // Shifted where it was told: the stone stands 6 wide about x 108.
     let (lo, hi) = baked[0].bounds;
     assert!((lo[0] - 105.0).abs() < 1e-3 && (hi[0] - 111.0).abs() < 1e-3 && (lo[2] - 205.0).abs() < 1e-3 && (hi[2] - 211.0).abs() < 1e-3, "{lo:?} {hi:?}");
     assert!(hi[1] > 5.9 && hi[1] < 6.1);
@@ -217,12 +206,10 @@ fn the_runs_of_a_set_of_tiles_are_its_straight_stretches_the_longest_first() {
 fn a_goods_place_on_a_tile_hides_what_has_not_come_in_and_what_a_house_covers() {
     use crate::kingdom::Piece;
     let belt = |piece| hill::Belt { tile: (0, 0), piece, dir: 1, slots: [None; 3], across: [None; 3], moved: 4, crewed: false, stuck: 0 };
-    // On a plain roller the lead good is a third of the way along, and one that has not come in yet is not drawn.
     let (x, y, z) = good_place(&belt(Piece::Roller), 1, 2, 0.0, true).expect("the lead slot");
     assert!(x > 10.0 && (z - 8.0).abs() < 0.1 && y > 3.0);
     assert!(good_place(&belt(Piece::Roller), 1, 0, 1.0, true).is_none(), "a good still in the tile behind");
     assert!(good_place(&belt(Piece::Splitter), 1, 1, 0.0, true).is_none(), "a house hides its middle");
-    // A trestle's raised line carries its goods higher than the one under it, and a chain lower than a roller.
     let (_, high, _) = good_place(&belt(Piece::Trestle), 1, 2, 0.0, true).unwrap();
     let (_, low, _) = good_place(&belt(Piece::Trestle), 2, 2, 0.0, false).unwrap();
     let (_, chain, _) = good_place(&belt(Piece::Chain), 1, 2, 0.0, true).unwrap();

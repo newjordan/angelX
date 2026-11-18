@@ -1,17 +1,9 @@
 #!/usr/bin/env python3
-"""Write delve/rules/numerics/cases.bend: one `case.<name>` wrapper per numerics function.
-
-    python3 delve/tests/numerics/gen_wrappers.py
-
-Argument kinds: f = f32 (JSON float, or "nan"/"inf"/"-inf"), u = u32, i = i32,
-w = u64. Result kinds: the same, plus b = bool.
-"""
 import pathlib
 
 HERE = pathlib.Path(__file__).resolve().parent
 OUT = HERE.parent.parent / "rules" / "numerics" / "cases.bend"
 
-# name: (arg kinds, result kind)
 W = {
     "add": "ww:w", "sub": "ww:w", "mul": "ww:w", "xor": "ww:w", "and": "ww:w", "or": "ww:w",
     "not": "w:w", "neg": "w:w", "shl": "wu:w", "shr": "wu:w", "rotl": "wu:w", "rotr": "wu:w",
@@ -50,7 +42,7 @@ RS = {
     "u_checked_add": "uu:m", "u_checked_sub": "uu:m", "u_checked_mul": "uu:m",
     "f_total_cmp": "ff:c", "f_total_lt": "ff:b", "f_total_le": "ff:b",
 }
-EXTRA = {  # name -> custom body (input is the case's `in` array)
+EXTRA = {
     "W.to_j": "W.to_j(W.of_j(J.nth(input, 0)))",
 }
 

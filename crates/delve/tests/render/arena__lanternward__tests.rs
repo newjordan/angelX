@@ -34,7 +34,6 @@ fn the_stage_draws_on_both_routes_at_every_size() {
     }
 }
 
-/// Every moment the review sets up, with how many knights.
 pub(super) const MOMENTS: &[(&str, u32)] = &[
     ("stair", 1), ("lock", 1), ("circle", 1), ("slash", 1), ("slash3", 1), ("spin", 1), ("lunge", 1),
     ("shield", 1), ("block", 1), ("parry", 1), ("hop", 1), ("flip", 1), ("plunge", 1), ("roll", 1),
@@ -75,7 +74,6 @@ fn write_lanternward_review() {
         save(&dir, &format!("{m}-2x"), &frame_for(&r, 768, 448, Some(1)));
         save(&dir, &format!("{m}-3x"), &frame_for(&r, 1152, 672, Some(1)));
     }
-    // Two screens of the same party, side by side: each seat's own camera.
     let r = Run::lanternward_at_for_test("warden-open", 4);
     let mut both = Img::black(768, 224);
     both.stamp(&frame_for(&r, 384, 224, Some(1)), 0, 0);
@@ -84,8 +82,6 @@ fn write_lanternward_review() {
     let _ = (lw::NAME, party(1));
 }
 
-/// Where the brazier nearest the first knight stands on his screen: its middle
-/// column and its foot.
 fn brazier_spot(r: &Run) -> (i32, i32) {
     let s = r.lanternward.as_ref().unwrap();
     let seat = &s.seats[&1];
@@ -101,14 +97,10 @@ fn brazier_spot(r: &Run) -> (i32, i32) {
     )
 }
 
-/// Whether every opaque pixel of slot `id`'s `state` frame at `tick` is on
-/// `screen`, its bottom centre at `(x, foot)`.
 fn frame_shows(screen: &Img, spot: (i32, i32), id: &str, state: &str, tick: u32) -> bool {
     frame_misses(screen, spot, id, state, tick).0 == 0
 }
 
-/// How many of `state`'s opaque pixels are not the frame's own on `screen`,
-/// and how many it has.
 fn frame_misses(screen: &Img, (x, foot): (i32, i32), id: &str, state: &str, tick: u32) -> (usize, usize) {
     let pic = bank::frame(id, state, tick);
     let mut counts = (0, 0);
@@ -145,13 +137,11 @@ fn a_painted_brazier_burns_down_through_its_dying_flame_once_and_in_order() {
     let elapsed = r.lanternward.as_ref().unwrap().elapsed;
     assert!(shows(&mut r, 400, "lit", elapsed), "alight");
     assert!(!shows(&mut r, 13, "gutter", 0), "thirteen ticks left is still the lit flame");
-    // The last twelve ticks, four to a frame, first to last.
     for (t, tick) in [(12, 0), (9, 3), (8, 4), (5, 7), (4, 8), (1, 11)] {
         assert!(shows(&mut r, t, "gutter", tick), "{t} ticks left");
     }
     assert!(!shows(&mut r, 8, "gutter", 0), "the frames are not played out of order");
     assert!(shows(&mut r, 0, "out", 0), "burnt out");
-    // A brazier lit for good never gutters.
     for p in r.lanternward.as_mut().unwrap().props.iter_mut().filter(|p| p.kind == lw::Pk::Brazier) {
         p.t = 3;
         p.on = 1;
@@ -159,8 +149,6 @@ fn a_painted_brazier_burns_down_through_its_dying_flame_once_and_in_order() {
     assert!(!brazier_shows(&layers(&r, Some(1)).0, spot, "gutter", 9));
 }
 
-/// One brazier, tick by tick at six times its size: lit through its flame
-/// shapes, then burning down to its last twelve ticks and out.
 #[test]
 #[ignore = "writes the brazier's review strip"]
 fn write_lanternward_brazier_strip() {
@@ -196,7 +184,6 @@ fn write_lanternward_brazier_strip() {
     };
     set_t(&mut r, 0);
     grab(&r, &mut frames);
-    // The brazier burns a tick at a time as the rules' tick would burn it.
     let burn = |r: &mut Run| {
         let s = r.lanternward.as_mut().unwrap();
         s.elapsed += 1;
@@ -221,19 +208,14 @@ fn write_lanternward_brazier_strip() {
         sheet.stamp(f, (i % cols) as i32 * (w * k + 2), (i / cols) as i32 * (h * k + 2));
     }
     save(&dir, "brazier-strip", &sheet);
-    // The terminal's cell size, through the same fitter the cells use.
     let r = Run::lanternward_at_for_test("lamp-lit", 1);
     save(&dir, "lamp-lit-cells", &frame_for(&r, 96, 56, Some(1)));
 }
 
-/// Put the first knight's camera on the `nth` prop of `kind`: the prop's middle
-/// column and its foot on the knight's screen (in its upper half, clear of the
-/// stair's printed line), the knight well clear of it.
 fn camera_on(r: &mut Run, kind: lw::Pk, nth: usize) -> (usize, (i32, i32)) {
     let s = r.lanternward.as_mut().unwrap();
     let i = s.props.iter().enumerate().filter(|(_, p)| p.kind == kind).map(|(i, _)| i).nth(nth).expect("the room has the prop");
     let (x, y) = (s.props[i].x, s.props[i].y);
-    // The party has been in the room a while: no card, no wipe over it.
     s.stage_t = 200;
     let seat = s.seats.get_mut(&1).unwrap();
     seat.x = x - 7 * 16 * lw::world::Q;
@@ -242,7 +224,6 @@ fn camera_on(r: &mut Run, kind: lw::Pk, nth: usize) -> (usize, (i32, i32)) {
     (i, (192, 64 + 8))
 }
 
-/// Draw the first knight's screen with prop `i` as `on` and `t`, at tick `tick`.
 fn draw_prop(r: &mut Run, i: usize, on: u8, t: u16, tick: u32) -> Img {
     let s = r.lanternward.as_mut().unwrap();
     s.props[i].on = on;
@@ -254,7 +235,6 @@ fn draw_prop(r: &mut Run, i: usize, on: u8, t: u16, tick: u32) -> Img {
 #[test]
 fn a_painted_prop_stamps_its_own_frames_and_the_code_adds_no_art_of_its_own() {
     use lw::Pk;
-    // (moment, kind, nth, [(on, t, state, ticks to try)])
     let cases: [(&str, Pk, usize, &[(u8, u16, &str, &[u32])]); 5] = [
         ("lamp", Pk::Great, 0, &[(0, 0, "out", &[0, 5]), (1, 0, "lit", &[0, 4, 8, 12])]),
         ("stair", Pk::Chest, 0, &[(0, 0, "closed", &[0]), (1, 0, "open", &[0])]),
@@ -273,9 +253,6 @@ fn a_painted_prop_stamps_its_own_frames_and_the_code_adds_no_art_of_its_own() {
             }
             for &tick in ticks {
                 let screen = draw_prop(&mut r, i, on, t, tick);
-                // A lit beacon's pillar and ring of rays are drawn over its top by
-                // design (the stage's light, not the block's art): the frame is
-                // otherwise its own to within a tenth of its pixels.
                 let (missed, of) = frame_misses(&screen, spot, id, state, tick);
                 let allowed = if (id, state) == ("beacon", "lit") { of / 10 } else { 0 };
                 assert!(missed <= allowed, "{id} {state} at tick {tick}: {missed} of {of} pixels are not the frame's");
@@ -287,10 +264,6 @@ fn a_painted_prop_stamps_its_own_frames_and_the_code_adds_no_art_of_its_own() {
 #[test]
 fn a_painted_great_brazier_beacon_and_chest_leave_the_blocks_code_art_out() {
     use lw::Pk;
-    // Above the frame's top row, where the block's flame is drawn, a painted lit
-    // prop draws no flame of its own: the flame-coloured pixels there are the
-    // same as its unlit twin's (its pool of lamplight is on the floor, in
-    // browns, not in the flame's golds).
     let above = |screen: &Img, (x, foot): (i32, i32), tall: i32| -> Vec<Option<[u8; 3]>> {
         let flame = ['6', '@', '4', '5', 'w'].map(|c| ink(c).unwrap());
         (1..=10)
@@ -311,8 +284,6 @@ fn a_painted_great_brazier_beacon_and_chest_leave_the_blocks_code_art_out() {
         let burning = above(&draw_prop(&mut r, i, lit.0, lit.1, 0), spot, tall);
         assert_eq!(cold, burning, "{id}: no code flame over a painted {state} frame");
     }
-    // An open painted chest has its own mouth: the block's black one is not
-    // drawn over its lid.
     if bank::painted("chest", "open") {
         let mut r = Run::lanternward_at_for_test("stair", 1);
         let (i, (x, foot)) = camera_on(&mut r, Pk::Chest, 0);
@@ -339,14 +310,11 @@ fn a_gate_opened_is_the_painted_open_arch_and_the_blocks_posts_only_without_one(
         assert!(frame_shows(&open, spot, "gate", "open", 0), "an open gate is its painted arch");
         assert!(frame_shows(&closed, spot, "gate", "closed", 0), "a shut gate is its painted bars, with none of the block's");
     } else {
-        // The block's two posts, a tile's edges, and nothing between.
         assert_eq!(open.get(x - 8, foot - 16), ink('j'));
         assert_eq!(open.get(x + 7, foot - 16), ink('j'));
     }
 }
 
-/// A prop painted in some of its states and a block in others looks different
-/// when it changes state: a bank is painted whole or not at all.
 #[test]
 fn a_bank_with_one_frame_missing_is_blocks_in_every_state() {
     let (painted, block) = (Img::black(4, 4), Img::new(4, 4));
@@ -359,7 +327,6 @@ fn a_bank_with_one_frame_missing_is_blocks_in_every_state() {
     let mut whole = vec![("a".to_owned(), vec![(painted.clone(), true)]), ("b".to_owned(), vec![(painted.clone(), true)])];
     bank::whole_or_blocks(&mut whole, &block);
     assert!(whole.iter().all(|(_, frames)| frames.iter().all(|(im, p)| *p && *im == painted)));
-    // And every slot of the real bank is one or the other.
     let slots: Vec<serde_json::Value> = serde_json::from_str(include_str!("../../assets/lanternward/slots.json")).unwrap();
     for slot in slots {
         let id = slot["id"].as_str().unwrap().trim_start_matches("lanternward.").to_owned();
@@ -368,8 +335,6 @@ fn a_bank_with_one_frame_missing_is_blocks_in_every_state() {
     }
 }
 
-/// Each prop through its states on its own room's floor, one tile and a half
-/// either side, at 1x and 3x: what the review pictures are cut from.
 #[test]
 #[ignore = "writes the five props' review strips"]
 fn write_lanternward_prop_strips() {
@@ -379,7 +344,6 @@ fn write_lanternward_prop_strips() {
     };
     let dir = std::path::PathBuf::from(dir).join("lanternward");
     std::fs::create_dir_all(&dir).unwrap();
-    // (name, moment, kind, nth, [(on, t, tick, label)])
     let cases: [(&str, &str, Pk, usize, &[(u8, u16, u32, &str)]); 6] = [
         ("great", "lamp", Pk::Great, 0, &[(0, 0, 0, "out"), (1, 0, 0, "lit-0"), (1, 0, 4, "lit-1"), (1, 0, 8, "lit-2"), (1, 0, 12, "lit-3")]),
         ("chest", "stair", Pk::Chest, 0, &[(0, 0, 0, "closed"), (1, 0, 0, "open")]),
@@ -391,7 +355,6 @@ fn write_lanternward_prop_strips() {
     for (name, moment, kind, nth, states) in cases {
         let mut r = Run::lanternward_at_for_test(moment, 1);
         let (i, (x, foot)) = camera_on(&mut r, kind, nth);
-        // The dark vault shows what its knight's own light reaches: stand beside.
         if moment == "vault" {
             let s = r.lanternward.as_mut().unwrap();
             let (px, py) = (s.props[i].x, s.props[i].y);
@@ -422,9 +385,6 @@ fn write_lanternward_prop_strips() {
     }
 }
 
-/// Each prop's states standing on every room's own floor, a tile from the
-/// first knight (so the dark vault's lantern reaches it), at 3x: where the
-/// painted frames are judged against the stone they stand on.
 #[test]
 #[ignore = "writes the props' floor-legibility strips"]
 fn write_lanternward_prop_floors() {
@@ -434,7 +394,6 @@ fn write_lanternward_prop_floors() {
     };
     let dir = std::path::PathBuf::from(dir).join("lanternward");
     std::fs::create_dir_all(&dir).unwrap();
-    // (name, kind, [(on, t, tick)])
     let kinds: [(&str, Pk, &[(u8, u16, u32)]); 5] = [
         ("great", Pk::Great, &[(0, 0, 0), (1, 0, 0), (1, 0, 4)]),
         ("chest", Pk::Chest, &[(0, 0, 0), (1, 0, 0)]),
@@ -449,7 +408,6 @@ fn write_lanternward_prop_floors() {
         for (row, moment) in rooms.iter().enumerate() {
             let mut r = Run::lanternward_at_for_test(moment, 1);
             let s = r.lanternward.as_mut().unwrap();
-            // A room with none of the kind borrows one: a prop to stand on its floor.
             let i = s.props.iter().position(|p| p.kind == kind).unwrap_or_else(|| {
                 s.props.push(lw::props::Prop { kind, tx: 0, ty: 0, id: 0, on: 0, t: 0, x: 0, y: 0 });
                 s.props.len() - 1
@@ -482,29 +440,22 @@ fn write_lanternward_prop_floors() {
     }
 }
 
-/// This thread's own CPU time. Wall time counts the machine; a frame's
-/// budget is the work.
 #[cfg(target_os = "linux")]
 fn thread_cpu() -> std::time::Duration {
     unsafe extern "C" {
         fn clock_gettime(clock: i32, at: *mut [i64; 2]) -> i32;
     }
     let mut at = [0i64; 2];
-    // CLOCK_THREAD_CPUTIME_ID: this thread, not the process and not the wall.
     assert_eq!(unsafe { clock_gettime(3, &mut at) }, 0, "thread cpu clock");
     std::time::Duration::new(at[0] as u64, at[1] as u32)
 }
 
-/// Elsewhere the clock id differs: the wall, from a fixed start, and the
-/// cheapest trial still leaves out most of the machine.
 #[cfg(not(target_os = "linux"))]
 fn thread_cpu() -> std::time::Duration {
     static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
     START.get_or_init(std::time::Instant::now).elapsed()
 }
 
-/// The cheapest of `trials` runs of `body`. The minimum is the cost; the
-/// rest is the machine.
 fn cheapest(trials: u32, mut body: impl FnMut()) -> std::time::Duration {
     let mut best = std::time::Duration::MAX;
     for _ in 0..trials {
@@ -533,7 +484,6 @@ fn a_sleep_is_not_this_thread_s_work() {
 fn a_frame_is_cheap_even_in_the_dark_with_six_knights_and_a_beam_up() {
     for (moment, seats) in [("vault-flare", 6), ("warden-dark", 6), ("warden-slam", 6), ("lamp-wave", 6)] {
         let r = Run::lanternward_at_for_test(moment, seats);
-        // Warm any cache, then time ten frames of the native route.
         let _ = layers(&r, Some(1));
         let each = cheapest(4, || {
             for _ in 0..10 {

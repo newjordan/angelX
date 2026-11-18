@@ -46,15 +46,6 @@ impl Club for Seat {
     }
 }
 
-// -- The parity oracle ------------------------------------------------------
-//
-// The native ladder, moved out of production unchanged: the shipped leg must
-// reproduce every answer below, and nothing else calls it.
-
-/// Return the newest whole-million boundary crossed by a metered turn.
-///
-/// Large provider-side fan-out can jump across several boundaries in one
-/// request. Emit one current receipt instead of flooding the display queue.
 pub(crate) fn crossed_sota_input_milestone(previous: u64, current: u64) -> Option<u64> {
     let previous_millions = previous / SOTA_INPUT_MILESTONE_TOKENS;
     let current_millions = current / SOTA_INPUT_MILESTONE_TOKENS;
@@ -62,20 +53,6 @@ pub(crate) fn crossed_sota_input_milestone(previous: u64, current: u64) -> Optio
         .then(|| current_millions.saturating_mul(SOTA_INPUT_MILESTONE_TOKENS))
 }
 
-/// Resolve the per-hop reasoning effort under adaptive reasoning mode
-/// (`ANGEL_ADAPTIVE_REASONING=1`).
-///
-/// - Hop 0 (Turn intake & architectural planning): use configured/highest baseline effort.
-/// - Hops > 0 under normal execution (clean tool return, no error/spin): downgrade to lowest
-///   viable effort (e.g. "low" or "none") to eliminate thinking latency during mechanical tool chains.
-/// - Friction / Error hops (tool errors, spin nudges, action starvation): escalate back to
-///   high baseline effort for root-cause diagnosis.
-/// - Locked-thinking GLM-5.3(*) seats are NOT auto-armed (they were until
-///   2026-09-05): z.ai keys its prefix cache on `reasoning_effort`, so a rung
-///   that changes between hops re-prefills the whole prompt every flip. Those
-///   seats hold one rung per turn — the idle rung (Flash: field omitted =
-///   provider `auto`; glm-5.3: `low`) or the operator pin — unless the operator
-///   arms this policy explicitly.
 pub(crate) fn resolve_adaptive_reasoning_effort(
     club: &dyn Club,
     hop: usize,
@@ -104,13 +81,6 @@ pub(crate) fn resolve_adaptive_reasoning_effort(
     }
 }
 
-/// Opt-in reasoning-budget policy for locked-thinking seats (GLM-5.3*: thinking
-/// cannot be disabled, and an open-ended `high` hop can burn the whole
-/// max_tokens budget on reasoning alone — measured 2026-08-28: 4096/4096
-/// reasoning tokens on a single uncapped hop). Returns the demotion effort
-/// for the next hop once cumulative reasoning burn crosses `burn_limit`
-/// without a submit. `0` (the default) disables it. Non-locked seats return `None`:
-/// everywhere else the operator can just turn thinking off.
 pub(crate) fn glm_thinking_burn_demotion(
     club: &dyn Club,
     cumulative_reasoning: u64,
@@ -131,8 +101,6 @@ pub(crate) fn glm_thinking_burn_demotion(
         .or_else(|| club.reasoning_levels().first().cloned())
 }
 
-/// Whether a turn has exceeded its wall-clock budget. `budget_secs == 0` means
-/// "off" (the default) — interactive extended-reasoning turns stay unbounded.
 pub(crate) fn turn_expired(elapsed_secs: u64, budget_secs: usize) -> bool {
     budget_secs > 0 && elapsed_secs >= budget_secs as u64
 }
@@ -150,14 +118,11 @@ fn levels_of(ladder: &[&str]) -> Vec<String> {
     ladder.iter().map(|level| level.to_string()).collect()
 }
 
-/// The shipped leg and the native ladder must agree on every decision, and the
-/// leg must be the one that answered.
 #[test]
 fn the_shipped_leg_reproduces_every_native_reasoning_decision() {
     let leg = crate::agent::harness::live_policy::shipped_leg("reasoning");
     let mut rows = 0;
 
-    // The adaptive ladder: intake, clean tool hops, friction hops.
     for ladder in LADDERS {
         for configured in [None, Some("low"), Some("high"), Some("max"), Some("auto")] {
             for hop in 0..4 {
@@ -196,7 +161,6 @@ fn the_shipped_leg_reproduces_every_native_reasoning_decision() {
         }
     }
 
-    // The reasoning-burn demotion, on locked and open seats.
     for (ladder, locked) in LADDERS.iter().map(|l| (*l, false)).chain(
         LADDERS
             .iter()
@@ -248,7 +212,6 @@ fn the_shipped_leg_reproduces_every_native_reasoning_decision() {
         }
     }
 
-    // The metered-input milestone.
     for (previous, current) in [
         (0u64, 0u64),
         (0, 999_999),
@@ -288,7 +251,6 @@ fn the_shipped_leg_reproduces_every_native_reasoning_decision() {
         rows += 1;
     }
 
-    // The wall-clock budget.
     for (elapsed, budget) in [
         (0u64, 0usize),
         (9, 10),
@@ -325,8 +287,6 @@ fn the_shipped_leg_reproduces_every_native_reasoning_decision() {
     eprintln!("reasoning leg parity: {rows} decisions");
 }
 
-/// A generation that answers a level the seat does not accept is rejected, and
-/// the native ladder answers instead, so a bad hot edit never blocks a turn.
 #[test]
 fn a_broken_reasoning_generation_keeps_the_native_decision() {
     let root = std::env::temp_dir().join(format!(

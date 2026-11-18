@@ -31,8 +31,6 @@ fn every_hit_is_on_the_card_and_none_overlap() {
         let dialog = LoopLaunchDialog::new("ship the parser", 0, false);
         let (_, hits) = terminal(&dialog, w, h);
         let area = terminal_area(Rect::new(0, 0, w, h));
-        // 5 laps (4 presets and the custom slot), 5 clocks, 4 fuels, two
-        // arrows a picker, then DROP THE FLAG and cancel.
         assert_eq!(hits.len(), 5 + 5 + 4 + 6 + 2, "{w}x{h}");
         for (i, a) in hits.iter().enumerate() {
             assert!(
@@ -60,7 +58,6 @@ fn the_hits_sit_on_what_they_name() {
     };
     assert_eq!(named(LoopDialogAction::Start), [" DROP THE FLAG "]);
     assert_eq!(named(LoopDialogAction::Cancel), [" cancel "]);
-    // Each strip mark answers its own choice.
     for (i, mark) in ["5", "25", "100", "∞"].into_iter().enumerate() {
         assert!(
             named(LoopDialogAction::SelectIterations(i))
@@ -85,7 +82,6 @@ fn the_hits_sit_on_what_they_name() {
             "fuel {mark}"
         );
     }
-    // The arrows: back from endless is the last preset, on is the ring's start.
     assert!(
         named(LoopDialogAction::SelectDuration(3))
             .iter()
@@ -360,7 +356,6 @@ fn the_ticker_is_a_top_strip_with_the_knight_at_its_left() {
         "no room, no ticker"
     );
 
-    // No ground of its own: every cell keeps the frame's background.
     let area = Rect::new(0, 0, 80, TICKER_ROWS);
     let mut buf = Buffer::empty(area);
     let ground = ratatui::style::Color::Rgb(40, 20, 60);
@@ -431,7 +426,7 @@ mod window {
     fn the_glass_pill_rides_the_picker_in_hand_and_the_actions() {
         let root = Rect::new(0, 0, 160, 50);
         let mut dialog = LoopLaunchDialog::new("ship the parser", 0, false);
-        dialog.focus_next(); // laps
+        dialog.focus_next();
         let (open, hits) = card(root, &dialog, None, Phase::Open).unwrap();
         assert!(
             root.contains(open.area.as_position())
@@ -451,14 +446,12 @@ mod window {
             line.starts_with('‹') && line.ends_with('›') && line.contains("endless"),
             "{line}"
         );
-        // Hits are on screen, where the card is.
         let start = hits
             .iter()
             .find(|h| h.action == LoopDialogAction::Start)
             .unwrap();
         assert!(open.area.contains(start.rect.as_position()));
-        // The pill glides across to the clock, then down to the flag.
-        dialog.focus_prev(); // clock
+        dialog.focus_prev();
         let (moved, _) = card(root, &dialog, None, Phase::Open).unwrap();
         assert_eq!(moved.cursor, Some(row));
         assert!(moved.cursor_cols.unwrap().0 > col);
@@ -501,7 +494,6 @@ mod window {
         assert_eq!(race.sheet.width, race.frame.0 * u32::from(race.cols));
         for film in &open.films[1..] {
             assert!(film.at.right() <= open.area.width && film.at.bottom() <= open.area.height);
-            // Nothing written where a film plays.
             for y in film.at.top()..film.at.bottom() {
                 for x in film.at.left()..film.at.right() {
                     assert_eq!(
@@ -551,8 +543,6 @@ mod window {
                         .map_or(INSET, |goal| goal.right() + 3);
                     for x in 0..card.area.width {
                         if written && x >= left && x < card.area.width - INSET {
-                            // The whole cell must hide the transcript, not
-                            // just its centre or the foreground glyph's pixels.
                             for py in u32::from(y) * ch..u32::from(y + 1) * ch {
                                 for px in u32::from(x) * cw..u32::from(x + 1) * cw {
                                     assert_eq!(alpha(px, py), 255, "uncovered text at {x},{y}");

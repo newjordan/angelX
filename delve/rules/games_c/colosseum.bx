@@ -1,10 +1,6 @@
-# crates/delve/src/rules/colosseum.rs — the kingdom's hall for the knight-against-knight games.
-# RoomKind and pastimes::Game are their snake_case serde names (String).
-
 def colosseum.NAME() -> String:
   "Colosseum"
 
-# CELLS[i] = (kind, (cx, cy))
 def colosseum.CELLS.kind(+i: U32) -> String:
   gc.nth_s(["colosseum_hall", "keg_yard", "gander_hall"], i)
 
@@ -26,7 +22,6 @@ def colosseum.is_room(+kind: String) -> Bool:
 def colosseum.is_arena(+kind: String) -> Bool:
   Bool.or(String.eq(kind, "keg_yard"), String.eq(kind, "gander_hall"))
 
-# arena(game) -> Option<RoomKind>: "" for none.
 def colosseum.arena(+game: String) -> String:
   if String.eq(game, "powder"):
     "keg_yard"
@@ -36,7 +31,6 @@ def colosseum.arena(+game: String) -> String:
     else:
       ""
 
-# game_in(kind) -> Option<Game>: the first of GAMES whose arena is `kind`, "" for none.
 def colosseum.game_in(+kind: String) -> String:
   if String.eq(colosseum.arena("powder"), kind):
     "powder"
@@ -61,7 +55,6 @@ def colosseum.words(+game: String) -> String:
   else:
     "DROP, DODGE, OUTLAST"
 
-# Tile rectangles are (column, row, width, height).
 def colosseum.WALL() -> GcRect:
   GcRect{1, 1, 22, 2}
 
@@ -95,8 +88,6 @@ def colosseum.HALL_GATE() -> GcRect:
 def colosseum.HALL_ARRIVAL() -> F32 & F32:
   (12.5, 7.7)
 
-# DOORS[i] as the world's Entrance: id, the room it stands in, its stair tiles,
-# the room it leads to and where it arrives (tiles), and its board.
 def colosseum.DOORS(+i: U32) -> J.Val:
   colosseum.DOORS.go(i, colosseum.door_at(i))
 
@@ -139,7 +130,6 @@ def colosseum.DOORS.fin(+i: U32, +x: U32, +y: U32, +w: U32, +h: U32, +front: F32
   (fx: F32, fy: F32) = front
   J.set(J.set(J.set(J.set(J.set(J.obj(), "id", J.JS{gc.nth_s(["colosseum-out", "colosseum-kegs", "colosseum-gander", "kegs-out", "gander-out"], i)}), "room", J.JS{gc.nth_s(["colosseum_hall", "colosseum_hall", "colosseum_hall", "keg_yard", "gander_hall"], i)}), "at", J.JA{[J.JU{x}, J.JU{y}, J.JU{w}, J.JU{h}]}), "to", J.set(J.set(J.obj(), "room", J.JS{gc.nth_s(["gate", "keg_yard", "gander_hall", "colosseum_hall", "colosseum_hall"], i)}), "front", gc.pairf(fx, fy))), "label", J.JS{gc.nth_s(["THE KINGDOM", "POWDER KEG", "GANDER JOUST", "COLOSSEUM HALL", "COLOSSEUM HALL"], i)})
 
-# blocks(kind): its rectangles.
 def colosseum.blocks(+kind: String) -> List<&2, GcRect>:
   if String.eq(kind, "colosseum_hall"):
     [colosseum.WALL(), colosseum.BOARDS(0), colosseum.BOARDS(1)]
@@ -149,8 +139,6 @@ def colosseum.blocks(+kind: String) -> List<&2, GcRect>:
     else:
       Nil{}
 
-# pub fn room(kind, cell) -> Room: solid rock, the floor inside the wall ring,
-# the kind's blocks, and the stair tiles of every door standing in it.
 def colosseum.room(+kind: String, +cx: U32, +cy: U32) -> J.Val:
   r0: J.Val = layout.Room.solid_rock(cx, cy)
   r1: J.Val = J.set(r0, "kind", J.JS{kind})
@@ -158,7 +146,6 @@ def colosseum.room(+kind: String, +cx: U32, +cy: U32) -> J.Val:
   r3: J.Val = colosseum.fill_all(r2, colosseum.blocks(kind), TileBlock{})
   colosseum.stairs(r3, kind, 0)
 
-# for y in 1..ROWS-1 { for x in 1..COLS-1 { set(x, y, Floor) } }
 def colosseum.floor(+room: J.Val, +x: U32, +y: U32) -> J.Val:
   if U32.is_ge(y, 13):
     room
@@ -192,7 +179,6 @@ def colosseum.fill_cols(+room: J.Val, +x: U32, +y: U32, +w: U32, +tile: LayTile)
   else:
     colosseum.fill_cols(layout.Room.set(room, x, y, tile), (x + 1 : U32), y, (w - 1 : U32), tile)
 
-# for e in DOORS.iter().filter(|e| e.room == kind): its stair tiles.
 def colosseum.stairs(+room: J.Val, +kind: String, +i: U32) -> J.Val:
   if U32.is_ge(i, 5):
     room
@@ -202,15 +188,12 @@ def colosseum.stairs(+room: J.Val, +kind: String, +i: U32) -> J.Val:
     else:
       colosseum.stairs(room, kind, (i + 1 : U32))
 
-# fn arena_heat_on(&self): is_arena(self.room().kind) && self.pastimes.heat.is_some()
 def colosseum.Run.arena_heat_on(+run: J.Val) -> Bool:
   Bool.and(colosseum.is_arena(J.str(J.get(rules.Run.room(run), "kind"))), Bool.not(J.is_null(J.get(J.get(run, "pastimes"), "heat"))))
 
-# fn arena_return(&self) -> Option<exits::Entry>: the hall's gate in front of the arena's own.
 def colosseum.Run.arena_return(+run: J.Val) -> Maybe<&2, J.Val>:
   colosseum.Run.arena_return.go(run, colosseum.game_gate(J.str(J.get(rules.Run.room(run), "kind"))))
 
-# The index of the GAMES entry whose arena is `kind`, or 99.
 def colosseum.game_gate(+kind: String) -> U32:
   if String.eq(colosseum.arena("powder"), kind):
     0
@@ -233,7 +216,6 @@ def colosseum.Run.arena_return.hall(+run: J.Val, +gate: U32, +at: Maybe<&2, U32>
     case Some{hall}:
       Some{J.set(J.set(J.obj(), "at", J.JU{hall}), "party", colosseum.party(J.get(run, "players"), gc.ids(J.get(run, "players")), 0, gc.len_u(gc.ids(J.get(run, "players"))), colosseum.GATE_FRONT(gate)))}
 
-# The party's spots: slot s stands at (x*2 + (s - (count-1)/2)*2.4, y*2).
 def colosseum.party(+players: J.Val, +ids: List<&2, U32>, +slot: U32, +n: U32, +front: F32 & F32) -> J.Val:
   (x: F32, y: F32) = front
   colosseum.party.go(ids, slot, RS.u_as_f32(n), x, y)

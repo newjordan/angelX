@@ -37,8 +37,6 @@ pub struct Appearance {
     pub player: u32,
     pub fingerprint: String,
     pub avatar: Option<Avatar>,
-    // A consumer can retain a complete prepared generation, including the
-    // source bytes, while a new module generation becomes active.
     _assets: Vec<Arc<Asset>>,
 }
 impl Appearance {

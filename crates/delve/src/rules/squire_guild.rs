@@ -67,10 +67,8 @@ pub struct Guild {
     pub board: u8,
     pub hall: u8,
     pub yard: u8,
-    /// Town ticks only: paused while fighting or disconnected.
     pub clock: u32,
     pub delves: u32,
-    /// Settlement receipt. Applied command logs are safe to see again.
     pub revision: u32,
     pub hired: BTreeSet<u64>,
     pub rosters: BTreeMap<String, Roster>,
@@ -93,8 +91,6 @@ impl Guild {
     }
     pub fn capacity(&self) -> usize { (2 + usize::from(self.hall)).min(ROSTER_MAX) }
     pub fn cycle(&self) -> u32 { self.clock / CADENCE + self.delves }
-    /// Every board includes all five professions; improvements add applicants
-    /// and stronger base stats, independently of hall capacity and yard speed.
     pub fn recruits(&self) -> Vec<Squire> {
         const NAMES: [&str; 16] = ["Ash", "Bram", "Clover", "Dusk", "Ember", "Fern", "Gale", "Hazel", "Iris", "Jun", "Kestrel", "Lark", "Moss", "Nettle", "Orin", "Pip"];
         (0..5 + usize::from(self.board) * 2).map(|i| {
@@ -160,9 +156,6 @@ impl Guild {
     }
 }
 
-/// Replays only new receipts in sequence, paying the realm, not the prediction.
-/// Clock is absolute and monotonic, so both time and completed delves survive
-/// reloads and repeated save passes without double training or double wages.
 pub fn settle(guild: &mut Guild, treasury: &mut Spoils, marks: &BTreeMap<String, u32>) -> super::activity::Settled {
     let before = guild.clone();
     let mut receipts: Vec<Receipt> = marks.keys().filter_map(|k| k.strip_prefix("squires:event:").and_then(|s| serde_json::from_str(s).ok())).collect();
@@ -182,8 +175,6 @@ pub fn settle(guild: &mut Guild, treasury: &mut Spoils, marks: &BTreeMap<String,
     super::activity::Settled { changed: before != *guild, said }
 }
 
-/// Five non-overlapping plates in the existing yard.
-/// Left/right (or A/D) browse; hold E confirms, once per release.
 pub const PLATES: [(i32, i32, i32, i32); 5] = [(2, 6, 1, 1), (4, 6, 1, 1), (9, 6, 1, 1), (20, 6, 1, 1), (22, 6, 1, 1)];
 pub const LABELS: [&str; 5] = ["RECRUITS", "ROSTER", "BOARD", "HALL", "TRAINING"];
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -199,8 +190,6 @@ pub fn plate_at(x: f32, y: f32) -> Option<usize> {
     PLATES.iter().position(|&(c,r,w,h)| x >= c as f32 * TILE_UNITS && x < (c+w) as f32 * TILE_UNITS && y >= r as f32 * TILE_UNITS && y < (r+h) as f32 * TILE_UNITS)
 }
 impl Run {
-    /// The sole command entrance used by UI and tests. Persistent changes are
-    /// town-only, belong to a live named seat, and enter the realm receipt log.
     pub fn squire_command(&mut self, owner: u32, command: Command) -> Result<(), String> {
         if self.dungeon.depth != 0 || !matches!(self.phase, Phase::Exploring | Phase::Fighting) { return Err("CHOOSE SQUIRES BEFORE THE DELVE".into()); }
         let hero = self.players.get(&owner).filter(|h| h.hp > 0 && !h.absent).ok_or("KNIGHT NOT PRESENT")?;
@@ -222,11 +211,6 @@ impl Run {
         if self.dungeon.depth != 0 { self.squire_guild.menus.clear(); return; }
         let next = self.home.squire_guild.clock.max(self.marks.get("squires:clock").copied().unwrap_or(0)).saturating_add(1);
         self.home.squire_guild.advance(next);
-        // The realm keeps the guild's clock at its refresh boundaries only:
-        // a mark each tick made every tick a home claim, and the host
-        // settled (and saved) thirty times a second until play froze. A
-        // guild order carries the clock in its own receipt
-        // (`record_squire_command`), so nothing ordered waits for a boundary.
         if next % CADENCE == 0 {
             self.marks.insert("squires:clock".into(), next);
         }
@@ -312,7 +296,6 @@ impl Run {
         self.projectiles.push(Projectile { x: ally.x, y: ally.y, vx: ux*speed, vy: uy*speed, hostile: false, look: None, kind, damage,
             pierce: 0, last_hit: None, empowered: false, traits, ttl: 2*HZ });
     }
-    /// Called by the minion driver's normal cooldown/damage/recovery loop.
     pub(super) fn squire_help(&mut self, ally: &mut Hireling) {
         let level = (ally.power >> 16).clamp(1, u32::from(MAX_LEVEL));
         let damage = (ally.power & 0xffff).max(1);
@@ -329,8 +312,6 @@ impl Run {
                     self.cues.push(format!("squires:heal:{id}"));
                 }
                 if level >= 3 {
-                    // Bring an uncarried skull within pickup reach of a living
-                    // knight. This is assistance, never a free resurrection.
                     let carried: Vec<u32> = self.players.values().filter_map(|h| h.carrying_skull).collect();
                     let skull = self.players.iter().filter(|&(&id,h)| h.hp == 0 && !h.absent && !carried.contains(&id))
                         .filter_map(|(&id,h)| h.skull_at.map(|at| (id,at)))
@@ -424,7 +405,6 @@ mod integration_tests {
     #[test]
     fn squire_guild_plates_do_not_overlap_other_squire_controls() {
         let run = Run::at_home(8, 1, None, home::Home::default(), Spoils::default());
-        // The guild has its own room off the Yard (`squire_rooms`).
         let room = run.dungeon.rooms.iter().find(|r| r.kind == RoomKind::SquireGuild).unwrap();
         for &(c, r, w, h) in &PLATES {
             for x in c..c + w {

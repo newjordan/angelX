@@ -20,7 +20,6 @@ use std::path::PathBuf;
 
 pub(crate) type Keys = BTreeMap<u32, Input>;
 
-/// The hall with `seats` knights at the table, on a sixth floor laid for them.
 pub(crate) fn fresh_for(seats: u32) -> Run {
     let mut r = Run::new(41, 1, None);
     for id in 2..=seats {
@@ -40,7 +39,6 @@ pub(crate) fn fresh_for(seats: u32) -> Run {
     for h in r.players.values_mut() {
         h.carried.add(Spoil::Gold, 50);
     }
-    // Fortune's dare card lifts long before a knight finds a folly.
     r.dare = None;
     r.enter_for_test(r.folly_room.expect("a hall on floor six"));
     assert!(r.hop.is_some(), "book hop");
@@ -51,14 +49,8 @@ pub(crate) fn fresh() -> Run {
     fresh_for(4)
 }
 
-/// How hasty each seat is, out of a hundred: the chance in a quarter second
-/// of stepping on whether or not a book is there.
 const HASTE: [u32; 6] = [8, 5, 14, 0, 0, 12];
 
-/// What a hopper presses: wait on the bank or the book until a book in the
-/// next lane will be under them when they get there, then go; slide to the
-/// nearest book that will do; walk against a book that is carrying them
-/// into the wall.
 pub(crate) fn keys(run: &Run) -> Keys {
     let Some(h) = run.hop.as_ref() else { return Keys::new() };
     if h.titled() || h.done {
@@ -90,7 +82,6 @@ pub(crate) fn keys(run: &Run) -> Keys {
             } else if let Some(dx) = [0.8f32, -0.8, 1.6, -1.6, 2.4, -2.4, 3.2, -3.2].into_iter().find(|&d| fits(d, 0.5)) {
                 move_x = if dx > 0.0 { 1 } else { -1 };
             }
-            // A book carrying them toward the wall: take the next lane, ready or not.
             if here.is_some() && drift != 0.0 {
                 let to_wall = if dir > 0.0 { width - 2.5 * TILE_UNITS - me.x } else { me.x - 2.5 * TILE_UNITS };
                 if to_wall < 5.0 {
@@ -102,13 +93,10 @@ pub(crate) fn keys(run: &Run) -> Keys {
         .collect()
 }
 
-/// The ticks that matter, found by playing the minute through once unseen.
 #[derive(Debug, Default)]
 struct Marks {
-    /// The first sink (tick, seat, rows lost), and the biggest.
     sinks: Vec<(u32, u32, u8, bool)>,
     crosses: Vec<(u32, u32, u16)>,
-    /// A run of clean crossings (tick, seat, length).
     streaks: Vec<(u32, u32, u8)>,
     lit: Vec<u32>,
     lead: Option<(u32, u32)>,
@@ -158,14 +146,10 @@ fn save(dir: &PathBuf, n: usize, sheet: &Img) {
     image::save_buffer(dir.join(format!("f{n:04}.png")), &sheet.rgb_bytes(), sheet.w as u32, sheet.h as u32, image::ColorType::Rgb8).unwrap();
 }
 
-/// Play again, writing a frame of `seat`'s screen every tick in `[from, to)`.
 fn record_for(root: &PathBuf, name: &str, seats: u32, from: u32, to: u32, seat: u32, also: Option<u32>) {
     record_staged(root, name, seats, from, to, seat, also, None);
 }
 
-/// As `record_for`, with one thing staged first: at tick `.0` the run is
-/// handed to `.1` (a clean run is rare for these bots, so the one that
-/// shows the call is given its two crossings before the real third).
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
 fn record_staged(root: &PathBuf, name: &str, seats: u32, from: u32, to: u32, seat: u32, also: Option<u32>, stage: Option<(u32, &dyn Fn(&mut Run))>) {
@@ -199,9 +183,6 @@ fn record(root: &PathBuf, name: &str, from: u32, to: u32, seat: u32, also: Optio
     record_for(root, name, 4, from, to, seat, also);
 }
 
-/// The audit's own scene, for the before and after of one picture: two knights
-/// who both walk straight up for twelve seconds, Fortune's dare card left
-/// to come as it did.
 fn record_audit(root: &PathBuf) {
     let dir = root.join("audit-scene");
     let _ = std::fs::remove_dir_all(&dir);
@@ -254,7 +235,6 @@ fn write_hop_reel() {
         record(&root, "cross", t.saturating_sub(50), t + 80, who, Some(2));
     }
     if want("streak") {
-        // The first crossing of seat one, with the two before it given.
         if let Some(&(t, who, _)) = marks.crosses.iter().filter(|c| c.1 == 1).nth(1).or(marks.crosses.first()) {
             let give = |r: &mut Run| {
                 if let Some(h) = r.hop.as_mut() {
@@ -282,10 +262,6 @@ fn write_hop_reel() {
     }
 }
 
-/// Book Hop's frame time: four hoppers play to the middle of the minute,
-/// then seat one's screen is drawn twice a tick, as the archive draws it
-/// and as the room was drawn before it (`book_hop::OFF`), so both see the
-/// same game; and each part of the archive is timed alone.
 #[test]
 #[ignore = "times Book Hop's frames"]
 fn hop_frame_time() {
@@ -342,11 +318,6 @@ fn hop_frame_time() {
     println!("hop parts (ms): floor {:.2}, over {:.2}, screen {:.2}", sums[0], sums[1], sums[2]);
 }
 
-// ─── the walks ──────────────────────────────────────────────────────────────
-
-/// The hoppers really cross: a four-knight minute scores, sinks, lights the
-/// archive at least once, and ends with its finish noted and the show valid
-/// the whole way.
 #[test]
 fn the_hoppers_cross_sink_and_light_the_archive() {
     let mut r = fresh_for(4);
@@ -371,10 +342,6 @@ fn rect_of(c: &crate::render::overworld::arena::HopClaim) -> (i32, i32, i32, i32
     c.rect
 }
 
-/// No two words meet on any seat's screen, and every box is whole in the
-/// frame, through whole runs at one to six seats: the strip, the title and
-/// countdown, every call, the numbers that fly and pop, the last seconds,
-/// the finish and the reading room.
 #[test]
 fn the_words_never_meet_at_one_to_six_seats() {
     use crate::render::overworld::arena::{hop_meets as meets, hop_words};
@@ -421,16 +388,12 @@ fn the_words_never_meet_at_one_to_six_seats() {
     }
 }
 
-/// `YOU` names only the seat looking: through whole runs, a seat's screen
-/// has `YOU` in its own chip and in no other, never a second one in the
-/// strip, and `YOU WIN` only on the winner's screen.
 #[test]
 fn you_is_only_the_seat_looking() {
     use crate::render::overworld::arena::{hop_chip_xs, hop_said};
     let mut told = 0;
     for seats in [2u32, 4, 6] {
         let mut r = fresh_for(seats);
-        // A rival on the default name is `K3`, never `YOU`.
         r.players.get_mut(&3.min(seats)).unwrap().name = "You".into();
         for t in 0..TITLE + HOP_TIME + 330 {
             let k = keys(&r);
@@ -450,12 +413,10 @@ fn you_is_only_the_seat_looking() {
                 }
                 if ended.is_none() {
                     assert_eq!(yous.len(), 1, "{seats} seats, tick {t}, seat {me}: one YOU in the strip");
-                    // No other chip says a name that is `YOU`.
                     assert!(said.iter().filter(|s| s.0 == "chip name" && s.1 != "YOU").all(|s| s.1 != "KNIGHT 3"));
                 }
                 let wins = said.iter().any(|s| s.1 == "YOU WIN" || s.1.ends_with("|YOU WIN"));
                 if let Some(e) = ended.filter(|_| seats > 1) {
-                    // Told only the winner; the winner is told at some point of the finish.
                     assert!(!wins || me == u32::from(e.winner), "{seats} seats, tick {t}: seat {me} was told YOU WIN, the winner is {}", e.winner);
                     told += usize::from(wins);
                 } else {
@@ -467,12 +428,6 @@ fn you_is_only_the_seat_looking() {
     assert!(told >= 3, "the winner was told in each run ({told})");
 }
 
-/// The archive draws through the whole minute and its finish, for a lone
-/// knight, a full table and six seats, and the hop it draws is the same
-/// twice (the host's and a mirror's are one). Its pixels are the same twice
-/// too (`the_archive_pixels_are_the_same_twice`, which wants the process to
-/// itself: another test's global switches, the calm screen among them,
-/// change a frame).
 #[test]
 fn the_archive_draws_through_the_whole_minute_the_same_twice() {
     archive_digests(false);
@@ -520,9 +475,6 @@ fn archive_digests(pixels: bool) {
     }
 }
 
-/// Every seat's strip runs along the hall's foot, clear of the near bank:
-/// the strip's top row sits under the bank's last row of flagstones but for
-/// the one row of lip.
 #[test]
 fn the_strip_keeps_to_the_foot_and_the_tray_stays_away() {
     let r = fresh_for(4);
@@ -531,10 +483,6 @@ fn the_strip_keeps_to_the_foot_and_the_tray_stays_away() {
     assert!(crate::render::overworld::arena::hop_strip_top() >= bank_foot - 2, "the strip does not cover the near bank");
 }
 
-/// The calls the bots rarely earn, staged on a live run: a run of clean
-/// crossings (the flame over the knight and in the strip), the table's
-/// archive lit and a change of lead, all at once, on every seat's screen:
-/// each is said, whole in the frame and clear of every other word.
 #[test]
 fn the_rarer_calls_are_drawn_clear_of_every_other_word() {
     use crate::render::overworld::arena::{hop_meets as meets, hop_said, hop_words};
@@ -567,7 +515,6 @@ fn the_rarer_calls_are_drawn_clear_of_every_other_word() {
         for s in hop_said() {
             said_any.insert(s.1);
         }
-        // The strip shows the runs: a streak digit for each of the two.
         let streaks = hop_said().iter().filter(|s| s.0 == "chip streak").count();
         assert_eq!(streaks, 2, "seat {me}: both runs are in the strip");
     }

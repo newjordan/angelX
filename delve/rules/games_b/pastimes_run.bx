@@ -1,7 +1,3 @@
-# crates/delve/src/rules/pastimes.rs — Run::tick_pastimes: the pads, the
-# heats, the rounds of every seat, and the crowning.
-
-# The ambient sound and interval of a festival room, or "" for none.
 def pastimes.ambient(+room: String) -> String & U32:
   if String.eq(room, "village"):
     ("step_gravel", 40)
@@ -62,7 +58,6 @@ def pastimes.ambient.c(+room: String) -> String & U32:
           else:
             ("", 0)
 
-# Run::push_ambient
 def pastimes.push_ambient(+run: J.Val, +room: String) -> J.Val:
   (sound: String, interval: U32) = pastimes.ambient(room)
   if Bool.and(Bool.not(String.eq(sound, "")), U32.is_eq(W.rem_u32(gb.tick(run), interval), 0)):
@@ -70,7 +65,6 @@ def pastimes.push_ambient(+run: J.Val, +room: String) -> J.Val:
   else:
     run
 
-# Whether some game of Game::ALL is played in this room.
 def pastimes.room_has_game(+room: String, +i: U32) -> Bool:
   match i:
     case 19:
@@ -78,8 +72,6 @@ def pastimes.room_has_game(+room: String, +i: U32) -> Bool:
     case _:
       Bool.or(String.eq(pastimes.Game.room(i), room), pastimes.room_has_game(room, (i + 1 : U32)))
 
-# The knights who may play: standing (or, at the crossroads, seated), the
-# first six; objects {id, x, y}.
 def pastimes.eligible(+run: J.Val) -> List<&2, J.Val>:
   List.take(&2, J.Val, pastimes.eligible.go(gb.heroes(run), J.get(run, "crossroads")), 6n)
 
@@ -94,7 +86,6 @@ def pastimes.eligible.go(+hs: List<&2, J.Val>, +cross: J.Val) -> List<&2, J.Val>
       else:
         pastimes.eligible.go(t, cross)
 
-# The eligible knights holding fire this tick.
 def pastimes.pressing(+elig: List<&2, J.Val>, +inputs: J.Val) -> List<&2, U32>:
   match elig:
     case Nil{}:
@@ -107,7 +98,6 @@ def pastimes.pressing(+elig: List<&2, J.Val>, +inputs: J.Val) -> List<&2, U32>:
       else:
         pastimes.pressing(t, inputs)
 
-# Those in `now` that were not in the old fire set.
 def pastimes.fresh(+now: List<&2, U32>, +old: J.Val) -> List<&2, U32>:
   match now:
     case Nil{}:
@@ -171,7 +161,6 @@ def pastimes.ps(+run: J.Val) -> J.Val:
 def pastimes.with(+run: J.Val, +st: J.Val) -> J.Val:
   J.set(run, "pastimes", st)
 
-# Run::tick_pastimes
 def pastimes.Run.tick_pastimes(+run: J.Val, +inputs: J.Val) -> J.Val:
   room: String = gb.s(rules.Run.room(run), "kind")
   if Bool.not(pastimes.room_has_game(room, 0)):
@@ -190,7 +179,6 @@ def pastimes.tick.kegs(+run: J.Val, +inputs: J.Val, +room: String, +elig: List<&
   else:
     pastimes.tick.pads(run, inputs, room, elig, tapped)
 
-# The pads: which game's start mark a knight stands on, newly.
 def pastimes.occupied(+elig: List<&2, J.Val>, +room: String, +i: U32, +acc: U32) -> U32:
   match i:
     case 19:
@@ -213,7 +201,6 @@ def pastimes.tick.pads(+run: J.Val, +inputs: J.Val, +room: String, +elig: List<&
     else:
       pastimes.tick.heat(run1, inputs, room, elig, tapped)
 
-# No heat under way: one pad pressed starts its game.
 def pastimes.tick.idle(+run: J.Val, +room: String, +elig: List<&2, J.Val>, +pressed: U32) -> J.Val:
   if U32.is_eq(gb.popcount(pressed), 1):
     gi: U32 = RS.u_trailing_zeros(pressed)
@@ -239,8 +226,6 @@ def pastimes.starter(+elig: List<&2, J.Val>, +sx: F32, +sy: F32) -> J.Val:
 def pastimes.rec_path() -> List<&2, String>:
   ["home", "countryside", "games"]
 
-# Start a game: the plays count, a round for the starter and one for each
-# friend, a heat, the Powder yard they share, the door and the word.
 def pastimes.start(+run: J.Val, +gi: U32, +elig: List<&2, J.Val>, +starter: U32, +sx: F32, +sy: F32) -> J.Val:
   rec: J.Val = J.at(run, pastimes.rec_path())
   rotation: U32 = U32.mod(pastimes.Records.plays_for(rec, gi), 5)
@@ -257,7 +242,6 @@ def pastimes.start(+run: J.Val, +gi: U32, +elig: List<&2, J.Val>, +starter: U32,
   text: String = Bool.pick(String, U32.is_gt(crowd, 1), pastimes.Game.name(gi) ++ "! Everyone plays. Best wins.", pastimes.Game.name(gi) ++ " begins!")
   gb.found(gb.sound(pastimes.with(run2, st2), "door_open"), 0, text)
 
-# Each friend's round of their own (the intro is up for all of them).
 def pastimes.friends(+elig: List<&2, J.Val>, +starter: U32, +gi: U32, +rotation: U32, +seats: List<&2, U32>, +m: J.Val) -> J.Val:
   match elig:
     case Nil{}:
@@ -269,7 +253,6 @@ def pastimes.friends(+elig: List<&2, J.Val>, +starter: U32, +gi: U32, +rotation:
       else:
         pastimes.friends(t, starter, gi, rotation, seats, J.set(m, U32.show(id), gb.su(pastimes.new_round(gi, id, gb.f(e, "x"), gb.f(e, "y"), rotation, seats), "intro_ticks", 30)))
 
-# Powder Keg: every seat's round holds the one yard, built for the whole heat.
 def pastimes.share_yard(+st: J.Val, +seats: List<&2, U32>) -> J.Val:
   seed: U32 = gb.u(J.get(J.get(st, "round"), "powder"), "seed")
   yard: J.Val = pastimes.powder.Powder.new(seats, seed)
@@ -283,7 +266,6 @@ def pastimes.heats_yard(+es: List<&2, J.Val>, +yard: J.Val, +m: J.Val) -> J.Val:
     case Con{e: J.Val, t: List<&2, J.Val>}:
       pastimes.heats_yard(t, yard, J.set(m, gb.s(e, "k"), J.set(J.get(e, "v"), "powder", yard)))
 
-# A heat is under way: the shared Gander hall, or each seat's own round.
 def pastimes.tick.heat(+run: J.Val, +inputs: J.Val, +room: String, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val:
   round: J.Val = J.get(pastimes.ps(run), "round")
   if Bool.and(Bool.not(J.is_null(round)), String.eq(gb.s(round, "game"), "gander")):
@@ -294,7 +276,6 @@ def pastimes.tick.heat(+run: J.Val, +inputs: J.Val, +room: String, +elig: List<&
     run3: J.Val = pastimes.tick.crown(run2)
     pastimes.push_ambient(run3, room)
 
-# Everyone has finished: the best is crowned.
 def pastimes.tick.crown(+run: J.Val) -> J.Val:
   st: J.Val = pastimes.ps(run)
   heat: J.Val = J.get(st, "heat")
@@ -303,7 +284,6 @@ def pastimes.tick.crown(+run: J.Val) -> J.Val:
   else:
     run
 
-# The seats in order: each plays its own round; a race won stops the rest.
 def pastimes.seats_loop(+run: J.Val, +inputs: J.Val, +room: String, +elig: List<&2, J.Val>, +tapped: List<&2, U32>, +seats: List<&2, U32>, +n: U32) -> J.Val:
   match seats:
     case Nil{}:
@@ -325,8 +305,6 @@ def pastimes.seat_turn(+run: J.Val, +inputs: J.Val, +room: String, +elig: List<&
     (run2: J.Val, played: PsPlayed) = pastimes.seat_play(pastimes.with(run, st1), round, inputs, room, elig, tapped, id, n)
     pastimes.seat_after(run2, played, id, n)
 
-# The round's turn: the shared yard's lead ticks it all; a friend mirrors
-# their knight's standing in it; anything else plays for its own seat.
 def pastimes.seat_play(+run: J.Val, +round: J.Val, +inputs: J.Val, +room: String, +elig: List<&2, J.Val>, +tapped: List<&2, U32>, +id: U32, +n: U32) -> J.Val & PsPlayed:
   game: String = gb.s(round, "game")
   if Bool.and(String.eq(game, "powder"), U32.is_gt(n, 0)):
@@ -380,7 +358,6 @@ def pastimes.seat_place(+run: J.Val, +played: PsPlayed, +id: U32, +n: U32) -> J.
       else:
         (pastimes.end_heat_rounds(run1), True{})
 
-# Stops every round still going, keeping how far each got.
 def pastimes.end_heat_rounds(+run: J.Val) -> J.Val:
   st: J.Val = pastimes.ps(run)
   heat: J.Val = J.get(st, "heat")
@@ -393,7 +370,6 @@ def pastimes.end_heat_rounds(+run: J.Val) -> J.Val:
     done2: J.Val = pastimes.done_heats(gb.entries(J.get(st, "heats")), done1)
     pastimes.with(run, J.set(J.set(J.set(st, "round", J.JNull{}), "heats", J.obj()), "heat", J.set(heat, "done", done2)))
 
-# done.entry(id).or_insert(Finish { progress, points: None }).
 def pastimes.done_keep(+done: J.Val, +id: U32, +round: J.Val) -> J.Val:
   if J.has(done, U32.show(id)):
     done
@@ -407,8 +383,6 @@ def pastimes.done_heats(+es: List<&2, J.Val>, +done: J.Val) -> J.Val:
     case Con{e: J.Val, t: List<&2, J.Val>}:
       pastimes.done_heats(t, pastimes.done_keep(done, gb.id(gb.s(e, "k")), J.get(e, "v")))
 
-# Heat::winner: the seat with the best (points?, points, progress), the
-# earlier seat on a tie; 0 for none.
 def pastimes.Heat.winner(+heat: J.Val) -> J.Val:
   pastimes.winner.go(J.items(J.get(heat, "seats")), J.get(heat, "done"), J.JNull{})
 
@@ -439,7 +413,6 @@ def pastimes.fin_better(+a: J.Val, +b: J.Val) -> Bool:
   else:
     ha
 
-# Run::judge_heat: the best is crowned before the party.
 def pastimes.judge_heat(+run: J.Val, +heat: J.Val) -> J.Val:
   if Bool.not(J.is_null(J.get(run, "crossroads"))):
     crossroads.Run.finish_crossroads(run, pastimes.rank_seats(pastimes.ids_of(J.get(heat, "seats")), J.get(heat, "done")))
@@ -461,7 +434,6 @@ def pastimes.crown(+run: J.Val, +heat: J.Val, +winner: U32) -> J.Val:
   run2: J.Val = gb.found(run1, 0, gb.upper(name) ++ " WINS THE " ++ pastimes.Game.name(gi) ++ "!")
   gb.cue(gb.sound(run2, "play_card"), "pastime_won")
 
-# The stakes are worn: a laurel for the winner, the booby prize for the rest.
 def pastimes.stakes(+seats: List<&2, J.Val>, +players: J.Val, +winner: U32, +game: String) -> J.Val:
   match seats:
     case Nil{}:
@@ -475,7 +447,6 @@ def pastimes.stakes(+seats: List<&2, J.Val>, +players: J.Val, +winner: U32, +gam
         win: Bool = U32.is_eq(id, winner)
         pastimes.stakes(t, J.set(players, U32.show(id), J.set(gb.sb(h, "laurel", win), "booby", Bool.pick(J.Val, win, J.JNull{}, J.JS{game}))), winner, game)
 
-# The seats sorted best first (points?, points, progress), ties by seat id.
 def pastimes.rank_seats(+seats: List<&2, U32>, +done: J.Val) -> List<&2, U32>:
   match seats:
     case Nil{}:
@@ -510,7 +481,6 @@ def pastimes.rank_before(+a: U32, +b: U32, +done: J.Val) -> Bool:
         else:
           Bool.and(Bool.not(pastimes.fin_better(fb, fa)), U32.is_lt(a, b))
 
-# The shared Gander hall ticks once for the whole heat.
 def pastimes.tick.gander(+run: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val:
   round: J.Val = J.get(pastimes.ps(run), "round")
   run1: J.Val = pastimes.with(run, J.set(pastimes.ps(run), "round", J.JNull{}))
@@ -542,8 +512,6 @@ def pastimes.gander.won(+tally: List<&2, J.Val>) -> Bool:
     case Con{t: J.Val, rest: List<&2, J.Val>}:
       Bool.or(U32.is_ge(J.u32(t), 8), pastimes.gander.won(rest))
 
-# The shared Gander hall is over: each seat finishes with its unhorsings,
-# the most takes the crown and the winner's ride pays the purse.
 def pastimes.finish_gander_heat(+run: J.Val) -> J.Val:
   st: J.Val = pastimes.ps(run)
   round: J.Val = J.get(st, "round")
@@ -584,9 +552,6 @@ def pastimes.gander.pay(+run: J.Val, +round: J.Val, +crowned: J.Val, +w: U32) ->
   run3: J.Val = gb.found(run2, 0, "GANDER JOUST complete! +" ++ U32.show(result) ++ ". Best " ++ U32.show(gb.u(g1, "best")) ++ ".")
   gb.cue(gb.sound(gb.sound(run3, "spoil_pickup"), "gold"), "pastime_won")
 
-# Run::tick_crossroads_kegs: the crossroads keeps one yard, including after
-# its starter is sooted. Survival decides places, then bales burned, then
-# seat order.
 def pastimes.Run.tick_crossroads_kegs(+run: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val:
   st: J.Val = pastimes.ps(run)
   round: J.Val = gb.su(J.get(st, "round"), "left", gb.ssub(gb.u(J.get(st, "round"), "left"), 1))
@@ -622,8 +587,6 @@ def pastimes.heats_all(+es: List<&2, J.Val>, +round: J.Val, +m: J.Val) -> J.Val:
     case Con{e: J.Val, t: List<&2, J.Val>}:
       pastimes.heats_all(t, round, J.set(m, gb.s(e, "k"), round))
 
-# Each seat's standing; those out of the yard are done, ranked by how long
-# they lasted.
 def pastimes.kegs.standing(+heat: J.Val, +yard: J.Val, +alive: List<&2, U32>, +seats: List<&2, U32>, +elapsed: U32) -> J.Val:
   match seats:
     case Nil{}:
@@ -643,8 +606,6 @@ def pastimes.kegs.finish(+heat: J.Val, +seats: List<&2, U32>) -> J.Val:
       fin: J.Val = J.set(gb.su(J.obj(), "progress", gb.u(J.get(heat, "standing"), U32.show(id))), "points", J.JU{1000})
       pastimes.kegs.finish(Bool.pick(J.Val, J.has(J.get(heat, "done"), U32.show(id)), heat, J.set(heat, "done", J.set(J.get(heat, "done"), U32.show(id), fin))), t)
 
-# Run::start_crossroads_pastime: the crossroads' first seat starts the
-# game for the table: Powder's one yard, or the Gander hall.
 def pastimes.Run.start_crossroads_pastime(+run: J.Val, +gi: U32) -> J.Val:
   seats: List<&2, U32> = pastimes.ids_of(J.get(J.get(run, "crossroads"), "seats"))
   match seats:
@@ -668,7 +629,6 @@ def pastimes.cross.start(+run: J.Val, +gi: U32, +seats: List<&2, U32>, +owner: U
     run1: J.Val = J.put(run, pastimes.rec_path(), pastimes.Records.add_play(rec, 17))
     pastimes.with(run1, J.set(J.set(pastimes.ps(run1), "round", round), "heat", heat))
 
-# {id: null} for each id (so `heats_all` can fill them).
 def pastimes.ids_obj(+ids: List<&2, U32>) -> J.Val:
   pastimes.ids_obj.go(ids, J.obj())
 
@@ -679,7 +639,6 @@ def pastimes.ids_obj.go(+ids: List<&2, U32>, +m: J.Val) -> J.Val:
     case Con{id: U32, t: List<&2, U32>}:
       pastimes.ids_obj.go(t, J.set(m, U32.show(id), J.JNull{}))
 
-# The hero of each knight put in the yard where its sapper stands.
 def pastimes.powder.seat_start(+ks: List<&2, J.Val>, +players: J.Val) -> J.Val:
   match ks:
     case Nil{}:
@@ -694,7 +653,6 @@ def pastimes.powder.seat_start(+ks: List<&2, J.Val>, +players: J.Val) -> J.Val:
         y: F32 = ((((2.0 + (RS.u_as_f32(gb.u(k, "y")) / 256.0 : F32) : F32) + 0.3 : F32)) * 2.0 : F32)
         pastimes.powder.seat_start(t, J.set(players, id, gb.sf(gb.sf(h, "x", x), "y", y)))
 
-# State::depart: a knight leaves; the rest play on, a lead's yard passes on.
 def pastimes.State.depart(+st: J.Val, +id: U32, +remaining: List<&2, U32>) -> J.Val:
   st1: J.Val = J.set(st, "fire", gb.set_rm(J.get(st, "fire"), id))
   match remaining:
@@ -719,13 +677,10 @@ def pastimes.depart.heat(+st: J.Val, +id: U32) -> J.Val:
   else:
     pastimes.depart.done(J.set(st, "heats", J.del(J.get(st, "heats"), U32.show(id))), id)
 
-# The leaver's done entry goes; the heat keeps its standing.
 def pastimes.depart.done(+st: J.Val, +id: U32) -> J.Val:
   heat: J.Val = J.get(st, "heat")
   J.set(st, "heat", J.set(heat, "done", J.del(J.get(heat, "done"), U32.show(id))))
 
-# The shared courtyard needs a seat to carry it: when the starter departs,
-# the next knight's round takes the yard over.
 def pastimes.depart.yard(+st: J.Val, +id: U32, +heat: J.Val, +round: J.Val) -> J.Val:
   next_owner: U32 = pastimes.depart.next_owner(pastimes.ids_of(J.get(heat, "seats")), id, J.get(heat, "done"))
   if U32.is_eq(next_owner, 0):
@@ -759,7 +714,6 @@ def pastimes.depart.drop_id(+seats: List<&2, U32>, +id: U32) -> List<&2, U32>:
       else:
         s <> pastimes.depart.drop_id(t, id)
 
-# No heat: the round's owner seats pass to the next knight.
 def pastimes.depart.solo(+st: J.Val, +id: U32, +next: U32) -> J.Val:
   r: J.Val = J.get(st, "round")
   if J.is_null(r):
@@ -773,7 +727,6 @@ def pastimes.depart.solo(+st: J.Val, +id: U32, +next: U32) -> J.Val:
     r6: J.Val = pastimes.depart.owner(pastimes.depart.owner(pastimes.depart.owner(r5, "duckshoot", "owner", id, next), "longbow", "owner", id, next), "siege", "owner", id, next)
     J.set(st, "round", r6)
 
-# A sub-game's owner (or driver) field passes to `next` when it was `id`.
 def pastimes.depart.owner(+r: J.Val, +game: String, +field: String, +id: U32, +next: U32) -> J.Val:
   g: J.Val = J.get(r, game)
   if Bool.and(Bool.not(J.is_null(g)), U32.is_eq(gb.u(g, field), id)):
@@ -787,9 +740,6 @@ def case.pastimes.Run.tick_pastimes(+input: J.Val) -> J.Val:
 def case.pastimes.Run.tick_pastimes.arena(+input: J.Val) -> J.Val:
   case.pastimes.Run.tick_pastimes(input)
 
-# The product starts every round with its intro up (`#[cfg(not(test))]`);
-# the Rust test build the cases are recorded from does not. Cases compare
-# with the intro cleared.
 def pastimes.case.norm(+run: J.Val) -> J.Val:
   st: J.Val = pastimes.ps(run)
   r: J.Val = J.get(st, "round")

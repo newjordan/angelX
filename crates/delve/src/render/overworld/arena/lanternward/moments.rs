@@ -11,40 +11,27 @@ use super::hud::{claim, plate_text};
 use super::scene::{View, knight_img};
 use crate::rules::lanternward::{self as lw, Act, Ws};
 
-/// Ticks the title card holds.
 const TITLE: u32 = 110;
-/// Ticks a room's name card holds.
 const NAME: u32 = 54;
-/// Ticks a call over the Warden holds.
 const CALL: u32 = 44;
-/// The Warden's stagger as the rules count it down.
 const STAGGER: u32 = 75;
 
-/// The rows the title's card sits on (its top at rest); the calls of the
-/// moment sit under the top bar, out of the way of the fight.
 const TITLE_Y: i32 = 112;
 const CALL_Y: i32 = 36;
-/// Or, when the Warden is up there, low on the screen above its bar.
 const LOW_Y: i32 = 146;
 
-/// A card on the middle of the screen: what it says, how it is inked, how old it is.
 struct Card {
     title: String,
     sub: String,
     age: u32,
     life: u32,
     tone: Tone,
-    /// The biggest scale its words may rest at.
     cap: i32,
-    /// The row its top rests on.
     y: i32,
 }
 
-/// Where a call of the moment stands: the band under the top bar or the one
-/// over the Warden's bar, whichever the Warden and the knight are not in.
 fn call_y(v: &View) -> i32 {
     let s = v.s;
-    // Once the Beacon burns the foot of the screen is the purse's.
     if s.done.is_some() {
         return CALL_Y;
     }
@@ -84,7 +71,6 @@ fn warden_card(v: &View) -> Option<Card> {
         return (age < CALL).then(|| Card { title: "PARRIED".into(), sub: "STRIKE NOW".into(), age, life: CALL, tone: Tone::Warm, cap: 2, y });
     }
     if s.boss_open() {
-        // The tick the shutter opened: the one that made the count.
         let mut lit: Vec<u32> = w.lit.iter().copied().filter(|&t| t > 0 && t + lw::EXPOSE_TICKS > s.elapsed).collect();
         lit.sort_unstable_by(|a, b| b.cmp(a));
         let opened = lit.get(w.need(seats) as usize - 1).copied().unwrap_or(0);
@@ -94,8 +80,6 @@ fn warden_card(v: &View) -> Option<Card> {
     None
 }
 
-/// The one card on show, by rank: the retry, an item held up, the Beacon,
-/// the Warden's moments, then the title and the room's name.
 fn card(v: &View) -> Option<Card> {
     let s = v.s;
     if s.wipe > 0 {
@@ -131,13 +115,10 @@ fn card(v: &View) -> Option<Card> {
     None
 }
 
-/// The box of the card on show, if one is (at rest: its first ticks are larger).
 pub(super) fn card_box(v: &View) -> Option<(i32, i32, i32, i32)> {
     card(v).map(|c| card_rect(&c.title, &c.sub, c.age, c.cap, c.y))
 }
 
-/// The box a card's words and rails mark at rest (the slam of its first ticks
-/// is larger; the tests look at settled cards).
 pub(super) fn card_rect(title: &str, sub: &str, age: u32, cap: i32, y: i32) -> (i32, i32, i32, i32) {
     let tw = text_width(title).max(1);
     let rest = ((384 - 24) / tw).clamp(1, cap);
@@ -162,7 +143,6 @@ pub(super) fn draw(im: &mut Img, v: &View) {
         if c.age >= 3 && c.age + 14 < c.life {
             claim("card", card_rect(&c.title, &c.sub, c.age, c.cap, c.y));
         }
-        // A friend found it: their number, under the card.
         if let Some(b) = s.banner
             && u32::from(b.seat) != v.id
             && s.wipe == 0
@@ -170,7 +150,6 @@ pub(super) fn draw(im: &mut Img, v: &View) {
             plate_text(im, 192, if c.y < 100 { c.y + 40 } else { c.y - 16 }, &format!("SEAT {} FOUND IT", b.seat), knights::seat_cloth(u32::from(b.seat)));
         }
     }
-    // The party goes through a door: the room closes in a wipe, the next opens.
     if s.exiting > 0 {
         let k = s.exiting.min(lw::EXIT_TICKS) as f32 / lw::EXIT_TICKS as f32;
         juice::iris(im, (192, 112), k, 'k');
@@ -182,8 +161,6 @@ pub(super) fn draw(im: &mut Img, v: &View) {
     }
 }
 
-/// The edge of the screen: a red rim that thumps while a knight is at two
-/// hearts or less, and flares for a few ticks after a hit.
 fn rim(im: &mut Img, v: &View, k: &lw::Seat) {
     let hurt = lw::HURT_INV.saturating_sub(k.ward);
     let flare = if k.ward > 0 && hurt < 9 { 1.0 - hurt as f32 / 9.0 } else { 0.0 };
@@ -198,9 +175,6 @@ fn rim(im: &mut Img, v: &View, k: &lw::Seat) {
     }
 }
 
-// ----- the Beacon ------------------------------------------------------------------
-
-/// The party's score for one run: the more seconds past three minutes, the less.
 pub(super) fn rating(secs: u32) -> u32 {
     1000u32.saturating_sub(secs.saturating_sub(180) * 2).clamp(1, 1000)
 }
@@ -209,7 +183,6 @@ fn finale(im: &mut Img, v: &View, me: &lw::Seat, done: u32) {
     let s = v.s;
     let since = s.elapsed.saturating_sub(done);
     let tick = u64::from(v.tick);
-    // Fireworks over the keep, a volley then a slower round.
     for i in 0..12u32 {
         let start = i * 8 + 4;
         if since < start {
@@ -226,7 +199,6 @@ fn finale(im: &mut Img, v: &View, me: &lw::Seat, done: u32) {
     if since < 36 {
         return;
     }
-    // The knights who lit it, in a row, crowned, each with their own purse.
     let rows: Vec<(u32, &lw::Seat)> = s.seats.iter().map(|(&id, k)| (id, k)).collect();
     let n = rows.len().max(1) as i32;
     let step = (44).min(340 / n);
@@ -239,7 +211,6 @@ fn finale(im: &mut Img, v: &View, me: &lw::Seat, done: u32) {
         let mut big = Img::new(fig.w * 2, fig.h * 2);
         big.stamp_times(&fig, 0, 0, 2);
         let foot = 148 + 10 - rise;
-        // The crown the realm gives: a small gold band over the helm.
         let top = foot - big.h;
         im.rect(cx - 6, foot + 1, 12, 2, 'K');
         im.stamp(&big, cx - big.w / 2, top);

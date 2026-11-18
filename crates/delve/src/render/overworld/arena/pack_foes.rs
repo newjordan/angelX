@@ -6,7 +6,6 @@ use crate::rules::EnemyKind;
 
 include!("pack_foes_frames.rs");
 
-/// A foe's frame on `tick`, if the pack draws it.
 pub(super) fn frame(kind: EnemyKind, tick: u32) -> Option<Img> {
     let frames = match kind {
         EnemyKind::Skeleton => &SKELETON,

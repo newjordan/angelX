@@ -39,7 +39,6 @@ fn install_first(director: &mut CompetitionDirectorStateV1) -> DirectorTransitio
         .unwrap()
 }
 
-/// FG-BOARD-001 engagement_requests_refresh_before_first_scheduler_quantum.
 #[test]
 fn engagement_requests_refresh_before_first_scheduler_quantum() {
     let mut director = CompetitionDirectorStateV1::engage("campaign", 0).unwrap();
@@ -72,7 +71,6 @@ fn engagement_requests_refresh_before_first_scheduler_quantum() {
     );
 }
 
-/// FG-BOARD-002 engagement_timeout_uses_durable_stale_snapshot_and_schedules_retry.
 #[test]
 fn engagement_timeout_uses_durable_stale_snapshot_and_schedules_retry() {
     let mut director = CompetitionDirectorStateV1::engage("campaign", 0).unwrap();

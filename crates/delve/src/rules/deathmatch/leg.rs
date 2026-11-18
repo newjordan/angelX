@@ -17,22 +17,18 @@ pub(super) fn ask(op: &str, mut body: Value) -> Result<Value, String> {
     }
     answer
 }
-/// A number out of an answer.
 pub(super) fn num(v: &Value) -> u32 {
     v.as_u64().unwrap_or(0) as u32
 }
-/// The named fields of `$o`, as the JSON object a question carries.
 macro_rules! pick {
     ($o:expr; $($f:ident),+) => { serde_json::json!({ $(stringify!($f): $o.$f),+ }) };
 }
-/// The named fields of `$o`, set from the answer `$v`.
 macro_rules! put {
     ($v:expr => $o:expr; $($f:ident),+) => {
         $( $o.$f = serde_json::from_value($v[stringify!($f)].clone()).map_err(|e| e.to_string())?; )+
     };
 }
 impl Fighter {
-    /// The sound a fresh muzzle flash makes: a blade swings, a bow twangs.
     pub(super) fn shot_sound(&self) -> &'static str {
         let h = &self.hero;
         if h.forged.as_ref().is_some_and(|w| w.melee.is_some()) || h.unarmed() {

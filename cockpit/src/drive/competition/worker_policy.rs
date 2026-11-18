@@ -34,8 +34,6 @@ pub(crate) fn recover_hung_worker(
 ) -> Result<LeaseRecoveryStepV1, String> {
     store.update_leases(|leases| {
         let phase = leases.poll(key, generation, now_ms)?;
-        // The `worker-health` leg chooses the step from the polled phase; the
-        // lease mutation stays here so a bad edit cannot corrupt a lease.
         let (step, _source) = crate::agent::harness::live_policy::decide_shipped(
             "worker-health",
             &serde_json::json!({"kind": "recovery", "phase": phase_code(&phase)}),
@@ -271,8 +269,6 @@ pub(crate) fn phase_code(phase: &LeasePhaseV1) -> u64 {
     }
 }
 
-/// The leg's recovery answer: state 0 keeps the healthy phase (in `phase`),
-/// 1 nudges, 2 inspects, 3 replaces.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct LiveRecoveryStep {
@@ -280,9 +276,6 @@ pub(crate) struct LiveRecoveryStep {
     pub(crate) phase: u64,
 }
 
-/// The leg's semantic answer: state 0 continues fresh, 1 pivots, 2 keeps
-/// retrying, 3 archives into a fresh turn; `stale_next` restates the
-/// counter the shipped leg holds after the step.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct LiveSemanticStep {

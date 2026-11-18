@@ -23,18 +23,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 
-/// Seats at the table, the arbiter's included.
 const SEATS: u32 = 8;
-/// The board ticks slowly: it is a table, not a game. Ops land on
-/// actions between ticks and publish on the next one.
 const TICK_HZ: u32 = 2;
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-/// What the server thread and the host cockpit share: the board, the
-/// newest tick, and where its log lives.
 pub(crate) struct Shared {
     board: Mutex<Board>,
     tick: AtomicU64,
@@ -51,8 +46,6 @@ impl Shared {
         Shared { board: Mutex::new(board), tick: AtomicU64::new(0), log_path }
     }
 
-    /// One op, checked by the board's rules; a success rewrites the
-    /// JSONL checkpoint. The host's own seat is the arbiter's.
     pub(crate) fn apply(&self, seat: u32, op: Op) -> Result<u64, Denied> {
         let tick = self.tick.load(Ordering::Relaxed);
         let mut board = lock(&self.board);
@@ -62,8 +55,6 @@ impl Shared {
             if let Some(dir) = path.parent() {
                 let _ = std::fs::create_dir_all(dir);
             }
-            // Exact: the JSONL checkpoint embeds patch bundles verbatim;
-            // text redaction could alter bundle bytes and corrupt restore.
             let _ = crate::platform::workspace_store::write_private_atomic_exact(
                 path,
                 text.as_bytes(),
@@ -81,11 +72,8 @@ impl Shared {
     }
 }
 
-/// The game as the server runs it: a board behind a lock, ticked at
-/// board pace, published whole for every seat to see.
 struct TableServer {
     shared: Arc<Shared>,
-    /// Per-seat reassembly of pieced actions (patch bundles).
     uploads: std::collections::BTreeMap<u32, act::Assembler>,
 }
 
@@ -126,8 +114,6 @@ impl GameServer for TableServer {
     }
 
     fn action(&mut self, seat: Option<u32>, kind: u32, body: &[u8], _events: &mut Events) {
-        // A watcher (no seat) may look, never act. A refused op is
-        // simply not applied; the next snapshot shows the truth.
         let Some(seat) = seat else { return };
         let Some((kind, body)) = self.uploads.entry(seat).or_default().feed(kind, body) else {
             return;
@@ -150,11 +136,6 @@ impl GameServer for TableServer {
     }
 }
 
-/// The arbiter's handle: the running server plus the shared board.
-/// The host also holds seat 0 over an in-process link (`anchor`):
-/// server seats are first-come, and seat 0 *is* the arbiter to the
-/// board's rules, so the host must be sitting in it before any join
-/// link is shown — a guest who landed there could accept and merge.
 pub(crate) struct TableHost {
     pub(crate) shared: Arc<Shared>,
     server: Server,
@@ -162,8 +143,6 @@ pub(crate) struct TableHost {
     epoch: Instant,
 }
 
-/// Take the host's own seat (0, the arbiter's) on a fresh server,
-/// before its links are shown to anyone.
 fn anchor(server: &Server, host_name: &str) -> Result<NativeLink<TableClient>, String> {
     let conn = server
         .connect_local()
@@ -172,10 +151,6 @@ fn anchor(server: &Server, host_name: &str) -> Result<NativeLink<TableClient>, S
 }
 
 impl TableHost {
-    /// Host a table for `workspace`: bind where a hosted delve binds
-    /// (tailnet, then LAN, then loopback) on its own port, restore
-    /// the board from its JSONL log if one is there, and seat the
-    /// host as the arbiter. Returns the join links to show friends.
     pub(crate) fn start(workspace: &Path, host_name: &str) -> Result<(TableHost, Vec<String>), String> {
         let log_path = workspace.join(".angel").join("round-table.jsonl");
         let shared = Arc::new(Shared::load(Some(log_path)));
@@ -186,34 +161,26 @@ impl TableHost {
             ServeConfig::new(bind),
         )
         .map_err(|e| format!("the table's server did not start: {e}"))?;
-        // Seat 0 before the links exist outside this process.
         let anchor = anchor(&server, host_name)?;
         let links = server.links();
         Ok((TableHost { shared, server, anchor, epoch: Instant::now() }, links))
     }
 
-    /// Keep the arbiter's seat alive; call from `advance`.
     pub(crate) fn poll(&mut self) {
         let now_ms = self.epoch.elapsed().as_secs_f64() * 1000.0;
         self.anchor.tick(now_ms);
     }
 
-    /// Join links for friends to connect to this table (`/table link`).
     pub(crate) fn links(&self) -> Vec<String> {
         self.server.links()
     }
 
-    /// The arbiter stops the table: sessions end, the log remains.
     pub(crate) fn stop(mut self) {
         self.anchor.bye();
         self.server.stop();
     }
 }
 
-/// A guest knight's link to a friend's table, with an offline outbox:
-/// ops cast while the link is down (or still dialing) are sent, in
-/// order, once the seat is held again. The board read is always the
-/// server's latest published tree — never a local guess.
 pub(crate) struct TableGuest {
     target: String,
     link: NativeLink<TableClient>,
@@ -221,10 +188,6 @@ pub(crate) struct TableGuest {
     outbox: VecDeque<(u32, Vec<u8>)>,
 }
 
-/// Seat tokens remembered per join link across `TableGuest::connect` calls
-/// and persisted on disk (`~/.angelX/round-table-tokens.json`), so a guest
-/// reconnecting or restarting its cockpit resumes its seat instead of
-/// burning a new one.
 static GUEST_TOKENS: std::sync::LazyLock<Mutex<std::collections::HashMap<String, String>>> =
     std::sync::LazyLock::new(|| Mutex::new(load_tokens_from_disk()));
 
@@ -261,8 +224,6 @@ fn save_tokens_to_disk(tokens: &std::collections::HashMap<String, String>) {
         let _ = std::fs::create_dir_all(dir);
     }
     if let Ok(text) = serde_json::to_string_pretty(tokens) {
-        // Guest tokens are live credentials: exact durable publish (0600,
-        // no redaction) instead of a bare umask-permissioned write.
         let _ = crate::platform::workspace_store::write_private_atomic_exact(
             &path,
             text.as_bytes(),
@@ -299,7 +260,6 @@ impl TableGuest {
         &self.target
     }
 
-    /// One frame of link housekeeping; call from `advance`.
     pub(crate) fn poll(&mut self) {
         let now_ms = self.epoch.elapsed().as_secs_f64() * 1000.0;
         self.link.poll(now_ms);
@@ -318,8 +278,6 @@ impl TableGuest {
         }
     }
 
-    /// Cast an op: at once when seated, else queued for reconnect.
-    /// Large bodies travel in pieces (a client message caps at 1 KiB).
     pub(crate) fn cast(&mut self, op: &Op) {
         let (kind, body) = act::encode(op);
         for (kind, body) in act::pieces(kind, &body) {
@@ -397,11 +355,6 @@ mod tests {
 
     #[test]
     fn two_seats_share_a_board_and_only_the_arbiter_decides() {
-        // The live topology: the host cockpit holds seat 0 in process
-        // (the anchor) and applies its own ops to the shared board
-        // directly; a friend joins over the wire. Server seats are
-        // first-come, so without the anchor the first guest would be
-        // seated as the arbiter — this test fails then.
         let shared = Arc::new(Shared::load(None));
         lock(&shared.board).join(ARBITER, "Host");
         let server = Server::start(
@@ -417,8 +370,6 @@ mod tests {
             .find(|l| l.contains("127.0.0.1"))
             .expect("a loopback link");
         let mut guest = TableGuest::connect(&link, "Percival").expect("a knight connects");
-        // Cast before the seat is held: the op must wait in the
-        // offline outbox and land once the link is Playing.
         guest.cast(&Op::NewIssue { title: "Oil the gate".into(), body: "It squeaks.".into() });
         until(&mut anchor, epoch, &mut guest, "both seats", |b| b.seats.len() >= 2);
         assert_eq!(anchor.runtime().seat(), Some(ARBITER), "the anchor holds seat 0");
@@ -427,22 +378,18 @@ mod tests {
         let board = until(&mut anchor, epoch, &mut guest, "the proposal", |b| !b.issues.is_empty());
         let id = *board.issues.keys().next().unwrap();
 
-        // A guest's Accept is refused server-side: still Proposed
-        // after the table settles.
         guest.cast(&Op::Accept { id });
         std::thread::sleep(Duration::from_millis(600));
         anchor.tick(epoch.elapsed().as_secs_f64() * 1000.0);
         let board = guest.board().expect("a board");
         assert_eq!(board.issues[&id].state, State::Proposed, "guests cannot accept");
 
-        // The arbiter's own ops land directly on the shared board.
         shared.apply(ARBITER, Op::Accept { id }).expect("the arbiter accepts");
         until(&mut anchor, epoch, &mut guest, "acceptance", |b| b.issues[&id].state == State::Accepted);
 
         guest.cast(&Op::Claim { id });
         until(&mut anchor, epoch, &mut guest, "the claim", |b| b.issues[&id].state == State::InProgress);
 
-        // A bundle bigger than one client message travels in pieces.
         let bundle: Vec<u8> = (0..3000u32).map(|i| (i % 253) as u8).collect();
         guest.cast(&Op::Submit {
             id,
@@ -490,7 +437,6 @@ mod tests {
         let id = *board.issues.keys().next().unwrap();
         assert_eq!(guest.seat(), Some(1));
 
-        // 1. In Proposed state, a guest sprays every arbiter decision op.
         for op in [
             Op::Accept { id },
             Op::Reject { id },
@@ -499,8 +445,6 @@ mod tests {
         ] {
             guest.cast(&op);
         }
-        // Send a benign comment afterward as a fence: once the comment lands on
-        // the replicated board, every preceding forged op has been processed.
         guest.cast(&Op::Comment { id, text: "probe-proposed".into() });
         let board = until(&mut anchor, epoch, &mut guest, "proposed fence", |b| {
             b.issues[&id].comments.iter().any(|c| c.text == "probe-proposed")
@@ -508,8 +452,6 @@ mod tests {
         assert_eq!(board.issues[&id].state, State::Proposed, "guest forged a Proposed transition");
         assert!(board.issues[&id].merged_commit.is_none());
 
-        // 2. Arbiter accepts, guest claims and submits; guest then tries to forge
-        // Merge, Reject, or Close on its own Submitted work.
         shared.apply(ARBITER, Op::Accept { id }).unwrap();
         guest.cast(&Op::Claim { id });
         guest.cast(&Op::Submit {
@@ -535,9 +477,6 @@ mod tests {
         assert_eq!(board.issues[&id].state, State::Submitted, "guest forged a Submitted decision");
         assert!(board.issues[&id].merged_commit.is_none());
 
-        // 3. Drop socket without goodbye, wipe the in-memory cache to simulate
-        // a process restart, and reconnect to the same link: the on-disk
-        // seat_token reclaims seat 1 instead of allocating seat 2.
         guest.close_without_bye();
         assert!(
             load_tokens_from_disk().contains_key(link.trim()),

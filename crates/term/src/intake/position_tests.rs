@@ -24,11 +24,8 @@ fn picture(id: u32) -> Vec<u8> {
 fn text_over_part_of_an_in_cell_picture_hides_only_those_cells() {
     let mut intake = Intake::new(8);
     intake.set_cell((10, 20));
-    // A 2x2 cell picture. Cover the top-left cell only.
     let mut engine = engine(8, 8);
     feed(&mut engine, &mut intake, &picture(3));
-    // The one-pixel picture is smaller than a cell, so build the cover
-    // through the store on a picture that occupies several cells.
     intake.placements[0].width = 2.0;
     intake.placements[0].height = 2.0;
     intake.placements[0].in_cell = true;
@@ -39,7 +36,6 @@ fn text_over_part_of_an_in_cell_picture_hides_only_those_cells() {
         .iter()
         .map(|p| (p.row, p.column, p.width, p.height))
         .collect();
-    // Top row keeps the right cell; the bottom row stays whole.
     assert!(rects.iter().any(|r| (r.0 - 0.0).abs() < 0.01 && (r.1 - 1.0).abs() < 0.01), "{rects:?}");
     assert!(rects.iter().any(|r| (r.0 - 1.0).abs() < 0.01 && (r.2 - 2.0).abs() < 0.01), "{rects:?}");
     assert!(rects.iter().all(|r| r.1 > 0.0 || r.0 > 0.0), "the covered cell is absent {rects:?}");
@@ -49,8 +45,6 @@ fn text_over_part_of_an_in_cell_picture_hides_only_those_cells() {
 fn a_reflow_keeps_a_picture_on_the_same_text() {
     let mut engine = engine(6, 10);
     let mut intake = Intake::new(8);
-    // Ten columns of digits, then a marker the picture sits on. The
-    // marker wraps to the next row.
     feed(&mut engine, &mut intake, b"0123456789MARK");
     feed(&mut engine, &mut intake, b"\x1b[2;5H");
     feed(&mut engine, &mut intake, &picture(7));
@@ -65,8 +59,6 @@ fn a_reflow_keeps_a_picture_on_the_same_text() {
     }
     let wide = intake.describe(View { top: engine.top_line(), rows: 6, alternate: false });
     assert_eq!(wide.placements.len(), 1, "the picture survived the wider grid");
-    // The picture sits four cells into the wrapped tail, character
-    // offset 14. At width 20 that is column 14 of the one logical line.
     assert!(
         (wide.placements[0].column - 14.0).abs() < 0.01,
         "the picture followed the marker, column {}",
@@ -100,8 +92,6 @@ fn a_text_anchored_layer_moves_with_a_scroll_region() {
     feed(&mut engine, &mut intake, b"\x1b[3;6r\x1b[1S");
     let layers = intake.expansion.frame(0, 8, false);
     assert_eq!(layers.len(), 1, "the layer stayed");
-    // It was on row 3 (1-based 4). The region is rows 2..6. Scroll up
-    // one moves it to row 2.
     let row = match &layers[0].placement {
         angel_glass::Placement::Cells(cells) => cells[1],
         other => panic!("expected a cell placement, {other:?}"),
@@ -168,7 +158,6 @@ fn an_erase_rectangle_covers_only_its_cells() {
     intake.set_cell((1, 1));
     let mut engine = Engine::new(6, 6, HostInfo { colors: [[0; 3], [0, 0, 0], [0xff; 3]], cell_px: (1, 1) });
     feed(&mut engine, &mut intake, b"\x1bPq#0;2;100;0;0#0~~\x1b\\");
-    // EL from column 2 on the first row covers the right of that row.
     feed(&mut engine, &mut intake, b"\x1b[1;2H\x1b[K");
     let shown = intake.describe(View { top: 0, rows: 6, alternate: false });
     assert!(!shown.placements.is_empty(), "the picture was not removed whole");
@@ -217,7 +206,6 @@ fn covers_emit_exact_rectangles() {
     let (mut engine, mut intake) = rig(24, 20);
     feed(&mut engine, &mut intake, b"\x1b[1;1H");
     sixel_4x6(&mut engine, &mut intake);
-    // A non-rectangular cover: the middle of row 1, and all of row 3.
     intake.covered(false, area(1, 1, 1, 2));
     intake.covered(false, area(3, 1, 0, 4));
     let shown = intake.describe(View { top: 0, rows: 24, alternate: false });
@@ -237,7 +225,6 @@ fn ich_and_dch_shift_partly_over_an_in_cell_picture() {
     let (mut engine, mut intake) = rig(24, 20);
     feed(&mut engine, &mut intake, b"\x1b[1;3H");
     sixel_4x6(&mut engine, &mut intake);
-    // ICH 2 at column 4 (1-based 5) shifts the row over the picture's right.
     feed(&mut engine, &mut intake, b"\x1b[1;5H\x1b[2@");
     let shown = intake.describe(View { top: 0, rows: 24, alternate: false });
     let row0: Vec<_> = rects(&shown).into_iter().filter(|r| r.0 == 0).collect();
@@ -321,8 +308,6 @@ fn a_wholly_covered_picture_goes() {
 #[test]
 fn a_tall_picture_is_cut_at_the_bottom_margin() {
     let (mut engine, mut intake) = rig(16, 20);
-    // Picture on rows 3..=8. Region lines 2..=5, so rows 3..=5 are inside
-    // and rows 6..=8 stay outside the bottom margin.
     feed(&mut engine, &mut intake, b"\x1b[4;1H");
     sixel_4x6(&mut engine, &mut intake);
     feed(&mut engine, &mut intake, b"\x1b[3;6r\x1b[S");
@@ -337,8 +322,6 @@ fn a_tall_picture_is_cut_at_the_bottom_margin() {
     );
 }
 
-/// A primary picture sits on `symbol`, including a row that reflow pushed
-/// into history. The row is the grid's, not only the column.
 fn on_symbol(engine: &Engine, intake: &Intake, rows: usize, symbol: char) -> bool {
     let hist = engine.history_size() as i32;
     let Some((screen_row, col)) = (-hist..rows as i32).find_map(|line| {
@@ -365,7 +348,6 @@ fn reflow_on_both_screens_wider_narrower_and_back() {
     feed(&mut engine, &mut intake, &picture(1));
     feed(&mut engine, &mut intake, b"\x1b[1;13H");
     feed(&mut engine, &mut intake, &picture(2));
-    // Scroll that line into history, then put another picture on the screen.
     feed(&mut engine, &mut intake, b"\n\n\n\n\n\n\n\n");
     feed(&mut engine, &mut intake, b"\x1b[8;2H");
     feed(&mut engine, &mut intake, &picture(3));
@@ -404,8 +386,6 @@ fn reflow_on_both_screens_wider_narrower_and_back() {
     apply(&mut engine, &mut intake, 8, 10);
     let narrow = anchors(&intake, false);
     assert_eq!(narrow.len(), 3, "narrower keeps every picture, {narrow:?}");
-    // Column 12 of the 20-column line is column 2 once the width is 10,
-    // and that character is on the next row of the logical line.
     assert!(narrow.iter().any(|(_, c)| *c == 2), "the wrapped picture moved, {narrow:?}");
     assert!(
         intake.placements.iter().any(|p| !p.alternate && p.line < engine.top_line()),
@@ -421,8 +401,6 @@ fn reflow_on_both_screens_wider_narrower_and_back() {
     assert!(on_symbol(&engine, &intake, 8, '2'), "back: the picture left the 2, {back:?}");
     assert!(on_symbol(&engine, &intake, 8, 'c'), "back: the picture left the c, {back:?}");
 
-    // The alternate grid does not reflow. Its pictures stay. The primary
-    // grid does reflow even while the alternate screen is up.
     feed(&mut engine, &mut intake, b"\x1b[?1049h");
     feed(&mut engine, &mut intake, b"\x1b[2;4H");
     feed(&mut engine, &mut intake, &picture(4));
@@ -439,15 +417,11 @@ fn reflow_on_both_screens_wider_narrower_and_back() {
         "primary pictures, including scrollback, survive a resize while the alternate screen is up, {:?}",
         anchors(&intake, false)
     );
-    // The primary grid reflowed while the alternate screen was up. Back on
-    // it, the pictures are still on the same characters, row and column.
     feed(&mut engine, &mut intake, b"\x1b[?1049l");
     assert!(on_symbol(&engine, &intake, 8, '2'), "alt resize: the picture left the 2");
     assert!(on_symbol(&engine, &intake, 8, 'c'), "alt resize: the picture left the c");
 }
 
-/// The sampler replays are not in the repository: `GLASS_REF_DIR` names the
-/// folder whose `fixtures/` holds them. Unset, the replay tests skip.
 const SAMPLER_FULL: &str = "sampler-replay-full.bin";
 const SAMPLER_OSC: &str = "sampler-replay-osc-only.bin";
 
@@ -459,7 +433,6 @@ fn sampler_fixture(name: &str) -> Option<std::path::PathBuf> {
     Some(std::path::Path::new(&dir?).join("fixtures").join(name))
 }
 
-/// The reader thread's read, then the sizes the cover bug was chased at.
 fn replay_fixture(path: &std::path::Path, read: usize) -> (Engine, Intake) {
     let bytes = std::fs::read(path).unwrap_or_else(|e| panic!("fixture {}: {e}", path.display()));
     let mut engine = Engine::new(
@@ -524,36 +497,26 @@ fn sampler_replay_osc_only_picture_is_uncovered() {
     osc_picture_is_one_uncovered_rectangle(&engine, &mut intake, 64 * 1024);
 }
 
-/// A caption below an in-cell picture must not hide it just because the
-/// alternate screen has scrolled. The cover is recorded on the picture's
-/// absolute line, which includes the lines that left the top.
 #[test]
 fn alt_scroll_does_not_apply_text_below_a_picture_as_a_cover() {
     let mut engine = engine(12, 40);
     let mut intake = Intake::new(8);
     intake.set_cell((10, 20));
     feed(&mut engine, &mut intake, b"\x1b[?1049h");
-    // 20 linefeeds: 11 reach the last row, 9 leave the top.
     let down = vec![b'\n'; 20];
     feed(&mut engine, &mut intake, &down);
     assert_eq!(engine.alt_scrolled(), 9, "the alternate screen did not scroll as the fixture's screen does");
-    // An in-cell picture on row 2. A later caption on the last row does
-    // not overlap it. Before the fix that caption was recorded at the
-    // grid row, which collided with the picture's absolute line.
     feed(&mut engine, &mut intake, b"\x1b[2;1H\x1bPq#0!40~\x1b\\");
     let before = engine.alt_scrolled();
     feed(&mut engine, &mut intake, b"\x1b[12;1Hbelow");
     let pic = intake.placements.iter().find(|p| p.in_cell).expect("in-cell picture");
     assert!(pic.covered.is_empty(), "text below the picture covered line {} {:?}", pic.line, pic.covered);
     assert_eq!(engine.alt_scrolled(), before, "the caption scrolled the screen");
-    // The same cells, written on the picture, do hide it.
     feed(&mut engine, &mut intake, b"\x1b[2;1HXX");
     let pic = intake.placements.iter().find(|p| p.in_cell).expect("in-cell picture");
     assert!(!pic.covered.is_empty(), "text on the picture left it uncovered");
 }
 
-/// A scroll and the text after it can share one chunk. The cover's line
-/// must follow the scroll, or text at the picture's old row hides it.
 #[test]
 fn alt_scroll_in_the_same_chunk_does_not_leave_covers_on_the_old_row() {
     let mut engine = engine(12, 40);
@@ -564,13 +527,10 @@ fn alt_scroll_in_the_same_chunk_does_not_leave_covers_on_the_old_row() {
     feed(&mut engine, &mut intake, &down);
     feed(&mut engine, &mut intake, b"\x1b[5;1H\x1bPq#0!40~\x1b\\");
     let line = intake.placements.iter().find(|p| p.in_cell).expect("picture").line;
-    // Two linefeeds from the last row scroll the picture up by two. The
-    // text is then written at the picture's old screen row.
     feed(&mut engine, &mut intake, b"\x1b[12;1H\n\n\x1b[5;1Hnope");
     let pic = intake.placements.iter().find(|p| p.in_cell).expect("picture");
     assert_eq!(pic.line, line, "the picture's absolute line moved");
     assert!(pic.covered.is_empty(), "text at the old row covered {:?}", pic.covered);
-    // Text on the picture's new screen row still hides those cells.
     feed(&mut engine, &mut intake, b"\x1b[3;1HYY");
     let pic = intake.placements.iter().find(|p| p.in_cell).expect("picture");
     assert!(!pic.covered.is_empty(), "text on the picture after the scroll left it uncovered");

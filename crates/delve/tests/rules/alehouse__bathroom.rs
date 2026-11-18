@@ -72,7 +72,6 @@ fn bathroom_door_can_be_walked_both_ways_and_walls_stop_a_knight() {
         "walk back into the hall"
     );
 
-    // The same east wall immediately above the doorway is not passable.
     let h = r.players.get_mut(&1).unwrap();
     (h.x, h.y) = units((34.5, 4.5));
     step(&mut r, 1, 0, 240);

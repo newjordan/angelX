@@ -1,9 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
 
-# Each law is a closed equality between literal results, so its proof re-runs
-# the same paint and lane helpers: nothing is assumed beyond the module.
-
 def Laws.the_stairwell_middle_is_one_inset():
   {==}
 

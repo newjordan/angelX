@@ -4,7 +4,6 @@ use super::light::Light;
 use super::map::TILE;
 use super::scene::Prop;
 
-// Where the college stands is the world's.
 pub use crate::world::college::{approach, lot, stand};
 
 pub fn stage(tick: u32, props: &mut Vec<Prop>, lights: &mut Vec<Light>) {
@@ -33,15 +32,12 @@ pub fn stage(tick: u32, props: &mut Vec<Prop>, lights: &mut Vec<Light>) {
         fire: false,
     });
     let mut plaque = super::ink::Img::new(108, 14);
-    // A prop in the lit map: the night sign, which its dusk leaves flat,
-    // under the steel rim of the kingdom's name plaques.
     super::chrome::panel(
         &mut plaque,
         (0, 0, 107, 13),
         super::chrome::Tone::NIGHT_SIGN.rimmed(super::chrome::Tone::SLATE.rim),
     );
     plaque.text(4, 3, "Labyrinth College", 'i');
-    // Above the tower, clear of the door. Knights stand on the name's old spot.
     props.push(Prop {
         x: tower_x + (tower_w - plaque.w) / 2,
         base: tower_top,

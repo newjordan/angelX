@@ -1,8 +1,6 @@
 use super::*;
 use crate::tests::TestEnvGuard;
 
-// The production API effort cache is seed-once. A fixture changing its env must
-// resync under env_lock, and clear it again after the env guards are restored.
 struct ReasoningCacheReset;
 impl Drop for ReasoningCacheReset {
     fn drop(&mut self) {
@@ -90,7 +88,6 @@ fn gate1_cli_effort_corrects_env_selected_subscription_without_driver_and_captur
     assert_eq!(defaults["requested_reasoning_effort"], "pi:minimal");
     assert_eq!(defaults["resolved_reasoning_effort"], "low");
     assert_eq!(defaults["reasoning_effort_source"], "cli");
-    // The immutable launch capture remains independent of later session THINK.
     bag.set_reasoning_effort("high").unwrap();
     assert_eq!(bound.club.reasoning_effort().as_deref(), Some("low"));
 }
@@ -100,7 +97,6 @@ fn gate1_given_pi_model_without_effort_when_startup_then_preserves_native_fallba
     let _lock = crate::tests::env_lock();
     let root = FixtureDir::new();
     let _env = root.environment();
-    // Given a checked Pi model with no producer default or ambient effort.
     let _unset =
         ["ANGEL_OPENAI_REASONING_EFFORT", "ANGEL_REASONING_EFFORT"].map(TestEnvGuard::unset);
     let launch = InteractiveLaunch {
@@ -109,7 +105,6 @@ fn gate1_given_pi_model_without_effort_when_startup_then_preserves_native_fallba
         draft: Some("literal draft".into()),
         ..Default::default()
     };
-    // When explicit model intent is admitted, no empty default is invented.
     let run = crate::agent::codex_startup::CodexStartup::load_for_launch(&launch)
         .expect("omitted effort retains supported native fallback");
     assert!(run.catalog.models()[0].default_reasoning_level.is_empty());
@@ -121,7 +116,6 @@ fn gate1_given_pi_model_without_effort_when_startup_then_preserves_native_fallba
     );
     assert_eq!(run.selection.effort_source, "fallback");
     assert!(run.selection.error.is_none());
-    // Then explicit invalid effort still fails; absence is not fallback permission.
     let invalid = InteractiveLaunch {
         driver: Some("openai".into()),
         model: Some("gate1-model".into()),
@@ -129,7 +123,6 @@ fn gate1_given_pi_model_without_effort_when_startup_then_preserves_native_fallba
         ..Default::default()
     };
     assert!(crate::agent::codex_startup::CodexStartup::load_for_launch(&invalid).is_err());
-    // Nor may an unsupported fallback silently clamp to another supported level.
     let path = root.0.join("store.json");
     let mut store: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
@@ -145,7 +138,6 @@ fn gate1_cli_effort_corrects_explicit_api_responses_before_final_selection_check
     let _cache_reset = ReasoningCacheReset;
     let root = FixtureDir::new();
     let _env = root.environment();
-    // ANGEL_API_CLUBS selects provider families; the concrete driver is openai-api.
     let _api = TestEnvGuard::set("ANGEL_API_CLUBS", "openai");
     let _key = TestEnvGuard::set("ANGEL_OPENAI_KEY", "fixture-only");
     let _url = TestEnvGuard::set("ANGEL_OPENAI_API_URL", "http://127.0.0.1:9/v1");
@@ -257,8 +249,6 @@ fn gate1_escape_after_launch_enqueue_before_dispatch_preserves_two_exact_drafts(
             LaunchState::Cancelled
         );
         assert!(app.launch_route.is_none());
-        // Explicitly attempt the deferred dispatch seam: no pending turn means
-        // zero worker starts, no replay, and no provider/tool invocation.
         app.launch_pending_turn();
         app.advance_launch_input();
         assert!(app.thinking.is_none());

@@ -29,58 +29,31 @@ use std::sync::{Arc, Mutex, OnceLock, mpsc};
 use std::thread::{self, Thread};
 use std::time::{Duration, Instant};
 
-/// A reader only parses small messages: a small stack is plenty.
 pub(crate) const READER_STACK: usize = 256 * 1024;
-/// How often a blocked read wakes to check for silence and closing.
 const READ_POLL: Duration = Duration::from_millis(250);
-/// The shortest read timeout: the OS refuses a zero one.
 const MIN_WAIT: Duration = Duration::from_millis(1);
 
-/// What a writer sends besides snapshots and events.
 pub(crate) enum Out {
-    /// A whole protocol message (Welcome, Notice, Reject).
     Msg(Vec<u8>),
-    /// A protocol `Pong`, answering the client's `Ping`. Only the newest
-    /// waits: a writer stuck on a slow socket cannot pile them up.
     Reply(Vec<u8>),
-    /// A WebSocket pong, answering the client's ping; likewise only the newest.
     Pong(Vec<u8>),
-    /// The close frame; nothing goes after it.
     Close(u16),
 }
 
-/// What a reader heard.
 pub(crate) enum Heard {
-    /// A whole message.
     Message(Message),
-    /// Bytes of a message not yet whole.
     Bytes,
-    /// Nothing, within the wait.
     Quiet,
-    /// The client is gone: its socket closed under us, or it let go of its pipe.
     Gone,
-    /// The client broke the WebSocket protocol.
     Broke(Violation),
 }
 
-/// How a connection's reader hears its client.
 pub(crate) trait Inlet {
-    /// The host's own connection, in process. It is let in without the key
-    /// and past the lock, and never counts among the connections not yet in:
-    /// there is no door to flood. It is never limited in messages a second
-    /// or closed for silence: it cannot flood a network, and it cannot
-    /// vanish without its pipe saying so. Its writer is never held back for
-    /// being behind: a pipe has no link to queue on, and a full pipe blocks
-    /// the writer as a full socket does.
     const LOCAL: bool;
-    /// The next thing heard, waiting at most `wait`.
     fn next(&mut self, wait: Duration) -> Heard;
-    /// After this side's close: wait (at most `CLOSE_WAIT`) for the
-    /// client's, so the reason is read before the connection goes; then let go.
     fn linger(&mut self);
 }
 
-/// One thing a writer puts out.
 #[derive(Clone, Copy)]
 pub(crate) enum Put<'a> {
     Binary(&'a [u8]),
@@ -89,17 +62,11 @@ pub(crate) enum Put<'a> {
     Close(u16),
 }
 
-/// How a connection's writer reaches its client.
 pub(crate) trait Outlet: Send + 'static {
-    /// Write one whole message: the bytes it took.
     fn put(&mut self, what: Put) -> io::Result<usize>;
-    /// After the close: nothing more is written, and the client still reads
-    /// what was.
     fn finish(&mut self);
 }
 
-/// Cuts a connection under both its halves, waking a reader or a writer
-/// blocked on it.
 pub(crate) trait Cut: Send + Sync {
     fn cut(&self);
 }
@@ -110,15 +77,11 @@ impl Cut for TcpStream {
     }
 }
 
-/// The state a connection's reader and writer share.
 pub(crate) struct Conn {
     pub id: u64,
     pub seat: Option<u32>,
     pub welcome_tick: u32,
-    /// The host's own, in process (`Inlet::LOCAL`).
     pub local: bool,
-    /// The newest snapshot tick the client says it has applied, and when
-    /// it said so.
     applied: Mutex<(u32, Option<Instant>)>,
     pub counters: Arc<ConnCounters>,
     cut: Arc<dyn Cut>,
@@ -133,7 +96,6 @@ impl Conn {
         self.wake();
     }
 
-    /// An answer (a pong): it replaces one of its kind still waiting.
     pub fn answer(&self, out: Out) {
         {
             let mut outbox = self.outbox.lock().expect("outbox lock");
@@ -152,8 +114,6 @@ impl Conn {
         }
     }
 
-    /// Close from this side: `reject` first if given (it says why), then
-    /// the close frame. The reader waits `CLOSE_WAIT` for the client's.
     pub fn close(&self, code: u16, reject: Option<Vec<u8>>) {
         if self.closing.swap(true, SeqCst) {
             return;
@@ -177,8 +137,6 @@ impl Conn {
     }
 }
 
-/// Counts this connection among those not yet past their hello until
-/// it is let in or gone.
 pub(crate) struct Pending<'a> {
     count: &'a std::sync::atomic::AtomicUsize,
     held: bool,
@@ -203,7 +161,6 @@ fn timed_out(e: &io::Error) -> bool {
     matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut)
 }
 
-/// The connection's whole life, on the thread the accept loop started.
 pub(crate) fn handle<G: GameServer>(hub: Arc<Hub<G>>, mut stream: TcpStream) {
     let mut pending = Pending { count: &hub.pending, held: true };
     let _ = stream.set_nodelay(true);
@@ -212,8 +169,6 @@ pub(crate) fn handle<G: GameServer>(hub: Arc<Hub<G>>, mut stream: TcpStream) {
         return;
     };
     hub.tele.counters.upgrades.fetch_add(1, SeqCst);
-    // The reader keeps this handle on the socket, the writer a second, and
-    // whoever must cut the connection a third.
     let (Ok(writer), Ok(cut)) = (stream.try_clone(), stream.try_clone()) else {
         return;
     };
@@ -224,13 +179,9 @@ pub(crate) fn handle<G: GameServer>(hub: Arc<Hub<G>>, mut stream: TcpStream) {
     websocket(&hub, inlet, outlet, Arc::new(cut), Some(&mut pending));
 }
 
-/// Read one request head into `buf`, within the deadline and the size
-/// limit. Returns the head's length, its blank line included.
 fn read_head(stream: &mut TcpStream, buf: &mut Vec<u8>, deadline: Instant) -> Result<usize, &'static str> {
     let mut chunk = [0u8; 1024];
     loop {
-        // Bytes past the head (a pipelined request, a hello sent with the
-        // upgrade) stay in `buf` for whoever reads next.
         if let Some(at) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
             return if at <= MAX_HANDSHAKE { Ok(at + 4) } else { Err("431 Request Header Fields Too Large") };
         }
@@ -251,15 +202,9 @@ fn read_head(stream: &mut TcpStream, buf: &mut Vec<u8>, deadline: Instant) -> Re
     }
 }
 
-/// How long a closing HTTP connection keeps reading what the client still
-/// sends, and how much of it, so its last response is not lost to a reset.
 const HTTP_LINGER: std::time::Duration = std::time::Duration::from_millis(500);
 const HTTP_LINGER_BYTES: usize = 64 * 1024;
 
-/// Close after a last response: half-close, then read and drop what the
-/// client was still sending (a long head, a pipelined request). Closing
-/// with unread bytes would reset the connection, and a client can lose the
-/// response it has not read yet to that reset.
 fn http_close(stream: &mut TcpStream) {
     let _ = stream.shutdown(Shutdown::Write);
     let until = Instant::now() + HTTP_LINGER;
@@ -278,14 +223,10 @@ fn http_close(stream: &mut TcpStream) {
     }
 }
 
-/// Requests until the connection closes or upgrades. On an upgrade, the
-/// bytes read past the handshake.
 fn serve_http<G: GameServer>(hub: &Hub<G>, stream: &mut TcpStream) -> Option<Vec<u8>> {
     let mut buf = Vec::with_capacity(1024);
     let mut first = true;
     loop {
-        // The first request (or one already begun) has the handshake time;
-        // a kept-alive connection waits less for its next one.
         let wait = if first || !buf.is_empty() { HANDSHAKE_TIME } else { KEEP_ALIVE_IDLE };
         first = false;
         let len = match read_head(stream, &mut buf, Instant::now() + wait) {
@@ -305,7 +246,6 @@ fn serve_http<G: GameServer>(hub: &Hub<G>, stream: &mut TcpStream) -> Option<Vec
             http_close(stream);
             return None;
         };
-        // No request here has a body.
         if req.header("content-length").is_some_and(|n| n.trim() != "0") || req.header("transfer-encoding").is_some() {
             let _ = stream.write_all(&http::plain("400 Bad Request", "no bodies here", false, &[]));
             http_close(stream);
@@ -364,7 +304,6 @@ fn serve_http<G: GameServer>(hub: &Hub<G>, stream: &mut TcpStream) -> Option<Vec
     }
 }
 
-/// The handshake's checks (RFC 6455 §4.2.1), and the accept key.
 fn upgrade(req: &Request) -> Result<String, Vec<u8>> {
     if !req.lists("upgrade", "websocket") || !req.lists("connection", "upgrade") {
         return Err(http::plain("400 Bad Request", "this is the game socket: it speaks WebSocket", false, &[]));
@@ -378,13 +317,10 @@ fn upgrade(req: &Request) -> Result<String, Vec<u8>> {
     }
 }
 
-
-/// A socket's reading half: WebSocket frames, read into messages.
 struct SocketIn {
     stream: TcpStream,
     parser: Parser,
     chunk: Vec<u8>,
-    /// The read timeout last set, so it is set again only when it changes.
     wait: Option<Duration>,
 }
 
@@ -429,7 +365,6 @@ impl Inlet for SocketIn {
     }
 }
 
-/// A socket's writing half: each message one frame, written whole.
 struct SocketOut {
     stream: TcpStream,
     frame: Vec<u8>,
@@ -453,23 +388,17 @@ impl Outlet for SocketOut {
         Ok(self.frame.len())
     }
 
-    /// Half-close: the client still reads what was sent (the reason), and
-    /// the reader waits for its close.
     fn finish(&mut self) {
         let _ = self.stream.shutdown(Shutdown::Write);
     }
 }
 
-/// Turned away after the upgrade: say why, close, and wait briefly for the
-/// client's close so the reason is read before the connection goes.
 fn refuse(inlet: &mut impl Inlet, outlet: &mut impl Outlet, why: Reject, text: &str, close_code: u16) {
     let _ = outlet.put(Put::Binary(&ToClient::Reject { why, text }.to_vec()));
     let _ = outlet.put(Put::Close(close_code));
     inlet.linger();
 }
 
-/// The first message, which must be a `Hello`, within the handshake time.
-/// Pings before it are answered here; there is no writer yet.
 fn first_message(inlet: &mut impl Inlet, outlet: &mut impl Outlet) -> Result<Vec<u8>, (u16, &'static str)> {
     let until = Instant::now() + HANDSHAKE_TIME;
     loop {
@@ -494,9 +423,6 @@ fn first_message(inlet: &mut impl Inlet, outlet: &mut impl Outlet) -> Result<Vec
     }
 }
 
-/// The WebSocket's life over either transport: the hello, then reading
-/// while the writer writes. A socket's `pending` counts it among those not
-/// yet in until its hello is let in.
 pub(crate) fn websocket<G: GameServer, I: Inlet, O: Outlet>(
     hub: &Arc<Hub<G>>,
     mut inlet: I,
@@ -536,9 +462,6 @@ pub(crate) fn websocket<G: GameServer, I: Inlet, O: Outlet>(
     }
 
     let id = hub.next_conn.fetch_add(1, SeqCst);
-    // Admitted, registered and told to the sim in one critical section: a
-    // kick, a stop or a second reload finds this connection the moment its
-    // seat is taken, and the sim sees seats change in the order they did.
     let admitted = {
         let mut sessions = hub.sessions.lock().expect("sessions lock");
         let watch = client_caps & caps::WATCH != 0;
@@ -569,8 +492,6 @@ pub(crate) fn websocket<G: GameServer, I: Inlet, O: Outlet>(
                     applied: Mutex::new((0, None)),
                     counters: Arc::new(ConnCounters::default()),
                     cut,
-                    // The welcome, then the knob table as this connection
-                    // is told it (whether it may set them).
                     outbox: Mutex::new(vec![Out::Msg(welcome), Out::Msg(hub.knobs_message(I::LOCAL))]),
                     writer: OnceLock::new(),
                     closing: AtomicBool::new(false),
@@ -619,10 +540,7 @@ pub(crate) fn websocket<G: GameServer, I: Inlet, O: Outlet>(
         pending.release();
     }
     hub.tele.conns.lock().expect("telemetry lock").push((id, conn.counters.clone(), Instant::now()));
-    // From here, whatever happens (a goodbye, a drop, a panic in game code),
-    // the guard closes the connection and gives the seat back or holds it.
     let mut admitted = Admitted { hub, conn: conn.clone(), bye: false };
-    // A stop that looked at the connections before this one was in them.
     if hub.stop.load(SeqCst) {
         let reject = ToClient::Reject { why: Reject::Stopping, text: "the host closed the session" };
         conn.close(code::GOING_AWAY, Some(reject.to_vec()));
@@ -630,7 +548,6 @@ pub(crate) fn websocket<G: GameServer, I: Inlet, O: Outlet>(
 
     let writer_hub = hub.clone();
     let writer_conn = conn.clone();
-    // Dropped when the writer ends, however it ends.
     let (done, writer_done) = mpsc::channel::<()>();
     let writer = thread::Builder::new().name("angel-writer".into()).spawn(move || {
         let _done = done;
@@ -640,8 +557,6 @@ pub(crate) fn websocket<G: GameServer, I: Inlet, O: Outlet>(
         let _ = conn.writer.set(handle.thread().clone());
         conn.wake();
         admitted.bye = read_loop(hub, &conn, &mut inlet);
-        // The writer finishes what it was sending (a close), then stops;
-        // one stuck on a connection that takes nothing is cut off.
         if !conn.closing() {
             conn.close(code::GOING_AWAY, None);
         }
@@ -651,7 +566,6 @@ pub(crate) fn websocket<G: GameServer, I: Inlet, O: Outlet>(
     }
 }
 
-/// An admitted connection's end, run however `websocket` returns.
 struct Admitted<'a, G: GameServer> {
     hub: &'a Hub<G>,
     conn: Arc<Conn>,
@@ -671,8 +585,6 @@ impl<G: GameServer> Drop for Admitted<'_, G> {
     }
 }
 
-/// A connection is gone: a goodbye frees its seat, anything else holds it
-/// for a resume.
 fn leave<G: GameServer>(hub: &Hub<G>, id: u64, seat: Option<u32>, bye: bool) {
     let mut sessions = hub.sessions.lock().unwrap_or_else(|p| p.into_inner());
     match seat {
@@ -689,7 +601,6 @@ fn leave<G: GameServer>(hub: &Hub<G>, id: u64, seat: Option<u32>, bye: bool) {
     }
 }
 
-/// Messages a client may send, as a bucket that refills each second.
 struct Bucket {
     tokens: f64,
     at: Instant,
@@ -710,8 +621,6 @@ impl Bucket {
     }
 }
 
-/// Read until the client leaves, breaks a rule, or goes silent. True when
-/// it said goodbye.
 fn read_loop<G: GameServer>(hub: &Arc<Hub<G>>, conn: &Conn, inlet: &mut impl Inlet) -> bool {
     let counters = &hub.tele.counters;
     let mut bucket = Bucket { tokens: f64::from(MAX_MESSAGES_PER_SEC), at: Instant::now() };
@@ -813,8 +722,6 @@ fn read_loop<G: GameServer>(hub: &Arc<Hub<G>>, conn: &Conn, inlet: &mut impl Inl
     }
 }
 
-/// The writer: the welcome and anything queued, then each newest tick's
-/// events and this client's snapshot, and a ping every second.
 fn write_loop<G: GameServer, O: Outlet>(hub: Arc<Hub<G>>, conn: Arc<Conn>, mut outlet: O) {
     let _unwind = WriterUnwind(&conn);
     let counters = &conn.counters;
@@ -824,7 +731,6 @@ fn write_loop<G: GameServer, O: Outlet>(hub: Arc<Hub<G>>, conn: Arc<Conn>, mut o
     let mut body = Vec::with_capacity(2048);
     let mut outs = Vec::new();
     let mut recent: Vec<Published<G>> = Vec::new();
-    // Events and snapshots are sent through this tick.
     let mut through = conn.welcome_tick;
     let mut opened = false;
     let mut pace = Pace::default();
@@ -861,8 +767,6 @@ fn write_loop<G: GameServer, O: Outlet>(hub: Arc<Hub<G>>, conn: Arc<Conn>, mut o
             }
         }
 
-        // A new client sees the world at once: the tick newest at its
-        // welcome, whole, rather than nothing until the next one.
         if !opened {
             opened = true;
             let newest = hub.ticks.lock().expect("tick ring lock").back().filter(|t| t.tick == through).cloned();
@@ -883,8 +787,6 @@ fn write_loop<G: GameServer, O: Outlet>(hub: Arc<Hub<G>>, conn: Arc<Conn>, mut o
                 let _ = hub.inbound.send(Inbound::Latency { seat, conn: conn.id, round_trip });
             }
         }
-        // A writer holding back only looks at the newest tick's number, so
-        // it never touches the tick ring the sim publishes into.
         let newest_tick = hub.newest.load(SeqCst);
         if newest_tick != through {
             if !conn.local && pace.behind() {
@@ -895,8 +797,6 @@ fn write_loop<G: GameServer, O: Outlet>(hub: Arc<Hub<G>>, conn: Arc<Conn>, mut o
             } else {
                 hub.ticks_since(through, &mut recent);
                 if let Some(newest) = recent.last() {
-                    // Ticks that aged out of the ring while this writer was held
-                    // back or blocked: their events are gone.
                     let lost = recent[0].tick.wrapping_sub(through).saturating_sub(1);
                     tele.counters.events_lost.fetch_add(u64::from(lost), SeqCst);
                     for t in &recent {
@@ -940,12 +840,10 @@ fn write_loop<G: GameServer, O: Outlet>(hub: Arc<Hub<G>>, conn: Arc<Conn>, mut o
         }
         thread::park_timeout(PING_EVERY.saturating_sub(last_ping.elapsed()));
     }
-    // The connection failed: the reader is woken by it closing under it.
     conn.closing.store(true, SeqCst);
     conn.shutdown();
 }
 
-/// What a writer keeps to put one snapshot to its client.
 struct Snapshot<'a, V> {
     viewer: &'a mut V,
     body: &'a mut Vec<u8>,
@@ -954,7 +852,6 @@ struct Snapshot<'a, V> {
 }
 
 impl<V> Snapshot<'_, V> {
-    /// This client's snapshot of tick `t`; false when the outlet failed.
     fn write<G: GameServer<Rep = R>, R: Replicate<Viewer = V>, O: Outlet>(
         &mut self,
         hub: &Hub<G>,
@@ -981,8 +878,6 @@ impl<V> Snapshot<'_, V> {
     }
 }
 
-/// A writer that panics (in game code) closes its connection, so its
-/// reader ends too and the seat is given back or held, not left half alive.
 struct WriterUnwind<'a>(&'a Conn);
 
 impl Drop for WriterUnwind<'_> {

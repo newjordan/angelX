@@ -5,11 +5,8 @@
 
 use super::*;
 
-/// How far a Censer's pulse reaches.
 pub const CENSER_REACH: f32 = 8.0;
 
-/// The Fae Dagger: the knight along its aim, in short steps so that no
-/// wall is passed through; a breath of grace on arrival.
 pub(super) fn blink(hero: &mut Hero, grid: &Grid) {
     if hero.blink == 0 {
         return;
@@ -35,7 +32,6 @@ pub(super) fn blink(hero: &mut Hero, grid: &Grid) {
 }
 
 impl Run {
-    /// Each tick: Censer pulses go out; Pendragon Sceptres run down.
     pub(super) fn tick_items(&mut self) {
         let pulses: Vec<(u32, f32, f32, u32)> = self
             .players

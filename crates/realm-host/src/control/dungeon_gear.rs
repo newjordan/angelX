@@ -115,8 +115,6 @@ art
 ";
 
 impl Session<'_> {
-    /// `/dungeon cards [reload|new <name>]`: the card format, the workspace's
-    /// cards read again, or a new card file to edit.
     pub(super) fn dungeon_cards(&mut self, tail: &str) -> String {
         let dir = self.cards_dir();
         let (verb, rest) = tail.split_once(char::is_whitespace).unwrap_or((tail, ""));
@@ -183,7 +181,6 @@ impl Session<'_> {
         }
     }
 
-    /// `/dungeon card <file>`: check one card file and drop it at your feet.
     pub(super) fn dungeon_card(&mut self, file: &str) -> String {
         if file.is_empty() {
             return "/dungeon card <file.card> checks a card and drops it at your feet.".into();

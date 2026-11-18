@@ -146,7 +146,6 @@ pub fn load_evaluator_artifact(path: &Path) -> Result<EvaluatorEvidence, String>
     load_evaluator_artifact_bytes(&bytes, expected_manifest)
 }
 
-/// Decode exactly the bytes already read by a digest-addressed authority reader.
 pub(crate) fn load_evaluator_artifact_bytes(
     bytes: &[u8],
     expected_manifest: &str,

@@ -25,7 +25,6 @@ fn the_host_in_process_and_clients_on_sockets_see_each_other() {
     let mut host = NativeLink::<MusterClient>::local(server.connect_local().unwrap(), "Host", LinkOptions::default());
     assert!(frames_until(&mut host, &clock, WAIT, playing), "{:?}", host.status());
     let host_seat = host.runtime().seat().unwrap();
-    // Five friends join over sockets and stand where they spawned, near the host.
     let until = Instant::now() + Duration::from_millis(2500);
     let bots: Vec<_> = (0..5u32)
         .map(|i| {
@@ -43,7 +42,6 @@ fn the_host_in_process_and_clients_on_sockets_see_each_other() {
             thread::spawn(move || run::<Headless>(&cfg, until))
         })
         .collect();
-    // The host draws its frames meanwhile, as a terminal does.
     frames_for(&mut host, &clock, Duration::from_millis(2000));
     let mirror = host.runtime().game().unwrap().mirror();
     let seen: Vec<u32> = (0..6).filter(|s| *s != host_seat && mirror.get(*s).is_some()).collect();
@@ -101,7 +99,6 @@ fn a_cut_socket_is_dialed_again_and_takes_the_same_seat() {
     assert!(frames_until(&mut link, &clock, WAIT, |l| *l.status() == LinkStatus::Reconnecting));
     let lost_at = clock.ms();
     assert!(frames_until(&mut link, &clock, WAIT, playing));
-    // The first retry waits half a second, as the page's does.
     assert!(clock.ms() - lost_at >= 450.0, "back after {} ms", clock.ms() - lost_at);
     assert_eq!((link.runtime().seat(), link.reconnects()), (seat, 1));
     let counted = server.totals().since(&before);
@@ -136,7 +133,6 @@ fn a_seat_taken_elsewhere_stops_the_old_link_and_a_reject_stops_retrying() {
     let clock = Clock::new();
     let mut first = NativeLink::<Headless>::connect(&share(server.addr()), "Gwen", LinkOptions::default()).unwrap();
     assert!(frames_until(&mut first, &clock, WAIT, playing));
-    // The same seat opened from a second terminal (or the host's own pipe).
     let options = LinkOptions { resume: first.seat_token().to_string(), ..LinkOptions::default() };
     let mut second = NativeLink::<Headless>::local(server.connect_local().unwrap(), "", options);
     assert!(frames_until(&mut second, &clock, WAIT, playing));
@@ -145,8 +141,6 @@ fn a_seat_taken_elsewhere_stops_the_old_link_and_a_reject_stops_retrying() {
     frames_for(&mut first, &clock, Duration::from_millis(800));
     assert_eq!((first.status(), first.reconnects()), (&LinkStatus::Replaced, 0));
 
-    // A wrong key, with a stale token: the token is dropped, and the key
-    // alone is turned away for good.
     let wrong = format!("http://{}/#NOTTHISSESSIONSKEY", server.addr());
     let options = LinkOptions { resume: "STALETOKEN".into(), ..LinkOptions::default() };
     let mut turned = NativeLink::<Headless>::connect(&wrong, "Gwen", options).unwrap();
@@ -154,7 +148,6 @@ fn a_seat_taken_elsewhere_stops_the_old_link_and_a_reject_stops_retrying() {
     assert!(matches!(turned.status(), LinkStatus::Rejected(Reject::Key, _)));
     assert_eq!(turned.seat_token(), "");
 
-    // Kicked: told why, and not back.
     assert!(server.kick(second.runtime().seat().unwrap()));
     assert!(frames_until(&mut second, &clock, WAIT, |l| matches!(l.status(), LinkStatus::Rejected(Reject::Kicked, _))));
     frames_for(&mut second, &clock, Duration::from_millis(800));
@@ -164,12 +157,10 @@ fn a_seat_taken_elsewhere_stops_the_old_link_and_a_reject_stops_retrying() {
 
 #[test]
 fn a_link_that_cannot_reach_its_host_keeps_trying_on_the_backoff() {
-    // Nothing listens here (a port the OS just handed out and took back).
     let addr = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap();
     let clock = Clock::new();
     let mut link = NativeLink::<Headless>::connect(&share(addr), "Gwen", LinkOptions::default()).unwrap();
     frames_for(&mut link, &clock, Duration::from_millis(2000));
-    // Refused at once, then after 0.5 and 1 s: three lost dials in two seconds.
     assert_eq!((link.status(), link.reconnects()), (&LinkStatus::Reconnecting, 3));
     assert!(link.retry_at_ms().is_some());
 }

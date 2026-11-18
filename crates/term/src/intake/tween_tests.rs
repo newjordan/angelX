@@ -11,8 +11,6 @@ fn close(a: f64, b: f64, tol: f64) -> bool {
     (a - b).abs() <= tol
 }
 
-// ------------------------------------------------------------- easings
-
 #[test]
 fn easings_hit_their_known_values() {
     let cases: &[(&str, f64, f64)] = &[
@@ -79,8 +77,6 @@ fn every_easing_starts_at_zero_and_ends_at_one() {
 
 #[test]
 fn cubic_bezier_matches_reference_values() {
-    // Each reference solved by bisection to the double's last bit, apart
-    // from the code under test.
     let cases: &[([f64; 4], f64, f64)] = &[
         ([0.25, 0.1, 0.25, 1.0], 0.5, 0.802403387584857),
         ([0.25, 0.1, 0.25, 1.0], 0.25, 0.40851059135539586),
@@ -99,7 +95,6 @@ fn cubic_bezier_matches_reference_values() {
 
 #[test]
 fn springs_follow_their_closed_form_and_settle() {
-    // Under-, critically and over-damped, and with a mass.
     let cases: &[([f64; 3], f64, f64)] = &[
         ([100.0, 10.0, 1.0], 0.1, 0.34029984660829826),
         ([100.0, 10.0, 1.0], 0.3, 1.1243547674084116),
@@ -112,7 +107,6 @@ fn springs_follow_their_closed_form_and_settle() {
         let got = spring(*k, *c, *m, *t);
         assert!(close(got, *want, 1e-9), "spring({k},{c},{m}) at {t}: {got}, not {want}");
     }
-    // The closed form against the equation itself, stepped finely.
     let (mut x, mut v) = (0.0f64, 0.0f64);
     let dt = 1e-6;
     for _ in 0..300_000 {
@@ -121,8 +115,6 @@ fn springs_follow_their_closed_form_and_settle() {
         x += v * dt;
     }
     assert!(close(x, spring(100.0, 10.0, 1.0, 0.3), 1e-4), "{x}");
-    // Settled: within the epsilon from its settle time on, and not long
-    // before it (the envelope's own bound: ln(1.1547 / 0.001) / 5).
     let settle = spring_settle(100.0, 10.0, 1.0);
     assert!(close(settle, 1.4103192630416055, 1e-6), "{settle}");
     for i in 0..2000 {
@@ -132,7 +124,6 @@ fn springs_follow_their_closed_form_and_settle() {
     let ease = Ease::parse("spring(100,10)").unwrap();
     assert!(close(ease.own_duration_ms().unwrap(), settle * 1000.0, 1e-6));
     assert!(close(ease.at(0.1 / settle), spring(100.0, 10.0, 1.0, 0.1), 1e-9));
-    // A spring that never settles in time ends on its target at the cap.
     assert_eq!(spring_settle(10_000.0, 0.001, 1000.0), SPRING_SETTLE_MAX);
 }
 
@@ -150,22 +141,15 @@ fn easing_names_that_are_not_easings_are_refused() {
 #[test]
 fn slerp_takes_the_short_way_at_an_even_speed() {
     let (s, c) = (std::f32::consts::FRAC_PI_4.sin(), std::f32::consts::FRAC_PI_4.cos());
-    // Identity to a half turn about y: halfway is a quarter turn.
     let q = slerp([0.0, 0.0, 0.0, 1.0], [0.0, 1.0, 0.0, 0.0], 0.5);
     assert!((q[1] - s).abs() < 1e-5 && (q[3] - c).abs() < 1e-5, "{q:?}");
-    // -q is q: the way round is the short one, so nothing turns.
     let q = slerp([0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, -1.0], 0.5);
     assert!((q[3].abs() - 1.0).abs() < 1e-5, "{q:?}");
-    // A quarter of the way along a quarter turn is a sixteenth.
     let q = slerp([0.0, 0.0, 0.0, 1.0], [0.0, 0.0, s, c], 0.25);
     let e = std::f32::consts::PI / 16.0;
     assert!((q[2] - e.sin()).abs() < 1e-5 && (q[3] - e.cos()).abs() < 1e-5, "{q:?}");
 }
 
-// ------------------------------------------------------- the engine
-
-/// Property values kept by target and property, standing in for the
-/// dialect's layers and scenes.
 #[derive(Default)]
 struct Board {
     values: Vec<((Target, Prop), Value)>,
@@ -240,7 +224,6 @@ fn delay_repeat_and_yoyo_run_to_the_millisecond_on_a_fake_clock() {
     assert_eq!(board.f(L, Prop::Opacity), 1.0, "three runs, there, back and there");
     assert!(tweens.is_empty());
     assert_eq!(tweens.deadline(4200, 16), None, "all still: nothing wakes the window");
-    // An even number of yoyo runs ends where it began.
     tweens.add(fade(0.0, timing(0, 100.0, Repeat::Count(1), true))).unwrap();
     tweens.tick(5000, &mut board);
     tweens.tick(5200, &mut board);
@@ -262,8 +245,6 @@ fn a_tween_that_replaces_another_starts_where_the_value_stands() {
     tweens.tick(0, &mut board);
     tweens.tick(500, &mut board);
     assert_eq!(board.get(L, Prop::Rect), rect(50.0));
-    // A new tween of the rectangle only: it takes that property over at
-    // once; the fade runs on.
     let back = Tween::new(L, vec![Track::new(Prop::Rect, rect(0.0))], Ease::Linear, timing(0, 1000.0, Repeat::Count(0), false));
     tweens.add(back).unwrap();
     assert_eq!(tweens.len(), 2);
@@ -275,8 +256,6 @@ fn a_tween_that_replaces_another_starts_where_the_value_stands() {
     tweens.tick(1600, &mut board);
     assert_eq!(board.get(L, Prop::Rect), rect(0.0));
     assert!(tweens.is_empty());
-    // One that takes every property of the other over leaves it nothing,
-    // and it goes.
     tweens.add(fade(0.5, timing(0, 1000.0, Repeat::Forever, false))).unwrap();
     tweens.add(fade(0.0, timing(0, 1000.0, Repeat::Count(0), false))).unwrap();
     assert_eq!(tweens.len(), 1);
@@ -299,14 +278,10 @@ fn chains_start_where_the_last_ended_however_far_the_clock_jumped() {
     assert_eq!(tweens.len(), 3, "a chained tween does not take over the one it waits on");
     tweens.tick(0, &mut board);
     assert_eq!(tweens.deadline(0, 16), Some(16), "only the running one wakes");
-    // One jump past the first's end and into the second: the second began
-    // at 1000 plus its 200 delay, from where the first ended.
     tweens.tick(1700, &mut board);
     assert!((board.f(L, Prop::Opacity) - 0.5).abs() < 1e-6, "{}", board.f(L, Prop::Opacity));
-    // A jump past both: the third began at 2200 from 0.
     tweens.tick(2700, &mut board);
     assert!((board.f(L, Prop::Opacity) - 0.25).abs() < 1e-6, "{}", board.f(L, Prop::Opacity));
-    // After a tween that is not there (never was, or already ended): at once.
     let mut d = fade(1.0, timing(0, 100.0, Repeat::Count(0), false));
     d.after = Some(77);
     tweens.add(d).unwrap();
@@ -340,8 +315,6 @@ fn a_visibility_tween_wakes_only_at_its_end() {
     tweens.tick(2000, &mut board);
     assert_eq!(board.get(node, Prop::NodeVisible), Value::B(false));
 }
-
-// ------------------------------------------------------------ the wire
 
 fn layer_at(rig: &Rig, id: u64) -> angel_glass::Layer {
     rig.intake
@@ -389,7 +362,6 @@ fn a_text_anchored_layer_moves_down_its_rows_and_still_rides_the_text() {
     rig.intake.tick_animations(0);
     rig.intake.tick_animations(1000);
     assert_eq!(cells(&layer_at(&rig, 2)), [6.0, 3.5, 4.0, 1.0]);
-    // Seen two lines further down the text, it is two rows higher.
     let moved = rig.intake.expansion.frame(2, 24, false);
     let l = moved.iter().find(|l| l.id & 0xffff_ffff == u64::from(super::glass_dialect::ID_BASE) + 2).unwrap();
     assert_eq!(cells(l), [6.0, 1.5, 4.0, 1.0]);
@@ -424,7 +396,6 @@ fn scene_nodes_and_cameras_tween_through_the_wire() {
     assert_eq!(scene.camera.transform.translation, [3.0, 0.0, 0.0]);
     let angel_glass::scene::Projection::Perspective { fov_y, .. } = scene.camera.projection else { panic!("perspective") };
     assert!((fov_y - 0.4).abs() < 1e-6);
-    // From +x looking at the origin, the camera's own -z is the world's -x.
     let forward = angel_glass::scene::quat_rotate(scene.camera.transform.rotation, [0.0, 0.0, -1.0]);
     assert!((forward[0] + 1.0).abs() < 1e-5 && forward[1].abs() < 1e-5 && forward[2].abs() < 1e-5, "{forward:?}");
 }
@@ -443,14 +414,12 @@ fn setting_a_target_outright_stops_its_tweens() {
     assert_eq!(rig.intake.expansion.tween_count(), 3);
     rig.send(&scene_body(3));
     assert_eq!(rig.intake.expansion.tween_count(), 0);
-    // stop=1 stops them by target or by name; what they moved stays put.
     rig.send("tween;layer=1;o=0;dur=5;tid=9");
     rig.intake.tick_animations(0);
     rig.intake.tick_animations(2500);
     rig.send("tween;tid=9;stop=1");
     assert_eq!(rig.intake.expansion.tween_count(), 0);
     assert!((layer_at(&rig, 1).opacity - 0.5).abs() < 1e-6);
-    // A removed layer takes its tweens with it at the next tick.
     rig.send("tween;layer=1;o=1;dur=5");
     rig.send("remove;id=1");
     rig.intake.tick_animations(2600);
@@ -516,7 +485,6 @@ fn tween_errors_name_themselves() {
 fn tweens_are_capped() {
     let mut rig = Rig::new();
     rig.send("layer;id=1;k=solid;at=0,0,1,1");
-    // Waiting tweens take nothing over on arrival, so these all stay.
     for _ in 0..TWEEN_CAP {
         rig.send("tween;layer=1;o=0.5;after=7");
     }

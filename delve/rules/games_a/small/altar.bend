@@ -1,7 +1,3 @@
-# crates/delve/src/rules/altar.rs — the wish altar and its lamp. Rooms, floors,
-# lamps and the run are their serde J objects; `Option<(f32, f32)>` is null or
-# a two-item array; the u64 tick is `W.W`.
-
 def altar.REACH() -> F32:
   2.4
 
@@ -20,13 +16,9 @@ def altar.MOST_PENDING() -> U32:
 def altar.MOST_LANDED() -> U32:
   6
 
-# --- the lamp ------------------------------------------------------------------
-
-# Nothing has happened at the lamp.
 def altar.Lamp.quiet(+lamp: J.Val) -> Bool:
   Bool.and(U32.is_zero(J.len(J.get(lamp, "rubbed"))), Bool.and(U32.is_zero(J.len(J.get(lamp, "wishing"))), U32.is_zero(J.len(J.get(lamp, "landed")))))
 
-# Knight `id`'s wishes in flight, oldest first.
 def altar.Lamp.pending(+lamp: J.Val, +id: U32) -> J.Val:
   J.JA{altar.Lamp.pending.go(J.items(J.get(lamp, "wishing")), id)}
 
@@ -44,7 +36,6 @@ def altar.Lamp.pending.keep(+mine: Bool, +p: J.Val, +rest: List<&2, J.Val>) -> L
     case False{}:
       rest
 
-# The newest grant, while it still flares at `tick`.
 def altar.Lamp.flaring(+lamp: J.Val, +tick: W.W) -> J.Val:
   altar.Lamp.flaring.last(List.reverse(&2, J.Val, J.items(J.get(lamp, "landed"))), tick)
 
@@ -58,9 +49,6 @@ def altar.Lamp.flaring.last(+rev: List<&2, J.Val>, +tick: W.W) -> J.Val:
 def altar.Lamp.flaring.pick(+on: Bool, +l: J.Val) -> J.Val:
   ga.pv(on, l, J.JNull{})
 
-# --- the stone's geometry --------------------------------------------------------
-
-# Tiles a knight cannot cross once the altar stands at column `c`, row `r`.
 def altar.stone_blocks(+c: U32, +r: U32, +tc: U32, +tr: U32) -> Bool:
   altar.stone_blocks.box(
     F32.mul(F32.add(RS.i_as_f32(c), 0.5), layout.TILE_UNITS()),
@@ -82,20 +70,15 @@ def altar.stone_blocks.pick(+xin: Bool, +yin: Bool, +gap_y: F32, +gap_x: F32) ->
   Bool.or(Bool.and(xin, yin),
     ga.pb(xin, F32.is_lt(gap_y, 0.45), ga.pb(yin, F32.is_lt(gap_x, 0.45), False{})))
 
-# The four ways, in `layout::DIRS` order: north, east, south, west.
 def altar.dir_dx(+i: U32) -> U32:
   ga.pu(U32.is_eq(i, 1), 1, ga.pu(U32.is_eq(i, 3), 4294967295, 0))
 
 def altar.dir_dy(+i: U32) -> U32:
   ga.pu(U32.is_eq(i, 0), 4294967295, ga.pu(U32.is_eq(i, 2), 1, 0))
 
-# Walkable ground: floor, door, stairs, bog.
 def altar.ground(+t: J.Val) -> Bool:
   Bool.or(Bool.or(ga.is(t, "floor"), ga.is(t, "door")), Bool.or(ga.is(t, "stairs"), ga.is(t, "bog")))
 
-# --- stone_cuts_a_passage ------------------------------------------------------------
-
-# The window round the stone: the room, the stone, and the box (c0, r0)-(c1, r1).
 type AltarWin is Data:
   AltarWin{room: J.Val, c: U32, r: U32, c0: U32, r0: U32, c1: U32, r1: U32}
 
@@ -122,7 +105,6 @@ def altar.win.blocks(+win: AltarWin, +tc: U32, +tr: U32) -> Bool:
     case AltarWin{+room, +c, +r, +c0, +r0, +c1, +r1}:
       altar.stone_blocks(c, r, tc, tr)
 
-# A walkable neighbour that the stone blocks.
 def altar.win.touches(+win: AltarWin, +tc: U32, +tr: U32, +i: U32) -> Bool:
   altar.win.touches.m(U32.is_eq(i, 4), win, tc, tr, i)
 
@@ -143,8 +125,6 @@ def altar.win.touches.or(+hit: Bool, +win: AltarWin, +tc: U32, +tr: U32, +i: U32
     case False{}:
       altar.win.touches(win, tc, tr, (i + 1 : U32))
 
-# The seed of the flood: the first walkable tile the stone touches, in the scan
-# rows `r-2 ..= r+3`, columns `c-2 ..= c+2`; else the first walkable one.
 def altar.win.seed(+win: AltarWin, +k: U32, +first: Maybe<&2, Sigma<&2, &2, U32, _ => U32>>) -> Maybe<&2, Sigma<&2, &2, U32, _ => U32>>:
   match win:
     case AltarWin{+room, +c, +r, +c0, +r0, +c1, +r1}:
@@ -178,14 +158,11 @@ def altar.win.seed.keep(+first: Maybe<&2, Sigma<&2, &2, U32, _ => U32>>, +tc: U3
     case None{}:
       Some{(tc, tr)}
 
-# The cell index within the window: (tr - r0) * 25 + (tc - c0).
 def altar.win.idx(+win: AltarWin, +tc: U32, +tr: U32) -> U32:
   match win:
     case AltarWin{+room, +c, +r, +c0, +r0, +c1, +r1}:
       (RS.i_sub(tr, r0) * 25 + RS.i_sub(tc, c0) : U32)
 
-# The flood of walkable cells from the seed; `block` makes the stone a wall.
-# The stack holds cell indices; `seen` is a set of index keys.
 def altar.flood(+win: AltarWin, +block: Bool, +stack: List<&2, U32>, +seen: J.Val, +fuel: Nat) -> J.Val:
   match fuel:
     case 0n:
@@ -239,7 +216,6 @@ def altar.flood.mark(+j: U32, +was: Bool, +d: U32, +win: AltarWin, +block: Bool,
     case False{}:
       altar.flood.dirs((d + 1 : U32), win, block, Con{j, stack}, J.set(seen, U32.show(j), J.JBool{True{}}), p, x, y)
 
-# Some cell reachable without the stone that is no longer reachable around it.
 def altar.cuts.any(+win: AltarWin, +open: J.Val, +around: J.Val, +i: U32) -> Bool:
   altar.cuts.any.m(U32.is_ge(i, 625), win, open, around, i)
 
@@ -264,7 +240,6 @@ def altar.cuts.any.free(+free: Bool, +win: AltarWin, +open: J.Val, +around: J.Va
     case False{}:
       altar.cuts.any(win, open, around, (i + 1 : U32))
 
-# The stone at (`c`, `r`) would seal a walk the party could take.
 def altar.stone_cuts_a_passage(+room: J.Val, +c: U32, +r: U32) -> Bool:
   altar.stone_cuts_a_passage.seed(AltarWin{room, c, r, RS.i_sub(c, 12), RS.i_sub(r, 12), RS.i_add(c, 12), RS.i_add(r, 12)})
 
@@ -283,15 +258,9 @@ def altar.stone_cuts_a_passage.sets(+s: U32, +win: AltarWin) -> Bool:
     altar.flood(win, False{}, [s], J.set(J.obj(), U32.show(s), J.JBool{True{}}), 700n),
     altar.flood(win, True{}, [s], J.set(J.obj(), U32.show(s), J.JBool{True{}}), 700n), 0)
 
-# --- route_tiles ---------------------------------------------------------------------------
-
-# Whether tile index `k` (col = k % cols, row = k / cols) is walkable ground.
 def altar.route.walk(+room: J.Val, +k: U32, +cols: U32) -> Bool:
   altar.ground(layout.Room.tile(room, U32.mod(k, cols), U32.div(k, cols)))
 
-# The breadth-first search. `front`/`rear` are the queue (rear reversed); `back`
-# maps a tile index to the one it was reached from; `goals` collects doors and
-# stairs in the order met (reversed).
 def altar.route.bfs(+room: J.Val, +cols: U32, +rows: U32, +start: U32, +front: List<&2, U32>, +rear: List<&2, U32>, +back: J.Val, +goals: List<&2, U32>, +fuel: Nat) -> J.Val & List<&2, U32>:
   match fuel:
     case 0n:
@@ -355,7 +324,6 @@ def altar.route.bfs.fresh(+new: Bool, +j: U32, +d: U32, +k: U32, +front: List<&2
     case True{}:
       altar.route.bfs.dirs((d + 1 : U32), k, front, Con{j, rear}, room, cols, rows, start, J.set(back, U32.show(j), J.JU{k}), goals, p)
 
-# Mark the walk from a goal back toward the start.
 def altar.route.mark(+k: U32, +home: U32, +back: J.Val, +on: J.Val, +fuel: Nat) -> J.Val:
   match fuel:
     case 0n:
@@ -384,7 +352,6 @@ def altar.route.goals(+gs: List<&2, U32>, +home: U32, +back: J.Val, +on: J.Val, 
     case Con{+g, +t}:
       altar.route.goals(t, home, back, altar.route.mark(g, home, back, on, fuel), fuel)
 
-# The extra goals (the open floor's chamber centres) that the search reached.
 def altar.route.extra(+ex: List<&2, J.Val>, +room: J.Val, +cols: U32, +rows: U32, +back: J.Val, +goals: List<&2, U32>) -> List<&2, U32>:
   match ex:
     case Nil{}:
@@ -409,8 +376,6 @@ def altar.route.extra.add(+reached: Bool, +j: U32, +goals: List<&2, U32>) -> Lis
     case False{}:
       goals
 
-# The route tiles as the set of tile indices on a shortest walk (before it is
-# turned into the flag vector).
 def altar.route.set(+room: J.Val, +from: J.Val, +extra: J.Val) -> J.Val:
   altar.route.set.start(room, ga.u(room, "cols"), ga.u(room, "rows"), RS.f_as_i32(F32.div(J.f32(J.nth(from, 0)), layout.TILE_UNITS())), RS.f_as_i32(F32.div(J.f32(J.nth(from, 1)), layout.TILE_UNITS())), extra)
 
@@ -448,8 +413,6 @@ def altar.route.flags.m(+flag: Bool, +on: J.Val, +i: U32, +n: U32) -> List<&2, J
     case False{}:
       Con{J.JBool{J.has(on, U32.show(i))}, altar.route.flags(on, (i + 1 : U32), n)}
 
-# Tiles that lie on a shortest walk from `from` to a door, the stairs, or one
-# of `extra`: the flag vector.
 def altar.route_tiles(+room: J.Val, +from: J.Val, +extra: J.Val) -> J.Val:
   J.JA{altar.route.flags(altar.route.set(room, from, extra), 0, (ga.u(room, "cols") * ga.u(room, "rows") : U32))}
 
@@ -485,13 +448,9 @@ def altar.route.stands.on(+on_route: Bool, +on: J.Val, +cols: U32, +c: U32, +r: 
     case False{}:
       altar.route.stands(on, cols, c, r, (k + 1 : U32))
 
-# --- where the altar stands -------------------------------------------------------
-
-# A tile as a number of tiles: `(u / TILE_UNITS).floor() as i32`.
 def altar.tile(+u: F32) -> U32:
   RS.f_as_i32(F32.floor(F32.div(u, layout.TILE_UNITS())))
 
-# The anchor of the search: (col, row), or null for a room that keeps none.
 def altar.place.anchor(+room: J.Val, +arrival: J.Val) -> J.Val:
   altar.place.anchor.in(J.is_null(arrival), ga.s(room, "kind"), RS.i_div(ga.u(room, "cols"), 2), RS.i_div(ga.u(room, "rows"), 2), arrival)
 
@@ -519,7 +478,6 @@ def altar.place.anchor.sanct(+sanct: Bool, +hc: U32, +hr: U32) -> J.Val:
     case False{}:
       J.JNull{}
 
-# The 3x2 patch (c-1..=c+1, r..=r+1) is all floor.
 def altar.place.floor3(+room: J.Val, +c: U32, +r: U32, +k: U32) -> Bool:
   altar.place.floor3.m(U32.is_ge(k, 6), room, c, r, k)
 
@@ -537,7 +495,6 @@ def altar.place.floor3.at(+f: Bool, +room: J.Val, +c: U32, +r: U32, +k: U32) -> 
     case False{}:
       False{}
 
-# No door in c-3..=c+3 x r-2..=r+3.
 def altar.place.nodoor(+room: J.Val, +c: U32, +r: U32, +k: U32) -> Bool:
   altar.place.nodoor.m(U32.is_ge(k, 42), room, c, r, k)
 
@@ -555,7 +512,6 @@ def altar.place.nodoor.at(+d: Bool, +room: J.Val, +c: U32, +r: U32, +k: U32) -> 
     case False{}:
       altar.place.nodoor(room, c, r, (k + 1 : U32))
 
-# A spot the stone may stand: clear floor, off the doors, sealing no walk.
 def altar.place.clear(+room: J.Val, +c: U32, +r: U32) -> Bool:
   altar.place.clear.a(altar.place.floor3(room, c, r, 0), room, c, r)
 
@@ -573,8 +529,6 @@ def altar.place.clear.b(+f: Bool, +room: J.Val, +c: U32, +r: U32) -> Bool:
     case True{}:
       Bool.not(altar.stone_cuts_a_passage(room, c, r))
 
-# The spiral: rings 0..12, rows then columns within a ring. `aside` is the first
-# spot that sat on a route (null when none). Answers the place, or null.
 def altar.place.scan(+room: J.Val, +routes: J.Val, +cols: U32, +rows: U32, +ac: U32, +ar: U32, +ring: U32, +dr: U32, +dc: U32, +aside: J.Val) -> J.Val:
   altar.place.scan.m(U32.is_ge(ring, 12), room, routes, cols, rows, ac, ar, ring, dr, dc, aside)
 
@@ -635,7 +589,6 @@ def altar.place.scan.route(+on_route: Bool, +c: U32, +r: U32, +room: J.Val, +rou
 def altar.place.first(+aside: J.Val, +c: U32, +r: U32) -> J.Val:
   ga.pv(J.is_null(aside), ga.pair_i(c, r), aside)
 
-# The stone's spot for tile (c, r): (c + 0.5, r + 1.0) tiles in units.
 def altar.place.at(+cr: J.Val) -> J.Val:
   altar.place.at.in(J.is_null(cr), cr)
 
@@ -646,9 +599,6 @@ def altar.place.at.in(+none: Bool, +cr: J.Val) -> J.Val:
     case False{}:
       ga.pair_f(F32.mul(F32.add(RS.i_as_f32(J.i32(J.nth(cr, 0))), 0.5), layout.TILE_UNITS()), F32.mul(F32.add(RS.i_as_f32(J.i32(J.nth(cr, 1))), 1.0), layout.TILE_UNITS()))
 
-# Where the altar stands in `room`, if it has one: a clear stretch of floor
-# three tiles wide and two deep, found by a spiral out from the spot that suits
-# the room. `arrival` is null or [x, y]; `extra` an array of [x, y].
 def altar.place(+room: J.Val, +arrival: J.Val, +extra: J.Val) -> J.Val:
   altar.place.go(altar.place.anchor(room, arrival), room, arrival, extra)
 
@@ -668,8 +618,6 @@ def altar.place.go.routes(+routes: J.Val, +anchor: J.Val, +room: J.Val) -> J.Val
 def altar.spot(+room: J.Val, +arrival: J.Val) -> J.Val:
   altar.place(room, arrival, J.JA{[]})
 
-# A room that keeps a wish altar: the open floor's map, a start room, or a
-# Sanctuary. The identity start and the home floor do not.
 def altar.keeps_an_altar(+floor: J.Val, +index: U32, +identity: Bool) -> Bool:
   altar.keeps_an_altar.in(Bool.or(Bool.or(identity, U32.is_zero(ga.u(floor, "depth"))), U32.is_ge(index, J.len(J.get(floor, "rooms")))), floor, index)
 
@@ -682,7 +630,6 @@ def altar.keeps_an_altar.in(+no: Bool, +floor: J.Val, +index: U32) -> Bool:
         Bool.and(Bool.not(J.is_null(J.get(floor, "open"))), U32.is_eq(ga.u(J.get(floor, "open"), "map"), index)),
         Bool.or(ga.is(J.get(J.nth(J.get(floor, "rooms"), index), "kind"), "start"), ga.is(J.get(J.nth(J.get(floor, "rooms"), index), "kind"), "sanctuary")))
 
-# The middle of an open map's chamber (rect = (col, row, cols, rows), u16).
 def altar.chamber.centre(+ch: J.Val) -> J.Val:
   ga.pair_f(
     F32.div(F32.add(F32.mul(RS.u_as_f32(ga.nu(J.get(ch, "rect"), 0)), layout.TILE_UNITS()), F32.mul(RS.u_as_f32(RS.as_u16((ga.nu(J.get(ch, "rect"), 0) + ga.nu(J.get(ch, "rect"), 2) : U32))), layout.TILE_UNITS())), 2.0),
@@ -695,8 +642,6 @@ def altar.centres(+chs: List<&2, J.Val>) -> List<&2, J.Val>:
     case Con{+c, +t}:
       Con{altar.chamber.centre(c), altar.centres(t)}
 
-# Choose the wish altar's spot for every room on `floor` that keeps one and
-# does not yet have it. A room already kept is left where it was stood.
 def altar.place_on(+floor: J.Val, +identity: Bool) -> J.Val:
   altar.place_on.go(floor, identity, 0, J.len(J.get(floor, "rooms")))
 
@@ -717,7 +662,6 @@ def altar.place_on.room(+skip: Bool, +floor: J.Val, +identity: Bool, +i: U32, +n
     case False{}:
       altar.place_on.put(altar.place_on.args(floor, i), floor, identity, i, n)
 
-# (arrival, extra) for room `i`: the open map's arrival and chamber centres.
 def altar.place_on.args(+floor: J.Val, +i: U32) -> J.Val:
   altar.place_on.args.in(Bool.and(Bool.not(J.is_null(J.get(floor, "open"))), U32.is_eq(ga.u(J.get(floor, "open"), "map"), i)), floor)
 
@@ -734,19 +678,13 @@ def altar.place_on.put(+args: J.Val, +floor: J.Val, +identity: Bool, +i: U32, +n
       altar.place(J.nth(J.get(floor, "rooms"), i), J.nth(args, 0), J.nth(args, 1)))),
     identity, (i + 1 : U32), n)
 
-# --- the Run ---------------------------------------------------------------------------
-
-# Stand the wish altar in every room that has one and does not yet keep a spot.
 def altar.Run.choose_altars(+run: J.Val) -> J.Val:
   J.set(run, "dungeon", altar.place_on(J.get(run, "dungeon"), ga.b(run, "identity")))
 
-# The room the party is in keeps an altar whose spot is not yet chosen.
 def altar.Run.altar_due(+run: J.Val) -> Bool:
   Bool.and(altar.keeps_an_altar(J.get(run, "dungeon"), ga.u(run, "at"), ga.b(run, "identity")),
     Bool.not(J.has(J.get(J.get(run, "dungeon"), "altar_at"), U32.show(ga.u(run, "at")))))
 
-# Where the wish altar stands in the room the party is in: none in a room
-# without one, or under the identity start. Chosen once, and kept on the floor.
 def altar.Run.wish_altar(+run: J.Val) -> J.Val:
   altar.Run.wish_altar.in(altar.keeps_an_altar(J.get(run, "dungeon"), ga.u(run, "at"), ga.b(run, "identity")), run)
 
@@ -774,7 +712,6 @@ def altar.Run.wish_altar.here(+here: Bool, +open: J.Val, +run: J.Val) -> J.Val:
     case False{}:
       altar.place(rules.Run.room(run), J.JNull{}, J.JA{[]})
 
-# Knight `id` stands within reach of the lamp.
 def altar.Run.near_altar(+run: J.Val, +id: U32) -> Bool:
   altar.Run.near_altar.in(altar.Run.wish_altar(run), ga.at(J.get(run, "players"), id))
 
@@ -790,9 +727,6 @@ def altar.Run.near_altar.go(+no: Bool, +spot: J.Val, +hero: J.Val) -> Bool:
         RS.f_hypot(F32.sub(ga.f(hero, "x"), J.f32(J.nth(spot, 0))), F32.sub(ga.f(hero, "y"), F32.sub(J.f32(J.nth(spot, 1)), F32.mul(0.5, layout.TILE_UNITS())))),
         F32.mul(altar.REACH(), layout.TILE_UNITS()))
 
-# --- the lamp's hooks from the host -------------------------------------------------------
-
-# A lamp field that serde skips when empty: an empty array is left out.
 def altar.Lamp.put(+lamp: J.Val, +k: String, +items: List<&2, J.Val>) -> J.Val:
   altar.Lamp.put.in(U32.is_zero(ga.count(items)), lamp, k, items)
 
@@ -810,8 +744,6 @@ def altar.Lamp.has_words(+ps: List<&2, J.Val>, +id: U32, +words: String) -> Bool
     case Con{+p, +t}:
       Bool.or(Bool.and(U32.is_eq(ga.u(p, "knight"), id), String.eq(ga.s(p, "words"), words)), altar.Lamp.has_words(t, id, words))
 
-# The host handed knight `id`'s words to a grant runner: the lamp smokes until
-# it lands or is let go.
 def altar.Run.lamp_sent(+run: J.Val, +id: U32, +words: String) -> J.Val:
   altar.Run.lamp_sent.in(altar.Lamp.has_words(J.items(J.get(J.get(run, "lamp"), "wishing")), id, words), run, id, words)
 
@@ -826,7 +758,6 @@ def altar.Run.lamp_sent.push(+ws: List<&2, J.Val>, +run: J.Val, +id: U32, +words
   J.set(run, "lamp", altar.Lamp.put(J.get(run, "lamp"), "wishing",
     List.append(&2, J.Val, altar.Lamp.cap(ws, altar.MOST_PENDING()), [ga.sv(ga.ss(ga.su(J.obj(), "knight", id), "words", words), "since", J.get(run, "tick"))])))
 
-# `if len >= most { remove(0) }`.
 def altar.Lamp.cap(+ws: List<&2, J.Val>, +most: U32) -> List<&2, J.Val>:
   altar.Lamp.cap.in(U32.is_ge(ga.count(ws), most), ws)
 
@@ -837,7 +768,6 @@ def altar.Lamp.cap.in(+full: Bool, +ws: List<&2, J.Val>) -> List<&2, J.Val>:
     case False{}:
       ws
 
-# Knight `id`'s wish in those words is no longer in flight (the first match).
 def altar.Lamp.drop(+ps: List<&2, J.Val>, +id: U32, +words: String) -> List<&2, J.Val>:
   match ps:
     case Nil{}:
@@ -855,8 +785,6 @@ def altar.Lamp.drop.at(+hit: Bool, +p: J.Val, +t: List<&2, J.Val>, +id: U32, +wo
 def altar.Run.lamp_dropped(+run: J.Val, +id: U32, +words: String) -> J.Val:
   J.set(run, "lamp", altar.Lamp.put(J.get(run, "lamp"), "wishing", altar.Lamp.drop(J.items(J.get(J.get(run, "lamp"), "wishing")), id, words)))
 
-# Knight `id`'s wish in those words came back granted as `name`: the lamp
-# flares and the knight is told, wherever they are.
 def altar.Run.lamp_landed(+run: J.Val, +id: U32, +words: String, +name: String) -> J.Val:
   altar.Run.lamp_landed.in(altar.Run.lamp_dropped(run, id, words), id, name)
 
@@ -865,9 +793,6 @@ def altar.Run.lamp_landed.in(+run: J.Val, +id: U32, +name: String) -> J.Val:
     List.append(&2, J.Val, altar.Lamp.cap(J.items(J.get(J.get(run, "lamp"), "landed")), altar.MOST_LANDED()),
       [ga.sv(ga.ss(ga.su(J.obj(), "knight", id), "name", name), "tick", J.get(run, "tick"))])))
 
-# --- E at the lamp ---------------------------------------------------------------------------
-
-# `held` is a BTreeSet<u32>: a sorted array of ids.
 def altar.held.has(+held: J.Val, +id: U32) -> Bool:
   altar.held.has.go(J.items(held), id)
 
@@ -909,8 +834,6 @@ def altar.held.remove.at(+same: Bool, +x: J.Val, +t: List<&2, J.Val>, +id: U32) 
 def altar.Run.set_held(+run: J.Val, +held: List<&2, J.Val>) -> J.Val:
   J.set(run, "lamp", J.set(J.get(run, "lamp"), "held", J.JA{held}))
 
-# The stone is stone: a knight standing in it is set on the nearest edge, and
-# a walk into a corner slides round the end. One hero.
 def altar.slide(+hero: J.Val, +input: J.Val, +left: F32, +right: F32, +top: F32, +foot: F32) -> J.Val:
   altar.slide.in(
     Bool.and(Bool.and(F32.is_gt(ga.f(hero, "x"), left), F32.is_lt(ga.f(hero, "x"), right)), Bool.and(F32.is_gt(ga.f(hero, "y"), top), F32.is_lt(ga.f(hero, "y"), foot))),
@@ -925,8 +848,6 @@ def altar.slide.in(+inside: Bool, +hero: J.Val, +input: J.Val, +left: F32, +righ
         altar.slide.nearest(F32.sub(ga.f(hero, "x"), left), F32.sub(right, ga.f(hero, "x")), F32.sub(ga.f(hero, "y"), top), F32.sub(foot, ga.f(hero, "y"))),
         hero, RS.i_as_f32(ga.u(input, "move_x")), RS.i_as_f32(ga.u(input, "move_y")), left, right, top, foot)
 
-# The side whose distance is least, the first of equals: 0 west, 1 east,
-# 2 north, 3 south.
 def altar.slide.nearest(+d0: F32, +d1: F32, +d2: F32, +d3: F32) -> U32:
   altar.slide.nearest.keep(F32.is_gt(d0, d1), d0, d1, d2, d3)
 
@@ -969,7 +890,6 @@ def altar.slide.along.in(+vertical: Bool, +slide: F32, +hero: J.Val) -> J.Val:
     case False{}:
       ga.sf(hero, "x", F32.add(ga.f(hero, "x"), slide))
 
-# Every knight standing in the stone, set on its edge.
 def altar.slides(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +players: J.Val, +inputs: J.Val, +left: F32, +right: F32, +top: F32, +foot: F32) -> J.Val:
   match hs:
     case Nil{}:
@@ -977,12 +897,9 @@ def altar.slides(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +players: J.V
     case Con{(+k, +h), +t}:
       altar.slides(t, J.set(players, k, altar.slide(h, altar.input_of(J.get(inputs, k)), left, right, top, foot)), inputs, left, right, top, foot)
 
-# An absent seat's keys are `Input::default()`.
 def altar.input_of(+i: J.Val) -> J.Val:
   ga.pv(J.is_null(i), rules.Input.default(), i)
 
-# Who rubs: the knights newly pressing E in reach of the lamp, in seat order.
-# The run (with `held` updated) and the rubbers.
 def altar.rubs(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +run: J.Val, +inputs: J.Val, +acc: List<&2, U32>) -> J.Val & List<&2, U32>:
   match hs:
     case Nil{}:
@@ -1021,7 +938,6 @@ def altar.rubs.near(+near: Bool, +id: U32, +t: List<&2, Sigma<&2, &2, String, _ 
     case False{}:
       altar.rubs(t, run, inputs, acc)
 
-# Each rub: the lamp rubbed, or the knight told they hold no wish.
 def altar.rub(+run: J.Val, +ids: List<&2, U32>) -> J.Val:
   match ids:
     case Nil{}:
@@ -1060,8 +976,6 @@ def altar.Run.tick_wish_altar.rubbed(+r: J.Val & List<&2, U32>) -> J.Val:
   (run, ids) = r
   altar.rub(run, ids)
 
-# E at the lamp: a knight who holds a wish rubs it, and their wish line opens;
-# one who holds none is told so. `inputs` is the object of seat id -> Input.
 def altar.Run.tick_wish_altar(+run: J.Val, +inputs: J.Val) -> J.Val:
   altar.Run.tick_wish_altar.due(altar.Run.altar_due(run), run, inputs)
 

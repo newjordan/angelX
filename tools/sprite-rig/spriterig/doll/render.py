@@ -1,13 +1,3 @@
-"""Paper-doll animator: draws a character procedurally from the projected Mixamo skeleton.
-
-Every limb is a capsule chain; each body *group* (leg, leg, torso, arm, arm, head, cape,
-weapon, ...) is drawn outline-pass-then-fill-pass, so joints inside a group never seam, and
-groups are painter-sorted by camera depth, so occlusion is right from every camera angle
-(no hidden "behind the limb" hole to fill). Armour rides the same capsules (material
-override + grow), weapons/hats are pixel sprites hung off bone sockets, cape + plume are
-Verlet spring chains. Output is a delve-ink index canvas; colours are palette-swappable
-materials. ~1-2 ms per 48 px frame.
-"""
 import json, os
 import numpy as np
 from ..skel import skeleton as S
@@ -34,13 +24,11 @@ def load_kit():
 
 
 class Loadout:
-    """{"name":..,"body":"hero","colors":{"primary":["1","q"]},"equip":["sword","helm_knight",..]}"""
-
     def __init__(self, spec, kit=None):
         if isinstance(spec, str):
             named = os.path.join(LIB, "loadouts", spec + ".json")
             if not spec.endswith(".json") and os.path.exists(named):
-                spec = named          # a library loadout name ("knight")
+                spec = named
             spec = json.load(open(spec)) if spec.endswith(".json") else {"body": spec}
         self.spec = spec
         mats, items, bodies = kit or load_kit()
@@ -62,7 +50,7 @@ class Loadout:
             it["id"] = e if isinstance(e, str) else it.get("id", "custom")
             if "colors" in it:
                 it["mat"] = {**self.mat, **it["colors"]}
-            slots[it.get("slot", it["id"])] = it    # later items replace earlier in the same slot
+            slots[it.get("slot", it["id"])] = it
         self.items = list(slots.values())
 
     def by_kind(self, *kinds):
@@ -79,8 +67,6 @@ class Loadout:
 
 
 class Spring:
-    """Verlet chain hanging from an anchor; points live in character space (metres)."""
-
     def __init__(self, n, seg, grav=9.8, damp=0.86, stiff=0.0):
         self.n, self.seg, self.g, self.damp, self.stiff = n, seg, grav, damp, stiff
         self.p = self.q = None
@@ -94,7 +80,7 @@ class Spring:
         q[:] = p
         acc = np.array([0, -self.g, 0]) * dt * dt
         p[1:] += v[1:] + acc
-        if self.stiff:   # pull toward rest shape (plumes, hair)
+        if self.stiff:
             target = anchor + np.outer(np.arange(self.n + 1), rest_dir) * self.seg
             p[1:] += (target[1:] - p[1:]) * self.stiff
         p[0] = anchor
@@ -114,8 +100,6 @@ DELVE = {"leg": 0.62, "spine": 0.82, "neck": 0.55, "arm": 0.74, "shoulder": 1.0,
 
 
 def proportioned_offsets(prop):
-    """Bone-length scales per group -> (offset array, hips scale). Clip rotations are unchanged,
-    so every Mixamo / .clip motion plays on the stout delve body as-is."""
     k = {**DELVE, **prop}
     off = S.OFFSET.copy()
     for i, n in enumerate(S.NAMES):
@@ -125,7 +109,7 @@ def proportioned_offsets(prop):
                 off[i] *= k[g]
         if b == "UpLeg":
             off[i, 0] *= k["hip_width"]
-        if b == "Arm":          # broad delve shoulders: wider yoke, arms keep their own length scale
+        if b == "Arm":
             off[i, 0] *= k["shoulder_width"]
     off[I["Hips"], 1] *= k["leg"]
     return off, np.array([1.0, k["leg"], 1.0])
@@ -136,20 +120,17 @@ class Doll:
         self.lo = loadout if isinstance(loadout, Loadout) else Loadout(loadout)
         b = self.lo.body
         self.h = height_px or b["height_px"]
-        # delve silhouette: every body shares one stout/chibi proportion set (short legs,
-        # compact spine, big helm-sized head) so all classes read as the same family of knights
         self.offset, self.leg_k = proportioned_offsets(b.get("proportions", {}))
-        self.wk = b.get("weapon_scale", 0.72)     # props shrink with the stout body
+        self.wk = b.get("weapon_scale", 0.72)
         self.lift = b.get("head_lift_m", b["head_m"] * 0.62)
         _, Xr = S.fk(np.tile(np.eye(3), (len(S.NAMES), 1, 1)), offset=self.offset)
-        self.top_m = Xr[I["Head"], 1] + self.lift + b["head_m"]   # head top over the floor (rest)
+        self.top_m = Xr[I["Head"], 1] + self.lift + b["head_m"]
         self.ppm = self.h / (self.top_m + 0.02)
         self.r = {k: v * self.ppm for k, v in b["radii_m"].items()}
         self.hr = b["head_m"] * self.ppm
         self._palette_inks = None
         self.reset()
 
-    # ------------------------------------------------------------- materials
     def ink(self, mat, shade=0, mats=None):
         m = (mats or self.lo.mat).get(mat, mat)
         if isinstance(m, str):
@@ -157,7 +138,6 @@ class Doll:
         return m[min(shade, len(m) - 1)]
 
     def inks(self):
-        """Sorted ink list; canvas index i+1 -> inks[i]. Fixed alphabet so frames can be compared."""
         from ..delve.source import palette
         if self._palette_inks is None:
             self._palette_inks = sorted(palette())
@@ -174,7 +154,6 @@ class Doll:
         self.prev = None
         self._sprite_cache = {}
 
-    # ------------------------------------------------------------- sprites
     def sprite(self, item):
         key = item["id"]
         if key not in self._sprite_cache:
@@ -193,10 +172,8 @@ class Doll:
             self._sprite_cache[key] = a
         return self._sprite_cache[key]
 
-    # ------------------------------------------------------------- frame
     def frame(self, local, hips, yaw=0.0, pitch=20.0, facing=0.0, dt=1 / 12, smear=False,
               squash=1.0, size=None, pad=None):
-        """local [B,3,3] bone rotations, hips [3] delta (m). Returns uint8 canvas (index = inks()[i-1])."""
         R, X = S.fk(local, np.asarray(hips, float) * self.leg_k, self.offset)
         M = Camera(yaw, pitch).M @ S.ry(np.radians(facing))
         lo, ppm = self.lo, self.ppm
@@ -205,10 +182,9 @@ class Doll:
         H = size[1] if size else int(self.h + 2 * pad)
         floor = H - pad * 0.55
         cx = W / 2
-        # squash & stretch about the floor point under the hips
         sq = np.array([1 / np.sqrt(squash), 1.0]) if squash != 1 else None
 
-        def P(x):   # character space -> (screen xy, depth)
+        def P(x):
             c = np.asarray(x) @ M.T
             s = np.stack([cx + c[..., 0] * ppm, floor - c[..., 1] * ppm], -1)
             if sq is not None:
@@ -218,7 +194,7 @@ class Doll:
         sx, depth = P(X)
         out = np.zeros((H, W), np.uint8)
         K = self.idx(self.ink("outline"))
-        groups = []        # (depth, fn)
+        groups = []
         r = self.r
         parts = lo.body["parts"]
         limb_over = {}
@@ -235,7 +211,6 @@ class Doll:
                 return self.mi(it["material"], it.get("mat")), it.get("grow_m", 0) * ppm
             return self.mi(default_mat), 0.0
 
-        # ---- legs
         for side in ("Left", "Right"):
             def leg(o, side=side, outline_only=False):
                 segs = [(f"{side}UpLeg", f"{side}Leg", r["thigh"], "thigh", parts["legs"]),
@@ -248,7 +223,6 @@ class Doll:
                     Dr.capsule(o, a, b, rad + g, f, s)
             groups.append((depth[[I[f"{side}UpLeg"], I[f"{side}Leg"], I[f"{side}Foot"]]].mean(), leg))
 
-        # ---- torso (+ neck, robe, chest armour)
         sh = [X[I["LeftArm"]] * 0.62 + X[I["Spine2"]] * 0.38, X[I["RightArm"]] * 0.62 + X[I["Spine2"]] * 0.38]
         hp = [X[I["LeftUpLeg"]] * 0.75 + X[I["Hips"]] * 0.25, X[I["RightUpLeg"]] * 0.75 + X[I["Hips"]] * 0.25]
         s2, s1 = I["Spine2"], I["Spine1"]
@@ -267,7 +241,7 @@ class Doll:
                 rb = np.array([X[I["LeftUpLeg"]], X[I["RightUpLeg"]],
                                X[I["LeftLeg"]] * 0.35 + X[I["LeftFoot"]] * 0.65,
                                X[I["RightLeg"]] * 0.35 + X[I["RightFoot"]] * 0.65])
-                rb[2:, 1] = np.minimum(rb[2:, 1], 0.12)      # hem near the floor whatever the knees do
+                rb[2:, 1] = np.minimum(rb[2:, 1], 0.12)
                 rp, _ = P(rb)
                 hem = rp[2:].copy()
                 spread = (hem[0] - hem[1])
@@ -276,18 +250,15 @@ class Doll:
                 rf, rs = self.mi(robe["material"], robe.get("mat"))
                 Dr.poly(o, pts, K, r["thigh"] * 1.3 + 1)
                 Dr.poly(o, pts, rf, r["thigh"] * 1.3)
-                # hem trim + centre fold shade
                 tf, _ = self.mi(robe.get("trim", "gold"))
                 Dr.capsule(o, hem[0], hem[1], 0.8, tf)
                 mid_top, mid_bot = rp[:2].mean(0), hem.mean(0)
                 Dr.capsule(o, mid_top + (mid_bot - mid_top) * 0.3, mid_bot, 0.5, rs)
             Dr.poly(o, tor, K, r["torso"] + 1)
             Dr.poly(o, tor, f, r["torso"])
-            # side shade: far half of the torso (away from light)
             c = tor.mean(0)
             Dr.capsule(o, tor[1] + (c - tor[1]) * 0.1 + [r["torso"] * 0.6, 0], tor[3] + [r["torso"] * 0.6, 0], max(r["torso"] * 0.35, 0.6), s)
             if tabard:
-                # surcoat in the seat colour: shoulders -> mid-thigh, hem trim, centre fold
                 th = np.array([X[I["LeftUpLeg"]] * 0.45 + X[I["LeftLeg"]] * 0.55,
                                X[I["RightUpLeg"]] * 0.45 + X[I["RightLeg"]] * 0.55])
                 th[:, 1] = np.maximum(th[:, 1], X[I["Hips"], 1] - 0.24)
@@ -302,7 +273,6 @@ class Doll:
                 if tabard.get("trim"):
                     gf, _ = self.mi(tabard["trim"])
                     Dr.capsule(o, tp[0], tp[1], 0.7, gf)
-            # belt / chest trim
             trim = chest.get("trim") if chest else "leather"
             if trim:
                 bf, bs = self.mi(trim)
@@ -312,7 +282,6 @@ class Doll:
             tdepth = max(tdepth, depth[[I["LeftLeg"], I["RightLeg"]]].max() + 0.01)
         groups.append((tdepth, torso))
 
-        # ---- arms (+ pauldrons, gauntlets, hand-held items)
         paul = (lo.by_kind("pauldron") or [None])[0]
         for side in ("Left", "Right"):
             def arm(o, side=side):
@@ -339,7 +308,6 @@ class Doll:
                         Dr.capsule(o, pc + [-pr * 0.7, pr * 0.45], pc + [pr * 0.7, pr * 0.45], 0.5, tf)
             groups.append((depth[[I[f"{side}Arm"], I[f"{side}ForeArm"], I[f"{side}Hand"]]].mean(), arm))
 
-        # ---- head
         hb = I["Head"]
         hc3 = X[hb] + R[hb] @ np.array([0, self.lift, 0.015])
         hc, hz = P(hc3)
@@ -350,7 +318,7 @@ class Doll:
 
         def head(o):
             hr = self.hr
-            RM = M @ R[hb]                 # head axes in camera space
+            RM = M @ R[hb]
             fwd, up, lft = RM[:, 2], RM[:, 1], RM[:, 0]
             mask = np.zeros_like(o, bool)
             Dr.disc(o, hc, hr + 1, K)
@@ -363,16 +331,15 @@ class Doll:
             v = -(gy + 0.5 - hc[1]) / hr
             inside = mask[y0:y1, x0:x1]
             w = np.sqrt(np.clip(1 - u * u - v * v, 0, 1))
-            n3 = np.stack([u, v, w], -1)      # sphere normal (camera space)
-            nf = n3 @ fwd                      # facing component
+            n3 = np.stack([u, v, w], -1)
+            nf = n3 @ fwd
             nu = n3 @ up
             reg = o[y0:y1, x0:x1]
             if helm and helm.get("shape") == "bucket":
-                # delve great-helm: flat-topped barrel, dark visor slit + breaths on the face side
                 mf, ms = self.mi(helm["material"], helm.get("mat"))
                 ux, uy = up[0], -up[1]
                 L = np.hypot(ux, uy) or 1.0
-                ux, uy = ux / L, uy / L                  # screen "up" of the head
+                ux, uy = ux / L, uy / L
                 rx_, ry_ = -uy, ux
                 hw, hh = hr * 0.9, hr * 0.95
                 corners = np.array([hc + sa * hw * np.array([rx_, ry_]) + sb * hh * np.array([ux, uy])
@@ -381,16 +348,15 @@ class Doll:
                 Dr.poly(o, corners, K, 1.3)
                 Dr.poly(o, corners, mf, 0.4, 0, bm)
                 b = bm[y0:y1, x0:x1]
-                du = (gx + 0.5 - hc[0]) * rx_ + (gy + 0.5 - hc[1]) * ry_      # across the helm
-                dv = -((gx + 0.5 - hc[0]) * ux + (gy + 0.5 - hc[1]) * uy)     # up the helm
-                fx_ = fwd[0] * rx_ - fwd[1] * ry_     # face direction across the helm
-                # shade band on the side away from the light / the back of the helm
+                du = (gx + 0.5 - hc[0]) * rx_ + (gy + 0.5 - hc[1]) * ry_
+                dv = -((gx + 0.5 - hc[0]) * ux + (gy + 0.5 - hc[1]) * uy)
+                fx_ = fwd[0] * rx_ - fwd[1] * ry_
                 reg[b & (du * np.sign(Dr.LIGHT[0]) > hw * 0.45)] = ms
                 reg[b & (dv > hh * 0.62)] = ms if helm.get("dome", True) else mf
                 if helm.get("trim"):
                     tf, ts = self.mi(helm["trim"])
-                    reg[b & (np.abs(dv - hh * 0.55) < 0.7)] = tf          # brow band
-                if fwd[2] > -0.35:                                          # face toward camera: visor
+                    reg[b & (np.abs(dv - hh * 0.55) < 0.7)] = tf
+                if fwd[2] > -0.35:
                     side = np.sign(fx_) if abs(fx_) > 0.25 else 0.0
                     lo_u = -hw * (0.75 if side <= 0 else 0.05)
                     hi_u = hw * (0.75 if side >= 0 else 0.05)
@@ -419,7 +385,7 @@ class Doll:
                     hair = inside & ((nu > 0.25) | (nf < -0.25) & (nu > -0.55))
                     reg[hair] = hf
                     reg[inside & (nu > 0.25) & (nf < -0.3) & ((u * Dr.LIGHT[0] - v * Dr.LIGHT[1]) > 0.4)] = hs
-                for s3 in (+1, -1):     # eyes: drawn where they face the camera
+                for s3 in (+1, -1):
                     e3 = RM @ np.array([0.38 * s3, 0.02, 0.92])
                     if e3[2] > 0.25:
                         ex, ey = hc[0] + e3[0] * hr, hc[1] - e3[1] * hr
@@ -439,12 +405,10 @@ class Doll:
                         Dr.capsule(o, base, tip, 1.6, K); Dr.capsule(o, base, tip, 0.7, ef)
         groups.append((hz + 0.05, head))
 
-        # ---- hats / horns: sprites on the head-top socket
         for it in hats:
             top3 = X[hb] + R[hb] @ np.array([0, self.lift + lo.body["head_m"] * 0.75, 0.0])
             groups.append((hz + 0.08, self._socket_sprite(it, top3, R[hb] @ [0, 1, 0], R[hb] @ [1, 0, 0], P, M, it["size_m"], align="pivot")))
 
-        # ---- plume (spring)
         for it in lo.by_kind("plume"):
             sp = self.springs.setdefault(it["id"], Spring(4, it.get("length_m", 0.28) / 4, grav=3.0, damp=0.8, stiff=it.get("stiff", 0.3)))
             anchor = X[hb] + R[hb] @ np.array([0, self.lift + lo.body["head_m"] * 0.85, -0.03])
@@ -462,7 +426,6 @@ class Doll:
                     Dr.capsule(o, pp[i], pp[i + 1], rad[i] * self.h / 48, f, s)
             groups.append((pz.mean() + (0.06 if pz.mean() > hz else -0.02), plume))
 
-        # ---- cape (spring chain, collides with the back)
         for it in lo.by_kind("cape"):
             n = 5
             sp = self.springs.setdefault(it["id"], Spring(n, it.get("length_m", 0.85) / n, grav=9.8, damp=0.88))
@@ -473,7 +436,7 @@ class Doll:
             rest /= np.linalg.norm(rest)
 
             def push(p, Rs=R[s2], Xs=X[s2], Rh=R[I["Hips"]], Xh=X[I["Hips"]]):
-                for i in range(1, len(p)):     # keep behind the torso / butt planes
+                for i in range(1, len(p)):
                     for Rb, Xb, lim in ((Rs, Xs, -0.11), (Rh, Xh, -0.12)):
                         loc = Rb.T @ (p[i] - Xb)
                         if loc[2] > lim and abs(loc[1]) < 0.45:
@@ -494,14 +457,12 @@ class Doll:
                     Dr.poly(o, q, K, 1.0)
                 for i, q in enumerate(quads):
                     Dr.poly(o, q, f if i % 2 == 0 or True else s, 0.0)
-                # fold lines (shade) down the middle
                 mids = (Lp + Rp) / 2
                 for i in range(n):
                     Dr.capsule(o, (Lp[i] + mids[i]) / 2, (Lp[i + 1] + mids[i + 1]) / 2, 0.45, s)
             cz = lz.mean()
             groups.append((cz, cape))
 
-        # ---- weapons & shields
         trails = []
         for it in lo.items:
             if it["kind"] == "weapon":
@@ -526,7 +487,6 @@ class Doll:
                 cp, cz = P(c3)
                 groups.append((cz + 0.03, fn))
 
-        # ---- smear trails (behind everything)
         if smear and self.prev is not None:
             tf, ts = self.mi("trail")
             for wid, gp, tp in trails:
@@ -542,7 +502,6 @@ class Doll:
         Dr.cleanup(out)
         return out
 
-    # ------------------------------------------------------------- sockets
     def _socket_sprite(self, it, pos3, axis3, across3, P, M, length_m, other=None, align="grip"):
         spr = self.sprite(it)
         piv = np.array(it["pivot"], float)
@@ -553,15 +512,13 @@ class Doll:
         L = np.hypot(*d)
         full = length_m * self.ppm
         sprite_len = piv[1] if align == "grip" else spr.shape[0]
-        ref = piv[1] if align == "grip" else spr.shape[1]       # weapons: grip->tip; hats: width
+        ref = piv[1] if align == "grip" else spr.shape[1]
         sx = full / max(ref, 1)
         if align == "grip":
             sy = max(L, 1e-3) / max(sprite_len, 1)
-        else:   # hats: keep their shape, squash a little when the head tips toward the camera
+        else:
             sy = sx * float(np.clip(L / max(full, 1e-3), 0.45, 1.0))
-        # angle so the sprite's "up" (-y) lies along d: rotate (0,-1) to d
         ang = np.arctan2(d[0], -d[1]) if L > 0.5 else 0.0
-        # flip so the sprite's +x points along the projected `across` axis
         upv = d / (L or 1)
         a = pa - p0
         flip = (upv[0] * a[1] - upv[1] * a[0]) > 0
@@ -569,13 +526,13 @@ class Doll:
         pv = piv.copy()
         if flip:
             pv[0] = spr.shape[1] - piv[0]
-        if align == "grip" and L < 0.15 * full:   # pointing at the camera: draw a short stub instead of nothing
+        if align == "grip" and L < 0.15 * full:
             sy = 0.2 * sx
         string = it.get("string")
         K = self.idx(self.ink("outline"))
 
         def fn(o):
-            if string:   # bow string: tip-to-tip, or pulled to the drawing hand when it is near
+            if string:
                 s = self.idx(string)
                 t1 = p0 + d * (pv[1] / max(sprite_len, 1))
                 t2 = p0 - d * ((spr.shape[0] - pv[1]) / max(sprite_len, 1))
@@ -592,7 +549,7 @@ class Doll:
                     Dr.capsule(o, mid, nock, 0.6, self.idx("R"))
                     Dr.capsule(o, nock, nock + (nock - mid) * 0.08, 0.9, self.idx("V"))
             res = Dr.stamp(o, img, pv, ang, p0, sx, sy)
-            if res is not None:   # 1-px outline around the stamped sprite
+            if res is not None:
                 y0, y1, x0, x1, m = res
                 n = m.copy()
                 n[1:] |= m[:-1]; n[:-1] |= m[1:]; n[:, 1:] |= m[:, :-1]; n[:, :-1] |= m[:, 1:]
@@ -607,11 +564,10 @@ class Doll:
         s = size / spr.shape[0]
         face = abs(nc[2])
         sx = s * max(face, 0.28)
-        # tilt with the projected shield "up" (world up kept)
         K = self.idx(self.ink("outline"))
 
         def fn(o):
-            if nc[2] < -0.2:   # seen from the back: plain wood disc
+            if nc[2] < -0.2:
                 wf, ws = self.mi("wood")
                 back = np.where(spr > 0, self.idx(self.ink("wood", 0)), 0).astype(np.uint8)
                 back[(spr == K)] = K

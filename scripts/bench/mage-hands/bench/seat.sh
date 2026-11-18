@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Private nested Hyprland seat for the bench (own output GLASSCAP / ws 67).
-#   seat.sh up    -> prints "SOCK SIG" once the seat is drawing frames
-#   seat.sh down  -> tears it down and gives focus back to the monitor that had it
 set -uo pipefail
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 MAGE=${MAGE_ROOT:-$HOME/mage}  # the mage working folder: bench/, train/, seatbin/, venv/
@@ -21,20 +18,6 @@ up)
   if ! hyprctl workspaces -j | python3 -I -c "import json,sys;sys.exit(any(w['monitor']=='GLASSCAP' and w['id']!=67 for w in json.load(sys.stdin)))"; then
     echo "a user workspace landed on GLASSCAP" >&2; "$0" down; exit 1
   fi
-  # The seat renders on whatever GPU the parent compositor advertises as its dmabuf
-  # main_device -- the 3090, like every other desktop client -- so it competes with the
-  # Mage container. When the GPU refuses a new channel group (GSP returns
-  # NV_ERR_STATE_IN_USE) or VRAM is short, the NVIDIA EGL driver calls through a null
-  # function pointer instead of returning an error, killing whatever is mid-frame: the
-  # seat on its first frame, and the session's quickshell with it (2026-10-31 01:24, 09:19).
-  #
-  # There is no per-process way to move the seat off the 3090. aquamarine's Wayland
-  # backend never reads AQ_DRM_DEVICES (that is DRM-backend only); it takes the device
-  # straight from the parent's zwp_linux_dmabuf_v1 main_device. The old NESTED_GPU=amd
-  # branch was therefore inert and is gone. Moving the seat requires the parent session
-  # itself to render on the AMD device (AQ_DRM_DEVICES=/dev/dri/card0:/dev/dri/card1).
-  #
-  # What we can do here is refuse to start into an allocation storm.
   gpu_free_mib() { nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -dc '0-9'; }
   gpu_refusing()  { journalctl -k --since "12 seconds ago" --no-pager 2>/dev/null | grep -q kchangrpapiConstruct; }
   gpu_wait() {
@@ -52,8 +35,6 @@ up)
     return 1
   }
 
-  # The nested compositor has crashed on its first frame once (SEGV in renderMonitor,
-  # 2026-10-31 01:24); retry a failed start up to three times.
   SOCK=""; SIG=""
   for attempt in 1 2 3; do
     gpu_wait || { "$0" down; exit 1; }

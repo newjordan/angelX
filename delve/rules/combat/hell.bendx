@@ -1,7 +1,5 @@
-# crates/delve/src/rules/hell.rs: the circles of Hell's pressure.
 import Base
 
-# A circle's row of a table (0 is no circle at all: none).
 def hell.by_circle.ix(table_len: U32, circle: U32) -> U32:
   RS.u_min((circle - 1 : U32), (table_len - 1 : U32))
 
@@ -13,7 +11,6 @@ def hell.horde(circle: U32) -> U32:
 def hell.embers_every(circle: U32) -> U32:
   patterns.nth_u([0, (4 * rules.HZ() : U32), (4 * rules.HZ() : U32), (3 * rules.HZ() : U32), (5 * rules.HZ() / 2 : U32)], hell.by_circle.ix(5, circle))
 
-# A rock of fire falls near a living knight now and then.
 def hell.Run.rain_embers(run: Run) -> Run:
   circle: U32 = run.spectacle.circle
   if U32.is_eq(circle, 0):

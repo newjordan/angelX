@@ -26,29 +26,20 @@ use super::home::Home;
 use super::*;
 use std::collections::BTreeSet;
 
-/// A room on a delve floor, by what it holds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Spot {
-    /// The floor's guardian, still to fall.
     Guardian,
-    /// The stairs down (the lair, on the last floor).
     Stairs,
-    /// The lost hall the King sent the party after.
     Hall,
 }
 
-/// Where a mission can be done.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Place {
-    /// A room of the realm, and the spot in it (tiles) when the data has one.
     Room(RoomKind, Option<(f32, f32)>),
-    /// A spot on the kingdom's own ground, in tiles: a realm hall's door.
     Ground((i32, i32)),
-    /// The Delve: any floor, or the room of each floor that holds `Spot`.
     Delve(Option<Spot>),
 }
 
-/// One mission a knight holds: what the marks call it, and its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Held {
     pub name: String,
@@ -56,8 +47,6 @@ pub struct Held {
 }
 
 impl Run {
-    /// Every mission knight `id` holds, with its place, in the order the
-    /// kinds are listed above.
     pub fn missions_held(&self, id: u32) -> Vec<Held> {
         let Some(hero) = self.players.get(&id) else {
             return Vec::new();
@@ -65,9 +54,6 @@ impl Run {
         let key = Home::profile_key(hero);
         let mut held = Vec::new();
         for q in &questline::book().lines {
-            // A kingdom questline is every knight's and walks on the
-            // campaign: its teacher is marked only while they have news for
-            // this knight (`quest_news`), at the door of the hall they keep.
             if q.is_kingdom() {
                 if self.quest_news(&key, q) {
                     let place = match self.hall_door(&q.hall) {
@@ -87,8 +73,6 @@ impl Run {
             if self.home.questlines.walk(&key, &q.power).finished() || !self.quest_gate(id, q) {
                 continue;
             }
-            // A file with no `at` leaves (0, 0), the room's corner: the
-            // room is all it says.
             let spot = (q.at != (0, 0)).then(|| (q.at.0 as f32, q.at.1 as f32));
             held.push(Held {
                 name: q.teacher.clone(),
@@ -118,8 +102,6 @@ impl Run {
                 place: Place::Delve(Some(Spot::Hall)),
             });
         }
-        // The holdings' raids, as Wren pins them: one mission a holding,
-        // pulling the party back down to its hall.
         for key in &self.home.raids {
             let name = holdings::Deed::of_key(key).map_or_else(|| key.clone(), |d| d.name());
             held.push(Held {
@@ -130,12 +112,7 @@ impl Run {
         held
     }
 
-    /// Knight `id`'s missions as doors of the kingdom (tiles, a site's
-    /// stand), one mark a place, named for its first mission and how many
-    /// more wait there. Empty off the surface.
     pub fn mission_doors(&self, id: u32) -> Vec<(String, (i32, i32))> {
-        // The blank slate's only door is the Delve, and the goal's arrow
-        // already names it: no teacher's name stacks up on it.
         if self.room().kind != RoomKind::Kingdom || crate::world::plan::tabula() {
             return Vec::new();
         }
@@ -172,10 +149,6 @@ impl Run {
             .collect()
     }
 
-    /// The kingdom site a room under it is reached from, for a room no road
-    /// leads to (`gateway`): walk the home floor's doors and its stairs
-    /// (`world::ENTRANCES`) back from it to the first site. The Undercroft's
-    /// rooms (the tavern, the trophy hall) come up the Gate's stair.
     pub(super) fn stair_to<'g>(&self, room: RoomKind, geo: &'g map::Geography) -> Option<&'g map::Site> {
         let rooms = &self.dungeon.rooms;
         let start = world::room_of(&self.dungeon, room)?;
@@ -202,8 +175,6 @@ impl Run {
         None
     }
 
-    /// Knight `id`'s missions with a spot in the room the party stands in
-    /// (tiles), at home: a teacher's place, a game's ring.
     pub fn mission_spots(&self, id: u32) -> Vec<(String, (f32, f32))> {
         if !self.at_home_now() || self.room().kind == RoomKind::Kingdom {
             return Vec::new();
@@ -218,8 +189,6 @@ impl Run {
             .collect()
     }
 
-    /// The rooms of a delve floor knight `id`'s missions name, by what
-    /// they hold, for the floor's map (`floor_map`).
     pub fn mission_floor_spots(&self, id: u32) -> BTreeSet<Spot> {
         if self.at_home_now() {
             return BTreeSet::new();

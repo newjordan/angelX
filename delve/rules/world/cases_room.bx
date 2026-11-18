@@ -1,6 +1,3 @@
-# Case wrappers for tiles.bx and room.bx (recorded by
-# crates/delve/tests/rules/layout_bend_cases__tests.rs).
-
 def layout.j.pt(+p: Sigma<&2, &2, F32, _ => F32>) -> J.Val:
   match p as Sigma<&2, &2, F32, _ => F32>:
     case (x: F32, y: F32):

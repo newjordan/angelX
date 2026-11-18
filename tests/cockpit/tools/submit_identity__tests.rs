@@ -65,7 +65,6 @@ fn nested_executable_submissions_and_unsupported_heredocs_fail_closed() {
             "must refuse ambiguous execution: {command}"
         );
     }
-    // Data in either quote style remains data, not an executable scan hit.
     assert!(stamp("echo '$(board submit)'", None).unwrap().is_none());
     assert!(
         stamp("cat <<'MSG'\n$(board submit)\nMSG\n", None)
@@ -160,7 +159,6 @@ fn copied_attribution_flags_are_replaced_with_the_live_identity() {
         "{}",
         stamped.notice
     );
-    // Flags absent entirely: added, since the CLI requires them.
     let bare = stamp("board submit --note 'v2'", None)
         .unwrap()
         .expect("submission");
@@ -169,7 +167,6 @@ fn copied_attribution_flags_are_replaced_with_the_live_identity() {
         "{}",
         bare.command
     );
-    // `--flag=value` spelling and repeated flags are all removed.
     let eq = stamp(
         "board submit --model=Claude --harness='Other Harness' --model x",
         None,
@@ -223,7 +220,6 @@ fn note_file_model_and_harness_lines_are_corrected() {
         "{}",
         stamped.notice
     );
-    // Idempotent: a second pass corrects nothing.
     let again = stamp(&cmd, None).unwrap().expect("submission");
     assert!(!again.notice.contains("corrected"), "{}", again.notice);
     let _ = std::fs::remove_dir_all(dir);
@@ -303,7 +299,6 @@ fn output_prose_and_enqueue_are_not_terminal_acceptance() {
     assert_eq!(classify_outcome(2, "accepted"), "refused");
     let receipt = "Submission queued\n11111111-2222-3333-4444-555555555555";
     assert_eq!(classify_outcome(0, receipt), "dispatched");
-    // Even a status table in arbitrary shell output cannot certify acceptance.
     let table = "7871bd4 newjordan accepted 519469.35 {} +1% 380b04d yesterday";
     assert_eq!(classify_outcome(0, table), "unknown");
 }

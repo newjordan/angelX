@@ -1,12 +1,3 @@
-# The knight: a body, a lock-on, a sword, a shield, a lantern and a hop. Every
-# seat has all of it. The verbs are the classic lock-on adventure's, changed only
-# for the camera: the view is from above, so a hop is a hop along the ground and
-# a jump attack lands where the knight comes down. crates/delve/src/rules/
-# lanternward/kit.rs. The knight acting is `cur`; the other seats are the table.
-#
-# Buttons (the Delve's own, nothing new): WASD walk, the arrows face, R holds the
-# lock, Space holds the shield, Q is the sword, E is the one context button, F is
-# the lantern, X lays a bomb. A seat's input is its Ix: id, move, aim, buttons.
 import Base
 import ./r.bend as R
 import ./c.bend as C
@@ -35,9 +26,6 @@ import ./cn.bend as X
 
 def S() -> Data: R.W
 
-# ----- the lantern's flame ---------------------------------------------------------------
-
-# Whether a resting brazier is near, or a friend's flare to kindle by.
 def rest_near(+ps: List<&2, R.W8>, +x: U32, +y: U32, +hit: Bool) -> Bool:
   match ps:
     case Nil{}:
@@ -60,7 +48,6 @@ def kindled(+ks: List<&2, R.T8>, +id: U32, +x: U32, +y: U32, +hit: Bool) -> Bool
         case False{}:
           kindled(t, id, x, y, U32.is_ne(Seat.id(o), id) && Q.flaring(o) && N.slt(G.dist(U32.sub(Seat.x(o), x), U32.sub(Seat.y(o), y)), U32.mul(C.kindle_r(), 256)))
 
-# The lantern's flame comes back: slowly anywhere, quickly at a resting brazier.
 def refill_flame(+w: S) -> S:
   +mx = W.r_flame(w)
   +cap = U32.min(K.flame(w), mx)
@@ -72,18 +59,13 @@ def refill_flame(+w: S) -> S:
 
 def refill(+w: S) -> S: Z.lw(U32.is_ne(W.p_lantern(w), 0), u => refill_flame(w), w)
 
-# ----- lock-on ---------------------------------------------------------------------------------
-
-# Whether the knight's lock is of something still there and in reach.
 def lock_holds(+w: S, +kind: U32, +i: U32) -> Bool:
   +p = Q.lock_point(w, kind, i)
   U32.is_eq(Nr.ok(p), 1) && N.sle(G.dist(U32.sub(Nr.x(p), K.x(w)), U32.sub(Nr.y(p), K.y(w))), N.sdiv(U32.mul(W.r_lock(w), 3), 2))
 
-# Whether (a, b, d) comes before the best key so far: the Rust tuple order.
 def sooner(+a: U32, +b: U32, +d: U32, +best: R.W8) -> Bool:
   U32.is_eq(Tg.ok(best), 0) || U32.is_lt(a, Tg.a(best)) || (U32.is_eq(a, Tg.a(best)) && (U32.is_lt(b, Tg.b(best)) || (U32.is_eq(b, Tg.b(best)) && N.slt(d, Tg.d(best)))))
 
-# One thing a lock may take, in front or not, hostile or not.
 def pick_one(+ok: Bool, +w: S, +kind: U32, +id: U32, +x: U32, +y: U32, +hostile: Bool, +best: R.W8) -> R.W8:
   match ok:
     case False{}:
@@ -96,8 +78,6 @@ def pick_one(+ok: Bool, +w: S, +kind: U32, +id: U32, +x: U32, +y: U32, +hostile:
       +d = G.dist(U32.sub(x, K.x(w)), U32.sub(y, K.y(w)))
       Bool.pick(R.W8, sooner(a, b, d, best), R.W8{1, a, b, d, kind, id, 0, 0}, best)
 
-# Whether something at (x, y) is within the lock's reach and in the clear. The
-# line is only drawn for what is within reach.
 def reachable(+near: Bool, +w: S, +x: U32, +y: U32) -> Bool:
   match near:
     case False{}:
@@ -123,8 +103,6 @@ def pick_props(+ps: List<&2, R.W8>, +w: S, +i: U32, +skip_k: U32, +skip_i: U32, 
       +skip = U32.is_eq(skip_k, C.lk_prop()) && U32.is_eq(skip_i, i)
       pick_props(t, w, U32.add(i, 1), skip_k, skip_i, pick_one(Q.target(p) && Bool.not(skip) && reachable(N.sle(d, W.r_lock(w)), w, Pr.x(p), Pr.y(p)), w, C.lk_prop(), i, Pr.x(p), Pr.y(p), False{}, best))
 
-# The nearest thing in front of the knight, a foe before a switch; with nothing in
-# front, the nearest at all. Found, then its kind and id.
 def pick_target(+w: S, +skip_k: U32, +skip_i: U32) -> R.W8:
   +b1 = pick_foes(W.foes(w), w, skip_k, skip_i, R.W8{0, 0, 0, 0, 0, 0, 0, 0})
   +skip_boss = U32.is_eq(skip_k, C.lk_boss())
@@ -134,9 +112,6 @@ def pick_target(+w: S, +skip_k: U32, +skip_i: U32) -> R.W8:
   +b2 = pick_one(Q.boss_up(w) && Bool.not(skip_boss) && reachable(N.sle(d, W.r_lock(w)), w, hx, hy), w, C.lk_boss(), 0, hx, hy, True{}, b1)
   pick_props(W.props(w), w, 0, skip_k, skip_i, b2)
 
-# The next target in the direction the knight pressed, as seen from the current
-# one: up and the lock jumps to what is above it on the screen. Each candidate is
-# (found, distance, kind, id) and the best is the nearest.
 def cycle_one(+ok: Bool, +w: S, +kind: U32, +id: U32, +x: U32, +y: U32, +cx: U32, +cy: U32, +wx: U32, +wy: U32, +best: R.W8) -> R.W8:
   match ok:
     case False{}:
@@ -187,8 +162,6 @@ def take_lock_at(+ok: Bool, +w: S, +x: U32, +y: U32) -> S:
     case True{}:
       face_to(Q.fx(w, C.fxk_tick(), x, y, 0), x, y)
 
-# The lock is taken on a thing: the wick-spark settles over it, and the knight
-# swings round to face it at once.
 def take_lock(+w: S, +kind: U32, +id: U32) -> S:
   +w1 = K.set_lock_t(K.set_lock_i(K.set_lock_k(w, kind), id), 0)
   +p = Q.lock_point(w1, kind, id)
@@ -230,15 +203,10 @@ def lock_release(+w: S, +ax: U32, +ay: U32) -> S:
   +w1 = Bool.pick(S, U32.is_ne(K.lock_k(w), 0), K.set_unlock_t(w, C.ease_out()), w)
   K.set_aimy(K.set_aimx(K.set_relock(K.set_lock_i(K.set_lock_k(w1, 0), 0), 0), ax), ay)
 
-# Holding R with the knight up keeps or takes a lock; letting go lets it go.
 def lock_on(+w: S, +ix: R.W8, +press: U32) -> S:
   +holding = U32.is_ne(U32.and(Ix.mask(ix), C.b_lock()), 0)
   Z.lz(holding && Q.up(W.cur(w)), u => lock_hold(w, Ix.ax(ix), Ix.ay(ix), U32.is_ne(U32.and(press, C.b_lock()), 0)), u => lock_release(w, Ix.ax(ix), Ix.ay(ix)))
 
-# ----- walking -------------------------------------------------------------------------------------
-
-# The index of the first block, not already sliding, that stands where a body
-# leans.
 def block_at(+ps: List<&2, R.W8>, +x: U32, +y: U32, +tx: U32, +ty: U32, +j: U32, +found: U32, +done: Bool) -> U32:
   match ps:
     case Nil{}:
@@ -251,8 +219,6 @@ def block_at(+ps: List<&2, R.W8>, +x: U32, +y: U32, +tx: U32, +ty: U32, +j: U32,
           +hit = U32.is_eq(Pr.kind(p), C.pk_block()) && U32.is_eq(Pr.on(p), 0) && Q.blocks(p, x, y, tx, ty)
           block_at(t, x, y, tx, ty, U32.add(j, 1), Bool.pick(U32, hit, j, found), hit)
 
-# Two for each tick leaned, one lost each tick not: a push is a push held for a
-# moment, and then the block slides.
 def lean_block(+w: S, +b: U32, +sx: U32, +sy: U32) -> S:
   +p = L.get8(W.props(w), U32.to_nat(b))
   +t = U32.min(U32.add(Pr.t(p), 2), 65535)
@@ -261,7 +227,6 @@ def lean_block(+w: S, +b: U32, +sx: U32, +sy: U32) -> S:
   +w1 = W.set_props(w, L.set8(W.props(w), U32.to_nat(b), Bool.pick(R.W8, full, Pr.set_on(Pr.set_t(p, 0), way), Pr.set_t(p, t))))
   Z.lw(full, u => X.start_slide(w1, b), w1)
 
-# A body pressing on a block: after a moment of leaning, it slides.
 def lean(+w: S, +sx: U32, +sy: U32) -> S:
   +rx = U32.add(K.x(w), U32.mul(sx, 2048))
   +ry = U32.add(K.y(w), U32.mul(sy, 2048))
@@ -284,16 +249,12 @@ def shove_y(+go: Bool, +w: S, +dy: U32) -> S:
 
 def fall_in(+w: S) -> S: K.set_shield(K.set_lamp(K.set_lock_i(K.set_lock_k(K.set_t(K.set_act(w, C.a_fall()), 0), 0), 0), 0), 0)
 
-# Move a body by (dx, dy), a whole axis at a time so it slides along a wall;
-# leans on a block it meets; falls into a pit it walks into.
 def shove(+w: S, +dx: U32, +dy: U32) -> S:
   +act = K.act(w)
   +airborne = N.sgt(K.z(w), 0) || U32.is_eq(act, C.a_roll()) || U32.is_eq(act, C.a_hop()) || U32.is_eq(act, C.a_plunge())
   +w2 = shove_y(U32.is_ne(dy, 0), shove_x(U32.is_ne(dx, 0), w, dx), dy)
   Bool.pick(S, Bool.not(airborne) && Q.pit(w2, K.x(w2), K.y(w2)) && U32.is_eq(K.act(w2), C.a_free()), fall_in(w2), w2)
 
-# Walk about a locked target: the sideways part of the step goes round it at the
-# same distance, the rest closes or opens it.
 def orbit_go(+w: S, +tx: U32, +ty: U32, +vx: U32, +vy: U32, +len: U32) -> S:
   +rx = U32.sub(K.x(w), tx)
   +ry = U32.sub(K.y(w), ty)
@@ -319,8 +280,6 @@ def orbit(+w: S, +tx: U32, +ty: U32, +vx: U32, +vy: U32) -> S:
   +len = G.dist(U32.sub(K.x(w), tx), U32.sub(K.y(w), ty))
   Z.lz(N.slt(len, 256), u => shove(w, vx, vy), u => orbit_go(w, tx, ty, vx, vy, len))
 
-# The way the knight faces: toward a lock, else the arrows, else the way it walks
-# with no shield up and nothing in the way of turning.
 def face_toward(+w: S, +ix: R.W8) -> S:
   +lp = Q.lock_point(w, K.lock_k(w), K.lock_i(w))
   +locked = U32.is_ne(K.lock_k(w), 0) && U32.is_eq(Nr.ok(lp), 1)
@@ -354,8 +313,6 @@ def face_and_move(+w: S, +ix: R.W8) -> S:
   +w1 = face_toward(w, ix)
   Z.lw(U32.is_eq(K.act(w1), C.a_free()), u => move_free(w1, ix), w1)
 
-# ----- falling and being hurt ---------------------------------------------------------------------
-
 def falling(+w: S) -> S:
   +t = U32.add(K.t(w), 1)
   +w1 = K.set_t(w, t)
@@ -366,10 +323,6 @@ def hurting(+w: S) -> S:
   +w2 = pushed(w1)
   Bool.pick(S, U32.is_ge(K.t(w2), C.hurt_ticks()), K.set_t(K.set_act(w2, C.a_free()), 0), w2)
 
-# ----- the sword -------------------------------------------------------------------------------------
-
-# A seat's mark in a foe's or the Warden's record of which swing last landed on
-# it: six words, picked by the seat.
 def foe_hit_of(+f: R.T8, +s: U32) -> U32:
   Bool.pick(U32, U32.is_eq(s, 0), Foe.h0(f), Bool.pick(U32, U32.is_eq(s, 1), Foe.h1(f), Bool.pick(U32, U32.is_eq(s, 2), Foe.h2(f), Bool.pick(U32, U32.is_eq(s, 3), Foe.h3(f), Bool.pick(U32, U32.is_eq(s, 4), Foe.h4(f), Foe.h5(f))))))
 
@@ -382,8 +335,6 @@ def boss_hit_of(+w: S, +s: U32) -> U32:
 def boss_hit_set(+w: S, +s: U32, +v: U32) -> S:
   Bool.pick(S, U32.is_eq(s, 0), B.set_h0(w, v), Bool.pick(S, U32.is_eq(s, 1), B.set_h1(w, v), Bool.pick(S, U32.is_eq(s, 2), B.set_h2(w, v), Bool.pick(S, U32.is_eq(s, 3), B.set_h3(w, v), Bool.pick(S, U32.is_eq(s, 4), B.set_h4(w, v), B.set_h5(w, v))))))
 
-# Whether a point is inside a swing's arc: within reach, and in front of the knight
-# or close enough that it does not matter (or an arc all round).
 def inside(+w: S, +x: U32, +y: U32, +extra: U32, +reach: U32, +cos: U32) -> Bool:
   +dx = U32.sub(x, K.x(w))
   +dy = U32.sub(y, K.y(w))
@@ -391,8 +342,6 @@ def inside(+w: S, +x: U32, +y: U32, +extra: U32, +reach: U32, +cos: U32) -> Bool
   +u = G.unit(dx, dy)
   N.sle(d, U32.add(U32.mul(reach, 256), extra)) && (N.sle(cos, N.sneg(256)) || N.slt(d, 1536) || N.sge(G.dot(G.vx(u), G.vy(u), K.fx(w), K.fy(w)), cos))
 
-# A swing struck a foe: it is marked so one swing lands once, and hurt. `ret2` is
-# whether anything landed.
 def sweep_foe_hit(+w: S, +f: R.T8, +i: U32, +seat: U32, +dmg: U32) -> S:
   +w1 = W.set_foes(w, L.set64(W.foes(w), U32.to_nat(i), foe_hit_set(f, seat, K.swing(w))))
   +w2 = H.hurt_foe(w1, i, dmg, K.x(w), K.y(w))
@@ -431,7 +380,6 @@ def sweep_props(+n: Nat, +w: S, +i: U32, +reach: U32, +cos: U32) -> S:
     case 1n+p:
       sweep_props(p, sweep_prop(w, i, reach, cos), U32.add(i, 1), reach, cos)
 
-# Hostile bolts inside the arc are cut down.
 def cut_bolts(+bs: List<&2, R.W8>, +w: S, +reach: U32, +cos: U32) -> List<&2, R.W8>:
   match bs:
     case Nil{}:
@@ -453,8 +401,6 @@ def sweep_cut(+cut: Bool, +w: S) -> S:
     case True{}:
       Q.fx(Q.sound(w, 10), C.fxk_spark(), U32.add(K.x(w), U32.mul(K.fx(w), 18)), U32.add(K.y(w), U32.mul(K.fy(w), 18)), 0)
 
-# A swing's arc: every foe, pot, blade-cut thing and iron bolt inside it is
-# struck once. `ret` is 1 when something was hurt.
 def sweep(+w: S, +id: U32, +reach: U32, +cos: U32, +dmg: U32, +heavy: Bool) -> S:
   +seat = U32.min(U32.sub(id, 1), 5)
   +w0 = W.set_ret2(w, 0)
@@ -468,7 +414,6 @@ def sweep(+w: S, +id: U32, +reach: U32, +cos: U32, +dmg: U32, +heavy: Bool) -> S
   +w6 = Bool.pick(S, landed && heavy, Q.sound(W.set_shake(w5, U32.max(W.shake(w5), C.shake_heavy())), 17), w5)
   W.set_ret(w6, Bool.to_u32(landed))
 
-# A lunge's line: from the knight out ahead, narrow and long.
 def lunge_foe_hit(+w: S, +f: R.T8, +i: U32, +seat: U32) -> S:
   +w1 = W.set_foes(w, L.set64(W.foes(w), U32.to_nat(i), foe_hit_set(f, seat, K.swing(w))))
   +w2 = H.hurt_foe(w1, i, C.lunge_damage(), K.x(w), K.y(w))
@@ -506,7 +451,6 @@ def begin_lunge(+w: S) -> S:
 def begin_spin(+w: S) -> S:
   Q.sound(K.set_step(K.set_chain(K.set_charge(K.set_swing(K.set_t(K.set_act(w, C.a_spin()), 0), U32.add(K.swing(w), 1)), 0), 0), 0), 0)
 
-# The slash tables: wind-up, active ticks, rest, reach, the arc's cosine, damage.
 def slash_wind(+n: U32) -> U32: Bool.pick(U32, U32.is_eq(n, 2), 4, 2)
 def slash_active(+n: U32) -> U32: Bool.pick(U32, U32.is_eq(n, 2), 4, 3)
 def slash_rest(+n: U32) -> U32: Bool.pick(U32, U32.is_eq(n, 2), 12, 6)
@@ -514,12 +458,10 @@ def slash_reach(+n: U32) -> U32: Bool.pick(U32, U32.is_eq(n, 2), 22, 18)
 def slash_cos(+n: U32) -> U32: Bool.pick(U32, U32.is_eq(n, 2), N.sneg(44), 66)
 def slash_damage(+n: U32) -> U32: Bool.pick(U32, U32.is_eq(n, 2), 4, 2)
 
-# Whether a slash or a lunge has struck and is only coming back.
 def recovering(+w: S) -> Bool:
   +n = U32.min(K.n(w), 2)
   (U32.is_eq(K.act(w), C.a_slash()) && U32.is_gt(K.t(w), U32.add(slash_wind(n), slash_active(n)))) || (U32.is_eq(K.act(w), C.a_lunge()) && U32.is_ge(K.t(w), U32.add(C.lunge_wind(), C.lunge_active())))
 
-# A blade that landed holds its owner a moment: the knight's own hit-stop.
 def freeze_if(+hit: Bool, +w: S, +ticks: U32) -> S: Bool.pick(S, hit, K.set_freeze(w, U32.max(K.freeze(w), ticks)), w)
 
 def slash_strike(+live: Bool, +w: S, +id: U32, +n: U32) -> S:
@@ -530,8 +472,6 @@ def slash_strike(+live: Bool, +w: S, +id: U32, +n: U32) -> S:
       +s = sweep(w, id, slash_reach(n), slash_cos(n), slash_damage(n), U32.is_eq(n, 2))
       freeze_if(U32.is_ne(W.ret(s), 0), s, Bool.pick(U32, U32.is_eq(n, 2), 4, 2))
 
-# When the rest is over the knight is free, and a slash queued in time begins the
-# next of the chain.
 def slash_end(+over: Bool, +w: S) -> S:
   match over:
     case False{}:
@@ -540,8 +480,6 @@ def slash_end(+over: Bool, +w: S) -> S:
       +w1 = K.set_t(K.set_act(w, C.a_free()), 0)
       Bool.pick(S, U32.is_ne(K.queued(w1), 0) && U32.is_ne(K.step(w1), 0) && U32.is_ne(K.chain(w1), 0), begin_slash(w1, K.step(w1)), w1)
 
-# Slash `n` of the chain: queued if the sword is pressed again, struck in its
-# active ticks, the next slash opened for a window when the blow lands.
 def slash_tick(+w: S, +id: U32, +press: U32) -> S:
   +n = U32.min(K.n(w), 2)
   +wind = slash_wind(n)
@@ -583,10 +521,6 @@ def swinging(+w: S, +id: U32, +press: U32) -> S:
   +act = K.act(w1)
   Z.lz(U32.is_eq(act, C.a_slash()), u => slash_tick(w1, id, press), u => Z.lz(U32.is_eq(act, C.a_lunge()), u => lunge_tick(w1, id), u => Z.lw(U32.is_eq(act, C.a_spin()), u => spin_tick(w1, id), w1)))
 
-# ----- the dodges --------------------------------------------------------------------------------------
-
-# E with nothing to do, locked on: the hop the stick asks for, forward, back or to
-# a side.
 def hop_dir(+w: S, +ix: R.W8, +lx: U32, +ly: U32) -> S:
   +fwd = G.unit(U32.sub(lx, K.x(w)), U32.sub(ly, K.y(w)))
   +fx = G.vx(fwd)
@@ -606,7 +540,6 @@ def hop_dir(+w: S, +ix: R.W8, +lx: U32, +ly: U32) -> S:
   +speed = Bool.pick(U32, side, C.hop_side(), Bool.pick(U32, forward, C.hop_forward(), C.hop_back()))
   Q.sound(K.set_lock_t(K.set_mvy(K.set_mvx(K.set_t(K.set_n(K.set_act(w, C.a_hop()), kind), 0), N.sdiv(U32.mul(vx, speed), 256)), N.sdiv(U32.mul(vy, speed), 256)), 0), 29)
 
-# E with nothing to do, free: a roll along the walk, or the way it faces.
 def roll_dir(+w: S, +ix: R.W8) -> S:
   +still = U32.is_eq(Ix.mx(ix), 0) && U32.is_eq(Ix.my(ix), 0)
   +walk = G.unit(Ix.mx(ix), Ix.my(ix))
@@ -633,8 +566,6 @@ def rolling(+w: S) -> S:
   +w3 = Bool.pick(S, done, K.set_act(K.set_t(K.set_act(w2, C.a_free()), 0), Bool.pick(U32, Q.pit(w2, K.x(w2), K.y(w2)), C.a_fall(), C.a_free())), w2)
   K.set_inv(w3, U32.max(K.inv(w3), Bool.to_u32(U32.is_ge(K.t(w3), C.roll_iframes_lo()) && U32.is_le(K.t(w3), C.roll_iframes_hi()))))
 
-# The hop's last tick: down on the ground in a puff of dust, and into a pit if
-# that is where it came down.
 def hop_down(+w: S) -> S:
   +w1 = Q.fx(K.set_t(K.set_act(K.set_z(w, 0), C.a_free()), 0), C.fxk_dust(), K.x(w), K.y(w), 0)
   Bool.pick(S, Q.pit(w1, K.x(w1), K.y(w1)), K.set_act(w1, C.a_fall()), w1)
@@ -653,7 +584,6 @@ def hopping(+w: S, +press: U32) -> S:
   +w2 = Z.lw(U32.is_lt(K.t(w1), U32.sub(C.hop_ticks(), 2)), u => shove(w1, K.mvx(w1), K.mvy(w1)), w1)
   hop_air(w2, press)
 
-# Down: the blow lands in a ring about the knight.
 def plunge_land(+w: S, +id: U32) -> S:
   +s = sweep(w, id, C.plunge_reach(), N.sneg(256), C.plunge_damage(), True{})
   +w1 = Q.fx(s, C.fxk_ring(), K.x(s), K.y(s), 24)
@@ -666,13 +596,9 @@ def plunging(+w: S, +id: U32) -> S:
   +w1 = K.set_z(K.set_inv(K.set_t(w, U32.add(K.t(w), 1)), U32.max(K.inv(w), 1)), N.smax(U32.sub(K.z(w), U32.mul(C.plunge_fall(), 256)), 0))
   Z.lw(U32.is_eq(K.z(w1), 0), u => plunge_land(w1, id), w1)
 
-# ----- the lantern ---------------------------------------------------------------------------------------
-
 def light_bolt(+x: U32, +y: U32, +ax: U32, +ay: U32, +id: U32) -> R.W8:
   R.W8{C.bk_light(), U32.add(x, U32.mul(ax, 8)), U32.add(y, U32.mul(ay, 8)), N.sdiv(U32.mul(ax, C.light_speed()), 256), N.sdiv(U32.mul(ay, C.light_speed()), 256), C.light_life(), id, 0}
 
-# A tap of the lantern throws a bolt of light on the release, if the flame has the
-# cost of one.
 def lamp_throw(+w: S, +id: U32) -> S:
   +cost = U32.div(W.r_flame(w), C.bolt_cost_parts())
   +lp = Q.lock_point(w, K.lock_k(w), K.lock_i(w))
@@ -687,8 +613,6 @@ def lamp_release(+w: S, +id: U32) -> S:
   +w1 = Z.lw(U32.is_ne(K.lamp(w), 0) && U32.is_lt(K.lamp(w), C.flare_after()) && U32.is_eq(K.lamp_cd(w), 0), u => lamp_throw(w, id), w)
   K.set_lamp(w1, 0)
 
-# Held, the lantern builds to a flare and burns the tank; when the tank runs dry
-# it sputters out and cannot flare for a bit.
 def lamp_hold(+w: S) -> S:
   +lamp = U32.min(U32.add(K.lamp(w), 1), 255)
   +w1 = K.set_lamp(w, lamp)
@@ -703,15 +627,10 @@ def lantern(+w: S, +id: U32, +mask: U32) -> S:
   +act = K.act(w)
   Bool.pick(S, U32.is_ne(W.p_lantern(w), 0) && (U32.is_eq(act, C.a_free()) || U32.is_eq(act, C.a_slash()) || U32.is_eq(act, C.a_hop())), lantern_on(w, id, mask), K.set_lamp(w, 0))
 
-# ----- the view ------------------------------------------------------------------------------------------
-
-# How far the camera looks at a door or switch that came right: eased in and out.
 def cue_on(+w: S) -> U32:
   +t = W.cue_t(w)
   Bool.pick(U32, U32.is_eq(W.cue_on(w), 0), 0, Bool.pick(U32, U32.is_gt(t, U32.sub(C.cue_ticks(), 8)), N.sdiv(U32.mul(U32.sub(C.cue_ticks(), t), 100), 8), Bool.pick(U32, U32.is_gt(t, 8), 100, N.sdiv(U32.mul(t, 100), 8))))
 
-# Where the view wants to look: toward a lock, leaning toward the awake Warden
-# unless it is the lock, then toward a cue.
 def view_x(+w: S) -> U32:
   +lp = Q.lock_point(w, K.lock_k(w), K.lock_i(w))
   +kx = K.x(w)
@@ -738,9 +657,6 @@ def view_y(+w: S) -> U32:
   +t1 = Bool.pick(U32, lean, U32.add(ty0, N.sdiv(U32.mul(dy, pull), d)), ty0)
   U32.add(t1, N.sdiv(U32.mul(U32.sub(W.cue_y(w), t1), cue_on(w)), 100))
 
-# The view eases to the knight, leaning toward a lock; a fresh lock swings it in
-# fast, a let-go eases it back slowly. It stays inside the room, or centred on one
-# smaller than the picture.
 def camera(+w: S) -> S:
   +cued = U32.is_ne(cue_on(w), 0)
   +locked = U32.is_ne(K.lock_k(w), 0)
@@ -751,10 +667,6 @@ def camera(+w: S) -> S:
   +rh = U32.mul(Gd.height(W.grid(w)), 4096)
   K.set_camy(K.set_camx(w, Bool.pick(U32, N.sle(rw, U32.mul(2, 49152)), N.sdiv(rw, 2), N.sclamp(cx, 49152, U32.sub(rw, 49152)))), Bool.pick(U32, N.sle(rh, U32.mul(2, 28672)), N.sdiv(rh, 2), N.sclamp(cy, 28672, U32.sub(rh, 28672))))
 
-# ----- one tick of one knight --------------------------------------------------------------------------------
-
-# Things that go on whatever the knight is doing: the last safe footing, the low-
-# heart beep, and what E would do.
 def ledge_near(+w: S, +tx: U32, +ty: U32) -> Bool:
   U32.is_eq(Q.cls(w, U32.sub(tx, 1), U32.sub(ty, 1)), 3) || U32.is_eq(Q.cls(w, tx, U32.sub(ty, 1)), 3) || U32.is_eq(Q.cls(w, U32.add(tx, 1), U32.sub(ty, 1)), 3) || U32.is_eq(Q.cls(w, U32.sub(tx, 1), ty), 3) || U32.is_eq(Q.cls(w, tx, ty), 3) || U32.is_eq(Q.cls(w, U32.add(tx, 1), ty), 3) || U32.is_eq(Q.cls(w, U32.sub(tx, 1), U32.add(ty, 1)), 3) || U32.is_eq(Q.cls(w, tx, U32.add(ty, 1)), 3) || U32.is_eq(Q.cls(w, U32.add(tx, 1), U32.add(ty, 1)), 3)
 
@@ -777,8 +689,6 @@ def upkeep(+w: S) -> S:
   +w1 = beep(safe_ground(w))
   Z.lz(U32.is_eq(K.act(w1), C.a_free()), u => set_ctx(w1, X.context(w1)), u => K.set_ctx_i(K.set_ctx_k(w1, 0), 0))
 
-# ----- the buttons ----------------------------------------------------------------------------------------------
-
 def shield_tick(+w: S, +mask: U32) -> S:
   +can_guard = U32.is_eq(K.carry(w), 0) && U32.is_eq(K.z(w), 0)
   +raise = U32.is_ne(U32.and(mask, C.b_guard()), 0) && U32.is_eq(K.act(w), C.a_free()) && can_guard && U32.is_eq(K.guard_cd(w), 0)
@@ -786,19 +696,14 @@ def shield_tick(+w: S, +mask: U32) -> S:
     K.set_shield(Bool.pick(S, U32.is_eq(K.shield(w), 0), Q.sound(w, 31), w), U32.min(U32.add(K.shield(w), 1), 255)),
     K.set_shield(Bool.pick(S, U32.is_ne(K.shield(w), 0) && U32.is_eq(K.act(w), C.a_free()), K.set_guard_cd(w, C.guard_rest()), w), 0))
 
-# The sword button held builds the spin.
 def charge_tick(+w: S, +mask: U32) -> S:
   +c = U32.min(U32.add(K.charge(w), 1), 255)
   +w1 = K.set_charge(w, c)
   Bool.pick(S, U32.is_ne(U32.and(mask, C.b_sword()), 0) && U32.is_eq(K.shield(w), 0), Bool.pick(S, U32.is_eq(c, C.charge_ticks()), Q.fx(Q.sound(w1, 35), C.fxk_spark(), K.x(w1), U32.sub(K.y(w1), 2048), 1), w1), w)
 
-# A swing's recovery gives way to a dodge or the shield: the knight is never locked
-# into a blow while something is coming.
 def break_swing(+w: S, +press: U32, +mask: U32) -> S:
   Bool.pick(S, recovering(w) && (U32.is_ne(U32.and(press, C.b_ctx()), 0) || U32.is_ne(U32.and(mask, C.b_guard()), 0)), K.set_queued(K.set_step(K.set_chain(K.set_t(K.set_act(w, C.a_free()), 0), 0), 0), 0), w)
 
-# Free, with the shield down or up: E meets the world, the sword swings or
-# lunges, E with nothing to meet dodges, X lays a bomb.
 def lay_bomb(+w: S, +id: U32) -> S:
   +x = U32.add(K.x(w), U32.mul(K.fx(w), 12))
   +y = U32.add(K.y(w), U32.mul(K.fy(w), 12))
@@ -869,7 +774,6 @@ def act_verb(+ds: Nat, +w: S, +id: U32, +press: U32, +ix: R.W8) -> S:
                             case 1n+a7:
                               w
 
-# Letting the sword go ends the winding; a wound spin goes off.
 def release_sword(+w: S, +mask: U32) -> S:
   Bool.pick(S, U32.is_eq(U32.and(mask, C.b_sword()), 0),
     K.set_charge(Bool.pick(S, U32.is_ge(K.charge(w), C.charge_ticks()) && U32.is_eq(K.act(w), C.a_free()) && U32.is_eq(K.shield(w), 0), begin_spin(w), w), 0),
@@ -879,9 +783,6 @@ def verbs(+w: S, +id: U32, +mask: U32, +press: U32, +ix: R.W8) -> S:
   +w1 = break_swing(charge_tick(shield_tick(w, mask), mask), press, mask)
   lantern(release_sword(act_verb(U32.to_nat(K.act(w1)), w1, id, press, ix), mask), id, mask)
 
-# ----- a knight's tick --------------------------------------------------------------------------------------------
-
-# The counters that run down every tick whatever the knight does.
 def run_down(+w: S, +mask: U32) -> S:
   +w1 = K.set_held(w, mask)
   +w2 = K.set_chain(K.set_guard_cd(K.set_taper(K.set_ward(K.set_inv(w1, M.dec(K.inv(w1))), M.dec(K.ward(w1))), M.dec(K.taper(w1))), M.dec(K.guard_cd(w1))), M.dec(K.chain(w1)))
@@ -950,8 +851,6 @@ def seat_acts(+ds: Nat, +w: S, +id: U32, +mask: U32, +press: U32, +ix: R.W8) -> 
 def seat_live(+w: S, +id: U32, +mask: U32, +press: U32, +ix: R.W8) -> S:
   camera(upkeep(seat_acts(U32.to_nat(K.act(w)), w, id, mask, press, ix)))
 
-# A blade that landed holds its owner a moment: the knight's own hit-stop, so six
-# knights never freeze each other.
 def seat_frozen(+frozen: Bool, +w: S, +id: U32, +mask: U32, +press: U32, +ix: R.W8) -> S:
   match frozen:
     case True{}:
@@ -969,7 +868,6 @@ def seat_here(+found: Bool, +w: S, +id: U32, +ix: R.W8) -> S:
       +w1 = refill(run_down(w, mask))
       H.put(seat_frozen(U32.is_ne(K.freeze(w1), 0), w1, id, mask, press, ix))
 
-# One tick of one knight.
 def step_seat(+w: S, +id: U32, +ix: R.W8) -> S:
   +w1 = H.take(w, id)
   seat_here(U32.is_ne(W.ret(w1), 0), w1, id, ix)

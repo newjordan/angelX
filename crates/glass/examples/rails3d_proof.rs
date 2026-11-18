@@ -25,14 +25,9 @@ use angel_gpu::{Core, Draw, Frame, Instance, Picture, Stage};
 
 const STAGE: u32 = 0x00FA_57A4;
 
-/// What each 3D frame cost the game before the GPU had it: the scene, the stage maker, and
-/// how many nodes the works, the movers and the Keep's life stood as.
 static TIMES: std::sync::Mutex<Vec<(u64, u64, usize, u64)>> = std::sync::Mutex::new(Vec::new());
-/// The last frame's nodes: the works', the movers', the Keep's life, and the footprints the look dyes.
 static LAST: std::sync::Mutex<[usize; 4]> = std::sync::Mutex::new([0; 4]);
-/// Draw the works as one node a block, as they were drawn before they were baked (`--legacy`), for the before.
 static LEGACY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-/// Whether to time the GPU's draw too (a second, unread, drawing of each frame).
 static DRAW: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn main() -> ExitCode {
@@ -49,7 +44,6 @@ fn usage() -> String {
     "usage: rails3d_proof <outdir> [--scale N] [--flat] [--dry] (info | keep <view> <laid> <frames> [every] [back] | site <seconds> <view> <frames> [every] [back] [laid=N] | tram | rope | barge | road | mule | pieces | gaps | factory [seconds] [back] | rails [seconds] [back] | bench | bench-lines | bench-moving)".into()
 }
 
-/// A view: where a knight stands, in realm tiles (the camera follows it).
 fn view(name: &str) -> Option<(f32, f32)> {
     Some(match name {
         "bailey" => (133.0, 87.0),
@@ -130,9 +124,6 @@ fn run() -> Result<(), String> {
     }
 }
 
-// ----------------------------------------------------------------- the reel ----
-
-/// Frames of a reel: a frame every `every` ticks, 3D (and flat with `--flat`).
 struct Reel {
     gpu: Option<Gpu>,
     dir: PathBuf,
@@ -141,7 +132,6 @@ struct Reel {
     every: u64,
     n: u32,
     ticks: u64,
-    /// The stand-back camera, the map key held.
     held: bool,
 }
 
@@ -183,8 +173,6 @@ fn put_knight(run: &mut Run, tile: (f32, f32)) {
     h.stone = false;
 }
 
-// -------------------------------------------------------------------- scenes ----
-
 fn info() -> Result<(), String> {
     use angel_delve::world::{works, works_life};
     let castle = works::castle("great-tower").ok_or("no great tower")?;
@@ -202,7 +190,6 @@ fn info() -> Result<(), String> {
     println!("yard at {:?} m = tile ({:.1}, {:.1})", works_life::YARD, y[0] / 16.0, y[2] / 16.0);
     let g = castle.world([0.0, -14.0, 0.0]);
     println!("gate (0,-14) m = tile ({:.1}, {:.1})", g[0] / 16.0, g[2] / 16.0);
-    // The stones' reach near the cranes: west face and east face over the crane's rows.
     for (name, y0, y1) in [("west crane rows", 0.0f32, 7.0f32), ("east crane rows", -3.0, 3.0), ("yard rows", -6.0, 0.0), ("gate rows", -16.0, -8.0)] {
         let (mut lo, mut hi) = (f32::MAX, f32::MIN);
         for st in castle.stones.iter().take(7190) {
@@ -230,7 +217,6 @@ fn info() -> Result<(), String> {
     Ok(())
 }
 
-/// The Keep's site alone at `laid`, a knight at `tile`, time passing.
 fn keep(reel: &mut Reel, tile: (f32, f32), laid: u32, frames: u32, every: u64) -> Result<(), String> {
     let mut run = kingdom::proof_run(&[[tile.0 * 16.0, tile.1 * 16.0 + 6.0]]);
     run.lay_to("great-tower", laid);
@@ -248,7 +234,6 @@ fn keep(reel: &mut Reel, tile: (f32, f32), laid: u32, frames: u32, every: u64) -
     Ok(())
 }
 
-/// A fresh run on the hillside, rich, the Great Shaft a ley lift, a knight at `tile`.
 fn hill(tile: (f32, f32)) -> Run {
     let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
     run.walk_kingdom(None);
@@ -283,9 +268,6 @@ fn raise(run: &mut Run, plan: &str, tile: (i16, i16)) -> Result<u32, String> {
     Ok(id)
 }
 
-/// The scripted first chain (as `rules::works_seam`'s test plays it), run `seconds` of sim time
-/// with the foreman between jobs, then a reel of the site.
-/// A fresh hillside run with a won face and the first chain raised by commands, the knight at `tile`.
 fn start_chain(tile: (f32, f32)) -> Result<(Run, angel_delve::kingdom::first_chain::Chain), String> {
     use angel_delve::rules::{HZ, Pack, geology, industry};
     let c = catalog();
@@ -313,8 +295,6 @@ fn start_chain(tile: (f32, f32)) -> Result<(Run, angel_delve::kingdom::first_cha
     Ok((run, chain))
 }
 
-/// The scripted first chain (as `rules::works_seam`'s test plays it), run `seconds` of sim time
-/// with the foreman between jobs, then a reel of the site.
 fn site(reel: &mut Reel, seconds: u64, tile: (f32, f32), frames: u32, every: u64, laid: Option<u32>, dry: Option<u32>, feed: bool) -> Result<(), String> {
     use angel_delve::rules::HZ;
     let c = catalog();
@@ -329,14 +309,12 @@ fn site(reel: &mut Reel, seconds: u64, tile: (f32, f32), frames: u32, every: u64
     }
     println!("sim: {seconds} s in {:.1} s of wall; laid {}", began.elapsed().as_secs_f32(), run.sites.keep().map_or(0, |s| s.laid));
     if let Some(laid) = laid {
-        // The wall as far up as the proof wants it, the sim's works round it as they stand.
         run.lay_to("great-tower", laid);
     }
     println!("carts {} lines {} buildings {}", run.home.industry.road_report(c).carts, run.home.industry.lines.len(), run.home.industry.buildings.len());
     reel.every = every;
     let mut cut_off = false;
     for frame in 0..frames {
-        // The supply stops at frame `dry`: the yard's stock is gone, the carts empty, the foreman buys nothing more.
         if dry == Some(frame) {
             cut_off = true;
             if let Some(site) = run.keep_live() {
@@ -351,7 +329,6 @@ fn site(reel: &mut Reel, seconds: u64, tile: (f32, f32), frames: u32, every: u64
             }
             println!("frame {frame}: the supply is cut off");
         }
-        // A supply: the makers' shelves are kept full of what the Keep's yard wants, and the sim's own carts take it there.
         if feed && !cut_off && frame % 6 == 0 {
             for (plan, good) in [("banker", "ashlar"), ("banker", "rubble"), ("carpentry", "joist"), ("mortar-mill", "mortar")] {
                 for (_, id) in chain.raised.iter().filter(|(p, _)| p == plan) {
@@ -380,8 +357,6 @@ fn site(reel: &mut Reel, seconds: u64, tile: (f32, f32), frames: u32, every: u64
     Ok(())
 }
 
-
-/// Every piece of rollerway facing every way with goods on it, the swape in each state: the kit's own sheet in 3D.
 fn pieces_scene(reel: &mut Reel) -> Result<(), String> {
     use angel_delve::kingdom::{Dir, Piece};
     let c = catalog();
@@ -392,7 +367,6 @@ fn pieces_scene(reel: &mut Reel) -> Result<(), String> {
             run.home.industry.apply(c, Command::Roller { piece, tile, dir }).map_err(|e| format!("{piece:?} {tile:?}: {e}"))?;
         }
     }
-    // The swape in a row of its own, facing each way.
     for (row, dir) in Dir::ALL.into_iter().enumerate() {
         let tile = (169, 104 + row as i16 * 3);
         let id = raise(&mut run, "swape", tile)?;
@@ -426,8 +400,6 @@ fn pieces_scene(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// The plans the first kit left undrawn, standing side by side (3D, and flat with `--flat`): the hods and ladders, the
-/// great crane, the vineyard, the wine press, the aqueduct, and the swape facing each way.
 fn gaps_scene(reel: &mut Reel) -> Result<(), String> {
     use angel_delve::kingdom::Dir;
     let c = catalog();
@@ -449,8 +421,6 @@ fn gaps_scene(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// A working factory: a store, a swape, a rollerway of eight tiles, a splitter that deals to a short line out the front and
-/// a dead-end spur that backs up, a swape and a second store. Run `seconds` of sim time, then a reel.
 fn factory_scene(reel: &mut Reel, seconds: u64, back: bool) -> Result<(), String> {
     use angel_delve::kingdom::{Dir, Piece};
     use angel_delve::rules::HZ;
@@ -476,11 +446,9 @@ fn factory_scene(reel: &mut Reel, seconds: u64, back: bool) -> Result<(), String
     }
     swape(&mut run, (176, 100), Dir::E)?;
     let b = raise(&mut run, "depot", (177, 100))?;
-    // The spur: four tiles south from the splitter's right hand, nothing at its end: it fills and stands.
     for y in 101..105 {
         lay(&mut run, Piece::Roller, (172, y), Dir::S)?;
     }
-    // A hand-chain on the other side, crewed or not, and a gate and a merge at its end.
     for x in 164..169 {
         lay(&mut run, Piece::Chain, (x, 97), Dir::E)?;
     }
@@ -520,7 +488,6 @@ fn factory_scene(reel: &mut Reel, seconds: u64, back: bool) -> Result<(), String
     Ok(())
 }
 
-/// The rail network: three bays, a switch where the ways part, two routes with wagons; the wagons loaded and running.
 fn rails_scene(reel: &mut Reel, seconds: u64, back: bool) -> Result<(), String> {
     use angel_delve::kingdom::{Act, Stop};
     use angel_delve::rules::HZ;
@@ -543,7 +510,6 @@ fn rails_scene(reel: &mut Reel, seconds: u64, back: bool) -> Result<(), String> 
     let mut way: Vec<(i16, i16)> = (bq.1..=row).map(|y| (bq.0, y)).collect();
     way.extend((bq.0..=bb.0).map(|x| (x, row)));
     way.extend((bb.1..=row).map(|y| (bb.0, y)));
-    // The spur down to the sawpit's bay, off the middle of the row: the switch is where it leaves.
     let mid = (bq.0 + bb.0) / 2;
     way.extend((row..=bm.1).map(|y| (mid, y)));
     way.extend((mid.min(bm.0)..=mid.max(bm.0)).map(|x| (x, bm.1)));
@@ -583,14 +549,12 @@ fn rails_scene(reel: &mut Reel, seconds: u64, back: bool) -> Result<(), String> 
     Ok(())
 }
 
-/// One kind of line between two works, goods on it, a few vehicles.
 fn line_scene(reel: &mut Reel, which: &str) -> Result<(), String> {
     let c = catalog();
     let (kind, vehicles, a_plan, b_plan, a_at, b_at, cam) = match which {
         "tram" => (LineKind::Tram, 3u16, "claim-quarry", "banker", (170i16, 100i16), (154i16, 100i16), (162.0f32, 101.5f32)),
         "rope" => (LineKind::Rope, 4, "claim-quarry", "banker", (172, 106), (150, 104), (161.0, 106.0)),
         "barge" => {
-            // Two works on the river's east bank, a long reach apart, the lane between them the river.
             let at = |y: i16| (angel_delve::kingdom::hillside::river_column(7, y) + 2, y);
             (LineKind::Barge, 2, "quay", "quay", at(92), at(112), (at(102).0 as f32 + 1.0, 102.0))
         }
@@ -603,7 +567,6 @@ fn line_scene(reel: &mut Reel, which: &str) -> Result<(), String> {
     let b = raise(&mut run, b_plan, b_at)?;
     let k = &mut run.home.industry;
     if which == "barge" {
-        // Goods on the quay for the barges to take downstream.
         if let Some(q) = k.buildings.get_mut(&a) {
             q.output.insert("limestone".into(), 40);
         }
@@ -620,7 +583,6 @@ fn line_scene(reel: &mut Reel, which: &str) -> Result<(), String> {
         k.apply(c, Command::Connect(yard))?;
         k.apply(c, Command::Carts { yard, carts: 4 })?;
     } else if which == "tram" {
-        // A tramway is the rail network now: a bay by each building, rail between them, a route of wagons.
         let k = &mut run.home.industry;
         let south = |k: &angel_delve::kingdom::Kingdom, id: u32| {
             let t = k.covered(&k.buildings[&id]).max_by_key(|t| (t.1, t.0)).expect("it covers tiles");
@@ -648,7 +610,6 @@ fn line_scene(reel: &mut Reel, which: &str) -> Result<(), String> {
         println!("tram: {} rail tiles, {} wagons", k.rails.cells.len(), k.rails.wagons.len());
     } else {
         let k = &mut run.home.industry;
-        // The planner's own way (an empty path).
         match k.apply(c, Command::Line { kind, from: a, to: b, path: Vec::new(), vehicles }) {
             Ok(_) => {}
             Err(why) => return Err(format!("{which} line: {why}")),
@@ -672,7 +633,6 @@ fn line_scene(reel: &mut Reel, which: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// A large site: what a frame costs with the Keep half built and the works crowding it.
 fn bench(reel: &mut Reel) -> Result<(), String> {
     DRAW.store(true, std::sync::atomic::Ordering::Relaxed);
     let c = catalog();
@@ -708,7 +668,6 @@ fn bench(reel: &mut Reel) -> Result<(), String> {
     println!("{} buildings, {} road tiles", run.home.industry.buildings.len(), run.home.industry.roads.len());
     reel.every = 1000;
     reel.wait(&mut run, 120 * 30)?;
-    // The knight beside the Keep, then in front of the works: a frame every few ticks.
     reel.every = 4;
     for tile in [(133.0f32, 92.0f32), (150.0, 100.0)] {
         put_knight(&mut run, tile);
@@ -720,8 +679,6 @@ fn bench(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// A large site with rails and rollers: the Keep at 5,000 stones, forty-odd works, a rail ring with a route and a score of
-/// wagons, eight rows of rollerway of fifty tiles with goods streaming on them; what a frame costs.
 fn bench_lines(reel: &mut Reel) -> Result<(), String> {
     use angel_delve::kingdom::{Dir, Piece};
     use angel_delve::rules::HZ;
@@ -745,7 +702,6 @@ fn bench_lines(reel: &mut Reel) -> Result<(), String> {
             }
         }
     }
-    // Eight rows of rollerway, fifty tiles each, a splitter and a trestle in every row.
     let mut laid = 0;
     for row in 0..8i16 {
         let y = 134 + row * 3;
@@ -764,7 +720,6 @@ fn bench_lines(reel: &mut Reel) -> Result<(), String> {
             run.home.industry.rollers.goods.push(nme.to_string());
         }
     }
-    // The goods are kept streaming: every slot of every tile is filled each second and the rollers say they moved.
     let poke = |run: &mut Run| {
         let goods = run.home.industry.rollers.goods.clone();
         for (i, (_, cell)) in run.home.industry.rollers.cells.iter_mut().enumerate() {
@@ -794,8 +749,6 @@ fn bench_lines(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// A large site with its carts at work: the first chain's roads and a carter's yard of twelve carts, forty more
-/// works about it, a tramway and a ropeway, the sim run until the carriers are out on their ways.
 fn bench_moving(reel: &mut Reel) -> Result<(), String> {
     use angel_delve::rules::HZ;
     DRAW.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -820,7 +773,6 @@ fn bench_moving(reel: &mut Reel) -> Result<(), String> {
             }
         }
     }
-    // What a tramway and a ropeway are made of, in the camp's stores, so they can be laid.
     for (g, n) in [("beam", 40), ("horse", 20), ("nails", 80), ("wagon", 20), ("bucket", 20), ("pole", 40), ("rope", 40)] {
         let have = run.home.industry.stock.get(g).copied().unwrap_or(0);
         run.home.industry.stock.insert(g.into(), have.max(n));
@@ -833,7 +785,6 @@ fn bench_moving(reel: &mut Reel) -> Result<(), String> {
             run.step(&BTreeMap::from([(1, Input::default())]));
         }
         chain.tend(c, &mut run.home.industry);
-        // The carter's yard buys twelve carts as soon as it stands.
         if !more_carts {
             match run.home.industry.apply(c, Command::Carts { yard, carts: 12 }) {
                 Ok(_) => more_carts = true,

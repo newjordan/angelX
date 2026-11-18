@@ -42,8 +42,6 @@ fn step_of(v: f32) -> i8 {
     }
 }
 
-/// What a bot does for one knight this tick (the open floors' bots fight
-/// with it too).
 pub(crate) fn bot_input(run: &Run, id: u32) -> Input {
     let hero = &run.players[&id];
     if hero.hp == 0 || hero.stone {
@@ -65,7 +63,6 @@ pub(crate) fn bot_input(run: &Run, id: u32) -> Input {
         .min_by(|a, b| dist(a).total_cmp(&dist(b)));
     let mut input = Input::default();
     let (w, h) = (run.room().width(), run.room().height());
-    // Where to stand: ranged knights at a good distance, melee knights close.
     let want = if melee { 1.8 } else { 7.5 };
     let (mut vx, mut vy) = (0.0f32, 0.0f32);
     if let Some(t) = target {
@@ -91,8 +88,6 @@ pub(crate) fn bot_input(run: &Run, id: u32) -> Input {
             input.swing = true;
         }
     }
-    // Dodge: sidestep a hostile shot that is close and coming; step off a
-    // lob's landing mark.
     let mut threatened = 0.0f32;
     for shot in run.projectiles.iter().filter(|p| p.hostile && p.ttl > 0) {
         if let Some(((lx, ly), _)) = patterns::lob_flight(shot) {
@@ -118,7 +113,6 @@ pub(crate) fn bot_input(run: &Run, id: u32) -> Input {
             vy += py * side * 1.4;
         }
     }
-    // Step off a beam's line, as a player does when it shows its warning.
     for shot in run.projectiles.iter().filter(|p| p.hostile && p.ttl > 0) {
         let Some(beam) = shot.traits.path.beam else {
             continue;
@@ -134,7 +128,6 @@ pub(crate) fn bot_input(run: &Run, id: u32) -> Input {
             threatened = threatened.max(0.5);
         }
     }
-    // Keep off the walls.
     if hero.x < 5.0 {
         vx += 0.8;
     }
@@ -149,7 +142,6 @@ pub(crate) fn bot_input(run: &Run, id: u32) -> Input {
     }
     input.move_x = step_of(vx);
     input.move_y = step_of(vy);
-    // The guard key.
     input.dash = match hero.guard {
         cards::Guard::Roll => threatened > 0.45 && hero.dash_cooldown == 0,
         cards::Guard::Shield => threatened > 0.3,
@@ -159,8 +151,6 @@ pub(crate) fn bot_input(run: &Run, id: u32) -> Input {
     if hero.guard == cards::Guard::Shield && input.dash {
         input.fire = false;
     }
-    // Cards in hand: a potion when hurt, a ward when badly hurt, a censer
-    // when the party is.
     let share = |h: &Hero| h.hp as f32 / h.max_hp.max(1) as f32;
     let party_low = run
         .players
@@ -185,7 +175,6 @@ pub(crate) fn bot_input(run: &Run, id: u32) -> Input {
             break;
         }
     }
-    // Bombs at a crowd, spells whenever they are ready, the ultimate when full.
     if hero.bombs > 0 && foes.iter().filter(|e| dist(e) < 5.0).count() >= 3 {
         input.bomb = true;
     }
@@ -202,8 +191,6 @@ pub(crate) fn bot_input(run: &Run, id: u32) -> Input {
 struct Fight {
     secs: f32,
     cleared: bool,
-    /// Damage taken and healing received, each as a share of the party's
-    /// health pool, in percent.
     dmg: f32,
     heal: f32,
     deaths: u32,
@@ -211,15 +198,10 @@ struct Fight {
     undies: bool,
     foes: usize,
     foe_hp: u32,
-    /// The health of the boss in the room, if there is one.
     boss_hp: u32,
-    /// Cards the party took up from the floor while it fought (held cards,
-    /// hand and spells, counted before and after).
     taken: usize,
 }
 
-/// Fight the room the party stands in until it is cleared, the party falls,
-/// or `cap` seconds pass.
 fn fight(run: &mut Run, cap: u32) -> Fight {
     let mut out = Fight {
         foes: run.enemies.len(),
@@ -285,11 +267,8 @@ fn fight(run: &mut Run, cap: u32) -> Fight {
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Party {
-    /// Percival, Lynette and Gareth as the intro dresses them.
     Fresh,
-    /// The three decks of a won run (`fixtures/balance_party.json`).
     Won,
-    /// The won run's decks, half of each: a party part-way.
     Mid,
 }
 
@@ -301,13 +280,10 @@ fn fixture() -> (Vec<Hero>, Vec<Card>) {
     (heroes, cards)
 }
 
-/// A run on floor `depth` with `n` knights of `party`.
 fn floor_run(seed: u64, depth: u32, party: Party, n: usize) -> Run {
     floor_run_in(seed, depth, party, n, None)
 }
 
-/// A run on floor `depth` of `pack` (the delve's own order when none), with
-/// `n` knights of `party`.
 pub(crate) fn floor_run_in(seed: u64, depth: u32, party: Party, n: usize, pack: Option<Pack>) -> Run {
     let mut run = Run::new(seed, 700 + seed, None);
     if let Some(pack) = pack {
@@ -336,7 +312,6 @@ pub(crate) fn floor_run_in(seed: u64, depth: u32, party: Party, n: usize, pack: 
             }
             Party::Won | Party::Mid => {
                 let mut hero = saved[i % saved.len()].clone();
-                // Draughts are scarcer now: two cards in hand, not four.
                 hero.hand.truncate(2);
                 if let Party::Mid = party {
                     hero.deck.truncate(hero.deck.len() / 2);
@@ -356,16 +331,12 @@ pub(crate) fn floor_run_in(seed: u64, depth: u32, party: Party, n: usize, pack: 
         hero.rebonus(&run.book);
         hero.hp = hero.hp.min(hero.max_hp);
     }
-    // The floor laid out for the party, as the stairs lay it
-    // (`layout::party_room`); BALANCE_SOLO_ROOMS lays a lone knight's the
-    // same way, to compare.
     if n > 1 {
         let party = if std::env::var_os("BALANCE_SOLO_ROOMS").is_some() { 1 } else { n };
         run.dungeon = layout::floor_for_party(run.mode, run.dungeon.depth, run.dungeon.pack, party, &mut run.rng);
         run.stock_gear_cache();
         run.populate_boss_gates();
         if pack.is_some() {
-            // The relaid floor's own pen and games, as the stairs pick them.
             run.cage_someone();
             run.pick_folly();
             run.pick_gantry();
@@ -387,7 +358,6 @@ fn rooms_of(run: &Run, kind: RoomKind) -> Vec<usize> {
         .collect()
 }
 
-/// The health of the bosses a room would hold when the party walks in.
 fn room_boss(run: &Run, room: usize) -> u32 {
     let mut probe = run.clone();
     probe.enter(room, Some(2));
@@ -399,7 +369,6 @@ fn room_boss(run: &Run, room: usize) -> u32 {
         .sum()
 }
 
-/// One normal room (no boss in it), picked by seed, fought from full health.
 fn normal_room(seed: u64, depth: u32, party: Party, n: usize) -> Fight {
     let mut run = floor_run(seed, depth, party, n);
     let weights: Vec<(usize, u32)> = rooms_of(&run, RoomKind::Fight)
@@ -425,8 +394,6 @@ fn normal_room(seed: u64, depth: u32, party: Party, n: usize) -> Fight {
     fight(&mut run, 150)
 }
 
-/// The floor's boss fight: the room with the toughest boss in it, a
-/// guardian's or a clan chief's.
 fn boss_room(seed: u64, depth: u32, party: Party, n: usize) -> Fight {
     let mut run = floor_run(seed, depth, party, n);
     let room = (0..run.dungeon.rooms.len())
@@ -476,7 +443,6 @@ fn row(label: &str, fights: &[Fight]) {
 
 const SEEDS: u64 = 24;
 
-/// `cargo test --bin angel balance_sim -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn balance_sim() {
@@ -531,10 +497,6 @@ fn balance_sim() {
     }
 }
 
-/// Parties of two to four through floors one to six, normal rooms and the
-/// floor's guardian, with what they took up from the floor on the way: the
-/// harness for what opening a power or a card to every knight changes.
-/// `cargo test --release -p angel-delve rank_party_sim -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn rank_party_sim() {
@@ -560,9 +522,6 @@ fn rank_party_sim() {
     }
 }
 
-/// The head count, room by room: the same rooms and bosses with one knight
-/// to a full table of six, for how long a clear takes and what it costs.
-/// `cargo test --bin angel party_size_sim -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn party_size_sim() {
@@ -590,12 +549,6 @@ fn party_size_sim() {
     }
 }
 
-// The area rule and the lifesteal limit (`aoe`, `stakes`), and the build
-// that made them: on 2026-10-10 a party of morningstars and leeches stood in
-// the thick of every room and nothing mattered.
-
-/// Dame Thrudi built for a crowd: her twin axes and axe spin, two
-/// morningstars, and every leech and mend the held cards allow.
 const CROWD_DECK: &[&str] = &[
     "wish-morningstar-3",
     "wish-shoulder-demon-3",
@@ -610,8 +563,6 @@ const CROWD_DECK: &[&str] = &[
     "mail",
     "mail",
 ];
-/// A bow knight's leech build: mends on every hit of a piercing pair of
-/// arrows, a leech on every kill, two morningstars.
 const GUNNER_DECK: &[&str] = &[
     "wish-mend-3",
     "leech-fang",
@@ -626,7 +577,6 @@ const GUNNER_DECK: &[&str] = &[
     "mail",
     "mail",
 ];
-/// A bow and damage: one monster at a time.
 const PLAIN_DECK: &[&str] = &[
     "ember-quiver",
     "ember-quiver",
@@ -637,8 +587,6 @@ const PLAIN_DECK: &[&str] = &[
     "mail",
 ];
 
-/// A run on floor `depth` with `n` of the won run's knights, each re-armed
-/// as `who` and holding `deck`.
 fn built(seed: u64, depth: u32, n: usize, who: &str, deck: &[&str]) -> Run {
     let mut run = floor_run(seed, depth, Party::Won, n);
     let who = knights::knight(who).unwrap();
@@ -658,8 +606,6 @@ fn built(seed: u64, depth: u32, n: usize, who: &str, deck: &[&str]) -> Run {
     run
 }
 
-/// A lone knight of `deck` in the middle of an emptied fight room, ringed
-/// by `count` of the floor's plain monsters.
 fn mobbed(seed: u64, depth: u32, who: &str, deck: &[&str], count: usize) -> Run {
     let mut run = built(seed, depth, 1, who, deck);
     let room = rooms_of(&run, RoomKind::Fight)[0];
@@ -686,8 +632,6 @@ fn mobbed(seed: u64, depth: u32, who: &str, deck: &[&str], count: usize) -> Run 
     run
 }
 
-/// Into the thick of it: walk at the nearest monster, swing and spin, never
-/// step back, never roll, never drink, never cast a spell it happened on.
 fn tank_input(run: &Run, id: u32) -> Input {
     let mut input = bot_input(run, id);
     let hero = &run.players[&id];
@@ -714,9 +658,6 @@ fn tank_input(run: &Run, id: u32) -> Input {
     input
 }
 
-/// A mob fought to the end: the seconds until all but two of it had fallen
-/// and until the last did (or the knight did, or `cap` seconds passed), the
-/// health the knight lost, and whether it fell.
 fn mob_fight(run: &mut Run, cap: u32) -> (f32, f32, u32, bool) {
     let start = run.tick;
     let (mut most, mut lost) = (None, 0);
@@ -742,8 +683,6 @@ fn mob_fight(run: &mut Run, cap: u32) -> (f32, f32, u32, bool) {
     )
 }
 
-/// Swing at whatever is nearest, and nothing else: no step, no guard, no
-/// draught, no bomb.
 fn still_input(run: &Run, id: u32) -> Input {
     let mut input = bot_input(run, id);
     (input.move_x, input.move_y) = (0, 0);
@@ -753,11 +692,8 @@ fn still_input(run: &Run, id: u32) -> Input {
     input
 }
 
-/// A lone knight of `deck` standing beside the floor's toughest boss, its
-/// health made endless and waves coming in to feed the leech.
 fn by_the_boss(seed: u64, depth: u32, who: &str, deck: &[&str]) -> Run {
     let mut run = built(seed, depth, 1, who, deck);
-    // The floor's one boss holds its stairs: open the way to it.
     run.clear_prerequisites_for_test();
     let room = (0..run.dungeon.rooms.len())
         .filter(|&r| {
@@ -776,9 +712,6 @@ fn by_the_boss(seed: u64, depth: u32, who: &str, deck: &[&str]) -> Run {
         .find(|e| e.is_boss())
         .expect("a boss");
     boss.max_hp *= 100;
-    // Endless, and in the middle of its fight (`bosses::Stage`): a guardian
-    // at full health holds to its opening's few shots, which no fight
-    // stays in for long.
     boss.hp = boss.max_hp * 6 / 10;
     boss.seen_hp = boss.hp;
     let (bx, by) = (boss.x, boss.y);
@@ -787,9 +720,6 @@ fn by_the_boss(seed: u64, depth: u32, who: &str, deck: &[&str]) -> Run {
     run
 }
 
-/// Knight 1 stands and swings until it falls or `cap` seconds pass: the
-/// seconds it stood (None if it never fell), and its lifesteal and other
-/// passive mends in that time.
 fn stand(run: &mut Run, cap: u32) -> (Option<f32>, u32) {
     stakes::HEALED.with(|h| *h.borrow_mut() = [0; 4]);
     let start = run.tick;
@@ -804,7 +734,6 @@ fn stand(run: &mut Run, cap: u32) -> (Option<f32>, u32) {
     (None, stakes::HEALED.with(|h| h.borrow()[3]))
 }
 
-/// Run `f` with every stroke landing whole, as before the area rule.
 fn whole<T>(f: impl FnOnce() -> T) -> T {
     aoe::WHOLE.with(|w| w.set(true));
     let out = f();
@@ -832,7 +761,6 @@ fn one_stroke_lands_whole_on_the_three_nearest_and_a_quarter_past_them() {
     took.sort_by(|a, b| a.0.total_cmp(&b.0));
     let took: Vec<u32> = took.into_iter().map(|t| t.1).collect();
     assert_eq!(took, [40, 40, 40, 10, 10, 10], "nearest first");
-    // And one alone takes all of it, as it always did.
     let lone = aoe::strike(&mut run.enemies[..1], (10.0, 10.0), 40, |_| true);
     assert_eq!(lone[0].1, 40);
 }
@@ -897,15 +825,12 @@ fn morningstars_strike_on_a_beat_at_about_half_their_old_weight() {
         }
         (run.players.get_mut(&1).unwrap().x, run.enemies[0].x) = (hx, hx + 1.8);
     }
-    // Before the beat two morningstars took 64 a second off a monster
-    // beside the knight, every tick they touched it.
     let a_second = (1_000_000 - run.enemies[0].hp) / 10;
     assert!((20..=45).contains(&a_second), "{a_second} a second");
 }
 
 #[test]
 fn a_tick_of_kills_mends_once_and_lifesteal_stops_at_two_a_second() {
-    // The first floor: every mend lands whole, and only this limit holds it.
     let mut run = Run::new(3, 1, None);
     run.calm_for_test();
     run.enemies.clear();
@@ -929,10 +854,8 @@ fn a_tick_of_kills_mends_once_and_lifesteal_stops_at_two_a_second() {
         }
         healed
     };
-    // Five fall to one blow: one leech, held to the second's two.
     let once = healed_over(&mut run, 1, 5);
     assert!((1..=stakes::LEECH_PER_SECOND).contains(&once), "{once}");
-    // A kill every tick for three seconds: two a second at most.
     let three = healed_over(&mut run, 3 * HZ, 1);
     assert!(
         three <= 4 * stakes::LEECH_PER_SECOND,
@@ -944,9 +867,6 @@ fn a_tick_of_kills_mends_once_and_lifesteal_stops_at_two_a_second() {
     );
 }
 
-/// (a) The build that stood still and lived: beside an endless boss, a
-/// knight that only swings falls, on an early floor (healing whole) and a
-/// deep one, and its lifesteal never passes two a second.
 #[test]
 fn a_morningstar_and_leech_build_that_stands_beside_a_boss_falls() {
     for depth in [2, 6] {
@@ -966,22 +886,15 @@ fn a_morningstar_and_leech_build_that_stands_beside_a_boss_falls() {
     }
 }
 
-/// Seeds the mob fight below averages over: enough that one floor's rooms
-/// or one run's dice do not decide the mean.
 const MOB_SEEDS: u64 = 64;
 
-/// The crowd build's health on floor `depth`, as the mob fight finds it.
 fn run_health(depth: u32) -> f32 {
     mobbed(0, depth, "ironbraid", CROWD_DECK, 24).players[&1].max_hp as f32
 }
 
-/// (b) Ringed by twenty-four, the crowd build cuts through them slower and
-/// bleeds more than when every stroke landed whole.
 #[test]
 fn a_crowd_build_in_a_mob_clears_slower_than_when_every_stroke_landed_whole() {
     for depth in [4, 6] {
-        // One floor per seed, cloned for both stroke rules. `mobbed` is
-        // seeded, so the clone is the run the second mean used to build again.
         let mut then_secs = 0.0;
         let mut then_lost = 0.0;
         let mut now_secs = 0.0;
@@ -1007,14 +920,6 @@ fn a_crowd_build_in_a_mob_clears_slower_than_when_every_stroke_landed_whole() {
             now >= then * 1.25,
             "floor {depth}: {now:.1} s against {then:.1} s"
         );
-        // A quarter more blood at the least, as for the time: over these
-        // seeds floor 4 bleeds about 1.4 times as much, and new dice alone
-        // (another raid's) take a sixteen-seed mean from 1.8 to 1.4, so half
-        // again was the luck of one sample, not the rule. Since the melee
-        // pass the twin axes' slash reaches the whole inner ring and turns a
-        // couple of bullets a stroke (`melee`): where the mob draws under a
-        // tenth of the dwarf's health either way (floor 4, about 7 of it),
-        // blood is no measure of the rule and the time alone tells it.
         let health = run_health(depth);
         assert!(
             bleeds >= bled * 1.25 || bleeds.max(bled) < health / 10.0,
@@ -1023,9 +928,6 @@ fn a_crowd_build_in_a_mob_clears_slower_than_when_every_stroke_landed_whole() {
     }
 }
 
-/// (c) One monster alone is untouched by the area rule, even with three
-/// knights firing. Boss rooms now have extra co-op escorts, so isolate the
-/// single target rather than assuming their whole fight is single-target.
 #[test]
 fn single_target_play_is_untouched_by_the_area_rule() {
     for depth in [2, 5] {
@@ -1054,7 +956,6 @@ fn single_target_play_is_untouched_by_the_area_rule() {
     }
 }
 
-/// Before and after, for tuning: `cargo test --bin angel aoe_sim -- --ignored --nocapture`.
 #[test]
 #[ignore]
 fn aoe_sim() {
@@ -1096,8 +997,6 @@ fn aoe_sim() {
     }
 }
 
-/// One of the swamp's fights, picked by seed: a plain fight room, or the
-/// floor's stairs hall (on its last floor, the Mire King's).
 fn swamp_fight(seed: u64, depth: u32, party: Party, n: usize, hall: bool) -> Fight {
     let mut run = floor_run_in(seed, depth, party, n, Some(Pack::Swamp));
     let room = if hall {
@@ -1118,11 +1017,6 @@ fn swamp_fight(seed: u64, depth: u32, party: Party, n: usize, hall: bool) -> Fig
     fight(&mut run, if hall { 240 } else { 150 })
 }
 
-/// The Swamp of Horrors, knight by knight: its three floors' fight rooms
-/// and stairs halls (the third's is the Mire King's) with one to four
-/// knights, fresh on the first two floors and part-way on the third, as the
-/// main delve's sims meet them.
-/// `cargo test -p angel-delve swamp_party_sim -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn swamp_party_sim() {
@@ -1144,12 +1038,6 @@ fn swamp_party_sim() {
     }
 }
 
-// The shots and the cover (2026-10-14): what the monsters throw, measured,
-// and a party's fights before and after a change to either.
-
-/// What one thrower's shots were over a stretch: each kind seen, the
-/// speeds seen in flight (units a second), the widest strike (units past a
-/// knight's own body), and how many were loosed.
 #[derive(Default)]
 struct Census {
     kinds: std::collections::BTreeSet<String>,
@@ -1190,10 +1078,6 @@ impl Census {
     }
 }
 
-/// Every monster kind of every pack (plain and elite) and every guardian,
-/// alone in a room for twenty seconds against a knight who cannot fall:
-/// the kinds, families and speeds it throws.
-/// `cargo test shot_census -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn shot_census() {
@@ -1276,8 +1160,6 @@ fn shot_census() {
     }
 }
 
-/// A bot that stands where it is and shoots: aims and fires as `bot_input`
-/// does, and never takes a step.
 fn standing_input(run: &Run, id: u32) -> Input {
     let mut input = bot_input(run, id);
     input.move_x = 0;
@@ -1286,7 +1168,6 @@ fn standing_input(run: &Run, id: u32) -> Input {
     input
 }
 
-/// `fight` with standing knights.
 fn stand_fight(run: &mut Run, cap: u32) -> Fight {
     let pool: u32 = run.players.values().map(|h| h.max_hp).sum();
     let (mut lost, mut fell) = (0u32, std::collections::BTreeSet::new());
@@ -1319,11 +1200,6 @@ fn stand_fight(run: &mut Run, cap: u32) -> Fight {
     }
 }
 
-/// Parties of two and four, standing and moving, through a normal room of
-/// every floor and every floor's boss: seconds a fight and the share of
-/// the party's health lost, the numbers a change to shots or cover must
-/// keep within a quarter of.
-/// `cargo test shots_party_check -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn shots_party_check() {
@@ -1383,12 +1259,6 @@ fn shots_party_check() {
     }
 }
 
-// ===========================================================================
-// PARTY CHECK (test-only, UNCOMMITTED): a 2-4 knight naked-start party sim for
-// the pre-deploy check. Prints `PCROW,...` lines; see artifacts/world3d/
-// party-check/. Env: PC_DEPTHS PC_NS PC_SEEDS PC_SECS PC_OPEN PC_HOST_PLAYS.
-// ===========================================================================
-
 fn pc_list(name: &str, default: &[u32]) -> Vec<u32> {
     std::env::var(name)
         .ok()
@@ -1399,9 +1269,6 @@ fn pc_list(name: &str, default: &[u32]) -> Vec<u32> {
 
 const PC_NAMES: [&str; 5] = ["Wren", "Bors", "Ysolde", "Kay", "Tor"];
 
-/// A naked-start party of `knights` playing on floor `depth` of the delve's
-/// own (closed) floors, the host's seat empty (`absent_host`: as the live box
-/// is) or playing.
 fn pc_naked(seed: u64, depth: u32, knights: usize, absent_host: bool) -> Run {
     let mut run = Run::at_home(
         seed,
@@ -1430,15 +1297,10 @@ fn pc_naked(seed: u64, depth: u32, knights: usize, absent_host: bool) -> Run {
     run
 }
 
-/// The identity start's loadout for the party check (`PC_IDENTITY`):
-/// `bare` (the shape and its ball), `armed` (a body and a weapon wished),
-/// `made` (whole: a body, a weapon and an ultimate).
 fn pc_identity() -> Option<String> {
     std::env::var("PC_IDENTITY").ok().filter(|v| !v.is_empty())
 }
 
-/// Each knight's wishes for the loadout, a weapon of the company's three
-/// round the seats.
 fn pc_make(run: &mut Run) {
     let Some(loadout) = pc_identity() else { return };
     let ids: Vec<u32> = run.players.iter().filter(|(_, h)| !h.absent).map(|(&i, _)| i).collect();
@@ -1460,7 +1322,6 @@ fn pc_make(run: &mut Run) {
     }
 }
 
-/// The same party on an open floor (the live box lays every floor open).
 fn pc_naked_open(seed: u64, depth: u32, knights: usize, absent_host: bool) -> Run {
     let armed = std::env::var_os("PC_ARMED").is_some();
     let mut run = Run::new(seed, 700 + seed, None);
@@ -1472,7 +1333,6 @@ fn pc_naked_open(seed: u64, depth: u32, knights: usize, absent_host: bool) -> Ru
         run.join_seat(id, PC_NAMES[(id as usize - 2) % PC_NAMES.len()]);
     }
     if armed {
-        // The intro's three knights, dressed as the balance harness dresses them.
         let ids: Vec<u32> = run.players.keys().copied().collect();
         for (i, id) in ids.into_iter().enumerate() {
             run.outfit(id, knights::knight(["percival", "lynette", "gareth", "galahad"][i % 4]).unwrap());
@@ -1492,22 +1352,15 @@ fn pc_naked_open(seed: u64, depth: u32, knights: usize, absent_host: bool) -> Ru
 
 #[derive(Clone, Debug, Default)]
 struct PcStat {
-    /// The most one knight lost in a single tick, percent of its health.
     maxhit: u32,
-    /// The most one knight lost in any second, percent of its health.
     max1s: u32,
-    /// The party's whole loss, percent of its pool.
     lost: u32,
     fell: u32,
     wiped: Option<u32>,
     cleared: Option<u32>,
-    /// A pavise was in the room at some tick (one spawned late counts).
     sawpav: bool,
 }
 
-/// Play `secs` of the room the party stands in. `walk`: paced steps with the
-/// shots of `bot_input`; not `walk`: standing still, shooting. `bot`: the
-/// whole bot (kites, dodges).
 fn pc_play(run: &mut Run, walk: bool, bot: bool, secs: u32, stop_on_clear: bool) -> PcStat {
     use std::collections::VecDeque;
     let ids: Vec<u32> = run.players.iter().filter(|(_, h)| !h.absent).map(|(&id, _)| id).collect();
@@ -1549,8 +1402,6 @@ fn pc_play(run: &mut Run, walk: bool, bot: bool, secs: u32, stop_on_clear: bool)
                 dead.insert(id);
             }
         }
-        // The invariant the 10-14 hang broke: every knight a player plays
-        // down is a wipe, whoever sits in the host's empty seat.
         let all_down = ids.iter().all(|i| run.players.get(i).is_none_or(|h| h.hp == 0));
         down_for = if all_down { down_for + 1 } else { 0 };
         if down_for > HZ && run.phase != Phase::Wiped && run.phase != Phase::Won {
@@ -1583,10 +1434,6 @@ fn pc_row(set: &str, depth: u32, n: usize, mode: &str, seed: u64, room: &str, pa
     );
 }
 
-/// Naked-start parties of 2-4, standing and walking, in every room (or, with
-/// PC_OPEN set, every chamber) of floors 1-6: the most one knight lost to a
-/// single hit and to any second, and any wipe.
-/// `cargo test -p angel-delve --lib party_check -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn party_check() {
@@ -1659,11 +1506,6 @@ fn party_check() {
     }
 }
 
-/// Armed (intro-dressed) knights against pavises: 2-4 knights, floors 2-6,
-/// two and four pavises put before them in a fight room, standing and with
-/// the whole bot. What the pavise rule (a shield knocked aside by what it
-/// turns) changes: clear time and what the party lost.
-/// `cargo test -p angel-delve --lib party_check_pavise -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn party_check_pavise() {
@@ -1700,8 +1542,6 @@ fn party_check_pavise() {
     }
 }
 
-/// Wipe and stuck states with the host's absent seat present.
-/// `cargo test -p angel-delve --lib party_check_wipes -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn party_check_wipes() {
@@ -1716,8 +1556,6 @@ fn party_check_wipes() {
     };
     for depth in [1u32, 3, 6] {
         for n in [2usize, 3, 4] {
-            // 1. Every played knight down at once, the empty seat alive (stone,
-            //    away, absent): a wipe within a few ticks.
             let mut base = pc_naked(3, depth, n, true);
             let fight = (0..base.dungeon.rooms.len())
                 .find(|&r| {
@@ -1737,7 +1575,6 @@ fn party_check_wipes() {
             let at = wiped_within(&mut run, 5);
             println!("PCWIPE,all-down-host-alive,{depth},{n},{at:?}");
             assert!(at.is_some(), "all down, host seat alive, depth {depth} x{n}: not wiped");
-            // ... and the host dead too.
             let mut run = base.clone();
             for h in run.players.values_mut() {
                 h.hp = 0;
@@ -1745,7 +1582,6 @@ fn party_check_wipes() {
             let at = wiped_within(&mut run, 5);
             println!("PCWIPE,all-down-host-dead,{depth},{n},{at:?}");
             assert!(at.is_some());
-            // 2. All but one down: not a wipe; then the last falls: a wipe.
             let mut run = base.clone();
             let ids: Vec<u32> = run.players.keys().copied().filter(|&i| i != 1).collect();
             for &id in &ids[1..] {
@@ -1759,9 +1595,6 @@ fn party_check_wipes() {
             run.players.get_mut(&ids[0]).unwrap().hp = 0;
             let at = wiped_within(&mut run, 5);
             assert!(at.is_some(), "the last falls: wipe");
-            // 3. The verdict stands, and the party goes back: the empty seat
-            //    holds nobody (again_due with nobody asking and with the
-            //    friends asking).
             let mut asked = run.clone();
             for &id in &ids {
                 asked.ask_again(id);
@@ -1784,8 +1617,6 @@ fn party_check_wipes() {
             }
             println!("PCWIPE,again-due,{depth},{n},asked={quick:?},nobody-asked={slow:?}");
             assert!(quick.is_some() && slow.is_some(), "the verdict never lets the party go");
-            // 4. A friend away (stone) while the others fall: by the rule it
-            //    keeps the party up; the game still runs.
             let mut run = base.clone();
             let ids: Vec<u32> = run.players.keys().copied().filter(|&i| i != 1).collect();
             run.set_away(ids[0], true);
@@ -1796,7 +1627,6 @@ fn party_check_wipes() {
             println!("PCWIPE,friend-away-others-down,{depth},{n},{at:?}");
         }
     }
-    // 5. An open floor, the empty seat present.
     for n in [2usize, 3] {
         let mut run = pc_naked_open(5, 2, n, true);
         for (&id, h) in run.players.iter_mut() {
@@ -1810,10 +1640,6 @@ fn party_check_wipes() {
     }
 }
 
-/// The wishes each knight of the 2026-10-18 play-test made, in the order
-/// they made them (`fixtures/last_game_phrasebook.txt` is that workspace's
-/// phrasebook, as the wish-writer wrote it, its two not safe for work taken
-/// out: every wish stays safe for work, `cards::not_for_work`).
 const LAST_GAME_WISHES: [&[&str]; 2] = [
     &[
         "homing-bullets", "draining-bullets", "faster-firing", "tuxedo",
@@ -1828,22 +1654,16 @@ const LAST_GAME_WISHES: [&[&str]; 2] = [
     ],
 ];
 
-/// The last game's phrasebook, read as the host reads a workspace's.
 fn last_game_book() -> Vec<phrasebook::Wish> {
     let text = include_str!("fixtures/last_game_phrasebook.txt");
     phrasebook::read(&format!("{}\n{text}", phrasebook::LEARNED))
 }
 
-/// Wish steps a knight has made on reaching floor `depth`: the start's
-/// three, two a floor below, and a super wish (two steps) a floor's boss.
 fn steps_by(depth: u32) -> usize {
     let below = depth.saturating_sub(1) as usize;
     usize::from(overclass::START_WISHES) + below * usize::from(overclass::FLOOR_WISHES) + below * 2
 }
 
-/// `n` intro-dressed knights on floor `depth`, each having wished the last
-/// game's wishes (knight one's list, then two's, by turns) for every step
-/// the floors so far gave: new wishes first, then each climbs again.
 fn wished_run(seed: u64, depth: u32, n: usize, wished: bool) -> Run {
     let mut run = floor_run(seed, depth, Party::Fresh, n);
     if !wished {
@@ -1859,7 +1679,6 @@ fn wished_run(seed: u64, depth: u32, n: usize, wished: bool) -> Run {
                 if steps == 0 {
                     break 'climb;
                 }
-                // WISH_ONLY=hold|spell: that kind of wish only, to see what each gives.
                 if std::env::var("WISH_ONLY").is_ok_and(|k| k != wish.kind) {
                     continue;
                 }
@@ -1871,13 +1690,10 @@ fn wished_run(seed: u64, depth: u32, n: usize, wished: bool) -> Run {
         let hero = run.players.get_mut(&id).unwrap();
         hero.hp = hero.max_hp;
     }
-    // Held to the floor's budget, as the first tick would.
     run.keep_wish_floor();
     run
 }
 
-/// One room of `run`'s floor fought from full health: the floor's lightest
-/// plain room, or (`boss`) its toughest boss.
 fn wish_fight(mut run: Run, seed: u64, boss: bool) -> Fight {
     let room = if boss {
         (0..run.dungeon.rooms.len())
@@ -1901,7 +1717,6 @@ fn wish_fight(mut run: Run, seed: u64, boss: bool) -> Fight {
     fight(&mut run, if boss { 240 } else { 150 })
 }
 
-/// The party's power, a knight's held bonus summed over the party.
 fn wish_power(run: &Run) -> String {
     let h = run.players.values().next().unwrap();
     let b = &h.bonus;
@@ -1911,11 +1726,6 @@ fn wish_power(run: &Run) -> String {
     )
 }
 
-/// The last game's party, floors 1-6, 2-4 knights: fresh knights against
-/// the same knights holding the wishes the last game's players made, in a
-/// plain room and the floor's boss room. Clear share and time, damage per
-/// second (the room's whole health over its clear time), deaths a fight.
-/// `cargo test -p angel-delve --lib wish_party_check -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn wish_party_check() {
@@ -1953,10 +1763,6 @@ fn wish_party_check() {
     }
 }
 
-/// The heaviest wished party there is: four knights, each holding every
-/// wish of the last game (both knights' lists, climbed as far as they go)
-/// and the loot that adds shots (Twin String, Fork, Awakened Fork, Bodkin
-/// Heads, Quick Draw), on floor `depth`'s boss room.
 fn heaviest_run(seed: u64, depth: u32) -> Run {
     let mut run = floor_run(seed, depth, Party::Fresh, 4);
     let book = last_game_book();
@@ -1981,11 +1787,6 @@ fn heaviest_run(seed: u64, depth: u32) -> Run {
     run
 }
 
-/// What the heaviest wished party's shots cover of the screen, the room's
-/// monsters made to last (twenty times their health) and every knight
-/// firing at the nearest the whole time: the most and the mean, percent,
-/// and the most shots aloft, with the cover rule off and on.
-/// `cargo test -p angel-delve --release --lib shot_cover_check -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn shot_cover_check() {
@@ -2042,7 +1843,6 @@ fn shot_cover_check() {
     cover::OFF.with(|o| o.set(false));
     println!("{}", wish_power(&heaviest_run(0, 5)));
 }
-// ---- the wire's bench (the audit of 2026-10-20, docs/ENGINE.md) ----
 
 fn audit_pct(v: &mut Vec<f64>, p: f64) -> f64 {
     v.sort_by(|a, b| a.total_cmp(b));
@@ -2051,21 +1851,15 @@ fn audit_pct(v: &mut Vec<f64>, p: f64) -> f64 {
     v[i]
 }
 
-/// This thread's own CPU time (microseconds): what a phase cost whatever
-/// else the machine runs.
 fn audit_cpu_us() -> f64 {
     unsafe extern "C" {
         fn clock_gettime(clock: i32, at: *mut [i64; 2]) -> i32;
     }
     let mut at = [0i64; 2];
-    // CLOCK_THREAD_CPUTIME_ID
     unsafe { clock_gettime(3, &mut at) };
     at[0] as f64 * 1e6 + at[1] as f64 / 1e3
 }
 
-/// Tick cost of a busy 4-knight fight on floors 1, 4 and 6, closed rooms and
-/// open floors, with the wire's publish/view/diff/encode timed beside it.
-/// `AUDIT_SECS` game seconds each (default 60).
 #[test]
 #[ignore]
 fn audit_tick_cost() {
@@ -2078,7 +1872,6 @@ fn audit_tick_cost() {
     for &depth in &depths {
         for layout in ["closed", "open"] {
             if !only.is_empty() && only != layout { continue; }
-            // Build the run.
             let (mut run, refill): (Run, Option<usize>) = if layout == "closed" {
                 let base = floor_run(3, depth, Party::Won, 4);
                 let mut best = (0usize, 0usize);
@@ -2135,7 +1928,6 @@ fn audit_tick_cost() {
                 run.step(&inputs);
                 step_us.push(t1.elapsed().as_secs_f64() * 1e6);
                 cpu_step += audit_cpu_us() - c1;
-                // keep it busy, as the dev host's fight scene does
                 for h in run.players.values_mut() { h.hp = h.max_hp; }
                 if let Some(room) = refill {
                     if !run.hitstop.frozen() && run.phase != Phase::Fighting && run.at == room {
@@ -2144,7 +1936,6 @@ fn audit_tick_cost() {
                 }
                 foes_sum += run.enemies.len(); shots_sum += run.projectiles.len();
                 foes_max = foes_max.max(run.enemies.len()); shots_max = shots_max.max(run.projectiles.len());
-                // the wire, every tick (snapshot_hz 30 = HZ)
                 let t2 = Instant::now();
                 let c2 = audit_cpu_us();
                 let tree = publisher.publish(&run).unwrap();
@@ -2202,7 +1993,6 @@ fn audit_tick_cost() {
     }
 }
 
-/// Which top-level fields of the wire tree the per-tick patches are made of.
 #[test]
 #[ignore]
 fn audit_wire_fields() {
@@ -2283,15 +2073,6 @@ fn audit_wire_fields() {
     }
 }
 
-/// Four seats on the wire through a busy fight, each sent snapshot after
-/// snapshot as a host sends them (`wire::Publisher`, `wire::seat_tree`,
-/// `wire::pace`, the patch on the wire), and a fifth joining late: each
-/// client holds just the tree the host meant for it, and reads back the
-/// host's run: its shots where the host has them to within `wire::SLIP`,
-/// as fast to within `wire::SLIP_SPEED`, and everything else exactly. What
-/// a seat draws is what the host would draw for it, to a few pixels at the
-/// edge of a shot. Homing, bouncing, piercing and pattern shots and
-/// volleys all fly through it. `WIRE_SECS` game seconds a floor.
 #[test]
 fn four_seats_on_the_wire_hold_the_hosts_run_through_a_deep_fight() {
     use crate::render::overworld::arena;
@@ -2338,7 +2119,6 @@ fn four_seats_on_the_wire_hold_the_hosts_run_through_a_deep_fight() {
         };
         let ids: Vec<u32> = run.players.keys().copied().collect();
         let mut publisher = crate::wire::Publisher::default();
-        // Seats 0 to 3, and seat 4 (a watcher's view) from halfway.
         let mut clients: Vec<(Option<u32>, Writer, Reader, Option<Value>, Option<Value>)> =
             (0..4).map(|s| (Some(s), Writer::default(), Reader::default(), None, None)).collect();
         let ticks = secs * HZ;
@@ -2352,9 +2132,6 @@ fn four_seats_on_the_wire_hold_the_hosts_run_through_a_deep_fight() {
                 clients.push((None, Writer::default(), Reader::default(), None, None));
             }
             let tree = publisher.publish(&run).unwrap();
-            // One fresh tree for the tick. Each seat used to publish again;
-            // they read this same tree, so the comparisons are unchanged.
-            // Every shot is still exactly where it is.
             let fresh = crate::wire::publish(&run).unwrap();
             let exact = crate::wire::read(&fresh).unwrap();
             for shot in &run.projectiles {
@@ -2380,8 +2157,6 @@ fn four_seats_on_the_wire_hold_the_hosts_run_through_a_deep_fight() {
                     Some(_) => {}
                 }
                 let held = held.as_ref().unwrap();
-                // A struct's fields by name: a field gone and back comes
-                // after the rest on the client, as it always has.
                 fn alike(a: &Value, b: &Value) -> bool {
                     match (a.get(), b.get()) {
                         (Value::Struct(x), Value::Struct(y)) => {
@@ -2443,12 +2218,6 @@ fn four_seats_on_the_wire_hold_the_hosts_run_through_a_deep_fight() {
                 }
                 *sent = Some(view);
                 let seated = crate::wire::seat_tree(&fresh, *seat);
-                // One fresh read for the tick (`exact`), not a publish and a
-                // read per seat. `seat_tree` leaves shots as published unless
-                // the seat stands outside, when it sends none. Stone is the
-                // room, which that filter does not change, so an in-room
-                // seat's shots are `exact`'s. The client is still `read`, the
-                // path a guest uses.
                 let sent_none = match seated.field("projectiles").map(Value::get) {
                     Some(Value::Seq(s)) if s.is_empty() => !matches!(fresh.field("projectiles").map(Value::get), Some(Value::Seq(s)) if s.is_empty()),
                     _ => false,
@@ -2468,8 +2237,6 @@ fn four_seats_on_the_wire_hold_the_hosts_run_through_a_deep_fight() {
                     assert_eq!(a, b, "floor {depth} tick {t}");
                     b.x = 0.0;
                 }
-                // Everything else, exactly. The seated run is derived on the
-                // ticks that check it, not every tick.
                 let strip = |run: &Run| {
                     let mut json = serde_json::to_value(run).unwrap();
                     json.as_object_mut().unwrap().remove("projectiles");
@@ -2488,8 +2255,6 @@ fn four_seats_on_the_wire_hold_the_hosts_run_through_a_deep_fight() {
                         assert_eq!(strip(&back), strip(&mine), "floor {depth} tick {t} seat {seat:?}");
                         assert_eq!(strip(&back), strip(&exact), "floor {depth} tick {t} seat {seat:?}: the run as built afresh");
                     }
-                    // What it draws: the host's own picture for that seat, but
-                    // where a shot's edge falls on the other side of a pixel.
                     if draw {
                         let (w_px, h_px) = (384, 224 + arena::BAND_H + arena::HUD_H);
                         let focus = seat.map(crate::wire::knight_of);
@@ -2511,14 +2276,6 @@ fn four_seats_on_the_wire_hold_the_hosts_run_through_a_deep_fight() {
     assert!(seen.0 > 0 && seen.1 > 0 && seen.2 > 0 && seen.3 > 0, "every kind of shot flew: {seen:?}");
 }
 
-/// Shot size against the old size, party by party (the operator,
-/// 2026-10-22: smaller shots, tied to the arm's beat, and the party's share
-/// of the screen off): two to four knights on floors 1 to 6, a normal room
-/// and the boss each, the party the floor calls for (fresh on 1 and 2,
-/// part-way on 3, the won decks from 4). `before` is the shots as they
-/// were (`wishcraft::LEGACY`: the old size and hit, the share held).
-/// `BULLET_SEEDS=n` seeds a cell (8).
-/// `cargo test --release -p angel-delve bullet_size_sim -- --ignored --nocapture`
 fn bullet_size_sim_of(label: &str, legacy: bool) {
     crate::rules::wishcraft::LEGACY.with(|l| l.set(legacy));
     let seeds: u64 = std::env::var("BULLET_SEEDS").ok().and_then(|s| s.parse().ok()).unwrap_or(8);

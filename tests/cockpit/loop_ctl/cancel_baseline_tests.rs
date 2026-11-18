@@ -73,7 +73,7 @@ fn new_pinned_loop_defers_actual_baseline_until_cancelled_worker_drains() {
 fn pinned_start_preserves_an_accepted_manual_turn_before_baseline() {
     fixture("pending-input", |root| {
         let (mut app, held, calls) = held_app(root);
-        app.thinking = None; // no real worker was spawned by the held-channel fixture
+        app.thinking = None;
         drop(held);
         app.loop_ctl.status = LoopStatus::Stopped;
         pin_owned_goal(&mut app, root);

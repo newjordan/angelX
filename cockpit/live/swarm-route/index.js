@@ -1,8 +1,5 @@
 const { wants } = require('./swarm-route.compiled.js')
 
-// The adapter only carries the feature record in and the decision out. Text
-// work (trim, lowercase, word split, phrase windows) happens in Rust; every
-// combination of those features lives in swarm-route.bend.
 const flag = value => value === true
 const count = value => (Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0)
 

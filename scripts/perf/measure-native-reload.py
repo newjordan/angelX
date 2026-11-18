@@ -80,7 +80,6 @@ def main():
                                        for name, path in images.items()}
                 expected = expected or row['library_sha256']
                 row['byte_parity'] = row['library_sha256'] == expected
-                # Verify exact cache reuse separately; it is not a compile sample.
                 before = {name: (path.stat().st_ino, path.stat().st_mtime_ns) for name, path in images.items()}
                 start = time.perf_counter()
                 reuse = subprocess.run([sys.executable, str(builder), str(root)], env=env,

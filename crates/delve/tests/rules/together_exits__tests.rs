@@ -152,15 +152,11 @@ fn together_exits_all_fifteen_pastimes_including_every_3d_stage() {
                 Some(game),
                 "start {game:?}"
             );
-            // Everyone plays at once: the friends each have a heat of
-            // their own, and play on when the starter steps out.
             let clock = |r: &Run| r.pastimes.heats.values().map(|h| h.left).min();
             let left = clock(&r).expect("friends join the heat");
             leave(&mut r, seat);
             assert!(r.exits.outside.contains_key(&seat), "{game:?} seat {seat}");
             assert!(clock(&r).unwrap() < left, "friends continue {game:?}");
-            // Out of a Colosseum arena is its entrance hall; out of any
-            // other game's place is the kingdom.
             let out = if crate::rules::colosseum::is_arena(game.room()) {
                 RoomKind::ColosseumHall
             } else {
@@ -479,7 +475,6 @@ fn together_exits_real_door_retreat_does_not_bounce_back_into_the_hall() {
     assert_eq!(r.at, parent, "must step back across the door deliberately");
 }
 
-/// One step of seat 1 holding the walk key toward side `dir`.
 fn hold(r: &mut Run, dir: usize) {
     let (dx, dy) = DIRS[dir];
     r.step(&BTreeMap::from([(1, Input { move_x: dx as i8, move_y: dy as i8, ..Default::default() })]));
@@ -487,10 +482,6 @@ fn hold(r: &mut Run, dir: usize) {
 
 #[test]
 fn together_exits_holding_west_out_of_a_side_on_hall_does_not_walk_back_in() {
-    // A side-on hall is left west, by its one low doorway, whichever side
-    // its room lies on. With the room to its east the knight came out by
-    // that room's west door still holding west, and walked straight back
-    // in ("fix the room walkouts we bounce back on accident", 2026-10-19).
     let (mut r, hall) = (0..64)
         .find_map(|seed| {
             let r = Run::new(seed, 1, None);
@@ -518,7 +509,6 @@ fn together_exits_holding_west_out_of_a_side_on_hall_does_not_walk_back_in() {
         hold(&mut r, 3);
         assert_eq!(r.at, parent, "west held through the doorway walks nowhere back");
     }
-    // Let go, then west again: back into the hall on purpose.
     r.step(&BTreeMap::new());
     for _ in 0..HZ {
         if r.at == hall {
@@ -714,9 +704,6 @@ mod escape_hold;
 
 #[test]
 fn a_knight_past_the_rooms_edge_still_leaves_a_valid_way_back() {
-    // On the play box a race's track left knights at a negative x; the way
-    // back recorded from there made every snapshot invalid, so every page
-    // refused the run and the save did not come back.
     let mut r = surface(3);
     let n = r.dungeon.rooms.len();
     let next = (0..n).find(|&i| i != r.at).unwrap();

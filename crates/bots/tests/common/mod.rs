@@ -16,7 +16,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 pub const KEY: &str = "LINKTESTKEYLINKTESTKEYLINK";
-/// A terminal's display frame.
 pub const FRAME: Duration = Duration::from_millis(16);
 
 pub fn start() -> Server {
@@ -25,12 +24,10 @@ pub fn start() -> Server {
     Server::start(MusterServer::new(10), config).expect("the server starts")
 }
 
-/// The link a host would share for `addr`.
 pub fn share(addr: SocketAddr) -> String {
     format!("http://{addr}/#{KEY}")
 }
 
-/// A terminal's clock: milliseconds since it started.
 pub struct Clock(Instant);
 
 impl Clock {
@@ -43,7 +40,6 @@ impl Clock {
     }
 }
 
-/// Draw frames until `done`, or `timeout`. True if done.
 pub fn frames_until<G: GameClient>(
     link: &mut NativeLink<G>,
     clock: &Clock,
@@ -61,18 +57,15 @@ pub fn frames_until<G: GameClient>(
     false
 }
 
-/// Draw frames for a while.
 pub fn frames_for<G: GameClient>(link: &mut NativeLink<G>, clock: &Clock, span: Duration) {
     frames_until(link, clock, span, |_| false);
 }
 
-/// A relay between clients and a server, as a network between them.
 pub struct Relay {
     pub addr: SocketAddr,
     conns: Arc<Mutex<Vec<Relayed>>>,
 }
 
-/// One connection through the relay.
 struct Relayed {
     client: TcpStream,
     server: TcpStream,
@@ -99,7 +92,6 @@ impl Relay {
         Relay { addr, conns }
     }
 
-    /// Every connection through it is cut, as a network change cuts them.
     pub fn cut(&self) {
         for r in self.conns.lock().unwrap().drain(..) {
             let _ = r.client.shutdown(Shutdown::Both);
@@ -107,8 +99,6 @@ impl Relay {
         }
     }
 
-    /// Every connection through it goes quiet: open, but carrying nothing,
-    /// as a Wi-Fi that died under a laptop.
     pub fn stall(&self) {
         for r in self.conns.lock().unwrap().iter() {
             r.stalled.store(true, SeqCst);
@@ -116,7 +106,6 @@ impl Relay {
     }
 }
 
-/// One way of a relayed connection; a stalled one drops what it reads.
 fn carry(mut from: TcpStream, mut to: TcpStream, stalled: Arc<AtomicBool>) {
     thread::spawn(move || {
         let mut buf = [0u8; 16 * 1024];

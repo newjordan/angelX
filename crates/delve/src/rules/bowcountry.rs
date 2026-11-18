@@ -19,52 +19,38 @@ pub const QUEST_MARKS: [&str; 5] = [
     "country:wardrobe:2",
     "country:wardrobe:deliver",
 ];
-/// The Quiver Coach's place in `countryside::PLOTS`.
 pub const PLOT: usize = 14;
-/// The coach's stair in the fletcher's yard, and its other end on
-/// Broadsheet Row, by the east road; where it sets the party down there.
 pub const COACH: (i32, i32, i32, i32) = (19, 10, 2, 1);
 pub const VILLAGE_COACH: (i32, i32, i32, i32) = (20, 8, 2, 1);
 pub const VILLAGE_FRONT: (f32, f32) = (20.5, 9.5);
 
-/// The green: the straw butts along the north bank, the judge's tally
-/// booth at the east end of the line, the quiver stand by the west door.
 pub const BUTTS: (i32, i32, i32, i32) = (4, 1, 16, 2);
 pub const BOOTH: (i32, i32, i32, i32) = (21, 9, 2, 2);
 pub const QUIVERS: (i32, i32, i32, i32) = (2, 11, 2, 1);
-/// The shooting line (tiles): every archer toes it.
 pub const LINE: f32 = 10.0;
-/// The popinjay's rope: its two poles (tile columns) and its height (row).
 pub const POLES: (f32, f32) = (6.0, 18.0);
 pub const ROPE: f32 = 5.0;
 
-/// The fletchery: the fletcher's open shed, the goose pen (the feathers
-/// come from somewhere), the shaft rack, and the fletcher himself.
 pub const SHED: (i32, i32, i32, i32) = (3, 1, 6, 3);
 pub const PEN: (i32, i32, i32, i32) = (15, 2, 6, 2);
 pub const RACK: (i32, i32, i32, i32) = (5, 10, 3, 2);
 pub const FLETCHER: (f32, f32) = (6.0, 4.6);
 
-/// The field: four stooks of wheat, and the scarecrow on his post.
 pub const STOOKS: [(i32, i32, i32, i32); 4] = [(3, 2, 4, 2), (16, 2, 5, 2), (3, 10, 4, 2), (16, 10, 4, 2)];
 pub const CLIENT: (f32, f32) = (12.0, 5.0);
 
-/// The three pieces, where the crows dropped them, and their names.
 pub const CLOTHES: [(RoomKind, (f32, f32), &str); 3] = [
     (RoomKind::LongbowGreen, (18.0, 4.6), "TIN HAT"),
     (RoomKind::Fletchery, (17.5, 4.6), "FEATHER COAT"),
     (RoomKind::Scarecrow, (19.5, 8.0), "LEFT BOOT"),
 ];
-/// What the crier calls while a piece is still out.
 pub const WANTED: [&str; 3] = [
     "THE SCARECROW WANTS HIS HAT",
     "THE SCARECROW WANTS HIS COAT",
     "THE SCARECROW WANTS HIS BOOT",
 ];
-/// The once-only purse for dressing him.
 pub const PURSE: (u32, u32) = (65, 3);
 
-/// 0: not asked, 1: clothes being found, 2: dressed; and the pieces found.
 pub fn progress(country: &countryside::Country, marks: &BTreeMap<String, u32>) -> (u8, u8) {
     let mut stage = country.wardrobe;
     let mut clothes = country.clothes;
@@ -92,7 +78,6 @@ fn fill(room: &mut Room, (c, r, w, h): (i32, i32, i32, i32), tile: Tile) {
     }
 }
 
-/// Every door's four-knight arrival and every objective stays open.
 pub fn shape(room: &mut Room) {
     match room.kind {
         RoomKind::LongbowGreen => {
@@ -123,8 +108,6 @@ pub fn shape(room: &mut Room) {
 }
 
 impl Run {
-    /// One tick in longbow country; `pressed` holds the knights (a bit
-    /// each) whose E went down this tick.
     pub(super) fn tick_bowcountry(&mut self, pressed: u8) {
         let kind = self.room().kind;
         let Some(i) = PLACES.iter().position(|&k| k == kind) else {

@@ -92,8 +92,6 @@ fn memfd(len: usize) -> OwnedFd {
     }
 }
 
-/// Dispatch with a deadline: poll the connection fd in short slices so
-/// a stopped producer (no more damage) cannot hang the observer.
 fn pump(q: &mut EventQueue<State>, s: &mut State, conn: &Connection, deadline: Instant, done: impl Fn(&State) -> bool) -> bool {
     while !done(s) {
         if Instant::now() > deadline {
@@ -109,13 +107,12 @@ fn pump(q: &mut EventQueue<State>, s: &mut State, conn: &Connection, deadline: I
         if ready > 0 {
             let _ = guard.read();
         } else {
-            drop(guard); // dropping cancels the prepared read
+            drop(guard);
         }
     }
     true
 }
 
-/// One damage-driven capture; `None` when `deadline` passes first.
 fn capture(q: &mut EventQueue<State>, s: &mut State, conn: &Connection, region: [i32; 4], deadline: Instant) -> Option<(Shm, Instant)> {
     let qh = q.handle();
     let copier = s.copier.clone().unwrap();
@@ -159,12 +156,9 @@ fn capture(q: &mut EventQueue<State>, s: &mut State, conn: &Connection, region: 
 }
 
 impl Shm {
-    /// The stamp block's colour as a sequence number (R | G<<8 | B<<16),
-    /// sampled inside the block.
     fn stamp(&self) -> u32 {
         let i = (4 * self.stride + 4 * 4) as usize;
         let p = unsafe { std::slice::from_raw_parts(self.map.add(i), 4) };
-        // XRGB little-endian bytes are B G R X; the stamp is RGB.
         u32::from(p[2]) | (u32::from(p[1]) << 8) | (u32::from(p[0]) << 16)
     }
     fn hash(&self) -> u64 {

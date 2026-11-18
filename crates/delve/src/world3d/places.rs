@@ -18,8 +18,6 @@ use super::blockout::Side;
 use super::pilot::{Item, Source};
 use crate::rules::RoomKind;
 
-/// An item of the kingdom: a room, its id, its in-game name, its setting,
-/// what it is; then the dressing's fields over the empty one.
 macro_rules! place {
     ($id:literal, $kind:ident, $title:literal, $setting:expr, $what:literal; $($field:ident: $val:expr),* $(,)?) => {
         Item {
@@ -37,11 +35,8 @@ const OAK: Setting = open(Edge::Wood(Leaf::Oak), Field::Grass);
 const PINE: Setting = open(Edge::Wood(Leaf::Pine), Field::Grass);
 const COPPER: Setting = open(Edge::Wood(Leaf::Copper), Field::Grass);
 
-/// The cross of roads most of the places keep: north to south and east to
-/// west (`world::roads`).
 const CROSS: &[Rect] = &[(11, 0, 2, 14), (0, 6, 24, 2)];
 
-/// A staked plot of the realm's buildings (`countryside::PLOTS`).
 const fn site(rect: Rect) -> (Rect, Prop) {
     (rect, Prop::Site)
 }
@@ -67,17 +62,14 @@ const fn tower(rect: Rect, walls: Kind, cap: Kind, height: f32) -> (Rect, Prop) 
 }
 
 pub const PLACES: [Item; 76] = [
-    // ------------------------------------------------ the surface, west ----
     place!("gate", Gate, "Gate Courtyard", open(Edge::Wood(Leaf::Oak), Field::Grass),
         "The Delve's gate courtyard: a stone arch over the stair down to the Undercroft in the north-west, a well, the Sozzled Griffin's great oak inn in the north-east, the notice post by the road, the peddler's cart in the south-west hedge, doors to the mine-head, the stables and the lists.";
         roads: &[(11, 0, 2, 14), (0, 6, 24, 2), (5, 5, 2, 1)],
         props: &[
-            // The gate's arch hall, and the two piers either side of the stair, torches burning.
             cottage((4, 1, 5, 3), Kind::Stone, Kind::Slate, 0),
             column((4, 4, 1, 1), Kind::Stone, 26.0, true),
             column((7, 4, 2, 1), Kind::Stone, 26.0, true),
             ((15, 3, 2, 2), Prop::Well),
-            // The Sozzled Griffin: two storeys of oak, lit at every window.
             cottage((18, 1, 5, 3), Kind::Wood, Kind::Wood, 4),
             column((15, 10, 1, 1), Kind::Wood, 18.0, false),
         ],
@@ -136,7 +128,6 @@ pub const PLACES: [Item; 76] = [
             table((2, 11, 5, 1), Kind::Cloth, 8.0),
         ],
         notes: &["Painted on open floor, not blocks: four tubs on a tiled dais at (5,3.6) (9.5,3.6) (14.5,3.6) (19,3.6), washing lines, the price on a board by the door."]),
-    // ------------------------------------------------------ the ranch ----
     place!("ranch", Ranch, "The Horse Ranch", open(Edge::Wood(Leaf::Oak), Field::Earth),
         "The horse ranch beside the stables: the barn, Helios's stall with the stud book in front of it, the hitching rail where the draft horse is groomed, hay, and the war horses' paddock; fenced, in a tree line.";
         props: &[
@@ -155,7 +146,6 @@ pub const PLACES: [Item; 76] = [
             ((18, 10, 2, 1), Prop::Trough { depth: 9.0, height: 8.0 }),
         ],
         notes: &["Painted on open ground, not blocks: flowers over the grass, the gate home (6,12)."]),
-    // ------------------------------------------------------ the College ----
     place!("college-grounds", CollegeGrounds, "College Courtyard", Setting::Courtyard { field: Field::Grass },
         "The College of the Labyrinth's courtyard in stone walls: the school's long front in the north, the wizard's tall tower in the east, a fountain in the middle, flagged paths to the doors, grass between.";
         paved: &[(8, 1, 8, 12), (1, 10, 22, 3)],
@@ -251,7 +241,6 @@ pub const PLACES: [Item; 76] = [
         ],
         fixtures: &[(Fix::Window, 149.0), (Fix::Window, 242.0)],
         notes: &["Painted on open floor, not blocks: a hearth with a fire (16,5.5), jars on the shelves, three pinned creature sketches, a familiar."]),
-    // ------------------------------------------------- the Colosseum ----
     place!("colosseum-hall", ColosseumHall, "The Colosseum", Setting::Hall,
         "The Colosseum's entrance hall: an arcade of slate stone along the north wall with two arched gates (one for each arena), a board on two posts before each gate, a worn runner from the great door in the south.";
         props: &[
@@ -276,7 +265,6 @@ pub const PLACES: [Item; 76] = [
     place!("gander-hall", GanderHall, "Gander Joust Hall", Setting::Hall,
         "The Gander Joust hall: a long hall of coursed slate with arches along its back wall and the folk in a gallery above; the game is played side-on (ledges, a tar pit and riders are the game's), and the gate home is low in the west wall.";
         notes: &["The blockout is the hall's shell only: the game draws it side-on, so the ledges, the tar and the riders are not blocks. Pillars stand at both ends, the gallery rail above."]),
-    // ------------------------------------------------ the Sozzled Griffin ----
     place!("alehouse", Alehouse, "The Sozzled Griffin", Setting::Hall,
         "The Sozzled Griffin, the great tavern where every delve begins: a plank floor under a timber back wall, a stone hearth in the north-west, a long bar with its shelves, kegs stacked in the north-east corner, a stage in the east, five tables with the company on the benches behind them, an arm-wrestling table, crates, barrels and a notice board, the front door south and the bazaar's bead curtain east.";
         props: &[
@@ -357,7 +345,6 @@ pub const PLACES: [Item; 76] = [
         ],
         fixtures: &[(Fix::Lamp, 60.0), (Fix::Lamp, 260.0)],
         notes: &["Painted on open floor, not blocks: the flagstones, the wares and their prices on the cloths, the vendors, the bunting, the well's water."]),
-    // ---------------------------------------------------- the countryside ----
     place!("forest", Forest, "Firefly Grove", open(Edge::Wood(Leaf::Pine), Field::Grass),
         "The firefly grove, a woodland clearing: old dark oaks and yews standing alone in a meadow with a lantern pad and rune circles on the ground, roads crossing.";
         roads: &[(11, 0, 2, 14), (0, 6, 24, 2), (3, 10, 16, 1)],
@@ -418,7 +405,6 @@ pub const PLACES: [Item; 76] = [
             site((6, 1, 3, 3)),
         ],
         notes: &["Painted on open ground, not blocks: the cliff face dropping in shadow to the sea, the lift's plate (3,9)."]),
-    // --------------------------------------------------- the eastern road ----
     place!("causeway", Causeway, "Toll Troll Causeway", OAK,
         "The toll troll causeway: a broad paved causeway of setts between shallow water north and south, dressed stone kerbs along the water, the troll's sandwich-invoice toll booth.";
         paved: &[(1, 5, 22, 4)],
@@ -431,7 +417,6 @@ pub const PLACES: [Item; 76] = [
             site((16, 2, 5, 3)),
         ],
         notes: &["Painted on open ground, not blocks: clipped bushes (12,4) (14,4), the flight plate (19,10)."]),
-    // ----------------------------------------------------- the north ridge ----
     place!("crag", Crag, "Candlewick Crag", open(Edge::Rock, Field::Snow),
         "Candlewick Crag, a snowy ridge: four snow-capped outcrops of dark rock, a rope course strung between posts across the middle, roads crossing in snow.";
         roads: CROSS,
@@ -459,7 +444,6 @@ pub const PLACES: [Item; 76] = [
             site((16, 2, 5, 3)),
         ],
         notes: &["The ground is snow (plaster-coloured in the capture). Painted on open ground, not blocks: forecast markers, the ropeway plate (19,10)."]),
-    // ------------------------------------------------------ the coast ----
     place!("strand", Strand, "Soggy Bottom Strand", open(Edge::Wood(Leaf::Oak), Field::Sand),
         "Soggy Bottom Strand: a sandy beach footpath between the sea in the north-west and north-east and in the south, driftwood and a beached rowing boat by the water.";
         roads: CROSS,
@@ -477,7 +461,6 @@ pub const PLACES: [Item; 76] = [
             ((7, 2, 2, 3), Prop::Tower { walls: Kind::Stone, cap: Kind::Slate, height: 40.0, sails: false, lamp: true }),
         ],
         notes: &["Painted on open ground, not blocks: a harbour sign, rope."]),
-    // ----------------------------------------------------- the woodland ----
     place!("timberyard", Timberyard, "Splinter's Timberyard", COPPER,
         "Splinter's Timberyard: four stacks of cut logs, ringed ends toward the viewer, in the corners of a copper wood, a grass lane with full-width logs to jump between.";
         roads: CROSS,
@@ -507,7 +490,6 @@ pub const PLACES: [Item; 76] = [
             site((16, 2, 5, 3)),
         ],
         notes: &["Painted on open ground, not blocks: the stew pot, a BADGER sign, the wagon plate (19,10)."]),
-    // -------------------------------------------------------- the wetland ----
     place!("millpond", Millpond, "The Royal Dog-Paddle", open(Edge::Wood(Leaf::Oak), Field::Marsh),
         "The Royal Dog-Paddle, a millpond: two ponds of open water in the middle joined by a dry stone bridge with a walled strip between them, mud and grass round them.";
         roads: CROSS,
@@ -527,7 +509,6 @@ pub const PLACES: [Item; 76] = [
             site((16, 2, 5, 3)),
         ],
         notes: &["Painted on open ground, not blocks: arches between the columns, the boat plate (19,10)."]),
-    // --------------------------------------------------------- the aerie ----
     place!("belfry", Belfry, "The Bashful Belfry", PINE,
         "The Bashful Belfry: two stone bell towers under slate, bells hung in their open lanterns, a rope course on timber posts between them, in a pine wood.";
         roads: CROSS,
@@ -554,7 +535,6 @@ pub const PLACES: [Item; 76] = [
             site((16, 2, 5, 3)),
         ],
         notes: &["Painted on open ground, not blocks: pigeons, three perches (9,4) (13,9.5) (8,11.5), the flight plate (19,10)."]),
-    // ------------------------------------------------------- Mummers' way ----
     place!("mummers", Mummers, "Mummers' Hollow", OAK,
         "Mummers' Hollow: the players' stage of boards with a curtained backdrop and footlights, a painted flat of a castle propped up in the north-east, a heap of costume trunks in the south-west, a broad half-pipe ramp.";
         roads: CROSS,
@@ -583,7 +563,6 @@ pub const PLACES: [Item; 76] = [
             site((16, 2, 5, 3)),
         ],
         notes: &["Painted on open ground, not blocks: a boot, INN ON WHEELS and LOST PROPERTY signs, the wagon plate (19,10)."]),
-    // ------------------------------------------------------ the racing way ----
     place!("hippodrome", Hippodrome, "The Rusty Hippodrome", OAK,
         "The Rusty Hippodrome: an oval of rutted dirt track round a grass infield, two timber grandstands in the north, the judges' box at the south of the infield, a staked plot for the fast coach in the south-east.";
         roads: CROSS,
@@ -615,7 +594,6 @@ pub const PLACES: [Item; 76] = [
             ((3, 11, 4, 1), Prop::Rail),
         ],
         notes: &["Painted on open ground, not blocks: a FREE FOOTPATH sign, a river that is scenery, a rail along row 7."]),
-    // ----------------------------------------------------- the wind country ----
     place!("goose-green", GooseGreen, "Sir Honks-a-Lot Picnic Green", OAK,
         "Sir Honks-a-Lot Picnic Green: a striped picnic marquee in the north-west, a long hedge with its bench in the north-east, the goose's own thatched shed in the south, flowers along the middle.";
         roads: CROSS,
@@ -645,7 +623,6 @@ pub const PLACES: [Item; 76] = [
             ((15, 10, 3, 2), Prop::Outcrop { cap: None }),
         ],
         notes: &["Painted on open ground, not blocks: signs."]),
-    // ------------------------------------------------------ the bow country ----
     place!("longbow-green", LongbowGreen, "Longbow Green", OAK,
         "Longbow Green, the archers' green: a turf bank along the north with three straw butts on it, tall timber poles with a rope across them for the popinjay, the judge's tally booth under a striped awning in the south-east, quivers in barrels in the south-west.";
         props: &[
@@ -673,7 +650,6 @@ pub const PLACES: [Item; 76] = [
             ((16, 10, 4, 2), Prop::Stooks),
         ],
         notes: &["Painted on open ground, not blocks: the scarecrow on his post (12,5), crows, furrows between the stooks."]),
-    // ---------------------------------------------------------- the eyrie ----
     place!("eyrie", Eyrie, "The Griffin Eyrie", open(Edge::Rock, Field::Scree),
         "The Griffin Eyrie, up on the mountain: crags either side of the griffins' perch, a stone stump crowned with a nest, a take-off ring scuffed into the turf, the griffin master's brazier; the yard gate leads back down.";
         roads: &[(11, 6, 2, 8)],
@@ -684,10 +660,6 @@ pub const PLACES: [Item; 76] = [
             ((2, 10, 4, 3), Prop::Outcrop { cap: None }),
         ],
         notes: &["Painted on open ground, not blocks: the perch with its nest (12,4), the take-off ring, feathers, the master's brazier."]),
-    // ------------------------------------------------- Bomrekedan's levels ----
-    // The fort as the import laid it (`world::bomrekedan`). 3D reads the same
-    // DRESS grid the 2D painter does (`blockout::fort_prop`): a workshop is a
-    // pier, a furnace a furnace, a tree a tree. No blanket boulder field.
     place!("bom-gate", BomGate, "The Gate", Setting::Hall,
         "Bomrekedan's surface, the Gate, as the import laid it: the hillside over the fort with its trees, the trade depot and the clear ground by it where a party comes in from the kingdom, the main stair going down.";
         props: &[],

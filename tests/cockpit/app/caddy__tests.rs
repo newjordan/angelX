@@ -1,7 +1,5 @@
 use super::*;
 
-/// Env guards that keep the fixture's overrides alive for the test body
-/// (`TestEnvGuard` restores on drop, so it must outlive the assertions).
 struct FixtureEnv {
     _caddy: crate::tests::TestEnvGuard,
     _dossier: crate::tests::TestEnvGuard,
@@ -162,7 +160,6 @@ fn caddy_render_cap_drops_doors_first_and_keeps_newest_recipes() {
             .all(|line| line.chars().count() <= MAX_LINE_CHARS),
         "no split lines: {card}"
     );
-    // The identity line is `⠸⠃⠙`, its values beside it.
     let identity = crate::agent::harness::book::d456_knowledge::CADDY_IDENTITY.cells();
     let doors = crate::agent::harness::book::d456_knowledge::CADDY_DOORS.cells();
     assert!(
@@ -170,8 +167,6 @@ fn caddy_render_cap_drops_doors_first_and_keeps_newest_recipes() {
         "header survives: {card}"
     );
     assert!(!card.contains("[caddy"), "no English header: {card}");
-    // Languages come from the shared shallow scan and the header names the
-    // host runtimes so the model never guesses `python` vs `python3`.
     assert!(
         card.contains(" langs=rust"),
         "langs from workspace_lang: {card}"
@@ -179,7 +174,6 @@ fn caddy_render_cap_drops_doors_first_and_keeps_newest_recipes() {
     assert!(card.contains(" host="), "host runtimes in header: {card}");
     assert!(card.contains("cmd-029"), "newest recipe survives: {card}");
     assert!(!card.contains(&doors), "doors drop first: {card}");
-    // The heading is `⠸⠃⠃`, on the card's route line; the section keeps its key.
     assert!(
         card.contains(&crate::agent::harness::book::d3_roles::pages(
             crate::agent::harness::book::d456_knowledge::CADDY,
@@ -368,14 +362,11 @@ fn caddy_kill_switch_blanks_render_and_write_back() {
     let _ = std::fs::remove_dir_all(caddy_dir.parent().unwrap());
 }
 
-/// M06b: the default card is cost-aware — only entries relevant to the
-/// workspace's verifier family, never doors, ≤ 400 B; a store with
-/// nothing relevant renders nothing and the ledger records the skip.
 #[test]
 fn m06b_relevant_card_injects_only_matching_entries_and_ledgers_skip() {
     let _guard = crate::tests::env_lock();
     let (caddy_dir, dossier_dir, workspace, _env) = fixture("m06b");
-    seed_dossier(&dossier_dir, &workspace); // doors must NOT appear
+    seed_dossier(&dossier_dir, &workspace);
     seed_store(
         &caddy_dir,
         &workspace,
@@ -428,8 +419,6 @@ fn m06b_relevant_card_injects_only_matching_entries_and_ledgers_skip() {
         }],
     );
 
-    // Rust workspace (fixture writes Cargo.toml): the node recipe and the
-    // cargo build hazard are irrelevant; cargo test is relevant.
     let _card_env = crate::tests::TestEnvGuard::unset("ANGEL_CADDY_CARD");
     let _defaults = crate::tests::TestEnvGuard::unset("ANGEL_FEATURE_DEFAULTS");
     let card = render_card_for_task(&workspace, card_cap());
@@ -452,7 +441,6 @@ fn m06b_relevant_card_injects_only_matching_entries_and_ledgers_skip() {
         card.len()
     );
 
-    // A store with nothing relevant: nothing injected, skip ledgered.
     let mut ledger =
         std::env::temp_dir().join(format!("angel-caddy-m06b-skip-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&ledger);
@@ -483,7 +471,6 @@ fn m06b_relevant_card_injects_only_matching_entries_and_ledgers_skip() {
         "skip must be ledgered: {body}"
     );
 
-    // ANGEL_CADDY_CARD=full restores the full pre-M06b card.
     let _full_card = crate::tests::TestEnvGuard::set("ANGEL_CADDY_CARD", "full");
     let card = render_card_for_task(&workspace, card_cap());
     assert!(card.contains("node"), "full card shows everything: {card}");
@@ -495,7 +482,6 @@ fn m06b_relevant_card_injects_only_matching_entries_and_ledgers_skip() {
     let _ = std::fs::remove_file(&ledger);
 }
 
-/// The Rust-side ruling matches the cohort's `recipe_relevance` labels.
 #[test]
 fn m06b_recipe_relevance_matches_the_cohort_ruling() {
     let families = ["cargo-test"];
@@ -517,7 +503,6 @@ fn m06b_recipe_relevance_matches_the_cohort_ruling() {
     );
     assert_eq!(recipe_relevance("echo hi", &families), None);
     assert_eq!(recipe_relevance("./benchmark.sh", &families), None);
-    // Compound shell args never establish relevance.
     assert_eq!(
         recipe_relevance("run_tests {\"args\":\"a; rm -rf / && b\"}", &families),
         None
@@ -529,8 +514,6 @@ fn m06b_recipe_relevance_matches_the_cohort_ruling() {
     );
 }
 
-/// The retirement switch: a receipt file with default = "off" disables the
-/// card when no explicit env flag is set, and an explicit flag outranks it.
 #[test]
 fn m06b_receipt_file_can_retire_the_card() {
     let _guard = crate::tests::env_lock();
@@ -569,16 +552,11 @@ fn m06b_receipt_file_can_retire_the_card() {
     );
     assert_eq!(card_mode(), CardMode::Off);
     assert_eq!(render_card_for_task(&workspace, card_cap()), "");
-    // An explicit env flag outranks the receipt.
     let _on = crate::tests::TestEnvGuard::set("ANGEL_CADDY", "1");
     assert_eq!(card_mode(), CardMode::Relevant);
     let _ = std::fs::remove_dir_all(base);
 }
 
-/// M06b measurement receipt: injected card bytes, full (pre-M06b) vs
-/// cost-aware (default), for each of the six cohort fixture languages.
-/// Prints one JSON line per fixture; captured into
-/// docs/audits/evidence/2026-09-08-straight-a/M06b/card-bytes.json.
 #[test]
 fn m06b_card_bytes_table() {
     let _guard = crate::tests::env_lock();
@@ -591,15 +569,10 @@ fn m06b_card_bytes_table() {
         ("rust-capped-backoff", "cargo-test", "cargo"),
     ];
     let recipes: Vec<Recipe> = [
-            // A mixed store: the fixture's own family recipe plus four
-            // entries from other families — what an always-on full card
-            // charged for in cohort #6.
             ("run_tests {\"args\":\"\",\"runtime\":\"node\"}", "run_tests"),
             ("run_tests {\"args\":\"\",\"runtime\":\"python\"}", "run_tests"),
             ("run_tests {\"args\":\"\",\"runtime\":\"rust\"}", "run_tests"),
             ("cargo {\"args\":\"test --quiet\"}", "cargo"),
-            // Long irrelevant entries (a real store carries full command
-            // lines); these are what the always-on full card paid for.
             (
                 concat!(
                     "run_tests {\"args\":\"",
@@ -667,8 +640,6 @@ fn m06b_card_bytes_table() {
     .collect();
     for (name, family, runtime) in cases {
         let (caddy_dir, _dossier_dir, workspace, _env) = fixture("bytes");
-        // Materialize the fixture's verifier layout so the workspace scan
-        // detects its language (package.json / test_*.py / Cargo.toml+src).
         std::fs::remove_file(workspace.join("Cargo.toml")).unwrap();
         match family {
             "node-test" => {
@@ -683,7 +654,6 @@ fn m06b_card_bytes_table() {
                     .unwrap();
             }
             _ => {
-                // Fixture already writes Cargo.toml; keep src/ present.
                 std::fs::write(workspace.join("Cargo.toml"), "[package]\nname = \"x\"\n").unwrap();
                 std::fs::create_dir_all(workspace.join("src")).unwrap();
                 std::fs::write(workspace.join("src").join("lib.rs"), "#[test]\nfn t() {}\n")
@@ -719,8 +689,6 @@ fn m06b_card_bytes_table() {
             let _rel = crate::tests::TestEnvGuard::unset("ANGEL_CADDY_CARD");
             render_card_for_task(&workspace, card_cap())
         };
-        // The fixture's own-family recipe line, exactly as the card shows
-        // it: `run_tests {"args":"","runtime":"<runtime>"}`.
         let own = match family {
             "cargo-test" => "cargo {\"args\":\"test --quiet\"}".to_string(),
             _ => format!("\"runtime\":\"{runtime}\""),

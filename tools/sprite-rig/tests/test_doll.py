@@ -1,4 +1,3 @@
-"""2D doll animator: DSL, loadouts, render robustness, speed. Runs under unittest and pytest."""
 import json, os, tempfile, time, unittest
 import numpy as np
 from spriterig.doll import Doll, Loadout, dsl
@@ -25,7 +24,6 @@ class DollTest(unittest.TestCase):
         c = dsl.parse("clip t\nfps 12\nloop no\n0 rest\n4 ease=linear rarm=90\n")["t"]
         self.assertEqual(len(c), 5)
         self.assertEqual(c.rot.shape[1:], (len(c.rot[0]), 3, 3)[1:] if False else c.rot.shape[1:])
-        # rotation grows monotonically with a linear ease
         from spriterig.skel import skeleton as S
         i = S.NAMES.index("RightArm")
         ang = [np.degrees(np.arccos(np.clip((np.trace(c.rot[f, i]) - 1) / 2, -1, 1))) for f in range(5)]
@@ -70,7 +68,7 @@ class DollTest(unittest.TestCase):
         for f in range(len(c)):
             d.frame(c.rot[f], c.hips[f], facing=90, smear=f in c.smear); n += 1
         ms = (time.perf_counter() - t) / n * 1000
-        self.assertLess(ms, 25)   # ~3 ms on the box; generous for CI
+        self.assertLess(ms, 25)
 
     def test_batch_export(self):
         out = tempfile.mkdtemp()
@@ -86,8 +84,6 @@ if __name__ == "__main__":
 
 
 class TestDelveSilhouette(unittest.TestCase):
-    """v6: every loadout shares the stout delve proportions (short legs, broad body, big helm)."""
-
     def test_stout_and_consistent(self):
         from spriterig.doll import Doll, Loadout, dsl
         from spriterig.doll import anim as A

@@ -5,10 +5,7 @@
 use super::*;
 
 impl Run {
-    /// The tick's dead: paid for, reaped, and what they carried dropped
-    /// where they fell.
     pub(super) fn settle_kills(&mut self) {
-        // An outlaw felled after the hall's tick is paid before it is reaped.
         self.pay_outlaw();
         let ore_bodies: std::collections::BTreeSet<_> = self.enemies.iter().filter(|e| self.ore_sentry_kind(e.id).is_some()).map(|e| e.id).collect();
         let ore_victories = self.settle_ore_sentries();
@@ -25,7 +22,6 @@ impl Run {
         let mut mimics = Vec::new();
         let mut foes_fallen = Vec::new();
         let mut goblins_fallen = Vec::new();
-        // The Wanted hall and a lost hall keep their own company: not the floor's provision.
         let showdown = matches!(self.room().kind, RoomKind::Wanted | RoomKind::Holding | RoomKind::DwarfHall);
         self.enemies.retain(|e| {
             let claim_body = e.boss.and_then(|i| self.bosses.get(i as usize))
@@ -146,7 +142,6 @@ impl Run {
                 g.economy.retire(id);
             }
         }
-        // Actual corpse settlement is the only source of leader-loss evidence.
         let was_open = self
             .boss_gates
             .as_ref()
@@ -157,7 +152,6 @@ impl Run {
             for &(boss, _, _) in &guardians {
                 g.record(self.at, EnemyKind::Boss, Some(boss as u8));
             }
-            // The chief's camp's elite fell with the Boss Key: its route is won.
             for &(slot, x, y, kind) in &carrier_deaths {
                 if g.carrier_fell(self.at, slot) {
                     carrier_fell = Some((x, y, kind));
@@ -177,7 +171,6 @@ impl Run {
                 unsealed = true;
             }
         }
-        // The key carrier whose fall opened the route drops the Boss Key.
         if let Some((_, _, kind)) = carrier_fell {
             self.cues
                 .push(format!("leader_fall:{}", keyring::bearer_name(kind)));
@@ -189,7 +182,6 @@ impl Run {
         {
             self.drop_boss_key(x, y);
         }
-        // A mimic coughs up the treasure it was pretending to be.
         for (x, y) in mimics {
             let pack = self.dungeon.pack;
             let loot = self.book.roll_chest(&mut self.rng, pack);
@@ -208,16 +200,12 @@ impl Run {
         let plain: Vec<(EnemyKind, f32, f32)> =
             fallen.iter().map(|&(k, x, y, ..)| (k, x, y)).collect();
         self.leave_corpses(&plain, &guardians);
-        // What fell on an open map lies there for the rest of the floor.
         self.leave_remains(&plain);
-        // Every death holds a white frame, then bursts (`feel`).
         for &(kind, x, y, ..) in &fallen {
             self.feel.death(x, y, kind);
         }
-        // How each minion's last blow looks (`gore`); the rules never read it.
         self.gather_corpses(&slain);
         self.finish_slain(&slain);
-        // Humphrey falls apart, politely, and starts reassembling.
         if fallen.iter().any(|&(kind, ..)| kind == EnemyKind::Risen) {
             let c = &mut self.home.countryside;
             c.humphrey_felled = c.humphrey_felled.saturating_add(1).min(9);
@@ -234,7 +222,6 @@ impl Run {
             self.sounds.push("boss_fall");
             self.fx.push(Fx::Shake(10));
         }
-        // A guardian scatters its spoils as cards, plus one prize.
         for (index, x, y) in guardians {
             let Some(boss) = self.bosses.get(index).cloned() else {
                 continue;
@@ -273,9 +260,7 @@ impl Run {
             self.fx.push(Fx::Shake(24));
             self.sounds.push("boss_fall");
             self.cues.push(format!("boss_fall:{}", boss.id));
-            // A dread of the Deep: the village below hears it (`deep::dread`).
             self.dread_felled(&boss.id, &boss.name);
-            // A guardian of the deep floors: one in three gives up a relic.
             let draw = self.rng.below(relics::GUARDIAN_DRAW as usize) as u32;
             self.relic_find(draw, relics::GUARDIAN_EVERY);
         }
@@ -303,9 +288,6 @@ impl Run {
         }
         let red = self.song.as_deref() == Some("red");
         for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
-            // The Red Ballad mends a knight who hears it, kill by kill, but
-            // no leech stacks past the held cards' cap; and a tick's kills
-            // mend once, however many fell to one blow.
             let vamp = (hero.bonus.vamp
                 + if red && hero.singing {
                     tavern::SONG_VAMP
@@ -345,10 +327,7 @@ impl Run {
         for (kind, x, y, shunned, frogged) in fallen {
             self.drop_bombs(kind, x, y);
             if !matches!(kind, EnemyKind::Dummy | EnemyKind::Ward) { self.early_gear_drop(x, y); }
-            // A frog's death pays half: it was hardly itself.
             self.score += if frogged { kind.bounty() / 2 } else { kind.bounty() } * generous;
-            // The King pays for slaying either way; the Church's shun keeps
-            // only its cut: a read-out monster's death drops nothing.
             if !shunned
                 && self
                     .rng
@@ -373,7 +352,6 @@ impl Run {
                 self.drop_item(card, x + 0.9, y + 0.5, None);
             }
         }
-        // A boss that stood alone leaves what its company would have.
         for (hoard, x, y) in hoards {
             for (n, kind) in hoard.into_iter().enumerate() {
                 let (dx, dy) = ((n % 3) as f32 * 1.4 - 1.4, (n / 3) as f32 * 1.2 + 1.0);
@@ -396,7 +374,6 @@ impl Run {
         let most = if self.open_map() { depths::OPEN_ITEMS } else { MAX_ITEMS };
         let room = &mut self.dungeon.rooms[self.at];
         if room.items.len() < most {
-            // A scroll landing shimmers, so a knight mid-fight hears it fall.
             if self.book.get(&card).is_some_and(Card::scroll) {
                 self.sounds.push("wish_grant");
             }
@@ -404,7 +381,6 @@ impl Run {
         }
     }
 
-    /// Knights pick up the cards they walk over and open chests they touch.
     pub(super) fn gather(&mut self) {
         let touched = self.dungeon.rooms[self.at]
             .chest
@@ -437,9 +413,6 @@ impl Run {
                 let angle = std::f32::consts::FRAC_PI_2 + (i as f32 - 1.0) * 1.1;
                 room.items.push(Item::lying(card, cx + angle.cos() * 3.0, cy + angle.sin() * 2.6, self.tick));
             }
-            // One chest in six on the deep floors gives up a relic, into
-            // the first living knight's purse (field by field, beside the
-            // room the chest is in).
             let draw = self.rng.below(relics::CHEST_DRAW as usize) as u32;
             if let Some(relic) = relics::find(pack, draw, relics::CHEST_EVERY)
                 && let Some((&id, _)) = self.players.iter().find(|(_, h)| h.hp > 0 && !h.stone)
@@ -457,12 +430,7 @@ impl Run {
             .hireling
             .as_ref()
             .is_some_and(|h| h.kind == hireling::AllyKind::Beaumains);
-        // Shared loot: a card lies until every knight here has taken their
-        // own (an absent host's seat, or a knight left as stone, waits for
-        // no share).
         let party: Vec<u32> = self.players.iter().filter(|(_, h)| !h.absent && !h.stone).map(|(&id, _)| id).collect();
-        // A knight's own set-down piece outlives their seat: once they are
-        // gone from the run it is anyone's.
         for item in &mut room.items {
             if item.owner.is_some_and(|o| !self.players.contains_key(&o)) {
                 item.owner = None;
@@ -482,10 +450,6 @@ impl Run {
                 }
             }
             let book = &self.book;
-            // A weapon is swapped to on the take key, never by walking over
-            // it: the nearest one beside the knight, set down or not. So is
-            // the knight's own piece they set down (a shield too), or walking
-            // past it would swap it back and forth.
             let wanted = std::mem::take(&mut hero.taking)
                 .then(|| {
                     room.items
@@ -504,8 +468,6 @@ impl Run {
                         .map(|(i, _)| i)
                 })
                 .flatten();
-            // While Beaumains walks with the party a summoning card would
-            // only clog a hand: it stays where it lies.
             let by_key = wanted.is_some();
             let Some(index) = wanted.or_else(|| {
                 room.items.iter().position(|item| {
@@ -520,8 +482,6 @@ impl Run {
                         })
                 })
             }) else {
-                // A bottle underfoot that will not go in a full hand says so,
-                // once, rather than nothing (the operator, 2026-10-19).
                 let full = hero.hand.len() >= cards::HAND
                     && room.items.iter().any(|item| {
                         item.seen_by(Some(id))
@@ -533,16 +493,11 @@ impl Run {
                 }
                 continue;
             };
-            // Shared loot: the knight takes their own; the card lies on for
-            // the rest until every knight has (`loot::shared`). Their own
-            // set-down piece is theirs alone: it goes.
             let lies_on = room.items[index].owner.is_none() && book.get(&room.items[index].card).is_some_and(loot::shared) && {
                 room.items[index].took.push(id);
                 !party.iter().all(|p| room.items[index].took.contains(p))
             };
             let item = if lies_on { room.items[index].clone() } else { room.items.swap_remove(index) };
-            // A swap made with the key holds off what else lies underfoot
-            // until the knight steps away, or walking would undo it.
             if by_key {
                 for other in room.items.iter_mut().filter(|o| o.held_off.is_none()) {
                     if (hero.x - other.x).hypot(hero.y - other.y) < PICKUP_REACH {
@@ -556,7 +511,6 @@ impl Run {
             let mut took = "took";
             if gear::piece(&card.id) { hero.wear_piece(&card.id); }
             match card.kind {
-                // Helm and mail are worn, not carried: their protection is the piece.
                 cards::Kind::Hold if gear::piece(&card.id) => {}
                 cards::Kind::Take => {
                     hero.spend(card, &mut self.score, &mut nova);
@@ -579,8 +533,6 @@ impl Run {
                         }
                     }
                 }
-                // The arm already in hand: taking its twin tempers it, up to
-                // the most; past that it stays where it lay (`feel`).
                 cards::Kind::Arm if hero.tempers(card) => {
                     if hero.temper < feel::TEMPER_MAX {
                         hero.temper += 1;
@@ -612,13 +564,10 @@ impl Run {
             }
             self.found = Some((self.tick, id, match card.kind {
                 _ if gear::piece(&card.id) => format!("{}: worn", card.name),
-                // What goes in the hand says how it comes out: the quaff key
-                // drinks the first card, the rest wait their turn.
                 cards::Kind::Play if hero.hand.len() == 1 => format!("{}: Z to {}", card.name, if card.drinks() { "drink" } else { "use" }),
                 cards::Kind::Play => format!("{}: in hand", card.name),
                 _ => format!("{took} {}", card.name),
             }));
-            // A glint rises where it lay, brighter for a rarer find.
             let tier = match (card.kind, card.rarity) {
                 (_, cards::Rarity::Relic) => 2,
                 (cards::Kind::Spell, _) | (_, cards::Rarity::Rare) => 1,
@@ -631,14 +580,12 @@ impl Run {
             } else {
                 "card_pickup"
             });
-            // Spoils are counted, not cheered; other finds are named.
             match (card.kind, card.rarity) {
                 _ if card.is_spoil() => {}
                 (cards::Kind::Arm, _) => self.cues.push(format!("card_arm:{}", card.id)),
                 (cards::Kind::Guard, _) => self.cues.push(format!("card_guard:{}", card.id)),
                 (_, cards::Rarity::Relic) => {
                     self.cues.push("card_relic".into());
-                    // A relic is a moment: its light, its name (`rewards`).
                     rewards::relic(&mut self.rewards, &mut self.ledger, tick, id, &card.name);
                 }
                 (_, cards::Rarity::Rare) => self.cues.push(format!("card_rare:{}", card.id)),

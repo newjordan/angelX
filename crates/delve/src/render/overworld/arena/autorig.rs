@@ -22,7 +22,6 @@ static CACHE: OnceLock<Mutex<HashMap<u64, Option<std::sync::Arc<Rig>>>>> = OnceL
 static ATTEMPTS: AtomicU64 = AtomicU64::new(0);
 static MOTION: OnceLock<Mutex<HashMap<u64, (f32, f32, f32)>>> = OnceLock::new();
 
-/// Test seam. `None` follows the environment.
 pub fn force_enabled(v: Option<bool>) {
     FORCE.with(|c| c.set(v));
 }
@@ -38,9 +37,6 @@ pub fn rig_attempts() -> u64 {
     ATTEMPTS.load(Ordering::Relaxed)
 }
 
-/// Clip choice from an actor's state. Dying (when the rules give a window)
-/// beats a hit, which beats a boss wind-up, which beats a strike, which
-/// beats walking.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActorState {
     pub moving: bool,
@@ -91,9 +87,6 @@ pub fn clip_name(tell: &Tell) -> &'static str {
     }
 }
 
-/// A turret that just loosed a bolt slashes for six ticks (its rearm is 24
-/// the tick it fires, matching `TURRET_EVERY`). A swarm or guard with a
-/// stride walks. There is no death window on a summon: expiry draws as today.
 pub fn minion_state(imp: &Imp, stride: f32) -> ActorState {
     const EVERY: u32 = 24;
     const STRIKE: u32 = 6;
@@ -116,9 +109,6 @@ pub fn minion_state(imp: &Imp, stride: f32) -> ActorState {
     }
 }
 
-/// Walk / attack tell / hurt / boss wind-up from the foe's real fields.
-/// A death window is not stored on the enemy (the burst is a separate
-/// effect), so `dying` stays empty unless a caller sets it.
 pub fn foe_state(enemy: &Enemy, wind: Option<u32>, stride: f32) -> ActorState {
     let windup = if enemy.stage == signatures::WIND {
         let total = wind.unwrap_or(1).max(1);
@@ -174,8 +164,6 @@ fn ink_span(rows: &[&str]) -> Option<(i32, i32)> {
     Some((x1 - x0 + 1, y1 - y0 + 1))
 }
 
-/// Frame 0 is a standing figure: at least 12 px of ink tall, 6 wide, and
-/// taller than it is wide times 0.6.
 pub fn stands(rows: &[&str]) -> bool {
     let Some((w, h)) = ink_span(rows) else {
         return false;
@@ -203,8 +191,6 @@ fn standing_parts(rows: &[&str]) -> bool {
     parts.head && parts.torso && (parts.leg || parts.plan == "robe")
 }
 
-/// Cached rig for rows that qualify. `None` is cached too, so a miss is
-/// computed once.
 pub fn rigged(rows: &[&str]) -> Option<std::sync::Arc<Rig>> {
     if !enabled() || !stands(rows) {
         return None;
@@ -319,7 +305,6 @@ fn fit_box(src: &Img, w: i32, h: i32) -> Img {
     out
 }
 
-/// A wished ink sprite on the Creator's stage: a strike, then a walk, from the tick.
 pub(super) fn stage_pose(rows: &[&str], tick: u64) -> Option<Img> {
     if !enabled() {
         return None;
@@ -359,8 +344,6 @@ fn same_figure(frames: &[Vec<String>]) -> bool {
     !first.is_empty() && frames.iter().all(|f| f == first)
 }
 
-/// Rigged summon, same box as the still, feet on the bottom row. `None`
-/// means draw exactly as today (switch off, or the sprite does not qualify).
 pub(super) fn summon_img(imp: &Imp, sprite: &Sprite, _tick: u64) -> Option<Img> {
     if !enabled() {
         return None;
@@ -387,7 +370,6 @@ fn imp_key(imp: &Imp) -> u64 {
     h | (1 << 63)
 }
 
-/// Boss `.art` still, posed from the foe that wears this boss index.
 pub(super) fn boss_still(run: &Run, index: u8, rows: &[&str]) -> Option<Img> {
     if !enabled() || rows.is_empty() {
         return None;
@@ -403,8 +385,6 @@ pub(super) fn boss_still(run: &Run, index: u8, rows: &[&str]) -> Option<Img> {
     posed(rows, &tell, enemy.dir.0 < -0.05)
 }
 
-/// A single-frame (or repeated-frame) whole-body wish, ready for
-/// `with_sprite_rig`. Multi-frame sheets are left to their authoring.
 pub(super) fn whole_install<'a>(
     hero: &Hero,
     book: &'a crate::rules::cards::Book,

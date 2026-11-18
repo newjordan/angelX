@@ -26,14 +26,12 @@ fn temp(name: &str) -> std::path::PathBuf {
     dir
 }
 
-/// Flattened on black, as the GIFs are.
 fn save_flat(im: &Img, path: &std::path::Path) {
     let mut buf = Vec::with_capacity(384 * 224 * 3);
     for y in 0..224 { for x in 0..384 { buf.extend_from_slice(&im.get(x, y).unwrap_or([0, 0, 0])); } }
     image::save_buffer(path, &buf, 384, 224, image::ColorType::Rgb8).unwrap();
 }
 
-/// A seat at the gate: the real flow, a bank over a throwaway save file, a frame on demand.
 struct Walk {
     run: Run,
     race: rules::Session,
@@ -77,25 +75,21 @@ impl Walk {
         self.shots += 1;
     }
 
-    /// A frame under a name of its own.
     fn snap(&mut self, name: &str) {
         let Some(dir) = self.dir.clone() else { return };
         let im = self.frame();
         save_flat(&im, &dir.join(format!("{name}.png")));
     }
 
-    /// `ticks` ticks of `p`, a frame every `every`.
     fn hold(&mut self, ticks: u32, p: Pad, every: u32) {
         for t in 0..ticks { self.step(p); if t % every == 0 { self.shot(); } }
     }
 
-    /// A tap, then `rest` ticks of nothing with a frame every `every`.
     fn tap(&mut self, p: Pad, rest: u32, every: u32) {
         self.step(p);
         self.hold(rest, pad(), every);
     }
 
-    /// The CPU pilot at the wheel until `until` holds, a frame every `every` ticks if any.
     fn pilot(&mut self, every: Option<u32>, until: impl Fn(&rules::Session) -> bool) {
         for t in 0..60_000u32 {
             if until(&self.race) { return; }
@@ -109,8 +103,6 @@ impl Walk {
     fn money(&self) -> u32 { self.race.flow.seats[&1].career.money }
 }
 
-/// Every screen of the game, through the real tick and the real frame: drawn, not blank, and
-/// the same frame twice.
 #[test]
 fn every_screen_is_drawn() {
     let mut w = Walk::new(None, "screens");
@@ -124,7 +116,6 @@ fn every_screen_is_drawn() {
     w.tap(ok(), 20, 1000);
     note(&mut w, "classes");
     w.tap(ok(), 20, 1000);
-    // The cup goes straight to the pods.
     assert_eq!(w.stage(), rules::Stage::Pods);
     note(&mut w, "pods");
     w.tap(right(), 4, 1000);
@@ -134,7 +125,6 @@ fn every_screen_is_drawn() {
     assert_eq!(w.stage(), rules::Stage::Race);
     w.hold(100, pad(), 1000);
     note(&mut w, "a race");
-    // The garage and the records from the modes list.
     let mut w2 = Walk::new(None, "screens2");
     w2.tap(ok(), 2, 1000);
     for _ in 0..4 { w2.tap(down(), 1, 1000); }
@@ -144,7 +134,6 @@ fn every_screen_is_drawn() {
     w2.tap(down(), 1, 1000);
     w2.tap(ok(), 10, 1000);
     note(&mut w2, "records");
-    // The courses for a single race.
     let mut w3 = Walk::new(None, "screens3");
     w3.tap(ok(), 2, 1000);
     w3.tap(down(), 1, 1000);
@@ -154,27 +143,21 @@ fn every_screen_is_drawn() {
     assert!(seen.len() >= 9);
 }
 
-/// The whole walk the GIF shows: the title, a cup (the pilot at the wheel, skipping ahead), the
-/// podium, the garage's purchase, and the next cup open.
 #[test]
 fn flow_walkthrough() {
     let Some(out) = std::env::var_os("ANGEL_FLOW_PROOF").map(std::path::PathBuf::from) else { return };
     let mut w = Walk::new(Some(&out.join("walk")), "walk");
-    // Title.
     w.hold(75, pad(), 3);
     w.tap(ok(), 24, 3);
-    // The modes.
     for _ in 0..2 { w.tap(down(), 8, 3); }
     w.tap(up(), 8, 3);
     w.tap(up(), 8, 3);
     w.tap(ok(), 24, 3);
-    // The classes: a Knight is shut, so the cursor tries it and learns.
     w.tap(down(), 14, 3);
     w.tap(ok(), 30, 3);
     w.tap(up(), 8, 3);
     w.tap(ok(), 20, 3);
     assert_eq!(w.stage(), rules::Stage::Pods);
-    // The pods: look at a few, one of them shut.
     w.tap(right(), 16, 3);
     w.tap(right(), 16, 3);
     w.tap(ok(), 24, 3);
@@ -184,16 +167,13 @@ fn flow_walkthrough() {
     assert_eq!(w.stage(), rules::Stage::Race);
     let races = rules::cup().len();
     for round in 0..races {
-        // The grid, the lights, the start; then the pilot to the flag, skipping ahead.
         w.pilot(Some(3), |s| s.ticks >= 200);
         w.pilot(Some(300), |s| s.finished);
-        // Hold the final frames and the board.
         w.hold(70, pad(), 4);
         w.shot();
         let place = w.race.place(1);
         eprintln!("race {}: the pilot finished {place}, purse now {}", round + 1, w.money());
         if round + 1 == races && w.race.standings().first().map(|r| r.0) != Some(1) {
-            // However the pilot placed, the cup is the knight's for the proof (the table is set).
             let lead = w.race.points.values().copied().max().unwrap_or(0) + 40;
             w.race.points.insert(1, lead);
         }
@@ -203,24 +183,20 @@ fn flow_walkthrough() {
     w.hold(150, pad(), 3);
     w.tap(ok(), 10, 3);
     assert_eq!(w.stage(), rules::Stage::Modes);
-    // The garage: the purse buys a part.
     for _ in 0..4 { w.tap(down(), 6, 3); }
     w.tap(ok(), 16, 3);
-    // Crests: the Gale Fins (400).
     for _ in 0..4 { w.tap(down(), 6, 3); }
     for _ in 0..3 { w.tap(right(), 8, 3); }
     w.tap(ok(), 40, 3);
     w.tap(down(), 8, 3);
     w.tap(left(), 8, 3);
     w.tap(back(), 14, 3);
-    // The next cup is open: the Knight class.
     for _ in 0..4 { w.tap(up(), 4, 3); }
     w.tap(ok(), 20, 3);
     w.tap(down(), 14, 3);
     w.tap(ok(), 24, 3);
     w.hold(40, pad(), 3);
     assert_eq!(w.stage(), rules::Stage::Pods, "the Knight cup is open");
-    // And it all kept: a new bank over the same file holds the knight's career.
     let (money, cups, classes) = { let c = &w.race.flow.seats[&1].career; (c.money, c.cups, c.classes) };
     let again = Bank::open(Store::new(&w.save));
     let c = again.ledger().career("Sir Proof");
@@ -229,19 +205,16 @@ fn flow_walkthrough() {
     eprintln!("walkthrough frames: {}", w.shots);
 }
 
-/// A time trial run twice: the first lap is kept as the ghost, the second runs beside it.
 #[test]
 fn flow_trial() {
     let Some(out) = std::env::var_os("ANGEL_FLOW_PROOF").map(std::path::PathBuf::from) else { return };
     let mut w = Walk::new(Some(&out.join("trial")), "trial");
     let who = w.who.clone();
     flow::quick(&mut w.race, &who, rules::Mode::TimeTrial, rules::Class::Squire, Some(rules::CourseId::Proving), 0);
-    // The first run: only the road, no ghost; the whole lap is recorded.
     w.pilot(None, |s| s.finished);
     let first = w.race.flow.laps[&1].times.clone();
     assert!(w.bank.ledger().ghost("Sir Proof", &rules::career::lap_key(rules::CourseId::Proving, 0)).is_some(), "the best lap was kept as a ghost");
     eprintln!("first run laps {first:?}");
-    // A second run: a pause at the lights, then the pilot; the ghost is ahead.
     flow::quick(&mut w.race, &who, rules::Mode::TimeTrial, rules::Class::Squire, Some(rules::CourseId::Proving), 0);
     w.pilot(None, |s| s.ticks >= 91);
     assert!(w.race.flow.ghost.is_some(), "the ghost is on the road");
@@ -256,7 +229,6 @@ fn flow_trial() {
     w.hold(70, pad(), 5);
 }
 
-/// What a frame of each screen costs against a frame of the race.
 #[test]
 fn flow_frame_times() {
     if std::env::var_os("ANGEL_FLOW_TIME").is_none() { return; }
@@ -278,7 +250,6 @@ fn flow_frame_times() {
     time(&mut w, "race");
 }
 
-/// Each screen drawn from a state set up by hand, for looking at while the layout is made.
 #[test]
 fn flow_screens() {
     let Some(out) = std::env::var_os("ANGEL_FLOW_SHOTS").map(std::path::PathBuf::from) else { return };
@@ -292,7 +263,6 @@ fn flow_screens() {
     w.tap(ok(), 20, 1000);
     w.snap("04-pods");
     for i in 1..4 { w.tap(right(), 10, 1000); if i == 2 { w.snap("05-pods-shut"); } }
-    // The records of a knight who has done a little.
     {
         let c = &mut w.race.flow.seats.get_mut(&1).unwrap().career;
         c.money = 5850;
@@ -314,7 +284,6 @@ fn flow_screens() {
     w.tap(right(), 4, 1000);
     w.snap("07-records-2");
     w.tap(back(), 2, 1000);
-    // The garage.
     w.tap(up(), 1, 1000);
     w.tap(ok(), 10, 1000);
     w.snap("08-garage");
@@ -325,14 +294,12 @@ fn flow_screens() {
     w.tap(right(), 4, 1000);
     w.snap("10-garage-armour");
     w.tap(back(), 2, 1000);
-    // The courses: a single race, any class.
     for _ in 0..3 { w.tap(up(), 1, 1000); }
     w.tap(ok(), 2, 1000);
     w.tap(ok(), 2, 1000);
     assert_eq!(w.stage(), rules::Stage::Courses);
     w.tap(down(), 40, 1000);
     w.snap("11-courses");
-    // The podium.
     w.race.flow.stage = rules::Stage::Podium;
     w.race.flow.class = rules::Class::Knight;
     w.race.flow.clock = 100;
@@ -344,8 +311,6 @@ fn flow_screens() {
     w.snap("13-podium-b");
 }
 
-/// The example's two menus as they were before the game around the race (course select, then
-/// pod select), redrawn here only to set the new screens beside them.
 #[test]
 fn flow_before_menus() {
     let Some(out) = std::env::var_os("ANGEL_FLOW_SHOTS").map(std::path::PathBuf::from) else { return };

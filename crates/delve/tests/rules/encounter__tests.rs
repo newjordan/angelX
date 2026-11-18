@@ -1,7 +1,6 @@
 //! Room encounters: the minigames dealt to the delve's halls by the seed.
 use super::*;
 
-/// A floor-one run of `seats` knights with the hall the seed deals a game to.
 fn floor(seats: u32, seed: u64) -> Run {
     let mut run = Run::new(seed, 1, None);
     for id in 2..=seats {
@@ -16,7 +15,6 @@ fn floor(seats: u32, seed: u64) -> Run {
     run
 }
 
-/// The same, with `kind` pinned to the folly hall and the party at its door.
 fn deal(seats: u32, kind: Kind) -> (Run, usize) {
     let mut run = floor(seats, 41);
     let index = run.folly_room.expect("a hall");
@@ -43,7 +41,6 @@ fn the_pick_is_the_seeds_and_changes_no_floor() {
     for seed in 1..=24 {
         let mut a = Run::new(seed, 1, None);
         let mut b = a.clone();
-        // Dealing again, and again, draws from no dice and leaves the floor be.
         for _ in 0..3 {
             b.pick_folly();
             b.pick_encounters();
@@ -57,7 +54,6 @@ fn the_pick_is_the_seeds_and_changes_no_floor() {
             serde_json::to_string(&b.dungeon).unwrap(),
             "dealing cannot change the floor"
         );
-        // The next floor is the same whether or not the last one was dealt.
         let mut next_a = a.clone();
         let mut next_b = b.clone();
         next_a.descend_for_test();
@@ -70,7 +66,6 @@ fn the_pick_is_the_seeds_and_changes_no_floor() {
             "the next floor is the same however the last was dealt"
         );
     }
-    // Same seed, same pick; the seed moves it over the whole pool.
     assert_eq!(pick(7, 1, 2, 0, 2, &[]), pick(7, 1, 2, 0, 2, &[]));
     let seen: std::collections::BTreeSet<_> = (1..400).map(|s| format!("{:?}", pick(s, 1, 1, 0, 2, &[]))).collect();
     assert_eq!(seen.len(), pool().len(), "every game of the pool is dealt: {seen:?}");
@@ -84,7 +79,6 @@ fn a_lone_knight_is_never_dealt_a_game_for_two() {
             assert_ne!(pick(seed, 1, depth, 1, 1, &[]), Kind::KnightsWish);
         }
     }
-    // A dealt free-for-all met by a knight on their own is a race for one.
     let (mut run, index) = deal(2, Kind::KnightsWish);
     run.players.get_mut(&2).unwrap().absent = true;
     run.enter_for_test(index);
@@ -94,14 +88,11 @@ fn a_lone_knight_is_never_dealt_a_game_for_two() {
     assert!(run.valid_snapshot());
 }
 
-/// How many ordinary hall or fight rooms the floor has outside the start, the camps
-/// and the guardian's: the rooms it could deal a game to.
 fn rooms_to_deal(run: &Run) -> usize {
     (0..run.dungeon.rooms.len())
         .filter(|&i| {
             let r = &run.dungeon.rooms[i];
             let camp = run.boss_gates.as_ref().is_some_and(|g| g.economy.camp(i).is_some() || g.guardian == i);
-            // (A test build keeps the Ore Cart's race hall on, which takes a spare hall.)
             let race = run.race3d_room == Some(i) || run.gantry_room == Some(i);
             matches!(r.kind, RoomKind::Hall | RoomKind::Fight) && !r.great() && !r.cleared && i != run.at && !camp && !race
         })
@@ -125,10 +116,8 @@ fn every_floor_deals_one_hall_and_a_second_by_a_coin_from_the_second_floor() {
         assert_eq!(run.dungeon.depth, 2);
         let n = run.encounter_rooms.len();
         assert!(n <= 2, "seed {seed}: {n} halls dealt on floor two");
-        // A floor deals its game whenever it has a room to deal it to.
         assert_eq!(n >= 1, has_a_room_to_deal(&run), "seed {seed} floor two");
         floors_two += 1;
-        // A second game needs a second room to stand in.
         if rooms_to_deal(&run) >= 2 {
             rich_two += 1;
             second += usize::from(n == 2);
@@ -139,14 +128,11 @@ fn every_floor_deals_one_hall_and_a_second_by_a_coin_from_the_second_floor() {
         dry_two += usize::from(!has_a_room_to_deal(&run));
     }
     assert_eq!(none_two, dry_two);
-    // The share of floors whose every ordinary room is a chief's camp (a count for the report).
     println!("floor one dealt {first}/240; floor two dealt none on {none_two}/240 (all camps); two games on {second} of the {rich_two} floors with two rooms to deal to ({floors_two} floors)");
     let share = second * 100 / rich_two.max(1);
     assert!((30..=50).contains(&share), "a second game on about 40% of the floors that have a room for it: {share}%");
 }
 
-/// Why a floor deals nothing, over many seeds: a count for the report. Run it with
-/// `cargo test -p angel-delve --lib which_floors_deal_no_game -- --ignored --nocapture`.
 #[test]
 #[ignore = "counts the floors with no room to deal a game to"]
 fn which_floors_deal_no_game() {
@@ -189,7 +175,6 @@ fn halls_are_never_the_start_a_camp_the_guardian_the_way_down_or_each_other() {
             let halls: Vec<usize> = run.encounter_rooms.iter().map(|&(i, _)| i).collect();
             for (n, &i) in halls.iter().enumerate() {
                 let room = &run.dungeon.rooms[i];
-                // An ordinary hall, or an ordinary fight room on a floor laid with no hall.
                 assert!(matches!(room.kind, RoomKind::Hall | RoomKind::Fight), "seed {seed} floor {floor}: {:?}", room.kind);
                 assert!(!room.great() && i != 0 && i != run.at);
                 if let Some(g) = &run.boss_gates {
@@ -230,7 +215,6 @@ fn an_old_saves_folly_hall_keeps_the_rotation_it_was_dealt() {
     run.enter_for_test(index);
     assert!(run.folly.is_some(), "the floor-one folly is the Wax Maze");
     assert_eq!(run.encounter.as_ref().map(|e| e.kind), Some(Kind::WaxMaze));
-    // A save from before the pool has no such fields and still reads.
     let mut tree = serde_json::to_value(&run).unwrap();
     let fields = tree.as_object_mut().unwrap();
     for gone in ["encounter", "encounter_rooms", "encounter_prev"] {
@@ -250,7 +234,6 @@ fn the_four_follies_open_run_and_close_as_they_did() {
         assert!(run.enemies.is_empty() || kind == Kind::BelfryShoot);
         assert!(run.valid_snapshot());
         let hp = run.players[&1].hp;
-        // The game's own end: its state done, its room cleared.
         match kind {
             Kind::WaxMaze => {
                 run.folly.as_mut().unwrap().t = folly::TITLE + folly::MAZE_TIME - 1;
@@ -269,7 +252,6 @@ fn the_four_follies_open_run_and_close_as_they_did() {
     }
 }
 
-/// Make the objective of `kind`'s campaign true.
 fn win_first_objective(run: &mut Run, kind: Kind) {
     match kind {
         Kind::Lanternward => run.lanternward.as_mut().unwrap().room = 1,
@@ -317,7 +299,6 @@ fn a_campaign_opens_in_the_hall_and_a_first_objective_pays_everyone() {
         assert!(!run.roundtable_showing() && run.lanternward.is_none() && run.moonfall.is_none()
             && run.bannerpeak.is_none() && run.griffinwing.is_none() && run.lightgallop.is_none(), "{kind:?}: the game is cleared");
         assert!(run.valid_snapshot(), "{kind:?}");
-        // The party stands in the hall, ready to go on.
         assert_eq!(run.phase, Phase::Exploring);
     }
 }
@@ -334,7 +315,6 @@ fn a_campaign_cut_at_its_cap_without_the_objective_costs_the_ante_and_no_more() 
         assert!(!end.won && end.capped && end.paid.is_empty(), "{kind:?}");
         assert_eq!(run.bank.len(), banked, "{kind:?}: nobody is paid");
         for (id, h) in &run.players {
-            // The ante went in at the door (a tenth of 100) and stays in.
             assert_eq!(h.carried.get(Spoil::Gold), carried[*id as usize - 1], "{kind:?}: nothing more is taken");
             assert!(!h.laurel);
         }
@@ -390,7 +370,6 @@ fn a_cleared_or_sealed_hall_deals_nothing() {
     run.dungeon.rooms[index].cleared = true;
     run.enter_for_test(index);
     assert!(run.encounter.is_none() && run.bannerpeak.is_none());
-    // A guardian's hall under its lock.
     let (mut run, _) = deal(1, Kind::Bannerpeak);
     run.enemies.clear();
     if let Some(g) = run.boss_gates.as_ref() {
@@ -405,7 +384,6 @@ fn a_cleared_or_sealed_hall_deals_nothing() {
 
 #[test]
 fn the_race_hall_and_the_cup_pay_in_finishing_order() {
-    // Knight Racers, two knights: the order of the line decides.
     let mut run = open(2, Kind::KnightRacers);
     assert!(run.knight_racers.is_some() && run.roundtable_showing());
     assert_eq!(run.knight_racers.as_ref().unwrap().laps, 1, "one lap");
@@ -428,10 +406,8 @@ fn the_race_hall_and_the_cup_pay_in_finishing_order() {
     }
     assert!(run.encounter.is_none() && run.knight_racers.is_none() && run.room().cleared);
 
-    // A lone knight against five rivals is paid only for first overall.
     let mut run = open(1, Kind::KnightRacers);
     assert_eq!(run.knight_racers.as_ref().unwrap().cars.len(), 6);
-    // A rival is ahead when the clock runs out.
     run.knight_racers.as_mut().unwrap().cars.values_mut().find(|c| c.cpu).unwrap().d = 5000.0;
     run.encounter.as_mut().unwrap().t = Kind::KnightRacers.cap() - 1;
     run.step(&idle());
@@ -479,7 +455,6 @@ fn knights_wish_opens_for_two_and_pays_by_kills() {
         s.fighters.get_mut(&1).unwrap().kills = 4;
         s.winner = Some(2);
     }
-    // The leg needs the cockpit's engine; the room's own clock does not.
     run.tick_encounter(&idle());
     let end = run.encounter.as_ref().unwrap().end.clone().expect("settled");
     assert_eq!(end.order[0], 2);
@@ -508,7 +483,6 @@ fn a_save_made_mid_encounter_loads_and_plays_on() {
         }
         assert!(back.encounter.is_some() && back.barred() && back.valid_snapshot(), "{kind:?}");
     }
-    // A save whose game state is gone ends the room's game rather than hold it.
     let mut run = open(2, Kind::Bannerpeak);
     run.bannerpeak = None;
     run.step(&idle());
@@ -551,8 +525,6 @@ fn a_floor_laid_with_no_hall_deals_its_game_to_a_fight_room() {
 
 #[test]
 fn open_floors_deal_no_game() {
-    // An open floor is one map of chambers with no halls to walk into (docs/OPEN-FLOORS.md):
-    // its games wait for phase B, as the follies always have.
     for seed in 1..=6 {
         let mut run = Run::new(seed, 1, None);
         run.open_floors = true;
@@ -615,7 +587,6 @@ fn a_second_hall_deals_its_game_after_the_first_is_played_out() {
         run.encounter_rooms = vec![(a, first), (b, second)];
         run.enter_for_test(a);
         assert_eq!(run.encounter.as_ref().map(|e| e.kind), Some(first));
-        // Played out: the folly's own end, or the cut.
         for _ in 0..(kind_ticks(first) + 4 * PAYOUT_TICKS) {
             if run.encounter.is_none() {
                 break;
@@ -671,7 +642,6 @@ fn every_arcade_game_of_the_old_map_is_dealt_or_says_why_not() {
         assert!(!(dealt && left_out), "{name} is both");
     }
     assert!(LEFT_OUT.iter().all(|&(_, why)| why.len() > 20));
-    // Every kind of the pool has a name and one short line of how to play.
     for kind in pool() {
         assert!(!kind.name().is_empty() && (10..=48).contains(&kind.words().len()), "{kind:?}: {}", kind.words());
     }

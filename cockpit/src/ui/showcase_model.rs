@@ -13,23 +13,17 @@
 
 use angel_glass::scene::{Material, MeshData, MeshRef, Node};
 
-/// The mesh id the showcase's model is uploaded under (one at a time).
 pub(crate) const MESH: u32 = 0x5C0F_0001;
-/// The most triangles a model may bring.
 const MOST_TRIANGLES: usize = 400_000;
 
-/// A model ready for the window: its mesh, the nodes that show it, and
-/// the pictures its materials paint it with (`(id, width, height, rgba)`).
 pub(crate) struct Model {
     pub(crate) mesh: MeshData,
     pub(crate) nodes: Vec<Node>,
-    #[allow(dead_code)] // showcase tests read the count
+    #[allow(dead_code)]
     pub(crate) triangles: usize,
     pub(crate) textures: Vec<(u32, u32, u32, Vec<u8>)>,
 }
 
-/// The picture ids a model's textures go up under, and how many it may
-/// bring; each is at most this many pixels a side.
 const TEXTURES: u32 = angel_glass::LAYER_PICTURES + 0xA8;
 const MOST_TEXTURES: usize = 4;
 const TEXTURE_SIDE: u32 = 2048;
@@ -85,14 +79,12 @@ pub(crate) fn from_obj(text: &str) -> Result<Model, String> {
     if tris.is_empty() {
         return Err("no faces".into());
     }
-    // The realm's props are written z up; everything else y up.
     let realm = parts.iter().any(|p| realm_tone(p).is_some());
     let points: Vec<[f32; 3]> = if realm {
         points.iter().map(|&[x, y, z]| [x, z, -y]).collect()
     } else {
         points
     };
-    // Centred on its middle, fitted to a sphere a little inside the unit.
     let (lo, hi) = points.iter().fold(([f32::MAX; 3], [f32::MIN; 3]), |(lo, hi), p| {
         ([lo[0].min(p[0]), lo[1].min(p[1]), lo[2].min(p[2])], [hi[0].max(p[0]), hi[1].max(p[1]), hi[2].max(p[2])])
     });
@@ -107,8 +99,6 @@ pub(crate) fn from_obj(text: &str) -> Result<Model, String> {
         let p = points[i];
         [(p[0] - centre[0]) * k, (p[1] - centre[1]) * k, (p[2] - centre[2]) * k]
     };
-    // Flat shaded: each triangle its own corners and its face's normal,
-    // laid out part by part so each part is one group.
     let mut mesh = MeshData {
         positions: Vec::with_capacity(tris.len() * 3),
         normals: Vec::with_capacity(tris.len() * 3),
@@ -147,10 +137,6 @@ pub(crate) fn from_obj(text: &str) -> Result<Model, String> {
     Ok(Model { mesh, nodes: vec![node], triangles: tris.len(), textures: Vec::new() })
 }
 
-/// A binary glTF (`.glb`), as Hunyuan and most tools write it: every mesh
-/// of its default scene placed by its nodes, smooth normals as given (made
-/// flat where it has none), vertex colours, and each part's base colour,
-/// from its factor and its texture (embedded PNG or JPEG).
 pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
     let u32_at = |at: usize| -> Result<u32, String> {
         bytes
@@ -175,7 +161,6 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
         &[]
     };
     let gltf = Gltf { json: &json, bin };
-    // The scene's nodes, each with its place in the world.
     let scene = json["scene"].as_u64().unwrap_or(0) as usize;
     let roots: Vec<usize> = json["scenes"][scene]["nodes"]
         .as_array()
@@ -198,7 +183,6 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
             }
         }
     }
-    // Every primitive's triangles, part by part.
     let mut mesh = MeshData {
         positions: Vec::new(),
         normals: Vec::new(),
@@ -214,7 +198,7 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
     for (m, world) in placed {
         for prim in json["meshes"][m]["primitives"].as_array().into_iter().flatten() {
             if prim["mode"].as_u64().unwrap_or(4) != 4 {
-                continue; // only triangle lists
+                continue;
             }
             let attrs = &prim["attributes"];
             let positions = gltf.floats(attrs["POSITION"].as_u64().ok_or("a part with no positions")? as usize, 3)?;
@@ -244,7 +228,6 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
             }
             mesh.indices.extend(indices.iter().map(|i| base + i));
             if normals.is_none() {
-                // No normals given: each triangle's own.
                 for tri in mesh.indices[first as usize..].chunks(3).map(|t| [t[0], t[1], t[2]]).collect::<Vec<_>>() {
                     let [a, b, c] = tri.map(|i| mesh.positions[i as usize]);
                     let n = normal(a, b, c);
@@ -254,7 +237,6 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
                 }
             }
             mesh.groups.push((first, mesh.indices.len() as u32 - first));
-            // Its material: the base colour, and its texture if it has one.
             let material = &json["materials"][prim["material"].as_u64().unwrap_or(u64::MAX) as usize];
             let pbr = &material["pbrMetallicRoughness"];
             let factor: Vec<f32> = pbr["baseColorFactor"]
@@ -282,8 +264,6 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
             };
             material.tint = tint;
             material.lit = true;
-            // A painted texture carries its own shading; the key light only
-            // models it, so a dark texture still reads.
             if picture.is_some() {
                 material.emissive = 0.3;
             }
@@ -295,7 +275,6 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
         return Err("no triangles in its scene".into());
     }
     fit(&mut mesh.positions);
-    // The textures, decoded and kept within the window's means.
     let mut pictures = Vec::new();
     for (image, id) in textures {
         let view = json["images"][image]["bufferView"].as_u64().ok_or("a texture that is not embedded")? as usize;
@@ -316,7 +295,6 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
     Ok(Model { mesh, nodes: vec![node], triangles, textures: pictures })
 }
 
-/// A glTF's JSON and its binary chunk, read by accessor.
 struct Gltf<'a> {
     json: &'a serde_json::Value,
     bin: &'a [u8],
@@ -334,7 +312,6 @@ impl Gltf<'_> {
         self.bin.get(at..end).ok_or_else(|| "a view past the end of the data".into())
     }
 
-    /// An accessor's elements as `(bytes, component type, count, width, stride)`.
     fn accessor(&self, a: usize, width: usize) -> Result<(&[u8], u64, usize, usize), String> {
         let acc = &self.json["accessors"][a];
         let view = acc["bufferView"].as_u64().ok_or("an accessor with no data")? as usize;
@@ -349,8 +326,6 @@ impl Gltf<'_> {
             _ => return Err(format!("component type {kind}")),
         };
         let stride = self.json["bufferViews"][view]["byteStride"].as_u64().map_or(size * width, |s| s as usize);
-        // Checked: a hostile count or stride must not wrap past the bound
-        // (and then size an allocation from it).
         let need = if count == 0 {
             Some(0)
         } else {
@@ -416,8 +391,6 @@ impl Gltf<'_> {
 
 const IDENTITY: [[f32; 4]; 4] = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]];
 
-/// A node's own transform, column-major: its matrix, or its translation,
-/// rotation and scale.
 fn local(node: &serde_json::Value) -> [[f32; 4]; 4] {
     let nums = |key: &str| -> Vec<f32> {
         node[key].as_array().map(|a| a.iter().filter_map(|v| v.as_f64().map(|v| v as f32)).collect()).unwrap_or_default()
@@ -450,7 +423,6 @@ fn mul(a: [[f32; 4]; 4], b: [[f32; 4]; 4]) -> [[f32; 4]; 4] {
     out
 }
 
-/// `p` through `m`; `w` 1 for a point, 0 for a direction.
 fn apply(m: [[f32; 4]; 4], p: [f32; 3], w: f32) -> [f32; 3] {
     [0, 1, 2].map(|r| m[0][r] * p[0] + m[1][r] * p[1] + m[2][r] * p[2] + m[3][r] * w)
 }
@@ -460,8 +432,6 @@ fn unit(v: [f32; 3]) -> [f32; 3] {
     if len > 1e-12 { [v[0] / len, v[1] / len, v[2] / len] } else { [0.0, 1.0, 0.0] }
 }
 
-/// Centre points on their middle and fit them in a sphere a little
-/// inside the unit, the turntable's room.
 fn fit(points: &mut [[f32; 3]]) {
     let (lo, hi) = points.iter().fold(([f32::MAX; 3], [f32::MIN; 3]), |(lo, hi), p| {
         ([lo[0].min(p[0]), lo[1].min(p[1]), lo[2].min(p[2])], [hi[0].max(p[0]), hi[1].max(p[1]), hi[2].max(p[2])])
@@ -486,7 +456,6 @@ fn lit(tone: [f32; 3], glow: f32) -> Material {
     material
 }
 
-/// The realm's material words and the tones its props wear.
 fn realm_tone(word: &str) -> Option<([f32; 3], f32)> {
     Some(match word {
         "stone" | "rock" => ([0.56, 0.57, 0.60], 0.0),
@@ -547,7 +516,6 @@ mod tests {
         assert!(why("# nothing\n").contains("no faces"));
     }
 
-    /// A one-triangle GLB built by hand: a JSON chunk and a binary chunk.
     fn tiny_glb(rotated: bool) -> Vec<u8> {
         let mut bin = Vec::new();
         for v in [0.0f32, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0] {
@@ -589,7 +557,6 @@ mod tests {
         assert_eq!(model.triangles, 1);
         assert_eq!(model.nodes[0].face_materials[0].tint, [0.5, 0.25, 0.1, 1.0]);
         assert!(model.mesh.validate().is_ok());
-        // Rotated a quarter turn about x, the tall edge (y) lies along z.
         let model = from_glb(&tiny_glb(true)).unwrap();
         let span = |k: usize| {
             let v: Vec<f32> = model.mesh.positions.iter().map(|p| p[k]).collect();
@@ -597,7 +564,6 @@ mod tests {
         };
         assert!(span(2) > span(1), "the node's rotation is applied");
         assert!(from_glb(b"not a model").is_err());
-        // A count that would wrap the bound is refused, not trusted.
         let mut hostile = String::from_utf8_lossy(&tiny_glb(false)).into_owned().into_bytes();
         let at = hostile.windows(9).position(|w| w == b"\"count\":3").unwrap();
         let huge = b"\"count\":9";
@@ -607,7 +573,6 @@ mod tests {
 
     #[test]
     fn the_realms_props_stand_up() {
-        // A thin post along z, in the realm's z-up words, ends up along y.
         let post = "usemtl stone\nv 0 0 0\nv 0.1 0 0\nv 0 0 5\nf 1 2 3\n";
         let model = from_obj(post).unwrap();
         let tall = model.mesh.positions.iter().map(|p| p[1]).fold(f32::MIN, f32::max)

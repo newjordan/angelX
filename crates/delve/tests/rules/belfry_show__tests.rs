@@ -105,9 +105,6 @@ fn the_show_rides_the_wire_and_stays_quiet_when_empty() {
     assert!(!show.quiet());
 }
 
-/// The real shoot: knights who shoot the nearest bat. Each felled bat is in
-/// the show once, each knight's felled bats add to the table's, and the
-/// show's kills are the bats that left the room dead.
 #[test]
 fn the_real_shoot_records_what_the_knights_shot() {
     use crate::rules::{EnemyKind, Input, Run, Spoil};
@@ -154,7 +151,6 @@ fn the_real_shoot_records_what_the_knights_shot() {
     assert!(r.valid_snapshot());
 }
 
-/// A knight's health lower than the last look is a bite, and breaks their run.
 #[test]
 fn a_bite_is_read_off_a_knights_health() {
     use crate::rules::{Input, Run, Spoil};
@@ -170,7 +166,6 @@ fn a_bite_is_read_off_a_knights_health() {
     for _ in 0..folly::TITLE + 5 {
         r.step(&BTreeMap::<u32, Input>::new());
     }
-    // A run going, then the bite.
     let now = r.tick as u32;
     r.bats.as_mut().unwrap().show.felled(now, 1, 9_000, (0, 0), (0, 0), 30);
     r.bats.as_mut().unwrap().show.felled(now, 1, 9_001, (0, 0), (0, 0), 30);

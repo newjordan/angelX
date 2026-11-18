@@ -10,10 +10,6 @@ const GAS: Drive = Drive { steer: 0, gas: true, brake: false, boost: false, inte
 const BOOST: Drive = Drive { steer: 0, gas: true, brake: false, boost: true, interact: false };
 const COAST: Drive = Drive { steer: 0, gas: false, brake: false, boost: false, interact: false };
 
-/// The longest clear straight in the courses: the course, where it starts and how long it is.
-/// Clear means no bend worth the name, no hazard, jump, fork or boost strip on it or just before
-/// or after it, and room for three pods abreast. Tests that need a long run keep their pods on it
-/// by `step`, which slides the whole field back along it (a treadmill) when it nears the end.
 fn stretch() -> (CourseId, f32, f32) {
     static BEST: std::sync::OnceLock<(CourseId, f32, f32)> = std::sync::OnceLock::new();
     *BEST.get_or_init(|| {
@@ -36,13 +32,10 @@ fn stretch() -> (CourseId, f32, f32) {
             }
         }
         assert!(best.2 >= 300., "no clear straight in the courses: the longest is {best:?}");
-        // Keep the ends out of it: the first and last stretches of road are where the clear run
-        // blends into whatever stops it.
         (best.0, best.1 + 25., best.2 - 50.)
     })
 }
 
-/// Slide the whole field back along the straight when its leader nears the end of it.
 fn rebase(s: &mut Session) {
     let (id, at, len) = stretch();
     if s.course != id { return; }
@@ -53,15 +46,12 @@ fn rebase(s: &mut Session) {
     }
 }
 
-/// One tick, checked valid, and the field kept on the straight.
 fn step(s: &mut Session, drives: &BTreeMap<u32, Drive>) {
     s.step_drive(drives);
     assert!(s.valid(), "invalid at tick {}", s.ticks);
     rebase(s);
 }
 
-/// A race on that straight with the lights out and the given pods placed: (seat, pod, metres along
-/// the straight, lane, speed). Nobody is a CPU rival unless a test says so.
 fn race(pods: &[(u32, u8, f32, f32, f32)]) -> Session {
     let (id, at, len) = stretch();
     let mut s = Session::blank_on(id);
@@ -85,7 +75,6 @@ fn run(s: &mut Session, ticks: u32, d: impl Fn(&Session) -> BTreeMap<u32, Drive>
     for _ in 0..ticks { let drives = d(s); step(s, &drives); }
 }
 fn hold(drive: Drive) -> impl Fn(&Session) -> BTreeMap<u32, Drive> { move |s| s.cars.keys().map(|&id| (id, drive)).collect() }
-/// The same, with every pod steering to stay in the lane it started in (a long run on a straight that is not quite straight).
 fn keep(s: &Session, drive: Drive) -> impl Fn(&Session) -> BTreeMap<u32, Drive> + use<> {
     let lanes: BTreeMap<u32, f32> = s.cars.iter().map(|(id, c)| (*id, c.y)).collect();
     move |s| s.cars.iter().map(|(id, c)| {
@@ -93,15 +82,12 @@ fn keep(s: &Session, drive: Drive) -> impl Fn(&Session) -> BTreeMap<u32, Drive> 
         (*id, Drive { steer: if c.y > to + 0.5 { -1 } else if c.y < to - 0.5 { 1 } else { 0 }, ..drive })
     }).collect()
 }
-/// Metres a pod covers in `ticks` under `drive`, kept in its lane: the speed summed, so a slide back along the straight does not count.
 fn travelled(s: &mut Session, id: u32, ticks: u32, drive: Drive) -> f32 {
     let hands = keep(s, drive);
     let mut metres = 0.;
     for _ in 0..ticks { let d = hands(s); step(s, &d); metres += s.cars[&id].v / super::race::HZ; }
     metres
 }
-
-// ---- Heat -------------------------------------------------------------------------------------
 
 #[test]
 fn gas_alone_heats_both_engines_slowly_and_lifting_cools_them() {
@@ -164,8 +150,6 @@ fn pods_run_hot_or_cool_by_their_own_numbers() {
     assert!(heat_of(BELLFOUNDER) > heat_of(WARDEN) && heat_of(WARDEN) > heat_of(GATEHOUSE), "bells run hot, the keep runs cool");
 }
 
-// ---- The limp -----------------------------------------------------------------------------------
-
 #[test]
 fn a_burning_engine_gives_less_push_and_a_lower_top_speed() {
     let speed_after = |heat: [f32; 2], ticks: u32| {
@@ -173,7 +157,6 @@ fn a_burning_engine_gives_less_push_and_a_lower_top_speed() {
         s.cars.get_mut(&1).unwrap().heat = heat;
         s.cars.get_mut(&1).unwrap().wear = [0.; 2];
         for _ in 0..ticks {
-            // Hold the engines at that heat so the test is of the limp alone, and the pod in its lane.
             s.cars.get_mut(&1).unwrap().heat = heat;
             let steer = if s.cars[&1].y > 0.5 { -1 } else if s.cars[&1].y < -0.5 { 1 } else { 0 };
             step(&mut s, &[(1, Drive { steer, gas: true, ..Drive::default() })].into());
@@ -186,7 +169,6 @@ fn a_burning_engine_gives_less_push_and_a_lower_top_speed() {
     assert!(cool > 44.5, "a cool pod reaches its top speed: {cool}");
     assert!(one_burning < cool - 3. && one_burning > both_burning, "one engine afire limps, two limp harder: {cool} {one_burning} {both_burning}");
     assert!(both_burning < cool * 0.8, "{both_burning}");
-    // Push too: from the same speed the cool pod gains more in the first second.
     let (a, b) = (speed_after([0.2, 0.2], 30), speed_after([0.95, 0.95], 30));
     assert!(a > b + 1., "{a} {b}");
 }
@@ -202,9 +184,7 @@ fn a_burning_engine_drags_the_pod_toward_its_own_side() {
         s.cars[&1].y
     };
     let (even, left_weak, right_weak) = (drift([0.3, 0.3]), drift([0.95, 0.3]), drift([0.3, 0.95]));
-    // Engine 0 is the pod's lesser-y side: a burning left engine drags the pod toward lesser y.
     assert!(left_weak < even - 1.5 && right_weak > even + 1.5, "the pull is toward the weak engine: {left_weak} {even} {right_weak}");
-    // Steering can hold it: a limp is a handling problem, not a wreck.
     let mut s = race(&[(1, WARDEN, 0., 0., 40.)]);
     for _ in 0..90 {
         s.cars.get_mut(&1).unwrap().heat = [0.95, 0.3];
@@ -224,11 +204,8 @@ fn the_pull_is_zero_off_the_gas() {
     assert!((off_gas([0.95, 0.3]) - off_gas([0.3, 0.3])).abs() < 0.05, "a limp pulls only under power");
 }
 
-// ---- Damage: walls, slag, jets -----------------------------------------------------------------
-
 #[test]
 fn a_wall_strike_dumps_heat_into_the_engine_beside_it_only() {
-    // Engine 0 is the lesser-y side of the pod (the left of the picture), engine 1 the greater.
     for (side, near, far) in [(1., 1usize, 0usize), (-1., 0, 1)] {
         let mut s = race(&[(1, WARDEN, 0., 0., 40.)]);
         let (id, at, _) = stretch();
@@ -277,9 +254,7 @@ fn a_slag_block_and_a_flame_jet_dump_heat() {
     for _ in 0..6 { step(&mut s, &[(1, GAS)].into()); }
     let car = &s.cars[&1];
     let near = usize::from(slag.y < 0.);
-    // The block was dead ahead of the pod's centre, so it is the side the pod got shoved off toward that cooks.
     assert!(car.heat[0] + car.heat[1] > 0.12 && car.wear[0] + car.wear[1] > 0., "slag cooks the engines: {:?} {:?} (near {near})", car.heat, car.wear);
-    // A jet licks both.
     if let Some(jet) = c.hazards().iter().find(|h| h.kind == HazardKind::Jet) {
         let tick = (0..jet.period.max(1)).find(|t| jet.live(*t)).unwrap_or(0);
         let mut s = Session::blank_on(CourseId::Emberfall);
@@ -291,8 +266,6 @@ fn a_slag_block_and_a_flame_jet_dump_heat() {
         assert!(car.heat[0] > 0.1 && car.heat[1] > 0.1, "a jet heats both engines: {:?}", car.heat);
     }
 }
-
-// ---- The blowout and the squires' patch ----------------------------------------------------------
 
 #[test]
 fn an_engine_at_full_heat_blows_and_the_pod_sits_out_then_goes_again() {
@@ -311,11 +284,9 @@ fn an_engine_at_full_heat_blows_and_the_pod_sits_out_then_goes_again() {
     let blown_at = blown_at.expect("the engine blew");
     assert!(blown_at < 12, "a boost on a nearly blown engine blows it at once: {blown_at}");
     assert_eq!(s.cars[&1].blowouts, 1);
-    // It skids, then stands still while the squires work.
     assert!(speeds[2] < 44. && speeds[2] > 20., "it skids on its momentum first: {:?}", &speeds[..4]);
     let still = speeds.iter().filter(|v| **v == 0.).count();
     assert!(still > 55 && sat >= engines::BLOWOUT_TICKS - 2, "it stands still while the squires patch it: still {still}, sat {sat}");
-    // It goes again on patched, cooler engines, and is racing at speed well before the end.
     let c = &s.cars[&1];
     assert!(!c.blown() && c.v > 30. && c.heat[1] < 0.9, "back in the race: v {} heat {:?}", c.v, c.heat);
     assert!(c.blown_side == 0);
@@ -341,7 +312,6 @@ fn a_blown_pod_presses_nothing_and_makes_no_wake() {
     assert!(s.cars[&1].blown());
     let (w, _) = contact::wake(s.course().lap(), &s.cars[&2], &s.cars[&1]);
     assert_eq!(w, 0., "a blown pod throws no wake");
-    // Whatever its pilot asks, it sits there.
     let d = s.cars[&1].d;
     for _ in 0..70 { step(&mut s, &[(1, BOOST)].into()); }
     assert!(s.cars[&1].d - d < 40., "a sitting pod stays: {}", s.cars[&1].d - d);
@@ -363,8 +333,6 @@ fn a_pilot_lifts_to_cool_an_engine_that_is_getting_too_hot_and_never_boosts_a_bu
     assert!(lifts > 40);
 }
 
-// ---- The draft ----------------------------------------------------------------------------------
-
 fn wake_between(lead: &Car, me: &Car) -> f32 { contact::wake(course(stretch().0).lap(), me, lead).0 }
 
 #[test]
@@ -383,7 +351,6 @@ fn the_wake_is_a_cone_behind_a_moving_pod() {
     me.y = 1.2;
     assert!(wake_between(&lead, &me) > 0. && wake_between(&lead, &me) < near, "the edge of the cone is weaker");
     assert!(near > mid && mid > 0., "the wake fades with distance: {near} {mid}");
-    // Ahead of the leader is clean air; a stopped pod throws no wake.
     me.y = 0.; me.d = lead.d + 20.;
     assert_eq!(wake_between(&lead, &me), 0.);
     me.d = lead.d - 14.;
@@ -420,7 +387,6 @@ fn the_draft_lingers_after_the_pod_leaves_the_wake_the_slingshot() {
         if at > 0.9 { break; }
     }
     assert!(at > 0.8, "{at}");
-    // Pull out to the next lane and keep going.
     for t in 0..60 {
         let steer = if s.cars[&2].y < 5. { 1 } else { 0 };
         step(&mut s, &[(1, GAS), (2, Drive { steer, gas: true, ..Drive::default() })].into());
@@ -438,9 +404,6 @@ fn drafting_runs_the_engines_cooler() {
     assert!(tow < alone && (lead - alone).abs() < 0.03, "in the wake {tow}, in clean air {lead} and {alone}");
 }
 
-// ---- Contact ------------------------------------------------------------------------------------
-
-/// Two pods side by side, B in the lane to A's left, B steering across onto A.
 fn slam_pair(a_pod: u8, b_pod: u8) -> Session {
     let mut s = race(&[(1, a_pod, 100., 0., 44.), (2, b_pod, 100., 4.4, 44.)]);
     for _ in 0..30 { step(&mut s, &[(1, GAS), (2, Drive { steer: -1, gas: true, ..Drive::default() })].into()); if s.cars[&1].slams > 0 { break; } }
@@ -464,7 +427,6 @@ fn a_side_slam_throws_the_light_pod_further_than_the_heavy_one() {
 fn a_hard_slam_hurts_the_near_engines_and_marks_the_side() {
     let s = slam_pair(WARDEN, WARDEN);
     let (a, b) = (&s.cars[&1], &s.cars[&2]);
-    // B is on A's greater-y side: A's engine 1 and B's engine 0 are the ones that met.
     assert!(a.heat[1] > 0.04 && a.heat[0] < 0.02, "{:?}", a.heat);
     assert!(b.heat[0] > 0.04 && b.heat[1] < 0.02, "{:?}", b.heat);
     assert!(a.wear[1] > 0. && b.wear[0] > 0.);
@@ -487,7 +449,6 @@ fn a_slam_throws_a_pod_on_a_kick_the_steering_cannot_cancel() {
     let mut s = slam_pair(WARDEN, WARDEN);
     let y0 = s.cars[&1].y;
     assert!(s.cars[&1].kick < -1., "A is thrown away from B: {}", s.cars[&1].kick);
-    // Steer straight back into it: the kick still carries the pod off for a moment.
     for _ in 0..8 { step(&mut s, &[(1, Drive { steer: 1, gas: true, ..Drive::default() }), (2, GAS)].into()); }
     assert!(s.cars[&1].y < y0 + 1.5);
     run(&mut s, 60, |_| [(1, GAS), (2, GAS)].into());
@@ -509,7 +470,6 @@ fn a_nose_into_a_tail_trades_speed_and_the_leaders_engines_feel_it() {
 
 #[test]
 fn pods_never_tunnel_through_each_other_at_any_closing_speed() {
-    // A blown pod stands in the road; another comes down on it as fast as the sim lets a pod go.
     for pod in 0..6u8 {
         for v in [20., 44., 60., 72.] {
             let mut s = race(&[(1, WARDEN, 170., 0., 0.), (2, pod, 90., 0., v)]);
@@ -521,7 +481,6 @@ fn pods_never_tunnel_through_each_other_at_any_closing_speed() {
             }
         }
     }
-    // And the boxes are longer than the fastest closing speed in a tick.
     let fastest = 72. / super::race::HZ;
     for p in super::pods() { assert!(p.len + 0.6 > fastest * 0.8, "{} is too short to catch at 72 m/s", p.name); }
 }
@@ -531,7 +490,6 @@ fn a_pair_that_swapped_places_in_one_step_is_put_back() {
     let mut s = race(&[(1, WARDEN, 100., 0., 0.), (2, WARDEN, 80., 0., 0.)]);
     let lap = s.course().lap();
     let before: BTreeMap<u32, (f32, f32)> = s.cars.iter().map(|(i, c)| (*i, (c.d, c.y))).collect();
-    // Teleport the rear pod clean through the front one, as a bug or a fall might.
     s.cars.get_mut(&2).unwrap().d += 40.;
     contact::resolve(lap, &mut s.cars, &before);
     assert!(s.cars[&2].d < s.cars[&1].d + 0.01, "put back behind: {} {}", s.cars[&2].d, s.cars[&1].d);
@@ -550,8 +508,6 @@ fn a_shove_never_pushes_a_pod_through_the_wall() {
     }
 }
 
-// ---- The pilots ---------------------------------------------------------------------------------
-
 #[test]
 fn each_pod_has_a_pilot_with_a_character() {
     let (lance, gate, bell, ring) = (pilot::persona(LANCEWAIN), pilot::persona(GATEHOUSE), pilot::persona(BELLFOUNDER), pilot::persona(2));
@@ -562,7 +518,6 @@ fn each_pod_has_a_pilot_with_a_character() {
 
 #[test]
 fn a_pilot_tucks_into_a_wake_pulls_out_and_passes_through_the_draft() {
-    // A wyvern comes up behind a slower pod (a limping gatehouse) that holds its lane: tuck, draft, pull out, boost by.
     let mut s = race(&[(1, GATEHOUSE, 140., 0., 44.), (2, WYVERN, 100., 0., 44.)]);
     s.cars.get_mut(&2).unwrap().cpu = true;
     let mut peak = 0f32;
@@ -584,12 +539,10 @@ fn a_pilot_tucks_into_a_wake_pulls_out_and_passes_through_the_draft() {
 
 #[test]
 fn a_blocker_covers_its_line_and_a_quick_pod_does_not() {
-    // Two pods in the leader's seat with a chaser a lane over: the blocker shifts toward the chaser.
     let shift = |lead_pod: u8| {
         let mut s = race(&[(1, lead_pod, 118., -1., 44.), (2, WARDEN, 100., 2., 44.)]);
         for c in s.cars.values_mut() { c.cpu = true; }
         let y0 = s.cars[&1].y;
-        // The chaser holds its lane: only the leader's decisions are in play.
         for _ in 0..45 {
             let mut d = s.bot_drives();
             d.insert(2, Drive { gas: true, steer: if s.cars[&2].y > 2.5 { -1 } else if s.cars[&2].y < 1.5 { 1 } else { 0 }, ..Drive::default() });
@@ -626,14 +579,12 @@ fn pilots_slip_now_and_then_and_a_clean_driver_never_does() {
         assert_eq!(clean, 0, "pod {pod}");
         assert!(cpu >= 40 && cpu <= 400, "pod {pod} slips {cpu} windows in 9000");
     }
-    // The lancewain's pilot slips more often than the ringwright's.
     let rate = |pod: u8| (0..9000u32).filter(|w| pilot::slipping(course, 2, pod, COUNTDOWN + w * 40, 1.)).count();
     assert!(rate(LANCEWAIN) > rate(2));
 }
 
 #[test]
 fn the_rubber_band_is_mild_and_capped() {
-    // A human far ahead of a rival: the rival is let run a few percent faster, never more.
     let mut s = race(&[(1, WARDEN, 0., 0., 44.), (2, WARDEN, 0., 4., 44.), (3, WARDEN, 0., -4., 44.)]);
     s.cars.get_mut(&1).unwrap().d += 900.;
     s.cars.get_mut(&3).unwrap().d += 1500.;
@@ -645,11 +596,8 @@ fn the_rubber_band_is_mild_and_capped() {
     assert!(paces[&3] < skill && paces[&3] >= skill * (1. - super::race::RUBBER_DOWN) - 1e-6, "{:?}", paces);
     assert!(paces[&2] < 1.02 && paces[&3] > 0.94, "no rival runs more than a couple of percent over its pod's speed");
     assert!(super::race::RUBBER_UP <= 0.04 && super::race::RUBBER_DOWN <= 0.025);
-    // A human has no band.
     assert!(!paces.contains_key(&1));
 }
-
-// ---- The start ----------------------------------------------------------------------------------
 
 #[test]
 fn a_rocket_start_beats_a_plain_start_and_a_flood_loses_ground() {
@@ -681,8 +629,6 @@ fn the_pilots_leave_the_line_together_and_the_jumpy_ones_now_and_then_flood() {
     assert!(s.cars.values().all(|c| c.d > -60.));
 }
 
-// ---- Saves --------------------------------------------------------------------------------------
-
 #[test]
 fn a_car_saved_before_the_law_loads_with_cool_sound_engines() {
     let old = r#"{"d":10,"y":0,"v":20,"vy":0,"boost":1,"finish":null}"#;
@@ -692,8 +638,6 @@ fn a_car_saved_before_the_law_loads_with_cool_sound_engines() {
     assert!(serde_json::from_str::<Session>(&wire).unwrap().valid());
 }
 
-/// A diagnostic, not a gate: six pilots race every cup course and the first pod that sits still
-/// without being blown for four seconds is described, with its neighbours. `cargo test ... stall_hunt -- --ignored --nocapture`.
 #[test]
 #[ignore]
 fn stall_hunt() {
@@ -730,4 +674,163 @@ fn stall_hunt() {
         }
         println!("{id:?}: no stall, finished {}", s.finished);
     }
+}
+
+#[test]
+fn a_rub_trades_paint_each_pod_wears_the_others_colour_and_nobody_burns() {
+    let mut s = race(&[(1, WARDEN, 100., 0., 44.), (2, WARDEN, 100., 3.4, 44.)]);
+    let (v1, v2) = (s.cars[&1].v, s.cars[&2].v);
+    step(&mut s, &[(1, GAS), (2, GAS)].into());
+    let (a, b) = (&s.cars[&1], &s.cars[&2]);
+    assert!(a.paint == contact::PAINT_TICKS && b.paint == contact::PAINT_TICKS, "the rub is flashed: {} {}", a.paint, b.paint);
+    assert_eq!((a.paint_with, b.paint_with), (2, 1), "each carries the other's seat");
+    assert_eq!((a.paint_side, b.paint_side), (1, -1), "on the flank that met it");
+    assert_eq!((a.scuffs.clone(), b.scuffs.clone()), (vec![(2, 1)], vec![(1, -1)]), "and a scuff of the other's paint");
+    assert_eq!((a.rubs, b.rubs), (1, 1));
+    assert!(a.kick < -0.5 && b.kick > 0.5, "thrown apart: {} {}", a.kick, b.kick);
+    assert!(a.v < v1 + 0.5 && b.v < v2 + 0.5 && a.v > v1 - 3., "a breath, not a crash: {} {}", a.v, b.v);
+    assert!(a.heat.iter().chain(&b.heat).all(|h| *h < 0.01) && a.wear.iter().chain(&b.wear).all(|w| *w == 0.));
+    assert_eq!((a.slams, b.slams, a.impact, b.impact), (0, 0, 0, 0));
+    for _ in 0..20 { step(&mut s, &[(1, GAS), (2, GAS)].into()); }
+    assert!(s.cars[&1].rubs <= 2 && s.cars[&1].scuffs.len() <= 2, "a touch that goes on is not a rub a tick: {}", s.cars[&1].rubs);
+    s.cars.get_mut(&2).unwrap().y = 12.;
+    run(&mut s, contact::PAINT_TICKS + 4, |_| [(1, GAS), (2, GAS)].into());
+    assert_eq!(s.cars[&1].paint, 0);
+    let before = s.cars[&1].rubs;
+    { let (d, y, v) = (s.cars[&1].d, s.cars[&1].y, s.cars[&1].v); let b = s.cars.get_mut(&2).unwrap(); b.d = d; b.y = y + 3.4; b.v = v; }
+    step(&mut s, &[(1, GAS), (2, GAS)].into());
+    assert_eq!(s.cars[&1].rubs, before + 1);
+    assert!(s.cars[&1].scuffs.len() >= 2 && s.cars[&1].scuffs.len() <= contact::SCUFFS);
+}
+
+#[test]
+fn a_slam_is_not_a_rub_and_leaves_no_paint_on_the_tick_it_lands() {
+    let s = slam_pair(WARDEN, WARDEN);
+    assert!(s.cars[&1].slams >= 1);
+    assert!(s.cars[&1].scuffs.is_empty() && s.cars[&1].rubs == 0, "the slam is told by the HUD, not traded as paint");
+}
+
+fn leap_pod(v: f32, back: f32) -> Session {
+    let c = course(CourseId::Sunfall);
+    let mut s = Session::blank_on(CourseId::Sunfall);
+    s.join_ids([1]);
+    s.ticks = COUNTDOWN + 200;
+    let car = s.cars.get_mut(&1).unwrap();
+    car.d = c.crests()[0] - back; car.v = v; car.y = 0.; car.vy = 0.;
+    s
+}
+
+fn over_the_crest(v: f32, drive: Drive) -> (bool, f32, Option<f32>, f32) {
+    let crest = course(CourseId::Sunfall).crests()[0];
+    let mut s = leap_pod(v, 70.);
+    let (mut flew, mut high, mut landed, mut took_off) = (false, 0f32, None, 0f32);
+    for _ in 0..150 {
+        let before = s.cars[&1].v;
+        s.step_drive(&[(1, drive)].into());
+        assert!(s.valid(), "invalid at tick {}", s.ticks);
+        let c = &s.cars[&1];
+        if c.flying && !flew { took_off = before; }
+        if c.flying { flew = true; high = high.max(c.lift); }
+        else if flew && landed.is_none() { landed = Some(c.d - crest); }
+        if c.d > crest + 120. { break; }
+    }
+    (flew, high, landed, took_off)
+}
+
+#[test]
+fn a_crest_taken_faster_than_forty_leaves_the_road_and_a_slower_pod_is_held_to_it() {
+    let (flew, high, landed, took_off) = over_the_crest(46., GAS);
+    assert!(flew && high > 0.5, "a fast pod leaves the road: {flew} {high}");
+    assert!(took_off > LEAP_SPEED, "and only over the speed that throws it: {took_off}");
+    let landed = landed.expect("and comes down again");
+    assert!((10. ..90.).contains(&landed), "past the crest, not at it: {landed}");
+    let (flew, high, _, _) = over_the_crest(36., COAST);
+    assert!(!flew && high == 0., "a pod under forty is held to the road: {flew} {high}");
+    for v in [38., 42., 46., 50.] {
+        let (flew, _, _, took_off) = over_the_crest(v, GAS);
+        assert!(!flew || took_off > LEAP_SPEED, "{v}: left the road at {took_off}");
+    }
+}
+
+#[test]
+fn in_the_air_the_steering_has_a_fraction_of_its_authority_and_a_slide_bleeds_off() {
+    let across = |back: f32| {
+        let mut s = leap_pod(46., back);
+        for _ in 0..12 { s.step_drive(&[(1, Drive { steer: 1, gas: true, ..Drive::default() })].into()); }
+        (s.cars[&1].y, s.cars[&1].flying)
+    };
+    let (road, flying_road) = across(120.);
+    assert!(!flying_road && road > 2.5, "on the road the steer takes the pod across: {road}");
+    let (air, flying_air) = across(5.);
+    assert!(flying_air, "this one is in the air");
+    assert!(air < road * 0.6, "in the air it answers a fraction as much: {air} against {road}");
+    let mut s = leap_pod(46., 5.);
+    for _ in 0..4 { s.step_drive(&[(1, GAS)].into()); }
+    assert!(s.cars[&1].flying);
+    s.cars.get_mut(&1).unwrap().vy = 5.;
+    for _ in 0..14 { s.step_drive(&[(1, GAS)].into()); if !s.cars[&1].flying { break; } }
+    assert!(s.cars[&1].vy < 4.5 || !s.cars[&1].flying, "the slide dies in the air: {}", s.cars[&1].vy);
+    assert!(s.valid());
+}
+
+#[test]
+fn a_lap_line_takes_a_split_and_the_lap_times_add_up_to_the_race() {
+    let id = CourseId::Proving;
+    let c = course(id);
+    let mut s = Session::blank_on(id);
+    s.join_ids([1]);
+    s.ticks = COUNTDOWN + 100;
+    { let car = s.cars.get_mut(&1).unwrap(); car.d = c.lap() - 30.; car.v = 40.; }
+    let mut at = None;
+    for _ in 0..90 {
+        s.step_drive(&[(1, GAS)].into());
+        if at.is_none() && !s.cars[&1].marks.is_empty() { at = Some(s.ticks); }
+    }
+    let car = &s.cars[&1];
+    assert_eq!(car.marks.len(), 1, "one line crossed, one split taken");
+    assert!(at.is_some() && car.split > 0 && car.split < super::race::SPLIT_TICKS, "the flash runs its three seconds: {}", car.split);
+    let now = (s.ticks - COUNTDOWN) as f32 / super::race::HZ;
+    assert!(car.marks[0] > 0. && car.marks[0] < now, "{} of {now}", car.marks[0]);
+    { let car = s.cars.get_mut(&1).unwrap(); car.d = c.lap() * 2. - 30.; car.v = 40.; }
+    for _ in 0..90 { s.step_drive(&[(1, GAS)].into()); if s.cars[&1].finish.is_some() { break; } }
+    let car = &s.cars[&1];
+    let laps = car.lap_times();
+    assert_eq!(laps.len(), 2, "{laps:?}");
+    assert!((laps.iter().sum::<f32>() - car.finish.unwrap()).abs() < 0.01);
+    assert!(s.valid());
+    s.step_drive(&[(1, Drive { interact: true, ..Drive::default() })].into());
+    assert!(s.cars[&1].marks.is_empty() && s.cars[&1].lap_times().is_empty());
+}
+
+#[test]
+fn the_standings_tick_a_pass_is_cheered_and_a_place_lost_is_marked() {
+    let mut s = race(&[(1, WARDEN, 100., 0., 44.), (2, WARDEN, 118., 6., 38.)]);
+    run(&mut s, 3, |_| [(1, GAS), (2, COAST)].into());
+    assert_eq!((s.place(1), s.place(2)), (2, 1), "the pod ahead leads");
+    assert!(s.cars[&1].cheer == 0 && s.cars[&2].dropped == 0);
+    let mut at = None;
+    for t in 0..240 {
+        step(&mut s, &[(1, Drive { gas: true, boost: true, ..Drive::default() }), (2, COAST)].into());
+        if at.is_none() && s.place(1) == 1 { at = Some(t); break; }
+    }
+    assert!(at.is_some(), "pod 1 got by");
+    let (a, b) = (&s.cars[&1], &s.cars[&2]);
+    assert!(a.cheer > 0 && a.passes == 1, "the pass is cheered: {} {}", a.cheer, a.passes);
+    assert!(b.dropped > 0 && b.cheer == 0, "and the pod passed is marked as having lost a place: {}", b.dropped);
+    run(&mut s, 50, |_| [(1, GAS), (2, COAST)].into());
+    assert!(s.cars[&1].cheer == 0 && s.cars[&2].dropped == 0, "both fade inside a second and a half");
+}
+
+#[test]
+fn a_blowout_leaves_a_scorch_where_the_pod_sat_and_the_mark_stays() {
+    let mut s = race(&[(1, WARDEN, 0., 0., 44.)]);
+    s.cars.get_mut(&1).unwrap().heat = [0.2, 0.999];
+    run(&mut s, 3, hold(BOOST));
+    let c = &s.cars[&1];
+    assert!(c.blown(), "it blew");
+    let (d, y, route) = c.scorch.expect("and left its mark");
+    assert!((d - c.d).abs() < 6. && y.abs() < 6. && route == 0);
+    let at = c.scorch;
+    run(&mut s, engines::BLOWOUT_TICKS + 30, hold(GAS));
+    assert!(!s.cars[&1].blown() && s.cars[&1].scorch == at, "the pod goes on and the scorch stays where it was");
 }

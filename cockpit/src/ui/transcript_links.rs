@@ -26,8 +26,6 @@ pub(crate) struct PressedLink {
     pub(crate) target: Arc<str>,
 }
 
-/// Record only links in visible ordinary assistant blocks. A semantic marker
-/// is painted into an offscreen cell buffer, never into the actual frame.
 pub(crate) fn record(
     hits: &mut Vec<LinkHit>,
     message: &Message,
@@ -48,7 +46,6 @@ pub(crate) fn record_partial(
     rect: Rect,
     skip: u16,
 ) {
-    // This is the same bound as transcript::partial_render's rich path.
     if text.len() <= 32 * 1024 {
         record_text(hits, text, width, rect, skip, true);
     }
@@ -91,8 +88,6 @@ fn record_text(
             .get_mut(link.line)
             .and_then(|line| line.spans.get_mut(link.span))
         {
-            // Rgb is a marker for one span; contiguous spans sharing a URL are
-            // folded back into cell runs below. Normal prose stays Reset.
             let id = id as u32 + 1;
             span.style = span
                 .style
@@ -107,7 +102,6 @@ fn record_text(
             last.spans.push(Span::raw(" ▌"));
         }
     } else {
-        // Match the breathing row appended to committed assistant messages.
         lines.push(Line::raw(""));
     }
     let local = Rect::new(0, 0, rect.width, rect.height);
@@ -154,7 +148,6 @@ impl crate::app::App {
                 card: Box::new(card),
                 root,
             });
-            // In the glass window it also opens full size in the showcase.
             super::showcase::open(&self.media[self.media.len() - 1]);
             self.scryglass.reveal_media(self.media.len() - 1, true);
             self.focus_module("artifacts");

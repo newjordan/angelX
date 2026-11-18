@@ -57,72 +57,44 @@ use crate::world::{college, wishes};
 
 pub use super::blockout::Kind;
 
-/// A chunk's tiles: across, down (the map's own cut, `map::CHUNK_W` x
-/// `map::CHUNK_H`).
 pub const CHUNK: (i32, i32) = (map::CHUNK_W, map::CHUNK_H);
-/// A chunk's stage: the chunk itself, in the kingdom's pixels, so the
-/// chunks' stages tile the kingdom's floor edge to edge and two
-/// neighbours' cameras are one stage apart (docs/WORLD-3D.md, "Seams").
 pub const STAGE: (u32, u32) = ((CHUNK.0 * 16) as u32, (CHUNK.1 * 16) as u32);
-/// How far water and lava lie under the floor line.
 const WATER_DROP: f32 = 3.0;
 const LAVA_DROP: f32 = 2.0;
-/// A bridge's deck: its top, a boot high at most.
 const DECK: f32 = 2.5;
-/// How far a crown or a hedge may reach over open ground at its side, and
-/// over blocked ground.
 const SPILL_OPEN: f32 = 1.5;
 const SPILL_BLOCKED: f32 = 5.0;
-/// The height of a step of rock.
 const ROCK_STEP: f32 = 6.0;
 
-// ------------------------------------------------------------- the land ----
-
-/// One thing the kit stands on the map: a place's building, a castle, a
-/// structure.
 #[derive(Clone, Debug)]
 pub struct Build {
-    /// What it is called on the map, or what it is.
     pub name: String,
-    /// The place it belongs to, when it is one of a place's buildings.
     pub place: Option<String>,
     pub kit: Kit,
-    /// Its tiles: column, row, width, height.
     pub foot: Rect,
     pub face: Face,
     pub seed: u32,
 }
 
-/// The kingdom as the generator reads it: the geography's tiles and roads,
-/// the terrain under them, and what stands where.
 pub struct Land<'a> {
     pub geo: &'a Geography,
     pub cols: i32,
     pub rows: i32,
     pub builds: Vec<Build>,
-    /// The fingerposts: the tile each stands on, the road tile it marks,
-    /// the ways its arms point.
     pub posts: Vec<((i32, i32), (i32, i32), Vec<Way>)>,
-    /// The realm's set dressing (`world::dressing`): fixed for the realm,
-    /// on open ground a knight walks through.
     pub pieces: Vec<Piece>,
-    /// Each tile's build, by its index in `builds`.
     built: Vec<Option<usize>>,
 }
 
-/// What a tile is covered with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Cover {
-    /// Ground a knight walks, or ground a building stands on.
     Open,
     Woods,
     DeadTree,
     Rock,
     Water,
     Lava,
-    /// A road over water.
     Bridge,
-    /// Blocked ground nothing else stands on: the map's rim.
     Hedge,
 }
 
@@ -152,7 +124,6 @@ impl<'a> Land<'a> {
         (y * self.cols + x) as usize
     }
 
-    /// The terrain byte at a tile; off the map, nothing.
     pub fn terrain(&self, x: i32, y: i32) -> u8 {
         if self.inside(x, y) { Realm::get().at(x, y) } else { 0 }
     }
@@ -161,7 +132,6 @@ impl<'a> Land<'a> {
         self.geo.room.tile(x, y)
     }
 
-    /// A tile a knight walks on.
     pub fn walkable(&self, x: i32, y: i32) -> bool {
         self.tile(x, y) == Tile::Floor
     }
@@ -174,7 +144,6 @@ impl<'a> Land<'a> {
         self.inside(x, y) && self.geo.cleared_mask[self.index(x, y)]
     }
 
-    /// The build standing on a tile.
     pub fn built(&self, x: i32, y: i32) -> Option<&Build> {
         if !self.inside(x, y) {
             return None;
@@ -182,18 +151,15 @@ impl<'a> Land<'a> {
         self.built[self.index(x, y)].map(|i| &self.builds[i])
     }
 
-    /// The chunks across and down.
     pub fn grid(&self) -> (i32, i32) {
         ((self.cols + CHUNK.0 - 1) / CHUNK.0, (self.rows + CHUNK.1 - 1) / CHUNK.1)
     }
 
-    /// A chunk's tiles, clipped to the map.
     pub fn chunk_rect(&self, cx: i32, cz: i32) -> Rect {
         let (c, r) = (cx * CHUNK.0, cz * CHUNK.1);
         (c, r, CHUNK.0.min(self.cols - c), CHUNK.1.min(self.rows - r))
     }
 
-    /// The chunk a build belongs to: the one under its footprint's middle.
     pub fn owner(&self, b: &Build) -> (i32, i32) {
         let (c, r, w, h) = b.foot;
         ((c + w / 2).div_euclid(CHUNK.0), (r + h / 2).div_euclid(CHUNK.1))
@@ -203,7 +169,6 @@ impl<'a> Land<'a> {
         matches!(self.terrain(x, y), b'~' | b'w' | b'f')
     }
 
-    /// What covers a tile.
     pub fn cover(&self, x: i32, y: i32) -> Cover {
         if !self.inside(x, y) {
             return Cover::Hedge;
@@ -238,7 +203,6 @@ impl<'a> Land<'a> {
         }
     }
 
-    /// The ground's kind at a tile, and its top.
     pub fn ground(&self, x: i32, y: i32) -> (Kind, f32) {
         let t = self.terrain(x, y);
         let lane = self.walkable(x, y) && self.road(x, y);
@@ -272,7 +236,6 @@ impl<'a> Land<'a> {
     }
 }
 
-/// The face of `foot` that `stand` is before.
 pub(crate) fn face_to((c, r, w, h): Rect, (sx, sy): (i32, i32)) -> Face {
     if sy >= r + h {
         Face::South
@@ -289,9 +252,6 @@ pub(crate) fn seed_of((c, r, w, h): Rect) -> u32 {
     hash(c * 7 + w, r * 5 + h, 977)
 }
 
-/// The kit for a structure of the map, by its footprint in the authored
-/// screens' own tiles (`map::STRUCTURES`, as `render::overworld::scene`
-/// draws each), with what it is.
 fn authored(foot: Rect) -> Option<(Kit, &'static str)> {
     Some(match foot {
         (22, 12, 3, 3) => (Kit::Keep, "the Keep"),
@@ -331,7 +291,6 @@ fn authored(foot: Rect) -> Option<(Kit, &'static str)> {
     })
 }
 
-/// A structure no table names: what its size suggests.
 fn by_size((_, _, w, h): Rect) -> (Kit, &'static str) {
     match (w, h) {
         (1, 1) => (Kit::Well, "a well"),
@@ -342,7 +301,6 @@ fn by_size((_, _, w, h): Rect) -> (Kit, &'static str) {
     }
 }
 
-/// The kit for a countryside place (a site with its own lot), by what it is.
 pub fn kit_of(room: RoomKind) -> Kit {
     match room {
         RoomKind::Lighthouse => Kit::Lighthouse,
@@ -384,14 +342,11 @@ pub fn kit_of(room: RoomKind) -> Kit {
         RoomKind::Eyrie => Kit::Eyrie,
         RoomKind::Ranch => Kit::Ranch,
         RoomKind::LandOffice => Kit::LandOffice,
-        // The kingdom's own halls on a lot (`kingdom::HALLS`): the Lantern
-        // Hall, stone under slate as the map draws it.
         RoomKind::RealmHall => Kit::Hall,
         _ => Kit::Cottage,
     }
 }
 
-/// A castle as its house builds it.
 fn castle_of(house: &houses::House) -> Castle {
     let roof = match house.roof {
         RoofKind::Slate => Kind::Slate,
@@ -413,8 +368,6 @@ fn castle_of(house: &houses::House) -> Castle {
     }
 }
 
-/// Everything the kit stands on the map: the structures, the castles, the
-/// College, the Delve's gate and every site's lot.
 fn builds(geo: &Geography) -> Vec<Build> {
     let mut out = Vec::new();
     let place_of = |(x, y): (i32, i32)| {
@@ -423,20 +376,16 @@ fn builds(geo: &Geography) -> Vec<Build> {
             x >= c && x < c + w && y >= r && y < r + h
         })
     };
-    // The authored structures stand only in the full plan's set pieces.
     for &(ax, ay, w, h) in STRUCTURES.iter().filter(|_| crate::world::plan::full()) {
         let (c, r) = place_tile(ax, ay);
         let foot = (c, r, w, h);
         let (kit, what) = authored((ax, ay, w, h)).unwrap_or_else(|| by_size(foot));
-        // In a place's footprint, or against it (the keep's turrets).
         let place = place_of((c + w / 2, r + h / 2)).or_else(|| {
             Place::ALL.into_iter().find(|p| {
                 let (pc, pr, pw, ph) = p.footprint_world();
                 pw * ph > 1 && c <= pc + pw && c + w >= pc && r <= pr + ph && r + h >= pr
             })
         });
-        // A place's own building faces its door; one of a place's many, or
-        // a structure on its own, faces the front.
         let face = match place {
             Some(p) if p.footprint_world() == foot => face_to(foot, p.stand_world()),
             _ => Face::South,
@@ -450,8 +399,6 @@ fn builds(geo: &Geography) -> Vec<Build> {
             seed: seed_of(foot),
         });
     }
-    // The blank-slate plan (`crate::world::plan`): the Keep, a tiny castle
-    // just begun, and a camp for each house where its castle will be built.
     if crate::world::plan::tabula() {
         let foot = crate::world::castles::keep_foot();
         out.push(Build {
@@ -476,7 +423,6 @@ fn builds(geo: &Geography) -> Vec<Build> {
             seed: seed_of(foot),
         });
     }
-    // (The College is not on the blank-slate map: its lot is empty.)
     if crate::world::plan::full() {
         let lot = college::lot();
         let foot = (lot.tx, lot.ty, lot.tw, lot.th);
@@ -510,11 +456,6 @@ fn builds(geo: &Geography) -> Vec<Build> {
     out
 }
 
-/// A footprint that holds ground a knight walks (a road through a gate's
-/// tiles) gives it up: the build stands on the rest, its front to the
-/// open ground.
-/// The Delve's gate as the generator stands it, before it is kept off open
-/// ground ([`delve_gate_on`] is that, for what the run stands on it).
 fn delve_gate() -> Build {
     let gate = wishes::delve_gate();
     let foot = (gate.tx, gate.ty, gate.tw, gate.th);
@@ -528,8 +469,6 @@ fn delve_gate() -> Build {
     }
 }
 
-/// The Delve's gate exactly as the chunks stand it on `geo`, so what a run
-/// puts on its crown (the Great Shaft's head, `lots`) sits where its heap is.
 pub(crate) fn delve_gate_on(geo: &Geography) -> Build {
     let mut b = delve_gate();
     keep_off_open(geo, &mut b);
@@ -545,8 +484,6 @@ fn keep_off_open(geo: &Geography, b: &mut Build) {
     }
     let blocked: Vec<(i32, i32)> = cells.iter().copied().filter(|&(x, y)| !walk(x, y)).collect();
     let Some(&(x0, _)) = blocked.iter().min_by_key(|p| p.0) else {
-        // All of it is walked on (the Delve's yard before its gate): the
-        // build stands in the blocked ground behind it, facing the yard.
         let behind: Vec<i32> = (c..c + w).filter(|&x| !walk(x, r - 1) && r > 1).collect();
         if let (Some(&a), Some(&z)) = (behind.first(), behind.last())
             && (a..=z).all(|x| !walk(x, r - 1))
@@ -563,14 +500,12 @@ fn keep_off_open(geo: &Geography, b: &mut Build) {
     if (y0..=y1).any(|y| (x0..=x1).any(|x| walk(x, y))) {
         return;
     }
-    // The open ground's middle, for the face.
     let open: Vec<(i32, i32)> = cells.iter().copied().filter(|&(x, y)| walk(x, y)).collect();
     let mid = (open.iter().map(|p| p.0).sum::<i32>() / open.len() as i32, open.iter().map(|p| p.1).sum::<i32>() / open.len() as i32);
     b.face = face_to(inner, mid);
     b.foot = inner;
 }
 
-/// A label in capitals as a name: "THE LISTS" as "The Lists".
 fn title(label: &str) -> String {
     label
         .split(' ')
@@ -585,31 +520,22 @@ fn title(label: &str) -> String {
         .join(" ")
 }
 
-// ----------------------------------------------------------- the chunk ----
-
-/// The chunk's camera: the kingdom's stage, centred on the chunk's middle.
 pub fn centre(cx: i32, cz: i32) -> [f32; 2] {
     [(cx * CHUNK.0) as f32 * TILE + CHUNK.0 as f32 * TILE / 2.0, (cz * CHUNK.1) as f32 * TILE + CHUNK.1 as f32 * TILE / 2.0]
 }
 
-/// The set's id.
 pub fn chunk_id(cx: i32, cz: i32) -> String {
     format!("chunk-{cx}-{cz}")
 }
 
-/// The chunk `(cx, cz)` of the kingdom as a set file.
 pub fn chunk_set(geo: &Geography, cx: i32, cz: i32) -> String {
     write_set(&Land::of(geo), cx, cz)
 }
 
-/// The chunk `(cx, cz)` of `land` as a set file ([`chunk_set`] of a land
-/// made once).
 pub fn write_set(land: &Land, cx: i32, cz: i32) -> String {
     write(land, cx, cz, &chunk(land, cx, cz))
 }
 
-/// The walkable tiles the chunk's camera must keep in view: its own and a
-/// margin round it (what stands at its edge hides its neighbour's ground).
 pub fn open_tiles(land: &Land, cx: i32, cz: i32) -> Vec<(i32, i32)> {
     let (c, r, w, h) = land.chunk_rect(cx, cz);
     (r - 4..r + h + 1)
@@ -618,8 +544,6 @@ pub fn open_tiles(land: &Land, cx: i32, cz: i32) -> Vec<(i32, i32)> {
         .collect()
 }
 
-/// The chunk's blockout: its ground, its builds, its woods and rock, its
-/// bridges and hedges, each sized for the camera.
 pub fn chunk(land: &Land, cx: i32, cz: i32) -> Vec<Group> {
     let view = View::chunk(STAGE, centre(cx, cz));
     let open = open_tiles(land, cx, cz);
@@ -665,8 +589,6 @@ pub fn chunk(land: &Land, cx: i32, cz: i32) -> Vec<Group> {
     groups
 }
 
-/// The ground under the chunk: one slab to a run of equal tiles, water and
-/// lava lowered.
 fn ground(land: &Land, (c, r, w, h): Rect) -> Group {
     let cells: Vec<Option<(Kind, i32)>> = (r..r + h)
         .flat_map(|y| (c..c + w).map(move |x| (x, y)))
@@ -685,7 +607,6 @@ fn ground(land: &Land, (c, r, w, h): Rect) -> Group {
     Group::new(Role::Ground, "ground", solids)
 }
 
-/// Furrows on the crop fields: low ridges across each field, a boot high.
 fn furrows(land: &Land, (c, r, w, h): Rect) -> Option<Group> {
     let cells: Vec<Option<bool>> = (r..r + h)
         .flat_map(|y| (c..c + w).map(move |x| (x, y)))
@@ -703,9 +624,6 @@ fn furrows(land: &Land, (c, r, w, h): Rect) -> Option<Group> {
     (!solids.is_empty()).then(|| Group::new(Role::Prop, "crop furrows", solids))
 }
 
-/// A build's kit piece, its parts each sized for the camera on their own;
-/// nothing it stands of is left over open ground its footprint holds (a
-/// gate's way through).
 fn building(land: &Land, i: usize, b: &Build, view: &View, open_tiles: &[(i32, i32)], placed: &mut Vec<blockout::Hull>) -> Group {
     let (c, r, w, h) = b.foot;
     let open: Vec<[f32; 4]> = (r..r + h)
@@ -723,10 +641,6 @@ fn building(land: &Land, i: usize, b: &Build, view: &View, open_tiles: &[(i32, i
         Some(place) => format!("{} of {}: {} at {c},{r} {w}x{h}", b.name, place, b.kit.what()),
         None => format!("{}: {} at {c},{r} {w}x{h}", b.name, b.kit.what()),
     };
-    // The piece on its whole footprint, and drawn forward onto its front
-    // tiles (the back left to the yard): a building with open ground
-    // behind it keeps more of its height the less deep it stands. The one
-    // that keeps the most, for what it gives up in depth, stands.
     let [x0, z0, x1, z1] = blockout::px(b.foot);
     let deep = match b.face {
         Face::South | Face::North => h,
@@ -742,7 +656,6 @@ fn building(land: &Land, i: usize, b: &Build, view: &View, open_tiles: &[(i32, i
             Face::West => [x0, z0, x1 - k, z1],
         };
         let mut parts = kit::build(b.kit, &Spot { foot, face: b.face, seed: b.seed });
-        // A piece too big for the shallower ground is no variant.
         let fits = parts.iter().flatten().all(|s| {
             let [a, bb, cc, d] = s.footprint();
             s.size.iter().all(|v| *v >= 0.0) && a >= foot[0] - 1.0 && bb >= foot[1] - 1.0 && cc <= foot[2] + 1.0 && d <= foot[3] + 1.0
@@ -770,15 +683,12 @@ fn building(land: &Land, i: usize, b: &Build, view: &View, open_tiles: &[(i32, i
     }
     let (_, mut group, trial) = best.expect("a piece on its footprint");
     *placed = trial;
-    // What the piece leaves of its footprint bare is its yard: bushes, a
-    // small tree, a stack, so blocked ground reads as blocked.
     let hulls = occluders(view, &group.solids);
     let bare: Vec<(i32, i32)> = (r..r + h)
         .flat_map(|y| (c..c + w).map(move |x| (x, y)))
         .filter(|&(x, y)| !land.walkable(x, y) && !covers(view, &group.solids, &hulls, (x, y)))
         .collect();
     if !bare.is_empty() {
-        // Before the front, only what stays low; trees go behind and beside.
         let front = |(x, y): (i32, i32)| match b.face {
             Face::South => y == r + h - 1,
             Face::North => y == r,
@@ -795,24 +705,16 @@ fn building(land: &Land, i: usize, b: &Build, view: &View, open_tiles: &[(i32, i
     group
 }
 
-/// Build `b` (what a run adds to the kingdom, `world3d::lots`) as chunk
-/// `(cx, cz)`'s generator stands a build there: its kit piece on its
-/// footprint, facing its door, sized for the chunk's camera, and what it
-/// leaves of its footprint bare dressed as a yard.
 pub fn stand(land: &Land, b: &Build, (cx, cz): (i32, i32)) -> Group {
     let view = View::chunk(STAGE, centre(cx, cz));
     let open = open_tiles(land, cx, cz);
     building(land, 0, b, &view, &open, &mut Vec::new())
 }
 
-/// Whether the best piece so far kept all its height: no need to draw it
-/// forward.
 fn group_whole(best: &Option<(f32, Group, Vec<blockout::Hull>)>) -> bool {
     best.as_ref().is_some_and(|(_, g, _)| g.kept >= 0.999)
 }
 
-/// Whether `solids` cover a tile: something standing over its floor, or
-/// hiding a good part of it from the camera.
 pub fn covers(view: &View, solids: &[Solid], hulls: &[blockout::Hull], (x, y): (i32, i32)) -> bool {
     let [x0, z0, _, _] = blockout::px((x, y, 1, 1));
     let under = (0..4).any(|j| {
@@ -827,8 +729,6 @@ pub fn covers(view: &View, solids: &[Solid], hulls: &[blockout::Hull], (x, y): (
     under || view.hidden(hulls, (x, y)) > 0.3
 }
 
-/// A yard's dressing on a bare tile of a footprint: a bush, a small tree
-/// or a stack of timber, seeded.
 fn yard_at(land: &Land, (x, y): (i32, i32), low: bool) -> Vec<Solid> {
     let v = hash(x, y, 91);
     let v = if low && v % 5 >= 2 && v % 5 <= 3 { v - 2 } else { v };
@@ -846,7 +746,6 @@ fn yard_at(land: &Land, (x, y): (i32, i32), low: bool) -> Vec<Solid> {
     }
 }
 
-/// A set id from a name: its words, lower case, joined by `-`.
 fn slug(name: &str, i: usize) -> String {
     let words: Vec<String> = name
         .split(|c: char| !c.is_ascii_alphanumeric())
@@ -858,12 +757,8 @@ fn slug(name: &str, i: usize) -> String {
     if id.is_empty() { format!("build-{i}") } else { id.trim_end_matches('-').to_string() }
 }
 
-/// How far a thing on tile `(x, y)` may reach past each side: west, north,
-/// east, south.
 pub(crate) fn reach(land: &Land, x: i32, y: i32) -> [f32; 4] {
     let open = |nx: i32, ny: i32| !land.inside(nx, ny) || land.walkable(nx, ny) || land.built(nx, ny).is_some();
-    // A side is open when the tile across it, or either tile at its ends,
-    // is: what reaches over a side reaches over its corners too.
     let side = |dx: i32, dy: i32| {
         let ends = if dx != 0 { [(dx, -1), (dx, 1)] } else { [(-1, dy), (1, dy)] };
         if open(x + dx, y + dy) || ends.iter().any(|&(ex, ey)| open(x + ex, y + ey)) { SPILL_OPEN } else { SPILL_BLOCKED }
@@ -871,13 +766,10 @@ pub(crate) fn reach(land: &Land, x: i32, y: i32) -> [f32; 4] {
     [side(-1, 0), side(0, -1), side(1, 0), side(0, 1)]
 }
 
-/// Each tile of `rect` that `want` holds.
 fn tiles_of(land: &Land, (c, r, w, h): Rect, want: Cover) -> Vec<(i32, i32)> {
     (r..r + h).flat_map(|y| (c..c + w).map(move |x| (x, y))).filter(|&(x, y)| land.cover(x, y) == want).collect()
 }
 
-/// The fingerposts on the verges: a slender post a knight passes, its arms
-/// pointing down the roads, a cap on top.
 pub(crate) fn fingerposts(land: &Land, (c, r, w, h): Rect) -> Group {
     let mut parts = Vec::new();
     for (at, road, ways) in &land.posts {
@@ -885,7 +777,6 @@ pub(crate) fn fingerposts(land: &Land, (c, r, w, h): Rect) -> Group {
             continue;
         }
         let [x0, z0, x1, z1] = blockout::px((at.0, at.1, 1, 1));
-        // On the tile's side toward the road it marks.
         let (dx, dz) = ((road.0 - at.0).signum() as f32, (road.1 - at.1).signum() as f32);
         let (x, z) = ((x0 + x1) / 2.0 + dx * 4.0, (z0 + z1) / 2.0 + dz * 4.0);
         let top = 19.0;
@@ -910,16 +801,11 @@ pub(crate) fn fingerposts(land: &Land, (c, r, w, h): Rect) -> Group {
     g
 }
 
-/// Whether a solid is slender: a post or a pole a knight passes, which
-/// may stand on open ground (a fingerpost, a cross, a scarecrow's pole).
 pub fn slender(s: &Solid) -> bool {
     let [a, b, c, d] = s.footprint();
     (c - a).min(d - b) <= 2.5 && (c - a).max(d - b) <= 7.0
 }
 
-/// The realm's set dressing in the chunk (`world::dressing`): the small
-/// things between the places, each on open ground a knight walks
-/// through, so each is boot-high, or a slender post.
 pub(crate) fn dressed(land: &Land, (c, r, w, h): Rect) -> Group {
     let mut parts = Vec::new();
     for p in &land.pieces {
@@ -932,7 +818,6 @@ pub(crate) fn dressed(land: &Land, (c, r, w, h): Rect) -> Group {
     g
 }
 
-/// One piece of dressing as blocks: boot-high, or slender.
 fn dress(p: &Piece) -> Vec<Solid> {
     let (tx, ty) = p.at;
     let reach = p.item.reach();
@@ -1067,7 +952,6 @@ fn dress(p: &Piece) -> Vec<Solid> {
     }
 }
 
-/// The map's rim and blocked ground nothing stands on: hedge.
 fn hedges(land: &Land, rect: Rect) -> Group {
     let mut parts = Vec::new();
     for (x, y) in tiles_of(land, rect, Cover::Hedge) {
@@ -1081,7 +965,6 @@ fn hedges(land: &Land, rect: Rect) -> Group {
     g
 }
 
-/// A tile of hedge over `[x0, z0, x1, z1]`: a clipped body, a lumpy top.
 fn hedge_on([x0, z0, x1, z1]: [f32; 4], v: u32) -> Vec<Solid> {
     let body = 6.0 + (v % 2) as f32;
     vec![
@@ -1090,7 +973,6 @@ fn hedge_on([x0, z0, x1, z1]: [f32; 4], v: u32) -> Vec<Solid> {
     ]
 }
 
-/// How deep in its rock a tile is: 1 at the edge, up to 4.
 fn rock_depth(land: &Land, x: i32, y: i32) -> i32 {
     for d in 1..4i32 {
         for dy in -d..=d {
@@ -1104,16 +986,12 @@ fn rock_depth(land: &Land, x: i32, y: i32) -> i32 {
     4
 }
 
-/// Rock in steps, each tile its own part (its step and the boulder on it,
-/// so they are sized together); the steps joined after.
 fn rock(land: &Land, rect: Rect) -> Group {
     let mut parts = Vec::new();
     for (x, y) in tiles_of(land, rect, Cover::Rock) {
         let depth = rock_depth(land, x, y);
         let [x0, z0, x1, z1] = blockout::px((x, y, 1, 1));
         let v = hash(x, y, 53);
-        // A low base at the edge, steps further in; a boulder on every
-        // tile, so the rock reads as lumps, not boxes.
         let step = if depth == 1 { 3.0 } else { (depth - 1) as f32 * ROCK_STEP + 3.0 };
         let mut part = vec![Solid::block(Kind::Rock, [x0, z0, x1, z1], 0.0, step)];
         let [rw, rn, re, rs] = reach(land, x, y);
@@ -1134,7 +1012,6 @@ fn rock(land: &Land, rect: Rect) -> Group {
     g
 }
 
-/// Rock's steps joined where they stand level side by side.
 fn join_steps(group: &mut Group) {
     let (steps, rest): (Vec<Solid>, Vec<Solid>) = std::mem::take(&mut group.solids)
         .into_iter()
@@ -1161,12 +1038,10 @@ fn join_steps(group: &mut Group) {
     group.parts = vec![0];
 }
 
-/// The leaf of a grove at a tile: pines in their stands, broadleaf about.
 fn pine_at(x: i32, y: i32) -> bool {
     vnoise(x as f32 / 7.0, y as f32 / 7.0, 61) < 0.36
 }
 
-/// A tree whose foot is at `(x, z)`, its crown `s` across at most.
 fn tree(x: f32, z: f32, s: f32, v: u32, pine: bool, big: bool) -> Vec<Solid> {
     let trunk_kind = if v % 2 == 0 { Shape::Cylinder } else { Shape::Frustum };
     if pine {
@@ -1187,8 +1062,6 @@ fn tree(x: f32, z: f32, s: f32, v: u32, pine: bool, big: bool) -> Vec<Solid> {
     }
 }
 
-/// A crown's breadth and middle on tile `(x, y)` (or the 2x2 from it),
-/// kept within what the tile may reach over.
 fn crown_on(land: &Land, (x, y): (i32, i32), n: i32, want: f32, v: u32) -> (f32, f32, f32) {
     let edge = |k: usize, tiles: &mut dyn Iterator<Item = (i32, i32)>| tiles.map(|(a, b)| reach(land, a, b)[k]).fold(f32::MAX, f32::min);
     let rw = edge(0, &mut (y..y + n).map(|b| (x, b)));
@@ -1204,8 +1077,6 @@ fn crown_on(land: &Land, (x, y): (i32, i32), n: i32, want: f32, v: u32) -> (f32,
     (cx, cz, s)
 }
 
-/// The woods: groves of trees, a big tree where four wood tiles meet (now
-/// and then), bushes in the thick of it, hedges where trees run one deep.
 fn woods(land: &Land, rect: Rect) -> Group {
     let (c, r, w, h) = rect;
     let wood = |x: i32, y: i32| land.cover(x, y) == Cover::Woods;
@@ -1213,7 +1084,6 @@ fn woods(land: &Land, rect: Rect) -> Group {
     let mut done = std::collections::HashSet::new();
     let mut parts = Vec::new();
     let mut hedge = Vec::new();
-    // Hedgerows: a line of wood one tile deep.
     for (x, y) in tiles_of(land, rect, Cover::Woods) {
         let (n, s, wst, e) = (wood(x, y - 1), wood(x, y + 1), wood(x - 1, y), wood(x + 1, y));
         let line = (!n && !s && (wst || e)) || (!wst && !e && (n || s));
@@ -1226,7 +1096,6 @@ fn woods(land: &Land, rect: Rect) -> Group {
             done.insert((x, y));
         }
     }
-    // Big trees on 2x2 of wood.
     for (x, y) in tiles_of(land, rect, Cover::Woods) {
         let four = [(x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)];
         if four.iter().all(|&(a, b)| in_rect(a, b) && wood(a, b) && !done.contains(&(a, b))) && hash(x, y, 73) % 100 < 30 {
@@ -1258,7 +1127,6 @@ fn woods(land: &Land, rect: Rect) -> Group {
     g
 }
 
-/// Dead trees on the ash: a bare trunk and two crooked limbs.
 fn dead_trees(land: &Land, rect: Rect) -> Group {
     let mut parts = Vec::new();
     for (x, y) in tiles_of(land, rect, Cover::DeadTree) {
@@ -1267,7 +1135,6 @@ fn dead_trees(land: &Land, rect: Rect) -> Group {
         let (cx, cz) = ((x0 + x1) / 2.0 + ((v % 5) as f32 - 2.0), (z0 + z1) / 2.0 + ((v >> 3) % 5) as f32 - 2.0);
         let h = 15.0 + (v >> 6 & 7) as f32;
         let turn = ((v >> 9) % 180) as f32;
-        // Limbs reach one way each from the trunk, at three heights.
         let limb = |len: f32, y: f32, a: f32| {
             let (s, c) = a.to_radians().sin_cos();
             Solid::new(Shape::Box, Kind::Trunk, [cx + c * len / 2.0, y, cz - s * len / 2.0], [len, 1.2, 1.2]).turned(a)
@@ -1284,8 +1151,6 @@ fn dead_trees(land: &Land, rect: Rect) -> Group {
     g
 }
 
-/// Roads over water: a deck a boot high on the water, arches along its
-/// front, rails on the water's side.
 pub(crate) fn bridges(land: &Land, rect: Rect) -> Group {
     let (c, r, w, h) = rect;
     let tiles = tiles_of(land, rect, Cover::Bridge);
@@ -1301,11 +1166,9 @@ pub(crate) fn bridges(land: &Land, rect: Rect) -> Group {
     for &(x, y) in &tiles {
         let [x0, z0, x1, z1] = blockout::px((x, y, 1, 1));
         let water = |dx: i32, dy: i32| land.cover(x + dx, y + dy) == Cover::Water;
-        // Arches under the deck's front, where the water runs under it.
         if water(0, 1) {
             parts.push(vec![Solid::new(Shape::Arch, Kind::Stone, [(x0 + x1) / 2.0, -WATER_DROP - 1.0, z1 - 1.0], [TILE, WATER_DROP + DECK + 1.0, 2.0])]);
         }
-        // Rails on the water's side.
         if water(0, -1) {
             parts.push(vec![Solid::block(Kind::Wood, [x0, z0 - 1.5, x1, z0], 0.0, 6.0)]);
         }
@@ -1324,14 +1187,9 @@ pub(crate) fn bridges(land: &Land, rect: Rect) -> Group {
     g
 }
 
-// ------------------------------------------------------------ the words ----
-
-/// The biome a chunk lies in (`world::biome`).
 pub fn biome(_land: &Land, cx: i32, cz: i32) -> Option<&'static str> {
     Some(crate::world::biome::chunk(cx, cz).name())
 }
-
-// ------------------------------------------------------------- the text ----
 
 fn write(land: &Land, cx: i32, cz: i32, groups: &[Group]) -> String {
     let (c, r, w, h) = land.chunk_rect(cx, cz);
@@ -1367,7 +1225,6 @@ fn write(land: &Land, cx: i32, cz: i32, groups: &[Group]) -> String {
     out
 }
 
-/// The hulls of what in `groups` stands up, for the tests.
 pub fn standing_hulls(view: &View, groups: &[Group]) -> Vec<blockout::Hull> {
     occluders(view, groups.iter().filter(|g| g.role != Role::Ground).flat_map(|g| &g.solids))
 }

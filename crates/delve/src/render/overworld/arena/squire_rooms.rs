@@ -12,12 +12,8 @@ use crate::rules::squire_rooms::{self as sr, BACK, YARD_DOORS};
 use crate::rules::{RoomKind, Run, Tile};
 
 const T: i32 = TILE;
-/// The short name painted over each Yard door, in `squire_rooms::ROOMS`
-/// order.
 const DOOR_LABELS: [&str; 5] = ["GUILD", "ACADEMY", "BARRACKS", "HALL", "LANES"];
 
-/// A squire room at rest: flags, stone walls, torches, its board, the plate
-/// back to the Yard.
 pub(super) fn scenery(run: &Run) -> Img {
     let room = run.room();
     let (pw, ph) = (room.cols as i32 * T, room.rows as i32 * T);
@@ -34,13 +30,11 @@ pub(super) fn scenery(run: &Run) -> Img {
                 }
                 continue;
             }
-            // Worn flagstones, two shades, a dark joint round each.
             let ink = if hash(col, row, 31) % 3 == 0 { 'j' } else { 'g' };
             cv.rect(x + 1, y + 1, T - 2, T - 2, ink);
             cv.frame(x, y, T, T, 'K');
         }
     }
-    // The board over the north wall with the room's name.
     if let Some(name) = sr::name(room.kind) {
         let w = text_width(name) + 12;
         let x = (pw - w) / 2;
@@ -48,7 +42,6 @@ pub(super) fn scenery(run: &Run) -> Img {
         cv.frame(x, 2, w, 11, 'b');
         cv.text(x + 6, 4, name, 'T');
     }
-    // Torches along the side walls.
     for (k, (x, y)) in [(T + 2, 3 * T), (pw - T - 6, 3 * T), (T + 2, 9 * T), (pw - T - 6, 9 * T)].into_iter().enumerate() {
         let im = kit::torch(0, k as u32);
         cv.stamp(&im, x, y);
@@ -59,7 +52,6 @@ pub(super) fn scenery(run: &Run) -> Img {
     cv
 }
 
-/// The plate back to the Yard, with its sign.
 fn back_plate(cv: &mut Img) {
     let (c, r, w, h) = BACK;
     let (x, y, pw, ph) = (c * T + 1, r * T + 1, w * T - 2, h * T - 2);
@@ -67,7 +59,6 @@ fn back_plate(cv: &mut Img) {
     cv.text(x, y - 8, "YARD", 'O');
 }
 
-/// The room's own squire game: its plates and keepers.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     match run.room().kind {
         RoomKind::SquireGuild => super::yard::guild_plates(cv, run),
@@ -78,7 +69,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The room's own game's boards.
 pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     match run.room().kind {
         RoomKind::SquireGuild => super::yard::guild_board(cv, run, focus),
@@ -90,8 +80,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     }
 }
 
-/// The Yard's five doors along its east wall: a dark opening in the wall
-/// beside each plate and its name on the floor before it.
 pub(super) fn yard_doors(cv: &mut Img) {
     for (i, (c, r, w, h)) in YARD_DOORS.into_iter().enumerate() {
         let (x, y, pw, ph) = (c * T, r * T, w * T, h * T);

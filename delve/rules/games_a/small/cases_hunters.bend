@@ -1,5 +1,3 @@
-# Cases for hunters.bend (recorded by hunters_bend_cases__tests.rs).
-
 def cx.hunters.empty_deeds() -> J.Val:
   ga.sv(ga.sv(ga.sv(ga.sv(ga.sv(J.obj(), "hooks", J.JA{[]}), "webs", J.JA{[]}), "rot", J.JA{[]}), "spawns", J.JA{[]}), "cues", J.JA{[]})
 

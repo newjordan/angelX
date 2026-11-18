@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Build and atomically publish executable systems, independently of the cockpit.
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync } from 'node:fs'
@@ -37,13 +36,13 @@ function fingerprint() {
       if (entry.name.startsWith('target') || entry.name === 'node_modules') continue
       const file = join(path, entry.name)
       if (entry.isDirectory()) walk(file)
-      else if (entry.isFile() && /\.(rs|toml|json|txt|card|art)$/.test(entry.name)) {
+      else if (entry.isFile() && /\.(rs|toml|json|txt|card|art|boss|wish|room|vfx|pastime|mjs|js)$/.test(entry.name)) {
         const stat = statSync(file)
         hash.update(`${file}\0${stat.size}\0${stat.mtimeMs}\0`)
       }
     }
   }
-  for (const dir of ['crates/delve', 'crates/kingdom', 'delve/kingdom', 'crates/delve-system', 'crates/live', 'cockpit/assets/dungeon', 'cockpit/assets/kingdom']) walk(join(root, dir))
+  for (const dir of ['crates/delve', 'crates/kingdom', 'crates/net', 'delve/kingdom', 'crates/delve-system', 'crates/live', 'scripts/live', 'cockpit/assets/dungeon', 'cockpit/assets/kingdom']) walk(join(root, dir))
   for (const file of ['crates/Cargo.toml', 'crates/Cargo.lock', 'rust-toolchain.toml']) hash.update(readFileSync(join(root,file)))
   return hash.digest('hex')
 }

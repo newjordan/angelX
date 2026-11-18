@@ -15,16 +15,12 @@ use crate::rules::{
     deep::{Village, village as v},
 };
 
-/// Bark, dark to light.
 const BARK: [char; 7] = ['n', 'b', 'I', 'B', 'p', 'P', 'r'];
-/// Moss on a root's shoulder.
 const MOSS: [char; 4] = ['E', 'l', 'A', 'M'];
 
-/// The floor: dark earth, leaf litter and moss, and roots across it.
 pub(super) fn ground_marks(cv: &mut Img, k: i32, (x, y): (i32, i32)) {
     match k % 5 {
         0 => {
-            // A fallen leaf.
             cv.put(x, y, 'L');
             cv.put(x + 1, y, 'A');
             cv.put(x + 1, y - 1, 'N');
@@ -34,8 +30,6 @@ pub(super) fn ground_marks(cv: &mut Img, k: i32, (x, y): (i32, i32)) {
     }
 }
 
-/// Roots across the floor, from the back wall out round the plaza: each a
-/// raised band of bark lit along its top.
 pub(super) fn floor_roots(cv: &mut Img, lights: &mut Vec<Light>) {
     let paths: [&[(i32, i32)]; 4] = [
         &[(60, 112), (70, 170), (40, 230), (30, 300)],
@@ -54,7 +48,6 @@ pub(super) fn floor_roots(cv: &mut Img, lights: &mut Vec<Light>) {
                     let ink = if o == -wide { 'P' } else if o < -wide / 2 { 'B' } else if o == wide { 'n' } else { 'b' };
                     cv.put(x + o, y + o.abs() / 3, ink);
                 }
-                // A seam of sap now and then, glowing.
                 if s % 37 == 11 {
                     cv.put(x, y + 1, '4');
                     cv.put(x + 1, y + 1, 'a');
@@ -65,8 +58,6 @@ pub(super) fn floor_roots(cv: &mut Img, lights: &mut Vec<Light>) {
     }
 }
 
-/// The back wall is roots: great twisting columns of bark coming down out
-/// of the dark, moss on their shoulders, sap in their seams.
 pub(super) fn back(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>) {
     let face = v::BACK as i32 * TILE;
     for k in 0..11 {
@@ -87,7 +78,6 @@ pub(super) fn back(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>) {
                 }
                 cv.put(cx + o, y, BARK[i.clamp(0, 6) as usize]);
             }
-            // Moss on its shoulder where it bends toward the light.
             if (y + k * 13) % 41 < 9 {
                 for o in -half..-half / 3 {
                     if hash(cx + o, y, 9712) % 3 != 0 {
@@ -95,7 +85,6 @@ pub(super) fn back(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>) {
                     }
                 }
             }
-            // A seam of sap down its middle, lit as the tree wakes.
             if (y + k * 31) % 53 < 14 && y > 20 {
                 let lit = (k as u8 % 8) < vl.hope;
                 cv.put(cx + 1, y, if lit { '4' } else { 'a' });
@@ -107,17 +96,11 @@ pub(super) fn back(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>) {
     }
 }
 
-/// A root-knot house: a bole of root on its footprint, its bark grained
-/// and grooved, buttress roots flaring from it into the floor, roots
-/// arching over it from the wall behind; a round green door, round
-/// windows lit amber, moss on its crown with a sprout of leaves, and a
-/// sap-lamp by the door.
 pub(super) fn house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit: bool, lights: &mut Vec<Light>) {
     let cx = x + w / 2;
     let foot = y + h;
     let top = foot - h - 20;
     mat::shadow(cv, ((cx + 8) as f32, (foot + 2) as f32), (w as f32 * 0.55, 4.0), &all);
-    // Roots arching over it from the wall behind, down into the floor.
     for side in [-1i32, 1] {
         let (sx, ex) = (cx + side * 4, cx + side * (w / 2 + 8));
         for t in 0..=48 {
@@ -131,7 +114,6 @@ pub(super) fn house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32,
             }
         }
     }
-    // The bole: flared at its foot, round at its crown.
     let tall = (foot - top) as f32;
     let half_at = |yy: i32| {
         let t = (foot - yy) as f32 / tall;
@@ -144,7 +126,6 @@ pub(super) fn house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32,
             let u = o as f32 / half.max(1) as f32;
             let z = (1.0 - u * u).max(0.0).sqrt();
             let light = (z * 0.75 - u * 0.4).clamp(0.0, 1.0);
-            // Grain running up it, bending round the crown.
             let wob = (vnoise(yy as f32 / 9.0, o as f32 / 30.0, 9723 + seed) * 6.0) as i32;
             let groove = (o * 3 / 2 + wob + seed as i32).rem_euclid(7) == 0;
             let grain = vnoise((cx + o) as f32 / 1.8, yy as f32 / 10.0, 9724 + seed);
@@ -158,7 +139,6 @@ pub(super) fn house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32,
             cv.put(cx + o, yy, BARK[i.clamp(0, 6) as usize]);
         }
     }
-    // Buttress roots flaring out into the floor.
     for side in [-1, 1] {
         for (k, reach) in [(0, 14), (1, 9)] {
             let y0 = foot - 14 + k * 6;
@@ -173,7 +153,6 @@ pub(super) fn house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32,
             }
         }
     }
-    // Moss on its crown, and a sprout of leaves.
     for yy in top..top + 10 {
         let half = half_at(yy) as i32;
         for o in -half..=half / 2 {
@@ -188,7 +167,6 @@ pub(super) fn house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32,
         cv.line(sx, sy - 4 + dy / 3, sx + dx, sy + dy, 'A');
         cv.put(sx + dx, sy + dy, 'M');
     }
-    // The round door, a green one, with a knot for a handle.
     cv.ellipse(cx as f32, (foot - 11) as f32, 8.0, 9.0, 'n');
     cv.rect(cx - 8, foot - 11, 17, 11, 'n');
     cv.ellipse(cx as f32, (foot - 11) as f32, 6.5, 7.5, 'l');
@@ -196,7 +174,6 @@ pub(super) fn house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32,
     cv.line(cx, foot - 18, cx, foot - 2, 'E');
     cv.line(cx - 4, foot - 15, cx - 4, foot - 2, 'A');
     cv.put(cx + 3, foot - 7, 'O');
-    // Round windows of four panes, lit amber.
     for wx in [cx - w / 2 + 12, cx + w / 2 - 12] {
         let wy = foot - h + 6;
         cv.ellipse(wx as f32, wy as f32, 5.0, 5.0, 'n');
@@ -209,14 +186,12 @@ pub(super) fn house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32,
         cv.line(wx - 4, wy, wx + 4, wy, 'n');
         cv.line(wx, wy - 4, wx, wy + 4, 'n');
     }
-    // The sap-lamp by its door.
     let lx = cx + w / 2 - 4;
     cv.line(lx, foot, lx - 2, foot - 22, 'b');
     cv.line(lx - 2, foot - 22, lx + 3, foot - 26, 'b');
     sap_lamp(cv, lx + 3, foot - 26, lit, lights);
 }
 
-/// An amber gourd of sap hanging from a hook at `(x, y)`, glowing if lit.
 pub(super) fn sap_lamp(cv: &mut Img, x: i32, y: i32, lit: bool, lights: &mut Vec<Light>) {
     cv.line(x, y, x, y + 2, 'n');
     cv.put(x, y + 3, 'b');
@@ -231,16 +206,12 @@ pub(super) fn sap_lamp(cv: &mut Img, x: i32, y: i32, lit: bool, lights: &mut Vec
     cv.put(x, y + 11, if lit { '4' } else { 'a' });
 }
 
-/// The Heartroot: the taproot's end coming up out of the plaza floor, its
-/// buttress roots spread on the stone, and in its side the tree's
-/// sap-heart, dark and hard until hope wakes it, then beating gold.
 pub(super) fn heart(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u32) {
     let (x, y, w, h) = px_rect(v::HEART);
     let (cx, foot) = (x + w / 2, y + h);
     let awake = vl.hope >= 1;
     let light = vl.light();
     mat::shadow(cv, ((cx + 8) as f32, (foot + 2) as f32), (40.0, 7.0), &all);
-    // Buttress roots out across the floor.
     for k in 0..6 {
         let a = std::f32::consts::PI * (0.02 + k as f32 * 0.96 / 5.0);
         let len = 34.0 + (hash(k, 1, 9730) % 10) as f32;
@@ -253,7 +224,6 @@ pub(super) fn heart(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u
             }
         }
     }
-    // The trunk of it, rising and twisting, broken off at its top.
     let top = foot - 74;
     for yy in top..foot - 2 {
         let f = (yy - top) as f32 / (foot - top) as f32;
@@ -270,7 +240,6 @@ pub(super) fn heart(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u
             cv.put(cx + o + twist as i32, yy, BARK[i.clamp(0, 6) as usize]);
         }
     }
-    // Its broken top: jagged, a cup of sap in it.
     for o in -12..=12 {
         let jag = (hash(o, 2, 9732) % 6) as i32;
         for d in 0..jag {
@@ -278,21 +247,17 @@ pub(super) fn heart(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u
         }
     }
     cv.ellipse(cx as f32, (top + 1) as f32, 9.0, 2.5, if awake { '4' } else { 'a' });
-    // Moss down its shoulder.
     for yy in top + 4..foot - 20 {
         if hash(yy, 3, 9733) % 3 != 0 {
             cv.put(cx - 12 - ((yy as f32 / 12.0).sin() * 2.0) as i32, yy, MOSS[(hash(yy, 4, 9734) % 4) as usize]);
         }
     }
-    // The sap-heart, and the veins of light it sends up and down the root.
     let (hx, hy) = (cx + 2, foot - 36);
     let beat = if awake { ((tick as f32 * 0.12).sin() * 0.5 + 0.5) * (0.4 + light * 0.6) } else { 0.0 };
     let r = 7.0 + beat * 1.0;
-    // Its socket in the root: a lip of bark swelling round it.
     cv.ellipse(hx as f32, hy as f32, r + 4.0, r + 5.0, 'b');
     cv.ellipse((hx - 1) as f32, (hy - 1) as f32, r + 3.0, r + 4.0, 'P');
     cv.ellipse(hx as f32, hy as f32, r + 2.0, r + 3.0, 'n');
-    // The heart: a knot of amber, faceted, dark at its foot.
     cv.ellipse(hx as f32, hy as f32, r, r + 1.5, if awake { '4' } else { 'a' });
     cv.ellipse(hx as f32, (hy - 1) as f32, r * 0.75, r * 1.0, if awake { '@' } else { '8' });
     cv.ellipse((hx - 1) as f32, (hy - 2) as f32, r * 0.45, r * 0.6, if awake { '5' } else { 'a' });
@@ -301,7 +266,6 @@ pub(super) fn heart(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u
     }
     if awake {
         cv.ellipse((hx - 2) as f32, (hy - 3) as f32, 2.0, 2.5, '6');
-        // Veins of light up and down the root from it, along its grain.
         for k in 0..6 {
             let up = k % 2 == 0;
             let off = [-6, 5, -2, 8, -9, 1][k];
@@ -321,8 +285,6 @@ pub(super) fn heart(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u
     }
 }
 
-/// The listening knot: a stump with a knothole you speak your wish into,
-/// a little pool of sap at its foot.
 pub(super) fn wishing_place(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u32) {
     let (x, y, w, h) = px_rect(v::WELL);
     let (cx, foot) = (x + w / 2, y + h);
@@ -334,7 +296,6 @@ pub(super) fn wishing_place(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>,
             cv.put(xx, foot - 24 + (xx - cx).abs() / 4, MOSS[(hash(xx, 6, 9742) % 4) as usize]);
         }
     }
-    // The knothole.
     cv.ellipse(cx as f32, (foot - 13) as f32, 5.0, 6.0, 'n');
     cv.ellipse(cx as f32, (foot - 13) as f32, 3.5, 4.5, if glow { 'a' } else { 'k' });
     if glow {
@@ -342,24 +303,19 @@ pub(super) fn wishing_place(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>,
         cv.ellipse(cx as f32, (foot - 12) as f32, 1.5 + pulse as f32 * 0.3, 2.0, '4');
         lights.push(fire(cx, foot - 13, 40.0, 0.32));
     }
-    // The sap pool at its foot.
     cv.ellipse((cx + 10) as f32, (foot - 1) as f32, 6.0, 2.0, 'n');
     cv.ellipse((cx + 10) as f32, (foot - 1) as f32, 4.5, 1.2, if glow { '4' } else { 'a' });
 }
 
-/// A lamp post's head: a bent root with a sap gourd hanging from it.
 pub(super) fn lamp_head(cv: &mut Img, x: i32, y: i32, on: bool, lights: &mut Vec<Light>) {
     cv.line(x + 1, y - 20, x + 5, y - 23, 'b');
     cv.put(x + 2, y - 21, 'A');
     sap_lamp(cv, x + 5, y - 23, on, lights);
 }
 
-/// Sap dripping gold from the roots overhead, fireflies, seed-down
-/// drifting in the light.
 pub(super) fn ambient(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
     let tick = run.tick as u32;
     let lit = vl.light();
-    // Drips from the roots of the back wall, each falling then splashing.
     for k in 0..(8 + (lit * 10.0) as i32) {
         let h = hash(k, 21, 9750);
         let x = 10 + (h % 556) as i32;
@@ -376,7 +332,6 @@ pub(super) fn ambient(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
             cv.put(x + 1, to, lk.glow[2]);
         }
     }
-    // Fireflies.
     for k in 0..(10 + (lit * 24.0) as i32) {
         let h = hash(k, 22, 9751);
         let (ox, oy) = ((h % 560) as f32, 120.0 + ((h >> 10) % 220) as f32);
@@ -386,7 +341,6 @@ pub(super) fn ambient(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
             cv.put(x, y, if (tick / 4 + h) % 12 < 2 { '6' } else { '5' });
         }
     }
-    // Seed-down drifting.
     for k in 0..14 {
         let h = hash(k, 23, 9752);
         let life = 240 + h % 120;
@@ -397,8 +351,6 @@ pub(super) fn ambient(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
     }
 }
 
-/// A floor below's sap-lamp: a root post and its gourd, hard and dark, or
-/// woken and dripping gold.
 pub(super) fn sign_lamp(cv: &mut Img, x: i32, head: i32, lit: bool) {
     cv.line(x, head + 2, x + 6, head - 3, 'b');
     cv.line(x + 1, head + 2, x + 7, head - 3, 'B');
@@ -416,7 +368,6 @@ pub(super) fn sign_lamp(cv: &mut Img, x: i32, head: i32, lit: bool) {
     }
 }
 
-/// A heartseed on the floor below: warm, with a green shoot.
 pub(super) fn relic(cv: &mut Img, x: i32, cy: i32) {
     cv.ellipse(x as f32, cy as f32, 4.0, 5.0, 'R');
     cv.ellipse((x - 1) as f32, (cy - 1) as f32, 2.5, 3.0, 'o');
@@ -427,7 +378,6 @@ pub(super) fn relic(cv: &mut Img, x: i32, cy: i32) {
     cv.put(x - 1, cy - 8, 'A');
 }
 
-/// A heartseed planted over a door, already a sapling.
 pub(super) fn over_the_door(cv: &mut Img, cx: i32, cy: i32) {
     cv.ellipse(cx as f32, cy as f32, 3.0, 2.0, 'R');
     cv.line(cx, cy - 1, cx, cy - 7, 'l');

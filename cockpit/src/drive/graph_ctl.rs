@@ -52,8 +52,6 @@ impl GraphState {
         let task_owned = task.to_string();
         let previous_episode =
             crate::agent::harness::current_graph_snapshot().map(|snapshot| snapshot.episode_id);
-        // Keep failures that occur before the engine publishes a snapshot
-        // scoped to this run rather than displaying an earlier run's status.
         let preflight_error = Arc::new(Mutex::new(None));
         let worker_error = Arc::clone(&preflight_error);
         let worker_name = name.clone();
@@ -61,8 +59,6 @@ impl GraphState {
             .name(format!("graph-run-{name}"))
             .spawn(move || {
                 let engine = AgentGraphEngine::new(workspace, self_club, roster);
-                // Outcome (answer or speaking failure) lands in the published
-                // snapshot + the persisted run record; the stage shows both.
                 if let Err(GraphRunError::Preflight(error)) =
                     engine.run(&spec, &task_owned, &worker_cancel)
                     && let Ok(mut slot) = worker_error.lock()
@@ -92,8 +88,6 @@ impl GraphState {
     }
 }
 
-/// `/graph list` — the installed catalog, broken specs included with their
-/// reason (a silently missing graph reads as nonexistence).
 pub(crate) fn list_text() -> String {
     let catalog = load_graphs();
     if catalog.is_empty() {
@@ -127,7 +121,6 @@ pub(crate) fn list_text() -> String {
     lines.join("\n")
 }
 
-/// `/graph status` — worker liveness plus the latest published snapshot.
 pub(crate) fn status_text(state: &GraphState) -> String {
     use crate::agent::harness::{GraphNodePhase, GraphRunPhase, current_graph_snapshot};
     let mut lines = Vec::new();

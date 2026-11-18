@@ -16,10 +16,8 @@ use crate::rules::powder::Powder;
 use crate::rules::powder_show::{SOOT_LIFE, Soot};
 use crate::rules::Run;
 
-/// Ticks the ghost takes home.
 const FLIGHT: u32 = 18;
 
-/// Over the figures: sootings, the soot that stays, the lane warnings.
 pub(super) fn over(cv: &mut Img, run: &Run, p: &Powder, focus: Option<u32>, view: (i32, i32)) {
     let now = run.tick as u32;
     for s in &p.show.soots {
@@ -31,7 +29,6 @@ pub(super) fn over(cv: &mut Img, run: &Run, p: &Powder, focus: Option<u32>, view
     warnings(cv, run, p, focus, view, now);
 }
 
-/// A knight sooted at `s.from` and sent to `s.to`.
 fn sooting(cv: &mut Img, run: &Run, s: &Soot, age: u32) {
     let who = u32::from(s.who);
     let Some(hero) = run.players.get(&who) else { return };
@@ -40,7 +37,6 @@ fn sooting(cv: &mut Img, run: &Run, s: &Soot, age: u32) {
     let (tx, ty) = boom::centre(s.to);
     let seed = s.born ^ who.wrapping_mul(0x9E37);
     let sprite = knights::figure(hero, who);
-    // Where they stood: white a moment, a burst, and the soot going up.
     if age < Weight::Kill.flash() + 1 {
         let ghost = juice::impact_frame(&sprite, 'H');
         cv.stamp(&ghost, fx - ghost.w / 2, fy + 7 - ghost.h);
@@ -52,7 +48,6 @@ fn sooting(cv: &mut Img, run: &Run, s: &Soot, age: u32) {
     cloud.each(a, |m| pfx::mote(&mut pen, &m, Shape::Smoke, ramps::SMOKE, 2, tick));
     let flakes = Spray { gravity: 0.03, ..Spray::round(seed ^ 0x22, 9, (fx as f32, fy as f32 - 8.0), (0.4, 1.8), (18.0, 36.0)) };
     flakes.each(a, |m| pfx::mote(&mut pen, &m, Shape::Dot, ramps::VOID, 1, tick));
-    // The black ghost flung home along an arc, a smoke trail behind it.
     if (2..2 + FLIGHT).contains(&age) {
         let t = (age - 2) as f32 / FLIGHT as f32;
         let ghost = bits::sooted(&sprite);
@@ -66,7 +61,6 @@ fn sooting(cv: &mut Img, run: &Run, s: &Soot, age: u32) {
         let (x, y) = motion::arc((fx as f32, fy as f32), (tx as f32, ty as f32), 36.0, ease::both(t));
         cv.stamp(&ghost, x as i32 - ghost.w / 2, y as i32 + 7 - ghost.h);
     }
-    // Home: a ring and dust where they land.
     if age >= FLIGHT {
         let l = (age - FLIGHT) as f32;
         let mut pen = Pen::new(cv, 300);
@@ -76,7 +70,6 @@ fn sooting(cv: &mut Img, run: &Run, s: &Soot, age: u32) {
         let dust = Spray { gravity: 0.04, ..Spray::round(seed ^ 0x33, 8, (tx as f32, ty as f32 + 2.0), (0.4, 1.6), (8.0, 16.0)) };
         dust.each(l, |m| pfx::mote(&mut pen, &m, Shape::Dot, ramps::SMOKE, 1, tick));
     }
-    // Dizzy stars wheel over their head a moment after they land.
     if (FLIGHT..FLIGHT + 26).contains(&age) {
         let (hx, hy) = at(hero.x, hero.y);
         let t = (age - FLIGHT) as f32;
@@ -86,8 +79,6 @@ fn sooting(cv: &mut Img, run: &Run, s: &Soot, age: u32) {
             pen.twinkle((hx as f32 + math::cos(ang) * 8.0, hy as f32 - 25.0 + math::sin(ang) * 2.5), 1.4, (t / 26.0 + k as f32 * 0.05).min(0.99), ramps::GOLD);
         }
     }
-    // The soot that stays on them while they are safe: specks over their
-    // own pixels, thinning out as the safe time ends.
     let (hx, hy) = at(hero.x, hero.y);
     if age >= FLIGHT - 2 {
         let k = 0.5 * (1.0 - (age - (FLIGHT - 2)) as f32 / (SOOT_LIFE - FLIGHT + 2) as f32).max(0.0);
@@ -101,8 +92,6 @@ fn sooting(cv: &mut Img, run: &Run, s: &Soot, age: u32) {
     }
 }
 
-/// A red mark over each knight who stands in a lane that will burn within
-/// a second: a triangle that bobs, faster as the fuse runs out.
 fn warnings(cv: &mut Img, run: &Run, p: &Powder, focus: Option<u32>, view: (i32, i32), now: u32) {
     if p.done || p.titled() {
         return;
@@ -126,7 +115,6 @@ fn warnings(cv: &mut Img, run: &Run, p: &Powder, focus: Option<u32>, view: (i32,
     }
 }
 
-/// The warning sign: a red triangle with a mark in it, seven by seven.
 fn bits_warn() -> &'static Img {
     static SIGN: std::sync::OnceLock<Img> = std::sync::OnceLock::new();
     SIGN.get_or_init(|| {

@@ -30,17 +30,14 @@ pub use ctx::{Banner, Hold, Party};
 pub use foes::{Bk, Bolt, Danger, Fk, Foe, Fs};
 pub use kit::{Act, Carry, Ctx, Lock, Seat};
 pub use props::{Dk, Drop, Fuse, Fx, Fxk, Item, Pk, Prop};
-// Named, so they win over the glob of the Delve's own `unit` and friends.
 #[allow(unused_imports)]
 use world::{
     PLANS, Plan, Q, ROOMS, TILE, TILE_SHIFT, angle_of, cos_q, dir, dist, dot, isqrt, middle, plan, sin_q, tile_of,
     turn, unit, wall,
 };
 
-/// The five numbers as the rules read them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Rules {
-    /// Lock-on reach in `Q` pixels.
     pub lock: i32,
     pub parry: u32,
     pub combo: u32,
@@ -61,8 +58,6 @@ impl Default for Rules {
 }
 
 impl Rules {
-    /// A big foe's tell for a table of `seats`: tighter the more knights,
-    /// never under the floor.
     pub fn tell_for(&self, seats: u32) -> u32 {
         self.tell
             .saturating_sub(TELL_STEP * seats.saturating_sub(1))
@@ -70,11 +65,7 @@ impl Rules {
     }
 }
 
-// ----- the fixed numbers (pixels unless said; ticks are 1/30 s) -----------
-
-/// A run never runs past an hour; a longer one is not a run to play.
 pub const LIMIT: u32 = 60 * 60 * HZ;
-/// Quarter hearts: five hearts to start, one more per container.
 pub const HEART: u32 = 4;
 pub const START_HP: u32 = 5 * HEART;
 pub const LOW_HP: u32 = 2 * HEART;
@@ -92,24 +83,19 @@ pub const FUSE_CAP: usize = 8;
 pub const PROP_CAP: usize = 160;
 pub const BOMB_CAP: u32 = 10;
 
-// the lock
 pub const EASE_OUT: u32 = 10;
 pub const RELOCK: u32 = 6;
 pub const SNAP_TICKS: u32 = 6;
-/// How far the view leans from the knight toward a locked foe, percent.
 pub const LOCK_LEAN: i32 = 38;
-/// How far the view may lean toward the awake Warden, in pixels.
 pub const BOSS_PULL: i32 = 52;
 pub const ORBIT_MIN: i32 = 12;
 
-// walking, in `Q` pixels a tick
 pub const WALK: i32 = 440;
 pub const LOCKED_WALK: i32 = 340;
 pub const GUARD_WALK: i32 = 230;
 pub const CARRY_WALK: i32 = 260;
 pub const CHARGE_WALK_AFTER: u32 = 12;
 
-// the sword
 pub const CHARGE_TICKS: u32 = 22;
 pub const LUNGE_FORWARD: i32 = 128;
 pub const LUNGE_WIND: u32 = 3;
@@ -126,7 +112,6 @@ pub const PLUNGE_DAMAGE: u32 = 4;
 pub const PLUNGE_FALL: i32 = 3;
 pub const PLUNGE_REST: u32 = 8;
 
-// the dodges
 pub const ROLL_SPEED: i32 = 1100;
 pub const ROLL_MOVE: u32 = 12;
 pub const ROLL_TICKS: u32 = 15;
@@ -139,9 +124,7 @@ pub const HOP_HEIGHT: i32 = 14;
 pub const HOP_IFRAMES: (u32, u32) = (2, 14);
 pub const LOW_CLEAR: i32 = 5;
 
-// the shield
 pub const GUARD_REST: u32 = 10;
-/// cos 65 degrees, in `Q`.
 pub const SHIELD_COS: i32 = 108;
 pub const SHIELD_REACH: i32 = 9;
 pub const BLOCK_PUSH: i32 = 520;
@@ -149,7 +132,6 @@ pub const PARRY_FREEZE: u32 = 4;
 pub const PARRY_FLASH: u32 = 6;
 pub const REFLECT_COS: i32 = -64;
 
-// the lantern
 pub const FLARE_AFTER: u32 = 8;
 pub const SPUTTER: u32 = 45;
 pub const LAMP_REST: u32 = 14;
@@ -159,7 +141,6 @@ pub const LIGHT_LIFE: u16 = 30;
 pub const FLARE_R: i32 = 78;
 pub const GLOW_R: i32 = 26;
 pub const BRAZIER_R: i32 = 64;
-/// How near a friend's flare must be to kindle a knight's own flame.
 pub const KINDLE_R: i32 = 28;
 pub const TAPER: u32 = 420;
 pub const BURN: u16 = 600;
@@ -167,7 +148,6 @@ pub const BURN_STEP: u16 = 60;
 pub const BURN_MIN: u16 = 300;
 pub const SIGIL_TICKS: u16 = 24;
 
-// being hurt
 pub const HURT_TICKS: u32 = 10;
 pub const HURT_INV: u32 = 36;
 pub const HURT_PUSH: i32 = 560;
@@ -176,11 +156,9 @@ pub const FALL_DAMAGE: u32 = 2;
 pub const SHAKE_HIT: u32 = 5;
 pub const SHAKE_HEAVY: u32 = 8;
 
-// the party
 pub const ITEM_TICKS: u32 = 60;
 pub const READ_TICKS: u32 = 120;
 pub const CTX_REACH: i32 = 20;
-/// cos 70 degrees, in `Q`.
 pub const CTX_FRONT: i32 = 88;
 pub const REVIVE_REACH: i32 = 24;
 pub const REVIVE_HOLD: u32 = 45;
@@ -196,12 +174,9 @@ pub const BLAST_R: i32 = 38;
 pub const BLAST_DAMAGE: u32 = 8;
 pub const TELL_STEP: u32 = 3;
 pub const TELL_FLOOR: u32 = 40;
-/// Ticks after the Beacon's light before E leaves.
 pub const FINALE_TICKS: u32 = 120;
-/// How long the cameras look at a door or switch that came right.
 pub const CUE_TICKS: u32 = 44;
 
-// the small foes
 pub const SNUFFER_HP: u32 = 6;
 pub const TURRET_HP: u32 = 8;
 pub const SNUFFER_DRIFT: i32 = 200;
@@ -233,7 +208,6 @@ pub const FLINCH_TICKS: u8 = 8;
 pub const HIT_FREEZE: u8 = 3;
 pub const FOE_PUSH: i32 = 380;
 
-// the Warden
 pub const WARDEN_HP: u32 = 90;
 pub const WARDEN_R: i32 = 18;
 pub const WARDEN_WALK: i32 = 128;
@@ -255,21 +229,16 @@ pub const RECOVER_TICKS: u16 = 44;
 pub const REST_TICKS: u16 = 60;
 pub const BEACON_TICKS: u16 = 90;
 
-/// What a tick did that the rest of the Delve must hear about.
 #[derive(Default, Debug)]
 pub struct Events {
     pub sounds: Vec<&'static str>,
     pub stop: Option<Stop>,
-    /// The Beacon was relit this tick.
     pub won: bool,
 }
 
-/// A weight of impact, for the engine's own hit-stop (`hitstop`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stop {
-    /// A blade landed: the engine's short hold, rate-limited by its cooldown.
     Heavy,
-    /// A foe fell.
     Kill,
     Phase,
     Boss,
@@ -307,16 +276,10 @@ pub struct Session {
     pub exiting: u32,
     pub wipe: u32,
     pub tries: u32,
-    /// Where every camera is looking for a moment: a door or switch that
-    /// came right, and the ticks left.
     pub cue: Option<(i32, i32, u32)>,
     pub next_foe: u8,
-    /// The tick the Beacon was relit, once it has been.
     pub done: Option<u32>,
-    /// Seats that have been paid their purse, one bit each (seat 1 is bit 1).
     pub paid: u8,
-    /// What a seat that stood up carried (gems, bombs), for when it sits down
-    /// again.
     #[serde(default)]
     pub kept: BTreeMap<u32, (u32, u32)>,
 }
@@ -358,9 +321,6 @@ impl Session {
         s
     }
 
-    /// One tick: whoever is here and awake sits at the table (a knight who
-    /// leaves stands up, one who joins late sits down at the room's start
-    /// and scales what is standing), then every body acts in its order.
     pub fn step(
         &mut self,
         inputs: &BTreeMap<u32, Input>,
@@ -413,9 +373,6 @@ impl Session {
         ev
     }
 
-    /// `step`, with a snapshot of the session and the sounds so far after each
-    /// phase of the tick, for localising a divergence. The phases and their
-    /// order are `step`'s own.
     pub fn step_traced(
         &mut self,
         inputs: &BTreeMap<u32, Input>,
@@ -485,7 +442,6 @@ impl Session {
         ev
     }
 
-    /// Whether the finale is on: the Beacon is lit and the party may leave.
     pub fn finale(&self) -> bool {
         self.done.is_some_and(|t| self.elapsed >= t + FINALE_TICKS)
     }
@@ -494,8 +450,6 @@ impl Session {
         self.problem().is_none()
     }
 
-    /// What is wrong with the session, if anything: the first bound it
-    /// breaks, by name.
     pub fn problem(&self) -> Option<&'static str> {
         let p = plan(usize::from(self.room.min(4)));
         let (w, h) = (p.w() * TILE * Q, p.h() * TILE * Q);
@@ -576,7 +530,6 @@ impl Session {
         checks.iter().find(|(_, ok)| !ok).map(|&(name, _)| name)
     }
 
-    /// Mend what a bad save broke.
     pub fn repair(&mut self) {
         self.seats.retain(|&id, _| (1..=MAX_PLAYERS).contains(&id));
         self.elapsed = self.elapsed.min(LIMIT);
@@ -587,8 +540,6 @@ impl Session {
         if self.valid() {
             return;
         }
-        // Whatever else is wrong, the room is rebuilt as it opens and the
-        // party stands at its start with full hearts.
         self.room = self.room.min(ROOMS as u8 - 1);
         self.done = self.done.filter(|&t| t <= elapsed);
         self.paid &= 0b0111_1110;

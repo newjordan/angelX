@@ -1,6 +1,3 @@
-# crates/delve/src/rules/aerie.rs — the eastern high roads and the pigeon post.
-# Rooms, runs and pigeons are their serde J objects; the u64 tick is `W.W`.
-
 def aerie.LAP() -> U32:
   240
 
@@ -19,14 +16,12 @@ def aerie.SWING_REACH() -> F32:
 def aerie.TAU() -> F32:
   6.2831855
 
-# CLERK = (5.0, 10.0).
 def aerie.CLERK_X() -> F32:
   5.0
 
 def aerie.CLERK_Y() -> F32:
   10.0
 
-# The paper whose room is `kind`: 0, 1, 2, else 3.
 def aerie.doc_index(+kind: String) -> U32:
   ga.pu(String.eq(kind, "belfry"), 0, ga.pu(String.eq(kind, "aqueduct"), 1, ga.pu(String.eq(kind, "aviary"), 2, 3)))
 
@@ -49,7 +44,6 @@ def aerie.quest_mark(+i: U32) -> String:
 def aerie.visit_mark(+i: U32) -> String:
   ga.ps(U32.is_eq(i, 0), "country:aerie:0", ga.ps(U32.is_eq(i, 1), "country:aerie:1", "country:aerie:2"))
 
-# The pigeons' state when there is none: `Pigeons::default()`.
 def aerie.Pigeons.default() -> J.Val:
   ga.sv(ga.sv(ga.sv(J.obj(), "dropped", J.JNull{}), "bonks", J.obj()), "poop", J.obj())
 
@@ -69,8 +63,6 @@ def aerie.Pigeons.valid.dropped.in(+none: Bool, +d: J.Val) -> Bool:
         Bool.and(F32.is_ge(ga.nf(d, 1), 0.0), F32.is_lt(ga.nf(d, 1), 200.0)),
         Bool.and(F32.is_ge(ga.nf(d, 2), 0.0), F32.is_lt(ga.nf(d, 2), 200.0))))
 
-# Where paper `i`'s pigeon flies at `tick`, in units: a figure of eight over the
-# middle of its room.
 def aerie.pigeon_at(+room: J.Val, +i: U32, +tick: W.W) -> F32 & F32:
   aerie.pigeon_at.t(room, F32.mul(F32.div(RS.u_as_f32(W.rem_u32(W.add(tick, W.div_u32(W.mul_u32(W.of_u32(i), 240), 3)), 240)), 240.0), aerie.TAU()))
 
@@ -78,7 +70,6 @@ def aerie.pigeon_at.t(+room: J.Val, +t: F32) -> F32 & F32:
   (F32.mul(F32.add(F32.div(RS.u_as_f32(ga.u(room, "cols")), 2.0), F32.mul(F32.mul(F32.sin(t), RS.u_as_f32(ga.u(room, "cols"))), 0.32)), layout.TILE_UNITS()),
     F32.mul(F32.add(F32.div(RS.u_as_f32(ga.u(room, "rows")), 2.0), F32.mul(F32.mul(F32.sin(F32.mul(2.0, t)), RS.u_as_f32(ga.u(room, "rows"))), 0.22)), layout.TILE_UNITS()))
 
-# The paper whose pigeon is up in this room, if one is: its index, or 3.
 def aerie.flying(+kind: String, +stage: U32, +papers: U32, +pigeons: J.Val) -> U32:
   aerie.flying.in(aerie.doc_index(kind), stage, papers, pigeons)
 
@@ -99,7 +90,6 @@ def aerie.flying.free.in(+none: Bool, +dropped: J.Val, +i: U32) -> Bool:
 def aerie.flying.up(+yes: Bool, +i: U32) -> U32:
   ga.pu(yes, i, 3)
 
-# The commission stage and found-paper mask, with pending private intents.
 def aerie.progress(+country: J.Val, +marks: J.Val) -> U32 & U32:
   aerie.progress.mask(
     ga.pu(Bool.and(U32.is_zero(ga.u(country, "post")), J.has(marks, aerie.quest_mark(0))), 1, ga.u(country, "post")),
@@ -114,9 +104,6 @@ def aerie.progress.mask(+stage: U32, +papers: U32, +marks: J.Val) -> U32 & U32:
 def aerie.progress.deliver(+stage: U32, +papers: U32, +marks: J.Val) -> U32 & U32:
   (ga.pu(Bool.and(U32.is_gt(stage, 0), Bool.and(U32.is_eq(papers, 7), J.has(marks, aerie.quest_mark(4)))), 2, stage), papers)
 
-# --- shape: the sculptures and the stairs ------------------------------------------
-
-# The block rectangles (col, row, w, h) of a kind, as a flat list.
 def aerie.blocks(+kind: String) -> List<&2, U32>:
   aerie.blocks.in(String.eq(kind, "belfry"), String.eq(kind, "aqueduct"), String.eq(kind, "aviary"))
 
@@ -141,7 +128,6 @@ def aerie.blocks.av(+aviary: Bool) -> List<&2, U32>:
     case False{}:
       Nil{}
 
-# Fill the rectangle with `tile`.
 def aerie.fill(+room: J.Val, +c: U32, +r: U32, +w: U32, +h: U32, +tile: String) -> J.Val:
   aerie.fill.row(room, c, r, w, r, (r + h : U32), tile)
 
@@ -194,9 +180,6 @@ def aerie.shape.stairs.rook(+rookery: Bool, +room: J.Val) -> J.Val:
     case False{}:
       room
 
-# --- the Run -------------------------------------------------------------------------------
-
-# Whether a living, awake knight is here and not in the privy.
 def aerie.living(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> Bool:
   match hs:
     case Nil{}:
@@ -229,7 +212,6 @@ def aerie.Run.tick_aerie.awake(+awake: Bool, +i: U32, +kind: String, +run: J.Val
         aerie.Run.tick_aerie.visit(U32.is_zero(U32.and(ga.u(J.get(J.get(run, "home"), "countryside"), "aerie_visited"), RS.u_shl(1, i))), i, run),
         i, kind, inputs)
 
-# A first visit marks the place.
 def aerie.Run.tick_aerie.visit(+first: Bool, +i: U32, +run: J.Val) -> J.Val:
   match first:
     case True{}:
@@ -237,7 +219,6 @@ def aerie.Run.tick_aerie.visit(+first: Bool, +i: U32, +run: J.Val) -> J.Val:
     case False{}:
       run
 
-# No quest actions while an arcade round is playing.
 def aerie.Run.tick_aerie.round(+run: J.Val, +i: U32, +kind: String, +inputs: J.Val) -> J.Val:
   aerie.Run.tick_aerie.round.m(J.is_null(J.get(J.get(run, "pastimes"), "round")), run, i, kind, inputs)
 
@@ -266,11 +247,9 @@ def aerie.Run.tick_aerie.pigeon(+on: Bool, +kind: String, +papers: U32, +run: J.
     case False{}:
       run
 
-# The first knight to press E at the clerk or on a dropped paper.
 def aerie.Run.tick_aerie.act(+stage: U32, +papers: U32, +kind: String, +run: J.Val, +inputs: J.Val) -> J.Val:
   aerie.Run.tick_aerie.done(aerie.action(J.int_fields(J.get(run, "players")), stage, papers, kind, J.get(run, "pigeons"), inputs), run)
 
-# (id, action) or null.
 def aerie.action(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +stage: U32, +papers: U32, +kind: String, +pigeons: J.Val, +inputs: J.Val) -> J.Val:
   match hs:
     case Nil{}:
@@ -337,7 +316,6 @@ def aerie.Run.tick_aerie.marked(+id: U32, +action: U32, +run: J.Val) -> J.Val:
     aerie.Run.tick_aerie.drop(Bool.and(U32.is_ge(action, 1), U32.is_lt(action, 4)),
       ga.push(J.set(run, "marks", J.set(J.get(run, "marks"), aerie.quest_mark(action), J.JU{1})), "sounds", J.JS{"spoil_pickup"})))
 
-# A paper picked up: the pigeons' dropped paper is cleared.
 def aerie.Run.tick_aerie.drop(+pick: Bool, +run: J.Val) -> J.Val:
   aerie.Run.tick_aerie.drop.m(Bool.and(pick, Bool.not(J.is_null(J.get(run, "pigeons")))), pick, run)
 
@@ -370,11 +348,9 @@ def aerie.Run.tick_aerie.crown(+rm: J.Val & String, +id: U32) -> J.Val:
 def aerie.Run.tick_aerie.found(+run: J.Val, +id: U32, +message: String) -> J.Val:
   J.set(run, "found", J.JA{[J.get(run, "tick"), J.JU{id}, J.JS{message}]})
 
-# The minutes in: the best bonker is crowned and everyone is cleaned.
 def aerie.Run.crown_the_bonker(+run: J.Val, +giver: U32) -> J.Val & String:
   aerie.Run.crown_the_bonker.best(aerie.best(J.int_fields(J.get(ga.pv(J.is_null(J.get(run, "pigeons")), aerie.Pigeons.default(), J.get(run, "pigeons")), "bonks")), 0, 0, False{}), J.set(run, "pigeons", J.JNull{}), giver)
 
-# The id with the most bonks, the lowest id of equals: (found, id).
 def aerie.best(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +best_id: U32, +best_n: U32, +any: Bool) -> U32 & Bool:
   match hs:
     case Nil{}:
@@ -409,10 +385,6 @@ def aerie.laurels(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +players: J.
     case Con{(+k, +h), +t}:
       aerie.laurels(t, J.set(players, k, ga.sb(h, "laurel", U32.is_eq(Maybe.default(&2, U32, U32.read(k), 0), best))), best)
 
-# --- this room's pigeon ---------------------------------------------------------------------
-
-# The first hostile-free shot with life left that is on the pigeon: it is spent,
-# and its owner answers.
 def aerie.shoot(+ps: List<&2, J.Val>, +x: F32, +y: F32) -> List<&2, J.Val> & Maybe<&2, U32>:
   match ps:
     case Nil{}:
@@ -434,7 +406,6 @@ def aerie.shoot.rest(+s: J.Val, +r: List<&2, J.Val> & Maybe<&2, U32>) -> List<&2
   (t, owner) = r
   (Con{s, t}, owner)
 
-# The first living knight swinging within reach.
 def aerie.swung(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +x: F32, +y: F32) -> Maybe<&2, U32>:
   match hs:
     case Nil{}:
@@ -450,7 +421,6 @@ def aerie.swung.hit(+hit: Bool, +k: String, +t: List<&2, Sigma<&2, &2, String, _
     case False{}:
       aerie.swung(t, x, y)
 
-# The nearest knight to (x, y), the first of equals; 0 for an empty table.
 def aerie.nearest(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +x: F32, +y: F32, +best: U32, +bd: F32, +any: Bool) -> U32:
   match hs:
     case Nil{}:
@@ -462,7 +432,6 @@ def aerie.nearest(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +x: F32, +y:
 def aerie.nearest.pick(+better: Bool, +id: U32, +d: F32, +t: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +x: F32, +y: F32, +best: U32, +bd: F32) -> U32:
   aerie.nearest(t, x, y, ga.pu(better, id, best), ga.pf(better, d, bd), True{})
 
-# Knights under the pigeon (hp > 0, within POOP_REACH), in seat order.
 def aerie.under(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +x: F32, +y: F32) -> List<&2, U32>:
   match hs:
     case Nil{}:
@@ -478,7 +447,6 @@ def aerie.under.keep(+hit: Bool, +id: U32, +rest: List<&2, U32>) -> List<&2, U32
     case False{}:
       rest
 
-# A poop on each knight underneath: their count (capped at 9) and the line.
 def aerie.splat(+run: J.Val, +p: J.Val, +ids: List<&2, U32>) -> J.Val:
   match ids:
     case Nil{}:

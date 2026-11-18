@@ -11,14 +11,9 @@ const MAX_SIDE: u32 = 2048;
 pub const SPRITE: u32 = 32;
 pub const PORTRAIT: u32 = 128;
 const MAX_COLOURS: usize = 16;
-/// Corner-colour flood tolerance, per channel.
 const BACKGROUND_TOLERANCE: u8 = 24;
-/// Opaque pieces smaller than this share of the figure are stray specks.
 const SPECK: f64 = 0.01;
-/// One character: its largest connected piece holds at least this share.
 const ONE_FIGURE: f64 = 0.60;
-/// The arena and terminal need a colour that shows on a dark floor: its
-/// brightest channel must reach this.
 const MIN_VALUE: u8 = 110;
 
 pub use angel_delve::realm::Avatar;
@@ -29,7 +24,6 @@ pub struct Checked {
     pub notes: Vec<String>,
 }
 
-/// The instructions a player gives their image model.
 pub fn instructions(description: &str) -> String {
     let description = description.trim();
     let description = if description.is_empty() {
@@ -47,7 +41,6 @@ in the image: no text, frame, scenery or ground shadow. Square, at least
     )
 }
 
-/// The message a player carries back to their image model.
 pub fn fix_it(errors: &[String]) -> String {
     format!(
         "The game could not use that avatar:\n{}\nPlease make it again following my original instructions.",
@@ -111,15 +104,10 @@ pub fn check(bytes: &[u8]) -> Result<Checked, Vec<String>> {
     })
 }
 
-/// Read an upload into pixels, within the bounds every image upload keeps:
-/// 2 MiB, PNG, JPEG or WebP, 1–2048 pixels a side. The sprite sheets of
-/// cards (`together_sheets`) come through here too.
 pub fn decode(bytes: &[u8]) -> Result<(RgbaImage, (u32, u32)), Vec<String>> {
     decode_within(bytes, MAX_BYTES)
 }
 
-/// `decode`, with a file of up to `max_bytes` (a card's painting may be
-/// larger than an upload).
 pub fn decode_within(
     bytes: &[u8],
     max_bytes: usize,
@@ -139,7 +127,6 @@ pub fn decode_within(
     ) {
         return Err(vec!["the file must be a PNG, JPEG or WebP image".into()]);
     }
-    // The header is read before anything is decoded.
     let (width, height) = ImageReader::new(Cursor::new(bytes))
         .with_guessed_format()
         .and_then(|reader| reader.into_dimensions().map_err(std::io::Error::other))
@@ -166,8 +153,6 @@ fn close(a: &Rgba<u8>, b: &Rgba<u8>) -> bool {
     (0..3).all(|channel| a[channel].abs_diff(b[channel]) <= BACKGROUND_TOLERANCE)
 }
 
-/// With no transparency, the colour shared by all four corners is flooded away
-/// from the edges. Returns whether anything was removed.
 pub fn remove_background(image: &mut RgbaImage) -> bool {
     let (width, height) = image.dimensions();
     let corners = [
@@ -218,8 +203,6 @@ pub fn remove_background(image: &mut RgbaImage) -> bool {
     removed
 }
 
-/// Label the 4-connected opaque pieces, clear the specks, and return how many
-/// were cleared and the largest piece's share of the whole drawing.
 fn keep_figure(image: &mut RgbaImage) -> (usize, f64) {
     let (width, height) = image.dimensions();
     let opaque = |image: &RgbaImage, x: u32, y: u32| image.get_pixel(x, y)[3] >= 128;
@@ -266,8 +249,6 @@ fn keep_figure(image: &mut RgbaImage) -> (usize, f64) {
             }
         }
     }
-    // Specks still count against the figure: a picture that crumbles into
-    // fragments is not one character.
     let largest = pieces.iter().map(Vec::len).max().unwrap_or(0);
     (
         specks,
@@ -279,7 +260,6 @@ fn keep_figure(image: &mut RgbaImage) -> (usize, f64) {
     )
 }
 
-/// Crop to the opaque bounds and pad to a centred square.
 fn crop_square(image: &RgbaImage) -> RgbaImage {
     let (mut left, mut top, mut right, mut bottom) = (u32::MAX, u32::MAX, 0, 0);
     for (x, y, pixel) in image.enumerate_pixels() {
@@ -302,8 +282,6 @@ fn crop_square(image: &RgbaImage) -> RgbaImage {
     square
 }
 
-/// The 16 most common colours among opaque pixels, after rounding each
-/// channel to 16 levels. Ties break on the colour value, so it is stable.
 pub fn palette(image: &RgbaImage) -> Vec<[u8; 3]> {
     let mut counts: HashMap<[u8; 3], u32> = HashMap::new();
     for pixel in image.pixels().filter(|pixel| pixel[3] >= 128) {
@@ -323,7 +301,6 @@ pub fn palette(image: &RgbaImage) -> Vec<[u8; 3]> {
         .collect()
 }
 
-/// Nearest-neighbour reduction, alpha cut at 50%, colours mapped to the palette.
 fn reduce(square: &RgbaImage, side: u32, palette: &[[u8; 3]]) -> RgbaImage {
     let source = square.width();
     RgbaImage::from_fn(side, side, |x, y| {
@@ -353,8 +330,6 @@ fn value(colour: [u8; 3]) -> u8 {
     colour.into_iter().max().unwrap_or(0)
 }
 
-/// The most common colour bright enough to show on the dark arena floor; a
-/// knight drawn only in dark colours gets its main colour lifted instead.
 fn dominant(sprite: &RgbaImage) -> [u8; 3] {
     let mut counts: HashMap<[u8; 3], u32> = HashMap::new();
     for pixel in sprite.pixels().filter(|pixel| pixel[3] == 255) {
@@ -371,7 +346,6 @@ fn dominant(sprite: &RgbaImage) -> [u8; 3] {
     let Some(&(base, _)) = ranked.first() else {
         return [200, 200, 200];
     };
-    // Mix toward white until it shows.
     let mut colour = base;
     while value(colour) < MIN_VALUE {
         colour = colour.map(|channel| channel + (255 - channel) / 4 + 1);

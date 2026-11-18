@@ -26,11 +26,9 @@ use std::sync::OnceLock;
 
 const DT: f32 = 1. / 30.;
 
-// Heat shimmer over Emberfall's lava and hot straights (the world lane's): see `shimmer.rs`.
 #[path = "shimmer.rs"]
 mod shimmer;
 
-/// Test builds can switch stages of `draw` off by bit, to cost them one at a time.
 #[cfg(test)]
 thread_local! { pub static SKIP: std::cell::Cell<u32> = const { std::cell::Cell::new(0) }; }
 #[cfg(test)]
@@ -38,38 +36,24 @@ fn skipped(bit: u32) -> bool { SKIP.with(|s| s.get() & bit != 0) }
 #[cfg(not(test))]
 #[inline]
 fn skipped(_bit: u32) -> bool { false }
-/// Particles a seat keeps at once.
 pub const CAP: usize = 240;
-/// The lowest row the marks may reach: the hint bar below it is the instruments'.
 const FLOOR: i32 = 215;
-
-// ---------------------------------------------------------------- small helpers
 
 fn hash32(mut x: u32) -> u32 {
     x ^= x >> 16; x = x.wrapping_mul(0x7feb_352d); x ^= x >> 15; x = x.wrapping_mul(0x846c_a68b); x ^ (x >> 16)
 }
-/// 0..1 from a seed.
 fn rnd(seed: u32) -> f32 { (hash32(seed) >> 8) as f32 / 16_777_216. }
-/// -1..1 from a seed.
 fn rsg(seed: u32) -> f32 { rnd(seed) * 2. - 1. }
 
 fn ink_rgb(ch: char) -> Rgb { ink::ink(ch).unwrap_or([255, 0, 255]) }
 fn ramp(r: &[char], t: f32) -> char { r[((t.clamp(0., 0.999)) * r.len() as f32) as usize] }
 
-/// Fire from white-hot to ash.
 const FIRE: [char; 9] = ['w', '9', '6', '4', 'O', 'R', '7', '8', 'Z'];
-/// A spark's life: white, gold, orange-red.
 const SPARK: [char; 7] = ['9', '6', '5', '4', 'O', 'R', '7'];
-/// The shock of a boost: white to teal.
 const SHOCK: [char; 5] = ['w', '3', '2', '1', '0'];
-/// Wind: pale stone to slate.
 const WIND: [char; 5] = ['W', 'V', 'v', 'U', 'u'];
-/// Smoke from a hurt engine.
 const SMOKE: [char; 5] = ['X', 'g', 'j', 'G', 'J'];
-/// Soot to ash: the black smoke off a hurt engine, going pale as it climbs and spreads (pale enough
-/// at the top to show on a dark road, black enough at the nozzle to show on a bright one).
 const SOOT: [char; 6] = ['K', 'X', 'j', 'G', 'h', 'i'];
-/// The pale steam off a blown pod.
 const STEAM: [char; 4] = ['H', 'i', 'h', 'J'];
 
 fn bank_slot() -> &'static ink::RgbMap<(u8, u8)> {
@@ -84,8 +68,6 @@ fn bank_slot() -> &'static ink::RgbMap<(u8, u8)> {
     })
 }
 
-/// `c` `by` steps up (or down, below zero) its own bank's ramp: a lighter or deeper step of the
-/// same hue. A colour that is not on a ramp (black, a signal) stays as it is.
 pub fn step(c: Rgb, by: i32) -> Rgb {
     match bank_slot().get(&c) {
         Some(&(b, i)) => {
@@ -96,8 +78,6 @@ pub fn step(c: Rgb, by: i32) -> Rgb {
     }
 }
 
-/// `c` on the realm's plain inks, by a 16-step cube built once (the palette's nearest plain ink for each cell):
-/// a see-through mark asks it for every dot, so it is a table read and not a walk down the palette.
 fn snap_plain(c: [f32; 3]) -> Rgb {
     static CUBE: OnceLock<Vec<Rgb>> = OnceLock::new();
     let cube = CUBE.get_or_init(|| {
@@ -112,9 +92,6 @@ fn snap_plain(c: [f32; 3]) -> Rgb {
     cube[(q(c[0]) << 8) | (q(c[1]) << 4) | q(c[2])]
 }
 
-// ---------------------------------------------------------------- the brush
-
-/// The picture and its depth, and what marks may be set on them.
 struct Brush<'a> {
     im: &'a mut Img,
     depth: &'a [f32],
@@ -128,11 +105,9 @@ impl Brush<'_> {
     fn dot(&mut self, x: i32, y: i32, z: f32, c: Rgb) {
         if self.open(x, y, z) { self.im.set(x, y, c); }
     }
-    /// A dot that is there `a` of the time, by the 4x4 dither.
     fn dot_a(&mut self, x: i32, y: i32, z: f32, c: Rgb, a: f32) {
         if a > bayer(x, y) { self.dot(x, y, z, c); }
     }
-    /// A disc whose edge fades by dither: solid inside `0.65 r`, `a` of it past.
     fn disc(&mut self, cx: f32, cy: f32, r: f32, z: f32, c: Rgb, a: f32) {
         if r < 0.9 { self.dot_a(cx.round() as i32, cy.round() as i32, z, c, a.max(0.5)); return; }
         let r2 = r * r;
@@ -146,7 +121,6 @@ impl Brush<'_> {
             }
         }
     }
-    /// A one-dot line, `a` of it by dither.
     fn seg(&mut self, (x0, y0): (f32, f32), (x1, y1): (f32, f32), z: f32, c: Rgb, a: f32) {
         let n = (x1 - x0).abs().max((y1 - y0).abs()).ceil().clamp(1., 400.) as i32;
         for i in 0..=n {
@@ -154,7 +128,6 @@ impl Brush<'_> {
             self.dot_a((x0 + (x1 - x0) * t).round() as i32, (y0 + (y1 - y0) * t).round() as i32, z, c, a);
         }
     }
-    /// A line whose colour and weight change along it: `f(t)` is the colour, the dot's radius and its alpha.
     fn trail(&mut self, p0: (f32, f32, f32, f32), p1: (f32, f32, f32, f32), f: &dyn Fn(f32) -> (Rgb, f32)) {
         let len = (p1.0 - p0.0).hypot(p1.1 - p0.1);
         let n = (len / (1.2f32).max(p0.3.max(p1.3) * 0.45)).ceil().clamp(1., 260.) as i32;
@@ -165,16 +138,12 @@ impl Brush<'_> {
             self.disc(p0.0 + (p1.0 - p0.0) * t, p0.1 + (p1.1 - p0.1) * t, r, p0.2 + (p1.2 - p0.2) * t, c, a);
         }
     }
-    /// A dot laid over the picture, see-through: it takes `rgb` by `k` of what is under it (so the road and
-    /// the pods show through), snapped to the realm's inks, and is there `a` of the time by the dither.
     fn tint(&mut self, x: i32, y: i32, z: f32, rgb: Rgb, k: f32, a: f32) {
         if a <= bayer(x, y) || !self.open(x, y, z) { return; }
         let Some(under) = self.im.get(x, y) else { return };
         let mixed = [0, 1, 2].map(|i| under[i] as f32 + (rgb[i] as f32 - under[i] as f32) * k);
         self.im.set(x, y, snap_plain(mixed));
     }
-    /// A lumpy puff of `r` dots across (three overlapping lobes, so it is no disc), tinted `rgb` by `k`,
-    /// thickest at its middle and thinning to nothing at its rim.
     fn cloud(&mut self, cx: f32, cy: f32, r: f32, z: f32, seed: u32, rgb: Rgb, k: f32, a: f32) {
         if r < 1.2 { self.tint(cx.round() as i32, cy.round() as i32, z, rgb, k, a.max(0.4)); return; }
         let turn = rnd(seed) * TAU;
@@ -198,27 +167,16 @@ impl Brush<'_> {
     }
 }
 
-// ---------------------------------------------------------------- the mood (what the lens reads)
-
-/// What the springs add to the chase rig this tick. `Mood::default()` is nothing.
 #[derive(Clone, Copy, Debug)]
 pub struct Mood {
-    /// How far the lens' lane trails the pod's (metres across the road).
     pub lag_y: f32,
-    /// Radians the lens' heading trails the road's.
     pub heading: f32,
     pub pitch: f32,
-    /// Roll into a bend, with a wall's jolt on it (radians, positive clockwise).
     pub roll: f32,
-    /// Field of view added by a boost's kick and the burn that follows it.
     pub fov: f32,
-    /// Metres the surge throws the lens back.
     pub pull: f32,
-    /// Metres the lens has dropped (a landing); negative on the bounce.
     pub dip: f32,
-    /// Shake in the lens' own (right, up, forward), metres.
     pub shake: V3,
-    /// How hard the engines burn, 0 to 1: the vignette and the plumes read it.
     pub boost: f32,
 }
 
@@ -237,8 +195,6 @@ impl Snap {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Kind { Spark, Dust, Flame, Ember, Smoke }
 
-/// One mark in the air, in the road's frame: where (`s` along, `y` across, `z` up), how it moves
-/// (metres a second in the same), how long it has and has had to live.
 #[derive(Clone, Copy, Debug)]
 pub struct P {
     pub kind: Kind,
@@ -246,13 +202,10 @@ pub struct P {
     pub vel: (f32, f32, f32),
     pub age: u8,
     pub life: u8,
-    /// Metres across at its fullest.
     pub size: f32,
     pub tint: Rgb,
 }
 
-/// What this screen remembers of one car between its frames: its last state, the path of each
-/// engine behind it, and when it last lit.
 #[derive(Default)]
 struct Seen {
     snap: Snap,
@@ -265,13 +218,11 @@ struct Mem {
     course: Option<rules::CourseId>,
     ticks: u32,
     snap: Option<Snap>,
-    // The lens' springs.
     lat: f32, head: f32, roll: f32, kick: f32, boost: f32,
     dip: f32, dip_v: f32, pitch: f32, pitch_v: f32, rj: f32, rj_v: f32,
     shake: f32,
     jitter: [f32; 3],
     near: BTreeMap<u32, u32>,
-    // The marks.
     ptick: u32,
     parts: Vec<P>,
     cars: BTreeMap<u32, Seen>,
@@ -288,7 +239,6 @@ fn along(lap: f32, d: f32, s: f32) -> f32 {
 }
 
 impl Mem {
-    /// Bring the springs to this tick of the race, from the car as it is.
     fn sync(&mut self, race: &rules::Session, car: &rules::Car) {
         let ticks = race.ticks;
         let fresh = match &self.snap {
@@ -306,26 +256,21 @@ impl Mem {
         self.ticks = ticks;
     }
 
-    /// One tick of the springs. `last` is the tick the car is at: only it can see an event.
     fn step(&mut self, race: &rules::Session, car: &rules::Car, last: bool) {
         let prev = self.snap.unwrap_or_else(|| Snap::of(car));
         let course = race.course();
         let fr = course.frame(car.route, car.d.rem_euclid(course.lap()));
         let rate = |tau: f32| 1. - (-DT / tau).exp();
         let sp = (car.v / 58.).clamp(0., 1.);
-        // Lag: the lens' lane trails the pod's, and its heading trails the road's turn.
         self.lat += (car.y - self.lat) * rate(tune("TAU_LAT", 0.22));
         let turn = fr.k * car.v;
         self.head += (-turn * tune("TAU_HEAD", 0.2) - self.head) * rate(0.12);
-        // Roll into a bend: the centripetal push, the steer and the road's bank.
         let lean = -(fr.k * car.v * car.v * tune("ROLL_K", 0.0013) + car.vy * tune("ROLL_V", 0.0022) + fr.bank * tune("ROLL_B", 0.12));
         self.roll += (lean.clamp(-0.1, 0.1) - self.roll) * rate(0.16);
-        // Boost: the kick at ignition eases back to the burn.
         self.kick *= (-DT / 0.42).exp();
         self.boost += ((car.boosting as u8 as f32) - self.boost) * if car.boosting { 0.4 } else { 0.1 };
         if last && car.boosting && !prev.boosting { self.kick = 1.; self.shake += 0.1; }
         if last && !car.boosting && prev.boosting { self.kick *= 0.5; }
-        // A landing, a wall, a hazard, a near miss.
         if last {
             let landed = prev.flying && !car.flying && car.fell == prev.fell;
             if landed {
@@ -340,7 +285,6 @@ impl Mem {
                 self.shake += gain;
                 self.rj_v += side * 1.6 + if side == 0. { 0.5 * rsg(race.ticks * 3 + 1) } else { 0. };
             }
-            // A slam from another pod (the law's): a jolt thrown away from the side it came from.
             if car.slams > prev.slams {
                 let hard = (0.55 + car.kick.abs() / 14.).clamp(0.6, 1.2);
                 self.shake += hard;
@@ -350,12 +294,10 @@ impl Mem {
             self.near_miss(race, car);
         }
         self.shake = (self.shake * (-DT / 0.24).exp()).min(1.5);
-        // The springs: a dip and its bounce, the nose's pitch, a wall's roll.
         let spring = |x: &mut f32, v: &mut f32, om: f32, zeta: f32| { let a = -om * om * *x - 2. * zeta * om * *v; *v += a * DT; *x += *v * DT; };
         spring(&mut self.dip, &mut self.dip_v, 13., 0.28);
         spring(&mut self.pitch, &mut self.pitch_v, 11., 0.3);
         spring(&mut self.rj, &mut self.rj_v, 20., 0.22);
-        // Shake and rumble, fresh each tick.
         let (t, amp) = (race.ticks, self.shake * self.shake);
         let rum = tune("RUMBLE", 0.05) * sp * sp + 0.05 * self.boost;
         self.jitter = [
@@ -366,7 +308,6 @@ impl Mem {
         self.snap = Some(Snap::of(car));
     }
 
-    /// A rival or a hazard just missed, a shake and a whoosh to come: once each, by a cooldown.
     fn near_miss(&mut self, race: &rules::Session, car: &rules::Car) {
         if car.flying || car.finish.is_some() { return; }
         let lap = race.course().lap();
@@ -407,11 +348,9 @@ impl Mem {
     }
 }
 
-/// Every seat's memory wiped, so a still starts from the car as it is (the proofs').
 #[cfg(test)]
 pub fn forget_all() { MEM.with(|m| m.borrow_mut().clear()); }
 
-/// The mood of `seat`'s camera at this tick of the race (the springs advanced to it).
 pub fn mood(race: &rules::Session, seat: u32, car: &rules::Car) -> Mood {
     MEM.with(|m| {
         let mut all = m.borrow_mut();
@@ -421,12 +360,6 @@ pub fn mood(race: &rules::Session, seat: u32, car: &rules::Car) -> Mood {
     })
 }
 
-// ---------------------------------------------------------------- where an engine is
-
-/// Where a car's two engines breathe, in the road's frame: (s, y, z) for the left and right. The
-/// throats are the pods' own (`pods::throats`, in the pod's frame, footprint and all), so a plume
-/// leaves the nozzle the mesh draws. `pods::throats` lists the lesser-`y` engine first; the left
-/// of the road is the greater `y`, so the pair is turned about.
 pub fn nozzles(race: &rules::Session, seat: u32, c: &rules::Car) -> [(f32, f32, f32); 2] {
     let a = c.yaw - c.vy * 0.012;
     let (sa, ca) = a.sin_cos();
@@ -435,17 +368,10 @@ pub fn nozzles(race: &rules::Session, seat: u32, c: &rules::Car) -> [(f32, f32, 
     [t[1], t[0]].map(|(at, _)| (c.d + at.x * ca - at.y * sa, c.y + at.x * sa + at.y * ca, c.lift.max(-30.) + at.z))
 }
 
-/// The height of a car's engines, for what is thrown off its flank.
 fn nz_z(n: &[(f32, f32, f32); 2]) -> f32 { (n[0].2 + n[1].2) * 0.5 }
 
 fn world(at: (f32, f32, f32)) -> V3 { point(at.0, at.1, at.2) }
 
-// ---------------------------------------------------------------- the marks
-
-/// Hand a mark to `viewer`'s screen: it joins the particles at that seat's next frame. The
-/// position and velocity are in the road's frame: (s along it, y across it to the left, z up),
-/// metres and metres a second, so a mark left at rest stays where it was set and the car runs
-/// on from it.
 pub fn emit(viewer: u32, kind: Kind, at: (f32, f32, f32), vel: (f32, f32, f32), life: u8, size: f32, tint: Option<Rgb>) {
     MEM.with(|m| {
         let mut all = m.borrow_mut();
@@ -477,7 +403,6 @@ impl Mem {
         self.parts.retain(|p| p.age < p.life);
     }
 
-    /// The ground's colour near the viewer's pod, a few dots off its flanks, for the dust to take.
     fn sample_ground(&mut self, b: &Brush, car: &rules::Car, gap: f32) {
         let mut best: Option<(u32, Rgb)> = None;
         for (ds, dy) in [(1.0f32, gap + 2.6), (1., -(gap + 2.6)), (-3., gap + 3.4), (-3., -(gap + 3.4))] {
@@ -489,7 +414,6 @@ impl Mem {
         if let Some((_, c)) = best { self.ground = Some(c); }
     }
 
-    /// One tick of marks: the cars' events spawn them, then they move.
     fn tick_parts(&mut self, race: &rules::Session, seat: u32, car: &rules::Car, b: &Brush) {
         let ticks = race.ticks;
         if ticks < self.ptick || ticks > self.ptick + 24 {
@@ -508,7 +432,6 @@ impl Mem {
         if steps == 0 { return; }
         let lap = race.course().lap();
         let course = race.course();
-        // The viewer's own pod first, so when the marks are at their cap it is the rivals' that are dropped.
         let mut order: Vec<u32> = race.cars.keys().copied().collect();
         order.sort_by_key(|&id| id != seat);
         for id in order {
@@ -533,7 +456,6 @@ impl Mem {
             let (v, boosting) = (c.v, c.boosting);
             let fr = course.frame(c.route, c.d.rem_euclid(lap));
             let mut fresh: Vec<P> = Vec::new();
-            // Ignition: a burst of flame off both engines.
             if boosting && !was.boosting {
                 seen.ignite = ticks;
                 for (e, n) in now.iter().enumerate() {
@@ -545,7 +467,6 @@ impl Mem {
                     }
                 }
             }
-            // The engines' wash: dust kicked off the road behind them, a rooster tail at speed.
             if !c.flying && v > 14. {
                 let n = 1 + boosting as u32;
                 for (e, nz) in now.iter().enumerate() {
@@ -558,13 +479,11 @@ impl Mem {
                     }
                 }
             }
-            // Embers drift off an engine on the burn.
             if v > 20. && rnd(salt) < 0.5 {
                 let e = (salt & 1) as usize;
                 let nz = now[e];
                 fresh.push(P { kind: Kind::Ember, at: nz, vel: (v * 0.6, rsg(salt + 3) * 2.5, 1.5 + 3. * rnd(salt + 4)), age: 0, life: 7 + (rnd(salt + 5) * 6.) as u8, size: 0.2, tint: [0, 0, 0] });
             }
-            // The wall: sparks off the engine on that side.
             let edge = if c.y >= 0. { fr.wl } else { fr.wr };
             let scrape = c.y.abs() > edge - 0.45 && v > 6. && !c.flying;
             let hit = c.impact > was.impact && c.impact >= 12;
@@ -581,7 +500,6 @@ impl Mem {
                         age: 0, life: 8 + (rnd(sd + 7) * 8.) as u8, size: 0.12, tint: [0, 0, 0] });
                 }
             }
-            // A slam from another pod throws sparks off the side that took it.
             if c.slams > was.slams {
                 let side = if c.slam_side == 0 { -1. } else { f32::from(c.slam_side) };
                 let n = if c.slam_side == 0 { 10 } else { 16 };
@@ -592,14 +510,22 @@ impl Mem {
                         age: 0, life: 8 + (rnd(sd + 7) * 8.) as u8, size: 0.12, tint: [0, 0, 0] });
                 }
             }
-            // A hazard's blow throws sparks and dust.
+            if c.paint + 1 >= rules::race::contact::PAINT_TICKS && c.paint_with != 0 {
+                let side = f32::from(c.paint_side.signum());
+                let chip = super::pods::livery(u32::from(c.paint_with)).rgb;
+                for k in 0..3u32 {
+                    let sd = salt + 121 + k * 13;
+                    fresh.push(P { kind: Kind::Dust, at: (c.d + pd.len * 0.4 * rsg(sd + 6), c.y + side * c.spec().half_w, nz_z(&now) - 0.1 + 0.5 * rnd(sd + 2)),
+                        vel: (v * (0.35 + 0.3 * rnd(sd + 3)) + rsg(sd) * 2., side * (0.8 + 3. * rnd(sd + 4)), 1.5 + 4. * rnd(sd + 5)),
+                        age: 0, life: 9 + (rnd(sd + 7) * 8.) as u8, size: 0.1 + 0.14 * rnd(sd + 8), tint: chip });
+                }
+            }
             if c.impact > was.impact && c.impact == 8 && !(was.flying && !c.flying) {
                 for k in 0..10u32 {
                     let sd = salt + 91 + k * 7;
                     fresh.push(P { kind: Kind::Spark, at: (c.d - 1., c.y + rsg(sd) * 1.2, 0.8), vel: (v * 0.5, rsg(sd + 1) * 6., 2. + 6. * rnd(sd + 2)), age: 0, life: 9 + (rnd(sd + 3) * 6.) as u8, size: 0.12, tint: [0, 0, 0] });
                 }
             }
-            // Landing: a ring of dust and a few sparks.
             if was.flying && !c.flying && c.fell == was.fell {
                 let hard = (-was.vz / 14.).clamp(0.3, 1.3);
                 let n = (20. * hard) as u32;
@@ -616,9 +542,7 @@ impl Mem {
                     fresh.push(P { kind: Kind::Spark, at: (c.d - 1.2, c.y + rsg(sd) * 1.6, 0.3), vel: (v * 0.6 + rsg(sd + 1) * 3., rsg(sd + 2) * 6., 3. + 6. * rnd(sd + 3)), age: 0, life: 8 + (rnd(sd + 4) * 7.) as u8, size: 0.12, tint: [0, 0, 0] });
                 }
             }
-            // Smoke from an engine that is hurt is the law's to hand in through `emit`.
             let _ = (ca, sa);
-            // A rival's marks thin out with its distance, and leave room in the cap for the viewer's own.
             let keep = if id == seat { 1. } else { (1.15 - dd.abs() / 60.).clamp(0.15, 1.) };
             for (k, p) in fresh.into_iter().enumerate() {
                 if rnd(salt.wrapping_add(k as u32 * 29)) <= keep && (id == seat || self.parts.len() + 70 < CAP) { self.push(p); }
@@ -627,11 +551,6 @@ impl Mem {
     }
 }
 
-// ---------------------------------------------------------------- the picture
-
-/// What a screen paints over the raster, in this order: the road's wash, speed streaks
-/// in the air, the engines' plumes, the marks, the ignition's shock, a rival's whoosh,
-/// the radial lines and the vignette at the edges. `im` is the picture, `depth` the raster's.
 pub fn draw(im: &mut Img, race: &rules::Session, car: &rules::Car, seat: u32, view: &View3, depth: &[f32]) {
     shimmer::draw(im, race, car, view, depth);
     if race.finished || race.ticks < rules::race::COUNTDOWN { return; }
@@ -647,7 +566,6 @@ pub fn draw(im: &mut Img, race: &rules::Session, car: &rules::Car, seat: u32, vi
         if !skipped(1) { wash(&mut b, mem, race, seat); }
         if !skipped(2) { streaks(&mut b, race, car, sp, boost); }
         if !skipped(4) {
-            // The viewer's own plumes first, then the rest from the farthest in.
             let mut order: Vec<u32> = race.cars.keys().copied().collect();
             order.sort_by_key(|&id| id != seat);
             for id in order {
@@ -671,7 +589,6 @@ pub fn draw(im: &mut Img, race: &rules::Session, car: &rules::Car, seat: u32, vi
     });
 }
 
-/// The road blown pale under and behind the engines: the ground's own next lighter step.
 fn wash(b: &mut Brush, mem: &Mem, race: &rules::Session, seat: u32) {
     let Some(c) = race.cars.get(&seat) else { return };
     if c.v < 12. || c.flying { return; }
@@ -688,7 +605,6 @@ fn wash(b: &mut Brush, mem: &Mem, race: &rules::Session, seat: u32) {
                         let (dx, dy) = ((xx as f32 - x) / r, (yy as f32 - y) / (r * 0.5));
                         let d2 = dx * dx + dy * dy;
                         if d2 > 1. { continue; }
-                        // Only the road: what the raster put at the road's own depth.
                         if a * (1. - d2) <= bayer(xx, yy) { continue; }
                         let ok = b.depth.get((yy.clamp(0, 223) * 384 + xx.clamp(0, 383)) as usize).is_some_and(|&d| (d - z).abs() < 1.5 + z * 0.06);
                         if ok { b.lighten(xx, yy, 1, 1.); }
@@ -699,9 +615,6 @@ fn wash(b: &mut Brush, mem: &Mem, race: &rules::Session, seat: u32) {
     }
 }
 
-/// Specks of wind that stand in the air and stream past the lens, drawn as lines along the road:
-/// the radial streaks of a fast ride, with parallax. Fixed by the camera's place on the road, so
-/// there is nothing to remember.
 fn streaks(b: &mut Brush, race: &rules::Session, car: &rules::Car, sp: f32, boost: f32) {
     let v = car.v;
     if v < 20. { return; }
@@ -723,7 +636,6 @@ fn streaks(b: &mut Brush, race: &rules::Session, car: &rules::Car, sp: f32, boos
         let t = point(s + len * (0.7 + 0.6 * rnd(seed + 2)), y, z);
         let (Some((x0, y0, z0)), Some((x1, y1, _))) = (b.lens.project(a), b.lens.project(t)) else { continue };
         if z0 > 90. { continue; }
-        // Closer is brighter and longer; the far ones are slate. A few drop out each tick: the flicker of wind.
         let near = (1. - (z0 - 8.) / 80.).clamp(0., 1.);
         if (ticks + seed) % 5 == 0 { continue; }
         let ch = if boost > 0.4 && rnd(seed + 3) < 0.5 { ramp(&SHOCK, 0.4 - 0.4 * near) } else { ramp(&WIND, 0.85 - 0.8 * near) };
@@ -732,15 +644,10 @@ fn streaks(b: &mut Brush, race: &rules::Session, car: &rules::Car, sp: f32, boos
     let _ = sp;
 }
 
-/// How far in front of the lens a point is along its view.
 fn z_of(lens: &Lens, p: V3) -> f32 { (p - lens.pos()).dot(lens.fwd()) }
 
-/// An engine's plume: the path it has flown, a ribbon that lengthens and brightens with the
-/// burn, white-hot at the nozzle and cooling to red.
 fn plume(b: &mut Brush, race: &rules::Session, id: u32, c: &rules::Car, seen: &Seen, own: bool, boost: f32) {
     if c.finish.is_some() || seen.trail[0].len() < 2 { return; }
-    // A rival's plume is smaller and shorter the farther it is (a speck at that range, and the flame of five
-    // pods at once is what buried a battle); past 130 m it is left to the engine's own light.
     let far = if own { 1. } else { ((130. - (world(seen.trail[0][0]) - b.lens.pos()).length()) / 70.).clamp(0., 1.) };
     if far <= 0. { return; }
     let thr = (c.v / 50.).clamp(0., 1.2);
@@ -766,7 +673,6 @@ fn plume(b: &mut Brush, race: &rules::Session, id: u32, c: &rules::Car, seen: &S
             pts.push((w, acc));
             prev = w;
         }
-        // At a crawl the path has no length: the plume stands straight out the back instead.
         if acc < long.min(0.9 + 2.2 * thr) {
             let a = c.yaw - c.vy * 0.012;
             let tail = world((tr[0].0 - a.cos() * (0.9 + 2.2 * thr), tr[0].1 - a.sin() * (0.9 + 2.2 * thr), tr[0].2));
@@ -776,16 +682,13 @@ fn plume(b: &mut Brush, race: &rules::Session, id: u32, c: &rules::Car, seen: &S
         let total = acc.max(0.5);
         let proj: Vec<Option<(f32, f32, f32, f32)>> = pts.iter().map(|&(p, at)| {
             let t = at / total;
-            // A rival's flame is slimmer as it comes up on the lens: five fat ribbons at 6 to 14 m are what hid the pack.
             let slim = if own { 1. } else { ((z_of(&b.lens, p) - 4.) / 10.).clamp(0.4, 1.) };
             b.lens.project(p).map(|(x, y, z)| (x, y, z, (r0 * (1. - 0.78 * t) * flick * slim * b.lens.scale(z)).min(if own { 26. } else { 17. })))
         }).collect();
         for w in 0..pts.len() - 1 {
             let (Some(a), Some(z)) = (proj[w], proj[w + 1]) else { continue };
-            // Past the lens' nose the ribbon is too fat to be a flame: it ends there.
             if a.2 < 5. || z.2 < 5. { continue; }
             let (t0, t1) = (pts[w].1 / total, pts[w + 1].1 / total);
-            // The core, then the flame round it: two passes down the same path.
             let shade = |t: f32, hot: f32| ink_rgb(ramp(&FIRE, (t * 0.75 + (1. - hot) * 0.3).clamp(0., 0.6)));
             b.trail((a.0, a.1, a.2, a.3), (z.0, z.1, z.2, z.3), &|u| (shade(t0 + (t1 - t0) * u, heat * 0.7), 1. - 0.75 * (t0 + (t1 - t0) * u)));
             b.trail((a.0, a.1, a.2, a.3 * 0.55), (z.0, z.1, z.2, z.3 * 0.55), &|u| (shade(t0 + (t1 - t0) * u, heat + 0.25), 1.));
@@ -793,24 +696,17 @@ fn plume(b: &mut Brush, race: &rules::Session, id: u32, c: &rules::Car, seen: &S
     }
 }
 
-/// What a hurt engine puts in the air: black smoke that thins as it rises and ages, steam off a
-/// blown pod, flame at a burning nozzle, coals, the blowout's shards. They are dots through the
-/// dither tinted from the picture under them, so the pods and the road show through. The viewer's
-/// own pod is drawn first and the rest from the farthest in, so a near pod's marks lie over a far
-/// one's; a far pod's are fewer and smaller (they are specks at that range) and gone past 110 m.
 fn damage(b: &mut Brush, race: &rules::Session, seat: u32) {
     let eye = b.lens.pos();
     let mut order: Vec<(u32, f32)> = race.cars.iter().filter(|(_, c)| c.finish.is_none())
         .map(|(&id, c)| (id, (point(c.d, c.y, 0.) - eye).length())).collect();
     order.sort_by(|a, c| (a.0 != seat).cmp(&(c.0 != seat)).then(c.1.total_cmp(&a.1)));
-    // The own pod is first; the sort above puts it ahead, then the far ones before the near ones.
     for (id, dist) in order {
         let own = id == seat;
         let reach = if own { 1. } else { ((110. - dist) / 70.).clamp(0., 1.) };
         if reach <= 0. { continue; }
         let c = &race.cars[&id];
         for (n, p) in damage_fx::puffs(race, id, c, eye).into_iter().enumerate() {
-            // Far pods keep some of their puffs, by a fixed roll so they do not flicker.
             if !own && rnd(id.wrapping_mul(131).wrapping_add(n as u32 * 7)) > 0.25 + 0.75 * reach { continue; }
             let Some((x, y, z)) = b.lens.project(p.at) else { continue };
             let px = (p.r * b.lens.scale(z) * (0.55 + 0.45 * reach)).clamp(0., 15.);
@@ -818,7 +714,6 @@ fn damage(b: &mut Brush, race: &rules::Session, seat: u32) {
             let thin = (1. - p.age).clamp(0., 1.);
             match p.stuff {
                 damage_fx::Stuff::Smoke => {
-                    // Black at the nozzle, going to ash grey as it climbs; thick at first and then see-through.
                     let rgb = ink_rgb(ramp(&SOOT, 0.05 + 0.9 * p.age));
                     b.cloud(x, y, px, z, seed, rgb, 0.85 - 0.3 * p.age, (1.1 * thin.powf(1.1) * (0.7 + 0.3 * p.weight)).min(0.95));
                 }
@@ -826,7 +721,6 @@ fn damage(b: &mut Brush, race: &rules::Session, seat: u32) {
                     b.cloud(x, y, px * 1.1, z, seed, ink_rgb(ramp(&STEAM, p.age)), 0.55, 0.7 * thin);
                 }
                 damage_fx::Stuff::Flame => {
-                    // White-hot at the nozzle, down through gold and orange to red at the tip.
                     let rgb = ink_rgb(ramp(&FIRE, 0.62 * p.age));
                     b.cloud(x, y, px, z, seed, rgb, 1., 1. - 0.35 * p.age);
                 }
@@ -844,9 +738,6 @@ fn damage(b: &mut Brush, race: &rules::Session, seat: u32) {
     }
 }
 
-/// The screen the viewer's own pod holds: the rectangle its footprint covers, and how far from the lens its
-/// farthest part is. A cloud of dust, flame or smoke in front of that depth and inside that rectangle is
-/// between the lens and the pod, and would sit over it; the marks leave it out.
 #[derive(Clone, Copy)]
 struct Hold { x0: f32, y0: f32, x1: f32, y1: f32, depth: f32 }
 
@@ -869,16 +760,13 @@ impl Hold {
     fn covers(&self, x: f32, y: f32, z: f32) -> bool { x >= self.x0 && x <= self.x1 && y >= self.y0 && y <= self.y1 && z < self.depth }
 }
 
-/// The marks in the air.
 fn marks(b: &mut Brush, mem: &Mem, hold: Option<Hold>) {
     for p in &mem.parts {
         let af = p.age as f32 / p.life as f32;
         let w = world(p.at);
         let Some((x, y, z)) = b.lens.project(w) else { continue };
         let sc = b.lens.scale(z);
-        // Marks of pods far up the road are smaller: the viewer's own are 5 to 17 m off, the pack's twice that.
         let shrink = 1. - 0.45 * ((z - 18.) / 40.).clamp(0., 1.);
-        // Clouds between the lens and the viewer's own pod are not drawn over it.
         if let Some(h) = hold { if p.kind != Kind::Spark && h.covers(x, y, z) { continue; } }
         match p.kind {
             Kind::Spark => {
@@ -910,13 +798,11 @@ fn marks(b: &mut Brush, mem: &Mem, hold: Option<Hold>) {
     }
 }
 
-/// The shock of an ignition: a flash at each nozzle, a ring that opens round the engines.
 fn shock(b: &mut Brush, race: &rules::Session, id: u32, c: &rules::Car, at: u32) {
     if at == 0 || race.ticks < at || race.ticks - at > 9 { return; }
     let age = (race.ticks - at) as f32;
     let pd = pod(look_of(id, c));
     let nz = nozzles(race, id, c);
-    // The flash.
     if age < 3. {
         for n in nz {
             if let Some((x, y, z)) = b.lens.project(world(n)) {
@@ -926,7 +812,6 @@ fn shock(b: &mut Brush, race: &rules::Session, id: u32, c: &rules::Car, at: u32)
             }
         }
     }
-    // The ring, about the engines' axis, opening as it goes.
     let mid = ((nz[0].0 + nz[1].0) * 0.5, (nz[0].1 + nz[1].1) * 0.5, (nz[0].2 + nz[1].2) * 0.5);
     let centre = world(mid);
     let yaw = pose(c.d).2 + c.yaw;
@@ -941,7 +826,6 @@ fn shock(b: &mut Brush, race: &rules::Session, id: u32, c: &rules::Car, at: u32)
         let here = b.lens.project(p);
         if let (Some(a), Some(z)) = (last, here) {
             let ch = ink_rgb(ramp(&SHOCK, age / 10. * 0.8));
-            // Solid while it is young, a thread on the dither as it opens.
             b.seg((a.0, a.1), (z.0, z.1), z.2, ch, fade * 1.7);
             if age < 5. { b.seg((a.0 + 1., a.1), (z.0 + 1., z.1), z.2, ch, fade * 1.7); }
         }
@@ -949,11 +833,6 @@ fn shock(b: &mut Brush, race: &rules::Session, id: u32, c: &rules::Car, at: u32)
     }
 }
 
-/// The slipstream, drawn in the air: threads of wind along the cone the law gives a wake (from a
-/// following pod's nose back to the tail of the pod ahead whose wake it rides, half a width of
-/// `0.55 half_w + 0.8 + 0.06 gap`), running down it toward the follower, more of them and brighter as
-/// the draft deepens. It reads `Car::draft` (0..1) and `Car::wake` (the leader's seat), and draws
-/// the same cone for every pod in a wake, so a rival's tow can be seen too.
 fn draft(b: &mut Brush, race: &rules::Session) {
     use rules::race::contact;
     let lap = race.course().lap();
@@ -966,7 +845,6 @@ fn draft(b: &mut Brush, race: &rules::Session) {
         let n = (3. + 15. * me.draft) as u32;
         for i in 0..n {
             let sd = i.wrapping_mul(2971).wrapping_add(id * 977);
-            // Each thread runs from the leader's tail down to the follower, then comes round again.
             let u = (rnd(sd) + race.ticks as f32 * (0.034 + 0.03 * rnd(sd + 1))).fract();
             let s_at = nose + gap * (1. - u);
             let lane = lead.y + (me.y - lead.y) * u;
@@ -982,8 +860,6 @@ fn draft(b: &mut Brush, race: &rules::Session) {
     }
 }
 
-/// A pod passing close in the next lane: a bundle of streaks along the road at it, thick as
-/// it is near and as the two ride at different speeds.
 fn whoosh(b: &mut Brush, race: &rules::Session, car: &rules::Car, seat: u32) {
     let lap = race.course().lap();
     for (&id, o) in &race.cars {
@@ -1006,11 +882,8 @@ fn whoosh(b: &mut Brush, race: &rules::Session, car: &rules::Car, seat: u32) {
     }
 }
 
-/// What the instruments hold, as (left, top, right, bottom): no radial line crosses these.
 const PLATES: [(f32, f32, f32, f32); 6] = [(0., 0., 70., 56.), (66., 0., 282., 44.), (280., 0., 384., 80.), (340., 70., 384., 140.), (0., 184., 384., 224.), (20., 68., 106., 170.)];
 
-/// Streaks that fly off the edges of the picture from its vanishing point: more and longer as
-/// the engines run hotter, kept off the plates.
 fn radial(b: &mut Brush, race: &rules::Session, sp: f32, boost: f32) {
     let heat = ((sp - 0.4) / 0.6).clamp(0., 1.);
     if heat <= 0. { return; }
@@ -1021,7 +894,6 @@ fn radial(b: &mut Brush, race: &rules::Session, sp: f32, boost: f32) {
         let sd = i.wrapping_mul(2_654_435_761).wrapping_add(t.wrapping_mul(40_503));
         let th = rnd(sd) * TAU;
         let (sn, cs) = th.sin_cos();
-        // Out to the edge of the picture's ellipse, from a third of the way to it.
         let ex = cs * 200. * (0.62 + 0.3 * rnd(sd + 1));
         let ey = sn * 118. * (0.62 + 0.3 * rnd(sd + 1));
         let len = (0.10 + 0.22 * heat + 0.12 * boost) * (0.5 + rnd(sd + 2));
@@ -1034,8 +906,6 @@ fn radial(b: &mut Brush, race: &rules::Session, sp: f32, boost: f32) {
     }
 }
 
-/// A small direct-mapped memory of what each packed colour becomes one, two and three steps
-/// down its ramp, so a pass over the picture asks the palette once per colour, not per dot.
 struct Darker { keys: [u32; 1024], vals: [[u32; 3]; 1024] }
 impl Darker {
     fn new() -> Darker { Darker { keys: [0; 1024], vals: [[0; 3]; 1024] } }
@@ -1053,7 +923,6 @@ impl Darker {
     }
 }
 
-/// How much of the vignette each dot of the picture is under, 0 to 255: nothing in the middle.
 fn vignette_shape() -> &'static [u8] {
     static T: OnceLock<Vec<u8>> = OnceLock::new();
     T.get_or_init(|| {
@@ -1070,18 +939,14 @@ fn vignette_shape() -> &'static [u8] {
     })
 }
 
-/// The edges dimmed by dither as the speed climbs, hard on a boost: tunnel vision on the road.
 fn vignette(b: &mut Brush, ticks: u32, sp: f32, boost: f32) {
     let amt = (0.4 * sp * sp + 0.95 * boost) * tune("VIGNETTE", 1.0);
     if amt < 0.03 || b.im.w != 384 || b.im.h < FLOOR { return; }
     let flutter = 1. + 0.06 * rsg(ticks);
-    // Fixed point: a level is 256, the shape's share 0..255, the dither a threshold of 0..255.
     let k = (amt * flutter * 3. * 256. / 255. * 256.) as i32;
     let shape = vignette_shape();
     let im = &mut *b.im;
     let mut darker = Darker::new();
-    // A dot is touched only where the shape's share is enough to reach the first step: the middle
-    // of each row, where it is not, is never visited.
     let reach = ((128 * 256) / k.max(1) + 1).min(256) as u32;
     const BAYER16: [[i32; 4]; 4] = [[8, 136, 40, 168], [200, 72, 232, 104], [56, 184, 24, 152], [248, 120, 216, 88]];
     for y in 0..FLOOR {
@@ -1093,7 +958,6 @@ fn vignette(b: &mut Brush, ticks: u32, sp: f32, boost: f32) {
         while right > left && m_at(right - 1) >= reach { right -= 1; }
         let thr = &BAYER16[(y & 3) as usize];
         for x in (0..left).chain(right..384) {
-            // Up to three steps down the ink's ramp, the levels dithered into one another: no contour lines.
             let a = (m_at(x) as i32 * k) >> 8;
             let lvl = ((a + thr[(x & 3) as usize] - 128) >> 8).clamp(0, 3) as usize;
             if lvl == 0 { continue; }
@@ -1220,7 +1084,6 @@ mod tests {
 
     #[test]
     fn the_lens_leans_into_a_bend() {
-        // The sharpest bends of the course, one to each hand.
         let course = rules::course(rules::CourseId::Glassway);
         let (mut left, mut right) = ((0., 0.), (0., 0.));
         let mut s = 200.;
@@ -1242,7 +1105,6 @@ mod tests {
         }
     }
 
-    /// A cloud between the lens and the viewer's own pod is left out; the same cloud behind the pod is drawn.
     #[test]
     fn marks_do_not_sit_over_the_viewers_own_pod() {
         let mut r = race();

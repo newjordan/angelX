@@ -17,8 +17,6 @@ use std::process::Command;
 
 const EXECUTABLE: &str = "/usr/bin/bwrap";
 
-/// Pseudo-devices mirrored into the private `/dev`. Kept identical to the set
-/// `bwrap --dev` populates so a nested grader sandbox can rebuild its own.
 const STANDARD_DEVICES: [&str; 6] = [
     "/dev/null",
     "/dev/zero",
@@ -31,8 +29,6 @@ const STANDARD_DEVICES: [&str; 6] = [
 #[derive(Debug)]
 struct PreparedCommand {
     command: Command,
-    // Pin mount sources until bwrap consumes the descriptors. Canonical path
-    // strings alone would race an allowed directory replaced with a symlink.
     _sources: Vec<File>,
     _setup_limit: Option<super::alias_mounts::SetupLimit>,
 }
@@ -48,8 +44,6 @@ pub(super) fn pin_source(root: &Path) -> io::Result<File> {
     let how = OpenHow {
         flags: (libc::O_PATH | libc::O_CLOEXEC) as u64,
         mode: 0,
-        // RESOLVE_NO_MAGICLINKS | RESOLVE_NO_SYMLINKS. Canonicalize happened
-        // earlier; reject a symlink substituted anywhere before opening.
         resolve: 0x02 | 0x04,
     };
     let fd = unsafe {
@@ -71,8 +65,6 @@ fn trusted_device_source(root: &Path) -> io::Result<bool> {
     if !root.starts_with("/dev") || root.starts_with("/dev/shm") {
         return Ok(false);
     }
-    // dev-bind has no fd variant. Only root-owned device hierarchies whose
-    // directory entries the agent cannot replace may use that path operation.
     for parent in root.ancestors() {
         let metadata = parent.symlink_metadata()?;
         if metadata.is_dir() && (metadata.uid() != 0 || metadata.mode() & 0o022 != 0) {
@@ -86,8 +78,6 @@ fn trusted_device_source(root: &Path) -> io::Result<bool> {
 
 pub(super) fn close_inherited_descriptors(sources: &[File]) -> io::Result<()> {
     let keep: Vec<_> = sources.iter().map(AsRawFd::as_raw_fd).collect();
-    // Collect before closing: the iterator itself owns a temporary descriptor.
-    // This helper has no threads, so no concurrent opens can reuse a number.
     let descriptors: Vec<_> = std::fs::read_dir("/proc/self/fd")?
         .map(|entry| entry.map(|entry| entry.file_name().to_string_lossy().parse::<i32>().ok()))
         .collect::<io::Result<Vec<_>>>()?
@@ -119,8 +109,6 @@ fn command(
     }
     let mut roots = Vec::new();
     for root in &policy.writable_roots {
-        // The replacement /proc belongs to our private PID namespace. Resolving
-        // /proc/self/task before bwrap would instead bind the helper's host PID.
         if root == Path::new("/proc/self/task") {
             continue;
         }
@@ -146,17 +134,12 @@ fn command(
     if !detached {
         command.args(["--die-with-parent", "--new-session"]);
     }
-    // Detached callers already establish their own process group and detached
-    // stdio. Keep descendants in that group so proc_stop can reap them, and do
-    // not kill them merely because the owning cockpit restarts.
     command.args(["--unshare-user", "--unshare-pid", "--cap-drop", "ALL"]);
     let sealed = !policy.sealed_reads.is_empty();
     let mut sources = Vec::new();
     if sealed {
         super::sealed::validate_policy(policy).map_err(io::Error::other)?;
         command.args(["--tmpfs", "/"]);
-        // Mount scratch first so explicit read and write grants beneath /tmp
-        // remain visible when their bind mounts are installed below.
         command.args(["--perms", "01777", "--tmpfs", "/tmp"]);
         for root in &policy.sealed_reads {
             let source = pin_source(root)?;
@@ -167,33 +150,15 @@ fn command(
             command.arg("--ro-bind-fd").arg(fd.to_string()).arg(root);
             sources.push(source);
         }
-        // Preserve merged-/usr aliases without mounting host root.
         for alias in ["/bin", "/sbin", "/lib", "/lib64", "/libx32"] {
             if let Ok(target) = std::fs::read_link(alias) {
                 command.arg("--symlink").arg(target).arg(alias);
             }
         }
-        // Without the private /tmp above, toolchains fall back to the cwd for temp files
-        // (libiberty's `choose_tmpdir`), and a read-only cwd turns an ordinary
-        // link into SIGABRT rather than a clean error: gcc expands
-        // `-plugin-opt=-fresolution=%u.res` on every link, and
-        // `make_temp_file_with_prefix` aborts when `mkstemps` fails. This is
-        // scratch, never host state. Mounted before the policy's read/write
-        // roots so explicit grants still bind over it; `--remount-ro /`
-        // is not recursive, so /tmp stays writable while the root is sealed.
-        //
-        // Sealed only: `--ro-bind / /` promises read-all, and a private /tmp
-        // there would hide the host's from the payload.
     } else {
         command.args(["--ro-bind", "/", "/"]);
     }
     command.args(["--proc", "/proc", "--tmpfs", "/dev"]);
-    // The standard pseudo-device set every container runtime provides
-    // (`bwrap --dev`, Docker, systemd PrivateDevices). Nested verifiers that
-    // run their own `bwrap --dev /dev` bind-mount exactly these names from the
-    // outer /dev and fail closed when one is missing. None is host-backed
-    // storage or a real terminal: `--new-session` leaves no controlling TTY
-    // for `/dev/tty` to reach in attached mode.
     for device in STANDARD_DEVICES {
         command.args(["--dev-bind", device, device]);
     }
@@ -211,21 +176,13 @@ fn command(
         "/proc/self/fd/2",
         "/dev/stderr",
     ]);
-    // Do not use --dev: it also creates pts/shm/mqueue mounts and console
-    // links the policy did not authorize. Explicit GPU/shared-memory policy
-    // roots are mounted individually below.
     let hardlinks = super::hardlinks::scan(&roots)?;
     for root in roots {
         if trusted_device_source(&root)? {
-            // Recognized host devices live under root-owned /dev. Unlike
-            // ordinary bind-fd, dev-bind preserves device access explicitly
-            // requested by the policy. Never infer additional device roots.
             command.arg("--dev-bind").arg(&root).arg(&root);
         } else {
             let source = pin_source(&root)?;
             let fd = source.as_raw_fd();
-            // Single-threaded helper: retain this explicit bwrap input across
-            // exec. Bubblewrap consumes bind-fd inputs before payload launch.
             if unsafe { libc::fcntl(fd, libc::F_SETFD, 0) } == -1 {
                 return Err(io::Error::last_os_error());
             }
@@ -233,15 +190,7 @@ fn command(
             sources.push(source);
         }
     }
-    // Overlays must follow every writable bind, including nested roots.
-    // Only regular files with nlink > 1 are pinned read-only. Directories the
-    // scan could not finish (`hardlinks.limited`) are reported in the receipt,
-    // never mounted: a read-only directory over a writable root denied the
-    // sandboxed child its own cwd (batch-13 rehearsal, five sandbox tests EACCES).
     let args: Vec<_> = args.into_iter().collect();
-    // Bubblewrap counts both argv and --args contents against MAX_ARGS=9000.
-    // Large alias sets need one trusted bulk setup pass, not per-file CLI
-    // options or nested namespaces (which repeatedly walk the mount table).
     let bulk = command.get_args().count() + hardlinks.paths.len() * 3 + args.len() + 8 >= 8_000
         || super::alias_mounts::needs_setup_limit(hardlinks.paths.len(), sources.len())?;
     if !bulk {
@@ -283,16 +232,12 @@ pub(super) fn exec(
     detached: bool,
 ) -> io::Result<()> {
     let mut prepared = command(Path::new(EXECUTABLE), policy, program, args, detached)?;
-    // Single-threaded helper only. Set this before bwrap so neither its setup
-    // nor the payload can acquire privileges through setuid executables.
     if unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) } != 0 {
         return Err(io::Error::last_os_error());
     }
     if !policy.allow_network {
         install_inet_socket_filter().map_err(io::Error::other)?;
     }
-    // bwrap closes consumed --bind-fd inputs but preserves other inherited
-    // descriptors. Do not expose a host writable file/socket to the payload.
     close_inherited_descriptors(&prepared._sources)?;
     Err(prepared.command.exec())
 }

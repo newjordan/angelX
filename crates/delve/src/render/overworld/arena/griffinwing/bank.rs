@@ -14,8 +14,6 @@ struct Slot {
     states: BTreeMap<String, Vec<u32>>,
 }
 
-/// A painted frame, as the stage draws it (opaque pixels only), and where its
-/// anchor sits in it.
 pub(super) struct Pic {
     pub img: Img,
     pub ax: i32,
@@ -28,15 +26,9 @@ struct Anim {
     durations: Vec<u32>,
 }
 
-/// How many halvings a picture keeps for a far set piece (the picture, then
-/// a half, a quarter and an eighth).
 const LEVELS: usize = 4;
 
 impl Pic {
-    /// The picture halved `level` times (0 to 3), each dot the box average of
-    /// the dots under it kept when half of them are opaque, snapped to the
-    /// palette's plain inks, so a far set piece is drawn from a picture near
-    /// its own size and not from every fifth dot of a big one.
     pub fn level(&self, level: usize) -> &Img {
         let levels = self.levels.get_or_init(|| {
             let mut out = vec![self.img.clone()];
@@ -66,8 +58,6 @@ impl Pic {
     }
 }
 
-/// Where a slot's anchor is in its own PNG: the rings at the centre of their
-/// clear hole, everything else at the bottom centre.
 fn anchor(id: &str, w: i32, h: i32) -> (i32, i32) {
     match id {
         "griffinwing.gate" | "griffinwing.hearth-ring" | "griffinwing.canyon-tex" => (w / 2, h / 2),
@@ -94,7 +84,6 @@ fn painted(id: &str, bytes: &[u8], size: [i32; 2]) -> Pic {
     Pic { img: im, ax, ay, levels: OnceLock::new() }
 }
 
-/// Every frame of one slot, or nothing.
 fn whole(s: &Slot) -> Option<BTreeMap<String, Anim>> {
     let mut states = BTreeMap::new();
     for (state, durations) in &s.states {
@@ -131,13 +120,10 @@ fn bank() -> &'static BTreeMap<String, BTreeMap<String, Anim>> {
     })
 }
 
-/// Frame `index` of `state`, when the slot is painted.
 pub(super) fn pic(id: &str, state: &str, index: usize) -> Option<&'static Pic> {
     bank().get(id)?.get(state)?.frames.get(index)
 }
 
-/// The frame of `state` at animation tick `tick`, by the slot's own durations
-/// (the animation repeats), when the slot is painted.
 pub(super) fn at(id: &str, state: &str, tick: u32) -> Option<&'static Pic> {
     let anim = bank().get(id)?.get(state)?;
     let mut time = tick % anim.durations.iter().sum::<u32>().max(1);

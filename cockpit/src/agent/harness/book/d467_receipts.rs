@@ -19,7 +19,6 @@ pub(crate) const HANDOFF: Route = Route::new(CELL, '⠁');
 pub(crate) const ELISION: Route = Route::new(CELL, '⠃');
 pub(crate) const NOTES: Route = Route::new(CELL, '⠉');
 
-// ⡨⠁ the handoff brief and the action lists
 pub(crate) const HANDOFF_WRITE: Page = Page::new(HANDOFF, 1);
 pub(crate) const BRIEF_NAMES: Page = Page::new(HANDOFF, 2);
 pub(crate) const FULL_BRIEF: Page = Page::new(HANDOFF, 3);
@@ -28,9 +27,6 @@ pub(crate) const TODO_ACTIONS: Page = Page::new(HANDOFF, 5);
 pub(crate) const HANDOFF_ACTIONS: Page = Page::new(HANDOFF, 6);
 pub(crate) const NOTES_ACTIONS: Page = Page::new(HANDOFF, 7);
 
-// ⡨⠃ elision marks. The aged, duplicate, argument, task-middle and
-// context-fit marks are `&str` consts beside their detectors (`compact.rs`,
-// `context.rs`); the book tests pin each one to its page here.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const AGED_OUTPUT: Page = Page::new(ELISION, 1);
 #[cfg_attr(not(test), allow(dead_code))]
@@ -47,8 +43,6 @@ pub(crate) const CONTEXT_FIT: Page = Page::new(ELISION, 8);
 pub(crate) const MATCH_CAP: Page = Page::new(ELISION, 9);
 pub(crate) const AGING_BOUNDARY: Page = Page::new(ELISION, 10);
 
-// ⡨⠉ the harness's notes on a result: a mark inside its bracket, its values
-// beside the address.
 pub(crate) const TASK_RETAINED: Page = Page::new(NOTES, 1);
 pub(crate) const WORKER_KILLED: Page = Page::new(NOTES, 2);
 pub(crate) const STDOUT_HELD: Page = Page::new(NOTES, 3);

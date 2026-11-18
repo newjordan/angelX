@@ -4,9 +4,6 @@ use super::interception::Interception;
 use super::registry::SeatGrant;
 use super::*;
 
-/// Recover the stable counters from a model-facing code-mode receipt. Keeping
-/// this parser narrow means the experience ledger never infers orchestration
-/// work from prose or console output.
 pub(crate) fn code_mode_receipt_metrics(result: &str) -> Option<(usize, u64)> {
     let receipt = result
         .lines()
@@ -145,9 +142,6 @@ fn repo_recon_terms(query: &str) -> Vec<String> {
         .collect()
 }
 
-/// Produce a fixed, trusted program for task-conditioned repository mapping.
-/// The task text is reduced to JSON-encoded search terms in Rust; it is never
-/// interpolated as executable JavaScript.
 fn repo_recon_script(query: &str) -> Result<String, String> {
     if query.len() > REPO_RECON_MAX_QUERY_BYTES {
         return Err(format!(
@@ -172,16 +166,11 @@ fn repo_recon_script(query: &str) -> Result<String, String> {
         REPO_RECON_PROGRAM,
     )
     .map_err(|error| format!("tool error: repo_recon module unavailable: {error}"))?;
-    // Capture one generation before binding; reject incomplete templates
-    // rather than silently running a stale or partially-written recipe.
     for marker in ["__TASK_RECON_TERMS__", "__TASK_RECON_PATTERN__"] {
         if program.matches(marker).count() != 1 {
             return Err("tool error: invalid repo_recon module placeholders".to_string());
         }
     }
-    // Bind JSON values as expressions outside the module. Inserting values
-    // into arbitrary positions in a reloadable module could turn user text
-    // into program syntax if a placeholder appeared inside a string literal.
     Ok(format!(
         "const __TASK_RECON_TERMS__ = {terms_json};\nconst __TASK_RECON_PATTERN__ = {pattern_json};\n{program}"
     ))
@@ -189,19 +178,6 @@ fn repo_recon_script(query: &str) -> Result<String, String> {
 
 const REPO_RECON_PROGRAM: &str = include_str!("../../../../scripts/runtime/repo-recon.js");
 
-// ---------------------------------------------------------------------------
-// code-mode glue — bridge between the harness ToolRegistry and the pure V8
-// runtime in `code_mode.rs`. On by default; `ANGEL_CODE_MODE=0` disables the
-// `code_mode` tool (see `maybe_register_code_mode`). The runtime itself is
-// harness-agnostic; this is the only place that knows about both worlds.
-// ---------------------------------------------------------------------------
-
-/// Execute a `code_mode` tool call: run the model's `script` in the V8 isolate
-/// with every bindable registry tool exposed as a host function. Nested tool
-/// calls re-enter the registry through `dispatch` (with the same pre/post hooks),
-/// and are deliberately *not* run through the central output cap — a script that
-/// reads→edits→writes a file needs the full content. The script's final return
-/// value (capped upstream like any tool result) is what re-enters history.
 pub(crate) fn run_code_mode_tool(
     registry: &ToolRegistry,
     hooks: &Hooks,
@@ -217,12 +193,7 @@ pub(crate) fn run_code_mode_tool(
         .get("recipe")
         .and_then(Value::as_str)
         .filter(|recipe| !recipe.is_empty());
-    // Both given: the call is unambiguous (an explicit script wins over the
-    // fixed recipe), so run the script and say so instead of failing the
-    // exclusivity check the model kept retrying. Only neither-given still
-    // errors: there is genuinely nothing to run.
     let script_recipe_notice = match (supplied_script, supplied_recipe) {
-        // `⡨⠉⠑` inside its bracket.
         (Some(_), Some(_)) => Some(format!(
             "[{}]",
             super::book::d467_receipts::SCRIPT_OVER_RECIPE.cells()
@@ -275,10 +246,6 @@ pub(crate) fn run_code_mode_tool(
             script.len()
         );
     }
-    // Read-only reconnaissance is the safe/default use case. A script may
-    // reach mutation or execution tools only when its outer call makes that
-    // broader capability explicit, so an approval preview and persisted tool
-    // call cannot disguise effects behind an opaque program.
     let allow_effects = if recipe == "repo_recon" {
         false
     } else {
@@ -286,8 +253,6 @@ pub(crate) fn run_code_mode_tool(
             .and_then(Value::as_bool)
             .unwrap_or_else(crate::platform::yolo::code_effects_allowed)
     };
-    // Full YOLO and Smart YOLO both unlock effectful code_mode; Full still
-    // lifts script/timeout/call caps elsewhere. Env pin remains the ablation path.
     if allow_effects
         && !crate::platform::yolo::code_effects_allowed()
         && !env_flag("ANGEL_CODE_MODE_EFFECTS", false)
@@ -297,12 +262,7 @@ pub(crate) fn run_code_mode_tool(
             crate::agent::harness::book::u_skills::CODE_MODE_EFFECTS.cells()
         );
     }
-    // The V8 API requires a finite watchdog duration. One year is an
-    // effectively unbounded operator session while retaining a final
-    // process-safety escape for a permanently wedged isolate.
     const UNBOUNDED_MS: u64 = 365 * 24 * 60 * 60 * 1_000;
-    // Generic scripts may orchestrate long build matrices. The preturn map has
-    // no clock of its own; the operator may set one.
     let timeout_ms = if recipe == "repo_recon" {
         match env_usize("ANGEL_TASK_RECON_TIMEOUT_MS", 0) as u64 {
             0 => UNBOUNDED_MS,
@@ -322,15 +282,10 @@ pub(crate) fn run_code_mode_tool(
         .iter()
         .cloned()
         .collect::<std::collections::HashSet<_>>();
-    // §3.2.3 (Def 26/27): this seat's policy is a table consulted at each nested
-    // invocation rather than a branch — bound once here for the run and released by
-    // `_seat` on every exit path, including an unwind. `allow_effects` decides the
-    // table, so flipping it mid-run would bind the next call with no reload.
     const CODE_MODE_SEAT: &str = "code_mode";
     let seat_table = if allow_effects {
         Interception::empty()
     } else {
-        // The seat's read-only predicate, stated once, becomes its deny list.
         Interception::deny_tools(
             tool_names
                 .iter()
@@ -341,8 +296,6 @@ pub(crate) fn run_code_mode_tool(
     let generic_max_calls = env_usize("ANGEL_CODE_MODE_MAX_CALLS", 48).max(1);
     let generic_max_nested_output_bytes =
         env_usize("ANGEL_CODE_MODE_MAX_NESTED_OUTPUT_BYTES", 8 * 1024 * 1024).max(1);
-    // v2 recon batches manifests + defs + outlines + the floor's reads; 32
-    // nested calls is still far cheaper than a paid multi-hop read loop.
     let (max_calls, max_nested_output_bytes) = if recipe == "repo_recon" {
         (
             generic_max_calls.min(env_usize("ANGEL_TASK_RECON_MAX_CALLS", 32).clamp(1, 32)),
@@ -359,20 +312,12 @@ pub(crate) fn run_code_mode_tool(
     let nested_calls = std::sync::atomic::AtomicUsize::new(0);
     let nested_output_bytes = std::sync::atomic::AtomicUsize::new(0);
 
-    // Nested dispatch: hook-checked, error-returning (so JS sees a throw), and
-    // uncapped per call for full-content in-script processing, but bounded by a
-    // cumulative byte budget so a loop cannot turn the isolate into an
-    // unaccounted output sink.
     let book_catalog = super::book::catalog::current();
     let invoke = |name: &str, a: &Value| -> Result<String, String> {
-        // V8's batch scheduler may call this on other threads. Every nested
-        // tool, including ledger:// reads, must see its owning turn's book.
         let _book_catalog = book_catalog.clone().map(super::book::catalog::enter);
         if cancel.is_some_and(|cancel| cancel.load(std::sync::atomic::Ordering::Acquire)) {
             return Err("code_mode cancelled".to_string());
         }
-        // Synthetic handle ops — not registry tools. Scripts park/rehydrate bulk
-        // without materializing it as the code_mode return value.
         if name == "__handle_put" {
             return code_mode_handle_put(a);
         }
@@ -430,8 +375,6 @@ pub(crate) fn run_code_mode_tool(
         {
             hooks.post_tool_use(name, a, out);
         }
-        // World telemetry describes the executed mutation even if the outer
-        // code-mode output budget later rejects delivering its text result.
         if let (Some((_, event_tx)), Some(child_id), Ok(result)) =
             (event_context, child_id.as_ref(), dispatched.as_ref())
         {
@@ -484,9 +427,6 @@ pub(crate) fn run_code_mode_tool(
         r
     };
 
-    // Reuse the ordinary harness scheduler. Mixed batches recover concurrency
-    // inside maximal footprint-safe runs, with every effect/conflict retained
-    // as a strict declaration-order barrier.
     let batch_scheduler = |specs: &[(String, Value)]| {
         let calls = specs
             .iter()
@@ -531,10 +471,6 @@ pub(crate) fn run_code_mode_tool(
                     out.console.join("\n")
                 )
             };
-            // Large programmatic returns stay addressable under a handle so the
-            // root sees the strategy-level code_mode receipt, not bulk evidence.
-            // The recon map is never parked: it is bounded, and it exists to be
-            // read on the spot.
             let min_offload = if recipe == "repo_recon" {
                 usize::MAX
             } else {
@@ -555,24 +491,17 @@ pub(crate) fn run_code_mode_tool(
         }
         Err(e) => format!("tool error: {e}\n--- {receipt}"),
     };
-    // The both-given recovery notice rides the top of the result so the model
-    // learns the vocabulary fix without spending an error hop on it.
     match script_recipe_notice {
         Some(notice) => format!("{notice}\n{body}"),
         None => body,
     }
 }
 
-/// Advertises the `code_mode` capability. Execution is intercepted in
-/// [`dispatch_with_hooks`] (the runtime needs registry re-entry the tool can't
-/// reach), so [`Tool::call`] here is only a defensive fallback.
 pub struct CodeModeTool {
     description: String,
 }
 
 impl CodeModeTool {
-    /// Build the tool, embedding the names of the tools that will be bound as
-    /// host functions so the model knows the in-script API up front.
     pub fn new(tool_names: &[String]) -> Self {
         let read_api = tool_names
             .iter()
@@ -607,8 +536,6 @@ impl CodeModeTool {
     }
 }
 
-/// Short advertised `code_mode` blurb for bounded / competition / tight-window
-/// hops. The full isolate/API essay stays on the default interactive set.
 pub(crate) fn lean_code_mode_description() -> &'static str {
     "Run JavaScript in a sandboxed V8 isolate to batch tool calls in one hop. \
      Bound tools such as read_file are globals (object in, text out). \
@@ -652,13 +579,10 @@ impl Tool for CodeModeTool {
     }
 
     fn call(&self, _args: &Value) -> Result<String, String> {
-        // Real execution goes through dispatch_with_hooks; reaching here means a
-        // caller bypassed it (e.g. a direct registry.dispatch in a test).
         Err("code_mode must be dispatched via the turn loop (dispatch_with_hooks)".to_string())
     }
 }
 
-/// `handle_put` from inside a code_mode script: store body, return opaque id.
 fn code_mode_handle_put(args: &Value) -> Result<String, String> {
     if !handle_store_enabled() {
         return Err("handle store disabled (ANGEL_HANDLE_STORE=0)".into());
@@ -686,7 +610,6 @@ fn code_mode_handle_put(args: &Value) -> Result<String, String> {
     Ok(receipt.handle.as_str().to_string())
 }
 
-/// `handle_get` from inside a code_mode script: capped disclose.
 fn code_mode_handle_get(args: &Value) -> Result<String, String> {
     let handle = args
         .get("handle")
@@ -707,11 +630,6 @@ fn code_mode_handle_get(args: &Value) -> Result<String, String> {
     Ok(slice.render())
 }
 
-/// Register `code_mode` over the registry's current tools. **On by default**
-/// (`ANGEL_CODE_MODE=0` disables it) — it's a first-class capability for this
-/// system (coding + mass testing). Registration is cheap; V8 only initialises on
-/// the first actual `code_mode` call. Call this *last*, after every other tool is
-/// registered, so the bound-tool list baked into the description is complete.
 pub(crate) fn maybe_register_code_mode(r: &mut ToolRegistry) {
     if env_flag("ANGEL_CODE_MODE", true) {
         let names = r.bindable_tool_names();

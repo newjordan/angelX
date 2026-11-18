@@ -17,7 +17,6 @@ pub fn is_spell(id: &str) -> bool {
         .any(|k| k.spells.contains(&id))
 }
 
-/// Replicated and defaultable, including on saves made before these kits.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Stance {
@@ -31,7 +30,6 @@ pub struct Stance {
     pub steady: u32,
     pub shots: u32,
     pub cast: u32,
-    /// The kit drills' clocks (`drills`).
     pub beat: u32,
     pub beat_life: u32,
     pub measure: u32,
@@ -45,7 +43,6 @@ impl Stance {
     pub fn attack_rate(&self) -> u32 {
         self.stacks.min(5) * 25 + if self.focus > 0 { 250 } else { 0 } + self.beat * drills::BEAT_RATE
     }
-    /// Called by shared own_keys, once per authoritative or predicted tick.
     pub(super) fn tick(&mut self) {
         self.windrun = self.windrun.saturating_sub(1);
         self.focus = self.focus.saturating_sub(1);
@@ -92,7 +89,6 @@ impl Stance {
 pub enum ZoneKind {
     Shrapnel,
     Fire,
-    /// A Mage's sleet (`weave`): it stings and slows.
     Frost,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -140,12 +136,8 @@ pub struct Field {
     pub roots: Vec<Root>,
     pub marks: Vec<Mark>,
     pub beams: Vec<Beam>,
-    /// The Mage's spells as they play out where they were cast (`weave`).
     pub casts: Vec<Cast>,
 }
-/// A spell of the weave being shown: spell `spell` at `(x, y)`, cast along
-/// `dir` (eighths of a turn clockwise from east), `age` ticks ago, after
-/// `wait` ticks more before it begins.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Cast {
     pub spell: u8,
@@ -173,8 +165,6 @@ impl Field {
     }
 }
 
-/// Basic shots share exactly this path with browser predict_fire. The rifle
-/// is slow, heavy and long lived; its fourth shot is a deterministic crit.
 pub(super) fn loose(h: &mut Hero, owner: u32, shots: &mut Vec<Projectile>) -> Option<Loosed> {
     if h.forged.is_some() || h.shape.is_some() {
         return None;
@@ -226,8 +216,6 @@ pub(super) fn loose(h: &mut Hero, owner: u32, shots: &mut Vec<Projectile>) -> Op
     Some(Loosed::Arm(1, (ax, ay)))
 }
 
-/// Focus locks a living target, not the nearest monster every shot. Both the
-/// server and client use this before basic firing, and a dead target cancels.
 pub(super) fn focus_aim(h: &mut Hero, enemies: &[Enemy]) {
     if h.hero_kit.focus == 0 {
         return;
@@ -243,7 +231,6 @@ pub(super) fn focus_aim(h: &mut Hero, enemies: &[Enemy]) {
     }
 }
 
-/// Predict stance only. Fields and damage await the host's authoritative tree.
 pub(super) fn predict_stance(h: &mut Hero, book: &Book, input: Input) {
     if h.flee_ticks > 0 {
         return;
@@ -271,9 +258,6 @@ pub(super) fn predict_stance(h: &mut Hero, book: &Book, input: Input) {
     start_spell(h, &card.id);
 }
 
-/// The successful card-cast boundary shared by host and browser. Starting
-/// the charge here (before basic fire), rather than in aftermath, prevents
-/// a stray basic shot on the first draw tick.
 pub(super) fn start_spell(h: &mut Hero, feat: &str) {
     let kit = h.knight.as_deref().unwrap_or("");
     if kit == "cinderheart" {
@@ -367,7 +351,6 @@ impl Run {
         for (_, i) in targets.into_iter().take(if first { 1 } else { usize::MAX }) {
             self.hero_hit(owner, i, damage, 0);
         }
-        // Clip the visual ray to stone too.
         let mut d = 0.0;
         while d + 0.25 <= reach
             && self.hero_clear(from, (from.0 + ax * (d + 0.25), from.1 + ay * (d + 0.25)))
@@ -528,13 +511,9 @@ impl Run {
         }
     }
     pub(super) fn tick_hero_fields(&mut self, _inputs: &BTreeMap<u32, Input>) {
-        // A dead owner cannot leave damaging orphan fields behind. Borrowed
-        // ultimates (All Random) can belong to living knights of any kit.
         for h in self.players.values_mut().filter(|h| h.hp == 0 || h.stone) {
             h.hero_kit = Default::default();
         }
-        // The Monk's Patience: a mend every half second, endless, boring,
-        // and over when it is over.
         for h in self.players.values_mut().filter(|h| h.patience > 0) {
             h.patience -= 1;
             if h.patience % (HZ / 2) == 0 && h.hp > 0 {
@@ -672,8 +651,6 @@ impl Run {
         }
         self.heroes.casts.retain(|c| c.age < weave::SHOWN[usize::from(c.spell)]);
     }
-    /// Roots restore only locomotion after AI: attack clocks and projectiles
-    /// still advance. Killing either member breaks the entire paired root.
     pub(super) fn hold_hero_roots(&mut self) {
         for r in &self.heroes.roots {
             if r.left == 0

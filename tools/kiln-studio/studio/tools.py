@@ -1,12 +1,3 @@
-"""The hands and eyes as tools: what the MCP server serves and the job
-runner calls. One Studio is rooted in a workspace (a job's variant folder, or
-any folder a person points it at); it reads and writes inside that root only,
-and reads the library.
-
-Every render, shot, check and describe of a changed source keeps a version:
-`versions/vNN<ext>` with its ladder shot `versions/vNN.png`, listed in
-`versions/versions.json`, so a job keeps each recipe it tried.
-"""
 import hashlib
 import json
 import shutil
@@ -30,8 +21,6 @@ class Studio:
         self.log_path = Path(log) if log else self.root / "mcp.log"
         self.brief = brief
         self.bible = load_bible()
-
-    # --- paths, inside the root ---------------------------------------------
 
     def path(self, p, must_exist=True, readable_outside=()):
         q = Path(p)
@@ -59,7 +48,6 @@ class Studio:
         return names[0]
 
     def _reduce_outline(self, r):
-        """The ink a reduction keeps on a figure's edge; an effect reduces by plain vote."""
         return None if r.meta.get("kind") == "vfx" else self.bible.get("outline", {}).get("ink", "k")
 
     def _kind(self, b, src=None):
@@ -75,7 +63,6 @@ class Studio:
         return "figure"
 
     def _lower(self, r):
-        """The backend's own frames at grains 1 and 2, when it drew them."""
         lower = {}
         for g, png in ((r.meta or {}).get("grains") or {}).items():
             g = int(g)
@@ -97,10 +84,7 @@ class Studio:
         except OSError:
             pass
 
-    # --- versions -----------------------------------------------------------
-
     def snapshot(self, src, b, shot=None):
-        """Keep the source as a new version if it changed; returns its number."""
         vdir = self.root / "versions"
         vdir.mkdir(exist_ok=True)
         index = vdir / "versions.json"
@@ -120,8 +104,6 @@ class Studio:
             shutil.copyfile(shot, vdir / v["shot"])
         index.write_text(json.dumps(listed, indent=1))
         return v["n"]
-
-    # --- the tools ----------------------------------------------------------
 
     def _render(self, source, name):
         src, b = self.source(source)
@@ -144,7 +126,6 @@ class Studio:
         out = self.root / "shots" / f"{name}.png"
         outline = self._reduce_outline(r)
         floor = tuple(self.bible.get("floor", {}).get("inks", ["K", "Z"]))
-        # An effect is judged at its busiest frame, a figure at its first.
         key = max(range(len(frames)), key=lambda i: sum(len(row) - row.count(".") for row in frames[i].rows)) \
             if r.meta.get("kind") == "vfx" else 0
         realm.ladder(frames, out, grain=r.grain, outline=outline, floor_inks=floor, lower=r.lower, key=key,
@@ -159,9 +140,6 @@ class Studio:
         return res
 
     def _lint(self, r, grid, frames, grain):
-        """The eyes' findings: the inks and alpha on the whole strip, the rest per frame.
-        An effect is not held to a figure's floor, outline and silhouette, and a
-        one-shot may end on a clear frame."""
         kind = r.meta.get("kind", "figure")
         outline = self.bible.get("outline", {}).get("ink", "k")
         rules = dict(self.bible.get("lint", {}))
@@ -175,14 +153,12 @@ class Studio:
                 if item["rule"] in skip:
                     continue
                 if item["rule"] == "lone" and r.meta.get("backend") == "kiln":
-                    # kiln's line work cleans lone pixels per grain; a lit volume's tone steps are its own.
                     item = dict(item, level="look")
                 item = dict(item, frame=i)
                 if not any(x["rule"] == item["rule"] and x["msg"] == item["msg"] for x in found):
                     found.append(item)
         if kind != "vfx" and len(frames) > 1:
             found += motion_lint(frames, grain)
-        # Many frames with the same rule: keep the first few.
         kept, seen = [], {}
         for item in found:
             seen[item["rule"]] = seen.get(item["rule"], 0) + 1
@@ -252,7 +228,6 @@ class Studio:
             realm.to_image(f).save(png)
             small = r.lower[1][i] if r.lower.get(1) else realm.reduce(f, r.grain, outline)
             rows.append(f"# {name} frame {i}, grain 1 ({small.w}x{small.h})\n{small.text()}")
-            # The look key is the game's; it is filled when the piece is wired to a look.
             entries.append({"look": "", "name": f"{name}/{i}", "file": png.name, "w": small.w, "h": small.h})
         (out / "rows.txt").write_text("\n\n".join(rows) + "\n")
         (out / "pack.json").write_text(json.dumps({"scale": r.grain, "art": entries}, indent=1) + "\n")
@@ -285,7 +260,6 @@ class Studio:
 
 
 def motion_lint(frames, grain):
-    """A figure's loop: its feet stay put, and no frame jumps more than a game pixel."""
     found = []
     first = frames[0]
     box = realm.bbox(first)

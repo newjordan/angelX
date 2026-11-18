@@ -9,7 +9,6 @@ fn arena(kind: EnemyKind, x: f32, y: f32) -> Run {
     h.ult_charge = ults::ULT_FULL; h.invulnerable = 0;
     r.spawn_at_for_test(kind,x,y);
     let e = &mut r.enemies[0]; e.hp=10000; e.max_hp=10000; e.seen_hp=10000; e.age=TELEGRAPH;
-    // Training dummies do not keep a combat room active.
     if kind == EnemyKind::Dummy {
         r.spawn_at_for_test(EnemyKind::Demon,35.0,5.0);
         r.enemies[1].sleep_until=r.tick+10000;

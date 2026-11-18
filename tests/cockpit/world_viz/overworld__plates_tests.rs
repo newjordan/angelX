@@ -19,9 +19,7 @@ fn iris_opens_from_black_and_each_seat_gets_its_own_picture() {
     let before = crate::world_viz::overworld::arena::frame_for(&run, W, H, Some(2));
     assert!(run.skip_floor_plate(1));
     assert_eq!(before, crate::world_viz::overworld::arena::frame_for(&run, W, H, Some(2)));
-    // The friend's own client draws the same plate.
     let (_, _, seen) = crate::together_seat::guest_view(&run, 2);
-    // Their whole screen: the band (black under a plate) over the plate.
     let (w, h) = crate::world_viz::overworld::arena::seat_size();
     assert_eq!(seen, crate::world_viz::overworld::arena::seat_frame(&run, w as i32, h as i32, Some(2)));
     assert_ne!(crate::world_viz::overworld::arena::frame_for(&run, W, H, Some(1)), before);

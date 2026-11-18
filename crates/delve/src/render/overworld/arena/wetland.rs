@@ -21,7 +21,6 @@ fn ring(cv: &mut Img, x: i32, y: i32, ink: char) {
 pub(super) fn scenery(cv: &mut Img, run: &Run) {
     match run.room().kind {
         RoomKind::Millpond => {
-            // Two pond wings joined under a dry stone bridge.
             m::ashlar(cv, (11 * TILE, 4 * TILE, 2 * TILE, 5 * TILE), &['K', 'X', 'g', 'j', 'G', 'J'], 180);
             for x in [11 * TILE, 13 * TILE - 2] {
                 m::block(cv, (x, 4 * TILE - 4, 2, 5 * TILE + 4), m::ramp::STONE, false, 181);
@@ -31,14 +30,12 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
         }
         RoomKind::Sluice => {
             for (_, (x, y)) in &wet::ERRAND[1..4] {
-                // The valve's stone footing; the valve itself is live ink.
                 let (x, y) = at(x * 2.0, y * 2.0);
                 m::block(cv, (x - 7, y - 3, 14, 7), m::ramp::STONE, false, 182);
             }
             m::sign(cv, 7 * TILE, 11 * TILE, "ROYAL BATH: CANCELLED", 'T');
         }
         RoomKind::SunkenAbbey => {
-            // The choir's columns and arches stand up out of the water.
             for (k, x) in [3, 5, 7, 8].into_iter().enumerate() {
                 let x = x * TILE + 3;
                 m::block(cv, (x, 2 * TILE - 10, 7, 3 * TILE + 2), m::ramp::STONE, false, 183 + k as u32);
@@ -96,7 +93,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     let x = 8 * TILE;
     let y = 6 * TILE;
     let crest = surf.phase >= pastimes::WAVE_TICKS - pastimes::CREST_WINDOW;
-    // Large wave sweeps toward the shield; F window changes cyan to gold.
     let wx = 10 * TILE - (surf.phase * 3 * TILE as u32 / pastimes::WAVE_TICKS) as i32;
     for n in 0..4 {
         cv.line(
@@ -107,7 +103,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             if crest { 'O' } else { 'C' },
         );
     }
-    // Wave crest glow: gold ink overlay + warm halo during brace window.
     if surf.crest_glow > 0 {
         for n in 0..4 {
             cv.line(
@@ -124,25 +119,17 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     cv.line(x - 9, y + 5, x + 9, y + 5, 'o');
     cv.line(x - 7, y + 6, x + 7, y + 9, 'O');
     let lean = surf.lean / 8;
-    // Surfboard (elongated ellipse)
     cv.ellipse(x as f32, (y + 8) as f32, 6.0, 2.0, 'n');
-    // Body / torso
     cv.rect(x + lean - 2, y - 6, 4, 6, 'B');
-    // Round head
     cv.ellipse((x + lean) as f32, (y - 8) as f32, 2.0, 2.0, 'h');
-    // Hair / helmet
     cv.ellipse((x + lean) as f32, (y - 9) as f32, 2.0, 1.0, 'k');
-    // Eye (face direction)
     cv.put(x + lean + 1, y - 8, 'k');
-    // Legs
     cv.line(x + lean - 1, y, x + lean - 2, y + 6, 'h');
     cv.line(x + lean + 1, y, x + lean + 2, y + 6, 'h');
-    // Arms with hands
     cv.line(x + lean - 2, y - 4, x + lean - 5, y - 2, 'h');
     cv.line(x + lean + 2, y - 4, x + lean + 5, y - 2, 'h');
     cv.put(x + lean - 5, y - 2, 'h');
     cv.put(x + lean + 5, y - 2, 'h');
-    // Water spray particles behind the surfboard while balanced.
     if surf.spray > 0 {
         let spray_ink = ['C', 'V', 'z'];
         for i in 0..6 {
@@ -152,14 +139,12 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             let ink = spray_ink[(seed % 3) as usize];
             cv.put(x + lean + dx, y + dy, ink);
         }
-        // Wake trail behind the surfboard.
         for i in 0..4 {
             let tx = x - 10 - i * 4;
             let ty = y + 10 + (i % 2);
             cv.put(tx, ty, if i < 2 { 'C' } else { 'V' });
         }
     }
-    // Bright flash burst on successful brace.
     if surf.brace_flash > 0 {
         let flash_ink = if surf.brace_flash > 2 { '9' } else { 'c' };
         for i in 0..8 {
@@ -170,7 +155,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             cv.put(fx, fy, flash_ink);
         }
         super::fx::glow(cv, x + lean, y - 10, super::fx::Hue::Warm);
-        // Spray burst radiating outward from brace point.
         for i in 0..6 {
             let seed = hash(x + i, y, surf.brace_flash as u32 + i as u32);
             let dx = (seed % 16) as i32 - 8;
@@ -178,7 +162,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             cv.put(x + lean + dx, y - 10 + dy, 'V');
         }
     }
-    // Expanding splash ring on wipeout.
     if surf.splash > 0 {
         let splash_radius = 14 - surf.splash as i32;
         let splash_ink = if surf.splash > 8 { 'C' } else if surf.splash > 4 { 'V' } else { 'z' };
@@ -188,7 +171,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             let sy = y + 5 + (a.sin() * splash_radius as f32 * 0.5) as i32;
             cv.put(sx, sy, splash_ink);
         }
-        // Splash droplets flying upward.
         for i in 0..4 {
             let seed = hash(x + i, y, surf.splash as u32 + i as u32);
             let dx = (seed % 20) as i32 - 10;
@@ -196,13 +178,11 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             cv.put(x + dx, y + 5 + dy, 'V');
         }
     }
-    // A balance gauge and the upcoming direction remain below the top board.
     super::super::chrome::inset_panel(cv, (6 * TILE, 10 * TILE, 12 * TILE, 12), super::super::chrome::Tone::WELL.rimmed(super::super::chrome::COLD_RIM));
     cv.line(7 * TILE, 10 * TILE + 6, 17 * TILE, 10 * TILE + 6, 'h');
     let target = 12 * TILE + pastimes::WAVE_LEANS[wave] * TILE / 20;
     super::super::chrome::shaped(cv, (target - 13, 10 * TILE + 2, 27, 9), &[1], super::super::chrome::Tone::KEYCAP, false);
     let current = 12 * TILE + surf.lean * TILE / 20;
-    // Lean indicator pulse: brightens when in target zone.
     let in_zone = (surf.lean - pastimes::WAVE_LEANS[wave]).abs() <= 16;
     let indicator_ink = if in_zone && (surf.phase / 2) % 2 == 0 { '9' } else { 'O' };
     cv.rect(current - 1, 10 * TILE, 3, 12, indicator_ink);
@@ -217,15 +197,12 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         'O',
     );
 }
-/// A sluice valve: a wheel on a post, its creature on top, and while it
-/// stands open, a spring-bar running down to SPROING.
 fn valve(cv: &mut Img, run: &Run, x: i32, y: i32, which: usize, s: u8) {
     let already = usize::from(s.saturating_sub(1)).min(3);
     let left = run.valves.map_or(0, |v| v[which]);
     let open = which < already || s >= 4 || left > 0;
     let ink = if open { 'O' } else { 'h' };
     cv.rect(x - 1, y - 8, 3, 9, 'b');
-    // The wheel: spokes turned a notch while open.
     let (a, b) = if open { ((5, 5), (5, -5)) } else { ((7, 0), (0, 7)) };
     cv.line(x - a.0, y - 10 - a.1, x + a.0, y - 10 + a.1, ink);
     cv.line(x - b.0, y - 10 - b.1, x + b.0, y - 10 + b.1, ink);
@@ -233,7 +210,6 @@ fn valve(cv: &mut Img, run: &Run, x: i32, y: i32, which: usize, s: u8) {
         let t = n as f32 * std::f32::consts::TAU / 24.0;
         cv.put(x + (t.cos() * 7.0) as i32, y - 10 + (t.sin() * 7.0) as i32, ink);
     }
-    // Its creature, sat on top.
     let top = y - 20;
     match which {
         0 => {

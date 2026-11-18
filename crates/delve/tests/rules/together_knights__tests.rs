@@ -53,7 +53,6 @@ fn outfitting_dresses_the_knight_and_begin_in_picks_the_first_delve() {
 fn a_kit_is_worn_by_a_knight_of_the_serving_house() {
     use crate::world::houses;
     let percival = knight("percival").unwrap();
-    // Nothing serving (the stub route): the Keep's own household.
     houses::note_serving(&houses::Serving::default());
     assert_eq!(
         percival.styled(house_for_seat(1)),
@@ -67,7 +66,6 @@ fn a_kit_is_worn_by_a_knight_of_the_serving_house() {
         Some("Sir Percival")
     );
 
-    // DeepSeek serves, Kimi sits beside it in a formation.
     let (deepseek, kimi) = (houses::by_key("deepseek"), houses::by_key("kimi"));
     houses::note_serving(&houses::Serving {
         lead: deepseek,
@@ -75,8 +73,6 @@ fn a_kit_is_worn_by_a_knight_of_the_serving_house() {
         turn: false,
     });
     let ds = houses::get(deepseek.unwrap());
-    // Expanded kits rotate through the house's smaller name roster, just as
-    // Knight::of_house does; kit slots are not house-roster indices.
     let first = ds.knight(percival.slot()).unwrap();
     assert_eq!(
         percival.styled(house_for_seat(1)),
@@ -93,12 +89,9 @@ fn a_kit_is_worn_by_a_knight_of_the_serving_house() {
         run.players[&2].knight_name(),
         Some(km.knight(lynette.slot()).unwrap().name.clone())
     );
-    // The kit is unchanged: same arms, same ultimate, same saved id.
     assert_eq!(run.players[&2].knight.as_deref(), Some("lynette"));
     assert_eq!(run.players[&2].colours(), lynette.colours);
 
-    // A save from before the houses has no `house`: it loads, and the
-    // Keep's household names the knight.
     let mut saved = serde_json::to_value(&run.players[&1]).unwrap();
     saved.as_object_mut().unwrap().remove("house");
     let old: crate::rules::Hero = serde_json::from_value(saved).unwrap();
@@ -120,7 +113,6 @@ fn twilight_company_has_valid_distinct_spell_and_item_art() {
         assert!(card.art.iter().all(|row| row.len() == 16), "{id}");
         let picture = card.art.join("\n");
         assert!(pictures.insert(picture.clone()), "reused icon: {id}");
-        // Compare against the whole library, not just this release's cards.
         assert_eq!(book.cards.iter().filter(|other| other.art.join("\n") == picture).count(), 1,
             "icon collides with an existing card: {id}");
         let (_, source) = crate::rules::cards::BUILTIN.iter()
@@ -777,7 +769,6 @@ fn glacier_sexton_has_shielded_frost_support_and_reachable_tavern_seat() {
     assert_eq!(kit.spells, &["bastion-bell", "mercy-procession"]);
     for id in kit.spells { assert_eq!(book.get(id).unwrap().kind, Kind::Spell); }
     assert_eq!(alehouse::PATRONS.iter().filter(|p| p.kit == kit.id).count(), 1);
-    // Inserting a recruit must not shadow any older recruit on a shared page.
     for (index, patron) in alehouse::PATRONS.iter().enumerate() {
         let page = (0..alehouse::COMPANY_PAGES)
             .find(|&page| alehouse::patron_visible(page, index)).unwrap();
@@ -866,8 +857,6 @@ fn lantern_duelist_has_shielded_swarm_and_accessible_company() {
 #[test]
 fn expanded_company_can_be_named_by_every_serving_house() {
     use crate::world::houses;
-    // Do not mutate the global serving roster: test the explicit house path
-    // used by saved heroes as well as the recruit's display-name path.
     for house_id in houses::ids() {
         let house = houses::get(house_id);
         for kit in COMPANY {
@@ -1796,14 +1785,11 @@ fn summon_consumables_keep_their_effects() {
         let checked = cards::check(id, source).unwrap();
         assert_eq!(checked.card.kind, Kind::Play);
         assert_eq!(checked.card.effects, vec![effect]);
-        // Their reviewed art stands; the 16x16 redraws wait for review
-        // (`refs/combine/astra-night`).
         let card = book.get(id).unwrap();
         assert_eq!(book.cards.iter().filter(|other| other.art == card.art).count(), 1);
     }
 }
 
-/// Check the whole staged company, not just the most recently added recruit.
 #[test]
 fn entire_tavern_roster_has_unique_reachable_wrapping_seats() {
     use crate::rules::{alehouse, heroes, TILE_UNITS};
@@ -1815,7 +1801,6 @@ fn entire_tavern_roster_has_unique_reachable_wrapping_seats() {
         let pages: Vec<_> = (0..alehouse::COMPANY_PAGES)
             .filter(|&page| alehouse::patron_visible(page, i)).collect();
         let permanent = heroes::KITS.contains(&patron.kit);
-        // The whole company sits in the hall at once, on every page.
         assert_eq!(pages.len(), alehouse::COMPANY_PAGES,
             "wrong visibility count for {}", patron.kit);
         for page in pages {
@@ -1890,7 +1875,6 @@ fn festival_contraband_has_distinct_art_and_world_supply() {
     }
 }
 
-/// Storm apiary is supplied as real world loot, not just gallery-only art.
 #[test]
 fn storm_apiary_has_distinct_art_and_world_supply() {
     use crate::rules::cards::{self, Effect, Kind, Shape};
@@ -1917,7 +1901,6 @@ fn storm_apiary_has_distinct_art_and_world_supply() {
     }
 }
 
-/// Eclipse railway is supplied as real world loot, not just gallery-only art.
 #[test]
 fn eclipse_railway_has_distinct_art_and_world_supply() {
     use crate::rules::cards::{self, Effect, Kind, Shape};
@@ -2119,8 +2102,6 @@ fn entire_company_has_unique_reachable_tavern_seats_across_page_wraps() {
                 rotating += 1;
                 assert!(alehouse::company_roll_call(page).contains(patron.label));
             }
-            // Sampling the moving cat across a full patrol also catches a
-            // nearer interaction stealing a recruit's exact standing point.
             for tick in [0, 1, 60, 300, 900, 1800, 3600] {
                 assert!(matches!(alehouse::spot_near_in(alehouse::patron_room(index), 
                     patron.at.0 * TILE_UNITS, patron.at.1 * TILE_UNITS, tick, page),

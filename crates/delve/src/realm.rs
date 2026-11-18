@@ -12,14 +12,6 @@ use std::collections::BTreeMap;
 
 pub const MAX_WISHES: usize = 64;
 
-/// What a delve yields. Each pack has its own; gold is everywhere; a bond is
-/// earned only by clearing a room with two knights standing. The relics of
-/// the deep (a hearthstone, a forgeheart, bellmetal, ledgerglass, a warhorn,
-/// a waystone) are found rarely below Dragon Keep and never bought: the
-/// great works at the realm's holdings each want one. A wishmote is what is
-/// left of a wish: a floor boss's fall gives one, and a delve's end turns the
-/// wishes left unspent into them (`overclass::Run::wishes_home`). It is what
-/// the kingdom is raised with (`raisings`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Spoil {
@@ -85,7 +77,6 @@ impl Spoil {
             .find(|s| s.word() == word.trim_end_matches('s'))
     }
 
-    /// Where it comes from, for a player deciding where to delve.
     pub fn source(self) -> &'static str {
         match self {
             Spoil::Gold => "anywhere",
@@ -101,7 +92,6 @@ impl Spoil {
         }
     }
 
-    /// Worth in gold, for a wish's floor price.
     pub fn worth(self) -> u32 {
         match self {
             Spoil::Gold => 1,
@@ -120,7 +110,6 @@ impl Spoil {
     }
 }
 
-/// An amount of each spoil.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Spoils(pub BTreeMap<Spoil, u32>);
 
@@ -146,7 +135,6 @@ impl Spoils {
         self.0.values().all(|&n| n == 0)
     }
 
-    /// Half of each, rounded down: what a wiped party carries home.
     pub fn half(&self) -> Spoils {
         Spoils(
             self.0
@@ -174,7 +162,6 @@ impl Spoils {
         self.0.iter().map(|(&s, &n)| s.worth() * n).sum()
     }
 
-    /// `12 bone · 3 wax · 150 gold`, in the order spoils are listed.
     pub fn label(&self) -> String {
         let parts: Vec<String> = Spoil::ALL
             .into_iter()
@@ -188,7 +175,6 @@ impl Spoils {
         }
     }
 
-    /// `need 4 more bone · 1 scale`, or empty when covered.
     pub fn shortfall(&self, price: &Spoils) -> String {
         let mut missing = Spoils::default();
         for (&s, &n) in &price.0 {
@@ -205,11 +191,8 @@ impl Spoils {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Status {
-    /// Plain words, waiting for the host's angelX to draft it.
     Asked,
-    /// Drafted with art and a price; waiting for the treasury.
     Drafted,
-    /// Paid for and standing in the realm.
     Built,
 }
 
@@ -217,31 +200,23 @@ pub enum Status {
 pub struct Wish {
     pub id: String,
     pub name: String,
-    /// The wish in the words of whoever made it.
     pub words: String,
     pub by: String,
     pub status: Status,
     #[serde(default)]
     pub price: Spoils,
-    /// Ink rows, at most 32 by 32.
     #[serde(default)]
     pub art: Vec<String>,
-    /// The overworld place it should stand near (`Place` name), if any.
     #[serde(default)]
     pub near: String,
-    /// Who paid what, once built.
     #[serde(default)]
     pub paid: Vec<(String, Spoils)>,
-    /// Built wishes keep the order they were raised in.
     #[serde(default)]
     pub raised: u32,
-    /// The tile a knight chose for it (`raisings`). Left out, the realm
-    /// finds it a lot near `near` (`world::wishes::lots`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lot: Option<(i32, i32)>,
 }
 
-/// One knight's spoils banked at once, with why.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Haul {
     pub hero: u32,
@@ -249,21 +224,15 @@ pub struct Haul {
     pub why: String,
 }
 
-/// A player's own knight, as their image model drew it (checked and
-/// normalised by the host).
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Avatar {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub source_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub animation: Option<appearance::Animation>,
-    /// 32×32 PNG for the arena.
     pub sprite: Vec<u8>,
-    /// 128×128 PNG for the player cards.
     pub portrait: Vec<u8>,
-    /// The sprite's most common colour, for the terminal arena.
     pub colour: [u8; 3],
-    /// Decoded, normalized sprite; avoids PNG decoding on every game frame.
     pub pixels: Vec<[u8; 4]>,
 }
 

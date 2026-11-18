@@ -10,11 +10,8 @@ use crate::render::world3d::mesh::Mesh;
 use crate::render::world3d::raster::View3;
 use crate::rules::griffinwing::trig::Det;
 
-/// The field of view every frame uses.
 pub const FOV: f32 = 1.12;
 
-/// An eye at `eye` looking along `heading` (yaw from +x, counter-clockwise)
-/// and `pitch` (up is positive), as the world sees it.
 #[derive(Clone, Copy, Debug)]
 pub struct Cam {
     pub eye: V3,
@@ -41,7 +38,6 @@ impl Cam {
         }
     }
 
-    /// A direction (a surface's normal) in the eye's frame.
     pub fn dir(&self, d: V3) -> V3 {
         let x1 = d.x * self.ch + d.y * self.sh;
         let y1 = -d.x * self.sh + d.y * self.ch;
@@ -52,12 +48,10 @@ impl Cam {
         )
     }
 
-    /// A world point in the eye's frame.
     pub fn point(&self, p: V3) -> V3 {
         self.dir(p - self.eye)
     }
 
-    /// The view the rasteriser is given: the eye's frame, looking down +x.
     pub fn view(&self) -> View3 {
         View3 {
             pos: V3::ZERO,
@@ -67,7 +61,6 @@ impl Cam {
         }
     }
 
-    /// The view the sky is painted from: where the eye really looks.
     pub fn sky_view(&self) -> View3 {
         View3 {
             pos: self.eye,
@@ -77,7 +70,6 @@ impl Cam {
         }
     }
 
-    /// `src` in the eye's frame, appended to `dst`.
     pub fn stage(&self, dst: &mut Mesh, src: &Mesh) {
         dst.tris.reserve(src.tris.len());
         for t in &src.tris {
@@ -108,7 +100,6 @@ mod tests {
                 (q.x - 10.0).abs() < 1e-4 && q.y.abs() < 1e-4 && q.z.abs() < 1e-4,
                 "{q:?}"
             );
-            // Up stays up and to the left stays left of the eye's line.
             let left = eye + v3(-sh, ch, 0.0) * 2.0;
             assert!((cam.point(left).y - 2.0).abs() < 1e-4);
         }

@@ -41,7 +41,6 @@ pub(crate) use crate::agent::tools::web::{
     maybe_register_grok_research, maybe_register_http_request, maybe_register_web_fetch,
     maybe_register_web_search,
 };
-// Re-exported for the reinforce loop, which scores on these verifiable signals.
 pub use crate::agent::tools::build::{TestOutcome, parse_lint, parse_test_result};
 pub(crate) use serde_json::Value;
 pub(crate) use std::collections::HashMap;

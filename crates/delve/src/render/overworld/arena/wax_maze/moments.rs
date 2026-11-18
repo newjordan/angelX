@@ -12,22 +12,17 @@ use crate::rules::folly::{MAZE_TIME, TITLE, Temper, WaxMaze};
 use crate::rules::wax_show::{Cry, SHOUT_LIFE, Shout, TOUCH_LIFE};
 use crate::rules::{HZ, Run, TILE_UNITS};
 
-/// Ticks a flying number takes to reach the strip, from the catch.
 pub(super) const FLY: u32 = 27;
-/// Ticks each of 3, 2 and 1 shows, and the first one's start.
 const BEAT: u32 = 12;
 const FIRST: u32 = TITLE - 3 * BEAT + 1;
-/// Ticks GO shows.
 pub(super) const GO: u32 = 28;
 
-/// The title, its two plain words and the countdown, over the view.
 pub(super) fn opening(over: &mut Img, maze: &WaxMaze, tick: u32) {
     let t = maze.t;
     if t >= TITLE + GO {
         return;
     }
     if t < TITLE {
-        // The view dims behind the title, and clears as the numbers come.
         let k = if t < FIRST { 0.55 } else { 0.55 * (1.0 - (t - FIRST) as f32 / 12.0).max(0.0) };
         for y in 0..NATIVE_H {
             for x in 0..NATIVE_W {
@@ -39,7 +34,6 @@ pub(super) fn opening(over: &mut Img, maze: &WaxMaze, tick: u32) {
         if t < FIRST + 6 {
             juice::banner(over, 36, "THE WAX MAZE", "", t, FIRST + 6, Tone::Warm, 3);
         }
-        // Two plain words, each with its picture.
         if (6..FIRST).contains(&t) {
             let fade = 1.0 - ((t as f32 - 6.0) / 6.0).clamp(0.0, 1.0);
             let mut eat = juice::big_text_img("EAT", 2, 'T', 'B');
@@ -82,9 +76,6 @@ fn words(cry: Cry) -> &'static str {
     }
 }
 
-/// The banner: the loudest call of the newest moment, big, under the strip;
-/// under it a line of small words: whose it is (not yours) and the other
-/// calls the same moment made.
 pub(super) fn callouts(over: &mut Img, run: &Run, maze: &WaxMaze, focus: Option<u32>, now: u32) {
     let mut calls: Vec<Shout> = maze.show.shouts.iter().copied().filter(|c| now.saturating_sub(c.born) < SHOUT_LIFE).collect();
     calls.sort_by_key(|c| (std::cmp::Reverse(c.born), std::cmp::Reverse(c.cry.rank())));
@@ -110,8 +101,6 @@ pub(super) fn callouts(over: &mut Img, run: &Run, maze: &WaxMaze, focus: Option<
     juice::banner(over, 46, title, &sub.join("  "), now.saturating_sub(top.born), SHOUT_LIFE, tone, cap);
 }
 
-/// What flies to the strip: a wraith caught's worth, and, for the seat
-/// looking, a crumb off each drop they eat.
 pub(super) fn fly_ups(over: &mut Img, maze: &WaxMaze, focus: Option<u32>, (ox, oy): (i32, i32), cols: i32, now: u32) {
     for c in &maze.show.catches {
         let age = now.saturating_sub(c.born);
@@ -140,8 +129,6 @@ pub(super) fn fly_ups(over: &mut Img, maze: &WaxMaze, focus: Option<u32>, (ox, o
     }
 }
 
-/// The danger of a wraith closing on the seat looking, as a dithered red
-/// rim that pulses faster the closer it comes; and the sting of a touch.
 pub(super) fn danger(over: &mut Img, run: &Run, maze: &WaxMaze, focus: Option<u32>, now: u32) {
     let Some(me) = focus else { return };
     for t in maze.show.touches.iter().filter(|t| u32::from(t.who) == me) {
@@ -172,8 +159,6 @@ pub(super) fn danger(over: &mut Img, run: &Run, maze: &WaxMaze, focus: Option<u3
     }
 }
 
-/// The holy water's cold rim while the wraiths are pale, flashing as it
-/// wears off; and the flash of the flask being drunk.
 pub(super) fn pale_rim(over: &mut Img, maze: &WaxMaze, now: u32) {
     if maze.pale > 0 && !maze.done {
         let flash = maze.warning() && now / 4 % 2 == 0;
@@ -194,7 +179,6 @@ pub(super) fn pale_rim(over: &mut Img, maze: &WaxMaze, now: u32) {
     }
 }
 
-/// The candle's last five seconds, one big number a second, slammed in.
 pub(super) fn last_seconds(over: &mut Img, maze: &WaxMaze) {
     if maze.done || maze.titled() || maze.left() > 5 {
         return;

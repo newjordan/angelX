@@ -17,10 +17,8 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// The install receipt, in the plugin's folder.
 pub(crate) const RECEIPT: &str = ".angelx-plugin.toml";
 
-/// What a registry install recorded.
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Receipt {
@@ -31,14 +29,10 @@ pub(crate) struct Receipt {
     #[serde(default)]
     pub(crate) path: String,
     pub(crate) sha256: String,
-    /// The registry the entry came from.
     pub(crate) registry: String,
-    /// Seconds since the epoch.
     pub(crate) installed: u64,
-    /// Whether the last setup finished; absent when there is no setup.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) setup_ok: Option<bool>,
-    /// The files the install wrote, relative to the folder.
     pub(crate) files: Vec<String>,
 }
 
@@ -53,24 +47,18 @@ impl Receipt {
     }
 }
 
-/// How a plugin in the cartridge folder got there.
 #[derive(Clone, Debug)]
 pub(crate) enum Origin {
-    /// From a registry; its receipt.
     Registry(Receipt),
-    /// `angelX plugin link`: a symlink to a folder being worked on.
     Linked(PathBuf),
-    /// Put there by hand or by a cartridge's own install script.
     Placed,
 }
 
-/// One cartridge in the plugin folder.
 #[derive(Clone, Debug)]
 pub(crate) struct Installed {
     pub(crate) id: String,
     pub(crate) folder: PathBuf,
     pub(crate) origin: Origin,
-    /// Its `cartridge.toml`, or why it does not load.
     pub(crate) config: Result<Config, String>,
 }
 
@@ -86,7 +74,6 @@ impl Installed {
     }
 }
 
-/// Every cartridge folder under `paths.cartridges`, by id.
 pub(crate) fn installed(paths: &Paths) -> Vec<Installed> {
     let Ok(listing) = std::fs::read_dir(&paths.cartridges) else {
         return Vec::new();
@@ -103,13 +90,10 @@ pub(crate) fn installed(paths: &Paths) -> Vec<Installed> {
     found
 }
 
-/// A name that is one folder directly in the plugin folder: no separators,
-/// nothing hidden, not `.` or `..`.
 pub(crate) fn folder_name(id: &str) -> bool {
     !id.is_empty() && !id.starts_with('.') && !id.contains(['/', '\\', '\0'])
 }
 
-/// The cartridge `id` in the plugin folder, if there is one.
 pub(crate) fn find(paths: &Paths, id: &str) -> Option<Installed> {
     if !folder_name(id) {
         return None;
@@ -138,9 +122,6 @@ fn describe(id: &str, folder: &Path) -> Installed {
     }
 }
 
-/// A scratch folder, removed when dropped. It sits in the plugin folder's
-/// `.staging` (no cartridge.toml of its own, so the loader passes over it),
-/// on the same filesystem as the installs it becomes.
 pub(crate) struct Staging(PathBuf);
 
 impl Staging {
@@ -167,18 +148,14 @@ impl Drop for Staging {
     }
 }
 
-/// A plugin fetched and verified, not yet installed.
 pub(crate) struct Fetched {
     pub(crate) staging: Staging,
-    /// Its files, written out under the staging folder.
     pub(crate) folder: PathBuf,
     pub(crate) files: Vec<File>,
     pub(crate) config: Config,
     pub(crate) report: check::Report,
 }
 
-/// Fetch `entry`'s folder at its commit, check the digest, write the files
-/// out and check that they load as the entry says. Nothing in them runs.
 pub(crate) fn fetch(
     paths: &Paths,
     entry: &Entry,
@@ -260,30 +237,22 @@ pub(crate) fn fetch(
     })
 }
 
-/// Where a setup's output goes: the terminal, or the cockpit's job panel.
 pub(crate) enum Output<'a> {
     Inherit,
     Sink(&'a (dyn Fn(&[u8]) + Send + Sync)),
 }
 
-/// How an install went.
 #[derive(Debug)]
 pub(crate) struct Outcome {
     pub(crate) id: String,
     pub(crate) folder: PathBuf,
-    /// The version it replaced, on an update.
     pub(crate) replaced: Option<String>,
     pub(crate) version: String,
     pub(crate) config: Config,
-    /// `Some(Err)` when the setup failed; the files stay in place.
     pub(crate) setup: Option<Result<(), String>>,
-    /// Anything else the operator should know.
     pub(crate) notes: Vec<String>,
 }
 
-/// Install `entry` from `registry` into the plugin folder, replacing a
-/// previous registry install of it. `force` also replaces a linked or
-/// hand-placed cartridge of that id. The setup runs unless `skip_setup`.
 pub(crate) fn install(
     paths: &Paths,
     entry: &Entry,
@@ -353,9 +322,6 @@ pub(crate) fn install(
         .map_err(|e| format!("{}: {e}", paths.cartridges.display()))?;
     let aside = swap(&fetched.folder, &dest, fetched.staging.path())?;
     let mut notes = Vec::new();
-    // Carry over what the old install's setup made: everything in its folder
-    // that the old files list does not name and the new tree does not hold.
-    // What cannot move is kept beside the plugins, never dropped.
     if let (Some(old), Some(aside)) = (&old_receipt, &aside) {
         let ours: BTreeSet<&str> = old.files.iter().map(String::as_str).collect();
         let theirs: BTreeSet<&str> = files.iter().map(String::as_str).collect();
@@ -392,7 +358,6 @@ pub(crate) fn install(
     Ok(outcome)
 }
 
-/// Move into `new` what `old` held beyond its install's own files.
 fn carry(
     old: &Path,
     new: &Path,
@@ -438,9 +403,6 @@ fn carry(
     Ok(())
 }
 
-/// Put `new` at `dest`, moving whatever was there aside into `staging` first.
-/// Put `new` at `dest`, moving whatever was there aside into `staging`
-/// first; returns where it went. On failure the old folder is put back.
 fn swap(new: &Path, dest: &Path, staging: &Path) -> Result<Option<PathBuf>, String> {
     let aside = staging.join("previous");
     let had = std::fs::symlink_metadata(dest).is_ok();
@@ -457,8 +419,6 @@ fn swap(new: &Path, dest: &Path, staging: &Path) -> Result<Option<PathBuf>, Stri
     Ok(had.then_some(aside))
 }
 
-/// Run a plugin's setup in its folder: `<setup> <folder>`, with
-/// `ANGEL_CARTRIDGE_DIR` set to the folder.
 pub(crate) fn run_setup(
     folder: &Path,
     config: &Config,
@@ -565,7 +525,6 @@ fn wait(
     }
 }
 
-/// Run the setup of an installed plugin again.
 pub(crate) fn setup_again(
     paths: &Paths,
     id: &str,
@@ -591,8 +550,6 @@ pub(crate) fn setup_again(
     result.map(|()| format!("{id}: setup finished"))
 }
 
-/// Remove an installed plugin: a registry install's folder, or a link (never
-/// what it points to). `force` also removes a hand-placed cartridge.
 pub(crate) fn remove(paths: &Paths, id: &str, force: bool) -> Result<String, String> {
     if !folder_name(id) {
         return Err(format!("`{id}` is not a plugin id"));
@@ -620,8 +577,6 @@ pub(crate) fn remove(paths: &Paths, id: &str, force: bool) -> Result<String, Str
     }
 }
 
-/// Link the plugin being worked on at `dir` into the plugin folder, so angelX
-/// loads it from where it is edited.
 pub(crate) fn link(
     paths: &Paths,
     dir: &Path,
@@ -682,7 +637,6 @@ pub(crate) fn link(
     ))
 }
 
-/// The first 12 characters of a commit id.
 pub(crate) fn short(commit: &str) -> &str {
     &commit[..commit.len().min(12)]
 }

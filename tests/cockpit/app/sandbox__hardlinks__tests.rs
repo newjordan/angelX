@@ -1,6 +1,3 @@
-/// This module compiles into both the cockpit and the `angel-sandbox` helper,
-/// where it sits at a different path, so the libtest `--exact` filter for a
-/// sibling test is derived from `module_path!()` rather than hard-coded.
 macro_rules! self_test_filter {
     ($name:literal) => {
         format!(
@@ -145,7 +142,6 @@ fn complete_internal_alias_groups_remain_writable_but_external_aliases_do_not() 
     assert_eq!(partial_grant.paths, vec![external.clone(), local.clone()]);
     let whole_grant = scan(&[first.clone(), second]).unwrap();
     assert_eq!(whole_grant.paths, vec![external]);
-    // A bounded/incomplete walk cannot infer that unseen aliases are local.
     let incomplete = scan_with_limit(&[local], 1).unwrap();
     assert_eq!(incomplete.paths.len(), 1);
 }

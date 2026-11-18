@@ -10,7 +10,6 @@ use super::kingdom::step_cost;
 use super::map::{MAP_H, MAP_W, Place};
 use super::{college, wishes};
 
-/// Where a door leads.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Door {
     Place(Place),
@@ -20,7 +19,6 @@ pub enum Door {
 }
 
 impl Door {
-    /// The name on its sign.
     pub fn sign(self) -> String {
         match self {
             Door::Place(place) => place.label().to_string(),
@@ -30,7 +28,6 @@ impl Door {
         }
     }
 
-    /// The name in plain words, for a caption.
     pub fn name(self) -> String {
         match self {
             Door::Castle(id) => houses::get(id).castle.clone(),
@@ -38,8 +35,6 @@ impl Door {
         }
     }
 
-    /// What stands behind the door, in realm tiles: a click on it walks
-    /// him to the door.
     pub fn footprint(self) -> (i32, i32, i32, i32) {
         match self {
             Door::Place(place) => place.footprint_world(),
@@ -56,7 +51,6 @@ impl Door {
     }
 }
 
-/// `THE LISTS` as `The Lists`.
 fn title_case(text: &str) -> String {
     text.split(' ')
         .map(|word| {
@@ -72,14 +66,9 @@ fn title_case(text: &str) -> String {
         .join(" ")
 }
 
-/// Every door in the realm, with the tile in front of it. A door no road
-/// reaches opens from the walkable ground across from what stands behind
-/// it, nearest and level with it.
 pub fn doors() -> &'static [((i32, i32), Door)] {
     static DOORS: OnceLock<Vec<((i32, i32), Door)>> = OnceLock::new();
     DOORS.get_or_init(|| {
-        // The blank-slate plan has the way down to the Delve and nothing else:
-        // the tiny Keep and the camps are not doors.
         if super::plan::tabula() {
             return vec![(wishes::delve_stand(), Door::Delve)];
         }
@@ -102,7 +91,6 @@ pub fn doors() -> &'static [((i32, i32), Door)] {
     })
 }
 
-/// Every tile the roads reach from the Keep: the ground he can walk.
 fn reached() -> &'static [bool] {
     static REACHED: OnceLock<Vec<bool>> = OnceLock::new();
     REACHED.get_or_init(|| {
@@ -123,13 +111,10 @@ fn reached() -> &'static [bool] {
     })
 }
 
-/// Whether the roads reach `tile`.
 pub fn walkable((x, y): (i32, i32)) -> bool {
     x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && reached()[(y * MAP_W + x) as usize]
 }
 
-/// The walkable ground across from `tile`: nearest it, and level with it
-/// before above or below it, since the map is wider than it is tall.
 pub fn across_from(tile: (i32, i32)) -> Option<(i32, i32)> {
     (0..MAP_H)
         .flat_map(|y| (0..MAP_W).map(move |x| (x, y)))

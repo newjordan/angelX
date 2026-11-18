@@ -115,8 +115,6 @@ impl App {
         true
     }
 
-    /// Reuse project-bound loop evidence. Checkpoints are observations, never
-    /// inferred candidate scores or new reward labels.
     pub(crate) fn refresh_research(&mut self) -> String {
         self.ensure_research_session();
         if !self.research.needs_refresh() {
@@ -338,8 +336,6 @@ impl App {
             }
         }
         self.research.project(extra);
-        // A competition seat's typed journal measurements grow the garden's
-        // competition plot; each receipt plots once.
         self.realm.measured(&|| {
             if crate::agent::harness::competition_mode_active(&self.history) {
                 self.research

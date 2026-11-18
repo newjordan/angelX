@@ -11,24 +11,12 @@ use angel_net::knob::{self, Knob, Side};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-/// The engine's server knobs: how many ticks apart snapshots go out.
-///
-/// **The input queue's seam.** The per-seat command queue's numbers
-/// (`angel_net::cmd`) are not knobs yet: when they become fields a queue
-/// can be given, they are listed here beside `snapshot_every`, and
-/// `Engine::set` hands a new value to every seat's queue
-/// (`sim::Stepper::set_engine_knob`), as it hands `snapshot_every` to the
-/// sim and the writers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Engine {
-    /// Ticks between snapshots: `tick_hz / snapshot_hz` until moved.
     pub snapshot_every: u32,
-    /// What the game's rates said, the knob's default.
     pub snapshot_every_default: u32,
 }
 
-/// The most ticks between two snapshots a slider reaches: a tenth of a
-/// second at a 60 Hz tick, a fifth at 30.
 const MAX_SNAPSHOT_EVERY: u32 = 6;
 
 impl Engine {
@@ -52,7 +40,6 @@ impl Engine {
         ]
     }
 
-    /// Set one of the engine's knobs (already fitted): whether it is one.
     pub fn set(&mut self, name: &str, value: f64) -> bool {
         match name {
             "snapshot_every" => {
@@ -64,7 +51,6 @@ impl Engine {
     }
 }
 
-/// A tune file: `{"name": value, ...}`, the knobs moved from their defaults.
 pub(crate) fn file_json(knobs: &[Knob]) -> String {
     let mut out = String::from("{");
     let mut first = true;
@@ -82,9 +68,6 @@ pub(crate) fn file_json(knobs: &[Knob]) -> String {
     out
 }
 
-/// A tune file's numbers, by name: a flat JSON object of names and numbers.
-/// Anything else in it is skipped, never an error: a file from another
-/// build keeps what still reads.
 pub(crate) fn read_file(text: &str) -> Vec<(String, f64)> {
     let body = text.trim();
     let Some(body) = body.strip_prefix('{').and_then(|b| b.strip_suffix('}')) else {
@@ -100,15 +83,10 @@ pub(crate) fn read_file(text: &str) -> Vec<(String, f64)> {
         .collect()
 }
 
-/// Read a tune file; nothing when there is none or it does not read.
 pub(crate) fn load(path: &Path) -> Vec<(String, f64)> {
     std::fs::read_to_string(path).map(|t| read_file(&t)).unwrap_or_default()
 }
 
-/// Write a tune file off the sim's thread (a knob moves seldom, and a disk
-/// may be slow), whole or not at all. Writes take turns under `written`,
-/// which holds the newest `generation` on disk: a write that lost the race
-/// to a newer one is dropped, so the file ends as the last move left it.
 pub(crate) fn save(path: PathBuf, json: String, generation: u64, written: Arc<Mutex<u64>>) {
     let _ = std::thread::Builder::new().name("angel-tune".into()).spawn(move || {
         let mut newest = written.lock().unwrap_or_else(|p| p.into_inner());

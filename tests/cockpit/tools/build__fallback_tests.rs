@@ -240,8 +240,6 @@ fn c05e_cargo_selector_arguments_preserve_libtest_boundary() {
         "Cargo.toml",
         "[package]\nname='selector'\nversion='0.1.0'\n",
     );
-    // Registry-pinned control handling is covered separately; this checks
-    // selection forwarding independently of ancestor toolchain controls.
     let _yolo = TestEnvGuard::set("ANGEL_YOLO", "1");
     for extra in [
         "policy_fern",
@@ -275,8 +273,6 @@ fn launcher_hardlink_line_never_reaches_a_receipt() {
         super::strip_launcher_stderr(&format!("{helper}{program}")),
         program
     );
-    // Only the leading protocol line is launcher data; later text is the
-    // program's own and stays verbatim.
     let later = format!("{program}{helper}");
     assert_eq!(super::strip_launcher_stderr(&later), later);
     assert_eq!(super::strip_launcher_stderr(""), "");
@@ -285,10 +281,6 @@ fn launcher_hardlink_line_never_reaches_a_receipt() {
     assert_eq!(super::strip_launcher_stderr(helper_no_newline), "");
 }
 
-/// Interactive turns get a foreground process cap only when the operator sets
-/// one. Headless task mode defaults to 120 s so a hung command cannot hold the
-/// call until the evaluator's wall; the new knob wins over the deprecated
-/// fallback and `0` turns the cap off.
 #[test]
 fn task_call_budget_defaults_in_task_mode_only() {
     use std::time::Duration;
@@ -331,9 +323,6 @@ fn task_call_budget_defaults_in_task_mode_only() {
     }
 }
 
-/// A suite killed at its budget names the tests that never finished, so the
-/// model can fix the loop instead of re-running the same hang. Observed on
-/// polyglot-v1 rust-decimal: every test touching zero spun forever.
 #[test]
 fn hung_suite_report_names_the_tests_that_never_finished() {
     let report = "tests: timed out after 180s — process group killed\n\
@@ -346,7 +335,6 @@ fn hung_suite_report_names_the_tests_that_never_finished() {
         text.contains("2 test(s) were still running: add_id, eq."),
         "{text}"
     );
-    // Where to look is the `⠨⠓` page on its own line.
     let hung = crate::agent::harness::book::d46_recovery::HUNG_SUITE;
     assert!(text.lines().any(|line| line == hung.cells()), "{text}");
     assert!(hung.text().contains("legitimate slow tests"));
@@ -388,7 +376,6 @@ fn cmake_project(name: &str, main: &str) -> std::path::PathBuf {
     root
 }
 
-/// run_tests runs a CMake project's registered tests: configure, build, ctest.
 #[test]
 fn run_tests_runs_a_cmake_project() {
     if !cmake_available() {
@@ -411,8 +398,6 @@ fn run_tests_runs_a_cmake_project() {
     let _ = std::fs::remove_dir_all(red);
 }
 
-/// A build that runs its own tests (Exercism's C++ track) fails at the build
-/// step, and CTest having nothing registered does not turn that green.
 #[test]
 fn run_tests_fails_a_cmake_build_whose_own_tests_fail() {
     if !cmake_available() {
@@ -440,9 +425,6 @@ fn run_tests_fails_a_cmake_build_whose_own_tests_fail() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A pin is read off the start-up path, but it is of the image captured: a
-/// path replaced before the read finishes pins the original bytes or fails
-/// closed, and the replacement always fails revalidation.
 #[cfg(unix)]
 #[test]
 fn a_deferred_pin_hashes_the_captured_image_and_rejects_its_replacement() {
@@ -455,13 +437,10 @@ fn a_deferred_pin_hashes_the_captured_image_and_rejects_its_replacement() {
     std::fs::set_permissions(&tool, std::fs::Permissions::from_mode(0o755)).unwrap();
     let original = crate::knowledge::cut::sha256_hex(&std::fs::read(&tool).unwrap());
     let pinned = super::capture_executable(tool.clone(), "deferred pin").unwrap();
-    // Replace the path (a new inode) while the digest may still be pending.
     let replacement = root.join("replacement");
     std::fs::write(&replacement, "#!/bin/sh\nprintf 'swapped!\\n'\n").unwrap();
     std::fs::set_permissions(&replacement, std::fs::Permissions::from_mode(0o755)).unwrap();
     std::fs::rename(&replacement, &tool).unwrap();
-    // Either the read finished first and pinned the original bytes, or it saw
-    // the captured inode unlinked mid-pin and failed closed; never the swap.
     match pinned.digest() {
         Ok(digest) => assert_eq!(digest.map(String::as_str), Some(original.as_str())),
         Err(error) => assert!(error.contains("changed while being pinned"), "{error}"),
@@ -470,15 +449,12 @@ fn a_deferred_pin_hashes_the_captured_image_and_rejects_its_replacement() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// No pin captured before a dispatch is still pending when the tool runs.
 #[test]
 fn a_dispatch_settles_every_pending_pin() {
     let _lock = crate::tests::env_lock();
     let workspace = std::env::temp_dir().join(format!("angel-pin-settle-{}", std::process::id()));
     std::fs::create_dir_all(&workspace).unwrap();
     let registry = crate::agent::harness::ToolRegistry::with_team(workspace.clone(), Vec::new());
-    // PENDING_PINS is process-global and parallel tests keep capturing pins,
-    // so judge only the digests that existed before this dispatch.
     let captured: Vec<_> = super::PENDING_PINS
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())

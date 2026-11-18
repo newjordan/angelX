@@ -14,20 +14,12 @@ pub enum Thing {
     Bucket,
     Stocks,
     Goose,
-    /// A coach post: E rides, with every friend near, to the next post round
-    /// the realm.
     Coach,
-    /// The town crier: E and he cries an errand that wants doing, and the
-    /// goal arrow points the way.
     Crier,
-    /// The Great Shaft's winch beside the Delve's gate: E reads the shaft's
-    /// ledger, and a second E soon after pays to raise it a tier
-    /// (`stockyard`).
     Winch,
 }
 
 impl Thing {
-    /// What E does, in a word, for the hint beside it.
     pub fn verb(self) -> &'static str {
         match self {
             Thing::Bell => "RING",
@@ -43,7 +35,6 @@ impl Thing {
     }
 }
 
-/// Which thing stands beside which place's door.
 const PLACED: [(Thing, &str); 17] = [
     (Thing::Bell, "Chapel"),
     (Thing::Well, "Village"),
@@ -55,19 +46,15 @@ const PLACED: [(Thing, &str); 17] = [
     (Thing::Crier, "Keep"),
     (Thing::Stocks, "Village"),
     (Thing::Goose, "Picnic Green"),
-    // The coach round, in riding order; the last runs back to the first.
     (Thing::Coach, "Keep"),
     (Thing::Coach, "Village"),
     (Thing::Coach, "Horse Ranch"),
     (Thing::Coach, "Colosseum"),
     (Thing::Coach, "Labyrinth College"),
     (Thing::Coach, "Delve"),
-    // Last, so every thing before it keeps its place in the kingdom's books.
     (Thing::Winch, "Delve"),
 ];
 
-/// The next coach post after post `i` (an index into `things`), its spot
-/// and the place it stands by.
 pub fn next_coach(geo: &map::Geography, i: usize) -> Option<(usize, (i32, i32), &'static str)> {
     let all = placed(geo);
     let posts: Vec<usize> = (0..all.len()).filter(|&k| all[k].0 == Thing::Coach).collect();
@@ -76,19 +63,13 @@ pub fn next_coach(geo: &map::Geography, i: usize) -> Option<(usize, (i32, i32), 
     Some((next, all[next].2, all[next].1))
 }
 
-/// How long an honked goose gives chase, and how fast (units a second).
 pub const GOOSE_CHASE: u64 = 3 * HZ as u64;
 pub const GOOSE_SPEED: f32 = 15.0;
 
-/// How long after a first press at the winch a second one pays, in ticks.
 pub const WINCH_ASK: u64 = 5 * HZ as u64;
-/// How near (tiles) a knight stands to use a thing.
 pub const REACH: f32 = 1.5;
-/// A bench mends one point every this many ticks.
 pub const BENCH_MEND: u64 = HZ as u64;
-/// Two bows within this many ticks are a huzzah.
 pub const BOW_WINDOW: u64 = 2 * HZ as u64;
-/// How long a thing's moment shows (a toll's rings, a bucket's flight).
 pub const MOMENT: u64 = HZ as u64;
 
 const FORTUNES: [&str; 8] = [
@@ -102,13 +83,10 @@ const FORTUNES: [&str; 8] = [
     "SIT DOWN MORE",
 ];
 
-/// Every thing on the kingdom map (tiles): open ground beside its place's
-/// door, clear of every door and every class banner.
 pub fn things(geo: &map::Geography) -> Vec<(Thing, (i32, i32))> {
     placed(geo).into_iter().map(|(thing, _, at)| (thing, at)).collect()
 }
 
-/// Every thing with the place it stands beside.
 pub fn placed(geo: &map::Geography) -> Vec<(Thing, &'static str, (i32, i32))> {
     let banners: Vec<(i32, i32)> = super::classes::stones(geo).into_iter().map(|(_, p)| p).collect();
     let mut placed: Vec<(Thing, &'static str, (i32, i32))> = Vec::new();
@@ -124,10 +102,6 @@ pub fn placed(geo: &map::Geography) -> Vec<(Thing, &'static str, (i32, i32))> {
                 && geo.sites.iter().all(|s| (s.stand.0 - px).abs() + (s.stand.1 - py).abs() > 2)
                 && banners.iter().chain(placed.iter().map(|(_, _, p)| p)).all(|b| (b.0 - px).abs() + (b.1 - py).abs() > 3)
         };
-        // On the blank-slate map the winch stands at the far end of the Great
-        // Shaft's yard pocket (`quarrying::yard_spot`), up from the teachers
-        // who stand in rows south of the gate's mouth, so a knight who is only
-        // setting a block down does not stand in its ledger.
         let fixed = (thing == Thing::Winch && crate::world::plan::tabula()).then_some((x - 5, y - 2));
         let spot = fixed.or_else(|| {
             [(-3, 1), (3, 1), (-4, 1), (4, 1), (-2, 2), (2, 2), (-5, 0), (5, 0), (0, 3), (-3, 3), (3, 3)]
@@ -143,21 +117,14 @@ pub fn placed(geo: &map::Geography) -> Vec<(Thing, &'static str, (i32, i32))> {
     placed
 }
 
-/// What the kingdom's things are doing: when each was last used (by its
-/// index in `things`), and each knight's last bow.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Moments {
     pub used: BTreeMap<u8, u64>,
     pub bows: BTreeMap<u32, u64>,
-    /// The last fortune the well told, for its board.
     pub fortune: u8,
-    /// The goose, when honked at: who it is after and since when, and where
-    /// it has got to (units).
     pub goose: Option<(u32, u64)>,
     pub goose_at: Option<(i32, i32)>,
-    /// The errand the crier last cried: its place, until the party gets
-    /// there; and which errand he cries next.
     pub errand: Option<RoomKind>,
     pub cried: u8,
 }
@@ -171,21 +138,17 @@ impl Moments {
             && usize::from(self.fortune) < FORTUNES.len()
             && self.goose.is_none_or(|(id, _)| (1..=MAX_PLAYERS).contains(&id))
     }
-    /// The fortune the well last told.
     pub fn told(&self) -> &'static str {
         FORTUNES[usize::from(self.fortune) % FORTUNES.len()]
     }
 }
 
 impl Run {
-    /// A fresh press of E by knight `id` that no banner took: a thing beside
-    /// them, or a bow. Returns whether anything happened.
     pub(super) fn use_trinket(&mut self, id: u32, geo: &map::Geography) -> bool {
         let Some(hero) = self.players.get(&id) else {
             return false;
         };
         let (hx, hy) = (hero.x, hero.y);
-        // A traveller on the road in reach is spoken to before a bell is rung.
         if self.use_wayfarer(id) {
             return true;
         }
@@ -254,8 +217,6 @@ impl Run {
                     self.sounds.push("circle_toll");
                 }
                 Thing::Winch => {
-                    // The first press reads the ledger; a second within a
-                    // few seconds pays.
                     let asked = prior.is_some_and(|at| tick.saturating_sub(at) <= WINCH_ASK);
                     let line = match self.shaft_next() {
                         None => format!(
@@ -274,10 +235,6 @@ impl Run {
                 }
                 Thing::Coach => {
                     if let Some((next, (cx, cy), place)) = next_coach(geo, i) {
-                        // The knight, and every living friend within the
-                        // coach's reach of its post, ride together and step
-                        // down side by side (the waystations' coaches do the
-                        // same, `waystation`).
                         let post = things(geo)[i].1;
                         let (px, py) = ((post.0 as f32 + 0.5) * TILE_UNITS, (post.1 as f32 + 0.5) * TILE_UNITS);
                         let riders: Vec<u32> = self
@@ -313,7 +270,6 @@ impl Run {
         if self.use_find(id) {
             return true;
         }
-        // A bow to the nearest friend in reach; a bow back is a huzzah.
         let friend = self
             .players
             .iter()
@@ -341,8 +297,6 @@ impl Run {
         true
     }
 
-    /// Benches mend a sitter slowly; any step stands them up. The stocks
-    /// let go off the surface. An honked goose gives chase.
     pub(super) fn tick_sitters(&mut self, inputs: &BTreeMap<u32, Input>) {
         let mend = self.tick % BENCH_MEND == 0;
         let kingdom = self.room().kind == RoomKind::Kingdom;
@@ -370,8 +324,6 @@ impl Run {
 }
 
 impl Run {
-    /// The run's finds out in the open country that stand clear of the
-    /// party's wishes (a wish raised on one hides it), with their index.
     pub fn standing_finds(&self) -> Vec<(usize, crate::world::finds::Find)> {
         let lots = crate::world::wishes::lots(&self.kingdom.wishes);
         crate::world::finds::finds(self.seed)
@@ -382,12 +334,6 @@ impl Run {
             .collect()
     }
 
-    /// E by one of the run's finds (`crate::world::finds`): a shrine mends,
-    /// a ruin or a cave gives up its cache once, a wanderer tells of a find
-    /// nobody has made, stones hum, a lost pack holds a card or a
-    /// consumable, a hermit trades a scroll for a potion, a well takes a
-    /// coin of renown for a small boon (each once a run). Returns whether
-    /// there was one.
     fn use_find(&mut self, id: u32) -> bool {
         use crate::world::finds::{CACHE, COIN, Kind, REACH};
         let Some(hero) = self.players.get(&id) else {
@@ -402,8 +348,6 @@ impl Run {
         };
         let tick = self.tick;
         let first = self.kingdom.found & (1 << i) == 0;
-        // Whether this use counts as the find made (a hermit with nothing
-        // to trade, a well with nothing to give, are tried again).
         let mut made = true;
         let line = match find.kind {
             Kind::Shrine => {
@@ -438,7 +382,6 @@ impl Run {
                 "THE STONES HUM".to_string()
             }
             Kind::LostPack if first => {
-                // What the pack held rests on where it lies.
                 let which = (find.at.0 + 3 * find.at.1).rem_euclid(3);
                 let Some(hero) = self.players.get_mut(&id) else {
                     return false;
@@ -484,8 +427,6 @@ impl Run {
                 let Some(hero) = self.players.get_mut(&id) else {
                     return false;
                 };
-                // A mend, a potion or a bomb, in turn from where it stands,
-                // whichever the knight can use; none, and no coin is taken.
                 let mut boon = None;
                 for k in 0..3 {
                     boon = match (i + k) % 3 {
@@ -524,13 +465,10 @@ impl Run {
         true
     }
 
-    /// Every countryside errand that still wants doing: its place, and what
-    /// the crier calls about it.
     pub fn open_errands(&self) -> Vec<(RoomKind, &'static str)> {
         use super::countryside::{self as c, FORECAST, LAMPS, PICNIC, RELICS, SURVEY};
         let country = &self.home.countryside;
         let mut open = Vec::new();
-        // The dwarf king's first mission sends the knights to his Mines.
         let barony = &self.home.barony;
         if matches!(barony.court, super::barony::Court::Met | super::barony::Court::Sworn)
             && !barony.done.iter().any(|m| m == "workings")
@@ -562,7 +500,6 @@ impl Run {
         if let Some(&(room, _)) = FORECAST.get(forecast).filter(|_| forecast < 5) {
             open.push((room, "THE WEATHER CLERK IS STUCK"));
         }
-        // The scarecrow on strike, then each piece of his still out.
         let (wardrobe, found) = super::bowcountry::progress(country, &self.marks);
         match wardrobe {
             0 => open.push((RoomKind::Scarecrow, "THE SCARECROW HAS QUIT")),
@@ -581,8 +518,6 @@ impl Run {
 }
 
 impl Run {
-    /// The goose's own spot by its green, where it waddles when nobody has
-    /// honked at it.
     fn goose_home(&self) -> Option<(f32, f32)> {
         let geo = map::geography(&self.kingdom.wishes);
         let (_, (x, y)) = things(&geo).into_iter().find(|(t, _)| *t == Thing::Goose)?;
@@ -590,8 +525,6 @@ impl Run {
         Some(((x as f32 + 0.5 + phase.cos()) * TILE_UNITS, (y as f32 + 0.5 + phase.sin() * 0.5) * TILE_UNITS))
     }
 
-    /// Chasing: straight at the knight who honked, and a peck that shoves
-    /// them when it catches up; then back to its green.
     fn tick_goose(&mut self) {
         let Some(home) = self.goose_home() else {
             return;
@@ -615,7 +548,6 @@ impl Run {
         if let Some((id, x, y)) = chase
             && (next.0 - x).hypot(next.1 - y) < HERO_RADIUS + 0.5
         {
-            // A peck: the knight hops a pace away, and the goose is satisfied.
             if let Some(hero) = self.players.get_mut(&id) {
                 let (ux, uy) = if d > 0.01 { (dx / d, dy / d) } else { (1.0, 0.0) };
                 let geo = map::geography(&self.kingdom.wishes);

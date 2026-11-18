@@ -1,15 +1,9 @@
-# crates/delve/src/rules/talents.rs — Sir Ector's lessons. Written in bendx
-# (delve/rules/core/_tools/bendx.py). A Prowess is {xp, learned: [side]}; a Talent a J object
-# {name, says, effect, does}.
-
-# The experience that reaches levels 2, 3, 4 and 5.
 def talents.LEVELS() -> [U32]:
     return [600, 1800, 3600, 6000]
 
 def talents.talent(name: String, says: String, effect: String, does: String) -> J.Val:
     return J.set(J.set(J.set(J.set(J.obj(), "name", J.JS{name}), "says", J.JS{says}), "effect", J.JS{effect}), "does", J.JS{does})
 
-# `LESSONS[lesson][side]`, or null past the end.
 def talents.LESSON(lesson: U32, side: U32) -> J.Val:
     if U32.is_eq(lesson, 0):
         if U32.is_eq(side, 0):
@@ -29,7 +23,6 @@ def talents.LESSON(lesson: U32, side: U32) -> J.Val:
         return talents.talent("Lady's Veil", "Your blows mend your friends. Arthur never learned this one.", "mend 2", "your hits mend a friend, at most 2 a second")
     return J.JNull{}
 
-# `Prowess::level`
 def talents.Prowess.level(p: J.Val) -> U32:
     n: U32 = 1
     for at: U32 in talents.LEVELS():
@@ -37,25 +30,20 @@ def talents.Prowess.level(p: J.Val) -> U32:
             n = (n + 1 : U32)
     return n
 
-# `Prowess::waiting`: lessons earned and not yet taken.
 def talents.Prowess.waiting(p: J.Val) -> U32:
     return core.usub((talents.Prowess.level(p) - 1 : U32), J.len(J.get(p, "learned")))
 
-# The name the realm keeps a knight's prowess under.
 def talents.knight_key(h: J.Val) -> String:
     if J.is_null(J.get(h, "knight")):
         return home.util.lower(core.s(h, "name"))
     return core.s(h, "knight")
 
-# `Home::prowess`: a knight's prowess, a fresh one when the realm has none.
 def home.Home.prowess(hm: J.Val, who: String) -> J.Val:
     p: J.Val = J.get(J.get(hm, "knights"), who)
     if J.is_null(p):
         return J.set(J.set(J.obj(), "xp", J.JU{0}), "learned", J.JA{[]})
     return p
 
-# `Home::learn`: `who` learns the left (0) or right (1) talent of their next lesson, if one is
-# waiting. The home after, and {"Ok": talent} or {"Err": text}.
 def home.Home.learn(hm: J.Val, who: String, side: U32) -> (J.Val, J.Val):
     p: J.Val = home.Home.prowess(hm, who)
     hm = J.set(hm, "knights", J.set(J.get(hm, "knights"), who, p))
@@ -70,13 +58,11 @@ def home.Home.learn(hm: J.Val, who: String, side: U32) -> (J.Val, J.Val):
     hm = J.set(hm, "knights", J.set(J.get(hm, "knights"), who, p))
     return (hm, home.util.ok(talents.LESSON(n, s)))
 
-# The lecterns (column, row, width, height in tiles): the left talent, and the right.
 def talents.inside(col: U32, row: U32, w: U32, h: U32, x: F32, y: F32) -> Bool:
     c: F32 = F32.div(x, layout.TILE_UNITS())
     r: F32 = F32.div(y, layout.TILE_UNITS())
     return Bool.and(Bool.and(F32.is_ge(c, U32.to_f32(col)), F32.is_lt(c, U32.to_f32((col + w : U32)))), Bool.and(F32.is_ge(r, U32.to_f32(row)), F32.is_lt(r, U32.to_f32((row + h : U32)))))
 
-# The lectern a point stands on: 0 the left, 1 the right, 9 none.
 def talents.lectern_at(x: F32, y: F32) -> U32:
     if talents.inside(2, 11, 2, 1, x, y):
         return 0
@@ -84,7 +70,6 @@ def talents.lectern_at(x: F32, y: F32) -> U32:
         return 1
     return 9
 
-# `Run::mark_experience`: experience for what fell this tick, for every knight in the party.
 def talents.Run.mark_experience(run: J.Val, kinds: [String]) -> J.Val:
     xp: U32 = 0
     for k: String in kinds:
@@ -94,8 +79,6 @@ def talents.Run.mark_experience(run: J.Val, kinds: [String]) -> J.Val:
         run = J.set(run, "marks", J.set(marks, "xp", J.JU{(core.u(marks, "xp") + xp : U32)}))
     return run
 
-# `Run::tick_lessons`: the lecterns: holding E on one asks Sir Ector for its talent; he greets
-# whoever walks up. `inputs` is the seats' keys, by seat id.
 def talents.Run.tick_lessons(run: J.Val, inputs: J.Val) -> J.Val:
     players: J.Val = J.get(run, "players")
     orders: J.Val = J.get(run, "orders")

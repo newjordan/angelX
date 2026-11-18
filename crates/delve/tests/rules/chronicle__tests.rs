@@ -24,8 +24,6 @@ fn remains_of(run: &Run, kind: EnemyKind) -> Vec<(f32, f32)> {
         .collect()
 }
 
-/// Knight 1 in the middle of a fight chamber, so its company wakes; the
-/// chamber's index.
 fn into_a_fight(run: &mut Run) -> usize {
     let o = run.dungeon.open.clone().unwrap();
     let fight = (0..o.chambers.len()).find(|&i| o.chambers[i].kind == RoomKind::Fight).unwrap();
@@ -93,7 +91,6 @@ fn rooms_and_the_kingdom_keep_no_remains() {
     run.leave_remains(&[(EnemyKind::Skeleton, 10.0, 10.0)]);
     run.leave_cairn(1);
     assert!(run.dungeon.open.is_none(), "an ordinary room is no open floor");
-    // A side room off an open floor: the floor's traces stay as they were.
     let mut open = open_run(2);
     let door = open.dungeon.open.as_ref().unwrap().doors[0];
     open.enter_for_test(door.room);
@@ -126,7 +123,6 @@ fn a_knight_who_goes_down_leaves_a_cairn_in_their_name() {
         }
         _ => unreachable!(),
     }
-    // Standing again changes nothing: the cairn is where they fell.
     run.players.get_mut(&2).unwrap().hp = 5;
     run.step(&BTreeMap::new());
     assert_eq!(traces(&run).len(), 1);
@@ -176,7 +172,6 @@ fn a_bad_trace_is_refused() {
 #[test]
 fn an_old_save_loads_and_the_traces_round_trip_on_disk_and_wire() {
     let mut run = open_run(3);
-    // A save from before traces: no such field anywhere in the floor.
     let mut save = serde_json::to_value(&run).unwrap();
     assert!(save["dungeon"]["open"].get("traces").is_none(), "an empty floor writes none");
     for chamber in save["dungeon"]["open"]["chambers"].as_array_mut().unwrap() {
@@ -185,7 +180,6 @@ fn an_old_save_loads_and_the_traces_round_trip_on_disk_and_wire() {
     let back: Run = serde_json::from_value(save).unwrap();
     assert!(back.valid_snapshot());
     assert!(traces(&back).is_empty());
-    // With traces, a save reads back as it was, and so does the wire.
     run.tick = 77;
     let (x, y) = run.dungeon.open.as_ref().unwrap().chambers[0].centre();
     run.leave_remains(&[(EnemyKind::Skeleton, x, y), (EnemyKind::Boss, x + 9.0, y)]);
@@ -206,7 +200,6 @@ fn a_chamber_notes_the_tick_it_shut_and_the_tick_it_was_won() {
     let o = run.dungeon.open.clone().unwrap();
     let g = usize::from(o.guardian);
     assert!(o.chambers.iter().all(|c| c.sealed_at == 0 && c.cleared_at == 0));
-    // The arrival chamber has a knight in it from the first tick.
     run.step(&BTreeMap::new());
     let first = &run.dungeon.open.as_ref().unwrap().chambers[0];
     assert!(first.seen && first.seen_at > 0, "seen at tick {}", first.seen_at);
@@ -228,6 +221,5 @@ fn a_chamber_notes_the_tick_it_shut_and_the_tick_it_was_won() {
     run.step(&BTreeMap::new());
     let done = &run.dungeon.open.as_ref().unwrap().chambers[g];
     assert!(done.cleared && done.stirred && done.cleared_at >= sealed_at, "won at tick {}", done.cleared_at);
-    // And the guardian's remains lie where it fell.
     assert!(traces(&run).iter().any(|t| matches!(t, Trace::Remains { kind: EnemyKind::Boss, .. })), "{:?}", traces(&run));
 }

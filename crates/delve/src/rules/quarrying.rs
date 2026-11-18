@@ -9,32 +9,17 @@ use super::stir::{self, CHIPS, FACE_BLOCKS};
 use super::*;
 use crate::kingdom::catalog;
 
-/// How near a knight stands to a face to cut it, in units.
 pub const CUT_REACH: f32 = 3.4;
-/// How near a friend stands to take a block from them, in units.
 pub const PASS_REACH: f32 = 3.0;
-/// How near the stockyard a knight sets a block down, in units.
 pub const YARD_REACH: f32 = 3.2;
-/// A knight's block as a short line for the HUD.
 const WORD: &str = "BLOCK";
 
-/// Where the stockyard's stacks stand at the Delve's gate, in units, so a
-/// party coming up the stair walks the last yards to it. On the old map: two
-/// tiles south of the stand before the gate's mouth. On the blank-slate map
-/// the gate stands inside the Keep's bailey with the teachers in rows south of
-/// its mouth and the curtain wall shutting its east side: the yard is the
-/// pocket of open ground by the gate rock's west face, three tiles west of the
-/// stand and one up, open from the first stone to the last (`world::works`
-/// tests).
 pub fn yard_spot() -> (f32, f32) {
     let (sx, sy) = crate::world::wishes::delve_stand();
     let (tx, ty) = if crate::world::plan::tabula() { (sx - 3, sy - 1) } else { (sx, sy + 2) };
     (tx as f32 * TILE_UNITS + TILE_UNITS / 2.0, ty as f32 * TILE_UNITS + TILE_UNITS / 2.0)
 }
 
-/// A closed, cleared room on the Mines' first floor with a limestone seam the party has won, and
-/// the knight standing at its face: the rules' own fixture, for a browser seat to swing at
-/// (`delve-dev-host --scene works-face`; Q swings, three chips part a block).
 #[cfg(any(test, feature = "testing"))]
 pub fn won_face_run() -> Run {
     use super::layout::{self, Pack};
@@ -59,7 +44,6 @@ pub fn won_face_run() -> Run {
     let deposit = run.industry_deposits().into_iter().next().expect("a deposit");
     let hero = run.players.get_mut(&1).expect("a knight");
     (hero.x, hero.y) = (deposit.x, deposit.y);
-    // (A knight beside a seam founds the realm's industry; founded first, the won seam is not lost to it.)
     Run::found_in(&mut run.home.industry, run.seed);
     run.home.industry.discover(
         catalog(),
@@ -72,9 +56,6 @@ pub fn won_face_run() -> Run {
 }
 
 impl Run {
-    /// Knight `id` takes up a rough block of `stone` that came up with them
-    /// from the last delve (`host_commands::Command::CarryBlock`): a hand
-    /// that is free takes it on their shoulders; one that is not has no more.
     pub fn carry_block(&mut self, id: u32, stone: &str) -> Result<(), String> {
         if !geology::is_rough(stone) {
             return Err(format!("{stone} is not rough stone"));
@@ -84,19 +65,14 @@ impl Run {
         Ok(())
     }
 
-    /// The rough block knight `id` carries, as its stone's catalogue id.
     pub fn block_of(&self, id: u32) -> Option<&str> {
         self.players.get(&id)?.block.as_deref()
     }
 
-    /// The stone's name for the words on screen.
     fn stone_name(stone: &str) -> String {
         super::geology::rock_name(stone).to_uppercase()
     }
 
-    /// A knight's sword swing that begins this tick on a face the party has
-    /// won: a chip, and every third one parts a block, which goes on the
-    /// knight's shoulders if their hands are free.
     pub(super) fn tick_quarry_face(&mut self, d: &industry::Deposit) {
         if !self.active() || self.dungeon.depth == 0 {
             return;
@@ -115,7 +91,6 @@ impl Run {
                 h.hp > 0
                     && !h.absent
                     && !h.stone
-                    // The sword swing that began this tick (`arms`).
                     && h.sword
                     && h.swing == 8
                     && (h.x - d.x).hypot(h.y - d.y) < CUT_REACH
@@ -155,12 +130,7 @@ impl Run {
         }
     }
 
-    /// Blocks in hand: a fresh press of E beside a carrier takes the block
-    /// from them, so a party can chain one along; a knight on the surface at
-    /// the stockyard sets theirs down; a fallen knight loses theirs.
     pub(super) fn tick_carry(&mut self, inputs: &BTreeMap<u32, Input>) {
-        // A fresh press of E (or take), as the spoils' own pickup sees it:
-        // the knights whose key was already down last tick are not fresh.
         let down: std::collections::BTreeSet<u32> = inputs
             .iter()
             .filter(|(_, i)| i.valid() && (i.interact || i.take))
@@ -168,7 +138,6 @@ impl Run {
             .collect();
         let fresh: Vec<u32> = down.difference(&self.kingdom.carry_held).copied().collect();
         self.kingdom.carry_held = down;
-        // The dead carry nothing, and a wiped party's stone stays below.
         for h in self.players.values_mut() {
             if h.block.is_some() && (h.hp == 0 || self.phase == Phase::Wiped) {
                 h.block = None;
@@ -177,7 +146,6 @@ impl Run {
         if self.players.values().all(|h| h.block.is_none()) {
             return;
         }
-        // Pass it on: one swap a tick, the nearest taker.
         let takers: Vec<u32> = self
             .players
             .iter()
@@ -206,7 +174,6 @@ impl Run {
                 self.found = Some((self.tick, taker, "TAKES THE BLOCK".into()));
             }
         }
-        // Set it down at the stockyard.
         if self.dungeon.depth == 0 && self.room().kind == RoomKind::Kingdom {
             let (yx, yy) = yard_spot();
             let at: Vec<u32> = self
@@ -223,7 +190,6 @@ impl Run {
         }
     }
 
-    /// Knight `id` sets their block down in the stockyard, if it has room.
     fn stock_block(&mut self, id: u32) {
         let Some(stone) = self.players.get(&id).and_then(|h| h.block.clone()) else {
             return;
@@ -253,8 +219,6 @@ impl Run {
         ));
     }
 
-    /// Going down from home: the porters at the stair head take any block a
-    /// knight still carries, so none goes down a second time.
     pub(super) fn stock_blocks_at_the_stair(&mut self) {
         let ids: Vec<u32> = self
             .players
@@ -264,7 +228,6 @@ impl Run {
             .collect();
         for id in ids {
             self.stock_block(id);
-            // Nowhere to put it: it is set down at the stair head, lost.
             if let Some(h) = self.players.get_mut(&id) {
                 h.block = None;
             }

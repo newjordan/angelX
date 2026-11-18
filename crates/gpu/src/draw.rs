@@ -4,8 +4,6 @@ use crate::Core;
 use crate::frame::{Draw, Frame, Instance};
 
 impl Core {
-    /// Freeze the last composed frame before its pictures or stages change.
-    /// The caller owns `id` and must not reuse a picture the frame samples.
     pub fn freeze_frame(&mut self, id: u32, size: (u32, u32), clear: wgpu::Color) -> bool {
         if size.0 == 0 || size.1 == 0 || self.spare_frame.instances.is_empty() {
             return false;
@@ -18,20 +16,16 @@ impl Core {
         true
     }
 
-    /// Release a host-owned frozen frame (it is not a live stage target).
     pub fn drop_frozen_frame(&mut self, id: u32) {
         if let Some(picture) = self.pictures.remove(&id) {
             self.picture_bytes -= picture.bytes;
         }
     }
 
-    /// Record the frame's draws into a pass, switching textures per range.
     fn encode(&self, pass: &mut wgpu::RenderPass<'_>, frame: &Frame) {
         self.encode_at(pass, frame, 0);
     }
 
-    /// `encode`, the frame's instances lying `base` instances into the
-    /// instance buffer (several frames written into it at once).
     pub(crate) fn encode_at(&self, pass: &mut wgpu::RenderPass<'_>, frame: &Frame, base: u32) {
         if frame.instances.is_empty() {
             return;
@@ -54,9 +48,6 @@ impl Core {
         }
     }
 
-    /// Draw `frame` into `view`, `size` pixels, over `clear`, in a submission
-    /// of its own (the globals hold the size). `label` names the commands in
-    /// a GPU error.
     pub fn draw(
         &mut self,
         view: &wgpu::TextureView,
@@ -68,7 +59,6 @@ impl Core {
         self.draw_with(view, size, wgpu::LoadOp::Clear(clear), frame, label);
     }
 
-    /// `draw`, over what `view` holds (`LoadOp::Load`) or a clear colour.
     pub(crate) fn draw_with(
         &mut self,
         view: &wgpu::TextureView,
@@ -103,9 +93,6 @@ impl Core {
         self.queue.submit([encoder.finish()]);
     }
 
-    /// Write `frames` one after another into the instance buffer (each
-    /// drawn with `encode_at` from where the ones before it end), and the
-    /// globals for a target of `size`: for the submission that draws them.
     pub(crate) fn write_frames(&mut self, frames: &[&Frame], size: (u32, u32)) {
         let total: usize = frames.iter().map(|f| f.instances.len()).sum();
         if total > self.capacity {
@@ -124,9 +111,6 @@ impl Core {
             .write_buffer(&self.globals, 0, bytemuck::cast_slice(&globals));
     }
 
-    /// Read a texture the frame was drawn into (`COPY_SRC`, in the core's
-    /// view format) back as RGBA rows, for screenshots taken from inside.
-    /// Empty when the GPU does not answer in time.
     pub fn read_back(&self, texture: &wgpu::Texture, size: (u32, u32)) -> Vec<u8> {
         let (width, height) = size;
         let row_bytes = (width * 4).div_ceil(256) * 256;
@@ -166,8 +150,6 @@ impl Core {
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = tx.send(result);
         });
-        // Bounded: a lost or wedged GPU must degrade a capture to empty
-        // pixels, not freeze the window thread waiting on it forever.
         let polled = self.device.poll(wgpu::PollType::Wait {
             submission_index: None,
             timeout: Some(std::time::Duration::from_secs(5)),
@@ -186,7 +168,6 @@ impl Core {
             }
             readback.unmap();
         }
-        // Surface formats are usually BGRA; hand back RGBA.
         if matches!(
             self.view_format,
             wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb
@@ -198,9 +179,6 @@ impl Core {
         pixels
     }
 
-    /// [`read_back`](Self::read_back) without the wait: the copy is queued
-    /// and its buffer maps when the GPU reaches it. A film's frames go this
-    /// way, so the window draws on while each one comes back.
     pub fn read_back_later(&self, texture: &wgpu::Texture, size: (u32, u32)) -> ReadBack {
         let (width, height) = size;
         let row_bytes = (width * 4).div_ceil(256) * 256;
@@ -248,8 +226,6 @@ impl Core {
         ReadBack { buffer, size, row_bytes, bgra, state }
     }
 
-    /// Let finished GPU work call back (maps), without waiting; `wait`
-    /// blocks until everything queued is done, for at most a second.
     pub fn poll_read_backs(&self, wait: bool) {
         let poll = if wait {
             wgpu::PollType::Wait { submission_index: None, timeout: Some(std::time::Duration::from_secs(1)) }
@@ -264,7 +240,6 @@ const READ_BACK_PENDING: u8 = 0;
 const READ_BACK_READY: u8 = 1;
 const READ_BACK_FAILED: u8 = 2;
 
-/// A frame on its way back from the GPU (`Core::read_back_later`).
 pub struct ReadBack {
     buffer: wgpu::Buffer,
     size: (u32, u32),
@@ -274,8 +249,6 @@ pub struct ReadBack {
 }
 
 impl ReadBack {
-    /// The frame's RGBA (premultiplied) once it has come back: `None`
-    /// while it is still on its way, `Some(None)` if the GPU failed it.
     pub fn take(&self) -> Option<Option<Vec<u8>>> {
         match self.state.load(std::sync::atomic::Ordering::Acquire) {
             READ_BACK_PENDING => None,

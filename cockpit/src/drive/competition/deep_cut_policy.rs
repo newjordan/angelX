@@ -45,12 +45,6 @@ pub(crate) struct DirectionDecisionV1 {
     pub(crate) next: ScheduledActionV1,
 }
 
-// The `deep-cut` leg decides which direction has the best score and which id
-// wins a tie. Rust still rejects every malformed input before the leg runs; the
-// allocator the leg replaced survives in the test module as its parity oracle.
-
-/// One evidence use, reduced to the numbers the leg decides from. Text stays in
-/// Rust: ids, class tags and the lexicographic rank arrive precomputed.
 #[derive(Debug, Serialize)]
 struct UseFeatureV1 {
     active: bool,
@@ -75,7 +69,6 @@ struct DirectionFeaturesV1 {
     directions: Vec<DirectionFeatureV1>,
 }
 
-/// The leg's plain-JSON answer: which direction, and why.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct DirectionLegOutV1 {
@@ -83,8 +76,6 @@ pub(crate) struct DirectionLegOutV1 {
     pub(crate) basis: DirectionDecisionBasisV1,
 }
 
-/// A prepared leg call: the input and the contract check that rejects an
-/// unoffered direction.
 #[derive(Debug)]
 pub(crate) struct DeepCutCall {
     pub(crate) input: serde_json::Value,
@@ -92,8 +83,6 @@ pub(crate) struct DeepCutCall {
 }
 
 impl DeepCutCall {
-    /// An answer is in contract when it names an offered direction or the
-    /// configured fallback. Ranking itself stays the leg's business.
     pub(crate) fn check(&self, answer: &DirectionLegOutV1) -> Result<(), String> {
         if answer.selected_direction_id == self.features.fallback_id {
             return Ok(());
@@ -134,8 +123,6 @@ fn use_feature(
         DirectionEvidenceUseKindV1::MarkedProvisionalTransfer => "marked_provisional_transfer",
     };
     let Some(evidence) = memory.canonical_active_evidence(&usage.evidence_id)? else {
-        // The native allocator drops a direction whose evidence is not active,
-        // so these fields are never read; they only keep the shape total.
         return Ok(UseFeatureV1 {
             active: false,
             matches_target: false,
@@ -161,7 +148,6 @@ fn use_feature(
     })
 }
 
-/// Build the leg's input, or fail with the native allocator's own message.
 pub(crate) fn prepare(
     memory: &FieldPatternMemoryV1,
     directions: &[DeepCutDirectionV1],
@@ -189,8 +175,6 @@ pub(crate) fn prepare(
         }
         rows.push((direction.direction_id.clone(), uses));
     }
-    // The native leg breaks a score tie towards the smaller direction id, so the
-    // leg receives that byte order as a rank instead of comparing strings.
     let mut ordered: Vec<String> = rows.iter().map(|(id, _)| id.clone()).collect();
     ordered.sort_unstable();
     let rank = |id: &str| {
@@ -230,8 +214,6 @@ pub(crate) fn decided(answer: DirectionLegOutV1, now_ms: u64) -> DirectionDecisi
     }
 }
 
-/// The shipped route: the newest published `deep-cut` generation decides, and an
-/// out-of-contract generation falls back to the generation compiled in.
 pub(crate) fn allocate_direction_via_leg(
     memory: &FieldPatternMemoryV1,
     directions: &[DeepCutDirectionV1],

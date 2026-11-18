@@ -17,18 +17,12 @@ use base64::Engine as _;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 
-/// A plugin ready to submit.
 pub(crate) struct Prepared {
     pub(crate) entry: Entry,
     pub(crate) config: Config,
     pub(crate) report: check::Report,
 }
 
-/// Fetch the plugin at `dir` back from its repository and build its entry.
-/// `commit` defaults to HEAD, which must be committed and pushed;
-/// `repository` defaults to `[plugin] repository`, then the git remote.
-/// `public` holds the entry to the public registry's rules (an https
-/// repository); a private registry may take any address git can fetch.
 pub(crate) fn prepare(
     paths: &Paths,
     dir: &Path,
@@ -181,9 +175,6 @@ fn install_short(commit: &str) -> &str {
     super::install::short(commit)
 }
 
-/// An https address for a git remote: `git@host:owner/repo.git` and
-/// `ssh://git@host/owner/repo` become `https://host/owner/repo`; credentials
-/// and a trailing `.git` are dropped.
 pub(crate) fn public_url(remote: &str) -> String {
     let remote = remote.trim();
     let (host, path) = if let Some(rest) = remote.strip_prefix("ssh://") {
@@ -229,7 +220,6 @@ pub(crate) fn public_url(remote: &str) -> String {
     format!("https://{host}/{path}")
 }
 
-/// What a plugin brings, in one line: its commands, tools, pages and setup.
 pub(crate) fn carries(config: &Config) -> String {
     let mut parts: Vec<String> = config
         .commands
@@ -263,7 +253,6 @@ pub(crate) fn carries(config: &Config) -> String {
     }
 }
 
-/// The GitHub CLI: `ANGEL_PLUGIN_GH`, else `gh`.
 fn gh(args: &[&str], stdin: Option<&[u8]>) -> Result<String, String> {
     let program = std::env::var("ANGEL_PLUGIN_GH")
         .ok()
@@ -302,7 +291,6 @@ fn gh(args: &[&str], stdin: Option<&[u8]>) -> Result<String, String> {
     }
 }
 
-/// The commit message and pull request title for a change.
 fn title(entry: &Entry, change: &Change) -> String {
     match change {
         Change::Added => format!("plugins: add {} {}", entry.id, entry.version),
@@ -346,7 +334,6 @@ fn body(prepared: &Prepared, change: &Change) -> String {
     )
 }
 
-/// Write the entry into a local registry file.
 pub(crate) fn into_file(prepared: &Prepared, file: &Path) -> Result<String, String> {
     let text = match std::fs::read_to_string(file) {
         Ok(text) => text,
@@ -370,8 +357,6 @@ pub(crate) fn into_file(prepared: &Prepared, file: &Path) -> Result<String, Stri
     ))
 }
 
-/// Open the registry pull request on the angelX repository as the GitHub
-/// CLI's signed-in user. Returns the pull request's address.
 pub(crate) fn open_pull_request(prepared: &Prepared) -> Result<String, String> {
     let entry = &prepared.entry;
     gh(&["auth", "status"], None).map_err(|_| {
@@ -457,7 +442,6 @@ pub(crate) fn open_pull_request(prepared: &Prepared) -> Result<String, String> {
         )
     };
     let mut created = create();
-    // A fork made a moment ago can take a few seconds to hold its commits.
     for _ in 0..5 {
         let retry = match &created {
             Ok(_) => false,

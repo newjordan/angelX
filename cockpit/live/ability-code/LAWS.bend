@@ -1,8 +1,6 @@
 import Base
 import ./fairies.bend as Fairies
 
-# A stopped field cannot issue a status effect. These claims stay separate
-# from authored policy and are checked before a candidate is admitted.
 law inactive_field_ends:
   for due: Bool
   for opened: Bool

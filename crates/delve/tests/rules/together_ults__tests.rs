@@ -1,7 +1,5 @@
 use super::*;
 
-/// A calm fight room on floor one, knight one dressed as `knight` with a
-/// full charge, facing east, monsters placed at `foes`.
 fn arena(knight: &str, foes: &[(EnemyKind, f32, f32)]) -> Run {
     let mut run = Run::new(21, 1, None);
     run.outfit(1, knights::knight(knight).unwrap());
@@ -47,8 +45,6 @@ fn idle(run: &mut Run, ticks: u32) {
     }
 }
 
-/// The recruits' are wished by the first to take them up
-/// (`recruit_ults`).
 #[test]
 fn every_knight_of_the_company_has_their_own_ultimate() {
     let owned: Vec<&str> = knights::COMPANY
@@ -68,7 +64,6 @@ fn the_charge_fills_by_fighting_and_r_casts_only_a_full_one() {
         run.projectiles.iter().all(|p| p.kind != Shot::Sacred),
         "not charged"
     );
-    // Shooting a demon fills it faster than standing about.
     let fire = BTreeMap::from([(
         1,
         Input {
@@ -302,7 +297,6 @@ fn a_cast_is_remembered_for_its_look_a_while_and_then_let_go() {
     let cast: Vec<_> = run.feel.ults.iter().map(|c| (c.owner, c.ult)).collect();
     assert_eq!(cast, vec![(1, Ult::LadysVeil)], "the veil's cast is kept for its look");
     assert!(run.feel.valid());
-    // Cast again on a fresh charge: still one record for the knight's veil.
     run.players.get_mut(&1).unwrap().ult_charge = ULT_FULL;
     idle(&mut run, 2);
     press(&mut run);

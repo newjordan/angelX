@@ -26,7 +26,6 @@ pub struct Claim {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Completion {
-    /// Exact model answer, retained before any painting can change its file.
     pub input: Option<cards::Card>,
     pub accepted: Option<cards::Card>,
     pub result: Result<String, String>,
@@ -68,7 +67,6 @@ impl Work {
         });
         format!("{hash:x}-{raid:x}-{request:x}")
     }
-    /// Canonical retained result identity, shared by owners and read-only clients.
     pub fn result_id(session: &str, raid: u64, request: u64) -> String {
         format!("brewed-{}", Self::binding_suffix(session, raid, request))
     }
@@ -115,8 +113,6 @@ impl Work {
             .position(|s| s.as_ref() == Some(&ask.placeholder))
             .ok_or("the brewer no longer holds the stand-in")?;
         let player_name = hero.name.clone();
-        // Rebind this particular stand-in, so a later floor/seat cannot inherit
-        // a stale answer merely by holding the same recipe card.
         let suffix = Self::binding_suffix(session, run.raid_id, request);
         let result_id = format!("brewed-{suffix}");
         placeholder.id = format!("brew-pending-{suffix}");
@@ -212,8 +208,6 @@ impl Completion {
     }
 }
 
-/// Install a checked answer. No authored power/name policy runs here; the
-/// active implementation already computed it. World guards precede all effects.
 pub(super) fn install(
     run: &mut Run,
     ask: &cauldron::Brewing,
@@ -240,7 +234,6 @@ pub(super) fn install(
     }
     let hero = run.players.get_mut(&ask.knight).unwrap();
     hero.spells[slot] = Some(id.clone());
-    // A late model reply must not grant a free recharge or alter another slot.
     for bar in &mut hero.bar {
         if matches!(bar, Some(cards::BarSlot::Spell(s)) if s == &ask.placeholder) {
             *bar = Some(cards::BarSlot::Spell(id.clone()));

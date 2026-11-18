@@ -34,7 +34,6 @@ fn main() {
         let mut run=fixture();for id in 2..=4 {run.join_seat(id,&format!("Seat {id}"));}
         assert_eq!(run.players.len(),4);
         for modern in [false,true] {capture(&dir,&format!("{name}-v{}",if modern{2}else{1}),&run,modern);}
-        // Every delivered entrance is also exercised by a real entry/exit walk.
         let snapshot=serde_json::to_vec(&run).unwrap();
         for _ in 0..120 {run.step(&BTreeMap::from([(1,Input{move_y:1,..Default::default()})]));}
         std::fs::write(dir.join(format!("{name}-walk.json")),serde_json::to_vec(&run).unwrap()).unwrap();

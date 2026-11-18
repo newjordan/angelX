@@ -1,6 +1,3 @@
-// Capture 1920x1080 screenshots of public pages in an isolated headless Chrome
-// and record every visible, named, clickable element's bbox as ground truth.
-//   node bin/capture.mjs <out-dir> <url>...
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";

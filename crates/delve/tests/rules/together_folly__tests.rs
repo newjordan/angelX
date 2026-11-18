@@ -35,13 +35,11 @@ fn the_most_wax_takes_the_pot_and_the_crown() {
         hero.carried.add(Spoil::Gold, 50);
     }
     run.enter_for_test(index);
-    // Past the title card; then knight one walks the top corridor.
     for _ in 0..folly::TITLE {
         run.step(&BTreeMap::new());
     }
     let cols = run.room().cols as i32;
     for x in 2..cols - 2 {
-        // Left alone by the wraiths for the walk.
         run.folly.as_mut().unwrap().spooked.insert(1, u32::MAX);
         let h = run.players.get_mut(&1).unwrap();
         (h.x, h.y) = ((x as f32 + 0.5) * TILE_UNITS, 1.5 * TILE_UNITS);
@@ -49,7 +47,6 @@ fn the_most_wax_takes_the_pot_and_the_crown() {
     }
     let eaten = run.folly.as_ref().unwrap().eaten[&1];
     assert!(eaten >= 10, "wax eaten walking: {eaten}");
-    // Burn the candle down.
     run.folly.as_mut().unwrap().t = folly::TITLE + folly::MAZE_TIME - 1;
     run.step(&BTreeMap::new());
     let maze = run.folly.as_ref().unwrap();
@@ -61,8 +58,6 @@ fn the_most_wax_takes_the_pot_and_the_crown() {
     assert!(run.valid_snapshot());
 }
 
-/// A maze under way past its title card, the wraiths all in their crypt
-/// for a long rest, and knight `id` on the middle of lane tile `at`.
 fn quiet_maze(run: &mut Run) {
     run.pick_folly();
     let index = run.folly_room.unwrap();
@@ -82,7 +77,6 @@ fn lane(run: &Run, (x, y): (i32, i32)) -> bool {
     run.room().tile(x, y) == Tile::Floor
 }
 
-/// Wraith `k` set roaming on lane tile `at`, going nowhere yet.
 fn loose(run: &mut Run, k: usize, at: (i32, i32)) {
     let w = &mut run.folly.as_mut().unwrap().wraiths[k];
     (w.at, w.to, w.came, w.step, w.rest, w.span) = (at, at, at, 0, 0, folly::WRAITH_STEP);
@@ -97,7 +91,6 @@ fn the_maze_is_sound_in_every_party_room() {
             let (open, crypt) = folly::lay_maze(cols, rows, seed * 7919 + knights as u64);
             let at = |x: i32, y: i32| (0..cols).contains(&x) && (0..rows).contains(&y) && open[(y * cols + x) as usize];
             let lanes: Vec<(i32, i32)> = (0..rows).flat_map(|y| (0..cols).map(move |x| (x, y))).filter(|&(x, y)| at(x, y)).collect();
-            // The ring inside the walls, where every doorway comes in.
             for x in 1..cols - 1 {
                 assert!(at(x, 1) && at(x, rows - 2), "{cols}x{rows} ring row at {x}");
             }
@@ -108,12 +101,9 @@ fn the_maze_is_sound_in_every_party_room() {
                 assert!((1..cols - 1).contains(&x) && (1..rows - 1).contains(&y), "lanes inside the walls");
                 let ways = [(0, -1), (1, 0), (0, 1), (-1, 0)].iter().filter(|(dx, dy)| at(x + dx, y + dy)).count();
                 assert!(ways >= 2, "{cols}x{rows} seed {seed}: a dead end at {x},{y}");
-                // One tile wide: never a two by two of open floor.
                 assert!(!(at(x + 1, y) && at(x, y + 1) && at(x + 1, y + 1)), "{cols}x{rows}: a wide patch at {x},{y}");
-                // The same left and right.
                 assert!(at(cols - 1 - x, y), "{cols}x{rows}: not mirrored at {x},{y}");
             }
-            // All one maze.
             let mut seen = BTreeSet::from([lanes[0]]);
             let mut queue = vec![lanes[0]];
             while let Some((x, y)) = queue.pop() {
@@ -124,7 +114,6 @@ fn the_maze_is_sound_in_every_party_room() {
                 }
             }
             assert_eq!(seen.len(), lanes.len(), "{cols}x{rows} seed {seed}: every lane reachable");
-            // The crypt: stone in the middle, lanes all round it.
             let (cx, cy, cw, ch) = crypt;
             assert!(cw >= 2 && ch >= 2);
             assert_eq!(cx * 2 + cw, cols, "the crypt sits in the middle");
@@ -178,8 +167,6 @@ fn a_knight_glides_round_corners_pressed_early_or_late() {
     let mut run = floor();
     run.players.retain(|&id, _| id == 1);
     quiet_maze(&mut run);
-    // A crossing with an opening up, two lane tiles to its west with stone
-    // above them.
     let (cols, rows) = (run.room().cols as i32, run.room().rows as i32);
     let (cx, cy) = (2..cols - 2)
         .flat_map(|x| (2..rows - 1).map(move |y| (x, y)))
@@ -200,8 +187,6 @@ fn a_knight_glides_round_corners_pressed_early_or_late() {
         (h.x, h.y) = (x, mid(cy));
         run.folly.as_mut().unwrap().ways.clear();
     };
-    // Up pressed early: on east until the opening, then up it, never
-    // stopping against the stone.
     place(&mut run, mid(cx - 3));
     run.step(&key(1, 0));
     let mut was = (run.players[&1].x, run.players[&1].y);
@@ -216,26 +201,22 @@ fn a_knight_glides_round_corners_pressed_early_or_late() {
     }
     let h = &run.players[&1];
     assert!((h.x - mid(cx)).abs() < 0.01 && h.y < mid(cy) - 1.0, "turned up at the opening: {},{}", h.x, h.y);
-    // Pressed a little late, past the opening's middle: still taken.
     place(&mut run, mid(cx) + 0.7);
     run.step(&key(0, -1));
     run.step(&key(0, -1));
     run.step(&key(0, -1));
     let h = &run.players[&1];
     assert!(h.y < mid(cy) - 0.5 && (h.x - mid(cx)).abs() < 0.3, "a late turn is cut round the corner: {},{}", h.x, h.y);
-    // Standing under stone, up does nothing; a lane's middle is kept.
     place(&mut run, mid(cx - 2));
     run.step(&key(0, -1));
     let h = &run.players[&1];
     assert_eq!((h.x, h.y), (mid(cx - 2), mid(cy)), "no way up there");
-    // A wall ahead stops a knight in the middle of the last tile.
     let east = (cx..cols).take_while(|&x| lane(&run, (x, cy))).last().unwrap();
     place(&mut run, mid(east - 1));
     for _ in 0..20 {
         run.step(&key(1, 0));
     }
     assert_eq!(run.players[&1].x, mid(east), "stopped in the middle of the last tile");
-    // Facing the way they go.
     assert!(run.players[&1].aim_x > 0.9);
     assert!(run.valid_snapshot());
 }
@@ -262,25 +243,19 @@ fn each_temper_hunts_its_own_way() {
     use folly::{Temper, aim};
     let size = (34, 20);
     let knight = ((10, 9), (1, 0));
-    // The Hound: the knight's own tile.
     assert_eq!(aim(Temper::Hound, (20, 9), size, Some(knight), None), (10, 9));
-    // The Cutter: ahead of them.
     assert_eq!(aim(Temper::Cutter, (20, 9), size, Some(knight), None), (10 + folly::CUT_AHEAD, 9));
-    // The Flanker: from the far side of the knight, the Hound's line doubled.
     let flank = aim(Temper::Flanker, (3, 3), size, Some(knight), Some(((10, 15), knight)));
     assert_eq!(flank, (2 * (10 + folly::FLANK_AHEAD) - 10, 2 * 9 - 15));
     assert!(flank.1 < 9, "comes at them from above when the Hound is below");
-    // The Drifter: hunts from afar, goes off to its corner when near.
     assert_eq!(aim(Temper::Drifter, (30, 18), size, Some(knight), None), (10, 9));
     assert_eq!(aim(Temper::Drifter, (12, 10), size, Some(knight), None), (-2, 21));
-    // Keeping to their corners, four different ones.
     let corners: BTreeSet<(i32, i32)> = Temper::ALL.iter().map(|&t| aim(t, (5, 5), size, None, None)).collect();
     assert_eq!(corners.len(), 4);
 }
 
 #[test]
 fn the_wraiths_keep_their_lanes_and_their_distance() {
-    // Whole mazes played by the harness's thumbs, every party size.
     use super::sim::{Thumb, play};
     for (knights, thumbs) in [
         (1, &[Thumb::Careless][..]),
@@ -308,7 +283,6 @@ fn a_wraith_spills_wax_and_a_pale_one_is_caught() {
     quiet_maze(&mut run);
     run.folly.as_mut().unwrap().eaten.insert(1, 12);
     let start = run.folly.as_ref().unwrap().starts[&1];
-    // A calm wraith on the knight, out on the ring (its wax eaten).
     let spot = (3, 1);
     let cols = run.room().cols as i32;
     run.folly.as_mut().unwrap().wax.remove(&((spot.1 * cols + spot.0) as u16));
@@ -322,7 +296,6 @@ fn a_wraith_spills_wax_and_a_pale_one_is_caught() {
     assert_eq!(maze.eaten[&1], 12 - folly::SPILL, "a touch spills wax");
     let h = &run.players[&1];
     assert_eq!(((h.x * 16.0) as i32, (h.y * 16.0) as i32), start, "and sends them back where they came in");
-    // Left alone there: a wraith on them now touches nothing.
     let here = ((h.x / TILE_UNITS) as i32, (h.y / TILE_UNITS) as i32);
     run.folly.as_mut().unwrap().wax.remove(&((here.1 * cols + here.0) as u16));
     loose(&mut run, 1, here);
@@ -332,7 +305,6 @@ fn a_wraith_spills_wax_and_a_pale_one_is_caught() {
         (w.at, w.to, w.step) = (here, here, 0);
     }
     assert_eq!(run.folly.as_ref().unwrap().eaten[&1], 12 - folly::SPILL, "no touch while spooked");
-    // Pale, the same touch catches the wraith instead.
     run.folly.as_mut().unwrap().spooked.clear();
     {
         let maze = run.folly.as_mut().unwrap();
@@ -352,7 +324,6 @@ fn a_touch_is_where_their_shapes_meet() {
     let mut run = floor();
     run.players.retain(|&id, _| id == 1);
     quiet_maze(&mut run);
-    // On the ring: a wraith on one tile, the knight a tile along, then half.
     loose(&mut run, 0, (6, 1));
     for (x, touched) in [(mid(7), false), (mid(6) + 1.6, false), (mid(6) + 1.0, true)] {
         run.folly.as_mut().unwrap().spooked.clear();
@@ -363,8 +334,6 @@ fn a_touch_is_where_their_shapes_meet() {
         run.step(&BTreeMap::new());
         assert_eq!(run.folly.as_ref().unwrap().spooked.contains_key(&1), touched, "a knight {} units off", x - mid(6));
     }
-    // Every lane tile a wraith can stand on is a whole tile or more from
-    // any lane tile it has no lane to: there is no touching through stone.
     let (cols, rows) = (run.room().cols as i32, run.room().rows as i32);
     for y in 0..rows {
         for x in 0..cols {
@@ -381,10 +350,8 @@ fn holy_water_pales_them_and_a_caught_one_goes_home_and_comes_back_calm() {
     run.players.retain(|&id, _| id == 1);
     quiet_maze(&mut run);
     let cols = run.room().cols as i32;
-    // Wraith 0 roaming a lane going east.
     loose(&mut run, 0, (5, 1));
     run.folly.as_mut().unwrap().wraiths[0].to = (6, 1);
-    // The knight drinks the holy water in the top-left corner.
     {
         let h = run.players.get_mut(&1).unwrap();
         (h.x, h.y) = (mid(1), mid(1));
@@ -396,12 +363,9 @@ fn holy_water_pales_them_and_a_caught_one_goes_home_and_comes_back_calm() {
     assert!(maze.wraiths.iter().all(|w| w.pale), "every wraith turns pale");
     assert_eq!(maze.wraiths[0].way(), (-1, 0), "and those abroad turn tail");
     assert!(!maze.warning());
-    // Its warning flashes in the last of it, then it is over.
     run.folly.as_mut().unwrap().pale = folly::PALE_WARN;
     run.step_sim_for_test(&BTreeMap::new());
     assert!(run.folly.as_ref().unwrap().warning());
-    // Caught: eyes race home, rest, and come out calm though the water
-    // still runs.
     run.folly.as_mut().unwrap().pale = folly::PALE;
     let (wx, wy) = run.folly.as_ref().unwrap().wraiths[0].pos();
     {
@@ -413,7 +377,6 @@ fn holy_water_pales_them_and_a_caught_one_goes_home_and_comes_back_calm() {
     let home = run.folly.as_ref().unwrap().wraiths[0].home;
     let mut ticks = 0;
     while run.folly.as_ref().unwrap().wraiths[0].rest == 0 {
-        // Keep the knight out of the way, and the water running.
         let h = run.players.get_mut(&1).unwrap();
         (h.x, h.y) = (mid(cols - 2), mid(1));
         run.folly.as_mut().unwrap().pale = folly::PALE;
@@ -424,8 +387,6 @@ fn holy_water_pales_them_and_a_caught_one_goes_home_and_comes_back_calm() {
     let w = &run.folly.as_ref().unwrap().wraiths[0];
     assert_eq!(w.at, home);
     assert!(!w.eyes && !w.pale);
-    // It rests, then climbs out a step at a time (a step or two more when a
-    // tick of the climb falls on the knight's first stir).
     for _ in 0..folly::REST + 4 * folly::LEAVE_STEP {
         run.folly.as_mut().unwrap().pale = folly::PALE;
         run.step_sim_for_test(&BTreeMap::new());
@@ -481,7 +442,6 @@ fn the_absent_host_and_a_fallen_knight_sit_it_out() {
     assert_eq!((run.room().cols, run.room().rows), layout::party_room(1), "a maze for the one knight playing");
     let start = maze.starts[&2];
     assert_eq!(maze.door, start);
-    // Burn the candle down: the one knight playing takes the pot.
     run.folly.as_mut().unwrap().t = folly::TITLE + folly::MAZE_TIME - 1;
     run.step(&BTreeMap::new());
     assert!(run.folly.as_ref().unwrap().done);
@@ -521,7 +481,6 @@ fn a_maze_left_and_come_back_to_plays_on() {
     }
     let gold = run.players[&1].carried.get(Spoil::Gold);
     let before = run.folly.clone().unwrap();
-    // Out of the room by any way at all: the maze waits as it stands.
     let other = (0..run.dungeon.rooms.len()).find(|&i| i != index).unwrap();
     run.enter(other, Some(0));
     for _ in 0..HZ {
@@ -529,7 +488,6 @@ fn a_maze_left_and_come_back_to_plays_on() {
     }
     assert_eq!(run.folly.as_ref().unwrap().t, before.t, "the candle waits");
     assert!(run.valid_snapshot());
-    // Back in: it plays on, with no new ante and no company.
     run.enter(index, Some(2));
     assert!(run.barred(), "its doors hold again");
     for _ in 0..10 {
@@ -585,7 +543,6 @@ fn the_skills_bar_keeps_off_the_maze_until_the_podium() {
     use crate::render::overworld::arena;
     let mut run = floor();
     quiet_maze(&mut run);
-    // The bar's plates in the seat's HUD band, under the view.
     let plates = |run: &Run, focus: Option<u32>| {
         let hud = arena::hud_band(run, focus);
         (8..arena::HUD_H - 8).flat_map(|y| (6..150).map(move |x| (x, y))).filter(|&(x, y)| hud.get(x, y).is_some()).count()
@@ -632,7 +589,6 @@ fn a_drop_eaten_is_one_word_to_a_friends_mirror() {
     }
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_folly_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_folly_shots() {
@@ -680,7 +636,6 @@ fn a_friends_mirror_sees_the_maze_and_its_wraiths() {
     for _ in 0..folly::TITLE + 10 {
         run.step(&BTreeMap::new());
     }
-    // The maze changed the room's stones: the mirror takes the whole floor.
     assert_ne!(mirror.dungeon.world_revision, run.dungeon.world_revision);
     mirror = run.clone();
     for _ in 0..20 {
@@ -714,7 +669,6 @@ fn the_even_floors_folly_is_the_belfry_shoot() {
         run.step(&BTreeMap::new());
     }
     assert!(run.enemies.iter().any(|e| e.kind == EnemyKind::Bat), "the bats wake");
-    // Knight one's harm is credited; burn the clock down.
     run.credit_bats(&[(1, 250)]);
     run.bats.as_mut().unwrap().t = folly::TITLE + folly::BAT_TIME - 1;
     run.step(&BTreeMap::new());
@@ -727,7 +681,6 @@ fn the_even_floors_folly_is_the_belfry_shoot() {
     assert!(run.valid_snapshot());
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_bats_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_bats_shots() {

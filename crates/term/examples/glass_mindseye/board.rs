@@ -18,19 +18,12 @@ use std::f32::consts::{FRAC_PI_2, TAU};
 
 use super::{Canvas, Rgb, W, clamp01, hex, mix, smooth};
 
-/// Program picture ids for the graphs' words.
 const LABEL_BASE: u32 = 1600;
-/// The live graphs' span, seconds.
 const SPAN: f32 = 12.0;
-/// The web, behind the geometry (-1) and the front scene, in front of
-/// the back scene (-3).
 const Z_WEB: i32 = -2;
-/// The traces, with the geometry.
 const Z_TRACES: i32 = -1;
-/// What a spoke's length means.
 const SPOKES: &str = "on each spoke the better of the two reaches the rim";
 
-/// One measure, both terminals, and whether less is better.
 struct Pair {
     name: String,
     glass: f32,
@@ -42,23 +35,18 @@ struct Pair {
 pub struct Board {
     title: String,
     note: String,
-    /// How many rounds the medians are of, in words.
     heading: String,
     throughput: Vec<Pair>,
     others: Vec<Pair>,
-    /// Text drawn as a picture: (id, width, height).
     labels: HashMap<String, (u32, u32, u32)>,
 }
 
-/// This run's frames: (show time, frames a second, MB/s, answer ms).
 pub type Samples = VecDeque<(f32, f32, f32, f32)>;
 
 fn ease_out_cubic(t: f32) -> f32 {
     1.0 - (1.0 - clamp01(t)).powi(3)
 }
 
-/// Faint most of the time; now and then the numbers surface for a few
-/// seconds, then sink back.
 fn surfacing(t: f32, salt: f32) -> f32 {
     let a = (0.5 + 0.5 * (t * 0.41 + salt).sin()).powi(10);
     let b = (0.5 + 0.5 * (t * 0.23 + salt * 2.3).sin()).powi(14);
@@ -109,7 +97,6 @@ impl Board {
         })
     }
 
-    /// Every word the graphs show, as pictures.
     pub fn setup(&mut self, out: &mut Vec<u8>) {
         let mut words: Vec<(String, u32, &'static str)> = vec![
             (self.title.clone(), 30, "#ffffff"),
@@ -143,8 +130,6 @@ impl Board {
         }
     }
 
-    /// Text as a picture, its middle at `y`; `align` 0 puts its left
-    /// edge at `x`, 1 its right edge, between the two in between.
     #[allow(clippy::too_many_arguments)]
     fn word(&self, cv: &mut Canvas, text: &str, x: f32, y: f32, align: f32, o: f32, z: i32) {
         if let Some(&(id, w, h)) = self.labels.get(text) {
@@ -161,10 +146,6 @@ impl Board {
         self.web(cv, t, k * surfacing(t, 0.0));
     }
 
-    /// Every measure as a spoke of one web. On each spoke the better of
-    /// the two terminals reaches the rim and the other falls short by
-    /// their ratio, so where glass wins its line runs round the rim and
-    /// kitty's is the star inside it.
     fn web(&self, cv: &mut Canvas, t: f32, k: f32) {
         let pairs: Vec<&Pair> = self.throughput.iter().chain(&self.others).collect();
         let n = pairs.len();
@@ -181,7 +162,6 @@ impl Board {
             clamp01(f)
         };
         let faint = hex("#8fa3c8");
-        // Rings at the quarters, and the spokes.
         for q in [0.25, 0.5, 0.75, 1.0] {
             for i in 0..n {
                 let (a, b) = (at(i, q), at((i + 1) % n, q));
@@ -192,7 +172,6 @@ impl Board {
             let e = at(i, 1.06);
             cv.line_at(Z_WEB, cx, cy, e.0, e.1, faint, k * 0.14, 1.0, 2.0);
         }
-        // Kitty's line, then glass's over it.
         let kitty: Vec<(f32, f32)> = pairs.iter().enumerate().map(|(i, p)| at(i, reach(p, p.kitty))).collect();
         let glass: Vec<(f32, f32)> = pairs.iter().enumerate().map(|(i, p)| at(i, reach(p, p.glass))).collect();
         let amber = hex("#e0b070");
@@ -207,12 +186,10 @@ impl Board {
             cv.line_at(Z_WEB, a.0, a.1, b.0, b.1, hue(i), k * 0.95, 3.5, 10.0);
             cv.glow_at(Z_WEB, a.0, a.1, 10.0, hue(i), k * 0.9);
         }
-        // A glint runs round glass's line.
         let u = (t * 0.11).fract() * n as f32;
         let (i, f) = (u.floor() as usize % n, u.fract());
         let (a, b) = (glass[i], glass[(i + 1) % n]);
         cv.glow_at(Z_WEB, a.0 + (b.0 - a.0) * f, a.1 + (b.1 - a.1) * f, 20.0, hue(i), k * 0.8);
-        // Each spoke's words at its end, leaning away from the middle.
         for (i, p) in pairs.iter().enumerate() {
             let (c, s) = (angle(i).cos(), angle(i).sin());
             let (x, y) = (cx + c * (r + 30.0), cy + s * (r + 30.0) + s * 26.0);
@@ -221,7 +198,6 @@ impl Board {
             self.word(cv, &format!("{} {}", number(p.glass), p.unit), x, y, align, k * 0.85, Z_WEB);
             self.word(cv, &format!("{} {}", number(p.kitty), p.unit), x, y + 21.0, align, k * 0.7, Z_WEB);
         }
-        // What it is and how it was measured, in a corner, faintly.
         let words = [self.title.as_str(), self.heading.as_str(), SPOKES];
         for (j, w) in words.iter().enumerate() {
             self.word(cv, w, 40.0, 70.0 + j as f32 * 30.0, 0.0, k * if j == 0 { 0.6 } else { 0.5 }, Z_WEB);
@@ -233,9 +209,6 @@ impl Board {
         }
     }
 
-    /// This run, as three lines of light across the foot of the frame:
-    /// frames a second, MB/s of escape codes, how long glass takes to
-    /// answer. No axes; the frames line has 60 drawn faintly behind it.
     fn traces(&self, cv: &mut Canvas, t: f32, live: &Samples, k: f32) {
         if k < 0.004 {
             return;

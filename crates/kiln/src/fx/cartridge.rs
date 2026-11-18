@@ -16,7 +16,6 @@ use super::recipe::{Form, Kind, Layer, Motion, Range, Recipe, Spawn};
 use super::time::{Ease, Time};
 use serde_json::{Map, Value};
 
-/// Game pixels a v1 native pixel.
 pub const SCALE: f32 = 0.25;
 
 const RECIPE_FIELDS: &[&str] =
@@ -24,7 +23,6 @@ const RECIPE_FIELDS: &[&str] =
 const LAYER_FIELDS: &[&str] =
     &["type", "ramp", "t0", "t1", "x", "y", "r0", "r1", "th", "angle", "squash", "gain", "speed", "spin", "count", "size", "life", "mode", "gravity", "text"];
 
-/// v1's named ramps, dark to light, as it ships them.
 const V1_RAMPS: &[(&str, [u32; 5])] = &[
     ("fire", [0x43172b, 0xa13235, 0xe86a2d, 0xffc45c, 0xfff1b0]),
     ("ice", [0x182e61, 0x286c9a, 0x52bfd0, 0xa7eaf4, 0xf0ffff]),
@@ -50,7 +48,6 @@ fn rgb(c: u32) -> [u8; 3] {
     [(c >> 16) as u8, (c >> 8) as u8, c as u8]
 }
 
-/// A colour as `rrggbb` (a `#` allowed).
 fn hex(v: &Value) -> Result<[u8; 3], String> {
     let s = v.as_str().ok_or("a colour is a hex string")?.trim_start_matches('#');
     if s.len() != 6 {
@@ -59,7 +56,6 @@ fn hex(v: &Value) -> Result<[u8; 3], String> {
     u32::from_str_radix(s, 16).map(rgb).map_err(|_| format!("{s:?} is not rrggbb"))
 }
 
-/// v1's hue turn, in YIQ, as it does it.
 fn turned(c: [u8; 3], deg: f32) -> [u8; 3] {
     if deg == 0.0 {
         return c;
@@ -72,8 +68,6 @@ fn turned(c: [u8; 3], deg: f32) -> [u8; 3] {
     [px(y + 0.956 * ii + 0.621 * qq), px(y - 0.272 * ii - 0.647 * qq), px(y - 1.106 * ii + 1.703 * qq)]
 }
 
-/// A layer's colours: a v1 ramp's name, `$` and a recipe ramp's name, or
-/// the colours themselves.
 fn colours(v: Option<&Value>, own: &Map<String, Value>) -> Result<Vec<[u8; 3]>, String> {
     let v = v.cloned().unwrap_or(Value::String("fire".into()));
     let v = match v.as_str() {
@@ -98,8 +92,6 @@ fn num(o: &Map<String, Value>, key: &str, default: f32) -> Result<f32, String> {
     }
 }
 
-/// A v1 recipe's JSON as a kiln recipe, and notes on what carried over
-/// only near enough.
 pub fn from_cartridge_v1(json: &str) -> Result<(Recipe, Vec<String>), String> {
     let v: Value = serde_json::from_str(json).map_err(|e| e.to_string())?;
     let o = v.as_object().ok_or("a v1 recipe is an object")?;
@@ -125,10 +117,8 @@ pub fn from_cartridge_v1(json: &str) -> Result<(Recipe, Vec<String>), String> {
         }
         _ => None,
     };
-    // A v1 unit (half the shorter side) in game pixels.
     let u = w.min(h) / 2.0 * SCALE;
     let canvas = [(w * SCALE).ceil().max(1.0) as u32, (h * SCALE).ceil().max(1.0) as u32];
-    // v1 plays a one-shot's frame f at t = f / (frames - 1); a loop's at f / frames.
     let span = if looping { frames } else { frames - 1.0 };
     let empty = Vec::new();
     let mut layers = Vec::new();
@@ -170,7 +160,6 @@ pub fn from_cartridge_v1(json: &str) -> Result<(Recipe, Vec<String>), String> {
         }
         let rad = (angle.to_radians().cos(), angle.to_radians().sin());
         let turn = |dx: f32, dy: f32| (x + dx * rad.0 - dy * rad.1, y + dx * rad.1 + dy * rad.0);
-        // One turn a window, as v1's spin counts them, in degrees a frame.
         let per_frame = (spin * 360.0 / window).clamp(-360.0, 360.0);
         match kind {
             Kind::Burst => (k.r0, k.r1, k.squash) = (Some(r0), Some(r1), Some(squash)),
@@ -277,7 +266,6 @@ pub fn from_cartridge_v1(json: &str) -> Result<(Recipe, Vec<String>), String> {
 mod tests {
     use super::*;
 
-    /// A v1 recipe in the shape of the cartridge's frost example.
     const NOVA: &str = r#"{ "name": "Nova", "w": 64, "h": 64, "frames": 18, "fps": 18, "seed": 11, "layers": [
         { "type": "rays", "ramp": "ice", "count": 12, "gain": 0.65, "r1": 0.9 },
         { "type": "ring", "ramp": "frost", "r0": 0.08, "r1": 0.9, "th": 0.08 },

@@ -1,7 +1,3 @@
-"""Turn analysis.json + live_analysis.json into the dashboard's datasets
-(one JSON array of rows per file) under <bench>/dash/data/.
-  python3 -I build_datasets.py <bench-dir>
-"""
 import json, os, sys
 
 root = sys.argv[1]

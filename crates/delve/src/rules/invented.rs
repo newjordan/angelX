@@ -14,40 +14,26 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Bolts one casting may carry. Past this a magic is a floor-clearer.
 pub const MAX_BOLTS: u32 = 12;
-/// Where a bolt's damage stops, whatever the wish asked for.
 pub const MAX_DAMAGE: i64 = 50;
-/// The widest fan, in radians either side of the aim.
 pub const MAX_SPREAD: f32 = 1.5;
-/// The longest a made-up magic may slow what it hits: ten seconds.
 pub const MAX_SLOW: u32 = 10_000;
-/// The most mana one casting may take.
 pub const MAX_MANA: u32 = 100;
 
-/// What a made-up magic is made of: a shape, a number, and what it leaves
-/// behind. Every field is one of the engine's primitives.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Spell {
     pub name: String,
-    /// How many bolts one casting sends.
     pub bolts: u32,
-    /// How wide the fan is, in radians either side of the aim.
     pub spread: f32,
-    /// What one bolt is worth.
     pub damage: i64,
     pub element: Element,
     pub on_hit: OnHit,
-    /// How long what it hits is slowed, for `OnHit::Slow`.
     pub slow: u32,
-    /// What one casting costs from the knight's pool.
     pub mana: u32,
-    /// Ticks before the spell may be cast again.
     pub cooldown: u32,
 }
 
-/// What a bolt looks and reads as. The renderer already knows these.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Element {
@@ -58,7 +44,6 @@ pub enum Element {
     Coin,
 }
 
-/// What a bolt does to what it reaches.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OnHit {
@@ -69,7 +54,6 @@ pub enum OnHit {
     Pierce,
 }
 
-/// Why a wish's magic never reached the floor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Reject {
@@ -82,11 +66,9 @@ pub enum Reject {
     NoCooldown,
 }
 
-/// One primitive a casting puts on the field.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Effect {
-    /// A shot: where it starts, which way it goes, and what it is worth.
     Bolt {
         from: (f32, f32),
         heading: (f32, f32),
@@ -97,8 +79,6 @@ pub enum Effect {
     },
 }
 
-/// Whether a wish's magic may be granted at all: the bounds every made-up
-/// spell passes before it is put in a deck.
 pub fn check(spell: &Spell) -> Result<(), Reject> {
     if spell.name.trim().is_empty() {
         return Err(Reject::Nameless);
@@ -124,9 +104,6 @@ pub fn check(spell: &Spell) -> Result<(), Reject> {
     Ok(())
 }
 
-/// Casts a checked spell: where the caster stands, which way they aim, and the
-/// primitives it puts on the field. Symmetric about the aim, the same every
-/// time, so a client that replays it lands where the server does.
 pub fn cast(spell: &Spell, at: (f32, f32), aim: f32) -> Vec<Effect> {
     let bolts = spell.bolts.clamp(1, MAX_BOLTS);
     (0..bolts)

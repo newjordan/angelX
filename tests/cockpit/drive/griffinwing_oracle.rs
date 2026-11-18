@@ -22,65 +22,27 @@ use super::*;
 use std::sync::OnceLock;
 
 pub trait Rules {
-    /// A fresh id for a foe.
     fn next_id(&mut self) -> u16;
     fn sound(&mut self, name: &'static str);
-    /// A rider's short shout, shown as a portrait for a moment. The same line
-    /// is not said twice in a row, and four show at most.
     fn say(&mut self, who: u8, line: Line);
     fn spark(&mut self, what: Burst, s: i32, x: i32, z: i32, n: u8);
-    /// Who calls the hints: the first of the riders still flying, and when a
-    /// full table leaves none (or all are lost), Aster, the wing's lead, who
-    /// calls from the beacon's keep.
     fn voice(&self) -> u8;
-    /// Who is at the table now (`present`), seated and stood up, and the
-    /// foes' health provisioned for the seats now flying: a knight who sits
-    /// down scales the beat up by its share, and a seat already provisioned
-    /// does not scale twice (`Foe::seats`).
     fn muster(&mut self, here: &[u32]);
-    /// One tick: the seats are whoever is here and awake, so a knight who
-    /// leaves stands up and one who joins late sits down; then the beat.
     fn step_here(&mut self, inputs: &BTreeMap<u32, Input>, here: &[u32], nums: &Nums) -> Out;
-    /// The calls, flashes and counters wind down.
     fn tick_lists(&mut self);
-    /// The beat's end, a wipe, or the Wyrm's fall.
     fn end_beat(&mut self);
-    /// The next beat flies on from where this one ends, the party mended a
-    /// little and a bomb richer; what the beat made is banked.
     fn next_beat(&mut self);
-    /// A beat starts over from its checkpoint: the foes the beat had are
-    /// gone and its script runs again from there; what was banked stays, as
-    /// do the Wyrm's lamps already out. Everyone is up, mended and unhurt for
-    /// a moment.
     fn restart(&mut self);
-    /// The Wyrm is down and the fly-through is over: the medal, and the
-    /// tally.
     fn finish(&mut self);
-    /// A craft by the id a bolt or a foe holds: a seat's, a rider's. Its
-    /// place along, across and up, and whether it is flying.
     fn craft_at(&self, id: u8) -> Option<(i32, i32, i32, bool)>;
-    /// One knight's tick in the air.
     fn fly(&mut self, id: u32, i: Input, n: &Nums);
-    /// A tap: two bolts, side by side, both to where the reticle points.
     fn tap(&mut self, owner: u8, c: &Craft, s_c: i32);
-    /// Everything the reticle sweeps over while F is held is locked: a
-    /// bracket on each, snapping on. A great body (a lamp) takes up to three
-    /// if the reticle dwells on it.
     fn acquire(&mut self, c: &mut Craft, s_c: i32);
-    /// Letting go: a starburst for every lock, a chain of pops two ticks
-    /// apart, homing on their bodies.
     fn release(&mut self, owner: u8, c: &mut Craft, s_c: i32, n: &Nums);
     fn push_bolt(&mut self, b: Bolt);
-    /// The bolts' home pace (starbursts steer at it).
     fn star_speed() -> i32;
-    /// The wingmen: formation flying with a little drift, a bolt now and
-    /// then at what is nearest ahead.
     fn wing_fly(&mut self, _n: &Nums);
-    /// After the beat's blows: a craft with no shield falls and rises again
-    /// a moment later; a rider with none is lost to the beat.
     fn step_craft(&mut self, _n: &Nums);
-    /// Put a foe on the rail, its health provisioned for the knights at the
-    /// table; what it is worth is offered to the medal.
     fn spawn_foe(
         &mut self,
         kind: Kind,
@@ -90,51 +52,22 @@ pub trait Rules {
         mode: u8,
         phase: u8,
     ) -> Option<u16>;
-    /// A craft's shield takes a blow. A knight is spared for a moment after
-    /// one; a rider is only worn down (by what latches on). Whether it
-    /// landed.
     fn hurt_craft(&mut self, id: u8, dmg: i32) -> bool;
-    /// A drip from a latched kite: no spare moment, no flash.
     fn drain(&mut self, id: u8, amount: i32);
-    /// Who a hunting kite goes for: a rider not yet latched, else a knight
-    /// not yet latched, else anyone flying. The same hunter always finds the
-    /// same victim.
     fn victim(&self, hunter: u16) -> Option<u8>;
-    /// Who a turret or the Wyrm fires at: the knights flying, in turn.
     fn target(&self, turn: usize) -> Option<(i32, i32)>;
-    /// A bolt from `o` that meets the formation's plane at `to` (across, up)
-    /// as the rail brings the plane to it, closing at `closing` a tick.
     fn plane_shot(&self, o: (i32, i32, i32), to: (i32, i32), closing: i32) -> (i32, i32, i32);
-    /// The foes' tick: flights, tells, latching, dives.
     fn step_foes(&mut self, n: &Nums);
     fn step_foe(&mut self, f: &mut Foe, anchor: i32, n: &Nums);
-    /// A turret fires on its locked marks.
     fn fire_marks(&mut self, f: &Foe);
-    /// A kite going for its victim: it picks one, closes, and latches onto
-    /// the tail.
     fn hunt(&mut self, f: &mut Foe);
-    /// A latched kite hangs on its victim's tail, draining its shield, until
-    /// it is shot, or shaken off by a roll.
     fn hang(&mut self, f: &mut Foe);
-    /// Dive-bombers meet craft: a blow for the knight, and the bomber is
-    /// spent.
     fn bombers_ram(&mut self);
-    /// A foe takes `dmg` from `by`; whether it fell.
     fn hit_foe(&mut self, fi: usize, dmg: u32, by: u8) -> bool;
-    /// A foe pops into cold smoke and a spark of returned light. A kite that
-    /// had latched on is a rescue; a knight's chain of pops is counted, and
-    /// pays more the longer it runs.
     fn kill(&mut self, fi: usize, by: u8);
-    /// A lamp's flame is out: points, a flash, and the Wyrm reels (the Wyrm's
-    /// tick sees it).
     fn break_lamp(&mut self, fi: usize, by: u8);
-    /// Starfall: every hostile bolt is cleared, and everything small on the
-    /// way is struck for what it can bear.
     fn starfall(&mut self, by: u8, s_c: i32, _x: i32, _z: i32);
-    /// The bolts' tick: they fly and home, then land.
     fn step_bolts(&mut self, n: &Nums);
-    /// A friendly bolt against the foes and the hostile sparks; whether it
-    /// flies on.
     fn friendly_bolt(
         &mut self,
         b: &Bolt,
@@ -142,10 +75,7 @@ pub trait Rules {
         to: (i32, i32, i32),
         dead: &mut [bool],
     ) -> bool;
-    /// A friendly bolt lands on foe `i`.
     fn land(&mut self, i: usize, b: &Bolt);
-    /// A hostile bolt against the knights: a roll's shield turns it round, a
-    /// bare craft takes it. Whether it flies on.
     fn hostile_bolt(
         &mut self,
         b: &mut Bolt,
@@ -153,62 +83,29 @@ pub trait Rules {
         to: (i32, i32, i32),
         n: &Nums,
     ) -> bool;
-    /// A rolling craft's shield turns a bolt round: it is the roller's now,
-    /// faster, and heads for what fired it (or the Wyrm's lit lamp).
     fn turn(&mut self, b: &mut Bolt, by: u32, at: (i32, i32, i32));
-    /// Run the events that are due.
     fn run_script(&mut self, _n: &Nums);
-    /// A centred spread: the `k`th of `count`, in half steps.
     fn spread(k: i32, count: i32) -> i32;
     fn act(&mut self, act: Act);
-    /// The warm fly-through after the Wyrm: a procession of gold gates and
-    /// hearth rings, lit for the way home. It pays nothing and offers
-    /// nothing; it is the party's welcome.
     fn victory_gates(&mut self);
-    /// The Wyrm rises out of the roost (or, after a fall, is back in its
-    /// place, its lamps as they were).
     fn rise(&mut self);
-    /// How long the Wyrm rests between attacks: shorter the more knights
-    /// fly and the later the phase.
     fn rest(&self, phase: u8) -> u32;
-    /// The Wyrm's tick.
     fn step_boss(&mut self, n: &Nums);
-    /// An attack's footprints are locked and shown for the tell's ticks.
     fn begin_tell(&mut self, b: &mut Beast, n: &Nums);
-    /// The Wyrm's spit: a Gloam bolt for each locked mark, from its mouth,
-    /// each owing its return to the lit lamp.
     fn spit(&mut self, b: &Beast);
-    /// Props and the knights who cross them.
     fn step_props(&mut self, n: &Nums);
-    /// A gate or a ring flown through.
     fn take(&mut self, id: u32, p: &Prop, boosting: bool);
-    /// Rock met: a blow, and the craft is spared a moment.
     fn scrape(&mut self, id: u32, s: i32, x: i32, z: i32);
-    /// What knight `id` presses this tick, for the numbers `n` stand at.
     fn bot_native(&self, id: u32, n: &Nums, skill: Skill) -> Input;
-    /// Whether this knight is one of the rollers: the even seats, and any
-    /// knight at all when no even seat is flying.
     fn reflector(&self, id: u32) -> bool;
-    /// While the lit lamp is shut, the soonest of the Wyrm's spits that is
-    /// owed to it: ticks to it and where it will cross.
     fn intercept(&self, s_c: i32) -> Option<(u32, i32, i32)>;
-    /// The soonest hostile bolt that will pass near this craft's plane:
-    /// ticks to it, where it will cross, and whether it is a Gloam bolt.
     fn threat(&self, c: &Craft, s_c: i32) -> Option<(u32, i32, i32, bool)>;
-    /// Where to go to be clear of the point `(ox, oz)`: four ways out of it
-    /// (left, right, up, down), those the steer box allows, the one that ends
-    /// farthest from it, so a knight at the edge goes up or down and not into
-    /// the wall.
     fn room_from(c: &Craft, ox: i32, oz: i32, n: &Nums) -> (i32, i32);
-    /// A footprint locked on this craft (a turret's, a bomber's lane): the
-    /// place to be instead.
     fn footprint_away(&self, c: &Craft, n: &Nums) -> Option<(i32, i32)>;
-    /// The Wyrm's coil wants the gap, its roar wants the column left.
     fn boss_corridor(&self, c: &Craft, n: &Nums) -> Option<(i32, i32)>;
 }
 
 impl Rules for Session {
-    /// A fresh id for a foe.
     fn next_id(&mut self) -> u16 {
         let id = self.ids;
         self.ids = if self.ids >= 60_000 { 1 } else { self.ids + 1 };
@@ -221,8 +118,6 @@ impl Rules for Session {
         }
     }
 
-    /// A rider's short shout, shown as a portrait for a moment. The same line
-    /// is not said twice in a row, and four show at most.
     fn say(&mut self, who: u8, line: Line) {
         if self.calls.iter().any(|c| c.line == line && c.ticks > 40) {
             return;
@@ -256,17 +151,10 @@ impl Rules for Session {
         });
     }
 
-    /// Who calls the hints: the first of the riders still flying, and when a
-    /// full table leaves none (or all are lost), Aster, the wing's lead, who
-    /// calls from the beacon's keep.
     fn voice(&self) -> u8 {
         self.wing.iter().find(|w| !w.lost).map_or(7, |w| w.id)
     }
 
-    /// Who is at the table now (`present`), seated and stood up, and the
-    /// foes' health provisioned for the seats now flying: a knight who sits
-    /// down scales the beat up by its share, and a seat already provisioned
-    /// does not scale twice (`Foe::seats`).
     fn muster(&mut self, here: &[u32]) {
         self.seats.retain(|id, _| here.contains(id));
         for &id in here {
@@ -290,8 +178,6 @@ impl Rules for Session {
         self.fill_wing();
     }
 
-    /// One tick: the seats are whoever is here and awake, so a knight who
-    /// leaves stands up and one who joins late sits down; then the beat.
     fn step_here(&mut self, inputs: &BTreeMap<u32, Input>, here: &[u32], nums: &Nums) -> Out {
         self.elapsed = (self.elapsed + 1).min(LIMIT);
         self.muster(here);
@@ -327,7 +213,6 @@ impl Rules for Session {
                 }
             }
             Mode::Victory | Mode::Tally => {
-                // The rail carries them home; at the tally the wing hovers.
                 if self.mode == Mode::Victory {
                     self.t = (self.t + 1).min(LIMIT);
                 }
@@ -355,7 +240,6 @@ impl Rules for Session {
                 }
             }
         }
-        // The keys of this tick stand for the next one's presses.
         for (&id, seat) in &mut self.seats {
             seat.craft.keys = bits(keys(id));
         }
@@ -365,7 +249,6 @@ impl Rules for Session {
         }
     }
 
-    /// The calls, flashes and counters wind down.
     fn tick_lists(&mut self) {
         for c in &mut self.calls {
             c.ticks = c.ticks.saturating_sub(1);
@@ -380,9 +263,7 @@ impl Rules for Session {
         }
     }
 
-    /// The beat's end, a wipe, or the Wyrm's fall.
     fn end_beat(&mut self) {
-        // A wipe: every knight down at once.
         if !self.seats.is_empty() && self.seats.values().all(|s| s.craft.down > 0) {
             self.mode = Mode::Retry;
             self.mode_t = RETRY;
@@ -413,8 +294,6 @@ impl Rules for Session {
         }
     }
 
-    /// The next beat flies on from where this one ends, the party mended a
-    /// little and a bomb richer; what the beat made is banked.
     fn next_beat(&mut self) {
         self.bank.bank(&self.beat);
         self.beat = Tally::default();
@@ -441,10 +320,6 @@ impl Rules for Session {
         }
     }
 
-    /// A beat starts over from its checkpoint: the foes the beat had are
-    /// gone and its script runs again from there; what was banked stays, as
-    /// do the Wyrm's lamps already out. Everyone is up, mended and unhurt for
-    /// a moment.
     fn restart(&mut self) {
         self.retries = self.retries.saturating_add(1);
         self.beat = Tally::default();
@@ -480,8 +355,6 @@ impl Rules for Session {
         self.say(self.voice(), Line::Hello);
     }
 
-    /// The Wyrm is down and the fly-through is over: the medal, and the
-    /// tally.
     fn finish(&mut self) {
         self.bank.bank(&self.beat);
         self.beat = Tally::default();
@@ -491,8 +364,6 @@ impl Rules for Session {
         self.sound("play_card");
     }
 
-    /// A craft by the id a bolt or a foe holds: a seat's, a rider's. Its
-    /// place along, across and up, and whether it is flying.
     fn craft_at(&self, id: u8) -> Option<(i32, i32, i32, bool)> {
         let c = if (1..=6).contains(&id) {
             &self.seats.get(&u32::from(id))?.craft
@@ -508,7 +379,6 @@ impl Rules for Session {
         Some((self.craft_s(c), c.x, c.z, c.flying()))
     }
 
-    /// One knight's tick in the air.
     fn fly(&mut self, id: u32, i: Input, n: &Nums) {
         let Some(seat) = self.seats.get(&id) else {
             return;
@@ -532,7 +402,6 @@ impl Rules for Session {
             c.charge = 0;
             c.locks.clear();
             if c.down == 0 {
-                // Back in the wing, mended a little, unhurt for a moment.
                 let (x, z) = slot(id);
                 c.x = x;
                 c.z = z;
@@ -547,7 +416,6 @@ impl Rules for Session {
             }
             return;
         }
-        // A second tap of a direction is a roll that way.
         let mut double = false;
         if i.move_x != 0 && c.last_x != i.move_x {
             if c.tap_dir == i.move_x && c.tap_ticks > 0 {
@@ -559,7 +427,6 @@ impl Rules for Session {
             }
         }
         c.last_x = i.move_x;
-        // The roll: a spinning shield, and a throw to the side.
         if (edge(K_DASH, i.dash) || double) && c.rest == 0 && c.roll == 0 {
             c.dir = if i.move_x != 0 {
                 i.move_x.signum()
@@ -578,7 +445,6 @@ impl Rules for Session {
             self.sound("roll");
         }
         c.roll = c.roll.saturating_sub(1);
-        // The reins.
         let (tx, tz) = (i32::from(i.move_x) * V_X, -i32::from(i.move_y) * V_Z);
         c.vx += (tx - c.vx).clamp(-ACC, ACC);
         c.vz += (tz - c.vz).clamp(-ACC, ACC);
@@ -592,10 +458,8 @@ impl Rules for Session {
             c.z = wz * c.z.signum();
             c.vz = 0;
         }
-        // The lean follows the sideways speed a little late.
         c.bank += (c.vx * Q / V_X - c.bank) / 4;
         c.lift += (c.vz * Q / V_Z - c.lift) / 4;
-        // The spur on a short meter, and the brake.
         let drain = METER / n.spur.max(1) as i32;
         let refill = METER / (n.spur.max(1) as i32 * 5 / 2).max(1);
         c.boost = i.interact && !c.spent && c.meter > 0 && c.roll == 0;
@@ -621,12 +485,9 @@ impl Rules for Session {
         let back = c.back + (want - c.back).clamp(-BACK_V, BACK_V);
         c.ds = PACE + back - c.back;
         c.back = back;
-        // The reticle: instant, and it stays where it is put.
         c.rx = (c.rx + i32::from(i.aim_x) * RET_V).clamp(-RX_MAX, RX_MAX);
         c.rz = (c.rz - i32::from(i.aim_y) * RET_V).clamp(-RZ_MAX, RZ_MAX);
         let s_c = self.craft_s(&c);
-        // Fire: a tap is a twin bolt; a hold charges and locks; letting go
-        // sends the locks.
         if c.roll == 0 && i.fire {
             if edge(K_FIRE, true) {
                 c.held = 1;
@@ -650,7 +511,6 @@ impl Rules for Session {
             c.dwell = 0;
             c.locks.clear();
         }
-        // Starfall.
         if edge(K_BOMB, i.bomb) && c.bombs > 0 && c.roll == 0 {
             c.bombs -= 1;
             self.starfall(id as u8, s_c, c.x, c.z);
@@ -660,7 +520,6 @@ impl Rules for Session {
         }
     }
 
-    /// A tap: two bolts, side by side, both to where the reticle points.
     fn tap(&mut self, owner: u8, c: &Craft, s_c: i32) {
         let muzzle = s_c + dm(12);
         let to = (s_c + FAR, c.x + c.rx, c.z + c.rz);
@@ -687,9 +546,6 @@ impl Rules for Session {
         self.sound("shot_bolt");
     }
 
-    /// Everything the reticle sweeps over while F is held is locked: a
-    /// bracket on each, snapping on. A great body (a lamp) takes up to three
-    /// if the reticle dwells on it.
     fn acquire(&mut self, c: &mut Craft, s_c: i32) {
         let alive: Vec<(u16, Kind, i32, i32, i32, bool)> = self
             .foes
@@ -708,7 +564,6 @@ impl Rules for Session {
             if !ok || !(LOCK_MIN..=LOCK_MAX).contains(&ds) {
                 continue;
             }
-            // The reticle's ray at that depth, against the body.
             let ax = (i64::from(c.rx) * i64::from(ds) / i64::from(FAR)) as i32;
             let az = (i64::from(c.rz) * i64::from(ds) / i64::from(FAR)) as i32;
             if flat(x - c.x, z - c.z, ax, az) > i64::from(kind.radius() + LOCK_R) {
@@ -743,8 +598,6 @@ impl Rules for Session {
         }
     }
 
-    /// Letting go: a starburst for every lock, a chain of pops two ticks
-    /// apart, homing on their bodies.
     fn release(&mut self, owner: u8, c: &mut Craft, s_c: i32, n: &Nums) {
         let full = c.charge >= n.charge;
         let dmg = STAR_MIN + (STAR_MAX - STAR_MIN) * c.charge.min(n.charge) / n.charge.max(1);
@@ -785,13 +638,10 @@ impl Rules for Session {
         }
     }
 
-    /// The bolts' home pace (starbursts steer at it).
     fn star_speed() -> i32 {
         V_STAR
     }
 
-    /// The wingmen: formation flying with a little drift, a bolt now and
-    /// then at what is nearest ahead.
     fn wing_fly(&mut self, _n: &Nums) {
         let anchor = self.anchor();
         let t = self.t;
@@ -804,7 +654,6 @@ impl Rules for Session {
         for k in 0..self.wing.len() {
             let mut w = self.wing[k].clone();
             if w.lost {
-                // Falling away, out of the picture.
                 w.craft.z = (w.craft.z - 20).max(-dm(110));
                 self.wing[k] = w;
                 continue;
@@ -820,7 +669,6 @@ impl Rules for Session {
             w.craft.vz = w.craft.z - oz;
             w.craft.bank += (w.craft.vx * Q / V_X - w.craft.bank) / 4;
             w.craft.lift += (w.craft.vz * Q / V_Z - w.craft.lift) / 4;
-            // A rider coming back up from a fall leans no further than a knight.
             w.craft.bank = w.craft.bank.clamp(-Q, Q);
             w.craft.lift = w.craft.lift.clamp(-Q, Q);
             w.craft.back = back;
@@ -828,7 +676,6 @@ impl Rules for Session {
             w.fire = w.fire.saturating_sub(1);
             let me = (anchor + back, w.craft.x, w.craft.z);
             if w.fire == 0 {
-                // The nearest foe ahead, within range.
                 let pick = targets
                     .iter()
                     .filter(|t| (dm(60)..=dm(400)).contains(&(t.0 - me.0)))
@@ -861,8 +708,6 @@ impl Rules for Session {
         }
     }
 
-    /// After the beat's blows: a craft with no shield falls and rises again
-    /// a moment later; a rider with none is lost to the beat.
     fn step_craft(&mut self, _n: &Nums) {
         let anchor = self.anchor();
         let ids: Vec<u32> = self.seats.keys().copied().collect();
@@ -882,7 +727,6 @@ impl Rules for Session {
                 }
                 self.spark(Burst::Fall, at.0, at.1, at.2, id as u8);
                 self.sound("knight_fall");
-                // Whatever hung on it lets go.
                 for f in &mut self.foes {
                     if f.st == St::Latched && u32::from(f.on) == id {
                         f.st = St::Flee;
@@ -916,8 +760,6 @@ impl Rules for Session {
         }
     }
 
-    /// Put a foe on the rail, its health provisioned for the knights at the
-    /// table; what it is worth is offered to the medal.
     fn spawn_foe(
         &mut self,
         kind: Kind,
@@ -958,9 +800,6 @@ impl Rules for Session {
         Some(id)
     }
 
-    /// A craft's shield takes a blow. A knight is spared for a moment after
-    /// one; a rider is only worn down (by what latches on). Whether it
-    /// landed.
     fn hurt_craft(&mut self, id: u8, dmg: i32) -> bool {
         let at = self.craft_at(id);
         if (1..=6).contains(&id) {
@@ -996,7 +835,6 @@ impl Rules for Session {
         }
     }
 
-    /// A drip from a latched kite: no spare moment, no flash.
     fn drain(&mut self, id: u8, amount: i32) {
         if (1..=6).contains(&id) {
             if let Some(s) = self.seats.get_mut(&u32::from(id)) {
@@ -1009,9 +847,6 @@ impl Rules for Session {
         }
     }
 
-    /// Who a hunting kite goes for: a rider not yet latched, else a knight
-    /// not yet latched, else anyone flying. The same hunter always finds the
-    /// same victim.
     fn victim(&self, hunter: u16) -> Option<u8> {
         let free = |id: u8| self.craft_at(id).is_some_and(|c| c.3) && !self.latched(id);
         let riders: Vec<u8> = self
@@ -1038,7 +873,6 @@ impl Rules for Session {
             .find(|&id| self.craft_at(id).is_some_and(|c| c.3))
     }
 
-    /// Who a turret or the Wyrm fires at: the knights flying, in turn.
     fn target(&self, turn: usize) -> Option<(i32, i32)> {
         let flying: Vec<(i32, i32)> = self
             .seats
@@ -1053,15 +887,12 @@ impl Rules for Session {
         }
     }
 
-    /// A bolt from `o` that meets the formation's plane at `to` (across, up)
-    /// as the rail brings the plane to it, closing at `closing` a tick.
     fn plane_shot(&self, o: (i32, i32, i32), to: (i32, i32), closing: i32) -> (i32, i32, i32) {
         let gap = (o.0 - self.anchor()).max(dm(40));
         let ticks = (gap / closing.max(1)).max(1);
         (PACE - closing, (to.0 - o.1) / ticks, (to.1 - o.2) / ticks)
     }
 
-    /// The foes' tick: flights, tells, latching, dives.
     fn step_foes(&mut self, n: &Nums) {
         let anchor = self.anchor();
         let mut foes = std::mem::take(&mut self.foes);
@@ -1069,19 +900,15 @@ impl Rules for Session {
             self.step_foe(f, anchor, n);
         }
         self.foes = foes;
-        // Those that have gone by, or fled out of sight, are gone.
         self.foes.retain(|f| {
             (f.kind == Kind::Lamp)
                 || (f.hp > 0 && f.s > anchor - dm(300) && f.s < anchor + dm(1500))
         });
-        // A bomber that was thrown at a craft.
         self.bombers_ram();
     }
 
     fn step_foe(&mut self, f: &mut Foe, anchor: i32, n: &Nums) {
         let t = self.t;
-        // A hit stops the foe a moment where it is, each foe by itself (the
-        // shared sim never pauses): the hit lands.
         if f.flash >= 4 && matches!(f.st, St::Fly | St::Hunt) {
             return;
         }
@@ -1093,7 +920,6 @@ impl Rules for Session {
                 if f.mode == 1 && (t + u32::from(f.phase)) % 34 == 0 {
                     f.vx = -f.vx;
                 }
-                // A shooting wisp: a short tell, then a slow spark.
                 if f.mode == 3 && f.kind == Kind::Wisp {
                     f.ticks = f.ticks.saturating_sub(1);
                     let ahead = f.s - anchor;
@@ -1178,7 +1004,6 @@ impl Rules for Session {
                 }
             }
             (Kind::Bomber, St::Tell) => {
-                // It rises over the ridge, then dives down the locked lane.
                 if f.z < f.fz.max(dm(10)) + dm(24) {
                     f.z += dm(1);
                 }
@@ -1202,7 +1027,6 @@ impl Rules for Session {
         }
     }
 
-    /// A turret fires on its locked marks.
     fn fire_marks(&mut self, f: &Foe) {
         for to in Session::marks(f, self.pressure()) {
             let v = self.plane_shot((f.s, f.x, f.z + dm(12)), to, dm(5));
@@ -1226,8 +1050,6 @@ impl Rules for Session {
         self.sound("shot_crossbow");
     }
 
-    /// A kite going for its victim: it picks one, closes, and latches onto
-    /// the tail.
     fn hunt(&mut self, f: &mut Foe) {
         let held = f.on != 0 && self.craft_at(f.on).is_some_and(|c| c.3);
         if !held {
@@ -1266,8 +1088,6 @@ impl Rules for Session {
         }
     }
 
-    /// A latched kite hangs on its victim's tail, draining its shield, until
-    /// it is shot, or shaken off by a roll.
     fn hang(&mut self, f: &mut Foe) {
         let Some((vs, vx, vz, ok)) = self.craft_at(f.on) else {
             f.st = St::Flee;
@@ -1297,8 +1117,6 @@ impl Rules for Session {
         }
     }
 
-    /// Dive-bombers meet craft: a blow for the knight, and the bomber is
-    /// spent.
     fn bombers_ram(&mut self) {
         let crafts: Vec<(u8, i32, i32, i32)> = self
             .seats
@@ -1330,7 +1148,6 @@ impl Rules for Session {
         }
     }
 
-    /// A foe takes `dmg` from `by`; whether it fell.
     fn hit_foe(&mut self, fi: usize, dmg: u32, by: u8) -> bool {
         let f = &mut self.foes[fi];
         f.hp = f.hp.saturating_sub(dmg);
@@ -1347,9 +1164,6 @@ impl Rules for Session {
         true
     }
 
-    /// A foe pops into cold smoke and a spark of returned light. A kite that
-    /// had latched on is a rescue; a knight's chain of pops is counted, and
-    /// pays more the longer it runs.
     fn kill(&mut self, fi: usize, by: u8) {
         let f = self.foes.remove(fi);
         let mut gain = f.kind.worth();
@@ -1383,8 +1197,6 @@ impl Rules for Session {
         }
     }
 
-    /// A lamp's flame is out: points, a flash, and the Wyrm reels (the Wyrm's
-    /// tick sees it).
     fn break_lamp(&mut self, fi: usize, by: u8) {
         let f = &mut self.foes[fi];
         f.st = St::Broken;
@@ -1402,8 +1214,6 @@ impl Rules for Session {
         self.sound("boss_rage");
     }
 
-    /// Starfall: every hostile bolt is cleared, and everything small on the
-    /// way is struck for what it can bear.
     fn starfall(&mut self, by: u8, s_c: i32, _x: i32, _z: i32) {
         self.spark(Burst::Starfall, s_c, 0, 0, by);
         self.sound("bomb");
@@ -1424,7 +1234,6 @@ impl Rules for Session {
         }
     }
 
-    /// The bolts' tick: they fly and home, then land.
     fn step_bolts(&mut self, n: &Nums) {
         let anchor = self.anchor();
         let count = self.bolts.len();
@@ -1434,7 +1243,6 @@ impl Rules for Session {
         for i in 0..count {
             let mut b = self.bolts[i].clone();
             if b.delay > 0 {
-                // A released starburst waits at its craft's muzzle for its turn.
                 match self.craft_at(b.owner) {
                     Some((s, x, z, true)) => {
                         b.s = s + dm(12);
@@ -1447,7 +1255,6 @@ impl Rules for Session {
                 self.bolts[i] = b;
                 continue;
             }
-            // Homing: a starburst and a turned bolt close on their body.
             if b.aim != 0 && matches!(b.shot, Arm::Star | Arm::Turned) {
                 let pick = self
                     .foes
@@ -1467,7 +1274,6 @@ impl Rules for Session {
                         b.vz += (want.2 - b.vz) / 3;
                     }
                     None => {
-                        // Its body is gone: on to the nearest ahead.
                         b.aim = self
                             .foes
                             .iter()
@@ -1513,8 +1319,6 @@ impl Rules for Session {
         });
     }
 
-    /// A friendly bolt against the foes and the hostile sparks; whether it
-    /// flies on.
     fn friendly_bolt(
         &mut self,
         b: &Bolt,
@@ -1527,8 +1331,6 @@ impl Rules for Session {
             if !f.alive() || f.st == St::Hide {
                 continue;
             }
-            // A released starburst pops the body it was locked on, so a chain
-            // of locks is a chain of pops.
             if b.shot == Arm::Star && b.aim != 0 && f.id != b.aim {
                 continue;
             }
@@ -1543,7 +1345,6 @@ impl Rules for Session {
             self.land(i, b);
             return false;
         }
-        // A bolt shoots a snuffer's spark out of the air.
         let hit = self.bolts.iter().enumerate().position(|(j, h)| {
             !dead[j] && h.shot == Arm::Spark && near(from, to, (h.s, h.x, h.z), SPARK_R + BOLT_R)
         });
@@ -1557,7 +1358,6 @@ impl Rules for Session {
         true
     }
 
-    /// A friendly bolt lands on foe `i`.
     fn land(&mut self, i: usize, b: &Bolt) {
         let (kind, st, id) = (self.foes[i].kind, self.foes[i].st, self.foes[i].id);
         let at = (self.foes[i].s, self.foes[i].x, self.foes[i].z);
@@ -1567,7 +1367,6 @@ impl Rules for Session {
                 .as_ref()
                 .is_some_and(|boss| boss.lamps[usize::from(boss.phase.min(2))] == id);
             match (b.shot, st) {
-                // A turned bolt opens the active lamp's cold-light shield.
                 (Arm::Turned, St::Shut) if active => {
                     self.foes[i].st = St::Open;
                     self.foes[i].ticks = OPEN;
@@ -1579,7 +1378,6 @@ impl Rules for Session {
                 (Arm::Turned, St::Open) => {
                     self.foes[i].ticks = OPEN;
                 }
-                // Only a charged starburst breaks it open.
                 (Arm::Star, St::Open) if b.full && active => {
                     self.hit_foe(i, u32::from(b.dmg), b.owner);
                     self.spark(Burst::Hit, at.0, at.1, at.2, 1);
@@ -1599,12 +1397,9 @@ impl Rules for Session {
         };
         self.spark(Burst::Hit, at.0, at.1, at.2, 0);
         if self.hit_foe(i, dmg, b.owner) && b.shot == Arm::Star {
-            // The chain of pops counts a starburst's own kills.
         }
     }
 
-    /// A hostile bolt against the knights: a roll's shield turns it round, a
-    /// bare craft takes it. Whether it flies on.
     fn hostile_bolt(
         &mut self,
         b: &mut Bolt,
@@ -1646,8 +1441,6 @@ impl Rules for Session {
         true
     }
 
-    /// A rolling craft's shield turns a bolt round: it is the roller's now,
-    /// faster, and heads for what fired it (or the Wyrm's lit lamp).
     fn turn(&mut self, b: &mut Bolt, by: u32, at: (i32, i32, i32)) {
         let target = self
             .foes
@@ -1689,7 +1482,6 @@ impl Rules for Session {
         self.sound("shield_block");
     }
 
-    /// Run the events that are due.
     fn run_script(&mut self, _n: &Nums) {
         let script = script(self.stage);
         while let Some(ev) = script.get(usize::from(self.next)) {
@@ -1701,7 +1493,6 @@ impl Rules for Session {
         }
     }
 
-    /// A centred spread: the `k`th of `count`, in half steps.
     fn spread(k: i32, count: i32) -> i32 {
         2 * k - (count - 1)
     }
@@ -1887,9 +1678,6 @@ impl Rules for Session {
         }
     }
 
-    /// The warm fly-through after the Wyrm: a procession of gold gates and
-    /// hearth rings, lit for the way home. It pays nothing and offers
-    /// nothing; it is the party's welcome.
     fn victory_gates(&mut self) {
         let origin = self.anchor() + dm(150);
         for k in 0..9 {
@@ -1913,8 +1701,6 @@ impl Rules for Session {
         }
     }
 
-    /// The Wyrm rises out of the roost (or, after a fall, is back in its
-    /// place, its lamps as they were).
     fn rise(&mut self) {
         self.cp = rail::BOSS_AT;
         if let Some(b) = &mut self.boss {
@@ -1955,21 +1741,17 @@ impl Rules for Session {
         self.sound("boss_rise");
     }
 
-    /// How long the Wyrm rests between attacks: shorter the more knights
-    /// fly and the later the phase.
     fn rest(&self, phase: u8) -> u32 {
         let seats = u32::from(self.pressure());
         (64 - 4 * (seats - 1) - 8 * u32::from(phase)).max(34)
     }
 
-    /// The Wyrm's tick.
     fn step_boss(&mut self, n: &Nums) {
         let Some(mut b) = self.boss.take() else {
             return;
         };
         let anchor = self.anchor();
         let t = self.t;
-        // The head holds its place ahead and sways; it rises from below.
         b.x = tri(t, 260, dm(24));
         b.z = HIGH
             - if b.st == Wyrm::Rise {
@@ -2097,7 +1879,6 @@ impl Rules for Session {
                             Line::Roar
                         },
                     );
-                    // The Wyrm calls kites to its side: they hunt the wing.
                     let hunters = 1 + i32::from(self.pressure()) / 3;
                     for k in 0..hunters {
                         let side = if k % 2 == 0 { -1 } else { 1 };
@@ -2115,13 +1896,11 @@ impl Rules for Session {
         self.boss = Some(b);
     }
 
-    /// An attack's footprints are locked and shown for the tell's ticks.
     fn begin_tell(&mut self, b: &mut Beast, n: &Nums) {
         let seats = usize::from(self.pressure());
         let phase = usize::from(b.phase);
         let turn = usize::from(b.seq);
         if self.target(0).is_none() {
-            // Nobody to aim at: it waits.
             b.st = Wyrm::Idle;
             b.ticks = 30;
             return;
@@ -2132,7 +1911,6 @@ impl Rules for Session {
                 let count = (2 + (seats - 1) / 2 + phase).min(7);
                 for k in 0..count {
                     if let Some((x, z)) = self.target(turn + k) {
-                        // A knight asked for twice is aimed at to either side.
                         let jitter = (k as i32 / self.seats.len().max(1) as i32) * dm(16);
                         b.marks
                             .push((x + if k % 2 == 0 { jitter } else { -jitter }, z));
@@ -2158,8 +1936,6 @@ impl Rules for Session {
         self.sound("vent_fire");
     }
 
-    /// The Wyrm's spit: a Gloam bolt for each locked mark, from its mouth,
-    /// each owing its return to the lit lamp.
     fn spit(&mut self, b: &Beast) {
         let lit = b.lamps[usize::from(b.phase.min(2))];
         for &to in &b.marks {
@@ -2185,7 +1961,6 @@ impl Rules for Session {
         self.sound("shot_crossbow");
     }
 
-    /// Props and the knights who cross them.
     fn step_props(&mut self, n: &Nums) {
         let anchor = self.anchor();
         let t = self.t;
@@ -2240,11 +2015,9 @@ impl Rules for Session {
         self.props.retain(|p| p.s + p.len > anchor - dm(300));
     }
 
-    /// A gate or a ring flown through.
     fn take(&mut self, id: u32, p: &Prop, boosting: bool) {
         match p.thing {
             Thing::Gate => {
-                // A victory gate (`phase` 1) is a welcome, not a score.
                 if p.phase == 0 {
                     let pts = GATE * if boosting { 2 } else { 1 };
                     if let Some(s) = self.seats.get_mut(&id) {
@@ -2267,7 +2040,6 @@ impl Rules for Session {
         self.spark(Burst::Gate, p.s, p.x, p.z, id as u8);
     }
 
-    /// Rock met: a blow, and the craft is spared a moment.
     fn scrape(&mut self, id: u32, s: i32, x: i32, z: i32) {
         if self.hurt_craft(id as u8, SCRAPE) {
             self.spark(Burst::Scrape, s, x, z, id as u8);
@@ -2275,7 +2047,6 @@ impl Rules for Session {
         }
     }
 
-    /// What knight `id` presses this tick, for the numbers `n` stand at.
     fn bot_native(&self, id: u32, n: &Nums, skill: Skill) -> Input {
         let novice = skill == Skill::Novice;
         let Some(seat) = self.seats.get(&id) else {
@@ -2283,7 +2054,6 @@ impl Rules for Session {
         };
         let c = &seat.craft;
         if self.mode == Mode::Tally {
-            // A fresh press now and then leaves.
             return Input {
                 interact: self.mode_t % 2 == 0,
                 ..Input::default()
@@ -2294,16 +2064,11 @@ impl Rules for Session {
         }
         let s_c = self.craft_s(c);
         let mut input = Input::default();
-        // A kite on this knight's own tail: roll it off.
         let on_me = self.latched(id as u8);
 
-        // Where to be: round what is coming, through a gate, away from a
-        // footprint, to the middle of an opening.
         let mut want: Option<(i32, i32)> = None;
         let mut rolls = on_me && c.rest == 0 && c.roll == 0;
         let mut brake = false;
-        // A friend with a kite on their tail, level with this knight: drop
-        // back until the chaser is in front, and shoot it.
         if let Some(chaser) = self
             .foes
             .iter()
@@ -2316,21 +2081,16 @@ impl Rules for Session {
         let threat = self.threat(c, s_c);
         let seek = self.reflector(id).then(|| self.intercept(s_c)).flatten();
         if let Some((t_hit, px, pz)) = seek {
-            // The Wyrm's lamp is shut: be where its spit will be, and roll.
             want = Some((px, pz));
-            // A novice meets the Wyrm's spit half the time.
             let willing = !novice || noise(id, self.t / 60, 5, 1) >= 0;
             rolls = willing && c.rest == 0 && c.roll == 0 && t_hit <= if novice { 6 } else { 8 };
         } else if let Some((t_hit, px, pz, gloam)) = threat {
             let reflect = c.rest == 0 && c.roll == 0;
-            // The even seats roll at a Gloam bolt; the odd ones dodge it
-            // unless it is on them, or no even seat is there to roll.
             let eager = self.reflector(id) || t_hit <= 6;
             let slip = novice && noise(id, self.t / 45, 9, 2) == 0;
             if reflect && gloam && eager && t_hit <= if novice { 6 } else { 9 } && !slip {
                 rolls = true;
             } else if rolls {
-                // Already rolling a kite off.
             } else if t_hit <= if novice { 22 } else { 40 } {
                 want = Some(Session::room_from(c, px, pz, &n));
             }
@@ -2342,7 +2102,6 @@ impl Rules for Session {
             want = self.boss_corridor(c, &n);
         }
         if want.is_none() {
-            // The next thing on the rail to thread or take.
             let ahead = |p: &Prop| (0..=dm(300)).contains(&(p.s - s_c));
             for p in self.props.iter().filter(|p| ahead(p)) {
                 match p.thing {
@@ -2397,8 +2156,6 @@ impl Rules for Session {
             return input;
         }
 
-        // What to shoot: a kite on a friend's tail, a lamp that is open, a
-        // flight to sweep, the nearest foe.
         let lockable: Vec<&Foe> = self
             .foes
             .iter()
@@ -2416,13 +2173,11 @@ impl Rules for Session {
         let cluster = fliers.len() >= 3;
         let held = c.held > HOLD_AT_BOT;
         let in_locks = |f: &Foe| c.locks.iter().any(|l| l.foe == f.id);
-        // The target the reticle seeks.
         let target: Option<&Foe> = if let Some(f) = latched {
             Some(*f)
         } else if let Some(f) = lamp_open {
             Some(*f)
         } else if held {
-            // Sweeping: on to the nearest one not yet locked.
             fliers
                 .iter()
                 .map(|f| **f)
@@ -2433,7 +2188,6 @@ impl Rules for Session {
         };
         if let Some(f) = target {
             let ds = (f.s - s_c).max(dm(30));
-            // A novice's aim wanders a little (up to a unit and a half).
             let (jx, jz) = if novice {
                 (
                     noise(id, self.t / 14, 1, dm(15)),
@@ -2450,11 +2204,9 @@ impl Rules for Session {
             input.aim_x = steer(c.rx, rx, dead);
             input.aim_y = -steer(c.rz, rz, dead);
         } else {
-            // Nothing to aim at: the reticle comes home.
             input.aim_x = steer(c.rx, 0, RET_V);
             input.aim_y = -steer(c.rz, 0, RET_V);
         }
-        // The hands on the fire key.
         let total: usize = c.locks.iter().map(|l| usize::from(l.n)).sum();
         let want_locks = if lamp_open.is_some() && latched.is_none() {
             MAX_PER_BODY as usize
@@ -2462,9 +2214,6 @@ impl Rules for Session {
             fliers.len().min(MAX_LOCKS)
         };
         if held {
-            // Hold until the locks are in or the charge is full, then let go.
-            // A lamp wants the whole charge; a flight, whatever is in hand.
-            // A novice lets go early now and then, a lamp's charge unfinished.
             let early = novice && noise(id, self.t / 90, 3, 2) == 0;
             let done = if lamp_open.is_some() && latched.is_none() {
                 (c.charge >= n.charge && total >= 2) || (early && c.charge >= n.charge / 2)
@@ -2477,10 +2226,8 @@ impl Rules for Session {
         } else if lamp_open.is_some() || cluster {
             input.fire = c.keys & K_FIRE == 0;
         } else if target.is_some() {
-            // A tap: down on one tick and up on the next.
             input.fire = c.keys & K_FIRE == 0;
         }
-        // Starfall when worn down in a crowded sky.
         let crowd = fliers.iter().filter(|f| (f.s - s_c) < dm(260)).count();
         if c.shield <= 35 && crowd >= 3 && c.bombs > 0 && c.keys & K_BOMB == 0 {
             input.bomb = true;
@@ -2488,8 +2235,6 @@ impl Rules for Session {
         input
     }
 
-    /// Whether this knight is one of the rollers: the even seats, and any
-    /// knight at all when no even seat is flying.
     fn reflector(&self, id: u32) -> bool {
         id % 2 == 0
             || !self
@@ -2498,8 +2243,6 @@ impl Rules for Session {
                 .any(|(&k, s)| k % 2 == 0 && s.craft.flying())
     }
 
-    /// While the lit lamp is shut, the soonest of the Wyrm's spits that is
-    /// owed to it: ticks to it and where it will cross.
     fn intercept(&self, s_c: i32) -> Option<(u32, i32, i32)> {
         let boss = self.boss.as_ref()?;
         let lit = boss.lamps[usize::from(boss.phase.min(2))];
@@ -2516,8 +2259,6 @@ impl Rules for Session {
             .min_by_key(|x| x.0)
     }
 
-    /// The soonest hostile bolt that will pass near this craft's plane:
-    /// ticks to it, where it will cross, and whether it is a Gloam bolt.
     fn threat(&self, c: &Craft, s_c: i32) -> Option<(u32, i32, i32, bool)> {
         let mut best: Option<(u32, i32, i32, bool)> = None;
         for b in &self.bolts {
@@ -2538,10 +2279,6 @@ impl Rules for Session {
         best
     }
 
-    /// Where to go to be clear of the point `(ox, oz)`: four ways out of it
-    /// (left, right, up, down), those the steer box allows, the one that ends
-    /// farthest from it, so a knight at the edge goes up or down and not into
-    /// the wall.
     fn room_from(c: &Craft, ox: i32, oz: i32, n: &Nums) -> (i32, i32) {
         let (wx, wz) = (n.wx(), n.wz());
         [(dm(40), 0), (dm(-40), 0), (0, dm(30)), (0, dm(-30))]
@@ -2551,8 +2288,6 @@ impl Rules for Session {
             .unwrap_or((c.x, c.z))
     }
 
-    /// A footprint locked on this craft (a turret's, a bomber's lane): the
-    /// place to be instead.
     fn footprint_away(&self, c: &Craft, n: &Nums) -> Option<(i32, i32)> {
         for f in &self.foes {
             if f.st == St::Tell && matches!(f.kind, Kind::Turret | Kind::Bomber | Kind::Wisp) {
@@ -2566,7 +2301,6 @@ impl Rules for Session {
         None
     }
 
-    /// The Wyrm's coil wants the gap, its roar wants the column left.
     fn boss_corridor(&self, c: &Craft, n: &Nums) -> Option<(i32, i32)> {
         let b = self.boss.as_ref()?;
         if !matches!(b.st, Wyrm::Tell | Wyrm::Coil | Wyrm::Roar) {
@@ -2588,8 +2322,6 @@ impl Rules for Session {
     }
 }
 
-/// The keys, a bit each, for the presses (a key held across a tick is not a
-/// new press).
 pub const K_FIRE: u8 = 1;
 
 pub const K_DASH: u8 = 2;
@@ -2606,34 +2338,26 @@ pub fn bits(i: Input) -> u8 {
         | u8::from(i.swing) << 4
 }
 
-/// How fast a craft steers, across and up, and how quickly it gets there
-/// (units a tick, in Q).
 const V_X: i32 = 62;
 
 const V_Z: i32 = 50;
 
 const ACC: i32 = 14;
 
-/// The reticle's pace, and how far it ranges from its craft at the far plane.
 pub const RET_V: i32 = 100;
 
 pub const RX_MAX: i32 = dm(120);
 
 pub const RZ_MAX: i32 = dm(80);
 
-/// A tap's rest, how long F is held before it is a charge, the rest after a
-/// release.
 const TAP_REST: u32 = 6;
 
 const HOLD_AT: u32 = 7;
 
 const REL_REST: u32 = 12;
 
-/// How near the reticle's ray must pass a body to lock it, beyond its size.
 pub const LOCK_R: i32 = dm(16);
 
-/// The bolts' pace along their way (relative to the rail) and how long they
-/// fly.
 const V_BOLT: i32 = dm(22);
 
 const V_STAR: i32 = dm(26);
@@ -2642,45 +2366,34 @@ const BOLT_LIFE: u16 = 26;
 
 const STAR_LIFE: u16 = 46;
 
-/// What a bolt and a starburst do: a starburst's least and its most (a full
-/// charge).
 pub const LANCE: u16 = 10;
 
 pub const STAR_MIN: u32 = 16;
 
 pub const STAR_MAX: u32 = 36;
 
-/// The spur and the brake: how far they slide a craft along the rail, and
-/// how quickly.
 const BOOST_BACK: i32 = dm(55);
 
 const BRAKE_BACK: i32 = dm(45);
 
 const BACK_V: i32 = 28;
 
-/// A roll's rest after it ends, and how hard it throws a craft aside.
 const ROLL_REST: u32 = 12;
 
 const ROLL_V: i32 = 84;
 
-/// The window in which a second tap is a roll.
 const TAP_WINDOW: u8 = 9;
 
-/// The craft's body, for the bolts that hit it.
 pub const CRAFT_R: i32 = dm(10);
 
-/// How far from a craft a rolling shield turns a bolt round.
 pub const REFLECT_R: i32 = dm(26);
 
-/// What Starfall does to every foe it reaches.
 pub const STARFALL: u32 = 120;
 
-/// How a kite closes on its victim, and how far behind the craft it hangs.
 const HUNT_V: i32 = dm(10);
 
 const LATCH_BACK: i32 = dm(18);
 
-/// What a hit of each hostile bolt takes off a shield, and how big they are.
 const GLOAM: i32 = 25;
 
 const SPARK: i32 = 10;
@@ -2691,27 +2404,18 @@ const SPARK_R: i32 = dm(5);
 
 const BOLT_R: i32 = dm(5);
 
-/// What a turned bolt does, and its pace home.
 pub const TURNED: u16 = 60;
 
 const V_TURN: i32 = dm(24);
 
-/// A dive-bomber's blow.
 const RAM: i32 = 35;
 
-/// How long a shield stays down after a hit lands on it, in ticks.
 pub const HURT: u32 = 36;
 
-/// How many ticks the rail takes to carry a thing from where it appears to
-/// the formation.
 pub const LEAD_TICKS: u32 = (LEAD / PACE) as u32;
 
-/// One thing the script does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Act {
-    /// A flight of snuffers: how many, how many more per two seats, the
-    /// shape (0 line, 1 vee, 2 file, 3 crossing, 4 weaving), where, and how
-    /// they fly (0 drift, 1 weave, 3 shoot).
     Wisps {
         n: u8,
         plus: u8,
@@ -2720,30 +2424,24 @@ pub enum Act {
         z: i16,
         mode: u8,
     },
-    /// Kites crossing in a file from one side (-1 left, 1 right).
     Convoy {
         n: u8,
         plus: u8,
         from: i8,
         z: i16,
     },
-    /// A kite that hunts a wingman and latches onto its tail.
     Hunter {
         side: i8,
     },
-    /// A lantern tower on a ledge.
     Turret {
         x: i16,
         z: i16,
     },
-    /// A ridge with dive-bombers waiting behind it.
     Ridge {
         x: i16,
         bombers: u8,
         plus: u8,
     },
-    /// A bonus gate, a hearth ring, a rock arch, a pair of shutters: where
-    /// the rail brings them (`rel` from the beat's first point).
     Gate {
         rel: i32,
         x: i16,
@@ -2766,9 +2464,7 @@ pub enum Act {
         rel: i32,
         phase: u16,
     },
-    /// The wing's lead shouts.
     Say(Line),
-    /// The Wyrm rises.
     Beast,
 }
 
@@ -2788,7 +2484,6 @@ impl Beat {
     fn at(&mut self, at: u32, act: Act) {
         self.0.push(Ev { at, act });
     }
-    /// A prop that arrives at the formation on tick `t`.
     fn prop(&mut self, t: u32, make: impl Fn(i32) -> Act) {
         self.0.push(Ev {
             at: t.saturating_sub(LEAD_TICKS),
@@ -2834,8 +2529,6 @@ impl Beat {
     }
 }
 
-/// Thunderhead Run: aim, then hold and let go, the first gates, a rock arch,
-/// and the first kite that latches on.
 fn thunderhead() -> Vec<Ev> {
     let mut b = Beat(Vec::new());
     b.say(30, Line::Hello);
@@ -2870,8 +2563,6 @@ fn thunderhead() -> Vec<Ev> {
     b.done()
 }
 
-/// The Ruined Causeway: turrets teach the roll, kite convoys pay off the
-/// lock, dive-bombers come from behind a ridge, shutters close on a clock.
 fn causeway() -> Vec<Ev> {
     let mut b = Beat(Vec::new());
     b.say(30, Line::Ruins);
@@ -2950,7 +2641,6 @@ fn causeway() -> Vec<Ev> {
     b.done()
 }
 
-/// The Wyrm's Roost: a short approach, then the Wyrm.
 fn roost() -> Vec<Ev> {
     let mut b = Beat(Vec::new());
     b.say(30, Line::Roost);
@@ -2963,37 +2653,29 @@ fn roost() -> Vec<Ev> {
     b.done()
 }
 
-/// The scripts, built once.
 pub fn script(stage: u8) -> &'static [Ev] {
     static SCRIPTS: OnceLock<[Vec<Ev>; 3]> = OnceLock::new();
     &SCRIPTS.get_or_init(|| [thunderhead(), causeway(), roost()])[usize::from(stage.min(2))]
 }
 
-/// Where a beat's script stands when it comes back to the tick `cp`.
 pub fn resume(stage: u8, cp: u32) -> u16 {
     script(stage).iter().take_while(|e| e.at < cp).count() as u16
 }
 
-/// How far ahead of the formation the Wyrm's head holds.
 pub const HEAD: i32 = dm(340);
 
-/// How long a lamp's shield stays open after a turned bolt, in ticks.
 pub const OPEN: u32 = 150;
 
 const RISE_T: u32 = 90;
 
 const HURT_T: u32 = 70;
 
-/// The lamps' places about the head, across and up.
 const LAMP: [(i32, i32); 3] = [(dm(-45), dm(10)), (dm(45), dm(10)), (0, dm(42))];
 
-/// How far in front of its face the lamps hang.
 const FRONT: i32 = dm(40);
 
-/// The head's height above the rail's line, resting.
 const HIGH: i32 = dm(12);
 
-/// How wide the coils' gap and the roar's column are, half.
 pub const GAP_HALF: i32 = dm(30);
 
 pub const COL_HALF: i32 = dm(24);
@@ -3002,31 +2684,23 @@ const COIL_T: u32 = 22;
 
 const ROAR_T: u32 = 26;
 
-/// What a coil or the roar does to a craft it catches.
 const BLOW: i32 = 35;
 
-/// A shutter's cycle, in ticks, and the narrowest its gap closes to (half).
 pub const SHUTTER_PERIOD: u32 = 150;
 
 pub const SHUTTER_MIN: i32 = dm(5);
 
-/// What a scrape of rock takes off a shield.
 const SCRAPE: i32 = 15;
 
-/// What a hearth ring mends.
 const MEND: i32 = 50;
 
-/// A bonus gate's points, doubled for a gate flown on the spur.
 pub const GATE: u32 = 100;
 
-/// A shutter's half gap at tick `t`: open and closing and opening again over
-/// its cycle, the way it shows from the far end of the rail.
 pub fn shutter_gap(p: &Prop, t: u32, wx: i32) -> i32 {
     let k = tri(t + u32::from(p.phase), SHUTTER_PERIOD, 1000) + 1000;
     SHUTTER_MIN + (wx + dm(10) - SHUTTER_MIN) * k / 2000
 }
 
-/// A steady scatter in `-span..=span` from a knight, a tick and a salt.
 fn noise(id: u32, t: u32, salt: u32, span: i32) -> i32 {
     let mut h =
         id.wrapping_mul(0x9E37_79B1) ^ t.wrapping_mul(0x85EB_CA6B) ^ salt.wrapping_mul(0xC2B2_AE35);
@@ -3036,18 +2710,13 @@ fn noise(id: u32, t: u32, salt: u32, span: i32) -> i32 {
     (h % (2 * span as u32 + 1)) as i32 - span
 }
 
-/// How long F is held before it is a charge (the flight's own number).
 const HOLD_AT_BOT: u32 = 7;
 
-/// A whole-number length of the vector `d`, rounded down.
 pub fn norm(d: (i32, i32, i32)) -> i64 {
     let n = i64::from(d.0).pow(2) + i64::from(d.1).pow(2) + i64::from(d.2).pow(2);
-    // A correctly rounded square root, the same on every machine.
     (n as f64).sqrt() as i64
 }
 
-/// `d` turned to a length of `len`, along the same way (straight ahead for
-/// a zero vector).
 pub fn scale3(d: (i32, i32, i32), len: i32) -> (i32, i32, i32) {
     let m = norm(d);
     if m == 0 {
@@ -3057,7 +2726,6 @@ pub fn scale3(d: (i32, i32, i32), len: i32) -> (i32, i32, i32) {
     (f(d.0), f(d.1), f(d.2))
 }
 
-/// A triangle wave through `-amp..=amp` over `period` ticks.
 pub fn tri(t: u32, period: u32, amp: i32) -> i32 {
     let p = period.max(2);
     let k = (t % p) as i64;
@@ -3066,9 +2734,6 @@ pub fn tri(t: u32, period: u32, amp: i32) -> i32 {
     ((up * 2 - half) * i64::from(amp) / half) as i32
 }
 
-/// Whether the segment from `a` to `b` passes within `r` of `p`: the swept
-/// test every bolt, dive and latch is judged by (no free 3D collision, only
-/// this, in rail space).
 pub fn near(a: (i32, i32, i32), b: (i32, i32, i32), p: (i32, i32, i32), r: i32) -> bool {
     let d = (
         i64::from(b.0) - i64::from(a.0),
@@ -3093,12 +2758,10 @@ pub fn near(a: (i32, i32, i32), b: (i32, i32, i32), p: (i32, i32, i32), r: i32) 
     ex * ex + ey * ey + ez * ez <= i64::from(r) * i64::from(r)
 }
 
-/// How far two points are apart across and up (the plane's own distance).
 pub fn flat(ax: i32, az: i32, bx: i32, bz: i32) -> i64 {
     norm((0, ax - bx, az - bz))
 }
 
-/// What the module is asked, as `Session::step` and `Session::bot_with` ask it.
 #[derive(serde::Deserialize)]
 struct Ask {
     op: String,
@@ -3114,7 +2777,6 @@ struct Ask {
     novice: bool,
 }
 
-/// The module's answer to `input`, from the rules above.
 pub fn answer(_id: &str, input: &serde_json::Value) -> Result<serde_json::Value, String> {
     let mut ask: Ask = serde_json::from_value(input.clone()).map_err(|e| e.to_string())?;
     match ask.op.as_str() {

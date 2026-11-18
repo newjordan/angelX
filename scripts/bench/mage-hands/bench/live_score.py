@@ -1,7 +1,3 @@
-"""Score the live bench runs (angel-live/*/): verdicts plus every `ground`
-call checked against the captured AT-SPI box of the control it named.
-  python3 -I live_score.py <bench-dir>
-"""
 import collections, glob, json, math, os, re, statistics, sys
 
 root = sys.argv[1]
@@ -30,8 +26,6 @@ def wilson(k, n, z=1.96):
 
 def truth_for(task, target):
     if task.startswith("nautilus"):
-        # The captured home folder held six folders and the live runs' home holds three,
-        # so the captured boxes are not where the live folders are: unscored.
         return None, None
     page = pages[REF[task.split("-")[0]]]
     els = {e["name"]: e["box"] for e in page["elements"] if e["role"] != "label"} | \
@@ -44,8 +38,6 @@ def truth_for(task, target):
                 return name, els.get(name)
         m = re.search(r"(?<![\d.])(\d)(?![\d.])", t)
         return (m.group(1), els.get(m.group(1))) if m else (None, None)
-    # Whole-word match on the control's name (so "formatting" never matches "Format"),
-    # real controls over labels and titles; checkboxes have no captured box: unscored.
     if re.search(r"check ?box|tick", t):
         return None, None
     ctrl = {"push button", "toggle button", "button", "table cell", "list item", "check box", "menu item", "page tab", "icon"}
@@ -70,8 +62,6 @@ for d in sorted(glob.glob(f"{root}/{LIVE}/*-r*")):
     v = json.load(open(f"{d}/verdict.json"))
     task = v["task"]
     if task.startswith("writer"):
-        # Re-derived from the recorded AT-SPI state: the first verifier wanted the
-        # state list to be exactly ['checked'], and LibreOffice also reports 'focused'.
         on = lambda name: re.search(rf"toggle button \| '{name}' \| text='' \| \[[^]]*'checked'", v["observed"]) is not None
         text_ok = "Knights Wish" in v["observed"]
         v["pass"] = text_ok and (on("Bold") if task == "writer-bold" else on("Italic") and on("Underline"))
@@ -123,8 +113,6 @@ for d in sorted(glob.glob(f"{root}/{LIVE}/*-r*")):
     if reason:
         invalid_runs.append({"run": os.path.basename(d), "task": task, "reason": reason})
         continue
-    # An app-side pass alone is not a Mage pass. Zero parseable model points or
-    # a nonzero driver exit is a failure, even if the brain finished by itself.
     passed = bool(v["pass"] and grounds and v.get("angel_rc") == 0)
     runs.append({"run": os.path.basename(d), "task": task, "pass": passed, "observed": v["observed"], "infra": False,
                  "error": tj.get("error"),
@@ -132,7 +120,7 @@ for d in sorted(glob.glob(f"{root}/{LIVE}/*-r*")):
                  "ground_attempts": calls["ground"], "ground": len(grounds), "ground_scored": len(scored), "ground_hit": sum(g["hit"] for g in scored),
                  "clicks": calls["click"], "keys": calls["key"] + calls["type"], "grounds": grounds})
 
-for d in sorted(glob.glob(f"{root}/{LIVE}-infra/*-r*")):  # first attempts set aside as mulligans
+for d in sorted(glob.glob(f"{root}/{LIVE}-infra/*-r*")):
     try:
         tj = json.load(open(f"{d}/task.json"))
     except Exception:
@@ -140,7 +128,7 @@ for d in sorted(glob.glob(f"{root}/{LIVE}-infra/*-r*")):  # first attempts set a
     infra_runs.append({"run": os.path.basename(d) + " (first attempt)", "task": os.path.basename(d).rsplit("-r", 1)[0],
                        "infra": True, "reason": "archived_infrastructure_attempt",
                        "error": tj.get("error"), "hops": tj.get("hops")})
-runs = [r for r in runs if not r["infra"]]  # provider errors are mulligans: rerun, never counted
+runs = [r for r in runs if not r["infra"]]
 by_task = collections.defaultdict(list)
 for r in runs:
     by_task[r["task"]].append(r)

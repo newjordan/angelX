@@ -16,97 +16,61 @@ use super::time::{Beats, Ease, Time};
 use super::pen::Mode;
 use serde::{Deserialize, Serialize};
 
-/// The recipe version this reads.
 pub const VERSION: u32 = 0;
-/// The most layers a recipe has.
 pub const MOST_LAYERS: usize = 32;
-/// The most motes one emitter throws over its life.
 pub const MOST_MOTES: u32 = 512;
 
-/// An effect.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Recipe {
-    /// The version, 0.
     pub fx: u32,
     pub name: String,
-    /// Its size in game pixels.
     pub canvas: [u32; 2],
-    /// The point it is played at (a hand, an impact, a figure's feet), in
-    /// game pixels from the canvas's top left; its centre if not given.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pivot: Option<[f32; 2]>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fps: Option<u32>,
-    /// How many frames it runs; the beats' total, else its last layer's end.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frames: Option<u32>,
-    /// Whether it plays round and round: an aura, a burning brazier.
     #[serde(default, rename = "loop", skip_serializing_if = "Option::is_none")]
     pub looping: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seed: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub beats: Option<Beats>,
-    /// A one-pixel rim of the realm's darkest ink round everything drawn.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub outline: Option<bool>,
     pub layers: Vec<Layer>,
 }
 
-/// What a layer draws.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Kind {
-    /// An emitter: motes of a form, thrown, slowed, pulled and let die.
     Particles,
-    /// Smoke puffs: an emitter whose form is smoke, drawn under.
     Puffs,
-    /// A fireball's body: a rough hot disc swelling and cooling into holes.
     Burst,
-    /// A ring opening, its thickness falling away.
     Ring,
-    /// A shockwave: a ring with a dark wake on the floor inside it.
     Shock,
-    /// Tongues of flame licking up from a base.
     Flame,
-    /// A beam from the layer's place to its end.
     Beam,
-    /// A pillar of light from on high down to the layer's place.
     Pillar,
-    /// A blade's smear: a crescent swept round, thick at its leading edge.
     Slash,
-    /// A glowing ball, pulsing; it travels when given an end.
     Orb,
-    /// A flash: a hard bright disc that cools at once.
     Flash,
-    /// A comet: a hot head with a tapering tail behind it.
     Comet,
-    /// A swirl turning in on itself.
     Vortex,
-    /// Rays shooting out with an overshoot and drawing back.
     Rays,
-    /// A rune circle drawing itself on: rings, a star, runes round its band.
     Glyph,
-    /// Lightning: a jagged bolt with forks, re-struck every few frames.
     Bolt,
-    /// Cracks running out over the ground.
     Cracks,
-    /// Spikes shooting up out of the ground and breaking.
     Spikes,
-    /// A spiky star of light.
     Star,
-    /// A thrust's streak with speed lines beside it.
     Streaks,
-    /// A shield's bubble popping into being.
     Bubble,
-    /// Numbers rising: `+12`, `-3`, `!`.
     Text,
-    /// A funnel of wind, striped and swaying.
     Tornado,
 }
 
-/// What an emitter's motes are drawn as.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Form {
@@ -128,49 +92,33 @@ pub enum Form {
     Fly,
 }
 
-/// How an emitter's motes move beyond being thrown.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Motion {
     #[default]
     Straight,
-    /// Side to side across their line, `wobble` pixels.
     Wobble,
-    /// Turning about where they were thrown, `spin` degrees a frame.
     Spiral,
-    /// A slower turn.
     Curl,
-    /// A sharp side to side.
     Zigzag,
-    /// Hopping as they go.
     Bounce,
-    /// Floating up.
     Rise,
-    /// Dropping.
     Fall,
-    /// Drawn in from their spawn to the layer's place: a wind-up's gather.
     Gather,
-    /// Going round the layer's place.
     Orbit,
 }
 
-/// Where an emitter's motes are born about its place.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Spawn {
     #[default]
     Point,
-    /// Along a level line `area[0]` long.
     Line,
-    /// On an ellipse of radii `area`, thrown out from its middle.
     Ring,
-    /// Anywhere in an ellipse of radii `area`.
     Disc,
-    /// Anywhere in a box `area` wide and high: a figure's box.
     Box,
 }
 
-/// Whether a layer is drawn in front of a figure or behind it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Z {
@@ -179,8 +127,6 @@ pub enum Z {
     Back,
 }
 
-/// A number, or a pair: a range (`[low, high]`, each mote its own share of
-/// it) or a sweep (`[from, to]` over a mote's or a layer's life).
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Range {
@@ -197,17 +143,13 @@ impl Range {
     }
 }
 
-/// One layer. Every field but `type` may be left out and takes its type's
-/// own default; a field its type does not take is refused.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Layer {
     #[serde(rename = "type")]
     pub kind: Kind,
-    /// Particles: the motes' form.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub form: Option<Form>,
-    /// A named ramp (`fire`, `frost`, ...); or `inks`, its keys dark to light.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ramp: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -216,58 +158,46 @@ pub struct Layer {
     pub z: Option<Z>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mode: Option<Mode>,
-    /// When it starts and ends: a frame or a beat (`"action"`, `"end-2"`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub t0: Option<Time>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub t1: Option<Time>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ease: Option<Ease>,
-    /// Its place, offset from the pivot.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub x: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<f32>,
-    /// Its end, offset from the pivot: where a bolt or beam reaches, or
-    /// where an orb, comet or emitter travels to over its life.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub x1: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y1: Option<f32>,
-    /// How high a travel arcs, in game pixels (a lob).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lift: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub r0: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub r1: Option<f32>,
-    /// Thickness: a ring's, a beam's half width, a slash's leading edge.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub th: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub angle: Option<f32>,
-    /// A slash's sweep in degrees; the sign is its way round.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub arc: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub squash: Option<f32>,
-    /// Its heat, times.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gain: Option<f32>,
-    /// Its heat over its life, or a mote's over the mote's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub heat: Option<Range>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub count: Option<u32>,
-    /// Particles: motes born a frame from `t0` to `t1`, after the burst of `count`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rate: Option<f32>,
-    /// Particles: a mote's life in frames.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub life: Option<Range>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speed: Option<Range>,
-    /// Particles: how wide they are thrown, in degrees about `angle`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spread: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -284,13 +214,10 @@ pub struct Layer {
     pub motion: Option<Motion>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wobble: Option<f32>,
-    /// Degrees a frame.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spin: Option<f32>,
-    /// A bolt's or crack's jaggedness, in game pixels.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub jag: Option<f32>,
-    /// Frames a bolt holds its shape before it is struck again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flicker: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -299,11 +226,9 @@ pub struct Layer {
     pub text: Option<String>,
 }
 
-/// The fields every type takes.
 const COMMON: &[&str] = &["type", "ramp", "inks", "z", "mode", "t0", "t1", "ease", "x", "y", "gain", "heat", "seed"];
 
 impl Kind {
-    /// The fields a type takes beyond the common ones.
     pub fn takes(self) -> &'static [&'static str] {
         const EMIT: &[&str] = &[
             "form", "count", "rate", "life", "speed", "angle", "spread", "gravity", "drag", "size", "spawn", "area", "motion",
@@ -340,14 +265,12 @@ impl Kind {
 }
 
 impl Recipe {
-    /// A recipe from its JSON, every field checked.
     pub fn parse(json: &str) -> Result<Recipe, String> {
         let r: Recipe = serde_json::from_str(json).map_err(|e| e.to_string())?;
         r.check()?;
         Ok(r)
     }
 
-    /// Within every bound, every layer taking only what its type takes.
     pub fn check(&self) -> Result<(), String> {
         if self.fx != VERSION {
             return Err(format!("fx: version {} (this kiln reads {VERSION})", self.fx));
@@ -426,7 +349,6 @@ impl Recipe {
         Ok(())
     }
 
-    /// The recipe as JSON, one layer a line.
     pub fn to_json(&self) -> String {
         let mut head = self.clone();
         head.layers.clear();

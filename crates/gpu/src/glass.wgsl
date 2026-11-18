@@ -1,19 +1,5 @@
-// One pipeline for everything in the window: every rectangle is an instance.
-// kind 0: a solid rectangle (backgrounds, lines, the cursor, solid layers)
-// kind 1: an alpha mask from the atlas, tinted (text, box drawing, braille)
-// kind 2: a colour picture from the atlas (emoji)
-// kind 3: a picture texture bound in the atlas slot, sampled
-// kind 4: the same (a scene drawn into a picture)
-// kind 11: curved foreground parchment with fixed material coordinates
-// kind 12: one textured mesh triangle in window pixels
-// kinds 16..22: the seven ray-marched solids (LayerKind::Primitive)
-// kind 23: a ring stroke, kind 24: a line stroke (LayerKind::Stroke), drawn
-//   by their distance; uv is half the width, the glow and the quad's size
-// Every texture is stored premultiplied; the target blends premultiplied.
-
 struct Globals {
     screen: vec2<f32>,
-    // x: the text coverage curve (1 = as rasterized).
     text: vec2<f32>,
 };
 
@@ -28,22 +14,16 @@ struct Instance {
     @location(3) kind: u32,
     @location(4) pivot: vec2<f32>,
     @location(5) angle: f32,
-    // A stage seen at a tilt: x, y the floor's centre and the row that keeps
-    // its size, z how much nearer each row down comes, w the zoom.
     @location(6) tilt: vec4<f32>,
-    // x: 0 untouched, 1 on the floor, 2 standing on it at (y, z); w the
-    // floor's foreshortening down the screen.
     @location(7) stand: vec4<f32>,
 };
 
 struct Varyings {
     @builtin(position) position: vec4<f32>,
-    // Over the depth (`q`): the fragment divides it back (`fs_main`).
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
     @location(2) @interpolate(flat) kind: u32,
     @location(3) @interpolate(flat) surface: vec4<f32>,
-    // One over the depth `w` the vertex stood at: 1 off a tilted floor.
     @location(4) q: f32,
 };
 
@@ -55,8 +35,6 @@ fn vs_main(@builtin(vertex_index) vertex: u32, instance: Instance) -> Varyings {
     );
     let corner = corners[vertex];
     if instance.kind == 12u {
-        // Three textured mesh vertices encoded in an existing instance. The
-        // second triangle is degenerate: the compositor still draws six vertices.
         var points = array<vec2<f32>, 3>(instance.rect.xy, instance.rect.zw, instance.pivot);
         var texels = array<vec2<f32>, 3>(instance.uv.xy, instance.uv.zw, instance.tilt.xy);
         let i = min(vertex, 2u);
@@ -70,19 +48,13 @@ fn vs_main(@builtin(vertex_index) vertex: u32, instance: Instance) -> Varyings {
         mesh.q = 1.0;
         return mesh;
     }
-    // Rotate about the pivot (transitions); angle 0 leaves it where it is.
     let local = instance.rect.xy + corner * instance.rect.zw - instance.pivot;
     let c = cos(instance.angle);
     let s = sin(instance.angle);
     let pixel = instance.pivot + vec2<f32>(local.x * c - local.y * s, local.x * s + local.y * c);
-    // On a tilted floor: rows further up stand further away. The floor is
-    // projected (w carries the depth, so pictures stay true in perspective);
-    // what stands is placed on its foot and scaled, never tipped.
     var w = 1.0;
     var at = pixel;
     if instance.stand.x > 2.5 {
-        // A foreground paper strip, parameterized by true released arc length.
-        // Keep this projection paired with glass's scroll::surface / Page::hit.
         let box = instance.tilt;
         let open = clamp(instance.stand.y, 0.0, 1.025);
         let radius = 0.036;
@@ -122,14 +94,6 @@ fn vs_main(@builtin(vertex_index) vertex: u32, instance: Instance) -> Varyings {
             at = placed + (pixel - foot) * (zoom / depth);
         }
     }
-    // The depth is divided out here, not left to the rasterizer: every
-    // vertex leaves with w = 1, and the texel coordinates leave over w with
-    // 1/w beside them for the fragment to divide back, which is the
-    // perspective-correct lookup done by hand. A browser's WebGL drew some
-    // sessions' tilted floor with the lookup wrong when w varied across a
-    // quad (texels at uv / w^2: the whole floor leaning right, 2026-10-17),
-    // with the same calls and bytes as the sessions it drew right. w is never
-    // below 0.05 (the floor clamps it), so nothing crosses the eye.
     let q = 1.0 / w;
     var out: Varyings;
     out.position = vec4<f32>(
@@ -143,7 +107,6 @@ fn vs_main(@builtin(vertex_index) vertex: u32, instance: Instance) -> Varyings {
     out.kind = instance.kind;
     out.surface = instance.uv;
     if instance.kind == 23u || instance.kind == 24u {
-        // Pixels from the quad's middle, before its turn.
         out.uv = (corner - vec2<f32>(0.5)) * instance.uv.zw;
     }
     if instance.kind >= 16u && instance.kind <= 22u {
@@ -165,7 +128,6 @@ fn object_point(p: vec3<f32>, phase: f32) -> vec3<f32> {
         sin(tilt) * q.y + cos(tilt) * q.z);
 }
 
-// Keep paired with angel_stage::primitive::distance (the quad-only hosts' copy).
 fn object_distance(p: vec3<f32>, shape: u32, phase: f32) -> f32 {
     let q = object_point(p, phase);
     let r = length(q.xz);
@@ -190,7 +152,6 @@ fn solid_object(in: Varyings) -> vec4<f32> {
     var z = 0.0;
     var nearest = 10.0;
     var hit = false;
-    // Bounded sphere tracing. Track closest approach for the outer rim.
     for (var i = 0; i < 80; i = i + 1) {
         let p = origin - vec3<f32>(0.0, 0.0, z);
         let d = object_distance(p, shape, phase);
@@ -203,7 +164,6 @@ fn solid_object(in: Varyings) -> vec4<f32> {
     if !hit {
         let halo = exp(-nearest * nearest * 180.0) * 0.42
             + exp(-nearest * nearest * 2800.0) * 0.55;
-        // Premultiplied emission adds without an opaque rectangular backing.
         return vec4<f32>(tint * halo * in.color.a, 0.0);
     }
     let p = origin - vec3<f32>(0.0, 0.0, z);
@@ -223,9 +183,6 @@ fn solid_object(in: Varyings) -> vec4<f32> {
     return vec4<f32>(rgb * in.color.a, in.color.a);
 }
 
-// A ring or a line by its distance: a sharp core the stroke's width, and a
-// glow round it falling off as a gaussian. The pad matches
-// angel_stage::stroke_pad: half the width, three glows, a pixel.
 fn stroke(in: Varyings) -> vec4<f32> {
     let half_width = in.surface.x;
     let glow = in.surface.y;
@@ -250,12 +207,9 @@ fn stroke(in: Varyings) -> vec4<f32> {
 
 @fragment
 fn fs_main(arriving: Varyings) -> @location(0) vec4<f32> {
-    // The texel coordinates back from over the depth (`vs_main`).
     var in = arriving;
     in.uv = arriving.uv / arriving.q;
     if in.kind == 11u {
-        // Fibre, warm edge wear, and very fine laid-paper grain. Fixed material
-        // coordinates keep it attached to the sheet throughout unrolling.
         let noise = fract(sin(dot(floor(in.uv * vec2<f32>(900.0, 1400.0)),
             vec2<f32>(12.9898, 78.233))) * 43758.5453);
         let fibres = 0.985 + 0.015 * sin(in.uv.y * 3100.0 + sin(in.uv.x * 170.0) * 0.7);
@@ -264,7 +218,6 @@ fn fs_main(arriving: Varyings) -> @location(0) vec4<f32> {
         return vec4<f32>(in.color.rgb * tone * in.color.a, in.color.a);
     }
     if in.kind == 12u {
-        // Texels are premultiplied in storage; the tint lights them.
         let size = vec2<f32>(textureDimensions(atlas));
         let c = textureSampleLevel(atlas, picture_sampler, in.uv / size, 0.0);
         return vec4<f32>(c.rgb * in.color.rgb * in.color.a, c.a * in.color.a);
@@ -279,10 +232,6 @@ fn fs_main(arriving: Varyings) -> @location(0) vec4<f32> {
         return in.color;
     }
     if in.kind == 3u {
-        // Not uniform control flow, so an explicit level, no derivatives.
-        // Texels are premultiplied in storage (uploads convert, stage
-        // targets render so), so no rgb*alpha here — that would darken
-        // every translucent texel twice.
         let size = vec2<f32>(textureDimensions(atlas));
         let c = textureSampleLevel(atlas, picture_sampler, in.uv / size, 0.0);
         return c * in.color.a;
@@ -293,8 +242,6 @@ fn fs_main(arriving: Varyings) -> @location(0) vec4<f32> {
         return c * in.color.a;
     }
     if in.kind == 5u {
-        // An uploaded picture stored straight under
-        // ANGEL_GLASS_GPU_PREMULTIPLY: premultiplied here instead.
         let size = vec2<f32>(textureDimensions(atlas));
         let c = textureSampleLevel(atlas, picture_sampler, in.uv / size, 0.0);
         return vec4<f32>(c.rgb * c.a, c.a) * in.color.a;

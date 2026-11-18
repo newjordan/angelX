@@ -1,24 +1,7 @@
 'use strict';
-// Present: put the game's frame on the screen. A game draws at its own
-// native size (the muster 320x180, the Delve 384x224 or 768x448); here it
-// is scaled by the largest whole number that fits, nearest-sampled, black
-// around it. Where a whole number would leave too much of the window black
-// (a large frame on a small screen: the Delve's second art at 768 wide in
-// a 1280 window is only 1x), or not even 1x fits, it is fitted instead,
-// still nearest, rather than shown small or cropped.
-//
-// Three ways, best first: WebGL2, WebGL1, a 2D canvas. The frame's words
-// are 0xAARRGGBB little-endian, so its bytes are B G R A: WebGL uploads
-// them untouched and swizzles in the shader. The 2D canvas has no shader,
-// so it asks the module for an RGBA copy instead (`rgba` below); no pixel
-// is ever touched in JS.
 
-/* exported makePresenter */
 /* global makeStage */
-// `want` forces a fallback for testing: 'webgl1' or '2d' (`?present=`).
 function makePresenter(canvas, want) {
-  // The backing store in device pixels, kept equal to what the canvas
-  // covers on screen, so whole-number scales stay whole on the glass.
   const screen = { w: 1, h: 1 };
   function setSize(w, h) {
     w = Math.max(1, w | 0);
@@ -33,7 +16,6 @@ function makePresenter(canvas, want) {
     if (box) {
       setSize(box.inlineSize, box.blockSize);
     } else {
-      // Safari has no device-pixel box: round the CSS box times the ratio.
       const css = e.contentBoxSize ? e.contentBoxSize[0] : null;
       const dpr = window.devicePixelRatio || 1;
       setSize(Math.round((css ? css.inlineSize : canvas.clientWidth) * dpr),
@@ -46,14 +28,8 @@ function makePresenter(canvas, want) {
     observer.observe(canvas);
   }
 
-  // Where a w x h frame goes in the backing store: x, y (from the top),
-  // width, height, written into one reused box.
   const box = new Int32Array(4);
-  // A whole-number scale is kept while it fills at least this share of
-  // what fitting the frame would.
   const MIN_FILL = 0.8;
-  // The dev panel's `scale` knob: 0 as above, 1 whole numbers whenever 1x
-  // fits, 2 always fitted.
   let mode = 0;
   function fit(w, h) {
     const cw = screen.w, ch = screen.h;
@@ -75,10 +51,6 @@ function makePresenter(canvas, want) {
     return box;
   }
 
-  // Alpha and premultiplied, like the glass window's surface: a stage
-  // frame (stage.js) is premultiplied colour over transparency, and
-  // the page shows through it. A finished frame stays opaque — its
-  // shader forces alpha — so this costs that path nothing.
   const opts = { alpha: true, antialias: false, depth: false, stencil: false,
     premultipliedAlpha: true, preserveDrawingBuffer: false };
   let gl = want === 'webgl1' || want === '2d' ? null : canvas.getContext('webgl2', opts);
@@ -103,12 +75,8 @@ function glPresenter(canvas, gl, two, fit, screen) {
     'uniform sampler2D t;varying vec2 uv;void main(){gl_FragColor=vec4(texture2D(t,uv).bgr,1.0);}';
 
   let tex = null, tw = 0, th = 0, lost = false, prog = null, quad = null;
-  // WebGL2 can draw a frame from its parts (stage.js); `onreset` hears when
-  // a restored context needs every picture again.
   const stage = two && typeof makeStage === 'function' ? makeStage(gl, fit, screen) : null;
   let onreset = null;
-  // WebGL1 cannot upload from an offset into a view, so it keeps a view
-  // that starts at the frame; remade only when the frame or memory moves.
   let view = null, viewBuf = null, viewPtr = -1, viewLen = 0;
 
   function init() {
@@ -142,8 +110,6 @@ function glPresenter(canvas, gl, two, fit, screen) {
   }
   init();
 
-  // A lost context (a GPU reset, a phone backgrounding the page) comes back
-  // only if the loss is prevented; then everything is made again.
   canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); lost = true; });
   canvas.addEventListener('webglcontextrestored', () => {
     lost = false;
@@ -154,7 +120,6 @@ function glPresenter(canvas, gl, two, fit, screen) {
     }
   });
 
-  // The frame's own program and quad, again: the stage shares the context.
   function rebind() {
     gl.useProgram(prog);
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -168,8 +133,6 @@ function glPresenter(canvas, gl, two, fit, screen) {
   return {
     kind: two ? 'webgl2' : 'webgl1',
     rgba: false,
-    // `heap` is a Uint8Array over the module's memory; the frame is w*h
-    // words at byte offset `ptr`.
     draw(heap, ptr, w, h) {
       if (lost) return;
       if (stage) rebind();
@@ -193,7 +156,6 @@ function glPresenter(canvas, gl, two, fit, screen) {
       const b = fit(w, h);
       gl.viewport(0, 0, screen.w, screen.h);
       gl.clear(gl.COLOR_BUFFER_BIT);
-      // GL counts y from the bottom.
       gl.viewport(b[0], screen.h - b[1] - b[3], b[2], b[3]);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     },
@@ -202,7 +164,6 @@ function glPresenter(canvas, gl, two, fit, screen) {
       gl.viewport(0, 0, screen.w, screen.h);
       gl.clear(gl.COLOR_BUFFER_BIT);
     },
-    // A frame from its parts (`angel_stage`): false when it was not one.
     drawStage: stage ? (heap, ptr, len, t) => !lost && stage.draw(heap, ptr, len, t) : null,
     set onreset(f) {
       onreset = f;
@@ -217,7 +178,6 @@ function canvasPresenter(canvas, fit, screen) {
   let image = null, imageBuf = null, imagePtr = -1, iw = 0, ih = 0;
   return {
     kind: 'canvas2d',
-    // Draw with `angel_frame_rgba`: the module swizzles, not JS.
     rgba: true,
     draw(heap, ptr, w, h) {
       if (heap.buffer !== imageBuf || ptr !== imagePtr || w !== iw || h !== ih) {

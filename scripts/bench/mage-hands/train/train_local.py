@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""Train Mage hands locally on the verified click-grounding dataset.
-
-Faithful port of the reference trainer (`modal_mage.run_training`) with no
-cloud dependency: same prompt, same JPEG q95 request, same answer-token-only
-loss, same LoRA targets, same fp32 merger, same gradient checkpointing.
-
-Differences are explicit and VRAM-driven: optional --max-side downscaling,
-single-sample loader, and resume from an existing adapter.
-
-It trains only. It does not deploy, promote, or touch the running cockpit.
-"""
 from __future__ import annotations
 
 import argparse
@@ -213,8 +202,6 @@ def main(argv=None) -> int:
                           f"{seen/max(el,1e-9):.2f} samples/s lr {opt.param_groups[0]['lr']:.2e} "
                           f"mem {torch.cuda.max_memory_allocated()/2**30:.1f} GiB elapsed {el/60:.1f} min", flush=True)
                 if (time.time() - last_save) / 60 >= args.save_every:
-                    # Timestamped snapshots so intermediate checkpoints can be
-                    # evaluated independently instead of being overwritten.
                     save(time.strftime("checkpoint-%H%M%S", time.localtime()))
                     last_save = time.time()
     except torch.cuda.OutOfMemoryError as exc:

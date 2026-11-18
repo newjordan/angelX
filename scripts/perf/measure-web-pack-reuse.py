@@ -145,7 +145,6 @@ def main():
             config = candidate if name == "candidate" else baseline
             select(config, original_css)
             reference = run(f"p{phase}-prime", "prime", name)
-            # Full launcher build primes host relinking outside warm observations.
             run(f"p{phase}-launch-prime", "startup", name, reference)
             report["steps"][-1]["mode"] = "startup-prime"
             save()

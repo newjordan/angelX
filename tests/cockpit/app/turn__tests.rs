@@ -12,10 +12,6 @@ fn progress_reports_label_and_bounded_progress() {
 
 #[test]
 fn spawn_acquires_foreground_lease_inside_the_worker() {
-    // Pin: acquire_scoped must not run on the UI thread in Thinking::spawn.
-    // A contended leases mutex would otherwise hitch Enter-after-echo.
-    // include_str is the non-flaky substitute for "spawn does not block on a
-    // held lease" (acquire is fail-fast, so a held lease cannot stall spawn).
     let src = include_str!("../../../cockpit/src/agent/turn.rs");
     let start = src
         .find("pub(crate) fn spawn(")
@@ -301,12 +297,9 @@ fn spawn_materializes_the_shared_history_snapshot() {
 
 #[test]
 fn cache_hit_pct_handles_both_provider_accounting_styles() {
-    // OpenAI-style: cached tokens are inside prompt_tokens.
     assert_eq!(cache_hit_pct(75, 100), Some(75));
-    // Anthropic-style: cache reads are disjoint from input_tokens.
     assert_eq!(cache_hit_pct(9_000, 1_000), Some(90));
     assert_eq!(cache_hit_pct(0, 100), Some(0));
-    // Nothing reported at all → no rate, not 0%.
     assert_eq!(cache_hit_pct(0, 0), None);
 }
 
@@ -314,7 +307,6 @@ fn cache_hit_pct_handles_both_provider_accounting_styles() {
 fn cache_meter_says_na_until_a_provider_reports_cache_fields() {
     let mut meter = CacheMeter::default();
     assert_eq!(meter.usage_line(), "hit n/a session · n/a last turn");
-    // A local backend turn: tokens maybe, but no cache accounting.
     meter.fold_turn(0, 5_000, false);
     assert_eq!(meter.usage_line(), "hit n/a session · n/a last turn");
     assert_eq!(meter.session_input, 0, "unreported turns never dilute");
@@ -326,15 +318,11 @@ fn cache_meter_folds_session_aggregate_and_last_turn() {
     meter.fold_turn(50, 100, true);
     assert_eq!(meter.usage_line(), "hit n/a session · n/a last turn");
     meter.fold_turn(250, 300, true);
-    // Session: 300/400; last turn: 250/300.
     assert_eq!(meter.usage_line(), "hit n/a session · n/a last turn");
-    // A later cache-blind turn keeps the session rate but reports honestly.
     meter.fold_turn(0, 900, false);
     assert_eq!(meter.usage_line(), "hit n/a session · n/a last turn");
 }
 
-/// An interactive or /loop turn folds its verified recipes into the caddy
-/// card the next turn reads, as a headless task does.
 #[test]
 fn a_worker_turn_writes_its_verified_recipe_to_the_caddy() {
     let _env = crate::tests::env_lock();

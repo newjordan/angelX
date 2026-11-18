@@ -84,44 +84,22 @@ use crate::set::Patches;
 use crate::{Frame, Quad, Shape, Stand, Tilt};
 
 pub const TAG: &[u8; 4] = b"STG2";
-/// The tag of a frame that carries props after its quads.
 pub const TAG_PROPS: &[u8; 4] = b"STG3";
-/// The tag of a frame that carries a world after its props.
 pub const TAG_WORLD: &[u8; 4] = b"STG4";
-/// The tag of a frame whose world is made from more than one set (the
-/// kingdom's chunks, `scene::World::more`): an `STG4` frame with the other
-/// sets' references after its extra blocks.
 pub const TAG_WORLDS: &[u8; 4] = b"STG5";
-/// The tag of a frame whose world is drawn through a look (`scene::World::
-/// look`, docs/REALM-MONOLITH.md): an `STG5` frame (its further sets'
-/// count always there, maybe 0) with the look after them, as text
-/// (`Look::to_text`): its length (u32), then the text padded to a word.
 pub const TAG_LOOK: &[u8; 4] = b"STG6";
-/// The longest look text a frame may carry.
 pub const MAX_LOOK_TEXT: usize = 64 << 10;
-/// Bytes of the head of each further set's reference in an `STG5` frame:
-/// key low, key high, plate, scale, offset x, y, z, text bytes, png bytes,
-/// the patches.
 pub const MORE_HEADER_BYTES: usize = 36 + PATCHES_BYTES;
-/// Bytes of a set reference's patches on the wire.
 pub const PATCHES_BYTES: usize = 60;
-/// The most further sets a world may be made from.
 pub const MAX_MORE_SETS: usize = 64;
-/// Bytes of a world block's header.
 pub const WORLD_HEADER_BYTES: usize = 52 + PATCHES_BYTES;
-/// The longest set text a world block may carry.
 pub const MAX_SET_TEXT: usize = 1 << 20;
-/// The longest plate PNG a world block may carry.
 pub const MAX_PLATE_PNG: usize = 32 << 20;
-/// Bytes before the first picture, and bytes a quad takes.
 pub const HEADER_BYTES: usize = 56;
 pub const QUAD_BYTES: usize = 72;
-/// Bytes of a props block's header, and bytes a node takes.
 pub const PROPS_HEADER_BYTES: usize = 12;
 pub const NODE_BYTES: usize = 92;
-/// The tag of the mesh block after an `STG3` frame's last node.
 pub const TAG_MESHES: &[u8; 4] = b"MSH1";
-/// The most meshes one frame carries; a producer sends the rest later.
 pub const MAX_FRAME_MESHES: usize = 64;
 const MESH_HEADER_BYTES: u64 = 20;
 const HAS_NORMALS: u32 = 1;
@@ -136,19 +114,11 @@ const LINEAR: u32 = 16;
 const BLENDED: u32 = 32;
 const PREMULTIPLIED: u32 = 64;
 const HAS_PICTURE: u32 = 128;
-/// An accent in a look (`Material::accent`).
 const ACCENT: u32 = 256;
-/// What it is to a look that lights its scene (`Material::role`), three bits
-/// from here: 0 plain, 1 a figure, 2 water, 3 the sky, 4 an ember.
 const ROLE_SHIFT: u32 = 9;
 
-/// The longest side a picture (or the stage itself) may take on the
-/// wire: the texture limit every host guarantees, the browser's included.
 pub const MAX_SIDE: u32 = 8192;
 
-/// A picture the wire can carry truthfully: a real size, and exactly the
-/// bytes its size promises. Anything else would desync the reader, which
-/// walks pictures by `width × height × 4`.
 fn well_formed(p: &crate::Picture) -> bool {
     (1..=MAX_SIDE).contains(&p.width)
         && (1..=MAX_SIDE).contains(&p.height)
@@ -156,7 +126,6 @@ fn well_formed(p: &crate::Picture) -> bool {
             == Some(p.rgba.len())
 }
 
-/// A set reference's patches as the wire's 15 words.
 fn patches_words(p: &Patches) -> [u32; 15] {
     let mut words = [0; 15];
     words[0] = p.atlas;
@@ -166,8 +135,6 @@ fn patches_words(p: &Patches) -> [u32; 15] {
     words
 }
 
-/// The patches the wire's 15 words (`word(0)` on) say; a size past a cell
-/// is a cell.
 fn patches_of(word: &dyn Fn(usize) -> u32) -> Patches {
     let mut sizes = [[0; 2]; 27];
     for (k, size) in sizes.iter_mut().enumerate() {
@@ -177,7 +144,6 @@ fn patches_of(word: &dyn Fn(usize) -> u32) -> Patches {
     Patches { atlas: word(0), sizes }
 }
 
-/// The wire's code for a mesh: its kind, and its argument.
 fn mesh_code(mesh: Option<MeshRef>) -> (u32, u32) {
     let Some(mesh) = mesh else {
         return (7, 0);
@@ -205,8 +171,6 @@ fn mesh_code(mesh: Option<MeshRef>) -> (u32, u32) {
     }
 }
 
-/// The mesh a code names: `Some(None)` for no mesh, `None` for a code that
-/// names nothing.
 fn mesh_of(kind: u32, arg: u32) -> Option<Option<MeshRef>> {
     let segments = arg.min(u32::from(u16::MAX)) as u16;
     Some(Some(match kind {
@@ -234,7 +198,6 @@ fn mesh_of(kind: u32, arg: u32) -> Option<Option<MeshRef>> {
     }))
 }
 
-/// A node on the wire, or nothing for one it cannot carry (per-face materials).
 fn role_code(role: crate::scene::Role) -> u32 {
     use crate::scene::Role;
     match role {
@@ -295,12 +258,6 @@ fn encode_node(node: &Node, out: &mut Vec<u8>) -> bool {
     true
 }
 
-/// Write `frame`'s pictures and `quads` into `out` (cleared first), and its
-/// props if it has some (the tag then says so). A props' `at` counts quads
-/// here; a producer that has layers gets the count from [`crate::expand_at`].
-/// Pictures that are not well-formed are left out (and out of the count),
-/// so the buffer always reads exactly as its header says; a quad naming a
-/// dropped picture simply does not draw on the far side.
 pub fn encode(frame: &Frame, quads: &[Quad], out: &mut Vec<u8>) {
     out.clear();
     let world = frame.props.as_ref().and_then(|p| p.world.as_ref()).and_then(|w| Some((w, w.set.as_ref()?)));
@@ -429,7 +386,6 @@ pub fn encode(frame: &Frame, quads: &[Quad], out: &mut Vec<u8>) {
             out.resize(out.len() + (4 - text.len() % 4) % 4, 0);
         }
     }
-    // The meshes new to the far side, after everything else.
     let meshes: Vec<_> = frame.meshes.iter().filter(|(_, m)| m.validate().is_ok()).take(MAX_FRAME_MESHES).collect();
     if frame.props.is_some() && !meshes.is_empty() {
         out.extend_from_slice(TAG_MESHES);
@@ -455,30 +411,15 @@ pub fn encode(frame: &Frame, quads: &[Quad], out: &mut Vec<u8>) {
     }
 }
 
-/// Why a buffer is not a frame. The decoder draws nothing from a buffer it
-/// refuses, whole: no half of a frame is ever handed on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Refused {
-    /// Shorter than the header.
     Short,
-    /// Does not begin with the tag.
     Tag,
-    /// The stage is empty or past [`MAX_SIDE`] on a side.
     Size,
-    /// A picture is empty or past [`MAX_SIDE`] on a side.
     Picture,
-    /// The pictures or the quads the header counts do not fit the buffer.
     Truncated,
-    /// The props block says what cannot be: a count of nodes past the limit,
-    /// a place past the quads, a grain out of range, a mesh that is none or
-    /// a node blended two ways.
     Props,
-    /// The world block says what cannot be: a place past the quads, too many
-    /// figures, a set text too long or not UTF-8, a placing that is not a
-    /// finite number (or no scale), a figure that cannot be.
     World,
-    /// The mesh block says what cannot be: too many meshes, or one the GPU
-    /// would refuse (`MeshData::validate`).
     Mesh,
 }
 
@@ -499,33 +440,12 @@ impl std::fmt::Display for Refused {
 
 impl std::error::Error for Refused {}
 
-/// A frame read off the wire: the frame (its `layers` empty: the wire
-/// carries quads) and the quads, back to front.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Decoded {
     pub frame: Frame,
     pub quads: Vec<Quad>,
 }
 
-/// Read one frame from `bytes`, as [`encode`] wrote it (an `STG2` frame, or
-/// an `STG3` one with its props, whose `at` stays a count of quads: that is
-/// layers once [`crate::layers_of`] has turned the quads back). This is the other
-/// half of the wire and holds it to what the page's reader always did
-/// (`shell/stage.js`): the buffer is checked whole before anything is read
-/// out of it, so a buffer that lies (a short one, a count past its end, a
-/// picture or a stage without a size or past [`MAX_SIDE`]) is refused and
-/// never half read. Every size is worked out in 64 bits, because the
-/// browser's module is 32-bit and a count of four billion quads must not
-/// wrap. Bytes after the last quad (of an `STG3` frame, the last node) are
-/// ignored. Floats are not judged here:
-/// the drawing side calls `Layer::sanitized` on everything it draws.
-///
-/// Two things differ from the page's reader, both toward safe:
-/// - the floor: the wire repeats what [`Tilt::for_stage`] derives from the
-///   frame's `tilt`, so the tilt is read back from `near x height`, the one
-///   number that carries it, and the floor is derived again. A floor that is
-///   not finite, or has no zoom, is flat, as it was.
-/// - `enter` is a direction, so it is kept only when both parts are finite.
 pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
     if bytes.len() < HEADER_BYTES {
         return Err(Refused::Short);
@@ -545,7 +465,6 @@ pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
     if !sided(width) || !sided(height) {
         return Err(Refused::Size);
     }
-    // Walk the pictures by their headers, in 64 bits, before reading any.
     let len = bytes.len() as u64;
     let mut need = HEADER_BYTES as u64;
     for _ in 0..pictures {
@@ -566,7 +485,6 @@ pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
     if need > len {
         return Err(Refused::Truncated);
     }
-    // An STG3 frame's props block: counted before any of it is read.
     let mut props_at = None;
     if with_props {
         if need + PROPS_HEADER_BYTES as u64 > len {
@@ -583,7 +501,6 @@ pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
         props_at = Some((at + PROPS_HEADER_BYTES, place as usize, grain as u8, count));
         need += PROPS_HEADER_BYTES as u64 + u64::from(count) * NODE_BYTES as u64;
     }
-    // An STG4 frame's world block, after the props: counted the same way.
     let mut world_at = None;
     if with_world {
         if need + WORLD_HEADER_BYTES as u64 > len {
@@ -626,7 +543,6 @@ pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
             patches: patches_of(&|k| u32_at(at + 52 + 4 * k)),
         };
         need += WORLD_HEADER_BYTES as u64 + padded + png_padded + nodes * NODE_BYTES as u64;
-        // An STG5 frame's further sets, after the extra blocks.
         let mut more = Vec::new();
         if with_worlds {
             if need + 4 > len {
@@ -669,7 +585,6 @@ pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
                 need += MORE_HEADER_BYTES as u64 + padded + png_padded;
             }
         }
-        // An STG6 frame's look, after the further sets.
         let mut look = None;
         if with_look {
             if need + 4 > len {
@@ -686,8 +601,6 @@ pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
         }
         world_at = Some((png_at + png_padded as usize, place as usize, figures_place as usize, count, extra, set, more, look));
     }
-    // After the last block, a mesh block if its tag is there: walked whole,
-    // in 64 bits, before any of it is read.
     let mut meshes_at = Vec::new();
     if with_props && need + 8 <= len && &bytes[need as usize..need as usize + 4] == TAG_MESHES {
         let count = u32_at(need as usize + 4) as usize;
@@ -729,7 +642,6 @@ pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
     let impact = f32_at(52);
     let impact = if impact.is_finite() { impact.clamp(0.0, 1.0) } else { 0.0 };
 
-    // Everything below lies inside `need`, which the walk above checked.
     let mut at = HEADER_BYTES;
     let mut decoded_pictures = Vec::with_capacity(pictures as usize);
     for _ in 0..pictures {
@@ -743,8 +655,6 @@ pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
     for _ in 0..quads {
         let floats = |from: usize| [0, 4, 8, 12].map(|k| f32_at(at + from + k));
         let [angle, stand, fx, fy] = floats(48);
-        // The page's thresholds: under a half is the floor, under one and a
-        // half what stands on it, anything else (a NaN too) the screen's own.
         let stand = if stand < 0.5 {
             Stand::Floor
         } else if stand < 1.5 {
@@ -759,7 +669,6 @@ pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
             angle,
             stand,
             picture: u32_at(at + 64),
-            // Any shape but 0 is the round one, as the page's shader read it.
             shape: if u32_at(at + 68) == 0 { Shape::Fill } else { Shape::Round },
         });
         at += QUAD_BYTES;
@@ -800,7 +709,6 @@ pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
         let index_list: Vec<u32> = (0..indices).map(|k| u32_at(next + 4 * k)).collect();
         next += 4 * indices;
         let group_list = (0..groups).map(|k| (u32_at(next + 8 * k), u32_at(next + 8 * k + 4))).collect();
-        // A skinned mesh's joints are a scene's own: a page bends none.
         let mesh = crate::scene::MeshData { positions, normals, uvs, colors, indices: index_list, groups: group_list, joints: Vec::new(), weights: Vec::new() };
         if mesh.validate().is_err() {
             return Err(Refused::Mesh);
@@ -823,8 +731,6 @@ pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
     })
 }
 
-/// One node from its words (`word(i)` is the i-th u32 of its record), or
-/// nothing for a record that says what cannot be.
 fn decode_node(word: &dyn Fn(usize) -> u32) -> Option<Node> {
     let f = |i: usize| f32::from_bits(word(i));
     let flags = word(0);
@@ -857,16 +763,12 @@ fn decode_node(word: &dyn Fn(usize) -> u32) -> Option<Node> {
             double_sided: flags & DOUBLE_SIDED != 0,
             lit: flags & LIT != 0,
             emissive: f(22),
-            // What it is to a world's look travels with it (`STG6`).
             accent: flags & ACCENT != 0,
-            // Nor does a projector: a projected plate is a scene's own.
             projector: None,
             patch: None,
             role: role_of(flags >> ROLE_SHIFT),
             ceiling: 0,
-            // Nor a card's normal map: a page draws no lit cards.
             normals: None,
-            // Nor a scene's finish: a page's props are plain.
             chrome: 0.0,
             liquid: 0.0,
             glow: 0.0,
@@ -930,7 +832,6 @@ mod tests {
         let frame = Frame {
             size: (384, 224),
             pictures: vec![
-                // Claims 2x2, carries one pixel: would desync the reader.
                 Picture { id: 5, width: 2, height: 2, rgba: vec![1, 2, 3, 4] },
                 Picture { id: 6, width: 0, height: 4, rgba: vec![] },
                 Picture { id: 7, width: 9000, height: 1, rgba: vec![0; 36000] },
@@ -943,7 +844,6 @@ mod tests {
         encode(&frame, &[], &mut out);
         let u32_at = |i: usize| u32::from_le_bytes(out[i..i + 4].try_into().unwrap());
         assert_eq!(u32_at(12), 1, "only the sound picture is counted");
-        // Header + one picture header (12) + its pixel (4), no quads.
         assert_eq!(out.len(), HEADER_BYTES + 16);
         assert_eq!(u32_at(HEADER_BYTES), 8, "the sound picture is the one written");
         assert_eq!(&out[HEADER_BYTES + 12..HEADER_BYTES + 16], &[9, 9, 9, 9]);
@@ -997,8 +897,6 @@ mod tests {
         assert_eq!((back.frame.tilt, back.frame.enter), (0.0, None));
     }
 
-    /// A frame as the page's reader fuzzes it (`probe/stage-fuzz.mjs`), the
-    /// header's counts settable apart from what follows.
     fn raw(w: u32, h: u32, pics: &[(u32, u32, u32, usize)], quads: usize, counts: Option<(u32, u32)>) -> Vec<u8> {
         let mut b = TAG.to_vec();
         let (np, nq) = counts.unwrap_or((pics.len() as u32, quads as u32));
@@ -1041,22 +939,17 @@ mod tests {
         assert_eq!(ok(&raw(384, 224, &[(5, 9000, 1, 36000)], 0, None)), Err(Refused::Picture));
         assert_eq!(ok(&raw(384, 224, &[(5, 0, 1, 0)], 0, None)), Err(Refused::Picture));
         assert_eq!(ok(&raw(384, 224, &[(5, 1, 0, 0)], 0, None)), Err(Refused::Picture));
-        // The picture's pixels run out; so do the quads'.
         let mut short = raw(384, 224, &[(5, 1, 1, 4)], 1, None);
         short.truncate(short.len() - 74);
         assert_eq!(ok(&short), Err(Refused::Truncated));
         let mut short = raw(384, 224, &[(5, 1, 1, 4)], 1, None);
         short.truncate(short.len() - 10);
         assert_eq!(ok(&short), Err(Refused::Truncated));
-        // Counts past the end, up to the most a u32 can say: no wrap on a
-        // 32-bit target, no allocation of what is not there.
-        // (Reading the quad as a picture header, it is a picture past the limit.)
         assert!(ok(&raw(384, 224, &[(5, 1, 1, 4)], 1, Some((5, 1)))).is_err());
         assert_eq!(ok(&raw(384, 224, &[(5, 1, 1, 4)], 1, Some((1, 100_000)))), Err(Refused::Truncated));
         assert_eq!(ok(&raw(384, 224, &[], 0, Some((u32::MAX, 0)))), Err(Refused::Truncated));
         assert_eq!(ok(&raw(384, 224, &[], 0, Some((0, u32::MAX)))), Err(Refused::Truncated));
         assert_eq!(ok(&raw(384, 224, &[(5, 8192, 8192, 4)], 0, None)), Err(Refused::Truncated), "a picture that cannot all be there");
-        // Bytes past the last quad are not read.
         let mut long = raw(384, 224, &[(5, 1, 1, 4)], 1, None);
         long.extend_from_slice(&[1, 2, 3]);
         assert_eq!(ok(&long), Ok((1, 1)));
@@ -1065,7 +958,6 @@ mod tests {
     #[test]
     fn a_floor_that_is_not_one_is_flat_and_a_direction_that_is_not_one_is_none() {
         let mut b = raw(384, 224, &[], 0, None);
-        // The floor's five numbers are at 32.., zoom the fourth.
         b[44..48].copy_from_slice(&0.0f32.to_le_bytes());
         assert_eq!(decode(&b).unwrap().frame.tilt, 0.0, "no zoom, flat");
         let mut b = raw(384, 224, &[], 0, None);
@@ -1080,7 +972,6 @@ mod tests {
 
     #[test]
     fn mutated_and_garbage_buffers_never_panic_and_what_parses_is_sound() {
-        // The wire arrives from a socket: any byte may be anything.
         let mut frame = frame_with(
             vec![Picture { id: 5, width: 2, height: 2, rgba: (0..16).collect() }],
             0.3,
@@ -1103,7 +994,6 @@ mod tests {
                 for p in &d.frame.pictures {
                     assert!(well_formed(p), "a picture decode hands on is one encode would write");
                 }
-                // Everything it handed on was in the buffer.
                 let pixels: usize = d.frame.pictures.iter().map(|p| p.rgba.len() + 12).sum();
                 assert!(HEADER_BYTES + pixels + d.quads.len() * QUAD_BYTES <= buf.len());
                 assert!(d.frame.tilt.is_finite() && (0.0..=crate::MAX_TILT).contains(&d.frame.tilt));
@@ -1124,18 +1014,13 @@ mod tests {
             let buf: Vec<u8> = (0..(rnd() * 400.0) as usize).map(|_| (rnd() * 256.0) as u8).collect();
             check(&buf);
         }
-        // Garbage that opens with the tag and a plausible size.
         for _ in 0..500 {
             let mut buf = TAG.to_vec();
             buf.extend((0..(rnd() * 300.0) as usize).map(|_| (rnd() * 256.0) as u8));
             check(&buf);
         }
-        // Some of the mutations land in pixels or floats and still parse;
-        // most that hit the header or a count do not.
         assert!(parsed > 100 && refused > 100, "parsed {parsed}, refused {refused}");
     }
-
-    // ---- props (STG3) ----
 
     fn prop(id: u64, parent: Option<u64>, mesh: Option<MeshRef>) -> Node {
         Node {
@@ -1188,7 +1073,6 @@ mod tests {
         encode(&with_props(Props { at: 0, grain: 2, nodes, world: None }), &[], &mut out);
         assert_eq!(&out[..4], TAG_PROPS);
         assert_eq!(out.len(), HEADER_BYTES + PROPS_HEADER_BYTES + 2 * NODE_BYTES);
-        // Everything before the block reads as the STG2 header does.
         assert_eq!(&out[4..HEADER_BYTES], &plain[4..HEADER_BYTES]);
     }
 
@@ -1209,7 +1093,6 @@ mod tests {
             .enumerate()
             .map(|(i, &m)| prop(i as u64 + 1, (i > 0).then_some(i as u64), m))
             .collect();
-        // Ids and parents are 64-bit, flags are each their own, and a premultiplied one is not a blended one.
         nodes[1].id = 0x1234_5678_9abc_def0;
         nodes[2].parent = Some(u64::MAX);
         nodes[4].material = Material { alpha: AlphaMode::Premultiplied, sampling: Sampling::Nearest, ..Material::default() };
@@ -1237,15 +1120,12 @@ mod tests {
         let back = decode(&out).unwrap().frame.props.unwrap();
         assert_eq!(back.nodes.len(), 1);
         assert_eq!(back.nodes[0].id, 2);
-        // A place past the quads, and a grain out of range, are said as the most there is.
         let props = Props { at: 99, grain: 200, nodes: vec![], world: None };
         encode(&with_props(props), &[quad(0)], &mut out);
         let back = decode(&out).unwrap().frame.props.unwrap();
         assert_eq!((back.at, back.grain), (1, MAX_GRAIN));
     }
 
-    /// A frame with a world made from a set, its figures `figures`, and a
-    /// prop of its own.
     fn with_world(text: Option<&str>, figures: Vec<Node>) -> Frame {
         let png: Option<std::sync::Arc<[u8]>> = text.map(|_| b"\x89PNG plate".as_slice().into());
         let set = SetRef { key: 0x0123_4567_89ab_cdef, text: text.map(Into::into), plate: 0x8000_0028, png, scale: 0.5, offset: [-3.5, 0.0, 12.25], patches: Patches::of(0x8000_1000, [(Kind::Ground, 64, 64), (Kind::Path, 9, 33), (Kind::Fire, 64, 8)]) };
@@ -1278,7 +1158,6 @@ mod tests {
         assert_eq!(world.look, Some(look), "the look, exactly");
         assert!(world.more.is_empty());
         assert_eq!(world.set.as_ref().and_then(|s| s.text.as_deref()), Some("set a\n"));
-        // Cut anywhere, refused whole.
         for cut in [out.len() - 1, out.len() - 8] {
             assert!(decode(&out[..cut]).is_err(), "cut at {cut}");
         }
@@ -1286,8 +1165,6 @@ mod tests {
 
     #[test]
     fn a_look_with_sixteen_zones_crosses_the_wire_whole() {
-        // The most zones a look keeps (ZONE_MAX), each with a full eight-step ramp,
-        // an exact feather; the text stays well under what a frame may carry.
         let mut frame = with_world(Some("set a\n"), vec![]);
         let ramp: Vec<[u8; 3]> = (0..8u8).map(|k| [14 + 20 * k, 19 + 21 * k, 12 + 15 * k]).collect();
         let mut look = crate::look::Look::new(ramp.clone());
@@ -1327,11 +1204,9 @@ mod tests {
         assert_eq!(world.more, more, "each further set by its reference, its text and PNG when they go");
         assert_eq!(world.extra.len(), 2, "its extra blocks as before");
         assert_eq!(world.set.unwrap().key, 0x0123_4567_89ab_cdef);
-        // Cut anywhere in the further sets, it is refused whole.
         for cut in [4, 20, 40] {
             assert_eq!(decode(&out[..out.len() - cut]).map(|_| ()), Err(Refused::Truncated));
         }
-        // One set is STG4, as ever.
         frame.props.as_mut().unwrap().world.as_mut().unwrap().more.clear();
         encode(&frame, &[quad(0), quad(1), quad(2)], &mut out);
         assert_eq!(&out[..4], TAG_WORLD);
@@ -1353,20 +1228,17 @@ mod tests {
             assert_eq!(props.nodes, frame.props.as_ref().unwrap().nodes, "the props as ever");
             let world = props.world.expect("the world");
             let sent = frame.props.as_ref().unwrap().world.as_ref().unwrap();
-            // Its floor and blocks are not on the wire: the far side makes them from the set.
             assert!(world.floor.is_empty() && world.blocks.is_empty());
             assert_eq!((world.at, world.figures_at, &world.figures), (1, 2, &figures));
             assert_eq!(world.extra, sent.extra, "the blocks its set has not go as nodes");
             assert_eq!(world.set, sent.set, "the reference, its text with it when it went");
         }
-        // A world made of nodes alone does not go: the frame is an STG3 without it.
         let mut frame = with_world(None, figures.clone());
         frame.props.as_mut().unwrap().world.as_mut().unwrap().set = None;
         let mut out = Vec::new();
         encode(&frame, &quads, &mut out);
         assert_eq!(&out[..4], TAG_PROPS);
         assert_eq!(decode(&out).unwrap().frame.props.unwrap().world, None);
-        // Places past the quads are said as the most there is.
         encode(&with_world(None, vec![]), &[], &mut out);
         let world = decode(&out).unwrap().frame.props.unwrap().world.unwrap();
         assert_eq!((world.at, world.figures_at), (0, 0));
@@ -1379,7 +1251,6 @@ mod tests {
         let mut good = Vec::new();
         encode(&with_world(Some(text), vec![prop(1, None, Some(MeshRef::Quad))]), &quads, &mut good);
         assert!(decode(&good).is_ok());
-        // Where the world block starts: after the props' one node.
         let head = HEADER_BYTES + 4 * QUAD_BYTES + PROPS_HEADER_BYTES + NODE_BYTES;
         let word = |b: &mut Vec<u8>, at: usize, v: u32| b[head + at..head + at + 4].copy_from_slice(&v.to_le_bytes());
         let lied = |at: usize, v: u32| {
@@ -1402,13 +1273,11 @@ mod tests {
         let mut b = good.clone();
         b[head + WORLD_HEADER_BYTES] = 0xff;
         assert_eq!(decode(&b).map(|_| ()), Err(Refused::World), "a text that is not UTF-8");
-        // Cut anywhere inside it: refused, never half read.
         for cut in head..good.len() {
             assert!(decode(&good[..cut]).is_err(), "cut at {cut}");
         }
     }
 
-    /// A props block as it is read, the header's words and then `body`.
     fn block(head: [u32; 3], body: &[u8]) -> Vec<u8> {
         let mut b = raw(384, 224, &[], 2, None);
         b[..4].copy_from_slice(TAG_PROPS);
@@ -1432,23 +1301,18 @@ mod tests {
         let ok = |b: &[u8]| decode(b).map(|d| d.frame.props.map(|p| (p.at, p.grain, p.nodes.len())));
         assert_eq!(ok(&block([2, 3, 1], &node)), Ok(Some((2, 3, 1))));
         assert_eq!(ok(&block([0, 1, 0], &[])), Ok(Some((0, 1, 0))), "an empty block");
-        // No block at all, or half a header, though the tag promises one.
         assert_eq!(ok(&block([0, 1, 0], &[])[..HEADER_BYTES + 2 * QUAD_BYTES]), Err(Refused::Truncated));
         assert_eq!(ok(&block([0, 1, 0], &[])[..HEADER_BYTES + 2 * QUAD_BYTES + 8]), Err(Refused::Truncated));
-        // A count the bytes do not cover, up to the most a u32 can say.
         assert_eq!(ok(&block([0, 1, 1], &[])), Err(Refused::Truncated));
         assert_eq!(ok(&block([0, 1, 1], &node[..NODE_BYTES - 1])), Err(Refused::Truncated));
         assert_eq!(ok(&block([0, 1, 2], &node)), Err(Refused::Truncated));
         assert_eq!(ok(&block([0, 1, MAX_NODES as u32], &node)), Err(Refused::Truncated));
         assert_eq!(ok(&block([0, 1, MAX_NODES as u32 + 1], &node)), Err(Refused::Props));
         assert_eq!(ok(&block([0, 1, u32::MAX], &node)), Err(Refused::Props));
-        // A place past the quads, a grain out of range.
         assert_eq!(ok(&block([3, 1, 1], &node)), Err(Refused::Props));
         assert_eq!(ok(&block([u32::MAX, 1, 1], &node)), Err(Refused::Props));
         assert_eq!(ok(&block([0, 0, 1], &node)), Err(Refused::Props));
         assert_eq!(ok(&block([0, u32::from(MAX_GRAIN) + 1, 1], &node)), Err(Refused::Props));
-        // A mesh that is none, a node blended two ways. (20 is past every
-        // mesh kind, the first free number on the wire.)
         let mut bad = node.clone();
         bad[4..8].copy_from_slice(&20u32.to_le_bytes());
         assert_eq!(ok(&block([0, 1, 1], &bad)), Err(Refused::Props));
@@ -1456,7 +1320,6 @@ mod tests {
         let flags = u32::from_le_bytes(bad[..4].try_into().unwrap()) | BLENDED | PREMULTIPLIED;
         bad[..4].copy_from_slice(&flags.to_le_bytes());
         assert_eq!(ok(&block([0, 1, 1], &bad)), Err(Refused::Props));
-        // Bytes past the last node are not read; an STG2 frame's extra block is not one.
         let mut long = block([0, 1, 1], &node);
         long.extend_from_slice(&[9; 5]);
         assert_eq!(ok(&long), Ok(Some((0, 1, 1))));
@@ -1489,7 +1352,6 @@ mod tests {
                     if let Some(p) = d.frame.props {
                         assert!(p.at <= d.quads.len() && (1..=MAX_GRAIN).contains(&p.grain));
                         assert!(p.nodes.len() <= MAX_NODES);
-                        // Everything it handed on was in the buffer.
                         assert!(p.nodes.len() * NODE_BYTES + PROPS_HEADER_BYTES <= buf.len());
                     }
                 }
@@ -1509,7 +1371,6 @@ mod tests {
             Placement::Pixels([0.0, 0.0, 8.0, 8.0]),
             LayerKind::Particles(Particles { color: [1.0; 4], count: 4, size: 1.0, life: 2.0, rise: 0.0, sway: 0.0, seed: 1, burst: None }),
         );
-        // The props go after the first two layers, the second of which is a handful of quads.
         let layers = [solid(1), motes, solid(3), solid(4)];
         let (quads, under) = expand_at(&layers, 2, 0.5, |_| None);
         assert!(under > 2 && under < quads.len());
@@ -1519,8 +1380,6 @@ mod tests {
         let back = decode(&out).unwrap();
         let at = back.frame.props.expect("props").at;
         assert_eq!(at, under);
-        // Quads come back as layers one for one, so `at` is a layer index again,
-        // and what lies under it is what the first two layers made.
         let layers_back = layers_of(&back.quads);
         assert_eq!(layers_back.len(), quads.len());
         assert_eq!(layers_of(&expand(&layers[..2], 0.5, |_| None)).len(), at);
@@ -1552,7 +1411,6 @@ mod tests {
         let back = decode(&out).unwrap();
         assert_eq!(back.frame.meshes, frame.meshes);
         assert_eq!(back.frame.props, frame.props);
-        // A reader that stops at the last node still has the whole frame.
         let mut without = frame.clone();
         without.meshes.clear();
         let mut plain = Vec::new();
@@ -1585,18 +1443,14 @@ mod tests {
         let mut out = Vec::new();
         encode(&frame, &[], &mut out);
         let block = HEADER_BYTES + PROPS_HEADER_BYTES;
-        // Cut short: truncated, never half read.
         assert_eq!(decode(&out[..out.len() - 4]), Err(Refused::Truncated));
-        // An index past the vertices: the GPU would refuse it, so the wire does.
         let mut bad = out.clone();
         let last_index = bad.len() - 4;
         bad[last_index..].copy_from_slice(&9u32.to_le_bytes());
         assert_eq!(decode(&bad), Err(Refused::Mesh));
-        // A count past the limit.
         let mut many = out.clone();
         many[block + 4..block + 8].copy_from_slice(&(MAX_FRAME_MESHES as u32 + 1).to_le_bytes());
         assert_eq!(decode(&many), Err(Refused::Mesh));
-        // A mesh the GPU would refuse is never written.
         frame.meshes = vec![(6, crate::scene::MeshData { indices: vec![0, 1, 7], ..tri_mesh(false) })];
         encode(&frame, &[], &mut out);
         assert_eq!(out.len(), block);

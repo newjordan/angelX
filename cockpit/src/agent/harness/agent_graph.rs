@@ -41,14 +41,10 @@ const GRAPH_TRACE_STOP_REASON_CAP: usize = 320;
 const GRAPH_EVENT_TEXT_CAP: usize = 640;
 const GRAPH_DEADLINE_DEFAULT_SECS: usize = 0;
 const GRAPH_MAX_SEATS_DEFAULT: usize = 3;
-/// Grace for in-flight seats to land after a failure/cancel before the run
-/// stops waiting on them (they wind down at their next hop boundary).
 const WIND_DOWN_GRACE: Duration = Duration::from_secs(10);
 
 const GRAPH_EPISODE_SCHEMA: &str = "angel-agent-graph-episode/v1";
 const GRAPH_REWARD_BINDING_SCHEMA: &str = "angel-agent-graph-reward-binding/v1";
-/// Serialized reward payloads are bounded so an external scorer cannot smuggle
-/// bulk into the audited receipts (a reward is a number plus small evidence).
 const MAX_GRAPH_REWARD_BYTES: usize = 16 * 1024;
 const MAX_GRAPH_REWARD_SOURCE_BYTES: usize = 256;
 const MAX_GRAPH_REWARD_CONTRACT_BYTES: usize = 128;
@@ -60,9 +56,6 @@ fn is_zero_usize(value: &usize) -> bool {
     *value == 0
 }
 
-/// Backoff between a graph seat's provider retries, sliced so a cancel lands
-/// within one slice instead of after the whole wait. Same exponential ladder as
-/// before (`backoff × 2^attempt`, saturating); only cancellability changed.
 fn wait_graph_backoff(cancel: &AtomicBool, backoff_ms: usize, attempt: u32) {
     let total = Duration::from_millis(backoff_ms.saturating_mul(1usize << attempt.min(8)) as u64);
     let slice = Duration::from_millis(50);
@@ -73,13 +66,6 @@ fn wait_graph_backoff(cancel: &AtomicBool, backoff_ms: usize, attempt: u32) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// RL/eval episode receipt
-// ---------------------------------------------------------------------------
-
-/// One exact text identity in a graph trace. Receipts are digest-only by
-/// default: semantic bodies and previews belong in a separately authorized,
-/// audited capture pipeline rather than this orchestration ledger.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct GraphTextArtifactV1 {
@@ -254,9 +240,6 @@ impl GraphTraceTerminationV1 {
     fn failure(kind: GraphTraceTerminationKind, reason: &str) -> Self {
         Self {
             kind,
-            // Keep the causal digest over the complete provider/harness error,
-            // but never turn the durable receipt into an unbounded error-body
-            // side channel.
             stop_reason: head_chars(reason, GRAPH_TRACE_STOP_REASON_CAP),
             interrupted: matches!(
                 kind,
@@ -324,8 +307,6 @@ pub(crate) struct GraphControlCreditV1 {
     pub outcome: String,
 }
 
-/// Deliberately not a reward. Graph gates are model/self-reported verdicts or
-/// deterministic routing predicates, never external evaluator truth.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct GraphTraceEligibilityV1 {
@@ -333,7 +314,6 @@ pub(crate) struct GraphTraceEligibilityV1 {
     pub reasons: Vec<String>,
 }
 
-/// UTC Unix milliseconds paired with elapsed monotonic nanoseconds from episode start.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct GraphTimestamp {
@@ -391,8 +371,6 @@ pub(crate) struct GraphTraceV1 {
     pub stopped_at: Option<GraphTimestamp>,
     pub rollout_id: Option<String>,
     pub control_credit: Vec<GraphControlCreditV1>,
-    /// Always null in this receipt schema. An external scorer binds a separate
-    /// reward receipt to `episode_id`, `trace_id`, and their content digests.
     pub reward: Option<serde_json::Value>,
     pub reward_source: Option<String>,
     pub eligibility: GraphTraceEligibilityV1,
@@ -429,11 +407,6 @@ impl GraphTraceV1 {
     }
 }
 
-/// An external scorer's audited reward binding for one trace of a sealed
-/// episode. The episode receipt itself stays reward-free forever; this receipt
-/// is the only path that may attach training reward, and it is digest-tight:
-/// the episode's sealed receipt SHA and the trace's output SHA are recorded
-/// and re-verified before anything is written.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct GraphRewardBindingV1 {
@@ -477,11 +450,9 @@ pub(crate) struct GraphRuntimeConfigV1 {
     pub graph_deadline_secs: u64,
     pub graph_max_seats: usize,
     pub spawn_inflight_limit: usize,
-    /// Zero is the portable spelling for explicitly unbounded.
     pub node_max_hops: usize,
     pub node_turn_deadline_secs: usize,
     pub competition_turn_deadline_secs: usize,
-    /// Total dependency-result body characters admitted to one node prompt.
     pub dependency_context_chars: usize,
     pub wind_down_grace_secs: u64,
     pub provider_retries: usize,
@@ -537,9 +508,6 @@ impl GraphRuntimeConfigV1 {
             competition_turn_deadline_secs: env_usize("ANGEL_COMPETITION_TURN_DEADLINE_SECS", 0),
             dependency_context_chars,
             wind_down_grace_secs: WIND_DOWN_GRACE.as_secs(),
-            // `usize::MAX` is this receipt's spelling for the unbounded L01
-            // budget (env unset); an explicit count, `0` included, is recorded
-            // verbatim.
             provider_retries: provider_retry_budget().unwrap_or(usize::MAX),
             provider_retry_backoff_ms: env_usize("ANGEL_PROVIDER_RETRY_BACKOFF_MS", 500),
             rollout_capture,
@@ -810,19 +778,13 @@ fn is_sha256(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-// ---------------------------------------------------------------------------
-// Spec
-// ---------------------------------------------------------------------------
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct GraphSpec {
     pub name: String,
     #[serde(default)]
     pub description: String,
-    /// Whole-run deadline override; else `ANGEL_GRAPH_DEADLINE_SECS`.
     #[serde(default)]
     pub deadline_secs: Option<u64>,
-    /// Optional shared allocation for this graph, inherited by every node/retry.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub token_budget: Option<u64>,
     #[serde(rename = "node")]
@@ -832,63 +794,35 @@ pub(crate) struct GraphSpec {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct GraphNodeSpec {
     pub id: String,
-    /// Prompt template. `{task}` = the run task; `{output:<dep>}` inserts that
-    /// dependency's typed result envelope plus its bounded body excerpt.
-    /// Unreferenced dependency receipts are appended as an "Upstream results"
-    /// section automatically.
     pub prompt: String,
-    /// Persona from the spawn catalog (`cockpit/personas/` + `~/.angelX/personas`).
     #[serde(default)]
     pub persona: Option<String>,
-    /// Club spec: `self`/`auto` (default, the in-hand driver), `smart` (the
-    /// designated escalation seat), or an explicit club label.
     #[serde(default)]
     pub club: Option<String>,
-    /// Tool grant: none (default) | read_only | code | research.
     #[serde(default)]
     pub tools: Option<String>,
-    /// Per-node reasoning-effort request (e.g. "medium"). Applied to the seat's
-    /// club at run start; a backend that rejects it says so in the run events.
     #[serde(default)]
     pub effort: Option<String>,
-    /// Role policy for downstream RL corpus builders. Frozen is the safe
-    /// default; `trainable = true` only expresses intent and never makes a
-    /// trace eligible without a separately bound external reward receipt.
     #[serde(default)]
     pub trainable: bool,
-    /// Optional reusable role pool. Nodes in one pool must declare the same
-    /// persona/club/tool/effort/trainable identity; their prompts and graph
-    /// dependencies may differ. Dispatches borrow short-lived logical leases
-    /// from the pool rather than creating an unbounded wave of identical roles.
     #[serde(default)]
     pub pool: Option<String>,
-    /// Concurrent leases allowed for this pool. A named pool defaults to one;
-    /// any explicit declarations for the same pool must agree.
     #[serde(default)]
     pub pool_max_inflight: Option<usize>,
     #[serde(default)]
     pub depends_on: Vec<String>,
-    /// Conditional loop-back edge: reject the run state and retry an ancestor.
     #[serde(default)]
     pub gate: Option<GraphGateSpec>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct GraphGateSpec {
-    /// The node must end with `VERDICT: PASS` or `VERDICT: FAIL — <reason>`
-    /// (its system prompt demands exactly that shape).
     #[serde(default)]
     pub verdict: bool,
-    /// Deterministic accept: this substring must appear in the node output.
     #[serde(default)]
     pub expect: Option<String>,
-    /// On FAIL, reset this ancestor node (and the path back down to the gate)
-    /// and re-run with the gate's feedback attached.
     #[serde(default)]
     pub retry: Option<String>,
-    /// Attribute this gate's control-flow outcome to an ancestor trace. This
-    /// is lineage metadata, not reward; an external evaluator remains the only
-    /// authority that may bind training reward.
     #[serde(default)]
     pub credit_to: Option<String>,
     #[serde(default = "default_gate_retries")]
@@ -899,9 +833,6 @@ fn default_gate_retries() -> usize {
     1
 }
 
-/// Graph nodes default to NO tools (a bare reasoning seat); spawn's parse
-/// defaults to read_only, which offers tool defs and arms the harness's
-/// announce-only heuristics — that behavior stays opt-in via `tools = "…"`.
 fn node_grant(node: &GraphNodeSpec) -> Result<Grant, String> {
     match node.tools.as_deref() {
         None => Ok(Grant::None),
@@ -969,9 +900,6 @@ fn normalized_pool_identity(node: &GraphNodeSpec) -> Result<GraphPoolIdentity, S
     })
 }
 
-/// Resolve the graph's reusable role pools into deterministic capacity
-/// policies. Validation calls this before execution; runtime calls it again so
-/// the scheduler never derives policy from unchecked fields.
 fn graph_pool_policies(spec: &GraphSpec) -> Result<BTreeMap<String, usize>, String> {
     let mut drafts: BTreeMap<String, GraphPoolDraft> = BTreeMap::new();
     for node in &spec.nodes {
@@ -1057,8 +985,6 @@ fn node_pool_name(node: &GraphNodeSpec) -> Option<&str> {
         .filter(|name| !name.is_empty())
 }
 
-/// Structural validation. Every rejection names the offending node and rule so
-/// a broken spec teaches its own fix.
 pub(crate) fn validate_graph_spec(spec: &GraphSpec) -> Result<(), String> {
     if spec.name.trim().is_empty() {
         return Err("graph spec has no name".to_string());
@@ -1106,8 +1032,6 @@ pub(crate) fn validate_graph_spec(spec: &GraphSpec) -> Result<(), String> {
         if grant == Grant::Code {
             code_nodes.push(node_idx);
         }
-        // {output:X} placeholders may only reference declared dependencies —
-        // anything else would read state across a non-edge.
         let mut rest = node.prompt.as_str();
         while let Some(pos) = rest.find("{output:") {
             let tail = &rest[pos + "{output:".len()..];
@@ -1157,7 +1081,6 @@ pub(crate) fn validate_graph_spec(spec: &GraphSpec) -> Result<(), String> {
         }
     }
     let _ = graph_pool_policies(spec)?;
-    // Kahn cycle check.
     let mut indegree: Vec<usize> = spec
         .nodes
         .iter()
@@ -1195,13 +1118,6 @@ pub(crate) fn validate_graph_spec(spec: &GraphSpec) -> Result<(), String> {
             stuck.join(", ")
         ));
     }
-    // A retry invalidates the target and all descendants, but generation tags
-    // can discard only stale outputs—not workspace writes already made by an
-    // in-flight Code node. Every affected writer must therefore be ordered
-    // with the gate: before it (the write landed before the verdict) or after
-    // it (the writer cannot start until the gate passes). An unordered sibling
-    // writer could mutate after the retry and then be rerun, leaking stale
-    // side effects into the shared workspace.
     for (gate_idx, gate_node) in spec.nodes.iter().enumerate() {
         let Some(retry_target) = gate_node
             .gate
@@ -1229,10 +1145,6 @@ pub(crate) fn validate_graph_spec(spec: &GraphSpec) -> Result<(), String> {
             }
         }
     }
-    // Code-capable nodes share this graph's one workspace. Declaration order,
-    // a common ancestor/descendant, pool capacity, and current seat limits do
-    // not establish a durable happens-before edge: only dependency
-    // reachability does.
     for (position, &left) in code_nodes.iter().enumerate() {
         let left_ancestors = ancestors_of(spec, &index, left);
         for &right in &code_nodes[position + 1..] {
@@ -1286,16 +1198,11 @@ fn descendants_including(spec: &GraphSpec, node: usize) -> HashSet<usize> {
     out
 }
 
-// ---------------------------------------------------------------------------
-// Catalog
-// ---------------------------------------------------------------------------
-
 #[derive(Clone, Debug)]
 pub(crate) struct LoadedGraph {
     pub name: String,
     pub source: PathBuf,
     pub spec: Option<GraphSpec>,
-    /// Parse/validation failure — shown by `/graph list`, never swallowed.
     pub error: Option<String>,
 }
 
@@ -1316,7 +1223,6 @@ fn graphs_user_dir() -> PathBuf {
         })
 }
 
-/// Bundled then user `*.toml`, user winning on graph-name collision.
 pub(crate) fn load_graphs() -> Vec<LoadedGraph> {
     let mut by_name: Vec<LoadedGraph> = Vec::new();
     for dir in [graphs_bundled_dir(), graphs_user_dir()] {
@@ -1332,7 +1238,7 @@ pub(crate) fn load_graphs() -> Vec<LoadedGraph> {
         for path in files {
             let loaded = load_graph_file(&path);
             if let Some(existing) = by_name.iter_mut().find(|g| g.name == loaded.name) {
-                *existing = loaded; // later dir (user) wins
+                *existing = loaded;
             } else {
                 by_name.push(loaded);
             }
@@ -1382,10 +1288,6 @@ fn load_graph_file(path: &Path) -> LoadedGraph {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Live telemetry (lock-and-swap; workers publish, the UI tick cheap-clones)
-// ---------------------------------------------------------------------------
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum GraphNodePhase {
@@ -1414,7 +1316,6 @@ pub(crate) struct GraphNodeSnap {
     pub grant: String,
     pub pool: Option<String>,
     pub pool_limit: Option<usize>,
-    /// Current lease while running, or the last lease after landing.
     pub lease_id: Option<u64>,
     pub phase: GraphNodePhase,
     pub elapsed_ms: u128,
@@ -1423,7 +1324,6 @@ pub(crate) struct GraphNodeSnap {
     pub output_chars: usize,
 }
 
-/// Shared fan-in truth for the product trace and the G01 cohort reducer.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, Deserialize)]
 pub(crate) struct GraphFaninTruth {
     pub finished_with_result: bool,
@@ -1435,7 +1335,6 @@ pub(crate) struct GraphFaninTruth {
 
 #[derive(Clone, Debug, serde::Serialize)]
 pub(crate) struct GraphSnapshot {
-    /// Join the view to its exact durable episode and originating workspace.
     pub episode_id: String,
     pub workspace_key_sha256: String,
     pub graph: String,
@@ -1454,7 +1353,6 @@ pub(crate) struct GraphSnapshot {
 static CURRENT_GRAPH: Mutex<Option<GraphSnapshot>> = Mutex::new(None);
 static GRAPH_TURN_SNAPS: Mutex<Vec<GraphSnapshot>> = Mutex::new(Vec::new());
 
-/// One graph invocation in the current task turn.
 #[derive(Clone, Debug, serde::Serialize)]
 pub(crate) struct GraphTurnEpisode {
     pub episode_index: usize,
@@ -1523,13 +1421,10 @@ fn publish_graph_snapshot(snapshot: GraphSnapshot) {
     }
 }
 
-/// The latest (possibly finished) run, for the Round Table stage and `/graph
-/// status`. Sticky across completion so the operator can read the outcome.
 pub(crate) fn current_graph_snapshot() -> Option<GraphSnapshot> {
     CURRENT_GRAPH.lock().ok().and_then(|g| g.clone())
 }
 
-/// Last episode that reached `Done`, else the last recorded episode.
 pub(crate) fn judged_graph_snapshot() -> Option<GraphSnapshot> {
     let log = GRAPH_TURN_SNAPS.lock().ok()?.clone();
     log.iter()
@@ -1539,10 +1434,6 @@ pub(crate) fn judged_graph_snapshot() -> Option<GraphSnapshot> {
         .or_else(|| log.last().cloned())
         .or_else(current_graph_snapshot)
 }
-
-// ---------------------------------------------------------------------------
-// Engine
-// ---------------------------------------------------------------------------
 
 pub(crate) struct AgentGraphEngine {
     workspace: PathBuf,
@@ -1573,10 +1464,7 @@ pub(crate) struct GraphRunFailure {
 
 #[derive(Debug)]
 pub(crate) enum GraphRunError {
-    /// Validation, resolution, or admission failed before an episode existed.
     Preflight(String),
-    /// Execution reached the episode seal. The typed receipt is retained even
-    /// when execution or its durable publication failed.
     Run(Box<GraphRunFailure>),
 }
 
@@ -1759,9 +1647,6 @@ impl AgentGraphEngine {
         self
     }
 
-    /// `self`/`auto`/empty = the in-hand driver (quality floor), `smart` = the
-    /// designated escalation seat, else an explicit club label. Paid SOTA seats
-    /// honor the same withholding rules as `spawn` — and say so.
     fn resolve_club(&self, spec: Option<&str>) -> Result<Arc<dyn Club>, String> {
         let mut want = spec.unwrap_or("").trim().to_lowercase();
         if want == "smart" || want == "sota" {
@@ -1853,27 +1738,18 @@ impl AgentGraphEngine {
             })
     }
 
-    /// `cancel` is the caller's authority (operator `/graph stop`, or the turn
-    /// flag when invoked as a tool); it is polled between landings. Seats share
-    /// an internal flag the run also raises on failure/deadline so cut seats
-    /// wind down at their next hop boundary.
     pub(crate) fn run(
         &self,
         spec: &GraphSpec,
         task: &str,
         cancel: &AtomicBool,
     ) -> Result<GraphRunOutcome, GraphRunError> {
-        // A direct UI graph has no parent turn. Capture one catalog for the
-        // whole run; tool-invoked graphs retain their caller's generation.
         let book_catalog = match super::book::catalog::current() {
             Some(catalog) => catalog,
             None => Arc::new(super::book::catalog::Catalog::fresh()?),
         };
         let book_catalog = super::core_catalog::bind_book(book_catalog);
         let _book_catalog = super::book::catalog::enter(book_catalog);
-        // Tool dispatch normally inherits the root turn's allowance. Direct
-        // engine callers (including tests) still receive one root scope, while
-        // graph worker threads install this exact handle below.
         let _budget_scope = DescendantBudgetScope::enter_root();
         let descendant_budget = current_descendant_budget()?;
         let _formation_scope = super::formation_budget::start_turn()?;
@@ -1909,8 +1785,6 @@ impl AgentGraphEngine {
             .map(|(i, node)| (node.id.as_str(), i))
             .collect();
 
-        // Resolve every club/persona/grant before any seat starts (fail fast,
-        // and the failure names its node).
         let mut seats: Vec<(Arc<dyn Club>, String, Grant)> = Vec::with_capacity(n);
         let mut effort_notes: Vec<String> = Vec::new();
         for node in &spec.nodes {
@@ -1923,9 +1797,6 @@ impl AgentGraphEngine {
             let grant = node_grant(node).map_err(|e| format!("node '{}': {e}", node.id))?;
             let effort = node.effort.clone().or_else(|| club.reasoning_effort());
             if let Some(effort) = effort.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-                // Pin an immutable view of the shared club. Every seat carries
-                // its own effort on the provider call, so concurrent preflight
-                // cannot overwrite another node's request.
                 let (scoped, applied) = crate::agent::club::scoped_reasoning_effort(club, effort);
                 club = scoped;
                 match applied {
@@ -1943,8 +1814,6 @@ impl AgentGraphEngine {
             }
             seats.push((club, persona_body, grant));
         }
-        // One scoped registry per distinct grant; node seats never re-enter
-        // spawn/graph (no nested fan-out from inside a graph).
         let mut registries: Vec<(Grant, Arc<ToolRegistry>)> = Vec::new();
         for (_, _, grant) in &seats {
             if !registries.iter().any(|(g, _)| g == grant) {
@@ -1994,9 +1863,6 @@ impl AgentGraphEngine {
         );
         let episode_id = crate::knowledge::cut::sha256_hex(episode_nonce.as_bytes());
 
-        // Admit the complete declared graph before the first node launches.
-        // Nodes cancelled or skipped after this point remain charged logical
-        // calls; live process capacity is enforced independently at dispatch.
         let initial_budget_receipt =
             reserve_descendant_calls(&descendant_budget, n, "agent graph initial wave")?;
 
@@ -2124,7 +1990,6 @@ impl AgentGraphEngine {
                 wind_started = Some(Instant::now());
             }
             if winding.is_none() {
-                // Dispatch every ready node up to the seat cap.
                 while running < max_seats {
                     let ready = spec.nodes.iter().enumerate().position(|(i, node)| {
                         phase[i] == GraphNodePhase::Pending
@@ -2250,10 +2115,6 @@ impl AgentGraphEngine {
                                     {
                                         budget.note_untracked_provider();
                                     }
-                                    // Toolless nodes are deli-shaped workers: one direct
-                                    // chat, no harness tool-loop — its coding guards
-                                    // (no-edit denial, verification nudges) would tax a
-                                    // reasoning-only seat with re-hops it can't satisfy.
                                     let provider_retries = provider_retry_budget();
                                     let backoff_ms = env_usize("ANGEL_PROVIDER_RETRY_BACKOFF_MS", 500);
                                     let mut node_retries = 0usize;
@@ -2345,14 +2206,6 @@ impl AgentGraphEngine {
                                             last.expect("toolless graph seat produces a landing")
                                         } else {
                                             let (evt_tx, _) = mpsc::channel::<TurnEvent>();
-                                            // A tool-bearing node is a full turn: its
-                                            // own retry budget owns recovery,
-                                            // including replaying a cut hop with the
-                                            // committed history and tool results
-                                            // intact. Retrying here as well would
-                                            // multiply the operator's explicit
-                                            // allowance and re-run committed work, so
-                                            // the graph lands the turn's verdict.
                                             match run_turn_observed(
                                                 &*club,
                                                 &registry,
@@ -2467,18 +2320,14 @@ impl AgentGraphEngine {
                                 seat_cancel.store(true, Ordering::Relaxed);
                                 wind_started = Some(Instant::now());
                             }
-                            break; // wait for landings to free seats
+                            break;
                         }
                     }
                 }
             }
             if running == 0 {
-                break; // all landed: run complete, failed, or nothing dispatchable
+                break;
             }
-            // An operator cancellation must observe the workers actually landing
-            // before sealing stop timestamps. A wind-down grace expiry proves
-            // abandonment, not stopped work; failure/deadline behavior remains
-            // separate from this explicit cancellation path.
             if let Some(ws) = wind_started
                 && !matches!(winding, Some(GraphWind::Cancelled))
                 && ws.elapsed() > WIND_DOWN_GRACE
@@ -2517,10 +2366,6 @@ impl AgentGraphEngine {
                 .as_ref()
                 .ok()
                 .map(|text| GraphTextArtifactV1::capture(text));
-            // A provider often reports cooperative graph wind-down as a
-            // generic transport error. Attribute only failed landings to the
-            // graph authority that actually stopped them; a seat that managed
-            // to answer before landing retains its truthful Answer receipt.
             let termination = if done.termination.kind == GraphTraceTerminationKind::BudgetExhausted
             {
                 done.termination
@@ -2651,18 +2496,7 @@ impl AgentGraphEngine {
                                 if can_retry {
                                     let target = gate.retry.clone().expect("checked above");
                                     let target_idx = index[target.as_str()];
-                                    // Every descendant consumes the retry target's
-                                    // causal generation, including sibling branches
-                                    // outside the target→gate path. Completed work is
-                                    // reset immediately; an in-flight old generation
-                                    // remains Running only until its landing can be
-                                    // recorded and discarded above.
                                     let affected = descendants_including(spec, target_idx);
-                                    // Initial admission already charged each declared
-                                    // node once. A retry needs one additional logical
-                                    // call only for affected nodes whose previous
-                                    // generation actually started. Reserve the whole
-                                    // retry wave before invalidating any output.
                                     let retry_calls = affected
                                         .iter()
                                         .filter(|&&i| attempts_started[i] > 0)
@@ -2828,7 +2662,6 @@ impl AgentGraphEngine {
                 inputs_ready_at: Some(context.inputs_ready_at),
                 duration_ms: None,
                 cancel_requested_at,
-                // A detached seat is not evidence of a stopped worker.
                 stopped_at: None,
                 rollout_id: None,
                 control_credit: Vec::new(),
@@ -2991,7 +2824,6 @@ impl AgentGraphEngine {
     }
 }
 
-/// Sinks (nodes nothing depends on) are the graph's answer.
 fn sink_answer(spec: &GraphSpec, outputs: &HashMap<String, String>) -> String {
     let sinks: Vec<&GraphNodeSpec> = spec
         .nodes
@@ -3064,32 +2896,17 @@ fn graph_fanin_truth(
     }
 }
 
-/// Why a graph run is winding down: the first thing that went wrong, set once
-/// and never replaced. Each variant renders the text callers have always read
-/// (`GraphRunFailure::reason`, `GraphSnapshot::error`, the episode's detail
-/// digest) through [`GraphWind::reason`], and the short class that
-/// `incomplete_reason` carries through [`GraphWind::label`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum GraphWind {
-    /// The operator cancelled the run.
     Cancelled,
-    /// The graph's wall-clock cap passed. Holds the rendered reason.
     Deadline(String),
-    /// No seat could be spawned. Holds the rendered reason.
     SpawnCapacity(String),
-    /// A gate wanted a retry the descendant budget refused. Holds the reason.
     GateRetryDenied(String),
-    /// A gate rejected the work with no retry left. Holds the reason.
     GateRejected(String),
-    /// A node's own provider or turn error. `reason` is the rendered text.
     NodeFailed { node: String, reason: String },
-    /// A seat never landed. Its reason is a fixed text.
     SeatLost,
-    /// Nothing was ready to dispatch.
     NoSchedulableNodes,
-    /// The planner finished and nothing followed.
     PlannerNoPlan,
-    /// Every node ran and the sinks produced no result.
     FaninIncomplete,
 }
 
@@ -3109,19 +2926,13 @@ impl GraphWind {
         }
     }
 
-    /// The class `incomplete_reason` carries.
     fn label(&self) -> String {
         let reason = self.reason();
         match self {
             Self::Cancelled => return "cancelled".to_string(),
-            // A node's own words, its error text and its id, never make a
-            // cancelled run: a provider that says "cancelled" has failed.
             Self::NodeFailed { node, .. } => {
                 return format!("node_failed:{}", node.split('\'').next().unwrap_or(node));
             }
-            // Every other reason keeps today's reading of the word, so a gate
-            // or spawn text that happens to contain it is still called a
-            // cancelled run until the operator rules on that.
             _ if reason.contains("cancelled") => return "cancelled".to_string(),
             _ => {}
         }
@@ -3160,10 +2971,6 @@ fn node_system_prompt(
     persona_body: &str,
     grant: Grant,
 ) -> String {
-    // Every node reads the ledger: a tool-bearing node through its grant's
-    // `read_file`, a bare node through the ledger reader alone. Its frame is
-    // `⠜⠑`, its persona `⠜⠙`, a gate `⠜⠋`, then the batching page `⠺⠉⠁`
-    // or the bare-node contract `⠌⠃`.
     use super::book::{ar_seats, st_connected, w_workflow};
     let mut s = format!(
         "{} node={} graph={graph_name}",
@@ -3192,9 +2999,6 @@ fn render_node_prompt(
     feedback: &HashMap<String, String>,
     dependency_context_chars: usize,
 ) -> String {
-    // The cap is a TOTAL upstream body budget for this node, not a multiplier
-    // applied independently to every dependency. Receipt metadata remains
-    // visible for every edge even when a large fan-in receives no body excerpt.
     let dep_count = node.depends_on.len();
     let base_share = dependency_context_chars.checked_div(dep_count).unwrap_or(0);
     let extra_shares = dependency_context_chars.checked_rem(dep_count).unwrap_or(0);
@@ -3204,8 +3008,6 @@ fn render_node_prompt(
         let placeholder = format!("{{output:{dep}}}");
         let occurrences = node.prompt.matches(&placeholder).count();
         let dep_share = base_share + usize::from(position < extra_shares);
-        // Repeated authored references receive the same envelope while their
-        // repeated body excerpts still stay inside this dependency's share.
         let body_cap = dep_share.checked_div(occurrences.max(1)).unwrap_or(0);
         receipts.insert(
             dep.clone(),
@@ -3215,9 +3017,6 @@ fn render_node_prompt(
             appended.push(dep);
         }
     }
-    // Expand only placeholders present in the authored template. Task text or
-    // an upstream model result may contain placeholder-shaped bytes, but those
-    // are evidence and cannot trigger a second substitution pass.
     let mut prompt = render_graph_template(&node.prompt, task, &receipts);
     if !appended.is_empty() {
         prompt.push_str("\n\n## Upstream results\n");
@@ -3232,8 +3031,6 @@ fn render_node_prompt(
         prompt.push_str(
             "\n\n## Reviewer feedback on your previous attempt (it was rejected — address every point)\n",
         );
-        // Reviewer feedback is a separate loop-control input with the same
-        // explicit cap; it does not multiply with dependency count.
         prompt.push_str(&head_chars(fb, dependency_context_chars));
     }
     prompt
@@ -3264,8 +3061,6 @@ fn render_graph_template(
                 continue;
             }
         }
-        // Unknown braces are ordinary authored text. `{` is one ASCII byte,
-        // so advancing by one preserves UTF-8 boundaries.
         rendered.push('{');
         rest = &rest[1..];
     }
@@ -3445,8 +3240,6 @@ fn attach_gate_control_credit(
     traces[target_trace_idx].control_credit.push(signal);
 }
 
-/// Keep this deliberately small and conservative. A hit suppresses even the
-/// preview; exact bytes remain represented only by their digest.
 fn contains_likely_graph_secret(text: &str) -> bool {
     let lower = text.to_ascii_lowercase();
     if ["sk-", "ghp_", "github_pat_", "xoxb-", "xoxp-"]
@@ -3492,7 +3285,6 @@ fn contains_likely_graph_secret(text: &str) -> bool {
     false
 }
 
-/// Resolve + prepare the per-workspace episode store (owner-only dirs).
 fn episode_store_dirs(workspace: &Path) -> Result<(PathBuf, PathBuf), String> {
     let dir = std::env::var_os("ANGEL_AGENT_GRAPH_DIR")
         .map(PathBuf::from)
@@ -3590,16 +3382,6 @@ impl PrivateCreateMode for std::fs::OpenOptions {
     }
 }
 
-/// Bind an external scorer's reward to one trace of a sealed episode receipt.
-///
-/// Loads and re-audits the persisted episode (`validate()` re-checks the sealed
-/// digest), finds the trace and its captured output, then writes an owner-only
-/// reward-binding receipt that records the episode receipt SHA and the trace
-/// output SHA it was bound against. Idempotent: re-binding the identical
-/// payload returns the existing receipt; a conflicting payload is refused.
-///
-/// This is the ONLY authority that may attach training reward to a graph
-/// trace — the episode receipts themselves remain reward-free by construction.
 pub(crate) fn bind_episode_reward(
     workspace: &Path,
     episode_id: &str,
@@ -3671,9 +3453,6 @@ pub(crate) fn bind_episode_reward(
 
     let binding_path = episode_dir.join(format!("{episode_id}.{trace_id}.reward.json"));
     if binding_path.exists() {
-        // Idempotency is time-stable: the same binding payload (digests,
-        // reward, source, contract) re-binds to the existing receipt; a
-        // different payload is a conflict and is refused, never overwritten.
         let existing_raw = std::fs::read_to_string(&binding_path)
             .map_err(|error| format!("read existing binding: {error}"))?;
         let existing: GraphRewardBindingV1 = serde_json::from_str(&existing_raw)
@@ -3784,19 +3563,10 @@ fn verify_existing_episode_receipt(path: &Path, expected: &[u8]) -> Result<(), S
     ))
 }
 
-// ---------------------------------------------------------------------------
-// The agent-callable tool
-// ---------------------------------------------------------------------------
-
-/// `agent_graph` — the in-hand driver routes a task through a declared graph
-/// mid-turn. Node seats never see this tool (Grant registries exclude it), so
-/// graphs cannot recurse.
 pub(crate) struct AgentGraphTool {
     workspace: PathBuf,
     self_club: Option<Arc<dyn Club>>,
     roster: Vec<Arc<dyn Club>>,
-    /// Names cached at registry build for the tool description; `call` reloads
-    /// specs fresh from disk.
     catalog_line: String,
     cargo: PinnedCargo,
     mutation_targets: Arc<crate::agent::tools::build::MutationTargets>,
@@ -3893,8 +3663,6 @@ impl Tool for AgentGraphTool {
         cancel: Option<&AtomicBool>,
     ) -> Result<String, String> {
         let _budget_scope = DescendantBudgetScope::enter_root();
-        // Validate the configured root handle before catalog/execution work;
-        // `engine.run` inherits this same scope.
         let _ = current_descendant_budget()?;
         let graph = args
             .get("graph")
@@ -3910,9 +3678,6 @@ impl Tool for AgentGraphTool {
             .ok_or("agent_graph needs task: the task to run")?;
         let catalog = load_graphs();
         let spec = find_graph(&catalog, graph)?;
-        // Inspect the already loaded spec, not a second catalog read. Only
-        // code grants can mutate this same workspace; reviewer/research nodes
-        // keep their enforced ceiling and do not invalidate source inventory.
         if graph_has_workspace_writes(spec)? {
             self.mutation_targets.mark_opaque();
         }
@@ -3955,8 +3720,6 @@ impl Tool for AgentGraphTool {
     }
 }
 
-/// Find a runnable spec by name; a miss speaks the whole catalog, including
-/// broken files and why they are broken.
 pub(crate) fn find_graph<'a>(
     catalog: &'a [LoadedGraph],
     name: &str,

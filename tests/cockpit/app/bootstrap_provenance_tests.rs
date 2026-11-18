@@ -135,9 +135,6 @@ impl Fixture {
             ("ANGEL_DOSSIER", "1"),
             ("ANGEL_DOSSIER_TASK", "1"),
             ("ANGEL_CADDY", "1"),
-            // Full card: the relevance filter (M06b) drops entries when the
-            // fixture workspace has no detectable verifier family; the fence
-            // must be proven for whatever the store does inject.
             ("ANGEL_CADDY_CARD", "full"),
             ("ANGEL_WORK_LANDING", "0"),
             ("ANGEL_CONTINUAL_HARNESS", "0"),
@@ -167,8 +164,6 @@ impl Fixture {
     fn workspace(&self, name: &str) -> PathBuf {
         let workspace = self.root.join(name);
         std::fs::create_dir_all(&workspace).unwrap();
-        // Finish the private repository before any identity is cached. An
-        // unborn HEAD cannot supply the tree identity required by M05.
         let git = |args: &[&str]| {
             let output = std::process::Command::new("git")
                 .env_clear()
@@ -237,8 +232,6 @@ impl Fixture {
     }
 
     fn seed_recipe(&self, workspace: &Path, hostile: &str) {
-        // This is a synthetic verifier receipt, never an executed hostile
-        // command. Use the production receipt binding and store admission path.
         let call = ToolCall {
             id: "s05-fixture-recipe".into(),
             name: "cargo".into(),
@@ -286,9 +279,6 @@ mod s05 {
     use super::*;
     use crate::knowledge::evidence::{EVIDENCE_FENCE_HEADER, EVIDENCE_FENCE_SENTINEL};
 
-    /// One renderer, both paths: the fenced caddy/dossier memory the
-    /// interactive bootstrap emits for the same store is byte-identical to
-    /// the headless task-mode warm start's.
     #[test]
     fn s05_fenced_memory_is_byte_identical_across_bootstrap_paths() {
         let _lock = crate::tests::env_lock();
@@ -325,7 +315,6 @@ mod s05 {
         let headless = text(build_task_history(&[], &[], &workspace, None));
         for history in [&interactive, &headless] {
             assert!(history.contains("HOSTILE_RECIPE"));
-            // The fresh-recipes heading is `⠸⠃⠁`, readable inside the fence.
             assert!(
                 history.contains(&crate::agent::harness::book::d3_roles::pages(
                     crate::agent::harness::book::d456_knowledge::CADDY,
@@ -473,11 +462,6 @@ mod s05 {
         println!("{}", String::from_utf8_lossy(&output.stdout));
     }
 
-    /// Escape-proofness end to end: instruction-shaped store text (ignore-the-
-    /// task, tool-call JSON, fake operator markers, a fenced code block that
-    /// closes the fence, secret shapes) reaches the model only inside exactly
-    /// one fence, sentinel-neutralised, fake markers never elevated, secrets
-    /// redacted — on both bootstrap paths, and never in a System message.
     #[test]
     fn s05_hostile_memory_stays_evidence_on_both_bootstrap_paths() {
         let _lock = crate::tests::env_lock();
@@ -536,13 +520,9 @@ mod s05 {
                     joined.contains(marker),
                     "{path}: {marker} evidence lost entirely"
                 );
-                // Every occurrence is fenced: it sits after a fence header and
-                // before the matching close.
                 let mut covered = true;
                 let mut rest = joined.as_str();
                 while let Some(at) = rest.find(marker) {
-                    // The fence opens and closes on the same route, so a
-                    // position is inside one after an odd count of them.
                     let before = &joined[..joined.len() - rest.len() + at];
                     if before
                         .matches(EVIDENCE_FENCE_HEADER)
@@ -560,9 +540,6 @@ mod s05 {
                 "{path}: in-content sentinel not neutralised"
             );
             assert!(
-                // A forged provenance line cannot survive structurally: the
-                // attribute marker is neutralised (and JSON-escaped on the
-                // interactive wire), so no second `[evidence …]` line exists.
                 !joined.contains("[evidence store=operator")
                     && !joined.contains("\\\"[evidence·store="),
                 "{path}: forged provenance attribute survived"
@@ -575,7 +552,6 @@ mod s05 {
                 joined.contains("«redacted"),
                 "{path}: redaction marker missing"
             );
-            // The fixed data-only instruction is the fence route's page.
             assert!(
                 crate::agent::harness::book::s_sources::RECALLED
                     .sub()
@@ -641,7 +617,6 @@ fn provenance_interactive_and_headless_wire_keep_repository_data_out_of_system()
         );
     }
     let task = build_task_history(&[], &[], &workspace, None);
-    // The entry warpath: the personality type, then the deep pace.
     assert!(
         task[0]
             .content

@@ -42,9 +42,6 @@ pub(super) fn tool_leaf(name: &str) -> &str {
         .unwrap_or(namespace_leaf)
 }
 
-/// One bounded, centralized literal→realm classifier. Shell arguments are
-/// inspected only for the known Git/build/test/network verbs below; arbitrary
-/// prose never changes destinations or earns research attribution.
 pub fn classify_tool_activity(name: &str, args_summary: &str) -> ClassifiedActivity {
     let leaf = tool_leaf(name).to_ascii_lowercase();
     let args = args_summary
@@ -185,10 +182,6 @@ pub struct ActiveWork {
     pub(super) seq: u64,
 }
 
-/// One tool call told the realm's way: the place's mark, a verb, and the thing
-/// being worked on. The flavour lives in the verb; outcomes stay literal and
-/// belong to the caller. Built from the same classifier that walks the knight,
-/// so the strip and the world always name the same place.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Herald {
     pub deed: Deed,
@@ -197,8 +190,6 @@ pub struct Herald {
     pub object: String,
 }
 
-/// The kind of deed a call is, as the realm acts it out. The strip draws its
-/// mark; the overworld sends someone down the road for it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Deed {
     Study,
@@ -231,9 +222,6 @@ impl Deed {
 }
 
 impl Herald {
-    /// `⚒ Forging toolstrip.rs` while running; the settled verb once the call
-    /// came back clean. A failed call keeps the running verb — the attempt is
-    /// what failed, and the caller says so.
     pub fn text(&self, settled: bool) -> String {
         let verb = if settled { self.settled } else { self.running };
         if self.object.is_empty() {
@@ -243,15 +231,12 @@ impl Herald {
         }
     }
 
-    /// Byte length of the mark and verb at the head of [`Self::text`], so the
-    /// draw layer can set the verb apart from the dimmer object.
     pub fn lead_len(&self, settled: bool) -> usize {
         let verb = if settled { self.settled } else { self.running };
         self.deed.glyph().len_utf8() + 1 + verb.len()
     }
 }
 
-/// Longest object a herald carries; the literal call is one click away.
 const HERALD_OBJECT_CHARS: usize = 40;
 
 pub fn herald(name: &str, args_summary: &str) -> Herald {
@@ -322,7 +307,6 @@ pub fn herald(name: &str, args_summary: &str) -> Herald {
             "Forged",
             args.file().unwrap_or_else(named),
         ),
-        // The Rookery seals a commit's scroll before a raven carries it off.
         RealmActivity::Chronicle
             if command == "git commit" || matches!(leaf.as_str(), "git_commit" | "commit") =>
         {
@@ -385,8 +369,6 @@ pub fn herald(name: &str, args_summary: &str) -> Herald {
     }
 }
 
-/// Verification calls are trials: the tool-level verifiers the strip already
-/// labels, and the cargo/test/build tools the classifier sends to the Smithy.
 fn trial_object(leaf: &str, args: &ParsedArgs) -> Option<String> {
     match leaf {
         "run_tests" => Some("the test suite".into()),
@@ -409,9 +391,6 @@ fn trial_object(leaf: &str, args: &ParsedArgs) -> Option<String> {
     }
 }
 
-/// `key=value, key=value` as `summarize_args` writes it, or the bare text it
-/// passes through for a `command`. Values may themselves hold `, `; a piece
-/// only starts a new pair when it opens with `word=`.
 struct ParsedArgs<'a> {
     raw: &'a str,
     pairs: Vec<(&'a str, String)>,
@@ -451,8 +430,6 @@ impl ParsedArgs<'_> {
         self.get(&["cmd", "command", "script"]).unwrap_or(self.raw)
     }
 
-    /// The file a call works on, by its last path segment. Bare text with no
-    /// pairs is taken as the path itself (`read_file 実装.md`).
     fn file(&self) -> Option<String> {
         let path = self
             .get(&["path", "file", "file_path", "filename", "target", "dir"])
@@ -477,9 +454,6 @@ impl ParsedArgs<'_> {
     }
 }
 
-/// The part of a shell command worth naming: the first segment that is not a
-/// `cd`/`export`, without env assignments, as the program plus at most one
-/// word that is not a flag. Paths shrink to their last segment.
 fn command_head(command: &str) -> String {
     let segment = command
         .split(['&', ';', '|'])

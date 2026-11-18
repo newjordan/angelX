@@ -38,8 +38,6 @@ fn blend(im: &mut Img, x: i32, y: i32, rgb: [u8; 3], alpha: u8) {
     );
 }
 
-/// Paint a source sprite with alpha-correct edges. Returns false for unknown
-/// IDs so a caller can show a missing-module indicator rather than wrong art.
 pub(super) fn paint_prop(im: &mut Img, id: &str, x: i32, y: i32, size: i32) -> bool {
     paint_sprite(im, id, x, y, size, false)
 }
@@ -69,8 +67,6 @@ fn paint_sprite(im: &mut Img, id: &str, x: i32, y: i32, size: i32, flip: bool) -
     true
 }
 
-/// The proposed structure at its real map scale, before materials are spent.
-/// The translucent tint preserves the plan's silhouette and the road beneath.
 pub(super) fn paint_blueprint(
     im: &mut Img,
     plan: &str,
@@ -110,8 +106,6 @@ pub(super) fn paint_blueprint(
     true
 }
 
-/// A moving delivery is a worker and physical load. The narrow coloured
-/// cargo strap identifies its resource without replacing the wooden crate.
 pub(super) fn paint_carrier(
     im: &mut Img,
     x: i32,
@@ -145,8 +139,6 @@ pub(super) fn paint_carrier(
     }
 }
 
-/// Roof and yard sprites remain readable at 48px; work is communicated through
-/// moving smoke, forge sparks and a pulsing arcane coil rather than a tiny icon.
 pub(super) fn paint_building(
     im: &mut Img,
     plan: &str,
@@ -246,7 +238,6 @@ pub(super) fn paint_building(
         }
     }
     if matches!(id, "sawmill" | "waterwheel") {
-        // Water flashes at the wheel's lower buckets and the cutting bed.
         let phase = (tick / 4 % 8) as i32;
         for p in 0..3 {
             blend(
@@ -284,8 +275,6 @@ fn mirrored(v: i32, size: i32) -> i32 {
     if p < size { p } else { size * 2 - 1 - p }
 }
 
-/// World-anchored material texture. Mirrored sampling joins opposite borders
-/// without seams and keeps every tile from repeating the same grass clump.
 pub(super) fn paint_ground_tile(
     im: &mut Img,
     kind: &str,
@@ -316,7 +305,6 @@ pub(super) fn paint_ground_tile(
             let sx = mirrored(world_x + xx + drift, 128);
             let sy = mirrored(world_y + yy, 128);
             let i = (sy * 128 + sx) as usize * 4;
-            // Muted earth gives bright working machines and roads prominence.
             let dim = if name == "water" { 235 } else { 205 };
             im.set(
                 x + xx,
@@ -337,8 +325,6 @@ fn road_contains(x: i32, y: i32, size: i32, links: u8) -> bool {
         || (links & 8 != 0 && y >= lo && y < hi && x < hi)
 }
 
-/// Connected cobbled lanes: link bits are north=1, east=2, south=4, west=8.
-/// Contours reveal missing road connections; no isolated square pavement tiles.
 pub(super) fn paint_road(
     im: &mut Img,
     x: i32,
@@ -373,7 +359,6 @@ pub(super) fn paint_road(
     }
 }
 
-/// Construction/selection feedback stays visible around overhanging roofs.
 pub(super) fn paint_cursor(
     im: &mut Img,
     x: i32,

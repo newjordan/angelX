@@ -79,12 +79,6 @@ fn task_usage_serializes_partial_zero_and_cache_only_without_fabrication() {
     );
 }
 
-// -----------------------------------------------------------------------
-// Warm start.
-// -----------------------------------------------------------------------
-
-/// A dossier artifact shaped exactly like the compiler's output: one confident
-/// ritual, one below-threshold ritual, one confident trap, and a thread.
 fn dossier_artifact() -> serde_json::Value {
     serde_json::json!({
         "v": 1,
@@ -104,8 +98,6 @@ fn dossier_artifact() -> serde_json::Value {
     })
 }
 
-/// Clear every knob the warm start reads, so a test never inherits the
-/// developer's real environment (or a previous test's leftovers).
 fn clear_warm_start_env() {
     for key in [
         "ANGEL_DOSSIER",
@@ -123,7 +115,6 @@ fn clear_warm_start_env() {
         "ANGEL_CONTINUAL_HARNESS",
         "ANGEL_CONTINUAL_HARNESS_TASK",
     ] {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
     }
 }
@@ -135,7 +126,6 @@ fn task_workspace_map_lists_fixture_files_when_enabled() {
     std::fs::create_dir_all(workspace.join("src")).unwrap();
     std::fs::write(workspace.join("src/parse-duration.mjs"), "export\n").unwrap();
     std::fs::write(workspace.join("test.mjs"), "test\n").unwrap();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TASK_WORKSPACE_MAP", "1") };
 
     let map = crate::agent::harness::book::m_method::MAP_NOTE.cells();
@@ -147,19 +137,14 @@ fn task_workspace_map_lists_fixture_files_when_enabled() {
     );
     assert!(block.contains("src/parse-duration.mjs"), "{block}");
     assert!(block.contains("test.mjs"), "{block}");
-    // The map's labels are its pages, never prose on the wire.
     assert!(!block.contains("Coding root"), "{block}");
-    // The repository-derived carrier no longer duplicates the map.
     assert!(!task_warm_start(&workspace).contains(&map));
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TASK_WORKSPACE_MAP", "0") };
     assert!(!task_system_contract(&workspace).contains(&map));
     clear_warm_start_env();
 }
 
-/// A private workspace plus empty dossier / work-context dirs, wired into the
-/// env. Nothing is seeded — the tests opt into what they want to exist.
 fn warm_start_fixture(tag: &str) -> (PathBuf, PathBuf, PathBuf) {
     clear_warm_start_env();
     let base = std::env::temp_dir().join(format!("angel-task-warm-{}-{tag}", std::process::id()));
@@ -170,16 +155,12 @@ fn warm_start_fixture(tag: &str) -> (PathBuf, PathBuf, PathBuf) {
     for dir in [&dossier_dir, &work_dir, &workspace] {
         std::fs::create_dir_all(dir).unwrap();
     }
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_DOSSIER_DIR", &dossier_dir) };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_WORK_CONTEXT_DIR", &work_dir) };
     (workspace, dossier_dir, work_dir)
 }
 
 fn seed_dossier(dir: &Path, workspace: &Path) {
-    // Dossiers are repository-scoped, including when a fixture directory
-    // lives beneath a checkout rather than in a Git-free system temp dir.
     let key = crate::platform::workspace_store::repo_identity(workspace).key;
     std::fs::write(
         dir.join(format!("{key}.json")),
@@ -200,8 +181,6 @@ fn seed_work_context(dir: &Path, workspace: &Path, confirmed: bool) {
     crate::agent::tools::work_landing::save_context_in(dir, workspace, &ctx).unwrap();
 }
 
-/// The headless seat gets the dossier the TUI gets — confident facts asserted,
-/// below-threshold facts withheld (counted, never stated).
 #[test]
 fn task_warm_start_injects_the_confidence_gated_dossier() {
     let _guard = crate::tests::env_lock();
@@ -214,20 +193,15 @@ fn task_warm_start_injects_the_confidence_gated_dossier() {
         block.contains(crate::knowledge::dossier::DOSSIER_BLOCK_HEADER),
         "warm start must carry the dossier block: {block}"
     );
-    // S05: memory recall now crosses the evidence fence; the dossier's own
-    // sentinel is inside it, so the block ends with the fence close.
     assert!(
         block
             .trim_end()
             .ends_with(crate::knowledge::evidence::EVIDENCE_FENCE_SENTINEL)
     );
-    // The confident ritual and trap are asserted...
     assert!(block.contains("test: `cargo test --quiet`"), "{block}");
     assert!(block.contains("\n⠸⠁⠙ `npm test` ("), "{block}");
     assert!(block.contains("\n⠸⠁⠑ age="), "{block}");
-    // ...and the 0.55-belief build ritual is withheld, not asserted.
     assert!(!block.contains("cargo build --release"), "{block}");
-    // The withheld count is `⠸⠁⠉`, readable inside the evidence fence.
     assert!(
         block.contains("\n⠸⠁⠉ withheld=1 min_belief=0.70\n"),
         "{block}"
@@ -236,15 +210,12 @@ fn task_warm_start_injects_the_confidence_gated_dossier() {
     clear_warm_start_env();
 }
 
-/// The confidence gate is the whole safety story: raise it and even the 0.88
-/// ritual is withheld rather than stated.
 #[test]
 fn task_warm_start_honors_the_belief_threshold() {
     let _guard = crate::tests::env_lock();
     let _legacy = crate::tests::TestEnvGuard::set("ANGEL_BACKPLANE", "0");
     let (workspace, dossier_dir, _work_dir) = warm_start_fixture("belief");
     seed_dossier(&dossier_dir, &workspace);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_DOSSIER_MIN_BELIEF", "0.95") };
 
     let block = task_warm_start(&workspace);
@@ -255,39 +226,27 @@ fn task_warm_start_honors_the_belief_threshold() {
     clear_warm_start_env();
 }
 
-/// Two kill switches, both honored: the task-mode-only one and the family-wide
-/// one. And a workspace with no artifact is a clean no-op — zero tokens.
 #[test]
 fn task_warm_start_is_suppressible_and_a_no_op_when_empty() {
     let _guard = crate::tests::env_lock();
     let _legacy = crate::tests::TestEnvGuard::set("ANGEL_BACKPLANE", "0");
     let (workspace, dossier_dir, _work_dir) = warm_start_fixture("suppress");
 
-    // Nothing seeded → nothing said.
     assert_eq!(task_warm_start(&workspace), "");
 
     seed_dossier(&dossier_dir, &workspace);
     assert!(!task_warm_start(&workspace).is_empty());
 
-    // The headless-only knob.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_DOSSIER_TASK", "0") };
     assert_eq!(task_warm_start(&workspace), "");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_DOSSIER_TASK") };
 
-    // The family-wide knob still governs both seats.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_DOSSIER", "0") };
     assert_eq!(task_warm_start(&workspace), "");
 
     clear_warm_start_env();
 }
 
-/// The work context rides along only once a human has CONFIRMED it. The
-/// unconfirmed branch would tell an unattended agent to call `work_landing` (a
-/// tool task mode does not register) and to confirm with a user who is not
-/// there — so it must never reach a headless prompt.
 #[test]
 fn task_warm_start_carries_only_a_confirmed_work_context() {
     let _guard = crate::tests::env_lock();
@@ -308,8 +267,6 @@ fn task_warm_start_carries_only_a_confirmed_work_context() {
     assert!(!block.contains("Optimize for velocity"), "{block}");
     assert!(!block.contains("work_landing"), "{block}");
 
-    // The existing kill switch covers it; no second knob.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_WORK_LANDING", "0") };
     assert_eq!(task_warm_start(&workspace), "");
 
@@ -511,7 +468,6 @@ fn task_pace_can_be_designated_or_inferred_without_submission_pressure() {
     assert_eq!(rapid_prompt.pace, TaskPace::Rapid);
     assert_eq!(rapid_prompt.source, "prompt");
 
-    // A long or unbounded budget is not a deep-pace request (operator law 2026-09-11).
     for (hops, seconds) in [("64", "3600"), ("0", "0")] {
         let _hops = crate::tests::TestEnvGuard::set("ANGEL_MAX_HOPS", hops);
         let _seconds = crate::tests::TestEnvGuard::set("ANGEL_TURN_DEADLINE_SECS", seconds);
@@ -568,9 +524,7 @@ fn yolo_preserves_task_hops_and_bounded_coding_defaults() {
         fn drop(&mut self) {
             for (key, value) in &self.0 {
                 match value {
-                    // TODO: Audit that the environment access only happens in single-threaded code.
                     Some(value) => unsafe { std::env::set_var(key, value) },
-                    // TODO: Audit that the environment access only happens in single-threaded code.
                     None => unsafe { std::env::remove_var(key) },
                 }
             }
@@ -578,10 +532,8 @@ fn yolo_preserves_task_hops_and_bounded_coding_defaults() {
     }
     let _restore = Restore(KEYS.map(|key| (key, std::env::var_os(key))));
     for key in KEYS {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
     }
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_YOLO", "1") };
 
     assert_eq!(configured_max_hops(), None);
@@ -590,7 +542,6 @@ fn yolo_preserves_task_hops_and_bounded_coding_defaults() {
     assert_eq!(std::env::var("ANGEL_TURN_DEADLINE_SECS").unwrap(), "0");
     assert!(std::env::var_os("ANGEL_FIRST_WRITE_CALLS").is_none());
     assert!(std::env::var_os("ANGEL_FIRST_WRITE_REJECTIONS").is_none());
-    // Gate knobs are gone: task mode arms no final-mile window or thrash nudge.
     for removed in [
         "ANGEL_FINAL_MILE_HOPS",
         "ANGEL_FINAL_MILE_ANSWER_HOPS",
@@ -603,11 +554,8 @@ fn yolo_preserves_task_hops_and_bounded_coding_defaults() {
     assert_eq!(std::env::var("ANGEL_TASK_CODING_DISCIPLINE").unwrap(), "1");
     assert_eq!(std::env::var("ANGEL_RELENTLESS_EXECUTION").unwrap(), "1");
     assert_eq!(std::env::var("ANGEL_TASK_TREEBEARD").unwrap(), "auto");
-    // The bounded 64-hop headless default still selects the long-horizon lane.
     assert_eq!(std::env::var("ANGEL_LANE").unwrap(), "treebeard");
 
-    // The explicit individual off control still wins under YOLO.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_MAX_HOPS", "0") };
     assert_eq!(configured_max_hops(), None);
 }
@@ -620,9 +568,7 @@ fn task_treebeard_auto_enables_for_long_headless_when_lane_unset() {
         fn drop(&mut self) {
             for (key, value) in self.0.drain(..) {
                 match value {
-                    // TODO: Audit that the environment access only happens in single-threaded code.
                     Some(value) => unsafe { std::env::set_var(key, value) },
-                    // TODO: Audit that the environment access only happens in single-threaded code.
                     None => unsafe { std::env::remove_var(key) },
                 }
             }
@@ -641,43 +587,28 @@ fn task_treebeard_auto_enables_for_long_headless_when_lane_unset() {
             .collect(),
     );
     for key in keys {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
     }
-    // Explicit off: no treebeard (ReAct ablation control).
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TASK_TREEBEARD", "0") };
     maybe_apply_task_treebeard_lane();
     assert_eq!(std::env::var("ANGEL_LANE").unwrap(), "default");
 
-    // auto + unbounded default → treebeard.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_LANE") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TASK_TREEBEARD", "auto") };
     maybe_apply_task_treebeard_lane();
     assert_eq!(std::env::var("ANGEL_LANE").unwrap(), "treebeard");
 
-    // Explicit lane wins.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_LANE", "default") };
     maybe_apply_task_treebeard_lane();
     assert_eq!(std::env::var("ANGEL_LANE").unwrap(), "default");
 
-    // Short hop budget under auto floor leaves the global Treebeard default
-    // implicit rather than writing an environment override.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_LANE") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_MAX_HOPS", "8") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TASK_TREEBEARD", "auto") };
     maybe_apply_task_treebeard_lane();
     assert!(std::env::var_os("ANGEL_LANE").is_none());
     assert!(crate::agent::harness::is_treebeard());
 
-    // always forces regardless of hops.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TASK_TREEBEARD", "1") };
     maybe_apply_task_treebeard_lane();
     assert_eq!(std::env::var("ANGEL_LANE").unwrap(), "treebeard");
@@ -715,9 +646,7 @@ fn task_runtime_policy_defaults_are_headless_and_preserve_explicit_overrides() {
         fn drop(&mut self) {
             for (key, value) in self.0.drain(..) {
                 match value {
-                    // TODO: Audit that the environment access only happens in single-threaded code.
                     Some(value) => unsafe { std::env::set_var(key, value) },
-                    // TODO: Audit that the environment access only happens in single-threaded code.
                     None => unsafe { std::env::remove_var(key) },
                 }
             }
@@ -729,7 +658,6 @@ fn task_runtime_policy_defaults_are_headless_and_preserve_explicit_overrides() {
             .collect(),
     );
     for key in KEYS {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
     }
 
@@ -741,7 +669,6 @@ fn task_runtime_policy_defaults_are_headless_and_preserve_explicit_overrides() {
     assert!(std::env::var_os("ANGEL_TOOL_IDLE_FLOOR_SECS").is_none());
     assert!(std::env::var_os("ANGEL_FIRST_WRITE_CALLS").is_none());
     assert!(std::env::var_os("ANGEL_FIRST_WRITE_REJECTIONS").is_none());
-    // Gate knobs are gone: task mode arms no final-mile window or thrash nudge.
     for removed in [
         "ANGEL_FINAL_MILE_HOPS",
         "ANGEL_FINAL_MILE_ANSWER_HOPS",
@@ -757,22 +684,16 @@ fn task_runtime_policy_defaults_are_headless_and_preserve_explicit_overrides() {
     assert_eq!(std::env::var("ANGEL_TASK_CODING_DISCIPLINE").unwrap(), "1");
     assert_eq!(std::env::var("ANGEL_RELENTLESS_EXECUTION").unwrap(), "1");
     assert_eq!(std::env::var("ANGEL_TASK_TREEBEARD").unwrap(), "auto");
-    // The bounded long-horizon headless default → Treebeard lane.
     assert_eq!(std::env::var("ANGEL_LANE").unwrap(), "treebeard");
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_FIRST_WRITE_CALLS", "9") };
     apply_task_runtime_defaults("");
     assert_eq!(std::env::var("ANGEL_FIRST_WRITE_CALLS").unwrap(), "9");
 
-    // An explicit operator ceiling and a longer deadline are both honoured.
     for key in KEYS {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
     }
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TURN_DEADLINE_SECS", "3600") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TOOL_TIMEOUT", "300") };
     apply_task_runtime_defaults("");
     assert_eq!(std::env::var("ANGEL_TOOL_TIMEOUT").unwrap(), "300");
@@ -782,7 +703,6 @@ fn task_runtime_policy_defaults_are_headless_and_preserve_explicit_overrides() {
 
 #[test]
 fn coding_discipline_block_keeps_repairs_focused_and_evidence_based() {
-    // The discipline is the `⠽⠑` type: its sections render verbatim.
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let block = crate::agent::harness::book::ledger::read(root, "⠽⠑").unwrap();
     assert!(block.contains("Map"));
@@ -841,7 +761,6 @@ fn task_parse_error_preserves_json_mode_and_prior_metadata() {
     assert_eq!(failure.parsed.task_id.as_deref(), Some("case-7"));
 }
 
-/// Operator-ordered F01 contract: successful envelopes carry observational overruns.
 #[test]
 fn formation_budget_envelope_reports_over_allocation_without_stopping_answer() {
     let _lock = crate::tests::env_lock();
@@ -1630,15 +1549,11 @@ fn stop_wire_ctx() -> TaskJsonContext {
     }
 }
 
-/// The task JSON never derives the three flags from the stop reason: it
-/// prints whatever the turn carried. Its `status` and `stop_reason` are
-/// functions of the reason and of which shape (outcome or failure) carried it.
 #[test]
 fn task_json_status_and_stop_reason_for_every_stop_reason_are_pinned() {
     use TurnStopReason::*;
     let _lock = crate::tests::env_lock();
     let _caddy = crate::tests::TestEnvGuard::set("ANGEL_CADDY", "0");
-    // (reason, wire string, status via an outcome, status via a failure)
     let table = [
         (Answer, "answer", "completed", "error"),
         (Interrupt, "interrupt", "stopped", "error"),
@@ -1717,7 +1632,6 @@ fn task_json_status_and_stop_reason_for_every_stop_reason_are_pinned() {
     }
 }
 
-/// The class a graph-incomplete label or reason text becomes in the task JSON.
 #[test]
 fn graph_incomplete_stop_reason_for_every_label_is_pinned() {
     for (label, expected) in [
@@ -1726,8 +1640,6 @@ fn graph_incomplete_stop_reason_for_every_label_is_pinned() {
         ("planner_no_plan", "planner_no_plan"),
         ("planner produced no schedulable plan", "planner_no_plan"),
         ("no_schedulable_nodes", "no_schedulable_nodes"),
-        // The raw text spells it with spaces, which the class test does not
-        // read; only the `no_schedulable_nodes` label is.
         ("no schedulable nodes", "incomplete"),
         ("node_failed:worker", "node_failed"),
         ("provider_stall:worker", "provider_stall"),
@@ -1744,8 +1656,6 @@ fn graph_incomplete_stop_reason_for_every_label_is_pinned() {
     }
 }
 
-/// A node-failure label carries the node's id; an id that says "cancelled"
-/// is still a node failure, never a cancelled run.
 #[test]
 fn a_node_failed_label_is_never_read_as_a_cancelled_run() {
     assert_eq!(
@@ -1803,7 +1713,6 @@ fn a_small_workspace_takes_the_light_start_and_an_explicit_setting_wins() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
-/// The speed stack a small workspace's headless task turns on by default.
 const SPEED_STACK: [&str; 7] = [
     "ANGEL_TASK_PREREAD_AS_CONTEXT",
     "ANGEL_TASK_PREREAD_SKIP_MANIFESTS",
@@ -1828,12 +1737,10 @@ fn a_small_workspace_is_read_before_the_first_request_when_it_fits() {
     std::fs::write(fits.join("LICENSE"), "MIT").unwrap();
     std::fs::write(fits.join("Cargo.lock"), "version = 4").unwrap();
     std::fs::write(fits.join("logo.png"), [0xff, 0xd8, 0x00, 0xfe]).unwrap();
-    // Larger than the whole budget: `read_file` would cut it short.
     std::fs::write(fits.join("vendored.hpp"), "// header\n".repeat(4000)).unwrap();
     let mut registry = crate::agent::harness::ToolRegistry::new();
     crate::agent::harness::registry::register_file_tools(&mut registry, fits.clone());
 
-    // Off unless the route switched it on.
     let _off = TestEnvGuard::unset(SMALL_WORKSPACE_PREREAD_ENV);
     let mut history = vec![crate::agent::club::ChatMsg::user("task")];
     preread_small_workspace(&registry, &fits, &mut history);
@@ -1855,7 +1762,6 @@ fn a_small_workspace_is_read_before_the_first_request_when_it_fits() {
     );
     assert!(history[3].content.contains("pub fn one()"));
 
-    // A workspace that does not fit is left for the model to read.
     let large = base.join("large");
     std::fs::create_dir_all(&large).unwrap();
     for n in 0..20 {
@@ -1906,7 +1812,6 @@ fn the_up_front_read_can_leave_manifests_and_tests_to_the_model() {
             .collect::<Vec<_>>()
     };
 
-    // Both off: everything that is text and not a licence or lock file.
     let _m = TestEnvGuard::unset(PREREAD_SKIP_MANIFESTS_ENV);
     let _t = TestEnvGuard::unset(PREREAD_SKIP_TESTS_ENV);
     assert_eq!(read().len(), 8);
@@ -1949,7 +1854,6 @@ fn a_write_only_response_gains_one_test_run_when_switched_on() {
     assert_eq!(calls[1].name, "run_tests");
     assert_eq!(calls[1].id, "call_autotest_2");
 
-    // The model ran its own check, or wrote nothing: left alone.
     let mut own = vec![call("write_file"), call("shell")];
     append_test_after_write(&mut own, 3);
     assert_eq!(own.len(), 2);
@@ -1960,7 +1864,6 @@ fn a_write_only_response_gains_one_test_run_when_switched_on() {
 
 #[test]
 fn only_a_full_pass_counts_as_green() {
-    // Every test ran and passed: the summary line is returned.
     assert_eq!(
         full_green_line("tests: 10 passed, 0 failed, 0 ignored — reward 1.00\npin: {}").as_deref(),
         Some("tests: 10 passed, 0 failed, 0 ignored")
@@ -1969,7 +1872,6 @@ fn only_a_full_pass_counts_as_green() {
         full_green_line("tests: 16 passed, 0 failed, 0 skipped — reward unlabeled (x)").as_deref(),
         Some("tests: 16 passed, 0 failed, 0 skipped")
     );
-    // Any failure, any skipped or ignored test, or nothing run: not green.
     for red in [
         "tests: 9 passed, 1 failed, 0 ignored — reward 0.90",
         "tests: 2 passed, 0 failed, 23 skipped — reward unlabeled (x)",

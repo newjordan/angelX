@@ -1,19 +1,15 @@
 use super::*;
 
-/// Set one variable for the test body and restore the prior value after.
 struct EnvGuard(&'static str, Option<std::ffi::OsString>);
 impl EnvGuard {
     fn set(name: &'static str, value: &str) -> Self {
         let prior = std::env::var_os(name);
-        // SAFETY: every test here holds `env_lock`, so no other thread
-        // reads or writes the environment concurrently.
         unsafe { std::env::set_var(name, value) };
         Self(name, prior)
     }
 }
 impl Drop for EnvGuard {
     fn drop(&mut self) {
-        // SAFETY: see `set`.
         unsafe {
             match self.1.take() {
                 Some(prior) => std::env::set_var(self.0, prior),

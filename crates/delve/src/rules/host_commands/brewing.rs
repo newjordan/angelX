@@ -27,9 +27,6 @@ impl Journal {
             return Ok(None);
         }
         if !brew_jobs::Work::capturable(run, &run.brewing[0]) {
-            // The player changed the slot or departed before model admission.
-            // Retire that exact source fact through the ordinary command port;
-            // it must not block later requests or attach to a later recipe.
             let ask = run.brewing[0].clone();
             let receipt = self.apply(
                 run,

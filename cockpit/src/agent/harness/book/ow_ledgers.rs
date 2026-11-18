@@ -19,7 +19,6 @@ pub(crate) const LOOP_RESEARCH: Route = Route::new(CELL, '⠓');
 pub(crate) const OUTCOME_NOTES: Route = Route::new(CELL, '⠊');
 pub(crate) const RESEARCH_NOTES: Route = Route::new(CELL, '⠚');
 
-// `⠪⠊`: each page is sent alone, as its address, beside an outcome's facts.
 pub(crate) const PROC_NOTES: &str = "⠪⠊⠁⠪⠊⠃";
 pub(crate) const OWNER_INTERRUPTED: &str = "⠪⠊⠉";
 pub(crate) const INSPECT_CANDIDATE: &str = "⠪⠊⠙";
@@ -28,7 +27,6 @@ pub(crate) const HISTORY_UNAVAILABLE: &str = "⠪⠊⠋";
 pub(crate) const WORKER_DISCONNECTED: &str = "⠪⠊⠛";
 pub(crate) const CAMPAIGN_ACTIVE: &str = "⠪⠊⠓";
 
-// `⠪⠚`: loop_research's notes, as runs of page addresses in its results.
 pub(crate) const RESEARCH_EXECUTION: &str = "⠪⠚⠁⠪⠚⠃⠪⠚⠉";
 pub(crate) const RESEARCH_LEARNING: &str = "⠪⠚⠙⠪⠚⠑";
 pub(crate) const RESEARCH_RUNTIME: &str = "⠪⠚⠋⠪⠚⠛";

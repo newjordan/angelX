@@ -381,8 +381,6 @@ fn a_party_with_starter_items_can_finish_three_floors_by_attacking_and_dodging()
                 .unwrap(),
         );
     }
-    // Four seed classes cover every pickup permutation. Include the extreme
-    // seed so wrapped pickup arithmetic is exercised through a complete raid.
     for seed in [0, 1, 2, 3, 123, u64::MAX] {
         let mut run = Run::new(
             seed,

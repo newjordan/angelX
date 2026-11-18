@@ -4,11 +4,6 @@ import ./lib/bj.bend as B
 import ./lib/delta.bend as D
 import ./step.bend as S
 
-# Delve's rules worker (docs/architecture/delve-in-bend.md). Frames on stdin
-# and stdout: a 4-byte big-endian length, then the text. After `prepare` the
-# text is BJ1 and the Run lives here between applies: the host sends what it
-# changed and is answered with what the step changed.
-
 type St is Data:
   St{staged: Bool, active: Bool, run: J.Val}
 
@@ -39,9 +34,6 @@ def hello() -> J.Val:
   h5 = J.set(h4, "codec", J.JS{"bj1"})
   J.set(h5, "resident", J.JBool{True{}})
 
-# Lifecycle
-# ---------
-
 def restore.if(fits: Bool, +body: J.Val, st: St) -> Answer:
   match fits st:
     case True{} St{staged, active, run}:
@@ -59,8 +51,6 @@ def activate(st: St) -> Answer:
     case St{False{}, active, run}:
       Answer{err("invalid Delve system lifecycle request activate"), St{False{}, active, run}, False{}}
 
-# The state as the request leaves it: the resident Run with the host's ops
-# laid on, or the whole state it sent.
 def given.if(resident: Bool, +body: J.Val, +run: J.Val) -> J.Val:
   match resident:
     case True{}:
@@ -132,9 +122,6 @@ def dispatch(+method: String, +body: J.Val, st: St) -> Answer:
       dispose(st)
     case _:
       Answer{err("invalid Delve system lifecycle request " ++ method), st, False{}}
-
-# Frames
-# ------
 
 def envelope(+req: J.Val, +result: J.Val) -> J.Val:
   e0 = J.set(J.obj(), "api", J.JU{1})

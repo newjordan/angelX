@@ -1,4 +1,3 @@
-// Part of the existing forced realm-save-failure verifier, not a separate host.
 fn eastern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     use crate::delve::together_realm::Spoil;
     use crate::delve::together_shooter::{RoomKind, countryside, world};
@@ -18,7 +17,6 @@ fn eastern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
             run.marks.insert(format!("country:picnic:{i}"), 1);
         }
         run.marks.insert("country:build:post".into(), 1);
-        // An old but otherwise settled floor must be migrated on restore.
         run.dungeon
             .rooms
             .retain(|r| !matches!(r.kind, RoomKind::Causeway | RoomKind::Priory));
@@ -27,7 +25,6 @@ fn eastern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     assert!(!app.settle_home());
     assert_eq!(app.economy().treasury, before);
     assert_eq!(app.economy().home.countryside.picnic, 0);
-    // Checkpoint uses workspace .angel even while realm saves fail.
     let path = fixture.workspace.join(".angel/dungeon/session.json");
     app.realm.dungeon.save_path = Some(path.clone());
     app.realm.dungeon

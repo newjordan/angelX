@@ -16,11 +16,8 @@
 use super::village::Village;
 use super::*;
 
-/// The places in a village a wish can stand.
 pub const SLOTS: usize = 6;
-/// The most words a city keeps on a wish.
 pub const MOST_WORDS: usize = 120;
-/// How long a new improvement takes to rise, in ticks.
 pub const RISE: u64 = 2 * HZ as u64;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -48,7 +45,6 @@ impl Gift {
         Gift::Hearth,
     ];
 
-    /// What the scroll calls it.
     pub fn name(self) -> &'static str {
         match self {
             Gift::Lanterns => "A LANTERN TREE",
@@ -62,7 +58,6 @@ impl Gift {
         }
     }
 
-    /// The words that call it up.
     fn words(self) -> &'static [&'static str] {
         match self {
             Gift::Lanterns => &["light", "lamp", "lantern", "glow", "bright", "shine", "sun", "star", "stars", "sky", "day", "hope"],
@@ -77,12 +72,9 @@ impl Gift {
     }
 }
 
-/// A wish a visitor made for a city, standing in its slot.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CityWish {
-    /// The knight, by the name the realm keeps them under.
     pub knight: String,
-    /// Their name as shown.
     pub shown: String,
     pub words: String,
     pub gift: Gift,
@@ -95,8 +87,6 @@ impl CityWish {
     }
 }
 
-/// What a city might make of `words`, best first: the gifts whose words
-/// they use, then the plainest gifts, three in all.
 pub fn read(words: &str) -> Vec<Gift> {
     let said: Vec<String> = words
         .split(|c: char| !c.is_alphanumeric())
@@ -111,8 +101,6 @@ pub fn read(words: &str) -> Vec<Gift> {
         .collect();
     scored.sort_by_key(|&(n, i, _)| (std::cmp::Reverse(n), i));
     let mut out: Vec<Gift> = scored.into_iter().map(|(_, _, g)| g).collect();
-    // The words' own sound picks the rest, so two wishes read alike still
-    // differ.
     let h = words.bytes().fold(0x811c_9dc5u32, |h, b| (h ^ u32::from(b)).wrapping_mul(0x0100_0193));
     let mut k = h as usize;
     while out.len() < 3 {
@@ -127,12 +115,10 @@ pub fn read(words: &str) -> Vec<Gift> {
 }
 
 impl Run {
-    /// Whether knight `id`'s scroll is open for a city's wish.
     pub fn city_wishing(&self, id: u32) -> bool {
         self.deep.as_ref().and_then(|d| d.village.as_ref()).is_some_and(|v| v.wishing.contains(&id))
     }
 
-    /// Whether knight `id` has made their wish for this village already.
     pub(super) fn wished_here(&self, v: &Village, id: u32) -> bool {
         let Some(h) = self.players.get(&id) else {
             return true;
@@ -141,9 +127,6 @@ impl Run {
         self.home.deep.town(v.floor).is_some_and(|t| t.wishes.iter().any(|w| w.knight == key))
     }
 
-    /// The wishkeeper hands knight `id` the wish line: the lamp's own rub
-    /// opens it on their screen, and the words that come back are the
-    /// city's (`offer_city_wish`).
     pub(super) fn begin_city_wish(&mut self, v: &mut Village, id: u32) {
         let Some(h) = self.players.get_mut(&id) else {
             return;
@@ -155,7 +138,6 @@ impl Run {
         self.found = Some((self.tick, id, "SAY YOUR WISH FOR THE CITY. NONE OF YOUR OWN IS SPENT.".into()));
     }
 
-    /// Knight `id`'s words for the city, on the scroll as its readings.
     pub fn offer_city_wish(&mut self, id: u32, words: &str) -> Result<(), String> {
         let words = words.trim();
         if words.is_empty() || words.chars().count() > 200 {
@@ -189,7 +171,6 @@ impl Run {
         Ok(())
     }
 
-    /// Knight `id` picks reading `n`: the city builds it.
     pub(crate) fn choose_city_wish(&mut self, id: u32, n: usize) -> Result<String, String> {
         let offer = self.players.get(&id).and_then(|h| h.offer.clone()).ok_or("No wish is open on the scroll.")?;
         let choice = offer.choices.get(n).ok_or("No such choice.")?;
@@ -209,8 +190,6 @@ impl Run {
         result
     }
 
-    /// The city builds `gift` for knight `id`, in its next free place, and
-    /// cheers.
     fn build_wish(&mut self, v: &mut Village, id: u32, words: &str, gift: Gift) -> Result<String, String> {
         v.wishing.remove(&id);
         if self.wished_here(v, id) {
@@ -234,7 +213,6 @@ impl Run {
         Ok(said)
     }
 
-    /// Knight `id` rolls the city's scroll up: nothing is built.
     pub(crate) fn drop_city_wish(&mut self, id: u32) {
         if let Some(v) = self.deep.as_mut().and_then(|d| d.village.as_mut()) {
             v.wishing.remove(&id);

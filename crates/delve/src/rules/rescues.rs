@@ -7,15 +7,11 @@
 
 use super::*;
 
-/// Someone who can be rescued: who, where from, what they do at home.
 pub struct Resident {
     pub id: &'static str,
     pub name: &'static str,
-    /// The delve whose cage they are found in.
     pub pack: Pack,
-    /// What they do for the party, for the notice and the docs.
     pub gives: &'static str,
-    /// Where they stand in the Undercroft (tiles).
     pub home_at: (f32, f32),
 }
 
@@ -54,9 +50,6 @@ pub fn resident(id: &str) -> Option<&'static Resident> {
     RESIDENTS.iter().find(|r| r.id == id)
 }
 
-/// Who waits in a cage on this floor: who, in which room, where the cage
-/// stands, how long they've been held at (for the F hold), and whether
-/// they're free.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Captive {
     pub who: String,
@@ -67,19 +60,13 @@ pub struct Captive {
     pub freed: Option<u64>,
 }
 
-/// A knight this close to the cage can work its lock.
 pub const CAGE_REACH: f32 = 3.0;
-/// The chance a floor holds a cage, if someone is still to be found there.
 const CAGE_CHANCE: u64 = 50;
 
 impl Run {
-    /// A new floor: perhaps a cage in its treasure room, with whoever of
-    /// this delve's people is still to be found.
     pub(super) fn cage_someone(&mut self) {
         self.captive = None;
         let pack = self.dungeon.pack;
-        // The swamp keeps one captive: the white horse, in the Mire King's
-        // pen on its last floor.
         if pack == Pack::Swamp {
             self.pen_the_horse();
             return;
@@ -111,7 +98,6 @@ impl Run {
         });
     }
 
-    /// The cage each tick: holding E beside it frees whoever is inside.
     pub(super) fn tick_cage(&mut self, inputs: &BTreeMap<u32, Input>) {
         let Some(captive) = self.captive.clone().filter(|c| c.room == self.at) else {
             return;
@@ -119,7 +105,6 @@ impl Run {
         if captive.freed.is_some() {
             return;
         }
-        // The Mire King holds the pen while he stands.
         if captive.who == swamp::HORSE && !self.dungeon.rooms[self.at].cleared {
             let trying = self.players.iter().find_map(|(&id, hero)| {
                 (hero.hp > 0
@@ -182,9 +167,6 @@ impl Run {
         }
     }
 
-    /// What the people at home do for a delve, at the top of the stair:
-    /// Anselm's blessing and Maud's ale (Mabel's stew is a home card; Pip
-    /// draws each floor as it comes).
     pub(super) fn residents_help(&mut self) {
         let blessed = self.home.residents.contains("anselm");
         let ale = self.home.residents.contains("maud");
@@ -198,8 +180,6 @@ impl Run {
         }
     }
 
-    /// The people at home speak as a knight walks up to them, once per
-    /// approach.
     pub(super) fn greet_residents(&mut self) {
         let mut near = 0u8;
         let dug = self
@@ -208,7 +188,6 @@ impl Run {
             .iter()
             .any(|r| r.kind == RoomKind::Tavern);
         for (bit, resident) in RESIDENTS.iter().enumerate() {
-            // Once the tavern is dug, Maud keeps its bar instead.
             if !self.home.residents.contains(resident.id) || (dug && resident.id == "maud") {
                 continue;
             }
@@ -230,7 +209,6 @@ impl Run {
         self.met = near;
     }
 
-    /// Pip's maps: a floor drawn whole as the party arrives.
     pub(super) fn pips_map(&mut self) {
         if self.home.residents.contains("pip") {
             for room in &mut self.dungeon.rooms {

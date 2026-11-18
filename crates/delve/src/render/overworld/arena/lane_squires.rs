@@ -19,7 +19,6 @@ fn inside((c, r, w, h): Rect, x: f32, y: f32) -> bool {
     x >= c as f32 && x < (c + w) as f32 && y >= r as f32 && y < (r + h) as f32
 }
 
-/// A cut-pixel border, deliberately not the blue/slate chrome treatment.
 fn paper(cv: &mut Img, (x, y, w, h): Rect, lit: bool) {
     cv.rect(x, y, w, h, 'k');
     cv.line(x + 1, y, x + w - 2, y, if lit { 'O' } else { 'j' });
@@ -29,8 +28,6 @@ fn paper(cv: &mut Img, (x, y, w, h): Rect, lit: bool) {
 }
 
 fn label(cv: &mut Img, x: i32, y: i32, width: i32, words: &str, ink: char) {
-    // Names are player/persistence data. Keep even an unusually long one
-    // inside its column rather than painting through the next price.
     let mut s = String::new();
     for ch in words.to_uppercase().chars() {
         let mut next = s.clone();
@@ -61,8 +58,6 @@ fn talents(kind: Kind) -> (&'static str, Option<&'static str>) {
     }
 }
 
-/// All five use the kit's ordinary indexed sprite path. The coloured
-/// tabard is a few pixels, not a second UI accent or an aura.
 fn upright(kind: Kind) -> Img {
     Img::from_rows(match kind {
         Kind::Ninja => &[
@@ -163,8 +158,6 @@ pub(super) fn sprite(recruit: &Recruit, owner: u32, down: bool, tick: u32) -> Im
     .recolor(knights::seat_colours(owner));
     if !down {
         let cloth = knights::seat_cloth(owner);
-        // Broad role cues survive the full-room zoom: crossed knives,
-        // a cross-headed staff, an open bow, a shield, and a round flask.
         im.rect(5, 6, 3, 3, cloth);
         match recruit.kind {
             Kind::Ninja => {
@@ -196,7 +189,6 @@ pub(super) fn sprite(recruit: &Recruit, owner: u32, down: bool, tick: u32) -> Im
             }
         }
     }
-    // A tiny alternating heel, not a bob that changes foot registration.
     if !down && ((tick / 12 + recruit.id) & 1) == 1 {
         im.put(4, im.h - 1, 'g');
     }
@@ -218,8 +210,6 @@ pub(super) fn companion(cv: &mut Img, squire: &Squire, tick: u32) {
         knights::seat_cloth(squire.owner),
     );
     if squire.smoke > 0 {
-        // Neutral, broken wisps. No light pool; the owner stripe remains
-        // legible through the ninja's thinning silhouette.
         for n in 0..7 {
             let dx = ((n * 7 + (tick / 4 % 19) as i32) % 19) - 9;
             let dy = ((n * 5 + (tick / 3 % 13) as i32) % 13) - 12;
@@ -253,8 +243,6 @@ pub(super) fn companion(cv: &mut Img, squire: &Squire, tick: u32) {
     }
 }
 
-/// The fixed services live north of the quintains; roster and drills stay
-/// west of Grubbins. In particular, no new furniture stands at y=6.5.
 pub(super) fn figures(cv: &mut Img, run: &Run, focus: Option<u32>) {
     if !here(run) {
         return;
@@ -311,13 +299,10 @@ pub(super) fn figures(cv: &mut Img, run: &Run, focus: Option<u32>) {
         if let Action::Hire(n) = action
             && let Some(recruit) = company.offers.get(n)
         {
-            // Unhired recruits have no owner's livery yet.
             let im = upright(recruit.kind).recolor(&[('7', 'j')]);
             stand(cv, &im, c * TILE + w * TILE / 2, r * TILE - 3);
         }
     }
-    // The focused visitor supplies both the floor preview and the ledger.
-    // A shared camera uses the first living visitor, never a merged roster.
     if let Some((id, hero)) = shoppers(run, focus).find(|(_, h)| h.hp > 0)
         && let Some(roster) = company
             .knights
@@ -360,8 +345,6 @@ fn recruit_lines(recruit: &Recruit) -> Vec<String> {
     lines
 }
 
-/// A two-column ledger: the thing being read, and this knight's company.
-/// Instructions intentionally stay in ordinary two/three-word language.
 pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     if !here(run) {
         return;
@@ -490,8 +473,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
         }
     }
     let height = 108;
-    // Put the ledger away from the row being read and above the existing
-    // skills tray. A room board must not put its instructions under HUD ink.
     let y = if matches!(action, Action::Select(_) | Action::Train) {
         4
     } else {

@@ -38,8 +38,6 @@ def usage_of(trace):
                           ("output", "output_tokens"), ("reasoning", "reasoning_output_tokens")):
             value = history.number(usage.get(wire))
             value = value if value is not None and value >= 0 else None
-            # The adapter sums turn.completed counters. One turn proves a
-            # present field; multiple turns need explicit per-field coverage.
             reported = reports.get(wire, 1 if turns == 1 and valid_turns and value is not None else None)
             reported = reported if isinstance(reported, int) and not isinstance(reported, bool) and reported >= 0 else None
             complete = valid_turns and reported == turns and coherent and value is not None

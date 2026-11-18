@@ -11,8 +11,6 @@ pub(super) fn contains_excessive_sleep(command: &str, max_secs: u64) -> bool {
 
 #[cfg(test)]
 fn excessive_sleep(command: &str, max_secs: f64, depth: usize) -> bool {
-    // Shell -c payloads can themselves invoke a shell. Keep static inspection
-    // bounded even for an adversarially nested literal command.
     if depth >= 8 {
         return false;
     }
@@ -91,8 +89,6 @@ fn excessive_sleep(command: &str, max_secs: f64, depth: usize) -> bool {
                         if takes_value || flag {
                             at += 1 + usize::from(takes_value);
                         } else if word.starts_with('-') {
-                            // Help, lookup (-v/-V), and unknown options do not
-                            // establish that this wrapper executes a payload.
                             return false;
                         } else {
                             break;
@@ -147,8 +143,6 @@ fn excessive_sleep(command: &str, max_secs: f64, depth: usize) -> bool {
                         if matches!(option.as_str(), "-N" | "-G" | "-V") {
                             return false;
                         }
-                        // Attached values (-p22/-oBatchMode=yes) occupy one
-                        // word; these exact options consume the following word.
                         let takes_value = matches!(
                             option.as_str(),
                             "-B" | "-b"
@@ -173,8 +167,6 @@ fn excessive_sleep(command: &str, max_secs: f64, depth: usize) -> bool {
                         );
                         at += 1 + usize::from(takes_value);
                     }
-                    // The first non-option is the destination. Remaining
-                    // arguments form the literal remote shell command.
                     return words.get(at + 1..).is_some_and(|payload| {
                         excessive_sleep(&payload.join(" "), max_secs, depth + 1)
                     });
@@ -191,8 +183,6 @@ fn excessive_sleep(command: &str, max_secs: f64, depth: usize) -> bool {
                         if let Some(duration) = duration_seconds(operand) {
                             seconds += duration;
                         } else {
-                            // Invalid or dynamic operands are not a proven
-                            // literal wait; let the runner observe the result.
                             return false;
                         }
                     }
@@ -250,9 +240,6 @@ fn duration_seconds(operand: &str) -> Option<f64> {
     (seconds >= 0.0).then_some(seconds)
 }
 
-/// Split only at unquoted shell control operators, retaining quoted/escaped
-/// words and discarding redirection targets. This is a literal-command scanner,
-/// not an interpreter: no substitutions or shell expansion are performed.
 #[cfg(test)]
 fn commands(command: &str) -> Vec<Vec<String>> {
     let mut commands = Vec::new();
@@ -315,8 +302,6 @@ fn commands(command: &str) -> Vec<Vec<String>> {
             continue;
         }
         if matches!(ch, '<' | '>') || (ch == '&' && chars.peek() == Some(&'>')) {
-            // A descriptor immediately adjoining the operator is syntax, not
-            // the executable (e.g. `2>/dev/null sleep 30`).
             if started && descriptor_literal && word.bytes().all(|byte| byte.is_ascii_digit()) {
                 word.clear();
                 started = false;

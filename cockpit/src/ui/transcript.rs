@@ -10,22 +10,13 @@ use ratatui::{
 };
 use std::sync::Arc;
 
-// Speaker identity in the Camelot-noir palette: the operator speaks in
-// phosphor, the knight answers in candlelight gold, the system murmurs dim.
 const EMPTY_STYLE: Style = Style::new();
 const USER_TEXT_STYLE: Style = Style::new().fg(HUD_PHOSPHOR);
 const USER_TAG_STYLE: Style = Style::new().fg(HUD_PURPLE).add_modifier(Modifier::BOLD);
 const ANGEL_TAG_STYLE: Style = Style::new().fg(HUD_GOLD).add_modifier(Modifier::BOLD);
 const SYSTEM_TAG_STYLE: Style = Style::new().fg(Color::DarkGray);
 const SYSTEM_TEXT_STYLE: Style = Style::new().fg(HUD_DIM);
-/// Activity murmurs sit in the same quiet blue-grey as system text — gold is
-/// reserved for the knight's own words, so progress chrome never reads as a
-/// wall of compressed answer text.
 const ACTIVITY_STYLE: Style = Style::new().fg(HUD_DIM);
-/// Guard-gauge tiers: a repeating guard notice holds one row whose background
-/// fills left→right with the repeat count — a severity meter, not a wall of
-/// identical lines. Low repeats simmer in steel blue, sustained repeats heat
-/// to gold, and a near-treadmill-stop count burns danger red.
 const GAUGE_LOW_FILL: Style = Style::new()
     .fg(crate::ui::hud::HUD_TEXT)
     .bg(Color::Rgb(31, 58, 79));
@@ -33,16 +24,10 @@ const GAUGE_MID_FILL: Style = Style::new().fg(HUD_GOLD).bg(Color::Rgb(87, 66, 20
 const GAUGE_HOT_FILL: Style = Style::new()
     .fg(crate::ui::hud::HUD_DANGER)
     .bg(Color::Rgb(96, 30, 42));
-/// Repeats at the mid/hot color transitions.
 const GAUGE_MID_AT: usize = 5;
 const GAUGE_HOT_AT: usize = 9;
-/// Sub-agent traffic (spawn seats, delegates) speaks under its own banner.
 const COUNCIL_TAG_STYLE: Style = Style::new().fg(HUD_BLUE).add_modifier(Modifier::BOLD);
 const PARTIAL_CURSOR_STYLE: Style = Style::new().fg(HUD_GOLD);
-/// Above this point, a growing response renders as plain text until completion.
-/// This caps repeated CommonMark + syntax-highlight work while preserving the
-/// exact bytes and cursor; the committed answer receives its normal cached
-/// Markdown render once.
 const MAX_LIVE_MARKDOWN_BYTES: usize = 32 * 1024;
 const MAX_LIVE_PARTIAL_WINDOW_BYTES: usize = 16 * 1024;
 
@@ -68,18 +53,12 @@ pub enum Role {
     User,
     Angel,
     System,
-    /// Live tool-call activity trace streamed during a turn.
     Activity,
-    /// Agent-to-agent traffic surfaced to the operator: spawn-seat replies,
-    /// delegate reports — the conversations between agents, not chrome.
     Council,
 }
 
 pub struct Message {
     pub role: Role,
-    /// Committed transcript text. Immutable after construction except for
-    /// explicit in-place rewrite (superseded-draft collapse). Echo, history,
-    /// and retry share this buffer with `ChatMsg.content` when the bytes match.
     pub text: Arc<str>,
 }
 
@@ -92,10 +71,6 @@ impl Message {
     }
 }
 
-/// One message's cached markdown render (`None` = the plain-text path). The
-/// caller of [`lines`] owns a scratch `Vec` of these so the returned lines can
-/// borrow span text straight out of the render cache — cloning the Arcs is the
-/// only per-frame cost, never the rendered Lines' strings.
 pub type MdRender = Option<Arc<Vec<Line<'static>>>>;
 
 pub fn lines<'a>(
@@ -106,8 +81,6 @@ pub fn lines<'a>(
     renders: &'a mut Vec<MdRender>,
 ) -> Vec<Line<'a>> {
     let live = thinking && !partial.is_empty();
-    // Collect the renders first (one slot per message, plus one for the live
-    // partial), then reborrow shared so the output lines can borrow from them.
     renders.clear();
     renders.reserve(messages.len() + usize::from(live));
     for message in messages {
@@ -127,8 +100,6 @@ pub fn lines<'a>(
     if live {
         append_partial_lines(&mut lines, partial, borrowed(&renders[messages.len()]));
     } else if thinking {
-        // Nothing streamed yet: show the reply cursor immediately so the send
-        // visibly registered — the answer begins here, it just hasn't spoken.
         let (tag, tag_style) = message_tag(Role::Angel);
         lines.push(Line::from(vec![
             Span::styled(tag, tag_style),
@@ -139,7 +110,6 @@ pub fn lines<'a>(
     lines
 }
 
-/// Markdown render for one committed message (`None` = the plain fast path).
 fn message_render(message: &Message, inner_width: usize) -> MdRender {
     match message.role {
         Role::Angel if !is_plain_agent_text(&message.text) => {
@@ -149,8 +119,6 @@ fn message_render(message: &Message, inner_width: usize) -> MdRender {
     }
 }
 
-/// Markdown render for the streaming partial — through the dedicated single-slot
-/// cache, so its ever-growing text never enters (and thrashes) the shared LRU.
 fn partial_render(partial: &str, inner_width: usize) -> MdRender {
     if partial.len() > MAX_LIVE_MARKDOWN_BYTES || is_plain_agent_text(partial) {
         None
@@ -163,10 +131,6 @@ fn borrowed(md: &MdRender) -> Option<&[Line<'static>]> {
     md.as_deref().map(Vec::as_slice)
 }
 
-/// Visual (wrapped) height of one message at `inner_width` — exactly how
-/// `render_transcript` wraps it (same `Wrap { trim: false }`). Lets the renderer
-/// cache per-message heights and window the transcript to the viewport instead
-/// of re-wrapping the whole (unbounded) history every frame.
 pub fn message_height(message: &Message, inner_width: usize) -> u16 {
     let md = message_render(message, inner_width);
     let mut tmp: Vec<Line> = Vec::new();
@@ -174,12 +138,6 @@ pub fn message_height(message: &Message, inner_width: usize) -> u16 {
     wrapped_height(tmp, inner_width)
 }
 
-/// Visual height of the streaming partial (with its cursor row), or 0 when there
-/// is no live partial. Computed per frame; the single-slot partial cache makes
-/// this and the same-frame `lines()` call share one markdown render.
-/// Append-aware height for the live partial. Once the Markdown live-render cap
-/// is crossed, completed logical lines become stable: only the prior last line
-/// plus newly appended bytes need wrapping on the next frame.
 pub fn partial_height_cached(
     cache: &mut PartialHeightCache,
     partial: &str,
@@ -191,7 +149,6 @@ pub fn partial_height_cached(
         return 0;
     }
     if partial.is_empty() {
-        // The pre-stream reply cursor row (`lines` renders "angel ▌").
         cache.clear();
         return 1;
     }
@@ -279,9 +236,6 @@ fn plain_segment_height(text: &str, first: bool, cursor: bool, inner_width: usiz
     wrapped_height_u32(tmp, inner_width)
 }
 
-/// Plain, bounded tail used only for the pinned-to-latest oversized streaming
-/// view. The full partial remains stored and its exact accumulated height stays
-/// in the cache, so scrolling back or committing the turn loses no content.
 pub fn oversized_partial_window(partial: &str) -> Option<&str> {
     if partial.len() <= MAX_LIVE_MARKDOWN_BYTES {
         return None;
@@ -313,9 +267,6 @@ fn wrapped_height_u32(lines: Vec<Line>, inner_width: usize) -> u32 {
         return 0;
     }
     lines.into_iter().fold(0u32, |height, line| {
-        // Printable ASCII has additive one-cell widths. General Line::width
-        // is not a safe fit oracle: contextual Unicode widths (e.g. Arabic
-        // lam-alef) can differ from Paragraph's styled-grapheme wrapping.
         let mut cells = 0;
         let fits = line.spans.iter().all(|span| {
             cells += span.content.len();
@@ -360,15 +311,9 @@ fn append_message_lines<'a>(
                 Some(cached) => lines.extend(angel_message_lines(cached, tag, tag_style)),
                 None => append_plain_message_lines(lines, &message.text, tag, tag_style, None),
             }
-            // One trailing blank after conversational turns — breathing room
-            // between blocks without double-spacing every prose line.
             ensure_trailing_blank(lines);
         }
         Role::User => {
-            // A short prompt can sit on the right without layout blanks in
-            // copied continuation rows. Multiline/wrapped pastes instead get a
-            // right-hand speaker header and an unpadded body: independent row
-            // alignment destroys code/table columns and pollutes mouse copy.
             let single_row = !message.text.contains(['\n', '\r', '\u{2028}', '\u{2029}'])
                 && Line::raw(format!("{tag}{}", message.text)).width() <= inner_width;
             if single_row {
@@ -414,10 +359,6 @@ fn append_message_lines<'a>(
     }
 }
 
-/// One rendered Activity row. A guard-gauge row (`… ×N`) gets a progressive
-/// background fill proportional to its repeat count; everything else keeps the
-/// quiet dim style. Same text, same spans-per-line wrap → identical height, so
-/// in-place gauge bumps only re-measure their own row.
 fn activity_line<'a>(line: &'a str) -> Line<'a> {
     let Some(count) = crate::ui::views::turn_event_view::activity_gauge_count(line) else {
         return Line::from(vec![
@@ -436,8 +377,6 @@ fn activity_line<'a>(line: &'a str) -> Line<'a> {
     let (chip, tail) = chip
         .find(" · ")
         .map_or((chip, ""), |index| chip.split_at(index));
-    // One left-to-right fill across both body segments; the chip itself has
-    // no background. Guard notices have an empty tail and paint as before.
     let full = crate::ui::views::turn_event_view::NOTICE_GAUGE_FULL;
     let chars = body.chars().count() + tail.chars().count();
     let mut remaining = (chars * count.min(full)).div_ceil(full);
@@ -467,16 +406,12 @@ fn activity_line<'a>(line: &'a str) -> Line<'a> {
     Line::from(spans)
 }
 
-/// Append a single empty row when the last line already carries content.
 fn ensure_trailing_blank(lines: &mut Vec<Line<'_>>) {
     if lines.last().is_some_and(|line| !line.spans.is_empty()) {
         lines.push(Line::raw(""));
     }
 }
 
-/// Display lines for a markdown-rendered angel message: fresh Line/Span
-/// containers (so the tag/cursor can be attached) whose text borrows from the
-/// cached render — the strings themselves are never copied per frame.
 fn angel_message_lines<'a>(
     cached: &'a [Line<'static>],
     tag: &'static str,
@@ -503,9 +438,6 @@ fn borrow_line<'a>(line: &'a Line<'static>) -> Line<'a> {
 }
 
 fn is_plain_agent_text(text: &str) -> bool {
-    // Newlines are allowed: multi-line agent prose is the common streaming
-    // case and must not force a full CommonMark walk every token. Markdown
-    // structure markers still force the rich path.
     !text.as_bytes().iter().any(|byte| {
         matches!(
             byte,

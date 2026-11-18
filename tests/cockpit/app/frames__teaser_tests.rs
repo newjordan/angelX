@@ -54,7 +54,6 @@ code_mode scripting, long-session context, project memory in Atlas, \
 persistent goals, headless runs, measured campaigns and benchmarks — \
 and a world TUI where the work is drawn as it happens.";
 
-    // Shot A — the operator types the question into the composer.
     {
         let mut app = crate::seed_preview_app();
         app.input.clear();
@@ -67,7 +66,6 @@ and a world TUI where the work is drawn as it happens.";
         }
     }
 
-    // Shot B — the answer lands in the transcript; hold on the response.
     {
         let mut app = crate::seed_preview_app();
         app.messages.push(Message::new(Role::User, question));
@@ -80,7 +78,6 @@ and a world TUI where the work is drawn as it happens.";
         }
     }
 
-    // Shot C — an autonomous loop is running; the loop stage holds.
     {
         let mut app = crate::seed_preview_app();
         app.messages.push(Message::new(
@@ -106,7 +103,6 @@ and a world TUI where the work is drawn as it happens.";
         }
     }
 
-    // Shot D — the formations deck: Council selected, highlight settled.
     {
         let mut app = crate::seed_preview_app();
         let route = MoaModelRef {
@@ -126,9 +122,6 @@ and a world TUI where the work is drawn as it happens.";
         }]);
         deck.select(FormationId::Council);
         app.moa_deck = Some(deck);
-        // The deck overlay only owns input (and thus renders its panel) when
-        // the artifacts module is focused; the preview seed defaults to the
-        // transcript. Focus artifacts so the deck actually draws for the shot.
         app.focus_module("artifacts");
         let mut term = Terminal::new(Backend::new(120, 40)).unwrap();
         for i in 0..4 {

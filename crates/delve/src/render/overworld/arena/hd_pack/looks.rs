@@ -17,9 +17,6 @@ use std::time::{Duration, Instant, SystemTime};
 use super::{MANIFEST, Pack, install};
 
 impl Pack {
-    /// This pack with `over`'s named drawings laid over it: for each key
-    /// `over` names, only `over`'s drawings of it. A pack of its own (it is
-    /// drawn again by every drawer that followed another).
     pub fn overlaid(&self, over: &Pack) -> Pack {
         let mut named = self.named.clone();
         for (key, drawings) in &over.named {
@@ -32,33 +29,22 @@ impl Pack {
     }
 }
 
-/// How often the folder's manifest is looked at.
 pub const EVERY: Duration = Duration::from_secs(1);
 
-/// What a manifest file was when it was last read: its age and size.
 type Stamp = (SystemTime, u64);
 
-/// A looks folder, watched: told its place (`set_dir`) and asked
-/// (`refresh`) as often as a window likes, it looks at `pack.json` once a
-/// second and, when it changed, installs the base pack with the folder's
-/// laid over it (`install`), or the base alone when the file is gone.
 pub struct LooksWatch {
     dir: Option<PathBuf>,
     base: Option<Arc<Pack>>,
-    /// The manifest as last seen: never looked at, or looked at (and its
-    /// stamp, none when there was no file).
     seen: Option<Option<Stamp>>,
     checked: Option<Instant>,
 }
 
 impl LooksWatch {
-    /// A watch laying looks over `base`, the pack the window started with
-    /// (and installed).
     pub fn new(base: Option<Arc<Pack>>) -> Self {
         Self { dir: None, base, seen: None, checked: None }
     }
 
-    /// The folder to watch. A new place is looked at at once.
     pub fn set_dir(&mut self, dir: PathBuf) {
         if self.dir.as_deref() != Some(dir.as_path()) {
             self.dir = Some(dir);
@@ -67,8 +53,6 @@ impl LooksWatch {
         }
     }
 
-    /// Look at the folder if it is time (`now`), and install what it says if
-    /// it changed. Whether a pack was installed.
     pub fn refresh(&mut self, now: Instant) -> bool {
         if self.checked.is_some_and(|at| now.saturating_duration_since(at) < EVERY) {
             return false;
@@ -104,9 +88,7 @@ impl LooksWatch {
                 install(Some(Arc::new(merged)));
                 true
             }
-            // No file and never any: the base is what is installed.
             None if first => false,
-            // The file went (or holds nothing): the base alone.
             None => {
                 install(self.base.clone());
                 true

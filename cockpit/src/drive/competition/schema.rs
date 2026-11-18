@@ -38,7 +38,6 @@ pub(crate) struct ObjectiveComparatorV1 {
 }
 
 impl ObjectiveComparatorV1 {
-    /// Ordering is candidate-oriented: `Greater` always means improvement.
     pub(crate) fn compare(
         &self,
         candidate: &ScoreV1,

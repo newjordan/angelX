@@ -1,16 +1,4 @@
 #!/usr/bin/env python3
-"""Held-out click accuracy for Mage hands, with and without an adapter.
-
-This is the measurement that decides promotion: given the exact training prompt
-and one screenshot, does the model click inside the annotated target box?
-
-Reports both criteria:
-  hit_box   click lands inside the gold box (the dataset's own contract)
-  hit_15    click within 15/999 normalized units of the gold box centre
-            (the reference trainer's sanity criterion)
-
-Run it on `test.jsonl` only. Training must never see these rows.
-"""
 from __future__ import annotations
 
 import argparse
@@ -74,7 +62,6 @@ def main(argv=None) -> int:
     system = (data / "system.txt").read_text()
     rows = [json.loads(x) for x in (data / f"{args.split}.jsonl").read_text().splitlines() if x.strip()]
     if args.limit:
-        # stratified by family so a subset is not one app
         by_family: dict[str, list[dict]] = defaultdict(list)
         for r in rows:
             by_family[r["family"]].append(r)
@@ -113,8 +100,6 @@ def main(argv=None) -> int:
             sc = args.max_side / max(img.size)
             img = img.resize((max(1, int(img.width * sc)), max(1, int(img.height * sc))), Image.LANCZOS)
         enc = proc(text=[prompt_for(system, row["target"])], images=[img], return_tensors="pt").to("cuda")
-        # The custom model requires explicit patch positions; the processor does
-        # not emit them, so derive them exactly as the trainer does.
         pos = []
         for t, h, w in enc["image_grid_thw"].tolist():
             pos.append(torch.stack([torch.arange(t).repeat_interleave(h * w),

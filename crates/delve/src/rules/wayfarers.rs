@@ -25,56 +25,34 @@ use super::villagers::{MAX_VILLAGERS, Trade, Villager};
 use super::*;
 use std::sync::OnceLock;
 
-/// Seconds of the party walking a road before the first traveller of a
-/// run, and between the rest.
 pub const FIRST_AFTER: u64 = 20 * HZ as u64;
 pub const THEN_AFTER: u64 = 75 * HZ as u64;
-/// How far along the road ahead of the party a traveller is first seen
-/// coming (tiles), and how near the knights it must not start (tiles).
 pub const AHEAD: f32 = 34.0;
 pub const OUT_OF_SIGHT: f32 = 15.0;
-/// A traveller's walk (two tiles a second, as the realm's folk), how near a knight must stand to
-/// speak with it (tiles), how far the knights may be before it gives up
-/// the road, and how long it waits for someone to speak.
 pub const WALK: f32 = 2.0;
 pub const REACH: f32 = 3.2;
 pub const LOSE: f32 = 40.0;
 pub const IDLE: u32 = 45 * HZ;
-/// How long a traveller who has said its piece takes to go out of sight.
 pub const LEAVE: u64 = 10 * HZ as u64;
-/// How near the Village's door the squire must be led to be home (tiles).
 pub const HOME_REACH: f32 = 5.0;
 
-/// A pilgrim's blessing: this much more damage and pace, for this long on
-/// the whole party, or for this long on one knight who asks it for
-/// themselves (and a full mend besides).
 pub const BLESS_PERCENT: u32 = 15;
 pub const BLESS_TICKS: u32 = 60 * HZ;
 pub const BLESS_ALONE_TICKS: u32 = 180 * HZ;
-/// The peddler's prices, in gold, and how many things are on his cart.
 pub const POTION: u32 = 26;
 pub const BOMB: u32 = 18;
 pub const SCROLL: u32 = 34;
 pub const STOCK: u8 = 4;
-/// A song mends each knight by this share of their health and carries the
-/// party's name this far (renown); a tip for it costs this much gold and
-/// carries it further.
 pub const SONG_MEND: u32 = 20;
 pub const SONG_RENOWN: u32 = 10;
 pub const TIP: u32 = 12;
 pub const TIP_RENOWN: u32 = 30;
-/// The toll, the purse of a gang beaten, and what the drover's better
-/// tale costs; and the renown a true rumour pays when its place is reached.
 pub const TOLL: u32 = 40;
 pub const PURSE: u32 = 60;
 pub const BETTER_TALE: u32 = 15;
 pub const RUMOUR_RENOWN: u32 = 15;
-/// The gang that draws steel: bodies of the dungeon's own roster, at the
-/// health they have anywhere.
 pub const GANG: [EnemyKind; 3] = [EnemyKind::Pavise, EnemyKind::Hob, EnemyKind::Skeleton];
 
-/// The marks the save reads: gold the road is owed by the treasury, gold
-/// the treasury is owed by the road, who was met, and a squire home.
 pub const PAID: &str = "wayfarer:paid";
 pub const OWED: &str = "wayfarer:purse";
 const MET: &str = "wayfarer:met:";
@@ -116,7 +94,6 @@ impl Kind {
         KINDS.into_iter().find(|k| k.word() == word)
     }
 
-    /// What they are called before their name.
     pub fn title(self) -> &'static str {
         match self {
             Kind::Pilgrim => "Brother",
@@ -164,58 +141,42 @@ fn mix(seed: u64, n: u32) -> u64 {
     z ^ (z >> 31)
 }
 
-/// Where a traveller is in its errand.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Stage {
-    /// Coming along the road toward the knights, or waiting for one.
     Walking,
-    /// Said its piece: going off along the road, since this tick.
     Leaving(u64),
-    /// The squire, at the knights' heels toward the Village.
     Following,
-    /// The gang, steel drawn, since this tick.
     Fighting(u64),
 }
 
-/// The one traveller on the road.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Wayfarer {
     pub kind: Kind,
     pub name: String,
-    /// Arena units, the feet.
     pub x: f32,
     pub y: f32,
     pub east: bool,
-    /// Which road (`world::roads::ROADS`), how far along its course
-    /// (tiles) and which way it is going (1 or -1).
     pub road: u16,
     pub along: f32,
     pub dir: i8,
     pub born: u64,
     pub stage: Stage,
-    /// The last tick it took a step, for its stride.
     #[serde(default)]
     pub moved: u64,
-    /// Ticks stood waiting for somebody to speak.
     #[serde(default)]
     pub still: u32,
-    /// A knight has spoken with it; it is in the realm's ledger.
     #[serde(default)]
     pub met: bool,
-    /// It has done what it came to do and leaves when the talk is over.
     #[serde(default)]
     pub done: bool,
-    /// Things sold from the cart.
     #[serde(default)]
     pub sold: u8,
-    /// The gang's bodies in the room.
     #[serde(default)]
     pub gang: Vec<u32>,
 }
 
 impl Wayfarer {
-    /// Its name as the plate over it reads.
     pub fn plate(&self) -> String {
         match self.kind {
             Kind::Tollkeeper => format!("{} {} and Co.", self.kind.title(), self.name),
@@ -224,56 +185,40 @@ impl Wayfarer {
         .to_uppercase()
     }
 
-    /// Whether a knight may speak with it now.
     pub fn talkable(&self) -> bool {
         matches!(self.stage, Stage::Walking | Stage::Following)
     }
 
-    /// Whether it is moving this tick, for its stride.
     pub fn walking(&self, tick: u64) -> bool {
         tick.saturating_sub(self.moved) <= 1
     }
 }
 
-/// A knight's talk with the traveller.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Talk {
-    /// 0: their greeting; 1: what they offer; 2: what came of it.
     pub page: u8,
     pub opened: u64,
-    /// The last thing that came of an answer.
     #[serde(default)]
     pub said: String,
 }
 
-/// The road's traffic, in the run.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct State {
-    /// Ticks of the party walking a road since the last traveller: a clock
-    /// of the moment, never saved nor sent.
     #[serde(skip)]
     pub walked: u64,
-    /// Travellers sent this run: with the realm's ledger, the seed of the
-    /// next one's name and kind.
     pub sent: u32,
-    /// The kind sent last, never sent again straight after.
     pub last: Option<Kind>,
     pub on: Option<Wayfarer>,
     pub talks: BTreeMap<u32, Talk>,
-    /// The way the knights on the road were last walking, for the same.
     #[serde(skip)]
     pub heading: (i8, i8),
-    /// The place the last rumour marked, until a knight steps into it.
     pub rumoured: Option<RoomKind>,
-    /// The answer key each knight holds, so one press is one answer.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub keys: BTreeMap<u32, u8>,
 }
 
 impl State {
-    /// Nothing on the road, nobody talking: saves and streams stay as they
-    /// were (the clock is not written).
     pub fn quiet(&self) -> bool {
         self.sent == 0 && self.last.is_none() && self.on.is_none() && self.talks.is_empty() && self.rumoured.is_none() && self.keys.is_empty()
     }
@@ -295,9 +240,6 @@ impl State {
     }
 }
 
-/// What the realm remembers of the roads: whom the party has met, by kind,
-/// and the latest of them, newest last. Written through the marks at the
-/// save (`settle`), never by the run.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Ledger {
@@ -305,7 +247,6 @@ pub struct Ledger {
     pub lately: Vec<String>,
 }
 
-/// The most names the ledger keeps.
 pub const LATELY: usize = 12;
 
 impl Ledger {
@@ -331,15 +272,12 @@ impl Ledger {
         self.lately.drain(..over);
     }
 
-    /// The kind met last, if the ledger remembers.
     pub fn last(&self) -> Option<Kind> {
         let line = self.lately.last()?;
         KINDS.into_iter().find(|k| line.starts_with(k.title()))
     }
 }
 
-/// A road's course as the walkers walk it: the tile centres, smoothed so a
-/// diagonal is not a stair, and the distance along (tiles).
 pub struct Path {
     pts: Vec<(f32, f32)>,
     cum: Vec<f32>,
@@ -354,7 +292,6 @@ impl Path {
         self.pts.len() < 2
     }
 
-    /// The point `along` tiles in (tile coordinates).
     pub fn at(&self, along: f32) -> (f32, f32) {
         let along = along.clamp(0.0, self.len());
         let i = self.cum.partition_point(|&c| c <= along).clamp(1, self.pts.len() - 1);
@@ -364,8 +301,6 @@ impl Path {
         (a.0 + (b.0 - a.0) * k, a.1 + (b.1 - a.1) * k)
     }
 
-    /// How far along the course the point nearest `(x, y)` (tiles) lies,
-    /// and how far off it.
     pub fn nearest(&self, (x, y): (f32, f32)) -> (f32, f32) {
         self.pts
             .iter()
@@ -376,7 +311,6 @@ impl Path {
     }
 }
 
-/// Every road, in `ROADS` order.
 pub fn paths() -> &'static [Path] {
     static PATHS: OnceLock<Vec<Path>> = OnceLock::new();
     PATHS.get_or_init(|| {
@@ -405,7 +339,6 @@ pub fn paths() -> &'static [Path] {
     })
 }
 
-/// A choice on offer to a knight in a talk.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Choice {
     Bless,
@@ -423,7 +356,6 @@ pub enum Choice {
     Better,
 }
 
-/// What a knight is shown in a talk: who, their words, the answers.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Speech {
     pub kind: Kind,
@@ -437,16 +369,12 @@ fn pay_label(what: &str, gold: u32) -> String {
 }
 
 impl Run {
-    /// The traveller knight `id` could speak with right now, for the key
-    /// the screen shows beside them.
     pub fn wayfarer_in_reach(&self, id: u32) -> Option<&Wayfarer> {
         let w = self.wayfarers.on.as_ref().filter(|w| w.talkable())?;
         let h = self.players.get(&id).filter(|h| h.hp > 0 && !h.stone)?;
         ((h.x - w.x).hypot(h.y - w.y) < REACH * TILE_UNITS && !self.wayfarers.talks.contains_key(&id)).then_some(w)
     }
 
-    /// The gold the treasury can still spare the road: what it holds, less
-    /// what the road has been promised and the save has not yet charged.
     pub fn gold_spare(&self) -> u32 {
         self.treasury
             .get(Spoil::Gold)
@@ -461,7 +389,6 @@ impl Run {
         true
     }
 
-    /// The knights standing: where each is (units).
     fn knight_spots(&self) -> Vec<(f32, f32)> {
         self.players
             .values()
@@ -470,7 +397,6 @@ impl Run {
             .collect()
     }
 
-    /// Where the realm has a bed for a squire.
     fn squire_bed(&self) -> Option<String> {
         self.home
             .holdings
@@ -480,13 +406,10 @@ impl Run {
             .map(|w| w.deed().map_or_else(|| w.key.clone(), super::holdings::Deed::name))
     }
 
-    /// The Village's door, if the kingdom has one.
     fn village_stand(geo: &map::Geography) -> Option<(i32, i32)> {
         geo.sites.iter().find(|s| s.room == RoomKind::Village).map(|s| s.stand)
     }
 
-    /// The places a drover might tell of: not yet stepped into this outing,
-    /// nearest to `from` first.
     fn unseen_places<'g>(&self, geo: &'g map::Geography, from: (f32, f32)) -> Vec<&'g map::Site> {
         let mut sites: Vec<&map::Site> = geo
             .sites
@@ -501,7 +424,6 @@ impl Run {
         sites
     }
 
-    /// The guardian the party has felled most, if it has felled any.
     fn top_guardian(&self) -> Option<(&'static str, u32)> {
         self.home
             .trophies
@@ -511,8 +433,6 @@ impl Run {
             .max_by_key(|&(name, n)| (n, std::cmp::Reverse(name)))
     }
 
-    /// What the party has done, as a minstrel would sing it: the guardian
-    /// felled most, the deepest floor, the monsters felled. At most two.
     pub fn verses(&self) -> Vec<String> {
         let mut out = Vec::new();
         if let Some((name, n)) = self.top_guardian() {
@@ -530,7 +450,6 @@ impl Run {
         out
     }
 
-    /// Whether a traveller of `kind` could be sent to the party now.
     fn could_send(&self, kind: Kind, geo: &map::Geography, from: (f32, f32)) -> bool {
         match kind {
             Kind::Pilgrim | Kind::Merchant => true,
@@ -541,8 +460,6 @@ impl Run {
         }
     }
 
-    /// The clock: the party walking a road counts toward the next
-    /// traveller, only while none is on the road.
     fn road_clock(&mut self, inputs: &BTreeMap<u32, Input>, geo: &map::Geography) {
         if self.wayfarers.on.is_some() {
             return;
@@ -565,16 +482,12 @@ impl Run {
         }
     }
 
-    /// Send the next traveller, when the clock says so: a seeded kind that
-    /// is not the last and a seeded name, on the road ahead of the party and
-    /// out of its sight, walking toward it.
     fn maybe_send(&mut self, geo: &map::Geography) {
         let due = if self.wayfarers.sent == 0 { FIRST_AFTER } else { THEN_AFTER };
         if self.wayfarers.on.is_some() || self.wayfarers.walked < due || self.tick % 15 != 0 {
             return;
         }
         let spots = self.knight_spots();
-        // The knight on a road who sets the scene: the first by seat.
         let lead = self
             .players
             .values()
@@ -591,7 +504,6 @@ impl Run {
             return;
         };
         let name = NAMES[(roll >> 24) as usize % NAMES.len()].to_string();
-        // The road nearest the lead knight, and the way to walk it.
         let tiles = (lead.0 / TILE_UNITS, lead.1 / TILE_UNITS);
         let Some((road, at)) = paths()
             .iter()
@@ -604,7 +516,6 @@ impl Run {
             return;
         };
         let path = &paths()[road];
-        // Ahead of where the knights are going; if they stand, a seeded side.
         let tangent = {
             let (a, b) = (path.at(at - 2.0), path.at(at + 2.0));
             (b.0 - a.0, b.1 - a.1)
@@ -618,7 +529,6 @@ impl Run {
         } else {
             -1.0
         };
-        // The full way ahead if the road has it, else as much as it has.
         let tries = [AHEAD, 28.0, 22.0, 17.0].into_iter().flat_map(|d| [side * d, -side * d]);
         let start = tries.into_iter().find_map(|s| {
             let along = at + s;
@@ -656,11 +566,8 @@ impl Run {
         self.wayfarers.on = Some(come);
     }
 
-    /// One tick of the road in the kingdom (`activity::FOLLIES`).
     pub(super) fn tick_wayfarers(&mut self, inputs: &BTreeMap<u32, Input>) {
         if self.room().kind != RoomKind::Kingdom {
-            // Indoors or below, the road forgets everyone who was not
-            // following the party; a gang's fight ended with the room.
             self.wayfarers.talks.clear();
             self.wayfarers.keys.clear();
             if self.wayfarers.on.as_ref().is_some_and(|w| w.stage != Stage::Following) {
@@ -673,7 +580,6 @@ impl Run {
         self.road_clock(inputs, &geo);
         self.maybe_send(&geo);
         self.move_wayfarer(&geo);
-        // Whoever has walked off has ended their talk.
         let far: Vec<u32> = self
             .wayfarers
             .talks
@@ -743,7 +649,6 @@ impl Run {
             (Stage::Fighting(_), _) => keep = self.gang_fights(&mut w),
             _ => {}
         }
-        // It has done what it came to: it goes when the talk is closed.
         if keep && w.done && w.stage == Stage::Walking && self.wayfarers.talks.is_empty() {
             w.stage = Stage::Leaving(tick);
         }
@@ -755,7 +660,6 @@ impl Run {
         }
     }
 
-    /// Step along the road to `along`, if the ground there is open.
     fn walk_on(&self, w: &mut Wayfarer, along: f32, geo: &map::Geography) {
         let Some(path) = paths().get(usize::from(w.road)) else {
             return;
@@ -769,8 +673,6 @@ impl Run {
         w.moved = self.tick;
     }
 
-    /// The squire at the knights' heels, and home when she reaches the
-    /// Village's door. False when she is home.
     fn squire_follows(&mut self, w: &mut Wayfarer, nearest: Option<(f32, (f32, f32))>, geo: &map::Geography) -> bool {
         let door = Self::village_stand(geo).map(|(x, y)| ((x as f32 + 0.5) * TILE_UNITS, (y as f32 + 0.7) * TILE_UNITS));
         if let Some((hx, hy)) = door
@@ -782,13 +684,11 @@ impl Run {
         let Some((d, spot)) = nearest else {
             return true;
         };
-        // Left behind (in a house, a coach ride): back at the knights' heels.
         if d > 20.0 {
             (w.x, w.y) = (spot.0 - 1.5 * TILE_UNITS, spot.1);
             return true;
         }
         if d > 2.6 {
-            // A knight's walk, then a trot to catch up (tiles a second).
             let pace = if d > 8.0 { 13.0 } else if d > 4.0 { 6.5 } else { 3.5 } * TILE_UNITS * DT;
             let (ux, uy) = unit(spot.0 - w.x, spot.1 - w.y);
             let grid = Grid { room: self.room(), barred: false };
@@ -802,7 +702,6 @@ impl Run {
         true
     }
 
-    /// The squire is led to the Village: she takes a bed there.
     fn squire_home(&mut self, w: &Wayfarer) {
         *self.marks.entry(format!("{SQUIRE}{}", w.name)).or_default() += 1;
         if self.kingdom.moments.errand == Some(RoomKind::Village) {
@@ -814,7 +713,6 @@ impl Run {
         self.found = Some((self.tick, 0, format!("{} TAKES A BED AT {}", w.name.to_uppercase(), bed.to_uppercase())));
     }
 
-    /// The gang's fight: false when it is won (the purse is the realm's).
     fn gang_fights(&mut self, w: &mut Wayfarer) -> bool {
         if self.enemies.iter().any(|e| e.hp > 0 && w.gang.contains(&e.id)) {
             return true;
@@ -826,8 +724,6 @@ impl Run {
         false
     }
 
-    /// The gang draws steel: their bodies stand in the road round the
-    /// reeve, at the health any such body has.
     fn draw_steel(&mut self, w: &mut Wayfarer) {
         let offsets = [(-3.2, 0.4), (3.2, 0.4), (0.0, -3.0)];
         for (kind, (dx, dy)) in GANG.into_iter().zip(offsets) {
@@ -847,9 +743,6 @@ impl Run {
         self.found = Some((self.tick, 0, "THE TOLL GANG DRAWS STEEL".into()));
     }
 
-    /// Beaten on the road: the knights are knocked down, not killed. The
-    /// gang takes its toll anyway, as much as the treasury can spare, and
-    /// goes. True if it was this (and not a wipe).
     pub(super) fn wayfarer_rout(&mut self) -> bool {
         let Some(w) = self.wayfarers.on.as_ref().filter(|w| matches!(w.stage, Stage::Fighting(_))) else {
             return false;
@@ -877,8 +770,6 @@ impl Run {
         true
     }
 
-    /// E by knight `id` on the road: an open talk goes on, then away; a
-    /// traveller in reach is spoken to. Returns whether the press was theirs.
     pub(super) fn use_wayfarer(&mut self, id: u32) -> bool {
         if let Some(talk) = self.wayfarers.talks.get(&id).cloned() {
             if talk.page == 0 {
@@ -892,7 +783,6 @@ impl Run {
         let Some(w) = self.wayfarer_in_reach(id).map(|w| (w.stage, w.met, w.kind, w.name.clone())) else {
             return false;
         };
-        // The squire at the party's heels has said all she has.
         if w.0 == Stage::Following {
             self.found = Some((tick, id, "THE SQUIRE KEEPS CLOSE. LEAD HER TO THE VILLAGE".into()));
             return true;
@@ -908,7 +798,6 @@ impl Run {
         true
     }
 
-    /// The choices on offer in the traveller's talk.
     pub fn wayfarer_choices(&self) -> Vec<(Choice, String)> {
         let Some(w) = self.wayfarers.on.as_ref() else {
             return Vec::new();
@@ -940,14 +829,12 @@ impl Run {
         }
     }
 
-    /// What knight `id`'s talk shows now.
     pub fn wayfarer_speech(&self, id: u32) -> Option<Speech> {
         let w = self.wayfarers.on.as_ref()?;
         let talk = self.wayfarers.talks.get(&id)?;
         let (words, answers) = match talk.page {
             0 => {
                 let mut words = w.kind.hello().to_string();
-                // What the realm remembers of the road: the last who was met.
                 if let Some(last) = self.home.wayfarers.lately.last().filter(|l| !l.eq_ignore_ascii_case(&format!("{} {}", w.kind.title(), w.name))) {
                     words = format!("{words} Word on the road is that you met {last}.");
                 }
@@ -975,9 +862,6 @@ impl Run {
         Some(Speech { kind: w.kind, who: w.plate(), words, answers })
     }
 
-    /// The keys a talk takes before the rest of the tick sees them: a knight
-    /// in conversation answers with 1, 2 and 3 rather than casting, one
-    /// answer to a press.
     pub(super) fn wayfarer_inputs(&mut self, inputs: &BTreeMap<u32, Input>) -> Option<BTreeMap<u32, Input>> {
         self.wayfarers.keys.retain(|id, _| inputs.contains_key(id));
         if self.wayfarers.talks.is_empty() && self.wayfarers.keys.is_empty() {
@@ -1006,7 +890,6 @@ impl Run {
         Some(out)
     }
 
-    /// Knight `id` answers with key `pick` (1 to 3).
     pub(super) fn answer_wayfarer(&mut self, id: u32, pick: u8) {
         if self.wayfarers.talks.get(&id).is_none_or(|t| t.page != 1) {
             return;
@@ -1034,8 +917,6 @@ impl Run {
         }
     }
 
-    /// What the choice does. Its words, and whether it settles the meeting;
-    /// none when the gang took up steel instead.
     fn apply_choice(&mut self, id: u32, choice: Choice, w: &mut Wayfarer) -> Option<(String, bool)> {
         match choice {
             Choice::Bless => {
@@ -1154,8 +1035,6 @@ impl Run {
         }
     }
 
-    /// A knight steps into the place the goal arrow points at: a rumour that
-    /// sent them there was true.
     pub(super) fn rumour_comes_true(&mut self, geo: &map::Geography, site: &map::Site) {
         let Some(room) = self.wayfarers.rumoured else {
             return;
@@ -1171,8 +1050,6 @@ impl Run {
     }
 }
 
-/// The save: what the road owes the treasury and the treasury the road,
-/// who was met, and a squire home to a bed in a holding that has one.
 pub fn settle(realm: &mut Realm<'_>, marks: &BTreeMap<String, u32>) -> Settled {
     let mut out = Settled::default();
     if !marks.keys().any(|m| m.starts_with("wayfarer:")) {

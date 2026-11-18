@@ -158,8 +158,6 @@ fn large_stream_phase_costs(successful: bool) {
         );
     }
     if successful {
-        // A large harvest may outlive the bounded tick wait; later ticks collect
-        // its acknowledgement without blocking, and the write is never dropped.
         let ack_deadline = Instant::now() + Duration::from_secs(10);
         while app
             .atlas_harvester

@@ -1,9 +1,4 @@
 #!/usr/bin/env node
-// Bake the wished casts (7 shapes x 7 elements) as pixelfx strips sized to the
-// zone's level-2 reach. Level 2 is the bake; the game scales levels 1 and 3 by
-// nearest-neighbour when it stamps.
-//
-//     node scripts/delve/wishfx.mjs [/path/to/pixelfx]
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -20,7 +15,6 @@ const SHEET = join(ROOT, ".we-out");
 const INK_RS = join(ROOT, "crates/delve/src/render/overworld/ink.rs");
 const TABLE = JSON.parse(readFileSync(join(ROOT, "scripts/delve/wishfx.json"), "utf8"));
 
-// Level-2 reach in pixels (8 px per world unit). rules::zones::reach, size 2.
 const REACH = { wave: 96, burst: 32, cone: 68, line: 104, field: 38, pillar: 23, nova: 72 };
 const SHAPES = ["wave", "burst", "cone", "line", "field", "pillar", "nova"];
 const ELEMENTS = ["fire", "frost", "storm", "poison", "holy", "arcane", "earth"];
@@ -50,8 +44,6 @@ function resolved(spec) {
   return opts;
 }
 
-// Draw `n` frames. Looping fields step across one full effect loop so the
-// strip joins. One-shots play [from, to) at 15 fps, capped at MAX_FRAMES.
 async function sample(spec, angle, mod) {
   const [W, H] = mod.meta.size, [OX, OY] = mod.meta.origin;
   let w = W, h = H, ox = OX, oy = OY;
@@ -219,8 +211,6 @@ for (const shape of SHAPES) {
       failures.push(`${name}: scale ${scale.toFixed(2)} would dither the strip (measured ${measured.toFixed(1)} need ${need.toFixed(1)})`);
       scale = 1;
     }
-    // Never resample: a strip is baked at the effect's own size, hard pixels only.
-    // The code-drawn body under it carries the reach; the strip is the hero piece.
     scale = 1;
     dirs = dirs.map((d) => scaleDir(d, scale));
     const after = peakOf(dirs[0]);

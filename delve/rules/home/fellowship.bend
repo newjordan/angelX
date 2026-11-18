@@ -1,27 +1,18 @@
-# crates/delve/src/rules/fellowship.rs — the fellowship at a way out. The
-# Run's `fellowship` key is left out of the checkpoint while the state is
-# empty (waiting [], no one called, no bell rung); `waiting` is a list of
-# [seat, way] pairs, `rung` an object of seat id -> tick.
-
 def fellowship.STAIRS() -> U32:
   4
 
 def fellowship.LIGHT() -> U32:
   5
 
-# How often a called knight hears the bell again: four seconds (HZ = 30).
 def fellowship.CALL_EVERY() -> U32:
   120
 
-# `State::is_empty`
 def fellowship.State.is_empty(+s: J.Val) -> Bool:
   Bool.and(U32.is_eq(J.len(J.get(s, "waiting")), 0), Bool.and(U32.is_eq(J.len(J.get(s, "called")), 0), home.util.obj_empty(J.get(s, "rung"))))
 
-# The Run with `state` as its fellowship (the key out while it is empty).
 def fellowship.Run.put(+run: J.Val, +state: J.Val) -> J.Val:
   home.util.ite(J.Val, fellowship.State.is_empty(state), u => J.del(run, "fellowship"), u => J.set(run, "fellowship", fellowship.State.shape(state)))
 
-# `called` and `rung` are left off the wire when empty
 def fellowship.State.shape(+s: J.Val) -> J.Val:
   home.util.set_if(Bool.not(home.util.obj_empty(J.get(s, "rung"))),
     home.util.set_if(Bool.not(U32.is_eq(J.len(J.get(s, "called")), 0)),
@@ -29,18 +20,15 @@ def fellowship.State.shape(+s: J.Val) -> J.Val:
       "called", J.get(s, "called")),
     "rung", J.get(s, "rung"))
 
-# `self.fellowship.clear()` on the Run
 def fellowship.Run.clear(+run: J.Val) -> J.Val:
   fellowship.Run.put(run, J.set(J.set(J.get(run, "fellowship"), "waiting", J.JA{Nil{}}), "called", J.JA{Nil{}}))
 
-# `self.fellowship.wait(ways)`: knights wait in their ways, each a [seat, way]
 def fellowship.Run.wait(+run: J.Val, +ways: List<&2, J.Val>) -> J.Val:
   fellowship.Run.put(run, J.set(J.get(run, "fellowship"), "waiting", J.JA{List.append(&2, J.Val, J.items(J.get(J.get(run, "fellowship"), "waiting")), ways)}))
 
 def fellowship.Run.waiting_for_fellowship(+run: J.Val) -> Bool:
   Bool.not(U32.is_eq(J.len(J.get(J.get(run, "fellowship"), "waiting")), 0))
 
-# State::is_waiting
 def fellowship.State.is_waiting(+s: J.Val, +id: U32) -> Bool:
   fellowship.is_waiting.go(J.items(J.get(s, "waiting")), id)
 
@@ -51,8 +39,6 @@ def fellowship.is_waiting.go(+ws: List<&2, J.Val>, +id: U32) -> Bool:
     case Con{+w, +t}:
       Bool.or(U32.is_eq(J.u32(home.util.get(J.items(w), 0)), id), fellowship.is_waiting.go(t, id))
 
-# Whether knight `id` counts for the fellowship: alive, here, awake and not
-# turned to stone.
 def fellowship.Run.counts_in_fellowship(+run: J.Val, +id: U32) -> Bool:
   fellowship.counts.of(core.hero(run, id), rules.Run.away(run, id))
 
@@ -70,8 +56,6 @@ def fellowship.waiting_in(+ws: List<&2, J.Val>, +way: U32) -> U32:
     case Con{+w, +t}:
       (Bool.to_u32(U32.is_eq(J.u32(home.util.get(J.items(w), 1)), way)) + fellowship.waiting_in(t, way) : U32)
 
-# The way the most knights wait in (the first, on a tie), and how many:
-# [way, n] or null.
 def fellowship.Run.gathered(+run: J.Val) -> J.Val:
   fellowship.gathered.go(J.items(J.get(J.get(run, "fellowship"), "waiting")), J.items(J.get(J.get(run, "fellowship"), "waiting")), J.JNull{})
 
@@ -106,7 +90,6 @@ def fellowship.not_standing(+ids: List<&2, U32>, +waiting: List<&2, J.Val>, +way
     case Con{+id, +t}:
       home.util.ite(List<&2, U32>, fellowship.stands_in(waiting, id, way), u => fellowship.not_standing(t, waiting, way), u => id <> fellowship.not_standing(t, waiting, way))
 
-# Who the fellowship calls after this tick, and their bells.
 def fellowship.Run.call_fellowship(+run: J.Val) -> J.Val:
   fellowship.call.go(run, fellowship.counted(J.int_fields(J.get(run, "players")), run), fellowship.Run.gathered(run))
 
@@ -118,7 +101,6 @@ def fellowship.call.go(+run: J.Val, +counted: List<&2, U32>, +gathered: J.Val) -
 def fellowship.ids_has(+ids: List<&2, U32>, +id: U32) -> Bool:
   combos.set_has(ids, id)
 
-# rung.retain(called) then each called knight whose bell is due rings
 def fellowship.call.ring(+run: J.Val, +called: List<&2, U32>) -> J.Val:
   fellowship.ring.each(run, called, called, fellowship.rung_kept(J.fields(J.get(J.get(run, "fellowship"), "rung")), called, J.obj()))
 
@@ -151,8 +133,6 @@ def fellowship.ids_json(+ids: List<&2, U32>) -> List<&2, J.Val>:
     case Con{+h, +t}:
       J.JU{h} <> fellowship.ids_json(t)
 
-# The words of the screen of seat `focus`; `focus` is a seat id or null.
-# [text, flashing] or null.
 def fellowship.Run.fellowship_line(+run: J.Val, +focus: J.Val) -> J.Val:
   fellowship.line.of(J.items(J.get(J.get(run, "fellowship"), "waiting")), J.get(run, "fellowship"), focus)
 
@@ -168,6 +148,5 @@ def fellowship.line.of(+waiting: List<&2, J.Val>, +state: J.Val, +focus: J.Val) 
 def fellowship.way_name(+way: U32) -> String:
   home.util.ite(String, U32.is_eq(way, 0), u => "THE NORTH DOOR", u => home.util.ite(String, U32.is_eq(way, 1), u => "THE EAST DOOR", u => home.util.ite(String, U32.is_eq(way, 2), u => "THE SOUTH DOOR", u => home.util.ite(String, U32.is_eq(way, 3), u => "THE WEST DOOR", u => home.util.ite(String, U32.is_eq(way, 4), u => "THE STAIRS", u => "THE LIGHT HOME")))))
 
-# `self.fellowship.clear()` as the Run's other groups ask for it
 def fellowship.State.clear(+run: J.Val) -> J.Val:
   fellowship.Run.clear(run)

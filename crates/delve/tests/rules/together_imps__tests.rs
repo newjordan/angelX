@@ -12,7 +12,6 @@ fn fight(run: &mut Run) {
     run.enter_for_test(room);
 }
 
-/// A calm room, the knight in the middle, nothing else.
 fn quiet() -> Run {
     let mut run = Run::new(4, 1, None);
     fight(&mut run);
@@ -58,8 +57,6 @@ fn a_summons_is_bounded_by_the_checker() {
         errors("name X\nkind play\nsummon 2 swarm run-a-script\n")
             .contains("swarm, guard or turret")
     );
-    // A play card's summons is a cast like a spell's; Effect::summon is the
-    // hireling's ally slot and stays clear of it.
     assert!(turret.card.summon().is_none());
 }
 
@@ -156,7 +153,6 @@ fn guards_catch_shots_and_turrets_loose_bolts() {
     assert_eq!(run.imps.len(), 4);
     run.tick_imps();
     let (gx, gy) = (run.imps[0].x, run.imps[0].y);
-    // A monster's shot, right on the first guard.
     run.projectiles.push(Projectile {
         x: gx,
         y: gy,
@@ -173,7 +169,6 @@ fn guards_catch_shots_and_turrets_loose_bolts() {
         traits: ShotTraits::default(),
     });
     let n = run.imps.len();
-    // The guards are where they were a tick ago, within a hair.
     run.tick_imps();
     assert_eq!(run.imps.len(), n - 1, "one guard spends itself on the shot");
     assert!(run.projectiles.iter().all(|p| !p.hostile || p.ttl == 0));

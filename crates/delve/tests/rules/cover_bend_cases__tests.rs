@@ -75,7 +75,6 @@ fn record_small() {
             pace.add(json!({"depth": depth, "doors": doors}), json!(pacing::camp_foes(depth, doors)));
         }
     }
-    // cover
     let mut counted = Cases::new("cover.counted");
     let mut area = Cases::new("cover.area");
     let mut viewc = Cases::new("cover.view");
@@ -114,7 +113,6 @@ fn record_small() {
             json!({"shots": to(&kept), "retired": r}),
         );
     }
-    // the guardians
     let mut stagec = Cases::new("bosses.Boss.stage");
     let mut boltc = Cases::new("bosses.Bolt.shot");
     let mut persec = Cases::new("bosses.Stage.per_second");
@@ -173,7 +171,6 @@ fn record_small() {
                         json!(signatures::due(&e, &boss, stage)),
                     );
                 }
-                // a guardian's volley and its charge-up's burst, held to the caps
                 let mut shots: Vec<Projectile> = (0..mix.below(5)).map(|_| knight_shot(&mut mix)).collect();
                 let from = shots.len();
                 let aim = patterns::Aim {

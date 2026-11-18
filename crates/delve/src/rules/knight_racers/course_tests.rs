@@ -6,16 +6,12 @@ use super::pods::pods;
 use super::race::*;
 use std::collections::BTreeMap;
 
-/// The retired circuit's lap, the yardstick: every cup course is at least three of it.
 const OLD_LAP: f32 = 2819.157;
 
-/// An angle difference folded into -pi..pi: headings run on past a full turn.
 fn turn(d: f32) -> f32 { (d + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI }
 
 fn cup_courses() -> Vec<&'static Course> { cup().iter().map(|id| course(*id)).collect() }
 
-/// Six pilots race the whole course. Returns the finished session, the longest
-/// stall (ticks under 3 m/s after the start) per car and the validity at every second.
 fn race_bots(id: CourseId) -> (Session, BTreeMap<u32, u32>) {
     let mut s = Session::blank_on(id);
     s.join_ids(1..=6);
@@ -43,12 +39,10 @@ fn cup_courses_are_big_authored_and_closed() {
     for c in cup_courses() {
         let lap = c.lap();
         assert!(lap >= 3. * OLD_LAP, "{}: lap {lap} is under three times the old circuit", c.name());
-        // The seam is level and closed.
         let (a, b) = (c.sample(0.), c.sample(lap - 0.5));
         assert!((a.x - b.x).hypot(a.y - b.y) < 1.6, "{}: lap seam jumps", c.name());
         assert!(turn(a.th - b.th).abs() < 0.06, "{}: heading breaks at the line", c.name());
         assert!((a.z - b.z).abs() < 0.4, "{}: the line is not level", c.name());
-        // The sections run end to end and the road is varied.
         let zones = c.zones();
         assert_eq!(zones[0].s0, 0.);
         for w in zones.windows(2) { assert!((w[0].s1 - w[1].s0).abs() < 0.01, "{}: zones leave a hole", c.name()); }
@@ -56,7 +50,6 @@ fn cup_courses_are_big_authored_and_closed() {
         let mut biomes: Vec<_> = zones.iter().map(|z| z.biome.name()).collect();
         biomes.sort(); biomes.dedup();
         assert!(biomes.len() >= 3, "{}: {biomes:?}", c.name());
-        // Real elevation, bounded grade, banked bends, widths that vary, and no hairpin a pod cannot take.
         let (mut zmin, mut zmax, mut gmax, mut kmax, mut bmax) = (f32::MAX, f32::MIN, 0f32, 0f32, 0f32);
         let (mut wmin, mut wmax) = (f32::MAX, f32::MIN);
         let mut s = 0.;
@@ -72,7 +65,6 @@ fn cup_courses_are_big_authored_and_closed() {
         assert!(1. / kmax >= 25., "{}: a bend of radius {}", c.name(), 1. / kmax);
         assert!(bmax >= 0.15, "{}: the bends are not banked ({bmax})", c.name());
         assert!(wmin >= 6.5 && wmax <= 16. && wmax - wmin >= 4., "{}: widths {wmin}..{wmax}", c.name());
-        // No part of the road runs through another.
         let pts: Vec<(f32, f32, f32)> = (0..(lap / 8.) as usize).map(|i| { let p = c.sample(i as f32 * 8.); (p.x, p.y, i as f32 * 8.) }).collect();
         for (i, a) in pts.iter().enumerate() {
             for b in &pts[i + 1..] {
@@ -80,7 +72,6 @@ fn cup_courses_are_big_authored_and_closed() {
                 if apart > 400. { assert!((a.0 - b.0).hypot(a.1 - b.1) > 90., "{}: road at {} and {} run together", c.name(), a.2, b.2); }
             }
         }
-        // The extras.
         assert!(!c.gaps().is_empty(), "{}: no jump", c.name());
         for g in c.gaps() { assert!(g.s1 - g.s0 >= 26. && g.s1 - g.s0 <= 40. && g.ramp > 0.05); }
         let mut kinds: Vec<_> = c.hazards().iter().map(|h| format!("{:?}", h.kind)).collect();
@@ -115,14 +106,12 @@ fn forks_leave_and_rejoin_the_main_road() {
                 assert!(turn(th - m.th).abs() < 0.9, "{} {}: heading off by {} at {s}", c.name(), f.name, turn(th - m.th));
                 assert!((f.height(s) - m.z).abs() < 0.8, "{} {}: heights meet {} vs {}", c.name(), f.name, f.height(s), m.z);
             }
-            // Something a pod can drive: no hairpin in the fork itself.
             let mut q = 0.;
             while q < f.line.len() { assert!(f.line.at(q).k.abs() < 1. / 14., "{} {}: the fork bends at radius {} at {q}", c.name(), f.name, 1. / f.line.at(q).k.abs()); q += 2.; }
             let (wl, wr) = f.width(f.s0);
             assert!((wl - f.off0).abs() < 0.5 && (wr - f.off0).abs() < 0.5);
             assert!((f.scale() - 1.).abs() > 0.01 || !f.shortcut, "{}: a shortcut that is not shorter", f.name);
             if f.shortcut { assert!(f.scale() < 0.95, "{}: a shortcut needs to save real road", f.name); }
-            // It stays on its own side of the main road: no crossings, no overlap past the gore.
             let n = (f.line.len() / 6.) as usize;
             for i in 0..=n {
                 let s = f.s0 + (f.s1 - f.s0) * i as f32 / n as f32;
@@ -140,8 +129,6 @@ fn forks_leave_and_rejoin_the_main_road() {
     }
 }
 
-/// Six pilots race every lap of one course: all finish, `valid()` holds throughout,
-/// nobody stalls, and a lap takes a sane time.
 fn six_bots_finish(id: CourseId) {
     let c = course(id);
     let (s, stalls) = race_bots(id);
@@ -150,7 +137,6 @@ fn six_bots_finish(id: CourseId) {
     let times: Vec<f32> = s.cars.values().map(|c| c.finish.unwrap()).collect();
     let (fast, slow) = (times.iter().cloned().fold(f32::MAX, f32::min), times.iter().cloned().fold(0., f32::max));
     let per_lap = |t: f32| t / c.laps() as f32;
-    // Sane speeds: a lap averages between 30 and 52 metres a second.
     assert!(per_lap(fast) > c.lap() / 52. && per_lap(slow) < c.lap() / 30., "{}: laps {:.1}..{:.1} s on {:.0} m", c.name(), per_lap(fast), per_lap(slow), c.lap());
     assert!(slow < fast * 1.2, "{}: the field spreads {fast}..{slow}", c.name());
     for (n, car) in &s.cars {
@@ -169,6 +155,8 @@ fn six_bots_finish_emberfall() { six_bots_finish(CourseId::Emberfall); }
 fn six_bots_finish_the_glassway() { six_bots_finish(CourseId::Glassway); }
 #[test]
 fn six_bots_finish_moatwalk() { six_bots_finish(CourseId::Moatwalk); }
+#[test]
+fn six_bots_finish_moonward() { six_bots_finish(CourseId::Moonward); }
 
 #[test]
 fn the_same_inputs_make_the_same_race() {
@@ -176,7 +164,6 @@ fn the_same_inputs_make_the_same_race() {
     let a = race_bots(id).0;
     let b = race_bots(id).0;
     assert_eq!(serde_json::to_string(&a).unwrap(), serde_json::to_string(&b).unwrap());
-    // The wire round trip keeps a live race valid, and an old save (no course) loads on the proving run.
     let mid = { let mut s = Session::blank_on(id); s.join_ids(1..=6); for _ in 0..900 { let d = s.bot_drives_all(); s.step_drive(&d); } s };
     let wire = serde_json::to_string(&mid).unwrap();
     let back: Session = serde_json::from_str(&wire).unwrap();
@@ -197,7 +184,6 @@ fn a_jump_wants_speed() {
             s.ticks = COUNTDOWN;
             let car = s.cars.get_mut(&1).unwrap();
             car.d = gap.s0 - if clears { 40. } else { 12. };
-            // The slow pod keeps off the boost pads that line the run-up.
             car.y = if clears { 0. } else { 6. };
             car.v = v0;
             let mut best = f32::MIN;
@@ -225,7 +211,6 @@ fn hazards_really_hit_and_timed_ones_cycle() {
     { let car = s.cars.get_mut(&1).unwrap(); car.d = block.s - 4.; car.y = block.y; car.v = 40.; }
     for _ in 0..8 { s.step_drive(&[(1, Drive { gas: true, ..Drive::default() })].into()); }
     assert!(s.cars[&1].v < 30. && s.cars[&1].impact > 0, "a slag block must hurt: {}", s.cars[&1].v);
-    // A timed hazard is only there for part of its cycle.
     let timed = c.hazards().iter().find(|h| h.period > 0).unwrap();
     let live = (0..timed.period).filter(|t| timed.live(*t)).count() as u32;
     assert!(live == timed.on && live < timed.period);
@@ -237,7 +222,6 @@ fn hazards_really_hit_and_timed_ones_cycle() {
         s.join_ids([1]);
         s.ticks = COUNTDOWN + tick;
         { let car = s.cars.get_mut(&1).unwrap(); car.d = timed.s - 4.; car.y = timed.y; car.v = 40.; }
-        // A few ticks of travel put the car on the hazard.
         for _ in 0..4 { s.step_drive(&[(1, Drive { gas: true, ..Drive::default() })].into()); }
         let after = &s.cars[&1];
         assert_eq!(after.impact > 0, hurts, "{:?} at tick {tick}: impact {}", timed.kind, after.impact);
@@ -264,9 +248,7 @@ fn pods_change_the_handling() {
     };
     let (lancewain, gatehouse, wyvern, ringwright, bellfounder) = (3u8, 4u8, 5u8, 2u8, 1u8);
     assert!(drive_straight(wyvern, 45) > drive_straight(lancewain, 45), "the wyvern is quick off the line");
-    // 2026-11-07: the pods' tops were drawn together (lancewain 50 -> 48, wyvern 45 -> 46) so the draft is worth more than the spread.
     assert!(drive_straight(lancewain, 330) > drive_straight(wyvern, 330) + 1., "the lancewain runs on to a higher top speed");
-    // Boost: bells push hardest.
     let boosted = |pod: u8| -> f32 {
         let mut s = Session::blank_on(c.id);
         s.join_ids([1]);
@@ -276,10 +258,8 @@ fn pods_change_the_handling() {
         s.cars[&1].v
     };
     assert!(boosted(bellfounder) > boosted(gatehouse) + 3., "the bells boost hardest: {} vs {}", boosted(bellfounder), boosted(gatehouse));
-    // Grip: the same bend at the same speed pushes a pod with less grip wider.
     let (g_ring, g_lance) = (pods()[ringwright as usize].grip, pods()[lancewain as usize].grip);
     assert!(g_ring > g_lance + 0.2);
-    // A wall costs the light pod more than the heavy one.
     let wall_hit = |pod: u8| -> f32 {
         let mut s = Session::blank_on(c.id);
         s.join_ids([1]);
@@ -290,7 +270,6 @@ fn pods_change_the_handling() {
         s.cars[&1].v
     };
     assert!(wall_hit(gatehouse) > wall_hit(lancewain) + 1., "a wall is brittle for the lancewain");
-    // Every pod runs the course.
     for pod in 0..pods().len() as u8 {
         let mut s = Session::blank_on(CourseId::Emberfall);
         s.join_ids(1..=6);
@@ -310,7 +289,6 @@ fn the_land_beyond_the_walls_is_real() {
         while s < lap {
             let p = c.sample(s);
             let (nx, ny) = (-p.th.sin(), p.th.cos());
-            // On the road the ground is the road.
             let on = c.ground(p.x, p.y);
             let over_void = c.zones().iter().find(|zn| s >= zn.s0 && s < zn.s1).unwrap().shape.sink > 0.;
             if over_void { assert!(on <= p.z + 0.8, "{}: a bridge needs a drop under it at {s}", c.name()); }
@@ -327,7 +305,6 @@ fn the_land_beyond_the_walls_is_real() {
             s += 37.;
         }
         assert!(canyon >= 10 && drop >= 6, "{}: canyon {canyon}, drop {drop}", c.name());
-        // Mountains a long way off, not a flat void: the far land has relief of its own.
         let (x0, y0, x1, y1) = c.bounds();
         let (mut lo, mut hi) = (f32::MAX, f32::MIN);
         for i in 0..40 { for j in 0..40 {
@@ -352,7 +329,6 @@ fn the_cup_runs_three_courses_and_scores_them() {
         assert_eq!(s.cup_over(), round + 1 == cup().len());
         let standings = s.standings();
         assert!(standings.windows(2).all(|w| w[0].1 >= w[1].1));
-        // E at the flag: the next course, or a fresh cup.
         s.step_drive(&[(1, Drive { interact: true, ..Drive::default() })].into());
         assert!(!s.finished && s.ticks == 0 && s.cars.values().all(|c| c.finish.is_none() && c.d < 0.));
     }
@@ -362,7 +338,7 @@ fn the_cup_runs_three_courses_and_scores_them() {
 
 #[test]
 fn rivals_split_at_forks_and_cars_never_leave_the_roads() {
-    for id in [CourseId::Emberfall, CourseId::Glassway, CourseId::Moatwalk] {
+    for id in [CourseId::Emberfall, CourseId::Glassway, CourseId::Moatwalk, CourseId::Moonward] {
         let c = course(id);
         let mut s = Session::blank_on(id);
         s.join_ids(1..=6);
@@ -383,3 +359,31 @@ fn rivals_split_at_forks_and_cars_never_leave_the_roads() {
         if c.forks().iter().any(|f| f.shortcut) { assert!(took >= 2, "{}: nobody uses the shortcut", c.name()); }
     }
 }
+
+#[test]
+fn sunfall_is_the_proving_roads_long_way_round() {
+    let (proving, sunfall) = (course(CourseId::Proving), course(CourseId::Sunfall));
+    let names: Vec<_> = sunfall.zones().iter().map(|z| z.name).collect();
+    for n in ["KEEPWARD STRAIGHT", "RUINS", "THE CHUTE", "THE FORGE", "MERIDIAN", "GATE BEND", "THE BOWL"] { assert!(names.contains(&n), "{n} is missing: {names:?}"); }
+    let pos = |n: &str| names.iter().position(|z| *z == n).unwrap();
+    assert!(pos("RUINS") < pos("THE CHUTE") && pos("THE CHUTE") < pos("THE FORGE") && pos("THE FORGE") < pos("MERIDIAN") && pos("MERIDIAN") < pos("GATE BEND"));
+    assert!(sunfall.lap() > proving.lap() + 250., "the new sections add road: {} against {}", sunfall.lap(), proving.lap());
+    assert!(proving.zones().iter().all(|z| !["THE CHUTE", "THE FORGE", "MERIDIAN"].contains(&z.name)), "the practice run keeps its short road");
+    let lap = sunfall.lap();
+    let (a, b) = (sunfall.sample(0.), sunfall.sample(lap - 0.5));
+    assert!((a.x - b.x).hypot(a.y - b.y) < 1.6 && turn(a.th - b.th).abs() < 0.06 && (a.z - b.z).abs() < 0.4);
+    let crest = sunfall.crests()[0];
+    assert!(crest > 200. && crest < 560., "{crest}");
+    assert!(sunfall.height(crest) - sunfall.height(crest - 60.) > 3.5, "the road rises to it");
+    assert!(sunfall.height(crest) - sunfall.height(crest + 60.) > 3.5, "and falls from it");
+    assert!(proving.crests().is_empty());
+    assert_eq!(sunfall.crest_between(crest - 3., crest + 3.), Some(crest));
+    assert_eq!(sunfall.crest_between(crest + 3., crest + 9.), None);
+    assert_eq!(sunfall.crest_between(lap - 5. + crest, crest + lap + 5.).is_some(), true);
+    let kinds: Vec<_> = sunfall.pieces().iter().map(|p| p.kind).collect();
+    for k in [PieceKind::Banners, PieceKind::ForgeArches, PieceKind::Obelisks, PieceKind::PitLane, PieceKind::Grandstand] { assert!(kinds.contains(&k), "{k:?}"); }
+    assert!(sunfall.hazards().len() > proving.hazards().len() && sunfall.strips().len() > proving.strips().len());
+}
+
+#[test]
+fn six_bots_finish_sunfall() { six_bots_finish(CourseId::Sunfall); }

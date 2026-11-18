@@ -22,7 +22,6 @@ pub struct Line {
     pub words: String,
 }
 
-/// A character's name as the subtitle shows it.
 pub fn name(who: &str) -> &str {
     match who {
         "herald" => "The Herald",
@@ -50,13 +49,10 @@ pub fn name(who: &str) -> &str {
     }
 }
 
-/// Whose name the subtitle shows (`name`), read back: the character's id,
-/// for their colour. A name nobody has is its own.
 pub fn who(shown: &str) -> &str {
     script_names().find(|&w| name(w) == shown).unwrap_or(shown)
 }
 
-/// Every character with a line in the script.
 fn script_names() -> impl Iterator<Item = &'static str> {
     SCRIPT
         .lines()
@@ -91,7 +87,6 @@ fn base(cue: &str) -> &str {
     cue.split(':').next().unwrap_or(cue)
 }
 
-/// How much a moment matters: a higher one may cut a lower one short.
 fn priority(cue: &str) -> u8 {
     match base(cue) {
         "wheel" | "sanctuary" | "brannoc_arrives" | "brannoc_sworn" | "forge_relit" => 8,
@@ -108,7 +103,6 @@ fn priority(cue: &str) -> u8 {
     }
 }
 
-/// The shortest gap between two lines for the same kind of moment.
 fn cooldown(cue: &str) -> Duration {
     Duration::from_secs(match base(cue) {
         "npc" => 12,
@@ -118,7 +112,6 @@ fn cooldown(cue: &str) -> Duration {
     })
 }
 
-/// What is being said now, for the subtitle and joined friends.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Said {
     pub line: Line,
@@ -153,7 +146,6 @@ impl Default for Chorus {
 }
 
 impl Chorus {
-    /// The line a moment would speak next, without speaking it.
     fn pick(&mut self, cue: &str) -> Option<Line> {
         let exact: Vec<&Line> = self.lines.iter().filter(|l| l.cue == cue).collect();
         let pool: Vec<&Line> = if exact.is_empty() {
@@ -170,7 +162,6 @@ impl Chorus {
         Some(line)
     }
 
-    /// A moment happened. Queues what is said about it, if anything.
     pub fn cue(&mut self, cue: &str, now: Instant) {
         let rank = priority(cue);
         if self
@@ -180,7 +171,6 @@ impl Chorus {
         {
             return;
         }
-        // A busy subtitle lets small moments pass rather than pile up.
         let busy = self.speaking.as_ref().is_some_and(|(s, _)| now < s.until);
         if (busy || !self.queue.is_empty()) && rank <= 4 {
             return;
@@ -189,7 +179,6 @@ impl Chorus {
             return;
         }
         if busy && self.speaking.as_ref().is_some_and(|(_, r)| *r < rank) {
-            // A bigger moment cuts in: what was queued is dropped.
             self.queue.clear();
             if let Some((said, _)) = self.speaking.as_mut() {
                 said.until = now;
@@ -201,8 +190,6 @@ impl Chorus {
         }
     }
 
-    /// Show a given line now, ahead of anything queued: a joined friend's
-    /// angelX shows the host's dialogue as it happens there.
     pub fn say(&mut self, line: Line, now: Instant) {
         self.queue.clear();
         if let Some((said, _)) = self.speaking.as_mut() {
@@ -211,14 +198,11 @@ impl Chorus {
         self.queue.push_back((line, 9));
     }
 
-    /// Start the next queued line when the current one is done. Returns the
-    /// line that just started, for joined friends.
     pub fn tick(&mut self, now: Instant) -> Option<Said> {
         if self.speaking.as_ref().is_some_and(|(s, _)| now < s.until) {
             return None;
         }
         let (line, rank) = self.queue.pop_front()?;
-        // A subtitle reads at about 14 characters a second.
         let seconds = line.words.chars().count() as f32 / 14.0 + 1.0;
         self.seq += 1;
         let said = Said {
@@ -230,7 +214,6 @@ impl Chorus {
         Some(said)
     }
 
-    /// The subtitle to show now: who is speaking and what, held a moment after.
     pub fn subtitle(&self, now: Instant) -> Option<&Line> {
         self.speaking
             .as_ref()

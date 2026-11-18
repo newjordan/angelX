@@ -88,7 +88,6 @@ impl JevTool {
                 crate::agent::harness::book::d56_replies::JEV_NARROW.cells()
             ));
         }
-        // A tool argument must never accidentally become an authentication channel.
         if body.contains(&self.key) || crate::platform::secrets::contains_secret(&body) {
             return Err(format!(
                 "Jev evidence contains a credential\n{}",
@@ -127,7 +126,6 @@ impl JevTool {
                     super::http_transport::Error::Status(status, _) => {
                         format!("Jev HTTP {status}; no automatic retry")
                     }
-                    // Provider errors may echo headers or submitted state. Never forward them.
                     super::http_transport::Error::Transport(_) => {
                         "Jev transport failed, timed out, or was cancelled".into()
                     }
@@ -362,7 +360,6 @@ pub(crate) fn maybe_register_jev(r: &mut ToolRegistry) {
     r.register_deferred(Box::new(super::benchmark::BenchmarkCompareTool));
 }
 
-/// Direct runner access without starting another generative model turn.
 pub(crate) fn run_cli() -> Result<(), String> {
     let mut input = String::new();
     std::io::stdin()

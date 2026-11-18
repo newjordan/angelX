@@ -3,7 +3,6 @@ use crate::rules::barony;
 use crate::rules::home::Home;
 use crate::rules::world;
 
-/// A home whose King has been met.
 fn met() -> Home {
     let mut home = Home::default();
     home.barony.court = Court::Met;
@@ -34,20 +33,16 @@ fn said(out: &Settled, cue: &str) -> bool {
     out.said.iter().any(|(c, _)| c.starts_with(cue))
 }
 
-// ── The realm's half ─────────────────────────────────────────────────────
-
 #[test]
 fn the_king_sends_the_party_to_one_hall_at_a_time_in_order() {
     let mut home = met();
     let mut t = Spoils::default();
-    // The second hall is not his to give before the first is won.
     let out = settle_into(&mut home, &mut t, &["reclaim:ask:1"]);
     assert!(!out.changed);
     assert_eq!(home.barony.halls.asked, None);
     let out = settle_into(&mut home, &mut t, &["reclaim:ask:0"]);
     assert!(out.changed && said(&out, "hall_asked:gallery"));
     assert_eq!(home.barony.halls.asked, Some(0));
-    // And not two at once.
     let out = settle_into(&mut home, &mut t, &["reclaim:ask:1"]);
     assert!(!out.changed);
     assert_eq!(home.barony.halls.asked, Some(0));
@@ -78,11 +73,9 @@ fn nubbins_toll_is_paid_from_the_treasury_and_he_stays_a_tenant() {
     assert_eq!(home.barony.halls.how("gallery"), Some("bargain"));
     assert_eq!(home.barony.halls.asked, None);
     assert_eq!(home.barony.ledger.paid_in.get(Spoil::Gold), TOLL);
-    // The tenants pay ore as well as gold; no thanks for a hall bought.
     let rent = home.barony.halls.rent();
     assert_eq!((rent.get(Spoil::Gold), rent.get(Spoil::Ore)), (25, 2));
     assert_eq!(home.barony.ledger.paid_back.get(Spoil::Gold), 0);
-    // Not twice.
     let before = t.clone();
     settle_into(&mut home, &mut t, &["reclaim:toll:0"]);
     assert_eq!(t, before);
@@ -111,7 +104,6 @@ fn a_hall_can_only_be_won_the_ways_it_has() {
     let mut t = Spoils::default();
     settle_into(&mut home, &mut t, &["reclaim:won:0:rite", "reclaim:won:0:bargain", "reclaim:won:1:rite"]);
     assert_eq!(home.barony.halls.count(), 0, "a bargain is only struck over the toll");
-    // A hall not asked is not won.
     home.barony.halls.asked = None;
     settle_into(&mut home, &mut t, &["reclaim:won:0:fight"]);
     assert_eq!(home.barony.halls.count(), 0);
@@ -131,7 +123,6 @@ fn the_chain_runs_gallery_lamps_anvils_and_the_dwarves_come_home() {
     assert_eq!(home.barony.halls.count(), 3);
     assert_eq!(barony::crew(&home.barony), base + 1 + 1 + 2);
     assert!(home.barony.halls.offer(&home.barony).is_none(), "no hall left to ask");
-    // 250 gold, 3 gems, 150 gold and 10 ore in thanks.
     assert_eq!((t.get(Spoil::Gold), t.get(Spoil::Gem), t.get(Spoil::Ore)), (400, 3, 10));
 }
 
@@ -178,8 +169,6 @@ fn the_rite_order_is_the_eldest_son_first_whatever_the_seed() {
     assert!((0..40).map(rooms::rite_order).collect::<std::collections::BTreeSet<_>>().len() > 3, "the seed moves them");
 }
 
-// ── Rooms on the floor ───────────────────────────────────────────────────
-
 fn floor_of(pack: Pack, seed: u64, home: &Home) -> Run {
     let mut run = Run::at_home(seed, 1, None, home.clone(), Spoils::default());
     run.dungeon.pack = pack;
@@ -209,7 +198,6 @@ fn the_asked_hall_hangs_off_every_floor_of_its_delve_and_nowhere_else() {
         assert!(run.dungeon.rooms[host].doors[(door + 2) % 4]);
         assert!(layout::connected(room));
         assert!(run.valid_snapshot(), "seed {seed}");
-        // The Crypt below holds the Hall of Lamps, not the Gallery, and not yet.
         run.descend_for_test();
         assert_eq!(run.dungeon.pack, Pack::Crypt);
         assert!(hall_room(&run).is_none(), "seed {seed}: the Lamps are not asked yet");
@@ -236,8 +224,6 @@ fn the_floor_map_names_the_hall_the_king_asked_for() {
     assert!(held.iter().any(|h| h.name == "King Brannoc: The Delvers' Gallery" && h.place == missions::Place::Delve(Some(missions::Spot::Hall))));
 }
 
-// ── The run's half ───────────────────────────────────────────────────────
-
 fn press() -> BTreeMap<u32, Input> {
     BTreeMap::from([(1, Input { interact: true, ..Input::default() })])
 }
@@ -246,7 +232,6 @@ fn answer(pick: u8) -> BTreeMap<u32, Input> {
     BTreeMap::from([(1, Input { cast: pick, ..Input::default() })])
 }
 
-/// A press of E, then a tick of nothing.
 fn tap(run: &mut Run) {
     run.step(&press());
     run.step(&BTreeMap::new());
@@ -257,7 +242,6 @@ fn stand(run: &mut Run, at: (f32, f32)) {
     (hero.x, hero.y) = (at.0 * TILE_UNITS, at.1 * TILE_UNITS);
 }
 
-/// A run in the asked hall's room, the party at its door.
 fn in_hall(pack: Pack, home: Home, treasury: Spoils) -> Run {
     let mut run = Run::at_home(7, 1, None, home, treasury);
     run.dungeon.pack = pack;
@@ -286,18 +270,15 @@ fn e_beside_the_king_opens_his_talk_and_the_ask_is_a_mark() {
     let view = run.reclaim_view(1).expect("a talk opened");
     assert_eq!(view.who, Who::King);
     assert!(view.words.contains("Help me take them back"), "{}", view.words);
-    // Page two is the ask, with the hall's name.
     tap(&mut run);
     let view = run.reclaim_view(1).unwrap();
     assert_eq!(view.words, HALLS[0].asks);
     assert_eq!(view.answers.len(), 3);
     assert!(view.answers[0].contains("DELVERS' GALLERY"));
-    // The lore is one more page and back.
     run.step(&answer(2));
     assert_eq!(run.reclaim_view(1).unwrap().words, HALLS[0].lore);
     tap(&mut run);
     assert_eq!(run.reclaim_view(1).unwrap().words, HALLS[0].asks);
-    // 1 takes it: a mark, and the key did not cast.
     run.step(&answer(1));
     assert_eq!(run.marks.get(&ask_mark(0)), Some(&1));
     assert!(run.reclaim_view(1).is_none());
@@ -312,7 +293,6 @@ fn walking_off_ends_the_talk_and_the_pad_by_the_ruin_is_not_a_talk() {
     stand(&mut run, (kx + 9.0, ky + 1.0));
     run.step(&BTreeMap::new());
     assert!(run.reclaim_view(1).is_none());
-    // Holding E on the ruin's plate buys the hall, not a conversation.
     let (c, r, w, h) = barony::HALL_PLATE;
     stand(&mut run, (c as f32 + w as f32 / 2.0, r as f32 + h as f32 / 2.0));
     tap(&mut run);
@@ -410,12 +390,10 @@ fn the_lamps_must_be_kindled_eldest_son_first_or_the_dead_stir() {
     tap(&mut run);
     tap(&mut run);
     assert_eq!(run.hall_play().unwrap().stage, 1, "the rite is begun by the thane's ask");
-    // The youngest first is wrong: all gutter, and wraiths come.
     stand(&mut run, rooms::LAMPS[order[3]]);
     tap(&mut run);
     assert!(run.hall_play().unwrap().lit.is_empty());
     assert_eq!(run.enemies.iter().filter(|e| e.kind == EnemyKind::Wraith).count(), 2);
-    // Eldest first, the four in order, wins it.
     for (n, &lamp) in order.iter().enumerate() {
         stand(&mut run, rooms::LAMPS[lamp]);
         tap(&mut run);
@@ -495,8 +473,6 @@ fn a_hall_the_realm_holds_is_played_out_when_the_party_walks_in() {
     assert!(run.enemies.is_empty());
 }
 
-/// A run in the asked hall's room by the floor's own door, with the floor's
-/// politics standing (`enter_for_test` takes them away).
 fn in_hall_with_gates(pack: Pack, home: Home, treasury: Spoils) -> Run {
     let mut run = Run::at_home(7, 1, None, home, treasury);
     run.dungeon.pack = pack;
@@ -524,7 +500,6 @@ fn the_floors_politics_hold_while_the_chief_fights_and_falls() {
         run.step(&answer(2));
         assert_eq!(run.enemies.len(), 4);
         assert!(run.valid_snapshot(), "raised {seed_run}");
-        // Walk out and back in: the clan is raised afresh, none counted fallen.
         let door = (0..4).find(|&d| run.dungeon.rooms[run.at].doors[d]).unwrap();
         let hall = run.at;
         let host = run.dungeon.neighbour(hall, door).unwrap();
@@ -585,15 +560,12 @@ fn a_run_mid_set_piece_survives_its_checkpoint() {
     let back: Run = serde_json::from_str(&json).expect("loads again");
     assert_eq!(back.reclaim, run.reclaim);
     assert!(back.valid_snapshot());
-    // A run saved before the reclaiming, with no such field, loads with none.
     let mut tree: serde_json::Value = serde_json::from_str(&json).unwrap();
     tree.as_object_mut().unwrap().remove("reclaim");
     let old: Run = serde_json::from_value(tree).expect("an older checkpoint");
     assert!(old.reclaim.is_empty());
 }
 
-/// The cockpit's half, as the host does it: what the run marked is settled
-/// into the realm and the run is told the realm's word.
 fn settle_run(run: &mut Run, treasury: &mut Spoils) {
     let marks = std::mem::take(&mut run.marks);
     let mut home = run.home.clone();
@@ -618,7 +590,6 @@ fn the_road_from_the_camp_to_a_won_hall_and_its_rent_by_the_games_own_ways() {
     let i = world::room_of(&run.dungeon, RoomKind::MineHead).unwrap();
     run.arrive(i, (12.0, 11.0));
     run.step(&BTreeMap::new());
-    // He is met by walking up to him; the first mission is his, then his talk.
     let (kx, ky) = barony::CAMP_KING;
     stand(&mut run, (kx + 1.0, ky + 0.8));
     for _ in 0..4 {
@@ -631,7 +602,6 @@ fn the_road_from_the_camp_to_a_won_hall_and_its_rent_by_the_games_own_ways() {
     run.step(&answer(1));
     settle_run(&mut run, &mut treasury);
     assert_eq!(run.home.barony.halls.asked, Some(0));
-    // The shaft takes the party down into the Mines.
     let shaft = world::ENTRANCES.iter().find(|e| e.id == "shaft").unwrap();
     let (x, y) = world::entrance_centre(shaft);
     for hero in run.players.values_mut() {
@@ -642,7 +612,6 @@ fn the_road_from_the_camp_to_a_won_hall_and_its_rent_by_the_games_own_ways() {
     }
     assert_eq!(run.dungeon.pack, Pack::Cavern);
     assert_eq!(run.dungeon.depth, 1);
-    // The floor map points at the hall, and the hall can be walked to from where the party stands.
     let hall = hall_room(&run).expect("the Gallery is off the floor");
     assert!(run.missions_held(1).iter().any(|h| h.place == missions::Place::Delve(Some(missions::Spot::Hall))));
     let mut seen = vec![false; run.dungeon.rooms.len()];
@@ -657,7 +626,6 @@ fn the_road_from_the_camp_to_a_won_hall_and_its_rent_by_the_games_own_ways() {
         }
     }
     assert!(seen[hall], "the hall is joined to the floor");
-    // In its doorway, Nubbin's toll is paid, and the realm takes it.
     let door = (0..4).find(|&d| run.dungeon.rooms[hall].doors[d]).unwrap();
     run.enter(hall, Some(door));
     run.step(&BTreeMap::new());
@@ -670,10 +638,8 @@ fn the_road_from_the_camp_to_a_won_hall_and_its_rent_by_the_games_own_ways() {
     assert!(run.home.barony.halls.is_held("gallery"));
     assert_eq!(treasury.get(Spoil::Gold), 900 - TOLL);
     assert_eq!(run.treasury.get(Spoil::Gold), 900 - TOLL);
-    // The next floor cleared brings rent, gold and ore.
     let mut home = run.home.clone();
     let paid = barony::pay_tribute(&mut home, &mut treasury, 1).expect("rent");
     assert_eq!((paid.get(Spoil::Gold), paid.get(Spoil::Ore)), (25, 2));
-    // His next ask is the Hall of Lamps.
     assert_eq!(home.barony.halls.offer(&home.barony).map(|(_, h)| h.id), Some("lamps"));
 }

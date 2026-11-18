@@ -4,10 +4,8 @@
 #[cfg(any(test, not(test)))]
 use super::super::super::ink::Img;
 
-/// A box `(x, y, w, h)`.
 pub(super) type Rect = (i32, i32, i32, i32);
 
-/// The box the opaque pixels of `im` fill, laid at `(x, y)`.
 #[cfg(test)]
 fn used(im: &Img, x: i32, y: i32) -> Rect {
     let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
@@ -32,7 +30,6 @@ thread_local! {
     static LAID: std::cell::RefCell<Option<Vec<(String, Rect)>>> = const { std::cell::RefCell::new(None) };
 }
 
-/// Run `f` and return the boxes it laid, in order.
 #[cfg(test)]
 pub(super) fn read<R>(f: impl FnOnce() -> R) -> (R, Vec<(String, Rect)>) {
     let was = LAID.with(|l| l.borrow_mut().replace(Vec::new()));
@@ -50,7 +47,6 @@ pub(super) fn note(what: &str, rect: Rect) {
     });
 }
 
-/// Keep the box `im` fills when laid at `(x, y)`.
 #[cfg(test)]
 pub(super) fn note_img(what: &str, im: &Img, x: i32, y: i32) {
     note(what, used(im, x, y));

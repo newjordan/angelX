@@ -25,7 +25,6 @@ fn open_mut(run: &mut Run) -> &mut crate::rules::layout::Open {
     run.dungeon.open.as_mut().unwrap()
 }
 
-/// The ground layer in a window about `spot` (arena units).
 fn ground(run: &Run, spot: (f32, f32)) -> Img {
     let (pw, ph) = room_px(run.room());
     let (px, py) = at(spot.0, spot.1);
@@ -34,7 +33,6 @@ fn ground(run: &Run, spot: (f32, f32)) -> Img {
     cv
 }
 
-/// The lit pixels of one tile (`c`, `r`) of the ground layer.
 fn tile_lit(run: &Run, (c, r): (u16, u16)) -> usize {
     let (pw, ph) = room_px(run.room());
     let mut cv = Img::window(pw, ph, (i32::from(c) * 16, i32::from(r) * 16, 16, 16));
@@ -42,7 +40,6 @@ fn tile_lit(run: &Run, (c, r): (u16, u16)) -> usize {
     lit(&cv)
 }
 
-/// The same, a screen and a half wide: a chamber's whole hush.
 fn wide(run: &Run, spot: (f32, f32)) -> Img {
     let (pw, ph) = room_px(run.room());
     let (px, py) = at(spot.0, spot.1);
@@ -62,7 +59,6 @@ fn has_ink(cv: &Img, ch: char) -> bool {
     (sy..sy + sh).any(|y| (sx..sx + sw).any(|x| cv.get(x, y) == Some(want)))
 }
 
-/// A spot inside a fight chamber, off its middle, with no one near it.
 fn quiet_spot(run: &Run) -> (f32, f32) {
     let o = open(run);
     let ch = o.chambers.iter().find(|c| c.kind == RoomKind::Fight).unwrap();
@@ -99,12 +95,10 @@ fn remains_lie_where_the_dead_fell_in_what_they_were_made_of() {
         if kind != EnemyKind::Slime {
             assert!(has_ink(&cv, ink_in), "{kind:?} lies in ink {ink_in}");
         }
-        // Dim on the black paper: never the pale inks.
         for c in ['w', 'W', 'H', 'c', '9'] {
             assert!(!has_ink(&cv, c), "{kind:?} is no stark {c}");
         }
     }
-    // It is nowhere else on the map.
     let far = open(&run).chambers.last().unwrap().centre();
     assert_eq!(lit(&ground(&run, far)), 0);
 }
@@ -139,7 +133,6 @@ fn a_cairn_flies_its_knights_colours_and_names_them_only_when_a_knight_is_by() {
         assert!(has_ink(&cv, cloth), "knight {id}'s pennon is ink {cloth}");
         assert!(has_ink(&cv, 'U') || has_ink(&cv, 'u'), "stone");
     }
-    // The name: a knight stands by, or it does not show.
     let (pw, ph) = room_px(run.room());
     let (px, py) = at(spot.0, spot.1);
     let label = |run: &Run, legible: bool| {
@@ -170,18 +163,15 @@ fn a_cairn_waits_while_its_knight_lies_on_the_spot() {
         (hero.x, hero.y) = (spot.0 - 40.0, spot.1);
     }
     assert!(lit(&ground(&run, spot)) > 0);
-    // Wren lies by it, bones and skull: the bones are the mark.
     {
         let hero = run.players.get_mut(&2).unwrap();
         (hero.x, hero.y, hero.hp, hero.fell) = (spot.0 + 1.0, spot.1, 0, run.tick - 5);
     }
     let cairn_only = {
         let mut cv = ground(&run, spot);
-        // The skull's call may be on; the cairn's stones are not.
         !has_ink(&cv, 'U') && !has_ink(&cv, 'v') && { cv.untouch(); true }
     };
     assert!(cairn_only, "no stones while the bones lie");
-    // Stood up again, it shows.
     run.players.get_mut(&2).unwrap().hp = 6;
     assert!(has_ink(&ground(&run, spot), 'U'));
 }
@@ -209,7 +199,6 @@ fn a_knight_raised_in_a_borrowed_body_is_ringed_for_the_length_of_the_ward() {
     assert_eq!(ring(&mut run, ward / 2), 0, "a knight in their own body is not ringed");
 }
 
-/// The first gate of the guardian's chamber, in tiles.
 fn gate(run: &Run) -> (u16, u16) {
     let o = open(run);
     o.chambers[usize::from(o.guardian)].gates[0]
@@ -230,19 +219,15 @@ fn a_ward_lies_across_the_guardians_mouths_until_it_shuts_or_falls() {
         (hero.x, hero.y) = arrival;
     }
     assert!(lit(&ground(&run, spot)) > 6, "a ward while the guardian lives");
-    // A knight nearer wakes it: more of it, brighter.
     let far = lit(&ground(&run, spot));
     (run.players.get_mut(&1).unwrap().x, run.players.get_mut(&1).unwrap().y) = (spot.0, spot.1 + 10.0);
     assert!(lit(&ground(&run, spot)) > far);
     assert!(has_ink(&ground(&run, spot), '7'));
-    // Shut: the ward is gone once the slam is (the bars, where the pack's
-    // art leaves them to be drawn here, stand in grey).
     open_mut(&mut run).chambers[g].sealed = true;
     open_mut(&mut run).chambers[g].sealed_at = run.tick - SLAM - DROP - 1;
     let shut = ground(&run, spot);
     assert!(!has_ink(&shut, '7') && !has_ink(&shut, '@') && !has_ink(&shut, '6'), "no ward on a shut mouth after the slam");
     assert_eq!(has_ink(&shut, 'U'), drawn_here(&run), "the bars' jambs stand where they are drawn here");
-    // Won: the way is plain.
     open_mut(&mut run).chambers[g].sealed = false;
     open_mut(&mut run).chambers[g].cleared = true;
     assert_eq!(lit(&ground(&run, spot)), 0);
@@ -266,7 +251,6 @@ fn the_doors_slam_is_lit_then_cools_then_goes_and_the_bars_close_from_the_ends()
     assert!(count(&mut run, 10) > rest, "dust still hangs");
     assert!(count(&mut run, SLAM + DROP - 1) >= rest);
     assert_eq!(count(&mut run, SLAM + DROP), rest, "gone at the end");
-    // A doorway's bars come down from its ends to its middle.
     let gates = open(&run).chambers[g].gates.clone();
     assert!(gates.len() >= 3);
     let (end, middle) = (gates[0], gates[gates.len() / 2]);
@@ -283,10 +267,8 @@ fn the_doors_slam_is_lit_then_cools_then_goes_and_the_bars_close_from_the_ends()
 #[test]
 fn a_chambers_braziers_are_cold_until_a_knight_comes_catch_in_turn_and_end_as_embers() {
     let mut ch = open(&party(2)).chambers[0].clone();
-    // No one has been in: cold iron.
     ch.seen = false;
     assert!((0..4).all(|k| fire_of(&ch, k, 5000) == Fire::Cold));
-    // A knight steps in at tick 1000: round from the north-west.
     ch.seen = true;
     ch.seen_at = 1000;
     assert_eq!(fire_of(&ch, 0, 999), Fire::Cold);
@@ -295,15 +277,12 @@ fn a_chambers_braziers_are_cold_until_a_knight_comes_catch_in_turn_and_end_as_em
     assert!(matches!(fire_of(&ch, 3, 1000 + 3 * KINDLE_STEP + 2), Fire::Catching(_)));
     assert_eq!(fire_of(&ch, 0, 1000 + FLARE), Fire::Blazing);
     assert_eq!(fire_of(&ch, 3, 1000 + 3 * KINDLE_STEP + FLARE + 400), Fire::Blazing, "and burns while the chamber is not won");
-    // A chamber no one fought is cleared and burns on.
     ch.cleared = true;
     assert_eq!(fire_of(&ch, 1, 5000), Fire::Blazing);
-    // Won, fought: they burn through the hush, then lie in coals.
     ch.stirred = true;
     ch.cleared_at = 2000;
     assert_eq!(fire_of(&ch, 1, 2000 + HUSH - 1), Fire::Blazing);
     assert_eq!(fire_of(&ch, 1, 2000 + HUSH), Fire::Embers);
-    // A floor saved before the tick was kept: seen, they burn; won, coals.
     let mut old = ch.clone();
     (old.seen_at, old.cleared, old.cleared_at) = (0, false, 0);
     assert!((0..4).all(|k| fire_of(&old, k, 5) == Fire::Blazing));
@@ -346,8 +325,6 @@ fn a_won_chamber_hushes_then_the_light_settles() {
     let fight = (0..o.chambers.len()).find(|&i| o.chambers[i].kind == RoomKind::Fight).unwrap();
     let (cx, cy) = o.chambers[fight].centre();
     open_mut(&mut run).chambers[fight].cleared = true;
-    // A chamber cleared before this existed (no tick kept) shows only what
-    // always stands there.
     open_mut(&mut run).chambers[fight].cleared_at = 0;
     let rest = lit(&wide(&run, (cx, cy)));
     let mut counts = Vec::new();
@@ -367,7 +344,6 @@ fn a_skull_calls_from_the_floor_and_a_low_knight_beats() {
     for id in 1..=3 {
         (run.players.get_mut(&id).unwrap().x, run.players.get_mut(&id).unwrap().y) = (spot.0 - 30.0, spot.1);
     }
-    // Knight 2 down at the spot.
     {
         let hero = run.players.get_mut(&2).unwrap();
         (hero.x, hero.y, hero.hp, hero.fell) = (spot.0, spot.1, 0, run.tick - 60);
@@ -382,15 +358,12 @@ fn a_skull_calls_from_the_floor_and_a_low_knight_beats() {
     };
     let calling = around(&mut run);
     assert!(calling > 8 && calling < CALL as usize, "a ring now and then: {calling} of {CALL}");
-    // A friend carries it: the call stops.
     run.players.get_mut(&1).unwrap().carrying_skull = Some(2);
     assert_eq!(around(&mut run), 0, "carried, it needs no call");
     run.players.get_mut(&1).unwrap().carrying_skull = None;
-    // A wiped party calls no one.
     run.phase = Phase::Wiped;
     assert_eq!(around(&mut run), 0);
     run.phase = Phase::Exploring;
-    // A knight standing low beats; one standing well does not.
     {
         let hero = run.players.get_mut(&2).unwrap();
         (hero.hp, hero.max_hp, hero.fell) = (3, 12, 0);
@@ -409,9 +382,6 @@ fn a_skull_calls_from_the_floor_and_a_low_knight_beats() {
     assert_eq!(well, 0, "a knight in health draws nothing");
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_chronicle_shots -- --ignored`:
-/// the aftermath of a fight, a cairn, the ward at the guardian's mouth, the
-/// doors' slam, a chamber's hush, a skull's call and a heartbeat.
 #[test]
 #[ignore]
 fn write_chronicle_shots() {
@@ -432,7 +402,6 @@ fn write_chronicle_shots() {
     run.open_floor_for_test(depth);
     let o = open(&run).clone();
     let aim = BTreeMap::new();
-    // A fight chamber won: its company down, the knights standing in it.
     let fight = (0..o.chambers.len()).find(|&i| o.chambers[i].kind == RoomKind::Fight).unwrap();
     let (cx, cy) = o.chambers[fight].centre();
     let spots = run.open_spots(o.map, (cx, cy + 8.0), 3);
@@ -457,7 +426,6 @@ fn write_chronicle_shots() {
         run.step(&aim);
     }
     save("chronicle-aftermath", &seat_scene(&run, w, h, Some(1)).compose(), 2);
-    // A knight goes down by the remains; the others stand by.
     {
         let hero = run.players.get_mut(&2).unwrap();
         (hero.invulnerable, hero.hp) = (0, 2);
@@ -467,7 +435,6 @@ fn write_chronicle_shots() {
         run.step(&aim);
     }
     save("chronicle-knight-down", &seat_scene(&run, w, h, Some(1)).compose(), 2);
-    // Up again; a cairn stays and says whose it is.
     {
         let hero = run.players.get_mut(&2).unwrap();
         (hero.hp, hero.max_hp) = (3, 12);
@@ -478,7 +445,6 @@ fn write_chronicle_shots() {
         run.step(&aim);
     }
     save("chronicle-cairn-and-heartbeat", &seat_scene(&run, w, h, Some(1)).compose(), 2);
-    // A skull calls: Wren down, far from the others; then raised in a body.
     {
         let hero = run.players.get_mut(&2).unwrap();
         (hero.hp, hero.max_hp) = (12, 12);
@@ -503,8 +469,6 @@ fn write_chronicle_shots() {
         let hero = run.players.get_mut(&2).unwrap();
         (hero.possessed, hero.invulnerable, hero.hp) = (None, 0, 12);
     }
-    // A chamber's braziers kindle as a knight first comes in.
-    // One away from the map's edge, so the camera has the whole corner.
     let fight = (0..o.chambers.len())
         .find(|&i| o.chambers[i].kind == RoomKind::Fight && o.chambers[i].rect.0 > 30 && o.chambers[i].rect.1 > 24)
         .unwrap_or(fight);
@@ -519,7 +483,6 @@ fn write_chronicle_shots() {
         (ch.seen, ch.seen_at) = (seen, run.tick.saturating_sub(ticks));
         save(&format!("chronicle-braziers-{name}"), &seat_scene(&run, w, h, Some(1)).compose(), 2);
     }
-    // The ward at the guardian's mouth.
     let g = usize::from(o.guardian);
     let (gc, gr) = o.chambers[g].gates[0];
     let (gx, gy) = ((f32::from(gc) + 0.5) * crate::rules::TILE_UNITS, (f32::from(gr) + 0.5) * crate::rules::TILE_UNITS);
@@ -533,7 +496,6 @@ fn write_chronicle_shots() {
     }
     run.step(&aim);
     save("chronicle-ward", &seat_scene(&run, w, h, Some(1)).compose(), 2);
-    // Step in: the doors slam.
     let inward = (-outward.0, -outward.1);
     let inside = run.open_spots(o.map, (gx + inward.0 * 0.8, gy + inward.1 * 0.8), 1)[0];
     (run.players.get_mut(&1).unwrap().x, run.players.get_mut(&1).unwrap().y) = inside;

@@ -1,9 +1,3 @@
-# crates/delve/src/rules/tune.rs — the knobs. `Run::tune` is written only once a
-# knob has moved (`Tune::is_default`), so `tune` below is the run's `tune`
-# value: JNull while default (every knob at the code's constant), else the
-# whole struct. Read a knob through these, never `J.get(.., "tune")` alone:
-# an absent key is the Rust default, not zero.
-
 def tune.Tune.get_u.if(none: Bool, +v: J.Val, +d: U32) -> U32:
   match none:
     case True{}:
@@ -168,13 +162,11 @@ def tune.Tune.camera_follow(+t: J.Val) -> F32:
 def tune.Tune.hit_ward(+t: J.Val) -> F32:
   tune.Tune.get_f(t, "hit_ward", 1.5)
 
-# `Tune::cooldown`: a cooldown of `ticks` at this attack rate.
 def tune.Tune.cooldown(+t: J.Val, +ticks: U32) -> U32:
   tune.Tune.cooldown.go(tune.Tune.fire_rate(t), ticks)
 
 def tune.Tune.cooldown.go(+rate: U32, +ticks: U32) -> U32:
   Bool.pick(U32, Bool.or(U32.is_eq(rate, 100), U32.is_zero(ticks)), ticks, U32.max(U32.div((ticks * 100 : U32), rate), 1))
 
-# `Tune::percent`: a share in percent scaled by a percent knob.
 def tune.Tune.percent(+share: U32, +knob: U32) -> U32:
   Bool.pick(U32, U32.is_eq(knob, 100), share, U32.div((share * knob : U32), 100))

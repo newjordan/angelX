@@ -51,7 +51,6 @@ fn backdrop_off_gives_transcript_full_body() {
     assert!(plan.surfaces[0].accepts_clipboard_selection());
 }
 
-/// A2: Off is lean — no side column even when agent/artifacts claim activity.
 #[test]
 fn backdrop_off_ignores_side_column_activity_flags() {
     let area = Rect::new(0, 0, 200, 50);
@@ -69,7 +68,6 @@ fn backdrop_off_ignores_side_column_activity_flags() {
     assert!(!plan.backdrop_mode.shows_side_column());
 }
 
-/// A2: Lazy still hosts the side column in-process until external paint lands.
 #[test]
 fn backdrop_lazy_still_splits_like_in_process() {
     let area = Rect::new(0, 0, 160, 40);
@@ -116,7 +114,6 @@ fn in_process_splits_transcript_and_backdrops() {
             .all(|s| s.copy_rect.is_none())
     );
     let copy = plan.transcript_copy_rect().expect("prose rect");
-    // Prose is strictly inside the transcript frame (no side-column cells).
     let tf = plan.transcript_frame().unwrap();
     assert!(copy.x >= tf.x);
     assert!(copy.right() <= tf.right());
@@ -171,7 +168,6 @@ fn gap_join_does_not_overlap_columns() {
     let plan = plan_cockpit_surfaces(input);
     let left = plan.transcript_frame().unwrap();
     let agent = plan.agent_frame().unwrap();
-    // Gap mode: transcript right edge strictly left of agent column.
     assert!(
         left.right() <= agent.x,
         "gap layout must not share cells: left.right={} agent.x={}",
@@ -199,8 +195,6 @@ fn rects_intersect(a: Rect, b: Rect) -> bool {
         && b.y < a.bottom()
 }
 
-/// A1 adversarial: clipboard prose must never claim a cell that also sits
-/// inside a backdrop frame (shared-border junctions included).
 #[test]
 fn copy_rect_never_intersects_backdrop_frames() {
     let area = Rect::new(0, 0, 160, 40);
@@ -225,8 +219,6 @@ fn copy_rect_never_intersects_backdrop_frames() {
     }
 }
 
-/// A1: Gap mode must isolate agent/artifacts vertically the same way it
-/// isolates transcript/side columns horizontally.
 #[test]
 fn gap_join_does_not_overlap_agent_and_artifacts_rows() {
     let area = Rect::new(0, 0, 160, 40);
@@ -244,7 +236,6 @@ fn gap_join_does_not_overlap_agent_and_artifacts_rows() {
     );
 }
 
-/// A1: after a full-width → split rebind, selection spans stay inside copy_rect.
 #[test]
 fn layout_rebind_keeps_selection_inside_copy_rect() {
     use crate::ui::mouse::{PaneId, Selection, selection_spans};
@@ -258,7 +249,6 @@ fn layout_rebind_keeps_selection_inside_copy_rect() {
         wide.right().saturating_sub(1),
         wide.bottom().saturating_sub(1),
     );
-    // Layout rebind: side column appears, prose narrows.
     let split = plan_cockpit_surfaces(base_input(full));
     let live = split.transcript_copy_rect().unwrap();
     assert!(
@@ -272,7 +262,6 @@ fn layout_rebind_keeps_selection_inside_copy_rect() {
             "cols {x0}..={x1} left copy_rect {live:?}"
         );
     }
-    // And still must not enter agent frame.
     let agent = split.agent_frame().unwrap();
     for (y, x0, x1) in selection_spans(&sel) {
         for x in x0..=x1 {
@@ -284,7 +273,6 @@ fn layout_rebind_keeps_selection_inside_copy_rect() {
     }
 }
 
-/// Stress: tight width at the side-column threshold.
 #[test]
 fn tight_side_column_copy_stays_left_of_agent() {
     for w in [100u16, 101, 110, 120] {
@@ -308,8 +296,6 @@ fn tight_side_column_copy_stays_left_of_agent() {
     }
 }
 
-/// Short side columns must not invent overlapping or inverted agent/artifacts
-/// frames (Gap and SharedBorder).
 #[test]
 fn short_side_column_frames_stay_ordered() {
     for h in [6u16, 8, 10, 12, 16] {
@@ -334,7 +320,6 @@ fn short_side_column_frames_stay_ordered() {
                     art.y
                 );
             } else {
-                // Shared border may touch by one row, never invert.
                 assert!(
                     agent.y <= art.y,
                     "h={h}: inverted agent.y={} art.y={}",
@@ -350,7 +335,6 @@ fn short_side_column_frames_stay_ordered() {
     }
 }
 
-/// A6: side_width 0 (or sub-border) must not open a zero-width side column.
 #[test]
 fn zero_or_tiny_side_width_stays_transcript_only() {
     for side in [0u16, 1, 2] {
@@ -370,8 +354,6 @@ fn zero_or_tiny_side_width_stays_transcript_only() {
     }
 }
 
-/// A6: short body heights collapse to one plate (or full transcript) instead
-/// of inventing empty/inverted agent+artifacts bands.
 #[test]
 fn tiny_body_height_never_emits_empty_backdrop_frames() {
     for h in [1u16, 2, 3, 4, 5, 6] {
@@ -398,7 +380,6 @@ fn tiny_body_height_never_emits_empty_backdrop_frames() {
     }
 }
 
-/// A6: exhaustive layout invariants across sizes/flags (copy isolation + geometry).
 #[test]
 fn a6_layout_invariants_grid() {
     let widths = [0u16, 1, 24, 50, 99, 100, 101, 120, 140, 160, 200, 240];
@@ -458,7 +439,6 @@ fn a6_layout_invariants_grid() {
                                         );
                                     }
                                 } else if s.kind == PanelKind::Transcript {
-                                    // Only legal when the frame cannot host a chrome-free cell.
                                     let inner = mouse::inner_border(s.frame);
                                     assert!(
                                         inner.width == 0 || inner.height == 0,
@@ -483,7 +463,6 @@ fn a6_layout_invariants_grid() {
                                     }
                                 }
                             }
-                            // SharedBorder: frames may share a 1-cell junction, never a 2D slab.
                             if join == SurfaceJoin::SharedBorder {
                                 for i in 0..plan.surfaces.len() {
                                     for j in (i + 1)..plan.surfaces.len() {
@@ -515,16 +494,8 @@ fn a6_layout_invariants_grid() {
     }
 }
 
-/// A6 adversarial: after horizontal split, a non-zero but sub-min side
-/// column (or empty-inner backdrop) must not be published — reclaim full
-/// body transcript instead of registering a useless hit target.
 #[test]
 fn side_column_below_min_outer_reclaims_full_transcript() {
-    // Force the planner through show_side, then simulate what happens when
-    // layout yields a skinny right plate by using the narrowest legal inputs
-    // and asserting every published backdrop still has usable chrome-free
-    // inner cells. Also pin the reclaim path: width just under the
-    // side-column threshold stays full-body.
     let mut input = base_input(Rect::new(0, 0, 99, 40));
     input.side_width = 40;
     let plan = plan_cockpit_surfaces(input);
@@ -534,7 +505,6 @@ fn side_column_below_min_outer_reclaims_full_transcript() {
     );
     assert_eq!(plan.transcript_frame(), Some(Rect::new(0, 0, 99, 40)));
 
-    // Legal split: every backdrop frame must admit Borders::ALL content.
     for w in [100u16, 101, 120, 160, 200] {
         for side in [3u16, 4, 10, 40, 80] {
             for join in [SurfaceJoin::SharedBorder, SurfaceJoin::Gap] {
@@ -569,8 +539,6 @@ fn side_column_below_min_outer_reclaims_full_transcript() {
     }
 }
 
-/// Static and live clipboard geometry must agree with renderer body/rail
-/// geometry at tiny, split, and fullscreen widths, including strip collapse.
 #[test]
 fn transcript_copy_agrees_with_draw_measure() {
     for w in [0u16, 1, 2, 3, 4, 10, 40, 103, 104, 105, 120, 200, 320] {
@@ -598,8 +566,6 @@ fn transcript_copy_agrees_with_draw_measure() {
     }
 }
 
-/// A6 adversarial: a live tool strip must shrink the clipboard prose rect so
-/// selection/copy cannot cover status/loading chrome at the pane bottom.
 #[test]
 fn live_copy_rect_excludes_tool_strip_rows() {
     let frame = Rect::new(0, 0, 48, 24);
@@ -619,7 +585,6 @@ fn live_copy_rect_excludes_tool_strip_rows() {
             full.bottom().saturating_sub(strip_h),
             "strip_h={strip_h}: bottom must sit above strip"
         );
-        // Strip band must not intersect live copy.
         let strip_band = Rect {
             x: full.x,
             y: live.bottom(),
@@ -631,14 +596,11 @@ fn live_copy_rect_excludes_tool_strip_rows() {
             "live copy intersects strip band: live={live:?} strip={strip_band:?}"
         );
     }
-    // Strip taller than the pane yields no copy surface.
     let inner = mouse::inner_border(frame);
     assert!(transcript_live_copy_rect(frame, inner.height).is_none());
     assert!(transcript_live_copy_rect(frame, inner.height + 5).is_none());
 }
 
-/// A6: Gap join must reserve the spacer row when sizing the agent plate so
-/// Layout does not shrink plates below MIN_SIDE_OUTER.
 #[test]
 fn gap_stack_plates_stay_at_least_min_outer() {
     for h in 7u16..=24 {
@@ -651,8 +613,6 @@ fn gap_stack_plates_stay_at_least_min_outer() {
             input.artifacts_active = true;
             let plan = plan_cockpit_surfaces(input);
             let (Some(a), Some(b)) = (plan.agent_frame(), plan.artifacts_frame()) else {
-                // Short columns may collapse to one plate — that plate must
-                // still be usable.
                 let plate = plan.agent_frame().or(plan.artifacts_frame());
                 if let Some(p) = plate {
                     assert!(
@@ -678,7 +638,6 @@ fn gap_stack_plates_stay_at_least_min_outer() {
     }
 }
 
-/// A6: split geometry conserves body width; stacked plates fill the side column.
 #[test]
 fn split_frames_conserve_body_width() {
     for w in [100u16, 101, 110, 120, 140, 160, 200, 240] {
@@ -704,8 +663,6 @@ fn split_frames_conserve_body_width() {
                             continue;
                         }
                         let side_col = agent.or(art).unwrap();
-                        // Horizontal conservation against the side *column* x/width
-                        // (both plates share the same column when stacked).
                         match join {
                             SurfaceJoin::Gap => {
                                 assert!(
@@ -741,7 +698,6 @@ fn split_frames_conserve_body_width() {
                         }
                         assert_eq!(tr.y, area.y);
                         assert_eq!(tr.height, area.height);
-                        // Stacked plates: fill the side column top-to-bottom.
                         match (agent, art) {
                             (Some(a), Some(b)) => {
                                 assert_eq!(a.x, b.x);
@@ -763,12 +719,8 @@ fn split_frames_conserve_body_width() {
                                         "gap stack leaves 1 row: a={a:?} b={b:?}"
                                     );
                                 } else {
-                                    // Shared border: one-row junction.
                                     let oh =
                                         a.bottom().min(b.bottom()).saturating_sub(a.y.max(b.y));
-                                    // May be 0 if they only touch at edge without area overlap
-                                    // (bottom of a == y of b). SharedBorder spacing -1 means
-                                    // 1-row overlap.
                                     assert_eq!(
                                         oh, 1,
                                         "shared stack overlap 1 row: a={a:?} b={b:?} oh={oh}"

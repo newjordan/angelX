@@ -1,16 +1,4 @@
 #!/usr/bin/env python3
-"""List fragment uses of Base f32/int primitives that are not Rust's semantics.
-
-    python3 delve/tests/numerics/lint.py          # list them
-    python3 delve/tests/numerics/lint.py --fix    # rewrite the plain renames in place
-
---fix only renames calls whose RS twin takes the same arguments (sin, cos, exp, log, pow, hypot,
-round, to_u32, min, max, clamp); run it once the port agents are done with their fragments.
-
-Rust's f32::sin/cos/exp/ln/powf are glibc's sinf/cosf/expf/logf/powf; Base's F32.sin and friends
-compute the double libm function and round to f32, which differs in ~1 call in 100-1000. Use the
-RS names (exact emulations, proven by delve/rules/numerics/cases.bend).
-"""
 import pathlib
 import re
 import sys

@@ -130,7 +130,6 @@ fn code_mode_task_recon_bounds_wide_results_and_excludes_outbound_symlinks() {
         &Hooks::default(),
     )
     .unwrap();
-    // The map is the first line; the floor's whole pages ride after it.
     let map = context
         .strip_prefix(TASK_RECON_PREFIX)
         .unwrap()
@@ -235,9 +234,6 @@ fn code_mode_task_recon_dense_fixture_nested_work_baseline() {
     )
     .unwrap();
     let metrics = registry.take_preturn_code_mode_metrics();
-    // v2: list+grep (2) + enough direct candidates to skip the sparse-only
-    // definition fallback + outlines for the top hits (8) + the floor's reads
-    // of the top four (4) = 14.
     assert_eq!(metrics.nested_calls, 14);
     assert!(context.contains("\"filename_fallback\":false"), "{context}");
     assert!(context.contains("\"symbol_map\""), "{context}");
@@ -257,8 +253,6 @@ fn code_mode_task_recon_sparse_fixture_uses_bounded_filename_fallback() {
     )
     .unwrap();
     let metrics = registry.take_preturn_code_mode_metrics();
-    // v2: list+grep (2) + one multi-symbol definition scan (1) + bounded
-    // file_search fallback for the two terms (2) = 5.
     assert_eq!(metrics.nested_calls, 5);
     assert!(context.contains("\"filename_fallback\":true"), "{context}");
     assert!(context.contains("\"symbol_map\""), "{context}");
@@ -269,7 +263,6 @@ fn code_mode_task_recon_sparse_fixture_uses_bounded_filename_fallback() {
 #[test]
 fn the_floor_carries_small_candidates_whole_and_never_half_a_page() {
     let (root, registry) = fixture_registry();
-    // A candidate too long for one page: it would ride half, so it stays off.
     let long: String = (0..600)
         .map(|n| format!("fn needlewidget_helper_{n}() -> usize {{ {n} }}\n"))
         .collect();

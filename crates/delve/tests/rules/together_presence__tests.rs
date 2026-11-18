@@ -1,7 +1,6 @@
 use super::*;
 use std::collections::BTreeMap;
 
-/// Two knights in a fight room on the first floor, foes about them.
 fn fight() -> Run {
     let mut run = Run::new(31, 1, Some("Friend"));
     run.descend_for_test();
@@ -35,7 +34,6 @@ fn a_knight_whose_player_is_away_is_stone_and_nothing_hurts_it() {
     let hero = &run.players[&2];
     assert!(hero.away && hero.stone);
     assert_eq!(hero.hp, full, "twenty seconds among foes, untouched");
-    // Knight 1, here and idle, is fought: the foes are real.
     assert!(hp(&run, 1) < run.players[&1].max_hp, "the knight who is here was fought");
 }
 
@@ -51,14 +49,12 @@ fn coming_back_stands_the_knight_as_stone_until_it_moves_and_a_vigil_stays_stone
     let step = Input { move_y: 1, ..Input::default() };
     run.step(&BTreeMap::from([(2, step)]));
     assert!(!run.players[&2].stone && !run.players[&2].idle, "its first move wakes it");
-    // A knight keeping vigil when its player went is still keeping it.
     let hero = run.players.get_mut(&2).unwrap();
     hero.vigil = true;
     hero.stone = true;
     run.set_away(2, true);
     run.set_away(2, false);
     assert!(run.players[&2].stone, "the vigil holds");
-    // Said every tick, away holds the knight to stone whatever lifted it.
     run.set_away(1, true);
     run.players.get_mut(&1).unwrap().stone = false;
     run.set_away(1, true);
@@ -68,7 +64,6 @@ fn coming_back_stands_the_knight_as_stone_until_it_moves_and_a_vigil_stays_stone
 #[test]
 fn a_room_holding_for_its_party_keeps_its_foes_and_shots_still_and_hurts_no_one() {
     let mut run = fight();
-    // Let the foes wake and shoot a while first.
     for _ in 0..HZ * 3 {
         run.step(&BTreeMap::new());
     }
@@ -86,14 +81,12 @@ fn a_room_holding_for_its_party_keeps_its_foes_and_shots_still_and_hurts_no_one(
         "their shots hang where they were"
     );
     assert_eq!((hp(&run, 1), hp(&run, 2)), full, "no knight is hurt while the room holds");
-    // A knight here may still walk while the room waits.
     let x = run.players[&1].x;
     let right = Input { move_x: 1, ..Input::default() };
     for _ in 0..10 {
         run.step(&BTreeMap::from([(1, right)]));
     }
     assert!(run.players[&1].x > x, "the knight walks");
-    // Let go, and the fight is on again.
     run.hold(Hold::Open);
     for _ in 0..HZ * 2 {
         run.step(&BTreeMap::new());
@@ -111,11 +104,6 @@ fn the_hold_and_the_away_mark_reach_a_client() {
     assert_eq!(copy.held, Hold::Empty);
 }
 
-/// A run for trying presence live, written as JSON: floor one, the party
-/// in a cleared room beside a fight, knight 1 (the host's statue) on the
-/// line of the east or west door, so a friend joining beside it walks
-/// straight through. Prints the room, the fight and the key to hold.
-/// `ANGEL_PRESENCE_SCENE=file cargo test -p angel-delve write_presence_scene -- --ignored`
 #[test]
 #[ignore]
 fn write_presence_scene() {
@@ -151,8 +139,6 @@ fn write_presence_scene() {
     );
 }
 
-/// Four knights in the fight room above: the two the test made, and two
-/// friends joined.
 fn four() -> Run {
     let mut run = fight();
     run.join_seat(3, "Third");
@@ -169,7 +155,6 @@ fn the_party_is_sized_for_the_knights_whose_players_are_here() {
     let mut run = four();
     assert_eq!(run.party_len(), 4);
     let at_four = foes_max(&run);
-    // Two of them go away: the monsters are sized for the two who play.
     run.set_away(3, true);
     run.set_away(4, true);
     assert_eq!(run.party_len(), 2);
@@ -178,11 +163,9 @@ fn the_party_is_sized_for_the_knights_whose_players_are_here() {
     for (four, two) in at_four.iter().zip(&at_two) {
         assert_eq!(four / 2, *two, "health for two knights, not four");
     }
-    // A foe that comes on now is sized for two as well.
     run.spawn(EnemyKind::Skeleton);
     let new = run.enemies.last().unwrap();
     assert_eq!(new.max_hp, new.base_hp() * 2);
-    // Back: sized for four again, each foe keeping its share of the hurt.
     run.enemies[0].hp = run.enemies[0].max_hp / 2;
     run.set_away(3, false);
     run.set_away(4, false);
@@ -200,7 +183,6 @@ fn a_run_with_everyone_here_writes_no_party_size() {
     run.step(&BTreeMap::new());
     let saved = serde_json::to_string(&run).unwrap();
     assert!(saved.contains("\"scaled_for\":3"));
-    // Read back, it still knows what its foes stand scaled for.
     let mut back: Run = serde_json::from_str(&saved).unwrap();
     let before = foes_max(&back);
     back.step(&BTreeMap::new());
@@ -216,13 +198,10 @@ fn a_host_who_plays_no_knight_keeps_an_absent_place_that_counts_for_nothing() {
     assert_eq!(run.party_len(), 1);
     run.step(&BTreeMap::new());
     assert!(run.enemies.iter().all(|e| e.max_hp == e.base_hp()), "foes for the one knight who plays");
-    // The friend is the party's lead where knight 1 was: it is no part of
-    // the tree a client reads.
     let tree = crate::wire::publish(&run).unwrap();
     let back = crate::wire::read(&tree).unwrap();
     assert!(!back.players.contains_key(&1) && back.players.contains_key(&2));
     assert!(crate::wire::drawable(&back));
-    // A host who plays again is in the party again.
     run.set_absent(1, false);
     run.set_away(1, false);
     assert_eq!(run.party_len(), 2);
@@ -230,10 +209,6 @@ fn a_host_who_plays_no_knight_keeps_an_absent_place_that_counts_for_nothing() {
     assert!(crate::wire::read(&tree).unwrap().players.contains_key(&1));
 }
 
-/// A run for trying the party live (restored by a host that plays no
-/// knight): four knights in a room beside a fight, as a host restarted
-/// mid-delve would find them.
-/// `ANGEL_PARTY_SCENE=file cargo test -p angel-delve write_party_scene -- --ignored`
 #[test]
 #[ignore]
 fn write_party_scene() {
@@ -258,7 +233,6 @@ fn write_party_scene() {
     }
     let (cols, rows) = (run.room().cols as f32, run.room().rows as f32);
     let x = if dir == 1 { (cols - 7.0) * 2.0 } else { 7.0 * 2.0 };
-    // In a row along the door's: whoever joins stands beside knight 1.
     let step = if dir == 1 { -2.6 } else { 2.6 };
     for (i, hero) in run.players.values_mut().enumerate() {
         (hero.x, hero.y) = (x + step * i as f32, (rows / 2.0).floor() * 2.0);

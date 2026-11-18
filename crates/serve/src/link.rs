@@ -5,18 +5,14 @@ use qrcode::bits::Bits;
 use qrcode::{Color, EcLevel, QrCode, Version};
 use std::net::{IpAddr, Ipv4Addr, UdpSocket};
 
-/// RFC 4648 base32, upper case: a key reads aloud, survives being typed,
-/// and an upper-case link fits QR's denser alphanumeric mode.
 const BASE32: &[u8; 32] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
-/// 128 bits from the OS's random source, in base32 (26 characters).
 pub fn random_key() -> String {
     let mut bytes = [0u8; 16];
     getrandom::fill(&mut bytes).expect("the OS gives random bytes");
     base32(&bytes)
 }
 
-/// Base32 without padding.
 pub fn base32(bytes: &[u8]) -> String {
     let mut out = String::with_capacity(bytes.len().div_ceil(5) * 8);
     let (mut acc, mut bits) = (0u32, 0u32);
@@ -34,13 +30,10 @@ pub fn base32(bytes: &[u8]) -> String {
     out
 }
 
-/// A key as compared: base32 is read in any case.
 pub fn normalize_key(key: &str) -> String {
     key.trim().to_ascii_uppercase()
 }
 
-/// Two keys are the same, compared in time that does not depend on where
-/// they first differ.
 pub fn same_key(a: &str, b: &str) -> bool {
     let (a, b) = (a.as_bytes(), b.as_bytes());
     if a.len() != b.len() {
@@ -49,9 +42,6 @@ pub fn same_key(a: &str, b: &str) -> bool {
     a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x.to_ascii_uppercase() ^ y.to_ascii_uppercase())) == 0
 }
 
-/// The host's address on its local network: the one the OS would send
-/// from to reach the internet. A UDP socket's connect sends nothing, and
-/// works the same on Linux, macOS and Windows.
 pub fn lan_ip() -> Option<IpAddr> {
     let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).ok()?;
     socket.connect((Ipv4Addr::new(192, 0, 2, 1), 9)).ok()?;
@@ -59,21 +49,11 @@ pub fn lan_ip() -> Option<IpAddr> {
     (!ip.is_unspecified() && !ip.is_loopback()).then_some(ip)
 }
 
-/// `<door>/#<key>`. The key is in the fragment, so a browser never puts it
-/// in a request line, and no server or proxy logs it.
 pub fn link(door: &str, key: &str) -> String {
     format!("{}/#{key}", door.trim_end_matches('/'))
 }
 
-/// The link as a QR code, drawn with half blocks, two rows of modules to a
-/// line, with the standard four-module quiet zone. `ink_is_light`: the
-/// terminal draws characters lighter than its background (the usual dark
-/// terminal), so the code's light modules are the ones drawn. `None` when
-/// the link is too long for any QR code.
 pub fn qr(link: &str, ink_is_light: bool) -> Option<String> {
-    // A door with no path is case-blind up to its fragment, and the key is
-    // upper case already: upper case lets the code use alphanumeric mode,
-    // a size smaller.
     let after_scheme = link.split_once("://").map_or(link, |(_, rest)| rest);
     let path = after_scheme.find('/').map_or("", |i| &after_scheme[i..]);
     let text = if path.starts_with("/#") || path.is_empty() { link.to_ascii_uppercase() } else { link.to_string() };
@@ -107,14 +87,10 @@ pub fn qr(link: &str, ink_is_light: bool) -> Option<String> {
     Some(out)
 }
 
-/// Characters QR's alphanumeric mode carries at 5.5 bits each.
 fn alphanumeric(b: u8) -> bool {
     b.is_ascii_digit() || b.is_ascii_uppercase() || b" $%*+-./:".contains(&b)
 }
 
-/// The smallest code at level M, with the text cut into runs: alphanumeric
-/// where it can be, bytes where it cannot (the `#`). The library's own
-/// segmenting sometimes splits a key's digits off and grows a size.
 fn encode(text: &str) -> Option<QrCode> {
     let bytes = text.as_bytes();
     let mut runs: Vec<(bool, &[u8])> = Vec::new();
@@ -171,10 +147,7 @@ mod tests {
         let side = lines[0].chars().count();
         assert!(lines.iter().all(|l| l.chars().count() == side));
         assert_eq!(lines.len(), side.div_ceil(2));
-        // The quiet zone is light: drawn, on a dark terminal.
         assert!(lines[0].chars().all(|c| c == '█'));
-        // Alphanumeric mode keeps this link at version 3 (29 modules), for
-        // every key.
         assert_eq!(side, 29 + 8);
         for _ in 0..50 {
             let text = qr(&link("http://192.168.100.200:8790", &random_key()), true).unwrap();

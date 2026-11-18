@@ -1,6 +1,3 @@
-# crates/delve/src/rules/lanternward/hint.rs (+ props::sign_text / folk_text
-# and Ctx::label): the wisp's words. Strings, or null for none.
-
 def lanternward.props.sign_text(+room: U32, +id: U32) -> String:
   match room:
     case 0:
@@ -21,7 +18,6 @@ def lanternward.props.folk_text(+room: U32, +id: U32) -> String:
     case _:
       ""
 
-# What E's label says.
 def lanternward.ctx.Ctx.label(+tag: String) -> String:
   Bool.pick(String, String.eq(tag, "Open"), "OPEN",
     Bool.pick(String, String.eq(tag, "Read"), "READ",
@@ -35,7 +31,6 @@ def lanternward.ctx.Ctx.label(+tag: String) -> String:
                     Bool.pick(String, String.eq(tag, "Talk"), "TALK",
                       Bool.pick(String, String.eq(tag, "Pull"), "PULL", "")))))))))))
 
-# What a target that is not a foe says about itself when it is locked.
 def lanternward.hint.lock_hint(+s: J.Val, +k: J.Val) -> J.Val:
   lanternward.hint.lock_hint.go(lanternward.tag_is(ga.v(k, "lock"), "Prop"), J.u32(lanternward.payload(ga.v(k, "lock"))), s)
 
@@ -72,7 +67,6 @@ def lanternward.hint.near_foe(+fs: List<&2, J.Val>, +k: J.Val, +lock: U32) -> Bo
           RS.i_lt(lanternward.world.dist((ga.u(f, "x") - ga.u(k, "x") : U32), (ga.u(f, "y") - ga.u(k, "y") : U32)), lock)),
         lanternward.hint.near_foe(t, k, lock))
 
-# The wisp's one line. Few words, always about what to do next.
 def lanternward.hint.hint(+s: J.Val, +k: J.Val, +r: J.Val) -> J.Val:
   Bool.pick(J.Val, lanternward.is(k, "act", "Down"),
     J.JS{"WAIT FOR A FRIEND'S HAND"},
@@ -161,8 +155,6 @@ def lanternward.hint.hint.warden(+w: J.Val, +seats: U32) -> J.Val:
           Bool.pick(J.Val, Bool.and(lanternward.is(w, "st", "Tell"), lanternward.is(w, "atk", "Beam")), J.JS{"SHIELD UP: PARRY THE BEAM"},
             J.JS{"LIGHT THE HEART, THEN STRIKE"})))
 
-# The line at the foot of seat `k`'s screen: a sign or kingsman being read,
-# else what a locked switch says, else the wisp.
 def lanternward.hint.line(+s: J.Val, +k: J.Val, +r: J.Val) -> J.Val:
   lanternward.hint.line.read(ga.v(k, "read"), s, k, r)
 
@@ -182,7 +174,6 @@ def lanternward.hint.line.lock(+h: J.Val, +s: J.Val, +k: J.Val, +r: J.Val) -> J.
     case _:
       h
 
-# What E would do: its label, or the roll or hop it falls back to.
 def lanternward.hint.context(+k: J.Val) -> J.Val:
   lanternward.hint.context.tag(lanternward.tag(ga.v(k, "ctx")), k)
 

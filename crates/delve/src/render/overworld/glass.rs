@@ -13,28 +13,21 @@ use std::sync::Arc;
 use super::ink::{BLACK, Img, nearest_plain};
 use super::map::{Place, TILE};
 
-/// Picture size inside the frame, in pixels (8:7, the plates' own shape).
 pub const GLASS_W: i32 = 88;
 pub const GLASS_H: i32 = 77;
 const BORDER: i32 = 3;
 const TITLE_H: i32 = 10;
 const MARGIN: i32 = 6;
 
-/// A picture from another modality, framed over the map at a place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Glass {
     pub anchor: Place,
     pub title: String,
-    /// A live source (the ride) shows a signal pip in its title bar.
     pub live: bool,
-    /// Palette-snapped picture, `GLASS_W` x `GLASS_H`.
     pub picture: Arc<Img>,
-    /// Identity of source and frame, for the scene key.
     pub sequence: u64,
 }
 
-/// Box-filter RGBA pixels of any size down (or up) to the glass and snap
-/// every pixel to the realm palette.
 pub fn picture_from_rgba(rgba: &[u8], w: u32, h: u32) -> Img {
     let mut out = Img::black(GLASS_W, GLASS_H);
     if w == 0 || h == 0 || rgba.len() < (w * h * 4) as usize {
@@ -77,9 +70,6 @@ fn overlap((ax, ay, aw, ah): (i32, i32, i32, i32), (bx, by, bw, bh): (i32, i32, 
     if w > 0 && h > 0 { w * h } else { 0 }
 }
 
-/// Where the glass sits: the corner of the play field (below `top`) that
-/// covers least of what matters — weighted rectangles in frame pixels —
-/// nearer the place on a tie.
 fn placement(
     f: &Img,
     anchor_px: Option<(i32, i32)>,
@@ -108,9 +98,6 @@ fn placement(
     best.1
 }
 
-/// Lay the glass over a frame whose play field starts at `top` and shows the
-/// realm from world pixel `(view_x, view_y)`. `knight` (world pixels, feet)
-/// and the `live` place stay uncovered where a corner allows.
 pub fn draw(
     f: &mut Img,
     glass: &Glass,
@@ -145,7 +132,6 @@ pub fn draw(
     let (x, y) = placement(f, anchor_px, top, &keep_clear);
     let (ww, wh) = (GLASS_W + BORDER * 2, GLASS_H + BORDER * 2 + TITLE_H);
 
-    // The tether: dotted signal from the glass's near edge to the place.
     if let Some((ax, ay)) = anchor_px {
         let ex = if ax < x { x } else { x + ww - 1 };
         let ey = y + wh / 2;
@@ -160,11 +146,8 @@ pub fn draw(
         }
     }
 
-    // A rounded steel frame and a slate line inside it on a black mat
-    // (`chrome`), a brass stud in each corner, a shadow on the map.
     super::chrome::panel(f, (x, y, ww, wh), super::chrome::Tone::GLASS);
     super::chrome::studs(f, (x, y, ww, wh), 'o');
-    // Title bar: slate falling to night.
     let bar_y = y + BORDER;
     super::chrome::chip(f, (x + BORDER, bar_y, GLASS_W, TITLE_H - 1));
     let room = ((GLASS_W - 10) / 6).max(0) as usize;

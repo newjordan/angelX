@@ -26,36 +26,21 @@ use super::glass_gltf::{self, ClipSel, Instance, Playback};
 use super::glass_tween::{self, Ease, Prop, Repeat, Target, Timing, Track, Tween, Value};
 use super::{base64, Canvas};
 
-/// The dialect's version. v2 adds `scene` and the showcase's video
-/// frames, charts, models and pages; v3 adds glTF assets (`asset`, and
-/// `play` for their clips) and `tween` (docs/GLASS_DIALECT.md).
 pub const VERSION: u32 = 3;
 
-/// The ops this build takes, in the order `hello` answers them.
 pub const OPS: [&str; 15] = [
     "hello", "picture", "layer", "group", "remove", "showcase", "scene", "frame", "chart",
     "model", "page", "progress", "asset", "tween", "play",
 ];
 
-/// The ops whose last field is a payload.
 const PAYLOAD_OPS: [&str; 8] = ["picture", "group", "scene", "frame", "chart", "model", "page", "asset"];
 
-/// Program ids live below this; a `picture` or `layer` id the program
-/// names is offset by it into the expansion's own id space, far from
-/// the intake's client ids (below `MINT_BASE`) and its minted ones.
 pub const ID_BASE: u32 = 0x4000_0000;
 
-/// The most layers one `group` may name — the stage's own limit, so a
-/// group that fills a frame's whole layer set settles in one go.
 pub const GROUP_CAP: usize = 65_536;
 
-/// The most bytes a `group` payload may carry once decoded; layer
-/// records are short, so this caps a hostile payload before its
-/// records are even split.
 pub const GROUP_BYTES: usize = 1 << 20;
 
-/// The keys each op takes; anything else is refused, so a program
-/// learns its typo instead of drawing half of what it meant.
 fn allowed_keys(op: &str) -> &'static [&'static str] {
     match op {
         "hello" => &["r", "m"],
@@ -86,22 +71,15 @@ fn allowed_keys(op: &str) -> &'static [&'static str] {
     }
 }
 
-/// Why a sequence failed: a short code for the reply, a message for
-/// the program's log.
 struct Bad(String, String);
 
-/// One op's keys, `;`-separated behind the op, each field one
-/// `key=value` (a value may hold commas).
 struct Keys {
     op: String,
     pairs: Vec<(String, String)>,
-    /// The whole key text, held for a chunked transmission's last piece.
     raw: Vec<u8>,
 }
 
 impl Keys {
-    /// `op;k=v;k=v...` — no payload; a group record line is exactly
-    /// this shape.
     fn parse(text: &str) -> Self {
         let mut fields = text.split(';');
         let op = fields.next().unwrap_or("").to_string();
@@ -114,7 +92,6 @@ impl Keys {
         Self { op, pairs, raw: text.as_bytes().to_vec() }
     }
 
-    /// The op and its key fields, with the payload already taken off.
     fn from_parts(op: &str, key_fields: &[&str]) -> Self {
         let mut pairs = Vec::new();
         for field in key_fields {
@@ -134,7 +111,6 @@ impl Keys {
         Ok(())
     }
 
-    /// A key's value, the last one it was given.
     fn get(&self, key: &str) -> Option<&str> {
         self.pairs.iter().rev().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
     }
@@ -171,7 +147,6 @@ impl Keys {
         }
     }
 
-    /// `0` or `1`.
     fn flag(&self, key: &str) -> Result<Option<bool>, Bad> {
         match self.get(key) {
             None => Ok(None),
@@ -181,7 +156,6 @@ impl Keys {
         }
     }
 
-    /// Four numbers, `x,y,w,h` — commas live inside the one value.
     fn quad(&self, key: &str) -> Result<Option<[f32; 4]>, Bad> {
         match self.get(key) {
             None => Ok(None),
@@ -190,7 +164,6 @@ impl Keys {
     }
 }
 
-/// `x,y,w,h`, fractions allowed.
 fn list4(value: Option<&str>, key: &str) -> Result<[f32; 4], Bad> {
     let Some(v) = value else { return Ok([0.0; 4]) };
     let bad = || Bad("EINVAL".into(), format!("{key}= is not four finite numbers"));
@@ -205,7 +178,6 @@ fn list4(value: Option<&str>, key: &str) -> Result<[f32; 4], Bad> {
     Ok(out)
 }
 
-/// Hex digits to bytes: 6 (rrggbb, opaque) or 8 (rrggbbaa).
 fn hex(text: &str) -> Option<Vec<u8>> {
     if text.len() != 6 && text.len() != 8 {
         return None;
@@ -215,7 +187,6 @@ fn hex(text: &str) -> Option<Vec<u8>> {
         .collect()
 }
 
-/// A colour, `c=rrggbb` or `c=rrggbbaa`, as straight RGBA in 0..1.
 fn rgba_of(keys: &Keys) -> Result<[f32; 4], Bad> {
     let Some(v) = keys.get("c") else { return Ok([1.0, 1.0, 1.0, 1.0]) };
     let bytes =
@@ -230,12 +201,9 @@ fn rgba_of(keys: &Keys) -> Result<[f32; 4], Bad> {
     Ok(out)
 }
 
-/// One picture this dialect uploaded, as the store keeps it.
 struct Kept { id: u32 }
 
-/// One layer the program asked for, as the frame draws it.
 struct Wanted {
-    /// The window id: the program's id offset by [`ID_BASE`].
     id: u32,
     z: i32,
     opacity: f32,
@@ -247,34 +215,17 @@ struct Wanted {
     stand: angel_glass::Stand,
     placement: angel_glass::Placement,
     kind: angel_glass::LayerKind,
-    /// Anchored to the text (`at=` without `anchor=window`): it scrolls
-    /// with the text and leaves with it. `false` pins it to the window.
     text: bool,
-    /// The absolute line it was anchored to, from the start of output.
     line: u64,
-    /// Placed on the alternate screen (text-anchored only).
     alternate: bool,
-    /// A text-anchored layer's rows below `line`, as a tween of its `at=`
-    /// moves it; 0 otherwise.
     row_off: f32,
-    /// The row its `at=` named, whole, as `line` took it.
     y0: f32,
 }
 
-/// The dialect's own state, owned by the store beside the intake's
-/// pictures: the layers and groups the program asked for, and the
-/// showcase it opened. Lifecycle operations clear it through the same
-/// store calls that clear the intake's own pictures.
-/// A showcase request. Frames and progress are not part of it, so a
-/// stream does not reopen the panel.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ShowcaseAsk {
-    /// An uploaded picture, as version 1 opened the showcase.
     Picture { id: u32, fit: angel_glass::Fit },
-    /// A video panel of this pixel size. Frames arrive separately.
     Video { width: u32, height: u32, fit: angel_glass::Fit, generation: u64 },
-    /// Chart marks over a picture uploaded with `picture`. The picture's
-    /// size is the chart's size. `generation` moves only when the request does.
     Chart {
         marks: Vec<angel_glass::Mark>,
         size: (u32, u32),
@@ -282,7 +233,6 @@ pub enum ShowcaseAsk {
         picture: u32,
         generation: u64,
     },
-    /// A model, nodes from the scene wire.
     Model {
         nodes: Vec<angel_glass::scene::Node>,
         meshes: Vec<(u32, angel_glass::scene::MeshData)>,
@@ -290,20 +240,15 @@ pub enum ShowcaseAsk {
         fit: angel_glass::Fit,
         generation: u64,
     },
-    /// Page text the window rasterises when the request changes.
     Page { text: String, cols: u16, rows: u16, generation: u64 },
 }
 
-/// One video frame waiting for the session to hand the window.
 #[derive(Clone)]
 pub enum PendingFrame {
-    /// Raw or decoded pixels.
     Pixels { width: u32, height: u32, rgba: Vec<u8> },
-    /// An already uploaded picture, by program id.
     Picture(u32),
 }
 
-/// A scene the session should draw, once it is dirty.
 pub struct SceneDraw {
     pub window_id: u32,
     pub scene: angel_glass::scene::Scene,
@@ -311,8 +256,6 @@ pub struct SceneDraw {
     pub size: (u32, u32),
 }
 
-/// A placed scene: the stage scene, the picture it is drawn into, and
-/// the layer that places that picture.
 struct KeptScene {
     program_id: u32,
     window_id: u32,
@@ -321,56 +264,35 @@ struct KeptScene {
     size: (u32, u32),
     wanted: Wanted,
     dirty: bool,
-    /// Its inline meshes went up; a frame that only moves it does not
-    /// send them again.
     meshes_sent: bool,
-    /// The camera as the wire named it, for tweens.
     view: super::glass_scene::View,
-    /// How many of `scene.nodes` the program named; an asset's nodes
-    /// follow them.
     program_nodes: usize,
-    /// The glTF assets hung from its nodes.
     instances: Vec<Instance>,
 }
 
-/// One glTF asset the program uploaded.
 struct KeptAsset {
     id: u32,
     asset: Arc<glass_gltf::Asset>,
-    /// The window ids of the pictures its materials name.
     textures: Vec<u32>,
 }
 
-/// Inline meshes the wire named, minted above the program's id space.
 const MESH_BASE: u32 = 0xC000_0000;
 
-/// Pictures an asset's materials name, minted between the program's
-/// window ids and the meshes'.
 const TEXTURE_BASE: u32 = 0x8000_0000;
 
-/// Assets kept at once, and what their meshes may cost together on the
-/// GPU: the window's own mesh budget, so every kept asset fits it.
 pub const ASSET_COUNT: usize = 64;
 pub const ASSET_BUDGET: usize = 128 << 20;
 
-/// Nodes in one scene once its assets are hung in it.
 pub const SCENE_EXPANDED_NODES: usize = 16_384;
 
-/// The most marks one chart may name.
 const CHART_CAP: usize = 4_096;
 
-/// Page columns and rows, each side.
 const PAGE_MAX: u32 = 256;
 
 pub struct Expansion {
-    /// Layers keyed by their window id, create or replace by `id`.
     layers: Vec<Wanted>,
-    /// Group ids to their layers, replaced whole by `group`.
     groups: Vec<(u32, Vec<Wanted>)>,
-    /// The pictures this dialect uploaded (kept through the store's own
-    /// budget), so `showcase` can name one and `remove all` frees them.
     pictures: Vec<Kept>,
-    /// The showcase request. Frames and progress are not part of it.
     ask: Option<ShowcaseAsk>,
     scenes: Vec<KeptScene>,
     pending_frame: Option<PendingFrame>,
@@ -381,12 +303,9 @@ pub struct Expansion {
     next_mesh: u32,
     assets: Vec<KeptAsset>,
     tweens: glass_tween::Tweens,
-    /// The store's animation clock, milliseconds.
     clock: u64,
-    /// One display frame, milliseconds: how often running motion wakes.
     frame_ms: u64,
     next_texture: u32,
-    /// Asset meshes for the window, once per scene that newly shows them.
     uploads: Vec<(u32, Arc<angel_glass::scene::MeshData>)>,
 }
 
@@ -401,17 +320,12 @@ impl Expansion {
         Self { layers: Vec::new(), groups: Vec::new(), pictures: Vec::new(), ask: None, scenes: Vec::new(), pending_frame: None, progress: None, progress_dirty: false, events: false, generation: 0, next_mesh: MESH_BASE, assets: Vec::new(), tweens: glass_tween::Tweens::default(), clock: 0, frame_ms: 16, next_texture: TEXTURE_BASE, uploads: Vec::new() }
     }
 
-    /// The frame's layers, positioned against the view: text-anchored
-    /// layers move with the view's top line exactly as the intake's own
-    /// showings do, and window-pinned layers never move.
     pub fn frame(&self, top: u64, rows: u16, alternate: bool) -> Vec<angel_glass::Layer> {
         let mut out = Vec::new();
         let push = |w: &Wanted, out: &mut Vec<angel_glass::Layer>| {
             let row = if w.text { w.line as f32 - top as f32 + w.row_off } else { 0.0 };
             let h = rect_h(&w.placement);
             if !w.text || (w.alternate == alternate && row < f32::from(rows) && row + h > 0.0) {
-                // Only a text-anchored layer takes its row from the view; a
-                // window-pinned one keeps the row it was placed at.
                 let placement = if w.text { place_at(&w.placement, row) } else { w.placement.clone() };
                 let mut layer = angel_glass::Layer::new(u64::from(w.id), w.z, placement, w.kind.clone());
                 layer.opacity = w.opacity;
@@ -438,7 +352,6 @@ impl Expansion {
         out
     }
 
-    /// The showcase's picture id, if one is open.
     #[cfg(test)]
     pub fn showcase(&self) -> Option<u32> {
         match &self.ask {
@@ -482,23 +395,18 @@ impl Expansion {
         out
     }
 
-    /// Asset meshes the window has not been handed yet.
     pub fn take_mesh_uploads(&mut self) -> Vec<(u32, Arc<angel_glass::scene::MeshData>)> {
         std::mem::take(&mut self.uploads)
     }
 
-    /// Keep the store's clock, without moving anything.
     pub fn set_clock(&mut self, now: u64) {
         self.clock = self.clock.max(now);
     }
 
-    /// One display frame, in milliseconds (4 to 100).
     pub fn set_frame_ms(&mut self, ms: u64) {
         self.frame_ms = ms.clamp(4, 100);
     }
 
-    /// Advance every tween and every playing clip to `now`. Returns
-    /// whether anything moved.
     pub fn tick(&mut self, now: u64) -> bool {
         self.clock = self.clock.max(now);
         let now = self.clock;
@@ -527,9 +435,6 @@ impl Expansion {
         changed
     }
 
-    /// When motion next needs a tick: at once for something new, at the
-    /// start of a delayed tween, a display frame on while anything runs,
-    /// `None` when all is still.
     pub fn deadline(&self) -> Option<u64> {
         let mut out = self.tweens.deadline(self.clock, self.frame_ms);
         let mut take = |at: u64| out = Some(out.map_or(at, |o| o.min(at)));
@@ -550,30 +455,20 @@ impl Expansion {
     #[cfg(test)]
     pub fn tween_count(&self) -> usize { self.tweens.len() }
 
-
-    /// `ED 2` on a screen: text-anchored layers on that screen go.
-    /// `scrolled` is the boundary the engine's own clear left (its
-    /// lines are already in history above it), so the layers above it
-    /// went with the screen and the scrollback's stay.
     pub fn clear_screen(&mut self, alternate: bool, scrolled: u64) {
         self.drop_where(|w| w.alternate == alternate && below(w, scrolled));
     }
 
-    /// `ED 3`: the saved lines go, and the layers anchored to them.
     pub fn clear_saved(&mut self, scrolled: u64) {
         self.drop_where(|w| !w.alternate && below(w, scrolled));
     }
 
-    /// Whether any layer or scene is anchored to the text, on either
-    /// screen: only those move, crop or go with what text does.
     pub fn anchors_text(&self) -> bool {
         self.layers.iter().any(|w| w.text)
             || self.groups.iter().any(|(_, ws)| ws.iter().any(|w| w.text))
             || self.scenes.iter().any(|s| s.wanted.text)
     }
 
-    /// The exclusive absolute line past the lowest text-anchored layer on
-    /// this screen, if any. Window-pinned layers do not move with text.
     pub fn anchored_end(&self, alternate: bool) -> Option<u64> {
         let mut end = None;
         let mut note = |w: &Wanted| {
@@ -598,8 +493,6 @@ impl Expansion {
         end
     }
 
-    /// Text-anchored layers move and crop with a scroll region, through
-    /// the same rectangle math the picture store uses.
     pub fn scroll_text(
         &mut self,
         band: &super::motion::BandScroll,
@@ -618,7 +511,6 @@ impl Expansion {
         self.drop_where(|w| w.line == u64::MAX);
     }
 
-    /// Text-anchored layers stay on the same text through a reflow.
     pub fn reflow_text(&mut self, reflow: &super::motion::Reflow) {
         self.map_text(|w| {
             if !w.text || w.alternate {
@@ -655,14 +547,10 @@ impl Expansion {
         }
     }
 
-    /// Leaving the alternate screen: its text-anchored layers go, solo
-    /// and grouped, whatever line they sit on.
     pub fn leave_alternate(&mut self) {
         self.drop_where(|w| w.alternate);
     }
 
-    /// `RIS`, or the program's exit: everything this dialect made goes.
-    /// The ids it minted keep counting, and the clock and frame stay.
     pub fn reset(&mut self) {
         let (next_mesh, next_texture, clock, frame_ms) = (self.next_mesh, self.next_texture, self.clock, self.frame_ms);
         *self = Self::new();
@@ -672,8 +560,6 @@ impl Expansion {
         self.frame_ms = frame_ms;
     }
 
-    /// Drop the text-anchored layers `drop` names, solo and grouped;
-    /// window-pinned layers are never dropped by a text rule.
     fn drop_where(&mut self, drop: impl Fn(&Wanted) -> bool) {
         self.layers.retain(|w| !w.text || !drop(w));
         for (_, ws) in &mut self.groups {
@@ -683,8 +569,6 @@ impl Expansion {
     }
 }
 
-/// Whether a layer's text anchor sits below `scrolled` — the lines that
-/// left for history, or were cleared away.
 fn cells_col(w: &Wanted) -> f32 {
     match w.placement {
         angel_glass::Placement::Cells(c) => c[0],
@@ -719,8 +603,6 @@ fn picture_id(kind: &angel_glass::LayerKind) -> Option<u32> {
     }
 }
 
-/// Move or cut one text-anchored layer. Returns an extra layer when the
-/// scroll split it; `None` when the layer was removed.
 fn scroll_wanted(
     w: &mut Wanted,
     band: &super::motion::BandScroll,
@@ -772,7 +654,6 @@ fn below(w: &Wanted, scrolled: u64) -> bool {
     w.line < scrolled
 }
 
-/// A cells placement against a view row.
 fn place_at(p: &angel_glass::Placement, row: f32) -> angel_glass::Placement {
     match p {
         angel_glass::Placement::Cells([c, _, w, h]) => angel_glass::Placement::Cells([*c, row, *w, *h]),
@@ -780,7 +661,6 @@ fn place_at(p: &angel_glass::Placement, row: f32) -> angel_glass::Placement {
     }
 }
 
-/// A placement's height in cells, for the visibility test.
 fn rect_h(p: &angel_glass::Placement) -> f32 {
     match p {
         angel_glass::Placement::Cells([_, _, _, h]) => *h,
@@ -788,20 +668,12 @@ fn rect_h(p: &angel_glass::Placement) -> f32 {
     }
 }
 
-/// The dialect's entry point: one lifted `glass;` body. Replies go out
-/// only when the program gave `r=`, and errors never panic.
 pub fn handle(body: &[u8], canvas: &mut dyn Canvas) {
     let text = String::from_utf8_lossy(body);
     let Some(rest) = text.strip_prefix("glass;") else { return };
-    // Op, key fields, then the payload as the last field for the ops
-    // that take one (everything else is keys).
     let mut fields: Vec<&str> = rest.split(';').collect();
     let op = fields.first().copied().unwrap_or("").to_string();
     fields.remove(0);
-    // The payload is the last field, and only when it cannot be a key:
-    // a key=value field carries its '=' inside, base64 padding only at
-    // the end (and a payload never travels without keys before it,
-    // since every payload op needs at least id=).
     let takes_payload = PAYLOAD_OPS.contains(&op.as_str());
     let last_is_payload = match fields.last() {
         Some(last) if takes_payload && fields.len() >= 2 => {
@@ -814,8 +686,6 @@ pub fn handle(body: &[u8], canvas: &mut dyn Canvas) {
         payload = fields.pop().unwrap_or("");
     }
     let keys = Keys::from_parts(&op, &fields);
-    // A chunked picture owns its reply: the first piece's `r` answers
-    // when the last piece lands, so every other op replies here.
     let token = keys.get("r").map(str::to_string);
     let chunked_picture = matches!(op.as_str(), "picture" | "frame" | "asset") && keys.get("m").is_some_and(|v| v == "1");
     let result = dispatch(&keys, payload, canvas);
@@ -829,7 +699,6 @@ pub fn handle(body: &[u8], canvas: &mut dyn Canvas) {
 }
 
 fn dispatch(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String, Bad> {
-    // The op must be one this build takes before its keys are read.
     if !OPS.contains(&keys.op.as_str()) {
         return Err(Bad("EINVAL".into(), format!("unknown op {}", keys.op)));
     }
@@ -854,17 +723,9 @@ fn dispatch(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<Strin
     }
 }
 
-/// `picture`: upload a picture under a program id, decoding through the
-/// APC graphics adapter's loader — `f=100` takes whatever the image crate
-/// decodes (PNG, JPEG, GIF, TIFF, WebP, BMP, ICO, TGA, PNM), plus raw
-/// `f=32` and `f=24`, the same compression (`o=z`) and caps. Chunked transmissions ride the store's
-/// one-open-transmission rule; the first piece's keys govern, and the
-/// reply waits for the last piece.
 fn picture(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     let data = payload.as_bytes().to_vec();
     if let Some(key) = canvas.open_chunk() {
-        // A continuation: whatever keys it repeats, the first piece's
-        // govern; only its `m` says whether more follow.
         let more = keys.flag("m")? == Some(true);
         let assembled = canvas.chunk(key, &data, more);
         if more {
@@ -890,7 +751,6 @@ fn picture(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String
     upload(keys, &data, canvas)
 }
 
-/// One whole picture payload, decoded and kept under the program's id.
 fn upload(keys: &Keys, data: &[u8], canvas: &mut dyn Canvas) -> Result<String, Bad> {
     let Some(id) = keys.u32("id")? else {
         return Err(Bad("EINVAL".into(), "picture needs id=".into()));
@@ -898,8 +758,6 @@ fn upload(keys: &Keys, data: &[u8], canvas: &mut dyn Canvas) -> Result<String, B
     if id >= ID_BASE {
         return Err(Bad("EINVAL".into(), format!("id must be under {ID_BASE:#x}")));
     }
-    // The same loader the APC graphics adapter uses, under its caps and
-    // the store's budget: `f=100|32|24`, `o=z`, `s=`/`v=` for raw data.
     let key_text = format!(
         "f={},s={},v={},o={}",
         keys.get("f").unwrap_or("32"),
@@ -921,12 +779,10 @@ fn upload(keys: &Keys, data: &[u8], canvas: &mut dyn Canvas) -> Result<String, B
     Ok(String::new())
 }
 
-/// `layer`: create or replace one layer by `id`.
 fn layer(keys: &Keys, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     let wanted = wanted_layer(keys, canvas)?;
     let id = wanted.id;
     let state = canvas.expansion();
-    // The program set every property outright: its tweens stop.
     state.tweens.stop_target(Target::Layer(id - ID_BASE));
     if let Some(at) = state.layers.iter().position(|w| w.id == id) {
         state.layers[at] = wanted;
@@ -936,8 +792,6 @@ fn layer(keys: &Keys, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     Ok(String::new())
 }
 
-/// `group`: replace a whole set in one go, for per-frame animation. The
-/// payload is `n` layer records, newline-separated, base64-encoded.
 fn group(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     let Some(group_id) = keys.u32("g")? else {
         return Err(Bad("EINVAL".into(), "group needs g=".into()));
@@ -982,8 +836,6 @@ fn group(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String, 
     Ok(String::new())
 }
 
-/// `remove`: `id=` one layer (or an `a-b` span), `g=` one group,
-/// `all=1` everything this dialect made.
 fn remove(keys: &Keys, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     if keys.flag("all")? == Some(true) {
         let textures: Vec<u32> = canvas.expansion().assets.iter().flat_map(|a| a.textures.clone()).collect();
@@ -1023,7 +875,6 @@ fn remove(keys: &Keys, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     Err(Bad("EINVAL".into(), "remove needs id=, g= or all=1".into()))
 }
 
-/// `a` or `a-b`, a span of program ids.
 fn id_span(span: &str, key: &str) -> Result<(u32, u32), Bad> {
     let bad = || Bad("EINVAL".into(), format!("{key}= is not an id or an a-b range"));
     let (from, to) = match span.split_once('-') {
@@ -1042,7 +893,6 @@ fn id_span(span: &str, key: &str) -> Result<(u32, u32), Bad> {
     Ok((from, to))
 }
 
-/// `showcase`: open on an uploaded picture, a sized video panel, events, or close.
 fn showcase(keys: &Keys, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     if let Some(on) = keys.flag("events")? {
         canvas.expansion().events = on;
@@ -1085,13 +935,10 @@ fn showcase(keys: &Keys, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     Err(Bad("EINVAL".into(), "showcase needs id=, s= and v=, events= or close=1".into()))
 }
 
-/// The furthest a layer may lift, as the stage caps it.
 const MAX_LIFT: f32 = 8192.0;
 
-/// The most motes one emitter may keep in the air, as the stage caps it.
 const MAX_MOTES: u16 = 4096;
 
-/// One layer record's keys, as the frame draws it.
 fn wanted_layer(keys: &Keys, canvas: &mut dyn Canvas) -> Result<Wanted, Bad> {
     let program_id = keys.u32("id")?.ok_or_else(|| Bad("EINVAL".into(), "layer needs id=".into()))?;
     if program_id >= ID_BASE {
@@ -1139,7 +986,6 @@ fn wanted_layer(keys: &Keys, canvas: &mut dyn Canvas) -> Result<Wanted, Bad> {
     })
 }
 
-/// A `stand=up` foot: `up=x,y` in placement pixels.
 fn foot_of(keys: &Keys) -> Result<[f32; 2], Bad> {
     let Some(v) = keys.get("up") else { return Ok([0.0, 0.0]) };
     let bad = || Bad("EINVAL".into(), "up= is not two numbers".into());
@@ -1152,11 +998,6 @@ fn foot_of(keys: &Keys) -> Result<[f32; 2], Bad> {
     Ok([x, y])
 }
 
-/// A record's placement: `at=` cells anchored to the text by default,
-/// `anchor=window` pinning it, or `px=` window pixels always pinned.
-/// Text-anchored placements pin to the absolute line the cursor stands
-/// on, exactly as the intake's own adapters pin theirs. The last field
-/// is the whole row `at=` named, which the anchor line took.
 #[allow(clippy::type_complexity)]
 fn placement_of(keys: &Keys, canvas: &mut dyn Canvas) -> Result<(angel_glass::Placement, bool, u64, bool, f32), Bad> {
     if let Some(v) = keys.get("px") {
@@ -1173,15 +1014,12 @@ fn placement_of(keys: &Keys, canvas: &mut dyn Canvas) -> Result<(angel_glass::Pl
     let (cursor_row, _column) = canvas.cursor();
     let alternate = canvas.alternate();
     let scrolled = canvas.scrolled();
-    // The anchor is the cursor's absolute line; `at=`'s row counts from
-    // there, so a layer rides the text it was placed against.
     let line = scrolled.saturating_add(u64::from(cursor_row)).saturating_add(quad[1] as u64);
     let y0 = (quad[1] as u64) as f32;
     let quad = [quad[0], 0.0, quad[2], quad[3]];
     Ok((angel_glass::Placement::Cells(quad), true, line, alternate, y0))
 }
 
-/// A record's kind: every kind the stage draws.
 fn kind_of(keys: &Keys, canvas: &mut dyn Canvas) -> Result<angel_glass::LayerKind, Bad> {
     Ok(match keys.get("k").unwrap_or("solid") {
         "solid" => angel_glass::LayerKind::Solid(rgba_of(keys)?),
@@ -1228,7 +1066,6 @@ fn kind_of(keys: &Keys, canvas: &mut dyn Canvas) -> Result<angel_glass::LayerKin
     })
 }
 
-/// A particle emitter, with the stage's own caps.
 fn particles_of(keys: &Keys) -> angel_glass::Particles {
     angel_glass::Particles {
         color: rgba_of(keys).unwrap_or([1.0, 1.0, 1.0, 1.0]),
@@ -1242,8 +1079,6 @@ fn particles_of(keys: &Keys) -> angel_glass::Particles {
     }
 }
 
-/// Counters the session last told the program, so an event fires only
-/// when one changes.
 #[derive(Clone, Copy, Default)]
 pub struct ShowcaseSeen {
     pub baselined: bool,
@@ -1253,7 +1088,6 @@ pub struct ShowcaseSeen {
     pub clicks: u32,
 }
 
-/// The window's showcase counters, as `render` read them.
 #[derive(Clone, Copy, Default)]
 pub struct ShowcaseNow {
     pub seek: Option<f32>,
@@ -1263,8 +1097,6 @@ pub struct ShowcaseNow {
     pub clicks: u32,
 }
 
-/// `ESC _ glass;event;showcase;<key>=<value> ESC \`, in the order the
-/// counters are read. Nothing, unless the program opted in.
 pub fn showcase_event_bytes(opted_in: bool, seen: &mut ShowcaseSeen, now: ShowcaseNow) -> Vec<u8> {
     if !opted_in {
         return Vec::new();
@@ -1302,7 +1134,6 @@ pub fn showcase_event_bytes(opted_in: bool, seen: &mut ShowcaseSeen, now: Showca
     out
 }
 
-/// A seek value, short and stable.
 pub fn format_seek(v: f32) -> String {
     let text = format!("{v:.6}");
     let trimmed = text.trim_end_matches('0').trim_end_matches('.');
@@ -1339,7 +1170,6 @@ fn bump(state: &mut Expansion) -> u64 {
     state.generation
 }
 
-/// `scene`: a placed 3D scene, drawn into a picture and shown like a layer.
 fn scene(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     let Some(id) = keys.u32("id")? else {
         return Err(Bad("EINVAL".into(), "scene needs id=".into()));
@@ -1366,8 +1196,6 @@ fn scene(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String, 
     let mut instances = hang_assets(state, &mut scene, &gltf)?;
     let old = state.scenes.iter().position(|s| s.program_id == id);
     if let Some(at) = old {
-        // A scene sent again keeps its clips playing where they were, and
-        // sends up only the assets it did not already show.
         let clock = state.clock;
         let before = &state.scenes[at];
         for inst in &mut instances {
@@ -1393,7 +1221,6 @@ fn scene(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String, 
             queue_asset(&mut state.uploads, &inst.asset);
         }
     }
-    // The program set the scene outright: its tweens stop.
     state.tweens.stop_target(Target::Layer(id));
     state.tweens.stop_scene(id);
     let kept = KeptScene {
@@ -1417,7 +1244,6 @@ fn scene(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String, 
     Ok(String::new())
 }
 
-/// Give a wire's inline meshes their window ids.
 fn assign_meshes(
     state: &mut Expansion,
     scene: &mut angel_glass::scene::Scene,
@@ -1440,8 +1266,6 @@ fn assign_meshes(
     meshes
 }
 
-/// Hang each asset the wire names from its node, after the program's
-/// nodes, the node's colour over every material of it.
 fn hang_assets(
     state: &Expansion,
     scene: &mut angel_glass::scene::Scene,
@@ -1467,7 +1291,6 @@ fn hang_assets(
     Ok(instances)
 }
 
-/// An asset's meshes, to go up to the window.
 fn queue_asset(uploads: &mut Vec<(u32, Arc<angel_glass::scene::MeshData>)>, asset: &glass_gltf::Asset) {
     for prim in &asset.prims {
         if !uploads.iter().any(|(id, _)| *id == prim.id) {
@@ -1519,8 +1342,6 @@ fn scene_wanted(keys: &Keys, canvas: &mut dyn Canvas, window_id: u32) -> Result<
     })
 }
 
-/// `frame`: one video frame, a picture upload or raw RGBA, chunked like
-/// `picture`. `id=` names a picture already uploaded.
 fn frame(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     if canvas.open_chunk().is_some() || keys.flag("m")? == Some(true) {
         return picture(keys, payload, canvas);
@@ -1567,9 +1388,6 @@ fn store_frame(keys: &Keys, data: &[u8], canvas: &mut dyn Canvas) -> Result<Stri
     Ok(String::new())
 }
 
-/// `chart`: marks over a picture uploaded with `picture`. `p` names that
-/// picture, and its size is the chart's size. The marks lie over it.
-/// Without `p=` it is an error. The same request does not reopen the showcase.
 fn chart(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     let Some(id) = keys.u32("p")? else {
         return Err(Bad("EINVAL".into(), "chart needs p=".into()));
@@ -1653,7 +1471,6 @@ fn chart_marks(payload: &str, count: u32) -> Result<Vec<angel_glass::Mark>, Bad>
     Ok(marks)
 }
 
-/// `model`: scene nodes, through the scene wire, shown in the showcase.
 fn model(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     let size = size_pair(keys, "model")?;
     let fit = fit_of(keys)?;
@@ -1682,9 +1499,6 @@ fn model(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String, 
     Ok(String::new())
 }
 
-/// Put each node's `picture` on its mesh: the program's picture id becomes
-/// the window's, as a layer's `p=` does. A picture sent again under the
-/// same id shows on the next scene sent (a video on a face).
 fn show_pictures(wired: &mut super::glass_scene::Wired, canvas: &mut dyn Canvas) -> Result<(), Bad> {
     for &(index, id, sampling) in &wired.pictures {
         let gpu = canvas
@@ -1695,9 +1509,6 @@ fn show_pictures(wired: &mut super::glass_scene::Wired, canvas: &mut dyn Canvas)
             node.material.sampling = sampling;
         }
     }
-    // A cube's faces, each its own picture or the node's material, and a
-    // rounded cube's edge: refused by name, as `picture` is, for a picture
-    // never uploaded.
     for (index, dress) in &wired.dress {
         let mut gpu = Vec::with_capacity(dress.faces.len());
         for face in &dress.faces {
@@ -1717,7 +1528,6 @@ fn show_pictures(wired: &mut super::glass_scene::Wired, canvas: &mut dyn Canvas)
     Ok(())
 }
 
-/// `page`: text the window rasterises as a page and shows in the showcase.
 fn page(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     let cols = page_dim(keys, "cols")?;
     let rows = page_dim(keys, "rows")?;
@@ -1756,8 +1566,6 @@ fn page_dim(keys: &Keys, name: &str) -> Result<u16, Bad> {
     Ok(n as u16)
 }
 
-/// `progress`: where playback is, and whether it is paused. This does
-/// not reopen the showcase.
 fn progress(keys: &Keys, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     let at = keys.f32("t")?;
     let pause = keys.flag("pause")?;
@@ -1773,10 +1581,6 @@ fn progress(keys: &Keys, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     Ok(String::new())
 }
 
-/// `asset`: a glTF 2.0 file (`.glb`, or `.gltf` with its buffers inside
-/// it) under a program id, chunked like `picture`, or read from a path
-/// with `t=f` under the APC file medium's rules. Its colour textures go
-/// in as pictures; its meshes go up when a scene first shows it.
 fn asset(keys: &Keys, payload: &str, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     if canvas.open_chunk().is_some() || keys.flag("m")? == Some(true) {
         return picture(keys, payload, canvas);
@@ -1792,8 +1596,6 @@ fn load_asset(keys: &Keys, data: &[u8], canvas: &mut dyn Canvas) -> Result<Strin
     if id >= ID_BASE {
         return Err(Bad("EINVAL".into(), format!("id must be under {ID_BASE:#x}")));
     }
-    // Base64 is four bytes for three; whitespace between them is allowed,
-    // so the text may run somewhat longer, never twice the file.
     if data.len() > ASSET_BYTES * 2 {
         return Err(Bad("EFBIG".into(), format!("an asset is capped at {ASSET_BYTES} bytes")));
     }
@@ -1884,7 +1686,6 @@ fn load_asset(keys: &Keys, data: &[u8], canvas: &mut dyn Canvas) -> Result<Strin
     Ok(summary)
 }
 
-/// Numbers, `a,b,c`, exactly `n` of them, every one finite.
 fn list_n(value: &str, n: usize, key: &str) -> Result<Vec<f32>, Bad> {
     let bad = || Bad("EINVAL".into(), format!("{key}= is not {n} finite numbers"));
     let out: Vec<f32> = value
@@ -1898,7 +1699,6 @@ fn list_n(value: &str, n: usize, key: &str) -> Result<Vec<f32>, Bad> {
     Ok(out)
 }
 
-/// A time in seconds, `0..=3600`.
 fn seconds_of(keys: &Keys, key: &str, default: f64) -> Result<f64, Bad> {
     match keys.f32(key)? {
         None => Ok(default),
@@ -1907,7 +1707,6 @@ fn seconds_of(keys: &Keys, key: &str, default: f64) -> Result<f64, Bad> {
     }
 }
 
-/// The scene a tween or a play names by `id=`.
 fn scene_of(state: &Expansion, keys: &Keys) -> Result<usize, Bad> {
     let id = keys.u32("id")?.ok_or_else(|| Bad("EINVAL".into(), "needs id= of a scene".into()))?;
     state
@@ -1917,7 +1716,6 @@ fn scene_of(state: &Expansion, keys: &Keys) -> Result<usize, Bad> {
         .ok_or_else(|| Bad("EINVAL".into(), format!("no scene {id}")))
 }
 
-/// What a `tween` names: `layer=`, or `id=` with `node=` or `camera=1`.
 fn tween_target(state: &Expansion, keys: &Keys) -> Result<Option<Target>, Bad> {
     if let Some(id) = keys.u32("layer")? {
         if keys.get("id").is_some() || keys.get("node").is_some() || keys.get("camera").is_some() {
@@ -1949,7 +1747,6 @@ fn tween_target(state: &Expansion, keys: &Keys) -> Result<Option<Target>, Bad> {
     }
 }
 
-/// The properties a tween moves, and where to: only those its target has.
 fn tween_tracks(state: &Expansion, keys: &Keys, target: Target) -> Result<Vec<Track>, Bad> {
     const LAYER: &[&str] = &["at", "px", "o", "a", "c", "size", "b", "h"];
     const NODE: &[&str] = &["at", "rot", "scale", "color", "emissive", "visible"];
@@ -2076,9 +1873,6 @@ fn tween_tracks(state: &Expansion, keys: &Keys, target: Target) -> Result<Vec<Tr
     Ok(tracks)
 }
 
-/// `tween`: move a property of a layer, a scene node or a scene's camera
-/// from where it is to where the program says, eased, while glass draws
-/// every frame and the program says nothing.
 fn tween(keys: &Keys, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     let state = canvas.expansion();
     let target = tween_target(state, keys)?;
@@ -2126,11 +1920,8 @@ fn tween(keys: &Keys, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     Ok(String::new())
 }
 
-/// The furthest a clip may be sought, in seconds.
 const SEEK_MAX: f32 = 3_600.0;
 
-/// `play`: play, pause, seek, loop, speed or stop an asset's clip on the
-/// glTF nodes of a scene (all of them, or the one hanging from `node=`).
 fn play(keys: &Keys, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     let state = canvas.expansion();
     let at = scene_of(state, keys)?;
@@ -2216,7 +2007,6 @@ fn play(keys: &Keys, canvas: &mut dyn Canvas) -> Result<String, Bad> {
     Ok(format!("seconds={}", format_seek(longest)))
 }
 
-/// A layer kind's colour, for the ones that have one.
 fn layer_color(kind: &angel_glass::LayerKind) -> Option<[f32; 4]> {
     match kind {
         angel_glass::LayerKind::Solid(c) | angel_glass::LayerKind::Glow(c) => Some(*c),
@@ -2226,7 +2016,6 @@ fn layer_color(kind: &angel_glass::LayerKind) -> Option<[f32; 4]> {
     }
 }
 
-/// What tweens move, in the dialect's own state.
 struct Bind<'a> {
     layers: &'a mut Vec<Wanted>,
     scenes: &'a mut Vec<KeptScene>,
@@ -2246,7 +2035,6 @@ impl Bind<'_> {
     }
 }
 
-/// A program node's place in its scene.
 fn node_place(scene: &KeptScene, node: u64) -> Option<usize> {
     scene.scene.nodes[..scene.program_nodes.min(scene.scene.nodes.len())].iter().position(|n| n.id == node)
 }
@@ -2359,9 +2147,6 @@ impl glass_tween::Targets for Bind<'_> {
                 }
                 if matches!(prop, Prop::NodeColor | Prop::NodeEmissive) {
                     let host = s.scene.nodes[at].material;
-                    // Its faces (a cube's six) take its colour, as a face
-                    // that is the node's own or its picture is tinted by
-                    // it; a rounded cube's edge keeps its own.
                     for face in s.scene.nodes[at].face_materials.iter_mut().take(6) {
                         face.tint = host.tint;
                         face.emissive = host.emissive;
@@ -2391,8 +2176,6 @@ impl glass_tween::Targets for Bind<'_> {
                     _ => return false,
                 }
                 s.scene.camera.transform.translation = s.view.eye;
-                // An eye on its target, or looking straight along `up`,
-                // keeps the turn it had.
                 if let Ok(rotation) = super::glass_scene::look_rotation(s.view.eye, s.view.target, s.view.up) {
                     s.scene.camera.transform.rotation = rotation;
                 }

@@ -2,8 +2,6 @@ import Base
 import ./LAWS.bend as Laws
 import ./lightgallop-rules.bend as Rules
 
-# The tables and the arithmetic are closed terms, so each law is a reflective
-# check.
 def Laws.sin_anchors_its_quadrants():
   {==}
 

@@ -1,13 +1,8 @@
-// Villager: the named inhabitants of a holding. Driven through the same
-// rent days the cockpit calls; no cockpit needed.
-
 use super::*;
 use std::collections::BTreeMap;
 use crate::rules::holdings::{rent_day, Built, Deed, Holding, Holdings, WALLS, ROOM_LABOUR};
 use crate::rules::Pack;
 
-/// A realm holding the Crypt with these rooms standing (first `building`
-/// left unfinished if given), a steward, full walls and `stores` sacks.
 fn village(rooms: &[&str], building: Option<&str>, steward: Option<&str>, stores: u32) -> Holdings {
     let mut built: Vec<Built> = rooms.iter().map(|id| Built { id: id.to_string(), labour: ROOM_LABOUR }).collect();
     if let Some(id) = building {
@@ -52,12 +47,9 @@ fn no_steward_no_migrants() {
 #[test]
 fn a_bare_granary_turns_migrants_away_and_starves_who_came() {
     let mut h = village(&["taproom", "smithy"], None, Some("vell"), 1);
-    rent_day(&mut h, 1); // one sack: a migrant comes (steward's wage took it? stores checked after)
-    // Whatever came, an empty granary now only ever subtracts cheer.
+    rent_day(&mut h, 1);
     h.stores = 0;
     if folk_of(&h).is_empty() {
-        // The steward's wage emptied the granary before the migrant
-        // looked in: also correct — nobody comes to a bare table.
         rent_day(&mut h, 1);
         assert!(folk_of(&h).is_empty());
         return;
@@ -75,7 +67,7 @@ fn folk_eat_from_the_same_granary_as_wages() {
     for name in ["A", "B", "C", "D"] {
         h.owned[0].folk.push(Villager { name: name.into(), trade: Trade::Labourer, mood: 0, hunger: 0, skill: 0, practiced: 0, age: 30, seasons: 0 });
     }
-    h.stores = 3; // one for the steward's wage, one sack feeds four mouths
+    h.stores = 3;
     rent_day(&mut h, 1);
     assert_eq!(h.stores, 1, "steward's sack and the folk's sack are gone");
     assert!(folk_of(&h).iter().all(|f| f.hunger == 0 && f.mood > 0), "fed folk cheer up");
@@ -92,7 +84,6 @@ fn labourers_raise_the_room_going_up() {
 
 #[test]
 fn a_fed_guard_holds_the_walls() {
-    // A taproom, not a barracks: nothing but the guard keeps the walls.
     let mut h = village(&["taproom"], None, Some("vell"), 9);
     h.owned[0].folk.push(Villager { name: "Goda".into(), trade: Trade::Guard, mood: 0, hunger: 0, skill: 0, practiced: 0, age: 30, seasons: 0 });
     rent_day(&mut h, 1);
@@ -116,8 +107,6 @@ fn beds_cap_the_village_and_the_unhoused_sour() {
         h.owned[0].folk.push(Villager { name: name.into(), trade: Trade::Labourer, mood: 0, hunger: 0, skill: 0, practiced: 0, age: 30, seasons: 0 });
     }
     rent_day(&mut h, 1);
-    // One bed (the taproom), three folk: no fourth migrant, and two
-    // sleep rough — fed (+1) but unhoused (-1) nets them no cheer.
     assert_eq!(folk_of(&h).len(), 3);
     assert_eq!(folk_of(&h)[0].mood, 1, "the housed one cheers");
     assert_eq!(folk_of(&h)[1].mood, 0, "the unhoused do not");
@@ -137,7 +126,6 @@ fn a_merchant_guest_brings_grain_and_counts_down_the_stay() {
     let mut h = village(&["stall"], None, Some("vell"), 5);
     h.owned[0].visitors.push(Visitor { name: "Piers".into(), kind: VisitorKind::Merchant, days: 2 });
     rent_day(&mut h, 1);
-    // The steward's wage took a sack; the merchant's pack put one back.
     assert_eq!(h.stores, 5);
     assert_eq!(h.owned[0].visitors[0].days, 1, "the stay counts down");
     rent_day(&mut h, 1);
@@ -212,15 +200,13 @@ fn a_settle_that_grants_nothing_changes_nothing_keeperless_plots_and_all() {
     use crate::realm::Spoils;
     use crate::rules::countryside::{self, Country};
     let mut country = Country::default();
-    country.built |= 1; // the bakery, raised before keepers were named
+    country.built |= 1;
     let before = country.clone();
     let mut treasury = Spoils::default();
-    // A refused request (the bakery already stands, re-asked).
     let marks = BTreeMap::from([("country:build:bakery".to_string(), 1)]);
     let (changed, _) = countryside::settle(&mut country, &mut treasury, &marks);
     assert!(!changed, "no backfill hides inside a settle");
     assert_eq!(country, before);
-    // The board still has a name for her: the derived keeper.
     assert_eq!(keeper_name("bakery"), keeper_name("bakery"));
     assert!(country.valid());
 }
@@ -251,7 +237,6 @@ fn a_guest_petitions_to_settle_in_a_fed_village_with_a_spare_bed() {
 
 #[test]
 fn a_guest_takes_the_road_when_there_is_no_bed_or_no_dinner() {
-    // No bed: the one room's bed is taken.
     let mut h = village(&["taproom"], None, Some("vell"), 9);
     h.owned[0].folk.push(Villager { name: "Berta".into(), trade: Trade::Brewer, mood: 0, hunger: 0, skill: 0, practiced: 0, age: 30, seasons: 0 });
     h.owned[0].visitors.push(Visitor { name: "Jory".into(), kind: VisitorKind::Troubadour, days: 1 });
@@ -259,7 +244,6 @@ fn a_guest_takes_the_road_when_there_is_no_bed_or_no_dinner() {
     assert_eq!(folk_of(&h).len(), 1, "no bed, no settling");
     assert!(h.news.iter().any(|n| n.contains("Jory") && n.contains("takes the road")), "{:?}", h.news);
 
-    // No dinner: beds to spare, but the village itself went hungry.
     let mut h = village(&["stall", "taproom"], None, Some("vell"), 0);
     h.owned[0].folk.push(Villager { name: "Berta".into(), trade: Trade::Brewer, mood: 0, hunger: 0, skill: 0, practiced: 0, age: 30, seasons: 0 });
     h.owned[0].visitors.push(Visitor { name: "Piers".into(), kind: VisitorKind::Merchant, days: 1 });
@@ -292,13 +276,11 @@ fn hungry_or_idle_hands_learn_nothing() {
 
 #[test]
 fn a_child_is_born_in_a_chartered_town_and_comes_of_age() {
-    // Four beds: room for a migrant and a cradle both.
     let mut h = village(&["taproom", "smithy", "shrine", "stall"], None, Some("vell"), 60);
     h.owned[0].stars = 3;
     for (name, trade) in [("Berta", Trade::Brewer), ("Col", Trade::Smith)] {
         h.owned[0].folk.push(Villager { name: name.into(), trade, mood: 4, hunger: 0, skill: 1, practiced: 6, age: 28, seasons: 0 });
     }
-    // The cradle fills within a few rent days of trying.
     let mut born = false;
     for _ in 0..16 {
         rent_day(&mut h, 1);
@@ -311,7 +293,6 @@ fn a_child_is_born_in_a_chartered_town_and_comes_of_age() {
     assert!(h.news.iter().any(|n| n.contains("A child is born")), "{:?}", h.news);
     assert!(h.valid());
 
-    // Fourteen years on, the child takes up the wanted trade.
     let child = h.owned[0].folk.iter_mut().find(|f| f.trade == Trade::Child).unwrap();
     child.age = COMING_OF_AGE - 1;
     child.seasons = SEASONS_PER_YEAR - 1;
@@ -322,7 +303,6 @@ fn a_child_is_born_in_a_chartered_town_and_comes_of_age() {
 
 #[test]
 fn camps_have_no_cradles_and_the_old_die_mourned() {
-    // One star: a camp with a coffer, however content its folk.
     let mut h = village(&["taproom", "smithy"], None, Some("vell"), 60);
     for (name, trade) in [("Berta", Trade::Brewer), ("Col", Trade::Smith)] {
         h.owned[0].folk.push(Villager { name: name.into(), trade, mood: 5, hunger: 0, skill: 1, practiced: 6, age: 28, seasons: 0 });
@@ -330,7 +310,6 @@ fn camps_have_no_cradles_and_the_old_die_mourned() {
     rent_day(&mut h, 8);
     assert!(!folk_of(&h).iter().any(|f| f.trade == Trade::Child), "no charter, no cradles");
 
-    // A soul past their allotted years dies, and the village grieves.
     let mut h = village(&["taproom", "smithy"], None, Some("vell"), 60);
     h.owned[0].folk.push(Villager { name: "Uda".into(), trade: Trade::Brewer, mood: 3, hunger: 0, skill: 2, practiced: 12, age: 100, seasons: 0 });
     h.owned[0].folk.push(Villager { name: "Col".into(), trade: Trade::Smith, mood: 3, hunger: 0, skill: 1, practiced: 6, age: 30, seasons: 0 });
@@ -346,7 +325,6 @@ fn camps_have_no_cradles_and_the_old_die_mourned() {
 fn larder_plots_feed_the_granary_on_a_rent_day() {
     use crate::rules::countryside::Country;
     use crate::rules::holdings::note_country;
-    // The bakery stands in the countryside; the realm holds the Crypt.
     let mut country = Country::default();
     country.built |= 1;
     let mut h = village(&["taproom"], None, Some("vell"), 0);
@@ -354,9 +332,8 @@ fn larder_plots_feed_the_granary_on_a_rent_day() {
     assert_eq!(h.larders, 1);
     assert!(!note_country(&mut h, &country), "and then it is noted");
     h.owned[0].folk.push(Villager { name: "Berta".into(), trade: Trade::Brewer, mood: 0, hunger: 0, skill: 0, practiced: 0, age: 30, seasons: 0 });
-    h.larders = 2; // as if the bothy stood too
+    h.larders = 2;
     rent_day(&mut h, 1);
-    // Two sacks in: one pays the steward, one feeds Berta.
     assert_eq!(folk_of(&h)[0].hunger, 0, "the countryside's sacks fed the folk");
     assert!(h.news.iter().any(|n| n.contains("keepers send")), "{:?}", h.news);
     assert!(h.valid());

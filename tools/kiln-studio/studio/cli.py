@@ -1,15 +1,3 @@
-"""The kiln-studio command line.
-
-    kiln-studio job new "<brief>" [--variants N] [--agents claude,codex] [--budget 20m] [--concept]
-    kiln-studio job list | status <id> | resume <id>
-    kiln-studio serve [--port 8770]            the review page on 127.0.0.1
-    kiln-studio lighter [--port 8771]          Pixel Art Lighter (green-up normals)
-    kiln-studio mcp --root <dir>               the kiln MCP server on stdio
-    kiln-studio mcp-config --root <dir>        how to add it to Claude Code or Codex
-    kiln-studio shot|check|describe|export <source> [--name N]
-    kiln-studio models | backends              what is reachable here
-    kiln-studio comfy up|stop|status
-"""
 import argparse
 import json
 import os

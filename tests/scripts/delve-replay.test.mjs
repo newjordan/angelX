@@ -1,7 +1,3 @@
-// The Delve replay gate (scripts/delve/replay.mjs): its reader, its BJ1 codec,
-// its deltas, its comparison, and the whole thing end to end against a small
-// stand-in worker, in plain JSON, in BJ1 and resident.
-//   node --test tests/scripts/delve-replay.test.mjs
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -34,7 +30,6 @@ test('BJ1 turns floats into f32 bits and wide integers into hex, and back', () =
   assert.equal(fromBj1(bj), '{"a":0,"b":4294967295,"c":-4294967295,"d":4294967296,"e":18446744073709551615,"f":0.5,"g":-0.0,"h":"f3f800000 w0000000000000001"}')
   assert.throws(() => toBj1('{"x":0.1}'), /not an f32/)
   assert.throws(() => toBj1('{"x":-4294967296}'), /outside BJ1/)
-  // The literals false, true and null are not numbers.
   assert.equal(toBj1('[false,true,null]'), '[false,true,null]')
 })
 
@@ -66,12 +61,9 @@ test('comparison ignores key order and tells what the tick got wrong', () => {
   assert.match(one('{"a":[1,2]}', '{"a":[1]}').why, /length/)
   assert.equal(one('{"p":{"q":[0,{"r":1}]}}', '{"p":{"q":[0,{"r":2}]}}').path, 'p.q[1].r')
   assert.match(one('{"a":9007199254740993}', '{"a":9007199254740992}').why, /int/)
-  // f32 bits, not decimal spelling
   assert.deepEqual(compare(parse('{"a":0.30000001192092896}'), parse('{"a":0.30000001192092896}')), [])
   assert.equal(one('{"a":0.30000001192092896}', '{"a":0.3000000417232513}').expected.includes('0x3e99999a'), true)
 })
-
-// ---- end to end against a stand-in worker --------------------------------------
 
 const STAND_IN = `#!/usr/bin/env node
 // A tiny worker: the state is {"schema":6,"run":{"tick":N,"x":F,"big":4294967297,"list":[...]}}
@@ -107,7 +99,6 @@ function corpus(dir, name, ticks) {
     const step = t % 5 !== 3
     if (step) { list = [...list, n]; n++; x += 0.03125 }
     const after = JSON.stringify(state(n, x, list))
-    // a paused tick returns its input as it is
     lines.push(`{"kind":"apply","before":null,"event":{"inputs":{},"settings":{},"phrasebook":["",[]],"step":${step}},"after":${after}}`)
   }
   writeFileSync(join(dir, `${name}.jsonl.gz`), gzipSync(lines.join('\n') + '\n'))
@@ -120,7 +111,6 @@ test('end to end: a worker that follows the corpus passes, one that drifts is ca
     writeFileSync(worker, STAND_IN)
     chmodSync(worker, 0o755)
     corpus(dir, 'steady', 12)
-    // the stand-in grows its tick by one only when stepping; keep the file honest
     const run = (extra = [], env = {}) =>
       spawnSync(process.execPath, [join(here, 'replay.mjs'), worker, dir, ...extra], { encoding: 'utf8', env: { ...process.env, ...env } })
     const ok = run()
@@ -129,7 +119,6 @@ test('end to end: a worker that follows the corpus passes, one that drifts is ca
     const from = run(['--from', '7'])
     assert.equal(from.status, 0, from.stdout)
     assert.match(from.stdout, /5\/12 ticks/)
-    // the shim in front of the stand-in: BJ1, resident, and both
     for (const mode of [{ SHIM_BJ1: '1' }, { SHIM_RESIDENT: '1' }, { SHIM_BJ1: '1', SHIM_RESIDENT: '1' }]) {
       const shimmed = spawnSync(process.execPath, [join(here, 'replay.mjs'), join(here, 'replay-shim.mjs'), dir], {
         encoding: 'utf8',
@@ -137,7 +126,6 @@ test('end to end: a worker that follows the corpus passes, one that drifts is ca
       })
       assert.equal(shimmed.status, 0, `${JSON.stringify(mode)}\n${shimmed.stdout}${shimmed.stderr}`)
     }
-    // a worker that drifts one f32 step from tick 6
     const broken = spawnSync(process.execPath, [join(here, 'replay.mjs'), join(here, 'replay-shim.mjs'), dir], {
       encoding: 'utf8',
       env: { ...process.env, SHIM_BJ1: '1', SHIM_BREAK: '7', SHIM_WORKER: worker },

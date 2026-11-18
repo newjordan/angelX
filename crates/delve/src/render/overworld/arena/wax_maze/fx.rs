@@ -13,14 +13,11 @@ use crate::rules::juice::Weight;
 use crate::rules::wax_show::{self, CATCH_LIFE, MUNCH_GAP, POP_LIFE, SPLASH_LIFE, TOUCH_LIFE};
 use crate::rules::{Hero, Run};
 
-/// A tile's middle in room pixels.
 pub(super) fn tile_centre(tile: u16, cols: i32) -> (i32, i32) {
     let (x, y) = (i32::from(tile) % cols, i32::from(tile) / cols);
     (x * super::super::TILE + super::super::TILE / 2, y * super::super::TILE + super::super::TILE / 2)
 }
 
-/// The floor's moments, under the knights: a drop's pop and the holy
-/// water's rings.
 pub(super) fn under(cv: &mut Img, run: &Run, maze: &WaxMaze) {
     let (now, cols) = (run.tick as u32, run.room().cols as i32);
     for p in &maze.show.pops {
@@ -41,7 +38,6 @@ pub(super) fn under(cv: &mut Img, run: &Run, maze: &WaxMaze) {
     }
 }
 
-/// A drop eaten: a small ring and crumbs thrown off it.
 fn pop(cv: &mut Img, at: (f32, f32), age: u32, seed: u32, tick: u64) {
     let mut pen = Pen::new(cv, 120);
     if age < 6 {
@@ -51,8 +47,6 @@ fn pop(cv: &mut Img, at: (f32, f32), age: u32, seed: u32, tick: u64) {
     crumbs.each(age as f32, |m| pfx::mote(&mut pen, &m, Shape::Dot, ramps::HOLY, 1, tick));
 }
 
-/// The holy water taken: rays at the flask, then two rings going out across
-/// the lanes and drops thrown up and falling back.
 fn splash(cv: &mut Img, at: (f32, f32), age: u32, seed: u32, tick: u64) {
     let a = age as f32;
     let mut pen = Pen::new(cv, 2600);
@@ -68,7 +62,6 @@ fn splash(cv: &mut Img, at: (f32, f32), age: u32, seed: u32, tick: u64) {
     spray.each(a, |m| pfx::mote(&mut pen, &m, Shape::Droplet, ramps::WATER, 1, tick));
 }
 
-/// A chevron in a seat's ink over a knight's head, outlined black.
 fn chevron(cv: &mut Img, x: i32, y: i32, ink: char) {
     for dx in -2..=2 {
         cv.put(x + dx, y - 1, 'k');
@@ -85,8 +78,6 @@ fn chevron(cv: &mut Img, x: i32, y: i32, ink: char) {
     }
 }
 
-/// A hot run's wake behind a knight: a dithered streak of their ink that
-/// grows with the run.
 fn wake(cv: &mut Img, (x, y): (i32, i32), way: (i32, i32), run: u16, ink: char) {
     let len = 4 + i32::from(run.min(30)) / 2;
     for j in 4..len {
@@ -101,8 +92,6 @@ fn wake(cv: &mut Img, (x, y): (i32, i32), way: (i32, i32), run: u16, ink: char) 
     }
 }
 
-/// What stands over the knights: each knight's pointer, hot runs and their
-/// tags, a touch's flash and spilt wax, a wraith caught.
 pub(super) fn over(cv: &mut Img, run: &Run, maze: &WaxMaze, live: bool) {
     let (now, tick) = (run.tick as u32, run.tick);
     for (&id, hero) in run.players.iter().filter(|(_, h)| live && h.hp > 0 && !h.stone && !h.absent) {
@@ -134,8 +123,6 @@ pub(super) fn over(cv: &mut Img, run: &Run, maze: &WaxMaze, live: bool) {
     }
 }
 
-/// A run's size over the knight, their ink, and a fuse running down to the
-/// moment it breaks.
 fn combo_tag(cv: &mut Img, maze: &WaxMaze, id: u32, (x, y): (i32, i32), n: u16, now: u32, ink: char) {
     let (last, _) = maze.show.combo.get(&id).copied().unwrap_or((0, 0));
     let hot = n >= 25;
@@ -149,9 +136,6 @@ fn combo_tag(cv: &mut Img, maze: &WaxMaze, id: u32, (x, y): (i32, i32), n: u16, 
     }
 }
 
-/// A knight touched: where they stood a white ghost holds a moment and the
-/// wax they spilt arcs away, the bite's sparks and the wax lost as a number;
-/// where they were sent back to, a ring.
 fn touched(cv: &mut Img, run: &Run, t: &wax_show::Touch, age: u32) {
     let at16 = |p: (i32, i32)| (p.0 * super::super::TILE / 16, p.1 * super::super::TILE / 16);
     let (x, y) = at16(t.at);
@@ -161,7 +145,6 @@ fn touched(cv: &mut Img, run: &Run, t: &wax_show::Touch, age: u32) {
         && let Some(hero) = run.players.get(&who)
     {
         let ghost = ghost_of(hero, who);
-        // A knight's feet are on the tile's lower half.
         cv.stamp(&ghost, x - ghost.w / 2, y + 7 - ghost.h);
     }
     juice::impact_burst(cv, (x as f32, (y - 4) as f32), age, u32::from(t.who) * 31 + t.born, weight, run.tick);
@@ -171,7 +154,6 @@ fn touched(cv: &mut Img, run: &Run, t: &wax_show::Touch, age: u32) {
         let ang = (h % 360) as f32 * std::f32::consts::PI / 180.0;
         let speed = 1.6 + (h / 360 % 10) as f32 * 0.22;
         let a = age as f32;
-        // Thrown out with a drag, hopping up and back down to the floor.
         let slide = 1.0 - crate::motion::math::exp(-0.11 * a);
         let reach = speed / 0.11;
         let hop = 9.0 * crate::motion::math::sin((a / 22.0).min(1.0) * std::f32::consts::PI);
@@ -189,20 +171,16 @@ fn touched(cv: &mut Img, run: &Run, t: &wax_show::Touch, age: u32) {
         if age < 14 {
             pen.ring((hx as f32, hy as f32 - 4.0), 3.0 + age as f32 * 1.4, 1.2, 1.0, ramps::HOLY, age as f32 / 14.0);
         }
-        // Sent back, where they now stand: what it cost, over their head.
         if t.lost > 0 && (hx - x).abs() + (hy - y).abs() > 40 {
             juice::pop_number(cv, &format!("-{}", t.lost), (hx, hy - 26), age.saturating_sub(2), 34, 2, '7');
         }
     }
 }
 
-/// A knight as one bright silhouette, for the instant of a touch.
 fn ghost_of(hero: &Hero, id: u32) -> Img {
     juice::impact_frame(&knights::figure(hero, id), 'H')
 }
 
-/// A pale wraith caught: a cold ring and sparks where it stood, its crown's
-/// gold thrown up, smoke and embers, and what it was worth rising off it.
 fn caught(cv: &mut Img, c: &wax_show::Catch, age: u32, tick: u64) {
     let (x, y) = (c.at.0 * super::super::TILE / 16, c.at.1 * super::super::TILE / 16);
     let weight = wax_show::catch_weight(c.chain);

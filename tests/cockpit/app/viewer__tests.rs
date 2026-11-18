@@ -115,9 +115,6 @@ fn ambient_halfblocks_use_one_resident_encode_and_keep_map_policy() {
     );
     assert!(viewer.map_pending.is_none());
 
-    // Hold a different admitted encode. A new destination or size must
-    // return false to its current-location braille fallback, never paint
-    // the previous room under the new caption while the worker catches up.
     let (_hold, rx) = mpsc::channel();
     viewer.map_pending = Some(PendingPortal {
         key: PortalCacheKey {
@@ -355,8 +352,6 @@ fn kitty_map_composes_off_the_draw_thread_on_one_resident_worker() {
     use ratatui::backend::TestBackend;
     use std::time::Instant;
 
-    // Byte access is where the lazy compose runs; record which thread
-    // takes it so the test pins compose placement, not just encoding.
     struct LazyPixels {
         bytes: Vec<u8>,
         seen: Arc<Mutex<Vec<std::thread::ThreadId>>>,
@@ -426,8 +421,6 @@ fn portrait_character_protocol_is_anchored_to_the_bottom_right() {
 
 #[test]
 fn portrait_canvas_moves_alpha_edges_without_rescaling() {
-    // The figure: clearly visible alpha. Faint resampling haze around it is
-    // not part of the portrait and is dropped by the anchor.
     fn visible(image: &image::RgbaImage) -> image::RgbaImage {
         let (mut left, mut top) = image.dimensions();
         let (mut right, mut bottom) = (0, 0);
@@ -523,7 +516,6 @@ fn helm_portrait_anchor_preserves_armor_pixels_and_can_export_review() {
         .resize(&original, picker.font_size(), target, None)
         .to_rgba8();
     let after = anchor_portrait_canvas(original, &picker, size, false).to_rgba8();
-    // The canvas is the fitted image widened to whole cells.
     let (fw, fh) = (
         u32::from(picker.font_size().width),
         u32::from(picker.font_size().height),
@@ -535,8 +527,6 @@ fn helm_portrait_anchor_preserves_armor_pixels_and_can_export_review() {
             before.height().div_ceil(fh) * fh
         )
     );
-    // The figure (clearly visible alpha) is unchanged and sits hard in the
-    // lower-right corner: shoulder against the wall, torso on the base.
     let figure = |image: &image::RgbaImage| {
         image
             .pixels()
@@ -990,8 +980,6 @@ fn missing_portrait_is_negatively_cached_instead_of_retried_each_frame() {
 fn pixel_portraits_fill_the_bay_sharp_and_keep_their_frame() {
     #[allow(deprecated)]
     let picker = Picker::from_fontsize((8, 16).into());
-    // A shared-canvas pixel frame: this pose leaves the top-left empty, which
-    // another pose of the sheet fills. The empty space is kept, not trimmed.
     let mut frame = image::RgbaImage::new(120, 160);
     for y in 40..160 {
         for x in 30..120 {
@@ -1015,7 +1003,6 @@ fn pixel_portraits_fill_the_bay_sharp_and_keep_their_frame() {
         }
         (left, top, right, bottom)
     };
-    // Opaque pixels within `tolerance` of one of the sprite's two values.
     let hard = |image: &image::RgbaImage, tolerance: u8| {
         let opaque: Vec<_> = image.pixels().filter(|p| p[3] == 255).collect();
         let pure = opaque
@@ -1025,7 +1012,6 @@ fn pixel_portraits_fill_the_bay_sharp_and_keep_their_frame() {
         (pure, opaque.len())
     };
 
-    // A 480x480px bay takes exactly 3x: every pixel stays hard.
     let out = anchor_portrait_canvas(
         image::DynamicImage::ImageRgba8(frame.clone()),
         &picker,
@@ -1045,8 +1031,6 @@ fn pixel_portraits_fill_the_bay_sharp_and_keep_their_frame() {
     );
     assert_eq!((out.width(), out.height()), (360, 480), "whole frame kept");
 
-    // A 400x400px bay is filled at 2.5x, not left at the 2x half step, and
-    // stays sharp: a seam is at most a faint blend, never a mid-grey.
     let out = anchor_portrait_canvas(
         image::DynamicImage::ImageRgba8(frame.clone()),
         &picker,
@@ -1064,7 +1048,6 @@ fn pixel_portraits_fill_the_bay_sharp_and_keep_their_frame() {
     let (pure, opaque) = hard(&out, 24);
     assert_eq!(pure, opaque, "{pure} of {opaque} hard");
 
-    // A tiny bay shrinks the figure and still fits it.
     let tiny = anchor_portrait_canvas(
         image::DynamicImage::ImageRgba8(frame),
         &picker,
@@ -1115,9 +1098,6 @@ fn dungeon_native_room_encodes_kitty_pixels_inside_game_viewport() {
     ));
     let seat = sim.seat(1).expect("the host's own seat");
     let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 40)).unwrap();
-    // The seat's first picture is drawn on the render worker; a frame waits
-    // a while for it, and a later frame places it once it is done (a busy
-    // machine draws a debug build's first room slowly).
     let until = std::time::Instant::now() + std::time::Duration::from_secs(20);
     let mut upload = None;
     while upload.is_none() && std::time::Instant::now() < until {
@@ -1135,7 +1115,6 @@ fn dungeon_native_room_encodes_kitty_pixels_inside_game_viewport() {
             .unwrap();
         upload = viewer.plane.game_upload.take();
     }
-    // It goes out as one PNG Kitty places.
     let upload = upload.expect("the frame is uploaded with a draw");
     assert!(upload.contains("f=100"));
     let buffer = terminal.backend().buffer();
@@ -1189,7 +1168,6 @@ fn a_delve_frame_goes_to_kitty_once_and_keeps_its_shape() {
             .to_string()
     };
     assert_ne!(id(first), id(second), "a new frame fills the other slot");
-    // 768x448 into 100x30 cells of 1:2 (1000x600): width-bound, 29 rows.
     let (_, cols, rows, _) = viewer.plane.game_png.unwrap();
     assert_eq!((cols, rows), (100, 29));
 

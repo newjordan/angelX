@@ -1,10 +1,3 @@
-"""The library: pieces people kept, each in ~/.angelX/kiln/library/<name>/.
-
-A piece is its source (the recipe), its renders (the ladder shot and the
-strip), and notes.json: the brief it answered, tags, the votes and notes it
-got, and where it came from. Directors and agents search it for what the
-group liked before.
-"""
 import json
 import re
 import shutil
@@ -34,8 +27,6 @@ def pieces():
 
 
 def search(query="", limit=8):
-    """Pieces whose name, brief, tags or notes share words with the query,
-    best first; every piece when the query is empty."""
     words = set(re.findall(r"[a-z0-9]+", query.lower()))
     scored = []
     for p in pieces():
@@ -51,7 +42,6 @@ def search(query="", limit=8):
 
 
 def add(name, source, notes="", tags=(), shot=None, renders=(), brief="", votes=(), origin=None, by="review"):
-    """Keep a piece: copies its source and pictures, writes notes.json."""
     d = paths.LIBRARY / slug(name)
     d.mkdir(parents=True, exist_ok=True)
     src = Path(source)

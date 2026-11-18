@@ -1,4 +1,3 @@
-"""Move grammar, library rules and builds on the seven showcase sprites."""
 from pathlib import Path
 
 import pytest
@@ -63,7 +62,6 @@ def _boom(text):
 
 def test_limits_rejected_with_line_numbers():
     header = 'move bad slot=slash\n'
-    # Unknown part and unknown key name the offending line.
     assert 'line 2:' in _boom(header + 'f ticks=4 nose=10\nf ticks=4 torso=1\n')
     assert 'line 2:' in _boom(header + 'f ticks=4 bounce=1\nf ticks=4 torso=1\n')
     assert 'line 2:' in _boom(header + 'f ticks=0 torso=10\nf ticks=4 torso=1\n')
@@ -79,5 +77,4 @@ def test_limits_rejected_with_line_numbers():
     assert 'line 14:' in _boom(many)
     long = header + 'f ticks=30 torso=10\n' * 3 + 'f ticks=1 torso=-10\n'
     assert 'line 5:' in _boom(long)
-    # A key that is not a part and not a frame field.
     assert 'line 1:' in _boom('move bad slot=slash mystery=1\nf ticks=4 torso=1\nf ticks=4 torso=-1\n')

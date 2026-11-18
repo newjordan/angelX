@@ -33,7 +33,6 @@ fn peal_is_last_and_every_older_game_keeps_its_index() {
     for (game, index) in before_siege {
         assert_eq!(game.index(), index, "{game:?} keeps its save index");
     }
-    // Every game is in ALL exactly once.
     for a in Game::ALL {
         assert_eq!(Game::ALL.iter().filter(|b| **b == a).count(), 1);
     }

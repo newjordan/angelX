@@ -1,13 +1,4 @@
 #!/usr/bin/env python3
-"""Bard tracks, step 3: the excerpt of each song the game plays.
-
-An excerpt is EXCERPT_BARS bars, starting where a drop lands (the full band
-comes back after a gap) so the first bars carry the lead's hook; the lead
-(tier 1) must be clearly there from the first bar. Reads `analyze.py`'s
-JSON; writes `OUT_DIR/<id>.excerpt.json`.
-
-    python3 pick.py ANALYSIS_DIR [id ...]
-"""
 import json
 import pathlib
 import sys
@@ -23,7 +14,7 @@ def pick(an):
     bar_db = np.array(an["bar_db"])
     n = len(bar_db)
     ref = np.percentile(bar_db, 90, axis=0)
-    rel = bar_db - ref  # per layer, dB under the song's own loud level
+    rel = bar_db - ref
     full = np.all(rel > np.array([-14.0, -14.0, -12.0]), axis=1)
     best = None
     for s in range(0, n - EXCERPT_BARS + 1):
@@ -33,7 +24,7 @@ def pick(an):
         lead_all = rel[win, 0].mean()
         bass3 = rel[s:s + 3, 1].min()
         onset = s == 0 or not full[s - 1]
-        onset_loud = rel[s, 2] > -6  # the drums are in on the first bar (the kick returns)
+        onset_loud = rel[s, 2] > -6
         if frac < MIN_FULL or lead3 < -8.0 or not full[s]:
             continue
         score = 6 * (frac >= STRICT_FULL) + 3 * frac + 0.15 * lead3 + 0.1 * lead_all + (0.6 if onset else 0.0) + (0.3 if onset_loud else 0.0)

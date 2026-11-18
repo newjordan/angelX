@@ -21,22 +21,14 @@ use crate::rules::{HZ, MAX_PLAYERS};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-/// Ticks of title and 3-2-1 before the siege begins: the lanes wait, so the
-/// whole table starts on the same breath.
 pub const HOLD: u32 = 66;
-/// Ticks the GO stands over the first strides.
 pub const GO_LIFE: u32 = 26;
-/// Every this many pennons felled at the table, every knight without a ward
-/// is handed one.
 pub const RALLY_EVERY: u32 = 3;
-/// Ticks each kind of moment stays on the books for its effects.
 pub const HIT_LIFE: u32 = 40;
 pub const DOWN_LIFE: u32 = 44;
 pub const PUFF_LIFE: u32 = 20;
 pub const CALL_LIFE: u32 = 64;
-/// The last seconds are called out loud.
 pub const LAST_SECONDS: u32 = 5;
-/// A lead must be held this long (ticks) before it is called again.
 const LEAD_GAP: u32 = 2 * HZ;
 
 const MOST_HITS: usize = 10;
@@ -44,9 +36,6 @@ const MOST_DOWNS: usize = 8;
 const MOST_PUFFS: usize = 24;
 const MOST_CALLS: usize = 8;
 
-/// A pennon struck or felled in `seat`'s lane: which foe (`0..=3`, the
-/// captain last), where (world pixels), how it weighed, what the hit was
-/// worth, the knight's run of hits and whether the foe was felled.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Hit {
     pub seat: u32,
@@ -66,47 +55,33 @@ impl Hit {
     }
 }
 
-/// A knight knocked down, or a ward broken in their stead: where, whether
-/// they fell into the moat.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Down {
     pub seat: u32,
     pub x: i16,
-    /// The run of hits the fall broke.
     pub lost: u32,
     pub pit: bool,
     pub ward: bool,
     pub born: u32,
 }
 
-/// What a little moment was.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Puff {
-    /// A boot leaves the stone.
     Jump,
-    /// A boot lands.
     Land,
-    /// A hook-bow loosed: where the bolt left, which way it went.
     Muzzle,
-    /// A ward picked up (or handed round by the rally).
     Ward,
-    /// A sentry wakes and takes aim.
     Wake,
-    /// A foe's bolt leaves it, or the captain's blow lands.
     Strike,
-    /// A knight set down on the safe stone after a fall.
     Rise,
 }
 
-/// A little moment in `seat`'s lane at `x` (world pixels).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Moment {
     pub kind: Puff,
     pub seat: u32,
     pub x: i16,
     pub y: i16,
-    /// A way (`-1`, `0` or `1` each) for those that have one; for `Strike`
-    /// and `Wake` the foe's place.
     pub dx: i8,
     pub dy: i8,
     pub born: u32,
@@ -118,27 +93,18 @@ impl Moment {
     }
 }
 
-/// What a banner calls. Words are the picture's.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Cry {
-    /// The n-th sentry (`1..=3`) felled.
     Wave(u8),
-    /// A run of this many hits without a fall.
     Combo(u8),
-    /// The captain has woken.
     Captain,
-    /// The captain's banner is torn (`1`) or he makes his last stand (`2`).
     Torn(u8),
-    /// The captain is felled: the siege is broken.
     Broken,
-    /// Every third pennon at the table: a ward for all.
     Rally,
-    /// The knight went ahead.
     Lead,
 }
 
 impl Cry {
-    /// How loudly it is shown: the banner with the higher rank stays on top.
     pub fn rank(self) -> u8 {
         match self {
             Cry::Broken => 9,
@@ -152,12 +118,10 @@ impl Cry {
     }
 }
 
-/// A banner called for a knight (`who` 0: for the whole table).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Call {
     pub cry: Cry,
     pub who: u32,
-    /// For a `Wave`: this knight was the table's first to fell it.
     pub first: bool,
     pub born: u32,
 }
@@ -170,33 +134,22 @@ impl Call {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Show {
-    /// Ticks since the siege was called, the title included.
     pub t: u32,
-    /// The best the table had made before this round, for a new best.
     pub best0: u16,
     pub hits: Vec<Hit>,
     pub downs: Vec<Down>,
     pub moments: Vec<Moment>,
     pub calls: Vec<Call>,
-    /// Pennons felled at the table, every lane's.
     pub felled: u32,
-    /// Rallies handed round.
     pub rallies: u32,
-    /// The knight now ahead on their own.
     pub lead: Option<u32>,
-    /// The tick the lead was last called.
     pub led: u32,
-    /// The tick the siege ended (the time ran out or the last captain fell).
     pub end: Option<u32>,
-    /// Who felled each of the four first.
     pub first: [u32; 4],
-    /// Each knight's highest combo call, so it is called once.
     called: BTreeMap<u32, u16>,
-    /// Each knight's captain stage last called.
     torn: BTreeMap<u32, u8>,
 }
 
-/// What a lane was before the tick, to read the tick's changes off it.
 #[derive(Clone, Debug)]
 pub struct Snap {
     pub hp: [u8; 4],
@@ -239,7 +192,6 @@ fn px(v: i32) -> i16 {
     v.clamp(-2000, 2000) as i16
 }
 
-/// The most hits each foe takes.
 fn most(i: usize) -> u32 {
     if i == 3 { 18 } else { 3 }
 }
@@ -267,8 +219,6 @@ impl Show {
             && self.rallies <= 4 * MAX_PLAYERS
     }
 
-    /// One tick of the siege (call first, before anything records): let go
-    /// what is old.
     pub fn tick(&mut self) {
         self.t = self.t.saturating_add(1);
         let now = self.t;
@@ -300,8 +250,6 @@ impl Show {
         });
     }
 
-    /// Read what `seat`'s lane did this tick off what it was (`before`).
-    /// Returns the heaviest weight of a blow landed, for the room's hold.
     pub fn observe(&mut self, seat: u32, before: &Snap, d: &Lane) -> Option<Weight> {
         let mut heaviest = None;
         let now = self.t;
@@ -356,19 +304,16 @@ impl Show {
                     }
                 }
             }
-            // A foe wakes: its first aimed beat.
             if before.attack[i] == 0 && f.attack > 0 {
                 self.moment(Puff::Wake, seat, f.x, FLOOR - if f.captain { 70 } else { 44 }, (i as i32, 0));
                 if f.captain {
                     self.call(Cry::Captain, seat, false);
                 }
             }
-            // A foe's blow leaves it.
             if !before.strike[i] && f.beat == super::Beat::Attack && f.hp > 0 {
                 self.moment(Puff::Strike, seat, f.x, FLOOR, (i as i32, i32::from(f.hook)));
             }
         }
-        // The run of hits, called at each fifth.
         if d.chain > before.chain && d.chain >= 5 && d.chain % 5 == 0 {
             let top = self.called.entry(seat).or_default();
             if u32::from(*top) < d.chain {
@@ -379,7 +324,6 @@ impl Show {
         if d.chain == 0 {
             self.called.remove(&seat);
         }
-        // Knocked down, or a ward broken for them.
         if d.falls > before.falls || (before.ward > 0 && d.ward == 0 && d.falls == before.falls) {
             if self.downs.len() >= MOST_DOWNS {
                 self.downs.remove(0);
@@ -395,33 +339,26 @@ impl Show {
             });
             heaviest = heaviest.max(Some(Weight::Crushing));
         }
-        // A fall ends: the knight is set down on the safe stone.
         if before.down == 1 && d.down == 0 {
             self.moment(Puff::Rise, seat, d.x / Q, FLOOR, (0, 0));
         }
-        // A boot leaves the stone, a boot lands.
         if before.grounded && d.ground.is_none() && d.vy < 0 {
             self.moment(Puff::Jump, seat, d.x / Q, FLOOR, (d.dir, 0));
         }
         if !before.grounded && d.ground.is_some() && d.down == 0 && before.down == 0 {
             self.moment(Puff::Land, seat, d.x / Q, FLOOR, (d.dir, 0));
         }
-        // A bolt leaves the hook-bow.
         if d.last_shot != before.last_shot && d.last_shot.is_some() {
             let (ax, ay) = d.aim;
             let y = d.y / Q - if d.duck { 10 } else if ay < 0 { 29 } else if ay > 0 { 12 } else { 18 };
             self.moment(Puff::Muzzle, seat, d.x / Q + d.dir * 18, y, (ax, ay));
         }
-        // A ward found.
         if d.pickups != before.pickups {
             self.moment(Puff::Ward, seat, d.x / Q, FLOOR - 20, (0, 0));
         }
         heaviest
     }
 
-    /// The tick's tallies, after every lane has moved: who leads (judged on
-    /// the board's own order), and whether the table has felled a third
-    /// pennon since the last rally. Returns whether a rally is due.
     pub fn standings(&mut self, scores: &[(u32, u32)]) -> bool {
         let top = scores.iter().map(|&(_, s)| s).max().unwrap_or(0);
         let leaders: Vec<u32> = scores.iter().filter(|&&(_, s)| s == top && top > 0).map(|&(id, _)| id).collect();
@@ -438,7 +375,6 @@ impl Show {
         self.felled / RALLY_EVERY > self.rallies
     }
 
-    /// The rally: `got` knights were handed a ward.
     pub fn rallied(&mut self, got: &[(u32, i32)]) {
         self.rallies += 1;
         for &(seat, x) in got {
@@ -449,12 +385,10 @@ impl Show {
         }
     }
 
-    /// The latest hit on `foe` in `seat`'s lane, if lately.
     pub fn struck(&self, seat: u32, foe: usize) -> Option<&Hit> {
         self.hits.iter().rev().find(|h| h.seat == seat && usize::from(h.foe) == foe)
     }
 
-    /// Ticks since the most recent moment of `kind` in `seat`'s lane.
     pub fn since(&self, kind: Puff, seat: u32) -> Option<u32> {
         self.moments.iter().filter(|m| m.kind == kind && m.seat == seat).map(|m| m.age(self.t)).min()
     }

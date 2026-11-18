@@ -22,9 +22,6 @@ pub(crate) const TOOLCHAIN: Route = Route::new(CELL, '⠓');
 pub(crate) const COVERAGE: Route = Route::new(CELL, '⠊');
 pub(crate) const JOB_OUTPUT: Route = Route::new(CELL, '⠚');
 
-/// One page on its own: its route's cells and its digit, three cells. A reply
-/// sends a one-sentence directive as its page; the values it names ride
-/// beside the address as data.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Page {
     pub(crate) route: Route,
@@ -40,24 +37,20 @@ impl Page {
         format!("{}{}", self.route.cells(), DIGITS[self.number - 1])
     }
 
-    /// The verbatim sentence this address decodes to.
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn text(self) -> String {
         self.route.sub().pages[self.number - 1].to_string()
     }
 }
 
-/// Several pages as one run of addresses, in order.
 pub(crate) fn run(pages: &[Page]) -> String {
     pages.iter().map(|page| page.cells()).collect()
 }
 
-// ⠨⠁ virtual URLs
 pub(crate) const SKILL_TOOL: Page = Page::new(VIRTUAL, 1);
 pub(crate) const GH_MUTATE: Page = Page::new(VIRTUAL, 2);
 pub(crate) const SKILL_BODY: Page = Page::new(VIRTUAL, 3);
 
-// ⠨⠃ conflicts
 pub(crate) const CONFLICT_READ_FIRST: Page = Page::new(CONFLICTS, 1);
 pub(crate) const CONFLICT_UNKNOWN: Page = Page::new(CONFLICTS, 2);
 pub(crate) const CONFLICT_WRITE_ONE: Page = Page::new(CONFLICTS, 3);
@@ -69,7 +62,6 @@ pub(crate) const CONFLICT_REREAD_CAREFULLY: Page = Page::new(CONFLICTS, 8);
 pub(crate) const CONFLICT_FOOTER: Page = Page::new(CONFLICTS, 9);
 pub(crate) const CONFLICT_RESOLVE: Page = Page::new(CONFLICTS, 10);
 
-// ⠨⠉ replace misses
 pub(crate) const STALE_EDIT: Page = Page::new(REPLACE, 1);
 pub(crate) const NOT_UNIQUE: Page = Page::new(REPLACE, 2);
 pub(crate) const ENCLOSING: Page = Page::new(REPLACE, 3);
@@ -79,7 +71,6 @@ pub(crate) const INDENTATION: Page = Page::new(REPLACE, 6);
 pub(crate) const CLOSEST_REGION: Page = Page::new(REPLACE, 7);
 pub(crate) const MORE_CONTEXT: Page = Page::new(REPLACE, 8);
 
-// ⠨⠙ hashline
 pub(crate) const LINE_ID: Page = Page::new(HASHLINE, 1);
 pub(crate) const STALE_REM: Page = Page::new(HASHLINE, 2);
 pub(crate) const RECOVERY_FAILED: Page = Page::new(HASHLINE, 3);
@@ -87,7 +78,6 @@ pub(crate) const NO_SNAPSHOT: Page = Page::new(HASHLINE, 4);
 pub(crate) const PLAIN_OPS: Page = Page::new(HASHLINE, 5);
 pub(crate) const BLOCK_OPENER: Page = Page::new(HASHLINE, 6);
 
-// ⠨⠑ staged edits and patches
 pub(crate) const STAGED_ACCEPT: Page = Page::new(STAGED, 1);
 pub(crate) const STAGED_REJECT: Page = Page::new(STAGED, 2);
 pub(crate) const STAGE_ONE: Page = Page::new(STAGED, 3);
@@ -98,16 +88,13 @@ pub(crate) const RESOLVE_ACTIONS: Page = Page::new(STAGED, 7);
 pub(crate) const STAGE_HASHLINE_SECTIONS: Page = Page::new(STAGED, 8);
 pub(crate) const STAGE_HASHLINE_ONLY: Page = Page::new(STAGED, 9);
 
-// ⠨⠋ the shell's redirection scope
 pub(crate) const LITERAL_PATH: Page = Page::new(SHELL_SCOPE, 1);
 pub(crate) const SCRATCH_PATH: Page = Page::new(SHELL_SCOPE, 2);
 pub(crate) const SCRATCH_OUTPUT: Page = Page::new(SHELL_SCOPE, 3);
 
-// ⠨⠛ a stopped or unstartable process
 pub(crate) const TIMEOUT_KNOB: Page = Page::new(STOPPED, 1);
 pub(crate) const LIVE_DIRECTORY: Page = Page::new(STOPPED, 2);
 
-// ⠨⠓ the pinned toolchain and the runners
 pub(crate) const REPIN: Page = Page::new(TOOLCHAIN, 1);
 pub(crate) const CARGO_FALLBACK: Page = Page::new(TOOLCHAIN, 2);
 pub(crate) const OMIT_FLAG: Page = Page::new(TOOLCHAIN, 3);
@@ -116,7 +103,6 @@ pub(crate) const RUNNERS: Page = Page::new(TOOLCHAIN, 5);
 pub(crate) const SUITE_WITH_SHELL: Page = Page::new(TOOLCHAIN, 6);
 pub(crate) const PLAN_WITH_SHELL: Page = Page::new(TOOLCHAIN, 7);
 
-// ⠨⠊ Cargo coverage
 pub(crate) const SELECT_PACKAGE: Page = Page::new(COVERAGE, 1);
 pub(crate) const EARLIER_WRITES: Page = Page::new(COVERAGE, 2);
 pub(crate) const REPORT_SCOPE: Page = Page::new(COVERAGE, 3);
@@ -124,7 +110,6 @@ pub(crate) const FUTURE_SCOPE: Page = Page::new(COVERAGE, 4);
 pub(crate) const MISSING_INVENTORY: Page = Page::new(COVERAGE, 5);
 pub(crate) const MISSING_EVIDENCE: Page = Page::new(COVERAGE, 6);
 
-// ⠨⠚ background-job output
 pub(crate) const RETAINED_HANDLE: Page = Page::new(JOB_OUTPUT, 1);
 pub(crate) const NO_COMPLETION_NOTICE: Page = Page::new(JOB_OUTPUT, 2);
 pub(crate) const CAPTURED_OUTPUT: Page = Page::new(JOB_OUTPUT, 3);

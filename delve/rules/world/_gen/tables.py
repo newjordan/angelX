@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-"""Writes ../world_tables.bend from the JSON the Rust recorder dumps
-(`dump_world_tables` in layout_bend_cases__tests.rs): ROOMS, TRAILS, ENTRANCES."""
 import json, os, pathlib, struct, sys
 HERE = pathlib.Path(__file__).resolve().parent
 if not os.environ.get("DELVE_CASES"):
@@ -14,7 +12,6 @@ def u(v):
     return v & 0xFFFFFFFF
 
 def f(v):
-    # the f32 the value is, written with enough digits to round back to it
     x = struct.unpack("<f", struct.pack("<f", v))[0]
     t = repr(x)
     return t if ("." in t or "e" in t) else t + ".0"

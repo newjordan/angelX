@@ -9,16 +9,9 @@
 use super::{AnimCtrl, AnimState, Animation, Compose, Frame, FramePut, Intake, Space, Upload};
 use std::sync::Arc;
 
-/// How far one tick may walk. A clock far ahead, or a run of zero waits,
-/// must settle in bounded work: the animation lands where the walk got,
-/// and a later tick continues, rather than spinning.
 const TICK_STEPS: usize = 4096;
 
 impl Animation {
-    /// The gap that follows the current frame: a frame the transmit left
-    /// unset waits nothing on frame 1 and the dialect's 40ms default on
-    /// every later frame. A negative gap waits nothing — the frame is
-    /// skipped over the moment it lands.
     fn effective_gap(&self) -> i64 {
         match self.frames.get(self.current).and_then(|f| f.gap) {
             Some(gap) => gap,
@@ -27,8 +20,6 @@ impl Animation {
         }
     }
 
-    /// How many wraps are still allowed: forever when no count was set
-    /// (`v=1` or none), else the count less what has already played.
     fn loops_left(&self) -> Option<u64> {
         self.loops.map(|n| n.saturating_sub(self.looped))
     }
@@ -37,9 +28,6 @@ impl Animation {
         self.loops_left().is_some_and(|left| left == 0)
     }
 
-    /// When the next frame falls due. A stopped animation, a spent one,
-    /// and a loading animation whose last frame's own gap has played out
-    /// (it waits for more frames, not for the clock) have nothing due.
     fn due_at(&self, clock: u64) -> Option<u64> {
         match self.state {
             AnimState::Stopped => return None,
@@ -56,8 +44,6 @@ impl Animation {
         Some(self.since.saturating_add(gap))
     }
 
-    /// The frame a showing draws. A running animation skips a gapless
-    /// frame over, so it is never seen; the walk stops at the frame list.
     fn shown(&self) -> Option<&Frame> {
         let mut at = self.current;
         let limit = self.frames.len();
@@ -74,8 +60,6 @@ impl Animation {
     }
 }
 
-/// Blend one straight-alpha source pixel over a straight-alpha
-/// destination, in place. The source's alpha is the blend weight.
 fn blend_straight(dst: &mut [u8], src: &[u8]) {
     let a = u32::from(src[3]);
     if a >= 255 {
@@ -93,8 +77,6 @@ fn blend_straight(dst: &mut [u8], src: &[u8]) {
 }
 
 impl Intake {
-    /// Whether the open chunked transmission is an animation frame, so a
-    /// continuation with no action is not taken as a picture transmission.
     pub(crate) fn open_frame_chunk(&self) -> bool {
         self.chunk_heads.values().any(|head| {
             head.split(|b| *b == b',' || *b == b';')
@@ -102,9 +84,6 @@ impl Intake {
         })
     }
 
-    /// Frames of an APC picture, counted back out of the budget and the
-    /// frame cap. The picture itself stays. Frame 1's shared pixels are
-    /// the picture's, so they are not counted here.
     pub(crate) fn drop_animation(&mut self, id: u32) {
         let Some(anim) = self.animated.remove(&id) else {
             return;
@@ -117,14 +96,11 @@ impl Intake {
         }
     }
 
-    /// How many frame uploads currently occupy their own window id.
     #[cfg(test)]
     pub(crate) fn frame_uploads(&self) -> usize {
         self.frame_uploads
     }
 
-    /// `d=f`: the named picture's frames, or every animation's when none
-    /// is named. The pictures and their showings stay.
     pub(crate) fn free_frames(&mut self, image: Option<u32>) {
         match image {
             Some(id) => self.drop_animation(id),
@@ -137,9 +113,6 @@ impl Intake {
         }
     }
 
-    /// The window id a showing of this picture should name, when the
-    /// picture is animated. `None` when it is not, so a frame with no
-    /// animation costs the caller nothing beyond the empty check.
     pub(crate) fn shown_frame_gpu(&self, space: Space, id: u32) -> Option<u32> {
         if space != Space::Apc {
             return None;
@@ -147,9 +120,6 @@ impl Intake {
         self.animated.get(&id).and_then(|anim| anim.shown()).map(|frame| frame.gpu)
     }
 
-    /// Frames the window has not had yet, each under its own id. A frame
-    /// come round again is not re-sent. Frame 1 shares the picture's
-    /// upload until it is edited, so it is not sent a second time here.
     pub(crate) fn take_frame_uploads(&mut self) -> Vec<Upload> {
         let mut shown_at: Vec<(u32, usize)> = Vec::new();
         for (id, anim) in &self.animated {
@@ -215,7 +185,6 @@ impl Intake {
     pub fn tick_animations(&mut self, now: u64) -> bool {
         let clock = self.clock.max(now);
         self.clock = clock;
-        // glass's own dialect's tweens and clips ride the same clock.
         let mut changed = self.expansion.tick(clock);
         let ids: Vec<u32> = self.animated.keys().copied().collect();
         for id in ids {
@@ -253,8 +222,6 @@ impl Intake {
                         AnimState::Loading | AnimState::Stopped => break,
                         AnimState::Running => {
                             anim.looped = anim.looped.saturating_add(1);
-                            // The final loop ends showing the first frame:
-                            // `v=N` shows the first frame `N` times.
                             anim.current = 0;
                             changed = true;
                             if anim.spent() {
@@ -291,8 +258,6 @@ impl Intake {
         self.expansion.set_clock(self.clock);
     }
 
-    /// One display frame, in milliseconds: how often running tweens and
-    /// clips of glass's own dialect wake the window.
     pub fn set_display_frame(&mut self, ms: u64) {
         self.expansion.set_frame_ms(ms);
     }
@@ -329,11 +294,6 @@ impl Intake {
         self.animated.contains_key(&id)
     }
 
-    /// Whether `a=f` would mint a window upload the picture cap does not
-    /// already count. A missing frame is `ENOENT`: it would not be stored,
-    /// so the count cap does not apply. Editing frame 1 of a picture with
-    /// no animation yet seeds a shared frame and then gives it its own
-    /// upload, which does count.
     fn frame_put_adds_upload(&self, frame: &FramePut) -> Result<bool, (String, String)> {
         if let Some(n) = frame.edit {
             if n == 0 {
@@ -363,9 +323,6 @@ impl Intake {
         }
     }
 
-    /// Whether `a=c` would mint a window upload. `None` means the frames
-    /// are not both there (or would not be seeded as frame 1), so the
-    /// compose fails for that reason and does not take a slot.
     fn compose_would_add(&self, compose: &Compose) -> Option<bool> {
         if compose.source == 0 || compose.dest == 0 {
             return None;
@@ -389,7 +346,6 @@ impl Intake {
         Some(!counted)
     }
 
-    /// Take one animation frame in (`a=f`).
     pub fn frame_put(&mut self, frame: FramePut) -> Result<(), (String, String)> {
         let Some(kept) = self.kept(frame.image) else {
             return Err(("ENOENT".to_string(), "no such image".to_string()));
@@ -406,8 +362,6 @@ impl Intake {
         if frame.rgba.len() < frame.data_size.0 as usize * frame.data_size.1 as usize * 4 {
             return Err(("EINVAL".to_string(), "frame data is short".to_string()));
         }
-        // Refuse before any allocation or store change. An invalid frame
-        // is its own error: it would not be stored, so it is not "no room".
         if frame.x >= width || frame.y >= height {
             return Err((
                 "EINVAL".to_string(),
@@ -546,8 +500,6 @@ impl Intake {
                 uploaded: false,
                 counted: true,
             });
-            // A frame arriving while loading mode waits at the last frame
-            // becomes current, and its own wait begins now.
             if anim.state == AnimState::Loading
                 && anim.current + 1 >= anim.frames.len().saturating_sub(1)
             {
@@ -561,7 +513,6 @@ impl Intake {
         Ok(())
     }
 
-    /// Control one animation (`a=a`).
     pub fn animate(&mut self, control: AnimCtrl) -> Result<(), (String, String)> {
         if self.kept(control.image).is_none() {
             return Err(("ENOENT".to_string(), "no such image".to_string()));
@@ -617,13 +568,10 @@ impl Intake {
         Ok(())
     }
 
-    /// Compose a rectangle of one frame onto another (`a=c`).
     pub fn compose(&mut self, compose: Compose) -> Result<(), (String, String)> {
         let Some(kept) = self.kept(compose.image) else {
             return Err(("ENOENT".to_string(), "no such image".to_string()));
         };
-        // The same rectangle rules as below, checked before any seed is
-        // stored, so a refusal leaves the picture and its frames untouched.
         let (width, height) = (kept.width.max(1), kept.height.max(1));
         let (mut sw, mut sh) = (compose.src.2, compose.src.3);
         if sw == 0 {

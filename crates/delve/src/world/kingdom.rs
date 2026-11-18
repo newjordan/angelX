@@ -17,8 +17,6 @@ pub struct Site {
     pub lot: Option<Lot>,
 }
 pub struct Geography {
-    /// Where each lot's building tops out, worked out once (by the
-    /// drawing, `render::overworld::kingdom::roof`).
     pub roofs: OnceLock<Vec<Option<i32>>>,
     pub sites: Vec<Site>,
     pub roads: Vec<bool>,
@@ -40,12 +38,8 @@ fn destination(door: Door) -> RoomKind {
             Place::Village => RoomKind::Village,
             Place::Rookery => RoomKind::Rookery,
             Place::Observatory => RoomKind::Observatory,
-            // The Smithy's door opens on the smith's own forge, and the
-            // Artisan Quarter's on the market square behind it.
             Place::Smithy => RoomKind::Smithy,
             Place::ArtisanQuarter => RoomKind::Market,
-            // The Colosseum's door opens on its entrance hall, and its
-            // gates on the arena games (`rules::colosseum`).
             Place::Colosseum => RoomKind::ColosseumHall,
             _ => RoomKind::RealmHall,
         },
@@ -58,11 +52,8 @@ pub fn outdoor(kind: RoomKind) -> bool {
         && (!crate::rules::college::is_room(kind)
             || kind == RoomKind::CollegeGrounds)
         && !crate::rules::colosseum::is_arena(kind)
-        // The tavern and its bazaar are where a delve begins, not on the map.
         && !crate::rules::alehouse::is_room(kind)
-        // The squires' rooms open off the Training Yard (`squire_rooms`).
         && !crate::rules::squire_rooms::is_room(kind)
-        // Bomrekedan has one door on the map, to its top level.
         && (!crate::rules::world::bomrekedan::is_level(kind) || kind == crate::rules::world::bomrekedan::TOP)
 }
 fn short(name: &str) -> String {
@@ -74,24 +65,18 @@ fn short(name: &str) -> String {
         .collect::<Vec<_>>()
         .join(" ")
 }
-/// A region of the kingdom: one biome (`super::biome`), the countryside
-/// places built in it, and where its name is lettered.
 pub struct Region {
     pub name: &'static str,
     pub biome: Biome,
-    /// The tile its name is centred on: a row of open green.
     label: (i32, i32),
-    /// Its countryside places, each with the tile it is built nearest.
     pub places: &'static [(RoomKind, (i32, i32))],
 }
 
 impl Region {
-    /// Whether tile `(x, y)` lies in the region's ground.
     pub fn holds(&self, x: i32, y: i32) -> bool {
         biome::at(x, y) == self.biome
     }
 
-    /// The tiles `(x0, y0, x1, y1)` its ground spans, end exclusive.
     fn bounds(&self) -> (i32, i32, i32, i32) {
         self.biome.chunks().fold((MAP_W, MAP_H, 0, 0), |(x0, y0, x1, y1), (cx, cy)| {
             (
@@ -131,19 +116,12 @@ const fn region(biome: Biome, places: &'static [(RoomKind, (i32, i32))]) -> Regi
             Biome::Fairground => (40, 134),
             Biome::WindCountry => (150, 116),
             Biome::Longbow => (202, 136),
-            // On the open green between the castles where the South Road
-            // comes through to the far lane.
             Biome::March => (87, 165),
         },
         places,
     }
 }
 
-/// The kingdom's regions, one to a biome. The authored places (the Keep,
-/// the Mines, the Village, the Colosseum...) stand in their set pieces;
-/// every countryside place is built in its own biome, on the free lot
-/// nearest its spot, so a biome reads as one country with its name on an
-/// open green among it (`docs/KINGDOM-OPEN.md`).
 pub const REGIONS: [Region; 11] = [
     region(Biome::CastleTown, &[(RoomKind::Bathhouse, (113, 70))]),
     region(
@@ -158,7 +136,6 @@ pub const REGIONS: [Region; 11] = [
     ),
     region(
         Biome::Highlands,
-        // The griffins' eyrie on the peak above the Mines.
         &[
             (RoomKind::Eyrie, (108, 8)),
             (RoomKind::Crag, (84, 8)),
@@ -228,22 +205,12 @@ pub const REGIONS: [Region; 11] = [
     region(Biome::March, &[]),
 ];
 
-/// The kingdom's own halls: a realm hall's door on a lot of its own, built
-/// by the rule a countryside place is (the free lot nearest its spot in its
-/// region, a lane to the nearest road), after them all, so none of theirs
-/// moves. Inside, the shared stone hall with the hall's name over it.
 pub const HALLS: [(&str, Biome, (i32, i32)); 1] = [
-    // The Heartwright's, on the town green east of the open plot
-    // (`docs/HEART-QUEST.md`).
     (LANTERN_HALL, Biome::CastleTown, (82, 70)),
 ];
 
-/// The Heartwright's hall (`HALLS`), by its door's name.
 pub const LANTERN_HALL: &str = "Lantern Hall";
 
-/// Open ground on Castle Town's green, between the Keep and the Village
-/// beside the high street, kept clear for the King's court and its land
-/// office.
 pub const OPEN_PLOT: Lot = Lot {
     tx: 74,
     ty: 68,
@@ -251,8 +218,6 @@ pub const OPEN_PLOT: Lot = Lot {
     th: 5,
 };
 
-/// Each region's name and the tile its name is centred on. None in the
-/// blank-slate plan: the country has no regions and no names lettered on it.
 pub fn regions() -> Vec<(&'static str, (i32, i32))> {
     if super::plan::tabula() {
         return Vec::new();
@@ -260,7 +225,6 @@ pub fn regions() -> Vec<(&'static str, (i32, i32))> {
     REGIONS.iter().map(|r| (r.name, r.label)).collect()
 }
 
-/// The strips every region's name is lettered across: `(x0, x1, y)`, inclusive.
 pub fn name_strips() -> Vec<(i32, i32, i32)> {
     if super::plan::tabula() {
         return Vec::new();
@@ -268,7 +232,6 @@ pub fn name_strips() -> Vec<(i32, i32, i32)> {
     REGIONS.iter().map(name_strip).collect()
 }
 
-/// The tiles a region's name is lettered across: `(x0, x1, y)`, inclusive.
 fn name_strip(region: &Region) -> (i32, i32, i32) {
     let half = (crate::ink::text_width(&region.name.to_uppercase()) + 24) / TILE / 2 + 1;
     (region.label.0 - half, region.label.0 + half, region.label.1)
@@ -298,9 +261,6 @@ pub fn geography(wishes: &[Wish]) -> Arc<Geography> {
     geo
 }
 
-/// The old tile-list spelling used by rule-history comparisons predates the
-/// yard. Project only the ordinary, unwished map: a changed tile list must
-/// remain visible, rather than having its edits overwritten for a hash.
 #[cfg(test)]
 pub(crate) fn historic_tiles(tiles: &mut [Tile]) {
     if tiles.len() != (MAP_W * MAP_H) as usize {
@@ -319,8 +279,6 @@ pub(crate) fn historic_tiles(tiles: &mut [Tile]) {
             .enumerate()
             .filter_map(|(i, (&now, &before))| {
                 let (tx, ty) = (i as i32 % MAP_W, i as i32 / MAP_W);
-                // This compatibility spelling owns the yard, not other sites,
-                // roads or wishes affected by where a lot might be reserved.
                 (now != before
                     && (x - 1..x + w + 1).contains(&tx)
                     && (y - 1..y + h + 1).contains(&ty))
@@ -350,7 +308,6 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
             lot: None,
         })
         .collect();
-    // The actual gate door, with a dry approach, replaces the old across-stream stand.
     if let Some(s) = sites.iter_mut().find(|s| s.room == RoomKind::Gate) {
         s.stand = wishes::delve_stand();
     }
@@ -360,9 +317,6 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
         .collect();
     taken.extend(super::castles::footprints().map(|(tx, ty, tw, th)| Lot { tx, ty, tw, th }));
     taken.extend([college::lot(), wishes::delve_gate()]);
-    // The blank-slate plan has no squires' yard, no court, no countryside
-    // places and no halls: the Delve's gate, the tiny Keep and the camps are
-    // all that stand (`super::plan`).
     let full = super::plan::full();
     let yard = yard && full;
     if yard {
@@ -372,10 +326,7 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
     let wish_lots = wishes::lots(wish_list);
     taken.extend(wish_lots.iter().flatten().copied());
     let mut cleared = Vec::new();
-    // The King's court, the Land Office, stands on the open plot in the
-    // town core, between the Keep and the Village.
     if !full {
-        // No open plot, and no court on it.
     } else if outdoor(RoomKind::LandOffice) && !sites.iter().any(|s| s.room == RoomKind::LandOffice) {
         let lot = Lot {
             tx: OPEN_PLOT.tx,
@@ -392,11 +343,8 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
             lot: Some(lot),
         });
     } else {
-        // Without the court, the open plot stays clear ground.
         taken.push(OPEN_PLOT);
     }
-    // Each retained countryside pocket has a real free door in its region,
-    // built on the free lot nearest its spot there.
     for region in REGIONS.iter().filter(|_| full) {
         for &(kind, goal) in region.places {
             if !outdoor(kind) || sites.iter().any(|s| s.room == kind) {
@@ -435,8 +383,6 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
             });
         }
     }
-    // The kingdom's own halls, by the same rule, after every countryside
-    // place has its lot.
     for &(name, biome, goal) in HALLS.iter().filter(|_| full) {
         let Some(region) = REGIONS.iter().find(|r| r.biome == biome) else {
             continue;
@@ -459,9 +405,6 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
             lot: Some(lot),
         });
     }
-    // The gate of Bomrekedan, the operator's dwarven fort, by the same rule,
-    // after the halls, so none of theirs moves: on the free lot nearest
-    // `GATE_GOAL`, in the goal's own region where there is one.
     {
         use crate::rules::world::bomrekedan::{GATE_GOAL, GATE_NAME, TOP};
         let region = REGIONS.iter().find(|r| r.holds(GATE_GOAL.0, GATE_GOAL.1)).filter(|_| full);
@@ -506,7 +449,6 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
         }
     }
     if yard {
-        // A connected, clear yard with three solid buildings and a two-tile apron.
         let yard = crate::rules::squires_town::YARD;
         for y in yard.1 - 1..yard.1 + yard.3 + 1 {
             for x in yard.0 - 1..yard.0 + yard.2 + 1 {
@@ -522,7 +464,6 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
             }
         }
     }
-    // The rest of the open plot is cleared ground anyone can cross.
     for y in OPEN_PLOT.ty..OPEN_PLOT.ty + OPEN_PLOT.th {
         if !full {
             break;
@@ -534,7 +475,6 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
             tiles[idx((x, y))] = Tile::Floor;
         }
     }
-    // Each region's name is lettered on cleared ground.
     let mut named = Vec::new();
     for (x0, x1, y) in name_strips() {
         for x in x0..=x1 {
@@ -547,7 +487,6 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
             }
         }
     }
-    // Wish footprints are solid; their door row stays open.
     for lot in wish_lots.iter().flatten() {
         for y in lot.ty..lot.ty + lot.th - 1 {
             for x in lot.tx..lot.tx + lot.tw {
@@ -570,8 +509,6 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
     let mut roads = vec![false; tiles.len()];
     let strips: Vec<(i32, i32, i32)> = name_strips();
     for site in &sites {
-        // Find a short approach to the connected kingdom. Rock and forest can
-        // be cleared, streams bridged; structures and lava are never crossed.
         let mut parents = vec![None; tiles.len()];
         let mut queue = VecDeque::from([site.stand]);
         parents[idx(site.stand)] = Some(site.stand);
@@ -603,14 +540,9 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
         }
         roads[idx(site.stand)] = true;
         tiles[idx(site.stand)] = Tile::Floor;
-        // (No roads run in the blank-slate plan: a door's stand is the whole of its way.)
         if !full {
             continue;
         }
-        // And a lane on to the nearest road, so every place hangs off the
-        // road network: through open ground where it can, through woods and
-        // over streams where it must, never through a building, a region's
-        // name or lava.
         let mut best = vec![u32::MAX; tiles.len()];
         let mut parents = vec![None; tiles.len()];
         let mut heap = BinaryHeap::from([Reverse((0u32, site.stand))]);
@@ -655,8 +587,6 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
                 roads[idx(at)] = true;
                 tiles[idx(at)] = Tile::Floor;
                 reached[idx(at)] = true;
-                // Lanes are two tiles wide: the tile beside each step too,
-                // where nothing stands.
                 let side = if next.0 == at.0 { (at.0 + 1, at.1) } else { (at.0, at.1 + 1) };
                 if bounds(side)
                     && !closed_tiles()[idx(side)]
@@ -674,10 +604,6 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
             }
         }
     }
-    // A verge either side of every road and lane: woods, dead trees and
-    // open ground beside a road are cleared to meadow, so two knights walk
-    // abreast and nobody brushes a trunk. Never a building, a lot, a
-    // region's name, rock, water or lava.
     let mut verge = Vec::new();
     for y in 0..MAP_H {
         for x in 0..MAP_W {
@@ -705,7 +631,6 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
             }
         }
     }
-    // A solid outer rim bounds all four independent knights.
     for y in 0..MAP_H {
         for x in 0..MAP_W {
             if !bounds((x, y)) {
@@ -733,16 +658,11 @@ fn build(wish_list: &[Wish], yard: bool) -> Geography {
     }
 }
 
-/// Whether a place's 4 x 3 lot at `(x, y)` is free: three tiles of ground
-/// between it and its neighbours, a tile off every set piece, off every
-/// region's name, on ground that can be cleared.
 fn free_lot(x: i32, y: i32, taken: &[Lot]) -> bool {
     !taken.iter().any(|l| {
         x < l.tx + l.tw + 3 && x + 4 + 3 > l.tx && y < l.ty + l.th + 3 && y + 3 + 3 > l.ty
     }) && (y - 1..y + 5).all(|ty| (x - 1..x + 5).all(|tx| !map::in_set_piece(tx, ty)))
         && name_strips().into_iter().all(|(x0, x1, sy)| {
-            // A lot and its door keep off a region's name, the row above it,
-            // and the two below (where a plaque goes).
             x + 3 < x0 - 1 || x > x1 + 1 || y + 3 < sy - 1 || y > sy + 2
         })
         && (y..y + 4).all(|ty| {
@@ -750,9 +670,6 @@ fn free_lot(x: i32, y: i32, taken: &[Lot]) -> bool {
         })
 }
 
-/// Where a place built in `region` nearest `goal` stands: the free lot
-/// nearest its spot whose corners are in its region; failing that (a wish
-/// took the ground), the free lot nearest its spot anywhere.
 fn place_lot(region: &Region, goal: (i32, i32), taken: &[Lot]) -> Option<(i32, i32)> {
     let nearest = |(x0, y0, x1, y1): (i32, i32, i32, i32), within: &dyn Fn(&(i32, i32)) -> bool| {
         (y0.max(3)..y1.min(MAP_H - 4))
@@ -775,8 +692,6 @@ pub fn gate_stand(wishes: &[Wish]) -> (i32, i32) {
         .unwrap()
         .stand
 }
-/// Whether tile `(x, y)` of the walking surface is road, drawn or cut to a
-/// place's door: quick going.
 pub fn is_road(geo: &Geography, (x, y): (i32, i32)) -> bool {
     bounds((x, y))
         && (geo.roads[idx((x, y))] || matches!(Realm::get().at(x, y), b'=' | b':' | b'H'))
@@ -784,7 +699,6 @@ pub fn is_road(geo: &Geography, (x, y): (i32, i32)) -> bool {
 pub fn keep_stand() -> (i32, i32) {
     Place::Keep.stand_world()
 }
-/// The realm's terrain byte at a tile, for charts of the layout.
 #[cfg(any(test, feature = "testing"))]
 pub fn terrain(x: i32, y: i32) -> u8 {
     Realm::get().at(x, y)
@@ -800,8 +714,6 @@ fn closed_tiles() -> &'static [bool] {
             .copied()
             .chain(super::castles::footprints())
             .chain({
-                // The College and the Delve's gate stand on open ground:
-                // their walls are as solid as any set piece's.
                 let l = college::lot();
                 let g = wishes::delve_gate();
                 [(l.tx, l.ty, l.tw, l.th), (g.tx, g.ty, g.tw, g.th)]
@@ -819,7 +731,6 @@ fn closed_tiles() -> &'static [bool] {
     })
 }
 
-/// What a step onto `(x, y)` costs, or `None` where no one walks.
 pub fn step_cost(x: i32, y: i32) -> Option<u32> {
     if x < 0 || y < 0 || x >= MAP_W || y >= MAP_H || closed_tiles()[(y * MAP_W + x) as usize] {
         return None;

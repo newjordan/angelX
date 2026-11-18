@@ -1,6 +1,3 @@
-/// This module compiles into both the cockpit and the `angel-sandbox` helper,
-/// where it sits at a different path, so the libtest `--exact` filter for a
-/// sibling test is derived from `module_path!()` rather than hard-coded.
 macro_rules! self_test_filter {
     ($name:literal) => {
         format!(
@@ -50,7 +47,6 @@ fn cleanup_reaps_adopted_children() {
     }
     let root = std::env::temp_dir().join(format!("angel-owner-{}", std::process::id()));
     std::fs::create_dir_all(&root).unwrap();
-    // A sibling of the fixture is not owned by its subreaper.
     let mut sentinel = Sentinel(
         std::process::Command::new("sleep")
             .arg("30")
@@ -114,4 +110,32 @@ fn lifecycle_grace_boundary_escalates_at_deadline() {
         cleanup_signal(deadline + Duration::from_nanos(1), deadline),
         libc::SIGKILL
     );
+}
+
+#[test]
+fn stopped_background_work_is_named_to_the_reader() {
+    assert_eq!(stopped_background_notice(&[]), None);
+
+    let one = stopped_background_notice(&["python3".to_string()]).unwrap();
+    assert!(
+        one.starts_with(
+            "angel: 1 background process this command started was still running when it returned and was stopped (python3)."
+        ),
+        "{one}"
+    );
+    assert!(one.contains("`wait`") && one.ends_with('\n'), "{one}");
+
+    let many = stopped_background_notice(
+        &["timeout", "python3", "timeout", "python3"].map(String::from),
+    )
+    .unwrap();
+    assert!(
+        many.starts_with(
+            "angel: 4 background processes this command started were still running when it returned and were stopped (timeout, python3)."
+        ),
+        "{many}"
+    );
+
+    let crowd = stopped_background_notice(&["a", "b", "c", "d", "e"].map(String::from)).unwrap();
+    assert!(crowd.contains("(a, b, c, d, …)"), "{crowd}");
 }

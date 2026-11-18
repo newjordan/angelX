@@ -9,9 +9,6 @@ pub const MAX_CASTS: usize = 16;
 const MAX_ACTIONS: usize = 64;
 const MAX_BYTES: usize = 1024 * 1024;
 
-/// Trusted native Runtime handoff, never constructed from executable output.
-/// `started` distinguishes an admitted native pending source from a paid cast.
-/// The original session/request survive surface replacement and worker reload.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActiveCast {
@@ -66,8 +63,6 @@ pub struct Action {
     pub cast: ActiveCast,
     pub command: port::Command,
 }
-/// Native derives this sound fact from its retained media binding; executable
-/// output supplies commands only and cannot mark an existing cast as a start.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Start {
@@ -90,13 +85,10 @@ pub enum Event {
         fence: OwnerFence,
         replacements: Vec<Replacement>,
     },
-    /// Native has retained these exact requests with their executable source.
-    /// This acknowledges transport admission, without spending game costs.
     Acknowledge {
         fence: OwnerFence,
         requests: Vec<port::Request>,
     },
-    /// Explicit stale/cancelled request retirement, never implicit on preview.
     Cancel {
         fence: OwnerFence,
         requests: Vec<port::Request>,
@@ -166,9 +158,6 @@ fn proof(cast: &ActiveCast, run: &Run) -> bool {
         && cast.origin.generation == cast.request.generation
         && text(&cast.origin.cast, 256)
 }
-/// Validate native handoff before the frame prelude. Old surface generations
-/// are valid, including paid casts whose original owner died. Callers filter
-/// seats removed by that prelude without touching native resource lifetime. Session also checks each original session string.
 pub fn validate_active_casts(casts: &[ActiveCast], run: &Run) -> Result<(), String> {
     bounded(&casts)?;
     if casts.len() > MAX_CASTS {
@@ -342,8 +331,6 @@ pub fn apply(
                     return Err("ability ACK has no native admission owner".into());
                 }
             }
-            // Starting an outbox-owned request must retire that exact entry in
-            // the same commit, so later frames cannot start it a second time.
             if batch.starts.iter().any(|cast| {
                 run.module_casts.contains(&cast.cast.request)
                     && !batch.acknowledge.contains(&cast.cast.request)
@@ -366,7 +353,6 @@ pub fn apply(
                 ));
             }
             run.validate_ability_commands(&commands)?;
-            // All ownership, commands, capacity and aggregate costs validated.
             for (player, cost) in costs {
                 let hero = run.players.get_mut(&player).unwrap();
                 hero.mana = (hero.mana - cost).max(0.0);
@@ -722,8 +708,6 @@ mod tests {
             .is_err()
         );
         assert_eq!(snapshot(&run, &pending), before);
-        // Explicit cancellation retires the stale request without touching an
-        // issued projectile or its old-generation origin.
         let fence = OwnerFence::capture(&run, "ability-test");
         apply(
             &mut run,
@@ -874,8 +858,6 @@ mod tests {
             Some(&paid.origin)
         );
 
-        // A later frame can retain a native pending source for cleanup, but
-        // neither that source nor an outbox entry authorizes a dead start.
         pending.abilities_applied = false;
         let mut waiting = paid.clone();
         waiting.started = false;

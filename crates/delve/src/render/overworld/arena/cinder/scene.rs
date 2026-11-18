@@ -10,7 +10,6 @@ use crate::rules::cinder::{Board, COLS, ROWS, Session};
 use crate::rules::cinder_show::Kind;
 use std::sync::OnceLock;
 
-/// Both layers of seat `focus`'s screen (or the first seat's): the picture, and an empty one over it.
 pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     let s = run.cinder.as_ref().expect("Cinder showing");
     let id = focus.filter(|id| s.boards.contains_key(id)).or_else(|| s.boards.keys().next().copied()).unwrap();
@@ -28,8 +27,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     (picture, Img::new(NATIVE_W, NATIVE_H))
 }
 
-/// A sprite in the white of a blow landing: every lit pixel in a pale ink by its own light, so the
-/// frame has the figure's form and not a blob, and its black outline stays.
 fn flash_frame(src: &Img) -> Img {
     let mut out = src.clone();
     for y in 0..src.h {
@@ -43,7 +40,6 @@ fn flash_frame(src: &Img) -> Img {
     out
 }
 
-/// The pots in white, for the frame a blow lands on them.
 fn pot_white(c: u8) -> &'static Img {
     static BANKS: [OnceLock<[Img; 4]>; 2] = [OnceLock::new(), OnceLock::new()];
     let bank = BANKS[usize::from(super::super::slot_art::enabled())].get_or_init(|| {
@@ -68,7 +64,6 @@ fn pot_flat(c: u8) -> &'static Img {
     &bank[usize::from(c.clamp(1, 4) - 1)]
 }
 
-/// A pot squashed wide and low (`k` 0 to 1), its feet on the floor of its cell.
 fn squashed(src: &Img, k: f32) -> Img {
     let (w, h) = (src.w + (k * 5.0) as i32, src.h - (k * 6.0) as i32);
     let mut out = Img::new(w, h);
@@ -82,18 +77,15 @@ fn squashed(src: &Img, k: f32) -> Img {
     out
 }
 
-/// How far a landed pair is squashed `age` ticks after it came to rest.
 fn squash_k(age: u32, hard: bool) -> f32 {
     [0.9, 0.7, 0.45, 0.25, 0.1][age.min(4) as usize] * if hard { 1.0 } else { 0.55 }
 }
 
-/// The world's shake: the heaviest blow's, and a one-pixel thump under a dropped pair.
 fn shake(b: &Board, bclock: u32, tick: u64) -> (i32, i32) {
     if crate::render::viewer::calm() {
         return (0, 0);
     }
     let (mut dx, mut dy) = juice::shake(b.show.marks.iter().map(|m| (m.kind.weight(), m.age(bclock))), tick);
-    // The smallest pop still shakes a little: the kit's graze is none.
     if (dx, dy) == (0, 0) {
         if let Some(age) = b.show.marks.iter().filter(|m| matches!(m.kind, Kind::Pop { .. }) && m.age(bclock) < 3).map(|m| m.age(bclock)).min() {
             (dx, dy) = crate::motion::shake(tick, 3 - age, 3, 1.6);
@@ -109,7 +101,6 @@ fn crock(world: &mut Img, b: &Board, bclock: u32, tick: u64, ended: u32) {
     let a = art();
     let stage = b.crack_stage();
     let bob = i32::from(tick % 36 < 18);
-    // A board that has stopped carries on counting its pop down, for the picture.
     let flash = b.flash.saturating_sub(ended);
     let figure = if flash > 0 {
         &a.flinch[stage][usize::from(flash <= 4)]
@@ -118,7 +109,6 @@ fn crock(world: &mut Img, b: &Board, bclock: u32, tick: u64, ended: u32) {
     } else {
         &a.crock[stage]
     };
-    // The frame the fed pots land, and a stage cracking, in white.
     let struck = b.show.marks.iter().any(|m| match m.kind {
         Kind::Pop { .. } => m.age(bclock).checked_sub(8).is_some_and(|a| a < 2),
         Kind::Stage { .. } => m.age(bclock) < 4,
@@ -142,9 +132,6 @@ fn crock(world: &mut Img, b: &Board, bclock: u32, tick: u64, ended: u32) {
     world.stamp(figure, 310 - figure.w / 2 + reaction, 158 - figure.h + bob);
 }
 
-/// The well: the slag's column filling with its warning, every pot (the ones that popped white for a
-/// frame, then flying to the kiln), the ghost of where the pair will stop, the pair, and the slag
-/// coming down.
 fn board(world: &mut Img, run: &Run, s: &Session, b: &Board, bclock: u32, ended: u32) {
     let a = art();
     let tick = run.tick;
@@ -181,14 +168,12 @@ fn board(world: &mut Img, run: &Run, s: &Session, b: &Board, bclock: u32, ended:
             }
             let (px, py) = hud::cell(x, y);
             if b.pop[y][x] && b.flash > 0 && flash == 0 {
-                // The pop has run its course while the board stood still: they are gone.
                 continue;
             }
             if b.pop[y][x] && flash > 0 {
                 let age = 8 - flash as i32;
                 world.stamp(&a.clear[(age / 3) as usize], px, py - 2);
                 if age < 2 {
-                    // Two ticks of white where they stood: the blow lands.
                     world.stamp(pot_white(c), px, py);
                 } else {
                     let t = age - 2;
@@ -224,14 +209,12 @@ fn board(world: &mut Img, run: &Run, s: &Session, b: &Board, bclock: u32, ended:
     }
     if b.tell > 0 {
         let (x, y) = (BX + i32::from(b.column) * CW, BY + landing(b) * CH);
-        // Continuous boundaries never blink; the exact landing cell is solidly marked.
         world.line(x, BY, x, BY + ROWS as i32 * CH - 1, 'o');
         world.line(x + CW - 1, BY, x + CW - 1, BY + ROWS as i32 * CH - 1, 'o');
         world.frame(x + 1, y + 1, CW - 2, CH - 2, 't');
         if b.tell <= 8 && tick / 2 % 2 == 0 {
             world.frame(x - 1, y - 1, CW + 2, CH + 2, 'H');
         }
-        // A warning mark over the head of the column for the last half second.
         if b.tell <= 15 && tick / 3 % 2 == 0 {
             let cx = x + CW / 2;
             world.rect(cx - 3, BY + 2, 7, 15, 'k');
@@ -246,7 +229,6 @@ fn board(world: &mut Img, run: &Run, s: &Session, b: &Board, bclock: u32, ended:
     }
 }
 
-/// Seat `id`'s screen while the round is on, or in its last breath (`ended` ticks after it).
 fn play(run: &Run, s: &Session, id: u32, ended: u32) -> Img {
     let b = &s.boards[&id];
     let bclock = b.clock + ended;
@@ -281,19 +263,16 @@ fn play(run: &Run, s: &Session, id: u32, ended: u32) -> Img {
     let (dx, dy) = shake(b, bclock, tick);
     let mut out = Img::black(NATIVE_W, NATIVE_H);
     out.stamp(&world, dx, dy);
-    // The stack climbing to the lid, or the kiln coughing, rims the well in danger.
     let high = b.height();
     if b.retry > 0 || (high >= 8 && s.left > 0) {
         let pulse = 0.55 + 0.45 * ((tick as f32) * 0.25).sin();
         let k = if b.retry > 0 { 1.0 } else { ((high - 7) as f32 / 3.0).min(1.0) * pulse };
         juice::vignette(&mut out, (BX, BY, COLS as i32 * CW, ROWS as i32 * CH), k, 10, 'R');
     }
-    // A stage of the kiln cracking lights the whole picture for a beat, in warm paper.
     let flare = b.show.marks.iter().filter_map(|m| matches!(m.kind, Kind::Stage { .. }).then(|| m.age(bclock))).filter(|&a| a < 4).min();
     if let (Some(age), false) = (flare, crate::render::viewer::calm()) {
         juice::vignette(&mut out, (0, 0, NATIVE_W, NATIVE_H), 0.8 * (1.0 - age as f32 / 4.0), 70, 'T');
     }
-    // Slag that came down in your column, close by, is a near miss.
     let near = b.show.marks.iter().filter_map(|m| matches!(m.kind, Kind::Slag { near: true, hit: false, .. }).then(|| m.age(bclock))).filter(|&a| a < 8).min();
     if let Some(age) = near {
         juice::vignette(&mut out, (BX, BY, COLS as i32 * CW, ROWS as i32 * CH), 0.9 * (1.0 - age as f32 / 8.0), 8, 'O');

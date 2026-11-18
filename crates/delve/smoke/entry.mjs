@@ -1,5 +1,3 @@
-// Fresh module per game: first two seconds plus a warm two seconds.
-// node entry.mjs <angel_delve_smoke.wasm> [--warm]
 import { readFileSync } from "node:fs";
 const bytes = readFileSync(process.argv[2]);
 for (let kind = 3; kind <= 8; kind++) {

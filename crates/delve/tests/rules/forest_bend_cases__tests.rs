@@ -4,7 +4,6 @@ use crate::rules::home::{DESCEND_HOLD, Home};
 use crate::rules::world::{ENTRANCES, entrance_centre};
 use crate::rules::{RoomKind, world::room_of};
 
-/// A run that has taken the gate into the world, where the clearing is.
 fn at_the_clearing(seed: u64) -> Run {
     let mut run = Run::at_home(seed, 1, Some("Friend"), Home::default(), Default::default());
     run.come_to_the_gate();
@@ -42,7 +41,6 @@ fn step(run: &mut Run, record: bool) {
     }
 }
 
-/// The hunt and the song, with knights drifting over the pads and fireflies.
 #[test]
 #[ignore]
 fn record_forest() {
@@ -58,7 +56,6 @@ fn record_forest() {
         if seed == 3 {
             run.players.get_mut(&2).unwrap().stone = true;
         }
-        // A hunt: the lantern, then knights roam; odd seeds hunt together.
         for t in 0..90u64 {
             for id in 1..=seats {
                 let pick = if t < 2 { 3 } else if seed % 2 == 1 { 1 } else { mix(seed, t * 7 + u64::from(id)) % 8 };
@@ -76,7 +73,6 @@ fn record_forest() {
             }
             step(&mut run, true);
         }
-        // The song: the memory stone, the show, then notes right and wrong.
         for id in 1..=seats {
             place(&mut run, id, (4.0, 4.0));
         }

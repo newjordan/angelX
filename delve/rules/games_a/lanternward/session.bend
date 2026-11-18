@@ -1,12 +1,3 @@
-# crates/delve/src/rules/lanternward.rs — the session: new, step, finale,
-# valid / problem / repair, the Rules, the purse.
-#
-# `lanternward.Session.step` returns the session with the tick's Events in
-# `$ev` (and the working keys left in): `lanternward.Session.out` strips them
-# to the plain session, `lanternward.Session.events` reads the Events.
-
-# ---- constants ----
-
 def lanternward.LIMIT() -> U32:
   108000
 
@@ -49,14 +40,12 @@ def lanternward.NAME() -> String:
 def lanternward.CAMPAIGN_MARK() -> String:
   "lanternward:campaign-begun"
 
-# The five numbers as the rules read them: `Rules::default()`.
 def lanternward.Rules.default() -> J.Val:
   ga.su(ga.su(ga.su(ga.si(J.obj(), "lock", 28672), "parry", 8), "combo", 14), "flame", 150)
 
 def lanternward.Rules.default.full() -> J.Val:
   ga.su(lanternward.Rules.default(), "tell", 56)
 
-# `Rules::of(tune)`: the Tune's numbers for this slot (tell never under the floor).
 def lanternward.Rules.of(+tune: J.Val) -> J.Val:
   ga.su(
     ga.su(
@@ -68,14 +57,9 @@ def lanternward.Rules.of(+tune: J.Val) -> J.Val:
       "flame", roundtable.number(tune, 0, 3)),
     "tell", RS.u_max(roundtable.number(tune, 0, 4), 40))
 
-# What one knight is paid at the Beacon.
 def lanternward.purse(+first: Bool, +gems: U32) -> U32:
   (Bool.pick(U32, first, 40, 12) + RS.u_min(gems, 20) : U32)
 
-# ---- new ----
-
-# `Session::new(&players)`: every player not away or in stone sits down, then
-# room 0 is entered.
 def lanternward.Session.new(+players: J.Val) -> J.Val:
   lanternward.Session.new.sit(ga.ids(players), players, lanternward.Session.new.empty())
 
@@ -114,7 +98,6 @@ def lanternward.Session.new.one(here: Bool, +s: J.Val, +id: U32) -> J.Val:
 def lanternward.Session.new.seat(+at: J.Val, +s: J.Val, +id: U32) -> J.Val:
   lanternward.blow.put_seat(s, id, lanternward.kit.Seat.new(id, 0, ga.nu(at, 0), ga.nu(at, 1)))
 
-# Strip the working keys: the session as serde writes it.
 def lanternward.Session.bare(+s: J.Val) -> J.Val:
   J.del(J.del(J.del(J.del(J.del(J.del(J.del(J.del(J.del(J.del(J.del(J.del(J.del(J.del(J.del(s,
     "$ev"), "$r"), "$ret"), "$k"), "$f"), "$w"), "$strikes"), "$shots"), "$landed"), "$cut"), "$parried"), "$weights"), "$flares"), "$revealed"), "$b")
@@ -125,15 +108,11 @@ def lanternward.Session.events(+s: J.Val) -> J.Val:
 def lanternward.Session.out(+s: J.Val) -> J.Val:
   lanternward.Session.bare(s)
 
-# ---- step ----
-
-# `here(id)`: the hero is at the table (not away, not in stone).
 def lanternward.Session.here(+heroes: J.Val, +id: U32) -> Bool:
   Bool.and(
     ga.has_key(heroes, id),
     Bool.and(Bool.not(ga.b(ga.at(heroes, id), "away")), Bool.not(ga.b(ga.at(heroes, id), "stone"))))
 
-# A knight who left stands up and keeps their gems and bombs.
 def lanternward.Session.step.stand(+ids: List<&2, U32>, +s: J.Val, +heroes: J.Val) -> J.Val:
   match ids:
     case Nil{}:
@@ -152,7 +131,6 @@ def lanternward.Session.step.stand.one(here: Bool, +s: J.Val, +id: U32) -> J.Val
           ga.pair(J.get(ga.at(J.get(s, "seats"), id), "gems"), J.get(ga.at(J.get(s, "seats"), id), "bombs")))),
         "seats", J.del(J.get(s, "seats"), U32.show(id)))
 
-# One who joins late sits down at the room's start and scales what is standing.
 def lanternward.Session.step.sit(+ids: List<&2, U32>, +s: J.Val, +heroes: J.Val) -> J.Val:
   match ids:
     case Nil{}:
@@ -186,7 +164,6 @@ def lanternward.Session.step.sit.hp(+k: J.Val, +s: J.Val, +id: U32) -> J.Val:
       Bool.pick(J.Val, ga.b(ga.v(s, "inv"), "lantern"), ga.su(ga.su(ga.su(k, "max_hp", max), "hp", max), "flame", lanternward.R(s, "flame")), ga.su(ga.su(k, "max_hp", max), "hp", max)),
       "max_hp", max))
 
-# Each seated knight takes their input (a bad one is no input).
 def lanternward.Session.step.seats(+ids: List<&2, U32>, +s: J.Val, +inputs: J.Val) -> J.Val:
   match ids:
     case Nil{}:
@@ -205,8 +182,6 @@ def lanternward.Session.step.seat.valid(ok: Bool, +s: J.Val, +id: U32, +inp: J.V
     case False{}:
       lanternward.kit.Session.step_seat(s, id, rules.Input.default())
 
-# One tick: whoever is here and awake sits at the table, then every body acts
-# in its order. `r` is the Rules ({lock, parry, combo, flame, tell}).
 def lanternward.Session.step(+s: J.Val, +inputs: J.Val, +heroes: J.Val, +r: J.Val) -> J.Val:
   lanternward.Session.step.go(
     lanternward.Session.step.sit(
@@ -237,7 +212,6 @@ def lanternward.Session.step.rest(+s: J.Val) -> J.Val:
                     lanternward.stage.Session.unstick(
                       lanternward.stage.Session.tick_props(s)))))))))))
 
-# Whether the finale is on: the Beacon is lit and the party may leave.
 def lanternward.Session.finale(+s: J.Val) -> Bool:
   lanternward.Session.finale.go(J.is_null(J.get(s, "done")), s)
 
@@ -247,8 +221,6 @@ def lanternward.Session.finale.go(none: Bool, +s: J.Val) -> Bool:
       False{}
     case False{}:
       U32.is_ge(ga.u(s, "elapsed"), (J.u32(J.get(s, "done")) + 120 : U32))
-
-# ---- valid / problem / repair ----
 
 def lanternward.problem.inside(+x: U32, +y: U32, +w: U32, +h: U32) -> Bool:
   Bool.and(lanternward.in_range(x, 0, w), lanternward.in_range(y, 0, h))
@@ -320,7 +292,6 @@ def lanternward.problem.kept(+ids: List<&2, U32>, +kept: J.Val) -> Bool:
         Bool.and(Bool.and(U32.is_ge(id, 1), U32.is_le(id, 6)), Bool.and(U32.is_le(ga.nu(ga.at(kept, id), 0), 100000), U32.is_le(ga.nu(ga.at(kept, id), 1), 10))),
         lanternward.problem.kept(t, kept))
 
-# The first named bound the session breaks, else null.
 def lanternward.Session.problem(+s: J.Val) -> J.Val:
   lanternward.problem.go(s, lanternward.world.Plan.w(lanternward.world.plan(ga.u(s, "room"))), lanternward.world.Plan.h(lanternward.world.plan(ga.u(s, "room"))))
 
@@ -423,13 +394,9 @@ def lanternward.fields_count(+o: J.Val) -> U32:
 def lanternward.Session.valid(+s: J.Val) -> Bool:
   J.is_null(lanternward.Session.problem(s))
 
-# ---- repair ----
-
-# Mend what a bad save broke.
 def lanternward.Session.repair(+s: J.Val) -> J.Val:
   lanternward.repair.seats(ga.ids(J.get(s, "seats")), ga.su(s, "elapsed", RS.u_min(ga.u(s, "elapsed"), 108000)))
 
-# Keep only seats 1..=6, and clamp each one's `joined` to the clock.
 def lanternward.repair.seats(+ids: List<&2, U32>, +s: J.Val) -> J.Val:
   match ids:
     case Nil{}:
@@ -454,8 +421,6 @@ def lanternward.repair.rebuild(good: Bool, +s: J.Val) -> J.Val:
         ga.ids(J.get(s, "seats")),
         lanternward.repair.clear(ga.su(s, "room", RS.u_min(ga.u(s, "room"), 4))))
 
-# Whatever else is wrong, the room is rebuilt as it opens and the party stands
-# at its start with full hearts.
 def lanternward.repair.clear(+s: J.Val) -> J.Val:
   lanternward.repair.keys(
     ga.su(
@@ -484,7 +449,6 @@ def lanternward.repair.keys(+s: J.Val) -> J.Val:
     ga.sv(s, "kept", lanternward.repair.kept(ga.ids(J.get(s, "kept")), J.get(s, "kept"))),
     "inv", ga.su(ga.su(ga.v(s, "inv"), "small_keys", RS.u_min(ga.u(ga.v(s, "inv"), "small_keys"), 8)), "containers", RS.u_min(ga.u(ga.v(s, "inv"), "containers"), 8)))
 
-# Each seat is made fresh (keeping when it joined), then the room is entered.
 def lanternward.repair.fresh(+ids: List<&2, U32>, +s: J.Val) -> J.Val:
   match ids:
     case Nil{}:

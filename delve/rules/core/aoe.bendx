@@ -1,15 +1,8 @@
-# crates/delve/src/rules/aoe.rs — one rule for every blow that lands on a crowd.
-# Rust takes a closure (`reaches: Fn(&Enemy) -> bool`); here the caller hands over the
-# answers as a `mask`: one Bool per enemy, in the enemies' order (`aoe.mask_circle`
-# builds the usual one: within `r + radius * k` of a point, but not enemy `skip`).
-
-# What the monster `rank` places from a stroke (0 the nearest) takes of its `damage`.
 def aoe.part(damage: U32, rank: U32) -> U32:
     if U32.is_lt(rank, aoe.FULL()):
         return damage
     return core.div_ceil((damage * aoe.REST() : U32), 100)
 
-# The mask of monsters a circle catches: within `r + radius * k` of (cx, cy), and not the one with id `skip`.
 def aoe.mask_circle(enemies: J.Val, cx: F32, cy: F32, r: F32, k: F32, skip: U32) -> [Bool]:
     mask: [Bool] = []
     for e: J.Val in J.items(enemies):
@@ -18,7 +11,6 @@ def aoe.mask_circle(enemies: J.Val, cx: F32, cy: F32, r: F32, k: F32, skip: U32)
         mask = List.append(&2, Bool, mask, [hit])
     return mask
 
-# Insert (distance, index) into a list sorted by distance then index.
 def aoe.insert(near: [J.Val], d: F32, i: U32) -> [J.Val]:
     out: [J.Val] = []
     placed: Bool = False{}
@@ -33,7 +25,6 @@ def aoe.insert(near: [J.Val], d: F32, i: U32) -> [J.Val]:
         out = List.append(&2, J.Val, out, [core.set_u(core.set_f(J.obj(), "d", d), "i", i)])
     return out
 
-# The living monsters a stroke from (ax, ay) reaches, nearest first (indices into the enemies).
 def aoe.reached(enemies: J.Val, ax: F32, ay: F32, mask: [Bool]) -> [U32]:
     near: [J.Val] = []
     i: U32 = 0
@@ -54,8 +45,6 @@ def aoe.reached(enemies: J.Val, ax: F32, ay: F32, mask: [Bool]) -> [U32]:
         out = List.append(&2, U32, out, [core.u(p, "i")])
     return out
 
-# One stroke of `damage` from (ax, ay) on every living monster the mask catches, shared as the
-# rule says. The enemies after, and each monster struck as [index, dealt], nearest first.
 def aoe.strike(enemies: J.Val, ax: F32, ay: F32, damage: U32, mask: [Bool]) -> (J.Val, J.Val):
     struck: [J.Val] = []
     rank: U32 = 0

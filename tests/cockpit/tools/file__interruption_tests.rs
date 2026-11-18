@@ -34,7 +34,6 @@ fn patch_exit_drain_sigint_between_real_patch_writes() {
                  *** Update File: second.txt\n@@\n-before\n+after\n*** End Patch\n",
         )
         .unwrap();
-        // Keep the fixture alive if the patch wins the scheduling race.
         loop {
             std::thread::park();
         }
@@ -69,7 +68,6 @@ fn patch_exit_drain_sigint_between_real_patch_writes() {
         );
         std::thread::sleep(std::time::Duration::from_micros(100));
     }
-    // SAFETY: this is the still-owned, unreaped test child only.
     assert_eq!(unsafe { libc::kill(child.id() as i32, libc::SIGINT) }, 0);
     let status = child.wait().unwrap();
     assert_eq!(status.code(), Some(130));
@@ -98,7 +96,6 @@ fn patch_exit_drain_completes_active_transaction() {
             let _guard = exit_safe_patch::Guard::enter().unwrap();
             std::fs::write(root.join("first.txt"), "landed\n").unwrap();
             ready_tx.send(()).unwrap();
-            // A real process exit starts between these fixture writes.
             std::thread::sleep(std::time::Duration::from_millis(100));
             std::fs::write(root.join("second.txt"), "landed\n").unwrap();
         });

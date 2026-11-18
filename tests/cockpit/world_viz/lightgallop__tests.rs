@@ -16,7 +16,6 @@ fn row(t: &Terminal<TestBackend>, y: u16) -> String {
     (0..96).map(|x| t.backend().buffer()[(x, y)].symbol().to_string()).collect()
 }
 
-/// A table of `seats` bots ridden `ticks` ticks.
 fn ridden(seats: u32, ticks: u32) -> Run {
     crate::agent::harness::live_policy::install_scripted_rules();
     let mut r = Run::lightgallop_for_test();
@@ -30,7 +29,6 @@ fn ridden(seats: u32, ticks: u32) -> Run {
     r
 }
 
-/// A table of `seats` bots that has rung the bell, 140 ticks into its tally.
 fn tallied(seats: u32) -> Run {
     crate::agent::harness::live_policy::install_scripted_rules();
     let mut r = Run::lightgallop_for_test();
@@ -96,12 +94,9 @@ fn the_title_card_and_the_keys_are_said_in_text_over_their_garbled_lettering() {
         let all = rows.join("\n");
         let at = |word: &str| rows.iter().position(|l| l.contains(word)).unwrap_or_else(|| panic!("{word}\n{all}"));
         let (a, b) = (at("MOONWELL ROAD"), at("THE DIMMING COMES"));
-        // In the sky, under the three rows of the heads-up display, one line over the other.
         assert!(a >= 3 && a < b && b <= 8, "{seats} seats: the title is on rows {a} and {b}\n{all}");
-        // The keys, on the bottom rows (the top rows carry them too).
         assert!(rows[24..].iter().any(|l| l.contains("A D RUN   E LEAP   SPACE SPUR")), "{seats} seats\n{all}");
     }
-    // Gone with the title card and, a few seconds on, the keys.
     let rows = rows_of(&draw(&ridden(1, 400), 1)).join("\n");
     assert!(!rows.contains("MOONWELL ROAD") && !rows.contains("DIMMING COMES"), "{rows}");
 }
@@ -133,7 +128,6 @@ fn the_tally_box_covers_the_pictures_panel_and_says_the_bonus_and_every_score() 
         for (id, v) in &y.scores {
             assert!(all.contains(&format!("{id}")) && all.contains(&v.to_string()), "{seats} seats: seat {id}'s {v}\n{all}");
         }
-        // The picture's own panel (columns 14 to 81, rows 4 to 25) is covered: no picture cell shows inside.
         let buf = t.backend().buffer();
         for yy in 5..25u16 {
             for xx in 15..81u16 {

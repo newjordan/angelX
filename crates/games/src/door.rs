@@ -9,7 +9,6 @@
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 
-/// A private address: loopback, the local network, or a tailnet's.
 pub fn private_address(address: IpAddr) -> bool {
     match address {
         IpAddr::V4(ip) => {
@@ -21,12 +20,8 @@ pub fn private_address(address: IpAddr) -> bool {
     }
 }
 
-/// This machine's Tailscale address, if it is on a tailnet: the route to
-/// Tailscale's own resolver leaves through the tailnet interface. No packet
-/// is sent.
 pub fn tailnet_address() -> Option<IpAddr> {
     let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
-    // Tailscale's own resolver, the same quad-100 address on every tailnet.
     socket
         .connect(SocketAddr::new(
             IpAddr::V4(Ipv4Addr::new(100, 100, 100, 100)),
@@ -38,8 +33,6 @@ pub fn tailnet_address() -> Option<IpAddr> {
         .then_some(ip)
 }
 
-/// This machine's private address on its local network, if it has one. No
-/// packet is sent: connecting a UDP socket only consults the routing table.
 pub fn lan_address() -> Option<IpAddr> {
     let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
     socket.connect("192.0.2.1:9").ok()?;
@@ -47,8 +40,6 @@ pub fn lan_address() -> Option<IpAddr> {
     (private_address(ip) && !ip.is_loopback()).then_some(ip)
 }
 
-/// Where a hosted delve listens unless told otherwise: the tailnet, then the
-/// local network, then this machine only. The link's key guards it.
 pub fn default_bind(port: u16) -> String {
     let ip = tailnet_address()
         .or_else(lan_address)
@@ -56,8 +47,6 @@ pub fn default_bind(port: u16) -> String {
     SocketAddr::new(ip, port).to_string()
 }
 
-/// An address to host on: numeric, and private. A wildcard or public
-/// listener is not opened; a public door goes in front of a private one.
 pub fn bind(text: &str) -> Result<SocketAddr, String> {
     let address: SocketAddr = text.trim().parse().map_err(|_| {
         "use a numeric private address and port, such as 127.0.0.1:8787".to_string()
@@ -68,8 +57,6 @@ pub fn bind(text: &str) -> Result<SocketAddr, String> {
     Ok(address)
 }
 
-/// The public door in front of this host (`ANGEL_DUNGEON_PUBLIC_URL`), if
-/// one is named: an http(s) root URL.
 pub fn public_door() -> Result<Option<String>, String> {
     let Some(raw) = std::env::var("ANGEL_DUNGEON_PUBLIC_URL")
         .ok()
@@ -92,8 +79,6 @@ pub fn public_door() -> Result<Option<String>, String> {
     Ok(Some(url.as_str().trim_end_matches('/').to_string()))
 }
 
-/// The links to a session listening on `addr` with `key`: the public door's
-/// first when there is one, then the address itself.
 pub fn links(addr: SocketAddr, key: &str) -> Vec<String> {
     let mut doors = Vec::new();
     if let Ok(Some(public)) = public_door() {
@@ -109,7 +94,6 @@ pub fn links(addr: SocketAddr, key: &str) -> Vec<String> {
         .collect()
 }
 
-/// What the host is told about who can reach the link.
 pub fn reach(addr: SocketAddr) -> &'static str {
     if matches!(public_door(), Ok(Some(_))) {
         "The first link goes through your public door: anyone with it can join."
@@ -122,8 +106,6 @@ pub fn reach(addr: SocketAddr) -> &'static str {
     }
 }
 
-/// The invitation as the host sees it: the links, what each is for, and the
-/// first link's QR code in half blocks.
 pub fn invitation(links: &[String]) -> String {
     let mut text = String::from(
         "One link for everyone: open it in a browser (nothing to install), or paste it into angelX as /dungeon join <link>.\n",

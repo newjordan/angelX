@@ -14,46 +14,29 @@ use std::sync::OnceLock;
 
 pub use angel_live::realm::Oracle;
 
-/// A helper process that talks over pipes and is retired with its group when
-/// dropped.
 pub trait Service: Send {
     fn take_stdin(&mut self) -> Option<ChildStdin>;
     fn take_stdout(&mut self) -> Option<ChildStdout>;
-    /// Whether the process still runs.
     fn alive(&mut self) -> bool;
-    /// Stop the process and its group, then collect its status.
     fn retire(&mut self) -> io::Result<ExitStatus>;
 }
 
-/// The cockpit's answers, lent once.
 pub trait Host: Send + Sync {
-    /// Start `command` as an owned service (the cockpit's process ownership
-    /// reaps it with the rest at shutdown).
     fn spawn_service(&self, command: &mut Command) -> io::Result<Box<dyn Service>>;
 
-    /// The socket of the host a seat has joined: the paintings this machine
-    /// does not keep are fetched from beside it.
     fn paint_host(&self, url: &str, trust: &angel_serve::client::Trust);
 
-    /// The directory the paintings of the workspace in hand are kept in: the
-    /// window reads them from there.
     fn paint_dir(&self, dir: &std::path::Path);
 
-    /// The directory the workspace's wished looks are composed in
-    /// (`together_looker`): the window watches its `pack.json` and lays it
-    /// over its HD pack. A cockpit with no such window ignores it.
     fn looks_dir(&self, _dir: &std::path::Path) {}
 }
 
 static HOST: OnceLock<Box<dyn Host>> = OnceLock::new();
 
-/// Lend the cockpit's answers. The first call wins; returns whether this call
-/// installed them.
 pub fn install(host: Box<dyn Host>) -> bool {
     HOST.set(host).is_ok()
 }
 
-/// Start `command` as a service: the cockpit's when it lent one, else plain.
 pub fn spawn_service(command: &mut Command) -> io::Result<Box<dyn Service>> {
     match HOST.get() {
         Some(host) => host.spawn_service(command),
@@ -61,28 +44,24 @@ pub fn spawn_service(command: &mut Command) -> io::Result<Box<dyn Service>> {
     }
 }
 
-/// Tell the cockpit which host a joined seat's paintings come from.
 pub fn paint_host(url: &str, trust: &angel_serve::client::Trust) {
     if let Some(host) = HOST.get() {
         host.paint_host(url, trust);
     }
 }
 
-/// Tell the cockpit where the workspace's paintings are kept.
 pub fn paint_dir(dir: &std::path::Path) {
     if let Some(host) = HOST.get() {
         host.paint_dir(dir);
     }
 }
 
-/// Tell the cockpit where the workspace's wished looks are composed.
 pub fn looks_dir(dir: &std::path::Path) {
     if let Some(host) = HOST.get() {
         host.looks_dir(dir);
     }
 }
 
-/// A service started with no cockpit: its own process group, killed whole.
 struct Plain {
     child: std::process::Child,
     retired: Option<io::Result<ExitStatus>>,
@@ -115,7 +94,6 @@ impl Service for Plain {
     fn retire(&mut self) -> io::Result<ExitStatus> {
         if self.retired.is_none() {
             #[cfg(unix)]
-            // SAFETY: `spawn` made this child the leader of a group of its own.
             unsafe {
                 libc::killpg(self.child.id() as libc::pid_t, libc::SIGKILL);
             }

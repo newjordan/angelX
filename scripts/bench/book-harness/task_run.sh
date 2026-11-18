@@ -1,14 +1,4 @@
 #!/usr/bin/env bash
-# task_run.sh <angel-binary-dir> <label> [onebug|twobug]
-# One headless task against a REAL model through proxy_log.py; the request log
-# lands in out/<label>.jsonl, the task receipt in out/<label>.result.json.
-# The binary dir must hold `angel` and its `angel-sandbox` (the harness runs the
-# helper beside its own binary). Requires: PROXY_UPSTREAM (OpenAI-compatible
-# base URL ending /v1), PROXY_KEY (optional), ANGEL_LOCAL_MODEL (model id).
-# Arms: ANGEL_BOOK_INTRO=0|1 (default 1). MAX_HOPS (default 40).
-# ROUTE picks the harness seat the proxy sits in front of (seat.sh; default
-# local): local (needs PROXY_UPSTREAM, ANGEL_LOCAL_MODEL), glm-flash,
-# deepseek-flash or muse (each its native seat; keys from the environment).
 set -euo pipefail
 if [[ $# -lt 2 || $# -gt 3 ]]; then
   printf 'Usage: %s <angel-binary-dir> <label> [onebug|twobug]\n' "$0" >&2

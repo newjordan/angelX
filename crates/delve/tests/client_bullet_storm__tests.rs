@@ -29,52 +29,31 @@
 use super::*;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
-/// A public session's knights.
 const PARTY: u32 = 5;
-/// The shots held in the air, step by step.
 const STEPS: [usize; 8] = [100, 500, 1_000, 2_000, 5_000, 10_000, 20_000, 50_000];
-/// Ticks a step is held and counted: three seconds at 30 a second.
 const TICKS: u32 = 90;
-/// Ticks first played and not counted: the first whole tree, the art warming.
 const WARM: u32 = 3;
-/// The fewest ticks a step is held when the budget runs short.
 const FEWEST: u32 = 15;
 
-/// What a step reached.
 #[derive(Default)]
 struct Held {
     mix: u8,
     target: usize,
-    /// The seats sent to each tick.
     seats: u32,
-    /// Ticks counted (warm-up aside).
     ticks: u32,
-    /// The host's tick (step, what it said, clone, publish, five seats'
-    /// patches), the step alone and seat 0's frame (read, draw, stage), ms.
     host: Vec<f64>,
     step: Vec<f64>,
     seat: Vec<f64>,
-    /// Shots in the air after each counted step.
     shots: Vec<usize>,
-    /// Bytes a seat was sent a tick, summed over seats and counted ticks,
-    /// and the most one seat was sent in one.
     wire_sum: usize,
     wire_peak: usize,
-    /// Seat 0's first message, the whole tree, bytes.
     whole: usize,
-    /// The tree's values at the step's end.
     nodes: usize,
-    /// Resident memory at most as sampled each tick, and the step's peak
-    /// (`VmHWM`), KB.
     rss_kb: u64,
     hwm_kb: u64,
-    /// Whether `VmHWM` was started over for this step.
     own_peak: bool,
-    /// The step's wall time, warm-up and all, s.
     wall: f64,
-    /// Why the step stopped short, if it did.
     cut: Option<String>,
-    /// Per-layer costs and allocation counts from the original storm bench.
     layers: Tally,
 }
 
@@ -87,7 +66,6 @@ struct Drawing {
     props: bool,
 }
 
-/// The run's limits: when it must be done by, and the memory it may hold.
 struct Guard {
     start: Instant,
     budget: Duration,
@@ -100,7 +78,6 @@ impl Guard {
     }
 }
 
-/// (resident now, its peak) in KB, from `/proc/self/status`.
 fn rss_kb() -> (u64, u64) {
     let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
     let field = |name: &str| {
@@ -113,8 +90,6 @@ fn rss_kb() -> (u64, u64) {
     (field("VmRSS:"), field("VmHWM:"))
 }
 
-/// Start the peak (`VmHWM`) over, so a step's is its own: Linux's
-/// `clear_refs` 5. False where it cannot.
 fn restart_peak() -> bool {
     std::fs::write("/proc/self/clear_refs", "5").is_ok()
 }
@@ -123,20 +98,16 @@ fn at(sorted: &[f64], q: f64) -> f64 {
     sorted.get(((sorted.len().max(1) - 1) as f64 * q).round() as usize).copied().unwrap_or(0.0)
 }
 
-/// (p50, p95, worst) of `samples`.
 fn spread(samples: &[f64]) -> (f64, f64, f64) {
     let mut sorted = samples.to_vec();
     sorted.sort_by(f64::total_cmp);
     (at(&sorted, 0.5), at(&sorted, 0.95), at(&sorted, 1.0))
 }
 
-/// Hold the air at `target` shots of `mix` for `ticks` (after `WARM`), the
-/// party `party` strong, seat 0 drawing when `draws`.
 fn hold(mix: u8, target: usize, ticks: u32, party: u32, drawing: Drawing, guard: &Guard) -> Held {
     let walled = Instant::now();
     let own_peak = restart_peak();
     crate::world3d::set_enabled(drawing.world3d);
-    // The party's cover rule would thin the storm to a few dozen.
     crate::rules::cover::OFF.with(|off| off.set(true));
     let mut run = stacked_party(Weapon::Bow, BUILTIN, party, false);
     let mut publisher = wire::Publisher::default();
@@ -285,7 +256,6 @@ fn hold(mix: u8, target: usize, ticks: u32, party: u32, drawing: Drawing, guard:
     h
 }
 
-/// A step's row of the table (seat 0's columns dashed when it does not draw).
 fn line(h: &Held, draws: bool) -> String {
     let (hp50, hp95, hmax) = spread(&h.host);
     let (sp50, _, smax) = spread(&h.step);
@@ -314,8 +284,6 @@ fn line(h: &Held, draws: bool) -> String {
 
 const HEADER: &str = "mix  shots ticks   live |  host p50      p95    worst |  step p50    worst |  seat p50      p95    worst |  RSS MB  peak MB | B/seat/tick KB/s/seat peak KB whole KB    values";
 
-/// The ramp, as the lost run had it: the mixed storm then the homing one,
-/// 100 to 50 000 shots, each mix inside 600 s and 20 GB.
 #[test]
 #[ignore = "a bench: run it in release with --nocapture, guarded"]
 fn bullet_storm_ramp() {
@@ -351,7 +319,6 @@ fn bullet_storm_ramp() {
         let guard = Guard { start: Instant::now(), budget: Duration::from_secs(budget), rss_kb: rss_gb << 20 };
         let mut last: Option<(f64, usize, u32)> = None;
         for &target in &steps {
-            // Reckon the step from the last: its wall a tick, scaled by the shots.
             let mut hold_for = ticks;
             if let Some((wall, was, held)) = last {
                 let per_tick = wall / f64::from(held + WARM) * target as f64 / was.max(1) as f64;

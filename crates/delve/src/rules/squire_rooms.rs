@@ -12,8 +12,6 @@
 use super::world::{Dest, Entrance};
 use super::*;
 
-/// The rooms, the name on their door, and their cells on the home floor,
-/// east of the muster tent. No doorway joins them on the grid.
 pub const ROOMS: [(RoomKind, &str, (i32, i32)); 5] = [
     (RoomKind::SquireGuild, "SQUIRES GUILD", (20, -12)),
     (RoomKind::SquireAcademy, "ACADEMY", (21, -12)),
@@ -22,14 +20,8 @@ pub const ROOMS: [(RoomKind, &str, (i32, i32)); 5] = [
     (RoomKind::SquireLanes, "LANES", (24, -12)),
 ];
 
-/// The Yard's door plates, one a room in `ROOMS` order, just inside its
-/// east wall, between Sir Ector's hiring plates (row 3) and the stall and
-/// his roster (rows 9 and 10) (tiles).
 pub const YARD_DOORS: [(i32, i32, i32, i32); 5] =
     [(22, 4, 1, 1), (22, 5, 1, 1), (22, 6, 1, 1), (22, 7, 1, 1), (22, 8, 1, 1)];
-/// Each room's way back, in its south-west corner, clear of every squire
-/// game's plates, and where one stands coming in: a party of four fans out
-/// side by side on open floor.
 pub const BACK: (i32, i32, i32, i32) = (1, 12, 2, 1);
 pub const ARRIVAL: (f32, f32) = (4.0, 11.2);
 
@@ -37,13 +29,10 @@ pub fn is_room(kind: RoomKind) -> bool {
     ROOMS.iter().any(|(k, _, _)| *k == kind)
 }
 
-/// The name on room `kind`'s door.
 pub fn name(kind: RoomKind) -> Option<&'static str> {
     ROOMS.iter().find(|(k, _, _)| *k == kind).map(|(_, n, _)| *n)
 }
 
-/// Where one comes out in the Yard from room `i`: before its door, a
-/// party's width off the wall.
 pub const fn yard_front(i: usize) -> (f32, f32) {
     let (c, r, _, h) = YARD_DOORS[i];
     (c as f32 - 3.0, r as f32 + h as f32 / 2.0)
@@ -66,8 +55,6 @@ pub const DOORS: [Entrance; 10] = [
     door("squires-lanes-out", RoomKind::SquireLanes, BACK, RoomKind::Yard, yard_front(4), "BACK TO THE YARD"),
 ];
 
-/// A squire room laid out: stone round the edge, an open floor the Yard's
-/// size, and the plate back.
 pub fn room(kind: RoomKind, cell: (i32, i32)) -> Room {
     let mut room = Room::solid_rock(cell);
     room.kind = kind;
@@ -85,8 +72,6 @@ pub fn room(kind: RoomKind, cell: (i32, i32)) -> Room {
     room
 }
 
-/// The Yard's door plates, laid on the Yard of an Undercroft that has one
-/// (a saved settlement's Yard too).
 pub fn doors_in_yard(floor: &mut Floor) -> bool {
     let mut changed = false;
     for yard in floor.rooms.iter_mut().filter(|r| r.kind == RoomKind::Yard) {

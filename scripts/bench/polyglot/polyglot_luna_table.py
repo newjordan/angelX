@@ -57,15 +57,10 @@ def load_rows(run: Path, *, prefer_proxy_metadata=False):
                 usage = angel.get("usage") or {}
                 fields, subtotals, coverage = history.usage_fields(calls, usage)
                 score = history.number(((trace.get("rewards") or {}).get("technical_outcome") or {}).get("score"))
-                # Keep the table's recorded task wall metric when observed.
-                # A missing metric can use the evaluator's validated clock;
-                # an explicitly invalid metric remains unknown.
                 wall = history.milliseconds(metrics.get("wall_ms")) if "wall_ms" in metrics else history.elapsed(
                     (trace.get("timing") or {}).get("agent") or {})
                 wall_source = "task-metric" if "wall_ms" in metrics else "agent-clock"
                 hops = num(metrics.get("hops")) if "hops" in metrics else len(calls) if calls else num(angel.get("hops"))
-                # A killed adapter never emitted task metrics: the evaluator
-                # leaves zero placeholders despite a measured timeout/calls.
                 if timed_out and wall == 0:
                     wall = history.elapsed((trace.get("timing") or {}).get("agent") or {})
                     wall_source = "agent-clock-timeout"

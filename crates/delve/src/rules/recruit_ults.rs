@@ -14,8 +14,6 @@
 use super::*;
 use std::collections::BTreeMap;
 
-/// A recruit's ultimate as it was wished: the power, the name the wish gave
-/// it, and who wished it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecruitUlt {
     pub ult: ults::Ult,
@@ -25,22 +23,15 @@ pub struct RecruitUlt {
 
 pub type RecruitUlts = BTreeMap<String, RecruitUlt>;
 
-/// Whether the knight of `kit` is a recruit: one with no ultimate of their
-/// own.
 pub fn recruit(kit: &str) -> bool {
-    // The four code-drawn knights are plain knights, not recruits: they sit
-    // in the pub, and each keeps a plain knight's ultimate.
     knights::knight(kit).is_some() && knights::plain_seat(kit).is_none() && ults::Ult::own(kit).is_none()
 }
 
-/// The question the scroll asks a knight wishing a recruit's ultimate.
 pub fn question(kit: &str) -> String {
     let name = knights::knight(kit).map_or(kit, |k| k.name);
     format!("What is {name}'s ultimate?")
 }
 
-/// What a knight wishing the recruit `kit`'s ultimate is wishing for, as
-/// a `identity::Making` with only the ultimate open.
 pub fn making(kit: &str) -> identity::Making {
     identity::Making {
         parts: vec!["body".into()],
@@ -51,8 +42,6 @@ pub fn making(kit: &str) -> identity::Making {
 }
 
 impl Run {
-    /// The ultimate the knight of `kit` carries: their own, the one wished
-    /// for them as a recruit, or the Pilgrim's Arrow while none is.
     pub fn own_ult(&self, kit: Option<&str>) -> ults::Ult {
         let kit = kit.unwrap_or("percival");
         ults::Ult::own(kit)
@@ -60,10 +49,6 @@ impl Run {
             .unwrap_or(ults::Ult::PilgrimsArrow)
     }
 
-    /// Knight `id` has just taken up `kit` (sat as `label`) in the tavern. A recruit whose
-    /// ultimate is still unwished makes them its wisher: they are
-    /// congratulated, the party hears it, and the first time this delve
-    /// they are given a wish to spend on it.
     pub(super) fn first_recruit(&mut self, id: u32, kit: &str, label: &str) {
         if !recruit(kit) || self.home.recruit_ults.contains_key(kit) {
             return;
@@ -95,9 +80,6 @@ impl Run {
         self.sounds.push("wish_grant");
     }
 
-    /// A wish just granted to knight `id`: if it gave the ultimate of the
-    /// recruit they are wishing for, the ultimate is the recruit's from now
-    /// on, the card leaves their deck, and the party hears whose it is.
     pub(super) fn keep_recruit_ult(&mut self, id: u32, card: &Card) {
         let Some(ult) = card.ult else { return };
         let Some(hero) = self.players.get_mut(&id) else { return };

@@ -133,7 +133,6 @@ fn main() {
             busy: false,
             serial,
         };
-        // (seconds, page, entrance); None closes the card.
         let script: Vec<(f32, Option<Page>, Entrance)> = vec![
             (0.0, Some(list(0, Knight::Wave, 1)), Entrance::Title),
             (3.6, Some(list(0, Knight::Sit, 1)), Entrance::Title),
@@ -207,7 +206,6 @@ fn main() {
             (15.6, None, Entrance::Pop),
             (16.4, None, Entrance::Pop),
         ];
-        // The window assembles itself first; the card comes after.
         let delay = std::env::var("ANGEL_CARD_DELAY").ok().and_then(|v| v.parse::<f32>().ok()).unwrap_or(1.8);
         let script: Vec<_> = script.into_iter().map(|(at, page, e)| (at + delay, page, e)).collect();
         let start = Instant::now();

@@ -2,8 +2,6 @@ use super::*;
 use serde_json::json;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-/// A workspace spelled relative to the working directory, as the polyglot
-/// cell's `--workspace ws/<name>` is: `label` is that spelling.
 struct LaunchDir {
     base: PathBuf,
     label: PathBuf,
@@ -42,8 +40,6 @@ fn a_path_spelled_from_the_launch_directory_names_the_workspace_file() {
         launch_relative_in_workspace(&dir.label, &dir.label),
         Some(PathBuf::new())
     );
-    // Every file tool resolves through `safe_path`: the read lands on the
-    // workspace file, and a write does not create `ws/bowling/ws/bowling/`.
     let canonical = dir.label.canonicalize().unwrap();
     assert_eq!(
         safe_path(&dir.label, &spelled.to_string_lossy()).unwrap(),
@@ -119,7 +115,6 @@ fn a_leading_cd_to_the_launch_spelling_runs_in_the_workspace() {
         resolve_launch_relative_cd(&format!("  cd {label}/src; ls"), Some(&dir.label)).as_deref(),
         Some(format!("  cd '{}'; ls", canonical.join("src").display()).as_str())
     );
-    // Only a leading, plainly spelled cd the workspace cannot already resolve.
     for untouched in [
         "cd src && ls".to_string(),
         "cd . && ls".to_string(),

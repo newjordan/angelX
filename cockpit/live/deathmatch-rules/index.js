@@ -1,20 +1,14 @@
-// Thin adapter for the Knights Wish leg. Plain JSON in, the compiled rules'
-// answer out: every timer, comparison, score and payout lives in
-// deathmatch-rules.bend. Objects take the Bend constructor their key names;
-// arrays are lists; nothing is computed here.
 const bend = require('./deathmatch-rules.compiled.js')
 
 const nil = { $: 'Nil' }
 const cons = values => values.reduceRight((tail, head) => ({ $: 'Con', head, tail }), nil)
 
-// The constructor each key's object (or each of its array's objects) is built as.
 const shape = {
   rows: 'Seat', turn: 'Turn', turns: 'Turn', fighter: 'Body', hero: 'Kit', champ: 'Stance', blow: 'Blow', feed: 'Frag',
   struck: 'Struck', grab: 'Grab', spots: 'Spot', arm: 'Arm', acted: 'Acted', land: 'Land',
   sweep: 'Sweep', fields: 'Field', wrap: 'Wrap', muzzles: 'Muzzle', stakes: 'Stake',
 }
 
-// A field's `kind` is an enum Rust saves as its name.
 const into = (value, key) => {
   if (key === 'kind' && typeof value === 'string') return { $: value }
   if (Array.isArray(value)) return cons(value.map(item => into(item, key)))
@@ -41,7 +35,6 @@ const outof = value => {
   return out
 }
 
-// The questions Rust asks, and the order their arguments go to the rules.
 const asks = {
   consts: [],
   melee_tick: ['winner', 'connected'],

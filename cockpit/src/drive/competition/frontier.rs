@@ -5,9 +5,6 @@ use crate::agent::harness::live_policy;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
-/// The shipped Bend leg: one evaluation fills all three seats. The decision
-/// lives in `cockpit/live/frontier/frontier.bend`; Rust builds the leg's input
-/// and rejects an answer the scan could not have made.
 const LEG: &str = "frontier";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -125,8 +122,6 @@ where
     })
 }
 
-/// One seat as the leg reports it: a present index or an explicit emptiness.
-/// A missing key is not the same claim as `null`, so it is rejected.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 struct Seat(Option<usize>);
 
@@ -136,8 +131,6 @@ impl Seat {
     }
 }
 
-/// The three seats the selection rule fills, as indices into the board slice.
-/// The leg returns these; Rust builds every frontier struct from them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 pub(crate) struct Selection {
     global: Seat,
@@ -146,9 +139,6 @@ pub(crate) struct Selection {
 }
 
 impl Selection {
-    /// The native rule's own guarantees, which a hot edit must not break: each
-    /// seat names a real entry, the personal seat is a personal entry and the
-    /// source seat carries a source access claim.
     fn check(&self, entries: &[BoardEntryV1]) -> Result<(), String> {
         fn seat(
             entries: &[BoardEntryV1],
@@ -183,12 +173,6 @@ impl Selection {
     }
 }
 
-/// Everything the selection compares, priced so the leg only compares integers.
-/// `score` is the entry's rank under the objective comparator (higher is
-/// better), the tie key's rank travels as two `u32` halves with a missing rank
-/// priced as `u64::MAX` — the native `tie_key` sentinel — and `id` is the entry
-/// id's position among the sorted distinct ids, so the leg's integer compare is
-/// the native string compare.
 fn frontier_input<F>(
     entries: &[BoardEntryV1],
     comparator: &ObjectiveComparatorV1,
@@ -225,8 +209,6 @@ where
     Ok(serde_json::json!({ "rows": rows }))
 }
 
-/// The comparator's order as ranks: equal-comparing scores share a rank and a
-/// better score always ranks higher, which is all the replace rule reads.
 fn score_ranks<F>(
     entries: &[BoardEntryV1],
     comparator: &ObjectiveComparatorV1,

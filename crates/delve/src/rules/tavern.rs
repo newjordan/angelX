@@ -11,33 +11,22 @@
 use super::home::{BUY_HOLD, Order, Station};
 use super::*;
 
-/// The plate before the rubble in the Trophy Hall's west wall (tiles).
 pub const WING_PLATE: (i32, i32, i32, i32) = (1, 6, 2, 2);
-/// The bar along the tavern's north wall, and Maud behind it (her feet).
 pub const BAR: (i32, i32, i32, i32) = (3, 3, 12, 1);
 pub const MAUD_AT: (f32, f32) = (8.5, 2.8);
-/// The rumour board on its posts, east of the bar.
 pub const BOARD: (i32, i32, i32, i32) = (17, 2, 3, 1);
-/// Two tables in the middle of the room.
 pub const TABLES: [(i32, i32, i32, i32); 2] = [(5, 7, 3, 2), (12, 7, 3, 2)];
-/// The Siege Perilous, in the south-west corner: stand on it to sit.
 pub const SIEGE: (i32, i32, i32, i32) = (2, 11, 1, 1);
-/// How long a knight sits before the chair decides, and how many of the
-/// realm's achievements make a knight worthy of it.
 const SIEGE_HOLD: u32 = HZ;
 pub const SIEGE_WORTHY: usize = 24;
-/// How near the bar a knight comes before Maud speaks.
 const BAR_REACH: f32 = 4.5;
 
-/// Maud's three taps, before the bar.
 pub const TAPS: [(i32, i32, i32, i32); 3] = [(4, 4, 2, 1), (8, 4, 2, 1), (12, 4, 2, 1)];
 
-/// A round from one of Maud's taps.
 pub struct Drink {
     pub id: &'static str,
     pub name: &'static str,
     pub does: &'static str,
-    /// Its price in gold, from the treasury.
     pub price: u32,
 }
 
@@ -62,14 +51,11 @@ pub const DRINKS: [Drink; 3] = [
     },
 ];
 
-/// Sir Dinadan's stage, east of the tables; Dinadan on it; the plates
-/// before it where a song is asked for.
 pub const STAGE: (i32, i32, i32, i32) = (17, 8, 5, 1);
 pub const DINADAN_AT: (f32, f32) = (19.5, 8.3);
 pub const SONG_PLATES: [(i32, i32, i32, i32); 3] =
     [(15, 10, 2, 1), (18, 10, 2, 1), (21, 10, 2, 1)];
 
-/// One of Sir Dinadan's songs: an aura for the next delve.
 pub struct Song {
     pub id: &'static str,
     pub name: &'static str,
@@ -98,14 +84,11 @@ pub const SONGS: [Song; 3] = [
     },
 ];
 
-/// Who hears a song: a knight alone, always; in company, a knight this
-/// near another. And what each song gives.
 pub const SONG_REACH: f32 = 9.0;
 pub const SONG_HASTE: f32 = 1.15;
 pub const SONG_ARMOR: u32 = 2;
 pub const SONG_VAMP: u32 = 3;
 
-/// The song plate a point stands on, if any.
 pub fn song_at(x: f32, y: f32) -> Option<usize> {
     SONG_PLATES.iter().position(|&p| inside(p, x, y))
 }
@@ -114,11 +97,9 @@ pub fn song(id: &str) -> Option<&'static Song> {
     SONGS.iter().find(|s| s.id == id)
 }
 
-/// The stout's edge, and the Reserve's travelling purse.
 pub const STOUT: u32 = 15;
 const RESERVE: u32 = 300;
 
-/// The tap a point stands at, if any: 0, 1 or 2.
 pub fn tap_at(x: f32, y: f32) -> Option<usize> {
     TAPS.iter().position(|&t| inside(t, x, y))
 }
@@ -133,8 +114,6 @@ fn inside((col, row, w, h): (i32, i32, i32, i32), x: f32, y: f32) -> bool {
 }
 
 impl Run {
-    /// The Trophy Hall's west wall: holding E at its plate orders the West
-    /// Wing's next rung.
     pub(super) fn tick_wing_plate(&mut self, inputs: &BTreeMap<u32, Input>) {
         if self.home.next(Station::Wing).is_none() {
             return;
@@ -167,8 +146,6 @@ impl Run {
         self.orders.extend(asked);
     }
 
-    /// The tavern: Maud at the bar (or a dry tap), her taps, and the Siege
-    /// Perilous.
     pub(super) fn tick_tavern(&mut self, inputs: &BTreeMap<u32, Input>) {
         let (bx, by) = (
             MAUD_AT.0 * TILE_UNITS,
@@ -227,7 +204,6 @@ impl Run {
                 .map(|plate| [Station::SongA, Station::SongB, Station::SongC][plate])
                 .or(hiring.then_some(Station::Hire));
             if let Some(station) = asking {
-                // At Dinadan's stage, or Beaumains' table: hold E.
                 if !pressing {
                     hero.buy_spent = false;
                     hero.buying = 0;
@@ -245,7 +221,6 @@ impl Run {
                 continue;
             }
             if let Some(tap) = tap {
-                // At a tap: hold E for a round.
                 if !pressing {
                     hero.buy_spent = false;
                     hero.buying = 0;
@@ -286,7 +261,6 @@ impl Run {
                 self.notice("siege_perilous");
                 self.sounds.push("boss_rise");
             } else if let Some(hero) = self.players.get_mut(&id) {
-                // Found wanting: a sting, and off the chair.
                 hero.hp = hero.hp.saturating_sub(5).max(1);
                 hero.x += 2.5;
                 self.cues.push("siege_wanting".into());
@@ -302,9 +276,6 @@ impl Run {
             u8::from(near_bar) | (u8::from(near_stage) << 1) | (u8::from(near_table) << 2);
     }
 
-    /// Down the stair: Maud's round, if one was poured, is drunk, and does
-    /// what it does for the delve. The realm forgets it (the cockpit hears
-    /// the mark).
     pub(super) fn drink_round(&mut self) {
         self.round = self.home.round.take();
         let Some(id) = self.round.clone() else {
@@ -331,8 +302,6 @@ impl Run {
         self.cues.push(format!("round_drunk:{id}"));
     }
 
-    /// Down the stair: Sir Dinadan's song, if one was asked for, goes with
-    /// the party. The realm forgets it (the cockpit hears the mark).
     pub(super) fn sing_song(&mut self) {
         self.song = self.home.song.take();
         let Some(id) = self.song.clone() else {
@@ -342,8 +311,6 @@ impl Run {
         self.cues.push(format!("song:{id}"));
     }
 
-    /// Each tick of a delve: who hears the song (a knight alone, always; in
-    /// company, a knight near another), and what it gives them.
     pub(super) fn tick_song(&mut self) {
         let iron = self.song.as_deref() == Some("iron");
         let song = self.song.is_some() && self.dungeon.depth > 0;
@@ -373,16 +340,12 @@ impl Run {
         self.maud_gossips();
     }
 
-    /// Maud's gossip: a surface game nobody has won yet, and the gold arrow
-    /// sent its way (unless the party already has somewhere to be).
     fn maud_gossips(&mut self) {
         use super::countryside::game_mark;
         use super::pastimes::Game;
         if !self.home.residents.contains("maud") || self.kingdom.moments.errand.is_some() {
             return;
         }
-        // Nobody has won a race: the griffins want flying (if the Eyrie is
-        // where a knight can go: the blank-slate map has no door to it).
         if !self.race_won() && self.on_the_way(RoomKind::Eyrie) {
             self.kingdom.moments.errand = Some(RoomKind::Eyrie);
             self.found = Some((self.tick, 0, "MAUD: NOBODY'S WON A RACE YET. THE GRIFFINS ARE BORED.".into()));
@@ -399,8 +362,6 @@ impl Run {
         }
     }
 
-    /// What the rumour board says: who waits at the bottom of the next
-    /// delve's first floor, what Fortune's wheel said, and talk.
     pub fn rumours(&self) -> [String; 3] {
         let landing = self.home.landing().clamp(1, DEEPEST - 1);
         let pack = Pack::at(landing, self.dungeon.pack);

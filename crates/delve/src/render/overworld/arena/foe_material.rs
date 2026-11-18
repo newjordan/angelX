@@ -36,10 +36,6 @@ fn dress_with(src: &Img, kind: EnemyKind, rounded: bool) -> Img {
         .clone()
 }
 
-/// Authored marks are material information: fur tufts, ribbed membranes,
-/// seams, facets and robe stitches must survive the colour treatment.
-/// Only the neutral ramp and exposed contours move; timber, green hide,
-/// blue crystal and state inks retain their separate authored steps.
 fn retain_materials(src: &Img, kind: EnemyKind) -> Img {
     let mut out = src.clone();
     for y in 0..src.h {
@@ -100,8 +96,6 @@ fn bake(src: &Img, kind: EnemyKind) -> Img {
             let Some(c) = src.get(x, y) else {
                 continue;
             };
-            // Lamps, wound seams and telegraph eyes retain their exact state
-            // colour. The Flesher's old signal cream was flesh, not a tell.
             if is_signal(c) && !(kind == Flesher && c == ink('9').unwrap()) {
                 out.set(x, y, c);
                 continue;
@@ -111,14 +105,14 @@ fn bake(src: &Img, kind: EnemyKind) -> Img {
             let bone =
                 bone_kind || (kind == Lich && y <= 5) || (kind == Boss && bank == 0 && lum >= 140);
             let ramp = match bank {
-                1 => ['D', 'F', 'l', 'y'], // cool green hide / warm slime
-                2 => ['b', 'B', 'r', 't'], // plum brown / honey leather
+                1 => ['D', 'F', 'l', 'y'],
+                2 => ['b', 'B', 'r', 't'],
                 3 if bone => ['S', 'v', 'i', 'H'],
                 3 if kind == Wraith => ['s', 'u', 'U', 'V'],
-                3 => ['s', 'S', 'v', 'V'], // iron, slate and cloth
+                3 => ['s', 'S', 'v', 'V'],
                 _ if bone => ['S', 'v', 'i', 'H'],
                 _ if kind == Flesher => ['b', 'p', 'o', 'H'],
-                _ => ['s', 'S', 'u', 'i'], // chitin and cool stone
+                _ => ['s', 'S', 'u', 'i'],
             };
             let stops = match bank {
                 1 => [30, 60, 128],
@@ -131,9 +125,6 @@ fn bake(src: &Img, kind: EnemyKind) -> Img {
             let left = src.get(x - 1, y).is_none();
             let bottom = src.get(x, y + 1).is_none();
             let right = src.get(x + 1, y).is_none();
-            // Broken coloured contour: lit on upper-left curves, cool on
-            // lower-right curves. One-pixel fingers, legs and weapons keep
-            // their midtone so articulation survives a terminal reduction.
             let neighbours = [(0, -1), (-1, 0), (1, 0), (0, 1)]
                 .iter()
                 .filter(|&&(dx, dy)| src.get(x + dx, y + dy).is_some())
@@ -154,8 +145,6 @@ fn bake(src: &Img, kind: EnemyKind) -> Img {
     out
 }
 
-/// Tight, quiet contact beneath feet; floating actors have a detached pool.
-/// Integer spans only, and outside the sprite's gameplay bounds.
 pub(super) fn shadow(cv: &mut Img, x: i32, y: i32, width: i32, floating: bool) {
     let r = (width / 4).clamp(2, 14);
     let y = y + if floating { 2 } else { 1 };
@@ -166,8 +155,6 @@ pub(super) fn shadow(cv: &mut Img, x: i32, y: i32, width: i32, floating: bool) {
     }
 }
 
-/// Whole drawings keyed by authored pose selectors. Hot frames clone baked
-/// pixels directly, avoiding even the source-row construction and pixel hash.
 pub(super) fn pose(category: u8, state: [u32; 4], paint: impl FnOnce() -> Img) -> Img {
     type Poses = HashMap<(u8, [u32; 4]), Img>;
     static POSES: OnceLock<Mutex<Poses>> = OnceLock::new();

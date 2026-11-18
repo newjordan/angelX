@@ -25,7 +25,6 @@ pub struct HomeTransfer {
     pub lane_squire_orders: Vec<game::lane_squires::Order>,
     #[serde(default)]
     pub raise_orders: Vec<game::raisings::Order>,
-    /// Exact source prefix, including requests that could not be quoted.
     pub raw_purchases: Vec<merchant::Purchase>,
     pub purchases: Vec<QuotedPurchase>,
     pub noticed: Vec<String>,
@@ -41,7 +40,6 @@ pub struct HomeTransfer {
     pub fighting: bool,
     pub names: BTreeMap<u32, String>,
     pub keys: BTreeMap<u32, String>,
-    /// Each seat's own record (`talents::profile_key`), which `keys` keeps by kit.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub profiles: BTreeMap<u32, String>,
     pub location: [u64; 3],
@@ -79,13 +77,10 @@ pub struct HomeResult {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HomeDelivered {
-    /// Stable indexes into the committed result's sale/purchase vectors.
     pub refunded_sales: Vec<usize>,
     pub refunded_purchases: Vec<usize>,
     pub refund: Spoils,
 }
-/// The last consumed game-local observations. Global home projection changes
-/// alone must not create an endless cycle of empty settlement claims.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HomeObserved {
@@ -96,9 +91,6 @@ pub struct HomeObserved {
     keys: BTreeMap<u32, String>,
     context: HomeContext,
 }
-/// Economy inputs that can change without another game event (for example a
-/// newly banked raid growing a foal). Comparing the last committed context
-/// avoids both skipped derived work and endless empty settlement claims.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HomeContext {
@@ -112,9 +104,6 @@ pub const POLICY_CONTRACT: &str = "delve.home";
 pub const POLICY_API: u32 = 1;
 pub const MAX_POLICY_RESULT_BYTES: usize = 512 * 1024;
 
-/// Version 1 of delve.home. All inputs are copies; the worker cannot access the
-/// realm writer or the mutable game. Only the host's identified transaction may
-/// publish a validated result. Retried prepared claims never run policy again.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HomePolicyRequest {
@@ -168,9 +157,6 @@ impl HomePolicyRequest {
     }
 }
 
-/// Private checkpoint of facts still visible to gameplay. Public Run saves
-/// intentionally omit these queues; a live session must retain all of them,
-/// including facts added while an older claim awaits persistence.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HomeOutbox {
@@ -392,16 +378,11 @@ impl HomeTransfer {
             company_reserved: true,
         };
         run.squire_company_claimed = true;
-        // A reserved stall slot is empty but the stock vector stays present,
-        // so ordinary home rebuilds cannot reroll or sell it a second time.
         for slot in &transfer.reserved {
             run.stall[*slot].clear();
         }
         Ok(transfer)
     }
-    /// Unpaid facts remain part of gameplay. A replacement must retain their
-    /// FIFO prefixes and monotonic counters; a newer state intent may replace
-    /// an older value, and will be consumed by the following transaction.
     pub fn validate_world(&self, run: &Run) -> Result<(), String> {
         if (self.company_reserved && (!run.squire_company_claimed || run.home.squire_company != self.view.squire_company))
             || !run.orders.starts_with(&self.orders)
@@ -415,9 +396,6 @@ impl HomeTransfer {
                 .zip(&self.noticed)
                 .all(|(live, claimed)| *live == claimed)
             || !self.marks.iter().all(|(key, captured)| {
-                // The claim itself owns this absolute clock. A restored outbox
-                // may omit it or contain an older clock; settling the claim
-                // advances the guild to the captured time regardless.
                 key == "squires:clock" || run.marks.get(key).is_some_and(|live| {
                     valid_mark(key, *live) && (state_mark(key) || live >= captured)
                 })
@@ -549,8 +527,6 @@ fn quote(run: &Run, purchase: merchant::Purchase) -> Option<QuotedPurchase> {
         },
     })
 }
-/// Evaluate captured facts; no file access, UI callbacks or mutable host Run.
-/// The caller commits this result with the economy before delivering it.
 pub fn settle(
     realm: &mut game::activity::Realm<'_>,
     transfer: &HomeTransfer,
@@ -599,8 +575,6 @@ pub fn settle(
         realm.home.privy_wall = privy_wall;
         changed = true;
     }
-    // The salvage yard changes in the run (a find, a wish, a build): the
-    // realm keeps it when the run's is newer (`salvage`).
     if transfer.view.industry.rev > realm.home.industry.rev {
         realm.home.industry = transfer.view.industry.clone();
         changed = true;
@@ -617,19 +591,14 @@ pub fn settle(
         realm.home.salvage = transfer.view.salvage.clone();
         changed = true;
     }
-    // The freedom wishes' places, and the wishes held unspent (`freedom`):
-    // only the game writes them, as the privy wall.
     if realm.home.wished != wished {
         realm.home.wished = wished;
         changed = true;
     }
-    // The realm's sky (`rewards`): only the game writes it.
     if realm.home.sky != sky && sky.valid() {
         realm.home.sky = sky;
         changed = true;
     }
-    // The Deep's record is the run's own to write, as the privy wall is:
-    // villages met and lit, errands asked and done, wishes made (`deep`).
     if realm.home.deep != transfer.view.deep && transfer.view.deep.valid() {
         realm.home.deep = transfer.view.deep.clone();
         changed = true;
@@ -640,8 +609,6 @@ pub fn settle(
     if realm.home.cave_seed != seed_before || realm.home.mines != mines_before {
         changed = true;
     }
-    // The rites the realm keeps (`rite`): only the game writes them, and only
-    // ever to add, so the two records meet.
     if transfer.view.rites.valid() {
         changed |= realm.home.rites.merge(&transfer.view.rites);
     }
@@ -668,7 +635,6 @@ pub fn settle(
         game::raisings::settle(&mut realm.home.raised, realm.treasury, &transfer.raise_orders);
     changed |= raised_changed;
     country_news.extend(raised_news);
-    // Bomrekedan's works ride the same orders (`bom:` plans), paid here only.
     let (works_changed, works_news) = game::world::bomrekedan::works::settle(
         &mut realm.home.bomrekedan, realm.treasury, &transfer.raise_orders,
     );
@@ -679,9 +645,6 @@ pub fn settle(
         .map(|line| ("country".into(), line))
         .collect();
     let mut earned: Vec<&'static str> = Vec::new();
-    // Wren's bounties: what the delve just did. A finished one is paid
-    // on the spot, and Wren pins the next. Consumed progress commits with
-    // its source claim before acknowledgement.
     let board = realm.home.bounties.clone();
     let finished = realm.home.work_bounties(&marks, reach);
     let mut paid = Vec::new();
@@ -695,9 +658,6 @@ pub fn settle(
     if !pinned.is_empty() {
         changed = true;
     }
-    // The holdings' raids, pinned beside the bounties: Wren's alarms,
-    // pulling the party back down. They pay nothing — the raiders'
-    // purse is won in the hall.
     let raid_pinned = game::bounties::note_raids(&mut realm.home);
     if !raid_pinned.is_empty() {
         changed = true;
@@ -721,8 +681,6 @@ pub fn settle(
             format!("Wren pins a bounty: {}. \"{}\"", bounty.title, bounty.says),
         ));
     }
-    // The Trophy Hall: what fell, kept by the realm. Sir Kay says so the
-    // first time a piece comes in.
     for (mark, &n) in marks {
         let Some(id) = mark.strip_prefix("trophy:") else {
             continue;
@@ -747,8 +705,6 @@ pub fn settle(
     {
         earned.push("full_hall");
     }
-    // Rescues: whoever was let out of a cage goes home up the stair, and
-    // stays.
     for mark in marks.keys() {
         let Some(who) = mark
             .strip_prefix("rescue:")
@@ -773,21 +729,15 @@ pub fn settle(
     {
         earned.push("full_house");
     }
-    // Maud's round was drunk at the top of the stair: the realm's tab
-    // is clear for the next.
     if marks.contains_key("round_drunk") && realm.home.round.take().is_some() {
         changed = true;
     }
-    // And Sir Dinadan's song went down with them.
     if marks.contains_key("song_sung") && realm.home.song.take().is_some() {
         changed = true;
     }
-    // And Beaumains, with his wage in his pocket.
     if marks.contains_key("hired") && realm.home.hire.take().is_some() {
         changed = true;
     }
-    // King Brannoc's barony: his coming, the works, the forges relit, his
-    // missions.
     let mines = realm
         .reclaimed
         .get(game::Pack::Cavern.name())
@@ -811,9 +761,6 @@ pub fn settle(
             .map(|line| ("college".into(), line)),
     );
     earned.extend(barony.earned);
-    // The games and places: the lists and their stables and market, the
-    // Hippodrome's purses, the Court of Deeds, the ranch
-    // (`activity::settle_all`).
     let games = game::activity::settle_all(
         &mut game::activity::Realm {
             home: &mut realm.home,
@@ -825,8 +772,6 @@ pub fn settle(
     );
     changed |= games.changed;
     said.extend(games.said);
-    // Experience: every knight in the party learns from what fell. A
-    // new level is a lesson waiting with Sir Ector.
     let xp = marks.get("xp").copied().unwrap_or(0);
     if xp > 0 {
         for (id, key) in keys {
@@ -846,10 +791,7 @@ pub fn settle(
             }
         }
     }
-    // Deeds at the Keep's work: each knight's marks join their record of
-    // trades (`trades`).
     changed |= realm.home.trades.settle(marks);
-    // The Herald's Bestiary counts every kill.
     let mut counted = false;
     for (mark, &n) in marks {
         if let Some(kind) = mark.strip_prefix("slay:") {
@@ -861,7 +803,6 @@ pub fn settle(
     if unsaved && !fighting {
         changed = true;
     }
-    // Every goblin that got away; the first brings Grubbins home.
     let escapes = noticed
         .iter()
         .filter(|f| f.as_str() == "sticky_fingers")
@@ -870,7 +811,6 @@ pub fn settle(
         realm.home.goblins += escapes;
         changed = true;
     }
-    // The surface peddler is paid from the treasury, as Grubbins is.
     let mut peddles = Vec::new();
     for (index, quote) in transfer.purchases.iter().enumerate() {
         let gold = quote.gold;
@@ -910,12 +850,10 @@ pub fn settle(
             Station::StallC => Some(2),
             _ => None,
         } {
-            // Grubbins sells for gold, and only gold.
             if stall.get(item).is_none_or(|c| c.is_empty()) || transfer.stall_cards[item].is_none()
             {
                 continue;
             }
-            // One stock slot cannot be charged twice by simultaneous plates.
             if sales.iter().any(|(slot, _)| *slot == item) {
                 continue;
             }
@@ -946,7 +884,6 @@ pub fn settle(
             game::home::Station::LessonB => Some(1),
             _ => None,
         } {
-            // Sir Ector teaches the knight standing at his lectern.
             let Some(key) = profiles.get(&order.knight).or_else(|| keys.get(&order.knight)) else {
                 continue;
             };
@@ -979,8 +916,6 @@ pub fn settle(
             game::home::Station::TapC => Some(2),
             _ => None,
         } {
-            // Maud pours a round for the next delve: gold from the
-            // treasury, one round at a time.
             let drink = &game::tavern::DRINKS[tap];
             if let Some(waiting) = realm.home.round.as_deref().and_then(game::tavern::drink) {
                 said.push((
@@ -1019,8 +954,6 @@ pub fn settle(
             game::home::Station::SongC => Some(2),
             _ => None,
         } {
-            // Sir Dinadan sings for the next delve: gold from the
-            // treasury, one song at a time.
             let song = &game::tavern::SONGS[plate];
             if let Some(waiting) = realm.home.song.as_deref().and_then(game::tavern::song) {
                 said.push((
@@ -1057,8 +990,6 @@ pub fn settle(
             continue;
         }
         if order.station == game::home::Station::Hire {
-            // Beaumains takes a wage for the next delve: gold from the
-            // treasury, once.
             if realm.home.hire.is_some() {
                 said.push((
                     "cant_afford".into(),
@@ -1091,7 +1022,6 @@ pub fn settle(
             continue;
         }
         if order.station == game::home::Station::Coffer {
-            // A box opened at the Herald's coffer.
             if realm.home.boxes.is_empty() {
                 said.push((
                     "cant_afford".into(),
@@ -1136,7 +1066,6 @@ pub fn settle(
             Err(why) => said.push(("cant_afford".into(), why)),
         }
     }
-    // Achievements: each kept once, each with its box.
     let mut announced = Vec::new();
     for id in noticed
         .iter()
@@ -1152,8 +1081,6 @@ pub fn settle(
         }
     }
 
-    // Every consumed fact must be durable before source acknowledgement, even
-    // when the legacy host deferred combat XP/bestiary writes until a safe room.
     changed |= unsaved;
     Ok(HomeResult {
         home: realm.home.clone(),
@@ -1229,9 +1156,6 @@ impl HomeResult {
                 .iter()
                 .all(|(cue, line)| cue.len() <= 1024 && line.len() <= 8192)
     }
-    /// Apply an already committed result to a prepared candidate Run. The
-    /// journal commits that candidate and this delivery receipt together.
-    /// Undeliverable goods become an identified refund, never a second charge.
     pub(super) fn deliver(
         &self,
         run: &mut Run,
@@ -1242,8 +1166,6 @@ impl HomeResult {
             return Err("invalid committed home result".into());
         }
         let mut home = self.home.clone();
-        // Changes made while persistence was outstanding stay in the live
-        // game; their queued facts are settled by the following claim.
         if run.home.squires != transfer.view.squires {
             home.squires = run.home.squires.clone();
         }
@@ -1279,8 +1201,6 @@ impl HomeResult {
             run.complete_squire_company(Some(home.squire_company.clone()));
             home.squire_company = run.home.squire_company.clone();
         }
-        // Rebase actions made after this claim was captured on the committed
-        // company and treasury. Their orders remain queued for the next claim.
         let mut projected_treasury = self.treasury.clone();
         super::squire_guild::settle(&mut home.squire_guild, &mut projected_treasury, &run.marks);
         home.lane_squires.settle(&mut projected_treasury, &run.lane_squire_orders);

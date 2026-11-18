@@ -1,12 +1,3 @@
-# crates/delve/src/rules/lanternward/foes.rs — the snuffer, the turret, their
-# bolts, and the foes' tick.
-#
-# A Danger is serde's: "None", {"Capsule": {ax, ay, bx, by, r}},
-# {"Circle": {x, y, r}}, {"Fan": {x, y, deg, half, r}}, {"Ring": {x, y, r, w}}.
-# The foe being stepped rides in `s["$f"]`; the strikes and shots it makes
-# are collected in `s["$strikes"]` ([index, danger, dmg]) and `s["$shots"]`.
-
-# Squared distance from a point to a segment, in i64 (the Rust's `seg_dist2`).
 def lanternward.foes.seg_dist2(+px: U32, +py: U32, +ax: U32, +ay: U32, +bx: U32, +by: U32) -> W.W:
   lanternward.foes.seg_dist2.go(
     lanternward.i64.sub(lanternward.i64.of_i32(px), lanternward.i64.of_i32(ax)),
@@ -29,7 +20,6 @@ def lanternward.foes.seg_dist2.go(+pax: W.W, +pay: W.W, +dx: W.W, +dy: W.W, +ax:
   +ey = lanternward.i64.sub(py, cy)
   lanternward.i64.add(lanternward.i64.mul(ex, ex), lanternward.i64.mul(ey, ey))
 
-# Whether a body of radius `rad` at (x, y) stands in the footprint.
 def lanternward.foes.Danger.hits(+d: J.Val, +x: U32, +y: U32, +rad: U32) -> Bool:
   +p = lanternward.payload(d)
   +tag = lanternward.tag(d)
@@ -81,19 +71,15 @@ def lanternward.foes.Foe.new.go(+id: U32, +kind: String, +x: U32, +y: U32, +n: U
 def lanternward.foes.Foe.alive(+f: J.Val) -> Bool:
   Bool.and(U32.is_gt(ga.u(f, "hp"), 0), Bool.not(lanternward.is(f, "st", "Dying")))
 
-# Its body's radius in Q pixels.
 def lanternward.foes.Foe.radius(+f: J.Val) -> U32:
   Bool.pick(U32, lanternward.is(f, "kind", "Snuffer"), 1536, 2048)
 
-# A big foe's tell for a table of `seats` (Rules::tell_for).
 def lanternward.Rules.tell_for(+r: J.Val, +seats: U32) -> U32:
   RS.u_max(RS.u_sat_sub(ga.u(r, "tell"), (3 * RS.u_sat_sub(seats, 1) : U32)), 40)
 
-# Its tell in ticks (`r` is the Rules).
 def lanternward.foes.Foe.tell(+f: J.Val, +r: J.Val, +seats: U32) -> U32:
   Bool.pick(U32, lanternward.is(f, "kind", "Snuffer"), 24, U32.and(lanternward.Rules.tell_for(r, seats), 65535))
 
-# Whether a blade may hurt it now.
 def lanternward.foes.Foe.vulnerable(+f: J.Val) -> Bool:
   Bool.pick(Bool, lanternward.is(f, "kind", "Snuffer"),
     Bool.not(Bool.and(ga.b(f, "hooded"), U32.is_eq(ga.u(f, "lit"), 0))), False{})
@@ -104,9 +90,6 @@ def lanternward.foes.Bolt.light(+b: J.Val) -> Bool:
 def lanternward.foes.Bolt.hostile(+b: J.Val) -> Bool:
   lanternward.is(b, "kind", "Iron")
 
-# ---- impl Session ----
-
-# A foe of `kind` where a snuffer or turret mark stands.
 def lanternward.foes.Session.spawn_foe(+s: J.Val, +kind: String, +x: U32, +y: U32, +hooded: Bool) -> J.Val:
   lanternward.foes.Session.spawn_foe.go(U32.is_ge(lanternward.len(s, "foes"), 16), s, kind, x, y, hooded)
 
@@ -120,7 +103,6 @@ def lanternward.foes.Session.spawn_foe.go(full: Bool, +s: J.Val, +kind: String, 
         "foes",
         ga.sb(lanternward.foes.Foe.new(ga.u(s, "next_foe"), kind, x, y, lanternward.seat_count(s)), "hooded", hooded))
 
-# Scale a foe or the Warden already standing to a grown table.
 def lanternward.foes.provision.one(+o: J.Val, +now: U32, +boss: Bool) -> J.Val:
   lanternward.foes.provision.one.go(
     Bool.and(U32.is_gt(now, ga.u(o, "prov")), U32.is_gt(ga.u(o, "hp"), 0)), o, now, boss)
@@ -147,7 +129,6 @@ def lanternward.foes.provision.foes.go(more: Bool, +s: J.Val, +i: U32, +now: U32
         lanternward.eput(s, "foes", i, lanternward.foes.provision.one(lanternward.el(s, "foes", i), now, False{})),
         (i + 1 : U32), now)
 
-# Scale foes already standing to a table that has grown.
 def lanternward.foes.Session.provision(+s: J.Val) -> J.Val:
   lanternward.foes.Session.provision.boss(
     lanternward.foes.provision.foes(s, 0, RS.u_clamp(lanternward.seat_count(s), 1, 6)),
@@ -163,8 +144,6 @@ def lanternward.foes.Session.provision.boss.go(none: Bool, +s: J.Val, +now: U32)
     case False{}:
       ga.sv(s, "boss", lanternward.foes.provision.one(J.get(s, "boss"), now, True{}))
 
-# The living knight nearest a point, by distance then seat: null, or
-# [id, x, y, d].
 def lanternward.foes.Session.nearest_knight.go(+ids: List<&2, U32>, +seats: J.Val, +x: U32, +y: U32, +best: J.Val) -> J.Val:
   match ids:
     case Nil{}:
@@ -184,11 +163,9 @@ def lanternward.foes.Session.nearest_knight.pick(up: Bool, +d: U32, +id: U32, +k
 def lanternward.foes.Session.nearest_knight(+s: J.Val, +x: U32, +y: U32) -> J.Val:
   lanternward.foes.Session.nearest_knight.go(ga.ids(J.get(s, "seats")), J.get(s, "seats"), x, y, J.JNull{})
 
-# Standing and awake: can be hurt, can hurt, can be a foe's target.
 def lanternward.kit.Seat.up(+k: J.Val) -> Bool:
   Bool.and(U32.is_gt(ga.u(k, "hp"), 0), Bool.not(lanternward.is(k, "act", "Down")))
 
-# The nearest open point to one that is in a wall.
 def lanternward.foes.Session.nudge.dirs(+n: U32) -> U32 & U32:
   match n:
     case 0:
@@ -221,7 +198,6 @@ def lanternward.foes.Session.nudge.try.at(ok: Bool, +px: U32, +py: U32) -> J.Val
     case False{}:
       J.JNull{}
 
-# ring 1..=8, then the eight directions in order: the first clear point.
 def lanternward.foes.Session.nudge.go(+k: U32, +s: J.Val, +x: U32, +y: U32, +r: U32) -> J.Val:
   lanternward.foes.Session.nudge.next(U32.is_ge(k, 64), k, s, x, y, r)
 
@@ -244,8 +220,6 @@ def lanternward.foes.Session.nudge.some(+hit: J.Val, +k: U32, +s: J.Val, +x: U32
 
 def lanternward.foes.Session.nudge(+s: J.Val, +x: U32, +y: U32, +r: U32) -> J.Val:
   lanternward.foes.Session.nudge.go(0, s, x, y, r)
-
-# ---- one snuffer / turret tick, on `$f` ----
 
 def lanternward.foes.drift_dir(+d: U32, +ux: U32, +uy: U32, +id: U32) -> U32 & U32:
   Bool.pick(U32 & U32, RS.i_gt(d, 6656), (ux, uy),
@@ -301,9 +275,6 @@ def lanternward.foes.snuffer.drift.line(l: U32 & U32, +s: J.Val) -> J.Val:
       "st", "Tell"),
     "struck", 0)
 
-# One tick of a snuffer: drift to a ring about the nearest knight, show the
-# line it will lunge along, lunge, tire. `target` is null or [id, x, y, d];
-# a strike is pushed on `$strikes`.
 def lanternward.foes.step_snuffer(+s: J.Val, +target: J.Val, +index: U32) -> J.Val:
   match target:
     case J.JNull{}:
@@ -395,8 +366,6 @@ def lanternward.foes.step_snuffer.stagger(zero: Bool, +s: J.Val) -> J.Val:
     case False{}:
       s
 
-# One tick of a turret: wait for a knight in sight, lock the line, loose an
-# iron bolt along it. Shots go on `$shots`.
 def lanternward.foes.step_turret(+s: J.Val, +target: J.Val, +seats: U32) -> J.Val:
   lanternward.foes.step_turret.st(ga.s(J.get(s, "$f"), "st"), s, target, seats)
 
@@ -498,7 +467,6 @@ def lanternward.foes.step_turret.stagger(zero: Bool, +s: J.Val) -> J.Val:
     case True{}:
       lanternward.fsb(lanternward.fsn(s, "st", "Dormant"), "open", False{})
 
-# The per-foe preamble and dispatch of `step_foes`: foe `i` rides in `$f`.
 def lanternward.foes.step_foes.live(+s: J.Val, +i: U32, +target: J.Val, +burning: Bool, +seats: U32) -> J.Val:
   +s1 = lanternward.fs(s, "flinch", RS.u_sat_sub(lanternward.fu(s, "flinch"), 1))
   +s2 = lanternward.fs(s1, "lit", Bool.pick(U32, burning, 60, RS.u_sat_sub(lanternward.fu(s1, "lit"), 1)))
@@ -523,7 +491,6 @@ def lanternward.foes.step_foes.kind(snuffer: Bool, +s: J.Val, +i: U32, +target: 
     case False{}:
       lanternward.foes.step_turret(s, target, seats)
 
-# Foe `i`'s turn: sleeping, frozen and dying foes skip the rest.
 def lanternward.foes.step_foes.one(+s: J.Val, +i: U32, +seats: U32) -> J.Val:
   +f = lanternward.el(s, "foes", i)
   +target = lanternward.foes.Session.nearest_knight(s, ga.u(f, "x"), ga.u(f, "y"))
@@ -561,7 +528,6 @@ def lanternward.foes.step_foes.loop.go(more: Bool, +s: J.Val, +i: U32, +seats: U
     case True{}:
       lanternward.foes.step_foes.loop(lanternward.foes.step_foes.one(s, i, seats), (i + 1 : U32), seats)
 
-# Keep a snuffer out of the walls it drifts into.
 def lanternward.foes.step_foes.unstick(+s: J.Val, +i: U32) -> J.Val:
   lanternward.foes.step_foes.unstick.go(U32.is_lt(i, lanternward.len(s, "foes")), s, i)
 
@@ -588,7 +554,6 @@ def lanternward.foes.step_foes.unstick.one(stuck: Bool, +s: J.Val, +i: U32) -> J
 def lanternward.foes.step_foes.unstick.set(+p: J.Val, +s: J.Val, +i: U32) -> J.Val:
   lanternward.esi(lanternward.esi(s, "foes", i, "x", ga.nu(p, 0)), "foes", i, "y", ga.nu(p, 1))
 
-# New shots join the bolts while there is room.
 def lanternward.foes.step_foes.shots(+s: J.Val, +xs: List<&2, J.Val>) -> J.Val:
   match xs:
     case Nil{}:
@@ -604,7 +569,6 @@ def lanternward.foes.step_foes.shots.one(room: Bool, +s: J.Val, +b: J.Val) -> J.
     case False{}:
       s
 
-# Each foe's strike lands on every knight standing in its footprint.
 def lanternward.foes.step_foes.strikes(+s: J.Val, +xs: List<&2, J.Val>) -> J.Val:
   match xs:
     case Nil{}:
@@ -613,7 +577,6 @@ def lanternward.foes.step_foes.strikes(+s: J.Val, +xs: List<&2, J.Val>) -> J.Val
       lanternward.foes.step_foes.strikes(
         lanternward.foes.Session.strike_with(s, ga.nu(st, 0), J.nth(st, 1), ga.nu(st, 2)), t)
 
-# One tick of every foe.
 def lanternward.foes.Session.step_foes(+s: J.Val) -> J.Val:
   lanternward.foes.step_foes.fin(
     lanternward.foes.step_foes.unstick(
@@ -628,7 +591,6 @@ def lanternward.foes.step_foes.fin(+s: J.Val) -> J.Val:
         lanternward.foes.step_foes.shots(s, ga.items(s, "$shots")), ga.items(s, "$strikes")),
       "$shots"), "$strikes"))
 
-# Those that have puffed out are gone.
 def lanternward.foes.step_foes.retain.go(+xs: List<&2, J.Val>) -> List<&2, J.Val>:
   match xs:
     case Nil{}:
@@ -642,8 +604,6 @@ def lanternward.foes.step_foes.retain.go(+xs: List<&2, J.Val>) -> List<&2, J.Val
 def lanternward.foes.step_foes.retain(+s: J.Val) -> J.Val:
   ga.sv(s, "foes", J.JA{lanternward.foes.step_foes.retain.go(ga.items(s, "foes"))})
 
-# A foe's blow lands on every knight standing in its footprint that it has
-# not yet struck.
 def lanternward.foes.Session.strike_with.ids(+ids: List<&2, U32>, +s: J.Val, +i: U32, +danger: J.Val, +dmg: U32) -> J.Val:
   match ids:
     case Nil{}:

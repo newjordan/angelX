@@ -3,26 +3,15 @@
 
 use super::*;
 
-/// Surfaced when a reply is cut at the provider's output-token cap and the partial
-/// text can't be safely used (a fail-closed club, an empty body, or a half-written
-/// tool call). SOTA/metered links opt out of the hard error via `keep_truncated`.
 pub(crate) const TRUNCATED_OUTPUT_ERR: &str = "club output was cut off by finish_reason=length; raise the model output token \
      budget or make the request smaller";
 
-/// Surfaced when the model produced private reasoning (raw ` ` markers or a
-/// `reasoning_content` field) but no visible answer. The caller retries once
-/// with its `⠭⠛` / `⠭⠓` route and then fails closed — a degenerate
-/// reasoning loop must not become a silent blank turn or an unbounded resend.
 pub(crate) const EMPTY_REPLY_REASONING_ONLY_ERR: &str =
     "club returned an empty reply: the model produced reasoning but no answer";
 
-/// Appended when transport EOF/error arrives before the provider's terminal
-/// stream event. Kept prose remains useful, but must never look complete.
 pub(crate) const STREAM_INTERRUPTED_SUFFIX: &str =
     "\n\n[response interrupted: provider stream ended before completion]";
 
-/// Append a visible marker so a kept-but-truncated draft is never mistaken for a
-/// complete answer downstream (the MoA aggregator, the transcript, the user).
 pub(crate) fn mark_truncated(text: &str, policy: OutputBudgetPolicy) -> String {
     format!("{}\n\n[{}]", text.trim_end(), policy.incomplete_message())
 }
@@ -31,8 +20,6 @@ pub(crate) fn mark_stream_interrupted(text: &str) -> String {
     format!("{}{STREAM_INTERRUPTED_SUFFIX}", text.trim_end())
 }
 
-/// Serialize our conversation into OpenAI chat-completions message JSON.
-/// `pub(crate)` so the harness can reuse it for trajectory logging.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ToolArgRepairKind {
     FenceStripped,
@@ -143,9 +130,6 @@ pub(crate) fn invalid_tool_args_error(args: &serde_json::Value) -> Option<String
     ))
 }
 
-/// Parse tool-call arguments as exact, conservatively repaired, or explicitly
-/// unrecoverable. Empty arguments are an exact empty object; unrecoverable input
-/// never becomes `{}` and therefore can never dispatch accidentally.
 pub(crate) fn repair_tool_args(raw: &str) -> ToolArgsParse {
     let s = raw.trim();
     let digest = tool_args_digest(raw);
@@ -164,7 +148,6 @@ pub(crate) fn repair_tool_args(raw: &str) -> ToolArgsParse {
             length,
         };
     }
-    // Strip ```json … ``` fences a model sometimes wraps args in.
     let s2 = s
         .strip_prefix("```json")
         .or_else(|| s.strip_prefix("```"))
@@ -183,7 +166,6 @@ pub(crate) fn repair_tool_args(raw: &str) -> ToolArgsParse {
             length,
         };
     }
-    // Close truncated strings/brackets + strip trailing commas, then retry.
     let fixed = close_and_clean(s2);
     if fixed != s2
         && let Ok(v) = serde_json::from_str::<serde_json::Value>(&fixed)
@@ -198,9 +180,6 @@ pub(crate) fn repair_tool_args(raw: &str) -> ToolArgsParse {
     ToolArgsParse::Unrecoverable { digest, length }
 }
 
-/// String-aware repair of a JSON fragment: balances unterminated strings and
-/// unclosed `{`/`[` (truncation) and removes trailing commas before a closer or
-/// at the end. Conservative — only appends what's needed; never rewrites content.
 pub(crate) fn close_and_clean(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 8);
     let mut stack: Vec<char> = Vec::new();
@@ -251,7 +230,6 @@ pub(crate) fn close_and_clean(s: &str) -> String {
     out
 }
 
-/// Drop trailing whitespace then a single trailing `,` from `out` (in place).
 pub(crate) fn trim_trailing_comma(out: &mut String) {
     while out.ends_with(|c: char| c.is_whitespace()) {
         out.pop();
@@ -261,23 +239,11 @@ pub(crate) fn trim_trailing_comma(out: &mut String) {
     }
 }
 
-/// Recover tool calls a model emitted in **prose** (the `content`) rather than
-/// the structured `tool_calls` field — only from explicit wrappers a genuine
-/// answer would never contain (`<tool_call>…</tool_call>`, `[TOOL_CALLS][…]`), so
-/// it can't hijack a real final answer. Args go through [`repair_tool_args`].
-/// Empty when nothing is found. The fallback for weak / non-jinja models whose
-/// calls the server didn't parse into the structured field.
 pub(crate) fn extract_prose_tool_calls(content: &str) -> Vec<ToolCall> {
     let mut calls: Vec<ToolCall> = Vec::new();
-    // <tool_call> … </tool_call>, possibly several (an unterminated last is ok).
-    // The open tag may carry attributes — some models put the tool name there
-    // (`<tool_call name="shell">{args}</tool_call>`) with the bare args object
-    // as the body.
     let mut rest = content;
     while let Some(start) = rest.find("<tool_call") {
         let after_kw = &rest[start + "<tool_call".len()..];
-        // Require `>` or whitespace next, so a longer word in a genuine answer
-        // (`<tool_calls>`, `<tool_callback>`) can't open a wrapper.
         let Some((attrs, after_open)) = split_tag_open(after_kw) else {
             rest = after_kw;
             continue;
@@ -300,11 +266,6 @@ pub(crate) fn extract_prose_tool_calls(content: &str) -> Vec<ToolCall> {
             break;
         }
     }
-    // <function= shell>{"cmd":"..."}</function> and
-    // <function=delegate>{"club":"coder","task":"..."}</function>. Some
-    // OpenAI-compatible backends emit this XML-ish tool dialect as streamed
-    // content instead of a structured `tool_calls` field. Keep this explicit:
-    // only a function envelope with JSON body is executable.
     let mut rest = content;
     while let Some(start) = rest.find("<function=") {
         let after = &rest[start + "<function=".len()..];
@@ -330,7 +291,6 @@ pub(crate) fn extract_prose_tool_calls(content: &str) -> Vec<ToolCall> {
             break;
         }
     }
-    // [TOOL_CALLS] [ {…}, {…} ] (Mistral-style array).
     if let Some(idx) = content.find("[TOOL_CALLS]") {
         let after = content[idx + "[TOOL_CALLS]".len()..].trim();
         if let Ok(serde_json::Value::Array(arr)) = serde_json::from_str::<serde_json::Value>(after)
@@ -340,10 +300,6 @@ pub(crate) fn extract_prose_tool_calls(content: &str) -> Vec<ToolCall> {
             }
         }
     }
-    // <SHELL>{args} — a shouted tag with the bare args object right after it,
-    // closing tag optional, prose allowed to follow the object (seen live).
-    // The ALL-CAPS requirement is the anti-hijack guard: genuine markup in an
-    // answer (HTML, JSX, XML) is lower- or TitleCase.
     let mut rest = content;
     while let Some(lt) = rest.find('<') {
         let after_lt = &rest[lt + 1..];
@@ -364,9 +320,6 @@ pub(crate) fn extract_prose_tool_calls(content: &str) -> Vec<ToolCall> {
         if !json_start.starts_with('{') {
             continue;
         }
-        // Cut at the end of the first JSON value so trailing prose can't
-        // poison the parse; a truncated object (stream cut) goes through the
-        // usual repair instead.
         let mut it =
             serde_json::Deserializer::from_str(json_start).into_iter::<serde_json::Value>();
         match it.next() {
@@ -391,23 +344,10 @@ pub(crate) fn extract_prose_tool_calls(content: &str) -> Vec<ToolCall> {
     calls
 }
 
-/// Candidate `{` positions [`scavenge_stranded_tool_calls`] will try to parse.
-/// Bounded so a brace-heavy prose answer (code samples, JSON docs) can't turn
-/// the scan quadratic.
 const SCAVENGE_MAX_CANDIDATES: usize = 64;
 const SCAVENGE_NAME_KEYS: [&str; 3] = ["name", "tool", "tool_name"];
 const SCAVENGE_ARG_KEYS: [&str; 3] = ["arguments", "args", "parameters"];
 
-/// Recover a tool call stranded in the visible text with an EMPTY structured
-/// `tool_calls` array and **no wrapper** — the DeepSeek-reasoner failure mode
-/// [`extract_prose_tool_calls`] deliberately won't touch: a bare
-/// `{"name":"shell","arguments":{…}}` object sitting in the answer. Without a
-/// wrapper the only thing separating a real call from a model *describing* one
-/// is shape, so the bar is exact: valid JSON, a name that matches a tool
-/// actually offered this request, and an arguments object (a stringified one is
-/// the OpenAI wire shape and is parsed once). A missing arguments key, a
-/// non-object, or an unoffered name leaves the text as prose. Opt-in at the
-/// call site (`ANGEL_TOOLCALL_SCAVENGE`); empty when nothing qualifies.
 pub(crate) fn scavenge_stranded_tool_calls(content: &str, offered: &[ToolDef]) -> Vec<ToolCall> {
     if offered.is_empty() {
         return Vec::new();
@@ -429,8 +369,6 @@ pub(crate) fn scavenge_stranded_tool_calls(content: &str, offered: &[ToolDef]) -
                     calls.push(call);
                     rest = &candidate[values.byte_offset()..];
                 }
-                // Advance by one brace rather than past the whole value: a call
-                // nested inside an envelope object is still reachable.
                 None => rest = &candidate[1..],
             },
             _ => rest = &candidate[1..],
@@ -466,12 +404,6 @@ fn scavenged_call(
     })
 }
 
-/// True when chat text carries raw tool-call markup **outside** code fences
-/// and inline code spans — a wrapper the model should have issued as a
-/// structured call. Used by the harness to refuse such text as a final
-/// answer: the "tool call" never ran, so anything it claims is invented. Code
-/// spans are exempt so an answer genuinely quoting the syntax (docs, this
-/// codebase's own parser) is not flagged.
 pub(crate) fn contains_raw_tool_markup(content: &str) -> bool {
     let stripped = strip_code_spans(content);
     let lowered = stripped.to_ascii_lowercase();
@@ -484,8 +416,6 @@ pub(crate) fn contains_raw_tool_markup(content: &str) -> bool {
         "<longcat_arg_key>",
         "<longcat_arg_value>",
         "<parameter=",
-        // DeepSeek's own tool-call dialects: DSML tags (`<｜DSML｜invoke`,
-        // `</｜｜DSML｜｜ parameter>`) and the special tool-call tokens.
         "｜dsml｜",
         "<｜tool▁call",
     ]
@@ -494,8 +424,6 @@ pub(crate) fn contains_raw_tool_markup(content: &str) -> bool {
     {
         return true;
     }
-    // <SHELL>{ — shouted-tag dialect, flagged even when its JSON is too
-    // mangled for extract_prose_tool_calls to recover.
     let mut rest = stripped.as_str();
     while let Some(lt) = rest.find('<') {
         let after_lt = &rest[lt + 1..];
@@ -518,12 +446,8 @@ pub(crate) fn contains_raw_tool_markup(content: &str) -> bool {
     false
 }
 
-/// Drop ``` fenced blocks and `inline` code spans, keeping everything else.
-/// An unterminated fence/span swallows the rest of the text (same reading a
-/// markdown renderer gives it).
 pub(crate) fn strip_code_spans(content: &str) -> String {
     let mut out = String::with_capacity(content.len());
-    // Even-indexed segments are outside ``` fences.
     for (i, seg) in content.split("```").enumerate() {
         if i % 2 != 0 {
             continue;
@@ -537,8 +461,6 @@ pub(crate) fn strip_code_spans(content: &str) -> String {
     out
 }
 
-/// Parse one `<tool_call>` body (a `{name, arguments}` object, possibly
-/// truncated) and append it if it names a tool.
 pub(crate) fn push_prose_call(body: &str, calls: &mut Vec<ToolCall>) {
     if push_named_xml_tool_call(body, calls) {
         return;
@@ -581,10 +503,6 @@ pub(crate) fn xml_tag_text<'a>(body: &'a str, tag: &str) -> Option<&'a str> {
     Some(&tail[..end])
 }
 
-/// Split the remainder of an open tag after its keyword: `Some((attrs, rest))`
-/// when it really is an open tag (`>` immediately, or whitespace then
-/// attributes then `>`), `None` when the keyword is only a prefix of a longer
-/// word or the tag never closes.
 pub(crate) fn split_tag_open(after_kw: &str) -> Option<(&str, &str)> {
     match after_kw.chars().next() {
         Some('>') => Some(("", &after_kw[1..])),
@@ -596,12 +514,9 @@ pub(crate) fn split_tag_open(after_kw: &str) -> Option<(&str, &str)> {
     }
 }
 
-/// Pull a quoted attribute value (`key="…"` / `key='…'`) out of an open tag's
-/// attribute list. Deliberately minimal — the wrappers models emit are simple.
 pub(crate) fn tag_attr<'a>(attrs: &'a str, key: &str) -> Option<&'a str> {
     let mut rest = attrs;
     while let Some(pos) = rest.find(key) {
-        // Word boundary on the left so `key` can't match inside `filekey`.
         let at_boundary = rest[..pos]
             .chars()
             .next_back()
@@ -621,9 +536,6 @@ pub(crate) fn tag_attr<'a>(attrs: &'a str, key: &str) -> Option<&'a str> {
     None
 }
 
-/// Append an explicitly named prose tool call. The body is the arguments object,
-/// not a wrapper object, so it must parse to JSON after the usual truncation
-/// repair.
 pub(crate) fn push_named_prose_call(name: &str, body: &str, calls: &mut Vec<ToolCall>) {
     if body.trim().is_empty() {
         return;
@@ -641,10 +553,6 @@ pub(crate) fn push_named_prose_call(name: &str, body: &str, calls: &mut Vec<Tool
     }
 }
 
-/// Recover a response that is *only* a sequence of bare tool invocations, e.g.
-/// `delegate("coder", "inspect")self_map({"module":"swarm"})`. This is stricter
-/// than the XML/JSON wrappers above: any prose or malformed tail rejects the
-/// whole parse so function names in normal answers cannot become tools.
 pub(crate) fn extract_bare_invocation_tool_calls(content: &str) -> Vec<ToolCall> {
     let mut rest = content.trim();
     let mut parsed: Vec<ToolCall> = Vec::new();
@@ -727,8 +635,6 @@ pub(crate) fn bare_invocation_args(name: &str, args_src: &str) -> Option<serde_j
     None
 }
 
-/// Append a `{name, arguments}` value as a [`ToolCall`] (arguments may be a JSON
-/// string or an inline object). Ignored unless it names a tool.
 pub(crate) fn push_prose_value(v: &serde_json::Value, calls: &mut Vec<ToolCall>) {
     let Some(name) = v
         .get("name")
@@ -761,11 +667,8 @@ pub(crate) fn messages_to_json(messages: &[ChatMsg], images_ok: bool) -> Vec<ser
                 if m.attachments.is_empty() {
                     json!({ "role": "user", "content": m.content })
                 } else {
-                    // OpenAI multimodal: content becomes [text, …media parts].
                     let mut parts = Vec::with_capacity(1 + m.attachments.len());
                     parts.push(json!({ "type": "text", "text": m.content }));
-                    // A route that already rejected image parts replays the
-                    // same history without them; audio is unaffected.
                     parts.extend(
                         m.attachments
                             .iter()
@@ -786,9 +689,6 @@ pub(crate) fn messages_to_json(messages: &[ChatMsg], images_ok: bool) -> Vec<ser
                 } else {
                     let mut calls = Vec::with_capacity(m.tool_calls.len());
                     for c in m.tool_calls.iter() {
-                        // Prefer the raw string when the model already handed us
-                        // one — avoids a serialize→String round-trip on the hot
-                        // multi-hop path. Objects/arrays still need to_string().
                         let arguments = match &c.args {
                             serde_json::Value::String(s) => s.clone(),
                             other => other.to_string(),

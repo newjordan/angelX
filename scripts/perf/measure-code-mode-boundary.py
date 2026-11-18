@@ -21,8 +21,6 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def interrupted(signum, _frame):
-    # proc_stop sends SIGTERM, not KeyboardInterrupt. Route it through the
-    # subprocess cleanup and guarded source-restoration finally blocks.
     raise KeyboardInterrupt(f'interrupted by signal {signum}')
 
 FILES = ('cockpit/Cargo.toml', 'cockpit/Cargo.lock',
@@ -125,7 +123,6 @@ def main():
 
     try:
         for round_index in range(args.rounds):
-            # Alternate order, but always prime before measured edit/restore.
             layouts = ('baseline', 'candidate') if round_index % 2 == 0 else ('candidate', 'baseline')
             for layout in layouts:
                 selected = baseline if layout == 'baseline' else candidate

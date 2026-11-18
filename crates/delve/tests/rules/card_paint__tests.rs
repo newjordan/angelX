@@ -80,7 +80,6 @@ fn replay_handoff_and_late_capture_are_atomic() {
     let mut journal = Journal::restore(journal.capture().unwrap(), "paint-session", 9).unwrap();
     assert_eq!(journal.apply(&mut run, command).unwrap(), receipt);
     assert_eq!(runtime_state::capture(&run).unwrap().into_value(), before);
-    // One stale entry rejects the whole batch, before even its valid first entry.
     let mut stale = updates[0].clone();
     stale.expected.id = "unknown-paint".into();
     let current = run.book.get("paint-capture").unwrap().clone();
@@ -115,7 +114,6 @@ fn changed_source_policy_can_accept_art_without_replacing_behavior() {
     request.candidates[0].authored.cooldown = 1;
     request.candidates[0].authored.name = "Different definition".into();
     assert!(request.evaluate().unwrap().accepted.is_empty());
-    // The replaceable policy may permit visual reuse under a changed source.
     let decision = Decision {
         accepted: vec!["paint-capture".into()],
     };

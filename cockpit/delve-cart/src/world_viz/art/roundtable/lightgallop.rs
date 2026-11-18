@@ -26,7 +26,6 @@ fn clock(ticks: u32) -> String {
     format!("{}:{:02}", s / 60, s % 60)
 }
 
-/// A row of text on black, left-aligned at `area`'s left edge.
 fn row(frame: &mut Frame, area: Rect, y: u16, text: String, fg: Color) {
     if y >= area.height || area.width == 0 {
         return;
@@ -46,7 +45,6 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
     };
     let lvl = level();
     let r = &s.seats[&id].rider;
-    // The spur's lantern gauge, ten cells.
     let lit = (r.gauge * 10 / GAUGE_MAX).clamp(0, 10) as usize;
     let gauge: String = "\u{2588}".repeat(lit) + &"\u{2591}".repeat(10 - lit);
     let posts = s.posts.count_ones();
@@ -78,8 +76,6 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
     }
 }
 
-/// Where the picture's pixels land on the cells: its 384 by 224 pixels cover
-/// the whole area.
 fn col_of(area: Rect, x: i32) -> u16 {
     area.x + (x.clamp(0, 383) * i32::from(area.width) / 384) as u16
 }
@@ -88,17 +84,10 @@ fn row_of(area: Rect, y: i32) -> u16 {
     area.y + (y.clamp(0, 223) * i32::from(area.height) / 224) as u16
 }
 
-/// The words the picture prints in pixels, which four-pixel cells turn to mush:
-/// said again as text, each on cells cleared of its own lettering. The lines
-/// and columns are the picture's (`render/overworld/arena/lightgallop.rs`: the
-/// title card in the sky, the fall and the bell's prompt under it, the keys at
-/// the bottom, the bell's name over the bell). Every plate is cleared before any
-/// text is laid down, so one never wipes another.
 fn words_over_the_picture(frame: &mut Frame, area: Rect, s: &rules::Session, r: &rules::rider::Rider) {
     if area.width < 48 || area.height < 14 {
         return;
     }
-    // (centre column in picture pixels, top row in picture pixels, text, colour)
     let mut words: Vec<(i32, i32, String, Color)> = Vec::new();
     if s.elapsed < 75 {
         words.push((192, 36, "MOONWELL ROAD".into(), GOLD));
@@ -114,7 +103,6 @@ fn words_over_the_picture(frame: &mut Frame, area: Rect, s: &rules::Session, r: 
         words.push((192, 213, "A D RUN   E LEAP   SPACE SPUR".into(), GOLD));
     }
     if s.bell_t.is_none() {
-        // The bell's name stands over the bell as tall as the bell is drawn.
         let (bx, by) = level().bell;
         let (sx, sy) = (((bx - r.cam_x) * r.zoom).div_euclid(256), ((by - r.cam_y) * r.zoom).div_euclid(256));
         if (0..384).contains(&sx) && (0..224).contains(&sy) {
@@ -122,7 +110,6 @@ fn words_over_the_picture(frame: &mut Frame, area: Rect, s: &rules::Session, r: 
         }
     }
     let bounds = |cx: i32, y: i32, text: &str| {
-        // The plate the picture lays behind its lettering: six pixels a letter, a pixel round.
         let half = (6 * text.chars().count() as i32 + 1) / 2;
         (col_of(area, cx - half), col_of(area, cx + half), row_of(area, y - 1), row_of(area, y + 8))
     };
@@ -142,14 +129,10 @@ fn words_over_the_picture(frame: &mut Frame, area: Rect, s: &rules::Session, r: 
     }
 }
 
-/// The tally in text, over the picture's own panel (which it covers, so none of
-/// its garbled lettering shows round the edges): the party's figures, the
-/// lantern bonus on its own line, each knight's score, the rank.
 fn tally_box(frame: &mut Frame, area: Rect, s: &rules::Session, y: &rules::Tally) {
     let lvl = level();
     let t = s.elapsed.saturating_sub(y.at);
     let rank = ["C", "B", "A", "S"][usize::from(y.rank.min(3))];
-    // A hundred for all six lanterns (`make_tally`): in the points, not in each knight's own line.
     let bonus = 100 * y.posts / lvl.posts.len().max(1) as u32;
     let scores: Vec<String> = y
         .scores
@@ -170,7 +153,6 @@ fn tally_box(frame: &mut Frame, area: Rect, s: &rules::Session, y: &rules::Tally
         String::new(),
         "EACH KNIGHT".to_string(),
     ];
-    // The scores in one row, or two for a full table on a narrow box.
     let one = scores.join("   ");
     if one.chars().count() + 2 <= usize::from((col_of(area, 327) - col_of(area, 56)).max(36)) {
         lines.push(one);
@@ -187,7 +169,6 @@ fn tally_box(frame: &mut Frame, area: Rect, s: &rules::Session, y: &rules::Tally
     let h = (y1 - y0).max(lines.len() as u16 + 2).min(area.height);
     let (x, y) = (x0.min(area.right() - w), y0.min(area.bottom() - h));
     let inner = usize::from(w.saturating_sub(2));
-    // The table is one block, centred; the headings and the scores are each centred alone.
     let block = 30;
     let spaces = |n: usize| " ".repeat(n);
     let table_names = ["TIME", "SPARKS", "BEST CHAIN", "LANTERNS", "LANTERN BONUS", "POINTS", "RANK"];

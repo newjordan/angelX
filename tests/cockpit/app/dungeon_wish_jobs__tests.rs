@@ -95,7 +95,6 @@ fn committed_wish_survives_checkpoint_failure_source_edit_and_restore_without_re
         .get("wish-captured-grace-1")
         .cloned();
     assert!(card.is_some());
-    // Save terminal world+receipt, then simulate owner restart before source IO/ACK.
     app.realm.dungeon.save_path = Some(path);
     app.realm.dungeon.checkpoint(Instant::now(), true).unwrap();
     drop(app);
@@ -243,8 +242,6 @@ fn simultaneous_same_name_results_share_one_captured_definition_and_id() {
     }
     app.teach_next();
     let deadline = Instant::now() + Duration::from_secs(5);
-    // The model counter drops before its runner queues the completed answer.
-    // Wait for both observable lessons, including separate drain batches.
     while app.realm.dungeon.forge.learning.iter().any(|lesson| !lesson.returned) {
         app.take_grants();
         assert!(Instant::now() < deadline);

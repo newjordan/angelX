@@ -12,7 +12,6 @@ thread_local! {
 }
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
-/// Nested harness entry shares the worker clock; independent turns get a new id.
 pub(crate) struct Scope(bool);
 impl Scope {
     pub(crate) fn enter() -> Self {
@@ -42,7 +41,6 @@ impl Drop for Scope {
     }
 }
 
-/// Labels are static, never prompts, tool arguments, credentials, or paths.
 pub(crate) fn mark(phase: &'static str) {
     TRACE.with(|slot| {
         if let Some(trace) = slot.borrow().as_ref() {

@@ -88,7 +88,6 @@ fn probe_wait_deadline_does_not_reap_or_accept_a_running_child() {
 #[test]
 fn probe_wait_invalid_pid_uses_bounded_fallback() {
     let started = std::time::Instant::now();
-    // pidfd_open rejects negative PIDs. This also exercises the portable path.
     wait_for_probe_exit(u32::MAX, std::time::Duration::from_millis(2));
     assert!(started.elapsed() >= std::time::Duration::from_millis(2));
     assert!(started.elapsed() < std::time::Duration::from_secs(2));

@@ -18,23 +18,14 @@ use std::fmt;
 pub mod act;
 pub mod client;
 
-/// The game's name in `Hello`/`Welcome`.
 pub const GAME: &str = "round-table";
-/// The arbiter's seat: the host's own. Only it accepts, rejects,
-/// records merges, and closes.
 pub const ARBITER: u32 = 0;
-/// How long a claim holds, in server ticks (the table ticks at 2 Hz:
-/// one hour). Past it the issue returns to `Accepted` for anyone.
 pub const CLAIM_TTL_TICKS: u64 = 7_200;
-/// The largest patch bundle a submission may carry.
 pub const MAX_BUNDLE: usize = 4 * 1024 * 1024;
 const MAX_TITLE: usize = 200;
 const MAX_TEXT: usize = 8_000;
 const MAX_NAME: usize = 64;
 
-/// A per-tick command: the table has no held input — everything real
-/// is an `action` ([`act`]). One zero byte keeps the link's command
-/// stream (and its presence clock) alive.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct TableCmd;
 
@@ -48,7 +39,6 @@ impl angel_net::cmd::Command for TableCmd {
     fn absorb(&mut self, _older: &Self) {}
 }
 
-/// Where an issue stands.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum State {
     Proposed,
@@ -74,14 +64,12 @@ impl State {
     }
 }
 
-/// Who holds an issue, until when (server ticks).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Claim {
     pub seat: u32,
     pub until: u64,
 }
 
-/// One spoken line on an issue — the v1 conversation surface.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Comment {
     pub seat: u32,
@@ -89,8 +77,6 @@ pub struct Comment {
     pub text: String,
 }
 
-/// A submitted patch set's public face. The bundle bytes themselves
-/// live in [`Board::bundle`] (arbiter-side only, never published).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Submission {
     pub seat: u32,
@@ -101,7 +87,6 @@ pub struct Submission {
     pub bundle_len: u64,
 }
 
-/// One issue before the table.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Issue {
     pub id: u64,
@@ -110,7 +95,6 @@ pub struct Issue {
     pub author: u32,
     pub state: State,
     pub claim: Option<Claim>,
-    /// Advisory support/oppose per seat. Never authority.
     pub votes: BTreeMap<u32, bool>,
     pub comments: Vec<Comment>,
     pub submission: Option<Submission>,
@@ -120,17 +104,14 @@ pub struct Issue {
 }
 
 impl Issue {
-    /// Supporting seats minus opposing seats.
     pub fn score(&self) -> i64 {
         self.votes.values().map(|v| if *v { 1 } else { -1 }).sum()
     }
-    /// Whether at least `k` seats support this issue (advisory quorum).
     pub fn quorum(&self, k: usize) -> bool {
         self.votes.values().filter(|v| **v).count() >= k
     }
 }
 
-/// One thing a seat asks the table to do.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Op {
     NewIssue { title: String, body: String },
@@ -145,7 +126,6 @@ pub enum Op {
     Close { id: u64 },
 }
 
-/// Why an [`Op`] was refused. Refusals change nothing and log nothing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Denied {
     UnknownIssue,
@@ -173,8 +153,6 @@ impl fmt::Display for Denied {
 
 impl std::error::Error for Denied {}
 
-/// One logged mutation. The log is the board's memory: replaying it
-/// in order rebuilds the board (bundles included, base64 on export).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Event {
     pub seq: u64,
@@ -183,13 +161,9 @@ pub struct Event {
     pub op: Op,
 }
 
-/// The board: who is seated, what is proposed, and everything that
-/// was ever decided. Serializes to the published document tree
-/// (bundles and the log are arbiter-side only and skipped).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Board {
     next_id: u64,
-    /// Seat number to display name, for everyone currently joined.
     pub seats: BTreeMap<u32, String>,
     pub issues: BTreeMap<u64, Issue>,
     #[serde(skip)]
@@ -201,8 +175,6 @@ pub struct Board {
 impl Default for Board {
     fn default() -> Board {
         Board {
-            // Issue ids start at 1 — a derived default of 0 made the
-            // first issue #0 and every command naming #1 miss it.
             next_id: 1,
             seats: BTreeMap::new(),
             issues: BTreeMap::new(),
@@ -217,12 +189,10 @@ impl Board {
         Board::default()
     }
 
-    /// The event log so far (arbiter-side; guests never receive it).
     pub fn log(&self) -> &[Event] {
         &self.log
     }
 
-    /// A seat joins (or renames itself). Names are display only.
     pub fn join(&mut self, seat: u32, name: &str) {
         let mut name: String = name.trim().chars().take(MAX_NAME).collect();
         if name.is_empty() {
@@ -231,17 +201,14 @@ impl Board {
         self.seats.insert(seat, name);
     }
 
-    /// A seat leaves for good. Its claims stay until they expire.
     pub fn leave(&mut self, seat: u32) {
         self.seats.remove(&seat);
     }
 
-    /// The patch bundle submitted for `id`, arbiter-side.
     pub fn bundle(&self, id: u64) -> Option<&[u8]> {
         self.bundles.get(&id).map(Vec::as_slice)
     }
 
-    /// Let expired claims lapse back to `Accepted`. Call once a tick.
     pub fn expire(&mut self, tick: u64) {
         for issue in self.issues.values_mut() {
             if issue.state == State::InProgress
@@ -262,8 +229,6 @@ impl Board {
         if seat == ARBITER { Ok(()) } else { Err(Denied::NotArbiter) }
     }
 
-    /// Apply one seat's op at `tick`. On success the op is logged and
-    /// its sequence number returned; on refusal nothing changes.
     pub fn apply(&mut self, seat: u32, tick: u64, op: Op) -> Result<u64, Denied> {
         self.expire(tick);
         match &op {
@@ -397,19 +362,14 @@ impl Board {
         Ok(seq)
     }
 
-    /// The board as the published document tree.
     pub fn to_value(&self) -> angel_net::doc::value::Value {
         angel_net::doc::value::to_value(self).unwrap_or(angel_net::doc::value::Value::Unit)
     }
 
-    /// A board read back from a published tree (bundles/log empty:
-    /// they never cross the wire).
     pub fn from_value(tree: &angel_net::doc::value::Value) -> Option<Board> {
         angel_net::doc::value::from_value(tree).ok()
     }
 
-    /// The whole log as JSONL — one event a line, bundles base64.
-    /// This is the board's portable memory: checkpoint and export.
     pub fn export_jsonl(&self) -> String {
         let mut out = String::new();
         for event in &self.log {
@@ -425,9 +385,6 @@ impl Board {
         out
     }
 
-    /// Rebuild a board by replaying an exported log. A line that no
-    /// longer applies (a hand-edited log) stops the import there and
-    /// says which line failed; nothing is silently dropped.
     pub fn import_jsonl(text: &str) -> Result<Board, String> {
         let mut board = Board::new();
         for (n, raw) in text.lines().enumerate() {
@@ -455,8 +412,6 @@ fn check_text(text: &str, max: usize, what: &'static str) -> Result<(), Denied> 
     Ok(())
 }
 
-/// A bundle's content name: FNV-1a 64 over its bytes, hex. A name,
-/// not a security boundary (the arbiter reads every diff anyway).
 pub fn bundle_hash(bytes: &[u8]) -> String {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     for &b in bytes {
@@ -466,8 +421,6 @@ pub fn bundle_hash(bytes: &[u8]) -> String {
     format!("{h:016x}")
 }
 
-/// An [`Op`] as it is written to the log file: like the op, but a
-/// submission's bundle travels base64 instead of raw bytes.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 enum LogOp {
     NewIssue { title: String, body: String },
@@ -599,12 +552,10 @@ mod tests {
         board.apply(2, 11, Op::Vote { id, support: true }).unwrap();
         board.apply(1, 11, Op::Vote { id, support: true }).unwrap();
         assert!(board.issues[&id].quorum(2));
-        // A claim before acceptance is refused, by anyone.
         assert_eq!(board.apply(1, 12, Op::Claim { id }), Err(Denied::BadState("proposed")));
         board.apply(ARBITER, 13, Op::Accept { id }).unwrap();
         board.apply(1, 14, Op::Claim { id }).unwrap();
         assert_eq!(board.issues[&id].claim, Some(Claim { seat: 1, until: 14 + CLAIM_TTL_TICKS }));
-        // Only the claimant submits.
         let submit = Op::Submit {
             id,
             summary: "oiled".into(),
@@ -616,7 +567,6 @@ mod tests {
         assert_eq!(board.issues[&id].state, State::Submitted);
         assert_eq!(board.bundle(id), Some(b"patch-bytes".as_slice()));
         assert_eq!(board.issues[&id].submission.as_ref().unwrap().bundle_hash, bundle_hash(b"patch-bytes"));
-        // Only the arbiter records the merge.
         assert_eq!(
             board.apply(1, 16, Op::Merge { id, commit: "abc".into() }),
             Err(Denied::NotArbiter)
@@ -644,7 +594,6 @@ mod tests {
         let id = propose(&mut board);
         board.apply(ARBITER, 1, Op::Accept { id }).unwrap();
         board.apply(1, 2, Op::Claim { id }).unwrap();
-        // Someone else cannot release my claim.
         assert_eq!(board.apply(2, 3, Op::Release { id }), Err(Denied::NotClaimant));
         board.expire(2 + CLAIM_TTL_TICKS + 1);
         assert_eq!(board.issues[&id].state, State::Accepted);
@@ -693,9 +642,6 @@ mod tests {
 
     #[test]
     fn a_default_board_starts_issue_ids_at_one() {
-        // Regression: the host loads a fresh board via a fallback
-        // default; with a derived `Default` its first issue was #0
-        // and every command naming #1 reported "no such issue".
         let mut board = Board::default();
         board.apply(1, 1, Op::NewIssue { title: "First".into(), body: "b".into() }).unwrap();
         assert!(board.issues.contains_key(&1));

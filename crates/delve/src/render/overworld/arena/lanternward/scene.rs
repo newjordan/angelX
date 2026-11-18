@@ -16,8 +16,6 @@ use crate::rules::{
     },
 };
 
-/// The picture's frame on the room: where its top left is, in pixels, and
-/// whose screen it is.
 pub(super) struct View<'a> {
     pub run: &'a Run,
     pub s: &'a Session,
@@ -53,8 +51,6 @@ pub(super) fn draw(run: &Run, focus: Option<u32>) -> Img {
         |k| k.cam,
     );
     let mut shake = super::super::camera::smooth_shake(u64::from(s.elapsed), u32::from(s.shake), 12, 4.0);
-    // A blow is felt through the floor: the heaviest flinch on show shakes the
-    // room, and a hold keeps shaking on the realm's own hit-stop count.
     let phase = u64::from(s.elapsed) * 3 + u64::from(run.hitstop.left);
     let blows = s
         .foes
@@ -85,7 +81,6 @@ pub(super) fn draw(run: &Run, focus: Option<u32>) -> Img {
     bodies(&mut im, &v);
     if dark {
         light::gloam(&mut im, &v, &lit);
-        // A blow's footprint is read in the dark too, and so is a hood's eyes.
         footprints(&mut im, &v);
         eyes(&mut im, &v);
     }
@@ -98,9 +93,6 @@ pub(super) fn draw(run: &Run, focus: Option<u32>) -> Img {
     im
 }
 
-// ----- tiles -----------------------------------------------------------------
-
-/// A room's stone: floor, mortar, speckle.
 fn palette(room: u8) -> (char, char, char) {
     match room {
         0 => ('x', 's', 'S'),
@@ -139,7 +131,6 @@ fn tiles(im: &mut Img, v: &View) {
     if v.s.room == 4 {
         ring(im, v);
     }
-    // A secret closet is black until its way is open.
     if let Some((x0, y0, x1, y1)) = lw::world::closet(usize::from(v.s.room))
         && !v.s.secret_open()
     {
@@ -166,7 +157,6 @@ fn wall(im: &mut Img, v: &View, tx: i32, ty: i32, x: i32, y: i32) {
     let p = plan(usize::from(v.s.room));
     let below_floor = !matches!(p.at(tx, ty + 1), b'#');
     im.rect(x, y, TILE, TILE, 'j');
-    // Courses of stone.
     for row in [5, 10] {
         im.rect(x, y + row, TILE, 1, 'g');
     }
@@ -175,7 +165,6 @@ fn wall(im: &mut Img, v: &View, tx: i32, ty: i32, x: i32, y: i32) {
     }
     im.rect(x, y, TILE, 1, 'J');
     if below_floor {
-        // The face that looks into the room.
         im.rect(x, y + 12, TILE, 4, 'g');
         im.rect(x, y + 15, TILE, 1, 'K');
     }
@@ -214,7 +203,6 @@ fn doorway(im: &mut Img, v: &View, _tx: i32, ty: i32, x: i32, y: i32) {
     let _ = ty;
 }
 
-/// The Warden's floor: a great ring and its spokes.
 fn ring(im: &mut Img, v: &View) {
     let p = plan(4);
     let (cx, cy) = (p.w() * TILE / 2 - v.ox, 9 * TILE - v.oy);
@@ -226,9 +214,6 @@ fn ring(im: &mut Img, v: &View) {
     }
 }
 
-// ----- footprints -------------------------------------------------------------
-
-/// Where a blow will land (ochre while it is a tell, red while it lands).
 fn footprints(im: &mut Img, v: &View) {
     for f in &v.s.foes {
         if f.alive() && f.danger != Danger::None {
@@ -271,10 +256,8 @@ fn danger(im: &mut Img, v: &View, d: Danger, hot: bool, ticks: u32) {
             if !inside(d, qx, qy) {
                 continue;
             }
-            // The edge, and a dither of fill that quickens as the blow nears.
             let edge = !inside(d, qx + 2 * Q, qy) || !inside(d, qx - 2 * Q, qy) || !inside(d, qx, qy + 2 * Q) || !inside(d, qx, qy - 2 * Q);
             let pulse = if hot { 0.55 } else { 0.22 + 0.3 * (1.0 - (ticks.min(60) as f32 / 60.0)) };
-            // A dashed edge and a thin stipple, quicker as the blow nears.
             if edge && (px + py + (v.tick / 3) as i32) & 1 == 0 || (!edge && bayer(px, py) < pulse * 0.3) {
                 im.put(px, py, ink);
             }
@@ -292,8 +275,6 @@ fn bounds(d: Danger) -> ((i32, i32), (i32, i32)) {
     }
 }
 
-// ----- bodies ------------------------------------------------------------------
-
 enum Thing {
     Prop(usize),
     Knight(u32),
@@ -310,7 +291,6 @@ fn bodies(im: &mut Img, v: &View) {
     let mut order: Vec<(i32, i32, Thing)> = Vec::new();
     for (i, p) in s.props.iter().enumerate() {
         let y = if p.kind == Pk::Block { p.y } else { p.y + 6 * Q };
-        // Floor things go under everything that stands.
         let rank = i32::from(!matches!(p.kind, Pk::Plate | Pk::Sigil | Pk::Fissure | Pk::Grass));
         order.push((rank, y, Thing::Prop(i)));
     }
@@ -377,7 +357,6 @@ fn flame(im: &mut Img, x: i32, y: i32, tick: u32, big: bool) {
     im.put(x, y - 1, 'w');
 }
 
-/// The ticks a brazier's dying flame plays (`gutter` in `slots.json`, 3 by 4).
 const GUTTER: u32 = 12;
 
 fn prop(im: &mut Img, v: &View, i: usize) {
@@ -386,7 +365,6 @@ fn prop(im: &mut Img, v: &View, i: usize) {
     if !v.on_screen(x, y, 40) {
         return;
     }
-    // What is shut up in a closet is not seen.
     if let Some((x0, y0, x1, y1)) = lw::world::closet(usize::from(v.s.room))
         && !v.s.secret_open()
         && (x0..=x1).contains(&i32::from(p.tx))
@@ -402,7 +380,6 @@ fn prop(im: &mut Img, v: &View, i: usize) {
                 shadow(im, x, foot - 1, 5);
                 slot(im, "pot", "whole", 0, x, foot);
                 if p.id == 1 {
-                    // A bomb pot: a black ball in it, the fuse alight.
                     im.rect(x - 2, foot - 10, 5, 4, 'k');
                     im.put(x + 1, foot - 11, if (t / 4).is_multiple_of(2) { '6' } else { '7' });
                 }
@@ -435,7 +412,6 @@ fn prop(im: &mut Img, v: &View, i: usize) {
                 _ => 18,
             };
             shadow(im, x, foot - 1, 6);
-            // A brazier's last twelve ticks are its dying flame, played once.
             let dying = p.kind == Pk::Brazier && p.on == 0 && u32::from(p.t) <= GUTTER && painted("brazier", "gutter");
             let (id, state) = match p.kind {
                 Pk::Brazier => ("brazier", if !lit { "out" } else if dying { "gutter" } else { "lit" }),
@@ -445,12 +421,9 @@ fn prop(im: &mut Img, v: &View, i: usize) {
                 _ => ("beacon", if p.on == 1 { "lit" } else if p.t > 0 { "kindling" } else { "cold" }),
             };
             slot(im, id, state, if dying { GUTTER - u32::from(p.t) } else { t }, x, foot);
-            // A painted frame carries its own fire; the code's flame is the block's.
             if (lit || (p.kind == Pk::Beacon && p.t > 0)) && !painted(id, state) {
                 flame(im, x, foot - tall, t, p.kind == Pk::Beacon || p.kind == Pk::Great);
             }
-            // A lit Beacon sends its light up and out: a pillar that fades as
-            // it climbs, ringed by the realm's own rays.
             if p.kind == Pk::Beacon && p.on == 1 {
                 let since = v.s.done.map_or(0, |d| v.tick.saturating_sub(d)) as i32;
                 let rise = (since * 4).min(foot);
@@ -479,7 +452,6 @@ fn prop(im: &mut Img, v: &View, i: usize) {
             if p.on != 2 {
                 shadow(im, x, foot - 1, 7);
                 slot(im, "chest", if p.on == 1 { "open" } else { "closed" }, t, x, foot);
-                // The block's dark mouth; a painted chest has its own.
                 if p.on == 1 && !painted("chest", "open") {
                     im.rect(x - 5, foot - 13, 10, 3, 'k');
                 }
@@ -488,7 +460,6 @@ fn prop(im: &mut Img, v: &View, i: usize) {
         Pk::Gate => {
             if p.on == 0 {
                 slot_mid(im, "gate", "closed", t, x, y);
-                // The block's three bars; a painted gate has its own.
                 if !painted("gate", "closed") {
                     for bx in [3, 7, 11] {
                         im.rect(x - 8 + bx, y - 8, 1, 16, 'h');
@@ -517,7 +488,6 @@ fn prop(im: &mut Img, v: &View, i: usize) {
                     }
                 }
             };
-            // The glow's dots are over a block, behind a painted crystal.
             let own = painted("crystal", "lit");
             if own {
                 glow(im);
@@ -534,7 +504,6 @@ fn prop(im: &mut Img, v: &View, i: usize) {
             if p.on == 1 {
                 slot_mid(im, "sigil", "found", t / 8, x, y);
             } else if p.t > 0 {
-                // the rune writes itself as the flare holds
                 let n = (usize::from(p.t) * 3 / usize::from(lw::SIGIL_TICKS)).min(2);
                 slot_mid(im, "sigil", "revealing", 0, x, y);
                 let _ = n;
@@ -560,8 +529,6 @@ fn prop(im: &mut Img, v: &View, i: usize) {
     }
 }
 
-/// The point `r` pixels from `(x, y)` at whole degrees `deg`, its up and down
-/// squashed to `squash` per cent (a ring on the floor seen from above).
 pub(super) fn polar(x: i32, y: i32, deg: i32, r: i32, squash: i32) -> (i32, i32) {
     (x + cos_q(deg) * r / Q, y + sin_q(deg) * r * squash / (100 * Q))
 }
@@ -625,7 +592,6 @@ fn bolt(im: &mut Img, v: &View, i: usize) {
         return;
     }
     let spin = v.tick / 3;
-    // A tail that streaks back along the flight, in the bolt's own inks.
     let (vx, vy) = (b.vx as f32 / Q as f32, b.vy as f32 / Q as f32);
     let speed = vx.hypot(vy).max(0.1);
     let (ux, uy) = (vx / speed, vy / speed);
@@ -658,8 +624,6 @@ fn bolt(im: &mut Img, v: &View, i: usize) {
     }
 }
 
-// ----- knights ------------------------------------------------------------------
-
 pub(super) fn knight_img(v: &View, id: u32, k: &Seat) -> Img {
     let Some(hero) = v.run.players.get(&id) else {
         return Img::new(16, 16);
@@ -670,7 +634,6 @@ pub(super) fn knight_img(v: &View, id: u32, k: &Seat) -> Img {
     h.shielding = k.shield > 0 && k.act == Act::Free;
     h.owned.shield = true;
     h.sword = true;
-    // The blade is drawn here (the arm is empty until it swings).
     h.weapon = crate::rules::Weapon::Fists;
     h.forged = None;
     h.swing = u32::from(matches!(k.act, Act::Slash | Act::Lunge | Act::Spin) && k.t < 9 || k.charged());
@@ -691,14 +654,12 @@ fn knight(im: &mut Img, v: &View, id: u32) {
         im.rect(x - 7, y - 1, 14, 6, knights::seat_cloth(id));
         im.frame(x - 7, y - 1, 14, 6, 'k');
         im.ellipse((x - 8) as f32, (y + 2) as f32, 3.0, 3.0, 'c');
-        // A knight on the ground waits for a friend's hand.
         let w = (k.rev * 14 / lw::REVIVE_HOLD).min(14) as i32;
         im.rect(x - 7, y - 6, 14, 2, 'k');
         im.rect(x - 7, y - 6, w, 2, 'A');
         tag(im, x, y - 14, &format!("{id}"), knights::seat_cloth(id));
         return;
     }
-    // Blink while the ward of a hit is on, and as a new seat sits down.
     if k.ward > 0 && (k.ward / 2).is_multiple_of(2) {
         return;
     }
@@ -717,13 +678,11 @@ fn knight(im: &mut Img, v: &View, id: u32) {
         }
         _ => {}
     }
-    // Struck: a white frame, then back to the colours.
     if k.act == Act::Hurt && k.t < 3 {
         fig = juice::impact_frame(&fig, 'H');
     }
     let (fw, fh) = (fig.w, fig.h);
     let foot = y + 4 - lift;
-    // A roll kicks up dust behind it.
     if k.act == Act::Roll {
         let (ux, uy) = (-k.mv.0.signum(), -k.mv.1.signum());
         for i in 1..=5 {
@@ -733,7 +692,6 @@ fn knight(im: &mut Img, v: &View, id: u32) {
         }
     }
     im.stamp(&fig, x - fw / 2, foot - fh);
-    // The shield's first moments are the parry's: a bright rim reads the window.
     let window = lw::Rules::of(&v.run.tune).parry;
     if k.shield > 0 && k.shield <= window && k.act == Act::Free {
         let side = angle_of(k.face.0, k.face.1);
@@ -744,7 +702,6 @@ fn knight(im: &mut Img, v: &View, id: u32) {
             }
         }
     }
-    // The sword at rest, held low on the facing side.
     if matches!(k.act, Act::Free | Act::Hop | Act::Item) && k.shield == 0 && k.carry == lw::Carry::Nothing {
         let side = if k.face.0 < -Q / 4 { -1 } else { 1 };
         let hx = x + side * 5;
@@ -752,7 +709,6 @@ fn knight(im: &mut Img, v: &View, id: u32) {
         im.put(hx, foot - 6, 'o');
         im.put(hx - side, foot - 7, 'o');
     }
-    // The wick-spark: a light at the hip once the Lantern is theirs.
     if s.inv.lantern {
         let lx = x + if k.face.0 < 0 { -6 } else { 6 };
         im.put(lx, foot - 6, if k.flaring() { 'w' } else { '5' });
@@ -767,7 +723,6 @@ fn knight(im: &mut Img, v: &View, id: u32) {
     if k.carry == lw::Carry::Pot {
         slot(im, "pot", "whole", 0, x, foot - fh + 3);
     }
-    // A flame from the ember, carried to a brazier, burns lower as it goes.
     if k.taper > 0 {
         let side = if k.face.0 < -Q / 4 { -1 } else { 1 };
         flame(im, x + side * 7, foot - 9, v.tick, k.taper > 90);
@@ -782,7 +737,6 @@ fn knight(im: &mut Img, v: &View, id: u32) {
     {
         item_icon(im, x, foot - fh - 12, item, v.tick);
     }
-    // The seat's colour under the feet, so a friend is known at a glance.
     im.rect(x - 1, foot + 2, 3, 1, knights::seat_cloth(id));
     feel::swing_arc(im, k, x, foot - 8);
 }
@@ -821,10 +775,6 @@ fn item_icon(im: &mut Img, x: i32, y: i32, item: lw::Item, tick: u32) {
     }
 }
 
-// ----- foes -----------------------------------------------------------------------
-
-/// A struck body: stood white for the first ticks of the flinch, then squashed
-/// wide and stretched tall as it settles. Its feet stay where they were.
 fn struck(pic: &Img, flinch: u8, weight: Weight) -> Img {
     let Some(age) = feel::hit_age(flinch) else { return pic.clone() };
     if age < weight.flash() {
@@ -834,7 +784,6 @@ fn struck(pic: &Img, flinch: u8, weight: Weight) -> Img {
     }
 }
 
-/// Stamp `pic` standing on `foot` at `x`, centred.
 fn stand(im: &mut Img, pic: &Img, x: i32, foot: i32) {
     im.stamp(pic, x - pic.w / 2, foot - pic.h);
 }
@@ -860,7 +809,6 @@ fn foe(im: &mut Img, v: &View, i: usize) {
             shadow(im, x, y + 9, 5 + (-hover).min(2) / 2);
             let pic = match f.st {
                 Fs::Dying => {
-                    // it unravels into smoke over the fourteen ticks it has
                     bank::frame_at("snuffer", "die", usize::from(f.dead) * 7 / usize::from(lw::DEATH_TICKS).max(1)).clone()
                 }
                 _ if hooded => bank::frame("snuffer", "hooded", v.tick).clone(),
@@ -877,9 +825,7 @@ fn foe(im: &mut Img, v: &View, i: usize) {
                 Fs::Recover => bank::frame("snuffer", "recover", v.tick).clone(),
                 Fs::Stagger => bank::frame("snuffer", "stagger", v.tick).clone(),
             };
-            // It faces the way it will go: the picture is drawn facing right and flipped.
             let pic = if f.fx < -Q / 3 { pic.flip_h() } else { pic };
-            // The gathering shudder of a tell: it trembles more as the blow nears.
             let shudder = if f.st == Fs::Tell && f.t < 12 { (v.tick as i32 % 2) * 2 - 1 } else { 0 };
             stand(im, &struck(&pic, f.flinch, weight), x + shudder, foot);
             if f.st == Fs::Dying {
@@ -915,7 +861,6 @@ fn foe(im: &mut Img, v: &View, i: usize) {
             };
             let pic = bank::frame_at("turret", state, idx);
             stand(im, pic, x, y + 12);
-            // The barrel points the way it will fire.
             let recoil = if f.st == Fs::Strike { 3 - i32::from(f.t.min(3)) } else { 0 };
             feel::barrel(im, x, y - 2, (f.fx, f.fy), matches!(f.st, Fs::Tell | Fs::Strike), recoil);
             if f.st == Fs::Strike && f.t < 3 {
@@ -947,7 +892,6 @@ fn bar(im: &mut Img, x: i32, y: i32, w: i32, hp: u32, full: u32, ink: char) {
     im.rect(x - w / 2, y, (u64::from(hp) * w as u64 / u64::from(full.max(1))) as i32, 2, ink);
 }
 
-/// The Warden's frame: which state its body is in and how far through it.
 fn warden_pose(v: &View, w: &lw::Warden) -> (&'static str, usize) {
     let tell = lw::Rules::of(&v.run.tune).tell_for(v.s.seats.len() as u32).max(1);
     let through = |total: u32, left: u16, frames: u32| (total.saturating_sub(u32::from(left)) * frames / total.max(1)).min(frames - 1) as usize;
@@ -956,7 +900,6 @@ fn warden_pose(v: &View, w: &lw::Warden) -> (&'static str, usize) {
     }
     match w.st {
         Ws::Asleep => ("sleep", 0),
-        // It wakes with a rear: the first moments of the fight.
         Ws::Rest if woke(w) => ("rear", through(30, w.t.saturating_sub(40), 6)),
         Ws::Rest => ("walk", (v.tick / 8 % 4) as usize),
         Ws::Tell => match w.atk {
@@ -975,8 +918,6 @@ fn warden_pose(v: &View, w: &lw::Warden) -> (&'static str, usize) {
     }
 }
 
-/// Whether the Warden has only just woken: untouched, at the start, with the
-/// rules' wake-up count still running down.
 pub(super) fn woke(w: &lw::Warden) -> bool {
     w.st == Ws::Rest && w.hp == w.full && w.n == 0 && w.phase == 0 && w.t > 40
 }
@@ -993,7 +934,6 @@ fn boss(im: &mut Img, v: &View) {
     shadow(im, x, y + 25, 14);
     let (state, idx) = warden_pose(v, w);
     let pic = bank::frame_at("warden", state, idx);
-    // A big blow is about to land: the whole body shudders through the end of the tell.
     let last = match w.st {
         Ws::Tell => w.t < 18,
         _ => false,
@@ -1001,21 +941,17 @@ fn boss(im: &mut Img, v: &View) {
     let jitter = if last { (v.tick as i32 % 2) * 2 - 1 } else { 0 };
     let rise = if w.st == Ws::Dying && w.dead > 5 { 0 } else { 0 };
     let mut body = struck(pic, w.flinch, weight);
-    // It faces its target: the picture is drawn front-on; a long way off to one side it turns its shoulders.
     if w.face.0 < -Q * 7 / 10 {
         body = body.flip_h();
     }
     stand(im, &body, x + jitter, y + 28 + rise);
-    // Rubble thrown up as a slam lands, the dust of a fall.
     if w.st == Ws::Strike && w.atk == Atk::Slam {
         let age = u32::from(lw::SLAM_TICKS.saturating_sub(w.t));
         juice::impact_burst(im, (x as f32, (y + 22) as f32), age, 7, Weight::Crushing, tick);
     }
-    // The lamp-heart in its chest: shut, or open and burning.
     if w.st != Ws::Dying {
         heart(im, v, w);
     }
-    // Light gathers in the raised palm before a beam.
     if w.st == Ws::Tell && w.atk == Atk::Beam {
         let k = tell_progress(v, w);
         let palm = (x + 15, y - 14);
@@ -1043,14 +979,11 @@ fn boss(im: &mut Img, v: &View) {
     }
 }
 
-/// How far through its tell the Warden is, 0 to 1.
 fn tell_progress(v: &View, w: &lw::Warden) -> f32 {
     let tell = lw::Rules::of(&v.run.tune).tell_for(v.s.seats.len() as u32).max(1);
     1.0 - (f32::from(w.t) / tell as f32).min(1.0)
 }
 
-/// The caged lamp over the Warden's belt: dark glass while it is shut, the
-/// burning lamp when light has found it, flickering and ringed.
 fn heart(im: &mut Img, v: &View, w: &lw::Warden) {
     let (hx, hy) = (v.x(w.heart().0), v.y(w.heart().1));
     let open = v.s.boss_open();
@@ -1059,20 +992,17 @@ fn heart(im: &mut Img, v: &View, w: &lw::Warden) {
     } else {
         bank::frame("warden", "heart-shut", v.tick)
     };
-    // The frame is the body's size with its lamp at (24, 37).
     im.stamp(frame, hx - 24, hy - 37);
     if open {
         let pulse = [0, 1, 2, 1][(v.tick / 3 % 4) as usize];
         super::scene::ring_px(im, hx, hy, 11 + pulse, '4', v.tick);
         super::scene::ring_px(im, hx, hy, 15 + pulse, '5', v.tick + 1);
-        // Embers lifting off it.
         for k in 0..4 {
             let up = ((v.tick as i32 * 2 + k * 9) % 22) as i32;
             let dx = [-5, 3, 6, -2][k as usize];
             im.put(hx + dx + (up / 7) * if k % 2 == 0 { 1 } else { -1 }, hy - 8 - up, if up < 10 { '6' } else { '4' });
         }
     } else {
-        // Light gathering on the shutter: a lit pip for each seat's light that is on it.
         let lit = w.lit.iter().filter(|&&t| t > 0 && t + lw::EXPOSE_TICKS > v.tick).count();
         for a in 0..lit {
             im.put(hx - 3 + a as i32 * 3, hy - 9, '6');
@@ -1081,17 +1011,12 @@ fn heart(im: &mut Img, v: &View, w: &lw::Warden) {
     }
 }
 
-// ----- effects --------------------------------------------------------------------
-
 fn effects(im: &mut Img, v: &View) {
     feel::effects(im, v);
     feel::kindle(im, v);
     feel::lock_on(im, v);
 }
 
-// ----- light ---------------------------------------------------------------------
-
-/// A hooded snuffer in the dark shows only its eyes.
 fn eyes(im: &mut Img, v: &View) {
     for f in &v.s.foes {
         if !f.alive() || f.kind != Fk::Snuffer {
@@ -1109,7 +1034,6 @@ fn eyes(im: &mut Img, v: &View) {
 }
 
 fn flash(im: &mut Img, n: u32) {
-    // A parry's flash: a thin cool veil of dots over the room that thins as it fades.
     let dense = (n.min(8) as f32) / 110.0;
     for y in 0..224i32 {
         for x in 0..384i32 {

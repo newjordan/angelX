@@ -6,9 +6,6 @@ use std::path::{Path, PathBuf};
 
 pub fn minimal_paths(cwd: &Path, inputs: impl IntoIterator<Item = PathBuf>) -> Vec<PathBuf> {
     let paths: BTreeSet<_> = inputs.into_iter().collect();
-    // Resolve relative inputs against the build-script directory, but retain
-    // their original spelling in the emitted directive. A canonical equality
-    // check deliberately rejects `..` and paths through symlinks.
     let absolute = |path: &Path| if path.is_absolute() { path.to_path_buf() } else { cwd.join(path) };
     let canonical: BTreeSet<_> = paths.iter().map(|p| absolute(p))
         .filter(|p| p.canonicalize().is_ok_and(|resolved| resolved.as_os_str() == p.as_os_str()))
@@ -35,7 +32,6 @@ mod tests {
                      "assets/kit/../kit/frame.png", "assets"].map(PathBuf::from);
         let result = minimal_paths(&root, paths);
         assert_eq!(result, ["assets", "assets/kit/../kit/frame.png", "assets/missing"].map(PathBuf::from));
-        // An absolute descendant is covered by the same relative parent.
         assert_eq!(minimal_paths(&root, [PathBuf::from("assets"), root.join("assets/kit/frame.png")]),
                    [PathBuf::from("assets")]);
         #[cfg(unix)] {

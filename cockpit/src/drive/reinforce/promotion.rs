@@ -30,17 +30,11 @@ pub(crate) fn promotion_math_contract_sha256() -> String {
 
 #[derive(Clone, Debug)]
 pub struct PromotionConfig {
-    /// Minimum distinct cases required for a promotion cohort.
     pub min_cases: usize,
-    /// Equal generation budget for incumbent and candidate on every case.
     pub samples_per_case: usize,
-    /// Candidate mean on every case must meet this mandatory floor.
     pub absolute_floor: f32,
-    /// Required lower confidence bound for the mean candidate-incumbent delta.
     pub min_mean_delta: f32,
-    /// Maximum tolerated regression on any individual case.
     pub max_case_regression: f32,
-    /// Normal critical value used for the conservative delta bound.
     pub confidence_z: f32,
 }
 
@@ -81,24 +75,15 @@ impl PromotionConfig {
     }
 }
 
-/// A validation case kept out of the reflector's training examples.
 pub struct HeldoutCase<'a> {
     pub id: &'a str,
     pub task: &'a str,
     pub reward: &'a dyn Reward,
 }
 
-/// Sealed technical scoring policies accepted by the production coding gate.
-/// Callers cannot supply an arbitrary reward that ignores red evaluator
-/// outcomes while borrowing the receipt machinery's authority.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TechnicalReward {
     Pass,
-    /// A command-success objective case: the evaluator runs the operator's own
-    /// verifier command, so the reward is that process's outcome. A red
-    /// objective is a measured zero (the run exists to make it green), and when
-    /// the verifier does emit canonical libtest summaries they are parsed
-    /// strictly and must be green.
     ObjectivePass,
 }
 
@@ -123,17 +108,8 @@ impl Reward for TechnicalReward {
             Self::ObjectivePass => {
                 let evidence = input.evaluator_evidence(self.label())?;
                 evidence.validate_for_scoring()?;
-                // Case identity (frozen source, verifier command, execution
-                // policy, sample subject) is enforced before this reward runs:
-                // the receipt path checks the exact `EvaluatorSpec` manifest and
-                // subject it was produced under, and the training path produces
-                // the command-success contract. A contract string here could
-                // only re-assert something the caller already bound, so this
-                // reward scores the measurement itself and never the text.
                 let output = evidence.output();
                 if output.contains("test result:") {
-                    // Preserve the stronger structured verdict when the
-                    // operator's own command reports libtest results.
                     let outcome = super::parse_evaluator_test_result(output)?;
                     if outcome.passed.saturating_add(outcome.failed) == 0 {
                         return Ok(0.0);
@@ -187,9 +163,6 @@ impl CohortRole {
     }
 }
 
-/// Frozen identity for one ordered evaluator cohort. Case order is material:
-/// the gate alternates incumbent/candidate evaluation order by case index, so a
-/// reorder is an experiment change rather than an equivalent set.
 #[derive(Clone, Debug)]
 pub struct CohortManifest {
     id: String,
@@ -502,8 +475,6 @@ impl PromotionReport {
     }
 }
 
-/// Publish a cohort's final verdict to the structural run telemetry. Display
-/// only — no policy or task content leaves the report.
 fn publish_verdict(report: &PromotionReport) {
     super::telemetry::verdict(super::telemetry::CohortVerdict {
         role: report.cohort_role.as_str().to_string(),
@@ -553,8 +524,6 @@ fn series_variance(values: &[f32]) -> f32 {
         / (values.len() - 1) as f32
 }
 
-/// One case's raw score samples. These are the only numbers the gate reads; the
-/// cohort manifest, prompts, receipts and telemetry stay here in Rust.
 #[derive(Debug, Serialize)]
 struct GateCase {
     complete: bool,
@@ -562,7 +531,6 @@ struct GateCase {
     candidate: Vec<f32>,
 }
 
-/// The gate's whole input, mirrored by cockpit/live/promotion/promotion.bend.
 #[derive(Debug, Serialize)]
 struct GateRequest<'a> {
     case_count: usize,
@@ -590,8 +558,6 @@ impl<'a> GateRequest<'a> {
     }
 }
 
-/// The gate's verdict. The margin crosses the leg boundary as raw f32 bits so
-/// the report keeps the exact value the native oracle would have produced.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 struct GateVerdict {
     decision: u32,
@@ -600,9 +566,6 @@ struct GateVerdict {
 }
 
 impl GateVerdict {
-    /// An unknown code fails closed on the strictest verdict reachable without a
-    /// scorable cohort; the contract check rejects such a code before a live
-    /// verdict is used.
     fn decision(&self) -> PromotionDecision {
         gate_decision(self.decision).unwrap_or(PromotionDecision::RejectedIncomplete)
     }
@@ -629,7 +592,6 @@ fn gate_decision(code: u32) -> Option<PromotionDecision> {
     })
 }
 
-/// Reject a live verdict that a scorable cohort could not have produced.
 fn gate_contract(request: &GateRequest<'_>, verdict: &GateVerdict) -> Result<(), String> {
     let decision = gate_decision(verdict.decision).ok_or_else(|| {
         format!(
@@ -661,9 +623,6 @@ fn gate_contract(request: &GateRequest<'_>, verdict: &GateVerdict) -> Result<(),
     }
 }
 
-/// The promotion gate's only entry point: the live `promotion` leg when one is
-/// published, the generation compiled into this binary otherwise or after an
-/// out-of-contract edit.
 fn decide_gate(
     request: &GateRequest<'_>,
 ) -> (GateVerdict, crate::agent::harness::live_policy::LegSource) {
@@ -742,9 +701,6 @@ fn persist_and_consume_receipt_pair(
         pair_count,
         store,
     } = request;
-    // Both append-only artifacts must exist before the single authoritative
-    // pair row is committed. A crash can therefore leave harmless unreferenced
-    // artifacts, but never half of a counted logical sample.
     let inventory_artifact = inventory.persist_append_only(store.artifact_root)?;
     let outcome_artifact = outcome.persist_append_only(store.artifact_root)?;
     super::consumption::consume_evaluator_artifact_pair(
@@ -1034,13 +990,6 @@ fn score_policy(request: ScorePolicyRequest<'_, '_>) -> ScoreSeries {
                         observed_inventory.sha256
                     ));
                 }
-                // A command-success case measures the operator's own process: its
-                // exit status IS the verdict (a red objective is a measured
-                // zero), and its stdout/stderr are ordinary verifier output. The
-                // frozen fixture, the shared start state, the bound candidate
-                // subject and the execution policy above still bind exactly what
-                // was measured. A sealed libtest case keeps the canonical form
-                // rules, where the outcome report carries the per-test verdict.
                 if evaluator.spec().kind() == super::evaluator::VerifierKind::LibtestInventory {
                     if !outcome.succeeded() || !outcome.stderr_is_empty() {
                         return Err(
@@ -1055,7 +1004,7 @@ fn score_policy(request: ScorePolicyRequest<'_, '_>) -> ScoreSeries {
                         ));
                     }
                 } else {
-                    let _ = canonical_test_outcome; // canonical rows are not required here
+                    let _ = canonical_test_outcome;
                 }
                 let store = receipt_store.ok_or_else(|| "receipt store is required".to_string())?;
                 let inventory_reward = ExpectedInventoryReward {
@@ -1210,8 +1159,6 @@ fn score_policy(request: ScorePolicyRequest<'_, '_>) -> ScoreSeries {
     }
 }
 
-/// Compare a proposed prompt to its incumbent on an equal-budget, complete
-/// validation cohort. The reflector receives none of the scores or outputs.
 pub(crate) fn evaluate_promotion(
     generator: &dyn Generator,
     incumbent_prompt: &str,
@@ -1288,9 +1235,6 @@ pub(crate) fn evaluate_promotion_with_receipts(
     )
 }
 
-/// Evaluate a frozen candidate on a manifest-distinct, disjoint final-audit
-/// cohort. This API only returns evidence; it has no access to the mutable policy
-/// prompt/version and therefore cannot promote a candidate.
 pub struct FinalAuditRequest<'a> {
     pub incumbent_prompt: &'a str,
     pub frozen_candidate_prompt: &'a str,
@@ -1629,8 +1573,6 @@ fn evaluate_cohort(
     let candidate_version = incumbent_version.saturating_add(1);
     let incumbent_prompt_sha256 = crate::knowledge::cut::sha256_hex(incumbent_prompt.as_bytes());
     let candidate_prompt_sha256 = crate::knowledge::cut::sha256_hex(candidate_prompt.as_bytes());
-    // A cohort with nothing to score is still a gate decision, so it comes from
-    // the same leg; only its inputs are empty.
     if cases.is_empty() || cases.len() < config.min_cases {
         let request = GateRequest::new(config, cases.len(), &[]);
         let (verdict, _leg) = decide_gate(&request);
@@ -1719,9 +1661,6 @@ fn evaluate_cohort(
             .collect::<Vec<_>>()
     };
 
-    // Freeze full outputs for the complete phase before any evaluator runs.
-    // A resumed campaign therefore reuses the exact stochastic generation
-    // cohort instead of recalling the provider or rerolling private evidence.
     let generated_batches = if let Some((store, campaign_id, plan_id)) = receipt_plan.as_ref() {
         let decode_plan = |bytes: &[u8]| -> Result<GeneratedPhaseBatches, String> {
             let plan: FrozenPhasePlan = serde_json::from_slice(bytes)
@@ -1821,8 +1760,6 @@ fn evaluate_cohort(
     for (case_index, (case, (incumbent_candidates, candidate_candidates))) in
         cases.iter().zip(generated_batches).enumerate()
     {
-        // Balance evaluation order across cases so monotonic backend drift does
-        // not always favor the candidate (or always favor the incumbent).
         let evaluator = evaluators.map(|items| items[case_index]);
         let mut score = |prompt_sha256: &str, version: u64, candidates: Vec<super::Candidate>| {
             score_policy(ScorePolicyRequest {
@@ -1867,8 +1804,6 @@ fn evaluate_cohort(
         let incumbent_mean = incumbent.mean();
         let candidate_mean = candidate.mean();
         let delta = complete.then(|| candidate_mean.unwrap() - incumbent_mean.unwrap());
-        // The samples themselves are the gate's input; the leg re-derives the
-        // same means, variances and bounds the native oracle does below.
         gate_cases.push(GateCase {
             complete,
             incumbent: incumbent.values,

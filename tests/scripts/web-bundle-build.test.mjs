@@ -34,7 +34,6 @@ test('generated statics stay private behind non-inlined accessors', () => {
   assert.doesNotMatch(build, /pub static (?:BUNDLE|PACKED|SOUNDS|BESIDE)/u)
   const library = source('cockpit/web-bundle/lib.rs')
   assert.doesNotMatch(build, /static BUNDLE/u)
-  // Both the full and intentionally empty bundle use the same non-inlined API.
   assert.equal((build.match(/pub fn embedded\(\)/gu) ?? []).length, 2)
   assert.equal((build.match(/#\[inline\(never\)\]/gu) ?? []).length, 2)
   for (const accessor of ['packed', 'sounds', 'beside']) {

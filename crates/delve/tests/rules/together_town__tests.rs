@@ -26,8 +26,6 @@ fn e(id: u32) -> BTreeMap<u32, Input> {
     BTreeMap::from([(id, Input { interact: true, ..Default::default() })])
 }
 
-/// The cockpit's part: pay each asked purchase from the treasury, as
-/// `settle_home` does.
 fn pay(run: &mut Run) -> u32 {
     let mut spent = 0;
     for p in std::mem::take(&mut run.peddled) {
@@ -49,8 +47,6 @@ fn the_town_stands_on_the_home_floor_behind_kingdom_doors() {
         let i = world::room_of(&run.dungeon, kind).expect("raised with the world");
         assert!(run.dungeon.rooms[i].doors.iter().any(|&d| d), "{kind:?} has a door");
     }
-    // The market behind the Artisan Quarter's door, the smithy behind the
-    // Smithy's, the bathhouse behind its own; each on a road.
     let geo = geography::geography(&[]);
     for (kind, name) in [(RoomKind::Market, "Artisan Quarter"), (RoomKind::Smithy, "Smithy"), (RoomKind::Bathhouse, "Bathhouse")] {
         let site = geo.sites.iter().find(|s| s.room == kind).unwrap_or_else(|| panic!("{kind:?} has no door"));
@@ -78,7 +74,6 @@ fn haggling_climbs_to_a_sale_and_the_realm_settles_it() {
     put(&mut run, 1, STALLS[0].at);
     run.step(&e(1));
     assert_eq!(run.town.haggles.get(&1), Some(&(0, 0)));
-    // Hold a while: the offer climbs.
     for _ in 0..HAGGLE_STEP * 3 {
         run.step(&e(1));
     }
@@ -86,7 +81,6 @@ fn haggling_climbs_to_a_sale_and_the_realm_settles_it() {
     let friend = run.wire_copy();
     assert_eq!(friend.town, run.town);
     assert!(run.valid_snapshot());
-    // Let go: sold.
     run.step(&BTreeMap::new());
     assert!(run.town.haggles.is_empty());
     let mark = sale_mark(0, 1);
@@ -121,7 +115,6 @@ fn haggling_too_long_shuts_the_stall() {
     assert!(run.town.haggles.is_empty());
     assert!(run.town.shut[0] > 0, "the shutters are down");
     assert!(run.marks.keys().all(|k| !k.starts_with("country:sell")), "no sale");
-    // A fresh press at a shut stall is refused.
     run.step(&BTreeMap::new());
     run.step(&e(1));
     assert!(run.town.haggles.is_empty());
@@ -152,20 +145,17 @@ fn a_soak_costs_five_gold_and_spares_the_next_privy_toll() {
     assert_eq!(pay(&mut run), BATH_GOLD);
     assert_eq!(run.players[&1].soak, SOAK);
     assert_eq!(tub_of(&run.players[&1]), Some(1));
-    // A friend cannot climb into the same tub.
     put(&mut run, 2, (TUBS[1].0 + 0.5, TUBS[1].1 + 1.6));
     run.step(&BTreeMap::new());
     run.step(&e(2));
     assert!(run.peddled.is_empty());
     assert!(run.found.as_ref().unwrap().2.contains("TAKEN"));
-    // The soaker stays in, walking or not, until the soak is done.
     for _ in 0..SOAK {
         run.step(&BTreeMap::from([(1, Input { move_x: 1, ..Default::default() })]));
     }
     assert!(run.players[&1].scrubbed);
     assert_eq!(run.players[&1].soak, 0);
     assert!(run.valid_snapshot());
-    // Down a floor without the privy: the scrubbed knight is let off once.
     let full = run.players[&1].hp;
     run.unwashed_toll();
     assert_eq!(run.players[&1].hp, full);
@@ -205,7 +195,6 @@ fn the_smith_mends_missing_kit_and_tests_the_helmet() {
     assert!(h.owned.helmet && h.owned.body && h.owned.shield);
     assert!(run.home.wardrobe.knights.contains_key(&h.name), "kept for next time");
     assert!(run.town.ding.is_some());
-    // Whole kit: nothing to mend, nothing charged.
     run.step(&BTreeMap::new());
     run.step(&e(1));
     assert!(run.peddled.is_empty());
@@ -224,8 +213,6 @@ fn a_purchase_lapses_if_the_knight_walks_out_before_it_is_paid() {
     assert!(!run.players[&1].owned.helmet);
 }
 
-/// The town in play: `ANGEL_ARENA_SHOTS=<dir> cargo test write_town_shots
-/// -- --ignored`.
 #[test]
 #[ignore]
 fn write_town_shots() {
@@ -293,7 +280,6 @@ fn write_town_shots() {
     pay(&mut s);
     s.step(&BTreeMap::new());
     save(&s, "j-mended-ding");
-    // In the kingdom: the town's three doors.
     let mut k = Run::at_home(61, 1, None, Home::default(), Spoils::default());
     k.walk_kingdom(Some(geography::keep_stand()));
     k.floor_plates.clear();

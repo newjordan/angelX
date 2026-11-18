@@ -10,9 +10,6 @@ use crate::realm::Wish;
 use crate::rules::RoomKind;
 use std::sync::{Arc, Mutex, OnceLock};
 
-/// Letter each region's name onto `cv` (whose top-left is world pixel
-/// `origin`) in a quiet grey with a rule each side, and return the
-/// rectangles they take so plaques keep clear of them.
 pub fn letter_regions(cv: &mut Img, origin: (i32, i32)) -> Vec<(i32, i32, i32, i32)> {
     let mut taken = Vec::new();
     for (name, (tx, ty)) in regions() {
@@ -38,7 +35,6 @@ pub fn landscape(scene: &Scene, view: View) -> Img {
 }
 
 fn paint_sites(cv: &mut Img, geo: &Geography, view: View) {
-    // The forge's yard: an anvil by the Smithy's door, smoke over it.
     if let Some(smithy) = geo.sites.iter().find(|s| s.room == RoomKind::Smithy) {
         let (x, y) = (smithy.stand.0 * TILE - 20 - view.x, smithy.stand.1 * TILE + 2 - view.y);
         cv.stamp(&super::landmarks::anvil(), x, y);
@@ -59,8 +55,6 @@ fn paint_sites(cv: &mut Img, geo: &Geography, view: View) {
     }
 }
 
-/// What stands on countryside site `i`'s lot, sized to fit it.
-/// A building never changes once drawn: each site's is drawn once and kept.
 fn building(site: &Site, i: usize) -> std::sync::Arc<Img> {
     type Cache = std::sync::Mutex<std::collections::HashMap<(u32, usize), std::sync::Arc<Img>>>;
     static CACHE: std::sync::OnceLock<Cache> = std::sync::OnceLock::new();
@@ -84,10 +78,7 @@ fn draw_building(site: &Site, i: usize) -> Img {
         match site.room {
             RoomKind::Ranch => super::arena::ranch::landmark(),
             RoomKind::LandOffice => super::arena::holdings::land_office_building(),
-            // The kingdom's own hall on a lot (`HALLS`): the Lantern Hall.
             RoomKind::RealmHall => super::landmarks::lantern_hall(),
-            // A countryside place with no landmark of its own: a house,
-            // at dusk like the landmarks round it.
             _ => super::light::at_dusk(&kit::house(&House {
                 w: 48,
                 h: 40,
@@ -117,8 +108,6 @@ fn draw_building(site: &Site, i: usize) -> Img {
     }
 }
 
-/// The world pixel row of the top of what stands on site `i`'s lot, so
-/// its name plaque sits just over it; `None` for the realm's own places.
 pub fn roof(geo: &Geography, i: usize) -> Option<i32> {
     geo.roofs
         .get_or_init(|| {

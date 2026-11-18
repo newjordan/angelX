@@ -1,16 +1,3 @@
-"""2D fast track: camera-facing sprites driven by the shared Mixamo skeleton.
-
-A Billboard holds one or more authored *views* (delve has TOWARD / ACROSS / AWAY
-for the hero; folk are drawn ACROSS only). Each view is a stack of pixel-art parts
-pinned to Mixamo bones at a pivot pixel. Per frame:
-  1. FK the clip pose in 3D (skeleton.fk), turn it to the character's facing.
-  2. Camera (yaw, pitch, any angle) -> the character's heading relative to the
-     camera picks the view (nearest authored angle; mirrored art fills the rest).
-  3. Project pose and rest joints to the screen; each part moves by its joint's
-     projected delta and turns by its bone's projected angle delta, snapped in
-     pixel mode (45° arms / 90° body) so the art stays crisp and on-palette.
-  4. Parts are drawn back-to-front by camera depth; legs pick the authored stride
-     frame from the feet's fore/aft split; nothing sinks below the floor."""
 import numpy as np
 from . import skeleton as S
 from ..delve import source
@@ -20,9 +7,6 @@ DEG = np.pi / 180
 
 
 class Camera:
-    """Orthographic; yaw about +Y (0 = looking at the character's front when it
-    faces +Z), pitch looks down (deg). Camera space: x right, y up, +z toward viewer."""
-
     def __init__(self, yaw=0.0, pitch=0.0):
         self.yaw, self.pitch = yaw, pitch
         self.M = S.rx(pitch * DEG) @ S.ry(-yaw * DEG)
@@ -48,10 +32,7 @@ class Billboard:
         self.ppm = height_px / S.height()
         self._rest = {}
 
-    # ------------------------------------------------------------ view choice
     def pick(self, facing, cam):
-        """Heading of the character as seen by this camera: 0 = toward camera,
-        +90 = walking screen-right, 180 = away. Returns (view, mirrored)."""
         f = cam.M @ S.ry(facing * DEG) @ np.array([0, 0, 1.0])
         hd = np.degrees(np.arctan2(f[0], f[2]))
         best = None
@@ -63,13 +44,12 @@ class Billboard:
                     best = (d, v, m)
         return best[1], best[2]
 
-    # ------------------------------------------------------------ projection
     def _proj(self, local, hips, facing, cam, mirror):
         R, X = S.fk(local, hips)
         P = (cam.M @ S.ry(facing * DEG) @ X.T).T
         if mirror:
             P[:, 0] *= -1
-        return P  # x right, y up, z toward viewer
+        return P
 
     def frame(self, local, hips, facing=90.0, cam=None, mode="pixel"):
         cam = cam or Camera()
@@ -82,7 +62,6 @@ class Billboard:
         pad = self.pad
         H, W = view.h + 2 * pad, view.w + 2 * pad
         out = np.zeros((H, W), np.uint8)
-        # legs: authored stride frame from the feet's fore/aft split (character space)
         _, Xc = S.fk(local, hips)
         dz = Xc[S.INDEX["LeftFoot"], 2] - Xc[S.INDEX["RightFoot"], 2]
         li = 0 if abs(dz) < 0.08 or len(view.legs) < 2 else (1 if dz > 0 else 2) if len(view.legs) > 2 else 1
@@ -107,19 +86,19 @@ class Billboard:
             out = np.roll(out, floor - ys[-1], 0)
         if mode == "pixel":
             from ..doll.draw import cleanup
-            cleanup(out)       # seams between stamped parts, stray rotation pixels
+            cleanup(out)
         return out[:, ::-1] if mirror else out, view.name, mirror
 
     def _delta(self, P, P0, b):
         d = (P[b, :2] - P0[b, :2]) * self.ppm
-        return np.array([d[0], -d[1]])  # screen px, y down
+        return np.array([d[0], -d[1]])
 
     def _turn(self, P, P0, pt):
         v = P[pt.end, :2] - P[pt.bone, :2]
         v0 = P0[pt.end, :2] - P0[pt.bone, :2]
         L = np.linalg.norm(P0[pt.end] - P0[pt.bone])
         if np.linalg.norm(v) < 0.3 * L or np.linalg.norm(v0) < 0.3 * L:
-            return 0.0  # pointing at the camera: no reliable screen angle
+            return 0.0
         a = np.arctan2(-v[1], v[0]) - np.arctan2(-v0[1], v0[0])
         return (a + np.pi) % (2 * np.pi) - np.pi
 
@@ -140,14 +119,10 @@ def _snap(a, step_deg):
 
 
 def _stamp(out, ink, pivot, ang, move, mode, ss=2):
-    """Paste ink [h,w] (0 = clear) turned by ang about pivot (canvas px), moved by
-    move px. Inverse map: 90° multiples are exact; others sample ss x ss sub-pixels,
-    draw where ≥ 1/4 covered, colour from the nearest covered sample (stays on palette)."""
     h, w = ink.shape
     mv = np.round(move) if mode == "pixel" else move
     c, s = np.cos(ang), np.sin(ang)
-    pc = pivot + mv  # pivot on canvas after the move
-    # bounding box of the turned part
+    pc = pivot + mv
     corners = np.array([[0, 0], [w, 0], [0, h], [w, h]], float) - (pivot - 0)
     rc = np.stack([corners[:, 0] * c - corners[:, 1] * s, corners[:, 0] * s + corners[:, 1] * c], 1) + pc
     x0, y0 = np.floor(rc.min(0)).astype(int) - 1
@@ -160,13 +135,12 @@ def _stamp(out, ink, pivot, ang, move, mode, ss=2):
     gy, gx = np.mgrid[y0:y1, x0:x1]
     sx = gx[..., None, None] + o[None, None, None, :] - pc[0]
     sy = gy[..., None, None] + o[None, None, :, None] - pc[1]
-    u = c * sx + s * sy + pivot[0]   # rotate back by -ang
+    u = c * sx + s * sy + pivot[0]
     v = -s * sx + c * sy + pivot[1]
     ui, vi = np.floor(u).astype(int), np.floor(v).astype(int)
     ok = (ui >= 0) & (ui < w) & (vi >= 0) & (vi < h)
     smp = np.where(ok, ink[np.clip(vi, 0, h - 1), np.clip(ui, 0, w - 1)], 0).reshape(*gx.shape, ss * ss)
     cov = (smp > 0).mean(-1)
-    # colour: the most central covered sample
     order = np.argsort(np.abs(np.arange(ss * ss) - (ss * ss - 1) / 2))
     pick = smp[..., order]
     first = np.argmax(pick > 0, -1)
@@ -175,8 +149,6 @@ def _stamp(out, ink, pivot, ang, move, mode, ss=2):
     reg = out[y0:y1, x0:x1]
     reg[m] = col[m]
 
-
-# ---------------------------------------------------------------- delve cast
 def _ix(g, inks):
     lut = {c: i + 1 for i, c in enumerate(inks)}
     lut["."] = 0
@@ -187,7 +159,6 @@ ARM = ("Arm", "Hand")
 
 
 def hero(seat="1", root=source.DEFAULT_ROOT, held="sword"):
-    """The delve hero with all three of its authored views (kit/hero.rs)."""
     pal = source.palette()
     inks = sorted(pal)
     swaps = source.seat_colours(root).get(seat) if seat in "123" else \
@@ -195,7 +166,6 @@ def hero(seat="1", root=source.DEFAULT_ROOT, held="sword"):
     W = H = 16
     mk = lambda rows, at: _ix(recolor(grid(rows, W, H, at), swaps), inks)
     views = []
-    # view, heading, which Mixamo side holds the shield
     for vname, heading, shield_side, sh_px, held_px in (
             ("TOWARD", 0, "Right", (4.0, 9.5), (12.0, 9.5)),
             ("ACROSS", 90, "Left", (5.5, 9.5), (10.5, 9.5)),
@@ -217,8 +187,6 @@ def hero(seat="1", root=source.DEFAULT_ROOT, held="sword"):
 
 
 def from_character(ch):
-    """Any sprite-rig delve Character (one side view) as a Billboard: its ACROSS art
-    serves every heading, mirrored for the far side."""
     pal = source.palette()
     inks = sorted(pal)
     bone = {"torso": ("Spine", "Neck", "hip", 90), "head": ("Head", "HeadTop_End", "neck", 90),

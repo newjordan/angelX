@@ -106,7 +106,7 @@ fn r03_pending_exit_hop_is_visible_and_finalized_once() {
     note_verified(20);
     drop(hop);
     let hop = begin_progress_hop();
-    note_verified(40); // The same green alone is not new verifier evidence.
+    note_verified(40);
     note_progress_hop(false);
     drop(hop);
     let hop = begin_progress_hop();
@@ -182,11 +182,10 @@ fn r03b_edit_and_verifier_run_progress_resets_escalation() {
         note_progress_hop(false);
     }
     let (notice, stop) = unproductive_escalation(9, 8, 0);
-    // The streak is `⠇⠛⠃`, its count and the last verifier beside it.
     let notice = notice.unwrap();
     assert!(notice.starts_with("⠇⠛⠃ streak=8 "), "{notice}");
     assert!(stop.is_none());
-    note_progress_hop(true); // byte-changing edits immediately reset the streak
+    note_progress_hop(true);
     assert_eq!(progress_ledger_snapshot()["unproductive_streak_max"], 8);
     assert_eq!(
         TURN_LEDGER.with(|cell| cell.borrow().unproductive_streak),
@@ -204,7 +203,7 @@ fn r03b_edit_and_verifier_run_progress_resets_escalation() {
         None,
         25,
     );
-    note_progress_hop(false); // a verifier on the new bytes earns run credit
+    note_progress_hop(false);
     assert_eq!(
         TURN_LEDGER.with(|cell| cell.borrow().unproductive_streak),
         0
@@ -225,7 +224,7 @@ fn r03b_edit_and_verifier_run_progress_resets_escalation() {
     note_progress_hop(false);
     assert_eq!(
         TURN_LEDGER.with(|cell| cell.borrow().unproductive_streak),
-        0 // a distinct verifier command is a new run
+        0
     );
 }
 
@@ -342,8 +341,6 @@ fn the_unproductive_redirect_stands_where_the_stop_was_and_the_count_starts_agai
             heard.push((hop, notice, redirect));
         }
     }
-    // The notice at eight; at sixteen the redirect (0.1.6 stopped here, twice
-    // over, and the stop is gone) and the count starts again; then the same.
     let cells: Vec<_> = heard
         .iter()
         .map(|(hop, notice, redirect)| {
@@ -368,7 +365,6 @@ fn the_unproductive_redirect_stands_where_the_stop_was_and_the_count_starts_agai
         ]
     );
     assert!(heard[1].2.as_deref().unwrap().starts_with("⠇⠛⠉ streak=16 "));
-    // No redirect is asked for: the notice only.
     TURN_LEDGER.with(|cell| *cell.borrow_mut() = TurnLedger::default());
     for hop in 1..=20 {
         hop_of(hop);
@@ -381,7 +377,6 @@ fn the_unproductive_redirect_stands_where_the_stop_was_and_the_count_starts_agai
 fn accepted_graph_points_are_progress_and_a_repeat_is_not() {
     let _guard = crate::tests::env_lock();
     TURN_LEDGER.with(|cell| *cell.borrow_mut() = TurnLedger::default());
-    // A six-point chart: begin, six points, finish; the store changes each hop.
     let mut calls = vec![json!({"op":"begin","plot":"bushels"})];
     for i in 0..6 {
         calls.push(json!({"op":"point","plot":"bushels","generation":1,"index":i}));
@@ -406,7 +401,6 @@ fn accepted_graph_points_are_progress_and_a_repeat_is_not() {
         TURN_LEDGER.with(|cell| cell.borrow().unproductive_streak),
         0
     );
-    // The same finish again changes nothing.
     note_tool_outcome(
         9, "graph", &calls[7], "{}", "ok", false, None, None, None, 2,
     );
@@ -415,7 +409,6 @@ fn accepted_graph_points_are_progress_and_a_repeat_is_not() {
         TURN_LEDGER.with(|cell| cell.borrow().unproductive_streak),
         1
     );
-    // A rejected call is not progress either.
     note_tool_outcome(
         10,
         "graph",

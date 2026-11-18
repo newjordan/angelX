@@ -116,7 +116,6 @@ fn a_shot_is_where_it_is_lifted_and_each_has_ids_of_its_own() {
     for (n, form) in every_form().into_iter().enumerate() {
         let mut out = Vec::new();
         assert!(build(&mut out, n as u64, &shot(form, (150.0, 90.0), (20.0, 10.0)), (50.0, 30.0)));
-        // Within a shot's own reach of its place on the stage (the camera taken off).
         for node in &out {
             let [x, y, z] = node.transform.translation;
             assert!((x - 100.0).abs() < 12.0 && (z - 60.0).abs() < 12.0, "{form:?}: ({x}, {z})");
@@ -131,7 +130,6 @@ fn a_shot_is_where_it_is_lifted_and_each_has_ids_of_its_own() {
     assert_eq!(ids.len(), count, "no id twice across shots");
 }
 
-/// Where a shape's own +X points in the world.
 fn heading(node: &Node) -> [f32; 3] {
     quat_rotate(node.transform.rotation, [1.0, 0.0, 0.0])
 }
@@ -143,20 +141,16 @@ fn an_arrow_points_the_way_it_flies_whichever_way_that_is() {
         let (vx, vy) = (a.cos() * 60.0, a.sin() * 60.0);
         for form in [ShotForm::Kind(Shot::Arrow), ShotForm::Kind(Shot::Bolt), ShotForm::Kind(Shot::Missile)] {
             let nodes = built(form, (100.0, 80.0), (vx, vy));
-            // The shaft is the first shape: a box whose long side is its X.
             let shaft = &nodes[0];
             assert!(matches!(shaft.mesh, Some(MeshRef::Cube)) && shaft.transform.scale[0] > 4.0);
             let h = heading(shaft);
-            // The world's z is down the room, the room's y.
             assert!((h[0] - a.cos()).abs() < 1e-4 && (h[2] - a.sin()).abs() < 1e-4 && h[1].abs() < 1e-4, "{form:?} at {degrees}: {h:?}");
-            // The head is further along the flight than the shaft's middle.
             let head = nodes.iter().find(|n| matches!(n.mesh, Some(MeshRef::Cone { .. }))).expect("a head");
             let to_head = [
                 head.transform.translation[0] - shaft.transform.translation[0],
                 head.transform.translation[2] - shaft.transform.translation[2],
             ];
             assert!(to_head[0] * a.cos() + to_head[1] * a.sin() > 2.0, "{form:?} at {degrees}: the head leads");
-            // The head's point (the cone's +Y) is on the heading too.
             let point = quat_rotate(head.transform.rotation, [0.0, 1.0, 0.0]);
             assert!((point[0] - a.cos()).abs() < 1e-4 && (point[2] - a.sin()).abs() < 1e-4, "{form:?}: point {point:?}");
         }
@@ -168,7 +162,6 @@ fn a_comets_tail_trails_behind_it() {
     for degrees in (0..360).step_by(45) {
         let a = (degrees as f32).to_radians();
         let nodes = built(ShotForm::Kind(Shot::Wisp), (100.0, 80.0), (a.cos() * 50.0, a.sin() * 50.0));
-        // The head orb (the first two shapes) is at the shot's point; the beads are behind it.
         let at = nodes[0].transform.translation;
         for bead in &nodes[2..] {
             let d = [bead.transform.translation[0] - at[0], bead.transform.translation[2] - at[2]];
@@ -185,7 +178,6 @@ fn round_things_are_flattened_in_depth_and_long_things_are_not() {
         assert!((s[2] / s[0] - DEPTH).abs() < 1e-5, "a ball's depth is {DEPTH} of its width: {s:?}");
         assert_eq!(node.transform.rotation, QUAT_IDENTITY, "a ball's flattening is the world's");
     }
-    // An arrow flying down the room keeps its length on the floor.
     let arrow = built(ShotForm::Kind(Shot::Arrow), (100.0, 80.0), (0.0, 40.0));
     let shaft = &arrow[0];
     let m = shaft.transform.matrix();
@@ -201,14 +193,12 @@ fn a_spinning_shot_turns_with_where_it_is_and_only_with_that() {
     let (here, again, later) = (at(100.0), at(100.0), at(104.0));
     assert_eq!(here, again, "the same place is the same pose");
     assert_ne!(here[0].transform.rotation, later[0].transform.rotation, "a little further, turned");
-    // A whole turn of travel is the same pose again.
     let whole = at(100.0 + TURN_PX);
     for (a, b) in here.iter().zip(&whole) {
         let (qa, qb) = (a.transform.rotation, b.transform.rotation);
         let dot = (0..4).map(|k| qa[k] * qb[k]).sum::<f32>().abs();
         assert!(dot > 0.999, "a turn is a turn: {qa:?} {qb:?}");
     }
-    // One that stands still does not fall over: it has a pose.
     assert!(!built(ShotForm::Kind(Shot::Blade), (100.0, 80.0), (0.0, 0.0)).is_empty());
 }
 

@@ -14,28 +14,21 @@ use crate::motion::ease;
 use crate::rules::folly::{Temper, WAX_PER_GOLD, WaxMaze};
 use crate::rules::Run;
 
-/// Ticks the live finish plays before the scene cuts to the hall.
 pub(super) const FINALE: u32 = 48;
-/// Ticks the hall stands, and the ticks its iris takes to open.
 pub(super) const HALL: u32 = 270;
 const OPEN: u32 = 14;
-/// Ticks the hall dissolves back into the maze at the end.
 const LEAVE: u32 = 12;
 
-/// Ticks since the maze ended, while the finish is still the show.
 pub(super) fn age(maze: &WaxMaze, now: u32) -> Option<u32> {
     maze.show.since_end(now).filter(|&e| e < FINALE + HALL)
 }
 
-/// The knights by wax eaten, most first, ties to the lower seat.
 fn order(maze: &WaxMaze) -> Vec<u32> {
     let mut ids: Vec<u32> = maze.eaten.keys().copied().collect();
     ids.sort_by_key(|id| (std::cmp::Reverse(maze.eaten[id]), *id));
     ids
 }
 
-/// The live finish, `e` ticks after the last drop: a flash, the film's bars,
-/// the call, and the iris shutting for the hall.
 pub(super) fn finale(over: &mut Img, run: &Run, maze: &WaxMaze, e: u32, focus: Option<u32>) {
     let Some(end) = maze.show.ended else { return };
     if e < 8 {
@@ -69,7 +62,6 @@ pub(super) fn finale(over: &mut Img, run: &Run, maze: &WaxMaze, e: u32, focus: O
     juice::iris(over, (NATIVE_W / 2, NATIVE_H / 2 - 10), out, 'k');
 }
 
-/// One little green king as a crowd, every other pixel of its robe a veil.
 fn king(temper: Temper, tick: u32) -> Img {
     let (veil, solid) = wax_art::king(temper, KingMood::Hunt, tick);
     let mut out = Img::new(veil.w, veil.h);
@@ -86,11 +78,9 @@ fn king(temper: Temper, tick: u32) -> Img {
     out
 }
 
-/// The hall: back wall of old stone with candles, a flagged floor.
 fn hall(im: &mut Img, age: u32) {
     for y in 0..112 {
         for x in 0..NATIVE_W {
-            // Courses of stone, dithered dark.
             let course = (y / 14) % 2 * 12;
             let joint = y % 14 == 13 || (x + course) % 24 == 23;
             let ink = if joint {
@@ -111,9 +101,7 @@ fn hall(im: &mut Img, age: u32) {
             }
         }
     }
-    // The back wall's foot, a lit line.
     im.rect(0, 111, NATIVE_W, 1, ')');
-    // Candles along the wall, their flames flickering, a warm pool under each.
     for k in 0..5 {
         let x = 38 + k * 77;
         im.rect(x - 2, 56, 5, 18, 'T');
@@ -131,7 +119,6 @@ fn hall(im: &mut Img, age: u32) {
     }
 }
 
-/// Light from above onto the winner, a dither behind the steps.
 fn spot(im: &mut Img, cx: i32, floor: i32, k: f32) {
     for y in 0..floor {
         let half = 22.0 + y as f32 * 0.5;
@@ -144,7 +131,6 @@ fn spot(im: &mut Img, cx: i32, floor: i32, k: f32) {
     }
 }
 
-/// The hall for a seat, `e` ticks after the maze ended.
 pub(super) fn scene(run: &Run, maze: &WaxMaze, e: u32, focus: Option<u32>) -> Img {
     let Some(end) = maze.show.ended else { return Img::black(NATIVE_W, NATIVE_H) };
     let age = e.saturating_sub(FINALE);
@@ -154,7 +140,6 @@ pub(super) fn scene(run: &Run, maze: &WaxMaze, e: u32, focus: Option<u32>) -> Im
     let winner = ranks.first().copied().unwrap_or(0);
     let rivals = ranks.len() > 1;
     let (cx, floor) = (NATIVE_W / 2, 182);
-    // Fireworks up past the wall, three launchers in turn.
     if age >= 8 {
         for (j, (x, top, ramp)) in [(72.0, 40.0, ramps::GOLD), (192.0, 26.0, ramps::EMBER), (312.0, 44.0, ramps::HOLY)].into_iter().enumerate() {
             let t = age as i32 - 8 - j as i32 * 17;
@@ -164,7 +149,6 @@ pub(super) fn scene(run: &Run, maze: &WaxMaze, e: u32, focus: Option<u32>) -> Im
             }
         }
     }
-    // The little green kings on their feet along the back, hopping.
     let fever = ((age as f32 - 14.0) / 20.0).clamp(0.0, 1.0);
     for (k, &temper) in Temper::ALL.iter().cycle().take(10).enumerate() {
         let h = hash(k as i32, 7, 0xc7);
@@ -184,7 +168,6 @@ pub(super) fn scene(run: &Run, maze: &WaxMaze, e: u32, focus: Option<u32>) -> Im
         })
         .collect();
     let head = juice::podium(&mut im, (0, 0, NATIVE_W, floor + 6), &places, age);
-    // The laurel over the winner once they have stood a moment.
     if age >= 34 && rivals {
         let k = (((age - 34) as f32) / 10.0).min(1.0);
         let bob = ((age as f32 * 0.2).sin() * 1.5) as i32;
@@ -198,7 +181,6 @@ pub(super) fn scene(run: &Run, maze: &WaxMaze, e: u32, focus: Option<u32>) -> Im
         im.rect(x - 2, y - 10, 5, 6, '@');
         im.rect(x - 4, y - 7, 9, 3, '5');
     }
-    // Rivals below the podium, small and plain.
     for (k, &id) in ranks.iter().enumerate().skip(3) {
         if age < 24 + k as u32 * 3 {
             continue;
@@ -210,7 +192,6 @@ pub(super) fn scene(run: &Run, maze: &WaxMaze, e: u32, focus: Option<u32>) -> Im
     if age >= 14 {
         juice::confetti(&mut im, (0, 0, NATIVE_W, NATIVE_H), age, 9, 150);
     }
-    // The winner, big, off the top.
     if age >= 6 {
         let title = if !rivals {
             if end.burnt { "CANDLE OUT".to_string() } else { "MAZE CLEARED".to_string() }
@@ -221,7 +202,6 @@ pub(super) fn scene(run: &Run, maze: &WaxMaze, e: u32, focus: Option<u32>) -> Im
         };
         juice::banner(&mut im, 8, &title, "", age - 6, 400, Tone::Warm, 3);
     }
-    // What the seat looking takes home, counting up; and the table's best run.
     if age >= 24 {
         let mine = focus.and_then(|id| maze.eaten.get(&id).map(|&n| (id, n)));
         let gold = mine.map_or(0, |(id, n)| u32::from(n / WAX_PER_GOLD) + if id == winner && rivals { end.pot } else { 0 });
@@ -242,10 +222,8 @@ pub(super) fn scene(run: &Run, maze: &WaxMaze, e: u32, focus: Option<u32>) -> Im
             im.stamp(&t, 6, 209);
         }
     }
-    // The way home: a thin bar filling along the bottom edge.
     let filled = (NATIVE_W as u32 * age.min(HALL) / HALL) as i32;
     im.rect(0, NATIVE_H - 1, filled, 1, 'o');
-    // The iris opening from the finale's black, and the hall dissolving at the end.
     juice::iris(&mut im, (NATIVE_W / 2, 100), 1.0 - ((e as f32 - FINALE as f32) / OPEN as f32).clamp(0.0, 1.0), 'k');
     let left = FINALE + HALL - e;
     if left < LEAVE {

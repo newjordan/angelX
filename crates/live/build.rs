@@ -46,9 +46,6 @@ fn main() {
     fs::write(out, table).expect("write shipped_legs.rs");
 }
 
-/// Select only from two matching manifest snapshots, then require the full
-/// captured policy generation to contain those same manifest bytes. Non-policy
-/// modules stop here and do not inherit the shipped-policy capture budget.
 pub(crate) fn capture_policy_sources(
     root: &Path,
 ) -> Result<Option<BTreeMap<String, (PathBuf, String)>>, String> {
@@ -84,7 +81,6 @@ pub(crate) fn captured_manifest_matches(
         .is_some_and(|(_, captured)| captured == selected)
 }
 
-// Keep these limits and traversal rules aligned with bundle::{inputs, visit, capture}.
 const MAX_FILES: usize = 64;
 const MAX_BYTES: usize = 1024 * 1024;
 
@@ -164,7 +160,6 @@ fn visit(
             || path == root.join("module.json")
             || path == root.join("bend-build.json")
         {
-            // Register even rejected inputs so repairing an existing file reruns capture.
             println!("cargo:rerun-if-changed={}", path.display());
             if !kind.is_file() {
                 return Err("module inputs must be regular files".into());

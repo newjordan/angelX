@@ -10,18 +10,15 @@ use crate::delve::world_viz::adventure::*;
 use crate::delve::world_viz::overworld::map_enabled;
 use crate::telemetry::ToolEventId;
 
-/// The mirror emits the full ladder from a fake `LoopState` walk.
 #[test]
 fn loop_mirror_drains_the_event_ladder() {
     let mix = ToolMix::default();
     let mut mirror = LoopMirror::default();
     let party = 1u8;
 
-    // Boot: nothing.
     let mut st = LoopState::default();
     assert!(mirror.drain(&st.summary(), &mix, party).is_empty());
 
-    // A competition loop starts.
     st.status = StateStatus::Running;
     st.task = "optimize the kernel benchmark".to_string();
     st.podrace = true;
@@ -35,7 +32,6 @@ fn loop_mirror_drains_the_event_ladder() {
         }
     ));
 
-    // One observed inactive iteration → level 3 (pivot default 0 → max(1)).
     st.stale_count = 1;
     st.iteration = 1;
     st.log.push(
@@ -49,7 +45,6 @@ fn loop_mirror_drains_the_event_ladder() {
     assert!(matches!(events[0], AdventureEvent::Iteration { n: 1 }));
     assert!(matches!(events[1], AdventureEvent::Stall { level: 3 }));
 
-    // A measurement receipt is activity; prose does not prove improvement.
     st.stale_count = 0;
     st.iteration = 2;
     st.measured_candidates = 1;
@@ -76,12 +71,10 @@ fn loop_mirror_drains_the_event_ladder() {
     assert!(matches!(events[1], AdventureEvent::Stall { level: 0 }));
     assert!(matches!(events[2], AdventureEvent::MeasurementObserved));
 
-    // Escalation is a pivot.
     st.tier = StateTier::Swarm;
     let events = mirror.drain(&st.summary(), &mix, party);
     assert!(matches!(events[0], AdventureEvent::Pivot), "{events:?}");
 
-    // Submitting, then the acceptance gate takes the work.
     st.submissions = 1;
     let events = mirror.drain(&st.summary(), &mix, party);
     assert!(matches!(events[0], AdventureEvent::Submitted), "{events:?}");
@@ -89,7 +82,6 @@ fn loop_mirror_drains_the_event_ladder() {
     let events = mirror.drain(&st.summary(), &mix, party);
     assert!(matches!(events[0], AdventureEvent::Submitted), "{events:?}");
 
-    // Accepted and done in one transition: settled before finished.
     st.status = StateStatus::Done;
     let events = mirror.drain(&st.summary(), &mix, party);
     assert_eq!(events.len(), 2, "{events:?}");
@@ -102,7 +94,6 @@ fn loop_mirror_drains_the_event_ladder() {
         AdventureEvent::LoopFinished { ok: true }
     ));
 
-    // Party changes ride along.
     let events = mirror.drain(&st.summary(), &mix, 3);
     assert!(matches!(events[0], AdventureEvent::Party { size: 3 }));
 }
@@ -141,8 +132,6 @@ fn loop_mirror_rejected_gate_lands_without_penalty() {
         ..Default::default()
     };
     mirror.drain(&st.summary(), &mix, 1);
-    // The gate fails and the loop arms another iteration: the settled
-    // verdict rides after the iteration event per the emission order.
     st.status = StateStatus::Running;
     st.iteration = 1;
     let events = mirror.drain(&st.summary(), &mix, 1);
@@ -219,8 +208,6 @@ fn prose_improvement_never_awards_treasure_for_an_opaque_measurement() {
     assert_eq!(quest.region(), Region::TheMines);
 }
 
-/// A submission's official result as the board returns it: accepted, and
-/// whether it improved and was promoted.
 fn official_result(
     id: &str,
     promoted: bool,
@@ -245,9 +232,6 @@ fn official_result(
     .unwrap()
 }
 
-/// A promoted record brings the guardian's fight; one already promoted
-/// when the mirror first looks is history; a result that wasn't promoted
-/// brings nothing.
 #[test]
 fn a_promoted_record_brings_the_guardian_and_only_news_does() {
     let mix = ToolMix::default();
@@ -285,7 +269,6 @@ fn a_promoted_record_brings_the_guardian_and_only_news_does() {
     }));
 }
 
-/// The quest keeps the guardian's fight for three minutes from the record.
 #[test]
 fn the_guardians_fight_lasts_three_minutes_from_the_record() {
     let mut q = Quest::idle();
@@ -303,7 +286,6 @@ fn the_guardians_fight_lasts_three_minutes_from_the_record() {
     );
     assert_eq!(q.record_fight(100 + RECORD_FIGHT), None);
     assert_eq!((q.records(), q.record_score()), (1, Some("1.2s")));
-    // A promotion that didn't come: a shorter fight, and a retreat.
     q.apply(AdventureEvent::PromotionFailed { score: None }, 10_000);
     assert_eq!(
         q.record_fight(10_000 + RETREAT_FIGHT - 1).map(|f| f.1),
@@ -313,8 +295,6 @@ fn the_guardians_fight_lasts_three_minutes_from_the_record() {
     assert_eq!(q.bouts(), 2);
 }
 
-/// A submission's official result that settled without a promotion, or
-/// hasn't settled yet.
 fn settled_result(
     id: &str,
     status: &str,
@@ -340,8 +320,6 @@ fn settled_result(
     .unwrap()
 }
 
-/// A submission settled without a promotion is a retreat; one still
-/// waiting on its promotion is nothing yet.
 #[test]
 fn a_promotion_that_didnt_come_is_a_retreat_and_a_pending_one_is_nothing() {
     let mix = ToolMix::default();
@@ -430,8 +408,6 @@ fn catalog_wishes_pass_their_checker_without_price_notes() {
         assert!(notes.is_empty(), "{id}: {notes:?}");
         assert!(!draft.near.is_empty() && !draft.words.is_empty(), "{id}");
     }
-    // The works a surveyor plans are raised by the knights where they stand
-    // (`raisings`), not granted from the catalog; the Grail Chapel waits on a victory.
     let granted = files
         .iter()
         .map(|p| p.file_stem().unwrap().to_str().unwrap())
@@ -441,7 +417,6 @@ fn catalog_wishes_pass_their_checker_without_price_notes() {
     assert_eq!(catalog_built().len(), granted);
 }
 
-/// Every catalog wish, granted from a full treasury, in catalog order.
 fn catalog_built() -> std::sync::Arc<Vec<crate::delve::together_realm::Wish>> {
     use crate::delve::together_realm::{Realm, Spoil, Spoils};
     let mut realm = Realm::default();
@@ -458,11 +433,6 @@ fn catalog_built() -> std::sync::Arc<Vec<crate::delve::together_realm::Wish>> {
     std::sync::Arc::new(realm.built())
 }
 
-/// The realm host's overworld tests read the granted catalog from a snapshot
-/// (`crates/realm-host/tests/fixtures/catalog_built.json`) because the realm
-/// that grants it is the cockpit's. This keeps the snapshot honest: it fails
-/// when the catalog moves on, and `ANGEL_WRITE_CATALOG_SNAPSHOT=1 cargo test
-/// catalog_snapshot` rewrites it.
 #[test]
 fn catalog_snapshot_matches_the_realm() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -481,9 +451,6 @@ fn catalog_snapshot_matches_the_realm() {
     );
 }
 
-/// Resident cockpit art through the image braille encoder, as the crawl's
-/// review dump shows it: `ANGEL_BRAILLE_SHOTS=<dir> cargo test
-/// resident_art_through_the_image_braille_encoder -- --ignored`.
 #[test]
 #[ignore]
 fn resident_art_through_the_image_braille_encoder() {
@@ -506,7 +473,6 @@ fn resident_art_through_the_image_braille_encoder() {
     }
 }
 
-/// The braille a terminal shows for a frame, drawn as dots.
 fn terminal_preview(cells: &crate::ui::term::art::ColoredBrailleImage) -> image::RgbaImage {
     let mut output = image::RgbaImage::from_pixel(
         cells.width as u32 * 8,

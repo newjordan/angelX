@@ -13,14 +13,10 @@ use std::sync::OnceLock;
 
 use angel_stage::scene::MeshData;
 
-/// The pack, as the script writes it.
 const PACK: &[u8] = include_bytes!("../../../../assets/items/items.mesh");
 
-/// First id of the item meshes among a stage's uploaded meshes.
 pub const FIRST_ID: u32 = 0x4954_0000;
 
-/// One model: its name in the pack, its mesh and how far its box reaches
-/// from its middle along `x`, `y` and `z` (before sizing).
 pub struct Model {
     pub name: String,
     pub mesh: MeshData,
@@ -32,7 +28,6 @@ fn models() -> &'static [Model] {
     MODELS.get_or_init(|| read(PACK).unwrap_or_default())
 }
 
-/// Read a pack: nothing for one that is not one.
 pub fn read(bytes: &[u8]) -> Option<Vec<Model>> {
     let mut r = Reader { bytes, at: 0 };
     let mut take = |n: usize| r.take(n);
@@ -82,22 +77,12 @@ impl<'a> Reader<'a> {
     }
 }
 
-/// The drawing (`pickup_cards::PLATES`) each model stands for: the
-/// models looked at and approved (artifacts/items-20261017,
-/// APPROVED.txt). A drawing with none (a bow, a key, a rune) keeps its
-/// card.
 const APPROVED: [&str; 14] = [
     "sword", "axe", "spear", "staff", "hammer", "mace", "shield", "gem", "gear", "flask", "dagger", "gold", "pouch", "ore",
 ];
 
-/// The flask, which is drawn twice: red glass for a bottle that mends (a
-/// potion), pale blue for one that wards (holy water), so the two never
-/// look alike (the operator, 2026-10-19: "blue bottles don't do
-/// anything?"). The pack's own flask is too dark to read on the floor;
-/// each keeps its light and dark, lifted, in its own glass.
 const FLASK: &str = "flask";
 
-/// The flask in each glass: red, then pale. Their ids follow the pack's.
 fn bottles() -> &'static [Model] {
     static BOTTLES: OnceLock<Vec<Model>> = OnceLock::new();
     BOTTLES.get_or_init(|| {
@@ -117,9 +102,6 @@ fn bottles() -> &'static [Model] {
     })
 }
 
-/// The model of drawing `plate` (`pickup_cards::PLATES`) and its id, when
-/// one is approved and in the pack; a flask in pale glass when `pale` (a
-/// bottle that wards), else red.
 pub fn model(plate: u8, pale: bool) -> Option<(u32, &'static Model)> {
     let name = *super::pickup_cards::PLATES.get(usize::from(plate))?;
     if !APPROVED.contains(&name) {
@@ -133,15 +115,11 @@ pub fn model(plate: u8, pale: bool) -> Option<(u32, &'static Model)> {
     Some((FIRST_ID + i as u32, &models()[i]))
 }
 
-/// The mesh an id names, for the stage to send.
 pub fn mesh(id: u32) -> Option<&'static MeshData> {
     let i = id.checked_sub(FIRST_ID)? as usize;
     models().get(i).or_else(|| bottles().get(i.checked_sub(models().len())?)).map(|m| &m.mesh)
 }
 
-/// How long a model is on its longest side, in room pixels. A knight
-/// stands about 18 tall; a pickup is drawn larger than life, as an
-/// arcade's are, so a sword reads as one from across the room.
 pub fn size(plate: u8) -> f32 {
     match super::pickup_cards::PLATES.get(usize::from(plate)).copied().unwrap_or("") {
         "spear" | "staff" => 21.0,
@@ -153,9 +131,6 @@ pub fn size(plate: u8) -> f32 {
     }
 }
 
-/// Whether a drawing is of something flat or long (an arm, a shield, a
-/// cog), that lies down on the floor; the rest (a bottle, a purse, a gem,
-/// coins, ore) stand on it.
 pub fn lies_flat(plate: u8) -> bool {
     matches!(
         super::pickup_cards::PLATES.get(usize::from(plate)).copied(),

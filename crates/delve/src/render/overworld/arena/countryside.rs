@@ -36,7 +36,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
     super::town::scenery(cv, run);
     match kind {
         RoomKind::Windmill => {
-            // A stone mill under a thatch cap, its sails turning slowly.
             let (mx, my) = (8 * TILE, 2 * TILE - 6);
             m::block(cv, (6 * TILE + 5, my, 4 * TILE - 10, 3 * TILE + 6), m::ramp::STONE, false, 31);
             let keep = |_: i32, _: i32| true;
@@ -53,7 +52,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                     cv.put(sx as i32, sy as i32, if t % 6 == 0 { 'B' } else { 'P' });
                     cv.put(sx as i32 + 1, sy as i32, 'b');
                     if t > 9 {
-                        // The sail cloth, lattice-ruled.
                         for w in 1..8 {
                             let (cx, cy) = (sx - dy * w as f32, sy + dx * w as f32 * 0.8);
                             cv.put(cx as i32, cy as i32, if (t + w) % 4 == 0 { 'h' } else { 'i' });
@@ -62,9 +60,7 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                 }
             }
             cv.rect(mx - 1, my + 7, 3, 3, 'B');
-            // The granary, boarded under thatch.
             m::house(cv, (17 * TILE + 2, 2 * TILE - 14, 4 * TILE - 4, 30), &m::House { roof: m::ramp::THATCH, stone: false, windows: 1 }, 33);
-            // Standing wheat; scenery, not unadvertised blockers.
             for x in (3 * TILE..6 * TILE).step_by(3) {
                 for y in (4 * TILE + 6..6 * TILE).step_by(6) {
                     let v = hash(x, y, 34);
@@ -77,19 +73,15 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             }
         }
         RoomKind::Ruins => {
-            // Broken walls of the old watch, moss on their tops, rubble at
-            // their feet.
             for (k, (c, r, w, h)) in [(4, 2, 2, 1), (6, 2, 4, 3), (18, 3, 2, 2), (6, 10, 2, 2)].into_iter().enumerate() {
                 let (x, y) = (c * TILE + 1, r * TILE - 8);
                 let (pw, ph) = (w * TILE - 2, h * TILE + 8);
                 m::block(cv, (x, y, pw, ph), m::ramp::STONE, false, 40 + k as u32);
-                // Crenels, some fallen.
                 for cx in (x..x + pw).step_by(6) {
                     if hash(cx, k as i32, 41) % 3 != 0 {
                         m::block(cv, (cx, y - 4, 4, 6), m::ramp::STONE, false, 42);
                     }
                 }
-                // Moss down the top face.
                 for mx in x..x + pw {
                     if vnoise(mx as f32 / 3.0, k as f32, 43) > 0.55 {
                         cv.put(mx, y + 1, 'l');
@@ -99,7 +91,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                         }
                     }
                 }
-                // A doorway into the dark.
                 let dx = x + pw / 2 - 3;
                 cv.rect(dx, y + ph - 11, 7, 11, 'k');
                 cv.line(dx, y + ph - 12, dx + 6, y + ph - 12, 'J');
@@ -110,7 +101,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             }
         }
         RoomKind::Meadow => {
-            // The coach stop: a boarded platform and a bench.
             m::boards(cv, (19 * TILE + 1, 10 * TILE + 3, 2 * TILE - 2, 10), false, 50);
             cv.line(19 * TILE, 10 * TILE, 21 * TILE - 1, 10 * TILE, 'r');
             for (x, y, v) in [(6 * TILE, 9 * TILE, 51), (15 * TILE, 4 * TILE, 52), (17 * TILE, 11 * TILE, 53), (4 * TILE, 11 * TILE, 55), (9 * TILE, 12 * TILE, 56), (20 * TILE, 4 * TILE, 57), (16 * TILE, 8 * TILE, 58), (14 * TILE, 12 * TILE, 59)] {
@@ -121,7 +111,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             m::hay(cv, 16 * TILE, 3 * TILE - 2, 7.0, 54);
         }
         RoomKind::Orchard => {
-            // Four old apple trees, apples among the leaves and in the grass.
             for (k, (c, r, w, h)) in [(4, 2, 3, 3), (17, 2, 3, 3), (4, 10, 3, 2), (17, 10, 3, 2)].into_iter().enumerate() {
                 let keep = |_: i32, _: i32| true;
                 let (x, foot) = (c * TILE + w * TILE / 2, (r + h) * TILE - 2);
@@ -144,7 +133,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                     cv.put(fx, fy, 'o');
                 }
             }
-            // The scarecrow minding the apologies.
             let (sx, sy) = (14 * TILE + 1, 7 * TILE);
             cv.rect(sx, sy - 2, 2, 24, 'P');
             cv.line(sx + 2, sy - 2, sx + 2, sy + 21, 'b');
@@ -159,9 +147,7 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             cv.line(sx - 3, sy - 16, sx + 5, sy - 16, 'R');
         }
         RoomKind::Marsh => {
-            // The plate down into the Swamp of Horrors, its notice post.
             super::swamp::marsh(cv);
-            // Rushes standing in the water, lily pads on it.
             for (c, r) in [(3, 2), (8, 3), (19, 2), (2, 11), (10, 12), (14, 2), (6, 12)] {
                 m::reeds(cv, c * TILE, r * TILE + 8, (c * 31 + r) as u32);
             }
@@ -194,12 +180,7 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
     for (i, plot) in PLOTS.iter().enumerate().filter(|(_, p)| p.room == kind) {
         let (c, r, w, h) = plot.footprint;
         if !run.home.countryside.has(i) {
-            // A staked-out site: corner stakes, a surveyor's cord tied
-            // round them and sagging between, a stack of boards and a heap
-            // of stone waiting.
             let (x0, y0, x1, y1) = (c * TILE + 2, r * TILE + 6, (c + w) * TILE - 3, (r + h) * TILE - 3);
-            // The cord runs the back and front, sagging at its middle, and
-            // down each side, bowing out a little.
             for cy in [y0 - 4, y1 - 4] {
                 let sag = ((x1 - x0) as f32 / 24.0).min(3.0);
                 for x in x0 + 1..x1 {
@@ -214,7 +195,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                 }
             }
             for (sx, sy) in [(x0, y0), (x1, y0), (x0, y1), (x1, y1)] {
-                // A squared stake lit on its west face, its top cut to a point.
                 for k in 0..7 {
                     cv.put(sx, sy - k, if k == 6 { 'o' } else { 'P' });
                     cv.put(sx + 1, sy - k, if k == 6 { 'r' } else { 'b' });
@@ -230,7 +210,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             continue;
         }
         if plot.id == "beacon" {
-            // A stone beacon tower with its fire basket.
             let (x, y) = (c * TILE + 10, r * TILE - 4);
             m::block(cv, (x, y, w * TILE - 20, h * TILE + 4), m::ramp::STONE, false, 80);
             m::boards(cv, (x - 2, y - 4, w * TILE - 16, 5), false, 81);
@@ -258,8 +237,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                 'O',
             );
         } else if i == 6 {
-            // Cable shed, not another pigeon loft. Its price plate and
-            // four-knight arrival fan remain on walkable ground.
             m::block(cv, (c * TILE + 2, r * TILE + 4, w * TILE - 4, h * TILE - 4), m::ramp::TIMBER, true, 83);
             cv.line(
                 c * TILE + 2,
@@ -281,7 +258,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             );
             cv.text(c * TILE + 4, (r + h) * TILE - 10, "ROPEWAY", 'i');
         } else if i == 7 {
-            // A harbour office and small cargo crane, rather than an inn roof.
             m::house(cv, (c * TILE + 2, r * TILE - 6, w * TILE - 4, h * TILE + 6), &m::House { roof: m::ramp::SLATE, stone: true, windows: 1 }, 84);
             cv.line(
                 c * TILE + 3,
@@ -346,13 +322,11 @@ fn coach(cv: &mut Img) {
 }
 
 fn ferry(cv: &mut Img, (c, r, w, _): (i32, i32, i32, i32), built: bool) {
-    // A jetty on posts.
     m::boards(cv, (c * TILE, r * TILE - 6, w * TILE, TILE + 6), true, 91);
     for x in [c * TILE + 1, (c + w) * TILE - 2] {
         cv.line(x, r * TILE + TILE, x, r * TILE + TILE + 3, 'n');
     }
     if built {
-        // The ferry: a lit hull and a dark well, its rope to the bank.
         let keep = |_: i32, _: i32| true;
         let x = (c * TILE + w * TILE / 2) as f32;
         m::lobe(cv, (x, (r * TILE - 5) as f32), ((w * TILE / 2 + 5) as f32, 8.0), m::ramp::TIMBER, 92, 6.0, 0.0, &keep);
@@ -401,11 +375,9 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     {
         let (x, y) = at(stake.0 * 2.0, stake.1 * 2.0);
         let signed = survey_signed(run, i);
-        // The larger pennant stays above and right of a signing knight.
         cv.line(x + 10, y - 23, x + 10, y + 3, 'o');
         cv.rect(x + 10, y - 23, 14, 9, if signed { 'g' } else { 'O' });
         if signed {
-            // A tick on the pennant.
             cv.line(x + 13, y - 19, x + 15, y - 17, '9');
             cv.line(x + 15, y - 17, x + 20, y - 22, '9');
         } else {
@@ -437,15 +409,10 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         if !run.home.countryside.has(i) {
             super::near_prompt(cv, run, (x, y), "BUILD");
         } else {
-            // The plot's keeper, at their work beside the ring: a
-            // small figure in a tunic that greys when the realm's
-            // granary is bare or its unrest high — the countryside
-            // feels the same economy the villages eat from.
             super::holdings_folk::keeper(cv, run, plot, (x + 9, y + 3));
         }
     }
     if kind == RoomKind::Windmill {
-        // A few lines, not a rebuilt sprite or world mesh each frame.
         let (x, y) = (8 * TILE, 3 * TILE + 4);
         let a = (run.tick % (30 * 8)) as f32 / (30 * 8) as f32 * std::f32::consts::TAU;
         for i in 0..4 {
@@ -463,8 +430,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
 }
 
 pub(super) fn boards(cv: &mut Img, run: &Run) {
-    // While a knight plays Gander Joust, their screen shows only the game's
-    // board: the quest boards stay hidden until the heat ends.
     if run.pastimes.round.as_ref().is_some_and(|r| r.game == crate::rules::pastimes::Game::Gander) {
         return;
     }
@@ -493,8 +458,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
     {
         return;
     }
-    // Arcade rooms have their own lower-corner ledgers. Adventure clues live
-    // beside the artefact, never obscure the course or a start plate.
     let near = |p: (f32, f32)| {
         run.players
             .values()
@@ -530,9 +493,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
                 'h',
             ),
         ];
-        // Who lives at what the realm raised, and how the times
-        // are treating them. Older realms never stored a name; the
-        // same soul is derived for them.
         if country.has(i) {
             let keeper = country
                 .keepers
@@ -550,8 +510,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             rows.push((format!("KEPT BY {} · {temper}", keeper.to_uppercase()), ink));
         }
         let board = home::quest_board(&rows);
-        // layers() stamps the tray later. Keep plot prices and travel text
-        // above its full wrapped height, including another knight's focus.
         let tray_h = super::tray::max_height(run, cv.w - 8);
         let bottom = if tray_h == 0 {
             cv.h - 8
@@ -608,7 +566,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         } else {
             cv.h - 16 - tray_h
         };
-        // Keep the quest panel above the lower clerk and GOOSE lens.
         let y = if matches!(run.room().kind, RoomKind::Rookery | RoomKind::Observatory) {
             13
         } else {
@@ -683,7 +640,6 @@ fn survey_signed(run: &Run, i: usize) -> bool {
 fn western_scenery(cv: &mut Img, run: &Run) {
     match run.room().kind {
         RoomKind::Downs => {
-            // Two long hay ricks, each with its board.
             for c in [4, 16] {
                 for k in 0..5 {
                     m::hay(cv, c * TILE + 6 + k * 13, 3 * TILE - 1, 8.5, (c * 7 + k) as u32);
@@ -696,9 +652,6 @@ fn western_scenery(cv: &mut Img, run: &Run) {
         }
         RoomKind::Cliffs => {
             for c in [1, 15] {
-                // The cliff's lip above the sea, railed.
-                // The land ends at a lit lip; below it the cliff face drops
-                // in shadow to the sea.
                 m::block(cv, (c * TILE, 10 * TILE + 2, 8 * TILE, 16), m::ramp::STONE, false, 93 + c as u32);
                 for x in c * TILE..(c + 8) * TILE {
                     cv.put(x, 10 * TILE + 2, 'i');

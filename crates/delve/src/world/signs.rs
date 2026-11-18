@@ -13,7 +13,6 @@ use crate::rules::Tile;
 use std::collections::VecDeque;
 use std::sync::OnceLock;
 
-/// Which way an arm points.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Way {
     East,
@@ -22,8 +21,6 @@ pub enum Way {
     South,
 }
 
-/// A fingerpost: the tile it stands on, the road tile it marks, and its
-/// arms.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Post {
     pub at: (i32, i32),
@@ -31,22 +28,14 @@ pub struct Post {
     pub arms: Vec<(Way, String)>,
 }
 
-/// No two posts nearer than this, in tiles.
 pub const SPACING: i32 = 10;
-/// How far down a road an arm looks for another biome, in road tiles.
 pub const REACH: u32 = 60;
-/// How near (tiles) a knight comes before the arms read.
 pub const READ: f32 = 6.0;
-/// How far out from the post the roads are told apart, in tiles.
 const FORK: i32 = 4;
-/// A halt counts this much farther than it lies against a place or a way
-/// down, so it is named only where it is the nearest by a margin.
 const HALT_EXTRA: u32 = 8;
 
-/// Every fingerpost in the realm.
 pub fn posts() -> &'static [Post] {
     static POSTS: OnceLock<Vec<Post>> = OnceLock::new();
-    // No road runs on the blank-slate plan's hillside, so no post stands.
     POSTS.get_or_init(|| if super::plan::tabula() { Vec::new() } else { build(&kingdom::geography(&[])) })
 }
 
@@ -60,9 +49,6 @@ fn chebyshev(a: (i32, i32), b: (i32, i32)) -> i32 {
 
 fn build(geo: &Geography) -> Vec<Post> {
     let courses: Vec<Vec<(i32, i32)>> = ROADS.iter().map(|r| roads::course(r.points)).collect();
-    // Where to put a post: each road tile where the road crosses into
-    // another biome, and each road's end that meets another road; with
-    // the way the road runs there.
     let mut marks: Vec<((i32, i32), (i32, i32), bool)> = Vec::new();
     for course in &courses {
         for w in course.windows(2) {
@@ -87,8 +73,6 @@ fn build(geo: &Geography) -> Vec<Post> {
         }
     }
     let road = |t: (i32, i32)| t.0 > 0 && t.1 > 0 && t.0 < MAP_W - 1 && t.1 < MAP_H - 1 && kingdom::is_road(geo, t);
-    // Where the way to each dungeon mouth leaves the main roads: a post
-    // stands there too, so a fork to a way down is signed.
     let raster = roads::raster();
     for m in crate::rules::world::MOUTHS.iter() {
         if let Some(site) = geo.sites.iter().find(|s| s.room == m.room)
@@ -103,9 +87,6 @@ fn build(geo: &Geography) -> Vec<Post> {
         if posts.iter().any(|p| chebyshev(p.road, mark) < SPACING) {
             continue;
         }
-        // On the verge beside the road: above or below a road running
-        // across, left or right of one running down, as near as the
-        // ground allows.
         let across = dx.abs() >= dy.abs();
         let mut sides: Vec<(i32, i32)> = (-4..=4)
             .flat_map(|a: i32| (2..=4).flat_map(move |d: i32| [(a, -d), (a, d)]))
@@ -120,7 +101,6 @@ fn build(geo: &Geography) -> Vec<Post> {
                 && geo.room.tile(t.0, t.1) == Tile::Floor
                 && !road(t)
                 && geo.sites.iter().all(|s| chebyshev(s.stand, t) > 2 && s.lot.is_none_or(|l| !l.contains(t.0, t.1)))
-                // A halt's ground is the halt's.
                 && halts.iter().all(|h| {
                     !(h.rect.tx - 1..h.rect.tx + h.rect.tw + 1).contains(&t.0) || !(h.rect.ty - 1..h.rect.ty + h.rect.th + 1).contains(&t.1)
                 })
@@ -136,8 +116,6 @@ fn build(geo: &Geography) -> Vec<Post> {
     posts
 }
 
-/// Where the road from `stand` first meets a main road: the tile, and the
-/// way the road runs into it.
 fn fork_of(stand: (i32, i32), raster: &[u8], road: &impl Fn((i32, i32)) -> bool) -> Option<((i32, i32), (i32, i32))> {
     let mut seen = std::collections::HashSet::from([stand]);
     let mut queue = VecDeque::from([(stand, stand)]);
@@ -154,20 +132,14 @@ fn fork_of(stand: (i32, i32), raster: &[u8], road: &impl Fn((i32, i32)) -> bool)
     None
 }
 
-/// What an arm names.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ArmKind {
-    /// A region of the kingdom.
     Region,
-    /// A place with a door, a world room of the realm.
     Place,
-    /// A waystation (`super::waystations`).
     Halt,
-    /// A way down into a dungeon (`crate::rules::world::MOUTHS`).
     Dungeon,
 }
 
-/// What an arm's name is: a way down, a halt, a region, or a place.
 pub fn arm_kind(name: &str) -> ArmKind {
     if crate::rules::world::MOUTHS.iter().any(|m| m.name == name) {
         ArmKind::Dungeon
@@ -180,18 +152,11 @@ pub fn arm_kind(name: &str) -> ArmKind {
     }
 }
 
-/// What each road leaving `from` leads to. At a biome crossing each arm
-/// names the biome its road runs into; at a fork, the destination down that
-/// road within [`REACH`]: a way down into a dungeon (counted half as far as
-/// it is), a place, or a waystation (counted a little farther than it is),
-/// whichever is nearest, else the first other biome (the March's castles go
-/// by their biome's name).
 fn arms(geo: &Geography, from: (i32, i32), crossing: bool, road: &impl Fn((i32, i32)) -> bool) -> Vec<(Way, String)> {
     let own = biome::at(from.0, from.1);
     let n = (MAP_W * MAP_H) as usize;
     let mut dist = vec![u32::MAX; n];
     let mut way: Vec<Option<Way>> = vec![None; n];
-    // Where each road leaves the ring round the post, and into which biome.
     let mut ring: Vec<(Way, u32, biome::Biome)> = Vec::new();
     let mut queue = VecDeque::from([from]);
     dist[idx(from)] = 0;
@@ -234,9 +199,6 @@ fn arms(geo: &Geography, from: (i32, i32), crossing: bool, road: &impl Fn((i32, 
                 }
             }
         }
-        // The way down counts half as far as it lies, a halt a little more.
-        // A door within the ring round the post lies the way it stands from
-        // the post.
         let toward = |t: (i32, i32)| {
             let (dx, dy) = (t.0 - from.0, t.1 - from.1);
             if dx.abs() >= dy.abs() {

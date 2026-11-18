@@ -90,7 +90,6 @@ def main():
         check("earlier exhibit source unchanged since iteration15: " + name, current == expected)
         if current != expected:
             archive_mismatches.append(name)
-    # Record drift separately: an old benchmark cannot qualify new source bytes.
     drift = []
     for group, values in old.items():
         if not isinstance(values, dict):
@@ -118,7 +117,6 @@ def main():
           and not stale_facts["restored_image_verified"], stale_facts)
 
     integrity = {}
-    # These are historical same-author counts, not independent validations.
     audit_specs = [
         (19, "blaze-copy-result-summary-iteration19.json", "assertions", 63),
         (20, "blaze-ready-evidence-audit-iteration20.json", "assertions", 789),
@@ -218,7 +216,6 @@ def main():
     check("protected manifest unchanged since env29",
           sha(lock_path) == "f6c890be2ce0c59b7999cde6fca9b495ef945da8e5b829e447cc4df487875c53")
 
-    # A real source-bound verification of the mandatory adoption gate. Never --seal.
     gate = subprocess.run(["bash", "scripts/check/check-locks.sh"], cwd=ROOT,
                           capture_output=True, text=True, timeout=10)
     check("existing gate reports blocked (expected diagnostic, NOT a green product test)",

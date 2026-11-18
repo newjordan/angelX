@@ -94,9 +94,9 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
-DEFAULT_CELL = (64, 54)          # the boss library's v1 envelope, bottom-centre registered
-MAX_ROWS = 54                    # documented policy: the common 54 px v1 height ceiling
-LIBRARY_EDGE = 53                # the pixel edge library figures stand on: soles on row 52
+DEFAULT_CELL = (64, 54)
+MAX_ROWS = 54
+LIBRARY_EDGE = 53
 CLIPS = ("idle", "walk-east", "walk-south", "attack")
 
 
@@ -211,7 +211,7 @@ def derive_dye(frames):
     while smooth[(hi + 1) % 360] >= floor and hi - peak < 60:
         hi += 1
     if lo < 0 or hi >= 360:
-        return None  # a window that wraps through red: say it in the spec instead
+        return None
     return {"hues": [float(lo), float(hi)], "min_sat": 0.1, "min_val": 0.16}
 
 
@@ -248,7 +248,7 @@ def spec_from_library_dir(folder, args):
     return spec
 
 
-WAY_NAMES = ("s", "sw", "w", "nw", "n", "ne", "e", "se")   # the pipeline's order, clockwise from the camera
+WAY_NAMES = ("s", "sw", "w", "nw", "n", "ne", "e", "se")
 WAY_CLIPS = ("idle", "walk", "run", "attack", "hit", "death", "cast")
 WAY_ALIASES = {"slash": "attack", "hurt": "hit", "die": "death"}
 LOOPING = ("idle", "walk", "run")
@@ -280,7 +280,7 @@ def load_frameset(manifest_path, warnings):
             continue
         if name in out["clips"]:
             die(f"{mp.name}: two clips both mean `{name}`")
-        per_dir = c.get("directions")   # the game-set layout: everything per direction
+        per_dir = c.get("directions")
         files, anchors, ticks_by, events_by = {}, {}, {}, {}
         for d in WAY_NAMES:
             e = per_dir[d] if per_dir else c
@@ -294,7 +294,7 @@ def load_frameset(manifest_path, warnings):
             ticks = [int(t) for t in e.get("ticks") or [1] * len(fs)]
             if len(ticks) != len(fs):
                 die(f"{mp.name}: {raw}/{d} has {len(ticks)} tick counts for {len(fs)} frames")
-            start = [sum(ticks[:i]) for i in range(len(fs))]   # a source frame's first tick
+            start = [sum(ticks[:i]) for i in range(len(fs))]
             ev = e.get("events") or {}
             ev = {n: start[int(i)] for i, names in ev.items() for n in names} if per_dir else {n: start[int(i)] for n, i in ev.items()}
             ay = e.get("anchor_y") if per_dir else (c.get("anchor_y") or {}).get(d)
@@ -405,8 +405,6 @@ def main():
         spec, spec_name = json.loads(spec_path.read_text()), spec_path.name
         root = Path(spec.get("root") or spec_path.parent)
     if spec.get("frameset"):
-        # The pipeline's eight-direction set: the legacy clips (south idle, attack and walk, east walk)
-        # are taken from it and the whole set is written beside them as the ways atlas.
         frameset = load_frameset(Path(spec["frameset"]) if Path(spec["frameset"]).is_absolute() else root / spec["frameset"], warnings)
         ways = build_ways(frameset, errors, warnings)
         spec = {k: v for k, v in spec.items() if k != "frameset"}
@@ -441,14 +439,12 @@ def main():
             frames, fs = c["inline"], c["inline_files"]
         else:
             frames, fs = frames_of(c["frames"], root, cell, name)
-        # The library's alpha is binary. A source with soft edges (anti-aliasing) is thresholded, and said so.
         soft = sum(int(((f[..., 3] > 0) & (f[..., 3] < 255)).sum()) for f in frames)
         if soft:
             warnings.append(f"{name}: {soft} semi-transparent pixels thresholded to binary alpha (the look has no anti-aliasing at native)")
         clips[name] = [clean(f) for f in frames]
         files[name] = fs
 
-    # A loop whose last frame repeats its first would hold that pose twice at the seam.
     dropped = []
     for name in ("idle", "walk-east", "walk-south"):
         f = clips.get(name, [])
@@ -456,7 +452,6 @@ def main():
             clips[name] = f[:-1]
             dropped.append(name)
 
-    # The attack's keys: the motion library's event names, only `impact` required.
     swing = clips.get("attack")
     swing_arc = wind_up = impact = hit_pause = None
     if swing:
@@ -504,7 +499,6 @@ def main():
         errors.append(f"{len(palette)} colours: not one master palette")
     elif len(palette) > 32:
         warnings.append(f"{len(palette)} colours (the look is at most 32 per character)")
-    # Where the soles stand: the rest pose says, unless the spec does.
     ys = np.where(rest[..., 3] > 0)[0]
     anchor = list(spec.get("anchor") or (cw // 2, int(ys.max()) + 1)) if ys.size else [cw // 2, LIBRARY_EDGE]
     if anchor[1] != LIBRARY_EDGE:
@@ -514,8 +508,6 @@ def main():
     if warnings and a.strict:
         die("refusing to write the set (--strict):\n  " + "\n  ".join(warnings))
 
-    # Where the motion starts, read from the pixels (a hold is identical frames); recovery begins
-    # at the first change after the slam stops changing (or just after the impact).
     anticipation = recovery = settled = None
     if swing:
         diffs = [int((swing[i] != swing[i - 1]).any(axis=2).sum()) for i in range(1, len(swing))]
@@ -527,7 +519,7 @@ def main():
         settled = len(swing) - 1
 
     out.mkdir(parents=True, exist_ok=True)
-    blank = np.zeros((ch, cw, 4), np.uint8)   # a clip the set lacks is one blank cell, and no state in the record
+    blank = np.zeros((ch, cw, 4), np.uint8)
     written = {
         "library-v1-rest.png": rest,
         "library-v1-windup.png": windup,
@@ -650,8 +642,6 @@ def main():
         "gait_phase": "Phase by distance travelled, not by the clock: the Test drive sets one cycle length per run unit whatever the frame count, so its pace is the same for every creature.",
     }
     if ways:
-        # The eight-way clips: every clip's block of direction rows in the atlas, its frames along a row, its
-        # loop flag, its events (12 fps tick indices) and the sole edge of each direction's frames.
         animation["ways"] = {
             "directions": list(WAY_NAMES),
             "atlas": "library-v1-ways.png",

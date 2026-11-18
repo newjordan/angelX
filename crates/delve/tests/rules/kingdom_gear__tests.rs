@@ -279,7 +279,6 @@ fn cauldron_never_consumes_a_bound_relic_as_a_renewable_ingredient() {
             .picks
             .is_empty()
     );
-    // A saved selection made before this restriction is also harmless.
     run.cauldron.as_mut().unwrap().stirs[0].picks = vec![0, 1];
     press(
         &mut run,

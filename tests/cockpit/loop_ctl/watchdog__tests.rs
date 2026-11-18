@@ -48,9 +48,7 @@ fn the_check_comes_at_thirty_minutes_and_the_review_at_sixty() {
     assert_eq!(due(1800, false, 3600, None), WatchdogDue::Check);
     assert_eq!(due(3599, true, 3600, None), WatchdogDue::Nothing);
     assert_eq!(due(3600, true, 3600, None), WatchdogDue::Review);
-    // A frame gap past both: the check still comes first.
     assert_eq!(due(7200, false, 3600, None), WatchdogDue::Check);
-    // After a release, only the grace clock matters.
     assert_eq!(
         due(9000, true, 3600, Some(RELEASE_GRACE_SECS - 1)),
         WatchdogDue::Nothing
@@ -59,7 +57,6 @@ fn the_check_comes_at_thirty_minutes_and_the_review_at_sixty() {
         due(9000, true, 3600, Some(RELEASE_GRACE_SECS)),
         WatchdogDue::Escalate
     );
-    // No soft check configured.
     let no_check = WatchdogLimits {
         check_secs: 0,
         review_secs: 3600,
@@ -84,8 +81,6 @@ fn a_zero_review_limit_turns_the_watchdog_off() {
     assert_eq!(watchdog_limits(), None);
 }
 
-/// A connected reviewer: reads the route its prompt opens with, keeps the
-/// page and the facts, then answers with its scripted reply.
 struct Seat {
     reply: &'static str,
     page: Mutex<Option<String>>,
@@ -215,7 +210,6 @@ fn owner(thinking: &Thinking) -> usize {
     Arc::as_ptr(&thinking.cancel) as usize
 }
 
-/// Drive the watchdog until the review it dispatched has been harvested.
 fn harvest(app: &mut crate::App, thinking: &Thinking) -> Option<String> {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
@@ -267,7 +261,6 @@ fn half_an_hour_quiet_is_a_soft_check_once_with_no_model() {
     }));
     assert_eq!(load().unwrap().watchdog, app.loop_ctl.watchdog, "persisted");
 
-    // Once per quiet stretch.
     assert_eq!(app.loop_watchdog(&thinking), None);
     assert_eq!(app.loop_ctl.watchdog.len(), 1);
     assert!(!crate::agent::harness::release_pending(owner(&thinking)));
@@ -322,8 +315,6 @@ fn an_hour_quiet_sends_a_reviewer_whose_stop_call_becomes_a_release() {
     assert!(crate::agent::harness::release_pending(owner(&thinking)));
     assert!(app.loop_watch.released_at.is_some());
 
-    // The release never landed (nothing consumed it): past the grace the
-    // turn is restarted and the request withdrawn.
     assert_eq!(app.loop_watchdog(&thinking), None, "inside the grace");
     app.loop_watch.released_at = Some(aged(RELEASE_GRACE_SECS));
     let restart = app
@@ -387,8 +378,6 @@ fn watchdog_defers_a_missing_or_ambiguous_book_owner_then_retries() {
     let (mut app, mut thinking, mut fixture) = wedged_loop("catalog-missing", 61 * 60);
     let seat = Seat::new("verdict: wait");
     thinking.club = Some(seat.clone() as Arc<dyn Club>);
-    // The owner has not been published yet: do not ask a model under a
-    // guessed generation, and schedule another check rather than giving up.
     fixture.book_owner.take();
     app.loop_watchdog(&thinking);
     assert!(app.loop_watch.checked);
@@ -398,7 +387,6 @@ fn watchdog_defers_a_missing_or_ambiguous_book_owner_then_retries() {
     assert!(seat.facts.lock().unwrap().is_none());
     assert!(app.loop_watch.next_review_secs > quiet_before);
 
-    // Two live registrations for the same owner are ambiguous as well.
     fixture.set_book_catalog(
         &thinking,
         crate::agent::harness::book::catalog::Catalog::baseline(),
@@ -487,7 +475,6 @@ fn the_harness_moving_again_is_recorded_and_resets_the_watch() {
     app.loop_watchdog(&thinking);
     assert!(app.loop_watch.checked);
 
-    // A tool result lands: the turn's event clock moves.
     thinking.note_stream_progress();
     assert_eq!(app.loop_watchdog(&thinking), None);
     let resumed = app.loop_ctl.watchdog.last().unwrap();
@@ -500,7 +487,6 @@ fn the_harness_moving_again_is_recorded_and_resets_the_watch() {
             .any(|m| m.text.contains("harness moving again after 31m"))
     );
 
-    // A quiet stretch nobody flagged leaves no record when it ends.
     let records = app.loop_ctl.watchdog.len();
     thinking.note_stream_progress();
     app.loop_watchdog(&thinking);

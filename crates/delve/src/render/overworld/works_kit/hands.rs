@@ -12,7 +12,6 @@ use super::Load;
 use crate::render::overworld::arena::quick_rig::{self, Clip, Playback, WeaponOrientation};
 use crate::render::overworld::ink::Img;
 
-/// The trades of the economy (docs ECONOMY.md, "Professions").
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Trade {
     Labourer,
@@ -67,7 +66,6 @@ impl Trade {
         Trade::Clerk,
     ];
 
-    /// The trade a sim id names (`trade=` in the plan catalogue).
     pub fn from_id(id: &str) -> Option<Trade> {
         Some(match id {
             "labourer" => Trade::Labourer,
@@ -126,36 +124,24 @@ impl Trade {
     }
 }
 
-/// What a hand is doing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Act {
-    /// Standing, tool grounded.
     Idle,
     Walk,
-    /// At the trade's work: the swing, the thrust, the stroke.
     Work,
-    /// Walking with a load on the shoulder.
     Carry(Load),
-    /// The trade's posture at `Pose` with no tool in hand: the piece that
-    /// draws the work (a saw, a rope, a wheel's tread) puts its own at the
-    /// hand's grip.
     Bare(Pose),
 }
 
-/// A posture of the rig.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Pose {
     Stand,
     Walk,
-    /// Arms up and down.
     Overhead,
-    /// Arms across.
     Slash,
-    /// Arms out and in.
     Thrust,
 }
 
-/// A head: its hat decides the trade at a glance.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Hat {
     Straw,
@@ -169,7 +155,6 @@ enum Hat {
     Knit,
 }
 
-/// The tools, drawn pointing up with the hand at the foot.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tool {
     Pick,
@@ -194,17 +179,12 @@ enum Tool {
 }
 
 struct Dress {
-    /// Tunic: light, field, shade.
     tunic: [char; 3],
-    /// Hose and sleeves.
     hose: char,
     hat: Hat,
-    /// The hat's cloth: light, shade.
     cap: [char; 2],
     tool: Tool,
-    /// The rig's clip that drives the work, and how many rig ticks a loop.
     clip: Clip,
-    /// An apron over the tunic.
     apron: Option<char>,
 }
 
@@ -238,8 +218,6 @@ fn dress(trade: Trade) -> Dress {
     }
 }
 
-/// A head, six rows, seven wide: `1` hat light, `2` hat shade, `s` skin,
-/// `S` skin in shade, `e` an eye, `h` hair.
 fn head(hat: Hat) -> [&'static str; 6] {
     match hat {
         Hat::Straw => ["..111..", ".11111.", "1111111", ".sesse.", ".sssss.", "..SSS.."],
@@ -254,7 +232,6 @@ fn head(hat: Hat) -> [&'static str; 6] {
     }
 }
 
-/// A tool's ink rows, pointing up; the hand holds the bottom middle.
 fn tool_rows(tool: Tool) -> &'static [&'static str] {
     match tool {
         Tool::Pick => &["vVVVVVv", ".v.B.v.", "...B...", "...B...", "...B...", "...B...", "...b..."],
@@ -279,23 +256,16 @@ fn tool_rows(tool: Tool) -> &'static [&'static str] {
     }
 }
 
-/// The picture of one hand in one step of its loop: sixteen high on the
-/// rig's own scale, a swing's reach above it; its feet on row
-/// [`HAND_FOOT`], its middle on column [`HAND_MID`].
 pub const HAND_W: i32 = 30;
 pub const HAND_H: i32 = 30;
 pub const HAND_MID: i32 = 15;
 pub const HAND_FOOT: i32 = 24;
 
-/// One hand, made: the picture and where the rig holds things in it.
 pub struct Hand {
     pub img: Img,
-    /// The grip, in the picture's own pixels.
     pub grip: (i32, i32),
 }
 
-/// A hand of `trade` at `act`, step `t` of its eight-step loop, facing
-/// right (`left` mirrors it). Made once and shared.
 pub fn hand(trade: Trade, act: Act, t: u32, left: bool) -> Arc<Hand> {
     type Key = (Trade, Act, u32, bool);
     static MADE: std::sync::OnceLock<Mutex<HashMap<Key, Arc<Hand>>>> = std::sync::OnceLock::new();
@@ -313,8 +283,6 @@ pub fn hand(trade: Trade, act: Act, t: u32, left: bool) -> Arc<Hand> {
     made
 }
 
-/// Put a hand on `im` with its feet on `foot` and its middle on column `x`.
-/// Returns where its grip fell on `im`.
 pub fn stamp(im: &mut Img, x: i32, foot: i32, trade: Trade, act: Act, t: u32, left: bool) -> (i32, i32) {
     let h = hand(trade, act, t, left);
     let (ox, oy) = (x - HAND_MID, foot - HAND_FOOT);
@@ -335,13 +303,11 @@ fn compose(trade: Trade, act: Act, t: u32, left: bool) -> Hand {
         Act::Bare(Pose::Thrust) => Clip::Thrust,
         Act::Work => dress.clip,
     };
-    // The loop of eight steps spread over the clip's own ticks.
     let elapsed = u64::from(t) * rig.duration(clip) / u64::from(super::FRAMES);
     let sample = rig.sample(clip, elapsed, Playback::Loop, false);
     let anchors = sample.anchors();
     let body = sample.image();
     let (px, py) = (rig.pivot()[0], rig.pivot()[1]);
-    // The hand's own canvas: the rig's pivot on (MID, FOOT).
     let (ox, oy) = (HAND_MID - px, HAND_FOOT - py);
     let mut im = Img::new(HAND_W, HAND_H);
     for y in 0..body.h {
@@ -353,7 +319,6 @@ fn compose(trade: Trade, act: Act, t: u32, left: bool) -> Hand {
             }
         }
     }
-    // The helm off, the trade's head on.
     let [hx, hy] = anchors.head;
     let (cx, top) = (hx + ox, hy - 3 + oy);
     for y in top..top + 6 {
@@ -376,7 +341,6 @@ fn compose(trade: Trade, act: Act, t: u32, left: bool) -> Hand {
             im.put(cx - 3 + c as i32, top + r as i32, ink);
         }
     }
-    // The apron over the tunic's front.
     if let Some(apron) = dress.apron {
         let [bx, by] = anchors.back;
         for y in by - 1..by + 3 {
@@ -387,7 +351,6 @@ fn compose(trade: Trade, act: Act, t: u32, left: bool) -> Hand {
             }
         }
     }
-    // What it holds.
     match act {
         Act::Carry(load) => {
             let [bx, by] = anchors.back;
@@ -396,7 +359,6 @@ fn compose(trade: Trade, act: Act, t: u32, left: bool) -> Hand {
             im.stamp(&pile, bx + ox - 3, by + oy - 7);
         }
         Act::Idle => {
-            // The tool grounded in the near hand, held upright.
             let [gx, gy] = anchors.grip;
             let rows = tool_rows(dress.tool);
             let tool = Img::from_rows(rows);
@@ -410,7 +372,6 @@ fn compose(trade: Trade, act: Act, t: u32, left: bool) -> Hand {
             let contact = [(tool.w - 1) / 2, tool.h - 1];
             let [gx, gy] = anchors.grip;
             let [tx, ty] = anchors.tip;
-            // A walking hand carries its tool upright over the shoulder.
             let tip = if act == Act::Walk || (tx == gx && ty == gy) { [gx + 1, gy - 8] } else { [tx, ty] };
             let o = WeaponOrientation::new(contact, [gx + ox, gy + oy], [tip[0] + ox, tip[1] + oy]);
             let (turned, at) = o.stamp(&tool);
@@ -425,19 +386,14 @@ fn compose(trade: Trade, act: Act, t: u32, left: bool) -> Hand {
     }
 }
 
-/// A rig ink in the tunic's, hose's and skin's colours; `None` where the
-/// rig's steel was a weapon's or a helm's leftover.
 fn reclothe(d: &Dress, c: [u8; 3]) -> Option<[u8; 3]> {
     use crate::render::overworld::ink::{ink, palette_index};
-    // Which of the rig's inks it is, by its palette slot.
     let ch = ink_char(c)?;
     let out = match ch {
-        // The surcoat: red field, dark edge, yellow cross.
         '7' => d.tunic[1],
         '8' => d.tunic[2],
         '5' | '4' | '6' | '@' => d.tunic[0],
         'P' | 'I' | 'B' => 'B',
-        // Steel: arms and legs become sleeves and hose, by how bright.
         's' | 'x' | 'S' => d.hose,
         'u' => d.hose,
         'U' => d.tunic[2],
@@ -448,7 +404,6 @@ fn reclothe(d: &Dress, c: [u8; 3]) -> Option<[u8; 3]> {
     ink(out)
 }
 
-/// The ink character of a palette colour, if it is a plain one.
 fn ink_char(c: [u8; 3]) -> Option<char> {
     use crate::render::overworld::ink::ink;
     static TABLE: std::sync::OnceLock<Vec<([u8; 3], char)>> = std::sync::OnceLock::new();

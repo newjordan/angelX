@@ -52,7 +52,6 @@ fn cinder_every_seat_moves_its_own_pair_and_wire_preserves_it() {
     assert_eq!(s.boards[&1].x, 2);
     assert_eq!(s.boards[&2].x, 1);
     assert_eq!(s.boards[&3].turn, 1);
-    // Starting E is latched, so release it before the next drop.
     run.step(&BTreeMap::new());
     run.step(&BTreeMap::from([(
         4,
@@ -286,7 +285,6 @@ fn cinder_overflow_restarts_within_half_a_second() {
     b.seed = 73;
     let starting = Board::seeded(73).cells;
     b.cells = [[4; COLS]; ROWS];
-    // An attack into a completely full column triggers a cough, not an index error.
     b.tell = 1;
     b.step(Input::default(), &Tune::default());
     assert_eq!(b.retry, RETRY);
@@ -347,7 +345,6 @@ fn cinder_all_five_knobs_change_their_part_of_play() {
         ),
         (20, 5, 10, 27, 165)
     );
-    // Each knob exercises the verb or rival, with deterministic input.
     for name in [
         "cinder_fall",
         "cinder_slide",

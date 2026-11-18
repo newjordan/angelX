@@ -333,8 +333,6 @@ impl CampaignController {
             .execution_request()
     }
 
-    /// Freeze or recover the sole executable round. This consumes no model
-    /// budget; the app persists this contract before preparing a swarm run.
     pub(crate) fn freeze_round(&mut self, base: CampaignBase) -> Result<CampaignLaunch, String> {
         let workspace = self.workspace.clone();
         self.mutate_value(
@@ -356,10 +354,6 @@ impl CampaignController {
                     .as_deref()
                     .or(record.frozen_base_oid.as_deref())
                 {
-                    // The frozen base remains the campaign origin. Accepted
-                    // rounds advance only this logical head, so later rounds
-                    // compose from the exact parked candidate without moving a
-                    // live ref or checkout.
                     base.base_oid = head.to_string();
                 }
 
@@ -455,8 +449,6 @@ impl CampaignController {
         )
     }
 
-    /// Attach a prepared internal run to the durable round before any model is
-    /// allowed to execute.
     pub(crate) fn attach_prepared(
         &mut self,
         prepared: &PreparedSwarmRun,
@@ -504,8 +496,6 @@ impl CampaignController {
         )
     }
 
-    /// Fold the technical swarm authority into campaign evidence. Even a fully
-    /// green swarm stops at ReviewingRound; alignment is a separate gate.
     pub(crate) fn finish_round(&mut self, receipt: SwarmRunReceipt) -> Result<String, String> {
         let detail = receipt.run_id.clone();
         self.mutate_value("swarm_run_finished", &detail, move |store, record, now| {
@@ -605,8 +595,6 @@ impl CampaignController {
         })
     }
 
-    /// Persist the alignment-reviewing state and return the exact bounded
-    /// evidence packet an internal non-root reviewer is authorized to inspect.
     pub(crate) fn begin_alignment_review(&mut self) -> Result<CampaignAlignmentRequest, String> {
         self.mutate_value(
             "alignment_review_started",
@@ -698,8 +686,6 @@ impl CampaignController {
         )
     }
 
-    /// Record an independently-produced alignment result. Technical and
-    /// alignment receipts remain separate and are both required for acceptance.
     pub(crate) fn finish_alignment_review(
         &mut self,
         receipt: CampaignAlignmentReceipt,

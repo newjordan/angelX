@@ -7,7 +7,6 @@
 //! course's id (any case) for the grid, the chase and the stop.
 use super::*;
 use crate::rules::Run;
-// Named under another name: the griffinwing test counts the sources that call the painted raster by its own.
 use raster::render_meshes_painted as paint_meshes;
 use std::path::{Path, PathBuf};
 
@@ -37,18 +36,13 @@ fn frame(run: &mut Run, race: &rules::Session, seat: u32) -> Img {
     layers(run, Some(seat)).0
 }
 
-/// How a pod is shot for the proof.
 #[derive(Clone, Copy)]
 enum Shot {
-    /// The race's own lens: 22 m behind and 8.6 m over the engines.
     Chase,
-    /// The race's lens on a rival `dist` metres ahead of it, field of 1.25, 4 m over the road.
     Game(f32),
-    /// Close, the eye `az` radians round the pod (`PI` = dead astern, `PI / 2` = its left side), `rise` high.
     Close(f32, f32),
 }
 
-/// One pod alone on its floor in the shot's lens. `Close` frames the whole pod to the picture.
 fn stage(look: usize, seat: u32, shot: Shot, t: f32, burn: f32) -> Img {
     let mut pod = Mesh::new();
     build(&mut pod, look, seat, t, burn);
@@ -87,7 +81,6 @@ fn stage(look: usize, seat: u32, shot: Shot, t: f32, burn: f32) -> Img {
     im
 }
 
-/// A turntable per pod, 36 frames a turn, in the seat colour of its own seat.
 #[test]
 fn pods_proof_turntables() {
     let Some(out) = out() else { return };
@@ -102,7 +95,6 @@ fn pods_proof_turntables() {
     }
 }
 
-/// The line-up: every pod under the race's own lens and then close from astern at three-quarters.
 #[test]
 fn pods_proof_lineup() {
     let Some(out) = out() else { return };
@@ -122,7 +114,6 @@ fn pods_proof_lineup() {
     sheet.save(out.join("lineup.png")).unwrap();
 }
 
-/// The grid to go: the course card over the whole grid, the lights, the swoop in behind seat 4.
 #[test]
 fn pods_proof_grid() {
     let Some(out) = out() else { return };
@@ -140,8 +131,6 @@ fn pods_proof_grid() {
     }
 }
 
-/// A chase down a straight with the pack ahead: rivals 10, 30, 50, 90 and 150 m up the road
-/// from the viewer, each in its own lane, everyone at the same speed so the gaps hold.
 #[test]
 fn pods_proof_chase() {
     let Some(out) = out() else { return };
@@ -166,7 +155,6 @@ fn pods_proof_chase() {
     }
 }
 
-/// The same convoy, but one rival at each distance alone, so a still shows the pod at that range.
 #[test]
 fn pods_proof_far() {
     let Some(out) = out() else { return };
@@ -196,7 +184,6 @@ fn pods_proof_far() {
     sheet.save(out.join("far.png")).unwrap();
 }
 
-/// What a pod costs, in triangles, at each cut: the frame-time budget in numbers.
 #[test]
 fn pods_proof_counts() {
     if out().is_none() { return; }
@@ -211,9 +198,6 @@ fn pods_proof_counts() {
     }
 }
 
-// ---------------------------------------------------------------- round 2: the read lane
-
-/// A game-speed run for `seat` at `d` with a clean, still field: everyone else far back, nothing moving.
 fn run_at(race: &mut rules::Session, seat: u32, d: f32, v: f32) {
     race.ticks = 400;
     for (&id, c) in race.cars.iter_mut() {
@@ -222,7 +206,6 @@ fn run_at(race: &mut rules::Session, seat: u32, d: f32, v: f32) {
     }
 }
 
-/// `n`-up sheet of crops (`w` by `h` at `scale`) of `frames` around (cx, cy), `cols` to a row.
 fn crops(frames: &[(Img, (f32, f32))], (w, h): (i32, i32), scale: u32, cols: usize) -> image::RgbaImage {
     let rows = frames.len().div_ceil(cols);
     let (cw, ch) = (w as u32 * scale, h as u32 * scale);
@@ -240,15 +223,12 @@ fn crops(frames: &[(Img, (f32, f32))], (w, h): (i32, i32), scale: u32, cols: usi
     sheet
 }
 
-/// Where a pod 'gap' metres ahead of `me` lands in the seat's frame, for cropping.
 fn spot(race: &rules::Session, seat: u32, ahead: f32, y: f32) -> (f32, f32) {
     let me = &race.cars[&seat];
     let view = camera::shot(race, me, seat).view;
     camera::project(&view, point(me.d + ahead, y, 1.4)).map_or((192., 110.), |(x, y, _)| (x, y))
 }
 
-/// The six pods as a rival, one row each, at 6, 12 and 20 m up the road (21, 27 and 35 m from the lens) in the race's own lens,
-/// enlarged: can every pod be told from the rest by its shape?
 #[test]
 fn pods_proof_silhouettes() {
     let Some(out) = out() else { return };
@@ -264,7 +244,6 @@ fn pods_proof_silhouettes() {
                 let c = race.cars.get_mut(&2).unwrap();
                 c.d = start + gap; c.y = if look % 2 == 0 { 3.5 } else { -3.5 }; c.v = 48.; c.pod = look;
             }
-            // Warm the lens' springs a few ticks so the field is the running one.
             for tick in 0..12 { race.ticks = 400 + tick; let _ = frame(&mut run, &race, 1); }
             let at = spot(&race, 1, gap, race.cars[&2].y);
             shots.push((frame(&mut run, &race, 1), at));
@@ -274,10 +253,8 @@ fn pods_proof_silhouettes() {
     crops(&shots, (64, 36), 5, 3).save(out.join("silhouettes.png")).unwrap();
 }
 
-/// Reset the feel kit's memory for the seat so a still does not inherit the last one's springs.
 fn fx_reset() { super::fx::forget_all(); }
 
-/// The leader 30 m up the road in the chase lens: the whole frame, then the same enlarged.
 #[test]
 fn pods_proof_leader() {
     let Some(out) = out() else { return };
@@ -302,7 +279,6 @@ fn pods_proof_leader() {
     crops(&[(im, (192., 140.))], (160, 90), 4, 1).save(out.join("leader-30m-own.png")).unwrap();
 }
 
-/// Each pod as the player's own, in the chase, from the pit of the picture up: shaded, trimmed, placed.
 #[test]
 fn pods_proof_own() {
     let Some(out) = out() else { return };
@@ -325,8 +301,6 @@ fn pods_proof_own() {
     crops(&shots, (192, 130), 2, 3).save(out.join("own.png")).unwrap();
 }
 
-/// A gold pod has a lit face, a shaded face and an underside: at least four steps of the gold ramp
-/// show on it, not the one flat tone the raster's floored cloths gave it.
 #[test]
 fn a_gold_pod_shows_light_faces_and_dark_ones() {
     let ramp: Vec<[u8; 3]> = ['B', 'a', 'o', 'O', '4', '5', '6'].iter().map(|&c| crate::ink::ink(c).unwrap()).collect();
@@ -342,8 +316,6 @@ fn a_gold_pod_shows_light_faces_and_dark_ones() {
     assert!(found.len() >= 4, "only {} steps of the gold ramp show on the gold pod: {found:?}", found.len());
 }
 
-/// A pack down the road: five rivals at 9 to 40 m, each a different pod in its own seat's colour and its own
-/// lane, two of them hurt. The whole frame, then the road ahead enlarged. `ANGEL_PODS_ROT` turns which pod is whose.
 #[test]
 fn pods_proof_pack() {
     let Some(out) = out() else { return };
@@ -368,7 +340,6 @@ fn pods_proof_pack() {
     crops(&[(im, (192., 112.))], (176, 100), 5, 1).save(out.join(format!("pack-{rot}-road.png"))).unwrap();
 }
 
-/// A hurt pod at 6 to 20 m: smoke, a burning nozzle, a blowout's burst and its steam, in the race's own lens.
 #[test]
 fn pods_proof_damage() {
     let Some(out) = out() else { return };
@@ -376,7 +347,6 @@ fn pods_proof_damage() {
     let (mut run, mut race) = race_on(course());
     let start: f32 = std::env::var("ANGEL_PODS_D").ok().and_then(|v| v.parse().ok()).unwrap_or(260.);
     let mut shots = Vec::new();
-    // (heat, wear, crash ticks left, blown side)
     let states: [([f32; 2], [f32; 2], u32, u8); 4] = [
         ([0.62, 0.2], [0.; 2], 0, 0), ([0.95, 0.3], [0.; 2], 0, 0),
         ([1., 0.3], [0.; 2], rules::race::engines::BLOWOUT_TICKS - 5, 1), ([0.4, 0.3], [0.2; 2], 90, 1),
@@ -399,8 +369,6 @@ fn pods_proof_damage() {
     crops(&shots, (112, 64), 4, 2).save(out.join("damage.png")).unwrap();
 }
 
-/// Each pod alone on the road at 22, 32 and 45 m from the race's lens, in its own seat's colour: the shapes
-/// themselves, with no other pod, plume or tag in the way.
 #[test]
 fn pods_proof_distance() {
     let Some(out) = out() else { return };

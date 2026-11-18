@@ -14,8 +14,6 @@ struct Slot {
     states: BTreeMap<String, Vec<u32>>,
 }
 
-/// A painted frame, as the stage draws it (opaque pixels only), and where its
-/// anchor sits in it.
 pub(super) struct Pic {
     pub img: Img,
     pub ax: i32,
@@ -27,10 +25,6 @@ struct Anim {
     durations: Vec<u32>,
 }
 
-/// Where a slot's anchor is in its own PNG. A painted frame may be a wider
-/// canvas than the slot's box (the pole's yard, a pennon that streams past its
-/// post), so the anchor is not always the box's: a pole is anchored at the
-/// post, a star and a wheel at their centre, the rest at the bottom centre.
 fn anchor(id: &str, w: i32, h: i32) -> (i32, i32) {
     match id {
         "bannerpeak.spark" | "bannerpeak.wheel" => (w / 2, h / 2),
@@ -54,7 +48,6 @@ fn painted(id: &str, bytes: &[u8], size: [i32; 2]) -> Pic {
     Pic { img: im, ax, ay }
 }
 
-/// Every frame of one slot, or nothing.
 fn whole(s: &Slot) -> Option<BTreeMap<String, Anim>> {
     let mut states = BTreeMap::new();
     for (state, durations) in &s.states {
@@ -85,13 +78,10 @@ fn bank() -> &'static BTreeMap<String, BTreeMap<String, Anim>> {
     })
 }
 
-/// Frame `index` of `state`, when the slot is painted.
 pub(super) fn pic(id: &str, state: &str, index: usize) -> Option<&'static Pic> {
     bank().get(id)?.get(state)?.frames.get(index)
 }
 
-/// The index of the frame of `state` at animation tick `tick`, by the slot's
-/// own durations (the animation repeats), when the slot is painted.
 pub(super) fn index_at(id: &str, state: &str, tick: u32) -> Option<usize> {
     let anim = bank().get(id)?.get(state)?;
     let mut time = tick % anim.durations.iter().sum::<u32>().max(1);
@@ -103,17 +93,14 @@ pub(super) fn index_at(id: &str, state: &str, tick: u32) -> Option<usize> {
     Some(index)
 }
 
-/// The frame of `state` at animation tick `tick`, when the slot is painted.
 pub(super) fn at(id: &str, state: &str, tick: u32) -> Option<&'static Pic> {
     pic(id, state, index_at(id, state, tick)?)
 }
 
-/// How many frames `state` has.
 pub(super) fn frames(id: &str, state: &str) -> usize {
     bank().get(id).and_then(|s| s.get(state)).map_or(0, |a| a.frames.len())
 }
 
-/// `pic` stamped with its anchor on `(x, y)`.
 pub(super) fn stamp(im: &mut Img, pic: &Pic, x: i32, y: i32) {
     im.stamp(&pic.img, x - pic.ax, y - pic.ay);
 }

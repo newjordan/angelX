@@ -22,7 +22,6 @@ use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
-/// The ledger reader's schema: `read_file`, `ledger://` paths only.
 pub(crate) fn reader_def() -> ToolDef {
     ToolDef {
         name: "read_file".to_string(),
@@ -48,8 +47,6 @@ fn read(workspace: &Path, args: &Value) -> Result<String, String> {
     }
 }
 
-/// Is this tool set the ledger reader alone (or nothing)? A connected seat's
-/// surface: no workspace tools.
 #[cfg(test)]
 pub(crate) fn is_ledger_only(tools: &[ToolDef]) -> bool {
     match tools {
@@ -59,7 +56,6 @@ pub(crate) fn is_ledger_only(tools: &[ToolDef]) -> bool {
     }
 }
 
-/// The ledger reader, for a registry that grants no tools.
 pub(crate) struct LedgerReader {
     pub(crate) workspace: PathBuf,
 }
@@ -76,25 +72,12 @@ impl Tool for LedgerReader {
     }
 }
 
-/// Hops in a row whose every read missed — an address the ledger does not
-/// have, a path off the ledger — before the seat is asked to answer.
 pub(crate) const MISSED_HOPS: usize = 2;
 
-/// Said to a seat whose reader was just taken away. Offered no tools with
-/// failed reads still in its history, a seat writes another call out as text
-/// (36 of 40 treebeard and 32 of 33 Hy-Memory replays); told this, none did.
 pub(crate) const READER_CLOSED: &str = "The ledger reader is closed for this request. Write your answer \
 now, in the format asked for above, from what is already in this conversation. Do not call or write \
 out any tool call.";
 
-/// The connected hop loop over any transport: `hop` makes one call with the
-/// ledger reader offered, every hop, with no cap on how much the seat reads.
-/// A seat whose reads miss [`MISSED_HOPS`] hops in a row is guessing, not
-/// reading: it is told [`READER_CLOSED`], its next call offers no tools, and
-/// it answers from what it has.
-/// A read that lands resets the count. Ledger reads are resolved here; the
-/// seat's answer comes back, and so does a call for any tool but the reader,
-/// for the caller to refuse its own way.
 pub(crate) fn converse(
     workspace: &Path,
     messages: &[ChatMsg],
@@ -133,8 +116,6 @@ pub(crate) fn converse(
     }
 }
 
-/// A direct club call, connected: the seat's messages with the ledger reader
-/// offered; its reads resolved until it answers.
 pub(crate) fn chat(
     club: &dyn Club,
     workspace: &Path,
@@ -147,8 +128,6 @@ pub(crate) fn chat(
     })?;
     match reply {
         ClubReply::Text(text) => Ok(text),
-        // The ledger reader is the only tool here; asking for anything else is
-        // the seat misreading its surface, surfaced as before.
         ClubReply::Calls(calls) => {
             let names = calls
                 .iter()
@@ -161,7 +140,6 @@ pub(crate) fn chat(
     }
 }
 
-/// One prompt, connected: the single-message form of [`chat`].
 pub(crate) fn respond(club: &dyn Club, workspace: &Path, prompt: &str) -> Result<String, String> {
     chat(
         club,
@@ -173,11 +151,9 @@ pub(crate) fn respond(club: &dyn Club, workspace: &Path, prompt: &str) -> Result
 }
 
 thread_local! {
-    /// The workspace whose ledger this thread's connected seats read.
     static WORKSPACE: RefCell<Option<PathBuf>> = const { RefCell::new(None) };
 }
 
-/// The ledger workspace entered on this thread, restored when dropped.
 pub(crate) struct WorkspaceScope(Option<PathBuf>);
 
 impl Drop for WorkspaceScope {
@@ -187,14 +163,10 @@ impl Drop for WorkspaceScope {
     }
 }
 
-/// Enter `workspace` for this thread's connected seats: a turn around its club
-/// call, a worker thread carrying its caller's scope over.
 pub(crate) fn enter(workspace: &Path) -> WorkspaceScope {
     WorkspaceScope(WORKSPACE.with(|slot| slot.replace(Some(workspace.to_path_buf()))))
 }
 
-/// The ledger workspace for a connected seat on this thread: the one entered,
-/// else the process's own (`$ANGEL_WORKSPACE`, else the current directory).
 pub(crate) fn workspace() -> PathBuf {
     WORKSPACE
         .with(|slot| slot.borrow().clone())
@@ -206,9 +178,6 @@ pub(crate) fn workspace() -> PathBuf {
         })
 }
 
-/// The pages at `cells` — a section gives all its pages, a page address that
-/// page — verbatim, in order, joined by a space. For a seat with no tool
-/// channel, which cannot be offered the reader.
 pub(crate) fn recite(cells: &str) -> String {
     let mut out: Vec<String> = Vec::new();
     for address in ledger::addresses(cells).unwrap_or_default() {

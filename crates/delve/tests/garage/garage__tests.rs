@@ -28,15 +28,12 @@ fn temp(name: &str) -> std::path::PathBuf {
     dir
 }
 
-/// Put a seat at a rack cell, as the host's walking would bring it.
 fn stand(shop: &mut Shop, id: u32, slot: Slot, cell: usize) {
     let (x, y) = shop::station(slot).stand_at(cell);
     let s = shop.seats.iter_mut().find(|s| s.id == id).unwrap();
     s.x = (x * UNIT as f32) as i32;
     s.y = (y * UNIT as f32) as i32;
 }
-
-// ------------------------------------------------------------ the catalogue
 
 #[test]
 fn every_slot_has_parts_and_the_engine_has_a_choice_of_four_to_six() {
@@ -62,10 +59,8 @@ fn the_four_example_racers_are_the_starting_kit() {
             assert!(p.kit, "{} is worn by a kit racer, so it is kit", p.id);
         }
     }
-    // each starting racer has its own engine
     let engines: BTreeSet<_> = (0..4).map(|i| Build::kit(i).engine).collect();
     assert_eq!(engines.len(), 4);
-    // and the kit is exactly what the four wear
     let worn: BTreeSet<_> = (0..4).flat_map(|i| Build::kit(i).worn().map(|p| p.id)).collect();
     let kit: BTreeSet<_> = PARTS.iter().filter(|p| p.kit).map(|p| p.id).collect();
     assert_eq!(worn.len(), kit.len(), "every kit part is worn by a kit racer: {worn:?} vs {kit:?}");
@@ -80,13 +75,8 @@ fn a_new_knight_starts_in_one_of_the_four_and_always_the_same_one() {
     assert!(spread.len() >= 3, "a roomful of knights are not all handed the same racer: {spread:?}");
 }
 
-// ------------------------------------------------------------ stats
-
 #[test]
 fn a_racers_stats_are_the_base_plus_its_parts_with_the_weight_taken_off() {
-    // base 30/30/30/10/30; Gryphon + Lancer + hover + triple organ add
-    // speed 23, accel 11, handling 14, armour 2, weight 28: 8 over neutral
-    // takes 1 off speed (a fifth), 4 off accel (a half), 2 off handling (a third)
     assert_eq!(Build::kit(0).stats(), Stats { speed: 52, accel: 37, handling: 42, armour: 12, weight: 58 });
 }
 
@@ -119,8 +109,6 @@ fn stats_stay_between_zero_and_a_hundred_whatever_is_fitted() {
     }
 }
 
-// ------------------------------------------------------------ builds and the ledger
-
 #[test]
 fn a_swap_changes_one_slot_and_says_what_it_did() {
     let mut l = Ledger::new();
@@ -135,7 +123,6 @@ fn a_swap_changes_one_slot_and_says_what_it_did() {
     assert_eq!(before.differs(&after), vec![Slot::Engine]);
     assert_eq!(l.swap("Sir Kay", "hellhound_twin"), Err(SwapError::Already));
     assert_eq!(l.swap("Sir Kay", "nothing_of_the_kind"), Err(SwapError::Unknown));
-    // and back
     l.swap("Sir Kay", &before.engine).unwrap();
     assert_eq!(l.build("Sir Kay"), before);
 }
@@ -177,8 +164,6 @@ fn the_ledger_is_forgetful_only_past_its_limit_and_forgets_the_oldest_swap() {
     assert!(l.knows(&format!("knight {}", ledger::MAX_KNIGHTS + 4)));
 }
 
-// ------------------------------------------------------------ saving and loading
-
 #[test]
 fn a_ledger_survives_a_restart_through_its_file() {
     let dir = temp("restart");
@@ -191,7 +176,6 @@ fn a_ledger_survives_a_restart_through_its_file() {
     assert!(dir.join(".angel/dungeon/garage.json").exists());
     let leftovers: Vec<_> = std::fs::read_dir(dir.join(".angel/dungeon")).unwrap().map(|e| e.unwrap().file_name()).collect();
     assert_eq!(leftovers.len(), 1, "no half-written file is left beside it: {leftovers:?}");
-    // a new host reads it back
     let back = Store::in_workspace(&dir).load().unwrap();
     assert_eq!(back, l);
     assert_eq!(back.build("sir kay").engine, "hellhound_twin");
@@ -204,7 +188,6 @@ fn a_new_game_starts_the_knights_in_the_racers_they_built() {
     let dir = temp("games");
     let store = Store::in_workspace(&dir);
     {
-        // one game: Sir Kay takes an engine at the rack
         let mut ledger = store.load().unwrap();
         let mut shop = Shop::new();
         shop.join(1, "Sir Kay", &ledger);
@@ -214,7 +197,6 @@ fn a_new_game_starts_the_knights_in_the_racers_they_built() {
         assert!(matches!(events.as_slice(), [Event::Swapped { seat: 1, .. }]));
         store.save_if_dirty(&mut ledger).unwrap();
     }
-    // another game, another host process: a fresh shop, the ledger from disk
     let ledger = Store::in_workspace(&dir).load().unwrap();
     let mut shop = Shop::new();
     shop.join(7, "sir kay", &ledger);
@@ -230,8 +212,6 @@ fn an_empty_workspace_has_an_empty_ledger() {
 
 #[test]
 fn an_old_save_with_fewer_slots_and_fields_still_loads() {
-    // written before the crest, armour, paint and trim slots, the swap count,
-    // the version and the sequence number existed
     let old = r#"{"knights":{"sir kay":{"name":"Sir Kay","build":{"engine":"wraith_needle","chassis":"wraith_skiff","running":"hover_discs","exhaust":"low_gutter"}}}}"#;
     let l = Ledger::from_json(old).unwrap();
     let b = l.build("Sir Kay");
@@ -287,8 +267,6 @@ fn the_same_ledger_is_the_same_bytes() {
     assert_eq!(a.to_json(), b.to_json());
     assert_eq!(Ledger::from_json(&a.to_json()).unwrap(), a);
 }
-
-// ------------------------------------------------------------ the shop room
 
 #[test]
 fn knights_are_given_the_middle_lifts_first_and_the_shop_holds_six() {
@@ -416,7 +394,6 @@ fn knights_walk_with_the_arrows_and_stop_at_walls_lifts_and_racks() {
     }
     let moved = s.seat(1).unwrap().pos();
     assert!(moved.0 > start.0 + 2.0, "twenty ticks of right is a few paces: {start:?} {moved:?}");
-    // up (move_y -1) is away from the camera, into the shop, to the lift
     let up = Input { move_y: -1, ..Default::default() };
     for _ in 0..200 {
         s.step(&press(1, up), &mut l);
@@ -426,7 +403,6 @@ fn knights_walk_with_the_arrows_and_stop_at_walls_lifts_and_racks() {
         assert!(!(x > *x0 && x < *x1 && y > *y0 && y < *y1), "never inside {x0},{y0},{x1},{y1}: at {x},{y}");
     }
     assert!(y < shop::HY && x.abs() < shop::HX);
-    // every seat's walk is the same walk
     let mut s2 = Shop::new();
     let mut l2 = Ledger::new();
     s2.join(1, "Sir Kay", &l2);
@@ -505,8 +481,6 @@ fn the_same_inputs_make_the_same_room() {
     assert_eq!(run(), run());
 }
 
-// ------------------------------------------------------------ meshes: the hook the race reads
-
 fn finite(m: &Mesh) -> bool {
     m.tris.iter().all(|t| t.v.iter().all(|p| p.x.is_finite() && p.y.is_finite() && p.z.is_finite()) && t.normal.x.is_finite())
 }
@@ -538,12 +512,10 @@ fn a_racer_is_a_mesh_the_race_can_draw_and_it_follows_the_build() {
     other.fit("war_wheels");
     meshes::racer(&other, 0.0, &mut b);
     assert_ne!(a.tris.len(), b.tris.len(), "a different build is a different racer");
-    // the same build is the same mesh
     let mut c = Mesh::new();
     meshes::racer(&Build::kit(0), 0.0, &mut c);
     assert_eq!(a.tris.len(), c.tris.len());
     assert!(a.tris.iter().zip(&c.tris).all(|(x, y)| x.v == y.v && x.mat == y.mat));
-    // and the race's materials: the paint and trim of the build
     let paint = meshes::Ink::of(&Build::kit(1));
     let mut m = Mesh::new();
     meshes::racer(&Build::kit(1), 0.0, &mut m);
@@ -579,8 +551,6 @@ fn the_race_takes_each_knights_racer_stats_and_body_from_the_ledger() {
     assert_ne!(other.build, a.build, "each knight has their own racer");
 }
 
-// ------------------------------------------------------------ a frame
-
 fn busy() -> (Shop, Ledger) {
     let mut l = Ledger::new();
     let mut s = Shop::new();
@@ -607,10 +577,8 @@ fn a_frame_is_drawn_lit_and_is_the_same_frame_every_time() {
     assert_eq!(a.pixels(), b.pixels());
     let lit = a.pixels().iter().filter(|p| p.iter().any(|&c| c > 40)).count();
     assert!(lit > 160 * 90 / 8, "a shop is lit in pools, not black: {lit} lit pixels");
-    // drawn again into the same buffers it is still the same frame
     a.draw(&s, Some(1));
     assert_eq!(a.pixels(), b.pixels());
-    // the arcade finish is its own, and also steady
     a.look = Look::Arcade;
     b.look = Look::Arcade;
     a.draw(&s, Some(1));
@@ -647,8 +615,6 @@ fn drawing_a_frame_does_not_grow_its_buffers() {
     assert_eq!(v.movers(), n, "each frame starts from empty buffers");
 }
 
-// ------------------------------------------------------- the race's career, the bank and the ghosts
-
 mod races {
     use super::*;
     use crate::garage::bank::Bank;
@@ -657,8 +623,6 @@ mod races {
     use crate::rules::knight_racers::flow::{self, Pad};
     use crate::rules::knight_racers::{CourseId, Mode, Class, Session};
 
-    /// The rules cannot see the garage, so they repeat the numbers of the parts that change how a
-    /// racer drives. They must be the garage's own.
     #[test]
     fn the_rules_wares_are_the_garages_parts_and_add_up_the_same() {
         assert_eq!(career::SLOTS.to_vec(), Slot::ALL.iter().map(|s| format!("{s:?}").to_lowercase()).collect::<Vec<_>>());
@@ -670,12 +634,10 @@ mod races {
         for p in PARTS.iter().filter(|p| !p.slot.cosmetic()) {
             assert!(career::ware(p.id).is_some(), "the garage has {} for sale and the rules' shop does not: add it to `career::WARES`", p.id);
         }
-        // Every kit part is free: the starting racers cost nothing.
         for i in 0..4 {
             let b = Build::kit(i);
             assert_eq!(career::stats_of(&b.ids()).map(|v| v as i32), [b.stats().speed, b.stats().accel, b.stats().handling, b.stats().armour, b.stats().weight]);
         }
-        // And every single swap on the default racer.
         for p in PARTS.iter().filter(|p| !p.slot.cosmetic()) {
             let mut b = Build::default();
             b.fit(p.id);
@@ -691,12 +653,10 @@ mod races {
         let dir = temp("career");
         let store = Store::in_workspace(&dir);
         let mut ledger = Ledger::new();
-        // A knight the ledger has never seen begins in their starting racer, with the starting gold.
         let c = ledger.career("Sir Bors");
         assert_eq!(c.money, career::START_MONEY);
         assert_eq!(c.build, Build::starting("Sir Bors").ids());
         assert!(!ledger.knows("Sir Bors"));
-        // Win some gold, buy a part, kept as the racer and the career.
         let mut c = c;
         c.pay(1000);
         c.buy_and_fit("war_wheels").unwrap();
@@ -714,9 +674,7 @@ mod races {
         assert_eq!(again.courses["emberfall"].lap, 190_000);
         assert!(again.owned.contains("war_wheels"));
         assert_eq!(again.laps["emberfall:0"], 190_000);
-        // The same ledger is the same bytes.
         assert_eq!(back.to_json(), ledger.to_json());
-        // A save from before careers existed gives every knight the starting career.
         let old = r#"{"v":1,"seq":2,"knights":{"sir kay":{"name":"Sir Kay","build":{"engine":"black_sun"},"swaps":1,"seq":2}}}"#;
         let l = Ledger::from_json(old).unwrap();
         let c = l.career("Sir Kay");
@@ -739,7 +697,6 @@ mod races {
         }
         assert_eq!(back.encode(), text, "text, path, text is the same text");
         assert!((back.seconds() - 79.8).abs() < 0.01);
-        // Between points the pod is between them; before the line and after the flag it waits.
         let mid = back.at(0.5).unwrap();
         assert!((mid.s - (back.pts[2].s + back.pts[3].s) / 2.).abs() < 0.01 || (mid.s - back.pts[2].s).abs() < 0.01);
         assert_eq!(back.at(-1.).unwrap(), back.pts[0]);
@@ -760,7 +717,6 @@ mod races {
         let dir = temp("bank");
         let store = Store::in_workspace(&dir);
         let who = vec![(1u32, "Sir Gawain".to_string())];
-        // A career already in the ledger.
         let mut seeded = Ledger::new();
         let mut c = seeded.career("Sir Gawain");
         c.pay(7000);
@@ -773,7 +729,6 @@ mod races {
         tick(&mut s, &mut bank, &who, Pad::default());
         let sf = &s.flow.seats[&1];
         assert!(!sf.fresh && sf.career.money == c.money && sf.career.owns_pod(2), "the knight sits down with what the ledger holds");
-        // A purchase marks the career, and the bank writes it down at once.
         flow::quick(&mut s, &who, Mode::Practice, Class::Squire, None, 0);
         assert_eq!(s.course, CourseId::Proving);
         for _ in 0..40_000 { if s.finished { break; } tick(&mut s, &mut bank, &who, Pad { auto: true, ..Pad::default() }); }
@@ -783,7 +738,6 @@ mod races {
         assert_eq!(races, 1, "the race was written down the moment it was settled");
         assert!(!s.flow.seats[&1].dirty);
         assert!(bank.error.is_none());
-        // A new bank over the same file sees it, and a second knight does not disturb the first.
         let mut other = Bank::open(store);
         let l = other.ledger_mut();
         let mut c2 = l.career("Sir Lamorak");
@@ -801,7 +755,6 @@ mod races {
         let mut s = Session::gate_of([1]);
         tick(&mut s, &mut bank, &who, Pad::default());
         let key = career::lap_key(CourseId::Proving, 0);
-        // The first trial: the pilot drives it; no ghost on the road, one kept at the end.
         flow::quick(&mut s, &who, Mode::TimeTrial, Class::Squire, Some(CourseId::Proving), 0);
         assert_eq!(s.cars.len(), 1);
         let mut seen_ghost = false;
@@ -818,8 +771,6 @@ mod races {
         assert!((path.seconds() - best).abs() < 0.3, "{} against {best}", path.seconds());
         assert!(path.pts.last().unwrap().s > s.course().lap() - 1., "it runs to the line");
         assert!(!bank.ledger().dirty(), "and it was written down");
-        // The second trial, slower: the ghost is on the road at once, ahead of a knight who sits
-        // still for two seconds; and the slower lap does not replace it.
         flow::quick(&mut s, &who, Mode::TimeTrial, Class::Squire, Some(CourseId::Proving), 0);
         tick(&mut s, &mut bank, &who, Pad::default());
         let mut ahead = false;
@@ -834,7 +785,6 @@ mod races {
         let slow = s.flow.laps[&1].times.first().copied().unwrap();
         assert!(slow > best, "the second run's first lap, {slow}, was slower than {best}");
         assert_eq!(kept.ms, g.ms, "the slower lap did not take the ghost");
-        // A fresh bank reads the same ghost back, and the career's trial best agrees.
         let again = Bank::open(store);
         assert_eq!(again.ledger().ghost("Sir Percival", &key).unwrap().ms, g.ms);
         assert!(again.ledger().career("Sir Percival").trials[&key] <= g.ms + 1);
@@ -862,7 +812,6 @@ mod races {
         assert_eq!(l.knights["sir ector"].ghosts.len(), ledger::MAX_GHOSTS, "a knight keeps the newest dozen");
         assert!(l.knights["sir ector"].ghosts.contains_key("course:19") && !l.knights["sir ector"].ghosts.contains_key("course:0"));
         assert!(l.to_json().len() < 120_000, "a dozen ghosts are {} bytes", l.to_json().len());
-        // A faster lap replaces, a slower does not.
         assert!(l.set_ghost("Sir Ector", "course:19", ledger::Ghost { ms: 100_000, seq: 0, path: text.clone() }));
         assert!(!l.set_ghost("Sir Ector", "course:19", ledger::Ghost { ms: 100_001, seq: 0, path: text }));
         let _ = Career::default();

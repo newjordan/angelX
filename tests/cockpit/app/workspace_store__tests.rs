@@ -10,12 +10,9 @@ fn r04e_contended_store_lock_waits_and_never_drops_the_write() {
     let held_fd = held.as_raw_fd();
     let releaser = std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(2500));
-        // SAFETY: the descriptor stays open in `held` until this thread has released it.
         assert_eq!(unsafe { libc::flock(held_fd, libc::LOCK_UN) }, 0);
     });
     let started = std::time::Instant::now();
-    // The contender waits through one contention receipt and then acquires;
-    // the write is never dropped.
     super::lock_store(&contender, "r04e_test_lock").unwrap();
     assert!(started.elapsed() >= std::time::Duration::from_millis(2000));
     assert!(started.elapsed() < std::time::Duration::from_secs(10));
@@ -168,8 +165,6 @@ if sys.argv[2] == 'timeout':
         let observed = receiver.recv_timeout(Duration::from_secs(2));
         let completed = observed.is_ok();
         let elapsed = started.elapsed();
-        // Clean the deliberately escaped fixture before asserting, so even a
-        // regression that blocks in reader.join() cannot leave a process behind.
         unsafe { libc::killpg(descendant, libc::SIGKILL) };
         let result =
             observed.unwrap_or_else(|_| receiver.recv_timeout(Duration::from_secs(2)).unwrap());
@@ -219,8 +214,6 @@ fn command_capture_deadline_covers_detached_stdout_after_exit_and_timeout() {
             break status;
         }
         if Instant::now() >= deadline {
-            // initialize() gives this isolated fixture an orderly signal path
-            // that kills and reaps every descendant, including new sessions.
             unsafe { libc::kill(child.id() as i32, libc::SIGTERM) };
             let _ = child.wait();
             std::fs::remove_dir_all(&root).unwrap();
@@ -291,12 +284,8 @@ fn project_match_requires_both_canonical_root_and_key() {
     assert!(!matches_project(workspace, &identity.root, "wrong-key"));
 }
 
-// --- repo identity: the main worktree is the repository. ---
-
 #[test]
 fn main_worktree_is_the_first_porcelain_entry() {
-    // `git worktree list --porcelain` from ANY worktree prints the main one
-    // first — that is what makes it the canonical identity.
     let out = "worktree /home/u/repo\nHEAD abc123\nbranch refs/heads/main\n\n\
                    worktree /tmp/cut-forge/item-3\nHEAD abc123\nbranch refs/heads/item-3\n";
     assert_eq!(
@@ -307,17 +296,14 @@ fn main_worktree_is_the_first_porcelain_entry() {
 
 #[test]
 fn main_worktree_handles_bare_and_detached_and_garbage() {
-    // Bare main repo: the first entry is the bare dir (+ a `bare` line).
     assert_eq!(
         main_worktree_from_porcelain("worktree /srv/git/repo.git\nbare\n"),
         Some(PathBuf::from("/srv/git/repo.git"))
     );
-    // Detached worktree: `detached` instead of `branch` — still an entry.
     assert_eq!(
         main_worktree_from_porcelain("worktree /home/u/repo\nHEAD abc\ndetached\n"),
         Some(PathBuf::from("/home/u/repo"))
     );
-    // Never panics on nonsense / empty output.
     assert_eq!(main_worktree_from_porcelain(""), None);
     assert_eq!(main_worktree_from_porcelain("HEAD abc\n"), None);
     assert_eq!(main_worktree_from_porcelain("worktree \n"), None);
@@ -325,8 +311,6 @@ fn main_worktree_handles_bare_and_detached_and_garbage() {
 
 #[test]
 fn a_non_repo_path_keeps_its_own_identity() {
-    // Not a git repo → the workspace IS the identity (the legacy behavior),
-    // and nothing crashes.
     let ws = std::env::temp_dir().join(format!("angel-ws-store-{}", std::process::id()));
     let _ = std::fs::create_dir_all(&ws);
     let id = repo_identity(&ws);
@@ -336,9 +320,6 @@ fn a_non_repo_path_keeps_its_own_identity() {
     let _ = std::fs::remove_dir_all(&ws);
 }
 
-/// `git worktree add` a real linked worktree of a throwaway repo and prove it
-/// inherits the main checkout's identity — the whole point of this module.
-/// Uses a fresh temp repo, so the source tree's `.git` is never touched.
 #[test]
 fn a_linked_worktree_inherits_the_main_repos_identity() {
     let _guard = crate::tests::env_lock();
@@ -357,7 +338,6 @@ fn a_linked_worktree_inherits_the_main_repos_identity() {
             .stderr(Stdio::null())
             .status()
     };
-    // A repo needs one commit before `worktree add` will work.
     let setup = git(&["init", "-q"], &repo)
         .map(|s| s.success())
         .unwrap_or(false)
@@ -383,26 +363,18 @@ fn a_linked_worktree_inherits_the_main_repos_identity() {
         .map(|s| s.success())
         .unwrap_or(false);
     if !setup {
-        let _ = std::fs::remove_dir_all(&base); // no git available — skip
+        let _ = std::fs::remove_dir_all(&base);
         return;
     }
 
-    // The linked worktree — a different directory, and a DIFFERENT
-    // workspace_key — resolves to the main checkout, so its evidence lands
-    // in the main repo's dossier instead of a key that dies with it.
     assert_ne!(workspace_key(&linked), workspace_key(&repo));
     let id = repo_identity(&linked);
     assert_eq!(id.root.canonicalize().ok(), repo.canonicalize().ok());
     assert_eq!(id.key, repo_identity(&repo).key);
-    // …and a subdirectory of the worktree resolves there too.
     let sub = linked.join("sub");
     std::fs::create_dir_all(&sub).unwrap();
     assert_eq!(repo_identity(&sub).key, id.key);
 
-    // Durable knowledge identity is deliberately repository-wide, but live
-    // workspace/Git state must remain checkout-specific. This is the
-    // branch-cache boundary: consulting any process-local identity or
-    // confinement cache must never retarget one checkout to another.
     let main_branch = git_capture(&["rev-parse", "--abbrev-ref", "HEAD"], &repo, 5).unwrap();
     assert_eq!(
         git_capture(&["rev-parse", "--abbrev-ref", "HEAD"], &linked, 5).as_deref(),
@@ -440,13 +412,10 @@ fn a_linked_worktree_inherits_the_main_repos_identity() {
 
 #[test]
 fn identity_can_be_switched_off() {
-    // The escape hatch restores pure path-keying (no git spawn at all).
     let _guard = crate::tests::env_lock();
     let crate_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_REPO_IDENTITY", "0") };
     let root = canonical_repo_root(&crate_dir);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_REPO_IDENTITY") };
     assert_eq!(root, crate_dir, "off → the workspace is its own repo again");
 }

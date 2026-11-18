@@ -32,9 +32,6 @@ fn cargo_workspace(root: &std::path::Path, name: &str) {
     .unwrap();
 }
 
-/// A synthetic but complete toolchain whose cargo/rustc actually run. The pin
-/// (path/size/sha256 captured at registry construction) is what these tests
-/// exercise; the scripts only need to exit 0 with a passing summary.
 fn synthetic_toolchain(root: &std::path::Path) -> std::path::PathBuf {
     let bin = root.join("k5-toolchain-bin");
     std::fs::create_dir_all(&bin).unwrap();
@@ -117,7 +114,6 @@ fn k5_yolo_refuses_pin_drift_between_capture_and_dispatch() {
     cargo_workspace(&root, "k5-yolo-drift");
     let bin = synthetic_toolchain(&root);
     let pinned = PinnedCargo::for_test_workspace(bin.join("cargo"), &root);
-    // Replace cargo after the pin was captured (same length, different bytes).
     write_executable(
         &bin.join("cargo"),
         "#!/bin/sh\nprintf 'cargo 2.0\\n'\nexit 0\n",
@@ -140,8 +136,6 @@ fn k5_yolo_without_a_pin_still_refuses_instead_of_unlabeled() {
     let _yolo = crate::tests::TestEnvGuard::set("ANGEL_YOLO", "1");
     let root = scratch("k5_yolo_no_pin");
     cargo_workspace(&root, "k5-yolo-no-pin");
-    // An unparseable capture (no pinned executable at all) has no pin note;
-    // the typed verifier must refuse rather than emit an unlabeled receipt.
     let pinned = PinnedCargo::for_test_executable(root.join("does-not-exist"));
     assert!(pinned.pin_note().is_none(), "no pin must be observable");
     let error = RunTestsTool::in_dir_with_cargo(root.clone(), pinned)

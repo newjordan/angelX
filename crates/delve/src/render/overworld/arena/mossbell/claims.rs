@@ -15,7 +15,6 @@ use crate::rules::HZ;
 pub(super) const W: i32 = 384;
 pub(super) const H: i32 = 224;
 
-/// A box: left, top, width, height.
 pub(crate) type Rect = (i32, i32, i32, i32);
 
 pub(crate) fn meets(a: Rect, b: Rect) -> bool {
@@ -26,9 +25,6 @@ pub(crate) fn inside(r: Rect) -> bool {
     r.0 >= 0 && r.1 >= 0 && r.0 + r.2 <= W && r.1 + r.3 <= H
 }
 
-/// How seat `me` calls the knight `id`, at most `take` letters: `YOU` for
-/// themselves and only themselves; any other knight by their own name (`KNIGHT
-/// n` for one who still carries the default `You`, or none).
 pub(crate) fn called(run: &Run, id: u32, me: u32, take: usize) -> String {
     if id == me {
         return "YOU".into();
@@ -40,11 +36,9 @@ pub(crate) fn called(run: &Run, id: u32, me: u32, take: usize) -> String {
     full.chars().take(take).collect()
 }
 
-/// A line of plain words in the 5x7 font.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Word {
     pub what: &'static str,
-    /// The seat whose name this is, if it is a name.
     pub who: Option<u32>,
     pub x: i32,
     pub y: i32,
@@ -58,18 +52,15 @@ impl Word {
     }
 }
 
-/// Big words and numbers the kit draws, `what` they are and how they are drawn.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Big {
     Banner { y: i32, title: String, sub: String, age: u32, life: u32, tone: Tone, cap: i32 },
     Count { label: String, age: u32, life: u32, go: bool },
     Digit { n: u32, age: u32 },
     Pop { text: String, at: (i32, i32), age: u32, ink: char },
-    /// Big words that stay: the kit's text at `scale`, its top left at `(x, y)`.
     Text { text: String, x: i32, y: i32, scale: i32, ink: char },
 }
 
-/// A box on the screen with the words in it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Claim {
     pub what: &'static str,
@@ -78,16 +69,12 @@ pub(crate) struct Claim {
     pub text: String,
 }
 
-/// Everything said on one seat's screen, in the order it is drawn.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Plan {
     pub words: Vec<Word>,
     pub bigs: Vec<(Claim, Big)>,
-    /// Whether a call holds the marquee (the strip's own words step aside).
     pub marquee: bool,
-    /// Whether a moment holds the field (pops keep out of its way).
     pub field: bool,
-    /// Words the kit draws itself (a podium's names), claimed for the test.
     pub extra: Vec<Claim>,
 }
 
@@ -107,11 +94,6 @@ impl Plan {
     }
 }
 
-// ─── the kit's own geometry, as boxes ───────────────────────────────────────
-
-/// The pixels the kit's `banner` marks on the whole screen, `age` ticks in:
-/// the rails and the words and the line under them, as one box. A fade lifts
-/// the banner while it dissolves, and the box follows it.
 pub(crate) fn banner_rect(y: i32, title: &str, sub: &str, age: u32, life: u32, cap: i32) -> Rect {
     let tw = text_width(title).max(1);
     let rest = ((W - 24) / tw).clamp(1, cap.max(1));
@@ -134,7 +116,6 @@ pub(crate) fn banner_rect(y: i32, title: &str, sub: &str, age: u32, life: u32, c
     (x0, y0, x1 - x0, y1 - y0)
 }
 
-/// The box a countdown beat takes at its largest, centred on `at`.
 fn count_rect(label: &str, at: (i32, i32)) -> Rect {
     let width = text_width(label).max(5);
     let rest = (150 / width).clamp(4, 9);
@@ -143,23 +124,16 @@ fn count_rect(label: &str, at: (i32, i32)) -> Rect {
     (at.0 - w / 2, at.1 - h / 2, w, h)
 }
 
-/// The box a score pop takes at its highest, `age` ticks old, standing on `at`.
 pub(crate) fn pop_rect(text: &str, at: (i32, i32), age: u32) -> Rect {
     let hop = (ease::out((age as f32 / 7.0).min(1.0)) * 12.0) as i32 + (age as i32 * 3 / 5);
     let (w, h) = (text_width(text) + 4, 11);
     (at.0 - w / 2, at.1 - hop - h, w, h)
 }
 
-// ─── the screen ─────────────────────────────────────────────────────────────
-
-/// The title and the countdown run on the session's intro ticks.
 pub(crate) const TITLE: u32 = 42;
 pub(crate) const BEAT: u32 = 12;
-/// Ticks GO shows once the tables are free.
 pub(crate) const GO: u32 = 28;
-/// Ticks the table is shown as it stood when the clock ran out, before the podium.
 pub(crate) const LIVE: u32 = 36;
-/// Where a field moment, the countdown and the last digits stand.
 pub(crate) const FIELD_Y: i32 = 88;
 pub(crate) const MIDDLE: (i32, i32) = (192, 118);
 
@@ -172,20 +146,16 @@ fn centred(what: &'static str, cx: i32, y: i32, text: impl Into<String>, ink: ch
     word(what, cx - text_width(&text) / 2, y, text, ink)
 }
 
-/// The knights by place, the leader first; ties to the lower seat.
 pub(crate) fn order(s: &Session) -> Vec<u32> {
     let mut ids: Vec<u32> = s.tables.keys().copied().collect();
     ids.sort_by_key(|&id| (s.score(id), id));
     ids
 }
 
-/// The height of a card in the race column for `n` knights.
 pub(crate) fn card_height(n: usize) -> i32 {
     if n <= 4 { 26 } else { 17 }
 }
 
-/// A call as the seat `me` sees it: its words, whether it is for the field,
-/// and its tone. `None` when it is not for this seat to see.
 fn voice(run: &Run, s: &Session, sh: &Shout, me: u32) -> Option<(String, String, Tone, bool, u32)> {
     let who = u32::from(sh.who);
     let mine = who == me;
@@ -214,13 +184,11 @@ fn voice(run: &Run, s: &Session, sh: &Shout, me: u32) -> Option<(String, String,
     }
 }
 
-/// Whether a call's words name the knight it is for (and so must say `YOU` or their name).
 fn named(sh: &Shout, me: u32) -> bool {
     let mine = u32::from(sh.who) == me;
     sh.who != 0 && (sh.cry == Cry::Lead || (!mine && matches!(sh.cry, Cry::Jackpot | Cry::KeeperDown)))
 }
 
-/// The whole of a seat's screen while the round is on (or waiting to begin).
 pub(crate) fn plan(run: &Run, me: u32) -> Plan {
     let s = run.mossbell.as_ref().expect("a Mossbell session");
     let now = run.tick as u32;
@@ -229,7 +197,6 @@ pub(crate) fn plan(run: &Run, me: u32) -> Plan {
     let age = LENGTH - s.left;
     let playing = s.intro == 0;
 
-    // ── what holds the field, and what holds the marquee ──
     let mut field: Option<(Claim, Big, u8)> = None;
     let mut marquee: Option<((u8, std::cmp::Reverse<u32>), Claim, Big)> = None;
     if !playing {
@@ -275,7 +242,6 @@ pub(crate) fn plan(run: &Run, me: u32) -> Plan {
                     ));
                 }
             } else {
-                // The strip is 268 wide: a long call goes at the smaller size.
                 let tw = text_width(&title);
                 let cap = if tw * 2 + 22 <= 262 { 2 } else { 1 };
                 let rect = banner_rect(16, &title, "", a, life, cap);
@@ -286,7 +252,6 @@ pub(crate) fn plan(run: &Run, me: u32) -> Plan {
                 }
             }
         }
-        // The last five seconds, one big number each.
         let rem = s.left;
         if field.is_none() && rem > 0 && rem <= 5 * HZ {
             let (sec, a) = (rem.div_ceil(HZ), HZ - 1 - (rem - 1) % HZ);
@@ -304,7 +269,6 @@ pub(crate) fn plan(run: &Run, me: u32) -> Plan {
         p.words.push(centred("hint", 234, 158, "NUDGE", 'i'));
     }
 
-    // ── the bar ──
     if marquee.is_none() {
         p.words.push(centred("title", 192, 7, "MOSSBELL", 'i'));
         let ringing = rules::bell(age) && playing;
@@ -321,7 +285,6 @@ pub(crate) fn plan(run: &Run, me: u32) -> Plan {
     let pot = format!("{}G POT", GOLD_PER_SEAT * n as u32);
     p.words.push(word("pot", 329, 8, pot, 'i'));
 
-    // ── the race column ──
     let rows = order(s);
     let rh = card_height(n);
     for (k, &id) in rows.iter().enumerate() {
@@ -333,7 +296,6 @@ pub(crate) fn plan(run: &Run, me: u32) -> Plan {
         p.words.push(word("card score", 54 - text_width(&score), y0 + ydy, score, if id == me { 't' } else { 'h' }));
     }
 
-    // ── the panel on the right ──
     let b = &s.tables[&me].ball;
     p.words.push(word("keeper", 332, 51, "KEEPER", 'i'));
     p.words.push(word("lamps", 332, 88, "LAMPS", 'i'));
@@ -354,7 +316,6 @@ pub(crate) fn plan(run: &Run, me: u32) -> Plan {
     }
     p.words.push(centred("prompt", 158, 208, "FLIP AND NUDGE", 'i'));
 
-    // ── the moments ──
     if let Some((claim, big, _)) = field {
         p.bigs.push((claim, big));
     }
@@ -362,7 +323,6 @@ pub(crate) fn plan(run: &Run, me: u32) -> Plan {
         p.bigs.push((claim, big));
     }
 
-    // ── score pops: the viewer's own, where nothing else is ──
     if !p.field && playing {
         let mut pops: Vec<_> = s.show.pops.iter().filter(|q| u32::from(q.who) == me).collect();
         pops.sort_by_key(|q| std::cmp::Reverse(q.born));
@@ -380,7 +340,6 @@ pub(crate) fn plan(run: &Run, me: u32) -> Plan {
     p
 }
 
-/// Where a pop stands when it is thrown: over its bumper, or under the keeper.
 fn pop_origin(at: u8) -> (i32, i32) {
     match at {
         0 => (super::OX + super::field_x(44), super::OY + 57 - 16),
@@ -390,7 +349,6 @@ fn pop_origin(at: u8) -> (i32, i32) {
     }
 }
 
-/// The ticks into the round each bell rings, for the bar's ticking.
 pub(crate) fn bell_clock(age: u32) -> (bool, u32, u32) {
     for &(from, to) in &BELLS {
         if (from..to).contains(&age) {
@@ -404,18 +362,13 @@ pub(crate) fn bell_clock(age: u32) -> (bool, u32, u32) {
     }
 }
 
-// ─── the podium ─────────────────────────────────────────────────────────────
-
-/// Where the podium stands: the kit's box, and the floor under its steps.
 pub(crate) const PODIUM: Rect = (0, 48, W, 150);
 pub(crate) const FLOOR: i32 = PODIUM.1 + PODIUM.3 - 6;
 
-/// The knights in the order of the finish, the winner first.
 pub(crate) fn places(s: &Session) -> Vec<u32> {
     if s.order.len() == s.tables.len() { s.order.clone() } else { order(s) }
 }
 
-/// The words of the finish, `a` ticks after the table's iris opened.
 pub(crate) fn finish(run: &Run, me: u32, a: u32) -> Plan {
     let s = run.mossbell.as_ref().expect("a Mossbell session");
     let mut p = Plan::default();
@@ -433,7 +386,6 @@ pub(crate) fn finish(run: &Run, me: u32, a: u32) -> Plan {
         format!("{} WINS", called(run, lead, me, 9))
     };
     let top = s.points(lead);
-    // The winner's name rides in the title; the jackpot's holder under it.
     let mut sub = format!("{top} PTS");
     if let Some(&holder) = s.jackpot.first().filter(|_| n > 1) {
         sub = format!("{sub}  JACKPOT {}", called(run, holder, me, 8));
@@ -449,7 +401,6 @@ pub(crate) fn finish(run: &Run, me: u32, a: u32) -> Plan {
         };
         p.bigs.push((claim, big));
     }
-    // The podium's names and lines, as the kit sets them under the steps.
     let cx = PODIUM.0 + PODIUM.2 / 2;
     let spots = [cx, cx - 88, cx + 88];
     for (i, &id) in ranks.iter().take(3).enumerate() {
@@ -462,7 +413,6 @@ pub(crate) fn finish(run: &Run, me: u32, a: u32) -> Plan {
         p.extra.push(Claim { what: "podium name", who: Some(id), rect: (spots[i] - nw / 2, FLOOR + 4, nw, 7), text: name });
         p.extra.push(Claim { what: "podium line", who: None, rect: (spots[i] - lw / 2, FLOOR + 13, lw, 7), text: line });
     }
-    // The rest of the table, small and plain, along the foot.
     for (k, &id) in ranks.iter().enumerate().skip(3) {
         if a < 24 + k as u32 * 3 {
             continue;
@@ -471,7 +421,6 @@ pub(crate) fn finish(run: &Run, me: u32, a: u32) -> Plan {
         let text = format!("{} {} {}", k + 1, called(run, id, me, 8), s.points(id).min(99999));
         p.words.push(Word { what: "rival", who: Some(id), x: 8 + col * 128, y: 214, text, ink: if id == me { 'T' } else { 'h' } });
     }
-    // The purse, counting up, down the left; the best, down the right.
     let gold = s.payout(me);
     if a >= 24 && n > 1 {
         let shown = (gold as f32 * ease::out(((a - 24) as f32 / 40.0).min(1.0))) as u32;
@@ -484,7 +433,6 @@ pub(crate) fn finish(run: &Run, me: u32, a: u32) -> Plan {
         p.words.push(word("purse label", 8, 106, if gold > 0 { "YOUR PURSE" } else { "NO PURSE" }, 'h'));
     }
     if a >= 30 {
-        // The hall's own record (it holds no more than a thousand), and the jackpots taken.
         let hall = run.home.countryside.games.mossbell.clone();
         let best = s.tables.values().map(|t| t.ball.score.min(1000)).max().unwrap_or(0).max(u32::from(hall.best)).to_string();
         p.words.push(word("best label", 328, 84, "HALL BEST", 'h'));

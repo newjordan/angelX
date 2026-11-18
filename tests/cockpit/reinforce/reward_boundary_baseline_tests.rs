@@ -67,8 +67,6 @@ fn owned_evidence_case(
             String::from_utf8_lossy(&output.stderr)
         );
     }
-    // Real current implementation: mandatory sandbox, read-only workspace,
-    // network denied, process-group capture, typed manifest and cleanup.
     let evidence = EvaluatorEvidence::run_shell(
         label,
         command,

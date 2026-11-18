@@ -26,8 +26,6 @@ const ARGS_RECORD_LIMIT: usize = 2_000;
 const ARGS_NOTE_LIMIT: usize = 300;
 const ERROR_RECORD_LIMIT: usize = 500;
 
-/// How often a live call prints its status line to stderr
-/// (`ANGEL_WIRE_HEARTBEAT_SECS`, default 60; `0` is silent). Observation only.
 pub(crate) fn heartbeat_every() -> Duration {
     let configured = std::env::var("ANGEL_WIRE_HEARTBEAT_SECS")
         .ok()
@@ -45,8 +43,6 @@ fn log_dir() -> Option<PathBuf> {
     None
 }
 
-/// The workspace this process was launched on (`--workspace`), else its cwd:
-/// the key that ties a record to its task.
 fn task_hint() -> &'static str {
     static HINT: OnceLock<String> = OnceLock::new();
     HINT.get_or_init(|| {
@@ -82,7 +78,6 @@ struct Counters {
     text_chars: AtomicU64,
     reasoning_chars: AtomicU64,
     tool_frames: AtomicU64,
-    /// Milliseconds after start, plus one; zero means not yet.
     first_token_ms: AtomicU64,
     last_byte_ms: AtomicU64,
 }
@@ -149,14 +144,11 @@ struct Detail {
     notes: Vec<String>,
     finish_reason: Option<String>,
     usage: Option<Value>,
-    /// The reasoning summary a Responses seat streamed, as the provider
-    /// exposed it.
     reasoning_summary: String,
 }
 
 type Heartbeat = (mpsc::Sender<()>, std::thread::JoinHandle<()>);
 
-/// One streamed model call under observation.
 pub(crate) struct WireCall {
     seq: u64,
     club: String,
@@ -187,8 +179,6 @@ impl WireCall {
         }
     }
 
-    /// Start the status heartbeat. Only the first call starts one; a later
-    /// attempt on the same call keeps it.
     pub(crate) fn arm(&self) {
         let every = heartbeat_every();
         let mut heartbeat = self.heartbeat.lock().unwrap_or_else(|e| e.into_inner());
@@ -236,8 +226,6 @@ impl WireCall {
             .store(self.shared.elapsed_ms(), Ordering::Relaxed);
     }
 
-    /// A protocol event of `kind`; the per-call histogram shows the model's wire
-    /// profile (e.g. how much of a Responses stream was reasoning summary).
     pub(crate) fn event(&self, kind: &str) {
         self.shared.counters.events.fetch_add(1, Ordering::Relaxed);
         *self
@@ -280,7 +268,6 @@ impl WireCall {
             .fetch_add(chars as u64, Ordering::Relaxed);
     }
 
-    /// A reasoning summary delta: counted as reasoning, and kept for the record.
     pub(crate) fn reasoning_summary(&self, text: &str) {
         self.reasoning(text.len());
         self.detail().reasoning_summary.push_str(text);
@@ -302,8 +289,6 @@ impl WireCall {
         self.detail().usage = Some(usage);
     }
 
-    /// Something the parser ignored, dropped or repaired. Printed at once and
-    /// kept in the record; a repeated `kind` prints only its first occurrence.
     pub(crate) fn note(&self, kind: &str, message: &str) {
         let first = {
             let mut detail = self.detail();
@@ -317,8 +302,6 @@ impl WireCall {
         }
     }
 
-    /// Stop the heartbeat, print a summary when the call was slow, failed or
-    /// noted anything, and append the JSONL record when a log dir is set.
     pub(crate) fn finish(self, result: &Result<ClubReply, String>) {
         self.stop_heartbeat();
         let duration = self.shared.started.elapsed();
@@ -423,8 +406,6 @@ impl WireCall {
         }
     }
 
-    /// One dispatched call, with its arguments as the model sent them. Arguments
-    /// that did not parse as JSON are noted: the tool then saw `_raw`.
     fn call_record(&self, call: &ToolCall) -> Value {
         let raw = match call.args.get("_raw").and_then(Value::as_str) {
             Some(raw) => {

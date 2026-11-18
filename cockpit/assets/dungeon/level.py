@@ -1,17 +1,9 @@
 #!/usr/bin/env python3
-"""Bring the Delve's sounds to their mix levels, offline (no API calls).
-
-  sfx/*.mp3:   common body level (RMS -20 dB), peaks limited to -2 dBFS.
-  music/*.mp3: trailing silence trimmed so loops come round without a gap
-               (seamless loops are left alone), integrated -20 LUFS.
-
-Runs in place; safe to repeat. sound.py and pack.py call the same steps
-for new files."""
 import pathlib, re, subprocess, sys, tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
 SFX_RMS_DB = -20.0
-PEAK = 0.79  # -2 dBFS
+PEAK = 0.79
 SEAMLESS = {'boss', 'crypt'}
 
 

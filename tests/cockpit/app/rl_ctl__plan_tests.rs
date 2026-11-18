@@ -72,9 +72,6 @@ fn plan_keeps_operator_sizes_and_separates_audit_cases() {
     let _ = std::fs::remove_dir_all(&workspace);
 }
 
-/// Quoting is resolved at the command boundary without running a shell:
-/// multiword values survive, escapes and metacharacters stay literal, and a
-/// malformed quote is an actionable error rather than a silent split.
 #[test]
 fn command_line_splitting_is_lossless_and_reports_bad_quotes() {
     assert_eq!(
@@ -132,9 +129,6 @@ fn command_line_splitting_is_lossless_and_reports_bad_quotes() {
     assert!(trailing.contains("backslash"), "{trailing}");
 }
 
-/// The stage's "attempt ms" is one definition everywhere: the recorded
-/// generation time plus the recorded verifier wall time for the same
-/// sample. No constant, floor or invented speed is involved.
 #[test]
 fn attempt_cost_is_the_sum_of_recorded_measurements() {
     assert_eq!(attempt_cost_ms(Some(1_500), Some(250)), 1_750);

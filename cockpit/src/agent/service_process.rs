@@ -53,8 +53,6 @@ impl ServiceChild {
         #[cfg(unix)]
         {
             let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
-            // SAFETY: this is our claimed direct child. WNOWAIT leaves its wait
-            // status and PID identity held until private-group retirement.
             let result = unsafe {
                 libc::waitid(
                     libc::P_PID,
@@ -67,26 +65,15 @@ impl ServiceChild {
         }
         #[cfg(not(unix))]
         {
-            // No process-group ownership on this platform. A completed probe
-            // may collect the direct status, which Child retains for wait().
             matches!(self.child.try_wait(), Ok(None))
         }
     }
 
-    /// Stop this service's group, then collect its direct child's own status.
-    /// No raw wait/kill handle is exposed: every status-consuming path retires
-    /// the private group first, even when the launcher exited on its own.
     pub(crate) fn retire(&mut self) -> io::Result<ExitStatus> {
         if !self.retired {
-            // Consume the signalling decision before any status wait. An
-            // ECHILD (global cleanup won) or repeated Drop never signals again.
             self.retired = true;
             #[cfg(unix)]
             let signalled = self.child.with_unreaped_identity(|pid| {
-                // SAFETY: spawn created this private group, and the ownership
-                // guard pins its unreaped leader through both signals. SIGKILL
-                // also retires wrapper children that ignore SIGTERM. A server
-                // may have left its original group, so still signal its PID.
                 unsafe { libc::killpg(pid, libc::SIGKILL) };
                 if unsafe { libc::kill(pid, libc::SIGKILL) } == 0 {
                     Ok(())
@@ -96,7 +83,6 @@ impl ServiceChild {
             });
             #[cfg(not(unix))]
             let signalled = self.child.kill();
-            // Never block waiting/draining while holding the ownership lock.
             self.retirement_result = Some(signalled.and_then(|()| self.child.wait()));
         }
         match &self.retirement_result {

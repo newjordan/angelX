@@ -33,8 +33,6 @@ use std::time::{Duration, Instant};
 
 const POLL: Duration = Duration::from_millis(100);
 const DEBOUNCE: Duration = Duration::from_millis(120);
-/// Live modules one loader holds. Authored behavior moves into modules leg by
-/// leg, so this bounds a directory, not a feature.
 const MAX_MODULES: usize = 256;
 const MAX_OUTPUT: usize = 64 * 1024;
 const MAX_INPUT: usize = 512 * 1024;
@@ -75,7 +73,6 @@ pub struct Status {
     pub generation: u64,
     pub digest: String,
     pub error: Option<String>,
-    /// Source and output digests from the active Bend generation's receipt.
     pub build: Option<BuildReceipt>,
 }
 
@@ -85,16 +82,12 @@ pub struct BuildReceipt {
     pub output_digest: String,
 }
 
-/// Immutable content-addressed bytes. Holding the Arc leases a generation's
-/// resource across replacement; no consumer reopens an edited source file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Asset {
     pub id: String,
     pub bytes: Vec<u8>,
 }
 
-/// Splits a render script into its per-generation setup and its call; see
-/// `Bundle::script`.
 pub const CALL_MARKER: &str = "/*angel:call:";
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -108,12 +101,10 @@ pub struct Snapshot {
     pub revision: u64,
     pub statuses: Vec<Status>,
     pub realm: Option<RealmStyle>,
-    pub agent_note: Option<(String, String)>, // source digest, text
+    pub agent_note: Option<(String, String)>,
     pub ui: Option<Arc<UiPolicy>>,
     pub game: Option<Arc<GamePolicy>>,
     pub tool_router: Option<Program>,
-    /// Named decision legs: every active `policy` module, keyed by its id.
-    /// Callers pin one map per turn and keep their native leg as fallback.
     pub policies: BTreeMap<String, Program>,
     pub error: Option<String>,
     pub routes: Vec<kernel::Route>,
@@ -121,8 +112,6 @@ pub struct Snapshot {
 }
 
 impl Status {
-    /// One `Snapshot::text` line. An edit's outcome also carries how long the
-    /// loader took to reach its verdict.
     pub fn line(&self, took: Option<Duration>) -> String {
         format!(
             "{} · generation {} · {}{}{}",
@@ -181,8 +170,6 @@ impl Snapshot {
     }
 }
 
-/// Describe acceptance separately from publication; callers must bind the
-/// corresponding snapshot before displaying a terminal receipt.
 pub fn withdrawal_text(status: &kernel::WithdrawalStatus) -> String {
     let phase = match status.phase {
         kernel::WithdrawalPhase::Draining => {
@@ -205,16 +192,10 @@ pub fn withdrawal_text(status: &kernel::WithdrawalStatus) -> String {
     text
 }
 
-/// Partition changed modules by overlapping downstream rebind closures, not
-/// by shared upstream reads. Old AND proposed imports/routes participate so
-/// removing an edge or transferring a route cannot split an atomic handoff.
 fn system_transaction_groups(
     candidates: &[(String, Arc<Bundle>)],
     modules: &BTreeMap<String, Module>,
 ) -> Vec<(Vec<(String, Arc<Bundle>)>, BTreeSet<String>, Vec<String>)> {
-    // Unsettled captures can only defer a selected ready group. With no
-    // ready root there is nothing to publish, so keep captures/cache intact
-    // and avoid rebuilding the accepted dependency/route graph on every poll.
     if candidates.is_empty() {
         return Vec::new();
     }
@@ -321,8 +302,6 @@ fn system_transaction_groups(
             .iter()
             .flat_map(|i| impacts[*i].iter().cloned())
             .collect::<BTreeSet<_>>();
-        // Include unchanged route owners and upstream reads only in the cache
-        // fingerprint. They do not unnecessarily couple sibling consumers.
         for i in &members {
             for route in &routes[*i] {
                 relevant.extend(owners[route].iter().cloned());
@@ -355,8 +334,6 @@ struct Module {
     rejected: Option<String>,
     error: Option<String>,
     cached: Option<Value>,
-    /// False while a captured candidate awaits its debounce or handoff; true
-    /// once the scan has activated or rejected it, or has nothing to judge.
     settled: bool,
 }
 
@@ -376,7 +353,6 @@ impl Default for Module {
     }
 }
 
-/// The evaluator supplies an isolated JavaScript call with a finite deadline.
 pub type Evaluator = fn(&str) -> Result<String, String>;
 pub type Validator = fn(&str, &Value) -> Result<(), String>;
 pub type ResourceBinder = fn(
@@ -402,8 +378,6 @@ fn no_host_validation(_: &str, _: &Value) -> Result<(), String> {
     Ok(())
 }
 
-/// An immutable generation, pinned for an entire native operation. Reloading
-/// the registry cannot change the policy of a turn already in progress.
 #[derive(Clone, Debug)]
 pub struct Program {
     bundle: Arc<Bundle>,
@@ -411,9 +385,6 @@ pub struct Program {
     validator: Validator,
 }
 
-/// The policy generation a host ships inside its binary, checked like a
-/// loaded one (receipt, probe, contract). It serves when no live generation
-/// is active, so a policy never lacks an implementation.
 pub fn shipped_program(
     id: &str,
     files: &[(&str, &str)],
@@ -441,8 +412,6 @@ impl Program {
         &self.bundle.digest
     }
 
-    /// Call off the UI/simulation thread. No file reads and no changing
-    /// dependency imports occur here; source was captured at activation.
     pub fn render(&self, input: &Value) -> Result<Value, String> {
         let value = evaluate(&self.bundle, input, self.evaluator)
             .and_then(|value| validate(&self.bundle.manifest.kind, value))?;
@@ -451,8 +420,6 @@ impl Program {
     }
 }
 
-/// Single owner of published generations. Reloads never repeat a model/tool
-/// request; candidate probes and fallback transforms have no external effects.
 pub struct Registry {
     evaluator: Evaluator,
     validator: Validator,
@@ -471,9 +438,6 @@ pub struct Registry {
     completions: std::collections::VecDeque<(kernel::Job, Value)>,
     failed_system_transactions: BTreeMap<Vec<String>, (Vec<(String, String, u64)>, String)>,
     scans: u64,
-    /// Lets a module whose capture matched the disk skip the metadata
-    /// comparison until something under it changes. Only the loader's worker
-    /// holds one; a registry driven by hand compares every scan.
     watch: Option<watch::Watch>,
 }
 
@@ -518,8 +482,6 @@ impl Registry {
         self.refresh_snapshot(force);
     }
 
-    /// [`Registry::refresh`], returning the snapshot of the registry as it
-    /// stands after it: the worker publishes that instead of taking another.
     fn refresh_snapshot(&mut self, force: bool) -> Snapshot {
         if let Some(watch) = &mut self.watch {
             watch.drain();
@@ -535,7 +497,6 @@ impl Registry {
         after
     }
 
-    /// Whether the last scan left no captured candidate unjudged.
     fn settled(&self, id: &str) -> bool {
         self.modules.get(id).is_none_or(|module| module.settled)
     }
@@ -576,12 +537,9 @@ impl Registry {
                 return;
             }
         }
-        // A missing source is a failed candidate, not an implicit unload.
         ids.extend(self.modules.keys().cloned());
         let mut systems = Vec::new();
         for id in ids {
-            // Explicit desired state is independent of source presence. Pinned
-            // source edits are transient and recaptured after the drain.
             if self.kernel.generation_pinned(&id) {
                 if let Some(module) = self.modules.get_mut(&id) {
                     module.settled = false;
@@ -601,8 +559,6 @@ impl Registry {
             let module = self.modules.entry(id.clone()).or_default();
             module.settled = true;
             let root = self.root.join(&id);
-            // A capture that matched the disk at its last full comparison, with
-            // nothing changed under the module since, is still current.
             let trusted = !force && self.watch.as_ref().is_some_and(|watch| watch.trusted(&id));
             let candidate = match module.captured.as_ref().filter(|bundle| {
                 !force
@@ -620,9 +576,6 @@ impl Registry {
                 Some(cached) => Arc::clone(cached),
                 None => match Bundle::read(&root, &id) {
                     Ok(mut candidate) => {
-                        // Content-addressed bytes can be shared across source
-                        // generations and metadata-only edits. A recapture must
-                        // not keep another complete copy of an unchanged pack.
                         for (name, asset) in &mut candidate.assets {
                             let existing = module
                                 .captured
@@ -673,8 +626,6 @@ impl Registry {
                 module.error = None;
                 module.staged = None;
                 module.rejected = None;
-                // Returning to accepted bytes ends the failed-candidate
-                // lifecycle. Reintroducing bad bytes must restore diagnostics.
                 self.failed_system_transactions
                     .retain(|key, _| !key.contains(&id));
                 continue;
@@ -747,12 +698,7 @@ impl Registry {
                 continue;
             }
             let key = systems.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>();
-            // Replace overlapping old partitions, while retaining untouched
-            // failures through debounce. Disjoint keys keep this bounded by
-            // retained module count even as the dependency graph changes.
             failures.retain(|old, _| !old.iter().any(|id| key.contains(id)));
-            // Cache only this component's candidates and actual reads. A bad
-            // sibling must neither block nor get retried by unrelated edits.
             let transaction = systems
                 .iter()
                 .map(|(id, bundle)| {
@@ -841,10 +787,6 @@ impl Registry {
         self.failed_system_transactions = failures;
     }
 
-    /// Explicit system drain or immediate pure-policy override withdrawal.
-    /// Mixed batches are refused before mutation. Policy controls return a
-    /// policy-control/1 receipt, not a retryable/abortable Kernel operation.
-    /// File absence remains a failed candidate, never an implicit unload.
     pub fn withdraw(&mut self, expected: Vec<(String, u64)>) -> Result<Value, String> {
         if expected.iter().any(|(id, _)| self.is_policy_control(id)) {
             return self.withdraw_policies(expected);
@@ -900,8 +842,6 @@ impl Registry {
         self.sync_withdrawal();
         serde_json::to_value(status).map_err(|error| error.to_string())
     }
-    /// Re-admit disabled systems or pure policy overrides as one validated group.
-    /// Failed preparation preserves suppression and never publishes a subset.
     pub fn enable(&mut self, ids: Vec<String>) -> Result<Value, String> {
         if self.kernel.withdrawal_pending() || ids.is_empty() || ids.len() > 64 {
             return Err("enable busy or invalid transaction size".into());
@@ -911,9 +851,6 @@ impl Registry {
         {
             return Err("module is not disabled or enable is duplicated".into());
         }
-        // Enable must honor the same retained-metadata bound as refresh.
-        // Count distinct absent IDs before reading source or preparing code so
-        // refusal cannot publish a Kernel generation or change desired state.
         let absent = unique
             .iter()
             .filter(|id| !self.modules.contains_key(*id))
@@ -1013,9 +950,6 @@ impl Registry {
         )))
     }
 
-    /// One bounded service call per worker iteration. No effect is replayed if
-    /// a provider fails. Failed completion reducers retain the result for the
-    /// operator to inspect/recover rather than rerunning the service.
     pub fn advance(&mut self) {
         if let Some(issued) = self.work.pop_front() {
             let result = match self.kernel.invoke(&issued) {
@@ -1066,8 +1000,6 @@ impl Registry {
             if module.previous.is_some() {
                 let generation = module.generation.checked_add(1).ok_or("module generation exhausted")?;
                 let (previous, cached) = module.previous.take().unwrap();
-                // These modules are pure projections: retrying their transform
-                // cannot repeat a model call, tool execution or external effect.
                 let fallback = evaluate(&previous, input, self.evaluator)
                     .and_then(|value| validate(&previous.manifest.kind, value));
                 module.active = Some(previous);
@@ -1194,9 +1126,6 @@ struct SystemProgram {
     binder: ResourceBinder,
     resources: kernel::Resources,
     resource_json: Arc<str>,
-    /// The module setup for `resource_json`, built once per resource set. Each
-    /// call appends its own part, so an evaluator that keeps the setup's
-    /// context per generation and resource set runs only that part.
     setup: Arc<str>,
 }
 impl SystemProgram {
@@ -1403,8 +1332,6 @@ fn validate(kind: &str, value: Value) -> Result<Value, String> {
         {
             Ok(value)
         }
-        // Leg-specific shape belongs to the native caller, which falls back on
-        // any mismatch; the host only bounds the value.
         "policy" if !value.is_null() => Ok(value),
         _ => Err(format!("invalid {kind} module result")),
     }
@@ -1428,7 +1355,6 @@ enum Request {
     Cancel(u64, mpsc::SyncSender<Result<Value, String>>),
 }
 
-/// UI-facing mailbox. Polling never performs filesystem access or JavaScript.
 pub struct Client {
     pub root: PathBuf,
     tx: Option<mpsc::SyncSender<Request>>,
@@ -1474,8 +1400,6 @@ impl Client {
                     Registry::with_resources(worker_root, evaluator, validator, binder);
                 registry.watch = watch::Watch::new();
                 registry.refresh(true);
-                // Even an empty directory has completed discovery. Revision
-                // zero is reserved for the UI's initial, unpublished catalogue.
                 registry.revision = registry.revision.max(1);
                 let mut last_scan = Instant::now();
                 let snapshot = registry.snapshot();
@@ -1525,8 +1449,6 @@ impl Client {
                         scanned = Some(registry.refresh_snapshot(false));
                         last_scan = Instant::now();
                     }
-                    // With nothing queued, `advance` changes nothing, and a
-                    // scan just ended is already the registry as it stands.
                     let idle = response.is_none()
                         && registry.work.is_empty()
                         && registry.completions.is_empty();
@@ -1538,8 +1460,6 @@ impl Client {
                     let scan = Scan::of(&registry, &snapshot);
                     *published.write().unwrap_or_else(|p| p.into_inner()) = snapshot;
                     outcomes.publish(scan);
-                    // An acknowledged generation is already observable to the
-                    // UI, including request-triggered restoration of old code.
                     if let Some((reply, result)) = response {
                         let _ = reply.send(result);
                     }
@@ -1577,7 +1497,6 @@ impl Client {
         self.shared.try_read().ok().map(|s| s.clone())
     }
 
-    /// What this client's edits became; see [`Board`].
     pub fn board(&self) -> Arc<Board> {
         Arc::clone(&self.board)
     }

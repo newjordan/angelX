@@ -8,10 +8,8 @@
 use super::render::{Cell, Grid, Ground};
 use angel_delve::rules::{EnemyKind, Floor, Pack, RoomKind, Tile};
 
-/// Rock left round each room, so every doorway opens on a passage.
 const MARGIN: usize = 4;
 
-/// What a blocking tile is on this floor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Prop {
     Tomb,
@@ -24,15 +22,12 @@ pub enum Prop {
     Exhibit,
 }
 
-/// A room of the floor, in the crawl's cells.
 #[derive(Clone, Debug)]
 pub struct Hall {
     pub kind: RoomKind,
-    /// Its floor's first and last open cells.
     pub min: (i32, i32),
     pub max: (i32, i32),
     pub roster: Vec<EnemyKind>,
-    /// Neighbours through its doorways, by hall index.
     pub ways: Vec<usize>,
 }
 
@@ -46,20 +41,14 @@ pub struct Dungeon {
     pub grid: Grid,
     pub halls: Vec<Hall>,
     pub props: Vec<(f32, f32, Prop)>,
-    // Billboard furniture stays visually open to the raycaster, but is solid
-    // to feet, just like the playable Floor's Tile::Block.
     blocked: Vec<bool>,
     pub pack: Pack,
-    /// Where the wall sconces burn: each one's face, just off the wall.
     pub sconces: Vec<(f32, f32)>,
 }
 
-/// What hangs on a wall face: a sconce, a banner (the kit's decal order).
 pub const SCONCE: u8 = 0;
 pub const BANNER: u8 = 1;
 
-/// The sconces and banners of a dungeon: on some wall faces that look onto
-/// open floor, picked by the place itself so they're always the same.
 fn fixtures(
     w: usize,
     h: usize,
@@ -108,8 +97,6 @@ fn fixtures(
     (decals, sconces)
 }
 
-/// Which wall texture a pack's rooms are faced with, and what its blocking
-/// tiles become: a wall face (pillars, shelves) or a standing prop.
 fn faces(pack: Pack) -> (u8, Result<u8, Prop>) {
     use super::textures::Wall;
     match pack {
@@ -119,13 +106,11 @@ fn faces(pack: Pack) -> (u8, Result<u8, Prop>) {
         Pack::Archive => (Wall::Archive as u8, Ok(Wall::Shelf as u8)),
         Pack::Fungal => (Wall::Fungal as u8, Err(Prop::Mushroom)),
         Pack::Unknown => (Wall::Unknown as u8, Err(Prop::EyePillar)),
-        // The swamp borrows the Fungal Deep's faces until it has its own.
         Pack::Swamp => (Wall::Fungal as u8, Err(Prop::Mushroom)),
     }
 }
 
 impl Dungeon {
-    /// The crawl's floor from a floor of the Delve.
     pub fn of(floor: &Floor) -> Dungeon {
         use super::textures::Wall;
         let (face, block) = faces(floor.pack);
@@ -146,7 +131,6 @@ impl Dungeon {
         let mut halls = Vec::new();
         let mut props = Vec::new();
         let mut blocked = vec![false; w * h];
-        // Where each room sits, and its doorways' middles.
         let mut origins = Vec::new();
         for room in &floor.rooms {
             let ox = (room.cell.0 - gx0) as usize * bw + (bw - room.cols) / 2;
@@ -164,7 +148,6 @@ impl Dungeon {
                         }),
                         Tile::Floor | Tile::Door | Tile::Ledge => Cell::Open(Ground::Flags),
                         Tile::Stairs => Cell::Open(Ground::Stairs),
-                        // The swamp's mire reads as shallow water underfoot.
                         Tile::Bog => Cell::Open(Ground::Water),
                         Tile::Hazard => Cell::Open(match floor.pack {
                             Pack::Hellforge | Pack::Unknown => Ground::Lava,
@@ -209,8 +192,6 @@ impl Dungeon {
                 ways: Vec::new(),
             });
         }
-        // Corridors: from each doorway's middle, straight out to the edge of
-        // the room's block, then along the edge to meet the neighbour's.
         let cut = |cells: &mut Vec<Cell>, (x, y): (i32, i32)| {
             if x >= 0 && y >= 0 && (x as usize) < w && (y as usize) < h {
                 let c = &mut cells[y as usize * w + x as usize];
@@ -240,7 +221,6 @@ impl Dungeon {
                     (ox + c, oy + rw)
                 };
                 let (a, b) = (door(i, dir), door(j, (dir + 2) % 4));
-                // The seam between the two blocks.
                 let (ax, ay) = (
                     (room.cell.0 - gx0) * bw as i32,
                     (room.cell.1 - gy0) * bh as i32,
@@ -251,8 +231,6 @@ impl Dungeon {
                     2 => ay + bh as i32,
                     _ => ax,
                 };
-                // Out of one doorway to the seam, along it, and in at the
-                // other: straight where they line up, a dogleg where not.
                 let via = |(x, y): (i32, i32)| if dir % 2 == 1 { (seam, y) } else { (x, seam) };
                 for (from, to) in [(a, via(a)), (via(a), via(b)), (via(b), b)] {
                     let (mut x, mut y) = from;
@@ -284,7 +262,6 @@ impl Dungeon {
         }
     }
 
-    /// The hall a party starts in.
     pub fn start(&self) -> usize {
         self.halls
             .iter()
@@ -292,7 +269,6 @@ impl Dungeon {
             .unwrap_or(0)
     }
 
-    /// Whether a party can stand in a cell: open, dry, and no prop in it.
     pub fn walkable(&self, (x, y): (i32, i32)) -> bool {
         x >= 0
             && y >= 0
@@ -305,8 +281,6 @@ impl Dungeon {
             )
     }
 
-    /// The shortest walk from `a` to `b`, cell by cell (both ends kept),
-    /// along walkable cells; none if there's no way.
     pub fn path(&self, a: (i32, i32), b: (i32, i32)) -> Option<Vec<(i32, i32)>> {
         if !self.walkable(a) || !self.walkable(b) {
             return None;

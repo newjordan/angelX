@@ -36,8 +36,6 @@ mod high_tier_tests {
             let out = if t >= 3 { 2 } else { 0 };
             assert_eq!((art[t].w, art[t].h), (plain.w + out, plain.h + out), "tier {}", t + 1);
         }
-        // The fourth's frame is cold silver, the fifth's gold, both bright
-        // at the corners.
         assert_eq!(art[3].get(3, 0), ink('U'));
         assert_eq!(art[4].get(3, 0), ink('4'));
         assert_eq!(art[4].get(0, 0), ink('w'));
@@ -45,9 +43,6 @@ mod high_tier_tests {
     }
 }
 
-/// A card's art as authored (or its kind's glyph), on black paper. A
-/// wish's fourth and fifth grants are framed (`high_frame`), so the high
-/// tiers stand out in every list their cards are shown in.
 pub fn card_art(card: &Card) -> Img {
     let art = super::fx::icon(&card.art_rows());
     match crate::rules::tray::high_tier(Some(&card.id)) {
@@ -56,9 +51,6 @@ pub fn card_art(card: &Card) -> Img {
     }
 }
 
-/// `art` in the frame of a wish's high tier, a pixel out all round: the
-/// fourth's cold silver with bright corners; the fifth's gold, its corners
-/// glinting white and a spark at the middle of each side.
 fn high_frame(art: &Img, tier: u8) -> Img {
     let (w, h) = (art.w + 2, art.h + 2);
     let mut im = Img::new(w, h);
@@ -79,9 +71,6 @@ fn high_frame(art: &Img, tier: u8) -> Img {
     im
 }
 
-/// A physical pickup, projected through the same lit-solid sampler as the
-/// stage's procedural 3D objects. Card art remains available in the inventory;
-/// the floor silhouette identifies the item's role, with rarity in its material.
 pub(super) fn pickup_material(card: Option<&Card>) -> (u32, [u8; 3]) {
     use crate::rules::cards::Kind;
     let (shape, material): (u32, [u8; 3]) = match card {
@@ -90,12 +79,12 @@ pub(super) fn pickup_material(card: Option<&Card>) -> (u32, [u8; 3]) {
         Some(c) if c.id == "gem" || c.id.contains("mana") => (6, [80, 166, 238]),
         Some(c) => {
             let shape = match c.kind {
-                Kind::Take => 1, // supplies: rounded vessels
-                Kind::Arm => 2, // arms: a pointed solid
-                Kind::Guard => 0, // protection: a sturdy block
-                Kind::Hold => 5, // lasting equipment: a ring
-                Kind::Play => 0, // a carried card-box
-                Kind::Spell => 6, // spells: a faceted crystal
+                Kind::Take => 1,
+                Kind::Arm => 2,
+                Kind::Guard => 0,
+                Kind::Hold => 5,
+                Kind::Play => 0,
+                Kind::Spell => 6,
             };
             let material = match c.rarity {
                 Rarity::Relic => [206, 132, 244],
@@ -109,8 +98,6 @@ pub(super) fn pickup_material(card: Option<&Card>) -> (u32, [u8; 3]) {
     (shape, material)
 }
 
-/// A card lying on the floor at `(x, y)`, turning (`pickup_cards`): its own
-/// art on its face, in greys; a card the book does not know shows its back.
 pub fn turning_card(card: Option<&Card>, (x, y): (i32, i32), tick: u32) -> Img {
     let art = card.map(card_art);
     let shine = card.is_some_and(|c| super::pickup_meshes::recipe(c).shine);
@@ -125,7 +112,6 @@ pub fn floor_card(card: Option<&Card>, tick: u32) -> Img {
 pub(super) fn pickup_image(shape: u32, material: [u8; 3], phase: f32) -> Img {
     const SIZE: i32 = 20;
     let mut im = Img::new(SIZE, SIZE + 3);
-    // A grounded contact shadow separates the hovering solid from the floor.
     for y in 18..21 {
         for x in 4..16 {
             let dx = (x as f32 - 9.5) / 6.0;
@@ -150,8 +136,6 @@ pub(super) fn pickup_image(shape: u32, material: [u8; 3], phase: f32) -> Img {
     im
 }
 
-/// Rim and glint inks by rarity. A card on the floor is live state, so its
-/// rim may use the signal bank.
 fn rim(rarity: Option<Rarity>) -> (char, char) {
     match rarity {
         Some(Rarity::Relic) => ('6', 'w'),
@@ -160,10 +144,6 @@ fn rim(rarity: Option<Rarity>) -> (char, char) {
     }
 }
 
-/// A card lying face up: a dark plate rimmed by rarity with the art shrunk
-/// to fit, a glint running round the rim. Unknown cards show a blank back.
-/// The floor shows a solid now (`floor_card`); the plate's palette inks are
-/// what the 3D pickups take their colours from (`pickup_meshes::recipe`).
 pub(super) fn floor_plate(card: Option<&Card>, tick: u32) -> Img {
     const W: i32 = 14;
     const H: i32 = 18;
@@ -190,7 +170,6 @@ pub(super) fn floor_plate(card: Option<&Card>, tick: u32) -> Img {
             }
         }
     }
-    // The glint walks the rim once every two seconds.
     let perimeter = 2 * (W + H) - 4;
     let step = ((tick / 2) % 30) as i32;
     if step < perimeter / 2 {

@@ -201,7 +201,6 @@ impl Run {
             let damage = damage.min(e.hp);
             e.hp -= damage;
             e.wits.foe = by;
-            // Large foes cannot be held permanently by the channel.
             if !lightning {
                 e.frozen = e.frozen.max(if e.is_boss() {
                     3

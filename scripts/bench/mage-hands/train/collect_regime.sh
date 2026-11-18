@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Explicitly invoked cloud read only. Never launches/retries a GPU or deploys.
-# Historical pilot artifacts are unsupported by the repaired evidence checker.
 set -euo pipefail
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 [[ $# == 2 ]] || { echo 'usage: collect_regime.sh NEW_RUN NEW_DESTINATION' >&2; exit 2; }

@@ -45,8 +45,6 @@ fn call(id: &str, name: &str, args: Value) -> ChatMsg {
     )
 }
 
-/// The system prompt's types, then a compaction's handoff that introduces
-/// `⠺⠙` again (its short pages inline) and `⠍⠑` (its signal).
 fn types_and_handoff() -> Vec<ChatMsg> {
     let handoff = format!("{}{}\n⠺⠙⠍⠑", live::ATTENTION, live::HANDOFF.cells());
     assert!(continuity::is_handoff(&handoff));
@@ -57,8 +55,6 @@ fn types_and_handoff() -> Vec<ChatMsg> {
     ]
 }
 
-/// The pages' own stamps on a tool result's tail and on advice turns, then
-/// the route on a turn of its own.
 fn stamps_and_advice() -> Vec<ChatMsg> {
     vec![
         ChatMsg::system("You fix code."),
@@ -70,7 +66,6 @@ fn stamps_and_advice() -> Vec<ChatMsg> {
     ]
 }
 
-/// Ledger reads of a type, a route and a page.
 fn ledger_reads() -> Vec<ChatMsg> {
     let workspace = std::path::Path::new("/nonexistent/claude-seat-profile");
     let read = |cells: &str| ledger::read(workspace, cells).unwrap();
@@ -97,7 +92,6 @@ fn every_path() -> [Vec<ChatMsg>; 3] {
     [types_and_handoff(), stamps_and_advice(), ledger_reads()]
 }
 
-/// Every string a request body carries, one per line.
 fn texts(value: &Value) -> String {
     match value {
         Value::String(text) => text.clone(),
@@ -163,9 +157,6 @@ fn only_inside_the_profile_is_a_page_left_out() {
     assert!(!omitted(w_workflow::RESPONSE, text), "restored after");
 }
 
-/// The introductions of the types and of a handoff's re-introduction are the
-/// book's own with exactly the two pages gone; outside the profile they carry
-/// both.
 #[test]
 fn the_type_and_handoff_introductions_drop_exactly_the_two_pages() {
     let messages = types_and_handoff();
@@ -219,8 +210,6 @@ fn the_type_and_handoff_introductions_drop_exactly_the_two_pages() {
     );
 }
 
-/// A page's own stamp is never introduced under the profile; its route, met
-/// later, is introduced with the rest of its pages.
 #[test]
 fn a_left_out_page_stamp_is_never_introduced() {
     let messages = stamps_and_advice();
@@ -244,9 +233,6 @@ fn a_left_out_page_stamp_is_never_introduced() {
     );
 }
 
-/// The seat's request on every path carries neither page and nothing of a
-/// caveman line; the pages around them keep their words and their addresses.
-/// The history is untouched.
 #[test]
 fn the_anthropic_seat_is_never_sent_either_page() {
     let _guard = crate::tests::env_lock();
@@ -289,9 +275,6 @@ fn the_anthropic_seat_is_never_sent_either_page() {
     }
 }
 
-/// Every other seat, and the Anthropic seat with the profile switched off,
-/// still hears both pages: in the introductions and in every ledger read,
-/// whose tool results go out byte for byte as the ledger rendered them.
 #[test]
 fn every_other_seat_still_hears_both_pages() {
     let _guard = crate::tests::env_lock();

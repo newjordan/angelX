@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Print Grok usage field names and counts only. Never print the bearer."""
 import json
 import urllib.request
 from pathlib import Path

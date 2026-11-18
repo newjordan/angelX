@@ -8,7 +8,6 @@
 use super::glb::{self, Gltf};
 use std::f32::consts::{PI, TAU};
 
-/// A mesh's arrays before they go into the file.
 #[derive(Default)]
 struct Shape {
     positions: Vec<f32>,
@@ -25,7 +24,6 @@ impl Shape {
         (self.positions.len() / 3 - 1) as u32
     }
 
-    /// Into the file as a mesh of one primitive with `material`.
     fn add(&self, g: &mut Gltf, material: usize) -> usize {
         let mut attributes = vec![("POSITION", g.floats(&self.positions, "VEC3"))];
         if !self.normals.is_empty() {
@@ -42,8 +40,6 @@ impl Shape {
     }
 }
 
-/// A prism or a tapered column round y: `sides` faces, flat-shaded when
-/// `flat`, from `r0` at y 0 to `r1` at `h`, capped.
 fn column(sides: u32, r0: f32, r1: f32, h: f32, flat: bool) -> Shape {
     let mut s = Shape::default();
     let slope = (r0 - r1) / h;
@@ -77,8 +73,6 @@ fn column(sides: u32, r0: f32, r1: f32, h: f32, flat: bool) -> Shape {
     s
 }
 
-/// A sphere of radius `r`, `rings` from pole to pole, the upper half only
-/// when `dome`.
 fn sphere(r: f32, segments: u32, rings: u32, dome: bool) -> Shape {
     let mut s = Shape::default();
     let last = if dome { rings / 2 } else { rings };
@@ -101,8 +95,6 @@ fn sphere(r: f32, segments: u32, rings: u32, dome: bool) -> Shape {
     s
 }
 
-/// A square bar `thick` across, reaching `length` along +x from the
-/// origin: an arm.
 fn arm(length: f32, thick: f32) -> Shape {
     let mut s = Shape::default();
     let (x0, x1, t) = (0.0, length, thick / 2.0);
@@ -124,7 +116,6 @@ fn arm(length: f32, thick: f32) -> Shape {
     s
 }
 
-/// An octahedron, no normals: the reader makes its faces flat.
 fn gem(r: f32) -> Shape {
     let mut s = Shape::default();
     let p = [[r, 0.0, 0.0], [-r, 0.0, 0.0], [0.0, r * 1.4, 0.0], [0.0, -r * 1.4, 0.0], [0.0, 0.0, r], [0.0, 0.0, -r]];
@@ -135,7 +126,6 @@ fn gem(r: f32) -> Shape {
     s
 }
 
-/// A ring round y: radius `big`, tube `small`.
 fn torus(big: f32, small: f32, segments: u32, sides: u32) -> Shape {
     let mut s = Shape::default();
     for i in 0..=segments {
@@ -158,7 +148,6 @@ fn torus(big: f32, small: f32, segments: u32, sides: u32) -> Shape {
     s
 }
 
-/// A flat square on y 0, facing up, uv over it.
 fn plate(half: f32) -> Shape {
     let mut s = Shape::default();
     for (x, z, u, v) in [(-half, half, 0.0, 1.0), (half, half, 1.0, 1.0), (half, -half, 1.0, 0.0), (-half, -half, 0.0, 0.0)] {
@@ -169,7 +158,6 @@ fn plate(half: f32) -> Shape {
     s
 }
 
-/// The plinth's top: rings and spokes, pixel art, sampled nearest.
 fn compass(side: u32) -> Vec<u8> {
     let mut rgba = Vec::with_capacity((side * side * 4) as usize);
     let c = side as f32 / 2.0;
@@ -202,14 +190,12 @@ fn list(values: &[f32]) -> String {
     values.iter().map(|v| format!("{v}")).collect::<Vec<_>>().join(",")
 }
 
-/// What the file holds, for the sampler's readout.
 pub struct Summary {
     pub nodes: usize,
     pub triangles: usize,
     pub clips: usize,
 }
 
-/// The model as a `.glb`, and what it holds.
 pub fn lantern() -> (Vec<u8>, Summary) {
     let mut g = Gltf::default();
     let slate = g.material(r#"{"pbrMetallicRoughness":{"baseColorFactor":[0.36,0.4,0.5,1],"metallicFactor":0,"roughnessFactor":0.9}}"#.into());
@@ -230,7 +216,6 @@ pub fn lantern() -> (Vec<u8>, Summary) {
     let face = g.material(format!(r#"{{"pbrMetallicRoughness":{{"baseColorTexture":{{"index":{texture}}},"metallicFactor":0,"roughnessFactor":1}}}}"#));
 
     let mut plinth = column(6, 1.15, 1.0, 0.35, true);
-    // Vertex colours: the plinth darker at its foot.
     for chunk in plinth.positions.chunks(3) {
         let lift = 0.55 + chunk[1] / 0.35 * 0.45;
         plinth.colors.extend([lift, lift, lift, 1.0]);
@@ -251,8 +236,6 @@ pub fn lantern() -> (Vec<u8>, Summary) {
         .sum::<usize>()
         / 3;
 
-    // Nodes: the gems, the arms that hold them, the ring, the dome, the
-    // hub that turns them, the column, the plinth, the root.
     let mut gems = Vec::new();
     for mesh in &gem_meshes {
         gems.push(g.node(format!(r#"{{"mesh":{mesh},"translation":[0.98,0,0]}}"#)));
@@ -273,15 +256,12 @@ pub fn lantern() -> (Vec<u8>, Summary) {
     let scene = g.add_scene(&[root]);
     g.scene = Some(scene);
 
-    // Clip 0, `orbit`, six seconds.
     let keys = [0.0f32, 1.5, 3.0, 4.5, 6.0];
     let hub_t = g.floats(&keys, "SCALAR");
     let turns: Vec<f32> = keys.iter().flat_map(|t| quat_y(t / 6.0 * TAU)).collect();
     let hub_r = g.floats(&turns, "VEC4");
     let mut channels = vec![format!(r#"{{"sampler":0,"target":{{"node":{hub},"path":"rotation"}}}}"#)];
     let mut samplers = vec![format!(r#"{{"input":{hub_t},"output":{hub_r},"interpolation":"LINEAR"}}"#)];
-    // Each gem bobs on a sine, a third of a turn apart: a cubic spline
-    // through its quarter points, with the sine's own slope as tangents.
     for (k, gem) in gems.iter().enumerate() {
         let (amp, w, phase) = (0.16f32, TAU / 6.0, k as f32 * TAU / 3.0);
         let mut out = Vec::new();
@@ -294,19 +274,16 @@ pub fn lantern() -> (Vec<u8>, Summary) {
         channels.push(format!(r#"{{"sampler":{},"target":{{"node":{gem},"path":"translation"}}}}"#, samplers.len()));
         samplers.push(format!(r#"{{"input":{hub_t},"output":{o},"interpolation":"CUBICSPLINE"}}"#));
     }
-    // The ring ticks back a twelfth of a turn every half second.
     let ticks: Vec<f32> = (0..=12).map(|i| i as f32 * 0.5).collect();
     let tick_t = g.floats(&ticks, "SCALAR");
     let tick_r = g.floats(&ticks.iter().flat_map(|t| quat_y(-t / 6.0 * TAU)).collect::<Vec<_>>(), "VEC4");
     channels.push(format!(r#"{{"sampler":{},"target":{{"node":{ring},"path":"rotation"}}}}"#, samplers.len()));
     samplers.push(format!(r#"{{"input":{tick_t},"output":{tick_r},"interpolation":"STEP"}}"#));
-    // The dome breathes.
     let dome_t = g.floats(&[0.0, 3.0, 6.0], "SCALAR");
     let dome_s = g.floats(&[1.0, 1.0, 1.0, 1.08, 1.12, 1.08, 1.0, 1.0, 1.0], "VEC3");
     channels.push(format!(r#"{{"sampler":{},"target":{{"node":{dome},"path":"scale"}}}}"#, samplers.len()));
     samplers.push(format!(r#"{{"input":{dome_t},"output":{dome_s}}}"#));
     g.animation(format!(r#"{{"channels":[{}],"samplers":[{}]}}"#, channels.join(","), samplers.join(",")));
-    // Clip 1, `tick`: the ring alone.
     g.animation(format!(
         r#"{{"channels":[{{"sampler":0,"target":{{"node":{ring},"path":"rotation"}}}}],"samplers":[{{"input":{tick_t},"output":{tick_r},"interpolation":"STEP"}}]}}"#
     ));

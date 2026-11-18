@@ -11,8 +11,6 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parents[1]
 A = runpy.run_path(str(ROOT / 'scripts/boss-art.py'))
 NAMES = ('red-pick-chief', 'the-foreman', 'late-fee-leviathan')
-# Art deliveries and review output live outside the checkout, under
-# ANGEL_ART_ARTIFACTS (default ~/angel-art).
 ART = Path(os.environ.get('ANGEL_ART_ARTIFACTS') or Path.home()/'angel-art')
 OUT = ART/'boss-art-20261015/boss-4b'
 PALS = [
@@ -79,7 +77,7 @@ def finish(im, i, alpha=None, details=()):
     for y, row in enumerate(rows):
         for x, k in enumerate(row):
             if k != '.' and all(not (0 <= nx < im.width and 0 <= ny < im.height) or rows[ny][nx] == '.' for nx, ny in A['neighbours'](x, y)):
-                keep.add((x, y))  # Inherited disconnected silhouette pixels.
+                keep.add((x, y))
     while True:
         clean = A['despeckle'](rows, keep)
         if clean == rows:
@@ -107,7 +105,6 @@ def lights(spec, points, name):
 
 def red():
     im = Image.new('L', mask(0).size, ord('n'))
-    # Steel spans the inherited pick head; the red grip stays inside its mask.
     line(im, [(15, 0), (23, 0), (25, 1)], 'H', 2)
     line(im, [(21, 2), (21, 20)], 'T', 2)
     rect(im, (20, 9, 21, 19), 'T')
@@ -127,7 +124,6 @@ def red():
         poly(im, points, 'U')
     line(im, [(2, 11), (3, 12), (3, 15)], 'U', 2)
     line(im, [(22, 12), (22, 15)], 'U', 2)
-    # Red remains a single diagonal colour block, with restrained cap-red rims.
     line(im, [(7, 9), (17, 19)], 't', 6)
     line(im, [(6, 10), (15, 19)], 'O', 1)
     rect(im, (0, 16, 4, 20), 'n')
@@ -163,14 +159,12 @@ def foreman():
     line(im, [(24, 17), (25, 19), (27, 21)], 'o', 2)
     rect(im, (7, 19, 8, 21), 'O'); rect(im, (18, 19, 19, 21), 'O')
     rect(im, (6, 21, 8, 22), 'o'); rect(im, (18, 21, 20, 22), 'o')
-    # Five pixels in a 3x2 lamp, with a cut upper corner instead of a rectangle.
     motif(im, 20, 3, ['tHH', 'HHH'])
     return im
 
 
 def leviathan():
     im = Image.new('L', mask(2).size, ord('o'))
-    # Rounded book-cover plates round the wide maw; no regular texture noise.
     rect(im, (2, 2, 24, 12), 'T')
     poly(im, [(7, 2), (18, 2), (23, 4), (22, 6), (4, 6), (4, 4)], 'T')
     line(im, [(6, 3), (19, 3)], 'T')
@@ -183,7 +177,6 @@ def leviathan():
     for x in [8, 13, 18, 22]:
         line(im, [(x, 9), (x, 10)], 'T')
     line(im, [(4, 11), (23, 11)], 'T')
-    # Belly and arm curls read as one wet animal under the dry book shell.
     poly(im, [(8, 12), (20, 12), (23, 16), (20, 22), (8, 22), (5, 17)], 'S')
     poly(im, [(10, 13), (17, 13), (20, 15), (19, 18), (15, 20), (10, 18)], 'O')
     poly(im, [(12, 14), (15, 14), (16, 16), (14, 17), (12, 16)], 'U')
@@ -195,15 +188,11 @@ def leviathan():
     for points in [[(8, 20), (7, 23), (6, 23)], [(18, 20), (19, 23), (21, 23)],
                    [(2, 24), (4, 23), (6, 25)], [(10, 25), (12, 23), (15, 25)], [(17, 24), (20, 24), (22, 25)]]:
         line(im, points, 'S', 3); line(im, points, 'U')
-    # Four uninterrupted dark native rows retain the maw in actual cells;
-    # upper fangs and three lower teeth sit outside its two dark cell windows.
     rect(im, (5, 7, 23, 12), 'n')
     for x in (6, 10, 15, 20): line(im, [(x, 7), (x, 8)], 'T')
     for x in (7, 15, 22): line(im, [(x, 11), (x, 12)], 'T')
     line(im, [(4, 13), (23, 13)], 'T')
-    # Small dorsal curl; broad 1px native signature is shaped in the study.
     motif(im, 12, 0, ['SUUS', 'SUUS', 'SSSS'])
-    # Right-hand retrieval anchor preserves the original loop and all prongs.
     line(im, [(29, 9), (29, 23)], 'T', 2)
     line(im, [(29, 12), (29, 22)], 'T')
     line(im, [(25, 12), (31, 12)], 't')
@@ -212,7 +201,6 @@ def leviathan():
     line(im, [(28, 10), (28, 11)], 'T')
     for x, y in [(29, 9), (30, 10), (29, 11), (28, 10)]:
         put(im, x, y, 'T')
-    # Eyes above a cream page stripe, then long ivory fangs into a dark gullet.
     rect(im, (4, 4, 23, 6), 'T')
     line(im, [(5, 6), (22, 6)], 't')
     line(im, [(3, 5), (3, 12)], 'o', 2)
@@ -241,7 +229,6 @@ def bodies(i):
         else:
             points = {(x*scale+dx, y*scale+dy) for x,y in [(6,3),(7,3),(8,3),(9,3),(6,4),(7,4),(8,4),(18,3),(19,3),(20,3),(21,3),(19,4),(20,4),(21,4)]
                       for dx in range(scale) for dy in range(scale)}
-        # Preserve the named eyes/teeth and the small page edge during cleanup.
         detail = set(points)
         for y in range(im.height):
             for x in range(im.width):
@@ -268,7 +255,6 @@ def effect(im, i, details=()):
 def projectiles(i):
     im = Image.new('L', (24, 24), ord('.'))
     if i == 0:
-        # A six-by-three cartridge mass, enlarged threefold inside the same canvas.
         cartridge = Image.new('L', (6, 3), ord('.'))
         motif(cartridge, 0, 0, ['OOOOOO', 'OtnttO', 'OOOOOO'])
         im.paste(cartridge.resize((18, 9), Image.Resampling.NEAREST), (3, 8))
@@ -291,7 +277,6 @@ def projectiles(i):
         other = im.rotate(90, resample=Image.Resampling.NEAREST)
     frames = [effect(x, i) for x in (im, other)]
     if i == 1:
-        # The travelling lash stays below the face/lamp, even in overlapping volleys.
         for frame in frames:
             frame['pigments'] = {**frame['pigments'], 'H':'#344f62', 't':'#577c90'}
     return frames
@@ -302,7 +287,6 @@ def tells(i):
     for stage in range(4):
         im = Image.new('L', (11, 11), ord('.'))
         if i == 0:
-            # Powder fuse jaws: each stage reaches the same true 5px radius.
             for x, y in [(5, 0), (0, 5), (10, 5), (5, 10)]:
                 put(im, x, y, 't')
             if stage == 1:
@@ -312,13 +296,11 @@ def tells(i):
                 rect(im, (1, 3, 2, 7), 't')
                 line(im, [(9, 3), (9, 7)], 't')
             if stage == 3:
-                # Pick head and red haft inside a rounded, fuse-tipped envelope.
                 line(im, [(2,3),(4,2),(7,2),(8,3)], 'H', 2)
                 line(im, [(6,3),(6,8)], 'O', 2)
                 line(im, [(1,5),(2,8),(5,10),(8,8),(10,5)], 't')
                 motif(im, 7, 1, ['T.', 'TT'])
         elif i == 1:
-            # Independent bridle / lash silhouettes rotated on real rage rays.
             if stage == 0:
                 motif(im, 4, 4, ['ttt', '.t.'])
             elif stage == 1:
@@ -332,14 +314,12 @@ def tells(i):
             if stage < 3:
                 larger = Image.new('L', (15, 15), ord('.')); larger.paste(im, (2, 2)); im = larger
         else:
-            # Curled sea hooks are sampled across the true annulus / laser.
             paths = [[(4, 5), (6, 5)], [(3, 3), (6, 2), (8, 4), (7, 6)],
                      [(1, 3), (4, 1), (8, 2), (9, 5), (7, 8), (4, 7)],
                      [(0, 3), (3, 0), (8, 1), (10, 5), (8, 9), (4, 10), (1, 7)]]
             line(im, paths[stage], 'U', [2, 2, 3, 3][stage])
             if stage >= 2:
                 line(im, [(3, 4), (5, 3), (7, 5), (5, 7)], 'h', 2)
-        # Effect dots are authored meaningful boundaries, never body texture.
         details = [(x, y) for y in range(im.height) for x in range(im.width) if im.getpixel((x, y)) != ord('.')]
         frames.append(effect(im, i, details=details))
     return frames
@@ -350,7 +330,6 @@ def impacts(i):
     for stage in range(5):
         im = Image.new('L', (28, 28), ord('.'))
         if i == 0:
-            # Detached puff contours grow, peak, split and drift; no shared base.
             boxes = [ [(2,19,5,22),(11,17,14,22),(23,20,26,23)],
                       [(0,14,5,22),(10,8,15,21),(22,14,27,22)],
                       [(0,9,5,20),(10,2,15,18),(22,8,27,21)],

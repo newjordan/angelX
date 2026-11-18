@@ -10,7 +10,6 @@ fn index(set: &std::collections::BTreeSet<Family>) -> Value {
     json!(set.iter().map(|f| Family::ALL.iter().position(|g| g == f).unwrap()).collect::<Vec<_>>())
 }
 
-/// A deck: found cards (copies too), wishes up their ladders, odd hold cards.
 fn deck(m: &mut Mix, pool: &[Card], wishes: &[Card]) -> Vec<Card> {
     let mut out = Vec::new();
     for _ in 0..m.below(8) {
@@ -45,7 +44,6 @@ fn record_bonus() {
             }
         }
     }
-    // Held cards of every word at awkward numbers, so every cap is reached.
     let mut loud: Vec<Card> = Vec::new();
     for (i, word) in ["damage 50", "rate 40", "speed 30", "pierce 2", "shots 3", "armor 2", "vamp 10", "volley 5", "volley 8", "bounce 3", "homing 3", "chain 3", "mend 5", "orbit 3", "burst 50", "fork 3", "fart 3", "size 3", "knock 3", "burn 3", "chill 3", "poison 3", "boomerang 1", "velocity 60"].iter().enumerate() {
         let text = format!("name Loud {i}\nkind hold\nrarity rare\ntext loud\n{word}\n");

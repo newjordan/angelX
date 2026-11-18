@@ -10,8 +10,6 @@ use serde_json::Value;
 use std::io::{self, Write};
 
 pub const SESSION_CHECKPOINT_SCHEMA: u32 = 1;
-/// Reserve room for the existing System JSON method/serial/reply envelope.
-/// Accepted checkpoint payloads therefore fit inside its 16 MiB frame cap.
 pub const MAX_SESSION_CHECKPOINT_BYTES: usize = 16 * 1024 * 1024 - 4096;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -29,7 +27,6 @@ pub struct SessionCheckpoint {
     pub pending_frame: Option<frame::Pending>,
 }
 
-/// The independently validated, owning state recovered from an envelope.
 #[derive(Debug)]
 pub struct Restored {
     pub run: Run,
@@ -40,8 +37,6 @@ pub struct Restored {
     pub pending_frame: Option<frame::Pending>,
 }
 
-// An unreleased schema-1 checkpoint must explicitly carry null or an owned
-// phase marker; omission must not silently erase an in-flight native frame.
 fn required_pending_frame<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Option<frame::Pending>, D::Error> {
@@ -72,10 +67,6 @@ fn bounded_json(value: &SessionCheckpoint) -> Result<Vec<u8>, String> {
     Ok(output.0)
 }
 
-/// Capture an immutable checkpoint from one live ownership boundary.
-///
-/// The session identity comes from the existing Journal and the raid identity
-/// from its Run; they are cross-validated before any state is returned.
 pub fn capture(
     run: &Run,
     journal: &Journal,
@@ -86,7 +77,6 @@ pub fn capture(
     capture_with_frame(run, journal, context, event_seq, view_revision, None)
 }
 
-/// Live owners must include their exact native-ability-gap phase marker.
 pub fn capture_with_frame(
     run: &Run,
     journal: &Journal,
@@ -108,13 +98,10 @@ pub fn capture_with_frame(
         pending_frame: pending_frame.cloned(),
     };
     bounded_json(&checkpoint)?;
-    // Avoid decoding/cloning nested Run and Journal state until the aggregate
-    // serialized-size preflight has established the payload bound.
     validate(&checkpoint)?;
     Ok(checkpoint)
 }
 
-/// Restore without changing queues, latches, claims, or their ownership.
 pub fn restore(checkpoint: SessionCheckpoint) -> Result<Restored, String> {
     bounded_json(&checkpoint)?;
     validate(&checkpoint)?;
@@ -132,8 +119,6 @@ pub fn restore(checkpoint: SessionCheckpoint) -> Result<Restored, String> {
     })
 }
 
-/// Decode only complete, bounded envelopes. Callers must not deserialize an
-/// untrusted frame into `SessionCheckpoint` before applying this size guard.
 pub fn decode(bytes: &[u8]) -> Result<Restored, String> {
     if bytes.len() > MAX_SESSION_CHECKPOINT_BYTES {
         return Err("session checkpoint exceeds its bounded payload".into());
@@ -144,7 +129,6 @@ pub fn decode(bytes: &[u8]) -> Result<Restored, String> {
 }
 
 impl SessionCheckpoint {
-    /// Serialize and validate the complete envelope under the system frame bound.
     pub fn encode(&self) -> Result<Vec<u8>, String> {
         let bytes = bounded_json(self)?;
         validate(self)?;
@@ -190,9 +174,6 @@ fn validate(checkpoint: &SessionCheckpoint) -> Result<(), String> {
         &checkpoint.session,
         checkpoint.raid,
     )?;
-    // A schema-6 Journal with an omitted defaulted ownership marker can
-    // deserialize successfully. Requiring its current canonical capture
-    // rejects missing or noncanonical fields after restore normalization.
     if journal.capture()? != checkpoint.journal {
         return Err("session checkpoint Journal is incomplete or noncanonical".into());
     }
@@ -203,14 +184,9 @@ fn validate(checkpoint: &SessionCheckpoint) -> Result<(), String> {
     Ok(())
 }
 
-/// Check that a quiescent candidate handoff preserves the complete checkpoint.
-/// Session events and acknowledgements remain queued until ownership swaps, so
-/// no Journal retirement or context change is valid during this interval.
 pub fn validate_handoff(prior: &SessionCheckpoint, next: &SessionCheckpoint) -> Result<(), String> {
     validate(prior)?;
     validate(next)?;
-    // Exact canonical equality covers session/raid, both nested payloads,
-    // source context, sequencing, and every Journal receipt/completion.
     let mut prior = prior.clone();
     if prior.run.schema == 7 {
         let migrated = runtime_state::restore(prior.run)?;
@@ -254,8 +230,6 @@ fn validate_pending_world(run: &Run, journal: &Journal) -> Result<(), String> {
     if !crate::rules::brew_jobs::valid_outbox(&run.brewing, run.raid_id) {
         return Err("session checkpoint contains an invalid brewing outbox".into());
     }
-    // Decode every retained claim through the Journal's existing identity and
-    // payload validators; no checkpoint-specific receipt ledger is introduced.
     let _ = journal.pending_realm()?;
     let _ = journal.pending_home()?;
     let _ = journal.pending_brews()?;
@@ -265,8 +239,6 @@ fn validate_pending_world(run: &Run, journal: &Journal) -> Result<(), String> {
 }
 
 fn journal_raid(journal: &Journal, run_raid: u64) -> Result<u64, String> {
-    // Journal's persisted raid is intentionally private. Its own restore API
-    // validates the raid against this Run when the envelope is decoded.
     let saved = journal.capture()?;
     let raid = saved
         .get("raid")

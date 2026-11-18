@@ -8,11 +8,8 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap};
 pub type Tile = (i16, i16);
 pub const MAX_ACTORS: usize = 256;
 pub const MAX_PATH: usize = 512;
-/// The valley is 3,888 cells; the hillside, the whole 240 x 176 realm, is 42,240.
 pub const MAX_NAVIGATION_CELLS: usize = 65_536;
 
-/// Owned, passable ground in row-major order. Roads are preferred, while land
-/// remains available for builders carrying supplies to a new wall or courtyard.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Navigation {
     pub width: i16,
@@ -26,7 +23,6 @@ pub struct Navigation {
 pub struct Destination {
     pub citizen: u32,
     pub tile: Tile,
-    /// Select a work animation after reaching this workplace entrance.
     pub working: bool,
 }
 
@@ -35,8 +31,6 @@ pub struct Walker {
     pub tile: Tile,
     pub previous_tile: Tile,
     pub destination: Tile,
-    /// Next adjacent steps, excluding the current tile. Long routes retain a
-    /// bounded prefix and replan when that prefix has been walked.
     pub path: Vec<Tile>,
     pub walking: bool,
     pub working: bool,
@@ -48,7 +42,6 @@ pub struct Walker {
 #[serde(default)]
 pub struct Motion {
     pub actors: BTreeMap<u32, Walker>,
-    /// Hash of actual geometry, never the economy's per-second revision.
     pub geometry: u64,
 }
 
@@ -88,7 +81,6 @@ impl Navigation {
                 .unwrap_or(false)
     }
     fn fingerprint(&self) -> u64 {
-        // Specified byte order keeps native and WASM caches identical.
         let mut hash = 0xcbf29ce484222325u64;
         let mut push = |byte: u8| {
             hash ^= u64::from(byte);
@@ -159,9 +151,6 @@ impl Navigation {
 }
 
 impl Motion {
-    /// Geometry changes may leave a person temporarily standing on a newly
-    /// blocked plot. Save validation checks bounds and path shape, not current
-    /// passability; the next sync repairs that route without teleporting.
     pub fn valid(&self, width: i16, height: i16) -> bool {
         dimensions(width, height).is_some()
             && self.actors.len() <= MAX_ACTORS
@@ -203,8 +192,6 @@ impl Motion {
         Ok(())
     }
 
-    /// Reconcile after commands and roster changes without moving anyone.
-    /// Invalid input is rejected before modifying the saved actor ledger.
     pub fn sync(&mut self, destinations: &[Destination], nav: &Navigation) -> Result<(), String> {
         self.check(destinations, nav)?;
         let ids: BTreeSet<_> = destinations.iter().map(|d| d.citizen).collect();
@@ -247,9 +234,6 @@ impl Motion {
         Ok(())
     }
 
-    /// One authoritative second: one adjacent plot per citizen. The renderer
-    /// may interpolate previous_tile→tile and use walking before working when
-    /// a person has just arrived, so the final step finishes naturally.
     pub fn advance_second(
         &mut self,
         destinations: &[Destination],
@@ -259,7 +243,6 @@ impl Motion {
         for d in destinations {
             let actor = self.actors.get_mut(&d.citizen).unwrap();
             if let Some(&next) = actor.path.first() {
-                // A stale or hand-edited route cannot cross a blocked tile.
                 if !nav.open(next) {
                     actor.path.clear();
                     actor.blocked = true;

@@ -18,21 +18,17 @@ use super::heart::Built;
 use super::{Layout, Panel};
 use crate::ui::showcase_chart::Canvas;
 
-/// Straight RGBA text pixels: `(width, height, rgba)`.
 pub(crate) type Ink = (u32, u32, Vec<u8>);
 
-/// Text rendered in the window's font, `size` its cell height in pixels.
 pub(crate) trait Typeset {
     fn text(&mut self, line: &str, size: f32, ink: [u8; 3], bold: bool) -> Option<Ink>;
 }
 
-/// Shown text sizes (cell heights), before the plate's scale.
 pub(crate) const TINY: f32 = 12.5;
 pub(crate) const SMALL: f32 = 14.5;
 pub(crate) const MEDIUM: f32 = 18.0;
 pub(crate) const LARGE: f32 = 26.0;
 
-/// The plate's palette.
 pub(crate) const ROSE: [u8; 3] = [255, 76, 108];
 pub(crate) const ROSE_DIM: [u8; 3] = [160, 52, 76];
 pub(crate) const CYAN: [u8; 3] = [90, 216, 255];
@@ -43,12 +39,9 @@ pub(crate) const INK: [u8; 3] = [196, 214, 232];
 pub(crate) const DIM: [u8; 3] = [112, 132, 156];
 pub(crate) const FAINT: [u8; 3] = [64, 80, 102];
 
-/// What the plate shows of the cloud: its stages and lineage key.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct CloudView {
-    /// Each stage's label and whether it is ours.
     pub(crate) stages: Vec<(String, bool)>,
-    /// The cardiac lineages, in palette order: name and colour.
     pub(crate) lineages: Vec<(String, [u8; 3])>,
 }
 
@@ -82,17 +75,13 @@ impl CloudView {
     }
 }
 
-/// Everything the plate is drawn from.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct View<'a> {
     pub(crate) campaign: Option<&'a Campaign>,
     pub(crate) cloud: Option<&'a CloudView>,
-    /// The folder being watched, for the empty plate.
     pub(crate) dir: &'a str,
 }
 
-/// The score range the tracks share: the floor and everything known,
-/// rounded out to fives, at least 45 to 80.
 pub(crate) fn domain(campaign: Option<&Campaign>) -> (f64, f64) {
     let mut lo: f64 = 45.0;
     let mut hi: f64 = 80.0;
@@ -123,15 +112,11 @@ pub(crate) fn domain(campaign: Option<&Campaign>) -> (f64, f64) {
     )
 }
 
-/// Where `score` sits on a rail from `x0` to `x1` over `domain`, clamped to
-/// the rail.
 pub(crate) fn score_x(score: f64, domain: (f64, f64), x0: f32, x1: f32) -> f32 {
     let k = ((score - domain.0) / (domain.1 - domain.0).max(1e-6)).clamp(0.0, 1.0) as f32;
     x0 + (x1 - x0) * k
 }
 
-/// A track row's parts, in shown pixels: the rail from `x0` to `x1` at
-/// height `y`, and the right column from `right`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Track {
     pub(crate) x0: f32,
@@ -140,7 +125,6 @@ pub(crate) struct Track {
     pub(crate) right: f32,
 }
 
-/// Width of a row's right column (our score, budget pips, sparkline).
 pub(crate) const RIGHT: f32 = 100.0;
 
 pub(crate) fn track(row: Panel) -> Track {
@@ -152,8 +136,6 @@ pub(crate) fn track(row: Panel) -> Track {
     }
 }
 
-/// Where the heartbeat's trace runs in the title strip: right of the
-/// title, left of the phase and the countdown.
 pub(crate) fn ecg_strip(title: Panel) -> Panel {
     let x = title.x + 168.0;
     Panel {
@@ -164,7 +146,6 @@ pub(crate) fn ecg_strip(title: Panel) -> Panel {
     }
 }
 
-/// Where stage `i` of `n` sits on the stage rail: its slot's middle.
 pub(crate) fn stage_slot(rail: Panel, i: usize, n: usize) -> [f32; 2] {
     let n = n.max(1) as f32;
     [
@@ -173,13 +154,10 @@ pub(crate) fn stage_slot(rail: Panel, i: usize, n: usize) -> [f32; 2] {
     ]
 }
 
-/// A colour mixed toward another, `k` of the way.
 fn mix(a: [u8; 3], b: [u8; 3], k: f32) -> [u8; 3] {
     [0, 1, 2].map(|i| (f32::from(a[i]) * (1.0 - k) + f32::from(b[i]) * k).round() as u8)
 }
 
-/// How a line of text is set: its size (cell height, shown pixels), ink
-/// and weight.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Style {
     pub(crate) size: f32,
@@ -205,8 +183,6 @@ impl Style {
     }
 }
 
-/// The plate's canvas at `scale` pixels to a shown pixel, with helpers that
-/// take shown coordinates relative to the plate.
 pub(crate) struct Print<'t> {
     pub(crate) canvas: Canvas,
     s: f32,
@@ -245,7 +221,6 @@ impl<'t> Print<'t> {
         self.canvas.disc(pc, r * self.s, colour, a);
     }
 
-    /// A ring: a disc's outline, `width` across.
     pub(crate) fn ring(&mut self, c: [f32; 2], r: f32, width: f32, colour: [u8; 3], a: f32) {
         let pc = self.p(c[0], c[1]);
         let (r, half) = (r * self.s, width * self.s * 0.5);
@@ -261,7 +236,6 @@ impl<'t> Print<'t> {
         }
     }
 
-    /// A soft round glow: strongest in the middle, gone at `r`.
     pub(crate) fn glow(&mut self, c: [f32; 2], r: f32, colour: [u8; 3], a: f32) {
         let pc = self.p(c[0], c[1]);
         let r = r * self.s;
@@ -277,7 +251,6 @@ impl<'t> Print<'t> {
         }
     }
 
-    /// A filled triangle, its edges smoothed.
     pub(crate) fn triangle(
         &mut self,
         a: [f32; 2],
@@ -318,7 +291,6 @@ impl<'t> Print<'t> {
         }
     }
 
-    /// A dashed line from `a` to `b`.
     pub(crate) fn dashed(
         &mut self,
         a: [f32; 2],
@@ -340,8 +312,6 @@ impl<'t> Print<'t> {
         }
     }
 
-    /// Text set at `size`, its top left at `(x, y)` (shown pixels); returns
-    /// its shown width. `align`: 0 left, 0.5 centred, 1 right of `x`.
     pub(crate) fn text(&mut self, line: &str, [x, y]: [f32; 2], style: Style, align: f32) -> f32 {
         let Some(set) = self
             .typeset
@@ -355,7 +325,6 @@ impl<'t> Print<'t> {
         w
     }
 
-    /// Text cut with an ellipsis to fit `max` shown pixels.
     pub(crate) fn text_fit(
         &mut self,
         line: &str,
@@ -382,18 +351,15 @@ impl<'t> Print<'t> {
         self.text(&cut, at, style, align)
     }
 
-    /// The finished picture: `(width, height, straight rgba)`.
     pub(crate) fn finish(self) -> Ink {
         (self.canvas.w as u32, self.canvas.h as u32, self.canvas.rgba)
     }
 }
 
-/// A number as the boards show it: one decimal.
 pub(crate) fn score_text(v: Option<f64>) -> String {
     v.map_or_else(|| "—".to_string(), |v| format!("{v:.1}"))
 }
 
-/// The plate for `layout` and `view`, at `scale` pixels a shown pixel.
 pub(crate) fn draw(layout: &Layout, view: &View<'_>, scale: f32, typeset: &mut dyn Typeset) -> Ink {
     let mut print = Print::new(layout.panel, scale, typeset);
     title(&mut print, layout.title, view);
@@ -408,9 +374,6 @@ pub(crate) fn draw(layout: &Layout, view: &View<'_>, scale: f32, typeset: &mut d
     print.finish()
 }
 
-/// One module of the floating HUD (`hud::Module`) on its own picture: the
-/// part of the plate it carries, from `layout` (the module's own, at its
-/// origin), at `scale` pixels a shown pixel.
 pub(crate) fn module(
     module: super::hud::Module,
     layout: &Layout,
@@ -437,10 +400,6 @@ pub(crate) fn module(
     ink
 }
 
-/// Ink lifted for the floating HUD, which has no plate under it: its dim
-/// greys and faint rules brightened toward its lights (a gamma of 0.68),
-/// so they hold over the text below; the bright inks barely move, and
-/// none reaches white.
 pub(crate) fn lift(rgba: &mut [u8]) {
     static CURVE: std::sync::OnceLock<[u8; 256]> = std::sync::OnceLock::new();
     let curve = CURVE.get_or_init(|| {
@@ -453,8 +412,6 @@ pub(crate) fn lift(rgba: &mut [u8]) {
     }
 }
 
-/// The score axis and the board rows under it: faint empty tracks with no
-/// campaign.
 fn boards(print: &mut Print<'_>, layout: &Layout, view: &View<'_>, domain: (f64, f64)) {
     axis(print, layout, domain);
     if let Some(campaign) = view.campaign {
@@ -492,7 +449,6 @@ fn title(print: &mut Print<'_>, t: Panel, view: &View<'_>) {
         t.w - 30.0,
         0.0,
     );
-    // The trace's floor: the beat itself is a layer.
     let e = ecg_strip(t);
     print.dashed(
         [e.x, e.y + e.h * 0.62],
@@ -505,7 +461,6 @@ fn title(print: &mut Print<'_>, t: Panel, view: &View<'_>) {
     if let Some(c) = view.campaign
         && !c.phase.name.is_empty()
     {
-        // The phase chip; the countdown beside it is the clock's picture.
         let x = t.x + t.w - 168.0;
         let w = print.text(
             &c.phase.name,
@@ -516,7 +471,6 @@ fn title(print: &mut Print<'_>, t: Panel, view: &View<'_>) {
         print.ring([x, t.y + 3.0 + SMALL * 0.5], w * 0.5 + 8.0, 1.2, GOLD, 0.55);
         print.text("COLLAB ENDS", [t.x + t.w, t.y], Style::new(TINY, DIM), 1.0);
     }
-    // The rim under the title strip.
     print.line(
         [t.x, t.y + t.h - 1.0],
         [t.x + t.w, t.y + t.h - 1.0],
@@ -527,7 +481,6 @@ fn title(print: &mut Print<'_>, t: Panel, view: &View<'_>) {
 }
 
 fn viewport(print: &mut Print<'_>, v: Panel, view: &View<'_>) {
-    // Corner ticks round the viewport: a frame without a box.
     let arm = 12.0;
     for (cx, cy, dx, dy) in [
         (v.x, v.y, 1.0, 1.0),
@@ -574,7 +527,6 @@ fn viewport(print: &mut Print<'_>, v: Panel, view: &View<'_>) {
         );
         return;
     };
-    // The lineage key, top right inside the viewport.
     let mut y = v.y + 10.0;
     for (name, rgb) in &cloud.lineages {
         print.glow([v.x + v.w - 14.0, y + 6.0], 7.0, *rgb, 0.5);
@@ -596,8 +548,6 @@ fn viewport(print: &mut Print<'_>, v: Panel, view: &View<'_>) {
     );
 }
 
-/// The stage rail under the viewport: each stage's slot, joined. Only
-/// with a campaign and its cloud.
 fn rail(print: &mut Print<'_>, rail: Panel, view: &View<'_>) {
     let (Some(_), Some(cloud)) = (view.campaign, view.cloud) else {
         return;
@@ -651,7 +601,6 @@ fn axis(print: &mut Print<'_>, layout: &Layout, domain: (f64, f64)) {
 fn board_row(print: &mut Print<'_>, row: Panel, b: &Board, domain: (f64, f64)) {
     let t = track(row);
     let accent = if b.heart { ROSE } else { CYAN };
-    // The heart boards' rows are faintly warm; every row ends in a rule.
     if b.heart {
         print.rect(
             row.x - 6.0,
@@ -670,7 +619,6 @@ fn board_row(print: &mut Print<'_>, row: Panel, b: &Board, domain: (f64, f64)) {
         0.45,
     );
 
-    // Line one: the board's tag and name, and the gap to the 10th place.
     let x = row.x;
     let w = print.text(
         &b.short,
@@ -699,7 +647,6 @@ fn board_row(print: &mut Print<'_>, row: Panel, b: &Board, domain: (f64, f64)) {
         print.text(&text, [t.x1, row.y + 6.0], Style::new(TINY, ink), 1.0);
     }
 
-    // Line two: the rail and its ticks.
     let y = t.y;
     print.line([t.x0, y], [t.x1, y], 1.4, [44, 60, 84], 0.95);
     for k in 0..=((domain.1 - domain.0) / 5.0).round() as i32 {
@@ -709,7 +656,6 @@ fn board_row(print: &mut Print<'_>, row: Panel, b: &Board, domain: (f64, f64)) {
         let r = if major { 2.5 } else { 1.5 };
         print.line([tx, y - r], [tx, y + r], 1.0, FAINT, 0.9);
     }
-    // The floor: a dashed line across the row's rail.
     let fx = score_x(b.floor, domain, t.x0, t.x1);
     print.dashed([fx, y - 9.0], [fx, y + 9.0], 1.0, 2.0, INK, 0.55);
     if let Some(base) = b.baseline
@@ -718,7 +664,6 @@ fn board_row(print: &mut Print<'_>, row: Panel, b: &Board, domain: (f64, f64)) {
         let bx = score_x(base, domain, t.x0, t.x1);
         print.line([bx, y - 3.0], [bx, y + 3.0], 1.0, DIM, 0.8);
     }
-    // Proxy (ghost) and official (solid) bars from the floor.
     if let Some(p) = &b.proxy_best {
         let px = score_x(p.score, domain, t.x0, t.x1);
         let (l, r) = (fx.min(px), fx.max(px));
@@ -739,7 +684,6 @@ fn board_row(print: &mut Print<'_>, row: Panel, b: &Board, domain: (f64, f64)) {
         print.rect(l, y - 2.5, (r - l).max(1.0), 5.0, fill, 0.92);
         print.disc([ox, y], 3.8, [255, 240, 244], 1.0);
     }
-    // The references: leader and 10th above, the team and Yukon below.
     if let Some(v) = b.ve_leader {
         let x = score_x(v, domain, t.x0, t.x1);
         print.line([x, y - 6.0], [x, y + 3.0], 1.2, GOLD, 0.9);
@@ -792,7 +736,6 @@ fn board_row(print: &mut Print<'_>, row: Panel, b: &Board, domain: (f64, f64)) {
         );
     }
 
-    // The right column: our best over the budget's pips and the sparkline.
     let ours = b.ours_best.as_ref().map(|o| o.score);
     let ink = match (ours, b.ve_top10) {
         (Some(o), Some(top)) if o >= top => GOLD,
@@ -859,7 +802,6 @@ fn sparkline(
             y + h - h * k,
         ]
     };
-    // The floor as a faint line through the spark.
     let floor = at(0, b.floor)[1];
     print.line([x, floor], [x + w, floor], 0.8, FAINT, 0.8);
     let mut last: Option<[f32; 2]> = None;
@@ -952,7 +894,6 @@ fn ticker(print: &mut Print<'_>, t: Panel, campaign: &Campaign) {
         ink,
         0.95,
     );
-    // The age, right, is the clock's picture.
     print.text_fit(
         &event.text,
         [t.x + 13.0, t.y + 7.0],
@@ -962,8 +903,6 @@ fn ticker(print: &mut Print<'_>, t: Panel, campaign: &Campaign) {
     );
 }
 
-/// The clock's strings at `now` (Unix seconds): the countdown to the end
-/// of collaboration, the time to the budget's reset, and the ticker's age.
 pub(crate) fn clock_text(campaign: &Campaign, now: i64) -> (String, String, String) {
     let countdown = campaign.phase.collab_ends.map_or_else(String::new, |end| {
         let left = end - now;
@@ -986,7 +925,6 @@ pub(crate) fn clock_text(campaign: &Campaign, now: i64) -> (String, String, Stri
     (countdown, reset, age)
 }
 
-/// "now", "42s", "7m", "3h", "2d" ago.
 pub(crate) fn ago(secs: i64) -> String {
     match secs.max(0) {
         0..=9 => "now".to_string(),
@@ -997,7 +935,6 @@ pub(crate) fn ago(secs: i64) -> String {
     }
 }
 
-/// A small picture of one line of text, `size` shown pixels at `scale`.
 pub(crate) fn label(
     line: &str,
     size: f32,
@@ -1012,8 +949,6 @@ pub(crate) fn label(
     typeset.text(line, size * scale.max(0.5), ink, bold)
 }
 
-/// The short tag of the board `key`: the campaign's own, else the
-/// contract's for its five boards, else the key's last part.
 pub(crate) fn board_tag(key: &str, campaign: Option<&Campaign>) -> String {
     if let Some(b) = campaign.and_then(|c| c.boards.iter().find(|b| b.key == key)) {
         return b.short.clone();
@@ -1031,9 +966,6 @@ pub(crate) fn board_tag(key: &str, campaign: Option<&Campaign>) -> String {
     .collect()
 }
 
-/// A stage's title for the top left of the viewport: its label large, and
-/// what it is beneath (`board` is the tag of the board a prediction
-/// answers).
 pub(crate) fn stage_title(
     stage: &Built,
     board: &str,
@@ -1076,7 +1008,6 @@ pub(crate) fn stage_title(
     print.finish()
 }
 
-/// The banner a newly landed official score raises.
 pub(crate) fn flare_banner(
     short: &str,
     score: f64,

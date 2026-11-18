@@ -1,8 +1,3 @@
-"""Merge a Mage-hands LoRA adapter + trained merger into a copy of the
-checkpoint: W' = W + (alpha / r) * B @ A on each targeted linear, the
-merger tensors replaced. Pure tensor math on safetensors; no model code runs.
-  python3 -I merge_lora.py <base-model-dir> <adapter-dir> <out-dir>
-"""
 import json, os, re, shutil, sys
 import torch
 from safetensors.torch import load_file, save_file
@@ -13,7 +8,6 @@ scale = cfg["lora_alpha"] / cfg["r"]
 lora = load_file(f"{adapter}/adapter_model.safetensors")
 merger = load_file(f"{adapter}/merger.safetensors")
 
-# "base_model.model.model.language_model.layers.N.<mod>.lora_A.weight" -> checkpoint "model.layers.N.<mod>.weight"
 pairs = {}
 for k, v in lora.items():
     m = re.match(r"base_model\.model\.model\.language_model\.(layers\.\d+\..+)\.lora_([AB])\.weight$", k)

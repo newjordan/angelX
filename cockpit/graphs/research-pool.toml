@@ -1,6 +1,3 @@
-# Reusable specialist pool: three bounded research tasks borrow at most two
-# concurrent leases from one role identity, then compact receipts fan in to a
-# synthesizer and an adversarial evidence gate.
 name = "research-pool"
 description = "Bounded librarian role pool for evidence, counterevidence, and constraints, folded through a reviewer gate."
 

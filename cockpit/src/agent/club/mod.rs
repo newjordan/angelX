@@ -885,6 +885,10 @@ pub(crate) fn is_sota_label(label: &str) -> bool {
         || contains_ascii_ignore_case(label, "claude-haiku")
         || contains_ascii_ignore_case(label, "claude-fable")
         || eq_ascii_ignore_case(label, "anthropic")
+        // Google's Gemini 4 Carbon seat (the label) and its wire id. Gemma
+        // checkpoints (`gemma-…`) stay local.
+        || eq_ascii_ignore_case(label, "carbon")
+        || starts_with_ascii_ignore_case(label, "gemini-")
 }
 
 /// The designated smart-escalation seat — what `smart`/`sota` means in

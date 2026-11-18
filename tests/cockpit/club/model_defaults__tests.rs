@@ -28,7 +28,6 @@ fn model_defaults_precedence_and_unknown() {
         .find(|e| e.model == "grok-4.7")
         .expect("grok-4.7 carries a measured effort");
     assert_eq!(grok47.default_effort.as_deref(), Some("low"));
-    // No calibration installs a clock on a live stream.
     let b = budgets("grok-4.7", "ANGEL_GROK");
     assert!(b.get("stream_stall_secs").is_none(), "{b}");
 }

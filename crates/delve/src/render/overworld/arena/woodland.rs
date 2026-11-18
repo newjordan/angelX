@@ -21,7 +21,6 @@ fn ring(cv: &mut Img, x: i32, y: i32, ink: char) {
 pub(super) fn scenery(cv: &mut Img, run: &Run) {
     match run.room().kind {
         RoomKind::Timberyard => {
-            // Log stacks: ringed ends toward the viewer, bark on top.
             for (k, (c, r)) in [(3, 1), (16, 1), (3, 11), (16, 11)].into_iter().enumerate() {
                 let (x, y) = (c * TILE + 2, r * TILE + 2);
                 let keep = |_: i32, _: i32| true;
@@ -43,9 +42,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                 let _ = k;
                 m::sign(cv, x + 22, y - 12, "LOGS", 'T');
             }
-            // The four jump-logs stand in the crowd (`pastimes::crowd`)
-            // so a window tilts them with the lane and shrinks them with
-            // distance; only the ruts stay baked into the floor.
             for (x, y) in pastimes::CART_RUTS {
                 let (x, y) = (x * TILE, y * TILE);
                 cv.ellipse(x as f32, y as f32, 6.5, 3.0, 'n');
@@ -68,7 +64,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
         RoomKind::Bothy => {
             let (x, y) = (3 * TILE, 2 * TILE);
             m::house(cv, (x + 1, y - 12, 5 * TILE - 2, 3 * TILE + 10), &m::House { roof: m::ramp::THATCH, stone: true, windows: 1 }, 162);
-            // A chimney with a thread of smoke, and the stew pot outside.
             m::sign(cv, x + 6, y + 3 * TILE + 4, "BADGER", 'T');
             m::barrel(cv, x + 5 * TILE + 8, y + 3 * TILE - 2);
         }
@@ -100,7 +95,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     let stage = wood::stage(&run.home.countryside, &run.marks);
     let kind = run.room().kind;
     if kind == RoomKind::HedgeMaze && !run.marks.contains_key(wood::ACORN_MARK) {
-        // The golden acorn, glinting, behind the long hedge.
         let (x, y) = at(wood::ACORN.0 * 2.0, wood::ACORN.1 * 2.0);
         let glint = run.tick / 10 % 3 == 0;
         for (dy, row) in ["..bb..", ".bbbb.", "666666", "655556", "655556", ".6556.", "..66.."].iter().enumerate() {
@@ -126,14 +120,12 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             }
             let (_, (x, y)) = wood::ERRAND[1 + i];
             let (x, y) = at(x * 2.0, y * 2.0);
-            // Growing: a little sway, so they read as alive.
             let sway = [0, 1, 0, -1][(run.tick / 9 % 4) as usize];
             mushroom(cv, x + sway, y, i);
             cv.text(x - super::super::ink::text_width(wood::MUSHROOMS[i]) / 2, y + 6, wood::MUSHROOMS[i], 'h');
         }
     }
     if foraging {
-        // Carried over the picker's head, all the way home.
         if let Some(f) = &run.forage {
             for (i, &id) in f.carried.iter().enumerate() {
                 if let Some(h) = run.players.get(&id).filter(|_| id != 0) {
@@ -147,7 +139,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     if kind == RoomKind::Bothy {
         let (x, y) = at(10.0, 17.0);
         ring(cv, x, y, if stage == 0 || stage == 4 { 'o' } else { 'g' });
-        // Striped badger, hat and soup kettle beside the actual F ring.
         cv.rect(x - 6, y - 9, 12, 6, 'h');
         cv.rect(x - 3, y - 9, 3, 5, 'b');
         cv.rect(x + 2, y - 9, 3, 5, 'b');
@@ -156,18 +147,14 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         cv.line(x + 9, y - 8, x + 20, y - 8, 'o');
     }
 }
-/// One of the cook's mushrooms, standing at `(x, y)` (its foot): a red
-/// cap on a pale stem, and its own silly feature.
 fn mushroom(cv: &mut Img, x: i32, y: i32, which: usize) {
     cv.rect(x - 2, y - 6, 4, 6, 'h');
     match which {
-        // In a boot.
         0 => {
             cv.rect(x - 3, y - 4, 6, 4, 'B');
             cv.rect(x - 3, y - 1, 9, 2, 'B');
             cv.line(x - 3, y - 4, x + 2, y - 4, 'o');
         }
-        // A beard.
         2 => {
             cv.rect(x - 3, y - 5, 6, 4, '9');
             cv.put(x - 1, y - 1, '9');
@@ -178,7 +165,6 @@ fn mushroom(cv: &mut Img, x: i32, y: i32, which: usize) {
     cv.rect(x - 6, y - 10, 12, 4, 'R');
     cv.rect(x - 4, y - 12, 8, 2, 'R');
     if which == 1 {
-        // A hat on its hat.
         cv.rect(x - 3, y - 16, 6, 4, 'b');
         cv.rect(x - 5, y - 13, 10, 1, 'b');
     }
@@ -199,26 +185,18 @@ pub(super) fn cart_figures(cv: &mut Img, run: &Run) {
     let lift = (c.air_left.min(pastimes::CART_AIR - c.air_left) * 3) as i32;
     cv.line(x - 9, y + 3, x + 8, y + 3, 'b');
     let y = y - lift;
-    // Cart bed (timber brown)
     cv.rect(x - 7, y - 3, 14, 7, 'n');
-    // Cargo barrel on the cart
     cv.ellipse(x as f32, (y - 5) as f32, 3.0, 2.0, 'o');
     cv.rect(x - 3, y - 5, 6, 4, 'o');
-    // Left wheel with spokes
     cv.ellipse((x - 5) as f32, (y + 4) as f32, 3.0, 3.0, 'k');
     cv.line(x - 5, y + 1, x - 5, y + 7, 'n');
     cv.line(x - 8, y + 4, x - 2, y + 4, 'n');
-    // Right wheel with spokes
     cv.ellipse((x + 5) as f32, (y + 4) as f32, 3.0, 3.0, 'k');
     cv.line(x + 5, y + 1, x + 5, y + 7, 'n');
     cv.line(x + 2, y + 4, x + 8, y + 4, 'n');
-    // Driver body
     cv.rect(x + 6, y - 5, 4, 5, 'B');
-    // Driver round head
     cv.ellipse((x + 8) as f32, (y - 8) as f32, 3.0, 3.0, 'h');
-    // Driver hat
     cv.rect(x + 6, y - 11, 5, 2, 'k');
-    // Driver arms
     cv.line(x + 6, y - 3, x + 4, y - 1, 'h');
     cv.line(x + 10, y - 3, x + 12, y - 1, 'h');
     ring(

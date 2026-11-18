@@ -16,7 +16,6 @@ fn friendly(rng: &mut Rng) -> Arm {
     [Arm::Lance, Arm::Star, Arm::Ally, Arm::Turned][rng.below(4) as usize]
 }
 
-/// A bolt of this kind with a velocity that carries it through `to`.
 fn bolt_through(shot: Arm, to: (i32, i32, i32), rng: &mut Rng) -> (Bolt, (i32, i32, i32)) {
     let v = (rng.range(40, 600), rng.range(-90, 90), rng.range(-90, 90));
     let b = Bolt {
@@ -40,7 +39,6 @@ fn bolt_through(shot: Arm, to: (i32, i32, i32), rng: &mut Rng) -> (Bolt, (i32, i
 
 pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
     let ids: Vec<u32> = s.seats.keys().copied().collect();
-    // ── spawning and the small readers ─────────────────────────────────────
     if want("griffinwing.combat.Session.spawn_foe") {
         for k in 0..4 {
             let mut c = s.clone();
@@ -176,9 +174,7 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             rec("griffinwing.combat.Session.fire_marks", json!({"s": before, "f": j(&f)}), json!({"s": kit::sj(&c)}));
         }
     }
-    // ── the foes' own turns: each state a foe can be in ───────────────────
     steps(s, n, rng);
-    // ── hits ───────────────────────────────────────────────────────────────
     if !s.foes.is_empty() {
         if want("griffinwing.combat.Session.hit_foe") {
             for _ in 0..4 {
@@ -232,9 +228,7 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
         c.break_lamp(fi, by);
         rec("griffinwing.combat.Session.break_lamp", json!({"s": before, "fi": fi, "by": by}), json!({"s": kit::sj(&c)}));
     }
-    // ── bolts against foes and craft ──────────────────────────────────────
     bolts(s, n, rng);
-    // ── dive-bombers meet craft ───────────────────────────────────────────
     if want("griffinwing.combat.Session.bombers_ram") {
         let mut c = s.clone();
         for &id in ids.iter().take(2) {
@@ -255,9 +249,6 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
     }
 }
 
-/// Each foe in the session is stepped as `step_foes` does it (the foes taken
-/// out), and the kites in their hunting and hanging states are stepped by
-/// `hunt` and `hang` directly.
 fn steps(s: &Session, n: &Nums, rng: &mut Rng) {
     if s.foes.is_empty() {
         return;
@@ -269,7 +260,6 @@ fn steps(s: &Session, n: &Nums, rng: &mut Rng) {
         let foes = std::mem::take(&mut c.foes);
         let mut c2 = c.clone();
         for mut f in foes {
-            // a foe about to act: nearly out of ticks sometimes
             if rng.chance(4) {
                 f.ticks = f.ticks.min(1 + rng.below(2) as u32);
             }
@@ -313,8 +303,6 @@ fn steps(s: &Session, n: &Nums, rng: &mut Rng) {
             rec("griffinwing.combat.Session.hang", json!({"s": before, "f": j(&fb)}), json!({"s": kit::sj(&c), "f": j(&f)}));
         }
     }
-    // a hunter placed near a craft or a rider, and a latched kite on one, to be
-    // sure of the states
     if want_with("griffinwing.combat.Session.hunt", 4, 40) {
         let mut c = s.clone();
         c.foes.clear();
@@ -343,14 +331,11 @@ fn steps(s: &Session, n: &Nums, rng: &mut Rng) {
     }
 }
 
-/// Friendly and hostile bolts: the ones in the session, and ones sent through
-/// the bodies they may hit.
 fn bolts(s: &Session, n: &Nums, rng: &mut Rng) {
     let mut dead0 = vec![false; s.bolts.len()];
     if want("griffinwing.combat.Session.friendly_bolt") {
         for _ in 0..4 {
             let mut c = s.clone();
-            // aim through a foe, or through a spark in the air
             let (shot, to) = match pick(&c.foes, rng) {
                 Some(f) if rng.chance(3) => (friendly(rng), (f.s + rng.range(-60, 60), f.x + rng.range(-100, 100), f.z + rng.range(-100, 100))),
                 _ => match c.bolts.iter().find(|b| b.shot == Arm::Spark) {
@@ -395,7 +380,6 @@ fn bolts(s: &Session, n: &Nums, rng: &mut Rng) {
         for _ in 0..4 {
             let mut c = s.clone();
             let shot = if rng.chance(2) { Arm::Gloam } else { Arm::Spark };
-            // aim through a craft: sometimes rolling, sometimes just hurt
             let ids: Vec<u32> = c.seats.keys().copied().collect();
             let to = match pick(&ids, rng) {
                 Some(&id) => {

@@ -1,9 +1,3 @@
-"""The treebeard router: OpenAI-compatible chat, quick text.
-
-Tried in order: KILN_TREEBEARD, the local router at 127.0.0.1:8011, then
-KILN_TREEBEARD_PEER (a GPU host's own router, as the wish painter's `ask_gemma`).
-Text only here: brief expansion, names, tags.
-"""
 import json
 import os
 import time
@@ -25,7 +19,7 @@ class Treebeard(Adapter):
                 urllib.request.urlopen(url.replace("/v1/chat/completions", "/health"), timeout=3)
                 return True, url
             except urllib.error.HTTPError:
-                return True, url  # it answers, if not on /health
+                return True, url
             except Exception:
                 continue
         return False, "no router answered: " + ", ".join(URLS)

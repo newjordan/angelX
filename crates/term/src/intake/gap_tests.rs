@@ -79,26 +79,20 @@ fn layers(rig: &mut Rig) -> Vec<super::Shown> {
     rig.intake.placeholder_layers(&refs, 16, cw as f32, ch as f32)
 }
 
-/// The detection probe: the bytes are already in the file when the query
-/// arrives, `S` is the path's length, and the client removes the file
-/// after the answer.
 #[test]
 fn icat_detection_file_probe_answers_ok_and_survives_the_client_removing_the_file() {
     let path = PathBuf::from(format!("/dev/shm/kitty-tty-graphics-protocol-gap-{}", std::process::id()));
     let _ = std::fs::remove_file(&path);
     std::fs::write(&path, [1, 2, 3]).expect("/dev/shm is writable");
     let path_bytes = path.to_string_lossy().into_owned().into_bytes();
-    // Unpadded base64, as the live probe sends it. `S` is the path length.
     let body = format!("a=q,f=24,t=t,s=1,v=1,S={},i=2;{}", path_bytes.len(), b64(&path_bytes));
     let mut rig = Rig::new();
     let answer = text_of(&rig.pump(&apc(&body)));
     assert!(answer.contains("OK"), "{answer}");
     assert!(!answer.contains("EBADF"), "{answer}");
-    // The client removes the file after the answer.
     let _ = std::fs::remove_file(&path);
 }
 
-/// A `..` path into /dev is refused before the device is opened.
 #[test]
 fn a_dotdot_path_into_dev_is_refused() {
     let path = b"/tmp/../dev/null".to_vec();
@@ -110,8 +104,6 @@ fn a_dotdot_path_into_dev_is_refused() {
     assert!(!answer.contains("OK"), "{answer}");
 }
 
-/// A symlink to a FIFO is refused, and the FIFO is never opened. A writer
-/// blocked in `open` returns only once a reader opens the FIFO.
 #[test]
 fn a_symlink_to_a_fifo_is_refused_without_opening_it() {
     let dir = std::env::temp_dir().join(format!("gap-fifo-{}", std::process::id()));
@@ -136,8 +128,6 @@ fn a_symlink_to_a_fifo_is_refused_without_opening_it() {
             unsafe { libc::close(fd) };
         }
     });
-    // Opening the FIFO for reading releases a writer still blocked in open,
-    // including when this test fails before it does so itself.
     struct Release {
         fifo: PathBuf,
         writer: Option<std::thread::JoinHandle<()>>,
@@ -255,7 +245,6 @@ fn a_client_id_in_the_glass_range_cannot_touch_glass_picture_one() {
         rig.intake.gpu_in(Space::Osc, id).unwrap(),
     ];
     assert_eq!(gpus.iter().collect::<std::collections::HashSet<_>>().len(), 4, "{gpus:?}");
-    // A freeing delete of the client id does not take the other dialects.
     rig.pump(&apc("a=d,d=I,i=1073741825"));
     assert!(rig.intake.pixels_of(Space::Glass, id).is_some());
     assert!(rig.intake.pixels_of(Space::Sixel, id).is_some());
@@ -300,7 +289,6 @@ fn relative_placement_rules() {
     let answer = text_of(&rig.pump(&apc("a=p,i=1,U=1,P=1,Q=1")));
     assert!(answer.contains("EINVAL"), "{answer}");
 
-    // A chain of 8 relative placements is allowed; the 9th is too deep.
     for n in 2..=8 {
         let body = format!("a=p,i=1,p={n},P=1,Q={}", n - 1);
         let answer = text_of(&rig.pump(&apc(&body)));
@@ -312,7 +300,6 @@ fn relative_placement_rules() {
     let answer = text_of(&rig.pump(&apc("a=p,i=1,p=10,P=1,Q=9")));
     assert!(answer.contains("ETOODEEP"), "{answer}");
 
-    // Deleting the parent deletes the relative children.
     rig.pump(&apc("a=d,d=i,i=1,p=1"));
     let shown = rig.intake.describe(View { top: 0, rows: 10, alternate: false });
     assert!(shown.placements.is_empty(), "the parent and its chain are gone");
@@ -324,7 +311,6 @@ fn a_virtual_parent_anchors_its_child_and_placeholders_draw() {
     rig.pump(&apc("a=T,f=24,s=1,v=1,i=4,U=1,c=2,r=1,p=1,q=2;AAAA"));
     rig.pump(&apc("a=T,f=24,s=1,v=1,i=5,p=1,P=4,Q=1,H=1,V=0,q=2;AAAA"));
     let _row = format!("\x1b[38;5;4m\u{10EEEE}{}\u{10EEEE}{}", mark(0), mark(1));
-    // First cell: row diacritic only (column inferred as 0). Second: column 1.
     let row = format!("\x1b[38;5;4m\u{10EEEE}{}\u{10EEEE}{}{}", mark(0), mark(0), mark(1));
     rig.pump(row.as_bytes());
     let drawn = layers(&mut rig);
@@ -336,7 +322,6 @@ fn a_virtual_parent_anchors_its_child_and_placeholders_draw() {
 #[test]
 fn unicode_placeholders_follow_the_specification() {
     let mut rig = Rig::new();
-    // 2x2 RGB, fit to a 2 by 2 box: the specification's example.
     let body = format!("a=T,f=24,s=2,v=2,i=42,U=1,c=2,r=2,q=2;{}", b64(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]));
     rig.pump(&apc(&body));
     let line0 = format!("\x1b[38;5;42m\u{10EEEE}{}{}\u{10EEEE}{}{}\n", mark(0), mark(0), mark(0), mark(1));
@@ -347,7 +332,6 @@ fn unicode_placeholders_follow_the_specification() {
     assert!(!drawn.is_empty(), "the specification's 2x2 draws");
     assert!(drawn.len() <= 2, "adjacent cells of one row group, got {}", drawn.len());
 
-    // Inferred diacritics: only the first column carries the row mark.
     let mut rig = Rig::new();
     rig.pump(&apc(&body));
     let inferred = format!("\x1b[38;5;42m\u{10EEEE}{}\u{10EEEE}\u{10EEEE}\n\x1b[38;5;42m\u{10EEEE}{}\u{10EEEE}\u{10EEEE}", mark(0), mark(1));
@@ -355,21 +339,18 @@ fn unicode_placeholders_follow_the_specification() {
     let drawn = layers(&mut rig);
     assert!(drawn.len() >= 2, "inferred diacritics still draw both rows, got {}", drawn.len());
 
-    // Third diacritic: image id 42 + (2 << 24).
     let mut rig = Rig::new();
     let id = 42 + (2 << 24);
     rig.pump(&apc(&format!("a=T,f=24,s=1,v=1,i={id},U=1,c=1,r=1,q=2;AAAA")));
     rig.pump(format!("\x1b[38;5;42m\u{10EEEE}{}{}{}", mark(0), mark(0), mark(2)).as_bytes());
     assert_eq!(layers(&mut rig).len(), 1, "the third diacritic selects the high byte");
 
-    // 24-bit foreground is the image id.
     let mut rig = Rig::new();
     let rgb = (1u32 << 16) | (2 << 8) | 3;
     rig.pump(&apc(&format!("a=T,f=24,s=1,v=1,i={rgb},U=1,c=1,r=1,q=2;AAAA")));
     rig.pump(format!("\x1b[38;2;1;2;3m\u{10EEEE}{}{}", mark(0), mark(0)).as_bytes());
     assert_eq!(layers(&mut rig).len(), 1, "a 24-bit foreground is the image id");
 
-    // Underline colour selects the placement.
     let mut rig = Rig::new();
     rig.pump(&apc("a=T,f=24,s=2,v=2,i=3,U=1,c=2,r=2,p=1,q=2;AAAAAAAAAAAAAAAA"));
     rig.pump(&apc("a=p,i=3,U=1,c=1,r=1,p=7,q=2"));
@@ -384,7 +365,6 @@ fn unicode_placeholders_follow_the_specification() {
     let src = drawn[0].source.unwrap();
     assert!(src[2] > 1.5 && src[3] > 1.5, "the 1x1 box shows the whole image, {src:?}");
 
-    // An unknown image draws no layer, and copying yields nothing for the cell.
     let mut rig = Rig::new();
     rig.pump(format!("\x1b[38;5;99m\u{10EEEE}{}{}", mark(0), mark(0)).as_bytes());
     assert!(layers(&mut rig).is_empty(), "an unknown image draws nothing");
@@ -399,7 +379,6 @@ fn unicode_placeholders_follow_the_specification() {
 #[test]
 fn placeholders_scroll_with_the_text_and_keep_aspect() {
     let mut rig = Rig::new();
-    // A wide image in a square box letterboxes.
     let body = format!("a=T,f=24,s=4,v=1,i=8,U=1,c=2,r=2,q=2;{}", b64(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]));
     rig.pump(&apc(&body));
     rig.pump(format!("\x1b[38;5;8m\u{10EEEE}{}{}", mark(0), mark(0)).as_bytes());
@@ -411,9 +390,6 @@ fn placeholders_scroll_with_the_text_and_keep_aspect() {
     assert!(drawn.is_empty(), "scrolled off the screen with the text, still at {:?}", drawn.iter().map(|l| l.row).collect::<Vec<_>>());
 }
 
-/// 8192 placements, most of them relative in chains of 8. `describe` and
-/// `placeholder_layers` each finish under 16 ms, and the positions are the
-/// chain offsets the linear parent walk used to produce.
 #[test]
 fn relative_chains_resolve_without_a_quadratic_scan() {
     let mut intake = super::Intake::new(1);
@@ -458,7 +434,6 @@ fn relative_chains_resolve_without_a_quadratic_scan() {
     let describe_took = started.elapsed();
     assert!(describe_took < Duration::from_millis(16), "describe took {describe_took:?}");
 
-    // Absolute chains only. A virtual chain is drawn from placeholder cells.
     let mut expected = std::collections::HashMap::new();
     for c in 0..CHAINS {
         if c % 8 == 0 {
@@ -487,8 +462,6 @@ fn relative_chains_resolve_without_a_quadratic_scan() {
     let layers_took = started.elapsed();
     assert!(layers_took < Duration::from_millis(16), "placeholder_layers took {layers_took:?}");
 
-    // Chain 0's virtual root is placement 1. Its seven children sit one
-    // cell further right at each hop, the same positions as before.
     let children: Vec<_> = layers.iter().filter(|s| s.id < 0x10EE_0000_0000).collect();
     assert_eq!(children.len(), 7);
     for (d, shown) in children.iter().enumerate() {

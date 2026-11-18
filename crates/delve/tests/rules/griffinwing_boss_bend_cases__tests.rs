@@ -4,7 +4,6 @@ use super::super::bend_kit::{self as kit, j, rec, want, Rng};
 use super::*;
 use serde_json::json;
 
-/// A session with the Wyrm up, in the state `k` asks for.
 fn with_wyrm(s: &Session, rng: &mut Rng) -> Session {
     let mut c = s.clone();
     if c.boss.is_none() {
@@ -83,7 +82,6 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             rec("griffinwing.boss.Session.spit", json!({"s": before, "b": bj0}), json!({"s": kit::sj(&c)}));
         }
     }
-    // the Wyrm's own tick, on a Wyrm put in each state
     if want("griffinwing.boss.Session.step_boss") {
         for _ in 0..4 {
             let mut c = with_wyrm(s, rng);
@@ -96,7 +94,6 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
                 b.col = rng.range(-300, 300);
                 b.marks = (0..rng.below(4)).map(|_| (rng.range(-600, 600), rng.range(-300, 300))).collect();
                 if rng.chance(3) {
-                    // the lit lamp is out
                     let lit = b.lamps[usize::from(b.phase.min(2))];
                     for f in c.foes.iter_mut().filter(|f| f.id == lit) {
                         f.st = St::Broken;

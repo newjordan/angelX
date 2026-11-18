@@ -13,7 +13,6 @@ pub enum OreKind {
 }
 impl OreKind {
     pub const ALL: [Self; 4] = [Self::Iron, Self::Coal, Self::Crystal, Self::Ember];
-    /// The four ores a land charter asks for, and the sentries each has.
     pub fn legacy(resource: &str) -> Option<Self> {
         Some(match resource {
             "iron-ore" => Self::Iron,
@@ -23,8 +22,6 @@ impl OreKind {
             _ => return None,
         })
     }
-    /// The sentries that hold a seam whose claim is of `resource`: an ore,
-    /// or the quarry stone of its pack (`geology`).
     pub fn for_resource(resource: &str) -> Option<Self> {
         super::geology::guard_for(resource)
     }
@@ -127,8 +124,6 @@ impl Run {
             .map(|e| e.kind)
     }
     pub fn ore_sentries_defeated(&self, claim: &str) -> bool {
-        // Only an already-challenged legacy guardian can lack this roster.
-        // A fresh crowded seam must wait for all sentries to be admitted.
         self.kingdom
             .ore_sentries
             .get(claim)
@@ -165,8 +160,6 @@ impl Run {
             return;
         }
         let kind = deposit.seam.guard();
-        // A claim's sentries stand until it is won, and again while a raid
-        // of the Deep is on (`stir`).
         if !self
             .home
             .industry
@@ -202,8 +195,6 @@ impl Run {
         {
             return;
         }
-        // Select all spots before mutation. A crowded seam waits; it never
-        // places an unseen body inside a knight or grants a partial victory.
         let grid = Grid {
             room: self.room(),
             barred: self.barred(),
@@ -299,7 +290,6 @@ impl Run {
             .map(|e| e.id)
             .collect();
         for e in self.enemies.iter_mut().filter(|e| active.contains(&e.id)) {
-            // A prism must finish its tell even when the knight keeps firing.
             if e.kind == EnemyKind::Mirrorling
                 && e.stage & 7 != 0
                 && e.stage & 8 == 0
@@ -308,8 +298,6 @@ impl Run {
                 e.stage |= 8;
                 e.timer = 0;
             }
-            // Native marked lobs make the crawler a threat to stationary
-            // shooters too. The existing landing circle lasts a full second.
             if e.kind == EnemyKind::Sapper && e.age % 150 == 90 && self.lobs.len() < 8 {
                 if let Some(h) = self
                     .players

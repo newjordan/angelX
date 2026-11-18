@@ -98,6 +98,18 @@ side, plus a 95% bootstrap interval (10,000 resamples over pooled raw
 frames) on the difference of medians. Pass = the interval excludes 0
 in glass's favour (for fps-hold/resources: the stated margins).
 
+**Analyzer correction (2026-11-12).** `analyze.py` now uses a local
+seeded `random.Random` generator for independent with-replacement
+draws. The original LCG/modulo sampler cycled through every index for
+power-of-two sample lengths, collapsing uncertainty and potentially
+declaring an unjustified winner. The exact two-observation regression
+is covered by `test_analyze.py`. Repeated analyses are deterministic
+on the same Python runtime; bit-identical cross-version PRNG results
+are not promised. Historical intervals below and committed verdicts
+have **not** been recomputed or revalidated by this correction. This
+also does not address within-run frame correlation or the difference
+between pooling frames and summarizing per-repetition medians.
+
 **Metrics (fixed now):**
 
 | # | Metric | Pass bar |
@@ -300,6 +312,17 @@ RUN_DIR` fails (exit 1) when a fresh run's median regresses beyond
 +25% + 0.25 ms on any gated metric, and skips metrics a partial
 run did not measure. It passes on both committed v2 runs and is
 covered by `test_check_regression.py`.
+
+The gate uses the ordinary median of pooled observations: with an even
+sample count, it averages the two central values (also for keyframe
+samples). A checker correction on 2026-11-13 replaced the former upper
+middle selection; the baseline, tolerance and floor are unchanged. Both
+saved v2 directories still pass. With the gate's unchanged file-selection
+patterns, v2-2's keyframe median changes from 6.5 to 6.45 ms and its
+placements median from 1.217 to 1.2165 ms, without changing either verdict.
+This is a correction to the gate, not a renderer speedup or a revalidation
+of historical performance claims. Reproducer, oracle checks and archived-input
+receipts: `reports/research-357f691733ee984c1e32b6385ff18363-19.md`.
 
 **Pre-merge check** (no CI in this repo; run by hand before landing
 render changes):

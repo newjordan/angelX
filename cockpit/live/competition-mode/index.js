@@ -1,7 +1,3 @@
-// Thin adapter for the competition-mode leg. The host hands over the argv words
-// it already classified, the phrase flags it already matched and the `git show`
-// facts; competition-mode.bend decides, and the decision returns as plain JSON
-// with no policy in this file.
 const bend = require('./competition-mode.compiled.js')
 
 const nil = { $: 'Nil' }

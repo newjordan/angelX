@@ -30,7 +30,6 @@ use std::sync::OnceLock;
 
 const T: i32 = TILE;
 
-/// The level at rest.
 pub(super) fn scenery(run: &Run) -> Img {
     let room = run.room();
     let (cols, rows) = (room.cols as i32, room.rows as i32);
@@ -47,7 +46,6 @@ pub(super) fn scenery(run: &Run) -> Img {
                 Tile::Door => door(&mut cv, x, y),
                 Tile::Stairs => steps(&mut cv, x, y),
                 Tile::Hazard if !level.surface() => chasm(&mut cv, x, y, room.tile(col, row - 1) != Tile::Hazard),
-                // What stands on a blocked tile is drawn over its ground.
                 Tile::Block if dressed(level.dress_at(col, row)) => ground(&mut cv, level, x, y, col, row),
                 Tile::Block => mass(&mut cv, x, y),
                 _ => ground(&mut cv, level, x, y, col, row),
@@ -62,12 +60,10 @@ pub(super) fn scenery(run: &Run) -> Img {
     }
     lay_flat(&mut cv, level, room);
     let mut pieces = pieces(level, room);
-    // Row by row, so a nearer piece stands over a farther.
     pieces.sort_by_key(|p| (p.foot, p.x));
     for p in &pieces {
         p.draw(&mut cv, tiles, !level.surface());
     }
-    // The way out to the kingdom, ringed in gold.
     for e in DOORS.iter().filter(|e| e.room == room.kind && e.id == "bomrekedan-out") {
         let (c, r, w, h) = e.at;
         let (x, y, w, h) = (c * T, r * T, w * T, h * T);
@@ -80,9 +76,6 @@ pub(super) fn scenery(run: &Run) -> Img {
     cv
 }
 
-/// How far a tile sits from the nearest lamp (a stair, a door, a furnace,
-/// a workshop, an altar, a well). `0` is the lamp. The surface is open sky
-/// and stays `0`. Past the pools the stone is dim, never a black void.
 fn shade_at(level: &Level, col: i32, row: i32) -> u8 {
     if level.surface() {
         return 0;
@@ -148,8 +141,6 @@ fn level_tile(level: &Level, x: i32, y: i32) -> Tile {
     level.tiles[y as usize * w + x as usize]
 }
 
-/// Amber rims and a chevron on every stair but the gold way out, so a shaft
-/// reads as travel before a knight is standing on it.
 fn stair_cues(cv: &mut Img, room: &Room) {
     for e in DOORS.iter().filter(|e| e.room == room.kind && e.id != "bomrekedan-out") {
         let (c, r, w, h) = e.at;
@@ -166,12 +157,6 @@ fn stair_cues(cv: &mut Img, room: &Room) {
     }
 }
 
-/// The pixels the surface's water is laid over: its tiles' bounds and a
-/// tile of dry ground round them, inside the level (`None`: no water).
-/// Water lies only on wet pixels, its banks reckoned from the nearest dry
-/// ground, and that ring of dry ground is nearer than anything beyond it:
-/// the same water as laid over the whole level, over a fifth of the Gate's
-/// pixels (the banks' distance field was most of its bake).
 fn wet_bounds(room: &Room) -> Option<(i32, i32, i32, i32)> {
     let (cols, rows) = (room.cols as i32, room.rows as i32);
     let wet = (0..rows).flat_map(|r| (0..cols).map(move |c| (c, r))).filter(|&(c, r)| room.tile(c, r) == Tile::Hazard);
@@ -182,8 +167,6 @@ fn wet_bounds(room: &Room) -> Option<(i32, i32, i32, i32)> {
     Some((c0 * T, r0 * T, (c1 - c0 + 1) * T, (r1 - r0 + 1) * T))
 }
 
-/// Whether the painter has its own art for DRESS key `ch` (the README's
-/// keys); any other key gets a small mark.
 pub(super) fn dressed(ch: u8) -> bool {
     matches!(
         ch,
@@ -191,8 +174,6 @@ pub(super) fn dressed(ch: u8) -> bool {
     )
 }
 
-/// The ramp a natural wall is drawn in, by what it is made of (the
-/// README's ROCK keys).
 fn rock(made: u8) -> RockKind {
     match made {
         b'k' | b'o' => RockKind::Char,
@@ -201,10 +182,6 @@ fn rock(made: u8) -> RockKind {
     }
 }
 
-/// A tile of open ground: grass on the surface, smoothed flags below.
-/// Underground, a lamp (stair, door, furnace, workshop, altar, well) warms
-/// the flags within seven tiles; farther stone is dim, and a wall drops a
-/// two-pixel skirt onto the floor in front of it.
 fn ground(cv: &mut Img, level: &Level, x: i32, y: i32, col: i32, row: i32) {
     let shade = shade_at(level, col, row);
     for py in y..y + T {
@@ -231,7 +208,6 @@ fn ground(cv: &mut Img, level: &Level, x: i32, y: i32, col: i32, row: i32) {
     }
 }
 
-/// Near a lamp the flags go warm. Mid distance keeps them. Far off they dim.
 fn lit_flag(ch: char, shade: u8, px: i32, py: i32) -> char {
     match shade {
         0..=2 => match ch {
@@ -249,7 +225,6 @@ fn lit_flag(ch: char, shade: u8, px: i32, py: i32) -> char {
     }
 }
 
-/// Something solid standing on the floor: a dark mass, lit on top.
 fn mass(cv: &mut Img, x: i32, y: i32) {
     cv.rect(x, y, T, T, 'K');
     cv.rect(x + 1, y + 1, T - 2, T - 3, 'G');
@@ -257,7 +232,6 @@ fn mass(cv: &mut Img, x: i32, y: i32) {
     cv.line(x + 1, y + T - 2, x + T - 2, y + T - 2, 'X');
 }
 
-/// A door: planks in a frame, a stud.
 fn door(cv: &mut Img, x: i32, y: i32) {
     cv.rect(x, y, T, T, 'n');
     cv.rect(x + 2, y + 2, T - 4, T - 4, 'B');
@@ -267,7 +241,6 @@ fn door(cv: &mut Img, x: i32, y: i32) {
     cv.put(x + T - 5, y + T / 2, 'O');
 }
 
-/// A stair: steps going down, pale treads over dark risers.
 fn steps(cv: &mut Img, x: i32, y: i32) {
     cv.rect(x, y, T, T, 'x');
     for k in 0..T / 4 {
@@ -277,8 +250,6 @@ fn steps(cv: &mut Img, x: i32, y: i32) {
     }
 }
 
-/// Open air, a pit or deep water underground: the dark, a lit lip on its
-/// north side.
 fn chasm(cv: &mut Img, x: i32, y: i32, lip: bool) {
     cv.rect(x, y, T, T, 'k');
     for k in 0..3 {
@@ -290,17 +261,11 @@ fn chasm(cv: &mut Img, x: i32, y: i32, lip: bool) {
     }
 }
 
-// ─── what lies flat ──────────────────────────────────────────────────────────
-
-/// The kit's garden bed, sampled under every farm plot so the rows run on
-/// across a field.
 fn garden_bed() -> &'static Img {
     static BED: OnceLock<Img> = OnceLock::new();
     BED.get_or_init(kit::garden)
 }
 
-/// What lies on the ground and is walked over: farm plots in rows, a
-/// stockpile's corner marks, the planks of a hatch or bridge.
 fn lay_flat(cv: &mut Img, level: &Level, room: &Room) {
     let bed = garden_bed();
     let (iw, ih) = (bed.w - 2, bed.h - 2);
@@ -318,7 +283,6 @@ fn lay_flat(cv: &mut Img, level: &Level, room: &Room) {
                     }
                 }
                 b'p' => {
-                    // The pile's bounds, a dot at each corner of each tile.
                     for (dx, dy) in [(1, 1), (T - 2, 1), (1, T - 2), (T - 2, T - 2)] {
                         cv.put(x + dx, y + dy, 'j');
                     }
@@ -333,9 +297,6 @@ fn lay_flat(cv: &mut Img, level: &Level, room: &Room) {
     }
 }
 
-// ─── what stands ─────────────────────────────────────────────────────────────
-
-/// One thing standing on a level, drawn with its foot at `foot` (pixels).
 struct Piece {
     foot: i32,
     x: i32,
@@ -343,19 +304,12 @@ struct Piece {
 }
 
 enum What {
-    /// A workshop, a furnace or the depot over its place's rect (tiles), by
-    /// its `kingdom.json` kind.
     Shop((i32, i32, i32, i32), &'static str),
-    /// A windmill over the three by three at a tile.
     Mill(i32, i32),
-    /// A tree on the surface.
     Tree(i32, i32),
-    /// One tile's piece, by its DRESS key.
     Thing(i32, i32, u8),
 }
 
-/// Everything standing on the level: the places' workshops and furnaces
-/// first, each taking its tiles; windmills by threes; then each tile's own.
 fn pieces(level: &Level, room: &Room) -> Vec<Piece> {
     let (cols, rows) = (room.cols as i32, room.rows as i32);
     let mut claimed = vec![false; (cols * rows) as usize];
@@ -380,7 +334,6 @@ fn pieces(level: &Level, room: &Room) -> Vec<Piece> {
             out.push(Piece { foot: (r + h) * T, x: c * T, what: What::Shop((c, r, w, h), kind) });
         }
     }
-    // Windmills and leftover workshops, three by three where they fit.
     for key in [b'm', b'W'] {
         for r in 0..rows {
             for c in 0..cols {
@@ -407,7 +360,6 @@ fn pieces(level: &Level, room: &Room) -> Vec<Piece> {
             let what = match ch {
                 b' ' | b'f' | b'=' => continue,
                 b'T' => What::Tree(c, r),
-                // Not every tile of a pile holds something.
                 b'p' if hash(c, r, 223) % 9 > 3 => continue,
                 _ => What::Thing(c, r, ch),
             };
@@ -434,12 +386,10 @@ impl Piece {
     }
 }
 
-/// A workshop, a furnace or the trade depot over its rect (tiles).
 fn shop(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), kind: &str, underground: bool) {
     let (x, y, pw, ph) = (c * T, r * T, w * T, h * T);
     let seed = hash(c, r, 231);
     if kind == "depot" {
-        // The depot: a striped stall on a boarded floor, goods about it.
         mat::boards(cv, (x + 2, y + ph / 2, pw - 4, ph / 2 - 2), false, seed);
         props::stall(cv, (x + 8, y + 18, pw - 16, ph - 30), ('T', 'R'), y + ph - 30, y + 12, seed);
         cv.stamp(&kit::barrels(), x + 2, y + ph - 16);
@@ -464,7 +414,6 @@ fn shop(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), kind: &str, undergroun
         open_the_roof(&mut im, matches!(trade, Trade::Smith));
     }
     cv.stamp(&im, x + (pw - im.w) / 2, y + ph - im.h - 1);
-    // A mason's, a jeweller's or a mechanic's bench shows its work.
     match kind {
         "workshop:masons" => mat::blocks(cv, (x + pw - 16, y + ph - 12, 14, 10), ramp::STONE, (5, 3), seed),
         "workshop:jewelers" => {
@@ -477,9 +426,6 @@ fn shop(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), kind: &str, undergroun
     }
 }
 
-/// An underground shop keeps the bay and loses the outdoor roof: a stone
-/// lintel, a timber beam, and a hanging lamp. The image stays the same size,
-/// so the stamp still sits on the floor.
 fn open_the_roof(im: &mut Img, smith: bool) {
     let top = if smith { 6 } else { 0 };
     let wall_y0 = top + 15 - 1;
@@ -503,8 +449,6 @@ fn open_the_roof(im: &mut Img, smith: bool) {
     im.put(im.w / 2, beam + 3, 'V');
 }
 
-/// One tile's piece at `(x, y)` (the tile's top left, pixels), by its
-/// DRESS key.
 fn thing(cv: &mut Img, x: i32, y: i32, ch: u8, seed: u32) {
     let (cx, foot) = (x + T / 2, y + T - 1);
     match ch {
@@ -514,7 +458,6 @@ fn thing(cv: &mut Img, x: i32, y: i32, ch: u8, seed: u32) {
         b's' => statue(cv, cx, foot, seed),
         b'k' => cabinet(cv, x, y, seed),
         b'K' => {
-            // A bookcase: a timber frame, two shelves of books.
             mat::block(cv, (x + 1, y, T - 2, T - 1), ramp::TIMBER, true, seed);
             let books = kit::books(4);
             cv.stamp(&books, x + 2, y + 1);
@@ -540,14 +483,12 @@ fn thing(cv: &mut Img, x: i32, y: i32, ch: u8, seed: u32) {
             _ => cv.stamp(&kit::sacks(2), x - 3, y + 2),
         },
         b'P' => pump(cv, x, y),
-        // A machine's gear, or a windmill's tile not in a three by three.
         b'g' | b'm' => gear(cv, cx, y + T / 2, seed),
         b'w' => {
             let im = kit::well();
             cv.stamp(&im, x + (T - im.w) / 2, foot - im.h + 1);
         }
         b'o' => {
-            // An altar: a dressed stone block, candles on it.
             mat::block(cv, (x + 1, y + 5, T - 2, T - 6), ramp::STONE, false, seed);
             cv.line(x + 1, y + 5, x + T - 2, y + 5, 'i');
             let candles = kit::candles(4, 0);
@@ -555,7 +496,6 @@ fn thing(cv: &mut Img, x: i32, y: i32, ch: u8, seed: u32) {
         }
         b'C' => props::slab_down(cv, x + 2, y + 8, (1, 0)),
         b'd' => {
-            // A display case: glass over a plinth, the piece inside.
             mat::block(cv, (x + 2, y + 10, T - 4, 5), ramp::STONE, false, seed);
             cv.rect(x + 3, y + 2, T - 6, 8, 'q');
             cv.frame(x + 3, y + 2, T - 6, 8, 'V');
@@ -567,14 +507,12 @@ fn thing(cv: &mut Img, x: i32, y: i32, ch: u8, seed: u32) {
         }
         b'"' => mat::bush(cv, cx, foot - 1, 3.0 + (seed % 3) as f32 * 0.5, if seed % 4 == 0 { Leaf::Oak } else { Leaf::Hedge }, seed),
         b'x' => {
-            // A trap or a chain: iron links across the tile.
             for k in 0..4 {
                 cv.frame(x + 1 + k * 4, y + 6 + (k % 2), 4, 3, if k % 2 == 0 { 'J' } else { 'G' });
             }
         }
         b'A' => props::butt(cv, cx, foot - 15),
         b'j' => {
-            // A traction bench: a board on legs, a strap and a winch.
             mat::boards(cv, (x + 1, y + 7, T - 2, 4), false, seed);
             cv.line(x + 2, y + 11, x + 2, foot, 'b');
             cv.line(x + T - 3, y + 11, x + T - 3, foot, 'b');
@@ -582,8 +520,6 @@ fn thing(cv: &mut Img, x: i32, y: i32, ch: u8, seed: u32) {
             cv.ellipse((x + T - 4) as f32, (y + 5) as f32, 2.0, 2.0, 'g');
         }
         b'+' => {
-            // Work not yet done: scaffold poles braced across, blocks
-            // waiting.
             cv.line(x + 2, y + 1, x + 2, foot, 'B');
             cv.line(x + T - 3, y + 1, x + T - 3, foot, 'B');
             cv.line(x + 2, y + 2, x + T - 3, foot - 2, 'r');
@@ -591,14 +527,12 @@ fn thing(cv: &mut Img, x: i32, y: i32, ch: u8, seed: u32) {
             mat::blocks(cv, (x + 4, foot - 4, 8, 4), ramp::STONE, (4, 2), seed);
         }
         _ => {
-            // A thing the painter has no art for: a small mark.
             cv.put(cx, foot - 2, 'h');
             cv.put(cx + 1, foot - 2, 'J');
         }
     }
 }
 
-/// A bed: a timber frame, a pillow at its head, the blanket turned down.
 fn bed(cv: &mut Img, x: i32, y: i32, seed: u32) {
     mat::boards(cv, (x + 2, y + 1, T - 4, T - 2), true, seed);
     let blanket = ['Q', 'R', 'E', 'u'][(seed % 4) as usize];
@@ -608,7 +542,6 @@ fn bed(cv: &mut Img, x: i32, y: i32, seed: u32) {
     cv.line(x + 4, y + 4, x + T - 5, y + 4, mat::pick(LINEN, 0.4));
 }
 
-/// A table: a boarded top on two legs, its shadow under it.
 fn table(cv: &mut Img, x: i32, y: i32, seed: u32) {
     mat::shadow(cv, ((x + 9) as f32, (y + 14) as f32), (7.0, 2.0), &all);
     mat::boards(cv, (x + 1, y + 4, T - 2, 6), false, seed);
@@ -617,7 +550,6 @@ fn table(cv: &mut Img, x: i32, y: i32, seed: u32) {
     cv.line(x + T - 4, y + 10, x + T - 4, y + 14, 'b');
 }
 
-/// A chair: a seat, a back rail, legs.
 fn chair(cv: &mut Img, x: i32, y: i32, seed: u32) {
     let (l, r) = (x + 4, x + T - 5);
     cv.rect(l, y + 2, r - l + 1, 2, 'B');
@@ -627,8 +559,6 @@ fn chair(cv: &mut Img, x: i32, y: i32, seed: u32) {
     cv.line(l, y + 8, r, y + 8, 'o');
 }
 
-/// A statue on its plinth: a figure in dressed stone, lit from the
-/// north-west.
 fn statue(cv: &mut Img, cx: i32, foot: i32, seed: u32) {
     mat::shadow(cv, ((cx + 3) as f32, foot as f32), (7.0, 2.0), &all);
     mat::block(cv, (cx - 6, foot - 4, 12, 4), ramp::STONE, false, seed);
@@ -637,7 +567,6 @@ fn statue(cv: &mut Img, cx: i32, foot: i32, seed: u32) {
     mat::lobe(cv, (cx as f32, (foot - 16) as f32), (2.5, 2.5), stone, seed ^ 5, 1.5, 0.0, &all);
 }
 
-/// A cabinet: boarded doors in a frame, a ring pull.
 fn cabinet(cv: &mut Img, x: i32, y: i32, seed: u32) {
     mat::boards(cv, (x + 2, y + 1, T - 4, T - 2), true, seed);
     cv.frame(x + 2, y + 1, T - 4, T - 2, 'b');
@@ -646,7 +575,6 @@ fn cabinet(cv: &mut Img, x: i32, y: i32, seed: u32) {
     cv.put(x + T / 2 + 1, y + T / 2, 'O');
 }
 
-/// An armour stand: a helm over a mail shirt on a post.
 fn armour_stand(cv: &mut Img, cx: i32, foot: i32) {
     mat::shadow(cv, ((cx + 2) as f32, foot as f32), (5.0, 1.5), &all);
     cv.line(cx, foot - 4, cx, foot, 'b');
@@ -660,7 +588,6 @@ fn armour_stand(cv: &mut Img, cx: i32, foot: i32) {
     mat::lobe(cv, (cx as f32, (foot - 13) as f32), (2.5, 2.5), IRON, 172, 1.5, 0.0, &all);
 }
 
-/// A screw pump: an iron pipe at a slant, its thread lit.
 fn pump(cv: &mut Img, x: i32, y: i32) {
     for k in 0..T {
         let (px, py) = (x + k, y + T - 3 - k * 3 / 4);
@@ -672,7 +599,6 @@ fn pump(cv: &mut Img, x: i32, y: i32) {
     cv.rect(x + T - 4, y, 3, 4, 'X');
 }
 
-/// A gear on its axle: a toothed iron wheel.
 fn gear(cv: &mut Img, cx: i32, cy: i32, seed: u32) {
     for k in 0..8 {
         let a = k as f32 * std::f32::consts::FRAC_PI_4 + (seed % 3) as f32 * 0.2;
@@ -683,10 +609,6 @@ fn gear(cv: &mut Img, cx: i32, cy: i32, seed: u32) {
     cv.ellipse(cx as f32, cy as f32, 1.5, 1.5, 'J');
 }
 
-// ─── the people ──────────────────────────────────────────────────────────────
-
-/// A person's figure, two frames of a walk, rows of keys: `H` hair, `S`
-/// skin, `E` eyes, `B` beard, `R` cloth, `D` boots.
 const SHORT: [&str; 10] = [
     "...HHH....",
     "..HSSSH...",
@@ -714,7 +636,6 @@ const TALL: [&str; 12] = [
     "..D...D...",
 ];
 
-/// Cloth by the work the fort has them do; no signal ink.
 fn cloth(job: &str) -> char {
     match job {
         "guard" => 'J',
@@ -741,7 +662,6 @@ fn cloth(job: &str) -> char {
     }
 }
 
-/// A person's two frames, built once for everyone.
 fn looks() -> &'static [[Img; 2]] {
     static LOOKS: OnceLock<Vec<[Img; 2]>> = OnceLock::new();
     LOOKS.get_or_init(|| people::all().iter().map(|p| [look(p, 0), look(p, 1)]).collect())
@@ -753,9 +673,7 @@ fn look(p: &Person, frame: u32) -> Img {
     let (skin, hair, eyes, tall) = match p.race {
         Race::Dwarf => (['t', 'o', 'O'][(seed >> 4) as usize % 3], hair, 'k', false),
         Race::Human => (['t', 'o', 'r'][(seed >> 4) as usize % 3], hair, 'k', true),
-        // The erinyes: ash-pale, black-haired, dark-eyed.
         Race::Erinys => ('V', 'k', '(', true),
-        // The gnolls: brown fur, a darker mane.
         Race::Gnoll => ('r', 'b', 'k', true),
         Race::Other => ('O', hair, 'k', true),
     };
@@ -770,7 +688,6 @@ fn look(p: &Person, frame: u32) -> Img {
         .iter()
         .enumerate()
         .map(|(i, row)| {
-            // The second frame of the walk: the feet in, mid-stride.
             let row = if frame == 1 && i >= n - 2 { "...D.D...." } else { row };
             row.chars()
                 .map(|c| match c {
@@ -789,8 +706,6 @@ fn look(p: &Person, frame: u32) -> Img {
     Img::from_rows(&refs)
 }
 
-/// The people of the level the party stands on, where they are this tick,
-/// nearer over farther.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     let kind = run.room().kind;
     let here = people::on(kind);

@@ -31,7 +31,6 @@ def sample(source, index, gates):
         for x in range(im.width):
             c=p[x,y]
             if min(c[:3])>60 and max(c[:3])-min(c[:3])<24: p[x,y]=(0,0,0,0)
-    # Drop the flinch's detached sparks and any background-key fragments.
     points={(x,y) for y in range(im.height) for x in range(im.width) if p[x,y][3]}
     parts=list(gates.components(points)); keep=max(parts,key=len)
     for part in parts:
@@ -51,7 +50,6 @@ def sample(source, index, gates):
     rows=[''.join('.' if not tile.getpixel((x,y))[3] else nearest(tile.getpixel((x,y)))
           for x in range(48)) for y in range(48)]
     rows=gates.despeckle(rows)
-    # A selective teal contour separates every silhouette pixel from the field.
     cells=[list(r) for r in rows]
     for y,row in enumerate(rows):
         for x,k in enumerate(row):
@@ -67,7 +65,6 @@ def polish(tile, i, gates):
     alpha=tile.getchannel('A').copy()
     d=ImageDraw.Draw(tile)
     fx,fy=FACES[i]
-    # Remove the sampled face highlights before placing two curved visor lobes.
     d.polygon([(fx-6,fy-4),(fx-2,fy-7),(fx+4,fy-5),(fx+7,fy-1),
                (fx+6,fy+5),(fx-6,fy+5)],fill=INKS['i'])
     lights=[]
@@ -87,18 +84,15 @@ def polish(tile, i, gates):
     falloff=[(x,y,'f') for x,y in sorted({n for q in points for n in gates.neighbours(*q)}-points)]
     lights.append(dict(name='almond seed',pixels=pixels,falloff=falloff,hues={k:'#'+bytes(INKS[k]).hex() for k in 'hf'}))
     if i in (6,7):
-        # Two-pixel warm interiors inside five-pixel cool fracture channels.
         cracks=[[(30,27),(28,32),(30,36),(28,43)]]
         cracks+=[[(17,29),(20,33),(17,37)] if i==6 else
                  [(18,27),(20,32),(17,36),(19,42)]]
         for points in cracks:
             d.line(points,fill=INKS['i'],width=6)
             d.line(points,fill=INKS['h'],width=2)
-    # Keep all authored marks inside the sampled body; then clean only once.
     tile.putalpha(alpha)
     rows=[''.join('.' if not tile.getpixel((x,y))[3] else min(INKS,key=lambda k:sum((INKS[k][n]-tile.getpixel((x,y))[n])**2 for n in range(3))) for x in range(48)) for y in range(48)]
     rows=gates.despeckle(rows)
-    # The hood reads through broad teal planes, without pale edge flecks.
     rows=[row.replace('d','b' if y<27 else 'c') for y,row in enumerate(rows)]
     spec=dict(rows=rows,signature_lights=lights)
     spec['rows']=gates.despeckle(gates.signature_rows(spec),keep=gates.hand_pixels(spec))
@@ -107,14 +101,12 @@ def polish(tile, i, gates):
     solid={(x,y) for y,row in enumerate(rows) for x,k in enumerate(row) if k!='.'}
     edge={q for q in solid if any(n not in solid for n in gates.neighbours(*q))}
     for x,y in edge: cells[y][x]='c'
-    # Connect short contour tips inward instead of exempting singleton pixels.
     for x,y in sorted(edge):
         if not any(n in solid and cells[n[1]][n[0]]=='c' for n in gates.neighbours(x,y)):
             nx,ny=next(n for n in gates.neighbours(x,y) if n in solid)
             cells[ny][nx]='c'
     spec['rows']=gates.despeckle([''.join(r) for r in cells],keep=gates.hand_pixels(spec)+[list(q) for q in edge])
     rows=gates.signature_rows(spec)
-    # Protected pixels survive last; no smoothing is applied to signature lights.
     tile=gates.render(rows,INKS)
     return tile,spec
 
@@ -134,7 +126,6 @@ def run(a):
         assert not errors,(name,errors)
         gates.gate(gates.signature_rows(spec),INKS,gates.hand_pixels(spec))
         images.append((name,tile))
-    # Six solid, detached seed petals finish the retained jackpot phrase.
     petal=Image.new('RGBA',(32,32)); d=ImageDraw.Draw(petal)
     for shape,k in [([(14,1),(18,3),(17,7),(14,6),(13,3)],'g'),
                     ([(24,5),(28,7),(27,11),(24,10),(22,8)],'h'),
@@ -185,7 +176,6 @@ def tells(a):
     crown_inks=dict(zip('abcd',[(24,43,43),(38,76,67),(55,118,96),(102,173,143)]))
     crown=tell_sample(a.crown_source,(51,24),gates,crown_inks,parts=2)
     crown.save(a.review/'crown-sampled-1x.png')
-    # Remove loose one-pixel tips; keep the source's travelling stem and bud.
     solid={(x,y) for y in range(11) for x in range(184) if root.getpixel((x,y))[3]}
     solid={q for q in solid if sum(n in solid for n in gates.neighbours(*q))>=2}
     solid=max(gates.components(solid),key=len)
@@ -198,12 +188,9 @@ def tells(a):
     for stage in range(4):
         reach=min((stage+1)*46,179)
         tile=Image.new('RGBA',root.size)
-        # Keep native root grain. The authored bud rides the advancing tip.
         tile.alpha_composite(root.crop((0,0,reach-10,11)))
         tile.alpha_composite(root.crop((174,0,184,11)),(reach-10,0))
         images.append((f'root-vines-{stage}',tile))
-        # Each jaw advances from its outer corner, across the floor, toward
-        # the centre. A dim gate tint marks the full landing area from stage 0.
         tile=Image.new('RGBA',crown.size,(*crown_inks['a'],255))
         mask=Image.new('1',crown.size);d=ImageDraw.Draw(mask)
         left=[[(0,0),(5,0),(5,3),(2,5),(0,5)],
@@ -216,8 +203,6 @@ def tells(a):
                (14,23),(8,21),(3,17),(1,11),(0,5)]][stage]
         d.polygon(left,fill=1)
         d.polygon([(50-x,y) for x,y in left],fill=1)
-        # Hand-clean the reference's U-shaped hooks at native grain. Only
-        # broad planes remain: no sampled texture or detached thorn pixels.
         points={(x,y) for y in range(24) for x in range(51) if mask.getpixel((x,y))}
         for x,y in points:
             edge=any(n not in points for n in gates.neighbours(x,y))
@@ -238,7 +223,6 @@ def tells(a):
     native=json.loads((a.out/'native.json').read_text())
     native['tells']=recipe
     (a.out/'native.json').write_text(json.dumps(native,indent=2)+'\n')
-    # Review sheets keep their different native aspect ratios.
     for kind in ['root','crown']:
         frames=[(n,Image.open(a.out/(n+'.png'))) for n,_ in images if n.startswith(kind)]
         sheet(frames,a.review/(kind+'-vines-1x.png'),1,2)

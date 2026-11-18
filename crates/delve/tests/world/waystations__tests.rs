@@ -22,7 +22,6 @@ fn every_stop_of_the_ring_has_its_halt_in_ring_order() {
         assert_eq!(p.stop, i);
         assert_eq!(onward(back(i)), i);
     }
-    // A name is read on the signs and the keeper's board: no two alike.
     let mut names: Vec<&str> = STOPS.iter().map(|s| s.name).collect();
     names.sort();
     names.dedup();
@@ -33,7 +32,6 @@ fn every_stop_of_the_ring_has_its_halt_in_ring_order() {
 fn a_halt_stands_on_open_ground_beside_a_road_it_can_be_walked_to() {
     let geo = kingdom::geography(&[]);
     let keep = crate::world::kingdom::keep_stand();
-    // Every road tile the Keep's roads reach.
     let n = (crate::world::map::MAP_W * crate::world::map::MAP_H) as usize;
     let idx = |(x, y): (i32, i32)| (y * crate::world::map::MAP_W + x) as usize;
     let mut seen = vec![false; n];

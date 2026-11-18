@@ -12,8 +12,6 @@ const CROP_W: i32 = 192;
 const CROP_H: i32 = 96;
 const KNIGHT: (f32, f32) = (10.0, 14.0);
 
-/// How an arm is held for the lab: the kit or arm, its attack input, and how
-/// far the dummy stands.
 struct Arm {
     name: &'static str,
     class: &'static str,
@@ -22,8 +20,6 @@ struct Arm {
     reach: f32,
 }
 
-/// A plain arm as the rack hands it over: the weapon and its card, so the
-/// tray shows the card's own art (`Hero::equip`).
 fn plain(w: Weapon, card: Option<&'static str>) -> impl Fn(&mut Run) {
     move |r: &mut Run| {
         let h = r.players.get_mut(&1).unwrap();
@@ -46,7 +42,6 @@ fn fire() -> Input {
     Input { fire: true, aim_x: 1, ..Default::default() }
 }
 
-/// Q alone: an aim would also loose the held arm (aiming fires, `arms`).
 fn swing() -> Input {
     Input { swing: true, ..Default::default() }
 }
@@ -87,7 +82,6 @@ fn arms() -> Vec<Arm> {
         kit!("alchemist", "ranged", 9.0),
         kit!("bard", "ranged", 9.0),
         kit!("scryglass", "ranged", 9.0),
-        // Notes fly 6 units (speed 18 for 10 ticks): a second trial in range.
         Arm { name: "notes-close", class: "ranged", setup: |r| plain(Weapon::Notes, Some("note-stream"))(r), input: fire, reach: 4.5 },
         Arm { name: "bard-close", class: "ranged", setup: |r| assert!(r.take_up(1, "bard")), input: fire, reach: 4.5 },
     ]
@@ -137,12 +131,10 @@ fn luma(c: [u8; 3]) -> f32 {
     0.2126 * c[0] as f32 + 0.7152 * c[1] as f32 + 0.0722 * c[2] as f32
 }
 
-/// Warm: red clearly over blue, and bright enough to read as lit.
 fn warm(c: [u8; 3]) -> bool {
     c[0] as i32 > c[2] as i32 + 24 && luma(c) > 40.0
 }
 
-/// One tick's difference from the control picture.
 fn diff(a: &Img, control: &Img) -> (u32, f32, u32, u32, f32) {
     let (mut px, mut energy, mut warm_px, mut peak) = (0u32, 0f32, 0u32, 0f32);
     let mut colours = std::collections::BTreeSet::new();

@@ -13,12 +13,10 @@ use crate::rules::griffinwing::{
     things,
 };
 
-/// A fixed-point length in units.
 fn u(v: i32) -> f32 {
     units(v)
 }
 
-/// The rail's frame at `s` units: along, across (to the right) and up.
 pub(super) fn frame(s: f32) -> (V3, V3, V3) {
     let yaw = rail::rail().at(s).yaw;
     let (sin, cos) = yaw.dsin_cos();
@@ -30,7 +28,6 @@ pub(super) fn at(s: f32, x: f32, z: f32) -> V3 {
     v3(w[0], w[1], w[2])
 }
 
-/// A seat's saddle cloth.
 fn cloth(seat: u32) -> u8 {
     match seat {
         1 | 3 | 4 | 6 => mat::CLOTH_GOLD,
@@ -38,9 +35,6 @@ fn cloth(seat: u32) -> u8 {
     }
 }
 
-/// A griffin from behind, a knight astride: a tawny lion's body, an eagle's
-/// head, broad wings beating with `beat`, leaning `roll` radians about its
-/// line and climbing `pitch`.
 #[allow(clippy::too_many_arguments)]
 pub fn griffin(
     m: &mut Mesh,
@@ -100,7 +94,6 @@ pub fn griffin(
         tail + right * (0.1 * k) - f2 * (0.4 * k),
         mat::HORSE_CHESTNUT,
     );
-    // The saddle cloth, and the knight on it.
     cuboid(
         m,
         c + up * (0.17 * k),
@@ -155,9 +148,6 @@ pub fn griffin(
     }
 }
 
-/// A snuffer: a hooded wisp with two pale eyes and a wick-stub tail, facing
-/// the camera (it comes from ahead), ringed in the cold light it was snuffing
-/// from, so it reads against the dark.
 fn wisp(m: &mut Mesh, c: V3, f: V3, r: V3, beat: f32, glow: bool) {
     let k = 2.0;
     cuboid(
@@ -207,7 +197,6 @@ fn wisp(m: &mut Mesh, c: V3, f: V3, r: V3, beat: f32, glow: bool) {
     );
 }
 
-/// A kite: a lantern-bat, a pointed hood and beating wings.
 fn kite(m: &mut Mesh, c: V3, f: V3, r: V3, beat: f32, hot: bool) {
     diamond(m, c, 0.7, 0.4, mat::STONE);
     cuboid(
@@ -239,7 +228,6 @@ fn kite(m: &mut Mesh, c: V3, f: V3, r: V3, beat: f32, hot: bool) {
     }
 }
 
-/// A hooded lantern tower on a ledge.
 fn turret(m: &mut Mesh, c: V3, f: V3, r: V3, hot: bool) {
     cuboid(
         m,
@@ -293,7 +281,6 @@ fn turret(m: &mut Mesh, c: V3, f: V3, r: V3, hot: bool) {
     );
 }
 
-/// A dive-bomber: an arrowhead with wings, pointing where it goes.
 fn bomber(m: &mut Mesh, c: V3, f: V3, r: V3, beat: f32) {
     diamond(m, c, 0.9, 0.0, mat::ARMOR);
     cuboid(
@@ -318,8 +305,6 @@ fn bomber(m: &mut Mesh, c: V3, f: V3, r: V3, beat: f32) {
     }
 }
 
-/// A lamp: a flame in a lantern, the cold-light shield round it while it is
-/// shut, a bright flame once it is open, dark once it has gone out.
 fn lamp(m: &mut Mesh, c: V3, f: V3, r: V3, foe: &Foe, lit: bool, turn: f32) {
     match foe.st {
         St::Broken => {
@@ -353,10 +338,6 @@ fn lamp(m: &mut Mesh, c: V3, f: V3, r: V3, foe: &Foe, lit: bool, turn: f32) {
     }
 }
 
-/// The coils' sweep: two great banded lengths of the Wyrm's body slide in
-/// from the walls, a gap between, hold, and draw back (`wyrm.rs`). Over the
-/// tell a sliver of each shows at the walls, so the body is seen to move before
-/// it sweeps.
 fn coil_wall(m: &mut Mesh, s: f32, b: &Beast, half: f32, tick: u32) {
     let gap = u(b.gap);
     let g = u(boss::GAP_HALF);
@@ -383,11 +364,6 @@ fn coil_wall(m: &mut Mesh, s: f32, b: &Beast, half: f32, tick: u32) {
     }
 }
 
-/// The cold-light roar: a shaft of light from the Wyrm's mouth down to the
-/// column it has locked on the wing's own rail (the guide it runs along is the
-/// line from the mouth to the column's foot, `wyrm.rs`), narrow at the teeth
-/// and as wide as the column where it lands. It is a lattice of light, four
-/// rails and hoops between them, so the picture is not walled off by it.
 fn roar_beam(m: &mut Mesh, mouth: V3, s1: f32, b: &Beast) {
     let x = u(b.col);
     let w = u(boss::COL_HALF);
@@ -401,13 +377,11 @@ fn roar_beam(m: &mut Mesh, mouth: V3, s1: f32, b: &Beast) {
         at(s1, x - w, 5.5),
     ];
     let along = |i: usize, t: f32| throat[i].lerp(foot[i], t);
-    // The four rails.
     for i in 0..4 {
         let (a, z) = (along(i, 0.0), along(i, 1.0));
         m.push_quad(a + r * 0.3, z + r * 0.3, z - r * 0.3, a - r * 0.3, mat::MOONLIGHT);
         m.push_quad(a + V3::UP * 0.3, z + V3::UP * 0.3, z - V3::UP * 0.3, a - V3::UP * 0.3, mat::MOONLIGHT);
     }
-    // The hoops: close together at the mouth, wider apart toward the wing.
     for t in [0.08f32, 0.2, 0.36, 0.56, 0.8, 1.0] {
         for i in 0..4 {
             let j = (i + 1) % 4;
@@ -417,13 +391,11 @@ fn roar_beam(m: &mut Mesh, mouth: V3, s1: f32, b: &Beast) {
     }
 }
 
-/// A prop on the rail.
 fn prop(m: &mut Mesh, p: &Prop, t: u32, wx: i32, tick: u32, half: f32) {
     let s = u(p.s);
     let (f, r, _) = frame(s);
     let c = at(s, u(p.x), u(p.z));
     if super::set::painted(p.thing) {
-        // A painted gate or ring is stood over the scene (`set.rs`).
         return;
     }
     match p.thing {
@@ -465,7 +437,6 @@ fn prop(m: &mut Mesh, p: &Prop, t: u32, wx: i32, tick: u32, half: f32) {
             let depth = u(p.len) * 0.5;
             let sc = s + depth;
             let rl = rail::rail();
-            // Four slabs round the opening, wall to wall.
             block(
                 m,
                 rl,
@@ -576,7 +547,6 @@ fn prop(m: &mut Mesh, p: &Prop, t: u32, wx: i32, tick: u32, half: f32) {
     }
 }
 
-/// The last beacon: a great lantern on a tower, lit as the run ends.
 fn beacon(m: &mut Mesh, s: f32, lit: bool) {
     let rl = rail::rail();
     block(m, rl, s, 0.0, -4.0, (3.0, 3.0, 12.0), mat::STONE);
@@ -593,14 +563,12 @@ fn beacon(m: &mut Mesh, s: f32, lit: bool) {
     block(m, rl, s, 0.0, 14.2, (1.0, 1.0, 0.8), mat::BRASS);
 }
 
-/// Everything that moves this frame, into `m`, as `seat` sees it.
 pub fn movers(m: &mut Mesh, s: &Session, seat: u32, eye: V3) {
     m.tris.clear();
     let anchor = u(s.anchor());
     let tick = s.elapsed;
     let n = crate::rules::griffinwing::Nums::default();
     let half = rail::rail().at(anchor).half;
-    // The crafts.
     let draw_craft = |m: &mut Mesh, id: u32, c: &Craft, lost: bool| {
         let su = u(s.craft_s(c));
         let (f, r, _) = frame(su);
@@ -609,7 +577,6 @@ pub fn movers(m: &mut Mesh, s: &Session, seat: u32, eye: V3) {
         let mut pitch = c.lift as f32 / Q as f32 * 0.22;
         let mut scale = 0.7;
         if c.roll > 0 {
-            // A roll turns the whole craft over, fast at the start.
             let k = 1.0 - c.roll as f32 / c.roll_len.max(1) as f32;
             roll += c.dir as f32 * k * std::f32::consts::TAU;
         }
@@ -620,7 +587,6 @@ pub fn movers(m: &mut Mesh, s: &Session, seat: u32, eye: V3) {
             pitch -= k;
             scale = (0.7 - k * 0.4).max(0.25);
         } else if lost {
-            // A lost rider falls out of the picture under its own weight.
             let k = ((crate::rules::griffinwing::dm(10) - c.z) as f32
                 / crate::rules::griffinwing::dm(120) as f32)
                 .clamp(0.0, 1.0);
@@ -629,7 +595,6 @@ pub fn movers(m: &mut Mesh, s: &Session, seat: u32, eye: V3) {
             scale = (0.7 - k * 0.4).max(0.25);
         }
         let centre = at(su, u(c.x), z + 0.0);
-        // A rival at the lens would fill it: leave out one that close.
         if id != seat && (centre - eye).length() < 2.4 {
             return;
         }
@@ -647,7 +612,6 @@ pub fn movers(m: &mut Mesh, s: &Session, seat: u32, eye: V3) {
     };
     for (&id, seat_) in &s.seats {
         let c = &seat_.craft;
-        // The unhurt moment after a blow blinks.
         let blink = c.hurt > 0 && c.down == 0 && (tick / 3) % 2 == 0;
         if !blink {
             draw_craft(m, id, c, false);
@@ -658,7 +622,6 @@ pub fn movers(m: &mut Mesh, s: &Session, seat: u32, eye: V3) {
             draw_craft(m, u32::from(w.id), &w.craft, w.lost);
         }
     }
-    // The foes.
     for f in &s.foes {
         let su = u(f.s);
         let (fw, r, _) = frame(su);
@@ -670,7 +633,6 @@ pub fn movers(m: &mut Mesh, s: &Session, seat: u32, eye: V3) {
             Kind::Turret => turret(m, c, fw, r, f.st == St::Tell),
             Kind::Bomber => {
                 if f.st != St::Hide {
-                    // Pointing along its way: the frame turned to its velocity.
                     let d = fw * u(f.vs - crate::rules::griffinwing::PACE)
                         + r * u(f.vx)
                         + V3::UP * u(f.vz);
@@ -714,7 +676,6 @@ pub fn movers(m: &mut Mesh, s: &Session, seat: u32, eye: V3) {
             prop(m, p, s.t, n.wx(), tick, half);
         }
     }
-    // The last beacon: a painted one is stood over the scene (`set.rs`).
     if !super::set::beacon_painted() {
         if matches!(s.mode, Mode::Victory | Mode::Tally) {
             beacon(m, u(s.home) + 100.0, true);

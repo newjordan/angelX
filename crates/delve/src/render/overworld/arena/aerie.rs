@@ -29,7 +29,6 @@ fn pigeon(cv: &mut Img, x: i32, y: i32, ink: char) {
 pub(super) fn scenery(cv: &mut Img, run: &Run) {
     match run.room().kind {
         RoomKind::Belfry => {
-            // Two stone bell towers, bells hung in their open lanterns.
             for c in [3, 19] {
                 let (x, y) = (c * TILE + 1, 2 * TILE - 14);
                 m::block(
@@ -47,7 +46,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                 cv.line(x + 10, y + 34, x + 20, y + 34, 'B');
                 cv.put(x + 15, y + 35, 'O');
             }
-            // The rope course between them, on timber posts.
             for x in [6, 18] {
                 cv.line(x * TILE, 4 * TILE, x * TILE, 10 * TILE, 'P');
                 cv.line(x * TILE + 1, 4 * TILE, x * TILE + 1, 10 * TILE, 'b');
@@ -60,7 +58,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             m::sign(cv, 15 * TILE + 2, 12 * TILE, "NO RINGING", 'T');
         }
         RoomKind::Aqueduct => {
-            // Stone piers; the high channel carried on arches between them.
             for c in [7, 15] {
                 for (r, h) in [(2, 3), (10, 2)] {
                     m::block(
@@ -86,7 +83,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             m::sign(cv, 8 * TILE, 12 * TILE, "WATER SOLD SEPARATELY", 'T');
         }
         RoomKind::Aviary => {
-            // The pigeon parliament's dovecote: boarded, pigeon-holed, roofed.
             m::block(
                 cv,
                 (3 * TILE, 2 * TILE - 4, 5 * TILE, 2 * TILE + 4),
@@ -147,7 +143,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         cv.text(x - 17, y - 45, "SPEAKER", 'O');
     }
     if let Some(p) = &run.pigeons {
-        // A paper on the ground, waiting for E.
         if let Some((i, px, py)) = p.dropped {
             if aerie::DOCUMENTS[usize::from(i)].0 == run.room().kind {
                 let (x, y) = at(px, py);
@@ -160,7 +155,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     if let Some(i) = aerie::flying(kind, stage, papers, run.pigeons.as_ref()) {
         let (fx, fy) = aerie::pigeon_at(run.room(), i, run.tick);
         let (x, y) = at(fx, fy);
-        // Its shadow on the ground, the bird above with the paper.
         cv.ellipse(x as f32, (y + 3) as f32, 6.0, 2.0, 'k');
         let flap = run.tick / 4 % 2 == 0;
         let y = y - 14;
@@ -193,7 +187,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         } else {
             'o'
         };
-        // Bell body: curved shape with bulbous bottom and narrow top.
         cv.ellipse(x as f32, (y - 10) as f32, 7.0, 5.0, ink);
         cv.ellipse(x as f32, (y - 15) as f32, 4.0, 3.0, ink);
         cv.line(x - 4, y - 13, x - 7, y - 10, ink);
@@ -208,7 +201,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             cv.line(x, y - 34, x + 3, y - 39, 'Y');
             cv.put(x, y - 41, 'Y');
         }
-        // Expanding ring when the bell is struck.
         if let Some(v) = volley {
             let ring = v.bell_ring[i];
             if ring > 0 {
@@ -233,7 +225,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                         ring_ink,
                     );
                 }
-                // A second, smaller inner ring for depth.
                 if ring > 3 {
                     let r2 = radius * 0.55;
                     let n2 = (r2 * 2.5) as i32;
@@ -251,7 +242,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 }
             }
         }
-        // Idle shimmer on unstruck bells: a subtle cycling glow.
         if let Some(v) = volley {
             let shimmer = v.bell_shimmer[i];
             if shimmer > 0 && v.bells & (1 << i) == 0 {
@@ -264,7 +254,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 } else {
                     'o'
                 };
-                // Small sparkles around the bell.
                 for k in 0..3 {
                     let a =
                         (k as f32 / 3.0) * std::f32::consts::TAU + phase * std::f32::consts::TAU;
@@ -277,7 +266,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The active rally is above cached scenery; foliage cannot hide its ball.
 pub(super) fn rally_over(cv: &mut Img, run: &Run) {
     if run.room().kind != RoomKind::Belfry {
         return;
@@ -295,8 +283,6 @@ pub(super) fn rally_over(cv: &mut Img, run: &Run) {
         let swinging = v.swing > 0;
         cv.rect(x - 6, y - 6, 12, 10, if swinging { 'Y' } else { 'O' });
         cv.line(x, y - 5, x, y + 3, if swinging { '9' } else { 'h' });
-        // The shield's bright edge is the timing window: tap as the turnip
-        // reaches it. It remains an early, weaker save for three more ticks.
         if swinging {
             let lift = i32::from(pastimes::SWING_TICKS - v.swing);
             cv.line(x - reach, y - 7 - lift, x - 8, y - 9 - lift, 'Y');
@@ -310,7 +296,6 @@ pub(super) fn rally_over(cv: &mut Img, run: &Run) {
                 if v.combo >= 6 { 'Y' } else { 'O' },
             );
         }
-        // Paddle-hit flash: a star of sparks radiating outward.
         if v.paddle_flash > 0 {
             let age = pastimes::RING_TICKS - v.paddle_flash.min(pastimes::RING_TICKS);
             let spark_ink = if age == 0 {
@@ -321,7 +306,6 @@ pub(super) fn rally_over(cv: &mut Img, run: &Run) {
                 'g'
             };
             let reach_spark = 3.0 + age as f32 * 1.8;
-            // A bright centre on the first tick.
             if age == 0 {
                 cv.rect(x - 2, y - 4, 5, 3, '9');
             }
@@ -333,7 +317,6 @@ pub(super) fn rally_over(cv: &mut Img, run: &Run) {
                     cv.put(sx, sy, spark_ink);
                 }
             }
-            // Upward sparks.
             for s in 1..=2 {
                 let sy = y - 3 - (s as f32 * reach_spark * 0.5).round() as i32;
                 cv.put(x, sy, spark_ink);
@@ -341,7 +324,6 @@ pub(super) fn rally_over(cv: &mut Img, run: &Run) {
                 cv.put(x + 1, sy, if age == 0 { '6' } else { 'g' });
             }
         }
-        // Life-lost flash: downward splash at miss position + screen overlay.
         if v.miss_flash > 0 {
             let age = pastimes::MISS_FLASH_TICKS - v.miss_flash;
             let (mx, my) = at(v.miss_x as f32 / 256.0 * 2.0, 20.0);
@@ -352,7 +334,6 @@ pub(super) fn rally_over(cv: &mut Img, run: &Run) {
             } else {
                 'o'
             };
-            // Downward splash lines radiating from the miss point.
             for dir in [-2.0f32, -1.0, 0.0, 1.0, 2.0] {
                 for s in 1..=3 {
                     let sx = mx + (dir * s as f32 * 2.0).round() as i32;
@@ -362,7 +343,6 @@ pub(super) fn rally_over(cv: &mut Img, run: &Run) {
             }
             cv.text(mx - 30, my + 16, "TURNIP DOWN", '6');
         }
-        // Ball trail: faded afterimages behind the moving ball.
         if let Some(b) = &v.ball {
             for (ti, &(tx, ty)) in v.ball_trail.iter().enumerate() {
                 let (bx, by) = at(tx as f32 / 256.0 * 2.0, ty as f32 / 256.0 * 2.0);
@@ -384,8 +364,6 @@ pub(super) fn rally_over(cv: &mut Img, run: &Run) {
                 cv.rect(bx - size / 2, by - size / 2, size, size, trail_ink);
             }
             let (x, y) = at(b.x as f32 / 256.0 * 2.0, b.y as f32 / 256.0 * 2.0);
-            // The turnip is the brightest moving object, never lost in the
-            // room's timber or foliage. Its green crown also shows heading.
             cv.ellipse(x as f32, y as f32, 5.0, 4.0, '0');
             cv.ellipse(x as f32, (y - 1) as f32, 4.0, 3.0, 'w');
             cv.line(x - 2, y, x + 2, y + 2, '6');
@@ -411,7 +389,6 @@ pub(super) fn rally_over(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Over the knights: poop on those the pigeons voted on.
 pub(super) fn poop(cv: &mut Img, run: &Run) {
     rally_over(cv, run);
     let Some(p) = &run.pigeons else {
@@ -432,7 +409,6 @@ pub(super) fn poop(cv: &mut Img, run: &Run) {
     }
 }
 
-/// A tax paper, lying where it fell.
 fn paper(cv: &mut Img, x: i32, y: i32) {
     cv.rect(x - 5, y - 6, 10, 8, 'h');
     cv.line(x - 3, y - 4, x + 3, y - 4, 'o');

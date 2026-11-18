@@ -18,7 +18,6 @@ use crate::rules::looks::{Body, Sprite};
 use crate::rules::minions::{AURA_REACH, AURA_SHOWN, CAST_SHOWN, Order, RIP_REACH, RISE, Rite, TOMB_HEALTH, TOMB_TICKS, Tombstone};
 use crate::rules::{Run, dead_wishes};
 
-/// A ghoul: hunched and grave-pale, long in the arm, bone at the claws.
 pub(super) const GHOUL: [&str; 14] = [
     "......eee.....",
     ".....eCCCe....",
@@ -36,8 +35,6 @@ pub(super) const GHOUL: [&str; 14] = [
     "...eCC.eCC....",
 ];
 
-/// A barrow warden: an old knight in grey plate gone to rust, a green
-/// light in his visor, and his tall shield with a skull on its face.
 pub(super) const WARDEN: [&str; 19] = [
     "....gjjjg..........",
     "...gGJJGjg.........",
@@ -60,8 +57,6 @@ pub(super) const WARDEN: [&str; 19] = [
     ".nnn..nnn..........",
 ];
 
-/// A bone totem: two skulls on a stake with grave-light in their eyes, a
-/// third at its foot, and grave-fire burning on top.
 pub(super) const TOTEM: [&str; 21] = [
     "...e.C...",
     "..eCYCe..",
@@ -86,7 +81,6 @@ pub(super) const TOTEM: [&str; 21] = [
     ".bbbbbbb.",
 ];
 
-/// A zombie in grey rags, its arms out before it.
 pub(super) const ZOMBIE: [&str; 15] = [
     "....eeee......",
     "...eCyyCe.....",
@@ -130,7 +124,6 @@ const GOLEM: [&str; 22] = [
     ".....ggggggggggg....",
 ];
 
-/// Each golem tier's canvas, its body and its fit alike.
 fn golem_size(kind: AllyKind) -> (i32, i32) {
     match kind {
         AllyKind::FleshGolem => (17, 20),
@@ -140,7 +133,6 @@ fn golem_size(kind: AllyKind) -> (i32, i32) {
     }
 }
 
-/// Nearest-neighbour resize: every enlarged texel stays crisp.
 fn resized(im: &Img, w: i32, h: i32) -> Img {
     let mut out = Img::new(w, h);
     for y in 0..h {
@@ -153,8 +145,6 @@ fn resized(im: &Img, w: i32, h: i32) -> Img {
     out
 }
 
-/// The golems grow in breadth and weight with their tier. The dancers
-/// share the room's beat: sidestep, raised claws, bob and shoulder shimmy.
 pub(super) fn body(kind: AllyKind, tick: u64) -> Option<Img> {
     if kind.golem() {
         let (w, h) = golem_size(kind);
@@ -210,8 +200,6 @@ pub(super) fn body(kind: AllyKind, tick: u64) -> Option<Img> {
     Some(im)
 }
 
-/// The Tombstone: a grey headstone with a cross cut in it, on a mound of
-/// turned earth; the cut glows when it raises its dead.
 const STONE: [&str; 24] = [
     ".......gggggggg.......",
     ".....ggJhhhhhhJgg.....",
@@ -239,13 +227,6 @@ const STONE: [&str; 24] = [
     ".bbnbbnnbbnbbnbbnnbbb.",
 ];
 
-/// Where one of the dead keeps its body in its picture (drawn facing
-/// right), for what his wishes put on it: its size beside a knight's
-/// sixteen pixels; the middle of each place a worn piece goes
-/// (`looks::PLACES`); and the inks of its body, dark to light, as shadow,
-/// flesh and light, left of `reach`, which a colour wished over the whole
-/// of it repaints. What is not its body (a warden's shield, a totem's
-/// stake, rags, the grave-light in the eyes) keeps its own inks.
 struct Fit {
     body: Body,
     shadow: &'static [char],
@@ -269,7 +250,6 @@ impl Fit {
                 shadow: &['g', 'j'],
                 flesh: &['G', 'J'],
                 light: &['h'],
-                // His shield, right of his plate, keeps its own.
                 reach: 9,
             },
             AllyKind::Totem => Fit {
@@ -313,8 +293,6 @@ impl Fit {
     }
 }
 
-/// Each minion owns its attachment positions, including the warden's
-/// off-centre body beside his shield and the totem's narrow stake.
 pub(super) fn body_of(kind: AllyKind) -> Option<Body> {
     let name = match kind {
         AllyKind::Ghoul => "ghoul", AllyKind::Warden => "warden", AllyKind::Totem => "totem",
@@ -325,14 +303,6 @@ pub(super) fn body_of(kind: AllyKind) -> Option<Body> {
     Some(crate::rules::looks::profile(name))
 }
 
-/// One of a summoner's dead as his wishes for them dress it
-/// (`dead_wishes`): its body in a colour wished over the whole of it, and
-/// the pieces his other wishes for them put on it, each fitted to its
-/// body, oldest under newest; with the paintings of the pieces that have
-/// them, in the dressed picture's pixels. The canvas grows for what stands
-/// proud of the body at the sides and above; below its feet is cut. Any
-/// other ally, or one he wished nothing on, as it is.
-/// Skull and ribcage follow the same eight-drawing skeleton dance as `skeleton`.
 pub(super) fn body_at(kind: AllyKind, tick: u64) -> Option<Body> {
     let mut fit = body_of(kind)?;
     if kind == AllyKind::Skeleton {
@@ -377,14 +347,6 @@ pub(super) fn dressed(run: &Run, hire: &Hireling, body: &Img) -> (Img, Vec<Paint
         paintings::phase_of(&[u64::from(id), hire.kind as u64]))
 }
 
-/// `im` with its body repainted in the inks of `look`, a colour wished
-/// over the whole of it: its flesh in the ink the look fills its inside
-/// with most (its outline is not its colour), its shadow in the look's ink
-/// nearest a shade under that (or, with none, a darker step of it on the
-/// realm's plain inks), its light in the look's lightest. A look of one
-/// ink still leaves the body its shape. A purple or pink wish drawn
-/// without its dye (`wear::dye_ramp`) is that dye instead: its flesh the
-/// dye's strongest colour, the rest of the ramp its shadow and light.
 fn coloured(im: &Img, fit: &Fit, look: &Sprite, dye: Option<&[Rgb]>) -> Img {
     let mut counts: Vec<(Rgb, usize)> = Vec::new();
     let mut inside: Vec<(Rgb, usize)> = Vec::new();
@@ -449,7 +411,6 @@ fn coloured(im: &Img, fit: &Fit, look: &Sprite, dye: Option<&[Rgb]>) -> Img {
     out
 }
 
-/// Whether knight `id` has just called, torn or planted: his staff is up.
 pub(super) fn casting(run: &Run, id: u32) -> bool {
     run.minions
         .casts
@@ -457,7 +418,6 @@ pub(super) fn casting(run: &Run, id: u32) -> bool {
         .is_some_and(|c| run.tick < c.tick + u64::from(CAST_SHOWN))
 }
 
-/// The graves, and every summoner's dead before them.
 pub(super) fn delve(cv: &mut Img, run: &Run) {
     for stone in &run.minions.stones {
         grave(cv, run, stone);
@@ -467,9 +427,6 @@ pub(super) fn delve(cv: &mut Img, run: &Run) {
     }
 }
 
-/// A Tombstone: it drops into place over its first few ticks, its cut
-/// glows as a zombie comes up and while it is fresh, cracks open as it is
-/// beaten, and gutters in its last two seconds.
 fn grave(cv: &mut Img, run: &Run, stone: &Tombstone) {
     let (x, y) = at(stone.x, stone.y);
     let fall = (6 - stone.age.min(6) as i32) * 6;
@@ -481,7 +438,6 @@ fn grave(cv: &mut Img, run: &Run, stone: &Tombstone) {
             im.put(cx, cy, 'Y');
         }
     }
-    // Its wounds: one crack for each third of it beaten away.
     let lost = TOMB_HEALTH.saturating_sub(stone.hp) * 3 / TOMB_HEALTH.max(1);
     let cracks: [&[(i32, i32)]; 2] = [
         &[(5, 3), (5, 4), (6, 5), (5, 6), (6, 7), (7, 8), (6, 9), (7, 10)],
@@ -495,8 +451,6 @@ fn grave(cv: &mut Img, run: &Run, stone: &Tombstone) {
     stand(cv, &im, x, y + 4 - fall);
 }
 
-/// A minion climbing out of the ground: only what is above it shows, and
-/// clods of the turned earth thrown up about it.
 pub(super) fn rising(cv: &mut Img, im: &Img, x: i32, y: i32, left: u32) {
     let gone = (RISE - left.min(RISE)) as i32;
     let up = (gone * im.h / RISE as i32).max(1);
@@ -510,9 +464,6 @@ pub(super) fn rising(cv: &mut Img, im: &Img, x: i32, y: i32, left: u32) {
     }
 }
 
-/// Under the figures: the broken earth where the dead come up, the ring at
-/// the feet of each minion told to heel, the grave's ring and its slam,
-/// and the ground a soul rip tears.
 pub(super) fn under(cv: &mut Img, run: &Run) {
     let tick = run.tick;
     for pulse in run.minions.graves.values().filter_map(|g| g.pulse.as_ref()) {
@@ -527,7 +478,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
     for minion in run.minions.raised.iter().filter(|m| !m.down()) {
         let (x, y) = at(minion.x, minion.y);
         if minion.rising > 0 {
-            // The earth broken open, dark, with grave-light in the cracks.
             for dy in -3..=3 {
                 let half = 9 - dy * dy;
                 for dx in -half..=half {
@@ -546,10 +496,8 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
     }
     for stone in &run.minions.stones {
         let (x, y) = at(stone.x, stone.y);
-        // Where its dead come up: a ring of grave-light on the ground.
         ring(cv, (x, y + 2), 1.6 * UNIT, 1.3 * UNIT * 0.6, 'e', 2);
         if stone.age < 16 {
-            // The slam: a shock of dust thrown out, and clods.
             let r = 6.0 + stone.age as f32 * 2.6;
             let ink = if stone.age < 8 { 'i' } else { 'J' };
             ring(cv, (x, y + 2), r, r * 0.45, ink, 1);
@@ -568,7 +516,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
         ring(cv, (x, y), r, r * 0.6, 'C', 1);
         ring(cv, (x, y), r + 1.0, r * 0.6 + 1.0, 'e', 1);
         ring(cv, (x, y), r * 0.6, r * 0.36, 'e', 2);
-        // The ground torn toward its heart.
         for k in 0..12 {
             let a = k as f32 * std::f32::consts::TAU / 12.0;
             for d in [0.35, 0.5, 0.65] {
@@ -578,7 +525,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
     }
 }
 
-/// A soul torn out of a foe: a pale wisp with two dark eyes.
 const SOUL: [&str; 7] = [
     "..WW..",
     ".WYYW.",
@@ -589,12 +535,8 @@ const SOUL: [&str; 7] = [
     "C.C...",
 ];
 
-/// Over everything: the summoners' marks on their quarry, a warden's roar,
-/// the grave-fire over the dead coming up, a soul rip's souls streaming
-/// home, and the flare of a staff raised in a rite.
 pub(super) fn over(cv: &mut Img, run: &Run) {
     let tick = run.tick;
-    // The mark: four corners closing on the foe a knight's minions go for.
     for foe_id in run.minions.quarry.values() {
         let Some(foe) = run.enemies.iter().find(|e| e.id == *foe_id && e.hp > 0) else {
             continue;
@@ -614,8 +556,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
     for minion in run.minions.raised.iter().filter(|m| !m.down()) {
         let (x, y) = at(minion.x, minion.y);
         if minion.rising > 0 {
-            // A pillar of grave-fire over the spot as the dead come up,
-            // white at its heart, tapering as it climbs.
             let gone = (RISE - minion.rising.min(RISE)) as i32;
             let h = 18 + gone;
             for k in 0..h {
@@ -631,7 +571,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
                     cv.put(x + wave + dx, y - k, ink);
                 }
             }
-            // Sparks going up off it.
             for k in 0..5 {
                 let rise = ((tick as i32 + k * 7) % 20) as i32;
                 let dx = (hash(k, 3, 9) % 9) as i32 - 4;
@@ -640,8 +579,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
             continue;
         }
         if minion.kind == AllyKind::Warden && minion.taunt > 0 {
-            // The roar: rings going out from him as it begins, and his
-            // shout over his head while it holds.
             let gone = ROAR_TICKS - minion.taunt;
             if gone < 14 {
                 let r = 6.0 + gone as f32 * 3.0;
@@ -666,8 +603,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
             sx = -sx;
         }
         let head = (hx + sx, hy + sy);
-        // The flare at the headstone: a white heart and rays that grow
-        // and go out.
         let reach = 4 + age.min(8);
         cv.rect(head.0 - 1, head.1 - 1, 3, 3, 'W');
         for k in 0..8 {
@@ -679,7 +614,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
         }
         ring(cv, head, reach as f32 + 2.0, reach as f32 + 2.0, 'e', 2);
         if cast.rite == Rite::Rip {
-            // Each torn soul flies home to the staff, its trail behind it.
             let t = (age as f32 / CAST_SHOWN as f32).min(1.0);
             for (n, &(fx, fy)) in cast.torn.iter().enumerate() {
                 let from = at(fx, fy);
@@ -701,7 +635,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
             }
         }
         if cast.rite == Rite::Tomb && age < 10 {
-            // A bolt of grave-fire from the staff to where the stone lands.
             let to = at(cast.x, cast.y);
             for k in 0..24 {
                 let t = k as f32 / 24.0;
@@ -712,7 +645,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
         }
     }
     for stone in &run.minions.stones {
-        // Under the stone, a bar of its time left.
         let (x, y) = at(stone.x, stone.y);
         let w = 20 * stone.left as i32 / TOMB_TICKS as i32;
         cv.rect(x - 10, y + 7, 20, 2, 'x');
@@ -720,7 +652,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
     }
 }
 
-/// A dotted ellipse of `ink`, every `every`th dot of its rim.
 fn ring(cv: &mut Img, (cx, cy): (i32, i32), rx: f32, ry: f32, ink: char, every: i32) {
     let n = ((rx + ry) * 3.0).max(12.0) as i32;
     for k in (0..n).step_by(every.max(1) as usize) {

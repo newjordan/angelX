@@ -22,21 +22,13 @@ use crate::limits::{DELAY_WINDOW, MAX_IN_FLIGHT, MIN_IN_FLIGHT, QUEUE};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
-/// After a late snapshot, the window grows by this many bytes for each
-/// window's worth applied on time: slowly enough that a link slower than
-/// the stream is held near the floor rather than overshot by the time the
-/// next late snapshot is heard.
 const STEP: usize = 150;
 
 pub(crate) struct Pace {
-    /// (tick, written at, bytes), oldest first.
     flight: VecDeque<(u32, Instant, usize)>,
     unapplied: usize,
-    /// (applied at, delay), recent.
     delays: VecDeque<(Instant, Duration)>,
     window: usize,
-    /// Where doubling stops and stepping starts: half the window at the
-    /// last late snapshot.
     threshold: usize,
 }
 
@@ -58,8 +50,6 @@ impl Pace {
         self.unapplied += bytes;
     }
 
-    /// The client applied everything through `tick`, as heard at `at`. A
-    /// tick past anything written is not believed.
     pub fn applied(&mut self, tick: u32, at: Instant) {
         if self.flight.back().is_some_and(|&(newest, _, _)| tick > newest) {
             return;
@@ -93,13 +83,10 @@ impl Pace {
         };
     }
 
-    /// The existing snapshot acknowledgement measurement, without queued delay.
     pub fn round_trip(&self) -> Option<Duration> {
         self.delays.iter().map(|(_, delay)| *delay).min()
     }
 
-    /// Whether to hold back what would be written now. The first snapshot
-    /// is never held, however big (a whole document).
     pub fn behind(&self) -> bool {
         !self.flight.is_empty() && self.unapplied > self.window
     }
@@ -116,25 +103,20 @@ mod tests {
 
     const SNAPSHOT: Duration = Duration::from_millis(50);
 
-    /// What happened on a simulated link.
     struct Run {
         most_unapplied: usize,
         held: u32,
         held_after_two_seconds: u32,
     }
 
-    /// A client behind a link of `rate` bytes a second and `latency` each
-    /// way, sent a `size`-byte snapshot every 50 ms for `secs`.
     fn link(rate: f64, latency: Duration, size: usize, secs: u32) -> Run {
         let mut pace = Pace::default();
         let start = Instant::now();
-        // When the link finishes carrying each written snapshot.
         let mut carried: VecDeque<(u32, Instant)> = VecDeque::new();
         let mut link_free = start;
         let mut run = Run { most_unapplied: 0, held: 0, held_after_two_seconds: 0 };
         for tick in 1..=(secs * 20) {
             let now = start + SNAPSHOT * tick;
-            // Applied as it arrives, heard back a latency later.
             while carried.front().is_some_and(|(_, at)| *at + latency * 2 <= now) {
                 let (t, at) = carried.pop_front().unwrap();
                 pace.applied(t, at + latency * 2);
@@ -190,7 +172,6 @@ mod tests {
 
     #[test]
     fn a_fast_client_far_away_waits_only_while_its_window_opens() {
-        // A phone 300 ms away, a packed crowd's 600-byte snapshots.
         let run = link(100_000.0, Duration::from_millis(150), 600, 30);
         assert_eq!(run.held_after_two_seconds, 0);
         assert!(run.held < 20, "held {}", run.held);
@@ -198,7 +179,6 @@ mod tests {
 
     #[test]
     fn a_slow_link_holds_about_one_snapshot() {
-        // 1 KB/s against a 12 KB/s stream.
         let run = link(1_000.0, Duration::from_millis(20), 600, 30);
         assert!(run.held > 400, "held {}", run.held);
         assert!(run.most_unapplied <= MIN_IN_FLIGHT + 2 * 600, "{} bytes unapplied", run.most_unapplied);
@@ -208,14 +188,12 @@ mod tests {
     fn a_link_that_slows_down_is_followed() {
         let mut pace = Pace::default();
         let t0 = Instant::now();
-        // Fast for a while: the window opens.
         for tick in 1..=100u32 {
             let at = t0 + SNAPSHOT * tick;
             pace.written(tick, at, 1_000);
             pace.applied(tick, at + Duration::from_millis(20));
         }
         assert!(pace.window > 50_000);
-        // Then everything is late: a few halvings bring it to the floor.
         for tick in 101..=120u32 {
             let at = t0 + SNAPSHOT * tick;
             pace.written(tick, at, 1_000);

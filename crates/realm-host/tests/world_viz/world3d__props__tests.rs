@@ -19,7 +19,6 @@ fn a_prop_parses_into_tagged_triangles() {
     assert_eq!(mesh.tris.len(), 3, "a quad fans into two triangles, then one more");
     assert_eq!(mesh.tris[0].mat, mat::STONE);
     assert_eq!(mesh.tris[2].mat, mat::BRASS);
-    // A floor-facing face takes its surface coordinates from x and y.
     assert_eq!(mesh.tris[0].uv[1], [1.0, 0.0]);
 }
 
@@ -75,8 +74,6 @@ fn every_prop_parses_stands_on_the_ground_and_stays_small() {
     }
 }
 
-/// `ANGEL_PROP_SHOTS=<dir>`: each prop on a patch of ground at dusk, from a
-/// three-quarter view, at a large size and at mini-pane size.
 #[test]
 #[ignore]
 fn write_prop_shots() {
@@ -85,8 +82,6 @@ fn write_prop_shots() {
     };
     let dir = std::path::PathBuf::from(dir);
     std::fs::create_dir_all(&dir).unwrap();
-    // `ANGEL_PROP_DIR=<dir>` renders loose `.obj` files instead, for trying a
-    // conversion before it is bundled.
     let mut props: Vec<(String, Arc<Mesh>)> = PROPS
         .iter()
         .map(|(name, _)| (name.to_string(), prop(name).unwrap()))
@@ -115,7 +110,6 @@ fn write_prop_shots() {
         scene.merge(Mesh { tris: prop.tris.clone() });
         for (label, w, h) in [("large", 480, 360), ("mini", 160, 120)] {
             let distance = size * 1.9;
-            // Front three-quarter: a converted prop faces -y.
             let heading = std::f32::consts::FRAC_PI_2 + 0.5;
             let view = View3 {
                 pos: v3(
@@ -133,7 +127,6 @@ fn write_prop_shots() {
     }
 }
 
-/// `cargo test --bin angel print_room_budgets -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn print_room_budgets() {

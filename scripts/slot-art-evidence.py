@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Bounded review sheets from native PNGs and the real exported cell buffers."""
 import importlib.util,json,math,sys
 from pathlib import Path
 from PIL import Image,ImageDraw,ImageFont
@@ -20,7 +19,6 @@ def cells(path):
         else:d.text((x,y),ch,font=font,fill=fg)
     return im
 
-# All distinct imported frames, plus v2 when its dimensions differ.
 for game in ['cinder','latch','mossbell','brasswake','rafterwake','pennon']:
     folders=sorted(root.glob(game+'.*'));tiles=[]
     for f in folders:
@@ -36,7 +34,6 @@ for game in ['cinder','latch','mossbell','brasswake','rafterwake','pennon']:
         for i,t in enumerate(group):sheet.paste(t,(i%3*480,i//3*424))
         sheet.save(out/f'imported-{game}-{page}.png')
 
-# Three edge/detail trials: retained alpha allows direct RGB-fringe comparison.
 proof=Image.new('RGB',(1536,3*290),(10,12,16));d=ImageDraw.Draw(proof);proofmetrics={}
 for row,slot in enumerate(['pennon.knight','latch.knight','cinder.impact']):
     m=json.loads((root/slot/(slot+'.map.json')).read_text());p=m['pieces'][0]

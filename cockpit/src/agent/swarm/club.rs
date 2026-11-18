@@ -46,26 +46,11 @@ fn reserve_swarm_workers(
     }
 }
 
-// ---------------------------------------------------------------------------
-// SwarmClub
-// ---------------------------------------------------------------------------
-
-/// A model seat paired with an optional liveness bit from the fleet prober: when
-/// the bit is present and reads false, the seat is skipped rather than dialed.
 pub(crate) type SeatExtra = (Arc<dyn Club>, Option<Arc<AtomicBool>>);
 
-/// The fleet club each swarm role runs on. By default every role points at the
-/// same inner club — a homogeneous mixture-of-agents (today's behavior). Routing
-/// a role to a *different* fleet model (via `ANGEL_SWARM_{PROPOSE,JUDGE,VERIFY,
-/// AGG}_CLUB`) turns the swarm into a heterogeneous / symbiotic mixture: e.g.
-/// gemma proposes, siq judges, qwen verifies. `aggregate` is also the club used
-/// for the single-pass fallback and the final streamed synthesis.
 #[derive(Clone)]
 pub(crate) struct RoleClubs {
     pub(crate) propose: Arc<dyn Club>,
-    /// Additional heterogeneous proposer seats. Each optional availability bit
-    /// comes from the fleet prober, so a dead local breadth model is omitted
-    /// from the wave instead of turning into a slow or metered fallback call.
     pub(crate) propose_extra: Vec<SeatExtra>,
     pub(crate) judge: Arc<dyn Club>,
     pub(crate) judge_extra: Vec<SeatExtra>,
@@ -73,31 +58,16 @@ pub(crate) struct RoleClubs {
     pub(crate) verify_extra: Vec<SeatExtra>,
     pub(crate) aggregate: Arc<dyn Club>,
     pub(crate) aggregate_extra: Vec<SeatExtra>,
-    /// Optional live-research scout. This does not occupy or replace any MoA role
-    /// seat; it only supplies fresh context for the proposers when requested.
     pub(crate) research: Option<Arc<dyn Club>>,
 }
 
-/// A [`Club`] that answers by fanning out a mixture-of-agents over its role clubs.
 type ToolPreflightOutcome = Result<Arc<str>, Arc<str>>;
 
 pub struct SwarmClub {
     pub(crate) name: String,
-    /// The worker model(s) each role runs on (all gemma4 in the default homogeneous
-    /// case; heterogeneous when role-club env vars are set).
     pub(crate) clubs: RoleClubs,
     pub(crate) k: Knobs,
-    /// Quota failover bench: every configured SOTA link, in build order. When a
-    /// role call fails with a quota-exhausted error (weekly/monthly plan cap —
-    /// hours-to-days, not a transient 429), the call is retried on the next
-    /// spendable link here instead of failing the turn. Empty for local swarms:
-    /// a local fleet model has no metered quota, so there's nothing to route
-    /// around and behavior is unchanged.
     pub(crate) fallbacks: Vec<Arc<dyn Club>>,
-    /// One terminal formation outcome per active user turn. Successful advice
-    /// is replayed into every coordinator hop so provider history stays
-    /// prefix-stable. A failure is memoized too: retrying the same outer task
-    /// turn must not buy the entire failed formation again.
     pub(crate) tool_preflight: Arc<Mutex<Option<(u64, ToolPreflightOutcome)>>>,
 }
 
@@ -127,7 +97,6 @@ impl SwarmClub {
             layers: env_usize("ANGEL_SWARM_LAYERS", if max { 3 } else { 2 }).max(1),
             always: env_flag_or("ANGEL_SWARM_ALWAYS", max),
             engaged: false,
-            // Local fleet calls are free — the heuristic gate stays the default.
             mode: MoaMode::from_env_var("ANGEL_SWARM_MODE", MoaMode::Auto),
             reflect: env_flag_or("ANGEL_SWARM_REFLECT", max),
             judge: env_flag_or("ANGEL_SWARM_JUDGE", max),
@@ -156,8 +125,6 @@ impl SwarmClub {
             agg_fanin: Self::aggregation_fanin_from_env(),
             dominant_relax: env_f64("ANGEL_MOA_DOMINANT_RELAX", 0.67).clamp(0.0, 1.0),
             eclusters_hi: env_f64("ANGEL_MOA_ECLUSTERS_HI", 4.0).max(1.0),
-            // Local fleet calls are free and their backends mostly ignore
-            // effort; only the SOTA roster carries per-seat efforts.
             seat_efforts: SeatEfforts::default(),
         }
     }
@@ -173,9 +140,6 @@ impl SwarmClub {
             .clamp(2, roster_len())
             .max(width);
         Knobs {
-            // SOTA/provider MOA pays real network/API latency per wave. When a
-            // prompt routes to MOA, keep the default to one proposer wave plus
-            // one streamed synthesis wave.
             width,
             max_width,
             max_waves: env_usize("ANGEL_SOTA_MOA_MAX_WAVES", 1).max(1),
@@ -187,8 +151,6 @@ impl SwarmClub {
             layers: env_usize("ANGEL_SOTA_MOA_LAYERS", if max { 2 } else { 1 }).max(1),
             always: env_flag_or("ANGEL_SOTA_MOA_ALWAYS", false),
             engaged: false,
-            // SOTA links are metered: default MANUAL — the coordinator answers
-            // solo at standard token spend until a turn opens with `moa:`.
             mode: MoaMode::from_env_var("ANGEL_SOTA_MOA_MODE", MoaMode::Manual),
             reflect: env_flag_or("ANGEL_SOTA_MOA_REFLECT", max),
             judge: env_flag_or("ANGEL_SOTA_MOA_JUDGE", false),
@@ -230,24 +192,7 @@ impl SwarmClub {
         }
     }
 
-    /// Build from env. Base: `ANGEL_SWARM_WIDTH` (wave-0 size, clamped 2..=36),
-    /// `ANGEL_SWARM_MAX_WIDTH` (32), `ANGEL_SWARM_MAX_WAVES` (3),
-    /// `ANGEL_SWARM_LAYERS` (2), `ANGEL_SWARM_ALWAYS`. Autoresearch:
-    /// `ANGEL_SWARM_REFLECT`, `ANGEL_SWARM_JUDGE` (+ `ANGEL_SWARM_JUDGE_PANEL`,
-    /// `ANGEL_SWARM_JUDGE_DIMS`), `ANGEL_SWARM_KEEP`, `ANGEL_SWARM_SAMPLES`,
-    /// `ANGEL_SWARM_VERIFY` (+ `ANGEL_SWARM_VERIFY_GUARD`), `ANGEL_SWARM_RESEARCH`
-    /// (+ `ANGEL_SWARM_SEARCH_URL`, `ANGEL_SWARM_CITE`), `ANGEL_SWARM_HEDGE`.
-    /// `ANGEL_SWARM_MAX` turns the whole stack on;
-    /// individual vars still override it (e.g. `ANGEL_SWARM_VERIFY=0` under MAX).
-    ///
-    /// `resolve` maps a club label to a club so the
-    /// `ANGEL_SWARM_{PROPOSE,JUDGE,VERIFY,AGG}_CLUB` env vars can route each role to
-    /// a different model — a cross-model (symbiotic) mixture. Any role whose env var
-    /// is unset or unresolvable falls back to `inner`, so the default is the old
-    /// homogeneous single-inner swarm. Pass `|_| None` for an inner-only swarm.
     pub fn from_env(name: impl Into<String>, inner: Arc<dyn Club>) -> Self {
-        // No resolver -> role-club env vars never resolve, so every role stays on
-        // `inner` (the homogeneous default).
         Self::from_env_with(name, inner, |_| None)
     }
 
@@ -258,8 +203,6 @@ impl SwarmClub {
     ) -> Self {
         let name = name.into();
         let k = Self::knobs_from_env();
-        // Resolve each role to a fleet club, defaulting to `inner`. An env var that
-        // names a label we can't resolve is a likely typo — warn, then fall back.
         let role = |var: &str| -> Arc<dyn Club> {
             match std::env::var(var) {
                 Ok(lbl) if !lbl.is_empty() => match resolve(&lbl) {
@@ -335,10 +278,6 @@ impl SwarmClub {
         }
     }
 
-    /// Announce a heterogeneous role map only when this exact swarm is actually
-    /// used. The Bag eagerly constructs every named formation at startup; doing
-    /// this in the constructors falsely advertised inactive OpenAI/Grok profiles
-    /// during a strictly GLM-routed task.
     pub(super) fn announce_active_mixture(&self) {
         let labels = [
             self.clubs.propose.label(),
@@ -384,8 +323,6 @@ impl SwarmClub {
         club
     }
 
-    /// Merge per-role effort overrides (a staged formation roster) over the
-    /// env-derived seat policy: a `Some` wins its seat, `None` keeps env.
     pub(crate) fn with_role_effort_overrides(mut self, overrides: SeatEfforts) -> Self {
         let seats = &mut self.k.seat_efforts;
         if overrides.propose.is_some() {
@@ -403,20 +340,11 @@ impl SwarmClub {
         self
     }
 
-    /// A formation assembled explicitly by the cockpit roster board is already
-    /// operator-authorized for every call made through that temporary wrapper.
-    /// Carry that fact in route state so tools, steers, and compaction cannot
-    /// erase it, and no synthetic `moa:` text has to impersonate User input.
-    /// Engagement authorizes the mixture, it is not `always`: the router and
-    /// the short-answer skip still apply, so the formation amplifies
-    /// deliberate/synthesis answers instead of every final reply.
     pub(crate) fn with_engaged_formation(mut self) -> Self {
         self.k.engaged = true;
         self
     }
 
-    /// Add heterogeneous proposer-only breadth. These seats never judge,
-    /// verify, aggregate, drive tools, or enter the quota-failover bench.
     pub(crate) fn with_extra_proposers(mut self, extras: Vec<SeatExtra>) -> Self {
         self.clubs.propose_extra = extras;
         self
@@ -442,10 +370,6 @@ impl SwarmClub {
         self
     }
 
-    /// Primary proposer followed by currently-live roster seats. Duplicates are
-    /// intentional: choosing A/A/B for P1/P2/P3 must not silently become A/B/A.
-    /// The primary remains usable even when every fleet availability bit is
-    /// cold; optional seats retain their live availability gates.
     pub(crate) fn available_proposers(&self) -> Vec<Arc<dyn Club>> {
         available_role_roster(&self.clubs.propose, &self.clubs.propose_extra)
     }
@@ -462,17 +386,11 @@ impl SwarmClub {
         available_role_roster(&self.clubs.aggregate, &self.clubs.aggregate_extra)
     }
 
-    /// Attach the quota failover bench (see the `fallbacks` field). Builder-style
-    /// so the SOTA wiring in `club.rs` stays a single expression.
     pub fn with_quota_fallbacks(mut self, fallbacks: Vec<Arc<dyn Club>>) -> Self {
         self.fallbacks = fallbacks;
         self
     }
 
-    /// A per-turn view of this swarm under different knobs: same role clubs
-    /// (Arc clones) and failover bench, gated `k`. This is how the dissent gate
-    /// overrides stage knobs for one turn — the stage methods keep reading
-    /// `self.k`, no parameter threading.
     pub(crate) fn gated(&self, k: Knobs) -> SwarmClub {
         SwarmClub {
             name: self.name.clone(),
@@ -483,13 +401,6 @@ impl SwarmClub {
         }
     }
 
-    /// One blocking call to a specific role `club` with `system` in front of
-    /// `msgs` (an empty system — the cache-aligned score-stage shape — sends the
-    /// messages bare). This is a MoA *stage* call: tools are never offered, since
-    /// the stages reason over evidence the tool-capable driver hop
-    /// ([`Self::drive_with_tools`]) already surfaced. If the club's provider quota
-    /// is exhausted, the call fails over across the bench (see
-    /// [`Self::quota_failover_order`]).
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn call_on(
         &self,
@@ -500,9 +411,6 @@ impl SwarmClub {
         self.call_on_with_effort(club, system, msgs, None)
     }
 
-    /// [`Self::call_on`] carrying the seat's per-call reasoning-effort request
-    /// (see [`SeatEfforts`]). The effort rides the call — and its failover —
-    /// so a club shared across seats never has roster state written into it.
     pub(crate) fn call_on_with_effort(
         &self,
         club: &dyn Club,
@@ -551,24 +459,14 @@ impl SwarmClub {
         Ok(text)
     }
 
-    /// Blocking chat that reroutes a quota-exhausted call across the bench: try
-    /// the assigned club, and on a plan-cap error (never a transient one) walk
-    /// the remaining spendable links until one answers. The last error stands
-    /// when the whole bench is exhausted.
     pub(crate) fn chat_with_failover(
         &self,
         club: &dyn Club,
         full: &[ChatMsg],
     ) -> Result<ClubReply, String> {
-        // The tool-capable driver hop is the operator's interactive club, not a
-        // roster seat: it keeps the club's own THINK-deck/env effort state.
         stage_chat_with_failover(&self.name, &self.fallbacks, club, full, None)
     }
 
-    /// Streaming twin of [`Self::chat_with_failover`]. Failover is only safe
-    /// while nothing has streamed to the caller — a quota gate trips before the
-    /// first byte, so that's the normal case; once content has flowed, a retry
-    /// would duplicate text in the transcript, so the error surfaces instead.
     pub(crate) fn stream_with_failover(
         &self,
         club: &dyn Club,
@@ -587,7 +485,6 @@ impl SwarmClub {
                 }
                 on_delta(d);
             };
-            // Connected: the stage is offered the ledger reader alone.
             let reply = crate::agent::harness::book::connect::converse(
                 &workspace,
                 &full,
@@ -621,10 +518,6 @@ impl SwarmClub {
         stage_log_failover(&self.name, from, next, err);
     }
 
-    /// The bench, filtered for one failing call: skip every club already tried
-    /// this call (each attempt gets exactly one shot, so two gate-less links can
-    /// never ping-pong) and any link known to be cooling down (its gate would
-    /// fail the call without network anyway — no point spending a slot on it).
     fn quota_failover_order<'a>(
         &'a self,
         tried: &'a [String],
@@ -632,7 +525,6 @@ impl SwarmClub {
         stage_quota_failover_order(&self.fallbacks, tried)
     }
 
-    /// Default-role call: the aggregate club (classify/critique/synthesize/revise).
     pub(crate) fn call(&self, system: &str, msgs: &[ChatMsg]) -> Result<String, String> {
         self.call_on_with_effort(
             &*self.clubs.aggregate,
@@ -642,26 +534,6 @@ impl SwarmClub {
         )
     }
 
-    /// The bounded fan-out under every stage barrier. `clubs[i]` owns seat `i`;
-    /// `make(i)` builds the `(system, messages)` for worker `i` on this thread,
-    /// then each worker blocks in its own thread so the backends see the wave's
-    /// simultaneous requests. Workers run *detached* (owned payloads, results
-    /// over a channel) instead of scope-joined, so the barrier stops waiting at
-    /// the first of:
-    ///   - all `n` workers returned — every seat thinks as long as it needs;
-    ///     no clock or quorum cuts a seat that is still answering,
-    ///   - `cancel` (user interrupt) — the wave stops consuming immediately.
-    ///
-    /// SOTA-MoA additionally admits at most `ANGEL_SOTA_MOA_MAX_PARALLEL`
-    /// requests at once (default 8). The remaining requested seats queue inside
-    /// this same bounded wave and still count toward its exact width. This keeps
-    /// 12-seat cloud formations from bursting through a provider's concurrency
-    /// window without silently shrinking the formation.
-    ///
-    /// A cut worker's HTTP call winds down in the background; its send lands in
-    /// a closed channel and vanishes. A queued worker is never launched after
-    /// the barrier closes. Cut slots surface as `Err`, which every stage already
-    /// tolerates as a partial wave.
     pub(crate) fn fan_out_across_on_cancel<F>(
         &self,
         clubs: &[Arc<dyn Club>],
@@ -702,10 +574,6 @@ impl SwarmClub {
         if n == 0 {
             return Vec::new();
         }
-        // A cancelled wave's provider calls continue in a detached thread.
-        // Admit one complete wave atomically, then retain its permits until the
-        // actual calls exit so repeated cancelled waves cannot grow the process
-        // without bound.
         let permits = match reserve_swarm_workers(inflight, n, inflight_limit.max(n)) {
             Ok(permits) => permits,
             Err(error) => return (0..n).map(|_| Err(error.clone())).collect(),
@@ -725,13 +593,10 @@ impl SwarmClub {
                 let club = Arc::clone(&clubs[i]);
                 let name = self.name.clone();
                 let fallbacks = self.fallbacks.clone();
-                // Owned copy: the seat's effort request crosses the 'static
-                // worker boundary with the rest of the stage context.
                 let effort = effort.map(str::to_string);
                 let tx = tx.clone();
                 let budget = crate::agent::harness::formation_budget::current();
                 let role = crate::agent::harness::formation_budget::role();
-                // The seat reads its caller's ledger (`book::connect`).
                 let ledger = crate::agent::harness::book::connect::workspace();
                 let book_catalog = crate::agent::harness::book::catalog::current();
                 std::thread::spawn(move || {
@@ -741,9 +606,6 @@ impl SwarmClub {
                     let _ledger = crate::agent::harness::book::connect::enter(&ledger);
                     let out =
                         stage_call_on(&name, &fallbacks, &*club, &system, &msgs, effort.as_deref());
-                    // A landed result must imply capacity is already available to
-                    // the next wave; timed-out calls retain this permit because
-                    // they have not reached this boundary yet.
                     drop(permit);
                     let _ = tx.send((i, out));
                 });
@@ -767,15 +629,11 @@ impl SwarmClub {
             if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
                 break;
             }
-            // A cancel poll, not a deadline: an empty wait just checks again.
             let wait = Duration::from_millis(250);
             match rx.recv_timeout(wait) {
                 Ok((i, r)) => {
                     if slots[i].is_none() {
                         returned += 1;
-                        // Seat telemetry for the miniworld muster/portal pips:
-                        // one lock-and-set on the barrier thread per landing,
-                        // nothing on the workers' streaming path.
                         crate::ui::viz::agentviz::stage_seat_update(
                             i,
                             if r.is_ok() {
@@ -786,9 +644,6 @@ impl SwarmClub {
                         );
                     }
                     slots[i] = Some(r);
-                    // A landed worker released its global permit before sending
-                    // this result. Fill that request slot with the next queued
-                    // seat while the wave is still live.
                     let barrier_open = !cancel.is_some_and(|c| c.load(Ordering::Relaxed));
                     if launched < n && barrier_open {
                         launch(
@@ -808,11 +663,7 @@ impl SwarmClub {
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
             }
         }
-        // Closing the root sender ensures queued seats can never be launched by
-        // later cleanup after the cancel barrier has returned.
         drop(tx.take());
-        // Anything still pending was cancelled by the operator — say so on the
-        // seat telemetry too, not just in the Err.
         for (i, slot) in slots.iter().enumerate() {
             if slot.is_none() {
                 crate::ui::viz::agentviz::stage_seat_update(
@@ -829,7 +680,6 @@ impl SwarmClub {
             .collect()
     }
 
-    /// Default-role fan-out: the aggregate club (layer re-aggregation, synthesis).
     pub(crate) fn fan_out<F>(&self, n: usize, make: F) -> Vec<Result<String, String>>
     where
         F: Fn(usize) -> (String, Vec<ChatMsg>),
@@ -846,20 +696,6 @@ impl SwarmClub {
         )
     }
 
-    /// Tool-capable driver hop. This is what makes the MoA *usable* as the
-    /// top-level brain instead of a text-only oracle that strips the agent of
-    /// every tool.
-    ///
-    /// The move: run one real, tool-offered pass on the driver (`aggregate`)
-    /// club against the true conversation (tool protocol intact). If it wants a
-    /// tool, hand the calls straight back to the harness — the agent works,
-    /// gathers evidence, loops. Only when the driver produces a *final text
-    /// answer* do we optionally amplify it with the full MoA fan-out — and only
-    /// for reasoning-dominant/research questions ([`wants_synthesis`]), because a
-    /// tool-grounded action answer is already backed by real output and a
-    /// text-only re-synthesis can only regress it. `ANGEL_SOTA_MOA_ALWAYS`
-    /// amplifies every turn; a short answer (a clarifying question, an ack) is
-    /// never amplified.
     pub(crate) fn drive_with_tools(
         &self,
         messages: &[ChatMsg],
@@ -874,13 +710,6 @@ impl SwarmClub {
             .find(|m| m.role == ChatRole::User)
             .map(|m| m.content.clone())
             .unwrap_or_default();
-        // Whether the *final answer* earns MoA amplification. Tool passthrough is
-        // unconditional; this only decides whether to re-derive the answer.
-        // Manual (the sota-moa default): coordinator-only at standard spend
-        // until the user summons the mixture with a leading `moa:` — or an
-        // armed formation (`engaged`) authorizes the same deliberate answers
-        // without making every short reply a fan-out.
-        // One leg evaluation answers every routing question about this turn.
         let routing = route_decisions(&problem);
         let summoned = routing.moa;
         let explicitly_requested = self.k.always || self.k.mode == MoaMode::Always || summoned;
@@ -898,15 +727,6 @@ impl SwarmClub {
         let preflight_enabled = tool_preflight_enabled(
             preflight_requested && self.name.eq_ignore_ascii_case("sota-moa"),
         );
-        // A tool-capable MoA historically did all real work through the single
-        // aggregate seat and waited until the coordinator's final prose before
-        // fanning out. Long coding tasks that ended at max_hops therefore ran
-        // zero formation calls while still presenting themselves as Fanout-8,
-        // Council, etc. An armed or explicitly summoned formation now runs one
-        // bounded planning wave before the first tool hop by default; operators
-        // can explicitly disable it. Its output is untrusted advice, folded back
-        // into the coordinator history; later tool hops see the existing tool
-        // transcript and never pay for the preflight twice.
         let preflight_key = tool_preflight_key(messages);
         let preflight_memo = if preflight_enabled {
             preflight_key.and_then(|key| {
@@ -958,13 +778,6 @@ impl SwarmClub {
                 Err(_) => {}
             }
         }
-        // Competition agents need the declared formation's planning diversity,
-        // but their final answer is already grounded in the tool transcript. A
-        // second full proposer/judge/verify wave only rewrites that report and
-        // can multiply both latency and the now-large history tokens. Suppress
-        // that duplicate wave only after a real preflight produced advice; if
-        // an optional preflight never ran, ordinary amplification remains the
-        // fallback that still exercises the requested formation.
         if tool_preflight_only() && preflight_advice.is_some() {
             amplify = false;
         }
@@ -974,9 +787,6 @@ impl SwarmClub {
                 "{}\n\n{advice}",
                 crate::agent::harness::book::ing_drivers::PREFLIGHT.cells()
             ));
-            // Keep the advisory immediately after the user request on every
-            // hop. Appending it after a growing tool transcript would preserve
-            // the text but destroy the provider's reusable request prefix.
             let insert_at = with_advice
                 .iter()
                 .rposition(|message| message.role == ChatRole::User)
@@ -985,9 +795,6 @@ impl SwarmClub {
             with_advice
         });
         let driver_messages = advised_messages.as_deref().unwrap_or(messages);
-        // When we intend to amplify, suppress the driver pass's answer content —
-        // the MoA output replaces it, so streaming it would double up. Reasoning
-        // (the model's thinking) always flows through.
         let forward_content = stream && !amplify;
 
         let _seat_role = crate::agent::harness::formation_budget::enter_role("coordinator");
@@ -1002,21 +809,11 @@ impl SwarmClub {
         let driver_answer = match driver {
             Ok(ClubReply::Calls(calls)) => return Ok(ClubReply::Calls(calls)),
             Ok(ClubReply::Text(answer)) => Some(answer),
-            // A dead driver pass can still be recovered by the MoA (own failover +
-            // single-pass floor) when we were going to amplify anyway — but never a
-            // botched tool call: the model wanted to *act*, and a text-only MoA
-            // synthesis would fabricate an answer describing work that never ran.
-            // Surface that error to the turn instead.
             Err(err) if error_indicates_raw_tool_markup_text(&err) => return Err(err),
             Err(_) if amplify => None,
             Err(err) => return Err(err),
         };
 
-        // Raw tool markup in the driver answer is a tool call the whole bench
-        // failed to repair. Never amplify it — the MoA would launder it into
-        // confident prose about work that never happened. Return it as-is so the
-        // harness's false-start guard suppresses it and forces a real structured
-        // call (bounded by its own nudge cap).
         let raw_markup = driver_answer
             .as_ref()
             .is_some_and(|a| crate::agent::club::contains_raw_tool_markup(a));
@@ -1025,22 +822,14 @@ impl SwarmClub {
             .is_some_and(|a| a.trim().chars().count() < MIN_AMPLIFY_CHARS);
         if !amplify || (short && !explicitly_requested) || raw_markup {
             let answer = driver_answer.unwrap_or_default();
-            // We suppressed the driver's content (amplify path) but then declined
-            // to amplify (too short) — emit it now so the user still sees it.
             if stream && !forward_content && !answer.is_empty() {
                 on_delta(StreamDelta::Content(&answer));
             }
             return Ok(ClubReply::Text(answer));
         }
 
-        // Amplify: the MoA fan-out over the (now evidence-rich) conversation,
-        // with the driver's answer seeded into the pool as draft 0 — a full
-        // generation the judge/synthesis can keep instead of discarding it.
-        // Any failure falls back to the driver's own answer so a flaky fan-out
-        // never loses a good direct reply.
         match self.run_seeded(messages, cancel, on_delta, stream, driver_answer.as_deref()) {
             Ok(better) => {
-                // A synthesized formation answer has no single certified seat.
                 crate::agent::harness::run_identity::publish_answer_route(
                     self as *const Self as usize,
                     Default::default(),
@@ -1059,14 +848,6 @@ impl SwarmClub {
         }
     }
 
-    /// Streaming twin of [`Self::chat_with_failover`] that *keeps tools* and the
-    /// real tool-protocol history — the tool-capable driver hop, not a text-only
-    /// stage. Tool calls come back as `ClubReply::Calls` (success, passed through);
-    /// raw tool markup in a would-be text answer, a quota cap, or an auth reject
-    /// reroutes to the next spendable SOTA link **only while nothing has been shown
-    /// to the user yet** (a committed partial can't be replayed). `forward_content`
-    /// gates whether answer tokens stream live: off while we intend to amplify, so
-    /// the MoA output isn't double-emitted.
     pub(crate) fn stream_tools_with_failover(
         &self,
         club: &dyn Club,
@@ -1076,14 +857,7 @@ impl SwarmClub {
         on_delta: &mut dyn FnMut(StreamDelta),
         forward_content: bool,
     ) -> Result<ClubReply, String> {
-        // `shown` = visible content the user can't un-see (only set when we
-        // actually forward it). A buffered probe (forward_content=false) leaves it
-        // clear, so a botched draft can still fail over.
         let shown = std::cell::Cell::new(false);
-        // The last raw-markup text a link produced. If *every* link botches the
-        // call the same way, the bench exhausts on a raw-markup error — surfacing
-        // that markup (instead of swallowing it into an Err the amplify path
-        // recovers) lets the harness guard force a structured retry.
         let last_raw_markup = std::cell::RefCell::new(None::<String>);
         let identity_key = self as *const Self as usize;
         crate::agent::harness::run_identity::publish_answer_route(identity_key, Default::default());
@@ -1099,7 +873,6 @@ impl SwarmClub {
                 StreamDelta::Heartbeat => on_delta(StreamDelta::Heartbeat),
             };
             match c.chat_streaming(full, tools, cancel, &mut tap) {
-                // A tool call is the goal here — pass it through untouched.
                 Ok(ClubReply::Calls(calls)) => {
                     crate::agent::harness::run_identity::publish_answer_route(
                         identity_key,
@@ -1107,10 +880,6 @@ impl SwarmClub {
                     );
                     Ok(ClubReply::Calls(calls))
                 }
-                // Raw tool markup in text means the model tried to call a tool in
-                // prose (the LongCat brownout). If nothing was shown, treat it as a
-                // failed hop and reroute to a link that can emit a structured call;
-                // if it already streamed, let the harness guard catch it.
                 Ok(ClubReply::Text(t))
                     if !shown.get() && crate::agent::club::contains_raw_tool_markup(&t) =>
                 {
@@ -1137,11 +906,6 @@ impl SwarmClub {
                 return result;
             }
             let Some(next) = self.quota_failover_order(&tried).next().cloned() else {
-                // Bench exhausted. If the standing failure is raw tool markup,
-                // hand the markup itself back to the harness: its false-start
-                // guard suppresses the text and forces a real structured call,
-                // bounded by its nudge cap. Swallowing it here is how the agent
-                // "finished work" without ever executing a tool.
                 if error_indicates_raw_tool_markup_text(err)
                     && let Some(markup) = last_raw_markup.borrow_mut().take()
                 {
@@ -1171,11 +935,6 @@ impl SwarmClub {
 mod worker_admission_tests;
 
 impl SwarmClub {
-    /// Visit every distinct underlying club once — raw fallback links first
-    /// (cheap-role wrappers expose the same whole chain), then role seats,
-    /// extras, and research — deduped by label so wrapper multiplicity can't
-    /// multiply provider usage. The one enumeration behind every roster-summed
-    /// usage report (tokens, truncation, cache, effort gate).
     fn for_each_unique_club(&self, mut f: impl FnMut(&dyn Club)) {
         let mut seen: Vec<String> = Vec::new();
         for club in self
@@ -1236,18 +995,10 @@ impl Club for SwarmClub {
         &self.name
     }
 
-    /// The swarm is only reachable if its underlying model endpoint is — it fans
-    /// out over the aggregate club, so delegate the readiness probe to it. When
-    /// the aggregate is down (a quota-exhausted link reports unavailable), any
-    /// spendable failover link keeps the swarm in play — role calls reroute at
-    /// run time. `any` short-circuits, so the extra probing is one link in the
-    /// common case; gated links answer instantly without a network probe.
     fn is_available(&self) -> bool {
         self.clubs.aggregate.is_available() || self.fallbacks.iter().any(|c| c.is_available())
     }
 
-    /// A swarm answer is a distilled multi-agent synthesis — exactly the kind of
-    /// artifact worth filing to the palace (through the Librarian).
     fn reports_to_palace(&self) -> bool {
         true
     }
@@ -1327,18 +1078,10 @@ impl Club for SwarmClub {
         out
     }
 
-    /// Tool-driving hops are sent through the aggregate club. Preserve that
-    /// backend's byte-exact prefix-cache capability at the wrapper boundary so
-    /// the outer turn loop does not rewrite old tool results between calls and
-    /// invalidate a cache the actual model supports.
     fn prompt_cache_capable(&self) -> bool {
         self.clubs.aggregate.prompt_cache_capable()
     }
 
-    /// A seat's withheld or rejected effort must reach the turn loop's voice
-    /// even though the seat call happened deep inside a stage fan-out — the
-    /// swarm is the driver club the harness deltas, so it speaks for its whole
-    /// roster.
     fn effort_gate_usage(&self) -> EffortGateUsage {
         let mut out = EffortGateUsage::default();
         self.for_each_unique_club(|club| {
@@ -1357,10 +1100,6 @@ impl Club for SwarmClub {
         self.run(&history, &AtomicBool::new(false), &mut |_| {}, false)
     }
 
-    /// With no tools offered (benches, `respond`, control-bench, any text-only
-    /// caller) the swarm is a pure MoA think. With tools (the real agent loop) it
-    /// drives them: [`Self::drive_with_tools`] passes tool calls through so the
-    /// agent actually works, and amplifies only the final answer.
     fn chat(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {
         if tools.is_empty() {
             let answer = self.run(messages, &AtomicBool::new(false), &mut |_| {}, false)?;
@@ -1402,9 +1141,6 @@ fn grok_research_role() -> Option<Arc<dyn Club>> {
     crate::agent::club::GrokResearchClub::from_env().map(|club| Arc::new(club) as Arc<dyn Club>)
 }
 
-/// A driver answer shorter than this is usually a clarifying question,
-/// acknowledgment, or one-liner the automatic MoA route can only bloat.
-/// Explicit operator engagement bypasses this heuristic.
 const MIN_AMPLIFY_CHARS: usize = 240;
 const TOOL_PREFLIGHT_ADVICE_CHARS: usize = 16_000;
 
@@ -1477,7 +1213,6 @@ fn tool_preflight_history(messages: &[ChatMsg]) -> Vec<ChatMsg> {
         .rev()
         .find(|message| message.role == ChatRole::User)
     {
-        // `⠐⠓⠁⠐⠓⠃`: the preflight's frame after the request.
         message.content = format!(
             "{}\n\n{}",
             message.content,
@@ -1491,24 +1226,10 @@ fn tool_preflight_history(messages: &[ChatMsg]) -> Vec<ChatMsg> {
 const RAW_TOOL_MARKUP_TEXT_ERR: &str = "printed raw tool markup as text";
 const TOOL_CALL_TEXT_STAGE_ERR: &str = "requested a tool in a text-only stage";
 
-/// Sent back to a seat that answered a text-only stage with a tool call: the
-/// correction's pages on `⠌⠚`, which name the exact dialects seen live so the
-/// correction is unambiguous to the model that just used one.
 fn text_only_correction() -> String {
     d3_roles::pages(st_connected::TEXT_ONLY, [4, 5, 6])
 }
 
-/// Remove the driver's tool-protocol instructions from a text-only stage's
-/// system prompt, and say plainly that no tools exist here.
-///
-/// The driver prompt tells the model to "use built-in tools for local work,
-/// `skill(name)` for reusable playbooks" — correct for the driver, actively
-/// harmful for a proposer seat, which has no tools wired and whose reply is
-/// discarded if it emits a call. Seats that follow instructions closely obey the
-/// system prompt over a trailing stage instruction: one seat answered every
-/// turn with `[TOOL_CALLS]skill[ARGS]{"name": "quantize-model"}` rather than
-/// analysis. Only whole paragraphs that are *about* calling tools are dropped;
-/// workspace identity, posture, and repo context all survive.
 pub(crate) fn text_only_system(base_sys: &str) -> String {
     const TOOL_PARAGRAPH_MARKERS: &[&str] = &[
         "tool protocol:",
@@ -1530,7 +1251,6 @@ pub(crate) fn text_only_system(base_sys: &str) -> String {
     if !out.is_empty() {
         out.push_str("\n\n");
     }
-    // `⠌⠚⠁⠌⠚⠃⠌⠚⠉`: no workspace tools here.
     out.push_str(&d3_roles::pages(st_connected::TEXT_ONLY, [1, 2, 3]));
     out
 }
@@ -1547,17 +1267,6 @@ fn tool_call_text_stage_error(label: &str) -> String {
     format!("swarm worker on {label} {TOOL_CALL_TEXT_STAGE_ERR} (no tool executed)")
 }
 
-/// Prose written *before* a model slipped into tool-call markup, when there is
-/// enough of it to stand on its own as a draft.
-///
-/// A seat that writes a page of analysis and then tacks on a `<SHELL>{…}` line
-/// used to have its entire contribution discarded — which, in a two-corner
-/// formation, silently reduced the mixture to one model (and, under a strict
-/// quorum, killed the turn outright). The markup itself is still never honored:
-/// no tool runs, and the tail is cut away. This only rescues the analysis.
-///
-/// Anything shorter than the floor is treated as the dangerous case it is — a
-/// reply that is essentially *only* a tool request — and still fails closed.
 fn salvage_text_before_tool_markup(text: &str) -> Option<String> {
     const MIN_SALVAGE_CHARS: usize = 200;
     const MARKERS: &[&str] = &[
@@ -1574,8 +1283,6 @@ fn salvage_text_before_tool_markup(text: &str) -> Option<String> {
         .iter()
         .filter_map(|marker| lowered.find(marker))
         .min();
-    // The shouted-tag dialect (`<SHELL>{`) has no fixed spelling, so find the
-    // first uppercase tag that opens a JSON object.
     let bytes = text.as_bytes();
     for (index, _) in text.match_indices('<') {
         let after = &text[index + 1..];
@@ -1628,14 +1335,6 @@ fn guard_text_stage_reply(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Stage-call machinery as free functions: a detached fan-out worker crosses a
-// 'static thread boundary, so it carries an owned (name, fallback bench) pair
-// instead of borrowing &SwarmClub. The SwarmClub methods delegate here — one
-// body serves both the serial stage calls and the bounded fan-out.
-// ---------------------------------------------------------------------------
-
-/// Parse one optional per-seat effort knob: trimmed, lowercased, empty = unset.
 fn env_effort(key: &str) -> Option<String> {
     std::env::var(key)
         .ok()
@@ -1670,8 +1369,6 @@ pub(crate) fn stage_chat_with_failover(
     effort: Option<&str>,
 ) -> Result<ClubReply, String> {
     let full = text_only_history(full);
-    // Connected: every stage is offered the ledger reader alone, so it can read
-    // its routes, and "no tools" still means no workspace access.
     let workspace = crate::agent::harness::book::connect::workspace();
     let connected = |club: &dyn Club, full: &[ChatMsg]| {
         let reply =
@@ -1681,20 +1378,11 @@ pub(crate) fn stage_chat_with_failover(
         guard_text_stage_reply(reply, club.label())
     };
     let mut result = connected(club, &full);
-    // A seat that answers a text-only stage with a tool call is usually not
-    // incapable — it is imitating the tool protocol the driver's system prompt
-    // documents (Mistral-family seats emit `[TOOL_CALLS]` especially readily).
-    // Correcting it in place recovers the draft; failing over to another link
-    // costs the same call while losing this seat's angle entirely, which is how
-    // a two-corner formation quietly became a one-model answer.
     if result
         .as_ref()
         .err()
         .is_some_and(|err| is_text_stage_tool_markup_error(err))
     {
-        // Only the offending seat pays for this: the first attempt keeps the
-        // conversation's own system prefix so provider prompt caches stay hot
-        // across stages, and only the retry rewrites it.
         let mut corrected = full.clone();
         if let Some(system) = corrected
             .iter_mut()
@@ -1760,11 +1448,6 @@ fn stage_log_failover(name: &str, from: &str, next: &dyn Club, err: &str) {
         "[{name}] {from} {reason} — failing over to {}",
         next.label()
     );
-    // Keep the stderr line above (operator-visible), and also durably record
-    // the failover for the experience ledger. Both the text-stage and the
-    // tool-stage reroute loops funnel through here, so this one sink captures
-    // every failover — including the LongCat raw-tool-markup brownout that
-    // this whole subsystem exists to diagnose. Drained into the turn record.
     crate::knowledge::experience::note_failover(from, next.label(), reason);
 }
 
@@ -1783,10 +1466,6 @@ fn error_can_failover_text_stage(err: &str) -> bool {
         || error_indicates_tool_call_text_stage(err)
 }
 
-/// Failover triggers for the tool-capable driver hop. Unlike the text-only
-/// stages, a *tool call* is the desired outcome (never a failover reason); only a
-/// spent quota, a rejected key, or raw tool markup surfacing as text (a botched
-/// call) reroutes to the next SOTA link.
 fn error_can_failover_tool_stage(err: &str) -> bool {
     crate::agent::club::error_indicates_quota_exhausted(err)
         || crate::agent::club::error_indicates_auth_failed(err)

@@ -3,7 +3,6 @@ use super::super::ink::{Img, hash, text_width};
 use super::{TILE, at, stand};
 use crate::rules::{RoomKind, Run, Tile, college as c, folk};
 
-/// Bartosz: an original storybook wizard, with a crooked hat and a kind face.
 pub fn wizard(tick: u32) -> Img {
     let mut im = Img::from_rows(&[
         "...........v.............",
@@ -53,7 +52,6 @@ pub fn wizard(tick: u32) -> Img {
         im.rect(8, 11, 2, 1, 'O');
         im.rect(12, 11, 2, 1, 'O');
     }
-    // A pocket folio, silver beard and a quietly breathing staff light.
     im.rect(3, 18, 7, 8, 'b');
     im.frame(3, 18, 7, 8, 'O');
     im.line(5, 20, 8, 20, 'T');
@@ -287,8 +285,6 @@ fn material(kind: RoomKind, wall: bool, x: i32, y: i32) -> char {
             WizardStudy => ('b', 'P', 'o'),
             _ => ('s', 'x', 'u'),
         };
-        // Each brick lit along its top and west edge, its corners worn
-        // round into the joints.
         let (lx, ly) = ((x + (y / 8 % 2) * 8) % 16, y % 8);
         return if ly == 0 || lx == 0 {
             joint
@@ -333,7 +329,6 @@ fn material(kind: RoomKind, wall: bool, x: i32, y: i32) -> char {
             }
         }
         _ => {
-            // Concentric joints read as the curved flags of a round tower.
             let dx = x - 192;
             let dy = (y - 110) * 3 / 2;
             let radius = ((dx * dx + dy * dy) as f32).sqrt() as i32;
@@ -358,7 +353,6 @@ pub fn scenery(run: &Run) -> Img {
     let kind = run.room().kind;
     let t = run.tick as u32;
     let state = run.college_progress();
-    // Each room keeps its own tonal material; furniture leaves clear aisles.
     for y in 0..cv.h {
         for x in 0..cv.w {
             let tile = run.room().tile(x / TILE, y / TILE);
@@ -367,7 +361,6 @@ pub fn scenery(run: &Run) -> Img {
         }
     }
     cv.line(TILE, TILE, cv.w - TILE - 1, TILE, 'u');
-    // Low cutaway walls preserve the routes and the room's playable floor.
     for e in c::DOORS.iter().filter(|e| e.room == kind) {
         let (x, y, w, _) = e.at;
         let (px, py) = (x * TILE, y * TILE);
@@ -385,7 +378,6 @@ pub fn scenery(run: &Run) -> Img {
     }
     match kind {
         RoomKind::CollegeGrounds => {
-            // School and tower facades sit above the playable door tiles.
             let school = building(t);
             cv.stamp(&school, 88, 1 * TILE - 4);
             let tower = tower(t);
@@ -504,7 +496,6 @@ pub fn scenery(run: &Run) -> Img {
             }
         }
         RoomKind::CollegeLab => {
-            // Muted pools of green, kept inside the work area.
             for x in [88, 184, 296] {
                 cv.ellipse(x as f32, 122.0, 35.0, 20.0, 'e');
                 cv.ellipse(x as f32, 119.0, 27.0, 14.0, 'S');
@@ -567,7 +558,6 @@ pub fn scenery(run: &Run) -> Img {
         RoomKind::TowerStairs => {
             tower_window(&mut cv, 151, 25, t);
             banner(&mut cv, 256, 38, 'e');
-            // The spiral's central well, guarded by a stone balustrade.
             cv.ellipse(184.0, 106.0, 28.0, 31.0, 's');
             cv.ellipse(184.0, 106.0, 22.0, 25.0, 'k');
             for i in 0..13 {
@@ -618,7 +608,6 @@ pub fn scenery(run: &Run) -> Img {
                     );
                 }
             }
-            // Telescope on three brass legs.
             cv.line(287, 131, 272, 154, 'O');
             cv.line(287, 131, 303, 154, 'O');
             cv.line(287, 131, 287, 156, 't');
@@ -642,7 +631,6 @@ pub fn scenery(run: &Run) -> Img {
             for (i, x) in [264, 286, 308].into_iter().enumerate() {
                 jar(&mut cv, x, 63, ['e', 'u', 'i'][i], t);
             }
-            // Three pinned creature sketches, recognisable at room scale.
             for i in 0..3 {
                 let x = 50 + i * 23;
                 cv.rect(x, 86, 19, 22, 'T');
@@ -840,8 +828,6 @@ pub fn figures(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The header and footer live outside the playable floor. No figure or
-/// second sign can occupy either band, even when a party crowds a target.
 pub fn prompt(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool) {
     if !c::is_room(run.room().kind) {
         return;
@@ -857,8 +843,6 @@ pub fn prompt(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool) {
     let focus = focus.filter(|id| run.players.contains_key(id));
     let mut distance = f32::INFINITY;
     let mut label = None;
-    // A seat sees its own nearest target. The shared camera sees the
-    // nearest target available to any living member of the party.
     for (&id, h) in &run.players {
         if focus.is_some_and(|focus| focus != id) || h.hp == 0 || h.stone || h.privy != 0 {
             continue;
@@ -1009,8 +993,6 @@ pub fn dialogue(cv: &mut Img, run: &Run) {
     super::super::chrome::panel(cv, (6, y, cv.w - 12, h), super::super::chrome::Tone::FRAMED);
     super::super::chrome::ring(cv, (6, y, cv.w - 12, h), 4);
     let portrait = wizard(run.tick as u32);
-    // The room sprite is larger; the portrait still fits beside the text
-    // and above the dialogue's controls at its shortest panel height.
     for yy in 0..31 {
         for xx in 0..26 {
             if let Some(rgb) = portrait.get(xx * portrait.w / 26, yy * portrait.h / 31) {

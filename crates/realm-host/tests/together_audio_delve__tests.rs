@@ -10,14 +10,12 @@ fn every_clip_is_a_short_file() {
         let file = dir.join("sfx").join(format!("{name}.mp3"));
         let size = std::fs::metadata(&file).map(|m| m.len()).unwrap_or(0);
         assert!(size > 1_000, "{name}: {size} bytes");
-        // 96 kbit/s: a few words at most, a grunt well under a second.
         assert!(size < 3 * 12_000, "{name} is short");
     }
 }
 
 #[test]
 fn every_sound_the_delve_makes_is_one_the_audio_knows() {
-    // The Delve's rules, in `angel_delve`.
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../delve/src");
     let mut files = vec![root.join("rules.rs")];
     let mut dirs = vec![root.join("rules")];
@@ -27,7 +25,6 @@ fn every_sound_the_delve_makes_is_one_the_audio_knows() {
             if path.is_dir() {
                 dirs.push(path);
             } else if path.extension().is_some_and(|e| e == "rs")
-                // A test module beside the rules plays stand-in names, not sounds.
                 && !path.file_stem().is_some_and(|s| s == "tests" || s.to_string_lossy().ends_with("_tests"))
             {
                 files.push(path);
@@ -95,8 +92,6 @@ fn every_new_sound_is_named_and_has_a_file() {
         "gore_burst",
     ]
     .into_iter()
-    // The blades, magic by family and the wish moments, as the rules
-    // name them.
     .chain(angel_delve::rules::melee::SWING_SOUNDS)
     .chain(angel_delve::rules::melee::CONTACT_SOUNDS)
     .chain(angel_delve::rules::melee::PARRY_SOUNDS)
@@ -105,7 +100,6 @@ fn every_new_sound_is_named_and_has_a_file() {
     .chain(angel_delve::rules::vfx::IMPACT_SOUNDS)
     .chain(angel_delve::rules::overclass::LAND_SOUNDS)
     .chain([angel_delve::rules::altar::SOUND_RUB, angel_delve::rules::altar::SOUND_GENIE, "fairy_wish"])
-    // The steps up (`rewards`).
     .chain(angel_delve::rules::rewards::SOUNDS)
     {
         assert!(crate::together_audio::SFX.contains(&name), "{name}");

@@ -75,8 +75,6 @@ fn stale_handoff_wears_age_banner_on_cold_show_and_warm_start() {
         .unwrap()
         .as_secs();
 
-    // A 12-day-old brief (the 2026-09-01 GPU-host shape: frozen board
-    // frontier presented as the present tense) must arrive stale-stamped.
     let tool = HandoffTool::new(&workspace);
     let old = HandoffRecord {
         schema: HANDOFF_SCHEMA.to_string(),
@@ -105,7 +103,6 @@ fn stale_handoff_wears_age_banner_on_cold_show_and_warm_start() {
         "{warm}"
     );
 
-    // A fresh write→show round trip carries no banner.
     let fresh_tool = HandoffTool::new(&workspace);
     let note = "goal: keep frontier; done: X (evidence Y); next: Z. ".repeat(6);
     fresh_tool

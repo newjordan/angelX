@@ -43,3 +43,49 @@ test('a project request ranks and formats the same selected records', () => {
   assert.match(result.brief, /  1\. b\/high/)
   assert.match(result.brief, /  2\. a\/low/)
 })
+
+test('ranking computes a score once per survivor and refreshes it on each call', (t) => {
+  const repos = [
+    repo('a/old', 9000, '2020-01-01'),
+    repo('b/new', 1000, '2026-01-01'),
+    repo('B/NEW', 1, '2030-01-01'),
+    repo('c/max', '18446744073709551615', null, true),
+  ]
+  const logarithm = Math.log
+  const calls = t.mock.method(Math, 'log', value => logarithm(value))
+  assert.deepEqual(rank(repos, 'best'), [3, 0, 1])
+  assert.equal(calls.mock.callCount(), 3)
+  calls.mock.resetCalls()
+  assert.deepEqual(rank(repos, 'latest'), [1, 3, 0])
+  assert.equal(calls.mock.callCount(), 3)
+  calls.mock.resetCalls()
+  repos[0].stars = '0'
+  repos[3].archived = false
+  assert.deepEqual(rank(repos, 'best'), [3, 1, 0])
+  assert.equal(calls.mock.callCount(), 3, 'scores are call-local, not cached across requests')
+  calls.mock.resetCalls()
+  assert.deepEqual(rank([], 'best'), [])
+  assert.equal(calls.mock.callCount(), 0)
+  assert.throws(() => rank([repo('invalid', '18446744073709551616', null)], 'best'), /invalid repo/)
+  assert.equal(calls.mock.callCount(), 0, 'validation still precedes all scoring')
+})
+
+test('discarded duplicate push dates cannot change the surviving shortlist', () => {
+  const repos = [
+    repo('a/established', 2000, '2024-01-01'),
+    repo('b/maintained', 1000, '2026-01-01'),
+  ]
+  const discarded = repo('B/MAINTAINED', 1, '2030-01-01')
+  const selectedNames = (values, mode) => rank(values, mode).map(i => values[i].full_name)
+  for (const mode of ['best', 'latest']) {
+    const expected = ['b/maintained', 'a/established']
+    assert.deepEqual(selectedNames(repos, mode), expected)
+    assert.deepEqual(selectedNames([...repos, discarded], mode), expected, `${mode}: trailing duplicate`)
+    assert.deepEqual(selectedNames([discarded, ...repos], mode), expected, `${mode}: leading duplicate`)
+    const projected = dispatch({ version: 1, op: 'project', mode, query: 'q',
+      repos: [...repos, discarded].map(r => ({ ...r, name: r.full_name, description: '', url: null })),
+      notes: [], limit: 2 })
+    assert.deepEqual(projected.indices, [1, 0])
+    assert.match(projected.brief, /  1\. b\/maintained/)
+  }
+})

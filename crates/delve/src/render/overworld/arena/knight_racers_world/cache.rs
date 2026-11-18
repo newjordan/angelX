@@ -12,7 +12,6 @@ struct Entry { tris: Tris, used: u64 }
 #[derive(Default)]
 struct Cache { map: HashMap<Key, Entry>, clock: u64 }
 
-/// Entries kept before the least recently used half is dropped.
 const KEEP: usize = 1400;
 
 fn cache() -> &'static Mutex<Cache> {
@@ -20,7 +19,6 @@ fn cache() -> &'static Mutex<Cache> {
     C.get_or_init(Default::default)
 }
 
-/// The chunk at `key`, built by `make` the first time it is asked for.
 pub fn get(key: Key, make: impl FnOnce() -> Vec<Tri>) -> Tris {
     {
         let mut c = cache().lock().unwrap();
@@ -33,8 +31,6 @@ pub fn get(key: Key, make: impl FnOnce() -> Vec<Tri>) -> Tris {
     }
     #[cfg(test)]
     misses().lock().unwrap().entry(key.course).and_modify(|n| *n += 1).or_insert(1);
-    // Built outside the lock: a chunk can take a while and its maker may ask
-    // the cache for other chunks.
     let tris: Tris = make().into();
     let mut c = cache().lock().unwrap();
     c.clock += 1;
@@ -48,7 +44,6 @@ pub fn get(key: Key, make: impl FnOnce() -> Vec<Tri>) -> Tris {
     tris
 }
 
-/// A fact about a chunk that is slow to find and never changes.
 pub fn flag(course: u32, a: i32, b: i32, make: impl FnOnce() -> bool) -> bool {
     static F: OnceLock<Mutex<HashMap<(u32, i32, i32), bool>>> = OnceLock::new();
     if let Some(&v) = F.get_or_init(Default::default).lock().unwrap().get(&(course, a, b)) { return v; }
@@ -63,6 +58,5 @@ fn misses() -> &'static Mutex<HashMap<u32, usize>> {
     M.get_or_init(Default::default)
 }
 
-/// How many chunks have ever been built for `course`, whatever has since been dropped.
 #[cfg(test)]
 pub fn built_for(course: u32) -> usize { misses().lock().unwrap().get(&course).copied().unwrap_or(0) }

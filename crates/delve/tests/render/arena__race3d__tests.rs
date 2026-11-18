@@ -31,9 +31,7 @@ fn each_knight_sees_the_race_from_their_own_ride() {
         let two = super::super::frame_for(&run, NATIVE_W, NATIVE_H, Some(2));
         assert_ne!(one, two, "{course:?}: two knights, two cameras");
         let k = lit(&one);
-        // Dark art stays dark: mostly black paper, but never empty.
         assert!(k > 0.04 && k < 0.6, "{course:?} lit {k}");
-        // A small half-block pane gets the same race, scaled down.
         let small = super::super::frame_for(&run, 160, 90, Some(1));
         assert!(lit(&small) > 0.02, "{course:?} small pane");
     }
@@ -74,17 +72,12 @@ fn the_board_shows_once_the_race_is_run_and_the_hall_comes_back_after() {
     run.step(&BTreeMap::new());
     assert!(run.race3d.as_ref().unwrap().done);
     assert!(takeover(&run), "the board is up");
-    // The first knight home holds the room a few ticks (the photo finish's
-    // freeze), and the board's own clock stands still through them.
     for _ in 0..r3::PODIUM + 16 {
         run.step(&BTreeMap::new());
     }
     assert!(!takeover(&run), "the hall comes back");
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_race3d_shots -- --ignored`:
-/// each race at its start, mid-race with the field about, a crash, and the
-/// finish board, from more than one seat.
 #[test]
 #[ignore]
 fn write_race3d_shots() {
@@ -101,15 +94,12 @@ fn write_race3d_shots() {
     };
     for (course, tag) in [(Course::Shaft, "shaft"), (Course::Cart, "cart"), (Course::Griffin, "griffin")] {
         let t = r3::track(course);
-        // The title card.
         let mut run = racing(course, 4);
         classed(&mut run);
         race_mut(&mut run).t = HZ;
         save(&run, 1, &format!("{tag}-1-title"));
-        // The gate drops.
         race_mut(&mut run).t = TITLE + 4;
         save(&run, 2, &format!("{tag}-2-go"));
-        // Mid-race: the field strung out down the course.
         let mut run = racing(course, 4);
         classed(&mut run);
         let mid = match course {
@@ -141,7 +131,6 @@ fn write_race3d_shots() {
         race_mut(&mut run).riders.get_mut(&1).unwrap().haul = 3;
         save(&run, 1, &format!("{tag}-3-mid-seat1"));
         save(&run, 4, &format!("{tag}-3-mid-seat4"));
-        // A crash, with its joke.
         let mut run = racing(course, 3);
         classed(&mut run);
         match course {
@@ -184,11 +173,9 @@ fn write_race3d_shots() {
             }
         }
         save(&run, 1, &format!("{tag}-4-crash"));
-        // The finish board.
         let mut run = racing(course, 4);
         classed(&mut run);
         for (k, id) in [3u32, 1, 4, 2].into_iter().enumerate() {
-            // Home a minute or so in, a few seconds apart.
             race_mut(&mut run).t = TITLE + [58, 61, 66, 70][k] * HZ;
             let r = race_mut(&mut run).riders.get_mut(&id).unwrap();
             r.haul = [4, 2, 5, 1][k];
@@ -209,9 +196,6 @@ fn write_race3d_shots() {
     }
 }
 
-/// `cargo test --release race3d_frame_bench -- --ignored --nocapture`: ms
-/// a frame for one seat's race view, four knights on the course, at the
-/// Delve's frame sizes.
 #[test]
 #[ignore]
 fn race3d_frame_bench() {
@@ -265,18 +249,12 @@ fn touge_rigs_abreast_stay_out_of_the_lens_and_rivals_ahead_are_visible() {
     assert!(!build::hidden(race,Some(1),3));
 }
 
-// ─── the Shaft floor: what is drawn and what holds a ball agree ─────────────
-
-/// The floor materials of the Shaft: what a resting ball stands on.
 const FLOOR_MATS: [u8; 3] = [
     crate::render::world3d::mesh::mat::STABLE_FLOOR,
     crate::render::world3d::mesh::mat::WATER,
     crate::render::world3d::mesh::mat::STABLE_WALL,
 ];
 
-/// Where the fixed mesh draws floor at `(s, x)`: any floor-material
-/// triangle crossing the point's world position within a ball's depth of
-/// the track's own height there.
 fn drawn_floor(mesh: &crate::render::world3d::mesh::Mesh, t: &r3::Track, s: f32, x: f32) -> bool {
     let want = t.at(s).p[2];
     let w = t.world(s, x, 0.0);
@@ -306,8 +284,6 @@ fn drawn_floor(mesh: &crate::render::world3d::mesh::Mesh, t: &r3::Track, s: f32,
     false
 }
 
-/// Where a ball resting at `(s, x)` is held up: within the width the
-/// samples give there, and not over a rotten plank that has gone.
 fn physics_floor(t: &r3::Track, s: f32, x: f32) -> bool {
     let at = t.at(s);
     if x.abs() > at.width * 0.5 {
@@ -325,8 +301,6 @@ fn the_shafts_drawn_floor_holds_a_ball_everywhere_along_and_across() {
         let half = t.at(s).width * 0.5;
         let mut x = -(half + 1.0);
         while x <= half + 1.0 {
-            // Skip the boundary sliver: the quad edge and the fall line are
-            // the same line, drawn to exactly half.
             if (x.abs() - half).abs() > 0.02 {
                 let drawn = drawn_floor(mesh, &t, s, x);
                 let held = physics_floor(&t, s, x);
@@ -344,8 +318,6 @@ fn the_shafts_drawn_floor_holds_a_ball_everywhere_along_and_across() {
     }
 }
 
-/// The planks of the collapsing drift: what stands is drawn, what is rotten
-/// is not (it is drawn as it goes, in the movers).
 #[test]
 fn the_collapsing_drift_draws_only_its_sound_planks() {
     let t = r3::track(Course::Shaft);
@@ -371,10 +343,6 @@ fn the_collapsing_drift_draws_only_its_sound_planks() {
     }
 }
 
-/// The seam shots for review: `ANGEL_ARENA_SHOTS=<dir> cargo test
-/// write_shaft_seam_shots -- --ignored`. Each walled-to-open seam of the
-/// Shaft, from a knight's camera rolling into it: the funnel reads as a
-/// funnel and the edge beyond it reads as a drop.
 #[test]
 #[ignore]
 fn write_shaft_seam_shots() {
@@ -395,7 +363,6 @@ fn write_shaft_seam_shots() {
         }
         let name = format!("seam-s{:03.0}-{}", w[0], format!("{:?}", after.ground).to_lowercase());
         let mut run = racing(Course::Shaft, 1);
-        // Rolling into the seam, held by the funnel's chute.
         place(&mut run, 1, w[0] - 4.0, 0.0, 0.0, 7.0);
         race_mut(&mut run).t = TITLE + 200;
         for k in 0..3 {
@@ -407,9 +374,6 @@ fn write_shaft_seam_shots() {
     }
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_touge_gear_shots -- --ignored`:
-/// the Touge's gearbox and pads from the driver's seat — rolling onto a
-/// pad in third, a perfect shift's kick in fourth, and on the limiter.
 #[test]
 #[ignore]
 fn write_touge_gear_shots() {

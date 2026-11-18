@@ -305,7 +305,6 @@ impl SwarmCompilerEngine {
             if !crate::agent::tools::consult::is_optional_local_label(club.label()) {
                 return Err(format!("club '{requested}' is not reachable"));
             }
-            // Optional local is down — pick among live seats instead of failing.
         }
         let candidates = self
             .clubs

@@ -33,17 +33,12 @@ use std::process::Command;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
-/// The design space; the window's pixels are fitted to it.
 const W: f32 = 1920.0;
 const H: f32 = 1080.0;
 const FPS: f64 = 60.0;
-/// The show's length in seconds.
 const LENGTH: f32 = 86.0;
-/// The decoded payload a group op may carry is 1 MiB; stay clear of it.
 const GROUP_BYTES: usize = 900_000;
-/// Ids per group, so no two groups share one.
 const GROUP_IDS: u32 = 1 << 20;
-/// How long a frame waits for glass's answer before it goes on.
 const ACK_WAIT: Duration = Duration::from_millis(250);
 
 #[derive(Clone, Copy, Debug)]
@@ -80,8 +75,6 @@ fn smooth(edge0: f32, edge1: f32, x: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
-/// Sacred-grid's gradient cycle: through the colours in turn, each blend
-/// eased, once every `cycle` seconds.
 fn gradient(colors: &[Rgb], phase: f32) -> Rgb {
     let n = colors.len() as f32;
     let p = phase.rem_euclid(1.0) * n;
@@ -89,8 +82,6 @@ fn gradient(colors: &[Rgb], phase: f32) -> Rgb {
     mix(colors[i], colors[(i + 1) % colors.len()], ease_in_out_cubic(p.fract()))
 }
 
-/// A scene's strength at `t`: in over `fade_in` from `start`, out over
-/// `fade_out` to `end`, eased both ways.
 fn envelope(t: f32, start: f32, end: f32, fade_in: f32, fade_out: f32) -> f32 {
     smooth(start, start + fade_in, t) * (1.0 - smooth(end - fade_out, end, t))
 }
@@ -114,7 +105,6 @@ impl Palette {
     }
 }
 
-/// One frame's layers, in window pixels, as `group` records.
 struct Canvas {
     scale: f32,
     ox: f32,
@@ -122,17 +112,11 @@ struct Canvas {
     records: Vec<String>,
     strokes: u32,
     glows: u32,
-    /// Every colour drawn is pulled this far toward this one (the
-    /// surreal show's infection); none by default.
     tint: Option<(Rgb, f32)>,
-    /// Where the eye looks, from its middle, in design units.
     look: (f32, f32),
-    /// How many levels the flower's fractal goes down.
     fractal_depth: u32,
 }
 
-// A stroke is a place, a colour and a look; spelling each out reads
-// better here than a struct per call.
 #[allow(clippy::too_many_arguments)]
 impl Canvas {
     fn new(width: f32, height: f32) -> Self {
@@ -173,14 +157,12 @@ impl Canvas {
         self.push_at(-1, true, record);
     }
 
-    /// A record at depth `z`, adding light or covering what is under it.
     fn push_at(&mut self, z: i32, add: bool, mut record: String) {
         let id = self.records.len();
         record.insert_str(0, &format!("layer;id={id};z={z};{}", if add { "add=1;" } else { "" }));
         self.records.push(record);
     }
 
-    /// A turned block: `(x, y)` its middle, design units.
     fn solid(&mut self, x: f32, y: f32, w: f32, h: f32, angle: f32, c: Rgb, a: f32, z: i32, add: bool) {
         if a < 0.004 || w <= 0.0 || h <= 0.0 {
             return;
@@ -200,7 +182,6 @@ impl Canvas {
         self.strokes += 1;
     }
 
-    /// An uploaded picture, `(x, y)` its middle, turned and faded.
     fn picture(&mut self, id: u32, x: f32, y: f32, w: f32, h: f32, angle: f32, o: f32, z: i32) {
         if o < 0.004 || w <= 0.0 || h <= 0.0 {
             return;
@@ -220,7 +201,6 @@ impl Canvas {
         self.glows += 1;
     }
 
-    /// A ring round (x, y) of radius r, in design units.
     fn ring(&mut self, x: f32, y: f32, r: f32, c: Rgb, a: f32, lw: f32, glow: f32) {
         if a < 0.004 || r <= 0.3 {
             return;
@@ -247,7 +227,6 @@ impl Canvas {
         self.line_at(-1, x0, y0, x1, y1, c, a, lw, glow);
     }
 
-    /// A line at depth `z`, adding light.
     fn line_at(&mut self, z: i32, x0: f32, y0: f32, x1: f32, y1: f32, c: Rgb, a: f32, lw: f32, glow: f32) {
         if a < 0.004 {
             return;
@@ -290,7 +269,6 @@ impl Canvas {
         self.glow_at(-1, x, y, r, c, a);
     }
 
-    /// A glow at depth `z`, adding light.
     fn glow_at(&mut self, z: i32, x: f32, y: f32, r: f32, c: Rgb, a: f32) {
         if a < 0.004 || r <= 0.3 {
             return;
@@ -308,7 +286,6 @@ impl Canvas {
         self.glows += 1;
     }
 
-    /// A lit solid (`k=prim`), not additive: it occludes like a body.
     fn prim(&mut self, x: f32, y: f32, r: f32, shape: u32, c: Rgb, a: f32, phase: f32) {
         if a < 0.004 {
             return;
@@ -329,7 +306,6 @@ impl Canvas {
     }
 }
 
-/// A point in 3D, turned and projected onto the design space.
 #[derive(Clone, Copy)]
 struct V3(f32, f32, f32);
 
@@ -355,7 +331,6 @@ impl V3 {
     }
 }
 
-/// Perspective onto the screen's middle: (x, y, nearness 0..1).
 fn project(p: V3, size: f32) -> (f32, f32, f32) {
     let camera = 4.2;
     let k = camera / (camera - p.2);
@@ -364,7 +339,6 @@ fn project(p: V3, size: f32) -> (f32, f32, f32) {
 
 type Solid = (Vec<V3>, Vec<(usize, usize)>);
 
-/// Edges: every pair of vertices at the solid's shortest distance.
 fn edges_of(vertices: &[V3]) -> Vec<(usize, usize)> {
     let d = |a: V3, b: V3| ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2) + (a.2 - b.2).powi(2)).sqrt();
     let mut shortest = f32::MAX;
@@ -388,7 +362,6 @@ fn solids() -> Vec<Solid> {
     let phi = (1.0 + 5f32.sqrt()) / 2.0;
     let mut out = Vec::new();
     let unit = |v: Vec<V3>| -> Vec<V3> { v.into_iter().map(V3::norm).collect() };
-    // Cube.
     let mut cube = Vec::new();
     for x in [-1.0, 1.0] {
         for y in [-1.0, 1.0] {
@@ -398,12 +371,9 @@ fn solids() -> Vec<Solid> {
         }
     }
     let cube = unit(cube);
-    // Two tetrahedra in the cube: the merkaba.
     let up: Vec<V3> = cube.iter().copied().filter(|v| v.0 * v.1 * v.2 > 0.0).collect();
     let down: Vec<V3> = cube.iter().copied().filter(|v| v.0 * v.1 * v.2 < 0.0).collect();
-    // Octahedron.
     let octa = vec![V3(1.0, 0.0, 0.0), V3(-1.0, 0.0, 0.0), V3(0.0, 1.0, 0.0), V3(0.0, -1.0, 0.0), V3(0.0, 0.0, 1.0), V3(0.0, 0.0, -1.0)];
-    // Icosahedron.
     let mut ico = Vec::new();
     for a in [-1.0, 1.0] {
         for b in [-phi, phi] {
@@ -413,7 +383,6 @@ fn solids() -> Vec<Solid> {
         }
     }
     let ico = unit(ico);
-    // Dodecahedron.
     let mut dodeca = cube.iter().map(|v| v.scale(3f32.sqrt())).collect::<Vec<_>>();
     for a in [-1.0, 1.0] {
         for b in [-1.0, 1.0] {
@@ -423,7 +392,6 @@ fn solids() -> Vec<Solid> {
         }
     }
     let dodeca = unit(dodeca);
-    // The vector equilibrium (cuboctahedron): the middles of the cube's edges.
     let mut ve = Vec::new();
     for a in [-1.0f32, 1.0] {
         for b in [-1.0f32, 1.0] {
@@ -438,11 +406,9 @@ fn solids() -> Vec<Solid> {
     out
 }
 
-/// The show.
 struct Show {
     palette: Palette,
     solids: Vec<Solid>,
-    /// Triangular lattice of the grid, in design units.
     lattice: Vec<(f32, f32)>,
     links: Vec<(usize, usize)>,
 }
@@ -490,14 +456,11 @@ impl Show {
             self.torus(cv, t, torus);
         }
         if eye > 0.0 {
-            // The eye's lights stand back while the torus has the stage.
             let lights = 1.0 - 0.65 * envelope(t, 58.0, 68.0, 2.0, 2.5);
             self.eye(cv, t, (t - 46.0).max(0.0), eye, lights);
         }
     }
 
-    /// Sacred-grid's field: dots breathing outward from the middle, faint
-    /// connections, and a wandering point that swells what it passes.
     fn grid(&self, cv: &mut Canvas, t: f32, k: f32) {
         let p = &self.palette;
         let (mx, my) = (W / 2.0 + 560.0 * (t * 0.31).sin(), H / 2.0 + 260.0 * (t * 0.62).sin());
@@ -522,16 +485,11 @@ impl Show {
         cv.glow(mx, my, 90.0, gradient(&p.eye, t / 12.0), k * 0.25);
     }
 
-    /// The flower of life, circle by circle, then blooming into a fractal
-    /// of flowers at each one's six outer petals, levels turning against
-    /// each other.
     fn flower(&self, cv: &mut Canvas, t: f32, u: f32, k: f32) {
         let r = 92.0;
         let base = t * 0.06;
         self.spiral(cv, t, u, k);
         self.flower_at(cv, t, u, W / 2.0, H / 2.0, r, base, 0, k);
-        // The six petals round the middle (each a vesica: two arcs), lit
-        // one after another.
         let petals = k * smooth(3.0, 4.5, u);
         if petals > 0.0 {
             for n in 0..6 {
@@ -550,15 +508,12 @@ impl Show {
                 }
             }
         }
-        // The bounding rings.
         let rim = ease_out_back(clamp01((u - 7.0) / 1.5));
         let c = gradient(&self.palette.shapes, t / 9.6);
         cv.ring(W / 2.0, H / 2.0, 3.0 * r * rim, c, k * 0.55, 2.2, 7.0);
         cv.ring(W / 2.0, H / 2.0, (3.0 * r + 10.0) * rim, c, k * 0.25, 1.0, 3.0);
     }
 
-    /// The golden spiral over its Fibonacci squares, drawing itself on
-    /// square by square and turning slowly behind the flower.
     fn spiral(&self, cv: &mut Canvas, t: f32, u: f32, k: f32) {
         let fib = [1.0f32, 1.0, 2.0, 3.0, 5.0, 8.0, 13.0, 21.0, 34.0, 55.0];
         let (mut x0, mut y0, mut x1, mut y1) = (0.0f32, 0.0f32, 1.0f32, 1.0f32);
@@ -577,7 +532,6 @@ impl Show {
             y1 = y1.max(y + side);
             squares.push((x, y, side, way));
         }
-        // The spiral's eye sits on the screen's middle, turning.
         let (scale, turn) = (8.5f32, t * 0.05 + 0.4);
         let (ex, ey) = (0.62f32, 0.38f32);
         let place = |x: f32, y: f32| {
@@ -610,15 +564,10 @@ impl Show {
     }
 
     #[allow(clippy::too_many_arguments)]
-    /// One flower and, past its time, its children. Circles appear in
-    /// order (vesica, seed, flower), each with three stacked pulses.
     fn flower_at(&self, cv: &mut Canvas, t: f32, u: f32, x: f32, y: f32, r: f32, rot: f32, level: u32, k: f32) {
-        // Deeper levels are many and small: fainter and tighter, or the
-        // light they add washes the structure out.
         const ALPHA: [f32; 4] = [0.85, 0.5, 0.3, 0.17];
         const WIDTH: [f32; 4] = [2.0, 1.3, 0.9, 0.7];
         const GLOW: [f32; 4] = [6.0, 3.5, 2.0, 1.0];
-        // When this level starts appearing, and how long a circle takes.
         const START: [f32; 4] = [0.0, 9.0, 12.0, 15.0];
         let l = level as usize;
         let local = u - START[l];
@@ -626,12 +575,10 @@ impl Show {
             return;
         }
         let centres = flower_centres(r, rot);
-        // Each level its own gradient, so the levels read apart.
         let p = &self.palette;
         let colors = [&p.shapes, &p.dots, &p.lines, &p.eye][l];
         let c = gradient(colors, t / 9.6 + level as f32 * 0.22);
         for (n, &(dx, dy)) in centres.iter().enumerate() {
-            // Level 0 draws one at a time; deeper levels all at once.
             let at = if level == 0 { [0.0, 0.6, 1.9, 2.25, 2.6, 2.95, 3.3, 5.0][order_slot(n)] + n.saturating_sub(7) as f32 * 0.18 } else { 0.0 };
             let grow = ease_out_back(clamp01((local - at) / 0.9));
             if grow <= 0.0 {
@@ -640,7 +587,6 @@ impl Show {
             let breathe = 1.0 + 0.04 * (t * 1.3 + n as f32 * 0.7).sin() * (level as f32 + 1.0).recip();
             cv.ring(x + dx, y + dy, r * grow * breathe, c, k * ALPHA[l], WIDTH[l], GLOW[l]);
             if level == 0 {
-                // Three stacked pulses, a third of a second apart.
                 for s in 0..3 {
                     let p = (local - at - s as f32 * 0.33) / 1.6;
                     if (0.0..1.0).contains(&p) {
@@ -660,9 +606,6 @@ impl Show {
         }
     }
 
-    /// The fruit of life's thirteen circles and the 78 lines between their
-    /// centres, then the cube hidden in it turning out into 3D, with the
-    /// platonic solids nested round it.
     fn metatron(&self, cv: &mut Canvas, t: f32, u: f32, k: f32) {
         let p = &self.palette;
         let r = 58.0;
@@ -694,20 +637,16 @@ impl Show {
                 }
             }
         }
-        // The solids: from the cube seen down its diagonal (Metatron's
-        // hexagon) turning out into space.
         let depth = k * smooth(5.0, 8.0, u);
         if depth <= 0.0 {
             return;
         }
         let open = smooth(6.0, 12.0, u);
-        // Down the cube's diagonal: (1, 1, 1) onto the eye's axis.
         let iso = |v: V3| v.rot_y(-PI / 4.0).rot_x(0.6155);
         let turn = |v: V3, spin: f32| {
             let v = iso(v).rot_y(spin * open).rot_x(0.4 * open * (t * 0.3).sin());
             v.rot_z(t * 0.05)
         };
-        // The cube's hexagon on the outer centres: its corners sit at √(2/3).
         let cube = 4.0 * r / (2.0f32 / 3.0).sqrt();
         let sizes = [cube, cube, cube, 2.2 * r, 5.4 * r, 6.4 * r, 3.4 * r];
         let spins = [t * 0.4, t * 0.9, -t * 0.9, -t * 0.55, t * 0.3, -t * 0.22, t * 0.7];
@@ -723,7 +662,6 @@ impl Show {
                 let (a, b) = (points[i], points[j]);
                 let near = (a.2 + b.2) / 2.0;
                 cv.line(a.0, a.1, b.0, b.1, c, depth * show * (0.22 + 0.6 * near), 1.0 + 1.4 * near, 2.0 + 4.0 * near);
-                // A pulse of light running along the edge.
                 let at = (t * 0.6 + e as f32 * 0.137 + s as f32 * 0.31).fract();
                 let (p0, p1) = (at.max(0.0), (at + 0.16).min(1.0));
                 let along = |q: f32| (a.0 + (b.0 - a.0) * q, a.1 + (b.1 - a.1) * q);
@@ -737,22 +675,16 @@ impl Show {
         }
     }
 
-    /// The eye: a vesica opening, an iris of rings, lotus and Sri Yantra,
-    /// a lit pupil, a phyllotaxis of lights flowing into it, and rays.
     fn eye(&self, cv: &mut Canvas, t: f32, u: f32, k: f32, lights: f32) {
         let p = &self.palette;
         let (cx, cy) = (W / 2.0, H / 2.0);
-        // The lids: open, a blink at nine seconds, open.
         let blink = 1.0 - smooth(9.0, 9.18, u) + smooth(9.25, 9.6, u);
         let open = smooth(0.2, 2.6, u) * blink.min(1.0);
         let (width, height) = (820.0f32, 330.0 * open.max(0.02));
-        // Phyllotaxis: lights on the golden angle, flowing inward.
         let golden = PI * (3.0 - 5f32.sqrt());
         let flow = u * 9.0;
         let count = 1400;
         for n in 0..count {
-            // A light keeps its angle (its index) and moves in a step of
-            // the spiral each unit of flow.
             let i = n as f32 + 1.0 - flow.fract();
             let idx = n as f32 + flow.floor();
             let rho = 15.5 * i.sqrt();
@@ -765,7 +697,6 @@ impl Show {
             let c = gradient(&p.eye, idx / 400.0 + t / 14.0);
             cv.glow(x, y, 3.0 + rho * 0.022, c, k * lights * edge * 0.75);
         }
-        // Rays.
         for n in 0..96 {
             let a = n as f32 * TAU / 96.0 + t * 0.02;
             let shimmer = 0.5 + 0.5 * (t * 2.3 + n as f32 * 1.7).sin();
@@ -773,7 +704,6 @@ impl Show {
             let c = gradient(&p.eye, n as f32 / 96.0 + t / 10.0);
             cv.line(cx + r0 * a.cos(), cy + r0 * a.sin(), cx + r1 * a.cos(), cy + r1 * a.sin(), c, k * 0.18 * shimmer, 0.8, 2.5);
         }
-        // The lids: two arcs, three strokes deep.
         if height > 1.0 {
             let rho = ((width / 2.0).powi(2) + (height / 2.0).powi(2)) / height;
             let half = ((width / 2.0) / rho).asin();
@@ -792,10 +722,8 @@ impl Show {
                 }
             }
         }
-        // The iris, held inside the opening.
         let iris = (height / 2.0 * 0.92).min(150.0);
         let ik = k * smooth(0.6, 2.4, u) * blink.min(1.0);
-        // Where it looks: the iris leans toward `cv.look`, kept inside the lids.
         let (cx, cy) = (cx + cv.look.0.clamp(-150.0, 150.0) * open, cy + cv.look.1.clamp(-45.0, 45.0) * open);
         if iris > 4.0 && ik > 0.0 {
             for (n, f) in [1.0f32, 0.9, 0.78, 0.6, 0.47].iter().enumerate() {
@@ -803,13 +731,11 @@ impl Show {
                 let c = gradient(&p.eye, t / 8.0 + n as f32 * 0.15);
                 cv.ring(cx, cy, iris * f * pulse, c, ik * 0.8, 1.6, 6.0);
             }
-            // Lotus: sixteen petals.
             for n in 0..16 {
                 let a = n as f32 * TAU / 16.0 - t * 0.25;
                 let c = gradient(&p.eye, n as f32 / 16.0 + t / 6.0);
                 cv.ring(cx + iris * 0.72 * a.cos(), cy + iris * 0.72 * a.sin(), iris * 0.2, c, ik * 0.5, 1.0, 4.0);
             }
-            // Sri Yantra: four triangles up, five down, turning apart.
             for n in 0..9 {
                 let up = n < 4;
                 let size = iris * (0.58 - n as f32 * 0.035);
@@ -819,13 +745,11 @@ impl Show {
                 let c = gradient(&p.eye, t / 7.0 + n as f32 * 0.11);
                 cv.polyline(&pts, true, c, ik * 0.55, 1.1, 3.5);
             }
-            // The pupil: a lit torus turning, over a deep glow.
             cv.glow(cx, cy, iris * 1.4, hex("#3b2bff"), ik * 0.5);
             cv.prim(cx, cy, iris * 0.42, 5, gradient(&p.eye, t / 11.0 + 0.5), ik, t * 0.8);
         }
     }
 
-    /// A torus of rings, turning through itself.
     fn torus(&self, cv: &mut Canvas, t: f32, k: f32) {
         let p = &self.palette;
         let (major, minor) = (1.0f32, 0.38f32);
@@ -852,9 +776,6 @@ impl Show {
     }
 }
 
-/// The nineteen centres of the flower of life, turned by `rot`: the
-/// middle, six at r, six at r√3, six at 2r. Ordered so the first two make
-/// the vesica and the first seven the seed.
 fn flower_centres(r: f32, rot: f32) -> Vec<(f32, f32)> {
     let mut c = vec![(0.0, 0.0)];
     for i in 0..6 {
@@ -872,8 +793,6 @@ fn flower_centres(r: f32, rot: f32) -> Vec<(f32, f32)> {
     c
 }
 
-/// When a level-0 circle starts, by its slot: the first two together (the
-/// vesica), the seed's next five in turn, then the rest (offset by index).
 fn order_slot(n: usize) -> usize {
     match n {
         0 => 0,
@@ -898,15 +817,12 @@ fn b64(bytes: &[u8]) -> String {
     out
 }
 
-/// The frame's records as group ops, each under the payload cap. Groups
-/// the last frame used and this one does not are emptied.
 fn group_ops(records: &[String], used_before: u32, out: &mut Vec<u8>) -> u32 {
     let mut group = 0u32;
     let mut start = 0;
     while start < records.len() {
         let mut bytes = 0;
         let mut end = start;
-        // A record grows by its id's new digits (at most eight) and a newline.
         while end < records.len() && bytes + records[end].len() + 9 < GROUP_BYTES {
             bytes += records[end].len() + 9;
             end += 1;
@@ -917,7 +833,6 @@ fn group_ops(records: &[String], used_before: u32, out: &mut Vec<u8>) -> u32 {
             if n > 0 {
                 payload.push('\n');
             }
-            // Ids are unique across groups.
             let id_end = record.find(";z=").unwrap_or(0);
             let local: u32 = record["layer;id=".len()..id_end].parse().unwrap_or(0);
             payload.push_str("layer;id=");
@@ -947,7 +862,6 @@ impl std::fmt::Write for ByteWriter<'_> {
     }
 }
 
-/// What the reader thread hears from glass.
 enum Heard {
     Ack(Instant),
     Size(f32, f32),
@@ -1016,7 +930,6 @@ fn send(bytes: &[u8]) {
     let _ = out.flush();
 }
 
-/// Type a line as a person would.
 fn type_out(text: &str, gap: Duration) {
     for ch in text.chars() {
         send(ch.to_string().as_bytes());
@@ -1051,28 +964,22 @@ fn group_of_digits(n: u64) -> String {
     out
 }
 
-/// The running numbers the corner shows and the close sums up.
 #[derive(Default)]
 struct Hud {
     groups: u32,
     frames: u64,
     bytes_total: u64,
     peak_layers: usize,
-    /// Frames sent in the last second, with their bytes.
     window: std::collections::VecDeque<(Instant, usize)>,
-    /// The last thirty answers, in milliseconds.
     acks: std::collections::VecDeque<f32>,
     ack_sum: f64,
     ack_count: u64,
-    /// This run's frames for the live graphs: (t, fps, MB/s, answer ms).
     samples: board::Samples,
 }
 
 const NAMES: [(f32, &str); 6] =
     [(0.0, "the field"), (10.0, "the flower of life"), (31.0, "metatron"), (46.0, "the mind's eye"), (59.0, "the torus"), (66.0, "all of it")];
 
-/// One frame at `t`, as the bytes that go to glass: the layers in a
-/// synchronized update, the corner, the close, and a DA1 to answer.
 fn build_frame(
     show: &Show,
     cv: &mut Canvas,
@@ -1090,13 +997,10 @@ fn build_frame(
         s.before(cv, t);
     }
     show.frame(cv, t);
-    // The surreal show's own: video frames before the groups, its scene
-    // and the rain after.
     let (mut pre, mut post) = (Vec::new(), Vec::new());
     if let Some(s) = surreal.as_deref_mut() {
         s.after(cv, t, hud.frames, &mut pre, &mut post);
     }
-    // The numbers: glass against kitty, and this run, graphed.
     let now = Instant::now();
     while hud.window.front().is_some_and(|(at, _)| now.duration_since(*at) > Duration::from_secs(1)) {
         hud.window.pop_front();
@@ -1117,7 +1021,6 @@ fn build_frame(
     hud.groups = group_ops(&cv.records, hud.groups, &mut out);
     out.extend_from_slice(&post);
     hud.peak_layers = hud.peak_layers.max(cv.records.len());
-    // The corner: what this frame is, measured.
     let now = Instant::now();
     while hud.window.front().is_some_and(|(at, _)| now.duration_since(*at) > Duration::from_secs(1)) {
         hud.window.pop_front();
@@ -1138,7 +1041,6 @@ fn build_frame(
         ack,
         fps
     );
-    // The close: what was just seen, in its own numbers.
     let outro = smooth(80.5, 82.0, t) * (1.0 - smooth(LENGTH - 0.8, LENGTH, t));
     if outro > 0.0 {
         let v = |c: u8| (f32::from(c) * outro) as u8;
@@ -1173,7 +1075,6 @@ fn main() {
     std::thread::spawn(move || read_replies(tx));
     let (rows, cols) = tty_size();
 
-    // The window's pixels (XTWINOPS 14).
     send(b"\x1b[14t");
     let mut size = (W, H);
     let deadline = Instant::now() + Duration::from_millis(600);
@@ -1184,8 +1085,6 @@ fn main() {
         }
     }
 
-    // The surreal show's pictures and generators get ready while the
-    // prompt types.
     let preparing = surreal_on.then(|| {
         std::thread::spawn(move || {
             let mut s = surreal::Surreal::new(cols, rows, size);
@@ -1195,8 +1094,6 @@ fn main() {
         })
     });
 
-    // The bench's numbers, and their words drawn, while the prompt types.
-    // With `MINDSEYE_BENCH` unset there is no board; the film plays without it.
     let bench = std::env::var("MINDSEYE_BENCH").unwrap_or_default();
     let preparing_board = std::thread::spawn(move || {
         board::Board::load(&bench).map(|mut b| {
@@ -1240,8 +1137,6 @@ fn main() {
     let mut hud = Hud::default();
     let mut next_at = Instant::now();
     let mut built: Option<(f32, Vec<u8>)> = None;
-    // A frame's bytes go out on their own thread: the pty takes them only
-    // as fast as glass reads, and the next frame is built meanwhile.
     let (writes, to_write) = mpsc::sync_channel::<Vec<u8>>(1);
     let writer = std::thread::spawn(move || {
         for bytes in to_write {
@@ -1267,9 +1162,6 @@ fn main() {
         hud.bytes_total += length as u64;
         hud.window.push_back((sent, length));
         hud.frames += 1;
-        // The next frame on the clock, built while glass takes this one
-        // in. Behind the clock, it moves up to now rather than sending a
-        // burst to catch up.
         next_at += Duration::from_secs_f64(1.0 / FPS);
         if next_at < Instant::now() {
             next_at = Instant::now();

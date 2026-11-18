@@ -30,26 +30,17 @@
 
 use serde::{Deserialize, Serialize};
 
-/// One beat every 64 world ticks (~4s at a lively 16 ticks/s; the world is
-/// idle-parked most of the time, so beats follow the render clock).
 pub const HEARTH_BEAT_TICKS: u64 = 64;
 
-/// Persist at most this often (beats), matching the rewards writer's throttle.
 const HEARTH_SAVE_EVERY_BEATS: u64 = 8;
 
-/// Day length in beats. 64 beats ≈ 4–5 minutes of an awake world; a full day
-/// is ~4.5 min of active rendering — long enough to feel like weather, short
-/// enough that a working session sees dusk fall.
 pub const DAY_BEATS: u64 = 64;
 
-/// Prosperity tiers — the hamlet's physical growth ladder.
 pub const TIER_GARDEN: u32 = 10;
 pub const TIER_WELL: u32 = 24;
 pub const TIER_LANTERNS: u32 = 42;
 pub const TIER_BANNERS: u32 = 64;
 
-/// Phase of the world's day, derived from `beat % DAY_BEATS`. Rendering maps
-/// this to a light scalar; schedules (keepers, lamps, fireflies) key off it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DayPhase {
     Dawn,
@@ -73,16 +64,12 @@ impl DayPhase {
         }
     }
 
-    /// Terrain light multiplier, blended across the phase so dawn/dusk ease.
-    /// 1.0 = full day, ~0.55 = deep night. Cheap arithmetic on the render path.
     pub fn light(self, beat: u64) -> f32 {
         let q = DAY_BEATS / 4;
-        let frac = (beat % q) as f32 / q as f32; // position inside the phase
+        let frac = (beat % q) as f32 / q as f32;
         match self {
-            // Dawn brightens from night to day.
             DayPhase::Dawn => 0.55 + 0.45 * frac,
             DayPhase::Day => 1.0,
-            // Dusk dims from day to night.
             DayPhase::Dusk => 1.0 - 0.45 * frac,
             DayPhase::Night => 0.55,
         }
@@ -98,31 +85,21 @@ impl DayPhase {
     }
 }
 
-/// The persistent hearth state. Serialized into the same world.json the
-/// rewards already use — unknown fields are ignored by older loads both ways
-/// (`serde(default)` everywhere).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HearthState {
-    /// Work done, fed by tool successes (spends into warmth when local serve).
     #[serde(default)]
     pub light: u32,
-    /// Local presence: attached local models make the town warm.
     #[serde(default)]
     pub warmth: u32,
-    /// Long score — integrates warmth/grain/light into the growth tiers.
     #[serde(default)]
     pub prosperity: u32,
-    /// Total beats the world has lived (drives the day clock).
     #[serde(default)]
     pub beats: u64,
-    /// Beat of the last persisted write (throttle).
     #[serde(default, skip)]
     pub last_save_beat: u64,
 }
 
 impl HearthState {
-    /// Warmth target from the local fleet: each ollama model and each lit
-    /// head warms the town; a hot forge warms it most of all. 0..=100-ish.
     fn warmth_target(ollama_models: u32, heads_lit: u32, forge_hot: bool) -> u32 {
         let mut t = ollama_models.min(12) * 6 + heads_lit.min(6) * 6;
         if forge_hot {
@@ -131,9 +108,6 @@ impl HearthState {
         t.min(100)
     }
 
-    /// Advance one beat. Inputs are the telemetry the world already holds;
-    /// `tool_wins` is successes since the last beat, `grain` the village's
-    /// dataset stock. Pure integer math, no allocation.
     pub fn beat(
         &mut self,
         tool_wins: u32,
@@ -143,30 +117,23 @@ impl HearthState {
         grain: u32,
     ) {
         self.beats += 1;
-        // Work feeds light. Cap so a long history doesn't max the meter.
         self.light = (self.light + tool_wins.min(8)).min(999);
-        // Warmth eases toward the fleet-set target (1/8 per beat — ~30s to
-        // notice a model arrive, forgiving when one leaves).
         let target = Self::warmth_target(ollama_models, heads_lit, forge_hot);
         if self.warmth < target {
             self.warmth += ((target - self.warmth) / 8).max(1);
         } else if self.warmth > target {
             self.warmth -= ((self.warmth - target) / 8).max(1);
         }
-        // While the town is warm, work converts into prosperity: light is
-        // spent, warmth is the multiplier, grain feeds the ladder gently.
         if self.warmth >= 20 && self.light > 0 {
             let spend = (self.light / 16).clamp(1, 4);
             self.light -= spend;
             let gain = spend * (1 + self.warmth / 40) + grain.min(50) / 25;
             self.prosperity = (self.prosperity + gain).min(999);
         } else if grain >= 30 && self.prosperity > 0 {
-            // A well-fed town never fully falls — it holds what it built.
             self.prosperity = self.prosperity.saturating_sub(0);
         }
     }
 
-    /// Prosperity tier 0..=4 (garden, well, lanterns, banners).
     pub fn tier(&self) -> u32 {
         match self.prosperity {
             p if p >= TIER_BANNERS => 4,
@@ -181,8 +148,6 @@ impl HearthState {
         DayPhase::of_beat(self.beats)
     }
 
-    /// The dimmer bits: how much of the warmth pool is burning as lamps right
-    /// now — 0 cold, 1 ember, 2 banked, 3 roaring. Counts the night lamps.
     pub fn flame_bits(&self) -> u32 {
         match self.warmth {
             w if w >= 60 => 3,
@@ -192,7 +157,6 @@ impl HearthState {
         }
     }
 
-    /// Should a save be written this beat? Throttled like the rewards writer.
     pub fn due_to_save(&self) -> bool {
         self.beats >= self.last_save_beat + HEARTH_SAVE_EVERY_BEATS
     }
@@ -201,32 +165,23 @@ impl HearthState {
         self.last_save_beat = self.beats;
     }
 
-    /// A green turn: the town's faith in the work pays out light (in
-    /// addition to the per-tool trickle that fed `tool_wins`).
     pub fn note_victory(&mut self) {
         self.light = (self.light + 4).min(999);
     }
 
-    /// A promotion: the fleet got smarter — the whole town feels it.
     pub fn note_promotion(&mut self) {
         self.prosperity = (self.prosperity + 40).min(999);
         self.light = (self.light + 10).min(999);
     }
 
-    /// The coarse render bucket the terrain cache keys on: the day-clock
-    /// light level (5 steps), flame-dimmer bits, the prosperity tier, and the
-    /// living weather (world-seeded — two realms never share a sky). When
-    /// this value changes the world looks different — anything finer rides
-    /// the per-frame layer instead.
     pub fn render_bucket(&self, seed: u64) -> u32 {
-        let light = (self.phase().light(self.beats) * 4.0) as u32; // 0..=4
+        let light = (self.phase().light(self.beats) * 4.0) as u32;
         light
             | (self.flame_bits().min(3) << 3)
             | (self.tier() << 5)
             | (crate::world_viz::life::weather_bucket(self.beats, seed) << 8)
     }
 
-    /// The exact light multiplier for the current beat (1.0 day → 0.55 night).
     pub fn daylight(&self) -> f32 {
         self.phase().light(self.beats)
     }

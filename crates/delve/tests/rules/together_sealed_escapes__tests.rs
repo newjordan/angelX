@@ -22,12 +22,10 @@ fn lane_y() -> f32 {
     (ROW as f32 + 0.5) * TILE_UNITS
 }
 
-/// Just inside the gate, facing out.
 fn inside() -> (f32, f32) {
     (door_x() - HERO_RADIUS - 0.06, lane_y())
 }
 
-/// Clear floor on the far side of the gate.
 fn outside() -> (f32, f32) {
     ((GATE as f32 + 1.5) * TILE_UNITS, lane_y())
 }
@@ -52,7 +50,6 @@ fn gate_run() -> Run {
     let mut hero = Hero::new("A", x, y);
     hero.invulnerable = 0;
     run.players.insert(1, hero);
-    // A living foe bars the door. Stood well inside, out of the movers' way.
     run.spawn_body(EnemyKind::Slime, 4.0, lane_y());
     assert!(run.barred(), "the gate should be sealed");
     run
@@ -330,7 +327,6 @@ fn a_possession_stops_at_a_sealed_gate() {
     held(&run, 2);
 }
 
-/// Rising in a body is the fight's respawn. A corpse in the gate is not a way out.
 #[test]
 fn a_respawn_stops_at_a_sealed_gate() {
     a_possession_stops_at_a_sealed_gate();

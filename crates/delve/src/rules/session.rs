@@ -52,9 +52,6 @@ impl Default for Context {
     }
 }
 
-/// Local implementation hooks. No host RPC, model runner or resource owner is
-/// reachable through this interface. The selected worker implements these in
-/// process, including its existing injectable step fixture.
 pub trait Policies {
     fn step(&mut self, run: &mut Run, inputs: &BTreeMap<u32, Input>) {
         run.step(inputs);
@@ -102,13 +99,11 @@ impl Policies for DefaultPolicies {}
     deny_unknown_fields
 )]
 pub enum Event {
-    /// Step-only parity; transport ordering is deliberately not implemented here.
     Tick {
         inputs: BTreeMap<u32, Input>,
         step: bool,
     },
     ContextChanged(Context),
-    /// Native authored completion; only selected visual updates enter the book.
     AuthoredCards {
         cards: Vec<super::cards::Card>,
     },
@@ -148,8 +143,6 @@ pub enum Reply {
     Ability(abilities::Reply),
     FrameBegun(frame::Begun),
     FrameFinished(frame::Outputs),
-    /// A valid accepted exchange with an application refusal. Journal pressure
-    /// and logical rejections do not make the owner uncertain.
     Refused(String),
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -205,8 +198,6 @@ pub enum QueryReply {
     Job(jobs::Reply),
 }
 
-/// Semantic witness during staged recovery. No dictionary/view bytes and no
-/// external output dispatch are produced; supervisor compares retained replies.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayFrame {
@@ -251,8 +242,6 @@ pub struct Session {
     job_revision: u64,
     baseline_ready: bool,
     poisoned: bool,
-    // One bounded outstanding exchange, not a request receipt ledger. Durable
-    // identified commands retain the Journal's independent receipt semantics.
     last: Option<(Envelope, Frame)>,
     pending_frame: Option<frame::Pending>,
 }
@@ -262,8 +251,6 @@ impl Session {
         journal: host_commands::Journal,
         context: Context,
     ) -> Result<Self, String> {
-        // Initialization is a deliberate full validation boundary. Native
-        // appearance overlays must remain in their original native owner.
         pure_run(&run)?;
         checkpoint::capture(&run, &journal, &context, 0, 0)?;
         Self::from_parts(run, journal, context, 0, 0, None)
@@ -430,7 +417,6 @@ impl Session {
     }
     fn status(&self) -> Result<view::Status, String> {
         let mut outbox = self.journal_outbox.clone();
-        // Queued work can appear during a tick without allocating a Journal ID.
         outbox.brews = (usize::from(outbox.brews) + self.run.brewing.len())
             .try_into()
             .map_err(|_| "too much queued brew work")?;
@@ -442,8 +428,6 @@ impl Session {
         outbox.realm |= !self.run.bank.is_empty()
             || !self.run.reclaimed.is_empty()
             || self.run.triumph.is_some();
-        // Context-sensitive economy changes additionally query HomeReady with
-        // captured host HomeContext; this summary reflects exact None-context readiness.
         Ok(view::Status::capture(&self.run, self.job_revision, outbox))
     }
     fn validate_after(&self, event_seq: u64) -> Result<(), String> {
@@ -478,8 +462,6 @@ impl Session {
         event_seq: u64,
         policies: &mut impl Policies,
     ) -> Result<Reply, String> {
-        // AbilityBatch is the sole mutation permitted in this
-        // gap. Its dedicated handler must validate the captured frame proof.
         if self.pending_frame.is_some()
             && !matches!(
                 &event,
@@ -538,8 +520,6 @@ impl Session {
                     commands: vec![host_commands::Command::PaintCards { updates }],
                 };
                 let receipt = self.journal.apply(&mut self.run, command)?;
-                // Exact event replay is Session-owned; the existing Journal
-                // receipt is retired only after the atomic catalogue commit.
                 self.journal.acknowledge(self.run.raid_id, receipt.id)?;
                 match receipt.result?.as_slice() {
                     [host_commands::Reply::Changed(changed)] => Ok(Reply::Changed(*changed)),
@@ -667,8 +647,6 @@ impl Session {
         policies: &mut impl Policies,
     ) -> Result<Reply, String> {
         let session = self;
-        // Once dispatch begins, logical failures are accepted typed replies.
-        // A later invariant/publication failure instead poisons this owner.
         let queued_before = (
             session.run.brewing.len(),
             session.run.asked.len(),
@@ -678,8 +656,6 @@ impl Session {
             &envelope.event,
             Event::Commands(_) | Event::Job(_) | Event::AuthoredCards { .. }
         );
-        // Fail closed even if an embedded policy panics and its caller catches
-        // the unwind. TLS scope guards still restore the prior source context.
         session.poisoned = true;
         let reply = {
             let _settings = crate::settings::scoped(session.context.settings);
@@ -689,7 +665,6 @@ impl Session {
                 Err(error) => Reply::Refused(error),
             }
         };
-        // A context event changes the scope used by its resulting publication.
         let _settings = crate::settings::scoped(session.context.settings);
         let _book = phrasebook::scoped(session.parsed.clone());
         session.validate_after(envelope.seq)?;
@@ -708,9 +683,6 @@ impl Session {
         }
         Ok(reply)
     }
-    /// Replay only into a staged owner. No view/dictionary/native output is
-    /// emitted; caller must compare the retained semantic reply witness before
-    /// admitting this candidate. Failure leaves this owner unusable.
     pub fn replay(
         &mut self,
         envelope: Envelope,
@@ -744,8 +716,6 @@ impl Session {
                 self.event_seq = frame.seq;
                 self.view_revision = frame.view_revision;
                 self.poisoned = false;
-                // Deliberately do not invent a view Frame or last-exchange
-                // replay cache when its old dictionary was never restored.
                 Ok(frame)
             }
             Err(error) => Err(error),
@@ -761,8 +731,6 @@ impl Session {
         let _book = phrasebook::scoped(session.parsed.clone());
         session.poisoned = true;
         let result = (|| {
-            // A resync baseline starts a fresh dictionary, not a new accepted
-            // game revision. Initial revision zero alone advances to one.
             session.publisher = view::Publisher::new(
                 session.journal.session().into(),
                 session.run.raid_id,
@@ -793,8 +761,6 @@ impl Session {
         let session = self;
         session.healthy()?;
         bounded(&envelope, MAX_EVENT_BYTES)?;
-        // Exact retransmission precedes revision checks: its expected revision
-        // is necessarily older than the frame it already committed.
         if let Some((prior, frame)) = &session.last {
             if prior == &envelope {
                 return Ok(frame.clone());

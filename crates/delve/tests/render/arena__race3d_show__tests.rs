@@ -39,7 +39,6 @@ fn the_start_is_lamps_then_green_then_gone() {
         for pair in shots.windows(2) {
             assert_ne!(pair[0], pair[1], "{course:?}: every beat of the start looks like its own");
         }
-        // The lamps are over the road in the middle of the screen.
         let lamps = shots[0].get(192 - 30, 68);
         assert!(lamps.is_some());
     }
@@ -49,7 +48,6 @@ fn the_start_is_lamps_then_green_then_gone() {
 fn a_wreck_is_written_down_and_holds_the_room() {
     let mut run = racing(Course::Griffin, 2);
     let t = r3::track(Course::Griffin);
-    // Straight at the first spire.
     place(&mut run, 1, t.posts[1] + 22.0 - 9.0, -2.5, 0.0, 10.0);
     place(&mut run, 2, t.posts[1] + 22.0 - 30.0, 3.0, 0.0, 10.0);
     let mut held = false;
@@ -65,7 +63,6 @@ fn a_wreck_is_written_down_and_holds_the_room() {
     assert_eq!(wreck.wreck, Wreck::Tumble);
     assert!(wreck.weight >= crate::rules::juice::Weight::Crushing, "a griffin at pace hits hard: {:?}", wreck.weight);
     assert!(held || run.hitstop.left > 0, "a hard wreck holds the room a moment");
-    // The frame of the wreck is not the frame before it.
     let before = frame(&run, 1);
     race_mut(&mut run).show.fx.clear();
     assert_ne!(before, frame(&run, 1), "the wreck's own effects are in the picture");
@@ -73,9 +70,6 @@ fn a_wreck_is_written_down_and_holds_the_room() {
 
 #[test]
 fn the_show_never_goes_to_the_module() {
-    // The leg's ask is the race as the saves hold it: a show with records in
-    // it must be set aside, or the module would be asked a thing it has no
-    // field for. The oracle (which reads the same ask) answers the same.
     let mut run = racing(Course::Cart, 2);
     for _ in 0..20 {
         run.step(&Keys::new());
@@ -128,8 +122,6 @@ fn only_the_viewers_own_place_reads_you_whoever_won() {
     for seats in 2..=4u32 {
         let mut run = racing(Course::Cart, seats);
         let finish = r3::track(Course::Cart).finish;
-        // The last seat is first home, so the host (a knight named "You", the
-        // game's default) is nowhere near the front.
         for id in 1..=seats {
             place(&mut run, id, finish - 3.0 - (seats - id) as f32 * 1.6, 0.0, 0.0, 8.5);
             race_mut(&mut run).riders.get_mut(&id).unwrap().lane = 1;
@@ -159,14 +151,12 @@ fn only_the_viewers_own_place_reads_you_whoever_won() {
             } else {
                 assert!(head.ends_with(" WINS") && !head.starts_with("YOU"), "{head}");
             }
-            // The held frame and the podium draw for every seat.
             let age = race.t - race.ended;
             assert!(age < finish::OPENS);
             let _ = frame(&run, viewer);
             let podium = finish::podium(&run, race, Some(viewer), 90);
             assert!(podium.pixels().any(|c| c != BLACK));
         }
-        // The banners name a rival the same way: "You" is never a rival's name.
         assert_eq!(moments::called(&run, 1, Some(2), 9), "KNIGHT 1");
         assert_eq!(moments::called(&run, 2, Some(1), 9), "LYNETTE");
         assert_eq!(moments::called(&run, 1, Some(1), 9), "YOU");
@@ -184,7 +174,6 @@ fn every_moment_draws_on_the_realms_inks() {
         for _ in 0..40 {
             run.step(&Keys::from([(1, Input { fire: true, move_y: -1, ..Default::default() })]));
         }
-        // The picture of the world: the Touge's gearbox plates paint their own colours.
         let img = layers(&run, Some(1), true).0;
         for c in img.pixels() {
             assert!(super::super::super::ink::palette_index(c).is_some(), "{course:?}: {c:?} is off the palette");
@@ -192,11 +181,6 @@ fn every_moment_draws_on_the_realms_inks() {
     }
 }
 
-/// `cargo test race3d_show_bench -- --ignored --nocapture`: what the juice
-/// costs a seat's frame, apart from the 3D course it rides on. The cheapest
-/// of sixty frames of each, so a busy box does not move it: the whole
-/// frame, the frame without its heads-up (the world, the knights and the
-/// effects), and the world effects alone.
 #[test]
 #[ignore]
 fn race3d_show_bench() {
@@ -249,9 +233,6 @@ fn race3d_show_bench() {
     }
 }
 
-// ─── the proof ──────────────────────────────────────────────────────────────
-
-/// The frames of one scene on disk, seats side by side.
 struct Reel {
     dir: PathBuf,
     n: u32,
@@ -277,7 +258,6 @@ impl Reel {
     }
 }
 
-/// Step `ticks` ticks, a frame every second one (15 fps).
 fn play(root: &Path, name: &str, run: &mut Run, seats: &[u32], ticks: u32, mut keys: impl FnMut(&Run, u32) -> Keys) {
     let mut reel = Reel::new(root, name, seats);
     reel.shot(run);
@@ -291,7 +271,6 @@ fn play(root: &Path, name: &str, run: &mut Run, seats: &[u32], ticks: u32, mut k
     println!("{name}: {} frames", reel.n);
 }
 
-/// A knight who keys the obvious things (the audit's own bot).
 fn autopilot(run: &Run, id: u32) -> Input {
     use crate::rules::race3d::{drift_bot, laid, rotten, track, Ground, ItemKind, ROT};
     let r = run.race3d.as_ref().unwrap();
@@ -338,7 +317,6 @@ fn autopilot(run: &Run, id: u32) -> Input {
                         || t.items.iter().enumerate().any(|(i, g)| {
                             g.kind == ItemKind::Gargoyle && !r.taken.contains(&(i as u16)) && g.s > me.s && g.s < me.s + 12.0 && (g.x - gx).hypot(g.z - gz) < 1.6
                         });
-                    // Rings pull: the nearest ring ahead is worth a detour.
                     let ring = t.items.iter().enumerate().any(|(i, g)| {
                         g.kind == ItemKind::Ring && me.rings & (1u64 << i) == 0 && g.s > me.s + 2.0 && g.s < me.s + 16.0 && (g.x - gx).hypot(g.z - gz) < 0.5
                     });
@@ -364,15 +342,12 @@ fn autopilot(run: &Run, id: u32) -> Input {
     input
 }
 
-/// Every seat on the bot, the seats' own habits showing: one brakes to a
-/// crawl now and then, one lags, so there is a field to pass.
 fn field(run: &Run, t: u32) -> Keys {
     run.players
         .keys()
         .map(|&id| {
             let mut i = autopilot(run, id);
             if run.race3d.as_ref().is_some_and(|r| r.course != Course::Griffin) {
-                // The ball and the cart: seat 2 dawdles, seat 3 comes on late.
                 let slow = (id == 2 && t % 120 < 14) || (id == 3 && t < 40);
                 if slow {
                     i.move_y = 1;
@@ -384,9 +359,6 @@ fn field(run: &Run, t: u32) -> Keys {
         .collect()
 }
 
-/// `ANGEL_RACE3D_PROOF=<dir> [PROOF_ONLY=ball-start,...] cargo test -p
-/// angel-delve --lib write_race3d_proof -- --ignored --nocapture`: the
-/// scenes of the after-GIFs, seats one and two side by side.
 #[test]
 #[ignore]
 fn write_race3d_proof() {
@@ -395,7 +367,6 @@ fn write_race3d_proof() {
     let only: Option<Vec<String>> = std::env::var("PROOF_ONLY").ok().map(|v| v.split(',').map(String::from).collect());
     let want = |name: &str| only.as_ref().is_none_or(|o| o.iter().any(|x| x == name));
     let seats = [1u32, 2];
-    // The practice flight: the same gorge, nothing staked.
     if want("eyrie-start") {
         let mut run = racing(Course::Griffin, 4);
         classed(&mut run);
@@ -403,7 +374,6 @@ fn write_race3d_proof() {
         race_mut(&mut run).practice = true;
         play(&root, "eyrie-start", &mut run, &seats, TITLE + 50, |r, t| field(r, t));
     }
-    // The Torchlight Touge: the drift's own sparks and boosts.
     if want("touge-ride") {
         let mut run = racing(Course::Touge, 4);
         classed(&mut run);
@@ -412,14 +382,12 @@ fn write_race3d_proof() {
     }
     for (course, tag) in [(Course::Shaft, "ball"), (Course::Cart, "cart"), (Course::Griffin, "griffin")] {
         let t = r3::track(course);
-        // The start: the lamps, the green, the launch.
         if want(&format!("{tag}-start")) {
             let mut run = racing(course, 4);
             classed(&mut run);
             race_mut(&mut run).t = 0;
             play(&root, &format!("{tag}-start"), &mut run, &seats, TITLE + 60, |r, t| field(r, t));
         }
-        // The ride: a field strung out, passes, pickups, wind.
         if want(&format!("{tag}-ride")) {
             let mut run = racing(course, 4);
             classed(&mut run);
@@ -441,14 +409,12 @@ fn write_race3d_proof() {
             }
             play(&root, &format!("{tag}-ride"), &mut run, &seats, 330, |r, t| field(r, t));
         }
-        // A big hit: seat one into the thing it should have missed.
         if want(&format!("{tag}-wreck")) {
             let mut run = racing(course, 4);
             classed(&mut run);
             race_mut(&mut run).t = TITLE + 40;
             match course {
                 Course::Shaft => {
-                    // Into the ore carts at the crossing.
                     let start = t.posts[5];
                     race_mut(&mut run).t = 260;
                     place(&mut run, 1, start + 2.5, 0.0, 0.0, 9.0);
@@ -457,7 +423,6 @@ fn write_race3d_proof() {
                     place(&mut run, 4, start + 7.0, 0.0, 0.0, 9.0);
                 }
                 Course::Cart => {
-                    // Into the fallen timber on the right line.
                     let timber = t.items.iter().find(|i| i.kind == r3::ItemKind::Timber).unwrap();
                     let lane = if timber.x > 1.0 { 2 } else if timber.x < -1.0 { 0 } else { 1 };
                     place(&mut run, 1, timber.s - 7.0, timber.x, 0.0, 10.0);
@@ -469,7 +434,6 @@ fn write_race3d_proof() {
                     }
                 }
                 _ => {
-                    // Into the first spire.
                     let at = t.posts[1] + 22.0;
                     place(&mut run, 1, at - 12.0, -2.5, 0.0, 10.0);
                     place(&mut run, 2, at - 16.0, 2.5, 0.5, 10.0);
@@ -479,12 +443,10 @@ fn write_race3d_proof() {
             }
             play(&root, &format!("{tag}-wreck"), &mut run, &seats, 150, |r, t| {
                 let mut keys = field(r, t);
-                // Seat one holds on straight and gets what it asked for.
                 keys.insert(1, if course == Course::Griffin { Input::default() } else { Input { move_y: -1, ..Default::default() } });
                 keys
             });
         }
-        // The finish: a photo finish, the rest home, the freeze and the podium.
         if want(&format!("{tag}-finish")) {
             let mut run = racing(course, 4);
             classed(&mut run);
@@ -501,7 +463,6 @@ fn write_race3d_proof() {
                     race_mut(&mut run).riders.get_mut(&id).unwrap().lane = 1;
                 }
             }
-            // Nobody dawdles in the last stretch: a photo finish is two knights at one pace.
             play(&root, &format!("{tag}-finish"), &mut run, &seats, 90 + 30 + r3::PODIUM, |r, _| r.players.keys().map(|&id| (id, autopilot(r, id))).collect());
         }
     }

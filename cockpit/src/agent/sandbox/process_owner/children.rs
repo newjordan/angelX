@@ -25,10 +25,6 @@ fn claims() -> &'static Mutex<Claims> {
     CLAIMS.get_or_init(|| Mutex::new(Claims::default()))
 }
 
-/// A waiter owns this claim until it observes an exit or drops its handle.
-/// Generation matching prevents an old handle's drop from removing a newer
-/// claim after a PID has been reused. An unknown library PID conservatively
-/// pauses reaping until that library relinquishes its handle.
 #[derive(Debug)]
 pub(crate) struct ChildClaim {
     identity: Option<(u32, u64)>,
@@ -47,8 +43,6 @@ impl Drop for ChildClaim {
     }
 }
 
-/// The callback must only spawn the child and return its handle; it must not
-/// wait for command completion. This also covers portable-pty's library spawn.
 pub(crate) fn claim_spawn<T, E>(
     spawn: impl FnOnce() -> Result<T, E>,
     pid: impl FnOnce(&T) -> Option<u32>,
@@ -67,8 +61,6 @@ pub(crate) fn claim_spawn<T, E>(
     Ok((child, ChildClaim { identity }))
 }
 
-/// std::process::Child with a claim that follows the handle through moves.
-/// Dropping it relinquishes the wait status, but never signals a live process.
 #[derive(Debug)]
 pub(crate) struct Child {
     inner: std::process::Child,
@@ -80,10 +72,6 @@ impl Child {
         self.inner.id()
     }
 
-    /// Signal only while this claimed direct child still pins its PID. The
-    /// callback may signal, but must not wait, spawn, or drain IO under this
-    /// lock. Global destructive cleanup acquires it before relinquishing
-    /// ordinary wait ownership, so a service cannot race that boundary.
     #[cfg(unix)]
     pub(crate) fn with_unreaped_identity(
         &self,
@@ -100,8 +88,6 @@ impl Child {
         }
         let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
         loop {
-            // SAFETY: readiness only for this claimed child; WNOWAIT retains
-            // its status, and the claims lock excludes cleanup through signal.
             let ready = unsafe {
                 libc::waitid(
                     libc::P_PID,
@@ -158,8 +144,6 @@ impl DerefMut for Child {
 pub(crate) trait OwnedCommandExt {
     fn spawn_owned(&mut self) -> io::Result<Child>;
     fn status_owned(&mut self) -> io::Result<ExitStatus>;
-    /// Capture both streams with null stdin. Active call sites use these
-    /// ordinary output defaults; explicit stream routing uses spawn_owned.
     fn output_owned(&mut self) -> io::Result<Output>;
 }
 
@@ -187,8 +171,6 @@ impl OwnedCommandExt for Command {
 
 #[cfg(target_os = "linux")]
 pub(super) fn stop_reaping() {
-    // This lock also waits for an in-flight targeted reap to finish before
-    // shutdown's separate, destructive ownership cleanup starts.
     claims()
         .lock()
         .unwrap_or_else(|error| error.into_inner())
@@ -205,8 +187,6 @@ pub(super) fn reap_unclaimed() {
     if claims.stopped || claims.opaque != 0 {
         return;
     }
-    // A readiness probe only: WNOWAIT leaves every wait status untouched.
-    // Idle cockpits therefore perform one syscall rather than a /proc scan.
     let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
     let ready = unsafe {
         libc::waitid(
@@ -219,8 +199,6 @@ pub(super) fn reap_unclaimed() {
     if ready != 0 || unsafe { info.si_pid() } == 0 {
         return;
     }
-    // Thread exit can transfer an ordinary direct child to the group leader.
-    // Registry ownership, not its current parent thread, decides who may wait.
     let Ok(tasks) = std::fs::read_dir("/proc/self/task") else {
         return;
     };
@@ -248,9 +226,6 @@ pub(super) fn reap_unclaimed() {
             {
                 continue;
             }
-            // Only this unclaimed zombie can be consumed. While the registry
-            // lock is held no registered spawn can reuse this PID, and a
-            // zombie's PID cannot otherwise be recycled before it is waited.
             unsafe { libc::waitpid(pid as libc::pid_t, std::ptr::null_mut(), libc::WNOHANG) };
         }
     }

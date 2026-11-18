@@ -1,9 +1,3 @@
-// Cheese Chuck: throw cheese wheels at a moving basket target.
-// Tests cover initialization, velocity integration, wall collisions,
-// basket hits, misses, game completion, serialization, and validation.
-
-/// Start a Cheese game with both players near the start so the heat
-/// survives (if both are far from the game, the heat ends immediately).
 fn start_cheese_game() -> Run {
     use super::super::pastimes::Game;
     let mut run = at_the_gate();
@@ -26,8 +20,6 @@ fn cheese_initializes_with_shots() {
     assert!(round.cheese.is_none(), "no cheese in flight initially");
     assert_eq!(round.progress, 0);
     assert_eq!(round.mistakes, 0);
-    // The game clock starts at full time; the first decrement happens on
-    // the next tick after the round is created.
     assert!(round.left <= Game::Cheese.time());
     assert_eq!(Game::Cheese.need(), 5, "need 5 hits to win");
 }
@@ -37,7 +29,6 @@ fn cheese_velocity_integration() {
     use super::super::pastimes::Cheese;
     let mut run = start_cheese_game();
 
-    // Inject a cheese with known velocity in a clear area.
     {
         let round = run.pastimes.round.as_mut().unwrap();
         round.cheese = Some(Cheese {
@@ -75,9 +66,6 @@ fn cheese_wall_collision() {
     use super::super::pastimes::Cheese;
     let mut run = start_cheese_game();
 
-    // Place cheese near the right edge with strong rightward velocity.
-    // It takes a few ticks to reach the boundary; step until it is
-    // removed (either by hitting a wall tile or going out of bounds).
     {
         let round = run.pastimes.round.as_mut().unwrap();
         round.cheese = Some(Cheese {
@@ -115,9 +103,6 @@ fn cheese_basket_hit() {
     use super::super::pastimes::Cheese;
     let mut run = start_cheese_game();
 
-    // Compute where the basket will be when the cheese is processed.
-    // The game loop decrements round.left before cheese processing, so
-    // we compute the target with the post-decrement age.
     let (cheese_x, cheese_y, dx, dy) = {
         let round = run.pastimes.round.as_mut().unwrap();
         round.left -= 1;
@@ -165,9 +150,6 @@ fn cheese_basket_miss() {
     use super::super::pastimes::Cheese;
     let mut run = start_cheese_game();
 
-    // Send cheese hard to the left, away from the basket (which sits
-    // around x=15-19). It takes a few ticks to leave the room; step
-    // until the cheese is removed by the validity check.
     {
         let round = run.pastimes.round.as_mut().unwrap();
         round.cheese = Some(Cheese {
@@ -204,8 +186,6 @@ fn cheese_basket_miss() {
 fn cheese_all_shots_used() {
     let mut run = start_cheese_game();
 
-    // Set up a state where all 12 shots have been used (5 hits + 7 misses)
-    // and no cheese is in flight. The game must end.
     {
         let round = run.pastimes.round.as_mut().unwrap();
         round.shots = 12;
@@ -225,7 +205,6 @@ fn cheese_all_shots_used() {
 fn cheese_serialization_roundtrip() {
     use super::super::pastimes::Cheese;
 
-    // Roundtrip the Cheese struct alone.
     let c = Cheese {
                     prev_x: 0,
                     prev_y: 0,
@@ -242,7 +221,6 @@ fn cheese_serialization_roundtrip() {
     let deserialized: Cheese = serde_json::from_slice(&serialized).unwrap();
     assert_eq!(c, deserialized);
 
-    // Roundtrip through a full Run with an active cheese round.
     let mut run = start_cheese_game();
     {
         let round = run.pastimes.round.as_mut().unwrap();
@@ -272,7 +250,6 @@ fn cheese_serialization_roundtrip() {
 fn cheese_valid_rejects_bad_state() {
     use super::super::pastimes::Cheese;
 
-    // Start a valid cheese game, then corrupt one field at a time.
     let fresh = |field: &str| {
         let mut run = start_cheese_game();
         let round = run.pastimes.round.as_mut().unwrap();
@@ -335,7 +312,6 @@ fn cheese_valid_rejects_bad_state() {
                 });
             }
             "bad_accounting" => {
-                // progress(2) + mistakes(1) + cheese(1) = 4 != shots(5)
                 round.shots = 5;
                 round.progress = 2;
                 round.mistakes = 1;
@@ -369,7 +345,6 @@ fn cheese_valid_rejects_bad_state() {
         "inconsistent shot accounting rejected"
     );
 
-    // A valid cheese state passes.
     let mut run = start_cheese_game();
     {
         let round = run.pastimes.round.as_mut().unwrap();

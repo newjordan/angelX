@@ -12,7 +12,6 @@ fn up() -> Pad { Pad { y: -1, ..pad() } }
 fn down() -> Pad { Pad { y: 1, ..pad() } }
 fn back() -> Pad { Pad { back: true, ..pad() } }
 
-/// One tick with `p` held by seat 1, then one with nothing: a tap.
 fn tap(s: &mut Session, who: &[(u32, String)], p: Pad) {
     tick(s, who, &[(1, p)].into());
     tick(s, who, &BTreeMap::new());
@@ -20,14 +19,12 @@ fn tap(s: &mut Session, who: &[(u32, String)], p: Pad) {
 
 fn idle(s: &mut Session, who: &[(u32, String)], n: u32) { for _ in 0..n { tick(s, who, &BTreeMap::new()); } }
 
-/// Race on with the CPU pilot at seat 1's wheel until the flag falls for all.
 fn run(s: &mut Session, who: &[(u32, String)]) {
     let auto = [(1, Pad { auto: true, ..pad() })].into();
     for _ in 0..40_000 { if s.finished { return; } tick(s, who, &auto); }
     panic!("the race did not finish: {:?}", s.cars.iter().map(|(i, c)| (i, c.d)).collect::<Vec<_>>());
 }
 
-/// From the title to the grid: a cup in the class `c`, in pod 0.
 fn to_grid(s: &mut Session, who: &[(u32, String)], mode: usize, class: usize) {
     tap(s, who, ok());
     assert_eq!(s.flow.stage, Stage::Modes);
@@ -46,7 +43,6 @@ fn to_grid(s: &mut Session, who: &[(u32, String)], mode: usize, class: usize) {
 
 fn fresh_gate() -> Session {
     let mut s = Session::gate_of([1]);
-    // As the garage's bank would have given it: a career with the first class open.
     tick(&mut s, &knight(), &BTreeMap::new());
     s.flow.seats.get_mut(&1).unwrap().fresh = false;
     s
@@ -84,7 +80,6 @@ fn a_part_is_paid_for_whole_or_not_at_all_and_an_owned_one_refits_free() {
     assert_eq!((b.price, b.fitted), (400, true));
     assert_eq!((c.money, c.worn(4)), (0, "gale_fins"));
     assert!(c.owns("gale_fins") && c.owns("bare_crest") && !c.owns("pennon_mast"));
-    // Back to the bare cowl for nothing, and the fins again for nothing.
     assert_eq!(c.buy_and_fit("bare_crest").unwrap().price, 0);
     let again = c.buy_and_fit("gale_fins").unwrap();
     assert_eq!((again.price, again.fitted, c.money), (0, true, 0));
@@ -111,7 +106,6 @@ fn a_knight_with_nothing_bought_races_the_pod_as_it_comes_and_parts_move_the_num
     plated.buy_and_fit("bastion_plate").unwrap();
     assert!(plated.tune().mass > 1.1, "plate makes a pod harder to stop: {:?}", plated.tune());
     assert!(plated.tune().top < 1., "and slower: weight is taxed off the speed");
-    // Whatever a build adds up to, the sim's limits hold.
     let mut all = Career::default();
     all.pay(100_000);
     for slot in 0..career::WORKING_SLOTS { for w in career::wares(slot) { all.buy_and_fit(w.id).unwrap(); } }
@@ -132,13 +126,11 @@ fn a_gate_opens_on_the_title_and_a_plain_session_is_a_race() {
 fn the_menus_walk_from_the_title_to_a_race_and_back_out() {
     let who = knight();
     let mut s = fresh_gate();
-    // Behind the menus the CPU race runs.
     let before = s.cars[&1].d;
     idle(&mut s, &who, 120);
     assert!(s.cars[&1].d > before + 50., "the attract race is under way");
     tap(&mut s, &who, ok());
     assert_eq!(s.flow.stage, Stage::Modes);
-    // The cursor wraps, and back goes up a step.
     tap(&mut s, &who, up());
     assert_eq!(s.flow.seats[&1].cursor, 5);
     tap(&mut s, &who, down());
@@ -148,7 +140,6 @@ fn the_menus_walk_from_the_title_to_a_race_and_back_out() {
     tap(&mut s, &who, back());
     assert_eq!(s.flow.stage, Stage::Modes);
     tap(&mut s, &who, ok());
-    // Knight and Champion are locked to a new knight.
     tap(&mut s, &who, down());
     tap(&mut s, &who, ok());
     assert_eq!(s.flow.stage, Stage::Classes);
@@ -156,7 +147,6 @@ fn the_menus_walk_from_the_title_to_a_race_and_back_out() {
     tap(&mut s, &who, up());
     tap(&mut s, &who, ok());
     assert_eq!(s.flow.stage, Stage::Pods);
-    // A pod not yet won stays shut.
     tap(&mut s, &who, down());
     assert_eq!(s.flow.seats[&1].pick, 1);
     tap(&mut s, &who, ok());
@@ -179,16 +169,14 @@ fn a_single_race_goes_by_the_course_picked_and_a_practice_run_is_the_proving_run
     tap(&mut s, &who, ok());
     tap(&mut s, &who, down());
     tap(&mut s, &who, ok());
-    tap(&mut s, &who, ok()); // Squire
+    tap(&mut s, &who, ok());
     assert_eq!(s.flow.stage, Stage::Courses);
-    // The course under the cursor is the race behind the menu.
     tap(&mut s, &who, down());
     tap(&mut s, &who, down());
     assert_eq!(s.course, CourseId::Moatwalk);
     tap(&mut s, &who, ok());
     tap(&mut s, &who, ok());
     assert_eq!((s.flow.stage, s.course, s.flow.mode), (Stage::Race, CourseId::Moatwalk, Mode::Single));
-    // Practice.
     let mut s = fresh_gate();
     to_grid(&mut s, &who, 3, 0);
     assert_eq!((s.course, s.flow.mode), (CourseId::Proving, Mode::Practice));
@@ -221,17 +209,14 @@ fn only_the_host_chooses_the_race_and_every_seat_has_its_own_garage() {
     tap2(&mut s, ok());
     assert_eq!(s.flow.stage, Stage::Modes, "the guest's pick starts nothing");
     assert!(s.flow.seats[&2].note.contains("HOST"));
-    // The guest opens its own garage; the host's screen stays where it was.
     for _ in 0..4 { tap2(&mut s, down()); }
     tap2(&mut s, ok());
     assert_eq!(s.flow.seats[&2].local, Local::Garage);
     assert_eq!(s.flow.seats[&1].local, Local::None);
-    // A trial is run alone.
     for _ in 0..2 { tap(&mut s, &who, down()); }
     tap(&mut s, &who, ok());
     assert_eq!(s.flow.stage, Stage::Modes);
     assert!(s.flow.seats[&1].note.contains("ALONE"));
-    // The cup, for both: nobody to race but each other.
     tap(&mut s, &who, down());
     tap(&mut s, &who, down());
     tap(&mut s, &who, down());
@@ -247,12 +232,10 @@ fn the_garage_sells_and_fits_with_the_menu_keys_and_says_so() {
     for _ in 0..4 { tap(&mut s, &who, down()); }
     tap(&mut s, &who, ok());
     assert_eq!(s.flow.seats[&1].local, Local::Garage);
-    // Engines: Gryphon Six (worn) first; right to Crown Cathedral (500) is more than 400 gold.
     tap(&mut s, &who, Pad { x: 1, ..pad() });
     tap(&mut s, &who, ok());
     assert!(s.flow.seats[&1].note.contains("GOLD SHORT"), "{}", s.flow.seats[&1].note);
     assert_eq!(s.flow.seats[&1].career.money, 400);
-    // The crests: Pennon Mast (150) is in reach.
     for _ in 0..4 { tap(&mut s, &who, down()); }
     assert_eq!(s.flow.seats[&1].cursor, 4);
     tap(&mut s, &who, Pad { x: 1, ..pad() });
@@ -283,8 +266,6 @@ fn a_short_tap_of_escape_is_a_step_back_and_a_long_hold_is_not() {
     assert_eq!(s.flow.stage, Stage::Classes, "a hold is the realm's leave, not a step back");
 }
 
-/// Race a whole cup with the pilot at the wheel, set the points so the knight wins it, and see
-/// the prizes, the podium and what winning opens.
 #[test]
 fn a_cup_runs_its_three_courses_pays_each_and_ends_on_a_podium_that_opens_the_next_class_and_a_pod() {
     let who = knight();
@@ -307,7 +288,6 @@ fn a_cup_runs_its_three_courses_pays_each_and_ends_on_a_podium_that_opens_the_ne
         idle(&mut s, &who, 10);
         assert_eq!(s.flow.seats[&1].career.money, career::START_MONEY + paid);
         if round + 1 == cup().len() {
-            // The knight takes the cup, whatever the pilot managed.
             s.points.insert(1, 999);
         }
         idle(&mut s, &who, 40);
@@ -326,17 +306,13 @@ fn a_cup_runs_its_three_courses_pays_each_and_ends_on_a_podium_that_opens_the_ne
     assert_eq!(sf.career.cups, [1, 0, 0]);
     assert_eq!(sf.career.classes, 2, "the Knight class is open");
     assert!(sf.career.owns_pod(2), "the Ringwright is won");
-    // The cup opens the class and the pod; a pilot who won every race of it (the CPU pilot does, in
-    // the Squire class) opens the Gatehouse as well.
     assert_eq!(last.unlocks[..2], ["KNIGHT CLASS".to_string(), "THE RINGWRIGHT".to_string()]);
     let swept = s.flow.cup[&1].places.iter().all(|&p| p == 1);
     assert_eq!(last.unlocks.len(), if swept { 3 } else { 2 });
     assert_eq!(sf.career.owns_pod(career::SWEEP_POD), swept);
-    // The podium waits a moment, then goes back to the menus; the cup is over.
     idle(&mut s, &who, 40);
     tap(&mut s, &who, ok());
     assert_eq!(s.flow.stage, Stage::Modes);
-    // A second cup win opens nothing more.
     assert!(!s.flow.seats.get_mut(&1).unwrap().career.unlock_pod(2));
 }
 
@@ -367,7 +343,6 @@ fn records_keep_the_best_race_and_lap_in_milliseconds_and_say_when_one_falls() {
     let n = c.note_race(CourseId::Emberfall, 0, 1, 399., Some(199.9));
     assert!(!n.new_race && n.new_lap);
     assert_eq!(c.laps["emberfall:0"], 199_900);
-    // A lap in another pod is its own record.
     let n = c.note_race(CourseId::Emberfall, 5, 2, 410., Some(205.));
     assert!(n.first_lap && !n.new_lap);
     assert_eq!((c.races, c.wins, c.podiums), (4, 2, 4));
@@ -404,7 +379,6 @@ fn the_whole_flow_survives_the_wire_the_hot_engine_gives_the_run() {
     let mut back: Session = serde_json::from_str(&json).unwrap();
     assert!(back.valid());
     assert_eq!((back.flow.stage, back.flow.mode, back.ticks), (s.flow.stage, s.flow.mode, s.ticks));
-    // Both go on the same way.
     idle(&mut s, &who, 60);
     idle(&mut back, &who, 60);
     assert_eq!(serde_json::to_string(&s).unwrap(), serde_json::to_string(&back).unwrap());
@@ -422,8 +396,6 @@ fn a_session_from_before_the_flow_existed_loads_and_races() {
     assert!(old.cars[&1].tune.is_stock());
 }
 
-/// A measurement, not a gate: how a stock Warden under the CPU pilot places against each class.
-/// `cargo test -p angel-delve --profile fast --lib class_calibration -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn class_calibration() {
@@ -444,10 +416,6 @@ fn class_calibration() {
     }
 }
 
-/// How a clean human run (LAW's pilot with no slips, in a seat of its own, the rivals' band measured
-/// from it) fares against five rivals in `tune`: one race for each of the six pod rotations round the
-/// seats on each of the three courses (18), for each seat in `seats`. Returns (won, races, mean margin
-/// when it won, mean place, mean time lost to the best rival when it lost).
 fn class_races(tune: Tune, seats: &[u32]) -> (u32, u32, f32, f32, f32) {
     let (mut wins, mut races, mut margin, mut place, mut lost_by) = (0u32, 0u32, 0f32, 0f32, 0f32);
     for &me in seats {
@@ -478,9 +446,6 @@ fn class_races(tune: Tune, seats: &[u32]) -> (u32, u32, f32, f32, f32) {
     (wins, races, margin / wins.max(1) as f32, place / races as f32, lost_by / (races - wins).max(1) as f32)
 }
 
-/// The classes against a clean human run: the Squire's field is beaten easily, the Knight's is beaten
-/// most of the time, the Champion's is a fight the run can lose. And every race in every class runs to
-/// the flag (a slow rival once fell into Moatwalk's chasm for ever).
 #[test]
 fn the_classes_are_an_easy_win_a_likely_win_and_a_fight_for_a_clean_run() {
     let wins: Vec<(u32, u32, f32)> = Class::ALL.iter().map(|k| { let r = class_races(k.rivals(), &[1]); (r.0, r.1, r.3) }).collect();
@@ -491,9 +456,6 @@ fn the_classes_are_an_easy_win_a_likely_win_and_a_fight_for_a_clean_run() {
     assert!(wins[0].0 > wins[1].0 && wins[1].0 > wins[2].0, "each class is harder than the last");
 }
 
-/// The table, per class: `ANGEL_CLASS_SEATS=1,2,3` puts the clean run in more seats for a bigger
-/// sample, `ANGEL_CLASS=KNIGHT ANGEL_CLASS_KNOBS=top,boost,accel,grip` tries other numbers for a class.
-/// `cargo test -p angel-delve --profile fast --lib class_balance_table -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn class_balance_table() {

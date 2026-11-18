@@ -3,8 +3,6 @@ use crate::realm::chivalry::{Mount, Stable};
 use crate::rules::home::{BUY_HOLD, Home};
 use crate::rules::world;
 
-/// A party of `seats` at the lists with `gold` in the realm's purse: knight
-/// 1 on the mount plate, knight 2 nearest to it, any more further off.
 fn party(stable: Stable, gold: u32, seats: u32) -> Run {
     let home = Home {
         stable,
@@ -20,7 +18,6 @@ fn party(stable: Stable, gold: u32, seats: u32) -> Run {
     run.arrive(lists, (1.9, 8.5));
     for id in 1..=seats {
         let h = run.players.get_mut(&id).unwrap();
-        // Past the grace a knight joins with.
         h.invulnerable = 0;
         (h.x, h.y) = match id {
             1 => (1.9 * TILE_UNITS, 8.5 * TILE_UNITS),
@@ -31,7 +28,6 @@ fn party(stable: Stable, gold: u32, seats: u32) -> Run {
     run
 }
 
-/// A lone knight at the lists.
 fn at_the_lists(stable: Stable) -> Run {
     party(stable, 0, 1)
 }
@@ -48,7 +44,6 @@ fn keys(fire: bool, dash: bool, move_y: i8) -> BTreeMap<u32, Input> {
     )])
 }
 
-/// The interact key held, and nothing else: how a plate is pressed.
 fn interact() -> BTreeMap<u32, Input> {
     BTreeMap::from([(
         1,
@@ -67,8 +62,6 @@ fn mount(run: &mut Run) {
     assert!(run.joust.is_some(), "mounted at the plate");
 }
 
-/// How a rider runs a pass: lance and shield (set early in the charge) and
-/// the tick of the charge F strikes at.
 #[derive(Clone, Copy)]
 struct Plan {
     aim: Aim,
@@ -84,8 +77,6 @@ fn plan(aim: Aim, shield: Aim, strike: Option<u32>) -> Plan {
     }
 }
 
-/// One rider's keys this tick of the charge (`next` its tick), pressing E
-/// to bring the shield round when it is wrong and E was up last tick.
 fn plan_keys(p: Plan, shield_now: Aim, next: u32, e_down: &mut bool) -> Input {
     let e = shield_now != p.shield && !*e_down && next < 20;
     *e_down = e;
@@ -97,9 +88,6 @@ fn plan_keys(p: Plan, shield_now: Aim, next: u32, e_down: &mut bool) -> Input {
     }
 }
 
-/// Run one pass from the ends: everyone spurs, each rider rides their plan
-/// (`b` for the friend in the far saddle, if any), on to the next pass or
-/// the verdict. Returns what the lances did.
 fn pass(run: &mut Run, a: Plan, b: Option<Plan>) -> (Hit, Hit) {
     assert_eq!(run.joust.as_ref().unwrap().stage, Stage::Ready);
     let foe = run.joust.as_ref().unwrap().foe.as_ref().map(|f| f.id);
@@ -147,7 +135,6 @@ fn pass(run: &mut Run, a: Plan, b: Option<Plan>) -> (Hit, Hit) {
         .expect("the riders met")
 }
 
-/// A lone knight's pass against a champion, shield left low.
 fn ride(run: &mut Run, aim: Aim, strike: Option<u32>) -> (Hit, Hit) {
     pass(run, plan(aim, Aim::Low, strike), None)
 }
@@ -182,8 +169,6 @@ fn owed(run: &Run) -> u32 {
     run.marks.get(PAID_MARK).copied().unwrap_or(0)
 }
 
-// ── A lone knight: a champion rides against them ──────────────────────────
-
 #[test]
 fn a_lone_knight_mounts_at_the_lists_plate_against_the_first_champion() {
     let mut run = at_the_lists(Stable::default());
@@ -196,7 +181,6 @@ fn a_lone_knight_mounts_at_the_lists_plate_against_the_first_champion() {
     assert_eq!(j.stage, Stage::Ready);
     assert!(j.gallery.is_empty());
     assert!(run.marks.contains_key("joust:start"));
-    // In the saddle at the west end of the near lane.
     let hero = &run.players[&1];
     assert!((hero.x - WEST_END).abs() < 0.01 && (hero.y - SOUTH_LANE).abs() < 0.01);
 }
@@ -239,7 +223,6 @@ fn a_strike_where_the_shield_isnt_lands_clean_and_at_the_moment_mightily() {
     let (mine, _) = ride(&mut run, aim, Some(m));
     assert_eq!(mine, Hit::Smite);
     assert!(run.joust.as_ref().unwrap().score.0 >= 3);
-    // A good-but-not-perfect strike at the open target is clean.
     let mut run = at_the_lists(Stable::default());
     mount(&mut run);
     let m = meeting(&run);
@@ -273,7 +256,6 @@ fn a_strike_on_his_shield_is_a_point_and_a_mistimed_one_misses() {
 
 #[test]
 fn the_mount_changes_the_timing_not_just_a_number() {
-    // Nine ticks early: inside Mist's strike, outside Cinder's.
     for (m, lands) in [(Mount::Mist, true), (Mount::Cinder, false)] {
         let mut run = at_the_lists(Stable {
             selected: m,
@@ -285,7 +267,6 @@ fn the_mount_changes_the_timing_not_just_a_number() {
         let (mine, _) = ride(&mut run, guard, Some(meet - 9));
         assert_eq!(mine != Hit::Miss, lands, "{m:?}");
     }
-    // Cinder meets soonest, Bramble last.
     let charge = |m: Mount| m.steed().charge;
     assert!(charge(Mount::Cinder) < charge(Mount::Mist));
     assert!(charge(Mount::Mist) < charge(Mount::Bramble));
@@ -293,8 +274,6 @@ fn the_mount_changes_the_timing_not_just_a_number() {
 
 #[test]
 fn a_shield_where_his_lance_points_takes_it_a_grade_lighter() {
-    // Sir Lancelot's lance, met with the shield or not: the same course,
-    // the same bout.
     let wins =
         std::collections::BTreeMap::from([("kay".to_string(), 1), ("palamedes".to_string(), 1)]);
     let stable = Stable {
@@ -335,7 +314,6 @@ fn a_tended_mount_carries_its_rider_a_knock_longer() {
 fn unhorsing_the_champion_ends_the_bout_and_the_knight_dismounts() {
     let mut run = at_the_lists(Stable::default());
     mount(&mut run);
-    // Sir Kay takes four knocks: two mighty hits put him on the sand.
     for _ in 0..2 {
         if run.joust.as_ref().unwrap().stage != Stage::Ready {
             break;
@@ -425,8 +403,6 @@ fn the_same_keys_ride_the_same_bout() {
     assert_eq!(play(), play());
 }
 
-// ── Two knights: head to head, the gallery wagering ───────────────────────
-
 #[test]
 fn the_nearest_friend_takes_the_far_saddle_and_the_rest_the_gallery() {
     let mut run = party(Stable::default(), 200, 4);
@@ -445,7 +421,6 @@ fn the_nearest_friend_takes_the_far_saddle_and_the_rest_the_gallery() {
     for (i, id) in [3, 4].into_iter().enumerate() {
         assert_eq!((run.players[&id].x, run.players[&id].y), GALLERY_SEATS[i]);
     }
-    // The gallery's keys do nothing else while the bout is on.
     let before = (run.players[&3].x, run.players[&3].y);
     for _ in 0..10 {
         run.step(&BTreeMap::from([(
@@ -473,10 +448,8 @@ fn each_rider_picks_a_horse_at_their_end_before_the_first_pass() {
     assert_eq!(j.mount, Mount::Cinder);
     assert_eq!(j.foe.as_ref().unwrap().mount, Mount::Bramble);
     assert_eq!(j.balance, (Mount::Cinder.steed().balance, Mount::Bramble.steed().balance));
-    // Held, it moves once.
     run.step(&BTreeMap::from([(1, side(1))]));
     assert_eq!(run.joust.as_ref().unwrap().mount, Mount::Cinder);
-    // The faster horse meets sooner, and further down the lists.
     let j = run.joust.as_ref().unwrap();
     assert!(j.meeting() < Mount::Bramble.steed().charge);
     assert!(j.meeting() > Mount::Cinder.steed().charge);
@@ -499,7 +472,6 @@ fn the_flag_drops_when_both_have_spurred_or_the_herald_tires() {
     )]);
     run.step(&spur2);
     assert_eq!(run.joust.as_ref().unwrap().stage, Stage::Charge);
-    // Nobody spurs: the herald drops the flag himself.
     let mut run = party(Stable::default(), 0, 2);
     mount(&mut run);
     for _ in 0..FIRST_FLAG_TICKS + 1 {
@@ -615,7 +587,6 @@ fn three_passes_with_nothing_landed_are_a_draw_and_nothing_is_paid() {
 fn a_friend_put_on_the_sand_ends_the_bout_at_once() {
     let mut run = party(Stable::default(), 0, 2);
     mount(&mut run);
-    // Two mighty hits round Cinder's shield (four knocks) put Seat 2 down.
     for _ in 0..2 {
         if run.joust.as_ref().unwrap().stage != Stage::Ready {
             break;
@@ -681,8 +652,6 @@ fn a_rider_who_leaves_the_lists_forfeits_and_a_bettor_who_leaves_is_void() {
     assert!(run.joust.is_none(), "the bout is over");
     assert_eq!(banked(&run, 1), PURSE - ENTRY, "forfeit: the purse to the one who stayed");
     assert_eq!(owed(&run), ENTRY);
-    // Before a pass is ridden, the friend left in the saddle rides on
-    // against the champion.
     let mut run = party(Stable::default(), 200, 2);
     mount(&mut run);
     run.depart_lists(1);
@@ -690,14 +659,11 @@ fn a_rider_who_leaves_the_lists_forfeits_and_a_bettor_who_leaves_is_void() {
     assert_eq!((j.knight, j.mount), (2, Mount::Cinder));
     assert!(j.foe.is_none() && run.bank.is_empty() && owed(&run) == 0);
     assert!(run.valid_snapshot());
-    // A lone knight leaving ends it.
     let mut run = at_the_lists(Stable::default());
     mount(&mut run);
     run.depart_lists(1);
     assert!(run.joust.is_none());
 }
-
-// ── The gallery's gold ─────────────────────────────────────────────────────
 
 #[test]
 fn the_gallery_backs_a_rider_and_raises_before_the_flag() {
@@ -708,8 +674,6 @@ fn the_gallery_backs_a_rider_and_raises_before_the_flag() {
         fire,
         ..Input::default()
     };
-    // Seat three backs the knight (west, A) and raises twice; seat four
-    // backs the friend (east, D).
     run.step(&BTreeMap::from([(3, k(-1, false)), (4, k(1, false))]));
     run.step(&BTreeMap::from([(3, k(0, true)), (4, k(0, false))]));
     run.step(&BTreeMap::from([(3, k(0, false))]));
@@ -719,7 +683,6 @@ fn the_gallery_backs_a_rider_and_raises_before_the_flag() {
     let j = run.joust.as_ref().unwrap();
     assert_eq!((j.gallery[&3].side, j.gallery[&3].stake), (Some(0), MAX_STAKE));
     assert_eq!((j.gallery[&4].side, j.gallery[&4].stake), (Some(1), STAKE));
-    // Changing sides keeps the stake; once the flag drops, nothing moves.
     run.step(&BTreeMap::from([(4, k(-1, false))]));
     assert_eq!(run.joust.as_ref().unwrap().gallery[&4].side, Some(0));
     run.step(&BTreeMap::from([(4, k(0, false))]));
@@ -745,7 +708,6 @@ fn wagers_settle_into_the_treasury_at_evens() {
     };
     run.step(&BTreeMap::from([(3, k(-1, false)), (4, k(1, false))]));
     run.step(&BTreeMap::from([(3, k(0, true))]));
-    // The knight takes two passes on the friend's shield.
     for _ in 0..2 {
         let m = meeting(&run);
         let w = Mount::Bramble.steed().strike;
@@ -762,12 +724,10 @@ fn wagers_settle_into_the_treasury_at_evens() {
     assert_eq!(banked(&run, 3), 2 * STAKE, "seat three's twenty, won at evens");
     assert_eq!(banked(&run, 4), 0);
     assert_eq!(owed(&run), ENTRY + STAKE, "the loser's entry and seat four's ten");
-    // The save: winnings bank under each name, losses leave the treasury.
     let mut treasury = run.treasury.clone();
     let said = settle_lists(&mut treasury, &run.marks);
     assert_eq!(treasury.get(Spoil::Gold), 200 - ENTRY - STAKE);
     assert!(said[0].1.contains("30 gold"));
-    // The gallery is back on its feet where it stood.
     finish(&mut run);
     let h = &run.players[&3];
     assert!(run.settlement_walkable_for_test(h.x, h.y));
@@ -775,8 +735,6 @@ fn wagers_settle_into_the_treasury_at_evens() {
 
 #[test]
 fn a_short_purse_rides_for_honour_and_wagers_stop_at_the_treasury() {
-    // Twenty gold: not the two entries, so the bout is for honour; the
-    // gallery may wager what is left, and no more.
     let mut run = party(Stable::default(), ENTRY, 3);
     mount(&mut run);
     assert_eq!(run.joust.as_ref().unwrap().purse, 0);
@@ -790,7 +748,6 @@ fn a_short_purse_rides_for_honour_and_wagers_stop_at_the_treasury() {
     run.step(&BTreeMap::from([(3, k(0, false))]));
     run.step(&BTreeMap::from([(3, k(0, true))]));
     assert_eq!(run.joust.as_ref().unwrap().gallery[&3].stake, ENTRY, "no more to raise with");
-    // With nothing at all, nothing goes on.
     let mut broke = party(Stable::default(), 0, 3);
     mount(&mut broke);
     broke.step(&BTreeMap::from([(3, k(-1, false))]));
@@ -856,7 +813,6 @@ fn the_stall_plates_saddle_and_the_trough_tends() {
     }
 }
 
-/// The stables with gold in the realm's purse, a knight on market pen `i`.
 fn at_the_market(gold: u32, i: usize) -> Run {
     let mut treasury = crate::realm::Spoils::default();
     treasury.add(Spoil::Gold, gold);
@@ -882,7 +838,6 @@ fn the_market_pens_sell_todays_horses_for_the_realms_gold() {
     hold_e(&mut run);
     assert_eq!(run.marks.get(&market_mark(1)), Some(&1));
     assert_eq!(market_open(&run.home.stable, 2000, &run.marks, 1), Err("SOLD"));
-    // The save pays and the herd grows.
     let mut stable = run.home.stable.clone();
     let mut treasury = run.treasury.clone();
     let before = stable.herd.len();
@@ -901,7 +856,6 @@ fn a_short_purse_buys_nothing() {
     assert_eq!(market_open(&run.home.stable, 1, &run.marks, 0), Err("PURSE SHORT"));
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_market_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_market_shots() {
@@ -923,9 +877,6 @@ fn write_market_shots() {
     save(&run, "b-bought");
 }
 
-
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_joust_shots -- --ignored`:
-/// the plate, the wagers, a pass, a hit, an unhorsing and the result.
 #[test]
 #[ignore]
 fn write_joust_shots() {
@@ -956,7 +907,6 @@ fn write_joust_shots() {
         fire: true,
         ..Input::default()
     };
-    // Ride one pass to the meeting on two plans, saving at the given ticks.
     let ride_to_meeting = |run: &mut Run, a: Plan, b: Plan, shots: &[(u32, &str)]| {
         let (mut ea, mut eb) = (false, false);
         loop {
@@ -979,14 +929,12 @@ fn write_joust_shots() {
             }
         }
     };
-    // On the plate, three friends about.
     let mut run = party(Stable::default(), 300, 4);
     named(&mut run);
     for _ in 0..BUY_HOLD / 2 {
         run.step(&interact());
     }
     save(&run, "a-plate", 1);
-    // Mounted: horses picked, the gallery wagering.
     let mut run = party(Stable::default(), 300, 4);
     named(&mut run);
     mount(&mut run);
@@ -995,7 +943,6 @@ fn write_joust_shots() {
     run.step(&BTreeMap::new());
     save(&run, "b-wagers-gallery", 3);
     save(&run, "c-ends-rider", 1);
-    // The first pass: mid-charge, the strike window, the hit.
     run.step(&BTreeMap::from([(1, both), (2, both)]));
     let m = meeting(&run);
     ride_to_meeting(
@@ -1008,7 +955,6 @@ fn write_joust_shots() {
         run.step(&BTreeMap::new());
     }
     save(&run, "f-hit", 1);
-    // On to the second pass, and Rowan goes over.
     while run.joust.as_ref().unwrap().stage != Stage::Ready {
         run.step(&BTreeMap::new());
     }
@@ -1036,7 +982,6 @@ fn write_joust_shots() {
         run.step(&BTreeMap::new());
     }
     save(&run, "h-result", 3);
-    // A lone knight against a champion.
     let mut run = at_the_lists(Stable::default());
     named(&mut run);
     mount(&mut run);

@@ -18,16 +18,9 @@ use super::adventure::{LoopKind, Quest, Region};
 use crate::hud_palette::{HUD_AMBER, HUD_GOLD};
 use ratatui_core::style::Style;
 
-/// The banner a settled, accepted submission raises over the Dragon Keep.
-/// The pane border flies gold for exactly as long as it is up.
 const BANNER_RAISED: &str = "banner raised";
 
 impl World {
-    /// The world pane's border tint, or `None` for the shipped chrome.
-    ///
-    /// A pure function of the quest: gold while an accepted submission's
-    /// banner flies, amber while the fog is deep. Never coral — a stall is
-    /// weather, not a fault.
     pub fn quest_border_style(&self) -> Option<Style> {
         if !crate::hooks::ambient_stage_sim_allowed() {
             return None;
@@ -41,23 +34,10 @@ impl World {
         None
     }
 
-    /// Whether the adventure owns the world pane.
-    ///
-    /// Z5: off Castle Town the party is somewhere the tool traffic does not
-    /// live, so an automatic landmark **arrival** must not take the pane away
-    /// from the region plate — the Smithy is in town and the hero is in the
-    /// mines. Homecoming still counts: the walk back with the loot is part of
-    /// the quest. The moment the quest is back in Castle Town (Homecoming
-    /// expiry, or the loop stopping) arrivals resume exactly as they were.
-    ///
-    /// Operator-chosen routes are unaffected — this only gates the *automatic*
-    /// arrival overlay.
     pub fn quest_owns_pane(&self) -> bool {
         self.quest.region() != Region::CastleTown
     }
 
-    /// `/world quest` — the adventure model as plain text. The debugging
-    /// window: every field the renderers read, in one line.
     pub fn quest_report(&self) -> String {
         let quest: &Quest = &self.quest;
         let region = quest.region();

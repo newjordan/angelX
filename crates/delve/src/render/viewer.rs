@@ -11,7 +11,6 @@ std::thread_local! {
     static CURRENT: std::cell::Cell<Preferences> = const { std::cell::Cell::new(Preferences { calm_screen: false }) };
 }
 
-/// Scoped so a mirror's picture cannot change the next viewer's picture.
 pub struct Scope(Preferences);
 impl Drop for Scope {
     fn drop(&mut self) { CURRENT.with(|c| c.set(self.0)); }
@@ -28,8 +27,6 @@ pub fn with<T>(preferences: Preferences, draw: impl FnOnce() -> T) -> T {
 
 pub(crate) fn calm() -> bool { CURRENT.with(|c| c.get().calm_screen) }
 
-/// Keep dark planes unchanged; fold bright transient highlights into slate.
-/// Applied after composition, never while filling shared sprite caches.
 pub(crate) fn soften(img: &mut Img) {
     if !calm() { return; }
     for y in 0..img.h {
@@ -49,8 +46,6 @@ pub(crate) fn soft_tint(rgb: [u8; 3]) -> [u8; 3] {
     out
 }
 
-/// The parts compositor must not reintroduce a bright post pass or replace
-/// a softened silhouette with its original painting.
 pub(crate) fn finish_scene(scene: &mut super::overworld::arena::RoomScene) {
     if !calm() { return; }
     scene.impact = 0.0;
@@ -71,21 +66,12 @@ pub(crate) fn finish_scene(scene: &mut super::overworld::arena::RoomScene) {
     soften(&mut scene.screen);
 }
 
-/// The gnome's garden seen strangely (`nooks::gnome`): the room sways on
-/// a slow swell, its colours swing round the wheel in soft bands that
-/// drift across it, stronger toward its edges than its middle, and
-/// sparkles open and close round its rim in mirrored fours, as through a
-/// kaleidoscope, over shards of colour that come and go round it. Black
-/// stays black away from the rim, so the dark planes keep the room's
-/// shape. A calm screen sees only a slow, slight turn of the colours.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn trip(img: &mut Img, tick: u64) {
     let h = img.h;
     trip_rows(img, tick, 0, h);
 }
 
-/// `trip` over rows `top` to `bottom` of `img` alone: a seat's view of
-/// the room, its bands above and below left to be read.
 pub(crate) fn trip_rows(img: &mut Img, tick: u64, top: i32, bottom: i32) {
     let (top, bottom) = (top.clamp(0, img.h), bottom.clamp(0, img.h));
     if img.w <= 0 || bottom <= top {
@@ -101,9 +87,6 @@ pub(crate) fn trip_rows(img: &mut Img, tick: u64, top: i32, bottom: i32) {
     }
 }
 
-/// The trip's colour field over the room's view: how far each point's
-/// colours turn round the wheel, how much richer they come, and how
-/// strongly the rim's mirrored shards of colour show.
 struct Field {
     t: f32,
     base: f32,
@@ -113,11 +96,8 @@ struct Field {
     rim: f32,
 }
 
-/// How far in from the view's edge its kaleidoscope rim reaches (native
-/// pixels).
 const RIM: f32 = 34.0;
 
-/// How finely a turn is told apart: the steps between its two ends.
 const TURNS: usize = 96;
 
 impl Field {
@@ -129,9 +109,6 @@ impl Field {
         }
     }
 
-    /// Turn the pixels of `img` in rows `rows`, pixel `(x, y)` standing at
-    /// view point `origin + (x, y) * k` (native pixels of the room's view);
-    /// each row first slid along a slow swell up to `sway` pixels.
     fn roll(&self, img: &mut Img, origin: (f32, f32), k: f32, (top, bottom): (i32, i32), sway: f32) {
         use super::overworld::arena::{NATIVE_H, NATIVE_W};
         let (w, vw, vh) = (img.w.max(0) as usize, NATIVE_W as f32, NATIVE_H as f32);
@@ -142,8 +119,6 @@ impl Field {
             let e = 2.0 * v / span - 1.0;
             (e * e).min(1.0)
         };
-        // Per column and per row: the drifting bands' halves, how near the
-        // edge, and the rim's two mirrored waves (folded at the middle).
         let t = self.t;
         let mut cols = Vec::with_capacity(w);
         for x in 0..w {
@@ -188,8 +163,6 @@ impl Field {
                 let (c, s) = turns[((a * (TURNS - 1) as f32).round() as usize).min(TURNS - 1)];
                 let lift = self.glow * band.max(0.0).powi(3) * e;
                 let mut out = turned(rgb, c, s, self.sat, lift);
-                // The rim: shards of colour where two folded waves cross,
-                // mirrored at the view's middle both ways.
                 let d = mx.min(my);
                 if self.rim > 0.0 && d < RIM {
                     let p = (a1 * d1 + b1 * c1) * (a2 * d2 + b2 * c2);
@@ -207,9 +180,6 @@ impl Field {
     }
 }
 
-/// `rgb` turned round the colour wheel by the angle whose cosine and sine
-/// are `c`, `s`, its colour made `sat` times as rich and its light lifted
-/// by `lift` (YIQ).
 fn turned([r, g, b]: [u8; 3], c: f32, s: f32, sat: f32, lift: f32) -> [u8; 3] {
     let (r, g, b) = (f32::from(r), f32::from(g), f32::from(b));
     let y = 0.299 * r + 0.587 * g + 0.114 * b + lift;
@@ -220,7 +190,6 @@ fn turned([r, g, b]: [u8; 3], c: f32, s: f32, sat: f32, lift: f32) -> [u8; 3] {
     [k(y + 0.956 * i + 0.621 * q), k(y - 0.272 * i - 0.647 * q), k(y - 1.106 * i + 1.703 * q)]
 }
 
-/// A hue at full light, softly coloured.
 fn hue(h: f32) -> [f32; 3] {
     let h = h.rem_euclid(1.0) * 6.0;
     let f = h.fract();
@@ -238,10 +207,6 @@ fn hue(h: f32) -> [f32; 3] {
     rgb.map(|v| v * 255.0)
 }
 
-/// Sparkles round the rim of the room's view in rows `rows` of `img`
-/// (`scale` its pixels to a native one): each opens and closes as a
-/// four-pointed star, and every one is drawn four times over, mirrored
-/// across the view's middle both ways, as a kaleidoscope has it.
 fn kaleidoscope(img: &mut Img, t: f32, scale: f32, (top, bottom): (i32, i32)) {
     use super::overworld::arena::{NATIVE_H, NATIVE_W};
     use super::overworld::ink::hash;
@@ -290,10 +255,6 @@ fn kaleidoscope(img: &mut Img, t: f32, scale: f32, (top, bottom): (i32, i32)) {
     }
 }
 
-/// The parts compositor's trip: the room's ground, every layer, figure
-/// and shot turned in one field over the room's view; the camera swaying
-/// a little; the rim's sparkles on the screen's own marks over the view;
-/// and the colour split breathing. The bands keep their colours.
 pub(crate) fn trip_scene(scene: &mut super::overworld::arena::RoomScene, tick: u64) {
     use super::overworld::arena::{BAND_H, HUD_H, NATIVE_W};
     let calm = calm();
@@ -330,8 +291,6 @@ pub(crate) fn trip_scene(scene: &mut super::overworld::arena::RoomScene, tick: u
     }
 }
 
-/// The map and down menu already contain local camera/display choices.
-/// N+E works with native keys, a browser keyboard and the touch map/use keys.
 pub(crate) fn options(out: &mut Img, map: bool, preferences: Preferences) {
     if !map { return; }
     let line = if preferences.calm_screen { "E  CALM SCREEN: ON" } else { "E  CALM SCREEN: OFF" };

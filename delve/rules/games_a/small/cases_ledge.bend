@@ -1,5 +1,3 @@
-# Cases for ledge.bend (recorded by ledge_bend_cases__tests.rs).
-
 def case.ledge.walk(+input: J.Val) -> J.Val:
   cx.ledge.walk.out(ledge.walk(J.get(input, "hero"), J.get(input, "input"),
     ga.grid(J.get(input, "room"), ga.b(input, "barred")), ga.f(input, "dx"), ga.b(input, "rolling")))

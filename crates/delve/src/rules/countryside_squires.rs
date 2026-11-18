@@ -137,9 +137,6 @@ fn pay(gold: &mut Spoils, price: u32) -> Result<(), String> {
     Ok(())
 }
 
-/// A yard plate is chosen by walking onto it; E confirms, as at Ector's lecterns.
-// The yard's other squire companies use rows 3, 4, 5 and 9–12.
-// Keep these independent orders on their own row so one hold cannot buy twice.
 pub const PLATES: [(f32, f32); 11] = [
     (2.0, 1.5), (4.0, 1.5), (6.0, 1.5), (8.0, 1.5), (10.0, 1.5),
     (12.0, 1.5), (14.0, 1.5), (16.0, 1.5), (18.0, 1.5), (20.0, 1.5),
@@ -191,7 +188,6 @@ impl Run {
                 continue;
             }
             let key = home::Home::knight_key(hero);
-            // Names are hex encoded so punctuation cannot become an action delimiter.
             let key: String = key.as_bytes().iter().map(|b| format!("{b:02x}")).collect();
             let version = company.revision.get(&key).copied().unwrap_or(0);
             let action = match at {
@@ -388,7 +384,6 @@ impl Run {
             c.ability = c.ability.saturating_sub(1);
             c.smoke = c.smoke.saturating_sub(1);
             c.trick = c.trick.saturating_sub(1);
-            // Reuse the allies' movement, damage and downed recovery, not their attacks.
             c.body.cooldown = 2;
             self.drive_hireling(&mut c.body);
             if c.recruit.kind == Kind::Healer && c.recruit.level >= 3 && !c.body.down() {
@@ -577,9 +572,6 @@ impl Run {
     }
 }
 
-/// The country journal's room for the squire company's own intents (a
-/// day's muster and a hire, upgrade, selection or lesson at a plate). They
-/// stand only while a company holds them.
 pub const INTENT_SLOTS: usize = 7;
 
 pub fn intent_key(key: &str) -> bool {

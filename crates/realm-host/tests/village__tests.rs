@@ -6,7 +6,6 @@ fn state_round_trips_atomically_and_survives_corruption() {
     let _ = std::fs::remove_dir_all(&dir);
     let path = dir.join("village.json");
 
-    // Absent file → fresh village.
     let fresh = load_state(Some(&path));
     assert_eq!(fresh.smithy_level, 0);
     assert!(fresh.last_adapter.is_none());
@@ -26,13 +25,10 @@ fn state_round_trips_atomically_and_survives_corruption() {
     assert_eq!(back.apprentice_name, "Wat");
     assert_eq!(back.dataset_total, 812);
     assert_eq!(back.chatter, vec!["the anvil remembers".to_string()]);
-    // The tmp file never lingers after a clean save.
     assert!(!path.with_extension("json.tmp").exists());
 
-    // Corrupt file → fresh village, never a crash.
     std::fs::write(&path, "{ not json").unwrap();
     assert_eq!(load_state(Some(&path)).smithy_level, 0);
-    // No path at all (no HOME) → fresh village.
     assert_eq!(load_state(None).smithy_level, 0);
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -61,7 +57,6 @@ fn forge_health_parses_the_real_shape_and_degrades() {
     assert_eq!(f.gpu_free_mib, Some(9000));
     assert_eq!(f.ollama_models, 3);
 
-    // A bare/foreign body degrades to defaults, never a panic.
     let empty = parse_forge_health(&serde_json::json!({}));
     assert!(!empty.training);
     assert_eq!(empty.dataset_total, 0);
@@ -71,9 +66,6 @@ fn forge_health_parses_the_real_shape_and_degrades() {
 
 #[test]
 fn merge_local_last_cycle_fills_autopropagate_zero_handoff() {
-    // Serialized: this test mutates process-global environment that other
-    // tests also read or write. Without the lock they interleave and each
-    // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
     let id = std::process::id();
     let cycle = std::env::temp_dir().join(format!("village-last-cycle-{id}.json"));
@@ -82,8 +74,6 @@ fn merge_local_last_cycle_fills_autopropagate_zero_handoff() {
             r#"{"version":"v7","gate_pass":true,"promoted":false,"eval_loss_adapter":1.1,"eval_loss_base":1.3,"adapter_local":"/tmp/a/v7"}"#,
         )
         .unwrap();
-    // SAFETY: single-threaded test; path is process-unique.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("FORGE_LAST_CYCLE", &cycle) };
     let bare = parse_forge_health(&serde_json::json!({}));
     let merged = merge_local_last_cycle(bare);
@@ -91,24 +81,19 @@ fn merge_local_last_cycle_fills_autopropagate_zero_handoff() {
     assert_eq!(merged.gate_pass, Some(true));
     assert_eq!(merged.promoted, Some(false));
     assert_eq!(merged.eval_loss_adapter, Some(1.1));
-    // Remote current_adapter wins over local version.
     let remote = parse_forge_health(&serde_json::json!({
         "current_adapter": "v2",
         "last_cycle": {"gate_pass": false}
     }));
     let keep = merge_local_last_cycle(remote);
     assert_eq!(keep.adapter.as_deref(), Some("v2"));
-    assert_eq!(keep.gate_pass, Some(false)); // remote gate already set
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    assert_eq!(keep.gate_pass, Some(false));
     unsafe { std::env::remove_var("FORGE_LAST_CYCLE") };
     let _ = std::fs::remove_file(&cycle);
 }
 
 #[test]
 fn merge_local_free_train_status_lights_forge_while_lora_runs() {
-    // Serialized: this test mutates process-global environment that other
-    // tests also read or write. Without the lock they interleave and each
-    // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
     let id = std::process::id();
     let status = std::env::temp_dir().join(format!("village-when-free-{id}.json"));
@@ -117,14 +102,12 @@ fn merge_local_free_train_status_lights_forge_while_lora_runs() {
             r#"{"state":"training","job_state":"running","train_step":144,"train_total":200,"gpu_free_mib":13168}"#,
         )
         .unwrap();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("FORGE_WHEN_FREE_STATUS", &status) };
     let idle = parse_forge_health(&serde_json::json!({"training": false}));
     assert!(!idle.training);
     let lit = merge_local_free_train_status(idle);
     assert!(lit.training, "local free-train pulse must light the forge");
     assert_eq!(lit.gpu_free_mib, Some(13168));
-    // Done/failed status must not force training on.
     std::fs::write(
         &status,
         r#"{"state":"done","job_state":"done","version":"v1","gate_pass":true}"#,
@@ -134,7 +117,6 @@ fn merge_local_free_train_status_lights_forge_while_lora_runs() {
     assert!(!after.training);
     assert_eq!(after.adapter.as_deref(), Some("v1"));
     assert_eq!(after.gate_pass, Some(true));
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("FORGE_WHEN_FREE_STATUS") };
     let _ = std::fs::remove_file(&status);
 }
@@ -169,8 +151,6 @@ fn flavor_prefers_content_then_falls_back_to_reasoning() {
         Some("Hark, the forge sings anew!")
     );
 
-    // Empty content + text stuck in `reasoning` (the qwen3.5 failure mode):
-    // the last non-empty line is the utterance.
     let reasoning: serde_json::Value = serde_json::json!({
         "choices": [{"message": {"content": "",
             "reasoning": "Let me think of a line.\n\nThe bellows breathe again!"}}]
@@ -180,7 +160,6 @@ fn flavor_prefers_content_then_falls_back_to_reasoning() {
         Some("The bellows breathe again!")
     );
 
-    // Nothing anywhere → None (caller uses the canned lines).
     let empty: serde_json::Value = serde_json::json!({"choices": [{"message": {"content": ""}}]});
     assert!(flavor_from_response(&empty).is_none());
 }

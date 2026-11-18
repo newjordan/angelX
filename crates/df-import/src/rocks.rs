@@ -70,8 +70,6 @@ const REAGENT: &[&str] = &[
     "MARCASITE",
     "PUDDINGSTONE",
 ];
-/// Gems in case the prospect report is missing; the report's own Gems
-/// section is used when there is one.
 const GEMS: &[&str] = &[
     "BLOODSTONE",
     "AVENTURINE",
@@ -117,7 +115,6 @@ impl Classifier {
         Classifier { gems: set("Gems"), ores: set("Ores") }
     }
 
-    /// The class of an `INORGANIC:<TOKEN>` (or bare token).
     pub fn classify(&self, token: &str) -> u8 {
         let t = token.strip_prefix("INORGANIC:").unwrap_or(token);
         let is = |l: &[&str]| l.contains(&t);

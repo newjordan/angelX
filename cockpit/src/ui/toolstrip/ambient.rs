@@ -18,8 +18,6 @@ const SLOT_MS: u128 = 60_000;
 const BLEND_MS: u128 = 2_000;
 
 thread_local! {
-    // Catalog objects are stateless but its trait is not Send. Resolve just
-    // these six styles once on the drawing thread, never the whole catalog per frame.
     static STYLES: Vec<Box<dyn ProgressStyle>> = PRESETS.iter().map(|(theme, name)| {
         dotmax::progress::styles_for_theme(theme).into_iter()
             .find(|style| style.name() == *name)
@@ -47,7 +45,6 @@ impl Ambient {
             && !paused
             && motion.animates()
         {
-            // Returning from a hidden pane never jumps across missed loops.
             self.elapsed = self.elapsed.saturating_add(
                 now.saturating_duration_since(last)
                     .min(Duration::from_secs(1)),
@@ -72,8 +69,6 @@ impl Ambient {
         } else {
             let slot = (ms / SLOT_MS) as usize;
             let phase = ms % SLOT_MS;
-            // All presets receive a fixed extent. Only display time advances;
-            // there is no percentage, synthetic progress, or completion event.
             STYLES.with(|styles| {
                 let render = |index: usize, time_ms: u128| {
                     let ctx = BarContext::new(1.0, time_ms as f32 / 1_000.0 * 0.35, width, 1);
@@ -87,8 +82,6 @@ impl Ambient {
                 if phase < SLOT_MS - BLEND_MS {
                     return current;
                 }
-                // Slowly replace dots with the next actual preset. Never
-                // blank the bar or add a bright transition plate.
                 let blend = phase - (SLOT_MS - BLEND_MS);
                 let next = render((slot + 1) % styles.len(), blend);
                 current

@@ -11,9 +11,6 @@ fn native_usage_contract_fixture_rows() -> Vec<Value> {
     .unwrap();
     assert_eq!(manifest["schema"], "angel.native-usage-wire-fixtures/v1");
     manifest["cases"].as_array().unwrap().iter().map(|case| {
-        // This logical official endpoint selects its real accounting contract;
-        // no HTTP request is made. Raw fixture frames enter the same native
-        // attempt-owned parser used by real streaming responses.
         let club = HttpClub::new("glm-labelled-owned-fixture", case["logical_endpoint"].as_str().unwrap(), "glm-5.3-flash", None);
         let before = club.usage_accounting();
         for frames in case["attempt_frames"].as_array().unwrap() {
@@ -64,8 +61,6 @@ fn native_usage_contract_fixture_export() {
             serde_json::to_string(&row).unwrap()
         );
     }
-    // An explicit existing campaign receipt can be added as a separate original
-    // aggregate. Never reconstruct its 20 unretained provider responses.
     if let Some(path) = std::env::var_os("ANGEL_NATIVE_USAGE_RECORDED_ENVELOPE") {
         let path = std::path::PathBuf::from(path);
         use std::io::Read;

@@ -13,8 +13,6 @@ use super::at;
 use crate::rules::Run;
 use crate::rules::runes::RuneKind;
 
-/// A kind's inks: outline, the orb's shadowed and lit halves, its sign,
-/// and the glint.
 fn inks(kind: RuneKind) -> [char; 5] {
     match kind {
         RuneKind::Haste => ['n', 'p', 'R', 'T', 't'],
@@ -28,7 +26,6 @@ fn inks(kind: RuneKind) -> [char; 5] {
     }
 }
 
-/// A kind's sign, five by five, set in the orb.
 fn sign(kind: RuneKind) -> [&'static str; 5] {
     match kind {
         RuneKind::Haste => ["..##.", ".##..", "#####", "..##.", ".##.."],
@@ -42,7 +39,6 @@ fn sign(kind: RuneKind) -> [&'static str; 5] {
     }
 }
 
-/// The orb: eleven across, lit from above, its sign in the middle.
 pub(super) fn orb(kind: RuneKind) -> Img {
     let [line, dark, lit, mark, glint] = inks(kind);
     let mut im = Img::new(11, 11);
@@ -65,7 +61,6 @@ pub(super) fn orb(kind: RuneKind) -> Img {
         }
     }
     if kind == RuneKind::Invisibility {
-        // The orb half there; its eye, whole.
         im = veiled(&im);
     }
     for (row, cells) in sign(kind).iter().enumerate() {
@@ -78,12 +73,10 @@ pub(super) fn orb(kind: RuneKind) -> Img {
     im
 }
 
-/// The live pickup's material; menu symbols retain their small authored orb.
 pub(super) fn material(kind: RuneKind) -> [u8; 3] {
     super::super::ink::ink(inks(kind)[2]).unwrap_or([180, 180, 220])
 }
 
-/// A rune's sign stays legible over its lit 3D body, including Invisibility.
 pub(super) fn glyph(kind: RuneKind) -> Img {
     let mut im = Img::new(20, 20);
     for (row, cells) in sign(kind).iter().enumerate() {
@@ -96,7 +89,6 @@ pub(super) fn glyph(kind: RuneKind) -> Img {
     im
 }
 
-/// The rune as a lit solid with its sign over it, for a painted frame.
 pub(super) fn solid_orb(kind: RuneKind, phase: f32) -> Img {
     let mut im = super::cards::pickup_image(1, material(kind), phase);
     if kind == RuneKind::Invisibility {
@@ -106,7 +98,6 @@ pub(super) fn solid_orb(kind: RuneKind, phase: f32) -> Img {
     im
 }
 
-/// Half there: every other pixel, in a checker.
 pub(super) fn veiled(im: &Img) -> Img {
     let mut out = Img::new(im.w, im.h);
     for y in 0..im.h {
@@ -121,8 +112,6 @@ pub(super) fn veiled(im: &Img) -> Img {
     out
 }
 
-/// The room's rune: gathering motes just before it wells up, then the orb,
-/// bobbing over its ring.
 pub(super) fn floor(cv: &mut Img, run: &Run) {
     let Some(rune) = run.rune else {
         return;
@@ -146,7 +135,6 @@ pub(super) fn floor(cv: &mut Img, run: &Run) {
         }
         return;
     }
-    // The ring on the floor, turning.
     let turn = (tick / 3) as i32;
     for k in 0..24 {
         if (k + turn) % 4 == 0 {
@@ -178,14 +166,11 @@ pub(super) fn floor(cv: &mut Img, run: &Run) {
             });
         });
     } else {
-        // Its card, turning over the ring.
         let card = super::pickup_cards::turning_sprite(Some(&im), true, (x as f32, y as f32), tick as u32);
         cv.stamp(&card, x - card.w / 2, y - 6 - card.h / 2);
     }
 }
 
-/// A knight's rune: its motes circling their feet, flickering in the last
-/// three seconds.
 pub(super) fn auras(cv: &mut Img, run: &Run) {
     let hz = crate::rules::HZ;
     for hero in run
@@ -194,7 +179,6 @@ pub(super) fn auras(cv: &mut Img, run: &Run) {
         .filter(|h| h.hp > 0 && h.privy == 0 && !h.stone)
     {
         if hero.singing {
-            // Sir Dinadan's song, heard: a note above the knight.
             let (x, y) = at(hero.x, hero.y);
             let bob = ((run.tick / 8) % 4) as i32;
             for (dy, row) in ["..h", "..h", "hhh", "hh."].iter().enumerate() {
@@ -206,7 +190,6 @@ pub(super) fn auras(cv: &mut Img, run: &Run) {
             }
         }
         if hero.immune > 0 {
-            // A Pendragon Sceptre: a golden ring turning the other way.
             let (x, y) = at(hero.x, hero.y);
             let spin = -(run.tick as f32) * 0.12;
             for k in 0..6 {

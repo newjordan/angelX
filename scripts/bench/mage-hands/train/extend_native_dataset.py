@@ -73,7 +73,6 @@ def build(base, captures, output):
         raise ValueError('new destination and staging paths required')
     old_manifest = assembly.verify_base(base)
     shutil.copytree(base, staging, copy_function=shutil.copyfile)
-    # copyfile does not copy the frozen source mode; originals are never edited.
     rows = {s: read_rows(base / (s + '.jsonl')) for s in regime.SPLITS}
     original_rows = {s: len(rs) for s, rs in rows.items()}
     labels = {r['id']: r for r in read_rows(base / 'labels.jsonl')}
@@ -160,8 +159,6 @@ def build(base, captures, output):
                               'source': edge_source, 'scripted': True, 'eligible_pair': False,
                               'click_oracle_checked': True})
             raw_count += 1
-    # Compare to all historical frames, including quarantined holdout frames.
-    # Never alter those frames/rows: exclude only conflicting new material.
     kept, rejected = assembly.partition(frames + new_frames)
     keep_ids = {f['id'] for f in kept}
     for f in rejected:
@@ -205,7 +202,6 @@ def build(base, captures, output):
         f['eligible'] = f['id'] in keep_ids and ('screens/' + f['image'] + '.png', f['split']) in installed
     for edge in new_edges:
         edge['eligible_pair'] = all(frame_by_key[edge[k]]['eligible'] for k in ('before', 'after'))
-    # Historical lines stay byte-for-byte as the prefix, including their ordering.
     for split, rs in rows.items():
         with (staging / (split + '.jsonl')).open('a') as stream:
             for row in rs[original_rows[split]:]:

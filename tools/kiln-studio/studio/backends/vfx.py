@@ -1,21 +1,3 @@
-"""The Bend pixel-VFX cartridge (~/.angelX/cartridges/vfx), read-only.
-
-The source is the cartridge's own v1 recipe (`<name>.vfx.json`: size, frames,
-fps, loop, seed, outline, dither, layers; its README has the fields), written
-by hand. Its prompt mode is not used: it turns most words into a flat disc.
-
-The cartridge knows nothing of the realm, so the studio holds its colours to
-the realm's inks here. A layer's `ramp` is one of:
-
-    "$fire"        a realm ramp the style bible names (bible.json `vfx_ramps`)
-    "ink:a456w"    realm ink keys, dark to light
-    "$own"         a ramp the recipe defines in `ramps`, in realm colours only
-
-The cartridge's own ramp names (`fire`, `ice`, ...), `palette` and `hue` are
-refused: they paint outside the realm. Its `outline` is drawn in a fixed
-#201819 (engine.bend `finish`); the studio redraws exactly that colour in the
-bible's outline ink on its own copy of the sheet.
-"""
 import json
 import os
 import re
@@ -32,7 +14,6 @@ CARTRIDGE_OUTLINE = (0x20, 0x18, 0x19)
 
 
 def outline_in_realm(sheet, out):
-    """The sheet with the cartridge's outline colour in the bible's outline ink; (path, pixels changed)."""
     from PIL import Image
     try:
         key = json.loads(paths.BIBLE_JSON.read_text())["outline"]["ink"]
@@ -60,8 +41,6 @@ def bible_ramps():
 
 
 def realmed(recipe):
-    """The recipe with every ramp resolved to realm colours, or BackendError
-    naming the first path that leaves the realm."""
     if not isinstance(recipe, dict):
         raise BackendError("a vfx recipe is a JSON object")
     pal = realm()

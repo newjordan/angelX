@@ -10,28 +10,17 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::{Mutex, OnceLock};
 
-/// Proven cells that make a body worth a mine.
 pub const PROVE_AT: u8 = 8;
-/// No body cell this close to the spawn, the exit, the boots or a mouth.
 pub const CLEAR_OF: i32 = 6;
-/// How far a knight's lamp marks a vein cell seen.
 pub const SIGHT: i32 = 6;
-/// A body is at least this many rock cells.
 pub const BODY_MIN: usize = 14;
-/// A body is at most this many rock cells.
 pub const BODY_MAX: usize = 24;
-/// How far a blob may spread from the rock it grew from, so a lamp on the head still sees it.
 const GROW: i32 = 4;
-/// No body starts within this many cells of the map's edge.
 const EDGE: i32 = 4;
-/// A region's second body starts at least this many cells from its first.
 const SPREAD: i32 = 18;
 
-/// One fixed size for each body, in region order, first then second.
 const BODY_SIZES: [usize; 8] = [16, 20, 14, 22, 18, 24, 15, 21];
 
-/// One surface site per body, indexed by `body.index`. Each stands beside the
-/// hillside's fieldstone and does not share a two-by-two footprint.
 pub const SURFACE_SITE: [(i32, i32); 8] = [
     (147, 96),
     (150, 96),
@@ -52,7 +41,6 @@ pub struct Body {
     pub depth: u8,
 }
 
-/// What the realm keeps of a sunk mine. Left out of the home while none are sunk.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SunkMine {
     pub region: u8,
@@ -240,7 +228,6 @@ fn find_body(
     if found.is_empty() {
         return None;
     }
-    // The seed picks where the body starts; if that rock will not grow one, the scan walks on from there.
     let start = crate::ink::hash(i32::from(region), i32::from(which), seed) as usize % found.len();
     let order = (start..found.len()).chain(0..start).collect::<Vec<_>>();
     for i in order {
@@ -263,8 +250,6 @@ fn eligible(cave: &Cave, ban: &[bool], used: &[bool], region: u8, x: i32, y: i32
     if !cell.wall() {
         return false;
     }
-    // The starting rock's south face is open floor, so the body always has a
-    // south head. Other open sides do not qualify a start.
     cave.at(x, y + 1).is_some_and(|n| n.open())
 }
 
@@ -310,8 +295,6 @@ fn grow(
     (cells.len() >= BODY_MIN).then_some(cells)
 }
 
-/// The open floor directly south of the body cell nearest the body's middle
-/// that has open floor south of it. Starts are south-facing, so this finds one.
 fn head_of(cave: &Cave, cells: &[(i32, i32)]) -> (i32, i32) {
     let n = cells.len() as i32;
     let (sx, sy) = cells.iter().fold((0, 0), |a, c| (a.0 + c.0, a.1 + c.1));
@@ -353,7 +336,6 @@ fn head_of(cave: &Cave, cells: &[(i32, i32)]) -> (i32, i32) {
     best.map(|(_, y, x)| (x, y)).unwrap_or(cells[0])
 }
 
-/// The body's cells, for the map test. Not a painter.
 pub fn cells_of(seed: u32) -> Vec<Body> {
     bodies(seed).bodies.clone()
 }

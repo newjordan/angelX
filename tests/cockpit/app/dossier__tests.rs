@@ -80,22 +80,17 @@ fn renders_confident_facts_and_withholds_the_rest() {
     let block = render_block(&artifact(), 0.70, 2048, 1_783_300_000 + 7_200);
     assert!(block.contains(DOSSIER_BLOCK_HEADER));
     assert!(block.ends_with(&format!("{DOSSIER_BLOCK_SENTINEL}\n")));
-    // The confident ritual renders with its class, duration, and evidence.
     assert!(
         block.contains("test: `cargo test` (9 runs, 9 pass"),
         "{block}"
     );
     assert!(block.contains("~5s"));
-    // The trap renders as a trap: `⠸⠁⠙`, the command and evidence beside it.
     assert!(
         block.contains("\n⠸⠁⠙ `npm test` (3 runs, 0 pass (3 fail)"),
         "{block}"
     );
-    // The 0.55 build ritual is withheld, and the block says so: `⠸⠁⠉`, the
-    // count and the threshold beside it.
     assert!(!block.contains("cargo build"));
     assert!(block.contains("⠸⠁⠉ withheld=1 min_belief=0.70"), "{block}");
-    // The thread line is `⠸⠁⠑`, the session's age, stop and driver beside it.
     assert!(
         block.contains("\n⠸⠁⠑ age=2h stop=answer driver=gemma\n"),
         "{block}"
@@ -103,22 +98,15 @@ fn renders_confident_facts_and_withholds_the_rest() {
     assert!(!block.contains("last session here"), "{block}");
 }
 
-/// What the block asserts is what the agent was told to run — the input to the
-/// self-confirmation guard. Rituals *and* traps count; prose lines do not.
 #[test]
 fn asserted_commands_are_every_command_the_block_names() {
     let block = render_block(&artifact(), 0.70, 2048, 1_783_300_000 + 7_200);
     let asserted = asserted_commands(&block);
     assert!(asserted.contains(&"cargo test".to_string()), "{asserted:?}");
-    // A trap puts its command in the agent's mouth exactly as a ritual does.
     assert!(asserted.contains(&"npm test".to_string()), "{asserted:?}");
-    // The withheld build ritual was never asserted, so it never contaminates.
     assert!(!asserted.contains(&"cargo build".to_string()));
-    // The thread line (`⠸⠁⠑`), the header, and the sentinel are not
-    // commands — a `: ` alone must not be mistaken for a fact line.
     assert!(!asserted.iter().any(|c| c.contains("age=")));
     assert_eq!(asserted.len(), 2, "{asserted:?}");
-    // Nothing asserted from an empty block.
     assert!(asserted_commands("").is_empty());
 }
 
@@ -149,12 +137,9 @@ fn context_block_in_reads_by_workspace_key_and_survives_garbage() {
     let ws = Path::new("/home/u/proj");
     let key = crate::agent::tools::work_landing::workspace_key(ws);
 
-    // No artifact → empty.
     assert_eq!(context_block_in(&base, ws, 0), "");
-    // Garbage artifact → empty, no panic.
     std::fs::write(base.join(format!("{key}.json")), "{not json").unwrap();
     assert_eq!(context_block_in(&base, ws, 0), "");
-    // Real artifact → rendered block.
     std::fs::write(
         base.join(format!("{key}.json")),
         serde_json::to_string(&artifact()).unwrap(),
@@ -323,17 +308,11 @@ fn broker_block_disabled_does_not_leak_cache() {
 
 #[test]
 fn build_ritual_is_picked_by_belief_and_never_a_test_command() {
-    // The best-believed fact in this artifact is `cargo test` (0.82). The
-    // Cut runs its verify on EVERY write, so a test ritual must never be
-    // eligible however confident it is — only the `build` class is.
     assert_eq!(
         pick_build_ritual(&artifact(), 0.50).as_deref(),
         Some("cargo build")
     );
-    // Below the belief threshold the repo has taught us nothing usable, and
-    // the caller falls through to the project-type default.
     assert_eq!(pick_build_ritual(&artifact(), 0.70), None);
-    // No artifact / no facts → nothing.
     assert_eq!(pick_build_ritual(&serde_json::json!({}), 0.0), None);
 }
 
@@ -345,8 +324,6 @@ fn ago_is_humane() {
     assert_eq!(ago(1_000_000, 1_000_000 - 300_000), "3d ago");
 }
 
-/// The block's frame is the dossier's route: its header and sentinel are the
-/// `⠸⠁` pages, and only the facts ride as data.
 #[test]
 fn the_dossier_frame_is_its_route() {
     let route = crate::agent::harness::book::d456_knowledge::DOSSIER;

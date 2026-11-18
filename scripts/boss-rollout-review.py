@@ -47,7 +47,6 @@ def main():
                 label += ' (OLD ART RETAINED)'
             stem = out/folder/f'{boss}-sample-0-133-v{kit}'
             row(sheet, i, f'{boss} V{kit} / {label} / FOUR SEATS + SHOTS', stem)
-        # The unchanged tick95 fixture isolates identity, at twice the actual cell grain.
         for i, kit in enumerate((1, 2)):
             stem = out/'study'/f'{boss}-sample-0-0-v{kit}'
             box = (144*kit, 22*kit, 240*kit, 105*kit)

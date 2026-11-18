@@ -15,11 +15,9 @@ use crate::render::overworld::{light, material};
 use crate::rules::looks::{Slot, Sprite};
 use crate::rules::{phrasebook, script};
 
-/// The violet dye's inks, deep to pale, and the pink's.
 const VIOLETS: [char; 6] = ['d', '(', ')', '[', ']', '^'];
 const PINKS: [char; 5] = ['!', '?', ';', '%', '+'];
 
-/// The sixty-three inks as they were before the dyes, in the table's order.
 const REALM_INKS: [(char, u32); 63] = [
     ('k', 0x0b0a08), ('K', 0x151614), ('Z', 0x25140b), ('X', 0x322b2b), ('g', 0x3d3a36), ('j', 0x515349),
     ('G', 0x63655c), ('J', 0x7a7c72), ('h', 0x94968c), ('i', 0xb0b2a8), ('H', 0xcdcfc6), ('f', 0x0d1a0c),
@@ -46,18 +44,13 @@ fn the_dyes_are_new_inks_and_every_realm_ink_keeps_its_colour() {
     for (ch, v) in VIOLETS.iter().zip(VIOLET).chain(PINKS.iter().zip(PINK)) {
         assert_eq!(ink::ink(*ch), Some(rgb(v)), "dye {ch}");
     }
-    // The realm palette is as it was: five banks of fifteen.
     assert_eq!(PALETTE.len(), 75);
     assert_eq!(every_colour().count(), 75 + VIOLET.len() + PINK.len());
-    // Each dye runs from its darkest to its palest, and each step is a
-    // visible one.
     for ramp in [&VIOLET[..], &PINK[..]] {
         for pair in ramp.windows(2) {
             assert!(lum(rgb(pair[1])) > lum(rgb(pair[0])) + 18_000, "{:06x} then {:06x}", pair[0], pair[1]);
         }
     }
-    // Purple is purple and pink is pink: blue and red over green in the
-    // middle of each ramp, red over blue in the pink.
     for &v in &VIOLET[1..5] {
         let [r, g, b] = rgb(v);
         assert!(b > r && r > g, "violet {v:06x}");
@@ -79,22 +72,16 @@ fn the_ink_lists_name_every_ink_once_and_nothing_a_reader_keeps() {
         assert!(ink::ink(ch).is_some(), "{ch} is listed but no ink");
         assert!(ch.is_ascii_graphic(), "{ch} is one byte, typed as itself");
     }
-    // Every character with a colour is listed.
     for b in 0u8..=127 {
         let ch = char::from(b);
         assert_eq!(ink::ink(ch).is_some(), script::INKS.contains(ch), "{ch:?}");
     }
     assert_eq!(seen.len(), 63 + 11);
-    // Paper, frames, icon rows, comments, pxl's own, a header's words,
-    // fences and quotes are never inks.
     for ch in ['.', '|', '/', '#', '_', ' ', ',', ':', '=', '`', '"', '\'', '\\', '{', '}', '<', '>', '&', '*', '~', '-'] {
         assert!(ink::ink(ch).is_none(), "{ch:?} must stay free");
     }
 }
 
-/// The arms of `fn ink`, read from its source the way
-/// `scripts/delve/inks_hex.py` reads them: `'c' => 0xRRGGBB,` a line, the
-/// bank in the comment above.
 #[test]
 fn the_hex_export_reads_every_ink_from_the_table() {
     let src = include_str!("../../src/render/overworld/ink.rs");
@@ -122,7 +109,6 @@ fn the_hex_export_reads_every_ink_from_the_table() {
         assert_eq!(*bank == "violet", dye == Some(VIOLET_BANK), "{ch} under {bank}");
         assert_eq!(*bank == "pink", dye == Some(PINK_BANK), "{ch} under {bank}");
     }
-    // The palette file the art tools read is the table's, dyes and all.
     let hex = include_str!("../../assets/demon-hand/inks.hex");
     let rows: Vec<(String, char)> = hex
         .lines()
@@ -158,14 +144,12 @@ fn the_palette_file_carries_the_dyes_as_banks_five_and_six() {
 fn dye_rows_round_trip_through_every_reader() {
     let violet = "d()[]^";
     let pink = "!?;%+.";
-    // The atlas reads them.
     let img = Img::from_rows(&[violet, pink]);
     for (y, row) in [violet, pink].iter().enumerate() {
         for (x, ch) in row.chars().enumerate() {
             assert_eq!(img.get(x as i32, y as i32), ink::ink(ch), "{ch}");
         }
     }
-    // A card's `art` and `draw` blocks keep every row, `|` between frames.
     let card = format!(
         "name Lavender Lantern\nkind hold\ntext A lamp of plum glass.\ndamage 2\nart\n.{violet}.\n.{pink}.\n..((((..\ndraw worn at=body\n{violet}|{violet}\n{pink}|{pink}\n"
     );
@@ -178,15 +162,12 @@ fn dye_rows_round_trip_through_every_reader() {
     let worn = checked.card.looks.worn.as_ref().expect("its worn look");
     assert_eq!(worn.frames.len(), 2);
     assert!(worn.frames.iter().flatten().any(|r| r.contains('^') && r.contains('d')));
-    // A boss file's `art`.
     let lawn = crate::rules::bosses::LAWN_FLAMINGO;
     let boss = format!("{}art\n{violet}\n{pink}\n", &lawn[..lawn.find("art\n").unwrap()]);
     let (boss, _) = crate::rules::bosses::check("the-plum", &boss).unwrap_or_else(|r| panic!("{:?}", r.errors));
     assert_eq!(boss.art, [violet, pink]);
-    // A strip the looks reader cuts.
     let strip = Sprite::from_strip(Slot::Shot, &[format!("{violet}|{pink}")]).unwrap();
     assert_eq!(strip.frames, vec![vec![violet.to_string()], vec![pink.to_string()]]);
-    // A phrasebook's art and drawn look.
     let book = format!(
         "wish plum-cloak | Plum Cloak\nsay a plum cloak\ntier armor 1 :: A cloak.\nart\n{violet}\n{pink}\n\ndraw worn at=back\n{violet}\n{pink}\n"
     );
@@ -194,27 +175,20 @@ fn dye_rows_round_trip_through_every_reader() {
     assert!(faults.is_empty(), "{faults:?}");
     assert_eq!(wishes[0].art, [violet, pink]);
     assert!(wishes[0].looks[0].2.contains(violet) && wishes[0].looks[0].2.contains(pink));
-    // Shown coarse or plain, a dyed picture keeps its dyes.
     for step in [crate::rules::fidelity::Step::Coarse, crate::rules::fidelity::Step::Plain] {
         let rows = crate::rules::fidelity::rows(&["((((%%%%", "((((%%%%", "))))++++", "))))++++"], step);
         assert!(rows.iter().any(|r| r.contains('(') || r.contains(')')), "{step:?}: {rows:?}");
         assert!(rows.iter().any(|r| r.contains('%') || r.contains('+')), "{step:?}: {rows:?}");
     }
-    // A card icon in the tray, its rows parted by `/`.
     let fitted = crate::rules::tray::fit(&[violet, pink]);
     assert_eq!(fitted.split('/').collect::<Vec<_>>(), [violet, pink]);
     let big: Vec<String> = (0..24).map(|y| if y % 2 == 0 { "[".repeat(24) } else { "%".repeat(24) }).collect();
     let shrunk = crate::rules::tray::fit(&big.iter().map(String::as_str).collect::<Vec<_>>());
     assert!(shrunk.chars().any(|c| c == '[' || c == '%'), "a shrunk dye icon stays inked: {shrunk}");
-    // A bare `draw` or `art` is a block's word, not a row, though spelt in inks.
     let words = script::read("name X\nkind hold\ndraw worn\n((\ndraw\nart\n))\n");
     assert_eq!(words.sprites[0].2, ["(("]);
 }
 
-/// A painting is cut to the ink nearest each pixel over every ink the
-/// scripts take (`together_sheets::nearest_ink`, in the cockpit): a purple
-/// one is violet now, not the steel blue it had to be, a pink one pink,
-/// and a face stays a face.
 #[test]
 fn a_purple_painting_cuts_to_violet_a_pink_one_to_pink_and_skin_stays_skin() {
     let nearest = |c: [u8; 3]| {
@@ -240,7 +214,6 @@ fn a_purple_painting_cuts_to_violet_a_pink_one_to_pink_and_skin_stays_skin() {
 
 #[test]
 fn nothing_quantized_reaches_for_a_dye_and_a_dye_shades_inside_its_own() {
-    // Every derived tone stays the realm's.
     for r in (0..=255).step_by(15) {
         for g in (0..=255).step_by(15) {
             for b in (0..=255).step_by(15) {
@@ -249,8 +222,6 @@ fn nothing_quantized_reaches_for_a_dye_and_a_dye_shades_inside_its_own() {
             }
         }
     }
-    // Every realm colour lights, warms and darkens as it did, onto realm
-    // colours.
     for &v in &PALETTE {
         let c = rgb(v);
         for n in 0..7 {
@@ -260,8 +231,6 @@ fn nothing_quantized_reaches_for_a_dye_and_a_dye_shades_inside_its_own() {
         assert!(dye_bank(material::lighter(c)).is_none() && dye_bank(material::darker(c)).is_none());
         assert!(dye_bank(ink::shade(c, 0.6)).is_none());
     }
-    // A dye steps down its own ramp to black, keeps its hue by the fire,
-    // and a shade of it is a deeper one of the same.
     for bank in [VIOLET_BANK, PINK_BANK] {
         for &v in bank_colours(bank) {
             let c = rgb(v);

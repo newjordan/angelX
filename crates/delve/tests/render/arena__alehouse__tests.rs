@@ -18,7 +18,6 @@ fn every_home_arm_prompt_names_the_arm_and_explains_the_free_hold_or_swap() {
     assert!(crate::client::sheet(&r, 1).contains("FREE WEAPONS WALL"));
 }
 
-/// Local repeatable hot-path probe, not an exporter or a host workload.
 #[test]
 #[ignore]
 fn measure_tavern_figures_hot_path() {
@@ -32,8 +31,6 @@ fn measure_tavern_figures_hot_path() {
         std::hint::black_box(&cv);
     }
     eprintln!("tavern figures cached: {:?} / 240 frames", start.elapsed());
-    // Isolate the removed work on the same final visible page, independent
-    // of which three kits were permanently visible in an earlier draft.
     let start = std::time::Instant::now();
     for _ in 0..240 {
         for p in PATRONS.iter().enumerate().filter(|(i, _)| a::patron_visible(0, *i)).map(|(_, p)| p) {
@@ -48,8 +45,6 @@ fn measure_tavern_figures_hot_path() {
     eprintln!("removed builtin body construction: {:?} / 240 frames", start.elapsed());
 }
 
-/// The four code-drawn knights are picked at the pub like anyone else, and a
-/// picker in any seat is drawn exactly as that design's own seat is plain.
 #[test]
 fn the_code_drawn_knights_are_at_the_pub_and_draw_as_their_seats_plain_knight() {
     use crate::rules::knights::plain_seat;
@@ -66,7 +61,6 @@ fn the_code_drawn_knights_are_at_the_pub_and_draw_as_their_seats_plain_knight() 
             plain.join_seat(id, &format!("Seat {id}"));
         }
         let wanted = knights::figure_at(&plain.players[&seat], seat, false, Default::default(), false, 0);
-        // Someone in the sixth seat, nothing like the design's own.
         let mut run = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
         run.join_seat(6, "Seat 6");
         run.walk_alehouse();
@@ -86,14 +80,10 @@ fn the_code_drawn_knights_are_at_the_pub_and_draw_as_their_seats_plain_knight() 
                 assert_eq!(got.get(x, y), wanted.get(x, y), "{} at {x},{y}", PATRONS[i].kit);
             }
         }
-        // And the bench shows the same knight, standing.
         assert!(patron_bodies()[i].w > 0);
     }
 }
 
-/// A knight in a wished whole-body look (a held wish's and the mirror's)
-/// who picks a code-drawn knight at the pub is drawn as the design: the
-/// looks are set aside, not lost, and come back with anyone else picked.
 #[test]
 fn picking_a_code_drawn_knight_sets_a_whole_wish_look_aside_so_the_design_shows() {
     use crate::rules::looks::Sprite;
@@ -106,7 +96,6 @@ fn picking_a_code_drawn_knight_sets_a_whole_wish_look_aside_so_the_design_shows(
     let mut run = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
     run.join_seat(6, "Seat 6");
     run.walk_alehouse();
-    // A held wish that is a whole body, and a mirror look over it.
     let mut wish = run.book.get("iron-helm").unwrap().clone();
     wish.id = "a-dragon-of-a-knight".into();
     wish.kind = crate::rules::cards::Kind::Hold;
@@ -141,7 +130,6 @@ fn picking_a_code_drawn_knight_sets_a_whole_wish_look_aside_so_the_design_shows(
             assert_eq!(got.get(x, y), wanted.get(x, y), "the design at {x},{y}");
         }
     }
-    // Anyone else at the pub, and the looks are worn again.
     let other = PATRONS.iter().position(|p| p.kit == "galahad").unwrap();
     run.pick_patron(6, other);
     assert_eq!(run.players[&6].worn(&run.book).len(), 2);

@@ -1,20 +1,4 @@
 #!/usr/bin/env python3
-"""Lightgallop's drawn slots: the rider, the snuffer, the floater, the warden, the spark and the pad.
-
-The rider, the snuffer and the wisps are reduced from the art wave's concept
-sheets (rider-gallop, rider-actions, foes: read-only references that stay
-outside the repository), area-averaged to the native canvas, lifted a little
-out of the shadow and snapped to the realm's inks. The spark, the pad and the
-tuck-roll wheel are drawn here in pixels. The red cloth of the rider is also
-written as a seat mask (each pixel's red is one of four bands) so the stage
-can dress every seat in its own colour; nothing here repaints a delivered
-pixel beyond the reduction and the ink snap.
-
-    python3 -I crates/delve/assets/lightgallop/sprites.py <concept-dir>
-
-writes crates/delve/assets/art-slots/lightgallop.<slot>/v1/<state>-<n>.png,
-the seat masks, and each slot's map and provenance record.
-"""
 import colorsys
 import hashlib
 import json
@@ -34,8 +18,6 @@ RAW = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.home() / 'angelX_minigame
 
 INKS = {m.group(1): tuple(int(m.group(2)[i:i + 2], 16) for i in (0, 2, 4))
         for m in re.finditer(r"'(.)' => 0x([0-9a-f]{6})", INK_RS.read_text())}
-# The pools each drawing is snapped to: no cold blue-blacks in the horse's
-# mane, no white outside the steel.
 RIDER = {c: INKS[c] for c in 'nbIBpPrRoOtTa78!?4@56kKZXgjGJhiH'}
 SMOKE = {c: INKS[c] for c in 'kKZXgjGdc(h)[]bIBpPrRoOtTaHiwW9c7x48!?@56'}
 TEAL = {c: INKS[c] for c in 'kKZXgjGJhiHsxSuUvVWqQz0123BpPrRoOtTa4@56'}
@@ -68,7 +50,6 @@ def near(rgb, pool):
 
 
 def is_cloth(r, g, b):
-    """Saturated red: the caparison, the surcoat and the plume."""
     mx, mn = max(r, g, b), min(r, g, b)
     if mx < 60 or (mx - mn) < 0.45 * mx:
         return False
@@ -109,7 +90,6 @@ def components(name, q=2, grow=1, minpix=300):
 
 
 def grid_cells(name):
-    """A sheet whose figures keep to a four by two grid: each cell's opaque box."""
     im = Image.open(RAW / f'{name}.png').convert('RGBA')
     cw, ch = im.width // 4, im.height // 2
     out = []
@@ -136,8 +116,6 @@ def centroid(im, box):
 
 
 class Frame:
-    """A native frame: ink letters by position, and the red cloth's bands."""
-
     def __init__(self, w, h):
         self.w, self.h = w, h
         self.ink = {}
@@ -155,7 +133,6 @@ BANDS = (45, 57, 67)
 
 
 def reduce(im, box, s, canvas, at, pool, hue=None):
-    """Area-reduce `box` of `im` by `s` onto a canvas with the crop's top-left at `at`."""
     crop = im.crop(box)
     w, h = crop.size
     px = crop.load()
@@ -197,9 +174,6 @@ def place(im, box, s, src, dst, canvas, pool, hue=None):
     at = (dst[0] - (src[0] - box[0]) * s, dst[1] - (src[1] - box[1]) * s)
     return reduce(im, box, s, canvas, at, pool, hue)
 
-
-# --- the rider ---------------------------------------------------------------------
-
 RIDER_CANVAS = (48, 40)
 
 
@@ -228,8 +202,6 @@ def rider_frames(s=0.0955):
 
 
 def wheel(rot):
-    """The tuck roll: the knight curled behind his sun shield, a wheel of steel,
-    red cloth and a gold eight-point sun."""
     f = Frame(*RIDER_CANVAS)
     cx = cy = 24
     for y in range(cy - 11, cy + 11):
@@ -271,13 +243,10 @@ def rider_set(frames):
     st['victory'] = [f['victory'], f['victory'].shifted(0, -1), f['victory']]
     return st
 
-
-# --- the wisps ----------------------------------------------------------------------
-
 def to_teal(rgb):
     r, g, b = (v / 255 for v in rgb)
     h, s, v = colorsys.rgb_to_hsv(r, g, b)
-    if 0.60 <= h <= 0.88:  # the violet smoke only; the bronze cap keeps its colour
+    if 0.60 <= h <= 0.88:
         h = 0.52
         s = min(1.0, s * 1.5 + 0.18)
         v = min(1.0, v * 1.15)
@@ -286,7 +255,6 @@ def to_teal(rgb):
 
 
 def dither_fade(f, k):
-    """Drop pixels through an ordered dither: k 0 whole, 1 gone."""
     bay = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
     g = Frame(f.w, f.h)
     for (x, y), c in f.ink.items():
@@ -329,9 +297,6 @@ def warden_set():
     out['defeat'] = [dither_fade(eyes_red(st['hurt'][0]), k) for k in (0.0, 0.25, 0.5, 0.75)]
     return out
 
-
-# --- the spark and the pad ----------------------------------------------------------
-
 def spark_set():
     def star(arm, core, inner, outer):
         f = Frame(10, 10)
@@ -372,9 +337,6 @@ def pad_set():
         f.ink = {p: c for p, c in f.ink.items() if c}
         frames.append(f)
     return {'idle': frames}
-
-
-# --- writing ------------------------------------------------------------------------
 
 def save(slot, state_frames, canvas, anchor, provenance):
     d = OUT / f'lightgallop.{slot}'

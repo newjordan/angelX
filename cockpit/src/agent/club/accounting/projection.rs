@@ -17,7 +17,6 @@ pub(crate) struct FieldCoverage {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub(crate) struct AccountingReport {
     pub(crate) schema: &'static str,
-    /// Coherent per source, but not exact per-turn attribution under concurrency.
     pub(crate) attribution: &'static str,
     pub(crate) attempts: u64,
     pub(crate) input: Option<u64>,
@@ -29,18 +28,13 @@ pub(crate) struct AccountingReport {
     pub(crate) total_prompt: Option<u64>,
     pub(crate) generation_output: Option<u64>,
     pub(crate) cache_hit_pct: Option<u64>,
-    /// Number of completed attempts actually reporting each field.
     pub(crate) reported_attempts: FieldCoverage,
     pub(crate) core_complete: bool,
     pub(crate) untracked_sources: bool,
     pub(crate) inconsistent_attempts: u64,
     pub(crate) overflowed: bool,
-    /// Raw input sums may mix these conventions; total_prompt is normalized per attempt.
     pub(crate) cache_convention_attempts: BTreeMap<&'static str, u64>,
-    /// Observed inclusion contracts, separate from whether reasoning was reported.
-    /// Receiptless attempts have no convention observation and are not counted.
     pub(crate) reasoning_convention_attempts: BTreeMap<&'static str, u64>,
-    /// Exact accepted wire paths and their observed-field counts in this window.
     pub(crate) raw_field_reports: BTreeMap<&'static str, u64>,
     pub(crate) unknown_path_fields: u64,
 }

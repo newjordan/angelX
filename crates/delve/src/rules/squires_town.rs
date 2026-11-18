@@ -3,8 +3,6 @@
 use super::squires_lodge::{self as squires, Action, Building, Error, Kind};
 use super::*;
 
-/// On Castle Town's east green, not the Lists' authored (34,13).
-/// Reserved before procedural sites so future doors cannot claim this yard.
 pub const YARD: (i32, i32, i32, i32) = (94, 74, 14, 7);
 pub const BUILDINGS: [Building; 3] = [Building::Recruiting, Building::Hiring, Building::Training];
 pub const GOLD_MARK: &str = "squires:gold";
@@ -19,15 +17,12 @@ pub struct Ledger {
     pub holding: Option<(usize, usize)>,
 }
 
-/// NEXT / HIRE, SELECT or TRAIN / UPGRADE, below each separate building.
 pub fn plate(station: usize, control: usize) -> (i32, i32) {
     (YARD.0 + station as i32 * 5 + control as i32, YARD.1 + 4)
 }
 pub fn building(station: usize) -> (i32, i32, i32, i32) {
     (YARD.0 + station as i32 * 5, YARD.1, 4, 3)
 }
-/// Whether the yard stands on the map: it does in the full plan (Castle
-/// Town's east green) and not in the blank-slate plan (`world::plan`).
 pub fn on_map() -> bool {
     crate::world::plan::full()
 }
@@ -108,7 +103,6 @@ impl Run {
                 h.buying = 0;
                 l.holding = on;
             }
-            // Leave unrelated station holds alone away from this yard.
             if on.is_none() {
                 continue;
             }
@@ -186,8 +180,6 @@ impl Run {
     }
 }
 
-/// Private checkpoint policy shared by the host writer and restore validator.
-/// General combat counters remain transient and are never put on the guest wire.
 pub fn checkpoint_intent_key(key: &str) -> bool {
     key == GOLD_MARK || super::countryside::intent_key(key)
 }
@@ -200,10 +192,6 @@ pub fn checkpoint_intent_valid(key: &str, value: u32) -> bool {
 }
 pub const CHECKPOINT_INTENT_LIMIT: usize = super::countryside::INTENT_LIMIT + 1;
 
-/// Host-private receipt for the batch in a pre-drain checkpoint. The realm
-/// commits its sequence beside the guild and gold. It is not part of Run or
-/// the guest wire. A restart may already have made more purchases before the
-/// cockpit reconciles this receipt, so retire only this batch's debit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CheckpointPayment {
     pub sequence: u64,
@@ -214,8 +202,6 @@ impl CheckpointPayment {
         self.sequence > 0 && self.gold <= marks.get(GOLD_MARK).copied().unwrap_or(0)
     }
 
-    /// Consume this receipt once before draining the next batch. Its caller
-    /// replaces/clears it even when no purchase remains to be settled.
     pub fn retire(self, committed: u64, marks: &mut BTreeMap<String, u32>) {
         if self.sequence <= committed
             && let Some(gold) = marks.get_mut(GOLD_MARK)
@@ -228,8 +214,6 @@ impl CheckpointPayment {
     }
 }
 
-/// Reconcile a completed realm save with a run that kept stepping during IO.
-/// `captured` is the guild whose debit was drained, not the current live guild.
 pub fn rebase(
     captured: &squires::Guild,
     committed: &squires::Guild,
@@ -237,23 +221,15 @@ pub fn rebase(
     treasury: &Spoils,
     pending: &BTreeMap<String, u32>,
 ) -> (squires::Guild, Spoils) {
-    // Only this cockpit writes the durable guild. While it saves, the sim can
-    // extend the captured guild (including zero-price selections). Prefer that
-    // live extension, not a fieldwise merge that could resurrect a selection.
     let mut guild = if live == captured { committed } else { live }.clone();
     guild.rent_days = guild.rent_days.max(committed.rent_days);
     guild.delves = guild.delves.max(committed.delves);
-    // The durable purse paid only the drained batch. Keep later purchases
-    // reserved locally until their own settlement; never refund their gold.
     let mut purse = treasury.clone();
     let reserved = pending.get(GOLD_MARK).copied().unwrap_or(0);
     purse.take(&Spoils(BTreeMap::from([(Spoil::Gold, reserved)])));
     (guild, purse)
 }
 
-/// The run already paid locally. Charge the durable purse once, alongside
-/// its ledger, in the host's existing save transaction. A failed save keeps
-/// the mark for retry; an identical ledger is idempotent.
 pub fn settle(
     guild: &mut squires::Guild,
     treasury: &mut Spoils,
@@ -261,7 +237,6 @@ pub fn settle(
     marks: &BTreeMap<String, u32>,
 ) -> Result<bool, Error> {
     let mut next = proposed.clone();
-    // A rent settlement may have run just before this home settlement.
     next.rent_days = next.rent_days.max(guild.rent_days);
     next.delves = next.delves.max(guild.delves);
     if *guild == next {
@@ -277,7 +252,6 @@ pub fn settle(
     Ok(true)
 }
 
-/// One refresh per existing rent settlement, never per UI visit or bank haul.
 pub fn rent_day(guild: &mut squires::Guild, cleared_floors: usize) {
     if cleared_floors > 0 {
         guild.rent_day();
@@ -404,7 +378,6 @@ mod tests {
     }
 
     fn checkpoint_round_trip(run: &Run) -> Run {
-        // Same private envelope as cockpit: Run deliberately skips marks.
         let journal: BTreeMap<String, u32> = run
             .marks
             .iter()
@@ -472,8 +445,6 @@ mod tests {
         let captured = run.home.squires_lodge.clone();
         let marks = std::mem::take(&mut run.marks);
         let first_debit = marks[GOLD_MARK];
-        // Complete another hire, training and selection while the first hire
-        // is saved. None of their mutations or debit may be replaced/refunded.
         let before = run.treasury.get(Spoil::Gold);
         let second = run.squire_recruits(1)[1].id;
         run.squire_action(1, Action::Hire(second)).unwrap();
@@ -528,9 +499,6 @@ mod tests {
 
     #[test]
     fn checkpoint_payment_replay_before_and_after_commit_keeps_later_actions() {
-        // Both crash boundaries: before realm commit and after realm commit
-        // but before the reconciled checkpoint. The user may buy again before
-        // the first cockpit settlement after restore.
         for committed_before_crash in [false, true] {
             let mut run = yard();
             stand(&mut run, 0, 1);
@@ -556,8 +524,6 @@ mod tests {
                 0
             };
             rent_day(&mut guild, 1);
-            // Another paid mutation and a free selection after restore, before
-            // the cockpit reconciles the receipt. Retire only the old debit.
             let id = restored.squire_roster(1).unwrap().members[0].id;
             let before = restored.treasury.get(Spoil::Gold);
             restored.squire_action(1, Action::Train(id)).unwrap();
@@ -621,8 +587,6 @@ mod tests {
         run.marks
             .insert(GOLD_MARK.into(), before - run.treasury.get(Spoil::Gold));
         let live = run.home.squires_lodge.clone();
-        // Exactly the cockpit's failure path: roll back only the realm, not
-        // the live guild, and prepend the drained debit to the later marks.
         guild = guild_before;
         treasury = treasury_before;
         for (key, n) in drained {
@@ -671,7 +635,7 @@ mod tests {
         let mut run = yard();
         stand(&mut run, 0, 1);
         hold(&mut run, home::BUY_HOLD);
-        run.marks.clear(); // Hire already committed; next settlement is unrelated.
+        run.marks.clear();
         let captured = run.home.squires_lodge.clone();
         run.squire_action(1, Action::Select(None)).unwrap();
         let (guild, purse) = rebase(
@@ -769,7 +733,7 @@ mod tests {
         assert_eq!(r.squire_roster(1).unwrap().members[0].kind, Kind::Healer);
         use_plate(&mut r, 2, 1);
         assert_eq!(r.squire_roster(1).unwrap().members[0].level, 2);
-        use_plate(&mut r, 1, 0); // NONE is after the last member.
+        use_plate(&mut r, 1, 0);
         use_plate(&mut r, 1, 1);
         assert_eq!(r.squire_roster(1).unwrap().active, None);
         assert!(r.valid_snapshot());

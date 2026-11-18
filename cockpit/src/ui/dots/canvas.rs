@@ -6,8 +6,6 @@
 use crate::ui::term::art::{ColoredBrailleImage, braille_bits, braille_dot_bit};
 
 const BG: [u8; 4] = [5, 8, 12, 255];
-/// No background at all: the frame carries only ink, so the terminal composites
-/// it over whatever the pane already painted behind the dots.
 pub(crate) const TRANSPARENT: [u8; 4] = [0, 0, 0, 0];
 const MAX_INK: u8 = 190;
 const MAX_WIDTH: u32 = 2048;

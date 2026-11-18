@@ -8,7 +8,6 @@ fn worktree_top_finds_the_git_link() {
     std::fs::create_dir_all(&nested).unwrap();
     std::fs::write(top.join(".git"), "gitdir: elsewhere").unwrap();
     assert_eq!(worktree_top(&nested), Some(top.clone()));
-    // No .git anywhere up the chain → None (a plain dir isn't a worktree).
     let stray = base.join("not-a-worktree");
     std::fs::create_dir_all(&stray).unwrap();
     let found = worktree_top(&stray);
@@ -24,7 +23,7 @@ fn truncate_is_char_safe() {
     assert_eq!(truncate("short", 60), "short");
     let long = "x".repeat(80);
     let t = truncate(&long, 60);
-    assert_eq!(t.chars().count(), 61); // 60 + ellipsis
+    assert_eq!(t.chars().count(), 61);
     assert!(t.ends_with('…'));
     assert_eq!(truncate("日本語テスト", 3), "日本語…");
 }

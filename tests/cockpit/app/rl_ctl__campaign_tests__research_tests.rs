@@ -23,8 +23,6 @@ fn settled(registry: &ToolRegistry) -> Value {
     call(registry, json!({"action":"status"}))
 }
 
-/// Parent chooses the tool; baseline answers without changing files; candidate
-/// sees the opted-in idea in task context and makes the actual tool edit.
 struct ResearchClub {
     root_calls: AtomicUsize,
     attempts: AtomicUsize,
@@ -169,7 +167,6 @@ fn sloptomizer_real_tool_turn_measures_pairs_learns_and_restores_without_parent_
         json!({"action":"suggest","candidates":[{"idea":NOTE,"approach":"write-first"}]}),
     );
     assert_eq!(cold["advice"]["observations"], 0);
-    // No evidence yet: `⡪⠓⠉`; the runner's note travels as its pages.
     use crate::agent::harness::book::d2467_research;
     assert_eq!(cold["warpath"], d2467_research::COLD, "{cold}");
     assert_eq!(
@@ -196,7 +193,6 @@ fn sloptomizer_real_tool_turn_measures_pairs_learns_and_restores_without_parent_
         paired["measurements"],
         json!({"candidate_passed":true,"baseline_passed":false,"paired_delta":1})
     );
-    // The candidate beat its baseline: `⡪⠃` then `⡪⠁`, apply and verify.
     assert_eq!(paired["warpath"], "⡪⠃⡪⠁", "{paired}");
     assert_eq!(
         paired["baseline"]["snapshot_sha256"],
@@ -240,8 +236,6 @@ fn sloptomizer_real_tool_turn_measures_pairs_learns_and_restores_without_parent_
         scored["slow_score"] != cold["advice"]["memory_ranking"][0]["slow_score"],
         "slow learning must affect the next suggestion"
     );
-    // The empty vocabulary starts with log likelihood zero. After learning,
-    // compare positive and negative outcomes within the same learned model.
     assert!(
         scored["slow_score"].as_f64().unwrap()
             > ranking.iter().find(|r| r["idea"] != NOTE).unwrap()["slow_score"]
@@ -279,10 +273,7 @@ fn sloptomizer_real_tool_turn_measures_pairs_learns_and_restores_without_parent_
     );
     let invited = registry.rl().loop_context_text(workspace.path(), true);
     assert!(invited.contains(red["run_id"].as_str().unwrap()));
-    // The history row carries its verdict's route for the next iteration.
     assert!(invited.contains(r#""warpath":"⡪⠉""#), "{invited}");
-    // While research is not an acceptable outcome, the invitation stays off
-    // and only the history rides.
     let history = registry.rl().loop_context_text(workspace.path(), false);
     assert!(!history.contains("⠪⠋⠪⠛⠪⠓"), "{history}");
     assert!(invited.starts_with("⠪⠋⠪⠛⠪⠓\n"), "{invited}");
@@ -369,7 +360,6 @@ fn sloptomizer_unverified_attempt_retains_patch_without_learning_or_invented_del
     let result = settled(&registry);
     assert_eq!(result["status"], "completed", "{result}");
     assert!(result["measurements"]["candidate_passed"].is_null());
-    // Finished without a verifier: `⡪⠙`, nothing was learned.
     assert_eq!(result["warpath"], "⡪⠙", "{result}");
     assert_eq!(result["learning"], json!([]));
     assert!(result["candidate"]["patch_path"].as_str().is_some());
@@ -459,8 +449,6 @@ fn sloptomizer_runtime_errors_are_visible_without_spending_model_calls() {
     );
 }
 
-/// The RL loop and the Sloptomizer are one learner: a verified loop iteration
-/// is an observation, so `suggest` stops being cold and ranks with it.
 #[test]
 fn a_loop_verdict_teaches_the_sloptomizer() {
     // env-lock-exempt: FixtureEnv owns env_lock until restoration guards drop.
@@ -496,7 +484,6 @@ fn a_loop_verdict_teaches_the_sloptomizer() {
     assert!(warm.get("warpath").is_none(), "no longer cold: {warm}");
     let status = call(&registry, json!({"action":"status"}));
     assert_eq!(status["loop_observations"]["admitted"], 1, "{status}");
-    // No direction, no observation; no bound loop, none either.
     assert!(
         registry
             .rl()
@@ -506,8 +493,6 @@ fn a_loop_verdict_teaches_the_sloptomizer() {
     assert_eq!(club.attempts.load(Ordering::Acquire), 0);
 }
 
-/// `ANGEL_LOOP_OBSERVE=0` is the shared learner's ablation: a verified loop
-/// iteration then teaches nothing, and `suggest` stays cold.
 #[test]
 fn loop_observe_off_teaches_nothing() {
     // env-lock-exempt: FixtureEnv owns env_lock until restoration guards drop.
@@ -541,8 +526,6 @@ fn loop_observe_off_teaches_nothing() {
     assert_eq!(cold["advice"]["observations"], 0, "{cold}");
 }
 
-/// A loop's direction and a campaign's proposal for the same idea take one
-/// form, so they share the Sloptomizer's learning bucket (keyed by the text).
 #[test]
 fn a_loop_direction_and_a_campaign_proposal_share_a_bucket() {
     use super::super::research::idea_form;
@@ -553,8 +536,6 @@ fn a_loop_direction_and_a_campaign_proposal_share_a_bucket() {
     assert_eq!(idea_form("⡪⠊ · ledger://⠘⠁⠑"), "");
 }
 
-/// Each refusal of the loop tools answers with its page address and spends no
-/// model call.
 #[test]
 fn loop_tool_refusals_answer_with_their_page() {
     // env-lock-exempt: FixtureEnv owns env_lock until restoration guards drop.
@@ -684,7 +665,6 @@ fn sloptomizer_failed_baseline_stops_before_candidate_spending_or_learning() {
     );
     let result = settled(&registry);
     assert_eq!(result["status"], "failed", "{result}");
-    // The baseline never let the candidate start: `⡪⠑`.
     assert_eq!(result["warpath"], "⡪⠑", "{result}");
     assert!(
         result["error"]

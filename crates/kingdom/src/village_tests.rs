@@ -127,7 +127,6 @@ fn a_seeded_village_feeds_new_residents_fires_bricks_and_earns_more_land() {
     assert!(k.world.owned((30, 9)));
     assert!(!k.world.owned((60, 9)));
     assert!(k.valid(catalog()));
-    // Actual site rules reject unsuitable positions without charging supplies.
     let before = k.clone();
     assert!(
         k.apply(

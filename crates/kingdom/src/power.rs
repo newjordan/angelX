@@ -31,8 +31,6 @@ impl PowerKind {
     }
 }
 
-/// Catalogue metadata. Consumers are optional purchased upgrades; sources are
-/// purpose-built machines. Fuel is a source's local-input cost per charge.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MachinePower {
@@ -93,10 +91,7 @@ pub struct PowerGrid {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PowerRole {
-    /// Capacity remains the installed rating when inactive, so a fuel-starved
-    /// source is distinguishable from a physically disconnected consumer.
     Source { capacity: u16, active: bool },
-    /// A disabled machine draws nothing, but its physical manifold remains.
     Consumer { demand: u16, enabled: bool },
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -124,8 +119,6 @@ impl PowerStatus {
         }
     }
 }
-/// The smallest coordinate in a physical component, independent of insertion
-/// order. Components of different power kinds never share an identity.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PowerComponentId {
     pub kind: PowerKind,
@@ -169,8 +162,6 @@ pub struct PowerTotals {
 pub struct PowerReport {
     pub consumers: BTreeMap<(PowerKind, u32), ConsumerPower>,
     pub components: BTreeMap<PowerComponentId, PowerComponent>,
-    /// Contains both connector and terminal tiles. It is a transient report,
-    /// never extra save state that could disagree with the physical network.
     pub membership: BTreeMap<(PowerKind, Tile), PowerComponentId>,
 }
 impl PowerReport {
@@ -239,8 +230,6 @@ impl PowerGrid {
                 wires.len() <= MAX_CONNECTORS && wires.iter().all(|&p| inside(p, bounds))
             })
     }
-    /// The owner additionally checks charter ownership, occupancy and price.
-    /// A repeated command fails without changing the grid or charging it twice.
     pub fn lay(&mut self, kind: PowerKind, tile: Tile, bounds: Tile) -> Result<(), String> {
         if !inside(tile, bounds) {
             return Err("Power connector is outside the valley.".into());
@@ -324,8 +313,6 @@ impl PowerGrid {
                         attached.push(**node);
                     }
                     for next in adjacent(tile) {
-                        // Machines conduct through their internal manifold,
-                        // but two adjacent machines still need a connector.
                         if vertices.contains(&next)
                             && (wire || wires.contains(&next))
                             && visited.insert(next)
@@ -345,8 +332,6 @@ impl PowerGrid {
                     }
                 }
                 component.source_ids.sort_unstable();
-                // Stable IDs resolve equal priorities regardless of caller
-                // order, hash implementation, restore or multiplayer timing.
                 attached.sort_by_key(|n| (std::cmp::Reverse(n.priority), n.id));
                 let mut available = component.active_capacity;
                 for node in attached {

@@ -1,12 +1,5 @@
 import Base
 
-# The progressive-wave decision for one finished wave, the next-wave size
-# clamp, and the scale gate for a clustered draft pool. The host resolves every
-# float comparison natively (Bend has no f64: the novelty floor, the dissent
-# thresholds and the entropy/dominant flags arrive as booleans, and the grown
-# wave size arrives precomputed as an integer); the stop order, the expand
-# choice and every integer clamp live here.
-
 type Reason is Data:
   MaxWidth{}
   MaxWaves{}
@@ -27,7 +20,6 @@ type GateOut is Data:
   Escalate{}
   Hold{}
 
-# The next wave never shrinks below one and never passes the room left.
 def size_of(remaining: U32, next_raw: U32) -> U32:
   match remaining:
     case 0:
@@ -69,8 +61,6 @@ def wave_decide(+i: Inputs) -> WaveOut:
     case In{wave_index, max_waves, launched_total, max_width, returned, novel_low, dissent_agrees, dissent_stable, room, next_raw}:
       wave_branch(hits(launched_total, max_width), done(wave_index, max_waves), empty(returned), novel_low, dissent_agrees, dissent_stable, room, next_raw)
 
-# Relax wins as soon as one family dominates, else an entropy spike escalates,
-# else the gate holds.
 def gate_of(relax: Bool, escalate: Bool) -> GateOut:
   match relax escalate:
     case True{} _:

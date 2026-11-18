@@ -29,45 +29,33 @@ use std::path::Path;
 use std::sync::OnceLock;
 use std::time::Duration;
 
-// `COMPILED`: each source cartridge's toml and hooks, written by build.rs.
 include!(concat!(env!("OUT_DIR"), "/cartridges.rs"));
 
-/// The Rust a source cartridge compiles in. Every hook is optional.
 pub(crate) trait Hooks: Sync {
-    /// Tools this family adds to every session.
     fn tools(&self, _workspace: &Path) -> Vec<Box<dyn crate::agent::harness::Tool>> {
         Vec::new()
     }
-    /// Its tools that long research always sees (see `is_research_tool`).
     fn research_tools(&self) -> &'static [&'static str] {
         &[]
     }
-    /// Book pages this family adds, or replaces by route.
     fn pages(&self) -> &'static [Sub] {
         &[]
     }
-    /// The submission watch operator configuration adopts, if any.
     fn configured_watch(&self) -> Result<Option<(String, Box<dyn StatusSource + Send>)>, String> {
         Ok(None)
     }
-    /// One fleet sweep, run off the UI thread; `None` when the family has no
-    /// fleet in Rust.
     fn fleet_sweep(&self) -> Option<Result<FleetSnapshot, String>> {
         None
     }
-    /// Whether `fleet_sweep` returns one.
     fn has_fleet(&self) -> bool {
         false
     }
-    /// Evidence carried inline when a competition turn engages.
     fn seat_entry_focus(&self, _workspace: &Path) -> Option<String> {
         None
     }
-    /// Persist a terminal result the watcher saw.
     fn record_terminal(&self, _workspace: &Path, _notify: &WatchNotify) -> Result<(), String> {
         Ok(())
     }
-    /// Persist a submission the board accepted for evaluation.
     #[allow(clippy::too_many_arguments)]
     fn record_dispatch(
         &self,
@@ -81,29 +69,22 @@ pub(crate) trait Hooks: Sync {
     ) -> Result<(), String> {
         Ok(())
     }
-    /// Persisted terminal results, for loop reconciliation.
     fn terminal_results(&self, _workspace: &Path) -> Result<Vec<TerminalEvidence>, String> {
         Ok(Vec::new())
     }
-    /// `angel --comp-status ARGS…`; `None` when the family has no such CLI.
     fn status_cli(&self, _args: &[String]) -> Option<Result<(), String>> {
         None
     }
 }
 
-/// A config-only cartridge's hooks: none.
 struct NoHooks;
 impl Hooks for NoHooks {}
 
-/// One plugged-in competition family.
 pub(crate) struct Cartridge {
     pub(crate) config: Config,
     hooks: &'static dyn Hooks,
-    /// The hooks' pages, then the toml's, made once for the process.
     pages: &'static [Sub],
-    /// A config-only cartridge's folder, which its commands run beside.
     folder: Option<std::path::PathBuf>,
-    /// Built in with Rust hooks.
     compiled: bool,
 }
 
@@ -143,9 +124,6 @@ impl Cartridge {
         }
     }
 
-    /// Whether this is a competition family. A config-only cartridge that
-    /// carries commands or tools and names no board or worker is a tool:
-    /// plugging it in never makes it the active competition.
     pub(crate) fn competes(&self) -> bool {
         self.compiled
             || (self.config.commands.is_empty() && self.config.tools.is_empty())
@@ -153,8 +131,6 @@ impl Cartridge {
             || !self.config.worker.is_empty()
     }
 
-    /// The skills `command` applies, in order, from this cartridge's `skills/`
-    /// folder; `${ANGEL_CARTRIDGE_DIR}` in their text names the folder.
     pub(crate) fn command_skills(&self, command: &Command) -> Result<Vec<Skill>, String> {
         let Some(folder) = &self.folder else {
             return Err(format!(
@@ -187,7 +163,6 @@ impl Cartridge {
             .collect()
     }
 
-    /// Book pages this cartridge adds, or replaces by route.
     pub(crate) fn pages(&self) -> &'static [Sub] {
         self.pages
     }
@@ -204,14 +179,11 @@ impl Cartridge {
         self.hooks
     }
 
-    /// Whether `program operand` is this family's own local measurement; a
-    /// loop counts it as a measured candidate like any `bench*` script.
     pub(crate) fn measures(&self, program: &str, operand: Option<&str>) -> bool {
         self.config.boards.iter().any(|board| board == program)
             && operand.is_some_and(|op| self.config.measures.iter().any(|m| m == op))
     }
 
-    /// The loop worker's brief.
     pub(crate) fn worker(&self) -> &str {
         &self.config.worker
     }
@@ -237,9 +209,6 @@ impl Cartridge {
     }
 }
 
-/// Every plugged-in cartridge: the compiled ones, then config-only folders.
-/// Read once at startup; [`reload`] reads the folders again after a plugin
-/// install or removal.
 pub(crate) fn all() -> &'static [Cartridge] {
     *plugged()
         .read()
@@ -251,12 +220,6 @@ fn plugged() -> &'static std::sync::RwLock<&'static [Cartridge]> {
     PLUGGED.get_or_init(|| std::sync::RwLock::new(Box::leak(load().into_boxed_slice())))
 }
 
-/// Read the cartridge folders again, so a plugin installed or removed while
-/// angelX runs takes effect without a restart: its commands, skills and pages
-/// at once, its tools from the next start (the session's tool registry is
-/// built once). Cartridges already plugged in keep their places, so the
-/// active competition does not change under a running loop; new ones follow.
-/// Each reload keeps the previous list alive for callers still holding it.
 pub(crate) fn reload() {
     let mut fresh = load();
     let mut next: Vec<Cartridge> = Vec::with_capacity(fresh.len());
@@ -274,7 +237,6 @@ pub(crate) fn reload() {
 
 fn load() -> Vec<Cartridge> {
     let mut found: Vec<Cartridge> = Vec::new();
-    // Tests play the fixture board first, whatever else is plugged in.
     #[cfg(test)]
     found.push(Cartridge::new(test_board(), Some(&TestBoard)));
     for (text, hooks) in COMPILED {
@@ -303,14 +265,12 @@ fn load() -> Vec<Cartridge> {
     found
 }
 
-/// Whether `id` is a source cartridge compiled into this binary.
 pub(crate) fn compiled(id: &str) -> bool {
     all()
         .iter()
         .any(|cartridge| cartridge.compiled && cartridge.id() == id)
 }
 
-/// The fixture cartridge engine tests run against: board CLI `board`.
 #[cfg(test)]
 pub(crate) fn test_board() -> Config {
     Config {
@@ -322,8 +282,6 @@ pub(crate) fn test_board() -> Config {
     }
 }
 
-/// The fixture board's hooks: `ANGEL_WATCH_BOARD_SUBMISSION` configures a
-/// watch whose board never answers, so the slot stays in flight.
 #[cfg(test)]
 struct TestBoard;
 
@@ -353,8 +311,6 @@ fn selected_id() -> Option<String> {
         .filter(|id| !id.is_empty())
 }
 
-/// The active cartridge: `ANGEL_CARTRIDGE` by id, else the first competition
-/// plugged in. `None` when there is none; the engine then runs without one.
 pub(crate) fn active() -> Option<&'static Cartridge> {
     choose(all(), selected_id().as_deref())
 }
@@ -368,7 +324,6 @@ fn choose<'a>(all: &'a [Cartridge], id: Option<&str>) -> Option<&'a Cartridge> {
     }
 }
 
-/// The plugged-in command typed as `/<word>`, with its cartridge.
 pub(crate) fn command(word: &str) -> Option<(&'static Cartridge, &'static Command)> {
     all().iter().find_map(|cartridge| {
         cartridge
@@ -380,13 +335,10 @@ pub(crate) fn command(word: &str) -> Option<(&'static Cartridge, &'static Comman
     })
 }
 
-/// Every plugged-in cartridge command.
 pub(crate) fn commands() -> impl Iterator<Item = &'static Command> {
     all().iter().flat_map(|c| c.config.commands.iter())
 }
 
-/// Set when `ANGEL_CARTRIDGE` names no plugged-in cartridge; the /loop start
-/// notice carries it.
 pub(crate) fn selection_error() -> Option<String> {
     let id = selected_id()?;
     if all().iter().any(|c| c.id() == id) {
@@ -398,26 +350,22 @@ pub(crate) fn selection_error() -> Option<String> {
     })
 }
 
-/// Every plugged-in board CLI's program name.
 pub(crate) fn boards() -> impl Iterator<Item = &'static str> {
     all()
         .iter()
         .flat_map(|c| c.config.boards.iter().map(String::as_str))
 }
 
-/// How the prompts name reading a submission's result.
 pub(crate) fn status_check() -> &'static str {
     active()
         .and_then(|c| c.config.status_check.as_deref())
         .unwrap_or("the platform CLI")
 }
 
-/// The active cartridge's book page for `route`, if it supplies one.
 pub(crate) fn page(route: Route) -> Option<&'static Sub> {
     active()?.pages().iter().find(|sub| sub.route == route)
 }
 
-/// The active cartridge's pages on the primary `cell`.
 pub(crate) fn pages_on(cell: char) -> impl Iterator<Item = &'static Sub> {
     active()
         .map_or(&[][..], |c| c.pages())

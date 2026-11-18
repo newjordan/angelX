@@ -5,7 +5,6 @@
 use super::pods::PodSpec;
 use serde::{Deserialize, Serialize};
 
-/// Multiples of a pod's spec: 1.0 is stock.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Tune {
@@ -20,8 +19,6 @@ impl Default for Tune {
     fn default() -> Tune { Tune::STOCK }
 }
 
-/// How far a multiple may stray from stock, either way: a bad save cannot make a pod that
-/// breaks the sim's limits (the speed cap, the steering).
 const LO: f32 = 0.7;
 const HI: f32 = 1.3;
 
@@ -30,20 +27,17 @@ impl Tune {
 
     pub fn is_stock(&self) -> bool { *self == Tune::STOCK }
 
-    /// The same, every number held to what a pod can take.
     pub fn held(self) -> Tune {
         let h = |v: f32| if v.is_finite() { v.clamp(LO, HI) } else { 1. };
         Tune { top: h(self.top), boost: h(self.boost), accel: h(self.accel), grip: h(self.grip), mass: h(self.mass) }
     }
 
-    /// One tune on top of another.
     pub fn then(self, o: Tune) -> Tune {
         Tune { top: self.top * o.top, boost: self.boost * o.boost, accel: self.accel * o.accel, grip: self.grip * o.grip, mass: self.mass * o.mass }.held()
     }
 }
 
 impl PodSpec {
-    /// This spec with a tune on it: the numbers the sim drives by.
     pub fn tuned(&self, t: &Tune) -> PodSpec {
         if t.is_stock() { return *self; }
         let t = t.held();

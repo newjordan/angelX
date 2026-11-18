@@ -70,7 +70,6 @@ fn latest_picks_the_newest_and_skips_garbage() {
     let _guard = env_lock();
     let dir = std::env::temp_dir().join(format!("angel_mission_proj_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_MISSION_DIR", &dir) };
     std::fs::write(
         dir.join("old.json"),
@@ -92,7 +91,6 @@ fn latest_picks_the_newest_and_skips_garbage() {
         latest_mission_line().as_deref(),
         Some("[paused] r3/10 win the benchmark")
     );
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_MISSION_DIR") };
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -102,10 +100,8 @@ fn latest_returns_none_when_no_missions_exist() {
     let _guard = env_lock();
     let dir = std::env::temp_dir().join(format!("angel_mission_empty_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_MISSION_DIR", &dir) };
     assert_eq!(latest_mission_line(), None);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_MISSION_DIR") };
     let _ = std::fs::remove_dir_all(&dir);
 }

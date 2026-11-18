@@ -1,26 +1,18 @@
-# Names other groups own that games_c calls. A stub answers a harmless default
-# and drops out of the build as soon as a fragment defines the name.
-
-# rules.rs
 def rules.Run.room(+run: J.Val) -> J.Val:
   J.get(J.get(J.get(run, "dungeon"), "rooms"), "0")
 
 def rules.Input.valid(+input: J.Val) -> Bool:
   True{}
 
-# layout.rs: Room::set(col, row, tile) over the room's run-length tiles.
 def layout.Room.set(+room: J.Val, +col: U32, +row: U32, +t: LayTile) -> J.Val:
   room
 
-# realm.rs: Spoils::add(&mut self, spoil, n); the spoil as its serde name.
 def realm.Spoils.add(+spoils: J.Val, +spoil: String, +n: U32) -> J.Val:
   spoils
 
-# layout.rs
 def layout.TILE_UNITS() -> F32:
   2.0
 
-# rules.rs constants (core's rules.<NAME>())
 def rules.HZ() -> U32:
   30
 
@@ -42,11 +34,9 @@ def realm.Spoils.get(+spoils: J.Val, +spoil: String) -> U32:
 def realm.Spoils.take(+spoils: J.Val, +price: J.Val) -> J.Val:
   spoils
 
-# rules.rs Input
 def rules.Input.default() -> J.Val:
   J.set(J.obj(), "move_x", J.JU{0})
 
-# loot.rs Rng (the generator is a u64 in the state)
 def loot.Rng.new(+seed: W.W) -> W.W:
   seed
 
@@ -59,7 +49,6 @@ def loot.Rng.below(+r: W.W, +n: U32) -> W.W & U32:
 def ults.ULT_FULL() -> U32:
   1000
 
-# layout.rs Room::solid_rock(cell) and the grid size; world.rs
 def layout.COLS() -> U32:
   24
 
@@ -75,41 +64,33 @@ def world.room_of(+dungeon: J.Val, +kind: String) -> Maybe<&2, U32>:
 def world.COURTYARD_ARRIVAL() -> F32 & F32:
   (0.0, 0.0)
 
-# forest.rs Forest::leave(&mut self)
 def forest.Forest.leave(+forest: J.Val) -> J.Val:
   forest
 
-# crossroads.rs (games_c)
 def crossroads.Run.crossroads_voting(+run: J.Val) -> Bool:
   False{}
 
 def crossroads.Run.crossroads_command(+run: J.Val, +id: U32, +command: J.Val) -> J.Val:
   run
 
-# rules.rs
 def rules.mix(+h: W.W) -> W.W:
   h
 
 def rules.Run.away(+run: J.Val, +id: U32) -> Bool:
   False{}
 
-# hitstop.rs
 def hitstop.State.put(+run: J.Val, +s: J.Val) -> J.Val:
   run
 
-# fellowship.rs State::clear on the run's fellowship
 def fellowship.State.clear(+run: J.Val) -> J.Val:
   run
 
-# floors.rs
 def floors.Run.finish_descent(+run: J.Val, +depth: U32, +pack: J.Val, +from_home: Bool) -> J.Val:
   run
 
-# overclass.rs
 def overclass.MOST_WISHES() -> U32:
   3
 
-# pastimes.rs (games_b)
 def pastimes.State.leave(+state: J.Val) -> J.Val:
   state
 
@@ -119,7 +100,6 @@ def pastimes.Run.start_crossroads_pastime(+run: J.Val, +game: String) -> J.Val:
 def pastimes.Run.tick_pastimes(+run: J.Val, +inputs: J.Val) -> J.Val:
   run
 
-# race3d.rs and deathmatch.rs (games_c; drop out when ported)
 def race3d.Race3d.order(+race: J.Val) -> List<&2, U32>:
   Nil{}
 
@@ -138,7 +118,6 @@ def deathmatch.Session.order(+s: J.Val) -> List<&2, U32>:
 def deathmatch.Session.new(+players: J.Val, +book: J.Val) -> J.Val:
   J.obj()
 
-# ledge.rs, identity.rs, hazards.rs, monsters.rs, hero.rs, skills.rs, layout.rs
 def ledge.Run.side_on(+run: J.Val) -> Bool:
   False{}
 
@@ -175,7 +154,6 @@ def loot.Rng.chance(+r: W.W, +percent: U32) -> W.W & Bool:
 def loot.Rng.pick(+r: W.W, +weights: List<&2, U32>) -> W.W & U32:
   (r, 0)
 
-# layout.rs
 def layout.Room.open_door(+room: J.Val, +dir: U32) -> J.Val:
   room
 
@@ -185,7 +163,6 @@ def layout.Room.great(+room: J.Val) -> Bool:
 def layout.connected(+room: J.Val) -> Bool:
   True{}
 
-# rules.rs / hexer.rs / cards.rs / feel.rs / party_len
 def rules.Run.spawn_at(+run: J.Val, +kind: String, +x: F32, +y: F32) -> J.Val & Maybe<&2, U32>:
   (run, None{})
 
@@ -201,15 +178,12 @@ def cards.HAND() -> U32:
 def feel.TEMPER_MAX() -> U32:
   3
 
-# hero.rs
 def hero.Hero.rebonus(+h: J.Val, +book: J.Val) -> J.Val:
   h
 
-# gear.rs
 def gear.Hero.dress(+h: J.Val) -> J.Val:
   h
 
-# rules.rs Grid (the room's tiles as movement and shots see them; mover 0 Hero, 1 Walker, 2 Flier, 3 Wader)
 def rules.Grid.clear(+room: J.Val, +barred: Bool, +x: F32, +y: F32, +r: F32, +mover: U32) -> Bool:
   True{}
 
@@ -234,7 +208,6 @@ def lich.CHILL_PACE() -> F32:
 def rules.ROLL_TICKS() -> U32:
   10
 
-# hero / shield / aoe / cards / wishcraft / spells (core, home)
 def hero.Hero.scaled(+h: J.Val, +damage: U32) -> U32:
   damage
 
@@ -328,7 +301,6 @@ def classes.shot_sound(+h: J.Val) -> Maybe<&2, String>:
 def gear.Hero.unarmed(+h: J.Val) -> Bool:
   False{}
 
-# activity.rs
 def activity.Run.leave_activity(+run: J.Val, +id: U32) -> J.Val & Bool:
   (run, False{})
 

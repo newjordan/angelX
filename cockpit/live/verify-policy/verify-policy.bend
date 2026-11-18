@@ -1,9 +1,5 @@
 import Base
 
-# Verify-before-done policy. The host keeps every lexical job: shell quoting,
-# control operators, status-bearing segments, test-runner and build-command
-# recognition, and mutation target paths. Those become the numbers, enums,
-# booleans and per-segment classes below; this module owns only the decision.
 type Tool is Data:
   Shell{}
   Cargo{}
@@ -19,15 +15,12 @@ type Verb is Data:
   Build{}
   NoVerb{}
 
-# One shell segment, as the host's lexer classified it.
 type Segment is Data:
   RunsVerifier{}
   RunsBuild{}
   RunsBoth{}
   RunsNothing{}
 
-# What a whole segment list contains, folded once because a List is a Type and
-# cannot be read twice.
 type Class is Data:
   HasVerifier{}
   HasBuild{}
@@ -87,8 +80,6 @@ def classify(xs: List<Segment>, +verifier: Bool, +build: Bool) -> Class:
         case RunsNothing{}:
           classify(t, verifier, build)
 
-# An `||` branch or an asynchronous `&` job can hide a verifier's failure, so
-# neither form is evidence even when a segment looks like a verifier.
 def clean(or_branch: Bool, async_control: Bool) -> Bool:
   match or_branch:
     case True{}:
@@ -167,6 +158,5 @@ def decide(f: Features) -> Decision:
         case Other{}:
           Decision{mutation_owes(mutation, targets, code_targets), False{}, False{}, False{}}
 
-# The host adapter and the checked laws talk to this flat form.
 def decide_parts(tool: Tool, fmt_check: Bool, verb: Verb, check_flag: Bool, mutation: Bool, targets: U32, code_targets: U32, or_branch: Bool, async_control: Bool, status: List<Segment>, anywhere: List<Segment>) -> Decision:
   decide(Features{tool, fmt_check, verb, check_flag, mutation, targets, code_targets, or_branch, async_control, status, anywhere})

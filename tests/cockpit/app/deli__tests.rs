@@ -14,8 +14,6 @@ fn knobs_have_protocol_defaults() {
 
 #[test]
 fn deli_labyrinth_keeps_reasoned_claims_unproved_and_reloads_the_frontier() {
-    // A worker owns its thread-local workspace; this test cannot leak it into
-    // another Deli invocation on the test harness's reused worker thread.
     std::thread::spawn(|| {
         let root =
             std::env::temp_dir().join(format!("angel-deli-labyrinth-{}", std::process::id()));
@@ -62,9 +60,6 @@ fn deli_labyrinth_keeps_reasoned_claims_unproved_and_reloads_the_frontier() {
     .unwrap();
 }
 
-/// Returns the next scripted worker output per iteration (repeating the last
-/// when the script runs dry, to simulate a stall), and a fixed synthesis. Also
-/// records every iteration prompt so tests can assert on the injected state.
 struct ScriptClub {
     iters: Mutex<VecDeque<String>>,
     last: Mutex<String>,
@@ -94,11 +89,9 @@ impl Club for ScriptClub {
             .find(|m| m.role == ChatRole::System)
             .map(|m| m.content.as_ref())
             .unwrap_or("");
-        // The synthesizer's brief is `⠬⠋` (or its first two pages).
         if sys.starts_with(&crate::agent::harness::book::ing_drivers::DELI_SYNTHESIS.cells()) {
             return Ok(ClubReply::Text("SYNTHESIZED".to_string()));
         }
-        // Worker iteration.
         *self.worker_calls.lock().unwrap() += 1;
         if let Some(u) = messages.iter().rev().find(|m| m.role == ChatRole::User) {
             self.prompts.lock().unwrap().push(u.content.to_string());
@@ -112,8 +105,6 @@ impl Club for ScriptClub {
     }
 }
 
-/// A raw block: bullets exactly as given, no evidence tags added. Use when
-/// the test is *about* citation quality.
 fn block(dir: &str, findings: &[&str]) -> String {
     let mut s = format!("DIRECTION: {dir}\nFINDINGS:\n");
     for f in findings {
@@ -122,10 +113,6 @@ fn block(dir: &str, findings: &[&str]) -> String {
     s
 }
 
-/// A compliant block for deli's *reasoning* regime: every finding carries a
-/// `premise:` tag, the kind a tool-less worker can honestly supply. Use for
-/// tests about loop *mechanics* (accumulation, stall, pivot, persistence)
-/// rather than citation policy.
 fn block_ev(dir: &str, findings: &[&str]) -> String {
     let mut s = format!("DIRECTION: {dir}\nFINDINGS:\n");
     for f in findings {
@@ -180,18 +167,15 @@ fn default_deli_keeps_working_after_repeated_findings() {
 
 #[test]
 fn iterate_detects_stall_and_stops() {
-    // Every iteration returns the same single finding → no new ground.
     let inner = ScriptClub::new(&[&block_ev("a", &["same"])]);
     let k = Knobs {
         rounds: 10,
-        pivot: 99, // never pivot — isolate the stall-stop
+        pivot: 99,
         stall_stop: 2,
         ..Knobs::default()
     };
     let deli = DeliClub::with_knobs("deli", inner.clone(), k);
     let st = deli.iterate("solve it", "", &AtomicBool::new(false));
-    // round0: "same" is new (stale 0); round1: 0 new (stale 1); round2: 0 new
-    // (stale 2 == stall_stop → break). Three iterations, one finding.
     assert_eq!(st.iteration, 3);
     assert_eq!(st.stale_count, 2);
     assert_eq!(st.findings.len(), 1);
@@ -203,15 +187,13 @@ fn iterate_forces_pivot_after_stalling() {
     let k = Knobs {
         rounds: 4,
         pivot: 2,
-        stall_stop: 0, // disabled, so we run the full 4 rounds
+        stall_stop: 0,
         ..Knobs::default()
     };
     let deli = DeliClub::with_knobs("deli", inner.clone(), k);
     let _ = deli.iterate("solve it", "", &AtomicBool::new(false));
     let prompts = inner.prompts.lock().unwrap();
     assert_eq!(prompts.len(), 4);
-    // Stale climbs 0,1,2,3 over rounds; the pivot fires when stale >= 2, i.e.
-    // the 4th iteration (index 3). The first never pivots.
     let pivot = crate::agent::harness::book::er_loop::PIVOT.cells();
     assert!(!prompts[0].contains(&pivot), "round 0 must not pivot");
     assert!(
@@ -268,7 +250,7 @@ fn split_system_merges_system_messages_and_keeps_the_rest() {
 #[test]
 fn compose_prepends_primary_and_folds_base() {
     assert_eq!(compose("PRIMARY", ""), "PRIMARY");
-    assert_eq!(compose("PRIMARY", "   "), "PRIMARY"); // whitespace base ignored
+    assert_eq!(compose("PRIMARY", "   "), "PRIMARY");
     assert_eq!(compose("PRIMARY", "extra"), "PRIMARY\n\nextra");
 }
 
@@ -297,23 +279,18 @@ fn persist_writes_protocol_state_files() {
     assert_eq!(progress["iteration"], 2);
     assert_eq!(progress["total_findings"], 2);
     assert_eq!(progress["status"], "running");
-    // directions_tried is a JSON array of the two directions.
     let dirs: Vec<String> = serde_json::from_str(
         &std::fs::read_to_string(state.join("directions_tried.json")).unwrap(),
     )
     .unwrap();
     assert_eq!(dirs, vec!["a".to_string(), "b".to_string()]);
-    // findings.jsonl has one object per finding, citation included so an
-    // external watchdog can audit the evidence, not just the claim.
     let findings = std::fs::read_to_string(state.join("findings.jsonl")).unwrap();
     assert_eq!(findings.lines().count(), 2);
     assert!(
         findings.contains("\\\"finding\\\":\\\"f1 [evidence:")
             || findings.contains("\"finding\":\"f1 [evidence:")
     );
-    // Open leads get their own spool alongside the findings.
     assert!(state.join("hypotheses.jsonl").exists());
-    // iteration_log.jsonl has one line per round.
     let log = std::fs::read_to_string(state.join("iteration_log.jsonl")).unwrap();
     assert_eq!(log.lines().count(), 2);
     let _ = std::fs::remove_dir_all(&dir);
@@ -325,7 +302,7 @@ fn persist_marks_status_stuck_once_stalled_out() {
     let _ = std::fs::remove_dir_all(&dir);
     let workspace = dir.join("workspace");
     crate::knowledge::experience::note_turn_workspace(&workspace);
-    let inner = ScriptClub::new(&[&block_ev("a", &["same"])]); // then repeats → stalls
+    let inner = ScriptClub::new(&[&block_ev("a", &["same"])]);
     let k = Knobs {
         rounds: 10,
         pivot: 99,
@@ -361,8 +338,6 @@ fn cancel_before_first_round_yields_empty_state() {
 
 #[test]
 fn synthesize_falls_back_to_direct_pass_when_no_findings() {
-    // Nothing surfaced at all → synthesize does a single direct pass through
-    // the synth system prompt (ScriptClub recognizes it → "SYNTHESIZED").
     let inner = ScriptClub::new(&[]);
     let deli = DeliClub::with_knobs("deli", inner, Knobs::default());
     let out = deli.synthesize("", "the problem", &[], &[]).unwrap();
@@ -371,8 +346,6 @@ fn synthesize_falls_back_to_direct_pass_when_no_findings() {
 
 #[test]
 fn synthesize_uses_open_leads_when_nothing_could_be_evidenced() {
-    // A run that raised leads but evidenced none must still synthesize from
-    // them. Falling through to a cold direct pass would discard the loop.
     let inner = ScriptClub::new(&[]);
     let deli = DeliClub::with_knobs("deli", inner.clone(), Knobs::default());
     let _ = deli
@@ -389,8 +362,6 @@ fn synthesize_uses_open_leads_when_nothing_could_be_evidenced() {
 fn synthesis_prompt_separates_evidenced_findings_from_open_leads() {
     let inner = ScriptClub::new(&[]);
     let deli = DeliClub::with_knobs("deli", inner, Knobs::default());
-    // Reach the message builder directly by asserting on its shape via a
-    // club that captures the synth user message.
     let captured = Arc::new(Mutex::new(String::new()));
     struct Capture(Arc<Mutex<String>>);
     impl Club for Capture {
@@ -420,8 +391,6 @@ fn synthesis_prompt_separates_evidenced_findings_from_open_leads() {
             &["speculative lead".into()],
         )
         .unwrap();
-    // The findings and the open leads ride as data under their own keys; the
-    // words that keep them apart are `⠬⠋`'s pages.
     let msg = captured.lock().unwrap().clone();
     let findings = msg.find("findings:\n").expect(&msg);
     let leads = msg.find("open leads:\n").expect(&msg);
@@ -613,7 +582,6 @@ fn cancelling_deli_reflection_never_starts_an_uncancelled_synthesis_request() {
     );
 }
 
-/// A club that always asks for a tool — text-only deliberation offers none.
 struct ToolHungry;
 impl Club for ToolHungry {
     fn label(&self) -> &str {
@@ -632,8 +600,6 @@ impl Club for ToolHungry {
 
 #[test]
 fn worker_tool_request_surfaces_as_an_error_at_synthesis() {
-    // The iteration loop swallows a tool-requesting worker as a stall, but the
-    // final synthesis pass propagates the "(none offered)" error.
     let deli = DeliClub::with_knobs("deli", Arc::new(ToolHungry), Knobs::default());
     let err = deli.respond("solve it").unwrap_err();
     assert!(err.contains("requested a tool"), "got: {err}");
@@ -648,8 +614,6 @@ fn is_available_delegates_to_the_inner_club() {
     );
 }
 
-/// A block carrying the evidence tags and HYPOTHESES section the curated
-/// prompt actually asks for — the shape a compliant worker emits.
 fn block_full(dir: &str, findings: &[&str], hypotheses: &[&str]) -> String {
     let mut s = format!("DIRECTION: {dir}\nFINDINGS:\n");
     for f in findings {
@@ -666,9 +630,6 @@ fn block_full(dir: &str, findings: &[&str], hypotheses: &[&str]) -> String {
 
 #[test]
 fn hypotheses_are_retained_not_discarded() {
-    // A worker that honestly labels an untested idea must not lose it. The
-    // curated prompt asks for a HYPOTHESES section; discarding it punishes
-    // exactly the honest labeling the protocol is trying to elicit.
     let inner = ScriptClub::new(&[&block_full(
         "a",
         &["fact one [evidence: premise:the stated goal]"],
@@ -690,10 +651,6 @@ fn hypotheses_are_retained_not_discarded() {
 
 #[test]
 fn unevidenced_findings_are_demoted_to_hypotheses_not_counted_as_progress() {
-    // The curated prompt states: "Only FINDINGS with a concrete, checkable
-    // evidence tag are admitted as progress." A bare assertion must not
-    // reset stall detection, or the loop never pivots off a confabulating
-    // worker.
     let inner = ScriptClub::new(&[&block("a", &["bare assertion with no evidence tag"])]);
     let k = Knobs {
         rounds: 1,
@@ -716,12 +673,6 @@ fn unevidenced_findings_are_demoted_to_hypotheses_not_counted_as_progress() {
 
 #[test]
 fn fabricated_filesystem_citations_are_rejected_in_the_reasoning_regime() {
-    // Reproduces what nemotron-3-super-120b, gpt-oss-20b and ling-3.0-flash
-    // all did when the old prompt demanded `file:`/`benchmark:` evidence
-    // from this tool-less worker: they invented it. One of them stated the
-    // exploit directly — "the system might not actually check the existence
-    // of the file; it's just a format". deli has no filesystem, so a
-    // citation of that kind is proof of fabrication, not weak evidence.
     let inner = ScriptClub::new(&[&block(
         "pretend to have profiled",
         &[
@@ -762,8 +713,6 @@ fn the_reasoning_contract_forbids_the_citations_the_worker_cannot_obtain() {
     );
     let _ = deli.iterate("solve it", "", &AtomicBool::new(false));
     let prompt = inner.prompts.lock().unwrap()[0].clone();
-    // The text-only worker's contract is `⠌⠑`, read off the ledger; the
-    // grounded contract `⠻⠑` must not be pointed at.
     use crate::agent::harness::book::{er_loop, st_connected};
     assert!(
         prompt.contains(&st_connected::REASONING_CONTRACT.cells()),
@@ -771,13 +720,10 @@ fn the_reasoning_contract_forbids_the_citations_the_worker_cannot_obtain() {
     );
     assert!(!prompt.contains(&er_loop::CONTRACT.cells()), "{prompt}");
     let contract = st_connected::REASONING_CONTRACT.sub().pages.join(" ");
-    // It must offer the kinds this worker can supply...
     assert!(contract.contains("premise:"));
     assert!(contract.contains("derivation:"));
-    // ...name the ones it cannot, so the model does not infer them...
     assert!(contract.contains("NO repository"));
     assert!(contract.contains("would be fabricated"));
-    // ...and make honest labeling the cheap option.
     assert!(contract.contains("costs you nothing"));
     assert!(!contract.contains("[evidence: file:<path>:<line>]"));
 }
@@ -797,10 +743,6 @@ fn placeholder_evidence_is_not_admissible() {
 
 #[test]
 fn repeated_direction_does_not_inflate_the_tried_list() {
-    // directions_tried rides in every subsequent curated prompt. A worker
-    // that repeats its DIRECTION line must not grow that list without
-    // bound — it burns context and misreports the search as broader than
-    // it was.
     let inner = ScriptClub::new(&[&block_full(
         "the same angle",
         &["f1 [evidence: premise:the stated goal]"],
@@ -824,7 +766,6 @@ fn repeated_direction_does_not_inflate_the_tried_list() {
 
 #[test]
 fn hypotheses_ride_into_the_curated_prompt_for_validation() {
-    // An unverified lead is only useful if a later iteration can see it.
     let inner = ScriptClub::new(&[
         &block_full("a", &[], &["the allocator may be the bottleneck"]),
         &block_full("b", &["f [evidence: premise:the stated goal]"], &[]),
@@ -843,10 +784,6 @@ fn hypotheses_ride_into_the_curated_prompt_for_validation() {
     );
 }
 
-/// Cheap workers for the live calibrator, in the order they're tried.
-/// LongCat exposes one model; GLM's roster supplies the rest of the spread.
-/// Both are subscription/flat-rate links per the project's test-budget rule,
-/// so a calibration pass costs no metered spend.
 fn calibration_workers() -> Vec<(String, Arc<dyn Club>)> {
     let mut out: Vec<(String, Arc<dyn Club>)> = Vec::new();
     let longcat_key = std::env::var("ANGEL_LONGCAT_KEY")
@@ -875,7 +812,6 @@ fn calibration_workers() -> Vec<(String, Arc<dyn Club>)> {
     if let Some(key) = glm_key {
         let url = std::env::var("ANGEL_GLM_URL")
             .unwrap_or_else(|_| crate::agent::club::default_glm_url().to_string());
-        // A couple of tiers, so the calibration is not one model's quirk.
         let models = std::env::var("ANGEL_CALIBRATE_GLM_MODELS")
             .unwrap_or_else(|_| "glm-5.3,glm-5.3-flash,glm-5.2".to_string());
         for model in models.split(',').map(str::trim).filter(|m| !m.is_empty()) {
@@ -896,20 +832,6 @@ fn calibration_workers() -> Vec<(String, Arc<dyn Club>)> {
     out
 }
 
-/// Live evidence-regime calibrator. Opt-in (`ANGEL_LIVE_CALIBRATE=1`); skips
-/// when no cheap link is configured.
-///
-/// This is the end-to-end check the unit contracts cannot make. Those pin
-/// what *this code* admits; only a live worker shows what a model actually
-/// emits when handed the shipped prompt. The regression it guards is real
-/// and was measured: under the old grounded-only contract, tool-less workers
-/// invented `file:` and `benchmark:` citations — and invented the
-/// measurements to go with them — rather than admit they had no evidence.
-///
-/// Run it after touching `iterate.rs`, the deli contract, or the regime
-/// split, and whenever a worker model changes underneath us:
-/// `ANGEL_LIVE_CALIBRATE=1 cargo test --no-default-features \
-///   live_deli_evidence_calibration -- --ignored --nocapture`
 #[test]
 #[ignore = "needs live server: ANGEL_LIVE_CALIBRATE=1 and a reachable deli provider"]
 fn live_deli_evidence_calibration() {
@@ -922,8 +844,6 @@ fn live_deli_evidence_calibration() {
         eprintln!("no cheap link configured (LONGCAT_API_KEY / ANGEL_GLM_KEY); skipping");
         return;
     }
-    // Problems a reasoning-only worker genuinely cannot settle from the text
-    // alone — exactly the pressure that used to produce invented citations.
     let problems = [
         "Reduce p99 latency of a Rust HTTP service from 180ms to under 50ms. \
              The service does one Postgres query per request and serializes to JSON.",
@@ -963,8 +883,6 @@ fn live_deli_evidence_calibration() {
             r.fabricated,
             r.compliance() * 100.0
         );
-        // A silent zero row is uninterpretable, so never print one silently:
-        // say whether the worker failed or simply broke no new ground.
         if r.admitted + r.leads == 0 {
             match &r.error {
                 Some(e) => println!("{:<22}   \\_ worker call failed: {e}", ""),
@@ -993,17 +911,11 @@ fn live_deli_evidence_calibration() {
         "configured live calibration worker call(s) failed: {}",
         worker_errors.join("; ")
     );
-    // The load-bearing assertion. Everything else is calibration data the
-    // operator reads; this one is a contract. A tool-less worker that cites
-    // a file it cannot open has fabricated, and the gate must have caught
-    // it — a non-zero count here means the regime split has regressed.
     assert_eq!(
         fabricated, 0,
         "a reasoning-regime worker emitted {fabricated} citation(s) naming a source kind it \
              cannot obtain; the evidence gate is no longer rejecting fabrication"
     );
-    // A run that admits nothing at all across every worker and problem would
-    // mean the contract is unusable in practice, not merely strict.
     assert!(
         admitted + leads > 0,
         "no worker produced any parseable bullet; the output contract may be malformed"
@@ -1012,15 +924,11 @@ fn live_deli_evidence_calibration() {
 
 #[test]
 fn empty_problem_falls_through_to_direct_pass() {
-    // No user content → a single inner pass, no iteration. The synth system
-    // prompt path returns the fixed string.
     let inner = ScriptClub::new(&[]);
     let deli = DeliClub::with_knobs("deli", inner.clone(), Knobs::default());
     let out = deli
         .run(&[], &AtomicBool::new(false), &mut |_| {}, false)
         .unwrap();
-    // The direct pass goes through chat() with no system match → worker branch
-    // returns the (empty script → last) default; assert it didn't iterate.
     assert_eq!(
         *inner.worker_calls.lock().unwrap(),
         1,

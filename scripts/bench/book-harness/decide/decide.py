@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""decide.py <model> <n> [scenario...] — replay each captured decision request
-(out/dcap-<scenario>-<arm>.jsonl, request number `decision` in scenarios.json)
-to a real model n times and score whether its next move is the route's action.
-
-Arms: intro (stamp + its English at first sight), every (its English at every
-sighting: the routes as English injected each time), bare (stamp only), nocue (the
-bare request with the decision stamp's lines removed: the cue's own effect),
-prebook (the pre-book English harness at the same point). Every model gets the
-same bytes; seat parameters follow each model's angelX seat. One JSON row per
-call is appended to out/decide-<model>.jsonl. Keys from the environment; Grok
-through the operator's OAuth bearer (grok_bearer.py)."""
 import importlib.util
 import json, os, re, subprocess, sys, time, urllib.error, urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -45,15 +34,13 @@ def decision_body(scenario, arm):
     source = "bare" if arm == "nocue" else arm
     path = os.path.join(ROOT, "out", f"dcap-{scenario}-{source}.jsonl")
     if not os.path.exists(path):
-        return None  # this arm was not captured for this point
+        return None
     rows = [json.loads(row)["body"] for row in open(path)]
     if "decision" in spec:
         if len(rows) < spec["decision"]:
-            return None  # the harness never reached this point
+            return None
         body = rows[spec["decision"] - 1]
     else:
-        # A later sighting: the last request whose newest message opens a line
-        # with the route (for arms without the cue, the same request number).
         stamp = re.compile(rf"(?m)^{spec['route']}")
         cued = [i for i, b in enumerate(rows) if stamp.search(text_of(b["messages"][-1]["content"]))]
         if not cued:
@@ -70,7 +57,7 @@ def decision_body(scenario, arm):
         if stripped == text_of(last["content"]).rstrip():
             sys.exit(f"{scenario}: no {spec['route']} line in the decision message")
         if not stripped:
-            return None  # the cue was the whole message: no request without it
+            return None
         last["content"] = stripped
     return body
 
@@ -97,7 +84,7 @@ def bearer():
 def call(model, body, max_tokens):
     url, key_env, model_id, extra = MODELS[model]
     messages = json.loads(json.dumps(body["messages"]))
-    if model == "deepseek-flash":  # thinking mode wants each assistant turn's reasoning back
+    if model == "deepseek-flash":
         for m in messages:
             if m.get("role") == "assistant":
                 m.setdefault("reasoning_content", "")
@@ -119,14 +106,13 @@ def call(model, body, max_tokens):
                 e.close()
             if e.code not in (429, 500, 502, 503, 504):
                 return None, time.time() - start, err
-        except Exception as e:  # timeouts, resets
+        except Exception as e:
             err = repr(e)[:300]
         time.sleep(5 * (attempt + 1))
     return None, 0, err
 
 
 def reply_fields(reply):
-    """Only an observed, well-formed next move can enter the scored sample."""
     if not isinstance(reply, dict):
         raise ValueError("reply must be an object")
     choices = reply.get("choices")
@@ -169,8 +155,6 @@ def one(model, scenario, arm, i, body, max_tokens):
     try:
         reply, secs, err = call(model, body, max_tokens)
     except Exception as error:
-        # A failed worker must still produce its logical sample. Control
-        # signals (KeyboardInterrupt/SystemExit) keep their existing behavior.
         row.update(error=type(error).__name__, error_class=type(error).__name__, call_error=True)
         return row
     measured_secs = receipt.number(secs)

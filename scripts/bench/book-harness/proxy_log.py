@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""Pass-through logger for an OpenAI-compatible endpoint (a real model run).
-
-  PROXY_UPSTREAM=https://host/v1 PROXY_KEY=... PROXY_LOG=out/label.jsonl \
-  PROXY_PORT=18100 python3 proxy_log.py
-
-Point angel at http://127.0.0.1:$PROXY_PORT/v1 (ANGEL_DRIVER=local,
-ANGEL_LOCAL_URL=...). Every chat request is forwarded unchanged; its body,
-arrival time, finish time and the provider's usage are appended to PROXY_LOG
-in the stub_model.py format ({"t", "bytes", "body", ...}), so gaps.py,
-phases.py, harness_time.py and tokens/analyze.mjs read real-model runs too.
-"""
 import json
 import http.client
 import os
@@ -21,8 +10,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 UPSTREAM = os.environ["PROXY_UPSTREAM"].rstrip("/")
 KEY = os.environ.get("PROXY_KEY", "")
-# PROXY_KEY_CMD prints the upstream bearer (an OAuth token that refreshes on
-# disk); it is re-run at most once a minute so a refreshed token is picked up.
 KEY_CMD = os.environ.get("PROXY_KEY_CMD", "")
 _key_cache = {"at": 0.0, "value": ""}
 
@@ -40,8 +27,6 @@ PORT = int(os.environ.get("PROXY_PORT", "18100"))
 
 
 def usage_in(event):
-    # Chat Completions carries usage at the top; the Responses API nests it in
-    # the response object (the final `response.completed` event, or the body).
     if not isinstance(event, dict):
         return None
     response = event.get("response")
@@ -63,8 +48,6 @@ def usage_of(text):
                 event = json.loads(line[5:].strip())
             except ValueError:
                 continue
-            # Messages: message_start carries the input side, message_delta
-            # the output side; merge them.
             message = event.get("message") if isinstance(event, dict) else None
             found = usage_in(event) or usage_in(message)
             if found:
@@ -82,7 +65,6 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path[3:] if self.path.startswith("/v1") else self.path
         request = urllib.request.Request(UPSTREAM + path, data=body, method=method)
         request.add_header("Content-Type", "application/json")
-        # The Messages seat authenticates itself; pass its headers through.
         for name in ("x-api-key", "anthropic-version", "anthropic-beta"):
             if self.headers.get(name):
                 request.add_header(name, self.headers[name])
@@ -104,10 +86,6 @@ class Handler(BaseHTTPRequestHandler):
         while True:
             chunk = response.read1(65536) if hasattr(response, "read1") else response.read(65536)
             if not chunk:
-                # HTTPResponse.read1 (and bounded read) accepts an early EOF
-                # without raising when Content-Length still promises bytes.
-                # Already forwarded headers/body cannot be recalled; refuse
-                # the completion receipt rather than claiming full usage.
                 remaining = getattr(response, "length", None)
                 if isinstance(remaining, int) and remaining > 0:
                     raise http.client.IncompleteRead(b"", remaining)
@@ -119,8 +97,6 @@ class Handler(BaseHTTPRequestHandler):
         return b"".join(chunks).decode("utf-8", "replace")
 
     def proxy_failure(self, error, record):
-        # Keep the attempted call even when no response/usage was observed.
-        # Exception strings can contain URLs or credential command output.
         record["proxy_error"] = type(error).__name__
         self.close_connection = True
         if record["status"] is None:
@@ -130,8 +106,6 @@ class Handler(BaseHTTPRequestHandler):
                 pass
 
     def do_GET(self):
-        # Probes (/models, /props) go to <log>.get, so the request log keeps
-        # only chat bodies.
         arrived = time.time()
         record = {"t": arrived, "path": self.path, "status": None}
         try:

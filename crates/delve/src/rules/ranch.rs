@@ -32,19 +32,14 @@ pub fn label(kind: RoomKind) -> &'static str {
     }
 }
 
-/// Where the two rooms sit on the home floor's grid: west of the
-/// observatory, clear of every other room, joined only by their gates.
 pub const CELLS: [(RoomKind, (i32, i32)); 2] = [
     (RoomKind::Ranch, (-1, -9)),
     (RoomKind::Pasture, (-1, -10)),
 ];
 
-/// The ranch gate in the stables yard, below the trough (tiles).
 pub const STABLES_GATE: (i32, i32, i32, i32) = (1, 11, 2, 1);
-/// The ranch's own gates: back to the stables, and north to the fields.
 pub const RANCH_OUT: (i32, i32, i32, i32) = (1, 12, 2, 1);
 pub const FIELDS_GATE: (i32, i32, i32, i32) = (19, 1, 3, 1);
-/// The fields' gate home, in the south fence.
 pub const FIELDS_OUT: (i32, i32, i32, i32) = (6, 12, 2, 1);
 
 pub const DOORS: [Entrance; 4] = [
@@ -82,9 +77,6 @@ pub const DOORS: [Entrance; 4] = [
     },
 ];
 
-/// The ranch's yard (tiles): the barn, Helios's stall with the stud book in
-/// front of it, the hitching rail where the draft is groomed, hay, and the
-/// war horses' paddock.
 pub const BARN: (i32, i32, i32, i32) = (2, 1, 8, 4);
 pub const STALL: (i32, i32, i32, i32) = (12, 1, 5, 3);
 pub const STUD_BOOK: (i32, i32, i32, i32) = (13, 4, 3, 1);
@@ -92,38 +84,27 @@ pub const LECTERN: (i32, i32, i32, i32) = (16, 4, 1, 1);
 pub const RAIL: (i32, i32, i32, i32) = (3, 7, 5, 2);
 pub const HAY: (i32, i32, i32, i32) = (10, 10, 2, 1);
 pub const PADDOCK: (i32, i32, i32, i32) = (14, 7, 9, 5);
-/// Where the groom stands, brush in hand, and the draft he keeps.
 pub const GROOM_AT: (f32, f32) = (9.0, 8.0);
 pub const DRAFT_AT: (f32, f32) = (5.5, 8.0);
 
-/// The fields (tiles): an old oak, a trough; the rest is open grass.
 pub const OAK: (i32, i32, i32, i32) = (3, 2, 3, 3);
 pub const TROUGH: (i32, i32, i32, i32) = (18, 10, 2, 1);
 
-/// The stud fee, paid each time a herd mare is brought to him.
 pub const FEE: u32 = 400;
-/// Helios's fixed inheritance: exceptional pace, stamina and nerve,
-/// with strong cornering. No market seasoning or random mutation.
 pub const HELIOS_BLOOD: Bloodline = Bloodline {
     pace: 9, stamina: 9, corner: 8, nerve: 9,
 };
-/// One chance in this many that a foal comes of it.
 pub const ODDS: u64 = 25;
-/// Delves won before a foal is a yearling, and before it is grown.
 pub const YEARLING: u32 = 2;
 pub const GROWN: u32 = 5;
 
-/// Stud-book progress. Horses themselves live only in the stable's herd.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Ranch {
     pub coverings: u32,
-    /// Read compatibility only; migration consumes this old record.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub foal: Option<Foal>,
     pub helios_bred: bool,
-    /// The realm's delves won, as last settled: what a foal's age is
-    /// counted against.
     pub wins: u32,
 }
 
@@ -132,7 +113,6 @@ pub struct Ranch {
 pub struct Foal {
     pub name: String,
     pub filly: bool,
-    /// The realm's delves won when it was born.
     pub born: u32,
 }
 
@@ -163,8 +143,6 @@ pub fn helios_foal(name: &str, mare: bool, born: u32, dam: &Horse) -> Horse {
     }
 }
 
-/// Preserve old ranch births, even in a full yard, and consume the old
-/// field so serializing and loading again cannot duplicate the horse.
 pub fn migrate(ranch: &mut Ranch, stable: &mut Stable) -> bool {
     let Some(old) = ranch.foal.take() else { return false; };
     ranch.helios_bred = true;
@@ -182,8 +160,6 @@ impl Ranch {
     }
 }
 
-/// The roll for a covering: a pure function of the realm's state, so a
-/// replayed settle says the same.
 fn lucky(coverings: u32, gold: u32, raids_won: u32) -> bool {
     let mut x = (u64::from(coverings) << 40) ^ (u64::from(gold) << 8) ^ u64::from(raids_won);
     x ^= 0x9e37_79b9_7f4a_7c15;
@@ -193,7 +169,6 @@ fn lucky(coverings: u32, gold: u32, raids_won: u32) -> bool {
     x % ODDS == 0
 }
 
-/// Lines when he wasn't having it, in turn.
 const NOT_TODAY: [&str; 4] = [
     "Helios flicked an ear at the mare and went back to the clover",
     "Helios and the mare grazed side by side, and that was all",
@@ -201,8 +176,6 @@ const NOT_TODAY: [&str; 4] = [
     "Not today: Helios had the whole field to run",
 ];
 
-/// The cockpit's half: a covering asked for in the run, paid and rolled.
-/// Returns whether the realm changed, and the lines to say.
 pub fn settle(
     ranch: &mut Ranch,
     treasury: &mut Spoils,
@@ -256,12 +229,7 @@ pub fn settle(
     (true, said)
 }
 
-/// Where Helios is in the fields at a tick: he gallops a long loop round
-/// the field, then stops to blow and toss his head, then goes again.
-/// Returns his place (tiles), whether he faces east, and his gallop frame
-/// (None while he stands). Shared by the run and the picture.
 pub fn helios(tick: u64) -> ((f32, f32), bool, Option<u32>) {
-    // A lap of the loop, then a rest, in ticks.
     const LAP: u64 = 7 * HZ as u64;
     const REST: u64 = 3 * HZ as u64;
     let t = tick % (LAP + REST);
@@ -273,7 +241,6 @@ pub fn helios(tick: u64) -> ((f32, f32), bool, Option<u32>) {
     if t < LAP {
         let phase = t as f32 / LAP as f32;
         let a = phase * std::f32::consts::TAU;
-        // Moving with increasing angle: east while sin is negative.
         let east = a.sin() < 0.0;
         (at(phase), east, Some((t / 3) as u32))
     } else {
@@ -281,7 +248,6 @@ pub fn helios(tick: u64) -> ((f32, f32), bool, Option<u32>) {
     }
 }
 
-/// The fields' other horses: mares at grass, drifting slowly (tiles).
 pub fn grazers(tick: u64) -> [((f32, f32), bool); 3] {
     let drift = |seed: f32, base: (f32, f32)| {
         let t = tick as f32 / (HZ as f32 * 9.0) + seed;
@@ -340,14 +306,12 @@ fn near(h: &Hero, at: (f32, f32), tiles: f32) -> bool {
         && (h.x - at.0 * TILE_UNITS).hypot(h.y - at.1 * TILE_UNITS) < tiles * TILE_UNITS
 }
 
-/// The groom's words, in turn.
 const GROOM: [&str; 4] = [
     "That's Helios in the fields. Belgian. Not for sale, not for riding",
     "Old Barley here gets brushed twice a day. Look at him shine",
     "Bring a herd mare to the stud book if you feel lucky. He's particular",
     "War horses in the paddock. Mind the black one, he bites",
 ];
-/// What Helios has to say about being caught.
 const HELIOS: [&str; 3] = [
     "Helios won't be caught. Nobody rides Helios",
     "Helios snorts, shakes out that yellow mane, and is gone",
@@ -355,8 +319,6 @@ const HELIOS: [&str; 3] = [
 ];
 
 impl Run {
-    /// The ranch and the fields: the stud book's plate (hold E), and a word
-    /// from the groom, Old Barley, or Helios himself (tap E).
     pub(super) fn tick_ranch(&mut self, inputs: &BTreeMap<u32, Input>) {
         let kind = self.room().kind;
         if !is_room(kind) {

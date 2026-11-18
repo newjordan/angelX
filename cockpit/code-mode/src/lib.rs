@@ -35,36 +35,20 @@ type ToolInvoker<'a> = dyn Fn(&str, &Value) -> Result<String, String> + Sync + '
 type BatchRunner<'a> = dyn Fn(&[(String, Value)]) -> Vec<Result<String, String>> + Sync + 'a;
 type BatchItemCap<'a> = dyn Fn() -> usize + Sync + 'a;
 
-/// One-time process-global V8 platform initialisation. `Once` makes it safe to
-/// call from every `run()` and from parallel test threads; V8 is never disposed
-/// (the cockpit is a long-running process that may run code-mode again).
 fn init_v8() {
     angel_live::v8::script::init();
 }
 
-/// The Rust-side context handed to the V8 callbacks through an `External`
-/// pointer. Its lifetime is the duration of a single `run()`; the isolate (and
-/// thus any callback that could read this pointer) is created and dropped within
-/// that same call, so the erased pointer is never dereferenced after `ctx` dies.
 struct HostCtx<'a> {
-    /// Dispatch a tool by name with JSON args → its text output (or an error,
-    /// surfaced to JS as a thrown `Error`). `+ Sync` so `batch()` can call it
-    /// from several `thread::scope` workers at once.
     invoke: &'a ToolInvoker<'a>,
-    /// The host owns scheduling, concurrency, and worker identity propagation.
-    /// This bridge must not acquire a second tool taxonomy or dispatch policy.
     batch_runner: &'a BatchRunner<'a>,
     batch_item_cap: &'a BatchItemCap<'a>,
-    /// `console.log`/`error`/… lines, in order, for the run summary.
     console: RefCell<Vec<String>>,
     console_bytes: Cell<usize>,
     console_limit: usize,
     console_truncated: Cell<bool>,
 }
 
-/// Reconstruct the `HostCtx` reference a callback was built with from its
-/// `External` data pointer. Sound only because the isolate never outlives the
-/// `HostCtx` that produced the `External` (see the struct doc).
 unsafe fn ctx_from<'c>(data: v8::Local<v8::Value>) -> &'c HostCtx<'c> {
     unsafe {
         let ext = data.cast::<v8::External>();
@@ -72,7 +56,6 @@ unsafe fn ctx_from<'c>(data: v8::Local<v8::Value>) -> &'c HostCtx<'c> {
     }
 }
 
-/// Throw a JS `Error(msg)` in the current scope (used to surface tool errors).
 fn throw(scope: &mut v8::PinScope, msg: &str) {
     if let Some(s) = v8::String::new(scope, msg) {
         let exc = v8::Exception::error(scope, s);
@@ -80,8 +63,6 @@ fn throw(scope: &mut v8::PinScope, msg: &str) {
     }
 }
 
-/// `__angel_invoke(name, argsJson) -> string`: the single native bridge. The
-/// per-tool named wrappers in the prelude are thin JS shims over this.
 fn invoke_cb(
     scope: &mut v8::PinScope,
     args: v8::FunctionCallbackArguments,
@@ -116,12 +97,6 @@ fn invoke_cb(
     }
 }
 
-/// `__angel_batch(callsJson) -> resultsJson`: run an array of `{tool, args}`
-/// calls in footprint-safe segments and return an array (same order) of
-/// `{ok, output}` / `{ok:false, error}`. The mass-testing primitive — fan a
-/// safe test matrix / command set out across threads in one turn while
-/// effect/conflict barriers remain ordered. Per-item errors are captured (a
-/// single failure never aborts the batch).
 fn batch_cb(
     scope: &mut v8::PinScope,
     args: v8::FunctionCallbackArguments,
@@ -187,7 +162,6 @@ fn batch_cb(
     }
 }
 
-/// `__angel_log(...parts)`: collect console output into the host buffer.
 fn log_cb(scope: &mut v8::PinScope, args: v8::FunctionCallbackArguments, mut _rv: v8::ReturnValue) {
     let ctx = unsafe { ctx_from(args.data()) };
     if ctx.console_bytes.get() >= ctx.console_limit {
@@ -215,8 +189,6 @@ fn log_cb(scope: &mut v8::PinScope, args: v8::FunctionCallbackArguments, mut _rv
     }
 }
 
-/// The result of a code-mode run: the script's return value (stringified) plus
-/// any captured console output.
 #[derive(Debug, Default, Clone)]
 pub struct Outcome {
     pub result: String,
@@ -224,13 +196,6 @@ pub struct Outcome {
     pub console_truncated: bool,
 }
 
-/// Near-heap-limit guard. Fired on the isolate thread as the capped heap nears
-/// exhaustion: terminate the running script and hand V8 headroom (raise the
-/// limit) so it can unwind and surface an `Err` instead of calling
-/// `FatalProcessOutOfMemory`, which would ABORT the whole cockpit process.
-/// `data` is a `*const IsolateHandle` boxed by `run` (valid until `run` removes
-/// this callback). The `v8` 150 `NearHeapLimitCallback` type is
-/// `unsafe extern "C"`, hence the signature here.
 unsafe extern "C" fn near_heap_limit_cb(
     data: *mut c_void,
     current: usize,
@@ -240,20 +205,9 @@ unsafe extern "C" fn near_heap_limit_cb(
         let handle = unsafe { &*(data as *const v8::IsolateHandle) };
         handle.terminate_execution();
     }
-    // Give V8 enough extra headroom to unwind past the termination point.
     current + (current / 2).max(8 << 20)
 }
 
-/// Run `script` with `tool_names` bound as host functions. `invoke` dispatches a
-/// nested tool call. `timeout` bounds wall-clock execution (a watchdog thread
-/// terminates the isolate past it); `heap_mb` caps the isolate heap (a
-/// near-limit callback terminates the script before V8 aborts the process).
-///
-/// `batch_item_cap` is re-read for every batch before dispatch, so an active
-/// run cannot retain a revoked host policy.
-///
-/// Returns the (stringified) value the script `return`s, or an `Err` for a
-/// compile error, an uncaught runtime error, or a timeout.
 pub fn run(
     script: &str,
     tool_names: &[String],
@@ -281,18 +235,11 @@ pub fn run(
 
     let params = v8::CreateParams::default().heap_limits(0, heap_mb.max(8) << 20);
     let isolate = &mut v8::Isolate::new(params);
-    // Drain microtasks ourselves so the async result-capture is deterministic.
     isolate.set_microtasks_policy(v8::MicrotasksPolicy::Explicit);
 
-    // Heap guard: install a near-heap-limit callback so exhausting the capped
-    // heap TERMINATES the script (Err) instead of triggering V8's
-    // FatalProcessOutOfMemory, which aborts the whole process. The boxed handle
-    // is freed after `run_inner` once the callback is removed.
     let heap_data = Box::into_raw(Box::new(isolate.thread_safe_handle())) as *mut c_void;
     isolate.add_near_heap_limit_callback(near_heap_limit_cb, heap_data);
 
-    // Watchdog: if the script runs past `timeout`, terminate it from another
-    // thread. `IsolateHandle` is the documented cross-thread-safe surface.
     let handle = isolate.thread_safe_handle();
     let (done_tx, done_rx) = std::sync::mpsc::channel::<()>();
     let watchdog = std::thread::spawn(move || {
@@ -303,13 +250,9 @@ pub fn run(
 
     let out = run_inner(isolate, script, tool_names, &ctx);
 
-    // Remove the heap callback before the isolate is dropped, then free the
-    // boxed handle (no further callback can fire after removal).
     isolate.remove_near_heap_limit_callback(near_heap_limit_cb, 0);
     unsafe { drop(Box::from_raw(heap_data as *mut v8::IsolateHandle)) };
 
-    // Release the watchdog (it may already have fired — terminate after the run
-    // is a harmless no-op on an isolate we're about to drop).
     let _ = done_tx.send(());
     let _ = watchdog.join();
 
@@ -330,7 +273,6 @@ fn run_inner(
     let context = v8::Context::new(handle_scope, Default::default());
     let scope = &mut v8::ContextScope::new(handle_scope, context);
 
-    // One External carries the host-context pointer to both native callbacks.
     let ext = v8::External::new(scope, ctx as *const HostCtx as *mut c_void);
     bind_fn(scope, context, "__angel_invoke", invoke_cb, ext);
     bind_fn(scope, context, "__angel_log", log_cb, ext);
@@ -342,8 +284,6 @@ fn run_inner(
     read_result(scope, context)
 }
 
-/// Install a native function `name` on the global object, carrying `ext` as its
-/// callback data.
 fn bind_fn(
     scope: &mut v8::PinScope,
     context: v8::Local<v8::Context>,
@@ -359,7 +299,6 @@ fn bind_fn(
     context.global(scope).set(scope, key.into(), func.into());
 }
 
-/// Whether `name` is a plain JS identifier we can expose as `globalThis.name`.
 fn is_js_ident(name: &str) -> bool {
     let mut chars = name.chars();
     match chars.next() {
@@ -369,11 +308,8 @@ fn is_js_ident(name: &str) -> bool {
     name.chars().all(|c| c == '_' || c.is_ascii_alphanumeric())
 }
 
-/// Build the full source: a trusted prelude (console + per-tool wrappers + the
-/// async result-capture harness) wrapping the verbatim user script.
 fn build_source(tool_names: &[String], user_script: &str) -> String {
     let mut p = String::new();
-    // console → host log buffer.
     p.push_str(
         "globalThis.console={log:(...a)=>__angel_log(...a.map(String)),\
          error:(...a)=>__angel_log(...a.map(String)),\
@@ -381,18 +317,10 @@ fn build_source(tool_names: &[String], user_script: &str) -> String {
          info:(...a)=>__angel_log(...a.map(String)),\
          debug:(...a)=>__angel_log(...a.map(String))};\n",
     );
-    // Generic dispatcher: `tool(name, args)` reaches any tool in the bound
-    // capability set, including names that are not valid JS identifiers.
     p.push_str(
         "globalThis.tool=(name,args)=>__angel_invoke(String(name),JSON.stringify(args??{}));\n",
     );
-    // Parallel fan-out: `batch([{tool,args},...])` -> [{ok,output}|{ok:false,error}]
-    // run CONCURRENTLY. Results are parsed objects (unlike single calls, which
-    // return the tool's raw text). The mass-testing / mass-build primitive.
     p.push_str("globalThis.batch=(calls)=>JSON.parse(__angel_batch(JSON.stringify(calls??[])));\n");
-    // Handle store: park intermediate bulk without returning it from the script.
-    // `handle_put(body, {producer?, identity?})` → opaque `hnd_…` id.
-    // `handle_get(id, {offset?, max_bytes?})` → capped slice text.
     p.push_str(
         "globalThis.handle_put=(body,meta)=>{\
            const m=(meta&&typeof meta==='object')?meta:{};\
@@ -411,7 +339,6 @@ fn build_source(tool_names: &[String], user_script: &str) -> String {
            }));\
          };\n",
     );
-    // Per-tool named wrappers: `read_file({path})`, `grep({pattern}) `, …
     for name in tool_names {
         if is_js_ident(name) {
             p.push_str(&format!(
@@ -419,9 +346,6 @@ fn build_source(tool_names: &[String], user_script: &str) -> String {
             ));
         }
     }
-    // Result-capture harness. The user script runs inside an async IIFE so a
-    // top-level `return` and top-level `await` both work; the result is
-    // stringified (objects via JSON) and stashed on a global the host reads back.
     format!(
         "{p}\
          globalThis.__angel_done=false;globalThis.__angel_result=\"\";globalThis.__angel_error=null;\n\
@@ -434,9 +358,6 @@ fn build_source(tool_names: &[String], user_script: &str) -> String {
     )
 }
 
-/// Compile and run `src` once, mapping compile/runtime/termination failures to
-/// `Err`. User-script errors don't surface here — the harness catches them into
-/// `__angel_error` — so a failure here is a genuine compile error or a timeout.
 fn compile_run(scope: &mut v8::PinScope, src: &str) -> Result<(), String> {
     v8::tc_scope!(let tc, scope);
     let code = v8::String::new(tc, src).ok_or("code_mode: script too large to compile")?;
@@ -456,7 +377,6 @@ fn compile_run(scope: &mut v8::PinScope, src: &str) -> Result<(), String> {
     }
 }
 
-/// Format the currently-caught exception as a short string.
 fn caught(tc: &mut v8::PinnedRef<'_, v8::TryCatch<v8::HandleScope>>) -> String {
     match tc.exception() {
         Some(e) => e.to_rust_string_lossy(tc),
@@ -464,9 +384,6 @@ fn caught(tc: &mut v8::PinnedRef<'_, v8::TryCatch<v8::HandleScope>>) -> String {
     }
 }
 
-/// Drain the microtask queue until the async harness settles (`__angel_done`).
-/// With synchronous host calls the chain converges in one checkpoint; we loop
-/// defensively and let the watchdog bound any pathology.
 fn drain(scope: &mut v8::PinScope, context: v8::Local<v8::Context>) -> Result<(), String> {
     for _ in 0..100_000 {
         scope.perform_microtask_checkpoint();
@@ -480,8 +397,6 @@ fn drain(scope: &mut v8::PinScope, context: v8::Local<v8::Context>) -> Result<()
     Err("code_mode: async script did not settle before microtask drain limit".to_string())
 }
 
-/// Resolve the run's outcome from the harness globals: `__angel_error` (if set)
-/// → `Err`, else the stringified `__angel_result`.
 fn read_result(
     scope: &mut v8::PinScope,
     context: v8::Local<v8::Context>,

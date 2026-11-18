@@ -91,7 +91,6 @@ fn delayed_server(
         reader.read_exact(&mut bytes).unwrap();
         assert!(!String::from_utf8_lossy(&bytes).contains("jev-fixture-credential"));
         thread::sleep(delay);
-        // Timeout and response-cap tests deliberately close the client early.
         let _ = write!(
             stream,
             "HTTP/1.1 {status} Fixture\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\nLocation: http://127.0.0.1:1/never\r\n\r\n{body}",

@@ -25,8 +25,6 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def sample(command, env):
-    # The fixture HOME is shared by the bounded samples: changing HOME is a
-    # Cargo build-script input, not an unchanged startup.
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 140, 0, 0))
 
@@ -124,9 +122,6 @@ def main():
             fixture.setdefault("RUSTUP_HOME", str(Path.home() / ".rustup"))
             fixture.setdefault("CARGO_HOME", str(Path.home() / ".cargo"))
             fixture.update(env)
-            # Keep source cartridges, browser/media and Glass compiled in. Only
-            # runtime state is isolated; using a blank cartridge registry would
-            # compare different applications.
             fixture["ANGEL_CARTRIDGES"] = os.environ.get("ANGEL_CARTRIDGES", str(Path.home() / ".angelX/cartridges"))
             for key in ("HOME", "XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "TMPDIR",
                         "ANGEL_SESSION_DIR", "ANGEL_WORKSPACE"):
@@ -134,8 +129,6 @@ def main():
                 path.mkdir()
                 fixture[key] = str(path)
             if args.launcher:
-                # Prime the HOME/cartridge build-script transition once, outside
-                # the warm observations, and explicitly account for that cost.
                 started = time.perf_counter()
                 proc = subprocess.Popen([str(ROOT / "bin/angelX"), "--version"],
                                         cwd=ROOT, env=fixture, stdout=subprocess.PIPE,

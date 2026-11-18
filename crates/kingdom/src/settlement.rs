@@ -22,10 +22,6 @@ impl Kingdom {
             .map(|(_, b)| u32::from(c.plans[&b.plan].housing))
             .sum();
         let people = self.population.citizens.len() as u32;
-        // A working kitchen must not continually consume the provisions that
-        // a new resident needs during the arrival countdown.
-        // Arrival takes longer than a meal interval: its provisions must
-        // survive the next dinner while the kitchen takes surplus harvest.
         if beds > people {
             reserve.max((people + 1) * 2 + people)
         } else {
@@ -68,8 +64,6 @@ impl Kingdom {
             roads: self.roads.clone(),
             spawn,
         };
-        // Every tile a person can walk to from the spawn, on a flat grid so a
-        // whole hillside costs a few microseconds a second, not a few ms.
         let mut reached = vec![false; nav.walkable.len()];
         let mut queue = std::collections::VecDeque::from([spawn]);
         reached[spawn.1 as usize * w + spawn.0 as usize] = true;
@@ -82,9 +76,6 @@ impl Kingdom {
             }
         }
         let reachable = |t: Tile| nav.open(t) && reached[t.1 as usize * w + t.0 as usize];
-        // Employment keeps a person at a stalled machine, but its work pose
-        // follows actual production readiness (including available power).
-        // report() projects settlement sites; it never synchronizes motion.
         let report = self.report(c);
         let destinations: Vec<_> = report
             .population
@@ -137,7 +128,6 @@ impl Kingdom {
                     || (p.crane > 0 && !constructing && self.crane_ready(c, b))
                     || (p.stalls > 0 && !constructing && !b.carts.is_empty())
                     || (p.swape > 0 && !constructing)
-                    // A watchtower's archer keeps the post whether or not the quiver is full.
                     || (p.watch > 0 && !constructing)
                     || self.job(c, b).is_some_and(|(input, output, _)| {
                         covers(&b.input, &input)
@@ -147,10 +137,6 @@ impl Kingdom {
                                 .all(|(r, n)| p.extractor || c.resources[r].waste || b.output.get(r).copied().unwrap_or(0) + n <= 24)
                             && self.post_blocked(c, b).is_none()
                     });
-                // A post with work to do but not the goods for it this minute: on the
-                // hillside the people who were at it stay (idle, in sight) until another
-                // post can use them. Only a post with nothing left to work, or none,
-                // lets them go.
                 let waiting = self.world.is_hillside()
                     && !constructing
                     && !ready
@@ -176,7 +162,6 @@ impl Kingdom {
                     jobs: if constructing {
                         1
                     } else if id == 1 {
-                        // The camp's labourers are the hand-chain's: a pair of hands to a tile.
                         self.chain_crew(c)
                     } else if ready {
                         p.workers
@@ -186,8 +171,6 @@ impl Kingdom {
                     beds: if constructing { 0 } else { p.housing },
                     held: if waiting { p.workers } else { 0 },
                     online,
-                    // Brief construction tasks borrow labour ahead of ordinary
-                    // production; the player can also raise workshop priorities.
                     priority: if constructing {
                         b.priority.saturating_add(1).min(2)
                     } else {

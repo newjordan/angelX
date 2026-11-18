@@ -210,8 +210,6 @@ fn capture_real_experiment_journal() {
     let output = std::env::var("RESEARCH_PREVIEW_OUTPUT").expect("output prefix required");
     let mut workspace = Workspace::default();
     let mut entries = workspace.journal.refresh(Path::new(&path));
-    // A real cockpit refreshes incrementally. Drain this bounded capture input
-    // across the same refresh API before taking its static screenshots.
     for _ in 0..=MAX_FILE / READ_BUDGET {
         if workspace.journal.issue.is_some()
             || workspace

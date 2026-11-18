@@ -1,6 +1,3 @@
-"""The turret: a squat riveted iron drum on a stone plinth, one eye in its
-lid that warms to amber through the tell (22 by 24, bottom-centre anchor).
-The stage lays the barrel over the lid toward the footprint."""
 from engine import *
 
 W, H = 22, 24
@@ -12,12 +9,10 @@ STONE = ["K", "g", "j", "G"]
 def turret(eye=("a", "R"), core=None, rings=0, shake=0, stun=False, flash=False):
     sp = Sprite(W, H)
     cx = 11 + shake
-    # the plinth: a low stone step
     sp.paint(poly([(1, 23), (3, 18), (19, 18), (21, 23)]), STONE)
     for x in range(4, 19, 4):
         sp.put(x, 21, "K")
     sp.fill(rect(2, 22, 18, 1), "K")
-    # the drum's side, banded
     side = rect(3 + shake, 10, 16, 9) | ell(cx, 18, 8, 3.0)
     sp.paint(side, IRON, fall=True)
     for y in (13, 16):
@@ -25,15 +20,12 @@ def turret(eye=("a", "R"), core=None, rings=0, shake=0, stun=False, flash=False)
     for x in (6, 11, 16):
         sp.put(x + shake, 14, "J")
         sp.put(x + shake, 17, "J")
-    # the lid: an iron ellipse
     sp.paint(ell(cx, 10, 9.0, 6.2), IRON_T)
     sp.paint(ell(cx, 10, 7.0, 4.6), ["X", "g", "j", "G"], rim=True)
-    # rivets round the lid
     for k in range(8):
         a = k * 3.14159 / 4
         import math
         sp.put(int(round(cx + 8.2 * math.cos(a))), int(round(10 + 5.6 * math.sin(a))), "J")
-    # the eye
     if stun:
         sp.fill(ell(cx, 10, 3.3, 2.7), "k")
         sp.fill(ell(cx, 10, 2.3, 1.9), "u")

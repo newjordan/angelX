@@ -10,9 +10,6 @@ fn sign(v: f32, dead: f32) -> i8 {
     if v > dead { 1 } else if v < -dead { -1 } else { 0 }
 }
 
-/// A friend: keeps a few tiles off the guardian, goes round it (the first
-/// knight holds its front), aims at it and fires, swings when close, rolls
-/// now and then.
 fn friend(run: &Run, id: u32) -> Input {
     let Some(h) = run.players.get(&id) else { return Input::default() };
     let Some(target) = run
@@ -64,7 +61,6 @@ struct Fight {
     boss_in_stone: u32,
     longest_unhurt: u64,
     barred_after: bool,
-    /// Each blow struck: its kind and how far the nearest stone stood.
     strikes: Vec<(String, f32)>,
     in_stone_at: Vec<(u64, u8, i32, i32)>,
 }
@@ -136,7 +132,6 @@ fn fight(id: &str, seats: u32, ticks: u64) -> Fight {
         }
         last_hp = boss.hp;
     }
-    // Let the room settle after the guardian falls.
     for _ in 0..(3 * HZ) {
         run.step(&BTreeMap::new());
     }
@@ -167,7 +162,6 @@ fn write(run: &Run, name: &str) {
     std::fs::write(format!("{dir}/{name}.ppm"), out).unwrap();
 }
 
-/// Six knights against Cinderjaw, its frames at the ticks it stood in stone.
 #[test]
 #[ignore]
 fn rubble_fights_shots() {
@@ -187,8 +181,6 @@ fn rubble_fights_shots() {
     }
 }
 
-/// A charge at a lone boulder, in the middle of its row, and at two
-/// boulders stacked across its way.
 #[test]
 #[ignore]
 fn rubble_fights_charge_at_a_lone_boulder() {

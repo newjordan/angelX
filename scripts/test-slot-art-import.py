@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Synthetic checks for crop order, edge cleaning and registration invariants."""
 import importlib.util
 from pathlib import Path
 import unittest

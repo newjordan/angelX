@@ -14,13 +14,10 @@ use super::wax_maze_bot::{fresh, fresh_for, keys};
 use crate::rules::folly::TITLE;
 use std::path::PathBuf;
 
-/// The ticks that matter, found by playing the maze through once unseen: a
-/// step, the seat, where (tile sixteenths), and for a catch its chain.
 #[derive(Debug, Default)]
 struct Marks {
     first_splash: Option<(u32, u32)>,
     catches: Vec<(u32, u32, (i32, i32), u8)>,
-    /// Each touch, with the seat nearest to it that was not touched.
     touches: Vec<(u32, u32, (i32, i32), Option<u32>)>,
     end: Option<u32>,
 }
@@ -65,8 +62,6 @@ fn survey() -> Marks {
     marks
 }
 
-/// How far from the maze's top and bottom edges a spot (tile sixteenths)
-/// lies, in tiles: the middle of the maze shows a moment best.
 fn middle(at: (i32, i32), rows: i32) -> i32 {
     (at.1 / 16).min(rows - at.1 / 16)
 }
@@ -75,12 +70,10 @@ fn save(dir: &PathBuf, n: usize, sheet: &Img) {
     image::save_buffer(dir.join(format!("f{n:04}.png")), &sheet.rgb_bytes(), sheet.w as u32, sheet.h as u32, image::ColorType::Rgb8).unwrap();
 }
 
-/// Play again, writing a frame of `seat`'s screen every tick in `[from, to)`.
 fn record(root: &PathBuf, name: &str, from: u32, to: u32, seat: u32, also: Option<u32>) {
     record_for(root, name, 4, from, to, seat, also);
 }
 
-/// `record` for a table of `seats` knights.
 fn record_for(root: &PathBuf, name: &str, seats: u32, from: u32, to: u32, seat: u32, also: Option<u32>) {
     let dir = root.join(name);
     let _ = std::fs::remove_dir_all(&dir);
@@ -119,18 +112,15 @@ fn write_wax_maze_reel() {
     if want("holy") && let Some((t, who)) = marks.first_splash {
         record(&root, "holy", t.saturating_sub(20), t + 150, who, None);
     }
-    // The biggest catch, the most in the maze's middle.
     if want("catch") && let Some(&(t, who, _, _)) = marks.catches.iter().max_by_key(|&&(_, _, at, chain)| (chain, middle(at, 28))) {
         record(&root, "catch", t.saturating_sub(60), t + 70, who, None);
     }
-    // A touch, from the touched seat's screen and from the nearest friend's.
     if want("touch") && let Some(&(t, who, _, near)) = marks.touches.iter().max_by_key(|&&(_, _, at, _)| middle(at, 28)) {
         record(&root, "touch", t.saturating_sub(50), t + 70, who, None);
         if let Some(near) = near {
             record(&root, "touch-near", t.saturating_sub(50), t + 70, near, None);
         }
     }
-    // One knight alone, and a full table of six.
     if want("solo") {
         record_for(&root, "solo", 1, 0, TITLE + 150, 1, None);
     }

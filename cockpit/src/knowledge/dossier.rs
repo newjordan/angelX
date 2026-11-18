@@ -22,9 +22,6 @@
 
 use std::path::{Path, PathBuf};
 
-/// The block opens and closes on the dossier's route, `⠸⠁`: its frame is the
-/// ledger pages, its fact lines the data. Inside the `⠎⠃` evidence fence the
-/// route lines stay readable (`book::d456_knowledge::store_route`).
 pub(crate) const DOSSIER_BLOCK_HEADER: &str = "⠸⠁";
 pub(crate) const DOSSIER_BLOCK_SENTINEL: &str = "⠸⠁";
 
@@ -32,7 +29,6 @@ const DEFAULT_MIN_BELIEF: f64 = 0.70;
 const DEFAULT_MAX_BYTES: usize = 2048;
 const DEFAULT_BROKER_MAX_AGE_DAYS: f64 = 30.0;
 
-/// Whether dossier injection is on (`ANGEL_DOSSIER`, default **on**).
 fn enabled() -> bool {
     match std::env::var("ANGEL_DOSSIER") {
         Ok(v) => {
@@ -46,7 +42,6 @@ fn enabled() -> bool {
     }
 }
 
-/// Artifact directory: `ANGEL_DOSSIER_DIR`, else `~/.angelX/dossier`.
 fn dossier_dir() -> PathBuf {
     match std::env::var("ANGEL_DOSSIER_DIR") {
         Ok(p) if !p.trim().is_empty() => PathBuf::from(p),
@@ -68,29 +63,15 @@ fn env_usize(key: &str, default: usize) -> usize {
         .unwrap_or(default)
 }
 
-/// The dossier context block for `workspace`, or an empty string when there is
-/// nothing confident to say (no artifact, no facts over the threshold, killed
-/// by env). Best-effort I/O — never errors, never blocks.
 pub(crate) fn context_block(workspace: &Path) -> String {
     if !enabled() {
         return String::new();
     }
     let block = context_block_in(&dossier_dir(), workspace, now_secs());
-    // Everything this block asserts is now in the agent's mouth. A later command
-    // matching one of them is the dossier's own echo coming back, and must not be
-    // counted as independent evidence for the fact that suggested it — see
-    // `experience::command_is_independent`. This is the *only* site that injects
-    // the block (startup, `/cd`, `--task` all route through here), so noting it
-    // here is an observation of what was actually asserted, not a guess.
     crate::knowledge::experience::note_asserted_commands(workspace, &asserted_commands(&block));
     block
 }
 
-/// Read-time freshness gate used by the unified Knowledge Broker. The legacy
-/// renderer intentionally remains byte-compatible for `ANGEL_BACKPLANE=0`;
-/// active brokerage recomputes age from `generatedAt + ageDays`, so an old
-/// artifact cannot stay authoritative merely because the external compiler
-/// stopped ticking.
 pub(crate) fn broker_context_block(workspace: &Path) -> String {
     if !enabled() {
         return String::new();
@@ -103,10 +84,6 @@ pub(crate) fn broker_context_block(workspace: &Path) -> String {
 fn broker_context_block_in(dir: &Path, workspace: &Path, now: u64) -> String {
     let workspace_key = artifact_key(workspace);
     let path = dir.join(format!("{workspace_key}.json"));
-    // Submit reads this on the UI thread. Key on file identity + unix-day so an
-    // unchanged artifact is not re-parsed, while elapsed_days still advances at
-    // midnight. Workspace key is part of the identity because the path is built
-    // from it and two repos must never share a slot.
     type CacheKey = (PathBuf, std::time::SystemTime, u64, u64, String);
     static CACHE: std::sync::Mutex<Option<(CacheKey, String)>> = std::sync::Mutex::new(None);
 
@@ -186,7 +163,6 @@ fn iso_day(value: &str) -> Option<i64> {
     if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
         return None;
     }
-    // Howard Hinnant's civil-date transform, yielding Unix epoch days.
     let adjusted_year = year - i64::from(month <= 2);
     let era = adjusted_year.div_euclid(400);
     let year_of_era = adjusted_year - era * 400;
@@ -196,20 +172,11 @@ fn iso_day(value: &str) -> Option<i64> {
     Some(era * 146_097 + day_of_era - 719_468)
 }
 
-/// Every command a rendered block asserts — its rituals and its traps.
-///
-/// Pure, and it reads the **final** block text, so a line the byte cap dropped is
-/// correctly not counted as asserted. Traps ride along with rituals deliberately:
-/// a trap (`⠸⠁⠙`, ``trap: `X` fails here``) puts `X` in the agent's mouth exactly as a ritual
-/// does, and a run of it is no more independent.
 pub(crate) fn asserted_commands(block: &str) -> Vec<String> {
     let trap = crate::agent::harness::book::d456_knowledge::DOSSIER_TRAP.cells();
     block
         .lines()
         .filter_map(|line| {
-            // Fact lines are `<label>: \`<command>\` (…)`, a trap its page
-            // address then `\`<command>\` (…)`. The thread line, the withheld
-            // count, the header, and the sentinel have no such shape.
             let rest = match line.strip_prefix(trap.as_str()) {
                 Some(rest) => rest.strip_prefix(' ')?,
                 None => {
@@ -231,16 +198,6 @@ pub(crate) fn asserted_commands(block: &str) -> Vec<String> {
         .collect()
 }
 
-/// The repo's *learned* build ritual — the highest-belief `build`-class fact in
-/// its dossier, or `None` when there's no artifact, nothing believed, or the
-/// dossier is off. This is the middle rung of The Cut's verify precedence
-/// (`ANGEL_CUT_VERIFY` → here → project-type default): if angel has watched a
-/// repo build itself the same way across sessions, that command is a better
-/// verifier than any guess we could make from file extensions.
-///
-/// Only the `build` class is ever returned. A learned `test` ritual is
-/// deliberately *not* eligible: The Cut runs on every write, and a test suite
-/// per write is the one thing that would make the agent unusable.
 pub(crate) fn build_ritual(workspace: &Path) -> Option<String> {
     if !enabled() {
         return None;
@@ -248,7 +205,6 @@ pub(crate) fn build_ritual(workspace: &Path) -> Option<String> {
     build_ritual_in(&dossier_dir(), workspace)
 }
 
-/// [`build_ritual`] with the artifact directory injected (testable).
 pub(crate) fn build_ritual_in(dir: &Path, workspace: &Path) -> Option<String> {
     let key = artifact_key(workspace);
     let raw = std::fs::read_to_string(dir.join(format!("{key}.json"))).ok()?;
@@ -259,7 +215,6 @@ pub(crate) fn build_ritual_in(dir: &Path, workspace: &Path) -> Option<String> {
     )
 }
 
-/// Pure picker: the best-believed `build` ritual clearing `min_belief`.
 pub(crate) fn pick_build_ritual(artifact: &serde_json::Value, min_belief: f64) -> Option<String> {
     artifact["facts"]
         .as_array()?
@@ -277,16 +232,10 @@ pub(crate) fn pick_build_ritual(artifact: &serde_json::Value, min_belief: f64) -
         .filter(|text| !text.trim().is_empty())
 }
 
-/// The dossier artifact's key for `workspace` — the **repository** it belongs
-/// to, not the directory. A session inside a linked worktree (every
-/// `cut-forge` / `delegate` run is one) or a subdirectory therefore warm-starts
-/// from its main repo's dossier, which is the only place that repo's facts can
-/// have accumulated.
 fn artifact_key(workspace: &Path) -> String {
     crate::platform::workspace_store::repo_identity(workspace).key
 }
 
-/// [`context_block`] with the directory and clock injected (testable).
 pub(crate) fn context_block_in(dir: &Path, workspace: &Path, now: u64) -> String {
     let key = artifact_key(workspace);
     let path = dir.join(format!("{key}.json"));
@@ -304,8 +253,6 @@ pub(crate) fn context_block_in(dir: &Path, workspace: &Path, now: u64) -> String
     )
 }
 
-/// Pure renderer: artifact JSON → the injected block (or empty when nothing
-/// clears the belief threshold and there's no thread to report).
 pub(crate) fn render_block(
     artifact: &serde_json::Value,
     min_belief: f64,
@@ -337,7 +284,6 @@ pub(crate) fn render_block(
                     .unwrap_or_default();
                 lines.push(format!("{class}: `{text}` ({evidence}{dur})"));
             }
-            // `⠸⠁⠙`, the command and its evidence beside it.
             Some("trap") => lines.push(format!(
                 "{} `{text}` ({evidence})",
                 crate::agent::harness::book::d456_knowledge::DOSSIER_TRAP.cells()
@@ -355,7 +301,6 @@ pub(crate) fn render_block(
                 .and_then(|v| v.as_str())
                 .map(|d| format!(" driver={d}"))
                 .unwrap_or_default();
-            // `⠸⠁⠑`, the session's age, stop and driver beside it.
             lines.push(format!(
                 "{} age={} stop={stop}{driver}",
                 crate::agent::harness::book::d456_knowledge::DOSSIER_THREAD.cells(),
@@ -368,7 +313,6 @@ pub(crate) fn render_block(
         return String::new();
     }
     if withheld > 0 {
-        // `⠸⠁⠉`, the count and the belief threshold beside it.
         lines.push(format!(
             "{} withheld={withheld} min_belief={min_belief:.2}",
             crate::agent::harness::book::d3_roles::pages(
@@ -380,7 +324,6 @@ pub(crate) fn render_block(
 
     let mut body = String::new();
     for line in lines {
-        // Reserve room for the sentinel so the block always closes.
         if body.len() + line.len() + DOSSIER_BLOCK_SENTINEL.len() + 2 > max_bytes {
             body.push_str("…\n");
             break;
@@ -391,10 +334,6 @@ pub(crate) fn render_block(
     format!("\n\n{DOSSIER_BLOCK_HEADER}\n{body}{DOSSIER_BLOCK_SENTINEL}\n")
 }
 
-/// The `/dossier` command body: the full fact list for `workspace` —
-/// including withheld (below-threshold) facts, which the injected block
-/// deliberately hides — plus where the artifact came from and how to refresh
-/// it. Human-facing; the injected block stays minimal.
 pub(crate) fn status_text(workspace: &Path) -> String {
     let key = artifact_key(workspace);
     let dir = dossier_dir();
@@ -458,7 +397,6 @@ pub(crate) fn status_text(workspace: &Path) -> String {
     out
 }
 
-/// Compact age for the thread line (`2h`).
 fn age(now: u64, ts: u64) -> String {
     let secs = now.saturating_sub(ts);
     match secs {
@@ -468,7 +406,6 @@ fn age(now: u64, ts: u64) -> String {
     }
 }
 
-/// Compact "how long ago" for the operator's `/dossier` view.
 fn ago(now: u64, ts: u64) -> String {
     format!("{} ago", age(now, ts))
 }

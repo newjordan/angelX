@@ -16,8 +16,6 @@ use super::{finish, stage};
 use crate::rules::joust::{Aim, Hit, Stage, Verdict};
 use crate::rules::juice::Weight;
 
-/// The chip along the top for one rider: his colour, his name, the passes he
-/// has won and the knocks he can still take.
 fn chip(im: &mut Img, led: &mut Ledger, cx: &Cx, side: u8, bump: f32) -> Rect {
     let j = cx.j;
     let name = cx.name(side, 10);
@@ -30,13 +28,11 @@ fn chip(im: &mut Img, led: &mut Ledger, cx: &Cx, side: u8, bump: f32) -> Rect {
     if bump > 0.0 {
         im.frame(r.0, r.1, r.2, r.3, '6');
     }
-    // The colours: a little shield, and the name beside it.
     let sx = if side == 0 { x + 3 } else { x + w - 9 };
     shield(im, sx, 5, col.tabard, col.field);
     let tx = if side == 0 { x + 12 } else { x + w - 12 - text_width(&name) };
     let me = cx.side() == Some(side);
     im.text(tx, 6, &name, if me { '6' } else { 'i' });
-    // Passes won and knocks left.
     let (won, left) = if side == 0 { (j.passes.0, j.balance.0) } else { (j.passes.1, j.balance.1) };
     let row = 15;
     let dir = if side == 0 { 1 } else { -1 };
@@ -52,7 +48,6 @@ fn chip(im: &mut Img, led: &mut Ledger, cx: &Cx, side: u8, bump: f32) -> Rect {
         im.rect(px, row + 1, 3, 4, if side == 0 { 'T' } else { 'T' });
         im.put(px, row + 1, '6');
     }
-    // The crowd's favour: scarves in the gold, one a knight who threw.
     let roar = if side == 0 { j.roar.0 } else { j.roar.1 };
     for k in 0..roar.min(4) as i32 {
         let px = if side == 0 { x + w - 6 - k * 5 } else { x + 3 + k * 5 };
@@ -71,7 +66,6 @@ fn shield(im: &mut Img, x: i32, y: i32, tabard: char, field: char) {
     im.line(x, y, x + 4, y, 'v');
 }
 
-/// The pass's board between the chips.
 fn board(im: &mut Img, led: &mut Ledger, cx: &Cx) -> Rect {
     let j = cx.j;
     let title = if j.stage == Stage::Done {
@@ -91,16 +85,13 @@ fn board(im: &mut Img, led: &mut Ledger, cx: &Cx) -> Rect {
     r
 }
 
-/// The herald on his tower at the stands' left end, trumpet down or blown.
 pub(super) fn herald(im: &mut Img, blowing: bool, tick: u32) {
     let (fx, fy) = (30, 76);
-    // The tower: two posts and a platform, a pennon.
     im.rect(fx - 12, fy + 1, 26, 3, 'O');
     im.rect(fx - 12, fy + 4, 26, 2, 'r');
     im.rect(fx - 10, fy + 6, 3, 30, 'I');
     im.rect(fx + 8, fy + 6, 3, 30, 'I');
     im.line(fx - 10, fy + 8, fx + 10, fy + 32, 'b');
-    // The man: hat and feather, face, a tabard in halves, hose.
     im.rect(fx - 2, fy - 24, 5, 3, 'p');
     im.line(fx + 2, fy - 25, fx + 4, fy - 28, 'c');
     im.rect(fx - 2, fy - 21, 5, 4, 'O');
@@ -111,7 +102,6 @@ pub(super) fn herald(im: &mut Img, blowing: bool, tick: u32) {
     im.rect(fx - 3, fy - 7, 3, 7, 'p');
     im.rect(fx + 1, fy - 7, 3, 7, 'u');
     im.line(fx - 4, fy - 17, fx + 5, fy - 17, 'v');
-    // The trumpet and the banner on it.
     if blowing {
         im.line(fx + 2, fy - 18, fx + 20, fy - 18, 'T');
         im.line(fx + 2, fy - 19, fx + 20, fy - 19, 'O');
@@ -133,7 +123,6 @@ pub(super) fn herald(im: &mut Img, blowing: bool, tick: u32) {
     }
 }
 
-/// The key prompts and what the knight holds on the bout, along the foot.
 fn foot(im: &mut Img, led: &mut Ledger, cx: &Cx) {
     let j = cx.j;
     let cxm = NATIVE_W / 2;
@@ -185,8 +174,6 @@ fn foot(im: &mut Img, led: &mut Ledger, cx: &Cx) {
     }
 }
 
-/// The wagers on the bench: each gallery knight's name and stake beside
-/// him, where there is room.
 fn tags(im: &mut Img, led: &mut Ledger, cx: &Cx) {
     for (id, x) in super::frame::gallery_spots(cx) {
         let Some(w) = cx.j.gallery.get(&id) else { continue };
@@ -198,7 +185,6 @@ fn tags(im: &mut Img, led: &mut Ledger, cx: &Cx) {
             None => "?".to_string(),
         };
         let text = format!("{name} {line}");
-        // Centred under his seat, on a plate just under the stands' rail.
         let at = (x - (text_width(&text) + 7) / 2, 90);
         let who = match w.won {
             Some(true) => '5',
@@ -210,7 +196,6 @@ fn tags(im: &mut Img, led: &mut Ledger, cx: &Cx) {
     }
 }
 
-/// How the viewer's seat reads a lance's hit: the call's tone.
 fn mood(w: Weight, mine: bool) -> Mood {
     match (w, mine) {
         (Weight::Graze, _) => Mood::Steel,
@@ -226,8 +211,6 @@ fn hit_word(hit: Hit, aim: Aim) -> &'static str {
     }
 }
 
-/// The call of a meeting: what the lance did, who was unhorsed, who the
-/// crowd steadied; the points popping and flying to the chips.
 fn call(im: &mut Img, led: &mut Ledger, cx: &Cx, placed: &[Placed; 2]) {
     let Some((m, age)) = cx.meet() else { return };
     let life = 46;
@@ -235,7 +218,6 @@ fn call(im: &mut Img, led: &mut Ledger, cx: &Cx, placed: &[Placed; 2]) {
         return;
     }
     let me = cx.side();
-    // The rider the call is about: the viewer's lance, or the heavier.
     let (mine, theirs) = m.hits;
     let focus = match me {
         Some(s) => s,
@@ -270,7 +252,6 @@ fn call(im: &mut Img, led: &mut Ledger, cx: &Cx, placed: &[Placed; 2]) {
         (t, sub, mood(if own == Hit::Miss { Weight::Graze } else { w }, true))
     };
     led.banner(im, "call", 40, &title, &sub, age, life, tone, 3);
-    // The points pop over the struck rider and fly to the striker's chip.
     for (striker, hit) in [(0u8, mine), (1, theirs)] {
         let pts = hit.points();
         if pts == 0 {
@@ -286,7 +267,6 @@ fn call(im: &mut Img, led: &mut Ledger, cx: &Cx, placed: &[Placed; 2]) {
     }
 }
 
-/// The title at the bout's start, the pass calls and the herald's RIDE.
 fn announce(im: &mut Img, led: &mut Ledger, cx: &Cx) -> bool {
     let j = cx.j;
     let mut blow = false;
@@ -306,11 +286,9 @@ fn announce(im: &mut Img, led: &mut Ledger, cx: &Cx) -> bool {
     blow
 }
 
-/// What the lists put over the world.
 pub(super) fn draw(im: &mut Img, cx: &Cx, led: &mut Ledger) {
     let j = cx.j;
     let placed = placed(cx);
-    // The fixed strips claim their places first.
     let bump_of = |side: u8| {
         cx.meet().map_or(0.0, |(m, age)| {
             let hit = if side == 0 { m.hits.0 } else { m.hits.1 };
@@ -321,14 +299,12 @@ pub(super) fn draw(im: &mut Img, cx: &Cx, led: &mut Ledger) {
     chip(im, led, cx, 1, bump_of(1));
     board(im, led, cx);
     foot(im, led, cx);
-    // The herald, and whether he is blowing.
     let blow_now = announce(im, led, cx)
         || cx.meet().is_some_and(|(m, age)| age < 24 && m.landed())
         || (j.stage == Stage::Done && j.t < 30);
     herald(im, blow_now, cx.tick);
     call(im, led, cx, &placed);
     tags(im, led, cx);
-    // The strike: the ring over the tilt, closing, gold when it is time.
     if let Some(k) = j.closing() {
         let (a, b) = (tip_of(&placed[0]), tip_of(&placed[1]));
         let at = ((a.0 + b.0) / 2, (a.1 + b.1) / 2);
@@ -336,12 +312,10 @@ pub(super) fn draw(im: &mut Img, cx: &Cx, led: &mut Ledger) {
         let ringc = ((j.meeting_x() * super::frame::UNIT) as i32, stage::TILT_Y - 4);
         super::fx::closing_ring(im, ringc, k, j.striking(), cx.tick);
     }
-    // The end of the bout: the iris closes on the lists before the podium.
     if j.stage == Stage::Done && j.t >= finish::HOLD {
         let k = ((j.t - finish::HOLD) as f32 / finish::FADE as f32).min(1.0);
         juice::iris(im, (NATIVE_W / 2, NATIVE_H / 2 - 10), k, 'k');
     }
-    // The bout opens out of black.
     if cx.t < 16 {
         juice::iris(im, (NATIVE_W / 2, NATIVE_H / 2), 1.0 - cx.t as f32 / 16.0, 'k');
     }

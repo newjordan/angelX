@@ -51,8 +51,6 @@ fn render_readability_prompts_are_compact_black_paper_and_screen_docked_for_six_
         }
         let nonempty_rows = (0..cv.h).filter(|&yy| (0..cv.w).any(|xx| cv.get(xx, yy).is_some())).count();
         assert_eq!(nonempty_rows, board.h as usize, "one dock, not six colliding prompts");
-        // Both actual hot paths must carry that same rectangle after the
-        // room crop: flat/terminal frame layers and layered window scenes.
         let (_, over) = super::super::layers(&r, Some(id), true);
         assert_eq!(region(&over, x, y, board.w, board.h), region(&cv, x, y, board.w, board.h));
         let scene = super::super::scene_for(&r, super::super::NATIVE_W, super::super::NATIVE_H, Some(id));
@@ -72,7 +70,6 @@ fn render_readability_every_patron_is_in_reach_and_the_board_says_its_verb() {
     let mut r = party();
     let lines = prompt(&r, 1, Spot::Toy(Toy::Board));
     assert_eq!(lines[0].0, Spot::Toy(Toy::Board).verb());
-    // The recruits are in reach in the muster tent (`muster_tent`).
     for i in (0..PATRONS.len()).filter(|&i| a::patron_room(i) == RoomKind::Alehouse) {
         let p = &PATRONS[i];
         let h = r.players.get_mut(&1).unwrap();

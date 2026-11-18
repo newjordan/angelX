@@ -17,14 +17,10 @@ use crate::rules::Run;
 use crate::rules::hud::Keys;
 use crate::rules::tray::{Icon, SIZE, Slot};
 
-/// A plate: the picture and its rim.
 const PLATE: i32 = SIZE as i32 + 6;
-/// A plate and the key beneath it.
 const CELL_H: i32 = PLATE + 8;
 const GAP: i32 = 2;
 
-/// A key's label under its plate: three letters at most, so it reads as a
-/// word and not a code.
 fn shorten(key: &str) -> &str {
     match key {
         "Space" => "SPC",
@@ -33,12 +29,10 @@ fn shorten(key: &str) -> &str {
     }
 }
 
-/// One icon's plate with its key, `PLATE` wide.
 pub(super) fn cell(icon: &Icon) -> Img {
     cell_with_skin(icon, false)
 }
 
-/// `cell`, on the delivered HUD kit's plate when `delivered` (`hud_art`).
 fn cell_with_skin(icon: &Icon, delivered: bool) -> Img {
     let ready = icon.fill >= 1.0;
     let mut im = Img::new(PLATE, CELL_H);
@@ -52,11 +46,8 @@ fn cell_with_skin(icon: &Icon, delivered: bool) -> Img {
     if delivered {super::hud_art::plate(&mut im, skin, (0,0,PLATE,PLATE));}
     let art = super::fx::icon(&icon.rows());
     let grey = sprites::stone(&art);
-    // In the middle of the well; a bomb a little left of it, clear of its
-    // count in the corner.
     let shift = if icon.slot == Slot::Bomb { 2 } else { 0 };
     let (ox, oy) = ((PLATE - art.w) / 2 - shift, (PLATE - art.h) / 2);
-    // Coloured from the bottom up as far as the thing has recharged.
     let lit = (icon.fill.clamp(0.0, 1.0) * art.h as f32).round() as i32;
     for y in 0..art.h {
         let src = if y >= art.h - lit { &art } else { &grey };
@@ -66,7 +57,6 @@ fn cell_with_skin(icon: &Icon, delivered: bool) -> Img {
             }
         }
     }
-    // The weapon's plate: valour's pips along its top rim, gold when lit.
     if icon.slot == Slot::Weapon {
         for pip in 0..3 {
             let x = PLATE / 2 - 4 + pip * 3;
@@ -76,8 +66,6 @@ fn cell_with_skin(icon: &Icon, delivered: bool) -> Img {
             }
         }
     }
-    // A kite shield's meter along its top rim: steel for what it can
-    // still turn, and knocked aside, red for its way back over a crack.
     if let Some((share, down)) = icon.wear {
         let (x0, w) = (3, PLATE - 6);
         let lit = (share.clamp(0.0, 1.0) * w as f32).round() as i32;
@@ -89,9 +77,6 @@ fn cell_with_skin(icon: &Icon, delivered: bool) -> Img {
             }
         }
     }
-    // A wish's fourth or fifth: the well's corners lit, as its card is
-    // framed (`cards::card_art`): the fourth's top corners in silver, the
-    // fifth's four in gold, each glinting white at its point.
     if icon.high >= 4 {
         let (edge, glint) = if icon.high >= 5 { ('4', 'w') } else { ('U', 'W') };
         let mut corners = vec![(1, 1, 1, 1), (PLATE - 2, 1, -1, 1)];
@@ -104,7 +89,6 @@ fn cell_with_skin(icon: &Icon, delivered: bool) -> Img {
             im.put(x, y, glint);
         }
     }
-    // How many bombs, in the plate's top corner; the key beneath.
     if icon.slot == Slot::Bomb {
         let count = icon.count.min(9).to_string();
         chrome::shaped(&mut im, (PLATE - 7, 1, 6, 8), &[1], Tone::CHIP, false);
@@ -128,10 +112,6 @@ fn cell_with_skin(icon: &Icon, delivered: bool) -> Img {
     im
 }
 
-/// An empty socket for a spell not yet learned: a dark well in a cold rim,
-/// and the key that will cast what goes in it, dim. On the delivered HUD
-/// kit's empty plate when `delivered` (`hud_art`), as the plates beside it
-/// are, so a bar of sockets and plates is one set of frames.
 fn socket(key: &str, delivered: bool) -> Img {
     let mut im = Img::new(PLATE, CELL_H);
     let rim = chrome::COLD_RIM;
@@ -145,15 +125,12 @@ fn socket(key: &str, delivered: bool) -> Img {
     im
 }
 
-/// One place on the bar: a plate for what is held, or a spell's socket.
 enum Place {
     Held(Icon),
     Socket(String),
 }
 
 impl Place {
-    /// Which run of the bar it belongs to: the weapon and guard, the
-    /// spells, the ultimate and bombs, the hand.
     fn group(&self) -> u8 {
         match self {
             Place::Held(icon) => match icon.slot {
@@ -174,15 +151,10 @@ impl Place {
     }
 }
 
-/// The room between two runs of the bar.
 const GROUP_GAP: i32 = 6;
 
-/// The doorway lane the bar keeps clear in the middle of the view's foot,
-/// where the party comes and goes through the south door.
 const LANE: i32 = 72;
 
-/// A bar laid out: each place with its top-left, the whole's size, and
-/// where its right-hand run begins (the corner's plates).
 struct Bar {
     places: Vec<(Place, i32, i32)>,
     w: i32,
@@ -190,7 +162,6 @@ struct Bar {
     right: i32,
 }
 
-/// `places` in one row from `x`, a gap between runs; where the row ends.
 fn row_from(places: Vec<Place>, mut x: i32, out: &mut Vec<(Place, i32, i32)>) -> i32 {
     let gap = GAP;
     let mut last = None;
@@ -205,21 +176,13 @@ fn row_from(places: Vec<Place>, mut x: i32, out: &mut Vec<(Place, i32, i32)>) ->
     x - gap
 }
 
-/// How wide `places` lie in one row.
 fn row_width(places: &[Place]) -> i32 {
     let groups = places.windows(2).filter(|w| w[0].group() != w[1].group()).count() as i32;
     (places.len() as i32 * (PLATE + GAP) - GAP + groups * GROUP_GAP).max(0)
 }
 
-/// Knight `id`'s places on the bar, laid in `max_w`, the spells' four keys
-/// always shown. Two runs: the weapon, guard and spells from the left, the
-/// ultimate, bombs and hand from the right, the doorway lane between them
-/// clear; one centred row where the two will not part; and where that
-/// will not fit either, what is held alone, wrapping upward from the
-/// bottom. `None` when the knight has none (fallen, or not in the party).
 fn layout(run: &Run, id: u32, keys: &Keys, max_w: i32) -> Option<Bar> {
     let hero = run.players.get(&id).filter(|h| h.hp > 0)?;
-    // The Wax Maze's lanes run along the room's foot: the bar keeps out.
     if super::wax_maze::tucks_tray(run) || super::powder_room::tucks_tray(run) || super::book_hop::tucks_tray(run) {
         return None;
     }
@@ -228,7 +191,6 @@ fn layout(run: &Run, id: u32, keys: &Keys, max_w: i32) -> Option<Bar> {
         return None;
     }
     let gap = GAP;
-    // The spells in their slots' order, a socket where a slot is empty.
     let mut places: Vec<Place> = Vec::new();
     let mut spells: Vec<Option<Icon>> = vec![None; keys.spells.len()];
     let mut rest = Vec::new();
@@ -267,12 +229,10 @@ fn layout(run: &Run, id: u32, keys: &Keys, max_w: i32) -> Option<Bar> {
         row_from(places, 0, &mut out);
         return Some(Bar { places: out, w: row, h: CELL_H, right: 0 });
     }
-    // Too narrow for the whole bar: what is held, wrapping upward.
     let per_row = (((max_w + gap) / (PLATE + gap)).max(1)) as usize;
     let rows: Vec<&[Icon]> = icons.chunks(per_row).collect();
     let widest = rows.iter().map(|r| r.len() as i32 * (PLATE + gap) - gap).max().unwrap_or(0);
     for (n, row) in rows.iter().enumerate() {
-        // The first icons sit on the bottom row.
         let y = (rows.len() - 1 - n) as i32 * CELL_H;
         let used = row.len() as i32 * (PLATE + gap) - gap;
         for (i, icon) in row.iter().enumerate() {
@@ -282,9 +242,6 @@ fn layout(run: &Run, id: u32, keys: &Keys, max_w: i32) -> Option<Bar> {
     Some(Bar { places: out, w: widest, h: rows.len() as i32 * CELL_H, right: 0 })
 }
 
-/// The tray as one image no wider than `max_w` (`layout`). Empty paper
-/// around the plates is transparent. `None` when the knight has none
-/// (fallen, or not in the party).
 pub fn image(run: &Run, id: u32, keys: &Keys, max_w: i32) -> Option<Img> {
     let bar = layout(run, id, keys, max_w)?;
     let mut out = Img::new(bar.w, bar.h);
@@ -294,9 +251,6 @@ pub fn image(run: &Run, id: u32, keys: &Keys, max_w: i32) -> Option<Img> {
     Some(out)
 }
 
-/// `image`, and the span of it left free of plates, `(x0, x1)`: the lane
-/// between the bar's two runs, or after a single row up to `max_w`. A
-/// seat's band says the room's hold there (`party::hud_band`).
 pub(super) fn image_with_free(run: &Run, id: u32, keys: &Keys, max_w: i32) -> Option<(Img, (i32, i32))> {
     let bar = layout(run, id, keys, max_w)?;
     let mut out = Img::new(bar.w, bar.h);
@@ -311,14 +265,10 @@ pub(super) fn image_with_free(run: &Run, id: u32, keys: &Keys, max_w: i32) -> Op
     Some((out, free))
 }
 
-/// Where knight `id`'s hand lies on the bar laid in `max_w` (as `image`
-/// lays it): each card's slot in hand and its plate, `(x, y, w, h)` from
-/// the bar's top-left, the first card first.
 pub(super) fn hand_plates(run: &Run, id: u32, keys: &Keys, max_w: i32) -> Vec<(usize, (i32, i32, i32, i32))> {
     let Some(bar) = layout(run, id, keys, max_w) else {
         return Vec::new();
     };
-    // The tray draws only the cards the book knows, in the hand's order.
     let slots = run.players.get(&id).map_or_else(Vec::new, |hero| {
         hero.hand
             .iter()
@@ -335,44 +285,29 @@ pub(super) fn hand_plates(run: &Run, id: u32, keys: &Keys, max_w: i32) -> Vec<(u
     slots.into_iter().zip(plates).collect()
 }
 
-/// How tall the bar's plates and keys stand: one row.
 pub(super) const ROW_H: i32 = CELL_H;
 
-/// The margin round the skills bar's plates, inside its veil.
 const BAR_PAD: i32 = 3;
-/// How far the plates keep in from the view's sides: clear of the room's
-/// corner torches and their light.
 const EDGE: i32 = 14;
 
-/// How far the plates' keys keep up from the view's foot: on the bottom wall.
 fn foot() -> i32 {
     BAR_PAD
 }
 
-/// The knight a seat's tray shows: its own, or the first knight when the
-/// screen sits between them.
 pub(super) fn shown(run: &Run, focus: Option<u32>) -> Option<u32> {
     focus
         .filter(|id| run.players.contains_key(id))
         .or_else(|| run.players.keys().next().copied())
 }
 
-/// How tall and wide knight `id`'s bar is laid in `max_w`; `None` when it
-/// has none (fallen, or not in the party). The keys change only the
-/// labels, never the places.
 fn size_of(run: &Run, id: u32, max_w: i32) -> Option<(i32, i32)> {
     layout(run, id, &Keys::FIRST, max_w).map(|bar| (bar.w, bar.h))
 }
 
-/// Reserve enough space for any living knight's focused tray without drawing
-/// an extra image just to measure it.
 pub(super) fn max_height(run: &Run, max_w: i32) -> i32 {
     run.players.keys().filter_map(|&id| size_of(run, id, max_w)).map(|(_, h)| h).max().unwrap_or(0)
 }
 
-/// Where the bar's corner plates sit in a view `w` by `h` (as `corner`
-/// lays them), for boards that keep clear of them: `(x, y)` of the
-/// right-hand run's top-left (the whole bar's, when it does not part).
 pub(super) fn corner_top_left(run: &Run, w: i32, h: i32) -> (i32, i32) {
     let max_w = w - 2 * EDGE;
     let x = run
@@ -385,28 +320,18 @@ pub(super) fn corner_top_left(run: &Run, w: i32, h: i32) -> (i32, i32) {
     (EDGE + x, h - foot() - max_height(run, max_w))
 }
 
-/// The veil the skills bar lies on in a view `w` by `h`: the view's whole
-/// foot, `(x, y, w, h)`, as tall as the shown knight's plates and a margin
-/// round them. `None` when no plates are drawn.
 pub(super) fn bar_rect(run: &Run, focus: Option<u32>, w: i32, h: i32) -> Option<(i32, i32, i32, i32)> {
     let (_, plates) = size_of(run, shown(run, focus)?, w - 2 * EDGE)?;
     let tall = plates + BAR_PAD + foot();
     Some((0, h - tall, w, tall))
 }
 
-/// The skills bar along the foot of a view: the shown knight's plates in a
-/// row, centred, each with the key that fires it, over the veil that
-/// `bar_rect` names (the room shows through it, darkened).
 pub(super) fn corner(over: &mut Img, run: &Run, focus: Option<u32>) {
     let id = shown(run, focus);
-    // A focused seat plays from its own keyboard; without one, the
-    // knights share this keyboard.
     let Some(tray) = id.and_then(|id| image(run, id, Keys::of(id, focus.is_none()), over.w - 2 * EDGE))
     else {
         return;
     };
-    // The veil's top edge, a dark bevel across the view; the second art
-    // kit lays no veil.
     if let Some((x, y, w, _)) = bar_rect(run, focus, over.w, over.h) {
         for dx in 0..w {
             over.put(x + dx, y, 'g');
@@ -415,11 +340,6 @@ pub(super) fn corner(over: &mut Img, run: &Run, focus: Option<u32>) {
     over.stamp(&tray, (over.w - tray.w) / 2, over.h - foot() - tray.h);
 }
 
-/// The tray for the terminal's half-block cells, where a pixel is a cell:
-/// icons shrunk to eight pixels in plates of ten, one row of as many as fit
-/// in `max_w`, and the keys beneath each (to be written as text, which is
-/// crisper there than a 5x7 hand at one cell a pixel): `(x, key)` with `x`
-/// the plate's first column.
 pub fn small(
     run: &Run,
     id: u32,
@@ -459,7 +379,6 @@ pub fn small(
                 }
             }
         }
-        // Cells write the key whole, and a bomb's count after a cross.
         labels.push((
             x0,
             match icon.slot {

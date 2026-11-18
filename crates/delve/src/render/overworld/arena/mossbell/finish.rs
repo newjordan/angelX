@@ -15,10 +15,8 @@ use crate::rules::Run;
 use crate::rules::mossbell::Session;
 use std::sync::OnceLock;
 
-/// Ticks the iris takes to open on the podium.
 const OPEN: u32 = 14;
 
-/// The conservatory with its panels taken away: dim glass, vines and lamps.
 fn backdrop() -> &'static Img {
     static ORIGINAL: OnceLock<Img> = OnceLock::new();
     static ART: OnceLock<Img> = OnceLock::new();
@@ -40,7 +38,6 @@ fn backdrop() -> &'static Img {
     })
 }
 
-/// A spot of light from above onto the winner's step, a dither.
 fn spot(im: &mut Img, cx: i32, floor: i32, k: f32) {
     for y in 40..floor {
         let half = 26.0 + (y - 40) as f32 * 0.5;
@@ -53,14 +50,12 @@ fn spot(im: &mut Img, cx: i32, floor: i32, k: f32) {
     }
 }
 
-/// The podium, `a` ticks after the iris began to open, for the seat `me`.
 pub(super) fn scene(run: &Run, s: &Session, me: u32, a: u32, plan: &Plan) -> Img {
     let tick = run.tick;
     let mut im = backdrop().clone();
     let (x0, y0, w, h) = claims::PODIUM;
     let ranks = claims::places(s);
     let n = ranks.len();
-    // The glass at the back, lit by fireworks.
     if a >= 6 {
         for (j, (fx_x, top, ramp)) in [(70.0, 36.0, ramps::GOLD), (192.0, 26.0, ramps::EMBER), (314.0, 40.0, ramps::HOLY)].into_iter().enumerate() {
             let t = a as i32 - 6 - j as i32 * 15;
@@ -86,9 +81,7 @@ pub(super) fn scene(run: &Run, s: &Session, me: u32, a: u32, plan: &Plan) -> Img
             })
         })
         .collect();
-    // The kit sets names and lines when a step has risen; the plan holds the same words.
     let head = juice::podium(&mut im, (x0, y0, w, h), &places, a);
-    // The laurel over the winner once they have stood a moment.
     if a >= 44 && n > 1 {
         let k = (((a - 44) as f32) / 10.0).min(1.0);
         let bob = (crate::motion::math::sin(a as f32 * 0.2) * 1.5) as i32;
@@ -103,7 +96,6 @@ pub(super) fn scene(run: &Run, s: &Session, me: u32, a: u32, plan: &Plan) -> Img
     if a >= 14 {
         juice::confetti(&mut im, (0, 0, NATIVE_W, NATIVE_H), a, 9, 120);
     }
-    // The words the plan holds.
     for w in &plan.words {
         im.text(w.x, w.y, &w.text, w.ink);
     }
@@ -114,12 +106,10 @@ pub(super) fn scene(run: &Run, s: &Session, me: u32, a: u32, plan: &Plan) -> Img
             _ => {}
         }
     }
-    // The iris opening from the live finish's black.
     juice::iris(&mut im, (NATIVE_W / 2, 110), 1.0 - (a as f32 / OPEN as f32).clamp(0.0, 1.0), 'k');
     im
 }
 
-/// The live finish: the table as it stood, TIME called, the iris closing on it.
 pub(super) fn close(over: &mut Img, e: u32) {
     let k = ((e as f32 - (LIVE - 14) as f32) / 14.0).clamp(0.0, 1.0);
     if e < 6 {

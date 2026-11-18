@@ -167,7 +167,6 @@ fn graph_crop_code_mode_keeps_executed_data_when_outer_output_budget_fails() {
 
 #[test]
 fn graph_schema_is_flat_so_every_provider_sees_its_fields() {
-    // GLM on Z.ai sent `{}` for every call while the root was a bare `oneOf`.
     let params = GraphTool::default().def().params;
     assert!(params.get("oneOf").is_none());
     let props = params["properties"]
@@ -193,10 +192,6 @@ fn graph_calls_ignore_the_null_fields_a_flat_schema_invites() {
     assert!(tool.call(&point).is_ok());
 }
 
-/// Every tool property names its type. Kimi (Moonshot) rejects a schema whose
-/// property has none ("type is not defined") with HTTP 400 on hop 1, which
-/// failed two polyglot tasks outright when the graph tool's `op` and
-/// `spec.kind` were bare enums.
 #[test]
 fn every_default_tool_property_names_its_type() {
     fn walk(path: &str, schema: &Value, bad: &mut Vec<String>) {

@@ -1,4 +1,3 @@
-"""Reproducible sample calls. Local Qwen only; every request is logged."""
 from pathlib import Path
 import tempfile
 from backend import generate

@@ -4,7 +4,6 @@ fn fixtures() -> Vec<(String, Run)> {
     fixtures_of(4)
 }
 
-/// Every game, started with `seats` knights at it.
 fn fixtures_of(seats: u32) -> Vec<(String, Run)> {
     let mut out = Vec::new();
     for (name, make) in [
@@ -15,7 +14,6 @@ fn fixtures_of(seats: u32) -> Vec<(String, Run)> {
         ("Cinder", Run::cinder_for_test),
         ("Latch", Run::latch_for_test),
         ("Forest Road", Run::forest_road_for_test),
-        // The Round Table adventures: each its own fixture, its door's way in.
         ("Lanternward", Run::lanternward_for_test),
 
         ("Moonfall", Run::moonfall_for_test),
@@ -63,7 +61,6 @@ fn fixtures_of(seats: u32) -> Vec<(String, Run)> {
         out.push((format!("{kind:?}"), r));
     }
     for name in ["Wax Maze", "Belfry Shoot", "Powder Room", "Book Hop", "Keg Gantry", "Shaft", "Ore Cart", "Griffin", "Touge"] {
-        // The first seed (from 41 for a hall) whose floor has the room it needs.
         let mut r = if name == "Keg Gantry" {
             (0..400).map(|seed| Run::new(seed, 1, None)).find(|r| r.dungeon.rooms.iter().any(|s| s.kind == RoomKind::Ledge && s.cols == 48)).unwrap()
         } else {
@@ -182,8 +179,6 @@ fn every_game_tap_reset_return_and_last_cleanup(seats: u32) {
 }
 
 fn trace(r: &Run) -> Vec<u8> {
-    // Immutable floor tiles dominate a whole Run. Record every changing game
-    // and seat field instead, including rewards and the host hold counters.
     serde_json::to_vec(&(
         (&r.players, r.tick, r.score, &r.marks, &r.exits, &r.home.countryside.games),
         (&r.brasswake, &r.rafterwake, &r.pennon, &r.mossbell, &r.cinder, &r.latch, &r.forest_road),

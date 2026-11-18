@@ -6,7 +6,6 @@ use super::*;
 fn a_route_serves_from_its_model_familys_castle_never_a_machine() {
     let kimi = by_key("kimi").unwrap();
     assert_eq!(of_route("kimi", "kimi", Some("kimi-k3")), Some(kimi));
-    // A self-hosted model is a mode of `local`: its family's house.
     let qwen = by_key("qwen").unwrap();
     assert_eq!(
         of_route("local", "local", Some("Qwen3.6-35B-A3B")),
@@ -24,7 +23,6 @@ fn a_route_serves_from_its_model_familys_castle_never_a_machine() {
         of_route("sota", "openai", Some("gpt-6-astra")),
         by_key("astra")
     );
-    // A route with no family has no castle: the Keep's own knight serves.
     assert_eq!(of_route("practice", "practice", None), None);
     assert_eq!(of_route("local", "local", Some("my-finetune")), None);
     for name in ["turbo", "atlas", "spark", "apollo", "gpu-host"] {
@@ -37,8 +35,6 @@ fn a_route_serves_from_its_model_familys_castle_never_a_machine() {
     }
 }
 
-/// The Delve's intro with a house serving, as text, for review:
-/// `cargo test --bin angel print_delve_intro_with_houses -- --ignored --nocapture`.
 #[test]
 #[ignore]
 fn print_delve_intro_with_houses() {

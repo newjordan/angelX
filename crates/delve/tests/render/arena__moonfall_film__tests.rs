@@ -28,7 +28,6 @@ impl Reel {
         {
             return None;
         }
-        // `MF_GUIDES=1` shows the guide lines the effects ride (the debug layer), in films of their own.
         let name = if std::env::var_os("MF_GUIDES").is_some() { format!("{name}-guides") } else { name.to_string() };
         let dir = PathBuf::from(root).join("films").join(name);
         let _ = std::fs::remove_dir_all(&dir);
@@ -37,7 +36,6 @@ impl Reel {
     }
 
     pub(super) fn shot(&mut self, r: &Run, focus: u32) {
-        // As the real route lays it: the effects layer over the base.
         let (mut img, fx) = super::layers(r, Some(focus));
         img.stamp(&fx, 0, 0);
         image::RgbaImage::from_raw(img.w as u32, img.h as u32, img.rgba_bytes())
@@ -67,7 +65,6 @@ pub(super) fn s(r: &mut Run) -> &mut rules::Session {
     r.moonfall.as_mut().unwrap()
 }
 
-/// The clock at `hh:mm` of day `day` (the loop's calendar day, 1 to 3).
 pub(super) fn at_hour(r: &mut Run, day: u32, hh: u32, mm: u32) {
     let s = s(r);
     let h2 = ((day - 1) * 24 + if hh < 6 { hh + 18 } else { hh - 6 }) * 2 + mm / 30;
@@ -81,7 +78,6 @@ pub(super) fn put(r: &mut Run, id: u32, px: (i32, i32), face: u8) {
     k.face = face;
 }
 
-/// A knight walking from `a` to `b` over `n` ticks, `t` in.
 pub(super) fn walk(r: &mut Run, id: u32, a: (i32, i32), b: (i32, i32), t: u32, n: u32) {
     let f = (t.min(n) as f32) / n as f32;
     let (x, y) = (a.0 as f32 + (b.0 - a.0) as f32 * f, a.1 as f32 + (b.1 - a.1) as f32 * f);
@@ -93,8 +89,6 @@ pub(super) fn walk(r: &mut Run, id: u32, a: (i32, i32), b: (i32, i32), t: u32, n
     k.stride = if t < n { t + 1 } else { 0 };
 }
 
-/// One tick, as the rules would leave it in play: the clock runs, the
-/// cards and the notes count down.
 pub(super) fn tick(r: &mut Run) {
     r.tick += 1;
     let s = s(r);
@@ -128,7 +122,6 @@ fn film_cast() {
     }
 }
 
-/// Two knights standing about the plaza, the first the viewer.
 fn plaza(seats: u32) -> Run {
     let mut r = table(seats);
     put(&mut r, 1, (296, 262), 0);
@@ -164,7 +157,6 @@ fn film_rewind(fell: bool) {
         s(&mut r).phase = Phase::Rewind { t, from, fell };
         reel.shot(&r, 1);
     }
-    // The town lands on its first dawn, a loop older.
     let ss = s(&mut r);
     ss.phase = Phase::Play;
     ss.clock = 0;
@@ -176,7 +168,6 @@ fn film_rewind(fell: bool) {
     }
 }
 
-/// The bell's wait: time runs on to `to` (hours, at day `day`), then the town plays.
 fn film_skip(name: &str, from_h: (u32, u32, u32), to_h: (u32, u32, u32), after: u32) {
     let Some(mut reel) = Reel::new(name) else { return };
     let mut r = plaza(2);
@@ -205,7 +196,6 @@ fn film_skip(name: &str, from_h: (u32, u32, u32), to_h: (u32, u32, u32), after: 
     }
 }
 
-/// The moon on three nights, the knight pacing so its eyes follow.
 fn film_moon() {
     let Some(mut reel) = Reel::new("moon") else { return };
     let mut r = plaza(2);

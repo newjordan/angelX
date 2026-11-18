@@ -345,8 +345,6 @@ fn a_torch_pool_counts_as_the_floor_it_lights() {
     assert_eq!(expected, raster::composition_mix(&floor, &view, 96, 72));
 }
 
-/// Render actual braille cells using the same dot/cell proportions as the
-/// retained ride review fixture. This reveals what survives the mini pane.
 fn terminal_preview(cells: &angel_delve::render::braille::ColoredBrailleImage) -> image::RgbaImage {
     let mut output = image::RgbaImage::from_pixel(
         cells.width as u32 * 8,
@@ -387,8 +385,6 @@ fn write_expedition_review_sequence() {
     let directory = std::path::PathBuf::from(directory);
     std::fs::create_dir_all(&directory).unwrap();
     let mut world = expedition();
-    // Labelled event fixture: travel, a real call-in-flight shape, then a
-    // different tool. There are no invented success/fitness receipts.
     for frame in 0..48 {
         if frame == 22 {
             world.note_tool_call_event(

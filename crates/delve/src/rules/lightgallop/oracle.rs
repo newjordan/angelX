@@ -36,7 +36,6 @@ pub use bot::{Route, Skill};
 pub use rider::Numbers;
 pub use session::Session;
 
-/// Knights who can ride, one plain hero for each id asked for.
 pub fn heroes(ids: &Value) -> BTreeMap<u32, Hero> {
     ids.as_array()
         .into_iter()
@@ -46,7 +45,6 @@ pub fn heroes(ids: &Value) -> BTreeMap<u32, Hero> {
         .collect()
 }
 
-/// The five numbers, as the ask carries them.
 pub fn numbers(ask: &Value) -> Numbers {
     let n = ask.get("numbers");
     let get = |name: &str, base: i32| n.and_then(|n| n.get(name)).and_then(Value::as_i64).map_or(base, |v| v as i32);
@@ -81,8 +79,6 @@ fn take<T: serde::de::DeserializeOwned>(ask: &Value, name: &str) -> Result<T, St
     serde_json::from_value(ask.get(name).cloned().unwrap_or(Value::Null)).map_err(|e| format!("{name}: {e}"))
 }
 
-/// The module's asks and answers, served by the rules as they were. The
-/// session crosses with its spark bits as halves, as it does the shipped one.
 pub fn answer(_id: &str, ask: &Value) -> Result<Value, String> {
     let mut ask = ask.clone();
     if let Some(session) = ask.get_mut("session") {

@@ -1,15 +1,4 @@
 #!/usr/bin/env bash
-# Put a sound in for one of the Delve's effects.
-#
-#     scripts/delve/sfx_replace.sh <name> <source> [start-seconds] [end-seconds]
-#
-# Trims the source to [start, end] (the whole file when left out), fades in
-# 5 ms and out 60 ms, and writes it as the effects are kept: mono 44.1 kHz,
-# 96 kbit/s mp3, its peak at -2 dB like door_open's (PEAK=<dB> for a sound the
-# set keeps quieter, such as kill at -7.7). The result goes to
-# cockpit/assets/dungeon/sfx/<name>.mp3, which the mixer reads every time it
-# plays a sound, so a running game hears it on the next one. The file it
-# replaces is copied to $TMPDIR/sfx-replaced/ first.
 set -euo pipefail
 name=${1:?name}; src=${2:?source}; start=${3:-}; end=${4:-}
 root=$(cd "$(dirname "$0")/../.." && pwd)

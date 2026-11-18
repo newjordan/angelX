@@ -1,6 +1,3 @@
-# crates/delve/src/rules/latch.rs — Latch Duel: read the hook, catch the closing beat, buckle the bellows.
-# Beat is "Rest" | "Tell" | "Clean" | "Miss" | "Defeat" (no rename). height and guard are i8 (-1 or 1).
-
 def latch.TELL() -> U32:
   36
 
@@ -22,47 +19,39 @@ def latch.LENGTH() -> U32:
 def latch.GOLD_PER_SEAT() -> U32:
   10
 
-# BAY = (31.0, 18.0), raw arena units
 def latch.BAY.x() -> F32:
   31.0
 
 def latch.BAY.y() -> F32:
   18.0
 
-# pub fn timing(ticks) -> "+{}MS": (ticks * 1000 + HZ / 2) / HZ
 def latch.timing(+ticks: U32) -> String:
   "+" ++ U32.show(U32.div((ticks * 1000 + U32.div(rules.HZ(), 2) : U32), rules.HZ())) ++ "MS"
 
-# Duel::new(seed)
 def latch.Duel.new(+seed: J.Val) -> J.Val:
   d0: J.Val = J.set(gc.si(gc.si(J.obj(), "height", RS.i_neg(1)), "guard", RS.i_neg(1)), "seed", seed)
   d1: J.Val = gc.su(gc.su(gc.ss(gc.su(d0, "attack", 0), "beat", "Rest"), "ticks", latch.REST()), "windup", latch.TELL())
   d2: J.Val = gc.su(gc.su(gc.su(gc.su(gc.su(d1, "freeze", 0), "counters", 0), "misses", 0), "error", 0), "chain", 0)
   gc.su(gc.sb(gc.sb(d2, "fire_key", False{}), "attempted", False{}), "miss_chain", 0)
 
-# fn next_height(&self) -> i8: each two-attack phrase has both heights, its order seeded.
 def latch.Duel.next_height(+d: J.Val) -> U32:
   phrase: W.W = W.of_u32(U32.div(gc.u(d, "attack"), 2))
   bit: U32 = U32.and(W.lo32(W.xor(W.rotl(W.of_j(J.get(d, "seed")), W.rem_u32(phrase, 64)), phrase)), 1)
   gc.pu(U32.is_zero(U32.xor(U32.mod(gc.u(d, "attack"), 2), bit)), RS.i_neg(1), 1)
 
-# fn fail(&mut self, tune) -> Some("hit")
 def latch.Duel.fail(+d: J.Val, +tune: J.Val) -> J.Val & String:
   d1: J.Val = gc.su(d, "misses", (gc.u(d, "misses") + 1 : U32))
   d2: J.Val = gc.su(gc.su(d1, "miss_chain", gc.u(d1, "chain")), "chain", 0)
   (gc.su(gc.ss(d2, "beat", "Miss"), "ticks", gc.u(tune, "latch_recover")), "hit")
 
-# fn clean(&mut self, remaining, tune) -> Some("clang")
 def latch.Duel.clean(+d: J.Val, +remaining: U32, +tune: J.Val) -> J.Val & String:
   d1: J.Val = gc.su(gc.sb(d, "attempted", True{}), "counters", (gc.u(d, "counters") + 1 : U32))
   d2: J.Val = gc.su(gc.su(d1, "chain", (gc.u(d1, "chain") + 1 : U32)), "error", (gc.u(d1, "error") + (remaining - 1 : U32) : U32))
   (gc.su(gc.su(gc.ss(d2, "beat", "Clean"), "ticks", gc.u(tune, "latch_recover")), "freeze", gc.u(tune, "latch_stop")), "clang")
 
-# pub fn step(&mut self, input, tune)
 def latch.Duel.step(+d: J.Val, +input: J.Val, +tune: J.Val) -> J.Val & String:
   latch.Duel.step_at(d, input, tune, None{}, W.zero())
 
-# pub fn step_at(&mut self, input, tune, now: Option<u64>, allowance: u64) -> Option<&'static str> ("" for none)
 def latch.Duel.step_at(+d: J.Val, +input0: J.Val, +tune: J.Val, +now: Maybe<&2, W.W>, +allowance: W.W) -> J.Val & String:
   input: J.Val = gc.ifj(rules.Input.valid(input0), _ => input0, _ => rules.Input.default())
   counter: Bool = Bool.and(gc.b(input, "fire"), Bool.not(gc.b(d, "fire_key")))
@@ -73,7 +62,6 @@ def latch.Duel.step_at(+d: J.Val, +input0: J.Val, +tune: J.Val, +now: Maybe<&2, 
   else:
     latch.Duel.tick(d2, tune, now, counter)
 
-# A stamped press is never rejudged at arrival time (counter = false after it).
 def latch.Duel.stamped(+d: J.Val, +input: J.Val, +tune: J.Val, +now: Maybe<&2, W.W>, +allowance: W.W) -> J.Val & String:
   match now as Maybe<&2, W.W>:
     case None{}:
@@ -103,7 +91,6 @@ def latch.Duel.judged(+d: J.Val, +tune: J.Val, +now: Maybe<&2, W.W>, +remaining:
     else:
       latch.Duel.tick(d1, tune, now, False{})
 
-# The beat's own clock.
 def latch.Duel.tick(+d: J.Val, +tune: J.Val, +now: Maybe<&2, W.W>, +counter: Bool) -> J.Val & String:
   if U32.is_gt(gc.u(d, "freeze"), 0):
     (gc.su(d, "freeze", (gc.u(d, "freeze") - 1 : U32)), "")
@@ -145,7 +132,6 @@ def latch.Duel.rest(+d: J.Val, +tune: J.Val, +now: Maybe<&2, W.W>) -> J.Val & St
       else:
         (gc.su(gc.ss(d, "beat", "Rest"), "ticks", gc.ssub(gc.u(tune, "latch_rest"), (gc.u(d, "counters") * 3 : U32))), "")
 
-# tell_at = now.map(|tick| tick + 1), left out when None.
 def latch.Duel.tell_at(+d: J.Val, +now: Maybe<&2, W.W>) -> J.Val:
   match now as Maybe<&2, W.W>:
     case None{}:
@@ -153,7 +139,6 @@ def latch.Duel.tell_at(+d: J.Val, +now: Maybe<&2, W.W>) -> J.Val:
     case Some{n: W.W}:
       J.set(d, "tell_at", W.to_j(W.add_u32(n, 1)))
 
-# pub fn late_bot_input(&self, recover) / bot_input(&self, early): the bots' keys.
 def latch.Duel.late_bot_input(+d: J.Val, +recover: U32) -> J.Val:
   fire: Bool = Bool.and(String.eq(gc.s(d, "beat"), "Miss"), Bool.and(U32.is_eq(gc.u(d, "ticks"), recover), Bool.not(gc.b(d, "fire_key"))))
   gc.sb(gc.si(rules.Input.default(), "move_y", gc.u(d, "height")), "fire", fire)
@@ -162,7 +147,6 @@ def latch.Duel.bot_input(+d: J.Val, +early: U32) -> J.Val:
   fire: Bool = Bool.and(String.eq(gc.s(d, "beat"), "Tell"), Bool.and(U32.is_le(gc.u(d, "ticks"), gc.umax(early, 1)), Bool.not(gc.b(d, "fire_key"))))
   gc.sb(gc.si(rules.Input.default(), "move_y", gc.u(d, "height")), "fire", fire)
 
-# Session::new(seats, seed)
 def latch.Session.new(+seats: List<&2, U32>, +seed: J.Val) -> J.Val:
   s0: J.Val = J.set(J.set(J.obj(), "duels", latch.duels(seats, seed)), "seed", seed)
   s1: J.Val = gc.su(J.set(s0, "order", J.JA{Nil{}}), "left", latch.LENGTH())
@@ -175,14 +159,12 @@ def latch.duels(+seats: List<&2, U32>, +seed: J.Val) -> J.Val:
     case Con{id: U32, t: List<&2, U32>}:
       J.set(latch.duels(t, seed), gc.key(id), latch.Duel.new(seed))
 
-# The ordering key of knight `id`: counters (more first), misses, error.
 def latch.score.less(+a: J.Val, +b: J.Val) -> Bool:
   Bool.or(U32.is_gt(gc.u(a, "counters"), gc.u(b, "counters")), Bool.and(U32.is_eq(gc.u(a, "counters"), gc.u(b, "counters")), Bool.or(U32.is_lt(gc.u(a, "misses"), gc.u(b, "misses")), Bool.and(U32.is_eq(gc.u(a, "misses"), gc.u(b, "misses")), U32.is_lt(gc.u(a, "error"), gc.u(b, "error"))))))
 
 def latch.score.eq(+a: J.Val, +b: J.Val) -> Bool:
   Bool.and(U32.is_eq(gc.u(a, "counters"), gc.u(b, "counters")), Bool.and(U32.is_eq(gc.u(a, "misses"), gc.u(b, "misses")), U32.is_eq(gc.u(a, "error"), gc.u(b, "error"))))
 
-# Session::place(id): 1 + how many duels score strictly better.
 def latch.Session.place(+s: J.Val, +id: U32) -> U32:
   (1 + latch.count_better(gc.vals(J.get(s, "duels")), gc.seat(J.get(s, "duels"), id)) : U32)
 
@@ -193,7 +175,6 @@ def latch.count_better(+ds: List<&2, J.Val>, +me: J.Val) -> U32:
     case Con{d: J.Val, t: List<&2, J.Val>}:
       (gc.pu(latch.score.less(d, me), 1, 0) + latch.count_better(t, me) : U32)
 
-# Session::payout(id)
 def latch.Session.payout(+s: J.Val, +id: U32) -> U32:
   order: List<&2, U32> = gc.us(J.get(s, "order"))
   match order as List<&2, U32>:
@@ -211,7 +192,6 @@ def latch.payout.go(+s: J.Val, +id: U32, +top: J.Val) -> U32:
     total: U32 = (latch.GOLD_PER_SEAT() * gc.len(gc.vals(J.get(s, "duels"))) : U32)
     (U32.div(total, tied) + gc.pu(U32.is_lt(before, U32.mod(total, tied)), 1, 0) : U32)
 
-# Duels with the top score and an id below `below`.
 def latch.count_equal(+ds: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +top: J.Val, +below: U32, +n: U32) -> U32:
   match ds as List<&2, Sigma<&2, &2, String, _ => J.Val>>:
     case Nil{}:
@@ -220,11 +200,9 @@ def latch.count_equal(+ds: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +top: J.
       hit: Bool = Bool.and(U32.is_lt(gc.id(k), below), latch.score.eq(d, top))
       latch.count_equal(t, top, below, gc.pu(hit, (n + 1 : U32), n))
 
-# fn latch_showing(&self)
 def latch.Run.latch_showing(+run: J.Val) -> Bool:
   Bool.and(String.eq(J.str(J.get(rules.Run.room(run), "kind")), "smithy"), Bool.not(J.is_null(J.get(run, "latch"))))
 
-# Is knight `id` standing at the bay (alive, awake, here, in the room, within 3.0)?
 def latch.at_bay(+run: J.Val, +h: J.Val, +id: U32) -> Bool:
   Bool.and(U32.is_gt(gc.u(h, "hp"), 0), Bool.and(Bool.not(gc.b(h, "stone")), Bool.and(Bool.not(gc.b(h, "away")), Bool.and(Bool.not(gc.has_seat(J.get(J.get(run, "exits"), "outside"), id)), F32.is_lt(RS.f_hypot((gc.f(h, "x") - latch.BAY.x() : F32), (gc.f(h, "y") - latch.BAY.y() : F32)), 3.0)))))
 
@@ -238,7 +216,6 @@ def latch.pressed(+run: J.Val, +inputs: J.Val, +ids: List<&2, U32>) -> Bool:
       here: Bool = Bool.and(rules.Input.valid(i), Bool.and(gc.b(i, "interact"), Bool.and(Bool.not(J.is_null(h)), latch.at_bay(run, h, id))))
       Bool.or(here, latch.pressed(run, inputs, t))
 
-# fn tick_latch(&mut self, inputs)
 def latch.Run.tick_latch(+run: J.Val, +inputs: J.Val) -> J.Val:
   if Bool.not(String.eq(J.str(J.get(rules.Run.room(run), "kind")), "smithy")):
     J.set(run, "latch", J.JNull{})
@@ -258,7 +235,6 @@ def latch.tick.session(+run: J.Val, +inputs: J.Val, +s0: J.Val) -> J.Val:
   else:
     latch.tick.live(run, inputs, s)
 
-# duels.retain(|id, _| players.contains_key(id) && !outside.contains_key(id))
 def latch.keep_duels(+run: J.Val, +duels: J.Val, +ids: List<&2, U32>) -> J.Val:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -293,7 +269,6 @@ def latch.any_interact(+duels: J.Val, +inputs: J.Val, +ids: List<&2, U32>) -> Bo
       i: J.Val = gc.seat(inputs, id)
       Bool.or(Bool.and(gc.has_seat(duels, id), Bool.and(rules.Input.valid(i), gc.b(i, "interact"))), latch.any_interact(duels, inputs, t))
 
-# for (id, d) in duels: the seat steps, unless the match is finishing.
 def latch.tick.duels(+run: J.Val, +inputs: J.Val, +s: J.Val, +ids: List<&2, U32>, +finishing: Bool) -> J.Val:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -319,7 +294,6 @@ def latch.tick.step(+run: J.Val, +inputs: J.Val, +s: J.Val, +t: List<&2, U32>, +
   run2: J.Val = gc.ifj(String.is_empty(sound), _ => run, _ => gc.sound(run, sound))
   latch.tick.duels(run2, inputs, s2, t, finishing)
 
-# After the seats: the finish clock, the order, the purse.
 def latch.tick.end(+run: J.Val, +s: J.Val) -> J.Val:
   s1: J.Val = gc.ifj(J.is_null(J.get(s, "finish")), _ => s, _ => gc.su(s, "finish", gc.ssub(gc.u(s, "finish"), 1)))
   s2: J.Val = latch.tick.finish_set(run, s1)
@@ -341,7 +315,6 @@ def latch.tick.finish_set(+run: J.Val, +s: J.Val) -> J.Val:
   else:
     s
 
-# Sort the duels' ids by (counters desc, misses, error, id); insertion sort.
 def latch.sort_ids(+ids: List<&2, U32>, +duels: J.Val) -> List<&2, U32>:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -396,7 +369,6 @@ def latch.pay_players(+players: J.Val, +s: J.Val, +ids: List<&2, U32>) -> J.Val:
       else:
         latch.pay_players(players, s, t)
 
-# fn start_latch(&mut self)
 def latch.Run.start_latch(+run: J.Val) -> J.Val:
   r: W.W & W.W = loot.Rng.next(W.of_j(J.get(run, "rng")))
   (rng: W.W, seed: W.W) = r

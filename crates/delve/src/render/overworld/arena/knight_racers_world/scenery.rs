@@ -20,15 +20,19 @@ pub fn beside(g: &mut Soup, c: &Ctx) {
         Kind::Spires => spires(g, c),
         Kind::Stacks => stacks(g, c),
         Kind::Anvil => anvil(g, c),
+        Kind::PitLane => super::pit::lane(g, c),
+        Kind::ForgeArches => super::setpieces::forge_arches(g, c),
+        Kind::Obelisks => super::setpieces::obelisks(g, c),
+        Kind::Banners => super::setpieces::banners(g, c),
+        Kind::Ribs => super::setpieces::ribs(g, c),
+        Kind::PoleLanterns => super::setpieces::pole_lanterns(g, c),
         _ => {}
     }
 }
 
-/// The sides a piece stands on: its own, or both when it spans (side 0).
-fn sides(c: &Ctx) -> Vec<f32> { if c.p.side == 0. { vec![-1., 1.] } else { vec![c.p.side.signum()] } }
+pub(super) fn sides(c: &Ctx) -> Vec<f32> { if c.p.side == 0. { vec![-1., 1.] } else { vec![c.p.side.signum()] } }
 
-/// How far to sink a footing at `fr` so it reaches the land, within reason.
-fn sink(c: &Ctx, p: V3, road: f32) -> f32 { (road - c.ground(p)).clamp(0.5, 24.) + 1.0 }
+pub(super) fn sink(c: &Ctx, p: V3, road: f32) -> f32 { (road - c.ground(p)).clamp(0.5, 24.) + 1.0 }
 
 fn grandstand(g: &mut Soup, c: &Ctx) {
     let seg = 6.0;
@@ -47,7 +51,6 @@ fn grandstand(g: &mut Soup, c: &Ctx) {
                 let (la, lb) = (l0 + sd * 2.2 * t as f32, l0 + sd * 2.2 * (t as f32 + 1.));
                 let top = 1.4 * (t as f32 + 1.);
                 g.bx_open(&fr, (-seg * 0.5 - 0.05, seg * 0.5 + 0.05), (la.min(lb), la.max(lb)), (-down, top), if t % 2 == 0 { c.st.timber } else { c.st.masonry });
-                // The crowd: upright figures along the tier, facing the road.
                 let per = 5;
                 for i in 0..per {
                     let a = -seg * 0.5 + (i as f32 + 0.5) * seg / per as f32;
@@ -58,7 +61,6 @@ fn grandstand(g: &mut Soup, c: &Ctx) {
                     g.quad(fr.pt(a - 0.38, lf, top), fr.pt(a + 0.38, lf, top), fr.pt(a + 0.38, lf, top + hh), fr.pt(a - 0.38, lf, top + hh), col);
                 }
             }
-            // Roof on posts over the top tier, and a banner on the front post.
             let (lt, ltop) = (l0 + sd * 2.2 * tiers as f32, 1.4 * tiers as f32);
             if k % 2 == 0 {
                 for l in [l0 + sd * 1.0, lt - sd * 0.4] {
@@ -86,7 +88,6 @@ fn foundry(g: &mut Soup, c: &Ctx) {
         let (la, lb) = (l0.min(l0 + sd * depth), l0.max(l0 + sd * depth));
         g.bx_open(&fr, (-hl, hl), (la, lb), (-down, 12.), c.st.plate_b);
         g.slab(&fr, (-hl - 1., hl + 1.), (la - 1., lb + 1.), (12.6, 14.), 0.5, c.st.plate);
-        // Furnace mouths and a row of lit windows on the road face.
         let face = l0;
         let n = ((hl * 2.) / 9.).max(2.) as i32;
         for i in 0..n {
@@ -94,7 +95,6 @@ fn foundry(g: &mut Soup, c: &Ctx) {
             g.quad(fr.pt(a - 2.0, face, 0.2), fr.pt(a + 2.0, face, 0.2), fr.pt(a + 2.0, face, 4.6), fr.pt(a - 2.0, face, 4.6), LAVA);
             g.quad(fr.pt(a - 2.4, face, 0.1), fr.pt(a - 2.0, face, 0.1), fr.pt(a - 2.0, face, 5.0), fr.pt(a - 2.4, face, 5.0), c.st.plate);
             g.quad(fr.pt(a - 1.2, face, 8.0), fr.pt(a + 1.2, face, 8.0), fr.pt(a + 1.2, face, 10.2), fr.pt(a - 1.2, face, 10.2), c.st.glow);
-            // A chimney behind each other furnace.
             if i % 2 == 0 {
                 let base = fr.pt(a, l0 + sd * 10., 12.);
                 g.column(base, 20. + 4. * c.rnd(i, 0), 2.2, 1.5, 8, c.st.plate_b);
@@ -102,11 +102,9 @@ fn foundry(g: &mut Soup, c: &Ctx) {
                 g.spike(v3(base.x, base.y, base.z + 20.8 + 4. * c.rnd(i, 0)), v3(base.x, base.y, base.z + 25. + 4. * c.rnd(i, 0)), 1.3, LAVA_HOT);
             }
         }
-        // Pipes along the face.
         for z in [6.6, 7.2] {
             g.bx(&fr, (-hl, hl), (face - sd * 0.9 - 0.25, face - sd * 0.9 + 0.25), (z, z + 0.5), c.st.plate);
         }
-        // A trough of molten metal along the foot, toward the road.
         g.quad(fr.pt(-hl, face - sd * 1.6, 0.06), fr.pt(hl, face - sd * 1.6, 0.06), fr.pt(hl, face - sd * 3.4, 0.06), fr.pt(-hl, face - sd * 3.4, 0.06), LAVA);
     }
 }
@@ -118,7 +116,6 @@ fn fall(g: &mut Soup, c: &Ctx, sheet: u8, foam: u8) {
         let hl = c.len() * 0.5;
         let face = sd * (row.half(sd) + 9.0);
         let top = 34.0;
-        // The cliff it falls from, in strata.
         let foot = fr.pt(0., face, 0.);
         let down = sink(c, foot, row.h);
         let n = 8;
@@ -127,7 +124,6 @@ fn fall(g: &mut Soup, c: &Ctx, sheet: u8, foam: u8) {
             let (t0, t1) = (top * (0.8 + 0.4 * c.rnd(i, 3)), top * (0.8 + 0.4 * c.rnd(i + 1, 3)));
             g.wall(fr.pt(a0, face, -down), fr.pt(a1, face, -down), fr.pt(a1, face, t1), fr.pt(a0, face, t0), c.st.rock);
         }
-        // Three sheets and a pool at the foot.
         for (k, a) in [-0.45f32, 0.0, 0.5].iter().enumerate() {
             let a = a * hl;
             let w = 3.0 + 1.5 * c.rnd(k as i32, 9);
@@ -148,7 +144,6 @@ fn statues(g: &mut Soup, c: &Ctx) {
             let fr = Fr::on(&row, 0.);
             let l = sd * (row.half(sd) + 7.0);
             let down = sink(c, fr.pt(0., l, 0.), row.h);
-            // Pedestal, legs, tabard, arms, helm, sword and shield: a knight twelve metres tall.
             g.bx_open(&fr, (-2.2, 2.2), (l - 2.2, l + 2.2), (-down, 2.6), c.st.masonry);
             g.bx(&fr, (-2.5, 2.5), (l - 2.5, l + 2.5), (2.6, 3.2), c.st.masonry);
             for dl in [-0.9, 0.9] { g.bx(&fr, (-0.7, 0.7), (l + dl - 0.55, l + dl + 0.55), (3.2, 7.4), c.st.rail); }
@@ -242,8 +237,6 @@ fn spires(g: &mut Soup, c: &Ctx) {
     }
 }
 
-/// Crystals standing in a vault: faceted prisms to the roof, in clusters along both walls, cyan
-/// and violet, with the pools of their light on the road. Seen from far down the dark.
 pub fn crystals(g: &mut Soup, c: &Ctx) {
     let n = (c.len() / 5.) as i32;
     for k in 0..n {
@@ -261,14 +254,12 @@ pub fn crystals(g: &mut Soup, c: &Ctx) {
             let violet = c.rnd(k, 15 + (sd as i32 + 1)) < 0.42;
             let (fa, fb, tip) = if violet { (VIOLET_DIM, VIOLET_FACET, VIOLET_GLOW) } else { (CYAN_DIM, CYAN_FACET, CYAN_GLOW) };
             super::trackside::facet(g, base, h + r * 3., r * 1.4, v3(a.cos() * 0.9, a.sin() * 0.9, 0.), fa, fb, tip);
-            // Its light on the road, by the foot of the wall.
             if k % 2 == 0 {
                 let pc = fr.pt(0., sd * (row.half(sd) - 1.6), 0.05);
                 let (lv, fv) = (fr.l * (2.4 * sd), fr.f * 2.6);
                 g.quad(pc - lv - fv, pc + lv - fv, pc + lv + fv, pc - lv + fv, if violet { VIOLET_POOL } else { CYAN_POOL });
             }
         }
-        // Hanging from the roof.
         if k % 2 == 0 {
             let l = (c.rnd(k, 20) - 0.5) * row.wl.min(row.wr) * 1.6;
             let top = fr.pt(0., l, 14.);
@@ -278,8 +269,6 @@ pub fn crystals(g: &mut Soup, c: &Ctx) {
 }
 const BONE_MAT: u8 = crate::render::world3d::mesh::mat::BONE;
 
-/// Where a smelter's stack stands: along a stretch, one every sixty metres, alternate sides and
-/// distances, far enough off that the whole of it is in the lens. Also read by the sparks.
 pub fn stack_at(c: &Ctx, k: i32) -> Option<(V3, f32)> {
     let s = c.p.s0 + (k as f32 + 0.5) * 60.;
     if s > c.p.s1 || !c.has(s) { return None; }
@@ -291,14 +280,11 @@ pub fn stack_at(c: &Ctx, k: i32) -> Option<(V3, f32)> {
     Some((v3(p.x, p.y, c.ground(p).max(row.h - 22.)), 46. + 40. * c.rnd(k, 42)))
 }
 
-/// A smelter: a brick house with glowing windows and a tall stack that burns at the crown, so a
-/// stretch of road is known from far off by the fires on its skyline.
 fn stacks(g: &mut Soup, c: &Ctx) {
     let n = (c.len() / 60.).ceil() as i32;
     for k in 0..n {
         let Some((base, h)) = stack_at(c, k) else { continue };
         let b = v3(base.x, base.y, base.z - 3.);
-        // The house, its roof and its windows (on all four faces: it is seen from the road at any angle).
         g.cuboid(b + v3(-9., -9., 0.), b + v3(9., 9., 15.), c.st.masonry);
         g.cuboid(b + v3(-10., -10., 15.), b + v3(10., 10., 16.2), c.st.plate_b);
         for (i, z) in [4.0f32, 9.0].iter().enumerate() {
@@ -312,7 +298,6 @@ fn stacks(g: &mut Soup, c: &Ctx) {
                 }
             }
         }
-        // The stack: a tapering column on the house, a hot band at the crown and a flame.
         let top = b + v3(0., 0., 16.2);
         g.column(top, h, 3.4, 2.3, 8, c.st.slate);
         g.column(top + v3(0., 0., h - 3.), 1.2, 2.6, 2.6, 8, SEAM);
@@ -322,8 +307,6 @@ fn stacks(g: &mut Soup, c: &Ctx) {
     }
 }
 
-/// The Hammer Turn's monument: an anvil the size of a hall on the outside of the bend, a hammer
-/// as tall as a tower laid across it, the metal between them white hot.
 fn anvil(g: &mut Soup, c: &Ctx) {
     let mid = c.mid();
     let row = c.row(mid);
@@ -332,15 +315,12 @@ fn anvil(g: &mut Soup, c: &Ctx) {
     let p = fr.pt(0., l, 0.);
     let z = c.ground(v3(p.x, p.y, 0.)).max(row.h - 12.) - 4.;
     let o = v3(p.x, p.y, z);
-    // Foot, waist, face and horn.
     g.cuboid(o + v3(-9., -6., 0.), o + v3(9., 6., 7.), c.st.plate_b);
     g.cuboid(o + v3(-5., -3.6, 7.), o + v3(5., 3.6, 14.), c.st.plate);
     g.cuboid(o + v3(-14., -5.2, 14.), o + v3(14., 5.2, 20.), c.st.plate_b);
     g.spike(o + v3(14., 0., 17.), o + v3(30., 0., 17.), 3.2, c.st.plate);
-    // The billet on the face, and the heat round it.
     g.cuboid(o + v3(-6., -3., 20.), o + v3(6., 3., 21.4), LAVA_BRIGHT);
     g.cuboid(o + v3(-14.2, -5.4, 19.), o + v3(14.2, 5.4, 19.4), SEAM);
-    // The hammer, raised: a haft leaning up and away, a head of iron with a hot rim.
     let haft_top = o + v3(-12., 0., 62.);
     let haft_foot = o + v3(-3., 0., 21.4);
     let n = 6;

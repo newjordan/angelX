@@ -7,8 +7,6 @@ use super::*;
 use crate::rules::Run;
 use crate::world3d::room::{self, Mode};
 
-/// A run on floor `depth` with a ring of knight 1's shots in flight, and
-/// one monster's.
 fn shots_at(depth: u32) -> Run {
     let mut run = Run::new(9, 1, Some("Friend"));
     while run.dungeon.depth < depth {

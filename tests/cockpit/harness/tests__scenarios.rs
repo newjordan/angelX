@@ -7,8 +7,6 @@
 use super::*;
 use crate::agent::harness::book::v_verification::run_task_accept;
 
-// --- realistic-scenario sweep (streak coverage) --------------------------
-
 #[test]
 fn task_accept_gate_requires_red_then_green_and_rejects_zero_tests() {
     let root = scratch("task_accept");
@@ -20,9 +18,6 @@ fn task_accept_gate_requires_red_then_green_and_rejects_zero_tests() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// One green acceptance run is not proof: the gate repeats a passing command
-/// and reports a later failure as flaky, with that run's output, so a solution
-/// that passes by luck (polyglot-v1 cpp-robot-name) is not accepted.
 #[test]
 fn task_accept_gate_repeats_a_pass_and_names_a_flaky_one() {
     let _env = crate::tests::env_lock();
@@ -38,7 +33,6 @@ fn task_accept_gate_repeats_a_pass_and_names_a_flaky_one() {
         "{stable:?}"
     );
 
-    // Passes once, then fails every later run: the second run exposes it.
     let flaky_cmd = "if [ -f seen ]; then echo 'REQUIRE( names.count(name) == 0 ) failed'; exit 1; fi; touch seen";
     let flaky = run_task_accept(flaky_cmd, &root);
     assert!(!flaky.passed, "{flaky:?}");
@@ -54,7 +48,6 @@ fn task_accept_gate_repeats_a_pass_and_names_a_flaky_one() {
         "{flaky:?}"
     );
 
-    // One run only when repeats are turned down.
     std::fs::remove_file(root.join("seen")).unwrap();
     let _once = crate::tests::TestEnvGuard::set("ANGEL_TASK_ACCEPT_REPEATS", "1");
     let single = run_task_accept(flaky_cmd, &root);
@@ -63,7 +56,6 @@ fn task_accept_gate_repeats_a_pass_and_names_a_flaky_one() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// Scenario: path traversal out of the workspace is refused (confinement).
 #[test]
 fn scenario_safe_path_rejects_escape() {
     let root = scratch("esc");
@@ -76,12 +68,8 @@ fn scenario_safe_path_rejects_escape() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// Models commonly echo the absolute workspace path printed by shell tools.
-/// Accept that spelling without weakening the workspace boundary or charging a
-/// retry hop merely to remove the root prefix.
 #[test]
 fn scenario_file_tools_accept_absolute_paths_only_inside_workspace() {
-    // Exact-byte read contract; hashline anchors are on by default.
     let _env = crate::tests::env_lock();
     let _anchors = crate::tests::TestEnvGuard::set("ANGEL_HASHLINE_ANCHORS", "0");
     let root = scratch("absolute_in_workspace");
@@ -139,9 +127,6 @@ fn scenario_file_tools_accept_absolute_paths_only_inside_workspace() {
     let _ = std::fs::remove_dir_all(outside);
 }
 
-/// Scenario: lexical confinement is not enough when an in-workspace symlink
-/// points elsewhere. Existing reads and not-yet-created writes must both be
-/// checked through the symlink's canonical target.
 #[test]
 fn scenario_safe_path_rejects_symlink_escape_for_reads_and_new_writes() {
     use std::os::unix::fs::symlink;
@@ -167,8 +152,6 @@ fn scenario_safe_path_rejects_symlink_escape_for_reads_and_new_writes() {
     );
     assert!(!outside.join("new/deep.txt").exists());
 
-    // A symlink that remains inside the workspace is allowed, but the returned
-    // path bypasses the original symlink and names its checked canonical target.
     let real = root.join("real");
     std::fs::create_dir_all(&real).unwrap();
     symlink(&real, root.join("inside")).unwrap();
@@ -182,7 +165,6 @@ fn scenario_safe_path_rejects_symlink_escape_for_reads_and_new_writes() {
         "linked"
     );
 
-    // A missing nested target under a real in-workspace directory remains valid.
     writer
         .call(&serde_json::json!({"path":"safe/new/deep.txt","content":"yes"}))
         .unwrap();
@@ -195,8 +177,6 @@ fn scenario_safe_path_rejects_symlink_escape_for_reads_and_new_writes() {
     let _ = std::fs::remove_dir_all(&outside);
 }
 
-/// A canonicalized pathname is not a security boundary: its parent can be
-/// replaced after validation. File tools must confine the actual open syscall.
 #[cfg(target_os = "linux")]
 #[test]
 fn scenario_confined_file_ops_reject_post_validation_parent_swap() {
@@ -208,7 +188,6 @@ fn scenario_confined_file_ops_reject_post_validation_parent_swap() {
     std::fs::write(root.join("gate/data.txt"), "inside").unwrap();
     std::fs::write(outside.join("data.txt"), "outside").unwrap();
 
-    // Reproduce the old check/use gap deterministically.
     let checked = safe_path(&root, "gate/data.txt").unwrap();
     std::fs::rename(root.join("gate"), root.join("held")).unwrap();
     symlink(&outside, root.join("gate")).unwrap();
@@ -263,7 +242,6 @@ fn scenario_confined_writes_reject_final_symlinks_and_special_files() {
     std::fs::write(root.join("target.txt"), "original").unwrap();
     symlink("target.txt", root.join("link.txt")).unwrap();
 
-    // Reads may follow a safe in-workspace final symlink, but mutations may not.
     assert_eq!(
         ReadFileTool { root: root.clone() }
             .call(&serde_json::json!({"path":"link.txt"}))
@@ -294,8 +272,6 @@ fn scenario_confined_writes_reject_final_symlinks_and_special_files() {
         "original"
     );
 
-    // O_NONBLOCK plus regular-file validation prevents a FIFO from wedging a
-    // harness worker and refuses it as either a read or write target.
     let fifo = root.join("pipe");
     let fifo_c = CString::new(fifo.as_os_str().as_bytes()).unwrap();
     assert_eq!(unsafe { libc::mkfifo(fifo_c.as_ptr(), 0o600) }, 0);
@@ -329,13 +305,10 @@ fn scenario_atomic_replace_keeps_mode_and_leaves_no_temp() {
         std::fs::read_to_string(&script).unwrap(),
         "#!/bin/sh\necho changed\n"
     );
-    // The replace lands on a fresh inode via rename; an executable that lost
-    // its mode bits there would break every script the agent touches.
     assert_eq!(
         std::fs::metadata(&script).unwrap().permissions().mode() & 0o7777,
         0o755
     );
-    // A successful replace must not strand its temp sibling.
     assert!(
         !std::fs::read_dir(&root).unwrap().any(|entry| entry
             .unwrap()
@@ -345,7 +318,6 @@ fn scenario_atomic_replace_keeps_mode_and_leaves_no_temp() {
         "temp sibling survived the rename"
     );
 
-    // Full-file rewrite takes the same atomic path.
     WriteFileTool { root: root.clone() }
         .call(&serde_json::json!({"path":"run.sh","content":"#!/bin/sh\necho rewritten\n"}))
         .unwrap();
@@ -447,8 +419,6 @@ fn scenario_missing_read_hint_has_an_executable_off_control() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// Scenario: write→read roundtrip preserves unicode exactly, creates parent
-/// dirs, and an empty file reads back empty.
 #[test]
 fn scenario_write_read_roundtrip_unicode_and_parents() {
     let _env = crate::tests::env_lock();
@@ -473,8 +443,6 @@ fn scenario_write_read_roundtrip_unicode_and_parents() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// Scenario: a huge tool result is capped to the line budget, keeps head and
-/// tail, and marks the elision.
 #[test]
 fn scenario_cap_tool_output_keeps_ends_and_marks_elision() {
     let huge = (0..5000)
@@ -495,7 +463,6 @@ fn scenario_cap_tool_output_keeps_ends_and_marks_elision() {
     );
 }
 
-/// Scenario: list_dir + grep over the real source tree return real results.
 #[test]
 fn scenario_list_dir_and_grep_real_tree() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -751,17 +718,12 @@ fn scenario_grep_context_env_default_is_overridable_and_bounded() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// Scenario: an invalid regex must be handled gracefully — never a panic.
 #[test]
 fn scenario_grep_invalid_regex_is_graceful() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    // Returns Ok (ripgrep prints nothing / fallback treats it as literal) or
-    // Err — either is fine; the point is it doesn't panic.
     let _ = GrepTool { root }.call(&serde_json::json!({"pattern":"(unclosed[","path":"src"}));
 }
 
-/// Scenario: multi_edit is atomic — a failing edit in the batch leaves the
-/// file untouched (no half-apply).
 #[test]
 fn scenario_multi_edit_is_atomic() {
     let root = scratch("me");
@@ -780,7 +742,6 @@ fn scenario_multi_edit_is_atomic() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// Scenario: multi_edit happy path applies ordered edits to one file.
 #[test]
 fn scenario_multi_edit_applies_ordered() {
     let root = scratch("me2");
@@ -798,8 +759,6 @@ fn scenario_multi_edit_applies_ordered() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// Scenario: a realistic happy-path turn — the agent reads a real file, then
-/// answers. run_turn returns the final text and the tool result is in history.
 #[test]
 fn scenario_run_turn_read_then_answer() {
     let _guard = crate::tests::env_lock();
@@ -850,13 +809,8 @@ fn scenario_run_turn_read_then_answer() {
     );
 }
 
-/// Scenario: a path-guess miss on `outline` carries did-you-mean hints, the
-/// same as `read_file` — a wrong-root guess (src/lsp.rs vs cockpit/src/agent/lsp.rs
-/// class) must cost one corrected call, not a listing round trip.
 #[test]
 fn scenario_outline_miss_suggests_paths() {
-    // Another scenario turns the hints off (`ANGEL_MISSING_PATH_HINTS=0`)
-    // under the env lock; hold it so that window never lands inside this one.
     let _lock = crate::tests::env_lock();
     let _enabled = EnvGuard::set("ANGEL_MISSING_PATH_HINTS", "1");
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -869,7 +823,6 @@ fn scenario_outline_miss_suggests_paths() {
     );
 }
 
-/// Scenario: the regex `outline` tool maps a real source file's symbols.
 #[test]
 fn scenario_outline_real_source() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

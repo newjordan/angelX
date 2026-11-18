@@ -13,13 +13,8 @@ import statistics
 from PIL import Image, ImageDraw, ImageFilter, ImageChops, ImageEnhance
 
 ROOT = Path(__file__).resolve().parents[1]
-# Art deliveries and review output live outside the checkout, under
-# ANGEL_ART_ARTIFACTS (default ~/angel-art).
 SOURCES = Path(os.environ.get('ANGEL_ART_ARTIFACTS') or Path.home()/'angel-art')/'art-prod/slots'
 OUTPUT = ROOT / 'crates/delve/assets/art-slots'
-# The source art left the repository on 2026-10-20 for the archive (its
-# README.md says what each folder is); ANGEL_SOURCE_ART names it
-# (default ~/angelX-archive/2026-10-20/source-art).
 SOURCE_ART = Path(os.environ.get('ANGEL_SOURCE_ART') or Path.home()/'angelX-archive/2026-10-20/source-art')
 VERSION = 2
 
@@ -47,8 +42,6 @@ def png(im):
 
 def requests(extra=None):
     result = {a['id']: a for g in json.loads((ROOT/'crates/delve/assets/art-requests.json').read_text())['games'] for a in g['assets']}
-    # Supplemental deliveries carry a complete local request, rather than
-    # borrowing a different actor's geometry or editing the shared inventory.
     for path in sorted(OUTPUT.glob('*/request.json')):
         request = json.loads(path.read_text())
         slot = request['id']
@@ -118,7 +111,6 @@ def despill(im):
         for x in range(w):
             c=px[x,y]
             if c[3] and not good[x,y] and (c[3]<224 or fringe(c)) and (x,y) in owners:
-                # Only the boundary is recoloured; warm interior materials survive.
                 op[x,y]=owners[x,y]+(c[3],);changed+=int(op[x,y]!=c)
             if c[3]==0: op[x,y]=(0,0,0,0)
     residue=sum(fringe(op[x,y]) for y in range(h) for x in range(w) if op[x,y][3]>=32 and not good[x,y])
@@ -216,7 +208,6 @@ def reviewed_native(ref, native, piece, kit, dest, scale, anchor):
         if descriptor['space'] == 'source':
             assert mask.size == tuple(piece['source_rect_xywh'][2:]), 'source mask canvas differs from measured crop'
             mask, pivot = registered_crop(piece, mask)
-            # Register exactly like the art, without palette-quantizing shades.
             mask, _ = sample(mask, native.size, pivot, anchor, scale)
         else:
             assert descriptor['space'] == 'native' and mask.size == native.size
@@ -242,7 +233,6 @@ def sample(crop, size, pivot, anchor, scale, sampling='contain', grade=None, ins
         dx,dy=round(crop.width*inset),round(crop.height*inset)
         crop=crop.crop((dx,dy,crop.width-dx,crop.height-dy))
     if sampling == 'cover':
-        # Crop to the canvas aspect before BOX reduction; never stretch a tile.
         ratio=min(crop.width/size[0],crop.height/size[1])
         assert ratio>=1, 'upscaling is not allowed'
         w,h=round(size[0]*ratio),round(size[1]*ratio)
@@ -309,7 +299,6 @@ def run(slot, req, args, status, duplicate):
         all_metrics=json.loads(args.terminal_metrics.read_text()); terminal=all_metrics.get(slot,{})
         if not terminal:flags.append('missing real terminal metrics')
     for kit,size in m['sizes'].items():
-        # All actor poses share one scale, baseline and native pivot. No pose is stretched.
         basis=m.get('anchor_canvas_wh') or list(map(int,re.search(r'(\d+)\s*[×x]\s*(\d+)',req['fit']).groups()))
         anchor=[round(m['anchor_xy'][0]*size[0]/basis[0]),round(m['anchor_xy'][1]*size[1]/basis[1])]
         scales=[]
@@ -341,7 +330,6 @@ def run(slot, req, args, status, duplicate):
             pixels=list(native.get_flattened_data());opaque=sum(c[3]>0 for c in pixels)
             common=[(a,b) for a,b in zip(ref.get_flattened_data(),pixels) if b[3]]
             agreement=sum(sum((x-y)**2 for x,y in zip(a[:3],b[:3]))<=3600 for a,b in common)/max(1,len(common))
-            # This is a reduction diagnostic, not a fake terminal writer.
             reduced=native.resize((max(1,canvas[0]//4),max(1,canvas[1]//4)),Image.Resampling.BOX)
             cell_count=sum(c[3]>=64 for c in reduced.get_flattened_data())
             if agreement<.90:flags.append('source colour fidelity below 0.90')
@@ -374,7 +362,6 @@ def run(slot, req, args, status, duplicate):
             names|={Path(path).stem+'-seat-mask.png' for path,value in output.items() if path.startswith(kit+'/') and 'seat_mask_sha256' in value}
             for old in (dest/kit).glob('*.png'):
                 if old.name not in names:old.unlink()
-    # Twelve frame cells per page; kit images share one labelled frame cell.
     cw=min(440,max(160,max(m['sizes']['v1'][0],m['sizes']['v2'][0])+8))
     ch=max(110,min(260,max(m['sizes']['v1'][1],m['sizes']['v2'][1])+28))
     for start in range(0,len(m['pieces']),12):
@@ -383,7 +370,6 @@ def run(slot, req, args, status, duplicate):
         for i,p in enumerate(chunk):
             im=Image.open(dest/'v1'/(p['name']+'.png')).convert('RGBA');im.thumbnail((cw-8,ch-28),Image.Resampling.NEAREST)
             x=i%4*cw;y=i//4*ch;review.paste(im,(x+4,y+24),im);d.text((x+4,y+4),f'{p["piece"]}: {p["name"]}'[:50],fill='#b0b2a8')
-        # The review sheets are for eyes, not the game: they sit with the source art.
         write(SOURCE_ART/'art-slots'/slot/f'review-{start//12+1}.png',png(review),args.check)
     if not args.check and (dest/'review.png').exists():(dest/'review.png').unlink()
     print(f'{slot}: {verdict}; {len(crops)} pieces; '+', '.join(sorted(set(flags))))
@@ -422,8 +408,6 @@ def main():
             old['quality']='needs-manual-map'
             old['flags']=sorted(set(old['flags']+['delivery changed/incomplete; retain previous mapped assets']))
             old['incoming_delivery']={'source_path':str(path),'source_sha256':h,'metadata_sha256':digest(meta_path) if meta_path.exists() else None,'reason':str(error)}
-            # A production rerun may archive its old v01. Keep the original hash
-            # bound to the archival path rather than attributing it to new art.
             if old['source_sha256']!=h:
                 for archived in (SOURCES/'_old').glob('*/v01/source-sheet.png'):
                     if digest(archived)==old['source_sha256']:old['source_path']=str(archived);break

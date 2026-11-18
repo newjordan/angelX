@@ -6,8 +6,6 @@ use angel_delve::rules::{
 };
 
 impl Sim {
-    /// Only invoked for completed source changes. The pure rules request carries
-    /// the affected cards, not a Run/checkpoint or another job/resource registry.
     pub fn paint_cards(&mut self, cards: Vec<cards::Card>) -> Result<bool, String> {
         let live = self.live.as_mut().ok_or("no active game session")?;
         let shared = Arc::clone(live.shared());

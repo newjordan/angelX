@@ -12,44 +12,24 @@ use std::collections::BTreeMap;
 use super::{Usage, parse_usage};
 
 pub(crate) enum ResponseEvent {
-    /// Visible answer text delta (`response.output_text.delta`).
     Text(String),
-    /// Provider-exposed verbatim reasoning → the thinking canvas.
     Reasoning(String),
-    /// Provider-generated reasoning summary → the thinking canvas. Hosted
-    /// models expose no verbatim stream, so this is the only live thinking
-    /// available; the panel labels it provider-exposed, not verbatim.
     ReasoningSummary(String),
-    /// A function-call item has started; subsequent argument deltas use `key`.
     ToolCallStart {
         key: String,
         call_id: Option<String>,
         name: Option<String>,
     },
-    /// Incremental JSON argument text for a function-call item.
     ToolArgumentsDelta { key: String, delta: String },
-    /// Final JSON argument text for a function-call item.
     ToolArgumentsDone { key: String, arguments: String },
-    /// A complete function-call item, often delivered in `response.output_item.done`.
-    /// `key` retains the provider's output-item identity so a `call_id`-keyed
-    /// completion can merge with an `id`-keyed start/argument stream.
     ToolCallDone { key: String, call: ToolCall },
-    /// Terminal success (`response.completed`), carrying the turn's token usage
-    /// when the payload includes it (`[DONE]` and bare completes carry `None`).
     Done(Option<Usage>),
-    /// `response.failed` / an `{error}` frame.
     Failed(String, Option<Usage>),
-    /// The Responses API completed the stream with an incomplete status.
     Incomplete(String, Option<Usage>),
-    /// Optional cumulative usage on nonterminal response frames.
     Usage(Usage),
-    /// Blank line, `event:`/comment line, keep-alive, or unrelated event.
     Ignore,
 }
 
-/// Parse once for the event decoder, replay capture, and wire observer. The
-/// original line and payload remain available because those consumers have
-/// different prefix and provenance rules.
 pub(super) struct ParsedResponsesLine<'a> {
     pub(super) line: &'a str,
     pub(super) payload: &'a str,
@@ -96,7 +76,6 @@ impl<'a> ParsedResponsesLine<'a> {
     }
 }
 
-/// Decode one SSE line, including bare JSON accepted by compatible providers.
 #[cfg(test)]
 pub(crate) fn parse_responses_event(line: &str) -> ResponseEvent {
     ParsedResponsesLine::new(line).event()
@@ -121,9 +100,6 @@ fn parse_responses_value(v: &serde_json::Value) -> ResponseEvent {
             .filter(|delta| !delta.is_empty())
             .map(|s| ResponseEvent::ReasoningSummary(s.to_string()))
             .unwrap_or(ResponseEvent::Ignore),
-        // Summary deltas carry no separator between completed parts (or
-        // subsequent tool hops). Preserve that public boundary once; the
-        // full done text is cumulative and must never be replayed as a delta.
         "response.reasoning_summary_part.done" => {
             let text = v
                 .get("part")
@@ -309,7 +285,6 @@ pub(crate) struct PartialResponseToolCall {
 pub(crate) struct ResponseToolCalls {
     order: Vec<String>,
     calls: BTreeMap<String, PartialResponseToolCall>,
-    /// Repairs and drops made while assembling calls, for the wire log.
     notes: Vec<(&'static str, String)>,
 }
 
@@ -321,10 +296,6 @@ impl ResponseToolCalls {
         self.calls.entry(key.to_string()).or_default()
     }
 
-    /// Providers can use the output-item `id` for the added/delta stream and
-    /// the function `call_id` for a terminal event (or vice versa). Resolve a
-    /// known alias before inserting so one logical call never turns into two
-    /// dispatches merely because the stream changed identifiers mid-flight.
     pub(crate) fn existing_key_for(&self, candidate: &str) -> Option<String> {
         if self.calls.contains_key(candidate) {
             return Some(candidate.to_string());
@@ -413,14 +384,10 @@ impl ResponseToolCalls {
         }
     }
 
-    /// Any tool call seen this turn. A stream cut off mid-tool-call has
-    /// half-written args, so the incomplete handler fails closed when this is
-    /// true rather than keeping the partial prose.
     pub(crate) fn pending(&self) -> bool {
         !self.calls.is_empty()
     }
 
-    /// The assembled calls, plus every repair and drop made on the way.
     pub(crate) fn into_calls_with_notes(self) -> (Vec<ToolCall>, Vec<(&'static str, String)>) {
         let mut out = Vec::new();
         let mut notes = self.notes;

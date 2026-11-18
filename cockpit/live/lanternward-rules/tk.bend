@@ -1,7 +1,3 @@
-# One tick of the adventure, in the order the Rust session took it: whoever is here
-# and awake sits at the table (a knight who leaves stands up, one who joins late
-# sits down at the room's start and scales what is standing), then every body acts
-# in its order. crates/delve/src/rules/lanternward.rs `Session::step` and `new`.
 import Base
 import ./r.bend as R
 import ./c.bend as C
@@ -22,17 +18,10 @@ import ./sg.bend as Sg
 
 def S() -> Data: R.W
 
-# ----- the table ----------------------------------------------------------------------------------------
-
-# A knight sits down at its start: full hearts for the party's containers, the
-# lantern's flame if the lantern is found, and the gems and bombs it carried when it
-# stood up.
 def seat_new(+id: U32, +joined: U32, +x: U32, +y: U32) -> R.T8:
   +k = Seat.set_safey(Seat.set_safex(Seat.set_camy(Seat.set_camx(Seat.set_y(Seat.set_x(Seat.set_joined(Seat.set_id(L.zero64(), id), joined), x), y), x), y), x), y)
   Seat.set_inv(Seat.set_max_hp(Seat.set_hp(Seat.set_fy(k, 256), C.start_hp()), C.start_hp()), C.spawn_inv())
 
-# The record of what a seat carried when it stood up, by seat: this one's, or
-# zeros.
 def kept_of(+ks: List<&2, R.W8>, +id: U32) -> R.W8:
   match ks:
     case Nil{}:
@@ -47,7 +36,6 @@ def kept_drop(+ks: List<&2, R.W8>, +id: U32) -> List<&2, R.W8>:
     case Con{k, t}:
       Bool.pick(List<&2, R.W8>, U32.is_eq(Ke.id(k), id), t, Con{k, kept_drop(t, id)})
 
-# A record put in its place by seat, replacing one with the same seat.
 def kept_put(+ks: List<&2, R.W8>, +r: R.W8) -> List<&2, R.W8>:
   match ks:
     case Nil{}:
@@ -55,7 +43,6 @@ def kept_put(+ks: List<&2, R.W8>, +r: R.W8) -> List<&2, R.W8>:
     case Con{k, t}:
       Bool.pick(List<&2, R.W8>, U32.is_lt(Ke.id(r), Ke.id(k)), Con{r, Con{k, t}}, Bool.pick(List<&2, R.W8>, U32.is_eq(Ke.id(r), Ke.id(k)), Con{r, t}, Con{k, kept_put(t, r)}))
 
-# Seats that left the table are kept, by seat, for when they come back.
 def stand_go(+ks: List<&2, R.T8>, +here: List<&2, U32>, +kept: List<&2, R.W8>) -> List<&2, R.W8>:
   match ks:
     case Nil{}:
@@ -83,7 +70,6 @@ def sit_one(+seated: Bool, +w: S, +id: U32) -> S:
       +k3 = Bool.pick(R.T8, U32.is_ne(W.p_lantern(w), 0), Seat.set_flame(k2, W.r_flame(w)), k2)
       W.set_seats(W.set_kept(w, kept_drop(W.kept(w), id)), H.seat_insert(W.seats(w), k3))
 
-# Each knight who is here and has no seat sits down in its place.
 def sit_go(+ids: List<&2, U32>, +w: S) -> S:
   match ids:
     case Nil{}:
@@ -91,15 +77,11 @@ def sit_go(+ids: List<&2, U32>, +w: S) -> S:
     case Con{id, t}:
       sit_go(t, sit_one(H.seat_has(W.seats(w), id), w, id))
 
-# Whoever is not here stands up and is kept; whoever is, and has no seat, sits down.
 def seat_table(+w: S) -> S:
   +here = W.here(w)
   +w1 = W.set_kept(w, stand_go(W.seats(w), here, W.kept(w)))
   sit_go(here, W.set_seats(w1, stay_go(W.seats(w1), here)))
 
-# ----- the phases -----------------------------------------------------------------------------------------
-
-# A seat's input: its row, or nothing pressed.
 def ix_of(+rows: List<&2, R.W8>, +id: U32) -> R.W8:
   match rows:
     case Nil{}:
@@ -121,12 +103,10 @@ def seat_ids(+ks: List<&2, R.T8>) -> List<&2, U32>:
     case Con{k, t}:
       Con{Seat.id(k), seat_ids(t)}
 
-# The first phase: the clock, the table, the grid of the room.
 def phase_join(+w: S) -> S:
   +w1 = W.set_elapsed(w, U32.min(U32.add(W.elapsed(w), 1), C.limit()))
   Fo.provision(seat_table(W.set_grid(w1, Gd.of(W.room(w1)))))
 
-# Every body acts in its order.
 def phase(+n: Nat, +w: S) -> S:
   match n:
     case 0n:
@@ -178,7 +158,6 @@ def phase(+n: Nat, +w: S) -> S:
                                                 case 1n+l:
                                                   Sg.age(w)
 
-# The first `n` phases of a tick, in order.
 def upto(+n: Nat, +w: S) -> S:
   match n:
     case 0n:
@@ -186,12 +165,8 @@ def upto(+n: Nat, +w: S) -> S:
     case 1n+p:
       phase(p, upto(p, w))
 
-# One tick.
 def tick(+w: S) -> S: upto(13n, w)
 
-# ----- a session begins ------------------------------------------------------------------------------------------
-
-# Everyone here sits at the table at the first room's start, then the room opens.
 def sit_all(+ids: List<&2, U32>, +ks: List<&2, R.T8>) -> List<&2, R.T8>:
   match ids:
     case Nil{}:

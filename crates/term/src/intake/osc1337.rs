@@ -17,8 +17,6 @@
 
 use super::{base64, decode_image_hinted, Canvas, Picture as IntakePicture, Placement};
 
-/// Hand one OSC 1337 payload (from `1337;` onward, so it starts with
-/// `File=`, `MultipartFile=`, `FilePart=` or `FileEnd`) to this dialect.
 pub fn handle(payload: &[u8], canvas: &mut dyn Canvas) {
     if let Some(args) = payload.strip_prefix(b"MultipartFile=") {
         canvas.multipart_open(args);
@@ -42,8 +40,6 @@ pub fn handle(payload: &[u8], canvas: &mut dyn Canvas) {
     place_file(payload, canvas);
 }
 
-/// The file's extension from an OSC 1337 `name=` value (base64 of the
-/// filename). Used as the format hint before guessing.
 fn name_extension(value: &str) -> Option<String> {
     let decoded = base64(value.as_bytes())?;
     let name = String::from_utf8(decoded).ok()?;
@@ -55,8 +51,6 @@ fn name_extension(value: &str) -> Option<String> {
     Some(ext.to_ascii_lowercase())
 }
 
-/// One `File=` payload, from `File=` on, placed the way a single
-/// transmission is.
 fn place_file(payload: &[u8], canvas: &mut dyn Canvas) {
     let Some(rest) = payload.strip_prefix(b"File=") else { return };
     let (params, data) = match rest.iter().position(|&b| b == b':') {
@@ -82,16 +76,12 @@ fn place_file(payload: &[u8], canvas: &mut dyn Canvas) {
     if !inline {
         return;
     }
-    // The data section is base64 throughout; no `base64,` prefix belongs
-    // to this format.
     let Some(bytes) = base64(data) else { return };
     let Some((w, h, rgba)) = decode_image_hinted(&bytes, hint.as_deref()) else { return };
     let id = canvas.mint();
     canvas.store(IntakePicture { id, width: w, height: h, rgba, space: super::Space::Osc });
     let (cw, ch) = canvas.cell();
     let (screen_rows, screen_cols) = canvas.size();
-    // A size becomes a pixel box per side: what it asked for in pixels,
-    // or that side of the screen in pixels for a percent.
     let cell_w = cw.max(1) as f32;
     let cell_h = ch.max(1) as f32;
     let own_w = w.max(1) as f32;
@@ -110,9 +100,6 @@ fn place_file(payload: &[u8], canvas: &mut dyn Canvas) {
         Size::Cells(cells) => cells as f32 * cell_h,
     };
     let (mut bw, mut bh) = (box_w(width), box_h(height));
-    // Both sides given: fit inside the box, keeping the shape, unless
-    // stretching was asked for. One side given: the other follows the
-    // picture's shape.
     match (width, height) {
         (Size::Auto, Size::Auto) => {}
         (Size::Auto, _) => bw = bh * w.max(1) as f32 / h.max(1) as f32,
@@ -137,8 +124,6 @@ fn place_file(payload: &[u8], canvas: &mut dyn Canvas) {
         source: None,
         placement_id: None,
         alternate,
-        // Drawn straight over the text, as the inline dialect draws:
-        // text over its cells takes it away.
         in_cell: true,
         space: super::Space::Osc,
         virtual_place: false,
@@ -148,18 +133,12 @@ fn place_file(payload: &[u8], canvas: &mut dyn Canvas) {
         box_cols: 0,
         box_rows: 0,
     });
-    // The cursor moves below the picture, as with sixel, with LF so the
-    // screen scrolls at the bottom.
     let down = rows.ceil().max(1.0) as u16;
     for _ in 0..down {
         canvas.feed(b"\n");
     }
 }
 
-/// One dimension as this dialect sizes it: a count of cells (a bare
-/// number, the format's one plain form), pixels, percent of the screen,
-/// or automatic (the picture's own size). `cells` is not a unit of this
-/// format; `Npx`, `N%` and `auto` are what it spells.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Size {
     Auto,
@@ -175,7 +154,6 @@ impl Size {
         match (number.parse::<f32>().unwrap_or(0.0), unit) {
             (number, "px") => Self::Pixels(number.max(0.0) as u32),
             (number, "%") => Self::Percent(number / 100.0),
-            // A bare number is a count of cells in this dialect.
             (number, "") => Self::Cells(number.max(0.0) as u16),
             _ => Self::Auto,
         }
@@ -231,14 +209,12 @@ mod tests {
 
     #[test]
     fn the_data_is_base64_without_any_prefix() {
-        // O1: the real form is `File=inline=1:<base64>`, no `base64,`.
         let record = run("inline=1", &png(3, 2));
         assert_eq!(record.pictures.len(), 1, "no prefix is required");
     }
 
     #[test]
     fn wrapped_base64_is_taken() {
-        // O2: base64 output wrapped at 76 columns still decodes.
         let data = png(3, 2);
         let flat = b64(&data);
         let wrapped: String = flat
@@ -256,15 +232,10 @@ mod tests {
 
     #[test]
     fn pixel_and_percent_sizes_become_cells() {
-        // The box is 32x16 px; a square picture fitted inside it keeps
-        // its shape at 16x16 px, which is 2x1 cells.
         let record = run("inline=1;width=32px;height=16px", &png(8, 8));
         assert_eq!((record.placements[0].width, record.placements[0].height), (2.0, 1.0));
         let record = run("inline=1;width=50%", &png(16, 8));
         assert_eq!(record.placements[0].width, 40.0, "half of 80 columns");
-        // O3: a bare number is a count of cells in this dialect. Four
-        // columns wide; the shape follows through the cell: the square
-        // is 4x2 cells in 8x16 cells.
         let record = run("inline=1;width=4", &png(16, 16));
         assert_eq!(record.placements[0].width, 4.0, "four columns as asked");
         assert_eq!(record.placements[0].height, 2.0, "its shape through the cell");
@@ -272,16 +243,10 @@ mod tests {
 
     #[test]
     fn each_side_becomes_its_own_box() {
-        // O4: height=32px on a 16px-tall cell is two rows whatever the
-        // width says.
         let record = run("inline=1;height=32px", &png(8, 8));
         assert_eq!(record.placements[0].height, 2.0);
-        // One side follows the picture's shape through the cell's pixels.
         let record = run("inline=1;width=32px", &png(32, 16));
         assert_eq!((record.placements[0].width, record.placements[0].height), (4.0, 1.0));
-        // Percent of the screen, both sides: the box is 40 columns by 12
-        // rows (320x192 px); a square picture fitted inside is 192x192 px,
-        // which is 24x12 cells.
         let record = run("inline=1;width=50%;height=50%", &png(8, 8));
         let p = &record.placements[0];
         assert_eq!((p.width, p.height), (24.0, 12.0), "fitted inside the box, shape kept");
@@ -303,8 +268,6 @@ mod tests {
 
     #[test]
     fn the_cursor_moves_below_the_picture() {
-        // O5: with 16px cells a 32px-tall picture covers two rows; the
-        // cursor lands below it, in the column it began.
         let record = run("inline=1", &png(8, 32));
         assert_eq!(record.fed, b"\n\n", "two LFs, so the screen scrolls when it must");
     }
@@ -362,7 +325,6 @@ mod tests {
         let mut record = Record::new();
         record.cell = (8, 16);
         handle(b"MultipartFile=inline=1", &mut record);
-        // Cut inside a base64 quartet, so the pieces only decode together.
         for chunk in encoded.as_bytes().chunks(5) {
             let mut part = b"FilePart=".to_vec();
             part.extend_from_slice(chunk);
@@ -407,8 +369,6 @@ mod tests {
         assert_eq!(record.placements, single.placements);
     }
 
-    /// A 7×5 TGA from the image crate's encoder, and the RGBA it must
-    /// come back as. TGA has no magic bytes.
     fn tga_7x5() -> (Vec<u8>, Vec<u8>) {
         let (w, h) = (7u32, 5u32);
         let rgba: Vec<u8> = (0..h)

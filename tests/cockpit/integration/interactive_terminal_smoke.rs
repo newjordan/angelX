@@ -274,10 +274,6 @@ impl CockpitPty {
             .map_err(|error| format!("write PTY input: {error}"))
     }
 
-    /// Measure from a flushed PTY write until the expected cells are present in
-    /// the terminal parser. This includes the real event loop, frame build,
-    /// ratatui diff, terminal write, PTY transport, and VT application rather
-    /// than timing only the in-memory composer mutation.
     fn send_until_visible(
         &mut self,
         bytes: &[u8],
@@ -290,8 +286,6 @@ impl CockpitPty {
         Ok(started.elapsed())
     }
 
-    // Start/resume can build a room before the event loop accepts game keys.
-    // Observe the expanded viewport before sending a cast or returning to code.
     fn wait_for_game_view(&mut self) -> Result<(), String> {
         self.wait_for("expanded game viewport", |screen| {
             !screen.trim().is_empty() && !screen.contains("Write a message")
@@ -346,15 +340,12 @@ impl CockpitPty {
             .as_raw_fd()
             .ok_or("PTY master does not expose a Unix file descriptor")?;
         let mut termios = MaybeUninit::<libc::termios>::uninit();
-        // SAFETY: tcgetattr initializes the pointed-to termios value on success,
-        // and `fd` remains owned by `self.master` for this call.
         if unsafe { libc::tcgetattr(fd, termios.as_mut_ptr()) } != 0 {
             return Err(format!(
                 "read PTY terminal mode: {}",
                 std::io::Error::last_os_error()
             ));
         }
-        // SAFETY: the successful tcgetattr call above initialized the value.
         Ok(unsafe { termios.assume_init() }.c_lflag)
     }
 
@@ -647,14 +638,11 @@ fn agent_inspector_visible(screen: &str) -> bool {
 }
 
 fn world_stage_visible(screen: &str) -> bool {
-    // The Realm overworld is half-block pixel art; braille remains a fallback.
     screen
         .chars()
         .any(|c| matches!(c, '▀' | '▄') || ('\u{2801}'..='\u{28ff}').contains(&c))
         && screen.lines().any(|line| {
             ((line.contains("[Map]") || line.contains("[Explore]")) && line.contains("[Back]"))
-                // A wide enough pane floats the world's actions from its
-                // dock: its handle sits at the pane's foot.
                 || world_dock_handle(line)
         })
 }
@@ -686,9 +674,6 @@ fn run_scenario(rows: u16, cols: u16, resize_to: Option<(u16, u16)>) -> Result<(
     if !cockpit.raw_mode_active()? {
         return Err("cockpit rendered without entering terminal raw mode".to_string());
     }
-    // Wide terminals mount the Realm overworld at startup (narrow ones reveal
-    // it on focus below). Wait for rendered pixels and working controls;
-    // world views intentionally omit the old decorative route headings.
     if cols >= 100 {
         cockpit.wait_for("startup Realm stage", world_stage_visible)?;
     }
@@ -696,12 +681,12 @@ fn run_scenario(rows: u16, cols: u16, resize_to: Option<(u16, u16)>) -> Result<(
     cockpit.send(b"smoke-draft")?;
     cockpit.wait_for("composer draft", |screen| screen.contains("smoke-draft"))?;
 
-    cockpit.send(b"\x1bOR")?; // xterm F3
+    cockpit.send(b"\x1bOR")?;
     cockpit.wait_for("focused Agent inspector", |screen| {
         screen.contains("smoke-draft") && agent_inspector_visible(screen)
     })?;
 
-    cockpit.send(b"\x1bOS")?; // xterm F4
+    cockpit.send(b"\x1bOS")?;
     cockpit.wait_for("focused Realm overworld", |screen| {
         screen.contains("smoke-draft")
             && world_stage_visible(screen)
@@ -740,10 +725,6 @@ fn run_input_latency_scenario(motion: &str, unicode: bool) -> Result<(), String>
     };
     const MAX_P95: Duration = Duration::from_millis(25);
     const MAX_BUSY_P95: Duration = Duration::from_millis(25);
-    // The budget is for the optimized binary people run (Enter echoes in about
-    // 0.3 ms there). A debug build spends ~15-26 ms submitting the first turn
-    // with full motion, so it gets its own fixed allowance; qualification runs
-    // this smoke with --release against the 25 ms line.
     const MAX_ENTER: Duration = if cfg!(debug_assertions) {
         Duration::from_millis(50)
     } else {
@@ -995,7 +976,6 @@ fn run_session_write_failure_scenario() -> Result<(), String> {
         return Err("failed write unexpectedly replaced the last-good snapshot".to_string());
     }
 
-    // A failed save must not become a clean exit that loses the new input.
     cockpit.send(b"/exit\r")?;
     cockpit.wait_for("exit refused while save is still broken", |screen| {
         screen.contains("/exit: boundary blocked")
@@ -1023,7 +1003,6 @@ fn run_session_write_failure_scenario() -> Result<(), String> {
     if fs::read_to_string(&snapshot).map_err(|error| error.to_string())? != raw_snapshot {
         return Err("failed exit/export changed the last-good checkpoint".to_string());
     }
-    // Repair only this fixture's injected directory, then retry typed exit.
     fs::remove_dir(&blocked_tmp)
         .map_err(|error| format!("repair owned checkpoint fault: {error}"))?;
     let raw = cockpit.finish()?;
@@ -1070,8 +1049,6 @@ fn run_local_image_scenario() -> Result<(), String> {
             && screen.chars().any(|c| c == '▀' || c == '▄')
     })?;
     let colors = visual_fixture_color_counts(cockpit.parser.screen());
-    // The 96×64 source's thin gold diagonal can be averaged away at this
-    // terminal geometry. Its broad cyan/dark checker regions must survive.
     if colors.0 < 12 || colors.2 < 12 {
         return Err(format!(
             "decoded terminal-native image frame did not retain fixture colors: cyan={} gold={} dark={}",
@@ -1248,7 +1225,6 @@ fn run_live_module_scenario() -> Result<(), String> {
     )
     .map_err(|e| e.to_string())?;
     fs::rename(module.join("index.tmp"), module.join("index.js")).map_err(|e| e.to_string())?;
-    // Allow the watcher and debounce to activate without calling /reload.
     cockpit.drain_for(Duration::from_millis(1500))?;
     cockpit.send_until_visible(
         b"/live smoke {\"label\":\"second\"}\r",
@@ -1259,7 +1235,6 @@ fn run_live_module_scenario() -> Result<(), String> {
 
     fs::write(module.join("index.js"), "module.exports={").map_err(|e| e.to_string())?;
     cockpit.drain_for(Duration::from_millis(1500))?;
-    // A fresh label proves this is a new reply, not the prior rendered row.
     cockpit.send_until_visible(
         b"/live smoke {\"label\":\"third\"}\r",
         "last working code after bad edit",
@@ -1275,7 +1250,6 @@ fn run_live_module_scenario() -> Result<(), String> {
     })?;
     fs::write(ui.join("index.js"), "module.exports={").map_err(|e| e.to_string())?;
     cockpit.drain_for(Duration::from_millis(1500))?;
-    // Force an input clear/repaint: retained terminal pixels cannot satisfy it.
     cockpit.send(b"temporary draft\x15")?;
     cockpit.wait_for(
         "live UI survived a broken edit and fresh repaint",
@@ -1325,7 +1299,7 @@ fn run_live_game_scenario() -> Result<(), String> {
     let pid = cockpit.child.process_id();
     cockpit.send(b"/dungeon start\r")?;
     cockpit.drain_for(Duration::from_millis(500))?;
-    cockpit.send(b"\x1bOQ")?; // F2: keep the run and return to coding.
+    cockpit.send(b"\x1bOQ")?;
     cockpit.wait_for("composer beside the running game", |screen| {
         screen.contains("Write a message")
     })?;
@@ -1434,7 +1408,6 @@ fn ordinary_cockpit_real_pty_native_system_swap_preserves_the_host_and_run() {
             "whole executable replaced between requests",
             |s| s.contains("swaps=2"),
         )?;
-        // The replacement's new rule awards seven points every simulation step.
         cockpit.send(b"/dungeon resume\r")?;
         cockpit.drain_for(Duration::from_millis(900))?;
         cockpit.send(b"\x1bOQ")?;
@@ -1470,8 +1443,6 @@ fn ordinary_cockpit_real_pty_executable_abilities_keep_in_flight_casts() {
         install_character_modules(&scratch)?;
         let module = scratch.path().join("live/ability-code");
         let spells = fs::read_to_string(module.join("spells.js")).map_err(|e| e.to_string())?;
-        // A long cast stays active while the player returns to coding and
-        // changes its executable. Cooldown prevents held-key repeat casts.
         fs::write(
             module.join("spells.js"),
             spells
@@ -1491,7 +1462,7 @@ fn ordinary_cockpit_real_pty_executable_abilities_keep_in_flight_casts() {
         cockpit.send(b"/dungeon start\r")?;
         cockpit.wait_for_game_view()?;
         cockpit.drain_for(Duration::from_millis(600))?;
-        cockpit.send(b"1")?; // Actual spell input through the seat/rules seam.
+        cockpit.send(b"1")?;
         cockpit.drain_for(Duration::from_millis(450))?;
         cockpit.send(b"\x1bOQ")?;
         cockpit.wait_for("coding beside active ability", |s| {
@@ -1527,7 +1498,6 @@ fn ordinary_cockpit_real_pty_executable_abilities_keep_in_flight_casts() {
             "PTY executable ability edit-to-observed replacement: {:?}",
             edited.elapsed()
         );
-        // Back to chat, with both the game and cast still owned by the host.
         cockpit.send(b"\x1bOQ")?;
         cockpit.drain_for(Duration::from_millis(150))?;
         cockpit.send_until_visible(
@@ -1810,8 +1780,6 @@ fn ordinary_cockpit_real_pty_lifecycle_and_focus_smoke() {
 fn run_research_workspace_scenario() -> Result<(), String> {
     let scratch = ScratchDir::new("pty-research-workspace")?;
     let mut cockpit = CockpitPty::spawn(40, 144, &scratch)?;
-    // The animated Realm world map is the startup stage; the research
-    // workspace is an explicit destination reached through `/research`.
     cockpit.wait_for("realm startup", |screen| {
         world_stage_visible(screen) && screen.contains("Write a message")
     })?;
@@ -1845,9 +1813,6 @@ fn run_research_workspace_scenario() -> Result<(), String> {
     })?;
     cockpit.resize(24, 80)?;
     cockpit.wait_for("compact research layout", |screen| {
-        // The old wide frame's heading survives a VT grid resize. Wait for
-        // both bottom regions, which appear only after the cockpit repaints
-        // at the new height, before sending the next draft.
         screen.contains("Keep / Campaign overview")
             && screen.contains("3 Flow")
             && screen.contains("[Inspect]")
@@ -1877,16 +1842,12 @@ fn ordinary_cockpit_real_pty_research_workspace_smoke() {
 #[test]
 fn ordinary_cockpit_real_pty_excalibur_startup_and_first_draft() {
     let scratch = ScratchDir::new("pty-excalibur").unwrap();
-    // A configured, entirely fake route avoids the practice warning occupying
-    // the transcript. Never submit a model turn; finish is the local exit command.
     scratch.provision_codex_route_fixture().unwrap();
     let mut cockpit =
         CockpitPty::spawn_with_driver(32, 80, &scratch, &[], "reduced", "openai").unwrap();
     cockpit
         .wait_for("empty cockpit", |screen| screen.contains("Write a message"))
         .unwrap();
-    // Reduced motion selects the final sword pose immediately. Inspect actual
-    // emitted terminal cells, not the atlas or an in-memory render fixture.
     cockpit
         .wait_for("Braille sword in empty shell", |screen| {
             screen
@@ -1914,9 +1875,6 @@ fn ordinary_cockpit_real_pty_excalibur_startup_and_first_draft() {
             })
             .count()
     };
-    // Other Dotmax ambience can arrive before the intro worker. Wait for this
-    // surface's pure-white, transparent ink rather than accepting an unrelated
-    // Braille glyph or the former steel-on-black presentation.
     let deadline = Instant::now() + STEP_TIMEOUT;
     while sword_ink(cockpit.parser.screen()) <= 10 {
         assert!(
@@ -2082,7 +2040,6 @@ fn ordinary_cockpit_registers_stateful_command_and_surface_then_swaps_them_live(
         let mut cockpit=CockpitPty::spawn(40,144,&scratch)?;
         cockpit.wait_for("kernel host startup",|s|s.contains("Write a message"))?;
         let pid=cockpit.child.process_id();
-        // Install a completely new command and surface after the host booted.
         let module=scratch.path().join("live/tally");
         fs::create_dir_all(&module).map_err(|e|e.to_string())?;
         let manifest=|schema|format!(r#"{{"api_version":2,"id":"tally","kind":"system","entry":"index.js","state_schema":{schema},"exports":[{{"kind":"command","name":"tally","contract":"command/1"}},{{"kind":"surface","name":"tally","contract":"surface/1"}}]}}"#);
@@ -2091,7 +2048,6 @@ fn ordinary_cockpit_registers_stateful_command_and_surface_then_swaps_them_live(
         cockpit.drain_for(Duration::from_millis(1500))?;
         cockpit.send_until_visible(b"/tally\r","registered command",|s|s.contains("TALLY-FIRST-1"))?;
         cockpit.send_until_visible(b"/open live.tally\r","registered Glass surface",|s|s.contains("LIVE-SURFACE-FIRST-1"))?;
-        // Change the state shape and executable reducer. The old count survives.
         let edited=Instant::now();
         fs::write(module.join("next.js"),"module.exports={apiVersion:2,migrate:p=>({total:p.state.n}),reduce:(s,e)=>({state:{total:s.total+10},output:'TALLY-SECOND-'+(s.total+10)}),view:s=>({tally:{title:'Migrated tally',lines:['LIVE-SURFACE-SECOND-'+s.total]}})}").map_err(|e|e.to_string())?;
         fs::rename(module.join("next.js"),module.join("index.js")).map_err(|e|e.to_string())?;
@@ -2122,7 +2078,6 @@ fn ordinary_cockpit_real_pty_fairy_field_controls_enemies_and_keeps_old_fields_o
     let result = (|| -> Result<(), String> {
         let scratch = ScratchDir::new("pty-fairy-field")?;
         install_character_modules(&scratch)?;
-        // Resume a real combat save, so a field must stop actual enemy AI.
         let mut run = angel_delve::rules::Run::new(3, 9, None);
         let room = run
             .dungeon
@@ -2297,8 +2252,6 @@ fn ordinary_cockpit_real_pty_pending_realm_claim_survives_a_native_rules_swap() 
             .map_err(|e| e.to_string())?,
         )
         .map_err(|e| e.to_string())?;
-        // Block only the destination store; the rest of normal startup remains
-        // available. The game must durably retain its claim before trying it.
         let directory = scratch.path().join("home/.angelX/world-rewards");
         fs::create_dir_all(directory.parent().unwrap()).map_err(|e| e.to_string())?;
         fs::write(&directory, b"treasury storage is unavailable").map_err(|e| e.to_string())?;
@@ -2456,8 +2409,6 @@ fn ordinary_cockpit_real_pty_pending_home_purchase_survives_a_native_rules_swap(
         if expected.sales != [(0, 1)] || expected.treasury.get(Spoil::Gold) == 0 {
             return Err("home fixture did not earn and buy its reserved item".into());
         }
-        // The replacement executable grants seven gold for this explicit fact.
-        // A host-linked settlement policy would retain the old balance and fail.
         let expected_gold = expected.treasury.get(Spoil::Gold) + 7;
         let save = scratch.path().join("work/.angel/dungeon/session.json");
         fs::create_dir_all(save.parent().unwrap()).map_err(|e| e.to_string())?;

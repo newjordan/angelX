@@ -146,7 +146,6 @@ fn record_scroll() {
             cases.add(input, out);
         }
     }
-    // The scroll's own error answers and decisions both appear.
     eprintln!("scroll cases {} (ok {} err {})", cases.len(), kinds[0], kinds[1]);
     let _ = identity::Shape::ALL;
     cases.save();

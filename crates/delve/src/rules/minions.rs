@@ -44,42 +44,27 @@
 use super::hireling::{AllyKind, Hireling};
 use super::*;
 
-/// The kit that keeps its own dead.
 pub const GRAVECALLER: &str = "gravecaller";
-/// How many spell minions a summoner keeps, his golem, wall and the
-/// tombstone's zombies apart.
 pub const KEPT: usize = 3;
-/// At heel, what a minion falls on: foes this near its caller.
 pub const HEEL_GUARD: f32 = 5.0;
-/// A raised minion climbs out of the ground for half a second, out of the
-/// fight while it does.
 pub const RISE: u32 = HZ / 2;
-/// A totem is planted this far along its caller's aim, or nearer.
 const PLANT_REACH: f32 = 4.0;
-/// What a summoner marks for his minions while he fights: the nearest foe
-/// within this cone of his aim (its cosine, about 25°) and this reach.
 const MARK_CONE: f32 = 0.9;
 const MARK_REACH: f32 = 16.0;
-/// How long a summoner's raised staff and his rite's light are seen.
 pub const CAST_SHOWN: u32 = HZ / 2;
 
-/// The aura's beat, reach, light and damage; bodies gathered near the
-/// caller or credited to him fill eight points each.
 pub const AURA_EVERY: u32 = 54;
 pub const AURA_REACH: f32 = 6.0;
 pub const AURA_SHOWN: u32 = 24;
 const AURA_DAMAGE: u32 = 18;
 const CORPSE_REACH: f32 = 16.0;
 const CORPSE_GAIN: u8 = 8;
-/// Six tenths of a second on G; ten seconds of wall, rearmed in eighteen.
 pub const GOLEM_HOLD: u32 = 18;
 pub const WALL_TICKS: u32 = 300;
 pub const WALL_REARM: u32 = 540;
 pub const WALL_RADIUS: f32 = 1.0;
 pub const WALL_COUNT: usize = 5;
 
-/// The caller's gathered bodies, aura and wall. Missing fields in an old
-/// save start empty; a held G releases once, until it is let go.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Grave {
@@ -114,34 +99,25 @@ pub fn golem_kind(percent: u8) -> AllyKind {
     }
 }
 
-/// The Tombstone: how long it stands, how much it takes, how often it
-/// raises a zombie and how many walk at once, how far ahead it lands, and
-/// how wide it is.
 pub const TOMB_TICKS: u32 = 8 * HZ;
 pub const TOMB_HEALTH: u32 = 240;
 const TOMB_RAISE: u32 = HZ;
 pub const TOMB_ZOMBIES: usize = 5;
 const TOMB_REACH: f32 = 3.5;
 pub const TOMB_RADIUS: f32 = 0.9;
-/// A foe's blow on the grave, and the grace after it, as a minion's.
 const TOMB_KNOCK: u32 = 12;
 const TOMB_GRACE: u32 = 24;
 
-/// Soul Rip: how far ahead of its caster it lands, how wide it tears, what
-/// each foe torn gives back to him, and what it mends each of his dead.
 const RIP_AHEAD: f32 = 5.0;
 pub const RIP_REACH: f32 = 3.0;
 const RIP_MEND: u32 = 4;
 const RIP_MEND_DEAD: u32 = 15;
 
-/// What a summoner has told his minions.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Order {
-    /// Out after what he marks, or the nearest foe.
     #[default]
     Hunt,
-    /// At his side, falling only on what comes at him.
     Heel,
 }
 
@@ -154,8 +130,6 @@ impl Order {
     }
 }
 
-/// A Tombstone standing: whose, where, how much it has left to take, its
-/// time left, and the ticks until its next zombie.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Tombstone {
     pub owner: u32,
@@ -165,12 +139,9 @@ pub struct Tombstone {
     pub left: u32,
     pub raise: u32,
     pub invulnerable: u32,
-    /// Ticks since it slammed down, for the slam and the zombies' light.
     pub age: u32,
 }
 
-/// What a summoner last did with his staff, for the raised staff and the
-/// rite's light: a minion called, a soul rip, a grave planted.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Rite {
@@ -185,33 +156,25 @@ pub struct Cast {
     pub rite: Rite,
     pub x: f32,
     pub y: f32,
-    /// The foes a soul rip tore, where they stood.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub torn: Vec<(f32, f32)>,
 }
 
-/// Every summoner's dead, their orders and their marks.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Pack {
-    /// Each with its `summoner`; the tombstones' zombies among them.
     pub raised: Vec<Hireling>,
     pub orders: BTreeMap<u32, Order>,
-    /// The foe (by id) each knight with minions last marked.
     pub quarry: BTreeMap<u32, u32>,
     pub stones: Vec<Tombstone>,
     pub casts: BTreeMap<u32, Cast>,
     pub graves: BTreeMap<u32, Grave>,
 }
 
-/// Whether knight `hero` keeps their own dead.
 pub fn summoner(hero: &Hero) -> bool {
     hero.knight.as_deref() == Some(GRAVECALLER) && hero.shape.is_none()
 }
 
-/// Whether knight `id` has minions of their own to command: raised at
-/// their side (not a tombstone's zombies), or a card's in the party's
-/// place.
 pub(super) fn keeps(pack: &Pack, slot: &Option<Hireling>, id: u32) -> bool {
     pack.raised
         .iter()
@@ -242,13 +205,10 @@ impl Pack {
             })
     }
 
-    /// What knight `id` has told their minions.
     pub fn order(&self, id: u32) -> Order {
         self.orders.get(&id).copied().unwrap_or_default()
     }
 
-    /// The minions and graves standing where the foes can see them: they
-    /// draw fire as Beaumains does.
     pub(super) fn decoys(&self) -> impl Iterator<Item = (f32, f32)> + '_ {
         self.raised
             .iter()
@@ -257,8 +217,6 @@ impl Pack {
             .chain(self.stones.iter().map(|s| (s.x, s.y)))
     }
 
-    /// A warden roaring near `enemy` is all it sees: `seen` holds only
-    /// him. A great foe pays no heed.
     pub(super) fn roared(&self, enemy: &Enemy, seen: &mut Vec<(f32, f32)>) {
         if hireling::great(enemy) {
             return;
@@ -278,8 +236,6 @@ impl Pack {
 }
 
 impl Run {
-    /// The aura beats without a key. Space keeps its guard and also calls
-    /// the wall; holding G spends the bodies without taking its tap away.
     pub(super) fn tick_gravecallers(&mut self, inputs: &BTreeMap<u32, Input>) {
         self.minions.graves.retain(|id, _| self.players.contains_key(id));
         let callers: Vec<u32> = self.players.iter().filter(|(_, h)| summoner(h)).map(|(&id, _)| id).collect();
@@ -337,7 +293,6 @@ impl Run {
         self.minions.graves.entry(owner).or_default().pulse = Some(Pulse { tick: self.tick, x: at.0, y: at.1 });
     }
 
-    /// Called only for settled deaths, so a body never fills the bar twice.
     pub(super) fn gather_corpses(&mut self, slain: &[gore::Slain]) {
         for (&owner, hero) in self.players.iter().filter(|(_, h)| summoner(h) && h.hp > 0) {
             let count = slain.iter().filter(|s| s.kind != EnemyKind::Dummy
@@ -409,8 +364,6 @@ impl Run {
         }
     }
 
-    /// The dancers hold their ground and take the blows of bodies meeting
-    /// them. The shot flight checks their swept guard before a knight's.
     pub(super) fn skeletons_block(&mut self) {
         let grid = Grid { room: &self.dungeon.rooms[self.at], barred: self.barred() };
         for skeleton in self.minions.raised.iter_mut().filter(|m| m.kind == AllyKind::Skeleton && !m.down()) {
@@ -434,8 +387,6 @@ impl Run {
         }
     }
 
-    /// Knight `owner` played or cast card `card_id`: the minion it calls,
-    /// or the soul rip it tears.
     pub(super) fn call_minion(&mut self, owner: u32, card_id: &str) {
         let Some(card) = self.book.get(card_id) else {
             return;
@@ -457,9 +408,6 @@ impl Run {
         }
     }
 
-    /// Knight `owner` calls a `kind`: at their own side if they keep their
-    /// own dead (a fourth lets the oldest go), else in the party's place,
-    /// which Beaumains never gives up. A totem is planted along the aim.
     pub(super) fn raise(&mut self, owner: u32, kind: AllyKind, power: u32) {
         let Some(hero) = self.players.get(&owner).filter(|h| h.hp > 0) else {
             return;
@@ -497,7 +445,6 @@ impl Run {
         }
         let mut minion = Hireling::minion(kind, power, depth, at, owner);
         minion.rising = RISE;
-        // As hardy as his wishes for his dead make them (`dead_wishes`).
         minion.max_hp += self.gifts_for(&minion).hp;
         minion.hp = minion.max_hp;
         self.minions.raised.push(minion);
@@ -506,9 +453,6 @@ impl Run {
         self.sounds.push("hand_rise");
     }
 
-    /// Soul Rip: every foe within reach of the point ahead of knight
-    /// `owner`'s aim takes `damage` (one stroke, `aoe`), and what is torn
-    /// mends the knight and every one of their dead.
     fn soul_rip(&mut self, owner: u32, spell: &str, damage: u32) {
         let Some(hero) = self.players.get(&owner).filter(|h| h.hp > 0) else {
             return;
@@ -552,10 +496,6 @@ impl Run {
         self.sounds.push("hand_grab");
     }
 
-    /// The Tombstone slams down along knight `owner`'s aim: a few steps
-    /// ahead, so its dead rise between the knight and what comes, or
-    /// nearer where a wall stands, or at the feet. A grave of theirs
-    /// already standing falls first, its zombies with it.
     pub(super) fn plant_tombstone(&mut self, owner: u32) {
         let Some(hero) = self.players.get(&owner) else {
             return;
@@ -582,8 +522,6 @@ impl Run {
         self.sounds.push("ground_close");
     }
 
-    /// Each tick: the marks, the graves and their zombies, and every
-    /// summoner's dead. A minion whose caller has left goes with them.
     pub(super) fn tick_minions(&mut self) {
         if self.minions.is_empty() && !self.hireling.as_ref().is_some_and(|h| h.summoner.is_some()) {
             return;
@@ -603,14 +541,10 @@ impl Run {
             self.drive_hireling(minion);
         }
         raised.retain(|m| !(m.down() && m.kind.breaks()));
-        // What the drive called up meanwhile stays (nothing does today).
         raised.append(&mut self.minions.raised);
         self.minions.raised = raised;
     }
 
-    /// Each knight with minions marks a foe for them: the nearest in the
-    /// cone of their aim while they fight, else the one they just struck.
-    /// A fallen quarry is forgotten.
     fn mark_quarry(&mut self) {
         let keepers: Vec<u32> = self
             .players
@@ -655,9 +589,6 @@ impl Run {
             .retain(|_, foe| enemies.iter().any(|e| e.id == *foe && e.hp > 0));
     }
 
-    /// The graves: their time runs down, the foes' shots and blows wear
-    /// them, and each raises its zombies. A grave fallen or spent takes its
-    /// zombies down with it.
     fn tick_stones(&mut self) {
         let mut stones = std::mem::take(&mut self.minions.stones);
         for stone in &mut stones {
@@ -733,8 +664,6 @@ impl Run {
         self.minions.stones = stones;
     }
 
-    /// Into a new room: each summoner's dead come through the door beside
-    /// them; a totem, a grave and its zombies stay where they stood.
     pub(super) fn minions_follow(&mut self) {
         if self.minions.is_empty() {
             return;
@@ -770,7 +699,6 @@ impl Run {
     }
 }
 
-/// The point faces the aim; the next two ranks spread behind it.
 fn wall_spot(grid: &Grid, hero: &Hero, place: usize) -> (f32, f32) {
     let (ahead, side) = [(3.6, 0.0), (2.4, -1.0), (2.4, 1.0), (1.2, -2.0), (1.2, 2.0)][place];
     let aim = unit(hero.aim_x, hero.aim_y);
@@ -783,8 +711,6 @@ fn wall_spot(grid: &Grid, hero: &Hero, place: usize) -> (f32, f32) {
     at
 }
 
-/// Open floor along `hero`'s aim, `reach` ahead at most, for a thing of
-/// `radius`: the farthest of four steps that is clear, else the feet.
 fn along(grid: &Grid, hero: &Hero, reach: f32, radius: f32) -> (f32, f32) {
     let (ax, ay) = unit(hero.aim_x, hero.aim_y);
     [1.0, 0.75, 0.5, 0.25]

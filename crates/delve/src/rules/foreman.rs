@@ -28,29 +28,19 @@ use super::holdings::{self, Built, Deed, Family, Holdings, SLOTS, UNREST_CAP};
 use super::*;
 use crate::realm::{Spoil, Spoils};
 
-/// Petitions the Foreman will leave on his ledge at once.
 pub const QUEUE: usize = 3;
-/// Every fifth deal is padded, by this much in the hundred at most.
 pub const PAD_EVERY: u32 = 5;
 pub const PAD_STEP: u32 = 10;
-/// Every seventh deal is the dud the neighbours like least.
 pub const DUD_EVERY: u32 = 7;
-/// Refusals in a row that stir a point of unrest.
 pub const NAY_STIR: u32 = 3;
 
-/// One of the Foreman's petitions: a room for a holding, at his price.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Petition {
-    /// The holding it is for, by its deed key.
     pub key: String,
-    /// The room, by its `RoomDef` id.
     pub room: String,
-    /// The gold he asks, as quoted (padding and all).
     pub gold: u32,
-    /// A relic the room wants from the deep, by its spoil word, if any.
     #[serde(default)]
     pub relic: Option<Spoil>,
-    /// His line for it.
     #[serde(default)]
     pub says: String,
 }
@@ -64,16 +54,12 @@ impl Petition {
     }
 }
 
-/// The Foreman the realm keeps at the Court, inside the holdings.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Foreman {
-    /// His ledge: the petitions waiting, front first.
     #[serde(default)]
     pub queue: Vec<Petition>,
-    /// Deals he has drawn, all told: his padding and duds ride on it.
     #[serde(default)]
     pub dealt: u32,
-    /// Refusals in a row.
     #[serde(default)]
     pub nays: u32,
 }
@@ -84,7 +70,6 @@ impl Foreman {
     }
 }
 
-/// The Foreman's word for a deal, however it went.
 fn says(deal: u32, padded: bool, dud: bool, name: &str) -> String {
     if dud {
         [
@@ -112,8 +97,6 @@ fn says(deal: u32, padded: bool, dud: bool, name: &str) -> String {
     }
 }
 
-/// The holdings the Foreman will petition for: ours, unraided, with a bay
-/// to spare, in the order they were bought.
 fn eligible(h: &Holdings) -> Vec<String> {
     h.owned
         .iter()
@@ -122,9 +105,6 @@ fn eligible(h: &Holdings) -> Vec<String> {
         .collect()
 }
 
-/// The family a deal picks for `key`: the next of the family whose turn it
-/// is on `deal`, or — for a dud — the one whose next room the neighbours
-/// like least there.
 fn family_for(h: &Holdings, deal: u32, key: &str, dud: bool) -> Option<(Family, &'static holdings::RoomDef)> {
     let w = h.holding(key)?;
     let mut turns: Vec<Family> = Family::ALL.into_iter().filter(|&f| w.next_of(f).is_some()).collect();
@@ -132,8 +112,6 @@ fn family_for(h: &Holdings, deal: u32, key: &str, dud: bool) -> Option<(Family, 
         return None;
     }
     if dud {
-        // The dud: the family whose next room feels worst beside what
-        // stands there. A tie stays in the families' own order.
         turns.sort_by_key(|&f| {
             let def = w.next_of(f).expect("kept");
             let felt: i32 = w.preview(def).iter().map(|&(n, _)| n).sum();
@@ -147,8 +125,6 @@ fn family_for(h: &Holdings, deal: u32, key: &str, dud: bool) -> Option<(Family, 
     w.next_of(family).map(|def| (family, def))
 }
 
-/// Draw petitions until the ledge is full. Called on every rent day; the
-/// deal counter, not dice, decides what he brings.
 pub fn draft(h: &mut Holdings) {
     while h.foreman.queue.len() < QUEUE {
         let deal = h.foreman.dealt;
@@ -156,7 +132,6 @@ pub fn draft(h: &mut Holdings) {
         if ours.is_empty() {
             break;
         }
-        // The deal turns to the next holding that can take one.
         let start = (deal / QUEUE as u32) as usize % ours.len();
         let dud = deal > 0 && deal % DUD_EVERY == DUD_EVERY - 1;
         let picked = ours
@@ -183,8 +158,6 @@ pub fn draft(h: &mut Holdings) {
     }
 }
 
-/// Whether the head petition can be answered now, and what an aye costs:
-/// its quote, and a relic from the treasury if it wants one.
 pub fn open(h: &Holdings, treasury: &Spoils) -> Result<(u32, Option<Spoil>), &'static str> {
     let p = h.foreman.queue.first().ok_or("NO PETITIONS")?;
     let Some(w) = h.holding(&p.key) else {
@@ -210,9 +183,6 @@ pub fn open(h: &Holdings, treasury: &Spoils) -> Result<(u32, Option<Spoil>), &'s
     Ok((p.gold, p.relic))
 }
 
-/// The realm answers the head petition: `aye` pays his quote (and a relic,
-/// if the room wants one) and the room starts going up; `nay` refuses it.
-/// Either way it leaves the ledge. The line the ledger keeps.
 pub fn answer(h: &mut Holdings, treasury: &mut Spoils, aye: bool) -> Result<String, &'static str> {
     let Some(p) = h.foreman.queue.first().cloned() else {
         return Err("NO PETITIONS");

@@ -25,7 +25,7 @@ fn e_at_a_banner_lot_takes_up_no_class() {
     let mut r = kingdom();
     let geo = geography::geography(&r.kingdom.wishes);
     let stones = stones(&geo);
-    let (_, (x, y)) = stones[2]; // the Gunner's, by the Smithy
+    let (_, (x, y)) = stones[2];
     {
         let hero = r.players.get_mut(&1).unwrap();
         (hero.x, hero.y) = ((x as f32 + 0.5) * TILE_UNITS, (y as f32 + 1.2) * TILE_UNITS);
@@ -63,14 +63,12 @@ fn a_sanctuary_banner_changes_class_below_ground_for_gold() {
     let after = of(&run.players[&1]).map(|c| c.name);
     assert_ne!(before, after, "the next class");
     assert_eq!(run.players[&1].carried.get(Spoil::Gold), 5, "for twenty gold");
-    // Out of gold: no change.
     run.step(&BTreeMap::new());
     run.step(&press(1));
     assert_eq!(of(&run.players[&1]).map(|c| c.name), after);
     assert_eq!(run.found.as_ref().map(|f| f.2.as_str()), Some("NEEDS 20 GOLD"));
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_field_banner_shot -- --ignored`
 #[test]
 #[ignore]
 fn write_field_banner_shot() {
@@ -121,11 +119,6 @@ fn the_mage_learns_spells_and_leaves_them_behind() {
     assert!(r.valid_snapshot());
 }
 
-/// The classes at play: a dungeon fight (two rooms, so all seven are in),
-/// the kingdom by the halls, and a folly. Each is saved as the native
-/// picture and as the 192-column terminal's half-blocks, under
-/// `<dir>/classes-v1/`.
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_class_play_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_class_play_shots() {
@@ -146,7 +139,6 @@ fn write_class_play_shots() {
         std::fs::write(dir.join(format!("{name}-cells.ppm")), out).unwrap();
     };
     let named = |name: &str| CLASSES.iter().find(|c| c.name == name).unwrap();
-    // Each knight in a pose: (class, aim, walking, striking).
     let pose = |run: &mut Run, id: u32, (aim_x, aim_y): (f32, f32), stride: f32, strike: bool| {
         let h = run.players.get_mut(&id).unwrap();
         (h.aim_x, h.aim_y) = (aim_x, aim_y);
@@ -196,7 +188,6 @@ fn write_class_play_shots() {
     pose(&mut run, 3, (0.0, 1.0), 2.5, false);
     pose(&mut run, 4, (0.0, -1.0), 0.0, true);
     save(&run, "fight-2");
-    // The kingdom: four knights on the road before the Keep.
     let mut run = kingdom();
     for (id, name) in [(2, "Two"), (3, "Three"), (4, "Four")] {
         run.join_seat(id, name);
@@ -213,7 +204,6 @@ fn write_class_play_shots() {
     pose(&mut run, 3, (-1.0, 0.0), 2.0, false);
     pose(&mut run, 4, (0.0, -1.0), 0.0, false);
     save(&run, "kingdom");
-    // A folly.
     let mut run = Run::new(41, 1, None);
     run.join_seat(2, "Two");
     run.enemies.clear();
@@ -224,7 +214,6 @@ fn write_class_play_shots() {
     }
     run.become_class(1, named("Mage"));
     run.become_class(2, named("Shieldmaiden"));
-    // Up off the action bar, in the maze's middle.
     let (mx, my) = (run.room().cols as f32 * TILE_UNITS / 2.0, run.room().rows as f32 * TILE_UNITS / 2.0);
     for (k, h) in run.players.values_mut().enumerate() {
         (h.x, h.y) = (mx + k as f32 * 1.5 * TILE_UNITS, my);
@@ -232,7 +221,6 @@ fn write_class_play_shots() {
     pose(&mut run, 1, (1.0, 0.0), 2.0, false);
     pose(&mut run, 2, (0.0, 1.0), 0.0, false);
     save(&run, "folly");
-    // A side-on ledge hall.
     let mut run = Run::new(0, 1, Some("Matt"));
     run.join_seat(2, "Two");
     let at = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Ledge).unwrap();
@@ -248,11 +236,6 @@ fn write_class_play_shots() {
     save(&run, "ledge");
 }
 
-/// Each class's own shot in the air (the Mage's bolt, the Healer's spark,
-/// the Gunner's balls, the Swordsman's thrown blade), and the classes in
-/// the saddle at the lists and in the cab at the chariot race, under
-/// `<dir>/classes-v1/`.
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_class_shot_and_rider_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_class_shot_and_rider_shots() {
@@ -272,7 +255,6 @@ fn write_class_shot_and_rider_shots() {
         std::fs::write(dir.join(format!("{name}.ppm")), out).unwrap();
     };
     let named = |name: &str| CLASSES.iter().find(|c| c.name == name).unwrap();
-    // The shots: four knights in a row loosing at the room's far side.
     let mut run = (3u64..43)
         .map(|s| {
             let mut r = Run::new(s, 1, Some("Friend"));
@@ -306,7 +288,6 @@ fn write_class_shot_and_rider_shots() {
     save(&run, "shots");
     let sounds: Vec<&str> = run.sounds.clone();
     std::fs::write(dir.join("shots-sounds.txt"), sounds.join("\n")).unwrap();
-    // The lists: a Mage in the saddle.
     let mut run = Run::at_home(7, 1, None, Home { stable: Stable::default(), ..Home::default() }, Default::default());
     let lists = world::room_of(&run.dungeon, RoomKind::Lists).unwrap();
     run.arrive(lists, (1.9, 8.5));
@@ -322,7 +303,6 @@ fn write_class_shot_and_rider_shots() {
         run.step(&BTreeMap::new());
     }
     save(&run, "joust-mage");
-    // The chariot race: a Gunner drives, a Healer friend takes a rival team.
     let mut stable = Stable::default();
     stable.herd.push(crate::realm::chivalry::Horse {
         name: "Bramble".into(),

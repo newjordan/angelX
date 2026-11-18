@@ -12,7 +12,6 @@ use crate::rules::lightgallop::{
 };
 use crate::rules::{HZ, Run};
 
-/// The chips' row, on its own line under the podium's names.
 const CHIPS_Y: i32 = 205;
 const PROMPT_Y: i32 = 215;
 
@@ -21,27 +20,22 @@ fn clock(ticks: u32) -> String {
     format!("{}:{:02}", s / 60, s % 60)
 }
 
-/// The riders best first.
 pub(super) fn order(y: &rules::Tally) -> Vec<(u32, u32)> {
     let mut all: Vec<(u32, u32)> = y.scores.iter().map(|(&id, &v)| (id, v)).collect();
-    // The knight who rode best (the laurel) takes the top step; the rest by points, then seat.
     all.sort_by(|a, b| (a.0 != y.best).cmp(&(b.0 != y.best)).then(b.1.cmp(&a.1)).then(a.0.cmp(&b.0)));
     all
 }
 
-/// A rider in victory, in `seat`'s colours, `t` ticks into the scene.
 fn cheering(seat: u32, t: u32) -> Img {
     let (anim, i) = anim_at("lightgallop.rider", "victory", t / 2);
     dressed(&anim.frames[i], &anim.cloth[i], seat)
 }
 
-/// The words on the finish at this moment, the chips and the way on.
 pub(super) fn words(s: &Session, y: &rules::Tally, best: u32) -> Vec<Word> {
     let lvl = level();
     let t = s.elapsed.saturating_sub(y.at);
     let mut out = Vec::new();
     if t >= 40 {
-        // Each one ticks up as it comes in, the way a score does.
         let up = |from: u32, to: u32, len: u32| -> u32 { to * t.saturating_sub(from).min(len) / len };
         let secs = y.time / HZ;
         let chips: [(String, bool); 4] = [
@@ -69,17 +63,14 @@ pub(super) fn words(s: &Session, y: &rules::Tally, best: u32) -> Vec<Word> {
     out
 }
 
-/// The finish scene over the whole picture below the heads-up display's bar.
 pub(super) fn scene(im: &mut Img, run: &Run, s: &Session, y: &rules::Tally) {
     let lvl = level();
     let t = s.elapsed.saturating_sub(y.at);
     let tick = u64::from(s.elapsed);
-    // The stage: the Bell Gate's own night, a little darker.
     let mut stage = Img::black(384, 224);
     let v = View { cx: lvl.bell.0 - 192, cy: lvl.bell.1 - 140, zoom: 256, w: 384, h: 224 };
     backdrop(&mut stage, &v);
     let mut stage = dimmed(&stage, 0.62);
-    // The warm road under their feet, and a lit lantern post at each side.
     for yy in 170..224 {
         for xx in 0..384 {
             let c = if yy < 173 { 'g' } else if crate::render::overworld::ink::bayer(xx, yy) < 0.22 { 'X' } else { 'K' };
@@ -89,7 +80,6 @@ pub(super) fn scene(im: &mut Img, run: &Run, s: &Session, y: &rules::Tally) {
     for x in [22, 362] {
         stamp_scaled(&mut stage, frame_of("lightgallop.post", "lit", s.elapsed), x, 174, 256);
     }
-    // Fireworks over the Moonwell, four launchers in turn, and paper.
     let tops = [(76.0, 52.0, ramps::GOLD), (306.0, 60.0, ramps::EMBER), (190.0, 40.0, ramps::BONE), (130.0, 72.0, ramps::GOLD)];
     for (j, (x, top, ramp)) in tops.into_iter().enumerate() {
         let t0 = 14 + j as u32 * 17;
@@ -100,7 +90,6 @@ pub(super) fn scene(im: &mut Img, run: &Run, s: &Session, y: &rules::Tally) {
         }
     }
     im.stamp(&Img::from_view(&stage, 0, 30, 384, 194), 0, 30);
-    // The podium: best first, up to three, and the rest standing by.
     let ranks = order(y);
     let places: Vec<Place> = ranks
         .iter()
@@ -120,7 +109,6 @@ pub(super) fn scene(im: &mut Img, run: &Run, s: &Session, y: &rules::Tally) {
         let sprite = dressed(&anim.frames[i], &anim.cloth[i], id);
         stamp_scaled(im, &sprite, x, 178, 256);
     }
-    // The best rider's crown: a laurel of light.
     if t >= 30 {
         let (cx, cy) = (crown.0, crown.1 - 4);
         let k = ((t - 30) as f32 / 8.0).min(1.0);
@@ -131,7 +119,6 @@ pub(super) fn scene(im: &mut Img, run: &Run, s: &Session, y: &rules::Tally) {
             }
         }
     }
-    // The title slams in, then the rank.
     if t < 44 {
         juice::banner(im, 38, "ROAD CLEAR", "", t, 44, Tone::Warm, 3);
     }

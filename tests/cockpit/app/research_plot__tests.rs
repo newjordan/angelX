@@ -87,13 +87,11 @@ fn a_settled_plotline_climbs_from_the_low_left_with_the_wizard_on_the_frontier()
     let image = compose(&found, 300_000, 60, 16, Reveal::still(found.len()));
     let dots = lit(&image);
     let (w, h) = (120.0, 64.0);
-    // The pen starts at the low left origin.
     let origin = (
         (X_ORIGIN * (w - 1.0)).round() as usize,
         (Y_BASE * (h - 1.0)).round() as usize,
     );
     assert!(dots.contains(&origin), "origin {origin:?}");
-    // The line ends higher than it starts: three discoveries of a scale of four.
     let right_end = dots
         .iter()
         .filter(|(x, _)| *x == (X_GROUND_END * (w - 1.0)).round() as usize)
@@ -102,7 +100,6 @@ fn a_settled_plotline_climbs_from_the_low_left_with_the_wizard_on_the_frontier()
         .expect("the ground runs to its end");
     let top = (((Y_BASE - 0.75 * (Y_BASE - Y_SUMMIT)) * (h - 1.0)).round()) as usize;
     assert_eq!(right_end, top);
-    // The wizard stands on the frontier: a mass of dots above the shelf there.
     let frontier_x = (X_FRONTIER * (w - 1.0)).round() as usize;
     let above = dots
         .iter()
@@ -158,7 +155,6 @@ fn first_sight_traces_the_whole_line_then_walks_the_wizard_on() {
     );
     assert_eq!(settled.settled, Some(3));
     assert_eq!(settled.walk_in, None);
-    // A new discovery draws only its own rise in.
     let rise = motion.observe(
         "run",
         4,

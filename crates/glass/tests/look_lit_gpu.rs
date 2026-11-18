@@ -14,7 +14,6 @@ use angel_stage::scene::{Camera, Material, MeshRef, Node, Projection, Role, Scen
 const RAMP: [[u8; 3]; 5] = [[16, 24, 48], [32, 48, 96], [96, 112, 160], [160, 176, 208], [224, 232, 240]];
 const REDS: [[u8; 3]; 5] = [[40, 8, 8], [80, 16, 16], [150, 40, 30], [200, 90, 70], [240, 180, 160]];
 
-/// The side of the square target and of the world it shows, top down.
 const SIDE: u32 = 64;
 const WORLD: f32 = 20.0;
 
@@ -74,7 +73,6 @@ impl Gpu {
     }
 }
 
-/// The colour where world point (x, z) is drawn, looking straight down.
 fn sample(pixels: &[u8], x: f32, z: f32) -> [u8; 3] {
     let px = ((x / WORLD + 0.5) * SIDE as f32) as u32;
     let py = ((z / WORLD + 0.5) * SIDE as f32) as u32;
@@ -86,7 +84,6 @@ fn luma(c: [u8; 3]) -> f32 {
     luminance(unit_rgb(c))
 }
 
-/// Straight down from 30 units up over a `WORLD` square, -Z at the top.
 fn top_down() -> Camera {
     Camera {
         transform: Transform {
@@ -99,7 +96,6 @@ fn top_down() -> Camera {
     }
 }
 
-/// A lit grey floor over the whole view, at height `y`.
 fn floor(id: u64, y: f32, grey: f32) -> Node {
     let mut node = Node::new(id, MeshRef::Plane, Material::lit([grey, grey, grey, 1.0], 0.0));
     node.transform = Transform { translation: [0.0, y, 0.0], scale: [WORLD * 2.0, 1.0, WORLD * 2.0], ..Transform::IDENTITY };
@@ -119,7 +115,6 @@ fn the_suns_shadow_darkens_what_it_falls_on_and_stays_on_the_ramp() {
         println!("no GPU adapter: skipped");
         return;
     };
-    // A tower in the middle; the sun low in the east, so its shadow lies west.
     let mut tower = Node::new(2, MeshRef::Cube, Material::lit([0.6, 0.6, 0.6, 1.0], 0.0));
     tower.transform = Transform { translation: [0.0, 4.0, 0.0], scale: [2.0, 8.0, 2.0], ..Transform::IDENTITY };
     let look = lit_look(Sun {
@@ -146,7 +141,6 @@ fn a_zone_puts_its_place_on_its_own_ramp_and_the_rest_keeps_the_looks() {
         return;
     };
     let mut look = lit_look(Sun { toward: [0.0, 1.0, 0.0], strength: 0.7, ambient: 0.3, shadow: None, rise: 0.0 });
-    // The west third is the zone's, fading out over two units.
     look.zones = vec![Zone { ramp: REDS.to_vec(), at: [-10.0, 0.0], half: [5.0, 20.0], radius: 0.0, feather: 2.0 }];
     let scene = Scene { camera: top_down(), nodes: vec![floor(1, 0.0, 0.6)], look: Some(look) };
     let pixels = gpu.render(&scene);
@@ -158,8 +152,6 @@ fn a_zone_puts_its_place_on_its_own_ramp_and_the_rest_keeps_the_looks() {
     assert!(ramp.contains(&east), "the look's ramp: {east:?}");
 }
 
-/// Zone `k` of a row's own ramp: five greys told apart from every other
-/// zone's by the red channel, brighter entry for entry.
 fn row_ramp(k: usize) -> Vec<[u8; 3]> {
     (0..RAMP.len() as u8).map(|j| [20 + 40 * j + k as u8, 20 + 40 * j, 20 + 40 * j]).collect()
 }
@@ -171,8 +163,6 @@ fn sixteen_zones_each_put_their_strip_on_their_own_ramp() {
         return;
     };
     let mut look = lit_look(Sun { toward: [0.0, 1.0, 0.0], strength: 0.7, ambient: 0.3, shadow: None, rise: 0.0 });
-    // Sixteen strips across the world, 1.25 units (4 pixels) each, side by
-    // side, each its own ramp: the fifth to the sixteenth reach the shader too.
     let strip = WORLD / 16.0;
     look.zones = (0..16)
         .map(|k| Zone { ramp: row_ramp(k), at: [-WORLD / 2.0 + (k as f32 + 0.5) * strip, 0.0], half: [strip / 2.0, 20.0], radius: 0.0, feather: 0.01 })
@@ -184,7 +174,6 @@ fn sixteen_zones_each_put_their_strip_on_their_own_ramp() {
     for k in 0..16 {
         let x = -WORLD / 2.0 + (k as f32 + 0.5) * strip;
         let ramp: HashSet<[u8; 3]> = row_ramp(k).into_iter().collect();
-        // Down the strip, so the dither's two entries both show.
         for z in [-8.0, -4.0, -1.0, 0.0, 1.0, 4.0, 8.0] {
             let c = sample(&pixels, x, z);
             assert!(ramp.contains(&c), "strip {k} at z {z}: {c:?} is not on its ramp");
@@ -202,9 +191,6 @@ fn more_zones_over_one_place_than_a_pixel_mixes_leave_the_last_on_top() {
         return;
     };
     let mut look = lit_look(Sun { toward: [0.0, 1.0, 0.0], strength: 0.7, ambient: 0.3, shadow: None, rise: 0.0 });
-    // Eleven zones piled on the west half, later over earlier; the tenth is
-    // the last whole one there. A twelfth, over the east half only, stands
-    // alone. The pixel mixes at most four, yet the top one is all it shows.
     let west = |k: usize| Zone { ramp: row_ramp(k), at: [-10.0, 0.0], half: [5.0, 20.0], radius: 0.0, feather: 0.5 };
     look.zones = (0..11).map(west).collect();
     look.zones.push(Zone { ramp: row_ramp(11), at: [10.0, 0.0], half: [5.0, 20.0], radius: 0.0, feather: 0.5 });
@@ -217,7 +203,6 @@ fn more_zones_over_one_place_than_a_pixel_mixes_leave_the_last_on_top() {
         assert!(on(10, w), "the last of the pile shows: {w:?}");
         assert!(on(11, e), "the lone zone shows: {e:?}");
     }
-    // The middle, outside every feather: the look's own ramp.
     let mid = sample(&pixels, 0.0, 0.0);
     assert!(RAMP.contains(&mid), "{mid:?}");
 }
@@ -228,8 +213,6 @@ fn a_pixel_covered_by_seven_zones_mixes_the_last_four_as_the_reference_says() {
         println!("no GPU adapter: skipped");
         return;
     };
-    // Three wide zones that cover the middle whole (the ones that give way),
-    // then four small ones whose feathers reach it at about a quarter weight.
     let tinted = |k: usize| -> Vec<[u8; 3]> { (0..5u8).map(|j| [20 + 40 * j + 6 * k as u8, 20 + 40 * j, 20 + 40 * j + 3 * (k as u8 % 3)]).collect() };
     let mut look = lit_look(Sun { toward: [0.0, 1.0, 0.0], strength: 0.7, ambient: 0.3, shadow: None, rise: 0.0 });
     look.zones = (0..3).map(|k| Zone { ramp: tinted(2 * k), at: [0.0, 0.0], half: [10.0, 20.0], radius: 0.0, feather: 1.0 }).collect();
@@ -242,13 +225,11 @@ fn a_pixel_covered_by_seven_zones_mixes_the_last_four_as_the_reference_says() {
     };
     let mut checked = 0;
     for (px, py) in [(31u32, 20u32), (32, 32), (33, 40), (34, 28), (35, 36)] {
-        // The pixel's middle in the world, looking straight down.
         let (x, z) = (((px as f32 + 0.5) / SIDE as f32 - 0.5) * WORLD, ((py as f32 + 0.5) / SIDE as f32 - 0.5) * WORLD);
         let i = ((py * SIDE + px) * 4) as usize;
         let c = [pixels[i], pixels[i + 1], pixels[i + 2]];
         let active = look.active_zones(x, z);
         assert_eq!(active.iter().map(|a| a.0).collect::<Vec<_>>(), vec![3, 4, 5, 6], "the reference keeps the last four at {x}");
-        // The ramp as the reference mixes it, and as if every zone mixed.
         let four = look.ramp_at(x, z);
         let mut seven: Vec<[f32; 3]> = look.ramp.iter().map(|&e| unit_rgb(e)).collect();
         for (k, w) in look.zone_weights(x, z).into_iter().enumerate() {
@@ -293,7 +274,6 @@ fn the_reveal_opens_what_stands_before_its_point_and_nothing_else() {
     };
     let mut look = lit_look(Sun { toward: [0.0, 1.0, 0.0], strength: 0.7, ambient: 0.3, shadow: None, rise: 0.0 });
     look.reveal = Some(Reveal { at: [0.0, 0.0, 0.0], radius: 6.0 });
-    // A dark floor under a pale roof halfway up to the eye.
     let scene = Scene { camera: top_down(), nodes: vec![floor(1, 0.0, 0.15), floor(2, 15.0, 0.9)], look: Some(look.clone()) };
     let pixels = gpu.render(&scene);
     let (middle, corner) = (sample(&pixels, 0.0, 0.0), sample(&pixels, 8.0, 8.0));
@@ -310,8 +290,6 @@ fn a_brand_ceiling_holds_a_surface_at_its_class_step_however_it_is_lit() {
         println!("no GPU adapter: skipped");
         return;
     };
-    // White ground square to a strong sun: with no ceiling it reaches the
-    // ramp's top; as the brand's ground it stops at its step (docs/BRAND.md).
     let sun = Sun { toward: [0.0, 1.0, 0.0], strength: 1.25, ambient: 0.3, shadow: None, rise: 0.0 };
     let bare = Scene { camera: top_down(), nodes: vec![floor(1, 0.0, 1.0)], look: Some(lit_look(sun)) };
     let top = sample(&gpu.render(&bare), 0.0, 0.0);

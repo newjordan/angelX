@@ -1,6 +1,5 @@
 use super::*;
 
-// Cases are read at test time so runner formats can be extended without a Rust rebuild.
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RunnerCase {
@@ -187,8 +186,6 @@ fn test_summary_reload_and_fail_closed() {
             .passed,
         8
     );
-    // A hotloaded wrapper remains authoritative too: the fast path must
-    // notice it changed and run the existing Node worker protocol.
     let wrapper = scripts.join("test-runner-report.mjs");
     std::fs::write(
         &wrapper,
@@ -297,12 +294,8 @@ fn nested_test_dir_counts_and_python_unittest_is_default() {
     assert_eq!(lang_names(&hits), vec!["python"]);
     let plan = plan_tests(&d, &hits, None).unwrap();
     assert_eq!(plan.label, "python3 -m unittest discover -v");
-    // The default pattern must match suffix-named suites (`foo_test.py`,
-    // exercism style) as well as prefix-named ones; unittest's own default
-    // `test*.py` silently discovers zero suffix-named tests (exit 5).
     assert!(plan.args.contains(&"-p".to_string()));
     assert!(plan.args.contains(&"*test*.py".to_string()));
-    // pytest config flips the runner
     std::fs::write(d.join("pytest.ini"), "[pytest]\n").unwrap();
     let hits = detect(&d);
     let plan = plan_tests(&d, &hits, None).unwrap();
@@ -321,9 +314,7 @@ fn rust_under_a_subdir_is_seen_and_root_manifest_wins_order() {
     let hits = detect(&d);
     assert_eq!(lang_names(&hits), vec!["js", "rust"]);
     assert!(hits.iter().all(|h| !h.dir.starts_with("node_modules")));
-    // an explicit preference reaches the nested rust hit, which the Cargo path owns
     assert!(plan_tests(&d, &hits, Some(Lang::Rust)).is_none());
-    // package.json without a test script → node --test
     let plan = plan_tests(&d, &hits, None).unwrap();
     assert_eq!(plan.program, "node");
 }
@@ -366,7 +357,6 @@ fn parses_pytest_and_unittest() {
 
 #[test]
 fn missing_program_hint_names_the_sibling() {
-    // `sh` exists everywhere; a nonsense program never does.
     assert!(missing_program_hint("cd /x && sh -c true").is_none());
     let hint = missing_program_hint("cd /x && FOO=1 zz-no-such-program -m unittest").unwrap();
     assert!(
@@ -388,8 +378,6 @@ fn missing_program_hint_names_the_sibling() {
 #[cfg(unix)]
 #[test]
 fn runtime_shims_dir_links_python_to_python3_when_python_is_absent() {
-    // Exercise the production reconciler with explicit roots instead of
-    // poisoning process-global HOME/PATH for concurrent runtime spawners.
     let root = scratch("runtime-shims");
     let home = root.join("home");
     let bins = root.join("bin");
@@ -401,7 +389,6 @@ fn runtime_shims_dir_links_python_to_python3_when_python_is_absent() {
     let first = runtime_shims_in(&home, &path).expect("newly installed runtime");
     assert_eq!(std::fs::read_link(first.join("python")).unwrap(), python3);
     assert_eq!(runtime_shims_in(&home, &path), Some(first.clone()));
-    // Removing the prior HOME must not leave a permanently cached dead path.
     std::fs::remove_dir_all(&home).unwrap();
     let rebuilt = runtime_shims_in(&home, &path).unwrap();
     assert!(rebuilt.join("python").is_file());
@@ -423,8 +410,6 @@ fn runtime_shims_dir_links_python_to_python3_when_python_is_absent() {
         preferred.join("python3")
     );
     assert_eq!(std::fs::read_link(rebuilt.join("python")).unwrap(), python3);
-    // Installing the real name takes precedence immediately, including when
-    // PATH's directory string itself has not changed.
     std::fs::write(preferred.join("python"), "real python fixture").unwrap();
     assert!(runtime_shims_in(&home, &changed_path).is_none());
     std::fs::remove_file(preferred.join("python")).unwrap();
@@ -433,7 +418,6 @@ fn runtime_shims_dir_links_python_to_python3_when_python_is_absent() {
         runtime_shims_in(&home, &changed_path),
         Some(rebuilt.clone())
     );
-    // A replaced link is no longer ours to overwrite, even at an owned path.
     std::fs::remove_file(rebuilt.join("python")).unwrap();
     std::fs::write(rebuilt.join("python"), "operator replacement").unwrap();
     assert!(runtime_shims_in(&home, &path).is_none());
@@ -465,8 +449,6 @@ fn cmake_project_plans_configure_build_and_ctest() {
     assert_eq!(parse_lang("cmake"), Some(Lang::Cpp));
 }
 
-/// A CMakeLists.txt beside another language's manifest (a native addon) must
-/// not take over that project's own test runner.
 #[test]
 fn cmake_never_outranks_another_manifest_in_the_same_directory() {
     let root = scratch("cmake_beside_node");
@@ -565,7 +547,6 @@ fn a_named_pytest_entrypoint_runs_pytest_with_the_models_own_arguments() {
     assert_eq!(asked.program, "python3");
     assert_eq!(asked.args, ["-m", "pytest"]);
     assert_eq!(asked.label, "python3 -m pytest");
-    // Unnamed (or unittest), the workspace's files choose, exactly as before.
     for plan in [
         plan_tests(&root, &hits, Some(Lang::Python)).unwrap(),
         plan_tests_for(&root, &hits, None, None).unwrap(),

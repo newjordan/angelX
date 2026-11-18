@@ -1,9 +1,3 @@
-# crates/delve/src/rules/arms.rs — the knights' turn on a tick (`Run::play`): each knight's keys and arms,
-# from the vigil and the walk to the sword and the fire key, and the bombs they threw going off.
-# The `ctx` is what the turn found once before the knights: {side, barred, arcade, fighting, roads,
-# admitted: [ids], depth} (the room is the party's room).
-
-# `inputs.get(id).copied().filter(valid).unwrap_or_default()`
 def arms.input_of(inputs: J.Val, id: U32) -> J.Val:
     i: J.Val = J.get(inputs, U32.show(id))
     if Bool.and(Bool.not(J.is_null(i)), rules.Input.valid(i)):
@@ -13,20 +7,16 @@ def arms.input_of(inputs: J.Val, id: U32) -> J.Val:
 def arms.sortie_push(sortie: J.Val, key: String, item: J.Val) -> J.Val:
     return J.set(sortie, key, J.push(J.get(sortie, key), item))
 
-# The credit for the damage a knight dealt this tick.
 def arms.credit(sortie: J.Val, id: U32, dealt: U32) -> J.Val:
     return arms.sortie_push(sortie, "credits", J.JA{[J.JU{id}, J.JU{dealt}]})
 
-# `hero.found = Some((tick, id, line))`
 def arms.found(run: J.Val, id: U32, line: String) -> J.Val:
     return J.set(run, "found", J.JA{[J.get(run, "tick"), J.JU{id}, J.JS{line}]})
 
-# The angle between a direction and an aim, absolute and wrapped.
 def arms.delta(dx: F32, dy: F32, angle: F32) -> F32:
     a: F32 = (F32.atan2(dy, dx) - angle : F32)
     return F32.abs(F32.atan2(F32.sin(a), F32.cos(a)))
 
-# The mask of monsters in a cone: within `reach + radius` and `half` of the aim.
 def arms.cone_mask(enemies: J.Val, hx: F32, hy: F32, angle: F32, reach: F32, half: F32, room: J.Val, barred: Bool, check_open: Bool) -> [Bool]:
     mask: [Bool] = []
     for e: J.Val in J.items(enemies):
@@ -38,7 +28,6 @@ def arms.cone_mask(enemies: J.Val, hx: F32, hy: F32, angle: F32, reach: F32, hal
         mask = List.append(&2, Bool, mask, [hit])
     return mask
 
-# The sword's swing at `angle`.
 def arms.sword(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val) -> (J.Val, (J.Val, J.Val)):
     h = core.set_u(h, "sword_cooldown", hero.Hero.cooldown(h, rules.SWORD_REARM()))
     h = core.set_u(h, "swing", 8)
@@ -65,7 +54,6 @@ def arms.sword(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val) -> (J.V
         run = core.push_sound(run, "hit")
         if U32.is_zero(core.u(e, "hp")):
             run = J.set(run, "feel", feel.Feel.blow(J.get(run, "feel"), core.u(e, "id"), id, gore.Blow.swing(F32.cos(angle), F32.sin(angle), False{}, False{})))
-    # The blade parries: hostile shots in its arc are cut down.
     shots: [J.Val] = []
     for s: J.Val in J.items(J.get(run, "projectiles")):
         if core.b(s, "hostile"):
@@ -77,7 +65,6 @@ def arms.sword(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val) -> (J.V
     run = J.set(run, "projectiles", J.JA{shots})
     return (h, (run, sortie))
 
-# `mix`: a 64-bit finalizer (rules.rs): h ^= h >> 33, h *= c1, h ^= h >> 33, h *= c2, h ^ (h >> 33).
 def rules.mix(h: W.W) -> W.W:
     h = W.xor(h, W.shr(h, 33))
     h = W.mul(h, W.W{4283543511, 3981806797})
@@ -85,14 +72,12 @@ def rules.mix(h: W.W) -> W.W:
     h = W.mul(h, W.W{3301882366, 444984403})
     return W.xor(h, W.shr(h, 33))
 
-# The tick's dice for a knight: `mix(seed ^ tick * 0x9e37 ^ id << 48)` (Rust: `^` binds weaker than `<<` and `*`).
 def arms.salt(run: J.Val, id: U32, shift: U32) -> W.W:
     a: W.W = W.of_j(J.get(run, "seed"))
     b: W.W = W.mul(W.of_j(J.get(run, "tick")), W.of_u32(40503))
     c: W.W = W.shl(W.of_u32(id), shift)
     return rules.mix(W.xor(W.xor(a, b), c))
 
-# The unarmed punch.
 def arms.punch(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val, side: Bool) -> (J.Val, (J.Val, J.Val)):
     h = core.set_u(h, "fire_cooldown", 9)
     h = core.set_u(h, "swing", 5)
@@ -128,12 +113,10 @@ def arms.punch(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val, side: B
         run = J.set(run, "enemies", J.set_nth(J.get(run, "enemies"), i, e))
     return (h, (run, sortie))
 
-# A forged weapon's blow or its throw/bolts.
 def arms.forged(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val, side: Bool) -> (J.Val, (J.Val, J.Val)):
     weapon: J.Val = J.get(h, "forged")
     hx: F32 = core.f(h, "x")
     hy: F32 = core.f(h, "y")
-    # the nearest living monster (the first of equals)
     target: J.Val = J.JNull{}
     best_d: F32 = 0.0
     for e: J.Val in J.items(J.get(run, "enemies")):
@@ -154,7 +137,6 @@ def arms.forged(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val, side: 
         if Bool.and(Bool.not(J.is_null(target)), F32.is_le(best_d, (core.f(melee, "reach") + monsters.Enemy.radius(target) : F32))):
             (ux: F32, uy: F32) = rules.unit((core.f(target, "x") - hx : F32), (core.f(target, "y") - hy : F32))
             h = core.set_f(core.set_f(h, "aim_x", ux), "aim_y", uy)
-        # Brute Force: the maul twice as often, half again as hard.
         fury: Bool = U32.is_gt(core.u(J.get(h, "champ"), "fury"), 0)
         every: U32 = core.u(melee, "every")
         h = core.set_u(h, "fire_cooldown", hero.Hero.cooldown(h, Bool.pick(U32, fury, U32.div(every, 2), every)))
@@ -183,11 +165,9 @@ def arms.forged(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val, side: 
             sortie = arms.credit(sortie, id, (dealt + bonus : U32))
             if U32.is_zero(core.u(e, "hp")):
                 run = J.set(run, "feel", feel.Feel.blow(J.get(run, "feel"), core.u(e, "id"), id, gore.Blow.swing(F32.cos(angle), F32.sin(angle), True{}, False{})))
-        # The great maul lands like a felled tree.
         if Bool.and(landed, champions.Hero.is_hammerer(h)):
             run = core.push_shake(run, 4)
             run = core.push_sound(run, "hit_blast")
-        # The blade parries: shots in its sweep are cut down.
         shots: [J.Val] = []
         for s: J.Val in J.items(J.get(run, "projectiles")):
             if core.b(s, "hostile"):
@@ -198,7 +178,6 @@ def arms.forged(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val, side: 
             shots = List.append(&2, J.Val, shots, [s])
         run = J.set(run, "projectiles", J.JA{shots})
         return (h, (run, sortie))
-    # A forged weapon's throw or bolts (`Hero::loose`).
     rng: W.W = arms.salt(run, id, 48)
     flying: U32 = rules.in_flight(J.get(run, "projectiles"), id)
     (h2: J.Val, lr: (J.Val, J.Val)) = hero.Hero.loose(h, id, J.get(run, "book"), False{}, rng, flying, J.get(sortie, "shots"))
@@ -215,7 +194,6 @@ def arms.forged(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val, side: 
             run = feel.Run.ledger_shots(run, id, count)
     return (h, (run, sortie))
 
-# A plain arm's shots.
 def arms.plain(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val, side: Bool) -> (J.Val, (J.Val, J.Val)):
     weapon: String = core.s(h, "weapon")
     snd: String = "shot_bow"
@@ -255,23 +233,19 @@ def arms.plain(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val, side: B
         run = J.set(run, "feel", feel.Feel.puff(J.get(run, "feel"), mx, my, ax, ay, False{}))
         run = J.set(run, "feel", feel.Feel.puff(J.get(run, "feel"), mx, my, ax, ay, True{}))
         run = core.push_shake(run, feel.SHAKE_SHOT())
-        # The kick: back along the aim, never through stone.
         up: F32 = Bool.pick(F32, side, 0.0, (F32.neg(ay) * feel.RECOIL() : F32))
         (nx: F32, ny: F32) = rules.Grid.slide(rules.Run.room(run), core.b(ctx, "barred"), (core.f(h, "x"), core.f(h, "y")), ((F32.neg(ax) * feel.RECOIL() : F32), up), rules.HERO_RADIUS(), 0)
         h = core.set_f(core.set_f(h, "x", nx), "y", ny)
     return (h, (run, sortie))
 
-# `feel.ledger.entry(id).shots += n` (when the ledger is kept).
 def feel.Run.ledger_shots(run: J.Val, id: U32, n: U32) -> J.Val:
     ledger: J.Val = J.get(J.get(run, "feel"), "ledger")
     t: J.Val = core.or_else(J.get(ledger, U32.show(id)), feel.Tally.default())
     t = core.set_u(t, "shots", core.uadd(core.u(t, "shots"), n))
     return J.set(run, "feel", J.set(J.get(run, "feel"), "ledger", J.set(ledger, U32.show(id), t)))
 
-# The fire key: the arm of the knight's choice looses.
 def arms.fire(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val, side: Bool) -> (J.Val, (J.Val, J.Val)):
     if Bool.not(J.is_null(J.get(h, "possessed"))):
-        # A borrowed body looses what its monster looses (`bodies`), never the knight's own arm.
         (h2: J.Val, rest: (J.Val, (J.Val, J.Val))) = bodies.loose(h, id, core.s(J.get(run, "dungeon"), "pack"), rules.Run.room(run), core.b(ctx, "barred"), J.get(run, "enemies"), arms.salt(run, id, 48), J.get(sortie, "shots"))
         (enemies: J.Val, tail: (J.Val, J.Val)) = rest
         (shots: J.Val, loosed: J.Val) = tail
@@ -290,7 +264,6 @@ def arms.fire(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val, side: Bo
                 run = core.push_sound(run, "shot_spark")
         return (h, (run, sortie))
     if champions.Hero.is_alchemist(h):
-        # The Alchemist lobs a lit flask off his bandolier.
         h = core.set_u(h, "fire_cooldown", hero.Hero.cooldown(h, champions.FLASK_REARM()))
         return (h, (run, arms.sortie_push(sortie, "feats", J.JA{[J.JU{id}, J.JS{"flask"}]})))
     if gear.Hero.unarmed(h):
@@ -299,7 +272,6 @@ def arms.fire(run: J.Val, sortie: J.Val, id: U32, h: J.Val, ctx: J.Val, side: Bo
         return arms.forged(run, sortie, id, h, ctx, side)
     return arms.plain(run, sortie, id, h, ctx, side)
 
-# A spell cast from a card in the slot: the effects, the creatures, the flourish.
 def arms.cast_card(run: J.Val, sortie: J.Val, id: U32, h: J.Val, slot: U32, card: J.Val, ctx: J.Val) -> (J.Val, (J.Val, J.Val)):
     h = J.set(h, "spell_cooldowns", J.set_nth(J.get(h, "spell_cooldowns"), slot, J.JU{spell_upgrades.Run.spell_wait(run, card)}))
     before: U32 = core.u(sortie, "nova")
@@ -323,24 +295,20 @@ def arms.cast_card(run: J.Val, sortie: J.Val, id: U32, h: J.Val, slot: U32, card
             if Bool.not(J.is_null(look)):
                 shots = arms.dress_from(shots, start, look)
             sortie = J.set(sortie, "shots", shots)
-        # The second grimoire: the garden and the counterfeit.
         if J.has(e, "cabbages"):
             run = spells.Run.cabbage_storm(run, h, core.s(card, "id"), J.u32(J.get(e, "cabbages")), w, hh, id)
         if J.has(e, "imposture"):
             run = spells.Run.call_imposture(run, h, core.s(card, "id"), id)
         if J.has(e, "hedge"):
             run = spells.Run.hedge_maze(run, h, core.s(card, "id"), id, w, hh)
-    # Creatures, a minion or a soul rip: called after the shots fly.
     if Bool.or(cards.Card.has_imps(card), Bool.or(cards.Card.has_minion(card), cards.Card.has_rip(card))):
         sortie = arms.sortie_push(sortie, "summons", J.JA{[J.JU{id}, J.get(card, "id")]})
     run = arms.found(run, id, String.append("cast ", core.s(card, "name")))
     run = core.push_sound(run, "spell_cast")
-    # A champion's spell is their own.
     if champions.is_spell(core.s(card, "id")):
         sortie = arms.sortie_push(sortie, "feats", J.JA{[J.JU{id}, J.get(card, "id")]})
     return (h, (run, sortie))
 
-# Every shot from `start` on wears `look`.
 def arms.dress_from(shots: J.Val, start: U32, look: J.Val) -> J.Val:
     out: [J.Val] = []
     i: U32 = 0
@@ -351,13 +319,11 @@ def arms.dress_from(shots: J.Val, start: U32, look: J.Val) -> J.Val:
         i = (i + 1 : U32)
     return J.JA{out}
 
-# The spell keys: a borrowed body's cast, a module's ability, or a card spell.
 def arms.cast(run: J.Val, sortie: J.Val, id: U32, h: J.Val, input: J.Val, ctx: J.Val) -> (J.Val, (J.Val, J.Val)):
     cast: U32 = core.u(input, "cast")
     slot: U32 = core.usub(cast, 1)
     in_range: Bool = Bool.and(U32.is_ge(cast, 1), U32.is_le(cast, cards.SPELL_SLOTS()))
     if Bool.not(J.is_null(J.get(h, "possessed"))):
-        # A borrowed body casts its own spell on any spell key, and the knight's spell cards wait.
         if in_range:
             (h2: J.Val, rest: (J.Val, (J.Val, J.Val))) = bodies.cast(h, id, rules.Run.room(run), core.b(ctx, "barred"), J.get(run, "enemies"), arms.salt_cast(run, id), J.get(sortie, "shots"))
             h = h2
@@ -382,7 +348,6 @@ def arms.cast(run: J.Val, sortie: J.Val, id: U32, h: J.Val, input: J.Val, ctx: J
             req = J.set(req, "ability", J.get(binding, "ability"))
             req = J.set(req, "tick", J.get(run, "tick"))
             run = J.set(run, "module_casts", J.push(J.get(run, "module_casts"), req))
-            # Reserve admission until the host validates the executable transition.
             h = J.set(h, "spell_cooldowns", J.set_nth(J.get(h, "spell_cooldowns"), slot, J.JU{1}))
         return (h, (run, sortie))
     if U32.is_zero(J.u32(J.nth(J.get(h, "spell_cooldowns"), slot))):
@@ -393,11 +358,9 @@ def arms.cast(run: J.Val, sortie: J.Val, id: U32, h: J.Val, input: J.Val, ctx: J
                 return arms.cast_card(run, sortie, id, h, slot, card, ctx)
     return (h, (run, sortie))
 
-# A borrowed body's cast gets its own dice.
 def arms.salt_cast(run: J.Val, id: U32) -> W.W:
     return arms.salt(run, id, 40)
 
-# The play key: one card from the hand.
 def arms.play_card(run: J.Val, sortie: J.Val, id: U32, h: J.Val, input: J.Val, ctx: J.Val) -> (J.Val, (J.Val, J.Val)):
     h = core.set_u(h, "play_cooldown", core.usub(core.u(h, "play_cooldown"), 1))
     slot: U32 = core.u(input, "play")
@@ -407,7 +370,6 @@ def arms.play_card(run: J.Val, sortie: J.Val, id: U32, h: J.Val, input: J.Val, c
     id_card: J.Val = J.nth(J.get(h, "hand"), (slot - 1 : U32))
     held: J.Val = cards.Book.get(J.get(run, "book"), J.str(id_card))
     summon: Bool = Bool.and(Bool.not(J.is_null(held)), cards.Card.has_summon(held))
-    # A minion takes the ally slot from another minion, never from Beaumains: the card stays in hand.
     beaumains: Bool = hireling.Run.is_beaumains(run)
     own: Bool = minions.Hero.summoner(h)
     if Bool.and(summon, Bool.and(beaumains, Bool.not(own))):
@@ -434,7 +396,6 @@ def arms.play_card(run: J.Val, sortie: J.Val, id: U32, h: J.Val, input: J.Val, c
             sortie = arms.sortie_push(sortie, "draughts", core.pair_f(core.f(h, "x"), core.f(h, "y")))
     run = arms.found(run, id, String.append("played ", core.s(card, "name")))
     run = core.push_sound(run, "play_card")
-    # The Herald calls the items by name.
     for e: J.Val in J.items(J.get(card, "effects")):
         if J.has(e, "blink"):
             run = core.push_cue(run, "blink")
@@ -442,7 +403,6 @@ def arms.play_card(run: J.Val, sortie: J.Val, id: U32, h: J.Val, input: J.Val, c
             run = core.push_cue(run, "sceptre")
     return (h, (run, sortie))
 
-# A bomb: thrown at the knight's feet.
 def arms.bomb(run: J.Val, sortie: J.Val, id: U32, h: J.Val, input: J.Val) -> (J.Val, (J.Val, J.Val)):
     if Bool.and(core.b(input, "bomb"), Bool.and(U32.is_gt(core.u(h, "bombs"), 0), U32.is_zero(core.u(h, "bomb_cooldown")))):
         h = core.set_u(h, "bombs", (core.u(h, "bombs") - 1 : U32))
@@ -455,7 +415,6 @@ def arms.bomb(run: J.Val, sortie: J.Val, id: U32, h: J.Val, input: J.Val) -> (J.
         run = core.push_sound(run, "bomb")
     return (h, (run, sortie))
 
-# The spin's sweep: both axes round, cutting what is near and the shots in reach.
 def arms.spin_sweep(run: J.Val, sortie: J.Val, id: U32, h: J.Val) -> (J.Val, J.Val):
     heavy: Bool = False{}
     if U32.is_gt(core.u(h, "whirl"), 0):
@@ -488,7 +447,6 @@ def arms.spin_sweep(run: J.Val, sortie: J.Val, id: U32, h: J.Val) -> (J.Val, J.V
         sortie = arms.credit(sortie, id, dealt)
     return (run, sortie)
 
-# One knight's turn. (run, sortie); the knight is written back to the run on every path.
 def arms.turn_one(run: J.Val, sortie: J.Val, id: U32, in0: J.Val, ctx: J.Val) -> (J.Val, J.Val):
     h: J.Val = core.hero(run, id)
     input: J.Val = in0
@@ -503,7 +461,6 @@ def arms.turn_one(run: J.Val, sortie: J.Val, id: U32, in0: J.Val, ctx: J.Val) ->
         h = core.set_u(h, "vigil_rearm", Bool.pick(U32, v, rules.VIGIL_SETTLE(), rules.VIGIL_REARM()))
         h = core.set_b(core.set_b(core.set_u(h, "dash_ticks", 0), "shielding", False{}), "walling", False{})
         run = core.push_sound(run, "wall_up")
-    # Mid-fight the key kneels no one to the vigil: a knight with minions calls them to heel, or hunt.
     if Bool.and(Bool.and(core.b(input, "vigil"), Bool.not(core.b(h, "vigil_key"))), Bool.and(Bool.not(core.b(h, "vigil")), Bool.and(U32.is_ne(core.u(h, "hp"), 0), fighting))):
         run = core.set_hero(run, id, h)
         run = minions.Run.order_key(run, id)
@@ -511,24 +468,20 @@ def arms.turn_one(run: J.Val, sortie: J.Val, id: U32, in0: J.Val, ctx: J.Val) ->
     h = core.set_b(h, "vigil_key", core.b(input, "vigil"))
     if Bool.or(U32.is_zero(core.u(h, "hp")), core.b(h, "stone")):
         return (core.set_hero(run, id, h), sortie)
-    # Hexed: a frog hops about, and does nothing else. Thrown by a Ravage: not even that.
     if U32.is_gt(core.u(h, "tossed"), 0):
         input = rules.Input.default()
     elif hexer.Hero.frog(h):
         input = J.set(J.set(rules.Input.default(), "move_x", J.get(input, "move_x")), "move_y", J.get(input, "move_y"))
     if Bool.or(U32.is_gt(core.u(h, "privy"), 0), Bool.not(J.is_null(J.get(J.get(h, "pit"), "stop")))):
-        # At the privy: the pit stop's keys, and nothing else.
         (h2: J.Val, events: J.Val) = pitstop.step(h, input, core.has_ju(J.items(J.get(ctx, "admitted")), id), run)
         for ev: J.Val in J.items(events):
             sortie = arms.sortie_push(sortie, "pit_events", J.JA{[J.JU{id}, ev]})
         return (core.set_hero(run, id, h2), sortie)
-    # The result mime owns this seat until its window has eased shut.
     if Bool.not(J.is_null(J.get(J.get(h, "pit"), "result"))):
         return (core.set_hero(run, id, h), sortie)
     taking: Bool = Bool.or(core.b(input, "interact"), core.b(input, "take"))
     h = core.set_b(h, "taking", Bool.and(taking, Bool.not(core.b(h, "take_key"))))
     h = core.set_b(h, "take_key", taking)
-    # The next-card key: its press puts the first card at the back.
     if Bool.and(core.b(input, "cycle"), Bool.not(core.b(h, "cycle_key"))):
         (hc: J.Val, moved: Bool) = hero.Hero.cycle_hand(h)
         h = hc
@@ -542,13 +495,11 @@ def arms.turn_one(run: J.Val, sortie: J.Val, id: U32, in0: J.Val, ctx: J.Val) ->
             run = run3
         sortie = arms.sortie_push(sortie, "casts", J.JU{id})
     if U32.is_gt(core.u(h, "slashes"), 0):
-        # Mid-Bladewind: the blade does the moving.
         return (core.set_hero(run, id, h), sortie)
     h = core.set_u(h, "invulnerable", core.usub(core.u(h, "invulnerable"), 1))
     h = core.set_u(h, "bomb_cooldown", core.usub(core.u(h, "bomb_cooldown"), 1))
     h = core.set_u(h, "fire_cooldown", core.usub(core.u(h, "fire_cooldown"), 1))
     h = core.set_u(h, "swing", core.usub(core.u(h, "swing"), 1))
-    # The knight's own going: the walk, the aim and the guard key.
     shield_free: Bool = Bool.not(works.Run.shield_out(run, id))
     (h4: J.Val, keys: (F32, (F32, J.Val))) = hero.Hero.own_keys(h, input, side, shield_free)
     h = h4
@@ -563,14 +514,12 @@ def arms.turn_one(run: J.Val, sortie: J.Val, id: U32, in0: J.Val, ctx: J.Val) ->
         run = core.push_sound(run, "wall_up")
     if core.b(guarded, "mana_out"):
         run = core.push_sound(run, "mana_empty")
-    # The axes come round: cut on the first tick and again at the half.
     sage: J.Val = J.get(guarded, "spin_age")
     if Bool.and(Bool.not(J.is_null(sage)), spin.sweeping(J.u32(sage))):
         (run5: J.Val, sortie5: J.Val) = arms.spin_sweep(run, sortie, id, h)
         run = run5
         sortie = sortie5
     rolled_before: U32 = core.u(h, "dash_ticks")
-    # The ground under the knight and how fast they cross it.
     room: J.Val = rules.Run.room(run)
     barred: Bool = core.b(ctx, "barred")
     (h6: J.Val, st: (F32, (F32, (F32, Bool)))) = hero.Hero.own_step(h, mx, my, run, room, barred)
@@ -578,7 +527,6 @@ def arms.turn_one(run: J.Val, sortie: J.Val, id: U32, in0: J.Val, ctx: J.Val) ->
     (dx: F32, rest: (F32, (F32, Bool))) = st
     (dy: F32, rest2: (F32, Bool)) = rest
     (speed0: F32, blinked: Bool) = rest2
-    # A carrier goes slower for every rider.
     speed: F32 = (speed0 * shoulders.Shoulders.pace(J.get(run, "shoulders"), id) : F32)
     if blinked:
         run = core.push_sound(run, "roll")
@@ -588,13 +536,11 @@ def arms.turn_one(run: J.Val, sortie: J.Val, id: U32, in0: J.Val, ctx: J.Val) ->
         h = h7
         if hurt:
             run = core.push_sound(run, "hero_hurt")
-        # Down on firm ground is a crouch: shots at the chest pass over.
         duck: Bool = Bool.and(Bool.and(U32.is_eq(RS.i_signum(core.u(input, "move_y")), 1), core.b(h, "grounded")), Bool.and(U32.is_zero(core.u(h, "dropping")), Bool.not(rolling)))
         run = works.Run.set_duck(run, id, duck)
     else:
         glide: J.Val = folly.Run.glide_for(run, id, h, mx, my, dx, dy, speed)
         if Bool.not(J.is_null(glide)):
-            # In the Wax Maze a knight glides its lanes, and faces the way they go unless they aim.
             gx: F32 = J.f32(J.nth(glide, 0))
             gy: F32 = J.f32(J.nth(glide, 1))
             movx: F32 = (gx - core.f(h, "x") : F32)
@@ -606,7 +552,6 @@ def arms.turn_one(run: J.Val, sortie: J.Val, id: U32, in0: J.Val, ctx: J.Val) ->
         else:
             (sx: F32, sy: F32) = rules.Grid.slide(room, barred, (core.f(h, "x"), core.f(h, "y")), (((dx * speed : F32) * rules.DT() : F32), ((dy * speed : F32) * rules.DT() : F32)), rules.HERO_RADIUS(), 0)
             h = core.set_f(core.set_f(h, "x", sx), "y", sy)
-    # A roll's dust at the knight's feet: kicked up as it starts, left along it, thrown out where it lands.
     feet_y: F32 = (core.f(h, "y") + Bool.pick(F32, side, ledge.FOOT(), 0.0) : F32)
     (rdx: F32, rdy: F32) = hero.Hero.roll_dir(h)
     if core.b(guarded, "rolled"):
@@ -622,7 +567,6 @@ def arms.turn_one(run: J.Val, sortie: J.Val, id: U32, in0: J.Val, ctx: J.Val) ->
         cds = List.append(&2, J.Val, cds, [J.JU{core.usub(J.u32(c0), 1)}])
     h = J.set(h, "spell_cooldowns", J.JA{cds})
     h = core.set_u_skip(h, "body_rearm", core.usub(core.u(h, "body_rearm"), 1))
-    # The spell keys.
     (h8: J.Val, cr: (J.Val, J.Val)) = arms.cast(run, sortie, id, h, input, ctx)
     h = h8
     (run9: J.Val, sortie9: J.Val) = cr
@@ -655,27 +599,21 @@ def arms.turn_one(run: J.Val, sortie: J.Val, id: U32, in0: J.Val, ctx: J.Val) ->
         sortie = sortie17
     return (core.set_hero(run, id, h), sortie)
 
-# The knights' turn: each knight's keys and arms, in seat order. (run, sortie)
 def arms.Run.knights_turn(run: J.Val, inputs: J.Val) -> (J.Val, J.Val):
     run = foes.Run.tick_oathbound(run)
     side: Bool = ledge.Run.side_on(run)
-    # F belongs to the courier/turnip while a festival round is playing; do not also spray the
-    # party's ordinary weapon across its markers.
     arcade: Bool = Bool.and(home.Run.at_home_now(run), pastimes.Run.round_in_room(run))
     barred: Bool = rules.Run.barred(run)
     depth: U32 = core.u(J.get(run, "dungeon"), "depth")
-    # Where each knight stood before this tick's step.
     stood: J.Val = J.obj()
     for (k: String, h: J.Val) in J.int_fields(J.get(run, "players")):
         stood = J.set(stood, k, core.pair_f(core.f(h, "x"), core.f(h, "y")))
     fighting: Bool = depths.Run.fighting(run)
     admitted: J.Val = pitstop.Run.pit_admissions(run)
-    # The attack-rate knob scales each cooldown a knight sets this tick.
     cooled: [J.Val] = []
     if Bool.not(U32.is_eq(tune.Tune.fire_rate(J.get(run, "tune")), 100)):
         for (k: String, h: J.Val) in J.int_fields(J.get(run, "players")):
             cooled = List.append(&2, J.Val, cooled, [J.JA{[J.JU{rules.Run.step.id(k)}, J.JU{core.u(h, "fire_cooldown")}]}])
-    # Scarecrows that have collapsed are gone.
     now: W.W = W.of_j(J.get(run, "tick"))
     crows: [J.Val] = []
     for d: J.Val in J.items(J.get(run, "scarecrows")):
@@ -710,13 +648,10 @@ def arms.Run.knights_turn(run: J.Val, inputs: J.Val) -> (J.Val, J.Val):
     sortie = J.set(sortie, "shots", wishcraft.shape(shots))
     return (run, sortie)
 
-# The knights' bombs and Thunder Scrolls go off: the monsters' shots round each bomb pop, and
-# the blast strikes the room (on an open map, what is round it).
 def arms.Run.bombs_burst(run: J.Val, sortie: J.Val) -> J.Val:
     bombs: U32 = core.u(sortie, "bombs")
     booms: J.Val = J.get(sortie, "booms")
     if U32.is_gt(bombs, 0):
-        # A bomb clears the monsters' shots around the knight who threw it, not the whole room.
         kept: [J.Val] = []
         for p: J.Val in J.items(J.get(run, "projectiles")):
             keep: Bool = Bool.not(core.b(p, "hostile"))
@@ -730,18 +665,14 @@ def arms.Run.bombs_burst(run: J.Val, sortie: J.Val) -> J.Val:
             else:
                 run = J.set(run, "feel", feel.Feel.impact(J.get(run, "feel"), core.f(p, "x"), core.f(p, "y"), core.s(p, "kind"), 0.0, 0.0))
         run = J.set(run, "projectiles", J.JA{kept})
-    # A bomb or a Thunder Scroll is spent when used and hits for a fixed sum, whatever the knight
-    # holds: it still reaches the whole room, outside the area rule.
     nova: U32 = core.u(sortie, "nova")
     blast: U32 = (rules.BOMB_DAMAGE() * bombs + nova : U32)
-    # On an open map a blast fills what is round it, not the floor.
     open_map: Bool = depths.Run.open_map(run)
     owner: U32 = core.u(sortie, "blast_owner")
     centres: [J.Val] = J.items(booms)
     reader: J.Val = core.hero(run, owner)
     if Bool.and(U32.is_gt(nova, 0), Bool.not(J.is_null(reader))):
         centres = List.append(&2, J.Val, centres, [core.pair_f(core.f(reader, "x"), core.f(reader, "y"))])
-    # A Thunder Scroll's lightning is seen and heard.
     lightning: Bool = U32.is_gt(nova, 0)
     struck: Bool = False{}
     if Bool.and(lightning, Bool.not(J.is_null(reader))):

@@ -31,7 +31,6 @@ use std::io::{Read, Write};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-/// The tty raw, so glass's replies are not echoed; put back on drop.
 struct Tty(Option<String>);
 
 impl Tty {
@@ -63,7 +62,6 @@ fn out(bytes: &[u8]) {
     let _ = stdout.flush();
 }
 
-/// One op of the dialect, its payload (if any) base64 last.
 fn op(body: &str, payload: Option<&[u8]>) {
     match payload {
         Some(p) => out(format!("\x1b_glass;{body};{}\x1b\\", b64(p)).as_bytes()),
@@ -149,8 +147,6 @@ fn options() -> Options {
     o
 }
 
-/// A figure: its file, the clip it plays, where it stands, its chrome's
-/// tint.
 struct Figure {
     file: &'static str,
     clip: u32,
@@ -162,13 +158,9 @@ const FIGURES: [Figure; 4] = [
     Figure { file: "Xbot.glb", clip: 6, x: -1.9, tint: [0.93, 0.95, 1.0, 1.0] },
     Figure { file: "Michelle.glb", clip: 0, x: 0.0, tint: [1.0, 0.8, 0.46, 1.0] },
     Figure { file: "Soldier.glb", clip: 3, x: 1.9, tint: [1.0, 0.66, 0.6, 1.0] },
-    // Its clips: ChickenDance, Dance, DancingAnt, HippoBallerina, Idle,
-    // Lambada, Pirouettes, Salsa, Walk, Whirl.
     Figure { file: "man.glb", clip: 7, x: 3.6, tint: [0.7, 0.95, 0.85, 1.0] },
 ];
 
-/// A face's picture: a die's face of `pips`, on a gradient of its own
-/// hue, `side` pixels square, RGBA.
 fn die(pips: u32, side: u32) -> Vec<u8> {
     let hue = pips as f32 / 6.0;
     let spots: &[(f32, f32)] = match pips {
@@ -208,7 +200,6 @@ fn hsv(h: f32, s: f32, v: f32) -> [f32; 3] {
     }
 }
 
-/// A quaternion turning `angle` about `axis` (unit).
 fn turn(axis: [f32; 3], angle: f32) -> [f32; 4] {
     let (s, c) = (angle * 0.5).sin_cos();
     [axis[0] * s, axis[1] * s, axis[2] * s, c]
@@ -222,8 +213,6 @@ fn rgba(c: [f32; 4]) -> String {
     format!("[{:.3},{:.3},{:.3},{:.3}]", c[0], c[1], c[2], c[3])
 }
 
-/// The scene at `t` seconds: the figures, the rounded cube, and `extras`
-/// shapes round them.
 fn scene(o: &Options, figures: &[(u32, &Figure)], t: f32) -> String {
     let mut nodes: Vec<String> = Vec::new();
     let edge = hsv(t * 0.15, 0.85, 1.0);
@@ -237,12 +226,9 @@ fn scene(o: &Options, figures: &[(u32, &Figure)], t: f32) -> String {
     } else {
         (r#"{"eye":[0,1.65,6.4],"target":[0,1.05,0],"fov":0.72,"clear":[0.015,0.015,0.025,1]}"#, [0.0, 2.75, -1.2], 0.8)
     };
-    // The floor.
     if !o.cube {
         nodes.push(r#"{"id":1,"mesh":"plane","at":[0,0,0],"scale":[16,1,9],"color":[0.07,0.07,0.09,1],"lit":true}"#.into());
     }
-    // The rounded cube: a die's pictures on its faces, its edges glowing
-    // in a colour that walks round the wheel.
     let spin = turn([0.36, 0.86, 0.36], t * 0.5);
     nodes.push(format!(
         r#"{{"id":2,"at":[{:.3},{:.3},{:.3}],"rot":{},"scale":[{s},{s},{s}],"mesh":{{"kind":"roundcube","radius":0.14,"segments":6}},"lit":true,"color":[1,1,1,1],"faces":[1,2,3,4,5,6],"edge":{{"color":[{:.3},{:.3},{:.3},1],"glow":{glow:.3}}}}}"#,
@@ -265,8 +251,6 @@ fn scene(o: &Options, figures: &[(u32, &Figure)], t: f32) -> String {
             o.liquid
         ));
     }
-    // The ring: liquid chrome balls, plain lit cubes, chrome rounded cubes
-    // and cubes with glowing edges, orbiting at their own heights.
     for i in 0..o.extras {
         let k = i as f32;
         let n = o.extras.max(1) as f32;
@@ -300,7 +284,6 @@ fn scene(o: &Options, figures: &[(u32, &Figure)], t: f32) -> String {
 fn main() {
     let o = options();
     let tty = Tty::raw();
-    // glass's replies, kept for --log.
     let replies = std::sync::Arc::new(std::sync::Mutex::new(Vec::<u8>::new()));
     {
         let replies = std::sync::Arc::clone(&replies);
@@ -318,11 +301,9 @@ fn main() {
         });
     }
     out(b"\x1b[?25l\x1b[2J");
-    // The faces' pictures, ids 1..6.
     for pips in 1..=6u32 {
         op(&format!("picture;id={pips};f=32;s=128;v=128;r=p{pips}"), Some(&die(pips, 128)));
     }
-    // The figures, read by glass from their files.
     let mut figures = Vec::new();
     let solo = o.solo.as_ref().map(|file| {
         let f = FIGURES.iter().find(|f| f.file == file.as_str()).map_or(FIGURES[3].tint, |f| f.tint);
@@ -347,8 +328,6 @@ fn main() {
     for (asset, f) in &figures {
         op(&format!("play;id=1;node={};clip={};r=c{asset}", 10 + asset, f.clip), None);
     }
-    // Every display frame: the scene again, as a program that moves
-    // everything itself would send it.
     let start = Instant::now();
     let frame = Duration::from_micros(16_667);
     let mut next = start;

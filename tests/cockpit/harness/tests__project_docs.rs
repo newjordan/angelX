@@ -5,10 +5,6 @@
 
 use super::*;
 
-// --- project docs suite -----------------------------------------------------
-
-/// Write a realistic git-root marker (`.git/HEAD`) so `is_git_root` honors it
-/// — a bare empty `.git` dir no longer counts.
 fn mark_git_root(dir: &std::path::Path) {
     std::fs::create_dir_all(dir.join(".git")).unwrap();
     std::fs::write(dir.join(".git").join("HEAD"), "ref: refs/heads/main\n").unwrap();
@@ -19,7 +15,7 @@ fn project_docs_concatenate_git_root_to_workspace() {
     let base = std::env::temp_dir().join(format!("angel_pdoc_chain_{}", std::process::id()));
     let sub = base.join("crate-a");
     std::fs::create_dir_all(&sub).unwrap();
-    mark_git_root(&base); // real .git/HEAD marker
+    mark_git_root(&base);
     std::fs::write(base.join("AGENTS.md"), "ROOT RULES").unwrap();
     std::fs::write(sub.join("AGENTS.md"), "SUB RULES").unwrap();
     let docs = discover_project_docs(&sub, 32 * 1024);
@@ -83,7 +79,6 @@ fn project_doc_cap_preserves_root_and_higher_precedence_nested_edges() {
     ] {
         assert!(docs.contains(expected), "missing {expected:?}: {docs}");
     }
-    // Each elided middle is `⠸⠉⠁`, between the elision marks.
     assert_eq!(docs.matches("…⠸⠉⠁…").count(), 2);
     std::fs::remove_dir_all(&base).ok();
 }
@@ -117,8 +112,6 @@ fn project_doc_cap_reallocates_short_parent_budget_to_nested_scope_utf8_safely()
 
 #[test]
 fn project_docs_no_git_root_reads_only_start() {
-    // No `.git` up the chain → only the start dir is read; the parent's doc is
-    // ignored (we never walk the whole filesystem).
     let base = std::env::temp_dir().join(format!("angel_pdoc_nogit_{}", std::process::id()));
     let sub = base.join("inner");
     std::fs::create_dir_all(&sub).unwrap();

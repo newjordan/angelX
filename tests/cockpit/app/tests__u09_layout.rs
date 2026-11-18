@@ -86,8 +86,6 @@ fn u09_review_capture() {
         app.open_moa_deck(None);
         capture(&mut app, w, h, "formation-quest");
         app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
-        // A resident PNG is the other reported obstruction. Generated locally;
-        // no provider, screenshot, or archived asset is needed.
         let dir = std::env::temp_dir().join(format!("angel-u09-{}-{w}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("old-map.png");
@@ -112,8 +110,6 @@ fn u09_review_capture() {
         capture(&mut app, w, h, "loop-png");
         app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
         capture(&mut app, w, h, "loop-png-esc");
-        // Re-present for an independent Formation/media reproduction even if
-        // the old Esc implementation accidentally dismissed the resident PNG.
         app.present_media("image", "U09 old map PNG", path.to_str().unwrap());
         app.open_moa_deck(None);
         capture(&mut app, w, h, "formation-png");
@@ -171,9 +167,6 @@ fn u09_loop_modal_is_topmost_and_esc_preserves_the_underlying_surface() {
                 crate::ui::loop_card::render_terminal(f.buffer_mut(), area, dialog);
             })
             .unwrap();
-        // 4 lap presets plus the always-present custom length slot, 5
-        // clocks, 4 fuel caps, an arrow each side of every picker, then
-        // DROP THE FLAG and cancel.
         assert_eq!(
             app.loop_dialog_hits.len(),
             (4 + 1) + 5 + 4 + 3 * 2 + 2,
@@ -258,7 +251,6 @@ fn u09_every_loop_choice_and_action_is_keyboard_reachable_at_80x24() {
         .controller
         .show_overlay(scryglass::StageOverlay::Catalog);
     app.loop_command(Some("start U09 local fixture".into()));
-    // Preserve the keyboard cycle: clock, laps (including custom), fuel.
     for (field, count) in [(0, 5), (1, 4 + 1), (2, 4)] {
         let mut seen = std::collections::BTreeSet::new();
         for _ in 0..count {

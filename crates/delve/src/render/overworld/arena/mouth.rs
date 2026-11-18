@@ -7,8 +7,6 @@
 use super::*;
 use crate::rules::world::MOUTHS;
 
-/// The board: a stair going down into the dark, each step narrower and
-/// deeper in the timber ramp, an iron rim.
 fn board() -> Img {
     let mut im = Img::new(18, 16);
     im.rect(0, 0, 18, 16, 'g');
@@ -21,15 +19,12 @@ fn board() -> Img {
     im
 }
 
-/// The signs of every way down in view, painted onto `over` (whose top-left
-/// is world pixel `origin`); returns the rectangles they take.
 pub(super) fn draw(over: &mut Img, run: &Run, geo: &map::Geography, origin: (i32, i32)) -> Vec<(i32, i32, i32, i32)> {
     let mut taken = Vec::new();
     for m in &MOUTHS {
         let Some(site) = geo.sites.iter().find(|s| s.room == m.room) else {
             continue;
         };
-        // On the verge beside the door, a post with the board on it.
         let (x, y) = (site.stand.0 * TILE - 2 * TILE - origin.0, (site.stand.1 + 1) * TILE - origin.1);
         if x < -60 || y < -60 || x > NATIVE_W + 60 || y > NATIVE_H + 60 {
             continue;
@@ -43,7 +38,6 @@ pub(super) fn draw(over: &mut Img, run: &Run, geo: &map::Geography, origin: (i32
         let mut rect = (x - 2, y - 22 - b.h + 4, b.w + 4, b.h + 24);
         let down = chrome::label(over, (x + 7 - super::super::super::ink::text_width("DOWN") / 2, y + 3), "DOWN", 'h', chrome::Tone::SLATE);
         taken.push(down);
-        // What the party's own record says, where there is one.
         let deepest = if m.room == RoomKind::Gate { run.home.deepest } else { 0 };
         if deepest > 0 {
             let line = format!("DEEPEST {deepest}");

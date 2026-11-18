@@ -24,8 +24,6 @@ fn profile_lines_include_identity_and_role() {
     );
 }
 
-/// Precedence is a strict ladder: Blocked beats Tool beats Thinking beats
-/// any end-of-turn marker; nothing lit at all reads Idle.
 #[test]
 fn portrait_state_precedence_blocked_tool_thinking() {
     let fresh = Some((PortraitMarker::Victory, Duration::ZERO));
@@ -47,9 +45,6 @@ fn portrait_state_precedence_blocked_tool_thinking() {
     );
 }
 
-/// Markers show only while younger than the lifetime, then expire to Idle
-/// with no clearing step; settlement picks Recovery only after a fail run
-/// of >= 2, and a failed settlement never marks at all.
 #[test]
 fn portrait_marker_expires_and_recovery_needs_a_fail_run() {
     let fresh = PORTRAIT_MARKER_LIFETIME.saturating_sub(Duration::from_millis(1));
@@ -77,8 +72,6 @@ fn portrait_marker_expires_and_recovery_needs_a_fail_run() {
     assert_eq!(turn_end_marker(false, 5), None);
 }
 
-/// The stateful caption renders the dot + state word in the state color,
-/// and the legacy wrapper still compiles by mapping active onto Thinking.
 #[test]
 fn stateful_caption_carries_dot_and_word() {
     let profile = profile_for("local");

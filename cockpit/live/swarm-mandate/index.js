@@ -1,8 +1,5 @@
 const leg = require('./swarm-mandate.compiled.js')
 
-// Thin adapter: plain boolean facts in, the compiled leg's verdict out. Every
-// text test (verdict upper-casing and substring tests, answer trim, the
-// advisor's BLOCK:/NOTE: prefix parse) stays in Rust; no decision lives here.
 const flag = value => value === true
 
 module.exports = {

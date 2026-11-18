@@ -20,7 +20,6 @@ pub(super) struct RunLease {
 impl Drop for RunLease {
     fn drop(&mut self) {
         use std::os::fd::AsRawFd;
-        // SAFETY: this object owns the descriptor until after the unlock call.
         unsafe {
             libc::flock(self.file.as_raw_fd(), libc::LOCK_UN);
         }
@@ -111,7 +110,6 @@ impl RunStore {
             .open(&path)
             .map_err(|e| format!("open {}: {e}", path.display()))?;
         secure_file(&path)?;
-        // SAFETY: `file` owns a live descriptor for the lifetime of RunLease.
         let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
         if rc != 0 {
             let error = std::io::Error::last_os_error();
@@ -123,12 +121,6 @@ impl RunStore {
         Ok(RunLease { file })
     }
 
-    /// Whether an executor holds the run's lease right now. The lease is an
-    /// exclusive flock the kernel drops when its holder dies, so a free lock on
-    /// a run that never finished means nobody is executing it. The probe asks
-    /// for a shared lock without waiting and lets go at once: it can never take
-    /// the lease from a live executor, and concurrent probes never exclude each
-    /// other. A run that was never started has no lock file and no executor.
     pub(super) fn is_executing(&self, run_id: &str) -> Result<bool, String> {
         use std::os::fd::AsRawFd;
         let path = self.run_dir(run_id)?.join("run.lock");
@@ -137,7 +129,6 @@ impl RunStore {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
             Err(error) => return Err(format!("open {}: {error}", path.display())),
         };
-        // SAFETY: `file` owns a live descriptor for the whole call.
         let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_SH | libc::LOCK_NB) };
         if rc == 0 {
             return Ok(false);

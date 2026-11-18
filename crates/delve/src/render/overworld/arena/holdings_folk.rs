@@ -22,10 +22,6 @@ use crate::rules::strolls::{self, Pose, Stroller};
 use crate::rules::villagers::{Trade, Villager, COMING_OF_AGE, ELDER};
 use crate::rules::{HZ, Run, TILE_UNITS};
 
-// ── Figures ──────────────────────────────────────────────────────────────
-
-/// A tunic's four inks: light, middle, shade and the outline that edges
-/// it (a deeper hue of the same, never black).
 type Ramp = [char; 4];
 
 fn ramp(f: &Villager) -> Ramp {
@@ -43,14 +39,10 @@ fn ramp(f: &Villager) -> Ramp {
     }
 }
 
-/// Grey smocks for a belly gone hungry or a mood gone glum, as the Court's
-/// cross-section has always shown them.
 fn wan(f: &Villager) -> bool {
     f.hunger > 0 || f.mood <= -2
 }
 
-/// A soul's look from their name: a fixed number, so the same soul is the
-/// same face in every view.
 fn name_hash(name: &str, who: usize) -> u32 {
     hash(name.bytes().map(i32::from).sum(), name.len() as i32 + who as i32 * 3, 0x61_17)
 }
@@ -119,9 +111,6 @@ fn set(g: &mut [Vec<char>], x: usize, y: usize, c: char) {
     }
 }
 
-/// The tool a trade works with, raised or lowered: the smith's hammer, the
-/// brewer's ladle, the acolyte's censer, the trader's scale, a labourer's
-/// mallet.
 fn tool(g: &mut [Vec<char>], trade: Trade, up: bool, laden: bool) {
     let (hx, hy) = if up { (9, 1) } else { (9, 4) };
     set(g, 8, if up { 3 } else { 4 }, 's');
@@ -147,15 +136,12 @@ fn tool(g: &mut [Vec<char>], trade: Trade, up: bool, laden: bool) {
         _ => {}
     }
     if laden {
-        // A beam across the shoulder.
         for x in 0..10 {
             set(g, x, 5, if x % 4 == 0 { 'y' } else { 'w' });
         }
     }
 }
 
-/// One soul, drawn at `s`'s pose at `tick`. Children are smaller; the old
-/// are grey. The sprite's feet are its bottom row.
 fn figure(f: &Villager, s: &Stroller, tick: u64, mourning: bool) -> Img {
     let child = f.trade == Trade::Child || f.age < COMING_OF_AGE;
     let step = if s.pose == Pose::Walk || s.pose == Pose::Play || s.pose == Pose::Mourn || s.pose == Pose::Bear {
@@ -173,7 +159,6 @@ fn figure(f: &Villager, s: &Stroller, tick: u64, mourning: bool) -> Img {
         Pose::Work => tool(&mut g, f.trade, beat, s.laden),
         Pose::Walk if s.laden => tool(&mut g, f.trade, false, true),
         Pose::Rage => {
-            // Both fists up, mouth open.
             for x in [0, 9] {
                 set(&mut g, x, 2, 's');
                 set(&mut g, x, 3, 'o');
@@ -195,7 +180,6 @@ fn figure(f: &Villager, s: &Stroller, tick: u64, mourning: bool) -> Img {
             }
         }
         Pose::Mourn => {
-            // Head bowed: a row of hair over the brow.
             set(&mut g, 3, 3, 'h');
             set(&mut g, 4, 3, 'h');
             set(&mut g, 5, 3, 'h');
@@ -208,19 +192,16 @@ fn figure(f: &Villager, s: &Stroller, tick: u64, mourning: bool) -> Img {
             set(&mut g, 8, 8, 'd');
         }
         Pose::Seated => {
-            // Down behind the bench: no legs, a bench edge.
             g.truncate(12);
             g.push("yyyyyyyyyy".chars().collect());
         }
         _ => {}
     }
     if s.pose == Pose::Seated && f.age >= ELDER {
-        // A blanket over the knees.
         for x in 2..8 {
             set(&mut g, x, 11, 'd');
         }
     }
-    // A content soul wears a gold dot in the cap.
     if !wan(f) && f.mood >= 3 && !mourning && !rage {
         set(&mut g, 4, 1, 'w');
     }
@@ -233,8 +214,6 @@ fn figure(f: &Villager, s: &Stroller, tick: u64, mourning: bool) -> Img {
     if s.east { im } else { im.flip_h() }
 }
 
-/// A child: the same soul, three fifths the height, by dropping every
-/// other row and column of the adult's middle.
 fn shrunk(im: &Img) -> Img {
     let (w, h) = (im.w * 3 / 5 + 1, im.h * 3 / 5 + 1);
     let mut o = Img::new(w, h);
@@ -248,14 +227,10 @@ fn shrunk(im: &Img) -> Img {
     o
 }
 
-// ── The hall ─────────────────────────────────────────────────────────────
-
 fn px((x, y): (f32, f32)) -> (i32, i32) {
     ((x * TILE as f32).round() as i32, (y * TILE as f32).round() as i32)
 }
 
-/// How near (tiles) a knight must be to a soul for their name to show, and
-/// how many names show at once.
 const NAME_REACH: f32 = 3.8;
 const NAMES_AT_ONCE: usize = 1;
 
@@ -267,9 +242,6 @@ fn distance(run: &Run, s: &Stroller) -> f32 {
         .fold(f32::MAX, f32::min)
 }
 
-/// A soft pool of coloured light on dark ground: dithered rings of `inks`,
-/// outermost first, laid only over what is dark already, so a pool never
-/// washes out a figure or a board.
 fn pool(cv: &mut Img, cx: i32, cy: i32, rx: i32, ry: i32, inks: &[char]) {
     for dy in -ry..=ry {
         for dx in -rx..=rx {
@@ -296,9 +268,6 @@ const WARM_POOL: [char; 5] = ['n', 'Z', 'b', 'I', 'B'];
 const COLD_POOL: [char; 4] = ['s', 'x', 'S', 'u'];
 const RED_POOL: [char; 4] = ['n', 'Z', 'b', '8'];
 
-/// The village in the hall, and what it is in the middle of: called with
-/// the rest of the hall's ground (`holdings::hall`). The crew's unnamed
-/// hands are drawn there; these are the ledger's.
 pub(super) fn hall_folk(cv: &mut Img, run: &Run, held: &Holding) {
     if run.holding_raid.is_some() {
         return;
@@ -319,10 +288,6 @@ pub(super) fn hall_folk(cv: &mut Img, run: &Run, held: &Holding) {
     props_over(cv, run, held, tick);
 }
 
-/// What is drawn over the furniture, with the boards: a tantrum's bang and
-/// shards, a seized bench's sparks, and the names — the nearest couple to a
-/// knight, and whoever the hall is about. A name in a hungry or glum soul's
-/// red is the same state the smock shows. Chips keep clear of one another.
 fn marks_and_names(cv: &mut Img, run: &Run, held: &Holding) {
     let tick = run.tick;
     let strollers = strolls::strollers(held, tick);
@@ -366,7 +331,6 @@ fn marks_and_names(cv: &mut Img, run: &Run, held: &Holding) {
     }
 }
 
-/// What lies on the floor and the table before the figures stand over it.
 fn props_under(cv: &mut Img, run: &Run, held: &Holding, tick: u64) {
     match &held.occasion {
         Some(Occasion::Feast) => feast_table(cv, tick),
@@ -389,8 +353,6 @@ fn props_under(cv: &mut Img, run: &Run, held: &Holding, tick: u64) {
         Some(Occasion::Mourning { .. }) => bier(cv, tick),
         None => {}
     }
-    // A seized workshop's bench is lit by the fey, a finished work stands
-    // lit on its bench.
     if let Some(z) = &held.seized
         && let Some(bay) = fey::workshop(held, z.trade)
     {
@@ -404,7 +366,6 @@ fn props_under(cv: &mut Img, run: &Run, held: &Holding, tick: u64) {
     }
 }
 
-/// The knight carrying the artifact `id` this run, if any.
 fn carrier<'r>(run: &'r Run, id: &str) -> Option<(u32, &'r crate::rules::Hero)> {
     run.players.iter().find(|(_, h)| h.pockets.has(id)).map(|(&n, h)| (n, h))
 }
@@ -428,11 +389,7 @@ fn props_over(cv: &mut Img, run: &Run, held: &Holding, tick: u64) {
     }
 }
 
-// ── Props ────────────────────────────────────────────────────────────────
-
 fn feast_table(cv: &mut Img, tick: u64) {
-    // A long trestle where the steward's table is, laid with a cloth, loaves
-    // and cups; warm light pooled over it.
     let (x0, y0) = px((9.6, 4.9));
     let (w, h) = (6 * TILE - 4, TILE + 8);
     pool(cv, x0 + w / 2, y0 + h / 2, w / 2 + 18, h + 6, &WARM_POOL);
@@ -441,12 +398,10 @@ fn feast_table(cv: &mut Img, tick: u64) {
     cv.rect(x0, y0, w, h, 'o');
     cv.rect(x0, y0, w, 1, 'O');
     cv.rect(x0, y0 + h - 2, w, 2, 'r');
-    // A runner in the realm's blue and gold.
     cv.rect(x0 + 2, y0 + h / 2 - 2, w - 4, 4, 'q');
     for k in 0..w / 6 {
         cv.put(x0 + 4 + k * 6, y0 + h / 2 - 1, '4');
     }
-    // Loaves, a roast, cups.
     for (i, &(dx, ch)) in [(10, 'R'), (24, 'O'), (40, 'r'), (58, 'R'), (74, 'O')].iter().enumerate() {
         let (lx, ly) = (x0 + dx, y0 + 3 + (i as i32 % 2) * 11);
         cv.rect(lx, ly, 6, 3, ch);
@@ -463,7 +418,6 @@ fn feast_table(cv: &mut Img, tick: u64) {
 }
 
 fn bunting(cv: &mut Img, tick: u64) {
-    // Pennants along a swag across the hall's middle, realm colours.
     let (y0, x0, x1) = (2 * TILE + 6, 5 * TILE, 19 * TILE);
     for x in x0..x1 {
         let sag = (((x - x0) as f32 / (x1 - x0) as f32 * std::f32::consts::PI).sin() * 8.0) as i32;
@@ -502,7 +456,6 @@ fn spilt_grain(cv: &mut Img) {
 }
 
 fn rage_marks(cv: &mut Img, x: i32, top: i32, tick: u64) {
-    // A red bang over the head, and a few shards flying off.
     let up = ((tick / 4) % 2) as i32;
     cv.rect(x, top - 9 - up, 2, 5, '7');
     cv.rect(x, top - 3 - up, 2, 2, '7');
@@ -523,8 +476,6 @@ fn sparks(cv: &mut Img, x: i32, y: i32, tick: u64) {
     }
 }
 
-/// The bier: a plank on two poles, a violet pall edged in gold over the
-/// dead, a sprig of rose along it, a candle at each end, lit.
 fn bier(cv: &mut Img, tick: u64) {
     let (at, east) = strolls::bier(tick);
     let (x, y) = px(at);
@@ -542,10 +493,8 @@ fn bier(cv: &mut Img, tick: u64) {
         cv.put(x + dx * k, y - 12, '%');
         cv.put(x + dx * k + 1, y - 12, ';');
     }
-    // The poles' ends, where the bearers hold.
     cv.rect(x - 26, y - 8, 5, 1, 'B');
     cv.rect(x + 21, y - 8, 5, 1, 'B');
-    // A candle at each end, set on the pall.
     for cx in [x - 18, x + 17] {
         cv.rect(cx, y - 19, 2, 4, 'T');
         let flick = (tick / 4 + cx as u64) % 3;
@@ -555,8 +504,6 @@ fn bier(cv: &mut Img, tick: u64) {
     }
 }
 
-/// The fey bench: a cold teal light pooled on the floor before the
-/// workshop, with motes rising off it in violet and teal.
 fn fey_light(cv: &mut Img, bay: usize, tick: u64) {
     let (x, y) = px(strolls::work_spot(bay));
     pool(cv, x, y + 6, 30, 22, &COLD_POOL);
@@ -575,22 +522,18 @@ fn fey_light(cv: &mut Img, bay: usize, tick: u64) {
     }
 }
 
-/// A masterwork on its pedestal in front of the maker's bench: the craft's
-/// own thing, gold-lit.
 fn plinth(cv: &mut Img, bay: usize, trade: Trade, tick: u64, carried: bool) {
     let (bx, by) = px(strolls::work_spot(bay));
     let (x, y) = (bx + 17, by + 2);
     if !carried {
         pool(cv, x, y - 10, 22, 22, &WARM_POOL);
     }
-    // A stone plinth with a gilded edge.
     cv.rect(x - 5, y - 7, 11, 7, 'J');
     cv.rect(x - 5, y - 7, 11, 1, 'i');
     cv.rect(x - 6, y, 13, 2, 'G');
     cv.rect(x - 4, y - 6, 1, 6, 'h');
     cv.rect(x - 5, y - 4, 11, 1, '4');
     if carried {
-        // A knight has it: the pedestal stands bare.
         return;
     }
     let art: &[&str] = match trade {
@@ -611,10 +554,6 @@ fn plinth(cv: &mut Img, bay: usize, trade: Trade, tick: u64, carried: bool) {
     }
 }
 
-// ── Boards ───────────────────────────────────────────────────────────────
-
-/// The hall's own notice: what the village is in the middle of, in a
-/// plain chip at the top, and a line for the soul beside a knight.
 pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     let Some(held) = holdings::held_floor(&run.home.holdings, run.dungeon.pack) else { return };
     if run.holding_raid.is_some() {
@@ -629,8 +568,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
         top += 15;
     }
     let id = focus.unwrap_or(1);
-    // What the hall last said to this knight: a soul's word, the artifact
-    // taken, who the village was mourning as they came in.
     if let Some((when, who, line)) = run.found.as_ref()
         && run.tick.saturating_sub(*when) < u64::from(HZ * 6)
         && (*who == 0 || *who == id)
@@ -681,7 +618,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     }
 }
 
-/// What the village is in the middle of, for the chip at the top.
 pub(crate) fn banner(held: &Holding) -> Option<String> {
     Some(match (&held.occasion, &held.seized) {
         (Some(Occasion::Feast), _) => "FEAST: THE GRANARY WAS FULL".to_string(),
@@ -692,11 +628,6 @@ pub(crate) fn banner(held: &Holding) -> Option<String> {
     })
 }
 
-// ── The Court's cross-section ───────────────────────────────────────────
-
-/// The holding's folk as small figures walking their bays in the Court's
-/// cross-section, in place of the anonymous roster when anyone lives
-/// there. `x`, `y` as the cross-section's own.
 pub(super) fn cross_section(cv: &mut Img, x: i32, y: i32, held: &Holding, tick: u32) {
     let floor_y = y + 13;
     let bay_x = |i: usize| x + 16 + i as i32 * 30;
@@ -719,7 +650,6 @@ pub(super) fn cross_section(cv: &mut Img, x: i32, y: i32, held: &Holding, tick: 
             }
             None if f.age >= ELDER => (x + 3 + (n as i32 % 3) * 3, false),
             None => {
-                // Along the whole run of bays and back, a slow patrol.
                 let len = holdings::SLOTS as i32 * 30;
                 let k = ((t / 2 + i64::from(h) * 9) % i64::from(len * 2)) as i32;
                 (x + 14 + if k < len { k } else { len * 2 - k }, false)
@@ -732,7 +662,6 @@ pub(super) fn cross_section(cv: &mut Img, x: i32, y: i32, held: &Holding, tick: 
         im = squeezed(&im);
         cv.stamp(&im, px_, floor_y - im.h);
     }
-    // The village's occasion over the bays, as small lit marks.
     match &held.occasion {
         Some(Occasion::Feast) => {
             for k in 0..3 {
@@ -765,7 +694,6 @@ pub(super) fn cross_section(cv: &mut Img, x: i32, y: i32, held: &Holding, tick: 
     }
 }
 
-/// A figure at the cross-section's scale: the hall's drawn two thirds as tall.
 fn squeezed(im: &Img) -> Img {
     let (w, h) = (im.w * 7 / 10, im.h * 7 / 10);
     let mut o = Img::new(w.max(1), h.max(1));
@@ -779,7 +707,6 @@ fn squeezed(im: &Img) -> Img {
     o
 }
 
-/// Words broken into lines of at most `n` characters.
 fn wrap(s: &str, n: usize) -> Vec<String> {
     let mut out = Vec::new();
     let mut row = String::new();
@@ -798,9 +725,6 @@ fn wrap(s: &str, n: usize) -> Vec<String> {
     out
 }
 
-// ── The countryside's keepers ──────────────────────────────────────────
-
-/// The trade a plot's keeper works at, for their figure's tunic and tool.
 fn keeper_trade(plot: &str) -> Trade {
     match plot {
         "bakery" | "bothy" | "inn" | "harbour" => Trade::Brewer,
@@ -810,11 +734,6 @@ fn keeper_trade(plot: &str) -> Trade {
     }
 }
 
-/// A built plot's keeper, by name, at their work beside its ring (`at`, the
-/// ring's pixel) and out for a breath and back: the figure grey when the
-/// realm's granary is bare or its unrest high, as the board's "LEAN TIMES"
-/// and "WORRIED" say, and wearing the gold cap-dot when neither is so. Their
-/// name stands over them while a knight is near (`KEPT BY` is on the board).
 pub(super) fn keeper(cv: &mut Img, run: &Run, plot: &crate::rules::countryside::Plot, at: (i32, i32)) {
     let h = &run.home.holdings;
     let lean = h.stores == 0 || h.unrest >= holdings::RESTLESS;

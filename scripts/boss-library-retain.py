@@ -8,9 +8,6 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-# The source art left the repository on 2026-10-20 for the archive (its
-# README.md says what each folder is); ANGEL_SOURCE_ART names it
-# (default ~/angelX-archive/2026-10-20/source-art).
 SOURCE_ART = Path(os.environ.get('ANGEL_SOURCE_ART') or Path.home()/'angelX-archive/2026-10-20/source-art')
 DEFAULT_LIBRARY = Path('./cockpit/assets/boss-library/existing')
 

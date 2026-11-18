@@ -5,8 +5,6 @@
 
 use super::*;
 
-// --- patch / edit suite -----------------------------------------------------
-
 #[test]
 fn apply_patch_applies_unified_diff_and_confines_paths() {
     let root = std::env::temp_dir().join(format!("angel_ap_{}", std::process::id()));
@@ -18,20 +16,17 @@ fn apply_patch_applies_unified_diff_and_confines_paths() {
 
     let diff = "--- a/f.txt\n+++ b/f.txt\n@@ -1,2 +1,2 @@\n line one\n-line two\n+line TWO\n";
     let r = reg.dispatch("apply_patch", &serde_json::json!({"diff": diff}));
-    // git/patch may be absent in some CI; only assert the effect when it applied.
     if let Ok(msg) = r {
         assert!(msg.contains("f.txt"), "got: {msg}");
         let after = std::fs::read_to_string(root.join("f.txt")).unwrap();
         assert_eq!(after, "line one\nline TWO\n");
     }
 
-    // A diff that escapes the workspace is rejected before any apply.
     let bad = "--- a/../../etc/x\n+++ b/../../etc/x\n@@ -1 +1 @@\n-a\n+b\n";
     assert!(
         reg.dispatch("apply_patch", &serde_json::json!({"diff": bad}))
             .is_err()
     );
-    // A diff with no file headers is rejected.
     assert!(
         reg.dispatch("apply_patch", &serde_json::json!({"diff": "garbage"}))
             .is_err()
@@ -52,8 +47,6 @@ fn apply_patch_hashline_edits_by_line_and_guards_stale_tag() {
     std::fs::write(root.join("h.rs"), content).unwrap();
     let tag = crate::agent::hashline::content_tag(content);
 
-    // SWAP line 2 + INS.POST line 3: the model emits only the NEW rows, no
-    // retyping of the old text.
     let patch = format!(
         "*** Begin Patch\n[h.rs#{tag}]\nSWAP 2:\n+BETA\nINS.POST 3:\n+delta\n*** End Patch\n"
     );
@@ -78,8 +71,6 @@ fn apply_patch_hashline_edits_by_line_and_guards_stale_tag() {
         crate::agent::hashline::content_tag("alpha\nBETA\ngamma\ndelta\n")
     );
 
-    // A patch carrying the OLD tag no longer matches the changed file and is
-    // rejected before any write — the stale-patch guard.
     let stale = format!("*** Begin Patch\n[h.rs#{tag}]\nSWAP 1:\n+X\n*** End Patch\n");
     let err = reg
         .dispatch("apply_patch", &serde_json::json!({ "diff": stale }))
@@ -91,7 +82,6 @@ fn apply_patch_hashline_edits_by_line_and_guards_stale_tag() {
         "rejected patch must not mutate the file"
     );
 
-    // Path confinement applies to hashline sections too.
     let escape = format!("*** Begin Patch\n[../../etc/x#{tag}]\nDEL 1\n*** End Patch\n");
     assert!(
         reg.dispatch("apply_patch", &serde_json::json!({ "diff": escape }))
@@ -113,7 +103,6 @@ fn apply_patch_hashline_rem_and_mv() {
     std::fs::write(root.join("m.rs"), content).unwrap();
     let tag = crate::agent::hashline::content_tag(content);
 
-    // DEL.BLK the first function, then MV to a new path.
     let patch = format!("*** Begin Patch\n[m.rs#{tag}]\nDEL.BLK 1\nMV nest/m2.rs\n*** End Patch\n");
     let msg = reg
         .dispatch("apply_patch", &serde_json::json!({ "diff": patch }))
@@ -125,7 +114,6 @@ fn apply_patch_hashline_rem_and_mv() {
         "fn b() {\n    2\n}\n"
     );
 
-    // REM the moved file.
     let tag2 = crate::agent::hashline::content_tag("fn b() {\n    2\n}\n");
     let rem = format!("*** Begin Patch\n[nest/m2.rs#{tag2}]\nREM\n*** End Patch\n");
     let msg2 = reg
@@ -193,7 +181,6 @@ fn conflict_uri_registers_on_read_and_resolves_via_write() {
         .unwrap();
     assert!(list.contains("conflict://"), "{list}");
 
-    // Extract first id.
     let id = list
         .lines()
         .find_map(|l| {
@@ -249,7 +236,6 @@ fn skill_uri_lists_catalog() {
     let catalog = reg
         .dispatch("read_file", &serde_json::json!({"path": "skill://"}))
         .unwrap();
-    // Workspace may have zero project skills but shipped skills usually exist.
     assert!(
         catalog.contains("skill://") || catalog.contains("no skills"),
         "{catalog}"
@@ -285,8 +271,6 @@ fn outline_uri_maps_symbols() {
 
 #[test]
 fn github_uri_parse_is_wired_through_read_file_errors() {
-    // Without network/auth we still validate parse + missing-number errors
-    // via the virtual path; a clean list may succeed if gh is authed.
     let root = std::env::temp_dir().join(format!("angel_ghuri_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).unwrap();
@@ -377,7 +361,6 @@ fn apply_patch_hashline_recovers_stale_tag_via_session_snapshot() {
     let mut reg = ToolRegistry::new();
     register_file_tools(&mut reg, root.clone());
 
-    // Model reads the original file (records a session snapshot).
     let original = "alpha\nbeta\ngamma\n";
     std::fs::write(root.join("r.rs"), original).unwrap();
     let page = reg
@@ -386,10 +369,8 @@ fn apply_patch_hashline_recovers_stale_tag_via_session_snapshot() {
     let tag = crate::agent::hashline::content_tag(original);
     assert!(page.contains(&format!("[r.rs#{tag}]")), "got: {page}");
 
-    // External drift: insert a line above the anchored region.
     std::fs::write(root.join("r.rs"), "HEADER\nalpha\nbeta\ngamma\n").unwrap();
 
-    // Patch still carries the pre-drift tag; recovery must remap SWAP 2 → line 3.
     let patch = format!("*** Begin Patch\n[r.rs#{tag}]\nSWAP 2:\n+BETA\n*** End Patch\n");
     let msg = reg
         .dispatch("apply_patch", &serde_json::json!({ "diff": patch }))
@@ -417,7 +398,6 @@ fn str_replace_expect_tag_guards_stale_edit() {
     std::fs::write(root.join("g.rs"), "let a = 1;\n").unwrap();
     let tag = crate::agent::hashline::content_tag("let a = 1;\n");
 
-    // Matching tag → edit applies.
     reg.dispatch(
         "str_replace",
         &serde_json::json!({ "path": "g.rs", "old": "a = 1", "new": "a = 2", "expect_tag": tag }),
@@ -428,7 +408,6 @@ fn str_replace_expect_tag_guards_stale_edit() {
         "let a = 2;\n"
     );
 
-    // The file has since changed, so the OLD tag is stale → rejected, untouched.
     let err = reg
         .dispatch(
             "str_replace",
@@ -477,8 +456,6 @@ fn mutation_receipts_chain_guarded_edits_without_reread() {
         crate::agent::hashline::content_tag("alpha beta\n")
     );
 
-    // The returned tag is sufficient authority for the next guarded mutation;
-    // no read_file call is needed between these tool calls.
     let replace_receipt = reg
         .dispatch(
             "str_replace",
@@ -519,7 +496,6 @@ fn mutation_receipts_chain_guarded_edits_without_reread() {
         "omega delta\n"
     );
 
-    // The first receipt is now stale and must not authorize a later edit.
     let err = reg
         .dispatch(
             "str_replace",
@@ -570,7 +546,6 @@ fn multi_edit_applies_atomically() {
         .unwrap();
     assert_eq!(after, "let a = 10;\nlet b = 20;\n");
 
-    // Atomicity: the 2nd edit can't match, so NEITHER edit should land.
     let e = reg.dispatch(
         "multi_edit",
         &serde_json::json!({"path": "m.rs", "edits": [
@@ -656,17 +631,13 @@ fn an_edit_that_changes_nothing_says_so() {
 #[test]
 fn locate_replacement_exact_paths() {
     let c = "let a = 1;\nlet b = 2;\n";
-    // Mid-line exact substring still works, no fuzzy flag.
     assert_eq!(locate_replacement(c, "a = 1"), Ok((4, 9, false)));
-    // Ambiguous exact match fails loudly.
     assert!(locate_replacement("x x x", "x").is_err());
-    // Absent text fails.
     assert!(locate_replacement(c, "nope").is_err());
 }
 
 #[test]
 fn locate_replacement_ambiguous_names_line_numbers() {
-    // Same parse site in validFrom and expiresOn — the Roll 07 poco failure mode.
     let c = "\
 Poco::DateTime X509Certificate::validFrom() const\n\
 {\n\
@@ -686,7 +657,6 @@ Poco::DateTime X509Certificate::expiresOn() const\n\
         err.contains("L3") && err.contains("L7"),
         "line numbers of both sites: {err}"
     );
-    // The disambiguation guidance is its `⠨⠉` pages, decoded by the ledger.
     let guidance = crate::agent::harness::book::d46_recovery::run(&[
         crate::agent::harness::book::d46_recovery::NOT_UNIQUE,
         crate::agent::harness::book::d46_recovery::ENCLOSING,
@@ -703,8 +673,6 @@ Poco::DateTime X509Certificate::expiresOn() const\n\
 
 #[test]
 fn locate_replacement_tolerates_interior_trailing_ws() {
-    // Trailing spaces on a non-final line break the exact substring; the
-    // whole-line fuzzy tier recovers it and reports fuzzy=true.
     let c = "fn a() {   \n    body();\n}\n";
     let old = "fn a() {\n    body();\n}";
     let (s, e, fuzzy) = locate_replacement(c, old).unwrap();
@@ -714,12 +682,10 @@ fn locate_replacement_tolerates_interior_trailing_ws() {
 
 #[test]
 fn locate_replacement_tolerates_crlf_and_typography() {
-    // CRLF line endings on a multi-line block.
     let c = "let x = 1;\r\nlet y = 2;\r\n";
     let (s, e, fuzzy) = locate_replacement(c, "let x = 1;\nlet y = 2;").unwrap();
     assert!(fuzzy);
     assert_eq!(&c[s..e], "let x = 1;\r\nlet y = 2;");
-    // Smart quotes fold to ASCII.
     let c = "  println!(“hi”);\n";
     let (s, e, fuzzy) = locate_replacement(c, "  println!(\"hi\");").unwrap();
     assert!(fuzzy);
@@ -731,9 +697,6 @@ fn locate_replacement_tolerates_crlf_and_typography() {
 
 #[test]
 fn locate_replacement_never_silently_reindents() {
-    // File indents the interior line with 4 spaces; old uses 2. There is no
-    // exact substring, and the fuzzy tiers must REFUSE (leading whitespace
-    // differs) rather than re-indent the code.
     let c = "fn a() {   \n    body();\n}\n";
     let old = "fn a() {\n  body();\n}";
     assert!(locate_replacement(c, old).is_err());
@@ -741,8 +704,6 @@ fn locate_replacement_never_silently_reindents() {
 
 #[test]
 fn locate_replacement_fuzzy_requires_uniqueness() {
-    // Two 2-line blocks identical modulo trailing whitespace; only a fuzzy
-    // tier matches and it finds both — must fail as ambiguous, never guess.
     let c = "foo\t\nbar\nfoo \nbar\n";
     let r = locate_replacement(c, "foo\nbar");
     assert!(r.is_err(), "ambiguous fuzzy match must fail, got {r:?}");
@@ -766,7 +727,6 @@ fn str_replace_uses_fuzzy_fallback() {
     std::fs::create_dir_all(&root).unwrap();
     let mut reg = ToolRegistry::new();
     register_file_tools(&mut reg, root.clone());
-    // Interior trailing whitespace defeats an exact match.
     reg.dispatch(
         "write_file",
         &serde_json::json!({"path": "f.rs", "content": "fn a() {   \n    body();\n}\n"}),
@@ -1075,10 +1035,6 @@ fn apply_patch_unified_preflight_prevents_partial_multi_file_change() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// The model quotes the tag in every shape read_file printed it — `tag`,
-/// `#tag`, `path#tag`, `[path#tag]` — and all of them must mean the same guard.
-/// Measured 2026-09-07: glm-5.3-flash passed the whole `path#tag` and lost two
-/// hops to "stale edit" with identical tags on both sides.
 #[test]
 fn expect_tag_accepts_every_header_form() {
     let content = "fn main() {}\n";

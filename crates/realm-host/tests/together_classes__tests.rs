@@ -24,7 +24,6 @@ fn the_mage_and_healer_loose_their_own_shot_with_the_bows_numbers() {
         let (shot, sounds, cooldown) = loose(class);
         assert_eq!(shot.look.as_ref().map(|l| l.0.as_str()), Some(colour), "{class}");
         assert!(sounds.contains(&sound), "{class}: {sounds:?}");
-        // Look only: the bow's numbers stand.
         assert_eq!(shot.kind, arrow.kind);
         assert_eq!((shot.damage, shot.ttl, shot.pierce), (arrow.damage, arrow.ttl, arrow.pierce), "{class}");
         assert_eq!((shot.vx, shot.vy), (arrow.vx, arrow.vy));

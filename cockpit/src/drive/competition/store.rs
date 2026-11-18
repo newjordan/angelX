@@ -98,8 +98,6 @@ impl CompetitionStore {
             }
             PrepareActionV1::Append(event) => {
                 self.append_event(&event)?;
-                // The event is authoritative. A snapshot failure is recoverable by
-                // replaying the journal, and an exact caller retry will not reissue it.
                 journal.state.apply(&event).map_err(journal_error)?;
                 self.save_snapshot(&journal.state)?;
                 Ok(AppendReceiptV1 {

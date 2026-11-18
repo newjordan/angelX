@@ -1,10 +1,6 @@
 import Base
 import ./math.bend as M
 
-# Laws about the arithmetic the ride is built on, checked by the ordinary Bend
-# checker. They state only what the integer code actually does: the anchors of
-# the tables, Rust's truncating division and the clamps.
-
 law sin_anchors_its_quadrants:
   {M.sin(64) == 4096 : U32}
 

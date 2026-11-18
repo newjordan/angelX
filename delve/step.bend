@@ -2,13 +2,6 @@ import Base
 import ./lib/j.bend as J
 import ./build/rules.bend as R
 
-# One apply of the rules: the Run checkpoint and the host's event
-# ({inputs, settings, phrasebook, step}) in, the stepped checkpoint out. The
-# Rust worker installs settings and the phrasebook as globals before stepping;
-# here they ride on the run for the tick (`$settings`, `$phrasebook`) and are
-# taken off before the reply. `rules.Run.step` is `Run::step`
-# (crates/delve/src/rules.rs), assembled by delve/build.py from the fragments.
-
 type Stepped is Data:
   Ran{run: J.Val}
   Refused{why: String}
@@ -37,7 +30,5 @@ def step.if(go: Bool, +checkpoint: J.Val, +event: J.Val) -> Stepped:
 def step(+checkpoint: J.Val, +event: J.Val) -> Stepped:
   step.if(J.bool(J.get(event, "step")), checkpoint, event)
 
-# A computation the worker serves (`compute` in the protocol): `{"Ok": v}` or
-# `{"Err": text}`.
 def compute(+contract: String, +input: J.Val) -> J.Val:
   R.compute.run(contract, input)

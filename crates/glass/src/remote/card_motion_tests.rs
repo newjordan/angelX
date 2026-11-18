@@ -128,7 +128,6 @@ fn maximum_legacy_art_and_reserved_motion_fit_actual_wire_capture() {
     }
     let (motion, motion_bytes) = largest.unwrap();
     assert!(motion_bytes > 48 * 1024 - 200);
-    // Unknown art fields and whitespace are not part of the prepared wire.
     value["ignored-editor-note"] = serde_json::json!("x".repeat(70000));
     value["card"] = serde_json::to_value(&motion).unwrap();
     let clip =
@@ -163,7 +162,6 @@ fn maximum_legacy_art_and_reserved_motion_fit_actual_wire_capture() {
 fn legal_json_payload_cannot_overflow_the_complete_packet_budget() {
     let mut pack = include_str!("../../../../cockpit/live/showcase-squire/pack.json").to_owned();
     assert!(pack.len() < 64 * 1024);
-    // JSON whitespace is legal, but still consumes the incoming wire budget.
     pack.push_str(&" ".repeat(64 * 1024 - pack.len()));
     let update = wire::SquireClipUpdate {
         version: 1,

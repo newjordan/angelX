@@ -111,8 +111,6 @@ pub(crate) const PRIMARY: Primary = Primary {
     ],
 };
 
-/// Raises for jobs that just finished: one route per outcome, every receipt in
-/// the evidence. A failed or unknown exit is `⠏⠉`; clean exits are `⠏⠃`.
 pub(crate) fn completions(finished: &[ProcCompletion]) -> Vec<Raise> {
     let receipts = |failed: bool| {
         finished
@@ -128,8 +126,6 @@ pub(crate) fn completions(finished: &[ProcCompletion]) -> Vec<Raise> {
         .collect()
 }
 
-/// Whether any of these completions failed or ended without a known exit.
-/// The facts of each finished job, beside the stamps as data: `[id] name state`.
 pub(crate) fn receipt_lines(finished: &[ProcCompletion]) -> String {
     finished
         .iter()

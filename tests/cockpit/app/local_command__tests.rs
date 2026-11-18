@@ -102,11 +102,8 @@ fn help_text_lists_the_core_slash_commands() {
 
 #[test]
 fn session_preview_returns_full_short_first_line() {
-    // A short, single line is returned whole.
     assert_eq!(session_preview("a quick note"), "a quick note");
-    // Only the first line is ever used.
     assert_eq!(session_preview("first line\nsecond line"), "first line");
-    // Empty preview → empty string.
     assert_eq!(session_preview(""), "");
 }
 
@@ -222,7 +219,6 @@ fn git_diff_commands_are_scoped_to_the_active_workspace() {
     let (task, evidence) = git_review_request(&root).unwrap().unwrap().into_messages();
     assert_eq!(task.role, ChatRole::User);
     assert_eq!(&*task.content, REVIEW_TASK);
-    // The task is the operator stand-in `⠬⠚⠁`, whose page is the sentence.
     let stand_in = crate::agent::harness::book::ing_drivers::STAND_INS;
     assert_eq!(
         REVIEW_TASK,
@@ -239,7 +235,6 @@ fn git_diff_commands_are_scoped_to_the_active_workspace() {
         "{}",
         evidence.content
     );
-    // The framing is the `⠬⠙` pages.
     assert!(evidence.content.starts_with("⠬⠙"));
     let review = crate::agent::harness::book::ing_drivers::REVIEW
         .sub()
@@ -344,7 +339,6 @@ fn review_request_caps_utf8_evidence_and_reports_exact_omission() {
         "snapshot_truncated_bytes={}",
         original_bytes - body.len()
     )));
-    // What to do about the truncation is the `⠬⠙` pages.
     assert!(evidence.starts_with("⠬⠙"));
     assert!(
         crate::agent::harness::book::ing_drivers::REVIEW
@@ -412,7 +406,6 @@ fn init_agents_md_does_not_follow_a_dangling_symlink() {
 #[test]
 fn open_media_reports_image_failures_without_spawning() {
     let mut viewer = Viewer::new();
-    // A remote image target has no local file → a clear failure (no subprocess).
     let remote = [Media::Image {
         label: "remote".to_string(),
         path: "https://example.com/pic.png".to_string(),
@@ -421,7 +414,6 @@ fn open_media_reports_image_failures_without_spawning() {
         open_media(&remote, &mut viewer, 1),
         "preview #1 failed: image target is not a local file"
     );
-    // A local-but-undecodable image path fails on decode, not on spawn.
     let broken = [Media::Image {
         label: "broken".to_string(),
         path: "/tmp/this-image-does-not-exist-9f3a.png".to_string(),

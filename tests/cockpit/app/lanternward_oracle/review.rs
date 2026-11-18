@@ -10,13 +10,11 @@ use angel_delve::rules::lanternward::{Act, Atk, Bk, Fs, HEART, Hold, Pk, Session
 use angel_delve::rules::{Input, Run};
 use std::collections::BTreeMap;
 
-/// The engine installed, and the party at the door.
 fn start() -> Run {
     crate::agent::harness::live_policy::install_scripted_rules();
     Run::lanternward_for_test()
 }
 
-/// An oracle method on the crate's session, through the shape both save as.
 fn through<R>(sess: &mut Session, f: impl FnOnce(&mut super::Session) -> R) -> R {
     let mut oracle: super::Session = serde_json::from_value(serde_json::to_value(&*sess).unwrap()).unwrap();
     let out = f(&mut oracle);
@@ -24,7 +22,6 @@ fn through<R>(sess: &mut Session, f: impl FnOnce(&mut super::Session) -> R) -> R
     out
 }
 
-/// A snuffer asleep where a mark stands.
 fn spawn(r: &mut Run, x: i32, y: i32) {
     through(s(r), |o| o.spawn_foe(super::Fk::Snuffer, x, y, false));
 }
@@ -44,7 +41,6 @@ fn s(r: &mut Run) -> &mut Session {
     r.lanternward.as_mut().unwrap()
 }
 
-/// Put seat `id` at tile `(tx, ty)` facing `face`.
 fn place(r: &mut Run, id: u32, tx: i32, ty: i32, face: (i32, i32)) {
     if let Some(k) = s(r).seats.get_mut(&id) {
         k.x = middle(tx);
@@ -56,7 +52,6 @@ fn place(r: &mut Run, id: u32, tx: i32, ty: i32, face: (i32, i32)) {
     }
 }
 
-/// The party in room `room` having done the rooms before it.
 fn rooms_to(r: &mut Run, room: usize) {
     through(s(r), |o| o.enter_room(room, &OracleRules::default()));
     let sess = s(r);
@@ -78,9 +73,6 @@ fn open_all_props(r: &mut Run, kind: Pk) {
     }
 }
 
-/// One knight in the Stair, facing east, and a sleeping snuffer
-/// `dist_px` pixels ahead (none for 0): the bare room the verbs are
-/// tried in.
 pub fn duel(dist_px: i32) -> Run {
     let mut r = start();
     r.step(&BTreeMap::new());
@@ -94,7 +86,6 @@ pub fn duel(dist_px: i32) -> Run {
     r
 }
 
-/// The adventure at a named moment, for `seats` knights.
 pub fn review(moment: &str, seats: u32) -> Run {
     let mut r = start();
     for id in 2..=seats {
@@ -105,7 +96,6 @@ pub fn review(moment: &str, seats: u32) -> Run {
     let lock = Input { ult: true, ..Default::default() };
     match moment {
         "stair" => {}
-        // A foe ahead, the lock just taken.
         "lock" => {
             place(&mut r, 1, 8, 8, (1, 0));
             s(&mut r).foes.clear();
@@ -158,7 +148,6 @@ pub fn review(moment: &str, seats: u32) -> Run {
             f.t = 1;
             hold(&mut r, &[(1, lock)], 1);
             let guard = Input { ult: true, dash: true, ..Default::default() };
-            // Tell shown, then up with the shield.
             for _ in 0..60 {
                 let f = &r.lanternward.as_ref().unwrap().foes[0];
                 let raise = match moment {
@@ -241,7 +230,6 @@ pub fn review(moment: &str, seats: u32) -> Run {
             hold(&mut r, &[], 14);
         }
         "chest" => {
-            // The map in the nook, the finder holding it up.
             place(&mut r, 1, 18, 7, (1, 0));
             if let Some(i) = s(&mut r).prop_of(Pk::Chest, 0) {
                 let (x, y) = (s(&mut r).props[i].x, s(&mut r).props[i].y);

@@ -61,7 +61,6 @@ fn a_bow_answered_is_a_huzzah() {
     let mut r = kingdom();
     r.join_seat(2, "Two");
     let geo = geography::geography(&r.kingdom.wishes);
-    // Open ground away from any door or thing.
     let spot = (0..geo.room.rows as i32)
         .flat_map(|y| (0..geo.room.cols as i32).map(move |x| (x, y)))
         .find(|&(x, y)| {
@@ -91,12 +90,10 @@ fn a_knight_in_the_stocks_takes_tomatoes_from_friends() {
     r.step(&press(2));
     assert!(r.players[&2].stocked);
     let at = (r.players[&2].x, r.players[&2].y);
-    // Locked in: walking goes nowhere.
     for _ in 0..10 {
         r.step(&BTreeMap::from([(2, Input { move_x: 1, ..Default::default() })]));
     }
     assert_eq!((r.players[&2].x, r.players[&2].y), at);
-    // A friend's shot from the west is a tomato.
     let hp = r.players[&2].hp;
     let (hx, hy) = at;
     {
@@ -112,7 +109,6 @@ fn a_knight_in_the_stocks_takes_tomatoes_from_friends() {
     }
     assert!(r.players[&2].splats > 0, "splat");
     assert_eq!(r.players[&2].hp, hp, "tomatoes never hurt");
-    // E again lets them out.
     r.step(&BTreeMap::new());
     r.step(&press(2));
     assert!(!r.players[&2].stocked);
@@ -163,7 +159,6 @@ fn the_coach_rides_round_the_realm_and_back() {
         let tile = ((h.x / TILE_UNITS) as i32, (h.y / TILE_UNITS) as i32);
         assert!((tile.0 - next.0).abs() <= 1 && (tile.1 - next.1).abs() <= 2, "post {k}: {tile:?} vs {next:?}");
         assert_eq!(geo.room.tile(tile.0, tile.1), Tile::Floor, "lands on open ground");
-        // Step back onto the post for the next ride.
         stand_at(&mut r, 1, next);
     }
 }
@@ -241,7 +236,6 @@ fn a_scratch_behind_the_ears_makes_tallow_purr() {
     r.pet_tallow(&press(1));
     assert_eq!(r.found.as_ref().map(|f| f.2.as_str()), Some("PURRR"));
     assert_eq!(r.players[&1].hp, 12);
-    // Holding E is one pat.
     r.pet_tallow(&press(1));
     assert_eq!(r.players[&1].hp, 12);
 }
@@ -261,7 +255,6 @@ fn the_crier_sends_you_to_an_errand_and_the_arrow_follows() {
     let goal = r.kingdom_goal(1).unwrap();
     let site = geo.sites.iter().find(|s| s.room == room).unwrap();
     assert_eq!(goal.stand, site.stand, "the arrow points at the errand's place");
-    // Getting there clears it.
     let index = geo.sites.iter().position(|s| s.room == room).unwrap();
     r.enter_kingdom_place(index);
     assert!(r.kingdom.moments.errand.is_none());
@@ -285,7 +278,6 @@ fn a_find_out_in_the_open_pays_once_mends_tells_and_hums() {
     r.players.retain(|&id, _| id == 1);
     let all = r.standing_finds();
     let spot = |k: Kind| all.iter().find(|(_, f)| f.kind == k).map(|(i, f)| (*i, f.at));
-    // A ruin's cache, once a run.
     let (i, ruin) = spot(Kind::Ruin).expect("a ruin");
     stand_at(&mut r, 1, ruin);
     let before = r.score;
@@ -297,14 +289,12 @@ fn a_find_out_in_the_open_pays_once_mends_tells_and_hums() {
     assert_eq!(r.score, before + CACHE, "a cache pays once");
     assert_eq!(r.found.as_ref().unwrap().2, "ONLY OLD STONES NOW");
     r.step(&BTreeMap::new());
-    // A shrine mends.
     let (_, shrine) = spot(Kind::Shrine).expect("a shrine");
     stand_at(&mut r, 1, shrine);
     r.players.get_mut(&1).unwrap().hp = 1;
     r.step(&press(1));
     assert_eq!(r.players[&1].hp, r.players[&1].max_hp);
     r.step(&BTreeMap::new());
-    // A wanderer tells of a find nobody has made, by its biome.
     let (_, fire) = spot(Kind::Campfire).expect("a campfire");
     stand_at(&mut r, 1, fire);
     r.step(&press(1));
@@ -312,12 +302,10 @@ fn a_find_out_in_the_open_pays_once_mends_tells_and_hums() {
     assert!(said.starts_with("A WANDERER: "), "{said}");
     assert!(crate::world::biome::Biome::ALL.iter().any(|b| said.ends_with(&b.name().to_uppercase())), "{said}");
     r.step(&BTreeMap::new());
-    // Stones hum.
     let (k, stones) = spot(Kind::Stones).expect("standing stones");
     stand_at(&mut r, 1, stones);
     r.step(&press(1));
     assert_eq!(r.kingdom.woke.map(|w| w.0), Some(k as u8));
-    // Saved and loaded, the finds remember.
     let loaded: Run = serde_json::from_slice(&serde_json::to_vec(&r).unwrap()).unwrap();
     assert!(loaded.valid_snapshot());
     assert_eq!(loaded.kingdom.found, r.kingdom.found);
@@ -330,7 +318,6 @@ fn a_lost_pack_a_hermit_and_a_well_give_once_and_only_what_can_be_used() {
     r.players.retain(|&id, _| id == 1);
     let all = r.standing_finds();
     let spot = |k: Kind| all.iter().find(|(_, f)| f.kind == k).map(|(i, f)| (*i, f.at));
-    // A lost pack holds a card or a consumable, once.
     let (i, pack) = spot(Kind::LostPack).expect("a lost pack");
     stand_at(&mut r, 1, pack);
     r.players.get_mut(&1).unwrap().hand.clear();
@@ -345,8 +332,6 @@ fn a_lost_pack_a_hermit_and_a_well_give_once_and_only_what_can_be_used() {
     r.step(&press(1));
     assert_eq!(r.found.as_ref().unwrap().2, "THE PACK IS EMPTY NOW");
     r.step(&BTreeMap::new());
-    // A hermit trades a thunder scroll for a potion: nothing taken, and
-    // nothing marked, from a knight with none.
     let (i, hermit) = spot(Kind::Hermit).expect("a hermit");
     stand_at(&mut r, 1, hermit);
     r.players.get_mut(&1).unwrap().hand.clear();
@@ -362,8 +347,6 @@ fn a_lost_pack_a_hermit_and_a_well_give_once_and_only_what_can_be_used() {
     r.step(&press(1));
     assert_eq!(r.players[&1].hand, vec!["thunder-scroll".to_string()], "he trades once");
     r.step(&BTreeMap::new());
-    // A well takes a coin of renown for a boon the knight can use; short of
-    // the coin, or with nothing to give, none is taken.
     let (i, well) = spot(Kind::Well).expect("a well");
     stand_at(&mut r, 1, well);
     r.score = COIN - 1;

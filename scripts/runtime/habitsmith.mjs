@@ -1,5 +1,3 @@
-// Habitsmith worker/CLI adapter. Workflow mining, proposals and feedback rules
-// live in lib/habits/core.mjs; this layer owns files, paths, budgets and leases.
 import { runGraphCli } from './worker-lock.mjs'
 import { workerPaths } from './worker-paths.mjs'
 import { existsSync, realpathSync } from 'node:fs'
@@ -13,12 +11,7 @@ import {
   ingestWorkflows,
 } from '../../lib/habits/core.mjs'
 
-// Preserve the historical imports; there is only one copy of the pure behavior.
 export * from '../../lib/habits/core.mjs'
-
-// ─── shared I/O: the propose pass ────────────────────────────────────────────
-// Used by both the CLI (`--propose`) and the habitsmith tick — the one place
-// that scans existing skills, spends the daily budget file, and writes drafts.
 
 export async function proposeToDisk(graph, opts = {}) {
   const fs = await import('./private-store-fs.mjs')
@@ -37,8 +30,6 @@ export async function proposeToDisk(graph, opts = {}) {
   const log = opts.log ?? console.log
   const dryRun = !!opts.dryRun
 
-  // Every skill that already exists, as a name + normalized step-set. Both
-  // layouts (folder-per-SKILL.md, flat <name>.md), all three dirs.
   const existing = []
   for (const dir of [bundledDir, userSkillsDir, proposedDir]) {
     let entries
@@ -61,8 +52,6 @@ export async function proposeToDisk(graph, opts = {}) {
         .exec(text)?.[1]
         ?.trim()
         .replace(/^"|"$/g, '')
-      // Explicitly project-scoped skills collide only inside their own
-      // repository. Global skills still reserve the name everywhere.
       if (repoKey && opts.repoKey && repoKey !== opts.repoKey) continue
       existing.push({
         name: name || e.name.replace(/\.md$/, ''),
@@ -90,8 +79,6 @@ export async function proposeToDisk(graph, opts = {}) {
   for (const p of proposals) {
     if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,191}$/u.test(p.repoKey))
       throw new Error('Invalid habit repository key')
-    // The human-facing skill name can legitimately recur in unrelated repos;
-    // the folder identity cannot, because drafts share one user-global spool.
     const dir = join(proposedDir, `${p.name}--${p.repoKey}`)
     const note = `${dir}/SKILL.md (belief ${p.belief.toFixed(2)}${p.risky ? ', RISKY' : ''})`
     if (dryRun) {
@@ -110,13 +97,7 @@ export async function proposeToDisk(graph, opts = {}) {
   return { proposals, skipped }
 }
 
-// ─── CLI ─────────────────────────────────────────────────────────────────────
-// I/O lives here only. `--mine` folds ledger sequences into the shared graph;
-// `--list` prints what the miner sees without touching the graph; `--propose`
-// renders belief-gated drafts into the PROPOSED dir (never the live one). Same
-// graph-file caveats as config-causal (no locking; ticks hold the lockfile).
-
-async function cli(argv) {
+async function cli(argv, selectedGraph) {
   const fs = await import('./private-store-fs.mjs')
   const { readFileSync, writeFileSync, existsSync } = fs
   const { fileURLToPath } = await import('node:url')
@@ -128,9 +109,11 @@ async function cli(argv) {
     const i = argv.indexOf(name)
     return i >= 0 ? argv[i + 1] : undefined
   }
-  const graphPath = flag('--graph') || workerPaths().graph
+  const graphPath = selectedGraph ?? (flag('--graph') || workerPaths().graph)
   const ledgerPath = flag('--ledger') || process.env.ANGEL_EXPERIENCE_LOG || workerPaths().ledger
   const onlyRepo = flag('--repo')
+  const dryRun = argv.includes('--dry-run')
+  let previewGraph
 
   const CausalGraph = (await import('../../lib/research/CausalGraph.js')).default
   const loadGraph = () =>
@@ -160,7 +143,7 @@ async function cli(argv) {
       for (const wf of rec.workflows)
         console.log(
           `  ${wf.steps.map((s) => s.class ?? s.text).join(' → ')} · ${wf.support} run(s) / ${wf.sessions} session(s), ` +
-            `${wf.passes} clean · steps: ${wf.steps.map((s) => `\`${s.text}\` ${Math.round(s.passRate * 100)}%`).join(' → ')}`,
+            `${wf.passes} clean · steps: ${wf.steps.map((s) => `\`${s.text}\` ${s.passRate == null ? 'no verdict' : `${Math.round(s.passRate * 100)}%`}`).join(' → ')}`,
         )
     }
     if (Object.keys(mined).length === 0) console.log(`no cmd events in ${ledgerPath}`)
@@ -179,9 +162,10 @@ async function cli(argv) {
       nodes += added.nodes
       updated += added.updated
     }
-    writeFileSync(graphPath, JSON.stringify(graph.serialize(), null, 2))
+    if (dryRun) previewGraph = graph
+    else writeFileSync(graphPath, JSON.stringify(graph.serialize(), null, 2))
     console.log(
-      `habitsmith mine → ${graphPath}\n` +
+      `habitsmith ${dryRun ? 'would mine' : 'mine'} → ${graphPath}\n` +
         `  ${Object.keys(mined).length} repo(s) in ${ledgerPath}\n` +
         `  ${nodes} new + ${updated} refreshed workflow fact(s)`,
     )
@@ -189,9 +173,9 @@ async function cli(argv) {
   }
 
   if (argv.includes('--propose') || refresh) {
-    const { proposals, skipped } = await proposeToDisk(loadGraph(), {
+    const { proposals, skipped } = await proposeToDisk(previewGraph ?? loadGraph(), {
       repoKey: onlyRepo,
-      dryRun: argv.includes('--dry-run'),
+      dryRun,
       proposedDir: flag('--proposed-dir'),
       stateDir: flag('--state-dir'),
       root: ROOT,

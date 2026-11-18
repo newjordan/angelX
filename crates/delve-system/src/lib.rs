@@ -23,8 +23,6 @@ fn step_by_default() -> bool {
     true
 }
 
-/// Implementation callbacks for this executable generation. One composition
-/// point avoids a new forwarding entry point for every extracted policy.
 pub struct Policies {
     pub scroll: fn(&scrolls::Request) -> Result<scrolls::ResultValue, String>,
     pub home:
@@ -46,17 +44,9 @@ impl Default for Policies {
         }
     }
 }
-/// The engine `angel_delve::scripted` rules run on inside this worker: the
-/// Kernel's V8 backend over the policy generations compiled into this
-/// executable (`angel_live::shipped`). The worker has no live-module loader, so
-/// it serves the shipped generation only; hot edits to a module reach the
-/// worker with the next executable, until the host hands it generations.
 pub fn install_rules_engine() {
     angel_delve::scripted::install(angel_live::shipped::engine);
 }
-/// One `apply`: restore the host's checkpoint, take the event's settings and
-/// phrasebook (installed once per distinct book), step the rules when asked,
-/// and answer the new state. `context` remembers the phrasebook installed.
 pub fn apply(
     body: &Value,
     context: &mut Option<(String, Vec<String>)>,
@@ -108,33 +98,8 @@ impl Owner {
         }
     }
 }
-/// What a resident worker holds between calls: the canonical state the host
-/// last agreed on, and the run parsed from it.
 type Resident = (Value, angel_delve::rules::Run);
 
-/// Where the whole-state lifecycle stands, the one the host drives with
-/// `restore`, `activate`, `apply` and `dispose` (the swap in
-/// `angel_live::system` stages a candidate, activates it, then retires the old
-/// worker). The moves:
-///
-/// - `Fresh`: `restore` stages. `activate`, `apply` and `compute` are refused.
-/// - `Staged`: a candidate state was restored. `activate` makes it the running
-///   implementation; `restore` replaces it.
-/// - `Active`: the running implementation. `apply` steps it. `restore` re-seeds
-///   it in place without leaving `Active`, which is how the host recovers
-///   after an error: it re-sends the state before its next delta.
-/// - `dispose` returns every phase to `Fresh`.
-///
-/// A slot holding `None` is cold: no state to apply a delta to. It follows
-/// an `apply` that sent the whole state, an `apply` that failed, a `restore`
-/// that failed (cleared first, so a delta is never applied to a base the
-/// caller did not send) and `owned.restore`, which takes the slot over. A cold
-/// `Active` still applies whole states, and refuses a delta with "missing
-/// resident state" until the next `restore`.
-///
-/// The owned-session track (`owned_staged`, `owned_active`) lives beside this:
-/// it holds a candidate and an incumbent at once, so it is two slots, not
-/// more phases.
 enum Phase {
     Fresh,
     Staged(Option<Resident>),
@@ -144,7 +109,6 @@ impl Phase {
     fn is_active(&self) -> bool {
         matches!(self, Phase::Active(_))
     }
-    /// A state was restored since the last dispose (`Staged` or `Active`).
     fn is_restored(&self) -> bool {
         !matches!(self, Phase::Fresh)
     }
@@ -159,7 +123,6 @@ impl Phase {
             Phase::Fresh => None,
         }
     }
-    /// A restore landed: `Fresh` is now staged, `Staged` and `Active` keep their phase.
     fn restored(&mut self, resident: Resident) {
         match self {
             Phase::Fresh => *self = Phase::Staged(Some(resident)),
@@ -216,7 +179,6 @@ impl<S: FnMut(&mut angel_delve::rules::Run, &BTreeMap<u32, Input>)> Worker<S> {
     fn owned(&mut self, method: &str, body: Value) -> Result<Value, String> {
         match method {
             "owned.restore" => {
-                // Failed restore cannot accidentally activate an older candidate.
                 self.owned_staged = None;
                 self.phase.drop_resident();
                 let checkpoint = serde_json::from_value(body).map_err(|e| e.to_string())?;

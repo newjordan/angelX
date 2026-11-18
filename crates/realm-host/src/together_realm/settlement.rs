@@ -72,9 +72,6 @@ fn check_stamp(realm: &Realm, disk: Option<&Disk>) -> Result<(), String> {
 }
 
 fn encode(realm: &Realm) -> Result<Vec<u8>, String> {
-    // Preserve the realm's existing secret redaction, while receipt identities
-    // must round-trip exactly. Prepared game results are normalized before
-    // entering a receipt; its identity/counters/hashes are never redacted.
     let mut body = serde_json::to_value(realm).map_err(|e| e.to_string())?;
     body.as_object_mut()
         .ok_or("invalid realm body")?
@@ -214,13 +211,8 @@ impl Realm {
                     unsaved,
                 };
                 request.validate()?;
-                // This branch runs only for a genuinely unprepared claim.
-                // Recovery returns the exact disk result before calling code
-                // from any newer implementation generation.
                 let raw = evaluate(&request)?;
                 request.validate_result(&raw)?;
-                // Keep ordinary realm redaction without ever changing receipt
-                // identity. The exact normalized result is returned and stored.
                 let bytes = serde_json::to_vec(&raw).map_err(|e| e.to_string())?;
                 let bytes = angel_live::host::secrets::redact_bytes(&bytes);
                 if bytes.len() > MAX_POLICY_RESULT_BYTES {
@@ -240,8 +232,6 @@ impl Realm {
             },
         )
     }
-    /// Called only after world+delivery receipt reached the durable source
-    /// checkpoint. Credit one identified refund and retire the bulky result.
     pub fn finish_home_claim(
         &mut self,
         claim: &HomeClaim,
@@ -465,7 +455,6 @@ fn fingerprint(value: &impl Serialize) -> Result<String, String> {
     ))
 }
 fn confirm(path: &Path) -> Result<(), String> {
-    // Open read/write for fsync portability; never truncate the published file.
     std::fs::OpenOptions::new()
         .read(true)
         .write(true)

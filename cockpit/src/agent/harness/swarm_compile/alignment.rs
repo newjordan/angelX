@@ -502,10 +502,6 @@ fn alignment_prompt(request: &CampaignAlignmentRequest) -> String {
         .map(|proof| format!("- {}: {}", proof.sha256, proof.summary))
         .collect::<Vec<_>>()
         .join("\n");
-    // The gate is `⠕⠊` (its labels are page addresses, the contract, the
-    // candidate, the criteria and the proofs the data) and its verdict
-    // contract is `⠕⠚`. The reviewer is a delegate seat: it reads the ledger
-    // through its own `read_file`.
     let gate = o_orchestration::ALIGNMENT.cells();
     format!(
         "{gate}\n{gate}⠙ {}\n{gate}⠑ {}\n{gate}⠋\n{criteria}\n{gate}⠛\n{proofs}\n\n{}",

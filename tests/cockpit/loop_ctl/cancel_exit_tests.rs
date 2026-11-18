@@ -36,7 +36,6 @@ fn loop_stop_then_exit_checkpoints_fresh_followup_after_terminal_settlement_once
         assert!(!Arc::ptr_eq(&app.steer_queue, &held.old_steers));
         assert!(held.old_steers.drain().is_empty());
 
-        // Exercise actual deferred baseline admission as well as queued model work.
         let mut goal = crate::drive::goal::Goal::new("owned deferred baseline");
         goal.accept_cmd = Some("printf 'capture\\n' >> baseline-runs; printf 'test result: ok. 7 passed; 0 failed; 0 ignored;\\n'".into());
         app.goal = Some(goal);
@@ -85,7 +84,6 @@ fn loop_stop_then_exit_checkpoints_fresh_followup_after_terminal_settlement_once
         assert!(!app.should_quit);
         assert_eq!(app.steer_queue.len(), 1);
         assert_eq!(std::fs::read(app.session.path()).unwrap(), before_disk);
-        // Both admission entry points must respect retained exit intent now idle.
         app.flush_queued_steers();
         app.loop_arm();
         assert!(app.thinking.is_none() && app.pending_turn.is_none());

@@ -34,14 +34,8 @@ pub const WALL: usize = 3;
 pub const SHIELD: usize = 4;
 pub const NAMES: [&str; SKILLS] =
     ["Fart Cloud", "Fire Pit", "Mines", "Barrier", "Shield Throw"];
-/// Ticks each skill rests after it is used (the mines' is the rest between
-/// two laid). Each use also spends a pip of valour (`feel`): the meter, not
-/// the rest, is what holds a skill back.
 pub const REST: [u32; SKILLS] = [3 * HZ; SKILLS];
 
-/// Skill levels I, II and III. Every knight starts at II; III is taught by
-/// a questline's teacher (`questline`). Named constants per level, fixed
-/// numbers only.
 pub const GAS_LIFE_L: [u32; 3] = [8 * HZ, 9 * HZ, 10 * HZ];
 pub const GAS_RADIUS_L: [f32; 3] = [3.5, 4.0, 4.5];
 pub const POISON_BASE_L: [u32; 3] = [4, 5, 6];
@@ -58,8 +52,6 @@ pub const SHIELD_REST_L: [u32; 3] = [3 * HZ, 5 * HZ / 2, 2 * HZ];
 pub const SHIELD_LINKS_L: [u8; 3] = [1, 2, 3];
 
 impl Run {
-    /// Knight `id`'s level with a skill, I–III. Every knight has the second
-    /// level from the start; III only from the skill's questline.
     pub fn skill_level(&self, id: u32, which: usize) -> usize {
         let taught = self
             .players
@@ -69,8 +61,6 @@ impl Run {
         taught.max(2)
     }
 
-    /// The live constants for knight `id`'s skills: the named constant per
-    /// level, in one place.
     pub fn gas_life(&self, id: u32) -> u32 {
         GAS_LIFE_L[self.skill_level(id, GAS).clamp(1, 3) - 1]
     }
@@ -78,15 +68,9 @@ impl Run {
         GAS_RADIUS_L[self.skill_level(id, GAS).clamp(1, 3) - 1]
     }
 }
-/// How far a canister or firebomb flies, in arena units.
 const THROW: f32 = 6.0;
-/// A ground effect's reach up and down in a side-on hall (the ground it
-/// stands on, not the air above).
 const SIDE_RISE: f32 = 1.7;
 
-/// Gas: the cloud's life, final reach and swell time; the poison it leaves
-/// (damage a beat, ticks between beats, ticks it clings after the cloud is
-/// left) and how much of it a boss shrugs off.
 pub const GAS_LIFE: u32 = 7 * HZ;
 pub const GAS_RADIUS: f32 = 3.0;
 const GAS_SWELL: u32 = HZ / 2;
@@ -94,25 +78,17 @@ const GAS_DRIFT: f32 = 1.1;
 pub const POISON_BASE: u32 = 4;
 const POISON_EVERY: u32 = HZ / 2;
 const POISON_LINGER: u32 = 3 * HZ;
-/// Fart Bombs: a cloud's life, a knight's rest between two (at N 1), and
-/// the most clouds a room holds before hits stop adding them.
 const FART_LIFE: u32 = 3 * HZ;
 const FART_REST: u32 = 2 * HZ;
 const FART_CLOUDS: usize = 32;
 const BOSS_SHRUG: u32 = 50;
-/// Fire: the bomb's burst damage, the patch's life and reach; the burn
-/// (damage a beat, ticks between beats, ticks it clings).
 const FIRE_BURST: u32 = 20;
 pub const FIRE_LIFE: u32 = 5 * HZ;
 pub const FIRE_RADIUS: f32 = 2.2;
 pub(super) const BURN_BASE: u32 = 3;
 const BURN_EVERY: u32 = HZ / 3;
 const BURN_LINGER: u32 = 2 * HZ;
-/// Flame meeting gas: the flash's damage to everything in the cloud.
 const FLASH_DAMAGE: u32 = 30;
-/// Mines: how many a knight may have down, how long one takes to arm, how
-/// near a foe sets it off, the blast's reach and damage, how long a mine
-/// waits, and the fuse a neighbouring blast leaves it.
 pub const MINE_MAX: usize = 3;
 pub const MINE_ARM: u32 = HZ * 3 / 2;
 const MINE_TRIGGER: f32 = 1.3;
@@ -120,9 +96,6 @@ pub const MINE_BLAST: f32 = 2.8;
 const MINE_DAMAGE: u32 = 70;
 const MINE_LIFE: u32 = 90 * HZ;
 const MINE_CHAIN: u8 = 4;
-/// Barricade: how wide it stands (top-down) and how high (side-on), how far
-/// ahead of the knight, its strength, its time, how many a knight keeps up,
-/// and how long it takes to come apart. A foe leaning on it wears it down.
 pub const WALL_SPAN: f32 = 4.0;
 pub const WALL_HEIGHT: f32 = 2.8;
 const WALL_REACH: f32 = 2.4;
@@ -130,15 +103,10 @@ pub const WALL_HP: u32 = 150;
 pub const WALL_LIFE: u32 = 12 * HZ;
 pub const WALL_MAX: usize = 2;
 pub const WALL_CRUMBLE: u8 = 16;
-/// How close a body or a shot must stand to a wall's line to be touching it.
 pub const WALL_THICK: f32 = 0.5;
 const GNAW: u32 = 8;
 const GNAW_EVERY: u64 = 10;
 
-/// Shield throw: how fast it flies, how far it goes out before it turns,
-/// what each strike does and how long it stuns, how many times it may
-/// glance off stone, how many foes it may jump to and how far it looks for
-/// them, how long it may be out at most, and how near the hand catches it.
 pub const SHIELD_SPEED: f32 = 22.0;
 const SHIELD_RANGE: f32 = 13.0;
 const SHIELD_DAMAGE: u32 = 28;
@@ -150,31 +118,22 @@ const SHIELD_LIFE: u32 = 4 * HZ;
 const SHIELD_CATCH: f32 = 1.1;
 const SHIELD_REACH: f32 = 0.9;
 
-/// How far a crouching knight's body drops, side-on, from a shot's reckoning.
 pub const DUCK_DROP: f32 = 0.75;
 
-/// One knight's skill bar: ticks each skill still rests, and the key held
-/// last tick (a skill answers a press, not a hold).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Kit {
     pub rest: [u32; SKILLS],
     pub held: u8,
-    /// Crouching on firm ground, side-on: shots at the chest go over.
     #[serde(default)]
     pub duck: bool,
-    /// Valour earned by hits and grazes; a skill spends a pip of it
-    /// (`feel::VALOUR_PIP`).
     #[serde(default)]
     pub valour: u32,
-    /// Fire Arrows: ticks the bow's arrows still burn.
     #[serde(default)]
     pub burning: u32,
-    /// Fart Bombs: ticks before this knight's hits may fart again.
     #[serde(default)]
     pub fart: u32,
 }
 
-/// A cloud of gas. `owner` 0 is the room's own (a vent): it hurts knights.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Cloud {
     pub x: f32,
@@ -184,7 +143,6 @@ pub struct Cloud {
     pub age: u32,
     pub owner: u32,
     pub power: u32,
-    /// The thrower's tint of this cloud's bad air: 0 marsh green, 1 sulphur.
     #[serde(default)]
     pub tint: u8,
 }
@@ -196,7 +154,6 @@ impl Cloud {
     pub fn wall_radius(&self) -> f32 {
         if self.tint == 3 { 1.35 } else { 1.15 }
     }
-    /// How far it reaches now: swelling at first, thinning at the last.
     pub fn radius(&self) -> f32 {
         if self.wall() {
             return self.wall_radius()
@@ -212,7 +169,6 @@ impl Cloud {
     }
 }
 
-/// Burning ground.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Blaze {
     pub x: f32,
@@ -230,7 +186,6 @@ impl Blaze {
     }
 }
 
-/// A mine in the ground; `fuse` counts down once a blast beside it has lit it.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Mine {
     pub x: f32,
@@ -248,10 +203,6 @@ impl Mine {
     }
 }
 
-/// A palisade between two points. `fall` counts down while it comes apart.
-/// A `thick` wall (the Fungelder's mushrooms) is democratic: it stops
-/// every shot in the room, knight's and monster's alike, and shoves
-/// knights as gladly as foes.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Barricade {
     pub a: (f32, f32),
@@ -275,7 +226,6 @@ impl Barricade {
     }
 }
 
-/// A shield in the air: out along its throw (`going`) or on its way home.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Flight {
     pub owner: u32,
@@ -289,26 +239,19 @@ pub struct Flight {
     pub bounces: u8,
     pub links: u8,
     pub travelled: f32,
-    /// Foes already struck on this leg.
     pub struck: Vec<u32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BoomKind {
-    /// A shield's strike: a small starburst.
     Clang,
-    /// A mine's blast.
     Mine,
-    /// Flame meeting gas.
     Flash,
-    /// A barricade's dust, a floor's dust.
     Dust,
-    /// A fire jet's or a bomb's burst of flame.
     Burst,
 }
 
-/// A blast, flash or puff of dust playing out: `left` ticks of `of`.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Boom {
     pub x: f32,
@@ -326,7 +269,6 @@ pub enum Bane {
     Burn,
 }
 
-/// A monster poisoned or burning.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Ailment {
     pub foe: u32,
@@ -337,12 +279,10 @@ pub struct Ailment {
     pub power: u32,
 }
 
-/// Input's skill field is left out of the wire when no skill is pressed.
 pub fn unpressed(skill: &u8) -> bool {
     *skill == 0
 }
 
-/// The point on segment `a`–`b` nearest `(x, y)`.
 pub fn nearest_on(a: (f32, f32), b: (f32, f32), x: f32, y: f32) -> (f32, f32) {
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
     let length = dx * dx + dy * dy;
@@ -354,8 +294,6 @@ pub fn nearest_on(a: (f32, f32), b: (f32, f32), x: f32, y: f32) -> (f32, f32) {
     (a.0 + t * dx, a.1 + t * dy)
 }
 
-/// Foes cannot walk through a standing barricade: whatever has been moved
-/// into one is pushed back out along the way it came.
 pub(super) fn shove(enemy: &mut Enemy, barricades: &[Barricade]) {
     for wall in barricades.iter().filter(|w| w.standing()) {
         let (px, py) = nearest_on(wall.a, wall.b, enemy.x, enemy.y);
@@ -368,7 +306,6 @@ pub(super) fn shove(enemy: &mut Enemy, barricades: &[Barricade]) {
         let (ux, uy) = if d > 0.001 {
             (dx / d, dy / d)
         } else {
-            // Dead centre on the line: out along the wall's normal.
             unit(-(wall.b.1 - wall.a.1), wall.b.0 - wall.a.0)
         };
         (enemy.x, enemy.y) = (px + ux * reach, py + uy * reach);
@@ -396,7 +333,6 @@ pub(super) fn afflict(banes: &mut Vec<Ailment>, foe: u32, kind: Bane, power: u32
 }
 
 impl Run {
-    /// Whether a knight can use a skill now.
     fn skilful(&self, id: u32) -> bool {
         self.players.get(&id).is_some_and(|h| {
             h.hp > 0
@@ -413,9 +349,6 @@ impl Run {
                 || self.room().kind.in_world())
     }
 
-    /// Whether a point lies in a ground effect centred `(cx, cy)` of reach
-    /// `r`. Side-on, the effect lies on the ground and the air above it is
-    /// clear.
     fn reaches(&self, (cx, cy): (f32, f32), r: f32, (x, y): (f32, f32), slack: f32) -> bool {
         if self.side_on() {
             (x - cx).abs() <= r + slack && (y - cy).abs() <= SIDE_RISE + slack
@@ -424,8 +357,6 @@ impl Run {
         }
     }
 
-    /// Where a canister thrown by knight `id` lands, `reach` units along
-    /// their aim: short of any stone, and on the ground side-on.
     pub(super) fn lob_target(&self, id: u32, reach: f32) -> (f32, f32) {
         let Some(hero) = self.players.get(&id) else {
             return (0.0, 0.0);
@@ -456,7 +387,6 @@ impl Run {
         (x, y)
     }
 
-    /// Knight `id` uses skill `which`, if it has rested.
     fn use_skill(&mut self, id: u32, which: usize) {
         if !self.skilful(id) {
             return;
@@ -469,7 +399,6 @@ impl Run {
         {
             return;
         }
-        // A carpenter braces the barricades they raise (`trades`).
         let brace = self.brace_for(id);
         let Some(hero) = self.players.get(&id) else {
             return;
@@ -591,7 +520,6 @@ impl Run {
                         room: self.room(),
                         barred: self.barred(),
                     };
-                    // Each end stops short of stone.
                     let end = |sign: f32| {
                         let mut at = (cx, cy);
                         for _ in 0..10 {
@@ -617,7 +545,6 @@ impl Run {
                     .map(|(i, _)| i)
                     .collect();
                 if mine.len() >= WALL_MAX {
-                    // The oldest comes down to make room.
                     let oldest = self.works.barricades[mine[0]];
                     self.works.barricades[mine[0]].fall = Some(WALL_CRUMBLE);
                     let mid = (
@@ -627,7 +554,6 @@ impl Run {
                     self.boom(mid.0, mid.1, BoomKind::Dust, 1.6);
                 }
                 if self.works.barricades.len() < 24 {
-                    // A carpenter braces it.
                     self.works.barricades.push(Barricade {
                         a,
                         b,
@@ -650,7 +576,6 @@ impl Run {
         self.skill_synergy(id, which);
     }
 
-    /// A blast, flash or puff of dust.
     pub(super) fn boom(&mut self, x: f32, y: f32, kind: BoomKind, reach: f32) {
         cap_booms(&mut self.works.booms);
         let of = match kind {
@@ -670,7 +595,6 @@ impl Run {
         });
     }
 
-    /// The skills' tick: presses first, then the world they made.
     pub(super) fn tick_skills(&mut self, inputs: &BTreeMap<u32, Input>) {
         for kit in self.works.kits.values_mut() {
             for rest in &mut kit.rest {
@@ -704,9 +628,6 @@ impl Run {
         self.works.booms.retain(|b| b.left > 0);
     }
 
-    /// Fart Bombs: a hit leaves a short sulphur cloud where it struck, at
-    /// most once per `FART_REST / N` ticks a knight, and never past
-    /// `FART_CLOUDS` clouds in the room.
     pub(super) fn fart_hits(&mut self, farts: Vec<(f32, f32, u8, u8)>) {
         let side = self.side_on();
         for (x, y, owner, n) in farts {
@@ -737,7 +658,6 @@ impl Run {
         }
     }
 
-    /// Clouds drift, swell and thin; whatever breathes them is poisoned.
     fn tick_clouds(&mut self) {
         let tick = self.tick;
         let side = self.side_on();
@@ -750,7 +670,6 @@ impl Run {
             if cloud.wall() {
                 continue;
             }
-            // A slow wander on top of the first push.
             let sway = (cloud.age as f32 * 0.07 + cloud.owner as f32).sin() * 0.04;
             cloud.vx = (cloud.vx + sway) * 0.97;
             cloud.vy = if side {
@@ -770,7 +689,6 @@ impl Run {
         for i in 0..n {
             let cloud = self.works.clouds[i];
             let r = cloud.radius();
-            // The nearest in full, the rest at the share past them (`aoe`).
             let caught = aoe::reached(&self.enemies, (cloud.x, cloud.y), |enemy| {
                 self.reaches(
                     (cloud.x, cloud.y),
@@ -805,7 +723,6 @@ impl Run {
         }
     }
 
-    /// Burning ground burns; flame reaching a cloud flashes it off.
     fn tick_blazes(&mut self) {
         let tick = self.tick;
         for blaze in &mut self.works.blazes {
@@ -815,7 +732,6 @@ impl Run {
         let n = self.works.blazes.len();
         for i in 0..n {
             let blaze = self.works.blazes[i];
-            // The nearest in full, the rest at the share past them (`aoe`).
             let caught = aoe::reached(&self.enemies, (blaze.x, blaze.y), |enemy| {
                 !(blaze.hostile() && furnace::fireproof(enemy, &self.bosses))
                     && self.reaches(
@@ -850,7 +766,6 @@ impl Run {
                     }
                 }
             }
-            // Flame in gas: the cloud goes up in one flash.
             let lit: Vec<usize> = self
                 .works
                 .clouds
@@ -868,7 +783,6 @@ impl Run {
         }
     }
 
-    /// A cloud goes up: everything in it takes the flash.
     pub(super) fn flash(&mut self, cloud: Cloud) {
         let r = cloud.radius();
         let damage = FLASH_DAMAGE.max(cloud.power * 6);
@@ -904,7 +818,6 @@ impl Run {
         self.fx.push(Fx::Shake(4));
     }
 
-    /// Mines arm, and blow under a foe's feet or a neighbour's blast.
     fn tick_mines(&mut self) {
         for mine in &mut self.works.mines {
             mine.age += 1;
@@ -940,8 +853,6 @@ impl Run {
         }
     }
 
-    /// A mine's blast: monsters in reach are hurt, a neighbouring mine is lit,
-    /// a cracked wall may come down.
     fn detonate(&mut self, mine: Mine) {
         let (x, y) = (mine.x, mine.y);
         let mut felled = 0;
@@ -970,10 +881,6 @@ impl Run {
         self.blast_wall(Some((x, y)));
     }
 
-    /// Barricades take shots and the weight of foes; they crumble when spent
-    /// or when their time is up. A thick wall (the Fungelder's garden) is
-    /// democratic: it stops the knights' own arrows too, rots younger, and
-    /// shoves knights as gladly as foes.
     fn tick_barricades(&mut self) {
         let tick = self.tick;
         let shots: Vec<usize> = (0..self.projectiles.len())
@@ -983,8 +890,6 @@ impl Run {
         for wall in self.works.barricades.iter_mut().filter(|w| w.standing()) {
             wall.age += 1;
             for &i in &shots {
-                // A palisade stops only what a monster threw at it; a
-                // mushroom does not take sides.
                 if !self.projectiles[i].hostile && !wall.thick {
                     continue;
                 }
@@ -1020,8 +925,6 @@ impl Run {
                 broke = true;
             }
         }
-        // The garden has opinions about where a knight may stand, too:
-        // whatever was moved into a thick wall is pushed back out.
         let thick: Vec<((f32, f32), (f32, f32))> = self
             .works
             .barricades
@@ -1074,13 +977,10 @@ impl Run {
         }
     }
 
-    /// Whether knight `id`'s shield is in the air, so there is none to raise.
     pub fn shield_out(&self, id: u32) -> bool {
         self.works.flights.iter().any(|f| f.owner == id)
     }
 
-    /// Thrown shields fly, strike, glance off stone, jump to a near foe and
-    /// come home; shots they meet are knocked down.
     fn tick_flights(&mut self) {
         let mut flights = std::mem::take(&mut self.works.flights);
         let mut clangs = 0;
@@ -1094,7 +994,6 @@ impl Run {
                 return false;
             }
             if !f.going {
-                // Home to the hand.
                 let (ux, uy) = unit(hx - f.x, hy - f.y);
                 (f.vx, f.vy) = (ux * SHIELD_SPEED, uy * SHIELD_SPEED);
                 if (hx - f.x).hypot(hy - f.y) < SHIELD_CATCH {
@@ -1109,7 +1008,6 @@ impl Run {
                 barred: !self.enemies.is_empty() || self.phase == Phase::Fighting,
             };
             if f.going && grid.stops_shot(nx, ny) {
-                // Off the stone: across, along, or both in a corner.
                 if f.bounces > 0 {
                     let across = grid.stops_shot(nx, oy);
                     let along = grid.stops_shot(ox, ny);
@@ -1145,7 +1043,6 @@ impl Run {
                     f.struck.clear();
                 }
             }
-            // Strike what it flies through.
             let mut hit_at: Option<(f32, f32)> = None;
             for enemy in self.enemies.iter_mut().filter(|e| e.hp > 0) {
                 if f.struck.contains(&enemy.id) {
@@ -1172,7 +1069,6 @@ impl Run {
                     kind: BoomKind::Clang,
                     reach: 1.0,
                 });
-                // On to the nearest foe it has not struck, within reach.
                 if f.going && f.links > 0 {
                     let next = self
                         .enemies
@@ -1214,7 +1110,6 @@ impl Run {
         }
     }
 
-    /// Poison and burns do their damage on the beat.
     fn tick_banes(&mut self) {
         let tick = self.tick;
         for bane in &mut self.works.banes {
@@ -1259,7 +1154,6 @@ impl Run {
             .retain(|b| b.left > 0 && alive.contains(&b.foe));
     }
 
-    /// Knight `id`'s skill bar for the HUD, keys labelled by `keys`.
     pub fn skill_slots(&self, id: u32, keys: &[&str; SKILLS]) -> Vec<Slot> {
         let kit = self.works.kits.get(&id).cloned().unwrap_or_default();
         (0..SKILLS)
@@ -1271,7 +1165,6 @@ impl Run {
                 } else {
                     NAMES[which].to_string()
                 };
-                // A skill wants a pip of valour as well as its rest.
                 let pips = kit.valour / feel::VALOUR_PIP;
                 let state = if which == SHIELD && self.shield_out(id) {
                     "out".to_string()
@@ -1293,8 +1186,6 @@ impl Run {
     }
 }
 
-/// Room for one more boom: the oldest goes past 32, so a storm of blasts and
-/// clangs never outgrows what the snapshot accepts.
 fn cap_booms(booms: &mut Vec<Boom>) {
     if booms.len() >= 32 {
         booms.remove(0);

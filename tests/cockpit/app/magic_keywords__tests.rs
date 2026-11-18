@@ -29,7 +29,6 @@ fn ignores_paths_and_urls() {
 fn case_insensitive_whole_word() {
     let e = scan("UltraThink now; Workflowz please");
     assert!(e.ultrathink && e.workflowz);
-    // Partial match must not fire.
     let e2 = scan("ultrathinking is not enough");
     assert!(!e2.ultrathink);
 }

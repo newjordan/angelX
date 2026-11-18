@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Private native CLI evidence: no credentials, live provider or tool turn.
-
-The native image is supplied by the fast gate, never resolved from installed PATH.
-Only offline practice and local loopback fixture replies are allowed; ordinary
-metadata endpoints are redirected to an unready fixture.
-All terminal bytes stay in memory. Evidence prints binary hash and counts only.
-"""
+from contextlib import contextmanager
 import fcntl
 import hashlib
 import http.server
@@ -56,6 +50,34 @@ class Api(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
     def log_message(self, *_):
         pass
+
+
+@contextmanager
+def terminal_process(command, *, env, cwd):
+    master, slave = pty.openpty()
+    proc = None
+    try:
+        try:
+            fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 40, 120, 0, 0))
+            def terminal_child():
+                os.setsid()
+                fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+            proc = subprocess.Popen(command, env=env, cwd=cwd,
+                stdin=slave, stdout=slave, stderr=slave, preexec_fn=terminal_child)
+        finally:
+            os.close(slave)
+        yield master, proc
+    finally:
+        try:
+            if proc is not None and proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+        finally:
+            os.close(master)
 
 
 def main():
@@ -119,27 +141,20 @@ def main():
                         'model': 'fixture-exact', 'reasoning_effort': 'high'}))
                     env['ANGEL_ROUTE_MEMORY_FILE'] = str(memory)
                     extra = ['--driver', 'openai-api', '--model', 'fixture-exact', '--effort', 'low']
-                master, slave = pty.openpty()
-                fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 40, 120, 0, 0))
-                def terminal_child():
-                    os.setsid()
-                    fcntl.ioctl(0, termios.TIOCSCTTY, 0)
-                proc = subprocess.Popen([image, '--workspace', str(workspace), *extra, option, text],
-                    env=env, cwd=root, stdin=slave, stdout=slave, stderr=slave, preexec_fn=terminal_child)
-                os.close(slave)
-                output = bytearray()
-                def pump(seconds):
-                    until = time.monotonic() + seconds
-                    while time.monotonic() < until:
-                        if select.select([master], [], [], min(.1, max(0, until-time.monotonic())))[0]:
-                            try:
-                                chunk = os.read(master, 65536)
-                                output.extend(chunk)
-                                if b'\x1b[6n' in chunk:
-                                    os.write(master, b'\x1b[1;1R')
-                            except OSError:
-                                return
-                try:
+                with terminal_process([image, '--workspace', str(workspace), *extra, option, text],
+                        env=env, cwd=root) as (master, proc):
+                    output = bytearray()
+                    def pump(seconds):
+                        until = time.monotonic() + seconds
+                        while time.monotonic() < until:
+                            if select.select([master], [], [], min(.1, max(0, until-time.monotonic())))[0]:
+                                try:
+                                    chunk = os.read(master, 65536)
+                                    output.extend(chunk)
+                                    if b'\x1b[6n' in chunk:
+                                        os.write(master, b'\x1b[1;1R')
+                                except OSError:
+                                    return
                     deadline = time.monotonic() + 25
                     while b'RUN: entering event loop' not in output and time.monotonic() < deadline and proc.poll() is None:
                         pump(.2)
@@ -157,7 +172,6 @@ def main():
                     pump(2)
                     if option == '--draft':
                         assert b'practice: you said:' not in output, 'draft started a reply'
-                        # Ordinary fixture exit; initial text itself is never PTY-typed.
                         os.write(master, b'\x15')
                     else:
                         deadline = time.monotonic() + 15
@@ -184,15 +198,6 @@ def main():
                     assert users == ([] if option == '--draft' else [text]), 'literal enqueue count/text mismatch'
                     assert snapshots[0]['workspace'] == str(workspace.resolve()), 'session workspace mismatch'
                     assert b'\x1b[?1049l' in output, 'terminal teardown missing'
-                finally:
-                    if proc.poll() is None:
-                        proc.terminate()
-                        try:
-                            proc.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            proc.kill()
-                            proc.wait()
-                    os.close(master)
             tui('state-error', '--prompt', 'private-state-fixture', state_error=True)
             tui('draft', '--draft', '  /yolo on\nα --doctor  ')
             tui('prompt', '--prompt', '  /quit\nα --doctor  ')
@@ -216,6 +221,5 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as error:
-        # Do not print traceback source lines containing fixture prompt literals.
         print(f'native entry fixture failed: {type(error).__name__}: {error}', file=sys.stderr)
         sys.exit(1)

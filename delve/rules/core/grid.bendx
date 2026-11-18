@@ -1,16 +1,9 @@
-# crates/delve/src/rules.rs — `Grid`: the current room's tiles as movement and
-# shots see them. A Grid is its two fields as leading arguments: the `room`
-# object and `barred`. A mover is a number: 0 Hero, 1 Walker, 2 Flier, 3 Wader.
-
-# `unit`: x and y as a unit vector, or (0, 0).
 def rules.unit(x: F32, y: F32) -> (F32, F32):
     length: F32 = RS.f_hypot(x, y)
     if F32.is_gt(length, 0.0):
         return ((x / length : F32), (y / length : F32))
     return (0.0, 0.0)
 
-# Off the edge reads as the edge tile, so an open doorway lets a knight step
-# through it and out of the room.
 def rules.Grid.tile_at(room: J.Val, x: F32, y: F32) -> LayTile:
     cols: U32 = layout.Room.cols(room)
     rows: U32 = layout.Room.rows(room)
@@ -47,7 +40,6 @@ def rules.Grid.clear(room: J.Val, barred: Bool, x: F32, y: F32, r: F32, mover: U
     d: Bool = rules.Grid.open(room, barred, (x + r : F32), (y + r : F32), mover)
     return Bool.and(Bool.and(a, b), Bool.and(c, d))
 
-# Whether the tile is the bog (a mover wading it is slowed).
 def rules.Grid.is_bog(t: LayTile) -> Bool:
     match (t : LayTile):
         case TileBog{}:
@@ -69,15 +61,12 @@ def rules.Grid.is_block(t: LayTile) -> Bool:
         case _:
             return False{}
 
-# Move with wall sliding, one axis at a time. Feet in the bog go at
-# `swamp::BOG_PACE`; wings and the swamp's own waders do not.
 def rules.Grid.slide(room: J.Val, barred: Bool, p: (F32, F32), d: (F32, F32), r: F32, mover: U32) -> (F32, F32):
     (x: F32, y: F32) = p
     (dx: F32, dy: F32) = d
     if Bool.and(Bool.or(U32.is_zero(mover), U32.is_eq(mover, 1)), rules.Grid.is_bog(rules.Grid.tile_at(room, x, y))):
         dx = (dx * swamp.BOG_PACE() : F32)
         dy = (dy * swamp.BOG_PACE() : F32)
-    # A knight already in stone walks out toward the room's middle.
     if Bool.and(U32.is_zero(mover), Bool.not(rules.Grid.clear(room, barred, x, y, r, mover))):
         cx: F32 = (U32.to_f32(layout.Room.cols(room)) * layout.TILE_UNITS() / 2.0 : F32)
         cy: F32 = (U32.to_f32(layout.Room.rows(room)) * layout.TILE_UNITS() / 2.0 : F32)
@@ -92,7 +81,6 @@ def rules.Grid.slide(room: J.Val, barred: Bool, p: (F32, F32), d: (F32, F32), r:
         y = (y + dy : F32)
     return (x, y)
 
-# A knight's displacement, stopped at walls and barred doors the way walking is.
 def rules.Grid.halted(room: J.Val, barred: Bool, from: (F32, F32), d: (F32, F32)) -> (F32, F32):
     (fx: F32, fy: F32) = from
     (dx: F32, dy: F32) = d
@@ -116,7 +104,6 @@ def rules.Grid.halted(room: J.Val, barred: Bool, from: (F32, F32), d: (F32, F32)
         gone = (gone + hop : F32)
     return (ax, ay)
 
-# Whether a point in a doorway tile is met a step along the way (for `across_bar`).
 def rules.Grid.in_door(room: J.Val, nx: F32, ny: F32, r: F32) -> Bool:
     a: Bool = rules.Grid.is_door(rules.Grid.tile_at(room, nx, ny))
     b: Bool = rules.Grid.is_door(rules.Grid.tile_at(room, (nx + r : F32), ny))
@@ -125,8 +112,6 @@ def rules.Grid.in_door(room: J.Val, nx: F32, ny: F32, r: F32) -> Bool:
     e: Bool = rules.Grid.is_door(rules.Grid.tile_at(room, nx, (ny + F32.neg(r) : F32)))
     return Bool.or(Bool.or(Bool.or(a, b), Bool.or(c, d)), e)
 
-# Where a placed knight lands: a rider sits on its carrier and a risen knight
-# takes the body's place, but a barred door on the straight way stops them.
 def rules.Grid.across_bar(room: J.Val, barred: Bool, from: (F32, F32), to: (F32, F32)) -> (F32, F32):
     (fx: F32, fy: F32) = from
     (tx: F32, ty: F32) = to
@@ -173,8 +158,6 @@ def rules.Grid.stops_shot(room: J.Val, barred: Bool, x: F32, y: F32) -> Bool:
         case _:
             return False{}
 
-# A shot whose body is `body` units round its middle: stopped by stone at its
-# middle, and by a prop wherever its body touches one.
 def rules.Grid.stops_body(room: J.Val, barred: Bool, x: F32, y: F32, body: F32) -> Bool:
     if rules.Grid.stops_shot(room, barred, x, y):
         return True{}
@@ -186,7 +169,6 @@ def rules.Grid.stops_body(room: J.Val, barred: Bool, x: F32, y: F32, body: F32) 
     d: Bool = rules.Grid.is_block(rules.Grid.tile_at(room, x, (y + F32.neg(body) : F32)))
     return Bool.or(Bool.or(a, b), Bool.or(c, d))
 
-# `shot_stop_body`: where it first touches stone or a prop on its way from `from` to `to`.
 def rules.Grid.shot_stop_body(room: J.Val, barred: Bool, from: (F32, F32), to: (F32, F32), body: F32) -> (F32, F32)?:
     (fx: F32, fy: F32) = from
     (tx: F32, ty: F32) = to

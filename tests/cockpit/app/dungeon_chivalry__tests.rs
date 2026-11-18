@@ -5,7 +5,6 @@ fn app() -> App {
     App::preview(crate::ui::viewer::Viewer::static_preview())
 }
 
-/// An app whose realm lives in a scratch directory.
 fn app_in(dir: &std::path::Path) -> App {
     let mut a = app();
     a.dungeon.realm = Some(Realm::beside(Some(&dir.join("island.json"))));
@@ -55,7 +54,6 @@ fn text_commands_saddle_and_tend_the_same_way_the_plates_do() {
     assert!(said.contains("Cinder is saddled"), "{said}");
     let said = a.dungeon_command(Some("stable tend"));
     assert!(said.contains("brushed"), "{said}");
-    // The realm keeps it, and the open delve sees it.
     let saved = Realm::beside(Some(&dir.join("island.json")));
     assert_eq!(saved.home.stable.selected, Mount::Cinder);
     assert!(saved.home.stable.is_tended(Mount::Cinder));
@@ -182,7 +180,6 @@ fn the_horse_market_buys_breeds_and_sells_for_the_realm() {
     let said = a.dungeon_command(Some("stable sell 3"));
     assert!(said.contains("Sold"), "{said}");
     assert!(a.economy().treasury.get(crate::delve::together_realm::Spoil::Gold) > gold_before);
-    // And it all survives the save.
     let saved = Realm::beside(Some(&dir.join("island.json")));
     assert_eq!(saved.home.stable.herd.len(), 2);
     std::fs::remove_dir_all(dir).unwrap();

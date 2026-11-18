@@ -8,15 +8,10 @@ use crate::rules::world::{self, bomrekedan, entrance_at};
 use crate::rules::{Input, Run};
 use std::collections::BTreeMap;
 
-/// The fort's works the works ledger counts (`bom_built_<work>` at the sign
-/// of a built work, `bom_work_ordered_<work>` for an order placed), by the
-/// ledger's own table, dashes as underscores (`works::WORKS`).
 fn works() -> impl Iterator<Item = String> {
     bomrekedan::works::WORKS.iter().map(|w| w.id.replace('-', "_"))
 }
 
-/// Each line's teacher by the place of `kingdom.json` they stand at, where
-/// the import has one (`None`: placed by the level's own grids).
 const BY: [(&str, Option<&str>); 7] = [
     ("bomrekedan:steel", Some("workshop-metalsmithsforge-1391")),
     ("bomrekedan:still", Some("workshop-still-48")),
@@ -68,11 +63,9 @@ fn the_gate_is_open_to_every_knight_holding_no_power() {
         for id in [1, 2] {
             assert!(r.quest_gate(id, q), "{}: knight {id}", q.power);
         }
-        // The first press is the first step, not the idle line of a shut gate.
         let said = r.speak(2, &q.power).unwrap();
         assert!(said.contains(&q.steps[0].name), "{}: {said}", q.power);
     }
-    // An unknown kind stays shut.
     let mut shut = bom()[0].clone();
     shut.power = "bomrekedanx:steel".into();
     assert!(!r.quest_gate(1, &shut));
@@ -89,19 +82,16 @@ fn every_teacher_stands_on_open_floor_of_their_level_off_every_plate() {
         let (x, y) = q.at;
         assert!(x > 0 && y > 0 && (x as usize) < room.cols && (y as usize) < room.rows, "{}: {:?}", q.power, q.at);
         assert_eq!(room.tile(x, y), Tile::Floor, "{} stands on floor", q.power);
-        // A knight within reach to hear them stands on no stair plate.
         for dy in -reach - 1..=reach + 1 {
             for dx in -reach - 1..=reach + 1 {
                 assert!(entrance_at(kind, x + dx, y + dy).is_none(), "{}: a plate at {},{}", q.power, x + dx, y + dy);
                 assert_ne!(room.tile(x + dx, y + dy), Tile::Stairs, "{}", q.power);
             }
         }
-        // Teachers of one level are out of each other's reach.
         for other in bom().into_iter().filter(|o| o.power != q.power && o.kind() == kind) {
             let (ox, oy) = other.at;
             assert!((ox - x).abs() > 2 * reach || (oy - y).abs() > 2 * reach, "{} and {}", q.power, other.power);
         }
-        // Where the import names their place, they stand by it.
         let place = BY.iter().find(|(p, _)| *p == q.power).unwrap().1;
         if let Some(place) = place {
             let p = bomrekedan::places_on(kind)
@@ -121,15 +111,11 @@ fn every_counter_is_a_counter_word_and_the_lines_own() {
     for q in bom() {
         for counter in every_counter(q) {
             assert!(valid(counter), "{}: `{counter}`", q.power);
-            // The `bom_` words are the works ledger's.
             assert_eq!(counter.starts_with("bom_"), is_works_counter(counter), "{}: `{counter}`", q.power);
-            // No other questline names it: nothing walked here moves a
-            // power's questline (a skill's level III) or another of the fort's.
             for other in book().lines.iter().filter(|o| o.power != q.power) {
                 assert!(every_counter(other).all(|c| c != counter), "{}: `{counter}` is {}'s too", q.power, other.power);
             }
         }
-        // Every step is cued but at most one, and that one waits on a work.
         let counted: Vec<_> = q.steps.iter().filter(|s| !s.cue).collect();
         assert!(counted.len() <= 1, "{}: {counted:?}", q.power);
         for s in counted {
@@ -140,7 +126,6 @@ fn every_counter_is_a_counter_word_and_the_lines_own() {
     }
 }
 
-/// The party in `q`'s level, knight 1 at the teacher's spot.
 fn at_the_teacher(q: &Questline) -> Run {
     let mut r = Run::at_home(7, 1, Some("Friend"), Home::default(), Default::default());
     r.raise_kingdom();
@@ -153,8 +138,6 @@ fn at_the_teacher(q: &Questline) -> Run {
     r
 }
 
-/// E at the teacher, as the tick hears it: let go, then pressed, and the
-/// line they said.
 fn press(r: &mut Run) -> String {
     r.tick_teachers(&BTreeMap::new());
     r.found = None;
@@ -164,8 +147,6 @@ fn press(r: &mut Run) -> String {
 
 #[test]
 fn e_held_at_a_teacher_is_one_press_not_one_a_tick() {
-    // Ast's line is every step cued: a tick a press would walk all of it,
-    // and the knight would hear only its last line.
     let q = book().get("bomrekedan:ratfolk").unwrap().clone();
     let mut r = at_the_teacher(&q);
     let e = BTreeMap::from([(1, Input { interact: true, ..Default::default() })]);
@@ -177,7 +158,6 @@ fn e_held_at_a_teacher_is_one_press_not_one_a_tick() {
     let said = r.found.as_ref().map(|(_, _, line)| line.clone()).expect("the teacher speaks");
     assert!(said.contains(&q.steps[0].name), "{said}");
     assert_eq!(walk_of(&r, &q.power).done, std::collections::BTreeSet::from([1]), "one step for one hold");
-    // Let go and pressed again: the next step.
     let said = press(&mut r);
     assert!(said.contains(&q.steps[1].name), "{said}");
     assert_eq!(walk_of(&r, &q.power).done.len(), 2);
@@ -187,9 +167,6 @@ fn walk_of(r: &Run, power: &str) -> Walk {
     r.home.questlines.walk(&Home::profile_key(&r.players[&1]), power)
 }
 
-/// Walk `q` to its end at the teacher: press, and when a press moves
-/// nothing, a new visit (`served` is per visit), with the fort's work built
-/// for a step that waits on one. Returns the presses taken.
 fn walk_to_the_end(r: &mut Run, q: &Questline, build: bool) -> usize {
     for presses in 1..=64 {
         let before = walk_of(r, &q.power);
@@ -199,7 +176,6 @@ fn walk_to_the_end(r: &mut Run, q: &Questline, build: bool) -> usize {
         let said = press(r);
         assert!(said.starts_with('"'), "{}: {said}", q.power);
         if walk_of(r, &q.power) == before {
-            // Nothing moved: the step waits on a work, or on a new visit.
             match before.at(q) {
                 Some((_, s)) if !s.cue => {
                     assert!(build, "{}: `{}` waits on the works ledger", q.power, s.counter);
@@ -220,7 +196,6 @@ fn a_knight_walks_the_ratfolk_host_to_its_end_by_standing_with_ast() {
     let mut r = at_the_teacher(&q);
     let deck = r.players[&1].deck.clone();
     let skills: Vec<usize> = (0..5).map(|s| r.skill_level(1, s)).collect();
-    // One press a step and the trial, all in one visit.
     for (n, s) in q.steps.iter().enumerate() {
         let said = press(&mut r);
         assert!(said.contains(&s.name) && said.contains(&s.say), "step {}: {said}", n + 1);
@@ -230,17 +205,14 @@ fn a_knight_walks_the_ratfolk_host_to_its_end_by_standing_with_ast() {
     assert!(said.contains(&q.trial.name), "{said}");
     let walk = walk_of(&r, &q.power);
     assert!(walk.finished(), "the trial is passed: {walk:?}");
-    // The closing line and the keepsake, once.
     let close = press(&mut r);
     assert!(close.contains(&q.title) && close.contains(&q.keepsake), "{close}");
     assert!(walk_of(&r, &q.power).keepsake);
     let again = press(&mut r);
     assert!(again.contains(&q.title) && !again.contains("press"), "{again}");
-    // No power is taught: the deck and the skills are as they were.
     assert_eq!(r.players[&1].deck, deck);
     assert_eq!((0..5).map(|s| r.skill_level(1, s)).collect::<Vec<_>>(), skills);
     assert_eq!(r.quest_sheet(&r.players[&1], &q.power).unwrap(), format!("done — {}", q.title));
-    // Walked, the line is no longer held as a mission.
     assert!(!r.missions_held(1).iter().any(|h| h.name == q.teacher));
 }
 
@@ -249,7 +221,6 @@ fn every_bom_questline_is_walked_to_its_end_and_the_ones_that_wait_wait_on_a_wor
     for q in bom() {
         let waits = q.steps.iter().any(|s| !s.cue);
         let mut r = at_the_teacher(q);
-        // Unbuilt, a line that waits on a work stops at that step.
         if waits {
             for _ in 0..64 {
                 press(&mut r);
@@ -262,7 +233,6 @@ fn every_bom_questline_is_walked_to_its_end_and_the_ones_that_wait_wait_on_a_wor
         let close = press(&mut r);
         assert!(close.contains(&q.keepsake), "{}: {close}", q.power);
         assert!(r.home.questlines.valid());
-        // Another knight's walk is their own.
         assert!(r.home.questlines.knights.len() == 1, "{}", q.power);
     }
 }
@@ -280,7 +250,6 @@ fn a_fresh_knight_holds_the_forts_teachers_as_missions_at_their_spots() {
             q.power
         );
     }
-    // On the Gate, its three teachers are marked where they stand.
     let mut here: Vec<String> = r.mission_spots(1).into_iter().map(|(name, _)| name).collect();
     here.sort();
     let mut gate: Vec<String> = bom().iter().filter(|q| q.kind() == RoomKind::BomGate).map(|q| q.teacher.clone()).collect();

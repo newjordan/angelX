@@ -1,4 +1,3 @@
-// Bounded offline extension of the existing write_world_shots exporter.
 fn woodland_world_shots(base: &Run, save: &impl Fn(&str, &Img)) {
     use crate::rules::{
         HZ, Input, RoomKind,
@@ -26,7 +25,6 @@ fn woodland_world_shots(base: &Run, save: &impl Fn(&str, &Img)) {
         save(name, &native(&r));
     }
     let mut quest = base.clone();
-    // The Boot kicks the first try, so it is pressed twice.
     for (n, s) in [0, 1, 1, 2, 3, 4].into_iter().enumerate() {
         let (kind, at) = wood::ERRAND[s];
         quest.arrive(world::room_of(&quest.dungeon, kind).unwrap(), at);
@@ -126,7 +124,6 @@ fn woodland_world_shots(base: &Run, save: &impl Fn(&str, &Img)) {
     assert_eq!(r.home.countryside.games.cart.wins, 1);
     assert_eq!(crossed, 4);
     save("world-cart-win.png", &native(&r));
-    // Highest allowed jump from the lane's northern edge still clears the HUD.
     for h in r.players.values_mut() {
         h.x += 4.0;
     }

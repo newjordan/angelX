@@ -18,7 +18,6 @@ fn action(d: &mut kit::Dice) -> Action {
     }
 }
 
-/// The State as the rules worker holds it (the transient fields are written while capturing).
 fn cap(run: &mut Run, st: &State) -> serde_json::Value {
     run.playtest = st.clone();
     kit::state(run)["playtest"].clone()

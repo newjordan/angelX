@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# relay_run.sh <angel-binary> <sandbox-helper> <run-dir> [directive]
-# Starts the relay and one headless angel task; retains receipts in a fresh run directory.
 set -euo pipefail
 if [[ $# -lt 3 || $# -gt 4 ]]; then
   printf 'Usage: %s <angel-binary> <sandbox-helper> <fresh-run-dir> [directive]\n' "$0" >&2
@@ -8,7 +6,6 @@ if [[ $# -lt 3 || $# -gt 4 ]]; then
 fi
 BIN=$1; HELPER=$2; RUN=$3; DIRECTIVE=${4:-}
 HERE=$(cd "$(dirname "$0")" && pwd)
-# A manual run's request/reply files are evidence; never erase a previous run.
 if [[ -z "$RUN" ]] || ! mkdir -p -- "$(dirname -- "$RUN")" || ! mkdir -- "$RUN"; then
   printf 'Relay output must be a fresh directory: %s\n' "$RUN" >&2
   exit 2
@@ -19,8 +16,6 @@ source "$HERE/lifecycle.sh"
 relay_cleanup() {
   local status=$1
   cleanup
-  # pending.py uses this as the completion marker, including cancellation and
-  # startup failure. Publish it only after the task and relay have retired.
   printf '%s\n' "$status" > "$RUN/.rc.tmp"
   mv -f -- "$RUN/.rc.tmp" "$RUN/rc"
 }
@@ -101,7 +96,6 @@ python3 "$HERE/exec_session.py" env -i PATH="$PATH" HOME="$HOMEDIR" TMPDIR="$RUN
 TASK=$!
 if wait "$TASK"; then RC=0; else RC=$?; fi
 stop_task
-# Keep the manual interaction budget, but bound the final repository verifier.
 ( cd "$WORK" && exec python3 "$HERE/exec_session.py" --timeout "${VERIFY_TIMEOUT_SECS:-30}" \
     python3 -m unittest -q ) > "$RUN/verify.stdout" 2> "$RUN/verify.stderr" &
 TASK=$!

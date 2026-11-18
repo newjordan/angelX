@@ -5,8 +5,6 @@ use super::author::*;
 use super::course::*;
 
 pub fn build(id: CourseId) -> Course {
-    // A clockwise loop: north up the west side (down into the earth), east across
-    // the roof of the Deep Road, south down the east side (the climb out), west home.
     let plan: Vec<(f32, f32, &str)> = vec![
         (0., 0., "gate"), (0., 300., ""), (-40., 560., ""), (-170., 790., "shaft"), (-70., 990., ""), (-200., 1180., ""), (-90., 1370., ""),
         (70., 1500., "gallery"), (320., 1580., ""), (560., 1500., ""), (800., 1580., ""), (1010., 1650., "vault_end"),
@@ -90,7 +88,6 @@ pub fn build(id: CourseId) -> Course {
         Strip { s0: t("mile", 5.6), s1: t("mile", 5.6) + 90., half_w: 3.0, y: 0. },
     ];
 
-    // The stalactite cut: a straight, wet chord across the inside of the Torchlit Rise's U-turn.
     let (f0, f1) = (t("turn", -1.5), t("turn", 2.6));
     let mut cut = Fork::new(&line, "THE STALACTITE CUT", f0, f1, 1., &chord(&line, f0, f1, 1., 0., 2., 5., 2), true, Biome::Cavern, Shape::new(40., 8., 1., 0., 70.));
     let (ra, rb, rc) = (along(&cut, 0.25), along(&cut, 0.5), along(&cut, 0.75));
@@ -104,7 +101,7 @@ pub fn build(id: CourseId) -> Course {
 
     let p = |kind, a: f32, b: f32, side: f32, seed: u32| Piece { kind, s0: a, s1: b, side, seed };
     let pieces = vec![
-        p(PieceKind::Grandstand, 20., 140., 1., 1), p(PieceKind::Arch, t("gate", 0.5), t("gate", 0.5) + 6., 0., 2), p(PieceKind::Lanterns, 10., t("shaft", -1.), -1., 3),
+        p(PieceKind::Grandstand, 20., 140., 1., 1), p(PieceKind::PitLane, 190., 390., 1., 41), p(PieceKind::Arch, t("gate", 0.5), t("gate", 0.5) + 6., 0., 2), p(PieceKind::Lanterns, 10., t("shaft", -1.), -1., 3),
         p(PieceKind::Tunnel, t("shaft", 0.), t("gallery", 0.), 0., 4), p(PieceKind::Arch, t("shaft", 0.), t("shaft", 0.) + 6., 0., 5),
         p(PieceKind::CrystalVault, t("gallery", 0.), t("vault_end", 0.), 0., 6), p(PieceKind::Spires, t("gallery", 0.5), t("gallery", 2.5), -1., 7), p(PieceKind::Spires, t("gallery", 1.), t("gallery", 3.), 1., 8),
         p(PieceKind::Pylons, t("stairs", 0.), t("stairs", 3.), -1., 9), p(PieceKind::Rampart, t("stairs", 0.), t("span", 0.), 1., 10), p(PieceKind::Lanterns, t("stairs", 0.), t("stairs", 3.), 1., 11),
@@ -118,6 +115,6 @@ pub fn build(id: CourseId) -> Course {
         id, name: "THE GLASSWAY",
         blurb: "Down the Mineshaft, through the crystal gallery, over the Broken Span and up behind Whisper Falls.",
         laps: 2, line, zones, hazards, strips, pieces, forks: vec![cut],
-        gaps: vec![Gap { s0: leap0, s1: leap1, ramp: 0.12 }], landmarks,
+        gaps: vec![Gap { s0: leap0, s1: leap1, ramp: 0.12 }], crests: Vec::new(), landmarks,
     })
 }

@@ -1,7 +1,5 @@
 use super::*;
 
-/// An open first-floor room of the Crypt, its fight kept on by a bat frozen
-/// in the far corner, knight one standing in the middle.
 fn quiet_room(pair: bool) -> Run {
     let mut run = Run::new(4, 1, pair.then_some("Friend"));
     run.begin_in(Pack::Crypt);
@@ -11,7 +9,6 @@ fn quiet_room(pair: bool) -> Run {
         .iter()
         .position(|r| r.kind == RoomKind::Fight)
         .unwrap();
-    // An open room: whatever stone or pits the floor gave it, cleared.
     let open = &mut run.dungeon.rooms[room];
     for row in 1..open.rows - 1 {
         for col in 1..open.cols - 1 {
@@ -31,7 +28,6 @@ fn quiet_room(pair: bool) -> Run {
     run
 }
 
-/// Knight one plays the card `id` from its hand.
 fn play(run: &mut Run, id: &str) {
     let hero = run.players.get_mut(&1).unwrap();
     hero.hand = vec![id.to_string()];
@@ -73,7 +69,6 @@ fn a_fae_dagger_puts_the_knight_where_it_aimed() {
     let x = run.players[&1].x;
     assert!((x - 22.0).abs() < 1.0, "twelve steps east: {x}");
     assert!(run.cues.iter().any(|c| c == "blink"));
-    // Aimed at the wall: it stops short of it, inside the room.
     let mut run = quiet_room(false);
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.aim_x, hero.aim_y) = (6.0, -1.0, 0.0);
@@ -91,7 +86,6 @@ fn a_pendragon_sceptre_turns_hex_chill_and_web_aside() {
     assert!(run.cues.iter().any(|c| c == "sceptre"));
     run.hex(1);
     assert!(!run.players[&1].frog(), "no hex takes");
-    // A web underfoot doesn't slow it.
     let walk = |immune: bool| {
         let mut run = quiet_room(false);
         if immune {
@@ -148,8 +142,6 @@ fn a_thunder_scroll_is_seen_and_heard_where_it_strikes() {
     let (wx, wy) = (run.enemies.last().unwrap().x, run.enemies.last().unwrap().y);
     play(&mut run, "thunder-scroll");
     let bolts = &run.feel.bolts;
-    // A bolt onto each monster it struck (the frozen bat too), and the
-    // crackle round the knight who read it.
     assert_eq!(bolts.iter().filter(|b| !b.call).count(), 2, "{bolts:?}");
     assert!(bolts.iter().any(|b| !b.call && (b.x, b.y) == (wx, wy)));
     let hero = &run.players[&1];
@@ -158,14 +150,12 @@ fn a_thunder_scroll_is_seen_and_heard_where_it_strikes() {
     for sound in ["play_card", "cast_storm", "impact_storm"] {
         assert!(run.sounds.contains(&sound), "{sound}: {:?}", run.sounds);
     }
-    // In an empty room it still crackles, with no thunder.
     let mut run = quiet_room(false);
     run.enemies.clear();
     play(&mut run, "thunder-scroll");
     assert_eq!(run.feel.bolts.len(), 1);
     assert!(run.feel.bolts[0].call);
     assert!(run.sounds.contains(&"cast_storm") && !run.sounds.contains(&"impact_storm"));
-    // A bomb is no lightning.
     let mut run = quiet_room(false);
     run.players.get_mut(&1).unwrap().bombs = 1;
     run.step(&BTreeMap::from([(1, Input { bomb: true, ..Default::default() })]));

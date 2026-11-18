@@ -11,7 +11,6 @@ COLOURS = [((p >> 16) & 255, (p >> 8) & 255, p & 255) for p in PALETTE]
 
 def convert(im, size):
     im = im.convert('RGBA')
-    # The source's neutral backdrop has no saturation. Keep coloured contours.
     px = im.load()
     for y in range(im.height):
         for x in range(im.width):
@@ -77,13 +76,10 @@ def refine(base):
             d.line(seam, fill=teal, width=3 if stage < 3 else 5, joint='curve')
             if stage == 3:
                 d.line(seam, fill='#d8a95e', width=2, joint='curve')
-        # The seam masks cannot grow the creature's footprint.
         overlay.putalpha(Image.composite(overlay.getchannel('A'),
                                         Image.new('L', base.size), base.getchannel('A')))
         out.alpha_composite(overlay)
         if stage == 3:
-            # Two attached plates, a missing wedge and a warm exposed vent.
-            # Retain the original lid pixels; the reference informs only the split.
             out.paste((0, 0, 0, 0), (25, 0, 57, 12))
             lid = base.crop((26, 0, 55, 11))
             out.alpha_composite(lid.crop((0, 0, 15, 11)), (24, 0))
@@ -97,12 +93,10 @@ def refine(base):
         out = base.copy()
         head = base.crop((0, 0, 80, 35))
         d = ImageDraw.Draw(head)
-        # Squint within the same eye sockets; keep brows, cheeks and nose.
         d.polygon([(29, 24), (36, 27), (38, 30), (32, 29)], fill='#be914b')
         d.polygon([(45, 29), (49, 25), (53, 25), (51, 29)], fill='#be914b')
         d.line([(29, 25), (33, 27), (37, 28)], fill=teal, width=2)
         d.line([(45, 28), (49, 27), (52, 25)], fill=teal, width=2)
-        # Translate the head rigidly by two pixels; jolt the lid two pixels sideways.
         lid = head.crop((25, 0, 57, 11))
         head.paste((0, 0, 0, 0), (25, 0, 57, 11))
         head.alpha_composite(lid, (23 if frame == 1 else 27, 0))
@@ -111,7 +105,6 @@ def refine(base):
         images.append((f'flinch-{frame}', out))
     impact = Image.new('RGBA', (40, 24))
     d = ImageDraw.Draw(impact)
-    # Angular ceramic plates splay out from one low connected molten splash.
     d.polygon([(2, 18), (8, 14), (12, 15), (16, 11), (20, 15), (25, 13),
                (29, 17), (37, 19), (34, 22), (7, 22)], fill='#784620')
     d.polygon([(7, 18), (13, 16), (17, 14), (21, 17), (26, 16), (32, 20),
@@ -128,7 +121,6 @@ def refine(base):
         burst = Image.new('RGBA', (24, 24))
         d = ImageDraw.Draw(burst)
         radius = [7, 12, 5][frame]
-        # Filled concentric clusters; no outline square and no dither.
         d.ellipse((12-radius, 12-radius, 12+radius, 12+radius), fill='#784620')
         d.ellipse((14-radius, 14-radius, 10+radius, 10+radius), fill='#be914b')
         core = [3, 4, 2][frame]
@@ -136,7 +128,6 @@ def refine(base):
         for x, y in [(1, 10), (19, 10), (10, 1), (10, 19)]:
             d.polygon([(x, y+1), (x+2, y), (x+3, y+2), (x+1, y+3)], fill='#3a6d5d')
         images.append((f'clear-{frame+1}', burst))
-    # A broad dark eye pair survives the lab copy's nearest reduction.
     small = base.resize((28, 28), Image.Resampling.NEAREST)
     d = ImageDraw.Draw(small)
     d.line([(10, 9), (12, 10)], fill=teal, width=2)
@@ -149,7 +140,6 @@ def refine(base):
     for stage in range(1, 4):
         mask = Image.new('RGBA', base.size)
         d = ImageDraw.Draw(mask)
-        # Four-pixel connected steps align with the half-block sampler.
         paths = [[(28, 34), (28, 42), (24, 42), (24, 48), (28, 48),
                   (28, 58), (32, 58), (32, 64)],
                  [(56, 34), (56, 42), (60, 42), (60, 48), (56, 48),
@@ -163,7 +153,6 @@ def refine(base):
         images.append((f'seam-cells-{stage}', mask))
     steam = Image.new('RGBA', (56, 36))
     d = ImageDraw.Draw(steam)
-    # Open curls, each with a two-cell hole, stay separate beside the feet.
     for outer, inner, opening in [((2, 12, 24, 32), (8, 18, 18, 26), (16, 24, 25, 35)),
                                   ((32, 10, 54, 32), (38, 16, 48, 25), (31, 24, 40, 35))]:
         d.ellipse(outer, fill='#2f4a52')
@@ -196,8 +185,6 @@ if __name__ == '__main__':
                     [(f'pose-{i+1}',im) for i,im in enumerate(poses)],a.review)
             raise SystemExit()
         images=[]
-        # Only the generated crack seams replace existing ceramic. All other
-        # body, face, hands and feet pixels remain the approved base sprite.
         seams=[[(18,29),(22,34),(23,42)],
                [(55,35),(58,43),(54,50),(49,57),(48,67),(40,73),(35,65),(28,60)],
                [(20,37),(16,42),(21,48),(23,56)]]
@@ -206,14 +193,12 @@ if __name__ == '__main__':
             for j in range(stage+1):
                 mask=Image.new('L',(80,80)); d=ImageDraw.Draw(mask)
                 d.line(seams[j],fill=255,width=6)
-                # Preserve the source's connected bright/dark crack cluster.
                 out.paste(cracks[stage],(0,0),mask)
             if stage==2:
                 out.paste(cracks[stage].crop((0,0,80,35)),(0,0))
             images.append((f'crock-crack-{stage+1}',clean(out)))
         for i,pose in enumerate(poses):
             out=base.copy()
-            # Head/lid/eyes only: keep the original body below the eyebrows.
             out.paste((0,0,0,0),(0,0,80,35))
             head=pose.crop((0,0,80,35))
             out.paste(head,(0,0))

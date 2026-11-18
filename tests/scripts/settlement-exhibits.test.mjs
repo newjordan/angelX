@@ -27,6 +27,11 @@ test('manifest rules reject unknown fields, false verification, unsafe names/pat
   const valid = { schema: 'angel.settlement-exhibits/v1', site_id: 'site', loop_id: 'loop', iteration: 2,
     artifacts: [{ key: 'result', title: 'Report', source: 'reports/a.txt', status: 'failed' }] }
   assert.deepEqual(JSON.parse(encodeManifest(valid)), valid)
+  for (const artifacts of [Array(1), [, valid.artifacts[0]], [valid.artifacts[0], ,]]) {
+    const malformed = { ...valid, artifacts }
+    assert.throws(() => validateManifest(malformed), /missing or unknown fields/)
+    assert.throws(() => encodeManifest(malformed), /missing or unknown fields/)
+  }
   for (const patch of [{ iteration: 0 }, { iteration: 1.5 }, { iteration: Number.MAX_SAFE_INTEGER + 1 },
     { schema: 'other' }, { extra: true }, { site_id: '' }, { artifacts: [] },
     { artifacts: [valid.artifacts[0], valid.artifacts[0]] }])
@@ -140,7 +145,6 @@ test('concurrent publishers cannot replace a competing complete manifest', linux
   const f = fixture(t)
   const other = structuredClone(f.manifest)
   other.artifacts[0].title = 'Competing report'
-  // Launch actual competing CLI processes; stdin carries private manifest data.
   const { spawn } = await import('node:child_process')
   const run = (manifest) => new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cli, 'publish', f.root, f.name], { stdio: ['pipe', 'pipe', 'pipe'] })

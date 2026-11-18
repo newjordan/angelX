@@ -1,4 +1,3 @@
-// The existing failed-realm-save entry point also exercises the new private journal.
 fn windcountry_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     use crate::delve::together_realm::{Spoil, Realm};
     use crate::delve::together_shooter::{Input, Run, RoomKind, HZ, world, countryside as c, windcountry as w, pastimes::{Game, Trencher}};
@@ -13,7 +12,6 @@ fn windcountry_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     app.realm.dungeon.shooter.set(Some(Run::at_home(101, 1, None, home, before.clone())));
     {
         let r = app.realm.dungeon.shooter.edit().unwrap();
-        // Each lever wants its own press: E comes up between them.
         let press = |r: &mut Run| { r.step(&empty); r.step(&meet()); };
         go(r, RoomKind::Kitewright, w::MAKER); press(r);
         go(r, RoomKind::GooseGreen, w::CLOTH); press(r);
@@ -28,7 +26,6 @@ fn windcountry_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         assert!(r.pastimes.round.as_ref().unwrap().trencher.as_ref().unwrap().flight.is_some());
         assert!(r.valid_snapshot());
     }
-    // A real failed realm write leaves treasury and durable home untouched.
     std::fs::rename(fixture.home.join(".angelX"), fixture.home.join(".angelX-kite-backup")).unwrap();
     std::fs::write(fixture.home.join(".angelX"), b"not a directory").unwrap();
     assert!(!app.settle_home()); assert_eq!(app.economy().treasury, before);
@@ -46,7 +43,6 @@ fn windcountry_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         assert_eq!(r.marks.get("country:build:kitepost"), Some(&1));
         assert_eq!(r.pastimes, app.realm.dungeon.shooter.as_ref().unwrap().pastimes);
     }
-    // Whitelist bounds reject malformed new intents rather than admitting them.
     let encoded = std::fs::read(&path).unwrap(); let mut bad: serde_json::Value = serde_json::from_slice(&encoded).unwrap();
     bad["country_intents"][w::QUEST_MARKS[0]] = serde_json::json!(2);
     std::fs::write(&path, serde_json::to_vec(&bad).unwrap()).unwrap();

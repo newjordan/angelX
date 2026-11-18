@@ -90,10 +90,6 @@ pub(crate) use routing::*;
 pub(crate) use scale::*;
 pub(crate) use waves::*;
 
-// ---------------------------------------------------------------------------
-// Tests — offline, over a counting mock club (no network)
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/app/swarm__tests.rs"]
 mod tests;

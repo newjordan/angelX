@@ -8,114 +8,73 @@ use std::path::{Path, PathBuf};
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Config {
-    /// Stable id; `ANGEL_CARTRIDGE` selects the active cartridge by it.
     pub(crate) id: String,
-    /// Name on operator surfaces.
     pub(crate) label: String,
-    /// The board CLI's program names. `<board> submit` carries angelX's own
-    /// `--model` and `--harness`; `<board> submit|submissions|status|list`
-    /// count as competition outcomes.
     #[serde(default)]
     pub(crate) boards: Vec<String>,
-    /// Board subcommands that are this family's own local measurement
-    /// (`<board> run`): a loop counts them as a measured candidate.
     #[serde(default)]
     pub(crate) measures: Vec<String>,
-    /// The loop worker's brief: book page cells or plain words.
     #[serde(default)]
     pub(crate) worker: String,
-    /// How a submission's result is read, as the prompts name it.
     #[serde(default)]
     pub(crate) status_check: Option<String>,
-    /// Seconds between fleet sweeps.
     #[serde(default)]
     pub(crate) fleet_interval_secs: Option<u64>,
-    /// A config-only fleet: a shell command whose stdout is one snapshot,
-    /// `{"benchmarks": 2, "failed": 0, "submissions": [{"benchmark", "id",
-    /// "status", "score"}]}`. `ANGEL_CARTRIDGE_DIR` names the cartridge's folder.
     #[serde(default)]
     pub(crate) fleet_command: Option<String>,
-    /// Book pages, as data: a config-only cartridge speaks in pages too.
     #[serde(default)]
     pub(crate) pages: Vec<Page>,
-    /// Slash commands: `/<name> <task>` sends one turn carrying the named
-    /// skills from the cartridge's `skills/` folder. Nothing loads before then.
     #[serde(default)]
     pub(crate) commands: Vec<Command>,
-    /// Deferred tools: each runs a program in the cartridge's folder, with the
-    /// call's arguments as JSON on stdin and its stdout as the result.
     #[serde(default)]
     pub(crate) tools: Vec<ProgramTool>,
-    /// What the plugin registry needs to list, install and update this
-    /// cartridge as a plugin (docs/PLUGINS.md). Loading never reads it.
     #[serde(default)]
     pub(crate) plugin: Option<PluginMeta>,
 }
 
-/// A cartridge's `[plugin]` table: its version and who made it, for the
-/// registry, plus the setup an install runs.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct PluginMeta {
-    /// `MAJOR.MINOR.PATCH`, optionally with a `-pre` suffix.
     pub(crate) version: String,
-    /// One line: what the plugin does.
     pub(crate) description: String,
     #[serde(default)]
     pub(crate) authors: Vec<String>,
     /// An SPDX license expression, such as `MIT`.
     #[serde(default)]
     pub(crate) license: String,
-    /// The public https repository the registry fetches it from; when absent,
-    /// `angelX plugin submit` reads the git remote.
     #[serde(default)]
     pub(crate) repository: Option<String>,
     #[serde(default)]
     pub(crate) homepage: Option<String>,
     #[serde(default)]
     pub(crate) keywords: Vec<String>,
-    /// The lowest angelX version the plugin works with.
     #[serde(default)]
     pub(crate) angelx: Option<String>,
-    /// A program in the folder an install runs once the files are in place,
-    /// and each update after: it fetches or builds what the repository does
-    /// not carry. It runs in the folder, with the folder as its argument.
     #[serde(default)]
     pub(crate) setup: Option<String>,
 }
 
-/// One slash command a cartridge adds. A built-in command of the same name wins.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Command {
-    /// The word after `/`: lowercase letters, digits and `-`.
     pub(crate) name: String,
-    /// Skill names in the cartridge's `skills/` folder, applied in order.
     pub(crate) skills: Vec<String>,
-    /// What the composer shows after `/<name>`.
     #[serde(default)]
     pub(crate) usage: String,
 }
 
-/// One tool a cartridge adds, deferred until `tool_search` brings it in.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ProgramTool {
-    /// The tool's name: lowercase letters, digits and `_`.
     pub(crate) name: String,
     pub(crate) description: String,
-    /// The program, relative to the cartridge's folder.
     pub(crate) run: String,
-    /// The arguments' JSON schema; an object with no properties when absent.
     #[serde(default)]
     pub(crate) params: serde_json::Value,
-    /// Advertised with the core coding tools (beside `grep`) instead of
-    /// deferred behind `tool_search`.
     #[serde(default)]
     pub(crate) core: bool,
 }
 
-/// One book page set a cartridge adds or replaces, by its two-cell route.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Page {
@@ -197,7 +156,6 @@ impl Config {
     }
 }
 
-/// A relative path that stays inside the cartridge's folder.
 fn inside_folder(path: &str) -> bool {
     let run = Path::new(path);
     !path.is_empty()
@@ -207,9 +165,6 @@ fn inside_folder(path: &str) -> bool {
             .all(|part| matches!(part, std::path::Component::Normal(_)))
 }
 
-/// Where cartridges are found: `ANGEL_CARTRIDGES` (a path list; each entry is
-/// a cartridge or a folder of them), else `~/.angelX/cartridges`. `build.rs`
-/// reads the same places to compile source cartridges in.
 pub(crate) fn roots() -> Vec<PathBuf> {
     match std::env::var_os("ANGEL_CARTRIDGES") {
         Some(list) => std::env::split_paths(&list).collect(),
@@ -220,7 +175,6 @@ pub(crate) fn roots() -> Vec<PathBuf> {
     }
 }
 
-/// Every cartridge folder under `roots`, in order.
 pub(crate) fn folders(roots: &[PathBuf]) -> Vec<PathBuf> {
     let mut found = Vec::new();
     for root in roots {
@@ -246,8 +200,6 @@ fn is_cartridge(path: &Path) -> bool {
     path.join("cartridge.toml").is_file()
 }
 
-/// A folder whose Rust the build compiles in; at runtime only config-only
-/// folders are read, so a source cartridge never runs without its hooks.
 pub(crate) fn has_source(path: &Path) -> bool {
     path.join("src").join("mod.rs").is_file()
 }

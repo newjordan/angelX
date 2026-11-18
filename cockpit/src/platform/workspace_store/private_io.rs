@@ -21,8 +21,6 @@ fn component(name: &OsStr) -> io::Result<CString> {
 }
 
 impl PrivateDirectory {
-    /// Traverse every component without following symlinks. Only newly created
-    /// directories get 0700; existing parent directories are never chmodded.
     pub(crate) fn open(path: &Path) -> io::Result<Self> {
         Self::walk(path, true)
     }
@@ -50,7 +48,6 @@ impl PrivateDirectory {
             let next = match directory.open_at(name, libc::O_RDONLY | libc::O_DIRECTORY) {
                 Err(error) if create && error.kind() == io::ErrorKind::NotFound => {
                     let name_c = component(name)?;
-                    // SAFETY: the descriptor and NUL-terminated name stay live.
                     if unsafe { libc::mkdirat(directory.0.as_raw_fd(), name_c.as_ptr(), 0o700) } < 0
                     {
                         let error = io::Error::last_os_error();
@@ -73,8 +70,6 @@ impl PrivateDirectory {
         Ok(directory)
     }
 
-    /// Only for a directory the caller explicitly defines as a private store.
-    /// Ordinary opens above preserve existing parent permissions.
     pub(crate) fn secure_owner_only(&self) -> io::Result<()> {
         if self.0.metadata()?.mode() & 0o077 != 0 {
             self.0
@@ -85,10 +80,6 @@ impl PrivateDirectory {
 
     fn open_at(&self, name: &OsStr, flags: i32) -> io::Result<File> {
         let name = component(name)?;
-        // On macOS, threads creating the same new name at once can see
-        // O_CREAT fail with ENOENT; the name exists by the next attempt
-        // (16 racing threads never needed a third). Without the retry
-        // concurrent first appends to a ledger or lock file were lost.
         let attempts = if cfg!(target_os = "macos") && flags & libc::O_CREAT != 0 {
             3
         } else {
@@ -96,8 +87,6 @@ impl PrivateDirectory {
         };
         let mut attempt = 1;
         loop {
-            // SAFETY: openat receives a live directory and C string. Ownership
-            // of the returned descriptor is transferred once into File.
             let fd = unsafe {
                 libc::openat(
                     self.0.as_raw_fd(),
@@ -129,8 +118,6 @@ impl PrivateDirectory {
                 "private store entry is not a singly-linked owner file",
             ));
         }
-        // An existing owner file can migrate safely. This descriptor is checked
-        // before fchmod, and no caller can write bytes before this returns.
         file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
         self.matches(name, &file)?;
         Ok(file)
@@ -139,7 +126,6 @@ impl PrivateDirectory {
     fn matches(&self, name: &OsStr, file: &File) -> io::Result<()> {
         let name = component(name)?;
         let mut metadata = std::mem::MaybeUninit::<libc::stat>::uninit();
-        // SAFETY: fstatat initializes stat on success and does not follow links.
         if unsafe {
             libc::fstatat(
                 self.0.as_raw_fd(),
@@ -153,7 +139,6 @@ impl PrivateDirectory {
         }
         let named = unsafe { metadata.assume_init() };
         let opened = file.metadata()?;
-        // dev_t is signed i32 on Apple and u64 on Linux; MetadataExt uses u64.
         #[allow(clippy::unnecessary_cast)]
         let same_identity =
             (named.st_dev as u64, named.st_ino as u64) == (opened.dev(), opened.ino());
@@ -193,7 +178,6 @@ impl PrivateDirectory {
     pub(crate) fn remove_owned(&self, name: &OsStr, file: &File) -> io::Result<()> {
         self.matches(name, file)?;
         let name = component(name)?;
-        // SAFETY: unlink only the name that still matches the caller's held FD.
         if unsafe { libc::unlinkat(self.0.as_raw_fd(), name.as_ptr(), 0) } < 0 {
             Err(io::Error::last_os_error())
         } else {
@@ -217,7 +201,6 @@ impl PrivateDirectory {
                 "private store destination appeared while staging",
             ));
         }
-        // renameat moves the entry and never follows a substituted symlink.
         self.rename(temporary, name)
     }
 
@@ -225,7 +208,6 @@ impl PrivateDirectory {
         self.0.sync_all()
     }
 
-    /// Enumerate the held directory, never its original mutable pathname.
     pub(crate) fn names(&self) -> io::Result<Vec<OsString>> {
         struct Stream(*mut libc::DIR);
         impl Drop for Stream {
@@ -235,8 +217,6 @@ impl PrivateDirectory {
                 }
             }
         }
-        // Opening "." relative to the held FD gives each enumeration an
-        // independent offset; dup() would share the caller's directory offset.
         let fd = self
             .open_at(OsStr::new("."), libc::O_RDONLY | libc::O_DIRECTORY)?
             .into_raw_fd();
@@ -251,7 +231,6 @@ impl PrivateDirectory {
         let stream = Stream(raw);
         let mut names = Vec::new();
         loop {
-            // readdir uses errno to distinguish end-of-directory from error.
             #[cfg(any(target_os = "linux", target_os = "dragonfly"))]
             unsafe {
                 *libc::__errno_location() = 0;
@@ -272,8 +251,6 @@ impl PrivateDirectory {
                 }
                 break;
             }
-            // SAFETY: d_name is terminated by readdir, and copied before the
-            // next call can reuse the stream's buffer.
             let name = unsafe { CStr::from_ptr((*entry).d_name.as_ptr()) }.to_bytes();
             if name != b"." && name != b".." {
                 names.push(OsString::from_vec(name.to_vec()));
@@ -286,7 +263,6 @@ impl PrivateDirectory {
     fn rename(&self, source: &OsStr, target: &OsStr) -> io::Result<()> {
         let source = component(source)?;
         let target = component(target)?;
-        // SAFETY: both names are relative to the same pinned directory.
         if unsafe {
             libc::renameat(
                 self.0.as_raw_fd(),
@@ -302,7 +278,6 @@ impl PrivateDirectory {
         }
     }
 
-    /// Caller retains its stable companion flock across rotation and append.
     #[cfg(test)]
     pub(crate) fn rotate_if(&self, name: &OsStr, target: &OsStr, bytes: u64) -> io::Result<()> {
         let Some(file) = self.existing(name)? else {
@@ -346,11 +321,6 @@ impl PrivateDirectory {
     }
 }
 
-/// macOS ships `/etc`, `/tmp` and `/var` as symlinks into `/private`. The store
-/// refuses symlinked ancestors by design (a swapped ancestor is an attack), so
-/// exactly those three system prefixes — verified to point where Apple puts
-/// them, and nothing else — are mapped to their canonical directories before
-/// the no-follow walk. Elsewhere the path is used as given.
 #[cfg(target_os = "macos")]
 fn resolve_system_prefix(path: &Path) -> std::borrow::Cow<'_, Path> {
     for prefix in ["/etc", "/tmp", "/var"] {

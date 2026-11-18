@@ -4,7 +4,6 @@
 //! that cannot be finished anywhere changes nothing at all.
 use crate::*;
 
-/// Quarter turns clockwise (y runs down the screen).
 fn turned((dx, dy): (i16, i16), turns: u8) -> (i16, i16) {
     match turns % 4 {
         0 => (dx, dy),
@@ -23,7 +22,6 @@ impl Kingdom {
         };
         let mut roads = 0;
         for &r in &p.roads {
-            // A road already there is part of the pattern, not an error.
             if !self.roads.contains(&at(r)) {
                 self.execute(c, Command::Road(at(r)))?;
                 roads += 1;
@@ -65,8 +63,6 @@ impl Kingdom {
         ))
     }
 
-    /// What stamping a pattern here would cost, or why it cannot be. Run on a
-    /// copy with a bottomless treasury, so the answer is exact, not a sum.
     pub fn stamp_cost(&self, c: &Catalog, name: &str, origin: Tile, turns: u8) -> Result<Stock, String> {
         let mut trial = self.clone();
         trial.start(c);

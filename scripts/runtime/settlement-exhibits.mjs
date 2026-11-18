@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-// Checkout-only publisher. Linux descriptor-relative opens prevent symlink
-// swaps between validation and use. Never scans, admits, rewrites reports, or
-// imports a worker into the pure manifest library.
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -79,9 +76,6 @@ function readFile(root, relative, cap) {
 
 function publish(directoryFd, name, body) {
   const destination = `${name}.json`
-  // Stage complete bytes, then hard-link as an atomic no-replace operation.
-  // Remove the staging name before returning: native admission rejects nlink>1.
-  // A crash between link/unlink fails closed (operator must remove the temp link).
   const temporary = `.${name}.${randomBytes(12).toString('hex')}.tmp`
   const fd = fs.openSync(at(directoryFd, temporary), C.O_WRONLY | C.O_CREAT | C.O_EXCL | C.O_NOFOLLOW, 0o600)
   let staged = true
@@ -109,13 +103,12 @@ export function publishManifest({ root, name, manifest }) {
   const relative = manifestPath(name)
   assertCleanText(name)
   const body = encodeManifest(manifest)
-  assertCleanText(body) // refuse credentials rather than change integrity-bound metadata
+  assertCleanText(body)
   const rootFd = workspace(root)
   let store, queue
   try {
     for (const artifact of manifest.artifacts)
       assertCleanText(text(readFile(rootFd, artifact.source, SOURCE_LIMIT)))
-    // Validate sources before creating anything. Existing directory modes stay unchanged.
     store = directory(rootFd, '.angelX', true)
     queue = directory(store, 'settlement-exhibits', true)
     fs.fsyncSync(store)
@@ -146,7 +139,6 @@ function main() {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try { main() }
   catch {
-    // Do not echo user data, source paths/content, or credential-bearing parse errors.
     console.error('Research publication refused: check name, manifest, source safety, credentials and existing destination. No admission performed.')
     process.exitCode = 1
   }

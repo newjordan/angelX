@@ -66,33 +66,20 @@ const HOLD_CLOSE: u64 = 900;
 const HOLD_FINALE: u64 = 12_000;
 const HOLD_MODEL: u64 = 10_000;
 const HOLD_TWEENS: u64 = 12_000;
-/// The base64 a piece of a chunked asset carries.
 const ASSET_PIECE: usize = 96 * 1024;
 const SCROLL_LINES: u64 = 24;
 const VIDEO_FRAMES: u64 = 90;
 const ANIM_FRAMES: usize = 12;
 const ANIM_GAP_MS: u32 = 80;
-/// Frames a second the 3D scenes are sent at.
 const SCENE_FPS: u32 = 60;
-/// How many lights the cloud is made of.
 const CLOUD_POINTS: usize = 720;
-/// A scene is rendered at this many times the pixels it covers, so the
-/// linear filter that draws it smaller smooths every edge.
 const SUPERSAMPLE: f32 = 2.0;
-/// The most pixels a scene side may be (`glass_scene`'s cap).
 const SCENE_SIDE: u32 = 2048;
 const FALLBACK_CELL_W: u32 = 10;
 const FALLBACK_CELL_H: u32 = 20;
-/// How long the probe waits for glass to answer. Checked on the channel,
-/// never by blocking in a read.
 const PROBE_MS: u64 = 600;
 
-/// A frame payload is capped at 1 MiB (`glass_scene::SCENE_BYTES`), and
-/// the check is on the bytes the op carries (base64 of raw RGBA) before
-/// decode. 480×270 raw is 518_400 bytes; its base64 is 691_200, under
-/// that cap. The showcase opens at this size and `fit` scales it up.
 const FRAME_BYTES: u32 = 1 << 20;
-/// Panel size shared by the showcase and every video frame.
 const VIDEO_W: u32 = 480;
 const VIDEO_H: u32 = 270;
 const _: () = assert!(
@@ -103,7 +90,6 @@ static CHECK: AtomicBool = AtomicBool::new(false);
 static SHOWCASE_OPEN: AtomicBool = AtomicBool::new(false);
 static NEXT_REPLY: AtomicU32 = AtomicU32::new(1);
 static TALLY: Mutex<Tally> = Mutex::new(Tally::new());
-/// Each animated scene's frames and seconds, for `--check`.
 static PACE: Mutex<Vec<(&'static str, u32, f32)>> = Mutex::new(Vec::new());
 
 struct Tally {
@@ -263,13 +249,10 @@ fn finish_check(rx: &Receiver<Vec<u8>>) {
         eprintln!("glass_sampler --check: frames a second {}", rates.join(", "));
     }
 }
-/// Picture the chart panel shows. Uploaded with `picture`, opened with `chart;p=`.
 const CHART_PICTURE: u32 = 11;
 
 const CLOSING: &str = "every dialect, expanded into layers";
 
-/// The window the probe measured. Pictures are sized from this, never
-/// from a hardcoded thumbnail.
 #[derive(Clone, Copy)]
 struct Fit {
     rows: u16,
@@ -287,8 +270,6 @@ impl Fit {
         u32::from(self.rows).saturating_mul(self.cell_h).max(1)
     }
 
-    /// A main picture: `frac` of the screen width, held in 40–60%, never
-    /// past the screen. `floor` applies only when it still fits.
     fn picture(self, frac: f32, aspect: f32, floor_w: u32, floor_h: u32) -> (u32, u32) {
         let sw = self.screen_w();
         let sh = self.screen_h();
@@ -306,9 +287,6 @@ impl Fit {
         (w, h)
     }
 
-    /// Cell box for a picture the terminal scales into cells. The width
-    /// is `frac` of the columns, held in 40–60%, and it never passes the
-    /// screen.
     fn cell_box(self, frac: f32, aspect: f32) -> (u32, u32) {
         let cols = u32::from(self.cols).max(1);
         let rows = u32::from(self.rows).max(1);
@@ -321,8 +299,6 @@ impl Fit {
         (c, r)
     }
 
-    /// A window-pinned scene box at `x, y` (cells from the top left, 0
-    /// based), `c` by `r` cells, and the pixels it is rendered at.
     fn stage(self, x: f32, y: f32, c: f32, r: f32) -> Stage3 {
         let pw = (c * self.cell_w as f32).max(1.0);
         let ph = (r * self.cell_h as f32).max(1.0);
@@ -337,9 +313,6 @@ impl Fit {
         }
     }
 
-    /// The biggest scene box of `aspect` (width over height, in pixels)
-    /// within `rows` rows from `top` and `cols` columns, centred on column
-    /// `cx`.
     fn stage_fit(self, cx: f32, top: f32, rows: f32, cols: f32, aspect: f32) -> Stage3 {
         let (cw, ch) = (self.cell_w.max(1) as f32, self.cell_h.max(1) as f32);
         let mut r = rows.max(1.0);
@@ -359,13 +332,11 @@ impl Fit {
         f32::from(self.rows)
     }
 
-    /// Cells as tall as `w` cells are wide, so a light or a solid is round.
     fn square(self, w: f32) -> f32 {
         w * self.cell_w.max(1) as f32 / self.cell_h.max(1) as f32
     }
 }
 
-/// Where a scene is placed and how big it is rendered.
 #[derive(Clone, Copy, Debug)]
 struct Stage3 {
     x: f32,
@@ -447,8 +418,6 @@ fn main() {
     };
     let looping = args.iter().any(|arg| arg == "--loop");
     let tty = Tty::raw();
-    // Size the fallback before the reader owns stdin. After this, nothing
-    // else reads stdin: the probe and the scenes take bytes from the channel.
     let (rows, cols) = stty_size();
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || read_stdin(tx));
@@ -470,8 +439,6 @@ fn main() {
     finish_check(&rx);
 }
 
-/// The scenes `--scene a,b` names, in the show's order; every scene when
-/// it is not given. `Err` carries a name no scene has.
 fn picked_scenes(args: &[String]) -> Result<Vec<&'static str>, String> {
     let mut wanted: Vec<String> = Vec::new();
     let mut i = 0;
@@ -498,8 +465,6 @@ fn picked_scenes(args: &[String]) -> Result<Vec<&'static str>, String> {
         .collect())
 }
 
-/// The only reader of stdin. Every byte is forwarded. A second read would
-/// race this one and could swallow the probe's replies for good.
 fn read_stdin(tx: mpsc::Sender<Vec<u8>>) {
     let mut stdin = io::stdin();
     let mut buf = [0u8; 256];
@@ -530,12 +495,6 @@ fn stty_size() -> (u16, u16) {
     (rows, cols)
 }
 
-/// DA1, XTWINOPS 18 (rows and columns) and XTWINOPS 16 (one cell in
-/// pixels). A size report or `hello` means glass. Cell size falls back
-/// to 10×20 when 16 is not answered. Replies come from the stdin channel
-/// with `recv_timeout`, so the deadline is a real bound: a second reader
-/// cannot swallow the burst, and this function never reads stdin. `q` or
-/// Ctrl+C leaves before any picture. A late reply or a focus report does not.
 fn probe(rx: &Receiver<Vec<u8>>, fallback_rows: u16, fallback_cols: u16) -> Option<Fit> {
     emit(b"\x1b[c\x1b[>c\x1b[18t\x1b[16t");
     let deadline = Instant::now() + Duration::from_millis(PROBE_MS);
@@ -611,8 +570,6 @@ fn area_from(seen: &[u8]) -> Option<(u16, u16)> {
     }
 }
 
-/// XTWINOPS 16 answers `CSI 6 ; height ; width t`. A wild reply falls
-/// back to 10×20 rather than sizing a picture off the screen.
 fn cell_from(seen: &[u8]) -> Option<(u32, u32)> {
     let start = find_seq(seen, b"\x1b[6;")?;
     let rest = &seen[start + 4..];
@@ -628,8 +585,6 @@ fn cell_from(seen: &[u8]) -> Option<(u32, u32)> {
     }
 }
 
-/// `q` or Ctrl+C, and only outside a control sequence. A late size reply,
-/// a glass answer, or a focus report (`ESC [ I`, `ESC [ O`) is not a quit.
 fn wants_quit(chunk: &[u8]) -> bool {
     let mut i = 0;
     while i < chunk.len() {
@@ -716,10 +671,6 @@ fn hold_until(rx: &Receiver<Vec<u8>>, end: Instant) -> bool {
     }
 }
 
-/// Runs `draw` with the scene's clock in seconds, `fps` times a second for
-/// `ms`. Frames are paced against the clock, so a slow frame is not
-/// followed by a full wait, and motion keeps time however fast glass
-/// takes the bytes. True on a quit.
 fn animate(rx: &Receiver<Vec<u8>>, name: &'static str, ms: u64, fps: u32, mut draw: impl FnMut(f32)) -> bool {
     let start = Instant::now();
     let length = Duration::from_millis(ms);
@@ -748,7 +699,6 @@ fn animate(rx: &Receiver<Vec<u8>>, name: &'static str, ms: u64, fps: u32, mut dr
 
 type SceneFn = fn(&Receiver<Vec<u8>>, Fit) -> bool;
 
-/// The show, in order. `--scene` picks from these names.
 const SCENES: &[(&str, SceneFn)] = &[
     ("text", scene_text),
     ("sixel", scene_sixel),
@@ -778,9 +728,6 @@ fn show(rx: &Receiver<Vec<u8>>, fit: Fit, picked: &[&str]) -> bool {
 }
 
 fn retire() {
-    // A showcase closes only when one is open, and only as its scene
-    // ends — the next scene's retire is that moment. Closing when none
-    // is open makes the following chart open onto a refused panel.
     close_showcase_if_open();
     glass(&remove_all_op());
     apc("a=d,d=A,q=2", &[]);
@@ -821,8 +768,6 @@ fn scene_text(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
         styled(b"\x1b[0m");
     }
     caption(fit, "curly is SGR 4:3; the coloured underline is SGR 58");
-    // The band is repainted with its light sliding across: truecolour
-    // backgrounds, cell by cell, twenty times a second.
     if animate(rx, "text", HOLD_TEXT, 20, |t| gradient_title(fit, "glass", t)) {
         return true;
     }
@@ -842,8 +787,6 @@ fn scene_text(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
     false
 }
 
-/// A three-row band in the neon ramp with the title spaced out in its
-/// middle. `phase` (seconds) slides a highlight across it.
 fn gradient_title(fit: Fit, title: &str, phase: f32) {
     let cols = fit.cols.max(1);
     let spaced: Vec<u8> = title.bytes().flat_map(|b| [b, b' ']).take(title.len() * 2 - 1).collect();
@@ -872,8 +815,6 @@ fn gradient_title(fit: Fit, title: &str, phase: f32) {
 }
 
 fn scene_sixel(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
-    // Build the picture before retire, so the previous scene stays up
-    // while the plasma is drawn and is not cleared early.
     let (w, h) = fit.picture(0.50, 0.50, 480, 240);
     let (w, h, _) = clamp_in_cell_pixels(fit, 5, w, h);
     let rgba = stills::synthwave(w, h);
@@ -882,8 +823,6 @@ fn scene_sixel(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
     title("DCS sixel", "a synthwave sunset in 252 colour registers, ordered dither");
     cup(5, 2);
     out(&sixel);
-    // The sixel is in-cell: a later write on its rows hides those cells.
-    // The caption sits below the rectangle; the cursor moves with CUP only.
     caption_below(
         fit,
         5,
@@ -963,8 +902,6 @@ fn scene_placeholders(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
     if grid_r < 6 && rows >= 6 {
         grid_r = 6.min(rows);
     }
-    // Leave a caption row below the grid. The placeholder cells themselves
-    // are the text the picture rides; nothing else is written on them.
     let top = rows.saturating_sub(grid_r).saturating_sub(2).max(4);
     let room = rows.saturating_sub(top).saturating_sub(1).max(1);
     grid_r = grid_r.min(room).max(1);
@@ -1021,8 +958,6 @@ fn scene_osc1337(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
     title("OSC 1337", "ray traced: a mirror ball, gloss, soft shadows, a reflecting floor at sunset");
     cup(5, 2);
     out(record.as_bytes());
-    // Inline images are in-cell. The caption goes below the cell
-    // rectangle; nothing else is written on those rows.
     caption_below(
         fit,
         5,
@@ -1046,8 +981,6 @@ fn scene_animation(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
     let frames: Vec<Vec<u8>> = (0..ANIM_FRAMES).map(|i| sprite(i, ANIM_FRAMES, size)).collect();
     retire();
     title("Animation", "a bouncing ball, twelve frames, eighty milliseconds");
-    // Frame 1 is transmit-and-place. `c` and `r` here are columns and
-    // rows. Later `a=a` uses those keys as frame numbers, not a placement.
     cup(5, 2);
     apc(
         &apc_transmit_place(5, size, size, c, r, true),
@@ -1057,14 +990,11 @@ fn scene_animation(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
         apc(&apc_anim_frame(5, size, size, ANIM_GAP_MS, true), frame);
     }
     apc(&apc_frame_gap(5, 1, ANIM_GAP_MS, true), &[]);
-    // `v=5` shows the first frame five times: four full loops, then rest.
-    // No `c` or `r`: those are frame numbers on `a=a`, not a placement.
     apc(&apc_anim_run(5, 5, true), &[]);
     caption_below(fit, 5, r, fit.rows.saturating_sub(1).max(1), "four loops, eighty milliseconds");
     hold(rx, HOLD_ANIM)
 }
 
-/// One line of a `group` payload.
 fn push_record(records: &mut String, record: &str) {
     if !records.is_empty() {
         records.push('\n');
@@ -1072,15 +1002,10 @@ fn push_record(records: &mut String, record: &str) {
     records.push_str(record);
 }
 
-/// A window-pinned layer box in cells, standing flat on the screen: a
-/// layer left on the floor is laid on the stage's tilted floor instead.
 fn cells(x: f32, y: f32, w: f32, h: f32) -> String {
     format!("stand=screen;anchor=window;at={x:.2},{y:.2},{w:.2},{h:.2}")
 }
 
-/// The seven solids round the ring at `t`, and a light under each, as
-/// group records. A solid on the near half rides over the text (z > 0);
-/// on the far half it passes under it.
 fn ring_records(fit: Fit, t: f32, cx: f32, cy: f32, spread: f32, size: f32) -> String {
     let mut records = String::new();
     for i in 0..7usize {
@@ -1271,7 +1196,6 @@ fn scene_knot(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
         "glass dialect: scene",
         "glass tubing with a neon filament; the text behind it shows through the glass",
     );
-    // The page behind the knot is the op that draws it, written as text.
     let words = "glass;scene;id=9;anchor=window;z=2  ·  ";
     let width = usize::from(fit.cols.saturating_sub(2));
     for row in 4..fit.rows.saturating_sub(1) {
@@ -1340,8 +1264,6 @@ fn scene_orrery(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
     })
 }
 
-/// An asset, `m=1` piece by piece as `picture` goes: only the last piece
-/// is answered, and only by the first piece's token.
 fn send_asset(id: u32, file: &[u8]) {
     let text = b64(file);
     let pieces: Vec<&str> = text.as_bytes().chunks(ASSET_PIECE).map(|c| std::str::from_utf8(c).unwrap_or("")).collect();
@@ -1366,10 +1288,6 @@ fn tween_op(target: &str, props: &str, timing: &str) -> String {
     format!("tween;{target};{props};{timing}")
 }
 
-/// A glTF model made in code: one `asset` op in pieces, one `scene` that
-/// hangs it from a node, one `play`, and a camera fly-through of four
-/// chained tweens. After that the program sends nothing; glass plays the
-/// clip and eases the camera every frame.
 fn scene_gltf(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
     retire();
     title(
@@ -1416,8 +1334,6 @@ fn scene_gltf(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
     hold(rx, HOLD_MODEL)
 }
 
-/// The easings side by side: one `tween` per dot, each running back and
-/// forth for ever, and a scene whose nodes and camera tween beside them.
 fn scene_tweens(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
     retire();
     title("glass dialect: tween", "one op per motion: glass eases every frame itself while the program says nothing");
@@ -1452,10 +1368,8 @@ fn scene_tweens(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
         styled(format!("\x1b[38;2;{};{};{}m", (color[0] * 255.0) as u8, (color[1] * 255.0) as u8, (color[2] * 255.0) as u8).as_bytes());
         out(ease.as_bytes());
         styled(b"\x1b[0m");
-        // The row's middle, in the window's own cells (CUP counts from 1).
         let mid = f32::from(row) - 0.5;
         glass(&format!("layer;id={};k=solid;c=ffffff22;z=-1;{}", 400 + i, cells(x0, mid - 0.05, x1 - x0 + dot, 0.1)));
-        // A lit sphere over a soft light, both eased the same way.
         let spread = (halo - dot) / 2.0;
         glass(&format!("layer;id={};k=glow;c={};add=1;o=0.7;z=1;{}", 420 + i, hex(color), cells(x0 - spread, mid - halo_h / 2.0, halo, halo_h)));
         glass(&format!("layer;id={};k=prim;shape=1;c={};z=2;{}", 440 + i, hex(color), cells(x0, mid - dot_h / 2.0, dot, dot_h)));
@@ -1493,13 +1407,9 @@ fn scene_chart(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
 
 fn scene_video(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
     let (panel_w, panel_h) = video_panel(fit);
-    // First frame before retire, so the chart stays up while it is built
-    // and the panel is not opened onto a cleared screen.
     let first = video_frame(0, VIDEO_FRAMES, panel_w, panel_h);
     retire();
     title("glass dialect", "a video showcase: a neon tunnel, ninety frames");
-    // No id: with id, showcase shows a picture. A video panel is size only.
-    // frame takes no id here — id would name an uploaded picture.
     open_showcase(&showcase_video(panel_w, panel_h));
     glass(&frame_op(32, panel_w, panel_h, &b64(&first)));
     glass(&progress_op(0.0));
@@ -1532,9 +1442,6 @@ fn scene_close(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
     hold(rx, HOLD_CLOSE)
 }
 
-/// Everything at once, stacked: an orrery filling the window under the
-/// text, the glass knot over it, the solids orbiting the knot, lights and
-/// dust behind, the title band shimmering, the closing line typed out.
 fn scene_finale(rx: &Receiver<Vec<u8>>, fit: Fit) -> bool {
     retire();
     let (cols, rows) = (fit.cols_f(), fit.rows_f());
@@ -1607,8 +1514,6 @@ fn clear_screen() {
     out(b"\x1b[2J\x1b[H");
 }
 
-/// Keys a glass op may carry. Mirrors the intake's `allowed_keys`.
-/// A glass op never carries `q` — that key belongs to APC graphics.
 #[cfg(test)]
 fn glass_allowed(op: &str) -> &'static [&'static str] {
     match op {
@@ -1651,7 +1556,6 @@ fn remove_all_op() -> String {
 }
 
 fn showcase_video(s: u32, v: u32) -> String {
-    // `fit=contain` scales a small panel up to the showcase well.
     format!("showcase;s={s};v={v};fit=contain")
 }
 
@@ -1671,9 +1575,6 @@ fn progress_op(t: f32) -> String {
     format!("progress;t={t:.3}")
 }
 
-/// `--check` appends `r=` so glass answers. The token is a key, so it
-/// sits before a payload: the dialect reads the last field as the
-/// payload when that field cannot be a key.
 fn glass_checked(record: &str, token: u32) -> String {
     if let Some((head, payload)) = split_glass_payload(record) {
         format!("{head};r={token};{payload}")
@@ -1771,8 +1672,6 @@ fn apc_key_map(keys: &str) -> std::collections::BTreeMap<String, String> {
     map
 }
 
-/// The video panel is a fixed size under the frame cap, not the window.
-/// `fit` on the showcase scales that picture up.
 fn video_panel(_fit: Fit) -> (u32, u32) {
     (VIDEO_W, VIDEO_H)
 }
@@ -1784,8 +1683,6 @@ fn chart_panel(fit: Fit) -> (u32, u32) {
     (w, h.clamp(1, 360).min(fit.screen_h().max(1)))
 }
 
-/// Columns and rows an in-cell picture may occupy starting at `top`
-/// (1-based), leaving a row below for a caption.
 fn in_cell_span(fit: Fit, top: u16, want_cols: u32, want_rows: u32) -> (u32, u32, u16) {
     let cols = want_cols
         .min(u32::from(fit.cols.saturating_sub(1)))
@@ -1798,8 +1695,6 @@ fn in_cell_span(fit: Fit, top: u16, want_cols: u32, want_rows: u32) -> (u32, u32
     (cols, rows, caption)
 }
 
-/// Pixel size of an in-cell picture, clamped so its cell rows end
-/// above a caption row.
 fn clamp_in_cell_pixels(fit: Fit, top: u16, w: u32, h: u32) -> (u32, u32, u16) {
     let cell_w = fit.cell_w.max(1);
     let cell_h = fit.cell_h.max(1);
@@ -1821,9 +1716,6 @@ fn caption_at(row: u16, line: &str) {
     styled(b"\x1b[0m");
 }
 
-/// Caption below an in-cell picture. If the usual bottom row is already
-/// below the rectangle, it stays there so a scene that fitted keeps its
-/// look. Otherwise the caption moves to the first row under the picture.
 fn caption_below(fit: Fit, top: u16, rows: u32, preferred: u16, line: &str) {
     let end = top.saturating_add(rows as u16);
     let row = if preferred >= end {
@@ -1878,8 +1770,6 @@ fn apc(keys: &str, payload: &[u8]) {
     out(&bytes);
 }
 
-
-/// A radial glow. Alpha is 228 at the centre and 0 at the corner.
 fn glow(w: u32, h: u32) -> Vec<u8> {
     let w = w.max(1);
     let h = h.max(1);
@@ -1899,9 +1789,6 @@ fn glow(w: u32, h: u32) -> Vec<u8> {
     rgba
 }
 
-/// A gradient with a bright outline. Shade is scaled in `u32`: doing it
-/// in `u8` saturates every product at 255 and the divide collapses the
-/// picture to near-black.
 fn blocks(w: u32, h: u32) -> Vec<u8> {
     let w = w.max(1);
     let h = h.max(1);
@@ -1923,8 +1810,6 @@ fn blocks(w: u32, h: u32) -> Vec<u8> {
     rgba
 }
 
-/// A bouncing ball with squash on the ground. Frames differ because the
-/// ball moves; colour is mixed in `f32`.
 fn sprite(frame: usize, frames: usize, size: u32) -> Vec<u8> {
     let size = size.max(1);
     let mut rgba = vec![0u8; (size as usize).saturating_mul(size as usize).saturating_mul(4)];
@@ -1963,7 +1848,6 @@ fn hue(frame: usize, frames: usize) -> (u8, u8, u8) {
     (r, g, b)
 }
 
-/// One frame of the video showcase: the neon tunnel, flying.
 fn video_frame(i: u64, frames: u64, w: u32, h: u32) -> Vec<u8> {
     stills::tunnel(i, frames, w, h)
 }
@@ -2011,7 +1895,6 @@ fn bar_chart(w: u32, h: u32) -> (Vec<u8>, String) {
     (rgba, marks)
 }
 
-/// `picture` upload, then `chart;p=` over those pixels. `n` is the mark count.
 fn chart_upload(id: u32, rgba: &[u8], w: u32, h: u32, marks: &str) -> (String, String) {
     let n = marks.lines().filter(|line| line.starts_with("mark;")).count();
     let picture = picture_op(id, 32, w, h, &b64(rgba));
@@ -2035,11 +1918,8 @@ fn checker(w: u32, h: u32) -> Vec<u8> {
     rgba
 }
 
-/// Levels a channel the sixel palette quantises to: 6 × 7 × 6 = 252
-/// registers, inside the 256 a sixel picture commonly gets.
 const SIXEL_LEVELS: [u32; 3] = [6, 7, 6];
 
-/// An 8×8 Bayer matrix: the ordered dither's thresholds, 0..64.
 const BAYER8: [u8; 64] = [
     0, 32, 8, 40, 2, 34, 10, 42, 48, 16, 56, 24, 50, 18, 58, 26, 12, 44, 4, 36, 14, 46, 6, 38, 60, 28,
     52, 20, 62, 30, 54, 22, 3, 35, 11, 43, 1, 33, 9, 41, 51, 19, 59, 27, 49, 17, 57, 25, 15, 47, 7, 39,
@@ -2060,8 +1940,6 @@ fn encode_sixel(w: u32, h: u32, rgba: &[u8]) -> Vec<u8> {
         );
         out.extend_from_slice(format!("#{i};2;{pr};{pg};{pb}").as_bytes());
     }
-    // One pass a band builds every register's six-pixel columns at once,
-    // then each register that appears in the band is written as a row.
     let w_us = w as usize;
     let mut sixes = vec![0u8; palette.len() * w_us];
     let mut used = vec![false; palette.len()];
@@ -2109,8 +1987,6 @@ fn encode_sixel(w: u32, h: u32, rgba: &[u8]) -> Vec<u8> {
     out
 }
 
-/// Exact registers when the picture has 256 colours or fewer, otherwise
-/// the 252-register cube with an ordered dither.
 fn indexed(rgba: &[u8], width: u32, pixels: usize) -> (Vec<[u8; 3]>, Vec<Option<u8>>) {
     let mut colors: Vec<[u8; 3]> = Vec::new();
     let mut index = vec![None; pixels];
@@ -2135,8 +2011,6 @@ fn indexed(rgba: &[u8], width: u32, pixels: usize) -> (Vec<[u8; 3]>, Vec<Option<
     (colors, index)
 }
 
-/// One channel to a level of `levels`, dithered by the threshold at
-/// `x, y`.
 fn dither_level(value: u8, levels: u32, x: u32, y: u32) -> u32 {
     let step = 255.0 / (levels - 1) as f32;
     let threshold = (f32::from(BAYER8[((y & 7) * 8 + (x & 7)) as usize]) + 0.5) / 64.0 - 0.5;
@@ -2374,9 +2248,6 @@ mod tests {
         let _keep = tx;
     }
 
-    /// The race: glass answers every query at once. With those bytes already
-    /// on the channel, the probe must take them and return a fit at once.
-    /// It must not read stdin (there is no tty here).
     #[test]
     fn queued_replies_return_a_fit_at_once() {
         let (tx, rx) = mpsc::channel();
@@ -2399,8 +2270,6 @@ mod tests {
         let _keep = tx;
     }
 
-    /// No reply on the channel: return None when the deadline lands, and
-    /// do not block past it in a read.
     #[test]
     fn no_replies_return_none_by_the_deadline() {
         let (tx, rx) = mpsc::channel();
@@ -2471,7 +2340,6 @@ mod tests {
             rgba.extend_from_slice(&[(i % 256) as u8, (i / 2 % 256) as u8, (i * 13 % 256) as u8, 255]);
         }
         let sixel = String::from_utf8(encode_sixel(600, 1, &rgba)).unwrap();
-        // Palette entries are `#i;2;r;g;b`; a band's `#i` carries no `;`.
         let colours = sixel
             .split('#')
             .filter(|entry| entry.split(';').count() == 5 && entry.split(';').nth(1) == Some("2"))
@@ -2482,7 +2350,6 @@ mod tests {
 
     #[test]
     fn sixel_bands_paint_each_pixel_once_in_its_register() {
-        // 3 x 7: two bands; each pixel's register sets exactly its bit.
         let (w, h) = (3u32, 7u32);
         let mut rgba = Vec::new();
         for y in 0..h {
@@ -2494,9 +2361,7 @@ mod tests {
         let body = text.split("#1;2;0;0;100").nth(1).unwrap();
         let bands: Vec<&str> = body.trim_end_matches("\u{1b}\\").split('-').filter(|b| !b.is_empty()).collect();
         assert_eq!(bands.len(), 2, "{text}");
-        // Band one, register 0 (red): column 0 is rows 0, 2, 4 -> bits 0b010101.
         assert!(bands[0].starts_with(&format!("#0{}", (0b010101u8 + 63) as char)), "{}", bands[0]);
-        // Band two is row 6 alone: red at columns 0 and 2.
         assert!(bands[1].contains(&format!("#0{}{}{}", (1u8 + 63) as char, 63u8 as char, (1u8 + 63) as char)), "{}", bands[1]);
     }
 
@@ -2522,8 +2387,6 @@ mod tests {
 
     #[test]
     fn placeholder_marks_match_the_dialect_table() {
-        // The reference table is not in the repository: `GLASS_REF_DIR` names
-        // the folder that holds `rowcolumn-diacritics.txt`.
         let Some(dir) = std::env::var_os("GLASS_REF_DIR") else {
             eprintln!("GLASS_REF_DIR is unset; skipping the row/column diacritic table check");
             return;
@@ -2561,8 +2424,6 @@ mod tests {
 
     #[test]
     fn blocks_shade_is_scaled_in_u32() {
-        // Pixel (8, 4) of a 32×16 gradient is interior. The old `u8`
-        // multiply saturated at 255 and this pixel came out (1, 1, 1).
         let picture = blocks(32, 16);
         assert_eq!(px(&picture, 32, 0, 0), [255, 236, 180, 255]);
         assert_eq!(px(&picture, 32, 8, 4), [73, 50, 149, 255]);
@@ -2660,7 +2521,6 @@ mod tests {
             tween_op("id=50;node=1", "rot=0,0,0,1;scale=1,1,1;color=1,1,1,1;emissive=0;visible=1", "stop=1"),
             "remove;asset=31".to_string(),
         ];
-        // The records the motion scenes put in their groups, each a layer.
         samples.extend(ring_records(fit, 1.3, 94.0, 27.0, 70.0, 16.0).lines().map(str::to_string));
         let rings = ring_records(fit, 1.3, 94.0, 27.0, 70.0, 16.0);
         assert_eq!(rings.lines().count(), 14);
@@ -2739,12 +2599,6 @@ mod tests {
         assert!(!progress_op(0.25).contains("id="));
     }
 
-    /// Every frame and picture payload the sampler builds stays under the
-    /// dialect caps. A frame is capped at 1 MiB on the payload bytes
-    /// (`store_frame`, before base64 decode). A picture is not under that
-    /// cap: glass_dialect sends it through the APC loader, which caps a
-    /// picture at 64 MiB and each side at 8192. The dialect reference
-    /// also keeps a picture side in 1..=4096.
     #[test]
     fn frame_and_picture_payloads_stay_under_the_dialect_caps() {
         const FRAME_CAP: usize = FRAME_BYTES as usize;

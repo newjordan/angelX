@@ -77,9 +77,6 @@ impl Tool for GoalTool {
     }
 }
 
-/// Compact, bounded rendering of a goal for the `show` action — the essentials
-/// of `App::goal_show` without needing whole-cockpit state. Its labels are the
-/// goal block's pages (`⠗⠃`), each value beside its address.
 fn format_goal(goal: &crate::drive::goal::Goal) -> String {
     use crate::agent::harness::book::r_relentless as book;
     let mut out = String::new();

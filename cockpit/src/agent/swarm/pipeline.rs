@@ -20,17 +20,6 @@ struct ProposalRequest<'a> {
     grounding_sys: &'a str,
 }
 
-/// Per-seat proposer outcome, printed only under `ANGEL_SWARM_DRAFT_DEBUG=1`.
-///
-/// The pipeline's own diagnostics report *counts* ("kept 0/2 usable drafts"),
-/// which cannot distinguish a seat that erred from one that answered with a
-/// stub — and a stub is invisible everywhere else, because a short draft is
-/// dropped silently by [`collect_text`]. When a seat contributes nothing to
-/// turn after turn while the same model answers the same prompt fine outside
-/// the harness, this is the missing evidence: what that seat actually said.
-///
-/// The preview is bounded and only printed for drafts short enough to be
-/// suspicious, so an enabled debug run does not mirror whole answers to stderr.
 fn log_proposer_drafts(assigned: &[Arc<dyn Club>], results: &[Result<String, String>]) {
     if !env_flag_or("ANGEL_SWARM_DRAFT_DEBUG", false) {
         return;
@@ -70,22 +59,13 @@ fn log_proposer_drafts(assigned: &[Arc<dyn Club>], results: &[Result<String, Str
 }
 
 impl SwarmClub {
-    /// Cheap meta-cognition pass: ask the model itself whether the request wants
-    /// the swarm. Any failure defaults to `Open` — fanning out is the swarm's
-    /// reason to exist, so we'd rather over-think than silently degrade.
     pub(crate) fn classify(&self, problem: &str) -> Mandate {
-        // One model call, then the leg maps its case-folded verdict to a mandate.
         let reply = self
             .call(&d3_roles::CLASSIFIER.cells(), &[ChatMsg::user(problem)])
             .ok();
         mandate_with(VerdictFacts::of(reply.as_deref())).0
     }
 
-    /// Advisor gate (`ANGEL_ADVISOR`): one reviewer pass over the *final* answer
-    /// — the lightest MoA. On a NOTE/BLOCK verdict the concern is appended inline
-    /// (and streamed) so the reader, and the next agent turn, see what the doer
-    /// rushed past. A review failure is swallowed: the advisor must never cost
-    /// the answer. Distinct from judge/verify, which score/revise same-turn drafts.
     pub(crate) fn maybe_advise(
         &self,
         messages: &[ChatMsg],
@@ -125,8 +105,6 @@ impl SwarmClub {
         }
     }
 
-    /// The tight-directive path (and the all-workers-failed fallback): one direct
-    /// pass through the inner club, streamed when the caller is streaming.
     pub(crate) fn single_pass(
         &self,
         history: &[ChatMsg],
@@ -145,23 +123,7 @@ impl SwarmClub {
         }
     }
 
-    // --- autoresearch stages -------------------------------------------------
-
-    /// `RESEARCH`: best-effort live research to ground the proposers. Returns a
-    /// formatted source list, or `None` on any failure (so the swarm degrades to
-    /// ungrounded rather than erroring). Grok is an additive scout: it never
-    /// replaces proposer/judge/verify/aggregate roles.
     fn research_block(&self, problem: &str, cancel: &AtomicBool) -> Option<String> {
-        // Grok scout (up to ~120s) and SearXNG (8s) are independent network
-        // calls that used to run back-to-back *before* any proposer launched —
-        // pure serial dead time at the front of every research-routed turn.
-        // Two scoped threads make the grounding stage cost max(), not sum().
-        //
-        // Honor a cancel already requested (Esc during an earlier stage) before
-        // launching the expensive scout, and thread `cancel` into the scout
-        // itself: the Grok CLI subprocess is torn down promptly on a mid-scout
-        // cancel via `Club::respond_cancellable`, so Esc no longer waits out the
-        // ~120s scout timeout.
         if cancel.load(Ordering::Relaxed) {
             return None;
         }
@@ -180,7 +142,6 @@ impl SwarmClub {
                     match research.respond_cancellable(&Self::grok_research_prompt(problem), cancel)
                     {
                         Ok(text) if !text.trim().is_empty() => {
-                            // `⠐⠛⠓`, the scout's findings below it.
                             Some(format!(
                                 "{}\n{}",
                                 crate::agent::harness::book::d5_frames::GROK_SCOUT_HEADING.cells(),
@@ -201,7 +162,6 @@ impl SwarmClub {
             });
             let searx = want_searx.then(|| {
                 s.spawn(|| {
-                    // `⠐⠛⠊`, the search results below it.
                     self.searx_research_block(problem).map(|text| {
                         format!(
                             "{}\n{text}",
@@ -224,13 +184,9 @@ impl SwarmClub {
     }
 
     pub(crate) fn should_research_route(&self, problem: &str) -> bool {
-        // The swarm-route leg's `research` feature is the live ask this gate
-        // used to re-derive from the problem text.
         self.research_route_for(route_decisions(problem).research)
     }
 
-    /// The same gate with the leg's answer already in hand, so a caller that
-    /// asked several routing questions evaluates the leg once.
     pub(crate) fn research_route_for(&self, wants_live: bool) -> bool {
         research_route_with(ResearchFacts {
             wants_live,
@@ -249,10 +205,6 @@ impl SwarmClub {
     }
 
     fn sota_moa_grok_research_default(&self) -> bool {
-        // Formation decks persist an explicit scout choice. The automatic
-        // SOTA preset should not insert a CLI subprocess in front of every
-        // deliberative coding turn; live-research prompts still engage through
-        // `wants_live_research`, and operators can opt in globally here.
         self.name == "sota-moa" && env_flag_or("ANGEL_SOTA_MOA_GROK_RESEARCH", false)
     }
 
@@ -287,8 +239,6 @@ impl SwarmClub {
         }
     }
 
-    /// The scout is a CLI seat with no tool channel, so it cannot be offered
-    /// the ledger reader: it hears `⠈⠚`'s pages recited, the request as data.
     fn grok_research_prompt(problem: &str) -> String {
         use crate::agent::harness::book::connect::recite;
         format!(
@@ -336,9 +286,6 @@ impl SwarmClub {
             &format!("up to {max_width} proposer(s) across {max_waves} wave(s)"),
         );
         for wave_index in 0..max_waves {
-            // A user interrupt during the proposer stage used to burn every
-            // remaining wave before the pipeline noticed — check per wave, and
-            // let the fan-out below stop collecting mid-wave too.
             if cancel.load(Ordering::Relaxed) {
                 break;
             }
@@ -381,7 +328,6 @@ impl SwarmClub {
                     } else {
                         String::new()
                     };
-                    // `⠈⠓⠃`, the frontier as data, then `⠈⠓⠉`.
                     let frontier = if frontier.trim().is_empty() {
                         String::new()
                     } else {
@@ -477,14 +423,10 @@ impl SwarmClub {
         }
     }
 
-    /// `REFLECT`: critique the current drafts so the next layer can fix the gaps.
-    /// Score-only stages see the bounded [`aux_context`] tail by default; `0`
-    /// restores the full history.
     fn critique(&self, rest: &[ChatMsg], drafts: &[String]) -> Option<String> {
         let ctx = aux_context(rest);
         let cap =
             per_draft_cap_for(&*self.clubs.aggregate, drafts.len()).unwrap_or_else(draft_min_chars);
-        // `⠄⠙`: the critic's brief and its task, the draft count beside it.
         let critic = format!("{} n={}", d3_roles::CRITIC.cells(), drafts.len());
         let task = numbered_bounded(drafts, "Draft", cap);
         let (system, msgs) = stage_parts(&critic, "", &ctx, Some(task));
@@ -493,12 +435,6 @@ impl SwarmClub {
             .filter(|t| !t.trim().is_empty())
     }
 
-    /// `JUDGE`: score the drafts and keep the top-k (Pareto-style pruning). A
-    /// single reviewer (`judge_panel == 1`) is the calibrated-judge default; a
-    /// larger panel votes — every reviewer scores independently and concurrently
-    /// (no anchoring; diversity from the inner model's sampling), and the per-draft
-    /// *median* ranks, so no lone outlier decides a draft's fate. On any
-    /// parse/scoring failure, keep all drafts rather than dropping work.
     #[cfg(test)]
     pub(crate) fn judge_select(
         &self,
@@ -510,10 +446,6 @@ impl SwarmClub {
         if drafts.len() <= 1 {
             return drafts;
         }
-        // A panel that can't prune is pure spend: when every draft would be kept
-        // anyway (keep ≥ len), skip the reviewer round-trips entirely. The only
-        // thing lost is the strongest-first reordering, which no downstream
-        // stage depends on.
         let keep = if self.k.keep > 0 {
             self.k.keep
         } else {
@@ -545,8 +477,6 @@ impl SwarmClub {
         weights: Option<&[usize]>,
     ) -> Option<Vec<usize>> {
         let _seat_role = crate::agent::harness::formation_budget::enter_role("judge");
-        // Single-score (default) vs. per-dimension scoring: pick the prompt and the
-        // matching parser together so the requested format and the parse can't drift.
         type ScoreParser = fn(&str, usize) -> Vec<(usize, f64)>;
         let weighted;
         let blocks = if let Some(weights) =
@@ -567,7 +497,6 @@ impl SwarmClub {
                 .map(|(n, _)| *n)
                 .collect::<Vec<_>>()
                 .join(", ");
-            // `⠐⠁⠉⠐⠁⠙`: per dimension, the dimensions beside it.
             (
                 format!(
                     "{} n={} dims={dims}\n\n{blocks}",
@@ -577,7 +506,6 @@ impl SwarmClub {
                 parse_dim_scores,
             )
         } else {
-            // `⠐⠁⠁⠐⠁⠃`: one combined score.
             (
                 format!(
                     "{} n={}\n\n{blocks}",
@@ -587,13 +515,8 @@ impl SwarmClub {
                 parse_scores,
             )
         };
-        // Score-only stage: bounded context, cache-aligned shape. The judge
-        // keeps the conversation's own `base_sys` in the system slot so its
-        // calls share the byte-identical `[system][conversation]` prefix with
-        // the propose/aggregate seats of the same turn.
         let ctx = aux_context(rest);
         let (system, msgs) = stage_parts(&d3_roles::JUDGE.cells(), base_sys, &ctx, Some(prompt));
-        // Each reviewer scores blind; a single judge is just a panel of one.
         let panel = panel.max(1);
         let panel = panel.min(self.k.judge_fanout.max(1));
         let judge_pool = self.available_judges();
@@ -667,18 +590,12 @@ impl SwarmClub {
         }
 
         let pods = seed_pods(drafts.len(), self.k.pod_size);
-        // Each pod's rank is an independent judge round-trip; they used to run
-        // one after another (6 serial rounds at 32 drafts / pod_size 6) even
-        // though only the panel *inside* a rank was concurrent. Run the pods on
-        // scoped threads and fold the outcomes in pod order — same winners,
-        // wall-clock of one round instead of pods.len().
         struct PodOutcome {
             winners: Vec<String>,
             weights: Vec<usize>,
             judged: bool,
         }
         let budget = crate::agent::harness::formation_budget::current();
-        // Each pod's judges read the caller's ledger (`book::connect`).
         let ledger = crate::agent::harness::book::connect::workspace();
         let book_catalog = crate::agent::harness::book::catalog::current();
         let outcomes: Vec<PodOutcome> = std::thread::scope(|s| {
@@ -797,8 +714,6 @@ impl SwarmClub {
         }
     }
 
-    /// Draw `samples` final syntheses concurrently (self-consistency). Diversity
-    /// comes from the inner model's sampling; the prompt is identical.
     fn synthesize(
         &self,
         base_sys: &str,
@@ -845,10 +760,6 @@ impl SwarmClub {
             )
             .collect::<Vec<(String, usize)>>();
         let mut rounds = 0usize;
-        // Belt-and-suspenders against a runaway reduction. A context-pressure
-        // round may deliberately map a small pool one draft at a time to make
-        // each result dense before the final reduce, so strict pool shrinkage
-        // is not guaranteed on that one round.
         const MAX_REDUCE_ROUNDS: usize = 32;
         loop {
             let configured_fanin = self.k.agg_fanin.max(2);
@@ -868,10 +779,6 @@ impl SwarmClub {
                 return (out_drafts, Some(out_weights), rounds);
             }
 
-            // Under context pressure, spend a dense map round instead of
-            // clipping every draft to an arbitrary product ceiling. For a pool
-            // already no wider than the configured fan-in, halve the fan-in;
-            // two oversized drafts therefore get independent compression calls.
             let fanin = if fits || current.len() > configured_fanin {
                 configured_fanin
             } else {
@@ -902,14 +809,6 @@ impl SwarmClub {
                 .collect::<Vec<_>>();
             rounds += 1;
             let fused = self.fan_out(tasks.len(), |i| tasks[i].clone());
-            // Pair each pod's fused draft with ITS OWN pod weight *before*
-            // dropping failed/blank pods. `fan_out` returns one index-aligned
-            // result per pod; compacting first (the old `collect_text(fused)`)
-            // and only then zipping against `pod_weights` positionally paired
-            // every survivor after a dropped middle pod with the wrong weight
-            // and silently discarded the last one — corrupting the convergence
-            // counts fed to the weighted synthesis. Zipping first, filtering
-            // second, keeps every survivor on its true weight.
             let next: Vec<(String, usize)> = fused
                 .into_iter()
                 .zip(pod_weights)
@@ -927,22 +826,16 @@ impl SwarmClub {
         }
     }
 
-    /// `SAMPLES`: pick the strongest of several candidate answers. Score-only
-    /// stages see the bounded [`aux_context`] tail (full history at `0`).
     fn choose_best(&self, rest: &[ChatMsg], candidates: &[String]) -> usize {
         if candidates.len() <= 1 {
             return 0;
         }
-        // Self-consistency samples often converge on the same answer; when every
-        // candidate is near-identical, any pick is the same pick — skip the
-        // chooser round-trip (local similarity check, zero model calls).
         if all_near_identical(candidates) {
             return 0;
         }
         let ctx = aux_context(rest);
         let cap = per_draft_cap_for(&*self.clubs.aggregate, candidates.len())
             .unwrap_or_else(draft_min_chars);
-        // `⠄⠋`: the chooser's brief and its task, the candidate count beside it.
         let chooser = format!("{} n={}", d3_roles::CHOOSER.cells(), candidates.len());
         let task = numbered_bounded(candidates, "Candidate", cap);
         let (system, msgs) = stage_parts(&chooser, "", &ctx, Some(task));
@@ -955,8 +848,6 @@ impl SwarmClub {
         }
     }
 
-    /// `VERIFY`: adversarially check the answer; if flawed, revise. Loop up to
-    /// `verify` rounds or until the verifier is satisfied.
     pub(crate) fn verify_revise(
         &self,
         base_sys: &str,
@@ -971,27 +862,15 @@ impl SwarmClub {
                 .map(|i| format!("verifier-{}", i + 1))
                 .collect(),
         );
-        // `current` is what each round verifies/revises from (so it keeps
-        // exploring); `best` is what we return. Without the guard they move
-        // together — `best` is just the latest revision, exactly as before. With
-        // the guard on, a revision only becomes `best` if it out-scores the prior
-        // best, so a round can never hand back something worse than it started.
         let mut current = answer.clone();
         let mut best = answer;
-        // The verifier sees the bounded aux-context tail by default; `0`
-        // restores the full-history scoring view.
         let ctx = aux_context(rest);
         let verifier_pool = self.available_verifiers();
         for pass in 0..self.k.verify {
             if cancel.load(Ordering::Relaxed) {
                 break;
             }
-            // `⠄⠛`: the verifier's brief and its task; the answer under
-            // review rides after its label, `⠄⠛⠋`.
             let task = format!("{}\n{current}", pages(d3_roles::VERIFIER, [6]));
-            // Score-only, but cache-aligned with the conversation's own system
-            // slot: the verifier's calls share the same `[system][conversation]`
-            // prefix as every other seat of the turn.
             let (system, msgs) =
                 stage_parts(&d3_roles::VERIFIER.cells(), base_sys, &ctx, Some(task));
             let verifier = &verifier_pool[pass % verifier_pool.len()];
@@ -1004,14 +883,8 @@ impl SwarmClub {
                 Ok(v) if is_ok(&v) => break,
                 Ok(v) => match self.revise(base_sys, rest, &current, &v) {
                     Ok(r) if !r.trim().is_empty() => {
-                        // Convergence check (local, no model call): a revision
-                        // that barely changed the text means the reviser had
-                        // nothing real to fix — another round would re-verify
-                        // the same answer and burn 2-3 more calls for nothing.
                         let converged = near_identical(&r, &current);
                         if self.k.verify_guard {
-                            // Keep the better of (best so far, this revision) —
-                            // skipping the score call when they're the same text.
                             if near_identical(&best, &r)
                                 || self.choose_best(rest, &[best.clone(), r.clone()]) == 1
                             {
@@ -1033,7 +906,6 @@ impl SwarmClub {
         best
     }
 
-    /// Rewrite an answer to fix the verifier's findings, keeping what was correct.
     fn revise(
         &self,
         base_sys: &str,
@@ -1042,7 +914,6 @@ impl SwarmClub {
         issues: &str,
     ) -> Result<String, String> {
         let _seat_role = crate::agent::harness::formation_budget::enter_role("revise");
-        // `⠐⠃`; the problems and the answer ride after its labels.
         let task = format!(
             "{}\n\n{}\n{issues}\n\n{}\n{answer}",
             d5_frames::REVISE.cells(),
@@ -1054,10 +925,6 @@ impl SwarmClub {
         self.call(&system, &msgs)
     }
 
-    /// `CITE`: cross-check the final answer against the sources `research` gathered.
-    /// Every nontrivial factual claim must be either supported by a listed source
-    /// (attributed inline) or hedged/dropped — never back-filled with an invented
-    /// citation. One pass; any failure or empty rewrite keeps the answer unchanged.
     pub(crate) fn cite_check(
         &self,
         base_sys: &str,
@@ -1065,7 +932,6 @@ impl SwarmClub {
         answer: String,
         sources: &str,
     ) -> String {
-        // `⠐⠉`; the sources and the answer ride after its labels.
         let task = format!(
             "{}\n\n{}\n{sources}\n\n{}\n{answer}",
             d5_frames::CITE.cells(),
@@ -1080,12 +946,6 @@ impl SwarmClub {
         }
     }
 
-    // --- the pipeline --------------------------------------------------------
-
-    /// The mixture-of-agents itself. Times the turn, snapshots per-club token
-    /// counters around it, and appends one line to the MoA ledger — so every
-    /// turn leaves a record of what it cost and what the dissent gate decided
-    /// (`/moa` reads it back). The pipeline lives in [`Self::run_inner`].
     pub(crate) fn run(
         &self,
         history: &[ChatMsg],
@@ -1096,13 +956,6 @@ impl SwarmClub {
         self.run_seeded(history, cancel, on_delta, stream, None)
     }
 
-    /// [`Self::run`] with an optional pre-computed draft folded into the pool —
-    /// the tool-capable driver hop already produced a full answer before
-    /// deciding to amplify, and discarding that generation wastes it. The seed
-    /// rides as one more anonymous draft: the dissent gate / judge / synthesis
-    /// weigh it like any proposer's, it never counts toward the SOTA-MOA
-    /// proposer quorum (that wants independent drafts), and it rescues the
-    /// all-proposers-failed case without a fresh single pass.
     pub(crate) fn run_seeded(
         &self,
         history: &[ChatMsg],
@@ -1129,12 +982,6 @@ impl SwarmClub {
             result.is_ok(),
             &delta,
         );
-        // Experience ledger: the config-keyed, reflex-facing twin of the MoA
-        // ledger line above. The legacy line stays byte-identical (a public
-        // contract); this one adds the reflex view — the dissent/gate decision,
-        // judge/verify facts, and any text-stage failovers the pipeline drained
-        // this turn (the LongCat raw-markup brownout lands here). Best-effort and
-        // test-silent, so it can never fail a turn.
         let (judge_on, verify_rounds) = trace
             .effective
             .map(|(_, j, v, _)| (j, v))
@@ -1164,10 +1011,6 @@ impl SwarmClub {
         result
     }
 
-    /// The pipeline: the adaptive route gate, optional research grounding, the
-    /// layered fan-out (with optional reflection), the dissent gate, optional
-    /// judge pruning, the final synthesis (with optional self-consistency), and
-    /// an optional verify/revise loop. Token-streams the answer on the base path.
     fn run_inner(
         &self,
         history: &[ChatMsg],
@@ -1177,13 +1020,7 @@ impl SwarmClub {
         seed_draft: Option<&str>,
         trace: &mut ledger::TurnTrace,
     ) -> Result<String, String> {
-        // The persona/aggregator prompts replace the conversation's own system
-        // prompt, but we fold the original into `base_sys` so the worker still
-        // inherits angel's voice and standing instructions.
         let (base_sys, mut rest) = split_system(history);
-        // HEDGE: fold the calibrated-claims ladder into the base voice so it rides
-        // through every worker (proposers → synthesis → verify) via `compose`.
-        // Default off, so the swarm's prose is unchanged.
         let base_sys = if !self.k.hedge {
             base_sys
         } else if base_sys.trim().is_empty() {
@@ -1198,21 +1035,13 @@ impl SwarmClub {
             .map(|m| m.content.clone())
             .unwrap_or_default();
 
-        // Nothing to attack, or a tight directive → one direct pass.
         if problem.trim().is_empty() {
             return self.single_pass(history, cancel, on_delta, stream);
         }
-        // Router. Default = SPEED: a fast heuristic decides single-pass vs the full
-        // swarm with NO routing round-trip — one fewer model call on *every* turn.
-        // ANGEL_SWARM_SMART_ROUTE=1 restores the adaptive model classifier (trivial
-        // turns still skip it via the fast path). ANGEL_SWARM_ALWAYS forces the swarm.
-        // One leg evaluation answers every routing question about this turn.
         let routing = route_decisions(&problem);
         let research_route = self.research_route_for(routing.research);
         let smart_route = smart_route_enabled();
         let fastpath = fastpath_enabled();
-        // The classifier is a model round trip, so it is asked only when its
-        // answer can still carry the gate; the leg combines the facts.
         let classify_open = smart_route
             && !research_route
             && !(fastpath && routing.tight)
@@ -1251,23 +1080,17 @@ impl SwarmClub {
             ),
         );
 
-        // RESEARCH: ground the proposers in live sources. Keep the raw source list
-        // around so the optional CITE pass can check the final answer against it.
         let sources = if self.should_run_research(&problem) {
             self.emit_progress(stream, on_delta, "research", "grounding proposer context");
             self.research_block(&problem, cancel)
         } else {
             None
         };
-        // `⠈⠓⠁`, the sources after it.
         let grounding_sys = sources
             .as_ref()
             .map(|g| format!("\n\n{}\n{g}", pages(d4_angles::WAVE, [1])))
             .unwrap_or_default();
 
-        // Layer 0: progressive waves of diverse proposers. Delegators
-        // (empiricist/red-team base angle) also get the test-request instruction
-        // when delegation is on.
         let proposal_set = self.propose_waves(
             ProposalRequest {
                 base_sys: &base_sys,
@@ -1294,23 +1117,14 @@ impl SwarmClub {
                 proposal_failure_summary
             ));
         }
-        // Fold the driver's pre-computed answer in as one more draft (see
-        // `run_seeded`) — after the quorum check, so it never masquerades as an
-        // independent proposer, but before the empty-pool fallback, which it
-        // makes unnecessary.
         if let Some(seed) = seed_draft.filter(|s| !s.trim().is_empty()) {
             drafts.insert(0, seed.to_string());
         }
         if drafts.is_empty() {
-            // The whole swarm failed (gemma down / overloaded). Still answer.
             trace.route = "fallback";
             return self.single_pass(history, cancel, on_delta, stream);
         }
 
-        // DELEGATE: extract the test requests the delegators emitted, let angel
-        // approve + route + run them, strip the raw blocks, and fold the executed
-        // evidence into the conversation so every downstream stage reasons from
-        // real results rather than the drafts' bare assertions.
         if self.k.delegate {
             let mut requests = Vec::new();
             for d in &drafts {
@@ -1319,17 +1133,7 @@ impl SwarmClub {
             requests = dedupe_requests(requests, self.k.max_tests);
             if !requests.is_empty() {
                 let router = Router::from_env();
-                // Approval gate: with many agents you can't prompt per-call, so a
-                // non-local action (phone a SOTA / remote / peer) asks once per
-                // *kind*; approve-all covers the rest of the turn. Local sandboxed
-                // tests run unprompted. Off unless ANGEL_SWARM_APPROVE is set, so
-                // existing behavior is unchanged. The prompt is a UI round-trip —
-                // no tokens, and the decision never enters any agent's context.
                 let approve = std::env::var_os("ANGEL_SWARM_APPROVE").is_some();
-                // Approval prompts stay serial (one modal at a time), but the
-                // approved tests run concurrently: each is an independent
-                // sandboxed subprocess or fleet call with a 60-180s budget that
-                // used to accumulate back-to-back inside the turn.
                 let denials: Vec<Option<crate::agent::swarm_delegate::TestResult>> = requests
                     .iter()
                     .map(|r| {
@@ -1349,7 +1153,6 @@ impl SwarmClub {
                         None
                     })
                     .collect();
-                // A phoned specialist is connected: it reads this ledger.
                 let ledger = crate::agent::harness::book::connect::workspace();
                 let book_catalog = crate::agent::harness::book::catalog::current();
                 let results: Vec<_> = std::thread::scope(|s| {
@@ -1405,10 +1208,6 @@ impl SwarmClub {
             }
         }
 
-        // SCALE: above the flat fan-in, cluster locally and carry one weighted
-        // representative per idea family. The cluster signal gates before mean
-        // pairwise dissent because large pools compress that mean toward the
-        // middle even when the draft set is plainly split.
         let mut draft_weights: Option<Vec<usize>> = None;
         let mut scale_signal = None;
         if self.k.cluster && drafts.len() > self.k.scale_threshold {
@@ -1447,10 +1246,6 @@ impl SwarmClub {
             }
         }
 
-        // DISSENT GATE: spend according to measured disagreement. Agreement is
-        // the pipeline's own evidence the answer is easy; divergence buys judge
-        // and verify scrutiny. `turn` is this turn's view of the swarm under the
-        // gated knobs; every stage below runs on it.
         let dissent = if self.k.dissent_gate {
             raw_dissent.or_else(|| draft_dissent(&drafts))
         } else {
@@ -1482,12 +1277,6 @@ impl SwarmClub {
             );
         }
 
-        // Local near-duplicate collapse (zero model calls): proposers that
-        // converged on the same answer add nothing to the mixture, but every
-        // surviving copy costs real tokens in each downstream stage — and a
-        // collapse to a single draft lets the refine layers and judge skip
-        // entirely. Final synthesis still always runs: internal panel spend is
-        // preserved while one dedicated stage shapes the user-facing output.
         if draft_weights.is_none() {
             let before = drafts.len();
             drafts = collapse_near_duplicates(drafts);
@@ -1502,8 +1291,6 @@ impl SwarmClub {
         }
         trace.kept = drafts.len();
 
-        // Layers 1..L: optional reflection, then persona-emphasized re-synthesis.
-        // A layer that wholly fails leaves the previous drafts standing.
         for layer in 1..k.layers {
             let _seat_role = crate::agent::harness::formation_budget::enter_role("refine");
             if drafts.len() < 2 || cancel.load(Ordering::Relaxed) {
@@ -1523,7 +1310,6 @@ impl SwarmClub {
             );
             let crit_suffix = if k.reflect {
                 self.emit_progress(stream, on_delta, "reflect", "critiquing draft weaknesses");
-                // `⠈⠊⠃`, the critique after it.
                 turn.critique(&rest, &drafts)
                     .map(|c| format!("\n\n{}\n{c}", pages(d4_angles::REFINE, [2])))
                     .unwrap_or_default()
@@ -1534,7 +1320,6 @@ impl SwarmClub {
             let prev_weights = draft_weights.clone();
             let refined = turn.fan_out(refine_width, |i| {
                 let a = angle(i);
-                // The aggregator, then `⠈⠊⠁` with the angle's lens beside it.
                 let lens = format!(
                     "{}\n\n{} {}{crit_suffix}",
                     d3_roles::AGGREGATOR.cells(),
@@ -1558,15 +1343,11 @@ impl SwarmClub {
             });
             let next = keep_text(refined);
             if !next.is_empty() {
-                // Refinement pulls drafts toward each other; collapse the ones
-                // that met (locally, no calls) so a converged layer ends the
-                // ladder early instead of paying `width` more calls per layer.
                 drafts = collapse_near_duplicates(next);
                 draft_weights = None;
             }
         }
 
-        // JUDGE: prune to the strongest drafts before the expensive synthesis.
         if k.judge {
             let n = k.judge_panel.max(1);
             crate::ui::viz::agentviz::stage(
@@ -1611,9 +1392,6 @@ impl SwarmClub {
             }
         }
 
-        // Final synthesis. The base path (no self-consistency, no verify, no cite)
-        // keeps token streaming; the heavier paths compute the answer then emit it
-        // whole — they post-process after synthesis, so they can't stream live.
         let stream_final =
             stream && k.samples <= 1 && k.verify == 0 && !(k.cite && sources.is_some());
 
@@ -1649,11 +1427,6 @@ impl SwarmClub {
             let synthesized =
                 turn.checked_stream_text_reply(&*turn.clubs.aggregate, &full, cancel, on_delta)?;
             if synthesized.trim().is_empty() {
-                // The aggregator returned a successful-but-empty completion. The
-                // buffered-stream path swallows live Content deltas and emits the
-                // (empty) text only at the end, so the user has seen nothing yet —
-                // mirror the non-streaming branch below and recover a real answer
-                // via single_pass instead of returning a silent empty report.
                 trace.route = "fallback";
                 return self.single_pass(history, cancel, on_delta, stream);
             }
@@ -1668,7 +1441,6 @@ impl SwarmClub {
             candidates.into_iter().nth(pick).unwrap_or_default()
         };
 
-        // VERIFY: adversarial check → revise.
         let answer = if k.verify > 0 {
             crate::ui::viz::agentviz::stage(
                 "verify",
@@ -1685,9 +1457,6 @@ impl SwarmClub {
             answer
         };
 
-        // CITE: when research-grounded, hold the final answer's claims to the
-        // gathered sources. No-op without sources, so an offline search degrades
-        // to the unchecked answer rather than blocking.
         let answer = match (k.cite, &sources) {
             (true, Some(src)) => {
                 self.emit_progress(stream, on_delta, "cite", "checking sourced claims");
@@ -1696,7 +1465,6 @@ impl SwarmClub {
             _ => answer,
         };
 
-        // Non-streamed paths emit the finished answer in one delta.
         if stream {
             self.emit_progress(stream, on_delta, "done", "delivering final answer");
             on_delta(StreamDelta::Content(&answer));

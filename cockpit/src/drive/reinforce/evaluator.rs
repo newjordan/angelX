@@ -10,10 +10,6 @@ const MAX_INVENTORY_BYTES: usize = 1024 * 1024;
 const MAX_INVENTORY_ITEMS: usize = 16_384;
 const MAX_INVENTORY_ITEM_BYTES: usize = 1024;
 
-/// Framework-computed identity of the immutable inputs and execution contract
-/// for one technical evaluator. Callers provide content digests, never a
-/// handwritten aggregate identity string; this constructor validates and
-/// domain-separates every field before the cohort is frozen.
 #[derive(Clone, Debug)]
 pub struct EvaluatorSpec {
     fixture_root: PathBuf,
@@ -29,16 +25,9 @@ pub struct EvaluatorSpec {
     manifest_sha256: String,
 }
 
-/// Which physical contract an evaluator binds. The kind is part of the spec
-/// identity, so a case can never be evaluated under a contract it was not
-/// frozen with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VerifierKind {
-    /// A sealed libtest inventory plus a canonical per-test outcome report.
     LibtestInventory,
-    /// A command-success objective: the operator's own verifier command, run by
-    /// the evaluator, whose inventory observation is the pinned project/source
-    /// identity. It never claims a test inventory was enumerated.
     CommandSuccess,
 }
 
@@ -78,14 +67,6 @@ impl EvaluatorSpec {
         )
     }
 
-    /// Command-success objective case: the operator's own verifier command,
-    /// measured by evaluator-owned execution, over a frozen source identity.
-    ///
-    /// The inventory observation for this kind is the case identity itself —
-    /// which source was frozen and which command verifies it — because an
-    /// arbitrary operator command may enumerate no tests at all. Nothing here
-    /// claims a libtest inventory, and the outcome reward reads the verifier's
-    /// own exit status (plus its libtest summaries when it emits them).
     pub fn command_success(
         fixture_root: &Path,
         command: &str,
@@ -111,8 +92,6 @@ impl EvaluatorSpec {
             identity_bytes.push('\n');
         }
         let expected_inventory_sha256 = canonical_inventory(identity_bytes.as_bytes())?.sha256;
-        // The inventory command prints exactly those bytes; it is framework
-        // authored and carries no candidate text.
         let inventory_command = format!("printf '%s' '{identity_bytes}'");
         Self::build(
             VerifierKind::CommandSuccess,
@@ -185,11 +164,6 @@ impl EvaluatorSpec {
         {
             return Err("evaluator resolved tools must be unique".into());
         }
-        // The argv-shape rules exist so a sealed libtest adapter cannot expand
-        // its own command inline. A command-success case is the operator's own
-        // verifier: its boundary is evaluator-owned sandboxed execution (writable
-        // roots fixed, network denied), not the shape of its argv, so the
-        // command is only bound into the verifier identity below.
         if kind == VerifierKind::LibtestInventory {
             validate_simple_invocation(command, &resolved_tools)?;
             validate_simple_invocation(inventory_command, &resolved_tools)?;
@@ -265,12 +239,10 @@ impl EvaluatorSpec {
         })
     }
 
-    /// Which physical contract this case binds.
     pub fn kind(&self) -> VerifierKind {
         self.kind
     }
 
-    /// The frozen fixture this case measures against.
     pub fn fixture_root(&self) -> &Path {
         &self.fixture_root
     }
@@ -489,9 +461,6 @@ pub(super) fn absolute_executable_paths(command: &str) -> Vec<PathBuf> {
     paths
 }
 
-/// Exact identity of one generated sample presented to an evaluator. The
-/// canonical subject is bound into the returned receipt and checked again by
-/// promotion before a reward can be counted.
 pub struct PolicyEvaluationRequest<'a> {
     pub cohort_manifest_sha256: &'a str,
     pub cohort_role: &'a str,
@@ -512,10 +481,6 @@ impl PolicyEvaluationRequest<'_> {
         self.canonical_subject_for("inventory")
     }
 
-    /// Stable logical sample slot used for durable pair consumption. Candidate
-    /// output is deliberately excluded: a stochastic rerun of the same
-    /// arm/case/sample must collide with the original slot rather than creating
-    /// another optional-stopping opportunity.
     pub fn canonical_pair_id(&self) -> String {
         let mut slot = String::new();
         for value in [
@@ -557,18 +522,11 @@ impl PolicyEvaluationRequest<'_> {
     }
 }
 
-/// The two independent physical observations required for one technical
-/// sample. Inventory proves which tests exist; outcome proves how they ran.
-/// Purpose-specific subjects and verifier contracts prevent substitution.
 pub struct PolicyEvaluationEvidence {
     pub inventory: EvaluatorEvidence,
     pub outcome: EvaluatorEvidence,
 }
 
-/// Trusted evaluator implementation used for technical promotion cases.
-///
-/// `spec` binds the frozen fixture, verifier bundle, expected inventory,
-/// parser, command, and execution policy into a framework-computed manifest.
 pub trait PolicyEvaluator: Send + Sync {
     fn spec(&self) -> &EvaluatorSpec;
     fn evaluate(
@@ -577,10 +535,6 @@ pub trait PolicyEvaluator: Send + Sync {
     ) -> Result<PolicyEvaluationEvidence, String>;
 }
 
-/// Validate the canonical inventory wire format and return its exact digest.
-/// IDs must be strict UTF-8, unique, byte-sorted, and terminated by one newline.
-/// No trimming or normalization is performed, so prose/status output cannot be
-/// mistaken for the frozen expected inventory.
 pub(crate) struct CanonicalInventory {
     pub sha256: String,
     pub item_count: usize,
@@ -637,9 +591,6 @@ fn inventory_character_is_forbidden(character: char) -> bool {
         )
 }
 
-/// Parse the only technical outcome format accepted by the production gate.
-/// A pinned evaluator adapter—not candidate test output—must emit this exact
-/// record, one byte-sorted `test-id<TAB>pass|fail` row per executed test.
 pub(crate) fn canonical_test_outcome(bytes: &[u8]) -> Result<CanonicalTestOutcome, String> {
     if bytes.is_empty() || bytes.len() > MAX_INVENTORY_BYTES {
         return Err("evaluator outcome report is empty or exceeds its byte limit".into());

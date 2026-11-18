@@ -25,8 +25,6 @@ const BIN: f32 = 4.0;
 const BW: usize = (COLS as f32 * CELL / BIN) as usize;
 const BH: usize = (ROWS as f32 * CELL / BIN) as usize;
 
-/// A light that lives a few ticks: a blow's flash, a bolt in flight, a muzzle.
-/// It has no memory of the walls, so it stays small.
 pub(in super::super) struct Flash {
     pub(in super::super) x: f32,
     pub(in super::super) y: f32,
@@ -39,7 +37,6 @@ pub(in super::super) struct Flash {
 pub(super) struct Lights {
     pub(super) list: Vec<Light>,
     vis: Vec<Vec<u8>>,
-    /// Which lights can reach each four-unit square of the pit.
     bins: Vec<Vec<u16>>,
 }
 
@@ -88,7 +85,6 @@ impl Lights {
                 for (i, l) in list.iter().enumerate() {
                     let (nx, ny) = (l.x.clamp(x0, x0 + BIN), l.y.clamp(y0, y0 + BIN));
                     let (dx, dy) = (l.x - nx, l.y - ny);
-                    // Walls stand a little proud of their square's edge: keep a stride of slack.
                     if dx * dx + dy * dy < l.r2 + 1.0 {
                         bins[by * BW + bx].push(i as u16);
                     }
@@ -98,7 +94,6 @@ impl Lights {
         Lights { list, vis, bins }
     }
 
-    /// Each light's brightness this tick: a slow breath and a quick stutter.
     pub(super) fn flicker(&self, ticks: u32) -> Vec<f32> {
         (0..self.list.len())
             .map(|i| {
@@ -110,8 +105,6 @@ impl Lights {
             .collect()
     }
 
-    /// The torchlight on a surface at `p` facing `n`, whose open ground
-    /// (where the lights are seen from) is at `ground`.
     #[inline]
     pub(super) fn at(&self, p: [f32; 3], n: [f32; 3], ground: (f32, f32), flick: &[f32], flashes: &[Flash]) -> [f32; 3] {
         let (gx, gy) = ((ground.0 / GRID) as usize, (ground.1 / GRID) as usize);

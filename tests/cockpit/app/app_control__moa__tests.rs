@@ -9,7 +9,7 @@ fn t_key_opens_the_think_picker_and_enter_stages_the_level() {
     app.select_moa_card(crate::agent::formations::FormationId::Duel);
     {
         let deck = app.moa_deck.as_mut().unwrap();
-        assert!(deck.select_slot(2)); // J1
+        assert!(deck.select_slot(2));
         let sol = deck
             .models()
             .iter()
@@ -24,7 +24,6 @@ fn t_key_opens_the_think_picker_and_enter_stages_the_level() {
         crate::agent::formations::MoaDeckFocus::Efforts
     );
     assert_eq!(deck.effort_options(), ["low", "medium", "high"]);
-    // Nothing staged: cursor on env default; Up wraps onto "high".
     assert!(app.moa_deck_key(KeyCode::Up, KeyModifiers::NONE));
     assert!(app.moa_deck_key(KeyCode::Enter, KeyModifiers::NONE));
     let deck = app.moa_deck.as_ref().unwrap();
@@ -41,8 +40,6 @@ fn t_key_opens_the_think_picker_and_enter_stages_the_level() {
     );
 }
 
-/// Every refusal to open the picker must say why — a silent `t` reads as
-/// nonexistence.
 #[test]
 fn think_gates_speak_for_resting_scout_and_unassigned_seats() {
     let _lock = crate::tests::env_lock();
@@ -50,7 +47,6 @@ fn think_gates_speak_for_resting_scout_and_unassigned_seats() {
     app.bag = crate::agent::club::Bag::for_render_test(&[("alpha", &[("model-a", true)])]);
     app.open_moa_deck(None);
 
-    // Solo Strike has no seats at all.
     assert!(app.moa_deck_key(KeyCode::Char('t'), KeyModifiers::NONE));
     assert!(
         app.messages
@@ -58,7 +54,6 @@ fn think_gates_speak_for_resting_scout_and_unassigned_seats() {
             .any(|message| message.text.contains("no formation seats"))
     );
 
-    // Recon's scout seat: the swarm carries no scout effort policy.
     app.select_moa_card(crate::agent::formations::FormationId::Recon);
     assert!(app.moa_deck.as_mut().unwrap().select_slot(0));
     assert!(app.moa_deck_key(KeyCode::Char('t'), KeyModifiers::NONE));
@@ -72,7 +67,6 @@ fn think_gates_speak_for_resting_scout_and_unassigned_seats() {
         crate::agent::formations::MoaDeckFocus::Efforts
     );
 
-    // Tag Team P1 finds no fleet box here: effort staging needs a route.
     app.select_moa_card(crate::agent::formations::FormationId::TagTeam);
     assert!(app.moa_deck.as_mut().unwrap().select_slot(0));
     assert!(app.moa_deck_key(KeyCode::Char('t'), KeyModifiers::NONE));
@@ -87,7 +81,6 @@ fn think_gates_speak_for_resting_scout_and_unassigned_seats() {
     );
 }
 
-/// Arming a roster with a staged THINK column names it in the receipt.
 #[test]
 fn arm_receipt_names_the_staged_think_column() {
     let _lock = crate::tests::env_lock();
@@ -97,7 +90,7 @@ fn arm_receipt_names_the_staged_think_column() {
     app.select_moa_card(crate::agent::formations::FormationId::Duel);
     {
         let deck = app.moa_deck.as_mut().unwrap();
-        assert!(deck.select_slot(2)); // J1
+        assert!(deck.select_slot(2));
         assert!(deck.open_effort_picker(vec![
             "low".to_string(),
             "medium".to_string(),
@@ -130,8 +123,6 @@ fn duel_app() -> crate::App {
     app
 }
 
-/// The words the chip, the label and the status speak for each armed state
-/// stay as they are.
 #[test]
 fn the_formation_chip_words_for_each_armed_state_are_pinned() {
     let _lock = crate::tests::env_lock();
@@ -170,9 +161,6 @@ fn the_formation_chip_words_for_each_armed_state_are_pinned() {
     );
 }
 
-/// A one-shot formation is consumed when its turn starts, but the formation's
-/// wrapper stays the route until the worker settles. For that whole run the
-/// chip, the label and the status must say a formation is engaged, not idle.
 #[test]
 fn a_running_one_shot_formation_does_not_read_as_idle() {
     let _lock = crate::tests::env_lock();
@@ -200,9 +188,6 @@ fn a_running_one_shot_formation_does_not_read_as_idle() {
     assert_eq!(app.moa_arm_status(), "Solo · normal turns");
 }
 
-/// A session roster staged behind a running one-shot waits: the run is still
-/// engaged, the status names the session that comes after, and the session
-/// is what the chip shows once the worker settles.
 #[test]
 fn a_session_staged_behind_a_running_one_shot_waits_for_the_worker() {
     use super::MoaPhase;
@@ -226,8 +211,6 @@ fn a_session_staged_behind_a_running_one_shot_waits_for_the_worker() {
     assert_eq!(app.moa_formation_chip_label(), format!("{name}/sess"));
 }
 
-/// Clearing the formation while its turn runs is a restore owed at the
-/// settle: the run is still under the formation until then.
 #[test]
 fn clearing_a_formation_mid_run_reads_engaged_until_the_worker_settles() {
     use super::MoaPhase;
@@ -246,8 +229,6 @@ fn clearing_a_formation_mid_run_reads_engaged_until_the_worker_settles() {
     assert_eq!(app.bag.in_hand_label(), "alpha");
 }
 
-/// What the operator stages while a one-shot runs is the next turn's arm, and
-/// the chip shows it.
 #[test]
 fn staging_a_one_shot_during_a_run_shows_the_arm() {
     use super::MoaPhase;
@@ -261,8 +242,6 @@ fn staging_a_one_shot_during_a_run_shows_the_arm() {
     assert!(app.moa_arm_chip().unwrap().ends_with("armed "));
 }
 
-/// The deck's draft pick is staging, not an arm, and the open deck never
-/// outranks an engaged run.
 #[test]
 fn the_open_deck_is_staging_until_something_is_armed() {
     use super::MoaPhase;

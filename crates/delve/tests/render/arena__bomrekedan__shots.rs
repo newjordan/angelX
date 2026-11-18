@@ -21,8 +21,6 @@ fn level_run(kind: RoomKind, at: (f32, f32)) -> Run {
     r
 }
 
-/// Where a party arrives on each level: by a stair down to it, or on the
-/// top level from the kingdom.
 fn arrival(kind: RoomKind) -> (f32, f32) {
     bomrekedan::DOORS
         .iter()
@@ -47,16 +45,12 @@ fn every_level_draws_and_keeps_its_drawing() {
     }
 }
 
-/// Every DRESS key the import writes has art of its own, and every tile
-/// that holds something is drawn otherwise than its bare ground.
 #[test]
 fn every_dressed_tile_is_drawn_with_its_piece() {
     for def in &bomrekedan::LEVELS {
         let r = level_run(def.kind, arrival(def.kind));
         let level = bomrekedan::level(def.kind).unwrap();
         let im = scenery(&r);
-        // Each tile's bare ground, drawn alone over a canvas of its own
-        // (`ground` paints every pixel of its tile).
         let mut cv = Img::black(im.w, im.h);
         let mut keys = std::collections::BTreeMap::<u8, (u32, u32)>::new();
         for row in 0..r.room().rows as i32 {
@@ -75,10 +69,6 @@ fn every_dressed_tile_is_drawn_with_its_piece() {
             }
         }
         for (&ch, &(n, drawn)) in &keys {
-            // A stockpile is goods strewn on some of its tiles, and its
-            // corner marks on all; a windmill is one tower over its three by
-            // three, its corners left open; anything else stands on every
-            // tile.
             let least = match ch {
                 b'p' => n,
                 b'm' => n / 2,
@@ -90,17 +80,11 @@ fn every_dressed_tile_is_drawn_with_its_piece() {
     }
 }
 
-/// A level's drawing is baked whole once, so its bake must stay quick: a
-/// debug build's budget, the slowest level printed.
 #[test]
 fn a_level_bakes_well_inside_a_second() {
     let mut slowest = (std::time::Duration::ZERO, "");
     for def in &bomrekedan::LEVELS {
         let r = level_run(def.kind, arrival(def.kind));
-        // The kit's shared sprites are built once, outside the timing (and
-        // the surface water's banks, which `material` keeps by their bounds:
-        // the water's own cost is held down by
-        // `the_surfaces_water_is_laid_over_its_bounds_alone`).
         let _ = scenery(&r);
         let t = std::time::Instant::now();
         let im = scenery(&r);
@@ -115,8 +99,6 @@ fn a_level_bakes_well_inside_a_second() {
     assert!(slowest.0 < std::time::Duration::from_millis(1500), "{} baked in {:?}", slowest.1, slowest.0);
 }
 
-/// The surface's water is laid over its own bounds, not the whole level,
-/// and is the same water pixel for pixel.
 #[test]
 fn the_surfaces_water_is_laid_over_its_bounds_alone() {
     let r = level_run(bomrekedan::TOP, bomrekedan::ARRIVAL);
@@ -133,9 +115,6 @@ fn the_surfaces_water_is_laid_over_its_bounds_alone() {
     assert!(wet_bounds(&bomrekedan::room(RoomKind::BomGreatHall, (0, 0))).is_none());
 }
 
-/// The fort's people stand in the frame, drawn over the kept level each
-/// frame and moving on their rounds; the drawing under them stays the
-/// same.
 #[test]
 fn the_people_are_drawn_each_frame_over_the_kept_level() {
     let kind = RoomKind::BomGreatHall;
@@ -149,7 +128,6 @@ fn the_people_are_drawn_each_frame_over_the_kept_level() {
     };
     let drawn = figures_at(&r);
     assert!(drawn > here.len() * 40, "{} people, {drawn} pixels", here.len());
-    // Someone of the hall walks within a few seconds.
     let start: Vec<_> = here.iter().map(|p| p.at(r.tick)).collect();
     for _ in 0..crate::rules::HZ * 12 {
         r.tick += 1;
@@ -157,11 +135,9 @@ fn the_people_are_drawn_each_frame_over_the_kept_level() {
     let moved = here.iter().zip(&start).filter(|(p, s)| p.at(r.tick) != **s).count();
     assert!(moved > 0, "nobody moved");
     assert!(figures_at(&r) > 0);
-    // Their moving is no reason to bake the level again.
     assert_eq!(super::super::scenery::torch_step(&r), 0, "the level is not redrawn for them");
 }
 
-/// Opt-in PNGs for review: each level whole, at one pixel a pixel.
 #[test]
 #[ignore = "exports Bomrekedan's levels for visual review"]
 fn bomrekedan_export_pngs() {

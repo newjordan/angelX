@@ -31,10 +31,8 @@ fn a_piece_out_of_order_or_a_whole_past_its_limit_drops_the_upload() {
     let sent = pieces(CARD, &body);
     let mut uploads = Uploads::default();
     assert!(uploads.take(1, sent[0].0, &sent[0].1).is_none());
-    // The third before the second: what came is dropped.
     assert!(uploads.take(1, sent[2].0, &sent[2].1).is_none());
     assert!(uploads.take(1, sent[1].0, &sent[1].1).is_none());
-    // Each seat's upload is its own, and a whole action in between drops it.
     for (kind, piece) in &sent[..2] {
         uploads.take(2, *kind, piece);
     }
@@ -44,7 +42,6 @@ fn a_piece_out_of_order_or_a_whole_past_its_limit_drops_the_upload() {
             .iter()
             .all(|(kind, piece)| uploads.take(2, *kind, piece).is_none())
     );
-    // Too large to be any action once whole.
     let huge = vec![1u8; MAX_WHOLE + 4000];
     let mut whole = None;
     for (kind, piece) in pieces(CARD, &huge) {
@@ -91,7 +88,6 @@ fn a_creator_piece_comes_in_pieces_is_put_back_together_and_read_as_a_creation()
     use angel_delve::rules::rite::Made;
     let made = Made::Creature(Creation { role: Role::Minion, name: "Pip".into(), ..Creation::default() });
     let body = serde_json::to_vec(&made).unwrap();
-    // The seat sends it the way the client does: whole when it fits, else in pieces.
     let sent = angel_net::client::pieces(CREATION, &body);
     let mut uploads = Uploads::default();
     let mut whole = None;
@@ -105,7 +101,6 @@ fn a_creator_piece_comes_in_pieces_is_put_back_together_and_read_as_a_creation()
         Ok(Gear::Creation(got)) => assert_eq!(got, made),
         other => panic!("{other:?}"),
     }
-    // A recipe the Creator would not seal is refused at the door, and so is nonsense.
     let bad = Made::Creature(Creation { role: Role::Weapon, ..Creation::default() });
     assert!(read(1, CREATION, &serde_json::to_vec(&bad).unwrap()).is_err());
     assert!(read(1, CREATION, b"not json").is_err());

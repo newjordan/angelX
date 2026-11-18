@@ -69,7 +69,6 @@ fn pickup_pop_overshoots_then_rests_and_guardian_marks_end() {
     assert!(rest.words().iter().all(|&p| p == 0));
 }
 
-/// PNG review: no host, clocks or renderer-specific randomness.
 #[test]
 #[ignore = "writes the polish review PNGs"]
 fn write_polish_feel_shots() {
@@ -107,7 +106,6 @@ fn write_polish_feel_shots() {
     for dt in [0, 1, 2, 3, 5, 7, 9, 12] {
         run.tick = start + dt;
         run.shake = 12u32.saturating_sub(dt as u32);
-        // Baseline formula, over exactly the same unshaken room picture.
         let mut base = run.clone();
         base.shake = 0;
         let mut old = scene_for(&base, NATIVE_W, NATIVE_H, Some(1));
@@ -142,7 +140,6 @@ fn write_polish_feel_shots() {
         phase.push(draw(&at, false));
     }
     save("boss-phase", phase);
-    // Rage is a real phase transition through the watcher, not a fabricated mark.
     run.enemies[0].hp = run.enemies[0].max_hp / 10;
     run.bosses[0].rage = 0.5;
     run.step(&BTreeMap::new());
@@ -200,7 +197,6 @@ fn feedback_reaches_the_actual_flat_and_parts_pictures() {
     run.found = Some((run.tick, 1, "tempered Bow".into()));
     let mut settled = run.clone();
     settled.found = Some((run.tick.saturating_sub(16), 1, "tempered Bow".into()));
-    // Keep room animation fixed while changing only the label's age.
     if run.tick < 16 {
         run.tick = 16;
         settled.tick = 16;

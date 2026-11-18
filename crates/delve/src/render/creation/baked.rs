@@ -22,11 +22,6 @@ use std::sync::OnceLock;
 
 pub use crate::rules::creation::drive::Way;
 
-/// What the creature is doing. The library names three poses (rest, windup, strike); a baked
-/// creature may bring walk cycles too, and without them a walk is the idle bob at a stride. A set
-/// with eight ways also has a run, a hit, a death and a cast; a set without them plays what is
-/// nearest (a run is its walk, a hit its stance, a cast its windup). A walk or run says which way
-/// it goes; everything else faces the way the caller says (`Baked::frame_facing`), south if no one does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Motion {
     Idle,
@@ -34,11 +29,8 @@ pub enum Motion {
     Run(Way),
     Windup,
     Strike,
-    /// Flinches; `tick` is the ticks since the blow landed.
     Hit,
-    /// Falls and stays down; `tick` is the ticks since it fell.
     Death,
-    /// Casts; `tick` is the ticks since the spell began.
     Cast,
 }
 
@@ -54,24 +46,17 @@ struct Policy {
     grade: BTreeMap<String, [u32; 2]>,
 }
 
-/// What a set's `animation.json` tells the Creator (the rest of the file is for other readers).
 #[derive(Clone, Debug, serde::Deserialize)]
 struct Animation {
     fps: u32,
-    /// The clips the set has, by name (`idle`, `walk-east`, `walk-south`, `attack`, and `walk-west`
-    /// as the east walk mirrored). A clip the set lacks has no state, and its strip is one blank cell.
     states: BTreeMap<String, State>,
     attack_events: Option<Keys>,
     creator: Creator,
-    /// The eight-way clips, for a set from the pipeline's frame sets (absent: the two old ways).
     ways: Option<WaysRecord>,
 }
 
-/// `animation.json`'s `ways` block: the atlas (a block of eight direction rows per clip, the frames
-/// along each row) and what each clip is.
 #[derive(Clone, Debug, serde::Deserialize)]
 struct WaysRecord {
-    /// The direction of each row of a block, in order (`s sw w nw n ne e se` as the exporter writes them).
     directions: Vec<String>,
     cell: [i32; 2],
     fps: u32,
@@ -80,16 +65,13 @@ struct WaysRecord {
 
 #[derive(Clone, Debug, serde::Deserialize)]
 struct WayClipRecord {
-    /// The first row of the clip's block of eight direction rows, counted in cells.
     row: i32,
     frames: usize,
-    /// The sole edge of each direction's frames, by direction name.
     anchor_y: BTreeMap<String, i32>,
     #[serde(default)]
     events: BTreeMap<String, usize>,
 }
 
-/// The clips an eight-way set can bring, by the name the exporter writes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum Clip {
     Idle,
@@ -113,8 +95,6 @@ impl Clip {
     ];
 }
 
-/// The clips that play once, started and timed by the drive: a blow, a cast, a flinch, a fall and the
-/// rise from it (the death clip backwards).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Reel {
     Blow,
@@ -124,18 +104,14 @@ pub enum Reel {
     Rise,
 }
 
-/// One frame of a clip the drive plays once, and the rows lower than bottom-centre to draw it so its soles meet the ground.
 #[derive(Clone, Debug)]
 pub struct Played<'a> {
     pub frame: Cow<'a, Img>,
     pub drop: i32,
 }
 
-/// The fewest ticks a blow's impact frame holds, so a one-frame impact still reads as a blow.
 const MIN_STRIKE: u64 = 3;
 
-/// One clip in all eight directions, dressed, with the sole edge of each direction's frames and the
-/// clip's events by name (the frame each falls on).
 #[derive(Clone, Debug)]
 struct WayClip {
     frames: [Vec<Img>; 8],
@@ -143,7 +119,6 @@ struct WayClip {
     events: BTreeMap<String, usize>,
 }
 
-/// The eight-way clips of a set, by clip.
 #[derive(Clone, Debug)]
 struct Ways {
     fps: u32,
@@ -152,11 +127,9 @@ struct Ways {
 
 #[derive(Clone, Debug, serde::Deserialize)]
 struct State {
-    /// The pixel edge the soles stand on in this state's own frames (bottom-centre is `[32, 53]`).
     anchor: [i32; 2],
 }
 
-/// The Creator's own block of the record: what to call the set and which pixels the pigment dyes.
 #[derive(Clone, Debug, serde::Deserialize)]
 struct Creator {
     name: String,
@@ -173,19 +146,11 @@ struct Keys {
     total_ticks: u32,
 }
 
-/// Ground (run units) one frame of a twelve-frame walk cycle spans: the Bailiff's pace. A strip of
-/// any other length keeps the same cycle length on the ground (24 frames: 0.31 units each), so
-/// every creature steps at one cadence. Phase follows distance, never the clock.
 const WALK_STRIDE: f32 = 0.62;
 const WALK_FRAMES: f32 = 12.0;
-/// A run's cycle is this many times as long on the ground as a walk's (the legs reach further).
 const RUN_REACH: f32 = 1.75;
-/// Ticks the stage holds each of the eight ways: one pass of a sixteen-frame idle at 12 fps (40 at 30 Hz).
 pub const TURN_TICKS: u64 = 40;
 
-/// Which pixels of a set the main pigment dyes: its main material's hue window (degrees), and how
-/// little saturation or value a pixel may have and still count as that material. The exporter
-/// derives it from the art (or takes it from the frame-set spec) and writes it into `animation.json`.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub struct Dye {
     hues: [f32; 2],
@@ -193,10 +158,8 @@ pub struct Dye {
     min_val: f32,
 }
 
-/// The Bailiff's moss greens and yellow-greens: its tan highlights and dark outline stay.
 pub const GREENS: Dye = Dye { hues: [62.0, 170.0], min_sat: 0.2, min_val: 0.08 };
 
-/// One baked creature in the boss library's format.
 #[derive(Clone, Debug)]
 pub struct Baked {
     pub id: String,
@@ -206,22 +169,15 @@ pub struct Baked {
     breath: Img,
     windup: Img,
     strike: Img,
-    /// Optional walk cycles, east then south, in the boss library's strip format.
     walk: [Vec<Img>; 2],
-    /// Optional idle loop (empty: the library's own breathing rule).
     idle: Vec<Img>,
-    /// Optional whole smash, frame by frame (empty: windup and strike are its two poses).
     swing: Vec<Img>,
-    /// `animation.json`: soles' anchors per state, the smash's keys, the clip rate.
     animation: Option<Animation>,
-    /// Every clip in all eight directions, for a set from the pipeline's frame sets.
     ways: Option<Ways>,
-    /// Which pixels the main pigment dyes (`None`: the set stays as made, whatever the pigment).
     dye: Option<Dye>,
     name: String,
 }
 
-/// The files of one baked set, all required (the exporter always writes every one).
 pub struct Set {
     pub import: &'static str,
     pub animation: &'static str,
@@ -232,12 +188,9 @@ pub struct Set {
     pub walk_south: &'static [u8],
     pub idle: &'static [u8],
     pub attack: &'static [u8],
-    /// The ways atlas (`library-v1-ways.png`), for a set whose record has a `ways` block; empty otherwise.
     pub ways: &'static [u8],
 }
 
-/// A set embedded from `assets/creator/baked/<id>/`, built once: `embedded_set!("knight")`, or
-/// `embedded_set!("a6-crusader", ways)` for a set that carries its eight-way atlas.
 macro_rules! embedded_set {
     ($id:literal) => {
         embedded_set!($id, &[])
@@ -277,8 +230,6 @@ fn decode(png: &[u8]) -> Result<Img, String> {
 }
 
 impl Baked {
-    /// A baked boss-library creature: its `library-import.json` and the three frames. Frames the
-    /// import does not size, or of unequal size, are refused rather than drawn crooked.
     pub fn from_library(import: &str, rest: &[u8], windup: &[u8], strike: &[u8]) -> Result<Self, String> {
         let record: Import = serde_json::from_str(import).map_err(|e| e.to_string())?;
         let [w, h] = record.display_policy.v1;
@@ -310,10 +261,6 @@ impl Baked {
         })
     }
 
-    /// A whole set as `scripts/creator/export-baked-set.py` writes it: the library's three frames
-    /// and import record, and whichever clips the animation record says the set has (both walks,
-    /// the idle loop, the smash). A clip it lacks keeps the library's own fallback: the breathing
-    /// rule for idle, the idle bob for a walk, the windup and strike poses for a blow.
     pub fn from_set(set: Set) -> Result<Self, String> {
         let record: Animation = serde_json::from_str(set.animation).map_err(|e| format!("animation: {e}"))?;
         let has = |state: &str| record.states.contains_key(state);
@@ -340,10 +287,6 @@ impl Baked {
         Ok(baked)
     }
 
-    /// The eight-way clips: the atlas cut into cells, each dressed as the library dresses a frame, and
-    /// checked against the record (every direction named once, every clip's block and frames inside the
-    /// atlas and none blank, the sole edges there for all eight, `idle` present, the smash as long as the
-    /// legacy smash strip it was written beside).
     fn load_ways(&self, record: &WaysRecord, png: &[u8]) -> Result<Ways, String> {
         let bad = |m: String| format!("ways: {m}");
         let (w, h) = self.size;
@@ -408,7 +351,6 @@ impl Baked {
         Ok(Ways { fps: record.fps.max(1), clips })
     }
 
-    /// The strip's equal cells, each dressed as the library dresses a frame.
     fn cells(&self, png: &[u8]) -> Result<Vec<Img>, String> {
         let strip = decode(png)?;
         let (w, h) = self.size;
@@ -430,28 +372,22 @@ impl Baked {
             .collect())
     }
 
-    /// Walk cycles as strips of equal cells, east then south (`library-v1-walk-*-strip.png`).
     pub fn with_walks(mut self, east: &[u8], south: &[u8]) -> Result<Self, String> {
         let cycles = [self.cells(east).map_err(|e| format!("walk: {e}"))?, self.cells(south).map_err(|e| format!("walk: {e}"))?];
         self.walk = cycles;
         Ok(self)
     }
 
-    /// The idle loop as a strip (`library-v1-idle-strip.png`), played at the clip's own rate.
     pub fn with_idle(mut self, strip: &[u8]) -> Result<Self, String> {
         self.idle = self.cells(strip).map_err(|e| format!("idle: {e}"))?;
         Ok(self)
     }
 
-    /// The whole smash as a strip (`library-v1-attack-strip.png`); `with_animation` supplies its keys.
     pub fn with_swing(mut self, strip: &[u8]) -> Result<Self, String> {
         self.swing = self.cells(strip).map_err(|e| format!("attack: {e}"))?;
         Ok(self)
     }
 
-    /// `animation.json`: where each state's soles stand and where the smash's keys fall. A set that
-    /// carries it carries its own bob and lunge, so the drive adds none. Every clip that was loaded
-    /// needs its state and every state its clip, and the smash's keys must fit its frames.
     pub fn with_animation(mut self, json: &str) -> Result<Self, String> {
         let a: Animation = serde_json::from_str(json).map_err(|e| format!("animation: {e}"))?;
         for (state, loaded) in [
@@ -483,33 +419,23 @@ impl Baked {
         Ok(self)
     }
 
-    /// What the stage and the plate call it ("STAND-IN: KNIGHT").
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// The set draws its own bob and lunge (it came with `animation.json`).
     pub fn carries_motion(&self) -> bool {
         self.animation.is_some()
     }
 
-    /// A real stand-in: the Bailiff, and the 2D knight that holds the Hero's place. A character from
-    /// the pipeline's frame sets (eight ways, its own clips) is finished work and is not called one.
     pub fn stand_in(&self) -> bool {
         self.ways.is_none()
     }
 
-    /// Ticks a clip of `frames` frames plays at the set's clip rate (a frame shows from the first tick
-    /// that reaches it: 12 fps at 30 Hz is a frame every 2.5 ticks).
     fn clip_ticks(&self, frames: usize) -> u64 {
         let fps = self.ways.as_ref().map_or(30, |w| u64::from(w.fps));
         (frames as u64 * 30).div_ceil(fps)
     }
 
-    /// How the set's own clips are timed, for the drive: the blow lands on the clip's impact frame
-    /// (its `hit` event) and is the clip's length, a cast releases on its `cast` event, a hit and a
-    /// death are their clips' lengths, and each melts into the stance over `SETTLE` ticks. A set
-    /// without eight ways is the library's fixed blow and none of the others, as it always was.
     pub fn timing(&self) -> Timing {
         let Some(ways) = &self.ways else { return Timing::FIXED };
         let one = |c: Clip, event: Option<&str>| {
@@ -529,12 +455,6 @@ impl Baked {
         Timing { blow, cast: one(Clip::Cast, Some("cast")), hit: one(Clip::Hit, None), death: one(Clip::Death, None) }
     }
 
-    /// The frame of a clip the drive plays once, `since` ticks after it began, facing a way: the clip
-    /// at its own frame times, then (a fall aside, which lies where it fell) its last frame melting
-    /// into the stance over `SETTLE` ticks, in an ordered dither of the two frames' own pixels, so
-    /// no colour is made and no pose snaps. A rise is the death clip backwards and melts from its
-    /// first frame. `tick` is the set's clock for the stance it melts into. `None`: the set has no
-    /// such clip (or no eight ways), or the clip and its settle are over.
     pub fn shot(&self, reel: Reel, since: u64, facing: Way, tick: u64) -> Option<Played<'_>> {
         let ways = self.ways.as_ref()?;
         let id = match reel {
@@ -568,7 +488,6 @@ impl Baked {
         Some(Played { frame: Cow::Owned(dissolve(from, to, share)), drop })
     }
 
-    /// The in-game Marsh Bailiff, baked by the in-game lane (`assets/creator/baked/marsh-bailiff`).
     pub fn bailiff() -> &'static Baked {
         static BAILIFF: OnceLock<Baked> = OnceLock::new();
         BAILIFF.get_or_init(|| {
@@ -588,51 +507,36 @@ impl Baked {
         })
     }
 
-    /// Ground one walk frame spans: a cycle is always as long on the ground as the Bailiff's.
     fn stride(&self, way: Way) -> f32 {
         WALK_STRIDE * (WALK_FRAMES / self.walk[slot(way)].len().max(1) as f32)
     }
 
-    /// Whether the set has all eight ways (a set from the pipeline's frame sets) or only the old two.
     pub fn eight_way(&self) -> bool {
         self.ways.is_some()
     }
 
-    /// Which way the stage shows `tick`: round all eight, each held for one pass of the idle loop
-    /// (`TURN_TICKS`), south first (the way the old art always stood). A set with two ways stays south.
     pub fn turntable(&self, tick: u64) -> Way {
         if self.ways.is_some() { Way::nth((tick / TURN_TICKS) as usize) } else { Way::South }
     }
 
-    /// The clips the set brings in all eight directions, by name (`idle`, `walk`, `run`, `attack`,
-    /// `hit`, `death`, `cast`); none for a set with two ways.
     pub fn way_clips(&self) -> Vec<&'static str> {
         self.ways.as_ref().map_or_else(Vec::new, |w| Clip::ALL.iter().filter(|(_, c)| w.clips.contains_key(c)).map(|(n, _)| *n).collect())
     }
 
-    /// One clip's frames in one direction (`None`: the set has no such clip, or no eight ways).
     pub fn way_frames(&self, clip: &str, way: Way) -> Option<&[Img]> {
         let (_, clip) = Clip::ALL.iter().find(|(n, _)| *n == clip)?;
         Some(&self.ways.as_ref()?.clips.get(clip)?.frames[way.index()])
     }
 
-    /// The frame a clip's event falls on (`hit`, `cast`, `windup`...), by name: `None` where the set has no such clip or event.
     pub fn way_event(&self, clip: &str, event: &str) -> Option<usize> {
         let (_, clip) = Clip::ALL.iter().find(|(n, _)| *n == clip)?;
         self.ways.as_ref()?.clips.get(clip)?.events.get(event).copied()
     }
 
-    /// The frame for a motion, facing south (a set with eight ways has the others: `frame_facing`).
     pub fn frame(&self, motion: Motion, tick: u64, walked: f32) -> &Img {
         self.frame_facing(motion, Way::South, tick, walked)
     }
 
-    /// The frame for a motion facing a way. Idle plays the set's own loop at its clip rate, or follows
-    /// the library's own breathing rule; a walk or run follows the ground covered (a set without strips
-    /// swaps its two idle frames once per stride, so feet and bob stay together). A set with two ways
-    /// shows every way as the nearer of east and south (the caller turns an east walk about for the
-    /// west); a set with eight shows the way itself. `tick` is the set's clock, or for a hit, death and
-    /// cast the ticks since it began.
     pub fn frame_facing(&self, motion: Motion, facing: Way, tick: u64, walked: f32) -> &Img {
         if let Some(ways) = &self.ways
             && let Some(frame) = self.way_frame(ways, motion, facing, tick, walked)
@@ -658,10 +562,7 @@ impl Baked {
         }
     }
 
-    /// The eight-way frame for a motion, or `None` where the set has no clip for it and the legacy
-    /// frames answer (a cast with no cast clip is the windup pose, a hit or a fall the stance).
     fn way_frame<'a>(&'a self, ways: &'a Ways, motion: Motion, facing: Way, tick: u64, walked: f32) -> Option<&'a Img> {
-        // A walk and a run go the way they say; everything else faces the way it is told.
         let facing = match motion {
             Motion::Walk(way) | Motion::Run(way) => way,
             _ => facing,
@@ -692,13 +593,10 @@ impl Baked {
         }
     }
 
-    /// The smash frame `since` ticks after the blow began, for a set that has the whole smash,
-    /// facing south. `None` once the smash is over, or without a smash.
     pub fn swing(&self, since: u64) -> Option<&Img> {
         self.swing_facing(since, Way::South)
     }
 
-    /// `swing`, in the way the creature faces (a set with two ways has its one smash).
     pub fn swing_facing(&self, since: u64, facing: Way) -> Option<&Img> {
         let at = self.swing_index(since)?;
         match self.ways.as_ref().and_then(|w| w.clips.get(&Clip::Attack)) {
@@ -707,10 +605,6 @@ impl Baked {
         }
     }
 
-    /// Which frame of the smash strip: the drive's windup, strike and recovery
-    /// (`rules::creation::drive`) laid over the clip's own keys. The rise plays a frame a tick,
-    /// holds at its peak, swings on the tick before the blow and lands its strike frame on the first
-    /// strike tick; recovery plays the clip's long settle in the ticks the drive gives it.
     pub(super) fn swing_index(&self, since: u64) -> Option<usize> {
         let keys = self.animation.as_ref()?.attack_events?;
         let last = self.swing.len().checked_sub(1)?;
@@ -735,13 +629,10 @@ impl Baked {
         Some(frame.min(last))
     }
 
-    /// Rows lower than bottom-centre to draw a motion's frames so its soles meet the ground, facing
-    /// south: the front walk is authored two rows high (room for the stepping foot), and says so.
     pub fn drop(&self, motion: Motion) -> i32 {
         self.drop_facing(motion, Way::South)
     }
 
-    /// `drop`, for the way the creature faces: an eight-way set declares each direction's own sole edge.
     pub fn drop_facing(&self, motion: Motion, facing: Way) -> i32 {
         let facing = match motion {
             Motion::Walk(way) | Motion::Run(way) => way,
@@ -771,9 +662,6 @@ impl Baked {
     }
 }
 
-/// `to` showing through `from` by `share` (`0..1`), a pixel at a time in the game's own 4x4 ordered
-/// dither: every pixel is one frame's or the other's, so the palette is the two frames' own. A pixel
-/// that is empty in the frame it takes from stays empty.
 pub(super) fn dissolve(from: &Img, to: &Img, share: f32) -> Img {
     let (w, h) = (from.w.min(to.w), from.h.min(to.h));
     let mut out = Img::new(w, h);
@@ -788,27 +676,19 @@ pub(super) fn dissolve(from: &Img, to: &Img, share: f32) -> Img {
     out
 }
 
-/// The attack frame the library's windup pose is: the coil's peak, the frame before the swing (never
-/// before the windup key), as the exporter picks it and the smash holds it.
 fn windup_of(k: &Keys) -> usize {
     (k.swing as usize).saturating_sub(1).max(k.windup_key as usize)
 }
 
-/// Which of a two-way set's walk strips a way plays: east's, or south's (north is the front walk,
-/// every way with a left part is east's turned about by the caller).
 fn slot(way: Way) -> usize {
     usize::from(way.flat().0 == Way::South)
 }
 
-/// The stand-in is moss green already; Ochre (the default) and Moss leave it as made, and the
-/// other pigments turn its greens, keeping every step of its shading.
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn tint(c: [u8; 3], dye: Pigment) -> [u8; 3] {
     tint_with(c, dye, GREENS)
 }
 
-/// `tint` for any set: the pigment turns the pixels inside the set's dye window and no others.
-/// Ochre and Moss are the earth pigments: they leave a baked creature as its artist made it.
 pub fn tint_with(c: [u8; 3], pigment: Pigment, window: Dye) -> [u8; 3] {
     let (target_hue, sat, val) = match pigment {
         Pigment::Ochre | Pigment::Moss => return c,
@@ -832,7 +712,6 @@ pub fn tint_with(c: [u8; 3], pigment: Pigment, window: Dye) -> [u8; 3] {
         60.0 * ((r - g) / d + 4.0)
     }
     .rem_euclid(360.0);
-    // Only the set's main material: its highlights, trim and dark outline stay.
     if !(window.hues[0]..=window.hues[1]).contains(&hue) {
         return c;
     }
@@ -856,17 +735,12 @@ pub fn tint_with(c: [u8; 3], pigment: Pigment, window: Dye) -> [u8; 3] {
     ]
 }
 
-/// One row of the registry: a role (`None`: any) and a look (`None`: any) to the set that shows it.
 pub(super) struct Row {
     pub role: Option<Role>,
     pub look: Option<&'static str>,
     pub set: fn() -> &'static Baked,
 }
 
-/// The Hero's three looks, one set each (`assets/creator/baked/<id>/`): the 2D knight (the T-pose rig
-/// route, test data from lane H), the A6 crusader (the night pipeline: SpriteKiln body, painted from the
-/// approved concept, eight ways, every clip) and the frog knight (a wish through `wish2char`, the same
-/// eight ways). A fn, not a closure per row, so two rows that name one set share its decoded frames.
 fn knight() -> &'static Baked {
     embedded_set!("knight")
 }
@@ -879,12 +753,6 @@ fn frog_knight() -> &'static Baked {
     embedded_set!("frog-knight", ways)
 }
 
-/// Which baked set shows which creation. A look (a wish's or a bake's art id) outranks a role;
-/// a role with no row gets the Bailiff. A new creature is one new row here after its set is
-/// exported (`scripts/creator/export-baked-set.py`). The Hero's first row, with no look, is its
-/// default: the 2D knight. The rows with a look are what the Creator's Look row and the Test
-/// drive's 1 to 3 keys pick (`rules::creation::HERO_LOOKS` names them; a test holds the two tables
-/// together).
 pub(super) const REGISTRY: &[Row] = &[
     Row { role: Some(Role::Hero), look: None, set: knight },
     Row { role: Some(Role::Hero), look: Some("knight"), set: knight },
@@ -892,20 +760,15 @@ pub(super) const REGISTRY: &[Row] = &[
     Row { role: Some(Role::Hero), look: Some("frog-knight"), set: frog_knight },
 ];
 
-/// The set that shows a creation (the preview stage and the Test drive both ask): the look it
-/// wears, or its role's default.
 pub fn for_creation(creation: &Creation) -> &'static Baked {
     for_look(creation, creation.look.as_deref())
 }
 
-/// `for_creation`, for a creation that has a look: a row naming that look wins, then the first row
-/// for the role (and no look of its own), then the Bailiff.
 pub fn for_look(creation: &Creation, look: Option<&str>) -> &'static Baked {
     pick(REGISTRY, creation, look)
 }
 
 pub(super) fn pick(rows: &[Row], creation: &Creation, look: Option<&str>) -> &'static Baked {
-    // A Folk is a person of the world and wears the Hero's looks (`Role::looks`).
     let role = if creation.role == Role::Folk { Role::Hero } else { creation.role };
     let row = look
         .and_then(|l| rows.iter().find(|r| r.look == Some(l) && r.role.is_none_or(|r| r == role)))
@@ -913,7 +776,6 @@ pub(super) fn pick(rows: &[Row], creation: &Creation, look: Option<&str>) -> &'s
     row.map_or_else(Baked::bailiff, |r| (r.set)())
 }
 
-/// Every set the registry can show, the stand-in first, each once (two rows may share a set).
 #[cfg(test)]
 pub fn all_sets() -> Vec<&'static Baked> {
     let mut sets = vec![Baked::bailiff()];
@@ -926,31 +788,21 @@ pub fn all_sets() -> Vec<&'static Baked> {
     sets
 }
 
-/// The made creature's figure at this moment: height and bulk reshape it, the main pigment dyes
-/// it. This is the stand-in's whole response; limbs, head and parts wait for assembled art. (The
-/// stage and the drive ask `preview` and `figure_facing`; the tests and the shot writers ask these.)
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn stand_in(creation: &Creation, motion: Motion, tick: u64, walked: f32) -> Img {
     figure(creation, motion, tick, walked, None)
 }
 
-/// What the preview stage shows `tick`: the stand-in idling, turning through the eight ways if its
-/// set has them (`Baked::turntable`), and still facing the camera if not.
 pub fn preview(creation: &Creation, tick: u64) -> Img {
     let way = for_creation(creation).turntable(tick);
     figure_facing(creation, Motion::Idle, way, tick, 0.0, None)
 }
 
-/// `stand_in`, with the smash's own frame when the drive is `since` ticks into a blow and the
-/// creature's set has the whole smash (otherwise the motion's pose, as before).
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn figure(creation: &Creation, motion: Motion, tick: u64, walked: f32, since: Option<u64>) -> Img {
     figure_facing(creation, motion, Way::South, tick, walked, since)
 }
 
-/// `figure`, facing a way (the way matters to a set with eight; a set with two draws its one art). A set
-/// with a clip of its own for the blow plays it at the clip's own frame times when `since` says the blow
-/// is on; the others play the library's fixed smash.
 pub fn figure_facing(creation: &Creation, motion: Motion, facing: Way, tick: u64, walked: f32, since: Option<u64>) -> Img {
     let set = for_creation(creation);
     let played = since.and_then(|s| set.shot(Reel::Blow, s, facing, tick));
@@ -961,22 +813,17 @@ pub fn figure_facing(creation: &Creation, motion: Motion, facing: Way, tick: u64
     dress(creation, set, source)
 }
 
-/// `figure_facing` with only the library's fixed smash, whatever clips the set has (what a set with
-/// two ways has always been shown, and the proof's "before").
 pub fn figure_fixed(creation: &Creation, motion: Motion, facing: Way, tick: u64, walked: f32, since: Option<u64>) -> Img {
     let set = for_creation(creation);
     dress(creation, set, since.and_then(|s| set.swing_facing(s, facing)).unwrap_or_else(|| set.frame_facing(motion, facing, tick, walked)))
 }
 
-/// A frame of a clip the drive plays once (`Baked::shot`), reshaped and dyed as the creation says,
-/// and the rows lower than bottom-centre to draw it. `None`: the set has no such clip, or it is over.
 pub fn figure_shot(creation: &Creation, reel: Reel, since: u64, facing: Way, tick: u64) -> Option<(Img, i32)> {
     let set = for_creation(creation);
     let played = set.shot(reel, since, facing, tick)?;
     Some((dress(creation, set, &played.frame), played.drop))
 }
 
-/// The made creature's figure from a frame of its set: height and bulk reshape it, the main pigment dyes it.
 fn dress(creation: &Creation, set: &Baked, source: &Img) -> Img {
     let h = source.h + (i32::from(creation.sculpt.height.min(100)) - 50) / 5;
     let w = source.w + (i32::from(creation.sculpt.bulk.min(100)) - 50) / 5;

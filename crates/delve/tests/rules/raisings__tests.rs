@@ -22,7 +22,6 @@ fn press(r: &mut Run, input: impl Fn(&mut Input)) {
     r.step(&BTreeMap::new());
 }
 
-/// A knight stands where plan `pick` may rise, the rod up.
 fn at_ground(r: &mut Run, pick: u8) -> (f32, f32) {
     r.treasury = rich();
     r.kingdom.survey.insert(1, Survey { pick, hold: 0 });
@@ -73,7 +72,6 @@ fn a_delves_end_turns_unspent_wishes_to_motes_within_the_floors_behind_it() {
     let hero = &r.players[&1];
     assert_eq!(hero.carried.get(Spoil::Wishmote), 2, "two floors are behind the party");
     assert_eq!((hero.wishes, hero.great_wishes), (0, 0));
-    // Nothing is left to turn twice.
     r.wishes_home(false);
     assert_eq!(r.players[&1].carried.get(Spoil::Wishmote), 2);
 }
@@ -172,7 +170,6 @@ fn a_chosen_lot_stands_where_it_was_chosen_and_the_map_walls_it() {
     assert_eq!(lots[0], Some(target.lot));
     let geo = map::geography(&standing_now);
     assert_ne!(geo.room.tile(target.lot.tx, target.lot.ty), Tile::Floor);
-    // The lot and a tile round it are taken now.
     assert!(!wishes::open_for(&standing_now, target.lot));
 }
 
@@ -302,7 +299,6 @@ fn raisings_go_down_the_stair_with_the_party() {
     ];
     r.descend_for_test();
     let hero = &r.players[&1];
-    // The shrine's two levels and its friend the beacon beside it.
     assert_eq!(hero.wishes, overclass::START_WISHES + 3);
     assert!(hero.armor >= 1);
     assert!(hero.invulnerable >= WARD);
@@ -386,6 +382,5 @@ fn the_rod_stands_its_ghost_and_panel_in_the_view() {
     let on_screen = (lot.tx * crate::world::map::TILE - origin.0, lot.ty * crate::world::map::TILE - origin.1);
     let at = |im: &crate::render::overworld::ink::Img, x, y| im.get(on_screen.0 + x, on_screen.1 + y);
     assert_ne!(at(&with, 0, 0), at(&without, 0, 0), "the lot is framed");
-    // The panel, at the top of the view.
     assert_ne!(with.get(arena::NATIVE_W / 2, 12), without.get(arena::NATIVE_W / 2, 12));
 }

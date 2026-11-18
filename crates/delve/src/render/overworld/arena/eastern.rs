@@ -18,7 +18,6 @@ fn ring(cv: &mut Img, x: i32, y: i32, ink: char) {
 pub(super) fn scenery(cv: &mut Img, run: &Run) {
     let kind = run.room().kind;
     if kind == RoomKind::Causeway {
-        // The causeway's dressed kerbs along the water, setts between.
         for y in [4 * TILE - 10, 10 * TILE - 1] {
             m::block(cv, (TILE, y, 22 * TILE, 11), m::ramp::STONE, false, 140);
         }
@@ -31,7 +30,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
         m::sign(cv, 9 * TILE + 2, 4 * TILE + 4, "NO BRIDGE TAX", 'T');
         cv.text(10 * TILE, 5 * TILE + 6, "ONLY SNACK TAX", 'O');
     } else if kind == RoomKind::Priory {
-        // The priory: a stone range under slate, its windows glowing.
         for (k, (c, r, w, h)) in [(3, 2, 6, 3), (4, 11, 5, 2)].into_iter().enumerate() {
             let (x, y, pw, ph) = (c * TILE + 2, r * TILE - 8, w * TILE - 4, h * TILE + 8);
             m::block(cv, (x, y + 10, pw, ph - 10), m::ramp::STONE, false, 141 + k as u32);
@@ -80,7 +78,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         };
         ring(cv, x, y, ink);
         if i == 0 {
-            // A cheerful troll whose entire toll booth is a sandwich invoice.
             cv.rect(x + 13, y - 15, 12, 14, 'g');
             cv.rect(x + 11, y - 22, 16, 9, 'g');
             cv.put(x + 15, y - 18, 'k');
@@ -108,7 +105,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         }
     }
     if run.room().kind == RoomKind::Priory && run.home.countryside.has(5) {
-        // Idle wings are dynamic, not part of the cached stonework.
         let x = 18 * TILE + (run.tick / 8 % 4) as i32;
         let y = 2 * TILE - 4;
         cv.ellipse(x as f32, y as f32, 5.0, 3.0, 'h');
@@ -130,7 +126,6 @@ pub(super) fn board_visible(run: &Run) -> bool {
                     && (h.x - at.0 * 2.0).hypot(h.y - at.1 * 2.0) < 4.0
             })
     });
-    // Leave the hurdle scoreboard alone at its start/in its lane.
     run.pastimes.round.is_none() && (near || kind == RoomKind::Priory)
 }
 

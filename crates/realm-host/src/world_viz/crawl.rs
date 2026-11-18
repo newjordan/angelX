@@ -26,32 +26,22 @@ use super::overworld::ink::Img;
 use super::world3d::expedition::Work;
 use angel_delve::rules::{EnemyKind, Pack, RoomKind, bestiary, knights};
 
-/// Whether the loop's 3D pane is the crawl (the default) or the older
-/// expedition walk (`ANGEL_LOOP_VIEW=expedition`).
 pub fn enabled() -> bool {
     std::env::var("ANGEL_LOOP_VIEW").map_or(true, |v| v.trim() != "expedition")
 }
 
-/// Everything a crawl frame is drawn from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Clock {
     pub region: Region,
     pub kind: LoopKind,
     pub iteration: usize,
-    /// World ticks (40 a second) since this turn of the loop began, in
-    /// steps of four; frozen far along when motion is off.
     pub elapsed: u32,
     pub work: Work,
     pub party: u8,
     pub danger: u8,
-    /// Ticks into the fight with the guardian a settled submission brings,
-    /// if one is on; whether it's a record (won) or a retreat; and how many
-    /// guardians have risen this session.
     pub fight: Option<u32>,
     pub won: bool,
     pub bouts: u32,
-    /// Ticks since a measurement came in, while it's news: the party finds a
-    /// chest.
     pub found: Option<u32>,
 }
 
@@ -64,7 +54,6 @@ impl Clock {
     }
 }
 
-/// Where motion is off, the clock stands far into a turn: arrived, still.
 const STILL: u32 = 40 * 90;
 
 impl super::World {
@@ -77,7 +66,6 @@ impl super::World {
         self.settlement_scene.borrow_mut().take();
     }
 
-    /// Existing Delve routes load the durable site even with no loop running.
     pub fn load_settlement(&mut self, player: &str) {
         if let Some(store) = &mut self.settlement {
             if let Err(error) = store.refresh() {
@@ -122,9 +110,6 @@ impl super::World {
             }
         }
         if let Some(store) = &mut self.settlement {
-            // A no-op sync is not evidence that a failed refresh recovered.
-            // Revalidate disk state before clearing its error or admitting a
-            // cached Floor, including when there is no active loop to sync.
             if self.settlement_error.is_some() {
                 if let Err(error) = store.refresh() {
                     self.settlement_error = Some(error);
@@ -180,7 +165,6 @@ impl super::World {
     }
 
     pub fn crawl_frame(&self, clock: &Clock, size: (u32, u32)) -> image::RgbaImage {
-        // Only an actual record guardian retains the separate fight ceremony.
         if clock.fight.is_some() {
             return frame(clock, size);
         }
@@ -198,8 +182,6 @@ impl super::World {
         scene.events_frame(clock.elapsed, clock.danger, clock.found, size)
     }
 
-    /// The crawl's clock now: the loop's state, how long into this turn of
-    /// it (on the expedition's own walk clock), and what the tools are doing.
     pub fn crawl_clock(&self, motion: crate::telemetry::MotionMode) -> Clock {
         use super::world3d::expedition::FRAME_TICKS;
         let quest = self.quest();
@@ -221,7 +203,6 @@ impl super::World {
                 if motion == crate::telemetry::MotionMode::Full {
                     t / FRAME_TICKS as u32 * FRAME_TICKS as u32
                 } else {
-                    // Still: mid-fight.
                     40 * 60
                 }
             }),
@@ -234,13 +215,10 @@ impl super::World {
         }
     }
 
-    /// Whether a promoted record's guardian is being fought now.
     pub fn record_fight_on(&self) -> bool {
         enabled() && self.quest().record_fight(self.tick).is_some()
     }
 
-    /// Whether the loop's pictures are the crawl now: a loop is out in a
-    /// region (or a guardian is being fought), and no room is open.
     pub fn loop_crawl_on(&self) -> bool {
         enabled()
             && !self.ambient_interior_visible()
@@ -250,7 +228,6 @@ impl super::World {
 }
 
 impl super::World {
-    /// What the crawl's party is doing now, in two lines.
     pub fn crawl_log(
         &self,
         motion: crate::telemetry::MotionMode,
@@ -292,8 +269,6 @@ impl super::World {
     }
 }
 
-/// Where a region of the realm's loop lies in the Delve: its pack and how
-/// deep.
 fn delve_of(region: Region) -> (Pack, u32) {
     match region {
         Region::DarkForest => (Pack::Fungal, 5),
@@ -304,19 +279,15 @@ fn delve_of(region: Region) -> (Pack, u32) {
     }
 }
 
-/// One floor's plan: the dungeon, the route, and where the party stands in
-/// each hall of it and which way it looks.
 pub struct Plan {
     pub dungeon: Dungeon,
     pub route: Vec<usize>,
     pub spots: Vec<(i32, i32)>,
     pub looks: Vec<f32>,
-    /// The way into each hall from the one before (none into the first).
     pub walks: Vec<Option<Rc<party::Walk>>>,
     pub depth: u32,
 }
 
-/// The plan for floor `index` of a loop in `region`, kept while it's in use.
 pub fn plan(region: Region, kind: LoopKind, index: usize) -> Rc<Plan> {
     thread_local! {
         static LAST: RefCell<Option<((Region, LoopKind, usize), Rc<Plan>)>> = const { RefCell::new(None) };
@@ -355,18 +326,13 @@ pub fn plan(region: Region, kind: LoopKind, index: usize) -> Rc<Plan> {
     })
 }
 
-/// Where the party is in a turn of the loop.
 pub struct Pose {
     pub eye: Eye,
-    /// Walking (and how far through its step), or arrived (and for how
-    /// long).
     pub walking: Option<f32>,
     pub arrived: u32,
-    /// The hall it's in or bound for, by route position.
     pub station: usize,
 }
 
-/// Floor and station for an iteration.
 fn place(iteration: usize) -> (usize, usize) {
     (iteration / party::STATIONS, iteration % party::STATIONS)
 }
@@ -384,7 +350,6 @@ pub fn pose(plan: &Plan, clock: &Clock) -> Pose {
         z: 0.5 + bob,
         pitch: 0.0,
     };
-    // The way here from the last hall (none at a floor's first hall).
     let walk = plan.walks[k].clone();
     let t = clock.elapsed;
     if let Some(walk) = &walk
@@ -400,7 +365,6 @@ pub fn pose(plan: &Plan, clock: &Clock) -> Pose {
     }
     let ticks = walk.as_ref().map_or(0, |w| w.ticks());
     let since = t.saturating_sub(ticks);
-    // Arrived: turn to look into the hall.
     let from = walk.as_ref().map_or(look, |w| w.last_heading(look));
     let k_turn = (since as f32 / (party::TURN * 2) as f32).min(1.0);
     let ease = k_turn * k_turn * (3.0 - 2.0 * k_turn);
@@ -413,10 +377,8 @@ pub fn pose(plan: &Plan, clock: &Clock) -> Pose {
         }
     };
     let mut eye = at(party::centre(plan.spots[k]), from + by * ease, 0.0);
-    // What the work asks of the eye once it's there.
     match clock.work {
         Work::Dispatch => {
-            // Scouting: a slow look from side to side into the dark.
             let s = (since as f32 / 90.0).sin();
             eye.heading += s * 0.75 * ease;
         }
@@ -424,7 +386,6 @@ pub fn pose(plan: &Plan, clock: &Clock) -> Pose {
         Work::Study => eye.pitch = -0.06,
         _ => {}
     }
-    // Breath.
     eye.z += ((t as f32) / 52.0).sin() * 0.008;
     Pose {
         eye,
@@ -434,9 +395,6 @@ pub fn pose(plan: &Plan, clock: &Clock) -> Pose {
     }
 }
 
-/// The Delve's folk the party may meet in each region's halls.
-/// The Delve's folk the party may meet in each region's halls, a different
-/// one each turn of the loop.
 fn folk(region: Region, iteration: usize) -> &'static str {
     let who: &[&str] = match region {
         Region::TheMines | Region::CastleTown => &["tobbin", "beaumains", "pip"],
@@ -448,12 +406,9 @@ fn folk(region: Region, iteration: usize) -> &'static str {
     who[iteration % who.len()]
 }
 
-/// How long one monster lasts in a fight, and the swing's beat.
 const FIGHT: u32 = 40 * 6;
 const SWING: u32 = 30;
 
-/// What the fight is up to: who's fighting, how far into it, whether a blow
-/// just landed, and whether it has fallen.
 fn fight(plan: &Plan, pose: &Pose) -> (Foe, u32, bool) {
     let hall = &plan.dungeon.halls[plan.route[pose.station]];
     let n = pose.arrived / FIGHT;
@@ -476,14 +431,12 @@ enum Foe {
     Guardian,
 }
 
-/// A floor's plainest monster, for a hall with nobody in it.
 fn plain(pack: Pack, depth: u32) -> EnemyKind {
     pack.roster_at(depth)
         .first()
         .map_or(EnemyKind::Skeleton, |k| k.0)
 }
 
-/// The guardian a floor keeps: the first of its pack's.
 fn guardian_art(pack: Pack) -> Option<Img> {
     static BOSSES: std::sync::OnceLock<Vec<angel_delve::rules::bosses::Boss>> =
         std::sync::OnceLock::new();
@@ -496,9 +449,6 @@ fn guardian_art(pack: Pack) -> Option<Img> {
     ))
 }
 
-/// The chorus's lines for one speaker, read once.
-/// What a character says to a party that walks up: their greetings (lines
-/// for `npc:<who>` or any `npc` cue), or anything of theirs if they have none.
 fn lines_of(who: &str) -> Vec<String> {
     static SCRIPT: std::sync::OnceLock<Vec<crate::together_chorus::Line>> =
         std::sync::OnceLock::new();
@@ -518,7 +468,6 @@ fn lines_of(who: &str) -> Vec<String> {
     }
 }
 
-/// A frame of the crawl, `w` by `h`.
 pub fn frame(clock: &Clock, (w, h): (u32, u32)) -> image::RgbaImage {
     let (index, _) = place(clock.iteration);
     let plan = plan(clock.region, clock.kind, index);
@@ -538,7 +487,6 @@ pub fn frame(clock: &Clock, (w, h): (u32, u32)) -> image::RgbaImage {
         ceiling: &faces.ceiling,
     };
     let t = clock.elapsed;
-    // A stalled loop: the torch gutters, and the dark comes closer.
     let unsteady = 1.0 + f32::from(clock.danger) * 1.5;
     let mut torch = Torch {
         reach: 5.5 - 0.9 * f32::from(clock.danger.min(3)),
@@ -548,7 +496,6 @@ pub fn frame(clock: &Clock, (w, h): (u32, u32)) -> image::RgbaImage {
         glow: None,
         sconces: sconces_near(&plan, (pose.eye.x, pose.eye.y)),
     };
-    // Pictures for this frame: kept alive while the things borrow them.
     let mut art: Vec<Tex> = Vec::new();
     let place_thing = |art: &mut Vec<Tex>, img: Img| {
         art.push(Tex::from_img(&img));
@@ -556,7 +503,6 @@ pub fn frame(clock: &Clock, (w, h): (u32, u32)) -> image::RgbaImage {
     };
     let mut specs: Vec<(f32, f32, usize, f32, f32, bool, bool)> = Vec::new();
     let tick = t / 4;
-    // The floor's props near the party.
     for &(x, y, prop) in &plan.dungeon.props {
         if (x - pose.eye.x).hypot(y - pose.eye.y) > 10.0 {
             continue;
@@ -581,7 +527,6 @@ pub fn frame(clock: &Clock, (w, h): (u32, u32)) -> image::RgbaImage {
         let i = place_thing(&mut art, img);
         specs.push((x, y, i, tall, 0.0, lit, false));
     }
-    // A treasure hall's chest, by the wall to one side.
     if pose.walking.is_none()
         && plan.dungeon.halls[plan.route[pose.station]].kind == RoomKind::Treasure
     {
@@ -596,7 +541,6 @@ pub fn frame(clock: &Clock, (w, h): (u32, u32)) -> image::RgbaImage {
         let i = art.len() - 1;
         specs.push((x, y, i, 0.42, 0.0, false, false));
     }
-    // What stands before the party, by the work.
     let ahead = |dist: f32| {
         let at = plan.spots[pose.station];
         let room = party::open_ahead(&plan.dungeon, at, plan.looks[pose.station]) as f32;
@@ -606,7 +550,6 @@ pub fn frame(clock: &Clock, (w, h): (u32, u32)) -> image::RgbaImage {
         (cx + look.cos() * d, cy + look.sin() * d)
     };
     if let Some(found) = clock.found.filter(|_| pose.walking.is_none()) {
-        // A measurement came in: a chest, prised open, gold in its light.
         let (x, y) = ahead(1.7);
         let sprites = textures::sprites();
         art.push(if found > 40 {
@@ -638,7 +581,6 @@ pub fn frame(clock: &Clock, (w, h): (u32, u32)) -> image::RgbaImage {
         match clock.work {
             Work::Forge => {
                 let (foe, into, struck) = fight(&plan, &pose);
-                // In from the dark, then toe to toe; at the end it falls.
                 let come = (into as f32 / 40.0).min(1.0);
                 let (x, y) = ahead(4.2 - 1.9 * come);
                 let falling = into > FIGHT - 30;
@@ -664,7 +606,6 @@ pub fn frame(clock: &Clock, (w, h): (u32, u32)) -> image::RgbaImage {
                 art.push(textures::sprites().lectern.clone());
                 let i = art.len() - 1;
                 specs.push((x, y, i, 0.62, 0.0, false, false));
-                // A candle on the lectern.
                 torch.glow = Some((x, y, 1.4));
             }
             Work::Council => {
@@ -679,11 +620,9 @@ pub fn frame(clock: &Clock, (w, h): (u32, u32)) -> image::RgbaImage {
                 art.push(textures::sprites().campfire[(tick / 2 % 2) as usize].clone());
                 let i = art.len() - 1;
                 specs.push((x, y, i, 0.5, 0.0, true, false));
-                // The fire lights the hall round it.
                 torch.glow = Some((x, y, 3.2));
             }
             Work::Dispatch => {
-                // Something in the dark, watching back.
                 let hall = &plan.dungeon.halls[plan.route[pose.station]];
                 if let Some(&kind) = hall.roster.first() {
                     let (x, y) = ahead(5.5);
@@ -707,7 +646,6 @@ pub fn frame(clock: &Clock, (w, h): (u32, u32)) -> image::RgbaImage {
         .collect();
     let mut out = render::render(&plan.dungeon.grid, &pose.eye, &things, &kit, torch, (w, h));
     hand(&mut out, clock, &pose);
-    // Down a stair to a new floor: the dark lifts as the eyes adjust.
     if let Some(k) = descending(clock) {
         for p in out.pixels_mut() {
             for c in 0..3 {
@@ -718,24 +656,18 @@ pub fn frame(clock: &Clock, (w, h): (u32, u32)) -> image::RgbaImage {
     out
 }
 
-/// Ticks for the eyes to adjust after a stair.
 const ADJUST: u32 = 60;
 
-/// How far through adjusting to the dark of a new floor the party is, if
-/// it has just come down a stair.
 fn descending(clock: &Clock) -> Option<f32> {
     let (index, k) = place(clock.iteration);
     (index > 0 && k == 0 && clock.elapsed < ADJUST).then(|| clock.elapsed as f32 / ADJUST as f32)
 }
 
-/// What hangs on the walls this moment: a sconce (in its flicker), a
-/// banner; in the order the dungeon names them.
 fn wall_decals(t: u32) -> [&'static Tex; 2] {
     let art = textures::sprites();
     [&art.sconce[(t / 6 % 2) as usize], &art.banner]
 }
 
-/// The three wall sconces nearest `(x, y)`, within reach of being seen.
 fn sconces_near(plan: &Plan, (x, y): (f32, f32)) -> [Option<(f32, f32)>; 3] {
     dungeon_sconces_near(&plan.dungeon, (x, y))
 }
@@ -755,7 +687,6 @@ fn dungeon_sconces_near(dungeon: &Dungeon, (x, y): (f32, f32)) -> [Option<(f32, 
     out
 }
 
-/// A picture washed white for the instant a blow lands.
 fn flash(img: &Img) -> Img {
     let mut out = img.clone();
     for y in 0..img.h {
@@ -774,7 +705,6 @@ fn hand(out: &mut image::RgbaImage, clock: &Clock, pose: &Pose) {
         dy += (step * std::f32::consts::TAU).sin().abs() * 2.0;
     }
     if pose.walking.is_none() && clock.work == Work::Forge && pose.arrived % FIGHT > 40 {
-        // Drawn back as the beat comes round, across as it lands.
         frame = match pose.arrived % SWING {
             p if p >= SWING - 10 => 1,
             p if p < 8 => 2,
@@ -784,15 +714,10 @@ fn hand(out: &mut image::RgbaImage, clock: &Clock, pose: &Pose) {
     hands(out, (frame, (dx, dy)), clock.elapsed);
 }
 
-/// The knight's hands at the bottom of the view, as the old games drew
-/// them: the torch on the left, flickering; the sword on the right, in one
-/// of its three frames (at rest, drawn back, mid-swing) and moved by
-/// `(dx, dy)` of its own pixels.
 fn hands(out: &mut image::RgbaImage, (frame, (dx, dy)): (usize, (f32, f32)), t: u32) {
     let art = textures::sprites();
     let h = out.height() as f32;
     let w = out.width() as f32;
-    // Drawn for a view 160 tall; the cuffs run off the bottom edge.
     let s = h / 160.0;
     let torch = &art.torch[(t / 6 % 2) as usize];
     stamp(out, torch, (0.0, h - torch.h as f32 * s + 2.0 * s), s);
@@ -808,7 +733,6 @@ fn hands(out: &mut image::RgbaImage, (frame, (dx, dy)): (usize, (f32, f32)), t: 
     );
 }
 
-/// A picture laid over the view at `(x, y)`, `s` view pixels to its pixel.
 fn stamp(out: &mut image::RgbaImage, tex: &Tex, (x, y): (f32, f32), s: f32) {
     let (w, h) = (out.width() as i32, out.height() as i32);
     let (x0, y0) = (x.floor() as i32, y.floor() as i32);
@@ -830,8 +754,6 @@ fn stamp(out: &mut image::RgbaImage, tex: &Tex, (x, y): (f32, f32), s: f32) {
     }
 }
 
-/// Who walks, in a sentence: "The party", or the one knight by name when
-/// the formation is a single knight.
 fn company(names: &[&str]) -> String {
     if names.len() == 1 {
         names[0].to_string()
@@ -840,8 +762,6 @@ fn company(names: &[&str]) -> String {
     }
 }
 
-/// The party's names, as many as walk: each seat's knight from the house
-/// serving it, or the Keep's own household when no house serves.
 fn party_names(n: u8) -> Vec<&'static str> {
     let serving = angel_delve::world::houses::serving();
     knights::COMPANY
@@ -863,7 +783,6 @@ fn monster_name(kind: EnemyKind) -> String {
         .to_lowercase()
 }
 
-/// What's happening, in two lines for under the picture.
 pub fn log(clock: &Clock, score: Option<&str>) -> [String; 2] {
     let (index, _) = place(clock.iteration);
     let plan = plan(clock.region, clock.kind, index);
@@ -895,7 +814,6 @@ pub fn log(clock: &Clock, score: Option<&str>) -> [String; 2] {
     if pose.walking.is_none() && hall.kind == RoomKind::Treasure && clock.work != Work::Forge {
         said[1] = "An iron-bound chest waits by the wall.".to_string();
     }
-    // A stalled loop, said plainly where nobody else is talking.
     if clock.danger >= 2
         && (pose.walking.is_some() || matches!(clock.work, Work::Rest | Work::Dispatch))
     {

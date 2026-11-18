@@ -19,10 +19,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::f32::consts::TAU;
 
-/// The most motes the recipes paint in a pass, all knights together.
 const BUDGET: u32 = 900;
 
-/// A palette's inks.
 pub(super) fn ramp(p: Palette) -> Ramp {
     match p {
         Palette::Fire => ramps::FIRE,
@@ -47,7 +45,6 @@ pub(super) fn ramp(p: Palette) -> Ramp {
     }
 }
 
-/// The mote a form is drawn as; none for the shapes.
 fn shape(f: Form) -> Option<Shape> {
     Some(match f {
         Form::Sparks => Shape::Spark,
@@ -79,18 +76,14 @@ fn eased(e: Ease, t: f32) -> f32 {
     }
 }
 
-/// Forms whose motes have weight.
 fn heavy(f: Form) -> bool {
     matches!(f, Form::Shards | Form::Droplets | Form::Coins | Form::Embers | Form::Petals)
 }
 
 thread_local! {
-    /// Recipes by card id, made once a thread (a card's recipe is a pure
-    /// function of the card), and let go when the book has moved on.
     static RECIPES: RefCell<HashMap<String, (u64, Recipe)>> = RefCell::new(HashMap::new());
 }
 
-/// A card's recipe, from the cache.
 pub(super) fn recipe(card: &Card) -> Recipe {
     let key = {
         use std::hash::{Hash, Hasher};
@@ -114,8 +107,6 @@ pub(super) fn recipe(card: &Card) -> Recipe {
     })
 }
 
-/// The wish a knight's shots wear: the newest wish they hold, else the
-/// wish their weapon is. Its card, recipe and tier.
 pub(super) fn worn_wish<'a>(run: &'a Run, hero: &Hero) -> Option<&'a Card> {
     let wish = |c: &&Card| crate::rules::combos::is_wish(c);
     hero.deck
@@ -126,8 +117,6 @@ pub(super) fn worn_wish<'a>(run: &'a Run, hero: &Hero) -> Option<&'a Card> {
         .or_else(|| hero.arm.as_deref().and_then(|id| run.book.get(id)).filter(wish))
 }
 
-/// Whether a held card has anything to do with the knight's shots: a
-/// wish for armour changes how they stand, not how they shoot.
 fn dresses_shots(card: &Card) -> bool {
     use crate::rules::cards::Effect::*;
     card.looks.dresses_shots()
@@ -141,9 +130,6 @@ fn dresses_shots(card: &Card) -> bool {
         })
 }
 
-/// The wish a knight holds at its highest tier, the card of that tier and
-/// how it stands: 1 (tier IV, a soft ambient) or 2 (tier V, a full aura).
-/// A ladder shorter than five gives its top tier one step more.
 fn ambient_wish<'a>(run: &'a Run, hero: &Hero) -> Option<(&'a Card, u8)> {
     let mut best: Option<(&Card, u32)> = None;
     let held = hero.deck.iter().map(String::as_str).chain(hero.arm.as_deref()).chain(hero.guard_card.as_deref());
@@ -159,11 +145,9 @@ fn ambient_wish<'a>(run: &'a Run, hero: &Hero) -> Option<(&'a Card, u8)> {
 }
 
 thread_local! {
-    /// Each known wish's ladder length (`phrasebook`), read once a thread.
     static LADDERS: RefCell<HashMap<String, usize>> = RefCell::new(HashMap::new());
 }
 
-/// One step more for the top tier of a ladder shorter than five.
 fn top_bonus(card: &str, tier: u32) -> u32 {
     let Some(wish) = crate::rules::dead_wishes::wish_of(card) else { return 0 };
     let len = LADDERS.with(|l| {
@@ -181,15 +165,10 @@ fn top_bonus(card: &str, tier: u32) -> u32 {
     u32::from((3..crate::rules::phrasebook::MAX_TIERS).contains(&len) && tier as usize == len)
 }
 
-/// A seed for a knight's effects: their seat and their wish.
 fn seed_of(id: u32, card: &Card) -> u32 {
     card.id.bytes().fold(id.wrapping_mul(0x9e37_79b9), |h, b| (h ^ u32::from(b)).wrapping_mul(0x0100_0193))
 }
 
-/// Play layer `l` at `at`, `age` ticks after it began, thrown along `dir`,
-/// `scale` times its size. Its life is fitted inside the moment the run
-/// keeps for it (`vfx::kept`): a layer written longer plays faster, and
-/// ends, rather than being cut off in flight when its record goes.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn play(pen: &mut Pen, l: &Layer, at: (f32, f32), dir: (f32, f32), age: f32, seed: u32, tick: u64, scale: f32) {
     let life = f32::from(l.life.max(1)) * scale.clamp(0.6, 1.6);
@@ -258,8 +237,6 @@ pub(super) fn play(pen: &mut Pen, l: &Layer, at: (f32, f32), dir: (f32, f32), ag
                 squash: 0.8,
                 stagger: 0.0,
             };
-            // A layer's ease runs its clock: a back eases out past its
-            // mark and comes home.
             let t = life * eased(l.ease, k).max(0.0);
             let t = if l.ease == Ease::Out { age } else { t };
             spray.each(t, |mut m| {
@@ -270,7 +247,6 @@ pub(super) fn play(pen: &mut Pen, l: &Layer, at: (f32, f32), dir: (f32, f32), ag
     }
 }
 
-/// A mote moved its layer's way about where it was thrown from.
 fn moved(m: &mut Mote, l: &Layer, at: (f32, f32), age: f32) {
     let w = f32::from(l.wobble.max(1));
     let phase = unit(m.i as i32, m.seed as i32, 0x3c) * TAU;
@@ -300,8 +276,6 @@ fn moved(m: &mut Mote, l: &Layer, at: (f32, f32), age: f32) {
     }
 }
 
-/// The recipes' pass: trails, loosings, hits and kills, then the worn
-/// ambients. Over the figures, under nothing.
 pub(super) fn over(cv: &mut super::super::ink::Img, run: &Run) {
     let mut pen = Pen::new(cv, BUDGET);
     trails(&mut pen, run);
@@ -314,7 +288,6 @@ pub(super) fn over(cv: &mut super::super::ink::Img, run: &Run) {
     }
 }
 
-/// Under the figures: the full aura's ring on the floor.
 pub(super) fn under(cv: &mut super::super::ink::Img, run: &Run) {
     let mut pen = Pen::new(cv, BUDGET / 3);
     for (&id, hero) in run.players.iter().filter(|(_, h)| h.hp > 0 && h.privy == 0 && !h.absent) {
@@ -324,7 +297,6 @@ pub(super) fn under(cv: &mut super::super::ink::Img, run: &Run) {
     }
 }
 
-/// The knight's recipe and seed, if they wear a wish.
 fn worn(run: &Run, id: u32) -> Option<(Recipe, u32, u32)> {
     let hero = run.players.get(&id)?;
     let card = worn_wish(run, hero)?;
@@ -332,9 +304,6 @@ fn worn(run: &Run, id: u32) -> Option<(Recipe, u32, u32)> {
     Some((recipe(card), seed_of(id, card), tier))
 }
 
-/// Behind each friendly shot whose knight wears a wish: its trail layer,
-/// tied to the path so it never swims, and a small glow at its head in
-/// the wish's colour.
 fn trails(pen: &mut Pen, run: &Run) {
     let mut known: [Option<Option<(Recipe, u32, u32)>>; 9] = Default::default();
     for shot in run.projectiles.iter().filter(|p| !p.hostile) {
@@ -362,12 +331,9 @@ fn trail(pen: &mut Pen, run: &Run, shot: &crate::rules::Projectile, l: &Layer, s
     let r = ramp(l.palette);
     pen.glow(head, 4.0 + tier.min(5) as f32 * 0.4, 1.0, r.cooler(1), 0.6);
     let sh = shape(l.form).unwrap_or(Shape::Dot);
-    // A thread of the wish's colour straight back off the shot, so the
-    // motes read as one trail.
     let reach = (f32::from(l.life) * per_tick).min(10.0);
     let pts = [head, (head.0 - ux * reach * 0.5, head.1 - uy * reach * 0.5), (head.0 - ux * reach, head.1 - uy * reach)];
     pen.ribbon(&pts, r.cooler(1), 1.0);
-    // Where along its line the shot is: a phase that rides the path.
     let along = shot.x * ux * UNIT + shot.y * uy * UNIT;
     let wide = matches!(sh, Shape::Note | Shape::Heart | Shape::Bubble | Shape::Coin | Shape::Worm | Shape::Fly);
     let n = (u32::from(l.count) * if wide { 1 } else { 2 }).min(12);
@@ -398,7 +364,6 @@ fn trail(pen: &mut Pen, run: &Run, shot: &crate::rules::Projectile, l: &Layer, s
             _ => 0.0,
         };
         let at = (head.0 - ux * back + nx * side, head.1 - uy * back + ny * side + lift);
-        // Thinning toward the tail.
         if j > 2 && super::super::ink::bayer(at.0 as i32, at.1 as i32) < k * 0.6 {
             continue;
         }
@@ -407,7 +372,6 @@ fn trail(pen: &mut Pen, run: &Run, shot: &crate::rules::Projectile, l: &Layer, s
     }
 }
 
-/// Loosings and hits, from the shot feedback the run carries.
 fn events(pen: &mut Pen, run: &Run) {
     use ranged_events::Mark;
     let mut known: [Option<Option<(Recipe, u32, u32)>>; 9] = Default::default();
@@ -435,16 +399,10 @@ fn events(pen: &mut Pen, run: &Run) {
     });
 }
 
-/// A point's seed: where it happened.
 fn hash_point(x: f32, y: f32) -> u32 {
     super::super::ink::hash((x * 8.0) as i32, (y * 8.0) as i32, 0x77)
 }
 
-/// A kill: a death where a knight's shot struck flesh a moment before,
-/// thrown in that knight's kill layers, and marked in the wish's colours
-/// whatever its recipe says: a flash where it fell, a star of rays, a
-/// shock with a dark wake running off over the floor, and at a high tier
-/// a spark of it going up as the body goes.
 fn kills(pen: &mut Pen, run: &Run) {
     use crate::rules::feel::DEATH_TICKS;
     use ranged_events::Mark;
@@ -477,23 +435,15 @@ fn kills(pen: &mut Pen, run: &Run) {
     }
 }
 
-/// The knight's feet and middle, in native pixels.
 pub(super) fn body(run: &Run, hero: &Hero) -> ((f32, f32), (f32, f32)) {
     let lift = if run.side_on() { crate::rules::ledge::FOOT } else { 0.0 };
     let feet = (hero.x * UNIT, (hero.y + lift) * UNIT);
     (feet, (feet.0, feet.1 - 9.0))
 }
 
-/// What a wish worn at its highest tiers gives off. Level 1 (tier IV): a
-/// soft glow about the knight, a few slow motes of its kind drifting off,
-/// now and then a rune that flickers and goes. Level 2 (tier V): all that,
-/// a slow ring on the floor under them, its motes orbiting, a shimmer
-/// running over the figure and sparkles at every footfall. `floor` draws
-/// the ring alone (under the figures); otherwise the rest (over them).
 #[allow(clippy::too_many_arguments)]
 fn ambient(pen: &mut Pen, run: &Run, id: u32, hero: &Hero, card: &Card, level: u8, floor: bool) {
     let recipe = recipe(card);
-    // A hand-written recipe with no aura of its own takes its words' one.
     let Some(l) = recipe.first(When::Aura).copied().or_else(|| vfx::generated(card).first(When::Aura).copied()) else { return };
     let r = ramp(l.palette);
     let seed = seed_of(id, card);
@@ -509,11 +459,9 @@ fn ambient(pen: &mut Pen, run: &Run, id: u32, hero: &Hero, card: &Card, level: u
         }
         return;
     }
-    // A soft glow on what they wear, behind them.
     let breath = 0.85 + 0.15 * (t * 0.09 + seed as f32).sin();
     pen.glow(mid, if level >= 2 { 12.0 } else { 9.0 }, 1.1, r.cooler(1), breath * if level >= 2 { 0.7 } else { 0.5 });
     let sh = shape(l.form).unwrap_or(Shape::Dot);
-    // Motes drifting off: each on a loop of its own, let go in turn.
     let n = if level >= 2 { u32::from(l.count).clamp(5, 8) } else { 4 };
     let n = if pen.calm { n.div_ceil(2) } else { n };
     let life = f32::from(l.life).max(24.0);
@@ -528,7 +476,6 @@ fn ambient(pen: &mut Pen, run: &Run, id: u32, hero: &Hero, card: &Card, level: u
             Motion::Rise => (jitter(2) * 12.0 + (age * 0.2 + u(3) * TAU).sin() * 2.0, -age * 0.55, 0.0, -0.5),
             Motion::Fall => (jitter(2) * 12.0, -6.0 + age * 0.4, 0.0, 0.4),
             Motion::Curl | Motion::Wobble => {
-                // A fly's loop: round and round the knight, never tidy.
                 let a = u(4) * TAU + age * 0.16 * if i % 2 == 0 { 1.0 } else { -1.3 };
                 let rr = 8.0 + 3.0 * (age * 0.21 + u(5) * 6.0).sin();
                 (a.cos() * rr, a.sin() * rr * 0.6 - 2.0, -a.sin(), a.cos())
@@ -540,7 +487,6 @@ fn ambient(pen: &mut Pen, run: &Run, id: u32, hero: &Hero, card: &Card, level: u
         };
         let orbit = level >= 2 && !matches!(l.motion, Motion::Curl | Motion::Wobble);
         let at = if orbit {
-            // Tier V: they go round, a ring of them, and rise a little.
             let a = i as f32 / n as f32 * TAU + t * 0.06 * if l.spin < 0 { -1.0 } else { 1.0 };
             (mid.0 + a.cos() * 11.0, mid.1 + a.sin() * 4.5 + 2.0 - ease::bump(k) * 3.0)
         } else {
@@ -550,7 +496,6 @@ fn ambient(pen: &mut Pen, run: &Run, id: u32, hero: &Hero, card: &Card, level: u
         let size = if matches!(sh, Shape::Dot | Shape::Ember | Shape::Droplet | Shape::Petal) { 2 } else { 1 };
         pfx::mote(pen, &m, sh, r, size, tick);
     }
-    // A rune flickers near them now and then.
     let beat = (tick / 37) as i32;
     if !pen.calm && unit(beat, seed as i32, 0x9a) < if level >= 2 { 0.8 } else { 0.45 } && tick % 37 < 6 {
         let a = unit(beat, seed as i32, 0x9b) * TAU;
@@ -558,7 +503,6 @@ fn ambient(pen: &mut Pen, run: &Run, id: u32, hero: &Hero, card: &Card, level: u
         pen.twinkle(at, 2.0, (tick % 37) as f32 / 6.0, r);
     }
     if level >= 2 && !pen.calm {
-        // A shimmer running over the figure, top to bottom.
         let band = ((t * 0.6) % 26.0) - 4.0;
         for k in 0..9 {
             let h = super::super::ink::hash(k, (tick / 2) as i32, seed);
@@ -567,7 +511,6 @@ fn ambient(pen: &mut Pen, run: &Run, id: u32, hero: &Hero, card: &Card, level: u
                 pen.light(x, y, r.step(1));
             }
         }
-        // Sparkles at each footfall as they go.
         let step = (hero.stride * 0.9) as i32;
         for k in 0..2 {
             let pop = ((hero.stride * 0.9) - step as f32 + k as f32 * 0.5) % 1.0;

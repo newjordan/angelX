@@ -79,7 +79,6 @@ fn session_preview(preview: &str) -> String {
 #[path = "slash_help.rs"]
 mod slash_help;
 
-/// The slash-command help list (Codex commands ported into the cockpit).
 pub fn help_text(topic: Option<&str>) -> String {
     match slash_help::load() {
         Ok(help) => {
@@ -97,8 +96,6 @@ pub fn help_text(topic: Option<&str>) -> String {
     }
 }
 
-/// Run a Git command through the shared bounded, timeout-aware process capture;
-/// stdout on success, the trimmed stderr on failure.
 fn git(args: &[&str]) -> Result<String, String> {
     let mut command = std::process::Command::new("git");
     command
@@ -259,14 +256,10 @@ fn git_diff_snapshot(workspace: &std::path::Path, spec: DiffSpec) -> Result<Stri
     Ok(out)
 }
 
-/// Bounded staged, unstaged, and untracked worktree snapshot for `/review`.
 pub fn git_diff_raw(workspace: &std::path::Path) -> Result<String, String> {
     git_worktree_snapshot(workspace)
 }
 
-/// Worktree snapshot for `/diff`, capped so a huge diff cannot flood the
-/// transcript. Untracked files are listed; the agent can inspect their contents
-/// during `/review`.
 pub fn git_diff_text(workspace: &std::path::Path, arg: Option<&str>) -> String {
     let spec = match parse_diff_spec(arg) {
         Ok(spec) => spec,
@@ -299,7 +292,6 @@ pub fn git_diff_text(workspace: &std::path::Path, arg: Option<&str>) -> String {
     }
 }
 
-/// The `/review` task the harness writes in the operator's place: `⠬⠚⠁`.
 const REVIEW_TASK: &str = "⠬⠚⠁";
 
 pub struct EvidenceTurn {
@@ -325,8 +317,6 @@ fn format_review_evidence(mut snapshot: String) -> String {
     let original_bytes = snapshot.len();
     crate::agent::harness::truncate_to_char_boundary(&mut snapshot, SNAPSHOT_CAP);
     let shown_bytes = snapshot.len();
-    // `⠬⠙` frames the snapshot; the framing and the truncation guidance are
-    // its ledger pages, the byte count is the data.
     let truncation = if shown_bytes < original_bytes {
         format!(
             "\nsnapshot_truncated_bytes={}",
@@ -341,8 +331,6 @@ fn format_review_evidence(mut snapshot: String) -> String {
     )
 }
 
-/// Build the bounded evidence packet for `/review`; the caller keeps its
-/// operator task and this repository snapshot in distinct protocol roles.
 pub fn git_review_request(workspace: &std::path::Path) -> Result<Option<EvidenceTurn>, String> {
     let snapshot = git_diff_raw(workspace)?;
     if snapshot.trim().is_empty() {
@@ -355,8 +343,6 @@ pub fn git_review_request(workspace: &std::path::Path) -> Result<Option<Evidence
     }
 }
 
-/// Create a starter `AGENTS.md` in the active workspace without replacing an
-/// existing file or following a pre-existing symlink.
 pub fn init_agents_md(workspace: &std::path::Path) -> String {
     use std::io::Write;
 

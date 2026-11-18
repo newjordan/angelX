@@ -3,24 +3,6 @@ import ./math.bend as M
 import ./terrain.bend as T
 import ./build.bend as B
 
-# The Moonwell Road, laid out once: four acts of one road at dusk.
-#
-# 1. The Downhill Gate: a run-up, a downhill, a pad, the first snuffer, a
-#    trench with a hay bale at its foot, the first lantern post, a rolling
-#    meadow and a hay loft.
-# 2. The Wheel Arch: the loop, the half-pipe, rolling crests, the corkscrew
-#    coil, a rhythm of small valleys, then the fork: riders at a gallop take the
-#    high rails, a rider who hops over its mouth the valley road, and the two
-#    meet again.
-# 3. The Reed Fen: a valley of reeds and brambles with snuffers drifting over it
-#    in a line to be chained, a bridge of sparks on the far bank, reed hills and
-#    a second, shorter marsh.
-# 4. The Bell Gate: a last downhill, a second loop, the warden, the bell.
-#
-# Heights are written as offsets from `G`; a larger number is lower. A foe's
-# kind is 0 snuffer, 1 floater, 2 bramble, 3 warden; a spring's 0 up, 1 diagonal;
-# a crate's 0 shield, 1 sparks, 2 spur.
-
 type Fs is Data:
   Fs{kind: U32, x: U32, y: U32, path: U32, range: U32, min_seats: U32, phase: U32}
 
@@ -49,14 +31,9 @@ type Road is Data:
        width: U32, dead_y: U32, a0: U32, a1: U32, a2: U32, a3: U32,
        main: U32, start_path: U32, start_s: U32, bell_x: U32, bell_y: U32, par: U32}
 
-# ---- the numbers -------------------------------------------------------------
-
-# The road's base height, pixels.
 def g() -> U32:
   600
 
-# How far behind a lit post the Dimming is held, pixels, for one knight; and for
-# the last lantern, the one before the warden's gate.
 def hold() -> U32:
   520
 
@@ -78,9 +55,6 @@ def a4() -> U32:
 def end() -> U32:
   20000
 
-# ---- the main road -----------------------------------------------------------
-
-# The road being laid left to right, remembering its height.
 type Rd is Data:
   Rd{b: B.B, y: U32}
 
@@ -94,16 +68,12 @@ def rd_y(+r: Rd) -> U32:
     case Rd{b, y}:
       y
 
-# Level ground to column `x`.
 def flat(+r: Rd, +x: U32) -> Rd:
   Rd{B.line(rd_b(r), x, (g() + rd_y(r) : U32)), rd_y(r)}
 
-# An S-curve to column `x`, `dy` pixels lower (negative: higher).
 def slope(+r: Rd, +x: U32, +dy: U32) -> Rd:
   Rd{B.ease(rd_b(r), x, (g() + rd_y(r) + dy : U32)), (rd_y(r) + dy : U32)}
 
-# A stretch of the road, as the calls that lay it: 0 level ground to `x`, 1 an
-# S-curve to `x` that is `dy` lower.
 type Op is Data:
   Op{kind: U32, x: U32, dy: U32}
 
@@ -152,27 +122,23 @@ def marsh() -> U32:
 def loop2() -> U32:
   (a4() + 1060 : U32)
 
-# Act 1 and the long downhill into the Wheel Arch.
 def seg1() -> List<&2, Op>:
   [f((a1() + 380 : U32)), s(760, 60), f(1060), s(1260, M.neg(35)), s(1500, 35), f(1700),
    s(1840, 70), f(1870), s(2010, M.neg(70)), f(2560),
    s(2760, M.neg(30)), s(2960, 30), s(3160, M.neg(30)), s(3360, 30), f(3560),
    s(a2(), 110), f((a2() + 380 : U32))]
 
-# The loop's run, the half-pipe and four rolling crests, to the coil.
 def seg2() -> List<&2, Op>:
   [f((a2() + 900 : U32)), s((a2() + 1040 : U32), M.neg(30)),
    f(pipe()), s((pipe() + 80 : U32), 66), f((pipe() + 240 : U32)), s((pipe() + 320 : U32), M.neg(66)), f((pipe() + 680 : U32)),
    s((crests() + 220 : U32), M.neg(50)), s((crests() + 440 : U32), 50), s((crests() + 660 : U32), M.neg(50)), s((crests() + 880 : U32), 50), f((crests() + 1020 : U32))]
 
-# The coil, a rhythm of three small valleys, and the fork.
 def seg3() -> List<&2, Op>:
   [f((coil_x() + 700 : U32)),
    s((rhythm() + 120 : U32), 40), s((rhythm() + 240 : U32), M.neg(40)), f((rhythm() + 300 : U32)),
    s((rhythm() + 420 : U32), 40), s((rhythm() + 540 : U32), M.neg(40)), f((rhythm() + 600 : U32)),
    s((rhythm() + 720 : U32), 40), s((rhythm() + 840 : U32), M.neg(40)), f((rhythm() + 900 : U32))]
 
-# The valley road under the fork, the Reed Fen, the marsh and the last downhill.
 def seg4() -> List<&2, Op>:
   [f(fork_x()), s((fork_x() + 300 : U32), 70), f((fork_x() + 600 : U32)), s((fork_x() + 1040 : U32), M.neg(70)), f((a3() - 700 : U32)),
    f(a3()), s((a3() + 240 : U32), 50), s((a3() + 420 : U32), 90), f((a3() + 1300 : U32)), s((a3() + 1580 : U32), M.neg(90)), s((a3() + 1720 : U32), M.neg(50)), f((a3() + 2300 : U32)),
@@ -180,11 +146,8 @@ def seg4() -> List<&2, Op>:
    s((marsh() + 160 : U32), 70), f((marsh() + 480 : U32)), s((marsh() + 700 : U32), M.neg(70)), f(a4()),
    s((a4() + 600 : U32), 60), f((a4() + 1060 : U32))]
 
-# The bell gate's straight, its last rise, and the world's far edge.
 def seg5() -> List<&2, Op>:
   [f((a4() + 1500 : U32)), s((a4() + 1800 : U32), M.neg(40)), f((end() - 40 : U32))]
-
-# ---- things hung on a path ---------------------------------------------------
 
 def with_prev(+a: T.Path, +path: U32, +s: U32) -> T.Path:
   match a:
@@ -203,21 +166,14 @@ def snoc(+xs: List<&2, T.Portal>, +q: T.Portal) -> List<&2, T.Portal>:
     case Con{h, t}:
       Con{h, snoc(t, q)}
 
-# One more portal, after the ones the path has.
 def with_portal(+a: T.Path, +q: T.Portal) -> T.Path:
   match a:
     case T.Path{kind, n, depth, len, pts, no, np, ns, po, pp, ps, portals}:
       T.Path{kind, n, depth, len, pts, no, np, ns, po, pp, ps, snoc(portals, q)}
 
-# The path of a loop of radius `r` standing on the road at column `x`, whose
-# ground is at height `y`: the path of its curl, entered at the bottom and left
-# again `drift` pixels further on.
 def ring(+x: U32, +y: U32, +r: U32, +drift: U32) -> T.Path:
   B.build(B.arc(B.new(2, x, y), x, (y - r : U32), r, 64, M.neg(192), drift))
 
-# The ring hung on the road: entered from the road at the column its bottom
-# starts on and left back onto the road at the column it ends on. `at` is the
-# ring's index.
 def hang_ring(+road: T.Path, +at: U32, +r: T.Path) -> T.Path:
   +enter = U32.div(T.pt_x(T.pt_at(r, 0)), 256)
   +leave = U32.div(T.pt_x(T.pt_at(r, (T.pa_n(r) - 1 : U32))), 256)
@@ -230,17 +186,12 @@ def link_ring(+road: T.Path, +r: T.Path) -> T.Path:
   +leave = U32.div(T.pt_x(T.pt_at(r, (T.pa_n(r) - 1 : U32))), 256)
   with_next(with_prev(r, 0, T.s_at_x(road, enter)), 0, T.s_at_x(road, leave))
 
-# The height of the main road at column `x`, in pixels.
 def road_y(+m: T.Path, +x: U32) -> U32:
   M.div(T.y_at_x(m, x), 256)
 
 def spot(+m: T.Path, +kind: U32, +x: U32, +range: U32, +min_seats: U32, +phase: U32) -> Fs:
   Fs{kind, x, road_y(m, x), 0, range, min_seats, phase}
 
-# ---- the sparks --------------------------------------------------------------
-
-# Where a line of sparks rides: 0 the road, 1 a fixed height `v`, 2 the arc of
-# the lip's bale (about column `v`), 3 the bridge's span (from `v` to `w`).
 def spark_y(+m: T.Path, +kind: U32, +v: U32, +w: U32, +x: U32) -> U32:
   +road = road_y(m, x)
   +dx = (x - v : U32)
@@ -255,11 +206,9 @@ def spark_go(+fuel: Nat, +x: U32, +step: U32, +lift: U32, +m: T.Path, +kind: U32
     case 1n+k:
       spark_go(k, (x + step : U32), step, lift, m, kind, v, w, Con{Sp{x, (spark_y(m, kind, v, w, x) - lift : U32)}, acc})
 
-# A line of sparks from `x0` to `x1` every `step` pixels, `lift` above where it rides.
 def line(+acc: List<&2, Sp>, +m: T.Path, +x0: U32, +x1: U32, +step: U32, +lift: U32, +kind: U32, +v: U32, +w: U32) -> List<&2, Sp>:
   spark_go(U32.to_nat(M.pk((U32.div((x1 - x0 : U32), step) + 1 : U32), 0, M.le(x0, x1))), x0, step, lift, m, kind, v, w, acc)
 
-# The spark lines over the chains of floaters: the fen's, and the marsh's.
 def fen_chain(+fuel: Nat, +k: U32, +m: T.Path, +acc: List<&2, Sp>) -> List<&2, Sp>:
   match fuel:
     case 0n:
@@ -284,7 +233,6 @@ def sp_y(+s: Sp) -> U32:
     case Sp{x, y}:
       y
 
-# Sorted by column then height; a spark in the same place twice is one.
 def sp_before(+a: Sp, +b: Sp) -> Bool:
   Bool.or(M.lt(sp_x(a), sp_x(b)), Bool.and(M.eq(sp_x(a), sp_x(b)), M.le(sp_y(a), sp_y(b))))
 
@@ -317,8 +265,6 @@ def sp_dedup(+xs: List<&2, Sp>) -> List<&2, Sp>:
       +rest = sp_dedup(t)
       Bool.pick(List<&2, Sp>, sp_same(h, t), rest, Con{h, rest})
 
-# ---- the foes ----------------------------------------------------------------
-
 def fs_x(+f: Fs) -> U32:
   match f:
     case Fs{kind, x, y, path, range, min_seats, phase}:
@@ -329,11 +275,9 @@ def fs_min(+f: Fs) -> U32:
     case Fs{kind, x, y, path, range, min_seats, phase}:
       min_seats
 
-# Whether `a` stands after `b` by column, then by the seats it takes to wake it.
 def fs_after(+a: Fs, +b: Fs) -> Bool:
   Bool.or((fs_x(a) > fs_x(b) : U32), Bool.and(U32.is_eq(fs_x(a), fs_x(b)), (fs_min(a) > fs_min(b) : U32)))
 
-# A stable insertion: `f` goes before the first foe that stands after it.
 def fs_insert(+xs: List<&2, Fs>, +f: Fs) -> List<&2, Fs>:
   match xs:
     case Nil{}:
@@ -355,7 +299,6 @@ def fs_app(+xs: List<&2, Fs>, +ys: List<&2, Fs>) -> List<&2, Fs>:
     case Con{h, t}:
       Con{h, fs_app(t, ys)}
 
-# Nine floaters in a line over the fen, bobbing at their own paces.
 def floaters_a(+fuel: Nat, +k: U32, +m: T.Path, +acc: List<&2, Fs>) -> List<&2, Fs>:
   match fuel:
     case 0n:
@@ -364,7 +307,6 @@ def floaters_a(+fuel: Nat, +k: U32, +m: T.Path, +acc: List<&2, Fs>) -> List<&2, 
       floaters_a(n, (k + 1 : U32), m,
         Con{Fs{1, (a3() + 340 + k * 100 : U32), (road_y(m, (a3() + 600 : U32)) - 96 - U32.mod(k, 3) * 8 : U32), 0, 6, 0, (k * 13 : U32)}, acc})
 
-# More floaters for a fuller table: a second, higher line over the fen.
 def floaters_b(+fuel: Nat, +k: U32, +m: T.Path, +acc: List<&2, Fs>) -> List<&2, Fs>:
   match fuel:
     case 0n:
@@ -373,7 +315,6 @@ def floaters_b(+fuel: Nat, +k: U32, +m: T.Path, +acc: List<&2, Fs>) -> List<&2, 
       floaters_b(n, (k + 1 : U32), m,
         Con{Fs{1, (a3() + 490 + k * 220 : U32), (road_y(m, (a3() + 600 : U32)) - 160 : U32), 0, 10, (2 + k : U32), (k * 29 : U32)}, acc})
 
-# The marsh's chain, staggered over the short water.
 def floaters_c(+fuel: Nat, +k: U32, +m: T.Path, +acc: List<&2, Fs>) -> List<&2, Fs>:
   match fuel:
     case 0n:
@@ -382,8 +323,6 @@ def floaters_c(+fuel: Nat, +k: U32, +m: T.Path, +acc: List<&2, Fs>) -> List<&2, 
       floaters_c(n, (k + 1 : U32), m,
         Con{Fs{1, (marsh() + 90 + k * 110 : U32), (road_y(m, (marsh() + 300 : U32)) - 112 - U32.mod(k, 2) * 30 : U32), 0, 8,
                M.pk(0, (k - 2 : U32), (k < 4 : U32)), (k * 17 : U32)}, acc})
-
-# ---- the whole road ----------------------------------------------------------
 
 def post_at(+m: T.Path, +x: U32, +hold: U32) -> Post:
   Post{x, road_y(m, x), 0, T.s_at_x(m, x), hold}
@@ -500,8 +439,6 @@ def paths_of(+m0: T.Path, +ring1: T.Path, +ring2: T.Path, +ring3: T.Path, +y_for
      hang_ring(hang_ring(hang_ring(m0, 1, ring1), 2, ring2), 3, ring3),
      T.Portal{T.s_at_x(m0, fork_x()), 1, 1200, 4, 0}),
    link_ring(m0, ring1), link_ring(m0, ring2), link_ring(m0, ring3),
-   # The high rails over the valley: level with the road at the fork, then
-   # lifting away from it, planks with gaps between them, and the hay loft.
    B.build(B.line(B.ease(B.line(B.new(1, fork_x(), (g() + y_fork : U32)), (fork_x() + 100 : U32), (g() + y_fork : U32)), (fork_x() + 380 : U32), top), (fork_x() + 560 : U32), top)),
    B.build(B.line(B.new(1, (fork_x() + 620 : U32), top), (fork_x() + 860 : U32), top)),
    with_next(B.build(B.ease(B.line(B.new(1, (fork_x() + 940 : U32), top), (fork_x() + 1000 : U32), top), (fork_x() + 1180 : U32), (g() + y_fork : U32))), 0, T.s_at_x(m0, (fork_x() + 1180 : U32))),
@@ -514,7 +451,6 @@ def springs_of(+m0: T.Path) -> List<&2, Spr>:
 def pads_of(+m0: T.Path, +top: U32) -> List<&2, Pad>:
   [Pad{880, road_y(m0, 880)}, Pad{(fork_x() + 450 : U32), top}, Pad{(fork_x() + 700 : U32), top}, Pad{(a4() + 460 : U32), road_y(m0, (a4() + 460 : U32))}]
 
-# The last lantern, before the warden, holds the Gloam furthest back.
 def posts_of(+m0: T.Path) -> List<&2, Post>:
   [post_at(m0, 2300, hold()), post_at(m0, (a2() + 960 : U32), hold()), post_at(m0, (a3() - 900 : U32), hold()),
    post_at(m0, (a3() + 2340 : U32), hold()), post_at(m0, (a4() + 1560 : U32), hold()), post_at(m0, (a4() + 2800 : U32), last_hold())]
@@ -524,8 +460,6 @@ def crates_of(+m0: T.Path, +top: U32, +loft_top: U32) -> List<&2, Crate>:
    Crate{(fork_x() + 500 : U32), top, 2}, Crate{(a3() + 2200 : U32), road_y(m0, (a3() + 2200 : U32)), 0},
    Crate{(a4() + 300 : U32), road_y(m0, (a4() + 300 : U32)), 2}, Crate{(a4() + 2400 : U32), road_y(m0, (a4() + 2400 : U32)), 0}]
 
-# The pieces of the road around the finished main road `m0` and the heights
-# its four landmarks stand at.
 def assemble(+y_loop1: U32, +y_coil: U32, +y_fork: U32, +y_loop2: U32, +m0: T.Path) -> Road:
   +top = (g() + y_fork - 78 : U32)
   +loft_top = (g() + 60 - 92 : U32)
@@ -551,6 +485,5 @@ def road2(+y_loop1: U32, +r2: Rd) -> Road:
 def road1(+r1: Rd) -> Road:
   road2(rd_y(r1), lay(seg2(), r1))
 
-# The Moonwell Road.
 def road() -> Road:
   road1(lay(seg1(), Rd{B.new(0, 0, g()), 0}))

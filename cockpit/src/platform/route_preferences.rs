@@ -52,12 +52,6 @@ fn route_pin_active() -> bool {
     std::env::var_os("ANGEL_DRIVER").is_some_and(|value| route_pin_is_concrete(&value))
 }
 
-/// The MoA wrapper is an engagement target, not an ordinary Brain Route. Older
-/// cockpit setups exported `ANGEL_DRIVER=sota-moa` globally; allowing that
-/// legacy value to claim the interactive route pin strands every normal turn on
-/// the wrapper and prevents the operator's last concrete model from restoring.
-/// Headless `--ask`/`--task` still honor the value in [`Bag::standard`]; only the
-/// interactive route-memory layer treats it as non-concrete.
 fn route_pin_is_concrete(value: &std::ffi::OsStr) -> bool {
     let value = value.to_string_lossy();
     let value = value.trim();
@@ -183,9 +177,6 @@ fn apply_with_pin(
         restored.route = bag.select_route(choice.agent_index, choice.slot_index);
     }
 
-    // Apply effort only when the currently-selected concrete route is the one
-    // the preference describes. This prevents a stale model's level from
-    // leaking onto a pinned or fallback route that happens to accept the word.
     let current_matches = bag
         .route_choices()
         .iter()
@@ -200,8 +191,6 @@ fn apply_with_pin(
     restored
 }
 
-/// The common production restore path, with explicit file and pin inputs for
-/// credential-free fixtures. Provider pins are checked AFTER route restoration.
 pub(crate) fn restore_from(
     bag: &mut Bag,
     path: &Path,
@@ -217,13 +206,10 @@ pub(crate) fn restore_from(
     })
 }
 
-/// Restore the last explicit interactive choice. Test binaries never consult
-/// the real home directory; fixtures call the same path with explicit inputs.
 pub(crate) fn restore(bag: &mut Bag) -> RestoreResult {
     restore_for_launch(bag, false, false)
 }
 
-/// CLI and applicable native effort pins outrank saved THINK for this invocation.
 pub(crate) fn restore_for_launch(
     bag: &mut Bag,
     route_cli: bool,
@@ -241,8 +227,6 @@ pub(crate) fn restore_for_launch(
     )
 }
 
-/// Best-effort atomic persistence after a successful operator route/effort
-/// change. No prompt, response, endpoint, token, or credential is stored.
 pub(crate) fn remember(bag: &Bag) {
     if cfg!(test) || !enabled() {
         return;

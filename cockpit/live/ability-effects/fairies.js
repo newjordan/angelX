@@ -1,5 +1,3 @@
-// Indexed artwork stays compact in module metadata; the worker prepares its
-// RGBA frames once. Glass only samples the captured animation and keyframes.
 const wings = [
   ['........', '..W..W..', '.WWWWH..', '..WBB...', '...BB...', '..G..G..', '........', '........'],
   ['........', '.....H..', '..WWWH..', '.WWBBWW.', '..WBBW..', '..G..G..', '........', '........']

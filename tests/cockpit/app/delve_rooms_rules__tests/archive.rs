@@ -3,9 +3,7 @@
 
 use super::Template;
 
-/// One-screen rooms: 11 by 6 quadrants.
 pub const SMALL: &[Template] = &[
-    // The Reading Alcove: shelf-butts and a reading desk in a small hall; corner the loremasters.
     [
         "...........",
         ".###.###...",
@@ -14,7 +12,6 @@ pub const SMALL: &[Template] = &[
         "...........",
         "...........",
     ],
-    // The Flooded Stacks: water in the corner seeping under the shelves; dry ground fights.
     [
         "~~~........",
         "~~~..##....",
@@ -23,7 +20,6 @@ pub const SMALL: &[Template] = &[
         "~~~...#....",
         "...........",
     ],
-    // The Map Table: one wide table with a clerk's stool; an open duel around it.
     [
         "...........",
         "......##...",
@@ -34,9 +30,7 @@ pub const SMALL: &[Template] = &[
     ],
 ];
 
-/// Bigger rooms: quadrants of the sizes in `rooms::SIZES`.
 pub const GREAT: &[&[&str]] = &[
-    // The Cartographer's Hall: the great table under its lamp, stools at the corners; plan the route.
     &[
         "...............",
         "...............",
@@ -48,7 +42,6 @@ pub const GREAT: &[&[&str]] = &[
         "...............",
         "...............",
     ],
-    // The Sunken Reading Room: a flooded floor and desks hauled to the walls; shoot across the water.
     &[
         "................",
         ".####...........",
@@ -60,7 +53,6 @@ pub const GREAT: &[&[&str]] = &[
         "................",
         "................",
     ],
-    // The Drowned Stacks: water down one wall, shelves marching away from it; slip-gaps everywhere.
     &[
         ".................",
         "~~~##............",
@@ -72,7 +64,6 @@ pub const GREAT: &[&[&str]] = &[
         ".................",
         ".................",
     ],
-    // The Flooded Aisle: water down the middle of the hall, shelves banked to either side.
     &[
         "....................",
         "....................",
@@ -86,7 +77,6 @@ pub const GREAT: &[&[&str]] = &[
         "....................",
         "....................",
     ],
-    // The Index Hall: catalogue desks in clumps, water in the corners; many small fights.
     &[
         "####................",
         "~~~#.....##.........",
@@ -100,7 +90,6 @@ pub const GREAT: &[&[&str]] = &[
         "....................",
         "....................",
     ],
-    // The Scriptorium Deep: copyists' desks, an ink channel across, and water in the corner.
     &[
         ".......................",
         ".......................",

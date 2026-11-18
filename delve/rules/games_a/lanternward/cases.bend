@@ -1,10 +1,3 @@
-# Case wrappers for lanternward (recorded from the Rust original).
-#
-# The recorders write {"fn", "in", "out"}. Session-level cases take {s, r}
-# (and arguments) and answer {s, ev}; knight-level cases take {s, k, r, a} (the
-# seat k taken out of the session, as Rust's step does) and answer
-# {s, k, ev, ret}. Events are {sounds, stop, won}.
-
 def lanternward.case.s2(+input: J.Val) -> J.Val:
   ga.sv(ga.sv(J.get(input, "s"), "$r", J.get(input, "r")), "$ev", lanternward.Events.default())
 
@@ -25,8 +18,6 @@ def lanternward.case.a(+input: J.Val) -> J.Val:
 
 def lanternward.case.pt(+v: J.Val) -> U32 & U32:
   (ga.nu(v, 0), ga.nu(v, 1))
-
-# ---- session.rs ----
 
 def case.lanternward.Session.new(+input: J.Val) -> J.Val:
   lanternward.Session.new(J.get(input, "players"))
@@ -55,8 +46,6 @@ def case.lanternward.Rules.tell_for(+input: J.Val) -> J.Val:
 
 def case.lanternward.purse(+input: J.Val) -> J.Val:
   J.JU{lanternward.purse(ga.b(input, "first"), ga.u(input, "gems"))}
-
-# ---- phases ----
 
 def case.lanternward.foes.Session.provision(+input: J.Val) -> J.Val:
   lanternward.case.out2(lanternward.foes.Session.provision(lanternward.case.s2(input)))
@@ -97,8 +86,6 @@ def case.lanternward.stage.Session.tick_wipe(+input: J.Val) -> J.Val:
 
 def case.lanternward.stage.Session.age(+input: J.Val) -> J.Val:
   lanternward.case.out2(lanternward.stage.Session.age(lanternward.case.s2(input)))
-
-# ---- small public helpers on the session ----
 
 def case.lanternward.props.Session.clear(+input: J.Val) -> J.Val:
   J.JBool{lanternward.props.Session.clear(J.get(input, "s"), ga.u(input, "x"), ga.u(input, "y"), ga.u(input, "r"))}
@@ -223,7 +210,6 @@ def case.lanternward.stage.Session.enter_room(+input: J.Val) -> J.Val:
 def case.lanternward.foes.Session.spawn_foe(+input: J.Val) -> J.Val:
   ga.sv(J.obj(), "s", lanternward.foes.Session.spawn_foe(J.get(input, "s"), ga.s(input, "kind"), ga.u(input, "x"), ga.u(input, "y"), ga.b(input, "hooded")))
 
-# Grant to the knight `id`, taken out of the table as the Rust did.
 def case.lanternward.ctx.Session.grant(+input: J.Val) -> J.Val:
   lanternward.case.grant.go(ga.u(input, "id"), J.get(input, "item"), lanternward.case.sb(input))
 
@@ -239,8 +225,6 @@ def case.lanternward.Session.bot_input(+input: J.Val) -> J.Val:
 
 def case.lanternward.bot.Session.bot_input(+input: J.Val) -> J.Val:
   lanternward.bot.Session.bot_input(J.get(input, "s"), ga.u(input, "id"), J.get(input, "r"))
-
-# ---- the Run hooks ----
 
 def case.lanternward.Run.lanternward_showing(+input: J.Val) -> J.Val:
   J.JBool{lanternward.Run.lanternward_showing(J.get(input, "run"))}

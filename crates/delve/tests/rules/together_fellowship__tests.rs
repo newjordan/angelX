@@ -5,16 +5,12 @@ use std::collections::BTreeMap;
 
 const NORTH: usize = 0;
 
-/// `seats` knights in a cleared room of the first floor that has a doorway
-/// north (and, when there is one, south): nothing to fight, nothing in the way. Returns the run, the room's
-/// number and the room beyond the doorway.
 fn hall(seats: u32) -> (Run, usize, usize) {
     let mut run = Run::new(31, 1, Some("Friend"));
     for id in 3..=seats {
         run.join_seat(id, &format!("Seat {id}"));
     }
     run.descend_for_test();
-    // One with a doorway south as well, for the knight who waits in another.
     let (room, next) = (0..run.dungeon.rooms.len())
         .find_map(|i| run.dungeon.neighbour(i, 2).and(run.dungeon.neighbour(i, NORTH)).map(|n| (i, n)))
         .or_else(|| (0..run.dungeon.rooms.len()).find_map(|i| run.dungeon.neighbour(i, NORTH).map(|n| (i, n))))
@@ -31,14 +27,12 @@ fn hall(seats: u32) -> (Run, usize, usize) {
     (run, room, next)
 }
 
-/// Knight `id` in the middle of the room.
 fn middle(run: &mut Run, id: u32) {
     let (w, h) = (run.room().width(), run.room().height());
     let hero = run.players.get_mut(&id).unwrap();
     (hero.x, hero.y) = (w / 2.0, h / 2.0 - 2.0);
 }
 
-/// Knight `id` in the doorway `dir`.
 fn in_the_doorway(run: &mut Run, id: u32, dir: usize) {
     let (w, h) = (run.room().width(), run.room().height());
     let (x, y) = [(w / 2.0, 0.3), (w - 0.3, h / 2.0), (w / 2.0, h - 0.3), (0.3, h / 2.0)][dir];
@@ -62,7 +56,6 @@ fn one_knight_in_the_doorway_waits_for_the_other() {
     assert!(run.waiting_for_fellowship());
     assert_eq!(run.fellowship.waiting, vec![(1, 0)]);
     assert_eq!((run.players[&1].x, run.players[&1].y), at, "nothing pushes the one who waits");
-    // The waiting are told to wait, the rest where their friends are.
     assert_eq!(run.fellowship_line(Some(1)), Some(("WAITING FOR FELLOWSHIP".into(), true)));
     assert_eq!(run.fellowship_line(Some(2)), Some(("FRIENDS WAIT AT THE NORTH DOOR".into(), false)));
 }
@@ -102,14 +95,12 @@ fn a_knight_who_steps_back_out_is_no_longer_counted() {
     assert!(!run.waiting_for_fellowship());
     assert_eq!(run.fellowship_line(Some(1)), None);
     assert_eq!(run.fellowship_line(Some(2)), None);
-    // Now the other knight is the first in; the first is the one awaited.
     in_the_doorway(&mut run, 2, NORTH);
     play(&mut run, 1);
     assert_eq!(run.at, room);
     assert_eq!(run.fellowship.waiting, vec![(2, 0)]);
 }
 
-/// Knight `id` made one who does not count, `how`.
 fn uncount(run: &mut Run, id: u32, how: &str) {
     match how {
         "fallen" => run.players.get_mut(&id).unwrap().hp = 0,
@@ -133,7 +124,6 @@ fn a_fallen_an_away_or_an_absent_third_knight_never_holds_the_party() {
         in_the_doorway(&mut run, 2, NORTH);
         play(&mut run, 1);
         assert_eq!(run.at, next, "{how}: the two who count are the party");
-        // With both friends gone from the count, the one left goes at once.
         let (mut run, _, next) = hall(3);
         uncount(&mut run, 2, how);
         uncount(&mut run, 3, how);
@@ -162,7 +152,6 @@ fn an_away_knight_in_a_doorway_moves_nobody() {
     run.set_away(2, true);
     in_the_doorway(&mut run, 2, NORTH);
     play(&mut run, 3);
-    // Knight one is the only one who counts, and is not in the doorway.
     assert_eq!(run.at, room);
     assert!(run.fellowship.waiting.is_empty());
 }
@@ -190,7 +179,6 @@ fn a_lone_knight_goes_at_once() {
 fn the_stairs_down_need_everyone_too() {
     let (mut run, room, _) = hall(2);
     let (cols, rows) = (run.room().cols, run.room().rows);
-    // A stair in this room, as a slain guardian leaves one.
     run.dungeon.rooms[room].open_stairs();
     let stair = ((cols / 2) as f32 * TILE_UNITS, (rows / 2 + 2) as f32 * TILE_UNITS);
     let depth = run.dungeon.depth;
@@ -216,12 +204,10 @@ fn the_winding_stair_is_still_held_and_taken_by_the_whole_party() {
     let (x, y) = (24.0, 14.0);
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (x, y);
-    // One knight on it: the ring never fills.
     play(&mut run, home::DESCEND_HOLD * 2);
     assert!(run.at_home_now(), "the stair waits for the friend");
     assert_eq!(run.descending, 0);
     assert_eq!(run.fellowship.waiting, vec![(1, fellowship::STAIRS)]);
-    // Both on it: a moment on it, then down.
     let hero = run.players.get_mut(&2).unwrap();
     (hero.x, hero.y) = (x, y);
     play(&mut run, home::DESCEND_HOLD / 2);
@@ -243,7 +229,6 @@ fn the_wait_is_saved_and_old_saves_load_without_it() {
     assert!(old.fellowship.waiting.is_empty());
 }
 
-/// The bells rung this tick, by knight, taken out of the run.
 fn bells(run: &mut Run) -> Vec<u32> {
     std::mem::take(&mut run.seat_sounds)
         .into_iter()
@@ -261,14 +246,12 @@ fn three_of_four_in_the_doorway_call_the_fourth_alone() {
     play(&mut run, 1);
     assert_eq!(run.at, room);
     assert_eq!(run.fellowship.called, vec![4]);
-    // The fourth is shown where the three wait; the three see no arrow.
     let (x, y) = run.fellowship_call(Some(4)).expect("the fourth is called");
     assert!(y < 1.0 && (x - run.room().width() / 2.0).abs() < 0.5, "at the north door: {x}, {y}");
     for id in 1..=3 {
         assert_eq!(run.fellowship_call(Some(id)), None, "knight {id} is there");
     }
     assert_eq!(run.fellowship_call(None), None);
-    // The bell is the fourth's alone, as the wire carries it.
     run.seat_sounds.clear();
     play(&mut run, fellowship::CALL_EVERY as u32);
     let events = crate::wire::take_sounds(&mut run);
@@ -299,7 +282,6 @@ fn the_bell_rings_at_once_then_every_few_seconds_until_the_knight_joins() {
     assert_eq!(rang.len(), 3, "at once, then once each interval: {rang:?}");
     assert_eq!(rang[1] - rang[0], every);
     assert_eq!(rang[2] - rang[1], every);
-    // One who walks off is called again at once when the wait comes back.
     middle(&mut run, 1);
     middle(&mut run, 2);
     play(&mut run, 1);
@@ -309,7 +291,6 @@ fn the_bell_rings_at_once_then_every_few_seconds_until_the_knight_joins() {
     bells(&mut run);
     play(&mut run, 1);
     assert_eq!(bells(&mut run), vec![4]);
-    // The fourth joins: the party goes, and no bell rings after.
     in_the_doorway(&mut run, 4, NORTH);
     play(&mut run, 1);
     assert_eq!(run.at, next);
@@ -327,7 +308,6 @@ fn nobody_is_called_while_nobody_waits_or_the_waiting_are_not_most() {
     for id in 1..=4 {
         assert_eq!(run.fellowship_call(Some(id)), None);
     }
-    // Two of four waiting are half the party, not most of it.
     in_the_doorway(&mut run, 1, NORTH);
     in_the_doorway(&mut run, 2, NORTH);
     play(&mut run, fellowship::CALL_EVERY as u32 + 1);
@@ -335,7 +315,6 @@ fn nobody_is_called_while_nobody_waits_or_the_waiting_are_not_most() {
     assert!(run.fellowship.called.is_empty());
     assert!(bells(&mut run).is_empty());
     assert_eq!(run.fellowship_call(Some(3)), None);
-    // A friend who does not count leaves two of three: most, and the third is called.
     run.set_away(4, true);
     play(&mut run, 1);
     assert_eq!(run.fellowship.called, vec![3]);

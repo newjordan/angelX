@@ -30,7 +30,6 @@ fn every_castle_is_a_great_walled_exterior_in_one_chunk() {
             }
             _ => assert!(tw >= 14 && th >= 5, "{} is {tw}x{th}", c.name),
         }
-        // The gate is in the south face, the stand a tile out before it.
         assert_eq!(c.facing, Facing::South);
         let (gx, gy, gw, gh) = c.gate;
         assert_eq!((gw, gh, gy), (GATE_W, 1, ty + th - 1), "{}'s gate", c.name);
@@ -44,7 +43,6 @@ fn the_houses_castles_stand_apart_in_two_staggered_rows() {
     let sites: Vec<_> = houses::footprints().collect();
     for (i, &a) in sites.iter().enumerate() {
         for &b in &sites[i + 1..] {
-            // A road's width and a few tiles of open ground between any two.
             assert!(gap(a, b) >= 6, "{a:?} crowds {b:?}");
         }
     }
@@ -72,7 +70,6 @@ fn the_keeps_doors_are_where_they_were() {
     assert_eq!(dragon.stand, Place::DragonKeep.stand_world());
     assert_eq!(dragon.foot, DRAGON_KEEP);
     assert!(dragon.doors.is_empty());
-    // Every house castle's door is its own: the doors list it at its stand.
     for id in houses::ids() {
         let c = of_house(id);
         assert_eq!(c.kind, CastleKind::House(id));
@@ -120,7 +117,6 @@ fn every_gate_is_on_its_road_and_walked_to_from_the_keep() {
     for c in castles() {
         assert!(kingdom::is_road(&geo, c.stand), "{}'s gate has no road", c.name);
         assert!(doors::walkable(c.stand), "{}'s gate is not reached from the Keep", c.name);
-        // A knight walks the whole of a house castle's south face.
         let (tx, ty, tw, th) = c.foot;
         if let CastleKind::House(_) = c.kind {
             for x in tx..tx + tw {
@@ -141,9 +137,6 @@ fn the_rooms_behind_the_great_gates_still_open() {
     }
 }
 
-/// A save from before the castles grew: a party in Sol's hall with its
-/// return door at the old castle's gate, now inside the new wall, and a
-/// party out on the surface where a castle now stands.
 #[test]
 fn an_old_save_comes_out_at_the_new_gates() {
     use crate::rules::Run;
@@ -159,7 +152,6 @@ fn an_old_save_comes_out_at_the_new_gates() {
     let si = geo.sites.iter().position(|s| s.stand == houses::stand(sol)).unwrap();
     r.enter_kingdom_place(si);
     let i = crate::rules::world::room_of(&r.dungeon, RoomKind::Kingdom).unwrap();
-    // The save carries the old ground and the old door.
     r.dungeon.rooms[i] = blank();
     let old = ((old_stand.0 as f32 + 0.5) * TILE_UNITS, (old_stand.1 as f32 + 0.7) * TILE_UNITS);
     if let Some(back) = &mut r.kingdom.return_to {
@@ -179,7 +171,6 @@ fn an_old_save_comes_out_at_the_new_gates() {
         assert!(loaded.settlement_walkable_for_test(h.x, h.y), "a knight came out at {t:?}, not on open ground");
         assert!((t.0 - new.0).abs() <= 1 && (t.1 - new.1).abs() <= 1, "a knight came out at {t:?}, not at the new gate {new:?}");
     }
-    // Out on the surface where a castle now stands.
     let mut r = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
     r.join_seat(3, "Bors");
     r.walk_kingdom(Some(kingdom::keep_stand()));
@@ -197,10 +188,6 @@ fn an_old_save_comes_out_at_the_new_gates() {
     }
 }
 
-/// The castles to look at: the whole March and each great castle cut from
-/// the kingdom's atlas (the flat map), and a knight at each gate as the
-/// game draws the kingdom, as PNG:
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve --lib write_castle_shots -- --ignored`.
 #[test]
 #[ignore = "writes castle review shots"]
 fn write_castle_shots() {

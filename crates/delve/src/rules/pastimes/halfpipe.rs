@@ -16,16 +16,12 @@ pub struct Halfpipe {
     pub momentum: u8,
     pub flight: u8,
     pub spin: u16,
-    /// Ticks of sparkle animation remaining after a successful trick landing.
     #[serde(default)]
     pub trick_sparkle: u8,
-    /// Screen shake magnitude remaining after a hard landing.
     #[serde(default)]
     pub landing_shake: u8,
-    /// Ticks of bright flash remaining at the lip edge after a successful launch.
     #[serde(default)]
     pub lip_flash: u8,
-    /// Ticks of stumble/wobble animation remaining after a failed launch.
     #[serde(default)]
     pub wobble: u8,
 }
@@ -59,7 +55,6 @@ impl Halfpipe {
         self.flight = 0;
         self.spin = 0;
     }
-    /// None = still rolling/flying; Some = landed a trick or lost a helmet.
     pub fn step(&mut self, input: Input, tapped: bool, direction: i8) -> Option<bool> {
         let axis = if input.aim_x != 0 { input.aim_x } else { input.move_x }.signum();
         if self.flight > 0 {
@@ -70,7 +65,6 @@ impl Halfpipe {
                 self.spin = self.spin.saturating_sub(SPIN_STEP);
             }
             if self.flight == FLIGHT_TICKS {
-                // A full rotation is not enough: release arrows to straighten.
                 let landed = (320..=400).contains(&self.spin) && axis == 0;
                 let flight_height = self.flight;
                 self.next_pass();
@@ -84,8 +78,6 @@ impl Halfpipe {
             }
             return None;
         }
-        // Test the published phase before advancing it: every visible gold
-        // frame is a real launch window, including its last frame.
         if tapped {
             if self.phase >= LIP_OPEN && self.phase < LIP_CLOSE && self.momentum >= 60 {
                 self.flight = 1;
@@ -108,7 +100,6 @@ impl Halfpipe {
         }
         None
     }
-    /// Decrement sparkle, shake, flash and wobble counters; called once per tick by the host.
     pub fn tick_vfx(&mut self) {
         self.trick_sparkle = self.trick_sparkle.saturating_sub(1);
         self.landing_shake = self.landing_shake.saturating_sub(1);

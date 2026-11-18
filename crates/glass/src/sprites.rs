@@ -6,7 +6,6 @@
 use crate::config::BrailleStyle;
 use crate::font::CellMetrics;
 
-/// An alpha mask the size of one cell, or `None` when `ch` is not ours.
 pub fn draw(ch: char, cell: &CellMetrics, braille: BrailleStyle) -> Option<Vec<u8>> {
     let mut canvas = Canvas::new(cell.width, cell.height);
     let code = ch as u32;
@@ -34,7 +33,6 @@ impl Canvas {
         }
     }
 
-    /// Fill `[x0, x1) × [y0, y1)` with `alpha`, clipped to the cell.
     fn rect(&mut self, x0: i32, y0: i32, x1: i32, y1: i32, alpha: u8) {
         let (x0, x1) = (x0.max(0) as u32, (x1.max(0) as u32).min(self.w));
         let (y0, y1) = (y0.max(0) as u32, (y1.max(0) as u32).min(self.h));
@@ -46,7 +44,6 @@ impl Canvas {
         }
     }
 
-    /// Antialiased shape: `inside(x, y)` sampled 4×4 times per pixel.
     fn shape(&mut self, inside: impl Fn(f32, f32) -> bool) {
         for y in 0..self.h {
             for x in 0..self.w {
@@ -71,43 +68,39 @@ const NONE: u8 = 0;
 const HEAVY: u8 = 2;
 const DOUBLE: u8 = 3;
 
-/// Arms of U+2500..U+257F as `up right down left`, one digit each
-/// (0 none, 1 light, 2 heavy, 3 double). Letters mark the special shapes:
-/// `a`–`d` dashes (3, 4, 2 dashes; light/heavy, horizontal/vertical are
-/// in the arm digits), `r` rounded corners, `x` diagonals.
 const ARMS: [&str; 128] = [
-    "0101", "0202", "1010", "2020", // ─ ━ │ ┃
-    "d3h1", "d3h2", "d3v1", "d3v2", // ┄ ┅ ┆ ┇
-    "d4h1", "d4h2", "d4v1", "d4v2", // ┈ ┉ ┊ ┋
-    "0110", "0210", "0120", "0220", // ┌ ┍ ┎ ┏
-    "0011", "0012", "0021", "0022", // ┐ ┑ ┒ ┓
-    "1100", "1200", "2100", "2200", // └ ┕ ┖ ┗
-    "1001", "1002", "2001", "2002", // ┘ ┙ ┚ ┛
-    "1110", "1210", "2110", "1120", // ├ ┝ ┞ ┟
-    "2120", "2210", "1220", "2220", // ┠ ┡ ┢ ┣
-    "1011", "1012", "2011", "1021", // ┤ ┥ ┦ ┧
-    "2021", "2012", "1022", "2022", // ┨ ┩ ┪ ┫
-    "0111", "0112", "0211", "0212", // ┬ ┭ ┮ ┯
-    "0121", "0122", "0221", "0222", // ┰ ┱ ┲ ┳
-    "1101", "1102", "1201", "1202", // ┴ ┵ ┶ ┷
-    "2101", "2102", "2201", "2202", // ┸ ┹ ┺ ┻
-    "1111", "1112", "1211", "1212", // ┼ ┽ ┾ ┿
-    "2111", "1121", "2121", "2112", // ╀ ╁ ╂ ╃
-    "2211", "1122", "1221", "2212", // ╄ ╅ ╆ ╇
-    "1222", "2122", "2221", "2222", // ╈ ╉ ╊ ╋
-    "d2h1", "d2h2", "d2v1", "d2v2", // ╌ ╍ ╎ ╏
-    "0303", "3030", "0310", "0130", // ═ ║ ╒ ╓
-    "0330", "0013", "0031", "0033", // ╔ ╕ ╖ ╗
-    "1300", "3100", "3300", "1003", // ╘ ╙ ╚ ╛
-    "3001", "3003", "1310", "3130", // ╜ ╝ ╞ ╟
-    "3330", "1013", "3031", "3033", // ╠ ╡ ╢ ╣
-    "0313", "0131", "0333", "1303", // ╤ ╥ ╦ ╧
-    "3101", "3303", "1313", "3131", // ╨ ╩ ╪ ╫
-    "3333", "r0", "r1", "r2", // ╬ ╭ ╮ ╯
-    "r3", "x0", "x1", "x2", // ╰ ╱ ╲ ╳
-    "0001", "1000", "0100", "0010", // ╴ ╵ ╶ ╷
-    "0002", "2000", "0200", "0020", // ╸ ╹ ╺ ╻
-    "0201", "1020", "0102", "2010", // ╼ ╽ ╾ ╿
+    "0101", "0202", "1010", "2020",
+    "d3h1", "d3h2", "d3v1", "d3v2",
+    "d4h1", "d4h2", "d4v1", "d4v2",
+    "0110", "0210", "0120", "0220",
+    "0011", "0012", "0021", "0022",
+    "1100", "1200", "2100", "2200",
+    "1001", "1002", "2001", "2002",
+    "1110", "1210", "2110", "1120",
+    "2120", "2210", "1220", "2220",
+    "1011", "1012", "2011", "1021",
+    "2021", "2012", "1022", "2022",
+    "0111", "0112", "0211", "0212",
+    "0121", "0122", "0221", "0222",
+    "1101", "1102", "1201", "1202",
+    "2101", "2102", "2201", "2202",
+    "1111", "1112", "1211", "1212",
+    "2111", "1121", "2121", "2112",
+    "2211", "1122", "1221", "2212",
+    "1222", "2122", "2221", "2222",
+    "d2h1", "d2h2", "d2v1", "d2v2",
+    "0303", "3030", "0310", "0130",
+    "0330", "0013", "0031", "0033",
+    "1300", "3100", "3300", "1003",
+    "3001", "3003", "1310", "3130",
+    "3330", "1013", "3031", "3033",
+    "0313", "0131", "0333", "1303",
+    "3101", "3303", "1313", "3131",
+    "3333", "r0", "r1", "r2",
+    "r3", "x0", "x1", "x2",
+    "0001", "1000", "0100", "0010",
+    "0002", "2000", "0200", "0020",
+    "0201", "1020", "0102", "2010",
 ];
 
 fn box_drawing(canvas: &mut Canvas, code: u32, line: u32, heavy: u32) {
@@ -142,7 +135,6 @@ fn box_drawing(canvas: &mut Canvas, code: u32, line: u32, heavy: u32) {
             let length = (fw * fw + fh * fh).sqrt();
             let which = spec[1] - b'0';
             canvas.shape(|x, y| {
-                // Distance to the two cell diagonals.
                 let rising = ((fh * x + fw * y - fw * fh) / length).abs();
                 let falling = ((fh * x - fw * y) / length).abs();
                 (which != 1 && rising <= half) || (which != 0 && falling <= half)
@@ -162,7 +154,6 @@ fn arms(canvas: &mut Canvas, up: u8, right: u8, down: u8, left: u8, light: i32, 
         DOUBLE => light * 3,
         _ => light,
     };
-    // Horizontal arms reach across the widest vertical stroke, and back.
     let vertical = thickness(up.max(down)).max(if up == NONE && down == NONE { 0 } else { light });
     let horizontal = thickness(left.max(right)).max(if left == NONE && right == NONE {
         0
@@ -211,14 +202,12 @@ fn arms(canvas: &mut Canvas, up: u8, right: u8, down: u8, left: u8, light: i32, 
     stroke_v(canvas, down, down_start, h);
 }
 
-/// ╭ ╮ ╯ ╰: a quarter circle joining the two arms, then straight to the edges.
 fn rounded(canvas: &mut Canvas, which: u8, light: i32) {
     let (w, h) = (canvas.w as f32, canvas.h as f32);
     let t = light as f32;
     let cx = ((canvas.w as i32 - light) / 2) as f32 + t / 2.0;
     let cy = ((canvas.h as i32 - light) / 2) as f32 + t / 2.0;
     let r = cx.min(cy).min(w - cx).min(h - cy).max(1.0);
-    // Toward the right (+1) or left (-1), down (+1) or up (-1).
     let (sx, sy) = match which {
         0 => (1.0, 1.0),
         1 => (-1.0, 1.0),
@@ -258,7 +247,6 @@ fn blocks(canvas: &mut Canvas, code: u32) {
         0x2594 => canvas.rect(0, 0, w, eighth_h(1), 255),
         0x2595 => canvas.rect(w - eighth_w(1), 0, w, h, 255),
         _ => {
-            // Quadrants: upper-left, upper-right, lower-left, lower-right.
             let quads: u8 = match code {
                 0x2596 => 0b0010,
                 0x2597 => 0b0001,
@@ -287,7 +275,6 @@ fn blocks(canvas: &mut Canvas, code: u32) {
     }
 }
 
-/// Dots 1-2-3-7 run down the left column, 4-5-6-8 down the right.
 const BRAILLE_DOTS: [(u8, u8); 8] = [
     (0, 0),
     (0, 1),

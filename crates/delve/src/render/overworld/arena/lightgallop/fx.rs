@@ -21,8 +21,6 @@ use crate::rules::lightgallop::{
     world::{foe_at, foe_body},
 };
 
-/// Where a rider's feet were `ago` ticks back, 1/256 pixel: along the road it
-/// stands on at the pace it keeps, or along its flight.
 pub(super) fn feet_at(r: &Rider, ago: i32) -> (i32, i32) {
     match r.ground {
         Some(g) => {
@@ -35,8 +33,6 @@ pub(super) fn feet_at(r: &Rider, ago: i32) -> (i32, i32) {
     }
 }
 
-/// A disc of radius `rad` about `(cx, cy)` in `ink`, through an ordered
-/// dither: `k` 0 is nothing, 1 is solid.
 pub(super) fn disc(im: &mut Img, cx: i32, cy: i32, rad: i32, ink: char, k: f32) {
     for dy in -rad..=rad {
         for dx in -rad..=rad {
@@ -47,7 +43,6 @@ pub(super) fn disc(im: &mut Img, cx: i32, cy: i32, rad: i32, ink: char, k: f32) 
     }
 }
 
-/// The way a rider is going, a 12-bit unit vector on the screen.
 fn heading(r: &Rider) -> (i32, i32) {
     match r.ground {
         Some(g) => {
@@ -62,9 +57,6 @@ fn heading(r: &Rider) -> (i32, i32) {
     }
 }
 
-/// Wind streaming past the viewer's own rider along the way it goes (down a
-/// slope, round a loop), more of it and longer the faster it rides. `front`
-/// is the short, bright few that cross in front of the horse.
 pub(super) fn lines(im: &mut Img, s: &Session, v: &View, seat: u32, r: &Rider, front: bool, keep_clear: (i32, i32)) {
     let sp = r.speed();
     if r.down > 0 || sp < 800 {
@@ -72,7 +64,6 @@ pub(super) fn lines(im: &mut Img, s: &Session, v: &View, seat: u32, r: &Rider, f
     }
     let k = ((sp - 800) as f32 / 1300.0).clamp(0.0, 1.0);
     let (ux, uy) = heading(r);
-    // How steeply it runs downhill: the wind leans into a drop.
     let slope = (uy * ux.signum()).max(0) as f32 / 4096.0;
     let n = if front { 3 + (7.0 * k) as i32 } else { 5 + (15.0 * k + slope * 8.0) as i32 };
     let per_tick = (i64::from(sp) * i64::from(v.zoom) / 65536) as i32;
@@ -92,7 +83,6 @@ pub(super) fn lines(im: &mut Img, s: &Session, v: &View, seat: u32, r: &Rider, f
             if !(31..207).contains(&y) || (x - keep_clear.0).abs() < 16 && (y - keep_clear.1).abs() < 16 {
                 continue;
             }
-            // A solid head that thins to a dither at the tail.
             let fade = 2.0 * (1.0 - j as f32 / len as f32);
             if bayer(x, y) < fade * (0.7 + 0.3 * k) {
                 let ink = match (front, j < len / 3) {
@@ -104,7 +94,6 @@ pub(super) fn lines(im: &mut Img, s: &Session, v: &View, seat: u32, r: &Rider, f
                 im.put(x, y, ink);
             }
         }
-        // The head is solid: one run of the line primitive, kept off the heads-up display and the horse.
         let end = (head.0 + ux * (len / 2) / 4096, head.1 + uy * (len / 2) / 4096);
         let near = |p: (i32, i32)| (p.0 - keep_clear.0).abs() < 16 && (p.1 - keep_clear.1).abs() < 16;
         if (31..207).contains(&head.1) && (31..207).contains(&end.1) && !near(head) && !near(end) {
@@ -113,8 +102,6 @@ pub(super) fn lines(im: &mut Img, s: &Session, v: &View, seat: u32, r: &Rider, f
     }
 }
 
-/// Hoof dust thrown up along the road a rider has just galloped, bigger and
-/// longer with pace; a skid throws it pale and heavy.
 pub(super) fn dust(im: &mut Img, s: &Session, v: &View, seat: u32, r: &Rider) {
     if r.down > 0 || !r.grounded() || r.speed() < 500 {
         return;
@@ -133,8 +120,6 @@ pub(super) fn dust(im: &mut Img, s: &Session, v: &View, seat: u32, r: &Rider) {
     }
 }
 
-/// After-images at pace: the horse's own shape left hanging in the seat's
-/// colour where it was a few ticks ago, thinned through the dither.
 pub(super) fn ghosts(im: &mut Img, v: &View, seat: u32, r: &Rider, sprite: &Img, ang: i32, flip: bool) {
     let sp = r.speed();
     if r.down > 0 || sp < 1700 || r.roll || r.ball {
@@ -145,8 +130,6 @@ pub(super) fn ghosts(im: &mut Img, v: &View, seat: u32, r: &Rider, sprite: &Img,
     let (off_x, off_y) = (c.0 - r.x, c.1 - r.y);
     let ink = CLOTH[(seat.max(1) as usize - 1) % 6][2];
     let hot = if sp >= 2200 { 0.1 } else { 0.0 };
-    // The horse's opaque pixels as offsets from its centre: straight off the sprite while it
-    // runs near level, through the turn only when it leans (a loop, a steep slope).
     let mut offs: Vec<(i32, i32)> = Vec::new();
     if ang.abs() < 60 || (1024 - ang).abs() < 60 {
         for y in 0..sprite.h {
@@ -179,8 +162,6 @@ pub(super) fn ghosts(im: &mut Img, v: &View, seat: u32, r: &Rider, sprite: &Img,
     }
 }
 
-/// The lance-lock's reticle: four brackets that close on the foe it is after,
-/// and a thin dithered line of light from the horse to it.
 pub(super) fn lock_on(im: &mut Img, s: &Session, v: &View, r: &Rider, from: (i32, i32)) {
     let Some(lock) = r.lock else { return };
     let lvl = level();
@@ -208,15 +189,12 @@ pub(super) fn lock_on(im: &mut Img, s: &Session, v: &View, r: &Rider, from: (i32
     }
 }
 
-/// A rider on a loop: the ring it rides drawn as a thin dithered band of
-/// light, and a comet of gold along the path just ridden.
 pub(super) fn loop_light(im: &mut Img, s: &Session, v: &View, seat: u32, r: &Rider) {
     let Some(g) = r.ground else { return };
     let path = &level().terrain.paths[g.path as usize];
     if !r.looping || r.down > 0 || path.kind != Road::Ring {
         return;
     }
-    // The ring: every few pixels of its length, a dim point and, now and again, a bright one.
     let len = path.len();
     let mut at = 0;
     while at <= len {
@@ -228,7 +206,6 @@ pub(super) fn loop_light(im: &mut Img, s: &Session, v: &View, seat: u32, r: &Rid
         }
         at += 3 * Q;
     }
-    // The comet: where the horse has just been, a gold tail thinning away.
     for j in 0..14 {
         let (fx, fy) = feet_at(r, j * 2);
         let (x, y) = (v.qx(fx), v.qy(fy) - 10);
@@ -237,7 +214,6 @@ pub(super) fn loop_light(im: &mut Img, s: &Session, v: &View, seat: u32, r: &Rid
     }
 }
 
-/// A lantern hung in the air: a chain, a cap, a glass with a flame in it.
 pub(super) fn lantern(im: &mut Img, x: i32, y: i32, flick: u32) {
     for dy in 1..=6 {
         im.put(x, y - dy, 'j');
@@ -250,8 +226,6 @@ pub(super) fn lantern(im: &mut Img, x: i32, y: i32, flick: u32) {
     im.rect(x - 3, y + 10, 7, 1, 'k');
 }
 
-/// How far the whole picture leans round a loop, in brads: it tilts into the
-/// turn as the horse climbs and rights itself as it comes out.
 pub(super) fn tilt_of(s: &Session, me: u32) -> i32 {
     if crate::render::viewer::calm() {
         return 0;
@@ -272,15 +246,12 @@ fn juice_ease(k: f32) -> f32 {
     k * k * (3.0 - 2.0 * k)
 }
 
-/// The whole picture turned `brads` about its middle and drawn a little
-/// larger, so no corner shows: nearest sample, integer maths.
 pub(super) fn tilted(im: &Img, brads: i32) -> Img {
     let mut out = Img::black(im.w, im.h);
     stamp_turned(&mut out, im, (im.w / 2, im.h / 2), (im.w / 2, im.h / 2), brads, 304, false);
     out
 }
 
-/// How long each record shows in the world.
 fn life(kind: Kind) -> u32 {
     match kind {
         Kind::Spark => 18,
@@ -304,10 +275,8 @@ fn life(kind: Kind) -> u32 {
     }
 }
 
-/// Every record the session keeps, drawn where it happened.
 pub(super) fn events(im: &mut Img, s: &Session, v: &View, me: u32) {
     let tick = u64::from(s.elapsed);
-    // A run of sparks is a crowd: the newest few burst, the rest only tick the counter.
     let mut sparks = 0;
     for f in s.show.fx.iter().rev() {
         let age = f.age(s.elapsed);
@@ -338,7 +307,6 @@ pub(super) fn events(im: &mut Img, s: &Session, v: &View, me: u32) {
                 }
             }
             Kind::Pop => {
-                // The snuffer's cold puff, with the warm spark of light it gives back.
                 let id = if f.n == 1 { "lightgallop.floater" } else { "lightgallop.snuffer" };
                 if painted(id) && age < 12 {
                     let (anim, i) = anim_at(id, "pop", age);
@@ -364,7 +332,6 @@ pub(super) fn events(im: &mut Img, s: &Session, v: &View, me: u32) {
                     smoke.each(a, |m| pfx::mote(&mut pen, &m, Shape::Smoke, ramps::SMOKE, 2, tick));
                 }
                 if f.kind == Kind::Fall && age >= 3 {
-                    // The lantern comes down for the fallen rider.
                     let drop = (28.0 * (1.0 - juice_ease((a / 18.0).min(1.0)))) as i32;
                     for k in 1..4 {
                         if bayer(sx + k, sy) < 0.5 {
@@ -382,7 +349,6 @@ pub(super) fn events(im: &mut Img, s: &Session, v: &View, me: u32) {
                 juice::impact_burst(im, at, age, seed, f.weight, tick);
                 if f.kind == Kind::WardenDown {
                     juice::death_burst(im, at, age, seed ^ 5, tick);
-                    // Fireworks over the gate for the pack.
                     for (j, (x, top, ramp)) in [(70.0, 56.0, ramps::GOLD), (192.0, 40.0, ramps::EMBER), (314.0, 62.0, ramps::BONE)].into_iter().enumerate() {
                         let t = age as i32 - 10 - j as i32 * 13;
                         if t >= 0 {
@@ -414,7 +380,6 @@ pub(super) fn events(im: &mut Img, s: &Session, v: &View, me: u32) {
                 spray.each(a, |m| pfx::mote(&mut pen, &m, Shape::Star, ramps::GOLD, 1, tick));
             }
             Kind::Land | Kind::Hop => {
-                // A ring of dust rolling out either side of the hooves.
                 let reach = if f.kind == Kind::Land { 5 + i32::from(f.n).min(14) } else { 4 };
                 let t = a / life(f.kind) as f32;
                 for side in [-1, 1] {
@@ -431,7 +396,6 @@ pub(super) fn events(im: &mut Img, s: &Session, v: &View, me: u32) {
                 pfx::rays(&mut pen, at, 6, 10.0, 1.0, 0.0, ramps::EMBER, a / 8.0);
             }
             Kind::Whoosh => {
-                // The wind breaks over the picture: long strokes sweeping the way the horse goes.
                 if f.seat as u32 != me {
                     continue;
                 }
@@ -497,8 +461,6 @@ pub(super) fn events(im: &mut Img, s: &Session, v: &View, me: u32) {
     }
 }
 
-/// The pack on the road: a crown over whoever leads it, and an arrow at the
-/// edge of the picture for each knight off the side of it.
 pub(super) fn pack(im: &mut Img, s: &Session, v: &View, me: u32) {
     let t = &level().terrain;
     let lead = s.seats.iter().filter(|(_, st)| st.rider.down == 0 && st.rider.finish.is_none()).max_by_key(|(_, st)| st.rider.x).map(|(&id, _)| id);
@@ -506,7 +468,6 @@ pub(super) fn pack(im: &mut Img, s: &Session, v: &View, me: u32) {
         let c = st.rider.centre(t);
         let (sx, sy) = (v.qx(c.0), v.qy(c.1));
         if s.seats.len() > 1 && Some(id) == lead && (4..v.w - 4).contains(&sx) && st.rider.down == 0 {
-            // A little crown, bobbing, over the leader's plume.
             let (x, y) = (sx - 4, sy - 33 + (s.elapsed as i32 / 6) % 2);
             im.rect(x, y + 3, 9, 3, 'k');
             im.rect(x + 1, y + 4, 7, 1, '5');
@@ -515,7 +476,6 @@ pub(super) fn pack(im: &mut Img, s: &Session, v: &View, me: u32) {
                 im.put(x + dx, y + 1, '6');
             }
         }
-        // In a leader's wake the pack is tied by a thin line of gold dashes: the tow.
         if st.rider.draft && st.rider.down == 0 {
             let ahead = s
                 .seats
@@ -536,7 +496,6 @@ pub(super) fn pack(im: &mut Img, s: &Session, v: &View, me: u32) {
         if id == me || (-6..v.w + 6).contains(&sx) {
             continue;
         }
-        // Off to a side: an arrow in the knight's colour on that edge.
         let left = sx < 0;
         let y = sy.clamp(44, 196);
         let ink = CLOTH[(id.max(1) as usize - 1) % 6][2];
@@ -554,8 +513,6 @@ pub(super) fn pack(im: &mut Img, s: &Session, v: &View, me: u32) {
     }
 }
 
-/// The world layer's shake from the records that jolt it: any knight's
-/// weighty blow on this screen's own rider, the warden's falls for all.
 pub(super) fn jolt(s: &Session, me: u32) -> (i32, i32) {
     if crate::render::viewer::calm() {
         return (0, 0);

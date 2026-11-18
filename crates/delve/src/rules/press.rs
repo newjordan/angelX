@@ -17,54 +17,35 @@
 
 use super::*;
 
-/// A knight this near a monster is always in its sight, whoever it hunts.
 pub const NEAR: f32 = 4.0;
-/// Ticks held still in a row that make a long hold.
 pub const LONG_HOLD: u16 = 2 * HZ as u16;
-/// Ticks after a long hold in which another long hold slides off.
 pub const STEADY: u16 = 3 * HZ as u16 / 2;
-/// The longest hold that still lands on a steady monster: a hit's jolt.
 pub const JOLT: u32 = 4;
-/// Ticks after one party-wide control ultimate in which the next is short.
 pub const ECHO: u32 = 8 * HZ;
-/// A Grand Chord's stun, a Stillhour's life and a Lady's Veil's wings, in
-/// full and as an echo.
 pub const CHORD_HOLD: (u32, u32) = (75, 30);
 pub const STILL_TICKS: (u32, u32) = (4 * HZ, 3 * HZ / 2);
 pub const VEIL_TICKS: (u32, u32) = (4 * HZ, 3 * HZ / 2);
 
-/// What a monster has in mind: who it hunts, and how it stands up to being
-/// held still.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Wits {
-    /// The knight that last hurt it (0: none yet); it turns on them.
     #[serde(default)]
     pub foe: u32,
-    /// Ticks it has been held still in a row.
     #[serde(default)]
     pub held: u16,
-    /// Ticks left in which a long hold slides off it.
     #[serde(default)]
     pub steady: u16,
-    /// Ticks until a hit may jolt it still again (`feel`).
     #[serde(default)]
     pub flinch: u8,
 }
 
 impl Wits {
-    /// Nothing in mind yet: left off the wire.
     pub fn calm(&self) -> bool {
         *self == Wits::default()
     }
 }
 
-/// The knights a monster may hunt this tick: `(id, x, y)` of each one
-/// standing and seen.
 pub(super) type Knights = Vec<(u32, f32, f32)>;
 
-/// What `enemy` sees this tick, into `out`: its own knight (the one that
-/// last hurt it, or its share of the party), any knight within `NEAR`, and
-/// every decoy. Every monster's own aim then picks the nearest of these.
 pub(super) fn sights(
     enemy: &Enemy,
     knights: &[(u32, f32, f32)],
@@ -87,8 +68,6 @@ pub(super) fn sights(
     out.extend_from_slice(decoys);
 }
 
-/// A current target for a directional preview, using the simulation's sight
-/// filter, assigned aggro, invisibility and decoys without advancing the run.
 pub fn warning_target(run: &Run, enemy: &Enemy) -> Option<(f32, f32)> {
     let knights: Knights = run
         .players
@@ -134,9 +113,6 @@ pub fn warning_target(run: &Run, enemy: &Enemy) -> Option<(f32, f32)> {
     })
 }
 
-/// One tick of a held monster's wits, before it acts: a long hold slides
-/// off a steady monster, and a long hold ending makes it steady. True
-/// while it is still held this tick.
 pub(super) fn held(enemy: &mut Enemy) -> bool {
     let wits = &mut enemy.wits;
     wits.flinch = wits.flinch.saturating_sub(1);
@@ -159,8 +135,6 @@ pub(super) fn held(enemy: &mut Enemy) -> bool {
 }
 
 impl Run {
-    /// A party-wide control ultimate cast now: its hold, full or short as
-    /// the last one was long ago or not. `full` and `echo` are the pair.
     pub(super) fn control_hold(&mut self, (full, echo): (u32, u32)) -> u32 {
         let short = self
             .feel

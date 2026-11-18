@@ -55,21 +55,15 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, mpsc};
 use std::time::{Duration, Instant};
 
-/// One configured language server: how to spawn it + which files it owns.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LspServer {
     pub name: String,
     pub command: String,
     pub args: Vec<String>,
-    /// File extensions (no dot, lowercase) this server handles.
     pub extensions: Vec<String>,
-    /// LSP `languageId` to advertise in `didOpen` (e.g. "rust", "python").
     pub language_id: String,
 }
 
-/// Built-in servers, used when no config overrides them. Bare command names so
-/// they resolve on `PATH`; a missing binary just means that language is skipped
-/// at call time (reported as a tool error, never a crash).
 fn default_servers() -> Vec<LspServer> {
     vec![
         LspServer {
@@ -110,13 +104,6 @@ fn default_servers() -> Vec<LspServer> {
     ]
 }
 
-/// Parse `~/.angelX/lsp.json`. Shape (each field optional but `command` required):
-/// ```json
-/// { "servers": { "rust": { "command": "rust-analyzer", "args": [],
-///                          "extensions": ["rs"], "languageId": "rust" } } }
-/// ```
-/// Tolerates garbage (returns whatever parsed). A server without a command is
-/// dropped. `languageId` defaults to the map key; `extensions` defaults to none.
 fn parse_lsp_config(text: &str) -> Vec<LspServer> {
     let v: Value = match serde_json::from_str(text) {
         Ok(v) => v,
@@ -166,7 +153,6 @@ fn parse_lsp_config(text: &str) -> Vec<LspServer> {
     out
 }
 
-/// User config (overrides) merged over the built-in defaults, matched by name.
 fn load_servers() -> Vec<LspServer> {
     let path = std::env::var("ANGEL_LSP_CONFIG")
         .map(PathBuf::from)
@@ -190,7 +176,6 @@ fn load_servers() -> Vec<LspServer> {
     servers
 }
 
-/// Choose the server for a file by extension (case-insensitive).
 fn pick_server<'a>(servers: &'a [LspServer], path: &Path) -> Option<&'a LspServer> {
     let ext = path.extension()?.to_str()?.to_lowercase();
     servers
@@ -198,19 +183,10 @@ fn pick_server<'a>(servers: &'a [LspServer], path: &Path) -> Option<&'a LspServe
         .find(|s| s.extensions.iter().any(|e| e == &ext))
 }
 
-// ---------------------------------------------------------------------------
-// Content-Length framing (the LSP base protocol)
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// The stdio client
-// ---------------------------------------------------------------------------
-
 #[cfg(unix)]
 fn nonblocking_stdin(stdin: &ChildStdin) -> io::Result<()> {
     use std::os::fd::AsRawFd as _;
     let fd = stdin.as_raw_fd();
-    // SAFETY: the caller owns this descriptor; fcntl only changes its flags.
     let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
     if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
         return Err(io::Error::last_os_error());
@@ -240,8 +216,6 @@ fn write_until(mut stdin: &ChildStdin, mut bytes: &[u8], deadline: Instant) -> i
                     .as_millis()
                     .saturating_add(1)
                     .min(i32::MAX as u128) as i32;
-                // SAFETY: this writer owns the pipe lock while polling one
-                // live descriptor. Recheck the absolute budget after waking.
                 let ready = unsafe { libc::poll(&mut descriptor, 1, millis) };
                 if ready < 0 {
                     let error = io::Error::last_os_error();
@@ -295,19 +269,12 @@ fn write_frame_until(
     })?;
     let pipe = stdin.as_ref().ok_or("lsp closed the connection")?;
     if let Err(error) = write_until(pipe, &frame, deadline) {
-        // Even a partial frame may already have reached the server. Never
-        // append another message to it; the ordinary dead-client path evicts
-        // and respawns this connection before retrying a document operation.
         stdin.take();
         return Err(format!("lsp write: {error}"));
     }
     Ok(())
 }
 
-/// What to send for a document we're about to analyze: a first `didOpen`, or a
-/// `didChange` (with the next version) if the server already has it open. LSP
-/// servers reject a second `didOpen` for the same URI, so a cached client must
-/// switch to `didChange`.
 #[derive(Debug, PartialEq)]
 enum DocAction {
     Open,
@@ -315,9 +282,6 @@ enum DocAction {
     Change { version: i64 },
 }
 
-/// Decide the sync action from the document's last-seen version (`None` = never
-/// opened on this client). Pure so the open/change/version logic is testable
-/// without a live server.
 fn doc_action(last_version: Option<i64>) -> DocAction {
     match last_version {
         None => DocAction::Open,
@@ -325,28 +289,16 @@ fn doc_action(last_version: Option<i64>) -> DocAction {
     }
 }
 
-/// A live connection to one language-server subprocess, reused across calls.
 struct LspClient {
     name: String,
-    /// Shared with the reader thread so it can answer server→client requests.
     stdin: Arc<Mutex<Option<ChildStdin>>>,
-    /// Inbound responses + notifications (server requests are answered + dropped
-    /// by the reader thread). The Mutex serializes request/collect so two callers
-    /// never split each other's messages off the channel.
     rx: Mutex<mpsc::Receiver<Value>>,
     next_id: AtomicU64,
     timeout: Duration,
     child: Mutex<ServiceChild>,
-    /// URIs this client has `didOpen`'d, with their current version — so the
-    /// next analysis of the same file becomes a `didChange`, not a re-open.
     open_docs: Mutex<HashMap<String, i64>>,
     open_text: Mutex<HashMap<String, String>>,
-    /// Whether the server advertised pull diagnostics (`diagnosticProvider`).
-    /// Pull (request/response) is how we re-query a *warm* document, since push
-    /// (`publishDiagnostics`) only reliably fires on the first analysis.
     supports_pull: AtomicBool,
-    /// A failed connection stays unusable even if its hot-path eviction could
-    /// not acquire the pool lock within the remaining allowance.
     unusable: Arc<AtomicBool>,
     readiness: Mutex<Option<bool>>,
     diagnostics: Mutex<HashMap<String, Value>>,
@@ -375,14 +327,8 @@ impl LspClient {
         let reader_unusable = Arc::clone(&unusable);
         std::thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
-            // Loop ends on EOF / broken frame (anything but `Ok(Some)`).
             while let Ok(Some(v)) = read_frame(&mut reader) {
-                // Server→client requests (progress tokens, capability registration,
-                // configuration) are answered here and NOT forwarded — an
-                // unanswered one can stall the server on a big project.
                 if is_server_request(&v) {
-                    // Replies have no caller request budget. Bound them by
-                    // this client's configured ANGEL_LSP_TIMEOUT instead.
                     if write_frame_until(
                         &reader_stdin,
                         &server_request_reply(&v),
@@ -395,11 +341,9 @@ impl LspClient {
                     continue;
                 }
                 if tx.send(v).is_err() {
-                    break; // client dropped
+                    break;
                 }
             }
-            // EOF, a broken frame, or a failed server-request reply retires
-            // the transport even when no foreground caller has written yet.
             reader_unusable.store(true, Ordering::Release);
         });
         Ok(Self {
@@ -431,10 +375,6 @@ impl LspClient {
             .map_err(|error| format!("lsp {}: {error}", self.name))
     }
 
-    /// Send a request; drain inbound messages until the matching response or the
-    /// deadline. Notifications seen meanwhile are dropped (callers that need them
-    /// — diagnostics — collect *after* their triggering notification). The `rx`
-    /// lock serializes requests so they don't split each other's messages.
     fn request(&self, method: &str, params: Value) -> Result<Value, String> {
         self.request_with_timeout(method, params, self.timeout)
     }
@@ -454,8 +394,6 @@ impl LspClient {
         params: Value,
         deadline: Instant,
     ) -> Result<Value, String> {
-        // One request allowance includes transport serialization, writes and
-        // the response. Writing a large didOpen/query must not precede it.
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let msg = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
         let rx = lock_until(&self.rx, deadline).map_err(|error| {
@@ -486,8 +424,6 @@ impl LspClient {
     }
 
     fn notify(&self, method: &str, params: Value) -> Result<(), String> {
-        // Notifications have no response wait; use ANGEL_LSP_TIMEOUT as their
-        // local write/serialization allowance, like reader-thread replies.
         self.notify_until(method, params, Instant::now() + self.timeout)
     }
 
@@ -498,9 +434,6 @@ impl LspClient {
         )
     }
 
-    /// `initialize` (advertising the workspace root + pull-diagnostics support) +
-    /// the `initialized` follow-up. Records whether the server offers pull
-    /// diagnostics so warm re-queries can use it.
     fn initialize(&self, root: &Path) -> Result<(), String> {
         let res = self.request(
             "initialize",
@@ -546,9 +479,6 @@ impl LspClient {
         }
     }
 
-    /// Own the cache before removing an inbound message: if cache queueing
-    /// expires, its diagnostics remain on the channel for a later call. Short
-    /// receive slices avoid monopolizing cache writers during a slow response.
     fn recv_cached(
         &self,
         rx: &mpsc::Receiver<Value>,
@@ -581,10 +511,6 @@ impl LspClient {
         self.supports_pull.load(Ordering::Relaxed)
     }
 
-    /// Pull the current diagnostics for `uri` (`textDocument/diagnostic`, LSP
-    /// 3.17). Request/response, so it works on a warm server without waiting for
-    /// a push. Normalizes the report to `{ uri, diagnostics: [...] }` so
-    /// [`format_diagnostics`] handles it like a push payload.
     fn pull_diagnostics_with_timeout(&self, uri: &str, timeout: Duration) -> Result<Value, String> {
         self.pull_diagnostics_until(uri, Instant::now() + timeout)
     }
@@ -598,9 +524,6 @@ impl LspClient {
         Ok(pull_report_to_params(uri, &res))
     }
 
-    /// Make the server hold `text` for `uri`: first time → `didOpen`; thereafter
-    /// → `didChange` (full sync) with a bumped version. Returns the action taken
-    /// so the caller can pick push (first analysis) vs pull (warm re-query).
     fn sync_doc(&self, uri: &str, language_id: &str, text: &str) -> Result<DocAction, String> {
         self.sync_doc_until(uri, language_id, text, None)
     }
@@ -623,9 +546,6 @@ impl LspClient {
         }
     }
 
-    /// Warm post-edit synchronization shares its caller's absolute allowance.
-    /// With a caller deadline, caches and versions remain untouched until a
-    /// complete notification is sent.
     fn sync_doc_until(
         &self,
         uri: &str,
@@ -639,9 +559,6 @@ impl LspClient {
             self.ensure_connected()?;
             return Ok(DocAction::Unchanged);
         }
-        // Keep the version guard through the write and commit. Reacquiring it
-        // after a completed frame could expire the budget without recording
-        // the version already observed by the server.
         let mut docs = self.document_lock(&self.open_docs, "open_docs", deadline)?;
         let action = doc_action(docs.get(uri).copied());
         let mut diagnostics = if deadline.is_some() {
@@ -671,7 +588,7 @@ impl LspClient {
                     "textDocument/didChange",
                     json!({
                         "textDocument": { "uri": uri, "version": version },
-                        "contentChanges": [ { "text": text } ], // full-document sync
+                        "contentChanges": [ { "text": text } ],
                     }),
                     write_deadline,
                 )?;
@@ -685,10 +602,6 @@ impl LspClient {
         Ok(action)
     }
 
-    /// Collect `publishDiagnostics` for `uri` after `didOpen`. Servers may emit an
-    /// empty set first, then refine once indexing completes — so we wait up to
-    /// `timeout` for the *first* report, then keep the latest seen during a short
-    /// settle window. Returns the most recent params, or `None` if none arrived.
     fn collect_diagnostics(&self, uri: &str, settle: Duration) -> Option<Value> {
         self.collect_diagnostics_with_timeout(uri, self.timeout, settle)
     }
@@ -718,11 +631,6 @@ impl LspClient {
         loop {
             self.ensure_connected().ok()?;
             let cap = settle_until.map_or(deadline, |settled| settled.min(deadline));
-            // Use saturating (returns ZERO past the deadline), not
-            // `checked_duration_since(..)?` — the `?` returned None when `now`
-            // slipped just past `cap`, bailing the whole function and DISCARDING
-            // the diagnostics already in `latest` (silently dropping real
-            // post-edit compile errors). Falling through to `break` returns them.
             let remaining = cap.saturating_duration_since(Instant::now());
             if remaining.is_zero() {
                 break;
@@ -731,7 +639,6 @@ impl LspClient {
                 Ok(Some(v)) => {
                     if let Some(params) = publish_diagnostics_for(&v, uri) {
                         latest = Some(params.clone());
-                        // got a report — keep draining briefly for a refined one
                         settle_until = Some(Instant::now() + settle);
                     }
                 }
@@ -746,7 +653,6 @@ impl LspClient {
 
 impl Drop for LspClient {
     fn drop(&mut self) {
-        // ServiceChild also covers setup failures and poisoned client locks.
         let child = self
             .child
             .get_mut()
@@ -755,21 +661,6 @@ impl Drop for LspClient {
     }
 }
 
-// ---------------------------------------------------------------------------
-// The server cache
-// ---------------------------------------------------------------------------
-
-/// Keeps one live, initialized server per language alive across tool calls.
-/// Spawning rust-analyzer re-indexes the whole crate (seconds); caching pays that
-/// once, and a warm server is what `didChange`/defs/refs/hover need anyway.
-///
-/// One pool is shared process-wide (see [`shared_pool`]) so a registry rebuild
-/// — `/cd`, headless turn setup — re-lists tools on the warm subprocess instead
-/// of respawning it. Each cached client records the **index root** it was
-/// initialized for; a caller whose workspace lies inside that root reuses the
-/// client, and a cross-root caller retires it and respawns. Path resolution and
-/// the workspace boundary stay pinned to the caller's **resolve root**
-/// (`LspCtx::resolve_root`), never to the pool's index root.
 struct LspPool {
     timeout: Duration,
     init_failure_ttl: Duration,
@@ -777,10 +668,6 @@ struct LspPool {
     state: Mutex<LspPoolState>,
 }
 
-/// Every field which can change how a named server starts or speaks LSP. The
-/// pool key remains the human language name, while this fingerprint prevents a
-/// stale warm client, in-flight initialization, or negative result from
-/// surviving a config change under that name.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct LspServerFingerprint {
     command: String,
@@ -803,9 +690,6 @@ impl From<&LspServer> for LspServerFingerprint {
 struct CachedLspClient {
     fingerprint: LspServerFingerprint,
     client: Arc<LspClient>,
-    /// The workspace root this client was initialized for (its index root).
-    /// A caller whose workspace lies inside it reuses the warm client; a
-    /// cross-root caller retires and respawns.
     index_root: PathBuf,
 }
 
@@ -816,10 +700,6 @@ struct CachedInitFailure {
     expires_at: Instant,
 }
 
-/// One same-fingerprint cold start. The leader performs spawn + initialize
-/// without holding the pool lock; followers wait here and receive the exact
-/// same client/error. This is per server, so a slow language never blocks warm
-/// requests or another language's cold start.
 struct InitFlight {
     fingerprint: LspServerFingerprint,
     index_root: PathBuf,
@@ -918,15 +798,6 @@ impl LspPool {
         }
     }
 
-    /// Return the warm client for `server`, spawning + initializing it on first
-    /// use. Same-fingerprint cold callers share one initialization flight. The
-    /// global pool lock is held only while choosing/publishing that flight, never
-    /// during process startup, protocol I/O, or follower waiting.
-    ///
-    /// `workspace_root` is the caller's resolve root: it seeds the initialize
-    /// root for a cold start, and a cached client is reused only when the
-    /// workspace lies inside the client's index root (a `/cd` into a
-    /// subdirectory keeps the warm analyzer; a cross-root move respawns it).
     fn get_or_spawn(
         &self,
         server: &LspServer,
@@ -934,9 +805,6 @@ impl LspPool {
     ) -> Result<Arc<LspClient>, String> {
         let fingerprint = LspServerFingerprint::from(server);
         let now = (self.now)();
-        // Removing the last Arc may kill+wait for a subprocess. Keep retired
-        // clients outside the locked state so even invalidation cannot turn into
-        // a global pool stall.
         let mut retired_client = None;
         let decision = {
             let mut state = self.state.lock().map_err(|_| "lsp pool poisoned")?;
@@ -947,8 +815,6 @@ impl LspPool {
                     && !cached.client.unusable.load(Ordering::Acquire)
             });
             if state.clients.get(&server.name).is_some_and(|_| !reusable) {
-                // Config change OR a workspace outside the warm client's index
-                // root: retire it (dropped outside the lock) and respawn.
                 retired_client = state.clients.remove(&server.name);
             }
             if let Some(cached) = state.clients.get(&server.name) {
@@ -1065,11 +931,6 @@ impl LspPool {
         outcome
     }
 
-    /// Return an already initialized client without creating a subprocess. The
-    /// post-edit hot path uses this so a mutation never inherits a cold server's
-    /// multi-second startup/indexing cost; normal explicit LSP tools still spawn.
-    /// The cached client must cover `workspace_root` (inside its index root) or
-    /// the warm result is None — a cross-root warm hit would misanalyze.
     fn get_warm(&self, server: &LspServer, workspace_root: &Path) -> Option<Arc<LspClient>> {
         self.get_warm_until(server, workspace_root, None)
             .ok()
@@ -1117,8 +978,6 @@ impl LspPool {
         Ok(client)
     }
 
-    /// Drop the cached client for a language (e.g. after it died), so the next
-    /// call respawns it.
     fn evict(&self, name: &str) {
         let retired = self
             .state
@@ -1128,9 +987,6 @@ impl LspPool {
         drop(retired);
     }
 
-    /// Remove only the failed instance, never a replacement published while
-    /// its caller was in flight. Hot cleanup may attempt an immediately free
-    /// lock after its I/O budget expires, but never waits beyond that budget.
     fn evict_client_until(
         &self,
         name: &str,
@@ -1158,8 +1014,6 @@ impl LspPool {
         Ok(())
     }
 
-    /// Snapshot of the currently-warm clients (language, client). Used by
-    /// project-wide queries that have no file to route by.
     fn warm_clients(&self) -> Vec<(String, Arc<LspClient>)> {
         self.state
             .lock()
@@ -1175,10 +1029,6 @@ impl LspPool {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Shared tool context — one warm pool + server map behind every LSP tool
-// ---------------------------------------------------------------------------
-
 fn env_duration(key: &str, default: Duration, unit: fn(u64) -> Duration) -> Duration {
     std::env::var(key)
         .ok()
@@ -1187,10 +1037,6 @@ fn env_duration(key: &str, default: Duration, unit: fn(u64) -> Duration) -> Dura
         .unwrap_or(default)
 }
 
-/// Is this error a dead/broken connection (vs a logic error, timeout, or server
-/// error response)? Only these justify evicting + respawning the warm server —
-/// a timeout is usually just a slow cold index under load, and a logic error is
-/// the caller's, neither worth discarding an indexed server.
 fn is_dead_client(err: &str) -> bool {
     err.contains("closed the connection")
         || err.contains("lsp write")
@@ -1199,8 +1045,6 @@ fn is_dead_client(err: &str) -> bool {
         || err.contains("poisoned")
 }
 
-/// Ensure exactly one `tool error:` prefix (op errors from `request()` aren't
-/// prefixed; `resolve_position`'s already is — don't double it).
 fn tool_err(e: String) -> String {
     if e.starts_with("tool error:") {
         e
@@ -1209,30 +1053,19 @@ fn tool_err(e: String) -> String {
     }
 }
 
-/// The state shared by `lsp_diagnostics` and the navigation tools so a single
-/// warm server answers all of them.
 struct LspCtx {
     pool: Arc<LspPool>,
-    /// The current workspace: relative paths resolve against it and the
-    /// boundary check pins to it. Independent of the pool's per-client index
-    /// roots — a `/cd` into a subdirectory re-resolves here while the warm
-    /// analyzer (indexed at the parent) is reused.
     resolve_root: PathBuf,
     servers: Vec<LspServer>,
     timeout: Duration,
     settle: Duration,
 }
 
-/// The process-wide pool: one per server binary, surviving registry rebuilds.
 fn shared_pool(timeout: Duration) -> Arc<LspPool> {
     static POOL: std::sync::OnceLock<Arc<LspPool>> = std::sync::OnceLock::new();
     Arc::clone(POOL.get_or_init(|| Arc::new(LspPool::new(timeout))))
 }
 
-/// Documents are finite regular files, never streams or devices. On Linux,
-/// reuse the workspace reader's nonblocking, descriptor-validated open. Other
-/// platforms validate the same handle they read; Unix nonblocking open also
-/// prevents a FIFO substituted between path resolution and open from hanging.
 fn read_document(root: &Path, path: &Path) -> Result<String, String> {
     #[cfg(target_os = "linux")]
     {
@@ -1300,12 +1133,6 @@ impl LspCtx {
         Ok(abs)
     }
 
-    /// Resolve `path`, pick its server, read it, get/spawn the warm client, sync
-    /// the document, then run `op` against the prepared client. Only a *dead
-    /// connection* triggers evict + respawn (once); a logic error (symbol not
-    /// found), timeout, or server error returns as-is so a warm server isn't
-    /// thrown away — re-indexing on a user mistake would be a costly own-goal. A
-    /// legitimately empty result is `Ok`, not an error.
     fn with_doc<T>(
         &self,
         path: &str,
@@ -1383,8 +1210,6 @@ impl LspCtx {
                 Err(e) if is_dead_client(&e) => {
                     last = e;
                     client.unusable.store(true, Ordering::Release);
-                    // Preserve the transport error if cleanup's lock budget
-                    // expires. The unusable bit prevents later cache reuse.
                     let _ = self
                         .pool
                         .evict_client_until(&server.name, &client, deadline);
@@ -1392,7 +1217,7 @@ impl LspCtx {
                         return Err(tool_err(last));
                     }
                 }
-                Err(e) => return Err(tool_err(e)), // logic/timeout/server error: keep the warm server
+                Err(e) => return Err(tool_err(e)),
             }
         }
         Err(tool_err(format!(
@@ -1401,9 +1226,6 @@ impl LspCtx {
         )))
     }
 
-    /// Block until the server has analyzed a freshly-opened document (the first
-    /// `publishDiagnostics` push is the ready signal — a position query before it
-    /// returns null). Warm documents are already analyzed, so this is a no-op.
     fn ensure_ready(&self, client: &LspClient, uri: &str, _action: &DocAction) -> String {
         let mut state = client.readiness.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(ready) = *state {
@@ -1431,11 +1253,6 @@ impl LspCtx {
     }
 }
 
-// ---------------------------------------------------------------------------
-// The tools
-// ---------------------------------------------------------------------------
-
-/// `lsp_diagnostics(path)` — ground-truth errors/warnings from a language server.
 pub struct LspDiagnosticsTool {
     ctx: Arc<LspCtx>,
 }
@@ -1454,10 +1271,6 @@ impl Tool for LspDiagnosticsTool {
             .and_then(|p| p.as_str())
             .ok_or("tool error: `path` required")?;
         let ctx = &self.ctx;
-        // Internal post-edit calls are deliberately absent from the advertised
-        // schema: they reuse this tool while imposing a smaller hot-path budget
-        // and refusing a synchronous cold spawn. Ordinary model-authored calls
-        // retain the full configured LSP timeout and spawn behavior.
         let warm_only = args
             .get("_warm_only")
             .and_then(Value::as_bool)
@@ -1470,7 +1283,6 @@ impl Tool for LspDiagnosticsTool {
         let deadline = warm_only.then_some(started + timeout);
         let settle = ctx.settle.min(timeout);
         ctx.with_doc_mode_until(path, warm_only, deadline, |client, uri, action, _text| {
-            // Cold open: wait for the push (analysis-ready). Warm change: pull.
             let warm_pull = !matches!(action, DocAction::Open) && client.supports_pull();
             let params = if warm_pull {
                 match deadline {
@@ -1497,8 +1309,6 @@ impl Tool for LspDiagnosticsTool {
     }
 }
 
-/// The position-based navigation queries, which share all machinery and differ
-/// only by LSP method + result shape.
 #[derive(Clone, Copy)]
 enum NavKind {
     Definition,
@@ -1524,8 +1334,6 @@ impl NavKind {
 
 }
 
-/// `lsp_definition` / `lsp_references` / `lsp_hover` — position queries over the
-/// same warm server pool as diagnostics.
 pub struct LspNavTool {
     kind: NavKind,
     ctx: Arc<LspCtx>,
@@ -1549,7 +1357,6 @@ impl Tool for LspNavTool {
         let query = parity::definition_query(args, &heuristic, kind);
         let path = query["path"].as_str().unwrap_or(path);
         let mut readiness = String::from("readiness: unavailable; readiness_wait_ms: 0");
-        // The closure is retryable; collect metadata independently of its output.
         let observed = Mutex::new(String::new());
         let semantic = ctx.with_doc(path, |client, uri, action, text| {
             let (line, ch) = parity::query_position(&query, text)?;
@@ -1580,9 +1387,6 @@ impl Tool for LspNavTool {
     }
 }
 
-/// `lsp_symbols(path)` — the analyzer's outline of a file (functions/structs/…),
-/// hierarchical, beating the regex `outline`/`defs`. Position-free, so it's its
-/// own tool rather than a `NavKind`.
 pub struct LspSymbolsTool {
     ctx: Arc<LspCtx>,
 }
@@ -1618,9 +1422,6 @@ impl Tool for LspSymbolsTool {
     }
 }
 
-/// `lsp_workspace_symbol(query)` — find a symbol ANYWHERE in the project (not one
-/// file). Queries every currently-warm server and merges; no path to route by, so
-/// a server must already be warm (any prior `lsp_*` file call loads one).
 pub struct LspWorkspaceSymbolTool {
     ctx: Arc<LspCtx>,
 }
@@ -1650,10 +1451,8 @@ impl Tool for LspWorkspaceSymbolTool {
         for (lang, client) in &warm {
             match client.request("workspace/symbol", json!({ "query": query })) {
                 Ok(Value::Array(a)) => merged.extend(a),
-                Ok(_) => {} // null / non-array → no hits from this server
+                Ok(_) => {}
                 Err(e) => {
-                    // A dead client would otherwise error on every future query;
-                    // evict it so the next file-based call respawns it.
                     if is_dead_client(&e) {
                         self.ctx.pool.evict(lang);
                     }
@@ -1668,13 +1467,6 @@ impl Tool for LspWorkspaceSymbolTool {
     }
 }
 
-/// Build the LSP tool set, opt-in via `ANGEL_LSP`. Returns `(tools, notes)` like
-/// [`crate::agent::mcp::discover_mcp_compositions`]. Empty (and a note) when disabled. All tools
-/// share one [`LspCtx`] so a single warm server answers diagnostics + navigation.
-/// The lowercase file extensions present under `root` — a bounded breadth-first
-/// scan (at most `cap` directory entries, vendor/build trees skipped) that
-/// decides which language servers are worth pre-warming. A truncated scan just
-/// means a rare language warms lazily at first use, exactly as before.
 fn present_extensions(root: &Path, cap: usize) -> std::collections::HashSet<String> {
     let mut seen = std::collections::HashSet::new();
     let mut queue = std::collections::VecDeque::from([root.to_path_buf()]);
@@ -1711,8 +1503,6 @@ fn command_on_path_memo() -> &'static Mutex<HashMap<String, bool>> {
     MEMO.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// Test-only: drop memoized probes so fixtures that swap PATH or the probed
-/// binaries observe fresh results.
 #[cfg(test)]
 fn reset_command_on_path_cache() {
     if let Ok(mut memo) = command_on_path_memo().lock() {
@@ -1720,14 +1510,6 @@ fn reset_command_on_path_cache() {
     }
 }
 
-/// Is `bin` resolvable as an executable on PATH? No PATH → false.
-///
-/// Ordinary binaries keep the cheap filesystem check. Rustup installs command
-/// proxies even when the corresponding component is absent, so a proxy gets
-/// one `--version` preflight; otherwise an unprovisioned
-/// `rust-analyzer` silently auto-enables LSP and every call fails after spawn.
-/// Memoized per process and per `bin`: the rustup-proxy preflight spawns a
-/// child, and startup paths (registry build) probe the same servers repeatedly.
 fn command_on_path(bin: &str) -> bool {
     if let Ok(memo) = command_on_path_memo().lock()
         && let Some(&hit) = memo.get(bin)
@@ -1757,12 +1539,6 @@ fn command_on_path_probe(bin: &str) -> bool {
         if !is_rustup_proxy {
             return true;
         }
-        // Preflight only: the proxy must never provision a toolchain on our
-        // behalf. With an isolated or scrubbed HOME (sealed workers, sandboxed
-        // benches) rustup would otherwise attempt an install and hold the
-        // cockpit's startup for 11+ s before failing (measured 2026-09-05 on a
-        // 26.7k-file workspace: 12.8 s to the first model request vs 0.9 s).
-        // A bounded wait keeps any other proxy stall off the critical path.
         let Ok(mut child) = std::process::Command::new(&candidate)
             .arg("--version")
             .env("RUSTUP_AUTO_INSTALL", "0")
@@ -1790,9 +1566,6 @@ fn command_on_path_probe(bin: &str) -> bool {
     })
 }
 
-/// Upper bound for the rustup-proxy `--version` preflight; a proxy that cannot
-/// answer within this window is treated as unprovisioned rather than allowed
-/// to stall discovery.
 const RUSTUP_PROXY_PREFLIGHT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 
 fn lsp_prewarm_enabled(value: Option<&str>) -> bool {
@@ -1803,13 +1576,6 @@ fn lsp_prewarm_enabled(value: Option<&str>) -> bool {
 }
 
 pub fn discover_lsp_tools(workspace: PathBuf) -> (Vec<Box<dyn Tool>>, Vec<String>) {
-    // On by default when a server binary for a language actually present in
-    // the workspace is on PATH. `ANGEL_LSP=1` forces on unconditionally;
-    // `ANGEL_LSP=0` forces off; unset auto-enables only if a known server
-    // (rust-analyzer / pyright / tsserver / bash-language-server /
-    // yaml-language-server) is reachable. This keeps the post-edit
-    // self-correct on for real projects while skipping it where nothing can
-    // run — no spurious spawns or error noise.
     let on = match std::env::var("ANGEL_LSP").ok().as_deref() {
         Some("0") => return (Vec::new(), Vec::new()),
         Some(v) if !v.is_empty() => true,
@@ -1829,12 +1595,6 @@ pub fn discover_lsp_tools(workspace: PathBuf) -> (Vec<Box<dyn Tool>>, Vec<String
         "lsp: diagnostics + nav + symbols enabled ({})",
         langs.join(", ")
     );
-    // Optional pre-warm: spawn + initialize servers for languages actually
-    // present in the workspace, off-thread at registry build. This must stay
-    // opt-in: launchers commonly open at $HOME, and eagerly treating that broad
-    // directory as one rust-analyzer project can saturate disk and stdout before
-    // the first model request. Explicit LSP tool calls still start the matching
-    // server lazily, preserving all functionality without taxing chat startup.
     let prewarm = std::env::var("ANGEL_LSP_PREWARM")
         .ok()
         .is_some_and(|value| lsp_prewarm_enabled(Some(&value)));

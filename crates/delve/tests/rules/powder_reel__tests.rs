@@ -22,7 +22,6 @@ use std::path::PathBuf;
 pub(crate) type Keys = BTreeMap<u32, Input>;
 type Tile2 = (i32, i32);
 
-/// The store with `seats` knights at the table, on a floor laid for them.
 pub(crate) fn fresh_for(seats: u32) -> Run {
     let mut r = Run::new(41, 1, None);
     for id in 2..=seats {
@@ -41,7 +40,6 @@ pub(crate) fn fresh_for(seats: u32) -> Run {
     for h in r.players.values_mut() {
         h.carried.add(Spoil::Gold, 50);
     }
-    // Fortune's dare card lifts long before a knight finds a folly.
     r.dare = None;
     r.enter_for_test(r.folly_room.expect("a hall on floor three"));
     assert!(r.powder.is_some(), "the powder room");
@@ -56,8 +54,6 @@ fn tile_of(h: &Hero) -> Tile2 {
     ((h.x / TILE_UNITS) as i32, (h.y / TILE_UNITS) as i32)
 }
 
-/// The tiles that will burn within `soon` ticks (or burn now), with the
-/// kegs' own.
 fn lanes(run: &Run, p: &Powder, soon: u32) -> BTreeSet<Tile2> {
     let mut out: BTreeSet<Tile2> = p.fire.iter().map(|f| f.0).collect();
     for k in p.kegs.iter().filter(|k| k.fuse <= soon) {
@@ -76,8 +72,6 @@ fn lit_by(run: &Run, p: &Powder, at: Tile2) -> Vec<Tile2> {
     v
 }
 
-/// The nearest tile (by steps over open floor) that satisfies `goal`,
-/// avoiding `avoid` (the start excepted), and the first step towards it.
 fn route(run: &Run, from: Tile2, goal: impl Fn(Tile2) -> bool, avoid: &BTreeSet<Tile2>, limit: usize) -> Option<(Tile2, usize)> {
     let room = run.room();
     let mut seen = BTreeSet::from([from]);
@@ -101,8 +95,6 @@ fn route(run: &Run, from: Tile2, goal: impl Fn(Tile2) -> bool, avoid: &BTreeSet<
     None
 }
 
-/// The press that walks `hero` from its tile to the next, along the middle
-/// of the lane.
 fn step_to(hero: &Hero, from: Tile2, to: Tile2) -> (i8, i8) {
     let mid = |t: i32| (t as f32 + 0.5) * TILE_UNITS;
     let (ex, ey) = (mid(from.0) - hero.x, mid(from.1) - hero.y);
@@ -122,17 +114,12 @@ fn beside_crate(run: &Run, p: &Powder, t: Tile2) -> bool {
     [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|&(dx, dy)| p.crates.contains(&(((t.1 + dy) * cols + t.0 + dx) as u16)))
 }
 
-/// Whether a keg set down at `t` leaves a way out of its own lanes (and
-/// everyone's) within a few steps.
 fn safe_drop(run: &Run, p: &Powder, t: Tile2, danger: &BTreeSet<Tile2>) -> bool {
     let mut would = danger.clone();
     would.extend(lit_by(run, p, t));
     route(run, t, |n| !would.contains(&n), danger, 3).is_some()
 }
 
-/// What a bomber presses: out of any lane that will burn; else, beside a
-/// crate with a keg to spare and a way clear, set one; else walk to the
-/// nearest place that is both.
 pub(crate) fn keys(run: &Run) -> Keys {
     let Some(p) = run.powder.as_ref() else { return Keys::new() };
     if p.titled() || p.done {
@@ -146,11 +133,8 @@ pub(crate) fn keys(run: &Run) -> Keys {
         let mut input = Input::default();
         let mine = p.kegs.iter().filter(|k| k.owner == id).count();
         let free_hand = mine < KEGS_EACH && !p.kegs.iter().any(|k| k.at == me) && !p.held.contains(&id) && (run.tick as u32 + id * 7) % 4 != 0;
-        // A bomber now and then is careless: it stays in a lane, sets a keg
-        // where there is no way out. So the reel has a sooting to show.
         let reckless = (id + run.tick as u32 / 120) % 3 == 0;
         if danger.contains(&me) && !reckless {
-            // Run for the nearest tile out of the lanes.
             if let Some((next, _)) = route(run, me, |t| !danger.contains(&t), &burning, 14) {
                 (input.move_x, input.move_y) = step_to(hero, me, next);
             }
@@ -170,7 +154,6 @@ pub(crate) fn keys(run: &Run) -> Keys {
     out
 }
 
-/// The ticks that matter, found by playing the store through once unseen.
 #[derive(Debug, Default)]
 struct Marks {
     first_blast: Option<u32>,
@@ -226,14 +209,10 @@ fn save(dir: &PathBuf, n: usize, sheet: &Img) {
     image::save_buffer(dir.join(format!("f{n:04}.png")), &sheet.rgb_bytes(), sheet.w as u32, sheet.h as u32, image::ColorType::Rgb8).unwrap();
 }
 
-/// Lay a lattice of kegs over a cleared patch near seat one, the root's
-/// fuse almost out: a chain that runs the whole patch. For the proof.
 fn stage_chain(r: &mut Run) {
     let cols = r.room().cols as i32;
     let hero = r.players[&1].clone();
     let (hx, hy) = tile_of(&hero);
-    // A patch of odd-odd kegs three by four, two tiles apart, found a few
-    // tiles in front of the knight, kept inside the walls.
     let (x0, y0) = ((hx + 3).clamp(2, cols - 12) | 1, (hy + 1).clamp(2, r.room().rows as i32 - 10) | 1);
     let at = r.at;
     let mut kegs = Vec::new();
@@ -245,7 +224,6 @@ fn stage_chain(r: &mut Run) {
                 kegs.push((x0 + i * 2, y0 + j * 2));
             }
         }
-        // Open every lane of the lattice and every keg's tile.
         for y in y0 - 1..=y0 + 5 {
             for x in x0 - 1..=x0 + 7 {
                 let pier = powder::pillar(x, y);
@@ -265,14 +243,11 @@ fn stage_chain(r: &mut Run) {
             }
         }
     }
-    // Crates just outside, so there is something to break.
     r.dungeon.world_revision = r.dungeon.world_revision.wrapping_add(1);
-    // Stand knight one a little back from it.
     let h = r.players.get_mut(&1).unwrap();
     (h.x, h.y) = ((x0 as f32 - 2.5) * TILE_UNITS, (y0 as f32 + 2.5) * TILE_UNITS);
 }
 
-/// Play again, writing a frame of `seat`'s screen every tick in `[from, to)`.
 fn record_for(root: &PathBuf, name: &str, seats: u32, from: u32, to: u32, seat: u32, also: Option<u32>, stage: Option<u32>) {
     let dir = root.join(name);
     let _ = std::fs::remove_dir_all(&dir);
@@ -322,7 +297,6 @@ fn write_powder_reel() {
         record(&root, "haul", t.saturating_sub(60), t + 80, who.max(1), None);
     }
     if want("chain") {
-        // Staged: a lattice of kegs near seat one set going.
         let t = TITLE + 60;
         record_for(&root, "chain", 4, t, t + 150, 1, Some(2), Some(t));
     }
@@ -347,10 +321,6 @@ fn write_powder_reel() {
     }
 }
 
-/// The Powder Room's frame time: four bombers play to the middle of the
-/// minute, then seat one's screen is drawn twice a tick, as the store draws
-/// it and as the room was drawn before it (`powder_room::OFF`), so both see
-/// the same game; and each part of the store is timed alone.
 #[test]
 #[ignore = "times the Powder Room's frames"]
 fn powder_frame_time() {
@@ -407,8 +377,6 @@ fn powder_frame_time() {
     println!("powder frame (old): mean {:.2} ms, median {:.2} ms, slowest tenth {:.2} ms", o.0, o.1, o.2);
     println!("powder frame: new/old mean {:.2}x, slowest tenth {:.2}x", n.0 / o.0, n.2 / o.2);
     println!("powder parts (ms): floor {:.2}, over {:.2}, screen {:.2}", parts[0], parts[1], parts[2]);
-    // The heaviest pictures: a staged chain tearing a patch of the store,
-    // and the whole store going up at the end.
     let heavy = |label: &str, r: &mut Run, ticks: u32| {
         let mut ms = Vec::new();
         for _ in 0..ticks {
@@ -429,9 +397,6 @@ fn powder_frame_time() {
     heavy("finale ripple", &mut r, 70);
 }
 
-/// The store draws through the whole minute and its finish, for a lone
-/// knight and for every table up to six seats, and the store it draws is
-/// the same twice (the host's and a mirror's are one).
 #[test]
 fn the_store_draws_through_the_whole_minute_the_same_twice() {
     use std::hash::{Hash, Hasher};
@@ -466,10 +431,6 @@ fn rect_of(c: &crate::render::overworld::arena::PowderClaim) -> (i32, i32, i32, 
     c.rect
 }
 
-/// No two words meet on any seat's screen, and every box is whole in the
-/// frame, through whole runs at one to six seats: the strip, the store's
-/// bar, the title and countdown, every call, the numbers that fly and pop,
-/// the last seconds, the finish and the yard.
 #[test]
 fn the_words_never_meet_and_stay_in_the_frame_at_one_to_six_seats() {
     use crate::render::overworld::arena::powder_words;
@@ -482,8 +443,6 @@ fn the_words_never_meet_and_stay_in_the_frame_at_one_to_six_seats() {
         for t in 0..TITLE + POWDER_TIME + 400 {
             let k = keys(&r);
             r.step(&k);
-            // Staged chain half way, so the biggest calls and a crowd of
-            // numbers are on the screen too.
             if t == TITLE + 600 {
                 stage_chain(&mut r);
             }
@@ -524,7 +483,6 @@ fn the_words_never_meet_and_stay_in_the_frame_at_one_to_six_seats() {
         }
     }
     assert!(checked > 600, "the walk looked at {checked} screens");
-    // The walk met every kind of words the store puts up.
     for what in ["clock", "name", "count", "pot", "title", "beat", "go", "call", "flying", "sooted", "last", "finale", "winner", "gold", "table"] {
         assert!(seen.contains(what), "the walk never saw {what:?}; saw {seen:?}");
     }

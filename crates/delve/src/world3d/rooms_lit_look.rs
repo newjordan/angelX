@@ -34,36 +34,22 @@ use angel_stage::look::{Dither, Lamp, Look, Reveal, Shadow, Sun};
 use super::blockout::{Field, Setting};
 use crate::rules::{Pack, RoomKind};
 
-/// An eight-entry ramp, dark to light.
 pub type Ramp = [[u8; 3]; 8];
 
-/// What a room is lit as: its palette and its key light.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Tone {
-    /// A delve's chambers, side rooms and halls, in its stone.
     Delve(Pack),
-    /// The Keep's halls and the kingdom's grander interiors.
     Keep,
-    /// A tavern.
     Tavern,
-    /// A chapel or a priory.
     Chapel,
-    /// A smithy or the King's forge-hall.
     Forge,
-    /// The halls of dressed stone: the Colosseum, the Gander hall, the
-    /// Training Yard, the Trophy Hall.
     Hall,
-    /// The wizard's tower and its study.
     Tower,
-    /// The College's rooms and its courtyard.
     College,
-    /// The company's home below the world.
     Undercroft,
-    /// An open place of the kingdom, by its ground.
     Open(Ground),
 }
 
-/// An open place's ground.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Ground {
     Meadow,
@@ -75,7 +61,6 @@ pub enum Ground {
 }
 
 impl Tone {
-    /// Every tone, in the order of their numbers.
     pub const ALL: [Tone; 21] = [
         Tone::Delve(Pack::Crypt),
         Tone::Delve(Pack::Cavern),
@@ -100,7 +85,6 @@ impl Tone {
         Tone::Open(Ground::Earth),
     ];
 
-    /// Its name, as the proof shots and the log say it.
     pub fn name(self) -> &'static str {
         match self {
             Tone::Delve(Pack::Crypt) => "crypt",
@@ -127,7 +111,6 @@ impl Tone {
         }
     }
 
-    /// The tone of a room of kind `kind` dressed `id` in setting `setting`.
     pub fn of(kind: RoomKind, id: &str, setting: Setting) -> Tone {
         match setting {
             Setting::Dungeon(pack) => return Tone::Delve(pack),
@@ -161,11 +144,8 @@ impl Tone {
         }
     }
 
-    /// Its ramp, dark to light.
     pub fn ramp(self) -> Ramp {
         match self {
-            // Night slate: the castle proof's indigo with a breath of
-            // violet, so the crypt is the Keep's cousin and not its twin.
             Tone::Delve(Pack::Crypt) => [
                 [0x0d, 0x0d, 0x1a],
                 [0x14, 0x15, 0x28],
@@ -176,7 +156,6 @@ impl Tone {
                 [0x5b, 0x5e, 0x8d],
                 [0x7c, 0x80, 0xad],
             ],
-            // Slate: wet rock under a cold light, so a lamp is warm against it.
             Tone::Delve(Pack::Cavern) => [
                 [0x0b, 0x0d, 0x10],
                 [0x11, 0x15, 0x19],
@@ -187,7 +166,6 @@ impl Tone {
                 [0x53, 0x60, 0x6d],
                 [0x71, 0x82, 0x91],
             ],
-            // Wine: soot and old brick gone to mauve, so the lava is the only red.
             Tone::Delve(Pack::Hellforge) => [
                 [0x11, 0x06, 0x08],
                 [0x1a, 0x0a, 0x0c],
@@ -198,7 +176,6 @@ impl Tone {
                 [0x67, 0x3a, 0x3c],
                 [0x82, 0x4e, 0x50],
             ],
-            // Drowned teal: stone the water got into.
             Tone::Delve(Pack::Archive) => [
                 [0x06, 0x0f, 0x0f],
                 [0x0a, 0x17, 0x17],
@@ -209,7 +186,6 @@ impl Tone {
                 [0x3d, 0x68, 0x63],
                 [0x56, 0x8b, 0x84],
             ],
-            // Violet: a forest of mushrooms in the dark.
             Tone::Delve(Pack::Fungal) => [
                 [0x13, 0x0a, 0x17],
                 [0x1e, 0x10, 0x24],
@@ -220,7 +196,6 @@ impl Tone {
                 [0x80, 0x50, 0x8b],
                 [0xaa, 0x6d, 0xb6],
             ],
-            // Void: near-black ultramarine, cold to the last entry.
             Tone::Delve(Pack::Unknown) => [
                 [0x06, 0x08, 0x11],
                 [0x0a, 0x0d, 0x1c],
@@ -231,7 +206,6 @@ impl Tone {
                 [0x3f, 0x4b, 0x74],
                 [0x5a, 0x69, 0x9b],
             ],
-            // Moss: the mire under Sir Damp's Marsh.
             Tone::Delve(Pack::Swamp) => [
                 [0x0c, 0x0f, 0x0a],
                 [0x14, 0x19, 0x10],
@@ -242,7 +216,6 @@ impl Tone {
                 [0x5b, 0x6a, 0x42],
                 [0x7b, 0x8b, 0x59],
             ],
-            // Slate: the castle proof's indigo.
             Tone::Keep => [
                 [0x0e, 0x0f, 0x19],
                 [0x14, 0x17, 0x27],
@@ -253,7 +226,6 @@ impl Tone {
                 [0x54, 0x5c, 0x82],
                 [0x77, 0x7f, 0xa2],
             ],
-            // Smoke: a tavern's soot-dark timber and plaster.
             Tone::Tavern => [
                 [0x10, 0x0e, 0x0d],
                 [0x19, 0x16, 0x14],
@@ -264,7 +236,6 @@ impl Tone {
                 [0x6d, 0x62, 0x57],
                 [0x91, 0x84, 0x75],
             ],
-            // Limestone: cool blue-grey.
             Tone::Chapel => [
                 [0x0d, 0x0f, 0x13],
                 [0x16, 0x19, 0x1e],
@@ -275,7 +246,6 @@ impl Tone {
                 [0x64, 0x6f, 0x7d],
                 [0x89, 0x94, 0xa1],
             ],
-            // Gunmetal: iron and soot.
             Tone::Forge => [
                 [0x0c, 0x0d, 0x0e],
                 [0x15, 0x16, 0x18],
@@ -286,7 +256,6 @@ impl Tone {
                 [0x60, 0x66, 0x6d],
                 [0x83, 0x89, 0x90],
             ],
-            // Granite: a warm-neutral grey.
             Tone::Hall => [
                 [0x0e, 0x0e, 0x0e],
                 [0x17, 0x17, 0x17],
@@ -297,7 +266,6 @@ impl Tone {
                 [0x67, 0x64, 0x5f],
                 [0x8b, 0x87, 0x7f],
             ],
-            // Night: violet-blue.
             Tone::Tower => [
                 [0x0c, 0x0b, 0x16],
                 [0x13, 0x11, 0x22],
@@ -308,7 +276,6 @@ impl Tone {
                 [0x58, 0x4b, 0x84],
                 [0x7b, 0x6c, 0xa8],
             ],
-            // Verdigris: green-slate.
             Tone::College => [
                 [0x0b, 0x10, 0x0f],
                 [0x12, 0x19, 0x18],
@@ -319,7 +286,6 @@ impl Tone {
                 [0x53, 0x6b, 0x63],
                 [0x75, 0x8f, 0x85],
             ],
-            // Ochre stone: the company's cellar halls.
             Tone::Undercroft => [
                 [0x0f, 0x0d, 0x0b],
                 [0x18, 0x15, 0x11],
@@ -330,7 +296,6 @@ impl Tone {
                 [0x6b, 0x5e, 0x49],
                 [0x8f, 0x7f, 0x63],
             ],
-            // The castle proof's meadow: sage greys.
             Tone::Open(Ground::Meadow) => [
                 [0x0e, 0x12, 0x10],
                 [0x17, 0x1f, 0x1b],
@@ -341,7 +306,6 @@ impl Tone {
                 [0x70, 0x7e, 0x67],
                 [0x96, 0x9f, 0x84],
             ],
-            // Dune: pale ochre in shadow.
             Tone::Open(Ground::Dune) => [
                 [0x12, 0x10, 0x0d],
                 [0x1d, 0x1a, 0x15],
@@ -352,7 +316,6 @@ impl Tone {
                 [0x7c, 0x70, 0x58],
                 [0xa1, 0x93, 0x75],
             ],
-            // Snow: blue ice, the lightest ramp.
             Tone::Open(Ground::Snow) => [
                 [0x0f, 0x12, 0x18],
                 [0x19, 0x1e, 0x27],
@@ -363,7 +326,6 @@ impl Tone {
                 [0x7f, 0x8b, 0x9d],
                 [0xa8, 0xb2, 0xc0],
             ],
-            // Marsh: olive.
             Tone::Open(Ground::Marsh) => [
                 [0x0e, 0x10, 0x0b],
                 [0x17, 0x1a, 0x12],
@@ -374,7 +336,6 @@ impl Tone {
                 [0x69, 0x71, 0x4f],
                 [0x8c, 0x94, 0x6a],
             ],
-            // Scree: grey-green stone.
             Tone::Open(Ground::Scree) => [
                 [0x0e, 0x10, 0x10],
                 [0x17, 0x1a, 0x1a],
@@ -385,7 +346,6 @@ impl Tone {
                 [0x69, 0x71, 0x6c],
                 [0x8d, 0x95, 0x8e],
             ],
-            // Earth: umber.
             Tone::Open(Ground::Earth) => [
                 [0x11, 0x0e, 0x0b],
                 [0x1b, 0x16, 0x12],
@@ -399,8 +359,6 @@ impl Tone {
         }
     }
 
-    /// The ramp water is seen through in it: a dark teal by default, its own
-    /// in the drowned and the mired places.
     pub fn water(self) -> Ramp {
         match self {
             Tone::Delve(Pack::Swamp) | Tone::Open(Ground::Marsh) => [
@@ -426,11 +384,8 @@ impl Tone {
         }
     }
 
-    /// The ramp lamplight moves what it lights toward: embers, but for the
-    /// Fungal Deep's spore glow and the Archive's candlelight.
     pub fn warm(self) -> Ramp {
         match self {
-            // Sickly green, as a spore lamp burns.
             Tone::Delve(Pack::Fungal) => [
                 [0x09, 0x15, 0x03],
                 [0x11, 0x21, 0x06],
@@ -441,7 +396,6 @@ impl Tone {
                 [0x7a, 0x9a, 0x3f],
                 [0xa6, 0xc6, 0x59],
             ],
-            // Pale gold, as a candle burns.
             Tone::Delve(Pack::Archive) => [
                 [0x15, 0x11, 0x06],
                 [0x21, 0x1c, 0x0b],
@@ -456,7 +410,6 @@ impl Tone {
         }
     }
 
-    /// The colour its fires burn.
     pub fn flame(self) -> [u8; 3] {
         match self {
             Tone::Delve(Pack::Fungal) => SPORE,
@@ -465,33 +418,19 @@ impl Tone {
         }
     }
 
-    /// Whether it is out under the sky: the low sun, not a high window.
     pub fn open(self) -> bool {
         matches!(self, Tone::Open(_))
     }
 
-    /// Its key light: toward it, its strength, and the ambient under it.
     pub fn key(self) -> ([f32; 3], f32, f32) {
         match self {
-            // The castle proof's sun: low in the west-south-west.
             Tone::Open(_) => ([-0.66, 0.52, 0.46], 1.05, 0.26),
-            // Under the ground: a hard cool light low from the front left,
-            // as through a slot in the stone, over a dim ambient, so what
-            // stands throws long shadows, the lamps carry the room and the
-            // floor, the walls and what stands in it still read: the floor
-            // at the middle steps of the ladder, a lit face a step up, a
-            // shadow two down (docs/BRAND.md). Dragon Keep is held darker,
-            // so its lava is the light.
             Tone::Delve(Pack::Hellforge) => ([-0.70, 0.36, 0.50], 0.62, 0.21),
             Tone::Delve(_) => ([-0.70, 0.36, 0.50], 0.90, 0.32),
-            // A high window to the front left.
             _ => ([-0.52, 0.72, 0.46], 0.7, 0.24),
         }
     }
 
-    /// How high its sky's light grows (`Sun::rise`): a delve's tall faces
-    /// pale toward their tops and darken at their feet, so a pillar or a
-    /// wall stands up out of the floor.
     pub fn rise(self) -> f32 {
         match self {
             Tone::Delve(_) => 16.0,
@@ -499,8 +438,6 @@ impl Tone {
         }
     }
 
-    /// How far its shadows run, of the view's reach: a delve's low light
-    /// throws them far across the floor.
     pub fn shadow_reach(self) -> f32 {
         match self {
             Tone::Delve(_) => 1.6,
@@ -508,9 +445,6 @@ impl Tone {
         }
     }
 
-    /// What its lamps are scaled by, strength and reach: a delve's burn strong
-    /// and throw small against its dark, a bright core and a falloff the
-    /// dither shows.
     pub fn lamp_gain(self) -> (f32, f32) {
         match self {
             Tone::Delve(_) => (1.5, 0.72),
@@ -532,7 +466,6 @@ impl Ground {
     }
 }
 
-/// Where lamplight moves what it lights: embers.
 pub const EMBER: Ramp = [
     [0x17, 0x10, 0x0e],
     [0x29, 0x19, 0x12],
@@ -544,39 +477,25 @@ pub const EMBER: Ramp = [
     [0xe6, 0xb2, 0x66],
 ];
 
-/// The light's glint on water (a look's first accent), and the colours a
-/// fire and a lit window keep (`Kind::Fire`, `Kind::Window`).
 pub const GLINT: [u8; 3] = [0xd9, 0xd6, 0xb8];
-/// The crust of lava and of a bed of coals, cracked with `FLAME`.
 pub const EMBER_DEEP: [u8; 3] = [0x7c, 0x2a, 0x14];
 pub const FLAME: [u8; 3] = [0xe8, 0x74, 0x2c];
 pub const WINDOW: [u8; 3] = [0xee, 0xae, 0x55];
-/// The Fungal Deep's fires and the Archive's: spore green and candle gold.
 pub const SPORE: [u8; 3] = [0xb4, 0xe0, 0x5c];
 pub const CANDLE: [u8; 3] = [0xf2, 0xc2, 0x5a];
 
-/// A metre in stage pixels: a knight stands about two.
 pub const METRE: f32 = 11.0;
-/// How far round the knight's chest the reveal opens what stands in the
-/// way, in stage pixels.
 pub const REVEAL: f32 = 18.0;
-/// How high a knight's chest is over its feet, in stage pixels.
 pub const CHEST: f32 = 13.0;
 
-/// How a room's lamps burn: full while it is fought, steady where people
-/// live and work, low embers once a fight is won.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Activity {
-    /// A fight is on: the braziers burn full.
     Fought,
-    /// Lived in, or a room with no fight: steady.
     Steady,
-    /// A fight room cleared: embers.
     Cleared,
 }
 
 impl Activity {
-    /// How strong its lamps burn, of the set's own strength.
     pub fn strength(self) -> f32 {
         match self {
             Activity::Fought => 1.0,
@@ -585,7 +504,6 @@ impl Activity {
         }
     }
 
-    /// How far its lamps reach, of the set's own reach.
     pub fn reach(self) -> f32 {
         match self {
             Activity::Fought => 1.0,
@@ -595,17 +513,11 @@ impl Activity {
     }
 }
 
-/// Lamp `k`'s flicker at `t` seconds: a few hundredths either way.
 pub fn flicker(t: f32, k: usize) -> f32 {
     let k = k as f32 * 1.73;
     1.0 + 0.06 * (t * 7.3 + k).sin() + 0.04 * (t * 12.1 + 2.0 * k).sin()
 }
 
-/// The look a room of tone `tone` is drawn through: `lamps` its lamps where
-/// they stand on the stage, burning as the room does (the nearest the
-/// view's middle `centre` kept, at most `LAMP_MAX`), flickering at `t`
-/// seconds; the shadows round `centre` as far as `reach`; the knight's chest
-/// at `chest` kept in sight.
 pub fn look(tone: Tone, lamps: &[Lamp], t: f32, centre: [f32; 3], reach: f32, chest: Option<[f32; 3]>) -> Look {
     let mut look = Look::new(tone.ramp().to_vec());
     look.accent = vec![GLINT, tone.flame(), WINDOW, EMBER_DEEP];
@@ -629,36 +541,21 @@ pub fn look(tone: Tone, lamps: &[Lamp], t: f32, centre: [f32; 3], reach: f32, ch
     look
 }
 
-/// Whether a lit room's figures take its light as cards (`Look::cards`,
-/// docs/WORLD-TIERS.md "Lit cards"): unless the host says
-/// `ANGEL_STAGE_LIT_CARDS=0`.
 pub fn lit_cards_on() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *ON.get_or_init(|| !std::env::var("ANGEL_STAGE_LIT_CARDS").is_ok_and(|v| v == "0"))
 }
 
-/// Whether a lit room's cards are lit pixel by pixel by their normal maps
-/// (`Cards::normals`, docs/WORLD-TIERS.md "Normal maps"): unless the host
-/// says `ANGEL_STAGE_CARD_NORMALS=0`, when each card is one face turned to
-/// the eye, as before, and no map is made.
 pub fn card_normals_on() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *ON.get_or_init(|| !std::env::var("ANGEL_STAGE_CARD_NORMALS").is_ok_and(|v| v == "0"))
 }
 
-/// Whether a lit room is seen with a depth of field (`Look::dof`,
-/// docs/WORLD-TIERS.md "Depth of field"): unless the host says
-/// `ANGEL_STAGE_DOF=0`.
 pub fn dof_on() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *ON.get_or_init(|| !std::env::var("ANGEL_STAGE_DOF").is_ok_and(|v| v == "0"))
 }
 
-/// A lit room's look given the two dials that follow its figures
-/// (2026-10-19: "yes do depth of field and lit sprites next"): its figures
-/// lit by its light as cards, and a depth of field that keeps every figure
-/// in `feet` (stage pixels: the knights and what they fight) sharp and
-/// softens what is nearer and farther. Each unless its switch is off.
 pub fn with_figures(look: &mut Look, feet: &[[f32; 3]]) {
     if lit_cards_on() {
         let normals = if card_normals_on() { angel_stage::look::Cards::ROOM.normals } else { 0.0 };
@@ -669,9 +566,6 @@ pub fn with_figures(look: &mut Look, feet: &[[f32; 3]]) {
     }
 }
 
-/// The figures' feet the depth of field is kept on: the nearest and the
-/// farthest down the floor, which is the stage camera's depth (a room has
-/// thousands of figures at most, a look keeps 64 points).
 pub fn focus(feet: &[[f32; 3]]) -> Vec<[f32; 3]> {
     let near = feet.iter().copied().max_by(|a, b| a[2].total_cmp(&b[2]));
     let far = feet.iter().copied().min_by(|a, b| a[2].total_cmp(&b[2]));
@@ -706,9 +600,6 @@ mod tests {
                 let luma = |c: [u8; 3]| 0.2126 * f32::from(c[0]) + 0.7152 * f32::from(c[1]) + 0.0722 * f32::from(c[2]);
                 assert!(ramp.windows(2).all(|w| luma(w[1]) > luma(w[0])), "{}: dark to light", tone.name());
                 assert!(luma(ramp[0]) < 20.0 && luma(ramp[7]) < 185.0, "{}: dark, its lightest no white", tone.name());
-                // Nearly monotone: one hue, dark to light, every entry with
-                // any colour no further from the ramp's middle than the
-                // castle proof's meadow drifts (48 degrees).
                 let hue = |c: [u8; 3]| -> Option<f32> {
                     let [r, g, b] = c.map(f32::from);
                     let (hi, lo) = (r.max(g).max(b), r.min(g).min(b));
@@ -737,8 +628,6 @@ mod tests {
 
     #[test]
     fn a_delves_lamps_burn_strong_and_throw_small_pools() {
-        // Strong, so the dark is deep round them, and small, so a room is lit
-        // by a few pools and not a wash.
         let lamp = Lamp { at: [0.0, 20.0, 0.0], reach: 104.0, strength: 1.0 };
         let delve = look(Tone::Delve(Pack::Crypt), &[lamp], 0.0, [0.0; 3], 400.0, None);
         let keep = look(Tone::Keep, &[lamp], 0.0, [0.0; 3], 400.0, None);
@@ -760,8 +649,6 @@ mod tests {
         }
         let luma = |c: [u8; 3]| 0.2126 * f32::from(c[0]) + 0.7152 * f32::from(c[1]) + 0.0722 * f32::from(c[2]);
         for tone in delves {
-            // The light it burns by keeps the ember ramp's brightness at every
-            // step, its colour its own, and its look lets the flame keep it.
             let warm = tone.warm();
             for k in 0..8 {
                 assert!((luma(warm[k]) - luma(EMBER[k])).abs() < 14.0, "{} warm step {k}: {:?}", tone.name(), warm[k]);

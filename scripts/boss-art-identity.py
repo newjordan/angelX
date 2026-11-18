@@ -10,8 +10,6 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
 A = runpy.run_path(str(ROOT/'scripts/boss-art.py'))
-# Art deliveries and review output live outside the checkout, under
-# ANGEL_ART_ARTIFACTS (default ~/angel-art).
 ART = Path(os.environ.get('ANGEL_ART_ARTIFACTS') or Path.home()/'angel-art')
 OUT = ART/'boss-art-20261015/boss-3c'
 PALS = [
@@ -38,8 +36,6 @@ def mask(i,f=1):
  return m.resize((m.width*f,m.height*f),Image.Resampling.NEAREST)
 def finish(im,i,m=None,pal=None,details=()):
  rows=[''.join(chr(im.getpixel((x,y))) if (m.getpixel((x,y)) if m else im.getpixel((x,y))!=ord('.')) else '.' for x in range(im.width)) for y in range(im.height)]
- # Only deliberately drawn semantic details and inherited alpha islands may
- # survive as single pixels. Broad sampled noise is never exempted.
  keep=set(details)
  for y,row in enumerate(rows):
   for x,k in enumerate(row):
@@ -72,8 +68,6 @@ def tax():
  poly(im,[(7,11),(12,10),(16,20),(12,23),(5,22)],'S')
  line(im,[(2,13),(3,12),(4,14),(3,19),(2,22)],'6')
  line(im,[(7,19),(8,21),(7,23)],'U');line(im,[(12,19),(13,22),(14,24)],'U')
- # Nine by six chest: curved lid, broad band, wood body and central lock.
- # A nine-by-six wooden chest front under a broad rounded lid / brass frame.
  motif(im,4,10,['..OtttttttO..','.OttOOOOOttO.','ttttttttttttt','tOOOOOtOOOOOt','tOoOOOtOOOoOt','tOoOOO@OOOoOt','tOoOOOOOOOoOt','tOoOOOOOOOoOt','ttOtttttttOtt','..ooooooooo..'])
  motif(im,17,18,['.TT.','TttT','.TT.','oOOo'])
  put(im,15,18,'T');put(im,16,18,'T');put(im,14,20,'T');put(im,15,20,'T')
@@ -84,7 +78,6 @@ def tax():
 def liege():
  old=BASE[1]['frames']['v1'][0]
  im=Image.new('L',mask(1).size,ord('s'))
- # Preserve the wine mass and heart-cage arrangement; cool skull / gold separate.
  for y,row in enumerate(A['signature_rows'](old)):
   for x,k in enumerate(row):
    if k!='.':put(im,x,y,{'t':'R','h':'O','H':'t','R':'S'}.get(k,k))
@@ -94,25 +87,21 @@ def liege():
  for x,y in [(11,0),(6,1),(9,1),(13,1),(16,1)]:put(im,x,y,'t')
  rect(im,(6,6,15,10),'h')
  motif(im,6,6,['hhHHHHh.','hHHHHHHh','HooHHooH','Ho2HHo2H','.HhHHhH.','..hHHh..'])
- # Dark bronze shoulders keep the crown's gold above the cool bone.
  poly(im,[(0,11),(6,11),(8,16),(2,18)],'O');poly(im,[(14,11),(21,11),(21,17),(16,17)],'O')
  line(im,[(0,12),(5,12),(6,14)],'O');line(im,[(16,12),(20,13)],'O')
  motif(im,6,17,['.OOtOOO.','Otoooo tO'.replace(' ',''),'Oo2332oO','Oo2332oO','Oo2222oO','.Ot22tO.','..OOOO..'])
  line(im,[(1,16),(3,16)],'h');line(im,[(18,16),(20,16)],'h');put(im,1,17,'H');line(im,[(3,17),(3,19)],'h');put(im,3,19,'H')
- # One-pixel fold edges only; never fill a broad salmon plane.
  line(im,[(9,24),(10,27),(9,31)],'R');line(im,[(14,24),(13,28),(14,31)],'R')
  return im
 
 def chief():
  im=Image.new('L',mask(2).size,ord('s'))
- # Dome: 7 / 11 / 13 pixels. Bone curls occupy solid two-pixel clusters.
  motif(im,5,0,['...TTTTTTT...','.TTTTTTTTTTT.','TTTTTTTTTTTTT','hTTTTTTTTTThh','hhhhhhhhhhhhh'])
  motif(im,4,0,['ss','ss','.s','.s'])
  motif(im,7,0,['Hh.','Hh.','hH.','.HH'])
  motif(im,13,0,['.hH','.hH','.Hh','HH.'])
  rect(im,(7,5,16,10),'S');poly(im,[(9,7),(14,7),(15,9),(12,10),(8,9)],'U')
  put(im,8,5,'@');put(im,12,5,'@')
- # Tusks rise from the two jaw corners; the jaw remains green between them.
  line(im,[(7,7),(7,9)],'H');line(im,[(15,7),(15,9)],'H');put(im,8,9,'h');put(im,14,9,'h')
  poly(im,[(5,11),(11,10),(18,11),(18,19),(6,20)],'S')
  poly(im,[(7,12),(9,11),(10,13),(9,14),(7,14)],'U')
@@ -133,7 +122,6 @@ def bodies(i):
  for f in (1,2):
   body=im.resize((im.width*f,im.height*f),Image.Resampling.NEAREST);m=mask(i,f);pal=PALS[i].copy()
   if i==0:
-   # Physical one-pixel rim, not a doubled pale lavender stripe.
    for y in range(body.height):
     for x in range(body.width):
      if body.getpixel((x,y))==ord('6'):put(body,x,y,'U')
@@ -154,7 +142,6 @@ def bodies(i):
    for x,y in pts:put(body,x,y,'@');put(body,x+1,y,'s')
    if f==2:
     for x in (14,30):rect(body,(x,14,x+1,18),'H')
-    # Tighten solid horn curls to three by six pixels on the larger grid.
     motif(body,14,0,['HHh','HHh','Hhh','HHh','.HH','..H'])
     motif(body,28,0,['hHH','hHH','hhH','hHH','HH.','H..'])
   details=set(pts)
@@ -164,7 +151,6 @@ def bodies(i):
     k=chr(body.getpixel((x,y)))
     if m.getpixel((x,y)) and k in ('6','2','3','@','t','T','H','h','R'):
      if not any(0<=nx<body.width and 0<=ny<body.height and m.getpixel((nx,ny)) and body.getpixel((nx,ny))==body.getpixel((x,y)) for nx,ny in A['neighbours'](x,y)):details.add((x,y))
-  # Face void is recessed inside the unchanged hood silhouette.
   if i==0:
    for y in range(body.height):
     for x in range(body.width):
@@ -178,12 +164,9 @@ def bodies(i):
  return out
 
 def shots(i):
- # The larger canvas is visual only; collision and anchors remain unchanged.
  im=Image.new('L',(24,24),ord('.'));other=im.copy();pal=PALS[i].copy()
  if i==0:
-  # A horizontal key with a coin bow and two open wards; turn upright.
   motif(im,4,4,['..tttt..........','.tOOOOt.........','tOO..OOt........','tOO..OOt........','.tOOOOtttttttttt','..tttt.OOOOOOOOO','.......tt..tt..t','.......t...t...t','.......ttt.ttttt','.......OOO.OOOOO'])
-  # The coin's lower gleam occupies the third row without a loose particle.
   line(im,[(6,13),(6,19),(8,21),(10,21)],'t')
   other=Image.new('L',(24,24),ord('.'))
   motif(other,8,0,['..tttt..','.tOOOOt.','tOO..OOt','tOO..OOt','.tOOOOt.','..tttt..'])
@@ -193,7 +176,6 @@ def shots(i):
    line(other,[(13,y+1),(16,y+1)],'O')
   pal.update(t='#c8a060',O='#a07840')
  elif i==1:
-  # Hollow ribs keep overlapping volleys light on the live room.
   line(im,[(9,3),(7,7),(8,15),(10,20)],'O')
   line(im,[(14,3),(16,7),(15,15),(13,20)],'O')
   line(im,[(9,3),(8,7),(9,15),(10,19)],'t')
@@ -228,7 +210,6 @@ def tells(i):
   im=Image.new('L',(11,11),ord('.'))
   if stage==0:
    for x,y in [(7,1),(8,3),(9,5),(8,7),(7,9)]:put(im,x,y,hi)
-   # Distinct sparse seeds without hiding the common progression.
    if i==1:put(im,6,2,lo);put(im,6,8,lo)
    if i==2:put(im,7,2,lo);put(im,8,6,lo)
   else:
@@ -272,7 +253,6 @@ def impacts(i):
  if i<2:
   frames=json.loads(json.dumps(BASE[i]['frames']['impact']))
   for f in frames:
-   # Role-local slots preserve existing masks and notches exactly.
    if i==0:
     f['pigments']=PALS[i].copy();f['pigments'].update(O='#a07840',t='#c8a060')
   return frames

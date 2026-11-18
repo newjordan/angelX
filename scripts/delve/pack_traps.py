@@ -1,13 +1,4 @@
 #!/usr/bin/env python3
-"""Cut the Demonic Dungeon floor spikes (VEXED, CC BY 4.0) into the Delve's ink rows.
-
-    python3 scripts/delve/pack_traps.py
-
-Reads `cockpit/assets/dungeon/packs/demonic-dungeon/Generics.png`, whose
-spikes are 8x8 frames (a hole, a tip in it, the spike up) in several
-colours, and writes `crates/delve/src/render/overworld/arena/pack_traps_frames.rs`:
-the grey set for the teal rooms, the orange for the cave, the red for the red.
-"""
 import sys
 from pathlib import Path
 
@@ -18,7 +9,6 @@ from pack_tiles import ROOT, ink_table  # noqa: E402
 
 SHEET = ROOT / "cockpit/assets/dungeon/packs/demonic-dungeon/Generics.png"
 OUT = ROOT / "crates/delve/src/render/overworld/arena/pack_traps_frames.rs"
-# Style: the sheet row of its spikes (8 px rows); frames by column from x 64.
 SETS = {"GREY": 0, "ORANGE": 4, "RED": 8}
 FRAMES = {"HOLE": 0, "TIP": 2, "UP": 4}
 

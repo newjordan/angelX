@@ -17,7 +17,6 @@ fn home_run() -> Run {
     Run::at_home(41, 1, None, Default::default(), Default::default())
 }
 
-/// A tile of the surface a knight cannot stand on, inside the map's rim.
 fn closed_tile(run: &Run) -> (i32, i32) {
     let geo = map::geography(&run.kingdom.wishes);
     let (cols, rows) = (geo.room.cols as i32, geo.room.rows as i32);
@@ -31,9 +30,6 @@ fn at(tile: (i32, i32)) -> (f32, f32) {
     ((tile.0 as f32 + 0.5) * TILE_UNITS, (tile.1 as f32 + 0.5) * TILE_UNITS)
 }
 
-/// The run's surface as a saved map of another shape would carry it: one tile
-/// of the kingdom's room unlike the map's own, so the next `raise_kingdom`
-/// takes it for an old map and brings its knights home onto this one.
 fn as_an_old_save(run: &mut Run) {
     let i = crate::rules::world::room_of(&run.dungeon, RoomKind::Kingdom).expect("the surface");
     let room = &mut run.dungeon.rooms[i];
@@ -79,7 +75,6 @@ fn a_return_door_to_a_place_that_is_gone_is_a_door_a_knight_can_come_out_of() {
     let back = run.kingdom.return_to.clone().expect("the return door is kept");
     assert!(standing_on_open_ground(&run, (back.x, back.y)), "the door is at {:?}", (back.x, back.y));
     assert!(back.party.values().all(|&spot| standing_on_open_ground(&run, spot)), "the party's spots {:?}", back.party);
-    // And walking out of the place puts the knight there.
     run.leave_kingdom_place();
     let hero = &run.players[&1];
     assert_eq!(run.room().kind, RoomKind::Kingdom);
@@ -101,7 +96,6 @@ fn the_journal_of_where_a_knight_went_in_does_not_come_back_out_on_closed_ground
         assert!(entry.party.values().all(|&spot| standing_on_open_ground(&run, spot)), "{:?}", entry.party);
         assert!(run.exits.outside[&1].party.values().all(|&spot| standing_on_open_ground(&run, spot)));
     } else {
-        // The full plan's journal is left exactly as it was written.
         assert_eq!(entry.party, BTreeMap::from([(1, spot)]));
         assert_eq!(run.exits.outside[&1].party, BTreeMap::from([(1, spot)]));
     }
@@ -114,9 +108,7 @@ fn an_old_saves_errand_to_a_place_with_no_door_is_let_go_and_one_with_a_door_is_
     run.kingdom.moments.errand = Some(RoomKind::LandOffice);
     as_an_old_save(&mut run);
     run.raise_kingdom();
-    // The full plan keeps its Land Office; the blank slate has none.
     assert_eq!(run.kingdom.moments.errand.is_none(), plan::tabula());
-    // The Delve's gate is a door on either map.
     run.kingdom.moments.errand = Some(RoomKind::Gate);
     as_an_old_save(&mut run);
     run.raise_kingdom();
@@ -135,7 +127,6 @@ fn a_gossip_or_a_wizard_never_sends_the_party_where_no_door_goes() {
             assert!(run.on_the_way(room), "Maud sent the party to {room:?} after {paid:#b} games paid");
         }
     }
-    // Merlin, by the stair, names the first errand a door goes to.
     let (mx, my) = (crate::rules::merlin::MERLIN_AT.0 * TILE_UNITS, crate::rules::merlin::MERLIN_AT.1 * TILE_UNITS);
     let hero = run.players.get_mut(&1).expect("a knight");
     (hero.x, hero.y) = (mx, my);
@@ -158,7 +149,6 @@ fn the_delves_gate_is_on_the_way_and_the_full_plan_leaves_nothing_off_it() {
             assert!(run.on_the_way(room));
         }
     } else {
-        // Only the Delve's gate has a door on the surface.
         assert!(!run.on_the_way(RoomKind::LandOffice));
     }
 }
@@ -171,7 +161,6 @@ fn a_castle_is_raided_only_where_its_hall_is_on_the_map_and_a_floor_always() {
     for key in [&castle, &floor] {
         h.owned.push(Holding { key: key.clone(), walls: 1, stars: 1, ..Holding::default() });
     }
-    // A castle already under raiders in the save.
     h.owned[0].raid = 2;
     let _ = holdings::rent_day(&mut h, 1);
     let (c, f) = (&h.owned[0], &h.owned[1]);
@@ -215,16 +204,12 @@ fn what_the_realm_owns_in_castles_stays_through_a_save_and_a_load() {
     let json = serde_json::to_value(&run.home.holdings).expect("saves");
     let back: Holdings = serde_json::from_value(json).expect("loads");
     assert_eq!(back.owned, run.home.holdings.owned);
-    // Each castle's ground is on the map, inside it.
     for id in ids {
         let (tx, ty, tw, th) = crate::world::castles::of_house(id).foot;
         assert!(tx > 0 && ty > 0 && tx + tw < map::MAP_W && ty + th < map::MAP_H, "{:?}", (tx, ty, tw, th));
     }
 }
 
-/// A report, not a check: every room of the home floor no door leads to from
-/// the Delve's gate on the blank-slate map, and each questline's teacher.
-/// `ANGEL_REALM_PLAN=tabula cargo test -p angel-delve --lib tabula_sweep_tests::report -- --ignored --nocapture`
 #[test]
 #[ignore = "a report"]
 fn report_what_no_door_leads_to_and_who_teaches_there() {

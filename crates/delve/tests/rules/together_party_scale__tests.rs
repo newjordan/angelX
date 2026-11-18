@@ -25,23 +25,15 @@ const INTRO: [&str; 4] = ["percival", "lynette", "gareth", "galahad"];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Kit {
-    /// The identity start as it went live: a shape, the ball, no mail.
     Naked,
-    /// The intro's knights as they are dressed: the normal start.
     Kit,
-    /// The intro's knights, every one holding a kite shield.
     Shield,
-    /// The intro's knights, every one with a dodge roll: no shields.
     Roll,
-    /// Every one holding a kite shield, and holding it up whenever a shot
-    /// is coming within `TURTLE_REACH`, as a knight who lives behind it.
     Turtle,
 }
 
-/// How near a coming shot brings a turtling knight's shield up.
 const TURTLE_REACH: f32 = 6.0;
 
-/// Whether a shot is coming at `hero` from within `TURTLE_REACH`.
 fn coming(run: &Run, hero: &Hero) -> bool {
     run.projectiles.iter().filter(|p| p.hostile && p.ttl > 0 && p.traits.path.wait == 0).any(|p| {
         let (dx, dy) = (hero.x - p.x, hero.y - p.y);
@@ -50,9 +42,6 @@ fn coming(run: &Run, hero: &Hero) -> bool {
     })
 }
 
-/// A party of `n` on open floor `depth` of hell's circle `circle` (0: above),
-/// the host's seat empty while there is a seat to spare (as on the live box),
-/// playing at a full table of six.
 pub(crate) fn circle_run(seed: u64, depth: u32, n: usize, kit: Kit, circle: u32) -> Run {
     let mut run = Run::new(seed, 700 + seed, None);
     let naked = kit == Kit::Naked;
@@ -94,39 +83,25 @@ pub(crate) fn circle_run(seed: u64, depth: u32, n: usize, kit: Kit, circle: u32)
     run
 }
 
-/// What the party's walk into its first rooms came to.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Outing {
-    /// Seconds from the first room's company waking to its last falling.
     pub first: Option<f32>,
-    /// Rooms cleared, of those walked to.
     pub cleared: usize,
     pub wiped: bool,
-    /// Knights who went down at some point.
     pub fell: usize,
-    /// Health lost, percent of the party's pool.
     pub lost: u32,
     pub ticks: u64,
-    /// The most one knight lost in any one second, percent of its health.
     pub burst: u32,
-    /// The quickest a knight went from full health to down, in seconds.
     pub to_down: Option<f32>,
-    /// Hits taken and their sum, percent of the knight's health.
     pub hits: u32,
     pub hit_pct: u32,
-    /// The first room's company: how many, and their health together.
     pub foes: u32,
     pub foe_hp: u32,
-    /// What raised shields turned, summed over the party, and the times
-    /// one was knocked aside.
     pub turned: u32,
     pub breaks: u32,
-    /// Knights holding a shield.
     pub shields: u32,
 }
 
-/// The chambers a party walks into first: the fight rooms nearest the
-/// stairs with a company in them.
 fn first_chambers(run: &Run, rooms: usize) -> Vec<usize> {
     let o = run.dungeon.open.as_ref().expect("an open floor");
     let mut order: Vec<usize> = (0..o.chambers.len())
@@ -143,8 +118,6 @@ fn first_chambers(run: &Run, rooms: usize) -> Vec<usize> {
     order
 }
 
-/// Walk the party into its first `rooms` fight chambers in turn, each
-/// fought until its company is dead, the party falls, or `cap` seconds.
 pub(crate) fn first_rooms(run: &mut Run, rooms: usize, cap: u32, turtle: bool) -> Outing {
     let ids: Vec<u32> = run.players.iter().filter(|(_, h)| !h.absent).map(|(&id, _)| id).collect();
     let pool: u32 = ids.iter().map(|i| run.players[i].max_hp).sum();
@@ -179,8 +152,6 @@ pub(crate) fn first_rooms(run: &mut Run, rooms: usize, cap: u32, turtle: bool) -
             if woke.is_none() && run.enemies.iter().any(|e| e.home == Some(room as u8) && e.hp > 0 && !e.dormant) {
                 woke = Some(run.tick);
             }
-            // Toward the nearest of the room's company still standing, as a
-            // player hunts the last of a room; the room's middle before.
             let (cx, cy) = o.chambers[room].centre();
             let lead = ids.iter().find_map(|i| run.players.get(i).filter(|h| h.hp > 0)).map_or((cx, cy), |h| (h.x, h.y));
             let goal = run
@@ -213,7 +184,6 @@ pub(crate) fn first_rooms(run: &mut Run, rooms: usize, cap: u32, turtle: bool) -
             for &id in &ids {
                 let Some(h) = run.players.get(&id) else { continue };
                 let (was, max) = before[&id];
-                // A wipe dresses the party again: the last to fall fell now.
                 let hp = if wiped { 0 } else { h.hp };
                 let d = if h.max_hp == max { was.saturating_sub(hp) } else { 0 };
                 lost += d;
@@ -259,7 +229,6 @@ pub(crate) fn first_rooms(run: &mut Run, rooms: usize, cap: u32, turtle: bool) -
     out
 }
 
-/// Whether a shield went from `was` to `now` by being knocked aside.
 fn knocked(was: &shield::Wear, now: &shield::Wear) -> bool {
     now.down > was.down
 }
@@ -272,7 +241,6 @@ fn env_list(name: &str, default: &[u32]) -> Vec<u32> {
         .unwrap_or_else(|| default.to_vec())
 }
 
-/// One row of the table: wipes, first clears, the first room's time.
 pub(crate) struct Row {
     pub kit: Kit,
     pub circle: u32,
@@ -292,7 +260,6 @@ impl Row {
         let b: Vec<u32> = self.outings.iter().map(|o| o.burst).collect();
         (b.iter().sum::<u32>() as f32 / b.len().max(1) as f32, b.iter().copied().max().unwrap_or(0))
     }
-    /// The quickest full-to-down, over the outings with a knight down.
     pub fn to_down(&self) -> f32 {
         self.outings.iter().filter_map(|o| o.to_down).fold(f32::NAN, f32::min)
     }
@@ -302,13 +269,10 @@ impl Row {
     }
 }
 
-/// Every (kit, depth, size) of the table above the gate, `seeds` outings
-/// each, run on as many threads as the machine has.
 pub(crate) fn table(kits: &[Kit], depths: &[u32], ns: &[usize], seeds: u64, rooms: usize, cap: u32) -> Vec<Row> {
     hell_table(kits, &[0], depths, ns, seeds, rooms, cap)
 }
 
-/// The table for every circle of `circles` too (0: above the gate).
 pub(crate) fn hell_table(kits: &[Kit], circles: &[u32], depths: &[u32], ns: &[usize], seeds: u64, rooms: usize, cap: u32) -> Vec<Row> {
     let cells: Vec<(Kit, u32, u32, usize)> = kits
         .iter()
@@ -364,7 +328,6 @@ fn env_kits(default: &str) -> Vec<Kit> {
         .collect()
 }
 
-/// A row's numbers after its tag, as the table prints them.
 fn row_line(r: &Row) -> String {
     let k = r.outings.len().max(1) as f32;
     format!(
@@ -391,13 +354,11 @@ fn row_line(r: &Row) -> String {
 
 const COLUMNS: &str = "n,seeds,wipe%,first-clear%,first-secs,rooms-cleared,fell/run,lost%,burst1s-avg%,burst1s-max%,fastest-down-s,mean-hit%,hits/knight/min,foes,foe-hp,timeout%";
 
-/// What each shield came to over a row's outings, by `what`.
 fn per_shield(r: &Row, what: impl Fn(&Outing) -> u32) -> f32 {
     let shields: u32 = r.outings.iter().map(|o| o.shields).sum();
     r.outings.iter().map(what).sum::<u32>() as f32 / shields.max(1) as f32
 }
 
-/// The table, a line per kit, floor and party size.
 #[test]
 #[ignore]
 fn party_scale_sim() {
@@ -423,7 +384,6 @@ fn party_scale_sim() {
     }
 }
 
-/// The table below the gate: a line per kit, circle, floor and party size.
 #[test]
 #[ignore]
 fn hell_scale_sim() {
@@ -441,14 +401,6 @@ fn hell_scale_sim() {
     }
 }
 
-/// Five and six knights in the normal starting kit walk into the first two
-/// fight rooms of floors one and two and win them, as a full table should:
-/// the first room cleared nearly always, the two seldom costing the party
-/// the run. And the ward after a hit holds: in no second does a knight lose
-/// more than one hit may take, and none goes from full health to down
-/// faster than two hits a ward apart. On the build of the 2026-10-20
-/// play-test (five friends wiped in their first room) six knights cleared
-/// floor two's first room in 56% of these walks and lost the run in 44%.
 #[test]
 fn five_and_six_knights_with_the_starting_kit_clear_the_first_rooms() {
     let rows = table(&[Kit::Kit], &[1, 2], &[5, 6], 16, 2, 120);

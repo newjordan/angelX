@@ -9,10 +9,8 @@ use super::time::Ease;
 use crate::palette::Palette;
 use std::f32::consts::{FRAC_PI_2, TAU};
 
-/// The characters `text` draws.
 pub const FONT_CHARS: &str = "0123456789+-! ";
 
-/// Three by five, a row a string.
 const FONT: [(char, [&str; 5]); 14] = [
     ('0', ["111", "101", "101", "101", "111"]),
     ('1', ["010", "110", "010", "010", "111"]),
@@ -30,13 +28,10 @@ const FONT: [(char, [&str; 5]); 14] = [
     (' ', ["000", "000", "000", "000", "000"]),
 ];
 
-/// A stroke between two points of a rune's three by three grid.
 type Stroke = ((u8, u8), (u8, u8));
 
-/// A thrust's run: its head, its tail, its width and its heat.
 type Run = ((f32, f32), (f32, f32), f32, f32);
 
-/// The marks round a rune circle's band, a few strokes each.
 const RUNES: [&[Stroke]; 8] = [
     &[((0, 0), (2, 0)), ((1, 0), (1, 2))],
     &[((0, 0), (2, 2)), ((2, 0), (0, 2))],
@@ -48,7 +43,6 @@ const RUNES: [&[Stroke]; 8] = [
     &[((0, 0), (2, 0)), ((0, 0), (0, 2)), ((2, 0), (2, 2))],
 ];
 
-/// Draw shape layer `p` at frame `t`.
 pub(crate) fn draw(pen: &mut Pen, p: &Plan, t: f32) {
     let k = p.k(t);
     let e = p.ease.at(k);
@@ -74,7 +68,6 @@ pub(crate) fn draw(pen: &mut Pen, p: &Plan, t: f32) {
                 if d >= re {
                     return 0.0;
                 }
-                // Holes open in it as it cools, drifting up.
                 let holes = noise(x * 0.45, y * 0.45 + t * 0.3, seed ^ 7);
                 ((1.0 - d / re).powf(0.55) * h - k * k * holes * 0.9).max(0.0)
             });
@@ -83,7 +76,6 @@ pub(crate) fn draw(pen: &mut Pen, p: &Plan, t: f32) {
             let r = p.r0 + (p.r1 - p.r0) * e;
             let th = pen.thin(p.th * (1.0 - 0.6 * k));
             if p.kind == Kind::Shock && k < 0.8 {
-                // The wake: the floor darkened just inside the edge.
                 let dark = Palette::realm().ink('k');
                 let was = pen.mode;
                 pen.mode = Mode::Under;
@@ -179,8 +171,6 @@ pub(crate) fn draw(pen: &mut Pen, p: &Plan, t: f32) {
             let a0 = p.angle.to_radians();
             let arc = p.arc.to_radians();
             let (sign, span) = (if arc < 0.0 { -1.0 } else { 1.0 }, arc.abs().max(1e-3));
-            // A smear shows where the blade went over the frame, so its
-            // leading edge is where the blade is at the frame's end.
             let k_end = ((t + 1.0 - p.t0) / (p.t1 - p.t0).max(1e-3)).clamp(0.0, 1.0);
             let lead = p.ease.at((k_end * 1.7).min(1.0));
             let tail = Ease::In.at(k);
@@ -198,14 +188,12 @@ pub(crate) fn draw(pen: &mut Pen, p: &Plan, t: f32) {
                 if s < tail || s > lead {
                     return 0.0;
                 }
-                // Thick and hot at the leading edge, tapering behind it.
                 let along = (s - tail) / (lead - tail);
                 let wd = w * along.powf(0.7);
                 let edge = (r - rho) / wd.max(1e-3);
                 if edge > 1.0 {
                     return 0.0;
                 }
-                // The rim stays bright all along: the edge of the blade.
                 let rim = (1.0 - edge / 0.22).max(0.0) * 0.3 * along.powf(0.3);
                 ((1.0 - edge).powf(0.5) * (0.45 + 0.55 * along) + rim) * h * 1.15
             });
@@ -356,15 +344,10 @@ pub(crate) fn draw(pen: &mut Pen, p: &Plan, t: f32) {
     }
 }
 
-/// A rune circle drawing itself on: an outer ring clockwise, an inner one
-/// against it in dashes, a star growing out of its points once it is half
-/// open, and runes round its band.
 fn glyph(pen: &mut Pen, p: &Plan, t: f32, e: f32, h: f32) {
     let (cx, cy) = p.anchor(t);
     let sq = p.squash.max(0.05);
     let open = e;
-    // Its detail comes in as there are pixels for it: at grain 1 a small
-    // floor circle is its rings alone, at grain 4 its star and runes too.
     let tall = p.r1 * sq * pen.grain();
     let (inner_ok, star_ok, runes_ok) = (tall >= 4.0, tall >= 6.0, tall >= 8.0);
     let shown = open.clamp(0.0, 1.0);
@@ -431,8 +414,6 @@ fn glyph(pen: &mut Pen, p: &Plan, t: f32, e: f32, h: f32) {
     });
 }
 
-/// A jagged run from `a` to `b` by midpoint displacement: worst in the
-/// middle, pinned at both ends.
 fn bolt_points(a: (f32, f32), b: (f32, f32), seed: u32, jag: f32) -> [(f32, f32); 17] {
     let mut pts = [(0.0f32, 0.0f32); 17];
     pts[0] = a;
@@ -456,9 +437,6 @@ fn bolt_points(a: (f32, f32), b: (f32, f32), seed: u32, jag: f32) -> [(f32, f32)
     pts
 }
 
-/// Lightning: a leader running down its path, then the strike, white at
-/// its core with a coloured flank, its forks a step cooler, struck again
-/// every `flicker` frames and stuttering as it goes.
 fn bolt(pen: &mut Pen, p: &Plan, t: f32, k: f32, h: f32) {
     let a = p.at;
     let b = p.end.unwrap_or((a.0, a.1 + 24.0));
@@ -466,8 +444,6 @@ fn bolt(pen: &mut Pen, p: &Plan, t: f32, k: f32, h: f32) {
     let s = hash(strike, p.seed as i32, 0xb0);
     let main = bolt_points(a, b, s, p.jag);
     let len = (b.0 - a.0).hypot(b.1 - a.1);
-    // The leader runs down over the first quarter, seen where it has got
-    // to by the frame's end.
     let k_end = k + 1.0 / (p.t1 - p.t0).max(1.0);
     let lead = if k_end < 0.25 { ((k_end / 0.25) * 16.0).ceil() as usize } else { 16 };
     let mut forks: Vec<[(f32, f32); 17]> = Vec::new();
@@ -483,7 +459,6 @@ fn bolt(pen: &mut Pen, p: &Plan, t: f32, k: f32, h: f32) {
             forks.push(bolt_points(from, end, s ^ (f + 1).wrapping_mul(0x51), p.jag * 0.5));
         }
     }
-    // Late in its life it stutters: every other strike dims.
     let h = if k > 0.4 && s & 1 == 1 { h * 0.55 } else { h };
     let core = pen.thin(p.th * 0.3);
     let glow = p.th.max(core * 1.5);
@@ -500,8 +475,6 @@ fn bolt(pen: &mut Pen, p: &Plan, t: f32, k: f32, h: f32) {
     });
 }
 
-/// Cracks running out over the ground: a dark seam with a lit lip, opening
-/// fast and wearing away at the end.
 fn cracks(pen: &mut Pen, p: &Plan, k: f32, h: f32) {
     let (cx, cy) = p.at;
     let sq = p.squash.max(0.05);
@@ -524,7 +497,6 @@ fn cracks(pen: &mut Pen, p: &Plan, k: f32, h: f32) {
                 (cx + (ux * long * f + nx * off), cy + (uy * long * f + ny * off) * sq)
             })
             .collect();
-        // A branch off its middle.
         if u(3) < 0.7 {
             let from = run[2 + (u(4) * 2.0) as usize];
             let b = a + if u(5) < 0.5 { -0.7 } else { 0.7 };
@@ -552,14 +524,12 @@ fn cracks(pen: &mut Pen, p: &Plan, k: f32, h: f32) {
         }
         let (d, along, seam) = best?;
         let w = (th * (1.0 - 0.75 * along)).max(floor);
-        // It wears away through the dither as its heat goes.
         if bayer(px, py) > h / 0.6 {
             return None;
         }
         if d <= w * 0.55 {
             dark
         } else if d <= w * 1.3 && y < seam {
-            // The lip on the near side of the seam catches the light.
             tone(&ramp, 0.42 - 0.15 * along, px, py)
         } else {
             None
@@ -567,8 +537,6 @@ fn cracks(pen: &mut Pen, p: &Plan, k: f32, h: f32) {
     });
 }
 
-/// Spikes shooting up out of the ground from the middle out, overshooting,
-/// lit on one face, breaking up through the dither at the end.
 fn spikes(pen: &mut Pen, p: &Plan, k: f32, h: f32) {
     let (cx, cy) = p.at;
     let n = p.count.max(1);
@@ -614,8 +582,6 @@ fn spikes(pen: &mut Pen, p: &Plan, k: f32, h: f32) {
     });
 }
 
-/// A thrust: one streak shooting out ahead, thick and hot at its head, its
-/// tail catching it up, and thinner speed lines beside it, a little late.
 fn streaks(pen: &mut Pen, p: &Plan, k: f32, h: f32) {
     let (cx, cy) = p.at;
     let a = p.angle.to_radians();
@@ -623,7 +589,6 @@ fn streaks(pen: &mut Pen, p: &Plan, k: f32, h: f32) {
     let (nx, ny) = (-uy, ux);
     let l = p.r1;
     let mut runs: Vec<Run> = Vec::new();
-    // As a smear's, the heads are where they are at the frame's end.
     let step = 1.0 / (p.t1 - p.t0).max(1.0);
     let head = l * Ease::Out.at(((k + step) * 2.0).min(1.0));
     let tail = l * Ease::In.at(k);
@@ -662,7 +627,6 @@ fn streaks(pen: &mut Pen, p: &Plan, k: f32, h: f32) {
     });
 }
 
-/// Numbers rising and slowing, with a shadow a cell below them.
 fn text(pen: &mut Pen, p: &Plan, k: f32, h: f32) {
     let s = p.size.0.max(0.25);
     let chars: Vec<char> = p.text.chars().collect();

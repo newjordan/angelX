@@ -6,16 +6,11 @@ use crate::together_realm::{self as realm, Realm, Status};
 use crate::together_shooter as shooter;
 
 impl Session<'_> {
-    /// The island's realm, loaded beside the world's rewards on first use.
     pub(crate) fn realm(&mut self) -> &mut Realm {
-        // A settlement off the frame holds it: wait for it to come back.
         self.dungeon.collect_settled(true);
         economy(&mut self.dungeon.realm, self.world)
     }
 
-    /// One settlement cycle, the realm's claims then the home's, off the
-    /// frame where the server runs on its own threads; in place (and its
-    /// outcome known) otherwise. True when it went off the frame.
     pub fn settle_off_frame(&mut self) -> bool {
         if self.dungeon.settling.is_some() {
             return true;
@@ -28,7 +23,6 @@ impl Session<'_> {
         self.dungeon.settle_off_frame()
     }
 
-    /// Run one part of the cycle in place with the realm in hand.
     fn settle_in_place(
         &mut self,
         part: fn(&mut Realm, &mut super::dungeon_settle::InPlace<'_>, &mut super::dungeon_settle::Io) -> bool,
@@ -42,27 +36,19 @@ impl Session<'_> {
         ok
     }
 
-    /// The host's name on plaques: the first word of git's user.name, else $USER.
     pub fn host_name(&self) -> String {
         host_name()
     }
 
-    /// Move what the run banked into the treasury, under each knight's name.
     pub fn settle_realm(&mut self) -> bool {
         self.settle_in_place(|realm, game, io| super::dungeon_settle::realm_cycle(realm, game, io))
     }
 
-    /// Pay for what the party asked for at the Undercroft's plates out of
-    /// the treasury, remember the deepest floor reached and the landing
-    /// chosen, and tell the run what now stands and what it can spend.
     pub fn settle_home(&mut self) -> bool {
         self.flush_holdings_ops();
         self.settle_in_place(|realm, game, io| super::dungeon_settle::home_cycle(realm, game, io))
     }
 
-    /// angelX's own work since the last settle, folded into the holdings:
-    /// stores, walls, labour, scrolls, retainers, patrols and unrest (never
-    /// gold), saved with the realm and shown in the open run.
     pub(crate) fn flush_holdings_ops(&mut self) {
         if self.dungeon.ops.is_empty() {
             return;
@@ -70,7 +56,6 @@ impl Session<'_> {
         let ops = std::mem::take(&mut self.dungeon.ops);
         let realm = self.realm();
         let said = shooter::holdings::feed(&mut realm.home.holdings, &ops);
-        // A failed save keeps the change in memory; the next save carries it.
         let _ = realm.save();
         let (home, treasury) = (self.realm().home.clone(), self.realm().treasury.clone());
         let _ = self.dungeon.shooter.sync_home(home, treasury);
@@ -79,8 +64,6 @@ impl Session<'_> {
         }
     }
 
-    /// A turn ends: a failed one stirs unrest; calls that never reported
-    /// are forgotten; the holdings hear it all.
     pub fn note_ops_end(&mut self, ok: bool) {
         if !ok {
             self.dungeon.ops.errors += 1;
@@ -89,7 +72,6 @@ impl Session<'_> {
         self.flush_holdings_ops();
     }
 
-    /// When angelX's drafting turn ends, read its draft in — no command needed.
     pub fn watch_drafting(&mut self) {
         let Some((id, started, seen)) = self.dungeon.drafting.clone() else {
             return;
@@ -122,12 +104,10 @@ impl Session<'_> {
         };
     }
 
-    /// Where angelX writes a wish's draft in this workspace.
     pub(super) fn wishes_dir(&self) -> std::path::PathBuf {
         self.cx.workspace().join(".angel/realm/wishes")
     }
 
-    /// A wish in someone's own words.
     pub(crate) fn ask_wish(&mut self, by: &str, words: &str) -> String {
         let result = self.realm().ask(by, words);
         let message = match result {
@@ -143,8 +123,6 @@ impl Session<'_> {
         message
     }
 
-    /// Grant a wish by id or list number: draft it with angelX when it is
-    /// only words, raise it when it is drafted and paid for.
     pub(crate) fn grant_wish(&mut self, which: &str) -> String {
         let which = which.trim();
         let id = {
@@ -177,7 +155,6 @@ impl Session<'_> {
                 .expect("found");
             let brief = realm::brief(&wish, &path, &realm.treasury);
             let _ = std::fs::create_dir_all(&dir);
-            // Hand the wish to angelX in the open: the party watches it draft.
             self.collapse_dungeon();
             self.cx.make(Move::Submit { brief, keep_draft: false });
             self.dungeon.drafting = Some((id.clone(), std::time::Instant::now(), false));
@@ -193,8 +170,6 @@ impl Session<'_> {
                 self.dungeon
                     .chorus
                     .cue(&format!("wish_raised:{id}"), std::time::Instant::now());
-                // Say so when the realm has no ground left to stand it on,
-                // rather than raise it out of sight.
                 let homeless =
                     crate::world_viz::overworld::wishes::unplaced(&self.realm().built());
                 if homeless.is_empty() {
@@ -212,7 +187,6 @@ impl Session<'_> {
         message
     }
 
-    /// `/dungeon wishes [reload]`: the wishing stone, or angelX's drafts read in.
     pub(crate) fn dungeon_wishes(&mut self, tail: &str) -> String {
         if tail == "reload" {
             let dir = self.wishes_dir();
@@ -239,7 +213,6 @@ impl Session<'_> {
                         continue;
                     }
                 };
-                // Pictures named by `sheet art <file>` are cut into rows.
                 let sheets = self.cx.workspace().join(".angel/realm/sheets");
                 let paint = crate::together_sheets::paint_dir(&self.cx.workspace());
                 let raw = match crate::together_sheets::inline(&raw, &sheets, &paint, realm::ART as u32) {
@@ -312,9 +285,6 @@ impl Session<'_> {
     }
 }
 
-/// What a tool call is to the holdings, by the herald's reading of it: a
-/// commit, a test run, a compaction (each counted when it comes back
-/// clean), or a subagent sent out (counted as it goes).
 pub fn op_of_call(name: &str, args: &str) -> Option<(shooter::holdings::Op, bool)> {
     use crate::world_viz::{Deed as Work, herald};
     use shooter::holdings::Op;
@@ -333,7 +303,6 @@ pub fn op_of_call(name: &str, args: &str) -> Option<(shooter::holdings::Op, bool
     }
 }
 
-/// The island's realm in `slot`, loaded beside the world's rewards on first use.
 pub fn economy<'a>(slot: &'a mut Option<Realm>, world: &crate::world_viz::World) -> &'a mut Realm {
     if slot.is_none() {
         *slot = Some(Realm::beside(world.rewards_path()));
@@ -341,7 +310,6 @@ pub fn economy<'a>(slot: &'a mut Option<Realm>, world: &crate::world_viz::World)
     slot.as_mut().expect("loaded above")
 }
 
-/// The host's name on plaques: the first word of git's user.name, else $USER.
 pub fn host_name() -> String {
     static NAME: std::sync::OnceLock<String> = std::sync::OnceLock::new();
     NAME.get_or_init(|| {
@@ -358,8 +326,6 @@ pub fn host_name() -> String {
 }
 
 impl DungeonView {
-    /// A tool call starts: a subagent is a retainer at once; a commit, a
-    /// test run or a compaction waits for its result.
     pub fn note_ops_call(&mut self, id: &str, name: &str, args: &str) {
         match op_of_call(name, args) {
             Some((op, true)) => self.ops.note(op),
@@ -370,8 +336,6 @@ impl DungeonView {
         }
     }
 
-
-    /// A tool call's result: counted for the holdings when it came back clean.
     pub fn note_ops_result(&mut self, id: &str, clean: bool) {
         if let Some(op) = self.ops_calls.remove(id)
             && clean
@@ -380,9 +344,6 @@ impl DungeonView {
         }
     }
 
-
-    /// A turn's spend: its fresh tokens and cache hits, and whether it was
-    /// slow.
     pub fn note_ops_turn(&mut self, cache: u64, fresh: u64, secs: u64) {
         let ops = &mut self.ops;
         ops.cache += cache;
@@ -392,8 +353,6 @@ impl DungeonView {
         }
     }
 
-
-    /// The loop's iterations so far: each new one is a patrol.
     pub fn note_ops_loop(&mut self, iteration: usize) {
         if iteration > self.ops_loop {
             let new = (iteration - self.ops_loop).min(64) as u32;

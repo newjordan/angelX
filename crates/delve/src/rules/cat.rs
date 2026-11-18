@@ -11,8 +11,6 @@
 use super::home::Station;
 use super::*;
 
-/// Lady Tallow, in a delve: where she is, where she's off to fetch, what
-/// she's carrying, her hiss's cooldown, and which way she faces.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Cat {
     pub x: f32,
@@ -23,53 +21,39 @@ pub struct Cat {
     pub carrying: Option<String>,
     #[serde(default)]
     pub hiss: u32,
-    /// The tick of her last hiss, for the drawing.
     #[serde(default)]
     pub hissed: u64,
     #[serde(default)]
     pub left: bool,
     #[serde(default)]
     pub moving: bool,
-    /// Spoils fetched this delve.
     #[serde(default)]
     pub fetched: u32,
-    /// Ticks she has pushed at something without getting anywhere.
     #[serde(default)]
     pub stuck: u32,
-    /// When a knight last scratched her ears: hearts float for a moment.
     #[serde(default)]
     pub petted: u64,
-    /// Knights holding E since they last petted her, so one press is one pat.
     #[serde(default, skip_serializing_if = "crate::rules::runtime_state::omit")]
     pub pet_held: std::collections::BTreeSet<u32>,
 }
 
-/// How near (tiles) to pet her, and the mend a scratch gives.
 pub const PET_REACH: f32 = 1.5;
 pub const PET_MEND: u32 = 2;
-/// How long the hearts float after a scratch (ticks).
 pub const PURR: u64 = HZ as u64;
 
-/// The hearth's rung that brings her along.
 pub const HEARTH_FOR_TALLOW: u8 = 2;
-/// How close a monster comes before she hisses, how long it stays frozen,
-/// and how long before she hisses again.
 pub const HISS_REACH: f32 = 3.0;
 const HISS_FREEZE: u32 = HZ;
 const HISS_EVERY: u32 = 6 * HZ;
-/// How far she'll go for something shiny, and her pace.
 const FETCH_REACH: f32 = 12.0;
 const TROT: f32 = 10.0;
 const RADIUS: f32 = 0.35;
 
-/// What she'll fetch: anything lying about that's worth carrying home,
-/// gold most of all.
 fn shiny(card: &Card) -> bool {
     card.kind == cards::Kind::Take && card.effects.iter().any(|e| e.spoil().is_some())
 }
 
 impl Run {
-    /// Down the stair: Lady Tallow comes too, if the hearth is warm enough.
     pub(super) fn bring_tallow(&mut self) {
         self.cat = (self.home.level(Station::Hearth) >= HEARTH_FOR_TALLOW).then(|| {
             let (x, y) = self.tallow_home();
@@ -93,7 +77,6 @@ impl Run {
         }
     }
 
-    /// Her knight: the first one standing (where she settles by).
     fn tallow_home(&self) -> (f32, f32) {
         self.players
             .values()
@@ -102,7 +85,6 @@ impl Run {
             .map_or((24.0, 14.0), |h| (h.x, h.y))
     }
 
-    /// A new room: she's already there, beside her knight.
     pub(super) fn tallow_follows(&mut self) {
         let (x, y) = self.tallow_home();
         if let Some(cat) = self.cat.as_mut() {
@@ -111,8 +93,6 @@ impl Run {
         }
     }
 
-    /// E beside her: a scratch behind the ears. She purrs (hearts), and the
-    /// knight feels a little better for it.
     pub(super) fn pet_tallow(&mut self, inputs: &BTreeMap<u32, Input>) {
         let Some(cat) = self.cat.as_mut() else {
             return;
@@ -138,7 +118,6 @@ impl Run {
         }
     }
 
-    /// Her tick: hiss, fetch, carry, follow.
     pub(super) fn tick_tallow(&mut self) {
         let Some(mut cat) = self.cat.take() else {
             return;
@@ -149,7 +128,6 @@ impl Run {
             .find(|(_, h)| h.hp > 0 && !h.stone)
             .map(|(&id, h)| (id, h.x, h.y));
         cat.hiss = cat.hiss.saturating_sub(1);
-        // A monster too close: HSSSS.
         if cat.hiss == 0 {
             let mut startled = false;
             for enemy in self.enemies.iter_mut().filter(|e| {
@@ -180,8 +158,6 @@ impl Run {
                 (cat.x, cat.y) =
                     grid.slide((cat.x, cat.y), (ux * step, uy * step), RADIUS, Mover::Hero);
                 cat.left = ux < 0.0;
-                // Up against a pillar's corner: a cat goes over, or round,
-                // or simply is there, as cats are.
                 let moved = (cat.x - was.0).hypot(cat.y - was.1);
                 cat.stuck = if moved < step * 0.2 { cat.stuck + 1 } else { 0 };
                 if cat.stuck > HZ / 2 {
@@ -194,7 +170,6 @@ impl Run {
             d
         };
         if let Some(card) = cat.carrying.clone() {
-            // Bringing it home.
             if let Some((id, ox, oy)) = owner
                 && walk(&mut cat, (ox, oy), TROT) < 1.2
             {
@@ -213,7 +188,6 @@ impl Run {
                 }
             }
         } else {
-            // Anything shiny lying about?
             let shiny = self.dungeon.rooms[self.at]
                 .items
                 .iter()
@@ -234,11 +208,9 @@ impl Run {
                 None => {
                     cat.fetching = None;
                     if let Some((_, ox, oy)) = owner {
-                        // At her knight's heel, unhurried.
                         let spot = (ox + 1.4, oy + 0.9);
                         let far = (spot.0 - cat.x).hypot(spot.1 - cat.y);
                         if far > 14.0 {
-                            // Somehow she was there all along.
                             (cat.x, cat.y) = spot;
                         } else if far > 1.0 {
                             walk(&mut cat, spot, if far > 4.0 { TROT } else { TROT * 0.5 });

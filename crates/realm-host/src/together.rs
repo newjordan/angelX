@@ -41,11 +41,9 @@ pub struct Member {
 #[derive(Clone, Debug, Serialize)]
 pub struct Room {
     pub version: u32,
-    /// Hex preserves the full terrain seed in a future browser client.
     pub realm_seed: String,
     pub realm_name: String,
     pub revision: u64,
-    /// Distinguish a replayed raid from an older run at the same floor/turn.
     pub raid_id: u64,
     pub members: BTreeMap<u32, Member>,
     pub run: Option<Run>,
@@ -74,9 +72,6 @@ impl Room {
         room
     }
 
-    /// Local input has already been serialized by the cockpit event loop. Use
-    /// the same sequence-checked reducer as scripted actions without changing
-    /// which actor the slash-command simulation selector currently controls.
     pub fn act_for(&mut self, actor: u32, action: Action) -> Result<String, String> {
         let member = self.members.get(&actor).ok_or("unknown party member")?;
         let sequence = match &member.last_action {
@@ -119,8 +114,6 @@ impl Room {
         Ok(id)
     }
 
-    /// Exact retries return the old receipt without repeating effects. Invalid
-    /// actions leave room state and the actor's sequence unchanged.
     pub fn apply(
         &mut self,
         actor: u32,
@@ -302,8 +295,6 @@ impl Together {
     }
 
     #[cfg(any(test, feature = "testing"))]
-    /// Start a playable shared-keyboard party with bundled gear. No model turn,
-    /// filesystem blueprint or network identity is needed for either knight.
     pub fn start_dungeon(
         &mut self,
         seed: u64,
@@ -339,8 +330,6 @@ impl Together {
         Ok(CommandResult { message })
     }
 
-    /// Reuse forged gear for another raid without partially readying a party
-    /// when an actor sequence or the minimum party size rejects the request.
     pub fn ready_and_raid(&mut self) -> Result<CommandResult, String> {
         let room = self.room.as_mut().ok_or("no dungeon party is open")?;
         if room.run.is_some() {

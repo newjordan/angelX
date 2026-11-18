@@ -76,7 +76,6 @@ fn source_changes_keep_historical_hint_but_require_revalidation_without_rewritin
             card.contains("run_tests --owned-source"),
             "historical hint retained: {card}"
         );
-        // The historical heading, `⠸⠃⠃`, rides the card's route line.
         assert!(
             card.contains(&historical_heading()),
             "current verification is unsupported: {card}"
@@ -154,8 +153,6 @@ fn typed_historical_hint_remains_visible_while_untyped_legacy_stays_excluded() {
     assert_eq!(std::fs::read(path).unwrap(), original);
 }
 
-/// The caddy heading that says a recipe is historical and must be rerun:
-/// `⠸⠃⠃`, whose page is that sentence.
 fn historical_heading() -> String {
     let heading = crate::agent::harness::book::d3_roles::pages(
         crate::agent::harness::book::d456_knowledge::CADDY,

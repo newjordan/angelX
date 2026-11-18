@@ -9,8 +9,6 @@ use crate::rules::{
 };
 
 pub(super) fn sprite(v: &View) -> Img {
-    // Beaumains' small human silhouette, with kind-specific kit. Cloth is
-    // the owner's six-seat ink; outline and skin stay legible in a crowd.
     let mut im = Img::from_rows(&super::hireling::BEAUMAINS);
     let cloth = super::super::ink::ink(v.owner_ink).unwrap();
     let old = super::super::ink::ink('i').unwrap();
@@ -77,7 +75,6 @@ pub(super) fn figure(cv: &mut Img, v: &View) {
     let (x, y) = at(v.x, v.y);
     let mut im = sprite(v);
     if v.vanished {
-        // Not invisible: a dim masked outline and owner pip remain.
         for yy in 0..im.h {
             for xx in 0..im.w {
                 if im.get(xx, yy).is_some() {
@@ -97,7 +94,6 @@ pub(super) fn figure(cv: &mut Img, v: &View) {
     }
 }
 
-/// Static silhouettes and engraved controls, rendered on the real map.
 pub(super) fn town(cv: &mut Img, run: &Run, origin: (i32, i32)) {
     if !yard::on_map() {
         return;
@@ -112,7 +108,6 @@ pub(super) fn town(cv: &mut Img, run: &Run, origin: (i32, i32)) {
         return;
     }
     let (x, y) = (yx * TILE - ox, yy * TILE - oy);
-    // Quiet cobbled apron, warm guide line back to the high street.
     cv.rect(x - 4, y - 3, yw * TILE + 8, yh * TILE + 6, 'k');
     for row in 0..yh * 4 {
         for col in 0..yw * 4 {
@@ -130,7 +125,6 @@ pub(super) fn town(cv: &mut Img, run: &Run, origin: (i32, i32)) {
         let level = run.home.squires_lodge.level(yard::BUILDINGS[s]);
         cv.rect(bx + 2, by + 8, w * TILE - 4, h * TILE - 8, 'g');
         cv.rect(bx + 4, by + 10, w * TILE - 8, h * TILE - 12, 'j');
-        // Three separate tiled roofs and lit level windows.
         for r in 0..12 {
             cv.line(
                 bx + 2 + r / 2,
@@ -165,7 +159,6 @@ pub(super) fn town(cv: &mut Img, run: &Run, origin: (i32, i32)) {
     cv.text(x + 24, y + 6 * TILE + 4, "SQUIRES' YARD", 'H');
 }
 
-/// Black paper scroll, grey lettering and a warm rule. Never blue chrome.
 pub(super) fn scroll(lines: &[(String, char)]) -> Img {
     let w = lines.iter().map(|(s, _)| text_width(s)).max().unwrap_or(0) + 16;
     let h = lines.len() as i32 * 9 + 14;

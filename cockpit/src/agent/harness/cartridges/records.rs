@@ -83,8 +83,6 @@ pub(crate) struct TerminalEvidence {
     pub(crate) observed_at_ms: Option<u128>,
     pub(crate) candidate_at_dispatch: Option<CandidateIdentity>,
     pub(crate) candidate_commit_matches_receipt: Option<bool>,
-    /// True only when terminal receipt and current frontier verification agree.
-    /// The exact-ID status endpoint alone cannot establish this.
     pub(crate) frontier_win_verified: bool,
     pub(crate) source_id: String,
 }

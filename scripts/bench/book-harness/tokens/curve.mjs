@@ -1,4 +1,3 @@
-// node curve.mjs <tokenizer> <label.jsonl>... — cumulative total and fresh input at checkpoints.
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -22,7 +21,6 @@ export function main(args = process.argv.slice(2)) {
   const [name, ...files] = args
   if (!files.length || !Object.hasOwn(TOKENIZERS, name))
     throw new TypeError('Tokenizer and request log paths are required')
-  // Validate all inputs before emitting any result.
   const results = files.map((file) => curveRun(name, file))
   for (const row of results) {
     const out = row.checkpoints.map(

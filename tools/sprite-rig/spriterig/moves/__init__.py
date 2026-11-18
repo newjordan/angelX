@@ -1,12 +1,3 @@
-"""Move grammar, library and animator's-rule checker for the quick rig.
-
-A move is plain text a language model can write and a game can parse. Angles
-are degrees, clockwise in image space (y down), relative to the rest pose and
-to each part's parent. They do not scale. Offsets are pixels at a 24px sprite
-and scale by ``source height / 24`` when applied. See ``dump`` for the
-canonical text form.
-"""
-
 from __future__ import annotations
 
 import copy
@@ -15,14 +6,12 @@ from pathlib import Path
 from ..quick import PARTS
 
 ATTACK_SLOTS = ('slash', 'overhead', 'thrust', 'flail', 'cast')
-# Sheet and reel order, not filename order.
 ORDER = (
     'spin_slash', 'uppercut', 'ground_pound', 'leap_strike', 'double_stab',
     'shield_bash', 'heel_kick', 'headbutt', 'tail_whip', 'wing_buffet',
     'bite_lunge', 'hammer_wind_up', 'flurry', 'rising_cast', 'slam_cast', 'taunt',
 )
 FLAGS = ('weapon', 'air')
-# Canonical dump order. torso/head/back lead so a short line reads as a pose.
 PART_ORDER = (
     'torso', 'head', 'back',
     'upper_arm_f', 'lower_arm_f', 'hand_f',
@@ -37,7 +26,7 @@ MIN_TICKS, MAX_TICKS = 1, 30
 MAX_ANGLE = 180
 MAX_OFFSET = 12
 MAX_TOTAL_TICKS = 90
-MAX_LIFT = 6  # upward grammar-pixels unless tagged air
+MAX_LIFT = 6
 RECOVERY_DEGREES = 15
 RECOVERY_TICKS = 4
 ANTICIPATION_TICKS = 3
@@ -46,8 +35,6 @@ LIBRARY_DIR = Path(__file__).resolve().parent
 
 
 class MoveError(ValueError):
-    """Parse or rule failure. ``line`` is 1-based in the move text when known."""
-
     def __init__(self, line, message):
         self.line = line
         super().__init__(f'line {line}: {message}')
@@ -67,19 +54,12 @@ def _is_int(token):
 
 
 def parse(text):
-    """Parse move text into ``{name, slot, weapon, air, frames}``.
-
-    Raises ``MoveError`` (a ``ValueError``) whose message starts with
-    ``line N:`` for unknown keys, unknown parts and limit failures.
-    """
     if not isinstance(text, str):
         raise MoveError(1, 'expected text')
     raw_lines = text.splitlines()
     if text.endswith('\n'):
-        # splitlines drops the trailing newline; a blank last line is real.
         pass
     lines = [(i + 1, line) for i, line in enumerate(raw_lines) if line.strip() != '']
-    # Blank lines are not part of the canonical grammar.
     for n, line in enumerate(raw_lines, 1):
         if line.strip() == '':
             raise MoveError(n, 'blank line')
@@ -98,7 +78,6 @@ def parse(text):
             raise MoveError(n, f'total ticks {total} exceed {MAX_TOTAL_TICKS}')
         frames.append(frame)
     if not MIN_FRAMES <= len(frames) <= MAX_FRAMES:
-        # Header is lines[0]; the first frame past the cap is the error site.
         where = lines[MAX_FRAMES + 1][0] if len(frames) > MAX_FRAMES else header_no
         raise MoveError(where, f'expected {MIN_FRAMES}..{MAX_FRAMES} frames, found {len(frames)}')
     move['frames'] = frames
@@ -187,7 +166,6 @@ def _parse_frame(line_no, line):
 
 
 def dump(move):
-    """Canonical text. ``parse(dump(move))`` equals ``move`` and the text matches."""
     flags = [flag for flag in FLAGS if move.get(flag)]
     header = f"move {move['name']} slot={move['slot']}"
     if flags:
@@ -216,15 +194,10 @@ def _angle(frame, part):
 
 
 def _file_line(frame_index):
-    """1-based text line of a frame, assuming a single header line and no blanks."""
     return frame_index + 2
 
 
 def check(move):
-    """Enforce anticipation, contact, follow-through, recovery, body and feet.
-
-    Returns the move when it passes. Raises ``MoveError``.
-    """
     frames = move['frames']
     if not MIN_FRAMES <= len(frames) <= MAX_FRAMES:
         raise MoveError(1, f'expected {MIN_FRAMES}..{MAX_FRAMES} frames')
@@ -250,7 +223,6 @@ def check(move):
         wound = _angle(frames[contact - 1], part)
         if opening * delta[part] >= 0 or wound * delta[part] >= 0:
             raise MoveError(2, f'{part} does not anticipate opposite the strike')
-    # Every striking part overshoots on some frame after contact and before recovery.
     for part in striking:
         if not any(
                 contact < j < len(frames) - 1 and
@@ -280,10 +252,6 @@ def check(move):
 
 
 def apply(rig, move):
-    """Return a copy of ``rig`` whose ``clips[slot]`` is this move.
-
-    Angles are copied as authored. Offsets scale by sprite height / 24.
-    """
     if move['slot'] not in rig.get('clips', {}):
         raise MoveError(1, f'rig has no {move["slot"]} clip')
     height = rig['source']['size'][1]
@@ -317,7 +285,6 @@ def load(path):
 
 
 def library():
-    """Named moves shipped in ``spriterig/moves/*.move``, in ``ORDER``."""
     by_name = {}
     for path in library_files():
         move = load(path)
@@ -332,7 +299,6 @@ def library():
 
 
 def resolve(name):
-    """A library move name, or a path to move text."""
     path = LIBRARY_DIR / f'{name}.move'
     if path.is_file():
         return load(path)

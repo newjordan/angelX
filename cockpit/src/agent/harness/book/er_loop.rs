@@ -18,7 +18,6 @@ pub(crate) const CONTRACT: Route = Route::new(CELL, '⠑');
 pub(crate) const BRIEF: Route = Route::new(CELL, '⠋');
 pub(crate) const TIER_SWARM: Route = Route::new(CELL, '⠛');
 pub(crate) const TIER_SOTA: Route = Route::new(CELL, '⠓');
-/// The active cartridge's loop worker; a cartridge plays it in its own words.
 pub(crate) const COMPETITION_WORKER: Route = Route::new(CELL, '⠊');
 pub(crate) const PODRACE: Route = Route::new(CELL, '⠚');
 

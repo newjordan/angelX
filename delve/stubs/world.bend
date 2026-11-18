@@ -1,14 +1,6 @@
-# Names other groups own that the world group calls. A stub answers a harmless
-# default and drops out of the build as soon as a fragment defines the name.
-# Signatures are the contract's: a Run (or the struct) in, the new one out, a
-# tile is its serde name, i32 is a U32 two's complement.
-
-# activity.rs: the registry the world's games tick from.
 def activity.Run.tick_world_games(+run: J.Val, +inputs: J.Val) -> J.Val:
   run
 
-# The rooms other modules lay on the home floor (college.rs, ranch.rs,
-# colosseum.rs, alehouse.rs, bazaar.rs, barony.rs, holdings.rs).
 def college.room(+kind: String, +cell: LayCell) -> J.Val:
   layout.cellar.walled(cell, kind)
 
@@ -30,11 +22,9 @@ def barony.kings_hall_room(+cell: LayCell) -> J.Val:
 def holdings.land_office_room(+cell: LayCell) -> J.Val:
   layout.cellar.walled(cell, "land_office")
 
-# barony.rs: whether a work stands.
 def barony.Barony.built(+barony: J.Val, +work: String) -> Bool:
   False{}
 
-# The mini-games' "showing" questions (exits asks them).
 def cinder.Run.cinder_showing(+run: J.Val) -> Bool:
   False{}
 
@@ -50,23 +40,18 @@ def rafterwake.Run.rafterwake_showing(+run: J.Val) -> Bool:
 def pennon.Run.pennon_showing(+run: J.Val) -> Bool:
   False{}
 
-# colosseum.rs: where a party leaving an arena is sent (an Entry), or none.
 def colosseum.Run.arena_return(+run: J.Val) -> Maybe<&2, J.Val>:
   None{}
 
-# chariot.rs: a rider leaves the team.
 def chariot.Chariot.depart(+chariot: J.Val, +id: U32) -> J.Val:
   chariot
 
-# college.rs / hazards.rs: `Default::default()` of the state.
 def college.Dialogue.default() -> J.Val:
   J.obj()
 
 def hazards.Waves.default() -> J.Val:
   J.obj()
 
-# hero.rs: Hero::dress, Hero::held_off (the changed hero, the changed input),
-# Pit::tick (on the hero).
 def hero.Hero.dress(+h: J.Val) -> J.Val:
   h
 
@@ -76,34 +61,27 @@ def hero.Hero.held_off(+h: J.Val, +input: J.Val) -> J.Val & J.Val:
 def hero.Pit.tick_hero(+h: J.Val) -> J.Val:
   h
 
-# hireling.rs
 def hireling.Run.hireling_follows(+run: J.Val) -> J.Val:
   run
 
-# pastimes.rs: the festival state on the run.
 def pastimes.Pastimes.depart(+p: J.Val, +id: U32, +remaining: List<&2, U32>) -> J.Val:
   p
 
 def pastimes.Pastimes.leave(+p: J.Val) -> J.Val:
   p
 
-# pitstop.rs: Room::pit_box (an [x, y] or null).
 def pitstop.Room.pit_box(+room: J.Val) -> J.Val:
   J.JNull{}
 
-# rules.rs
 def rules.Run.depart_lists(+run: J.Val, +id: U32) -> J.Val:
   run
 
 def rules.Run.end_outside_activities(+run: J.Val) -> J.Val:
   run
 
-# works.rs
 def works.Works.leave_room(+works: J.Val) -> J.Val:
   works
 
-# The orchestrators' calls (floors.rs, exits.rs, world.rs); each is a harmless
-# default until its owner defines it.
 def barony.add_forge_hall(+dungeon: J.Val, +barony: J.Val) -> J.Val:
   dungeon
 
@@ -374,8 +352,6 @@ def risen.FOLLOW() -> U32:
 def hero.Hero.mend2(+h: J.Val) -> J.Val:
   h
 
-
-# The world group's own, until they are ported.
 def countryside.Countryside.has_plot(+c: J.Val, +id: String) -> Bool:
   False{}
 
@@ -412,18 +388,14 @@ def roundtable.clear(+run: J.Val) -> J.Val:
 def runes.Run.place_rune(+run: J.Val) -> J.Val:
   run
 
-# nooks.rs: the floor takes a nook where it has room (the floor, whether it did).
 def nooks.add_nook(+dungeon: J.Val) -> J.Val & Bool:
   (dungeon, False{})
 
 def nooks.Run.ready_nook(+run: J.Val) -> J.Val:
   run
 
-# kingdom.rs: whether a knight at (x, y) units stands on a kingdom road
-# (the geography is the host's: `$geography`).
 def kingdom.on_road(+run: J.Val, +x: F32, +y: F32) -> Bool:
   False{}
 
-# folly.rs: the antes taken from the party's gold: {players, ante, scores}.
 def folly.take_antes(+players: J.Val) -> J.Val:
   J.set(J.set(J.set(J.obj(), "players", players), "ante", J.obj()), "scores", J.obj())

@@ -2,7 +2,6 @@
 //! levels, an arrival point beside each, and the flood fill that keeps a
 //! level's floor one region.
 
-/// x, y, w, h in level coordinates.
 pub type Rect = (i32, i32, i32, i32);
 
 pub fn overlaps(a: Rect, b: Rect) -> bool {
@@ -27,8 +26,6 @@ pub fn walkable(c: u8) -> bool {
     matches!(c, b'.' | b'D' | b'>')
 }
 
-/// The two ends of a staircase, split along its longer side (a 5-wide
-/// shaft gives two 2-wide halves with a gap between). None for 1x1.
 pub fn halves(r: Rect) -> Option<[Rect; 2]> {
     let (x, y, w, h) = r;
     if w >= h {
@@ -43,7 +40,6 @@ pub fn halves(r: Rect) -> Option<[Rect; 2]> {
     }
 }
 
-/// 4-connected groups of true cells, in scan order.
 pub fn components(mask: &[Vec<bool>]) -> Vec<Vec<(i32, i32)>> {
     let h = mask.len();
     let w = mask.first().map_or(0, |r| r.len());
@@ -82,7 +78,6 @@ pub fn bbox(c: &[(i32, i32)]) -> Rect {
     (x0, y0, x1 - x0 + 1, y1 - y0 + 1)
 }
 
-/// Every tile of `r` is plain floor and off the border.
 pub fn all_floor(tiles: &[Vec<u8>], r: Rect) -> bool {
     let h = tiles.len() as i32;
     let w = tiles.first().map_or(0, |t| t.len()) as i32;
@@ -92,10 +87,6 @@ pub fn all_floor(tiles: &[Vec<u8>], r: Rect) -> bool {
     cells(r).into_iter().all(|(x, y)| tiles[y as usize][x as usize] == b'.')
 }
 
-/// The staircase to use from a mask of stair tiles: the largest flight,
-/// nearest the middle; of it the half for pair `k` (alternating, so a level
-/// between two others gets distinct up and down ends), else the other half,
-/// else the whole flight.
 pub fn pick(mask: &[Vec<bool>], k: usize, center: (i32, i32), ok: impl Fn(Rect) -> bool) -> Option<Rect> {
     let mut comps = components(mask);
     let d2 = |r: Rect| {
@@ -113,8 +104,6 @@ pub fn pick(mask: &[Vec<bool>], k: usize, center: (i32, i32), ok: impl Fn(Rect) 
             cands.push(h[1 - k % 2]);
         }
         cands.push(r);
-        // Machinery or a statue may stand in the flight: then any 2x2 (or
-        // 1x2) of it, nearest the preferred end.
         let want = halves(r).map(|h| h[k % 2]).unwrap_or(r);
         let mut small = Vec::new();
         for (w, h) in [(2, 2), (2, 1), (1, 2)] {
@@ -131,7 +120,6 @@ pub fn pick(mask: &[Vec<bool>], k: usize, center: (i32, i32), ok: impl Fn(Rect) 
         small.sort_by_key(dw);
         cands.extend(small);
         for cand in cands {
-            // A half of a ragged flight may hold some non-stair tiles.
             let on = cells(cand).iter().filter(|&&(x, y)| mask[y as usize][x as usize]).count();
             if 2 * on >= (cand.2 * cand.3) as usize && ok(cand) {
                 return Some(cand);
@@ -141,9 +129,6 @@ pub fn pick(mask: &[Vec<bool>], k: usize, center: (i32, i32), ok: impl Fn(Rect) 
     None
 }
 
-/// The nearest block of the given size to `anchor` that is all plain floor
-/// with nothing standing on it, clear of `avoid` by `margin`, and (when
-/// `reach` is given) on tiles already reached.
 pub fn free_block(
     tiles: &[Vec<u8>],
     dress: &[Vec<u8>],
@@ -182,7 +167,6 @@ pub fn free_block(
     best.map(|b| b.1)
 }
 
-/// Which tiles walking reaches from the seeds.
 pub fn flood(tiles: &[Vec<u8>], seeds: &[(i32, i32)]) -> Vec<Vec<bool>> {
     let h = tiles.len();
     let w = tiles.first().map_or(0, |t| t.len());
@@ -207,9 +191,6 @@ pub fn flood(tiles: &[Vec<u8>], seeds: &[(i32, i32)]) -> Vec<Vec<bool>> {
     seen
 }
 
-/// Where a party arriving by `r` stands: the nearest walkable tile, by
-/// walking, with five plain floor tiles in a row centred on it (the fan of
-/// four knights and their leader), none of them inside a link.
 pub fn arrive(tiles: &[Vec<u8>], r: Rect, rects: &[Rect]) -> Option<(i32, i32)> {
     let h = tiles.len() as i32;
     let w = tiles.first().map_or(0, |t| t.len()) as i32;

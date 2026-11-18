@@ -81,7 +81,6 @@ enum Scene {
     Kingdom,
     Night,
     First,
-    /// Every kind of shot thrown out in rings: how shots look in flight.
     Volley,
     Cinder,
     Latch,
@@ -90,14 +89,11 @@ enum Scene {
     Rafterwake,
     Pennon,
     Forest,
-    /// A Round Table adventure's stub (`rules::roundtable`), by slug.
     Adventure(&'static str),
     Hall,
     BookHop,
     Drift,
-    /// A delve as the live box begins one (`first_session::live_start_first`).
     Live,
-    /// The Works' scenes (`works.rs`), by name.
     Works(&'static str),
 }
 
@@ -137,40 +133,27 @@ impl Scene {
     }
 }
 
-/// The Delve as this host runs it.
 struct DevDelve {
     run: Run,
     scene: Scene,
     squad_fixture: bool,
-    /// The fight's room, to fill again when it is cleared.
     room: usize,
     snapshot_hz: u32,
     publisher: wire::Publisher,
-    /// The knobs moved (`Run::tune`), kept here so a scene that starts its
-    /// run over keeps them.
     tune: angel_delve::rules::tune::Tune,
     freeze_count: u32,
     frozen_ticks: u32,
     freeze_streak: u32,
     longest_freeze: u32,
-    /// Play the deep's beat again every so many seconds (`--beat-every`).
     beat_every: Option<u32>,
-    /// Stand in for the cockpit's grant runners (`--grant-after SECS`):
-    /// words no phrasebook wish answers are offered, and a wish spent on
-    /// them lands that many seconds later as a known wish.
     grant_after: Option<u32>,
     granting: Vec<(u64, angel_delve::rules::genie::Asked)>,
-    /// The first-session beginner at knight 1's keys (`--newbie`), and
-    /// whether the first seat has joined: the beginner's clock starts when
-    /// a page is there to watch it.
     newbie: Option<angel_delve::first_session::Driver>,
     watched: bool,
     night: Option<night::Night>,
 }
 
 impl DevDelve {
-    /// The stand-in runners: wishes spent on new words are sent, and land
-    /// when due, as the cockpit's would (`rules::altar`).
     fn stand_in_grants(&mut self) {
         let Some(secs) = self.grant_after else { return };
         for asked in std::mem::take(&mut self.run.asked) {
@@ -183,8 +166,6 @@ impl DevDelve {
             let deck = self.run.players.get(&asked.knight).map(|h| h.deck.clone()).unwrap_or_default();
             let book = angel_delve::rules::phrasebook::book();
             if asked.cosmetic {
-                // Stand-in runners may supply existing worn ink, never a
-                // gameplay grant/refund. Real authoring is cockpit-owned.
                 let wish = angel_delve::rules::phrasebook::find(&asked.words);
                 let worn = wish.iter().chain(book.iter()).find_map(|w| (0..w.tiers.len()).rev()
                     .find_map(|tier| w.card(tier).ok().filter(|c| c.looks.worn.is_some())));
@@ -201,8 +182,6 @@ impl DevDelve {
             }
             let wish = angel_delve::rules::phrasebook::find_for(&asked.words, &deck)
                 .or_else(|| book.iter().find(|w| w.next_tier(&deck).is_some() && self.run.clone().grant(asked.knight, w).is_ok()).cloned());
-            // For whom a summoner wished it (`dead_wishes`); as it was, when
-            // the grant is refused.
             let granted = wish.map(|w| {
                 let was = self.run.aim_wish(asked.knight, &w, asked.target);
                 let granted = self.run.grant(asked.knight, &w);
@@ -230,7 +209,6 @@ impl DevDelve {
         DevDelve { squad_fixture: false, room: run.at, run, scene, snapshot_hz, publisher: wire::Publisher::default(), tune: Default::default(), freeze_count: 0, frozen_ticks: 0, freeze_streak: 0, longest_freeze: 0, beat_every: None, grant_after: None, granting: Vec::new(), newbie: None, watched: false, night: None }
     }
 
-    /// The fight goes on: nobody falls, and a cleared room fills again.
     fn keep_fighting(&mut self) {
         for hero in self.run.players.values_mut() {
             hero.hp = hero.max_hp;
@@ -240,7 +218,6 @@ impl DevDelve {
         }
     }
 
-    /// What the rules left for a realm to settle, dropped (dev only).
     fn drop_outboxes(&mut self) {
         self.run.bank.clear();
         self.run.orders.clear();
@@ -251,7 +228,6 @@ impl DevDelve {
     }
 }
 
-/// Only used by --squad-fixture; ordinary development scenes are unchanged.
 fn seed_squad(run: &mut Run) {
     use angel_delve::rules::squires_lodge::{self as squires, Kind, Member, Roster};
     for (&seat, hero) in &run.players {
@@ -263,7 +239,6 @@ fn seed_squad(run: &mut Run) {
     }
 }
 
-/// Each seat's share of the tree (`wire::seat_tree`).
 struct SeatView;
 
 impl DocView for SeatView {
@@ -271,7 +246,6 @@ impl DocView for SeatView {
         wire::seat_tree(tree, seat)
     }
 
-    /// The kingdom's chunks a few a snapshot (`wire::pace`).
     fn pace<'a>(&self, view: Cow<'a, Value>, held: Option<&Value>) -> Cow<'a, Value> {
         wire::pace(view, held)
     }
@@ -311,8 +285,6 @@ impl GameServer for DevDelve {
         }
         if knight == 1 {
             self.watched = true;
-            // The run's first knight is there from the start: the seat takes
-            // it, and its name.
             if let Some(hero) = self.run.players.get_mut(&1) {
                 hero.name = name.to_string();
             }
@@ -326,22 +298,15 @@ impl GameServer for DevDelve {
     fn leave(&mut self, seat: u32, events: &mut Events) {
         let knight = wire::knight_of(seat);
         let name = self.run.players.get(&knight).map(|h| h.name.clone()).unwrap_or_default();
-        // In night mode departed seats retain their character and cards.
         if self.night.is_some() { return; }
-        // The first knight stays, as the host's does.
         if knight != 1 {
             self.run.leave(knight);
         }
         events.all(Event::Notice { hear: Hear::All, text: format!("{name} left the party") }.to_vec());
     }
 
-    // The dev host opens the wish scroll's choices locally, as the cockpit
-    // does (`rules::genie`); teaching new phrases belongs to the cockpit,
-    // so words it does not know are offered only to free the genie.
     fn action(&mut self, seat: Option<u32>, kind: u32, body: &[u8], events: &mut Events) {
         let Some(knight) = seat.map(wire::knight_of) else { return };
-        // A card dragged in the hand (`controls.drag`): `{from, to}`, which
-        // the run checks against the hand, as the cockpit's does.
         if kind == 9 {
             if let Ok(json) = serde_json::from_slice::<serde_json::Value>(body)
                 && let (Some(from), Some(to)) = (json["from"].as_u64(), json["to"].as_u64())
@@ -368,7 +333,6 @@ impl GameServer for DevDelve {
             if kind == 2 && let Some(words) = json["words"].as_str().filter(|w| angel_delve::rules::genie::frees(w)) {
                 return self.run.offer_wish(knight, words, None).map(|()| "The scroll unrolls.".to_string());
             }
-            // With stand-in runners, new words are offered as the cockpit offers them.
             if kind == 2
                 && (self.grant_after.is_some() || self.night.is_some())
                 && let Some(words) = json["words"].as_str()
@@ -412,7 +376,6 @@ impl GameServer for DevDelve {
         }
         let before = (self.run.tick, self.run.hitstop.left);
         if let Some(driver) = &mut self.newbie {
-            // The beginner has knight 1's keys; the seat's own are let be.
             let mut others = inputs.clone();
             others.remove(&driver.bot.id);
             driver.tick(&mut self.run, &others, None);
@@ -456,7 +419,6 @@ impl GameServer for DevDelve {
             self.run.deep_beat = Some(self.run.tick);
         }
         if self.scene == Scene::Volley {
-            // Nothing but the shots: no monsters, and the knights stand.
             self.run.enemies.clear();
             for hero in self.run.players.values_mut() {
                 hero.hp = hero.max_hp;
@@ -608,14 +570,10 @@ fn main() {
 fn run() -> Result<(), String> {
     let a = args()?;
     angel_delve::scripted::install(angel_live::shipped::engine);
-    // The host's settings, as the cockpit sets them from its environment
-    // (open floors by default; `ANGEL_DELVE_OPEN=0` for flip-screen rooms).
     settings::set(Settings {
         feel_ledger: false,
         open_floors: std::env::var("ANGEL_DELVE_OPEN").map_or(true, |v| v != "0"),
     });
-    // Every floor 2D; `ANGEL_WORLD3D=deep` the deep floors in 3D, `=1`
-    // every room (docs/WORLD-3D.md, "Deeper floors").
     angel_delve::world3d::room::set_mode(angel_delve::world3d::room::Mode::from_env(std::env::var("ANGEL_WORLD3D").ok().as_deref()));
     let mut config = ServeConfig::new(SocketAddr::new(a.bind, a.port));
     if let Some(dir) = &a.bundle {
@@ -647,7 +605,6 @@ fn run() -> Result<(), String> {
         game.tune = game.run.tune;
     }
     if let Some(depth) = a.depth {
-        // The same room, down on floor `depth`, dressed as that floor's.
         let first = game.run.dungeon.pack;
         game.run.dungeon.depth = depth;
         game.run.dungeon.pack = angel_delve::rules::layout::Pack::at(depth, first);
@@ -691,7 +648,6 @@ fn run() -> Result<(), String> {
     }
 }
 
-/// The client as a bot runs it: everything but the drawing.
 struct Headless(DelveClient);
 
 impl GameClient for Headless {
@@ -806,14 +762,10 @@ impl GameClient for Headless {
     }
 }
 
-/// A bot's frames a second, and how often it prints what it was sent.
 const BOT_FPS: f64 = 60.0;
 const BOT_REPORT: Duration = Duration::from_secs(10);
 
-/// One bot: joins, walks and aims a random way for a while at a time,
-/// fires in bursts, and prints the bytes a second it was sent.
 fn bot<G: GameClient<Cmd = DelveCmd>>(url: &str, key: &str, i: u32) {
-    // Film build: BOT_NAMES=a,b,c names the bots as knights.
     let name = std::env::var("BOT_NAMES").ok().and_then(|v| v.split(',').nth(i as usize).map(str::to_string)).unwrap_or_else(|| format!("bot {}", i + 1));
     let mut ws = match WsClient::connect(url, Duration::from_secs(10)) {
         Ok(ws) => ws,

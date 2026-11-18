@@ -49,47 +49,27 @@ const MAX_RECIPES: usize = 5;
 const MAX_HAZARDS: usize = 5;
 const MAX_DOOR_SKILLS: usize = 6;
 const MAX_DOOR_RITUALS: usize = 3;
-/// Byte ceiling for the cost-aware (default) card: the relevant entries only.
 const RELEVANT_CARD_BYTES: usize = 400;
 const DOSSIER_RITUAL_MIN_BELIEF: f64 = 0.6;
-/// Ceiling for each jsonl store snapshot (recipes.jsonl / hazards.jsonl).
-/// The published file can never exceed this: the writer rewrites the whole
-/// snapshot on every append and drops oldest rows (superseded rows with the
-/// same command first) until it fits. `tail_bytes` readers also clamp reads
-/// to this bound, so growth beyond it is impossible, not merely unlikely.
 const STORE_TAIL_BYTES: u64 = 256 * 1024;
-/// M05: a recipe stays on the card while unverified for at most this many
-/// observed workspace identity transitions; after that it expires from the card
-/// (compaction eventually removes it from disk).
 pub(crate) const RECIPE_STALE_CHANGE_LIMIT: u32 = 5;
 const RESULT_SCAN_BYTES: usize = 8 * 1024;
 const SKILL_MD_SCAN_BYTES: usize = 4 * 1024;
 
-/// Tools whose calls can become recipes/hazards.
 const TRACKED_TOOLS: &[&str] = &["shell", "proc_run", "cargo", "run_tests", "check", "lint"];
 
-/// A command that produced a verified result in this repo.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Recipe {
     pub ts_ms: u64,
     pub command: String,
-    /// `KEY=VAL` prefixes found in the command.
     pub env: Vec<String>,
     pub duration_ms: Option<u64>,
     pub tool: String,
-    /// ≤120 chars, e.g. "verified: exit 0".
     pub note: String,
-    /// Absent in legacy keyword-derived records. Those records are never
-    /// presented as verified evidence after the typed-receipt migration.
     #[serde(default)]
     pub verification: Option<RecipeVerification>,
-    /// M05: the short workspace HEAD the recipe was verified on, when known.
-    /// Recipes without one (all pre-M05 records) never count as fresh.
     #[serde(default)]
     pub verified_head: Option<String>,
-    /// M05: count of workspace identity transitions observed since the last fresh
-    /// verified execution of this command. Maintained by the card render;
-    /// a fresh verified execution resets it to 0.
     #[serde(default)]
     pub stale_since_changes: u32,
     #[serde(default)]
@@ -103,18 +83,14 @@ pub(crate) enum RecipeVerification {
     ExecutedVerifierV1,
 }
 
-/// A command that failed here, and why.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Hazard {
     pub ts_ms: u64,
     pub command: String,
-    /// ≤160 chars.
     pub diagnostic: String,
     pub tool: String,
 }
 
-/// M05 memory-health summary for one store file: counts only. Reused by the
-/// render paths, the write-back path and the `--task-json` envelope.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
 pub(crate) struct StoreHealthSummary {
     pub(crate) malformed_rows: usize,
@@ -141,8 +117,6 @@ impl StoreHealthSummary {
     }
 }
 
-/// M05: caddy health for this workspace's stores (recipes + hazards), counts
-/// only — one read each, no extra lock acquisition.
 pub(crate) fn memory_health(workspace: &Path) -> StoreHealthSummary {
     let mut summary = memory_health_in(&caddy_dir(), workspace);
     summary.lock_or_io_failures += WRITE_FAILURES.swap(0, std::sync::atomic::Ordering::Relaxed);
@@ -150,7 +124,6 @@ pub(crate) fn memory_health(workspace: &Path) -> StoreHealthSummary {
     summary
 }
 
-/// [`memory_health`] with the store directory injected (testable).
 pub(crate) fn memory_health_in(dir: &Path, workspace: &Path) -> StoreHealthSummary {
     let repo_dir = dir.join(crate::platform::workspace_store::repo_identity(workspace).key);
     let recipes = storage::load::<Recipe>(&repo_dir.join("recipes.jsonl")).health;
@@ -182,9 +155,6 @@ pub(crate) fn memory_health_in(dir: &Path, workspace: &Path) -> StoreHealthSumma
     summary
 }
 
-/// M05 staleness ruling for one stored recipe against the workspace head.
-/// `Fresh` = verified on this head; `UnverifiedSince(head)` = render with a
-/// staleness label; `Expired` = drop from the card.
 enum StaleMark {
     Fresh,
     UnverifiedSince(String),
@@ -207,8 +177,6 @@ fn stale_mark(recipe: &Recipe, state: &serde_json::Value) -> StaleMark {
     StaleMark::UnverifiedSince(recipe.verified_head.clone().unwrap_or_default())
 }
 
-/// The situation the card is dealt into: repo identity, base state, languages,
-/// and whether a competition board is armed.
 #[derive(Clone, Debug)]
 pub(crate) struct Lie {
     pub repo_key: String,
@@ -218,20 +186,16 @@ pub(crate) struct Lie {
     pub board_armed: bool,
 }
 
-/// Whether the caddy is on (`ANGEL_CADDY`, default **on**).
 fn enabled() -> bool {
     match std::env::var("ANGEL_CADDY") {
         Ok(v) => {
             let t = v.trim().to_ascii_lowercase();
             !(t.is_empty() || v == "0" || t == "false" || t == "no" || t == "off")
         }
-        // No explicit flag: the receipt file decides (default on).
         Err(_) => caddy_feature_default().as_deref() != Some("off"),
     }
 }
 
-/// How the card is dealt. `Relevant` (cost-aware, the M06b default), `Full`
-/// (the pre-M06b card, kept for A/B), or `Off` (retired by receipt or flag).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum CardMode {
     Off,
@@ -239,9 +203,6 @@ pub(crate) enum CardMode {
     Full,
 }
 
-/// Card-mode resolution: explicit `ANGEL_CADDY_CARD` (full|relevant|off) wins,
-/// else the `[[features]]` receipt (`on`→Relevant, `full`→Full, `off`→Off),
-/// else Relevant. `ANGEL_CADDY=0` still kills everything.
 pub(crate) fn card_mode() -> CardMode {
     if let Ok(value) = std::env::var("ANGEL_CADDY_CARD") {
         return match value.trim().to_ascii_lowercase().as_str() {
@@ -250,8 +211,6 @@ pub(crate) fn card_mode() -> CardMode {
             _ => CardMode::Relevant,
         };
     }
-    // An explicit ANGEL_CADDY flag outranks the receipt: `0` retires here,
-    // and any truthy value re-enables even a receipt that retired the card.
     if std::env::var_os("ANGEL_CADDY").is_some() {
         return if enabled() {
             CardMode::Relevant
@@ -266,11 +225,6 @@ pub(crate) fn card_mode() -> CardMode {
     }
 }
 
-/// `default = "on"|"full"|"off"` for `name = "caddy"` from the features
-/// receipt (`ANGEL_FEATURE_DEFAULTS`, else `docs/telemetry/feature-defaults.toml`
-/// relative to the cwd). `None` when the file or entry is absent — the
-/// caller then keeps the built-in default. Parse the table structurally so an
-/// unrelated feature, key order, or inline comment cannot change Caddy policy.
 fn caddy_feature_default() -> Option<String> {
     let path = std::env::var_os("ANGEL_FEATURE_DEFAULTS")
         .map(PathBuf::from)
@@ -288,14 +242,11 @@ fn caddy_feature_default() -> Option<String> {
         .map(str::to_owned)
 }
 
-/// Card byte cap (`ANGEL_CADDY_CARD_BYTES`, default 1536, min 256).
 pub(crate) fn card_cap() -> usize {
     crate::agent::harness::env_usize("ANGEL_CADDY_CARD_BYTES", DEFAULT_CARD_BYTES)
         .max(MIN_CARD_BYTES)
 }
 
-/// Store root: `ANGEL_CADDY_DIR`, else `~/.angelX/caddy` (mirrors
-/// `dossier.rs`'s `ANGEL_DOSSIER_DIR` resolution).
 fn caddy_dir() -> PathBuf {
     match std::env::var("ANGEL_CADDY_DIR") {
         Ok(p) if !p.trim().is_empty() => PathBuf::from(p),
@@ -310,9 +261,6 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// Classify the situation from things already computed. Git state comes from
-/// one bounded spawn per probe (300 ms deadline); unavailable probes report
-/// partial metadata and retain the `no-git`/0 fallback. Languages come from markers.
 pub(crate) fn read_lie(workspace: &Path) -> Lie {
     let repo_key = crate::platform::workspace_store::repo_identity(workspace).key;
     let probe = |args: &[&str], step| {
@@ -327,13 +275,9 @@ pub(crate) fn read_lie(workspace: &Path) -> Lie {
     let head = probe(&["rev-parse", "--short", "HEAD"], "caddy_head")
         .map(|out| first_line(&out).to_string())
         .unwrap_or_else(|| "no-git".to_string());
-    // `git status --porcelain` prints nothing on a clean tree, and the probe
-    // treats empty output as None — both a clean repo and a missing git are 0.
     let dirty_files = probe(&["status", "--porcelain"], "caddy_status")
         .map(|out| out.lines().filter(|l| !l.trim().is_empty()).count())
         .unwrap_or(0);
-    // Shared shallow scan (root + one level), so a repo whose crate lives under
-    // a subdirectory (angelX: cockpit/Cargo.toml) is no longer read as `js`.
     let langs = crate::platform::workspace_lang::lang_names(
         &crate::platform::workspace_lang::detect(workspace),
     );
@@ -346,11 +290,6 @@ pub(crate) fn read_lie(workspace: &Path) -> Lie {
     }
 }
 
-/// Whether a competition board is armed. `goal.rs` has no competition
-/// accessor, so this mirrors the one the turn classifier uses
-/// (`turn/competition.rs::competition_mode_trigger`): the explicit
-/// `ANGEL_COMPETITION_MODE` env flag, else an Active `/goal` whose text
-/// carries competition vocabulary.
 fn board_armed(workspace: &Path) -> bool {
     if crate::agent::harness::env_flag("ANGEL_COMPETITION_MODE", false) {
         return true;
@@ -373,17 +312,10 @@ fn board_armed(workspace: &Path) -> bool {
     }
 }
 
-/// The recipes/hazards card for `workspace`, or "" when disabled or nothing
-/// is known. Starts with a blank-line separator so callers can push it
-/// straight after another block.
 pub(crate) fn render_card(workspace: &Path, cap_bytes: usize) -> String {
     render_card_in(&caddy_dir(), workspace, cap_bytes)
 }
 
-/// The card as this task earns it: `Full` renders the pre-M06b card;
-/// `Relevant` injects only entries whose verifier family matches this
-/// workspace's languages (≤ [`RELEVANT_CARD_BYTES`]); `Off`/no-match inject
-/// nothing, with the skip ledgered.
 pub(crate) fn render_card_for_task(workspace: &Path, cap_bytes: usize) -> String {
     if !enabled() {
         return String::new();
@@ -397,10 +329,6 @@ pub(crate) fn render_card_for_task(workspace: &Path, cap_bytes: usize) -> String
     }
 }
 
-/// Verifier families implied by the workspace's detected languages — the
-/// workspace-side half of the cohort's relevance ruling. A `check`/`lint`
-/// tool call is never a test verifier, so its family rule stays in
-/// [`recipe_relevance`] (only `run_tests` and `cargo test` match).
 fn families_for_langs(langs: &[String]) -> Vec<&'static str> {
     let mut families = Vec::new();
     for lang in langs {
@@ -418,8 +346,6 @@ fn families_for_langs(langs: &[String]) -> Vec<&'static str> {
     families
 }
 
-/// Runtimes a `run_tests`/`check`/`lint` recipe may name for `family` and
-/// still be the same verifier family (port of `RELEVANCE_TABLE`).
 fn allowed_runtimes(family: &str) -> &'static [&'static str] {
     match family {
         "node-test" => &["node", "auto"],
@@ -430,19 +356,15 @@ fn allowed_runtimes(family: &str) -> &'static [&'static str] {
     }
 }
 
-/// Typed verifier tools whose stored command is `name {json}` (not a shell line).
 fn typed_verifier_tool(name: &str) -> bool {
     matches!(name, "run_tests" | "cargo" | "check" | "lint")
 }
 
-/// Leading tool name of a stored typed-verifier command (`name {json}`).
 fn split_typed_verifier(command: &str) -> Option<(&str, &str)> {
     let (name, rest) = command.split_once(' ')?;
     typed_verifier_tool(name).then_some((name, rest))
 }
 
-/// Shell-free word split of a recipe's `args` (a compound command never
-/// establishes a verifier family — port of `command_words`).
 fn simple_words(command: &str) -> Vec<String> {
     let mut words = Vec::new();
     let mut current = String::new();
@@ -474,8 +396,6 @@ fn simple_words(command: &str) -> Vec<String> {
     if started {
         words.push(current);
     }
-    // Port of the cohort's `command_words`: a shell prefix of a compound
-    // command never establishes a verifier family.
     if words.iter().any(|word| {
         word.contains(';')
             || word.contains('|')
@@ -488,17 +408,12 @@ fn simple_words(command: &str) -> Vec<String> {
     words
 }
 
-/// The same ruling as `scripts/cohort-memory.py::recipe_relevance`, against
-/// the workspace's verifier families instead of one sealed verifier command:
-/// a tracked tool call whose runtime (or, for `cargo`, a leading `test`
-/// argument) matches the family. Never a substring match.
 pub(crate) fn recipe_relevance(command: &str, families: &[&str]) -> Option<&'static str> {
     let (name, raw) = split_typed_verifier(command)?;
     let args: serde_json::Value = serde_json::from_str(raw.trim()).ok()?;
     let extra = args.get("args").and_then(|v| v.as_str()).unwrap_or("");
     let words = simple_words(extra);
     if !extra.trim().is_empty() && words.is_empty() {
-        // Compound shell args never establish relevance.
         return None;
     }
     for family in families {
@@ -507,8 +422,6 @@ pub(crate) fn recipe_relevance(command: &str, families: &[&str]) -> Option<&'sta
                 return Some("typed-equivalent");
             }
         } else if name == "check" || name == "lint" {
-            // Syntax/check/lint is not a test verifier (RELEVANCE_TABLE's
-            // family=None row) — never relevant.
             continue;
         } else {
             let runtime = args
@@ -523,9 +436,6 @@ pub(crate) fn recipe_relevance(command: &str, families: &[&str]) -> Option<&'sta
     None
 }
 
-/// Whether a stored hazard's command belongs to one of the workspace's
-/// verifier families: tool-prefixed hazards reuse the recipe ruling; raw
-/// shell hazards match on their program word (never a substring).
 fn hazard_relevant(command: &str, families: &[&str]) -> bool {
     if split_typed_verifier(command).is_some() {
         return recipe_relevance(command, families).is_some();
@@ -546,8 +456,6 @@ fn hazard_relevant(command: &str, families: &[&str]) -> bool {
 fn observe_workspace(repo_dir: &Path, workspace: &Path) -> serde_json::Value {
     let mut state = crate::agent::harness::trace_schema::startup_workspace_state(workspace);
     if state["tree_sha256"].as_str().is_some_and(|s| s.len() == 64) {
-        // Timing/coverage annotations are not part of a complete verification
-        // identity; preserve equality with the exact state stored by verifiers.
         if let Some(object) = state.as_object_mut() {
             for key in ["startup_index", "startup_walk_ms", "startup_walk_budget_ms"] {
                 object.remove(key);
@@ -596,9 +504,6 @@ fn live_recipes(rows: Vec<Recipe>, state: &serde_json::Value) -> Vec<Recipe> {
         .collect()
 }
 
-/// The card's identity line: `⠸⠃⠙` (and a degraded store's page) on the
-/// store's own section, the repo, HEAD, dirty count, languages and host
-/// runtimes beside it as data.
 fn identity_header(
     lie: &Lie,
     recipes_degraded: bool,
@@ -649,9 +554,6 @@ fn recipe_card_line(recipe: &Recipe, count: usize, state: &serde_json::Value) ->
 }
 
 fn hazard_card_line(hazard: &Hazard) -> String {
-    // The diagnostic (the "why") leads; a long command — a heredoc script,
-    // say — is clipped to its first line so it can never crowd the reason out
-    // of the bounded line.
     let command = hazard.command.lines().next().unwrap_or("").trim();
     let command = bound_chars(command, MAX_HAZARD_COMMAND_CHARS);
     bound_line(&format!(
@@ -674,9 +576,6 @@ fn take_newest_hazards(mut hazards: Vec<Hazard>) -> Vec<Hazard> {
     hazards
 }
 
-/// Fit the cap by dropping from the bottom, never splitting a line: doors
-/// first (full card only), then the oldest hazards, then the oldest recipes.
-/// A section that loses its last entry loses its header too.
 fn fit_card(
     header: &str,
     recipes: &[(Recipe, usize)],
@@ -688,8 +587,6 @@ fn fit_card(
 ) -> String {
     use crate::agent::harness::book::{d3_roles::pages, d456_knowledge::CADDY};
     loop {
-        // The headings are `⠸⠃`'s pages, their addresses one route line on
-        // top, in order; each section keeps its bare name as its key.
         let mut headings = Vec::new();
         let mut body = Vec::new();
         if !recipe_lines.is_empty() {
@@ -741,14 +638,11 @@ fn fit_card(
     }
 }
 
-/// Cost-aware card: only relevant entries, no doors, hard 400 B ceiling.
 fn render_relevant_card_in(dir: &Path, workspace: &Path, cap_bytes: usize) -> String {
     let repo_dir = dir.join(crate::platform::workspace_store::repo_identity(workspace).key);
     let mut loaded_recipes = storage::load::<Recipe>(&repo_dir.join("recipes.jsonl"));
     let loaded_hazards = storage::load::<Hazard>(&repo_dir.join("hazards.jsonl"));
     record_store_health(workspace, &loaded_recipes.health, &loaded_hazards.health);
-    // Empty stores need neither a language/status scan nor a content identity.
-    // Still expose corrupt-store health above and retain the ordinary skip ledger.
     if loaded_recipes.rows.is_empty() && loaded_hazards.rows.is_empty() {
         record_skip(workspace);
         return String::new();
@@ -761,7 +655,6 @@ fn render_relevant_card_in(dir: &Path, workspace: &Path, cap_bytes: usize) -> St
         .any(|recipe| recipe.verification.is_some())
     {
         let state = observe_workspace(&repo_dir, workspace);
-        // Observation can advance persisted staleness counters.
         loaded_recipes = storage::load::<Recipe>(&repo_dir.join("recipes.jsonl"));
         state
     } else {
@@ -796,8 +689,6 @@ fn render_relevant_card_in(dir: &Path, workspace: &Path, cap_bytes: usize) -> St
     )
 }
 
-/// Dedup recipes by command, keeping the newest stored record (the same
-/// fold `render_card_in` performs), as (recipe, record count) pairs.
 fn dedup_newest(recipes: Vec<Recipe>) -> Vec<(Recipe, usize)> {
     let mut by_command: HashMap<String, (Recipe, usize)> = HashMap::new();
     for recipe in recipes {
@@ -816,8 +707,6 @@ fn dedup_newest(recipes: Vec<Recipe>) -> Vec<(Recipe, usize)> {
     by_command.into_values().collect()
 }
 
-/// Ledger receipt for the cost-aware skip: the store held entries, none were
-/// relevant, so nothing was injected.
 fn record_skip(workspace: &Path) {
     static SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     if !crate::knowledge::experience::enabled() {
@@ -829,9 +718,6 @@ fn record_skip(workspace: &Path) {
             "kind": "caddy_card",
             "v": 1,
             "ts": now_ms() / 1000,
-            // Fast empty-card checks can occur twice in the same millisecond,
-            // or concurrently in processes sharing a store. Preserve distinct
-            // invocation provenance instead of emitting byte-identical events.
             "pid": std::process::id(),
             "seq": SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             "ts_ms": now_ms(),
@@ -844,9 +730,6 @@ fn record_skip(workspace: &Path) {
     );
 }
 
-/// M05: a classified caddy memory-health event (corrupt line, truncated
-/// tail, lock/IO failure) reaches the experience ledger as counts and the
-/// `--task` stderr — never a silent skip.
 fn record_health_event(
     workspace: &Path,
     file: &str,
@@ -902,15 +785,12 @@ fn expose_report(workspace: &Path, file: &str, report: &storage::WriteReport) {
 
 static WRITE_FAILURES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
-/// [`render_card`] with the store directory injected (testable).
 fn render_card_in(dir: &Path, workspace: &Path, cap_bytes: usize) -> String {
     if !enabled() {
         return String::new();
     }
     let lie = read_lie(workspace);
     let repo_dir = dir.join(&lie.repo_key);
-    // No stored verification can become stale in an empty recipe store.
-    // Avoid indexing the entire workspace just to render an empty card.
     let has_verification = storage::load::<Recipe>(&repo_dir.join("recipes.jsonl"))
         .rows
         .iter()
@@ -925,16 +805,11 @@ fn render_card_in(dir: &Path, workspace: &Path, cap_bytes: usize) -> String {
     record_store_health(workspace, &loaded_recipes.health, &loaded_hazards.health);
     let recipes_degraded = loaded_recipes.health.degraded();
     let hazards_degraded = loaded_hazards.health.degraded();
-    // Recipes verified on a different workspace identity render as
-    // `unverified-since <short-head>`; recipes unverified for
-    // RECIPE_STALE_CHANGE_LIMIT workspace changes expire from the card.
     let recipes = live_recipes(loaded_recipes.rows, &state);
     let hazards = loaded_hazards.rows;
     if recipes.is_empty() && hazards.is_empty() && !recipes_degraded && !hazards_degraded {
         return String::new();
     }
-    // V1 receipts have no execution-time source identity. Keep them as historical
-    // hints only; stored row counts and save dates do not prove fresh execution.
     let recipes = take_newest_recipes(dedup_newest(recipes));
     let hazards = take_newest_hazards(hazards);
 
@@ -961,7 +836,6 @@ fn render_card_in(dir: &Path, workspace: &Path, cap_bytes: usize) -> String {
     )
 }
 
-/// `⠸⠃⠛ skills=… rituals=…` — names to open, never inline library content.
 fn doors_line(lie: &Lie, workspace: &Path) -> Option<String> {
     let mut parts = Vec::new();
     if lie.board_armed {
@@ -986,9 +860,6 @@ fn doors_line(lie: &Lie, workspace: &Path) -> Option<String> {
     })
 }
 
-/// ≤6 skill names from `~/.angelX/skills` + `cockpit/skills` whose SKILL.md
-/// description mentions one of the repo's languages or
-/// "competition"/"benchmark".
 fn door_skills(lie: &Lie) -> Vec<String> {
     let user_dir = std::env::var_os("ANGEL_SKILLS_DIR")
         .map(PathBuf::from)
@@ -1041,9 +912,6 @@ fn door_skills(lie: &Lie) -> Vec<String> {
     names
 }
 
-/// ≤3 dossier fact texts with belief ≥ 0.6 (the card's own gate — looser
-/// than the injected dossier block's 0.70, because these are doors to open,
-/// not assertions).
 fn dossier_rituals(workspace: &Path, repo_key: &str) -> Vec<String> {
     let _ = workspace;
     let dir = match std::env::var("ANGEL_DOSSIER_DIR") {
@@ -1070,10 +938,6 @@ fn dossier_rituals(workspace: &Path, repo_key: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Fold the turn's tool history back into the store: every tracked call
-/// paired with its result becomes a hazard (failure markers) or a recipe
-/// (success + benchmark/verify vocabulary). Idempotent per (command, day).
-/// `ChatMsg` carries no per-call timing, so `duration_ms` stays `None` in v0.
 pub(crate) fn write_back_from_history(workspace: &Path, history: &[ChatMsg]) -> (usize, usize) {
     if !enabled() || history.is_empty() {
         return (0, 0);
@@ -1158,13 +1022,7 @@ pub(crate) fn write_back_from_history(workspace: &Path, history: &[ChatMsg]) -> 
     (recipe_count, hazard_count)
 }
 
-/// Command text for a call: `args["command"]` when present (with its leading
-/// `KEY=VAL` prefixes parsed out), else the tool name + a bounded head of the
-/// args JSON.
 fn command_of(call: &ToolCall) -> Option<(String, Vec<String>)> {
-    // Describe only executed fields. Verifier tools additionally select a
-    // runtime; Cargo ignores that field. An unused `command` property must
-    // never become the supposedly verified recipe's description.
     if typed_verifier_tool(&call.name) {
         let mut args = serde_json::json!({
             "args": call.args.get("args").and_then(|value| value.as_str()).unwrap_or("")
@@ -1198,9 +1056,6 @@ fn command_of(call: &ToolCall) -> Option<(String, Vec<String>)> {
                     .collect()
             })
             .unwrap_or_default();
-        // Scrub decoded arguments before embedding their JSON in prose. A
-        // newline immediately before a key becomes literal `\n` here, which
-        // defeats a later word-boundary secret matcher on the command string.
         crate::platform::secrets::redact_value(&mut args);
         return Some((format!("{} {}", call.name, args), env));
     }
@@ -1216,7 +1071,6 @@ fn command_of(call: &ToolCall) -> Option<(String, Vec<String>)> {
     Some((format!("{} {}", call.name, head), Vec::new()))
 }
 
-/// Leading `KEY=VAL` assignments before the command word.
 fn env_prefixes(command: &str) -> Vec<String> {
     let mut env = Vec::new();
     for token in command.split_whitespace().take(MAX_ENV_PREFIXES) {
@@ -1234,7 +1088,6 @@ fn env_prefixes(command: &str) -> Vec<String> {
     env
 }
 
-/// Failure markers and the ≤160-char diagnostic after the first one found.
 fn hazard_diagnostic(result: &str) -> Option<String> {
     if let Some(rest) = result.strip_prefix("tool error:") {
         return Some(bound_chars(rest.trim_start(), MAX_DIAGNOSTIC_CHARS));
@@ -1248,9 +1101,6 @@ fn hazard_diagnostic(result: &str) -> Option<String> {
     None
 }
 
-/// Only the dispatch boundary can attach this transient receipt. Match the
-/// complete call as well as its ID, so reused IDs cannot bless different args.
-/// Raw shell text and asynchronous machine/process launches are not proofs.
 pub(crate) fn verified_recipe_call(call: &ToolCall, result: &ChatMsg) -> bool {
     use crate::agent::harness::{ExecutionOutcome, VerificationOutcome};
     (matches!(call.name.as_str(), "cargo" | "run_tests" | "check" | "lint")
@@ -1270,10 +1120,6 @@ pub(crate) fn verified_recipe_call(call: &ToolCall, result: &ChatMsg) -> bool {
         })
 }
 
-/// Publish a bounded snapshot; report contention/corruption/IO instead of
-/// conflating rejected persistence with a successful no-op. Every published
-/// recipe snapshot also refreshes M05 staleness counters against the
-/// workspace head.
 fn append_new<T: Serialize + for<'de> Deserialize<'de> + GetCommand>(
     repo_dir: &Path,
     file: &str,
@@ -1332,8 +1178,6 @@ fn load_jsonl<T: for<'de> Deserialize<'de>>(path: &Path) -> Vec<T> {
     storage::load(path).rows
 }
 
-/// Strict UTF-8 view for existing bounded-tail callers. Corrupt bytes are
-/// reported by storage::load and are never rewritten into replacement text.
 #[cfg(test)]
 fn read_tail(path: &Path, max_bytes: u64) -> Option<String> {
     let (bytes, _, _) = storage::tail_bytes(path, max_bytes).ok()?;
@@ -1353,7 +1197,6 @@ fn first_line(text: &str) -> &str {
     text.lines().next().unwrap_or("")
 }
 
-/// A byte-limited view rounded down to a UTF-8 boundary.
 fn bound_bytes(text: &str, max_bytes: usize) -> &str {
     let mut cut = text.len().min(max_bytes);
     while !text.is_char_boundary(cut) {
@@ -1362,8 +1205,6 @@ fn bound_bytes(text: &str, max_bytes: usize) -> &str {
     &text[..cut]
 }
 
-/// UTF-8-safe char truncation, including an explicit truncation marker. A
-/// scalar-value limit also bounds bytes to at most four times that limit.
 fn bound_chars(text: &str, max_chars: usize) -> String {
     if text.char_indices().nth(max_chars).is_none() {
         return text.to_string();
@@ -1375,8 +1216,6 @@ fn bound_chars(text: &str, max_chars: usize) -> String {
     format!("{}…", &text[..cut])
 }
 
-/// One card line: assembled, then hard-bounded to MAX_LINE_CHARS.
-/// Visible budget for a hazard's command inside its card line.
 const MAX_HAZARD_COMMAND_CHARS: usize = 72;
 
 fn bound_line(line: &str) -> String {
@@ -1390,7 +1229,6 @@ fn short_key(key: &str) -> String {
     }
 }
 
-/// `YYYY-MM-DD` for a unix-ms timestamp (Howard Hinnant's civil date).
 fn iso_day(ms: u64) -> String {
     let days = (ms / 86_400_000) as i64;
     let z = days + 719_468;

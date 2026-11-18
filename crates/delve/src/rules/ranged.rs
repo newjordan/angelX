@@ -25,8 +25,6 @@ pub struct Event {
     pub radius: f32,
     pub mark: Mark,
     pub ttl: u8,
-    /// The spell that loosed it, by its knight's slot and one (0: none),
-    /// for the spell's own impact (`ShotTraits::spell`).
     #[serde(default, skip_serializing_if = "unspelled")]
     pub spell: u8,
 }

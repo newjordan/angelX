@@ -20,26 +20,19 @@
 
 use super::*;
 
-/// Health: a hand, a drowned knight, a wisp.
 pub const HAND_HP: u32 = 70;
 pub const DROWNED_HP: u32 = 200;
 pub const WISP_HP: u32 = 45;
 
-/// A bog hand: how fast it travels under the mire and for how long, the
-/// ripples' tell, how long it stays up, the grip's reach and its hit.
 pub const HAND_SWIM: f32 = 5.0;
 pub const HAND_SWIM_TICKS: u32 = 45;
 pub const HAND_TELL: u32 = 30;
 pub const HAND_UP: u32 = 75;
 pub const HAND_REACH: f32 = 1.9;
 pub const HAND_HIT: u32 = 14;
-/// A held knight: ticks of the grip, and the pace it leaves them.
 pub const GRIP: u32 = 45;
 pub const GRIP_PACE: f32 = 0.3;
 
-/// A drowned knight: its wade, how near it comes (a blade's length off), how
-/// near it lifts the blade, the wind-up and when its aim locks, the
-/// cleave's reach and hit, and the blade stuck after.
 pub const DROWNED_PACE: f32 = 2.6;
 pub const DROWNED_KEEP: f32 = 2.2;
 pub const DROWNED_NEAR: f32 = 3.4;
@@ -49,9 +42,6 @@ pub const DROWNED_REACH: f32 = 2.2;
 pub const DROWNED_HIT: u32 = 20;
 pub const DROWNED_STUCK: u32 = 45;
 
-/// A will-o'-wisp: the distance it keeps, its drift, the rest between lures,
-/// the lure's tell, its reach and pull (units a second), the burst's ring
-/// and the dim after.
 pub const WISP_NEAR: f32 = 7.0;
 pub const WISP_FAR: f32 = 11.0;
 const WISP_DRIFT: f32 = 3.0;
@@ -65,30 +55,24 @@ pub const WISP_HIT: u32 = 10;
 pub const WISP_DIM: u32 = 60;
 
 impl EnemyKind {
-    /// One of the swamp's own company.
     pub fn horror(self) -> bool {
         matches!(self, EnemyKind::BogHand | EnemyKind::Drowned | EnemyKind::Wisp)
     }
 }
 
 impl Enemy {
-    /// A bog hand under the mire: travelling, or rippling before it rises.
     pub fn sunk(&self) -> bool {
         self.kind == EnemyKind::BogHand && self.stage < 2
     }
 }
 
-/// What the swamp's company did this tick.
 #[derive(Default)]
 #[cfg_attr(test, derive(Serialize))]
 pub(super) struct Doings {
-    /// Hands rising: where.
     pub(super) grabs: Vec<(f32, f32)>,
-    /// Wisps luring: where.
     pub(super) lures: Vec<(f32, f32)>,
 }
 
-/// One of the swamp company's steps. False for any other monster.
 pub(super) fn act(
     enemy: &mut Enemy,
     heroes: &[(f32, f32)],
@@ -125,7 +109,6 @@ pub(super) fn act(
     };
     enemy.timer += 1;
     match (enemy.kind, enemy.stage) {
-        // Under the mire, travelling toward the nearest knight.
         (BogHand, 0) => {
             if seen {
                 walk(enemy, (cx, cy), HAND_SWIM);
@@ -134,7 +117,6 @@ pub(super) fn act(
                 (enemy.stage, enemy.timer) = (1, 0);
             }
         }
-        // The ripples: it will rise here.
         (BogHand, 1) => {
             if enemy.timer >= HAND_TELL {
                 deeds.swamp.grabs.push((enemy.x, enemy.y));
@@ -142,13 +124,11 @@ pub(super) fn act(
                 (enemy.stage, enemy.timer) = (2, 0);
             }
         }
-        // Risen, clutching: shots find it now.
         (BogHand, _) => {
             if enemy.timer >= HAND_UP {
                 (enemy.stage, enemy.timer) = (0, 0);
             }
         }
-        // Wading in, to a blade's length off.
         (Drowned, 0) => {
             if seen {
                 enemy.dir = (cx, cy);
@@ -161,7 +141,6 @@ pub(super) fn act(
                 enemy.dir = (cx, cy);
             }
         }
-        // The blade goes up; the arc shows where it falls.
         (Drowned, 1) => {
             if enemy.timer < DROWNED_LOCK && seen {
                 enemy.dir = (cx, cy);
@@ -180,13 +159,11 @@ pub(super) fn act(
                 (enemy.stage, enemy.timer) = (2, 0);
             }
         }
-        // The blade stuck in the mud.
         (Drowned, _) => {
             if enemy.timer >= DROWNED_STUCK {
                 (enemy.stage, enemy.timer) = (0, 0);
             }
         }
-        // Over the water, keeping off.
         (Wisp, 0) => {
             let side = if enemy.id.is_multiple_of(2) { 1.0 } else { -1.0 };
             let way = if !seen {
@@ -203,7 +180,6 @@ pub(super) fn act(
                 (enemy.stage, enemy.timer) = (1, 0);
             }
         }
-        // The flare: it draws the knights in.
         (Wisp, 1) => {
             deeds.swamp.lures.push((enemy.x, enemy.y));
             if enemy.timer >= WISP_LURE {
@@ -230,7 +206,6 @@ pub(super) fn act(
                 (enemy.stage, enemy.timer) = (2, 0);
             }
         }
-        // Dim, drifting back out.
         (Wisp, _) => {
             if seen && dist < WISP_FAR {
                 walk(enemy, (-cx, -cy), WISP_DRIFT);
@@ -245,7 +220,6 @@ pub(super) fn act(
 }
 
 impl Run {
-    /// Make what the swamp's company did this tick so.
     pub(super) fn apply_horrors(&mut self, doings: Doings) {
         for (x, y) in doings.grabs {
             for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
@@ -285,7 +259,6 @@ impl Run {
         }
     }
 
-    /// A bog hand's grip lets go.
     pub(super) fn tick_grip(&mut self) {
         for hero in self.players.values_mut() {
             hero.mired = hero.mired.saturating_sub(1);

@@ -2,8 +2,6 @@ use super::*;
 use angel_delve::rules::brew_jobs::{self, Claim, Completion, PolicyRequest, PolicyResult};
 
 impl Sim {
-    /// The existing command sequence is the discovery cursor. Unchanged
-    /// frames borrow metadata only; captured cards copy once for a new job.
     pub fn new_brew_claims(
         &self,
         cursor: &mut Option<(String, u64)>,
@@ -57,8 +55,6 @@ impl Sim {
         let live = self.live.as_ref().ok_or("the game session ended")?;
         lock(&live.shared().core).commands.brew_completion(claim)
     }
-    /// Transport/capacity errors retain the job. Only a policy rejection asks
-    /// the model to mend; a terminal receipt never invokes new policy again.
     pub fn answer_brew(
         &mut self,
         claim: &Claim,

@@ -27,9 +27,6 @@ fn character_anchor_ignores_empty_canvas_and_preserves_dark_armor_and_scale() {
 
 #[test]
 fn pixel_frames_stand_in_the_corner_of_one_canvas_and_keep_every_pixel() {
-    // Two poses of a 2x-grid sprite with hard checker pixels, standing loose
-    // in their cells: the second raises a staff above and right of the body.
-    // Any resampling would blend.
     let checker = |x: u32, y: u32| {
         let v = if ((x / 2) + (y / 2)).is_multiple_of(2) {
             20
@@ -52,10 +49,8 @@ fn pixel_frames_stand_in_the_corner_of_one_canvas_and_keep_every_pixel() {
         }
     }
     let out = anchor_pixel_frames(&[rest.clone(), raised.clone()]);
-    // One canvas: the widest pose's width, the tallest pose's height.
     assert_eq!(out[0].dimensions(), (130, 150), "one canvas for both poses");
     assert_eq!(out[1].dimensions(), (130, 150));
-    // Each pose meets the right wall and the base on its own mask.
     assert_eq!(character_bounds(&out[0]), Some((30, 50, 130, 150)));
     assert_eq!(character_bounds(&out[1]), Some((0, 0, 130, 150)));
     for (x, y) in [(30, 50), (31, 51), (129, 149)] {
@@ -138,16 +133,12 @@ fn every_consumed_sheet_has_distinct_framed_poses() {
         AgentKey::North,
         AgentKey::Daybreak,
     ] {
-        // A seat without its knight yet wears stills; every named sheet
-        // must exist and decode.
         let Some(sheet) = sheet(key) else {
             continue;
         };
         let path = root.join(sheet);
         let mut signatures = std::collections::HashSet::new();
         if is_pixel_sheet(&path) {
-            // Pixel sheets share one canvas for all eight poses, each hard
-            // in its lower-right corner; together they reach every edge.
             let frames: Vec<_> = (0..8)
                 .map(|pose| frame_image(&path, pose).unwrap().to_rgba8())
                 .collect();
@@ -185,8 +176,6 @@ fn every_consumed_sheet_has_distinct_framed_poses() {
         for pose in 0..8 {
             let frame = frame_image(&path, pose).unwrap().to_rgba8();
             assert_eq!(frame.dimensions(), (192, 192));
-            // Optional review export uses the exact consumed runtime crop.
-            // Ordinary execution never reads this test-only destination.
             if let Some(dir) = std::env::var_os("ANGEL_HELM_REVIEW_DIR") {
                 let dir = PathBuf::from(dir);
                 std::fs::create_dir_all(&dir).unwrap();
@@ -201,8 +190,6 @@ fn every_consumed_sheet_has_distinct_framed_poses() {
                 (188..=189).contains(&bottom),
                 "bottom anchor {key:?}/{pose}: {bottom}"
             );
-            // The complete bust stays off each vertical edge; this catches
-            // a wrong sheet grid that borrows a neighboring character.
             let bright = |p: &image::Rgba<u8>| p[3] > 20 && p[0].max(p[1]).max(p[2]) > 45;
             assert!(
                 frame.pixels().filter(|p| bright(p)).count() > 1_000,
@@ -231,7 +218,6 @@ fn every_consumed_sheet_has_distinct_framed_poses() {
 
 #[test]
 fn registered_frames_keep_their_feet_where_they_were_drawn() {
-    // Two poses on one ground line: a short one, and a tall one reaching right.
     let mut short = image::RgbaImage::new(400, 400);
     let mut tall = image::RgbaImage::new(400, 400);
     for y in 300..380 {
@@ -245,7 +231,6 @@ fn registered_frames_keep_their_feet_where_they_were_drawn() {
         }
     }
     let frames = anchor_registered_frames(&[short, tall]);
-    // One crop and one scale for both: the union is 120 x 180, scaled to 512 tall.
     assert_eq!(frames[0].dimensions(), frames[1].dimensions());
     assert_eq!(frames[0].height(), 512);
     let bottom_left = |f: &image::RgbaImage| {
@@ -254,7 +239,6 @@ fn registered_frames_keep_their_feet_where_they_were_drawn() {
             .find(|&x| f.get_pixel(x, h - 1)[3] > 0)
             .expect("feet on the bottom row")
     };
-    // The feet start at the same column in both poses.
     assert_eq!(bottom_left(&frames[0]), bottom_left(&frames[1]));
     assert!(is_registered_sheet(std::path::Path::new(
         "cockpit/assets/onboarding/setup/guide.png"

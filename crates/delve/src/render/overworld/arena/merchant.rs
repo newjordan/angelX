@@ -43,7 +43,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     let kind = run.room().kind;
     let spot = cart(kind);
     let (x, y) = at(spot.0 * TILE_UNITS, spot.1 * TILE_UNITS);
-    // Two wooden wheels, red awning, striped cloth, bottles and rolled maps.
     cv.ellipse((x - 23) as f32, (y - 2) as f32, 6.0, 6.0, 'b');
     cv.ellipse((x + 23) as f32, (y - 2) as f32, 6.0, 6.0, 'b');
     cv.ellipse((x - 23) as f32, (y - 2) as f32, 2.0, 2.0, 'O');
@@ -81,8 +80,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             '6',
         );
     }
-    // In the Delve's courtyard the plates are the bazaar out of doors: its
-    // name on a board over them.
     if kind == RoomKind::Gate {
         let name = "BAZAAR";
         let row = plates(kind);
@@ -94,15 +91,9 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The peddler's board as the seat playing `focus` reads it (`None`: a
-/// screen that plays no one knight), or nothing. A knight sees their own
-/// plate, purse and purchase only: a friend buying at the next plate shows
-/// on the friend's screen, not over this one (2026-10-19: "buying a potion
-/// should only show you your own popup").
 pub(super) fn board_lines(run: &Run, focus: Option<u32>) -> Option<Vec<(String, char)>> {
     let camp = run.merchant_camp().filter(|c| c.room == run.at)?;
     let unsafe_room = !run.room().cleared || run.enemies.iter().any(|e| e.hp > 0);
-    // On the surface nothing is carried: the realm's treasury pays.
     let surface = run.dungeon.depth == 0;
     let purse = if surface { "TREASURY" } else { "CARRIED" };
     let reader = super::shoppers(run, focus)
@@ -115,8 +106,6 @@ pub(super) fn board_lines(run: &Run, focus: Option<u32>) -> Option<Vec<(String, 
         } else {
             hero.carried.get(Spoil::Gold)
         };
-        // The seat's own approach travels in the Live packet with the rest
-        // of the run; a guest's frame reads the host's word on it.
         let sale = (id as usize)
             .checked_sub(1)
             .and_then(|seat| run.merchant.approaches.get(seat))
@@ -150,7 +139,6 @@ pub(super) fn board_lines(run: &Run, focus: Option<u32>) -> Option<Vec<(String, 
             (status.into(), '6'),
         ]
     } else {
-        // The price list is for knights at the cart, not the whole room.
         let spot = cart(run.room().kind);
         let at_cart = super::shoppers(run, focus).any(|(_, h)| {
             h.hp > 0
@@ -183,6 +171,5 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
         return;
     };
     let board = home::board(&lines);
-    // At the top, clear of the offer plates and approaching knights.
     cv.stamp(&board, (cv.w - board.w) / 2, 3 * TILE);
 }

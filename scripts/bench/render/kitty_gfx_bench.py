@@ -1,21 +1,4 @@
 #!/usr/bin/env python3
-"""Kitty graphics races for docs/RENDER_SCORECARD.md (Board A).
-
-Runs INSIDE kitty. Each mode pushes an identical-pixels workload through
-Kitty's own graphics protocol and times submit -> acknowledgement per
-frame (a graphics query `a=q` whose response proves the terminal
-processed everything before it; text mode uses a DA query instead).
-
-  python3 kitty_gfx_bench.py blast4 [--transport b64|png|shm] [--frames N]
-  python3 kitty_gfx_bench.py big --w 1920 --h 1080 [--transport b64|shm]
-  python3 kitty_gfx_bench.py placements --n 1000 [--frames N]
-  python3 kitty_gfx_bench.py text [--cols 200] [--rows 50] [--frames N]
-
-Report JSON goes to $BENCH_OUT (default /tmp/kitty-gfx-bench.json) and a
-one-line summary to stderr. Stdlib only. Pixel rings are pre-generated
-so the timed section measures the terminal, not this process; every
-frame differs, so no upload can be skipped as unchanged.
-"""
 import argparse
 import base64
 import json
@@ -30,7 +13,6 @@ import zlib
 
 WARMUP = 30
 
-# The glass blast's four stream sizes: (id, w, h, z, cols, rows, row, col)
 BLAST4 = [
     (11, 320, 200, -1, 40, 12, 2, 2),
     (12, 192, 160, 0, 24, 10, 4, 20),
@@ -40,7 +22,6 @@ BLAST4 = [
 
 
 def frame_bytes(w, h, n, seed):
-    """One RGBA frame: a moving gradient (identical formula both sides)."""
     buf = bytearray(w * h * 4)
     for y in range(h):
         base = y * w * 4
@@ -55,7 +36,6 @@ def frame_bytes(w, h, n, seed):
 
 
 def png_bytes(w, h, rgba, level=1):
-    """A minimal RGBA PNG (filter 0 scanlines), stdlib only."""
     stride = w * 4
     raw = bytearray((stride + 1) * h)
     for y in range(h):
@@ -83,8 +63,6 @@ def apc(payload):
 
 
 class Term:
-    """Raw stdin/stdout with query-ack reads."""
-
     def __init__(self):
         self.fd = sys.stdin.fileno()
         self.old = termios.tcgetattr(self.fd)
@@ -127,12 +105,8 @@ def upload_b64(img_id, w, h, z, cols, rows, data, fmt=32):
 
 
 class ShmStream:
-    """One shared-memory object per stream (Kitty's t=s fast path)."""
-
     def __init__(self, data):
         from multiprocessing import shared_memory
-        # track=False: kitty unlinks after reading, which is its design,
-        # not a leak for the resource tracker to report 1000 times.
         self.shm = shared_memory.SharedMemory(create=True, size=len(data), track=False)
         self.payload = base64.b64encode(self.shm.name.encode())
 
@@ -144,7 +118,7 @@ class ShmStream:
         try:
             self.shm.unlink()
         except FileNotFoundError:
-            pass  # kitty already unlinked it
+            pass
 
     def upload(self, img_id, w, h, z, cols, rows):
         head = f"a=T,f=32,t=s,s={w},v={h},i={img_id},c={cols},r={rows},z={z},q=2;".encode()
@@ -152,7 +126,6 @@ class ShmStream:
 
 
 def run_streams(term, streams, frames, transport):
-    """streams: BLAST4-shaped tuples. Returns (times, payload_bytes)."""
     ring = {s[0]: [frame_bytes(s[1], s[2], v, s[0]) for v in range(4)] for s in streams}
     if transport == "png":
         ring = {s[0]: [png_bytes(s[1], s[2], f) for f in ring[s[0]]] for s in streams}
@@ -172,10 +145,6 @@ def run_streams(term, streams, frames, transport):
                 time.sleep(delay)
         if stamp_log is not None:
             stamp_log.write(f"{n} {time.time() * 1000.0:.1f}\n")
-        # Kitty unlinks a t=s object after reading it, so shm streams
-        # are created fresh every frame. Creation + the copy in are part
-        # of submitting a frame on this transport, so they are timed —
-        # the glass side's handover clone is timed the same way.
         t0 = time.perf_counter()
         shms = {}
         if transport == "shm":
@@ -192,8 +161,6 @@ def run_streams(term, streams, frames, transport):
             parts.append(f"\x1b[{row};{col}H".encode())
             data = ring[img_id][n % len(ring[img_id])]
             if stamp_log is not None and transport != "png":
-                # Photon runs: with BENCH_SOLID the whole frame is the
-                # sequence as colour; else a 16x16 block at the origin.
                 rgb = (n & 0xFFFFFF).to_bytes(3, "little")
                 if os.environ.get("BENCH_SOLID"):
                     data = bytes([rgb[0], rgb[1], rgb[2], 255]) * (w * h)
@@ -213,9 +180,6 @@ def run_streams(term, streams, frames, transport):
                 parts.append(upload_b64(img_id, w, h, z, cols, rows, data))
         parts.append(apc(b"a=q,i=99;"))
         term.write(b"".join(parts))
-        # BENCH_NOACK: firehose for photon counting — the ack comes
-        # rarely, so the terminal runs at its own pace (PTY pressure
-        # is the only throttle).
         if not os.environ.get("BENCH_NOACK") or n % 30 == 29:
             term.ack()
         dt = time.perf_counter() - t0
@@ -247,12 +211,10 @@ def run_placements(term, count, frames, cols=200, rows=50):
     return times
 
 
-POOL = 4096  # churn id space: wraps rarely enough to allocate, not leak forever
+POOL = 4096
 
 
 def run_churn(term, per_frame, frames):
-    """256 fresh 16x16 pictures a frame, new ids each frame: pure
-    texture-allocation churn, the adversarial case for upload caches."""
     img = frame_bytes(16, 16, 1, 7)
     times = []
     n = 0

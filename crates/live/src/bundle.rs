@@ -9,8 +9,6 @@ use std::path::{Path, PathBuf};
 mod bend;
 
 const MAX_FILES: usize = 64;
-/// A whole game's rules in Bend (sources and the compiled program together)
-/// are a few hundred KiB; a generation past this is not a generation.
 const MAX_BYTES: usize = 1024 * 1024;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -42,15 +40,11 @@ pub(super) struct Bundle {
     files: BTreeMap<String, String>,
     pub assets: BTreeMap<String, std::sync::Arc<crate::Asset>>,
     stamp: SourceStamp,
-    /// The Bend receipt, parsed once: a generation's files never change, and
-    /// every snapshot asks for it.
     receipt: std::sync::OnceLock<Option<crate::BuildReceipt>>,
 }
 
 impl Bundle {
     pub fn read(root: &Path, id: &str) -> Result<Self, String> {
-        // Two matching reads reject a directory changing during capture. A
-        // separate debounce in the registry also covers editor partial saves.
         let mut first = capture(root)?;
         let raw = first.get("module.json").ok_or("missing module.json")?;
         let manifest: Manifest = serde_json::from_str(raw).map_err(|e| e.to_string())?;
@@ -123,7 +117,6 @@ impl Bundle {
         })
     }
 
-    /// Source and output digests of a Bend generation that built cleanly.
     pub fn build_receipt(&self) -> Option<crate::BuildReceipt> {
         self.receipt
             .get_or_init(|| {
@@ -135,8 +128,6 @@ impl Bundle {
             .clone()
     }
 
-    /// A policy generation compiled into the host: the same manifest, Bend
-    /// receipt and digest rules as a directory capture, from embedded bytes.
     pub fn from_files(id: &str, embedded: &[(&str, &str)]) -> Result<Self, String> {
         let mut files: BTreeMap<String, String> = embedded
             .iter()
@@ -181,9 +172,6 @@ impl Bundle {
         })
     }
 
-    /// Metadata is a polling hint, never the generation identity. Explicit
-    /// reload still captures and hashes bytes; changed inputs get two matching
-    /// content reads and stable metadata before entering the debounce window.
     pub fn fresh(&self, root: &Path) -> bool {
         SourceStamp::read(root, &self.manifest.assets).is_ok_and(|stamp| {
             stamp.0.values().all(|file| file.modified.is_some()) && stamp == self.stamp
@@ -191,8 +179,6 @@ impl Bundle {
     }
 
     fn bootstrap(&self, resource_json: &str) -> String {
-        // JSON strings, rather than source interpolation, prevent a dependency
-        // from breaking out of its own factory while the bundle is constructed.
         format!(
             r#"const files = {files};
 const assets = {assets};
@@ -274,9 +260,6 @@ const feature = load({entry});
         )
     }
 
-    /// The module setup, a `CALL_MARKER` naming this generation's digest, then
-    /// one render. An evaluator may keep the setup's context per digest and run
-    /// only the call; run whole, the marker is an ordinary comment.
     pub fn script(&self, input: &serde_json::Value) -> String {
         format!(
             "{}\n{}{}*/\nif(feature.apiVersion!==1 || typeof feature.render!=='function') throw Error('expected apiVersion 1 and render(input)'); return {{value:await feature.render({input})}};",
@@ -286,11 +269,6 @@ const feature = load({entry});
         )
     }
 
-    /// A system's module setup for one imported-resource set, ending in a
-    /// `CALL_MARKER` that names this generation and that set. An evaluator may
-    /// keep the setup's context per key and run only `system_call`; run whole,
-    /// the marker is an ordinary comment. `resource_key` is
-    /// `resource_identity(resource_json)`.
     pub fn system_setup(&self, resource_json: &str, resource_key: &str) -> String {
         format!(
             "{}\n{}{}:{}*/\n",
@@ -301,8 +279,6 @@ const feature = load({entry});
         )
     }
 
-    /// One system method (`instantiate`, `prepare`, `rebind`, `instance`), run
-    /// after `system_setup` in a scope of its own.
     pub fn system_call(
         &self,
         method: &str,
@@ -353,7 +329,6 @@ return {{value:{{checkpoint:{{schema:{schema},state:result.state}},output:result
     }
 }
 
-/// What an imported-resource set contributes to a setup's cache key.
 pub fn resource_identity(resource_json: &str) -> String {
     ring::digest::digest(&ring::digest::SHA256, resource_json.as_bytes())
         .as_ref()

@@ -5,7 +5,6 @@
 
 #![allow(dead_code)]
 
-/// A file being written: the binary buffer and each JSON array, as text.
 #[derive(Clone, Debug, Default)]
 pub struct Gltf {
     pub bin: Vec<u8>,
@@ -19,9 +18,7 @@ pub struct Gltf {
     pub nodes: Vec<String>,
     pub scenes: Vec<String>,
     pub animations: Vec<String>,
-    /// The scene the file names as its own.
     pub scene: Option<usize>,
-    /// Fields added to the top-level object as they are (`"key":value`).
     pub extra: Vec<String>,
 }
 
@@ -35,7 +32,6 @@ fn numbers(values: &[f32]) -> String {
 }
 
 impl Gltf {
-    /// Bytes into the buffer, four-aligned, as a buffer view.
     pub fn view(&mut self, bytes: &[u8]) -> usize {
         while !self.bin.len().is_multiple_of(4) {
             self.bin.push(0);
@@ -45,8 +41,6 @@ impl Gltf {
         push(&mut self.views, format!(r#"{{"buffer":0,"byteOffset":{offset},"byteLength":{}}}"#, bytes.len()))
     }
 
-    /// Floats as an accessor of `ty` (`SCALAR`, `VEC2`, `VEC3`, `VEC4`), with
-    /// each component's min and max.
     pub fn floats(&mut self, values: &[f32], ty: &str) -> usize {
         let width = match ty {
             "SCALAR" => 1,
@@ -79,7 +73,6 @@ impl Gltf {
         )
     }
 
-    /// Triangle indices, 16-bit when they fit.
     pub fn indices(&mut self, values: &[u32]) -> usize {
         let small = values.iter().all(|v| *v < 65_536);
         let bytes: Vec<u8> = if small {
@@ -95,18 +88,15 @@ impl Gltf {
         )
     }
 
-    /// An accessor as raw JSON, for files that lie.
     pub fn accessor(&mut self, json: String) -> usize {
         push(&mut self.accessors, json)
     }
 
-    /// A mesh of one triangle-list primitive.
     pub fn mesh(&mut self, attributes: &[(&str, usize)], indices: Option<usize>, material: Option<usize>) -> usize {
         let prim = primitive(attributes, indices, material, None);
         push(&mut self.meshes, format!(r#"{{"primitives":[{prim}]}}"#))
     }
 
-    /// A mesh as raw JSON.
     pub fn mesh_json(&mut self, json: String) -> usize {
         push(&mut self.meshes, json)
     }
@@ -115,7 +105,6 @@ impl Gltf {
         push(&mut self.materials, json)
     }
 
-    /// A PNG as a texture, sampled nearest or linear.
     pub fn png_texture(&mut self, png: &[u8], nearest: bool) -> usize {
         let view = self.view(png);
         let image = push(&mut self.images, format!(r#"{{"bufferView":{view},"mimeType":"image/png"}}"#));
@@ -137,7 +126,6 @@ impl Gltf {
         push(&mut self.animations, json)
     }
 
-    /// The JSON, its buffer at `uri` (`None`: the GLB's BIN chunk).
     pub fn json(&self, uri: Option<&str>) -> String {
         let mut fields = vec![r#""asset":{"version":"2.0","generator":"glass glb.rs"}"#.to_string()];
         let mut list = |name: &str, items: &[String]| {
@@ -169,19 +157,16 @@ impl Gltf {
         format!("{{{}}}", fields.join(","))
     }
 
-    /// The file as a `.glb`.
     pub fn glb(&self) -> Vec<u8> {
         container(self.json(None).as_bytes(), (!self.bin.is_empty()).then_some(self.bin.as_slice()))
     }
 
-    /// The file as a `.gltf`, its buffer a base64 `data:` URI.
     pub fn gltf(&self) -> Vec<u8> {
         let uri = format!("data:application/octet-stream;base64,{}", base64(&self.bin));
         self.json(Some(&uri)).into_bytes()
     }
 }
 
-/// One primitive as JSON; `mode` defaults to triangles.
 pub fn primitive(attributes: &[(&str, usize)], indices: Option<usize>, material: Option<usize>, mode: Option<u32>) -> String {
     let attrs = attributes.iter().map(|(name, a)| format!(r#""{name}":{a}"#)).collect::<Vec<_>>().join(",");
     let mut out = format!(r#"{{"attributes":{{{attrs}}}"#);
@@ -198,8 +183,6 @@ pub fn primitive(attributes: &[(&str, usize)], indices: Option<usize>, material:
     out
 }
 
-/// A GLB container round a JSON chunk and perhaps a BIN chunk, each padded
-/// to four bytes as the format wants.
 pub fn container(json: &[u8], bin: Option<&[u8]>) -> Vec<u8> {
     let mut json = json.to_vec();
     while !json.len().is_multiple_of(4) {
@@ -226,7 +209,6 @@ pub fn container(json: &[u8], bin: Option<&[u8]>) -> Vec<u8> {
     out
 }
 
-/// Standard base64, padded.
 pub fn base64(bytes: &[u8]) -> String {
     const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
@@ -240,8 +222,6 @@ pub fn base64(bytes: &[u8]) -> String {
     out
 }
 
-/// RGBA pixels as a PNG, its deflate stream stored (not compressed): a
-/// valid file any decoder takes, made without a compressor.
 pub fn png(width: u32, height: u32, rgba: &[u8]) -> Vec<u8> {
     let mut raw = Vec::with_capacity((width as usize * 4 + 1) * height as usize);
     for row in rgba.chunks(width as usize * 4).take(height as usize) {

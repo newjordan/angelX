@@ -76,8 +76,6 @@ fn repeated_skill_catalog_reads_hit_signature_cache_and_same_size_edits_invalida
         "health reporting should share the admitted source snapshot"
     );
 
-    // Same byte length exercises metadata identity rather than a trivial size
-    // mismatch. ctime/inode/mtime changes must make the new body visible.
     std::fs::write(&skill_path, "bravo").unwrap();
     let changed = load_skills_for(&workspace);
     assert_eq!(
@@ -92,8 +90,6 @@ fn repeated_skill_catalog_reads_hit_signature_cache_and_same_size_edits_invalida
 
     std::fs::remove_dir_all(&root).unwrap();
 }
-
-// --- skills suite -----------------------------------------------------------
 
 #[cfg(unix)]
 #[test]
@@ -127,7 +123,6 @@ fn skill_signature_cache_tracks_confined_symlink_target_changes() {
     assert_eq!(body().as_deref(), Some("alpha"));
     assert_eq!(skill_scan_cache_hits(&root), Some(1));
 
-    // The alias inode never changes; the target is not itself a *.md candidate.
     std::fs::write(&target, "updated body").unwrap();
     assert_eq!(body().as_deref(), Some("updated body"));
     let replacement = root.join("replacement.txt");
@@ -140,7 +135,6 @@ fn skill_signature_cache_tracks_confined_symlink_target_changes() {
     std::fs::write(&target, "restored body").unwrap();
     assert_eq!(body().as_deref(), Some("restored body"));
 
-    // Change an intermediate symlink, leaving the skill's own link untouched.
     std::fs::remove_file(&target).unwrap();
     std::fs::write(root.join("inner.txt"), "inner body").unwrap();
     std::os::unix::fs::symlink("inner.txt", &target).unwrap();
@@ -275,8 +269,6 @@ fn parse_skill_falls_back_to_name_and_first_line() {
 
 #[test]
 fn bundled_catalog_ships_the_expected_skills() {
-    // Wiring guard: the shipped skill library must contain both the
-    // dev-methodology playbooks and the GPU/LLM-ops set.
     let bundled = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("skills");
     let skills = load_skills_from(&bundled);
     let names: Vec<&str> = skills.iter().map(|s| s.name.as_str()).collect();
@@ -410,7 +402,6 @@ fn user_project_skills_are_inert_outside_the_bound_repository() {
     )
     .unwrap();
     let old = std::env::var_os("ANGEL_SKILLS_DIR");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SKILLS_DIR", &user) };
 
     let alpha_names = load_skills_for(&alpha)
@@ -429,10 +420,8 @@ fn user_project_skills_are_inert_outside_the_bound_repository() {
     assert!(beta_names.contains(&"global-review".to_string()));
 
     if let Some(value) = old {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var("ANGEL_SKILLS_DIR", value) };
     } else {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var("ANGEL_SKILLS_DIR") };
     }
     let _ = std::fs::remove_dir_all(root);
@@ -517,8 +506,6 @@ fn load_skills_for_discovers_compatible_repo_skill_roots() {
 
 #[test]
 fn repo_skill_precedence_prefers_deeper_scope_then_agents_format() {
-    // Global skill discovery also reads HOME and ANGEL_SKILLS_DIR. Serialize
-    // with the global-roots fixture so its temporary overrides cannot win here.
     let _guard = crate::tests::env_lock();
     let root = std::env::temp_dir().join(format!(
         "angel_repo_skill_precedence_{}_{:?}",
@@ -626,23 +613,17 @@ fn load_skills_for_discovers_compatible_global_skill_roots() {
     }
     let old_home = std::env::var_os("HOME");
     let old_user = std::env::var_os("ANGEL_SKILLS_DIR");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("HOME", &home) };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SKILLS_DIR", &explicit) };
 
     let skills = load_skills_for(&root);
 
     match old_home {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(value) => unsafe { std::env::set_var("HOME", value) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("HOME") },
     }
     match old_user {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(value) => unsafe { std::env::set_var("ANGEL_SKILLS_DIR", value) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_SKILLS_DIR") },
     }
     let _ = std::fs::remove_dir_all(&root);
@@ -809,7 +790,6 @@ fn merge_skills_user_overrides_bundled_and_sorts() {
 
 #[test]
 fn bundled_skill_library_parses() {
-    // The skills angelX ships with (cockpit/skills/) are real and parse.
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("skills");
     let skills = load_skills_from(&dir);
     let names: Vec<&str> = skills.iter().map(|s| s.name.as_str()).collect();
@@ -834,8 +814,6 @@ fn bundled_skill_library_parses() {
             .all(|s| !s.description.is_empty() && !s.body.is_empty()),
         "every bundled skill needs a description + body"
     );
-    // The tool-teaching skills must actually name the tools they teach, or
-    // they're not earning their place in the catalog.
     let body_of = |n: &str| skills.iter().find(|s| s.name == n).unwrap().body.clone();
     assert!(body_of("verify-changes").contains("lsp_diagnostics"));
     assert!(body_of("navigate-code").contains("lsp_symbols"));
@@ -951,11 +929,8 @@ fn skill_catalog_audit_shares_admission_and_reports_bounded_rejection_classes() 
     let old_home = std::env::var_os("HOME");
     let old_user = std::env::var_os("ANGEL_SKILLS_DIR");
     let old_bundled = std::env::var_os("ANGEL_BUNDLED_SKILLS_DIR");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("HOME", &home) };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SKILLS_DIR", &user) };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_BUNDLED_SKILLS_DIR", &bundled) };
 
     let audit = audit_skills_for(&workspace);
@@ -967,9 +942,7 @@ fn skill_catalog_audit_shares_admission_and_reports_bounded_rejection_classes() 
         ("ANGEL_BUNDLED_SKILLS_DIR", old_bundled),
     ] {
         match value {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             Some(value) => unsafe { std::env::set_var(key, value) },
-            // TODO: Audit that the environment access only happens in single-threaded code.
             None => unsafe { std::env::remove_var(key) },
         }
     }
@@ -1046,8 +1019,6 @@ fn skills_catalog_and_tool_roundtrip() {
 
 #[test]
 fn skill_hint_routes_high_confidence_coding_intent_without_loading_body() {
-    // Mirror the shipped skill: delete/dedupe/flatten are description
-    // tokens (dedupe also canonicalizes to simplify for name hits).
     let skills = skill_case_skills("routing_skills", 3);
     let summaries = skill_summaries(&skills);
 
@@ -1058,8 +1029,6 @@ fn skill_hint_routes_high_confidence_coding_intent_without_loading_body() {
     let tests = relevant_skill_hint(&summaries, "Write regression tests for the parser").unwrap();
     assert!(tests.contains("test-driven-development"));
 
-    // Name-token collapse alone (refactor+dedupe → simplify) is not enough;
-    // description corroboration (flatten) is required after unique-hit gating.
     let simplify = relevant_skill_hint(
         &summaries,
         "Refactor and dedupe this module — flatten the nested match",
@@ -1073,8 +1042,6 @@ fn skill_hint_routes_high_confidence_coding_intent_without_loading_body() {
         "generic coding words are not enough to choose a methodology"
     );
 
-    // Weak slug tokens (model/ops/harness) never force a playbook onto reflective
-    // or ambient questions — prefer no hint over a wrong one.
     let noisy = skill_case_skills("routing_noisy", 2);
     assert!(
         relevant_skill_hint(
@@ -1086,8 +1053,6 @@ fn skill_hint_routes_high_confidence_coding_intent_without_loading_body() {
     );
 }
 
-/// A5 adversarial: a lone ambient English token that also appears in a skill
-/// *name* must not auto-fire that playbook (prefer silence over a wrong one).
 #[test]
 fn skill_hint_suppresses_weak_single_token_ambient_noise() {
     let skills = skill_case_skills("ambient_skills", 8);
@@ -1101,11 +1066,9 @@ fn skill_hint_suppresses_weak_single_token_ambient_noise() {
         );
     }
 
-    // Explicit multi-segment slug mention is still allowed.
     let explicit = relevant_skill_hint(&summaries, "Use write-skill to document this").unwrap();
     assert!(explicit.contains("write-skill"));
 
-    // A5: compound words that only *contain* a slug substring must not fire.
     for prompt in skill_case_prompts("slug_prompts", 3)
         .iter()
         .map(String::as_str)
@@ -1125,15 +1088,12 @@ fn skill_hint_suppresses_weak_single_token_ambient_noise() {
         relevant_skill_hint(&tdd_only, "Document my test-driven-developments elsewhere.").is_none(),
         "plural compound must not count as explicit slug mention"
     );
-    // Bounded slug with punctuation still counts as explicit.
     let punct = relevant_skill_hint(&summaries, "run competition-loop: once more").unwrap();
     assert!(punct.contains("competition-loop"));
 
-    // Real coding intent with corroboration still fires.
     let debug = relevant_skill_hint(&summaries, "Fix this crashing parser bug").unwrap();
     assert!(debug.contains("systematic-debugging"));
 
-    // A5: weak desc tokens (pass/make/first) must not corroborate a lone name hit.
     let tdd = vec![Skill {
         name: "test-driven-development".into(),
         description: "Write a failing test first, make it pass, then refactor.".into(),
@@ -1156,8 +1116,6 @@ fn skill_hint_suppresses_weak_single_token_ambient_noise() {
     assert!(tests.contains("test-driven-development"));
 }
 
-/// A5: two surface tokens that canonicalize to the same name token (tests/testing
-/// → test) must not count as name_hit_weight=2 and fire a playbook.
 #[test]
 fn skill_hint_does_not_double_count_canonical_name_hits() {
     let tdd = vec![Skill {
@@ -1176,7 +1134,6 @@ fn skill_hint_does_not_double_count_canonical_name_hits() {
             "canonical double-count must not fire: {prompt:?}"
         );
     }
-    // Distinct name-surface evidence still works (bug + crash → debug weight 2).
     let debug = vec![Skill {
         name: "systematic-debugging".into(),
         description: "Find the root cause.".into(),
@@ -1188,8 +1145,6 @@ fn skill_hint_does_not_double_count_canonical_name_hits() {
     assert!(hit.contains("systematic-debugging"));
 }
 
-/// A5: ambient synonym pairs for verify/review/simplify/navigate must not clear
-/// the name-hit gate alone (same class as fail+error → debug).
 #[test]
 fn skill_hint_does_not_fire_on_ambient_synonym_pairs() {
     let skills = skill_case_skills("synonym_skills", 4);
@@ -1203,7 +1158,6 @@ fn skill_hint_does_not_fire_on_ambient_synonym_pairs() {
             "ambient synonym pair must not fire a playbook: {prompt:?}"
         );
     }
-    // Stronger intent still routes (description corroboration / multi-signal).
     let simplify = relevant_skill_hint(
         &summaries,
         "Refactor and dedupe this module — flatten the nested match",
@@ -1218,9 +1172,6 @@ fn skill_hint_does_not_fire_on_ambient_synonym_pairs() {
     assert!(verify.contains("verify-changes"));
 }
 
-/// A5: ambient fail+error both map to the debug canon but must not clear the
-/// name-hit gate (unlike strong bug+crash). Otherwise ordinary prose fires
-/// systematic-debugging.
 #[test]
 fn skill_hint_does_not_fire_debug_on_ambient_fail_error_pairs() {
     let debug = vec![Skill {
@@ -1230,7 +1181,6 @@ fn skill_hint_does_not_fire_debug_on_ambient_fail_error_pairs() {
         ..Default::default()
     }];
     let summaries = skill_summaries(&debug);
-    // Broken/debugger/debugging used to pair with fail/error as weight two.
     for prompt in skill_case_prompts("debug_prompts", 10)
         .iter()
         .map(String::as_str)
@@ -1240,17 +1190,14 @@ fn skill_hint_does_not_fire_debug_on_ambient_fail_error_pairs() {
             "ambient fail/error must not fire debugging: {prompt:?}"
         );
     }
-    // Strong pair still fires.
     let hit = relevant_skill_hint(&summaries, "Fix this crashing parser bug").unwrap();
     assert!(hit.contains("systematic-debugging"));
-    // Weak + strong still clears (real incident language).
     let mixed = relevant_skill_hint(
         &summaries,
         "The process fails with a segfault crash in parse",
     )
     .unwrap();
     assert!(mixed.contains("systematic-debugging"));
-    // broken + crash is still a real incident pair.
     let broken_crash =
         relevant_skill_hint(&summaries, "The broken parser crash dumps on empty input").unwrap();
     assert!(broken_crash.contains("systematic-debugging"));
@@ -1261,7 +1208,6 @@ fn skill_hint_is_single_bounded_and_never_echoes_untrusted_metadata() {
     let skills = skill_case_skills("untrusted_skills", 2);
     let hint = relevant_skill_hint(&skill_summaries(&skills), "debug the failing test").unwrap();
     assert!(hint.len() < 256);
-    // One block: the route cell opens and closes around the one safe name.
     assert_eq!(
         hint,
         format!("{SKILL_HINT_HEADER}\n`systematic-debugging`\n{SKILL_HINT_SENTINEL}\n\n")

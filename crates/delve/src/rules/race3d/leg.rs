@@ -7,10 +7,8 @@
 //! the caller surfaces: the race never guesses a native one.
 use super::*;
 
-/// The live module's id.
 pub const LEG: &str = "race3d-rules";
 
-/// The sounds a tick may ask for, by the names the room plays them under.
 const SOUNDS: [&str; 12] = [
     "roll", "clang", "gold", "knight_fall", "helmet_pop", "rock_land", "wheel_land", "step_wet", "wheel_spin", "swing",
     "shot_bolt", "hit_arrow",
@@ -26,7 +24,6 @@ struct Ask<'a> {
     sine: BTreeMap<u32, f32>,
 }
 
-/// The next field, and what the tick did.
 #[derive(Deserialize)]
 struct Answer {
     riders: BTreeMap<u32, Rider>,
@@ -38,19 +35,15 @@ struct Answer {
     timed_out: bool,
 }
 
-/// What a tick did that the caller acts on.
 pub struct Ran {
     pub sounds: Vec<&'static str>,
     pub all_home: bool,
     pub timed_out: bool,
 }
 
-/// One tick of the Shaft Run, the Ore Cart or the Griffin Run: the field and its keys in, the next field out.
 pub fn run(race: &mut Race3d, inputs: &BTreeMap<u32, Input>, standing: &[u32]) -> Result<Ran, String> {
     #[cfg(test)]
     super::install_oracle();
-    // A plank down `REGROW` is laid again: the leg sees it untouched and
-    // starts its clock at the next ball over it.
     let t = race.t;
     race.planks.retain(|_, &mut began| t < began + ROT + REGROW);
     let ask = Ask {

@@ -12,36 +12,22 @@
 use super::*;
 use patterns::{Aim, Emitter, Form};
 
-/// Ticks between a borrowed body's volleys: its own beat, quartered, held
-/// between these.
 pub const BODY_QUICKEST: u32 = 12;
 pub const BODY_SLOWEST: u32 = 30;
-/// How much faster a borrowed shot flies than the monster's own, and the
-/// fastest it flies, units a second.
 pub const BODY_PACE: f32 = 3.0;
 pub const BODY_TOP: f32 = 36.0;
-/// How long a borrowed shot flies before it fades.
 pub const BODY_LIFE: u32 = 3 * HZ;
-/// A borrowed beam's warning, ticks: the knight need not stand and wait.
 pub const BODY_WARN: u8 = 6;
-/// Ticks between a borrowed body's spells.
 pub const SPELL_REARM: u32 = 5 * HZ;
-/// How far, and how near the aim, a monster stands to be what a volley is
-/// thrown at.
 pub const MARK_REACH: f32 = 14.0;
 pub const MARK_CONE: f32 = 0.6;
 
-/// What a borrowed body does on the fire key.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Arms {
-    /// Its volleys, one a press, each shot dealing `damage`.
     Volley {
         chain: &'static [(Emitter, Shot)],
         damage: u32,
     },
-    /// Its teeth, claws, tusks or blade: a strike in front, `reach` past
-    /// the monster's own size, across `arc` degrees. A leech's drinks:
-    /// half of what it deals mends the knight.
     Bite {
         reach: f32,
         arc: f32,
@@ -50,9 +36,6 @@ pub enum Arms {
     },
 }
 
-/// A body's spell: one volley of `emitter` throwing `shot`, each dealing
-/// `damage`, that leaps on to `chain` more monsters, freezes what it hits
-/// for `stun` ticks and chills it `chill` steps.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Spell {
     pub name: &'static str,
@@ -64,7 +47,6 @@ pub struct Spell {
     pub chill: u8,
 }
 
-/// What a body looses on the fire key, and the ticks between.
 pub fn arms(kind: EnemyKind, pack: Pack) -> (Arms, u32) {
     use Emitter::*;
     use EnemyKind as K;
@@ -81,8 +63,6 @@ pub fn arms(kind: EnemyKind, pack: Pack) -> (Arms, u32) {
     };
     let volley = |chain: &'static [(Emitter, Shot)], damage: u32, every: u32| (Arms::Volley { chain, damage }, every);
     match kind {
-        // The Hollow One throws cold bolts between its holes; its sweeping
-        // gaze is its spell.
         K::Hollow => volley(&[(Darts, Shot::Frost)], 12, 15),
         K::Bat => bite(1.3, 100.0, 16, 8),
         K::Warboar => bite(1.6, 90.0, 34, 16),
@@ -112,7 +92,6 @@ pub fn arms(kind: EnemyKind, pack: Pack) -> (Arms, u32) {
     }
 }
 
-/// What a body casts on a spell key, if it casts anything.
 pub fn spell(kind: EnemyKind) -> Option<Spell> {
     use EnemyKind as K;
     let cast = |name, emitter, shot, damage| Spell {
@@ -125,13 +104,11 @@ pub fn spell(kind: EnemyKind) -> Option<Spell> {
         chill: 0,
     };
     Some(match kind {
-        // Rimeleap: frost that turns after the monsters and leaps on.
         K::Lich => Spell {
             chain: lich::BOUNCES,
             chill: 2,
             ..cast("Rimeleap", Emitter::Seeker, Shot::Frost, 30)
         },
-        // The hex: what it strikes stands dazed.
         K::Hexer => Spell {
             stun: hexer::HEX_TICKS.min(255) as u8,
             ..cast("Hex", Emitter::Burst, Shot::Hex, 10)
@@ -145,7 +122,6 @@ pub fn spell(kind: EnemyKind) -> Option<Spell> {
     })
 }
 
-/// What the knight's fire slot says while it walks in `kind`'s body.
 pub fn arms_name(kind: EnemyKind, pack: Pack) -> String {
     match arms(kind, pack).0 {
         Arms::Bite { drain: true, .. } => "Drink".into(),
@@ -162,16 +138,11 @@ pub fn arms_name(kind: EnemyKind, pack: Pack) -> String {
     }
 }
 
-/// What a borrowed body did on the fire key.
 pub(super) enum Loosed {
-    /// This many shots.
     Volley(usize),
-    /// The monsters its strike reached, and what each took.
     Bite(Vec<(usize, u32)>),
 }
 
-/// Where a borrowed volley is thrown: the nearest monster near the knight's
-/// aim, else a way down the aim.
 fn mark(hero: &Hero, enemies: &[Enemy]) -> (f32, f32) {
     let (ax, ay) = (hero.aim_x, hero.aim_y);
     enemies
@@ -186,7 +157,6 @@ fn mark(hero: &Hero, enemies: &[Enemy]) -> (f32, f32) {
         .map_or((hero.x + ax * MARK_REACH / 2.0, hero.y + ay * MARK_REACH / 2.0), |(_, at)| at)
 }
 
-/// One volley of `emitter` from the knight, turned friend.
 #[allow(clippy::too_many_arguments)]
 fn throw(
     hero: &Hero,
@@ -198,7 +168,6 @@ fn throw(
     shots: &mut Vec<Projectile>,
 ) -> usize {
     let at = mark(hero, enemies);
-    // A ring's way through faces behind the knight, not at what it aims at.
     let at = if emitter == Emitter::GapRing {
         (2.0 * hero.x - at.0, 2.0 * hero.y - at.1)
     } else {
@@ -244,8 +213,6 @@ fn throw(
     shots.len() - start
 }
 
-/// The fire key in a borrowed body: its volley or its strike, with the
-/// rearm set. `None` outside one.
 pub(super) fn loose(
     hero: &mut Hero,
     id: u32,
@@ -291,8 +258,6 @@ pub(super) fn loose(
     }
 }
 
-/// A spell key in a borrowed body: its spell, if it casts one and it is
-/// ready. Its name, when it was cast.
 pub(super) fn cast(
     hero: &mut Hero,
     id: u32,

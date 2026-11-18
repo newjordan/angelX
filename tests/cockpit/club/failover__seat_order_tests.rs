@@ -1,8 +1,6 @@
 use super::*;
 use crate::agent::harness::live_policy::{LegSource, decide_with, shipped_leg};
 
-/// A club fixture with the only properties the seating and the walk read: its
-/// label, its live model name, its detected metadata and whether it answers.
 struct SeatClub {
     label: &'static str,
     model: Option<&'static str>,
@@ -78,8 +76,6 @@ fn gated(
     )
 }
 
-/// Realistic link tables, including the automatic GLM seat and its built-in
-/// catalog siblings that a Z.ai key seats beside it.
 fn seating_tables() -> Vec<Vec<Link>> {
     let glm = || {
         vec![
@@ -102,19 +98,15 @@ fn seating_tables() -> Vec<Vec<Link>> {
         vec![link("glm", "glm-5.3", Some("glm-5.3"), true, true)],
         glm(),
         breadth(),
-        // The configured GLM seat beside every catalog sibling and a frontier
-        // link that only the full profile seats.
         {
             let mut table = glm();
             table.extend(breadth());
             table
         },
-        // Unknown providers match no cheap order slot at all.
         vec![
             link("solar", "solar-pro", None, true, true),
             link("glm", "glm-5.3", Some("glm-5.3"), true, true),
         ],
-        // Two links sharing one alias: the seating keeps the first.
         vec![
             link("longcat", "LongCat-2.0", None, true, true),
             link("longcat", "longcat-backup", None, true, true),
@@ -124,38 +116,30 @@ fn seating_tables() -> Vec<Vec<Link>> {
             link("LongCat", "LongCat-2.0", None, true, true),
             link("longcat", "longcat-backup", None, true, true),
         ],
-        // The alias matches one order slot while the label matches another.
         vec![
             link("glm", "glm-5.3-flash", None, true, true),
             link("glm-5.3-flash", "glm-5.2", None, true, true),
         ],
-        // A live model name is enough to seat a link whose alias is unrelated.
         vec![
             link("house-model", "house", Some("glm-5.2"), true, true),
             link("deepseek", "deepseek-v4-pro", None, true, true),
         ],
-        // Availability does not gate the seating; only admission does.
         vec![
             link("codex-run", "openai", None, true, false),
             link("glm", "glm-5.3", None, true, true),
         ],
-        // Cheap-pool order is preference order, not configuration order.
         vec![
             link("longcat", "LongCat-2.0", None, true, true),
             link("openrouter", "stealth/ox-alpha", None, true, true),
             link("deepseek", "deepseek-flash", None, true, true),
             link("luna", "chatgpt-luna-on-high", None, true, true),
         ],
-        // A frontier-only link, alone.
         vec![link("codex-run", "openai", None, true, true)],
-        // Both GLM flash spellings: the alias and the provider id.
         vec![
             link("glm", "glm-5.3-flash", Some("glm-5.3-flash"), true, true),
             link("glm-5.3", "glm-5.3", Some("glm-5.3"), true, true),
         ],
-        // One link matched by three different cheap order names.
         vec![link("deepseek-v4-flash", "deepseek-flash", Some("deepseek-flash"), true, true)],
-        // The same club offered twice under two different aliases.
         {
             let club: Arc<dyn Club> = Arc::new(SeatClub {
                 label: "glm-5.3-flash",
@@ -168,14 +152,11 @@ fn seating_tables() -> Vec<Vec<Link>> {
                 ("glm-5.3-flash".to_string(), club, Arc::new(AtomicBool::new(true))),
             ]
         },
-        // An empty-but-present alias seats nothing under that alias alone.
         vec![
             link("", "nameless", None, true, true),
             link("kimi", "kimi-k3", None, true, true),
         ],
     ];
-    // Duplicate every table with each link also offered under its label, so the
-    // match-by-label path is exercised across the whole corpus.
     let mut doubled = Vec::new();
     for table in &tables {
         let mut variant: Vec<Link> = table.clone();
@@ -218,8 +199,6 @@ fn aliases(links: &[Link]) -> Vec<&str> {
     links.iter().map(|(alias, _, _)| alias.as_str()).collect()
 }
 
-/// The seating's own two rules, driven straight from a feature record: a refused
-/// link is never seated, and one alias seats once however often it appears.
 #[test]
 fn a_refused_link_is_never_seated_and_an_alias_seats_once() {
     let leg = shipped_leg(SEAT_ORDER_LEG);
@@ -241,8 +220,6 @@ fn a_refused_link_is_never_seated_and_an_alias_seats_once() {
         || SeatPlan { plan: vec![3, 3, 3] },
     );
     assert!(matches!(source, LegSource::Live { .. }), "{source:?}");
-    // Slot 0 seats link 3 (link 0 is refused); slot 1 then seats link 1, and
-    // link 2 shares that alias group, so it never seats.
     assert_eq!(plan.plan, vec![3, 1]);
 }
 
@@ -404,8 +381,6 @@ fn next_step_native(
     }
 }
 
-/// The walk itself: a shut gate is skipped, an all-down chain is still walked,
-/// and a stream that already spoke keeps its own error.
 #[test]
 fn a_failing_link_hands_the_turn_to_the_next_seated_link() {
     let fallback = FallbackClub::with_gates(
@@ -467,8 +442,6 @@ fn a_failing_link_hands_the_turn_to_the_next_seated_link() {
     assert_eq!(empty.respond("hello").unwrap_err(), "fallback chain is empty");
 }
 
-/// A generation that breaks the leg's contract is rejected and the native
-/// seating answers instead, so a bad hot edit never blocks a turn.
 #[test]
 fn a_broken_seat_order_generation_keeps_the_native_seating() {
     let root = std::env::temp_dir().join(format!("angel-seat-order-leg-{}", std::process::id()));
@@ -479,7 +452,6 @@ fn a_broken_seat_order_generation_keeps_the_native_seating() {
         r#"{"api_version":1,"id":"seat-order","kind":"policy","entry":"index.js","probe":{"mode":"order"}}"#,
     )
     .unwrap();
-    // Names the same link twice and an index outside the offered chain.
     std::fs::write(
         root.join("seat-order/index.js"),
         "module.exports={apiVersion:1,render:()=>({plan:[9,9]})}",
@@ -521,7 +493,6 @@ fn a_broken_seat_order_generation_keeps_the_native_seating() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// Reported, not asserted: a leg evaluation is a pure in-process call.
 #[test]
 fn seat_order_leg_decision_latency_is_reported() {
     let leg = shipped_leg(SEAT_ORDER_LEG);
@@ -557,8 +528,6 @@ fn seat_order_leg_decision_latency_is_reported() {
     );
 }
 
-/// With no live generation offered, the shipped module still seats the walk and
-/// the receipt says where the answer came from.
 #[test]
 fn a_walk_with_no_live_generation_uses_the_shipped_seat_order_leg() {
     let fallback = FallbackClub::new(vec![

@@ -19,7 +19,6 @@
 
 use std::path::{Path, PathBuf};
 
-/// Draft dir: `ANGEL_HABIT_PROPOSED_DIR`, else `~/.angelX/skills-proposed`.
 pub(crate) fn proposed_dir() -> PathBuf {
     match std::env::var("ANGEL_HABIT_PROPOSED_DIR") {
         Ok(p) if !p.trim().is_empty() => PathBuf::from(p),
@@ -27,7 +26,6 @@ pub(crate) fn proposed_dir() -> PathBuf {
     }
 }
 
-/// Live skills dir the loader reads: `ANGEL_SKILLS_DIR`, else `~/.angelX/skills`.
 fn live_dir() -> PathBuf {
     match std::env::var("ANGEL_SKILLS_DIR") {
         Ok(p) if !p.trim().is_empty() => PathBuf::from(p),
@@ -42,9 +40,6 @@ fn state_dir() -> PathBuf {
         .unwrap_or_else(|| crate::platform::workspace_store::angel_subdir("habitsmith"))
 }
 
-/// One parsed draft: harness frontmatter (name/description) plus the
-/// habitsmith-specific keys the harness parser ignores (`fact:`, `risky:`)
-/// and the evidence footer line.
 pub(crate) struct Proposal {
     pub name: String,
     pub description: String,
@@ -57,9 +52,6 @@ pub(crate) struct Proposal {
 }
 
 impl Proposal {
-    /// Habits are learned from one repository's command evidence. Missing or
-    /// mismatched bindings are therefore inert; legacy drafts do not become
-    /// global merely because they predate the binding fields.
     fn applies_to(&self, workspace: &Path) -> bool {
         let identity = crate::platform::workspace_store::repo_identity(workspace);
         self.project_key.as_deref() == Some(identity.key.as_str())
@@ -102,7 +94,6 @@ fn list_proposals_for_in(dir: &Path, workspace: &Path) -> Vec<Proposal> {
         .collect()
 }
 
-/// All drafts under `dir`, sorted by name. Best-effort: unreadable entries skip.
 pub(crate) fn list_proposals_in(dir: &Path) -> Vec<Proposal> {
     let mut out = Vec::new();
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -122,8 +113,6 @@ pub(crate) fn list_proposals_in(dir: &Path) -> Vec<Proposal> {
     out
 }
 
-/// Append one verdict line to the spool the habitsmith tick folds into the
-/// graph. Append-only JSONL, the ledger pattern; failure is reported, not fatal.
 fn spool_verdict(state: &Path, action: &str, p: &Proposal) -> std::io::Result<()> {
     use std::io::Write;
     std::fs::create_dir_all(state)?;
@@ -146,8 +135,6 @@ fn spool_verdict(state: &Path, action: &str, p: &Proposal) -> std::io::Result<()
     )
 }
 
-/// The `/habits` list body: pending drafts, then the installed-skill health
-/// section from the tick's status artifact (H5 — drift flags live there).
 pub(crate) fn status_text(workspace: &Path) -> String {
     status_text_in(&proposed_dir(), &state_dir().join("status.json"), workspace)
 }
@@ -196,8 +183,6 @@ pub(crate) fn status_text_in(dir: &Path, status_path: &Path, workspace: &Path) -
     out.trim_end().to_string()
 }
 
-/// The installed-skill health lines from the tick's status.json: every fact
-/// with recorded skill usage, drift first. `None` when nothing is installed.
 fn installed_section(status: &serde_json::Value, workspace: &Path) -> Option<String> {
     let identity = crate::platform::workspace_store::repo_identity(workspace);
     let facts = status["facts"].as_array()?;
@@ -228,9 +213,6 @@ fn installed_section(status: &serde_json::Value, workspace: &Path) -> Option<Str
     Some(format!("installed habit skills:\n{}\n", lines.join("\n")))
 }
 
-/// Approve: move the draft folder into the live skills dir and spool the
-/// SUPPORTS verdict. The move is the install — the skills loader picks the
-/// folder up on its next catalog scan, no restart needed.
 pub(crate) fn approve(name: &str, workspace: &Path) -> String {
     approve_in(&proposed_dir(), &live_dir(), &state_dir(), name, workspace)
 }
@@ -275,8 +257,6 @@ pub(crate) fn approve_in(
     )
 }
 
-/// Reject: delete the draft and spool the CONTRADICTS verdict so the same
-/// workflow never re-proposes (its belief sinks under the propose gate).
 pub(crate) fn reject(name: &str, workspace: &Path) -> String {
     reject_in(&proposed_dir(), &state_dir(), name, workspace)
 }
@@ -318,7 +298,6 @@ fn unknown(proposed: &Path, name: &str, workspace: &Path) -> String {
     )
 }
 
-/// `/habits [approve <name> | reject <name>]` dispatch.
 pub(crate) fn run(arg: Option<&str>, workspace: &Path) -> String {
     let arg = arg.unwrap_or("").trim();
     match arg.split_once(char::is_whitespace) {
@@ -331,9 +310,6 @@ pub(crate) fn run(arg: Option<&str>, workspace: &Path) -> String {
     }
 }
 
-/// The one startup Notice line (the deferred Reflex M6 pattern): shown only
-/// when the proposed dir has drafts newer than the previous launch. The stamp
-/// file advances every call, so the line appears once per new batch.
 pub(crate) fn startup_notice(workspace: &Path) -> Option<String> {
     let identity = crate::platform::workspace_store::repo_identity(workspace);
     startup_notice_in(

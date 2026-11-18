@@ -52,7 +52,6 @@ fn the_route_in_hand_serves_from_its_model_familys_castle() {
         crate::ui::viewer::Viewer::new(),
     );
     app.bag.select_route(0, 0);
-    // A self-hosted Qwen is a mode of `local`: the Qwen castle serves.
     assert_eq!(app.serving_houses().lead, houses::by_key("qwen"));
     app.bag.select_route(1, 0);
     let serving = app.serving_houses();

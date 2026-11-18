@@ -51,8 +51,6 @@ fn acquire(cancel: Option<&AtomicBool>, deadline: Instant) -> Result<Permit, Str
     }
 }
 
-/// Read one complete script twice; a missing resource uses the embedded
-/// baseline for installations created before the resource existed.
 pub(crate) fn snapshot(path: &str, embedded: &'static str) -> Result<Arc<str>, String> {
     let root = crate::platform::runtime_paths::root();
     let path = root.join(Path::new(path));
@@ -74,13 +72,6 @@ pub(crate) fn snapshot(path: &str, embedded: &'static str) -> Result<Arc<str>, S
     Ok(Arc::from(text))
 }
 
-/// Invoke `project(input)` from a captured script, preserving JSON numeric
-/// literals exactly rather than rounding large integers through JavaScript.
-/// No credentials or host operations are available to the script. Cancellation
-/// returns promptly; a cancelled isolate continues without I/O until its own
-/// deadline. Permits bound the number of concurrent isolates; each isolate
-/// has a V8 heap limit, which does not bound external backing stores or total
-/// process memory.
 pub(crate) fn evaluate(
     module: &str,
     input: &Value,
@@ -98,8 +89,6 @@ pub(crate) fn evaluate(
     if raw.len() > MAX_INPUT_BYTES {
         return Err("projection input exceeds its byte limit".into());
     }
-    // The script sees exact numeric tokens as wrappers. It may copy but must
-    // not perform arithmetic on them; the native host validates the result.
     let quoted = serde_json::to_string(&raw).map_err(|_| "could not encode projection")?;
     let source = format!(
         r#"

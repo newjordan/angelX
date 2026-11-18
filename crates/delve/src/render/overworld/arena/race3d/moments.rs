@@ -13,14 +13,9 @@ use crate::rules::juice::Weight;
 use crate::rules::race3d::{Course, Race3d, TITLE, show::Kind};
 use crate::rules::{HZ, Run};
 
-/// Ticks a banner stands.
 const CALL_LIFE: u32 = 62;
-/// Where the haul counter sits: what the flying "+1" lands on.
 pub(super) const COUNTER: (i32, i32) = (30, 27);
 
-// ─── the shake and the lens ─────────────────────────────────────────────────
-
-/// A blow a notch lighter: what another knight's wreck does to your screen.
 fn lighter(w: Weight) -> Weight {
     match w {
         Weight::Finale => Weight::Kill,
@@ -30,9 +25,6 @@ fn lighter(w: Weight) -> Weight {
     }
 }
 
-/// The world's shake for `seat`: its own wrecks and bumps in full, a rival's
-/// a notch lighter, and the first knight home. The picture keeps its
-/// phase while the room is held, so a freeze still trembles.
 pub(super) fn shake(run: &Run, race: &Race3d, seat: Option<u32>) -> (i32, i32) {
     let now = race.t;
     let phase = u64::from(now) * 7 + u64::from(run.hitstop.left) * 3;
@@ -50,8 +42,6 @@ pub(super) fn shake(run: &Run, race: &Race3d, seat: Option<u32>) -> (i32, i32) {
     juice::shake(blows, phase)
 }
 
-/// How far the lens widens right now (radians): the kick of the green light,
-/// a burst, a perfect shift.
 pub(super) fn kick(race: &Race3d, seat: Option<u32>) -> f32 {
     let mut k = 0.0f32;
     if race.t >= TITLE && race.t < TITLE + 18 {
@@ -67,20 +57,16 @@ pub(super) fn kick(race: &Race3d, seat: Option<u32>) -> f32 {
     k
 }
 
-/// How hard the wind is driven by the start: 1 at the green, gone by a second.
 pub(super) fn surge(race: &Race3d) -> f32 {
     if race.t >= TITLE && race.t < TITLE + 26 {
         (1.0 - (race.t - TITLE) as f32 / 26.0).max(0.0)
     } else if race.titled() && race.t + 20 >= TITLE {
-        // The engines come up in the last moments before the green.
         0.2 * (race.t + 20 - TITLE) as f32 / 20.0
     } else {
         0.0
     }
 }
 
-/// A thin dither of black paper behind words that sit over a bright scene
-/// (a stone gate, a lamp of gold), softest at its edges.
 fn scrim(im: &mut Img, y: i32, h: i32, w: i32) {
     let x0 = im.w / 2 - w / 2;
     for yy in y.max(0)..(y + h).min(im.h) {
@@ -94,10 +80,6 @@ fn scrim(im: &mut Img, y: i32, h: i32, w: i32) {
     }
 }
 
-// ─── the start ──────────────────────────────────────────────────────────────
-
-/// A figure slamming in at `at`, springing to size, ringing, and going: the
-/// kit's countdown at the size of this screen.
 fn slam(im: &mut Img, at: (i32, i32), label: &str, age: u32, life: u32, go: bool) {
     if age >= life {
         return;
@@ -123,10 +105,8 @@ fn slam(im: &mut Img, at: (i32, i32), label: &str, age: u32, life: u32, go: bool
     im.stamp(&t, at.0 - t.w / 2, at.1 - t.h / 2);
 }
 
-/// The gantry of three lamps: red as the beats go by, green on the start.
 fn lamps(im: &mut Img, t: u32) {
     let (cx, cy) = (192, 74);
-    // The casing: a dark bar with a thin rule.
     im.rect(cx - 46, cy - 12, 92, 24, 'K');
     im.frame(cx - 46, cy - 12, 92, 24, 'g');
     im.rect(cx - 2, cy + 12, 4, 6, 'g');
@@ -135,7 +115,6 @@ fn lamps(im: &mut Img, t: u32) {
     for i in 0..3u32 {
         let lit = green || t >= i * HZ;
         let x = cx - 30 + i as i32 * 30;
-        // A lamp swells for a moment as it lights.
         let born = if green { since } else { t.saturating_sub(i * HZ) as f32 };
         let swell = if lit && born < 5.0 { 1.0 + (1.0 - born / 5.0) * 0.5 } else { 1.0 };
         let r = 8.0 * swell;
@@ -163,8 +142,6 @@ fn lamps(im: &mut Img, t: u32) {
     }
 }
 
-/// The start, over the whole canvas: the name slams in, the lamps count
-/// red, the green lamp and GO ring out.
 pub(super) fn start(over: &mut Img, race: &Race3d) {
     let t = race.t;
     if t < TITLE {
@@ -180,11 +157,6 @@ pub(super) fn start(over: &mut Img, race: &Race3d) {
     }
 }
 
-// ─── the calls ──────────────────────────────────────────────────────────────
-
-/// How the seat `me` calls a knight, at most `take` letters: `YOU` for
-/// themselves and only themselves; any other knight by their own name (`KNIGHT
-/// n` for one who still carries the default `You`, or none).
 pub(super) fn called(run: &Run, id: u32, me: Option<u32>, take: usize) -> String {
     if Some(id) == me {
         return "YOU".into();
@@ -206,7 +178,6 @@ fn place_word(n: u32) -> String {
     format!("{n}{suffix}")
 }
 
-/// What a call says, how loud, how long, how inked.
 struct Call {
     rank: u8,
     age: u32,
@@ -216,7 +187,6 @@ struct Call {
     tone: Tone,
 }
 
-/// The call standing for `seat`: the loudest of what happened lately.
 fn call(run: &Run, race: &Race3d, seat: u32) -> Option<Call> {
     let now = race.t;
     let mut best: Option<Call> = None;
@@ -273,7 +243,6 @@ fn call(run: &Run, race: &Race3d, seat: u32) -> Option<Call> {
     best
 }
 
-/// The banner for `seat`, under the heads-up display.
 pub(super) fn banner(over: &mut Img, run: &Run, race: &Race3d, seat: u32) {
     if race.titled() || race.t < TITLE + 6 && race.show.fx.is_empty() {
         return;
@@ -287,10 +256,6 @@ pub(super) fn banner(over: &mut Img, run: &Run, race: &Race3d, seat: u32) {
     }
 }
 
-// ─── the heads-up flourishes ────────────────────────────────────────────────
-
-/// A "+1" flying from each thing `seat` just took to the haul counter, a
-/// "CLOSE" thrown up off a near miss, and the arrow beside the place.
 pub(super) fn pops(over: &mut Img, lens: &Lens, seat: u32) {
     let race = lens.race;
     let now = race.t;
@@ -320,7 +285,6 @@ pub(super) fn pops(over: &mut Img, lens: &Lens, seat: u32) {
             _ => {}
         }
     }
-    // The arrow beside the place: up in green for a pass, down in red when passed.
     let up = race.show.fx.iter().filter(|f| matches!(f.kind, Kind::Pass | Kind::Lead) && u32::from(f.seat) == seat).map(|f| f.age(now)).min();
     let down = race.show.fx.iter().filter(|f| matches!(f.kind, Kind::Pass | Kind::Lead) && u32::from(f.other) == seat).map(|f| f.age(now)).min();
     let flick = |age: u32| age < 36 && (age >= 12 || age % 4 < 2);
@@ -331,7 +295,6 @@ pub(super) fn pops(over: &mut Img, lens: &Lens, seat: u32) {
     }
 }
 
-/// A little triangle, up or down.
 fn arrow(over: &mut Img, x: i32, y: i32, up: bool) {
     let rows = ["...#...", "..###..", ".#####.", "#######"];
     for (j, row) in rows.iter().enumerate() {
@@ -344,7 +307,6 @@ fn arrow(over: &mut Img, x: i32, y: i32, up: bool) {
     }
 }
 
-/// The red rim of a wreck of your own and the pale of the big ones.
 pub(super) fn rims(over: &mut Img, race: &Race3d, seat: u32) {
     let (w, h) = (over.w, over.h);
     let now = race.t;
@@ -361,18 +323,15 @@ pub(super) fn rims(over: &mut Img, race: &Race3d, seat: u32) {
             _ => {}
         }
     }
-    // The photograph's flash, for everyone.
     if race.show.fx.iter().any(|f| f.kind == Kind::Photo && f.age(now) < 2) {
         fx::pale(over, (0, 0, w, h), 0.16, 'v');
     }
 }
 
-/// How far a swelling counter has grown, 0 to 1 and gone, after a "+1" lands.
 pub(super) fn counter_pulse(race: &Race3d, seat: u32) -> f32 {
     race.show.since(Kind::Pick, seat, race.t).map_or(0.0, |age| juice::bump(age.saturating_sub(15), 8))
 }
 
-/// A crown on the pip of whoever leads.
 pub(super) fn crown(over: &mut Img, x: i32, y: i32) {
     let rows = ["#.#.#", "#####", ".###."];
     for (j, row) in rows.iter().enumerate() {
@@ -384,7 +343,6 @@ pub(super) fn crown(over: &mut Img, x: i32, y: i32) {
     }
 }
 
-/// A rank arrow's ease, kept for the bump of a place that changes.
 pub(super) fn place_bump(race: &Race3d, seat: u32) -> f32 {
     let now = race.t;
     let age = race

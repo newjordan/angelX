@@ -43,7 +43,6 @@ pub struct Forest {
     pub show_left: u32,
     pub note: u8,
     pub songs: u32,
-    // Occupied pads last tick: standing still cannot replay or input twice.
     held: u8,
 }
 
@@ -78,7 +77,6 @@ impl Forest {
             % RUNES.len()
     }
 
-    /// Each note shines for two thirds of a second, separated by darkness.
     pub fn lit_rune(&self) -> Option<usize> {
         if !self.singing || self.show_left == 0 {
             return None;
@@ -89,7 +87,6 @@ impl Forest {
     }
 }
 
-/// Small deterministic loops, away from tree collision. Arena units, not tiles.
 pub fn firefly(index: usize, tick: u64) -> (f32, f32) {
     let (x, y) = FLIES[index];
     let t =
@@ -164,8 +161,6 @@ impl Run {
         if notes == 0 {
             return;
         }
-        // Two friends striking different notes together is ambiguous, not a
-        // free pass through the sequence. Step off and choose one together.
         if notes.count_ones() > 1 {
             self.found = Some((
                 self.tick,

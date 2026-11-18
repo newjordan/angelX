@@ -1,6 +1,3 @@
-// repo-dossier — worker/CLI adapter. Pure mining and graph projections live in
-// lib/dossier/core.mjs; this layer owns paths, store caps, redaction and file I/O.
-// Preserve the historical import surface while consumers migrate to the core.
 import { runGraphCli } from './worker-lock.mjs'
 import { storeCap } from './store-caps.mjs'
 import { join } from 'node:path'
@@ -39,11 +36,9 @@ export function dossierPaths(argv = [], env = process.env, userHomeDir = homedir
   }
 }
 
-// Named alongside the Rust stores in docs/telemetry/store-caps.toml.
 export const DOSSIER_STORE_BYTES = storeCap('dossier_artifact', 'max_bytes')
 export const DOSSIER_STORE_FACTS = storeCap('dossier_artifact', 'max_entries')
 
-// Applied at both publication sites, after the canonical redaction pass.
 export function boundedDossierText(artifact, redact = (text) => text) {
   const facts = [...artifact.facts]
     .sort((a, b) => String(b.lastVerifiedAt || '').localeCompare(String(a.lastVerifiedAt || '')))
@@ -66,17 +61,15 @@ export function boundedDossierText(artifact, redact = (text) => text) {
   return best
 }
 
-// ─── CLI ─────────────────────────────────────────────────────────────────────
-// I/O lives here only. `--mine` folds ledger events into the shared graph;
-// `--compile` writes one artifact per repo key (or `--repo <key>`); `--rank`
-// prints the probe queue. Invoke one writer per graph file at a time.
-
-async function cli(argv) {
+async function cli(argv, selectedGraph) {
   const { readFileSync, writeFileSync, mkdirSync, existsSync, redactText } =
     await import('./private-store-fs.mjs')
-  const { graphPath, ledgerPath, outDir, cutDir, onlyRepo } = dossierPaths(argv)
+  const { graphPath: defaultGraph, ledgerPath, outDir, cutDir, onlyRepo } = dossierPaths(argv)
+  const graphPath = selectedGraph ?? defaultGraph
   if (onlyRepo !== undefined) assertRepoKey(onlyRepo)
   const refresh = argv.includes('--refresh')
+  const dryRun = argv.includes('--dry-run')
+  let previewGraph
 
   const { collectManifest } = await import('./cut-evidence.mjs')
   const CausalGraph = (await import('../../lib/research/CausalGraph.js')).default
@@ -112,14 +105,12 @@ async function cli(argv) {
       nodes += added.nodes
       updated += added.updated
     }
-    writeFileSync(graphPath, JSON.stringify(graph.serialize(), null, 2))
-    // The two sources are reported separately on purpose. The ledger's count is
-    // recurrence; the Cut's is VERDICTS. Conflating them is how this subsystem
-    // spent its whole life believing it had evidence it did not have.
+    if (dryRun) previewGraph = graph
+    else writeFileSync(graphPath, JSON.stringify(graph.serialize(), null, 2))
     const verdicts = cutRows.filter((r) => cutSample(r)).length
     const independent = cutRows.filter((r) => cutSample(r)?.independent).length
     console.log(
-      `dossier mine → ${graphPath}\n` +
+      `dossier ${dryRun ? 'would mine' : 'mine'} → ${graphPath}\n` +
         `  ${Object.keys(mined).length} repo(s) in ${ledgerPath}\n` +
         `  ${cutRows.length} cut row(s) in ${cutDir} → ` +
         `${verdicts} verdict(s), ${independent} independent\n` +
@@ -129,16 +120,16 @@ async function cli(argv) {
   }
 
   if (argv.includes('--compile') || refresh) {
-    const graph = loadGraph()
+    const graph = previewGraph ?? loadGraph()
     const mined = mineRepoFacts(loadLedger(), collectManifest(cutDir))
     const keys = onlyRepo ? [onlyRepo] : [...new Set(dossierFacts(graph).map((n) => n.repoKey))]
-    mkdirSync(outDir, { recursive: true })
+    if (!dryRun) mkdirSync(outDir, { recursive: true })
     for (const key of keys) {
       assertRepoKey(key)
       const artifact = compileDossier(graph, key, { thread: mined[key]?.thread ?? null })
       const path = join(outDir, `${key}.json`)
-      writeFileSync(path, boundedDossierText(artifact, redactText))
-      console.log(`dossier compile → ${path} (${artifact.facts.length} fact(s))`)
+      if (!dryRun) writeFileSync(path, boundedDossierText(artifact, redactText))
+      console.log(`dossier ${dryRun ? 'would compile' : 'compile'} → ${path} (${artifact.facts.length} fact(s))`)
     }
     if (keys.length === 0) console.log('no dossier facts in the graph — run --mine first')
     return 0
@@ -158,7 +149,7 @@ async function cli(argv) {
   }
 
   console.log(
-    'usage: node scripts/runtime/repo-dossier.mjs --refresh|--mine|--compile|--rank [--repo <key>] [--graph <path>] [--ledger <path>] [--cut <dir>] [--out <dir>]',
+    'usage: node scripts/runtime/repo-dossier.mjs --refresh|--mine|--compile|--rank [--dry-run] [--repo <key>] [--graph <path>] [--ledger <path>] [--cut <dir>] [--out <dir>]',
   )
   return 2
 }
@@ -168,5 +159,6 @@ const isCli =
   existsSync(process.argv[1]) &&
   import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href
 if (isCli) {
-  runGraphCli(cli, process.argv.slice(2)).then((code) => process.exit(code ?? 0))
+  const argv = process.argv.slice(2)
+  runGraphCli(cli, argv, dossierPaths(argv).graphPath).then((code) => process.exit(code ?? 0))
 }

@@ -22,7 +22,6 @@ fn frame(run: &Run) -> Img {
     crate::render::overworld::arena::frame(&run, 384, 224)
 }
 
-/// A calm, cleared fight room, the knight facing east at its middle.
 fn quiet() -> Run {
     let mut run = Run::new(4, 1, None);
     let room = run
@@ -45,7 +44,6 @@ fn quiet() -> Run {
     run
 }
 
-/// Bare floor wall to wall, no pillars in the way.
 fn bare(run: &mut Run) {
     let at = run.at;
     for row in 1..run.room().rows - 1 {
@@ -71,9 +69,7 @@ fn idle(run: &mut Run, ticks: u32) {
     }
 }
 
-/// Press a skill's key for a tick and let go.
 fn use_skill(run: &mut Run, skill: u8) {
-    // Give the skill a pip; the feel tests exercise earning and spending it.
     run.works.kits.entry(1).or_default().valour = feel::VALOUR_PIP;
     run.step(&press(skill));
     run.step(&BTreeMap::new());
@@ -103,7 +99,6 @@ fn the_skill_key_travels_the_wire_only_when_pressed_and_is_checked() {
     })
     .unwrap();
     assert!(pressed.contains("\"skill\":3"));
-    // An older peer's controls, with no skill key, still read.
     let old: Input = serde_json::from_str(
         r#"{"move_x":1,"move_y":0,"aim_x":0,"aim_y":0,"fire":false,"dash":false,"bomb":false}"#,
     )
@@ -136,7 +131,6 @@ fn gas_makes_a_cloud_that_poisons_foes_over_time_and_spares_knights() {
         run.works.clouds[0].x > 16.0,
         "it is thrown ahead of the knight"
     );
-    // It rests: a second press at once does nothing.
     use_skill(&mut run, 1);
     assert_eq!(run.works.clouds.len(), 1);
     let hp = run.players[&1].hp;
@@ -147,13 +141,10 @@ fn gas_makes_a_cloud_that_poisons_foes_over_time_and_spares_knights() {
         run.players[&1].hp, hp,
         "a knight's own gas never hurts a knight"
     );
-    // The cloud thins and goes.
     idle(&mut run, skills::GAS_LIFE);
     assert!(run.works.clouds.is_empty());
-    // Well after, the poison has worn off too.
     idle(&mut run, 120);
     assert!(run.works.banes.is_empty());
-    // The rest is three seconds now: after the cloud thins it is ready.
     let hud = run.hud(1, &hud::Keys::FIRST).unwrap();
     assert_eq!(hud.skills.len(), SKILLS);
     assert_eq!(hud.skills[0].state, "ready");
@@ -173,11 +164,9 @@ fn fire_burns_foes_standing_in_it_and_flashes_gas() {
     assert!(run.works.banes.iter().any(|b| b.kind == skills::Bane::Burn));
     let hp = run.players[&1].hp;
     assert_eq!(run.players[&1].hp, hp);
-    // Burning ground dies away.
     idle(&mut run, skills::FIRE_LIFE);
     assert!(run.works.blazes.is_empty());
 
-    // Flame set to a cloud of gas flashes it off.
     let mut run = quiet();
     let id = foe(&mut run, EnemyKind::Dummy, 22.0, 14.0);
     run.works.clouds.push(skills::Cloud {
@@ -206,7 +195,6 @@ fn mines_are_limited_arm_late_and_blow_only_under_foes() {
     for _ in 0..skills::MINE_MAX + 1 {
         use_skill(&mut run, 3);
         idle(&mut run, skills::REST[skills::MINE]);
-        // Lay each a step apart.
         let hero = run.players.get_mut(&1).unwrap();
         hero.x += 2.5;
     }
@@ -216,7 +204,6 @@ fn mines_are_limited_arm_late_and_blow_only_under_foes() {
         "no more than the limit"
     );
     let mine = run.works.mines[0];
-    // The knight walking over them sets nothing off and takes nothing.
     {
         let hero = run.players.get_mut(&1).unwrap();
         (hero.x, hero.y) = (mine.x, mine.y);
@@ -225,7 +212,6 @@ fn mines_are_limited_arm_late_and_blow_only_under_foes() {
     idle(&mut run, skills::MINE_ARM + 20);
     assert_eq!(run.works.mines.len(), skills::MINE_MAX);
     assert_eq!(run.players[&1].hp, hp);
-    // A foe stepping on one sets it off: the blast hurts it, the mine is gone.
     let id = foe(&mut run, EnemyKind::Dummy, 40.0, 4.0);
     run.spawn_at_for_test(EnemyKind::Skeleton, mine.x, mine.y);
     let skeleton = run.enemies.last_mut().unwrap();
@@ -239,7 +225,6 @@ fn mines_are_limited_arm_late_and_blow_only_under_foes() {
     assert!(hp_of(&run, skeleton_id) < 5_000);
     assert_eq!(hp_of(&run, id), 100_000, "out of reach");
     assert_eq!(run.players[&1].hp, hp, "friendly knights are never hurt");
-    // The blast lights its neighbours: the chain goes off in turn.
     idle(&mut run, 20);
     assert!(run.works.mines.is_empty(), "the neighbours blew too");
 }
@@ -252,7 +237,6 @@ fn a_mine_is_not_armed_the_moment_it_lands() {
     assert!(!mine.armed());
     run.spawn_at_for_test(EnemyKind::Skeleton, mine.x, mine.y);
     run.enemies.last_mut().unwrap().hp = 5_000;
-    // It stands on the mine, whatever floor it would walk to the knight over.
     run.enemies.last_mut().unwrap().frozen = u32::MAX / 2;
     idle(&mut run, 3);
     assert_eq!(run.works.mines.len(), 1, "an unarmed mine waits");
@@ -270,7 +254,6 @@ fn a_barricade_stops_foes_and_shots_wears_down_and_crumbles() {
     use_skill(&mut run, 4);
     assert_eq!(run.works.barricades.len(), 1);
     let wall = run.works.barricades[0];
-    // A foe that chases the knight cannot pass it.
     run.spawn_at_for_test(EnemyKind::Imp, 40.0, 14.0);
     let imp = run.enemies.last_mut().unwrap();
     imp.hp = 100_000;
@@ -287,7 +270,6 @@ fn a_barricade_stops_foes_and_shots_wears_down_and_crumbles() {
         imp_x > wall_x,
         "the imp is held on the far side: {imp_x} vs {wall_x}"
     );
-    // Its shots stop against the palisade and wear it down.
     assert!(
         run.works.barricades[0].hp < skills::WALL_HP,
         "foes and shots wore it down"
@@ -318,7 +300,6 @@ fn a_barricade_stops_foes_and_shots_wears_down_and_crumbles() {
         "the shot stopped"
     );
     assert!(run.works.barricades[0].hp < hp);
-    // A knight's own shots go through; its time runs out and it crumbles.
     idle(&mut run, skills::WALL_LIFE);
     assert!(
         run.works.barricades.iter().all(|w| w.fall.is_some()) || run.works.barricades.is_empty()
@@ -349,7 +330,6 @@ fn the_shield_throw_strikes_foes_ricochets_and_comes_home() {
     use_skill(&mut run, 5);
     assert_eq!(run.works.flights.len(), 1);
     assert!(run.shield_out(1));
-    // With the shield in the air there is none to raise.
     let held = BTreeMap::from([(
         1,
         Input {
@@ -375,10 +355,8 @@ fn the_shield_throw_strikes_foes_ricochets_and_comes_home() {
     assert!(clanged, "every strike clangs");
     assert!(struck_before_home, "it jumped on to the second foe");
     assert!(!run.shield_out(1), "it came back to the hand");
-    // And the hand has it again: the shield can be raised.
     run.step(&held);
     assert!(run.players[&1].shielding);
-    // It rests before the next throw.
     use_skill(&mut run, 5);
     assert!(run.works.flights.is_empty());
     idle(&mut run, skills::REST[skills::SHIELD]);
@@ -425,7 +403,6 @@ fn skills_work_for_every_seat_and_the_hud_lists_them_with_their_keys() {
             keys.skills.to_vec()
         );
     }
-    // The second seat's key reaches its own knight.
     let hero2 = run.players.get_mut(&2).unwrap();
     (hero2.x, hero2.y) = (30.0, 14.0);
     run.works.kits.entry(2).or_default().valour = feel::VALOUR_PIP;
@@ -454,23 +431,18 @@ fn skills_survive_the_wire_to_a_friends_mirror() {
     assert_eq!(mirror.works.clouds.len(), 1);
     assert_eq!(mirror.works.mines.len(), 1);
     assert!(crate::wire::drawable(&mirror));
-    // A whole saved run reads back, too.
     let saved = serde_json::to_string(&run).unwrap();
     let loaded: Run = serde_json::from_str(&saved).unwrap();
     assert!(loaded.valid_snapshot());
     assert_eq!(loaded.works, run.works);
 }
 
-// ─── pictures ────────────────────────────────────────────────────────────────
-
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_skill_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_skill_shots() {
     let Some(dir) = shots_dir() else {
         return;
     };
-    // Gas at three ages beside a foe, fire, mines, barricade, shield.
     let mut run = quiet();
     run.join("Friend");
     foe(&mut run, EnemyKind::Skeleton, 30.0, 14.0);
@@ -547,9 +519,6 @@ fn write_skill_shots() {
     save(&frame(&run), &dir, "shield_flight_c");
 }
 
-// ─── perils ──────────────────────────────────────────────────────────────────
-
-/// A peril's phase that puts it at `beat` of its cycle on the run's next tick.
 fn phase_for(run: &Run, period: u32, beat: u32) -> u32 {
     let next = run.tick as u32 + 1;
     (beat + period - next % period) % period
@@ -574,7 +543,6 @@ fn a_fire_jet_hisses_before_it_roars_and_burns_knights_and_monsters_alike() {
     let id = foe(&mut run, EnemyKind::Skeleton, 23.0, 14.0);
     run.enemies.last_mut().unwrap().frozen = 1000;
     let (hp, before) = (run.players[&1].hp, hp_of(&run, id));
-    // The warning comes first and hurts nothing.
     let mut warned = false;
     for _ in 0..(perils::JET_LIVE - perils::JET_WARN - 2) {
         exposed(&mut run);
@@ -658,7 +626,6 @@ fn an_ember_crack_and_a_crumbling_floor_strike_both_sides_after_their_warning() 
             exposed(&mut run);
             run.step(&BTreeMap::new());
             warned |= run.works.perils[0].warning(run.tick).is_some();
-            // Keep the foe where the strike will find it.
             let e = run.enemies.iter_mut().find(|e| e.id == id).unwrap();
             (e.x, e.y) = (23.0, 14.0);
         }
@@ -728,21 +695,18 @@ fn perils_scale_with_depth_never_touch_the_dice_and_keep_clear_of_doors() {
     assert!(share(p1, r1) > 0.1, "but not empty: {p1}/{r1}");
     assert!(share(p3, r3) > share(p1, r1), "deeper is worse");
     assert!(share(p5, r5) > share(p3, r3) * 0.9);
-    // The home has none.
     let mut run = quiet();
     run.dungeon.depth = 0;
     run.arm_perils();
     assert!(run.works.perils.is_empty());
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_peril_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_peril_shots() {
     let Some(dir) = shots_dir() else {
         return;
     };
-    // Each peril at four points of its cycle: idle, warning, striking, spent.
     let cases: [(&str, u32, [u32; 4]); 4] = [
         (
             "jet",
@@ -789,7 +753,6 @@ fn write_peril_shots() {
         for (i, beat) in beats.into_iter().enumerate() {
             let mut run = quiet();
             let seep_late = name == "seep" && i >= 2;
-            // A seep's puff is shown by letting it happen, then waiting.
             let start = if seep_late {
                 perils::SEEP_PUFF - 1
             } else {
@@ -830,8 +793,6 @@ fn write_peril_shots() {
     }
 }
 
-// ─── the Boss Key ────────────────────────────────────────────────────────────
-
 fn on_floor(depth: u32, seed: u64) -> Run {
     let mut run = Run::new(seed, 17, None);
     run.mode = fortune::Mode::LongWayDown;
@@ -857,7 +818,6 @@ fn finish_room(run: &mut Run) {
     panic!("the room would not clear");
 }
 
-/// Slay every route chief by the production path, each in its own room.
 fn slay_the_chiefs(run: &mut Run) {
     let chiefs: Vec<usize> = run
         .boss_gates
@@ -873,13 +833,10 @@ fn slay_the_chiefs(run: &mut Run) {
         let room = run.boss_gates.as_ref().unwrap().leaders[i].room;
         run.enter(room, Some(2));
         finish_room(run);
-        // A flawless fight leaves nobody to stand on the key: clear the
-        // knights' own invulnerability only for the fall's sake.
         assert!(run.boss_gates.as_ref().unwrap().leaders[i].defeated);
     }
 }
 
-/// The room beside the boss room, and the side of it the door is on.
 fn door_room(run: &Run) -> (usize, usize) {
     let guardian = run.boss_gates.as_ref().unwrap().guardian;
     let reach = boss_gates::reachable(&run.dungeon, guardian);
@@ -896,7 +853,6 @@ fn door_room(run: &Run) -> (usize, usize) {
     panic!("the boss room has no door from the rest of the floor");
 }
 
-/// Stand every knight at the doorway on `dir` of the room they are in.
 fn at_the_door(run: &mut Run, dir: usize) {
     let (w, h) = (run.room().width(), run.room().height());
     for hero in run.players.values_mut() {
@@ -912,13 +868,11 @@ fn at_the_door(run: &mut Run, dir: usize) {
 #[test]
 fn the_chief_drops_the_boss_key_and_the_boss_door_stays_shut_until_it_is_carried_there() {
     let mut run = on_floor(1, 3);
-    // A second knight, so the first may fall without the party wiping.
     run.join("Friend");
     assert!(run.boss_door_shut());
     assert_eq!(run.works.key.hold, keyring::Hold::Kept);
     assert!(run.boss_gate_line().unwrap().contains("Boss Key: slay"));
     slay_the_chiefs(&mut run);
-    // The route is open, and the key lies where the chief fell.
     assert!(run.boss_gates.as_ref().unwrap().unlocked());
     let keyring::Hold::Lying { room, x, y } = run.works.key.hold else {
         panic!("the key lies on the floor: {:?}", run.works.key);
@@ -932,7 +886,6 @@ fn the_chief_drops_the_boss_key_and_the_boss_door_stays_shut_until_it_is_carried
     assert!(run.key_on_floor().is_some());
     assert!(run.cues.iter().any(|c| c == "key_drop"));
     assert!(run.boss_door_shut(), "the route is open, the door is not");
-    // At the boss door with no key in hand: held back.
     let (beside, dir) = door_room(&run);
     let guardian = run.boss_gates.as_ref().unwrap().guardian;
     run.enter(beside, Some(2));
@@ -941,7 +894,6 @@ fn the_chief_drops_the_boss_key_and_the_boss_door_stays_shut_until_it_is_carried
     run.travel();
     assert_eq!(run.at, beside, "the shut door holds the party");
     assert!(run.cues.iter().any(|c| c == "door_locked"));
-    // Back to the key: a knight takes it up, and the HUD says so.
     let (kx, ky) = (x, y);
     run.enter(room, Some(2));
     {
@@ -952,7 +904,6 @@ fn the_chief_drops_the_boss_key_and_the_boss_door_stays_shut_until_it_is_carried
     assert_eq!(run.key_bearer(), Some(1));
     assert!(run.hud(1, &hud::Keys::FIRST).unwrap().key);
     assert!(run.boss_gate_line().unwrap().contains("carries it"));
-    // A knight who falls drops it where they went down.
     {
         let hero = run.players.get_mut(&1).unwrap();
         (hero.x, hero.y) = (20.0, 10.0);
@@ -964,7 +915,6 @@ fn the_chief_drops_the_boss_key_and_the_boss_door_stays_shut_until_it_is_carried
     };
     assert!((lx - 20.0).hypot(ly - 10.0) < 3.0, "near where they fell");
     assert!(run.cues.iter().any(|c| c == "key_lost"));
-    // Revived, they take it again, carry it to the door, and it opens.
     run.players.get_mut(&1).unwrap().hp = 50;
     {
         let hero = run.players.get_mut(&1).unwrap();
@@ -984,7 +934,6 @@ fn the_chief_drops_the_boss_key_and_the_boss_door_stays_shut_until_it_is_carried
     assert_eq!(run.works.key.hold, keyring::Hold::Spent);
     assert!(run.cues.iter().any(|c| c == "door_unlocked"));
     assert!(run.valid_snapshot());
-    // It stays open: a second visit needs no key.
     run.enter(beside, Some(2));
     at_the_door(&mut run, dir);
     run.travel();
@@ -1005,7 +954,6 @@ fn a_knight_turned_to_stone_drops_the_boss_key_for_one_still_standing() {
     }
     run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.key_bearer(), Some(1));
-    // Their player steps away: the key comes down at the stone's feet.
     {
         let hero = run.players.get_mut(&1).unwrap();
         hero.stone = true;
@@ -1016,7 +964,6 @@ fn a_knight_turned_to_stone_drops_the_boss_key_for_one_still_standing() {
         panic!("the stone knight dropped it: {:?}", run.works.key);
     };
     assert!((lx - 20.0).hypot(ly - 10.0) < 3.0, "at their feet");
-    // The stone keeps no hold on it; the friend takes it up.
     run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.key_bearer(), None);
     {
@@ -1051,7 +998,6 @@ fn a_run_saved_before_the_key_existed_keeps_its_boss_door_open() {
         !run.boss_door_shut(),
         "no key was ever made: the door is open"
     );
-    // And floors without a gate never have a door to lock.
     let mut run = Run::new(9, 1, None);
     run.mode = fortune::Mode::Gauntlet;
     run.dungeon = layout::floor_for(
@@ -1082,7 +1028,6 @@ fn every_floor_has_a_chief_that_holds_the_key_and_a_way_to_the_door() {
                     reach[l.room],
                     "the chief's room is reachable without the boss door"
                 );
-                // Its own room, with a name and a health bar.
                 let boss = &run.bosses[usize::from(l.boss)];
                 assert!(!boss.name.is_empty());
             }
@@ -1097,7 +1042,6 @@ fn every_floor_has_a_chief_that_holds_the_key_and_a_way_to_the_door() {
             );
             let (beside, _) = door_room(&run);
             assert!(reach[beside]);
-            // Solvable: slay the chiefs, take the key, open the door.
             slay_the_chiefs(&mut run);
             assert!(
                 matches!(run.works.key.hold, keyring::Hold::Lying { .. }),
@@ -1124,7 +1068,6 @@ fn every_floor_has_a_chief_that_holds_the_key_and_a_way_to_the_door() {
     }
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_key_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_key_shots() {
@@ -1133,7 +1076,6 @@ fn write_key_shots() {
     };
     let mut run = on_floor(1, 3);
     run.join("Friend");
-    // A route chief in its own room, named, with its bar, holding the key.
     let chief = run.boss_gates.as_ref().unwrap().leaders[0].room;
     run.enter(chief, Some(2));
     for hero in run.players.values_mut() {
@@ -1141,18 +1083,15 @@ fn write_key_shots() {
     }
     idle(&mut run, 40);
     save(&frame(&run), &dir, "key_chief");
-    // Slain: the key lies where it fell.
     slay_the_chiefs(&mut run);
     idle(&mut run, 6);
     save(&frame(&run), &dir, "key_lying");
-    // A knight carries it.
     if let keyring::Hold::Lying { x, y, .. } = run.works.key.hold {
         let hero = run.players.get_mut(&1).unwrap();
         (hero.x, hero.y) = (x, y);
     }
     idle(&mut run, 10);
     save(&frame(&run), &dir, "key_carried");
-    // At the door, shut and chained; then the knight comes near with the key.
     let (beside, side) = door_room(&run);
     run.enter(beside, Some(2));
     idle(&mut run, 4);
@@ -1168,8 +1107,6 @@ fn write_key_shots() {
     idle(&mut run, 4);
     save(&frame(&run), &dir, "door_key_near");
 }
-
-// ─── the Wanted hall ─────────────────────────────────────────────────────────
 
 fn showdown(depth: u32, seed: u64) -> Run {
     let mut run = on_floor(depth, seed);
@@ -1205,20 +1142,15 @@ fn every_floor_has_one_side_on_wanted_hall_off_the_way_to_the_stairs() {
             let hall = &run.dungeon.rooms[halls[0]];
             assert_eq!(hall.doors.iter().filter(|&&d| d).count(), 1, "one way in");
             assert!(hall.valid_snapshot());
-            // Hung off a fight room, a dead end: nothing leads on through it.
             let door = hall.doors.iter().position(|&d| d).unwrap();
             let parent = run
                 .dungeon
                 .neighbour(halls[0], door)
                 .expect("it has a parent");
             assert_eq!(run.dungeon.rooms[parent].kind, RoomKind::Fight);
-            // The stairs stay reachable without it, and the floor keeps its
-            // chambers: the hall is extra.
             let g = run.boss_gates.as_ref().unwrap();
             let reach = boss_gates::reachable(&run.dungeon, g.guardian);
             assert!(reach[parent], "reachable without the boss door");
-            // The stage: every post stands on something and the anchor's body
-            // is clear of stone.
             for (col, row) in [
                 outlaw::GROUND_WEST,
                 outlaw::GROUND_EAST,
@@ -1252,13 +1184,11 @@ fn the_wanted_poster_goes_up_with_the_outlaw_its_name_and_its_bounty() {
     assert_eq!(run.works.outlaw.bounty % 50, 0);
     assert_eq!(run.works.outlaw.boss, outlaw.boss);
     assert!(run.cues.iter().any(|c| c.starts_with("outlaw_rise:")));
-    // It is not a chief or the apex of this floor, where the pack has another.
     let g = run.boss_gates.as_ref().unwrap();
     assert!(
         g.leaders.iter().all(|l| Some(l.boss) != outlaw.boss),
         "a wanted man of its own"
     );
-    // While the poster is up the outlaw stands still and the knights are safe.
     let (x, y) = (outlaw.x, outlaw.y);
     let hp = run.players[&1].hp;
     for _ in 0..outlaw::POSTER - 2 {
@@ -1272,7 +1202,6 @@ fn the_wanted_poster_goes_up_with_the_outlaw_its_name_and_its_bounty() {
     assert_eq!(run.players[&1].hp, hp);
     idle(&mut run, 4);
     assert!(!run.poster_up());
-    // Its bounty is more on a deeper floor.
     let deeper = showdown(5, 4);
     assert!(deeper.works.outlaw.bounty > run.works.outlaw.bounty);
     assert!(run.valid_snapshot());
@@ -1288,7 +1217,6 @@ fn the_outlaw_moves_between_its_posts_fires_with_a_tell_and_calls_minions() {
     let mut minions = 0;
     for tick in 0..3600 {
         guard_knights(&mut run);
-        // The knights keep to the ground, apart from its fire.
         run.step(&BTreeMap::new());
         run.projectiles.retain(|p| {
             shots += usize::from(p.hostile && p.ttl > 8 * HZ - 2);
@@ -1310,7 +1238,6 @@ fn the_outlaw_moves_between_its_posts_fires_with_a_tell_and_calls_minions() {
         if tick % 200 == 0 {
             assert!(run.valid_snapshot(), "tick {tick}");
         }
-        // Keep it alive for the length of the test.
         let id = boss.id;
         let e = run.enemies.iter_mut().find(|e| e.id == id).unwrap();
         e.hp = e.max_hp;
@@ -1335,7 +1262,6 @@ fn the_outlaws_fall_pays_the_bounty_clears_the_hall_and_runs_its_company_off() {
     let mut run = showdown(2, 7);
     guard_knights(&mut run);
     idle(&mut run, outlaw::POSTER + 5);
-    // Some company on the ropes, and one dropped.
     run.works.outlaw.ropes.push(outlaw::Rope {
         x: 40.0,
         left: 100,
@@ -1361,7 +1287,6 @@ fn the_outlaws_fall_pays_the_bounty_clears_the_hall_and_runs_its_company_off() {
     assert!(run.enemies.is_empty());
     assert!(run.cues.iter().any(|c| c == "bounty_paid"));
     assert!(run.valid_snapshot());
-    // Paid once only, and it survives a save and a mirror.
     let score = run.score;
     idle(&mut run, 60);
     assert_eq!(run.score, score);
@@ -1369,7 +1294,6 @@ fn the_outlaws_fall_pays_the_bounty_clears_the_hall_and_runs_its_company_off() {
     let loaded: Run = serde_json::from_str(&saved).unwrap();
     assert!(loaded.valid_snapshot());
     assert_eq!(loaded.works.outlaw, run.works.outlaw);
-    // Walking back in later finds the hall quiet.
     let hall = run.at;
     run.enter(0, Some(1));
     run.enter(hall, Some(3));
@@ -1383,7 +1307,6 @@ fn a_blow_landed_after_the_halls_tick_still_pays_the_bounty_once() {
     idle(&mut run, outlaw::POSTER + 5);
     let score = run.score;
     let offered = run.works.outlaw.bounty;
-    // The hall's tick finds it standing; a later shot in the tick fells it.
     run.cues.clear();
     run.tick_outlaw();
     let id = outlaw_of(&run).unwrap().id;
@@ -1425,7 +1348,6 @@ fn a_crouching_knight_is_missed_by_a_shot_at_the_chest() {
         for hero in run.players.values_mut() {
             hero.invulnerable = 0;
         }
-        // Let the knight settle on the ground, then a bolt flies at chest height.
         idle(&mut run, 20);
         let (x, y) = (run.players[&1].x, run.players[&1].y);
         let input = Input {
@@ -1459,8 +1381,6 @@ fn a_crouching_knight_is_missed_by_a_shot_at_the_chest() {
     assert_eq!(aimed(true), 0, "ducking, it goes over");
 }
 
-/// The Wanted hall is wider than a seat's view and side-on: a boss near the
-/// view's edge keeps its whole name, and its taunt, on that seat's screen.
 #[test]
 fn a_boss_name_and_its_taunt_stay_whole_on_the_seats_screen() {
     use crate::render::overworld::arena::{NATIVE_W, UNIT, overlay_for_test, view_origin};
@@ -1472,9 +1392,6 @@ fn a_boss_name_and_its_taunt_stay_whole_on_the_seats_screen() {
     assert!(run.side_on());
     assert!(run.room().cols as i32 * crate::render::overworld::TILE > NATIVE_W + 60, "a wide room");
     run.shake = 0;
-    // The view centres between the knight and the outlaw: each pair below
-    // keeps the same centre, so the same view, with the outlaw mid-view or
-    // a few pixels inside either edge of it.
     let place = |run: &mut Run, knight: i32, boss: i32| {
         for hero in run.players.values_mut() {
             hero.x = knight as f32 / UNIT;
@@ -1487,7 +1404,6 @@ fn a_boss_name_and_its_taunt_stay_whole_on_the_seats_screen() {
         let want = ink(c);
         overlay_for_test(run, Some(1)).pixels().filter(|&p| Some(p) == want).count()
     };
-    // The name's ink and, while the outlaw taunts, the bubble's paint.
     let inks = ['$', 'T'];
     for taunt in [false, true] {
         if taunt {
@@ -1506,7 +1422,6 @@ fn a_boss_name_and_its_taunt_stay_whole_on_the_seats_screen() {
     }
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_wanted_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_wanted_shots() {
@@ -1516,20 +1431,17 @@ fn write_wanted_shots() {
     let mut run = showdown(2, 4);
     run.join("Friend");
     guard_knights(&mut run);
-    // The poster: dropping in, hanging, lifting away.
     for (name, ticks) in [("poster_in", 4), ("poster_up", 26), ("poster_out", 70)] {
         idle(&mut run, ticks);
         save(&frame(&run), &dir, name);
     }
     idle(&mut run, 30);
     save(&frame(&run), &dir, "hall_open");
-    // The knights go out into the street, so the camera takes in the fight.
     for (id, x) in [(1, 36.0), (2, 41.0)] {
         let hero = run.players.get_mut(&id).unwrap();
         (hero.x, hero.y) = (x, 10.0);
     }
     idle(&mut run, 30);
-    // The fight, at several moments: the tell, a leap, a perch, a rope, a taunt.
     let mut seen = std::collections::BTreeSet::new();
     for _ in 0..2400 {
         guard_knights(&mut run);
@@ -1559,7 +1471,6 @@ fn write_wanted_shots() {
         e.hp = e.max_hp;
         e.seen_hp = e.hp;
     }
-    // Minions on their ropes.
     {
         let id = outlaw_of(&run).unwrap().id;
         let e = run.enemies.iter_mut().find(|e| e.id == id).unwrap();
@@ -1573,7 +1484,6 @@ fn write_wanted_shots() {
             save(&frame(&run), &dir, &format!("fight_rope_{i}"));
         }
     }
-    // Desperate: flashing, with its last stand under way.
     let id = outlaw_of(&run).unwrap().id;
     {
         let e = run.enemies.iter_mut().find(|e| e.id == id).unwrap();
@@ -1587,7 +1497,6 @@ fn write_wanted_shots() {
             save(&frame(&run), &dir, "fight_desperate");
         }
     }
-    // The fall.
     let id = outlaw_of(&run).unwrap().id;
     run.enemies.iter_mut().find(|e| e.id == id).unwrap().hp = 0;
     idle(&mut run, 2);
@@ -1597,14 +1506,12 @@ fn write_wanted_shots() {
     }
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_side_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_side_shots() {
     let Some(dir) = shots_dir() else {
         return;
     };
-    // The skills side-on, in the Wanted hall (its outlaw sent away).
     let mut run = showdown(2, 4);
     run.join("Friend");
     guard_knights(&mut run);
@@ -1632,7 +1539,6 @@ fn write_side_shots() {
     )]));
     idle(&mut run, 6);
     save(&frame(&run), &dir, "side_gas_wall_shield");
-    // Fire and mines and a crouch.
     let mut run = showdown(2, 4);
     guard_knights(&mut run);
     idle(&mut run, outlaw::POSTER + 5);
@@ -1724,7 +1630,6 @@ fn cabbage_storm_rains_cabbages_round_the_aim_and_recharges() {
         14 * HZ,
         "the slot recharges"
     );
-    // A press while it rests throws nothing new.
     run.step(&BTreeMap::from([(
         1,
         Input {
@@ -1733,8 +1638,6 @@ fn cabbage_storm_rains_cabbages_round_the_aim_and_recharges() {
         },
     )]));
     assert_eq!(run.strikes.len(), 6);
-    // The Dummy stands where the cabbages mean business, and no knight
-    // was ever in danger from a vegetable.
     let hp = run.players[&1].hp;
     idle(
         &mut run,
@@ -1765,7 +1668,6 @@ fn the_imposture_steps_out_and_takes_the_shot_meant_for_you() {
         (p.x - 18.6).abs() < 0.01 && (p.y - 14.0).abs() < 0.01,
         "two strides along the aim"
     );
-    // A hostile shot that meets the lie dies on it, and the lie is gone.
     run.projectiles.push(Projectile {
         x: p.x - 1.0,
         y: p.y,
@@ -1796,9 +1698,6 @@ fn hedge_maze_raises_three_walls_and_a_door_facing_home() {
     let raw = "name Hedge Maze\nkind spell\nrarity rare\ncooldown 26\nhedge 1\n";
     let checked = cards::check("hedge-maze", raw).expect("the card is written straight");
     assert!(run.add_card(checked.card, 1), "learned and equipped");
-    // Aiming east: the box rises six strides ahead, and its east face —
-    // the far side — stands, while the west face toward the caster does
-    // not. Three walls, one door.
     run.step(&BTreeMap::from([(
         1,
         Input {
@@ -1822,8 +1721,6 @@ fn hedge_maze_raises_three_walls_and_a_door_facing_home() {
             "the hedge rises round the aim, not the room"
         );
     }
-    // The east face stands (a vertical wall ahead), the west face is the
-    // door: no wall's midpoint sits west of the box's centre.
     let west = walls
         .iter()
         .map(|w| (w.a.0 + w.b.0) / 2.0)
@@ -1834,7 +1731,6 @@ fn hedge_maze_raises_three_walls_and_a_door_facing_home() {
         .fold(f32::MIN, f32::max);
     assert!(west > east - 8.0, "the door faces home");
     assert!(run.valid_snapshot());
-    // And topiary is temporary: the barricades' own life crumbles it.
     idle(&mut run, 13 * HZ);
     assert!(
         run.works.barricades.iter().all(|w| !w.standing()),
@@ -1868,13 +1764,10 @@ fn the_bar_mirrors_the_spells_and_a_draught_stays_in_the_hand() {
         ],
         "learned spells find bar slots in order"
     );
-    // A draught picked up goes to the hand, for the quaff key, and never
-    // takes a spell's place on the bar.
     let (x, y) = (run.players[&1].x, run.players[&1].y);
     run.drop_item("potion".into(), x, y, None);
     idle(&mut run, 2);
     assert_eq!(run.players[&1].bar[2], None);
-    // The old slots keep working exactly as before.
     assert_eq!(run.players[&1].spells[0].as_deref(), Some("cabbage-storm"));
     assert_eq!(
         run.players[&1].hand.last().map(String::as_str),
@@ -1921,8 +1814,6 @@ fn a_storm_of_shield_clangs_stays_under_the_effect_cap() {
     assert!(run.valid_snapshot());
 }
 
-// ─── the second grimoire, continued ─────────────────────────────────────────
-
 #[test]
 fn vesper_bell_rings_the_fliers_down_and_lets_them_up_again() {
     let mut run = quiet();
@@ -1944,7 +1835,6 @@ fn vesper_bell_rings_the_fliers_down_and_lets_them_up_again() {
         .find(|e| e.id == bat)
         .unwrap()
         .grounded;
-    // The cast tick itself spends one of the bell's ticks.
     assert_eq!(bat_grounded, spells::VESPER_GROUNDS - 1, "the bell grounds the bat");
     let walker_grounded = run
         .enemies
@@ -1953,7 +1843,6 @@ fn vesper_bell_rings_the_fliers_down_and_lets_them_up_again() {
         .unwrap()
         .grounded;
     assert_eq!(walker_grounded, 0, "a walker never noticed");
-    // And when the bell has faded, the wings come back.
     idle(&mut run, spells::VESPER_GROUNDS + 2);
     let bat_grounded = run
         .enemies
@@ -1977,13 +1866,11 @@ fn monks_patience_forbids_fire_and_halves_the_blow() {
             ..Default::default()
         },
     )]));
-    // The cast tick itself spends one tick of it.
     assert_eq!(
         run.players[&1].patience,
         spells::PATIENCE_TICKS - 1,
         "the patience begins"
     );
-    // A knight in patience may not fire, however much they mean to.
     for _ in 0..4 {
         run.step(&BTreeMap::from([(
             1,
@@ -1997,14 +1884,12 @@ fn monks_patience_forbids_fire_and_halves_the_blow() {
         run.projectiles.is_empty(),
         "the monk needs nothing from the crossbow"
     );
-    // The mend: half a second in, some health has come back.
     run.players.get_mut(&1).unwrap().hp = run.players[&1].max_hp / 2;
     idle(&mut run, HZ / 2);
     assert!(
         run.players[&1].hp > run.players[&1].max_hp / 2,
         "the mend trickles"
     );
-    // Half of every blow, against a control knight with no patience.
     let mut control = quiet();
     let (patient_loss, plain_loss) = {
         let strike = |run: &mut Run| {
@@ -2039,7 +1924,6 @@ fn monks_patience_forbids_fire_and_halves_the_blow() {
         plain_loss,
         "half of every blow ({patient_loss} vs {plain_loss})"
     );
-    // When the patience is spent, the crossbow answers again.
     run.players.get_mut(&1).unwrap().patience = 1;
     idle(&mut run, 2);
     run.step(&BTreeMap::from([(
@@ -2058,7 +1942,6 @@ fn plague_of_frogs_frogs_the_small_ones_and_leaves_the_rest() {
     let raw = "name Plague of Frogs\nkind spell\nrarity rare\ncooldown 35\nfrogs 1\n";
     let checked = cards::check("plague-of-frogs", raw).expect("the card is written straight");
     assert!(run.add_card(checked.card, 1), "learned and equipped");
-    // A bat is small; a Broodmarrow is not.
     run.spawn_at_for_test(EnemyKind::Bat, 24.0, 14.0);
     let bat = run.enemies.last().unwrap().id;
     let big = foe(&mut run, EnemyKind::Broodmarrow, 20.0, 10.0);
@@ -2070,11 +1953,9 @@ fn plague_of_frogs_frogs_the_small_ones_and_leaves_the_rest() {
         },
     )]));
     let bat_frog = run.enemies.iter().find(|e| e.id == bat).unwrap().frog;
-    // The cast tick itself spends one tick of the plague.
     assert_eq!(bat_frog, spells::FROG_TICKS - 1, "the bat is a frog now");
     let big_frog = run.enemies.iter().find(|e| e.id == big).unwrap().frog;
     assert_eq!(big_frog, 0, "a hill of hide is no frog");
-    // The frog hops away from the knights, and can do nothing else.
     let (x0, y0) = {
         let bat_e = run.enemies.iter().find(|e| e.id == bat).unwrap();
         (bat_e.x, bat_e.y)
@@ -2088,7 +1969,6 @@ fn plague_of_frogs_frogs_the_small_ones_and_leaves_the_rest() {
         (x1 - 16.0).hypot(y1 - 14.0) > (x0 - 16.0).hypot(y0 - 14.0),
         "it hops away ({x0},{y0}) -> ({x1},{y1})"
     );
-    // The plague wears off.
     idle(&mut run, spells::FROG_TICKS);
     let bat_frog = run.enemies.iter().find(|e| e.id == bat).unwrap().frog;
     assert_eq!(bat_frog, 0, "it is itself again, and cross about it");
@@ -2113,11 +1993,8 @@ fn excommunicate_reads_the_nearest_monster_out_of_the_room() {
         let e = run.enemies.iter().find(|e| e.id == near).unwrap();
         (e.x, e.y, e.frozen, e.shunned)
     };
-    // The stun spends its first tick the same one it lands.
     assert_eq!(frozen, spells::EXCOMMUNICATE_FREEZE - 1, "the shame holds it");
     assert!(shunned, "it drops from its kind's rolls this death");
-    // It stands in a corner now, far from any knight, and the nearer
-    // monster was the one read out — the Hob at (28,6) stays where it was.
     let room = run.room();
     let (w, h) = (room.width(), room.height());
     let corner = (sx - 2.5).abs() < 0.01 || (sx - (w - 2.5)).abs() < 0.01;

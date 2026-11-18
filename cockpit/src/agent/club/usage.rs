@@ -21,8 +21,6 @@ impl ReportedUsage {
         self.has_tokens() || self.cache_read.is_some() || self.cache_write.is_some()
     }
 
-    /// Each field is a cumulative observation for this one provider attempt.
-    /// Missing/null fields are not a reset; an explicit numeric zero is.
     pub fn update(&mut self, newer: Self) {
         self.input = newer.input.or(self.input);
         self.output = newer.output.or(self.output);
@@ -76,8 +74,6 @@ fn first_path(usage: &serde_json::Value, paths: &[&str]) -> Option<&'static str>
     }
 }
 
-/// HTTP Chat Completions and its explicit field aliases. Counts are retained
-/// as reported; this parser does not guess inclusive/disjoint cache semantics.
 pub(super) fn parse_http_usage(usage: &serde_json::Value) -> Option<ReportedUsage> {
     usage.as_object()?;
     let mut counts = ReportedUsage {
@@ -139,8 +135,6 @@ pub(super) fn parse_http_usage(usage: &serde_json::Value) -> Option<ReportedUsag
             ],
         ),
     ];
-    // DeepSeek reports prompt = hit + miss and bills no cache write, so its
-    // miss field settles the write count at zero: uncached input is the miss.
     if counts.cache_write.is_none() && first_count(usage, &["/prompt_cache_miss_tokens"]).is_some()
     {
         counts.cache_write = Some(0);
@@ -149,7 +143,6 @@ pub(super) fn parse_http_usage(usage: &serde_json::Value) -> Option<ReportedUsag
     counts.any().then_some(counts)
 }
 
-/// Grok ACP exposes a distinct camelCase extension, not HTTP field aliases.
 pub(super) fn parse_grok_acp_usage(result: &serde_json::Value) -> Option<ReportedUsage> {
     let usage = result.pointer("/_meta/usage")?;
     usage.as_object()?;

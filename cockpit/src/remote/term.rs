@@ -16,7 +16,6 @@ use ratatui::crossterm::event::{self, Event};
 use ratatui::crossterm::terminal;
 use ratatui::style::{Color, Modifier};
 
-/// This terminal as a grid: its cells, and their pixels when it says.
 pub(super) fn size() -> GridSize {
     let (cols, rows) = terminal::size().unwrap_or((80, 24));
     let (mut width_px, mut height_px) = (0u32, 0u32);
@@ -25,7 +24,6 @@ pub(super) fn size() -> GridSize {
         height_px = u32::from(window.height);
     }
     if width_px == 0 || height_px == 0 {
-        // A terminal that does not say: a common cell.
         width_px = u32::from(cols) * 9;
         height_px = u32::from(rows) * 18;
     }
@@ -39,7 +37,6 @@ pub(super) fn size() -> GridSize {
     }
 }
 
-/// Puts the terminal back however the attach ends.
 struct Restore;
 
 impl Drop for Restore {
@@ -52,8 +49,6 @@ impl Drop for Restore {
 }
 
 enum Ev {
-    // `Down` is the wide payload. Box it so a key or a lost link is not a
-    // 700-byte channel message.
     Down(u64, Box<Down>),
     Lost(u64, String),
     Input(Event),
@@ -172,7 +167,6 @@ fn link_close(link: &mut Link) {
 
 type Tty = ratatui::Terminal<CrosstermBackend<io::Stdout>>;
 
-/// The session's grid into the terminal; ratatui sends only what changed.
 fn draw(tty: &mut Tty, screen: &Screen) -> io::Result<()> {
     let cols = usize::from(screen.cols.max(1));
     let cell_px = (screen.size.cell_width.max(1), screen.size.cell_height.max(1));
@@ -197,8 +191,6 @@ fn draw(tty: &mut Tty, screen: &Screen) -> io::Result<()> {
     Ok(())
 }
 
-/// A picture cell as a half block: its top and bottom halves' colours,
-/// taken from the picture where the window would draw that cell.
 fn half_block(screen: &Screen, place: angel_glass::graphics::Placeholder, cell: (u32, u32)) -> Cell {
     let mut out = Cell::default();
     out.set_symbol(" ");
@@ -212,7 +204,6 @@ fn half_block(screen: &Screen, place: angel_glass::graphics::Placeholder, cell: 
         return out;
     };
     let (cw, ch) = (cell.0 as f32, cell.1 as f32);
-    // Picture pixel under a point of the cell (in cell pixels), or black.
     let sample = |px: f32, py: f32| -> [u8; 3] {
         if px < dx || py < dy || px >= dx + dw || py >= dy + dh || dw <= 0.0 || dh <= 0.0 {
             return [0, 0, 0];
@@ -257,7 +248,6 @@ mod tests {
 
     #[test]
     fn a_down_does_not_inflate_the_link_event() {
-        // A boxed Down keeps a key or a lost link from carrying a 700-byte payload.
         assert!(std::mem::size_of::<Ev>() < 128);
     }
 }

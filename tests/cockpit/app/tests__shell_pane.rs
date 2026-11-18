@@ -2,8 +2,6 @@
 use super::*;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-/// `/open shell`, the module's own way in: it spawns the pane where this host
-/// has a PTY, and the module runs either way.
 fn open_shell(app: &mut App) {
     assert_eq!(app.open_module("shell"), "module shell active");
     assert!(app.module_host.is_running("shell"));
@@ -20,7 +18,6 @@ fn assert_closed(app: &App) {
     );
 }
 
-/// A pane whose shell has already exited: `$SHELL` is `true`.
 fn open_dead_shell(app: &mut App) {
     open_shell(app);
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);

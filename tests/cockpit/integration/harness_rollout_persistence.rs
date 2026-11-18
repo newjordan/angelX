@@ -98,8 +98,6 @@ fn harness_rollout_persists_and_exports_scripted_task() {
         receipt["audit"].is_object(),
         "sealed record exports an audited receipt"
     );
-    // Headless labels belong to an external evaluator. The exporter must
-    // discover and audit the sealed record without inventing a reward.
     assert_eq!(receipt["corpus"]["audit"]["scanned"], 1);
     assert_eq!(receipt["corpus"]["audit"]["audited"], 1);
     assert_eq!(receipt["corpus"]["audit"]["by_status"]["finalized"], 1);
@@ -113,8 +111,6 @@ fn harness_rollout_persists_and_exports_scripted_task() {
 fn harness_rollout_unwritable_store_reports_capture_error() {
     let _guard = crate::tests::env_lock();
     let receipt = episode("blocked");
-    // Optional capture must not stop the run, but its failure must be visible
-    // even with ordinary task-event logging disabled.
     assert_eq!(receipt["envelope"]["stop_reason"], "answer");
     assert_eq!(receipt["requests"], 1);
     assert!(

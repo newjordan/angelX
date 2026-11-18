@@ -1,8 +1,6 @@
 //! The creator takes hands before gameplay, menus, or ballots do.
 use angel_net::input::{Hands, button};
 
-/// Only real button taps are explicit actions. Held axes travel separately
-/// so the simulator can throttle navigation repeats.
 pub(super) fn mirror_action(hands: &Hands) -> u8 {
     let on = |bits| hands.pressed & bits != 0;
     if on(button::MENU) {

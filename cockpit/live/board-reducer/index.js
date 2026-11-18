@@ -1,8 +1,5 @@
 const { decide } = require('./board-reducer.compiled')
 
-// The adapter only carries the feature record in and the verdict out. The
-// journal, the adapter calls, the canonical board, the raw hashes and the
-// `Result` stay in Rust; the disposition order lives in board-reducer.bend.
 const flag = value => value === true
 const half = value => (Number.isFinite(value) && value > 0 ? Math.trunc(value) >>> 0 : 0)
 const NAMES = {

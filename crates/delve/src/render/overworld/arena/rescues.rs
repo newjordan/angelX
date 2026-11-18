@@ -8,12 +8,10 @@ use super::{at, stand};
 use crate::rules::Run;
 use crate::rules::rescues::RESIDENTS;
 
-/// The cage in this room, if there is one, with its prisoner.
 pub(super) fn cage(cv: &mut Img, run: &Run) {
     let Some(captive) = run.captive.as_ref().filter(|c| c.room == run.at) else {
         return;
     };
-    // The swamp's captive is the white horse, in the Mire King's pen.
     if captive.who == crate::rules::swamp::HORSE {
         super::swamp::pen(cv, run, captive);
         return;
@@ -24,7 +22,6 @@ pub(super) fn cage(cv: &mut Img, run: &Run) {
         .is_some_and(|at| run.tick.saturating_sub(at) > 45);
     if !gone {
         let im = Img::from_rows(sprite(&captive.who));
-        // Free, they step out of the door before they go.
         let dx = captive
             .freed
             .map_or(0, |at| (run.tick.saturating_sub(at) as i32 / 3).min(14));
@@ -39,9 +36,7 @@ pub(super) fn cage(cv: &mut Img, run: &Run) {
     cv.stamp(&im, x - im.w / 2, y - im.h + 3);
 }
 
-/// The people at home, each where they like to stand.
 pub(super) fn residents(cv: &mut Img, run: &Run) {
-    // Once the tavern is dug, Maud keeps its bar instead.
     let dug = run
         .dungeon
         .rooms
@@ -57,7 +52,6 @@ pub(super) fn residents(cv: &mut Img, run: &Run) {
     }
 }
 
-/// A resident's figure, for the rooms that keep them.
 pub(super) fn sprite_of(who: &str) -> Img {
     Img::from_rows(sprite(who))
 }
@@ -71,7 +65,6 @@ fn sprite(who: &str) -> &'static [&'static str] {
     }
 }
 
-/// Mabel, the cook: white cap, apron, ladle.
 const MABEL: [&str; 16] = [
     "....WWWWW....",
     "...WVVVVVW...",
@@ -91,7 +84,6 @@ const MABEL: [&str; 16] = [
     "...KKK.KKK...",
 ];
 
-/// Brother Anselm: tonsure, habit, rope belt.
 const ANSELM: [&str; 16] = [
     "....OOOOO....",
     "...bOOOOOb...",
@@ -111,7 +103,6 @@ const ANSELM: [&str; 16] = [
     "..nnn...nnn..",
 ];
 
-/// Pip, the Archive's scribe: unruly hair, ink on his nose, a scroll.
 const PIP: [&str; 16] = [
     "...RRRRR.....",
     "..RRRRRRR....",
@@ -131,7 +122,6 @@ const PIP: [&str; 16] = [
     ".............",
 ];
 
-/// Maud, the alewife: headscarf, green dress, a tankard with a head on it.
 const MAUD: [&str; 16] = [
     "....YYYYY....",
     "...YYYYYYY...",
@@ -151,7 +141,6 @@ const MAUD: [&str; 16] = [
     "..nnn...nnn..",
 ];
 
-/// The cage: iron bars, a gold lock.
 const CAGE: [&str; 20] = [
     "hJJJJJJJJJJJJJJJJh",
     "JhhhhhhhhhhhhhhhhJ",
@@ -175,7 +164,6 @@ const CAGE: [&str; 20] = [
     "gJJJJJJJJJJJJJJJJg",
 ];
 
-/// The cage open: its door swung wide on the right, no lock.
 const OPEN: [&str; 20] = [
     "hJJJJJJJJJJJJJJJJh",
     "JhhhhhhhhhhhhhhhhJ",

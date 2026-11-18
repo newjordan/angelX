@@ -88,8 +88,6 @@ pub(super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option
         .is_some_and(|h| h.x > enemy.x);
     for y in 0..h {
         for x in 0..w {
-            // Tail and shoulder motion is tied to the actual attack stage;
-            // feet stay planted while the chest breathes and the crown hums.
             let row = (y as f32 / sy).min(63.0) as i32;
             let sway = if guardian == Guardian::Amethyst && !charging && !resting {
                 ((row as f32 / 14.0 + tick as f32 * 0.075).sin() * 1.4) as i32
@@ -116,7 +114,6 @@ pub(super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option
         }
     }
     if resting {
-        // The window to retaliate is visible even without reading a tooltip.
         let orbit = (tick / 5 % 4) as i32;
         for (dx, dy) in [(-12, 1), (0, 0), (12, 2)] {
             im.put(w / 2 + dx + orbit - 2, 3 + dy, '9');

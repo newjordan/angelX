@@ -8,8 +8,6 @@
 
 use super::*;
 
-// --- background compaction suite --------------------------------------------
-
 fn bg_test_turn_context(label: &str) -> String {
     format!(
         "{}\n⠞⠚ {label}\n\n{}",
@@ -79,7 +77,6 @@ fn bg_compact_arms_and_splices_at_a_later_boundary() {
         "pass should arm over the 80% threshold"
     );
     assert_eq!(h.len(), n0, "arming must not touch history");
-    // The summarizer runs off-thread; poll the boundary hook until it lands.
     let deadline = std::time::Instant::now() + Duration::from_secs(5);
     while bg_compact_inflight(&reg) {
         assert!(std::time::Instant::now() < deadline, "bg pass never landed");
@@ -102,7 +99,6 @@ fn bg_compact_arms_and_splices_at_a_later_boundary() {
         "assistant answer number 7 text here",
         "newest turn preserved"
     );
-    // Pairing intact: every kept tool result still has a preceding call.
     for (i, m) in h.iter().enumerate() {
         if m.role == ChatRole::Tool {
             let id = m.tool_call_id.clone().unwrap();
@@ -207,9 +203,6 @@ fn background_compaction_prefers_newer_surviving_turn_context() {
     maybe_start_bg_compact(&mut history, 60, 3, 0, &[], &reg, &tx);
     assert!(bg_compact_inflight(&reg));
 
-    // A newer replaceable context can arrive outside the snapshotted window
-    // while the summarizer runs. It wins; the captured context may not be
-    // resurrected alongside it.
     history.push(ChatMsg::harness(new_context.as_str()));
     let deadline = Instant::now() + Duration::from_secs(5);
     while bg_compact_inflight(&reg) {
@@ -298,9 +291,6 @@ fn background_compaction_drops_stale_anchor_when_newer_user_direction_arrives() 
     maybe_start_bg_compact(&mut history, 60, 3, 0, &[], &reg, &tx);
     assert!(bg_compact_inflight(&reg));
 
-    // The snapshotted window is unchanged, but a newer user instruction now
-    // exists after it. The background result may still land; its old task anchor
-    // may not, or the older instruction would be presented as equally current.
     history.push(ChatMsg::user(new_task));
     let deadline = Instant::now() + Duration::from_secs(5);
     while bg_compact_inflight(&reg) {
@@ -324,9 +314,6 @@ fn background_compaction_drops_stale_anchor_when_newer_user_direction_arrives() 
 
 #[test]
 fn background_compaction_keeps_task_anchor_when_only_harness_direction_arrives() {
-    // Serialized: the boundary call below drains the process-global lift
-    // notice that the cache-budget-lift tests queue and assert on; without
-    // the lock it steals their notice mid-test.
     let _guard = crate::tests::env_lock();
     let task = "operator objective that enters the compaction window";
     let mut history = vec![ChatMsg::system("system"), ChatMsg::user(task)];
@@ -372,8 +359,6 @@ fn bg_compact_discards_when_history_moved_on() {
     reg.set_aux_clubs(vec![std::sync::Arc::new(SummarizerClub("STALE NOTES"))]);
     maybe_start_bg_compact(&mut h, 30, 5, 0, &[], &reg, &tx);
     assert!(bg_compact_inflight(&reg));
-    // History changes inside the snapshot window while the pass runs — what a
-    // prune or an emergency sync compaction would do.
     h.remove(2);
     let n_after = h.len();
     let deadline = std::time::Instant::now() + Duration::from_secs(5);
@@ -394,8 +379,6 @@ fn bg_compact_needs_a_summarizer_and_a_real_overage() {
     let _guard = crate::tests::env_lock();
     let mut h = long_history();
     let (tx, _rx) = mpsc::channel();
-    // No aux club and no ANGEL_COMPACT_URL → the in-hand club is the only
-    // candidate, and it's borrowed/busy: stay on the sync path.
     let reg = registry_with_store(std::sync::Arc::new(
         crate::knowledge::memory::store::NullStore,
     ));
@@ -404,7 +387,6 @@ fn bg_compact_needs_a_summarizer_and_a_real_overage() {
         !bg_compact_inflight(&reg),
         "no owned summarizer → no bg pass"
     );
-    // Under the threshold → no pass either, even with a summarizer at hand.
     let mut reg = registry_with_store(std::sync::Arc::new(
         crate::knowledge::memory::store::NullStore,
     ));
@@ -439,7 +421,6 @@ fn bg_compact_worker_panic_releases_inflight_slot() {
 #[test]
 fn bg_compact_honors_compact_local_opt_out() {
     let _guard = crate::tests::env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_COMPACT_LOCAL", "0") };
     let mut h = long_history();
     let (tx, _rx) = mpsc::channel();
@@ -448,7 +429,6 @@ fn bg_compact_honors_compact_local_opt_out() {
     ));
     reg.set_aux_clubs(vec![std::sync::Arc::new(SummarizerClub("FLEET"))]);
     maybe_start_bg_compact(&mut h, 30, 5, 0, &[], &reg, &tx);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_COMPACT_LOCAL") };
     assert!(
         !bg_compact_inflight(&reg),
@@ -476,14 +456,11 @@ fn bg_compact_failed_pass_backs_off_before_respawning() {
         try_splice_bg_compact(&reg, &mut h, &tx);
         std::thread::sleep(Duration::from_millis(5));
     }
-    // The failing summarizer used to respawn at the very next boundary and
-    // spam a fresh "compacting context" notice each time. Now it backs off.
     maybe_start_bg_compact(&mut h, 30, 5, 0, &[], &reg, &tx);
     assert!(
         !bg_compact_inflight(&reg),
         "a failed pass must not respawn inside the retry cooldown"
     );
-    // Once the cooldown expires the route gets another chance.
     crate::agent::harness::compact::expire_bg_cooldown_for_test(&reg);
     maybe_start_bg_compact(&mut h, 30, 5, 0, &[], &reg, &tx);
     assert!(

@@ -1,21 +1,4 @@
 #!/usr/bin/env python3
-"""Which framing, if any, makes Mage answer a verification question in words?
-
-`web_loop_verify.py --verifier nl` asks the question in the runtime's own chat
-format (`<think>` pre-filled, as `hands.rs` builds it) and got a token loop on
-26/26 replies. This lab asks the same five saved before/after pairs under six
-other framings — the runtime format with thinking left open, a neutral system
-prompt, the chat template, and each with and without BEFORE/AFTER labels drawn
-on the panels — so the negative result is about the model's channel, not about
-one prompt string.
-
-  $PY -I web_loop_verify_framings.py <crops-dir>
-
-<crops-dir> must hold the five `ring-none-fixture-*-{real,decoy}.png` pairs
-`web_loop_verify.py --verifier nl --save-crops DIR` writes. Truth per pair is
-in the CASES table. Output: one line per (framing, pair) with the model's
-extractable verdict, or ??? when there is none.
-"""
 import importlib.util, os, re, sys
 from PIL import Image, ImageDraw, ImageFont
 
@@ -79,7 +62,6 @@ def ask(im, text, ntok):
 
 
 VARIANTS = {
-    # name: (system, question, composite transform, tokens, pre-filled think?)
     "A_ground_open": (W.SYSTEM, Q, None, 512, False),
     "B_neutral_open": (NEUTRAL_SYS, Q, None, 512, False),
     "C_neutral_prefill": (NEUTRAL_SYS, Q, None, 16, True),

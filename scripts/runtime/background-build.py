@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""One detached, low-priority source build per checkout; never owns a cockpit."""
 import fcntl
 import json
 import os
@@ -43,9 +42,6 @@ def run(root, profile, lock_fd):
                                exit_code=result.returncode)
             except Exception as error:
                 outcome = dict(state="failed", exit_code=1, error=str(error))
-            # Serialize the idle transition with new requests. Release the lease
-            # here, not after this mutex: otherwise a last request could be left
-            # behind after we decided to exit. Never hold this mutex during Cargo.
             with (target / ".background-build.requests.lock").open("a") as requests:
                 fcntl.flock(requests, fcntl.LOCK_EX)
                 if pending.exists():
@@ -65,8 +61,6 @@ def run(root, profile, lock_fd):
 def start(root, profile, queue=False):
     target = root / "cockpit/target"
     target.mkdir(parents=True, exist_ok=True)
-    # Never unlink the lock: replacing its inode would allow two owners. Kernel
-    # ownership survives launcher exit and is released even after a worker crash.
     with (target / ".background-build.requests.lock").open("a") as requests:
         fcntl.flock(requests, fcntl.LOCK_EX)
         pending = target / ".background-build.pending"
@@ -77,7 +71,7 @@ def start(root, profile, queue=False):
                 if queue:
                     pending.write_text(profile + "\n")
                 return
-            pending.unlink(missing_ok=True)  # a new owner supersedes stale requests
+            pending.unlink(missing_ok=True)
             status = dict(profile=profile, requested_at=time.time(), log=str(target / "background-build.log"))
             publish(target, state="queued", **status)
             try:
@@ -90,9 +84,6 @@ def start(root, profile, queue=False):
                 publish(target, state="failed", exit_code=1, error=str(error),
                         finished_at=time.time(), **status)
                 raise
-            # The detached worker inherits the same open file description and keeps
-            # the lease; closing this copy does not unlock it. No waiting or pipes.
-
 
 if __name__ == "__main__":
     try:

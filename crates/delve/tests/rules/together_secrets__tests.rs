@@ -1,8 +1,6 @@
 use super::*;
 use super::testing::*;
 
-/// A run whose first floor (of `pack`) hides a vault, standing in the room
-/// with the crack, its fight calmed.
 fn by_the_crack(pack: Pack) -> Run {
     let mut run = (0..200u64)
         .map(|seed| {
@@ -58,7 +56,6 @@ fn some_floors_hide_a_vault_behind_a_cracked_wall() {
         (floors / 4..=floors * 3 / 4).contains(&vaults),
         "{vaults} vaults in {floors} floors"
     );
-    // The bottom of the Unknown keeps no vault.
     for seed in 0..20u64 {
         let floor = layout::floor(DEEPEST, Pack::Unknown, &mut Rng::new(seed));
         assert!(floor.secret.is_none());
@@ -184,7 +181,6 @@ fn some_vaults_keep_snibbet_who_pays_the_party_to_forget_him_once() {
     run.dungeon.open_secret();
     run.enter_for_test(secret.vault);
     let (sx, sy) = secrets::snibbet_at(run.room());
-    // Beside him, clear of where the gold lands.
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (sx + 4.5, sy);
     run.step(&BTreeMap::new());
@@ -196,7 +192,6 @@ fn some_vaults_keep_snibbet_who_pays_the_party_to_forget_him_once() {
         run.found.as_ref().map(|f| f.2.as_str()),
         Some("It's a secret to everybody.")
     );
-    // Once.
     let heard = run.cues.len();
     for _ in 0..30 {
         run.step(&BTreeMap::new());
@@ -204,7 +199,6 @@ fn some_vaults_keep_snibbet_who_pays_the_party_to_forget_him_once() {
     assert!(!run.cues[heard..].iter().any(|c| c == "snibbet"));
 }
 
-/// A card dropped at knight one's feet, and walked over.
 fn pick_up(run: &mut Run, card: &str) {
     let (x, y) = (run.players[&1].x, run.players[&1].y);
     let at = run.at;
@@ -216,7 +210,6 @@ fn pick_up(run: &mut Run, card: &str) {
     });
     let lying_before = lying(run, card);
     run.step(&BTreeMap::new());
-    // A guard of another kind than the knight's waits for the take key.
     if lying(run, card) == lying_before {
         press(run, Input { interact: true, ..Default::default() });
     }
@@ -230,7 +223,6 @@ fn heard(run: &Run, cue: &str) -> usize {
     run.cues.iter().filter(|c| c.as_str() == cue).count()
 }
 
-/// The first press of the vigil key, and the steps it waits to answer again.
 fn vigil(run: &mut Run) {
     press(
         run,
@@ -244,7 +236,6 @@ fn vigil(run: &mut Run) {
     }
 }
 
-/// Once lifted, never again: more steps there leave one card.
 fn lifts_once(run: &mut Run, card: &str, name: &str) {
     assert_eq!(lying(run, card), 1, "{name} lifted {card}: {:?}", run.cues);
     assert_eq!(heard(run, &format!("secret_found:{name}")), 1);
@@ -283,7 +274,6 @@ fn a_vigil_at_a_deep_sanctuary_altar_lifts_the_empty_cup_once() {
         0,
         "standing by it is not enough"
     );
-    // A raised guard is not a vigil.
     press(
         &mut run,
         Input {
@@ -315,7 +305,6 @@ fn a_shield_raised_at_a_deeper_altar_lifts_the_glass_needle_and_a_vigil_does_not
     vigil(&mut run);
     assert_eq!(lying(&run, "glass-needle"), 0, "a vigil is the cup's");
     assert_eq!(lying(&run, "hearth-bell"), 1);
-    // Awake again, the glass speaks up; a shield held up lifts it.
     vigil(&mut run);
     assert!(!run.players[&1].vigil);
     assert_eq!(heard(&run, "secret_hint:glass"), 1, "{:?}", run.cues);
@@ -442,7 +431,6 @@ fn a_bomb_at_the_heart_of_the_slain_dragons_lair_wakes_the_banked_coal() {
     run.lair_for_test();
     run.calm_for_test();
     let (cx, cy) = (run.room().width() / 2.0, run.room().height() / 2.0);
-    // Carrying bombs past it, even standing on it, lifts nothing.
     stand(&mut run, (cx, cy));
     run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(
@@ -504,8 +492,6 @@ fn a_draught_drunk_on_a_won_stairs_landing_lifts_the_lantern_mote() {
 fn a_draught_drunk_at_the_lip_of_a_won_pit_lifts_the_reed_flute() {
     let mut run = on_a_generated_floor(Pack::Cavern, 2, first_of(RoomKind::Pit));
     run.clear_for_test();
-    // Whatever the guardian dropped lies elsewhere: a knight takes one
-    // find a step, and the potion is the one to take.
     let at = run.at;
     run.dungeon.rooms[at].items.clear();
     let lip = sunk_reed_at(run.room());
@@ -535,14 +521,12 @@ fn a_vigil_kept_with_crypt_wax_at_the_ledges_far_nook_lifts_the_choir_crumb() {
     let mut run = on_a_generated_floor(Pack::Crypt, 1, first_of(RoomKind::Ledge));
     run.clear_for_test();
     let wick = low_wick_at(run.room());
-    // The way in is far from it.
     let door = run.players[&1].x;
     assert!(wick.0 - door > 60.0, "the nook is across the ledge");
     stand(&mut run, wick);
     run.step(&BTreeMap::new());
     assert!(run.players[&1].grounded, "a knight can stand there");
     assert_eq!(heard(&run, "secret_hint:wick"), 1);
-    // A vigil with no wax lifts nothing.
     vigil(&mut run);
     assert_eq!(lying(&run, "choir-crumb"), 0);
     vigil(&mut run);
@@ -583,14 +567,12 @@ fn a_vigil_kept_with_mines_ore_at_the_floors_farthest_hall_lifts_the_marrow_sip(
 
 #[test]
 fn the_wick_and_the_sill_wait_only_where_their_spoil_can_be_found() {
-    // A Mines first floor sheds no wax: its ledge keeps no wick to hint at.
     let mut run = on_a_generated_floor(Pack::Cavern, 1, first_of(RoomKind::Ledge));
     run.clear_for_test();
     let wick = low_wick_at(run.room());
     stand(&mut run, wick);
     run.step(&BTreeMap::new());
     assert!(!run.cues.iter().any(|c| c.starts_with("secret_hint:")));
-    // A Crypt floor sheds no ore: its halls keep no sill.
     let mut run = on_a_generated_floor(Pack::Crypt, 1, |run| {
         secrets::farthest(&run.dungeon, RoomKind::Hall)
     });
@@ -603,8 +585,6 @@ fn the_wick_and_the_sill_wait_only_where_their_spoil_can_be_found() {
 
 #[test]
 fn every_small_secrets_room_is_laid_out_on_real_floors() {
-    // For each secret: how many of 40 delves of each first pack give it a
-    // room, on the floor it waits on.
     let mut found = BTreeMap::<&str, u32>::new();
     for seed in 0..40u64 {
         for first in [Pack::Crypt, Pack::Cavern] {
@@ -684,7 +664,6 @@ fn an_older_save_gains_the_secret_cards_its_book_never_had() {
         restored.book.cards.windows(2).all(|w| w[0].id < w[1].id),
         "still sorted, so rolls replay"
     );
-    // Its secret lifts a card a knight can pick up.
     let (ax, ay) = restored.room().altar();
     stand(&mut restored, (ax + 1.0, ay));
     vigil(&mut restored);
@@ -700,7 +679,6 @@ fn an_older_save_gains_the_secret_cards_its_book_never_had() {
     stand(&mut restored, (bell.x, bell.y));
     restored.step(&BTreeMap::new());
     assert!(restored.players[&1].hand.iter().any(|c| c == "hearth-bell"));
-    // A friend's own cards in a save are kept as they were.
     run.book.insert(
         cards::check("odd", "name Odd\nkind play\nheal 5\n")
             .unwrap()

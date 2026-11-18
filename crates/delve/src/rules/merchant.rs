@@ -11,18 +11,13 @@ use serde::{Deserialize, Serialize};
 pub const STAND_TICKS: u32 = HZ;
 pub const PLATES: [(i32, i32); 3] = [(17, 9), (19, 9), (21, 9)];
 pub const CART_AT: (f32, f32) = (19.5, 7.5);
-/// In the Delve's courtyard the cart is pulled into the hedge in the south
-/// west corner, out of the square's way, its plates a row before it: the
-/// bazaar out of doors.
 pub const COURTYARD_PLATES: [(i32, i32); 3] = [(2, 9), (4, 9), (6, 9)];
 pub const COURTYARD_CART: (f32, f32) = (4.5, 12.6);
 
-/// The buying plates (tiles) in a room of `kind`.
 pub fn plates(kind: RoomKind) -> [(i32, i32); 3] {
     if kind == RoomKind::Gate { COURTYARD_PLATES } else { PLATES }
 }
 
-/// Where the cart stands (tiles) in a room of `kind`.
 pub fn cart(kind: RoomKind) -> (f32, f32) {
     if kind == RoomKind::Gate { COURTYARD_CART } else { CART_AT }
 }
@@ -59,8 +54,6 @@ pub struct Offer {
     pub gold: u32,
 }
 
-/// A purchase at the surface peddler (or a town counter), for the cockpit
-/// to pay from the realm's treasury: which knight, at which plate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Purchase {
     pub knight: u32,
@@ -68,14 +61,12 @@ pub struct Purchase {
     pub shop: Shop,
 }
 
-/// Who is selling: the peddler's cart, or a counter in the town (`town`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Shop {
     #[default]
     Peddler,
     Bath,
     Smith,
-    /// The per-knight company counters in the Training Yard.
     Squires,
 }
 
@@ -86,11 +77,6 @@ pub struct Camp {
     pub offers: Vec<Offer>,
 }
 
-/// One camp per floor: either safe surface room, or a treasure room below.
-/// A deep floor without treasure may use its initial sanctuary. This keeps
-/// carried-gold purchases usable during a delve, before spoils are banked.
-/// Walking away or loading a checkpoint cannot reroll the camp.
-/// Do not depend on the driver's additional surface room kinds.
 pub fn camp(seed: u64, raid_id: u64, floor: &Floor) -> Option<Camp> {
     let mut rng = Rng::new(
         seed ^ raid_id.rotate_left(23)
@@ -120,8 +106,6 @@ pub fn camp(seed: u64, raid_id: u64, floor: &Floor) -> Option<Camp> {
                 .position(|room| room.kind == kind && suitable(room))
         })?
     } else {
-        // Never select a fight room just because it has been cleared, nor a
-        // boss hall that becomes a sanctuary later: the route cannot reroll.
         floor
             .rooms
             .iter()
@@ -171,26 +155,14 @@ pub fn plate_at(kind: RoomKind, x: f32, y: f32, offers: usize) -> Option<usize> 
         })
 }
 
-/// What a knight's approach to a plate came to. It is theirs alone: kept on
-/// their own seat's memory and drawn on their own board, never the party's
-/// notice line (2026-10-19: "buying a potion should only show you your own
-/// popup"), and a friend buying at the next plate in the same tick cannot
-/// write over it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Sale {
-    /// Paid for, and in their hand or on their belt.
     Bought,
-    /// Asked of the realm's treasury on the surface; the goods follow once
-    /// the cockpit pays (`Run::peddle`).
     Owed,
-    /// Belt or hand full; no gold spent.
     Full,
-    /// Not gold enough.
     Short,
 }
 
-/// Fixed-size approach memory, separate from station/input-control holds.
-/// Kept in checkpoints so even a save made on a plate cannot charge again.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Approach {
     pub offer: Option<usize>,
@@ -198,21 +170,14 @@ pub struct Approach {
     pub spent: bool,
     pub x: f32,
     pub y: f32,
-    /// What this approach came to, once spent. Written only when there is
-    /// one, so a save without it reads, and writes, as it always did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sale: Option<Sale>,
 }
 
-/// A fresh memory for each seat: `MAX_PLAYERS` of them.
 fn fresh_approaches() -> Vec<Approach> {
     vec![Approach::default(); MAX_PLAYERS as usize]
 }
 
-/// Reads the seats' memories from a save made when the party was smaller
-/// (this was once a fixed array four wide, and a bump of the party's size
-/// must never turn an old save into "invalid length"): the seats the save
-/// never had get fresh memories.
 fn approaches_padded<'de, D: serde::Deserializer<'de>>(de: D) -> Result<Vec<Approach>, D::Error> {
     let mut seen = Vec::<Approach>::deserialize(de)?;
     if seen.len() < MAX_PLAYERS as usize {
@@ -223,8 +188,6 @@ fn approaches_padded<'de, D: serde::Deserializer<'de>>(de: D) -> Result<Vec<Appr
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct State {
-    /// By seat, from the first (a knight's number less one). A `Vec`, not an
-    /// array, so saves of any party size load: see `approaches_padded`.
     #[serde(default = "fresh_approaches", deserialize_with = "approaches_padded")]
     pub approaches: Vec<Approach>,
 }
@@ -257,13 +220,9 @@ impl Run {
             self.merchant = State::default();
             return;
         };
-        // A treasure chest may have awakened a mimic. Trading pauses while
-        // the room is unsafe, without moving the cart or changing its offers.
         let unsafe_room = !self.room().cleared || self.enemies.iter().any(|e| e.hp > 0);
         let surface = self.dungeon.depth == 0;
         let kind = self.room().kind;
-        // IDs are bounded by Run's admission. Iterate by ID, not player arrival,
-        // so simultaneous approaches have deterministic outcomes as well.
         for (slot, approach) in self.merchant.approaches.iter_mut().enumerate() {
             let id = slot as u32 + 1;
             let Some(hero) = self.players.get_mut(&id) else {
@@ -275,8 +234,6 @@ impl Run {
                 *approach = Approach::default();
                 continue;
             };
-            // A spent approach remains latched even if the knight changes to
-            // another plate without leaving the buying area.
             if approach.spent {
                 continue;
             }
@@ -288,8 +245,6 @@ impl Run {
                 || hero.frog()
                 || hero.aiming.is_some()
             {
-                // Threats or incapacity interrupt the dwell, not a purchase
-                // latch. Only actually stepping away can rearm a spent visit.
                 approach.ticks = 0;
                 continue;
             }
@@ -303,8 +258,6 @@ impl Run {
             if approach.ticks < STAND_TICKS {
                 continue;
             }
-            // Success AND refusal consume this approach. No repeated charges,
-            // retries or message spam until the knight steps off all plates.
             approach.spent = true;
             let offer = camp.offers[index];
             let full = match offer.goods {
@@ -316,9 +269,6 @@ impl Run {
             } else {
                 hero.carried.get(Spoil::Gold)
             };
-            // Each knight buys for themselves, at once: nothing here waits on
-            // or writes over another seat's purchase, and the outcome is told
-            // to the buyer's own board alone (`Approach::sale`).
             approach.sale = Some(if full {
                 Sale::Full
             } else if have < offer.gold {
@@ -340,8 +290,6 @@ impl Run {
         }
     }
 
-    /// What surface purchase `p` costs, while the peddler still stands here
-    /// and the knight still has room for it.
     pub fn peddle_price(&self, p: Purchase) -> Option<u32> {
         if p.shop == Shop::Squires {
             return self.squire_price(p);
@@ -359,8 +307,6 @@ impl Run {
         (!full).then_some(offer.gold)
     }
 
-    /// The cockpit paid for surface purchase `p` from the realm's treasury:
-    /// the knight gets the goods.
     pub fn peddle(&mut self, p: Purchase) {
         if p.shop == Shop::Squires {
             self.squire_purchase(p);
@@ -382,8 +328,6 @@ impl Run {
         };
         self.deliver_peddled(p, offer.goods, card, true);
     }
-    /// Deliver the captured goods, independently of a later vendor catalogue.
-    /// The game journal supplies the exact prepared card binding.
     pub(super) fn deliver_peddled(
         &mut self,
         p: Purchase,

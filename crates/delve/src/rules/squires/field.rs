@@ -4,11 +4,8 @@
 use super::super::hireling::{AllyKind, Hireling, beside};
 use super::*;
 
-/// Six tiles from their own knight, not from whichever friend is nearest.
 const LEASH: f32 = 6.0 * TILE_UNITS;
 const REACH: f32 = 1.5;
-/// Soft room for a knight's silhouette, in world units, not tiles. The
-/// correction is deliberately short: companions yield, never shove owners.
 const BREATHING_ROOM: f32 = 2.0;
 const SEPARATION_STEP: f32 = 0.24;
 const MEND_EVERY: u32 = 2 * HZ;
@@ -19,10 +16,6 @@ fn level(s: &Companion) -> u32 {
 }
 
 impl Run {
-    /// Call after the knights land on a new dungeon floor (including the
-    /// first descent). One selected squire per present owner, at most six;
-    /// neither the tavern's hireling nor any minion is displaced. A floor
-    /// restores the actor, but never changes the persistent roster.
     pub fn deploy_company_squires(&mut self) {
         self.squire_field.companions.clear();
         if self.at_home_now() || self.dungeon.rooms.get(self.at).is_none() {
@@ -55,8 +48,6 @@ impl Run {
                 beside(&grid, (hero.x, hero.y)),
                 owner,
             );
-            // No fraction of a monster's health enters these stats. More
-            // friends do not make a squire hit harder or live longer.
             actor.max_hp = (48 + tier * 16 + self.dungeon.depth * 8)
                 * if squire.kind == Kind::Shield { 2 } else { 1 };
             actor.hp = actor.max_hp;
@@ -74,8 +65,6 @@ impl Run {
         self.squire_field.companions = companions;
     }
 
-    /// A doorway is not a new enlistment. Keep wounds, come beside the
-    /// owner on legal ground, and forget the last room's target.
     pub fn company_squires_follow(&mut self) {
         if self.at_home_now() {
             self.squire_field.companions.clear();
@@ -101,8 +90,6 @@ impl Run {
         self.squire_field.companions = companions;
     }
 
-    /// The hireling calls this even when its own slot is empty. BTree
-    /// owner order breaks every tie, including two healers' choice of patient.
     pub fn tick_company_squires(&mut self) {
         if self.at_home_now() {
             self.squire_field.companions.clear();
@@ -117,9 +104,6 @@ impl Run {
         self.separate_squires();
     }
 
-    /// Drive temporarily takes the field out of Run. Separate afterwards,
-    /// with every peer available; BTree owner order also breaks exact-pile
-    /// ties deterministically. Only squire positions are written back.
     fn separate_squires(&mut self) {
         if self.squire_field.companions.is_empty() {
             return;
@@ -173,9 +157,6 @@ impl Run {
             if cost <= f32::EPSILON {
                 continue;
             }
-            // Trying directions as well as radial repulsion lets a squire
-            // slide along stone, and avoids zero vectors in an exact pile.
-            // All candidate steps are shorter than the body's radius.
             for step in [SEPARATION_STEP, SEPARATION_STEP / 2.0] {
                 for direction in 0..16 {
                     let angle =
@@ -198,8 +179,6 @@ impl Run {
                     }
                 }
             }
-            // Later peers see earlier corrections, not an empty field or
-            // six identical stale spawn positions.
             peers[i].1 = best;
         }
         for (owner, at) in peers {
@@ -237,8 +216,6 @@ impl Run {
             }
             return;
         }
-        // A knight can dash or be placed beyond the leash. Recall to a
-        // legal tile at the heel, never to a point across a wall from it.
         if (s.actor.x - heel.0).hypot(s.actor.y - heel.1) > LEASH {
             (s.actor.x, s.actor.y) = beside(
                 &Grid {
@@ -250,8 +227,6 @@ impl Run {
         }
         let vanished = s.squire.kind == Kind::Ninja && level(s) >= 3 && s.effect > 0;
         if !vanished {
-            // Shots (including beams and lobs) resolve in flight. Touch
-            // is resolved here, as for the existing hireling actor.
             if self.enemies.iter().any(|e| {
                 e.hp > 0
                     && !e.dormant
@@ -289,7 +264,6 @@ impl Run {
                 return;
             }
         } else if s.squire.kind == Kind::Alchemist {
-            // A potion does not use the bomb's throwing hand/cooldown.
             self.squire_mend(s, heel, tier >= 2);
         }
         let target = self.squire_quarry(s, heel);
@@ -300,8 +274,6 @@ impl Run {
             let distance = (at.0 - s.actor.x).hypot(at.1 - s.actor.y);
             match s.squire.kind {
                 Kind::Ninja => {
-                    // The side away from the foe's chosen knight is its
-                    // back. Close on that flank rather than a ranged orbit.
                     let front = self.players.get(&foe.wits.foe).map_or(heel, |h| (h.x, h.y));
                     let away = unit(at.0 - front.0, at.1 - front.1);
                     goal = (at.0 + away.0 * 1.2, at.1 + away.1 * 1.2);
@@ -332,8 +304,6 @@ impl Run {
                     }
                 }
                 Kind::Shield => {
-                    // Stand between the threat and the owner; unlike an
-                    // invincible wall the shield's body pays for each shot.
                     let toward = unit(at.0 - heel.0, at.1 - heel.1);
                     goal = (at.0 - toward.0 * 1.2, at.1 - toward.1 * 1.2);
                     if distance < REACH + foe.radius() && s.actor.cooldown == 0 {
@@ -364,8 +334,6 @@ impl Run {
                 Kind::Alchemist => {
                     goal = ranged_goal(s, heel, at, 4.0);
                     if s.actor.cooldown == 0 {
-                        // A short-fused bomb: every blast victim must be
-                        // visible from its centre as well as inside the leash.
                         let grid = Grid {
                             room: self.room(),
                             barred: self.barred(),
@@ -459,8 +427,6 @@ impl Run {
             Mover::Hero,
         );
         let distance = (next.0 - heel.0).hypot(next.1 - heel.1);
-        // Do not undo the yielding pass by walking back into the owner
-        // every tick. A companion already crowded may still walk out.
         if distance <= LEASH
             && (distance >= BREATHING_ROOM
                 || distance >= (s.actor.x - heel.0).hypot(s.actor.y - heel.1))
@@ -488,8 +454,6 @@ impl Run {
                 },
             );
         }
-        // Removal, camp casualties, rewards and room completion all stay
-        // with the normal end-of-tick settlement, just like minion melee.
     }
 
     fn company_squire_shot(
@@ -561,8 +525,6 @@ impl Run {
         let Some(id) = patient else { return false };
         let trained = level(s);
         let hero = self.players.get_mut(&id).unwrap();
-        // This is a scheduled party mend, not passive lifesteal: the
-        // leech budget would flatten every paid level to two HP.
         hero.mend(6 + trained * 3, stakes::Mend::Party);
         if cleanse {
             hero.hexed = 0;
@@ -578,9 +540,6 @@ impl Run {
         true
     }
 
-    /// A third-tier healer ferries a settled skull toward a standing
-    /// friend, or wards a nearby carrier. It cannot raise the fallen:
-    /// E and a weakened monster are still needed by the skull rules.
     fn squire_skull(&mut self, s: &mut Companion, heel: (f32, f32)) -> bool {
         if s.ability > 0 {
             return false;
@@ -659,8 +618,6 @@ impl Run {
 }
 
 impl Companion {
-    /// Smoke hides only the third-tier ninja; all other standing squires
-    /// are ordinary targets, including the healer at the back of the fight.
     pub fn targetable(&self) -> bool {
         !self.actor.down()
             && !(self.squire.kind == Kind::Ninja && level(self) >= 3 && self.effect > 0)

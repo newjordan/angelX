@@ -6,8 +6,6 @@ use crate::rules::Weapon;
 use crate::rules::deathmatch::Fighter;
 use crate::motion::ease;
 
-/// The sword, point up: a blade that widens from the tip with a bright edge,
-/// a fuller down its face, a gold guard, a wrapped grip, a pommel.
 fn sword() -> Img {
     let (w, h) = (33, 92);
     let mut im = Img::new(w, h);
@@ -19,18 +17,15 @@ fn sword() -> Img {
             im.put(cx + dx, y, ink);
         }
     }
-    // The guard: a gold bar with turned ends.
     im.rect(cx - 15, 60, 31, 4, 'O');
     im.rect(cx - 15, 60, 31, 1, 't');
     im.rect(cx - 15, 64, 31, 1, 'B');
     im.rect(cx - 16, 58, 3, 8, 'o');
     im.rect(cx + 14, 58, 3, 8, 'o');
-    // The grip: leather, wrapped.
     for y in 65..82 {
         let ink = if y % 3 == 0 { 'B' } else { 'P' };
         im.rect(cx - 2, y, 5, 1, ink);
     }
-    // The pommel.
     im.rect(cx - 4, 82, 9, 5, 'O');
     im.rect(cx - 3, 82, 4, 2, 'T');
     im.rect(cx - 2, 87, 5, 1, 'B');
@@ -38,7 +33,6 @@ fn sword() -> Img {
     im
 }
 
-/// The great maul, head up: a banded block of iron on a long wrapped haft.
 fn maul() -> Img {
     let mut im = Img::new(40, 92);
     for y in 18..90 {
@@ -55,7 +49,6 @@ fn maul() -> Img {
     im
 }
 
-/// An iron glove closed round the grip: plates with a bright top edge.
 fn glove(im: &mut Img, x: i32, y: i32) {
     for (dx, dy, w, h) in [(0, 0, 20, 7), (1, 7, 18, 7), (3, 14, 14, 5)] {
         for yy in 0..h {
@@ -70,9 +63,6 @@ fn glove(im: &mut Img, x: i32, y: i32) {
     }
 }
 
-/// Whether this knight's arm is drawn as the sword (the arms with their own
-/// look keep it): the bare sword, or a forged blade that is not a maul,
-/// cleaver or flask rack.
 pub(super) fn is_sword(f: &Fighter) -> bool {
     look(f).is_some()
 }
@@ -90,8 +80,6 @@ fn look(f: &Fighter) -> Option<Look> {
     }
 }
 
-/// Draw `src` turned by `angle` (clockwise, radians) about its `pivot`, with
-/// the pivot at `at`: the nearest pixel, so it stays pixel art.
 fn blit_turned(im: &mut Img, src: &Img, pivot: (f32, f32), at: (i32, i32), angle: f32) {
     let r = src.w.max(src.h) + 2;
     let (s, c) = angle.sin_cos();
@@ -106,9 +94,6 @@ fn blit_turned(im: &mut Img, src: &Img, pivot: (f32, f32), at: (i32, i32), angle
     }
 }
 
-/// The sword in hand: resting a little to the right and swaying with the
-/// walk; the stroke (`swing`: its combo 1 to 3 and ticks left of nine)
-/// sweeps it across, back, then down.
 pub(super) fn draw(im: &mut Img, f: &Fighter, swing: Option<(u8, u8)>) {
     let maul_in_hand = look(f) == Some(Look::Maul);
     let blade = if maul_in_hand { maul() } else { sword() };

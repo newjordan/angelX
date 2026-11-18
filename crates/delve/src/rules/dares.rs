@@ -6,22 +6,15 @@
 use super::*;
 use crate::realm::Spoil;
 
-/// What Fortune dares.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DareKind {
-    /// Two rooms on this floor without a scratch.
     Untouched,
-    /// No rolling, all floor.
     StandFirm,
-    /// The stairs within four minutes of arriving.
     AgainstTheClock,
-    /// Clear three rooms on this floor.
     #[serde(alias = "show_off")]
     Pathfinder,
-    /// The guardian felled within forty-five seconds of rising.
     MakeItQuick,
-    /// Four in a breath, twice.
     Unstoppable,
 }
 
@@ -37,7 +30,6 @@ impl DareKind {
         }
     }
 
-    /// The dare as Fortune puts it.
     pub fn says(self) -> &'static str {
         match self {
             DareKind::Untouched => "two rooms on this floor without a scratch",
@@ -49,7 +41,6 @@ impl DareKind {
         }
     }
 
-    /// The name as a card's first line: two or three plain words.
     pub fn card_name(self) -> &'static str {
         match self {
             DareKind::Untouched => "NOT A SCRATCH",
@@ -61,7 +52,6 @@ impl DareKind {
         }
     }
 
-    /// The rule as a card's second line: at most three plain words.
     pub fn card_rule(self) -> &'static str {
         match self {
             DareKind::Untouched => "TWO CLEAN ROOMS",
@@ -84,7 +74,6 @@ impl DareKind {
         }
     }
 
-    /// How many of its moment the dare needs (1 for the ones judged once).
     fn need(self) -> u32 {
         match self {
             DareKind::Untouched | DareKind::Unstoppable => 2,
@@ -94,8 +83,6 @@ impl DareKind {
     }
 }
 
-/// The dare on this floor: what, since when, how far along, and how it
-/// stands.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Dare {
     pub kind: DareKind,
@@ -106,20 +93,15 @@ pub struct Dare {
     pub kept: bool,
     #[serde(default)]
     pub broken: bool,
-    /// When the guardian rose, for Make It Quick.
     #[serde(default)]
     pub rose: Option<u64>,
 }
 
-/// Against the Clock's clock, and Make It Quick's.
 pub const CLOCK: u64 = 4 * 60 * HZ as u64;
 pub const QUICK: u64 = 45 * HZ as u64;
-/// How long the dare's board shows as the party arrives.
 pub const CALLED: u64 = 5 * HZ as u64;
 
 impl Dare {
-    /// How the dare stands, short enough for the sidebar: "1 of 2",
-    /// "3:42 left", "kept!", "broken".
     pub fn standing(&self, tick: u64) -> String {
         if self.kept {
             return "kept!".into();
@@ -147,10 +129,6 @@ impl Dare {
 }
 
 impl Run {
-    /// Whether this floor holds a guardian still to rise, the one Make It
-    /// Quick dares the party to fell: an open floor's boss or dragon, a
-    /// gated floor's apex (or its lair), or an uncleared guardian's room.
-    /// The streamlined identity room is a cleared stairs room and holds none.
     pub fn floor_has_guardian(&self) -> bool {
         if self.dungeon.open.is_some() {
             return self
@@ -177,9 +155,6 @@ impl Run {
         })
     }
 
-    /// A new floor: Fortune calls her dare, one the floor allows (the
-    /// Unknown has no stairs and no guardian; a floor with no guardian,
-    /// like the streamlined identity room, is never dared to fell one).
     pub(super) fn call_dare(&mut self) {
         let depth = self.dungeon.depth;
         if depth == 0 {
@@ -218,8 +193,6 @@ impl Run {
         self.cues.push(format!("dare:{}", kind.word()));
     }
 
-    /// The dare each tick: the moments called since `heard` and the sounds
-    /// since `sounded` keep it or break it.
     pub(super) fn watch_dare(&mut self, heard: usize, sounded: usize) {
         let Some(mut dare) = self.dare.clone().filter(|d| !d.kept && !d.broken) else {
             return;
@@ -280,8 +253,6 @@ impl Run {
         }
     }
 
-    /// The party takes the stairs: a dare judged there is kept if it
-    /// wasn't broken on the way.
     pub(super) fn settle_dare(&mut self) {
         let Some(dare) = self.dare.as_mut().filter(|d| !d.kept && !d.broken) else {
             return;
@@ -292,7 +263,6 @@ impl Run {
         }
     }
 
-    /// Fortune's purse: gold and a gem for every knight standing.
     fn pay_dare(&mut self) {
         let depth = self.dungeon.depth;
         for hero in self.players.values_mut().filter(|h| h.hp > 0) {

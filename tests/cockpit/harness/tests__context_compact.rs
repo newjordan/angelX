@@ -5,13 +5,10 @@
 
 use super::*;
 
-// --- context / compact suite ------------------------------------------------
-
 #[test]
 fn cap_text_passes_small_output_through() {
     let s = "short\noutput";
     assert_eq!(cap_text(s, 1024, 100), s);
-    // Both dimensions disabled is always a no-op, even for huge input.
     let big = "x".repeat(5000);
     assert_eq!(cap_text(&big, 0, 0), big);
 }
@@ -22,7 +19,7 @@ fn cap_text_caps_by_lines_keeping_head_and_tail() {
         .map(|i| format!("line{i}"))
         .collect::<Vec<_>>()
         .join("\n");
-    let out = cap_text(&input, 0, 10); // bytes off, 10-line cap
+    let out = cap_text(&input, 0, 10);
     assert!(out.contains("line0"), "head kept: {out}");
     assert!(out.contains("line99"), "tail kept: {out}");
     assert!(
@@ -42,9 +39,8 @@ fn cap_text_caps_by_lines_keeping_head_and_tail() {
 
 #[test]
 fn cap_text_caps_by_bytes_on_char_boundary() {
-    // Multibyte content so a naive byte split would panic mid-codepoint.
-    let input = "é".repeat(10_000); // 2 bytes each = 20_000 bytes, 1 line
-    let out = cap_text(&input, 1024, 0); // 1 KiB byte cap, lines off
+    let input = "é".repeat(10_000);
+    let out = cap_text(&input, 1024, 0);
     assert!(out.len() < input.len(), "did not shrink: {}", out.len());
     assert!(
         out.contains(&format!(
@@ -82,9 +78,9 @@ fn pruning_history() -> Vec<ChatMsg> {
 fn prune_history_disabled_and_under_cap_are_noops() {
     let mut h = pruning_history();
     let orig = h.len();
-    prune_history(&mut h, 0); // disabled
+    prune_history(&mut h, 0);
     assert_eq!(h.len(), orig);
-    prune_history(&mut h, 100); // under cap
+    prune_history(&mut h, 100);
     assert_eq!(h.len(), orig);
 }
 
@@ -99,11 +95,9 @@ fn prune_history_keeps_system_and_drops_oldest() {
 
 #[test]
 fn prune_history_never_orphans_a_tool_result() {
-    // Exercise both the clean-boundary and tool-advance paths.
     for cap in [3usize, 4, 5, 6] {
         let mut h = pruning_history();
         prune_history(&mut h, cap);
-        // The kept suffix must not begin on a tool result.
         if let Some(m) = h.iter().find(|m| m.role != ChatRole::System) {
             assert_ne!(
                 m.role,
@@ -111,7 +105,6 @@ fn prune_history_never_orphans_a_tool_result() {
                 "cap {cap}: kept suffix starts on an orphan tool result"
             );
         }
-        // Every surviving tool result must pair with a preceding call.
         for (i, m) in h.iter().enumerate() {
             if m.role == ChatRole::Tool {
                 let id = m.tool_call_id.clone().unwrap();
@@ -134,8 +127,6 @@ fn prune_history_refuses_to_gut_system_preamble() {
         ChatMsg::assistant("a"),
     ];
     let orig = h.len();
-    // Cap (2) is smaller than the 3-message system preamble — must no-op
-    // rather than evict the prompt.
     prune_history(&mut h, 2);
     assert_eq!(h.len(), orig, "must not evict the system preamble");
 }
@@ -168,7 +159,7 @@ fn prune_history_preserves_one_exact_harness_turn_context_within_the_cap() {
 
 #[test]
 fn estimate_tokens_is_chars_over_four_ish() {
-    let h = vec![ChatMsg::user("a".repeat(40))]; // 40 content + 8 overhead = 48 -> 12
+    let h = vec![ChatMsg::user("a".repeat(40))];
     let t = estimate_tokens(&h);
     assert!((10..=14).contains(&t), "got {t}");
 }
@@ -179,14 +170,10 @@ fn history_token_roll_reuses_on_append_and_recomputes_on_rewrite() {
     let mut h = vec![ChatMsg::user("hello"), ChatMsg::assistant("world")];
     let base = roll.recompute(&h);
     assert_eq!(base, estimate_tokens(&h));
-    // Pure append: only the new tail is counted.
     h.push(ChatMsg::user("more"));
     let grown = roll.observe(&h);
     assert_eq!(grown, estimate_tokens(&h));
-    // Same snapshot: no rewalk.
     assert_eq!(roll.observe(&h), grown);
-    // In-place rewrite of an earlier message: full recompute (content hash
-    // changes even when the char length is similar).
     h[0] = ChatMsg::user("HELLO — a much longer rewritten user turn");
     let rewritten = roll.observe(&h);
     assert_eq!(rewritten, estimate_tokens(&h));
@@ -253,8 +240,6 @@ fn history_token_roll_observes_copy_on_write_arguments_and_role_changes() {
         serde_json::json!({"path": "much-longer-file-name.rs"});
     assert_eq!(roll.observe(&history), estimate_tokens(&history));
     assert_eq!(cloned_roll.observe(&original), estimate_tokens(&original));
-    // Once only the live history and rolling cache retain the calls, a later
-    // make_mut must still invalidate the cache rather than mutate its snapshot.
     drop(original);
     drop(cloned_roll);
     std::sync::Arc::make_mut(&mut history[0].tool_calls)[0].name = "different_tool_name".into();
@@ -350,28 +335,21 @@ fn estimate_tokens_counts_large_tool_arguments_by_exact_serialized_bytes() {
 fn estimate_tool_tokens_counts_schema_bytes() {
     assert_eq!(estimate_tool_tokens(&[]), 0, "no tools → no cost");
     let tools = vec![ToolDef {
-        name: "read_file".to_string(),                 // 9
-        description: "Read a file".to_string(),        // 11
-        params: serde_json::json!({"type": "object"}), // 17 chars serialized
+        name: "read_file".to_string(),
+        description: "Read a file".to_string(),
+        params: serde_json::json!({"type": "object"}),
     }];
     let t = estimate_tool_tokens(&tools);
-    // (9 + 11 + 17 + 8) / 4 ≈ 11; just assert it's a non-trivial positive cost.
     assert!(t >= 8, "tool schema should carry real token cost, got {t}");
 }
 
 #[test]
 fn defs_for_run_trims_to_essentials_on_tiny_window() {
-    // Serialize with the sibling profile test below: defs_for_run reads
-    // ANGEL_TOOL_SCHEMA_PROFILE, so an unguarded run can observe the
-    // essential profile it sets under env_lock and fail the full-set asserts.
     let _guard = crate::tests::env_lock();
     let reg = ToolRegistry::with_defaults();
     let full = reg.defs();
-    // Unknown or roomy window → the full advertised set, unchanged.
     assert_eq!(reg.defs_for_run(None, false).len(), full.len());
     assert_eq!(reg.defs_for_run(Some(1_000_000), false).len(), full.len());
-    // Tiny window → trimmed to the essential loop, strictly smaller, and the
-    // core read tool must survive so the agent can still function + bloat.
     let lean = reg.defs_for_run(Some(2048), false);
     assert!(
         lean.len() < full.len(),
@@ -756,7 +734,6 @@ fn coding_hot_path_drops_swarm_compile_from_bounded_set() {
     );
 }
 
-/// A schema parameter's pages: its description is their address.
 fn param_pages(params: &serde_json::Value, key: &str) -> String {
     let address = params["properties"][key]["description"]
         .as_str()
@@ -764,9 +741,6 @@ fn param_pages(params: &serde_json::Value, key: &str) -> String {
     crate::agent::harness::book::ledger::read(std::path::Path::new("."), address).expect("pages")
 }
 
-// The original named tests share this runner; fixture rows hold their
-// independent expected strings and schema checks, and can be edited without
-// recompiling the test binary.
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct LeanSchemaFixture {
@@ -847,7 +821,6 @@ fn assert_lean_schema_case(name: &str) {
     }
     if let Some(key) = &case.maximum_property {
         assert_eq!(lean.params["properties"][key]["maximum"], full_def.params["properties"][key]["maximum"]);
-        // grep's paths limit is maxItems; read_file's limit is maximum.
         if name == "grep" {
             assert_eq!(lean.params["properties"][key]["maxItems"], full_def.params["properties"][key]["maxItems"]);
         }
@@ -878,8 +851,6 @@ fn assert_lean_schema_case(name: &str) {
     }
 }
 
-/// Bounded / competition hops advertise a short code_mode blurb. Default
-/// interactive keeps the full isolate/API essay.
 #[test]
 fn coding_hot_path_leans_code_mode_description() {
     let full_def = crate::agent::harness::CodeModeTool::new(&["read_file".into()]).def();
@@ -899,7 +870,6 @@ fn coding_hot_path_leans_code_mode_description() {
         full_def.description.len()
     );
     assert!(!lean.description.contains("Default repository-read tools"));
-    // Lean and full name the same pages; the param essay lives in the book.
     assert_eq!(lean.params, full_def.params);
     assert!(param_pages(&full_def.params, "query").contains("never executable"));
     assert_eq!(lean.params["required"], full_def.params["required"]);
@@ -947,29 +917,21 @@ fn coding_hot_path_leans_code_mode_description() {
     assert_eq!(comp_cm.params, full_cm.params);
 }
 
-/// Bounded / competition hops advertise a short apply_patch blurb. Default
-/// interactive keeps the hashline/envelope essay.
 #[test]
 fn coding_hot_path_leans_apply_patch_description() {
     assert_lean_schema_case("apply_patch");
 }
 
-/// Bounded / competition hops advertise a short read_file blurb. Default
-/// interactive keeps the virtual-URL / hashline-recovery essay.
 #[test]
 fn coding_hot_path_leans_read_file_description() {
     assert_lean_schema_case("read_file");
 }
 
-/// Bounded / competition hops advertise a short write_file blurb. Default
-/// interactive keeps the conflict-resolve essay.
 #[test]
 fn coding_hot_path_leans_write_file_description() {
     assert_lean_schema_case("write_file");
 }
 
-/// Bounded / competition hops advertise a short shell blurb. Default
-/// interactive keeps the sandbox / sudo / package-manager essay.
 #[test]
 fn coding_hot_path_leans_shell_description() {
     let _guard = crate::tests::env_lock();
@@ -1024,8 +986,6 @@ fn coding_hot_path_leans_shell_description() {
     assert_eq!(comp_sh.description, lean_shell_description());
 }
 
-/// Bounded / competition hops advertise a short tool_search blurb. Default
-/// interactive keeps the deferred-count / base-list essay.
 #[test]
 fn coding_hot_path_leans_tool_search_description() {
     let _guard = crate::tests::env_lock();
@@ -1077,22 +1037,16 @@ fn coding_hot_path_leans_tool_search_description() {
     assert_eq!(comp_ts.params, full_ts.params);
 }
 
-/// Bounded / competition hops advertise a short list_dir blurb. Default
-/// interactive keeps the default-root / suffix essay.
 #[test]
 fn coding_hot_path_leans_list_dir_description() {
     assert_lean_schema_case("list_dir");
 }
 
-/// Bounded / competition hops advertise a short str_replace blurb. Default
-/// interactive keeps the whitespace / CRLF / smart-quote essay.
 #[test]
 fn coding_hot_path_leans_str_replace_description() {
     assert_lean_schema_case("str_replace");
 }
 
-/// Bounded / competition hops advertise a short grep blurb. Default
-/// interactive keeps the diversity / ignore-rule essay.
 #[test]
 fn coding_hot_path_leans_grep_description() {
     assert_lean_schema_case("grep");
@@ -1123,7 +1077,6 @@ fn defs_for_turn_leans_on_competition_without_shrinking_default() {
         comp.iter()
             .all(|tool| is_coding_hot_path_tool(&tool.name) || is_research_tool(&tool.name))
     );
-    // A competition is long research: the trim never hides the research tools.
     for research in [
         "web_search",
         "web_fetch",
@@ -1337,10 +1290,6 @@ fn shipped_live_ranking_matches_native_bm25_and_drives_the_real_tool_catalogue()
     assert!(decision.tools.iter().any(|name| name == "run_tests"));
 }
 
-/// A byte-exact prefix cache renders the tools ahead of the conversation, so
-/// on such a seat a new user turn offers exactly the tools the session already
-/// had (the bubble is seeded once); a seat without that cache starts each turn
-/// fresh.
 #[test]
 fn a_prefix_cached_seat_keeps_earlier_turns_tools() {
     struct Recorder {
@@ -1516,14 +1465,12 @@ fn full_schema_profile_overrides_a_tiny_context_window() {
 #[test]
 fn cap_tool_output_is_window_relative() {
     let big = "x".repeat(200_000);
-    // Small window → capped far below the flat 64 KB default (~1/3 of window).
     let small = cap_tool_output(&big, Some(8192));
     assert!(
         small.len() < 20_000,
         "8K window must cap a huge output hard, got {}",
         small.len()
     );
-    // Large window → the flat 64 KB default governs (window cap is looser).
     let large = cap_tool_output(&big, Some(200_000));
     assert!(
         large.len() > small.len(),
@@ -1533,7 +1480,6 @@ fn cap_tool_output_is_window_relative() {
     );
 }
 
-/// A7: env ceilings still apply (tests re-read; production caches process-wide).
 #[test]
 fn cap_tool_output_respects_env_byte_ceiling() {
     let _guard = crate::tests::env_lock();
@@ -1733,8 +1679,6 @@ fn context_fit_scans_a_long_history_once() {
     assert!(context_tokens(&history, &[]) <= budget);
 }
 
-/// Answers immediately without tools, so a test isolates the pre-request
-/// compaction boundary.
 struct BudgetAnswerClub;
 impl Club for BudgetAnswerClub {
     fn respond(&self, _prompt: &str) -> Result<String, String> {
@@ -1785,8 +1729,6 @@ fn under_budget_turn_does_not_enter_compaction() {
     assert_eq!(history[0].content.as_ref(), "hello");
     assert_eq!(history.last().unwrap().role, ChatRole::Assistant);
     assert_eq!(history.last().unwrap().content.as_ref(), "done");
-    // Workspace evidence may add harness context, but no extra model turn is
-    // needed for an under-budget answer.
     assert!(
         history[1..history.len() - 1]
             .iter()
@@ -1872,8 +1814,6 @@ fn under_budget_model_requested_compaction_still_enters() {
 #[test]
 fn context_fit_stress_ladder_32k_to_256k_is_bounded_deterministic_and_protocol_safe() {
     for budget in [32_768usize, 65_536, 131_072, 262_144] {
-        // Eight recent results put the synthetic request at roughly 2x the
-        // target. Unicode payloads also exercise byte-boundary-safe elision.
         let payload = "λ".repeat(budget / 2);
         let original = tool_hop_history(8, &payload);
         let mut first = original.clone();
@@ -1982,7 +1922,6 @@ fn run_turn_fits_a_protected_large_tool_batch_without_an_extra_model_hop() {
                         .collect(),
                 ));
             }
-            // metadata 8192 -> compaction budget has 20% headroom = 6554.
             self.request_fit
                 .store(context_tokens(messages, tools) <= 6_554, Ordering::Relaxed);
             Ok(ClubReply::Text("large evidence handled".to_string()))
@@ -1991,11 +1930,6 @@ fn run_turn_fits_a_protected_large_tool_batch_without_an_extra_model_hop() {
 
     let _guard = crate::tests::env_lock();
     let _budget = EnvGuard::set("ANGEL_CONTEXT_BUDGET_TOKENS", "6554");
-    // This test exercises the *emergency* aggregate-fit elision
-    // (fit_tool_results_to_budget + TOOL_CONTEXT_FIT_MARK). The handle store
-    // legitimately preempts it by offloading bulk results to hnd_* receipts
-    // before the batch can exceed the budget — scope it off so the fallback
-    // path this test owns is actually the one that runs.
     let _handles = EnvGuard::set("ANGEL_HANDLE_STORE", "0");
     let mut registry = ToolRegistry::new();
     registry.register(Box::new(HugeTool));
@@ -2114,7 +2048,6 @@ fn maybe_compact_summarizes_and_preserves_structure() {
         "assistant answer number 7 text here",
         "newest turn preserved"
     );
-    // Pairing intact: every kept tool result still has a preceding call.
     for (i, m) in h.iter().enumerate() {
         if m.role == ChatRole::Tool {
             let id = m.tool_call_id.clone().unwrap();
@@ -2126,7 +2059,6 @@ fn maybe_compact_summarizes_and_preserves_structure() {
             );
         }
     }
-    // A second pass leaves the now-small window alone (no thrash).
     assert!(!maybe_compact(&club, &mut h, 30, 5, 0, &[], &reg, &tx));
 }
 
@@ -2840,7 +2772,6 @@ fn recovery_context_compaction_and_pruning_preserve_consumption_without_global_h
         crate::agent::club::recovery_context_refs(&restored),
         expected
     );
-    // A source removed before first dispatch contributes no input to that turn.
     let mut pruned = long_history();
     pruned[1]
         .recovery_context
@@ -2958,7 +2889,6 @@ fn context_compact_summary_input_excludes_operator_contract() {
     let summary = compaction_summary_window(&source);
     assert_eq!(summary[0].role, ChatRole::Harness);
     assert!(!summary[0].content.contains("ALPHA-KITE-9182"));
-    // The marker is `⡨⠉⠁` inside its bracket, the digest beside it.
     assert_eq!(
         &*summary[0].content,
         format!(

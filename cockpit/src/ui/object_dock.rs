@@ -13,9 +13,6 @@ use ratatui::{
 
 const REVEAL: Duration = Duration::from_millis(640);
 const TILE: u16 = 9;
-/// The narrowest pane the dock floats its solids from (three to a page); a
-/// narrower one keeps its row of bracketed controls, so Back is never pages
-/// out of reach.
 pub(crate) const MIN_WIDTH: u16 = 40;
 
 #[derive(Debug)]
@@ -27,8 +24,6 @@ pub(crate) struct ObjectDock {
     changed: Instant,
     epoch: Instant,
     exploring: bool,
-    /// The actions of the row the dock stands in for, in the dock's order
-    /// (an arrival floats Enter, Explore and Back; the world all seven).
     offered: Vec<(&'static str, WorldButton)>,
     objects: Vec<FloatingObject>,
     pub(crate) area: Rect,
@@ -61,7 +56,6 @@ impl ObjectDock {
         }
         let t = (now.saturating_duration_since(self.changed).as_secs_f32() / REVEAL.as_secs_f32())
             .clamp(0.0, 1.0);
-        // Ease-out cubic; reversal starts at the current displayed extent.
         let ease = 1.0 - (1.0 - t).powi(3);
         self.from + (target - self.from) * ease
     }
@@ -72,8 +66,6 @@ impl ObjectDock {
         self.changed = now;
     }
 
-    /// Open and already settled, as if the reveal had run: for tests that
-    /// look at the floated actions without waiting out the motion.
     #[cfg(test)]
     pub(crate) fn open_settled(&mut self) {
         self.open = true;
@@ -81,7 +73,6 @@ impl ObjectDock {
         self.changed = Instant::now() - REVEAL;
     }
 
-    /// Whether the dock is up and carries `action` on any of its pages.
     #[cfg(test)]
     pub(crate) fn offers(&self, action: WorldButton) -> bool {
         self.visible && self.offered.iter().any(|(_, offered)| *offered == action)
@@ -92,7 +83,6 @@ impl ObjectDock {
             && (self.progress(now, motion) - f32::from(self.open)).abs() > 0.001
     }
 
-    /// A visible object, not the empty space between objects, owns the pointer.
     pub(crate) fn hit(&self, x: u16, y: u16) -> Option<WorldButton> {
         if !self.visible { return None; }
         self.tiles.iter().find(|(rect, _)| {
@@ -110,7 +100,6 @@ impl ObjectDock {
             now.saturating_duration_since(self.epoch).as_secs_f32()
         } else { 0.0 };
         let count = rects.len();
-        // Fan outward only into available terminal space. No pane is resized.
         let left_room = f32::from(self.area.x.saturating_sub(screen.x)).min(5.0);
         let right_room = f32::from(screen.right().saturating_sub(self.area.right())).min(5.0);
         rects.into_iter().enumerate().map(|(i, rect)| {
@@ -118,9 +107,6 @@ impl ObjectDock {
             if button == WorldButton::ScryglassMap && self.exploring { label = "Map"; }
             let shape = primitive_index(button).unwrap();
             let phase = shape as f32 * 1.71;
-            // Slightly different arrival curves, heights and slow periods avoid
-            // a rigid row or a single drawer-like moving edge. A pure function
-            // of progress keeps mid-flight reversals position-continuous.
             let p = progress.powf(1.0 + (shape % 3) as f32 * 0.22);
             let moving = motion == MotionMode::Full;
             let sway = if moving { (time * (0.31 + shape as f32 * 0.017) + phase).sin() * 0.35 } else { 0.0 };
@@ -175,7 +161,6 @@ const ACTIONS: [(&str, WorldButton); 7] = [
     ("Back", WorldButton::Back),
 ];
 
-// Ice, teal, amethyst, amber, periwinkle, jade, rose.
 fn accent(button: WorldButton) -> [u8; 3] {
     match button {
         WorldButton::ScryglassEnter => [111, 220, 255],
@@ -189,8 +174,6 @@ fn accent(button: WorldButton) -> [u8; 3] {
     }
 }
 
-/// Constant-size slots and explicit paging keep *all seven* actions reachable,
-/// rather than silently dropping the last actions at narrow breakpoints.
 fn layout(area: Rect, count: usize, page: usize) -> (usize, usize, Vec<Rect>) {
     let slots = ((area.width.saturating_sub(8) / TILE) as usize)
         .max(1)
@@ -207,17 +190,15 @@ fn layout(area: Rect, count: usize, page: usize) -> (usize, usize, Vec<Rect>) {
     (page, slots, tiles)
 }
 
-/// Seven distinct solids, ray-marched once and reused by both display paths.
-/// The light and camera are fixed: reduced/off motion has identical geometry.
 fn primitive_index(button: WorldButton) -> Option<usize> {
     Some(match button {
-        WorldButton::ScryglassEnter => 0, // cube
-        WorldButton::ScryglassMap => 1,   // sphere
-        WorldButton::Tower => 2,          // square pyramid
-        WorldButton::Assets => 3,         // cylinder
-        WorldButton::ScryglassLibrary => 4, // cone
-        WorldButton::ScryglassVault => 5,  // torus
-        WorldButton::Back => 6,           // octahedron
+        WorldButton::ScryglassEnter => 0,
+        WorldButton::ScryglassMap => 1,
+        WorldButton::Tower => 2,
+        WorldButton::Assets => 3,
+        WorldButton::ScryglassLibrary => 4,
+        WorldButton::ScryglassVault => 5,
+        WorldButton::Back => 6,
         _ => return None,
     })
 }
@@ -232,7 +213,6 @@ fn primitive(button: WorldButton) -> Option<&'static [f32]> {
 }
 
 fn primitive_image(shape: usize) -> Vec<f32> {
-    // Rotate the solid under an orthographic camera so planar faces have depth.
     let rotate = |[x, y, z]: [f32; 3]| {
         let (s, c) = 0.55_f32.sin_cos();
         let (x, z) = (c * x + s * z, -s * x + c * z);
@@ -285,7 +265,6 @@ fn render_primitive(frame: &mut Frame, rect: Rect, button: WorldButton) {
     let Some(image) = primitive(button) else { return; };
     if rect.width == 0 || rect.height == 0 { return; }
     let color = accent(button);
-    // Braille gives every terminal cell a 2x4 pixel projection, not a flat icon.
     let dots = [[0, 3], [1, 4], [2, 5], [6, 7]];
     for row in 0..rect.height {
         for col in 0..rect.width {
@@ -314,8 +293,6 @@ fn render_primitive(frame: &mut Frame, rect: Rect, button: WorldButton) {
     }
 }
 
-/// The pane only publishes the launch anchor. Painting happens after all panes
-/// and border repair, so neither neighboring windows nor their frames clip us.
 pub(crate) fn prepare(app: &mut App, area: Rect, exploring: bool, offered: Vec<WorldButton>) {
     let dock = &mut app.object_dock;
     dock.offered = ACTIONS.iter().copied().filter(|(_, action)| offered.contains(action)).collect();
@@ -328,7 +305,6 @@ pub(crate) fn prepare(app: &mut App, area: Rect, exploring: bool, offered: Vec<W
 
 pub(crate) fn render_overlay(frame: &mut Frame<'_>, app: &mut App) {
     if !app.object_dock.visible { return; }
-    // Modal controls still own the screen. Glass must disappear with the text.
     if app.top_overlay() != Overlay::None {
         app.object_dock.visible = false;
         app.object_dock.tiles.clear();
@@ -349,8 +325,6 @@ pub(crate) fn render_overlay(frame: &mut Frame<'_>, app: &mut App) {
             .style(Style::new().fg(Color::Rgb(111, 220, 255))), handle);
     app.world_buttons.push((handle, WorldButton::DockToggle));
     dock.tiles.push((handle, WorldButton::DockToggle));
-    // No Clear, backplate, shared outline or catch-all surface. The terminal
-    // underneath survives everywhere except the actual object/label glyphs.
     for object in &dock.objects {
         if !super::glass::active() {
             render_primitive(frame, cell_envelope(object.bounds).intersection(frame.area()), object.button);
@@ -385,8 +359,6 @@ pub(crate) fn render_overlay(frame: &mut Frame<'_>, app: &mut App) {
     super::glass::object_dock(dock, motion);
 }
 
-/// Exactly two surfaces per object: its soft local light and its solid. Both
-/// float above the text grid; there is deliberately no shared drawer geometry.
 #[cfg(feature = "glass")]
 pub(crate) fn layers(dock: &ObjectDock, motion: MotionMode) -> Vec<angel_glass::Layer> {
     use angel_glass::{Layer, LayerKind, Placement, Stand};

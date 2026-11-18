@@ -24,8 +24,6 @@ impl SwarmCompilerEngine {
         self.execute(run)
     }
 
-    /// Resolve and freeze the exact clean base used by an internal campaign.
-    /// This is read-only and may run off the UI thread.
     pub(crate) fn inspect_campaign_base(&self) -> Result<CampaignBase, String> {
         let repo = ensure_git_workspace(&self.workspace)?;
         let workspace = self
@@ -56,9 +54,6 @@ impl SwarmCompilerEngine {
         })
     }
 
-    /// Persist an idempotent, campaign-owned swarm graph without executing it.
-    /// The caller must attach the returned run id to campaign state before
-    /// calling [`campaign_execute`](Self::campaign_execute).
     pub(crate) fn campaign_prepare(
         &self,
         request: CampaignCompileRequest,
@@ -110,9 +105,6 @@ impl SwarmCompilerEngine {
         })
     }
 
-    /// Execute or resume one previously prepared campaign run. A provider or
-    /// stage failure is returned as a durable Paused receipt, not as permission
-    /// to create a replacement run.
     pub(crate) fn campaign_execute(
         &self,
         run_id: String,
@@ -200,7 +192,6 @@ impl SwarmCompilerEngine {
 
     pub(super) fn status(&self, run_id: String) -> Result<String, String> {
         let run = self.store.load(&run_id)?;
-        // If the lease cannot be probed, say what the file says: active.
         let executing = self.store.is_executing(&run.id).unwrap_or(true);
         render_run(
             &run,
@@ -469,7 +460,6 @@ fn path_text(path: &Path) -> String {
 }
 
 fn render_run(run: &SwarmRun, reading: RunReading, path: PathBuf) -> Result<String, String> {
-    // The run's state stays a fact; the step it calls for is a `⠰⠙` page.
     let next_step = match reading {
         RunReading::Verified => format!(
             "Candidate is verified and parked on {}. {}",

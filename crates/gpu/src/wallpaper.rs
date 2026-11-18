@@ -15,7 +15,6 @@ pub enum Layout {
     Scaled,
     Clamped,
     Centered,
-    /// Scaled to cover the window, keeping its aspect, centred.
     CScaled,
 }
 
@@ -32,7 +31,6 @@ impl Layout {
         })
     }
 
-    /// The layout's name in `glass.conf`.
     pub fn name(self) -> &'static str {
         match self {
             Self::Tiled => "tiled",
@@ -53,22 +51,16 @@ impl Layout {
     }
 }
 
-/// A decoded background image and how it shows.
 pub struct Wallpaper {
     pub width: u32,
     pub height: u32,
-    /// Straight (not premultiplied) RGBA.
     pub rgba: Vec<u8>,
     pub layout: Layout,
-    /// 0 shows the image as it is; 1 hides it under the background colour.
     pub tint: f32,
-    /// Smooth scaling instead of nearest pixels.
     pub linear: bool,
 }
 
 impl Wallpaper {
-    /// The quad for a window: destination in window pixels, source in image
-    /// pixels (outside the image for the tiled and clamped layouts).
     pub fn quad(&self, window: (f32, f32)) -> ([f32; 4], [f32; 4]) {
         quad(
             self.layout,
@@ -83,8 +75,6 @@ fn quad(layout: Layout, image: (f32, f32), window: (f32, f32)) -> ([f32; 4], [f3
     let (ww, wh) = window;
     let whole = [0.0, 0.0, ww, wh];
     match layout {
-        // The window's own pixels index the image; the sampler repeats,
-        // mirrors or clamps past its edges.
         Layout::Tiled | Layout::MirrorTiled | Layout::Clamped => (whole, [0.0, 0.0, ww, wh]),
         Layout::Scaled => (whole, [0.0, 0.0, iw, ih]),
         Layout::Centered => (
@@ -92,7 +82,6 @@ fn quad(layout: Layout, image: (f32, f32), window: (f32, f32)) -> ([f32; 4], [f3
             [0.0, 0.0, iw, ih],
         ),
         Layout::CScaled => {
-            // Cover: scale until both sides reach the window, crop the rest.
             let scale = (ww / iw).max(wh / ih);
             let (sw, sh) = (ww / scale, wh / scale);
             (whole, [(iw - sw) / 2.0, (ih - sh) / 2.0, sw, sh])
@@ -100,7 +89,6 @@ fn quad(layout: Layout, image: (f32, f32), window: (f32, f32)) -> ([f32; 4], [f3
     }
 }
 
-/// The background image on the GPU.
 pub(crate) struct GpuWallpaper {
     _texture: wgpu::Texture,
     pub(crate) bind_group: wgpu::BindGroup,
@@ -108,7 +96,6 @@ pub(crate) struct GpuWallpaper {
 }
 
 impl Core {
-    /// Show `image` under everything, in place of the last one.
     pub fn set_wallpaper(&mut self, image: Wallpaper) {
         self.wallpaper = Some(upload_wallpaper(
             &self.device,
@@ -119,7 +106,6 @@ impl Core {
         ));
     }
 
-    /// The background image on show, if there is one.
     pub fn wallpaper(&self) -> Option<&Wallpaper> {
         self.wallpaper.as_ref().map(|w| &w.image)
     }
@@ -132,7 +118,6 @@ fn upload_wallpaper(
     globals: &wgpu::Buffer,
     mut image: Wallpaper,
 ) -> GpuWallpaper {
-    // Stored premultiplied, like every sampled picture.
     crate::picture::premultiply_in_place(&mut image.rgba);
     let size = wgpu::Extent3d {
         width: image.width,
@@ -206,7 +191,6 @@ mod tests {
 
     #[test]
     fn cscaled_covers_and_crops() {
-        // A square image in a 2:1 window keeps its width, crops top and bottom.
         let (dst, src) = quad(Layout::CScaled, (100.0, 100.0), (200.0, 100.0));
         assert_eq!(dst, [0.0, 0.0, 200.0, 100.0]);
         assert_eq!(src, [0.0, 25.0, 100.0, 50.0]);

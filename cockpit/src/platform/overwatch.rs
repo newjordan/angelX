@@ -46,13 +46,10 @@ struct FleetOverwatchSample {
 #[derive(Debug)]
 pub struct Overwatch {
     pub snapshot: OverwatchSnapshot,
-    /// Live peer instances from the shared peer directory, refreshed on the
-    /// peer-scan throttle. Empty when peer watch is unattached.
     pub peers: Vec<super::peer_watch::Heartbeat>,
     peer_beat: Option<super::peer_watch::PeerBeat>,
     peer_watcher: super::peer_watch::PeerWatcher,
     peer_scan_started: Instant,
-    /// Peer transitions nobody has surfaced yet (drained by the app).
     pub peer_events: Vec<super::peer_watch::PeerEvent>,
     last_sample: Instant,
     prev_cpu: Option<CpuTick>,
@@ -60,8 +57,6 @@ pub struct Overwatch {
     fleet_rx: Option<mpsc::Receiver<Option<FleetOverwatchSample>>>,
     fleet_poll_started: Instant,
     fleet_inflight: bool,
-    /// Latched when the overwatch binary is absent so a missing install costs
-    /// one stat(), not one per frame for the rest of the session.
     fleet_missing: bool,
     gpu_tx: Option<mpsc::Sender<Option<(f32, f32)>>>,
     gpu_rx: Option<mpsc::Receiver<Option<(f32, f32)>>>,
@@ -116,8 +111,6 @@ impl Overwatch {
         }
     }
 
-    /// Start publishing this instance's heartbeat and watching peers.
-    /// Called once by the live app; previews/tests stay unattached.
     pub fn attach_peers(
         &mut self,
         state_root: &Path,
@@ -131,14 +124,12 @@ impl Overwatch {
         }
     }
 
-    /// This instance's peer id, when peer watch is attached.
     pub fn peer_instance_id(&self) -> Option<&str> {
         self.peer_beat
             .as_ref()
             .map(|beat| beat.heartbeat.instance_id.as_str())
     }
 
-    /// Record what this instance is doing for peer readers (`idle`, `turn`, …).
     pub fn set_peer_activity(&mut self, activity: &str) {
         if let Some(beat) = &mut self.peer_beat
             && beat.heartbeat.activity != activity
@@ -173,8 +164,6 @@ impl Overwatch {
             .unwrap_or(0);
         let mut events = self.peer_watcher.observe(&self.peers, at_ms);
         self.peer_events.append(&mut events);
-        // Fleet fallback: when the external probe binary is absent, the
-        // fleet numbers are the live peers' own reported load.
         if self.fleet_missing
             && let Some((cpu, gpu)) = super::peer_watch::fleet_means(&self.peers, at_ms)
         {
@@ -219,9 +208,6 @@ impl Overwatch {
         if let Some(mem) = read_mem_pct() {
             self.snapshot.mem_pct = mem;
         }
-        // GPU sampling shells out to nvidia-smi (20-200ms) — that stall belongs
-        // on a worker thread, not the render thread. Same drain-then-respawn
-        // shape as the fleet poll above.
         if let Some(rx) = &self.gpu_rx {
             while let Ok(sample) = rx.try_recv() {
                 self.gpu_inflight = false;
@@ -280,8 +266,6 @@ fn overwatch_cmd_available(cmd: &str) -> bool {
     crate::platform::workspace_lang::resolve_on_path(cmd).is_some()
 }
 
-/// A7: `refresh` / `read_gpu_pct` used to re-read `ANGEL_OVERWATCH_GPU` on every
-/// sample interval. Launch config — cache in production; tests re-read.
 fn overwatch_gpu_enabled() -> bool {
     #[cfg(not(test))]
     {
@@ -292,11 +276,6 @@ fn overwatch_gpu_enabled() -> bool {
     std::env::var_os("ANGEL_OVERWATCH_GPU").is_some()
 }
 
-/// Fleet binary path (launch config): `ANGEL_OVERWATCH_CMD`, else the per-user
-/// install `$HOME/.local/bin/overwatch`, else a bare `overwatch` PATH lookup.
-/// Cached so a missing install only hits the filesystem when the 30s poll
-/// fires, not with a fresh env lookup. Under test the fleet poll is disabled
-/// (`maybe_poll_fleet`), so no test ever resolves or spawns a real install.
 fn overwatch_cmd() -> &'static str {
     static CMD: OnceLock<String> = OnceLock::new();
     CMD.get_or_init(|| {
@@ -308,8 +287,6 @@ fn overwatch_cmd() -> &'static str {
     .as_str()
 }
 
-/// Pure resolution of the fleet binary path from the two launch inputs; the
-/// source carries no operator home directory.
 fn overwatch_cmd_from(explicit: Option<String>, home: Option<std::ffi::OsString>) -> String {
     if let Some(cmd) = explicit
         .map(|c| c.trim().to_string())

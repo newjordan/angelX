@@ -8,19 +8,15 @@
 use super::*;
 use crate::rules::stockyard::{Stockyard, Tier};
 
-/// The head's picture: this wide and tall, standing on its foot.
 pub const W: i32 = 48;
 pub const H: i32 = 44;
 
-/// The shaft head of `tier`, foot at the bottom middle.
 pub fn head_img(tier: Tier, tick: u64) -> Img {
     let mut im = Img::new(W, H);
     let (cx, foot) = (W / 2, H - 1);
     let spin = (tick / 5) % 4;
     match tier {
         Tier::Hand => {
-            // A tripod of poles over the collar, a pulley at its head, a
-            // rope and a bucket that bobs, and baskets beside.
             im.line(cx, 12, cx - 9, foot, 'B');
             im.line(cx + 1, 12, cx - 8, foot, 'B');
             im.line(cx, 12, cx + 9, foot, 'B');
@@ -39,7 +35,6 @@ pub fn head_img(tier: Tier, tick: u64) -> Img {
             }
         }
         Tier::Windlass => {
-            // Two posts, a beam, a drum on its axle and a crank.
             im.rect(cx - 12, 12, 3, foot - 11, 'B');
             im.rect(cx + 10, 12, 3, foot - 11, 'B');
             im.line(cx - 12, foot - 4, cx - 6, 20, 'r');
@@ -50,7 +45,6 @@ pub fn head_img(tier: Tier, tick: u64) -> Img {
             for k in 0..5 {
                 im.rect(cx - 9 + ((k + spin as i32) % 5) * 4, 19, 1, 6, 'b');
             }
-            // The crank's arm turns round the right post.
             let a = spin as f32 * std::f32::consts::FRAC_PI_2;
             let (hx, hy) = (cx + 15 + (a.cos() * 4.0) as i32, 22 + (a.sin() * 4.0) as i32);
             im.line(cx + 13, 22, hx, hy, 'O');
@@ -63,8 +57,6 @@ pub fn head_img(tier: Tier, tick: u64) -> Img {
             im.rect(cx + 16, foot - 5, 6, 1, 'g');
         }
         Tier::HorseGin => {
-            // A capstan with a long sweep, a horse walking its ring, and a
-            // little headframe with the rope run across to it.
             let ring = (17.0, 5.0);
             let ground = foot as f32 - 6.0;
             for k in 0..28 {
@@ -77,7 +69,6 @@ pub fn head_img(tier: Tier, tick: u64) -> Img {
             let a = tick as f32 / 22.0;
             let (ex, ey) = (px as f32 + a.cos() * ring.0, ground + a.sin() * ring.1);
             im.line(px, pz - 6, ex as i32, ey as i32 - 4, 'o');
-            // The horse: a body, a neck and head, four legs that step.
             let (hx, hy) = (ex as i32, ey as i32);
             let step = (tick / 4) % 2;
             im.rect(hx - 4, hy - 8, 9, 4, 'P');
@@ -89,7 +80,6 @@ pub fn head_img(tier: Tier, tick: u64) -> Img {
                 im.rect(hx + lx, hy - 4 - lift, 1, 4 + lift, 'b');
             }
             im.rect(hx - 5, hy - 8, 1, 3, 'b');
-            // The headframe on the left and the rope to it.
             im.rect(cx - 17, 16, 3, foot - 15, 'B');
             im.rect(cx - 8, 16, 3, foot - 15, 'B');
             im.rect(cx - 19, 14, 17, 3, 'r');
@@ -101,8 +91,6 @@ pub fn head_img(tier: Tier, tick: u64) -> Img {
             im.rect(cx - 13, 29 + b, 5, 4, 'o');
         }
         Tier::WaterHoist => {
-            // A headframe and drum on the left, geared to a wheel that the
-            // race turns on the right.
             im.rect(cx - 20, 14, 3, foot - 13, 'B');
             im.rect(cx - 6, 14, 3, foot - 13, 'B');
             im.rect(cx - 22, 12, 21, 3, 'r');
@@ -113,7 +101,6 @@ pub fn head_img(tier: Tier, tick: u64) -> Img {
             let b = [0, 1, 2, 1][spin as usize];
             im.rect(cx - 12, 24, 1, 10 + b, 't');
             im.rect(cx - 14, 34 + b, 5, 4, 'o');
-            // The wheel: a rim, spokes that turn, paddles, an axle.
             let (wx, wy, r) = (cx + 13, foot - 13, 11.0f32);
             for k in 0..64 {
                 let a = k as f32 / 64.0 * std::f32::consts::TAU;
@@ -127,7 +114,6 @@ pub fn head_img(tier: Tier, tick: u64) -> Img {
                 im.rect((wx as f32 + a.cos() * r) as i32 - 1, (wy as f32 + a.sin() * r) as i32 - 1, 3, 2, 'o');
             }
             im.rect(wx - 1, wy - 1, 3, 3, 'k');
-            // The gear tying it to the drum, and the race falling on the wheel.
             im.line(cx - 4, 21, wx - 2, wy - 2, 'h');
             for k in 0..6 {
                 im.rect(wx + 8, 6 + k * 3, 2, 3, if (k + spin as i32) % 2 == 0 { 'Q' } else { 'z' });
@@ -138,8 +124,6 @@ pub fn head_img(tier: Tier, tick: u64) -> Img {
             im.put(wx + 12 - spin as i32, foot - 4, 'V');
         }
         Tier::LeyLift => {
-            // A ring of pale stone, four standing stones with crystal heads,
-            // and a column of light that carries a block up it.
             im.ellipse(cx as f32, foot as f32 - 3.0, 20.0, 6.0, 'J');
             im.ellipse(cx as f32, foot as f32 - 4.0, 17.0, 4.5, 'h');
             im.ellipse(cx as f32, foot as f32 - 4.0, 11.0, 3.0, 'k');
@@ -152,7 +136,6 @@ pub fn head_img(tier: Tier, tick: u64) -> Img {
                 im.rect(sx - 1, sy - 17, 2, 4, glow);
                 im.put(sx, sy - 18, '3');
             }
-            // The column: dithered light, brighter at its core.
             for y in 2..foot - 6 {
                 for x in cx - 4..=cx + 4 {
                     let d = (x - cx).abs();
@@ -167,7 +150,6 @@ pub fn head_img(tier: Tier, tick: u64) -> Img {
                     }
                 }
             }
-            // The block riding up it, and a mote or two.
             let rise = (tick / 3) % 28;
             let by = foot as i32 - 12 - rise as i32;
             im.rect(cx - 3, by, 7, 5, 'H');
@@ -182,7 +164,6 @@ pub fn head_img(tier: Tier, tick: u64) -> Img {
     im
 }
 
-/// The colours a stone's blocks are stacked in: face, top.
 fn block_inks(stone: &str) -> (char, char) {
     match stone {
         "limestone" => ('i', 'H'),
@@ -196,7 +177,6 @@ fn block_inks(stone: &str) -> (char, char) {
     }
 }
 
-/// One rough block as a knight carries it, in its stone's colours.
 pub fn carried_img(stone: &str) -> Img {
     let (face, top) = block_inks(stone);
     let mut im = Img::new(10, 8);
@@ -210,8 +190,6 @@ pub fn carried_img(stone: &str) -> Img {
     im
 }
 
-/// One stack of `n` rough blocks of `stone`, foot at its bottom middle: a
-/// pyramid three wide, at most nine shown.
 pub fn stack_img(stone: &str, n: u32) -> Img {
     let (face, top) = block_inks(stone);
     let shown = n.clamp(1, 9) as i32;
@@ -235,7 +213,6 @@ pub fn stack_img(stone: &str, n: u32) -> Img {
     im
 }
 
-/// The stockyard: a stack for each stone waiting, side by side.
 pub fn yard_img(yard: &Stockyard) -> Option<Img> {
     if yard.stone.is_empty() {
         return None;
@@ -243,7 +220,6 @@ pub fn yard_img(yard: &Stockyard) -> Option<Img> {
     let stacks: Vec<Img> = yard.stone.iter().map(|(s, &n)| stack_img(s, n)).collect();
     let w = stacks.len() as i32 * 24 + 4;
     let mut im = Img::new(w, 22);
-    // A plank floor under the stacks, so a single block still reads as a yard.
     im.rect(0, 19, w, 3, 'P');
     im.rect(0, 19, w, 1, 'O');
     for k in 0..w / 6 {
@@ -255,8 +231,6 @@ pub fn yard_img(yard: &Stockyard) -> Option<Img> {
     Some(im)
 }
 
-/// The shaft head over the gate and the stockyard beside it, on `over`;
-/// `origin` is the view's corner in world pixels.
 pub(super) fn paint(over: &mut Img, run: &Run, origin: (i32, i32)) {
     let gate = crate::world::wishes::delve_gate();
     let tier = run.home.stockyard.tier;
@@ -267,14 +241,10 @@ pub(super) fn paint(over: &mut Img, run: &Run, origin: (i32, i32)) {
     if gx < -80 || gx > NATIVE_W + 80 || gy < -20 || gy > NATIVE_H + 120 {
         return;
     }
-    // The head stands on the gate's rock, above the arch. On the hillside the sim's own lift is a
-    // building of the works (`works_kit::yards`, one piece a tier) and is drawn with them: drawing
-    // this one too would stand two heads at the gate.
     if !run.sim_hillside() {
         let head = head_img(tier, run.tick);
         over.stamp(&head, gx - head.w / 2, gy - 26 - head.h);
     }
-    // The stockyard, south of the gate's stand.
     let (yx, yy) = crate::rules::quarrying::yard_spot();
     let (px, py) = (
         (yx / TILE_UNITS * TILE as f32) as i32 - origin.0,
@@ -283,15 +253,12 @@ pub(super) fn paint(over: &mut Img, run: &Run, origin: (i32, i32)) {
     if let Some(yard) = yard_img(&run.yard_view()) {
         over.stamp(&yard, px - yard.w / 2, py - yard.h);
     } else {
-        // An empty yard is a square of trodden ground and a stake.
         over.rect(px - 10, py - 2, 20, 2, 'P');
         over.rect(px - 10, py - 2, 1, 5, 'B');
         over.rect(px + 9, py - 2, 1, 5, 'B');
     }
 }
 
-/// The winch: a post with a crank and a numbered board. `x`, `y` is its
-/// foot.
 pub(super) fn winch(over: &mut Img, run: &Run, x: i32, y: i32, live: Option<u64>) {
     let tier = run.home.stockyard.tier;
     over.rect(x - 1, y - 14, 3, 14, 'B');
@@ -305,7 +272,6 @@ pub(super) fn winch(over: &mut Img, run: &Run, x: i32, y: i32, live: Option<u64>
     over.text(x - 3, y - 22, &(tier.index() + 1).to_string(), 'T');
 }
 
-/// `text` broken at spaces into lines of at most `width` letters.
 fn wrap(text: &str, width: usize) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
     for word in text.split_whitespace() {
@@ -320,12 +286,9 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
     lines
 }
 
-/// The shaft's ledger, at the top of the screen as the survey's panel is,
-/// while the knight stands at the winch: in as few lines as will say it.
 pub(super) fn ledger(ui: &mut Img, run: &Run, focus: Option<u32>, geo: &super::map::Geography) -> Option<(i32, i32, i32, i32)> {
     use crate::rules::trinkets::{self, Thing};
     let hero = run.players.get(&focus.unwrap_or(1))?;
-    // The same thing E would use: the nearest in reach.
     let near = trinkets::things(geo)
         .into_iter()
         .map(|(thing, (tx, ty))| {
@@ -359,8 +322,6 @@ pub(super) fn ledger(ui: &mut Img, run: &Run, focus: Option<u32>, geo: &super::m
     }
     let w = lines.iter().map(|l| crate::ink::text_width(l)).max().unwrap_or(0) + 10;
     let h = lines.len() as i32 * 8 + 7;
-    // In the top right, clear of the head over the gate and of the survey's
-    // panel in the middle.
     let (px, py) = (NATIVE_W - w - 6, 6);
     chrome::panel(ui, (px, py, w, h), chrome::Tone::FRAMED);
     for (i, l) in lines.iter().enumerate() {

@@ -11,7 +11,6 @@ use ::v8;
 use std::ffi::c_void;
 use std::time::Duration;
 
-/// What a live module's `tool(...)` / `batch(...)` answers: nothing executes.
 const NO_TOOLS: &str = "live projections do not execute tools";
 
 pub struct Warm {
@@ -20,7 +19,6 @@ pub struct Warm {
 }
 
 struct WarmIsolate {
-    /// Module setups already run, newest last, keyed by generation digest.
     contexts: Vec<(String, v8::Global<v8::Context>)>,
     isolate: v8::OwnedIsolate,
     heap_data: *mut c_void,
@@ -36,8 +34,6 @@ impl WarmIsolate {
         isolate.set_microtasks_policy(v8::MicrotasksPolicy::Explicit);
         let heap_data = Box::into_raw(Box::new(isolate.thread_safe_handle())) as *mut c_void;
         isolate.add_near_heap_limit_callback(near_heap_limit_cb, heap_data);
-        // Wait for an armed deadline, then for the disarm; a missed disarm
-        // terminates the script. Reports whether it fired. Dropping `arm` ends it.
         let handle = isolate.thread_safe_handle();
         let (arm, armed) = std::sync::mpsc::channel::<Option<Duration>>();
         let (done, finished) = std::sync::mpsc::channel::<bool>();
@@ -80,9 +76,6 @@ impl Warm {
         }
     }
 
-    /// Run `call` in the context where `setup` already ran for `key` (a
-    /// generation digest), running the setup first if this isolate has not.
-    /// A failed call forgets that context; the next call rebuilds it.
     pub fn run_cached(
         &mut self,
         key: &str,
@@ -112,8 +105,6 @@ impl Warm {
         let out = run_inner(&mut warm.isolate, script);
         let _ = warm.arm.send(None);
         let fired = warm.finished.recv().unwrap_or(true);
-        // Discarded contexts share one capped heap; rebuild at half the cap so
-        // the near-limit guard never terminates a healthy call.
         let used = warm.isolate.get_heap_statistics().used_heap_size();
         if fired || out.is_err() || used > self.heap_mb << 19 {
             self.live = None;
@@ -122,12 +113,8 @@ impl Warm {
     }
 }
 
-/// Contexts one warm isolate keeps; the oldest setup is dropped past this.
 const WARM_CONTEXTS: usize = 32;
 
-/// `tool(name, args)` and the handle store reach the host through this one
-/// bridge; a live projection has no tools, so it always throws (after the same
-/// argument check the code-mode runner makes).
 fn invoke_cb(scope: &mut v8::PinScope, args: v8::FunctionCallbackArguments, _rv: v8::ReturnValue) {
     let name = args.get(0).to_rust_string_lossy(scope);
     let raw = args.get(1).to_rust_string_lossy(scope);
@@ -143,11 +130,8 @@ fn invoke_cb(scope: &mut v8::PinScope, args: v8::FunctionCallbackArguments, _rv:
     throw(scope, NO_TOOLS);
 }
 
-/// `console.*` output is not kept for a live projection.
 fn log_cb(_: &mut v8::PinScope, _: v8::FunctionCallbackArguments, _: v8::ReturnValue) {}
 
-/// `batch([{tool,args},...])`: validated like the code-mode runner's, then each
-/// item reports that no tool ran.
 fn batch_cb(
     scope: &mut v8::PinScope,
     args: v8::FunctionCallbackArguments,

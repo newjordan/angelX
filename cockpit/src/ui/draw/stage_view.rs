@@ -74,10 +74,6 @@ fn stage_facts(app: &App) -> StageFacts {
     }
 }
 
-/// The document body as a presented page: lay the paragraph into a
-/// scratch buffer first, so the page's lines are exactly the wrapped,
-/// scrolled lines the cells would show, then hand them to the
-/// presentation surface. `false` — paint cells — outside the window.
 fn present_document_page(
     text: &str,
     scroll: u16,
@@ -212,11 +208,6 @@ fn render_spend_coin_overlay(frame: &mut Frame, app: &mut App, stage: Rect) {
     }
 }
 
-/// Hidden / off-stage panes must not pay world compose or dancer paint.
-/// Comp / lean mode is additional: default cockpit is unchanged; when armed
-/// the expensive compose is skipped so the operator path stays lean.
-/// Kitty plates, braille `World::render`, and the first-person ride share
-/// this gate — a compose-off frame must not fall through to the braille map.
 pub(crate) fn miniviz_expensive_compose_allowed(
     surface: crate::ui::scryglass::StageSurface,
 ) -> bool {
@@ -226,32 +217,22 @@ pub(crate) fn miniviz_expensive_compose_allowed(
     !matches!(surface, crate::ui::scryglass::StageSurface::Hidden)
 }
 
-/// Dancer ticks stay on the visible Stage only — never on the model/tool path.
-/// Comp / lean mode keeps the assets selectable in tests but does not paint.
 pub(crate) fn miniviz_dancer_paint_allowed(stage_visible: bool, loop_active: bool) -> bool {
     stage_visible && loop_active && !crate::drive::comp_mode::enabled()
 }
 
-/// Lesson wrap, catalog listing, and still/video decode.
-/// Comp / lean keeps Scryglass chrome; default visible Stage still paints.
 pub(crate) fn scryglass_scene_body_allowed() -> bool {
     crate::drive::comp_mode::ambient_stage_sim_allowed()
 }
 
-/// Footer captions, Formation strip, and reveal/arrival timers.
-/// Comp / lean keeps the route title; default still paints accessories.
 pub(crate) fn scryglass_scene_accessories_allowed() -> bool {
     scryglass_scene_body_allowed()
 }
 
-/// Live realm/quest/ward/activity suffix on the Scryglass title.
-/// Comp / lean keeps the route identity; default still paints the live suffix.
 pub(crate) fn scryglass_live_world_title_allowed() -> bool {
     scryglass_scene_accessories_allowed()
 }
 
-/// Scryglass block title. `live_realm` is the trimmed `world.title()` tail
-/// (without the `"Realm · "` prefix) when live titles are allowed.
 pub(crate) fn scryglass_route_title(kind: &str, live_realm: Option<&str>, queued: &str) -> String {
     let _ = (kind, live_realm);
     if queued.is_empty() {
@@ -261,14 +242,10 @@ pub(crate) fn scryglass_route_title(kind: &str, live_realm: Option<&str>, queued
     }
 }
 
-/// Live loop / reinforce / round-table / observatory status in the Stage title.
-/// Comp / lean keeps the route identity; default still paints the live suffix.
 pub(crate) fn stage_live_route_title_allowed() -> bool {
     scryglass_scene_accessories_allowed()
 }
 
-/// Stage chrome title. `live` is the trimmed viz title when live titles
-/// are allowed.
 pub(crate) fn stage_route_title(prefix: &str, live: Option<&str>, suffix: &str) -> String {
     match live.filter(|part| !part.is_empty()) {
         Some(part) => format!("{prefix}{part}{suffix}"),
@@ -276,17 +253,10 @@ pub(crate) fn stage_route_title(prefix: &str, live: Option<&str>, suffix: &str) 
     }
 }
 
-/// Ceremony / live loop may steal the Stage column only while ambient sim
-/// is on. Hidden / comp-mode keep operator-selected routes (artifacts
-/// module, raytrace, reinforce) but do not force a column for leftover
-/// ceremony or hammertime.
 pub(crate) fn ambient_stage_column_steal_allowed() -> bool {
     crate::drive::comp_mode::ambient_stage_sim_allowed()
 }
 
-/// Whether the artifacts pane should be laid out this frame.
-/// Default still pops the Stage for ceremony / loop. Hidden / comp only
-/// keep a column the operator already selected.
 pub(crate) fn artifacts_pane_active(
     artifacts_module: bool,
     raytrace: bool,
@@ -300,7 +270,6 @@ pub(crate) fn artifacts_pane_active(
         || (ambient_stage_column_steal_allowed() && (ceremony || loop_visible))
 }
 
-/// Skip the expensive compose closure when the pane is hidden or off-stage.
 #[cfg(test)]
 pub(crate) fn maybe_run_expensive_world_compose<F, T>(allowed: bool, compose: F) -> Option<T>
 where
@@ -309,8 +278,6 @@ where
     if allowed { Some(compose()) } else { None }
 }
 
-/// Kitty compose, braille `World::render`, and first-person ride.
-/// Hidden / comp-mode skip the closure; visible default Stage still paints.
 #[cfg(test)]
 pub(crate) fn maybe_paint_world_scene<F, T>(
     surface: crate::ui::scryglass::StageSurface,
@@ -336,9 +303,6 @@ fn render_workshop_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     }
 }
 
-/// The active loop's discoveries as the intro's plotline (see
-/// `research_plot`): the dotted contour and wizard above, and under it the
-/// run's start and the frontier as machine-speed offsets.
 fn render_research_plotline(frame: &mut Frame, app: &mut App, area: Rect) {
     use crate::ui::viz::research_plot;
     let dim = Style::new().fg(crate::ui::hud::HUD_DIM);
@@ -354,7 +318,6 @@ fn render_research_plotline(frame: &mut Frame, app: &mut App, area: Rect) {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    // A stopped run's clock stops at its last update.
     let until = if app.loop_active() {
         now_ms
     } else {
@@ -410,8 +373,6 @@ fn render_research_stage(frame: &mut Frame, app: &mut App, area: Rect) {
         inner.width.saturating_sub(map_width),
         inner.height,
     );
-    // The loop's research plotline rides the top of the stage when there is
-    // room for it and the workspace text below.
     if body.height >= 16 && body.width >= 30 {
         let plot_h = (body.height * 2 / 5).clamp(7, 16);
         render_research_plotline(
@@ -466,14 +427,6 @@ fn render_research_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     }
 }
 
-/// MC-Hammer-time duo on the Stage floor while a loop is live.
-///
-/// Two dancers at once:
-/// - **left** — mirrored cartoon twin (`hammertime-a-flip` / `b`), phase-shifted
-/// - **right** — video strip (`hammertime2-*`) when installed, else facing A/B
-///
-/// Both sway/bob a couple of cells so they read as dancing *around*, not glued
-/// to a single corner. World overlays stay on subdued dots, not native portraits.
 fn render_world_map_surface(frame: &mut Frame, app: &mut App, area: Rect) {
     let adventure = app.realm.live_adventure_view();
     let facts = stage_facts(app);
@@ -501,23 +454,19 @@ fn render_hammertime_mascot(frame: &mut Frame, app: &mut App, area: Rect) {
         && area.width >= side.saturating_add(1)
         && area.height >= side.saturating_add(1);
     if !single_fits {
-        // Preserve the loop scene when even one authored plate would consume it.
         return;
     }
     let duo_fits = area.width >= side.saturating_mul(2).saturating_add(2);
     if !duo_fits {
-        render_hammertime_one(frame, app, area, /*right_lead=*/ true);
+        render_hammertime_one(frame, app, area, true);
         return;
     }
     let t = app.started.elapsed().as_secs_f32();
     let [left, right] = crate::ui::viz::loop_viz::hammertime_duo_boxes(area, t);
-    // Twin cartoon always on the left so you get two bodies even while the
-    // video plate is still warming its protocol cache.
-    paint_static_hammer(frame, app, left, t, /*twin=*/ true);
+    paint_static_hammer(frame, app, left, t, true);
     paint_lead_hammer(frame, app, right, t);
 }
 
-/// Single-plate fallback for narrow Stages (still shows *someone* dancing).
 fn render_hammertime_one(frame: &mut Frame, app: &mut App, area: Rect, right_lead: bool) {
     let t = app.started.elapsed().as_secs_f32();
     let side = crate::ui::viz::loop_viz::hammertime_plate_side(area.width, area.height);
@@ -531,14 +480,13 @@ fn render_hammertime_one(frame: &mut Frame, app: &mut App, area: Rect, right_lea
     paint_lead_hammer(frame, app, box_area, t);
 }
 
-/// Right-side / lead dancer: prefer the installed video strip, else cartoon A/B.
 fn paint_lead_hammer(frame: &mut Frame, app: &mut App, box_area: Rect, t: f32) {
     if let Some(frame_path) = crate::ui::viz::loop_viz::mascot_frame(t)
         && paint_world_overlay_dots(frame, box_area, frame_path)
     {
         return;
     }
-    paint_static_hammer(frame, app, box_area, t, /*twin=*/ false);
+    paint_static_hammer(frame, app, box_area, t, false);
 }
 
 fn paint_static_hammer(frame: &mut Frame, _app: &mut App, box_area: Rect, t: f32, twin: bool) {
@@ -551,9 +499,6 @@ fn paint_static_hammer(frame: &mut Frame, _app: &mut App, box_area: Rect, t: f32
     let _ = paint_world_overlay_dots(frame, box_area, &path);
 }
 
-/// World overlay source art (hammer dancers) converts
-/// through the existing colored-dot path. Agent portraits and explicit
-/// product stills keep `Viewer::render_portrait`.
 fn paint_world_overlay_dots(frame: &mut Frame, area: Rect, path: &std::path::Path) -> bool {
     if area.width == 0 || area.height == 0 {
         return false;
@@ -612,7 +557,6 @@ pub(crate) fn paint_dot_image(
             return;
         }
     }
-    // Clear the area with solid Dotmax background so terminal wallpaper or transparency never leaks through.
     let bg = ratatui::style::Color::Rgb(5, 8, 12);
     let buf = frame.buffer_mut();
     for y in area.top()..area.bottom() {
@@ -622,8 +566,6 @@ pub(crate) fn paint_dot_image(
             }
         }
     }
-    // The first canvas may still be encoding. Its fallback is composed dots,
-    // never a source plate; sample the entire scene rather than crop a corner.
     if image.width > usize::from(area.width) || image.height > usize::from(area.height) {
         let width = usize::from(area.width);
         let height = usize::from(area.height);
@@ -699,10 +641,6 @@ fn render_lifecycle_stage(frame: &mut Frame, app: &mut App, area: Rect) {
             );
             frame.render_widget(Paragraph::new(scene), scene_area);
         }
-        // LoopStart/etc. used to own the Stage without the hammertime overlay, so
-        // a /loop that spent its first seconds on Lifecycle looked "hammer-less"
-        // even though the loop was already live. Paint the corner dancer whenever
-        // the loop is active, same as Workshop/Loop/WorldMap.
         render_hammertime_mascot(frame, app, scene_area);
     }
     if let Some(footer_area) = footer_area {
@@ -754,8 +692,6 @@ fn render_loop_stage(frame: &mut Frame, app: &mut App, area: Rect) {
             crate::ui::viz::lifecycle_viz::MotionMode::Reduced => elapsed * 0.28,
             crate::ui::viz::lifecycle_viz::MotionMode::Off => 0.0,
         };
-        // Out in a region, the loop is the Delve's crawl, with the loop's
-        // numbers kept under it.
         if app.realm.loop_crawl_on() {
             let hud = crate::ui::viz::loop_viz::hud_with_flight(
                 &app.loop_ctl,
@@ -941,7 +877,6 @@ fn render_observatory_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     let block = hud_block(title.as_str());
     let inner = block.inner(area);
     frame.render_widget(block, area);
-    // Comp / lean: keep the route chrome, skip backplane snapshot + catalog.
     if !crate::drive::comp_mode::ambient_stage_sim_allowed() {
         return;
     }
@@ -1190,8 +1125,6 @@ fn render_assets_stage(frame: &mut Frame, app: &mut App, area: Rect) {
             ("Path", WorldButton::AssetCopy(StageCopyTarget::Location)),
             ("Open", WorldButton::AssetOpenExternal),
         ];
-        // Retain the primary copy action in narrow panes instead of allowing
-        // the generic all-or-back caption fit to hide every asset action.
         let mut used = 1usize;
         let shown = actions
             .into_iter()
@@ -1472,18 +1405,13 @@ fn atlas_detail_lines(
     ]
 }
 
-/// Render the persistent native Scryglass. The module id remains `artifacts` for
-/// layout compatibility, but the visible product surface is the Scryglass.
 fn render_scryglass(
     frame: &mut Frame,
     app: &mut App,
     area: Rect,
     resolved: crate::ui::scryglass::StageSurface,
 ) {
-    // angelface sits over the mini-viz: she needs to know where it is.
     crate::ui::angelface::note_panel(area);
-    // The mini-viz stays the realm while a delve is on: the knight waits at
-    // the Delve's gate, and a click there opens the Delve's menu.
     let active_index = app.scryglass.active_media();
     let live_title = scryglass_live_world_title_allowed();
 
@@ -1495,9 +1423,6 @@ fn render_scryglass(
         crate::ui::scryglass::StageSurface::Lesson => "TEACHING WINDOW",
         crate::ui::scryglass::StageSurface::Catalog => "LIVING CATALOG",
         crate::ui::scryglass::StageSurface::Arrival(_) => titles(app).arrival,
-        // Z5: off Castle Town the two world surfaces are one place — the
-        // quest — and they say so together. The region itself is already the
-        // head of `World::title()`, so the kind only has to name the mode.
         crate::ui::scryglass::StageSurface::WorldFirstPerson
         | crate::ui::scryglass::StageSurface::WorldMap
             if realm_quest_owns_pane(app) =>
@@ -1507,8 +1432,6 @@ fn render_scryglass(
         crate::ui::scryglass::StageSurface::WorldFirstPerson => titles(app).explore,
         _ => titles(app).realm,
     };
-    // Live titles clone the media label and build world.title() (town / quest /
-    // ward / activity / renown). Comp / lean keeps the route identity only.
     let (kind, media_label, is_video) = if active_index.is_some() {
         active_index
             .and_then(|index| {
@@ -1561,19 +1484,13 @@ fn render_scryglass(
     } else {
         scryglass_route_title(kind, None, &queued)
     };
-    // Block titles otherwise hard-clip mid-word at the terminal edge. Preserve
-    // the Scryglass identity and the differentiating route/place tail with the
-    // same display-cell-aware middle ellipsis used by model controls.
     let title = truncate_control_value(&title, area.width.saturating_sub(2) as usize);
-    // Realm and Explore share Dotmax; both receive quest chrome.
     let world_pane = matches!(
         resolved,
         crate::ui::scryglass::StageSurface::WorldMap
             | crate::ui::scryglass::StageSurface::WorldFirstPerson
     );
     let _media_caption = media_label.is_some();
-    // The composer shares and repaints our bottom border. Keep reset on the
-    // top edge, with space reserved so the place title cannot cover the button.
     let camera_title = (world_pane && app.realm.has_world()).then(|| match app.realm.camera_label() {
         Some(place) if matches!(resolved, crate::ui::scryglass::StageSurface::WorldMap) => {
             let place = truncate_control_value(&place, area.width.saturating_sub(14) as usize);
@@ -1615,9 +1532,6 @@ fn render_scryglass(
         && area.height >= 2
     {
         app.world_buttons.push((
-            // Right-aligned title glyphs sit inside the block's right border,
-            // so "[Follow]" occupies right()-10..right()-3 — keep the hitbox
-            // on the visible cells, not one column past them.
             Rect::new(area.right() - 10, area.y, 8, 1),
             WorldButton::ScryglassFollow,
         ));
@@ -1692,9 +1606,6 @@ fn render_scryglass(
     let renderable =
         scene_rect.width >= 20 && scene_rect.height >= if active_index.is_some() { 3 } else { 7 };
     app.scryglass.set_stage_visibility(true, renderable);
-    // This pane hosts every Scryglass surface, not only the Realm branches
-    // below. Arrival and media reveals also need the visible-stage cadence;
-    // leaving this false made their animation timers stall on screen.
     app.world_pane_visible = renderable;
     let mut lesson_scroll_max = 0u16;
 
@@ -1714,9 +1625,6 @@ fn render_scryglass(
         && active_index.is_none()
         && !realm_visiting_tower(app)
     {
-        // Comp / lean: keep the route chrome, skip lesson wrap, catalog
-        // listing, and still/video decode. World map/ride already share
-        // maybe_paint_world_scene; this gate avoids entering those bodies.
     } else if world_pane && realm_together_on(app) && active_index.is_none() {
         app.viewer.clear_still();
         app.world_pane_visible = false;
@@ -1732,8 +1640,6 @@ fn render_scryglass(
             app.visual_motion,
         )
     {
-        // Startup owns only the world body; keep the pane's chrome/footer and
-        // let explicit media, lessons and other selected surfaces take priority.
         app.world_pane_visible = false;
     } else if matches!(resolved, crate::ui::scryglass::StageSurface::Lesson) {
         app.world_pane_visible = true;
@@ -1748,7 +1654,6 @@ fn render_scryglass(
             let lesson_inner = lesson_block.inner(scene_rect);
             frame.render_widget(lesson_block, scene_rect);
             if lesson_inner.width > 0 && lesson_inner.height > 0 {
-                // Wrap key: inner width, `trim: false`, visible-text len + fingerprint.
                 const WRAP_TRIM: bool = false;
                 let wrap_width = lesson_inner.width;
                 let total_rows = {
@@ -1931,10 +1836,6 @@ fn render_scryglass(
                 let scroll = app
                     .scryglass
                     .document_scroll(body.width, body.height, || paragraph.line_count(body.width));
-                // On glass the body is one rasterized page (the same
-                // wrapped, scrolled lines, as pixels) under the receipt's
-                // cells. A window that refuses it gets the swash page of
-                // receipt and body together; a terminal paints cells here.
                 if !present_document_page(document.text.as_str(), scroll, body, frame.buffer_mut())
                     && !crate::ui::present::document(
                         &document.receipt,
@@ -1994,9 +1895,6 @@ fn render_scryglass(
             );
         } else if is_video {
             app.scryglass.surface = crate::ui::scryglass::StageSurface::Video(index);
-            // In the window the Stereopticon plays the video as glass —
-            // the same decoder and controls, a held frame instead of
-            // braille cells. A terminal keeps its own viewport.
             let in_window = crate::ui::glass::active();
             let (decode_width, decode_height) = if in_window {
                 crate::ui::stereopticon::decode_viewport(
@@ -2023,8 +1921,6 @@ fn render_scryglass(
                     video_paused = paused;
                     video_ended = ended;
                     if in_window {
-                        // The deck holds an ended replay a beat, then it
-                        // plays again on the Scryglass's own controls.
                         crate::ui::stereopticon::note_ended(ended);
                         match crate::ui::stereopticon::present(
                             &image,
@@ -2070,8 +1966,6 @@ fn render_scryglass(
                     video_duration = duration;
                     video_paused = paused;
                     video_ended = ended;
-                    // The first frame still decoding: in the window the
-                    // pane holds the warming frame instead of dots.
                     let warmed = in_window && {
                         crate::ui::stereopticon::note_ended(ended);
                         crate::ui::stereopticon::warming(
@@ -2158,10 +2052,6 @@ fn render_scryglass(
             crate::ui::scryglass::StageSurface::WorldMap => {
                 render_world_map_surface(frame, app, scene_rect);
             }
-            // Persistent Explore, Journey, and every interior are the live
-            // world.  The backed vista is only an Arrival establishing shot;
-            // using it here made camera, weather, residents, and room state
-            // disappear on image-capable terminals.
             crate::ui::scryglass::StageSurface::WorldFirstPerson => {
                 let facts = stage_facts(app);
                 if !app
@@ -2180,9 +2070,6 @@ fn render_scryglass(
             || active_index.is_some()
             || realm_visiting_tower(app))
     {
-        // The row the floating dock stands in for, with its actions before
-        // any are trimmed for width: only the ordinary world's and an
-        // arrival's rows float.
         let mut dock_offer: Option<Vec<WorldButton>> = None;
         let (caption, mut controls): (Line<'static>, Vec<(&'static str, WorldButton)>) =
             if world_pane && realm_together_on(app) && active_index.is_none() {
@@ -2360,9 +2247,6 @@ fn render_scryglass(
                     ("Back", WorldButton::Back),
                 ]);
                 dock_offer = Some(controls.iter().map(|(_, button)| *button).collect());
-                // Compact Realm captions carry causal and memory-health
-                // evidence. Keep their existing space; `r` and `/research`
-                // remain available when the extra navigation verb cannot fit.
                 if row.research {
                     controls.insert(
                         controls.len() - 1,
@@ -2375,10 +2259,6 @@ fn render_scryglass(
                     );
                 }
                 if fitted_scene_verbs(footer_rect.width, &controls).0.len() != controls.len() {
-                    // The ordinary 144-column cockpit can be one or two cells
-                    // short of the complete action rail when Enter is present.
-                    // Preserve the world-changing teaching/navigation actions;
-                    // camera sugar and Vault return at wider breakpoints.
                     controls.retain(|(_, button)| {
                         matches!(
                             button,
@@ -2412,9 +2292,6 @@ fn render_scryglass(
                 )
             });
         }
-        // The dock stands in for the ordinary world's or an arrival's row,
-        // floating that row's own actions, where the pane is wide enough to
-        // float them; any other row (a walk's, a narrow pane's) stays.
         let dock_offer = dock_offer.filter(|_| object_dock && inner.width >= crate::ui::object_dock::MIN_WIDTH);
         if let Some(offered) = dock_offer {
             let dock_height = inner.height.saturating_sub(1).clamp(1, 5);
@@ -2437,8 +2314,6 @@ fn render_scryglass(
     }
 }
 
-/// The caption while the visitor walks: the door at hand and the keys, in
-/// plain words.
 fn walk_caption(app: &App) -> (Line<'static>, Vec<(&'static str, WorldButton)>) {
     let (line, opens) = app.realm.walk_caption();
     let mut controls = Vec::new();

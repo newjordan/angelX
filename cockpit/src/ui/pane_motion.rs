@@ -28,8 +28,6 @@ impl Tween {
         }
         let delta = self.target as f32 - self.from;
         let q = t - 1.0;
-        // Quick catch, one small stretch, then settle. The overshoot is
-        // capped in rows as well as fraction, so large panels stay composed.
         let progress = if self.motion == MotionMode::Full {
             let back = 1.35;
             (1.0 + (back + 1.0) * q.powi(3) + back * q.powi(2))

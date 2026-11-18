@@ -1,4 +1,3 @@
-"""The realm's ink table, read straight from ink.rs so previews match the game."""
 import re
 from pathlib import Path
 

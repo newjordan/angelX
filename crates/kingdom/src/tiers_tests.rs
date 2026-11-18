@@ -4,7 +4,6 @@
 use super::*;
 use crate::works_tests::{build, cart, finish, hill, lay, rich, run};
 
-/// A camp stocked for the purchase in hand, as a player's is when he has saved for it.
 fn stocked(k: &mut Kingdom) {
     for r in catalog().resources.keys() {
         if r != "fodder" {
@@ -29,7 +28,6 @@ fn lifting_climbs_in_place_from_hods_to_the_great_crane() {
     k.apply(c, Command::Upgrade(id)).expect("the treadwheel gives way to the great crane");
     assert_eq!(k.buildings[&id].plan, "great-crane");
     assert!(k.apply(c, Command::Upgrade(id)).is_err(), "there is nothing above the great crane");
-    // The cost of each tier is paid out of the camp's stock as it is raised.
     assert!(k.valid(c));
 }
 
@@ -46,7 +44,6 @@ fn a_crane_in_range_quickens_the_masons_by_its_percent() {
         k.apply(c, Command::Connect(lodge)).expect("a road to the lodge");
     }
     finish(&mut k);
-    // The yard has the stones to pay for, so the lodges keep their crews at the wall.
     let yard = k.sites[&site].yard;
     let wants = k.site_wants(c, &k.sites[&site].clone());
     let y = k.buildings.get_mut(&yard).unwrap();
@@ -90,7 +87,6 @@ fn a_mule_train_carries_goods_with_no_road_and_no_track() {
 fn an_aqueduct_turns_a_wheel_wherever_it_stands() {
     let c = catalog();
     let mut k = rich();
-    // Far from the river: the waterwheel could not stand here, the aqueduct can.
     let id = build(&mut k, "aqueduct", (150, 106));
     finish(&mut k);
     k.apply(c, Command::Connect(id)).ok();
@@ -115,7 +111,6 @@ fn the_vineyard_and_the_press_make_wine_for_the_masters() {
     for id in [v, p] {
         k.apply(c, Command::Connect(id)).expect("a road to the works");
     }
-    // The carts would bring the grapes and the water; here the press is simply stocked.
     k.buildings.get_mut(&p).unwrap().input.extend([("grapes".to_string(), 16), ("water".to_string(), 8)]);
     run(&mut k, 400);
     assert!(k.produced.get("grapes").copied().unwrap_or(0) > 0, "the vines bear");
@@ -163,7 +158,6 @@ fn coppice_cuts_timber_for_ever_where_felling_strips_the_wood() {
 fn mortar_going_off_takes_a_share_of_what_a_store_holds_not_a_unit_from_every_store() {
     let c = catalog();
     let mut k = rich();
-    // One sack in each of two stores: it used to cost both of them a sack every shift.
     k.stock.insert("mortar".into(), 7);
     let mill = build(&mut k, "mortar-mill", (141, 99));
     finish(&mut k);
@@ -174,7 +168,6 @@ fn mortar_going_off_takes_a_share_of_what_a_store_holds_not_a_unit_from_every_st
     assert!(lost >= 3, "mortar does go off: {lost}");
     assert!(lost <= 11, "but 14 sacks do not vanish in a minute: {lost} of {total} gone in 600 s");
     assert_eq!(k.total("mortar") + lost, total, "nothing vanishes unrecorded");
-    // A full stock goes off in proportion: ninety sacks lose about a sack a shift.
     let mut k = rich();
     k.stock.insert("mortar".into(), 90);
     run(&mut k, 100);
@@ -198,14 +191,12 @@ fn a_second_castle_site_draws_on_the_same_stock_and_the_same_carts() {
     let c = catalog();
     let mut k = rich();
     stocked(&mut k);
-    // The Keep's ground and a second castle on the empty slope east of the model houses.
     k.apply(c, Command::FoundSite { plan: "motte-and-bailey".into(), centre: hillside::KEEP_CENTRE, yard: (150, 84) }).unwrap();
     k.apply(c, Command::FoundSite { plan: "motte-and-bailey".into(), centre: (205, 95), yard: (190, 94) }).expect("a second site on free ground");
     assert_eq!(k.sites.len(), 2, "two castles stand staked at once");
     let ids: Vec<u32> = k.sites.keys().copied().collect();
     assert_ne!(k.sites[&ids[0]].yard, k.sites[&ids[1]].yard, "each has its own stockyard");
     finish(&mut k);
-    // Both ditches are dug from the one stock of earth the ditch gangs make: each yard is paid its own.
     for &s in &ids {
         let yard = k.sites[&s].yard;
         k.buildings.get_mut(&yard).unwrap().input.insert("earth".into(), 40);
@@ -215,10 +206,8 @@ fn a_second_castle_site_draws_on_the_same_stock_and_the_same_carts() {
         assert_eq!(dug, 40);
     }
     assert!(ids.iter().all(|s| k.sites[s].dug > 0 || k.sites[s].stage > 0), "both sites moved");
-    // The Clerk speaks for each site in turn, and the kingdom stays valid.
     assert!(!k.clerk(c, ids[0]).sentence.is_empty() && !k.clerk(c, ids[1]).sentence.is_empty());
     assert!(k.valid(c));
-    // And a ground that is already taken is refused, as it was.
     assert!(k.apply(c, Command::FoundSite { plan: "motte-and-bailey".into(), centre: (205, 95), yard: (191, 80) }).is_err());
 }
 
@@ -239,7 +228,6 @@ fn an_aqueduct_drives_the_water_hoist_and_the_shaft_lifts_sixty_a_minute() {
         finish(&mut k);
     }
     stocked(&mut k);
-    // The lift is crewed only while a seam is worked below it.
     k.discover(
         c,
         "mines-1".into(),
@@ -250,12 +238,9 @@ fn an_aqueduct_drives_the_water_hoist_and_the_shaft_lifts_sixty_a_minute() {
     finish(&mut k);
     k.apply(c, Command::Link { building: quarry, claim: "mines-1".into() }).unwrap();
     k.apply(c, Command::Connect(quarry)).unwrap();
-    // The aqueduct stands south of the Keep; its drive runs west along the foot of the wall and
-    // up the shaft road through the gate to the hoist (the one way across the Keep's ground).
     let aqueduct = build(&mut k, "aqueduct", (141, 98));
     finish(&mut k);
     k.apply(c, Command::Connect(aqueduct)).expect("a road to the aqueduct");
-    // Shafts from the aqueduct's foot to the hoist, a plank a tile.
     let mut drive: Vec<Tile> = (133..141).rev().map(|x| (x, 98)).collect();
     drive.extend((88..98).rev().map(|y| (133, y)));
     drive.extend((134..hillside::HILL_SHAFT.0).map(|x| (x, 88)));
@@ -268,7 +253,6 @@ fn an_aqueduct_drives_the_water_hoist_and_the_shaft_lifts_sixty_a_minute() {
     let rep = k.report(c);
     assert!(k.energy_report(c).powered(PowerKind::Mechanical, hoist), "the hoist is on the drive: {:?} status {:?} crew {:?} enabled {} upgrade {} connected {}", k.energy_report(c).consumer(PowerKind::Mechanical, hoist), rep.status[&hoist], rep.population.assigned.get(&hoist), k.buildings[&hoist].power_enabled, k.buildings[&hoist].power_upgrade, k.connected().contains(&hoist));
     assert_eq!(k.report(c).shaft, 60, "a water hoist on the drive lifts three times its twenty");
-    // Cut the drive and it lifts what it can by hand: nothing the aqueduct made.
     k.apply(c, Command::RemovePower { kind: PowerKind::Mechanical, tile: (133, 92) }).unwrap();
     run(&mut k, 10);
     assert!(!k.energy_report(c).powered(PowerKind::Mechanical, hoist));

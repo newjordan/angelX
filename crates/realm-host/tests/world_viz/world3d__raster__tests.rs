@@ -40,7 +40,6 @@ fn renders_are_byte_identical_for_identical_inputs() {
 fn sky_sits_above_the_ground_plane() {
     let scene = scene::scene_for(scene::SceneKey::COURT);
     let frame = render_scene(&scene, &proving_view(), 96, 72);
-    // The night sky is blue-dominant; lit ground (grass/path) is not.
     for row in [0u32, 3, 6] {
         let sky = pixel(&frame, 48, row);
         assert!(
@@ -95,13 +94,10 @@ fn several_meshes_render_as_one_merged_mesh_does() {
     let (split, depth) = render_meshes(&[&a, &b], &view, 160, 96, Firelight::STEADY, FOG_DISTANCE, Backdrop::Night);
     assert_eq!(split.as_raw(), render_scene(&scene, &view, 160, 96).as_raw());
     assert_eq!(depth.len(), 160 * 96);
-    // A dark backdrop paints the misses its own colour.
     let (dark, _) = render_meshes(&[], &view, 32, 16, Firelight::STEADY, FOG_DISTANCE, Backdrop::Dark([3, 4, 5]));
     assert!(dark.pixels().all(|p| p.0 == [3, 4, 5, 255]));
 }
 
-/// `cargo test --release raster_frame_bench -- --ignored --nocapture`: ms
-/// per frame for the court at the Delve's two frame sizes.
 #[test]
 #[ignore]
 fn raster_frame_bench() {
@@ -119,8 +115,6 @@ fn raster_frame_bench() {
     }
 }
 
-/// Warm frames, including the terminal conversion, at the cockpit's real dot
-/// sizes. Scene bakes and file output are outside the measured loop.
 #[test]
 #[ignore]
 fn bench_round2_world_frames() {
@@ -208,8 +202,6 @@ fn bench_round2_world_frames() {
     }
 }
 
-/// Dot-for-dot terminal review of the production braille bridge. Half-block
-/// keeps the source RGB; this dump separately shows the actual braille masks.
 #[test]
 #[ignore]
 fn write_world3d_terminal_shots() {

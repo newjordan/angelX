@@ -1,5 +1,3 @@
-// Extend the established road regression with real movement, not arrive() at
-// each destination. Planning never treats an entrance/shortcut as a footpath.
 fn walk_ordinary_road(run: &mut Run, destination: RoomKind, driver: u32) {
     use std::collections::VecDeque;
 
@@ -56,7 +54,6 @@ fn walk_ordinary_road(run: &mut Run, destination: RoomKind, driver: u32) {
         path.push(parents[*path.last().unwrap()].unwrap());
     }
     let targets: Vec<_> = path.into_iter().rev().map(centre).collect();
-    // Every coordinate update below comes from the production input step.
     for (tx, ty) in targets {
         let mut reached = false;
         for _ in 0..2 * HZ {
@@ -73,8 +70,6 @@ fn walk_ordinary_road(run: &mut Run, destination: RoomKind, driver: u32) {
         assert!(reached, "{origin:?} -> {destination:?}: knight {driver} stuck before {tx},{ty}");
     }
     let (dx, dy) = DIRS[dir];
-    // A doorway takes the whole party (`fellowship`): the friends have walked
-    // up beside the driver, and all of them go out through the road's mouth.
     let (gx, gy) = (run.players[&driver].x, run.players[&driver].y);
     for hero in run.players.values_mut() {
         (hero.x, hero.y) = (gx, gy);
@@ -113,8 +108,6 @@ fn ordinary_road_journey_regression() {
     for migrated in [false, true] {
         let mut run = Run::at_home(7, 1, None, Home::default(), Default::default());
         if migrated {
-            // Pre-expansion topology: retain the original six surface rooms,
-            // their former obstacles, and all of the settlement below them.
             let original: Vec<_> = ROOMS[..6].iter().map(|&(kind, _)| kind).collect();
             run.dungeon.rooms.retain(|r| !r.kind.in_world() || original.contains(&r.kind));
             let cells: Vec<_> = run.dungeon.rooms.iter().map(|r| r.cell).collect();
@@ -123,7 +116,6 @@ fn ordinary_road_journey_regression() {
                 for (dir, &(dx, dy)) in DIRS.iter().enumerate() {
                     if !cells.contains(&(room.cell.0 + dx, room.cell.1 + dy)) {
                         room.doors[dir] = false;
-                        // Close only old boundary doors, not room scenery.
                         for y in 0..room.rows { for x in 0..room.cols {
                             if (x == 0 || y == 0 || x == room.cols - 1 || y == room.rows - 1)
                                 && room.tile(x as i32, y as i32) == Tile::Door
@@ -171,8 +163,7 @@ fn ordinary_road_journey_regression() {
         assert_eq!(crossings, 2 * TRAILS.len());
         assert_eq!(run.room().kind, RoomKind::Gate);
         for &(kind, _) in &ROOMS {
-            if kind == RoomKind::KingsHall { continue; } // paid great door, not a free ordinary road
-            // Bomrekedan is entered by its own door on the kingdom's map, not by road.
+            if kind == RoomKind::KingsHall { continue; }
             if crate::rules::world::bomrekedan::is_level(kind) { continue; }
             assert!(run.dungeon.rooms[room_of(&run.dungeon, kind).unwrap()].visited, "{kind:?}: unvisited surface place");
         }

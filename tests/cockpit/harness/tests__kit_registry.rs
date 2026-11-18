@@ -5,12 +5,9 @@
 
 use super::*;
 
-// --- kit / registry suite ---
-
 #[test]
 fn default_kit_registers_expected_tools() {
     let _guard = crate::tests::env_lock();
-    // Wiring guard: the new tools must actually be in the default kit.
     let defs = ToolRegistry::with_defaults().defs();
     let names: Vec<&str> = defs.iter().map(|d| d.name.as_str()).collect();
     for expected in [
@@ -98,7 +95,6 @@ fn parse_test_result_sums_and_rewards() {
     assert!(c.all_passed());
     assert_eq!(c.reward(), 1.0);
 
-    // Build error → nothing ran → zero reward.
     let none = parse_test_result("error[E0432]: unresolved import `foo`");
     assert_eq!(none.ran(), 0);
     assert_eq!(none.reward(), 0.0);
@@ -108,9 +104,6 @@ fn parse_test_result_sums_and_rewards() {
 #[ignore = "spawns a real python http.server; run with --ignored"]
 fn live_daemon_lifecycle_proc_run_http_request_proc_stop() {
     let _guard = crate::tests::env_lock();
-    // The serving loop end-to-end, through registry dispatch exactly as the
-    // model drives it: launch a daemon detached, talk to it over HTTP,
-    // stop the whole tree.
     let reg = ToolRegistry::with_defaults();
     let port = 18471;
     let started = reg
@@ -151,13 +144,10 @@ fn live_daemon_lifecycle_proc_run_http_request_proc_stop() {
     );
 }
 
-/// Every `ANGEL_*` knob the source reads must appear in docs/ENV.md, so the
-/// operator reference can't silently drift from the code.
 #[test]
 fn env_knob_doc_completeness() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let doc = std::fs::read_to_string(root.join("docs/ENV.md")).expect("docs/ENV.md exists");
-    // Collect every ANGEL_ token from the source (directory modules included).
     let mut knobs: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     let mut files = Vec::new();
     let mut dirs = vec![root.join("src")];
@@ -189,14 +179,7 @@ fn env_knob_doc_completeness() {
             i = end;
         }
     }
-    // `ANGEL_T_*` names are synthetic namespaces used only by unit fixtures
-    // that exercise dynamically constructed per-club controls. They are not
-    // process knobs and must not pollute the operator reference.
     knobs.retain(|knob| !knob.starts_with("ANGEL_T_"));
-    // Hook-injected vars are documented in prose; the rest are tracked here.
-    // Doc-completeness is a *heads-up*, not a hard gate — it never blocks
-    // interactive work. Set ANGEL_DOC_STRICT=1 to enforce it (e.g. a release /
-    // CI step) and turn drift back into a failure.
     let missing: Vec<&String> = knobs.iter().filter(|k| !doc.contains(k.as_str())).collect();
     if !missing.is_empty() {
         if std::env::var_os("ANGEL_DOC_STRICT").is_some() {
@@ -235,8 +218,6 @@ fn tool_panic_is_isolated_into_error_result() {
     let mut registry = ToolRegistry::with_defaults();
     registry.register(Box::new(PanicTool));
 
-    // A panicking tool must fold into a `tool error:` result — never unwind
-    // through the turn loop and take down the cockpit.
     let err = registry
         .dispatch("panic_probe", &serde_json::json!({}))
         .expect_err("a panicking tool must become an Err, not unwind");

@@ -43,7 +43,6 @@ pub(crate) fn visible(st: &LoopState) -> bool {
     )
 }
 
-/// True while the loop is active or paused with findings. Hammertime dances here.
 pub(crate) fn hammertime_active(st: &LoopState) -> bool {
     matches!(
         st.status,
@@ -55,9 +54,7 @@ pub(crate) fn hammertime_active(st: &LoopState) -> bool {
     ) || st.iteration > 0
 }
 
-/// Kitty/halfblock portrait asset for dancer #1 (facing camera), flip ~280ms.
 pub(crate) fn hammertime_asset(time_secs: f32) -> &'static str {
-    // Alternate the two dance frames so Kitty graphics visibly flip back and forth.
     if hammertime_flip_tick(time_secs).is_multiple_of(2) {
         "assets/loop/hammertime-a.png"
     } else {
@@ -65,10 +62,7 @@ pub(crate) fn hammertime_asset(time_secs: f32) -> &'static str {
     }
 }
 
-/// Dancer #2 — mirrored twin, phase-shifted so the pair doesn't flip in lockstep.
-/// Uses the dedicated flip plate on even ticks and pose B on odd ticks.
 pub(crate) fn hammertime_twin_asset(time_secs: f32) -> &'static str {
-    // Half-period offset: when #1 is A, twin is mid-step, and vice versa.
     let t = time_secs.max(0.0) + 0.14;
     if hammertime_flip_tick(t).is_multiple_of(2) {
         "assets/loop/hammertime-a-flip.png"
@@ -81,21 +75,13 @@ fn hammertime_flip_tick(time_secs: f32) -> u64 {
     ((time_secs.max(0.0) * 1000.0) as u64 / 280) % 2
 }
 
-/// Side length (cells) for each dancer plate, scaled to the Stage area.
 pub(crate) fn hammertime_plate_side(area_w: u16, area_h: u16) -> u16 {
-    // Duo needs two plates + a gap; stay compact so the map stays readable.
-    // The authored minimum is only a preference: a live loop can open the
-    // Stage in a shorter default panel, and its paint rectangle must remain a
-    // hard child of that panel.
     let available = area_w.min(area_h);
     (available / 4)
         .clamp(HAMMERTIME_MIN_SIDE, 14)
         .min(available)
 }
 
-/// Layout for the dual hammertime dancers along the Stage floor: left twin +
-/// right lead, with a light sway/bob so they read as dancing *around* rather
-/// than stuck in fixed corners. Positions are clamped inside `area`.
 pub(crate) fn hammertime_duo_boxes(
     area: ratatui::layout::Rect,
     time_secs: f32,
@@ -103,9 +89,6 @@ pub(crate) fn hammertime_duo_boxes(
     use ratatui::layout::Rect;
     let side = hammertime_plate_side(area.width, area.height);
     let t = time_secs.max(0.0);
-    // Sway + bob in cell units — small enough not to thrash the protocol cache
-    // key every frame (cache keys on width/height, not x/y… wait, portrait keys
-    // on area size + path. Position changes alone are fine).
     let sway_l = ((t * 1.7).sin() * 2.0).round() as i32;
     let bob_l = ((t * 2.3).cos() * 1.0).round() as i32;
     let sway_r = ((t * 1.7 + 1.1).sin() * 2.0).round() as i32;
@@ -119,7 +102,6 @@ pub(crate) fn hammertime_duo_boxes(
         Rect::new(x, y, side, side)
     };
 
-    // Left floor: mirrored twin. Right floor: video / lead.
     let left_x = area.x as i32 + 1 + sway_l;
     let right_x = area.x as i32 + area.width as i32 - side as i32 - 1 + sway_r;
     let floor_y = area.y as i32 + area.height as i32 - side as i32 - 1;
@@ -129,14 +111,8 @@ pub(crate) fn hammertime_duo_boxes(
     ]
 }
 
-/// Frame rate of the video mascot dance (matches `scripts/video-to-mascot-frames.py`).
 const MASCOT_FPS: f32 = 8.0;
 
-/// One lazily-populated ping-pong cycle of the video dance: forward through the
-/// clip, then backward — so the dancer rewinds and dances forward again with no
-/// cut. Frames are RGBA plates keyed by `scripts/video-to-mascot-frames.py`.
-///
-/// Empty / missing strip → `None` and the Stage falls back to the cartoon lead.
 fn mascot_frames() -> &'static [std::path::PathBuf] {
     use std::sync::OnceLock;
     static FRAMES: OnceLock<Vec<std::path::PathBuf>> = OnceLock::new();
@@ -151,15 +127,12 @@ fn mascot_frames() -> &'static [std::path::PathBuf] {
             })
             .unwrap_or_default();
         names.sort();
-        // Guard: refuse a thin strip (old planet failure was 50+ dark frames;
-        // a real dance needs more than a few plates).
         if names.len() < 8 {
             return Vec::new();
         }
         let n = names.len();
         let mut frames: Vec<std::path::PathBuf> =
             names.into_iter().map(|name| dir.join(name)).collect();
-        // Ping-pong: 0..n-1 then n-2..1 so both ends appear once.
         for i in (1..n.saturating_sub(1)).rev() {
             frames.push(frames[i].clone());
         }
@@ -167,7 +140,6 @@ fn mascot_frames() -> &'static [std::path::PathBuf] {
     })
 }
 
-/// Live video-dance frame for `time_secs`; `None` when no strip is installed.
 pub(crate) fn mascot_frame(time_secs: f32) -> Option<&'static std::path::Path> {
     let frames = mascot_frames();
     if frames.is_empty() {
@@ -217,8 +189,6 @@ pub(crate) fn render(
     render_with_flight(st, slot, fleet, time, None, width, height)
 }
 
-/// `render`, plus how long the submission slot has been in flight: an in-flight
-/// slot weaves its constellation bar against that clock.
 pub(crate) fn render_with_flight(
     st: &LoopState,
     slot: &SubmissionSlotTelemetry,
@@ -259,8 +229,6 @@ pub(crate) fn render_with_flight(
     text
 }
 
-/// The rows `render_with_flight` keeps under its picture, alone: the loop's
-/// numbers under another picture of the loop (the Delve's crawl).
 pub(crate) fn hud_with_flight(
     st: &LoopState,
     slot: &SubmissionSlotTelemetry,
@@ -289,9 +257,6 @@ fn hud_row_count(width: usize, height: usize, competition: bool) -> usize {
     if width < 16 || height < 3 {
         0
     } else if competition && width >= 38 && height >= 8 {
-        // The wide HUD follows the flight-instrument concept: fire control,
-        // fleet, then one aligned telemetry rail. Keeping it to three rows
-        // gives the perspective trench more room than the legacy meter stack.
         3
     } else if !competition && width >= 38 && height >= 6 {
         2
@@ -358,10 +323,6 @@ fn hud_lines(
     lines
 }
 
-/// One scan-line of loop health, arranged like the three lower instruments in
-/// the trench concept. Each value owns its semantic health color while labels
-/// remain phosphor green, so amber/red still mean something instead of becoming
-/// decoration.
 fn telemetry_rail(st: &LoopState, width: usize) -> Line<'static> {
     let column_width = width / 3;
     let remainder = width % 3;
@@ -569,27 +530,18 @@ fn submission_slot_line(slot: &SubmissionSlotTelemetry, width: usize) -> Line<'s
     ])
 }
 
-/// One board validation, queue included, lands in about this long (the
-/// longest runs ~51 min, short ones ~20 min plus their queue). The
-/// constellation fills against it and holds just short of whole until the
-/// watcher reports a verdict.
 const SLOT_WINDOW_SECS: f32 = 50.0 * 60.0;
 const SLOT_WINDOW_HOLD: f32 = 0.97;
 const CONSTELLATION_MIN_CELLS: usize = 8;
 const CONSTELLATION_MAX_CELLS: usize = 28;
 
 thread_local! {
-    // Stateless catalog object, but the trait is not Send: resolve the one
-    // style once on the drawing thread instead of the whole catalog per frame.
     static CONSTELLATION: Box<dyn ProgressStyle> = dotmax::progress::styles_for_theme("fable")
         .into_iter()
         .find(|style| style.name() == "constellation-weave")
         .expect("bundled fable constellation-weave style");
 }
 
-/// The slot line: while a submission is in flight and there is room, the
-/// status is followed by a constellation woven star to star as the
-/// validation clock runs.
 fn slot_line(
     slot: &SubmissionSlotTelemetry,
     flight_secs: Option<f32>,
@@ -620,8 +572,6 @@ fn slot_line(
     line
 }
 
-/// `width` cells of the fable constellation-weave bar, its own moonlight and
-/// gold folded onto the trench's three phosphor tones by brightness.
 fn constellation_spans(flight_secs: f32, time: f32, width: usize) -> Vec<Span<'static>> {
     let progress = (flight_secs.max(0.0) / SLOT_WINDOW_SECS).min(SLOT_WINDOW_HOLD);
     let ctx = BarContext::new(progress, time, width, 1);
@@ -879,13 +829,6 @@ fn fit_pad_ascii(text: &str, width: usize) -> String {
     out
 }
 
-/// Perspective wireframe valley. Every structural line is phosphor green;
-/// yellow and red are reserved for submission state at the targeting reticle.
-///
-/// The geometry is deliberately a *trench*, not a generic starfield: a high
-/// wall lip, sloping side grids, a recessed floor, and a stream of guidance
-/// gates all collapse into the submission target. That target is the stable
-/// visual anchor while the world moves toward the pilot.
 fn draw_trench_run(
     grid: &mut BrailleGrid,
     dot_w: usize,
@@ -911,8 +854,6 @@ fn draw_trench_run(
     let wall_mid_y = (near_lip_y + max_y) / 2;
     let reticle_clearance = (max_x.min(max_y) / 16).clamp(2, 5) + 5;
 
-    // Longitudinal rails describe the wall lips, wall planes, floor seams, and
-    // attack lane. All of them converge on the same targeting solution.
     let center = (floor_left + floor_right) / 2;
     let near_rails = [
         (0, near_lip_y, PHOSPHOR),
@@ -931,8 +872,6 @@ fn draw_trench_run(
         let _ = draw_line_colored(grid, start_x, start_y, near_x, near_y, ink, Some(1));
     }
 
-    // Cross-sections accelerate toward the camera. Unlike a flat horizon grid,
-    // each section climbs both walls before crossing the recessed floor.
     let flow = (time * 0.72 + iteration as f32 * 0.19).fract();
     for band in 0..14 {
         let depth = ((band as f32 + flow) / 14.0).fract();
@@ -994,8 +933,6 @@ fn draw_trench_run(
         slot,
     );
 
-    // A restrained canopy/nose silhouette makes the camera read as a pilot's
-    // seat without reducing the live grid to decorative scenery.
     let cockpit_rise = (dot_h as i32 / 9).clamp(2, 6);
     let nose_half = (dot_w as i32 / 18).clamp(2, 7);
     let nose_top_y = (max_y - cockpit_rise).max(horizon + 1);
@@ -1160,8 +1097,6 @@ fn draw_submission_target(
     let bracket = outer_radius as i32 + 3;
     draw_lock_brackets(grid, x, y, bracket, ink);
 
-    // A sweep belongs only to acquisition. Once a submission is away, the
-    // projectile supplies the motion and amber takes over the target state.
     if matches!(slot.phase, SubmissionSlotPhase::Empty) {
         let angle = time * 1.9;
         let sweep = outer_radius as f32;

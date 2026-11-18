@@ -23,43 +23,30 @@ use crate::recipe::{Clip, Paint, Recipe};
 use crate::rig::{self, Pose, Xf};
 use crate::shape::Solid;
 
-/// The grain the small grains are drawn at before the vote.
 pub const VOTE_GRAIN: Grain = Grain(4);
 
-/// One drawn picture: its pixels, what laid each one, and where the
-/// sockets were.
 #[derive(Clone, Debug)]
 pub struct Frame {
     pub grain: Grain,
     pub raster: Raster,
-    /// Per pixel, what laid it.
     pub marks: Vec<Mark>,
-    /// Each socket's point in model space.
     pub sockets: BTreeMap<String, [f32; 2]>,
-    /// Each part's move from where it is written, by part index.
     pub moves: Vec<Xf>,
-    /// Whether each part was drawn, by part index.
     pub shown: Vec<bool>,
 }
 
 impl Frame {
-    /// A socket's pixel at this grain.
     pub fn socket_px(&self, name: &str) -> Option<[i32; 2]> {
         let g = self.grain.px();
         self.sockets.get(name).map(|[x, y]| [(x * g).floor() as i32, (y * g).floor() as i32])
     }
 }
 
-/// A picture drawn by something other than a figure (an effect, a
-/// reference) as a frame the look tools can show: every inked pixel fill,
-/// no sockets, no parts.
 pub fn picture(raster: Raster, grain: Grain) -> Frame {
     let marks = raster.ink.iter().map(|i| if i.is_clear() { Mark::Clear } else { Mark::Fill }).collect();
     Frame { grain, raster, marks, sockets: BTreeMap::new(), moves: Vec::new(), shown: Vec::new() }
 }
 
-/// Which parts a clip draws: every part not hidden, plus those it shows,
-/// less those it hides; without `gear`, no part held in a socket.
 pub fn shown(recipe: &Recipe, clip: Option<&Clip>, gear: bool) -> Vec<bool> {
     recipe
         .src
@@ -80,26 +67,21 @@ pub fn shown(recipe: &Recipe, clip: Option<&Clip>, gear: bool) -> Vec<bool> {
         .collect()
 }
 
-/// The figure at rest.
 pub fn still(recipe: &Recipe, grain: Grain) -> Frame {
     draw(recipe, grain, &Pose::rest(recipe), &shown(recipe, None, true))
 }
 
-/// Frame `index` of a clip; none when the recipe has no such clip.
 pub fn clip_frame(recipe: &Recipe, grain: Grain, clip: &str, index: u32, gear: bool) -> Option<Frame> {
     let c = recipe.clip(clip)?;
     let pose = Pose::of_clip(recipe, c, index as f32);
     Some(draw(recipe, grain, &pose, &shown(recipe, Some(c), gear)))
 }
 
-/// Every frame of a clip.
 pub fn clip_frames(recipe: &Recipe, grain: Grain, clip: &str, gear: bool) -> Vec<Frame> {
     let n = recipe.clip(clip).map_or(0, |c| c.frames);
     (0..n).filter_map(|i| clip_frame(recipe, grain, clip, i, gear)).collect()
 }
 
-/// Each part's ramp by part id (0 unused); a flat in one ink has that ink
-/// alone.
 fn ramps(recipe: &Recipe) -> Vec<Ramp> {
     let mut out = vec![Ramp(vec![recipe.outline])];
     for p in &recipe.parts {
@@ -111,7 +93,6 @@ fn ramps(recipe: &Recipe) -> Vec<Ramp> {
     out
 }
 
-/// The figure in a pose, with the parts `shown` drawn.
 pub fn draw(recipe: &Recipe, grain: Grain, pose: &Pose, shown: &[bool]) -> Frame {
     let world = pose.snapped(grain).world(recipe);
     let moves: Vec<Xf> = (0..recipe.parts.len()).map(|i| rig::part_xf(recipe, i, &world)).collect();
@@ -143,7 +124,6 @@ pub fn draw(recipe: &Recipe, grain: Grain, pose: &Pose, shown: &[bool]) -> Frame
     let parts = &recipe.src.parts;
     lines.inner(brk, |id| id as usize >= 1 && parts.get(id as usize - 1).is_some_and(|p| p.line));
     if grain == Grain::GAME {
-        // Twice: a two-pixel gap is a one-pixel hole after the first.
         lines.close();
         lines.close();
         lines.edge();
@@ -156,14 +136,11 @@ pub fn draw(recipe: &Recipe, grain: Grain, pose: &Pose, shown: &[bool]) -> Frame
     Frame { grain, raster: ras, marks, sockets: rig::sockets(recipe, &world), moves, shown: shown.to_vec() }
 }
 
-/// The parts, lit (their tones lifted by `lift`), into a raster at grain
-/// `work`; and per pixel the volume under any surface marks.
 fn paint(recipe: &Recipe, work: Grain, solids: &[Option<Solid>], lift: f32) -> (Raster, Vec<PartId>) {
     let (w, h) = recipe.size_at(work);
     let mut ras = Raster::new(w, h);
     let mut base: Vec<PartId> = vec![0; (w * h) as usize];
     let g = work.px();
-    // Volumes first, then the marks on them, each in the recipe's order.
     for pass_marks in [false, true] {
         for (i, solid) in solids.iter().enumerate() {
             let Some(solid) = solid else { continue };
@@ -199,8 +176,6 @@ fn paint(recipe: &Recipe, work: Grain, solids: &[Option<Solid>], lift: f32) -> (
     (ras, base)
 }
 
-/// The pixels a solid's box covers at `g` pixels a game pixel, clipped to
-/// a `w` x `h` picture.
 fn pixel_box(solid: &Solid, g: f32, w: u32, h: u32) -> Option<(i32, i32, i32, i32)> {
     let [x0, y0, x1, y1] = solid.bounds();
     if x0 > x1 {
@@ -213,9 +188,6 @@ fn pixel_box(solid: &Solid, g: f32, w: u32, h: u32) -> Option<(i32, i32, i32, i3
     (px0 <= px1 && py0 <= py1).then_some((px0, py0, px1, py1))
 }
 
-/// Kept tubes thinner than a pixel and a half at this grain, drawn as one
-/// pixel line along their axis over the voted picture, where they are
-/// nearest: what a pixel artist does with a blade or a strand at 16 px.
 fn thin(recipe: &Recipe, grain: Grain, solids: &[Option<Solid>], ras: &mut Raster, lift: f32) {
     let g = grain.px();
     for (i, solid) in solids.iter().enumerate() {
@@ -228,7 +200,6 @@ fn thin(recipe: &Recipe, grain: Grain, solids: &[Option<Solid>], ras: &mut Raste
         if axis.iter().map(|a| a.1).fold(0.0, f32::max) * 2.0 * g >= 1.5 {
             continue;
         }
-        // The axis's pixels, in order, one a step along its longer way.
         let mut path: Vec<(i32, i32, [f32; 3])> = Vec::new();
         for w in axis.windows(2) {
             let (a, b) = (w[0].0, w[1].0);
@@ -242,7 +213,6 @@ fn thin(recipe: &Recipe, grain: Grain, solids: &[Option<Solid>], ras: &mut Raste
                 }
             }
         }
-        // One pixel wide: drop a step that only turns an L-corner.
         let mut clean: Vec<(i32, i32, [f32; 3])> = Vec::with_capacity(path.len());
         for (k, &p) in path.iter().enumerate() {
             if let (Some(&a), Some(&b)) = (clean.last(), path.get(k + 1)) {
@@ -262,7 +232,6 @@ fn thin(recipe: &Recipe, grain: Grain, solids: &[Option<Solid>], ras: &mut Raste
     }
 }
 
-/// A part's ink where its surface faces `n`, a lit tone lifted by `lift`.
 fn tone(recipe: &Recipe, part: usize, n: [f32; 3], lit: bool, lift: f32) -> Ink {
     let src = &recipe.src.parts[part];
     match recipe.parts[part].paint {
@@ -279,16 +248,10 @@ fn tone(recipe: &Recipe, part: usize, n: [f32; 3], lit: bool, lift: f32) -> Ink 
     }
 }
 
-/// A raster drawn at `f` times the grain, voted down: each pixel takes what
-/// most of its samples saw, the middle ones counting twice. A kept part
-/// needs only a quarter, and anything on the `floor` row (the row the pivot
-/// stands on) a fifth, so feet keep their contact. Returns the voted raster
-/// and its volumes under marks.
 pub fn vote(src: &Raster, base: &[PartId], f: u32, keep: &[bool], floor: Option<u32>) -> (Raster, Vec<PartId>) {
     let (w, h) = (src.w / f, src.h / f);
     let mut out = Raster::new(w, h);
     let mut out_base = vec![0; (w * h) as usize];
-    // Samples, the middle first so they settle ties; and their weights.
     let mut order: Vec<(u32, u32, u32)> = Vec::new();
     for sy in 0..f {
         for sx in 0..f {
@@ -349,8 +312,6 @@ pub fn vote(src: &Raster, base: &[PartId], f: u32, keep: &[bool], floor: Option<
                     forced = true;
                 }
             }
-            // A foot within a quarter pixel of the floor is on it: one row of
-            // samples, a fifth of the vote.
             let on_floor = floor == Some(oy) && inked * 5 >= total;
             if inked * 2 < total && !forced && !(kept && win.1 * 4 >= total) && !on_floor {
                 continue;
@@ -365,7 +326,6 @@ pub fn vote(src: &Raster, base: &[PartId], f: u32, keep: &[bool], floor: Option<
             out.ink[o] = ink.map_or(Ink::CLEAR, |k| k.0);
             out.depth[o] = win.2;
             out.part[o] = win.0;
-            // The volume under it: the first sample of the winner.
             out_base[o] = order
                 .iter()
                 .map(|&(sx, sy, _)| ((oy * f + sy) * src.w + ox * f + sx) as usize)
@@ -376,7 +336,6 @@ pub fn vote(src: &Raster, base: &[PartId], f: u32, keep: &[bool], floor: Option<
     (out, out_base)
 }
 
-/// The decals drawn for this grain, each riding its bone.
 fn decals(recipe: &Recipe, grain: Grain, world: &[Xf], ras: &mut Raster, marks: &mut [Mark]) {
     let Some(list) = recipe.decals.get(&grain.0) else { return };
     let g = grain.px();

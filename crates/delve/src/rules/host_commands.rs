@@ -30,23 +30,12 @@ pub enum Command {
     Catalogue { batch: catalogue::Batch },
     PaintCards { updates: Vec<super::card_paint::Update> },
     ClaimWish { ask: super::genie::Asked, maker: String },
-    /// The tavern mirror (`creator`, `cosmetic_wish`): a name typed at the
-    /// glass, a look taken off the queue for the worn painter, and the look
-    /// it drew. None of them spends or grants a wish.
     MirrorName { player: u32, words: String },
-    /// Words said while a found piece of old dwarf-work waits for its wish
-    /// go to the piece (`salvage`), free; the reply carries the piece's line.
     WishOnPiece { player: u32, words: String },
-    /// The shipwrights' design for build `n` of the salvage pieces `ids`
-    /// has landed (`together_salvage`): the vessel is made in the yard.
     BuildVessel { n: u32, ids: Vec<u32>, design: super::salvage::Design, by_model: bool },
-    /// A vessel built is shown to the party at home (`salvage`).
     RevealVessel,
     DropMirrorLook { player: u32, words: String },
     MirrorPaint { card: cards::Card },
-    /// The body-maker has drawn the whole knight for a mirror look (`card`
-    /// the look's card id, `words` the words it was drawn from), or `on`
-    /// false: its set is gone. Spends nothing.
     MirrorBody { card: String, words: String, on: bool },
     ClaimRealm,
     ClaimHome,
@@ -70,11 +59,9 @@ pub enum Command {
     DropOffer {
         player: u32,
     },
-    /// Opens the genie's typed line. Not the six-row hub.
     OpenWishLine {
         player: u32,
     },
-    /// One letter on that line.
     TypeWishLetter {
         player: u32,
         letter: u8,
@@ -114,8 +101,6 @@ pub enum Command {
     ConfigureSession {
         naked_start: bool,
         identity: bool,
-        /// A new knight owes the realm a rite (`rite`); a session from
-        /// before it asks none.
         #[serde(default)]
         rite: bool,
         host: String,
@@ -143,9 +128,6 @@ pub enum Command {
         from: usize,
         to: usize,
     },
-    /// A rough block a knight brought up from the last delve on their back:
-    /// the next run at home begins with it on their shoulders, to carry on
-    /// to the stockyard (`quarrying`).
     CarryBlock {
         player: u32,
         stone: String,
@@ -154,8 +136,6 @@ pub enum Command {
         player: u32,
         card: cards::Card,
     },
-    /// A thing the knight made in the Creator and brought to life for the realm (`rite`):
-    /// checked again by the run, kept by the realm and taken into the world.
     Contribute {
         player: u32,
         made: super::rite::Made,
@@ -220,8 +200,6 @@ pub struct Request {
     pub commands: Vec<Command>,
 }
 impl Request {
-    /// Structural admission bounds only. Native captured inputs can classify a
-    /// permanent payload refusal before waiting on temporary receipt capacity.
     pub fn validate_payload(&self) -> Result<(), String> {
         admission_bytes(&self.commands).map(|_| ())
     }
@@ -506,8 +484,6 @@ impl Journal {
             held_bytes,
         })
     }
-    /// Retire one received result. Completions may arrive out of order; a
-    /// later acknowledgement must not retire an older unresolved operation.
     pub fn acknowledge(&mut self, raid: u64, id: u64) -> Result<(), String> {
         if raid != self.raid || id == 0 || id > self.high_water {
             return Err("invalid game receipt acknowledgement".into());
@@ -599,7 +575,6 @@ impl Journal {
             },
         )?;
         if let Err(error) = receipt.result {
-            // Rejected preparation never consumed the world queues.
             self.acknowledge(run.raid_id, receipt.id)?;
             return Err(error);
         }
@@ -655,9 +630,6 @@ impl Journal {
             .result
             .map(|replies| replies == [Reply::Changed(true)])
     }
-    /// A checkpoint may precede a durable realm company. Reconcile before
-    /// simulation only when no retained claim owns the run and the realm has
-    /// changed since the last observed transaction (or there is no baseline).
     pub fn needs_company_reconciliation(&self, company: &super::squire_company::Company) -> bool {
         !self.has_pending_home()
             && self.home_seen.as_ref().is_none_or(|seen| !seen.matches_company(company))
@@ -721,7 +693,6 @@ impl Journal {
             _ => Err("invalid retained home claim result".into()),
         }
     }
-    /// Exact readiness shared by discovery and claim, borrowing retained work.
     pub fn has_home_work(&self, run: &Run, context: Option<&HomeContext>) -> Result<bool, String> {
         if run.raid_id != self.raid { return Err("home claim belongs to another raid".into()); }
         if self.has_pending_home() {
@@ -826,8 +797,6 @@ impl Journal {
             return Err("home completion exceeds retained game byte capacity".into());
         }
         record.held_bytes = new_bytes;
-        // World effects, exact result, delivery/refund receipt and consumed
-        // observations commit together. No fallible operation follows.
         *run = candidate;
         self.records[index] = record;
         self.home_seen = Some(seen);
@@ -855,8 +824,6 @@ impl Journal {
         self.acknowledge(claim.raid, claim.request)
     }
 
-    /// Admission failures do not consume an ID. Admitted game rejections do:
-    /// their receipt is as stable as success, even when the world later changes.
     pub fn apply(&mut self, run: &mut Run, request: Request) -> Result<Receipt, String> {
         self.apply_with_scroll(run, request, |run, player, intent| {
             let capture = super::scrolls::Capture::new(run, player, intent)?;
@@ -864,9 +831,6 @@ impl Journal {
             capture.prepare(run, result)
         })
     }
-    /// The journal owns admission/replay and the atomic commit. The selected
-    /// implementation prepares a scroll from immutable facts, never mutable Run
-    /// access or native model/file resources.
     pub fn apply_with_scroll(
         &mut self, run: &mut Run, request: Request,
         mut prepare: impl FnMut(&Run, u32, &super::scrolls::Intent) -> Result<super::scrolls::Prepared, String>,
@@ -933,9 +897,6 @@ impl Journal {
         {
             return Err("game receipt capacity reached; acknowledge completed results".into());
         }
-        // Host intentions are infrequent. Copy the candidate once so a game
-        // rejection cannot partially mutate its world. Tick/ability batches
-        // need their own prepared transactions, rather than cloning per action.
         let prepares_votes = request.commands.iter().any(|command| {
             matches!(command, Command::PrepareVotes { .. })
         });
@@ -949,8 +910,6 @@ impl Journal {
                 .iter()
                 .map(|command| {
                     if let Some((player, intent)) = command.scroll_intent() {
-                        // A freedom wish's words are for the place it was
-                        // begun at, never the knight (`freedom`).
                         if candidate.players.get(&player).is_some_and(|h| h.place_wish.is_some()) {
                             let said = super::freedom::plaque_words(&match &intent {
                                 super::scrolls::Intent::Local { words, .. } | super::scrolls::Intent::Learn { words } => words.clone(),
@@ -960,8 +919,6 @@ impl Journal {
                                 if matches!(command, Command::Scroll { .. }) { Reply::Chosen(said) } else { Reply::Done }
                             });
                         }
-                        // The tavern mirror's look is a wish of its own: no
-                        // strength, gear or wish spent (`cosmetic_wish`).
                         let mirror = candidate.players.get(&player).is_some_and(|h| h.mirror_wish);
                         if let (true, super::scrolls::Intent::Local { words, .. } | super::scrolls::Intent::Learn { words }) = (mirror, &intent) {
                             let said = words.trim().to_string();
@@ -969,9 +926,6 @@ impl Journal {
                                 if matches!(command, Command::Scroll { .. }) { Reply::Chosen(said) } else { Reply::Done }
                             });
                         }
-                        // So is a visitor's wish for a city of the Deep
-                        // (`deep::city`): the city builds it, the knight
-                        // spends nothing.
                         let city = candidate.city_wishing(player);
                         if let (true, super::scrolls::Intent::Local { words, .. } | super::scrolls::Intent::Learn { words }) = (city, &intent) {
                             let said = words.trim().to_string();
@@ -1046,7 +1000,6 @@ impl Journal {
             id: request.id,
             result,
         };
-        // Every fallible preparation is finished before world and receipt commit.
         if let Some(candidate) = candidate {
             *run = candidate;
         }
@@ -1082,8 +1035,6 @@ fn projected_home(
         );
     }
     super::ranch::migrate(&mut home.ranch, &mut home.stable);
-    // rebuild_home retains the run's chosen landing. Compare that effective
-    // projection here too, avoiding a whole-world transaction on every poll.
     home.landing = run.home.landing;
     if run.squire_company_reserved || run.squire_company_claimed
         || baseline.is_some_and(|old| home.squire_company == old.squire_company)
@@ -1100,9 +1051,6 @@ fn projected_home(
     if !run.lane_squire_orders.is_empty() {
         home.lane_squires = run.home.lane_squires.clone();
     }
-    // While a payment is pending, either the previous projection or the
-    // prepared claim may be the destination's current value. Neither may
-    // overwrite a newer local edit made after capture.
     if baseline.is_none()
         || baseline.is_some_and(|old| home.squire_academy == old.squire_academy)
         || pending.is_some_and(|claim| home.squire_academy == claim.squire_academy)
@@ -1121,8 +1069,6 @@ fn projected_home(
     {
         home.privy_wall = run.home.privy_wall.clone();
     }
-    // The run's salvage yard is kept when it is newer than the realm's
-    // (`salvage`): a find, a wish or a build since the realm last saw it.
     if run.home.industry.rev > home.industry.rev { home.industry = run.home.industry.clone(); }
     if run.home.kingdom_gear.rev > home.kingdom_gear.rev { home.kingdom_gear = run.home.kingdom_gear.clone(); }
     if run.home.stockyard.rev > home.stockyard.rev { home.stockyard = run.home.stockyard.clone(); }
@@ -1166,8 +1112,6 @@ fn record_bytes(record: &Record) -> Result<usize, String> {
         + record.wish.as_ref().map_or(Ok(0), |done| encoded_bytes(done, MAX_RESULT_BYTES))?)
 }
 
-// Count JSON bytes without allocating a second copy of large definition data.
-// This is an in-memory bound, not an IO operation.
 fn encoded_bytes(value: &impl Serialize, limit: usize) -> Result<usize, String> {
     struct Count {
         bytes: usize,
@@ -1609,9 +1553,6 @@ impl Command {
                         seat.couch = true;
                     }
                 } else {
-                    // `ready` is transient across a private checkpoint. The
-                    // Journal marker is durable; restore only the latch and
-                    // missing seats, never stale realm facts over the ballot.
                     run.playtest.ready = true;
                     for (id, name, _) in seats {
                         if !run.playtest.seats.contains_key(id) {
@@ -1631,8 +1572,6 @@ impl Command {
                 }
             }
             Self::ClaimVotes { .. } => {
-                // The candidate and retained receipt commit together. Later
-                // edits own a new queue, even for direct Request admission.
                 run.playtest.changes.clear();
                 run.playtest.dirty = false;
             }
@@ -2397,7 +2336,7 @@ mod tests {
             delivered.refund.get(crate::realm::Spoil::Gold),
             claim.transfer.stall_prices[0]
         );
-        run.dungeon.rooms[run.at].items.clear(); // capacity is available on retry
+        run.dungeon.rooms[run.at].items.clear();
         let before = snapshot(&run);
         let mut restored = Journal::restore(journal.capture().unwrap(), "session-a", 9).unwrap();
         assert_eq!(
@@ -2459,7 +2398,6 @@ mod tests {
         assert_eq!(run.orders, claim.transfer.orders);
         assert_eq!(run.peddled, [invalid]);
         assert!(run.college_progress().active("sigils"));
-        // More play happens while the source/destination cannot yet commit.
         run.marks.insert("xp".into(), 8);
         run.marks.insert("country:visit:1".into(), 1);
         run.marks.insert("country:build:bakery".into(), 2);
@@ -2470,8 +2408,6 @@ mod tests {
         run.peddled.push(invalid);
         run.feats.push("sticky_fingers");
         let outbox = HomeOutbox::capture(&run).unwrap();
-        // A public Run does not contain these transient queues. The private
-        // outbox restores the actual world rather than a test-only union.
         let mut restored: Run =
             serde_json::from_value(serde_json::to_value(&run).unwrap()).unwrap();
         assert!(restored.marks.is_empty());

@@ -21,7 +21,6 @@ pub(crate) struct FrameTiming {
 
 #[derive(Clone, Copy, Default)]
 struct Diagnostics {
-    // The write is a SUBSET of record cost, not an additional gap component.
     prior_record_us: Option<u128>,
     prior_record_write_us: Option<u128>,
     thread_cpu_gap_us: Option<u128>,
@@ -76,9 +75,6 @@ impl FrameTiming {
     ) -> Instant {
         self.diagnostics.post_draw_us = post_draw_us;
         self.diagnostics.pre_poll_us = pre_poll_us;
-        // Sample at the same logical completion boundary as wall time. This
-        // includes main-thread CPU spent on the preceding record/flush, not
-        // CPU used by decoder/encoder/background threads. Unsupported = '-'.
         let cpu_us = thread_cpu_us();
         self.diagnostics.thread_cpu_gap_us = cpu_us
             .zip(self.previous_cpu_us)
@@ -93,7 +89,6 @@ impl FrameTiming {
             self.diagnostics,
         );
         let write_started = Instant::now();
-        // Fail open: telemetry must never cause the cockpit to exit.
         let result = writeln!(self.file, "{line}");
         let written = Instant::now();
         self.diagnostics.prior_record_write_us =
@@ -107,8 +102,6 @@ impl FrameTiming {
         }
         self.previous = Some(end);
         self.previous_cpu_us = cpu_us;
-        // Post-draw accounting starts at this exact boundary, including the
-        // bookkeeping/return above without creating another untimed interval.
         written
     }
 }
@@ -120,7 +113,6 @@ fn thread_cpu_us() -> Option<u128> {
             tv_sec: 0,
             tv_nsec: 0,
         };
-        // CLOCK_THREAD_CPUTIME_ID observes this thread only and performs no I/O.
         if unsafe { libc::clock_gettime(libc::CLOCK_THREAD_CPUTIME_ID, &mut time) } == 0
             && time.tv_sec >= 0
             && time.tv_nsec >= 0

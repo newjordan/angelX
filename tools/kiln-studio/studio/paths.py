@@ -1,9 +1,3 @@
-"""Where kiln-studio finds its tools and keeps its data.
-
-Everything a job writes lives under KILN_HOME (default ~/.angelX/kiln). The
-repo's own files (the realm's inks, the skill, the style bible) are read from
-the checkout this package sits in.
-"""
 import os
 import shutil
 from pathlib import Path
@@ -27,8 +21,6 @@ VFX = os.environ.get("KILN_VFX", str(Path.home() / ".angelX" / "cartridges" / "v
 
 
 def kiln_bin():
-    """The kiln command (crates/kiln, feature `cli`): KILN_BIN, else `kiln` on
-    PATH, else the checkout's own fast build; None when there is none."""
     for found in (os.environ.get("KILN_BIN"), shutil.which("kiln"), str(REPO / "crates" / "target" / "fast" / "kiln")):
         if found and os.access(found, os.X_OK):
             return found
@@ -36,7 +28,6 @@ def kiln_bin():
 
 
 def kiln_fx_bin():
-    """kiln-studio's own kiln effect renderer (tools/kiln-studio/fx-render), or None until built."""
     for found in (os.environ.get("KILN_FX"), str(STUDIO / "fx-render" / "target" / "release" / "kiln-fx")):
         if found and os.access(found, os.X_OK):
             return found
@@ -44,7 +35,6 @@ def kiln_fx_bin():
 
 
 def node_env():
-    """The environment for node tools: the pinned node first on PATH."""
     env = dict(os.environ)
     env["PATH"] = str(Path(NODE).parent) + os.pathsep + env.get("PATH", "")
     return env

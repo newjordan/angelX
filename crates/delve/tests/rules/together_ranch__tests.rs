@@ -53,8 +53,6 @@ fn ranch_and_fields_are_reached_from_the_stables_and_lead_back() {
     assert!(to(RoomKind::Ranch).contains(&RoomKind::Stables));
     assert!(to(RoomKind::Ranch).contains(&RoomKind::Pasture));
     assert!(to(RoomKind::Pasture).contains(&RoomKind::Ranch));
-    // Every gate's tiles are stairs in its room, and every arrival is open
-    // ground off the stairs.
     for e in DOORS {
         let room = &r.dungeon.rooms[world::room_of(&r.dungeon, e.room).unwrap()];
         let (c, row, w, h) = e.at;
@@ -114,7 +112,6 @@ fn the_stud_book_takes_a_full_hold_and_marks_a_covering() {
     assert!(!r.marks.contains_key("ranch:breed"), "a tap buys nothing");
     press(&mut r, 3);
     assert_eq!(r.marks.get("ranch:breed"), Some(&1));
-    // Held on, it does not ask twice.
     press(&mut r, super::super::home::BUY_HOLD * 2);
     assert_eq!(r.marks.get("ranch:breed"), Some(&1));
 }
@@ -220,7 +217,6 @@ fn an_old_ranch_foal_migrates_once_even_into_a_full_herd() {
     let mut loaded: Home = serde_json::from_str(&serde_json::to_string(&home).unwrap()).unwrap();
     assert!(!migrate(&mut loaded.ranch, &mut loaded.stable));
     assert_eq!(loaded.stable.herd.len(), 13, "saved birth is never lost at the yard cap");
-    // A partially migrated save also cannot duplicate the same foal.
     loaded.ranch.foal = Some(Foal { name: "Aurora".into(), filly: true, born: 4 });
     assert!(migrate(&mut loaded.ranch, &mut loaded.stable));
     assert_eq!(loaded.stable.herd.len(), 13);

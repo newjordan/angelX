@@ -6,8 +6,6 @@
 
 use super::*;
 
-// --- context / recall suite ---
-
 #[test]
 fn turn_budget_off_by_default_else_expires_at_deadline() {
     assert!(!turn_expired(99_999, 0), "0 = off, never expires (default)");
@@ -29,7 +27,6 @@ fn bm25_ranks_by_relevance() {
         Some(&1),
         "web-search doc ranks first: {hits:?}"
     );
-    // No overlap → no hits.
     assert!(bm25_rank("quantum", &docs, 3).is_empty());
     assert!(bm25_rank("", &docs, 3).is_empty());
 }
@@ -118,20 +115,18 @@ fn bm25_linear_index_matches_reference_and_visits_each_document_token_once() {
 #[test]
 fn deferred_tools_hidden_from_defs_but_dispatchable() {
     let mut reg = ToolRegistry::new();
-    reg.register(Box::new(ReverseTool)); // advertised
-    reg.register_deferred(Box::new(WordCountTool)); // hidden until searched
+    reg.register(Box::new(ReverseTool));
+    reg.register_deferred(Box::new(WordCountTool));
     let names: Vec<String> = reg.defs().iter().map(|d| d.name.clone()).collect();
     assert!(names.contains(&"reverse".to_string()));
     assert!(
         !names.contains(&"word_count".to_string()),
         "deferred is hidden"
     );
-    // Still dispatchable directly by name.
     assert!(
         reg.dispatch("word_count", &serde_json::json!({"text": "a b c"}))
             .is_ok()
     );
-    // tool_search appears once enabled and finds the deferred tool.
     reg.enable_tool_search();
     let names: Vec<String> = reg.defs().iter().map(|d| d.name.clone()).collect();
     assert!(names.contains(&"tool_search".to_string()));
@@ -149,7 +144,6 @@ fn context_tool_reports_usage_and_budget() {
     let gauge = Arc::new(ContextGauge::default());
     let tool = ContextTool::new(Arc::clone(&gauge));
     assert_eq!(tool.def().name, "get_context_remaining");
-    // No budget set → usage-only message.
     gauge.used_tokens.store(1234, Ordering::Relaxed);
     let out = tool.call(&serde_json::json!({})).unwrap();
     let no_budget = crate::agent::harness::book::d56_replies::NO_BUDGET;
@@ -158,12 +152,10 @@ fn context_tool_reports_usage_and_budget() {
         "got: {out}"
     );
     assert!(no_budget.text().contains("No context budget"));
-    // With a threshold → usage against it and the percent, never a countdown:
-    // a shrinking "remaining" read as a hard budget and models rationed work.
     gauge.budget_tokens.store(2000, Ordering::Relaxed);
     let out = tool.call(&serde_json::json!({})).unwrap();
     assert!(out.contains("~1234 tokens in context"), "got: {out}");
-    assert!(out.contains("compact at ~2000 (62%)"), "got: {out}"); // 1234/2000
+    assert!(out.contains("compact at ~2000 (62%)"), "got: {out}");
     assert!(!out.contains("remaining"), "got: {out}");
 }
 
@@ -191,9 +183,7 @@ impl Club for MetaClub {
 #[test]
 fn compaction_budget_defaults_to_333k_and_caps_to_model_window() {
     let _guard = crate::tests::env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_NO_AUTOCOMPACT") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_CONTEXT_SOFT_CAP") };
 
     let unknown = MetaClub {
@@ -231,29 +221,21 @@ fn compaction_budget_defaults_to_333k_and_caps_to_model_window() {
         "explicit env budget remains a hard override"
     );
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_CONTEXT_SOFT_CAP", "111000") };
     assert_eq!(compaction_budget(&large, 0), 111_000);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_NO_AUTOCOMPACT", "1") };
     assert_eq!(compaction_budget(&large, 0), 0);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_CONTEXT_SOFT_CAP") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_NO_AUTOCOMPACT") };
 }
 
 #[test]
 fn compaction_budget_sota_links_default_to_cost_sized_target() {
     let _guard = crate::tests::env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_NO_AUTOCOMPACT") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_CONTEXT_SOFT_CAP") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_SOTA_CONTEXT_BUDGET") };
 
-    // A metered label budgets for cost, not context fit.
     let sota = MetaClub {
         label: "openrouter",
         context_window: 0,
@@ -263,38 +245,27 @@ fn compaction_budget_sota_links_default_to_cost_sized_target() {
         DEFAULT_SOTA_CONTEXT_BUDGET_TOKENS
     );
 
-    // Env override reshapes the metered target.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SOTA_CONTEXT_BUDGET", "50000") };
     assert_eq!(compaction_budget(&sota, 0), 50_000);
 
-    // An explicit budget still beats everything.
     assert_eq!(compaction_budget(&sota, 123_456), 123_456);
 
-    // 0 disables the special case → back on the 333k context-fit path.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SOTA_CONTEXT_BUDGET", "0") };
     assert_eq!(compaction_budget(&sota, 0), DEFAULT_CONTEXT_BUDGET_TOKENS);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_SOTA_CONTEXT_BUDGET") };
 
-    // Local labels never see the metered target.
     let local = MetaClub {
         label: "atlas",
         context_window: 0,
     };
     assert_eq!(compaction_budget(&local, 0), DEFAULT_CONTEXT_BUDGET_TOKENS);
 
-    // The metered target is still min'd against the model window −20%.
     let small_sota = MetaClub {
         label: "deepseek",
         context_window: 64_000,
     };
     assert_eq!(compaction_budget(&small_sota, 0), 51_200);
 }
-
-/// One `hops`-deep tool-calling tail: each hop is an assistant tool-call batch
-/// followed by its result carrying `payload`.
 
 #[test]
 fn auto_recall_runs_once_per_distinct_project_query() {
@@ -325,9 +296,7 @@ fn auto_recall_runs_once_per_distinct_project_query() {
 
     let _guard = crate::tests::env_lock();
     let _legacy = crate::tests::TestEnvGuard::set("ANGEL_BACKPLANE", "0");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_AUTO_RECALL") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_AUTO_RECALL_K") };
 
     let store = Arc::new(RecallStore {
@@ -522,7 +491,7 @@ fn maybe_compact_noop_when_summarizer_fails() {
     let mut h = long_history();
     let n0 = h.len();
     let (tx, _rx) = mpsc::channel();
-    let club = SummarizerClub(""); // respond -> Err
+    let club = SummarizerClub("");
     let reg = registry_with_store(std::sync::Arc::new(
         crate::knowledge::memory::store::NullStore,
     ));
@@ -557,7 +526,6 @@ fn auto_recall_bounds_pinned_memory_before_the_first_model_hop() {
 
     let _guard = crate::tests::env_lock();
     let _legacy = crate::tests::TestEnvGuard::set("ANGEL_BACKPLANE", "0");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_AUTO_RECALL") };
     let mut registry = ToolRegistry::new();
     registry.set_memory_store(Arc::new(GiantRecallStore));
@@ -607,7 +575,6 @@ fn maybe_compact_with_live_store_compacts_and_splices() {
         fn status(&self) -> Result<String, String> {
             Ok(String::new())
         }
-        // is_live() defaults to true → exercises the deposit/"filing" branch.
     }
     let mut h = long_history();
     let n0 = h.len();
@@ -630,13 +597,10 @@ fn maybe_compact_with_live_store_compacts_and_splices() {
         "live-store compaction summary must use the internal background carrier"
     );
     assert!(crate::agent::compaction::is_compaction_note(note));
-    // Deposits are fire-and-forget (off-thread); we don't assert the count here
-    // to avoid a race — the deterministic outcome is the compaction + splice.
 }
 
 #[test]
 fn report_topic_uses_latest_user_ask() {
-    // Picks the *last* user message's first non-empty line.
     let h = vec![
         ChatMsg::user("an earlier question"),
         ChatMsg::assistant("answer"),
@@ -644,13 +608,11 @@ fn report_topic_uses_latest_user_ask() {
         ChatMsg::assistant("the synthesis"),
     ];
     assert_eq!(report_topic(&h), "how does the swarm file reports?");
-    // Long asks are truncated with an ellipsis.
     let long = "x".repeat(100);
     let h2 = vec![ChatMsg::user(long.clone())];
     let topic = report_topic(&h2);
     assert!(topic.ends_with('…'));
-    assert_eq!(topic.chars().count(), 65); // 64 chars + ellipsis
-    // No user turn → generic fallback.
+    assert_eq!(topic.chars().count(), 65);
     assert_eq!(
         report_topic(&[ChatMsg::system("preamble")]),
         "Swarm synthesis"
@@ -699,7 +661,6 @@ fn recall_tool_validates_args_and_formats_hits() {
         "(no relevant notes in long-term memory)"
     );
     assert!(tool.call(&serde_json::json!({"query": "boom"})).is_err());
-    // limit 0 → clamped to 1.
     let clamped = tool
         .call(&serde_json::json!({"query": "x", "limit": 0}))
         .unwrap();

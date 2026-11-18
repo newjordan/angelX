@@ -1,11 +1,8 @@
-/// Which leg made a decision, for receipts: the native leg, a pinned live
-/// generation, or the native leg after that generation failed its check.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LegSource {
     Native,
     Live { digest: String },
     LiveFallback { digest: String, error: String },
-    /// The generation compiled into this binary; no live one was active.
     Shipped { digest: String },
 }
 
@@ -24,8 +21,6 @@ static OFFERED: std::sync::LazyLock<
     std::sync::RwLock<std::collections::BTreeMap<String, crate::Program>>,
 > = std::sync::LazyLock::new(Default::default);
 
-/// Publish the active legs for callers outside a turn (drive, knowledge,
-/// game policy). Turn callers use the registry's pinned generation instead.
 pub fn offer(policies: &std::collections::BTreeMap<String, crate::Program>) {
     *OFFERED.write().unwrap_or_else(|p| p.into_inner()) = policies.clone();
 }

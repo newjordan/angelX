@@ -19,7 +19,6 @@ const CELL_H: i32 = 32;
 const LABEL: i32 = 74;
 const COLS: i32 = 20;
 
-/// A sheet of labelled rows of figures, each standing on its cell's floor.
 struct Sheet {
     im: Img,
     row: i32,
@@ -38,11 +37,8 @@ impl Sheet {
         self.im.text(2, y + CELL_H / 2 - 6, label, 'J');
     }
 
-    /// `im` standing with its feet on the cell floor, its middle at the
-    /// cell's middle (as `stand` puts a knight on the room).
     fn put(&mut self, im: &Img) {
         let (cx, floor) = (LABEL + self.col * CELL_W + CELL_W / 2, self.row * CELL_H + 4 + CELL_H - 4);
-        // The floor the knight stands on: a quiet slate line.
         for x in -10..10 {
             self.im.put(cx + x, floor + 1, 'g');
         }
@@ -50,7 +46,6 @@ impl Sheet {
         self.col += 1;
     }
 
-    /// Something drawn straight onto the sheet at the next cell's feet.
     fn draw(&mut self, paint: impl FnOnce(&mut Img, i32, i32)) {
         let (cx, floor) = (LABEL + self.col * CELL_W + CELL_W / 2, self.row * CELL_H + 4 + CELL_H - 4);
         for x in -10..10 {
@@ -67,8 +62,6 @@ impl Sheet {
 
 #[test]
 fn floating_live_equipment_keeps_body_fitted_and_pivots_with_aim() {
-    // The wooden curve faces the aim; the string is pulled toward the
-    // knight, not out in front of the bow. At rest it is carried upright.
     for view in [realm::View::Toward, realm::View::Across, realm::View::Away] {
         for strike in [false, true] {
             let (bow, _) = realm::equipment(view, Held::Bow, strike).unwrap();
@@ -226,7 +219,6 @@ fn aimed(h: &crate::rules::Hero, (ax, ay): (f32, f32), stride: f32) -> crate::ru
     h
 }
 
-/// The figure as the arena draws it, turned for the left.
 fn drawn(h: &crate::rules::Hero, id: u32) -> Img {
     let im = figure_with(h, id, false);
     if h.aim_x < -0.3 { im.flip_h() } else { im }
@@ -236,7 +228,6 @@ const DOWN: (f32, f32) = (0.0, 1.0);
 const SIDE: (f32, f32) = (1.0, 0.0);
 const LEFT: (f32, f32) = (-1.0, 0.0);
 const UP: (f32, f32) = (0.0, -1.0);
-/// Stand, then the stride: a foot planted, passing, the other foot.
 const STRIDES: [f32; 4] = [0.0, 0.5, 1.2, 2.0];
 
 fn realm_row(sheet: &mut Sheet, base: &crate::rules::Hero, id: u32) {
@@ -246,11 +237,9 @@ fn realm_row(sheet: &mut Sheet, base: &crate::rules::Hero, id: u32) {
         }
     }
     sheet.put(&drawn(&aimed(base, LEFT, 0.0), id));
-    // Loosing a shot across.
     let mut h = aimed(base, SIDE, 0.0);
     h.fire_cooldown = 4;
     sheet.put(&drawn(&h, id));
-    // Hit: white, then bent back from the blow.
     for age in [1, 7] {
         let mut h = aimed(base, SIDE, 0.0);
         h.struck = STRUCK - age;
@@ -260,7 +249,6 @@ fn realm_row(sheet: &mut Sheet, base: &crate::rules::Hero, id: u32) {
         cell.stamp(&posed, 4 + dx, 0);
         sheet.put(&cell);
     }
-    // The roll, a frame a quarter of the way through each turn.
     for left in [9, 6, 3] {
         sheet.put(&rolled(&figure_with(&aimed(base, SIDE, 0.0), id, false), left));
     }
@@ -278,13 +266,11 @@ fn write_hero_sheet() {
     let run = Run::new(7, 1, Some("Friend"));
     let base = hero_of(&run);
 
-    // The realm's knight in each seat's colours.
     for id in 1..=4 {
         sheet.line(&format!("SEAT {id}"));
         realm_row(&mut sheet, &base, id);
     }
 
-    // Stages of dress, the shield, and what flies off.
     sheet.line("DRESS");
     for (gear, helm) in [(0u8, true), (1, false), (2, false)] {
         for aim in [DOWN, SIDE, UP] {
@@ -329,7 +315,6 @@ fn write_hero_sheet() {
     naked.gear = 2;
     naked.hp = naked.max_hp / 10;
     sheet.put(&figure_with(&naked, 1, true));
-    // Fallen: the bones settled where the knight stood.
     sheet.draw(|cv, x, y| {
         let mut h = aimed(&base, SIDE, 0.0);
         h.hp = 0;
@@ -337,8 +322,6 @@ fn write_hero_sheet() {
     });
     sheet.put(&sprites::frog(0));
 
-    // What the realm's knight holds: each arm at rest and in its strike,
-    // across, toward and away; the blade as it swings.
     for (label, aim) in [("HELD ACROSS", SIDE), ("HELD TOWARD", DOWN), ("HELD AWAY", UP)] {
         sheet.line(label);
         for weapon in [
@@ -361,8 +344,6 @@ fn write_hero_sheet() {
         sheet.put(&drawn(&h, 1));
     }
 
-    // What a game against friends leaves on the helm: the winner's crown,
-    // then each booby prize; toward the viewer and across.
     sheet.line("HATS");
     {
         use crate::rules::pastimes::Game;
@@ -378,7 +359,6 @@ fn write_hero_sheet() {
         }
     }
 
-    // The company: each kit's colours on the realm's knight, and the dwarf.
     sheet.line("COMPANY");
     for kit_id in [
         "percival", "lynette", "gareth", "galahad", "composer", "dispatcher", "loop", "money",
@@ -399,7 +379,6 @@ fn write_hero_sheet() {
         sheet.put(&drawn(&h, 1));
     }
 
-    // Every class, toward / across / away, standing, both steps, striking.
     for look in Look::ALL {
         sheet.line(&look.name().to_uppercase());
         for facing in [Facing::Down, Facing::Side, Facing::Up] {
@@ -418,7 +397,6 @@ fn write_hero_sheet() {
             }
         }
     }
-    // Each class in the four seats' trim.
     for pair in Look::ALL.chunks(4) {
         sheet.line("TRIM");
         for look in pair {
@@ -432,9 +410,6 @@ fn write_hero_sheet() {
         }
     }
 
-    // The same knight elsewhere: in the saddle at the lists, the visitor,
-    // the reader, the mini-viz in two houses' colours, and each class's
-    // head and coat for the saddle.
     sheet.line("ELSEWHERE");
     sheet.put(&kit::rider(Heraldry::Red));
     sheet.skip();
@@ -462,7 +437,6 @@ fn write_hero_sheet() {
         }
     }
 
-    // Cut to the rows drawn.
     let mut im = Img::new(sheet.im.w, (sheet.row + 1) * CELL_H + 8);
     im.stamp(&sheet.im, 0, 0);
     let im = &im;
@@ -477,10 +451,6 @@ fn write_hero_sheet() {
     save("hero-sheet-1x.png", 1);
 }
 
-/// The knights where players meet them: a crypt fight with four knights
-/// (the realm's knight in two seats, two classes in the others), the
-/// kingdom at the ranch. `hero-scene-*.png` at the
-/// browser's 1280x720.
 #[test]
 #[ignore]
 fn write_hero_scenes() {
@@ -519,8 +489,6 @@ fn write_hero_scenes() {
         }
         run
     };
-    // The same fight worn down: helm off, smallclothes, a shield raised
-    // away, a company's colours.
     let hurt = || {
         let mut run = crypt();
         for (id, gear) in [(1, 1u8), (2, 2)] {

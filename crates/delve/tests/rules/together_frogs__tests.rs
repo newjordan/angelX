@@ -5,7 +5,6 @@ fn input(i: Input) -> BTreeMap<u32, Input> {
     BTreeMap::from([(1, i)])
 }
 
-/// A calm, cleared fight room, one knight at the middle, no monsters.
 fn quiet() -> Run {
     let mut run = Run::new(4, 1, Some("Matt"));
     let room = run
@@ -43,7 +42,6 @@ fn frog_at(run: &mut Run, x: f32, y: f32) {
     });
 }
 
-/// Into a Sanctuary with the party as it is.
 fn to_the_sanctuary(run: &mut Run) {
     let room = run
         .dungeon
@@ -117,12 +115,10 @@ fn a_frog_hops_about_its_room() {
 fn a_frog_leaps_onto_the_shoulder_of_a_knight_who_comes_near() {
     let mut run = quiet();
     frog_at(&mut run, 30.0, 14.0);
-    // Far: nothing.
     for _ in 0..10 {
         run.step(&BTreeMap::new());
     }
     assert!(!run.players[&1].rider);
-    // Near: it leaps, and a moment later it is aboard.
     run.players.get_mut(&1).unwrap().x = 28.0;
     run.step(&BTreeMap::new());
     assert!(run.frogs.wild[0].leap.is_some(), "the leap begins");
@@ -146,7 +142,6 @@ fn only_one_frog_to_a_knight_and_the_second_waits_for_another() {
     }
     assert_eq!(run.frogs.wild.len(), 1, "still hopping, unboarded");
     assert!(run.frogs.wild[0].leap.is_none());
-    // The other knight comes by: that one takes it.
     let (x, y) = (run.frogs.wild[0].x, run.frogs.wild[0].y);
     let matt = run.players.get_mut(&2).unwrap();
     (matt.x, matt.y) = (x + 1.0, y);
@@ -165,7 +160,6 @@ fn a_fallen_carrier_drops_the_frog() {
     run.step(&BTreeMap::new());
     assert!(!run.players[&1].rider);
     assert_eq!(run.frogs.wild.len(), 1, "it hops off");
-    // The fallen cannot take it back; a standing knight can.
     for _ in 0..40 {
         run.step(&BTreeMap::new());
     }
@@ -250,12 +244,10 @@ fn a_clown_takes_a_quarter_of_everyones_health_for_the_floor_and_the_next_gives_
     assert_eq!((a.hp, a.max_hp), (75, 75), "most and current alike");
     assert_eq!((b.hp, b.max_hp), (45, 75));
     assert_eq!(a.boon.from, Some(Gift::Clown));
-    // The floor goes on: still cut.
     for _ in 0..HZ {
         run.step(&BTreeMap::new());
     }
     assert_eq!(run.players[&1].max_hp, 75);
-    // The stairs: the most comes back, and the stairs mend a little.
     run.descend_for_test();
     let a = &run.players[&1];
     assert_eq!(a.max_hp, 100, "restored on the next floor");
@@ -267,7 +259,6 @@ fn a_clown_takes_a_quarter_of_everyones_health_for_the_floor_and_the_next_gives_
 fn the_herald_names_the_clown_and_what_it_costs() {
     let mut run = quiet();
     run.players.get_mut(&1).unwrap().rider = true;
-    // Force the roll: the clown is whatever the roll gives, so look it up.
     to_the_sanctuary_force(&mut run);
     let gift = run.frogs.shown[0].gift;
     let line = &run.found.as_ref().unwrap().2;
@@ -318,12 +309,10 @@ fn save(img: &crate::render::overworld::Img, name: &str) {
     std::fs::write(dir.join(format!("{name}.ppm")), out).unwrap();
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_frog_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_frog_shots() {
     use crate::render::overworld::{Img, arena};
-    // The sprites on black paper, two animation frames.
     let mut sheet = Img::black(9 * 24 + 4, 2 * 24 + 4);
     for (row, tick) in [0u32, 12].into_iter().enumerate() {
         for (col, im) in arena::frog_sprites(tick).iter().enumerate() {
@@ -335,7 +324,6 @@ fn write_frog_shots() {
         }
     }
     save(&sheet, "frog_sheet");
-    // In a room: a frog hopping, and one riding a knight's shoulder.
     let mut run = quiet();
     frog_at(&mut run, 16.0, 14.0);
     run.frogs.wild[0].hop = 5;
@@ -345,7 +333,6 @@ fn write_frog_shots() {
     run.players.get_mut(&2).unwrap().x = 30.0;
     run.players.get_mut(&2).unwrap().y = 14.0;
     save(&arena::frame_for(&run, 384, 224, Some(1)), "frog_room");
-    // The Sanctuary: the puff, then each figure with its plate.
     for (name, gift, age) in [
         ("frog_puff", Gift::Princess, 9u64),
         ("frog_princess", Gift::Princess, 60),
@@ -374,7 +361,6 @@ fn health_grown_under_the_clowns_curse_never_lifts_above_the_cap() {
         (hero.max_hp, hero.hp) = (cap, cap);
     }
     run.give(Gift::Clown);
-    // Cursed, the knight mends and grows back to the cap.
     for hero in run.players.values_mut() {
         (hero.max_hp, hero.hp) = (hero.hp_cap(), hero.hp_cap());
     }
@@ -383,4 +369,21 @@ fn health_grown_under_the_clowns_curse_never_lifts_above_the_cap() {
         assert!(hero.max_hp <= hero.hp_cap(), "{} > {}", hero.max_hp, hero.hp_cap());
         assert!(hero.hp <= hero.max_hp);
     }
+}
+
+#[test]
+fn a_frog_tick_reads_the_room_without_copying_it() {
+    let mut run = quiet();
+    frog_at(&mut run, 32.0, 6.0);
+    run.tick_frogs();
+    let (_, _, before) = crate::test_alloc::now();
+    for _ in 0..100 {
+        run.tick_frogs();
+    }
+    let (_, _, after) = crate::test_alloc::now();
+    assert!(
+        after - before <= 100,
+        "{} allocations in 100 frog ticks; only the standing list may allocate, once a tick",
+        after - before
+    );
 }

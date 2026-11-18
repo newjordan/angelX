@@ -18,9 +18,6 @@ impl Club for ParallelBudgetClub {
             Ok(ClubReply::Calls(vec![
                 ToolCall {
                     id: "budget-a".to_string(),
-                    // `reverse` is intentionally classified parallel-safe; the
-                    // test registry supplies this accounting probe under that
-                    // name to exercise the real scoped-worker boundary.
                     name: "reverse".to_string(),
                     args: serde_json::json!({"probe": 1}),
                 },

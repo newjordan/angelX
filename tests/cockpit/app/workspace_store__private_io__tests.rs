@@ -166,7 +166,6 @@ fn actual_store_writers_are_private_under_zero_umask() {
     let _guard = crate::tests::env_lock();
     const CHILD: &str = "ANGEL_T_PRIVATE_WRITER_UMASK_CHILD";
     if std::env::var_os(CHILD).is_some() {
-        // Only this dedicated single-test subprocess changes its process umask.
         unsafe {
             libc::umask(0);
         }

@@ -1,6 +1,3 @@
-"""Creative billboards, NOT native game parity.
-
-python -m spriterig.skel [--out showcase/skel] [--clips ~/Downloads/mixamo] [--bench]"""
 import argparse, importlib, os, time
 import numpy as np
 from PIL import Image
@@ -50,7 +47,6 @@ def main(argv=None):
         for n, c in more.items():
             clips["mx_" + n] = c
     bbs = billboards(a.angelx)
-    # ---- 2D bench: random camera / facing, every clip
     for b in bbs:
         n, t = 0, time.time()
         for ci, c in enumerate(clips.values()):
@@ -62,7 +58,6 @@ def main(argv=None):
     if a.bench:
         return
     hero = bbs[0]
-    # ---- orbit: the camera circles a walking hero (any camera angle)
     for clip in ["walk", "attack_right", "cast"] + [k for k in clips if k.startswith("mx_")]:
         c = clips[clip]
         fr = []
@@ -72,7 +67,6 @@ def main(argv=None):
             row = [b.rgba(b.frame(*c.sample(i / c.fps), facing=0, cam=cam)[0], pal) for b in bbs]
             fr.append(_row(row))
         _gif(fr, os.path.join(a.out, f"orbit_{clip}.gif"), 12, 5)
-    # ---- 8 directions sheet
     rows = []
     for clip in ("idle", "walk", "run", "attack_right", "jump"):
         c = clips[clip]

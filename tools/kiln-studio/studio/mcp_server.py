@@ -1,16 +1,3 @@
-"""The kiln MCP server: kiln's hands and eyes as tools, over stdio.
-
-Newline-delimited JSON-RPC 2.0, as MCP's stdio transport has it: initialize,
-ping, tools/list and tools/call; diagnostics go to stderr. Every path a tool
-takes is inside the server's root (`--root`, default the current folder);
-the library is read from anywhere.
-
-    kiln-studio mcp --root <dir> [--kind figure|vfx] [--brief <file>] [--tools a,b] [--deadline <unix time>]
-
-With a deadline (a job's budget), every result says how much time is left.
-
-A Claude Code or Codex agent gets it as an MCP server named `kiln`.
-"""
 import base64
 import json
 import os
@@ -72,9 +59,9 @@ class Server:
     def handle(self, msg):
         method, mid = msg.get("method"), msg.get("id")
         if method is None:
-            return None  # a response to something we never asked
+            return None
         if mid is None:
-            return None  # notifications: initialized, cancelled
+            return None
         try:
             if method == "initialize":
                 asked = (msg.get("params") or {}).get("protocolVersion")
@@ -90,7 +77,7 @@ class Server:
                 result = self.call((msg.get("params") or {}).get("name"), (msg.get("params") or {}).get("arguments") or {})
             else:
                 return {"jsonrpc": "2.0", "id": mid, "error": {"code": -32601, "message": f"no method {method}"}}
-        except Exception as e:  # a bug in the server, not a refused input
+        except Exception as e:
             traceback.print_exc(file=sys.stderr)
             return {"jsonrpc": "2.0", "id": mid, "error": {"code": -32603, "message": str(e)[:500]}}
         return {"jsonrpc": "2.0", "id": mid, "result": result}
@@ -118,7 +105,6 @@ class Server:
 
 
 def trace(way, msg):
-    """With KILN_MCP_TRACE set to a file, every message in and out is appended to it."""
     path = os.environ.get("KILN_MCP_TRACE")
     if path:
         with open(path, "a") as f:

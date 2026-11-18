@@ -20,7 +20,7 @@ pub struct ShellPane {
     parser: Arc<Mutex<vt100::Parser>>,
     writer: Box<dyn Write + Send>,
     master: Box<dyn MasterPty + Send>,
-    size: (u16, u16), // (rows, cols)
+    size: (u16, u16),
     child: Arc<Mutex<PaneChild>>,
 }
 
@@ -30,12 +30,6 @@ struct PaneChild {
 }
 
 impl ShellPane {
-    /// Cheap capability probe: can this host allocate a pseudo-terminal?
-    ///
-    /// Some sandboxes and containers mount `devpts` with `ptmxmode=000`,
-    /// which makes `openpty(3)` fail with `EACCES`. Call this before
-    /// relying on [`ShellPane::spawn`] so callers (and tests) can degrade
-    /// gracefully instead of treating a missing PTY as a bug.
     pub fn can_spawn() -> bool {
         native_pty_system()
             .openpty(PtySize {
@@ -47,12 +41,10 @@ impl ShellPane {
             .is_ok()
     }
 
-    /// Spawn `$SHELL` (or bash) in a PTY of the given size.
     pub fn spawn(rows: u16, cols: u16) -> Result<Self, String> {
         Self::spawn_in(rows, cols, None)
     }
 
-    /// Spawn `$SHELL` (or bash) in a PTY of the given size and optional cwd.
     pub fn spawn_in(rows: u16, cols: u16, cwd: Option<&Path>) -> Result<Self, String> {
         let (rows, cols) = (rows.max(1), cols.max(1));
         let pair = native_pty_system()
@@ -69,8 +61,6 @@ impl ShellPane {
         if let Some(cwd) = cwd {
             command.cwd(cwd.as_os_str());
         }
-        // The pane is a terminal: an angelX typed in it stays in it rather
-        // than opening a second window.
         command.env("ANGEL_GLASS", "0");
         let (child, claim) = claim_spawn(
             || pair.slave.spawn_command(command),
@@ -81,7 +71,7 @@ impl ShellPane {
             handle: child,
             claim: Some(claim),
         }));
-        drop(pair.slave); // close the slave fd so the reader sees EOF when the shell exits
+        drop(pair.slave);
 
         let parser = Arc::new(Mutex::new(vt100::Parser::new(rows, cols, 0)));
         let mut reader = pair
@@ -112,10 +102,6 @@ impl ShellPane {
         {
             let child = Arc::clone(&child);
             std::thread::spawn(move || {
-                // A descendant can hold the PTY open after its shell exits,
-                // so wait ownership must not depend on the output reader's
-                // EOF. Never hold this lock across a blocking wait: teardown
-                // can still stop the shell while this observer polls.
                 loop {
                     let Ok(mut child) = child.lock() else {
                         break;
@@ -144,13 +130,11 @@ impl ShellPane {
         })
     }
 
-    /// Feed input bytes to the shell.
     pub fn send(&mut self, bytes: &[u8]) {
         let _ = self.writer.write_all(bytes);
         let _ = self.writer.flush();
     }
 
-    /// Resize the PTY + parser to match the pane (no-op if unchanged).
     pub fn resize(&mut self, rows: u16, cols: u16) {
         let (rows, cols) = (rows.max(1), cols.max(1));
         if (rows, cols) == self.size {
@@ -173,7 +157,6 @@ impl ShellPane {
         self.size
     }
 
-    /// Check whether the shell child process is still running.
     pub fn is_alive(&self) -> bool {
         let Ok(mut child) = self.child.lock() else {
             return false;
@@ -191,10 +174,6 @@ impl ShellPane {
         }
     }
 
-    /// The xterm mouse-tracking mode + report encoding the program currently
-    /// running in the PTY has requested (via DECSET 1000/1002/1003 + 1006). The
-    /// cockpit uses this to decide whether to *forward* the mouse to the program
-    /// (vim/htop/etc.) or to do its own selection over the shell pane.
     pub fn mouse_mode(
         &self,
     ) -> (
@@ -223,7 +202,6 @@ impl ShellPane {
         (mode, enc)
     }
 
-    /// Render the shell's current screen into `area`.
     pub fn render(&self, frame: &mut Frame, area: Rect) {
         if let Ok(parser) = self.parser.lock() {
             frame.render_widget(PseudoTerminal::new(parser.screen()), area);
@@ -245,14 +223,13 @@ impl Drop for ShellPane {
 #[path = "../../../tests/cockpit/app/pty__process_ownership_tests.rs"]
 mod process_ownership_tests;
 
-/// Translate a crossterm key event into the bytes a terminal expects on stdin.
 pub fn key_to_bytes(key: &KeyEvent) -> Option<Vec<u8>> {
     let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
     let bytes = match key.code {
         KeyCode::Char(c) if ctrl => {
             let up = c.to_ascii_uppercase();
             if up.is_ascii_uppercase() {
-                vec![(up as u8) - b'A' + 1] // Ctrl-A..Ctrl-Z -> 0x01..0x1A
+                vec![(up as u8) - b'A' + 1]
             } else {
                 c.to_string().into_bytes()
             }

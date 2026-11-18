@@ -1,4 +1,3 @@
-// Forest Road native/wasm frame and simulation parity, with four seats.
 import fs from 'node:fs';
 const [file,nativePath,outPath]=process.argv.slice(2);
 const native=JSON.parse(fs.readFileSync(nativePath,'utf8'));

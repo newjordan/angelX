@@ -10,8 +10,6 @@
 use super::*;
 use crate::tests::TestEnvGuard;
 
-/// A stdio MCP server with no SDK dependency: it records its own pid, then
-/// answers `initialize` / `tools/list` / `tools/call`.
 const MOCK_SERVER: &str = r#"
 echo $$ > "$MCP_PID_FILE"
 while IFS= read -r line; do
@@ -46,7 +44,6 @@ fn wait_for_reaped(pid: u32, budget: std::time::Duration) -> bool {
     !pid_alive(pid)
 }
 
-/// Write a `mcp.json` in the shape Claude Desktop uses and point the loader at it.
 fn configure_server(root: &Path, pid_file: &Path) -> PathBuf {
     let config = root.join("mcp.json");
     let text = serde_json::json!({
@@ -93,7 +90,6 @@ fn a_configured_server_is_advertised_and_dropped_without_a_restart() {
         "pong"
     );
 
-    // Drop it mid-session, exactly as the operator's toggle does.
     let dropped = registry.unregister_prefix("mockmcp__");
     assert_eq!(dropped, 2, "one remote tool plus the bounded surface tool");
     assert!(
@@ -119,8 +115,6 @@ fn a_configured_server_is_advertised_and_dropped_without_a_restart() {
         "the dropped server's child is reaped"
     );
 
-    // And the same session can bring it back: the warm entry was forgotten, so
-    // this is a new process, not the one we dropped.
     install_mcp_tools(&mut registry, &root);
     assert!(
         registry

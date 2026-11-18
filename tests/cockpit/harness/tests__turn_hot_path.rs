@@ -63,8 +63,6 @@ fn hot_tools() -> Vec<ToolDef> {
     ]
 }
 
-/// A ~4 KiB inspection result carrying the trailing book receipt real tool
-/// results wear (the byte accounting subtracts it).
 fn hot_result(hop: usize) -> String {
     use std::fmt::Write as _;
     let mut body = String::with_capacity(4 * 1024 + 64);
@@ -339,12 +337,6 @@ fn turn_hot_path_200_hop_measurement() {
     let _ = std::fs::remove_dir_all(&session_dir);
 }
 
-/// Golden wire bytes for the synthetic request. The prefix cache is only worth
-/// anything if a latency change leaves the serialized request untouched; if
-/// this digest must move, that is a deliberate cache-invalidating decision.
-/// Produced on base `2bdd1a9a709257075ac375fa5af18cbc648be56c`; regenerate by
-/// running the test with `--nocapture` and pasting the printed `sha256`:
-/// `cd cockpit && cargo test --profile fast turn_hot_path_request_bytes_stay_identical -- --nocapture`
 #[test]
 fn turn_hot_path_request_bytes_stay_identical() {
     const GOLDEN_SHA256: &str = "f17ea5c70d633ad155c2eaf68133cbbf380be381cae92a21736f64ebdbf8d508";

@@ -27,9 +27,7 @@ struct Decision {
     reward_owner: String,
     reward_contract: String,
     reward: f32,
-    /// Retired: always null. Kept so v1 decisions still parse.
     baseline: Option<Value>,
-    /// Retired: always null. Kept so v1 decisions and requests still parse.
     competition: Option<Value>,
     lineage: Value,
 }
@@ -42,7 +40,6 @@ struct Request {
     task: String,
     answer: String,
     reward: f64,
-    /// Retired: always null. Kept so v1 requests still parse.
     competition: Value,
     evaluator_evidence_manifest_sha256: String,
 }
@@ -85,8 +82,6 @@ fn lineage(evidence: &EvaluatorEvidence) -> Value {
     })
 }
 
-/// The root comes from operator configuration. Only lowercase digest names can
-/// resolve beneath it; openat pins the directory and refuses object symlinks.
 fn read_object(root: &Path, digest: &str, suffix: &str, limit: usize) -> Result<Vec<u8>, String> {
     if !digest_ok(digest) {
         return Err("invalid authority digest".into());
@@ -102,7 +97,6 @@ fn read_object(root: &Path, digest: &str, suffix: &str, limit: usize) -> Result<
             .map_err(|error| format!("open configured authority: {error}"))?;
         let name =
             std::ffi::CString::new(format!("{digest}{suffix}")).map_err(|e| e.to_string())?;
-        // SAFETY: directory is retained and the only relative name is generated.
         let descriptor = unsafe {
             libc::openat(
                 directory.as_raw_fd(),
@@ -116,7 +110,6 @@ fn read_object(root: &Path, digest: &str, suffix: &str, limit: usize) -> Result<
                 std::io::Error::last_os_error()
             ));
         }
-        // SAFETY: openat returned one owned descriptor.
         unsafe { std::fs::File::from_raw_fd(descriptor) }
     };
     #[cfg(not(unix))]
@@ -220,8 +213,6 @@ pub(super) fn publish(
     if reproduced.to_bits() != reward.to_bits() {
         return Err("coding decision reward is not reproducible under retained contract".into());
     }
-    // Publish actual evaluator-owned bytes before creating the authoritative
-    // decision. Never import inbox-supplied artifact bytes into this store.
     evidence.persist_append_only(root)?;
     let bytes = read_object(
         root,
@@ -269,8 +260,6 @@ pub(super) fn publish_if_configured(
     publish(Path::new(&root), task, answer, evidence, reward).map(Some)
 }
 
-/// Pure read-only admission. Replays the stored decision, never the original
-/// verifier command or a program named by an incoming row.
 pub(crate) fn audit(root: &Path, input: &[u8]) -> Result<Value, String> {
     if input.len() > JSON_LIMIT {
         return Err("coding audit request exceeds byte limit".into());

@@ -30,10 +30,7 @@ pub enum Role {
     Minion,
     Monster,
     Boss,
-    /// Weapons are a creation class of their own (SPEC-CREATOR 1b): never a creature's anatomy.
     Weapon,
-    /// Someone for the world itself (2026-11-07, the rite): a barman, a smith, a pilgrim. It stands or
-    /// wanders where its maker puts it and says its line (`Calling`); it is no fighter.
     Folk,
 }
 
@@ -80,30 +77,20 @@ impl Role {
     pub fn is_weapon(self) -> bool {
         self == Self::Weapon
     }
-    /// The looks this role can wear: the art that shows a creature until its own bake exists. Only a
-    /// Hero has any yet; every other role shows the stand-in boss.
     pub fn looks(self) -> &'static [Look] {
         match self {
-            // A Folk is a person of the world: it wears the Hero's looks (a barman in a knight's
-            // body is not an ogre) until the Creator has looks of its own for it.
             Self::Hero | Self::Folk => &HERO_LOOKS,
             _ => &[],
         }
     }
 }
 
-/// One look of a role: the baked set the renderer's registry serves under this id
-/// (`render/creation/baked.rs`, `REGISTRY`; a test holds the two tables together) and what the
-/// scroll calls it. The first look of a role is its default, the one a recipe with no look wears.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Look {
     pub id: &'static str,
     pub name: &'static str,
 }
 
-/// The Hero's looks: the 2D knight (the T-pose rig route, test data from lane H), the A6 crusader (the
-/// night pipeline's finished knight: eight ways, every clip) and the frog knight (a wish carried through
-/// the same pipeline).
 pub const HERO_LOOKS: [Look; 3] = [
     Look { id: "knight", name: "Knight (2D)" },
     Look { id: "a6-crusader", name: "Crusader (A6)" },
@@ -117,7 +104,6 @@ pub enum Plan {
     BipedUpright,
 }
 
-/// Sliders are integer percentages (0..100); their neutral point is 50.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sculpt {
     pub height: u8,
@@ -258,7 +244,6 @@ impl Default for Paint {
 pub struct PartChoice {
     pub part_id: String,
     pub mount: Slot,
-    /// Degrees and percentage, bounded by validation before a bake.
     pub angle: i16,
     pub scale: u16,
     pub mirrored: bool,
@@ -306,9 +291,6 @@ const fn stats(hp: u16, melee: u16, magic: u16, armour: u16) -> Stats {
     }
 }
 
-/// Small, deliberately authored catalogue. IDs are stable recipe references.
-/// Hands are natural anatomy. Held weapons are a separate creation class
-/// (SPEC-CREATOR §1b), attached at runtime through a baked grip handle.
 pub const PARTS: &[Part] = &[
     Part {
         id: "ember-mask",
@@ -553,8 +535,6 @@ pub struct Powers {
     pub spells: Vec<Spell>,
 }
 
-/// Where a made Folk stands in the world: the Sozzled Griffin's taproom, or the Delve's courtyard
-/// (the Rite Wall's lawn), where the whole party walks.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Post {
@@ -573,7 +553,6 @@ impl Post {
     }
 }
 
-/// What a made Folk does where it stands.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Habit {
@@ -592,7 +571,6 @@ impl Habit {
     }
 }
 
-/// The lines a Folk can say on E, picked on the Calling page; a wish may put its own in (`LINE_MAX`).
 pub const FOLK_LINES: [&str; 6] = [
     "Welcome, traveller. Mind the step.",
     "The delve gives, and the delve takes.",
@@ -603,8 +581,6 @@ pub const FOLK_LINES: [&str; 6] = [
 ];
 pub const LINE_MAX: usize = 60;
 
-/// A Folk's own few behaviours (SPEC-CREATOR, the rite): where it is, whether it stays put, what it
-/// says. Other roles carry the plain default and never use it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Calling {
     pub post: Post,
@@ -624,13 +600,11 @@ impl Calling {
     }
 }
 
-/// The editor owns choices only. Derived combat data is made at the boundary.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Creation {
     pub id: String,
     pub name: String,
     pub maker: String,
-    /// Host-provided creation time. The offline editor uses a logical tick.
     pub created: u64,
     pub role: Role,
     pub plan: Plan,
@@ -638,11 +612,8 @@ pub struct Creation {
     pub parts: Vec<PartChoice>,
     pub paint: Paint,
     pub spells: Vec<Spell>,
-    /// The art id that shows this creation while it has no bake of its own, one of its role's
-    /// looks (`Role::looks`). `None` wears the role's first look, so a plain recipe is unchanged.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub look: Option<String>,
-    /// A Folk's post, habit and line.
     #[serde(default, skip_serializing_if = "Calling::plain")]
     pub calling: Calling,
 }
@@ -668,8 +639,6 @@ impl Default for Creation {
     }
 }
 
-/// A v3 recipe for the future bake boundary. No atlas or gate is invented:
-/// absent art and motions explicitly mean this is still an unbaked creation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CreatureV3 {
     pub version: u8,
@@ -702,12 +671,10 @@ impl Creation {
         self.parts.iter().find(|p| p.mount == slot)
     }
 
-    /// The looks this creation's role can wear (none for the roles that show the stand-in boss).
     pub fn looks(&self) -> &'static [Look] {
         self.role.looks()
     }
 
-    /// Which of its role's looks it wears now: its own if the role has it, else the first.
     pub fn look_at(&self) -> usize {
         self.look
             .as_deref()
@@ -715,8 +682,6 @@ impl Creation {
             .unwrap_or(0)
     }
 
-    /// Wear the role's `n`th look; false (and nothing changes) if the role has no such look. The
-    /// first look is the default, so wearing it clears the field and a plain recipe stays plain.
     pub fn set_look(&mut self, n: usize) -> bool {
         let Some(look) = self.looks().get(n) else {
             return false;
@@ -725,7 +690,6 @@ impl Creation {
         true
     }
 
-    /// Replacing a mount cannot leave duplicate hands or an old part's power.
     pub fn equip(&mut self, slot: Slot, id: Option<&str>) -> Result<(), String> {
         let chosen = id
             .map(|id| {

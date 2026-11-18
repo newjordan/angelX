@@ -21,53 +21,37 @@
 use crate::palette::{Ink, Ramp};
 use crate::raster::{PartId, Raster};
 
-/// What laid a pixel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum Mark {
-    /// Nothing: the pixel is clear.
     #[default]
     Clear,
-    /// A part's shaded surface.
     Fill,
-    /// The silhouette's line, outside the figure.
     Outline,
-    /// The silhouette's line on the figure's own edge (grain 1).
     Edge,
-    /// An inner line along a seam.
     Inner,
-    /// A decal.
     Decal,
 }
 
 impl Mark {
-    /// Whether it is line work.
     pub fn is_line(self) -> bool {
         matches!(self, Mark::Outline | Mark::Edge | Mark::Inner)
     }
 }
 
-/// The part id outline pixels carry.
 pub const LINE: PartId = PartId::MAX;
 
 const N4: [(i32, i32); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
 const N8: [(i32, i32); 8] = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)];
 
-/// The line work over one drawn raster.
 pub struct Lines<'a> {
     pub ras: &'a mut Raster,
-    /// Per pixel, what laid it.
     pub marks: Vec<Mark>,
-    /// Per pixel, the shaded ink before any line was drawn over it.
     fill: Vec<Ink>,
-    /// Each part's ramp, by part id (0 unused).
     ramps: &'a [Ramp],
-    /// Toward the light in the picture's plane, of unit length.
     light: [f32; 2],
 }
 
 impl<'a> Lines<'a> {
-    /// Line work over `ras`, whose inked pixels are all fill, its parts'
-    /// ramps by id and the recipe's light.
     pub fn new(ras: &'a mut Raster, ramps: &'a [Ramp], light: [f32; 3]) -> Lines<'a> {
         let marks = ras.ink.iter().map(|i| if i.is_clear() { Mark::Clear } else { Mark::Fill }).collect();
         let fill = ras.ink.clone();
@@ -88,8 +72,6 @@ impl<'a> Lines<'a> {
         self.ramps.get(part as usize)
     }
 
-    /// How squarely the way out from `(x, y)`, judged by which neighbours
-    /// are clear, faces the light (-1 to 1).
     fn facing(&self, x: i32, y: i32, out_is: impl Fn(Mark) -> bool) -> f32 {
         let (mut ox, mut oy) = (0.0f32, 0.0f32);
         for (dx, dy) in N8 {
@@ -103,8 +85,6 @@ impl<'a> Lines<'a> {
         if l < 1e-6 { 0.0 } else { (ox * self.light[0] + oy * self.light[1]) / l }
     }
 
-    /// Inner lines where a nearer part covers a farther one by more than
-    /// `brk` in depth. `lines(part)` says whether a part draws them.
     pub fn inner(&mut self, brk: f32, lines: impl Fn(PartId) -> bool) {
         let (w, h) = (self.ras.w as i32, self.ras.h as i32);
         let mut put = Vec::new();
@@ -139,7 +119,6 @@ impl<'a> Lines<'a> {
         }
     }
 
-    /// The silhouette's line outside the figure (grain 2 and up).
     pub fn outline(&mut self, ink: Ink, selout: u8) {
         let (w, h) = (self.ras.w as i32, self.ras.h as i32);
         let mut put = Vec::new();
@@ -149,7 +128,6 @@ impl<'a> Lines<'a> {
                 if self.marks[i] != Mark::Clear {
                     continue;
                 }
-                // The nearest figure pixel beside it.
                 let mut near: Option<usize> = None;
                 for (dx, dy) in N4 {
                     if let Some(j) = self.idx(x + dx, y + dy)
@@ -161,7 +139,6 @@ impl<'a> Lines<'a> {
                 }
                 let Some(j) = near else { continue };
                 let facing = self.facing(x, y, |m| m != Mark::Clear);
-                // `facing` above is toward the figure; the line faces away from it.
                 let lit = -facing > 0.3;
                 let line = if lit && selout > 0 {
                     match self.ramp(self.ras.part[j]) {
@@ -186,10 +163,6 @@ impl<'a> Lines<'a> {
         }
     }
 
-    /// One-pixel gaps between parts of the figure closed (grain 1): a clear
-    /// pixel with the figure on both sides of it, left and right or above and
-    /// below, takes the second-darkest tone of the farther side's ramp, as a
-    /// seam.
     pub fn close(&mut self) {
         let (w, h) = (self.ras.w as i32, self.ras.h as i32);
         let mut put = Vec::new();
@@ -220,8 +193,6 @@ impl<'a> Lines<'a> {
         }
     }
 
-    /// The silhouette's line on the figure's own edge, away from the light
-    /// (grain 1).
     pub fn edge(&mut self) {
         let (w, h) = (self.ras.w as i32, self.ras.h as i32);
         let mut put = Vec::new();
@@ -248,7 +219,6 @@ impl<'a> Lines<'a> {
         }
     }
 
-    /// Lone pixels and doubled L-corners.
     pub fn tidy(&mut self, lone: bool) {
         let (w, h) = (self.ras.w as i32, self.ras.h as i32);
         if lone {
@@ -286,7 +256,6 @@ impl<'a> Lines<'a> {
                 self.fill[i] = k;
             }
         }
-        // Doubled L-corners of lines drawn on the figure.
         let mut give_back = Vec::new();
         for y in 0..h {
             for x in 0..w {

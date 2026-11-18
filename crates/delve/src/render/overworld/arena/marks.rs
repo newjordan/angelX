@@ -10,8 +10,6 @@ use super::super::ink::{Img, text_width};
 use super::{UNIT, at};
 use crate::rules::{Enemy, EnemyKind, Hero, Run, TAKE_REACH, cards, desperate};
 
-/// A monster's picture with its flash on: a hit lifts its own ramp, then settles; a
-/// boss near death pulses red hot.
 pub(super) fn flashed(im: &Img, enemy: &Enemy, run: &Run) -> Img {
     if enemy.hurt >= 4 {
         let metal = enemy
@@ -23,7 +21,6 @@ pub(super) fn flashed(im: &Img, enemy: &Enemy, run: &Run) -> Img {
     if enemy.hurt > 0 {
         return pale(im, false, false);
     }
-    // Winding up a charge-up, it glows, quicker as the blow nears.
     if let Some(boss) = enemy.boss.and_then(|i| run.bosses.get(usize::from(i)))
         && enemy.stage == crate::rules::signatures::WIND
         && let Some(up) = crate::rules::signatures::winding(enemy, boss)
@@ -31,9 +28,6 @@ pub(super) fn flashed(im: &Img, enemy: &Enemy, run: &Run) -> Img {
         let left = up.wind.saturating_sub(enemy.timer);
         let every = if left < 8 { 1 } else if left < 16 { 2 } else { 4 };
         if (run.tick / every).is_multiple_of(2) {
-            // A guardian drawn in its own pose for its wind-up (the Lawn
-            // Flamingo, a dread of the Deep) glows at its rim instead, so
-            // the pose it winds up in still shows through.
             let posed = super::garden::is_flamingo(boss) || crate::rules::deep::dread::is(boss)
                 || crate::rules::claim_bosses::Guardian::for_id(&boss.id).is_some();
             return if posed { rim_heat(im) } else { heat(im) };
@@ -47,15 +41,11 @@ pub(super) fn flashed(im: &Img, enemy: &Enemy, run: &Run) -> Img {
     im.clone()
 }
 
-/// Cached palette tint: each bank keeps its own pale material ramp. The
-/// source's shadow planes stay darker; struck metal can catch pale cream.
 fn pale(im: &Img, strong: bool, metal: bool) -> Img {
     use super::super::ink::{BANK, PALETTE, PINK_BANK, RgbMap, VIOLET_BANK, bank_colours, rgb};
     use std::sync::OnceLock;
     static TINT: OnceLock<RgbMap<[[u8; 3]; 3]>> = OnceLock::new();
     let tint = TINT.get_or_init(|| {
-        // A dye lifts up its own ramp toward its palest, as each realm bank
-        // does toward its own pale; no realm colour's lift ever lands on one.
         let dyes = [VIOLET_BANK, PINK_BANK].into_iter().flat_map(|bank| {
             let ramp: Vec<[u8; 3]> = bank_colours(bank).iter().map(|&v| rgb(v)).collect();
             let peak = ramp[ramp.len() - 1];
@@ -91,12 +81,7 @@ fn pale(im: &Img, strong: bool, metal: bool) -> Img {
                         if rgb(**value).iter().any(|&channel| channel > 228) {
                             return false;
                         }
-                        // Signal keeps its warm/cold family; only its palest
-                        // source pixels may borrow the bounded cream highlight.
                         if phase == 2 && matches!(bank, 0 | 2 | 3) {
-                            // A held strike on the engine catches across its
-                            // brass and steel. The pale metal ramp must lift
-                            // the dark joints too, to read at the game's 1×.
                             matches!(*i, 41..=44 | 56..=59 | 70..=71)
                         } else if bank == 4 {
                             if c[0] > c[2] {
@@ -150,8 +135,6 @@ fn pale(im: &Img, strong: bool, metal: bool) -> Img {
     out
 }
 
-/// Pale reflected metal through a held hit. Warm brass and cool steel still
-/// separate, with enough lift in the joints to read on an articulated boss.
 pub(super) fn hit_metal_rgb(c: [u8; 3]) -> [u8; 3] {
     let light = (u32::from(c[0]) * 3 + u32::from(c[1]) * 6 + u32::from(c[2])) / 10;
     let peak = if u16::from(c[0]) * 4 > u16::from(c[2]) * 5 {
@@ -165,7 +148,6 @@ pub(super) fn hit_metal_rgb(c: [u8; 3]) -> [u8; 3] {
     })
 }
 
-/// RGB kit version of the same material tint, with no added coverage or glow.
 pub(super) fn hit_rgb(c: [u8; 3], strong: bool) -> [u8; 3] {
     hit_rgb_toward(c, [224, 215, 198], strong)
 }
@@ -182,10 +164,6 @@ fn hit_rgb_toward(c: [u8; 3], peak: [u8; 3], strong: bool) -> [u8; 3] {
     })
 }
 
-/// A boss's picture heated: its shadows to blood, its body to ember, only
-/// its highlights to amber, so the shape stays readable while it burns.
-/// `im` with its edge burning: its outline hot, a ring of heat outside it
-/// and a band of it just inside, the rest of it as it was.
 pub(super) fn rim_heat(im: &Img) -> Img {
     let mut out = im.clone();
     for y in 0..im.h {
@@ -226,9 +204,6 @@ pub(super) fn heat(im: &Img) -> Img {
     out
 }
 
-/// A bar of `w` by `h` with its left edge at `(x, y)`: a dark track, the
-/// fill by `share` in `ink`, in a grey rim lit along its top and its corner
-/// pixels cut (`chrome::Tone::HEALTH`), so it reads round on any floor.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn bar(cv: &mut Img, x: i32, y: i32, w: i32, h: i32, share: f32, fill: char, delivered: bool) {
     super::super::chrome::shaped(cv, (x - 1, y - 1, w + 2, h + 2), &[1], super::super::chrome::Tone::HEALTH, false);
@@ -237,14 +212,11 @@ pub(super) fn bar(cv: &mut Img, x: i32, y: i32, w: i32, h: i32, share: f32, fill
     cv.rect(x, y, lit, h, fill);
 }
 
-/// A monster's health, over its head: always on a boss, and on any other
-/// that has taken a hit. `(x, y)` is its feet and `im` its picture.
 pub(super) fn enemy_top(run: &Run, enemy: &Enemy, feet: i32, height: i32, view: (i32,i32)) -> i32 {
     let top = feet - height.max(super::boss_art::ring_clearance(run,enemy));
     let library = enemy.boss.and_then(|i| run.bosses.get(i as usize))
         .and_then(|b| crate::rules::bosses::Art::for_id(&b.id))
         .is_some_and(super::boss_art::library_registered);
-    // Reserve the existing name panel and bar stack when tall art leaves view.
     if library { top.max(view.1 + 22) } else { top }
 }
 
@@ -259,7 +231,6 @@ pub(super) fn enemy_bar(cv: &mut Img, run: &Run, enemy: &Enemy, x: i32, y: i32, 
     let share = enemy.hp as f32 / enemy.max_hp as f32;
     let top = enemy_top(run,enemy,y,im.h,view);
     if boss && super::wanted::plated(run, enemy) {
-        // Its health is its name plate's fill (`wanted::nameplates`).
         return;
     }
     if boss {
@@ -270,12 +241,10 @@ pub(super) fn enemy_bar(cv: &mut Img, run: &Run, enemy: &Enemy, x: i32, y: i32, 
             super::hud_art::plate(cv,"boss",(x-w/2-3,top-9,w+6,9));
             cv.rect(x-w/2,top-6,(share.clamp(0.0,1.0)*w as f32).ceil() as i32,3,fill);
         }
-        // Where it turns desperate: a notch on the bar.
         let notch = x - w / 2 + (desperate::FROM * w as f32) as i32;
         cv.put(notch, top - 8, 'J');
     } else {
         let w = im.w.clamp(12, 20);
-        // An elite's bar is gold, and always up.
         bar(
             cv,
             x - w / 2,
@@ -289,16 +258,12 @@ pub(super) fn enemy_bar(cv: &mut Img, run: &Run, enemy: &Enemy, x: i32, y: i32, 
     }
 }
 
-/// The Boss Key over its carrier's gold bar, `(x, y)` its feet and `im`
-/// its picture: a key on a small slate plate, a glint running along it,
-/// so a party can pick the carrier out of its camp.
 pub(super) fn key_mark(cv: &mut Img, x: i32, y: i32, im: &Img, tick: u32) {
     const ROWS: [&str; 4] = [".444.....", "4...44444", "4...4.4.4", ".444....."];
     let key = Img::from_rows(&ROWS);
     let (x0, y0) = (x - key.w / 2, y - im.h - 13);
     super::super::chrome::panel(cv, (x0 - 2, y0 - 2, key.w + 4, key.h + 4), super::super::chrome::Tone::SLATE);
     cv.stamp(&key, x0, y0);
-    // The glint walks the key once a second, and rests between.
     let along = (tick % 40) as usize;
     for (row, line) in ROWS.iter().enumerate() {
         if line.as_bytes().get(along).is_some_and(|&b| b != b'.') {
@@ -307,8 +272,6 @@ pub(super) fn key_mark(cv: &mut Img, x: i32, y: i32, im: &Img, tick: u32) {
     }
 }
 
-/// A knight's health under their feet, so the player's own is always in
-/// sight. Teal while well, gold once the helmet is off, red in smallclothes.
 pub(super) fn hero_bar(cv: &mut Img, run: &Run, hero: &Hero, x: i32, y: i32) {
     if hero.hp == 0 || hero.max_hp == 0 {
         return;
@@ -331,10 +294,6 @@ pub(super) fn hero_bar(cv: &mut Img, run: &Run, hero: &Hero, x: i32, y: i32) {
     shield_bar(cv, hero, x, y + 7, run.tick as u32);
 }
 
-/// A kite shield's meter under a knight's health (`shield::Wear`), for
-/// everyone to see while the shield is up, worn or knocked aside: steel
-/// for what it can still turn; knocked aside, a crack across the bar
-/// (bright at first, as the shield drops) and red for its way back.
 pub(super) fn shield_bar(cv: &mut Img, hero: &Hero, x: i32, y: i32, tick: u32) {
     let wear = hero.shield_wear;
     if hero.guard != crate::rules::cards::Guard::Shield || !(hero.shielding || wear.showing()) {
@@ -357,8 +316,6 @@ pub(super) fn shield_bar(cv: &mut Img, hero: &Hero, x: i32, y: i32, tick: u32) {
     }
 }
 
-/// The warnings of a desperate boss: its ring, closing in dots with the
-/// lane left open toward the nearest knight, and the three arms, as spokes.
 pub(super) fn last_stand(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
     let (x, y) = at(enemy.x, enemy.y);
     let r = (enemy.radius() * UNIT) as i32 + 4;
@@ -375,8 +332,6 @@ pub(super) fn last_stand(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
         let aim = nearest.map_or(0.0, |h| (h.y - enemy.y).atan2(h.x - enemy.x));
         let n = 18;
         let step = std::f32::consts::TAU / n as f32;
-        // The dots draw in from wide to the ring's own radius, quicker to
-        // blink as the moment comes.
         let reach = r as f32 * (1.8 - 0.8 * t);
         let on = (tick as f32 * (0.15 + t * 0.7)).fract() < 0.5 || t > 0.85;
         for i in 0..n {
@@ -396,7 +351,6 @@ pub(super) fn last_stand(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
                 cv.put(px + 2, py + 1, '8');
             }
         }
-        // The open lane, marked at the ring's edge: stand in it.
         for k in -1..=1 {
             let a = aim + k as f32 * step * 0.9;
             cv.rect(
@@ -426,10 +380,6 @@ pub(super) fn last_stand(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
     }
 }
 
-/// Beside a weapon a knight can swap to: its name and the key, on a plate
-/// over the card. Small frames get only a gold mark, since type would blur.
-/// A seat sees its own: what its knight could take, near its knight; its
-/// own set-down shield too, which only the take key takes back.
 pub(super) fn take_prompts(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), focus: Option<u32>) {
     for item in run.room().items.iter().filter(|item| run.lies_for(item, focus)) {
         let Some(card) = run
@@ -439,7 +389,6 @@ pub(super) fn take_prompts(cv: &mut Img, run: &Run, legible: bool, view: (i32, i
         else {
             continue;
         };
-        // A champion keeps his own arm: no swap is offered him.
         if card.kind == cards::Kind::Arm
             && focus.and_then(|f| run.players.get(&f)).is_some_and(|h| crate::rules::champions::of(h).is_some())
         {
@@ -468,7 +417,6 @@ pub(super) fn take_prompts(cv: &mut Img, run: &Run, legible: bool, view: (i32, i
         super::super::chrome::panel(cv, (px, py, w, 21), super::super::chrome::Tone::KEY);
         cv.text(px + (w - text_width(&name)) / 2, py + 3, &name, 'i');
         cv.text(px + (w - text_width(key)) / 2, py + 12, key, 'O');
-        // The swap is yours to make: it points at the card.
         cv.put(x, py + 21, '6');
         cv.put(x - 1, py + 21, '6');
         cv.put(x + 1, py + 21, '6');
@@ -476,13 +424,6 @@ pub(super) fn take_prompts(cv: &mut Img, run: &Run, legible: bool, view: (i32, i
     }
 }
 
-/// Who took what off the floor, as seat `focus` sees it (the operator,
-/// 2026-10-19: "we don't see if a friendly picked up a card or not"): a
-/// friend's take rings where it lay in their colours and their name rises
-/// as a mote flies to them; what the friends took their own of and still
-/// lies for this knight wears a pip in each taker's colours; and this
-/// knight's own take says what came of it over their head a moment
-/// ("Potion: Z to drink", "hand full").
 pub(super) fn takes(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), focus: Option<u32>) {
     use crate::rules::feel::TAKE_TICKS;
     for item in run.room().items.iter().filter(|item| !item.took.is_empty() && run.lies_for(item, focus)) {
@@ -502,7 +443,6 @@ pub(super) fn takes(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), fo
         let ink = super::party::seat_ink(take.by);
         let age = i32::from(TAKE_TICKS - take.ttl.min(TAKE_TICKS));
         let (x, y) = at(take.x, take.y);
-        // A ring opening where it lay, in their colours.
         if age < 10 {
             let r = 3.0 + age as f32 * 1.2;
             for i in 0..16 {
@@ -510,7 +450,6 @@ pub(super) fn takes(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), fo
                 cv.put(x + (a.cos() * r).round() as i32, y + (a.sin() * r * 0.45).round() as i32, ink);
             }
         }
-        // A mote flying from there to them.
         let k = (age as f32 / 12.0).min(1.0);
         let (kx, ky) = at(hero.x, hero.y);
         if k < 1.0 {
@@ -518,8 +457,6 @@ pub(super) fn takes(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), fo
             let (mx, my) = (x as f32 + (kx - x) as f32 * k, y as f32 + (ky - y) as f32 * k - lift);
             cv.rect(mx.round() as i32 - 1, my.round() as i32 - 1, 3, 3, ink);
         }
-        // Their name popping up where it lay, rising, and lifting away
-        // through the dither as the take is forgotten (`notices::board_from`).
         if legible {
             let name: String = hero.name.to_uppercase().chars().take(12).collect();
             let w = text_width(&name);
@@ -533,7 +470,6 @@ pub(super) fn takes(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), fo
             cv.rect(x - 1, (y - 10 - age / 3).max(0), 3, 3, ink);
         }
     }
-    // This knight's own take, said over their head.
     let Some((when, who, line)) = run.found.as_ref() else {
         return;
     };
@@ -549,8 +485,6 @@ pub(super) fn takes(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), fo
     let w = text_width(&text) + 6;
     let px = super::in_view_x(x, w, view, cv.w);
     let py = (y - 40).max(0);
-    // Up into place past its line and back, held to be read, and lifted
-    // away through the dither at the end (`notices::board_from`).
     let mut plate = Img::new(w + 1, 12);
     super::super::chrome::panel(&mut plate, (0, 0, w, 11), super::super::chrome::Tone::KEY);
     plate.text(3, 2, &text, 'i');
@@ -558,8 +492,6 @@ pub(super) fn takes(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), fo
     super::notices::board_from(cv, &plate, (px, py), age, Some((crate::rules::HZ * 5 / 2) as f32), 7.0);
 }
 
-/// "THIEF!" over each goblin that has just robbed a knight, on a plate. Small
-/// frames get a gold mark alone.
 pub(super) fn thief_cries(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32)) {
     for enemy in run
         .enemies
@@ -590,8 +522,6 @@ pub(super) fn thief_cries(cv: &mut Img, run: &Run, legible: bool, view: (i32, i3
     }
 }
 
-/// A warboar's tells: the line it marks before a charge, and the stars
-/// over its head while it stands dazed.
 pub(super) fn foes_marks(cv: &mut Img, run: &Run, enemy: &crate::rules::Enemy, tick: u32) {
     let (x, y) = at(enemy.x, enemy.y);
     match enemy.stage {

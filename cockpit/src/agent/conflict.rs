@@ -18,16 +18,11 @@ const BASE_PREFIX: &str = "|||||||";
 const SEPARATOR: &str = "=======";
 const THEIRS_PREFIX: &str = ">>>>>>>";
 
-/// One fully-closed conflict region as observed on disk.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ConflictBlock {
-    /// 1-indexed line of the `<<<<<<<` marker.
     pub start_line: usize,
-    /// 1-indexed line of the `=======` separator.
     pub separator_line: usize,
-    /// 1-indexed line of the `>>>>>>>` marker.
     pub end_line: usize,
-    /// 1-indexed line of the optional `|||||||` base marker (diff3).
     pub base_line: Option<usize>,
     pub ours_label: Option<String>,
     pub base_label: Option<String>,
@@ -37,7 +32,6 @@ pub(crate) struct ConflictBlock {
     pub theirs_lines: Vec<String>,
 }
 
-/// Registered conflict with a session-stable id and workspace-relative path.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ConflictEntry {
     pub id: u32,
@@ -53,29 +47,22 @@ pub(crate) enum ConflictScope {
     Base,
 }
 
-/// Parsed `conflict://` target.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ConflictUri {
-    /// List every currently registered conflict.
     List,
-    /// One conflict (optionally one side only).
     One {
         id: u32,
         scope: Option<ConflictScope>,
     },
-    /// Bulk resolve every registered conflict with the same content.
     All,
 }
 
-/// Whether `raw` looks like a `conflict://…` path (including recovered prefixes).
-#[allow(dead_code)] // public for callers that branch before parse
+#[allow(dead_code)]
 pub(crate) fn is_conflict_uri(raw: &str) -> bool {
     let t = raw.trim();
     t.starts_with("conflict:") || t.contains(":conflict://")
 }
 
-/// Parse `conflict://*`, `conflict://N`, `conflict://N/ours|theirs|base`, or
-/// the bare `conflict://` list form. Also accepts `path:conflict://N` recovery.
 pub(crate) fn parse_conflict_uri(raw: &str) -> Result<ConflictUri, String> {
     let trimmed = raw.trim();
     let (recovered, rest) = match trimmed.rfind(":conflict://") {
@@ -139,8 +126,6 @@ pub(crate) fn parse_conflict_uri(raw: &str) -> Result<ConflictUri, String> {
     Ok(ConflictUri::One { id, scope })
 }
 
-/// Scan `lines` for completed conflict blocks. `first_line` is the 1-based
-/// number of `lines[0]` (windowed reads pass their page offset).
 pub(crate) fn scan_conflict_lines(lines: &[&str], first_line: usize) -> Vec<ConflictBlock> {
     let mut blocks = Vec::new();
     let mut phase = Phase::Idle;
@@ -234,7 +219,6 @@ pub(crate) fn scan_conflict_lines(lines: &[&str], first_line: usize) -> Vec<Conf
     blocks
 }
 
-/// Scan a full file text for conflicts.
 #[cfg(test)]
 pub(crate) fn scan_text_for_conflicts(text: &str) -> Vec<ConflictBlock> {
     let lines: Vec<&str> = text.lines().collect();
@@ -286,8 +270,6 @@ fn nonempty_label(label: &str) -> Option<String> {
     }
 }
 
-// --- session history --------------------------------------------------------
-
 #[derive(Default)]
 struct ConflictHistory {
     next_id: u32,
@@ -296,7 +278,6 @@ struct ConflictHistory {
 
 impl ConflictHistory {
     fn register(&mut self, workspace: &Path, path: &str, block: ConflictBlock) -> ConflictEntry {
-        // Reuse an id only inside the workspace where the conflict was read.
         for existing in self.by_id.values() {
             if existing.workspace == workspace
                 && existing.path == path
@@ -372,13 +353,10 @@ fn history() -> std::sync::MutexGuard<'static, ConflictHistory> {
     }
 }
 
-/// Use the same pinned canonical workspace identity as the file tools. Aliases
-/// of one workspace share conflicts; sibling worktrees keep separate entries.
 fn workspace_key(root: &Path) -> PathBuf {
     crate::agent::harness::WorkspaceBoundary::cached(root).canonical_root
 }
 
-/// Register conflicts found on `path` and return the assigned entries.
 pub(crate) fn register_conflicts(
     root: &Path,
     path: &str,
@@ -413,8 +391,6 @@ pub(crate) fn clear_conflicts_for_test() {
     history().clear();
 }
 
-/// Expand `@ours` / `@theirs` / `@base` / `@both` shorthand, or return custom
-/// content as-is (without a trailing forced newline — caller joins lines).
 pub(crate) fn resolve_replacement(entry: &ConflictEntry, content: &str) -> Result<String, String> {
     let trimmed = content.trim();
     let lines = match trimmed {
@@ -432,7 +408,6 @@ pub(crate) fn resolve_replacement(entry: &ConflictEntry, content: &str) -> Resul
             both
         }
         _ => {
-            // Custom body: keep as provided, normalize to LF lines.
             return Ok(content.replace("\r\n", "\n").replace('\r', "\n"));
         }
     };
@@ -443,8 +418,6 @@ pub(crate) fn resolve_replacement(entry: &ConflictEntry, content: &str) -> Resul
     Ok(body)
 }
 
-/// Splice `replacement` over the conflict region in `original`, locating the
-/// marker block by content (preferring `entry.block.start_line` as the match).
 pub(crate) fn splice_conflict(
     original: &str,
     entry: &ConflictEntry,
@@ -457,7 +430,6 @@ pub(crate) fn splice_conflict(
     let n = lines.len();
     let b = &entry.block;
 
-    // Rebuild the expected marker span text from the recorded block.
     let mut expected: Vec<String> = Vec::new();
     expected.push(format_marker(OURS_PREFIX, b.ours_label.as_deref()));
     expected.extend(b.ours_lines.iter().cloned());
@@ -478,8 +450,7 @@ pub(crate) fn splice_conflict(
         ));
     }
 
-    // Prefer the recorded start line; fall back to a unique content scan.
-    let prefer = b.start_line.saturating_sub(1); // 0-based
+    let prefer = b.start_line.saturating_sub(1);
     let mut match_at: Option<usize> = None;
     if prefer + span_len <= n
         && lines[prefer..prefer + span_len]
@@ -523,18 +494,12 @@ pub(crate) fn splice_conflict(
     }
     let at = match_at.unwrap();
 
-    // Build replacement lines (without forcing trailing blank unless present).
     let repl_norm = replacement.replace("\r\n", "\n").replace('\r', "\n");
     let mut repl_lines: Vec<&str> = if repl_norm.is_empty() {
         Vec::new()
     } else if repl_norm.ends_with('\n') {
-        // Keep empty last line only if body is non-empty with trailing newline
-        // — join logic below treats trailing newline separately for the file.
         let mut v: Vec<&str> = repl_norm.lines().collect();
-        // `lines()` drops a final empty after trailing \n — good for line list.
-        // If content was "\n" only, lines() is empty; treat as one blank line.
         if v.is_empty() && replacement.contains('\n') {
-            // pure newline(s): leave empty so we insert nothing extra? @ours empty sides insert nothing.
         }
         let _ = &mut v;
         repl_norm.lines().collect()
@@ -542,8 +507,6 @@ pub(crate) fn splice_conflict(
         repl_norm.lines().collect()
     };
 
-    // If replacement was non-empty without trailing newline, lines() is fine.
-    // Empty sides (resolve with empty ours) → insert zero lines (delete conflict).
     if replacement.is_empty() {
         repl_lines.clear();
     }
@@ -573,12 +536,10 @@ fn format_marker(prefix: &str, label: Option<&str>) -> String {
     }
 }
 
-/// Human footer listing registered conflicts for a read receipt.
 pub(crate) fn format_conflict_footer(entries: &[ConflictEntry]) -> String {
     if entries.is_empty() {
         return String::new();
     }
-    // The count stays; how to resolve is the page beside it.
     let mut lines = vec![format!(
         "⚠ {} merge conflict(s) {}",
         entries.len(),
@@ -600,7 +561,6 @@ pub(crate) fn format_conflict_footer(entries: &[ConflictEntry]) -> String {
     lines.join("\n")
 }
 
-/// Render a single conflict entry for `read_file conflict://N`.
 pub(crate) fn format_conflict_detail(
     entry: &ConflictEntry,
     scope: Option<&ConflictScope>,

@@ -18,37 +18,23 @@ use ratatui::{
 };
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
-/// The card's title, in the window's large type or the terminal box's top row.
 pub(crate) const TITLE: &str = "Approval needed";
-/// The answers in the order they stand, left to right.
 pub(crate) const ANSWERS: [Decision; 3] = [Decision::Approve, Decision::ApproveAll, Decision::Deny];
 const SCOPE_LABEL: &str = "SCOPE";
-/// The widest the card grows; past this a prompt reads as a wall.
 const MAX_COLS: u16 = 76;
-/// The narrowest a boxed card may be.
 const MIN_COLS: u16 = 28;
-/// Rows of prompt kept before the rest is cut with `…`.
 const MOST_PROMPT_ROWS: usize = 12;
-/// Rows a terminal box keeps above its words: the hairline, the title, a gap.
 const BOX_TOP_ROWS: u16 = 3;
-/// The chosen answer in a terminal, where no glass pill glides under it.
 const PICK_BG: Color = Color::Rgb(30, 33, 40);
 const ANSWER_GAP: u16 = 4;
 
-/// What a key does to the waiting ask.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum KeyOutcome {
-    /// Answer now.
     Answer(Decision),
-    /// Move the choice to this answer.
     Focus(usize),
-    /// Not a key the ask takes; it keeps waiting.
     Ignore,
 }
 
-/// A key against the ask with `focus` chosen. Letters answer outright,
-/// arrows and Tab move the choice (stopping at the ends; Tab wraps), and
-/// Enter or Space take the chosen answer.
 pub(crate) fn key_outcome(code: KeyCode, focus: usize) -> KeyOutcome {
     let focus = focus.min(ANSWERS.len() - 1);
     if let Some(decision) = decision_for_key(code) {
@@ -64,7 +50,6 @@ pub(crate) fn key_outcome(code: KeyCode, focus: usize) -> KeyOutcome {
     }
 }
 
-/// The keys that answer outright, whatever is chosen.
 pub fn decision_for_key(code: KeyCode) -> Option<Decision> {
     match code {
         KeyCode::Char('y') | KeyCode::Char('Y') => Some(Decision::Approve),
@@ -82,7 +67,6 @@ pub fn decision_text(decision: Decision) -> &'static str {
     }
 }
 
-/// The answer's name for a machine reader (`ui_inspect`).
 pub(crate) fn decision_token(decision: Decision) -> &'static str {
     match decision {
         Decision::Approve => "approve",
@@ -91,8 +75,6 @@ pub(crate) fn decision_token(decision: Decision) -> &'static str {
     }
 }
 
-/// An ask's identity: a new one starts with Approve chosen, and in the
-/// window plays its words in.
 pub(crate) fn serial(prompt: &str, scope_label: Option<&str>) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -101,8 +83,6 @@ pub(crate) fn serial(prompt: &str, scope_label: Option<&str>) -> u64 {
     hasher.finish()
 }
 
-/// The answer's key and words. With a scope, approve-all covers exactly
-/// that scope for the rest of the turn, and says so.
 fn answer_words(decision: Decision, scoped: bool) -> (&'static str, &'static str) {
     match decision {
         Decision::Approve => ("y", "Approve"),
@@ -112,8 +92,6 @@ fn answer_words(decision: Decision, scoped: bool) -> (&'static str, &'static str
     }
 }
 
-/// One laid-out ask: its cells from the card's top-left, the chosen row
-/// and the columns its pill spans, and what answers a click.
 pub(crate) struct Composed {
     pub(crate) buffer: Buffer,
     pub(crate) cursor: Option<u16>,
@@ -121,9 +99,6 @@ pub(crate) struct Composed {
     pub(crate) hits: Vec<(Rect, Decision)>,
 }
 
-/// Lay the ask out `width` columns wide in at most `most_rows` rows, its
-/// words starting `top` rows down. `glass` leaves the chosen answer to the
-/// window's pill; a terminal shades it instead.
 pub(crate) fn compose(
     prompt: &str,
     scope_label: Option<&str>,
@@ -151,13 +126,8 @@ pub(crate) fn compose(
     let keys: &[(&str, &str)] = &[("← →", "choose"), ("Enter", "answer"), ("Esc", "deny")];
     let keys_cols = keys.iter().map(|(k, w)| k.width() + 1 + w.width()).sum::<usize>() + 3 * (keys.len() - 1);
 
-    // What must fit besides the prompt: the scope, the answers, the keys
-    // and the gaps between them, plus the row under the card's words.
     let scope_width = room.saturating_sub(SCOPE_LABEL.len() + 2).max(1);
     let mut scope_rows: Vec<String> = scope_label.map(|scope| wrap(scope, scope_width)).unwrap_or_default();
-    // A short card keeps its answers: past the headline, the gap above them
-    // and the answers themselves, the spare rows go to the scope (cut with
-    // `…` when only some fit), then the keys, then more of the prompt.
     let spare = most_rows.saturating_sub(top.saturating_add(1 + answer_rows + 1 + 1));
     let spare = if scope_rows.is_empty() {
         spare
@@ -218,7 +188,6 @@ pub(crate) fn compose(
     }
     y += 1;
 
-    // The answers: side by side and centred when they fit, else one a row.
     let mut hits = Vec::new();
     let mut cursor = None;
     let mut cursor_cols = None;
@@ -254,8 +223,6 @@ pub(crate) fn compose(
         hits.push((hit, decision));
         if chosen {
             cursor = Some(y);
-            // The pill keeps a cell of air round the key and the words, as
-            // the stacked rows have.
             cursor_cols = side_by_side.then_some((x.saturating_sub(1), cols + 2));
         }
         if side_by_side {
@@ -268,7 +235,6 @@ pub(crate) fn compose(
         y += 1;
     }
 
-    // What the keys do, under the answers and centred like them.
     if show_keys && fits(y + 1) {
         y += 1;
         let words_cols = keys_cols - 3 * (keys.len() - 1);
@@ -285,10 +251,6 @@ pub(crate) fn compose(
     Composed { buffer, cursor, cursor_cols, hits }
 }
 
-/// The prompt as styled rows `room` columns wide, at most `most` of them.
-/// The first line with words leads, bright; bullets and numbered steps
-/// wrap under their words; runs of blank lines fold to one, and blanks at
-/// either end go.
 fn prompt_rows(prompt: &str, room: usize, most: usize) -> Vec<(String, Style)> {
     let headline = Style::new().fg(BRIGHT).add_modifier(Modifier::BOLD);
     let body = Style::new().fg(TEXT);
@@ -324,9 +286,6 @@ fn prompt_rows(prompt: &str, room: usize, most: usize) -> Vec<(String, Style)> {
     rows
 }
 
-/// Words wrapped to `width` display columns. A leading indent, a bullet
-/// ("• ", "- ", "* ") or a step number ("1. ") hangs: its lines wrap under
-/// the words, not the mark. A word wider than the line breaks by cells.
 fn wrap(text: &str, width: usize) -> Vec<String> {
     let width = width.max(1);
     let words = text.trim_start_matches(' ');
@@ -375,20 +334,14 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
     lines
 }
 
-/// How wide the card stands in `root`.
 fn card_width(root: Rect) -> u16 {
     root.width.saturating_sub(8).min(MAX_COLS)
 }
 
-/// The terminal box for the ask in `root`: centred, never past its edges.
-/// Too small for a box that still shows every answer, the ask takes the
-/// whole of `root`.
 pub(crate) fn terminal_area(root: Rect, prompt: &str, scope_label: Option<&str>) -> Rect {
     boxed(root, prompt, scope_label).unwrap_or(root)
 }
 
-/// Where the ask's box stands in `root`, when `root` has room for one that
-/// keeps all three answers on screen.
 fn boxed(root: Rect, prompt: &str, scope_label: Option<&str>) -> Option<Rect> {
     if !roomy(root) {
         return None;
@@ -411,8 +364,6 @@ fn roomy(root: Rect) -> bool {
     root.width >= MIN_COLS + 8 && root.height >= 10
 }
 
-/// Paint the ask into a terminal frame and return what answers a click,
-/// in frame cells.
 pub(crate) fn paint_terminal(
     buf: &mut Buffer,
     root: Rect,
@@ -426,7 +377,6 @@ pub(crate) fn paint_terminal(
         return Vec::new();
     }
     let Some(area) = boxed(root, prompt, scope_label) else {
-        // No room for a box: the ask as plain words over the window.
         let composed = compose(prompt, scope_label, focus, root.width, root.height, 1, false);
         Clear.render(root, buf);
         paint(buf, root, &composed.buffer);
@@ -444,9 +394,6 @@ pub(crate) fn paint_terminal(
     offset(composed.hits, area)
 }
 
-/// The ask as the window's card: the same layout, the chosen answer under
-/// the glass pill. The squire stands guard on the roof; the card pops in
-/// at once, never waiting on him.
 #[cfg(feature = "glass")]
 pub(crate) fn card(
     root: Rect,
@@ -459,7 +406,6 @@ pub(crate) fn card(
     if width < MIN_COLS || root.height < TITLE_ROWS + 8 {
         return None;
     }
-    // Rows above are kept for the squire on the roof.
     let composed = compose(prompt, scope_label, focus, width, root.height.saturating_sub(6), TITLE_ROWS, true);
     if composed.hits.len() < ANSWERS.len() {
         return None;

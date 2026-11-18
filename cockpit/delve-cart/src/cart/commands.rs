@@ -84,9 +84,6 @@ impl CommandsRules for Delve {
                 let name = a
                     .split_once(char::is_whitespace)
                     .map_or("", |(_, name)| name.trim());
-                // The stables and the lists are rooms of the world:
-                // walked in the Delve, not looked at from the map. (The
-                // map's tournament screen is still a camera visit.)
                 if let Some(place) = crate::chivalry::Place::parse(name).filter(|_| {
                     !matches!(name.to_ascii_lowercase().as_str(), "tournament" | "knights")
                 }) {
@@ -180,8 +177,6 @@ impl CommandsRules for Delve {
                     .next()
                     .is_some_and(|word| word.eq_ignore_ascii_case("view")) =>
             {
-                // Old selectors remain compatible but cannot replace Dotmax
-                // outdoors or implicitly enter a room.
                 let wanted = a.split_whitespace().nth(1);
                 let mut steps = Vec::new();
                 let view = match wanted {
@@ -203,16 +198,12 @@ impl CommandsRules for Delve {
                 steps
             }
             Some(a) if a.eq_ignore_ascii_case("quest") => {
-                // The debugging window on the adventure model: every field
-                // the retained 3D renderer reads, as plain text.
                 vec![Step::Say(self.world.quest_report())]
             }
             Some(a) if a.eq_ignore_ascii_case("help") => {
                 vec![Step::Help(world_help_text())]
             }
             Some(a) => {
-                // An unknown verb is a question, not a fault: answer it
-                // with the whole map of what /world can do.
                 vec![Step::Say(format!(
                     "unknown /world verb {a:?}\n{}",
                     world_help_text()
@@ -272,16 +263,10 @@ impl CommandsRules for Delve {
     }
 
     fn village_command(&mut self) -> Vec<Step> {
-        // The fleet read off the town — forge/heads/granary/apprentice,
-        // every line a wired data source (the correspondence legend).
         vec![Step::Say(self.world.village_report())]
     }
 }
 
-/// `/world help` — every verb the Realm command answers to, in one message.
-///
-/// Deterministic text; the subcommand list is the contract the completion
-/// table and `local_command::help_text` are checked against.
 pub(crate) fn world_help_text() -> String {
     [
         "/world · open the Realm stage · verbs:",

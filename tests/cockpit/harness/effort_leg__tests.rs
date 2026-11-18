@@ -56,8 +56,6 @@ impl Club for Seat {
     }
 }
 
-/// A private copy of the shipped `effort` module under a throwaway live root,
-/// so a test can edit the leg exactly as Muse would.
 struct Staged {
     root: PathBuf,
     modules: angel_live::Registry,
@@ -91,8 +89,6 @@ impl Staged {
         std::fs::write(path, source.replacen(from, to, 1)).unwrap();
     }
 
-    /// Publish the module's current generation to the registry, as the app's
-    /// hot-load tick does.
     fn publish(&mut self, tools: &ToolRegistry) -> String {
         self.modules.refresh(true);
         let snapshot = self.modules.snapshot();
@@ -142,8 +138,6 @@ fn the_shipped_leg_reproduces_the_native_effort_decision_over_a_table() {
     ];
     let mut rows = 0;
     for ladder in LADDERS {
-        // A configured effort the ladder does not name (a wire spelling) must
-        // still pass through unchanged.
         for configured in [None, Some("low"), Some("high"), Some("max")] {
             for adaptive in [false, true] {
                 for hop in 0..4 {
@@ -250,7 +244,6 @@ fn an_edit_is_pinned_per_turn_and_its_choice_is_used_by_the_next_one() {
     );
     let second = staged.publish(&tools);
     assert_ne!(first, second);
-    // Published mid-turn: this turn still decides with the generation it pinned.
     assert_eq!(
         turn(&tools, &club, "fix the failing test").1,
         Some(LegSource::Live { digest: first })
@@ -400,7 +393,6 @@ fn the_bend_source_decides_and_its_guard_holds_for_any_edit() {
     let task = TaskHead::new("the test fails with a panic");
     for (choice, expected) in [
         ("Some{\"high\"}", Some("high")),
-        // Not a level of this seat: the Bend guard hands back the native effort.
         ("Some{\"turbo\"}", Some("medium")),
         ("None{}", None),
     ] {
@@ -455,8 +447,6 @@ fn a_decision_cost_is_bounded() {
     staged.publish(&tools);
     tools.pin_live_policies();
     let (median, p95) = median_micros(&tools.live_policy("effort").unwrap(), &input);
-    // The same request through an adapter that answers before reaching Bend:
-    // the isolate start-up every live leg pays.
     staged.edit(
         "index.js",
         "render(input) {",
@@ -496,13 +486,11 @@ fn a_red_or_a_silent_repeat_wakes_a_thinking_off_seat_for_one_hop() {
         (true, false, Some("high")),
         (false, true, Some("high")),
         (true, true, Some("high")),
-        // The hop after: back to the seat's own effort.
         (false, false, None),
     ] {
         let (effort, _) = decide(&tools, &off, &task, &hop_with(red, stuck), None);
         assert_eq!(effort.as_deref(), expected, "red {red} stuck {stuck}");
     }
-    // A seat already thinking keeps its rung (no cache re-key, never lowered).
     for configured in ["low", "high", "max"] {
         let seat = Seat::new(DEEPSEEK_V4, Some(configured));
         assert_eq!(
@@ -510,10 +498,8 @@ fn a_red_or_a_silent_repeat_wakes_a_thinking_off_seat_for_one_hop() {
             None
         );
     }
-    // A thinking-off seat with no `high` keeps native.
     let narrow = Seat::new(&["none", "low"], Some("none"));
     assert_eq!(decide(&tools, &narrow, &task, &hop_with(true, true), None).0, None);
-    // A seat with no ladder is never consulted.
     let bare = Seat::new(&[], Some("none"));
     assert_eq!(
         decide(&tools, &bare, &task, &hop_with(true, true), None),
@@ -546,8 +532,6 @@ fn a_red_is_a_fact_for_the_one_hop_after_it() {
     assert!(!seen.take(3));
 }
 
-/// A thinking-off seat that plays a script of tool batches, then answers,
-/// recording the effort of every request and the turn it was asked under.
 struct Script {
     steps: Vec<Vec<ToolCall>>,
     asked: Mutex<Vec<(Option<String>, String)>>,
@@ -678,8 +662,6 @@ fn a_silent_repeat_in_a_real_turn_gets_one_note_and_one_thinking_hop() {
         .collect();
     assert_eq!(notes.len(), 1, "{history:#?}");
     assert!(notes[0].content.contains("`probe "), "{}", notes[0].content);
-    // The note lands after the third identical call and the fourth request is
-    // asked under it, with thinking on; the fifth is back to native.
     let asked = club.asked.lock().unwrap().clone();
     assert!(asked[3].1.contains("times in a row"), "{asked:#?}");
     let efforts = club.efforts();
@@ -722,7 +704,6 @@ fn policy_control_effort_withdrawal_preserves_pinned_bend_and_next_turn_uses_shi
     assert_eq!(fallback.0,before.0);
     assert!(matches!(fallback.1,Some(LegSource::Shipped { .. })), "withdrawal must retain the packaged fallback: {fallback:?}");
     staged.edit("index.js", "return { effort: answer.$ === 'Some' ? answer.value : null }", "return { effort: 'high' }");
-    // The process-local disable intent survives edits and normal reloads.
     staged.modules.refresh(true);
     assert!(!staged.modules.snapshot().policies.contains_key("effort"));
     staged.modules.enable(vec!["effort".into()]).unwrap();

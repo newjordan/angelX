@@ -2,8 +2,6 @@ use super::*;
 use angel_delve::rules::reforge_jobs::{self, Claim, Completion, PolicyRequest, PolicyResult};
 
 impl Sim {
-    /// The existing command sequence is the discovery cursor. Unchanged
-    /// frames borrow metadata only; captured cards copy once for a new job.
     pub fn new_reforge_claims(
         &self,
         cursor: &mut Option<(String, u64)>,
@@ -60,8 +58,6 @@ impl Sim {
         let live = self.live.as_ref().ok_or("the game session ended")?;
         lock(&live.shared().core).commands.reforge_completion(claim)
     }
-    /// Transport/capacity errors retain the exact answer. A terminal receipt
-    /// never invokes newer policy again. Logical rejection lets the broker cancel.
     pub fn answer_reforge(
         &mut self,
         claim: &Claim,

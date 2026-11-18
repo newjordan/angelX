@@ -6,30 +6,17 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
-# The tests are modules of the library (`#[path]` under `tests/`), not
-# integration test targets.
 autotests = false
 
 [features]
 default = ["renderer"]
 renderer = ["dep:image", "dep:angel-stage"]
-# Opt-in native dev shortcut (hold N, tap P); no gameplay change by default. The Test drive
-# stands a fixture floor up with the library's own test helpers, so the dev feature turns them on.
 creator-dev = ["renderer", "testing"]
-# The test helpers the cockpit's own tests reach for.
 testing = []
-# A crate whose tests assert the old map (realm-host's mini view) stands the
-# full realm up in its test builds, as this crate's own tests do.
 full-realm-tests = ["testing"]
-# Native hosts: with no engine installed, Bend rules run on the Kernel's
-# shipped generations (angel-live's V8 backend). Off for the browser client.
 bend-engine = ["dep:angel-live"]
-# Explicit snapshot regeneration; ordinary builds require fresh real-cell proof.
 arcade-review = ["testing"]
-# Additional data-owned display-size trials; pilots are active in normal builds.
 boss-library-review = []
-# Rust oracles that record cases for the Bend port, one switch per port group
-# (delve/GROUPS.md), so one group's recorders never block another's build.
 bend-cases-core = []
 bend-cases-combat = []
 bend-cases-world = []
@@ -47,21 +34,16 @@ bend-cases-numerics = []
 angel-kingdom = { path = "../kingdom" }
 angel-net = { path = "../net" }
 angel-live = { path = "../live", features = ["v8"], optional = true }
-# A frame as a stage the window and the browser draw.
 angel-stage = { path = "../stage", optional = true }
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1"
 tracing = "0.1"
-# PNG decoding for the sprites compiled in; nothing else.
 image = { version = "0.25.10", default-features = false, features = ["png"], optional = true }
 
 [build-dependencies]
 serde_json = "1"
-# The town residents' paintings, shrunk once at build time (`build.rs`).
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 
 [dev-dependencies]
-# The knight racers example is played in a terminal: raw keys (with key release
-# where the terminal reports it) and a clean exit on a signal.
 crossterm = { version = "0.29", default-features = false, features = ["events"] }
 signal-hook = "0.3"

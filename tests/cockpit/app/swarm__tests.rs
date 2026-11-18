@@ -14,14 +14,12 @@ struct EnvGuard {
 impl EnvGuard {
     fn set(key: &'static str, value: &str) -> Self {
         let old = std::env::var_os(key);
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var(key, value) };
         Self { key, old }
     }
 
     fn unset(key: &'static str) -> Self {
         let old = std::env::var_os(key);
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
         Self { key, old }
     }
@@ -30,18 +28,13 @@ impl EnvGuard {
 impl Drop for EnvGuard {
     fn drop(&mut self) {
         if let Some(old) = &self.old {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::set_var(self.key, old) };
         } else {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::remove_var(self.key) };
         }
     }
 }
 
-/// Records how many chat calls it served and answers deterministically so we
-/// can assert the exact pipeline shape. The classifier prompt is recognized by
-/// its route (`⠄⠉`) so the gate can be steered per test.
 struct CountingClub {
     calls: Mutex<usize>,
     classify_as: &'static str,
@@ -80,10 +73,6 @@ impl Club for CountingClub {
     }
 }
 
-/// Like [`CountingClub`] but every reply is a *distinct* multi-word draft
-/// (digit-free, so judge/chooser parses on it still fail cleanly), so the
-/// local near-duplicate collapse never fires and tests can assert the full
-/// ladder's call shape.
 struct DistinctClub {
     calls: Mutex<usize>,
 }
@@ -109,8 +98,6 @@ impl Club for DistinctClub {
     fn chat(&self, _messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
         let mut calls = self.calls.lock().unwrap();
         *calls += 1;
-        // Every 3-word shingle contains the per-call tag, so drafts from
-        // different calls share zero shingles — never near-identical.
         let tag = "z".repeat(*calls);
         Ok(ClubReply::Text(format!(
             "{tag} draft {tag} angle {tag} path {tag} claim {tag}"
@@ -202,7 +189,6 @@ impl Club for PlanningThenAnswerClub {
     }
 
     fn chat(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {
-        // A text-only stage is connected: offered the ledger reader alone.
         if connect::is_ledger_only(tools) {
             *self.text_calls.lock().unwrap() += 1;
             return Ok(ClubReply::Text(
@@ -248,7 +234,6 @@ impl Club for PlanningToolClub {
     }
 
     fn chat(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {
-        // A text-only stage is connected: offered the ledger reader alone.
         if connect::is_ledger_only(tools) {
             *self.text_calls.lock().unwrap() += 1;
             return Ok(ClubReply::Text(
@@ -455,7 +440,6 @@ impl Club for UsageClub {
 #[test]
 fn swarm_opts_into_palace_reports() {
     let inner = Arc::new(CountingClub::new("OPEN"));
-    // The swarm's synthesis is report-worthy; a plain club's turn is not.
     assert!(SwarmClub::with_config("swarm", inner.clone(), 2, 1, false).reports_to_palace());
     assert!(!CountingClub::new("OPEN").reports_to_palace());
 }
@@ -560,9 +544,6 @@ fn swarm_effort_gate_usage_speaks_for_the_whole_roster() {
         label: "quiet-seat",
         ..Default::default()
     });
-    // A seat whose requested effort was withheld/rejected deep inside a stage
-    // fan-out: the swarm is the driver club the turn loop deltas, so the
-    // seat's gate events must surface through the roster sum.
     let gated: Arc<dyn Club> = Arc::new(UsageClub {
         label: "gated-seat",
         effort_gate: EffortGateUsage {
@@ -613,7 +594,6 @@ fn swarm_cache_usage_sums_unique_role_clubs() {
         },
         ..Default::default()
     });
-    // Duplicate wrapper seats must not double-count the same provider link.
     let swarm = SwarmClub::from_env_roles(
         "sota-moa",
         Arc::clone(&a),
@@ -779,7 +759,6 @@ fn swarm_text_only_calls_strip_tool_protocol_history() {
         .map(|m| m.content.as_ref())
         .collect::<Vec<_>>()
         .join("\n");
-    // `⠐⠛⠋`: the requested tools; `⠐⠛⠛`: a tool result, its id beside it.
     assert!(joined.contains(&pages(d5_frames::LABELS, [6])), "{joined}");
     assert!(
         joined.contains(&format!("{} id=call_dup", pages(d5_frames::LABELS, [7]))),
@@ -791,9 +770,6 @@ fn swarm_text_only_calls_strip_tool_protocol_history() {
 
 #[test]
 fn sota_moa_fails_closed_when_proposer_quorum_collapses() {
-    // Serialized: this test mutates process-global environment that other
-    // tests also read or write. Without the lock they interleave and each
-    // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
     let _guard = EnvGuard::unset("ANGEL_SOTA_MOA_ALLOW_DEGRADED");
     let propose = Arc::new(ScriptedClub::new(
@@ -866,14 +842,8 @@ fn sota_moa_fails_closed_when_proposer_quorum_collapses() {
 const QUOTA_429: &str = r#"HTTP 429: {"error":{"code":"1310","message":"Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-07-03 11:33:39"}}"#;
 const AUTH_401: &str = r#"HTTP 401: {"error":{"code":"1000","message":"身 份 验 证 失 败 。 "}}"#;
 
-/// The failure that motivated the bench: one link's weekly/monthly cap runs
-/// out mid-session. The role call must reroute to the next spendable link and
-/// the turn must still deliver — not die with `agent error · HTTP 429`.
 #[test]
 fn sota_moa_reroutes_quota_exhausted_role_calls_to_fallback_link() {
-    // Serialized: this test mutates process-global environment that other
-    // tests also read or write. Without the lock they interleave and each
-    // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
     let _guard = EnvGuard::unset("ANGEL_SOTA_MOA_ALLOW_DEGRADED");
     let propose = Arc::new(ScriptedClub::new(
@@ -949,8 +919,6 @@ fn sota_moa_reroutes_auth_failed_role_calls_to_fallback_link() {
     );
 }
 
-/// A transient failure (5xx, timeout) is the retry loop's business, not the
-/// bench's: rerouting those would double-spend metered tokens on hiccups.
 #[test]
 fn quota_failover_ignores_non_quota_errors() {
     let primary = Arc::new(ScriptedClub::new("longcat", vec![Err("HTTP 500: boom")]));
@@ -967,8 +935,6 @@ fn quota_failover_ignores_non_quota_errors() {
     assert_eq!(backup.count(), 0, "no failover on transient errors");
 }
 
-/// When the whole bench is exhausted the last quota error stands — and each
-/// link is tried at most once, so two gate-less links can never ping-pong.
 #[test]
 fn quota_failover_stops_after_each_link_tried_once() {
     let primary = Arc::new(ScriptedClub::new("longcat", vec![Err(QUOTA_429)]));
@@ -989,8 +955,6 @@ fn quota_failover_stops_after_each_link_tried_once() {
     assert_eq!(second.count(), 1, "each bench link gets exactly one shot");
 }
 
-/// Emits a delta, then dies with a quota error — the shape that must NOT fail
-/// over, or the caller's transcript would carry the text twice.
 struct StreamsThenDies;
 
 impl Club for StreamsThenDies {
@@ -1042,8 +1006,6 @@ fn streaming_failover_never_duplicates_already_streamed_text() {
     assert_eq!(backup.count(), 0, "no failover after content has flowed");
 }
 
-/// The happy streaming case: the quota gate trips before the first byte, so
-/// failover is safe and the backup's answer streams through untouched.
 #[test]
 fn streaming_failover_reroutes_when_nothing_streamed_yet() {
     let primary = Arc::new(ScriptedClub::new("longcat", vec![Err(QUOTA_429)]));
@@ -1130,11 +1092,6 @@ fn sota_moa_adapts_simple_questions_fast_and_work_requests_slow() {
     assert!(!content.trim().is_empty());
 }
 
-// --- tool-capable driver (passthrough) --------------------------------------
-
-/// A driver that always produces a long, distinct final answer (over the
-/// amplify threshold) and counts every chat call — so a test can tell a single
-/// direct pass (one call) from an amplified fan-out (many calls).
 struct LongAnswerClub {
     calls: Mutex<usize>,
 }
@@ -1161,8 +1118,6 @@ impl Club for LongAnswerClub {
         let mut calls = self.calls.lock().unwrap();
         *calls += 1;
         let n = *calls;
-        // Distinct per call (no near-duplicate collapse) and comfortably over
-        // MIN_AMPLIFY_CHARS so the amplify path isn't short-circuited.
         Ok(ClubReply::Text(format!(
             "answer variant {n}: {}",
             "the synthesis reasons carefully about the tradeoffs at some length ".repeat(6)
@@ -1210,9 +1165,6 @@ fn tool_def() -> ToolDef {
     }
 }
 
-/// The core fix: with tools offered, the MoA driver is a real agent — a tool
-/// call is handed straight back to the harness, not swallowed by a text-only
-/// think. Exactly one driver pass; no fan-out on a working hop.
 #[test]
 fn tool_capable_driver_passes_tool_calls_straight_through() {
     let tools = Arc::new(ToolCallingClub::new("longcat"));
@@ -1238,9 +1190,6 @@ fn tool_capable_driver_passes_tool_calls_straight_through() {
     );
 }
 
-/// The harness drives via `chat_streaming` with the tool schemas — the real
-/// entry point. A tool call still passes straight through (no MoA fan-out, no
-/// stray answer content), so the agent actually gets to run its tools.
 #[test]
 fn tool_capable_driver_streams_tool_calls_through() {
     let tools = Arc::new(ToolCallingClub::new("longcat"));
@@ -1270,9 +1219,6 @@ fn tool_capable_driver_streams_tool_calls_through() {
     assert_eq!(tools.count(), 1, "one driver pass, no fan-out");
 }
 
-/// An ordinary action turn works through tools and its answer is already
-/// grounded in real output — return it directly, never re-synthesize it
-/// text-only (which could only regress it). Zero MoA overhead.
 #[test]
 fn tool_capable_driver_answers_action_turns_directly() {
     let driver = Arc::new(LongAnswerClub::new());
@@ -1297,8 +1243,6 @@ fn tool_capable_driver_answers_action_turns_directly() {
     );
 }
 
-/// A reasoning-dominant (synthesis) question is exactly where multi-agent
-/// deliberation pays off: the final answer is amplified by the MoA fan-out.
 #[test]
 fn tool_capable_driver_amplifies_synthesis_turns() {
     let driver = Arc::new(LongAnswerClub::new());
@@ -1323,9 +1267,6 @@ fn tool_capable_driver_amplifies_synthesis_turns() {
     );
 }
 
-/// Manual mode — the sota-moa default since the token blowouts: even a
-/// synthesis-flavored prompt that trips the auto heuristics stays
-/// coordinator-only. Standard single-model spend until the user summons.
 #[test]
 fn manual_mode_keeps_the_coordinator_solo_until_summoned() {
     let driver = Arc::new(LongAnswerClub::new());
@@ -1354,8 +1295,6 @@ fn manual_mode_keeps_the_coordinator_solo_until_summoned() {
     );
 }
 
-/// The summon: a turn opening with `moa:` engages the full mixture for exactly
-/// that turn — fan-out on demand.
 #[test]
 fn manual_mode_moa_prefix_summons_the_mixture() {
     let driver = Arc::new(LongAnswerClub::new());
@@ -1410,9 +1349,6 @@ fn engaged_formation_state_summons_without_rewriting_operator_text() {
     );
 }
 
-/// Engagement ≠ `always`: an armed formation performs its one planning
-/// preflight before tools, but a short coordinator answer is returned as-is
-/// rather than paying for a second, final-answer amplification wave.
 #[test]
 fn engaged_formation_does_not_re_amplify_a_short_ack() {
     let driver = Arc::new(ShortAnswerClub::new());
@@ -1441,8 +1377,6 @@ fn engaged_formation_does_not_re_amplify_a_short_ack() {
     );
 }
 
-/// `ANGEL_SOTA_MOA_ALWAYS=1` stays the explicit "amplify everything" override:
-/// `always` sets `explicitly_requested`, so even a short answer amplifies.
 #[test]
 fn always_override_amplifies_even_a_short_answer() {
     let driver = Arc::new(ShortAnswerClub::new());
@@ -1719,9 +1653,6 @@ fn explicit_moa_summon_is_not_vetoed_by_a_short_driver_answer() {
     );
 }
 
-/// Driver hop, raw markup on the assigned link: fail over across the bench and
-/// pass the fallback's *structured* tool call straight through. Each link gets
-/// exactly one shot — bounded, no ping-pong.
 #[test]
 fn tool_stage_reroutes_raw_markup_to_link_with_structured_call() {
     let raw = r#"<longcat_tool_call>shell
@@ -1752,10 +1683,6 @@ fn tool_stage_reroutes_raw_markup_to_link_with_structured_call() {
     assert_eq!(capable.count(), 1);
 }
 
-/// The whole bench botches the tool call as raw markup: the markup must surface
-/// to the harness (whose false-start guard forces a bounded structured retry) —
-/// NOT be swallowed into a text-only MoA answer that describes work that never
-/// ran. This was the "agent finishes without ever testing" hole.
 #[test]
 fn tool_stage_bench_exhausted_on_raw_markup_surfaces_markup_not_moa_answer() {
     let _guard = crate::tests::env_lock();
@@ -1768,8 +1695,6 @@ fn tool_stage_bench_exhausted_on_raw_markup_surfaces_markup_not_moa_answer() {
     let fallback = Arc::new(ScriptedClub::new("deepseek", vec![Ok(raw)]));
     let driver_club: Arc<dyn Club> = driver.clone();
     let fallback_club: Arc<dyn Club> = fallback.clone();
-    // `always` forces the amplify intent — exactly the configuration that used
-    // to recover the swallowed markup error with a fabricated text answer.
     let mut swarm = SwarmClub::with_knobs(
         "sota-moa",
         driver_club.clone(),
@@ -1799,14 +1724,10 @@ fn tool_stage_bench_exhausted_on_raw_markup_surfaces_markup_not_moa_answer() {
         }
         ClubReply::Calls(_) => panic!("no structured call existed to pass through"),
     }
-    // One shot per link, then stop — no MoA amplification pass on top.
     assert_eq!(driver.count(), 1, "bounded fail-over: one shot per link");
     assert_eq!(fallback.count(), 1, "no MoA fan-out laundered the markup");
 }
 
-/// `run_seeded` folds the driver's pre-computed answer into the draft pool:
-/// a downstream stage (refine/judge/synthesis) sees the seed text alongside
-/// the proposer drafts instead of the generation being discarded.
 #[test]
 fn seeded_draft_reaches_the_synthesis_pool() {
     let inner = Arc::new(TranscriptRecordingClub::new("swarm"));
@@ -1837,16 +1758,12 @@ fn seeded_draft_reaches_the_synthesis_pool() {
 
 #[test]
 fn open_problem_fans_out_across_layers() {
-    // Distinct drafts, so the near-duplicate collapse stays out of the way
-    // and the full ladder shape is visible.
     let inner = Arc::new(DistinctClub::new());
     let swarm = SwarmClub::with_config("swarm", inner.clone(), 3, 2, false);
     let out = swarm
         .respond("design a resilient distributed system")
         .unwrap();
     assert!(!out.is_empty());
-    // Default fast router: NO classifier round-trip. "design ..." trips the
-    // deliberation heuristic → 3 proposers + 3 layer-1 aggregators + 1 synthesis.
     assert_eq!(inner.count(), 7);
 }
 
@@ -1854,10 +1771,6 @@ fn open_problem_fans_out_across_layers() {
 fn convergent_proposers_collapse_locally_and_skip_the_ladder() {
     let _guard = crate::tests::env_lock();
     let _dedup = EnvGuard::set("ANGEL_MOA_DEDUP_SIM", "0.9");
-    // Identical drafts (the CountingClub always says "draft") collapse via
-    // the local similarity check — no refine layer, no judge — and the one
-    // surviving draft still gets a real synthesis pass so the user never
-    // sees raw proposer material: 3 proposers + 1 synthesis, nothing else.
     let inner = Arc::new(CountingClub::new("OPEN"));
     let swarm = SwarmClub::with_config("swarm", inner.clone(), 3, 2, false);
     let out = swarm
@@ -1876,15 +1789,12 @@ fn tight_directive_single_passes() {
     let inner = Arc::new(CountingClub::new("TIGHT"));
     let swarm = SwarmClub::with_config("swarm", inner.clone(), 4, 2, false);
     let out = swarm.respond("what is 2 + 2?").unwrap();
-    assert_eq!(out, "draft"); // the single direct pass
-    // Default fast router: the heuristic sends a narrow directive straight to one
-    // direct pass with NO classifier round-trip — the broad win (was 2, now 1).
+    assert_eq!(out, "draft");
     assert_eq!(inner.count(), 1);
 }
 
 #[test]
 fn default_router_costs_no_classifier_round_trip() {
-    // Every non-deliberation turn answers in ONE call — no routing model call.
     for prompt in [
         "thanks!",
         "what is 2 + 2?",
@@ -1899,7 +1809,6 @@ fn default_router_costs_no_classifier_round_trip() {
     }
 }
 
-/// The driver's tool instructions must not reach a seat that has no tools.
 #[test]
 fn text_only_system_drops_tool_protocol_but_keeps_context() {
     let base = "You are Angel — the Driver for this workspace.\n\n\
@@ -1913,14 +1822,9 @@ fn text_only_system_drops_tool_protocol_but_keeps_context() {
     assert!(!out.contains("skill(name)"), "{out}");
     let analysis_only = pages(st_connected::TEXT_ONLY, [1, 2, 3]);
     assert!(out.ends_with(&format!("\n\n{analysis_only}")), "{out}");
-    // An empty driver prompt still gets the directive, never a stray blank line.
     assert_eq!(text_only_system(""), analysis_only);
 }
 
-/// The live failure this fixes: the lead seat answered every Tag Team turn with
-/// `[TOOL_CALLS]quantize-model[TOOL_CALLS]{"model": "4bit"}` — 55 characters, no
-/// analysis — so its draft was discarded and the two-corner formation silently
-/// became one model. Correcting the seat in place recovers its angle.
 #[test]
 fn swarm_worker_recovers_after_a_text_only_correction() {
     const CALL: &str = r#"[TOOL_CALLS]quantize-model[TOOL_CALLS]{"model": "4bit"}"#;
@@ -1952,13 +1856,9 @@ fn swarm_worker_recovers_after_a_text_only_correction() {
         .call_on(&*worker_club, "worker system", &[ChatMsg::user("analyze")])
         .expect("the corrected retry is a usable draft");
     assert!(draft.contains("Router precision loss"), "{draft}");
-    // Exactly one corrective retry — not a ladder.
     assert_eq!(worker.count(), 2);
 }
 
-/// A seat that writes real analysis and *then* slips into tool markup keeps the
-/// analysis. Discarding the whole reply is what quietly reduced a two-corner
-/// formation to a single model, because the tail is the only bad part.
 #[test]
 fn swarm_worker_salvages_analysis_written_before_tool_markup() {
     const RAW: &str = "- Routing collapse: 4-bit quantization flattens expert logits, so the \
@@ -1992,8 +1892,6 @@ fn swarm_worker_salvages_analysis_written_before_tool_markup() {
         .call_on(&*worker_club, "worker system", &[ChatMsg::user("analyze")])
         .expect("analysis before the markup is a usable draft");
     assert!(draft.contains("Routing collapse"), "{draft}");
-    // The call itself is still never honored, and no markup survives into the
-    // material the aggregator sees.
     assert!(!draft.contains("<SHELL>"), "{draft}");
     assert!(!draft.contains("nvidia-smi"), "{draft}");
 }
@@ -2003,8 +1901,6 @@ fn swarm_worker_rejects_raw_longcat_tool_markup_text() {
     let raw = r#"angel <longcat_tool_call>shell
 <parameter=command>cd /workspace/fixture-overworld && find . -maxdepth 4 -type f ( -name "gauntlet" -o -name "harness" )</parameter>
 </function>"#;
-    // Scripted twice: the seat repeats the markup even after the text-only
-    // correction, which is the case that must still fail closed.
     let worker = Arc::new(ScriptedClub::new("longcat", vec![Ok(raw), Ok(raw)]));
     let aggregate = Arc::new(CountingClub::new("OPEN"));
     let worker_club: Arc<dyn Club> = worker.clone();
@@ -2031,7 +1927,6 @@ fn swarm_worker_rejects_raw_longcat_tool_markup_text() {
         .call_on(&*worker_club, "worker system", &[ChatMsg::user("inspect")])
         .expect_err("raw provider tool markup must not become a usable MOA draft");
     assert!(err.contains("raw tool markup"), "{err}");
-    // One corrective retry on the seat, then it is out of chances.
     assert_eq!(worker.count(), 2);
 }
 
@@ -2041,8 +1936,6 @@ fn sota_text_stage_reroutes_raw_markup_to_fallback_link() {
 <longcat_arg_key>command</longcat_arg_key>
 <longcat_arg_value>pwd</longcat_arg_value>
 </longcat_tool_call>"#;
-    // A link that emits markup *again* after the correction is genuinely stuck,
-    // and only then is routing around it the right move.
     let longcat = Arc::new(ScriptedClub::new("longcat", vec![Ok(raw), Ok(raw)]));
     let glm = Arc::new(ScriptedClub::new("glm", vec![Ok("clean aggregate")]));
     let longcat_club: Arc<dyn Club> = longcat.clone();
@@ -2054,7 +1947,7 @@ fn sota_text_stage_reroutes_raw_markup_to_fallback_link() {
         .call_on(&*longcat_club, "aggregate", &[ChatMsg::user("merge")])
         .expect("raw text-stage markup should fail over to a clean SOTA link");
     assert_eq!(out, "clean aggregate");
-    assert_eq!(longcat.count(), 2); // original + corrective retry
+    assert_eq!(longcat.count(), 2);
     assert_eq!(glm.count(), 1);
 }
 
@@ -2074,7 +1967,7 @@ fn sota_text_stage_hands_failed_tool_call_to_capable_fallback() {
         .call_on(&*longcat_club, "aggregate", &[ChatMsg::user("merge")])
         .expect("tool-call attempt in a text-only stage should hand off to fallback");
     assert_eq!(out, "clean capable handoff");
-    assert_eq!(longcat.count(), 2); // original + corrective retry
+    assert_eq!(longcat.count(), 2);
     assert_eq!(codex.count(), 1);
 }
 
@@ -2159,9 +2052,6 @@ fn buffered_streamed_aggregate_reroutes_raw_markup_before_user_content() {
 
 #[test]
 fn grok_research_scout_adds_context_without_replacing_role_seats() {
-    // Serialized: this test mutates process-global environment that other
-    // tests also read or write. Without the lock they interleave and each
-    // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
     let _guard = EnvGuard::unset("ANGEL_GROK_RESEARCH_ALWAYS");
     let propose = Arc::new(TranscriptRecordingClub::new("propose"));
@@ -2234,7 +2124,6 @@ fn grok_research_scout_adds_context_without_replacing_role_seats() {
         .map(|m| m.content.as_ref())
         .collect::<Vec<_>>()
         .join("\n");
-    // The scout's findings ride under `⠐⠛⠓`, its heading's page.
     assert!(
         joined.contains("⠐⠛⠓\nfresh finding from school"),
         "{joined}"
@@ -2244,9 +2133,6 @@ fn grok_research_scout_adds_context_without_replacing_role_seats() {
 
 #[test]
 fn grok_research_scout_stays_off_for_non_live_direct_turns() {
-    // Serialized: this test mutates process-global environment that other
-    // tests also read or write. Without the lock they interleave and each
-    // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
     let _guard = EnvGuard::unset("ANGEL_GROK_RESEARCH_ALWAYS");
     let propose = Arc::new(TranscriptRecordingClub::new("propose"));
@@ -2294,9 +2180,6 @@ fn grok_research_scout_stays_off_for_non_live_direct_turns() {
 
 #[test]
 fn sota_moa_grok_researcher_is_explicit_on_deliberate_turns() {
-    // Serialized: this test mutates process-global environment that other
-    // tests also read or write. Without the lock they interleave and each
-    // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
     let _guard = EnvGuard::unset("ANGEL_GROK_RESEARCH_ALWAYS");
     let _sota_guard = EnvGuard::unset("ANGEL_SOTA_MOA_GROK_RESEARCH");
@@ -2360,15 +2243,11 @@ fn sota_moa_grok_researcher_is_explicit_on_deliberate_turns() {
         .map(|m| m.content.as_ref())
         .collect::<Vec<_>>()
         .join("\n");
-    // The scout's findings ride under `⠐⠛⠓`, its heading's page.
     assert!(joined.contains("⠐⠛⠓\n"), "{joined}");
 }
 
 #[test]
 fn moa_workers_receive_compaction_checkpoint_contract() {
-    // Serialized: this test mutates process-global environment that other
-    // tests also read or write. Without the lock they interleave and each
-    // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
     let _guard = EnvGuard::set("ANGEL_MOA_COMPACT_EVERY_LOOPS", "3");
     let propose = Arc::new(TranscriptRecordingClub::new("propose"));
@@ -2407,7 +2286,6 @@ fn moa_workers_receive_compaction_checkpoint_contract() {
         .map(|m| m.content.as_ref())
         .collect::<Vec<_>>()
         .join("\n");
-    // `⠄⠊`, the checkpoint cadence beside it.
     assert!(
         joined.contains(&format!("{} every=3", d3_roles::CHECKPOINT.cells())),
         "{joined}"
@@ -2489,36 +2367,24 @@ fn obviously_tight_is_narrow() {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Parity oracles — the Rust heuristics the shipped legs replaced. They answer
-// only here, so every parity test compares the leg against the exact code it
-// took over while the binary carries none of it.
-// ---------------------------------------------------------------------------
-
 fn obviously_tight_oracle(problem: &str) -> bool {
     let p = problem.trim().to_ascii_lowercase();
     let p = p.trim_matches(|c: char| matches!(c, '.' | '!' | '?' | ',' | ' '));
     p.is_empty() || TIGHT_PHRASES.contains(&p)
 }
 
-/// Explicit user summon for the full mixture: the turn opens with `moa:` (or
-/// `/moa`), leading position only, so prose that merely mentions "moa" never
-/// triggers a fan-out.
 fn summons_moa_oracle(problem: &str) -> bool {
     let p = problem.trim().to_ascii_lowercase();
     p == "moa" || p == "/moa" || p.starts_with("moa:") || p.starts_with("/moa ")
 }
 
-/// Open-ended reasoning: the request is asking for judgment/synthesis, not a
-/// mechanical action — the gate for amplifying a tool-capable driver's final
-/// answer, so ordinary coding turns pay zero MoA cost.
 fn wants_synthesis_oracle(problem: &str) -> bool {
     let p = problem.trim().to_ascii_lowercase();
     if p.is_empty() {
         return false;
     }
     if p.len() > 600 {
-        return true; // a long, multi-part brief benefits from synthesis
+        return true;
     }
     if OPEN_PHRASES.iter().any(|m| has_phrase(&p, m)) {
         return true;
@@ -2533,7 +2399,7 @@ fn wants_deliberation_oracle(problem: &str) -> bool {
         return false;
     }
     if p.len() > 400 {
-        return true; // long / multi-part → diverse proposers help
+        return true;
     }
     let words = route_words(&p);
     if OPEN_PHRASES.iter().any(|m| has_phrase(&p, m)) {
@@ -2578,7 +2444,6 @@ fn estimate_difficulty_oracle(problem: &str) -> Difficulty {
     }
 }
 
-/// Every routing decision, as the Rust heuristics answered before the leg.
 fn route_oracle(problem: &str) -> Route {
     Route {
         tight: obviously_tight_oracle(problem),
@@ -2590,9 +2455,6 @@ fn route_oracle(problem: &str) -> Route {
     }
 }
 
-/// Every shape a turn can take, including the length gates, the list gates and
-/// multibyte text (the length gates count bytes for two of the heuristics and
-/// chars for difficulty).
 fn swarm_route_cases() -> Vec<String> {
     let mut cases: Vec<String> = [
         "",
@@ -2641,8 +2503,6 @@ fn swarm_route_cases() -> Vec<String> {
     .into_iter()
     .map(str::to_string)
     .collect();
-    // The gates sit at 400/600/800 bytes for routing and 800 chars for
-    // difficulty, so probe both sides of each with ASCII and multibyte text.
     cases.push("a".repeat(400));
     cases.push("a".repeat(401));
     cases.push("a".repeat(600));
@@ -2653,8 +2513,6 @@ fn swarm_route_cases() -> Vec<String> {
     cases
 }
 
-/// The shipped leg and the native heuristics must agree on every decision, and
-/// the leg must be the one that answered.
 #[test]
 fn swarm_route_leg_matches_every_native_decision() {
     use crate::agent::harness::live_policy::{LegSource, decide_with};
@@ -2676,8 +2534,6 @@ fn swarm_route_leg_matches_every_native_decision() {
     }
 }
 
-/// A generation that breaks the leg's contract is rejected and the shipped
-/// generation answers instead, so a bad hot edit never blocks a turn.
 #[test]
 fn a_broken_swarm_route_generation_keeps_the_native_decision() {
     use crate::agent::harness::live_policy::{LegSource, decide_with};
@@ -2689,7 +2545,6 @@ fn a_broken_swarm_route_generation_keeps_the_native_decision() {
         r#"{"api_version":1,"id":"swarm-route","kind":"policy","entry":"index.js","probe":{"blank":false}}"#,
     )
     .unwrap();
-    // Synthesis without deliberation violates the routing contract.
     std::fs::write(
         root.join("swarm-route/index.js"),
         "module.exports={apiVersion:1,render:()=>({tight:false,moa:true,synthesis:true,deliberation:false,research:true,hard:true})}",
@@ -2723,7 +2578,6 @@ fn a_broken_swarm_route_generation_keeps_the_native_decision() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// Reported, not asserted: a leg evaluation is a pure in-process call.
 #[test]
 fn swarm_route_leg_decision_latency_is_reported() {
     let leg = crate::agent::harness::live_policy::shipped_leg("swarm-route");
@@ -2754,18 +2608,14 @@ fn swarm_route_leg_decision_latency_is_reported() {
 
 #[test]
 fn always_skips_the_classifier() {
-    let inner = Arc::new(CountingClub::new("TIGHT")); // would say TIGHT, but ignored
+    let inner = Arc::new(CountingClub::new("TIGHT"));
     let swarm = SwarmClub::with_config("swarm", inner.clone(), 2, 1, true);
     let _ = swarm.respond("anything at all").unwrap();
-    // No classifier; layers=1 → 2 proposers + 1 final synthesis.
     assert_eq!(inner.count(), 3);
 }
 
 #[test]
 fn all_knobs_compose() {
-    // Distinct drafts so no stage is skipped by the local convergence
-    // checks; keep=1 so the judge panel can actually prune (a no-op panel —
-    // keep ≥ drafts — is now skipped without a call).
     let inner = Arc::new(DistinctClub::new());
     let k = Knobs {
         width: 2,
@@ -2792,16 +2642,11 @@ fn all_knobs_compose() {
     let swarm = SwarmClub::with_knobs("swarm", inner.clone(), k);
     let out = swarm.respond("how should we design this?").unwrap();
     assert!(!out.is_empty());
-    // 2 proposers + 1 critique + 2 aggregators + 1 judge + (2 synth + 1 chooser)
-    // + (1 verify + 1 revise) = 11. (judge/chooser parses fail on the mock and
-    // fall through, but the calls still happen.)
     assert_eq!(inner.count(), 11);
 }
 
 #[test]
 fn noop_judge_panel_is_skipped_without_a_call() {
-    // keep=0 → auto keep = max(2, len/2) = 2 with two drafts: the panel
-    // couldn't prune anything, so no reviewer call is spent.
     let inner = Arc::new(DistinctClub::new());
     let k = Knobs {
         width: 2,
@@ -2825,8 +2670,6 @@ fn noop_judge_panel_is_skipped_without_a_call() {
 fn identical_candidates_skip_the_chooser_call() {
     let _guard = crate::tests::env_lock();
     let _dedup = EnvGuard::set("ANGEL_MOA_DEDUP_SIM", "0.9");
-    // Self-consistency with a mock that always answers "draft": both
-    // syntheses converge, so the chooser round-trip is skipped locally.
     let inner = Arc::new(CountingClub::new("OPEN"));
     let k = Knobs {
         width: 2,
@@ -2838,8 +2681,6 @@ fn identical_candidates_skip_the_chooser_call() {
     let swarm = SwarmClub::with_knobs("swarm", inner.clone(), k);
     let out = swarm.respond("how should we design this?").unwrap();
     assert_eq!(out, "draft");
-    // 2 proposers (collapse to 1 convergent draft) + 2 syntheses; the
-    // chooser over two identical candidates costs nothing.
     assert_eq!(inner.count(), 4);
 }
 
@@ -2847,9 +2688,6 @@ fn identical_candidates_skip_the_chooser_call() {
 fn verify_loop_breaks_once_the_revision_stops_changing() {
     let _guard = crate::tests::env_lock();
     let _dedup = EnvGuard::set("ANGEL_MOA_DEDUP_SIM", "0.9");
-    // The mock's verifier never says OK and its reviser returns the same
-    // text every round — without the local convergence check verify=3 would
-    // burn 3×(verify+revise) = 6 calls; with it, one round settles it.
     let inner = Arc::new(CountingClub::new("OPEN"));
     let k = Knobs {
         width: 2,
@@ -2861,11 +2699,8 @@ fn verify_loop_breaks_once_the_revision_stops_changing() {
     let swarm = SwarmClub::with_knobs("swarm", inner.clone(), k);
     let out = swarm.respond("how should we design this?").unwrap();
     assert_eq!(out, "draft");
-    // 2 proposers (collapse) + 1 synthesis + 1 verify + 1 revise = 5.
     assert_eq!(inner.count(), 5);
 }
-
-// --- local near-duplicate detection --------------------------------------
 
 #[test]
 fn near_identical_matches_same_and_rejects_distinct_text() {
@@ -2877,9 +2712,7 @@ fn near_identical_matches_same_and_rejects_distinct_text() {
     let c = "Shard the counter across Redis with a sliding window and a Lua script for \
                  atomic increment-and-expire; fall back to local buckets on Redis loss.";
     assert!(!near_identical_at(a, c, 0.9), "different approaches");
-    // Threshold 0 disables the check outright.
     assert!(!near_identical_at(a, b, 0.0));
-    // Too short to shingle → normalized whole-text equality.
     assert!(near_identical_at("ok then", " ok  then ", 0.9));
     assert!(!near_identical_at("ok then", "not really", 0.9));
 }
@@ -2890,7 +2723,7 @@ fn collapse_keeps_first_of_each_convergent_group() {
     let _dedup = EnvGuard::set("ANGEL_MOA_DEDUP_SIM", "0.9");
     let a = "Use a token bucket per client keyed by account id, refill at the plan rate, \
                   and reject with 429 plus Retry-After when the bucket is empty.";
-    let a2 = format!("{a} "); // same draft, trivially different
+    let a2 = format!("{a} ");
     let c = "Shard the counter across Redis with a sliding window and a Lua script for \
                   atomic increment-and-expire; fall back to local buckets on Redis loss.";
     let out = collapse_near_duplicates(vec![a.to_string(), a2, c.to_string()]);
@@ -2899,9 +2732,6 @@ fn collapse_keeps_first_of_each_convergent_group() {
     assert_eq!(out[1], c);
 }
 
-/// Dedup is on at the default threshold: two drafts differing only in
-/// whitespace are the same answer, so one collapses away without any model
-/// call. Explicit `ANGEL_MOA_DEDUP_SIM=0` keeps every draft.
 #[test]
 fn whitespace_variants_collapse_to_one_at_the_default_threshold() {
     let _guard = crate::tests::env_lock();
@@ -2932,10 +2762,6 @@ fn moa_draft_bounding_marks_omitted_text_without_splitting_chars() {
     assert!(body.contains(&truncated));
 }
 
-/// Each draft an aggregator receives is bounded by default: a 30k-char draft
-/// is tail-trimmed to the 12k ceiling with a marker (the fan-out multiplies
-/// every draft by every seat, so an unbounded draft dominates input spend),
-/// and an explicit `0` via env restores the unbounded behavior.
 #[test]
 fn moa_draft_cap_defaults_to_twelve_k_chars() {
     let _guard = crate::tests::env_lock();
@@ -2970,8 +2796,6 @@ fn moa_defaults_preserve_panel_work_and_shape_only_the_final_answer() {
     let body = agg_task(&[draft], false);
     assert!(body.contains(tail));
     assert!(!body.contains(&pages(d5_frames::LABELS, [4])));
-    // No target: the whole synthesis route `⠐⠙`, whose untargeted guidance
-    // ends "Do not shorten merely to meet an unstated length", and no `⠐⠋`.
     assert!(!body.contains(&d5_frames::GUIDANCE.cells()));
     assert!(
         body.starts_with(&format!("{}\n", d5_frames::SYNTHESIS.cells())),
@@ -3008,8 +2832,6 @@ fn angle_roster_preserves_first_six_and_expands_deterministically() {
         assert_eq!(a.key, *key);
         assert_eq!(a.sys, route.cells());
     }
-    // Past the six lenses, a stance overlays one: its persona route, then the
-    // overlay label and the stance's pages on `⠈⠛` (first-principles + stet).
     assert_eq!(angle(PERSONAS.len()).key, "first-principles+stet");
     assert_eq!(
         angle(PERSONAS.len()).sys,
@@ -3045,7 +2867,6 @@ fn angel_moa_personas_selects_and_orders_case_insensitively() {
     let _guard = crate::tests::env_lock();
     let key = "ANGEL_MOA_PERSONAS";
     let previous = std::env::var_os(key);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(key, "red-team , SYSTEMS") };
 
     let roster = selected_personas();
@@ -3060,9 +2881,7 @@ fn angel_moa_personas_selects_and_orders_case_insensitively() {
     assert_eq!(angle(1).key, "systems");
 
     match previous {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var(key, v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var(key) },
     }
 }
@@ -3072,7 +2891,6 @@ fn angel_moa_personas_skips_unknown_keys_keeping_valid_ones() {
     let _guard = crate::tests::env_lock();
     let key = "ANGEL_MOA_PERSONAS";
     let previous = std::env::var_os(key);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(key, "red-team,invented") };
 
     let roster = selected_personas();
@@ -3084,9 +2902,7 @@ fn angel_moa_personas_skips_unknown_keys_keeping_valid_ones() {
     );
 
     match previous {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var(key, v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var(key) },
     }
 }
@@ -3096,7 +2912,6 @@ fn angel_moa_personas_all_unknown_falls_back_to_full_roster() {
     let _guard = crate::tests::env_lock();
     let key = "ANGEL_MOA_PERSONAS";
     let previous = std::env::var_os(key);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(key, "nope") };
 
     let roster = selected_personas();
@@ -3111,9 +2926,7 @@ fn angel_moa_personas_all_unknown_falls_back_to_full_roster() {
     );
 
     match previous {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var(key, v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var(key) },
     }
 }
@@ -3198,36 +3011,29 @@ fn swarm_wave_cases() -> Vec<WaveInputs> {
     };
     vec![
         base,
-        // Width floor, exactly and over.
         WaveInputs { launched_total: 16, ..base },
         WaveInputs { launched_total: 17, max_width: 16, ..base },
         WaveInputs { launched_total: 0, max_width: 0, ..base },
         WaveInputs { launched_total: 15, returned: 3, ..base },
-        // Wave budget, last wave and already past it.
         WaveInputs { wave_index: 2, ..base },
         WaveInputs { wave_index: 0, max_waves: 1, ..base },
         WaveInputs { wave_index: 5, max_waves: 3, ..base },
-        // Nothing came back.
         WaveInputs { returned: 0, ..base },
         WaveInputs { returned: 0, novel: 0, ..base },
-        // Novelty floor: just under, exactly on, comfortably over.
         WaveInputs { returned: 20, novel: 6, ..base },
         WaveInputs { returned: 20, novel: 7, ..base },
         WaveInputs { returned: 20, novel: 8, ..base },
         WaveInputs { novel: 0, returned: 4, ..base },
         WaveInputs { novelty_floor: 1.0, novel: 3, returned: 4, ..base },
-        // Dissent agreement: below, exactly on, just over.
         WaveInputs { dissent: Some(0.2), ..base },
         WaveInputs { dissent: Some(0.45), ..base },
         WaveInputs { dissent: Some(0.451), ..base },
         WaveInputs { dissent: None, ..base },
-        // Dissent stability: inside epsilon, exactly on, just outside.
         WaveInputs { dissent: Some(0.62), prev_dissent: Some(0.60), ..base },
         WaveInputs { dissent: Some(0.85), prev_dissent: Some(0.80), ..base },
         WaveInputs { dissent: Some(0.86), prev_dissent: Some(0.80), ..base },
         WaveInputs { dissent: Some(0.60), prev_dissent: None, ..base },
         WaveInputs { dissent: None, prev_dissent: Some(0.60), ..base },
-        // Growth: identity, below one, non-finite, and clamped by the room.
         WaveInputs { growth: 1.0, ..base },
         WaveInputs { growth: 0.5, ..base },
         WaveInputs { growth: f64::NAN, ..base },
@@ -3236,12 +3042,10 @@ fn swarm_wave_cases() -> Vec<WaveInputs> {
         WaveInputs { wave_size: 0, growth: 3.0, ..base },
         WaveInputs { wave_size: 1, growth: 1.5, ..base },
         WaveInputs { wave_size: 7, growth: 1.1, launched_total: 12, ..base },
-        // Odd shapes that still reach an expand.
         WaveInputs { wave_size: 13, growth: 2.0, max_width: 40, launched_total: 0, ..base },
     ]
 }
 
-/// The wave stop order, the expand choice and the clamps as Rust answered them.
 fn wave_oracle(i: WaveInputs) -> Decision {
     if i.launched_total >= i.max_width {
         return Decision::Stop(StopReason::MaxWidth);
@@ -3269,7 +3073,6 @@ fn wave_oracle(i: WaveInputs) -> Decision {
     }
 }
 
-/// The scale gate's order as Rust answered it.
 fn gate_oracle(relax: bool, escalate: bool) -> GateAction {
     if relax {
         GateAction::Relax
@@ -3280,9 +3083,6 @@ fn gate_oracle(relax: bool, escalate: bool) -> GateAction {
     }
 }
 
-/// The shipped leg and the oracle decision must agree on every wave input, and
-/// the leg must be the one that answered.
-/// the leg must be the one that answered.
 #[test]
 fn swarm_waves_leg_matches_every_native_decision() {
     use crate::agent::harness::live_policy::{LegSource, decide_with};
@@ -3303,7 +3103,6 @@ fn swarm_waves_leg_matches_every_native_decision() {
             source.as_str()
         );
         labels.insert(native.label());
-        // The native oracle keeps answering exactly what it always did.
         assert_eq!(decide_wave(*case), native, "{case:?}");
     }
     for stop in [
@@ -3322,8 +3121,6 @@ fn swarm_waves_leg_matches_every_native_decision() {
     );
 }
 
-/// The scale gate's decision part: the leg and the native ordering must agree
-/// on all four flag combinations, and a dominant pool must relax.
 #[test]
 fn swarm_waves_gate_matches_the_native_order() {
     use crate::agent::harness::live_policy::{LegSource, decide_with};
@@ -3372,8 +3169,6 @@ fn temporary_wave_leg(id: &str, render: &str) -> angel_live::Program {
         .unwrap_or_else(|| panic!("fixture leg {id} did not publish"))
 }
 
-/// A generation that breaks the leg's contract is rejected and the native
-/// decision answers instead, so a bad hot edit never blocks a wave.
 #[test]
 fn an_out_of_contract_wave_leg_keeps_the_native_decision() {
     use crate::agent::harness::live_policy::{LegSource, decide_with};
@@ -3462,13 +3257,6 @@ fn swarm_waves_leg_decision_cost_is_bounded() {
     );
 }
 
-// --- swarm-mandate leg ---------------------------------------------------
-//
-// The mandate decisions are four boolean gates over facts Rust resolves
-// (verdict case-folding, the answer trim, the advisor parse). Each case table
-// below is exhaustive over its facts, and the shipped leg must answer exactly
-// what the native gate answers — from the live leg, not the fallback.
-
 fn verdict_cases() -> Vec<VerdictFacts> {
     let mut cases = Vec::new();
     for call_ok in [false, true] {
@@ -3530,9 +3318,6 @@ fn research_cases() -> Vec<ResearchFacts> {
     cases
 }
 
-/// Every combination of the seven gate facts, edges included: the speed route
-/// and the smart route, a trivial fast-path turn, an always-on swarm, research
-/// already earned, and a classifier that opened the fan-out.
 fn pass_cases() -> Vec<PassFacts> {
     let mut cases = Vec::new();
     for smart_route in [false, true] {
@@ -3561,7 +3346,6 @@ fn pass_cases() -> Vec<PassFacts> {
     cases
 }
 
-/// The mandate decisions as Rust answered them.
 fn mandate_oracle(f: VerdictFacts) -> Mandate {
     if f.call_ok && f.saw_tight && !f.saw_open {
         Mandate::Tight
@@ -3591,9 +3375,6 @@ fn research_route_oracle(f: ResearchFacts) -> bool {
     f.wants_live && (f.research_enabled || f.researcher_present)
 }
 
-/// The shipped leg and the oracle mandate must agree on every fact combination,
-/// and the leg must be the one that answered.
-/// and the leg must be the one that answered.
 #[test]
 fn swarm_mandate_leg_matches_every_native_decision() {
     use crate::agent::harness::live_policy::{LegSource, decide_with};
@@ -3704,9 +3485,6 @@ fn swarm_mandate_leg_matches_every_native_decision() {
     assert!(total >= 30, "the parity table needs real coverage: {total}");
 }
 
-/// The oracles keep answering what they always did: a failed or ambiguous
-/// classifier verdict is `Open`, a blank answer is never reviewed, and the
-/// research route needs both an ask and a scout.
 #[test]
 fn swarm_mandate_oracles_keep_their_old_answers() {
     assert_eq!(
@@ -3759,8 +3537,6 @@ fn swarm_mandate_oracles_keep_their_old_answers() {
         research_enabled: true,
         researcher_present: true,
     }));
-    // The direct-pass gate: always overrides, research always deliberates, and
-    // the speed route never consults the classifier.
     assert!(!direct_oracle(PassFacts {
         always: true,
         ..PassFacts::default()
@@ -3813,8 +3589,6 @@ fn temporary_mandate_leg(id: &str, render: &str) -> angel_live::Program {
         .unwrap_or_else(|| panic!("fixture leg {id} did not publish"))
 }
 
-/// A generation that answers outside the leg's contract is rejected and the
-/// shipped generation answers instead, so a bad hot edit never blocks a turn.
 #[test]
 fn an_out_of_contract_mandate_leg_keeps_the_native_decision() {
     use crate::agent::harness::live_policy::{LegSource, decide_with};
@@ -3958,8 +3732,6 @@ fn swarm_mandate_leg_decision_cost_is_bounded() {
     );
 }
 
-/// With no live generation active the shipped generations compiled into the
-/// binary answer, and they answer exactly what the oracles do.
 #[test]
 fn the_swarm_legs_answer_from_their_shipped_generations() {
     use crate::agent::harness::live_policy::LegSource;
@@ -4032,9 +3804,6 @@ fn scale_clusters_and_gate_signals_track_pool_shape() {
 
 #[test]
 fn seed_pods_are_contiguous_and_caps_are_budgeted() {
-    // Serialized: this test mutates process-global environment that other
-    // tests also read or write. Without the lock they interleave and each
-    // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
     let _min = EnvGuard::unset("ANGEL_MOA_DRAFT_MIN_CHARS");
     let _max = EnvGuard::unset("ANGEL_MOA_DRAFT_MAX_CHARS");
@@ -4048,14 +3817,9 @@ fn seed_pods_are_contiguous_and_caps_are_budgeted() {
     assert_eq!(per_draft_cap(4, 4_000), Some(1_000));
     assert_eq!(per_draft_cap(10, 6_000), None);
     assert_eq!(per_draft_cap(2, 20_000), Some(10_000));
-    // A budget above the default ceiling still clips to the ceiling.
     assert_eq!(per_draft_cap(2, 40_000), Some(12_000));
 }
 
-// --- JUDGE panel (peer-review median scoring) ---------------------------
-
-/// Returns a fixed score sheet for the judge prompt (recognized by its route, `⠄⠑`)
-/// and a plain draft for everything else, counting every chat call.
 struct ScoringClub {
     calls: Mutex<usize>,
     sheet: &'static str,
@@ -4070,9 +3834,6 @@ impl Club for ScoringClub {
     }
     fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
         *self.calls.lock().unwrap() += 1;
-        // The judge instruction sits in the system slot (legacy shape) or at
-        // the head of the trailing task message (cache-aligned shape) — scan
-        // the whole call for its marker so both shapes are recognized.
         if messages
             .iter()
             .any(|m| m.content.contains(&d3_roles::JUDGE.cells()))
@@ -4101,7 +3862,6 @@ fn judge_panel_one_is_a_single_reviewer() {
     };
     let swarm = SwarmClub::with_knobs("swarm", inner.clone(), k);
     let kept = swarm.judge_select("", &[], vec!["a".into(), "b".into(), "c".into()]);
-    // keep = ((3+1)/2).max(2) = 2; strongest are a(9) then c(5).
     assert_eq!(kept, vec!["a".to_string(), "c".to_string()]);
     assert_eq!(
         *inner.calls.lock().unwrap(),
@@ -4124,7 +3884,6 @@ fn judge_panel_votes_and_prunes_to_top_k() {
     let swarm = SwarmClub::with_knobs("swarm", inner.clone(), k);
     let drafts = vec!["a".into(), "b".into(), "c".into(), "d".into()];
     let kept = swarm.judge_select("", &[], drafts);
-    // keep = ((4+1)/2).max(2) = 2; medians rank b(9) > c(8) > a(2) > d(1).
     assert_eq!(kept, vec!["b".to_string(), "c".to_string()]);
     assert_eq!(
         *inner.calls.lock().unwrap(),
@@ -4138,12 +3897,11 @@ fn median_of_scores() {
     assert_eq!(median(vec![5.0]), 5.0);
     assert_eq!(median(vec![1.0, 2.0, 3.0]), 2.0);
     assert_eq!(median(vec![1.0, 2.0, 3.0, 4.0]), 2.5);
-    assert_eq!(median(vec![9.0, 1.0, 5.0]), 5.0); // unsorted input
+    assert_eq!(median(vec![9.0, 1.0, 5.0]), 5.0);
 }
 
 #[test]
 fn median_rank_orders_by_per_draft_median() {
-    // draft0: [9,1,1] → 1 ; draft1: [5,5,6] → 5 ; draft2: [8,8] → 8
     let reviews = vec![
         vec![(0, 9.0), (1, 5.0), (2, 8.0)],
         vec![(0, 1.0), (1, 5.0), (2, 8.0)],
@@ -4155,17 +3913,12 @@ fn median_rank_orders_by_per_draft_median() {
 
 #[test]
 fn parse_scores_filters_range_and_dedups() {
-    // Out-of-range index 9 dropped; the second score for draft 1 ignored.
     assert_eq!(
         parse_scores("1: 7\n2: 8\n9: 3\n1: 99", 3),
         vec![(0, 7.0), (1, 8.0)]
     );
 }
 
-// --- HEDGE ladder (calibrated claims) ----------------------------------
-
-/// Records the system prompt of every chat call so we can assert what each
-/// stage was told.
 struct RecordingClub {
     systems: Mutex<Vec<String>>,
 }
@@ -4188,7 +3941,6 @@ impl Club for RecordingClub {
     }
 }
 
-/// The hedge ladder's route, `⠄⠓`.
 const HEDGE_MARK: &str = "⠄⠓";
 
 #[test]
@@ -4239,20 +3991,14 @@ fn hedge_off_leaves_prompts_clean() {
     );
 }
 
-// --- convo pipeline shape (cache alignment + bounded score context) -----
-
 #[test]
 fn stage_parts_shapes_aligned_and_legacy_calls() {
     let ctx = vec![ChatMsg::user("the problem")];
-    // Aligned answer stage: the base voice holds the system slot; the
-    // stage/persona instruction rides at the end as the task message.
     let (sys, msgs) = stage_parts_at(true, "You are a persona.", "BASE", &ctx, None);
     assert_eq!(sys, "BASE");
     assert_eq!(msgs.len(), 2);
     assert_eq!(msgs[1].role, ChatRole::Harness);
     assert_eq!(&*msgs[1].content, "You are a persona.");
-    // Aligned score stage: no system slot at all; instruction + task fold
-    // into one trailing message.
     let (sys, msgs) = stage_parts_at(
         true,
         "You are a judge.",
@@ -4263,8 +4009,6 @@ fn stage_parts_shapes_aligned_and_legacy_calls() {
     assert_eq!(sys, "");
     assert_eq!(msgs[1].role, ChatRole::Harness);
     assert_eq!(&*msgs[1].content, "You are a judge.\n\nScore them.");
-    // Legacy shape: the stage prompt leads the system slot — byte-identical
-    // to the historical behavior.
     let (sys, msgs) = stage_parts_at(
         false,
         "You are a judge.",
@@ -4279,12 +4023,6 @@ fn stage_parts_shapes_aligned_and_legacy_calls() {
 
 #[test]
 fn aligned_run_reuses_one_system_prefix_for_every_call() {
-    // The whole point of cache alignment: every call in a deliberate turn
-    // opens with the same [system][conversation] bytes, so provider prefix
-    // caches hit across the fan-out, the synthesis, and future turns.
-    // `ANGEL_ADVISOR` (set briefly by the advisor tests under the env lock)
-    // adds a final review call with its own `⠌⠊` brief; hold the lock and
-    // keep it unset so that test's window can never land inside this one.
     let _lock = crate::tests::env_lock();
     let _advisor = EnvGuard::unset("ANGEL_ADVISOR");
     let inner = Arc::new(RecordingClub {
@@ -4332,10 +4070,6 @@ fn judge_reads_bounded_context_over_the_shared_system_prefix() {
     );
 }
 
-/// Every seat of a turn must open with the same `[system][conversation]` bytes:
-/// judge and propose `stage_parts` calls put the identical `base_sys` in the
-/// system slot and the identical conversation in front, so provider prefix
-/// caches hit across the fan-out and the stages.
 #[test]
 fn judge_and_propose_stage_parts_share_the_system_slot() {
     let ctx = vec![ChatMsg::user("the problem")];
@@ -4358,8 +4092,6 @@ fn judge_and_propose_stage_parts_share_the_system_slot() {
     assert_eq!(propose_sys, "BASE VOICE");
     assert_eq!(judge_sys, propose_sys);
     assert_eq!(verify_sys, propose_sys);
-    // The conversation prefix ahead of each seat's trailing task message is
-    // byte-identical too (same messages, same order).
     let convo = |msgs: &[ChatMsg]| -> Vec<(u8, String)> {
         msgs[..ctx.len()]
             .iter()
@@ -4388,12 +4120,10 @@ fn aux_context_keeps_the_newest_messages_within_budget() {
         ChatMsg::assistant("b".repeat(50)),
         ChatMsg::user("the actual problem"),
     ];
-    // The problem and the reply before it fit; the oldest message doesn't.
     let out = aux_context_at(&rest, 80);
     assert_eq!(out.len(), 2);
     assert_eq!(&*out[0].content, "b".repeat(50));
     assert_eq!(&*out[1].content, "the actual problem");
-    // 0 = full history.
     assert_eq!(aux_context_at(&rest, 0).len(), 3);
 }
 
@@ -4404,7 +4134,6 @@ fn aux_context_bounds_a_giant_final_message() {
     let out = aux_context_at(&rest, 200);
     assert_eq!(out.len(), 1);
     assert!(out[0].content.chars().count() < 400);
-    // The newest end of an over-long message is the part a scorer needs.
     assert!(
         out[0].content.starts_with(&pages(d5_frames::LABELS, [5])),
         "leading trim marker, got: {}",
@@ -4413,10 +4142,6 @@ fn aux_context_bounds_a_giant_final_message() {
     assert!(out[0].content.contains(marker), "tail is kept");
 }
 
-/// The measured failure this bounds: score-only stages re-sent the entire
-/// conversation on every call, so a 100k-char turn made each judge/verify seat
-/// a 100k-input-token call. The default budget keeps the newest ~24k chars
-/// (plus one marker line), and `0` is the explicit full-history opt-in.
 #[test]
 fn aux_context_default_bounds_a_hundred_k_message() {
     let _guard = crate::tests::env_lock();
@@ -4439,8 +4164,6 @@ fn aux_context_default_bounds_a_hundred_k_message() {
     );
 }
 
-// --- JUDGE_DIMS (per-dimension / weighted "LQS" scoring) ----------------
-
 #[test]
 fn dims_off_by_default() {
     assert!(!Knobs::default().dims);
@@ -4457,10 +4180,6 @@ fn judge_dims_weights_sum_to_one() {
 
 #[test]
 fn parse_dim_scores_weights_and_filters() {
-    // correctness .40, insight .25, rigor .20, novelty .15.
-    // 1: 8 6 7 5 → 3.2+1.5+1.4+.75 = 6.85
-    // 2: 10 0 0 0 → 4.0 ; 9: out of range (dropped) ; 1: dup (ignored)
-    // 4: 5 5 → too few dimensions (skipped)
     let got = parse_dim_scores("1: 8 6 7 5\n2: 10 0 0 0\n9: 9 9 9 9\n1: 1 1 1 1\n4: 5 5", 4);
     assert_eq!(got.len(), 2);
     assert_eq!(got[0].0, 0);
@@ -4471,7 +4190,6 @@ fn parse_dim_scores_weights_and_filters() {
 
 #[test]
 fn judge_dims_scores_and_prunes_to_top_k() {
-    // Composites: a=10 (all 10s), b=0, c=3.2 (correctness 8, rest 0).
     let inner = Arc::new(ScoringClub {
         calls: Mutex::new(0),
         sheet: "1: 10 10 10 10\n2: 0 0 0 0\n3: 8 0 0 0",
@@ -4483,15 +4201,9 @@ fn judge_dims_scores_and_prunes_to_top_k() {
     };
     let swarm = SwarmClub::with_knobs("swarm", inner.clone(), k);
     let kept = swarm.judge_select("", &[], vec!["a".into(), "b".into(), "c".into()]);
-    // keep = ((3+1)/2).max(2) = 2; strongest are a(10) then c(3.2).
     assert_eq!(kept, vec!["a".to_string(), "c".to_string()]);
 }
 
-// --- VERIFY regression guard -------------------------------------------
-
-/// Replies by stage: the verifier always finds a problem (forcing a revise),
-/// the aggregator returns a fixed revision, and the chooser returns `pick` —
-/// the candidate number it deems best (1 = the prior best, 2 = the revision).
 struct VerifyClub {
     revision: &'static str,
     pick: &'static str,
@@ -4505,8 +4217,6 @@ impl Club for VerifyClub {
         Ok("x".to_string())
     }
     fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
-        // Stage instructions live in the system slot (legacy shape) or in the
-        // trailing task message (cache-aligned shape) — scan the whole call.
         let hit = |marker: String| messages.iter().any(|m| m.content.contains(&marker));
         if hit(d3_roles::VERIFIER.cells()) {
             return Ok(ClubReply::Text("Problem: be more precise.".to_string()));
@@ -4515,7 +4225,6 @@ impl Club for VerifyClub {
             *self.chooser_calls.lock().unwrap() += 1;
             return Ok(ClubReply::Text(self.pick.to_string()));
         }
-        // The aggregator (revise) path.
         Ok(ClubReply::Text(self.revision.to_string()))
     }
 }
@@ -4549,7 +4258,6 @@ fn verify_without_guard_takes_latest_revision() {
 
 #[test]
 fn verify_guard_keeps_best_when_revision_loses() {
-    // Chooser picks candidate 1 (the prior best) → the revision is rejected.
     let inner = Arc::new(VerifyClub {
         revision: "REVISED",
         pick: "1",
@@ -4572,7 +4280,6 @@ fn verify_guard_keeps_best_when_revision_loses() {
 
 #[test]
 fn verify_guard_adopts_better_revision() {
-    // Chooser picks candidate 2 (the revision) → it wins.
     let inner = Arc::new(VerifyClub {
         revision: "REVISED",
         pick: "2",
@@ -4588,9 +4295,6 @@ fn verify_guard_adopts_better_revision() {
     assert_eq!(out, "REVISED", "a better revision is adopted");
 }
 
-// --- CITE (citation/source verification) -------------------------------
-
-/// Returns a fixed reply for every chat call (used to drive `cite_check`).
 struct ConstClub {
     reply: &'static str,
 }
@@ -4632,10 +4336,6 @@ fn cite_check_keeps_answer_on_empty_rewrite() {
     );
 }
 
-/// Live end-to-end run against a real local vLLM endpoint. Ignored by
-/// default (needs the server up); honors all ANGEL_SWARM_* knobs, so run e.g.:
-///   ANGEL_SWARM_MAX=1 cargo test --bin angel swarm_live -- --ignored --nocapture
-/// Point it at the local box via ANGEL_LOCAL_URL / ANGEL_LOCAL_MODEL.
 #[test]
 #[ignore = "hits a live local model endpoint"]
 fn swarm_live_local() {
@@ -4663,10 +4363,6 @@ fn swarm_live_local() {
     assert!(out.len() > 100, "expected a substantive synthesized answer");
 }
 
-/// Live delegation loop: a delegator should emit a `swarm-test` block, angel
-/// approves + runs it locally, and the evidence grounds the answer. Run with:
-///   ANGEL_SWARM_DELEGATE=1 ANGEL_SWARM_ALWAYS=1 ANGEL_SWARM_DEBUG=1 \
-///     cargo test --bin angel swarm_live_delegate -- --ignored --nocapture
 #[test]
 #[ignore = "hits a live local model endpoint + runs a sandboxed test"]
 fn swarm_live_delegate() {
@@ -4680,9 +4376,7 @@ fn swarm_live_delegate() {
         inner.is_ready(),
         "the local model is not reachable at {url}; the explicit live delegation contract did not run"
     );
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SWARM_DELEGATE", "1") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SWARM_ALWAYS", "1") };
     let swarm = SwarmClub::from_env_with("swarm", Arc::new(inner), |_| None);
     let out = swarm
@@ -4695,10 +4389,6 @@ fn swarm_live_delegate() {
     assert!(out.len() > 50);
 }
 
-// -----------------------------------------------------------------------
-// Dissent gate + MoA ledger
-// -----------------------------------------------------------------------
-
 #[test]
 fn draft_similarity_and_dissent_track_vocabulary_overlap() {
     let same = "the reactor design should favor passive cooling loops".to_string();
@@ -4706,9 +4396,7 @@ fn draft_similarity_and_dissent_track_vocabulary_overlap() {
     let divergent = "invest everything into modular turbine manufacturing lines".to_string();
 
     assert_eq!(draft_similarity(&same, &same), 1.0);
-    // Same conclusion, different word order: identical content vocabulary.
     assert_eq!(draft_similarity(&same, &reworded), 1.0);
-    // Disjoint content vocabulary → no overlap at all.
     assert_eq!(draft_similarity(&same, &divergent), 0.0);
 
     assert_eq!(
@@ -4722,11 +4410,6 @@ fn draft_similarity_and_dissent_track_vocabulary_overlap() {
 
 #[test]
 fn contradictory_drafts_do_not_read_as_agreement() {
-    // Pure vocabulary overlap scored these pairs at similarity 1.0 — perfect
-    // agreement — because every negation that flips the conclusion is either
-    // under the 4-char content-word floor (`not`) or mangled by the alphanumeric
-    // split (`isn't` → `isn` + `t`). The gate then *relaxed* the pipeline on
-    // precisely the turns where the proposers had reached opposite conclusions.
     let contradictions = [
         (
             "We should ship the change.",
@@ -4757,13 +4440,9 @@ fn contradictory_drafts_do_not_read_as_agreement() {
 
 #[test]
 fn polarity_adjustment_only_ever_raises_dissent() {
-    // The correction is fail-safe by construction: it can escalate verification
-    // but never skip verification the unadjusted metric would have triggered.
-    // Agreeing drafts that share polarity keep scoring as agreement.
     let a = "the reactor design should favor passive cooling loops";
     let b = "passive cooling loops should favor the reactor design";
     assert_eq!(draft_similarity(a, b), 1.0, "no penalty without a gap");
-    // Both negating equally → still agreement, not a spurious escalation.
     let neg_a = "the reactor design should not favor passive cooling loops";
     let neg_b = "passive cooling loops should not favor the reactor design";
     assert_eq!(
@@ -4771,7 +4450,6 @@ fn polarity_adjustment_only_ever_raises_dissent() {
         1.0,
         "matched polarity is agreement"
     );
-    // A long draft with one incidental negation is nudged, not flipped.
     let long_plain = "the pipeline stages each contribute measurable latency and the aggregate \
                       budget determines whether the service meets its target under load"
         .to_string();
@@ -4794,12 +4472,10 @@ fn gate_knobs_at_escalates_relaxes_and_holds() {
         ..Knobs::default()
     };
 
-    // High dissent buys scrutiny: judge on, a verify round granted.
     let (k, action) = gate_knobs_at(&base, Some(0.9), 0.7, 0.45, 1);
     assert_eq!(action, Some(GateAction::Escalate));
     assert!(k.judge);
     assert_eq!(k.verify, 1);
-    // Escalation never takes away configured rounds.
     let configured = Knobs {
         verify: 3,
         ..base.clone()
@@ -4807,7 +4483,6 @@ fn gate_knobs_at_escalates_relaxes_and_holds() {
     let (k, _) = gate_knobs_at(&configured, Some(0.9), 0.7, 0.45, 1);
     assert_eq!(k.verify, 3);
 
-    // Low dissent releases the optional stages.
     let heavy = Knobs {
         layers: 3,
         reflect: true,
@@ -4824,25 +4499,19 @@ fn gate_knobs_at_escalates_relaxes_and_holds() {
     assert_eq!(k.samples, 1);
     assert_eq!(k.verify, 0);
 
-    // Between the thresholds: hands off.
     let (k, action) = gate_knobs_at(&heavy, Some(0.55), 0.7, 0.45, 1);
     assert_eq!(action, Some(GateAction::Hold));
     assert_eq!(k.layers, 3);
     assert!(k.judge);
 
-    // No dissent measured (gate off / single draft): untouched, no action.
     let (k, action) = gate_knobs_at(&heavy, None, 0.7, 0.45, 1);
     assert_eq!(action, None);
     assert_eq!(k.samples, 3);
 
-    // Misconfigured lo > hi: escalate wins (over-scrutiny is the safe failure).
     let (_, action) = gate_knobs_at(&base, Some(0.5), 0.4, 0.6, 1);
     assert_eq!(action, Some(GateAction::Escalate));
 }
 
-/// A mock whose two proposers answer with disjoint vocabularies (dissent 1.0)
-/// and which recognizes the downstream stages by their marker text — scanned
-/// across ALL messages, so it works in aligned and legacy shapes alike.
 struct DissentClub {
     proposer_calls: Mutex<usize>,
     verify_calls: Mutex<usize>,
@@ -4896,8 +4565,6 @@ impl Club for DissentClub {
         if hit(d5_frames::SYNTHESIS.cells()) || hit(d5_frames::MERGE.cells()) {
             return Ok(ClubReply::Text("the synthesized final answer".to_string()));
         }
-        // A proposer. Agreeing drafts share every content word; diverging
-        // drafts share none.
         let mut n = self.proposer_calls.lock().unwrap();
         *n += 1;
         let text = if self.agree || *n % 2 == 1 {
@@ -4922,7 +4589,6 @@ fn high_dissent_turn_buys_a_verify_round() {
     let swarm = SwarmClub::with_knobs("swarm", inner.clone(), k);
     let out = swarm.respond("which architecture should we pick?").unwrap();
     assert_eq!(out, "the synthesized final answer");
-    // verify=0 configured, but total disagreement escalated: one round ran.
     assert_eq!(inner.verify_count(), 1);
 }
 
@@ -4944,8 +4610,6 @@ fn gate_off_leaves_a_high_dissent_turn_unescalated() {
 #[test]
 fn agreeing_drafts_relax_the_configured_pipeline() {
     let inner = Arc::new(DissentClub::new(true));
-    // A deliberately heavy configuration: without the gate this would run
-    // reflect + a refine layer + judge + 2 synthesis samples + 2 verify rounds.
     let k = Knobs {
         width: 2,
         layers: 2,
@@ -4960,14 +4624,10 @@ fn agreeing_drafts_relax_the_configured_pipeline() {
     };
     let swarm = SwarmClub::with_knobs("swarm", inner.clone(), k);
     let out = swarm.respond("which architecture should we pick?").unwrap();
-    // Identical drafts (dissent 0.0) relax everything optional; dedup then
-    // collapses them to one, and the synthesis still runs so the user gets a
-    // polished answer rather than raw proposer bullets.
     assert_eq!(out, "the synthesized final answer");
     assert_eq!(inner.verify_count(), 0);
     assert!(!inner.saw_marker(&d3_roles::JUDGE.cells()));
     assert!(!inner.saw_marker(&d3_roles::CRITIC.cells()));
-    // 2 proposers + 1 synthesis and nothing else.
     assert_eq!(inner.transcripts.lock().unwrap().len(), 3);
 }
 
@@ -5097,8 +4757,6 @@ fn ledger_usage_delta_subtracts_snapshots_and_drops_idle_clubs() {
 #[test]
 fn sota_seat_efforts_parse_from_env_and_default_off() {
     let _guard = crate::tests::env_lock();
-    // Scrub the knob-redirect too: under USE_SWARM_KNOBS the sota builder
-    // returns swarm knobs, whose seat efforts are always default-off.
     let keys = [
         "ANGEL_SOTA_MOA_PROPOSE_EFFORT",
         "ANGEL_SOTA_MOA_JUDGE_EFFORT",
@@ -5108,7 +4766,6 @@ fn sota_seat_efforts_parse_from_env_and_default_off() {
     ];
     let previous = keys.map(std::env::var_os);
     for key in keys {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
     }
     let unset = SwarmClub::sota_knobs_from_env().seat_efforts;
@@ -5117,13 +4774,9 @@ fn sota_seat_efforts_parse_from_env_and_default_off() {
     assert!(unset.verify.is_none());
     assert!(unset.aggregate.is_none());
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(keys[0], "LOW") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(keys[1], " none ") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(keys[2], "") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(keys[3], "high") };
     let set = SwarmClub::sota_knobs_from_env().seat_efforts;
     assert_eq!(set.propose.as_deref(), Some("low"), "trim + lowercase");
@@ -5132,9 +4785,7 @@ fn sota_seat_efforts_parse_from_env_and_default_off() {
     assert_eq!(set.aggregate.as_deref(), Some("high"));
     for (key, value) in keys.into_iter().zip(previous) {
         match value {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             Some(value) => unsafe { std::env::set_var(key, value) },
-            // TODO: Audit that the environment access only happens in single-threaded code.
             None => unsafe { std::env::remove_var(key) },
         }
     }
@@ -5190,11 +4841,6 @@ fn role_effort_overrides_merge_over_env_seat_policy() {
     );
 }
 
-// --- the mixture speaks in routes ---------------------------------------
-
-/// Records what every stage call was told — its messages with the problem and
-/// every earlier reply (the data) cut out — and answers with a distinct draft
-/// that also parses as a score sheet and a choice.
 struct FrameRecordingClub {
     frames: Mutex<Vec<String>>,
     replies: Mutex<Vec<String>>,
@@ -5229,9 +4875,6 @@ impl Club for FrameRecordingClub {
     }
 }
 
-/// Words a frame carries outside braille: a payload heading (`### Response 2`)
-/// and a value beside a route (`n=3`, `dims=correctness, insight, …`) are
-/// data; anything else is English the harness spoke.
 fn english_in(frame: &str) -> Vec<String> {
     const KEYS: &[&str] = &[
         "n", "total", "weight", "every", "target", "dims", "omitted", "id",
@@ -5266,11 +4909,6 @@ fn english_in(frame: &str) -> Vec<String> {
     words
 }
 
-/// Every stage of a full-stack turn — proposers with stances, the critic,
-/// refine layers, the judge panel on dimensions, samples and the chooser,
-/// verify with its guard, the hedge ladder, checkpointing — then the
-/// classifier, the advisor, a targeted synthesis and the payload labels: the
-/// harness says nothing in English; the data is all that is not braille.
 #[test]
 fn a_mixture_turn_speaks_only_in_routes() {
     let _guard = crate::tests::env_lock();
@@ -5347,7 +4985,6 @@ fn a_mixture_turn_speaks_only_in_routes() {
             route.name()
         );
     }
-    // The payload labels, on the transcript and the drafts.
     let transcript = text_only_history(&[
         ChatMsg::assistant_calls_with_reasoning(
             vec![ToolCall {
@@ -5360,7 +4997,6 @@ fn a_mixture_turn_speaks_only_in_routes() {
         ChatMsg::tool("call_1", ""),
     ]);
     let mut all = frames;
-    // The requested call's name and arguments are data.
     all.extend(transcript.iter().map(|m| {
         m.content
             .replace("shell", "")
@@ -5406,8 +5042,6 @@ fn text_only_history_preserves_catalog_generation_on_assistant_and_tool_messages
     }
 }
 
-/// The roster is the book's: each lens is a `⠈` section with pages, and the
-/// stances use every page of `⠈⠛` after its overlay label exactly once.
 #[test]
 fn personas_and_stances_are_the_books_angles() {
     for (key, route) in PERSONAS {

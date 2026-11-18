@@ -3,8 +3,6 @@ use crate::rules::creation::{self, Creation, Role, Spell, WeaponCreation, Weapon
 use crate::rules::home::DESCEND_HOLD;
 use crate::rules::made;
 
-/// A realm's first session as the game begins it with the rite on: the
-/// host `name`, kitted from nothing, in the Undercroft.
 pub(crate) fn realm_of(name: &str) -> Run {
     realm_with(name, home::Home::default())
 }
@@ -17,7 +15,6 @@ pub(crate) fn realm_with(name: &str, home: home::Home) -> Run {
     run
 }
 
-/// What the genie makes of `words`, as the Creator hands it over to be brought to life.
 pub(crate) fn wished(words: &str) -> Made {
     match wish::wish_to_spec(words, &[]).make {
         wish::Make::Creature(c) => Made::Creature(c),
@@ -25,7 +22,6 @@ pub(crate) fn wished(words: &str) -> Made {
     }
 }
 
-/// A creature of `role` that fits its budget.
 pub(crate) fn creature(role: Role, name: &str) -> Made {
     let mut c = Creation { role, name: name.into(), ..Creation::default() };
     if role == Role::Boss {
@@ -34,7 +30,6 @@ pub(crate) fn creature(role: Role, name: &str) -> Made {
     Made::Creature(c)
 }
 
-/// A rite kept by `knight` as the realm keeps one, whatever seat they sat in.
 pub(crate) fn rite_by(knight: &str, made: Made) -> Rite {
     Rite { knight: knight.into(), kind: made.kind(), words: made.summary(), card: String::new(), name: made.name().into(), day: 1, made: Some(made) }
 }
@@ -43,7 +38,6 @@ pub(crate) fn blade(name: &str) -> Made {
     Made::Weapon(WeaponCreation { name: name.into(), ..WeaponCreation::of_kind(WeaponKind::Blade) })
 }
 
-/// The party stands on the Winding Stair long enough to take it.
 fn stand_on_the_stair(run: &mut Run) {
     run.idle.clear();
     run.step(&BTreeMap::new());
@@ -65,14 +59,11 @@ fn stand_on_the_stair(run: &mut Run) {
 fn a_new_knight_is_invited_to_the_creator_and_nothing_is_held_for_it() {
     let mut run = realm_of("Ada");
     assert!(run.owes_rite(1), "a name the realm has never seen owes a rite");
-    // The bar goes on as ever: no scroll opens, no wish is handed, nothing is asked.
     let hero = &run.players[&1];
     assert!(hero.offer.is_none() && hero.wishes == 0 && run.lamp.rubbed.is_empty());
-    // And no stair is shut: the party goes down with the rite still owed.
     stand_on_the_stair(&mut run);
     assert!(run.dungeon.depth >= 1, "the stairs were taken");
     assert!(run.owes_rite(1), "still owed, and never in the way");
-    // A newcomer joining a running party is invited the same way and holds no one.
     run.join_seat(2, "Bors");
     assert!(run.owes_rite(2) && run.players[&2].offer.is_none());
 }
@@ -82,12 +73,10 @@ fn a_returning_knight_with_a_rite_on_record_is_not_invited() {
     let mut run = realm_of("Ada");
     run.contribute(1, blade("Oathmark")).unwrap();
     let home = run.home.clone();
-    // The next session: Ada again (any case of her name), and Bors new.
     let mut next = realm_with("ada", home);
     assert!(!next.owes_rite(1), "the realm has her rite");
     next.join_seat(2, "Bors");
     assert!(next.owes_rite(2), "a new name owes one");
-    // A friend taking Ada's seat under a name with a rite owes nothing.
     next.join_seat(2, "Ada");
     next.step(&BTreeMap::new());
     assert!(!next.owes_rite(2));
@@ -139,7 +128,6 @@ fn every_role_is_open_and_each_makes_its_own_kind_in_the_record() {
     assert!(run.home.rites.kept.iter().all(|r| r.knight == "Ada" && r.made.is_some()), "credited to the maker");
     assert!(!run.owes_rite(1), "the first one is the rite");
     assert!(run.home.rites.valid());
-    // A seventh is more than one knight may add.
     assert!(run.contribute(1, blade("Again")).is_err());
 }
 
@@ -177,7 +165,6 @@ fn a_folk_wish_makes_a_world_npc_with_a_post_a_habit_and_a_line() {
     let Made::Creature(plain) = wished("a blacksmith") else { panic!("a creature") };
     assert_eq!((plain.role, plain.calling.post), (Role::Folk, creation::Post::Griffin));
     assert!(plain.calling.line.contains("steel"), "an occupation has its own line: {}", plain.calling.line);
-    // Wishing for a sword after still makes a weapon.
     assert!(matches!(wished("a flaming sword"), Made::Weapon(_)));
 }
 
@@ -190,7 +177,6 @@ fn a_folk_stands_in_the_griffin_and_says_its_line_on_e() {
     assert_eq!(here.len(), 1);
     assert!(made::placed(&run, RoomKind::Gate, run.tick).is_empty(), "not in the courtyard");
     assert!(made::placed(&run, RoomKind::Home, run.tick).is_empty(), "nowhere else");
-    // A knight beside it who presses E hears its line; one far away does not.
     let alehouse = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Alehouse).expect("the Griffin");
     run.enter(alehouse, None);
     let at = here[0].at;
@@ -214,7 +200,6 @@ fn a_wanderer_paces_and_the_world_shows_only_the_newest_of_each_place() {
     run.contribute(1, wished("a pilgrim who wanders the courtyard")).unwrap();
     let (a, b) = (made::placed(&run, RoomKind::Gate, 0), made::placed(&run, RoomKind::Gate, 40));
     assert!(a[0].walking && a[0].at != b[0].at, "it moves with the tick");
-    // Many folk of the Griffin: the newest few show, the record keeps every one.
     let mut run = realm_of("Ada");
     for n in 0..rite::MOST_FOLK + 2 {
         assert!(run.home.rites.record(rite_by(&format!("Maker{n}"), wished("a barman"))));
@@ -241,7 +226,6 @@ fn a_weapon_hangs_on_the_wall_and_lies_in_the_loot_under_its_makers_name() {
     let card = run.book.get(&rite::loot_id(0)).expect("its loot copy");
     assert_eq!((card.by.as_str(), card.name.as_str()), ("Ada", "Oathmark"));
     assert!(card.drop > 0 && card.chest > 0);
-    // Five pegs on the wall: more weapons take the newest places.
     for n in 0..rite::MOST_WEAPONS {
         assert!(run.home.rites.record(rite_by(&format!("Maker{n}"), blade(&format!("Blade{n}")))));
     }
@@ -270,7 +254,6 @@ fn a_minion_turns_up_on_a_delve_floor_as_the_partys_friend_credited_to_its_maker
     let tag = friend.made.as_ref().expect("a made friend");
     assert_eq!((tag.by.as_str(), tag.name.as_str()), ("Ada", "Pip"));
     assert!(friend.hp > 0 && friend.summoner.is_some());
-    // It joins once a floor, never twice over.
     let first = friend.made.clone();
     run.enter_for_test(2);
     assert_eq!(run.hireling.as_ref().unwrap().made, first);
@@ -326,12 +309,10 @@ fn the_makings_state_crosses_to_the_rules_worker_and_back() {
     assert_eq!(back.made, run.made);
     assert!(back.rite && !back.owes_rite(1) && !back.owes_rite(2));
     assert!(back.book.get(&rite::loot_id(1)).is_some());
-    // The step the worker takes is the same step.
     let mut stepped = back;
     stepped.step(&BTreeMap::new());
     let again = runtime_state::restore_value(&runtime_state::capture(&stepped).unwrap().into_value()).expect("and back");
     assert_eq!(again.home.rites.kept.len(), 2);
-    // A thing brought to life there is kept here: the command crosses with it.
     let mut host = again;
     host.join_seat(3, "Cai");
     host.contribute(3, creature(Role::Minion, "Pip")).unwrap();
@@ -361,7 +342,6 @@ fn a_joined_guest_sees_the_makings() {
     assert_eq!(seen.home.rites.kept.len(), 1);
     assert_eq!(seen.home.rites.kept[0].knight, "Ada");
     assert_eq!(made::placed(&seen, RoomKind::Alehouse, 0).len(), 1, "the guest sees the barman stand");
-    // And a guest kept up by patches keeps up through a bringing to life.
     let mut publisher = Publisher::default();
     let mut guest = Guest::default();
     let first = publisher.publish(&run).unwrap();
@@ -393,7 +373,6 @@ fn the_realm_settles_the_makings_into_its_record_and_keeps_them_across_a_deliver
     .unwrap();
     assert!(result.changed);
     assert_eq!(home.rites, run.home.rites, "the realm keeps the making");
-    // A second party adds its own to the realm's, never replacing the first.
     let mut other = realm_with("Bors", home.clone());
     other.contribute(1, creature(Role::Minion, "Pip")).unwrap();
     let transfer = home_settlement::HomeTransfer::capture_and_reserve(&mut other).unwrap();
@@ -417,16 +396,13 @@ fn an_old_save_without_the_field_loads_and_a_bad_one_resets_only_the_record() {
     json["rites"] = serde_json::json!({"kept": "not a list"});
     let home: home::Home = serde_json::from_value(json.clone()).unwrap();
     assert!(home.rites.is_empty(), "a bad subtree never costs the realm");
-    // A rite made at the wish scroll this morning: a card and no recipe, two kinds only.
     json["rites"] = serde_json::json!({"kept": [{"knight": "Ada", "kind": "minion", "card": "wish-plain-hound-1"}]});
     let home: home::Home = serde_json::from_value(json).unwrap();
     assert_eq!(home.rites.kept[0].words, "");
     assert!(home.rites.has("ada") && home.rites.valid() && home.rites.kept[0].made.is_none());
-    // A made thing that is not of the kind it is kept as cannot sit in a save.
     let mut bad = home.rites.clone();
     bad.kept[0].made = Some(creature(Role::Boss, "Wrong kind"));
     assert!(!bad.valid(), "a recipe must be of the kind it is kept as");
-    // A run saved before the rite has no flag and owes nothing; one saved owing reads back owing.
     let run = realm_of("Ada");
     let saved: Run = serde_json::from_slice(&serde_json::to_vec(&run).unwrap()).unwrap();
     assert!(saved.rite && saved.owes_rite(1) && saved.valid_snapshot());

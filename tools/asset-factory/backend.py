@@ -1,4 +1,3 @@
-"""Local Qwen-Image through the game's ComfyUI image service, with receipts."""
 import hashlib
 import json
 import os
@@ -43,7 +42,6 @@ def generate(brief, kind, output, log, seed=39):
         prompt += 'Weapon alone upright, blade or shaft pointing up, handle at bottom, no hands or character.'
     graph = workflow(prompt, seed)
     log = Path(log); log.parent.mkdir(parents=True, exist_ok=True)
-    # Reserve before network I/O: even failed paid calls consume the lane budget.
     with log.open('a+') as stream:
         fcntl.flock(stream, fcntl.LOCK_EX); stream.seek(0)
         count = sum(json.loads(line).get('event') == 'requested' for line in stream if line.strip())

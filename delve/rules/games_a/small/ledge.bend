@@ -1,7 +1,3 @@
-# crates/delve/src/rules/ledge.rs — side-on rooms. A body's position is its
-# middle; its feet are FOOT below. A `Grid` is the J object {room, barred}
-# (the core group's `rules.Grid`); a tile is its serde name as a J string.
-
 def ledge.FOOT() -> F32:
   1.0
 
@@ -35,26 +31,22 @@ def ledge.WALKER_FALL() -> F32:
 def ledge.Grid.tile_side(+g: J.Val, +x: F32, +y: F32) -> J.Val:
   J.JS{layout.tile_name(rules.Grid.tile_at(J.get(g, "room"), x, y))}
 
-# Stone to a body moving sideways or rising.
 def ledge.Grid.solid.tile(+t: J.Val, +barred: Bool) -> Bool:
   Bool.or(ga.stone(t), Bool.and(ga.is(t, "door"), barred))
 
 def ledge.Grid.solid(+g: J.Val, +x: F32, +y: F32) -> Bool:
   ledge.Grid.solid.tile(ledge.Grid.tile_side(g, x, y), ga.b(g, "barred"))
 
-# One column of a body: the three heights `-FOOT + 0.05`, 0, `FOOT - 0.05`.
 def ledge.Grid.body_col(+g: J.Val, +x: F32, +y: F32) -> Bool:
   Bool.or(
     ledge.Grid.solid(g, x, F32.add(y, F32.add(F32.neg(ledge.FOOT()), 0.05))),
     Bool.or(ledge.Grid.solid(g, x, F32.add(y, 0.0)), ledge.Grid.solid(g, x, F32.add(y, F32.sub(ledge.FOOT(), 0.05)))))
 
-# A body centred at `(x, y)` overlaps stone.
 def ledge.Grid.body_blocked(+g: J.Val, +x: F32, +y: F32) -> Bool:
   Bool.or(
     ledge.Grid.body_col(g, F32.add(x, F32.neg(ledge.HALF_W())), y),
     ledge.Grid.body_col(g, F32.add(x, ledge.HALF_W()), y))
 
-# One foot of `landing`: the top it lands on.
 def ledge.Grid.landing.foot(+g: J.Val, +xx: F32, +top: F32, +thru: Bool) -> Maybe<&2, F32>:
   ledge.Grid.landing.tile(ledge.Grid.tile_side(g, xx, F32.add(top, 0.01)), top, thru)
 
@@ -75,8 +67,6 @@ def ledge.first(m: Maybe<&2, F32>, n: Maybe<&2, F32>) -> Maybe<&2, F32>:
     case None{}:
       n
 
-# Feet moving down from `from` to `to`: the top they land on, if one lies
-# between. Planks hold only feet that come from above them.
 def ledge.Grid.landing(+g: J.Val, +x: F32, +from: F32, +to: F32, +thru: Bool) -> Maybe<&2, F32>:
   +top = F32.mul(F32.floor(F32.div(to, layout.TILE_UNITS())), layout.TILE_UNITS())
   ledge.Grid.landing.in(Bool.or(F32.is_gt(from, F32.add(top, 0.001)), F32.is_lt(to, top)), g, x, top, thru)
@@ -97,17 +87,12 @@ def ledge.is_some(m: Maybe<&2, F32>) -> Bool:
     case None{}:
       False{}
 
-# Something to stand on right under feet at `feet`.
 def ledge.Grid.underfoot(+g: J.Val, +x: F32, +feet: F32, +thru: Bool) -> Bool:
   ledge.is_some(ledge.Grid.landing(g, x, feet, F32.add(feet, 0.02), thru))
 
 def ledge.Grid.pit(+g: J.Val, +x: F32, +feet: F32) -> Bool:
   ga.is(ledge.Grid.tile_side(g, x, F32.sub(feet, 0.01)), "hazard")
 
-# --- one knight's step side-on --------------------------------------------
-
-# The jump key as last seen, and a jump press: the hero with `vy`, `grounded`
-# and `air_jumps` as the press leaves them.
 def ledge.walk.jump(+hero: J.Val, +jump: Bool, +rolling: Bool) -> J.Val:
   ledge.walk.jump.in(Bool.and(jump, Bool.and(Bool.not(ga.b(hero, "jump_held")), Bool.not(rolling))), hero)
 
@@ -132,7 +117,6 @@ def ledge.walk.jump.double(has: Bool, +hero: J.Val) -> J.Val:
     case True{}:
       ga.sf(ga.su(hero, "air_jumps", (ga.u(hero, "air_jumps") - 1 : U32)), "vy", F32.neg(ledge.AIR_JUMP()))
 
-# Down on the move axis while standing on a plank (not stone) drops through it.
 def ledge.walk.drop(drop: Bool, +hero: J.Val) -> J.Val:
   match drop:
     case False{}:
@@ -140,7 +124,6 @@ def ledge.walk.drop(drop: Bool, +hero: J.Val) -> J.Val:
     case True{}:
       ga.sb(ga.su(hero, "dropping", ledge.DROP()), "grounded", False{})
 
-# `self.vy`: the roll runs flat; otherwise gravity, capped.
 def ledge.walk.gravity(+hero: J.Val, +rolling: Bool) -> J.Val:
   match rolling:
     case True{}:
@@ -148,7 +131,6 @@ def ledge.walk.gravity(+hero: J.Val, +rolling: Bool) -> J.Val:
     case False{}:
       ga.sf(hero, "vy", RS.f_min(F32.add(ga.f(hero, "vy"), F32.mul(ledge.GRAVITY(), rules.DT())), ledge.FALL_MAX()))
 
-# Falling: a landing sets the knight on the top, none lets them drop.
 def ledge.walk.down(m: Maybe<&2, F32>, +hero: J.Val, +dy: F32) -> J.Val:
   match m:
     case Some{+top}:
@@ -156,7 +138,6 @@ def ledge.walk.down(m: Maybe<&2, F32>, +hero: J.Val, +dy: F32) -> J.Val:
     case None{}:
       ga.sb(ga.sf(hero, "y", F32.add(ga.f(hero, "y"), dy)), "grounded", False{})
 
-# Rising: a bonk when the head meets stone, otherwise the rise.
 def ledge.walk.up(+g: J.Val, +hero: J.Val, +dy: F32) -> J.Val:
   ledge.walk.up.in(
     Bool.or(
@@ -173,7 +154,6 @@ def ledge.walk.up.in(bonk: Bool, +hero: J.Val, +dy: F32) -> J.Val:
     case False{}:
       ga.sb(ga.sf(hero, "y", F32.add(ga.f(hero, "y"), dy)), "grounded", False{})
 
-# Not moving vertically: grounded is whether something is underfoot.
 def ledge.walk.rest(+g: J.Val, +hero: J.Val, +feet: F32) -> J.Val:
   ledge.walk.rest.in(ledge.Grid.underfoot(g, ga.f(hero, "x"), feet, U32.is_gt(ga.u(hero, "dropping"), 0)), hero)
 
@@ -184,7 +164,6 @@ def ledge.walk.rest.in(g: Bool, +hero: J.Val) -> J.Val:
     case False{}:
       ga.sb(hero, "grounded", False{})
 
-# The vertical move by the sign of `dy`.
 def ledge.walk.vertical(+g: J.Val, +hero: J.Val) -> J.Val:
   ledge.walk.vertical.in(g, hero, F32.mul(ga.f(hero, "vy"), rules.DT()), F32.add(ga.f(hero, "y"), ledge.FOOT()))
 
@@ -205,7 +184,6 @@ def ledge.walk.vertical.neg(neg: Bool, +g: J.Val, +hero: J.Val, +dy: F32, +feet:
     case False{}:
       ledge.walk.rest(g, hero, feet)
 
-# Fell in a pit: the bite (unless graced), back on the last firm footing.
 def ledge.walk.pit(+hero: J.Val) -> J.Val:
   +h1 = ga.su(hero, "hp", ga.pu(U32.is_zero(ga.u(hero, "invulnerable")), ga.ssub(ga.u(hero, "hp"), ledge.PIT_HURT()), ga.u(hero, "hp")))
   +h2 = ledge.walk.pit.back(J.get(h1, "footing"), h1)
@@ -221,7 +199,6 @@ def ledge.walk.pit.back.in(none: Bool, +footing: J.Val, +hero: J.Val) -> J.Val:
     case False{}:
       ga.sf(ga.sf(hero, "x", ga.nf(footing, 0)), "y", ga.nf(footing, 1))
 
-# Firm footing: both feet on something, for a pit to put you back on.
 def ledge.walk.footing(+g: J.Val, +hero: J.Val, +feet: F32) -> J.Val:
   ledge.walk.footing.in(
     Bool.and(ga.b(hero, "grounded"),
@@ -237,8 +214,6 @@ def ledge.walk.footing.in(firm: Bool, +hero: J.Val) -> J.Val:
     case False{}:
       hero
 
-# One knight's step side-on: `dx` across (running or rolling), then the jump,
-# the fall and the landing. The knight, and whether they fell in a pit.
 def ledge.walk(+hero: J.Val, +input: J.Val, +g: J.Val, +dx: F32, +rolling: Bool) -> J.Val & Bool:
   +jump = RS.i_lt(ga.u(input, "move_y"), 0)
   +h1 = ga.sb(ledge.walk.jump(hero, jump, rolling), "jump_held", jump)
@@ -266,8 +241,6 @@ def ledge.walk.end(pit: Bool, +g: J.Val, +hero: J.Val, +feet: F32) -> J.Val & Bo
     case False{}:
       (ledge.walk.footing(g, hero, feet), False{})
 
-# A walker side-on: it keeps the ground it walks on, falls off what it walks
-# past, and a pit is the end of it.
 def ledge.fall(+enemy: J.Val, +g: J.Val) -> J.Val:
   +feet = F32.add(ga.f(enemy, "y"), ledge.FOOT())
   +e1 = ledge.fall.land(ledge.Grid.landing(g, ga.f(enemy, "x"), feet, F32.add(feet, ledge.WALKER_FALL()), False{}), enemy)
@@ -287,8 +260,6 @@ def ledge.fall.pit(pit: Bool, +enemy: J.Val) -> J.Val:
     case False{}:
       enemy
 
-# The ground under column `x`: the top of the highest stone or plank below
-# `from`, as a body's middle standing on it.
 def ledge.stand_on(+room: J.Val, +x: F32, +from: F32) -> F32:
   ledge.stand_on.go(room, RS.f_as_i32(F32.floor(F32.div(x, layout.TILE_UNITS()))), RS.f_as_i32(F32.floor(F32.div(from, layout.TILE_UNITS()))), from, ga.u(room, "rows"))
 
@@ -311,14 +282,9 @@ def ledge.stand_on.tile(hit: Bool, +room: J.Val, +col: U32, +row: U32, +from: F3
     case False{}:
       ledge.stand_on.go(room, col, RS.i_add(row, 1), from, rows)
 
-# --- the Run's side-on hooks ------------------------------------------------
-
-# Whether the party stands in a side-on room.
 def ledge.Run.side_on(+run: J.Val) -> Bool:
   Bool.or(ga.is(J.get(rules.Run.room(run), "kind"), "ledge"), ga.is(J.get(rules.Run.room(run), "kind"), "wanted"))
 
-# The low west doorway's row: the first row whose tile in column 0 is a door,
-# else the middle.
 def ledge.Run.arrive_side_on.door(+room: J.Val, +r: U32, +rows: U32) -> U32:
   ledge.Run.arrive_side_on.door.in(RS.i_lt(r, rows), room, r, rows)
 
@@ -336,7 +302,6 @@ def ledge.Run.arrive_side_on.door.hit(hit: Bool, +room: J.Val, +r: U32, +rows: U
     case False{}:
       ledge.Run.arrive_side_on.door(room, RS.i_add(r, 1), rows)
 
-# Each knight, in seat order, at x = 3.3 + slot * 1.6 standing on the ground.
 def ledge.Run.arrive_side_on.seat(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +players: J.Val, +room: J.Val, +from: F32, +slot: U32) -> J.Val:
   match hs:
     case Nil{}:
@@ -355,8 +320,6 @@ def ledge.Run.arrive_side_on.hero.put(+hero: J.Val, +x: F32, +y: F32) -> J.Val:
   +h2 = ga.su(ga.sb(ga.sf(h1, "vy", 0.0), "grounded", True{}), "air_jumps", ledge.AIR_JUMPS())
   ga.sf(ga.sf(J.set(h2, "footing", ga.pair_f(x, y)), "aim_x", 1.0), "aim_y", 0.0)
 
-# Into a side-on hall: the party comes in at its low west doorway, on the
-# ground, falling still.
 def ledge.Run.arrive_side_on(+run: J.Val) -> J.Val:
   ledge.Run.arrive_side_on.in(run, rules.Run.room(run))
 
@@ -366,7 +329,6 @@ def ledge.Run.arrive_side_on.in(+run: J.Val, +room: J.Val) -> J.Val:
 def ledge.Run.arrive_side_on.put(+run: J.Val, +room: J.Val, +from: F32) -> J.Val:
   J.set(run, "players", ledge.Run.arrive_side_on.seat(J.int_fields(J.get(run, "players")), J.get(run, "players"), room, from, 0))
 
-# `self.rng.below(n)`: the run with the generator moved on, and the draw.
 def ledge.Run.below(+run: J.Val, +n: U32) -> J.Val & U32:
   ledge.Run.below.in(run, loot.Rng.below(W.of_j(J.get(run, "rng")), n))
 
@@ -374,8 +336,6 @@ def ledge.Run.below.in(+run: J.Val, rv: W.W & U32) -> J.Val & U32:
   (r, v) = rv
   (J.set(run, "rng", W.to_j(r)), v)
 
-# A monster's place side-on: walkers on a ledge or the ground well away from
-# the door, fliers in the open air above.
 def ledge.Run.perch(+run: J.Val, +flies: Bool) -> J.Val & (F32 & F32):
   ledge.Run.perch.go(run, flies, rules.Run.room(run), 64n)
 

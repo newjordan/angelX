@@ -5,12 +5,7 @@
 
 use super::*;
 
-/// Tests that read or bound the process-wide spawn-seat counter run one at a time:
-/// a parallel sibling reserving or releasing seats between `baseline` and the
-/// assertion makes admission bounds look wrong (b19a verify, 2026-09-10).
 static SPAWN_SEAT_TESTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
-// --- trajectory / MoA suite ---
 
 #[test]
 fn persona_catalog_loads_embedded_builtins_and_canonical_legacy_user_layouts() {
@@ -25,7 +20,6 @@ fn persona_catalog_loads_embedded_builtins_and_canonical_legacy_user_layouts() {
         "---\nname: REVIEWER\ndescription: user override\n---\ncanonical reviewer body",
     )
     .unwrap();
-    // Canonical wins deterministically when both filenames exist.
     std::fs::write(
         canonical_dir.join("SKILL.md"),
         "---\nname: reviewer\n---\nwrong legacy body",
@@ -159,7 +153,6 @@ fn spawn_names_the_sota_gate_for_withheld_clubs() {
     let err = tool
         .call(&serde_json::json!({"task":"x","club":"grok"}))
         .unwrap_err();
-    // The opt-out is the fact; how to restore it is the `⠰⠃` page.
     let restore = crate::agent::harness::book::d56_replies::UNSET_PIN;
     assert!(
         err.contains("ANGEL_ALLOW_SOTA_DELEGATE=0") && err.contains(&restore.cells()),
@@ -177,8 +170,6 @@ fn spawn_names_the_sota_gate_for_withheld_clubs() {
 
 #[test]
 fn spawn_grant_registry_reports_the_workspace_its_tools_use() {
-    // Capture reads process-global Cargo/rustup env; hold the env lock so a
-    // concurrent CARGO_HOME/PATH-poisoning test cannot redirect resolution.
     let _guard = crate::tests::env_lock();
     let workspace = std::env::temp_dir();
     for grant in [Grant::None, Grant::ReadOnly, Grant::Code, Grant::Research] {
@@ -318,9 +309,6 @@ fn read_only_seat_cannot_use_its_real_nested_spawn_to_request_code() {
         Some(Arc::clone(&club) as Arc<dyn Club>),
         Vec::new(),
     );
-    // This is the exact immutable handle Grant::registry installs for a
-    // read-only parent seat; invoking it through a real run_turn exercises the
-    // provider → nested spawn → denial receipt → provider recovery sequence.
     let tool = root.nested_for_test(Grant::ReadOnly);
     let digest = tool
         .call(&serde_json::json!({
@@ -351,17 +339,12 @@ fn read_only_seat_cannot_use_its_real_nested_spawn_to_request_code() {
 
 #[test]
 fn trajectory_record_captures_turn() {
-    // Serialized: this reads env-gated behavior (`ANGEL_ROOT_TRAJECTORY`, the
-    // lane markers) that sibling tests set and restore. Without the
-    // lock it observes their value mid-flight and the unlabeled-row assertions
-    // fail intermittently.
     let _guard = crate::tests::env_lock();
     let history = vec![
         ChatMsg::user("reverse hello"),
         ChatMsg::harness(NOPROGRESS_NUDGE),
         ChatMsg::assistant("olleh"),
     ];
-    // Unlabeled: no reward field.
     let rec = trajectory_record("fixture-club", &history, "olleh", 2, false, None, 123);
     assert_eq!(rec["club"], "fixture-club");
     assert_eq!(rec["hops"], 2);
@@ -380,9 +363,6 @@ fn trajectory_record_captures_turn() {
         "unlabeled record must omit reward"
     );
 
-    // Reward-labeled: training data — always carries Hi/Q root trajectory +
-    // harness treatment so the forge / promotion layer can train on strategy
-    // isomorphism and split Hi/Q vs baseline treatments.
     let labeled = trajectory_record("fixture-club", &history, "olleh", 2, false, Some(0.75), 123);
     assert_eq!(labeled["reward"], 0.75);
     assert!(
@@ -400,7 +380,6 @@ fn trajectory_record_captures_turn() {
         Some(true)
     );
     assert!(labeled["harness_treatment"].get("handle_stats").is_some());
-    // Unlabeled rows stay light unless analysis is requested.
     assert!(
         rec.get("root_trajectory").is_none(),
         "unlabeled log must omit root_trajectory by default"
@@ -472,7 +451,6 @@ fn ledger_status_text_tabulates_recent_turns() {
             {"hop": 4, "tool": "run_tests", "exec": "ok", "err": false, "verify": "passed", "bytes": 60}
         ]
     }));
-    // A pre-ledger record is skipped, not counted.
     write_trajectory(&serde_json::json!({
         "schema": "angel-trajectory/v2", "ts_ms": 1_700_000_001_000u64, "club": "old", "hops": 9, "answer": "x"
     }));
@@ -492,9 +470,6 @@ fn ledger_status_text_tabulates_recent_turns() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// The turn's own receipt is kept as it is and serialized when a record is
-/// written: the row carries exactly the JSON the receipt serializes to, its
-/// model and provider call samples included.
 #[test]
 fn eval_rows_carry_the_task_timing_receipt_verbatim() {
     let _guard = crate::tests::env_lock();
@@ -534,9 +509,6 @@ fn eval_rows_carry_the_task_timing_receipt_verbatim() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// The eval row is the reward-labeled training sample, so it carries the same
-/// turn ledger (timing + per-call tool outcomes) as the run_turn row; usage
-/// needs the club and stays on the run_turn row.
 #[test]
 fn eval_rows_carry_the_turn_ledger() {
     let _guard = crate::tests::env_lock();
@@ -592,8 +564,6 @@ fn eval_rows_carry_the_turn_ledger() {
     assert_eq!(tools[1]["verify"], "passed");
     assert_eq!(tools[1]["ms"], 900);
     assert_eq!(record["timing"]["tool_calls"], 2);
-    // The trace schema (lane F) always carries the `usage` key; without a
-    // club it is null, never a fabricated usage object.
     assert!(
         record.get("usage").is_none_or(Value::is_null),
         "usage needs the club: {record}"
@@ -603,9 +573,6 @@ fn eval_rows_carry_the_turn_ledger() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// Do not double-count: the coding-eval path scores its own rollout with the
-/// test suite, so `run_turn`'s row for that same rollout must stay unlabeled —
-/// otherwise the forge trains on one attempt twice, under two different rewards.
 #[test]
 fn the_eval_path_owns_its_rollouts_label() {
     let _guard = crate::tests::env_lock();
@@ -618,22 +585,13 @@ fn the_eval_path_owns_its_rollouts_label() {
     let workspace = dir.join("workspace");
     crate::knowledge::experience::note_turn_workspace(&workspace);
     let history = vec![ChatMsg::user("write code")];
-    // Trajectory logging is process-global. A detached turn from an unrelated
-    // parallel test can finish while this test's destination is active, so the
-    // per-process file is shared even though environment mutation is locked.
-    // Mark and select this test's rows instead of claiming ownership of every
-    // append (the max-hop trajectory test follows the same discipline).
     let answer = "eval-label-scope-marker";
 
-    // An ordinary turn carries The Cut's machine verdict as its label.
     log_trajectory(&club, &history, answer, 3, false, Some(0.5));
-    // The same call inside a coding eval writes a plain log: the eval owns the
-    // label and will write the stronger, test-verified one itself.
     {
         let _eval_owns_the_label = EvalLabelScope::new();
         log_trajectory(&club, &history, answer, 3, false, Some(0.5));
     }
-    // …and the claim is released with the eval.
     log_trajectory(&club, &history, answer, 3, false, Some(1.0));
 
     let path = dir.join(format!("session-{}.jsonl", std::process::id()));
@@ -659,9 +617,6 @@ fn the_eval_path_owns_its_rollouts_label() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A trajectory written under cfg(test) never lands in the real home dir: the
-/// ten-minute rsync timer feeds `~/.angelX/trajectories` to the Spark trainer
-/// inbox, and cockpit test suites must default to a per-process temp dir.
 #[test]
 fn unit_test_trajectory_writes_never_land_in_the_real_home_dir() {
     let _guard = crate::tests::env_lock();
@@ -681,7 +636,6 @@ fn unit_test_trajectory_writes_never_land_in_the_real_home_dir() {
         dir.starts_with(std::env::temp_dir()),
         "cfg(test) default is a per-process temp dir: {dir:?}"
     );
-    // One write through the ordinary path lands in the temp dir, not $HOME.
     write_trajectory(&serde_json::json!({
         "kind": "w4-probe",
         "marker": "never-in-home",
@@ -1059,8 +1013,6 @@ fn moa_synthesis_respects_deadline_and_retains_admission_until_exit() {
             _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             self.started.store(true, Ordering::Release);
-            // Deliberately ignore cooperative cancellation to model a provider
-            // implementation blocked below the streaming layer.
             while !self.release.load(Ordering::Acquire) {
                 std::thread::sleep(Duration::from_millis(2));
             }
@@ -1080,10 +1032,6 @@ fn moa_synthesis_respects_deadline_and_retains_admission_until_exit() {
         club,
         vec![ChatMsg::user("fold")],
         Duration::from_millis(40),
-        // Other full-suite tests may legitimately hold global spawn seats.
-        // Admission saturation is asserted against the live count below; do
-        // not let unrelated seats consume this test's whole 40 ms budget
-        // before its worker can start.
         usize::MAX,
     );
     assert!(
@@ -1091,12 +1039,6 @@ fn moa_synthesis_respects_deadline_and_retains_admission_until_exit() {
         "late synthesis must degrade to raw drafts"
     );
     assert!(wall.elapsed() < Duration::from_millis(500));
-    // The full suite runs tests in parallel and can briefly starve the newly
-    // spawned provider thread. The caller's deadline must still hold, but the
-    // admission assertion below is meaningful only after the provider has
-    // actually entered its blocking call. Wait independently of the 40 ms
-    // caller budget and release the mock before panicking so a failed test
-    // cannot leak a detached worker into the rest of the suite.
     let started_deadline = Instant::now() + Duration::from_secs(2);
     while !started.load(Ordering::Acquire) {
         if Instant::now() >= started_deadline {
@@ -1142,7 +1084,6 @@ fn zero_budget_moa_synthesis_never_calls_provider() {
 
 #[test]
 fn moa_formation_uses_only_its_remaining_deadline_for_synthesis() {
-    // Keep the global posture stable while the remaining-budget assertion runs.
     let _guard = crate::tests::env_lock();
     let _yolo_off = EnvGuard::set("ANGEL_YOLO", "0");
 
@@ -1197,10 +1138,6 @@ fn moa_formation_uses_only_its_remaining_deadline_for_synthesis() {
     });
     let tool = SpawnTool::new(std::env::temp_dir(), Some(club), Vec::new());
     let started = Instant::now();
-    // Leave enough wall time for a worker thread to land even on a loaded CI
-    // host, while spending a known 400 ms before synthesis. A correct remaining-
-    // budget implementation returns near the 1 s total deadline; incorrectly
-    // granting a fresh 1 s to synthesis would take roughly 1.4 s.
     let result = tool.run_moa_for_test(
         &["answer independently".to_string()],
         Duration::from_secs(1),
@@ -1267,18 +1204,12 @@ fn yolo_never_removes_the_spawn_formation_deadline() {
         entered: Arc::clone(&entered),
         release: Arc::clone(&release),
     });
-    // Grant::None exercises provider waiting, not repository IO. A missing
-    // subdirectory makes optional Git probes fail immediately instead of
-    // spending the provider's 60ms window inspecting unrelated filesystem state.
     let tool = SpawnTool::new(
         workspace.path().join("no-filesystem-grant"),
         Some(club),
         Vec::new(),
     );
     let baseline = spawn_seats_inflight();
-    // Under host load the seat thread can miss a 60ms window entirely before it
-    // reaches the provider; that says nothing about the deadline, so retry the
-    // scenario a few times and only judge an attempt whose seat was entered.
     let mut attempt = 0;
     let (result, elapsed) = loop {
         attempt += 1;
@@ -1353,7 +1284,6 @@ fn yolo_never_allows_parallel_code_writers_in_one_workspace() {
             }))
             .unwrap_err();
         assert!(error.contains("tools=code needs n=1"), "{error}");
-        // The way out (a git-worktree isolated delegate) is its `⠰⠉` page.
         let advice = crate::agent::harness::book::d56_replies::SHARED_WORKSPACE;
         assert!(error.contains(&advice.cells()), "{error}");
         assert!(advice.text().contains("git-worktree isolated"));
@@ -1416,9 +1346,6 @@ fn spawn_seat_clock_starts_at_its_first_response() {
     let _guard = crate::tests::env_lock();
     let _retries_off = EnvGuard::set("ANGEL_PROVIDER_RETRIES", "0");
 
-    // Queued for 250 ms before its first token, then 300 ms of work: it lands
-    // at ~550 ms, past one 400 ms window from spawn but inside 400 ms from its
-    // first response.
     struct SlowStarter;
     impl Club for SlowStarter {
         fn respond(&self, _prompt: &str) -> Result<String, String> {

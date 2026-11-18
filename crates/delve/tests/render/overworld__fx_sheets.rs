@@ -30,8 +30,6 @@ fn sheets() -> Vec<(&'static str, Img)> {
     sheets_from_book(crate::rules::cards::Book::builtin())
 }
 fn sheets_from_book(book: crate::rules::cards::Book) -> Vec<(&'static str, Img)> {
-    // This library sheet pins the original effect drawings. Dungeon-only
-    // shot composition has its own directional-stroke contract and room QA.
     struct Original;
     impl Drop for Original {fn drop(&mut self){slot_art::use_original(false);}}
     slot_art::use_original(true);
@@ -399,7 +397,6 @@ fn sheets_from_book(book: crate::rules::cards::Book) -> Vec<(&'static str, Img)>
         ));
     }
     pages.push(("icons", page(&icons)));
-    // Pattern fixtures exercise warning and burn times without advancing gameplay.
     let mut tells: Vec<(&str, Box<dyn Fn(&mut Img, u32)>)> = Vec::new();
     for (name, emit) in [
         ("RAIN", patterns::Emitter::Rain),
@@ -579,7 +576,6 @@ fn wall_stock_preserves_every_legacy_arm_and_guard_icon() {
     let count = book.cards.len();
     book.cards.retain(|c| !matches!(c.id.as_str(), "stock-blade" | "stock-staff" | "stock-maul"));
     assert_eq!(count - book.cards.len(), 3);
-    // The Reaver's, the Lancer's, the Phantom Lancer's and the Mirage Duelist's cards came after the review.
     let later = [
         "reaver-axes", "hurl-axe", "leap", "bloodlust", "war-lance", "javelin", "vault", "brace",
         "phantom-lance", "spirit-lance", "doppelganger", "juxtapose",
@@ -587,58 +583,15 @@ fn wall_stock_preserves_every_legacy_arm_and_guard_icon() {
     ];
     book.cards.retain(|c| !later.contains(&c.id.as_str()));
     let (_, icons) = sheets_from_book(book).into_iter().find(|(n, _)| *n == "icons").unwrap();
-    // The combined line's reviewed icon sheet before wall stock was added.
-    // Re-pinned 2026-10-30: the Mage's Spark Staff joins the arms (`weave`).
-    // Re-pinned 2026-11-02: the twin axes' haft repainted from ink o to R so its
-    // pixel rows spell no word; with the old haft: 11215858357188808591.
     assert_eq!(icons.content_hash(), 15621383727547185539, "all pre-stock rows keep their reviewed pixels");
 }
 
 #[test]
 fn reviewed_effect_frames_keep_their_pixels() {
-    // Re-pinned 2026-10-24: 67d45c4a2 and ca8614962 added the champions'
-    // and Gravecaller's arms and spells to the two book contact sheets.
-    // The ranged kits append three arm and nine spell rows. Every legacy
-    // row and all seven other effect sheets retain their reviewed pixels.
-    // Re-pinned 2026-10-28 (the magic pass, `pfx`): the specials sheet's
-    // Stillhour is a lit dome with a clock face and still motes, its
-    // Trebuchet shells fall with fire behind them onto a ring with four
-    // brackets, and a granted wish opens a ring and lets twinkles rise.
-    // Every other sheet keeps its reviewed pixels.
-    // Re-pinned 2026-10-28 (the ultimates redrawn): the specials sheet's
-    // Lady's Veil wings are feathered, swept up off the shoulders and lit
-    // along their leading edge, over a soft light. Nothing else moved.
-    // Re-pinned 2026-10-29 (the motion foundation, docs/MOTION.md): the
-    // specials sheet's granted wish is timed to the boon's own second — a
-    // breath of light drawn in, a white core and rays, the ring past its
-    // size with an echo inside it, twinkles floating off — and the hits
-    // sheet's star holds a second tick, its ring eases open and its sparks
-    // fly further, gone with the impact. Nothing else moved. Then the
-    // grant's rays went behind the knight, so the light is round them.
-    // Re-pinned 2026-10-29 (the content checker, docs/TEMPLATES.md): the
-    // book sheets' nineteen card icons the checker graded Crude are redrawn
-    // as the same things (Codex Sol, then reviewed at 1x): a stone, a note,
-    // crossed axes, a knotted cincture, a lit matchcord, a gauntlet, a
-    // censer, a sight, brass rain, the gales, the embers, the maul's heart,
-    // the hook, the chain. Nothing else moved.
-    // The wall's three common stock arms add three icon rows, exported and
-    // reviewed separately; the legacy-only sheet above retains its old pin.
-    // The Reaver's and the Lancer's arms and spells add their own icon rows;
-    // every other sheet keeps its pixels.
-    // Re-pinned 2026-11-05 (the Phantom Lancer): its arm and three spells add
-    // four icon rows to the book's icon sheets (`card-icons`, `icons`); every
-    // other sheet keeps its pixels. Without the four: 1112795696684530217 and
-    // 12139528279184385265. The Mirage Duelist's four more (the same day):
-    // without them 14404856012706023356 and 8315541119334172930.
-    // Re-pinned 2026-11-02 (enemy-shot clarity): a hostile shot's marker
-    // gains a black rim, a pulsing pink ring and a white core so it can
-    // never read as the player's own bullet. Only the warnings sheet moved.
     let actual: std::collections::BTreeMap<String, u64> = sheets()
         .into_iter()
         .map(|(n, im)| (n.into(), im.content_hash()))
         .collect();
-    // Re-pinned 2026-11-07: only `card-icons` moved; the monk's four cards (Vesper Bell,
-    // Monk's Patience, Plague of Frogs, Excommunicate) join the book with their icons.
     let expected: std::collections::BTreeMap<String, u64> =
         serde_json::from_str(include_str!("fixtures/fx-art.json")).unwrap();
     assert_eq!(actual, expected);

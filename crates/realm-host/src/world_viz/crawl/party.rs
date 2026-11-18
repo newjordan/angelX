@@ -7,17 +7,11 @@ use super::dungeon::Dungeon;
 use angel_delve::rules::RoomKind;
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
-/// Halls on a floor's route, at most: the start, a few on the way, the
-/// stairs.
 pub const STATIONS: usize = 6;
-/// World ticks (40 a second) for a step, and for a quarter turn.
 pub const STEP: u32 = 16;
 pub const TURN: u32 = 10;
-/// The longest a walk between halls may take; a long one is walked faster.
 const LONGEST: u32 = 40 * 24;
 
-/// The halls the party visits, in order: the start, the nearest halls by
-/// doorway, and the stairs (or the lair) last.
 pub fn route(d: &Dungeon) -> Vec<usize> {
     let start = d.start();
     let mut seen = vec![false; d.halls.len()];
@@ -42,8 +36,6 @@ pub fn route(d: &Dungeon) -> Vec<usize> {
     order
 }
 
-/// Where the party stands in a hall: a walkable cell as near its middle as
-/// can be found.
 pub fn spot(d: &Dungeon, hall: usize) -> (i32, i32) {
     let (cx, cy) = d.halls[hall].centre();
     for r in 0..8i32 {
@@ -62,7 +54,6 @@ pub fn spot(d: &Dungeon, hall: usize) -> (i32, i32) {
     (cx, cy)
 }
 
-/// A heading for a step from `a` to the next cell `b`.
 fn heading((ax, ay): (i32, i32), (bx, by): (i32, i32)) -> f32 {
     match (bx - ax, by - ay) {
         (1, _) => 0.0,
@@ -72,16 +63,13 @@ fn heading((ax, ay): (i32, i32), (bx, by): (i32, i32)) -> f32 {
     }
 }
 
-/// The turn from heading `a` to `b`, the short way round.
 fn turn(a: f32, b: f32) -> f32 {
     let d = (b - a).rem_euclid(TAU);
     if d > PI { d - TAU } else { d }
 }
 
-/// A walk, laid out in time: each piece a quarter turn or a step.
 pub struct Walk {
     pieces: Vec<Piece>,
-    /// Ticks per step and per turn: a long walk goes faster.
     step: u32,
     turn: u32,
 }
@@ -101,7 +89,6 @@ enum Piece {
 }
 
 impl Walk {
-    /// The walk along `cells`, setting out facing `facing`.
     pub fn along(cells: &[(i32, i32)], facing: f32) -> Walk {
         let mut pieces = Vec::new();
         let mut now = facing;
@@ -149,8 +136,6 @@ impl Walk {
         }
     }
 
-    /// Where the party is `t` ticks into the walk, which way it faces, and
-    /// how far through a step it is (for the bob); none once it's arrived.
     pub fn at(&self, t: u32) -> Option<((f32, f32), f32, f32)> {
         let mut left = t;
         for piece in &self.pieces {
@@ -175,7 +160,6 @@ impl Walk {
         None
     }
 
-    /// The way the party faces at the end.
     pub fn last_heading(&self, facing: f32) -> f32 {
         self.pieces
             .iter()
@@ -193,8 +177,6 @@ pub fn centre((x, y): (i32, i32)) -> (f32, f32) {
     (x as f32 + 0.5, y as f32 + 0.5)
 }
 
-/// Which way from `at` there's the most open floor to look into: the way a
-/// party arriving in a hall turns to face it.
 pub fn widest(d: &Dungeon, at: (i32, i32)) -> f32 {
     let mut best = (0, 0.0);
     for (k, (dx, dy)) in [(1, 0), (0, 1), (-1, 0), (0, -1)].into_iter().enumerate() {
@@ -215,7 +197,6 @@ pub fn widest(d: &Dungeon, at: (i32, i32)) -> f32 {
     best.1
 }
 
-/// How far the floor runs open straight ahead of `at` facing `heading`.
 pub fn open_ahead(d: &Dungeon, at: (i32, i32), heading: f32) -> i32 {
     let (dx, dy) = (heading.cos().round() as i32, heading.sin().round() as i32);
     let mut n = 0;

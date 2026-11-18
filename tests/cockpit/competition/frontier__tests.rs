@@ -43,7 +43,6 @@ fn reduce(entries: &[BoardEntryV1], epoch: u64, observation: &str) -> FrontierV1
     .unwrap()
 }
 
-/// FG-BASE-020 / AC-04.
 #[test]
 fn global_personal_and_accessible_frontiers_remain_distinct() {
     let frontier = reduce(
@@ -63,7 +62,6 @@ fn global_personal_and_accessible_frontiers_remain_distinct() {
     );
 }
 
-/// FG-BASE-021 / AC-04.
 #[test]
 fn inaccessible_global_leader_changes_target_not_source_base() {
     let first = reduce(
@@ -112,8 +110,6 @@ fn source_selection_metadata_is_not_part_of_decision_digest() {
     );
 }
 
-/// The comparator the tests share, as the plain closure `reduce_frontier`
-/// takes. Scores are canonical decimals, so comparison cannot fail here.
 fn compare(
     contract: &ObjectiveComparatorV1,
     candidate: &ScoreV1,
@@ -122,15 +118,12 @@ fn compare(
     Ok(contract.compare(candidate, baseline).unwrap())
 }
 
-/// One board row with an explicit rank, so tie-breaking is exercised.
 fn ranked(id: &str, score: &str, rank: Option<u64>, personal: bool, source: bool) -> BoardEntryV1 {
     let mut row = entry(id, score, personal, source);
     row.rank = rank;
     row
 }
 
-/// The parity table: hand-picked edges first, then generated boards that vary
-/// scores, ranks, duplicate ids, id order and the two scopes.
 fn frontier_boards() -> Vec<(String, Vec<BoardEntryV1>)> {
     let mut boards: Vec<(String, Vec<BoardEntryV1>)> = Vec::new();
     boards.push(("empty".into(), Vec::new()));
@@ -191,7 +184,6 @@ fn frontier_boards() -> Vec<(String, Vec<BoardEntryV1>)> {
             ranked("d", "9", None, false, false),
         ],
     ));
-    // Lexicographic ids, not numeric ones: "10" sorts before "9".
     for (name, ids) in [
         ("numeric-looking-ids", ["10", "9", "100", "1"]),
         ("mixed-case-ids", ["B", "a", "A", "b"]),
@@ -213,7 +205,6 @@ fn frontier_boards() -> Vec<(String, Vec<BoardEntryV1>)> {
                 .collect(),
         ));
     }
-    // Generated boards: rotations of scores, ranks and scopes over two widths.
     let ids = ["a", "b", "c", "d", "e", "f"];
     let scores = ["9", "5", "5", "1", "9", "5"];
     let ranks = [Some(0), Some(2), None, Some(1), None, Some(2)];
@@ -237,8 +228,6 @@ fn frontier_boards() -> Vec<(String, Vec<BoardEntryV1>)> {
     boards
 }
 
-/// The shipped leg and the native scan must agree on every selection, and the
-/// leg must be the one that answered.
 #[test]
 fn live_frontier_leg_matches_every_native_selection() {
     use crate::agent::harness::live_policy::{LegSource, decide_shipped};
@@ -263,8 +252,6 @@ fn live_frontier_leg_matches_every_native_selection() {
     assert!(checked >= 30, "only {checked} boards were compared");
 }
 
-/// A throwaway policy module, so a deliberately out-of-contract leg can be
-/// pinned without touching the shipped one.
 fn temporary_policy_leg(id: &str, render: &str) -> angel_live::Program {
     let root = std::env::temp_dir().join(format!("angel-frontier-leg-{}-{id}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
@@ -289,8 +276,6 @@ fn temporary_policy_leg(id: &str, render: &str) -> angel_live::Program {
         .unwrap_or_else(|| panic!("fixture leg {id} did not publish"))
 }
 
-/// An out-of-contract selection is rejected and the native scan answers, so a
-/// bad hot edit never moves the target.
 #[test]
 fn an_out_of_contract_live_frontier_keeps_the_native_selection() {
     use crate::agent::harness::live_policy::{LegSource, decide_with};
@@ -332,7 +317,6 @@ fn an_out_of_contract_live_frontier_keeps_the_native_selection() {
     }
 }
 
-/// Reported, not asserted: the leg is a pure in-process call.
 #[test]
 fn live_frontier_leg_decision_latency_is_reported() {
     use crate::agent::harness::live_policy::decide_shipped;
@@ -368,14 +352,6 @@ fn live_frontier_leg_decision_latency_is_reported() {
     );
 }
 
-// --- the parity oracle ------------------------------------------------------
-//
-// The native scan, with `best` and its tie key, moved here out of production:
-// the shipped `frontier` leg is the only thing that decides now, and this copy
-// exists so the parity table above can prove it agrees.
-
-/// The native scan, kept intact: `best` over the whole board, over the personal
-/// entries and over the source-accessible entries.
 fn select_native<F>(
     entries: &[BoardEntryV1],
     comparator: &ObjectiveComparatorV1,

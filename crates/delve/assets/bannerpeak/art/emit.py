@@ -1,12 +1,4 @@
 #!/usr/bin/env python3
-"""Ink every frame and write src/render/overworld/arena/bannerpeak/art_data.rs.
-
-    python3 emit.py
-
-Frames are cropped to their ink and carry their offset from the anchor (the
-bottom centre of the box the rules give the body), so the stage stamps them at
-the feet. Seat tones are the digits 1 2 3 4; the stage swaps them per seat.
-"""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -17,7 +9,6 @@ OUT = Path(__file__).resolve().parents[3] / "src/render/overworld/arena/bannerpe
 
 
 def crop(s, ax, ay):
-    # nothing under the feet: the ground is drawn by the tiles
     s = {p: c for p, c in s.items() if p[1] < ay}
     xs = [x for x, _ in s]
     ys = [y for _, y in s]

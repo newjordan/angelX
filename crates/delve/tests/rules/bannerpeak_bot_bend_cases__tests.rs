@@ -24,7 +24,6 @@ fn input_json(i: &Input) -> Value {
     j(i)
 }
 
-/// One bot case: `name`, class, caps, the extra fields, the answer.
 fn bcase(name: &str, class: &str, per: usize, total: usize, s: &Session, id: u32, extra: Value, out: Value) {
     if !want(name, class, per, total) {
         return;
@@ -59,11 +58,9 @@ pub fn probe(sm: &Sample) {
         );
         let d = s.drive(k, goal);
         bcase("bannerpeak.bot.Session.drive", &format!("{}{:?}", gname(&goal), b.mode), 7, 260, s, id, json!({"goal": goal_j(&goal)}), input_json(&d));
-        // drive toward goals the knight is not on its way to
         let alt = [Goal::Walk(b.x.div_euclid(Q) + 200), Goal::Walk(b.x.div_euclid(Q) - 200), Goal::Slam(b.x.div_euclid(Q) + 30), Goal::Hatch(b.x.div_euclid(Q) + 3), Goal::Down(b.x.div_euclid(Q) - 60), Goal::Backflip(b.x.div_euclid(Q) + 30), Goal::Wheel, Goal::Climb(info().sparks[g.range(0, 7) as usize]), Goal::Board(b.x.div_euclid(Q) - 8), Goal::Fight][g.range(0, 9) as usize];
         let d2 = s.drive(k, alt);
         bcase("bannerpeak.bot.Session.drive", &format!("alt{}{:?}", gname(&alt), b.mode), 7, 400, s, id, json!({"goal": goal_j(&alt)}), input_json(&d2));
-        // the section goals, whichever section the knight is in
         bcase("bannerpeak.bot.Session.mill_goal", gname(&s.mill_goal(k)), 10, 80, s, id, json!({}), goal_j(&s.mill_goal(k)));
         bcase("bannerpeak.bot.Session.shaft_goal", gname(&s.shaft_goal(k)), 10, 80, s, id, json!({}), goal_j(&s.shaft_goal(k)));
         bcase("bannerpeak.bot.Session.snow_goal", gname(&s.snow_goal(k)), 10, 80, s, id, json!({}), goal_j(&s.snow_goal(k)));
@@ -73,7 +70,6 @@ pub fn probe(sm: &Sample) {
                 bcase("bannerpeak.bot.Session.spark_missing", &format!("{}", s.spark_missing(*sp)), 20, 60, s, id, json!({"x": sp.0, "y": sp.1}), json!(s.spark_missing(*sp)));
             }
         }
-        // the controllers
         bcase("bannerpeak.bot.Session.ride", &format!("{:?}{}", b.mode, b.plank.is_some()), 10, 100, s, id, json!({}), input_json(&s.ride(k)));
         bcase("bannerpeak.bot.Session.fight", &format!("{:?}{:?}", s.boss.beat, b.mode), 8, 120, s, id, json!({}), input_json(&s.fight(k)));
         let targets = [
@@ -100,7 +96,6 @@ pub fn probe(sm: &Sample) {
         }
         let h = s.hint_here(b);
         bcase("bannerpeak.bot.Session.hint_here", &format!("{:?}", h), 12, 80, s, id, json!({}), json!(h.map_or(0, |c| c as u32)));
-        // hints at fixed cells: stand the body on each hint cell
         if sm.tick % 3 == 0 {
             let hs = &info().hints;
             let m = hs[g.range(0, hs.len() as i64 - 1) as usize];

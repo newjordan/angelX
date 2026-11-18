@@ -81,7 +81,6 @@ def elements(nodes,size):
         out.append({'target':f'the "{n["name"]}" {n["role"]} in {n["app"]}',
                     'box':b,'node_path':n['path'],'role':n['role'],'name':n['name'],
                     'label_method':'native-atspi-window-extents+x11-anchor','states':n['states'],'actions':n['actions']})
-    # GTK exposes a wrapper and its nested toggle: use the deepest node.
     out=[e for e in out if not any(e is not other and e['name']==other['name']
          and other['node_path'][:len(e['node_path'])]==e['node_path']
          and len(other['node_path'])>len(e['node_path']) for other in out)]
@@ -143,7 +142,6 @@ def main():
     def save():
         for name,value in [('pages.json',pages),('transitions.json',transitions),('failures.json',failures),('attempts.json',attempts)]:atomic_json(root/name,value)
     def capture(group,split,family,state,app):
-        # Snapshot screen and tree while no input is being sent.
         act('move',x=1800,y=1000);time.sleep(.2)
         nodes=tree(app);im=ImageGrab.grab(xdisplay=os.environ['DISPLAY']).convert('RGB')
         targets=elements(nodes,im.size)
@@ -178,14 +176,12 @@ def main():
                 before,nodes=capture(group,split,family,'initial',app)
                 print(json.dumps({'group':group,'targets':len(before['elements']),'names':[e['name'] for e in before['elements']]}),flush=True)
                 if args.probe:continue
-                # Only safe named native controls; no account, disk, purchase, or deletion action.
                 if family=='native-calculator':
                     wants=['7','8','9','4','5','6','1','2','3','0','Main Menu']
                 elif family=='native-text-editor':
                     wants=['View','Main menu','Open']
                 else:wants=['Search Current Folder','View Options','Main Menu']
                 for index,want in enumerate(wants):
-                    # Refresh so labels correspond to what the click actually saw.
                     current=elements(tree(app),(1920,1080))
                     matches=[e for e in current if e['name'].casefold()==want.casefold()]
                     if len(matches)!=1:continue

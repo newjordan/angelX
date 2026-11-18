@@ -1,7 +1,3 @@
-# crates/delve/src/rules/hunters.rs — the deep's hunters: the Flesher's hook and
-# the Silkmother's webs. `Deeds` is the J object of foes.rs with the Rust field
-# names (tuples as arrays); `heroes` is the slice of (x, y) as a list of pairs.
-
 def hunters.HOOK_RANGE() -> F32:
   15.0
 
@@ -38,7 +34,6 @@ def hunters.WEB_PACE() -> F32:
 def hunters.BROOD() -> U32:
   6
 
-# The nearest hero (first of equals) as a Maybe pair.
 def hunters.act.nearest(+hs: List<&2, Sigma<&2, &2, F32, _ => F32>>, +ex: F32, +ey: F32, +best: Maybe<&2, Sigma<&2, &2, F32, _ => F32>>) -> Maybe<&2, Sigma<&2, &2, F32, _ => F32>>:
   match hs:
     case Nil{}:
@@ -62,7 +57,6 @@ def hunters.act.nearest.keep(replace: Bool, +bx: F32, +by: F32, +hx: F32, +hy: F
     case False{}:
       Some{(bx, by)}
 
-# `walk`: the enemy slides toward `(dx, dy)` at `speed`.
 def hunters.act.walk(+enemy: J.Val, +g: J.Val, +dx: F32, +dy: F32, +speed: F32) -> J.Val:
   hunters.act.walk.put(enemy, rules.Grid.slide(J.get(g, "room"), ga.b(g, "barred"), (ga.f(enemy, "x"), ga.f(enemy, "y")),
     (F32.mul(F32.mul(dx, speed), rules.DT()), F32.mul(F32.mul(dy, speed), rules.DT())),
@@ -72,8 +66,6 @@ def hunters.act.walk.put(+enemy: J.Val, p: F32 & F32) -> J.Val:
   (x, y) = p
   ga.sf(ga.sf(enemy, "x", x), "y", y)
 
-# One of the third company's steps. The enemy and the deeds after it, and false
-# (nothing changed) for any other monster.
 def hunters.act(+enemy: J.Val, +heroes: List<&2, Sigma<&2, &2, F32, _ => F32>>, +g: J.Val, +deeds: J.Val) -> J.Val & J.Val & Bool:
   hunters.act.kind(ga.s(enemy, "kind"), enemy, heroes, g, deeds)
 
@@ -125,8 +117,6 @@ def hunters.act.run.silk(silk: Bool, +has: Bool, +tx: F32, +ty: F32, +cx: F32, +
     case False{}:
       hunters.act.spiderling(cx, cy, enemy, g, deeds)
 
-# --- the Flesher -----------------------------------------------------------
-
 def hunters.act.flesher(+has: Bool, +cx: F32, +cy: F32, +dist: F32, +enemy: J.Val, +beat: U32, +g: J.Val, +deeds: J.Val) -> J.Val & J.Val:
   hunters.act.flesher.stage(has, cx, cy, dist, enemy,
     hunters.act.flesher.rot(U32.is_zero(U32.mod(beat, hunters.ROT_EVERY())), enemy, deeds), g)
@@ -151,7 +141,6 @@ def hunters.act.flesher.stage.pick(zero: Bool, one: Bool, +has: Bool, +cx: F32, 
     case False{}:
       hunters.act.flesher.stare(one, enemy, deeds)
 
-# Shamble after the party; when one is in reach, stare.
 def hunters.act.flesher.shamble(+has: Bool, +cx: F32, +cy: F32, +dist: F32, +enemy: J.Val, +deeds: J.Val) -> J.Val & J.Val:
   hunters.act.flesher.shamble.go(
     Bool.and(U32.is_ge(ga.u(enemy, "timer"), (hunters.HOOK_EVERY() + (U32.mod(ga.u(enemy, "id"), 4) * 9 : U32) : U32)),
@@ -165,7 +154,6 @@ def hunters.act.flesher.shamble.go(ready: Bool, +cx: F32, +cy: F32, +enemy: J.Va
     case False{}:
       (enemy, deeds)
 
-# The stare: his line shows on the floor; then the throw, then reeling in.
 def hunters.act.flesher.stare(one: Bool, +enemy: J.Val, +deeds: J.Val) -> J.Val & J.Val:
   match one:
     case True{}:
@@ -189,8 +177,6 @@ def hunters.act.flesher.breath(done: Bool, +enemy: J.Val, +deeds: J.Val) -> J.Va
       (ga.su(ga.su(enemy, "stage", 0), "timer", 0), deeds)
     case False{}:
       (enemy, deeds)
-
-# --- the Silkmother --------------------------------------------------------
 
 def hunters.act.silkmother(+has: Bool, +tx: F32, +ty: F32, +cx: F32, +cy: F32, +dist: F32, +enemy: J.Val, +beat: U32, +g: J.Val, +deeds: J.Val) -> J.Val & J.Val:
   hunters.act.silkmother.way(F32.is_lt(dist, 8.0), F32.is_gt(dist, 13.0),
@@ -233,8 +219,6 @@ def hunters.act.silkmother.hatch(+enemy: J.Val, +deeds: J.Val) -> J.Val:
 def hunters.act.silkmother.spawn(+enemy: J.Val, +side: F32) -> J.Val:
   J.JA{[J.JS{"spiderling"}, J.JF{F32.add(ga.f(enemy, "x"), F32.mul(side, 1.4))}, J.JF{F32.add(ga.f(enemy, "y"), 0.8)}, J.JU{0}]}
 
-# --- the spiderling scuttles straight in, zig-zagging ------------------------
-
 def hunters.act.spiderling(+cx: F32, +cy: F32, +enemy: J.Val, +g: J.Val, +deeds: J.Val) -> J.Val & J.Val:
   hunters.act.spiderling.zig(F32.mul(F32.sin(F32.add(F32.mul(RS.u_as_f32(ga.u(enemy, "age")), 0.5), RS.u_as_f32(ga.u(enemy, "id")))), 0.6), cx, cy, enemy, g, deeds)
 
@@ -244,8 +228,6 @@ def hunters.act.spiderling.zig(+zig: F32, +cx: F32, +cy: F32, +enemy: J.Val, +g:
 def hunters.act.spiderling.walk(u: F32 & F32, +enemy: J.Val, +g: J.Val, +deeds: J.Val) -> J.Val & J.Val:
   (ux, uy) = u
   (hunters.act.walk(enemy, g, ux, uy, 5.4), deeds)
-
-# --- the Run's hooks -------------------------------------------------------
 
 def hunters.Run.hunt.hooks(+run: J.Val, +hs: List<&2, J.Val>) -> J.Val:
   match hs:
@@ -261,7 +243,6 @@ def hunters.Run.hunt.hook(room: Bool, +run: J.Val, +h: J.Val) -> J.Val:
     case True{}:
       ga.push(run, "hooks", hunters.Hook.new(h))
 
-# A fresh hook from a Deeds entry (by, x, y, dir).
 def hunters.Hook.new(+h: J.Val) -> J.Val:
   ga.sv(ga.sb(ga.sf(ga.sv(ga.sf(ga.sf(ga.su(J.obj(), "by", J.u32(J.nth(h, 0))), "x", J.f32(J.nth(h, 1))), "y", J.f32(J.nth(h, 2))), "dir", J.nth(h, 3)), "out", 0.0), "back", False{}), "caught", J.JNull{})
 
@@ -286,7 +267,6 @@ def hunters.Run.hunt.web.cap(full: Bool, +webs: J.Val) -> J.Val:
 def hunters.Run.hunt.web.put(+run: J.Val, +w: J.Val) -> J.Val:
   ga.push(run, "webs", ga.su(ga.sf(ga.sf(J.obj(), "x", J.f32(J.nth(w, 0))), "y", J.f32(J.nth(w, 1))), "left", hunters.WEB_LASTS()))
 
-# The rot: every targetable knight above one health within reach loses one.
 def hunters.Run.hunt.rot(+run: J.Val, +rs: List<&2, J.Val>) -> J.Val:
   match rs:
     case Nil{}:
@@ -314,11 +294,9 @@ def hunters.Run.hunt.rot.hit(hit: Bool, +run: J.Val, +x: F32, +y: F32, +t: List<
     case False{}:
       hunters.Run.hunt.rot.one(run, x, y, t, players)
 
-# Hooks thrown, webs spun, the rot: make what the hunters did so.
 def hunters.Run.hunt(+run: J.Val, +hooks: J.Val, +webs: J.Val, +rot: J.Val) -> J.Val:
   hunters.Run.hunt.rot(hunters.Run.hunt.webs(hunters.Run.hunt.hooks(run, J.items(hooks)), J.items(webs)), J.items(rot))
 
-# Webs fade: a tick off each, the spent ones go.
 def hunters.Run.tick_hunters.webs(+ws: List<&2, J.Val>) -> List<&2, J.Val>:
   match ws:
     case Nil{}:
@@ -336,7 +314,6 @@ def hunters.Run.tick_hunters.webs.keep.if(gone: Bool, +left: U32, +w: J.Val, res
     case False{}:
       Con{ga.su(w, "left", left), rest}
 
-# The Flesher a hook is his: where he stands and how big he is.
 def hunters.Run.find_enemy(+es: List<&2, J.Val>, +id: U32) -> Maybe<&2, Sigma<&2, &2, F32, _ => Sigma<&2, &2, F32, _ => F32>>>:
   match es:
     case Nil{}:
@@ -351,7 +328,6 @@ def hunters.Run.find_enemy.hit(hit: Bool, +e: J.Val, +t: List<&2, J.Val>, +id: U
     case False{}:
       hunters.Run.find_enemy(t, id)
 
-# One hook: the run, and the hook if it stays up (none when it is done).
 def hunters.Run.tick_hunters.one(+run: J.Val, +hook: J.Val) -> J.Val & Maybe<&2, J.Val>:
   hunters.Run.tick_hunters.owner(hunters.Run.find_enemy(J.items(J.get(run, "enemies")), ga.u(hook, "by")), run, hook)
 
@@ -368,8 +344,6 @@ def hunters.Run.tick_hunters.way(back: Bool, +run: J.Val, +hook: J.Val, +bx: F32
       hunters.Run.tick_hunters.reel(run, hook, bx, by, br)
     case False{}:
       hunters.Run.tick_hunters.fly(run, hook)
-
-# --- reeling in ---------------------------------------------------------------
 
 def hunters.Run.tick_hunters.reel(+run: J.Val, +hook: J.Val, +bx: F32, +by: F32, +br: F32) -> J.Val & Maybe<&2, J.Val>:
   hunters.Run.tick_hunters.reel.dir(rules.unit(F32.sub(bx, ga.f(hook, "x")), F32.sub(by, ga.f(hook, "y"))), run, hook, bx, by, br)
@@ -396,7 +370,6 @@ def hunters.Run.tick_hunters.reel.fin(home: Bool, +run: J.Val, +hook: J.Val) -> 
     case False{}:
       (run, Some{hook})
 
-# A reeled knight stops at a barred door or a wall. The hook may go on.
 def hunters.Run.tick_hunters.reel.caught(+caught: J.Val, +home: Bool, +nx: F32, +ny: F32, +run: J.Val, +hook: J.Val) -> J.Val & J.Val:
   hunters.Run.tick_hunters.reel.caught.id(J.is_null(caught), J.u32(caught), home, nx, ny, run, hook)
 
@@ -431,8 +404,6 @@ def hunters.Run.tick_hunters.reel.land(+followed: Bool, +hero: J.Val, +id: U32, 
     case False{}:
       (ga.sv(run, "players", ga.put_at(J.get(run, "players"), id, hero)), ga.sv(hook, "caught", J.JNull{}))
 
-# A ward after a hit holds against the hook too: no reel-in lands on a blow
-# just taken.
 def hunters.Run.tick_hunters.reel.hit(home: Bool, +hero: J.Val, +id: U32, +run: J.Val, +hook: J.Val) -> J.Val & J.Val:
   match home:
     case False{}:
@@ -440,8 +411,6 @@ def hunters.Run.tick_hunters.reel.hit(home: Bool, +hero: J.Val, +id: U32, +run: 
     case True{}:
       (ga.push(ga.push(ga.sb(ga.sv(run, "players", ga.put_at(J.get(run, "players"), id, hero.Hero.hurt(hero, hunters.HOOK_DAMAGE()))), "room_hurt", True{}),
         "fx", ga.su(J.obj(), "Shake", 6)), "sounds", J.JS{"hero_hurt"}), hook)
-
-# --- flying out ---------------------------------------------------------------
 
 def hunters.Run.tick_hunters.fly(+run: J.Val, +hook: J.Val) -> J.Val & Maybe<&2, J.Val>:
   hunters.Run.tick_hunters.fly.next(F32.mul(hunters.HOOK_SPEED(), rules.DT()), run, hook)
@@ -469,7 +438,6 @@ def hunters.Run.tick_hunters.fly.go(blocked: Bool, +nx: F32, +ny: F32, +step: F3
     case False{}:
       hunters.Run.tick_hunters.fly.catch(run, ga.sf(ga.sf(ga.sf(hook, "x", nx), "y", ny), "out", F32.add(ga.f(hook, "out"), step)))
 
-# The first knight it touches, unless rolling clear.
 def hunters.Run.tick_hunters.fly.catch(+run: J.Val, +hook: J.Val) -> J.Val & Maybe<&2, J.Val>:
   hunters.Run.tick_hunters.fly.caught(hunters.Run.tick_hunters.fly.touch(J.int_fields(J.get(run, "players")), ga.f(hook, "x"), ga.f(hook, "y")), run, hook)
 
@@ -498,8 +466,6 @@ def hunters.Run.tick_hunters.fly.caught(m: Maybe<&2, U32>, +run: J.Val, +hook: J
       (feats.Run.notice(ga.push(ga.push(run, "cues", J.JS{"hooked"}), "sounds", J.JS{"chest_open"}), "fresh_meat"),
         Some{ga.sb(ga.sv(hook, "caught", J.JU{id}), "back", True{})})
 
-# --- the loop over the hooks --------------------------------------------------
-
 def hunters.Run.tick_hunters.hooks(+run: J.Val, +hs: List<&2, J.Val>, +kept: List<&2, J.Val>) -> J.Val:
   match hs:
     case Nil{}:
@@ -515,13 +481,11 @@ def hunters.Run.tick_hunters.hooks.next(rm: J.Val & Maybe<&2, J.Val>, +t: List<&
     case Some{+h}:
       hunters.Run.tick_hunters.hooks(run, t, Con{h, kept})
 
-# Hooks fly and reel in; webs fade.
 def hunters.Run.tick_hunters(+run: J.Val) -> J.Val:
   hunters.Run.tick_hunters.hooks(
     J.set(run, "webs", J.JA{hunters.Run.tick_hunters.webs(J.items(J.get(run, "webs")))}),
     J.items(J.get(run, "hooks")), Nil{})
 
-# Whether a knight standing at `(x, y)` is in a web.
 def hunters.Run.webbed(+webs: J.Val, +x: F32, +y: F32) -> Bool:
   hunters.Run.webbed.go(J.items(webs), x, y)
 
@@ -539,7 +503,6 @@ def hunters.Run.webbed.hit(hit: Bool, +t: List<&2, J.Val>, +x: F32, +y: F32) -> 
     case False{}:
       hunters.Run.webbed.go(t, x, y)
 
-# The spiderlings a room holds now, for the brood's cap.
 def hunters.Run.brood_full(+run: J.Val) -> Bool:
   U32.is_ge(hunters.Run.brood_full.count(J.items(J.get(run, "enemies")), 0), hunters.BROOD())
 

@@ -9,16 +9,12 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FoeKind {
-    /// Walks its ledge back and forth.
     Snuffer,
-    /// A snuffer wearing a cap: a stomp leaves the cap behind.
     Capped,
-    /// Floats to and fro and bobs.
     Wisp,
 }
 
 impl FoeKind {
-    /// Width and height in pixels.
     pub fn size(self) -> (i32, i32) {
         match self {
             FoeKind::Snuffer => (14, 14),
@@ -35,7 +31,6 @@ impl FoeKind {
     }
 }
 
-/// Ticks a defeated foe pops into cold smoke before it is gone.
 pub const POP: u32 = 12;
 const WALK: i32 = 170;
 const CAPPED_WALK: i32 = 130;
@@ -45,18 +40,14 @@ const WISP_PERIOD: u32 = 150;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Foe {
     pub kind: FoeKind,
-    /// The feet's centre, 1/256 pixel.
     pub x: i32,
     pub y: i32,
     pub vx: i32,
     pub vy: i32,
     pub dir: i8,
     pub t: u32,
-    /// Ticks left of the pop; 0 while alive.
     pub dead: u32,
-    /// Where a wisp floats around, pixels.
     pub home: i32,
-    /// Which mark of the map it came from.
     pub mark: u16,
 }
 
@@ -64,7 +55,6 @@ impl Foe {
     pub fn new(kind: FoeKind, cell: (i32, i32), mark: u16) -> Foe {
         let x = cell.0 * TILE + TILE / 2;
         let (y, home) = match kind {
-            // A wisp's mark is where it floats; the others stand on the cell.
             FoeKind::Wisp => (cell.1 * TILE + TILE / 2 + 6, x),
             _ => ((cell.1 + 1) * TILE, x),
         };
@@ -84,7 +74,6 @@ impl Foe {
     pub fn alive(&self) -> bool {
         self.dead == 0
     }
-    /// The body box in pixels: left, top, right, bottom.
     pub fn rect(&self) -> (i32, i32, i32, i32) {
         let (w, h) = self.kind.size();
         let (x, y) = (self.x.div_euclid(Q), self.y.div_euclid(Q));
@@ -103,7 +92,6 @@ impl Foe {
             && self.dead <= POP
             && self.t < 1 << 24
     }
-    /// One tick. A foe far from every knight stands still.
     pub fn step(&mut self, g: &dyn Grid, near: bool) {
         if self.dead > 0 {
             self.dead -= 1;
@@ -128,7 +116,6 @@ impl Foe {
                 };
                 self.vx = i32::from(self.dir) * speed;
                 self.vy = (self.vy + 210).min(3000);
-                // Along, turning at a wall or at the edge of its ledge.
                 let (w, h) = self.kind.size();
                 let nx = self.x + self.vx;
                 let edge = if self.dir > 0 {
@@ -151,7 +138,6 @@ impl Foe {
                 } else {
                     self.x = nx;
                 }
-                // Down onto what is below.
                 let ny = self.y + self.vy;
                 let foot_col = self.x.div_euclid(TQ);
                 let row = ny.div_euclid(TQ);
@@ -172,11 +158,8 @@ impl Foe {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ItemKind {
-    /// A hearth loaf: a small knight grows, a big one is mended.
     Loaf,
-    /// A lantern flame: a big knight throws bolts of light.
     Flame,
-    /// What a capped snuffer leaves: kick it, or carry it.
     Cap,
 }
 
@@ -187,9 +170,7 @@ pub enum CapState {
     Carried,
 }
 
-/// Ticks a cap may be carried before what is under it wakes.
 pub const CARRY: u32 = 150;
-/// Ticks a block's gift takes to rise out of it.
 pub const RISE: u32 = 16;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -202,7 +183,6 @@ pub struct Item {
     pub dir: i8,
     pub t: u32,
     pub cap: CapState,
-    /// The knight who kicked or carries it.
     pub owner: u32,
 }
 
@@ -232,7 +212,6 @@ impl Item {
         let (x, y) = (self.x.div_euclid(Q), self.y.div_euclid(Q));
         (x - w / 2, y - h, x + w / 2, y)
     }
-    /// Still coming out of its block: touching does nothing yet.
     pub fn rising(&self) -> bool {
         matches!(self.kind, ItemKind::Loaf | ItemKind::Flame) && self.t < RISE
     }
@@ -249,7 +228,6 @@ impl Item {
         self.t = self.t.saturating_add(1);
         match self.kind {
             ItemKind::Flame => {
-                // Up out of the block, then it stays and flickers.
                 if self.t <= RISE {
                     self.y -= Q;
                 }
@@ -271,8 +249,6 @@ impl Item {
             },
         }
     }
-    /// Along at `speed` (0: stand), falling, turning at walls; a loaf also
-    /// turns at a ledge's edge, a cap goes over it.
     fn walk(&mut self, g: &dyn Grid, speed: i32, careful: bool) {
         let (w, h) = self.size();
         self.vy = (self.vy + 210).min(3000);
@@ -312,7 +288,6 @@ impl Item {
     }
 }
 
-/// A bolt of light a flame throws: it bounces along the ground.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Bolt {
     pub x: i32,
@@ -340,7 +315,6 @@ impl Bolt {
         let (x, y) = (self.x.div_euclid(Q), self.y.div_euclid(Q));
         (x - 3, y - 3, x + 3, y + 3)
     }
-    /// One tick; false once it has spent itself on a wall.
     pub fn step(&mut self, g: &dyn Grid) -> bool {
         self.t += 1;
         let nx = self.x + self.vx;
@@ -352,7 +326,6 @@ impl Bolt {
         let ny = self.y + self.vy;
         let below = g.tile(self.x.div_euclid(TQ), (ny + 3 * Q).div_euclid(TQ));
         if self.vy > 0 && (below.solid() || below.one_way()) {
-            // A low hop: it stays at a snuffer's height.
             self.vy = -900;
         } else if self.vy < 0 && g.tile(self.x.div_euclid(TQ), (ny - 3 * Q).div_euclid(TQ)).solid() {
             self.vy = 0;
@@ -363,7 +336,6 @@ impl Bolt {
     }
 }
 
-/// A bell boulder, rolling along its track.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Boulder {
     pub x: i32,

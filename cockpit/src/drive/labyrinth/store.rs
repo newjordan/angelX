@@ -16,9 +16,6 @@ const MAX_FRAGMENTS: usize = 2048;
 fn ignore_observations(workspace: &Path) -> Result<(), String> {
     let path = Path::new("labyrinth/angel/.gitignore");
     if !exists(workspace, path) {
-        // This ignores itself as well as future immutable fragments. Automatic
-        // research telemetry must not look like a source edit to /loop's Git
-        // progress detector or become part of an RL candidate snapshot.
         match confined_publish_new_no_symlinks(workspace, path, b"*\n") {
             Ok(()) => {}
             Err(_) if read(workspace, path, 4096).is_ok_and(|bytes| bytes == b"*\n") => {}
@@ -41,8 +38,6 @@ fn exists(workspace: &Path, relative: &Path) -> bool {
 }
 
 pub(crate) fn initialize(workspace: &Path) -> Result<(), String> {
-    // Validate an existing map first. Never replace curated knowledge or an
-    // operator's engine/dashboard with our copies.
     if exists(workspace, Path::new(KNOWLEDGE)) {
         load(workspace)?;
     }
@@ -86,8 +81,6 @@ pub(crate) fn load(workspace: &Path) -> Result<Option<Map>, String> {
     let mut document: Value =
         serde_json::from_slice(&read(workspace, Path::new(KNOWLEDGE), MAX_BYTES)?)
             .map_err(|error| format!("invalid labyrinth knowledge: {error}"))?;
-    // Native reads never execute a workspace-authored Python blueprint. Make
-    // unsupported imports explicit instead of showing an incomplete map.
     if exists(workspace, Path::new("tools/blueprint_data.py"))
         || document["blueprint_overrides"]
             .as_object()
@@ -155,8 +148,6 @@ pub(crate) fn load(workspace: &Path) -> Result<Option<Map>, String> {
                     continue;
                 }
                 if let Some(existing) = merged.get_mut(&id) {
-                    // A task's doorway is shared by every observation. Merge
-                    // links without changing any existing claim or tier.
                     let links = existing["links"]
                         .as_array_mut()
                         .ok_or("invalid observation links")?;
@@ -192,7 +183,6 @@ fn task_node(task: &str, links: Vec<Value>) -> Value {
         "statement":bounded(task),"links":links,"source":"angel"})
 }
 
-/// Failures are visible diagnostics and cannot break the original Deli/RL run.
 fn publish(
     workspace: &Path,
     nodes: Vec<Value>,
@@ -255,7 +245,6 @@ fn publish(
     }
     match confined_publish_new_no_symlinks(workspace, &name, &bytes) {
         Ok(()) => Ok(()),
-        // Concurrent identical observations may already have published it.
         Err(_)
             if read(workspace, &name, 64 * 1024).is_ok_and(|old| {
                 serde_json::from_slice::<Value>(&old)
@@ -269,7 +258,6 @@ fn publish(
 }
 
 fn timestamp() -> String {
-    // ISO UTC with no process or timezone dependency.
     let seconds = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -387,8 +375,6 @@ pub(crate) fn observe_measurement(
     )
 }
 
-/// Mirror exact terminal board receipts for every cartridge. Pending states,
-/// fixture prose and a rejection for not beating the board are not refutations.
 pub(crate) fn observe_submission(
     workspace: &Path,
     notify: &crate::agent::harness::WatchNotify,
@@ -411,9 +397,6 @@ pub(crate) fn observe_submission(
     let task = format!("Benchmark {}", official.benchmark_id);
     let root = task_id(&task);
     let data = serde_json::to_value(official).map_err(|error| error.to_string())?;
-    // Poll timestamps are transport metadata, not a distinct research result.
-    // Keep the first exact snapshot, and add a new observation only when the
-    // board's semantic result changes (for example, rejection or promotion).
     let mut identity = data.clone();
     identity.as_object_mut().unwrap().remove("fetched_at_ms");
     let digest = sha256_hex(json!([receipt.source_id, identity]).to_string().as_bytes());

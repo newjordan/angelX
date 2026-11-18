@@ -12,9 +12,6 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-# The source art left the repository on 2026-10-20 for the archive (its
-# README.md says what each folder is); ANGEL_SOURCE_ART names it
-# (default ~/angelX-archive/2026-10-20/source-art).
 SOURCE_ART = Path(os.environ.get('ANGEL_SOURCE_ART') or Path.home()/'angelX-archive/2026-10-20/source-art')
 ASSETS = ROOT/'cockpit/assets/dungeon/bosses'
 RETAINED = SOURCE_ART/'boss-effect-src'
@@ -22,7 +19,6 @@ SPEC = ROOT/'scripts/boss-effect-slots.json'
 spec = importlib.util.spec_from_file_location('library_import', ROOT/'scripts/boss-library-import.py')
 lib = importlib.util.module_from_spec(spec); spec.loader.exec_module(lib)
 LIGHTNESS = runpy.run_path(str(ROOT/'scripts/boss-art.py'))['lightness']
-# Every delivered bank names its source socket and native display in the manifest.
 BOSSES = {boss: (entry['display']['v1'], entry['display']['v2'], entry['source_socket']['projectile'])
           for boss, entry in json.loads(SPEC.read_text()).items() if 'readability' in entry}
 
@@ -42,7 +38,6 @@ def retain(deliveries):
   for role in ('projectile','tell','impact'):
    folder=deliveries/f'bossfx.{boss}.{role}'/'v01'
    meta=json.loads((folder/'source-sheet.json').read_text())
-   # The measurement names the accepted retry, not necessarily source-sheet.png.
    sheet=folder/Path(meta['file']).name
    im=Image.open(sheet).convert('RGBA'); assert list(im.size)==meta['size_wh']
    dest=RETAINED/boss/role; dest.mkdir(parents=True,exist_ok=True)
@@ -58,8 +53,6 @@ def retain(deliveries):
 
 
 def clean(im):
- # Remove only the thin reddish matte contamination at a transparent edge.
- # Interior rust, flame and robe reds remain source-owned.
  out=im.copy(); px=out.load()
  for y in range(im.height):
   for x in range(im.width):
@@ -74,7 +67,6 @@ def clean(im):
 
 
 def registered(frames, size, socket):
- # One scale across a whole animation; every contact socket maps to canvas centre.
  radii=[]
  for im in frames:
   sx,sy=im.width*socket[0],im.height*socket[1]
@@ -101,7 +93,6 @@ def load_frames(boss,role,indices):
 
 
 def skin(reference, mask):
- # Geometry is the existing mark, including lane endpoints and phase shape.
  source=[(x,y,reference.getpixel((x,y))) for y in range(reference.height) for x in range(reference.width) if reference.getpixel((x,y))[3]>=128]
  assert source
  out=Image.new('RGBA',mask.size)
@@ -125,7 +116,6 @@ def projectile_pigment(c, policy):
 
 
 def projectile_signals(source, policy):
- # Sample before shrinking: a furnace glint must not disappear in a BOX mean.
  colours=sorted((projectile_pigment(c,policy) for frame in source
                  for c in frame.get_flattened_data() if c[3]>=224),key=LIGHTNESS)
  signals = [colours[int(len(colours)*q)] for q in (.99,policy.get('rim_quantile',.95))]
@@ -151,8 +141,6 @@ def prepare_projectile(ref, policy, signals):
    if edge and (y<ref.height//2 or x>ref.width//2): colour=rim
    elif LIGHTNESS(colour)>=threshold: colour=core
    out.putpixel((x,y),colour+(255,))
- # A thin arrow may contain only edge samples after shrinking. Retain its
- # brightest authored sample as a core instead of replacing every glint by rim.
  if core+(255,) not in set(out.get_flattened_data()):
   point=max(((x,y) for y in range(ref.height) for x in range(ref.width)
              if ref.getpixel((x,y))[3]>=128),
@@ -163,8 +151,6 @@ def prepare_projectile(ref, policy, signals):
 
 
 def reduce_projectile(ref, signals, policy=None):
- # A local source-derived bank preserves emission hues the realm's material
- # bank cannot represent (especially pink spores). The two signal inks are exact.
  pixels=[c[:3] for c in ref.get_flattened_data() if c[3]]
  samples=Image.new('RGB',(len(pixels),1));samples.putdata(pixels)
  method,kmeans=(policy or {}).get('quantizer',[0,0])
@@ -190,8 +176,6 @@ def run(check=False):
   entry['flight_ticks']=[4,4];entry['impact_ticks']=[2,1,1,1,1]
   if boss=='cinderjaw': entry.setdefault('point_rim',[[146,79,29],[169,118,57],[216,169,94],[236,182,74]])
   if boss=='mother-of-spores': entry.setdefault('point_rim',[[122,74,18],[146,79,29],[190,145,75],[216,169,94]])
-  # Flight A1/A2; tells A1..A4; impact A contact/peak/break/fade/dust.
-  # Most impact deliveries use 4 columns: dust is the first cell of row two.
   mapping={'projectile':[0,1], 'tell':[0,1,2,3], 'impact':[0,1,2,3,4]}
   if boss=='iron-tusk-chief':
    mapping['projectile']=[5,7]
@@ -230,7 +214,6 @@ def run(check=False):
       ref=prepare_projectile(ref,policy,signals)
       native,inks=reduce_projectile(ref,signals,policy);projectile_inks.update(inks)
      else:
-      # Existing tell/impact material preparation and warning masks stay exact.
       ref=ref.copy(); ref.putdata([tuple(round(v*gain) for v in c[:3])+(c[3],) for c in ref.get_flattened_data()])
       native=lib.convert(ref)
      if role=='tell':
@@ -246,8 +229,6 @@ def run(check=False):
     if kit=='v1': entry[role]=names
     else: entry['projectile_v2']=names
    if role=='tell' and entry.get('source_point_rim',False):
-    # Four cached boundary values come from this delivered bank's inks.
-    # The runtime still clips the mark to the same collision envelope.
     colours={c[:3] for name in entry['tell'] for c in Image.open(ASSETS/boss/name).convert('RGBA').get_flattened_data() if c[3] and 25<=LIGHTNESS(c[:3])<=80}
     flight_source=load_frames(boss,'projectile',mapping['projectile'])
     for frame in registered(flight_source,v2,sockets['projectile']):

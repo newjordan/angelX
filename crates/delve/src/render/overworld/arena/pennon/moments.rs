@@ -15,12 +15,8 @@ use crate::rules::pennon::show::{CALL_LIFE, Call, Cry, GO_LIFE, HOLD, Puff};
 use crate::rules::{HZ, Run};
 
 const TITLE_Y: i32 = 20;
-/// Where the count and the GO land: high, so the strides under them stay in view.
 const SLAM_Y: i32 = 104;
 
-// ─── the shake ───────────────────────────────────────────────────────────────
-
-/// A blow a notch lighter: what another knight's finale does to your screen.
 fn lighter(w: Weight) -> Weight {
     match w {
         Weight::Finale => Weight::Crushing,
@@ -29,10 +25,6 @@ fn lighter(w: Weight) -> Weight {
     }
 }
 
-/// The world's shake for the knight looked through: its own blows and falls
-/// in full, the captain's blow coming down, and a rival breaking the siege a
-/// notch lighter. The picture keeps its phase while the room is held, so a
-/// freeze still trembles.
 pub(super) fn shake(run: &Run, cx: &Cx) -> (i32, i32) {
     let show = &cx.s.show;
     let now = show.t;
@@ -54,10 +46,6 @@ pub(super) fn shake(run: &Run, cx: &Cx) -> (i32, i32) {
     juice::shake(blows, phase)
 }
 
-// ─── the opening ─────────────────────────────────────────────────────────────
-
-/// A figure slamming in at `at`, springing to size, ringing, and going: the
-/// kit's countdown at the size of this screen.
 fn slam(im: &mut Img, at: (i32, i32), label: &str, age: u32, life: u32, go: bool) {
     if age >= life {
         return;
@@ -85,7 +73,6 @@ fn slam(im: &mut Img, at: (i32, i32), label: &str, age: u32, life: u32, go: bool
     claim_big("slam", (x, y, t.w, t.h), label);
 }
 
-/// The kit's banner, with the boxes it draws noted for the tests.
 fn banner(im: &mut Img, y: i32, title: &str, sub: &str, age: u32, life: u32, tone: Tone, cap: i32) {
     if age >= life {
         return;
@@ -107,7 +94,6 @@ fn banner(im: &mut Img, y: i32, title: &str, sub: &str, age: u32, life: u32, ton
     }
 }
 
-/// The title card, then the 3-2-1, then GO over the first strides.
 pub(super) fn opening(im: &mut Img, cx: &Cx) {
     let t = cx.s.show.t;
     if cx.s.hold > 0 {
@@ -123,9 +109,6 @@ pub(super) fn opening(im: &mut Img, cx: &Cx) {
     }
 }
 
-// ─── the calls ───────────────────────────────────────────────────────────────
-
-/// What a call says, how loud, how inked.
 struct Words2 {
     title: String,
     sub: String,
@@ -170,7 +153,6 @@ fn words(run: &Run, cx: &Cx, c: &Call) -> Option<Words2> {
     Some(Words2 { title, sub, tone })
 }
 
-/// The loudest call standing for the seat, if any.
 pub(super) fn call<'a>(run: &Run, cx: &'a Cx) -> Option<(&'a Call, u32)> {
     let now = cx.s.show.t;
     cx.s
@@ -182,7 +164,6 @@ pub(super) fn call<'a>(run: &Run, cx: &'a Cx) -> Option<(&'a Call, u32)> {
         .map(|c| (c, c.age(now)))
 }
 
-/// The call of the moment, high on the screen where nothing else is.
 pub(super) fn callout(im: &mut Img, run: &Run, cx: &Cx) {
     let Some((c, age)) = call(run, cx) else { return };
     if cx.s.hold > 0 || age >= CALL_LIFE {
@@ -193,10 +174,6 @@ pub(super) fn callout(im: &mut Img, run: &Run, cx: &Cx) {
     banner(im, 32, &w.title, &w.sub, age, CALL_LIFE, w.tone, cap);
 }
 
-// ─── the clock ───────────────────────────────────────────────────────────────
-
-/// The last five seconds as numbers, big, at the right: the strip's clock
-/// only keeps time, these are the call.
 pub(super) fn last_seconds(im: &mut Img, cx: &Cx) {
     let s = cx.s;
     if s.hold > 0 || s.left == 0 || cx.d.finish.is_some() {
@@ -217,7 +194,6 @@ pub(super) fn last_seconds(im: &mut Img, cx: &Cx) {
     }
 }
 
-/// The hint keys fade when the knight has begun.
 pub(super) fn hints(im: &mut Img, words: &mut Words, cx: &Cx) {
     let early = cx.s.hold > 0 || cx.s.show.t < HOLD + 3 * HZ;
     if early && super::hud::green(cx.d) && cx.d.finish.is_none() {
@@ -225,9 +201,6 @@ pub(super) fn hints(im: &mut Img, words: &mut Words, cx: &Cx) {
     }
 }
 
-/// After the world was thrown aside, the strips it uncovered at its edges
-/// are filled from the nearest column or row, so a shake never shows the
-/// canvas's black.
 pub(super) fn mend_edges(im: &mut Img, (dx, dy): (i32, i32)) {
     let (top, bottom) = (super::hud::VIEW_TOP, super::hud::VIEW_BOTTOM);
     if dx > 0 {
@@ -267,8 +240,6 @@ pub(super) fn mend_edges(im: &mut Img, (dx, dy): (i32, i32)) {
     }
 }
 
-/// A knight who has broken the siege watches the others run it: paper falls
-/// and the camp's sky is lit with fireworks for a few seconds.
 pub(super) fn celebrate(im: &mut Img, cx: &Cx) {
     let Some(fin) = cx.d.finish else { return };
     if cx.s.left == 0 {

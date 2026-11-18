@@ -1,11 +1,6 @@
 import Base
 import ./deep-cut.bend as DeepCut
 
-# Small, honest claims about the direction leg: the fallback holds when no
-# direction is offered, i64 saturation is a real fixed point at both ends, an
-# evidence class only counts under its own mark, and the pick follows score then
-# rank. Nothing here claims more than the checker computes.
-
 law empty_offer_keeps_the_fallback:
   for fallback_id: String
   {DeepCut.allocate(DeepCut.Offer{fallback_id, (Nil{} : List<&2, DeepCut.Direction>)}) == DeepCut.Decision{fallback_id, 2} : DeepCut.Decision}

@@ -2,7 +2,6 @@
 //! earlier departures wait safely at the entrance while friends play on.
 use super::*;
 
-/// Half a second of host steps, independent of rendering and client sampling.
 pub const LEAVE_TICKS: u32 = HZ.div_ceil(2);
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -12,7 +11,6 @@ pub struct State {
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub holding: BTreeMap<u32, u32>,
     pub outside: BTreeMap<u32, Entry>,
-    /// Only while seats are removed from this tick's working set.
     #[serde(skip)]
     pub(super) squire_owners: BTreeMap<String, u32>,
 }
@@ -77,13 +75,11 @@ impl State {
 
 impl Run {
     pub fn can_leave_activity(&self, id: u32) -> bool {
-        // A finished run's Enter answers its verdict, even in a home room.
         self.active() && self.crossroads.is_none() && self.players.get(&id).is_some_and(|_| {
             !self.exits.outside.contains_key(&id) && (room(self.room().kind) || self.minigame_showing() || self.at_privy(id))
         })
     }
 
-    /// A game with its own stage or rules, including its result board.
     pub fn minigame_showing(&self) -> bool {
         self.forest_road_showing() || self.roundtable_showing() || self.cinder_showing() || self.latch_showing() || self.mossbell_showing()
             || self.brasswake_showing() || self.rafterwake_showing() || self.pennon_showing()
@@ -157,11 +153,6 @@ impl Run {
         if !room(self.dungeon.rooms[index].kind) && !self.hosts_game(index) {
             self.exits.entry = None;
         } else {
-            // Where each knight stands in the room left, kept inside it: a
-            // race's own track may put a knight past the room's edge, and an
-            // entry outside the room is no snapshot at all (`Exits::valid`),
-            // so every page would refuse the run and the save would not come
-            // back (the race on the play box, 2026-10-17).
             let r = &self.dungeon.rooms[self.at];
             let (w, h) = (r.width(), r.height());
             let inside = |x: f32, top: f32| if x.is_finite() { x.clamp(0.0, top) } else { top / 2.0 };
@@ -177,7 +168,6 @@ impl Run {
     }
 
     pub(super) fn activity_return(&self) -> Option<Entry> {
-        // Out of a Colosseum arena is back into its entrance hall.
         if let Some(hall) = self.arena_return() {
             return Some(hall);
         }
@@ -195,8 +185,6 @@ impl Run {
             });
         }
         self.exits.entry.clone().or_else(|| {
-            // Old saves predate the entry journal. Optional delve halls have
-            // one return door; surface rooms return to the Undercroft.
             let at = (0..4)
                 .find_map(|d| self.dungeon.neighbour(self.at, d))
                 .or_else(|| world::room_of(&self.dungeon, RoomKind::Home))?;
@@ -248,7 +236,6 @@ impl Run {
         }
         self.exits.holding.remove(&id);
         self.hitstop.buffered.remove(&id);
-        // A privy is a personal pop-up, not a party room transition.
         if self.at_privy(id) {
             let at = self.players[&id]
                 .pit
@@ -266,10 +253,6 @@ impl Run {
         let Some(back) = self.activity_return() else {
             return false;
         };
-        // A side-on hall is left by its one doorway, low in its west wall,
-        // whichever side its room lies on: a knight coming out by a west
-        // door still holds the key that walks them back in. That key is
-        // held off until let go (`Hero::held_off`).
         let behind = self.room().way_back().map(|side| ((side + 2) % 4) as u8);
         let hero = self.players.get_mut(&id).unwrap();
         Self::release_activity_controls(hero);
@@ -294,8 +277,6 @@ impl Run {
             self.college = Default::default();
         }
         self.pastimes.depart(id, remaining);
-        // The last one out closes the place behind them; a knight who is
-        // away (`Run::away`) is no one to wait for, and comes along.
         if self
             .players
             .keys()
@@ -322,11 +303,6 @@ impl Run {
         if let Some(s) = &mut self.race3d { s.riders.remove(&id); }
     }
 
-    /// A knight waits outside while friends play on inside. Once everyone
-    /// still inside is away, the place closes and the party is whole again
-    /// where the waiting knight stands, so their doors work. An away knight
-    /// left waiting outside goes back in to the party: no stair waits on
-    /// them.
     pub(super) fn close_behind_the_away(&mut self) {
         if self.exits.outside.is_empty() {
             return;
@@ -349,12 +325,9 @@ impl Run {
         }
     }
 
-    /// Knight `id`, waiting outside, back in with the party.
     pub(super) fn rejoin(&mut self, id: u32) {
         self.exits.outside.remove(&id);
         let (w, h) = (self.dungeon.rooms[self.at].width(), self.dungeon.rooms[self.at].height());
-        // On an open map, beside a friend standing (else at the arrival):
-        // the map's foot is rock.
         let spot = self.dungeon.open.as_ref().filter(|_| self.open_map()).map(|open| {
             let near = self
                 .players
@@ -371,8 +344,6 @@ impl Run {
     }
 
     pub(super) fn finish_activity_return(&mut self, back: &Entry) {
-        // Those out already stand where they walked to; anyone still inside
-        // (away) comes out where they went in.
         let positions: BTreeMap<_, _> = self
             .players
             .iter()
@@ -382,8 +353,6 @@ impl Run {
             })
             .collect();
         self.exits = State::default();
-        // Back into the Colosseum's hall from an arena, the visit goes on:
-        // its great door still leads out to the kingdom.
         if self.dungeon.rooms[back.at].kind != RoomKind::ColosseumHall {
             self.kingdom.return_to = None;
         }
@@ -409,15 +378,8 @@ impl Run {
         let Some(h) = self.players.get_mut(&id) else {
             return;
         };
-        // A real doorway records the crossed threshold. Stand inside it,
-        // otherwise travel immediately carries the knight back into the game.
         h.x = h.x.clamp(1.6, room.width() - 1.6);
         h.y = h.y.clamp(1.6, room.height() - 1.6);
-        // On an open floor's map the threshold crossed is a door tile in a
-        // chamber's wall, nowhere near the map's edge: the knight comes out
-        // at its landing, as a door brings the party out (`open_landing`),
-        // not on the tile that takes them straight back in ("fix the room
-        // walkouts we bounce back on accident", 2026-10-19).
         if let Some(door) = self
             .dungeon
             .open
@@ -452,9 +414,6 @@ impl Run {
         h.camera = (room.kind == RoomKind::Kingdom).then_some((h.x, h.y - 1.0));
     }
 
-    /// Seats outside the room walk freely and can rejoin at their entry point.
-    /// Their bodies are removed from the activity's working set, so every
-    /// targeting, damage, reward and pad test uses only those still inside.
     pub(super) fn detached_seats(&mut self, inputs: &BTreeMap<u32, Input>) -> BTreeMap<u32, Hero> {
         let outside: Vec<_> = self.exits.outside.keys().copied().collect();
         for id in outside {
@@ -483,7 +442,6 @@ impl Run {
                 (h.aim_x, h.aim_y) = (ax, ay);
             }
             h.pit.tick();
-            // The party's webs and song stay with the party; a road is a road.
             let roads = (grid.room.kind == RoomKind::Kingdom)
                 .then(|| map::geography(&self.kingdom.wishes));
             let pace = fx::ground_pace(h, &[], None, roads.as_deref(), &self.tune);
@@ -495,8 +453,6 @@ impl Run {
             );
             h.camera = (grid.room.kind == RoomKind::Kingdom).then_some((h.x, h.y - 1.0));
         }
-        // Reconcile while all identities are still visible, including absent
-        // holders; the removed bodies then reserve their name for this tick.
         self.sync_squires();
         let ids: Vec<_> = self
             .players
@@ -522,14 +478,10 @@ impl Run {
     }
 
     pub fn view_for_seat(&self, id: u32) -> Option<Run> {
-        // In a heat each knight sees their own round of the game.
-        // In a horse race a friend sees the race from their own team.
         if let Some(index) = self.chariot.as_ref().and_then(|c| c.racer_of(id)).filter(|&i| i > 0) {
             let mut view = self.outside_view(id).unwrap_or_else(|| self.clone());
             if let Some(race) = view.chariot.as_mut() {
                 race.racers.swap(0, index);
-                // The one who boarded drives the team the friend left, so
-                // every chariot still carries its own knight.
                 for friend in race.friends.iter_mut().filter(|(_, s)| *s == id) {
                     friend.1 = race.driver;
                 }
@@ -538,12 +490,9 @@ impl Run {
             return Some(view);
         }
         if let Some(round) = self.pastimes.round.as_ref().filter(|r| r.game == crate::rules::pastimes::Game::Gander) {
-            // A knight who has left the hall sees where they went.
             if let Some(view) = self.outside_view(id) {
                 return Some(view);
             }
-            // The joust hall is one shared hall: every seat's view carries
-            // it whole, so friends joust each other on their own screens.
             let mut view = self.clone();
             view.pastimes.round = Some(round.clone());
             view.pastimes.heats.clear();
@@ -586,8 +535,6 @@ impl Run {
     }
 
     fn clear_game_stages(&mut self, room: Option<usize>) {
-        // The floor can remember a puzzle in another room. A retreat ends
-        // only this stage; a detached view discards all of their pictures.
         if let Some(index) = room
             && self.powder.as_ref().is_some_and(|p| p.room == index)
         {
@@ -599,13 +546,11 @@ impl Run {
         if self.powder.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.powder = None; }
         if self.hop.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.hop = None; }
         if self.nook.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.nook = None; }
-        // A random room's game ends with its stage (`encounter`).
         if self.encounter.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.abandon_encounter(); }
         if self.race3d.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.race3d = None; }
     }
 
     pub(super) fn clear_activity(&mut self) {
-        // The rides end with the room (`activity::RIDES`).
         self.end_outside_activities();
         self.clear_game_stages(None);
         self.forest.leave();
@@ -645,7 +590,6 @@ impl Run {
     }
 }
 
-/// `RealmHall` as `Realm Hall`.
 fn spaced(name: &str) -> String {
     let mut out = String::with_capacity(name.len() + 4);
     for (i, c) in name.chars().enumerate() {

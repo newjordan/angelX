@@ -1,5 +1,3 @@
-// Thin adapter: the host sends plain JSON features, the checked Bend module
-// decides, and the decision returns as plain JSON. No policy lives here.
 const bend = require('./verify-policy.compiled.js')
 
 const TOOLS = { shell: 'Shell', cargo: 'Cargo', fmt: 'Fmt', check: 'Check' }

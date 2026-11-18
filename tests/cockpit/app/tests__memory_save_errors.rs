@@ -86,7 +86,6 @@ fn memory_mutations_report_failed_save_keep_values_and_retry_normally() {
     assert_eq!(app.memories, vec![Arc::<str>::from("retained")]);
 }
 
-// APFS rejects the raw-byte workspace before the memory save path is reached.
 #[cfg(target_os = "linux")]
 #[test]
 fn invalid_workspace_memory_commands_report_unsupported_without_erasing_values() {

@@ -22,7 +22,6 @@ from .delve.source import palette
 from .native import root_path
 from .quick_motion import CLIPS, TICKS_PER_SECOND, defaults
 
-# name, parent, source joint, draw order. Front means image-right, not anatomy.
 _LAYOUT = (
     ('back', 'torso', 'neck', 0),
     ('upper_arm_b', 'torso', 'shoulder_b', 1),
@@ -42,7 +41,7 @@ _LAYOUT = (
 )
 PARTS = tuple(p[0] for p in _LAYOUT)
 ANCHORS = ('grip', 'off_hand', 'head', 'back', 'feet', 'tip')
-_MAX_SIDE = 1024  # source image, including an entire input sheet
+_MAX_SIDE = 1024
 _MAX_CANVAS = 128
 _MAX_FRAMES = 128
 _MAX_TOTAL_FRAMES = 1024
@@ -96,7 +95,6 @@ def _image(image, *, cell=None, cell_size=None, facing='right',
     if facing not in ('right', 'left'):
         raise ValueError('facing: expected right or left')
     def selection(size):
-        # Inspect headers/shapes BEFORE conversion, decoding, slicing or copying.
         w, h = _size(size, 'source')
         if (cell is None) != (cell_size is None):
             raise ValueError('sheet: cell and cell_size must be supplied together')
@@ -134,7 +132,7 @@ def _image(image, *, cell=None, cell_size=None, facing='right',
     if color is not None:
         rgba[np.all(rgba[..., :3] == color, axis=-1), 3] = 0
     rgba[..., 3] = np.where(rgba[..., 3] >= alpha_threshold, 255, 0)
-    rgba[rgba[..., 3] == 0] = 0  # canonical transparent RGBA, never hidden RGB
+    rgba[rgba[..., 3] == 0] = 0
     if facing == 'left':
         rgba = rgba[:, ::-1].copy()
     if not np.any(rgba[..., 3]):
@@ -151,12 +149,11 @@ def _palette(root=None):
 
 def _inks(rgba, pal):
     """Map opaque RGB to nearest real ink. Alpha is binary, never RGB-composited."""
-    names = sorted(pal)  # stable tie break, independent of source table ordering
+    names = sorted(pal)
     colors = np.array([pal[k] for k in names], dtype=np.int32)
     out = np.full(rgba.shape[:2], '.', dtype='<U1')
     opaque = rgba[..., 3] != 0
     rgb, inverse = np.unique(rgba[opaque, :3], axis=0, return_inverse=True)
-    # Chunk unique colours so generated/antialiased inputs don't allocate N*palette.
     nearest = []
     for i in range(0, len(rgb), 1024):
         d = rgb[i:i+1024].astype(np.int32)[:, None, :] - colors[None, :, :]
@@ -189,7 +186,7 @@ def fit(image, *, root=None, cell=None, cell_size=None, facing='right',
     canvas/pivot are final output pixels; default padding is one body-height on
     every side. Source floor maps to pivot. No automatic cropping or scaling.
     """
-    _palette(root)  # fail early if the authoritative palette root is unavailable
+    _palette(root)
     rgba = _image(image, cell=cell, cell_size=cell_size, facing=facing,
                   alpha_threshold=alpha_threshold, key_color=key_color)
     m = rgba[..., 3] != 0
@@ -200,7 +197,6 @@ def fit(image, *, root=None, cell=None, cell_size=None, facing='right',
     if height < 4 or xx.max()-xx.min() < 2:
         raise ValueError('source: silhouette is too small to fit a humanoid (need 3x4)')
     Y, X = np.mgrid[:h, :w]
-    # Central torso mass, avoiding a wide hat or long feet when estimating x.
     band = m & (Y >= y0+height*.28) & (Y < y0+height*.57)
     cx = float(np.median(X[band])) if band.any() else float(np.median(xx))
     neck, hip = y0+height*.25, y0+height*.60
@@ -230,16 +226,12 @@ def fit(image, *, root=None, cell=None, cell_size=None, facing='right',
         labels[arm] = 'upper_arm_'+side
         labels[arm & (Y >= elbow)] = 'lower_arm_'+side
         labels[arm & (Y >= wrist)] = 'hand_'+side
-    # Conservatively recognize a rear hanging strip; ordinary short arms are
-    # NOT turned into a cape. Occluded capes can be painted into the back mask.
     tail = m & (X < cx-thw-1) & (Y >= hip+height*.06) & (Y < ankle)
     ty, tx = np.nonzero(tail)
     if len(ty) >= 3 and np.ptp(ty) >= height*.12:
         cape = m & (X <= np.max(tx)) & (Y >= neck) & (Y < ankle)
         labels[cape] = 'back'
 
-    # A short/occluded limb can end before the proportional wrist/ankle.
-    # Give its distal visible pixel to the hand/foot, not to an unrelated torso.
     for side in ('b', 'f'):
         for distal, chain in (('hand_', ('lower_arm_', 'upper_arm_')),
                               ('foot_', ('lower_leg_', 'upper_leg_'))):
@@ -428,7 +420,6 @@ def _validate_clips(clips, label):
 def _json_text(data):
     text = json.dumps(data, indent=2, allow_nan=False)+'\n'
     if len(text.encode('utf-8')) > _MAX_BYTES:
-        # Formatting must not make an otherwise runtime-loadable asset fail.
         text = json.dumps(data, separators=(',', ':'), allow_nan=False)+'\n'
         if len(text.encode('utf-8')) > _MAX_BYTES:
             raise ValueError('JSON exceeds 8 MiB')
@@ -499,9 +490,6 @@ def _textures(rig, ink):
     Y, X = np.mgrid[:ink.shape[0], :ink.shape[1]]
     for name, part in rig['parts'].items():
         mask = masks[name].copy()
-        # Borrow ONLY actual neighbouring parent pixels at the shared joint.
-        # These overlapping collars seal rasterization seams without rest-pose
-        # dilation, solid-colour discs, mesh holes or invented hidden body art.
         if part['parent'] and rig['seam_radius']:
             x, y = rig['joints'][part['joint']]
             collar = (X-x)**2+(Y-y)**2 <= rig['seam_radius']**2
@@ -520,8 +508,6 @@ def _stamp(out, texture, transform):
                         [x.min()-.5, y.max()+.5], [x.max()+.5, y.max()+.5]])@r.T+t
     x0, y0 = np.floor(corners.min(0)).astype(int)
     x1, y1 = np.ceil(corners.max(0)).astype(int)+1
-    # Sample the complete transformed box first; clipping opaque output is an
-    # authoring error, not a silently truncated animation.
     if max(x1-x0, y1-y0) > 4*_MAX_SIDE:
         raise ValueError('render: transformed part exceeds supported bounds')
     Y, X = np.mgrid[y0:y1, x0:x1]
@@ -545,11 +531,8 @@ def _anchors(rig, transforms, base, contacts):
         r, t = transforms[anchor['part']] if anchor['part'] else base
         target = r@np.array(anchor['point'])+t
         if name == 'tip':
-            # Direction/weapon reach, deliberately not a body contact.
             result[name] = np.floor(target+.5).astype(int).tolist()
         elif not np.any(contacts[anchor['part']]):
-            # A part can be wholly hidden in a pose (a one-pixel hand behind the
-            # body mid-roll). The socket then sits where the part would be.
             result[name] = np.floor(target+.5).astype(int).tolist()
         else:
             result[name] = _contact(contacts[anchor['part']], target,
@@ -570,9 +553,6 @@ def _ground(rig, transforms, base, textures):
 
 
 def _smear(out, previous, current, ink, width):
-    # A short bright curved tip ribbon, behind the body; not a whole-frame
-    # translucent ghost. The hand and tip are the SAME attachment transforms
-    # emitted to the runtime, so a held item can use this exact trajectory.
     a, b = np.array(previous['tip'], float), np.array(current['tip'], float)
     grip = (np.array(previous['grip'])+np.array(current['grip']))/2
     if np.linalg.norm(b-a) < 1:
@@ -614,14 +594,13 @@ def build(image, rig, *, root=None, clips=None):
     if not names or any(not isinstance(n, str) for n in names) or len(set(names)) != len(names) or any(n not in rig['clips'] for n in names):
         raise ValueError('clips: select distinct existing clip names')
     if 'idle' not in names:
-        names.insert(0, 'idle')  # every export must be loadable by Rig::parse
+        names.insert(0, 'idle')
     game = dict(version=1, canvas=rig['canvas'][:], pivot=rig['pivot'][:], clips={})
     ordered = sorted(rig['parts'], key=lambda n: (rig['parts'][n]['z'], n))
     w, h = rig['canvas']
     contact_textures = {n: np.where(np.array([list(row) for row in rig['parts'][n]['mask']]) == '#',
                                     ink, '.')
                         for n in {a['part'] for k, a in rig['anchors'].items() if k != 'tip'}}
-    # Use a source highlight for smears; never introduce a fabricated ink bank.
     visible = sorted(set(''.join(_rows(ink)))-{'.'})
     smear_ink = max(visible, key=lambda c: sum(pal[c]))
     for name in names:
@@ -632,8 +611,6 @@ def build(image, rig, *, root=None, clips=None):
                 transforms, base = _ground(rig, transforms, base, textures)
             out = np.full((h, w), '.', dtype='<U1')
             try:
-                # Occupancy must come from the owning mask's inverse-sampled
-                # pixels, not a rounded socket, borrowed collar or whole body.
                 contacts = {}
                 for part, texture in contact_textures.items():
                     layer = np.full((h, w), '.', dtype='<U1')
@@ -688,7 +665,7 @@ def validate_game(game, *, root=None):
                     raise ValueError('game.anchor outside canvas')
     if not idle_ink:
         raise ValueError('game: idle body has no ink')
-    _json_text(game)  # same 8 MiB bound as Rust, including exported formatting
+    _json_text(game)
     return game
 
 

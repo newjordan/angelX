@@ -14,11 +14,8 @@ use super::*;
 use std::collections::VecDeque;
 use std::sync::{Mutex, OnceLock};
 
-/// Root-visible mark for a handle-backed receipt. Distinct from
-/// [`TOOL_AGED_MARK`] so consumers can detect re-fetchable offload.
 pub(crate) const HANDLE_RECEIPT_MARK: &str = "[handle receipt";
 
-/// The handle a receipt names (`hnd_3` in `[handle receipt: hnd_3 kind=…]`).
 pub(crate) fn receipt_handle(content: &str) -> Option<String> {
     let rest = content
         .trim_start()
@@ -27,7 +24,6 @@ pub(crate) fn receipt_handle(content: &str) -> Option<String> {
     rest.split_whitespace().next().map(str::to_string)
 }
 
-/// Opaque handle identity. Format: `hnd_<base36>`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct HandleId(pub(crate) String);
 
@@ -44,16 +40,11 @@ impl std::fmt::Display for HandleId {
     }
 }
 
-/// Producer class for provenance and root-trajectory classification.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum HandleKind {
-    /// Successful reconstructable inspection tool result aged out of root.
     ToolResult,
-    /// Nested code_mode intermediate / final bulk offload.
     CodeMode,
-    /// Programmatic sub-LM / spawn seat bulk return.
     Subcall,
-    /// Explicit operator or test deposit.
     #[default]
     Manual,
 }
@@ -68,7 +59,7 @@ impl HandleKind {
         }
     }
 
-    #[allow(dead_code)] // wire/env round-trip and tests
+    #[allow(dead_code)]
     pub(crate) fn parse(s: &str) -> Option<Self> {
         match s {
             "tool_result" => Some(Self::ToolResult),
@@ -80,25 +71,19 @@ impl HandleKind {
     }
 }
 
-/// Bounded strategy-level summary shown to the root model.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Receipt {
     pub(crate) handle: HandleId,
     pub(crate) kind: HandleKind,
-    /// Tool / recipe / persona name (bounded).
     pub(crate) producer: String,
-    /// Semantic inspection identity when known (`read_file|path`).
     pub(crate) identity: Option<String>,
     pub(crate) bytes: usize,
     pub(crate) lines: usize,
-    /// At most a handful of path stems for strategy context.
     pub(crate) paths: Vec<String>,
-    /// Optional short non-bulk preview (first non-empty line, heavily capped).
     pub(crate) preview: Option<String>,
 }
 
 impl Receipt {
-    /// Stable root-visible text. Kept short so many receipts remain LID-like.
     pub(crate) fn render(&self) -> String {
         let identity = self
             .identity
@@ -126,8 +111,6 @@ impl Receipt {
     }
 }
 
-/// Capped disclosure of a stored body slice (never the unbounded full dump by
-/// default — callers must pass an explicit budget).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct DiscloseSlice {
     pub(crate) handle: HandleId,
@@ -156,15 +139,12 @@ impl DiscloseSlice {
 struct HandleEntry {
     receipt: Receipt,
     body: String,
-    /// Non-cryptographic integrity fingerprint (length + std hash).
     content_sha256: String,
-    #[allow(dead_code)] // insert timestamp; readers currently use touch_ms
+    #[allow(dead_code)]
     created_ms: u64,
     touch_ms: u64,
 }
 
-/// Session-scoped store. Entries are process-local and not durable across
-/// restarts (durable evidence still lives in dossier/experience/palace).
 #[derive(Debug, Default)]
 pub(crate) struct HandleStore {
     entries: HashMap<String, HandleEntry>,
@@ -224,7 +204,6 @@ pub(crate) struct HandleStoreStats {
     pub(crate) evictions: u64,
 }
 
-/// Metadata accepted when depositing bulk evidence.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct PutMeta<'a> {
     pub(crate) kind: HandleKind,
@@ -255,7 +234,6 @@ impl HandleStore {
         self.total_bytes = 0;
     }
 
-    /// Receipts in LRU order (oldest first). Used by `agent://` listing.
     pub(crate) fn list_receipts(&self) -> Vec<Receipt> {
         self.order
             .iter()
@@ -263,23 +241,21 @@ impl HandleStore {
             .collect()
     }
 
-    #[allow(dead_code)] // offline inspection / tests
+    #[allow(dead_code)]
     pub(crate) fn get_receipt(&self, id: &str) -> Option<&Receipt> {
         self.entries.get(id).map(|e| &e.receipt)
     }
 
-    #[allow(dead_code)] // offline inspection / tests
+    #[allow(dead_code)]
     pub(crate) fn content_sha256(&self, id: &str) -> Option<&str> {
         self.entries.get(id).map(|e| e.content_sha256.as_str())
     }
 
-    #[allow(dead_code)] // eviction tests + offline inspection
+    #[allow(dead_code)]
     pub(crate) fn contains(&self, id: &str) -> bool {
         self.entries.contains_key(id)
     }
 
-    /// Store bulk `body` and return a root-visible receipt. Empty bodies are
-    /// rejected — there is nothing to offload.
     pub(crate) fn put(
         &mut self,
         body: &str,
@@ -351,7 +327,6 @@ impl HandleStore {
         Ok(receipt)
     }
 
-    /// Explicit capped disclosure. Default path for root re-materialization.
     pub(crate) fn disclose(
         &mut self,
         id: &str,
@@ -376,15 +351,12 @@ impl HandleStore {
                 content: String::new(),
             });
         }
-        // Byte offsets may land inside a UTF-8 character. Snap the start back
-        // to the nearest boundary so the requested byte range remains readable.
         let mut start = offset;
         while start > 0 && !entry.body.is_char_boundary(start) {
             start -= 1;
         }
         let budget = max_bytes.min(limits.max_disclose_bytes).max(1);
         let end = (start + budget).min(total);
-        // Snap to char boundary.
         let mut end = end;
         while end > start && !entry.body.is_char_boundary(end) {
             end -= 1;
@@ -392,7 +364,6 @@ impl HandleStore {
         let content = entry.body[start..end].to_string();
         let truncated = end < total;
         self.discloses = self.discloses.saturating_add(1);
-        // Refresh LRU: move id to back.
         if let Some(pos) = self.order.iter().position(|x| x == id)
             && let Some(item) = self.order.remove(pos)
         {
@@ -429,22 +400,15 @@ impl HandleStore {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Process session store
-// ---------------------------------------------------------------------------
-
 fn session_store() -> &'static Mutex<HandleStore> {
     static STORE: OnceLock<Mutex<HandleStore>> = OnceLock::new();
     STORE.get_or_init(|| Mutex::new(HandleStore::new()))
 }
 
-/// Whether the handle-store treatment is active (default on).
 pub(crate) fn handle_store_enabled() -> bool {
     env_flag("ANGEL_HANDLE_STORE", true)
 }
 
-/// Deposit bulk into the process session store. No-op path returns `None` when
-/// disabled so callers fall back to discard-only receipts.
 pub(crate) fn session_put(body: &str, meta: PutMeta<'_>) -> Option<Receipt> {
     if !handle_store_enabled() {
         return None;
@@ -457,7 +421,6 @@ pub(crate) fn session_put(body: &str, meta: PutMeta<'_>) -> Option<Receipt> {
     guard.put(body, meta, limits, now).ok()
 }
 
-/// Explicit capped disclosure from the process session store.
 pub(crate) fn session_disclose(
     id: &str,
     offset: usize,
@@ -481,7 +444,6 @@ pub(crate) fn session_stats() -> HandleStoreStats {
         .stats()
 }
 
-/// List live handle receipts (oldest first). Empty when the store is disabled.
 pub(crate) fn session_list_receipts() -> Vec<Receipt> {
     if !handle_store_enabled() {
         return Vec::new();
@@ -499,9 +461,6 @@ pub(crate) fn session_clear() {
         .clear();
 }
 
-/// Age-path helper: store body when possible and render a handle-backed aged
-/// receipt that still carries the legacy [`TOOL_AGED_MARK`] prefix for existing
-/// pairing/idempotence checks.
 pub(crate) fn age_receipt_for(identity: &str, original_bytes: usize, body: &str) -> Option<String> {
     let receipt = session_put(
         body,
@@ -524,10 +483,6 @@ pub(crate) fn age_receipt_for(identity: &str, original_bytes: usize, body: &str)
     ))
 }
 
-/// Offload a large root-bound tool/subcall body when the store is enabled and
-/// `body` meets `min_bytes`. Returns a handle receipt for root history, or
-/// `None` when the caller should keep the original body (too small, store off,
-/// or put failed).
 pub(crate) fn maybe_offload_root_body(
     body: &str,
     kind: HandleKind,
@@ -552,19 +507,14 @@ pub(crate) fn maybe_offload_root_body(
     Some(receipt.render())
 }
 
-/// Outcome of the pre-history bulk veto (eager offload).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct EagerOffload {
-    /// Root-facing content (receipt when offloaded, else original).
     pub(crate) content: String,
     pub(crate) offloaded: bool,
     pub(crate) original_bytes: usize,
     pub(crate) bytes_saved: u64,
 }
 
-/// Tools whose results must stay complete in root history (mutations,
-/// verifiers, approvals, handle plumbing). Everything else may be eagerly
-/// offloaded when large enough.
 pub(crate) fn eager_offload_tool_eligible(tool_name: &str) -> bool {
     !matches!(
         tool_name,
@@ -585,24 +535,14 @@ pub(crate) fn eager_offload_tool_eligible(tool_name: &str) -> bool {
             | "present"
             | "ui_inspect"
             | "ui_verify"
-            // Already produce strategy receipts / own offload path.
             | "code_mode"
             | "spawn"
             | "delegate"
     )
 }
 
-/// Soft bulk veto: before a successful tool result enters root history, park
-/// large eligible bodies under a handle so the root only sees a receipt.
-/// Errors, denials, existing receipts, tiny bodies, and ineligible tools pass
-/// through unchanged. Floor comes from [`eager_tool_offload_min_bytes`].
-///
-/// Default hops skip [`inspection_identity`] when this is false.
 pub(crate) fn eager_offload_can_park(tool_name: &str, result: &str) -> bool {
     handle_store_enabled()
-        // A receipt without a registered disclosure tool is a dead end. Aging
-        // may still retain a handle for diagnostics, but eager root offload is
-        // useful only when the model can recover it deliberately.
         && handle_read_tool_enabled()
         && eager_offload_tool_eligible(tool_name)
         && result.len() >= eager_tool_offload_min_bytes()
@@ -613,7 +553,6 @@ pub(crate) fn eager_offload_can_park(tool_name: &str, result: &str) -> bool {
         && !result.contains(TOOL_DUPLICATE_MARK)
 }
 
-/// Identity string only when offload can actually park the body.
 pub(crate) fn inspection_identity_for_offload(call: &ToolCall, result: &str) -> Option<String> {
     if eager_offload_can_park(&call.name, result) {
         inspection_identity(call)
@@ -656,14 +595,11 @@ pub(crate) fn eager_offload_tool_result(
     }
 }
 
-/// Default floor for spawn/delegate root digests.
-/// Treebeard uses a lower floor when the env var is unset (see [`lane`]).
 pub(crate) fn subcall_offload_min_bytes() -> usize {
     lane_subcall_offload_min_bytes()
 }
 
 fn extract_paths_from_identity(identity: &str) -> Vec<String> {
-    // Identities look like `read_file|src/lib.rs` or `grep|pattern|path`.
     let mut parts = identity.split('|');
     let _tool = parts.next();
     parts
@@ -675,13 +611,6 @@ fn extract_paths_from_identity(identity: &str) -> Vec<String> {
         .collect()
 }
 
-// ---------------------------------------------------------------------------
-// handle_read tool — explicit root disclosure (opt-in registration)
-// ---------------------------------------------------------------------------
-
-/// Model-facing capped disclosure. Registered when
-/// `ANGEL_HANDLE_READ_TOOL=1`, or automatically under the Treebeard lane
-/// (unless the flag is forced off). Keeps the default schema lean outside RLM.
 pub struct HandleReadTool;
 
 impl Tool for HandleReadTool {
@@ -720,18 +649,9 @@ pub(crate) fn maybe_register_handle_read(r: &mut ToolRegistry) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Root-only trajectory fingerprint (Hi/Q instrumentation)
-// ---------------------------------------------------------------------------
-
-/// Compact root-trajectory token used for similarity. Bulk tool bodies and
-/// handle contents are reduced to strategy symbols so short and long tasks
-/// that share decomposition can score as near-identical.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RootTrajectory {
-    /// Ordered strategy tokens (role/tool/receipt class), not raw content.
     pub(crate) tokens: Vec<String>,
-    /// Approximate root-visible character mass (receipts + assistant text).
     pub(crate) root_chars: usize,
     pub(crate) tool_hops: usize,
     pub(crate) handle_receipts: usize,
@@ -745,8 +665,6 @@ impl RootTrajectory {
     }
 }
 
-/// Project model-facing history into a root-only trajectory representation.
-/// Tool bulk is classified, not embedded — this is the LID view.
 pub(crate) fn root_trajectory(history: &[ChatMsg]) -> RootTrajectory {
     let mut tokens = Vec::new();
     let mut root_chars = 0usize;
@@ -758,8 +676,6 @@ pub(crate) fn root_trajectory(history: &[ChatMsg]) -> RootTrajectory {
     for message in history {
         match message.role {
             ChatRole::System => {
-                // Stable system prefix is intentionally omitted so fingerprints
-                // compare task trajectories, not bootstrap identity.
             }
             ChatRole::User | ChatRole::Harness => {
                 let kind = if message.role == ChatRole::Harness {
@@ -767,7 +683,6 @@ pub(crate) fn root_trajectory(history: &[ChatMsg]) -> RootTrajectory {
                 } else {
                     "user"
                 };
-                // Content-blind length bucket keeps short/long tasks comparable.
                 let bucket = length_bucket(message.content.len());
                 tokens.push(format!("{kind}:{bucket}"));
                 root_chars = root_chars.saturating_add(message.content.len());
@@ -807,8 +722,6 @@ pub(crate) fn root_trajectory(history: &[ChatMsg]) -> RootTrajectory {
                 } else {
                     bulk_tool_results = bulk_tool_results.saturating_add(1);
                     tokens.push(format!("tool:bulk:{}", length_bucket(content.len())));
-                    // Count only a token budget of bulk toward root_chars so
-                    // metrics reflect the failure mode of stuffing context.
                     root_chars = root_chars.saturating_add(content.len());
                 }
             }
@@ -825,9 +738,6 @@ pub(crate) fn root_trajectory(history: &[ChatMsg]) -> RootTrajectory {
     }
 }
 
-/// Distance metrics on root fingerprints (1 = identical, 0 = disjoint).
-/// Offline RL / Hi/Q analysis API — kept next to fingerprint construction so
-/// forge scripts and unit tests share one implementation.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct TrajectorySimilarity {
     pub(crate) jaccard_3gram: f64,
@@ -837,7 +747,7 @@ pub(crate) struct TrajectorySimilarity {
     pub(crate) token_levenshtein_sim: f64,
 }
 
-#[allow(dead_code)] // offline RL / Hi/Q analysis; exercised by handle_store tests
+#[allow(dead_code)]
 pub(crate) fn trajectory_similarity(
     a: &RootTrajectory,
     b: &RootTrajectory,
@@ -973,17 +883,12 @@ fn levenshtein(a: &[String], b: &[String]) -> usize {
     prev[n]
 }
 
-// ---------------------------------------------------------------------------
-// Small pure helpers
-// ---------------------------------------------------------------------------
-
 fn bound_token(s: &str, max_chars: usize) -> String {
     let trimmed = s.trim();
     let mut out: String = trimmed.chars().take(max_chars).collect();
     if trimmed.chars().count() > max_chars {
         out.push('…');
     }
-    // Keep receipts single-line.
     out.replace(['\n', '\r', '\t'], " ")
 }
 
@@ -1018,17 +923,11 @@ fn to_base36(mut n: u64) -> String {
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
-    // Prefer a lightweight non-crypto fingerprint if sha2 is unavailable;
-    // use std hasher + length for store integrity checks only (not security).
     let mut hasher = DefaultHasher::new();
     bytes.hash(&mut hasher);
     bytes.len().hash(&mut hasher);
     format!("{:016x}", hasher.finish())
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/harness/handle_store__tests.rs"]

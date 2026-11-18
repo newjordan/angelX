@@ -45,25 +45,11 @@ const T: u8 = MATERIAL_TIMBER;
 const S: u8 = MATERIAL_STONE;
 const D: u8 = MATERIAL_DOOR;
 
-// ------------------------------------------------------------------ bay grid
-
-/// The centre aisle, which the south door opens onto.
 const AISLE_X: f32 = 4.5;
-/// Horizontal spacing between station lanes.
 const LANE_PITCH: f32 = 0.95;
-/// Depth of the first station row, set just clear of the back wall.
 const ROW0_Y: f32 = 2.0;
-/// Depth spacing between station rows.
 const ROW_PITCH: f32 = 0.7;
 
-/// Where a station sits. Lanes run outward from the aisle (negative to the
-/// left), rows run from the back wall toward the door.
-///
-/// The two pitches were fitted to the hand-placed rooms this table replaced:
-/// every one of the 32 original sprites lands on a bay within 0.45 cells, so
-/// the grid follows the art rather than the art following the grid. `nudge`
-/// carries that remainder. It is art tuning, not structure — a station with no
-/// nudge is the normal case, and new stations should need none.
 #[derive(Clone, Copy)]
 pub(super) struct Bay {
     lane: i8,
@@ -96,23 +82,14 @@ impl Bay {
     }
 }
 
-// --------------------------------------------------------------- station kit
-
-/// How a station answers the room's flicker clock.
 #[derive(Clone, Copy)]
 pub(super) enum Light {
-    /// Never lit.
     Dark,
-    /// Always lit.
     Steady,
-    /// Lit on the even phase.
     Flicker,
-    /// Lit on the odd phase, so a pair alternates.
     Counterflicker,
 }
 
-/// One reusable piece of furniture. The station kit below is also the art
-/// backlog: every entry names a silhouette that has to read at pane size.
 #[derive(Clone, Copy)]
 pub(super) struct Station {
     pub(super) id: u8,
@@ -130,7 +107,6 @@ const fn station(id: u8, name: &'static str, w: f32, h: f32, light: Light) -> St
     }
 }
 
-/// The same station on the opposite flicker phase, for facing pairs.
 const fn offbeat(s: Station) -> Station {
     Station {
         id: s.id,
@@ -140,17 +116,13 @@ const fn offbeat(s: Station) -> Station {
     }
 }
 
-// Hall and hearth
 const HEARTH: Station = station(KEEP_HEARTH_ID, "long hearth", 3.7, 0.82, Light::Steady);
 const BANNER: Station = station(BANNER_ID, "banner", 0.85, 1.55, Light::Dark);
-// Gate
 const PORTCULLIS: Station = station(PORTCULLIS_ID, "portcullis", 4.8, 2.2, Light::Dark);
 const BRAZIER: Station = station(BRAZIER_ID, "brazier", 0.9, 1.15, Light::Flicker);
-// Rookery
 const PERCH: Station = station(PERCH_ID, "perch", 1.1, 1.15, Light::Dark);
 const RAVEN: Station = station(RAVEN_ID, "raven", 0.62, 0.62, Light::Dark);
 const RAVEN_ROOSTING: Station = station(RAVEN_ID, "roosting raven", 0.78, 0.62, Light::Steady);
-// Teaching floor
 const SHELF_BAY: Station = station(
     LIBRARY_SHELVES_ID,
     "curriculum bay",
@@ -178,23 +150,16 @@ const DIALOGUE_HEARTH: Station = station(
     0.72,
     Light::Flicker,
 );
-// Forge
 const FORGE_FIRE: Station = station(SMITHY_FIRE_ID, "forge fire", 0.9, 1.15, Light::Flicker);
 const ANVIL: Station = station(ANVIL_ID, "anvil", 1.35, 0.8, Light::Steady);
-// Chapel
 const ROSE_WINDOW: Station = station(ROSE_GLOW_ID, "rose window", 2.7, 2.15, Light::Steady);
 const ALTAR: Station = station(ALTAR_ID, "altar", 2.25, 1.15, Light::Dark);
 const TAPER: Station = station(SMITHY_FIRE_ID, "chapel taper", 0.48, 1.25, Light::Flicker);
-// Council
 const COUNCIL_TABLE: Station = station(ROUND_TABLE_ID, "round table", 3.2, 0.78, Light::Steady);
 const SEAT: Station = station(COUNCIL_SEAT_ID, "council seat", 0.48, 0.7, Light::Dark);
-// Observatory
 const TELESCOPE: Station = station(TELESCOPE_ID, "telescope", 2.7, 2.35, Light::Steady);
 const CHART_STAND: Station = station(CHART_STAND_ID, "chart stand", 1.35, 1.25, Light::Steady);
 
-/// The named Scriptorium tutor kit. These six silhouettes are the stable
-/// vocabulary of the teaching floor; the room may gain more stations later,
-/// but none of these may collapse back into a generic desk or billboard.
 #[cfg(test)]
 const SCRIPTORIUM_TUTOR_STATIONS: [Station; 6] = [
     LECTERN,
@@ -205,7 +170,6 @@ const SCRIPTORIUM_TUTOR_STATIONS: [Station; 6] = [
     DIALOGUE_HEARTH,
 ];
 
-/// A station dropped into a bay.
 #[derive(Clone, Copy)]
 pub(super) struct Placement {
     pub(super) station: Station,
@@ -216,30 +180,24 @@ const fn put(station: Station, bay: Bay) -> Placement {
     Placement { station, bay }
 }
 
-// ------------------------------------------------------------- place records
-
-/// A place: a shell to stand in and the stations that furnish it.
 pub(super) struct Place {
     pub(super) building: Building,
     pub(super) shell: u8,
     pub(super) stations: &'static [Placement],
 }
 
-/// Hearth hall in a broad stone shell.
 const KEEP: &[Placement] = &[
     put(HEARTH, nudged(0, 2, 0.0, -0.30)),
     put(BANNER, nudged(-3, 0, 0.35, 0.0)),
     put(BANNER, nudged(3, 0, -0.35, 0.0)),
 ];
 
-/// Gate passage, enclosed in dressed stone.
 const GATEHOUSE: &[Placement] = &[
     put(PORTCULLIS, nudged(0, 1, 0.0, -0.25)),
     put(BRAZIER, nudged(-2, 3, -0.35, -0.10)),
     put(offbeat(BRAZIER), nudged(2, 3, 0.35, -0.10)),
 ];
 
-/// Timber loft for the rookery perches.
 const ROOKERY: &[Placement] = &[
     put(PERCH, nudged(-3, 1, 0.45, 0.0)),
     put(PERCH, bay(0, 1)),
@@ -248,17 +206,10 @@ const ROOKERY: &[Placement] = &[
     put(RAVEN_ROOSTING, nudged(2, 0, -0.30, -0.10)),
 ];
 
-/// The teaching floor. Its stations are the curriculum, so this is the place
-/// most expected to grow: new tutors take free bays in rows 2 and 3.
 const SCRIPTORIUM: &[Placement] = &[
     put(SHELF_BAY, nudged(0, 0, 0.0, -0.45)),
-    // Resident and curriculum plates sit against the shelf wall rather than
-    // masquerading as floor furniture.
     put(TUTOR_BENCH, nudged(-2, 0, 0.15, 0.10)),
     put(BOOK_TABLE, nudged(2, 0, -0.15, 0.10)),
-    // From the camera these pairs occupy outer, middle, and inner screen
-    // bands. The depth and bay nudges keep all six silhouettes independently
-    // visible instead of lining them up where near furniture hides far.
     put(LECTERN, nudged(-1, 2, -0.45, 0.0)),
     put(GEAR_BENCH, nudged(1, 2, 0.45, 0.0)),
     put(STAR_GLOBE, nudged(-2, 3, 0.20, 0.0)),
@@ -267,14 +218,12 @@ const SCRIPTORIUM: &[Placement] = &[
     put(DIALOGUE_HEARTH, nudged(1, 4, -0.45, 0.0)),
 ];
 
-/// Timber workshop shell; forge furniture is authored as billboards.
 const SMITHY: &[Placement] = &[
     put(FORGE_FIRE, nudged(-3, 0, 0.35, 0.20)),
     put(offbeat(FORGE_FIRE), nudged(3, 0, -0.35, 0.20)),
     put(ANVIL, nudged(0, 3, 0.0, 0.10)),
 ];
 
-/// Stone chapel shell.
 const CHAPEL: &[Placement] = &[
     put(ROSE_WINDOW, nudged(0, 0, 0.0, 0.15)),
     put(ALTAR, nudged(0, 2, 0.0, -0.30)),
@@ -282,11 +231,6 @@ const CHAPEL: &[Placement] = &[
     put(offbeat(TAPER), nudged(2, 2, 0.05, -0.15)),
 ];
 
-/// Stone council chamber; table and seats stay readable at tiny sizes.
-///
-/// The near-centre bay (lane 0, row 5) is deliberately left open. It is the
-/// seat the camera stands at, so filling it would mass a dark chair across the
-/// middle of the table and close off the vista the room is built around.
 const ROUND_TABLE: &[Placement] = &[
     put(COUNCIL_TABLE, nudged(0, 3, 0.0, -0.10)),
     put(SEAT, nudged(-2, 1, 0.0, 0.30)),
@@ -296,13 +240,11 @@ const ROUND_TABLE: &[Placement] = &[
     put(SEAT, nudged(2, 4, 0.0, 0.20)),
 ];
 
-/// Stone observatory; its apparent ceiling is the open telescope shaft.
 const OBSERVATORY: &[Placement] = &[
     put(TELESCOPE, nudged(0, 1, -0.10, 0.35)),
     put(CHART_STAND, nudged(2, 2, -0.45, 0.30)),
 ];
 
-/// Every place in the realm. Adding one is a record, not a match arm.
 pub(super) const PLACES: &[Place] = &[
     Place {
         building: Building::Keep,
@@ -350,7 +292,6 @@ fn place_for(building: Building) -> Option<&'static Place> {
     PLACES.iter().find(|place| place.building == building)
 }
 
-/// A bare shell: solid wall ring in one material, with one centered south door.
 fn shell_cells(material: u8) -> Vec<u8> {
     let side = ROOM_SIDE as usize;
     let mut cells = vec![0u8; side * side];
@@ -372,8 +313,6 @@ pub(super) fn scene(building: Building, tick: u64, sway: f32) -> Option<(RayMap,
     Some(compose(place_for(building)?, tick, sway))
 }
 
-/// Build the drawable scene for one place. Everything a place needs is in its
-/// record, so a place that gains a station gains it here with no code change.
 fn compose(place: &Place, tick: u64, sway: f32) -> (RayMap, RayView) {
     let fire_lit = (tick / 2).is_multiple_of(2);
     let mut sprites: Vec<RaySprite> = place

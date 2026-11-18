@@ -271,8 +271,6 @@ fn persistence_process_worker() {
                     .unwrap();
                 None
             };
-            // For crash-exit only the actual exit method can admit this snapshot.
-            // Receiving it establishes entry before a writer can expose the kill marker.
             let WriterJob::Save(snapshot) = receiver.recv_timeout(Duration::from_secs(2)).unwrap()
             else {
                 panic!("save required")
@@ -294,7 +292,6 @@ fn persistence_process_worker() {
                                 .unwrap(),
                             )
                             .unwrap();
-                            // Parent owns and kills this process. A failed runner cannot hang forever.
                             std::thread::sleep(Duration::from_secs(30));
                             panic!("owned fault runner failed to settle child before deadline");
                         }

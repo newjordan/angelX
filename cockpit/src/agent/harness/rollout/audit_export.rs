@@ -17,8 +17,6 @@ pub(crate) struct AuditedRollout {
     pub(crate) event_count: usize,
 }
 
-/// Deterministically load and verify one sealed rollout. This performs no
-/// recovery, model call, tool call, Git operation, or mutation.
 #[allow(dead_code)]
 pub(crate) fn audit_workspace_rollout(
     workspace: &Path,
@@ -29,11 +27,6 @@ pub(crate) fn audit_workspace_rollout(
     audit_store_rollout(&store, rollout_id, &project.repo_key)
 }
 
-/// Export a bounded, body-free receipt for any sealed rollout, including one
-/// that is intentionally ineligible for training because reward is owned by an
-/// external evaluator. The audit validates the journal and every referenced
-/// capture blob before projecting metadata; it never relaxes trajectory export
-/// eligibility.
 pub(crate) fn audit_workspace_rollout_receipt(
     workspace: &Path,
     rollout_id: &str,
@@ -43,9 +36,6 @@ pub(crate) fn audit_workspace_rollout_receipt(
     audit_store_rollout_receipt(&store, rollout_id, &project.repo_key)
 }
 
-/// Delegate journals must remain in the parent's configured store after the
-/// disposable worktree is removed. Legacy per-worktree identities remain
-/// useful captures, but cannot be linked by this same-store contract.
 pub(crate) fn audit_delegate_rollout_receipt(
     parent: &Path,
     child: &Path,
@@ -88,8 +78,6 @@ fn audit_delegate_task_subject(manifest: &HarnessRolloutV1) -> Result<(), String
     Ok(())
 }
 
-/// Explicit compatibility export. Ordinary trajectory-v2 logging never calls
-/// this path, so capture/export cannot alter its bytes or write cadence.
 pub(crate) fn export_workspace_rollout_v2(
     workspace: &Path,
     rollout_id: &str,
@@ -99,9 +87,6 @@ pub(crate) fn export_workspace_rollout_v2(
     export_store_rollout_v2(&store, rollout_id, &project.repo_key)
 }
 
-/// Discover, audit, and deterministically export every eligible project-local
-/// rollout. This is an offline read only: it does not write an inbox, start a
-/// trainer, contact a service, or alter the rollout store.
 pub(crate) fn export_workspace_rollout_corpus_v2(workspace: &Path) -> Result<Value, String> {
     let store = RolloutStore::for_workspace(workspace);
     let project = RolloutStore::project_identity(workspace);
@@ -310,9 +295,6 @@ fn audit_store_rollout_receipt_at_depth(
     Ok(receipt)
 }
 
-/// Completed action routes are observed separately from the requested route.
-/// Failed/partial attempts and delegated work do not become model contributors
-/// here. Missing identities remain counted as unresolved, including old stores.
 fn resolved_actions(manifest: &HarnessRolloutV1) -> Value {
     let mut completed = 0u64;
     let mut unresolved = 0u64;
@@ -835,8 +817,6 @@ fn recorded_message_to_chat(
         attachments: Vec::new().into(),
         tool_calls: calls.into(),
         tool_call_id: message.tool_call_id.clone(),
-        // Private provider reasoning is intentionally absent from durable
-        // rollout artifacts and cannot be reconstructed on export.
         private_reasoning: None,
         responses_replay: None,
         tool_receipt: None,

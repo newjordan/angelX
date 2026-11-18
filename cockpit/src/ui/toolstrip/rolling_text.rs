@@ -40,7 +40,6 @@ impl RollingText {
         let running = enabled && !paused && self.total > width;
         if let Some((last, was_running)) = self.last.replace((now, running)) {
             let dt = now.saturating_duration_since(last);
-            // A hidden pane does no work and resumes its previous position.
             if running && was_running && dt <= Duration::from_millis(250) {
                 self.elapsed = self.elapsed.saturating_add(dt);
             }
@@ -62,7 +61,6 @@ fn window_with_width(text: &str, total: usize, width: usize, elapsed: Duration) 
     if total <= width || width <= 2 {
         return super::ellipsize_with_width(text, width, total);
     }
-    // Fixed marker cells keep the reading window stable at both ends.
     let view = width - 2;
     let distance = total - view;
     let travel = distance as u128 * STEP_MS;
@@ -89,7 +87,6 @@ fn window_with_width(text: &str, total: usize, width: usize, elapsed: Duration) 
             if pos >= offset && end <= offset + view {
                 out.push_str(grapheme.symbol);
             } else {
-                // Never paint half a wide glyph or detach a combining mark.
                 out.extend(std::iter::repeat_n(' ', visible));
             }
             used += visible;

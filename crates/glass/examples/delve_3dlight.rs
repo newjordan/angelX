@@ -32,14 +32,11 @@ fn main() -> ExitCode {
     }
 }
 
-/// One scene to shoot.
 struct Scene {
     name: &'static str,
     depth: u32,
     kind: RoomKind,
-    /// The room is a fight under way (monsters, shots) or won (embers, loot).
     fighting: bool,
-    /// Seeds to try: the room of most stone and hazard wins.
     seeds: &'static [u64],
 }
 
@@ -53,7 +50,6 @@ const SCENES: &[Scene] = &[
     Scene { name: "d4-archive-stairs", depth: 4, kind: RoomKind::Stairs, fighting: false, seeds: &[11, 12, 13, 14] },
 ];
 
-/// Tiles of stone and of hazard in a room.
 fn stuff(room: &angel_delve::rules::Room) -> (usize, usize) {
     let (mut blocks, mut hazards) = (0, 0);
     for row in 0..room.rows as i32 {
@@ -68,8 +64,6 @@ fn stuff(room: &angel_delve::rules::Room) -> (usize, usize) {
     (blocks, hazards)
 }
 
-/// The run for a scene: four knights in the best room of the kind on the
-/// floor, among the seeds.
 fn build(scene: &Scene) -> Result<Run, String> {
     let mut best: Option<(usize, Run, usize)> = None;
     for &seed in scene.seeds {
@@ -100,8 +94,6 @@ fn build(scene: &Scene) -> Result<Run, String> {
     run.clear_prerequisites_for_test();
     run.enter_for_test(at);
     run.deep_beat = None;
-    // What lies on the floor: arms, a heart, a shield, a little way up the
-    // room from the knights.
     let feet: Vec<(f32, f32)> = run.players.values().map(|h| (h.x, h.y)).collect();
     for (n, card) in ["bow", "knights-blade", "heart", "shield"].iter().enumerate() {
         let (x, y) = feet.get(n).copied().unwrap_or((20.0, 20.0));
@@ -122,7 +114,6 @@ fn build(scene: &Scene) -> Result<Run, String> {
     Ok(run)
 }
 
-/// One tick of the fight, as `delve_depth` plays it.
 fn step(run: &mut Run, at: usize) {
     let t = run.tick as f32 / HZ as f32;
     let inputs: BTreeMap<u32, Input> = (1..=4u32)
@@ -199,8 +190,6 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
-/// The brand guide's frame numbers (`angel_stage::brand::audit_frame`) over
-/// the play space: the rows between the HUD's bars, black border and all.
 fn darkness(rgba: &[u8], size: (u32, u32)) -> String {
     let (w, h) = (size.0 as usize, size.1 as usize);
     let (y0, y1) = ((h as f32 * 0.10) as usize, (h as f32 * 0.85) as usize);
@@ -238,8 +227,6 @@ impl Gpu {
         Ok(Self { core, device, target: None })
     }
 
-    /// A Delve frame as a stage, drawn into a texture `size` pixels as the
-    /// window draws a stage in its cells, on black, and read back.
     fn stage(&mut self, frame: angel_stage::Frame, size: (u32, u32), read: bool) -> Option<Vec<u8>> {
         for p in frame.pictures {
             self.core.upload(Picture { id: p.id, width: p.width, height: p.height, rgba: p.rgba, cols: 0, rows: 0 });

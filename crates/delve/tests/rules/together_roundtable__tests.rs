@@ -92,7 +92,6 @@ fn doors_are_distinct_walkable_and_clear_of_every_other_door_and_errand() {
             .filter(|&(dx, dy)| geo.room.tile(x + dx, y + dy) == Tile::Floor)
             .count();
         assert!(open >= 6, "{} has room for a table round it", a.slug);
-        // An authored screen: the party's wishes build in the wild between.
         assert!(
             (x / SCREEN_W) % 2 == 0 && (y / SCREEN_H) % 2 == 0,
             "{} is not in a wild screen",
@@ -114,7 +113,6 @@ fn doors_are_distinct_walkable_and_clear_of_every_other_door_and_errand() {
             );
         }
     }
-    // Every door can be walked to from the Keep.
     let mut seen = std::collections::BTreeSet::new();
     let mut queue = std::collections::VecDeque::from([geo.sites[0].stand]);
     seen.insert(geo.sites[0].stand);
@@ -150,7 +148,6 @@ fn e_at_each_door_opens_that_adventure_alone_and_elsewhere_opens_nothing() {
             r.activities_on().iter().filter(|n| **n == a.name).count(),
             1
         );
-        // The fixture is the same door, the same way in.
         assert_eq!(
             Run::roundtable_for_test(a.slug)
                 .unwrap()
@@ -210,8 +207,6 @@ fn entering_any_room_closes_every_adventure() {
 
 #[test]
 fn every_fixture_is_a_run_the_shell_accepts() {
-    // What a session may not hold is each adventure's own check
-    // (`a_session_is_bounded_and_repair_mends_it` in its test file).
     for a in &ADVENTURES {
         let r = Run::roundtable_for_test(a.slug).unwrap();
         assert!(
@@ -302,7 +297,6 @@ fn the_activity_registry_names_each_and_the_wire_hides_it_from_a_seat_outside() 
     r.join_seat(2, "Friend");
     assert!(r.leave_activity(2));
     let tree = crate::wire::publish(&r).unwrap();
-    // Seat 1 plays knight 2, who stands outside; seat 0 plays knight 1, inside.
     let outside = crate::wire::seat_tree(&tree, Some(1));
     assert_eq!(
         outside.field("moonfall"),

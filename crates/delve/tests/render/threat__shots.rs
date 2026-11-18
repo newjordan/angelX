@@ -17,7 +17,6 @@ fn step(run: &mut Run, input: Input) {
     run.step(&BTreeMap::from([(1, input)]));
 }
 
-/// A hillside at home with the Keep staked and the knight in the camp, at the dusk of a day.
 fn night_run() -> Run {
     let mut run = run_at(146.5, 97.5);
     for _ in 0..30 * 12 {
@@ -34,7 +33,6 @@ fn at_dusk(run: &mut Run, day: u64, before: u64) {
     run.home.industry.second = day * deep_raid::DAY + deep_raid::DUSK + deep_raid::JUDGE_AFTER - before;
 }
 
-/// Frames of a reel: one every `every` ticks, the camera held on `look` (a tile) when it is set.
 struct Reel {
     dir: PathBuf,
     every: u64,
@@ -57,7 +55,6 @@ impl Reel {
         self.n += 1;
     }
 
-    /// A frame under a name of its own, beside the reel's.
     fn named(&mut self, run: &Run, name: &str) {
         let im = crate::render::overworld::arena::frame_for(run, 768, 448, Some(1));
         image::save_buffer(self.dir.join(format!("{name}.png")), &im.rgba_bytes(), im.w as u32, im.h as u32, image::ColorType::Rgba8).unwrap();
@@ -85,7 +82,6 @@ impl Reel {
         self.tick(run, Input::default());
     }
 
-    /// Walk to the middle of `to`, one axis at a time, holding `extra` besides.
     fn walk(&mut self, run: &mut Run, to: (i16, i16), extra: Input) {
         let (tx, ty) = ((f32::from(to.0) + 0.5) * TILE_UNITS, (f32::from(to.1) + 0.5) * TILE_UNITS);
         for _ in 0..2500 {
@@ -100,15 +96,12 @@ impl Reel {
         panic!("the knight did not reach {to:?}");
     }
 
-    /// Face a way without leaving the tile: a tick of the key.
     fn face(&mut self, run: &mut Run, dir: Dir) {
         let (mx, my) = dir.delta();
         self.tick(run, Input { move_x: mx as i8, move_y: my as i8, ..Default::default() });
         self.tick(run, Input::default());
     }
 
-    /// The builder's tool, found as a player finds it: Q steps on, the left arrow steps back (the shorter way is
-    /// taken); no frames while it is hunted for.
     fn tool(&mut self, run: &mut Run, tool: Tool) {
         let all = tools();
         let want = all.iter().position(|t| *t == tool).expect("a tool of the builder");
@@ -132,7 +125,6 @@ impl Reel {
         assert_eq!(run.kingdom.industry[&1].plan, want, "the tool {tool:?} is in hand");
     }
 
-    /// The knight fights the nearest foe: aims along the larger axis, holds fire, and swings the blade when it is close.
     fn shoot(&mut self, run: &mut Run, seconds: u64) {
         for _ in 0..seconds * 30 {
             let h = &run.players[&1];
@@ -173,10 +165,6 @@ fn report(run: &Run, what: &str) {
     );
 }
 
-// --------------------------------------------------------------- a first raid ----
-
-/// The first raid: two imps climb the Great Shaft at nightfall, march for the smoke of the kiln and set
-/// it alight. The knight shoots them, then beats the fire out with the builder's MEND tool: three presses.
 #[test]
 #[ignore = "writes the first-raid proof frames; needs ANGEL_REALM_PLAN=tabula"]
 fn write_the_first_raid() {
@@ -184,7 +172,6 @@ fn write_the_first_raid() {
     let c = catalog();
     let mut run = night_run();
     {
-        // The knight waits east of the works, out of the imps' sight until they have done their work.
         let h = run.players.get_mut(&1).unwrap();
         (h.x, h.y) = (152.5 * TILE_UNITS, 97.5 * TILE_UNITS);
     }
@@ -202,13 +189,11 @@ fn write_the_first_raid() {
     assert_eq!(run.home.industry.report(c).status[&kiln], Status::Working, "the kiln smokes at its work");
     let mut reel = Reel::new("first-raid", 15);
     reel.look = Some((141.0, 95.0));
-    // By day: nothing. Then dusk.
     reel.wait(&mut run, 1);
     at_dusk(&mut run, 3, 3);
     reel.wait(&mut run, 4);
     assert!(run.kingdom.stir.watch.on.is_some(), "the Deep answers");
     report(&run, "dusk");
-    // They climb, march, reach the kiln.
     let mut lit = false;
     for _ in 0..60 {
         reel.wait(&mut run, 1);
@@ -220,7 +205,6 @@ fn write_the_first_raid() {
     report(&run, "alight");
     assert!(lit, "the imps set the kiln alight");
     reel.wait(&mut run, 2);
-    // The knight comes to the kiln (at the camp's road, a step from it) and shoots.
     {
         let h = run.players.get_mut(&1).unwrap();
         (h.x, h.y) = (141.5 * TILE_UNITS, 96.5 * TILE_UNITS);
@@ -233,7 +217,6 @@ fn write_the_first_raid() {
         reel.shoot(&mut run, 4);
     }
     report(&run, "shot");
-    // The builder comes out (key 4), the MEND tool in hand, E on the burning kiln: three presses.
     reel.press(&mut run, Input { cast: 4, ..Default::default() });
     reel.tool(&mut run, Tool::Mend);
     reel.walk(&mut run, (141, 97), Input::default());
@@ -252,10 +235,6 @@ fn write_the_first_raid() {
     println!("frames {}", reel.n);
 }
 
-// ----------------------------------------------------------- a line cut, mended ----
-
-/// A depot's limestone runs along a rollerway to a kiln. Sappers cut the line in two places; the hired hands
-/// mend one, and the knight mends the other with the MEND tool, at once.
 #[test]
 #[ignore = "writes the broken-line proof frames; needs ANGEL_REALM_PLAN=tabula"]
 fn write_a_cut_line_and_its_mending() {
@@ -289,7 +268,6 @@ fn write_a_cut_line_and_its_mending() {
     reel.wait(&mut run, 8);
     report(&run, "running");
     at_dusk(&mut run, 3, 3);
-    // The knight waits at the line; the sappers come.
     reel.walk(&mut run, (152, 105), Input::default());
     let mut cut = false;
     for _ in 0..90 {
@@ -301,10 +279,8 @@ fn write_a_cut_line_and_its_mending() {
     }
     report(&run, "cut");
     assert!(cut, "the line is cut");
-    // The knight shoots the sappers.
     reel.shoot(&mut run, 12);
     report(&run, "sappers down");
-    // The builder out, MEND in hand: stand beside a cut tile, face it, E.
     reel.press(&mut run, Input { cast: 4, ..Default::default() });
     reel.tool(&mut run, Tool::Mend);
     let cuts: Vec<(i16, i16)> = run.home.industry.havoc.cuts.iter().copied().collect();
@@ -322,10 +298,6 @@ fn write_a_cut_line_and_its_mending() {
     println!("frames {}", reel.n);
 }
 
-// --------------------------------------------------- a wall holds, a tower shoots ----
-
-/// A ring of stone wall round a brazier and a kiln, a watchtower with its quiver by the wall. Five imps come at it:
-/// they batter the wall (its hold shown), the tower looses its arrows, the wall holds.
 #[test]
 #[ignore = "writes the wall-and-tower proof frames; needs ANGEL_REALM_PLAN=tabula"]
 fn write_a_wall_that_holds_and_a_tower_that_shoots() {
@@ -345,7 +317,6 @@ fn write_a_wall_that_holds_and_a_tower_that_shoots() {
         run.home.industry.buildings.get_mut(&t).unwrap().input.insert("arrow".into(), 24);
     }
     run.kingdom.stir.level = 100;
-    // Five imps: the fourth raid's size at this stir.
     run.kingdom.stir.watch.raids = 4;
     for _ in 0..30 * 4 {
         step(&mut run, Input::default());
@@ -356,7 +327,6 @@ fn write_a_wall_that_holds_and_a_tower_that_shoots() {
     reel.wait(&mut run, 1);
     at_dusk(&mut run, 3, 3);
     {
-        // The knight stands off to the south-east, in sight of the wall.
         let h = run.players.get_mut(&1).unwrap();
         (h.x, h.y) = (162.5 * TILE_UNITS, 108.5 * TILE_UNITS);
     }
@@ -374,10 +344,6 @@ fn write_a_wall_that_holds_and_a_tower_that_shoots() {
     println!("frames {}", reel.n);
 }
 
-// ---------------------------------------------------- the Keep's stones, laid again ----
-
-/// Warboars reach the Keep's wall, knock stones out of the lift in hand (a true one holds longer) and what rested on them
-/// comes down; the masons lay them again.
 #[test]
 #[ignore = "writes the siege proof frames; needs ANGEL_REALM_PLAN=tabula"]
 fn write_the_keeps_stones_knocked_out_and_laid_again() {
@@ -388,7 +354,6 @@ fn write_the_keeps_stones_knocked_out_and_laid_again() {
     run.home.industry.stock.insert("timber".into(), 800);
     run.kingdom.stir.level = 100;
     run.kingdom.stir.watch.raids = 3;
-    // The last course of the lift in hand is set true, to see one hold.
     let laid = run.sites.keep().unwrap().laid;
     run.sites.keep_mut().unwrap().trues = vec![(laid - 6, laid)];
     let castle = works::castle(works::KEEP).unwrap();
@@ -399,7 +364,6 @@ fn write_the_keeps_stones_knocked_out_and_laid_again() {
     let mut reel = Reel::new("keep-siege", 15);
     reel.look = Some((at.0, at.1 + 3.0));
     {
-        // The knight stands off in the camp, out of the boars' way.
         let h = run.players.get_mut(&1).unwrap();
         (h.x, h.y) = (140.5 * TILE_UNITS, 97.5 * TILE_UNITS);
     }
@@ -416,8 +380,6 @@ fn write_the_keeps_stones_knocked_out_and_laid_again() {
     report(&run, "stones out");
     println!("{down} stones out: {:?}", run.sites.keep().unwrap().lost);
     reel.wait(&mut run, 4);
-    // The wall as it stood and as the raid left it, seen from the same place: the stones that were pulled out,
-    // and where they were.
     {
         let lost = run.sites.keep().unwrap().lost.clone();
         let (mut cx, mut cy) = (0.0f32, 0.0f32);
@@ -435,7 +397,6 @@ fn write_the_keeps_stones_knocked_out_and_laid_again() {
         run.sites.keep_mut().unwrap().lost = lost;
         reel.named(&run, "compare-after");
     }
-    // The raid is over; the lodge's masons lay them again.
     run.end_raid_for_test();
     let sim = run.keep_live().expect("live");
     {

@@ -1,9 +1,6 @@
 #![cfg(feature = "delve")]
 use super::*;
 
-/// Exercise the real Stage router while the native image worker would have
-/// enough time to replace the first Dotmax fallback. All rooms, two layouts,
-/// animated ticks and a leave/re-enter cycle must retain dot glyphs.
 #[cfg(feature = "delve")]
 #[test]
 fn every_room_stays_dot_rendered_after_worker_warmup_and_resize() {
@@ -79,8 +76,6 @@ fn every_room_stays_dot_rendered_after_worker_warmup_and_resize() {
     }
 }
 
-/// Exercise the default route, including the real stage dispatcher and dot
-/// bridge: an active mine journey must move without opting into Explore.
 #[cfg(feature = "delve")]
 #[test]
 fn default_realm_animates_the_expedition_and_map_visits_still_win() {
@@ -171,13 +166,10 @@ fn object_dock_routes_real_stage_actions_and_collapsed_draw_removes_hits() {
         WorldButton::Assets, WorldButton::ScryglassLibrary, WorldButton::ScryglassVault, WorldButton::Back] {
         assert!(app.world_buttons.iter().any(|(_, b)| *b == action), "missing {action:?}");
     }
-    // A pane under the dock's width keeps its classic row, Back in reach.
     let mut tight = ratatui::Terminal::new(ratatui::backend::TestBackend::new(28, 18)).unwrap();
     paint(&mut app, &mut tight);
     assert!(!app.object_dock.visible, "a narrow pane keeps its row");
     assert!(app.world_buttons.iter().any(|(_, b)| *b == WorldButton::Back));
-    // Explicit paging exposes every object on a compact pane; resizing back
-    // clamps the page instead of leaving a blank drawer.
     let mut narrow = ratatui::Terminal::new(ratatui::backend::TestBackend::new(44, 18)).unwrap();
     let mut seen = std::collections::HashSet::new();
     for _ in 0..7 {
@@ -201,7 +193,6 @@ fn object_dock_routes_real_stage_actions_and_collapsed_draw_removes_hits() {
     app.apply_world_button(WorldButton::DockToggle);
     paint(&mut app, &mut terminal);
     let assets = app.world_buttons.iter().find(|(_, b)| *b == WorldButton::Assets).unwrap().0;
-    // Real mouse dispatch must choose the object before its background surface.
     app.on_mouse(ratatui::crossterm::event::MouseEvent {
         kind: ratatui::crossterm::event::MouseEventKind::Down(ratatui::crossterm::event::MouseButton::Left),
         column: assets.x + assets.width / 2,

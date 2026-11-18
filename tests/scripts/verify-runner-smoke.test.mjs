@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
+import fs from 'node:fs'
+import { syncBuiltinESMExports } from 'node:module'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import test from 'node:test'
 
 import {
   validateRunnerSmokeAudit,
   validateRunnerSmokeEnvelope,
+  verifyRunnerContractSmoke,
 } from '../../scripts/release/verify-runner-smoke.mjs'
 
 function canonicalValue(value) {
@@ -123,6 +128,55 @@ function fixture() {
   receipt.receipt_sha256 = digest(receipt)
   return { expected, envelope, receipt }
 }
+
+test('runner failure remains visible when temporary cleanup also fails', {
+  skip: process.platform !== 'linux' || !fs.existsSync('/usr/bin/bwrap') || process.getuid() === 0,
+}, (t) => {
+  const scratch = fs.mkdtempSync(join(tmpdir(), 'angel-runner-cleanup-fixture-'))
+  const binary = join(scratch, 'runner')
+  const create = fs.mkdtempSync
+  const roots = []
+  const mock = t.mock.method(fs, 'mkdtempSync', (prefix, ...args) => {
+    const root = create(join(scratch, 'angelX-runner-smoke-'), ...args)
+    roots.push(root)
+    return root
+  })
+  syncBuiltinESMExports()
+  try {
+    for (const locked of [false, true]) {
+      fs.writeFileSync(binary, `#!/bin/sh
+mkdir /smoke/workspace/locked
+printf fixture > /smoke/workspace/locked/file
+${locked ? 'chmod 500 /smoke/workspace/locked' : ':'}
+echo ORIGINAL_RUNNER_FAILURE >&2
+exit 7
+`, { mode: 0o700 })
+      let failure
+      try { verifyRunnerContractSmoke(binary) } catch (error) { failure = error }
+      assert.ok(failure)
+      assert.match(failure.message, /runner exited 7, expected 0: ORIGINAL_RUNNER_FAILURE/u)
+      const root = roots.at(-1)
+      if (locked) {
+        assert.ok(failure instanceof AggregateError)
+        assert.match(failure.message, /cleanup failed/u)
+        assert.equal(failure.errors[1].code, 'EACCES')
+        assert.match(failure.cause.message, /ORIGINAL_RUNNER_FAILURE/u)
+        assert.equal(fs.readFileSync(join(root, 'workspace/locked/file'), 'utf8'), 'fixture')
+      } else {
+        assert.equal(fs.existsSync(root), false)
+        assert.equal(failure instanceof AggregateError, false)
+      }
+    }
+  } finally {
+    mock.mock.restore()
+    syncBuiltinESMExports()
+    for (const root of roots) {
+      const locked = join(root, 'workspace/locked')
+      if (fs.existsSync(locked)) fs.chmodSync(locked, 0o700)
+    }
+    fs.rmSync(scratch, { recursive: true, force: true })
+  }
+})
 
 test('runner smoke validates the complete runtime digest and audit receipt', () => {
   const { expected, envelope, receipt } = fixture()

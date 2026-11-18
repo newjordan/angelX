@@ -5,16 +5,12 @@ use super::*;
 use crate::rules::HZ;
 use crate::rules::encounter::{End, Live};
 
-/// An arcade game plays on its own stage in the hall: it is drawn as that
-/// room is, from the surface (the crossroads' Powder Keg does the same).
 pub(super) fn pastime(run: &Run) -> bool {
     run.encounter
         .as_ref()
         .is_some_and(|e| e.room == run.at && matches!(e.kind, crate::rules::encounter::Kind::Arcade(_)))
 }
 
-/// The one card, in view pixels, drawn over whatever the game draws. A game
-/// that is not an encounter's, or a folly (which has its own), draws nothing.
 pub(super) fn panel(over: &mut Img, run: &Run, _focus: Option<u32>) {
     let Some(live) = run.encounter.as_ref().filter(|e| e.room == run.at && !e.kind.folly()) else {
         return;
@@ -27,7 +23,6 @@ pub(super) fn panel(over: &mut Img, run: &Run, _focus: Option<u32>) {
     }
 }
 
-/// The name at twice the size, and one line of how to play under it.
 fn title(over: &mut Img, live: &Live) {
     let name = live.kind.name();
     let words = live.kind.words();
@@ -42,7 +37,6 @@ fn title(over: &mut Img, live: &Live) {
     over.text(x + (w - line) / 2, 36, words, 'O');
 }
 
-/// A game that is cut shows how long it has: a small plate in the corner.
 fn clock(over: &mut Img, live: &Live) {
     let left = live.left();
     let text = format!("{}:{:02}", left / 60, left % 60);
@@ -51,7 +45,6 @@ fn clock(over: &mut Img, live: &Live) {
     over.text(NATIVE_W - w - 6 + 7, 10, &text, 'O');
 }
 
-/// Who was paid, in order, and what each took home.
 fn payout(over: &mut Img, run: &Run, live: &Live, end: &End) {
     let head = if end.won {
         "WON"

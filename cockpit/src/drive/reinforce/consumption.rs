@@ -85,10 +85,6 @@ pub struct ReceiptPairOutcome {
     pub receipt_sha256s: [String; 2],
 }
 
-/// Hydrate an already-counted logical sample slot without reopening evaluator
-/// artifacts or calling the reward implementation. The hash-chained row was
-/// validated before lookup and the canonical pair id binds the task identity
-/// even though the human-readable task digest is not duplicated in the row.
 pub(crate) fn load_receipt_pair(
     root: &Path,
     context: &ReceiptPairCountContext<'_>,
@@ -441,10 +437,6 @@ pub fn consume_evaluator_artifact(
     })
 }
 
-/// Atomically count the inventory and outcome receipts for one immutable
-/// logical sample slot. A resumed execution of the same candidate/context
-/// returns the original receipt identities; a different candidate in the same
-/// slot collides and fails closed instead of increasing the held-out N.
 pub fn consume_evaluator_artifact_pair(
     request: ReceiptPairConsumptionRequest<'_>,
 ) -> Result<ReceiptPairOutcome, String> {
@@ -796,9 +788,6 @@ pub(crate) fn receipt_pair_ledger_head(root: &Path) -> Result<String, String> {
         .map_or_else(|| "genesis".to_string(), |row| row.row_sha256.clone()))
 }
 
-/// Seal the authority to one release under the same lock as receipt appends.
-/// A competing append either lands first and changes the expected head, or the
-/// release lands first and permanently fences all later appends.
 pub(crate) fn commit_terminal_release(
     root: &Path,
     expected_head_sha256: &str,
@@ -930,9 +919,6 @@ pub(crate) fn load_campaign_candidate(root: &Path) -> Result<Option<Vec<u8>>, St
     load_immutable_record(root, Path::new("candidate.plan"), "frozen candidate")
 }
 
-/// Install a candidate proposal exactly once and return the authoritative
-/// bytes. Concurrent proposers adopt the first fully committed record instead
-/// of turning a harmless race into campaign drift.
 pub(crate) fn install_or_adopt_campaign_candidate(
     root: &Path,
     record: &[u8],
@@ -1369,7 +1355,6 @@ impl LedgerLock {
     fn acquire(file: std::fs::File) -> Result<Self, String> {
         use std::os::fd::AsRawFd;
         let fd = file.as_raw_fd();
-        // SAFETY: the returned guard owns `file` until after the unlock.
         let result = unsafe { libc::flock(fd, libc::LOCK_EX) };
         (result == 0).then_some(Self(file)).ok_or_else(|| {
             format!(
@@ -1398,7 +1383,6 @@ impl LedgerLock {
 
 impl Drop for LedgerLock {
     fn drop(&mut self) {
-        // SAFETY: the guard owns the advisory lock while this descriptor lives.
         use std::os::fd::AsRawFd;
         unsafe { libc::flock(self.0.as_raw_fd(), libc::LOCK_UN) };
     }

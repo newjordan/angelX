@@ -7,7 +7,6 @@ use super::super::frame_for;
 use super::*;
 use crate::rules::{home::Home, world, Run, RoomKind};
 
-/// One teacher's room, drawn with the knight standing near them.
 fn teacher_frame(kind: RoomKind, at: (f32, f32)) -> Img {
     let mut r = Run::at_home(17, 1, Some("Friend"), Home::default(), Default::default());
     r.come_to_the_gate();
@@ -16,7 +15,6 @@ fn teacher_frame(kind: RoomKind, at: (f32, f32)) -> Img {
     frame_for(&r, 384, 224, Some(1))
 }
 
-/// The teacher's line, spoken: the same room with `found` set.
 fn line_frame(kind: RoomKind, at: (f32, f32), line: &str) -> Img {
     let mut r = Run::at_home(17, 1, Some("Friend"), Home::default(), Default::default());
     r.come_to_the_gate();
@@ -44,8 +42,6 @@ fn write_teacher_shots() {
         )
         .unwrap();
     };
-    // Stilt at the millpond, Fenwick at the priory (his chapel's room as
-    // the file says), Peascod on the marsh's reed-isle.
     save("teacher-stilt-millpond", teacher_frame(RoomKind::Millpond, (12.0, 6.0)));
     save("teacher-fenwick-priory", teacher_frame(RoomKind::Priory, (12.0, 6.0)));
     save("teacher-peascod-marsh", teacher_frame(RoomKind::Marsh, (12.0, 6.0)));
@@ -57,7 +53,6 @@ fn write_teacher_shots() {
             "\"The one-leg stand — 0/1. One becomes two becomes four. So does patience.\"",
         ),
     );
-    // The Tab sheet's lore section, as its own frame.
     let mut r = Run::at_home(17, 1, Some("Friend"), Home::default(), Default::default());
     r.come_to_the_gate();
     let sheet = crate::client::sheet(&r, 1);
@@ -70,8 +65,6 @@ fn write_teacher_shots() {
     save("sheet-teachers", im);
 }
 
-/// The Lantern Hall with its teacher, the campaign at `counts`, Friend
-/// standing near her (`docs/HEART-QUEST.md`).
 fn lantern_hall_frame(counts: &str) -> Img {
     let mut r = Run::at_home(17, 1, Some("Friend"), Home::default(), Default::default());
     r.walk_kingdom(Some(crate::world::kingdom::keep_stand()));
@@ -90,7 +83,6 @@ fn lantern_hall_frame(counts: &str) -> Img {
     frame_for(&r, 384, 224, Some(1))
 }
 
-/// The kingdom outside the Lantern Hall's door, Friend on its step.
 fn lantern_hall_door(counts: &str) -> Img {
     let mut r = Run::at_home(17, 1, Some("Friend"), Home::default(), Default::default());
     r.walk_kingdom(Some(crate::world::kingdom::keep_stand()));
@@ -108,7 +100,6 @@ fn write_heart_shots() {
     let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
         return;
     };
-    // A file that does not load draws no teacher: never write that.
     let book = crate::rules::questline::book();
     assert!(book.notes.is_empty() && book.get("kingdom:heart").is_some(), "{:?}", book.notes);
     let dir = std::path::PathBuf::from(dir);
@@ -123,20 +114,14 @@ fn write_heart_shots() {
         )
         .unwrap();
     };
-    // No board read: every lantern dark.
     save("heart-hall-dark", lantern_hall_frame(""));
-    // Staged, measured three times, the E10.5 board above its floor.
     let some = r#""vec_data_staged":1,"vec_heart_proxy_runs":3,"vec_heart_extrap_above_floor":1"#;
     save("heart-hall-three-lit", lantern_hall_frame(some));
     let all = r#""vec_data_staged":1,"vec_heart_proxy_runs":4,"vec_heart_interp_above_floor":1,
         "vec_heart_extrap_above_floor":1,"vec_gata4_above_floor":1,"vec_heart_top10":1"#;
     save("heart-hall-all-lit", lantern_hall_frame(all));
-    // Outside: the hall on the green, its door on the lane; with news, the
-    // Heartwright's mark by the door.
     save("heart-hall-door", lantern_hall_door(""));
     save("heart-hall-door-news", lantern_hall_door(r#""vec_data_staged":1"#));
-    // The town round it, from the baked kingdom: the Keep's wall to the
-    // north, the Court of Deeds on the open plot, the hall east of it.
     let geo = crate::world::kingdom::geography(&[]);
     let hall = geo.sites.iter().find(|s| s.name == crate::world::kingdom::LANTERN_HALL).unwrap();
     let plot = crate::world::kingdom::OPEN_PLOT;
@@ -150,8 +135,6 @@ fn write_heart_shots() {
 
 #[test]
 fn teachers_standing_draw_something_at_their_spot() {
-    // The frame with the teacher differs from the same room without the
-    // questline book: cheap and deterministic.
     let a = teacher_frame(RoomKind::Millpond, (12.0, 6.0));
     let b = {
         let mut r = Run::at_home(17, 1, Some("Friend"), Home::default(), Default::default());

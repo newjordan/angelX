@@ -169,7 +169,6 @@ fn system_message_uses_dim_tag_and_text() {
     let text = plain_text(&rendered);
     assert!(text.contains("· "), "system tag present:\n{text}");
     assert!(text.contains("compacted earlier"));
-    // The system body span carries the dim text style.
     let body = rendered[0]
         .spans
         .iter()
@@ -186,7 +185,6 @@ fn activity_lines_are_indented_and_yellow_per_line() {
     }];
     let mut renders = Vec::new();
     let rendered = lines(&messages, "", false, 80, &mut renders);
-    // One rendered line per source line, each indented and styled as activity.
     assert_eq!(rendered.len(), 2);
     for line in &rendered {
         assert_eq!(line.spans[0].content.as_ref(), "  ", "two-space indent");
@@ -211,10 +209,8 @@ fn gauge_rows_fill_progressively_and_keep_height_stable() {
         assert_eq!(rendered.len(), 1);
         let filled = &rendered[0].spans[1];
         assert_eq!(filled.style, fill, "leading span carries the fill: {text}");
-        // The chip is the styled count at the end of the row.
         let chip = rendered[0].spans.last().unwrap();
         assert!(chip.style.add_modifier.contains(Modifier::BOLD));
-        // Same text bytes in, same text bytes out — wrap height can't drift.
         let joined: String = rendered[0]
             .spans
             .iter()
@@ -223,7 +219,6 @@ fn gauge_rows_fill_progressively_and_keep_height_stable() {
             .collect();
         assert_eq!(&joined, text);
     }
-    // Low repeat fills part of the row; saturation covers the whole body.
     let low_line = activity_line(&low);
     assert!(
         low_line
@@ -240,27 +235,22 @@ fn gauge_rows_fill_progressively_and_keep_height_stable() {
             .any(|span| span.style == ACTIVITY_STYLE && span.content.len() > 3),
         "a saturated gauge fills the entire body"
     );
-    // Plain notices render exactly as before.
     let plain = activity_line(".. context note");
     assert_eq!(plain.spans[1].style, ACTIVITY_STYLE);
 }
 
 #[test]
 fn empty_message_still_emits_a_tag_line() {
-    // Empty text with a tag → a single line carrying just the tag (the
-    // start_len == len fallback in append_plain_message_lines).
     let (tag, style) = message_tag(Role::User);
     let rendered = plain_message_lines("", tag, style, None);
     assert_eq!(rendered.len(), 1);
     assert_eq!(rendered[0].spans.len(), 1);
     assert_eq!(rendered[0].spans[0].content.as_ref(), "you ");
-    // plain_line_capacity reserves 1 for empty text.
     assert_eq!(plain_line_capacity(""), 1);
 }
 
 #[test]
 fn empty_message_with_no_tag_emits_a_blank_line() {
-    // The Activity tag is empty: empty text → a bare blank line, no tag span.
     let (tag, style) = message_tag(Role::Activity);
     assert_eq!(tag, "");
     let rendered = plain_message_lines("", tag, style, None);
@@ -279,8 +269,6 @@ fn markdown_agent_text_still_renders_markdown() {
     let text = plain_text(&rendered);
     assert!(text.contains("angel "));
     assert!(text.contains("bold"));
-    // The markdown body borrows from the cached render — a deep clone per
-    // visible message per frame is the regression this guards against.
     assert!(matches!(
         rendered[0]
             .spans

@@ -155,7 +155,6 @@ fn a_claim_with_yields_makes_all_of_them_and_is_evidence_for_each() {
     assert!(k.secure("mines-3"));
     assert!(k.has_secured_resource("iron-ore") && k.has_secured_resource("limestone"));
     assert!(k.secured_evidence().contains("iron-ore"));
-    // Releasing the claim keeps every resource it was evidence of.
     k.apply(catalog(), Command::ReleaseClaim("mines-3".into())).unwrap();
     assert!(k.secured_resources.contains("iron-ore") && k.secured_resources.contains("limestone"));
     assert!(k.valid(catalog()));
@@ -179,7 +178,6 @@ fn a_claim_without_yields_saves_and_works_as_it_always_did() {
 #[test]
 fn the_camp_takes_what_is_handed_in_up_to_its_storage_and_pays_only_what_it_has() {
     let mut k = Kingdom::default();
-    // An unfounded kingdom takes nothing and is not started by it.
     assert_eq!(k.receive(catalog(), "coin", 50), 0);
     assert!(k.is_empty());
     k.start(catalog());

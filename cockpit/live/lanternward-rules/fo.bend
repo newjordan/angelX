@@ -1,7 +1,3 @@
-# The Gloam's small things: the snuffer, a hooded wisp that lunges along a line it
-# shows first, and the turret that looses an iron bolt along one. Every attack
-# shows its footprint for its whole tell and strikes only there.
-# crates/delve/src/rules/lanternward/foes.rs.
 import Base
 import ./r.bend as R
 import ./c.bend as C
@@ -24,8 +20,6 @@ import ./ht.bend as H
 
 def S() -> Data: R.W
 
-# ----- a foe appears ----------------------------------------------------------------
-
 def foe_new(+kind: U32, +id: U32, +x: U32, +y: U32, +hooded: Bool, +seats: U32) -> R.T8:
   +per = Bool.pick(U32, U32.is_eq(kind, C.fk_snuffer()), C.snuffer_hp(), C.turret_hp())
   +full = U32.mul(per, U32.max(seats, 1))
@@ -41,10 +35,7 @@ def spawn_go(+go: Bool, +w: S, +kind: U32, +x: U32, +y: U32, +hooded: Bool) -> S
       +id = W.next_foe(w)
       W.set_foes(W.set_next_foe(w, U32.and(U32.add(id, 1), 255)), L.push64(W.foes(w), foe_new(kind, id, x, y, hooded, L.len64(W.seats(w)))))
 
-# A foe of `kind` where a snuffer or turret mark stands.
 def spawn_foe(+w: S, +kind: U32, +x: U32, +y: U32, +hooded: Bool) -> S: spawn_go(U32.is_lt(L.len64(W.foes(w)), C.foe_cap()), w, kind, x, y, hooded)
-
-# ----- a table that has grown --------------------------------------------------------
 
 def prov_foes(+fs: List<&2, R.T8>, +now: U32) -> List<&2, R.T8>:
   match fs:
@@ -62,17 +53,10 @@ def prov_boss(+w: S, +now: U32) -> S:
     B.set_prov(B.set_start(B.set_full(B.set_hp(w, U32.div(U32.mul(B.hp(w), now), had)), U32.div(U32.mul(B.full(w), now), had)), U32.div(U32.mul(B.start(w), now), had)), now),
     w)
 
-# Scale foes already standing to a table that has grown, keeping the share of
-# health they have left; a seat that comes back to a table it had already
-# provisioned scales nothing twice.
 def provision(+w: S) -> S:
   +now = N.sclamp(L.len64(W.seats(w)), 1, C.max_players())
   prov_boss(W.set_foes(w, prov_foes(W.foes(w), now)), now)
 
-# ----- the snuffer ------------------------------------------------------------------
-
-# One tick of a snuffer from the state it is in, toward the nearest knight (its
-# place and how far it is). The blow it makes in its lunge is the caller's.
 def snuffer_drift(+f: R.T8, +tx: U32, +ty: U32, +d: U32) -> R.T8:
   +u = G.unit(U32.sub(tx, Foe.x(f)), U32.sub(ty, Foe.y(f)))
   +ux = G.vx(u)
@@ -145,10 +129,6 @@ def snuffer_next(+ds: Nat, +f: R.T8, +tx: U32, +ty: U32, +d: U32) -> R.T8:
                         case 1n+a6:
                           f
 
-# ----- the turret -------------------------------------------------------------------
-
-# A big foe's tell for a table of `seats`: tighter the more knights, never under
-# the floor.
 def tell_for(+w: S, +seats: U32) -> U32: U32.max(M.sat(W.r_tell(w), U32.mul(C.tell_step(), M.dec(seats))), C.tell_floor())
 
 def turret_wait(+f: R.T8, +tx: U32, +ty: U32, +d: U32, +tell: U32) -> R.T8:
@@ -181,8 +161,6 @@ def turret_stagger(+f: R.T8) -> R.T8:
   +done = U32.is_eq(t, 0)
   Foe.set_t(Foe.set_open(Foe.set_st(f, Bool.pick(U32, done, C.fs_dormant(), C.fs_stagger())), Bool.pick(U32, done, 0, Foe.open(f))), t)
 
-# One tick of a turret: wait for a knight in sight, lock the line, loose an iron
-# bolt along it.
 def turret_next(+ds: Nat, +f: R.T8, +seen: Bool, +tx: U32, +ty: U32, +d: U32, +tell: U32) -> R.T8:
   match ds:
     case 0n:
@@ -210,14 +188,9 @@ def turret_next(+ds: Nat, +f: R.T8, +seen: Bool, +tx: U32, +ty: U32, +d: U32, +t
                         case 1n+a6:
                           f
 
-# ----- a tick of every foe -------------------------------------------------------------
-
-# A snuffer that lunged this tick lands its blow where its footprint was.
 def push_strike(+w: S, +i: U32, +f: R.T8, +dmg: U32) -> S:
   W.set_strikes(w, L.push8(W.strikes(w), R.W8{i, dmg, Foe.dk(f), Foe.d0(f), Foe.d1(f), Foe.d2(f), Foe.d3(f), Foe.d4(f)}))
 
-# A turret that loosed its bolt this tick: the bolt waits to be pushed after the
-# loop, with the shot's sound at once.
 def push_shot(+w: S, +f: R.T8) -> S:
   Q.sound(W.set_shots(w, L.push8(W.shots(w), R.W8{C.bk_iron(), U32.add(Foe.x(f), U32.mul(Foe.fx(f), 10)), U32.add(Foe.y(f), U32.mul(Foe.fy(f), 10)), N.sdiv(U32.mul(Foe.fx(f), C.bolt_speed()), 256), N.sdiv(U32.mul(Foe.fy(f), C.bolt_speed()), 256), C.bolt_life(), 0, 0})), 33)
 
@@ -226,7 +199,6 @@ def foe_act(+w: S, +i: U32, +f: R.T8, +g: R.T8, +fired: Bool, +struck: Bool) -> 
   +w2 = Bool.pick(S, struck, push_strike(w1, i, f, C.snuffer_damage()), w1)
   Bool.pick(S, fired, push_shot(w2, f), w2)
 
-# The foe steps from the state it is in, given the knight it hunts.
 def foe_step(+w: S, +i: U32, +f: R.T8, +tgt: R.W8) -> S:
   +seats = L.len64(W.seats(w))
   +seen = U32.is_eq(Nr.ok(tgt), 1)
@@ -234,7 +206,6 @@ def foe_step(+w: S, +i: U32, +f: R.T8, +tgt: R.W8) -> S:
   +g = Z.lz64(snuffer, u => Z.lw64(seen, u => snuffer_next(U32.to_nat(Foe.st(f)), f, Nr.x(tgt), Nr.y(tgt), Nr.d(tgt)), f), u => turret_next(U32.to_nat(Foe.st(f)), f, seen, Nr.x(tgt), Nr.y(tgt), Nr.d(tgt), tell_for(w, seats)))
   foe_act(w, i, f, g, U32.is_eq(Foe.kind(f), C.fk_turret()) && U32.is_eq(Foe.st(f), C.fs_tell()) && U32.is_eq(Foe.st(g), C.fs_strike()), snuffer && seen && U32.is_eq(Foe.st(f), C.fs_strike()))
 
-# A foe before its step: held a tick by a blow, or pushed, and lit or not.
 def foe_prepare(+f: R.T8, +burning: Bool) -> R.T8:
   +f1 = Foe.set_flinch(f, M.dec(Foe.flinch(f)))
   +f2 = Foe.set_lit(f1, Bool.pick(U32, burning, C.lit_hold(), M.dec(Foe.lit(f1))))
@@ -266,8 +237,6 @@ def foes_go(+n: Nat, +w: S, +i: U32) -> S:
     case 1n+p:
       foes_go(p, foe_tick(w, i), U32.add(i, 1))
 
-# The nearest open point to one that is in a wall: the rings out from it, each of
-# eight ways, the first that fits. ok, then the point (x, y) of a Nr.
 def nudge_go(+n: Nat, +k: U32, +w: S, +x: U32, +y: U32, +r: U32, +found: Bool, +ox: U32, +oy: U32) -> R.W8:
   match n:
     case 0n:
@@ -287,7 +256,6 @@ def nudge_go(+n: Nat, +k: U32, +w: S, +x: U32, +y: U32, +r: U32, +found: Bool, +
 
 def nudge(+w: S, +x: U32, +y: U32, +r: U32) -> R.W8: nudge_go(64n, 0, w, x, y, r, False{}, x, y)
 
-# Keep a snuffer out of the walls it drifts into.
 def wall_foe(+stuck: Bool, +w: S, +i: U32, +f: R.T8) -> S:
   match stuck:
     case False{}:
@@ -304,7 +272,6 @@ def walls_go(+n: Nat, +w: S, +i: U32) -> S:
       +f = L.get64(W.foes(w), U32.to_nat(i))
       walls_go(p, wall_foe(U32.is_eq(Foe.kind(f), C.fk_snuffer()) && Bool.not(Q.clear(w, Foe.x(f), Foe.y(f), 1024)), w, i, f), U32.add(i, 1))
 
-# The turrets' bolts fly, as many as there is room for.
 def shots_go(+ss: List<&2, R.W8>, +w: S) -> S:
   match ss:
     case Nil{}:
@@ -312,7 +279,6 @@ def shots_go(+ss: List<&2, R.W8>, +w: S) -> S:
     case Con{b, t}:
       shots_go(t, Bool.pick(S, U32.is_lt(L.len8(W.bolts(w)), C.bolt_cap()), W.set_bolts(w, L.push8(W.bolts(w), b)), w))
 
-# A parried blow staggers its foe open; a blocked one pushes it back.
 def strike_blocked(+w: S, +i: U32) -> S:
   +f = L.get64(W.foes(w), U32.to_nat(i))
   W.set_foes(w, L.set64(W.foes(w), U32.to_nat(i), Foe.set_kbt(Foe.set_kby(Foe.set_kbx(f, N.sdiv(N.sneg(Foe.fx(f)), 40)), N.sdiv(N.sneg(Foe.fy(f)), 40)), 6)))
@@ -340,8 +306,6 @@ def strike_mark(+w: S, +i: U32, +bit: U32) -> S:
   +f = L.get64(W.foes(w), U32.to_nat(i))
   W.set_foes(w, L.set64(W.foes(w), U32.to_nat(i), Foe.set_struck(f, U32.or(Foe.struck(f), bit))))
 
-# Foe `i`'s blow on knight `id`, if the knight stands in the footprint and has not
-# been struck by it.
 def strike_one(+w: S, +i: U32, +id: U32, +s: R.W8) -> S:
   +k = H.seat_get(W.seats(w), id)
   +f = L.get64(W.foes(w), U32.to_nat(i))
@@ -363,7 +327,6 @@ def strikes_go(+ss: List<&2, R.W8>, +w: S) -> S:
     case Con{s, t}:
       strikes_go(t, strike_ids(H.seat_ids(W.seats(w)), w, s))
 
-# One tick of every foe.
 def step_foes(+w: S) -> S:
   +w1 = foes_go(U32.to_nat(L.len64(W.foes(w))), W.set_shots(W.set_strikes(w, Nil{}), Nil{}), 0)
   +w2 = walls_go(U32.to_nat(L.len64(W.foes(w1))), w1, 0)

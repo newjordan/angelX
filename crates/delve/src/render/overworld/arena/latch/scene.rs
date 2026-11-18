@@ -11,7 +11,6 @@ use crate::rules::juice::Weight;
 use crate::rules::latch::{Beat, Session};
 use crate::rules::latch_show::{Kind, PERFECT};
 
-/// Both layers of seat `focus`'s screen (or the first seat's): the picture, and an empty one over it.
 pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     let s = run.latch.as_ref().expect("Latch showing");
     let me = focus.filter(|id| s.duels.contains_key(id));
@@ -30,14 +29,11 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     (picture, Img::new(NATIVE_W, NATIVE_H))
 }
 
-/// The age of a mark for its picture: the realm's hold on the winning blow stops the clock but not
-/// the burst, so a finale's age carries on through the hold.
 fn felt(run: &Run, age: u32) -> u32 {
     let hold = run.tune.hitstop_boss_kill;
     if run.tune.hitstop == 0 { age } else { age + hold.saturating_sub(run.hitstop.left.min(hold)) }
 }
 
-/// A counter on show: how it weighed and how long ago.
 struct Hit {
     weight: Weight,
     count: u8,
@@ -51,7 +47,6 @@ fn hit_of(run: &Run, s: &Session, id: u32, clock: u32) -> Option<Hit> {
     (age < 56).then(|| Hit { weight: m.kind.weight(), count, age })
 }
 
-/// Seat `id`'s screen while the round is on, or in its last breath (`ended` ticks after it).
 fn play(run: &Run, s: &Session, id: u32, me: Option<u32>, ended: u32) -> Img {
     let d = &s.duels[&id];
     let clock = s.elapsed(run.tick);
@@ -67,13 +62,11 @@ fn play(run: &Run, s: &Session, id: u32, me: Option<u32>, ended: u32) -> Img {
         fx::anvil(&mut world, tick);
     }
     let calm = crate::render::viewer::calm();
-    // Breathing in the breath between arms; the arm shivering as the closing beat nears.
     let bob = i32::from(d.beat == Beat::Rest && !calm && (tick / 16) % 2 == 1);
     let shiver = if d.beat == Beat::Tell && !calm && d.ticks > run.tune.latch_window && d.ticks <= run.tune.latch_window + 10 { (tick / 2 % 2) as i32 * 2 - 1 } else { 0 };
     let hit = hit_of(run, s, id, clock);
     let miss = hud::latest_miss(s, id, clock).filter(|&(_, age)| age < 30);
 
-    // Clasp: white where the blow lands, flung back along it, squashed and sprung home.
     let body = clasp_body(run, d, true);
     let white;
     let squashed;
@@ -96,7 +89,6 @@ fn play(run: &Run, s: &Session, id: u32, me: Option<u32>, ended: u32) -> Img {
     }
     world.stamp(figure, at.0, at.1);
 
-    // The knight, and the painted clash at the fist (the art the room already carries).
     let jitter = miss.filter(|&(_, age)| age < 12).map_or(0, |(_, age)| {
         let back = (7.0 * crate::motion::math::exp(-(age as f32) * 0.28)) as i32;
         -back + if age < 6 && age % 2 == 0 { 2 } else { 0 }
@@ -116,7 +108,6 @@ fn play(run: &Run, s: &Session, id: u32, me: Option<u32>, ended: u32) -> Img {
         world.rect(192, lane, 25, 2, 'o');
         world.stamp(&a.clash[3], 147, lane - 16);
     }
-    // The tell: the lane filling, the ring closing, and which way to hold your guard.
     if d.beat == Beat::Tell {
         fx::tell(&mut world, lane, d.ticks, d.windup, run.tune.latch_window, tick);
         if d.guard != d.height {
@@ -144,7 +135,6 @@ fn play(run: &Run, s: &Session, id: u32, me: Option<u32>, ended: u32) -> Img {
             }
         }
     }
-    // The winning blow's zoom, in hard and out slowly.
     if let Some(h) = hit.as_ref().filter(|h| h.count >= 3 && h.age < 36) {
         let z = fx::zoom(h.age, 0);
         if z > 1.01 {
@@ -152,7 +142,6 @@ fn play(run: &Run, s: &Session, id: u32, me: Option<u32>, ended: u32) -> Img {
         }
     }
 
-    // The shake: the strongest blow on the table, the heaviest of them being yours.
     let phase = tick + u64::from(run.hitstop.left);
     let blows = s
         .show
@@ -169,11 +158,8 @@ fn play(run: &Run, s: &Session, id: u32, me: Option<u32>, ended: u32) -> Img {
     }
     let mut out = Img::black(NATIVE_W, NATIVE_H);
     out.stamp(&world, dx, dy);
-    // The black bands the words stand on, over whatever the shake showed past the room.
     out.rect(0, 0, 384, 33, 'k');
     out.rect(0, 174, 384, 50, 'k');
-    // A heavy counter lights the stage a beat in warm paper; a fold of the guard rims it in blood; the
-    // last five seconds rim it red.
     if let (Some(h), false) = (&hit, calm) {
         if h.weight >= Weight::Crushing && h.age < 4 {
             juice::vignette(&mut out, (0, 33, 384, 155), 0.55 * (1.0 - h.age as f32 / 4.0), 40, 'o');

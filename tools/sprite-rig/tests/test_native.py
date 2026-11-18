@@ -1,4 +1,3 @@
-"""Unit vectors are deliberately synthetic; integration consumes Rust's export."""
 import copy
 import importlib.util
 import os
@@ -21,7 +20,6 @@ PAL = {'h': (100, 110, 120), 'W': (240, 245, 250), 'k': (10, 10, 10)}
 
 
 def synthetic_fit():
-    # Not a replacement table: tiny geometry makes integer placement visible.
     fit = {'bounds': [0, 0, 5, 5]}
     fit.update({p: dict(anchor=[2, 2], size=[3, 3], bottom=False, under=False) for p in N.PARTS})
     fit['head'].update(anchor=[2, 1], bottom=True)
@@ -90,7 +88,7 @@ def test_unknown_slot():
 @pytest.mark.parametrize('size,maximum,expected', [
     ((3, 2), (10, 8), (9, 6)), ((7, 3), (4, 3), (4, 2)),
     ((4, 2), (3, 3), (3, 2)),
-    ((6, 5), (3, 3), (3, 3)),  # Rust .round: 2.5 -> 3, not ties-even
+    ((6, 5), (3, 3), (3, 3)),
     ((2, 4), (3, 3), (2, 3)), ((1, 99), (2, 3), (1, 3)),
     ((10, 10), (10, 10), (10, 10)),
 ])
@@ -103,7 +101,6 @@ def test_union_crop_ragged_animation_and_edge_sampling():
     assert N.ink_bounds(frames) == (1, 0, 3, 2)
     part = dict(size=[3, 2])
     assert N.fitted_frames(frames, part) == [['.W.', 'h..'], ['...', '..k']]
-    # 3 -> 2 chooses source indices 0,1, not Pillow's 0,2.
     assert N.sample_frames([['Whk']], (0, 0, 3, 1), (2, 1)) == [['Wh']]
 
 
@@ -181,7 +178,6 @@ def test_unsupported_motion_fails_visibly():
 
 
 def test_author_png_alpha_palette_union_and_roundtrip(tmp_path):
-    # Two equal cells with different margins retain one union coordinate box.
     rgba = np.zeros((4, 8, 4), np.uint8)
     rgba[1, 1] = (239, 245, 250, 255)
     rgba[2, 6] = (100, 111, 120, 255)
@@ -250,13 +246,11 @@ def test_default_cli_canonical_anchor_changes_preview(root, tmp_path):
     assert (out / 'worn.json').exists() and (out / 'preview.png').exists()
     assert not N.read_json(out / 'worn.json').get('paint')
     before = N.read_json(out / 'frames.json')['frames'][0]['rows']
-    # Native per-frame fit drives placement (not the authoring reference).
     frame = native_frame()
     frame['fit']['head']['anchor'][1] += 2
     N.write_json(native, {'frames': [frame]})
     default_main(args)
     assert N.read_json(out / 'frames.json')['frames'][0]['rows'] != before
-    # The canonical table drives authoring repair. No parallel tool table.
     table = N.read_json(root / N.FIT_PATH)
     table['profiles']['knight']['head']['size'] = [1, 1]
     N.write_json(root / N.FIT_PATH, table)
@@ -304,7 +298,6 @@ def test_compare_cli_requires_both_inputs():
 
 
 def test_authoritative_export_integration(tmp_path):
-    """Opt-in integration gate; no hardcoded shared-workspace path in the tool."""
     native = os.environ.get('SPRITERIG_NATIVE')
     if not native:
         pytest.skip('set SPRITERIG_NATIVE to Rust native.json for cross-language parity')
@@ -316,7 +309,6 @@ def test_authoritative_export_integration(tmp_path):
     N.export_frames(frames, pal, tmp_path / 'all', zoom=2)
     report = compare_game.compare(native, tmp_path / 'all', root, tmp_path / 'parity.png', zoom=4)
     assert report['parity']
-    # Every native pose's resolved anchors, not nominal procedural sockets.
     for frame in frames:
         assert frame['fit']['head']['size'][0] > 0
         N.validate_fit(frame['fit'])
@@ -344,7 +336,6 @@ def test_clothing_fills_slot_but_weapon_keeps_aspect():
 
 
 def test_real_saved_worn_export_parity():
-    """Opt-in Rust-vs-Python composition, not just a native PNG roundtrip."""
     manifest = os.environ.get('SPRITERIG_NATIVE')
     items_path = os.environ.get('SPRITERIG_ITEMS')
     if not (manifest and items_path):

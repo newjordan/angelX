@@ -8,7 +8,7 @@ use super::hireling::{AllyKind, Hireling};
 
 pub const MAX_LEVEL: u8 = 5;
 pub const MAX_BUILDING: u8 = 3;
-pub const RECRUIT_EVERY: u64 = 3; // completed departures, not client clock
+pub const RECRUIT_EVERY: u64 = 3;
 pub const TRAIN_SECONDS: u32 = 10;
 pub const RECRUIT_AT: [(f32, f32); 5] = [(2., 7.5), (4., 7.5), (6., 7.5), (8., 7.5), (10., 7.5)];
 pub const MANAGE_AT: [(f32, f32); 3] = [(12., 7.5), (14., 7.5), (16., 7.5)];
@@ -59,7 +59,6 @@ pub struct Academy {
     #[serde(default)] pub hall: u8,
     #[serde(default)] pub yard: u8,
     #[serde(default)] pub departures: u64,
-    /// Cumulative spend is settled once by the host, like a treasury receipt.
     #[serde(default)] pub paid: u32,
     #[serde(default)] pub rosters: BTreeMap<String, Roster>,
 }
@@ -87,14 +86,11 @@ pub struct Companion { #[serde(default)] pub reviving: Option<(u32, u32)>, pub b
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Field {
     #[serde(default)] pub active: BTreeMap<u32, Companion>,
-    /// Enemy id -> (owner, ticks). Marks grant only this companion bonus damage.
     #[serde(default)] pub marks: BTreeMap<u32, (u32, u32)>,
     #[serde(default)] pub interact: BTreeMap<u32, bool>,
     #[serde(default)] pub notices: BTreeMap<u32, String>,
 }
 
-/// Transfer the sim's persistent state and charge only its new receipts. The
-/// cockpit's save rollback also rolls this back; no client can spend directly.
 fn gold(amount: u32) -> Spoils { let mut spoils = Spoils::default(); spoils.add(Spoil::Gold, amount); spoils }
 
 pub fn settle(saved: &mut Academy, treasury: &mut Spoils, current: &Academy) -> bool {
@@ -114,7 +110,6 @@ impl Run {
         self.home.squire_academy.paid = self.home.squire_academy.paid.saturating_add(gold);
         Ok(())
     }
-    /// The same server-validated actions power the yard's plates and tests.
     pub fn academy_squire_action(&mut self, id: u32, action: Action) -> Result<String, String> {
         if !self.at_home_now() || self.room().kind != RoomKind::SquireAcademy { return Err("Visit the Academy, off the training yard".into()); }
         let hero = self.players.get(&id).filter(|h| h.hp > 0 && !h.stone && !h.absent).ok_or("Knight unavailable")?;
@@ -226,7 +221,6 @@ impl Run {
             if self.players.get(&id).is_none_or(|h| h.absent) { continue; }
             c.special = c.special.saturating_sub(1);
             if c.body.hp == 0 { c.reviving = None; }
-            // Reuse collision, downing, room recovery, deterministic movement.
             self.drive_hireling(&mut c.body);
             if c.body.hp > 0 { self.squire_special(c); }
         }

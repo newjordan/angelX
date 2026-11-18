@@ -205,7 +205,6 @@ fn forest_clearance_is_persistent_bounded_and_never_repaid() {
 fn terrain_generation_is_stable_and_seeded() {
     assert_eq!(map(&World::new(42)), map(&World::new(42)));
     assert_ne!(map(&World::new(42)), map(&World::new(43)));
-    // Specific samples protect the authored starting resource sites and axes.
     let world = World::new(42);
     assert_eq!(world.terrain((3, 3)), Terrain::Forest);
     assert_eq!(world.terrain((15, 4)), Terrain::Stone);
@@ -222,7 +221,6 @@ fn malformed_worlds_cannot_gain_hidden_land_or_clear_outside_their_charter() {
     for change in [0, 1, 2, 3, 4, 5] {
         let mut world = good.clone();
         match change {
-            // Version 2 is the hillside now; 3 is a layout no code knows.
             0 => world.version = 3,
             1 => {
                 world.parcels.remove(&(0, 0));

@@ -10,14 +10,8 @@ use super::rng::{Rng, sub_seed};
 use super::village::{bridge, chapel, cottage, market_stall, well};
 use super::works::{forge, observatory};
 
-/// Half-extent of [`court_scene`]'s ground patch, in tiles. A camera
-/// outside `±COURT_EXTENT` stands off the edge of the world and sees haze
-/// where the ground should be.
 pub const COURT_EXTENT: f32 = 28.0;
 
-/// The ground options [`court_scene`] builds its terrain with. Exposed so
-/// a camera can stand *on* the same surface the scene was displaced by
-/// ([`court_ground_z`]) instead of floating at z = 0.
 pub fn court_terrain() -> TerrainOpts {
     TerrainOpts {
         cell: 2.9,
@@ -28,71 +22,25 @@ pub fn court_terrain() -> TerrainOpts {
     }
 }
 
-/// Ground height under a point of [`court_scene`] built with `seed` —
-/// the vantage staging plants the eye on this, so a camera on the north rise
-/// really does look down into the court.
 pub fn court_ground_z(seed: u64, x: f32, y: f32) -> f32 {
     ground_z(seed, x, y, &court_terrain())
 }
 
-/// The reference vista: a walled castle court on a rolling terrain patch, with
-/// the library in the west meadow, a chapel and a star-tower on the east rise,
-/// a hamlet and a smithy strung along the approach road, and a stone bridge
-/// over the river.
-///
-/// **Footprint 56 × 56 tiles**, centred on the origin, ground plane at z ≈ 0.
-/// Under 5,000 triangles, including district roads, posterns, stable yard,
-/// bridge lanterns and the observatory's survey dial.
-/// The whole-scene budget is 5k.
-///
-/// # Landmark anchors, for camera staging
-/// (World vista law: frame a mass from across open ground, never from a
-/// doorway. Bearings below are world bearings — +x is east, +y is north, and
-/// the moon hangs in the **south-west**, so a south or west face is lit and an
-/// east or north face is dark.)
-///
-/// | landmark | anchor | faces | tall | staged for |
-/// |---|---|---|---|---|
-/// | keep | `(0, 1.5)` | porch −y | 5.9 | Keep |
-/// | gatehouse | `(0, -11)` | approach −y | 7.4 | Gatehouse, Round Table |
-/// | NW drum + rookery | `(-11, 11)` | **lit limb west** | 8.6 | Rookery |
-/// | library | `(-20, 6)` | **flank + portico −y** | 9.8 | Scriptorium |
-/// | forge | `(10.8, -16.4)` | **open mouth SE** | 4.4 | Smithy |
-/// | chapel | `(17, 7)` | entrance −y | 6.9 | Chapel |
-/// | observatory | `(18.5, -11.5)` | **slit SE** | 7.6 | Observatory |
-/// | bridge | `(0, -22)` | spans the river along y | 2.4 | the travel sweep |
-///
-/// # Why the plan is what it is
-/// - The **library lies broadside to the southern meadow** rather than
-///   end-on to the court, because a 13-tile hall seen down its gable is a
-///   6-tile blank and seen across its flank is a ladder of lit bays. It is the
-///   only mass in the realm long enough to need a 23-tile standoff, and the
-///   meadow south of it is the only ground that gives one.
-/// - The **hamlet stands ~7.5 tiles off the road centre line**, not ~5.5. The
-///   travel sweep runs up the east verge, and at the old spacing a cottage
-///   gable passed within 1.7 tiles of the camera — a wall in the face, which
-///   is the one thing the vista law forbids outright.
-/// - The **forge sits outboard of the hamlet** on the east, so its mouth has a
-///   clear line down to the river bank and the castle's south-east drum stacks
-///   up behind it.
 pub fn court_scene(seed: u64) -> Mesh {
-    let mut r = Rng::new(sub_seed(seed, 0x43_4F_55_52)); // "COUR"
+    let mut r = Rng::new(sub_seed(seed, 0x43_4F_55_52));
     let mut m = Mesh::new();
 
-    // ---- ground -----------------------------------------------------------
     let opts = court_terrain();
     m.merge(super::realm_land::terrain(seed));
 
-    // Sit a part on the ground, sunk slightly so no seam shows.
     let place = |out: &mut Mesh, part: Mesh, x: f32, y: f32, yaw: f32| {
         let z = ground_z(seed, x, y, &opts) - 0.12;
         out.merge(part.rotated_z(yaw).translated(v3(x, y, z)));
     };
 
-    // ---- the castle court -------------------------------------------------
     let court = 11.0_f32;
     let gate_half = 4.05_f32;
-    let run = court - gate_half; // south wall run length
+    let run = court - gate_half;
     let run_cx = (court + gate_half) * 0.5;
 
     place(&mut m, keep(sub_seed(seed, 1)), 0.0, 1.5, 0.0);
@@ -101,9 +49,6 @@ pub fn court_scene(seed: u64) -> Mesh {
     let north = curtain_wall(court * 2.0, sub_seed(seed, 3));
 
     place(&mut m, north, 0.0, court, std::f32::consts::PI);
-    // Ground-level posterns make the lateral district paths pass through
-    // real openings: four tiles clear, centered at y=-4 on each side wall.
-    // The low lintel retains the castle silhouette without closing the road.
     for (x, yaw) in [
         (court, std::f32::consts::FRAC_PI_2),
         (-court, -std::f32::consts::FRAC_PI_2),
@@ -128,20 +73,12 @@ pub fn court_scene(seed: u64) -> Mesh {
         .enumerate()
     {
         let mut t = round_tower(5.6, 1.6, sub_seed(seed, 10 + i as u64));
-        // The **north-west** drum is the rookery: same tower, dressed. It has
-        // to be that corner and no other. The moon sits in the south-west, so
-        // a corner tower's lit faces point along the two walls that meet at it
-        // — and for the north-east drum those both point *into* the court,
-        // where no camera can stand. Only the north-west drum shows a moonlit
-        // limb to open ground, and a dovecote band nobody can see the light on
-        // is a band nobody can see.
         if (sx, sy) == (-1.0, 1.0) {
             t.merge(rookery_dressing(5.6, 1.6, sub_seed(seed, 10 + i as u64)));
         }
         place(&mut m, t, sx * court, sy * court, 0.0);
     }
 
-    // ---- court furniture --------------------------------------------------
     place(&mut m, well(), 0.0, -5.5, 0.0);
     place(
         &mut m,
@@ -158,10 +95,6 @@ pub fn court_scene(seed: u64) -> Mesh {
         r.jitter(0.35),
     );
 
-    // ---- outside the walls ------------------------------------------------
-    // Broadside to the southern meadow: the long flank, its window ladder and
-    // the portico all face −y, and the 13-tile hall fits between the court's
-    // west wall and the edge of the ground patch only at yaw 0.
     place(&mut m, library(sub_seed(seed, 30)), -20.0, 6.0, 0.0);
     place(
         &mut m,
@@ -179,15 +112,10 @@ pub fn court_scene(seed: u64) -> Mesh {
     );
     place(&mut m, bridge(9.0), 0.0, -22.0, std::f32::consts::FRAC_PI_2);
 
-    // The observatory's low brass dial sits in the foreground of its staged
-    // view, clear of the tower entrance and the camera's route.
     let mut dial = Mesh::new();
     super::super::instruments::survey_dial(&mut dial);
     place(&mut m, dial, 22.0, -12.4, 0.0);
 
-    // Two steady lanterns on the northern bridge parapets lead the eye into
-    // the default travel/gatehouse vista. Match the bridge's own deck curve
-    // and shared ground origin, rather than planting posts in the river.
     let bridge_z = court_ground_z(seed, 0.0, -22.0) - 0.12;
     let deck_z = 1.30 + 0.50 * (1.0 - (3.0_f32 / 4.5).powi(2));
     for x in [-1.16, 1.16] {
@@ -196,8 +124,6 @@ pub fn court_scene(seed: u64) -> Mesh {
         m.merge(lamp.translated(v3(x, -19.0, bridge_z + deck_z + 0.58)));
     }
 
-    // The hamlet stands well off the road: the travel sweep runs the east
-    // verge and needs its standoff (see the doc comment).
     let hamlet = [
         (-7.6_f32, -14.4_f32),
         (7.4, -13.2),
@@ -214,13 +140,8 @@ pub fn court_scene(seed: u64) -> Mesh {
     }
     m.merge(super::super::chivalry::village_dressing());
 
-    // The smithy, outboard of the hamlet, mouth turned down the river bank.
     place(&mut m, forge(sub_seed(seed, 44)), 10.8, -16.4, 0.66);
 
-    // A deliberate copse in front of the library. The tree scatter below is
-    // rejection-sampled and keeps out of the staged corridors on purpose, so
-    // the Scriptorium's foreground would otherwise be 25 tiles of bare meadow
-    // — the one thing a 23-tile standoff cannot supply for itself is depth.
     for (i, &(x, y)) in [(-23.2_f32, -6.0_f32), (-25.3, -1.2)].iter().enumerate() {
         place(
             &mut m,
@@ -231,27 +152,18 @@ pub fn court_scene(seed: u64) -> Mesh {
         );
     }
 
-    // ---- scattered trees --------------------------------------------------
-    // Rejection sampling with a hard attempt cap — bounded, and deterministic
-    // because the only entropy is the seeded stream.
-    // Trees are scenery, and scenery must never stand in a staged sightline —
-    // a trunk 3 tiles off the eye is a door close-up with bark on it. The
-    // blocked set is therefore the buildings *plus* the meadow corridors the
-    // vantages look down (`world3d::VANTAGES`).
     let blocked = |x: f32, y: f32| -> bool {
-        (x.abs() < 14.0 && y.abs() < 14.0)                       // the court
-            || x.abs() < 2.6                                     // the road
-            || (y + 22.0).abs() < 3.5                            // the river
-            || ((x + 20.0).abs() < 8.0 && (y - 6.0).abs() < 6.5) // the library
-            || ((x - 17.0).abs() < 5.5 && (y - 7.0).abs() < 4.5) // the chapel
-            || ((x - 18.5).abs() < 5.0 && (y + 11.5).abs() < 5.0) // the star-tower
-            || (x.abs() < 12.5 && y < -11.0 && y > -22.5)        // hamlet + forge
-            || (x < -11.0 && y > -20.0)                          // west meadow: the
-            //   Scriptorium's sightline south of the library and the Rookery's
-            //   north of it are one continuous corridor down the west side.
-            || (x > 12.0 && y < -12.0 && y > -22.0) // Observatory / Smithy corridor
-            || (x > 17.0 && y > 20.0) // stable yard plus crown/root clearance
-            || super::realm_land::scenery_excluded(x, y) // keep district paths open
+        (x.abs() < 14.0 && y.abs() < 14.0)
+            || x.abs() < 2.6
+            || (y + 22.0).abs() < 3.5
+            || ((x + 20.0).abs() < 8.0 && (y - 6.0).abs() < 6.5)
+            || ((x - 17.0).abs() < 5.5 && (y - 7.0).abs() < 4.5)
+            || ((x - 18.5).abs() < 5.0 && (y + 11.5).abs() < 5.0)
+            || (x.abs() < 12.5 && y < -11.0 && y > -22.5)
+            || (x < -11.0 && y > -20.0)
+            || (x > 12.0 && y < -12.0 && y > -22.0)
+            || (x > 17.0 && y > 20.0)
+            || super::realm_land::scenery_excluded(x, y)
     };
     let mut planted = 0;
     let mut attempts = 0;
@@ -277,12 +189,8 @@ pub fn court_scene(seed: u64) -> Mesh {
     m
 }
 
-/// A single hamlet row — four cottages, a well and a pair of trees on a small
-/// terrain patch. Handy as a cheap mid-ground vista (~1.3k tris).
-///
-/// **Footprint 26 × 18 tiles**, centred on the origin, road running along +x.
 pub fn hamlet_scene(seed: u64) -> Mesh {
-    let mut r = Rng::new(sub_seed(seed, 0x48_41_4D_4C)); // "HAML"
+    let mut r = Rng::new(sub_seed(seed, 0x48_41_4D_4C));
     let mut m = Mesh::new();
     let opts = TerrainOpts {
         cell: 2.2,
@@ -316,8 +224,6 @@ pub fn hamlet_scene(seed: u64) -> Mesh {
     m
 }
 
-/// Bounds of a composed scene, for camera framing. Re-exported convenience so
-/// callers do not need [`prim`] directly.
 pub fn scene_bounds(m: &Mesh) -> Option<(V3, V3)> {
     prim::bbox(m)
 }

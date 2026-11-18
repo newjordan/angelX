@@ -3,7 +3,6 @@
 use super::*;
 use crate::render::overworld::Img;
 
-/// A calm, empty fight room with the knight at its middle.
 pub fn quiet() -> Run {
     let mut run = Run::new(4, 1, None);
     let room = fight_room(&run);

@@ -1,15 +1,6 @@
-# crates/delve/src/rules/lanternward/ctx.rs — the one context button, the
-# party's keys, the banner, items granted.
-#
-# Ctx values are serde's: "None", {"Open": i}, {"Read": i}, {"Lift": i},
-# "Throw", "Flame", {"Light": i}, {"Unlock": i}, {"Revive": id}, "Relight",
-# {"Talk": i}, {"Pull": i}. Hold: "Unfound", {"Carried": [seat, x, y]},
-# {"Lying": [x, y]}, "Spent".
-
 def lanternward.ctx.Party.new() -> J.Val:
   ga.su(ga.sv(ga.su(ga.sb(ga.sb(J.obj(), "map", False{}), "lantern", False{}), "small_keys", 0), "boss", J.JS{"Unfound"}), "containers", 0)
 
-# Whether the boss key is carried by this seat.
 def lanternward.ctx.Session.carrying_boss_key(+s: J.Val, +k: J.Val) -> Bool:
   +b = ga.v(ga.v(s, "inv"), "boss")
   Bool.and(lanternward.tag_is(b, "Carried"), U32.is_eq(ga.nu(lanternward.payload(b), 0), ga.u(k, "id")))
@@ -17,7 +8,6 @@ def lanternward.ctx.Session.carrying_boss_key(+s: J.Val, +k: J.Val) -> Bool:
 def lanternward.ctx.Session.beacon_ready(+s: J.Val) -> Bool:
   Bool.and(U32.is_eq(ga.u(s, "room"), 4), U32.is_ge(ga.u(s, "stage"), 3))
 
-# The first revive reach over the fallen: seats in id order.
 def lanternward.ctx.Session.context.revive(+ids: List<&2, U32>, +s: J.Val, +k: J.Val) -> J.Val:
   match ids:
     case Nil{}:
@@ -38,7 +28,6 @@ def lanternward.ctx.Session.context.revive.at(hit: Bool, +d: U32, +t: List<&2, U
     case False{}:
       lanternward.ctx.Session.context.revive(t, s, k)
 
-# The Ctx a prop would give, or null for none (the `continue`s).
 def lanternward.ctx.Session.context.kind(+s: J.Val, +k: J.Val, +p: J.Val, +i: U32) -> J.Val:
   +kd = ga.s(p, "kind")
   +on0 = U32.is_eq(ga.u(p, "on"), 0)
@@ -54,8 +43,6 @@ def lanternward.ctx.Session.context.kind(+s: J.Val, +k: J.Val, +p: J.Val, +i: U3
                     Bool.pick(J.Val, Bool.and(String.eq(kd, "Beacon"), Bool.and(on0, lanternward.ctx.Session.beacon_ready(s))), J.JS{"Relight"},
                       J.JNull{}))))))))))
 
-# Walks the props keeping the nearest in reach and in front. `bc` is null for
-# no candidate yet, else the best Ctx at distance `bd`.
 def lanternward.ctx.Session.context.props(+s: J.Val, +k: J.Val, +ps: List<&2, J.Val>, +i: U32, +bd: U32, +bc: J.Val) -> J.Val:
   match ps:
     case Nil{}:
@@ -90,7 +77,6 @@ def lanternward.ctx.Session.context.take(+d: U32, +dx: U32, +dy: U32, +c: J.Val,
 def lanternward.ctx.Session.context.facing(+face: J.Val, +dx: U32, +dy: U32) -> U32:
   lanternward.world.dot_unit(ga.nu(face, 0), ga.nu(face, 1), dx, dy)
 
-# The nearest thing in reach and in front of the knight that E would act on.
 def lanternward.ctx.Session.context(+s: J.Val, +k: J.Val) -> J.Val:
   lanternward.ctx.Session.context.carry(lanternward.is(k, "carry", "Pot"), s, k)
 
@@ -117,7 +103,6 @@ def lanternward.ctx.Session.context.none(+c: J.Val) -> J.Val:
     case _:
       c
 
-# The first prop of this kind (and id, unless `id` is 4294967295), or null.
 def lanternward.find_prop.go(+ps: List<&2, J.Val>, +kind: String, +id: U32) -> J.Val:
   match ps:
     case Nil{}:
@@ -137,7 +122,6 @@ def lanternward.find_prop.hit(hit: Bool, +h: J.Val, +t: List<&2, J.Val>, +kind: 
 def lanternward.find_prop(+s: J.Val, +kind: String, +id: U32) -> J.Val:
   lanternward.find_prop.go(ga.items(s, "props"), kind, id)
 
-# Ticks a brazier lit from an ember burns: shorter the more hands.
 def lanternward.ctx.Session.burn_ticks(+s: J.Val) -> U32:
   RS.u_max(RS.u_sat_sub(600, (60 * (RS.u_max(lanternward.seat_count(s), 1) - 1 : U32) : U32)), 300)
 
@@ -153,7 +137,6 @@ def lanternward.ctx.Session.light_crystal.go(done: Bool, +s: J.Val, +i: U32) -> 
         lanternward.es(s, "props", i, "on", 1),
         lanternward.eu(s, "props", i, "x"), lanternward.eu(s, "props", i, "y"))
 
-# Start a block sliding one tile the way it was pushed, if the place is open.
 def lanternward.ctx.against(+room: U32, +dtx: U32, +dty: U32) -> Bool:
   Bool.or(
     Bool.or(lanternward.ctx.against.at(lanternward.world.Plan.at(room, (dtx + 1 : U32), dty)),
@@ -164,7 +147,6 @@ def lanternward.ctx.against(+room: U32, +dtx: U32, +dty: U32) -> Bool:
 def lanternward.ctx.against.at(+c: U32) -> Bool:
   Bool.or(Bool.or(U32.is_eq(c, 35), U32.is_eq(c, 86)), Bool.or(U32.is_eq(c, 61), U32.is_eq(c, 81)))
 
-# Whether a prop other than block `b` and the plates stops a body at (x, y).
 def lanternward.ctx.others_block(+ps: List<&2, J.Val>, +j: U32, +b: U32, +x: U32, +y: U32) -> Bool:
   match ps:
     case Nil{}:
@@ -200,9 +182,6 @@ def lanternward.ctx.Session.start_slide.set(open: Bool, +s: J.Val, +b: U32) -> J
     case False{}:
       lanternward.es(lanternward.es(s, "props", b, "on", 0), "props", b, "t", 0)
 
-# ---- items ----
-
-# An item comes to the party; its finder holds it up. (`$k` is the finder.)
 def lanternward.ctx.Session.grant.seats(+ids: List<&2, U32>, +s: J.Val, +item: String, +n: U32) -> J.Val:
   match ids:
     case Nil{}:
@@ -210,7 +189,6 @@ def lanternward.ctx.Session.grant.seats(+ids: List<&2, U32>, +s: J.Val, +item: S
     case Con{+id, +t}:
       lanternward.ctx.Session.grant.seats(t, lanternward.ctx.Session.grant.one(s, id, item, n), item, n)
 
-# One other seat's share of a lantern (flame) or a container (hearts).
 def lanternward.ctx.Session.grant.one(+s: J.Val, +id: U32, +item: String, +n: U32) -> J.Val:
   +o = ga.at(J.get(s, "seats"), id)
   ga.sv(s, "seats", ga.put_at(J.get(s, "seats"), id,
@@ -285,8 +263,6 @@ def lanternward.ctx.Session.open_chest.go(+s: J.Val, +id: U32, +i: U32, +item: J
     lanternward.props.Session.fx(s, "Light", lanternward.eu(s, "props", i, "x"), lanternward.eu(s, "props", i, "y"), 0),
     id, item)
 
-# The Ctx variant's code: 0 None, 1 Open, 2 Read, 3 Lift, 4 Throw, 5 Flame,
-# 6 Light, 7 Unlock, 8 Revive, 9 Relight, 10 Talk, 11 Pull.
 def lanternward.ctx.tag_code(+t: String) -> U32:
   Bool.pick(U32, String.eq(t, "Open"), 1,
     Bool.pick(U32, String.eq(t, "Read"), 2,
@@ -394,14 +370,11 @@ def lanternward.ctx.Session.use_context.go(+code: U32, +i: U32, +s: J.Val, +id: 
     case _:
       ga.sb(s, "$ret", True{})
 
-# E pressed with a thing in reach. `$ret` is false when there is nothing to do
-# (the caller rolls or hops). `$k` is the pressing seat.
 def lanternward.ctx.Session.use_context(+s: J.Val, +id: U32) -> J.Val:
   +c = lanternward.ctx.Session.context(s, J.get(s, "$k"))
   lanternward.ctx.Session.use_context.go(
     lanternward.ctx.tag_code(lanternward.tag(c)), J.u32(lanternward.payload(c)), s, id)
 
-# The index of the first prop of this kind, or null.
 def lanternward.find_prop_index.go(+ps: List<&2, J.Val>, +kind: String, +i: U32) -> J.Val:
   match ps:
     case Nil{}:

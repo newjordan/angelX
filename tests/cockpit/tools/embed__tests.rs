@@ -159,13 +159,11 @@ fn semantic_read_ranks_relevant_chunks_and_sends_auth() {
         result.contains("1. score=1.0000 relevant.rs:1-1"),
         "{result}"
     );
-    // The untrusted-evidence frame opens the result as its `⠰⠑` page.
     let frame = crate::agent::harness::book::d56_replies::SEMANTIC_EVIDENCE;
     assert!(result.starts_with(&frame.cells()), "{result}");
     assert!(frame.text().contains("untrusted workspace evidence"));
     server.join().unwrap();
 
-    // Named after this root: the temp directory is shared with other suites.
     let name = format!("{}-outside.rs", root.file_name().unwrap().to_string_lossy());
     let outside = root.parent().unwrap().join(&name);
     std::fs::write(&outside, "secret").unwrap();

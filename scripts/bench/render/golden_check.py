@@ -70,14 +70,13 @@ def check(path):
     gx0 = cx0 - checker_w
 
     failures = []
-    # Checker cells are 16 source px; sample two cell centres.
     cell = checker_w / 10.0
     for label, frac, want in (
         ("checker_a", 0.5, (0, 0, 220)),
         ("checker_b", 1.5, (0, 220, 0)),
     ):
         x = int(cx0 + frac * cell)
-        y = int(cy0 + 0.5 * (cy1 - cy0) / 12.5)  # first checker row
+        y = int(cy0 + 0.5 * (cy1 - cy0) / 12.5)
         got = px[x, y][:3]
         if any(abs(g - wv) > CHECKER_TOL for g, wv in zip(got, want)):
             failures.append(f"{label}: got {got}, want {want}")

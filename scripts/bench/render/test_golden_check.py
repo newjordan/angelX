@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-"""Tests for golden_check.py: synthetic composites, no seat needed.
-
-The sRGB-blended scene must pass; the same scene blended in linear
-light (Kitty's convention) must fail — that discrimination is the
-whole point of the contract.
-"""
 import os
 import sys
 import tempfile
@@ -25,7 +19,7 @@ def scene(blend):
                 t = x / 319.0
                 if blend == "srgb":
                     red = round(255 * t)
-                else:  # linear light: blend, then re-encode
+                else:
                     red = round(255 * (t ** (1 / 2.2)))
                 px[sx, sy] = (red, 0, 0)
             else:

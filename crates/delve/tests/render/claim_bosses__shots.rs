@@ -57,8 +57,6 @@ fn write_claim_boss_review() {
             }
         }
         assert_eq!(saved, 3, "{kind:?}: arrival, warning and recovery rendered");
-        // The death frame comes from real attacks with an unmodified starter
-        // knight, without health resets or assigning a boss corpse.
         let (mut won, deposit, _, _) = crate::rules::claim_bosses::tests::play_claim(kind);
         assert!(won.claim_guardian_defeated(&deposit.id));
         for _ in 0..12 {

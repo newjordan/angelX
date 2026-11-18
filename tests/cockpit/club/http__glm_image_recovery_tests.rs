@@ -3,8 +3,6 @@ use crate::club::types::{ChatMsg, Media};
 use std::io::{Read, Write};
 use std::net::TcpListener;
 
-/// One-shot HTTP server: captures requests, each answered with the same
-/// HTTP 400 + JSON error, exactly like the GLM endpoint rejecting an image part.
 fn serve_rejecting(
     status: &'static str,
     json: &'static str,
@@ -24,7 +22,6 @@ fn serve_rejecting(
             };
             let mut req = Vec::new();
             let mut buf = [0u8; 16384];
-            // Read headers, parse content-length, then read exactly that body.
             loop {
                 let n = sock.read(&mut buf).unwrap_or(0);
                 if n == 0 {
@@ -59,7 +56,6 @@ fn serve_rejecting(
 }
 
 fn tiny_png() -> Vec<u8> {
-    // Minimal valid 1x1 grayscale PNG (admission decodes it for real).
     vec![
         0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44,
         0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90,
@@ -69,12 +65,6 @@ fn tiny_png() -> Vec<u8> {
     ]
 }
 
-/// The live failure: a clipboard image attachment is serialized as an
-/// `image_url` data-URL part; the GLM endpoint answers HTTP 400. Before the
-/// fix the 400 is terminal — the turn dies and later turns replay the same
-/// poison part against the same text-only route. After the fix the club
-/// learns the route is text-only, and the immediate retry strips image parts
-/// so the conversation continues.
 #[test]
 fn glm_image_attachment_400_learns_text_only_and_retries_without_image_parts() {
     let media = Media::image_from_bytes(&tiny_png(), "clipboard image").unwrap();

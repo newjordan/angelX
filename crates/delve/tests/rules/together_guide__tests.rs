@@ -12,7 +12,6 @@ fn a_cleared_room_points_one_step_closer_to_its_aim() {
     let mut run = floor();
     let (dir, _) = run.way_on().expect("a cleared start room points on");
     let next = run.dungeon.neighbour(run.at, dir).expect("through an open doorway");
-    // Following it room by room arrives, never circling.
     let mut room = next;
     let mut steps = 0;
     while steps < 40 {

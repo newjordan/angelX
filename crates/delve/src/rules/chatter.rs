@@ -16,27 +16,18 @@ use std::sync::OnceLock;
 
 use super::{HZ, Run};
 
-/// The knights' four voices, taken by seat.
 const VOICES: [&str; 4] = ["a", "b", "c", "d"];
-/// What each voice can say: chatter for moments, grunts for the body.
 const CLIPS: [&str; 12] = [
     "cheer", "ooh", "uhoh", "aww", "thanks", "go", "hello", "hehe", "hup", "oof", "hyah", "waah",
 ];
-/// Takes of every clip.
 const TAKES: usize = 2;
 
-/// After any chatter, an ordinary moment waits this long for a word.
 pub const QUIET: u64 = 25 * HZ as u64;
-/// Even big moments leave a breath between two lines.
 pub const BREATH: u64 = 3 * HZ as u64;
-/// The party grunts at most this often, falls aside: one knight at a time.
 const GRUNT_GAP: u64 = 4 * HZ as u64;
-/// A knight's "oof" at most this often, however hard the fight.
 const OOF_GAP: u64 = 6 * HZ as u64;
-/// A knight's "hup" as they roll, at most this often.
 const HUP_GAP: u64 = 12 * HZ as u64;
 
-/// Every knight clip's effect name, for the mixer and the guest page.
 pub fn names() -> &'static [&'static str] {
     static NAMES: OnceLock<Vec<&'static str>> = OnceLock::new();
     NAMES.get_or_init(|| {
@@ -53,15 +44,12 @@ pub fn names() -> &'static [&'static str] {
     })
 }
 
-/// Knight `id`'s take of `clip`.
 pub fn clip(id: u32, clip: &str, take: usize) -> &'static str {
     let voice = id.saturating_sub(1) as usize % VOICES.len();
     let at = CLIPS.iter().position(|c| *c == clip).unwrap_or(0);
     names()[(voice * CLIPS.len() + at) * TAKES + take % TAKES]
 }
 
-/// What the knights say about a moment, and whether it is big enough to
-/// speak after only a breath.
 fn mood(cue: &str) -> Option<(&'static str, bool)> {
     let base = cue.split(':').next().unwrap_or(cue);
     Some(match base {
@@ -91,7 +79,6 @@ fn mood(cue: &str) -> Option<(&'static str, bool)> {
     })
 }
 
-/// A knight as the last tick left them.
 #[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 struct Body {
     hp: u32,
@@ -99,7 +86,6 @@ struct Body {
     charge: u32,
 }
 
-/// Who spoke when, whose turn it is, and each knight's last grunts.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Chatter {
     said: Option<u64>,
@@ -111,9 +97,6 @@ pub struct Chatter {
 }
 
 impl Run {
-    /// Once a tick, after the tick: the knights' grunts, then a word about
-    /// the biggest moment the tick cued (from cue `from` on), if the quiet
-    /// allows one.
     pub(super) fn chatter(&mut self, from: usize) {
         let tick = self.tick;
         let take = (tick % TAKES as u64) as usize;

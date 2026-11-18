@@ -70,8 +70,6 @@ fn outcome(index: usize) -> PatternOutcomeV1 {
     }
 }
 
-/// Three membership classes crossed with the five outcomes, then the bucket and
-/// pattern orderings, a correction, a promotion, a carry and a saturated sum.
 fn cases() -> Vec<(&'static str, Vec<PatternEvidenceV1>)> {
     const GRID: [[&str; 5]; 3] = [
         [
@@ -486,8 +484,6 @@ fn the_leg_reduces_every_planned_case_like_the_native_pass() {
 
 #[test]
 fn the_leg_still_folds_the_counters_the_board_reads() {
-    // One hand-checked case, so parity is not the only evidence: three rows on
-    // one pattern must land in exactly the counters the oracle documents.
     let evidence = vec![
         evidence(
             "evidence-1",
@@ -527,8 +523,6 @@ fn the_leg_still_folds_the_counters_the_board_reads() {
     assert_eq!(aggregate.cost_microunits, 10);
 }
 
-/// The fixture leg in place of a shipped generation, for a shape the host has
-/// to refuse.
 fn temporary_policy_leg(id: &str, render: &str) -> angel_live::Program {
     let root = std::env::temp_dir().join(format!("angel-patterns-leg-{}-{id}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
@@ -588,8 +582,6 @@ fn an_out_of_contract_reduction_keeps_the_native_decision() {
 
 #[test]
 fn a_saturated_counter_falls_back_to_the_native_refusal() {
-    // Two rows whose cost sums past u64::MAX: the leg raises `over`, the host
-    // refuses that answer and keeps the native `checked_add` error verbatim.
     let evidence = vec![
         evidence(
             "evidence-1",
@@ -626,8 +618,6 @@ fn the_leg_decides_in_microseconds() {
             for row in 0..5u64 {
                 let index = bucket * 15 + pattern * 5 + row;
                 let class = match row {
-                    // One official binding per pattern: a second would need to
-                    // correct the first, which the canonical scan rejects.
                     0 => official(bucket * 3 + pattern + 1),
                     1 => transfer(),
                     _ => PatternEvidenceClassV1::OperationalOutcome,
@@ -661,8 +651,6 @@ fn the_leg_decides_in_microseconds() {
     );
 }
 
-/// With no live generation offered, the shipped module still answers and the
-/// receipt says where the answer came from.
 #[test]
 fn a_turn_with_no_live_generation_uses_the_shipped_patterns_reducer() {
     use super::patterns_reducer::reduce_fields_shipped;

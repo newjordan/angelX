@@ -4,8 +4,6 @@ use crate::together_shooter::*;
 use crate::together_shooter::polish_testing::*;
 use std::collections::BTreeMap;
 
-/// A game's whole screen, as the host sees it, written as JSON lines of
-/// cells (symbol, foreground, background) for review.
 pub(crate) fn write_screen(run: &Run, dir: &std::path::Path, name: &str, width: u16, height: u16) {
     use ratatui::{Terminal, backend::TestBackend, layout::Rect};
     let hex = |c: ratatui::style::Color| match c {
@@ -47,7 +45,6 @@ pub(crate) fn write_screen(run: &Run, dir: &std::path::Path, name: &str, width: 
     .unwrap();
 }
 
-/// `ANGEL_DELVE_SCREEN=<dir> cargo test write_hud_screens -- --ignored`
 #[test]
 #[ignore]
 fn write_hud_screens() {
@@ -76,7 +73,6 @@ fn write_hud_screens() {
     }
     write_screen(&run, &dir, "hud_two_160x48", 160, 48);
     write_screen(&run, &dir, "hud_two_100x30", 100, 30);
-    // The same HUDs as the browser page is sent them.
     for id in [1, 2] {
         let hud = run.hud(id, &hud::Keys::FIRST).unwrap();
         std::fs::write(

@@ -14,11 +14,8 @@ use crate::rules::juice::Weight;
 
 use super::layout::{H, W};
 
-/// The cold light of the Gloam's own things, and the warm of what answers.
 const COLD: Ramp = ramps::STORM;
 
-/// How big a thing is at `depth`: dots a unit tall, in fifths, kept so a
-/// far pop is still seen and a near one never fills the screen.
 fn scale(c: &Ctx, depth: f32) -> f32 {
     (c.tall(1.0, depth) / 4.0).clamp(0.8, 2.8)
 }
@@ -27,14 +24,11 @@ fn seed_of(f: &Fx) -> u32 {
     hash(f.s >> 4, f.x >> 3 ^ f.z, u32::from(f.n) ^ f.born)
 }
 
-/// Where a craft is on the picture: a knight's own sits low and near, where
-/// the reticle's line starts.
 pub(super) fn craft_at(c: &Ctx, craft: &Craft, own: bool) -> Option<(f32, f32, f32)> {
     let here = c.s.craft_s(craft);
     c.at(if own { here + gw::dm(8) } else { here }, craft.x, craft.z)
 }
 
-/// The craft `id` (a seat's or a wingman's), if it flies.
 fn craft_of<'a>(c: &Ctx<'a>, id: u8) -> Option<&'a Craft> {
     if id <= 6 {
         c.s.seats.get(&u32::from(id)).map(|s| &s.craft)
@@ -43,11 +37,6 @@ fn craft_of<'a>(c: &Ctx<'a>, id: u8) -> Option<&'a Craft> {
     }
 }
 
-// ─── the world's effects ────────────────────────────────────────────────────
-
-/// A puff of smoke: a dithered disc that swells and thins as `m` ages,
-/// laid over the scene (the kit's smoke goes under bare paper only, and the
-/// canyon has none).
 fn puff(pen: &mut Pen, m: &pfx::Mote, ramp: Ramp, size: f32) {
     let k = m.k.clamp(0.0, 1.0);
     let r = (1.2 + k * (1.5 + size)).max(1.0);
@@ -63,8 +52,6 @@ fn puff(pen: &mut Pen, m: &pfx::Mote, ramp: Ramp, size: f32) {
     }
 }
 
-/// A chunk of debris: a square of `size` dots in the ramp's body ink with a
-/// bright edge, tumbling down.
 fn chunk(pen: &mut Pen, m: &pfx::Mote, ramp: Ramp, size: i32) {
     let (x, y) = (m.at.0.round() as i32, m.at.1.round() as i32);
     let body = ramp.at(0.25 + m.k * 0.5);
@@ -76,9 +63,6 @@ fn chunk(pen: &mut Pen, m: &pfx::Mote, ramp: Ramp, size: i32) {
     pen.put(x, y, ramp.step(0));
 }
 
-/// A fireball: a dithered disc that swells fast out of a white core, burns
-/// down `ramp` and thins away through the dither as it cools, like the
-/// explosion of a sprite sheet.
 fn fireball(pen: &mut Pen, at: (f32, f32), age: u32, rmax: f32, ramp: Ramp) {
     const LIFE: u32 = 18;
     if age >= LIFE {
@@ -105,8 +89,6 @@ fn fireball(pen: &mut Pen, at: (f32, f32), age: u32, rmax: f32, ramp: Ramp) {
     }
 }
 
-/// A flash, a ring, sparks, debris and smoke at `at`, `age` ticks after a foe
-/// of `kind` went up under a blow of `weight`; `k` is the size at its depth.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn burst(
     im: &mut Img,
@@ -120,7 +102,6 @@ pub(super) fn burst(
 ) {
     let a = age as f32;
     let w = weight as i32 as f32;
-    // A snuffer is cold light; a tower and a bomber are stone and flame.
     let (hot, spark, chunks) = match kind {
         0 => (COLD, COLD, ramps::BONE),
         1 => (ramps::EMBER, COLD, ramps::BONE),
@@ -129,7 +110,6 @@ pub(super) fn burst(
         _ => (ramps::GOLD, COLD, ramps::BONE),
     };
     let mut pen = Pen::new(im, 7000);
-    // The fireball, and a white core in its first two ticks.
     let cold = kind <= 1;
     let rmax = if cold { (4.5 + w * 2.4) * k } else { (7.5 + w * 3.6) * k };
     fireball(&mut pen, at, age, rmax, if cold { COLD } else { ramps::FIRE });
@@ -169,7 +149,6 @@ pub(super) fn burst(
     smoke.each(a, |m| puff(&mut pen, &m, ramps::SMOKE, 2.5 * k));
 }
 
-/// A bolt landing: a white spark and a few thrown.
 fn hit_spark(im: &mut Img, at: (f32, f32), age: u32, k: f32, seed: u32, tick: u64) {
     let mut pen = Pen::new(im, 200);
     if age < 3 {
@@ -189,9 +168,6 @@ fn hit_spark(im: &mut Img, at: (f32, f32), age: u32, k: f32, seed: u32, tick: u6
     sparks.each(age as f32, |m| pfx::mote(&mut pen, &m, Shape::Spark, ramps::GOLD, 1, tick));
 }
 
-/// A lamp breaking: its cold glass goes in a ring of shards and two gold
-/// shocks, a white flash, rays, and the sparks left drifting up: the biggest
-/// burst of the beat but the Wyrm's own.
 fn lamp_burst(im: &mut Img, at: (f32, f32), age: u32, k: f32, seed: u32, tick: u64) {
     let a = age as f32;
     let mut pen = Pen::new(im, 9000);
@@ -233,8 +209,6 @@ fn lamp_burst(im: &mut Img, at: (f32, f32), age: u32, k: f32, seed: u32, tick: u
     smoke.each(a, |m| puff(&mut pen, &m, ramps::SMOKE, 3.0 * k));
 }
 
-/// A lamp that is out smoulders: smoke curling up out of its socket and a
-/// lick of flame, so the part that broke stays broken.
 fn smoulder(im: &mut Img, at: (f32, f32), k: f32, tick: u32) {
     let mut pen = Pen::new(im, 400);
     for e in 0..6u32 {
@@ -250,19 +224,14 @@ fn smoulder(im: &mut Img, at: (f32, f32), k: f32, tick: u32) {
         };
         puff(&mut pen, &m, ramps::SMOKE, 2.5 * k);
     }
-    // The flame in the socket.
     let flick = (tick / 2 + 3) % 3;
     for (dx, dy, ch) in [(0, 0, '6'), (-1, 1, 'R'), (1, 1, 'R'), (0, -1 - flick as i32 / 2, '@')] {
         pen.put(at.0 as i32 + dx, at.1 as i32 + dy, ch);
     }
 }
 
-/// The Wyrm's death: a white flash, then a blast at each part of it as it
-/// lets go and falls (`wyrm.rs` says where and when), big and in the picture's
-/// own measure (the Wyrm is the size of the canyon), the last the skull's.
 fn wyrm_death(im: &mut Img, c: &Ctx, f: &Fx, age: u32, tick: u64) {
     if age < 5 {
-        // The room goes white and comes back through a dither.
         let hold = (0.75 - age as f32 * 0.16).max(0.0);
         for y in 0..H {
             for x in 0..W {
@@ -272,12 +241,9 @@ fn wyrm_death(im: &mut Img, c: &Ctx, f: &Fx, age: u32, tick: u64) {
             }
         }
     }
-    // The head, as it is held ahead of the wing (it keeps its pace until it
-    // is done dying): the fall's own record is the crown lamp's place.
     let held = gw::PACE * age.min(60) as i32;
     let (hs, hx, hz) = (f.s + gw::dm(40) + held, f.x, f.z - gw::dm(42));
     let parts = super::wyrm::break_points();
-    // The skull's is the heaviest (it stands eighth in the list).
     let skull = 7;
     for (i, (start, off)) in parts.into_iter().enumerate() {
         if age < start || age - start >= 40 {
@@ -298,8 +264,6 @@ fn wyrm_death(im: &mut Img, c: &Ctx, f: &Fx, age: u32, tick: u64) {
     }
 }
 
-/// Everything the records and the flares say happened in the world: pops,
-/// lamps, the Wyrm, a rescue, a landed bolt, a muzzle.
 pub(super) fn world(im: &mut Img, c: &Ctx) {
     let now = c.s.elapsed;
     let tick = u64::from(now);
@@ -318,7 +282,6 @@ pub(super) fn world(im: &mut Img, c: &Ctx) {
                 }
             }
             What::Fall if age < 34 => {
-                // A craft going down trails fire and smoke where it fell.
                 let own = u32::from(f.seat) == c.seat;
                 let here = (f.s, f.x, f.z - age as i32 * gw::dm(1) / 3);
                 if let Some((x, y, d)) = c.at(here.0, here.1, here.2) {
@@ -349,8 +312,6 @@ pub(super) fn world(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// A wingman saved: a gold ring round its craft that swells and fades, with
-/// rays, and stars rising off it.
 fn rescue(im: &mut Img, c: &Ctx, f: &Fx, age: u32, tick: u64) {
     let Some(craft) = craft_of(c, f.n as u8) else {
         return;
@@ -373,7 +334,6 @@ fn rescue(im: &mut Img, c: &Ctx, f: &Fx, age: u32, tick: u64) {
     stars.each(a, |m| pfx::mote(&mut pen, &m, Shape::Star, ramps::GOLD, 1, tick));
 }
 
-/// Two small flashes at a craft's guns, two ticks.
 fn muzzle(im: &mut Img, c: &Ctx, f: &Fx, age: u32) {
     let id = u32::from(f.seat);
     let craft = if id == 0 {
@@ -403,9 +363,6 @@ fn muzzle(im: &mut Img, c: &Ctx, f: &Fx, age: u32) {
     }
 }
 
-/// A foe the last blow struck, in one white frame: the pixels of the scene
-/// that belong to it (those at its own depth), white for two ticks and then
-/// through a thinning dither.
 pub(super) fn strikes(im: &mut Img, c: &Ctx) {
     if c.depth.is_empty() {
         return;
@@ -436,10 +393,6 @@ pub(super) fn strikes(im: &mut Img, c: &Ctx) {
     }
 }
 
-// ─── the craft's own ────────────────────────────────────────────────────────
-
-/// A barrel roll: a pair of spiral streaks wound round the craft, longer as
-/// the roll goes, and at its start long dodge lines flung the way it left.
 pub(super) fn rolls(im: &mut Img, c: &Ctx) {
     let s = c.s;
     let one = |im: &mut Img, craft: &Craft, own: bool, tick: u64| {
@@ -453,7 +406,6 @@ pub(super) fn rolls(im: &mut Img, c: &Ctx) {
         let r = (c.tall(5.2, d) / 2.0).clamp(10.0, 44.0);
         let way = f32::from(craft.dir);
         let mut pen = Pen::new(im, 700);
-        // Three arms of the spiral, each a ribbon that trails behind its head.
         for arm in 0..3 {
             let head = into as f32 * 0.55 * way + arm as f32 * std::f32::consts::TAU / 3.0;
             let tail = (6.0 + into.min(10) as f32 * 0.9) * 0.1;
@@ -468,7 +420,6 @@ pub(super) fn rolls(im: &mut Img, c: &Ctx) {
                 pen.light(px.round() as i32 + 1, py.round() as i32, ch);
             }
         }
-        // The dodge: long lines flung out the way the roll left, fast to go.
         if into < 9 {
             let fade = 1.0 - into as f32 / 9.0;
             for j in 0..7 {
@@ -489,8 +440,6 @@ pub(super) fn rolls(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// A kite on a rider's tail: a red tether between them, thick and beating,
-/// so a knight sees at once who to save and from what.
 pub(super) fn tethers(im: &mut Img, c: &Ctx) {
     let s = c.s;
     for f in s.foes.iter().filter(|f| f.st == St::Latched) {
@@ -517,9 +466,6 @@ pub(super) fn tethers(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// A starburst loosed from a volley runs home: a faint line from each to the
-/// foe it hunts, and a hot bracket on that foe while any is on its way, so a
-/// release of six reads as six lines closing on six marks.
 pub(super) fn volley(im: &mut Img, c: &Ctx) {
     let s = c.s;
     let tick = s.elapsed;
@@ -563,8 +509,6 @@ pub(super) fn volley(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// Dust and light off the canyon for the Wyrm's tells, drawn as a dithered
-/// rim: the picture warns before the footprints land.
 pub(super) fn tell_rim(im: &mut Img, c: &Ctx) {
     use gw::Wyrm;
     let Some(b) = &c.s.boss else { return };
@@ -578,7 +522,6 @@ pub(super) fn tell_rim(im: &mut Img, c: &Ctx) {
         _ => return,
     };
     super::super::juice::vignette(im, (0, 0, W, H), k, 14, '8');
-    // The last half second of a tell: the rim goes red.
     if urgent {
         super::super::juice::vignette(im, (0, 0, W, H), k * 0.9, 8, '7');
     }

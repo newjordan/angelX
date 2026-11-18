@@ -33,7 +33,6 @@ impl Command for Nothing {
     fn absorb(&mut self, _: &Self) {}
 }
 
-/// Two seats; the tree is who is here.
 #[derive(Default)]
 struct Here {
     here: Vec<Presence>,
@@ -73,7 +72,6 @@ impl GameServer for Here {
     }
 }
 
-/// A page: seated over a socket, the tree read back, commands when told.
 struct Page {
     ws: WsClient,
     reader: Reader,
@@ -90,7 +88,6 @@ impl Page {
         Page { ws, reader: Reader::default(), tree: None, newest: 0, seq: 0 }
     }
 
-    /// For `wait`: read what comes, sending a command a tick if `sending`.
     fn run(&mut self, wait: Duration, sending: bool) {
         let until = Instant::now() + wait;
         let mut next = Instant::now();
@@ -116,7 +113,6 @@ impl Page {
         }
     }
 
-    /// Seat `seat`'s (seated, connected, playing), as the tree says.
     fn here(&self, seat: usize) -> (bool, bool, bool) {
         let Some(Value::Struct(fields)) = &self.tree else {
             return (false, false, false);
@@ -134,19 +130,15 @@ fn a_page_is_here_once_it_plays_and_away_a_second_after_it_stops() {
     config.key = Some(KEY.into());
     let server = Server::start(Here::default(), config).unwrap();
     let mut page = Page::open(&server);
-    // Seated and connected, still loading: it has said nothing more.
     page.run(Duration::from_millis(500), false);
     assert_eq!(page.here(0), (true, true, false), "a page still loading is not here");
-    // It has the game and plays.
     page.run(Duration::from_millis(300), true);
     assert_eq!(page.here(0), (true, true, true), "playing");
-    // Its commands stop (a hidden tab): away a second later, still seated.
     let quiet = Duration::from_secs(1) * AWAY_AFTER_TICKS / HZ + Duration::from_millis(300);
     page.run(quiet, false);
     assert_eq!(page.here(0), (true, true, false), "away while quiet");
     page.run(Duration::from_millis(300), true);
     assert_eq!(page.here(0), (true, true, true), "back the moment it plays");
-    // The host's own in-process seat is here as soon as it is seated.
     let host = server.connect_local().unwrap();
     host.send(ToServer::Hello { protocol: PROTOCOL, game: "here", join: KEY, resume: "", name: "Host", caps: 0 }.to_vec())
         .unwrap();

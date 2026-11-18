@@ -10,8 +10,6 @@ use crate::rules::squires::{self, Action, Kind, Squire, Yard};
 use crate::rules::talents::knight_key;
 use crate::rules::{RoomKind, Run};
 
-// The same red/shadow/gold cloth keys as the knights. Skin, tools, armour
-// and the healer's linen deliberately keep their own inks when recoloured.
 const NINJA: [&str; 18] = [
     ".....KKKKK........",
     "....KgjjjgK.......",
@@ -117,8 +115,6 @@ const ALCHEMIST: [&str; 19] = [
     "....KKK.KKK.......",
 ];
 
-// Low, hand-drawn downed silhouettes: gear beside its owner, never a
-// standing sprite merely rotated into a still-tall box.
 fn fallen(kind: Kind) -> Img {
     let rows: &[&str] = match kind {
         Kind::Ninja => &[
@@ -180,8 +176,6 @@ fn fallen(kind: Kind) -> Img {
     Img::from_rows(rows)
 }
 
-/// Authored at a little under a knight's height, not scaled-down knights.
-/// The two-pixel boot swing changes only the legs, never the face or tools.
 pub(super) fn sprite(kind: Kind, owner: u32, tick: u64, walking: bool, down: bool) -> Img {
     if down {
         return fallen(kind).recolor(knights::seat_colours(owner));
@@ -215,8 +209,6 @@ fn short_kind(kind: Kind) -> &'static str {
     }
 }
 
-/// Neutral, bevelled floor slates. A warm underline means occupied, not a
-/// pool of light. Plate positions come from the rules, including empty slots.
 fn slate(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), label: &str, occupied: bool) {
     let (x, y, w, h) = (c * TILE + 1, r * TILE + 1, w * TILE - 2, h * TILE - 2);
     cv.rect(x, y, w, h, 'K');
@@ -247,15 +239,12 @@ fn plate_label(action: Action) -> String {
     }
 }
 
-/// Added after the yard's dusk: grey stone, black paper and dull brass,
-/// without relighting the yard or changing its existing fixtures.
 pub(super) fn scenery(cv: &mut Img, _run: &Run) {
     for (action, rect) in squires::plates() {
         slate(cv, rect, &plate_label(action), false);
     }
     cv.text(22, 75, "RECRUITS / HOLD E", 'h');
     cv.text(18, 126, "COMPANY / CHOOSE", 'h');
-    // A small rolled muster notice, below the targets on the north wall.
     cv.line(22, 72, 347, 72, 'g');
     for x in [22, 347] {
         cv.rect(x - 1, 70, 3, 5, 'G');
@@ -263,8 +252,6 @@ pub(super) fn scenery(cv: &mut Img, _run: &Run) {
     }
 }
 
-/// Both the waiting recruits and deployed companions use the exact same
-/// sprite. No Hireling species stand in for any of the five squire types.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     if run.at_home_now() {
         if run.room().kind != RoomKind::Yard {
@@ -290,8 +277,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 }
             }
         }
-        // Each seat's own company is read on its board, while occupied slates
-        // and their hold affordance remain visible to everybody in the yard.
         for hero in run.players.values().filter(|h| h.hp > 0) {
             let Some(action) = squires::action_at(hero.x, hero.y) else {
                 continue;
@@ -316,8 +301,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         if body.facing < 0.0 {
             im = im.flip_h();
         }
-        // A downed companion keeps its cloth and recognisable equipment;
-        // unlike a knight it isn't rendered as a skull awaiting resurrection.
         if body.down() {
             stand(cv, &im, x, y + 3);
             continue;
@@ -332,8 +315,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             cv.rect(x - 6, y - im.h - 4, health, 1, 'h');
         }
         if companion.smoke > 0 {
-            // Dry, squared-off smoke. Neither a glow nor an opaque blanket
-            // over the ninja: a few charcoal flecks at the silhouette's edge.
             for n in 0..5 {
                 let phase = ((run.tick / 3 + n as u64 * 3) % 9) as i32;
                 cv.rect(
@@ -353,7 +334,6 @@ fn bounded(text: &str, count: usize) -> String {
 }
 
 fn line(lines: &mut Vec<(String, char)>, text: impl Into<String>, ink: char) {
-    // Keep unusual player/save names from pushing the scroll off screen.
     let text = text.into();
     let mut row = String::new();
     for word in text.split_whitespace() {
@@ -385,7 +365,6 @@ fn upgrade_name(step: usize) -> &'static str {
 }
 
 fn upgrade_effect(yard: &Yard, step: usize) -> String {
-    // Query the rules rather than maintaining a second economy in the UI.
     let sample = Squire {
         id: 0,
         kind: Kind::Ninja,
@@ -414,8 +393,6 @@ fn upgrade_effect(yard: &Yard, step: usize) -> String {
     }
 }
 
-/// Square-cut scroll rolls, a double grey edge, black paper, dull warm
-/// rulings. Deliberately not `chrome::panel`: no blue fill, gradient or glow.
 fn scroll(lines: &[(String, char)], control: &str, buying: u32, enabled: bool) -> Img {
     let (w, h) = (348, 23 + lines.len() as i32 * 9 + 25);
     let mut im = Img::black(w, h);
@@ -445,8 +422,6 @@ fn scroll(lines: &[(String, char)], control: &str, buying: u32, enabled: bool) -
     im
 }
 
-/// Seat-local, hold-E transactions. Reading never mutates the roster, the
-/// purse, the active companion, or another seat's choice.
 pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     if !run.at_home_now() || run.room().kind != RoomKind::Yard {
         return;
@@ -565,7 +540,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
                     line(&mut lines, "THIS SQUIRE FOLLOWS ITS KNIGHT", 'h');
                 }
                 line(&mut lines, "COMPANY ROLL / > ACTIVE", 'G');
-                // Eight rule slots fit; long save names cannot widen a row.
                 for member in roster.iter().take(8) {
                     line(
                         &mut lines,
@@ -649,7 +623,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
             control = "HOLD E: BUILD";
         }
     }
-    // The hold stays visible even for imported, unusually large companies.
     let max_lines = ((cv.h - 50) / 9).max(1) as usize;
     if lines.len() > max_lines {
         lines.truncate(max_lines);
@@ -657,14 +630,11 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     }
     let board = scroll(&lines, control, hero.buying, enabled);
     let x = ((cv.w - board.w) / 2).max(0);
-    // North-board readers can still see the recruit and the plate they use.
     let y = if matches!(action, Action::Hire(_)) {
         (cv.h - board.h - 4).max(4)
     } else {
         4
     };
-    // Black margin keeps half-seen floor labels from reading like broken
-    // letters at the scroll's edge. No tint or glow over the room.
     cv.rect(x - 6, y - 3, board.w + 12, board.h + 6, 'K');
     cv.stamp(&board, x, y);
 }
@@ -673,10 +643,7 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
 #[path = "../../../../tests/render/arena__squires__shots.rs"]
 mod shots;
 
-// The other company has its own rendering and yard notices. Its rules and
-// companion state must remain distinct from the Training Yard company.
 mod countryside_company {
-// Little company figures and the yard's plain paper notices.
 use super::super::super::{ink::Img, kit};
 use super::super::{TILE, at, stand};
 use crate::rules::{
@@ -687,7 +654,6 @@ use crate::rules::{
 fn figure(kind: Kind, cloth: char) -> Img {
     let mut im = Img::new(17, 17);
     im.stamp_times(&kit::squire(cloth), 2, 0, 1);
-    // A hood, a cross, a bow, a shield, or a bottle: readable at native scale.
     match kind {
         Kind::Ninja => {
             im.rect(3, 0, 7, 4, 'J');
@@ -721,7 +687,6 @@ fn figure(kind: Kind, cloth: char) -> Img {
 pub(crate) fn delve(cv: &mut Img, run: &Run) {
     for c in &run.countryside_squires {
         let mut im = figure(c.recruit.kind, super::super::knights::seat_cloth(c.owner));
-        // The native little figure is enlarged only once, to roughly half a knight.
         let mut large = Img::new(im.w * 2, im.h * 2);
         large.stamp_twice(&im, 0, 0);
         im = large;

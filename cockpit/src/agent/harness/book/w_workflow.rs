@@ -24,7 +24,6 @@ pub(crate) const FINISH: Route = Route::new(CELL, '⠓');
 pub(crate) const PAGING: Route = Route::new(CELL, '⠊');
 pub(crate) const GREP_CAP: Route = Route::new(CELL, '⠚');
 
-/// Consecutive single-read hops before the batch cue appears.
 const SERIAL_READS: usize = 3;
 
 pub(crate) const PRIMARY: Primary = Primary {
@@ -118,8 +117,6 @@ pub(crate) const PRIMARY: Primary = Primary {
     ],
 };
 
-/// The turn's cue scheduler: hygiene once at the first tool result, then
-/// cues as the model's own actions make them relevant.
 #[derive(Default)]
 pub(crate) struct Cues {
     hygiene_shown: bool,
@@ -130,7 +127,6 @@ pub(crate) struct Cues {
 }
 
 impl Cues {
-    /// One hop's calls, as the model issued them.
     pub(crate) fn observe_calls<'a>(&mut self, names: impl IntoIterator<Item = &'a str>) {
         let names = names.into_iter().collect::<Vec<_>>();
         let single_read = names.len() == 1 && matches!(names[0], "read_file" | "grep" | "list_dir");
@@ -145,21 +141,16 @@ impl Cues {
         }
     }
 
-    /// A workspace edit: a later clean run is new evidence.
     pub(crate) fn note_edit(&mut self) {
         self.edited = true;
     }
 
-    /// A test command came back clean (typed green, or a shell run that exited
-    /// zero). After edits, that is the finish cue.
     pub(crate) fn observe_clean_run(&mut self, command: &str) {
         if std::mem::take(&mut self.edited) {
             self.pending.push(Raise::new(FINISH, command.to_string()));
         }
     }
 
-    /// The cues for this hop: hygiene on the turn's first tool result, then
-    /// any cues that came due.
     pub(crate) fn take(&mut self) -> Vec<Raise> {
         let mut out = std::mem::take(&mut self.pending);
         if !std::mem::replace(&mut self.hygiene_shown, true) {

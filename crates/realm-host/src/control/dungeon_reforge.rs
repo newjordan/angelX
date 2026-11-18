@@ -9,34 +9,21 @@ use crate::together_shooter::dead_wishes::Target;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
-// A wish no runner has answered by then is let go and given back. A
-// runner's every call is bounded (`together_grants::GRANT_MOST`: its first
-// call, one retry and the mend), so this only catches one that never answers.
 const LEARN_TIME: Duration = Duration::from_secs(crate::together_grants::GRANT_MOST.as_secs() + 30);
-/// The most wishes one knight may have in the runners' hands at once.
 pub const MOST_IN_FLIGHT: usize = 3;
 
-/// Held ladders per page of the terminal wish line.
 pub const UPGRADES_PER_PAGE: usize = 2;
 
-/// The prompt being typed in the game.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReforgeDraft {
     pub player: u32,
     pub part: Part,
     pub words: String,
     pub upgrade_page: usize,
-    /// The ONE WISH pop-up, once Enter reads the wish back: `Some(true)`
-    /// with SEAL chosen, `Some(false)` with REWRITE.
     pub confirm: Option<bool>,
-    /// The known wish picked from the scroll's list (its id), and the one
-    /// the words came to, once read back.
     pub pick: Option<String>,
     pub known: Option<String>,
-    /// Opened at a Sanctuary's dais (a wish there may be anything; in an
-    /// Overclass window only the phrasebook's).
     pub sanctuary: bool,
-    /// Which hub row this line belongs to: 0 power, 1 reforge, 2 look.
     pub hub_row: u8,
 }
 
@@ -56,10 +43,6 @@ impl ReforgeDraft {
     }
 }
 
-/// The known wishes a knight holding `deck` on floor `depth` can still be
-/// granted, as (id, name with its tier, what it does): for a knight still
-/// wishing themselves into being (`making`), only those that make them; a
-/// ladder's next tier only when the floor gives it (`overclass::top_tier`).
 pub fn known_wishes(
     deck: &[String],
     making: Option<&crate::together_shooter::identity::Making>,
@@ -86,24 +69,13 @@ pub fn known_wishes(
         .collect()
 }
 
-/// Where a lesson stands with its knight's scroll. Words go to a runner the
-/// moment they are spoken, while the scroll's choices are still open
-/// (`teach_spoken`); only a choice spends a wish on them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Pick {
-    /// A choice spent a wish on it: granted as that choice says.
     Chosen,
-    /// The scroll is still open on its words: an entry written first waits
-    /// for the pick.
     Open,
-    /// The scroll was rolled up, or a choice gave another wish: its entry
-    /// is written into the phrasebook for next time and granted to no one.
     Learn,
 }
 
-/// A wish the scroll is learning: who asked, in what words, when (the
-/// words spoken, or the pick, for words sent only then), and whether its
-/// lesson has begun.
 #[derive(Clone, Debug)]
 pub struct Lesson {
     pub claim: Option<angel_delve::rules::wish_jobs::Claim>,
@@ -114,7 +86,6 @@ pub struct Lesson {
     pub acknowledged: bool,
     pub source_published: bool,
     pub metadata: Option<crate::together_sim::Speculative>,
-    /// Detached games retain native model ownership and source publication only.
     pub detached: bool,
     pub workspace: Option<std::path::PathBuf>,
     pub library: Option<std::sync::Arc<Vec<crate::together_shooter::phrasebook::Wish>>>,
@@ -123,42 +94,23 @@ pub struct Lesson {
     pub words: String,
     pub asked: Instant,
     pub taught: bool,
-    /// Whether a choice has spent a wish on it yet.
     pub pick: Pick,
-    /// The phrasebook's wishes when its lesson began: an entry not among
-    /// them is the one the lesson wrote.
     pub before: Option<Vec<String>>,
-    /// The wish spent on it was a super one (it fills the genie's gauge
-    /// double), the steps up its ladder when it is granted, and whether it
-    /// fills the gauge at all (not the genie's deal).
     pub great: bool,
     pub steps: u8,
     pub fills: bool,
-    /// The knight is still wishing themselves into being: what they have
-    /// still to wish, for the brief (`identity`).
     pub making: Option<crate::together_shooter::identity::Making>,
-    /// Whom a summoner wished it for (`dead_wishes`): the brief says so,
-    /// and it is granted for them. Words turned to or from his dead on an
-    /// open scroll are a lesson of their own.
     pub target: crate::together_shooter::dead_wishes::Target,
-    /// Its grant runner's job, once sent; the brief it carried; whether
-    /// the runner has answered; the wish its entry wrote (by id); why it
-    /// could not, when it could not.
     pub job: Option<u64>,
     pub brief: String,
     pub returned: bool,
     pub learned_id: Option<String>,
     pub failed: Option<String>,
-    /// Where its time went on the runner (`together_grants::Timing`).
     pub timing: Option<crate::together_grants::Timing>,
-    /// Its delivery's saves, running off the frame: whether it was
-    /// acknowledged, and how the saves went.
     pub saving: Option<super::Saving<(bool, Result<(), String>)>>,
 }
 
 impl Lesson {
-    /// A lesson for knight `player`'s words, spoken on the scroll and not
-    /// yet chosen: a plain wish's one step until a choice says otherwise.
     pub fn new(player: u32, words: String) -> Self {
         Lesson {
             claim: None, answer: None, authored: false, completed: None, persisted: false, acknowledged: false, source_published: false, metadata: None, detached: false, workspace: None, library: None,
@@ -184,21 +136,15 @@ impl Lesson {
         }
     }
 
-    /// Its runner has not failed it: still writing, or written.
     fn alive(&self) -> bool {
         self.failed.is_none() && (self.returned || self.asked.elapsed() <= LEARN_TIME)
     }
 }
 
-/// Knight `player`'s wishes in the runners' hands, chosen or not.
 fn in_flight(learning: &[Lesson], player: u32) -> usize {
     learning.iter().filter(|l| !l.detached && l.player == player && !l.returned).count()
 }
 
-/// The scrolls open on words the phrasebook has yet to learn, as (knight,
-/// words, the tick it opened, whom a summoner wishes it for). A known
-/// wish, the genie's freeing and a knight still wishing themselves into
-/// being (`identity`) wait for the pick, as they always have.
 fn spoken_words(run: &crate::together_shooter::Run) -> Vec<(u32, String, u64, Target)> {
     use crate::together_shooter::genie::Take;
     run.players
@@ -211,8 +157,6 @@ fn spoken_words(run: &crate::together_shooter::Run) -> Vec<(u32, String, u64, Ta
         .collect()
 }
 
-/// A wish that came back from its runner: whose, which words, how long
-/// from spoken to granted (or let go), and its runner's share of it.
 #[derive(Clone, Debug)]
 pub struct Landing {
     pub player: u32,
@@ -230,8 +174,6 @@ mod jobs;
 #[path = "dungeon_wish_jobs.rs"]
 mod wish_jobs;
 
-/// A reforge angelX is drafting: for whom, which part, its file, and whether
-/// its turn has been seen running.
 #[derive(Clone, Debug)]
 pub struct Forging {
     pub part: Part,
@@ -244,11 +186,9 @@ pub struct Forging {
     pub persisted: bool,
     pub acknowledged: bool,
     pub launched: bool,
-    /// The knight's own words, for the painter.
     pub words: String,
     pub started: Instant,
     pub seen: bool,
-    /// Its delivery's saves, running off the frame.
     pub saving: Option<super::Saving<(bool, Result<(), String>)>>,
 }
 
@@ -272,53 +212,30 @@ impl GrantPool {
     }
 }
 
-/// Reforges waiting their turn behind the one being drafted.
 #[derive(Clone, Debug, Default)]
 pub struct Forge {
-    /// An admission save off the frame, and the claims (session, request)
-    /// it covers: those lessons are persisted once it is done.
     pub admitting: Option<(super::Saving<Result<(), String>>, Vec<(String, u64)>)>,
-    /// The same for newly discovered brews and reforges.
     pub brew_admitting: super::Admitting,
     pub reforge_admitting: super::Admitting,
-    /// Discovery cursor only; the game journal owns the captured brew work.
     pub brew_cursor: Option<(String, u64)>,
     pub reforge_cursor: Option<(String, u64)>,
     pub reforges: VecDeque<Forging>,
     pub draft: Option<ReforgeDraft>,
     pub forging: Option<Forging>,
-    /// Wishes the scroll is learning: who asked, their words, and when.
-    /// angelX writes each into the workspace's phrasebook while the game
-    /// runs; the reload grants it.
     pub learning: Vec<Lesson>,
     pub wish_cursor: Option<(String, u64)>,
     pub wish_session: Option<String>,
     pub speculative: Option<crate::together_sim::Speculative>,
     pub ladders: Option<crate::together_sim::Speculative>,
-    /// The scroll each knight's words last went out from on being spoken
-    /// (the tick it opened, its words, whether for a summoner's dead): one
-    /// scroll's words are sent once, and a lesson for it that failed is
-    /// not sent again while it is open.
     pub spoken: std::collections::HashMap<u32, (u64, String, bool)>,
-    /// The grant runners (`together_grants`), started with the first delve
-    /// this angelX hosts and kept warm; the next job's number; the model
-    /// they ask (the club in hand, unless a test or a bench sets one).
     pub grants: GrantPool,
     pub jobs: u64,
-    /// The last wishes that came back, granted or not, and where their
-    /// time went (the timing bench reads them; at most `KEPT_LANDINGS`).
     pub landings: Vec<Landing>,
-    /// When the phrasebook was last looked at (a few times a second).
     pub looked: Option<Instant>,
-    /// The workspace's card files as last seen (name, changed, size).
     pub cards_seen: Option<Vec<(std::ffi::OsString, Option<std::time::SystemTime>, u64)>>,
     pub queue: VecDeque<(u32, Part, String)>,
-    /// Brews angelX is making spells of their own for (`dungeon_brew`).
     pub kettles: Vec<super::dungeon_brew::Kettle>,
-    /// A brewing turn is running.
     pub stirring: bool,
-    /// The shipwrights making a vessel of a whole set of salvage
-    /// (`dungeon_salvage`).
     pub(crate) shipwright: crate::together_salvage::Shipwright,
 }
 
@@ -335,23 +252,14 @@ impl Forge {
     }
 }
 
-/// What the mirror's ask came to for the body-maker.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum BodyAsk {
-    /// No body-maker is set (or this is a friend's game): as it always was.
     Off,
-    /// A job was queued.
     Queued,
-    /// The knight is already drawn whole from these words: nothing to draw.
     Already,
 }
 
 impl super::dungeon::DungeonView {
-    /// Start `command` (the body-maker, if one is set) for the mirror's look
-    /// `card`, asked by seat `asked.knight`, in this game's workspace: a
-    /// second job for the look beside the worn painter's, none when there is
-    /// no body-maker or the game is a friend's, and none when the knight is
-    /// already drawn whole from these very words.
     pub(crate) fn start_body_look(
         &mut self,
         command: Option<std::path::PathBuf>,
@@ -365,7 +273,6 @@ impl super::dungeon::DungeonView {
         let Some(command) = command else {
             return BodyAsk::Off;
         };
-        // A body is only ever kept for the words the look has: it is these.
         if self.shooter.as_ref().is_some_and(|run| run.has_mirror_body(asked.knight)) {
             return BodyAsk::Already;
         }
@@ -379,11 +286,6 @@ impl super::dungeon::DungeonView {
         BodyAsk::Queued
     }
 
-    /// The body-makers that ended are said and kept (the run is told the
-    /// whole knight is drawn: `MirrorBody`; a job that failed leaves the run
-    /// as it was and the worn ink on the knight), and the pack the window
-    /// lays over its own is composed from the knights drawn whole. A host
-    /// with no body-maker set has nothing to do here.
     pub(crate) fn watch_looks(&mut self, workspace: &std::path::Path) {
         use angel_delve::rules::host_commands::Command;
         if self.joined.is_some() {
@@ -406,13 +308,10 @@ impl super::dungeon::DungeonView {
             }
         }
         for card in tick.missing {
-            // Its set was taken away: the worn ink is the knight's look again.
             let _ = self.shooter.command(Command::MirrorBody { card, words: String::new(), on: false });
         }
     }
 
-    /// Reset scene/coordinator state while retaining native wish model owners.
-    /// Broader brew/reforge job reset ownership remains a separate boundary.
     pub fn reset_retaining_wish_jobs(&mut self) {
         self.forge.detach_wish_jobs();
         let learning = std::mem::take(&mut self.forge.learning);
@@ -431,9 +330,7 @@ impl Session<'_> {
             .join(".angel/dungeon/reforged")
     }
 
-    /// T in a Sanctuary or an Overclass window: open the scroll for player 1.
     pub fn open_reforge(&mut self) {
-        // The scroll already has its choices up: pick one, or Esc.
         if self.dungeon.wish_offer_open(1) {
             return;
         }
@@ -443,9 +340,6 @@ impl Session<'_> {
         }
     }
 
-    /// The displayed knight rubbed a lamp (or chose the mirror's handoff):
-    /// a wish, never a Sanctuary's equipment reforge.
-    /// A creator-scroll wish uses the same brief the genie scroll builds. No extra words.
     pub fn queue_creator_wish(&mut self, words: &str) {
         let words = words.to_string();
         let name = self.host_name();
@@ -461,8 +355,6 @@ impl Session<'_> {
         if self.dungeon.wish_offer_open(player) {
             return;
         }
-        // A wish to spend, the mirror's look, or a freedom wish begun at a
-        // wishing spot (`freedom`).
         let can_open = |run: &crate::together_shooter::Run, id| run.wish_line_opens(id);
         let allowed = if let Some(joined) = &self.dungeon.joined {
             joined.with_latest(|run| can_open(run, joined.actor())).unwrap_or(false)
@@ -475,7 +367,6 @@ impl Session<'_> {
         }
     }
 
-    /// Keys while the reforge prompt is open. True when it used the key.
     pub(super) fn reforge_key(&mut self, key: event::KeyEvent) -> bool {
         let player = self.dungeon.forge.draft.as_ref().map_or(1, |d| d.player);
         let deck = self.wish_deck(player);
@@ -488,8 +379,6 @@ impl Session<'_> {
         if key.kind == event::KeyEventKind::Release {
             return true;
         }
-        // A number on an empty line submits the same words as typing
-        // "upgrade <Name>" and Enter. Page keys reach every held ladder.
         draft.upgrade_page = draft.upgrade_page.min(upgrades.len().saturating_sub(1) / UPGRADES_PER_PAGE);
         let climb = match key.code {
             KeyCode::Char(c @ '1'..='9')
@@ -512,7 +401,6 @@ impl Session<'_> {
         } else {
             key
         };
-        // The ONE WISH pop-up: seal it, or go back to the scroll.
         if let Some(seal) = draft.confirm {
             let code = match key.code {
                 KeyCode::Char(c) => KeyCode::Char(c.to_ascii_lowercase()),
@@ -558,7 +446,6 @@ impl Session<'_> {
             KeyCode::Backspace => {
                 draft.words.pop();
             }
-            // ↑/↓ pick a known wish from the scroll's list.
             KeyCode::Up | KeyCode::Down => {
                 let known: Vec<String> = known_wishes(&deck, making.as_ref(), depth).into_iter().map(|k| k.0).collect();
                 if !known.is_empty() {
@@ -577,9 +464,6 @@ impl Session<'_> {
                     draft.words.clear();
                 }
             }
-            // Enter reads the wish back for sealing: the picked wish, the
-            // known wish the words mean, or any words (a Sanctuary forges
-            // them; in a window the scroll learns them while you play).
             KeyCode::Enter => {
                 let words = draft.words.trim();
                 let known = if words.is_empty() {
@@ -598,7 +482,6 @@ impl Session<'_> {
                 } else {
                 let upgrading = upgrades.iter().any(|u| u.words().eq_ignore_ascii_case(words));
                 if known.is_some() || upgrading || (said && !draft.sanctuary) {
-                    // The scroll's choices take it from here (`genie`).
                     let (player, words) = (draft.player, words.to_string());
                     self.dungeon.forge.draft = None;
                     self.offer_from_scroll(player, &words, known.as_deref());
@@ -620,8 +503,6 @@ impl Session<'_> {
         true
     }
 
-    /// The words on the wish line are for a look or a place, not for the
-    /// knight: the line the game says in place of the ladders.
     fn special_wish_note(&self, player: u32) -> Option<&'static str> {
         let of = |run: &crate::together_shooter::Run, id| run.special_wish_note(id);
         if let Some(joined) = &self.dungeon.joined {
@@ -634,9 +515,6 @@ impl Session<'_> {
         self.special_wish_note(player).is_some()
     }
 
-    /// The wish ladders knight `player` holds, as the wish line offers to
-    /// climb them (`Run::upgrades`), and the line under them when none can
-    /// be: the host's own run, or a friend's view of the host's.
     pub fn wish_upgrades(
         &self,
         player: u32,
@@ -657,8 +535,6 @@ impl Session<'_> {
             .unwrap_or_default()
     }
 
-    /// How far knight `player` has wished themselves into being, as this
-    /// angelX knows it: `None` for a knight begun with a kit (`identity`).
     pub fn wish_making(&self, player: u32) -> Option<crate::together_shooter::identity::Making> {
         if self.mirror_wishing(player) { return None; }
         if let Some(joined) = &self.dungeon.joined {
@@ -669,8 +545,6 @@ impl Session<'_> {
         run.players.get(&player)?.making(&run.book)
     }
 
-    /// The floor the party wishes on, as this angelX knows it: the host's
-    /// own run, or a friend's view of the host's (the first when neither).
     pub fn wish_depth(&self) -> u32 {
         if let Some(joined) = &self.dungeon.joined {
             return joined.with_latest(|run| run.dungeon.depth).unwrap_or(1);
@@ -678,8 +552,6 @@ impl Session<'_> {
         self.dungeon.shooter.as_ref().map_or(1, |run| run.dungeon.depth)
     }
 
-    /// The held cards of knight `player`, as this angelX knows them: the
-    /// host's own run, or a friend's view of the host's.
     pub(crate) fn wish_deck(&self, player: u32) -> Vec<String> {
         if self.mirror_wishing(player) { return Vec::new(); }
         if self.dungeon.joined.is_some() {
@@ -702,9 +574,6 @@ impl Session<'_> {
             .unwrap_or_default()
     }
 
-    /// A sealed reforge at a Sanctuary's dais: angelX forges the words.
-    /// (A wish from the phrasebook, or words the scroll learns, opens the
-    /// scroll's choices instead: `offer_from_scroll`.)
     fn seal_wish(&mut self, draft: ReforgeDraft) {
         if let Some(line) = reforge_refusal(draft.words.trim()) {
             self.dungeon.notice = line;
@@ -717,12 +586,6 @@ impl Session<'_> {
         self.request_reforge(draft.player, draft.part, draft.words.trim().to_string());
     }
 
-    /// Words a knight spent a wish on from the scroll (`Run::asked`): a
-    /// grant runner writes them while they play, granted as their choice
-    /// said. Nothing waits on anything else: every wish goes out at once.
-    /// Words already sent when they were spoken (`teach_spoken`) are not
-    /// sent again: the choice is given to the lesson writing them, and an
-    /// entry written while the knight chose is granted on this look.
     pub fn teach_claim(&mut self, claim: angel_delve::rules::wish_jobs::Claim) {
         if self
             .dungeon
@@ -811,23 +674,7 @@ impl Session<'_> {
         self.dungeon.forge.learning.push(lesson);
     }
 
-    /// Words a knight has just spoken on the scroll go to a grant runner at
-    /// once, while its choices are still open (the user, 2026-10-21: "the
-    /// wish needs to go to the model before the model responds on wish
-    /// choices"): the model writes while the knight picks, and the pick
-    /// only says how the entry is granted (`teach`). A scroll rolled up, or
-    /// picked for another wish, leaves its lesson writing for the
-    /// phrasebook alone, and the same words spoken again take it up. An
-    /// unchosen lesson counts toward the knight's `MOST_IN_FLIGHT`; words
-    /// spoken past it wait for a runner to come free, or for the pick. A
-    /// summoner who turns his scroll to or from his dead (`dead_wishes`)
-    /// has his words written again for them, the other lesson left
-    /// writing for the phrasebook (and taken up again if he turns back).
-    // A missing world may recover the same private journal. A replacement
-    // journal detaches its coordinator; Pool workers finish under native ownership.
     pub fn sync_wish_session(&mut self) -> bool {
-        // Without waiting on the game's lock: while the server holds it, the
-        // session last read stands (it changes only with a new game).
         let session = match self.dungeon.shooter.try_wish_session() {
             Some(Some(session)) => session,
             Some(None) => return false,
@@ -934,13 +781,7 @@ impl Session<'_> {
         self.teach_next();
     }
 
-    /// Knight `player` asks for a wish on the scroll, in words or by a known
-    /// wish's id (`known`): the host's run opens its choices (`genie`); a
-    /// friend's goes to the host, whose run does. New words go to a runner
-    /// as the scroll opens (`teach_spoken`).
     pub fn offer_from_scroll(&mut self, player: u32, words: &str, known: Option<&str>) {
-        // The existing words submission is also the creator's name input.
-        // Handle it before phrasebook lookup, wish spending, or teaching.
         if self.dungeon.joined.is_none()
             && self.dungeon.shooter.as_ref().is_some()
             && self
@@ -980,8 +821,6 @@ impl Session<'_> {
             self.dungeon.notice.clear();
             return;
         }
-        // Words said while a found piece waits for its wish go to the piece
-        // (`salvage`), free; a wish picked from the book does not.
         if known.is_none()
             && !upgrading
             && self.dungeon.shooter.as_ref().is_some_and(|run| run.piece_awaiting(player).is_some())
@@ -1026,14 +865,8 @@ impl Session<'_> {
         };
     }
 
-    /// Learned words spent from the scroll this tick, taught; then the
-    /// words open on scrolls sent out (`teach_spoken`). Both are read in
-    /// one look at the run, so a pick is never taken for a rolled-up scroll.
-    /// Spent words move from the Run queue into the bounded command journal;
-    /// its captured claim survives checkpoints without duplicating model jobs.
     pub fn teach_asked(&mut self) {
         if !self.flush_speculative() { return; }
-        // The mirror's looks go to the worn painter, never a lesson.
         let looks: Vec<_> = self
             .dungeon
             .shooter
@@ -1044,9 +877,6 @@ impl Session<'_> {
             self.paint_mirror_look(asked);
         }
         let maker = self.host_name();
-        // On its own threads the server publishes every step (and a restored
-        // game at once): nothing asked in the frame's picture means no claim
-        // to take, and no wait on the game's lock to find that out.
         let asked = !self.dungeon.shooter.threaded()
             || self.dungeon.shooter.as_ref().is_some_and(|run| !run.asked.is_empty());
         let claimed = if asked {
@@ -1073,12 +903,8 @@ impl Session<'_> {
         self.retire_cancelled_wishes();
     }
 
-    /// Hand every wish not yet sent to a grant runner, all at once: no
-    /// lesson waits on another, nor on the host's own turns.
     pub fn teach_next(&mut self) {
         if !self.flush_speculative() { return; }
-        // An admission save off the frame: wait for it, then the lessons it
-        // covered are persisted and may be taught.
         if let Some((saving, _)) = &self.dungeon.forge.admitting {
             let Some(saved) = saving.done() else { return };
             let (_, covered) = self.dungeon.forge.admitting.take().expect("checked above");
@@ -1199,9 +1025,6 @@ impl Session<'_> {
         }
     }
 
-    /// The grant runners' answers: each checked entry written into the
-    /// workspace's phrasebook (renamed when the book has its id), and its
-    /// lesson told which wish is its own.
     pub fn take_grants(&mut self) {
         let Some(runners) = self.dungeon.forge.grants.runners.clone() else {
             return;
@@ -1267,12 +1090,9 @@ impl Session<'_> {
                 Err(why) => lesson.failed = Some(why),
             }
         }
-        // Read the book again now: the grants land this look, not the next.
         self.dungeon.forge.looked = None;
     }
 
-    /// A replaced game's model answer still belongs to its captured library.
-    /// It can finish publication, but never grants or projects into a new game.
     pub fn drain_detached_lessons(&mut self) {
         let mut still = Vec::new();
         for mut lesson in std::mem::take(&mut self.dungeon.forge.learning) {
@@ -1293,9 +1113,6 @@ impl Session<'_> {
         self.dungeon.forge.learning = still;
     }
 
-    /// A few times a second: read the phrasebook again if it changed,
-    /// grant what it has learned, and start the next lesson when angelX is
-    /// free. A wish one lesson could not teach is let go.
     pub fn watch_learning(&mut self) {
         self.teach_asked();
         self.take_grants();
@@ -1323,8 +1140,6 @@ impl Session<'_> {
                 Err(error) => self.dungeon.notice = format!("Ladder metadata retained: {error}"),
             }
         }
-        // The workspace's cards hot-load too: a card file written or
-        // changed while the game runs joins the run's book.
         let cards = self.cards_dir();
         let stamp: Vec<(std::ffi::OsString, Option<std::time::SystemTime>, u64)> =
             std::fs::read_dir(&cards)
@@ -1364,11 +1179,6 @@ impl Session<'_> {
                 if let Err(error) = self.publish_wish(wish) { self.dungeon.notice = format!("Wish source retained: {error}"); still.push(lesson); continue; }
                 lesson.source_published = true;
             }
-            // No choice has spent a wish on it, so it is granted to no one.
-            // While its scroll is open it waits for the pick, its entry kept
-            // when written first; once the scroll is rolled up, or picked for
-            // another wish, it ends when written, its entry learned for next
-            // time. One its runner failed ends quietly: nothing was spent.
             if lesson.pick != Pick::Chosen {
                 let over = lesson.returned || lesson.asked.elapsed() > LEARN_TIME;
                 if !over || (lesson.pick == Pick::Open && lesson.learned_id.is_some()) {
@@ -1409,8 +1219,6 @@ impl Session<'_> {
         self.teach_next();
     }
 
-    /// The mirror uses the existing worn-card painter, not the gameplay
-    /// grant runner. Its source lives outside the dropping card directory.
     fn paint_mirror_look(&mut self, asked: crate::together_shooter::genie::Asked) {
         let card = self.dungeon.shooter.as_ref().and_then(|run| {
             if asked.cosmetic_name.is_empty() {
@@ -1419,14 +1227,11 @@ impl Session<'_> {
                 run.mirror_paint_card_for(&asked.cosmetic_name, &asked.words).ok()
             }
         });
-        // Cosmetic work never owns a spent wish or a refund: off the queue.
         let _ = self.dungeon.shooter.command(angel_delve::rules::host_commands::Command::DropMirrorLook {
             player: asked.knight,
             words: asked.words.clone(),
         });
         let Some(card) = card else { return; };
-        // The whole knight, when a body-maker is set (`together_looker`): a
-        // second job for the same look, beside the worn painter's.
         let body = self.start_body_look(&card, &asked);
         if painter::command().is_none() {
             self.dungeon.notice = match body {
@@ -1457,22 +1262,16 @@ impl Session<'_> {
         .into();
     }
 
-    /// Start the body-maker for the mirror's look `card`, asked by seat
-    /// `asked.knight`, when one is set and this is the host's own game.
     fn start_body_look(&mut self, card: &cards::Card, asked: &crate::together_shooter::genie::Asked) -> BodyAsk {
         let workspace = self.cx.workspace().to_path_buf();
         self.dungeon.start_body_look(crate::together_looker::command(), &workspace, card, asked)
     }
 
-    /// A few times a second: the body-makers that ended are said and kept,
-    /// and the pack the window lays over its own is composed (see
-    /// `DungeonView::watch_looks`).
     pub fn watch_looks(&mut self) {
         let workspace = self.cx.workspace().to_path_buf();
         self.dungeon.watch_looks(&workspace);
     }
 
-    /// Queue a reforge; the first one in line is handed to angelX.
     pub fn request_reforge(&mut self, player: u32, part: Part, words: String) {
         if let Some(line) = reforge_refusal(&words) {
             self.dungeon.notice = line;
@@ -1505,15 +1304,12 @@ impl Session<'_> {
         let Some((player, part, words)) = self.dungeon.forge.queue.pop_front() else {
             return;
         };
-        // Joined to a friend's delve, the reforge is drafted here, on this
-        // angelX, and only the finished card goes to the host.
         let joined = self.dungeon.joined.as_ref().expect("joined branch");
         let depth = joined
             .state()
             .and_then(|s| s.get("floor").and_then(|f| f.as_u64()))
             .unwrap_or(1);
         let name = self.host_name();
-        // A previous local draft with the same words is never this answer.
         let id = format!(
             "reforge-client-{}-p{player}-f{depth}",
             angel_serve::link::random_key().to_ascii_lowercase()
@@ -1543,12 +1339,8 @@ impl Session<'_> {
             "angelX is reforging {name}'s {}… keep playing.",
             part.word()
         );
-        // The game stays on screen; angelX works behind it.
         self.cx.make(Move::Submit { brief, keep_draft: true });
     }
-    /// A forged card file as the game checks it: its `sheet` pictures cut
-    /// into sprite rows, so the card that is equipped (or sent to a host)
-    /// carries its looks as text.
     pub fn read_forged(&self, path: &std::path::Path) -> Result<String, String> {
         use std::io::Read;
         let mut raw = String::new();
@@ -1566,7 +1358,6 @@ impl Session<'_> {
         crate::together_sheets::inline(&raw, &sheets, &paint, cards::ART as u32)
             .map_err(|errors| errors.join("; "))
     }
-    /// When angelX's reforging turn ends, read the card in and equip it.
     pub fn watch_reforge(&mut self) {
         self.discover_reforges();
         if self
@@ -1626,11 +1417,6 @@ impl Session<'_> {
             "The reforge's host connection ended; the card was kept on disk.".into();
         self.next_reforge();
     }
-    /// Have `card` painted (its `slots`, in the knight's own `words`) when
-    /// a wish painter is set: in the background, the painting written into
-    /// `target` and the card republished as each slot arrives. Any host
-    /// path that makes a card may call it; nothing happens without a
-    /// painter, or on a friend's angelX (the host keeps the paint store).
     pub(crate) fn paint_card(
         &mut self,
         target: painter::Target,
@@ -1641,8 +1427,6 @@ impl Session<'_> {
         self.paint_at(target, card, words, slots, (1, 1));
     }
 
-    /// `paint_card` for a wish of `tiers` levels a knight has reached up to
-    /// `level`.
     fn paint_at(
         &mut self,
         target: painter::Target,
@@ -1661,8 +1445,6 @@ impl Session<'_> {
         self.dungeon.painters.start(command, job);
     }
 
-    /// Paint a learned wish: its looks at every level, drawn from its top
-    /// tier's card, a level ahead of the highest a knight has reached.
     fn paint_wish(&mut self, wish: &crate::together_shooter::phrasebook::Wish, words: &str) {
         let top = wish.tiers.len();
         let Some(card) = top.checked_sub(1).and_then(|t| wish.card(t).ok()) else {
@@ -1674,7 +1456,6 @@ impl Session<'_> {
         self.paint_at(target, &card, words, &slots, (level, top));
     }
 
-    /// Where a learned wish's paintings are written: its phrasebook entry.
     fn wish_target(&self, wish: &crate::together_shooter::phrasebook::Wish) -> painter::Target {
         painter::Target::Learned {
             phrasebook: self.cx.workspace()
@@ -1684,8 +1465,6 @@ impl Session<'_> {
         }
     }
 
-    /// The highest level (tier, from 1) any knight of the run holds of
-    /// each learned wish, by the wish's id.
     fn wish_levels(&self) -> std::collections::HashMap<String, usize> {
         let mut levels = std::collections::HashMap::new();
         let Some(run) = self.dungeon.shooter.as_ref() else {
@@ -1703,10 +1482,6 @@ impl Session<'_> {
         levels
     }
 
-    /// A knight first reaching a higher level of a painted wish starts its
-    /// painter again for that level: the art follows the climb. A wish
-    /// this host has not painted yet (a restart) carries on from its
-    /// folder, when it has one.
     fn watch_climbs(&mut self) {
         if self.dungeon.joined.is_some() || self.dungeon.shooter.is_none() {
             return;
@@ -1732,9 +1507,6 @@ impl Session<'_> {
         }
     }
 
-    /// Capture the painted source on the native side; the current rules
-    /// implementation chooses what enters the catalogue. Delivery changes only
-    /// visual fields, preserving the held definition and all player state.
     pub fn watch_painters(&mut self) {
         self.watch_climbs();
         for target in self.dungeon.painters.poll() {
@@ -1755,8 +1527,6 @@ impl Session<'_> {
                         &crate::together_sheets::dir(&workspace),
                         &crate::together_sheets::paint_dir(&workspace),
                     ) {
-                        // The mirror's look only replaces saved worn ink: never
-                        // its other effects or equipment (`cosmetic_wish`).
                         Ok(card) if card.id.starts_with("mirror-look-") => {
                             let _ = self.dungeon.shooter.command(
                                 angel_delve::rules::host_commands::Command::MirrorPaint { card },
@@ -1772,8 +1542,6 @@ impl Session<'_> {
                 }
             };
             if let Err(error) = self.dungeon.shooter.paint_cards(cards) {
-                // A worker may be preparing or temporarily unavailable. Its
-                // native job is already finished; retry admission, not the job.
                 self.dungeon.painters.retry(target);
                 tracing::debug!(%error, "painted catalogue admission deferred");
             }
@@ -1781,10 +1549,8 @@ impl Session<'_> {
     }
 }
 
-/// Inks, each group dark→light, as every brief lists them.
 pub const INKS: &str = "greys k K Z X g j G J h i H · greens f D F E e l N m L A M y C Y · wood n b I B p P r R o O t T · stone s x S u U v V W q Q z · violet d ( ) [ ] ^ · pink ! ? ; % + · signal (glows: the one accent, fire, gold, magic) 0 1 2 3 w a 4 @ 5 6 $ c 9 8 7";
 
-/// How a brief tells angelX it may paint a sprite sheet instead of rows.
 pub(super) fn sheet_note(sheets: &std::path::Path, name: &str) -> String {
     format!(
         "A picture instead of rows: you may make a sprite sheet with your image tool. One horizontal strip of 1 to 4 frames of the same small game sprite, side by side and evenly spaced, on one flat background colour; crisp pixel art with a bold silhouette in the realm's dark style (moody blacks, muted iron and timber, one glowing accent); no text, frame, ground or shadow. Save it as {dir}/{name}-<slot>.png (at most 2 MiB) and write `sheet <slot> {name}-<slot>.png [frames=N] [size=N] [at=<place>]` in place of that sprite's rows: size= sets the subject frame size; crop empty margins. at= names its body part ({places}); worn subjects use the part sizes above, hats and shoes attach at their bottom centre. The game cuts it into frames and realm inks when it reads the file.",
@@ -1793,20 +1559,12 @@ pub(super) fn sheet_note(sheets: &std::path::Path, name: &str) -> String {
     )
 }
 
-/// What a spell may do, as the lesson and the cauldron's briefs say it.
 pub const SPELL_LINES: &str = "`cooldown <seconds>` with cast bolt|ring|meteor, or an area `cast <shape> <element> [size 1-3]` (shape wave|burst|cone|line|field|pillar|nova, element fire|frost|storm|poison|holy|arcane|earth), heal 5-100, ward 1-5, nova 10-120, summon N <swarm|guard|turret>";
 
-/// What each area shape and element does, as the lesson tells the wish
-/// model (`cast <shape> <element> [size]`): the words a player says for each
-/// and the card line that IS the thing, so an area word never comes out as a
-/// plain bolt.
 pub const AREA_WORDS: &str = "AREA MAGIC is a spell (`kind spell`, tiers `cooldown <seconds>; cast <shape> <element> [size 1-3]`) and is never a bolt: ice wave, frost wave, tidal wave `cast wave frost` · lava burst, fire burst, eruption, volcano `cast burst fire` · frost nova, ice nova, fire nova, holy nova, shockwave `cast nova frost|fire|holy|earth` · dragon breath, cone of flame, flamethrower, frost breath `cast cone fire|frost` · earthquake, fissure, tremor, shockwave through the ground `cast line earth` · lightning storm, thunderstorm `cast field storm` · blizzard `cast field frost` · poison cloud, miasma, stinking cloud `cast field poison` · pillar of light, holy smite, judgement, heaven's ray `cast pillar holy` · lightning strike, thunderbolt `cast pillar storm` · black hole, gravity well, vortex `cast burst arcane` · fire storm `cast field fire`. A wave rolls out along the aim and meets each foe once; a burst erupts at the aim and leaves a pool; a cone is held in front of them; a line cracks out along the aim; a field lingers at the aim and pulses; a pillar falls after a warning; a nova races out all round. Fire burns (pools keep burning), frost chills and, from size 2, freezes (frozen foes shatter when killed, and bosses only slow), storm arcs on between foes, poison poisons (a cloud lingers), holy strikes and mends the knights it covers, arcane drags foes in, earth shoves and stuns. Climb the tiers by size (1, 1, 2, 2, 3) and a shorter cooldown; the first tier is already real area magic.";
 
-/// What each kind of summoned creature does, and how many a spell may call.
 pub const SUMMONS: &str = "swarm hunts the nearest monster and bursts (up to 6) · guard circles the knight and each catches one shot (up to 4) · turret stands and looses bolts (up to 2). The game raises a cooldown that is too short for that many.";
 
-/// What angelX is asked to teach the phrasebook (the lesson for a knight
-/// begun with a kit).
 #[cfg(test)]
 fn learn_brief(
     name: &str,
@@ -1817,10 +1575,6 @@ fn learn_brief(
     learn_brief_for(name, words, path, sheets, None)
 }
 
-/// The lesson for a knight still wishing themselves into being
-/// (`identity`): the first floor's three rooms ask for their body, their
-/// weapon and their ultimate, and the model decides what the wish bestows,
-/// as a character is rolled up at a table, and says why on the scroll.
 fn identity_brief(name: &str, making: &crate::together_shooter::identity::Making, painted: bool) -> String {
     use crate::together_shooter::identity::Ask;
     let ask = making.asks().first().copied().unwrap_or(Ask::Body);
@@ -1852,14 +1606,8 @@ You decide what the wish bestows: read their words as a game master reads a play
     )
 }
 
-/// What each ultimate does, for the brief's third question.
 const ULT_SAYS: &str = "pilgrims_arrow one great arrow through everything in its line, stunning · ladys_veil the whole party untouchable four seconds, mending a little · trebuchet two volleys of shells where they aim · bladewind blinks foe to foe cutting six times, untouchable · grand_chord pulls every foe near into a knot, hurt and stunned · sealed_writs six homing missiles · stillhour stops time ahead for four seconds · midas_touch the three nearest foes turn to gold · assassinate a second's aim, then one shot at the toughest foe · phantasm two images fight beside them eight seconds · axe_storm spins, axes out, three seconds · lullaby sings nearby foes to sleep · desertion leaves a scarecrow and bolts for two seconds · earthsplitter a crack runs out along the aim and the ground bursts up along it · dismember the nearest foe held fast and carved, feeding the knight · philosophers_rain foul air and then fire on the nearest eight · tombstone a grave ahead that raises zombies for eight seconds · last_light marks one foe and a second later strikes it for a great blow · needle_squall six seconds of rapid fire locked on one foe · furnace_verdict a beam of fire that strikes one foe very hard · red_harvest one sweep all round, the badly wounded reaped and giving back charge · skewer_drive a charge that carries every foe before the lance and pins them where it stops · phantom_legion four images ring them eight seconds and thrust when they do · hall_of_mirrors three images run at the nearest foes and strike them for six seconds";
 
-/// What angelX was asked when it taught the phrasebook in its own turn,
-/// writing the entry into the file at `path` (a lesson for a knight still
-/// being made, `making`, with the identity's part first). The game now
-/// asks its grant runners (`grant_brief_for`); the file lesson stays for
-/// comparison.
 #[cfg(any(test, feature = "testing"))]
 fn learn_brief_for(
     name: &str,
@@ -1871,7 +1619,6 @@ fn learn_brief_for(
     lesson_brief(name, words, Some((path, sheets)), making, Target::You)
 }
 
-/// The turn-at-a-time lesson's brief for a workspace, for the timing bench.
 #[cfg(any(test, feature = "testing"))]
 pub fn bench_learn_brief(name: &str, words: &str, ws: &std::path::Path) -> String {
     let path = ws.join(".angel/dungeon/phrasebook.txt");
@@ -1879,7 +1626,6 @@ pub fn bench_learn_brief(name: &str, words: &str, ws: &std::path::Path) -> Strin
     learn_brief_for(name, words, &path, &sheets, None)
 }
 
-/// The creator door's request: the genie scroll's brief, byte for byte.
 pub fn creator_wish_brief(
     name: &str,
     words: &str,
@@ -1889,9 +1635,6 @@ pub fn creator_wish_brief(
     grant_brief_for(name, words, making, target)
 }
 
-/// What a grant runner asks the host's model (`together_grants`): the same
-/// lesson, answered as a reply holding the entry alone, no tools; for a
-/// summoner's dead when he wished it for them (`target`).
 pub fn grant_brief_for(
     name: &str,
     words: &str,
@@ -1901,9 +1644,6 @@ pub fn grant_brief_for(
     lesson_brief(name, words, None, making, target)
 }
 
-/// What the lesson is told of a summoner's wish for his dead, or for him
-/// and them both (`dead_wishes`): written for raised minions, not as a
-/// summon spell. Nothing for a wish for himself.
 fn dead_note(name: &str, target: Target) -> String {
     let whom = match target {
         Target::You => return String::new(),
@@ -1915,8 +1655,6 @@ fn dead_note(name: &str, target: Target) -> String {
     )
 }
 
-/// The phrasebook lesson: written into the file at `to` (and its sprite
-/// sheets beside it), or, with none, given as the reply.
 fn lesson_brief(
     name: &str,
     words: &str,
@@ -1991,10 +1729,6 @@ Shots that draw no `draw shot` may take `look <colour> <shape>` ({colours}; {sha
     )
 }
 
-/// The lesson's examples: the reviewed wish templates (`content::TEMPLATES`,
-/// docs/TEMPLATES.md), their notes aside: gear worn, a summoning spell, a
-/// shot changed, each drawn to the bar. Written to a file, the devils'
-/// summon is a painted sheet, as an entry there may paint its own.
 fn lesson_examples(sheet: bool) -> String {
     use crate::together_shooter::content::example;
     let devils = example("wish-spell.wish").unwrap_or_default();
@@ -2019,8 +1753,6 @@ fn lesson_examples(sheet: bool) -> String {
     [example("wish-worn.wish").unwrap_or_default(), devils, example("wish-shot.wish").unwrap_or_default()].join("\n")
 }
 
-/// What angelX was asked, in its own turn, when the entry it wrote was
-/// turned away (the grant runners mend in their own reply now).
 #[cfg(test)]
 fn mend_brief(name: &str, words: &str, path: &std::path::Path, errors: &[String]) -> String {
     format!(
@@ -2096,12 +1828,8 @@ Make it the closest thing the vocabulary allows to what they asked; if part of i
     )
 }
 
-/// What the genie is told of rude asks, unless this build keeps a private
-/// table (`cards::table_rules`).
 const SAFE_FOR_WORK: &str = "Keep it safe for work: the game is played in public. Nothing sexual, no private parts, slurs or swearing in its id, Name, `say` lines, scroll lines or pictures; the game turns such an entry away. A rude ask is granted as a harmless, funny stand-in (toilet humour, a fart or a poop, is fine), and then the Name and the first `say` are the stand-in's, not their words.";
 
-/// How a brief tells angelX it may set a look moving, and write how its
-/// magic moves (`vfx`): a wish without one is given one from its words.
 fn move_line() -> String {
     format!(
         "A `draw` line may add `move=<word>[,<word>]` to set its look moving: {}.\n{} A tier may carry its own `vfx` lines (between `;`) to grow the look.",
@@ -2128,8 +1856,6 @@ mod creator_door_brief_tests {
 #[cfg(test)]
 mod area_words_tests {
     use super::*;
-    /// The words a player says for area magic are mapped in the lesson to area casts, and every cast the
-    /// table names is one the game's card checker takes: an area word is never answered with a plain bolt.
     #[test]
     fn the_lesson_maps_every_area_word_to_an_area_cast_the_card_checker_takes() {
         let empty = std::env::temp_dir().join(format!("wish-brief-area-{}", std::process::id()));
@@ -2172,12 +1898,10 @@ mod area_words_tests {
             }
         }
         assert!(checked >= 14, "the table names its casts: {checked}");
-        // The spell lines every brief carries name them too.
         assert!(SPELL_LINES.contains("wave|burst|cone|line|field|pillar|nova"));
     }
 }
 
-/// Words a sanctuary reforge must not be sent: a minion, a summon, or another kind it cannot make.
 pub(crate) fn reforge_refusal(words: &str) -> Option<String> {
     angel_delve::rules::creation::blocks_reforge(words).then(|| {
         angel_delve::rules::creation::redirect_line(

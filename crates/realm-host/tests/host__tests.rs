@@ -8,7 +8,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// A cockpit that has nothing to ask a model.
 struct NoOracle;
 
 impl Oracle for NoOracle {
@@ -21,7 +20,6 @@ impl Oracle for NoOracle {
     }
 }
 
-/// The cockpit as a test holds it: a composer, a transcript, the moves asked.
 struct TestCx {
     facts: Facts,
     workspace: PathBuf,
@@ -116,8 +114,6 @@ fn the_game_view_keeps_the_composers_draft_and_gives_it_back() {
     let mut cx = TestCx::new("draft");
     cx.type_in("fix the build");
     host.session(&mut cx).expand_dungeon();
-    // The draft left the composer for the game's keeping, the stage came up,
-    // and the cockpit was asked to move there.
     assert_eq!(cx.composer, (String::new(), 0));
     assert_eq!(
         cx.moves,
@@ -137,11 +133,9 @@ fn slash_hands_the_keyboard_back_with_a_command_started() {
     let mut host = host();
     let mut cx = TestCx::new("slash");
     host.session(&mut cx).expand_dungeon();
-    // Something is open in the game view for the key to find: the intro.
     host.dungeon.intro = Some(crate::delve_intro::Intro::default());
     cx.facts.composer_empty = true;
     let taken = RealmHost::key(&mut host, &mut cx, press(KeyCode::Char('x')));
-    // The intro takes its own keys; an unrelated letter is not the cockpit's.
     assert!(taken);
     assert!(cx.composer.0.is_empty());
 }
@@ -151,7 +145,6 @@ fn a_door_in_the_map_asks_the_cockpit_for_its_panel() {
     use crate::world_viz::overworld::Opens;
     let mut host = host();
     let mut cx = TestCx::new("door");
-    // No visitor at a door: nothing is asked.
     RealmHost::go_in(&mut host, &mut cx);
     assert!(cx.moves.is_empty());
     let _ = Opens::Library;
@@ -225,7 +218,6 @@ fn browser_capacity_refusal_preserves_hosted_runs_and_retry_after_retirement() {
     assert_eq!(restore_attempt.dungeon.shooter.as_ref().unwrap().raid_id, 987);
     assert!(!restore_attempt.dungeon.shooter.hosted());
     assert_eq!(restore_attempt.dungeon.shooter.seat(1).unwrap().knight(), Some(1));
-    // Retirement must include the worker, not merely dropping its UI handle.
     drop(second);
     let until = Instant::now() + Duration::from_secs(20);
     loop {
@@ -266,8 +258,6 @@ fn failed_browser_notices_and_retries_without_replacing_native_session() {
     let oversized = music.join("oversized.mp3");
     std::fs::File::create(&oversized).unwrap().set_len(angel_serve::http::preparation::MAX_FILE_BYTES as u64 + 1).unwrap();
     let _resource = crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", cx.workspace.to_str().unwrap());
-    // A preceding lifecycle test can still own cancelled compression work.
-    // Admission stays nonblocking and charged until that real work retires.
     let until_retired = Instant::now() + Duration::from_secs(20);
     loop {
         let outcome = game.session(&mut cx).dungeon_command(Some("host 127.0.0.1:0"));
@@ -316,9 +306,6 @@ fn failed_browser_notices_and_retries_without_replacing_native_session() {
     eprintln!("actual hosted checkpoint restore activation {restore_time:?}; same raid and link, browser generated off frame");
 }
 
-/// A delve hosted on loopback by one game, and a second game joined to it
-/// from the composer: (host, guest, guest's cockpit). The join key is a
-/// secret, so no assertion here prints the link or what the game said about it.
 fn friends_delve(label: &str) -> (GameHost, GameHost, TestCx) {
     let mut hosted = host();
     hosted.dungeon.shooter.set(Some(crate::together_shooter::Run::new(7, 1, None)));
@@ -357,8 +344,6 @@ fn a_friends_delve_is_never_open_beside_a_game_of_ones_own() {
             "`/dungeon {verb}` opened a game beside the friend's delve"
         );
     }
-    // The Delve's menu is the other way to a new game: the gate on the map
-    // opens it, and its Begin starts one.
     guest.session(&mut cx).open_intro();
     for _ in 0..2 {
         guest.session(&mut cx).dungeon_key(press(KeyCode::Enter));
@@ -386,8 +371,6 @@ fn joining_a_friends_delve_closes_the_delves_menu() {
     let (addr, key) = hosted.dungeon.shooter.invitation().unwrap();
     let mut guest = host();
     let mut cx = TestCx::new("venue-menu");
-    // The menu is open, then something other than its own Esc puts the game
-    // away: the menu's choices stay.
     guest.session(&mut cx).open_intro();
     guest.session(&mut cx).collapse_dungeon();
     assert!(guest.dungeon.intro.is_some());
@@ -402,16 +385,11 @@ fn joining_a_friends_delve_closes_the_delves_menu() {
     assert!(guest.dungeon.shooter.is_none());
 }
 
-
-/// Host and guest enter the cave over the loopback socket. The host digs.
-/// The guest's decoded run has that hole, and a guest who joins after the dig has it too.
 #[test]
 fn a_guest_decodes_the_cave_the_host_dug() {
     use std::time::Instant;
     let _guard = crate::tests::env_lock();
     let mut run = crate::together_shooter::Run::new(11, 2, Some("Briar"));
-    // descend_for_test leaves floor 2. The mouth is stamped only on floor 1,
-    // so a hold there never enters. A real session stamps the mouth on arrival.
     run.calm_for_test();
     if let Some(start) = run.dungeon.rooms.iter().position(|r| r.kind == crate::together_shooter::RoomKind::Start) {
         run.at = start;
@@ -437,8 +415,6 @@ fn a_guest_decodes_the_cave_the_host_dug() {
             bundle: None,
         })
         .unwrap();
-    // host() serves a new live run. Controls set before that are discarded,
-    // and the new server stays inactive, so the mouth hold never ticks.
     let playing = crate::together_sim::Controls {
         active: true,
         keyboard: true,
@@ -470,7 +446,6 @@ fn a_guest_decodes_the_cave_the_host_dug() {
         }
         hosted.dungeon.shooter.pump(Instant::now());
         stepped += 1;
-        // as_ref caches the first snapshot. The cockpit latches each frame.
         hosted.dungeon.shooter.latch();
         if let Some(joined) = guest.dungeon.joined.as_mut() {
             joined.seat.set_held(hold);
@@ -546,7 +521,6 @@ fn a_guest_decodes_the_cave_the_host_dug() {
             .shooter
             .as_ref()
             .is_some_and(|r| !r.caves.changes.is_empty());
-        // The rock breaking a guest draws: the host's bursts, over the socket.
         guest_saw_bursts |= guest
             .dungeon
             .joined

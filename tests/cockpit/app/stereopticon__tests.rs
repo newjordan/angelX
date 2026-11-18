@@ -8,21 +8,15 @@ use crate::ui::stereopticon::decode_viewport;
 
 #[test]
 fn the_viewport_asks_for_pane_pixels_in_scaler_units() {
-    // A 40 × 20 pane of 12 × 25 px cells is 480 × 500 px; the worker's
-    // scaler speaks 2 × 4 units, so that is (240, 125).
     let area = Rect::new(0, 0, 40, 20);
     assert_eq!(decode_viewport(area, (12, 25)), (240, 125));
-    // A cinema-sized pane decodes like a television instead.
     assert_eq!(decode_viewport(Rect::new(0, 0, 400, 200), (12, 25)), (640, 180));
-    // Degenerate cells keep a tiny sane viewport.
     assert_eq!(decode_viewport(area, (0, 25)), (2, 2));
     assert_eq!(decode_viewport(area, (12, 0)), (2, 2));
 }
 
 #[test]
 fn an_ended_note_is_a_plain_fact_the_deck_can_hold() {
-    // Clearing is the observable half: a fresh replay never restarts on
-    // a stale ending. (The hold itself is timing, covered under glass.)
     crate::ui::stereopticon::note_ended(false);
     crate::ui::stereopticon::note_ended(true);
     crate::ui::stereopticon::note_ended(false);
@@ -30,7 +24,6 @@ fn an_ended_note_is_a_plain_fact_the_deck_can_hold() {
 
 #[test]
 fn a_terminal_present_stays_hidden() {
-    // Outside the window nothing draws and no pixels are touched.
     let rgba = image::RgbaImage::new(4, 4);
     let pixels = crate::ui::scryglass::VideoPixels {
         identity: crate::ui::scryglass::VideoIdentity {
@@ -83,7 +76,6 @@ mod glass {
                 assert!(layer.clone().sanitized().is_some(), "sound: {:?}", layer.id);
             }
         }
-        // The progress fill grows with the clock.
         let width_of = |set: &[angel_glass::Layer]| -> f32 {
             set.iter()
                 .find(|l| l.id == 41)
@@ -94,9 +86,7 @@ mod glass {
                 .unwrap()
         };
         assert!(width_of(&half) > width_of(&empty) + 1.0, "half past empty");
-        // Pausing sets two steady bars over the screen.
         assert_eq!(paused.len() - half.len(), 2, "the pause bars");
-        // The sweep rides the replay's clock, not the wall's.
         let sweep_y = |set: &[angel_glass::Layer]| -> f32 {
             set.iter()
                 .find(|l| l.id == 60)
@@ -107,7 +97,6 @@ mod glass {
                 .unwrap()
         };
         assert!((sweep_y(&half) - sweep_y(&empty)).abs() > 1e-3, "the sweep moved");
-        // Deterministic: the same replay moment is the same frame.
         assert_eq!(
             crate::ui::stereopticon::frame_layers(placed, 0.5, false, 1.0),
             half

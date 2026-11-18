@@ -6,7 +6,6 @@
 //! determinism law (docs/plans/world3d-spec.md) — same seed, byte-identical
 //! triangle stream, forever.
 
-/// splitmix64 finalizer: the multiply / xor-shift avalanche.
 pub const fn mix64(seed: u64) -> u64 {
     let mut z = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
     z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
@@ -14,25 +13,20 @@ pub const fn mix64(seed: u64) -> u64 {
     z ^ (z >> 31)
 }
 
-/// Derive an independent child seed so two builders fed the same parent seed
-/// do not march in lockstep.
 pub const fn sub_seed(seed: u64, tag: u64) -> u64 {
     mix64(seed ^ mix64(tag.wrapping_mul(0x2545_F491_4F6C_DD1D)))
 }
 
-/// Map a hash to `[0, 1)`. Uses the top 24 bits so the f32 conversion is exact.
 pub fn unit_from(h: u64) -> f32 {
     ((h >> 40) as f32) * (1.0 / 16_777_216.0)
 }
 
-/// Hash a 2D integer lattice point to `[0, 1)` — the terrain noise source.
 pub fn lattice(seed: u64, ix: i32, iy: i32) -> f32 {
     let a = (ix as i64 as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
     let b = (iy as i64 as u64).wrapping_mul(0xC2B2_AE3D_27D4_EB4F);
     unit_from(mix64(seed ^ a ^ b.rotate_left(17)))
 }
 
-/// Smooth-interpolated value noise over the unit lattice; result in `[0, 1]`.
 pub fn value_noise(seed: u64, x: f32, y: f32) -> f32 {
     let xf = x.floor();
     let yf = y.floor();
@@ -50,15 +44,12 @@ pub fn value_noise(seed: u64, x: f32, y: f32) -> f32 {
     lo + (hi - lo) * sy
 }
 
-/// Two-octave version — one broad swell plus a finer wrinkle. Still `[0, 1]`.
 pub fn fbm2(seed: u64, x: f32, y: f32) -> f32 {
     let a = value_noise(seed, x, y);
     let b = value_noise(seed ^ 0x5BF0_3635, x * 2.7 + 11.3, y * 2.7 - 7.1);
     0.72 * a + 0.28 * b
 }
 
-/// Tiny deterministic stream RNG. Not cryptographic, not statistically fancy —
-/// just a repeatable jitter source for facade rhythm and prop scatter.
 #[derive(Clone, Debug)]
 pub struct Rng {
     state: u64,
@@ -76,7 +67,6 @@ impl Rng {
         mix64(self.state)
     }
 
-    /// `[0, 1)`
     pub fn unit(&mut self) -> f32 {
         unit_from(self.next_u64())
     }
@@ -85,7 +75,6 @@ impl Rng {
         lo + (hi - lo) * self.unit()
     }
 
-    /// Symmetric jitter in `[-amount, amount]`.
     pub fn jitter(&mut self, amount: f32) -> f32 {
         self.range(-amount, amount)
     }
@@ -94,7 +83,6 @@ impl Rng {
         self.unit() < p
     }
 
-    /// Uniform integer in `[0, n)`; `0` when `n == 0`.
     pub fn below(&mut self, n: usize) -> usize {
         if n == 0 {
             0
@@ -103,7 +91,6 @@ impl Rng {
         }
     }
 
-    /// Uniform integer in `[lo, hi]` (inclusive both ends).
     pub fn int_in(&mut self, lo: usize, hi: usize) -> usize {
         if hi <= lo {
             lo

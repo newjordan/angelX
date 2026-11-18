@@ -434,7 +434,6 @@ fn render_snapshot(
 fn semantic_state(app: &App) -> Value {
     use angel_plug::stage::StageWorld;
     let focused = app.module_host.focused().map(|id| id.as_str().to_string());
-    // Only stable menu labels; never the typed field, credentials, or job output.
     let setup_menu = app.setup.menu.as_ref().map(|menu| {
         let page = menu.page(std::time::Instant::now());
         json!({ "open": true, "title": page.title, "selected": page.cursor,
@@ -678,8 +677,6 @@ fn formation_semantics(app: &App) -> Value {
     use crate::app::control::MoaPhase;
     let phase = app.moa_phase();
     if phase == MoaPhase::Engaged {
-        // The turn consumed the engagement now running; a session staged behind it is
-        // the only roster still held.
         let mut engaged =
             json!({ "phase": phase.as_str(), "engagement_id": Value::Null, "seats": [] });
         if let Some(session) = app.moa_session.as_ref() {

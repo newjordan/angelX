@@ -28,35 +28,22 @@
 
 use super::*;
 
-/// More foes in every company, by circle (index 0 is the First), before a
-/// chamber's share by its distance from the stairs (`stakes::RAMP_FIRST`).
 const HORDE: [usize; 5] = [2, 2, 3, 3, 4];
-/// Champions at the head of every company, by circle.
 const CHAMPIONS: [usize; 5] = [1, 1, 1, 1, 2];
-/// Ticks between embers falling while a company fights, by circle; none in
-/// the First.
 const EMBERS: [u32; 5] = [0, 4 * HZ, 4 * HZ, 3 * HZ, 5 * HZ / 2];
-/// The most embers falling at once.
 const EMBERS_AT_ONCE: usize = 6;
-/// What a landing ember deals, before the circle, the floor and the mail.
 pub(super) const EMBER_HIT: u32 = 10;
-/// Percent of the slain's draughts and hearts that reach the floor whole,
-/// by circle.
 const MERCY: [u32; 5] = [65, 55, 45, 35, 30];
 
-/// A circle's entry in one of the tables above; 0 (above the gate) has none.
 fn by_circle<T: Copy>(table: &[T], circle: u32) -> Option<T> {
     (circle > 0).then(|| table[(circle as usize - 1).min(table.len() - 1)])
 }
 
-/// The foes a company of this circle brings over its own (`HORDE`).
 pub(super) fn horde(circle: u32) -> usize {
     by_circle(&HORDE, circle).unwrap_or(0)
 }
 
 impl Run {
-    /// Make the toughest of the company raised from `from` on its circle's
-    /// champions (`CHAMPIONS`).
     pub(super) fn crown_champions(&mut self, from: usize) {
         let Some(n) = by_circle(&CHAMPIONS, self.spectacle.circle) else {
             return;
@@ -75,8 +62,6 @@ impl Run {
         }
     }
 
-    /// Embers fall about the knights while a company of a circle fights
-    /// (`EMBERS`): each lands where its ring was drawn.
     pub(super) fn rain_embers(&mut self) {
         let Some(every) = by_circle(&EMBERS, self.spectacle.circle).filter(|&t| t > 0) else {
             return;
@@ -110,8 +95,6 @@ impl Run {
         });
     }
 
-    /// Whether a card the slain drop reaches the floor: in a circle, a
-    /// draught or a heart often burns up first (`MERCY`).
     pub(super) fn spared_by_hell(&mut self, card: &str) -> bool {
         let Some(kept) = by_circle(&MERCY, self.spectacle.circle) else {
             return true;

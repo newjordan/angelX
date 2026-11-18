@@ -57,7 +57,6 @@ fn hard_cut_concat_chain() {
 
 #[test]
 fn xfade_offsets_accumulate() {
-    // Three 4s clips, 0.5s fades: first join at 3.5, second at 7.0.
     let clips = vec![
         ("a.mp4".to_string(), 0.0, 4.0),
         ("b.mp4".to_string(), 0.0, 4.0),
@@ -84,7 +83,6 @@ fn music_chain_tracks_timeline_length() {
         ("a.mp4".to_string(), 0.0, 4.0),
         ("b.mp4".to_string(), 0.0, 4.0),
     ];
-    // 8s total, 0.5 fade → 7.5s timeline; tail 1.0 → fade starts 6.5.
     let g = build_timeline_filter(&clips, 0.5, 640, 360, 24, Some(("m", 1.0))).unwrap();
     assert!(g.contains("atrim=0:7.500"), "{g}");
     assert!(g.contains("afade=t=out:st=6.500:d=1.000"), "{g}");
@@ -94,7 +92,7 @@ fn music_chain_tracks_timeline_length() {
 fn even_frame_times_spans_inset_and_centers() {
     let ts = even_frame_times(6.0, 4).unwrap();
     assert_eq!(ts.len(), 4);
-    assert!((ts[0] - 0.9375).abs() < 1e-9); // 0.25 + 5.5*0.5/4
+    assert!((ts[0] - 0.9375).abs() < 1e-9);
     assert!((ts[3] - (0.25 + 5.5 * 3.5 / 4.0)).abs() < 1e-9);
     assert!(ts.windows(2).all(|w| (w[1] - w[0] - 1.375).abs() < 1e-9));
 }
@@ -104,7 +102,6 @@ fn even_frame_times_rejects_unknown_or_short_duration() {
     assert!(even_frame_times(0.0, 4).is_none());
     assert!(even_frame_times(0.5, 4).is_none());
     assert!(even_frame_times(6.0, 0).is_none());
-    // single frame lands mid-clip
     let one = even_frame_times(10.0, 1).unwrap();
     assert!((one[0] - 5.0).abs() < 1e-9);
 }

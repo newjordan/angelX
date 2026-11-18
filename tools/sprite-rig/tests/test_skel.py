@@ -39,8 +39,6 @@ class SkelTest(unittest.TestCase):
     @unittest.skipUnless(MIX and os.path.exists(FBX), "set MIXAMO_DIR")
     def test_fbx_clip(self): _test_fbx_clip()
 
-
-# plain functions above are for pytest; hide them from unittest double-collection
 for _n in [k for k in list(globals()) if k.startswith("test_")]:
     globals()["_" + _n] = globals().pop(_n)
 

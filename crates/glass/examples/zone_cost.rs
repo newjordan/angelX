@@ -24,7 +24,6 @@ use angel_stage::set::{GAME_TILT, Set, ground_mesh_id, place};
 
 const STAGE: u32 = 0x00FA_57A5;
 
-/// The hillside's ramp (`world3d::realm_look::HILLSIDE`).
 const GREEN: [[u8; 3]; 8] = [
     [0x0e, 0x13, 0x0c],
     [0x18, 0x22, 0x14],
@@ -46,7 +45,6 @@ fn main() -> ExitCode {
     }
 }
 
-/// A ramp leaning `k` of the way to a tint, entry for entry as bright as the green.
 fn tinted(k: usize) -> Vec<[u8; 3]> {
     let tint = [[1.3f32, 0.9, 0.6], [0.7, 0.95, 1.3], [1.2, 1.0, 0.7], [1.1, 0.8, 0.9]][k % 4];
     GREEN.iter().map(|c| [0, 1, 2].map(|i| (f32::from(c[i]) * tint[i]).clamp(0.0, 255.0) as u8)).collect()
@@ -78,8 +76,6 @@ fn look(stage: (u32, u32), zones: usize, off: bool) -> Look {
     look
 }
 
-/// Some boxes on grass: forty a thousand pixels apart in both ways would be
-/// nothing on a big stage, so they are laid by the stage's own size.
 fn world(stage: (u32, u32), zones: usize, off: bool) -> Result<World, String> {
     let mut text = format!("set zone-cost\ncamera room {} {}\n", stage.0, stage.1);
     text.push_str(&format!("box grass at {} -4 {} size {} 4 {}\n", stage.0 / 2, stage.1 / 2, stage.0 * 3, stage.1 * 3));

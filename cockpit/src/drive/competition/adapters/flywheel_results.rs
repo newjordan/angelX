@@ -10,9 +10,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::path::Path;
 
-/// Official flywheel results: `fires.jsonl` is our submission journal. Every
-/// fire with a terminal `outcome` is official board evidence (INV-08: only
-/// official results bind reward); in-flight fires bind nothing.
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct FlywheelFireV1 {
     #[serde(default)]
@@ -65,8 +62,6 @@ struct ParsedFireV1 {
 }
 
 fn parse_fires(state_dir: &Path) -> Result<Vec<ParsedFireV1>, AdapterFailureV1> {
-    // A track that has never fired has no fires.jsonl yet: that is the normal
-    // fresh state, not a transport failure. Only an unreadable existing file is.
     let body = match std::fs::read_to_string(state_dir.join("fires.jsonl")) {
         Ok(body) => body,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -146,7 +141,7 @@ fn bind_fire(
         settlement.failures.push(Adapter { failure });
     };
     let Some(outcome) = fire.outcome else {
-        return; // in flight: produces nothing
+        return;
     };
     if IN_FLIGHT_STATUSES.contains(&outcome.status.as_str()) {
         return;

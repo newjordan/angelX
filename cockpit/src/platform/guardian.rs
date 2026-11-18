@@ -16,11 +16,7 @@ use std::path::{Path, PathBuf};
 
 use super::peer_watch::{Heartbeat, STALE_AFTER_MS};
 
-/// Default silence before a peer counts as down for resurrection. Longer
-/// than the display staleness horizon: acting is weightier than noticing.
 pub(crate) const DEFAULT_STALE_MS: u128 = 180_000;
-/// A claim older than this with no outcome record may be stolen: the
-/// claiming guardian is presumed dead too.
 pub(crate) const CLAIM_TTL_MS: u128 = 30 * 60 * 1000;
 
 fn now_ms() -> u128 {
@@ -30,8 +26,6 @@ fn now_ms() -> u128 {
         .unwrap_or(0)
 }
 
-/// Age evidence for a claim file whose body cannot be parsed, measured
-/// against the caller's clock.
 fn claim_file_age_ms(path: &Path, now_ms: u128) -> Option<u128> {
     let modified_ms = std::fs::metadata(path)
         .and_then(|metadata| metadata.modified())
@@ -42,7 +36,6 @@ fn claim_file_age_ms(path: &Path, now_ms: u128) -> Option<u128> {
     Some(now_ms.saturating_sub(modified_ms))
 }
 
-/// A peer a guardian on this rig could resurrect, fenced and ready.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Candidate {
     pub instance_id: String,
@@ -61,8 +54,6 @@ struct Claim {
     claimed_ms: u128,
 }
 
-/// Durable outcome of one resurrection attempt, read by guardians (skip
-/// logic), cockpits (`/peers`), and the world.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct ResurrectionRecord {
     pub dead_instance: String,
@@ -89,9 +80,6 @@ pub(crate) fn read_record(peer_dir: &Path, instance_id: &str) -> Option<Resurrec
     serde_json::from_slice(&raw).ok()
 }
 
-/// Every resurrection record in the peer directory, newest first. This is
-/// the `/peers` board's memory: heartbeats say who is silent now, records
-/// say who was raised (or failed to rise) and into which session.
 pub(crate) fn read_records(peer_dir: &Path) -> Vec<ResurrectionRecord> {
     let Ok(entries) = std::fs::read_dir(peer_dir) else {
         return Vec::new();
@@ -119,9 +107,6 @@ pub(crate) fn write_record(peer_dir: &Path, record: &ResurrectionRecord) -> Resu
     )
 }
 
-/// Select resurrection candidates from one peer scan. Pure: filesystem
-/// facts it needs (workspace exists, prior record) are passed in as
-/// predicates so the fencing rules are unit-testable without a disk.
 pub(crate) fn select_candidates(
     peers: &[Heartbeat],
     at_ms: u128,
@@ -137,23 +122,23 @@ pub(crate) fn select_candidates(
     let mut candidates = Vec::new();
     for peer in peers {
         if peer.activity.starts_with("guardian") || peer.activity == "resurrecting" {
-            continue; // giants do not resurrect giants
+            continue;
         }
         if peer.age_ms(at_ms) <= stale_ms {
-            continue; // still breathing
+            continue;
         }
         let Some(session_id) = peer.session_id.as_deref() else {
-            continue; // nothing to resurrect
+            continue;
         };
         if live_sessions.contains(session_id) {
-            continue; // someone live holds this session now
+            continue;
         }
         if already_resurrected(&peer.instance_id, session_id) {
-            continue; // this death was already answered
+            continue;
         }
         let workspace = PathBuf::from(&peer.workspace);
         if !workspace_present(&workspace) {
-            continue; // another rig's guardian may have this checkout
+            continue;
         }
         candidates.push(Candidate {
             instance_id: peer.instance_id.clone(),
@@ -167,10 +152,6 @@ pub(crate) fn select_candidates(
     candidates
 }
 
-/// Atomically claim a dead instance. Exactly one guardian wins: the claim
-/// file is created with `create_new`, so a racing guardian gets `false`,
-/// never a shared claim. A stale claim (older than [`CLAIM_TTL_MS`], no
-/// outcome record) may be stolen — its guardian is presumed dead too.
 pub(crate) fn try_claim(
     peer_dir: &Path,
     candidate: &Candidate,
@@ -186,15 +167,11 @@ pub(crate) fn try_claim(
     )
 }
 
-/// Whether a durable outcome already answers this exact death. The same
-/// instance dying later in a different session is a new death.
 fn already_answered(peer_dir: &Path, candidate: &Candidate) -> bool {
     read_record(peer_dir, &candidate.instance_id)
         .is_some_and(|record| record.old_session_id == candidate.session_id)
 }
 
-/// [`try_claim`] against an explicit clock. Expiry is wall-clock business;
-/// taking `now_ms` here lets tests pin the 30-minute contract exactly.
 pub(crate) fn try_claim_at(
     peer_dir: &Path,
     candidate: &Candidate,
@@ -227,18 +204,12 @@ pub(crate) fn try_claim_at(
             let written = file.write_all(&body).and_then(|()| file.sync_all());
             if let Err(error) = written {
                 drop(file);
-                // The create_new above made this file ours; a partial body
-                // must not fence the instance off for the whole claim TTL.
                 let _ = std::fs::remove_file(&path);
                 return Err(format!("write claim {}: {error}", path.display()));
             }
             Ok(true)
         }
         Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-            // Steal only an expired, unanswered claim. A claim whose body
-            // never landed (the guardian died between create_new and the
-            // write) has no parseable age; its file mtime is then the only
-            // evidence, and past the TTL it is as stale as any claim.
             let expired = match std::fs::read(&path)
                 .ok()
                 .and_then(|raw| serde_json::from_slice::<Claim>(&raw).ok())
@@ -246,8 +217,6 @@ pub(crate) fn try_claim_at(
                 Some(old) => now_ms.saturating_sub(old.claimed_ms) > CLAIM_TTL_MS,
                 None => claim_file_age_ms(&path, now_ms).is_some_and(|age| age > CLAIM_TTL_MS),
             };
-            // Recheck under the steal: a record may have landed since the
-            // initial fence, and only this death's record blocks it.
             if !expired || already_answered(peer_dir, candidate) {
                 return Ok(false);
             }
@@ -256,7 +225,6 @@ pub(crate) fn try_claim_at(
                 candidate.instance_id,
                 std::process::id()
             ));
-            // Rename-aside is the atomic steal: only one stealer succeeds.
             if std::fs::rename(&path, &stolen).is_err() {
                 return Ok(false);
             }
@@ -273,8 +241,6 @@ pub(crate) fn try_claim_at(
     }
 }
 
-/// Append one line to the guardian's own log (operator forensics; the
-/// durable facts live in claim/record files, so a plain append is fine).
 pub(crate) fn log_line(state_root: &Path, text: &str) {
     let dir = state_root.join("guardian");
     if std::fs::create_dir_all(&dir).is_err() {

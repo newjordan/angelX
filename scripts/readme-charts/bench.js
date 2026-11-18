@@ -1,18 +1,12 @@
-/* angelX trials — benchmark plots in the cockpit's own "measured" dot-matrix style
- * (one dot per Bresenham step, as in the app's draw_dot_line and js/mountain.js),
- * animated at the app's 12 fps so each plot replays the bench as it ran.
- * Data: window.BENCH (js/bench-data.js), generated from the eval traces.
- */
 (() => {
 'use strict';
 const B = window.BENCH;
 if (!B) return;
 
-// site tokens (css/style.css :root); omp's mark gray is a TXT×BG mix (marks only, 4.0:1)
 const TH = Object.assign({ INK: '#f4f4f7', DIM: '#bcbcc7', D3: '#7c7c88', FAINT: '#74747f', RULE: '#3a3a44', BG: '#050506', HERO: '' },
-  window.BENCH_THEME || {});      // optional palette override (README renders); the site uses these defaults
+  window.BENCH_THEME || {});
 const { INK, DIM, D3, FAINT, RULE, BG } = TH, HERO = TH.HERO || TH.INK;
-const P = 3, S = 2, FPS = 12;             // dot pitch, dot size (viewBox units), frame rate
+const P = 3, S = 2, FPS = 12;
 const REDUCED = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const NS = 'http://www.w3.org/2000/svg';
 const el = (p, t, a) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); p.appendChild(n); return n; };
@@ -20,15 +14,13 @@ const txt = (p, a, s) => { const n = el(p, 'text', a); n.textContent = s; return
 const tip = (n, s) => { const t = document.createElementNS(NS, 'title'); t.textContent = s; n.appendChild(t); };
 const sq = (x, y, s = S) => `M${x} ${y}h${s}v${s}h-${s}z`;
 
-// identity = label + gray + dot rhythm (never colour alone)
 const SER = {
   angelx: { label: 'angelX', color: HERO, on: i => true },
   opencode: { label: 'OpenCode', color: DIM, on: i => i % 2 === 0 },
   omp: { label: 'omp', color: D3, on: i => i % 4 < 2 },
 };
 const LEGEND_ORDER = ['angelx', 'opencode', 'omp'];
-const DRAW_ORDER = ['omp', 'opencode', 'angelx'];      // angelX drawn last, on top
-// model list is derived: add a model to js/bench-data.js and it becomes a tab
+const DRAW_ORDER = ['omp', 'opencode', 'angelx'];
 const MODELS = [...new Set(B.cells.map(c => c.model))];
 const modelLabel = m => `${B.models[m].name} \u00b7 thinking ${B.models[m].thinking}`;
 const cell = (m, h) => B.cells.find(c => c.model === m && c.harness === h);
@@ -38,7 +30,6 @@ const fmtClock = s => `T+${String(Math.floor(s / 60)).padStart(2, '0')}:${String
 const fmtTok = v => v >= 1e6 ? `${(v / 1e6).toFixed(2)}M` : `${Math.round(v / 1e3)}k`;
 const niceCeil = v => { const p = Math.pow(10, Math.floor(Math.log10(v))); for (const f of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (f * p >= v) return f * p; return 10 * p; };
 
-// Bresenham over cells, one callback per dot — the app's draw_dot_line
 function line(c0, r0, c1, r1, cb) {
   let x = c0, y = r0;
   const dx = Math.abs(c1 - c0), sx = c0 < c1 ? 1 : -1, dy = -Math.abs(r1 - r0), sy = r0 < r1 ? 1 : -1;
@@ -52,7 +43,6 @@ function line(c0, r0, c1, r1, cb) {
   }
 }
 
-// dots along a polyline, each stamped with the data time it represents
 function trail(points, toCell, stairs) {
   const out = [];
   let last = '', i = 0;
@@ -79,7 +69,6 @@ function trail(points, toCell, stairs) {
   return out;
 }
 
-// plot frame: faint dot lattice, dotted axes; returns cell→unit mappers
 function frame(svg, o = {}) {
   const f = { ox: 44, oy: 34, GW: 128, GH: 58, ...o };
   f.X = c => f.ox + c * P;
@@ -96,7 +85,6 @@ function frame(svg, o = {}) {
 const yLabel = (svg, f, r, s) => txt(svg, { x: f.ox - 10, y: f.Y(r) + 5, 'text-anchor': 'end', class: 'vt', 'font-size': 12.5, fill: DIM }, s);
 const xLabel = (svg, f, c, s, anchor = 'middle') => txt(svg, { x: f.X(c), y: f.Y(f.GH) + 18, 'text-anchor': anchor, class: 'vt', 'font-size': 12.5, fill: DIM }, s);
 
-// 12 fps ticker with cancellation (the app's cadence)
 function play(state, ticks, onTick, animate = true) {
   (state.timers || []).forEach(clearInterval);
   state.timers = [];
@@ -112,10 +100,8 @@ function play(state, ticks, onTick, animate = true) {
   state.timers.push(t);
 }
 
-// ════ THE RACE — solved attempts against the agent clock ════
 function race(svg, m, state, anim = true) {
   svg.innerHTML = '';
-  // One header row: the three scores left to right, the clock at the right edge.
   const f = frame(svg, { oy: 40, GH: 49 });
   const series = DRAW_ORDER.map(h => {
     const c = cell(m, h);
@@ -158,8 +144,6 @@ function race(svg, m, state, anim = true) {
     clock.textContent = fmtClock(now);
     series.forEach(s => {
       paths[s.h].setAttribute('d', dots[s.h].filter(d => d.t <= now).map(d => sq(f.X(d.x), f.Y(d.y))).join(''));
-      /* solved-so-far: the cumulative value of the last elapsed point, not the
-         number of points elapsed (those differ — 136 attempts, 133 solved) */
       const cur = s.pts.filter(q => q.t <= now).pop();
       const done = cur ? cur.v : 0;
       counters[s.h].textContent = `${SER[s.h].label} ${String(done).padStart(2, '0')}/${s.pts.length - 1}`;
@@ -175,8 +159,7 @@ function race(svg, m, state, anim = true) {
   }, anim);
 }
 
-// ════ SECONDS PER ATTEMPT — every attempt in run order, medians dotted ════
-const MARK = {  // cell offsets: angelX block, OpenCode plus, omp cross
+const MARK = {
   angelx: [[0, 0], [1, 0], [0, 1], [1, 1]],
   opencode: [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]],
   omp: [[0, 0], [-1, -1], [1, 1], [-1, 1], [1, -1]],
@@ -226,7 +209,6 @@ function trace(svg, m, state, anim = true) {
   }, anim);
 }
 
-// ════ CONTEXT BURNED — cumulative input tokens over the run ════
 function burn(svg, m, state, anim = true) {
   svg.innerHTML = '';
   const f = frame(svg);
@@ -254,14 +236,12 @@ function burn(svg, m, state, anim = true) {
     series.forEach(s => paths[s.h].setAttribute('d', dots[s.h].filter(d => d.t <= now).map(d => sq(f.X(d.x), f.Y(d.y))).join('')));
     if (p >= 1) {
       ends.innerHTML = '';
-      svg.appendChild(ends);   /* paint the labels last: re-append moves the group above the curves */
+      svg.appendChild(ends);
       const placed = [];
       series.slice().sort((a, b) => b.total - a.total).forEach(s => {
         let y = f.Y(toCell({ t: N, v: s.total }).r) - 6;
         while (placed.some(q => Math.abs(q - y) < 15)) y += 15;
         placed.push(y);
-        /* a solid BG plate under each endpoint label, so the three converging
-           curves never cross the text */
         const lab = `${SER[s.h].label} ${fmtTok(s.total)}`;
         const w = lab.length * 8.4 + 8;
         el(ends, 'rect', { x: f.X(f.GW - 1) + 2 - w, y: y - 12, width: w, height: 16, fill: BG });
@@ -275,7 +255,6 @@ function burn(svg, m, state, anim = true) {
   }, anim);
 }
 
-// ════ CACHE — running cache hit rate over the run ════
 function cache(svg, m, state, anim = true) {
   svg.innerHTML = '';
   const f = frame(svg, { oy: 44, GH: 55 });
@@ -319,13 +298,8 @@ function cache(svg, m, state, anim = true) {
   }, anim);
 }
 
-// ════ SCOREBOARD — one lit dot per graded attempt ════
 function scoreboard(svg, m, state, anim = true) {
   svg.innerHTML = '';
-  /* One model per tab. Real time, not attempt index: every attempt sits at the
-     moment it finished, in cumulative agent time since the run began. One
-     shared scale across the rows, so a row that stops a fifth of the way
-     across really did finish in a fifth of the time. */
   const X0 = 72, W = 280, DOT = 1.5, ROW = 44;
   const rows = [];
   let y = 40;
@@ -387,10 +361,9 @@ function bars(svg, m, state, anim = true) {
   svg.innerHTML = '';
   const BASE = 176, CAP_Y = 46, DOT = 2.8, PITCH_Y = 3.8, STACK_W = 12, PITCH_X = 3.4;
   const MAX_ROWS = Math.floor((BASE - CAP_Y) / PITCH_Y);
-  const UNIT = 72; // tokens per row; 34 * 72 = 2448 cap ~ the 2.5k cap rule
+  const UNIT = 72;
   const cols = [];
 
-  /* three even slots across the panel: one per harness */
   const SLOT = [95, 230, 365];
   LEGEND_ORDER.forEach((h, k) => {
     cols.push({ c: cell(m, h), h, x: SLOT[k] - 5, cx: SLOT[k] });
@@ -439,8 +412,6 @@ function bars(svg, m, state, anim = true) {
   }, anim);
 }
 
-// ── model tabs: one tab per model in the data, holding every chart.
-// Add a model to js/bench-data.js and it gets a tab here with no other edit.
 const CHARTS = [
   { fig: 'tv-race', key: 'race', draw: race },
   { fig: 'tv-score', key: 'score', draw: scoreboard },
@@ -450,8 +421,7 @@ const CHARTS = [
   { fig: 'tv-cache', key: 'cache', draw: cache },
 ];
 
-/* build one SVG per model inside each figure's panel grid, then wire the tabs */
-const panels = [];   // { el, model }
+const panels = [];
 CHARTS.forEach(({ fig, key }) => {
   const host = document.getElementById(fig)?.querySelector('[data-model-panels]');
   if (!host) return;
@@ -504,7 +474,6 @@ if (tabHost) {
 }
 applyTabs();
 
-// ── wiring: draw when a figure scrolls into center camera; [ replay ] reruns
 const FIGS = CHARTS.map(({ fig, key, draw }) => [
   fig,
   (st, anim) => MODELS.forEach(m => {
@@ -529,7 +498,7 @@ FIGS.forEach(([id, draw]) => {
 
   if (window.BENCH_EAGER || REDUCED) { playNow(); return; }
 
-  prime();                                       // grid + axes immediately
+  prime();
   if (isCenterCamera(fig)) { playNow(); return; }
 
   if ('IntersectionObserver' in window) {
@@ -551,7 +520,6 @@ FIGS.forEach(([id, draw]) => {
   window.addEventListener('resize', onScroll, { passive: true });
 });
 
-// ── table view: every number the plots draw
 const tbody = document.getElementById('b-table');
 if (tbody) {
   B.cells.forEach(c => {

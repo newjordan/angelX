@@ -22,7 +22,6 @@ pub mod shot;
 use crate::palette::Palette;
 use crate::raster::Raster;
 
-/// An RGBA picture, row by row.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Rgba {
     pub w: u32,
@@ -31,17 +30,14 @@ pub struct Rgba {
 }
 
 impl Rgba {
-    /// A `w` x `h` picture of one colour.
     pub fn filled(w: u32, h: u32, c: [u8; 4]) -> Rgba {
         Rgba { w, h, px: c.iter().copied().cycle().take((w * h * 4) as usize).collect() }
     }
 
-    /// A raster's inks; clear is transparent.
     pub fn of(ras: &Raster) -> Rgba {
         Rgba { w: ras.w, h: ras.h, px: ras.to_rgba(Palette::realm()) }
     }
 
-    /// The colour at `(x, y)`; clear off the picture.
     pub fn get(&self, x: i32, y: i32) -> [u8; 4] {
         if x < 0 || y < 0 || x as u32 >= self.w || y as u32 >= self.h {
             return [0; 4];
@@ -50,9 +46,6 @@ impl Rgba {
         [self.px[i], self.px[i + 1], self.px[i + 2], self.px[i + 3]]
     }
 
-    /// Lay colour `c` at `(x, y)`: over what is there when it is opaque,
-    /// mixed in by its alpha when not (the look tools' tints; a figure's
-    /// pixels are always opaque), nothing when clear.
     pub fn set(&mut self, x: i32, y: i32, c: [u8; 4]) {
         if x < 0 || y < 0 || x as u32 >= self.w || y as u32 >= self.h || c[3] == 0 {
             return;
@@ -69,8 +62,6 @@ impl Rgba {
         }
     }
 
-    /// Lay `src` with its top-left at `(x, y)`, each of its pixels `scale`
-    /// square.
     pub fn blit(&mut self, src: &Rgba, x: i32, y: i32, scale: u32) {
         for sy in 0..src.h {
             for sx in 0..src.w {
@@ -87,7 +78,6 @@ impl Rgba {
         }
     }
 
-    /// A filled rectangle.
     pub fn fill(&mut self, x: i32, y: i32, w: u32, h: u32, c: [u8; 4]) {
         for j in 0..h as i32 {
             for i in 0..w as i32 {
@@ -96,7 +86,6 @@ impl Rgba {
         }
     }
 
-    /// A rectangle's border, one pixel.
     pub fn border(&mut self, x: i32, y: i32, w: u32, h: u32, c: [u8; 4]) {
         for i in 0..w as i32 {
             self.set(x + i, y, c);
@@ -108,7 +97,6 @@ impl Rgba {
         }
     }
 
-    /// `src` tiled over a `w` x `h` picture, each pixel `scale` square.
     pub fn tiled(src: &Rgba, w: u32, h: u32, scale: u32) -> Rgba {
         let mut out = Rgba::filled(w, h, [0, 0, 0, 255]);
         let (tw, th) = ((src.w * scale).max(1), (src.h * scale).max(1));
@@ -121,8 +109,6 @@ impl Rgba {
         out
     }
 
-    /// Words in the look tools' 3x5 letters, `scale` pixels a dot, with the
-    /// top-left at `(x, y)`. Returns the width written.
     pub fn text(&mut self, x: i32, y: i32, words: &str, c: [u8; 4], scale: u32) -> u32 {
         let s = scale as i32;
         let mut at = x;
@@ -141,12 +127,10 @@ impl Rgba {
     }
 }
 
-/// How wide `words` are in the 3x5 letters at `scale`.
 pub fn text_width(words: &str, scale: u32) -> u32 {
     words.chars().count() as u32 * 4 * scale
 }
 
-/// The 3x5 letters: capitals stand for both cases.
 fn glyph(ch: char) -> [&'static str; 5] {
     match ch.to_ascii_uppercase() {
         'A' => [".#.", "#.#", "###", "#.#", "#.#"],

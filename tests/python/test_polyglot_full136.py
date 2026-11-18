@@ -1,4 +1,3 @@
-"""Regression checks for full-cohort latency accounting and trace discovery."""
 import importlib.util
 import json
 from pathlib import Path

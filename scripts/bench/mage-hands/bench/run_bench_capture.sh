@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Inside dbus-run-session: own a11y bus (plain dbus-daemon) + registry, then capture.
 set -u
 MAGE=${MAGE_ROOT:-$HOME/mage}  # the mage working folder: bench/, desk/, bin/, venv/
 exec 3>"$1/a11y.addr"

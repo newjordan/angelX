@@ -25,8 +25,6 @@ use serde::{Deserialize, Serialize};
 pub const MAX_BYTES: usize = 8192;
 pub const ART: usize = 32;
 
-/// Appearance only: shared by a guardian's bolts, split children and hits.
-/// The shot's kind, path and collision core keep their original meaning.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Art {
@@ -135,34 +133,18 @@ impl Art {
     }
 }
 
-/// A guardian leaves its opening below this share of its health.
 pub const MIDDLE_FROM: f32 = 0.7;
-/// A guardian whose file names no rage fights its last below this share.
 pub const LAST_FROM: f32 = 0.35;
-/// Hostile shots a second a guardian may loose in its opening: a few, read
-/// one by one.
 pub const OPEN_PER_SECOND: u32 = 4;
-/// Hostile shots a second in the middle of its fight. The middle's and the
-/// rage's caps rose a half on 2026-10-29 ("bosses are still crazy weak"),
-/// and the opening and the room's caps rose again on 2026-10-31.
 pub const MIDDLE_PER_SECOND: u32 = 8;
-/// Hostile shots a second in its rage, the most it ever looses.
 pub const RAGE_PER_SECOND: u32 = 11;
-/// The most hostile shots in the room per knight standing, in its opening.
 pub const OPEN_ON_SCREEN: u32 = 12;
-/// The most hostile shots in the room per knight standing, in the middle.
 pub const MIDDLE_ON_SCREEN: u32 = 18;
-/// The most hostile shots in the room per knight standing, in its rage.
 pub const RAGE_ON_SCREEN: u32 = 24;
-/// The most shots one volley holds; a mine or a split counts the ring it bursts into.
 pub const VOLLEY_MOST: u32 = 10;
-/// The fewest ticks a charge-up winds up before it can harm: 0.8 s.
 pub const WIND_LEAST: u32 = 24;
-/// The most charge-up lines a guardian has.
 pub const WINDUPS_MOST: usize = 2;
 
-/// How far a guardian's fight has come, by its health: its opening, the
-/// middle, and its rage (below its `rage`, or `LAST_FROM` if it names none).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Stage {
@@ -184,8 +166,6 @@ impl Stage {
         })
     }
 
-    /// Hostile shots a second it may loose, and the most it may have in
-    /// the room per knight standing.
     pub fn caps(self) -> (u32, u32) {
         match self {
             Stage::Open => (OPEN_PER_SECOND, OPEN_ON_SCREEN),
@@ -195,20 +175,13 @@ impl Stage {
     }
 }
 
-/// A guardian's charge-up: a wind-up anyone can read, then the blow.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Windup {
-    /// It crouches with a lane shown on the floor, then dashes down it.
     Charge,
-    /// It rears with the floor rippling round it, then the shockwave
-    /// rings burst out, one lane left clear (`tide::Ravage`).
     Slam,
-    /// A charging line grows from it, then a beam sweeps across the arc.
     Beam,
-    /// A shadow grows where a knight stood, then it lands there in a burst.
     Leap,
-    /// It draws the room in, shots and knights, then breathes out a burst.
     Inhale,
 }
 
@@ -225,7 +198,6 @@ impl Windup {
         }
     }
 
-    /// The word over it as it winds up, if its file names none.
     fn cry(self) -> &'static str {
         match self {
             Windup::Charge => "GRRRR",
@@ -237,34 +209,23 @@ impl Windup {
     }
 }
 
-/// One charge-up line of a `.boss` file.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ChargeUp {
     pub kind: Windup,
-    /// Ticks it winds up, harmless, before the blow (never under `WIND_LEAST`).
     pub wind: u32,
-    /// Ticks from one charge-up's end to the next one's start.
     pub every: u32,
     pub damage: u32,
-    /// The burst's shots (leap, inhale) or the slam's rings.
     pub shots: u32,
-    /// A dash's or a burst's speed, or how fast a slam's rings spread.
     pub speed: f32,
-    /// A beam's sweep, or a slam's clear lane, in degrees.
     pub arc: f32,
-    /// The stage of the fight it starts in.
     pub from: Stage,
     pub bolt: Bolt,
-    /// The word over it as it winds up.
     pub cry: String,
-    /// Its blow breaks the stone it meets (`rubble`): a charge the pillar
-    /// that stops it, a slam or a landing the boulders round it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub breaks: bool,
 }
 
 impl ChargeUp {
-    /// The most shots its blow may throw.
     pub fn burst(&self) -> u32 {
         match self.kind {
             Windup::Leap | Windup::Inhale => self.shots,
@@ -277,33 +238,20 @@ impl ChargeUp {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Move {
-    /// Walks straight at the nearest knight.
     Chase,
-    /// Wanders slowly around where it started.
     Drift,
-    /// Sweeps side to side across the top of the room.
     Hover,
-    /// Holds its ground.
     Anchor,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Pattern {
-    /// Shots at the nearest knight, in a tight line.
     Aimed,
-    /// A fan of shots centred on the nearest knight.
     Fan,
-    /// A full ring, turning a little each time.
     Ring,
-    /// Rotating arms that fire constantly.
     Spiral,
-    /// Tentacles burst up through the floor in
-    /// widening rings round the boss, one lane left clear (`shots` rings,
-    /// `arc` the lane's width, `speed` how fast they spread). No shots.
     Ravage,
-    /// One of the monsters' patterns, by name (`patterns::Emitter`): its
-    /// count, speed and shape are its own.
     Named(Emitter),
 }
 
@@ -319,8 +267,6 @@ pub enum Bolt {
     Page,
     Spore,
     Eye,
-    /// The look of the boss's own delve: what a named pattern throws when
-    /// its file says nothing.
     Own,
 }
 
@@ -340,7 +286,6 @@ impl Bolt {
         })
     }
 
-    /// The shot it throws, in a boss of `pack`.
     pub fn shot(self, pack: Pack) -> Shot {
         match self {
             Bolt::Bone => Shot::Bone,
@@ -365,8 +310,6 @@ impl Bolt {
     }
 }
 
-/// A chain of named patterns walked in turn: `volleys` volleys of each,
-/// `every` ticks apart, then the next, round and round.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Phases {
     pub chain: Vec<Emitter>,
@@ -374,13 +317,11 @@ pub struct Phases {
     pub volleys: u32,
     pub damage: u32,
     pub bolt: Bolt,
-    /// The stage of the fight it starts in.
     #[serde(default)]
     pub from: Stage,
 }
 
 impl Phases {
-    /// Shots a second over a whole turn of the chain.
     fn per_second(&self) -> f32 {
         let all: u32 = self.chain.iter().map(|e| e.guardian_shots()).sum();
         all as f32 / self.chain.len().max(1) as f32 * 30.0 / self.every.max(1) as f32
@@ -391,14 +332,11 @@ impl Phases {
 pub struct Attack {
     pub pattern: Pattern,
     pub shots: u32,
-    /// Fan width in degrees (fan), or a ravage's clear lane.
     pub arc: f32,
     pub speed: f32,
-    /// Ticks between volleys (30 ticks = one second).
     pub every: u32,
     pub damage: u32,
     pub bolt: Bolt,
-    /// The stage of the fight it starts in.
     #[serde(default)]
     pub from: Stage,
 }
@@ -406,7 +344,6 @@ pub struct Attack {
 impl Attack {
     fn per_second(&self) -> f32 {
         match self.pattern {
-            // Tentacles, not shots: the budget is for what flies.
             Pattern::Ravage => 0.0,
             Pattern::Named(emitter) => emitter.guardian_shots() as f32 * 30.0 / self.every.max(1) as f32,
             _ => self.shots as f32 * 30.0 / self.every.max(1) as f32,
@@ -426,12 +363,9 @@ pub struct Boss {
     pub moves: Move,
     pub speed: f32,
     pub attacks: Vec<Attack>,
-    /// Named patterns it walks through in turn, if its file chains any.
     #[serde(default)]
     pub phases: Option<Phases>,
-    /// Below this share of health the boss attacks half again as often.
     pub rage: f32,
-    /// Its charge-ups, each from its stage of the fight on.
     #[serde(default)]
     pub windups: Vec<ChargeUp>,
     pub drops: Spoils,
@@ -439,7 +373,6 @@ pub struct Boss {
 }
 
 impl Boss {
-    /// Its stage of the fight at `hp` of `max_hp`.
     pub fn stage(&self, hp: u32, max_hp: u32) -> Stage {
         let share = hp as f32 / max_hp.max(1) as f32;
         let rage = if self.rage > 0.0 { self.rage } else { LAST_FROM };
@@ -452,14 +385,11 @@ impl Boss {
         }
     }
 
-    /// Shots a second its file asks for in `stage`.
     pub fn per_second(&self, stage: Stage) -> f32 {
         stage_rate(&self.attacks, self.phases.as_ref(), stage)
     }
 }
 
-/// Shots a second in `stage` from every line begun by then, at the rage
-/// pace (half again as often) in its rage.
 fn stage_rate(attacks: &[Attack], phases: Option<&Phases>, stage: Stage) -> f32 {
     let lines = attacks
         .iter()
@@ -484,7 +414,6 @@ fn number(raw: &str) -> Option<f32> {
         .filter(|v| v.is_finite())
 }
 
-/// `key=value` pairs after a word, clamped into range with a note.
 fn arg(
     pairs: &[(String, String)],
     key: &str,
@@ -518,7 +447,6 @@ fn pairs(rest: &str) -> (Vec<String>, Vec<(String, String)>) {
     (words, pairs)
 }
 
-/// Check a `.boss` file.
 pub fn check(id: &str, raw: &str) -> Result<(Boss, Vec<String>), Rejected> {
     let mut errors = Vec::new();
     let mut notes = Vec::new();
@@ -530,7 +458,6 @@ pub fn check(id: &str, raw: &str) -> Result<(Boss, Vec<String>), Rejected> {
     let (mut name, mut text, mut by) = (String::new(), String::new(), String::new());
     let mut only_in = None;
     let (mut hp, mut radius, mut moves, mut speed, mut rage) = (600.0, 1.4, Move::Drift, 2.0, 0.0);
-    // The native spider engine occupies its whole rail corridor, legs included.
     let max_radius = if id == super::signatures::ENGINE {
         4.8
     } else {
@@ -538,7 +465,6 @@ pub fn check(id: &str, raw: &str) -> Result<(Boss, Vec<String>), Rejected> {
     };
     let mut attacks = Vec::new();
     let mut phases: Option<Phases> = None;
-    // Each line's `from=`, if it names one: attacks in turn, then phases.
     let mut attack_from: Vec<Option<Stage>> = Vec::new();
     let mut phases_from: Option<Stage> = None;
     let mut windups: Vec<ChargeUp> = Vec::new();
@@ -630,15 +556,12 @@ pub fn check(id: &str, raw: &str) -> Result<(Boss, Vec<String>), Rejected> {
                         Bolt::Orb
                     }),
                 };
-                // Volleys stay small (`VOLLEY_MOST`): pressure is in what
-                // a guardian does, not in walls of shots.
                 let (shots, every) = match pattern {
                     Pattern::Aimed => ((1.0, 3.0, 1.0), (20.0, 120.0, 45.0)),
                     Pattern::Fan => ((3.0, 7.0, 5.0), (30.0, 150.0, 60.0)),
                     Pattern::Ring => ((4.0, VOLLEY_MOST as f32, 8.0), (45.0, 240.0, 120.0)),
                     Pattern::Spiral => ((2.0, 3.0, 2.0), (10.0, 30.0, 15.0)),
                     Pattern::Ravage => ((3.0, 6.0, 4.0), (150.0, 360.0, 240.0)),
-                    // A pattern's count is its own; only its beat is the file's.
                     Pattern::Named(e) => {
                         let own = e.shots() as f32;
                         ((own, own, own), (30.0, 240.0, 90.0))
@@ -711,7 +634,6 @@ pub fn check(id: &str, raw: &str) -> Result<(Boss, Vec<String>), Rejected> {
                         Bolt::Own
                     }),
                 };
-                // Its shots, speed and arc mean what its kind makes of them.
                 let (shots, speed, arc) = match kind {
                     Windup::Charge => ((0.0, 0.0, 0.0), (18.0, 36.0, 28.0), (0.0, 0.0, 0.0)),
                     Windup::Slam => ((1.0, 3.0, 2.0), (3.0, 10.0, 6.0), (40.0, 90.0, 60.0)),
@@ -719,7 +641,6 @@ pub fn check(id: &str, raw: &str) -> Result<(Boss, Vec<String>), Rejected> {
                     Windup::Leap => ((0.0, 8.0, 6.0), (3.0, 8.0, 5.0), (0.0, 0.0, 0.0)),
                     Windup::Inhale => ((4.0, 8.0, 8.0), (3.0, 8.0, 5.0), (0.0, 0.0, 0.0)),
                 };
-                // A slam's rings ripple for as long as the floor warns.
                 let wind = if kind == Windup::Slam {
                     (super::tide::WARN as f32, super::tide::WARN as f32, super::tide::WARN as f32)
                 } else {
@@ -788,16 +709,12 @@ pub fn check(id: &str, raw: &str) -> Result<(Boss, Vec<String>), Rejected> {
     if !errors.is_empty() {
         return Err(Rejected { errors });
     }
-    // The fight builds: unless a line says `from=`, the first attack opens
-    // it (the phases, if there is no attack), the rest join in the middle.
     for (k, (attack, from)) in attacks.iter_mut().zip(&attack_from).enumerate() {
         attack.from = from.unwrap_or(if k == 0 { Stage::Open } else { Stage::Middle });
     }
     if let Some(phases) = &mut phases {
         phases.from = phases_from.unwrap_or(if attacks.is_empty() { Stage::Open } else { Stage::Middle });
     }
-    // Each stage's lines, at its pace, held under its budget of shots a
-    // second by slowing them.
     for stage in Stage::ALL {
         let rate = stage_rate(&attacks, phases.as_ref(), stage);
         let budget = stage.caps().0 as f32;
@@ -841,7 +758,6 @@ pub fn check(id: &str, raw: &str) -> Result<(Boss, Vec<String>), Rejected> {
     ))
 }
 
-/// The shots a file may name.
 const SHOT_NAMES: &str = "bone, orb, ember, wisp, ore, flame, page, spore or eye";
 
 fn pattern_names() -> String {
@@ -852,7 +768,6 @@ fn pattern_names() -> String {
         .join(", ")
 }
 
-/// Checked delivery definitions; this catalogue does not add bosses to the live population.
 pub const CHECKED: &[(&str, &str)] = &[
     ("archive-bellkeeper", include_str!("../../../../cockpit/assets/dungeon/bosses/archive-bellkeeper.boss")),
     ("archive-drowned-reeve", include_str!("../../../../cockpit/assets/dungeon/bosses/archive-drowned-reeve.boss")),
@@ -888,7 +803,6 @@ pub fn checked(id: &str) -> Option<Boss> {
     Some(check(id, raw).expect("checked boss definition").0)
 }
 
-/// The delve's own bosses.
 pub const BUILTIN: &[(&str, &str)] = &[
     (
         "the-big-ripper",
@@ -932,9 +846,6 @@ pub const BUILTIN: &[(&str, &str)] = &[
     ),
 ];
 
-/// The Gnome's Garden's floor guardian (`nooks::gnome`): not one of the
-/// built-in population, so no boss's place in a run's list moves; a run
-/// that reaches the garden's floor takes it on at the end of its list.
 pub const LAWN_FLAMINGO: &str = include_str!("../../../../cockpit/assets/dungeon/bosses/lawn-flamingo.boss");
 
 pub fn lawn_flamingo() -> Boss {
@@ -954,8 +865,6 @@ pub fn builtin() -> Vec<Boss> {
         .collect()
 }
 
-/// Read one `.boss` file's text into `bosses`: a workspace's own guardian
-/// takes its delve's place. The line the reload reports for it.
 pub fn read_into(bosses: &mut Vec<Boss>, stem: &str, raw: &str) -> String {
     match check(stem, raw) {
         Ok((boss, notes)) => {
@@ -972,7 +881,6 @@ pub fn read_into(bosses: &mut Vec<Boss>, stem: &str, raw: &str) -> String {
     }
 }
 
-/// The boss format, for a person or a model writing one.
 pub fn rules() -> String {
     format!(
         "A delve boss is a text file `<id>.boss`. It guards the stairs room of its delve; the way down stays barred until it falls.\n\

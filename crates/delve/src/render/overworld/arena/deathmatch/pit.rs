@@ -27,19 +27,14 @@ pub(super) use light::Flash;
 const COLS: usize = 24;
 const ROWS: usize = 18;
 const CELL: f32 = 2.0;
-/// How tall the ring wall stands (gallery, parapet and pennants), and the pillars inside it.
 const OUTER_H: f32 = 6.4;
 const PILLAR_H: f32 = 3.4;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Kind {
-    /// The ring wall: cells, banners, sconces, the gallery above.
     Outer,
-    /// A free-standing block: ashlar and a capital.
     Pillar,
-    /// A gate in a notch of the ring, portcullis raised.
     Gate,
-    /// The box that juts out of the north and south walls.
     Box,
 }
 
@@ -51,27 +46,20 @@ enum Centre {
     Sconce,
 }
 
-/// One flat run of wall facing the open pit.
 struct Face {
-    /// 0: the plane is `x = at`, running along y; 1: `y = at`, along x.
     axis: u8,
     at: f32,
     lo: f32,
     hi: f32,
-    /// Which way the open pit lies from the plane: `1.0` or `-1.0`.
     open: f32,
     h: f32,
     kind: Kind,
-    /// How high the cornice runs (the gallery sits on it).
     gal: f32,
     seed: u32,
     centre: Centre,
-    /// What hangs from the wall, by how far along it: `(u, what)`.
     posts: Vec<(f32, Centre)>,
-    /// Where the arched cells open, by how far along the wall.
     alcoves: Vec<f32>,
     tex: stone::Tex,
-    /// By tenths along the face: 1 where a post hangs, 2 where a lit cell glows.
     feat: Vec<u8>,
 }
 
@@ -87,14 +75,11 @@ impl Face {
     }
 }
 
-/// A dot's worth of a surface before the light reaches it: the colour it
-/// would be in an even light, and what it gives off itself.
 struct Texel {
     a: [f32; 3],
     e: [f32; 3],
 }
 
-/// The view's size in dots, for what is laid on the sky.
 struct Frame {
     px_per_rad: f32,
 }
@@ -112,7 +97,6 @@ const NONE: u16 = u16::MAX;
 
 type Job<'a> = Box<dyn FnOnce() + Send + 'a>;
 
-/// Runs the jobs side by side, on threads wherever the platform has them.
 fn together(jobs: Vec<Job<'_>>) {
     #[cfg(not(target_arch = "wasm32"))]
     std::thread::scope(|scope| {
@@ -133,8 +117,6 @@ fn raw_wall(c: i32, r: i32) -> bool {
     dm::MAP[r as usize].as_bytes()[c as usize] == b'#'
 }
 
-
-/// Wall cells joined to the border by wall: the ring (and what hangs off it).
 fn ring() -> [[bool; COLS]; ROWS] {
     let mut out = [[false; COLS]; ROWS];
     let mut todo: Vec<(i32, i32)> = Vec::new();
@@ -202,7 +184,6 @@ fn build() -> Pit {
     let mut xf = vec![NONE; (COLS + 1) * ROWS];
     let mut yf = vec![NONE; (ROWS + 1) * COLS];
     let cell_outer = |c: i32, r: i32| outer[r as usize][c as usize];
-    // x planes, running along y.
     for i in 0..=COLS as i32 {
         let mut run: Option<(i32, i32, f32, bool)> = None;
         let flush = |faces: &mut Vec<Face>, xf: &mut Vec<u16>, run: Option<(i32, i32, f32, bool)>| {
@@ -255,7 +236,6 @@ fn build() -> Pit {
         }
         flush(&mut faces, &mut xf, run.take());
     }
-    // y planes, running along x.
     for j in 0..=ROWS as i32 {
         let mut run: Option<(i32, i32, f32, bool)> = None;
         let flush = |faces: &mut Vec<Face>, yf: &mut Vec<u16>, run: Option<(i32, i32, f32, bool)>| {
@@ -311,7 +291,6 @@ fn build() -> Pit {
 
     let solid = |c: i32, r: i32| raw_wall(c, r);
 
-    // The mesh: the floor in one sheet, every face a quad. No tops, no roof.
     let mut mesh = Mesh::new();
     let (w, d) = (COLS as f32 * CELL, ROWS as f32 * CELL);
     mesh.push_quad(v3(0., 0., 0.), v3(w, 0., 0.), v3(w, d, 0.), v3(0., d, 0.), mat::FLOOR);
@@ -320,7 +299,6 @@ fn build() -> Pit {
         mesh.push_quad(a, b, v3(b.x, b.y, f.h), v3(a.x, a.y, f.h), mat::STONE);
     }
 
-    // The lights: braziers on the sand, a sconce wherever one hangs.
     let mut list: Vec<light::Light> = Vec::new();
     for &(x, y) in &super::world::BRAZIERS {
         list.push(light::Light { x, y, z: 1.2, r2: 289.0, inv_r2: 1.0 / 289.0, k: 0.95, tint: [1.0, 0.74, 0.48], brazier: true });
@@ -334,7 +312,6 @@ fn build() -> Pit {
             list.push(light::Light { x, y, z: 2.15, r2: 196.0, inv_r2: 1.0 / 196.0, k: 0.85, tint: [1.0, 0.76, 0.52], brazier: false });
         }
     }
-    // The slow part, once: the quantizing cube, every light's reach, the floor and every wall baked.
     let open = |x: f32, y: f32| !raw_wall((x / CELL).floor() as i32, (y / CELL).floor() as i32);
     let (mut lights, mut floor) = (None, None);
     let per = faces.len().div_ceil(4);
@@ -352,12 +329,10 @@ fn pit() -> &'static Pit {
     PIT.get_or_init(build)
 }
 
-/// The pit's shape for the raster.
 pub(super) fn mesh() -> &'static Mesh {
     &pit().mesh
 }
 
-/// The camera the raster looks through, rebuilt here to read depth back out.
 struct Cam {
     pos: V3,
     right: V3,
@@ -388,9 +363,6 @@ fn mix(a: [f32; 3], b: [f32; 3], t: f32) -> [f32; 3] {
 const AMBIENT_COOL: [f32; 3] = [0.25, 0.27, 0.34];
 const AMBIENT_WARM: [f32; 3] = [0.42, 0.31, 0.23];
 
-/// The pit as the raster saw it (`rgba` and `depth`, `w` by `h` dots),
-/// painted: `fever` is how loudly the crowd is up (`0..=1`) and `feet` are
-/// where the knights stand, each in a small shadow.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn paint(rgba: &[u8], depth: &[f32], view: &View3, ticks: u32, fever: f32, feet: &[(f32, f32)], flashes: &[Flash], w: usize, h: usize) -> Img {
     let pit = pit();
@@ -399,7 +371,6 @@ pub(super) fn paint(rgba: &[u8], depth: &[f32], view: &View3, ticks: u32, fever:
     let q = palette::quant();
     let frame = Frame { px_per_rad: w as f32 / view.fov_rad.max(0.2) };
     let col_dir: Vec<V3> = (0..w).map(|x| cam.right * (((x as f32 + 0.5) / cam.half_w - 1.0) * cam.tan_h)).collect();
-    // Rows are independent, so the frame is painted in four bands side by side, as the raster fills it.
     let mut px = vec![[0u8; 3]; w * h];
     let rows_per = h.div_ceil(4).max(1);
     let (cam, col_dir, flick, frame) = (&cam, &col_dir, &flick, &frame);
@@ -411,7 +382,6 @@ pub(super) fn paint(rgba: &[u8], depth: &[f32], view: &View3, ticks: u32, fever:
                 for (r, out) in band.chunks_mut(w).enumerate() {
                     let py = k * rows_per + r;
                     let row = cam.fwd + cam.up * ((1.0 - (py as f32 + 0.5) / cam.half_h) * cam.tan_v);
-                    // Light changes slowly: a run of dots on one surface shares it.
                     let mut cached: (u32, i32, i32, i32, [f32; 3]) = (u32::MAX, 0, 0, 0, [0.0; 3]);
                     for (x, dot) in out.iter_mut().enumerate() {
                         let i = py * w + x;
@@ -436,7 +406,6 @@ pub(super) fn paint(rgba: &[u8], depth: &[f32], view: &View3, ticks: u32, fever:
     Img::from_rgb(w as i32, h as i32, &px)
 }
 
-/// The colour, before the dither, of what is at `p` (seen from `d` away).
 #[allow(clippy::too_many_arguments)]
 fn surface(pit: &Pit, p: V3, d: f32, t: u32, fever: f32, feet: &[(f32, f32)], flashes: &[Flash], seen: &[u8], flick: &[f32], cached: &mut (u32, i32, i32, i32, [f32; 3])) -> Option<[f32; 3]> {
     let (texel, n, ground, amb_k, sid) = if p.z.abs() < 0.03 {
@@ -454,7 +423,6 @@ fn surface(pit: &Pit, p: V3, d: f32, t: u32, fever: f32, feet: &[(f32, f32)], fl
                 (texel, n, ground, if f.axis == 0 { 1.0 } else { 0.85 }, 1 + id as u32)
             }
             None => {
-                // Something the plan does not know (a hedge a knight raised): the raster's own tone.
                 let l = (f32::from(seen[0]) * 0.3 + f32::from(seen[1]) * 0.5 + f32::from(seen[2]) * 0.2) / 255.0;
                 (Texel { a: [0.46 * l * 2.2, 0.41 * l * 2.2, 0.34 * l * 2.2], e: [0.0; 3] }, [0.0, 0.0, 1.0], (p.x, p.y), 1.0, u32::MAX - 1)
             }
@@ -462,15 +430,12 @@ fn surface(pit: &Pit, p: V3, d: f32, t: u32, fever: f32, feet: &[(f32, f32)], fl
     };
     let glow = ((p.z - 2.2) / 2.0).clamp(0.0, 1.0);
     let amb = mix(AMBIENT_COOL, AMBIENT_WARM, glow);
-    // Far off, light is smooth: the coarser the farther.
     let q = 1.0 / (0.18 + 0.025 * d);
     let key = (sid, (p.x * q) as i32, (p.y * q) as i32, (p.z * q) as i32);
     if cached.0 != key.0 || cached.1 != key.1 || cached.2 != key.2 || cached.3 != key.3 {
         *cached = (key.0, key.1, key.2, key.3, pit.lights.at([p.x, p.y, p.z], n, ground, flick, flashes));
     }
     let lit = cached.4;
-    // Lit stone is not allowed to blaze: a soft shoulder keeps every torch pool a tone the knights
-    // stand out of. What a thing gives off itself (a flame) goes on after, and may.
     let shoulder = |v: f32| {
         let x = (v - 0.35).max(0.0);
         v.min(0.35) + 0.75 * x / (1.0 + 1.4 * x)

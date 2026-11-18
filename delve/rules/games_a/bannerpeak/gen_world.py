@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
-"""Bakes crates/delve/assets/bannerpeak/*.map into world_data.bend: the same compose pass
-layout::world runs (six sections on one 434 by 64 grid, marks read out and left as air),
-and the lists layout::info() reads off the marks. Run from anywhere:
-    python3 delve/rules/games_a/bannerpeak/gen_world.py
-"""
 import pathlib
 
 HERE = pathlib.Path(__file__).resolve().parent
 ASSETS = HERE.parents[3] / "crates/delve/assets/bannerpeak"
 TILE = 16
-# (name, ox, oy, w, h)
 SECS = [("hub", 0, 32, 80, 30), ("marsh", 80, 36, 105, 28), ("mill", 185, 36, 88, 18),
         ("shaft", 273, 16, 14, 38), ("snow", 287, 12, 105, 14), ("summit", 392, 10, 42, 14)]
 WIDTH, HEIGHT = 434, 64
@@ -33,7 +27,7 @@ def compose():
                     tiles[cy * WIDTH + cx] = GLYPH[c]
                 else:
                     marks.append((c, cx, cy))
-    marks.sort(key=lambda m: (m[2], m[1]))  # stable, like sort_by_key
+    marks.sort(key=lambda m: (m[2], m[1]))
     return tiles, marks
 
 
@@ -73,7 +67,6 @@ def main():
     for y, r in enumerate(rows):
         out.append(f"def bannerpeak.layout.row_{y}() -> List<&2, U32>:\n  {lst(r)}\n")
 
-    # a balanced decision tree over the row number: only the chosen row is built
     def tree(lo, hi):
         if hi - lo == 1:
             return f"bannerpeak.layout.row_{lo}()"

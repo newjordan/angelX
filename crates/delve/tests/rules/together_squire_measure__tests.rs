@@ -87,8 +87,6 @@ fn active(e: &Enemy) -> bool {
     e.hp > 0 && e.kind != EnemyKind::Dummy && e.age >= TELEGRAPH && !e.dormant
 }
 
-/// Generate with six players already present, so descent uses the real party
-/// layout/scaling. Fresh intro outfits, not a saved win's health/deck bonuses.
 fn scenario(seed: u64, floor: u32) -> Run {
     let mut run = Run::new(seed, 700 + seed, None);
     run.players.clear();
@@ -126,8 +124,6 @@ fn scenario(seed: u64, floor: u32) -> Run {
     );
     let room = rooms[(seed as usize * 7 + 3) % rooms.len()];
     run.enter(room, Some(2));
-    // Apply the same production stakes/cap normalization as the first play
-    // tick, before taking the HP baseline (not an artificial HP assignment).
     run.set_stakes();
     assert_eq!(run.room().kind, RoomKind::Fight);
     assert_eq!(run.phase, Phase::Fighting);
@@ -322,8 +318,6 @@ fn measure(mut run: Run, seed: u64, floor: u32, variant: &'static str, dir: &Pat
             .iter()
             .map(|(&id, h)| (id, (h.hp, h.max_hp)))
             .collect();
-        // Mutually exclusive room time bins. Hero time counts actionable AI
-        // intent (fire/swing/cast/bomb/ult), not a claim that every shot lands.
         if run.hitstop.left > 0 {
             hold += 1;
         } else if foes.is_empty() {
@@ -392,9 +386,6 @@ fn measure(mut run: Run, seed: u64, floor: u32, variant: &'static str, dir: &Pat
     out.hp_remaining = run.players.values().map(|h| h.hp).sum();
     out.net_hp_loss = i64::from(out.initial_party_hp) - i64::from(out.hp_remaining);
     out.healing_received = stakes::HEALED.with(|h| h.borrow().iter().map(|&x| u64::from(x)).sum());
-    // The existing mend counter catches healing and damage in the same tick,
-    // unlike the signed per-tick HP observations. Refuse an exact damage
-    // claim if a card changed a health cap during this encounter.
     out.health_cap_changed = !constant_max_hp;
     if constant_max_hp && out.net_hp_loss >= 0 {
         out.actual_damage = Some(out.net_hp_loss as u64 + out.healing_received);
@@ -462,9 +453,6 @@ fn export_squire_measurements() {
             let base = scenario(seed, floor);
             let mut with = base.clone();
             add_squires(&mut with);
-            // Companion enlistment must not alter party, foes, hazards, RNG,
-            // layout or tuning. Compare the entire serialized state except
-            // the two squire-owned fields.
             let strip = |run: &Run| {
                 let mut v = serde_json::to_value(run).unwrap();
                 v["home"]["squires"] = serde_json::Value::Null;

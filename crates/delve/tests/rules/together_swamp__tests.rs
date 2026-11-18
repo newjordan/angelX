@@ -14,7 +14,6 @@ fn press_e() -> BTreeMap<u32, Input> {
     )])
 }
 
-/// At home, the world raised, knight one standing in Sir Damp's Marsh.
 fn in_the_marsh() -> Run {
     let mut run = Run::at_home(7, 1, None, Home::default(), Default::default());
     run.come_to_the_gate();
@@ -24,7 +23,6 @@ fn in_the_marsh() -> Run {
     run
 }
 
-/// Floor `depth` of the swamp, as the plate takes a party down.
 fn swamp_floor(seed: u64, depth: u32) -> Run {
     let mut run = Run::at_home(seed, 1, None, Home::default(), Default::default());
     run.begin_in(Pack::Swamp);
@@ -34,7 +32,6 @@ fn swamp_floor(seed: u64, depth: u32) -> Run {
     run
 }
 
-/// The swamp's last floor, the party walked into the Mire King's hall.
 fn mire_kings_hall(seed: u64) -> Run {
     let mut run = swamp_floor(seed, FLOORS);
     let hall = run
@@ -70,7 +67,6 @@ fn the_wetland_plate_leads_into_the_swamp_delve() {
     assert_eq!(plate.room, RoomKind::Marsh, "the plate is in the realm's Swamp, Sir Damp's Marsh");
     assert_eq!(plate.to, Dest::Delve(Pack::Swamp));
     assert!(plate.needs.is_none(), "it stands open from the first");
-    // The Marsh is walked to from the gate, room by room.
     let mut run = in_the_marsh();
     let gate = world::room_of(&run.dungeon, RoomKind::Gate).unwrap();
     let marsh = world::room_of(&run.dungeon, RoomKind::Marsh).unwrap();
@@ -95,7 +91,6 @@ fn the_wetland_plate_leads_into_the_swamp_delve() {
             assert_eq!(world::entrance_at(RoomKind::Marsh, col, row).map(|e| e.id), Some("swamp-plate"));
         }
     }
-    // Stood on a moment, it takes the party down to floor one of the swamp.
     let (x, y) = world::entrance_centre(plate);
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (x, y);
@@ -120,7 +115,6 @@ fn the_notice_by_the_plate_says_where_the_horse_went() {
     let mut stable = Stable::default();
     let (changed, _) = settle(&mut country, &mut stable, &run.marks);
     assert!(changed && country.swamp_heard);
-    // And Wren pins a bounty for her, counted by the moment she is freed.
     let bounty = bounties::bounty("white_horse").unwrap();
     assert_eq!(bounty.goal, bounties::Goal::Moment(MOMENT));
     assert_eq!(bounty.from, 0, "on the board from the first");
@@ -143,7 +137,6 @@ fn the_swamp_is_three_floors_of_mire_that_lay_out_and_are_reachable() {
                 );
                 let seen = reachable(&floor);
                 for (i, room) in floor.rooms.iter().enumerate() {
-                    // A vault behind a cracked wall waits for a bomb.
                     assert!(seen[i] || room.kind == RoomKind::Secret, "seed {seed} floor {depth}: {:?} reached", room.kind);
                 }
                 for room in &floor.rooms {
@@ -171,7 +164,6 @@ fn the_swamp_is_three_floors_of_mire_that_lay_out_and_are_reachable() {
             }
         }
     }
-    // The wheel's horde and gauntlet keep away: the swamp keeps its shape.
     for mode in [fortune::Mode::HoldTheStair, fortune::Mode::Gauntlet] {
         let floor = layout::floor_for_party(mode, FLOORS, Pack::Swamp, 1, &mut Rng::new(5));
         assert!(floor.rooms.iter().any(|r| r.kind == RoomKind::Stairs));
@@ -185,8 +177,6 @@ fn bog_takes_its_share_and_keeps_the_lanes_and_the_reed_islands_dry() {
         let mut q: Vec<Vec<u8>> = vec![b"...........".to_vec(); 6];
         q[2][4] = b'#';
         mire(&mut q, depth, salt((1, 2), depth));
-        // Of the open ground, the share asked; no more than lies off the
-        // lanes and the island (the 9 by 4 corner, less the island's 3 by 3).
         let (open, off_the_lanes) = (66 - 1, 9 * 4 - 9);
         let bog = q.iter().flatten().filter(|&&c| c == b',').count();
         assert_eq!(bog, (open * BOG_SHARE[(depth - 1) as usize] / 100).min(off_the_lanes), "floor {depth}");
@@ -248,7 +238,6 @@ fn the_swamp_rosters_come_from_the_mire_and_grow_worse_with_depth() {
     for kind in [BogHand, Drowned, Wisp] {
         assert!((1..=FLOORS).any(|d| kinds(d).contains(&kind)), "{kind:?} lives in the swamp");
     }
-    // The rooms laid out hold the swamp's own.
     for seed in 0..12u64 {
         for depth in 1..=FLOORS {
             let floor = layout::floor(depth, Pack::Swamp, &mut Rng::new(seed));
@@ -282,8 +271,6 @@ fn bog_slows_walkers_not_shots_wings_or_the_swamps_own() {
     assert!((walked(wet, Mover::Wader) - 0.5).abs() < 1e-5, "the swamp's own wade it as dry ground");
     assert!(!grid.stops_shot(wet.0, wet.1), "shots fly over the bog");
     assert!(grid.clear(wet.0, wet.1, HERO_RADIUS, Mover::Hero), "it is walkable");
-    // In play: a knight crossing bog covers BOG_PACE of the ground, and a
-    // shot over it flies at full speed.
     let mut run = swamp_floor(3, 1);
     let fight = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight).unwrap();
     run.enter_for_test(fight);
@@ -342,7 +329,6 @@ fn the_mire_king_holds_the_pen_until_he_falls_then_she_walks_free_once() {
     assert_eq!(king.len(), 1);
     assert_eq!(run.bosses[usize::from(king[0].boss.unwrap())].id, KING);
     assert_eq!(run.enemies.len(), 1, "on the third floor he stands alone (BOSS_ALONE_TO)");
-    // While he stands, the pen holds.
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (captive.x, captive.y + 2.0);
     hero.invulnerable = 999;
@@ -353,7 +339,6 @@ fn the_mire_king_holds_the_pen_until_he_falls_then_she_walks_free_once() {
     assert!(!run.marks.contains_key(RESCUE_MARK));
     assert_eq!(run.found.as_ref().map(|f| f.2.as_str()), Some(PEN_HELD));
     assert!(run.light.is_none());
-    // He falls: the hall is his floor's, banked; the pen opens.
     run.clear_for_test();
     assert!(run.room().cleared);
     assert!(run.cues.iter().any(|c| c == "mire_king_falls"));
@@ -371,18 +356,15 @@ fn the_mire_king_holds_the_pen_until_he_falls_then_she_walks_free_once() {
     assert_eq!(run.marks.get(&bounties::moment_mark(MOMENT)), Some(&1));
     assert!(run.feats.contains(&"white_horse"));
     assert!(feats::feat("white_horse").is_some());
-    // Once: holding on does nothing more.
     for _ in 0..BUY_HOLD * 3 {
         run.step(&press_e());
     }
     assert_eq!(run.marks.get(RESCUE_MARK), Some(&1));
-    // The light leads home.
     let (lx, ly) = run.light.expect("the light home");
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (lx, ly);
     run.step(&BTreeMap::new());
     assert_eq!(run.phase, Phase::Won);
-    // There is no floor below the King's.
     let mut below = mire_kings_hall(5);
     below.descend_for_test();
     assert_eq!(below.dungeon.depth, FLOORS);
@@ -413,8 +395,6 @@ fn the_swamps_floors_count_for_none_of_the_realms_depth_records() {
         run.descend_for_test();
     }
     assert_eq!(run.record_floor(), 3, "a keep floor counts as itself");
-    // Wren's "Down to the Keep" is not done from the swamp's third floor,
-    // and is from the keep's.
     let mut home = Home::default();
     home.deepest = 1;
     home.bounties = vec![crate::rules::bounties::Pinned { id: "keep".into(), have: 0 }];
@@ -459,11 +439,9 @@ fn freed_she_joins_the_herd_white_and_named_once_and_waits_when_the_yard_is_full
     assert_eq!(her.coat, Some(HorseCoat::White));
     assert!(her.mare && her.raceable(0), "a grown mare: she races");
     assert!(said.iter().any(|s| s.contains(HORSE_NAME)));
-    // Settled again, nothing doubles.
     let (changed, _) = settle(&mut country, &mut stable, &marks);
     assert!(!changed);
     assert_eq!(stable.herd.len(), 1);
-    // A full yard: she waits at the ranch until there is room.
     let mut country = Country::default();
     let mut stable = Stable::default();
     for i in 0..HERD_CAP {
@@ -482,7 +460,6 @@ fn freed_she_joins_the_herd_white_and_named_once_and_waits_when_the_yard_is_full
     assert!(changed);
     assert_eq!(country.white_horse, 2);
     assert!(in_herd(&stable));
-    // The cockpit settles her through the registry of places.
     let mut home = Home::default();
     let mut treasury = crate::realm::Spoils::default();
     let reclaimed = BTreeMap::new();
@@ -511,20 +488,16 @@ fn the_swamps_marks_are_kept_by_the_checkpoint_journal() {
 
 #[test]
 fn old_saves_load_without_the_swamp() {
-    // A countryside saved before the swamp: no notice, no horse.
     let old = serde_json::json!({"visited": 3, "sluice": 6, "sluice_paid": true, "built": 512});
     let country = countryside::load(old);
     assert!(country.valid());
     assert!(!country.swamp_heard);
     assert_eq!(country.white_horse, 0);
     assert_eq!(country.sluice, 6);
-    // A default country writes no swamp fields at all.
     let written = serde_json::to_value(Country::default()).unwrap();
     assert!(written.get("swamp_heard").is_none() && written.get("white_horse").is_none());
-    // A stage past its end is mended.
     let mended = countryside::load(serde_json::json!({"white_horse": 9}));
     assert!(mended.valid() && mended.white_horse == 0);
-    // A herd horse saved before coats.
     let horse: Horse = serde_json::from_value(serde_json::json!({
         "name": "Ashfall", "house": "qwen",
         "blood": {"pace": 5, "stamina": 5, "corner": 5, "nerve": 5}
@@ -535,12 +508,10 @@ fn old_saves_load_without_the_swamp() {
     let stable: Stable =
         serde_json::from_value(serde_json::json!({"herd": [serde_json::to_value(&horse).unwrap()]})).unwrap();
     assert_eq!(stable.herd[0].coat, None);
-    // Knights saved before the bog hands' grip.
     let raw = include_str!("fixtures/balance_party.json");
     let value: serde_json::Value = serde_json::from_str(raw).unwrap();
     let heroes: Vec<Hero> = serde_json::from_value(value["heroes"].clone()).unwrap();
     assert!(!heroes.is_empty() && heroes.iter().all(|h| h.mired == 0));
-    // A home floor saved before the plate gets it as the world is raised.
     let mut run = Run::at_home(7, 1, None, Home::default(), Default::default());
     let marsh = world::room_of(&run.dungeon, RoomKind::Marsh).unwrap();
     let (c, r, w, h) = PLATE;
@@ -551,8 +522,6 @@ fn old_saves_load_without_the_swamp() {
     }
     assert!(world::raise_world(&mut run.dungeon));
     assert_eq!(run.dungeon.rooms[marsh].tile(c, r), Tile::Stairs);
-    // A whole run in the swamp, written and read back, is still a valid
-    // snapshot.
     let mut run = mire_kings_hall(5);
     run.step(&BTreeMap::new());
     let back: Run = serde_json::from_str(&serde_json::to_string(&run).unwrap()).unwrap();
@@ -567,8 +536,6 @@ fn the_mire_king_is_a_checked_boss_file_with_a_tell_before_each_attack() {
     assert!(notes.is_empty(), "{notes:?}");
     assert_eq!(king.only_in, Pack::Swamp);
     assert!(bosses::builtin().iter().any(|b| b.id == KING));
-    // Every attack he has shows itself first: the Ravage's ripples, the
-    // rain's marks, the laser's line, the seekers' slow turn.
     for attack in &king.attacks {
         assert!(matches!(attack.pattern, bosses::Pattern::Ravage), "{:?}", attack.pattern);
     }

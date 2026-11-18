@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Prototype atomic manifest publisher for editable book chapter sources."""
 import argparse, hashlib, json, os, stat, tempfile
 from pathlib import Path
 
@@ -106,7 +105,6 @@ def validate(name,data):
     if any(not page or len(page)>limit for _,page in entries): raise ValueError(f'{name}: invalid page size')
     counts=tuple(sum(digit==d for digit,_ in entries) for d in DIGITS)
     if counts!=expected: raise ValueError(f'{name}: changed route/page addresses')
-    # Grouping order is part of the immutable section layout.
     if [d for d,_ in entries] != [d for d,n in zip(DIGITS,expected) for _ in range(n)]:
         raise ValueError(f'{name}: routes out of order')
 

@@ -1,7 +1,6 @@
 use super::*;
 use crate::rules::stakes::{Mend, Stakes, landed};
 
-/// A run on floor `depth`, the knight at 30 of their health, in a fight.
 fn hurt_on(depth: u32) -> Run {
     let mut run = Run::new(5, 1, None);
     while run.dungeon.depth < depth {
@@ -23,7 +22,6 @@ fn hurt_on(depth: u32) -> Run {
 
 #[test]
 fn the_first_two_floors_mend_and_hit_as_they_always_did() {
-    // Floor 1 is as ever; floor 2 starts the steady climb (`DEPTH_HIT`).
     for (depth, incoming) in [(1, 100), (2, 115)] {
         let run = hurt_on(depth);
         assert_eq!(run.players[&1].stakes, Stakes::Early);
@@ -56,7 +54,6 @@ fn mends_that_fire_on_their_own_pass_a_budget_a_second() {
     let hero = run.players.get_mut(&1).unwrap();
     let gained: u32 = (0..20).map(|_| hero.mend(10, Mend::Passive)).sum();
     assert_eq!(gained, 1, "one a second in a fight, however many hits");
-    // A new second, a new budget.
     for _ in 0..HZ {
         run.step(&BTreeMap::new());
     }
@@ -96,7 +93,6 @@ fn mail_turns_aside_a_share_of_a_hit_not_a_fixed_piece() {
         hero.hurt(damage);
         before - hero.hp
     };
-    // Every hit lands twice as hard (`HIT_SHARE`), then mail turns its share.
     assert_eq!(hit(0, 40), 80);
     assert_eq!(hit(1, 40), 75);
     assert_eq!(hit(2, 40), 71);
@@ -117,7 +113,6 @@ fn deeper_floors_make_monsters_tougher_and_hit_harder_and_a_stronger_party_tough
     let deep = hurt_on(6);
     assert!(deep.toughness() > weak.toughness());
     assert!(deep.players[&1].incoming > weak.players[&1].incoming);
-    // A steady climb down the deep floors, no jump.
     let hit = |depth: u32| hurt_on(depth).players[&1].incoming;
     assert!(hit(3) < hit(4) && hit(4) < hit(5) && hit(5) < hit(6));
 }

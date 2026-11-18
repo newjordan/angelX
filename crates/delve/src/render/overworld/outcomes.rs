@@ -34,8 +34,6 @@ pub struct Echo {
     pub phase: u8,
 }
 
-/// A little metal lantern with a distinct seal inside. Reduced/off motion
-/// retain the same receipt as a still shape: no motes, bob, pulse or flashing.
 pub fn lantern(echo: Echo, motion: Motion) -> Img {
     let mut im = Img::new(23, 25);
     let color = echo.seal.ink();
@@ -77,8 +75,6 @@ pub fn lantern(echo: Echo, motion: Motion) -> Img {
     }
     if motion == Motion::Full && echo.seal != Seal::Unresolved && echo.phase < 6 {
         let phase = i32::from(echo.phase);
-        // Completed work lifts its motes; failures settle as embers. The
-        // glyph stays put so meaning never depends on catching one frame.
         let drift = if echo.seal == Seal::Failed {
             phase / 2
         } else {

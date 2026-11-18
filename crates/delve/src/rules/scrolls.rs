@@ -20,7 +20,6 @@ impl Drop for PublicScope {
 pub fn public_scope() -> PublicScope {
     PublicScope(PUBLIC.replace(true))
 }
-/// True while a tree is being built for the wire or a seat's view.
 pub fn in_public() -> bool {
     PUBLIC.get()
 }
@@ -129,8 +128,6 @@ impl Binding {
         bound.validate(offer)?;
         Ok(bound)
     }
-    /// Older checkpoints cannot recover definitions that were never captured.
-    /// Keep their UI for dismissal, but never silently bind it to changed files.
     pub fn legacy(raid: u64, player: u32, epoch: u64) -> Self {
         Self {
             api: 0,

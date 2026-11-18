@@ -1,8 +1,6 @@
 //! Checked pack-specific leadership templates; never ordinary mobs relabelled as bosses.
 use super::{Boss, Pack, RoomKind, boss_gates::Leader};
 
-// Only checked include_str templates are cached. Mutable Run catalogues are
-// compared/validated as before and receive independent owned Boss values.
 fn natives(pack: Pack) -> &'static [Boss] {
     use std::sync::OnceLock;
     static CRYPT: OnceLock<Vec<Boss>> = OnceLock::new();
@@ -59,7 +57,6 @@ fn parse_natives(pack: Pack) -> Vec<Boss> {
                 "salvage-claimant",
                 include_str!("../../../../cockpit/assets/dungeon/bosses/salvage-claimant.boss"),
             ),
-            // Made from the chief template (`templates/foe-chief.boss`).
             (
                 "archive-drowned-reeve",
                 include_str!(
@@ -107,7 +104,6 @@ fn parse_natives(pack: Pack) -> Vec<Boss> {
                 ),
             ),
         ],
-        // The swamp's one guardian is a built-in (`the-mire-king`).
         Pack::Swamp => &[],
         Pack::Unknown => &[
             (
@@ -146,8 +142,6 @@ fn threshold_guardian() -> Boss {
 
 pub(super) fn leaders(bosses: &mut Vec<Boss>, pack: Pack, count: usize) -> Option<Vec<usize>> {
     for native in natives(pack) {
-        // Signature guardians enter new floor catalogs explicitly. Replaying
-        // an older floor must preserve its original encounter choices.
         if super::signatures::special(&native)
             && !bosses
                 .iter()
@@ -168,8 +162,6 @@ pub(super) fn leaders(bosses: &mut Vec<Boss>, pack: Pack, count: usize) -> Optio
         .enumerate()
         .take(64)
         .filter(|(_, b)| {
-            // A chief's camp is led by an elite (`keyring`), so the pack's
-            // signature bosses are kept for the stairs (`boss_population`).
             b.only_in == pack
                 && super::claim_bosses::Guardian::for_id(&b.id).is_none()
                 && !super::signatures::special(b)
@@ -255,8 +247,6 @@ mod template_cache_tests {
     use super::*;
     fn reference_leaders(bosses: &mut Vec<Boss>, pack: Pack, count: usize) -> Option<Vec<usize>> {
         for native in parse_natives(pack) {
-            // Signature guardians enter new floor catalogs explicitly. Replaying
-            // an older floor must preserve its original encounter choices.
             if crate::rules::signatures::special(&native)
                 && !bosses
                     .iter()
@@ -277,8 +267,6 @@ mod template_cache_tests {
             .enumerate()
             .take(64)
             .filter(|(_, b)| {
-                // A chief's camp is led by an elite (`keyring`), so the pack's
-                // signature bosses are kept for the stairs (`boss_population`).
                 b.only_in == pack
                     && !crate::rules::signatures::special(b)
                     && !matches!(

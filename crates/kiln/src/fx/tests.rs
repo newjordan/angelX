@@ -1,7 +1,6 @@
 use super::*;
 use crate::grain::Grain;
 
-/// FNV-1a over a raster's inks: a golden picture's name.
 fn fnv(r: &Raster) -> u64 {
     r.ink.iter().fold(0xcbf2_9ce4_8422_2325u64, |h, i| (h ^ u64::from(i.0)).wrapping_mul(0x0100_0000_01b3))
 }
@@ -38,14 +37,12 @@ fn front_layers_go_over_a_figure_and_back_ones_behind() {
         { "type": "flash", "ramp": "fire", "r0": 4, "r1": 4, "t1": 4, "z": "back" } ] }"#;
     let fx = Fx::parse(json).unwrap();
     let mut r = Raster::new(8, 8);
-    // A dark figure in the middle.
     r.put(4, 4, p.ink('k').unwrap(), 0.0, 1);
     fx.draw(&mut r, Grain::GAME, (0.0, 0.0), 0.0);
     assert_eq!(r.part_at(4, 4), 1);
     assert!(r.part_at(3, 4) >= part(0));
 }
 
-/// The catalog, as the example sheets render it.
 const CATALOG: &[(&str, &str)] = &[
     ("sword-slash", include_str!("../../examples/fx/sword-slash.json")),
     ("maul-smash", include_str!("../../examples/fx/maul-smash.json")),
@@ -75,8 +72,6 @@ fn every_catalog_effect_reads_and_draws_at_both_grains() {
     }
 }
 
-/// Two effects' pictures by name: any change to how kiln draws them shows
-/// here first. Look at the sheets before taking new ones.
 #[test]
 fn golden_pictures_hold() {
     let golden = [("sword-slash", 3, 0xb4fbe67a84bfc324u64), ("fireball", 9, 0x302299d3bd112a86u64)];

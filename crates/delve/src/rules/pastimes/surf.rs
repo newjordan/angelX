@@ -46,7 +46,6 @@ impl Surf {
             && super::Game::Surf.time() - round.left
                 == u32::from(round.progress) * WAVE_TICKS + self.phase
     }
-    /// Some(true): a wave cleared; Some(false): wipeout; None: still balancing.
     pub fn step(&mut self, input: Input, tapped: bool, wave: u8) -> Option<bool> {
         let axis = if input.aim_x != 0 {
             input.aim_x
@@ -62,22 +61,17 @@ impl Surf {
         };
         self.lean = (self.lean + push).clamp(-100, 100);
         let target = WAVE_LEANS[usize::from(wave)];
-        // F answers the gold crest in the snapshot the knight just saw. Do not
-        // open its window a tick early by advancing the phase before judging.
         if tapped && self.phase >= WAVE_TICKS - CREST_WINDOW && (self.lean - target).abs() <= 16 {
             self.braced = true;
             self.brace_flash = 4;
         }
-        // Wave crest glows gold during the brace window.
         if self.phase >= WAVE_TICKS - CREST_WINDOW {
             self.crest_glow = 6;
         }
-        // Decay particle effect counters each tick.
         self.spray = self.spray.saturating_sub(1);
         self.splash = self.splash.saturating_sub(1);
         self.crest_glow = self.crest_glow.saturating_sub(1);
         self.brace_flash = self.brace_flash.saturating_sub(1);
-        // Continuous spray while balanced near the target lean.
         if (self.lean - target).abs() <= 16 {
             self.spray = 2;
         }
@@ -88,7 +82,6 @@ impl Surf {
         let cleared = self.braced && (self.lean - target).abs() <= 16;
         self.phase = 0;
         self.braced = false;
-        // Big splash on wipeout.
         if !cleared {
             self.splash = 12;
         }

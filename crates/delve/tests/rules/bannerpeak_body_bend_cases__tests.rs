@@ -8,7 +8,6 @@ use crate::rules::bannerpeak::layout;
 use crate::rules::bannerpeak::session::View;
 use serde_json::{Value, json};
 
-/// The platforms a seat's body meets this tick, as `Session::step` builds them.
 fn planks(sm: &Sample, id: u32) -> (Vec<Mover>, Vec<Mover>) {
     let s = sm.s;
     let elapsed = (s.elapsed + 1).min(crate::rules::bannerpeak::session::LIMIT);
@@ -45,7 +44,6 @@ pub fn probe(sm: &Sample) {
         let (now, before) = planks(sm, id);
         let mode = format!("{:?}", b.mode);
 
-        // the whole step
         let mut b2 = b.clone();
         let mut out = Vec::new();
         b2.step(cmd, kn, &view, &now, &before, &mut out);
@@ -62,7 +60,6 @@ pub fn probe(sm: &Sample) {
             classed("bannerpeak.body.Body.step", &format!("ev{tag}"), 6, 460, ins.clone(), outs.clone());
         }
 
-        // the private steps on the same body
         let mut f = b.clone();
         let mut fo = Vec::new();
         f.free(cmd, kn, &view, &mut fo);
@@ -174,7 +171,6 @@ pub fn probe(sm: &Sample) {
             json!({"body": j(&b), "g": changed, "toward": toward}),
             json!(b.wall_side(&view, toward)),
         );
-        // small ones
         let (l, t, r, bt) = b.rect();
         cases::rec_cap(
             "bannerpeak.body.Body.blocked",
@@ -208,13 +204,11 @@ pub fn probe(sm: &Sample) {
         let mut rg = b.clone();
         rg.regrow(&view);
         cases::rec_cap("bannerpeak.body.Body.regrow", &json!({"body": j(&b), "g": changed}), &j(&rg), 60);
-        // size changes
         let mut bg = b.clone();
         bg.big = !bg.big;
         let mut rg2 = bg.clone();
         rg2.regrow(&view);
         cases::rec_cap("bannerpeak.body.Body.regrow", &json!({"body": j(&bg), "g": changed}), &j(&rg2), 120);
-        // state changes
         let from: i8 = [-1, 1, 0][g.range(0, 2) as usize];
         let mut hb = b.clone();
         hb.hurt(from);
@@ -227,7 +221,6 @@ pub fn probe(sm: &Sample) {
         let mut pb = b.clone();
         pb.place(px, py);
         cases::rec_cap("bannerpeak.body.Body.place", &json!({"body": j(&b), "x": px, "y": py}), &j(&pb), 60);
-        // an invalid body or two
         if sm.tick % 5 == 0 {
             let mut bad = b.clone();
             match g.range(0, 11) {
@@ -248,7 +241,6 @@ pub fn probe(sm: &Sample) {
         }
         let _ = Size::Small;
     }
-    // approach and the constructor, from numbers
     let mut g2 = Lcg(sm.tick as u64 * 31 + 5);
     cases::rec_cap(
         "bannerpeak.body.approach",

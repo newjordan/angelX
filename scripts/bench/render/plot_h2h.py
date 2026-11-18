@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""Head-to-head XY plots: glass micro-wins + kitty encoder floor.
-Fresh numbers 2026-10-26, host load ~25-30 (ratios hold, absolutes noisy).
-Glass: rustc -O black_box (h2h rig). Kitty: kitty_gfx_bench.py pixel formula.
-Glass render p50s are standing Board A (docs/RENDER_SCORECARD.md).
-"""
 from PIL import Image, ImageDraw
 
 W, H = 1600, 1000
@@ -18,7 +13,6 @@ d = ImageDraw.Draw(img)
 def text(xy, s, fill=TXT, anchor="la"):
     d.text(xy, s, fill=fill, anchor=anchor)
 
-# title
 text((40, 24), "glass vs kitty — head-to-head, fresh 2026-10-26 (load ~25-30, ratios hold)", fill=TXT)
 text((40, 48), "left: symbol_hash ns/op by symbol bytes (SipHash vs Fx)  |  right: frame pixels vs ms (kitty encoder cost vs glass presented render)", fill=DIM)
 
@@ -41,7 +35,6 @@ def lymap(y, lmin, lmax, py0, py1):
     ly, a, b = math.log10(max(y, 1e-9)), math.log10(lmin), math.log10(lmax)
     return py1 - (ly - a) / (b - a) * (py1 - py0)
 
-# ---- LEFT: hash ns vs bytes (linear x, linear y) ----
 LX0, LY0, LX1, LY1 = 40, 110, 770, 920
 PX0, PY0, PX1, PY1 = LX0 + 70, LY0 + 60, LX1 - 30, LY1 - 70
 panel(LX0, LY0, LX1, LY1, "symbol_hash: ns/op vs symbol bytes", "lower is better · Fx (green) beats SipHash (red) on every symbol")
@@ -59,19 +52,16 @@ for xv in [0, 2, 4, 6, 8, 10, 12, 14, 16]:
     text((x, PY1 + 8), f"{xv}B", fill=DIM, anchor="ma")
 text((PX0 - 52, (PY0 + PY1) // 2), "ns/op", fill=DIM, anchor="mm")
 text(((PX0 + PX1) // 2, PY1 + 28), "symbol bytes", fill=DIM, anchor="mm")
-# lines
 pts_s = [(xmap(b, xmin, xmax, PX0, PX1), ymap(s, ymin, ymax, PY0, PY1)) for _, b, s, _ in hash_rows]
 pts_f = [(xmap(b, xmin, xmax, PX0, PX1), ymap(f, ymin, ymax, PY0, PY1)) for _, b, _, f in hash_rows]
 d.line(pts_s, fill=SIP, width=3); d.line(pts_f, fill=FX, width=3)
 for (sym, b, s, f), ps, pf in zip(hash_rows, pts_s, pts_f):
     for p, c in ((ps, SIP), (pf, FX)):
         d.ellipse([p[0]-5, p[1]-5, p[0]+5, p[1]+5], fill=c)
-    # speedup label near fx point
     text((pf[0] + 8, pf[1] - 10), f"{s/f:.1f}x", fill=FX)
 text((PX0 + 12, PY0 + 10), "● SipHash (before)", fill=SIP)
 text((PX0 + 12, PY0 + 28), "● FxHash (glass, in-tree)", fill=FX)
 
-# ---- RIGHT: frame pixels vs ms (log-log) ----
 RX0, RY0, RX1, RY1 = 790, 110, 1560, 920
 QX0, QY0, QX1, QY1 = RX0 + 70, RY0 + 60, RX1 - 30, RY1 - 70
 panel(RX0, RY0, RX1, RY1, "frame cost: ms vs pixels (log-log)", "kitty pays encoder cost before parse; glass ends at presented frame")
@@ -111,7 +101,6 @@ text((QX0 + 12, QY0 + 10), "● kitty b64 encode (fresh today)", fill=B64)
 text((QX0 + 12, QY0 + 28), "● kitty PNG encode (fresh today)", fill=PNGC)
 text((QX0 + 12, QY0 + 46), "○ glass presented render p50 (Board A)", fill=GLASS)
 
-# footer
 text((40, 936), "glass wins: hash 1.4-6.9x · width-ascii 13x · bg-key 2.9x · presented 1080p ~6x / 4K ~10x vs kitty b64 encode alone  |  nulls: palette, LUT tie", fill=DIM)
 text((1560, 936), "angel-glass 120/120 green", fill=DIM, anchor="ra")
 

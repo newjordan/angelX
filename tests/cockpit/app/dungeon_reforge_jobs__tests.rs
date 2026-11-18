@@ -53,7 +53,6 @@ fn checkpoint_failure_retains_exact_reforge_answer_and_drains_without_a_new_mode
     assert!(app.realm.dungeon.forge.forging.as_ref().unwrap().launched);
     let id = write_answer(&app);
     end_model(&mut app);
-    // Fail durable delivery after successful policy/equipment commit.
     let saved_path = app.realm.dungeon.save_path.take().unwrap();
     let blocked = dir.join("blocked");
     std::fs::write(&blocked, b"not a directory").unwrap();

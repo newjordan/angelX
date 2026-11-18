@@ -1,6 +1,3 @@
-/// This module compiles into both the cockpit and the `angel-sandbox` helper,
-/// where it sits at a different path, so the libtest `--exact` filter for a
-/// sibling test is derived from `module_path!()` rather than hard-coded.
 macro_rules! self_test_filter {
     ($name:literal) => {
         format!(
@@ -15,9 +12,6 @@ macro_rules! self_test_filter {
 
 use super::*;
 
-/// Test-only activation. `ACTIVE` is a `OnceLock` (activation is
-/// process-permanent by design), so this is a leak on purpose: exactly one
-/// test per process may use it. That test must tolerate the sticky state.
 #[cfg(test)]
 pub(crate) fn test_activate(profile: SealedProfile) {
     let _ = ACTIVE.set(profile);
@@ -60,7 +54,6 @@ fn sealed_bind_plan_grants_toolchains_and_denies_home_secrets() {
     let home = fake_home("plan");
     let ws = fake_workspace("plan");
     let profile = build(&ws, Some(&home));
-    // Writable: the workspace (and nothing else in this fixture).
     assert!(profile.policy.writable_roots.contains(&ws));
     assert!(
         profile
@@ -69,7 +62,6 @@ fn sealed_bind_plan_grants_toolchains_and_denies_home_secrets() {
             .iter()
             .all(|root| root.starts_with(&ws))
     );
-    // Read allow-list: toolchain homes yes, secret homes no, /etc no.
     for allow in HOME_TOOLCHAIN_ALLOW {
         assert!(
             profile.read_roots.contains(&home.join(allow)),
@@ -88,7 +80,6 @@ fn sealed_bind_plan_grants_toolchains_and_denies_home_secrets() {
     }
     assert!(!profile.read_roots.contains(&PathBuf::from("/etc")));
     assert!(profile.deny_roots.contains(&PathBuf::from("/etc/shadow")));
-    // Posture: netless, enforced, mandatory — never widened, never lazy.
     assert!(!profile.policy.allow_network);
     assert!(profile.policy.enforce);
     assert!(profile.policy.mandatory);
@@ -100,7 +91,6 @@ fn sealed_cargo_payload_grants_exclude_default_and_custom_home_credentials() {
     struct RestoreCargoHome(Option<std::ffi::OsString>);
     impl Drop for RestoreCargoHome {
         fn drop(&mut self) {
-            // This fixture holds the crate's environment lock until restore.
             unsafe {
                 match &self.0 {
                     Some(value) => std::env::set_var("CARGO_HOME", value),
@@ -117,7 +107,6 @@ fn sealed_cargo_payload_grants_exclude_default_and_custom_home_credentials() {
         std::fs::create_dir_all(cargo_home.join(dir)).unwrap();
     }
     let _cargo_home = RestoreCargoHome(std::env::var_os("CARGO_HOME"));
-    // Serialized by the environment lock; the helper test target shares this fixture.
     unsafe { std::env::set_var("CARGO_HOME", &cargo_home) };
     let mut credentials = Vec::new();
     for root in [home.join(".cargo"), cargo_home.clone()] {
@@ -199,9 +188,6 @@ fn sealed_activation_refuses_yolo() {
     );
     #[cfg(not(target_os = "linux"))]
     assert!(err.contains("requires Linux"), "{err}");
-    // A refused activation must not install its own profile. OnceLock
-    // cannot be unset, so if some earlier test activated one, the digest
-    // must differ from this refused attempt's.
     if let Some(active) = identity() {
         assert_ne!(
             active["digest"].as_str().unwrap(),
@@ -214,10 +200,6 @@ fn sealed_activation_refuses_yolo() {
 #[test]
 fn sealed_override_merges_only_workspace_scoped_writable_roots() {
     let _guard = crate::tests::env_lock();
-    // Activation is process-permanent (`OnceLock`): an in-process
-    // activation here would leak the sealed posture into every later
-    // `run_sandboxed` test in this binary (real landlock flakes). The
-    // active branch runs in a forked test binary of exactly this test.
     if std::env::var("ANGEL_T_SEALED_MERGE_CHILD").as_deref() != Ok("1") {
         let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
         cmd.args([
@@ -284,7 +266,6 @@ fn sealed_override_merges_only_workspace_scoped_writable_roots() {
     assert!(encoded.mandatory);
     assert!(!merged.allow_network);
     assert!(merged.mandatory);
-    // An already-sealed policy passes through untouched (no double wrap).
     assert!(override_for(&merged).is_none());
 }
 
@@ -292,12 +273,9 @@ fn sealed_override_merges_only_workspace_scoped_writable_roots() {
 fn sealed_read_roots_never_include_deny_list_even_when_nested() {
     let _guard = crate::tests::env_lock();
     let home = fake_home("nest");
-    let ws = fake_workspace("nest").join("deep"); // nested under ws
+    let ws = fake_workspace("nest").join("deep");
     std::fs::create_dir_all(&ws).unwrap();
     let profile = build(&ws, Some(&home));
-    // No deny root may be at or under a read root: the allow-list is
-    // constructed only from workspace/toolchain/OS trees, never $HOME
-    // secret subtrees or /etc.
     for deny in &profile.deny_roots {
         assert!(
             profile
@@ -319,7 +297,6 @@ fn sealed_runtime_activation_allows_toolchain_and_denies_credentials() {
     impl TestEnvGuard {
         fn set(key: &'static str, value: &str) -> Self {
             let previous = std::env::var_os(key);
-            // This exact child holds env_lock; restoration also runs on unwind.
             unsafe { std::env::set_var(key, value) };
             Self { key, previous }
         }
@@ -356,11 +333,7 @@ fn sealed_runtime_activation_allows_toolchain_and_denies_credentials() {
         return;
     }
 
-    // ACTIVE is process-sticky. This exact child starts with an empty OnceLock.
     assert!(identity().is_none(), "runtime child must start unactivated");
-    // The helper this run executes: a qualified runner pins it with
-    // ANGEL_T_SANDBOX_HELPER, and a plain `cargo test` gets the one the sandbox
-    // builds itself. Resolve it before the fixture swaps HOME and CARGO_HOME.
     let helper = super::super::helper_executable().expect("sandbox helper for this run");
     let home = fake_home("runtime").canonicalize().unwrap();
     let workspace = fake_workspace("runtime").canonicalize().unwrap();
@@ -419,11 +392,8 @@ fn sealed_runtime_activation_allows_toolchain_and_denies_credentials() {
         assert_ne!(std::fs::metadata(&helper).unwrap().permissions().mode() & 0o111, 0);
     }
 
-    // Exercise the public HOME/CARGO_HOME discovery branch used by startup.
     activate(build(&workspace, None)).expect("activate public sealed profile");
 
-    // Start with the ordinary caller posture. The public command constructor
-    // must replace it with ACTIVE's mandatory, netless allow-list policy.
     let mut ordinary = super::super::SandboxPolicy::permissive();
     ordinary.writable_roots.push(workspace.clone());
     assert!(ordinary.enforce);
@@ -440,8 +410,6 @@ fn sealed_runtime_activation_allows_toolchain_and_denies_credentials() {
     )
     .expect("construct production sandbox command");
 
-    // Keep synthetic fixture paths, locale-independent tool lookup, and the
-    // test flags, while removing every ambient credential-bearing variable.
     command.env_clear();
     command
         .env("HOME", &home)

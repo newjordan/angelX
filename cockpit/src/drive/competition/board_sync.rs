@@ -12,11 +12,6 @@ use std::path::Path;
 
 pub(crate) const BOARD_SYNC_SCHEMA_V1: &str = "angel.board-sync/v1";
 
-/// One live path through the director: open the flywheel adapter, engage the
-/// board reducer over an in-memory raw journal, observe personal submissions,
-/// and bind official fire results through the reward join. Typed failures
-/// (including phantom fires) are part of the report; only an unreadable state
-/// dir is an error.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub(crate) struct BoardSyncReportV1 {
     pub(crate) schema: String,

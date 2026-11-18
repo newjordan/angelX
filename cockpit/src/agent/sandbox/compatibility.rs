@@ -75,10 +75,6 @@ pub(crate) fn classify(
     }
 }
 
-/// One probe per process. The bwrap trial (`--unshare-user --ro-bind / /`) is a
-/// full namespace + mount setup; running it on every confined tool call and at
-/// each start-up made start-up erratic (0.2 s → 3–6 s under load, batch-24 pin).
-/// The host facts it classifies do not change while the cockpit runs.
 pub(crate) fn detect() -> Option<Cause> {
     static CACHED: std::sync::OnceLock<Option<Cause>> = std::sync::OnceLock::new();
     *CACHED.get_or_init(detect_uncached)
@@ -98,10 +94,6 @@ fn detect_uncached() -> Option<Cause> {
     if let Some(cause) = classify(bwrap, userns, apparmor, clone_disabled, "") {
         return Some(cause);
     }
-    // A minimal trial: user namespace + an empty root is enough to learn whether
-    // the uid map can be set up; binding the whole host root is not needed and
-    // is what made the probe slow. Bounded so a wedged helper never delays
-    // start-up: no verdict within the bound means "not denied".
     let mut child = match std::process::Command::new("/usr/bin/bwrap")
         .args([
             "--unshare-user",
@@ -162,38 +154,28 @@ fn detect_uncached() -> Option<Cause> {
     }
 }
 
-/// Wait for readiness, not a fixed polling interval. A fast bwrap trial should
-/// not make every startup and doctor call pay a full 10 ms polling tick. Keep
-/// the synchronous probe, bounded deadline, kill/reap, and backend policy.
-/// A pidfd only notifies: try_wait above still collects the actual exit status.
 fn wait_for_probe_exit(pid: u32, remaining: std::time::Duration) {
     #[cfg(target_os = "linux")]
     {
         use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
-        // SAFETY: pidfd_open takes scalar arguments and returns a new owned fd.
         let fd = unsafe { libc::syscall(libc::SYS_pidfd_open, pid as libc::pid_t, 0) };
         if fd >= 0 {
-            // SAFETY: the successful syscall transfers this descriptor to us.
             let fd = unsafe { OwnedFd::from_raw_fd(fd as libc::c_int) };
             let mut pollfd = libc::pollfd {
                 fd: fd.as_raw_fd(),
                 events: libc::POLLIN,
                 revents: 0,
             };
-            // Round up to avoid spinning during the last sub-millisecond.
             let millis = remaining.as_millis().saturating_add(u128::from(
                 remaining.subsec_nanos() % 1_000_000 != 0,
             ));
             let timeout = millis.min(i32::MAX as u128) as i32;
-            // SAFETY: one initialized pollfd, alive for the whole call.
             let result = unsafe { libc::poll(&mut pollfd, 1, timeout) };
             if result >= 0 && pollfd.revents & libc::POLLNVAL == 0 {
                 return;
             }
         }
     }
-    // Old kernels/seccomp policies without pidfd support retain bounded
-    // polling. Wait errors never become an optimistic compatibility verdict.
     let _ = pid;
     std::thread::sleep(remaining.min(std::time::Duration::from_millis(10)));
 }

@@ -7,8 +7,6 @@
 //! for whoever fell over most.
 use super::*;
 
-/// The line, in falling order (tiles): along the top, down the east side,
-/// back along the bottom.
 pub const PATH: [(i32, i32); 42] = {
     let mut path = [(0, 0); 42];
     let mut k = 0;
@@ -26,13 +24,9 @@ pub const PATH: [(i32, i32); 42] = {
     }
     path
 };
-/// The places where a knight must stand in for a bone.
 pub const GAPS: [usize; 3] = [12, 21, 33];
-/// The coffer in the middle, and two skull pillars.
 pub const COFFER: (i32, i32, i32, i32) = (11, 6, 2, 2);
 pub const BLOCKS: [(i32, i32, i32, i32); 3] = [COFFER, (7, 6, 1, 2), (16, 6, 1, 2)];
-/// Ticks between one bone and the next; how long a stalled line takes to
-/// stand again; the coin when the coffer rings.
 pub const FALL: u32 = 4;
 pub const STAND_AGAIN: u32 = 2 * HZ;
 pub const COFFER_GOLD: u32 = 8;
@@ -41,7 +35,6 @@ pub fn is_gap(i: usize) -> bool {
     GAPS.contains(&i)
 }
 
-/// The middle of bone `i`'s tile.
 pub fn at(i: usize) -> (f32, f32) {
     (PATH[i].0 as f32 + 0.5, PATH[i].1 as f32 + 0.5)
 }
@@ -72,7 +65,6 @@ impl Run {
         nook.next = FALL;
         let i = usize::from(nook.fallen);
         if is_gap(i) {
-            // A knight in the gap falls over in its place, or the line stops.
             let standing = self.nook_players().into_iter().find(|&id| self.nook_near(id, at(i), 1.6));
             match standing {
                 Some(id) => {

@@ -1,18 +1,4 @@
 #!/usr/bin/env node
-// The Delve parity gate: drive a rules worker through a recorded corpus and
-// report where its state first departs from the recording.
-//
-//   node scripts/delve/replay.mjs <worker-binary> <corpus-dir-or-file>
-//        [--scenario name[,name]] [--from N] [--max-diffs K] [--timeout ms]
-//        [--worker-arg A] [--no-restore-check] [--quiet]
-//
-// A corpus file is `<name>.jsonl.gz`: line 1 `{"kind":"restore","state":S}`,
-// then `{"kind":"apply","before":S|null,"event":E,"after":S}` a tick (see
-// scripts/delve/README.md). The worker speaks the framed protocol of
-// crates/live/src/system.rs: prepare, restore, activate, apply..., dispose. If
-// its prepare reply advertises "codec":"bj1" every later frame is BJ1; if it
-// advertises "resident":true, apply carries only the delta from the state the
-// worker holds. Exits nonzero on the first divergence of any scenario.
 import { createReadStream, readdirSync, statSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -50,7 +36,6 @@ function options(argv) {
   return o;
 }
 
-/** Lines of a gzip'd (or plain) JSONL file; a truncated or unreadable file throws. */
 function lines(file) {
   const input = new PassThrough();
   const stages = file.endsWith('.gz') ? [createReadStream(file), createGunzip(), input] : [createReadStream(file), input];
@@ -60,7 +45,6 @@ function lines(file) {
 
 const isStateText = (t) => /^\s*\{/.test(t) && fields(t, ['schema', 'run']).run !== undefined;
 
-/** Replay one scenario file. Returns {name, ticks, total, ms, applied, failure}. */
 async function replay(file, o) {
   const name = basename(file).replace(/\.jsonl(\.gz)?$/, '');
   const out = { name, ticks: 0, total: 0, ms: 0, applied: 0, failure: null };
@@ -74,11 +58,11 @@ async function replay(file, o) {
     const resident = prepared.resident === true;
     const bj1 = prepared.codec === 'bj1';
     if (prepared.codec !== undefined && !bj1) throw new Error(`unknown codec ${prepared.codec}`);
-    let stateText = null; // the state the host holds, as text
-    let phrasebook = null; // the event's book, carried forward
-    let held = null; // resident mode: the tree the worker holds
+    let stateText = null;
+    let phrasebook = null;
+    let held = null;
     let started = false;
-    let index = -1; // the corpus line's tick number (restore is -1)
+    let index = -1;
     const begin = async (text) => {
       if (bj1) worker.bj1 = true;
       tick = index;
@@ -95,7 +79,6 @@ async function replay(file, o) {
       await worker.call('activate', 'null');
       started = true;
     };
-    // Dumb first: bj1 starts after prepare, which was plain JSON.
     for await (const line of lines(file)) {
       if (!line.trim()) continue;
       const f = fields(line, ['kind', 'state', 'before', 'event', 'after']);
@@ -128,7 +111,6 @@ async function replay(file, o) {
       const book = fields(event, ['phrasebook']).phrasebook;
       if (book !== undefined) phrasebook = book;
       else if (phrasebook !== null) event = `${event.slice(0, event.lastIndexOf('}'))},"phrasebook":${phrasebook}}`;
-      // The request.
       let body;
       let beforeTree = null;
       if (resident) {
@@ -142,7 +124,6 @@ async function replay(file, o) {
       const answer = await worker.call('apply', body);
       out.ms += performance.now() - t0;
       out.applied++;
-      // The reply.
       const expected = f.after;
       let got;
       if (resident) {
@@ -173,7 +154,6 @@ async function replay(file, o) {
   } catch (e) {
     fail(e.message);
   } finally {
-    // A tidy goodbye, so the worker leaves without a complaint about its pipe.
     worker.timeout = 2000;
     await worker.call('dispose', 'null').catch(() => {});
     worker.stop();

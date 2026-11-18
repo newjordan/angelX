@@ -249,7 +249,6 @@ use super::rewards::{
     incoming, make_binding, selection_input, shaping_input, shaping_rows,
 };
 
-/// One provisional shaping event, shaped like the ledger's own rows.
 fn shaping_event(index: usize) -> ProvisionalShapingV1 {
     ProvisionalShapingV1 {
         shaping_id: format!("shaping-{index}"),
@@ -259,16 +258,12 @@ fn shaping_event(index: usize) -> ProvisionalShapingV1 {
     }
 }
 
-/// A ledger built through the ordinary calls: `bindings` official results and
-/// `shapings` provisional events, all for the context's episode.
 fn rewards_ledger(bindings: usize, shapings: usize) -> (RewardLedgerV1, RewardContextV1) {
     let context = context(ComparatorKindV1::HigherIsBetter);
     let mut ledger = RewardLedgerV1::default();
     for index in 0..shapings {
         ledger.record_shaping(shaping_event(index)).unwrap();
     }
-    // One episode admits a first official result and then only corrections that
-    // advance its canonical binding, so the fixture chains them.
     let mut previous: Option<String> = None;
     for index in 0..bindings {
         let result = official(
@@ -285,8 +280,6 @@ fn rewards_ledger(bindings: usize, shapings: usize) -> (RewardLedgerV1, RewardCo
     (ledger, context)
 }
 
-/// The shipped leg and the native reverse scan must agree on every episode, and
-/// the leg must be the one that answered.
 #[test]
 fn live_rewards_leg_matches_every_native_selection() {
     use crate::agent::harness::live_policy::{LegSource, decide_shipped};
@@ -327,14 +320,10 @@ fn live_rewards_leg_matches_every_native_selection() {
     assert!(checked >= 30, "only {checked} selections were compared");
 }
 
-/// Every shaping admission — append, duplicate and conflicting identity — is
-/// the same decision on both legs.
 #[test]
 fn live_rewards_leg_matches_native_shaping_decisions() {
     use crate::agent::harness::live_policy::{LegSource, decide_shipped};
     let pool: Vec<ProvisionalShapingV1> = (0..4).map(shaping_event).collect();
-    // Each pool event, plus a same-id event with a different body, so the table
-    // reaches the conflicting-identity branch.
     let candidates: Vec<ProvisionalShapingV1> = pool
         .iter()
         .flat_map(|entry| {
@@ -386,9 +375,6 @@ fn live_rewards_leg_matches_native_shaping_decisions() {
     );
 }
 
-/// Every binding admission the ledger can reach — appended, duplicate by result
-/// id or receipt, both conflicts and both correction refusals — is the same
-/// decision on both legs.
 #[test]
 fn live_rewards_leg_matches_native_binding_decisions() {
     use crate::agent::harness::live_policy::{LegSource, decide_shipped};
@@ -483,8 +469,6 @@ fn live_rewards_leg_matches_native_binding_decisions() {
     eprintln!("rewards leg admitted {checked} official results: {seen:?}");
 }
 
-/// A throwaway policy module, so a deliberately out-of-contract leg can be
-/// pinned without touching the shipped one.
 fn temporary_policy_leg(id: &str, render: &str) -> angel_live::Program {
     let root = std::env::temp_dir().join(format!("angel-rewards-leg-{}-{id}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
@@ -509,9 +493,6 @@ fn temporary_policy_leg(id: &str, render: &str) -> angel_live::Program {
         .unwrap_or_else(|| panic!("fixture leg {id} did not publish"))
 }
 
-/// An out-of-contract selection and an out-of-contract admission are both
-/// rejected, and the native scan answers instead, so a bad hot edit never moves
-/// the ledger's decision.
 #[test]
 fn an_out_of_contract_rewards_leg_keeps_the_native_decision() {
     use crate::agent::harness::live_policy::{LegSource, decide_with};
@@ -591,8 +572,6 @@ fn an_out_of_contract_rewards_leg_keeps_the_native_decision() {
     );
 }
 
-/// The leg is a fresh evaluation per decision, so its own cost has to be small
-/// against the ledger's.
 #[test]
 fn live_rewards_leg_decision_timing() {
     use crate::agent::harness::live_policy::decide_shipped;
@@ -627,13 +606,6 @@ fn live_rewards_leg_decision_timing() {
     );
 }
 
-// --- the parity oracle ------------------------------------------------------
-//
-// The three native scans, moved here out of production: the shipped `rewards`
-// leg answers every ledger decision now, and these copies exist so the parity
-// checks can prove the two still agree.
-
-/// The `canonical_binding` scan kept intact: the newest binding of the episode.
 pub(super) fn select_native(bindings: &[bool], shaping: &[bool]) -> Selection {
     let newest = |flags: &[bool]| flags.iter().rposition(|flag| *flag);
     let built = |kind: SelectionKind, index: usize| Selection {
@@ -652,7 +624,6 @@ pub(super) fn select_native(bindings: &[bool], shaping: &[bool]) -> Selection {
     }
 }
 
-/// The `record_shaping` scan kept intact: the first row holding this shaping id.
 pub(super) fn shaping_native(rows: &[ShapingRow]) -> ShapingDecision {
     let found = rows.iter().position(|row| row.id_equal);
     match found {
@@ -671,8 +642,6 @@ pub(super) fn shaping_native(rows: &[ShapingRow]) -> ShapingDecision {
     }
 }
 
-/// The `bind_official` scans kept intact: result id, then receipt, then the
-/// canonical binding with its correction rule.
 pub(super) fn binding_native(rows: &[BindingRow], incoming: &Incoming) -> BindingDecision {
     if let Some(index) = rows.iter().position(|row| row.result_id_equal) {
         return BindingDecision {

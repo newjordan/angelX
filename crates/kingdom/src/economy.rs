@@ -19,18 +19,12 @@ pub struct Claim {
     pub source: String,
     pub secured: bool,
     pub rate: u32,
-    /// Everything the seam gives, resource to rate a shift, its quarry stone
-    /// first by rate. Empty on a claim from before geology: it then gives
-    /// `resource` at `rate`, as it always did.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub yields: BTreeMap<String, u32>,
-    /// A quarry on the surface, so its stone does not wait on the Great Shaft.
-    /// Older claims load as underground.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub surface: bool,
 }
 impl Claim {
-    /// What a mine linked to this seam makes each shift.
     pub fn output(&self) -> Stock {
         if self.yields.is_empty() {
             Stock::from([(self.resource.clone(), self.rate)])
@@ -38,11 +32,9 @@ impl Claim {
             self.yields.clone()
         }
     }
-    /// Whether the seam gives `resource`, as its stone or as a by-product.
     pub fn gives(&self, resource: &str) -> bool {
         self.resource == resource || self.yields.contains_key(resource)
     }
-    /// Every resource the seam is evidence of, for land charters.
     pub fn resources(&self) -> impl Iterator<Item = &String> {
         std::iter::once(&self.resource).chain(self.yields.keys())
     }
@@ -69,55 +61,32 @@ pub struct Building {
     pub input: Stock,
     pub output: Stock,
     pub priority: u8,
-    /// Zero is unlimited. A workshop stops when all of its products meet this
-    /// kingdom-wide target, including buffered goods and cargo in transit.
     pub production_limit: u32,
     pub work_credit: u16,
     pub construction_credit: u16,
     pub power_upgrade: bool,
     pub power_enabled: bool,
     pub fuel_left: u16,
-    /// Shifts of work left in the tool in hand; zero means none in hand.
     pub tool_left: u16,
-    /// Seconds the upkeep last paid for (a gin's fodder).
     pub fed: u16,
-    /// The wood or outcrop this building works, fixed when it was built.
     pub patch: Option<String>,
-    /// Extra tiles it covers to the east (a ropewalk), copied from the plan.
     pub span: u8,
-    /// Extra tiles it covers to the south, copied from the plan.
     pub depth: u8,
-    /// Seconds spent in each state since it was built, for finding the
-    /// machine that is starved or backed up. Never read by the economy.
     pub stats: Stats,
-    /// The carts and oxen a carter's yard keeps. They take any order on any
-    /// road the yard touches.
     pub carts: Vec<crate::carting::Cart>,
-    /// The way a swape faces, counted as a knight's face is: 0 north, 1 east,
-    /// 2 south, 3 west. What it lifts from is behind it, what it lifts to in front.
     pub facing: u8,
-    /// A swape's arm: hundredths of a lift made this second, and how its last try came out
-    /// (0 lifted, 1 nothing to lift, 2 nowhere to put it).
     pub clock: u16,
     pub lift: u8,
-    /// The one good a swape lifts; none lifts whatever comes.
     pub filter: Option<String>,
-    /// Whether the plan is a swape: it stands between a rollerway and the works, needs no road.
     pub swape: bool,
 }
-/// How a machine has spent its seconds. Counters saturate; they are evidence
-/// for the player and the Clerk of Works, never an input to production.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Stats {
     pub worked: u32,
-    /// Waiting for inputs to arrive.
     pub starved: u32,
-    /// Output buffer full: nobody is taking the goods away.
     pub backed_up: u32,
-    /// No crew.
     pub unstaffed: u32,
-    /// Waiting on power, fuel or a road.
     pub stalled: u32,
 }
 impl Default for Building {
@@ -165,7 +134,6 @@ pub struct Kingdom {
     pub roads: BTreeSet<Tile>,
     pub buildings: BTreeMap<u32, Building>,
     pub claims: BTreeMap<String, Claim>,
-    /// Charter evidence survives the deliberate retirement of a mining claim.
     pub secured_resources: BTreeSet<String>,
     pub next: u32,
     pub provision: bool,
@@ -180,46 +148,28 @@ pub struct Kingdom {
     pub population: crate::population::Population,
     pub survey_goal: Option<crate::Parcel>,
     pub motion: crate::citizen_motion::Motion,
-    /// None keeps the normal two meals per resident reserved for the village.
     pub food_reserve: Option<u8>,
     pub power: crate::PowerGrid,
-    /// Castle sites and the lines that haul to and from every building.
     pub sites: BTreeMap<u32, crate::Site>,
     pub next_site: u32,
     pub lines: BTreeMap<u32, crate::Line>,
     pub next_line: u32,
-    /// What is left of each wood and of the field stone: the hillside runs out.
     pub nature: BTreeMap<String, u32>,
-    /// Units hoisted up the Great Shaft in the shift in hand, and in the last.
     pub shaft_used: u32,
     pub shaft_moved: u32,
-    /// Goods that went off, over the whole game.
     pub spoiled: Stock,
-    /// What the roads have done lately: jams, orders no cart could take.
     pub roadwork: crate::carting::Roadwork,
-    /// Batches each recipe has finished: what the castle is built of.
     pub batches: Stock,
-    /// The game's own limit on what goes up the Great Shaft, units a minute,
-    /// and the lift saved toward the next batch (`seam`). None leaves the
-    /// shaft to the lifts the camp has built.
     pub shaft_limit: Option<u32>,
     pub shaft_bucket: u32,
-    /// Ghost plans the party has laid and the hands that raise them (`ghosts`).
     #[serde(skip_serializing_if = "crate::ghosts::Plans::is_empty")]
     pub plans: crate::ghosts::Plans,
-    /// Groups of works the party has copied, kept with the realm (`ghosts::clip`).
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub copies: BTreeMap<String, crate::Pattern>,
-    /// What the camp made, used and held over the last hour (`books`): the host's,
-    /// never saved and never sent with the kingdom.
     #[serde(skip)]
     pub books: std::sync::Arc<crate::books::Books>,
-    /// The rollerways laid tile by tile, and the goods streaming along them.
     pub rollers: crate::rollers::Rollers,
-    /// The rail network: tiles, named bays, routes and the wagons that run them.
     pub rails: crate::rails::Rails,
-    /// What the Deep's raids have done to the works: fires, battered defences, what was taken
-    /// (`defence`). Left out of a save while nothing has happened.
     #[serde(skip_serializing_if = "crate::defence::Havoc::is_calm")]
     pub havoc: crate::defence::Havoc,
 }
@@ -254,63 +204,31 @@ pub enum Command {
     EnablePower(u32),
     PowerLine { kind: crate::PowerKind, tile: Tile },
     RemovePower { kind: crate::PowerKind, tile: Tile },
-    /// Lay out a castle on the hillside with its stockyard at `yard`.
     FoundSite { plan: String, centre: Tile, yard: Tile },
-    /// Lay a haulage line between two buildings along `path` (empty asks the
-    /// planner for the shortest way), with `vehicles` carts, wagons or barges.
     Line { kind: crate::LineKind, from: u32, to: u32, path: Vec<Tile>, vehicles: u16 },
-    /// Set how many vehicles work a line, buying or selling the difference.
     Fleet { line: u32, vehicles: u16 },
-    /// Take a line down. Its cargo goes to the camp; its vehicles are sold.
     Unline(u32),
-    /// Set how many carts a carter's yard keeps, buying or selling the difference.
     Carts { yard: u32, carts: u16 },
-    /// Road from a building to the camp's network, the shortest way.
     Connect(u32),
-    /// A teacher brings a person one level on in a trade, for coin.
     Teach { citizen: u32, trade: String },
-    /// Raise a building in place to the plan that replaces it (the Great
-    /// Shaft's next lift), paying the new plan's cost.
     Upgrade(u32),
-    /// Stamp a pattern of buildings, roads, shafts and lines down at `origin`,
-    /// turned `turns` quarter turns clockwise.
     Stamp { pattern: String, origin: Tile, turns: u8 },
-    /// Lay a plan on the ground for the camp's hands to raise (`ghosts`): any plan the land
-    /// takes, paid for or not. `by` is the seat.
     Plan { plan: String, tile: Tile, priority: u8, by: u32 },
-    /// Lay a pattern down as plans.
     PlanStamp { pattern: String, origin: Tile, turns: u8, priority: u8, by: u32 },
-    /// Cancel a plan.
     Unplan(u32),
-    /// How urgent a plan is: 0 low, 1 usual, 2 urgent.
     Rank { ghost: u32, priority: u8 },
-    /// Take back what was laid, with its price.
     Retract(Vec<crate::Laid>),
-    /// Copy the works in a patch of ground into a pattern kept under `name`.
     Clip { name: String, from: Tile, to: Tile },
-    /// Let a kept copy go.
     Forget(String),
-    /// Lay a piece of rollerway on a tile, facing a way; laid over a piece it replaces it.
     Roller { piece: crate::rollers::Piece, tile: Tile, dir: crate::rollers::Dir },
-    /// Turn the piece of rollerway or the swape on a tile to face a way.
     Face { tile: Tile, dir: crate::rollers::Dir },
-    /// Set a swape to lift one good only (or any).
     Filter { building: u32, good: Option<String> },
-    /// Lay a tile of rail; every tile it touches joins it.
     Rail(Tile),
-    /// Name a rail tile beside a building as a bay (a name of the player's choosing, or the building's).
     Bay { tile: Tile, name: Option<String> },
-    /// Run a route: stops of bays and what to do at each, with `wagons` wagons bought for it.
     Route { name: Option<String>, stops: Vec<crate::rails::Stop>, wagons: u16 },
-    /// Set how many wagons run a route, buying or selling the difference.
     Wagons { route: u32, wagons: u16 },
-    /// Take a route down; its wagons are sold.
     Unroute(u32),
-    /// A railway in one gesture, as the tramway was: rail from one work to another along `path` (empty asks for the
-    /// shortest way), a bay at each end, a route between them for `good` (any, if none) and `wagons` wagons.
     Railway { from: u32, to: u32, path: Vec<Tile>, wagons: u16, good: Option<String> },
-    /// A knight's hands on what a raid has done at a tile: beat out a fire, mend a battered
-    /// wall, set a cut line or a burnt works to rights (`defence`).
     Mend(Tile),
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -328,15 +246,10 @@ pub enum Status {
     PowerDisconnected,
     PowerOverloaded,
     Fuel,
-    /// The worker's tool is worn out and the camp has none to hand out.
     Tools,
-    /// The wood or outcrop it works has nothing left to give.
     Depleted,
-    /// The Great Shaft's lift is full this shift.
     Shaft,
-    /// A carter's yard whose oxen have no fodder.
     Fodder,
-    /// Set alight by a raid: it does no work until the fire is out (`defence`).
     Fire,
 }
 impl Status {
@@ -373,8 +286,6 @@ pub struct Report {
     pub carriers: u16,
     pub population: crate::population::PopulationReport,
     pub energy: crate::PowerReport,
-    /// Blocks a minute the Great Shaft lifts, from every lift that is staffed,
-    /// fed and powered (the one scale: 3, 10, 24, 60 and 140 up the five lifts).
     pub shaft: u32,
 }
 
@@ -407,8 +318,6 @@ impl Kingdom {
     pub fn is_empty(&self) -> bool {
         self.schema == 0
     }
-    /// The Delve's gold, banked: the kingdom's coin, which pays the wages and
-    /// the teachers. The adapter calls this where `bank_coins` is read.
     pub fn bank_coin(&mut self, n: u32) {
         if n > 0 && !self.is_empty() {
             crate::economy::add(&mut self.stock, "coin", n);
@@ -416,20 +325,15 @@ impl Kingdom {
             self.rev += 1;
         }
     }
-    /// Where the founding camp stands: the valley's meadow corner, or just
-    /// below the Keep's gate on the hillside.
     pub fn camp(&self) -> Tile {
         if self.world.is_hillside() { crate::hillside::HILL_CAMP } else { CAMP }
     }
-    /// The Delve's stair, which nothing may be built on.
     pub fn gate(&self) -> Tile {
         if self.world.is_hillside() { crate::hillside::HILL_GATE } else { GATE }
     }
     pub(crate) fn inside(&self, tile: Tile) -> bool {
         self.world.contains(tile)
     }
-    /// A new game on the hillside: the realm's whole slope, the camp below the
-    /// Keep's gate, and the hillside's own founding stock.
     pub fn found_hillside(&mut self, c: &Catalog, seed: u64) {
         if self.is_empty() {
             self.world = crate::World::hillside(seed);
@@ -473,8 +377,6 @@ impl Kingdom {
                 self.roads.insert((x, camp.1 + 1));
             }
             self.found_nature();
-            // The Great Shaft begins as a hand lift at the bailey's postern,
-            // with a road up from the camp, and the founders bring their trades.
             if c.plans.contains_key("shaft-hand") {
                 let tile = crate::hillside::HILL_SHAFT;
                 self.roads.extend(crate::hillside::shaft_road());
@@ -642,10 +544,6 @@ impl Kingdom {
     pub fn amount(&self, resource: &str) -> u32 {
         self.stock.get(resource).copied().unwrap_or(0)
     }
-    /// Goods handed in at the camp from outside the production game (the
-    /// Delve's gold, as coin), kept to the storage the camp has. Returns what
-    /// was taken. An unfounded kingdom takes nothing, so a gift never starts
-    /// the camp's hunger clock.
     pub fn receive(&mut self, c: &Catalog, resource: &str, amount: u32) -> u32 {
         if self.is_empty() || !c.resources.contains_key(resource) {
             return 0;
@@ -659,9 +557,6 @@ impl Kingdom {
         }
         taken
     }
-    /// Pay `cost` from the camp's stock for something the production game
-    /// does not build (the Great Shaft's next lift). Nothing is taken unless
-    /// all of it is there.
     pub fn spend(&mut self, c: &Catalog, cost: &Stock) -> Result<(), String> {
         if self.is_empty() {
             return Err("the kingdom is not founded".into());
@@ -699,8 +594,6 @@ impl Kingdom {
         self.rev += 1;
         true
     }
-    /// The Delve adapter calls this only after checking the real encounter and
-    /// the knight's proximity. Claiming is idempotent; no output is granted here.
     pub fn secure(&mut self, id: &str) -> bool {
         let Some(q) = self.claims.get_mut(id) else {
             return false;
@@ -713,7 +606,6 @@ impl Kingdom {
         self.rev += 1;
         true
     }
-    /// Commands are atomic. Failed previews or purchases change no bytes.
     pub fn apply(&mut self, c: &Catalog, command: Command) -> Result<String, String> {
         let mut next = self.clone();
         next.start(c);
@@ -1077,8 +969,6 @@ impl Kingdom {
             })
         }
     }
-    /// Machines consume only their own delivered input buffer. Road carriers are
-    /// the sole transfer mechanism between these buffers and the founding stock.
     pub fn report(&self, c: &Catalog) -> Report {
         let connected = self.connected();
         let population = self.population.report_with(&self.settlement_sites(c), &crate::population::Rules::of(c, self.world.is_hillside()));
@@ -1190,7 +1080,6 @@ impl Kingdom {
                     Status::Working
                 }
             } else if p.watch > 0 {
-                // A watchtower works when it is manned and has arrows to loose.
                 if report.population.assigned.get(&id).copied().unwrap_or(0) < p.workers {
                     Status::Workers
                 } else if b.input.get(crate::defence::ARROW).copied().unwrap_or(0) == 0 {
@@ -1200,7 +1089,6 @@ impl Kingdom {
                     Status::Working
                 }
             } else if p.beacon {
-                // A brazier works while it is lit.
                 if b.fed > 0 { Status::Working } else { Status::Fuel }
             } else if p.stalls > 0 {
                 if report.population.assigned.get(&id).copied().unwrap_or(0) < p.workers {
@@ -1220,9 +1108,6 @@ impl Kingdom {
         }
         report
     }
-    /// Whether the building's product is at the stock target the player set. The product is the
-    /// good it makes most of: a clamp that burns charcoal and a little ash stops when the
-    /// charcoal is enough, not when the ash is.
     pub fn target_met(&self, b: &Building, output: &Stock) -> bool {
         b.production_limit > 0
             && output
@@ -1234,6 +1119,12 @@ impl Kingdom {
         if self.is_empty() {
             return Report::default();
         }
+        if self.buildings.values().any(|b| {
+            !c.plans.contains_key(&b.plan)
+                || b.recipe.as_ref().is_some_and(|r| !c.recipes.contains_key(r))
+        }) {
+            return Report::default();
+        }
         self.second = self.second.saturating_add(1);
         self.books_roll(c);
         self.raise_second(c);
@@ -1241,14 +1132,10 @@ impl Kingdom {
         if self.lines.values().any(|l| l.kind == crate::LineKind::Cart) {
             self.retire_cart_lines(c);
         }
-        // A save from before the rails: its tramways come onto the network.
         if self.has_tramways() {
             self.migrate_tramways(c);
         }
         let sites = self.settlement_sites(c);
-        // A newly discovered claim may found the ledger while the party is
-        // still underground. Needs start when the player first breaks ground,
-        // so an unseen founding camp cannot starve during that first delve.
         let population = if self.next > 2 {
             self.population.advance_with(&sites, &mut self.stock, &crate::population::Rules::of(c, self.world.is_hillside()))
         } else {
@@ -1298,7 +1185,6 @@ impl Kingdom {
                 .filter(|(id, _)| report.status.get(id) == Some(&Status::Working))
                 .filter_map(|(&id, b)| self.job(c, b).map(|j| (id, j)))
                 .collect();
-            // The Great Shaft lifts only so much a shift, on the hillside.
             let limited = self.world.is_hillside() && c.plans.values().any(|p| p.shaft > 0);
             let lift = self.shift_lift(report.shaft);
             self.shaft_used = 0;
@@ -1321,8 +1207,6 @@ impl Kingdom {
                 let b = self.buildings.get_mut(&id).unwrap();
                 let credit = b.work_credit + gain;
                 b.work_credit = credit % 100;
-                // A checked multiplier is at most300%; no unbounded loop or
-                // idle work bank can manufacture free batches after a repair.
                 for _ in 0..(credit / 100).min(3) {
                     {
                         let b = &self.buildings[&id];
@@ -1338,7 +1222,6 @@ impl Kingdom {
                             break;
                         }
                     }
-                    // Pick up a tool from the camp's store when the last is worn.
                     if !plan.tool.is_empty() && self.buildings[&id].tool_left == 0 {
                         take(&mut self.stock, &Stock::from([(plan.tool.clone(), 1)]));
                         self.buildings.get_mut(&id).unwrap().tool_left = plan.tool_life.max(1);
@@ -1357,7 +1240,6 @@ impl Kingdom {
                             add(&mut report.outputs, r, n);
                             capped_add(&mut self.produced, r, n);
                             std::sync::Arc::make_mut(&mut self.books).note_made(r, n);
-                            // Waste past the store is tipped on the midden.
                             if plan.extractor || c.resources[r].waste {
                                 if let Some(held) = b.output.get_mut(r) {
                                     *held = (*held).min(24);
@@ -1379,7 +1261,6 @@ impl Kingdom {
                         }
                     }
                     if worn {
-                        // The worn tool goes back to the camp, for a smith.
                         add(&mut self.stock, &format!("worn-{}", plan.tool), 1);
                     }
                 }
@@ -1396,7 +1277,6 @@ impl Kingdom {
             .expect("validated kingdom navigation");
         report
     }
-    /// Advance a ten-second work shift, including every carrier movement.
     pub fn work(&mut self, c: &Catalog) -> Report {
         let mut report = Report::default();
         for _ in 0..10 {
@@ -1404,8 +1284,6 @@ impl Kingdom {
         }
         report
     }
-    /// Paid once per hero at a real expedition start. A checked supply toggle
-    /// cannot grant anything the workshops have not made.
     pub fn outfit(&mut self) -> (bool, bool, bool) {
         if !self.provision {
             return (false, false, false);

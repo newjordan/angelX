@@ -167,8 +167,6 @@ fn reasoning_checkpoint_scrolled_hit_geometry_matches_paint_across_resize() {
             app.panes.pane_at(flow.x, flow.y),
             Some((mouse::PaneId::AgentBay, flow))
         );
-        // The authorized reasoning copy viewport describes exactly the text
-        // painted here, not the portrait or surrounding AgentBay chrome.
         let mut selection = mouse::Selection::new(mouse::PaneId::AgentBay, flow, flow.x, flow.y);
         selection.cursor = (flow.right() - 1, flow.y);
         assert_eq!(mouse::extract_text(buffer, &selection), "ROW_020");

@@ -37,7 +37,6 @@ fn main() -> ExitCode {
     }
 }
 
-/// A PNG's pixels, straight RGBA, and its size.
 fn read_png(path: &Path) -> Result<(Vec<u8>, (u32, u32)), String> {
     let fail = |e: &dyn std::fmt::Display| format!("{}: {e}", path.display());
     let file = std::fs::File::open(path).map_err(|e| fail(&e))?;
@@ -55,8 +54,6 @@ fn read_png(path: &Path) -> Result<(Vec<u8>, (u32, u32)), String> {
     Ok((rgba, (info.width, info.height)))
 }
 
-/// A strip of `frames` cut into ink rows `side` square, frames side by side
-/// (`a|b`), as a `paint` line cuts it.
 fn ink_rows(rgba: &[u8], (w, h): (u32, u32), frames: usize, side: u32) -> Result<String, String> {
     let crop = looks::crop(w, h, frames, |x, y| rgba[((y * w + x) * 4 + 3) as usize] >= 128).ok_or("nothing drawn")?;
     let inks: Vec<(char, [u8; 3])> =
@@ -115,16 +112,12 @@ fn run() -> Result<(), String> {
             _ => {}
         }
     }
-    // The grant shown: the whole gift, or the middle one as the phrasebook
-    // gives it (`fidelity`).
     let grant = |block: String| {
         if middle { angel_delve::rules::fidelity::block(&block, angel_delve::rules::fidelity::Step::Plain) } else { block }
     };
     std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
     let shot = read_png(&shot_png)?;
     let worn = read_png(&worn_png)?;
-    // Stand-ins for their sha256: any 64 hex digits name a painting here,
-    // since the pictures are handed to the stage directly.
     let (shot_sha, worn_sha) = ("5".repeat(64), "a".repeat(64));
     let shot_card = format!(
         "name Cheeks\nkind hold\ndamage 5\n{}",
@@ -138,7 +131,6 @@ fn run() -> Result<(), String> {
     let at = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).ok_or("no fight room")?;
     run.enter_for_test(at);
     run.enemies.clear();
-    // The floor counted (all the paintings ask of it is its number).
     run.dungeon.depth = floor;
     for (id, raw) in [("cheeks", &shot_card), ("throne", &worn_card)] {
         let card = angel_delve::rules::cards::check(id, raw).map_err(|e| format!("{id}: {e:?}"))?.card;
@@ -146,7 +138,6 @@ fn run() -> Result<(), String> {
         run.players.get_mut(&1).ok_or("no knight")?.deck.push(id.into());
     }
     let (kx, ky) = run.players.get(&1).map(|h| (h.x, h.y)).ok_or("no knight")?;
-    // Two of the card's shots, flying right from the knight.
     run.volley_for_test(kx, ky, 0.0);
     run.projectiles.truncate(2);
     for (n, shot) in run.projectiles.iter_mut().enumerate() {
@@ -167,11 +158,9 @@ fn run() -> Result<(), String> {
         scene.figures.iter().map(|f| f.paints.len()).sum::<usize>()
     );
     let mut gpu = Gpu::new()?;
-    // The inks alone: a client without the pictures.
     let frame = StageMaker::default().make(&scene, |_| None);
     let size = (frame.size.0 * scale, frame.size.1 * scale);
     let inks = gpu.stage(frame, size);
-    // The paintings, cut to twice their size on screen, as a page has them.
     let mut page = paintings::PagePaintings::default();
     let mut maker = StageMaker::default();
     let mut sent = Vec::new();
@@ -189,7 +178,6 @@ fn run() -> Result<(), String> {
     let painted = gpu.stage(frame, size);
     write_png(&out.join("inks.png"), size, &inks)?;
     write_png(&out.join("painted.png"), size, &painted)?;
-    // Round the knight, four times as near.
     let camera = scene.camera;
     let (cx, cy) = ((kx * arena::UNIT - camera.0) * scale as f32, (ky * arena::UNIT - camera.1) * scale as f32);
     let near = 96 * scale;
@@ -236,8 +224,6 @@ impl Gpu {
         Ok(Self { core, device })
     }
 
-    /// A Delve frame as a stage, drawn into a texture `size` pixels as the
-    /// window draws a stage in its cells, on black, and read back.
     fn stage(&mut self, frame: angel_stage::Frame, size: (u32, u32)) -> Vec<u8> {
         for p in frame.pictures {
             self.core.upload(Picture { id: p.id, width: p.width, height: p.height, rgba: p.rgba, cols: 0, rows: 0 });

@@ -12,11 +12,8 @@ use std::path::PathBuf;
 
 type Keys = BTreeMap<u32, Input>;
 
-/// The names a table of up to six carries: a clean name, the default `You`, an empty name,
-/// a long name and two more.
 const NAMES: [&str; 6] = ["Gawain", "You", "Dara", "", "Alexandrina", "Brienne"];
 
-/// A table of `seats` knights, the round open and waiting out its title.
 fn table(seats: u32) -> Run {
     let mut r = Run::mossbell_for_test();
     for id in 2..=seats {
@@ -33,8 +30,6 @@ fn table(seats: u32) -> Run {
     r
 }
 
-/// A knight who plays: seat one plays true, the others miss a flip now and then and nudge when
-/// they should not, each in their own way, so no two tables are the same.
 fn hands(r: &Run) -> Keys {
     let Some(s) = r.mossbell.as_ref() else { return Keys::new() };
     let luck = |id: u32, bucket: u64| {
@@ -60,7 +55,6 @@ fn frame(r: &Run, seat: u32) -> Img {
     super::super::frame_for(r, NATIVE_W, NATIVE_H, Some(seat))
 }
 
-/// The round played through and a while of the podium: calls `each` before every tick.
 fn through(r: &mut Run, mut each: impl FnMut(&Run)) {
     for _ in 0..LENGTH + INTRO + 700 {
         each(r);
@@ -69,7 +63,6 @@ fn through(r: &mut Run, mut each: impl FnMut(&Run)) {
     }
 }
 
-/// How the test spells a knight's name from the viewer's seat.
 fn spelled(r: &Run, id: u32, me: u32) -> String {
     if id == me {
         return "YOU".into();
@@ -78,8 +71,6 @@ fn spelled(r: &Run, id: u32, me: u32) -> String {
     if n.is_empty() || n == "YOU" { format!("KNIGHT {id}") } else { n }
 }
 
-/// The three rules of the words, for every claim on `me`'s screen: nothing meets, everything is
-/// in frame, and `YOU` is only the viewer.
 fn check(r: &Run, me: u32, what: &str) {
     let s = r.mossbell.as_ref().unwrap();
     let now = r.tick as u32;
@@ -103,7 +94,6 @@ fn check(r: &Run, me: u32, what: &str) {
             }
             _ => {}
         }
-        // The word YOU stands for the viewer only: on another knight's claim it never shows.
         if a.who.is_some_and(|w| w != me) {
             assert!(!a.text.split_whitespace().any(|t| t == "YOU"), "{what}: seat {me}: YOU on another knight: {:?}", a.text);
         }
@@ -132,7 +122,6 @@ fn the_words_never_meet_stay_in_frame_and_you_is_only_you() {
 
 #[test]
 fn the_terminal_words_stay_clear_too() {
-    // The cell painter sets each label in four-pixel cells, eight high.
     for seats in 1..=6u32 {
         let mut r = table(seats);
         let mut at = 0;
@@ -197,7 +186,6 @@ fn what_is_drawn_is_what_the_plan_claims() {
 #[test]
 fn the_default_name_is_never_you_on_a_rivals_screen() {
     let mut r = table(3);
-    // Seat two carries the default `You`; seat one's screen shows KNIGHT 2.
     for _ in 0..INTRO + 5 * 30 {
         let k = hands(&r);
         r.step(&k);
@@ -217,7 +205,6 @@ fn the_default_name_is_never_you_on_a_rivals_screen() {
 fn the_moments_each_look_their_own_way() {
     let mut r = table(3);
     let mut seen = std::collections::BTreeSet::new();
-    // The title, then each beat of the countdown, then GO and the play.
     for t in 0..INTRO + 40 {
         if matches!(t, 3 | 12 | 30 | 44 | 56 | 68) || t == INTRO + 6 || t == INTRO + 34 {
             assert!(seen.insert(frame(&r, 1).content_hash()), "tick {t} looks like another");
@@ -246,7 +233,6 @@ fn a_round_has_a_bell_a_fall_a_jackpot_and_a_podium() {
 
 #[test]
 fn the_frame_is_as_cheap_as_it_was() {
-    // A guard, not a bench: a busy frame of six seats stays well inside a frame's budget.
     let mut r = table(6);
     for _ in 0..INTRO + 200 {
         let k = hands(&r);
@@ -262,11 +248,6 @@ fn the_frame_is_as_cheap_as_it_was() {
     assert!(each < 400.0, "a frame took {each:.1} ms even in a debug build");
 }
 
-// ─── the bench and the reels ────────────────────────────────────────────────
-
-/// The cheapest of sixty frames of a busy table, in milliseconds, for the frame-time ledger.
-///
-///   cargo test -p angel-delve --lib bench_mossbell_frame --release -- --ignored --nocapture
 #[test]
 #[ignore = "a bench"]
 fn bench_mossbell_frame() {
@@ -301,8 +282,6 @@ fn save(dir: &std::path::Path, n: u32, seats: &[u32], r: &Run) {
     image::save_buffer(dir.join(format!("f{n:04}.png")), &sheet.rgb_bytes(), sheet.w as u32, sheet.h as u32, image::ColorType::Rgb8).unwrap();
 }
 
-/// Reels of whole rounds: each window of ticks is a folder of frames (30 per second), the seats
-/// named side by side. `scripts/` turns them into GIFs.
 #[test]
 #[ignore = "writes the proof reels"]
 fn write_mossbell_reel() {
@@ -310,7 +289,6 @@ fn write_mossbell_reel() {
     let root = PathBuf::from(root);
     let only = std::env::var("REEL_ONLY").ok();
     let want = |name: &str| only.as_deref().is_none_or(|o| o.split(',').any(|x| x == name));
-    // One pass to find where the moments fall; the second records them.
     let probe = |seats: u32| {
         let mut r = table(seats);
         let (mut fall, mut jackpot, mut end) = (None, None, None);
@@ -333,7 +311,6 @@ fn write_mossbell_reel() {
     };
     let (fall, jackpot, end, _) = probe(4);
     println!("four seats: fall {fall:?} jackpot {jackpot:?} end {end:?}");
-    // The seat that felled the keeper, and the one who took the jackpot, are the ones to watch.
     let (fall_at, fall_who) = fall.unwrap_or((start_of(4) + 600, 1));
     let (jack_at, jack_who) = jackpot.unwrap_or((start_of(4) + 900, 1));
     let pair = |who: u32| if who == 1 { vec![1, 2] } else { vec![who, 1] };
@@ -375,9 +352,6 @@ fn write_mossbell_reel() {
     let _ = rules::LENGTH;
 }
 
-/// Where a frame's time goes, piece by piece, in microseconds.
-///
-///   cargo test -p angel-delve --lib profile_mossbell_frame -- --ignored --nocapture
 #[test]
 #[ignore = "a profile"]
 fn profile_mossbell_frame() {

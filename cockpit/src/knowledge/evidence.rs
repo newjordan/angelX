@@ -4,17 +4,9 @@
 //! block. This is prompt framing, not an execution sandbox: existing tool
 //! policy remains responsible for refusing disallowed actions.
 
-/// Fixed fence open, `⠎⠃`: its provenance and its instruction are the ledger
-/// pages.
 pub(crate) const EVIDENCE_FENCE_HEADER: &str = "⠎⠃";
-/// Fixed fence close, the same route. Content occurrences are neutralised by
-/// [`fence`], so the only close in a rendered block is the real one.
 pub(crate) const EVIDENCE_FENCE_SENTINEL: &str = "⠎⠃";
 
-/// Neutralise every sentinel-shaped run inside recalled content. Every run of
-/// braille cells is broken with `·`, so recalled text can forge neither a
-/// fence (`⠎⠃`, `⠎⠉`, …) nor a route, and the rendered block contains exactly
-/// one sentinel — the real close. Bracketed role markers get the same `·`.
 pub(crate) fn neutralize_sentinels(body: &str) -> String {
     let mut broken = String::with_capacity(body.len());
     let mut previous_cell = false;
@@ -26,8 +18,6 @@ pub(crate) fn neutralize_sentinels(body: &str) -> String {
         broken.push(ch);
         previous_cell = cell;
     }
-    // Fences written before the book carried bracketed prose; their shapes
-    // stay neutralised for recalled text quoting them.
     let mut body = broken
         .replace("[/recalled-memory]", "[/recalled-memory·")
         .replace("[recalled-memory/v1", "[recalled-memory/v1·")
@@ -45,8 +35,6 @@ pub(crate) fn neutralize_sentinels(body: &str) -> String {
     body
 }
 
-/// Strip only the framing of a broker-owned, already sanitized payload when
-/// reselecting it. This prevents framing growth on every model hop.
 pub(crate) fn unfence(body: &str) -> &str {
     let body = body.trim();
     if !body.starts_with(EVIDENCE_FENCE_HEADER) {
@@ -59,8 +47,6 @@ pub(crate) fn unfence(body: &str) -> &str {
         .unwrap_or(body)
 }
 
-/// Reduce a provenance attribute to characters that cannot forge the header
-/// structure (mirrors the broker's `safe_attr`).
 fn safe_attr(value: &str) -> String {
     value
         .chars()
@@ -71,12 +57,6 @@ fn safe_attr(value: &str) -> String {
         .collect()
 }
 
-/// A harness-rendered store's own route line — the dossier's frame and its
-/// withheld count, the caddy card's headings
-/// (`book::d456_knowledge::store_route`): a line that opens with addresses on
-/// that store's own section, any values after it plain text. Recalled text in
-/// those stores never opens a line that way, and such a line can only point at
-/// the store's own pages, so it stays readable; any other braille is broken.
 fn own_route_line(store: &str, line: &str) -> bool {
     use crate::agent::harness::book::{d456_knowledge, ledger};
     let Some(route) = d456_knowledge::store_route(store) else {
@@ -98,12 +78,6 @@ fn own_route_line(store: &str, line: &str) -> bool {
         })
 }
 
-/// Wrap recalled memory `body` from `store` (caddy/dossier/atlas/…) inside
-/// the evidence fence. `provenance` carries store metadata (repo key, age,
-/// verification state) already formatted as `key=value` pairs by the caller;
-/// it is attribute-sanitised here. The body is secret-redacted and
-/// sentinel-neutralised, all but the store's own route lines. Returns an
-/// empty string for empty bodies.
 pub(crate) fn fence(store: &str, provenance: &str, body: &str) -> String {
     let body = body.trim_start_matches('\n');
     if body.trim().is_empty() {

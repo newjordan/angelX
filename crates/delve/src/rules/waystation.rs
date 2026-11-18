@@ -9,36 +9,25 @@
 use super::*;
 use crate::world::waystations::{self as halts, STOPS};
 
-/// How near (tiles) a knight stands to speak with a keeper.
 pub const REACH: f32 = 2.6;
-/// The coach carries every living knight within this many tiles of its post.
 pub const COACH_REACH: f32 = 10.0;
-/// A knight this near (tiles) a rally's halt has answered it.
 pub const RALLY_NEAR: f32 = 6.0;
-/// How long a rally stands, three minutes.
 pub const RALLY_TICKS: u64 = 180 * HZ as u64;
-/// How long a halt's lantern burns after a coach ran or a rally was called.
 pub const BURN: u64 = 20 * HZ as u64;
 
-/// A knight's talk with a keeper.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Talk {
-    /// Which keeper, by place in the ring.
     pub stop: u8,
-    /// 0: the greeting; 1: where to.
     pub page: u8,
     pub opened: u64,
 }
 
-/// A rally called at a halt.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Rally {
     pub stop: u8,
     pub since: u64,
 }
 
-/// What the halts are doing: who is talking to whom, the rally standing, the
-/// last coach to run, and the knights holding E from a press already taken.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Stops {
@@ -46,8 +35,6 @@ pub struct Stops {
     pub talks: BTreeMap<u32, Talk>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rally: Option<Rally>,
-    /// The last coach to run: the halt it left, the halt it set down at, and
-    /// when.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rode: Option<(u8, u8, u64)>,
     #[serde(skip_serializing_if = "std::collections::BTreeSet::is_empty")]
@@ -68,8 +55,6 @@ impl Stops {
             && self.rode.is_none_or(|(from, to, _)| stop(from) && stop(to))
     }
 
-    /// Whether halt `i`'s lantern burns at tick `now`: a coach ran from or to
-    /// it, or a rally stands there.
     pub fn burning(&self, i: usize, now: u64) -> bool {
         let recent = |since: u64| now.saturating_sub(since) < BURN;
         self.rode.is_some_and(|(from, to, at)| (usize::from(from) == i || usize::from(to) == i) && recent(at))
@@ -77,8 +62,6 @@ impl Stops {
     }
 }
 
-/// What a knight's talk shows: the keeper's name and halt, their words, and
-/// the answers on 1, 2 and 3.
 pub struct View {
     pub keeper: &'static str,
     pub halt: &'static str,
@@ -87,18 +70,15 @@ pub struct View {
 }
 
 impl Run {
-    /// The keeper beside knight `id`, if any: its place in the ring.
     pub fn keeper_beside(&self, id: u32) -> Option<usize> {
         let hero = self.players.get(&id)?;
         halts::keeper_near(hero.x, hero.y, REACH * TILE_UNITS)
     }
 
-    /// How many living knights besides `id` are on the road.
     fn others_on_the_road(&self, id: u32) -> usize {
         self.players.iter().filter(|&(&other, h)| other != id && h.hp > 0).count()
     }
 
-    /// Knight `id`'s talk, as shown.
     pub fn stop_talk_view(&self, id: u32) -> Option<View> {
         let talk = self.kingdom.stops.talks.get(&id)?;
         let i = usize::from(talk.stop);
@@ -124,8 +104,6 @@ impl Run {
         Some(View { keeper: stop.keeper, halt: stop.name, words, answers })
     }
 
-    /// The keys a halt takes before the rest of the tick sees them: a knight
-    /// in talk answers with 1, 2 and 3 rather than casting.
     pub(super) fn stops_inputs(&mut self, inputs: &BTreeMap<u32, Input>) -> Option<BTreeMap<u32, Input>> {
         if self.kingdom.stops.talks.is_empty() || self.room().kind != RoomKind::Kingdom {
             return None;
@@ -141,9 +119,6 @@ impl Run {
         Some(out)
     }
 
-    /// One tick at the halts: talks end where a knight walks off, E opens a
-    /// keeper's greeting and goes on through it, a rally lapses or is
-    /// answered.
     pub(super) fn tick_stops(&mut self, inputs: &BTreeMap<u32, Input>) {
         if self.room().kind != RoomKind::Kingdom {
             self.kingdom.stops.talks.clear();
@@ -178,7 +153,6 @@ impl Run {
                 continue;
             }
             if let Some(talk) = self.kingdom.stops.talks.get(&id).cloned() {
-                // E on an open talk: on to where to, then away.
                 if talk.page == 0 {
                     self.kingdom.stops.talks.insert(id, Talk { page: 1, ..talk });
                 } else {
@@ -192,8 +166,6 @@ impl Run {
         self.tick_rally();
     }
 
-    /// A rally lapses after [`RALLY_TICKS`], or stands down when every living
-    /// knight has come near its halt.
     fn tick_rally(&mut self) {
         let Some(rally) = self.kingdom.stops.rally else {
             return;
@@ -209,7 +181,6 @@ impl Run {
         }
     }
 
-    /// Whether `hero` stands within [`RALLY_NEAR`] tiles of halt `i`.
     pub(super) fn near_halt(&self, hero: &Hero, i: usize) -> bool {
         halts::placed().iter().find(|p| p.stop == i).is_some_and(|p| {
             let (kx, ky) = ((p.keeper.0 as f32 + 0.5) * TILE_UNITS, (p.keeper.1 as f32 + 0.5) * TILE_UNITS);
@@ -217,7 +188,6 @@ impl Run {
         })
     }
 
-    /// Knight `id` answers keeper's where-to with key `pick`.
     fn answer_keeper(&mut self, id: u32, pick: u8) {
         let Some(talk) = self.kingdom.stops.talks.get(&id).cloned() else {
             return;
@@ -234,10 +204,6 @@ impl Run {
         }
     }
 
-    /// The coach from halt `from` to halt `to`: every living knight within
-    /// [`COACH_REACH`] tiles of its post rides, together, and is set down on
-    /// `to`'s apron side by side. A knight left behind has a rally called
-    /// for them at `to`.
     fn coach(&mut self, id: u32, from: usize, to: usize) {
         let placed = halts::placed();
         let (Some(here), Some(there)) = (placed.iter().find(|p| p.stop == from), placed.iter().find(|p| p.stop == to)) else {
@@ -282,7 +248,6 @@ impl Run {
         }
     }
 
-    /// A rally at halt `at`: every other knight's arrow points here.
     fn call_rally(&mut self, id: u32, at: usize) {
         self.kingdom.stops.talks.remove(&id);
         if self.others_on_the_road(id) == 0 {
@@ -294,8 +259,6 @@ impl Run {
         self.found = Some((self.tick, id, format!("RALLY AT {}", STOPS[at].name.to_uppercase())));
     }
 
-    /// Where knight `id` is called to, if a rally stands and they have not
-    /// yet come near it: the halt, and the keeper's tile.
     pub fn rally_call(&self, id: u32) -> Option<(&'static str, (i32, i32))> {
         let rally = self.kingdom.stops.rally?;
         let hero = self.players.get(&id)?;

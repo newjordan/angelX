@@ -1,18 +1,4 @@
 #!/usr/bin/env bash
-# run_seat.sh <bin-dir> <label> [local|grok-api|meta]
-# One headless one-bug task against the stub model on a chosen seat; the
-# request log lands in out/<label>.jsonl and the task's result in
-# out/<label>.result.json. <bin-dir> holds that build's angel and
-# angel-sandbox. SEAT=grok-api drives the xAI API-key seat (the polyglot kit's
-# grok-direct route) with the stub standing in for api.x.ai; SEAT=meta drives
-# the Muse seat (the kit's meta-direct, the Responses API). STUB_KEEPALIVE=1
-# makes the stub keep its connections open like a provider; STUB_CYCLES and
-# MAX_HOPS as in run_ts.sh. Prints rc, wall, requests and the number of
-# distinct connections the requests arrived on.
-# RIG_TLS_DIR=<dir with ca.pem, srv.pem, srv.key (CN/SAN localhost)> serves the
-# stub over TLS behind delay_relay.py with RIG_DELAY_MS one-way (default 10),
-# so a fresh connection pays a TLS round trip as on a WAN; the harness trusts
-# the rig's CA through SSL_CERT_FILE.
 set -euo pipefail
 if [[ $# -lt 2 || $# -gt 3 ]]; then
   printf 'Usage: %s <bin-dir> <label> [local|grok-api|meta]\n' "$0" >&2
@@ -86,29 +72,22 @@ if [[ -n "${RIG_TLS_DIR:-}" ]]; then
   for ((i=0; i<50; i++)); do [[ -s "$RELAY_READY" ]] && break; sleep 0.1; done
   read -r RELAY_PORT < "$RELAY_READY"
   URL="https://localhost:$RELAY_PORT/v1"
-  # RIG_UNTRUSTED=1 leaves the rig's CA out: every handshake then fails
-  # certificate verification (UnknownIssuer), as in a task image whose
-  # trust store lacks the provider's issuer.
   if [[ "${RIG_UNTRUSTED:-0}" != 1 ]]; then
     CA_ENV=(SSL_CERT_FILE="$RIG_TLS_DIR/ca.pem")
   fi
 fi
 if [[ "$SEAT" == grok-api ]]; then
-  # The polyglot kit's grok-direct seat env, the stub in place of its proxy.
   SEAT_ENV=(ANGEL_DRIVER=grok-api ANGEL_API_CLUBS=grok ANGEL_GROK_API_URL="$URL" ANGEL_GROK_URL="$URL"
             ANGEL_GROK_KEY=stub-key ANGEL_GROK_API_MODEL=grok-4.7 ANGEL_GROK_MODEL=grok-4.7
             ANGEL_GROK_REASONING_EFFORT=low ANGEL_GROK_RESEARCH=0 ANGEL_SOTA_MOA_GROK_RESEARCH=0
             ANGEL_HTTP_TIMEOUT=180 ANGEL_HTTP_RETRIES=1 ANGEL_STREAM_USAGE=1)
 elif [[ "$SEAT" == meta ]]; then
-  # The polyglot kit's meta-direct seat env (Responses API).
   SEAT_ENV=(ANGEL_DRIVER=meta ANGEL_API_CLUBS=meta ANGEL_META_URL="$URL" ANGEL_META_KEY=stub-key
             ANGEL_META_MODEL=muse-spark-1.3 ANGEL_META_REASONING_EFFORT=low ANGEL_REASONING_EFFORT=low
             ANGEL_HTTP_TIMEOUT=180 ANGEL_HTTP_RETRIES=1)
 else
   SEAT_ENV=(ANGEL_DRIVER=local ANGEL_LOCAL_URL="$URL" ANGEL_LOCAL_MODEL=stub)
 fi
-# RELATIVE_WORKSPACE=1 runs the task from the workspace's parent with
-# `--workspace work`, as the polyglot kit passes `ws/<task>`.
 WORKSPACE_ARG=$WORK
 if [[ "${RELATIVE_WORKSPACE:-0}" == 1 ]]; then
   cd "$RUN_TMP"

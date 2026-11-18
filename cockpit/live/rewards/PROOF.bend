@@ -1,10 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
 
-# Each law is a closed equality between literal decisions, so its proof only
-# re-runs the same scans: no arithmetic is assumed and nothing is claimed beyond
-# the five ledgers above.
-
 def Laws.an_empty_ledger_selects_nothing():
   {==}
 

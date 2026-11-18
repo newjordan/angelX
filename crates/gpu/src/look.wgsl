@@ -1,31 +1,8 @@
-// The world's look (docs/GLASS_CORE.md): the post pass of a scene that has an
-// `angel_stage::look::Look`. The scene was drawn at the look's small internal
-// size into a colour texture and an accent mask (mesh.wgsl, `fs_look`); this
-// puts every pixel onto the ramp and writes the result, upscaled by nearest
-// when the output is bigger than the internal size.
-//
-// A pixel the mesh pass already made final (mask 0.5: a look that lights
-// its scene, mesh.wgsl's `lit_look`) is left as it is, unless the depth of
-// field puts it out of focus (the mask's second channel), when it is
-// softened among its neighbours in internal pixels (`soft`). A pixel of an accent
-// surface is the nearest accent colour, as it is. Any
-// other is placed on the ramp by its luminance: between the two entries whose
-// own luminances hold it, the upper one where its place between them is past
-// the Bayer threshold at its internal pixel, the lower where it is not.
-// `Look::quantize` in angel-stage is the same thing on the CPU, and the tests
-// hold this to it.
-
 struct Look {
-    // Each ramp entry: rgb 0..1 and its luminance (never falling) in w.
     ramp: array<vec4<f32>, 16>,
-    // Each accent: rgb 0..1.
     accent: array<vec4<f32>, 4>,
-    // x: ramp entries, y: accents, z: the Bayer matrix's bits per coordinate
-    // (2 for 4x4, 3 for 8x8, 0 for none).
     counts: vec4<u32>,
-    // x, y: the internal size; z, w: the output's.
     sizes: vec4<f32>,
-    // x: the depth of field's widest blur, in internal pixels (0: none).
     dof: vec4<f32>,
 };
 
@@ -35,15 +12,11 @@ struct Look {
 
 @vertex
 fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
-    // One triangle that covers the target.
     let x = f32((index << 1u) & 2u);
     let y = f32(index & 2u);
     return vec4<f32>(x * 2.0 - 1.0, 1.0 - y * 2.0, 0.0, 1.0);
 }
 
-// The Bayer threshold at an internal pixel: strictly between 0 and 1. The
-// coordinates' bits, lowest first, give the value its pairs (x ^ y, y) from
-// the top down (angel_stage::look::bayer_index).
 fn threshold(p: vec2<u32>) -> f32 {
     let bits = look.counts.z;
     if bits == 0u {
@@ -66,7 +39,6 @@ fn pick(luma: f32, threshold: f32) -> u32 {
     if luma >= look.ramp[n - 1u].w {
         return n - 1u;
     }
-    // The last entry at or under the pixel; the next is over it.
     var k = 0u;
     for (var i = 0u; i < n; i = i + 1u) {
         if look.ramp[i].w <= luma {
@@ -83,17 +55,14 @@ fn pick(luma: f32, threshold: f32) -> u32 {
 fn fs_main(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
     let internal = vec2<f32>(look.sizes.x, look.sizes.y);
     let output = vec2<f32>(look.sizes.z, look.sizes.w);
-    // Which internal pixel this output pixel is a part of.
     let last = vec2<u32>(u32(look.sizes.x) - 1u, u32(look.sizes.y) - 1u);
     let p = min(vec2<u32>(floor(frag.xy * internal / output)), last);
     let texel = textureLoad(colour, p, 0);
-    // The look is hard-edged: a pixel is on or it is not.
     if texel.a < 0.5 {
         return vec4<f32>(0.0);
     }
     let rgb = texel.rgb / texel.a;
     let marked = textureLoad(mask, p, 0).rg;
-    // Made final where it was drawn (a look that lights its scene).
     if marked.r > 0.25 && marked.r < 0.75 {
         if marked.g > 0.0 && look.dof.x > 0.0 {
             return soft(p, marked.g, last);
@@ -117,15 +86,6 @@ fn fs_main(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
     return vec4<f32>(look.ramp[pick(luma, threshold(p))].rgb, 1.0);
 }
 
-// Internal pixel `p`, `blur` out of focus (0..1), softened: the mean of
-// the pixels within `blur` of the widest radius round it, each as far as it
-// is itself out of focus there (a sharp pixel does not smear into the soft
-// ones beside it), the edge of the disc a pixel soft, premultiplied (what
-// is clear at the world's edge counts as clear). It is a mean and not a
-// weave of the colours it covers (the darkest or brightest of them by the
-// dither, which keeps to the look's own colours): woven, the blur read as
-// a looser dither, not as out of focus (docs/WORLD-TIERS.md, "Depth of
-// field"). Each internal pixel is one value, so it keeps the grain.
 fn soft(p: vec2<u32>, blur: f32, last: vec2<u32>) -> vec4<f32> {
     let r = blur * look.dof.x;
     let reach = i32(ceil(r));

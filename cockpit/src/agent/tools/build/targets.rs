@@ -18,8 +18,6 @@ struct MutationState {
 #[derive(Default)]
 pub(crate) struct MutationTargets(Mutex<MutationState>);
 impl MutationTargets {
-    /// `workspace` resolves a path spelled from the launch directory
-    /// (`ws/acronym/src/lib.rs`) to the file the write landed in.
     pub(crate) fn record(&self, workspace: &Path, tool: &str, args: &Value) {
         if let Ok(mut state) = self.0.lock() {
             let paths = &mut state.paths;
@@ -162,8 +160,6 @@ pub(super) fn annotate(
         )
     };
     let details = serde_json::json!({"basis":"changed-rust-paths-and-current-compiler-artifacts", "required_count":required.paths.len(), "required_set_sha256":digest(&required.paths), "checked_source_count":checked.map(BTreeSet::len), "checked_set_sha256":checked.map(digest), "missing_preview":missing, "command_status":"passed"});
-    // Each state keeps its fact sentence; what to do about it is the `⠨⠊`
-    // pages on the line after.
     use crate::agent::harness::book::d46_recovery as recovery;
     let guidance = match state {
         "complete" => String::new(),
@@ -191,7 +187,6 @@ pub(super) fn annotate(
     format!("{header}; coverage={state}\n{details}\n{rest}{guidance}")
 }
 
-// Package/target choices are command-local evidence even when successful.
 pub(super) fn explicit_selection(argv: &[String]) -> bool {
     argv.iter().skip(1).any(|arg| {
         arg.starts_with("-p")
@@ -214,8 +209,6 @@ pub(super) fn explicit_selection(argv: &[String]) -> bool {
 }
 
 fn has_symlink_ancestor(path: &Path) -> bool {
-    // Check parents first: inspecting a child of a symlink would already follow
-    // the redirected parent before discovering that it is outside the scope.
     path.ancestors()
         .collect::<Vec<_>>()
         .into_iter()

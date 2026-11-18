@@ -9,17 +9,12 @@ use crate::motion::{self, ease};
 use crate::rules::juice::Weight;
 use std::f32::consts::{FRAC_PI_2, PI};
 
-/// Where a counter lands: the forward fist in Clasp's flinch.
 pub(super) const CONTACT: (f32, f32) = (234.0, 130.0);
-/// Where Clasp's body is centred, and the floor both bodies stand on.
 pub(super) const CLASP: (f32, f32) = (267.0, 106.0);
 pub(super) const FLOOR: f32 = 152.0;
-/// The centre of the ring that closes on a lane, and the lane's two heights.
 pub(super) const LANE_X: i32 = 192;
 pub(super) const LANE_W: i32 = 25;
 
-/// A sprite in the white of a blow landing: every lit pixel in a pale ink by its own light, so the
-/// frame has the figure's form and not a blob, and its black outline stays.
 pub(super) fn flash_frame(src: &Img) -> Img {
     let mut out = src.clone();
     for y in 0..src.h {
@@ -33,7 +28,6 @@ pub(super) fn flash_frame(src: &Img) -> Img {
     out
 }
 
-/// `src` seen `k` times closer about `centre` (nearest pixels): the zoom a last blow punches in.
 pub(super) fn punch(src: &Img, centre: (i32, i32), k: f32) -> Img {
     if k <= 1.001 {
         return src.clone();
@@ -51,15 +45,11 @@ pub(super) fn punch(src: &Img, centre: (i32, i32), k: f32) -> Img {
     out
 }
 
-/// The zoom of the winning blow `age` ticks after it, as the realm's own hold (`hold`, ticks it still
-/// has to run) lets it carry on: in hard, out slowly.
 pub(super) fn zoom(age: u32, hold: u32) -> f32 {
     let t = (age + hold) as f32;
     1.0 + 0.16 * ease::out((t / 5.0).min(1.0)) * (1.0 - ease::in_quad(((t - 5.0) / 26.0).clamp(0.0, 1.0)))
 }
 
-/// The forge breathing: embers drift up off the hearth and the lanterns, and the hearth's light
-/// swells and gutters.
 pub(super) fn embers(world: &mut Img, tick: u64, slot: bool) {
     let sources: &[(i32, i32, i32)] = if slot { &[(352, 112, 10), (14, 66, 4), (376, 52, 4)] } else { &[(56, 56, 3), (322, 56, 3)] };
     let mut n = 0;
@@ -79,7 +69,6 @@ pub(super) fn embers(world: &mut Img, tick: u64, slot: bool) {
         }
     }
     if slot {
-        // The hearth's light swells and gutters, and the three lanterns flicker out of step.
         let swell = 0.5 + 0.5 * (tick as f32 * 0.21).sin() * (tick as f32 * 0.047).cos();
         let mut pen = Pen::new(world, 700);
         pen.glow((352.0, 104.0), 28.0 + swell * 4.0, 0.8, ramps::FIRE, 0.30 + 0.12 * swell);
@@ -90,7 +79,6 @@ pub(super) fn embers(world: &mut Img, tick: u64, slot: bool) {
     }
 }
 
-/// Sparks off the anvil at the left of the bay, a fistful every few seconds.
 pub(super) fn anvil(world: &mut Img, tick: u64) {
     let k = (tick % 96) as f32;
     if k >= 14.0 {
@@ -102,8 +90,6 @@ pub(super) fn anvil(world: &mut Img, tick: u64) {
     s.each(k, |m| pfx::mote(&mut pen, &m, Shape::Spark, ramps::GOLD, 1, tick));
 }
 
-/// The spark that carries a counter from the fist to the pip it lights: it arcs up, then dives, with
-/// a tail of three. `age` runs from the blow; it flies from tick 3 to `hud::FLY`.
 pub(super) fn carry(out: &mut Img, from: (f32, f32), to: (f32, f32), age: u32, fly: u32) {
     const START: u32 = 3;
     if age < START || age >= fly {
@@ -117,8 +103,6 @@ pub(super) fn carry(out: &mut Img, from: (f32, f32), to: (f32, f32), age: u32, f
     }
 }
 
-/// The lane an attack will land on and the ring that closes on it: the lane fills as the arm comes,
-/// the ring tightens, and in the window both burn gold and the ring beats.
 pub(super) fn tell(world: &mut Img, lane: i32, ticks: u32, windup: u32, window: u32, tick: u64) {
     let open = ticks <= window;
     let prog = 1.0 - ticks as f32 / windup.max(1) as f32;
@@ -127,7 +111,6 @@ pub(super) fn tell(world: &mut Img, lane: i32, ticks: u32, windup: u32, window: 
     let centre = ((LANE_X + LANE_W / 2) as f32, lane as f32 + 1.0);
     let mut pen = Pen::new(world, 700);
     if open {
-        // The closing beat: the ring is a small hot disc that beats, and the lane flares.
         let beat = if (tick / 2) % 2 == 0 { 5.0 } else { 3.5 };
         pen.ring(centre, beat, 1.6, 1.0, ramps::GOLD, 0.0);
         pen.glow(centre, 9.0, 1.0, ramps::HOLY, 0.7);
@@ -135,14 +118,12 @@ pub(super) fn tell(world: &mut Img, lane: i32, ticks: u32, windup: u32, window: 
     } else {
         let r = 4.0 + 18.0 * (1.0 - prog).powf(1.2);
         pen.ring(centre, r, 1.5, 1.0, ramps::EMBER, 0.15 + 0.5 * (1.0 - prog));
-        // Four ticks on the ring, so its roundness reads at a glance.
         for (dx, dy) in [(r, 0.0), (-r, 0.0), (0.0, r), (0.0, -r)] {
             pen.light((centre.0 + dx) as i32, (centre.1 + dy) as i32, 'o');
         }
     }
 }
 
-/// A pair of chevrons that point the guard to the height it must hold: blinking red, at the shield.
 pub(super) fn guard_hint(world: &mut Img, up: bool, tick: u64) {
     if (tick / 4) % 2 == 0 {
         return;
@@ -158,8 +139,6 @@ pub(super) fn guard_hint(world: &mut Img, up: bool, tick: u64) {
     }
 }
 
-/// A counter landing at the fist: the kit's burst and star, rings that grow with the chain, rays for
-/// a perfect one, copper chips off the plates and dust off both pairs of feet.
 pub(super) fn counter(world: &mut Img, weight: Weight, chain: u8, perfect: bool, age: u32, seed: u32, tick: u64) {
     juice::impact_burst(world, CONTACT, age, seed, weight, tick);
     let a = age as f32;
@@ -173,7 +152,6 @@ pub(super) fn counter(world: &mut Img, weight: Weight, chain: u8, perfect: bool,
         pfx::rays(&mut pen, CONTACT, 12, 34.0 + f32::from(chain) * 8.0, 1.0, seed as f32 * 0.7, ramps::GOLD, a / 9.0);
     }
     if age < 4 {
-        // The blades meeting: a hard dithered flash in the middle of the burst.
         pen.glow(CONTACT, 14.0 + f32::from(chain) * 4.0, 1.0, ramps::HOLY, 0.9 * (1.0 - a / 4.0));
     }
     if age < 30 {
@@ -190,14 +168,11 @@ pub(super) fn counter(world: &mut Img, weight: Weight, chain: u8, perfect: bool,
     dust(&mut pen, (282.0, FLOOR), 0.0, age, seed ^ 0x29, tick, 3 + u32::from(chain));
 }
 
-/// A puff of floor dust thrown along `angle` (0 right, PI left).
 pub(super) fn dust(pen: &mut Pen, at: (f32, f32), angle: f32, age: u32, seed: u32, tick: u64, n: u32) {
     let puff = Spray { angle, spread: 0.7, gravity: -0.012, drag: 0.15, squash: 0.35, ..Spray::round(seed, n, at, (1.0, 2.3), (9.0, 17.0)) };
     puff.each(age as f32, |m| pfx::mote(pen, &m, Shape::Dot, ramps::SMOKE, 2, tick));
 }
 
-/// Clasp's last blow: rings out of its body, rays, plates flung out and down, a rain of sparks, two
-/// warm eyes lifting away and smoke curling up off what is left.
 pub(super) fn fell(world: &mut Img, age: u32, seed: u32, tick: u64) {
     let a = age as f32;
     let mut pen = Pen::new(world, 1500);
@@ -231,8 +206,6 @@ pub(super) fn fell(world: &mut Img, age: u32, seed: u32, tick: u64) {
     dust(&mut pen, (CLASP.0 + 20.0, FLOOR), 0.0, age, seed ^ 0x37, tick, 6);
 }
 
-/// Clasp's own plates, cut from its body in tiles, flung out and down and landing on the floor: the
-/// pieces of `src` (stood at `origin`) that a hash of the seed picks, `age` ticks after the blow.
 pub(super) fn plates(world: &mut Img, src: &Img, origin: (i32, i32), age: u32, seed: u32) {
     const TILE: i32 = 10;
     if age >= 58 {
@@ -258,7 +231,6 @@ pub(super) fn plates(world: &mut Img, src: &Img, origin: (i32, i32), age: u32, s
             if lit < 20 {
                 continue;
             }
-            // Out along the way from the middle of the body, and up.
             let (cx, cy) = ((tx * TILE + TILE / 2 - 50) as f32, (ty * TILE + TILE / 2 - 56) as f32);
             let len = cx.hypot(cy).max(1.0);
             let speed = 1.6 + (h >> 8) as f32 % 3.0 * 0.9;
@@ -268,7 +240,6 @@ pub(super) fn plates(world: &mut Img, src: &Img, origin: (i32, i32), age: u32, s
             let drag = 1.0 - crate::motion::math::exp(-t * 0.12);
             let y = (vy * t + 0.5 * g * t * t).min(rest);
             let x = vx * drag / 0.12;
-            // Come to rest on the floor and stay a while, then go in a dither.
             let landed = vy * t + 0.5 * g * t * t >= rest;
             if age > 40 && bayer(tx * TILE, ty * TILE) < (t - 40.0) / 18.0 {
                 continue;
@@ -279,7 +250,6 @@ pub(super) fn plates(world: &mut Img, src: &Img, origin: (i32, i32), age: u32, s
     }
 }
 
-/// A guard folding under the arm: copper sparks and dust at the shield, a short red ring.
 pub(super) fn miss(world: &mut Img, lane: i32, age: u32, seed: u32, tick: u64) {
     let at = (176.0, lane as f32 + 4.0);
     let a = age as f32;
@@ -290,14 +260,12 @@ pub(super) fn miss(world: &mut Img, lane: i32, age: u32, seed: u32, tick: u64) {
     dust(&mut pen, (166.0, FLOOR), PI, age, seed ^ 0x8d, tick, 5);
 }
 
-/// A chip of a pip or a bar giving way: a few shards in `ramp` falling from `at`.
 pub(super) fn chips(out: &mut Img, at: (f32, f32), age: u32, seed: u32, tick: u64, n: u32) {
     let mut pen = Pen::new(out, 120);
     let s = Spray { gravity: 0.2, drag: 0.04, angle: -FRAC_PI_2, spread: 2.6, ..Spray::round(seed, n, at, (1.0, 2.8), (10.0, 18.0)) };
     s.each(age as f32, |m| pfx::mote(&mut pen, &m, Shape::Shard, ramps::EMBER, 1, tick));
 }
 
-/// A card's burst when a rival lands a counter: sparks round the portrait and a ring.
 pub(super) fn cheer(out: &mut Img, at: (f32, f32), age: u32, seed: u32, tick: u64, big: bool) {
     let mut pen = Pen::new(out, 160);
     let sparks = Spray { gravity: 0.06, ..Spray::round(seed, if big { 12 } else { 7 }, at, (1.0, 2.6), (7.0, 14.0)) };

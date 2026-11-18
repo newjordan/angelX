@@ -231,7 +231,6 @@ impl NativeSession for Session {
         f.hero.hit_ward = 0;
         f.hero.hurt(damage);
         f.hero.dress();
-        // What the picture makes a fuss of (`juice`): the same books the leg-driven strike keeps.
         let died = f.hero.hp != before && f.hero.hp == 0;
         let lost = (before + armor).saturating_sub(f.hero.hp + f.hero.armor);
         let won = died && owner_kills + 1 == GOAL;
@@ -981,8 +980,6 @@ impl NativeRun for Run {
             return;
         };
         let crossroads = self.crossroads.is_some();
-        // Seats arriving late get their real kit, but nobody outside the
-        // room, absent or disconnected can be farmed for kills.
         for (&id, h) in &self.players {
             if crossroads || h.absent || self.exits.outside.contains_key(&id) {
                 continue;

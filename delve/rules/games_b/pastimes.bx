@@ -1,12 +1,6 @@
-# crates/delve/src/rules/pastimes.rs — the kingdom's tiny arcade: the games'
-# tables, the state and its records, and the tick that runs the rounds.
-
 type PsPlayed is Data:
   PsGoing{round: J.Val}
   PsOver{progress: U32, points: J.Val}
-
-# ---- Game ---------------------------------------------------------------
-# A Game is its snake_case name in the state; `i` is its place in Game::ALL.
 
 def pastimes.Game.index(+g: String) -> U32:
   if String.eq(g, "broadsheet"):
@@ -112,7 +106,6 @@ def pastimes.Game.of(+i: U32) -> String:
     case _:
       "siege"
 
-# Game::room
 def pastimes.Game.room(+i: U32) -> String:
   match i:
     case 0:
@@ -154,7 +147,6 @@ def pastimes.Game.room(+i: U32) -> String:
     case _:
       "pasture"
 
-# Game::name
 def pastimes.Game.name(+i: U32) -> String:
   match i:
     case 0:
@@ -196,7 +188,6 @@ def pastimes.Game.name(+i: U32) -> String:
     case _:
       "SIEGE TRAIL"
 
-# Game::start: the pad, in tiles.
 def pastimes.Game.start(+i: U32) -> F32 & F32:
   match i:
     case 0:
@@ -238,7 +229,6 @@ def pastimes.Game.start(+i: U32) -> F32 & F32:
     case _:
       (9.0, 10.5)
 
-# Game::time, in ticks.
 def pastimes.Game.time(+i: U32) -> U32:
   (30 * pastimes.Game.secs(i) : U32)
 
@@ -283,7 +273,6 @@ def pastimes.Game.secs(+i: U32) -> U32:
     case _:
       300
 
-# Game::need
 def pastimes.Game.need(+i: U32) -> U32:
   match i:
     case 0:
@@ -325,8 +314,6 @@ def pastimes.Game.need(+i: U32) -> U32:
     case _:
       3
 
-# The Records field a game keeps its Score in ("" for the first four, which
-# live in the best/wins/plays arrays).
 def pastimes.Game.score_key(+i: U32) -> String:
   match i:
     case 4:
@@ -362,9 +349,6 @@ def pastimes.Game.score_key(+i: U32) -> String:
     case _:
       ""
 
-# ---- Records ------------------------------------------------------------
-
-# Records::plays_for / best_for
 def pastimes.Records.plays_for(+rec: J.Val, +i: U32) -> U32:
   if U32.is_lt(i, 4):
     gb.ag(J.get(rec, "plays"), i)
@@ -377,14 +361,12 @@ def pastimes.Records.best_for(+rec: J.Val, +i: U32) -> U32:
   else:
     gb.u(J.get(rec, pastimes.Game.score_key(i)), "best")
 
-# One more play of game i (saturating).
 def pastimes.Records.add_play(+rec: J.Val, +i: U32) -> J.Val:
   if U32.is_lt(i, 4):
     J.set(rec, "plays", gb.as(J.get(rec, "plays"), i, gb.sadd(gb.ag(J.get(rec, "plays"), i), 1)))
   else:
     J.set(rec, pastimes.Game.score_key(i), gb.su(J.get(rec, pastimes.Game.score_key(i)), "plays", gb.sadd(gb.u(J.get(rec, pastimes.Game.score_key(i)), "plays"), 1)))
 
-# A win with a result: best = max, wins = (wins + 1).min(plays).
 def pastimes.Records.add_win(+rec: J.Val, +i: U32, +result: U32) -> J.Val:
   if U32.is_lt(i, 4):
     r1: J.Val = J.set(rec, "best", gb.as(J.get(rec, "best"), i, U32.max(gb.ag(J.get(rec, "best"), i), result)))
@@ -394,15 +376,11 @@ def pastimes.Records.add_win(+rec: J.Val, +i: U32, +result: U32) -> J.Val:
     s: J.Val = J.get(rec, k)
     J.set(rec, k, gb.su(gb.su(s, "best", U32.max(gb.u(s, "best"), result)), "wins", U32.min(gb.sadd(gb.u(s, "wins"), 1), gb.u(s, "plays"))))
 
-# ---- the state ------------------------------------------------------------
-
-# State::leave: everything back to the default.
 def pastimes.State.leave(+st: J.Val) -> J.Val:
   s0: J.Val = J.set(J.set(J.set(J.obj(), "round", J.JNull{}), "wager", J.JNull{}), "wager_owner", J.JNull{})
   s1: J.Val = gb.su(gb.sb(gb.su(s0, "wager_pick", 0), "wager_key", False{}), "pads", 0)
   J.set(J.set(J.set(s1, "fire", J.JA{[]}), "heats", J.obj()), "heat", J.JNull{})
 
-# A new round for `game` (by index), owned by `owner`.
 def pastimes.new_round(+gi: U32, +owner: U32, +ax: F32, +ay: F32, +rotation: U32, +seats: List<&2, U32>) -> J.Val:
   game: String = pastimes.Game.of(gi)
   r0: J.Val = J.set(J.obj(), "game", J.JS{game})
@@ -416,15 +394,12 @@ def pastimes.new_round(+gi: U32, +owner: U32, +ax: F32, +ay: F32, +rotation: U32
   r8: J.Val = J.set(J.set(r7, "riders", pastimes.riders(gi, owner, ax, ay)), "sled", pastimes.when(U32.is_eq(gi, 6), pastimes.sled_new(owner)))
   gb.su(gb.si(gb.si(gb.ss(gb.su(gb.su(r8, "score_popup", 0), "streak", 0), "score_popup_text", ""), "score_popup_x", 0), "score_popup_y", 0), "intro_ticks", 0)
 
-# `cond.then(|| v)` as null or the value.
 def pastimes.when(+c: Bool, +v: J.Val) -> J.Val:
   Bool.pick(J.Val, c, v, J.JNull{})
 
-# 1 << ((i + rotation) % 5) for i in [0, 2, 3], or'd.
 def pastimes.recipients(+rotation: U32) -> U32:
   U32.or(U32.or(U32.shln(1, U32.to_nat(U32.mod(rotation, 5))), U32.shln(1, U32.to_nat(U32.mod((2 + rotation : U32), 5)))), U32.shln(1, U32.to_nat(U32.mod((3 + rotation : U32), 5))))
 
-# The shared hall: the owner, then every other seat in the room.
 def pastimes.hall(+owner: U32, +seats: List<&2, U32>) -> List<&2, U32>:
   owner <> pastimes.others(seats, owner)
 
@@ -438,7 +413,6 @@ def pastimes.others(+seats: List<&2, U32>, +owner: U32) -> List<&2, U32>:
       else:
         id <> pastimes.others(t, owner)
 
-# The Hobbyhorse rider map: the owner's place at the start (1/256 tiles).
 def pastimes.riders(+gi: U32, +owner: U32, +ax: F32, +ay: F32) -> J.Val:
   if U32.is_eq(gi, 5):
     J.set(J.obj(), U32.show(owner), gb.su(gb.su(gb.si(gb.si(J.obj(), "x", RS.f_as_i32((ax / 2.0 * 256.0 : F32))), "y", RS.f_as_i32((ay / 2.0 * 256.0 : F32))), "air_left", 0), "rest_left", 0))

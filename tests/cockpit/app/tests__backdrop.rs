@@ -16,8 +16,6 @@ use crate::ui::surfaces;
 #[cfg(feature = "delve")]
 use std::time::{Duration, Instant};
 
-/// A2: text-only mode must not paint Stage/agent bay and must not advance the
-/// miniworld sim clock on the UI loop (no invisible scenery tax).
 #[cfg(feature = "delve")]
 #[test]
 fn backdrop_off_skips_stage_paint_and_world_sim_ticks() {
@@ -50,7 +48,6 @@ fn backdrop_off_skips_stage_paint_and_world_sim_ticks() {
         "hidden world must not earn scenery ticks under ANGEL_BACKDROP=off"
     );
 
-    // Compact F3 agent focus used to full-body paint the bay even when off.
     app.focus_module("agent");
     let compact = render_app_text(&mut app, 80, 24);
     assert!(
@@ -61,8 +58,6 @@ fn backdrop_off_skips_stage_paint_and_world_sim_ticks() {
     assert_eq!(app.scryglass.surface, scryglass::StageSurface::Hidden);
 }
 
-/// A2: ANGEL_AGENT_INFO_HEADER must not open a side-column header plate when
-/// backdrops are off (bay is not painted — no twin chrome tax).
 #[test]
 fn backdrop_off_skips_agent_info_header_side_plate() {
     let _lock = env_lock();
@@ -81,8 +76,6 @@ fn backdrop_off_skips_agent_info_header_side_plate() {
     );
 }
 
-/// A2: quick-lookup roll and scryglass poll must not keep the UI on the fast
-/// tick (or run Stage presentation work) when the Stage was not painted.
 #[cfg(feature = "delve")]
 #[test]
 fn hidden_advance_clears_expired_lifecycle_ceremony() {
@@ -113,7 +106,6 @@ fn hidden_advance_clears_expired_lifecycle_ceremony() {
         !hidden.contains("tourney"),
         "backdrop-off must not paint the ceremony\n{hidden}"
     );
-    // Draw skipped artifacts, so expiry was not settled until advance.
     app.advance();
     assert!(
         app.lifecycle_ceremony.is_none(),
@@ -136,7 +128,6 @@ fn backdrop_off_skips_invisible_lesson_roll_tax() {
     let _ = render_app_text(&mut app, 144, 48);
     assert!(!app.world_pane_visible);
 
-    // Arm a mid-roll lesson as if Stage presentation were still draining.
     assert!(app.scryglass.set_unrolled_lesson(
         "Poisson",
         "Poisson",
@@ -155,8 +146,6 @@ fn backdrop_off_skips_invisible_lesson_roll_tax() {
         "hidden Stage must not report world animation"
     );
 
-    // Advance must not call poll_lesson when the Stage is not laid out — roll
-    // progress stays put (no invisible presentation tax).
     let shown_before = app.scryglass.lesson().map(|l| l.shown_chars()).unwrap_or(0);
     app.advance();
     let shown_after = app.scryglass.lesson().map(|l| l.shown_chars()).unwrap_or(0);
@@ -166,8 +155,6 @@ fn backdrop_off_skips_invisible_lesson_roll_tax() {
     );
 }
 
-/// A2: successful turn settlement under ANGEL_BACKDROP=off must not credit
-/// renown / hit rewards disk — Stage presentation tax only.
 #[cfg(feature = "delve")]
 #[test]
 fn backdrop_off_skips_world_turn_end_renown_tax() {
@@ -187,7 +174,6 @@ fn backdrop_off_skips_world_turn_end_renown_tax() {
     assert_eq!(app.realm.world.active_work().count(), 1);
     let before = app.realm.world.renown();
 
-    // Same branch `finish_world_turn` takes when backdrop is off.
     app.realm.world.turn_ended_hidden_stage(true);
     assert_eq!(
         app.realm.world.renown(),
@@ -200,7 +186,6 @@ fn backdrop_off_skips_world_turn_end_renown_tax() {
         "hidden Stage must still clear in-flight tool work"
     );
 
-    // Full turn_ended still pays when Stage paints.
     let _on = TestEnvGuard::unset("ANGEL_BACKDROP");
     assert!(surfaces::BackdropMode::from_env().paints_in_process());
     let mut painted = seed_preview_app();
@@ -213,7 +198,6 @@ fn backdrop_off_skips_world_turn_end_renown_tax() {
     );
 }
 
-/// A2: loop loom / status mirrors must not run when Stage is not painted.
 #[cfg(feature = "delve")]
 #[test]
 fn backdrop_off_skips_world_loop_mirror_tax() {
@@ -224,7 +208,6 @@ fn backdrop_off_skips_world_loop_mirror_tax() {
     assert!(!app.world_pane_visible);
     assert!(!app.realm.world.loop_mirrored_for_test());
 
-    // Arm a live self-improvement loop as if the operator had `/loop` running.
     app.loop_ctl.status = loop_ctl::LoopStatus::Running;
     app.loop_ctl.iteration = 3;
     app.loop_ctl.task = "invisible loop tax".into();
@@ -239,8 +222,6 @@ fn backdrop_off_skips_world_loop_mirror_tax() {
     );
 }
 
-/// A2: live tool storms must not pay world classify / journey / notice tax when
-/// the Stage was not painted (ANGEL_BACKDROP=off). Strip still records activity.
 #[cfg(feature = "delve")]
 #[test]
 fn backdrop_off_skips_world_tool_journey_tax() {
@@ -264,7 +245,6 @@ fn backdrop_off_skips_world_tool_journey_tax() {
         },
         harness::TurnEvent::Notice("musing…".into()),
     ]);
-    // Earn a definitive hidden Stage (draw sets world_pane_visible from plan).
     let _ = render_app_text(&mut app, 144, 48);
     assert!(!app.world_pane_visible);
     assert_eq!(app.realm.world.active_work().count(), 0);
@@ -280,7 +260,6 @@ fn backdrop_off_skips_world_tool_journey_tax() {
         app.realm.world.latest_active_work().is_none(),
         "no Stage journey work under ANGEL_BACKDROP=off"
     );
-    // Tool strip still reflects the call (operator-visible, not Stage).
     let strip = app.tool_strip.snapshot();
     assert!(
         strip.calls >= 1,
@@ -289,8 +268,6 @@ fn backdrop_off_skips_world_tool_journey_tax() {
     );
 }
 
-/// A live `/loop` must not keep the UI at 33 ms when the Stage was not
-/// painted (ANGEL_BACKDROP=off / Hidden). Visible Stage still requests it.
 #[test]
 fn backdrop_off_skips_live_loop_fast_tick() {
     let _lock = env_lock();
@@ -319,7 +296,6 @@ fn backdrop_off_skips_live_loop_fast_tick() {
     assert!(app.needs_fast_tick());
 }
 
-/// A2: when the Stage is painted, scenery ticks resume.
 #[cfg(feature = "delve")]
 #[test]
 fn visible_stage_earns_world_sim_ticks() {

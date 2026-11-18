@@ -7,7 +7,6 @@ fn owned_exit_session(app: &mut crate::App, root: &Path) {
     app.session.checkpoint(&app.history).unwrap();
     app.loop_ctl.self_edit = true;
     app.loop_ctl.self_branch = Some("owned-unmerged-branch".into());
-    // Omit integration roots: a regression must fail before any Git effects.
     app.loop_ctl.self_root = None;
 }
 

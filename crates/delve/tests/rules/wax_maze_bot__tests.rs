@@ -12,8 +12,6 @@ fn tile(x: f32, y: f32) -> (i32, i32) {
     ((x / TILE_UNITS).floor() as i32, (y / TILE_UNITS).floor() as i32)
 }
 
-/// Breadth-first over the lanes from `from`: the first step toward the
-/// nearest tile `goal` accepts, and its distance.
 fn first_step(run: &Run, from: (i32, i32), goal: impl Fn((i32, i32)) -> bool) -> Option<((i32, i32), u32)> {
     let room = run.room();
     let mut seen: HashMap<(i32, i32), (i32, i32)> = HashMap::new();
@@ -38,9 +36,6 @@ fn first_step(run: &Run, from: (i32, i32), goal: impl Fn((i32, i32)) -> bool) ->
     None
 }
 
-/// What a bot presses this tick: the pale wraith near, the holy water when a
-/// calm wraith closes on them (every other seat, so the water is shared), or
-/// the nearest wax.
 fn bot(run: &Run, maze: &WaxMaze, id: u32) -> Input {
     let Some(hero) = run.players.get(&id) else { return Input::default() };
     let me = tile(hero.x, hero.y);
@@ -69,7 +64,6 @@ pub(crate) fn fresh() -> Run {
     fresh_for(4)
 }
 
-/// The maze with `seats` knights at the table.
 pub(crate) fn fresh_for(seats: u32) -> Run {
     let mut r = Run::new(41, 1, None);
     for id in 2..=seats {

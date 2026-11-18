@@ -56,9 +56,6 @@ fn the_surface_says_only_what_stands_on_it() {
     use crate::world::plan::tabula as t;
     assert!(crate::world::plan::tabula(), "run with ANGEL_REALM_PLAN=tabula");
     let houses: Vec<String> = crate::world::houses::ids().map(|id| crate::world::houses::get(id).label()).collect();
-    // What the Keep's site says on its own account (the Works): the progress
-    // readout, the tally board, the trade plate in the corner, a teacher's offer,
-    // and the board on the Great Shaft's winch, which is the shaft's tier.
     let works = |line: &str| {
         line.starts_with("KEEP ")
             || line.starts_with("REALM ")
@@ -83,10 +80,6 @@ fn the_surface_says_only_what_stands_on_it() {
     }
 }
 
-/// The blank-slate realm's whole loop, flat, a frame at every stop: the spawn,
-/// the Keep, each camp, the Delve's gate, down into its courtyard and back up.
-/// `ANGEL_TABULA_LOOP=<dir> ANGEL_REALM_PLAN=tabula cargo test -p angel-delve
-/// --lib write_tabula_loop -- --ignored`
 #[test]
 #[ignore = "writes the loop's frames to ANGEL_TABULA_LOOP; needs ANGEL_REALM_PLAN=tabula"]
 fn write_tabula_loop() {
@@ -101,7 +94,6 @@ fn write_tabula_loop() {
         image::RgbaImage::from_raw(img.w as u32, img.h as u32, img.rgba_bytes()).unwrap().save(dir.join(format!("{name}.png"))).unwrap();
     };
     let (kx, ky) = (t::KEEP_STAND.0 as f32, t::KEEP_STAND.1 as f32);
-    // A frame of knight 1 at realm tile `tile`, the camera `up` half tiles above it.
     let placed = |tile: (f32, f32), up: f32| {
         let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
         run.walk_kingdom(Some((tile.0 as i32, tile.1 as i32)));
@@ -122,7 +114,6 @@ fn write_tabula_loop() {
     let (dx, dy) = t::delve_stand();
     let mut run = placed((dx as f32, dy as f32 + 0.5), 0.0);
     shoot(&run, "t18-delve-gate");
-    // E at the gate, and a moment in the courtyard.
     let press = Input { interact: true, ..Default::default() };
     for _ in 0..6 {
         run.step(&BTreeMap::from([(1, press)]));
@@ -138,7 +129,6 @@ fn write_tabula_loop() {
     }
     assert_eq!(run.room().kind, crate::rules::RoomKind::Kingdom, "and comes back up");
     shoot(&run, "t20-back-up");
-    // Every line any of them said, once.
     let mut said = Vec::new();
     for (name, tile) in [("keep", t::KEEP_STAND), ("delve", t::delve_stand()), ("camp0", t::camp_stand(t::CAMPS[0]))] {
         for veteran in [false, true] {
@@ -148,11 +138,6 @@ fn write_tabula_loop() {
     std::fs::write(dir.join("said.txt"), said.join("\n")).unwrap();
 }
 
-/// The surface's HUD, at every spot and in every state a knight meets it in: the boxes it lays
-/// down (the corner block, the trade plate, the builder's strip and the Clerk's lines over it,
-/// the goal's arrow and its name, the doors' marks) share no pixel, and none runs off the view;
-/// with the ledger open nothing else is laid down at all.
-/// `ANGEL_REALM_PLAN=tabula cargo test -p angel-delve --lib the_hud_never_overlaps -- --include-ignored`
 #[test]
 #[ignore = "needs the blank-slate plan standing: ANGEL_REALM_PLAN=tabula"]
 fn the_hud_never_overlaps_at_any_frame() {
@@ -167,7 +152,6 @@ fn the_hud_never_overlaps_at_any_frame() {
         for state in 0..10 {
             let mut run = settled(spot, state % 2 == 1);
             run.home.industry.found_hillside(crate::kingdom::catalog(), 7);
-            // How long since the party came up: the hint's first seconds, and after.
             let mut wait = 0;
             for later in [0, 300, 300] {
                 for _ in 0..later {
@@ -176,21 +160,16 @@ fn the_hud_never_overlaps_at_any_frame() {
                 wait += later;
                 let mut run = run.clone();
                 match state / 2 {
-                    // Walking about, nothing out.
                     0 => {}
-                    // A block on the back: the goal is the stockyard.
                     1 => run.players.get_mut(&1).unwrap().block = Some("limestone".into()),
-                    // The builder out, the flow overlay on (the Clerk's lines).
                     2 => {
                         let b = run.kingdom.industry.entry(1).or_default();
                         (b.open, b.page, b.overlay) = (true, 0, true);
                     }
-                    // The ledger over the world.
                     3 => {
                         let b = run.kingdom.industry.entry(1).or_default();
                         (b.open, b.page) = (true, 1);
                     }
-                    // The builder out with the card of the camp up, plans laid, a copy half marked.
                     _ => {
                         let c = crate::kingdom::catalog();
                         let camp = run.home.industry.camp();
@@ -232,9 +211,6 @@ fn the_hud_never_overlaps_at_any_frame() {
     assert!(bad.is_empty(), "{} of {frames} frames overlap:\n{}", bad.len(), bad.iter().take(25).cloned().collect::<Vec<_>>().join("\n"));
 }
 
-/// The Clerk of Works' sentence, however long the sim makes it, is broken at words into at most
-/// three lines, each on a plate of its own width inside the view, and ends in two dots when it
-/// does not all fit.
 #[test]
 #[ignore = "needs the blank-slate plan standing: ANGEL_REALM_PLAN=tabula"]
 fn the_clerks_sentence_never_runs_off_its_plate() {

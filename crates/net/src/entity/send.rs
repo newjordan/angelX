@@ -8,26 +8,17 @@ use crate::doc::value::Value;
 use crate::doc::wire::Writer;
 use std::collections::HashMap;
 
-/// What one client can see this tick.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Interest {
-    /// The middle of its view, in the game's units.
     pub x: i32,
     pub y: i32,
-    /// Half its view each way, plus whatever margin the game wants so a
-    /// thing is held before it walks on screen.
     pub half_w: i32,
     pub half_h: i32,
-    /// How much further a held thing may go before it is let go, so one
-    /// pacing along the edge is not sent whole again and again.
     pub keep: i32,
-    /// The client's own thing (its knight): first in every snapshot it
-    /// changed in, because the client predicts from it.
     pub own: Option<u32>,
 }
 
 impl Interest {
-    /// Whether a point is in view (the margin included).
     pub fn sees(&self, x: i32, y: i32) -> bool {
         self.within(x, y, 0)
     }
@@ -38,8 +29,6 @@ impl Interest {
         dx <= i64::from(self.half_w) + i64::from(slack) && dy <= i64::from(self.half_h) + i64::from(slack)
     }
 
-    /// How far out a point is, as a share of the view: 0 in the middle,
-    /// `REACH_EDGE` at the edge of the view.
     fn reach(&self, x: i32, y: i32) -> u64 {
         let dx = (i64::from(x) - i64::from(self.x)).unsigned_abs();
         let dy = (i64::from(y) - i64::from(self.y)).unsigned_abs();
@@ -49,71 +38,43 @@ impl Interest {
     }
 }
 
-/// `Interest::reach` at the edge of the view.
 const REACH_EDGE: u64 = 1024;
-/// Priority is the ticks a thing has waited times its band's weight: the
-/// nearest quarter of the view counts four times what the outer quarter
-/// (and anything held past the edge) does, so near things go first and a
-/// far thing is never starved.
 const BAND_WEIGHT: [u64; 4] = [4, 3, 2, 1];
-/// A thing the client has never seen counts as having waited this many
-/// ticks more than it has: seeing someone at all comes before a fresher
-/// place for someone already seen.
 const NEW_WAIT: u64 = 8;
-/// The three list counts are written after the budget is spent; each is
-/// under 16,384, so two bytes each are kept for them.
 const COUNTS: usize = 6;
 
-/// What the client holds of one thing.
 struct Held {
     version: u32,
-    /// The bytes the client holds, so an update need carry only the ones
-    /// that changed.
     state: State,
     born: u32,
-    /// The tick it was last written.
     sent: u32,
-    /// The write it was last found in interest, so the ones that were not
-    /// can be let go.
     seen: u32,
 }
 
-/// One thing that needs sending.
 struct Need {
     id: u32,
     index: u32,
-    /// Sent whole (new to the client, or born again) rather than as state.
     whole: bool,
-    /// For an update: which of the held bytes changed (bit i, byte i), or
-    /// `None` when the state's length changed and it goes whole.
     mask: Option<u32>,
     score: u64,
     reach: u64,
     cost: usize,
 }
 
-/// What one write put in its snapshot.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Written {
-    /// The first snapshot to this client: it starts over.
     pub whole: bool,
-    /// Something did not fit and waits for the next snapshot.
     pub partial: bool,
     pub spawns: u32,
     pub updates: u32,
     pub despawns: u32,
-    /// Things the client holds after this snapshot.
     pub held: u32,
     pub bytes: usize,
 }
 
-/// What one client holds, kept by its writer for the life of the connection.
 #[derive(Default)]
 pub struct Viewer {
     held: HashMap<u32, Held>,
-    /// Things in view the client does not hold yet: the tick each was first
-    /// left out (so its wait grows like everyone else's) and the write it
-    /// was last in view.
     wanted: HashMap<u32, (u32, u32)>,
     globals: Option<Value>,
     names: Writer,
@@ -128,24 +89,18 @@ impl Viewer {
         Viewer::default()
     }
 
-    /// Whether the client holds this thing.
     pub fn holds(&self, id: u32) -> bool {
         self.held.contains_key(&id)
     }
 
-    /// The ids the client holds, in no order.
     pub fn held(&self) -> impl Iterator<Item = u32> + '_ {
         self.held.keys().copied()
     }
 
-    /// This client's next snapshot body of `world`, within `BUDGET`.
     pub fn write(&mut self, world: &World, globals: &Value, interest: &Interest, out: &mut Vec<u8>) -> Written {
         self.write_within(world, globals, interest, BUDGET, out)
     }
 
-    /// The same within a chosen budget. The globals go first and are never
-    /// held back, so they must be small: past the budget alone, they are
-    /// sent anyway and nothing else is.
     pub fn write_within(
         &mut self,
         world: &World,
@@ -178,7 +133,6 @@ impl Viewer {
         }
         let mut used = out.len() - start + COUNTS;
 
-        // What is in view: held things still in reach, new things in view.
         self.needs.clear();
         let entities = world.entities();
         let keep = interest.keep.max(0);
@@ -201,8 +155,6 @@ impl Viewer {
                     } else if h.version != e.version {
                         let mask = changed(&h.state, &e.state);
                         if mask == Some(0) {
-                            // Changed and changed back since it was sent:
-                            // the client holds these very bytes.
                             h.version = e.version;
                             None
                         } else {
@@ -233,7 +185,6 @@ impl Viewer {
             }
         });
 
-        // What left: held things no longer in reach, or no longer at all.
         self.gone.clear();
         self.gone.extend(self.held.iter().filter(|(_, h)| h.seen != pass).map(|(&id, _)| id));
         self.gone.sort_unstable();
@@ -247,7 +198,6 @@ impl Viewer {
             despawns += 1;
         }
 
-        // What fits, nearest and longest waiting first.
         let total: usize = self.needs.iter().map(|n| n.cost).sum();
         self.taken.clear();
         let mut deferred_held = false;
@@ -270,7 +220,6 @@ impl Viewer {
             out[start] |= DEFERRED;
         }
 
-        // Despawns, spawns, updates; each list by rising id.
         put_varint(out, despawns as u64);
         let mut last = 0u32;
         for &id in &self.gone[..despawns] {
@@ -307,7 +256,6 @@ impl Viewer {
                 self.wanted.remove(&e.id);
             }
         }
-        // A thing wanted but no longer in view starts its wait over.
         self.wanted.retain(|_, (_, seen)| *seen == pass);
         written.held = self.held.len() as u32;
         written.bytes = out.len() - start;
@@ -315,15 +263,11 @@ impl Viewer {
     }
 }
 
-/// Which bytes differ (bit i for byte i), or `None` when the lengths do.
 fn changed(held: &State, now: &State) -> Option<u32> {
     let (a, b) = (held.as_slice(), now.as_slice());
     (a.len() == b.len()).then(|| a.iter().zip(b).enumerate().filter(|(_, (x, y))| x != y).fold(0, |m, (i, _)| m | 1 << i))
 }
 
-/// An update's head: the state's length times two (the bytes follow
-/// whole), or the mask of changed bytes times two plus one (those bytes
-/// follow, in order).
 fn update_head(state: &[u8], mask: Option<u32>) -> u64 {
     match mask {
         Some(m) => (u64::from(m) << 1) | 1,
@@ -339,8 +283,6 @@ fn put_update(out: &mut Vec<u8>, state: &[u8], mask: Option<u32>) {
     }
 }
 
-/// The most a thing's record can take: its id written whole bounds the
-/// step from the id before it.
 fn cost(e: &Entity, whole: bool, mask: Option<u32>) -> usize {
     let state = e.state.as_slice();
     let id = varint_len(u64::from(e.id));

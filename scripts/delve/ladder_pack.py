@@ -76,7 +76,6 @@ RIGS = ROOT / "crates/delve/assets/quick-rig"
 MANIFEST = "pack.json"
 RUNGS = (16, 32, 64, 128)
 SEATS = range(1, 7)
-# How far the placeholder's marked pixel goes toward white.
 MARK = 0.45
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -227,7 +226,6 @@ class Pack:
 
     def write(self):
         self.manifest["art"].sort(key=lambda e: (e.get("key", ""), e.get("rung", 0)))
-        # One entry a line: small to send to a page, and still read by eye.
         art = ",\n ".join(json.dumps(e, separators=(",", ":")) for e in self.manifest["art"])
         head = {k: v for k, v in self.manifest.items() if k != "art"}
         text = json.dumps(head, separators=(",", ":"))[:-1] + (',"art":[\n ' + art + "\n]}" if art else ',"art":[]}')
@@ -271,9 +269,6 @@ def stills(args):
                 print(f"{design}: no {rung} still", file=sys.stderr)
                 continue
             im = Image.open(src).convert("RGBA")
-            # Its feet: between its two feet at the bottom, checked against
-            # the 16's feet carried up by its width (a still's own feet are
-            # read where they are clear; a weapon by them is not a foot).
             mapped = round((x16 + 0.5) / small.width * im.width - 0.5)
             own = feet_x(im)
             x = own if abs(own - mapped) <= im.width // 10 else mapped
@@ -363,16 +358,12 @@ def body_frames(pack, data, design, rung, clips, seats, mark=0):
                 for x, c in enumerate(row):
                     if c != "." and c in table:
                         px[x, y] = table[c] + (255,)
-            # Cut to its ink, its feet moved with it: a drawing lands by its
-            # feet whatever its size, and the clear round it is wire and
-            # texture for nothing.
             box = im.getbbox()
             if box is None:
                 continue
             im = im.crop(box)
             feet = [pivot[0] - box[0], pivot[1] - box[1]]
             if not (0 <= feet[0] < im.width and 0 <= feet[1] < im.height):
-                # Feet outside the ink (a leap): kept, the cut grown to them.
                 grown = Image.new("RGBA", (max(im.width, feet[0] + 1) - min(0, feet[0]), max(im.height, feet[1] + 1) - min(0, feet[1])))
                 grown.paste(im, (-min(0, feet[0]), -min(0, feet[1])))
                 im, feet = grown, [max(0, feet[0]), max(0, feet[1])]

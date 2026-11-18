@@ -26,8 +26,6 @@ fn waypoint(station: usize) -> (u32, u32) {
     let (x, y) = room_at(station);
     (x * ROOM.0 + ROOM.0 / 2, y * ROOM.1 + ROOM.1 * 2 / 3)
 }
-// The authored walk goes x first, then y, from the preceding station.
-// Fractional steps and rounding preserve chamber ownership at door crossings.
 fn station_at(iteration: usize, half_ticks: u128) -> usize {
     let count = (GRID.0 * GRID.1) as usize;
     let destination = iteration % count;

@@ -1,10 +1,3 @@
-"""Small, editable local-angle clips for the quick rigid-pixel rig.
-
-Degrees are clockwise in image space; zero is the fitted source pose. Timings
-are Delve game ticks (30 ticks/second), not display refresh frames. Attacks
-deliberately hold anticipation and recovery longer than the contact/smear,
-rather than playing a constant-speed pendulum.
-"""
 import math
 
 CLIPS = ('idle', 'walk', 'run', 'roll', 'hurt', 'die', 'cast', 'slash',
@@ -24,8 +17,6 @@ def defaults(height):
         return dict(upper_arm_f=f, lower_arm_f=fore, upper_arm_b=b,
                     lower_arm_b=back_fore, **body)
 
-    # A few degrees disappear under nearest sampling at 16px. Rock the upper
-    # mass enough to move helmet/shoulders one pixel, leaving the feet planted.
     clips = {'idle': [pose(angles=arms(4*s, -3*abs(s), -4*s, torso=4*s,
                                              head=-s, back=3*s))
                       for s in (0, .7, 1, 0, -.7, -1)]}
@@ -54,7 +45,6 @@ def defaults(height):
                                                 head=20*s, back=25*s),
                                   (0, -h*1.05*s), degrees))
     clips['roll'] += [pose(6)]
-    # One hard recoil, a held stagger, then settle; translate the body, not FX.
     kick = max(1, round(h*.10))
     clips['hurt'] = [pose(3, arms(55, -65, 45, -65, torso=-24, head=-10),
                                 (-max(2, round(h*.13)), 0)),
@@ -65,8 +55,6 @@ def defaults(height):
                     *[pose(6, arms(15, -20, 25, -30, head=10, back=-15),
                            rotation=a) for a in (15, 35, 60, 82, 90)],
                     pose(30, arms(15, -20, 25, -30, head=10, back=-15), rotation=90)]
-    # Opposed arm rotations lift BOTH hands above the helmet. Same-direction
-    # rotations put the far hand across the face at native resolution.
     clips['cast'] = [pose(9, arms(-30, -110, 30, 110, torso=-5, head=5)),
                      pose(6, arms(-105, -50, 105, 50, head=-5)),
                      pose(9, arms(-155, -5, 155, 5, torso=-4, back=12)),
@@ -94,16 +82,12 @@ def defaults(height):
     clips['flail'] += [pose(3, arms(a, -20, -a*.2, -40, torso=8*math.sin(math.radians(a))),
                                    smear=True) for a in (0, -70, -140, -210, -280, -350)]
     clips['flail'] += [pose(9, arms(-20, -35, 10, -30, torso=10)), pose(9)]
-    # Bow: reach together, draw the far hand back to the cheek, release.
-    # The aiming hand stays out; torso counter-rotation sells the draw weight.
     clips['bow'] = [pose(6, arms(-45, -40, -65, -25, torso=3)),
                     pose(9, arms(-90, 0, -85, -5, torso=3, head=-3)),
                     pose(12, arms(-90, 0, -20, -155, torso=-12, head=5)),
                     pose(3, arms(-90, 0, 30, -155, torso=6, head=-3)),
                     pose(9, arms(-85, -5, 20, -100, torso=3)),
                     pose(9, arms(-35, -30, 5, -35)), pose(9)]
-    # Gun: short whole-body kick (1-2px on a 16px source) and muzzle lift,
-    # followed by a smaller rebound. No glow, particles or detached ghost mass.
     clips['gun'] = [pose(6, arms(-40, -40, -35, -50)),
                     pose(12, arms(-90, 0, -65, -30, head=-3)),
                     pose(3, arms(-112, -12, -85, -35, torso=-14, head=6), (-kick, 0)),

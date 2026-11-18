@@ -11,21 +11,17 @@ use super::bits;
 use crate::rules::Run;
 use crate::rules::folly::{MAZE_TIME, PALE, WaxMaze};
 
-/// How far down the view the top marks reach.
 pub(super) const BOTTOM: i32 = 16;
 
-/// One knight's place in the strip.
 pub(super) struct Chip {
     pub id: u32,
     pub x: i32,
-    /// Letters of the name that fit.
     pub name: usize,
 }
 
 const LEFT: i32 = 40;
 const RIGHT: i32 = 44;
 
-/// The knights' chips, left to right in seat order, fitted to the strip.
 pub(super) fn chips(maze: &WaxMaze) -> Vec<Chip> {
     let n = maze.eaten.len().max(1) as i32;
     let room = NATIVE_W - 8 - LEFT - RIGHT;
@@ -38,7 +34,6 @@ pub(super) fn chips(maze: &WaxMaze) -> Vec<Chip> {
         .collect()
 }
 
-/// The name a seat goes by here: `YOU` for the seat looking.
 pub(super) fn called(run: &Run, id: u32, focus: Option<u32>, most: usize) -> String {
     if focus == Some(id) {
         return "YOU".to_string();
@@ -51,7 +46,6 @@ pub(super) fn called(run: &Run, id: u32, focus: Option<u32>, most: usize) -> Str
         .collect()
 }
 
-/// Where a knight's number sits in the strip, for what flies to it.
 pub(super) fn anchor(maze: &WaxMaze, id: u32) -> (i32, i32) {
     chips(maze)
         .iter()
@@ -59,11 +53,9 @@ pub(super) fn anchor(maze: &WaxMaze, id: u32) -> (i32, i32) {
         .map_or((NATIVE_W / 2, 8), |c| (c.x + 7 + c.name as i32 * 5 + 4 + 8, 8))
 }
 
-/// The strip, the team's bar and the holy water's bar.
 pub(super) fn strip(over: &mut Img, run: &Run, maze: &WaxMaze, focus: Option<u32>) {
     let now = run.tick as u32;
     chrome::panel(over, (4, 1, NATIVE_W - 8, 12), chrome::Tone::SLATE);
-    // The candle: burning down as the time goes.
     let left = if maze.done { 0 } else { maze.left() };
     let frac = if maze.done { 0.0 } else { (left as f32 / (MAZE_TIME / crate::rules::HZ) as f32).clamp(0.0, 1.0) };
     let body = 1 + (frac * 7.0).round() as i32;
@@ -89,7 +81,6 @@ pub(super) fn strip(over: &mut Img, run: &Run, maze: &WaxMaze, focus: Option<u32
         let nx = over.text(chip.x + 7, 4, &name, if you { 'T' } else { 'i' });
         let lead = rivals && wax == best && wax > 0;
         let bumped = maze.show.pops.iter().any(|p| u32::from(p.who) == chip.id && now.saturating_sub(p.born) < 3);
-        // A number flying in lands, and the knight's wax swells.
         let landed = maze
             .show
             .catches
@@ -105,13 +96,11 @@ pub(super) fn strip(over: &mut Img, run: &Run, maze: &WaxMaze, focus: Option<u32
         let ink = if pulse > 0.0 || bumped { '9' } else if lead { 'T' } else { 'h' };
         over.text(nx + 5 + (3 - num.len() as i32).max(0) * 5, 4 - i32::from(pulse > 0.5), &num, ink);
     }
-    // The pot, with a coin.
     let pot: u32 = maze.ante.values().sum();
     let tag = format!("{pot}G");
     let px = NATIVE_W - 9 - text_width(&tag) - 8;
     over.stamp(bits::coin(), px, 4);
     over.text(px + 7, 4, &tag, 'O');
-    // The table's bar: every knight's share of the wax laid, in their ink.
     let (bx, by, bw) = (8, 13, NATIVE_W - 16);
     over.rect(bx - 1, by - 1, bw + 2, 4, 'k');
     over.rect(bx, by, bw, 2, 's');
@@ -126,7 +115,6 @@ pub(super) fn strip(over: &mut Img, run: &Run, maze: &WaxMaze, focus: Option<u32
     for q in 1..4 {
         over.put(bx + bw * q / 4, by, 'k');
     }
-    // The holy water, running out: a bright line along the strip's foot.
     if maze.pale > 0 {
         let w = (bw as u32 * maze.pale / PALE) as i32;
         let flash = maze.warning() && now / 4 % 2 == 0;
@@ -135,8 +123,6 @@ pub(super) fn strip(over: &mut Img, run: &Run, maze: &WaxMaze, focus: Option<u32
     }
 }
 
-/// The maze in small, bottom right: two pixels a tile. Only for a room
-/// bigger than a screen.
 pub(super) fn minimap(over: &mut Img, run: &Run, maze: &WaxMaze, focus: Option<u32>, (ox, oy): (i32, i32)) {
     let room = run.room();
     let (cols, rows) = (room.cols as i32, room.rows as i32);
@@ -164,7 +150,6 @@ pub(super) fn minimap(over: &mut Img, run: &Run, maze: &WaxMaze, focus: Option<u
         let (c, r) = (i32::from(i) % cols, i32::from(i) / cols);
         over.rect(x0 + c * 2 - 1, y0 + r * 2 - 1, 4, 4, if now / 6 % 2 == 0 { 'z' } else { 'W' });
     }
-    // The view's own frame, so a knight sees where they are.
     let (vx, vy) = (x0 + ox.clamp(0, cols * TILE) / 8, y0 + oy.clamp(0, rows * TILE) / 8);
     let (vw, vh) = ((NATIVE_W / 8).min(x0 + w - vx), (NATIVE_H / 8).min(y0 + h - vy));
     for dx in 0..vw {

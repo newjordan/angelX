@@ -28,8 +28,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 impl crate::App {
-    /// `/self …` command surface. Verbs mirror `/loop`'s tokenization; anything
-    /// that isn't a known verb is the goal text and starts a run.
     pub(crate) fn self_command(&mut self, arg: Option<String>) -> String {
         let raw = arg.unwrap_or_default();
         let raw = raw.trim().to_string();
@@ -47,7 +45,6 @@ impl crate::App {
         }
     }
 
-    /// Start a self-modification run: worktree + re-rooted tools + armed loop.
     fn self_start(&mut self, goal: String) -> String {
         if self.thinking.is_some()
             || self.bg_job.is_some()
@@ -85,7 +82,6 @@ impl crate::App {
             .unwrap_or(Path::new(""))
             .to_path_buf();
 
-        // Fresh worktree on a new branch from the live HEAD.
         let stamp = format!("{}-{}", now_ms(), std::process::id());
         let branch = format!("angel/self-{stamp}");
         let base = worktree_base();
@@ -110,17 +106,12 @@ impl crate::App {
             );
         }
 
-        // Re-root the tool registry in the worktree's crate (the `/cd` swap: the
-        // old registry Arc drops its MCP/LSP children; a running turn can't race
-        // this — we checked the flight slot above).
         let prev = self.tools.current_workspace().to_path_buf();
         let mut registry =
             crate::app::bootstrap::build_registry(&self.bag, &self.session.id, wt_crate.clone());
         crate::ui::ui_inspect::install(&mut registry, std::sync::Arc::clone(&self.ui_broker));
         self.tools = Arc::new(registry);
 
-        // Arm the loop as a self run. No accept_cmd: the Layer-2 gate *is* the
-        // acceptance predicate, hard-coded and unswappable by the model.
         let mut st = LoopState::configured_from_env();
         st.owner_session_id = Some(self.session.id.clone());
         st.workspace = Some(wt_crate.clone());
@@ -135,8 +126,6 @@ impl crate::App {
         st.status = LoopStatus::Baselining;
         self.loop_ctl = st;
 
-        // Pre-edit baseline: the worktree's passing-test count, so a "green"
-        // that quietly shed tests is rejected by the gate's regression guard.
         let ws = wt_crate.clone();
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
@@ -162,9 +151,6 @@ impl crate::App {
         self.loop_command(Some("status".to_string()))
     }
 
-    /// `/self integrate`: re-run the gate on the pinned worktree; a green verdict
-    /// lands in the same approval → merge path as an autonomous done-claim, so
-    /// the merge invariant can't be bypassed by asking manually.
     fn self_integrate_command(&mut self) -> String {
         if !self.loop_ctl.self_edit {
             return "no self run to integrate — /self <goal> first".to_string();
@@ -185,8 +171,6 @@ impl crate::App {
             .to_string()
     }
 
-    /// `/self discard`: stop the run, drop the worktree and its branch, restore
-    /// the previous workspace. The live tree was never touched.
     fn self_discard(&mut self) -> String {
         if !self.loop_ctl.self_edit {
             return "no self run to discard".to_string();
@@ -197,7 +181,6 @@ impl crate::App {
             }
             return "busy — retry /self discard after existing worker work drains".to_string();
         }
-        // Capture the run's identity before clearing state.
         let branch = self.loop_ctl.self_branch.clone();
         let wt_crate = self.loop_ctl.workspace.clone();
         let live_root = self.loop_ctl.self_root.clone();
@@ -230,11 +213,6 @@ impl crate::App {
         out
     }
 
-    /// A gate-green verdict on a self run: put the merge decision in front of
-    /// the operator (the standard approval modal). Called from the loop's
-    /// verify-drain; the reply is drained as [`LoopPending::SelfIntegrate`].
-    /// Under YOLO SMART/FULL the gate-green merge proceeds immediately — the
-    /// operator already opted into self-modification power.
     pub(crate) fn self_request_integrate(&mut self, gate_summary: &str) {
         if self.loop_pending.is_some() {
             self.system_msg("self · waiting for existing verifier work to drain".to_string());
@@ -261,7 +239,6 @@ impl crate::App {
             return;
         }
         if self.pending_approval.is_some() {
-            // Another modal is up; don't lose the green verdict — park instead.
             self.loop_finish(
                 LoopStatus::Paused,
                 &format!("gate GREEN ({gate_summary}) — /self integrate to merge"),
@@ -284,10 +261,6 @@ impl crate::App {
         loop_ctl::save(&self.loop_ctl);
     }
 
-    /// The approved merge: commit the worktree's work on its branch, merge
-    /// `--no-ff` into the live tree, drop the worktree (the branch stays as
-    /// history), restore the previous workspace. Only reachable from the
-    /// gate-green approval arm — that is the Layer-2 invariant.
     pub(crate) fn self_integrate_now(&mut self) {
         if self.loop_pending.is_some() {
             self.system_msg("self · waiting for existing verifier work to drain".to_string());
@@ -371,11 +344,6 @@ impl crate::App {
         }
     }
 
-    /// `/self reborn` — the phoenix step: rebuild the live crate off-thread and,
-    /// when the build lands green, exec() into the new binary with
-    /// `--resume <session>` so the conversation continues *inside the new self*.
-    /// The exec itself happens in `main` after terminal teardown (see
-    /// [`drain_reborn`](Self::drain_reborn)); a red build changes nothing.
     fn self_reborn(&mut self) -> String {
         if self.flight_owner().is_agent_busy() {
             return "busy — finish or interrupt the turn before a reborn".to_string();
@@ -391,8 +359,6 @@ impl crate::App {
                 .to_string();
         };
         let crate_root = crate_root.canonicalize().unwrap_or(crate_root);
-        // Rebuilding only helps if the running binary *is* this crate's build
-        // product — then `cargo build` rewrites the very file we re-exec.
         let exe = std::env::current_exe()
             .ok()
             .and_then(|p| p.canonicalize().ok())
@@ -421,11 +387,6 @@ impl crate::App {
         )
     }
 
-    /// Drain the reborn build (called each frame from `advance`). A green build
-    /// asks for a graceful exit that carries the exec (live work finishes first,
-    /// see [`request_restart_exit`](Self::request_restart_exit)); a red build
-    /// reports and stays put. The busy and loop guards of `self_reborn` ran when
-    /// the build started, so the loop is checked again here, at the commit point.
     pub(crate) fn drain_reborn(&mut self) {
         let Some(rx) = self.reborn_rx.take() else {
             return;
@@ -461,7 +422,6 @@ impl crate::App {
         }
     }
 
-    /// Re-root the tool registry back at the workspace `/self` displaced.
     pub(crate) fn self_restore_workspace(&mut self) {
         let Some(prev) = self.loop_ctl.self_prev_workspace.clone() else {
             return;
@@ -478,8 +438,6 @@ impl crate::App {
 }
 
 fn reborn_build(command: std::process::Command, executable: PathBuf) -> Result<PathBuf, String> {
-    // Keep the rebuild's ordinary unlimited budget and inherited hang controls.
-    // Neither a green prefix nor exit 0 establishes a completed build capture.
     let capture = crate::agent::harness::output_timed_captured(command, None)
         .map_err(|error| format!("cargo build: {error}"))?;
     if capture.timed_out {
@@ -505,8 +463,6 @@ fn reborn_build(command: std::process::Command, executable: PathBuf) -> Result<P
     Err(tail.trim().to_string())
 }
 
-/// Where self-run worktrees are created. `ANGEL_SELF_WORKTREE_DIR` overrides the
-/// default `~/.angelX/self-worktrees` (tests point it at a scratch dir).
 fn worktree_base() -> PathBuf {
     if let Ok(p) = std::env::var("ANGEL_SELF_WORKTREE_DIR")
         && !p.trim().is_empty()
@@ -516,14 +472,6 @@ fn worktree_base() -> PathBuf {
     crate::platform::workspace_store::angel_subdir("self-worktrees")
 }
 
-/// Walk up from a dir inside a worktree to the worktree's top (the dir holding
-/// its `.git` link file). `None` if no `.git` is found on the way up.
-/// Remove an integrated worktree, surviving a concurrent writer — e.g. a
-/// background rust-analyzer flycheck (`cargo check`) still writing `target/`
-/// artifacts into it; killing the server wouldn't help since its spawned
-/// cargo survives as an orphan. A racing writer can also re-create
-/// directories AFTER a "successful" `git worktree remove`, so success is
-/// judged by the path being gone at the end, never by git's exit code.
 fn remove_worktree_robust(git_root: &Path, wt_top: &Path) -> Result<(), String> {
     let mut last_err = String::new();
     for attempt in 0..5 {
@@ -539,8 +487,6 @@ fn remove_worktree_robust(git_root: &Path, wt_top: &Path) -> Result<(), String> 
         if !wt_top.exists() {
             return Ok(());
         }
-        // The writer re-created part of the tree between git's delete and now:
-        // drop the stale registration and delete what's left directly.
         let _ = run_git(git_root, &["worktree", "prune"]);
         let _ = std::fs::remove_dir_all(wt_top);
         if !wt_top.exists() {

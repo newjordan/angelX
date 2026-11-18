@@ -13,24 +13,15 @@
 
 use super::*;
 
-/// The largest open map, in tiles.
 pub const OPEN_MAX_COLS: usize = 168;
 pub const OPEN_MAX_ROWS: usize = 108;
-/// Rock between one cell's chamber and the next, at the least.
 const GAP: usize = 8;
-/// The rock a chamber keeps from its cell's edge.
 const MARGIN: usize = 3;
-/// The most chambers, and the most doors off the map.
 pub const MAX_CHAMBERS: usize = 25;
 pub const MAX_SIDE_DOORS: usize = 16;
-/// A crossing: a small chamber where passages meet.
 const CROSSING: (usize, usize) = (20, 12);
-/// The most crossings a floor has.
 const CROSSINGS: usize = 2;
 
-/// An open floor's map: which room it is, its chambers, the passages
-/// between them (chamber to chamber), the doors off it, the guardian's
-/// chamber and where the party comes onto it down the stairs.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Open {
     pub map: usize,
@@ -39,18 +30,12 @@ pub struct Open {
     pub doors: Vec<SideDoor>,
     pub guardian: u8,
     pub arrival: (f32, f32),
-    /// Its companies have been raised (`Run::populate_open`).
     #[serde(default)]
     pub populated: bool,
-    /// What happened on the floor, kept where it happened
-    /// (`rules::chronicle`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub traces: Vec<crate::rules::chronicle::Trace>,
 }
 
-/// A chamber on the map: its grid cell, its stone (walls included) as
-/// `(col, row, cols, rows)` in the map's tiles, what it is, who waits in it
-/// and how far it lies from the arrival along the passages.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Chamber {
     pub cell: (i32, i32),
@@ -58,25 +43,16 @@ pub struct Chamber {
     pub kind: RoomKind,
     pub roster: Vec<EnemyKind>,
     pub dist: u8,
-    /// Its company is dead (or it never had one), and was paid for.
     #[serde(default)]
     pub cleared: bool,
-    /// Shut behind the party: the guardian's, while its guardian lives.
     #[serde(default)]
     pub sealed: bool,
-    /// A knight has stood in it: it is on the map.
     #[serde(default)]
     pub seen: bool,
-    /// Its company has woken once.
     #[serde(default)]
     pub stirred: bool,
-    /// The doorway tiles a lock-in shuts (`Tile::Door`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gates: Vec<(u16, u16)>,
-    /// The tick a knight first stood in it, the tick it shut behind the
-    /// party, and the tick the last of a company that was fought fell (a
-    /// chamber no one woke has none): the braziers' catching, the doors'
-    /// slam and the chamber's hush are drawn from them.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub seen_at: u64,
     #[serde(default, skip_serializing_if = "is_zero")]
@@ -90,7 +66,6 @@ fn is_zero(n: &u64) -> bool {
 }
 
 impl Chamber {
-    /// Its stone in arena units, walls included: `(x0, y0, x1, y1)`.
     pub fn bounds(&self) -> (f32, f32, f32, f32) {
         let (c, r, w, h) = self.rect;
         (
@@ -101,7 +76,6 @@ impl Chamber {
         )
     }
 
-    /// Whether the point stands inside its walls, `inset` units in.
     pub fn holds(&self, x: f32, y: f32, inset: f32) -> bool {
         let (x0, y0, x1, y1) = self.bounds();
         x >= x0 + TILE_UNITS + inset
@@ -110,21 +84,16 @@ impl Chamber {
             && y < y1 - TILE_UNITS - inset
     }
 
-    /// Its middle, in arena units.
     pub fn centre(&self) -> (f32, f32) {
         let (x0, y0, x1, y1) = self.bounds();
         ((x0 + x1) / 2.0, (y0 + y1) / 2.0)
     }
 
-    /// The guardian's: its stairs, or the dragon's lair.
     pub fn guarded(&self) -> bool {
         matches!(self.kind, RoomKind::Stairs | RoomKind::Lair)
     }
 }
 
-/// A door off the map: the room behind it, the chamber whose wall it is
-/// in, that wall's side, and the first of its two tiles (the second lies
-/// along the wall).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SideDoor {
     pub room: usize,
@@ -134,13 +103,11 @@ pub struct SideDoor {
 }
 
 impl SideDoor {
-    /// Its two tiles.
     pub fn tiles(&self) -> [(i32, i32); 2] {
         let (c, r) = (i32::from(self.at.0), i32::from(self.at.1));
         if self.dir.is_multiple_of(2) { [(c, r), (c + 1, r)] } else { [(c, r), (c, r + 1)] }
     }
 
-    /// Its middle, in arena units.
     pub fn middle(&self) -> (f32, f32) {
         let (c, r) = (f32::from(self.at.0), f32::from(self.at.1));
         if self.dir.is_multiple_of(2) {
@@ -150,8 +117,6 @@ impl SideDoor {
         }
     }
 
-    /// Where a knight comes out of it onto the map: a step in from the
-    /// wall, into the chamber.
     pub fn landing(&self) -> (f32, f32) {
         let (x, y) = self.middle();
         let (dx, dy) = DIRS[usize::from(self.dir)];
@@ -160,8 +125,6 @@ impl SideDoor {
 }
 
 impl Open {
-    /// Every chamber's stone is inside the map, none overlaps another, the
-    /// doors and gates are in the map, and the counts are bounded.
     pub fn valid(&self, rooms: &[Room]) -> bool {
         let Some(map) = rooms.get(self.map) else {
             return false;
@@ -201,7 +164,6 @@ impl Open {
             })
     }
 
-    /// The chamber whose stone holds the point, if one does.
     pub fn chamber_at(&self, x: f32, y: f32) -> Option<usize> {
         self.chambers.iter().position(|ch| {
             let (x0, y0, x1, y1) = ch.bounds();
@@ -209,7 +171,6 @@ impl Open {
         })
     }
 
-    /// The chamber nearest the point (its middle).
     pub fn nearest(&self, x: f32, y: f32) -> usize {
         self.chamber_at(x, y).unwrap_or_else(|| {
             (0..self.chambers.len())
@@ -224,21 +185,15 @@ impl Open {
         })
     }
 
-    /// The door off the map whose tile this is.
     pub fn door_on(&self, col: i32, row: i32) -> Option<&SideDoor> {
         self.doors.iter().find(|d| d.tiles().contains(&(col, row)))
     }
 }
 
-/// Whether two rects of tiles share a tile.
 fn overlap(a: (u16, u16, u16, u16), b: (u16, u16, u16, u16)) -> bool {
     a.0 < b.0 + b.2 && b.0 < a.0 + a.2 && a.1 < b.1 + b.3 && b.1 < a.1 + a.3
 }
 
-/// The cells of a `gx` by `gy` grid an open floor grows into, the first
-/// the middle: by turns at random (`Warrens`), along one long gallery, or
-/// in compact pockets (`Karst`), as the lower tunnels grow
-/// (`world::routing`).
 fn grow(gx: i32, gy: i32, want: usize, variant: crate::world::routing::TunnelVariant, rng: &mut Rng) -> Vec<(i32, i32)> {
     use crate::world::routing::TunnelVariant;
     let want = want.min((gx * gy) as usize).max(2);
@@ -275,9 +230,6 @@ fn grow(gx: i32, gy: i32, want: usize, variant: crate::world::routing::TunnelVar
     cells
 }
 
-/// The passages between the cells: a maze through all of them (each cell
-/// reached once, depth first, so the way winds), then a few loops more, as
-/// a dungeon of the old kind has.
 fn passages(cells: &[(i32, i32)], start: usize, loops: u32, rng: &mut Rng) -> Vec<(usize, usize)> {
     let at = |c: (i32, i32)| cells.iter().position(|&d| d == c);
     let mut seen = vec![false; cells.len()];
@@ -322,9 +274,6 @@ fn passages(cells: &[(i32, i32)], start: usize, loops: u32, rng: &mut Rng) -> Ve
     links
 }
 
-/// Lay out open floor `depth` of `pack` for a party of `party` knights.
-/// Room 0 is where the stairs come down: the Sanctuary below the first
-/// floor, else the map itself.
 pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor {
     use crate::world::routing::TunnelVariant;
     let party = party.clamp(1, 4);
@@ -335,9 +284,6 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
     let gy = (OPEN_MAX_ROWS / pitch.1).clamp(2, 5) as i32;
     let variant = if depth >= 3 { TunnelVariant::for_depth(depth) } else { TunnelVariant::Warrens };
     let mut cells = grow(gx, gy, 8 + depth as usize, variant, rng);
-    // The party comes in from the south: the arrival is the cell of the
-    // bottom row nearest the middle (an edge cell, so its outer wall is
-    // free for the stair's Sanctuary).
     let bottom = cells.iter().map(|c| c.1).max().unwrap_or(0);
     let arrival = (0..cells.len())
         .filter(|&i| cells[i].1 == bottom)
@@ -352,7 +298,6 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
     let links = passages(&cells, 0, loops, rng);
     let linked = |i: usize, j: usize| links.contains(&(i.min(j), i.max(j)));
     let at = |c: (i32, i32)| cells.iter().position(|&d| d == c);
-    // Steps from the arrival along the passages.
     let mut dist = vec![usize::MAX; cells.len()];
     dist[0] = 0;
     let mut queue = VecDeque::from([0usize]);
@@ -367,7 +312,6 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
     }
     let degree = |i: usize| links.iter().filter(|&&(a, b)| a == i || b == i).count();
     let far = (1..cells.len()).max_by_key(|&i| (dist[i], degree(i) == 1, i)).unwrap_or(0);
-    // Where passages only cross, now and then a crossing.
     let mut crossings: Vec<usize> = (1..cells.len())
         .filter(|&i| i != far && degree(i) >= 3 && dist[i] > 1)
         .collect();
@@ -417,8 +361,6 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
         let (ox, oy) = (cell.0 as usize * pitch.0 + jx, cell.1 as usize * pitch.1 + jy);
         let doors = DIRS.map(|(dx, dy)| at((cell.0 + dx, cell.1 + dy)).is_some_and(|j| linked(i, j)));
         let template = template_for(kind, pack, rng);
-        // A fight laid for one knight's room, grown for the party: its
-        // company is the one room's (the party brings its own).
         let laid = match kind {
             RoomKind::Fight | RoomKind::Start => (COLS, ROWS),
             RoomKind::Stairs => (36, 20),
@@ -431,7 +373,6 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
         }
         for r in 0..h {
             for c in 0..w {
-                // The room's own doorways become the passages' mouths.
                 let tile = match room.tile(c as i32, r as i32) {
                     Tile::Door => Tile::Wall,
                     t => t,
@@ -455,7 +396,6 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
             cleared_at: 0,
         });
     }
-    // Rock: inside no chamber's stone.
     let rects: Vec<(u16, u16, u16, u16)> = chambers.iter().map(|c| c.rect).collect();
     let rock = |c: usize, r: usize| {
         !rects.iter().any(|&(x, y, w, h)| {
@@ -464,12 +404,10 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
     };
     for (k, &(a, b)) in links.iter().enumerate() {
         let wide = width[k];
-        // Always carve from the west or north one to the other.
         let (a, b) = if (cells[a].0, cells[a].1) < (cells[b].0, cells[b].1) { (a, b) } else { (b, a) };
         let across = cells[a].1 == cells[b].1;
         let (ra, rb) = (chambers[a].rect, chambers[b].rect);
         let lane = |rect: (u16, u16, u16, u16), across: bool| {
-            // The first of the passage's `wide` rows (across) or columns.
             let (x, y, w, h) = (usize::from(rect.0), usize::from(rect.1), usize::from(rect.2), usize::from(rect.3));
             if across { y + h / 2 - 1 - (wide - 2) / 2 } else { x + w / 2 - 1 - (wide - 2) / 2 }
         };
@@ -518,7 +456,6 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
                 }
             }
         }
-        // The mouths in both chambers' walls, the floor before them clear.
         for (ch, side, first) in [(a, if across { 1 } else { 2 }, la), (b, if across { 3 } else { 0 }, lb)] {
             let gate = chambers[ch].guarded();
             let (x, y, w, h) = chambers[ch].rect;
@@ -564,7 +501,6 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
         populated: false,
         traces: Vec::new(),
     };
-    // The stair's Sanctuary below the first floor: room 0, the map after it.
     let mut taken: Vec<(i32, i32)> = cells.clone();
     if depth >= 2 {
         let side = outward(&open, 0, gx, gy, &taken).unwrap_or(2);
@@ -579,17 +515,12 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
     } else {
         floor.rooms.push(map);
     }
-    // The arrival: the foot of the arrival chamber, a little in.
     {
         let ch = &open.chambers[0];
         let (cx, _) = ch.centre();
         let (_, _, _, y1) = ch.bounds();
         open.arrival = (cx, y1 - TILE_UNITS - 4.5);
     }
-    // The side rooms, each behind a door in a chamber's free wall: the
-    // treasure off the farthest dead end, the ledge (floor one), the Pit
-    // (about half the floors two to five), the Wanted hall (every floor),
-    // the vault behind its crack (now and then), the Threshold (the last).
     let order: Vec<usize> = {
         let mut o: Vec<usize> = (1..open.chambers.len())
             .filter(|&i| i != guardian && open.chambers[i].kind == RoomKind::Fight)
@@ -624,7 +555,6 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
         o.sort_by_key(|&i| (std::cmp::Reverse(dist[i]), i));
         o
     };
-    // The side-on halls hang only while switched on (`ledge_on`, `wanted_on`).
     if depth == 1 {
         if super::ledge_on() {
             hang(&mut floor, &mut open, &mut taken, &deep_first, &|c, d, _| ledge(c, d), rng);
@@ -635,7 +565,6 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
     if super::wanted_on() {
         hang(&mut floor, &mut open, &mut taken, &deep_first, &|c, d, _| wanted(c, d), rng);
     }
-    // The Gnome's Garden, behind its gate on the third floor (`nooks::gnome`).
     if depth == super::super::nooks::gnome::DEPTH {
         hang(&mut floor, &mut open, &mut taken, &deep_first, &|c, d, _| super::super::nooks::room(RoomKind::GnomeParty, c, d), rng);
     }
@@ -653,7 +582,6 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
         };
         let snibbet = super::super::mix(shape ^ 0x5a1bbe7).is_multiple_of(3);
         if let Some(vault_at) = hang(&mut floor, &mut open, &mut taken, &near_first, &|c, d, _| vault(c, d, snibbet), rng) {
-            // The vault's door stays a cracked wall until a bomb finds it.
             let door = *open.doors.last().unwrap();
             for (c, r) in door.tiles() {
                 floor.rooms[open.map].set(c as usize, r as usize, Tile::Wall);
@@ -673,13 +601,10 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
     floor
 }
 
-/// The cell one step `side` of `cell`.
 fn step(cell: (i32, i32), side: usize) -> (i32, i32) {
     (cell.0 + DIRS[side].0, cell.1 + DIRS[side].1)
 }
 
-/// A side of chamber `i` with no passage and no chamber or room beyond
-/// it: south first, then west, east, north.
 fn outward(open: &Open, i: usize, _gx: i32, _gy: i32, taken: &[(i32, i32)]) -> Option<usize> {
     let ch = &open.chambers[i];
     let used = |side: usize| {
@@ -692,8 +617,6 @@ fn outward(open: &Open, i: usize, _gx: i32, _gy: i32, taken: &[(i32, i32)]) -> O
     })
 }
 
-/// Cut the door to room `room` in chamber `chamber`'s wall on `side`: two
-/// door tiles in the wall's middle, the floor before them clear.
 fn cut_door(floor: &mut Floor, open: &mut Open, room: usize, side: usize, chamber: usize) {
     let (x, y, w, h) = open.chambers[chamber].rect;
     let (x, y, w, h) = (usize::from(x), usize::from(y), usize::from(w), usize::from(h));
@@ -723,8 +646,6 @@ fn cut_door(floor: &mut Floor, open: &mut Open, room: usize, side: usize, chambe
     open.doors.push(door);
 }
 
-/// Floor no knight can reach from the arrival is stone: every floor tile
-/// of the map is walkable from where the party comes in.
 fn seal_pockets(map: &mut Room, (ax, ay): (f32, f32)) {
     let walk = |t: Tile| matches!(t, Tile::Floor | Tile::Door | Tile::Stairs);
     let (cols, rows) = (map.cols, map.rows);

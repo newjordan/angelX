@@ -14,8 +14,6 @@ use std::path::PathBuf;
 pub(crate) const MISSION_SCHEMA: &str = "angel.mission/v1";
 const MAX_LINE_CHARS: usize = 140;
 
-/// Render one parsed mission pointer as a one-line summary, or `None` when the
-/// record is not a well-formed `angel.mission/v1` state. Pure.
 pub(crate) fn mission_line(v: &Value) -> Option<String> {
     if v.get("schema")?.as_str()? != MISSION_SCHEMA {
         return None;
@@ -29,7 +27,6 @@ pub(crate) fn mission_line(v: &Value) -> Option<String> {
         None => format!("r{rounds}/∞"),
     };
     let mut line = format!("[{status}] {budget} ");
-    // Collapse whitespace so a multi-line objective stays one terminal row.
     line.push_str(&objective.split_whitespace().collect::<Vec<_>>().join(" "));
     if let Some(reason) = v.get("blockedReason").and_then(|r| r.as_str())
         && !reason.is_empty()
@@ -43,20 +40,16 @@ pub(crate) fn mission_line(v: &Value) -> Option<String> {
     Some(line)
 }
 
-/// Scan the mission directory and return the most recently updated mission's
-/// summary line, or `None` when the directory holds no readable mission.
-/// Read-only and best-effort.
 pub(crate) fn latest_mission_line() -> Option<String> {
     let dir = mission_dir();
     let mut best: Option<(String, String)> = None;
     for entry in std::fs::read_dir(&dir).ok()?.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
-        // Pointers only; skip the append-only ledgers and transient temp files.
         if !name.ends_with(".json") || name.contains(".tmp-") {
             continue;
         }
         let Ok(raw) = std::fs::read_to_string(entry.path()) else {
-            continue; // one unreadable pointer never aborts the whole scan
+            continue;
         };
         let Ok(v) = serde_json::from_str::<Value>(&raw) else {
             continue;

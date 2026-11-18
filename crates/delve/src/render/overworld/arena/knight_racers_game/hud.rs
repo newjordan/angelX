@@ -7,13 +7,11 @@ use super::pods::livery;
 use super::state::{self, Clocks};
 use rules::race::engines::{FIRE_HEAT, WARN_HEAT};
 
-/// Everything a frame of instruments reads.
 pub struct Ctx<'a> {
     pub race: &'a rules::Session,
     pub car: &'a rules::Car,
     pub seat: u32,
     pub view: &'a View3,
-    /// The raster's depth for each dot (infinite where only sky shows).
     pub depth: &'a [f32],
     pub order: &'a [(u32, &'a rules::Car)],
     pub clocks: &'a Clocks,
@@ -21,7 +19,6 @@ pub struct Ctx<'a> {
 
 pub fn text_w(text: &str, scale: i32) -> i32 { (text.chars().count() as i32 * 6 - 1) * scale }
 
-/// Scaled 5x7 text with a one dot shadow.
 pub fn shout(im: &mut Img, x: i32, y: i32, text: &str, scale: i32, ink: char) -> i32 {
     for pass in 0..2 {
         let (dx, c) = if pass == 0 { (1, 'k') } else { (0, ink) };
@@ -42,7 +39,6 @@ pub fn centred(im: &mut Img, cx: i32, y: i32, text: &str, scale: i32, ink: char)
     shout(im, cx - text_w(text, scale) / 2, y, text, scale, ink);
 }
 
-/// A black plate with a dim frame.
 pub fn plate(im: &mut Img, x: i32, y: i32, w: i32, h: i32) {
     im.rect(x, y, w, h, 'k');
     im.frame(x, y, w, h, 'g');
@@ -50,7 +46,6 @@ pub fn plate(im: &mut Img, x: i32, y: i32, w: i32, h: i32) {
 
 fn lamp(frame: u32) -> bool { frame / 6 % 2 == 0 }
 
-/// The key hints along the foot of the screen.
 fn hints(im: &mut Img, race: &rules::Session) {
     im.rect(0, 215, 384, 9, 'k');
     im.text(7, 216, if race.finished { "E NEXT RACE                      HOLD ESC LEAVE" }
@@ -61,7 +56,6 @@ fn hints(im: &mut Img, race: &rules::Session) {
 pub fn draw(im: &mut Img, c: &Ctx) {
     let race = c.race;
     if race.finished {
-        // The board has the screen: the race behind it is pushed back to dots.
         for y in 0..215 { for x in 0..384 { if (x + y) % 2 == 0 { im.put(x, y, 'k'); } } }
         hints(im, race);
         return;
@@ -71,9 +65,9 @@ pub fn draw(im: &mut Img, c: &Ctx) {
     let count = state::laps(race);
     let (lap_n, into) = state::lap_of(race, c.car);
 
-    place_plate(im, place, race.cars.len());
+    place_plate(im, place, race.cars.len(), c.car);
     clock_plate(im, c, now, lap_n, count);
-    section(im, c, into);
+    if c.car.split > 0 && !super::flow::banner_up(c) { split(im, c); } else if c.car.split == 0 { section(im, c, into); }
 
     minimap(im, c, 284, 5, 94, 66);
     ladder(im, c, LADDER.0 + 2, LADDER.1 + 2);
@@ -91,33 +85,61 @@ pub fn draw(im: &mut Img, c: &Ctx) {
     hints(im, race);
 }
 
-/// The engine gauges and the rear cue along the foot of the screen: (x, y) and (x, y, w, h).
 pub const ENGINES: (i32, i32) = (110, 184);
 pub const REAR: (i32, i32, i32, i32) = (192, 192, 82, 20);
 
-/// What the grid screen holds at the sides of the picture, as (left, top, right, bottom): the
-/// lamps and the count, and the ladder. Nothing else is drawn inside them.
 pub const LIGHTS: (i32, i32, i32, i32) = (26, 72, 100, 166);
 pub const LADDER: (i32, i32, i32, i32) = (344, 74, 384, 134);
 
-/// The place counter, top left.
-fn place_plate(im: &mut Img, place: usize, field: usize) {
+fn place_plate(im: &mut Img, place: usize, field: usize, car: &rules::Car) {
     plate(im, 6, 5, 58, 46);
     shout(im, 12, 9, &place.to_string(), 4, if place == 1 { 'T' } else { 'H' });
     im.text(36, 11, state::ordinal(place), 'T');
     im.text(36, 21, &format!("/{field}"), 't');
     im.text(12, 40, "PLACE", 't');
+    let (up, down) = (car.cheer > 0, car.dropped > 0);
+    if up || down {
+        let (ink, hi) = if up { ('C', 'y') } else { ('R', '7') };
+        let pulse = (car.cheer.max(car.dropped) / 5) % 2 == 0;
+        for k in 0..4 {
+            let (w, y) = (1 + k * 2, if up { 31 + k } else { 38 - k });
+            im.rect(53 - k, y, w, 1, if pulse { hi } else { ink });
+        }
+    }
 }
 
-/// Course, lap and the clocks, top middle. On the grid the clocks have nothing to say,
-/// so the plate carries the course card instead: its laps and the lap's length.
+pub fn split_text(c: &Ctx) -> Option<(String, String, char)> {
+    split_parts(c).map(|(n, t, gap, ink)| (format!("SPLIT {n}  {t}"), gap, ink))
+}
+
+pub fn split_parts(c: &Ctx) -> Option<(usize, String, String, char)> {
+    let car = c.car;
+    let n = car.marks.len();
+    if car.split == 0 || n == 0 || car.finish.is_some() || c.race.ticks < state::GRID_TICKS { return None; }
+    let mine = car.marks[n - 1];
+    let (first, second) = state::across(c.race, n);
+    let (line, ink) = match (first, second) {
+        (Some((id, t)), _) if id != c.seat => (format!("+{:.2} ON {}", mine - t, livery(id).name), 'O'),
+        (_, Some((_, t))) => (format!("FIRST  {:.2} CLEAR", t - mine), 'y'),
+        _ => ("FIRST ACROSS".to_string(), 'y'),
+    };
+    Some((n, state::stamp(mine), line, ink))
+}
+
+fn split(im: &mut Img, c: &Ctx) {
+    let Some((head, line, ink)) = split_text(c) else { return };
+    let w = (text_w(&line, 1).max(text_w(&head, 1)) + 16).max(150);
+    plate(im, 174 - w / 2, 42, w, 24);
+    centred(im, 174, 46, &head, 1, 'T');
+    centred(im, 174, 56, &line, 1, ink);
+}
+
 fn clock_plate(im: &mut Img, c: &Ctx, now: f32, lap_n: u32, count: u32) {
     let race = c.race;
     plate(im, 70, 5, 208, 34);
     im.text(76, 8, state::course_name(race), 'T');
     if race.ticks < state::GRID_TICKS {
         match race.left() {
-            // A sprint short of a lap: its length and its clock.
             Some(left) => {
                 im.text(76, 19, &format!("SPRINT  {:.1} KM", race.distance() / 1000.), 'h');
                 im.text(76, 29, &format!("CLOCK {}:{:02}", left as u32 / 60, left as u32 % 60), 'T');
@@ -132,7 +154,6 @@ fn clock_plate(im: &mut Img, c: &Ctx, now: f32, lap_n: u32, count: u32) {
     let last_lap = lap_n + 1 == count && car_running(c.car);
     let shown = c.car.finish.unwrap_or(now.max(0.));
     if let Some(left) = race.left() {
-        // A sprint: the metres to the flag, the time run, and the clock counting down.
         let to_go = (race.distance() - c.car.d.max(0.)).max(0.);
         im.text(76, 19, &format!("{:.1} KM TO GO", to_go / 1000.), 'H');
         im.text(76, 29, &format!("TIME {}", state::stamp(shown)), 't');
@@ -157,12 +178,8 @@ fn clock_plate(im: &mut Img, c: &Ctx, now: f32, lap_n: u32, count: u32) {
     }
 }
 
-/// A small chevron over the viewer's own pod in its colour, and "YOU" for the
-/// first seconds of the race, so the viewer's pod is never lost in the pack.
 fn self_mark(im: &mut Img, c: &Ctx) {
     if c.race.ticks < state::GRID_TICKS + 12 || c.car.finish.is_some() { return; }
-    // Only when the pack could hide it: on open road the pod at the bottom of the
-    // picture is the viewer's, and a mark there would read as the pod ahead's.
     let crowded = c.order.iter().any(|&(id, o)| id != c.seat && o.finish.is_none() && (o.d - c.car.d).abs() < 16. && (o.y - c.car.y).abs() < 9.);
     if !crowded { return; }
     let p = point(c.car.d - 3., c.car.y, 3.4 + c.car.lift.max(0.));
@@ -179,8 +196,6 @@ fn self_mark(im: &mut Img, c: &Ctx) {
 
 fn car_running(car: &rules::Car) -> bool { car.finish.is_none() }
 
-/// The name of the stretch of road just entered, under the clocks for its
-/// first hundred metres.
 fn section(im: &mut Img, c: &Ctx, _into: f32) {
     let course = c.race.course();
     let len = state::lap_len(c.race);
@@ -192,8 +207,6 @@ fn section(im: &mut Img, c: &Ctx, _into: f32) {
     centred(im, 174, 46, z.name, 1, 'H');
 }
 
-/// The real course from the road's own samples (the forks too), fitted to
-/// the plate with one scale on both axes, and a blip in each seat's colour.
 fn minimap(im: &mut Img, c: &Ctx, x: i32, y: i32, w: i32, h: i32) {
     plate(im, x, y, w, h);
     let course = c.race.course();
@@ -219,10 +232,8 @@ fn minimap(im: &mut Img, c: &Ctx, x: i32, y: i32, w: i32, h: i32) {
     };
     for f in &forks { trace(im, f, 'j', 'g'); }
     trace(im, &main, 'G', 'j');
-    // The line: a short bar across the road at the start.
     let (px, py) = at(main[0].0, main[0].1);
     im.rect(px - 2, py - 2, 5, 2, 'H');
-    // Blips, the rest of the field first and the viewer last.
     for pass in 0..2 {
         for &(id, car) in c.order {
             if (id == c.seat) != (pass == 1) { continue; }
@@ -241,7 +252,6 @@ fn minimap(im: &mut Img, c: &Ctx, x: i32, y: i32, w: i32, h: i32) {
     }
 }
 
-/// Six rows of colour and name in running order: the same order as the place counter.
 fn ladder(im: &mut Img, c: &Ctx, x: i32, y: i32) {
     let rows = c.order.len() as i32;
     plate(im, x, y, 34, rows * 9 + 3);
@@ -256,7 +266,6 @@ fn ladder(im: &mut Img, c: &Ctx, x: i32, y: i32) {
     }
 }
 
-/// The race in one line: where every seat is along the whole distance.
 fn progress(im: &mut Img, c: &Ctx) {
     let (x0, x1, y) = (8, 376, 177);
     let total = state::course_len(c.race);
@@ -281,7 +290,6 @@ fn speed(im: &mut Img, c: &Ctx) {
     let kmh = (c.car.v * 12.).round() as u32;
     shout(im, 11, 188, &format!("{kmh:03}"), 3, if c.car.boosting { 'T' } else { 'H' });
     im.text(72, 190, "KM/H", 't');
-    // A fine bar under the digits: cruise is the notch, boost runs past it.
     let fill = (c.car.v / 64. * 90.) as i32;
     im.rect(11, 207, 90, 2, 'g');
     im.rect(11, 207, fill.min(90), 2, if c.car.v > c.car.spec().top + 1. { 'T' } else { 'h' });
@@ -299,19 +307,14 @@ fn boost(im: &mut Img, c: &Ctx) {
     let cells = 16;
     for n in 0..cells {
         let on = (n as f32) < car.boost * cells as f32;
-        // The last third runs hot: the cells cool from gold to amber to red as it empties.
         let ink = if !on { 'g' } else if car.boost_locked { 'O' } else if n < 5 { 'R' } else if n < 10 { 'O' } else { tint };
         im.rect(284 + n * 5, 199, 4, 8, ink);
     }
 }
 
-/// The sim's engine 0 is the pod's lesser-`y` side and the picture shows lesser `y` on the left
-/// (a test holds the camera to it): the road's greater-`y` side is the right of the screen.
 pub fn engine_label(i: usize) -> &'static str { if i == 0 { "L" } else { "R" } }
 pub fn engine_word(i: usize) -> &'static str { if i == 0 { "LEFT" } else { "RIGHT" } }
 
-/// The twin engine gauges: heat in each nacelle, the notch where it catches fire, and the scar
-/// of wear the squires have yet to patch.
 fn engines(im: &mut Img, c: &Ctx, x: i32, y: i32) {
     let car = c.car;
     plate(im, x, y, 78, 28);
@@ -322,7 +325,6 @@ fn engines(im: &mut Img, c: &Ctx, x: i32, y: i32) {
         else if hot >= WARN_HEAT { ("RUNNING HOT", 'O') }
         else { ("ENGINES", 't') };
     im.text(x + 5, y + 3, title, tint);
-    // Left on the picture first.
     for i in 0..2usize {
         let row = i;
         let (h, wear) = (car.heat[i], car.wear[i]);
@@ -333,7 +335,6 @@ fn engines(im: &mut Img, c: &Ctx, x: i32, y: i32) {
         let fill = (h * bw as f32).round() as i32;
         let ink = if h >= FIRE_HEAT { '7' } else if h >= WARN_HEAT { '4' } else { '2' };
         im.rect(bx, by, fill, 5, ink);
-        // On fire, the tip of the bar flares white-hot.
         if h >= FIRE_HEAT && fill > 2 { im.rect(bx + fill - 3, by, 3, 5, if blink { '6' } else { 'O' }); }
         im.rect(bx, by, ((wear * bw as f32).round() as i32).min(fill), 5, 'a');
         im.rect(bx + (WARN_HEAT * bw as f32) as i32, by - 1, 1, 7, 'j');
@@ -341,8 +342,6 @@ fn engines(im: &mut Img, c: &Ctx, x: i32, y: i32) {
     }
 }
 
-/// The wake: chevrons laid along the road from this pod's nose to the pod ahead whose wake it
-/// rides, and a meter for how deep in it the pod sits.
 fn draft_cue(im: &mut Img, c: &Ctx) {
     let car = c.car;
     if car.draft < 0.06 || car.finish.is_some() || car.blown() || c.race.ticks < state::GRID_TICKS { return; }
@@ -363,9 +362,7 @@ fn draft_cue(im: &mut Img, c: &Ctx) {
             for k in 0..2 { im.line(xi - w, yi + w / 2 + k, xi, yi - w / 2 + k, ink); im.line(xi + w, yi + w / 2 + k, xi, yi - w / 2 + k, ink); }
         }
     }
-    // The meter above the pod: it fills as the draft deepens and drains as the slingshot spends it.
     let cells = 8;
-    // High over the pod: the callouts own the middle of the picture (y 98 to 148), and the meter would sit under them.
     let (x0, y0) = (192 - cells * 3, 92);
     im.text(192 - text_w("DRAFT", 1) / 2, y0 - 9, "DRAFT", if car.draft > 0.55 { 'W' } else { '2' });
     for n in 0..cells {
@@ -374,8 +371,6 @@ fn draft_cue(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// The one thing the screen has to say about the engines and the traffic, in the middle of it, by
-/// how much it matters: a blowout, a fire, a slam, the start, a pass, a warning.
 fn callout(im: &mut Img, c: &Ctx) {
     let car = c.car;
     if car.finish.is_some() || c.race.ticks < state::GRID_TICKS { return; }
@@ -395,21 +390,25 @@ fn callout(im: &mut Img, c: &Ctx) {
         centred(im, 192, 123, "LIFT OFF THE GAS TO COOL IT", 1, 'T');
     } else if car.slam > 0 {
         centred(im, 192, 110, "SLAM!", 2, if blink { 'O' } else { 'T' });
-        // The side it came from lights up.
         if car.slam_side != 0 {
-            // slam_side is the direction of the other pod: greater `y` is the right of the picture.
             im.rect(if car.slam_side < 0 { 0 } else { 380 }, 52, 4, 120, 'O');
         }
     } else if car.launch_t > 0 && car.launch != 0 {
         if car.launch > 0 { centred(im, 192, 128, "ROCKET START!", 2, 'W'); } else { centred(im, 192, 128, "FLOODED!", 2, 'O'); }
     } else if car.cheer > 0 {
         centred(im, 192, 112, "PASSED A RIVAL!", 1, 'y');
+    } else if car.paint > 0 && car.paint_with != 0 {
+        let other = livery(u32::from(car.paint_with));
+        let line = format!("TRADED PAINT WITH {}", other.name);
+        let w = text_w(&line, 1);
+        centred(im, 192, 116, &line, 1, 'h');
+        im.rect(192 - w / 2 - 9, 114, 5, 9, other.ink);
+        im.rect(192 + w / 2 + 5, 114, 5, 9, other.ink);
     } else if car.hottest() >= WARN_HEAT + 0.1 && blink {
         centred(im, 192, 118, &format!("{} ENGINE HOT", engine_word(hot)), 1, 'O');
     }
 }
 
-/// The cue for what is behind: rivals within 70 m on the track at their own lane.
 fn rear(im: &mut Img, c: &Ctx, x: i32, y: i32, w: i32, h: i32) {
     plate(im, x, y, w, h);
     let behind: Vec<_> = c.order.iter().filter(|(id, car)| *id != c.seat && car.finish.is_none() && c.car.d - car.d > -4. && c.car.d - car.d < 70.).collect();
@@ -419,7 +418,6 @@ fn rear(im: &mut Img, c: &Ctx, x: i32, y: i32, w: i32, h: i32) {
     im.text(x + 5, y + 4, "REAR", if hot { 'O' } else { 't' });
     let gap = if behind.is_empty() { "CLEAR".to_string() } else { format!("{:.0}M", near.max(0.)) };
     im.text(x + 5, y + 11, &gap, if hot { 'T' } else { 'h' });
-    // The road behind, top to bottom: me at the top, 70 m down at the bottom.
     let (rx, rw) = (x + 37, w - 43);
     im.rect(rx, y + 4, rw, h - 8, 'K');
     im.rect(rx, y + 4, 1, h - 8, 'j'); im.rect(rx + rw - 1, y + 4, 1, h - 8, 'j');
@@ -436,16 +434,11 @@ fn rear(im: &mut Img, c: &Ctx, x: i32, y: i32, w: i32, h: i32) {
     im.rect(mx - 1, my - 3, 3, 1, 'H');
 }
 
-/// A pennant over every rival on screen: their colour and their place, and
-/// the gap in metres for the near ones. Hidden behind a crest or a wall, and
-/// stacked up when two would sit on one another.
 fn tags(im: &mut Img, c: &Ctx) {
     let grid = c.race.ticks < state::GRID_TICKS + 20;
     let mut seen: Vec<(i32, i32, i32, i32)> = Vec::new();
     let hits = |taken: &[(i32, i32, i32, i32)], r: (i32, i32, i32, i32)| taken.iter().any(|t| r.0 < t.2 && r.2 > t.0 && r.1 < t.3 && r.3 > t.1);
-    // Where a pennant never stands: the ladder, and on the grid the lamps and the count.
     let keep_out: &[(i32, i32, i32, i32)] = if grid { &[LIGHTS, LADDER] } else { &[LADDER] };
-    // Nearest first, so the pods that matter get the clear air.
     let mut rows: Vec<_> = c.order.iter().filter(|(id, _)| *id != c.seat || grid).collect();
     rows.sort_by(|a, b| (a.1.d - c.car.d).abs().total_cmp(&(b.1.d - c.car.d).abs()));
     for &&(id, car) in &rows {
@@ -461,7 +454,6 @@ fn tags(im: &mut Img, c: &Ctx) {
         let (bw, bh) = (text_w(&label, 1) + 5, 11);
         let bx = xi - bw / 2;
         let mut by = yi - bh - 3;
-        // Stack up past anything already there.
         for _ in 0..4 {
             if !hits(&seen, (bx - 1, by - 1, bx + bw + 1, by + bh + 1)) { break; }
             by -= bh + 2;
@@ -471,7 +463,6 @@ fn tags(im: &mut Img, c: &Ctx) {
         im.rect(bx, by, bw, bh, 'k');
         im.frame(bx, by, bw, bh, ink);
         im.text(bx + 3, by + 2, &label, if id == c.seat { 'H' } else { ink });
-        // The pointer down to the pod.
         im.rect(bx + bw / 2 - 1, by + bh, 3, 1, ink);
         im.rect(bx + bw / 2, by + bh + 1, 1, 1, ink);
         if id == c.seat {
@@ -488,8 +479,6 @@ fn tags(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// Rivals just off the edge of the picture, level with the car: an arrow on
-/// that side in their colour, so a pod alongside is never invisible.
 fn edge_arrows(im: &mut Img, c: &Ctx) {
     if c.race.ticks < state::GRID_TICKS { return; }
     for &(id, car) in c.order {
@@ -499,7 +488,6 @@ fn edge_arrows(im: &mut Img, c: &Ctx) {
         let p = point(car.d - 2.5, car.y, 2.0);
         let on = project(c.view, p).is_some_and(|(x, _, _)| (14.0..W - 14.0).contains(&x));
         if on { continue; }
-        // Which side of the lens it lies on: the sign along the camera's right.
         let (sh, ch) = c.view.heading_rad.sin_cos();
         let rel = p - c.view.pos;
         let side = if rel.x * -sh + rel.y * ch >= 0. { 1 } else { -1 };
@@ -526,7 +514,6 @@ mod tests {
     use super::*;
     use super::super::camera;
 
-    /// The box of dots an element paints on a clear picture: (left, top, right, bottom), exclusive.
     fn extent(draw: impl FnOnce(&mut Img)) -> (i32, i32, i32, i32) {
         let mut im = Img::new(384, 224);
         draw(&mut im);
@@ -535,7 +522,6 @@ mod tests {
         (x0, y0, x1, y1)
     }
 
-    /// The same, ignoring the rim of the picture (columns 0..8 and 376..384).
     fn extent_inner(draw: impl FnOnce(&mut Img)) -> (i32, i32, i32, i32) {
         let mut im = Img::new(384, 224);
         draw(&mut im);
@@ -546,8 +532,6 @@ mod tests {
 
     fn touches(a: (i32, i32, i32, i32), b: (i32, i32, i32, i32)) -> bool { a.0 < b.2 && b.0 < a.2 && a.1 < b.3 && b.1 < a.3 }
 
-    /// The engine gauge called L is on the left of the picture: the sim's engine 0 is the lesser-`y`
-    /// side of the pod, and the chase camera shows lesser `y` on the left.
     #[test]
     fn the_left_gauge_is_the_engine_on_the_left_of_the_picture() {
         let mut race = rules::Session::blank_on(rules::cup()[0]);
@@ -560,7 +544,6 @@ mod tests {
         assert!(minus < plus, "+y shows at x {plus}, -y at x {minus}: greater y is the right of the picture");
     }
 
-    /// A pod's gauges and callouts, on a clear picture, inside the picture and off the other instruments.
     #[test]
     fn the_engine_gauges_and_callouts_fit_and_say_the_right_thing() {
         let mut race = rules::Session::blank_on(rules::cup()[0]);
@@ -579,7 +562,6 @@ mod tests {
             let c = Ctx { race: &race, car: &car, seat: 1, view: &view, depth: &depth, order: &order, clocks: &clocks };
             let g = extent(|im| engines(im, &c, ENGINES.0, ENGINES.1));
             assert_eq!(g, (ENGINES.0, ENGINES.1, ENGINES.0 + 78, ENGINES.1 + 28), "the gauge fills its plate and no more");
-            // The edge bars (a slam's side) are the screen's rim, and run under the ladder as the wall strike's do.
             let words = extent_inner(|im| callout(im, &c));
             if words.0 != i32::MAX {
                 assert!(words.0 >= 0 && words.2 <= 384 && words.1 >= 52 && words.3 <= 172, "{heat:?}: the callout leaves the open road {words:?}");
@@ -592,7 +574,6 @@ mod tests {
         assert!(seen.len() >= 3, "different things are said in different places: {seen:?}");
     }
 
-    /// Every instrument the grid screen holds, each painted alone, on every course: none touches another.
     #[test]
     fn the_grid_screen_holds_every_instrument_apart() {
         for &id in rules::courses() {
@@ -608,7 +589,7 @@ mod tests {
                 let c = Ctx { race: &race, car, seat: 1, view: &view, depth: &depth, order: &order, clocks: &clocks };
                 let place = state::place_of(&order, 1);
                 let parts: Vec<(&str, (i32, i32, i32, i32))> = vec![
-                    ("place", extent(|im| place_plate(im, place, 6))),
+                    ("place", extent(|im| place_plate(im, place, 6, car))),
                     ("clocks", extent(|im| clock_plate(im, &c, 0., 0, state::laps(&race)))),
                     ("map", extent(|im| minimap(im, &c, 284, 5, 94, 66))),
                     ("ladder", extent(|im| ladder(im, &c, LADDER.0 + 2, LADDER.1 + 2))),
@@ -626,10 +607,8 @@ mod tests {
                         assert!(!touches(*a, *b), "{an} {a:?} touches {bn} {b:?} on {id:?} at tick {ticks}");
                     }
                 }
-                // The words the clock plate carries on the grid fit inside it.
                 let words = extent(|im| clock_plate(im, &c, 0., 0, state::laps(&race)));
                 assert!(words.2 <= 278 && words.3 <= 39, "the course card spills out of its plate: {words:?}");
-                // The fixed side boxes hold what they say they hold.
                 let lights = extent(|im| super::flow::lights(im, ticks));
                 assert!(lights.0 >= LIGHTS.0 && lights.2 <= LIGHTS.2 && lights.1 >= LIGHTS.1 && lights.3 <= LIGHTS.3, "the lamps leave their box: {lights:?} vs {LIGHTS:?}");
                 let ladder_box = extent(|im| ladder(im, &c, LADDER.0 + 2, LADDER.1 + 2));

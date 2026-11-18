@@ -55,9 +55,6 @@ function debugLog(api, label, model, result) {
   )
 }
 
-// One-shot mode (the original contract): body on stdin, transformed body on
-// stdout, label/model via env. Kept byte-identical for callers that predate
-// (or opt out of) serve mode.
 async function oneShot(api) {
   const chunks = []
   for await (const chunk of process.stdin) {
@@ -69,13 +66,6 @@ async function oneShot(api) {
   process.stdout.write(Buffer.from(result.body))
 }
 
-// Persistent mode: framed requests on stdin, framed responses on stdout, one
-// process for the whole cockpit session (a node spawn + import per request is
-// 50-150ms that used to ride every SOTA call). Frame in:
-//   {"api":"chat"|"responses","label":"…","model":"…","len":N}\n + N body bytes
-// Frame out:
-//   {"ok":true,"len":N}\n + N bytes   |   {"ok":false,"err":"…"}\n
-// Requests are served strictly in order (the cockpit serializes them anyway).
 async function serve() {
   let buf = Buffer.alloc(0)
   let header = null

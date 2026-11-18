@@ -60,9 +60,7 @@ use angel_stage::look::{Dither, Fog, Look};
 use angel_stage::scene::{Node, Props};
 use angel_stage::{LayerKind, Placement, Stand};
 
-/// The stage's picture id, as the cockpit names the Delve's.
 const STAGE: u32 = 0x00FA_57A4;
-/// A tile, in the room's pixels.
 const TILE: f32 = 16.0;
 
 fn main() -> ExitCode {
@@ -75,66 +73,34 @@ fn main() -> ExitCode {
     }
 }
 
-/// How the lit look is moved from what the room made (`rooms_lit_look`).
 #[derive(Clone, Copy)]
 struct Dials {
-    /// Entries of the ramps (the room makes eight; fewer are picked along
-    /// them, more are mixed between).
     ramp: usize,
-    /// How far the ramp's hue is the still art's (`still_ramp`: a mean of
-    /// each part of its brightness) and not the room's, 0 to 1; its
-    /// brightness stays the room's.
     still: f32,
     dither: Dither,
-    /// Whether the sun casts shadows.
     shadows: bool,
-    /// How strong the lamps burn and how far they reach, of what the room
-    /// has (0: none, and no warm ramp).
     lamps: (f32, f32),
-    /// The sun's strength and ambient, of the room's.
     sun: (f32, f32),
-    /// How high the sky's light grows, in stage pixels: a face pales toward
-    /// its top by it (`Sun::rise`); 0 is the same everywhere.
     rise: f32,
-    /// Where the distance fades to the ramp's dark middle, in stage pixels
-    /// from the eye: where it starts and where it is all fog; none, none.
     fog: Option<(f32, f32)>,
-    /// Whether the figures take the room's light (`Look::cards`), and the
-    /// least and most of it they take, when not the room's.
     cards: bool,
     card_light: Option<(f32, f32)>,
-    /// Whether there is a depth of field (`Look::dof`), and its radius (in
-    /// pixels of the Delve's grain) and margin, and its spread (in pixels of
-    /// the same), when not the room's.
     dof: bool,
     dof_dial: Option<(f32, f32)>,
     spread: Option<f32>,
-    /// How far the cards' normal maps turn them (`Cards::normals`), when
-    /// not the room's: 0 each card one face, as before the maps.
     normals: Option<f32>,
 }
 
-/// How many colours the still art is boiled down to for the first lit rung.
 const STILL: usize = 4;
 
-/// A rung: the dials of one step.
 #[derive(Clone)]
 struct Rung {
     id: &'static str,
     name: &'static str,
-    /// The room as blocks lit through a look (rooms in 3D), or its still art.
     lit: bool,
-    /// How far the floor tips (`Frame::tilt`).
     tilt: f32,
-    /// Stage pixels to a pixel of the Delve's own grain, a stage of 384 x 224
-    /// at 1: 2 is a stage twice as fine, half the grain 0.5.
     grain: f32,
-    /// A flat rung's grain is made by taking the most common colour of each
-    /// square of this many pixels (the art redrawn at a coarser grain, which
-    /// no asset is yet); 1 leaves it.
     chunk: u32,
-    /// The first floor as the Atari board (`arena::atari`, experimental):
-    /// its own field and blocky sprites, flat and unlit. Floor one only.
     atari: bool,
     dials: Dials,
 }
@@ -187,8 +153,6 @@ fn rungs() -> Vec<Rung> {
     ]
 }
 
-/// A dial moved from the command line, `r2.dither=none`: the rung, the dial,
-/// its value (pairs as `a,b`).
 fn set(rungs: &mut [Rung], word: &str) -> Result<(), String> {
     let bad = || format!("`{word}`: --set takes rung.dial=value, as r2.dither=none");
     let (path, value) = word.split_once('=').ok_or_else(bad)?;
@@ -230,27 +194,18 @@ fn set(rungs: &mut [Rung], word: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// A shot: its name and the run as it stands.
 struct Case {
     name: String,
     run: Run,
-    /// A painted wish the first knight wears (`crypt-painted`).
     painting: Option<Shield>,
 }
 
-/// A painted wish for the proof of normal maps (docs/WORLD-TIERS.md,
-/// "Normal maps"): a round bronze shield, painted with its own light, and
-/// the normal map its painter would ship beside it (`normal=`), which knows
-/// its raised rim, boss and rivets where a map made from the painting knows
-/// only its outline and its brightness.
 struct Shield {
     rgba: Vec<u8>,
     normal: Vec<u8>,
 }
 
-/// The painting's side, in its own pixels.
 const SHIELD: u32 = 96;
-/// Stand-ins for the painting's and its normal map's sha256.
 const SHIELD_SHA: &str = "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0";
 const SHIELD_NORMAL_SHA: &str = "c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1";
 
@@ -268,8 +223,6 @@ impl Shield {
                 if r > 44.0 {
                     continue;
                 }
-                // The height of the shield here, for its normal: a low dome,
-                // a raised rim, a high boss, eight rivets.
                 let height = |px: f32, py: f32| -> f32 {
                     let r = (px * px + py * py).sqrt();
                     let mut h = 4.0 * (1.0 - (r / 44.0).powi(2));
@@ -289,8 +242,6 @@ impl Shield {
                 };
                 let (dx, dy) = ((height(px + 0.75, py) - height(px - 0.75, py)) / 1.5, (height(px, py + 0.75) - height(px, py - 0.75)) / 1.5);
                 let nrm = angel_stage::normals::encode([-dx, dy, 1.0]);
-                // Painted: bronze, a darker band inside the rim, its own
-                // light from the upper left.
                 let lambert = {
                     let l = [-0.5f32, 0.6, 0.62];
                     let len = (dx * dx + dy * dy + 1.0).sqrt();
@@ -317,8 +268,6 @@ impl Shield {
         Shield { rgba, normal }
     }
 
-    /// The card a knight wears it by: a worn piece on the body, its inks a
-    /// disc of bronze.
     fn card() -> String {
         let side = 12;
         let rows: Vec<String> = (0..side)
@@ -334,9 +283,6 @@ impl Shield {
         format!("name Bossed Shield\nkind hold\narmor 1\ndraw worn at=body paint={SHIELD_SHA} normal={SHIELD_NORMAL_SHA}\n{}\n", rows.join("\n"))
     }
 
-    /// The window's pictures of painting `p`, `scale` window pixels to a
-    /// room pixel, as the window cuts them (`paintings::cut`), and its
-    /// normal map's, authored or made from it; the picture's id.
     fn pictures(&self, p: &arena::Painting, scale: f32, authored: bool, out: &mut Vec<angel_stage::Picture>) -> Option<u32> {
         let side = arena::paintings::side_for(p.rect[2].max(p.rect[3]) * scale);
         let size = (SHIELD, SHIELD);
@@ -358,10 +304,6 @@ impl Shield {
     }
 }
 
-/// Where a knight stands in room `room` (on a floor of `pack`): on open floor
-/// just behind (north of) the tallest thing its lit blockout stands near
-/// `near`, so it hides the knight's legs; the open floor nearest `near` when
-/// nothing stands. Its feet, in the room's pixels.
 fn spot(room: &Room, pack: Pack, near: (f32, f32), reach: i32) -> (f32, f32) {
     let walk = |c: i32, r: i32| {
         (0..room.cols as i32).contains(&c) && (0..room.rows as i32).contains(&r) && matches!(room.tile(c, r), Tile::Floor | Tile::Door)
@@ -408,8 +350,6 @@ fn spot(room: &Room, pack: Pack, near: (f32, f32), reach: i32) -> (f32, f32) {
     open.unwrap_or(near)
 }
 
-/// Stand the run's knights at `feet` and beside it (the room's pixels), the
-/// view on the first.
 fn stand(run: &mut Run, feet: (f32, f32)) {
     for (k, hero) in run.players.values_mut().enumerate() {
         let dx = k as f32 * 22.0;
@@ -418,8 +358,6 @@ fn stand(run: &mut Run, feet: (f32, f32)) {
     }
 }
 
-/// A run on floor `depth` of `pack` (seed `seed`) standing in its first room
-/// of kind `kind`, two knights in it.
 fn seeded(pack: Pack, depth: u32, seed: u64, kind: RoomKind) -> Option<Run> {
     for seed in seed..seed + 8 {
         let floor = layout::floor_party(depth, pack, 2, &mut Rng::new(seed));
@@ -440,7 +378,6 @@ fn seeded(pack: Pack, depth: u32, seed: u64, kind: RoomKind) -> Option<Run> {
     None
 }
 
-/// Whether the window stands run `run`'s room up in 3D.
 fn stood(run: &Run) -> bool {
     world3d::set_enabled(true);
     arena::props_meshes(true);
@@ -449,14 +386,10 @@ fn stood(run: &Run) -> bool {
     stood
 }
 
-/// The room's view as the window makes it, the seat's bands left off.
 fn scene(run: &Run) -> arena::RoomScene {
     arena::in_seat(|| arena::scene_for(run, NATIVE_W, NATIVE_H, Some(1)))
 }
 
-/// `run` with its knights stood by the brightest lamp its lit room has in
-/// view (a brazier), just south of it on open floor: the lit
-/// cards' warm case.
 fn by_lamp(run: &Run) -> Option<Run> {
     world3d::set_enabled(true);
     arena::props_meshes(true);
@@ -484,8 +417,6 @@ fn cases(only: &[String], open_seed: u64) -> Vec<Case> {
         [
             ("crypt-fight", Pack::Crypt, 1u32, 3u64, RoomKind::Fight),
             ("crypt-passage", Pack::Crypt, 2, 9, RoomKind::Hall),
-            // The first floor's way down, and the second floor's first fight:
-            // the step off the Atari board (`--rung a0 --rung r1`).
             ("crypt-stairs", Pack::Crypt, 1, 5, RoomKind::Stairs),
             ("crypt-fight-two", Pack::Crypt, 2, 3, RoomKind::Fight),
         ]
@@ -502,7 +433,6 @@ fn cases(only: &[String], open_seed: u64) -> Vec<Case> {
         if brazier {
             match by_lamp(&run) {
                 Some(run) => {
-                    // The same, its first knight wearing a painted wish.
                     if only.iter().any(|o| o == "crypt-painted") {
                         let mut painted = run.clone();
                         let card = angel_delve::rules::cards::check("bossed-shield", &Shield::card()).map(|c| c.card);
@@ -527,14 +457,12 @@ fn cases(only: &[String], open_seed: u64) -> Vec<Case> {
             out.push(Case { name: name.to_string(), run, painting: None });
         }
     }
-    // The Crypt's bone chapel, a room with a painted plate in a pack that has one.
     if only.is_empty() || only.iter().any(|o| "crypt-bone-chapel".contains(o.as_str())) {
         match room::proof("crypt-bone-chapel") {
             Some(proof) => out.push(Case { name: "crypt-bone-chapel".into(), run: proof.run, painting: None }),
             None => eprintln!("crypt-bone-chapel: no proof room"),
         }
     }
-    // An open floor: the map round the arrival.
     if only.is_empty() || only.iter().any(|o| "crypt-open-floor".contains(o.as_str())) {
         let mut run = Run::new(open_seed + 1, open_seed, Some("Friend"));
         run.first = Pack::Crypt;
@@ -550,10 +478,6 @@ fn cases(only: &[String], open_seed: u64) -> Vec<Case> {
     out
 }
 
-/// `k` times the size of everything in the frame, so the stage is `k` times
-/// as many pixels with the same picture on it: the world's nodes (what hangs
-/// from another keeps its place in it), the look's distances, the layers. The
-/// stage's camera takes its size from the stage, so nothing else moves.
 fn regrain(frame: &mut angel_stage::Frame, k: f32) {
     if (k - 1.0).abs() < 1e-3 {
         return;
@@ -593,7 +517,6 @@ fn regrain(frame: &mut angel_stage::Frame, k: f32) {
     }
 }
 
-/// A look's distances `k` times as long.
 fn resize(look: &mut Look, k: f32) {
     let up = |p: &mut [f32; 3]| *p = p.map(|v| v * k);
     for lamp in &mut look.lamps {
@@ -627,7 +550,6 @@ fn resize(look: &mut Look, k: f32) {
     look.metre *= k;
 }
 
-/// `ramp` as `n` entries: picked and mixed along its length, dark to light.
 fn resample(ramp: &[[u8; 3]], n: usize) -> Vec<[u8; 3]> {
     (0..n)
         .map(|i| {
@@ -639,7 +561,6 @@ fn resample(ramp: &[[u8; 3]], n: usize) -> Vec<[u8; 3]> {
         .collect()
 }
 
-/// `room`'s brightness in the hue `still` is `by` of the way from it.
 fn carry(room: [u8; 3], still: [u8; 3], by: f32) -> [u8; 3] {
     let luma = |c: [f32; 3]| 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
     let mixed: [f32; 3] = std::array::from_fn(|c| f32::from(room[c]) + (f32::from(still[c]) - f32::from(room[c])) * by);
@@ -647,8 +568,6 @@ fn carry(room: [u8; 3], still: [u8; 3], by: f32) -> [u8; 3] {
     mixed.map(|v| (v * k).round().clamp(0.0, 255.0) as u8)
 }
 
-/// The room's look moved by `d`; `unit` stage pixels to a pixel of the
-/// Delve's, for the sizes `d` names.
 fn dial(look: &mut Look, d: &Dials, unit: f32, still: Option<&[[u8; 3]]>) {
     look.ramp = resample(&look.ramp, d.ramp);
     if let Some(still) = still.filter(|s| d.still > 0.0 && s.len() == d.ramp) {
@@ -701,13 +620,8 @@ fn dial(look: &mut Look, d: &Dials, unit: f32, still: Option<&[[u8; 3]]>) {
     }
 }
 
-/// The four ways a lit rung is shot with `--pairs`: both dials that follow
-/// the figures off, the lit cards alone, the depth of field alone, both.
 const PAIRS: [(&str, bool, bool); 4] = [("off", false, false), ("cards", true, false), ("dof", false, true), ("both", true, true)];
 
-/// Every figure card of `frame` beside its normal map (`normals::
-/// picture_of`), a row each, each pixel eight across, on black: how the
-/// maps read, pixel by pixel.
 fn maps_sheet(frame: &angel_stage::Frame) -> Option<((u32, u32), Vec<u8>)> {
     const K: u32 = 8;
     let by_id: std::collections::HashMap<u32, &angel_stage::Picture> = frame.pictures.iter().map(|p| (p.id, p)).collect();
@@ -730,7 +644,6 @@ fn maps_sheet(frame: &angel_stage::Frame) -> Option<((u32, u32), Vec<u8>)> {
             for y in 0..p.height {
                 for x in 0..p.width {
                     let i = ((y * p.width + x) * 4) as usize;
-                    // A map's clear pixels left as clear as its picture's.
                     if picture.rgba[i + 3] == 0 {
                         continue;
                     }
@@ -749,9 +662,6 @@ fn maps_sheet(frame: &angel_stage::Frame) -> Option<((u32, u32), Vec<u8>)> {
     Some(((w, h), out))
 }
 
-/// `n` colours that stand for the frame: the mean of each `n`th of its
-/// pixels by brightness, dark to light (the black above a tilted floor and
-/// what is clear left out).
 fn still_ramp(rgba: &[u8], n: usize) -> Vec<[u8; 3]> {
     let luma = |c: &[u8]| 0.2126 * f32::from(c[0]) + 0.7152 * f32::from(c[1]) + 0.0722 * f32::from(c[2]);
     let mut px: Vec<&[u8]> = rgba.chunks_exact(4).filter(|c| c[3] > 0 && luma(c) > 6.0).collect();
@@ -764,8 +674,6 @@ fn still_ramp(rgba: &[u8], n: usize) -> Vec<[u8; 3]> {
         .collect()
 }
 
-/// The most common colour of each `n` by `n` square, the first met among
-/// equals: a frame at a coarser grain with its colours kept.
 fn chunked(rgba: &[u8], size: (u32, u32), n: u32) -> Vec<u8> {
     let (w, h) = (size.0 as usize, size.1 as usize);
     let n = n as usize;
@@ -832,7 +740,6 @@ fn run() -> Result<(), String> {
     for case in &cases {
         let mut still: Option<Vec<[u8; 3]>> = None;
         for rung in &rungs_all {
-            // The Atari board is the first floor's alone.
             if rung.atari && case.run.dungeon.depth != arena::atari::FLOOR {
                 if rungs.iter().any(|w| w == rung.id) {
                     eprintln!("{}: {} is floor one only", case.name, rung.id);
@@ -847,11 +754,9 @@ fn run() -> Result<(), String> {
             if rung.lit && scene.world.is_none() {
                 return Err(format!("{}: not lit at {}", case.name, rung.id));
             }
-            // A painted case's painting, its normal map its own or made.
             let authored = std::cell::Cell::new(true);
             let make = |dials: &Dials| {
                 let (mut painted, mut drawn) = (Vec::new(), Vec::new());
-                // The pack's drawings, as the window sends them (none without `--hd`).
                 let mut art = hd_pack::HdArt::default();
                 art.normals = dials.normals != Some(0.0);
                 let mut frame = StageMaker::default().make_with(
@@ -870,7 +775,6 @@ fn run() -> Result<(), String> {
             };
             let frame = make(&rung.dials);
             if rung.atari {
-                // The board makes its own frame: flat, unlit.
                 assert!(scene.board && frame.tilt == 0.0, "{}: the board's frame", case.name);
             }
             let size = (NATIVE_W as u32 * scale, NATIVE_H as u32 * scale);
@@ -882,8 +786,6 @@ fn run() -> Result<(), String> {
                         write_png(&out.join(format!("{}-maps.png", case.name)), size, &rgba)?;
                     }
                     if time > 0 {
-                        // What making the figures' maps costs when they are
-                        // all new (a maker keeps each look's after).
                         let figures: Vec<&angel_stage::Picture> = made
                             .pictures
                             .iter()
@@ -899,9 +801,6 @@ fn run() -> Result<(), String> {
                         println!("{}: {} figures' normal maps made: {us:.1} us for all {} (CPU, none kept)", case.name, rung.id, figures.len());
                     }
                 }
-                // Both dials on, the cards each one face turned to the eye
-                // and turned pixel by pixel by their maps; a painted case's
-                // painting by its own map, and by one made from it.
                 let ways: &[(&str, bool, bool)] = if case.painting.is_some() {
                     &[("flat", false, true), ("made", true, false), ("authored", true, true)]
                 } else {
@@ -936,7 +835,6 @@ fn run() -> Result<(), String> {
             }
             let mut pixels = gpu.stage(frame, size);
             if rung.chunk > 1 {
-                // The art at a coarser grain, its colours kept.
                 pixels = chunked(&pixels, size, rung.chunk * scale);
             }
             if rung.id == "r1" {
@@ -995,9 +893,6 @@ impl Gpu {
         Ok(Self { core, device })
     }
 
-    /// What drawing `frame`'s stage costs a frame, in milliseconds: set up
-    /// as `stage` does, then drawn `n` times, each waited for (one first,
-    /// unmeasured, for the pipelines and targets it makes).
     fn time(&mut self, frame: angel_stage::Frame, size: (u32, u32), n: u32) -> f64 {
         self.set(frame, size);
         let wait = |device: &wgpu::Device| {
@@ -1015,8 +910,6 @@ impl Gpu {
         start.elapsed().as_secs_f64() * 1000.0 / f64::from(n)
     }
 
-    /// A Delve frame as the stage, its pictures uploaded, in a box `size`
-    /// pixels.
     fn set(&mut self, frame: angel_stage::Frame, size: (u32, u32)) {
         for p in frame.pictures {
             self.core.upload(Picture { id: p.id, width: p.width, height: p.height, rgba: p.rgba, cols: 0, rows: 0 });
@@ -1038,8 +931,6 @@ impl Gpu {
         );
     }
 
-    /// A Delve frame as a stage, drawn into a texture `size` pixels as the
-    /// window draws a stage in its cells, on black, and read back.
     fn stage(&mut self, frame: angel_stage::Frame, size: (u32, u32)) -> Vec<u8> {
         self.set(frame, size);
         let texture = self.device.create_texture(&wgpu::TextureDescriptor {

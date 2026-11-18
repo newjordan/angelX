@@ -1,7 +1,3 @@
-# crates/delve/src/rules/lanternward/props.rs — what stands in a room, what
-# lies on the floor, the puffs and sparks. (The render-only `lights`,
-# `light_at`, `light_in` and `Item::name/how` are not ported.)
-
 def lanternward.NAME_IN(+k: String, +names: List<&2, String>) -> Bool:
   match names:
     case Nil{}:
@@ -9,7 +5,6 @@ def lanternward.NAME_IN(+k: String, +names: List<&2, String>) -> Bool:
     case Con{+h, +t}:
       Bool.or(String.eq(k, h), lanternward.NAME_IN(k, t))
 
-# `Pk::of`: the kind a plan letter makes, or null.
 def lanternward.props.Pk.of(+c: U32) -> J.Val:
   match c:
     case 111:
@@ -76,7 +71,6 @@ def lanternward.props.Prop.new(+kind: String, +tx: U32, +ty: U32, +id: U32) -> J
   +p6 = ga.si(p5, "x", lanternward.world.middle(tx))
   ga.si(p6, "y", lanternward.world.middle(ty))
 
-# Whether it is lit now.
 def lanternward.props.Prop.lit(+p: J.Val) -> Bool:
   +k = ga.s(p, "kind")
   +on = ga.u(p, "on")
@@ -84,7 +78,6 @@ def lanternward.props.Prop.lit(+p: J.Val) -> Bool:
     Bool.pick(Bool, String.eq(k, "Brazier"), Bool.or(U32.is_gt(ga.u(p, "t"), 0), U32.is_eq(on, 1)),
       Bool.pick(Bool, lanternward.NAME_IN(k, ["Great", "Beacon"]), U32.is_eq(on, 1), False{})))
 
-# Whether a body at this point (Q pixels) is stopped by it.
 def lanternward.props.Prop.blocks(+p: J.Val, +x: U32, +y: U32) -> Bool:
   +k = ga.s(p, "kind")
   +on = ga.u(p, "on")
@@ -99,18 +92,15 @@ def lanternward.props.Prop.blocks(+p: J.Val, +x: U32, +y: U32) -> Bool:
       Bool.pick(Bool, String.eq(k, "Chest"), Bool.and(U32.is_ne(on, 2), here),
         Bool.pick(Bool, String.eq(k, "Block"), near, here))))
 
-# Whether a bolt flies through it.
 def lanternward.props.Prop.lets_bolts(+p: J.Val) -> Bool:
   lanternward.NAME_IN(ga.s(p, "kind"), ["Gate", "Sigil", "Grass", "Plate", "Fissure", "Pot"])
 
-# Whether the knight in front of it can lock on to it.
 def lanternward.props.Prop.target(+p: J.Val) -> Bool:
   +k = ga.s(p, "kind")
   Bool.pick(Bool, lanternward.NAME_IN(k, ["Sign", "Folk"]), True{},
     Bool.pick(Bool, lanternward.NAME_IN(k, ["Crystal", "Great", "Lever"]), U32.is_eq(ga.u(p, "on"), 0),
       Bool.pick(Bool, String.eq(k, "Brazier"), Bool.not(lanternward.props.Prop.lit(p)), False{})))
 
-# What a chest holds, by its room and its place in it.
 def lanternward.props.chest_item(+room: U32, +id: U32) -> J.Val:
   match room:
     case 0:
@@ -140,8 +130,6 @@ def lanternward.props.chest_item.r3(+id: U32) -> J.Val:
     case _:
       lanternward.variant("Gems", J.JU{25})
 
-# The room's things, in the order the plan's rows list them. `acc` carries the
-# list and the chest, sign and folk counters.
 def lanternward.props.build.id(+kind: String, +c: U32, +acc: J.Val) -> U32:
   Bool.pick(U32, String.eq(kind, "Gate"), Bool.pick(U32, U32.is_eq(c, 71), 0, (c - 48 : U32)),
     Bool.pick(U32, String.eq(kind, "Chest"), ga.u(acc, "chests"),
@@ -188,8 +176,6 @@ def lanternward.props.build(+room: U32) -> J.Val:
       ga.sv(ga.su(ga.su(ga.su(J.obj(), "chests", 0), "signs", 0), "folk", 0), "out", J.JA{Nil{}})),
     "out")
 
-# ---- impl Session ----
-
 def lanternward.props.Session.fx(+s: J.Val, +kind: String, +x: U32, +y: U32, +a: U32) -> J.Val:
   lanternward.props.Session.fx.push(U32.is_lt(lanternward.len(s, "fx"), 80), s, kind, x, y, a)
 
@@ -212,15 +198,12 @@ def lanternward.props.Session.drop_at.push(ok: Bool, +s: J.Val, +kind: String, +
     case False{}:
       s
 
-# The fixed dice, in two halves: `roll` advances the seed, `rolled` reads the
-# value `% n` off the new seed (Rust's `roll(n)` does both).
 def lanternward.props.Session.roll(+s: J.Val) -> J.Val:
   ga.sv(s, "seed", W.to_j(W.add(W.mul(W.of_j(J.get(s, "seed")), W.W{1481765933, 1284865837}), W.W{335903614, 4150755663})))
 
 def lanternward.props.Session.rolled(+s: J.Val, +n: U32) -> U32:
   W.rem_u32(W.shr(W.of_j(J.get(s, "seed")), 33), RS.u_max(n, 1))
 
-# A pot or a tuft of grass breaks: what it held lies on the floor.
 def lanternward.props.Session.shatter(+s: J.Val, +i: U32) -> J.Val:
   lanternward.props.Session.shatter.go(
     s, i, ga.s(lanternward.el(s, "props", i), "kind"), lanternward.eu(s, "props", i, "id"),
@@ -244,7 +227,6 @@ def lanternward.props.Session.shatter.drops(bombs: Bool, +s: J.Val, +kind: Strin
     case False{}:
       lanternward.props.Session.scatter(s, kind, x, y)
 
-# What a cut or broken thing lets fall.
 def lanternward.props.Session.scatter(+s: J.Val, +kind: String, +x: U32, +y: U32) -> J.Val:
   +s1 = lanternward.props.Session.roll(s)
   lanternward.props.Session.scatter.go(s1, lanternward.props.Session.scatter.pick(kind, lanternward.props.Session.rolled(s1, 100)), x, y)
@@ -263,7 +245,6 @@ def lanternward.props.Session.scatter.go(+s: J.Val, +drop: String, +x: U32, +y: 
     case _:
       lanternward.props.Session.drop_at(s, drop, x, y)
 
-# Whether any closed thing in the room stops a body at this point.
 def lanternward.props.Session.any_blocks(+ps: List<&2, J.Val>, +x: U32, +y: U32) -> Bool:
   match ps:
     case Nil{}:
@@ -288,11 +269,9 @@ def lanternward.props.Session.secret_open.any(+ps: List<&2, J.Val>) -> Bool:
           U32.is_eq(ga.u(h, "on"), 1)),
         lanternward.props.Session.secret_open.any(t))
 
-# Whether the room's secret closet has been opened.
 def lanternward.props.Session.secret_open(+s: J.Val) -> Bool:
   lanternward.props.Session.secret_open.any(ga.items(s, "props"))
 
-# Whether a body of radius `r` (Q pixels) fits at this point.
 def lanternward.props.Session.clear(+s: J.Val, +x: U32, +y: U32, +r: U32) -> Bool:
   Bool.not(Bool.or(
     Bool.or(lanternward.props.Session.blocked(s, (x - r : U32), (y - r : U32)),
@@ -300,11 +279,9 @@ def lanternward.props.Session.clear(+s: J.Val, +x: U32, +y: U32, +r: U32) -> Boo
     Bool.or(lanternward.props.Session.blocked(s, (x - r : U32), (y + r : U32)),
       lanternward.props.Session.blocked(s, (x + r : U32), (y + r : U32)))))
 
-# Whether this point is over a pit.
 def lanternward.props.Session.pit(+s: J.Val, +x: U32, +y: U32) -> Bool:
   U32.is_eq(lanternward.world.Plan.at(ga.u(s, "room"), lanternward.world.tile_of(x), lanternward.world.tile_of(y)), 61)
 
-# Whether any prop that stops iron (not one that lets bolts pass) blocks (x, y).
 def lanternward.props.Session.any_stops(+ps: List<&2, J.Val>, +x: U32, +y: U32) -> Bool:
   match ps:
     case Nil{}:
@@ -314,7 +291,6 @@ def lanternward.props.Session.any_stops(+ps: List<&2, J.Val>, +x: U32, +y: U32) 
         Bool.and(Bool.not(lanternward.props.Prop.lets_bolts(h)), lanternward.props.Prop.blocks(h, x, y)),
         lanternward.props.Session.any_stops(t, x, y))
 
-# One step `i` of the line: true when nothing stops a bolt there.
 def lanternward.props.Session.line_open.step(+s: J.Val, +ax: U32, +ay: U32, +dx: U32, +dy: U32, +steps: U32, +i: U32, +ta: U32, +tb: U32) -> Bool:
   lanternward.props.Session.line_open.at(
     s, RS.i_add(ax, RS.i_div(RS.i_mul(dx, i), steps)), RS.i_add(ay, RS.i_div(RS.i_mul(dy, i), steps)), ta, tb)
@@ -346,7 +322,6 @@ def lanternward.props.Session.line_open.cont(ok: Bool, +s: J.Val, +ax: U32, +ay:
     case True{}:
       lanternward.props.Session.line_open.go(s, ax, ay, dx, dy, steps, (i + 1 : U32), ta, tb)
 
-# Whether the way from `a` to `b` is open to a bolt: only walls stop it.
 def lanternward.props.Session.line_open(+s: J.Val, +ax: U32, +ay: U32, +bx: U32, +by: U32) -> Bool:
   +dx = (bx - ax : U32)
   +dy = (by - ay : U32)
@@ -356,7 +331,6 @@ def lanternward.props.Session.line_open(+s: J.Val, +ax: U32, +ay: U32, +bx: U32,
     (lanternward.world.tile_of(ax) + 65536 * lanternward.world.tile_of(ay) : U32),
     (lanternward.world.tile_of(bx) + 65536 * lanternward.world.tile_of(by) : U32))
 
-# Seat.flaring (kit.rs, a pure read of one seat).
 def lanternward.kit.Seat.flaring(+k: J.Val) -> Bool:
   Bool.and(
     Bool.and(U32.is_ge(ga.u(k, "lamp"), 8), U32.is_gt(ga.u(k, "flame"), 0)),
@@ -384,13 +358,11 @@ def lanternward.props.Session.burning.props(+ps: List<&2, J.Val>, +x: U32, +y: U
           RS.i_lt(lanternward.world.dist((ga.u(h, "x") - x : U32), (ga.u(h, "y") - y : U32)), 16384)),
         lanternward.props.Session.burning.props(t, x, y))
 
-# Whether a point is held lit by a flare or a burning brazier.
 def lanternward.props.Session.burning(+s: J.Val, +x: U32, +y: U32) -> Bool:
   Bool.or(
     lanternward.props.Session.burning.seats(ga.ids(J.get(s, "seats")), J.get(s, "seats"), x, y),
     lanternward.props.Session.burning.props(ga.items(s, "props"), x, y))
 
-# The gate with this number, opened or shut. `$ret` is whether any changed.
 def lanternward.props.Session.set_gate.go(+s: J.Val, +i: U32, +id: U32, +want: U32, +changed: Bool) -> J.Val:
   lanternward.props.Session.set_gate.next(U32.is_lt(i, lanternward.len(s, "props")), s, i, id, want, changed)
 
@@ -420,7 +392,6 @@ def lanternward.props.Session.set_gate.set(diff: Bool, +s: J.Val, +i: U32, +id: 
 def lanternward.props.Session.set_gate(+s: J.Val, +id: U32, +open: Bool) -> J.Val:
   lanternward.props.Session.set_gate.go(s, 0, id, Bool.to_u32(open), False{})
 
-# A puzzle came right: the chime, the star burst, a cue on the screen.
 def lanternward.props.Session.solved(+s: J.Val, +x: U32, +y: U32) -> J.Val:
   lanternward.sound(
     lanternward.props.Session.solved.cue(J.is_null(J.get(s, "cue")),

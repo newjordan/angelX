@@ -28,7 +28,6 @@ fn idle() -> BTreeMap<u32, Input> {
     BTreeMap::new()
 }
 
-/// A solo run standing in floor 1's side-on hall, its monsters gone.
 fn hall() -> Run {
     let mut run = Run::new(0, 1, None);
     let at = run
@@ -44,7 +43,6 @@ fn hall() -> Run {
 }
 
 fn ground_y() -> f32 {
-    // The hall's ground is row 11's top.
     11.0 * TILE_UNITS - FOOT
 }
 
@@ -82,7 +80,6 @@ fn the_hall_turns_the_party_side_on_at_its_west_door() {
         assert!(hero.x < 8.0 && hero.grounded);
         assert_eq!(hero.y, ground_y());
     }
-    // Walkers stand on something; fliers fly.
     for enemy in &run.enemies {
         if !enemy.kind.flies() {
             let feet = enemy.y + FOOT;
@@ -106,7 +103,6 @@ fn knights_fall_jump_and_jump_again_in_the_air() {
     assert_eq!(run.players[&1].y, ground_y(), "gravity sets them down");
     assert!(run.players[&1].grounded);
 
-    // One jump: a press, not a hold.
     let peak = |run: &mut Run, double: bool| {
         let mut top = f32::MAX;
         run.step(&press(-1, 0));
@@ -114,7 +110,6 @@ fn knights_fall_jump_and_jump_again_in_the_air() {
             let again = double && i == 8;
             run.step(&if again { press(-1, 0) } else { idle() });
             if i == 7 {
-                // Let go between the two presses.
                 run.step(&idle());
             }
             top = top.min(run.players[&1].y);
@@ -144,7 +139,6 @@ fn knights_fall_jump_and_jump_again_in_the_air() {
 #[test]
 fn planks_hold_from_above_and_drop_you_through_with_down() {
     let mut run = hall();
-    // The first plank: row 7, columns 11–15.
     let plank_top = 7.0 * TILE_UNITS;
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (13.0 * TILE_UNITS, plank_top - FOOT - 3.0);
@@ -157,7 +151,6 @@ fn planks_hold_from_above_and_drop_you_through_with_down() {
         run.step(&idle());
     }
     assert_eq!(run.players[&1].y, ground_y(), "down drops through it");
-    // And from below, a double jump passes up through it and stands on it.
     run.step(&press(-1, 0));
     for i in 0..HZ * 2 {
         run.step(&if i == 9 { press(-1, 0) } else { idle() });
@@ -172,7 +165,6 @@ fn planks_hold_from_above_and_drop_you_through_with_down() {
 #[test]
 fn a_pit_hurts_and_puts_the_knight_back_on_firm_ground() {
     let mut run = hall();
-    // The first pit: columns 9–11 of the ground.
     let hero = run.players.get_mut(&1).unwrap();
     hero.invulnerable = 0;
     let hp = hero.hp;
@@ -186,7 +178,6 @@ fn a_pit_hurts_and_puts_the_knight_back_on_firm_ground() {
     assert_eq!(hero.hp, hp - 20, "the pit bites once");
     assert_eq!(hero.y, ground_y());
     assert!(hero.x < 9.0 * TILE_UNITS, "back on this side: {}", hero.x);
-    // A running jump from its lip clears it.
     let mut run = hall();
     let start_hp = run.players[&1].hp;
     let mut jumped = false;
@@ -231,7 +222,6 @@ fn out_the_west_door_is_back_where_you_came_in() {
     run.dungeon.rooms[parent].cleared = true;
     run.enter(parent, Some(2));
     assert!(!run.side_on());
-    // Through the parent's banner door: side-on.
     let toward = (back + 2) % 4;
     let (w, h) = (run.room().width(), run.room().height());
     let hero = run.players.get_mut(&1).unwrap();
@@ -268,7 +258,6 @@ fn out_the_west_door_is_back_where_you_came_in() {
     );
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_ledge_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_ledge_shots() {
@@ -295,7 +284,6 @@ fn write_ledge_shots() {
         run.step(&idle());
     }
     save(&run, "ledge_enter");
-    // Matt jumps toward the first plank; the host fires up and right.
     for i in 0..14 {
         run.step(&BTreeMap::from([
             (
@@ -327,7 +315,6 @@ fn write_ledge_shots() {
         )]));
     }
     save(&run, "ledge_run");
-    // The far end, where the walkers wait.
     for (i, hero) in run.players.values_mut().enumerate() {
         (hero.x, hero.y) = (70.0 + i as f32 * 3.0, 11.0 * TILE_UNITS - FOOT);
         hero.hp = hero.max_hp;

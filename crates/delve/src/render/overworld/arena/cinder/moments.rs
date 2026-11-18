@@ -10,22 +10,15 @@ use crate::rules::cinder::{CRACKS, Session};
 use crate::rules::cinder_show::{Cry, Kind};
 use crate::rules::{HZ, Run};
 
-/// Ticks the title holds, and the GO that follows it.
 pub(super) const TITLE: u32 = 40;
 pub(super) const GO: u32 = 26;
 
-/// The layer the banners are drawn on, over the well: wide enough for a twelve-letter title at twice
-/// its size and the rails either side of it.
 const BANNER: Rect = (84, 26, 168, 64);
-/// The layer the GO is drawn on.
 const GO_AT: Rect = (84, 30, 168, 100);
-/// The layer of the last five seconds, over the kiln.
 const COUNT: Rect = (246, 60, 138, 100);
 
-/// The layer a pop's cracks rise on, under the banners' own and inside the well.
 const NUM: Rect = (96, 96, 144, 113);
 
-/// A banner on show.
 #[derive(Clone, Debug)]
 pub(super) struct Banner {
     pub title: String,
@@ -37,7 +30,6 @@ pub(super) struct Banner {
     pub rank: u8,
 }
 
-/// The banner seat `id`'s screen shows at board tick `bclock`: the loudest of what is alive.
 pub(super) fn banner(run: &Run, s: &Session, id: u32, bclock: u32, ended: u32) -> Option<Banner> {
     let b = &s.boards[&id];
     let now = hud::elapsed(s);
@@ -48,7 +40,6 @@ pub(super) fn banner(run: &Run, s: &Session, id: u32, bclock: u32, ended: u32) -
         }
     };
     if s.left == 0 {
-        // The last breath: the kiln comes apart, or the clock runs out.
         let winner = s.order.first().copied().unwrap_or(id);
         if !s.won {
             add("TIME UP".into(), String::new(), Tone::Steel, ended, 30, 60);
@@ -85,12 +76,10 @@ pub(super) fn banner(run: &Run, s: &Session, id: u32, bclock: u32, ended: u32) -
     all.into_iter().max_by_key(|b| (b.rank, std::cmp::Reverse(b.age)))
 }
 
-/// The digit the last five seconds show, and how far into it.
 pub(super) fn last_five(s: &Session) -> Option<(String, u32)> {
     (1..=5 * HZ).contains(&s.left).then(|| (s.left.div_ceil(HZ).to_string(), HZ - 1 - (s.left - 1) % HZ))
 }
 
-/// Draw a kit moment on a layer of its own, claim its pixels and lay it over `out`.
 fn on_layer(out: &mut Img, name: &'static str, (x, y, w, h): Rect, draw: impl FnOnce(&mut Img)) {
     let mut layer = Img::new(w, h);
     draw(&mut layer);
@@ -98,7 +87,6 @@ fn on_layer(out: &mut Img, name: &'static str, (x, y, w, h): Rect, draw: impl Fn
     out.stamp(&layer, x, y);
 }
 
-/// Everything the moments put over the play screen of seat `id`.
 pub(super) fn paint(out: &mut Img, run: &Run, s: &Session, id: u32, bclock: u32, ended: u32) {
     let now = hud::elapsed(s);
     let mut quiet = true;
@@ -109,7 +97,6 @@ pub(super) fn paint(out: &mut Img, run: &Run, s: &Session, id: u32, bclock: u32,
         quiet = false;
         on_layer(out, "banner", BANNER, |im| juice::banner(im, 16, &b.title, &b.sub, b.age, b.life, b.tone, b.cap));
     }
-    // With no banner up, the cracks of the latest pop rise off the spot it popped.
     if quiet && s.left > 0 {
         let latest = s.boards[&id].show.marks.iter().rev().find_map(|m| match m.kind {
             Kind::Pop { by, gain, .. } if m.age(bclock) < 28 => Some((by, gain, m.age(bclock))),

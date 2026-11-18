@@ -1,17 +1,3 @@
-"""Jobs: a brief in, variants out, ranked and put up for review.
-
-    direct    treebeard expands the brief against the bible and the library (director.json, director.md)
-    concept   ComfyUI on the Spark draws reference pictures, when the job asks (--concept)
-    build     N agents (claude, codex) draw a variant each, in parallel, each in its own folder with
-              kiln's MCP tools, under the job's time budget
-    critique  the studio takes each variant's final shot and check, and the critic panel scores it
-    review    the review page shows them; people vote
-
-Everything lives in ~/.angelX/kiln/jobs/<id>/: job.json (what was asked), brief.md, director.*,
-status.json (each stage and variant, time and calls), calls.jsonl (every model call),
-variants/<n>/ (the agent's folder: its source, versions/, shots/, logs, NOTES.md, result.json),
-critique.json and votes.json. A stage that finished is not run again by `job resume`.
-"""
 import json
 import os
 import re
@@ -30,7 +16,6 @@ AGENT_TOOLS = ["shot", "check", "describe", "render", "compare", "export", "libr
 
 
 def parse_budget(text):
-    """'20m', '90s', '1h' or seconds, to seconds."""
     m = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*([smh]?)\s*", str(text))
     if not m:
         raise ValueError(f"budget {text!r}: say 20m, 90s or 1h")
@@ -47,8 +32,6 @@ class Job:
         self.id = self.dir.name
         self.lock = threading.Lock()
         self.ledger = Ledger(self.dir / "calls.jsonl")
-
-    # --- files ---------------------------------------------------------------
 
     @property
     def spec(self):
@@ -98,8 +81,6 @@ class Job:
                 "by_model": {m: sum(1 for c in calls if c["model"].split(":")[0] == m)
                              for m in sorted({c["model"].split(":")[0] for c in calls})}}
 
-    # --- the stages ----------------------------------------------------------
-
     def direct(self):
         spec = self.spec
         self.stage("direct", "running")
@@ -134,7 +115,6 @@ class Job:
         return plan
 
     def _settle(self, plan, spec, bible):
-        """The director's plan held to what the job fixed and the bible allows."""
         kind = spec.get("kind") or plan.get("kind") or "figure"
         if kind not in ("figure", "prop", "vfx"):
             kind = "figure"
@@ -151,12 +131,10 @@ class Job:
         for k, v in (plan.get("ramps") or {}).items():
             if not isinstance(v, str):
                 continue
-            # A ramp named by a word ("bone", "signal") is the bible's; else realm keys only.
             v = named.get(v.strip().lower(), v)
             ramps[k] = "".join(c for c in v if c in pal.rgb)
         frames = plan.get("frames") if isinstance(plan.get("frames"), int) else (1 if kind != "vfx" else 16)
         if kind == "vfx":
-            # An effect moves: 8 frames at least. It fits round one figure: 128 px a side at most.
             frames = max(8, frames)
             canvas = [min(128, c) for c in canvas]
         return {**plan, "name": name, "kind": kind, "backend": backend, "source": f"{name}{b.ext}",
@@ -181,9 +159,6 @@ class Job:
         return self.dir / "variants" / str(n)
 
     def variant_plan(self, n, plan):
-        """The plan for variant n: the backends the job named are given out in
-        turn (a VFX job: one variant to the vfx cartridge, others to kiln); one
-        that is unavailable falls back to the kind's preferred backend."""
         chosen = self.spec.get("backends") or [plan["backend"]]
         want = chosen[(n - 1) % len(chosen)]
         b = backends.get(want)
@@ -353,8 +328,6 @@ two or three sentences."""
         for n in ranking:
             self.say(f"critic: variant {n} ({out[n]['agent']}) {out[n]['overall']}/10", out[n].get("scores"))
         return doc
-
-    # --- running -------------------------------------------------------------
 
     def run(self):
         t0 = time.time()

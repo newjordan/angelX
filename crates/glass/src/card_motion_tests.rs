@@ -67,7 +67,6 @@ fn card_motion_replacement_keeps_clock_and_art_and_legacy_is_neutral() {
     assert_eq!(first.frames, replacement.frames);
     assert_ne!(before.at, after.at);
     assert_eq!(after.frame, squire::Frame::SitSwing);
-    // Existing elapsed clock is retained: a one-shot has already entered its tail.
     let later = since + std::time::Duration::from_millis(1400);
     let cheer = card_knight(
         (Knight::Cheer, since),
@@ -228,8 +227,6 @@ fn actual_renderer_replaces_card_track_keeps_clock_and_frees_removed_actor() {
     );
 }
 
-// Frozen production implementation from 5b40b770a, retained only as a
-// visual comparison oracle. Production policy lives in the module pack.
 fn frozen_legacy_card_knight(
     knight: (Knight, Instant),
     now: Instant,
@@ -251,7 +248,6 @@ fn frozen_legacy_card_knight(
         Knight::Present => at(sat, Frame::SitWave, false),
         Knight::Guard => at(stand, Frame::Stand, true),
         Knight::Busy => {
-            // Pacing the roof: along, a turn, back.
             let reach = 46.0 * s;
             let u = (t / 2.2).fract();
             let (x, left) = if u < 0.5 {

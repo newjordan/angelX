@@ -49,7 +49,6 @@ fn the_tavern_dig_matches_the_native_dig() {
             layout::dig_tavern(&mut bend)
         );
         assert_eq!(shape(&native), shape(&bend), "tavern dig for {pack:?}");
-        // The wing is dug once: a second dig is refused by both legs.
         assert_eq!(
             oracle::dig_tavern(&mut native),
             layout::dig_tavern(&mut bend)

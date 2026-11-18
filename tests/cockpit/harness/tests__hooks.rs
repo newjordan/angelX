@@ -6,14 +6,12 @@
 
 use super::*;
 
-// --- hooks suite ------------------------------------------------------------
-
 #[test]
 fn hook_matches_patterns() {
     assert!(hook_matches("*", "anything"));
     assert!(hook_matches("shell|cargo", "cargo"));
     assert!(!hook_matches("shell|cargo", "read_file"));
-    assert!(hook_matches("read", "read_file")); // substring segment
+    assert!(hook_matches("read", "read_file"));
 }
 
 #[test]
@@ -136,7 +134,7 @@ fn hooks_parse_reads_events() {
     assert_eq!(h.pre[0].matcher, "shell");
     assert_eq!(h.pre[0].command, "echo hi");
     assert_eq!(h.post.len(), 1);
-    assert_eq!(h.post[0].matcher, "*"); // default when omitted
+    assert_eq!(h.post[0].matcher, "*");
     assert_eq!(h.session_start.len(), 1);
     assert_eq!(h.session_start[0].matcher, "resume|fork");
     assert_eq!(h.session_start[0].command, "record");
@@ -153,10 +151,8 @@ fn hooks_parse_reads_events() {
 
 #[test]
 fn pre_tool_use_hook_can_block() {
-    // Serialize against yolo_bypasses_* which sets ANGEL_YOLO=1 process-wide.
     let _lock = crate::tests::env_lock();
     let _yolo_off = EnvGuard::set("ANGEL_YOLO", "0");
-    // Non-zero exit blocks, with the hook's output as the reason.
     let block = Hooks {
         pre: vec![HookRule {
             matcher: "*".into(),
@@ -171,7 +167,6 @@ fn pre_tool_use_hook_can_block() {
         "blocked: {r:?}"
     );
     assert!(is_hook_blocked_result(r.as_deref().unwrap()));
-    // exit 0 allows.
     let ok = Hooks {
         pre: vec![HookRule {
             matcher: "*".into(),
@@ -181,7 +176,6 @@ fn pre_tool_use_hook_can_block() {
         session_start: vec![],
     };
     assert!(ok.pre_tool_use("shell", &serde_json::json!({})).is_none());
-    // A non-matching tool is never gated.
     let scoped = Hooks {
         pre: vec![HookRule {
             matcher: "cargo".into(),
@@ -218,17 +212,14 @@ fn yolo_bypasses_pre_tool_hook_denials() {
 
 #[test]
 fn dispatch_with_hooks_blocks_then_allows() {
-    // Serialize against yolo_bypasses_* which sets ANGEL_YOLO=1 process-wide.
     let _lock = crate::tests::env_lock();
     let _yolo_off = EnvGuard::set("ANGEL_YOLO", "0");
     let mut reg = ToolRegistry::new();
     reg.register(Box::new(ReverseTool));
     let args = serde_json::json!({ "text": "ab" });
-    // No hooks → identical to a plain dispatch.
     let direct = reg.dispatch("reverse", &args).unwrap();
     let empty = Hooks::default();
     assert_eq!(dispatch_with_hooks(&reg, &empty, "reverse", &args), direct);
-    // A blocking PreToolUse hook → the tool never runs.
     let block = Hooks {
         pre: vec![HookRule {
             matcher: "reverse".into(),
@@ -260,7 +251,6 @@ fn dispatch_with_hooks_blocks_then_allows() {
 fn blocked_write_is_denied_without_mutation_or_verification_credit() {
     let _lock = crate::tests::env_lock();
     let _yolo_off = EnvGuard::set("ANGEL_YOLO", "0");
-    // Task mode: an unverified edit would raise the stop checkpoint.
     let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
     let root = scratch("blocked-write-accounting");
     let target = root.join("guarded.rs");

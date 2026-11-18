@@ -64,9 +64,6 @@ pub(super) fn navigation(root: &Path, args: &Value, kind: NavKind) -> Result<Str
     }
 }
 
-// A name-only query starts from the heuristic declaration rather than a comment
-// or unrelated first occurrence in the caller's file. Preserve every candidate;
-// the analyzer's response is labelled confirmation, not a replacement search.
 pub(super) fn definition_query(args: &Value, heuristic: &str, kind: NavKind) -> Value {
     let mut query = args.clone();
     if matches!(kind, NavKind::Definition) && args.get("line").is_none() {

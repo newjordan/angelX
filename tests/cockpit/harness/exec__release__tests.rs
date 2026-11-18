@@ -9,8 +9,6 @@ fn owner(cancel: &AtomicBool) -> usize {
     cancel as *const _ as usize
 }
 
-/// A request reaches only a call that was already running when it was made,
-/// and is consumed by it.
 #[test]
 fn a_release_reaches_a_running_call_once_and_never_a_later_one() {
     let cancel = AtomicBool::new(false);
@@ -40,8 +38,6 @@ fn a_release_reaches_a_running_call_once_and_never_a_later_one() {
     assert!(!release_pending(owner(&cancel)));
 }
 
-/// The exec wait sees the turn's linked (effective) cancel; the watchdog
-/// keys its request by the root owner.
 #[test]
 fn a_linked_owner_finds_its_roots_release() {
     let root = AtomicBool::new(false);
@@ -76,8 +72,6 @@ fn wedged_sleep_released_with(release: Release) -> (crate::agent::harness::Timed
     (capture, started.elapsed())
 }
 
-/// A stop ends the call's process, not the turn: the wait returns as a
-/// recoverable failure and says the watchdog did it.
 #[cfg(target_os = "linux")]
 #[test]
 fn a_stop_release_ends_a_wedged_call_without_cancelling_the_turn() {
@@ -93,8 +87,6 @@ fn a_stop_release_ends_a_wedged_call_without_cancelling_the_turn() {
     assert!(!take_tool_idle_escalation(), "not a tool-idle escalation");
 }
 
-/// With no hand-off armed (sealed tasks, hand-off off, a non-shell wait), a
-/// hand-off request still frees the turn: the call is stopped.
 #[cfg(target_os = "linux")]
 #[test]
 fn a_handoff_release_with_no_handoff_armed_stops_the_call() {

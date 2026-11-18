@@ -1,14 +1,9 @@
-# crates/delve/src/rules/gore.rs — the finishers of monsters just felled; what the step reaches.
-
-# Ticks since the blow.
 def gore.Gore.age(g: J.Val, tick: W.W) -> W.W:
     return W.sat_sub(tick, W.of_j(J.get(g, "born")))
 
-# Whether the record has outlived its stains.
 def gore.Gore.over(g: J.Val, tick: W.W) -> Bool:
     return W.ge(gore.Gore.age(g, tick), gore.LIFE())
 
-# The tick's end: records age out, and an echo whose moment has come sounds.
 def gore.Run.age_gore(run: J.Val) -> J.Val:
     tick: W.W = W.of_j(J.get(run, "tick"))
     kept: [J.Val] = []

@@ -24,16 +24,10 @@
 
 use super::*;
 
-/// A stroke's whoosh by its arm (`Blade::swing_sound`): sword, axe, maul,
-/// spear, cleaver.
 pub const SWING_SOUNDS: [&str; 5] = ["swing_sword", "swing_axe", "swing_maul", "swing_spear", "swing_cleaver"];
-/// A contact by its weight (`Tier::sound`): light, medium, heavy.
 pub const CONTACT_SOUNDS: [&str; 3] = ["hit_flesh_light", "hit_flesh_medium", "hit_flesh_heavy"];
-/// A bullet turned off the blade: the ting, and the shot whizzing back.
 pub const PARRY_SOUNDS: [&str; 2] = ["parry", "parry_whizz"];
 
-/// What a knight swings, as it is drawn (`render::overworld::arena::blades`)
-/// and as it sounds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Blade {
     Sword,
@@ -44,9 +38,6 @@ pub enum Blade {
 }
 
 impl Blade {
-    /// The arm knight `hero` holds or is swinging: the knight's own sword
-    /// on the sword key, else the arm card's or forged weapon's, by its
-    /// name, else by how its stroke goes.
     pub fn of(hero: &Hero) -> Blade {
         let blade = hero.forged.as_ref().and_then(|w| w.melee);
         if blade.is_none() || (hero.sword && hero.swing > 0) {
@@ -77,7 +68,6 @@ impl Blade {
         }
     }
 
-    /// The arm a stroke implies, when no knight is to hand.
     pub fn of_stroke(stroke: Stroke) -> Blade {
         match stroke {
             Stroke::Overhead | Stroke::Slam => Blade::Maul,
@@ -87,8 +77,6 @@ impl Blade {
         }
     }
 
-    /// Its whoosh: the spear light and quick, the sword and the axe
-    /// between, the cleaver and the maul heavy (`SWING_SOUNDS`).
     pub fn swing_sound(self) -> &'static str {
         SWING_SOUNDS[self as usize]
     }
@@ -96,39 +84,21 @@ impl Blade {
 
 pub const SWING_TICKS: u8 = 9;
 pub const HIT_TICKS: u8 = 7;
-/// Ticks a turned bullet's ting and its word show.
 pub const TURNED_TICKS: u8 = 14;
 const LIMIT: usize = 64;
-/// The slash's reach past the blade: half the blade's length again, and
-/// never more than this many units.
 pub const SLASH_MOST: f32 = 1.6;
-/// The slash's arc, this much wider than the blade's (a ring stays one).
 pub const SLASH_WIDER: f32 = 1.25;
-/// Ticks from the stroke the blade still turns a bullet: the first fifth
-/// of a second, the stroke's own tick among them.
 pub const PARRY_TICKS: u8 = 6;
-/// The most bullets one stroke turns: a timely blade answers a few shots,
-/// never a storm.
 pub const PARRY_MOST: u8 = 2;
-/// A turned bullet leaves the blade this much faster, and at least this
-/// fast (units a second), and flies this long.
 pub const TURN_SPEED: f32 = 1.35;
 pub const TURN_LEAST: f32 = 14.0;
 pub const TURN_TICKS: u32 = HZ * 3 / 2;
-/// How far either side of its way back (radians) and how far off (units)
-/// a turned bullet looks for a monster to fly at.
 const TURN_SEEK: f32 = 0.6;
 const TURN_SIGHT: f32 = 18.0;
-/// How far past the slash's edge a bullet is still met.
 const PARRY_PAD: f32 = 0.6;
 
 #[cfg(test)]
 thread_local! {
-    /// On, a knight swings as before this pass: the blade's own reach and
-    /// arc, a stroke that cuts down every monster shot in it on its own
-    /// tick and turns none, no hold for an ordinary blow, and finishers
-    /// chosen by their variant. The same run, before and after, in one
-    /// build (`wire__tests`).
     pub static BEFORE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
@@ -139,18 +109,14 @@ pub(super) fn before() -> bool {
     false
 }
 
-/// How far a stroke of a blade `blade` units long carries.
 pub fn slash_reach(blade: f32) -> f32 {
     if before() { blade } else { blade + (blade * 0.5).min(SLASH_MOST) }
 }
 
-/// How wide a stroke of a blade sweeping `arc` degrees cuts.
 pub fn slash_arc(arc: f32) -> f32 {
     if before() || arc >= 270.0 { arc } else { (arc * SLASH_WIDER).min(360.0) }
 }
 
-/// The blade inside a slash that reaches `reach` (`slash_reach` undone),
-/// for the picture: where the steel ends and the crescent begins.
 pub fn blade(reach: f32) -> f32 {
     if reach <= SLASH_MOST * 3.0 { reach / 1.5 } else { reach - SLASH_MOST }
 }
@@ -171,13 +137,10 @@ pub enum Tier {
     Medium,
     Heavy,
     Blocked,
-    /// A bullet turned back off the blade.
     Turned,
 }
 
 impl Tier {
-    /// A contact's sound, by its weight (`CONTACT_SOUNDS`); a blocked
-    /// blow and a turned bullet have their own.
     pub fn sound(self) -> Option<&'static str> {
         match self {
             Tier::Light => Some(CONTACT_SOUNDS[0]),
@@ -187,7 +150,6 @@ impl Tier {
         }
     }
 
-    /// How heavy a contact is, for the heaviest of a stroke's.
     fn weight(self) -> u8 {
         match self {
             Tier::Light => 1,
@@ -225,7 +187,6 @@ pub struct Hit {
 }
 
 impl Hit {
-    /// The ticks it was given.
     pub fn life(&self) -> u8 {
         match (self.crack, self.tier) {
             (true, _) => 18,
@@ -234,7 +195,6 @@ impl Hit {
         }
     }
 
-    /// Ticks since it struck.
     pub fn age(&self) -> u8 {
         self.life().saturating_sub(self.ttl)
     }
@@ -330,8 +290,6 @@ impl State {
         });
     }
 
-    /// Where knight `owner`'s three-stroke chain stands: 1 to 3, 1 with
-    /// none under way.
     pub fn combo(&self, owner: u32) -> u8 {
         self.swings.iter().find(|s| s.owner == owner).map_or(1, |s| s.combo)
     }
@@ -384,16 +342,11 @@ impl State {
         self.hit(0, pos, way, Tier::Blocked, false);
     }
 
-    /// A bullet turned off the blade at `pos`, going `way` now.
     pub fn turned(&mut self, pos: (f32, f32), way: (f32, f32)) {
         self.hit(0, pos, way, Tier::Turned, false);
     }
 }
 
-/// A stroke's guard while it is young: the way it was aimed, how far and
-/// how wide its slash reaches, what a bullet turned off it strikes for at
-/// least, the ticks it still turns them (`PARRY_TICKS` down) and how many
-/// more it may turn (`PARRY_MOST` down).
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Guard {
     pub dx: f32,
@@ -406,8 +359,6 @@ pub struct Guard {
 }
 
 impl Guard {
-    /// The guard of a stroke the knight just made, a `reach` and `arc`
-    /// slash dealing `damage`; none as the blade was before this pass.
     pub fn of(hero: &Hero, reach: f32, arc: f32, damage: u32) -> Option<Guard> {
         (!before()).then_some(Guard {
             dx: hero.aim_x,
@@ -432,16 +383,12 @@ impl Guard {
             && self.turns <= PARRY_MOST
     }
 
-    /// The stroke's guard a tick older: gone once its window has passed,
-    /// or it has turned all it may.
     pub fn aged(self) -> Option<Guard> {
         (self.left > 1 && self.turns > 0).then_some(Guard { left: self.left - 1, ..self })
     }
 }
 
 impl Projectile {
-    /// A monster's plain bullet of `kind` at `at` flying `v`, for a fixture
-    /// to swing at.
     #[cfg(any(test, feature = "testing"))]
     pub fn bullet_for_test(at: (f32, f32), v: (f32, f32), kind: Shot, damage: u32) -> Projectile {
         Projectile {
@@ -462,17 +409,12 @@ impl Projectile {
     }
 }
 
-/// Whether `(dx, dy)` from the knight lies within `reach` of them and
-/// `arc` degrees about the way `(ax, ay)`.
 fn within((dx, dy): (f32, f32), (ax, ay): (f32, f32), reach: f32, arc: f32) -> bool {
     let angle = ay.atan2(ax);
     let delta = (dy.atan2(dx) - angle).sin().atan2((dy.atan2(dx) - angle).cos()).abs();
     dx.hypot(dy) <= reach && delta <= arc.to_radians() / 2.0
 }
 
-/// A bullet the blade can turn: a monster's ordinary shot in flight. A
-/// beam, a lob, a mine still waiting, a guardian's own shot or a piece of
-/// its charge-up is not one.
 pub fn turnable(shot: &Projectile) -> bool {
     shot.hostile
         && shot.ttl > 0
@@ -483,8 +425,6 @@ pub fn turnable(shot: &Projectile) -> bool {
         && bosses::Art::of_shot(shot).is_none()
 }
 
-/// The way a bullet turned at `at` goes: back the way it came, or at the
-/// nearest monster near that line.
 fn turn_way(shot: &Projectile, at: (f32, f32), aim: (f32, f32), enemies: &[Enemy]) -> (f32, f32) {
     let back = unit(-shot.vx, -shot.vy);
     let back = if back == (0.0, 0.0) { aim } else { back };
@@ -502,11 +442,6 @@ fn turn_way(shot: &Projectile, at: (f32, f32), aim: (f32, f32), enemies: &[Enemy
         .map_or(back, |(_, way)| way)
 }
 
-/// Knight `id`'s blade against the monsters' shots this tick. While its
-/// guard (`Hero::parrying`) lasts, every ordinary bullet in the slash is
-/// turned back, the knight's now; on the stroke's own tick, `cut` (the
-/// blade's reach and arc) cuts down what cannot be turned, as the blade
-/// always has. How many bullets it turned.
 pub(super) fn parry(
     id: u32,
     hero: &mut Hero,
@@ -566,9 +501,6 @@ pub(super) fn parry(
     turned
 }
 
-/// What one stroke did, for the weight it lands with: whether any of it
-/// landed solid (a medium or heavy contact), its heaviest contact and how
-/// many it killed.
 #[derive(Clone, Copy, Debug, Default)]
 pub(super) struct Landed {
     solid: bool,
@@ -584,8 +516,6 @@ impl Landed {
         }
     }
 
-    /// The stroke's sound as it lands: its heaviest contact's, once
-    /// however many it struck.
     pub(super) fn sound(&self) -> Option<&'static str> {
         self.heaviest.and_then(Tier::sound)
     }
@@ -594,9 +524,6 @@ impl Landed {
         self.kills += 1;
     }
 
-    /// The hold the stroke asks of the room's time (`hitstop`), and on a
-    /// kill the camera's kick: the picture's shake, which a calm screen
-    /// keeps still.
     pub(super) fn weigh(self, hitstop: &mut hitstop::State, tune: &tune::Tune, fx: &mut Vec<Fx>) {
         if before() {
             return;

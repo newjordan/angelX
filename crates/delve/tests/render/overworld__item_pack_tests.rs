@@ -14,7 +14,6 @@ fn the_shipped_pack_reads_and_every_model_is_one_the_gpu_takes() {
     for (i, m) in models.iter().enumerate() {
         assert!(m.mesh.validate().is_ok(), "{}", m.name);
         assert!(models[..i].iter().all(|o| o.name != m.name), "{} twice", m.name);
-        // Centred on its box, its longest side 1.
         let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
         for p in &m.mesh.positions {
             for k in 0..3 {
@@ -44,7 +43,6 @@ fn only_the_approved_models_stand_for_their_drawings() {
         let (id, _) = model(plate(name), false).unwrap_or_else(|| panic!("{name} is in the pack"));
         assert!(mesh(id).is_some(), "{name}");
     }
-    // Looked at and turned down: these keep their cards.
     for name in ["bow", "crossbow", "handgonne", "key", "bone", "spell", "rune-haste", "chest"] {
         assert!(model(plate(name), false).is_none(), "{name}");
     }
@@ -72,7 +70,6 @@ fn dropped(name: &str, age: u32, seed: u32) -> (ScenePickup, u8) {
     (item, plate(name))
 }
 
-/// The node's lowest point over the floor.
 fn low(node: &angel_stage::scene::Node, m: &Model) -> f32 {
     m.mesh
         .positions
@@ -93,12 +90,10 @@ fn a_dropped_sword_falls_hops_once_and_lies_flat_on_the_floor() {
     let (id, m) = model(p, false).unwrap();
     let node = plop(9, &item, id, m, p, (0.0, 0.0));
     assert_eq!(node.mesh, Some(MeshRef::Uploaded(id)));
-    // Lying: its long side level, resting on the floor, not floating.
     let long = quat_rotate(node.transform.rotation, [0.0, 1.0, 0.0]);
     assert!(long[1].abs() < 0.2, "lies along the floor: {long:?}");
     let floor = low(&node, m);
     assert!((-0.3..0.6).contains(&floor), "rests on the floor: {floor}");
-    // Let go of, it is up in the air.
     let (item, _) = dropped("sword", 0, 77);
     assert!(low(&plop(9, &item, id, m, p, (0.0, 0.0)), m) > 3.0);
 }
@@ -111,7 +106,6 @@ fn each_drop_lies_its_own_way_and_the_same_drop_the_same_way() {
     let ra = plop(1, &a, id, m, p, (0.0, 0.0)).transform.rotation;
     assert_ne!(ra, plop(1, &b, id, m, p, (0.0, 0.0)).transform.rotation);
     assert_eq!(ra, plop(1, &a, id, m, p, (0.0, 0.0)).transform.rotation);
-    // A bottle stands on its foot, near enough upright.
     let (bottle, p) = dropped("flask", u32::MAX, 5);
     let (id, m) = model(p, false).unwrap();
     let node = plop(2, &bottle, id, m, p, (0.0, 0.0));

@@ -260,8 +260,6 @@ fn worn_native_slot_calibration_and_painted_aspect() {
     };
     let body = Img::new(16, 16);
     let (_, paints) = knights::dressed_as(&body, fit, &[&source], 0, 0);
-    // Original square is 8x8 with a 2x8 subject: each source axis must
-    // scale independently. A new square around fitted ink would shrink it.
     assert_eq!(paints[0].inks.w, 12);
     assert_eq!(paints[0].inks.h, 6);
     assert!(paints[0].subject);
@@ -273,8 +271,6 @@ fn worn_native_slot_calibration_and_painted_aspect() {
 fn worn_subject_crop_uses_png_anatomy_not_fallback_aspect() {
     let (w, h) = (8u32, 6u32);
     let mut rgba = vec![0; w as usize * h as usize * 4];
-    // Two frames, a tall local subject in different positions. Common
-    // crop must remain fixed; normalized output reaches the part edges.
     for (x, y) in [(1, 1), (2, 4), (5, 2), (6, 4)] {
         let i = ((y * w + x) * 4) as usize;
         rgba[i..i + 4].copy_from_slice(&[200, 10, 20, 255]);
@@ -321,8 +317,6 @@ fn worn_every_minion_slot_has_positive_native_geometry() {
 #[test]
 fn worn_motion_uses_the_same_pivot_for_png_mask_and_padding() {
     use crate::rules::looks::{Move, Sprite, profile};
-    // Frame zero only occupies one corner. The union canvas and the
-    // original square's centre differ by half a pixel on the other axis.
     for slot in ["body", "head", "right"] {
         let sprite = Sprite {
             frames: vec![

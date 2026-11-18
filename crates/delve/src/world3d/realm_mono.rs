@@ -13,9 +13,6 @@ use angel_stage::set::Kind;
 use super::blockout::num;
 use super::kit::Face;
 
-/// One shape of a set as the realm writes it: a built-in mesh by name
-/// (`box`, `cone-6`, `wedge`, ...), its kind, the middle of its foot, its
-/// size along x, y and z before the turn, and the turn.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Piece {
     pub shape: &'static str,
@@ -30,7 +27,6 @@ impl Piece {
         Self { shape, kind, at, size, turn: 0.0 }
     }
 
-    /// The piece as a set file's line.
     pub fn line(&self) -> String {
         let mut l = format!(
             "{} {} at {} {} {} size {} {} {}",
@@ -50,7 +46,6 @@ impl Piece {
         l
     }
 
-    /// Its footprint `[x0, z0, x1, z1]` (a turned one's square round it).
     pub fn footprint(&self) -> [f32; 4] {
         let quarter = (self.turn.rem_euclid(90.0)).abs() < 1e-3 || (self.turn.rem_euclid(90.0) - 90.0).abs() < 1e-3;
         let (hx, hz) = if quarter {
@@ -68,9 +63,6 @@ impl Piece {
     }
 }
 
-/// How far a shape's own frame is turned to face `face` (degrees about the
-/// vertical, counter-clockwise from above: a quarter turn takes `+x` to `-z`
-/// and the front, `+z`, to `+x`).
 pub fn face_turn(face: Face) -> f32 {
     match face {
         Face::South => 0.0,
@@ -80,21 +72,16 @@ pub fn face_turn(face: Face) -> f32 {
     }
 }
 
-/// A piece built in its own frame: its front toward `+z`, its middle at
-/// the origin, then turned and moved onto its footprint.
 pub struct Mono {
     pub pieces: Vec<Piece>,
     centre: [f32; 2],
     turn: f32,
-    /// Its width across its front and its depth, in its own frame.
     pub w: f32,
     pub d: f32,
     pub seed: u32,
 }
 
 impl Mono {
-    /// A piece over the footprint `[x0, z0, x1, z1]` (kingdom pixels)
-    /// facing `face`.
     pub fn on(foot: [f32; 4], face: Face, seed: u32) -> Self {
         let [x0, z0, x1, z1] = foot;
         let (fw, fd) = (x1 - x0, z1 - z0);
@@ -105,13 +92,11 @@ impl Mono {
         Self { pieces: Vec::new(), centre: [(x0 + x1) / 2.0, (z0 + z1) / 2.0], turn: face_turn(face), w, d, seed }
     }
 
-    /// The world point of the frame's `(x, z)`.
     pub fn world(&self, x: f32, z: f32) -> [f32; 2] {
         let (s, c) = self.turn.to_radians().sin_cos();
         [self.centre[0] + x * c + z * s, self.centre[1] - x * s + z * c]
     }
 
-    /// A number in 0..1 from the piece's seed and `salt`.
     pub fn unit(&self, salt: u32) -> f32 {
         let mut h = self.seed ^ salt.wrapping_mul(0x9E37_79B9);
         h ^= h >> 15;
@@ -120,14 +105,11 @@ impl Mono {
         (h & 0xffff) as f32 / 65535.0
     }
 
-    /// Shape `shape` of `kind`, its foot's middle at the frame's
-    /// `(x, y, z)`, `size` in the frame, turned `turn` more.
     pub fn put(&mut self, shape: &'static str, kind: Kind, [x, y, z]: [f32; 3], size: [f32; 3], turn: f32) {
         let [wx, wz] = self.world(x, z);
         self.pieces.push(Piece { shape, kind, at: [wx, y, wz], size, turn: self.turn + turn });
     }
 
-    /// A box over the frame's `x0..x1` by `z0..z1`, `y0` to `y1`.
     pub fn block(&mut self, kind: Kind, [x0, x1]: [f32; 2], [y0, y1]: [f32; 2], [z0, z1]: [f32; 2]) {
         if x1 - x0 <= 0.05 || y1 - y0 <= 0.05 || z1 - z0 <= 0.05 {
             return;
@@ -135,10 +117,6 @@ impl Mono {
         self.put("box", kind, [(x0 + x1) / 2.0, y0, (z0 + z1) / 2.0], [x1 - x0, y1 - y0, z1 - z0], 0.0);
     }
 
-    /// A stepped plinth under a body over `x` by `z`: each tier `(rise,
-    /// out)` stands out `out` past the body on the sides `sides` says
-    /// (`[front, east, back, west]`), its top a lit ledge, its face a band
-    /// of shadow. Returns the height reached.
     pub fn stepped(&mut self, kind: Kind, x: [f32; 2], z: [f32; 2], y0: f32, tiers: &[(f32, f32)], sides: [bool; 4]) -> f32 {
         let mut y = y0;
         for &(rise, out) in tiers {
@@ -150,8 +128,6 @@ impl Mono {
         y
     }
 
-    /// Fins standing `out` proud of the face at `z` (the front, facing
-    /// `+z`), `every` pixels apart between `x0` and `x1`, from `y0` to `y1`.
     pub fn fins(&mut self, kind: Kind, [x0, x1]: [f32; 2], z: f32, [y0, y1]: [f32; 2], every: f32, out: f32) {
         let count = ((x1 - x0) / every).floor() as i32;
         if count < 1 {
@@ -164,9 +140,6 @@ impl Mono {
         }
     }
 
-    /// Slits in the bays of a face at `z` (the front), one a bay `every`
-    /// apart between `x0` and `x1`, from `y` up `tall`; about `lit` of them
-    /// lit (a window: an accent), the rest dark.
     pub fn slits(&mut self, [x0, x1]: [f32; 2], z: f32, y: f32, tall: f32, every: f32, lit: f32) {
         let count = ((x1 - x0) / every).floor() as i32;
         let start = x0 + ((x1 - x0) - count as f32 * every) / 2.0;
@@ -177,9 +150,6 @@ impl Mono {
         }
     }
 
-    /// A door as a deep slot in the front face at `z`: dark, `w` wide and
-    /// `h` high from `y`, between jambs standing `deep` proud of the face,
-    /// a lintel over them.
     pub fn door(&mut self, kind: Kind, x: f32, z: f32, y: f32, [w, h]: [f32; 2], deep: f32) {
         self.block(Kind::Door, [x - w / 2.0, x + w / 2.0], [y - 3.0, y + h], [z - 0.4, z + 0.3]);
         for side in [-1.0f32, 1.0] {
@@ -189,20 +159,14 @@ impl Mono {
         self.block(kind, [x - w / 2.0 - 3.0, x + w / 2.0 + 3.0], [y + h, y + h + 4.0], [z, z + deep]);
     }
 
-    /// A heavy cornice round the top of a body over `x` by `z`, standing
-    /// `out` past it.
     pub fn cornice(&mut self, kind: Kind, x: [f32; 2], z: [f32; 2], top: f32, out: f32) {
         self.block(kind, [x[0] - out, x[1] + out], [top - 4.0, top + 1.0], [z[0] - out, z[1] + out]);
     }
 
-    /// A string course: a shallow band round a body at `y`, a line of shadow
-    /// under it.
     pub fn course(&mut self, kind: Kind, x: [f32; 2], z: [f32; 2], y: f32) {
         self.block(kind, [x[0] - 0.8, x[1] + 0.8], [y - 1.2, y], [z[0] - 0.8, z[1] + 0.8]);
     }
 
-    /// A brazier: a low plinth with a fire on it, at the frame's `(x, z)` on
-    /// ground `y`. Returns where its light is (the frame's x, y, z).
     pub fn brazier(&mut self, x: f32, z: f32, y: f32) -> [f32; 3] {
         self.block(Kind::Stone, [x - 2.5, x + 2.5], [y - 2.0, y + 5.0], [z - 2.5, z + 2.5]);
         self.block(Kind::Metal, [x - 2.0, x + 2.0], [y + 5.0, y + 6.0], [z - 2.0, z + 2.0]);
@@ -210,20 +174,16 @@ impl Mono {
         [x, y + 9.0, z]
     }
 
-    /// The frame's point `(x, y, z)` in the world.
     pub fn point(&self, [x, y, z]: [f32; 3]) -> [f32; 3] {
         let [wx, wz] = self.world(x, z);
         [wx, y, wz]
     }
 }
 
-/// A spire (a cypress, a pine): a tall six-sided cone, `r` across at its
-/// foot on ground `y`, `h` high.
 pub fn spire(x: f32, y: f32, z: f32, r: f32, h: f32, turn: f32) -> Piece {
     Piece { turn, ..Piece::new("cone-6", Kind::Foliage, [x, y, z], [2.0 * r, h, 2.0 * r]) }
 }
 
-/// A slab of rock, `w` by `d` and `h` high from `y`, turned `turn`.
 pub fn slab(kind: Kind, x: f32, y: f32, z: f32, [w, h, d]: [f32; 3], turn: f32) -> Piece {
     Piece { turn, ..Piece::new("box", kind, [x, y, z], [w, h, d]) }
 }

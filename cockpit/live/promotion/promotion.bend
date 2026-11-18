@@ -1,20 +1,5 @@
 import Base
 
-# Promotion gate arithmetic. A cohort is a list of heldout cases; each case
-# carries the incumbent and candidate score samples that Rust already collected.
-# Rust keeps the cohort manifest and prompt/receipt hashes, sampling, evaluator
-# receipts and telemetry; this module owns only the verdict arithmetic and the
-# order in which the gate applies it.
-#
-# Decision codes match the adapter's table in index.js and the native oracle in
-# cockpit/src/drive/reinforce/promotion.rs:
-#   0 promoted                        1 rejected-empty-cohort
-#   2 rejected-insufficient-cohort    3 rejected-incomplete
-#   4 rejected-below-floor            5 rejected-case-regression
-#   6 rejected-insufficient-delta
-
-# The margin travels as raw f32 bits so the host restores the exact value it
-# would have computed itself; no decimal round trip sits in the way.
 type Verdict is Data:
   Scored{decision: U32, mean_delta_bits: U32, lower_bound_bits: U32}
   Blank{decision: U32}
@@ -22,7 +7,6 @@ type Verdict is Data:
 type Case is Data:
   Sample{complete: Bool, incumbent: List<&2, F32>, candidate: List<&2, F32>}
 
-# Sums run left to right from +0.0, the same order as Rust's f32 iterator sum.
 def total(+xs: List<&2, F32>, +acc: F32) -> F32:
   match xs:
     case Nil{}:
@@ -48,7 +32,6 @@ def sq_dev(+xs: List<&2, F32>, +m: F32, +acc: F32) -> F32:
       +d = (head - m : F32)
       sq_dev(tail, m, (acc + (d * d : F32) : F32))
 
-# Sample variance over n - 1; a single sample has none, like Rust's score series.
 def variance(+xs: List<&2, F32>) -> F32:
   match xs:
     case Nil{}:
@@ -80,8 +63,6 @@ def all_complete(+cases: List<&2, Case>) -> Bool:
             case False{}:
               False{}
 
-# The gate's order is part of its contract: floor, then per-case regression,
-# then the conservative delta bound.
 def choose(
   +under_floor: Bool,
   +regressed: Bool,
@@ -119,8 +100,6 @@ def finish(
   +low = (lower_bound < min_delta : F32)
   choose(under_floor, regressed, low, mean_delta, lower_bound)
 
-# One pass over the cases in order, accumulating the delta sum, the delta
-# variance sum, and the two per-case vetoes.
 def fold(
   +cases: List<&2, Case>,
   +samples: U32,

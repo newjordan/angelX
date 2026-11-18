@@ -65,7 +65,6 @@ def run(src,out,review):
         for n in range(12):
             tile=strip(source.crop((n%4*source.width//4,n//4*source.height//3,(n%4+1)*source.width//4,(n//4+1)*source.height//3)))
             tiles.append(tile.crop(tile.getbbox()))
-        # One source scale across the complete state set: a raised arm does not shrink the body.
         factor=min((size-2)/max(t.width for t in tiles),(size-2)/max(t.height for t in tiles));items=[]
         for n,t in enumerate(tiles):
             t=t.resize((round(t.width*factor),round(t.height*factor)),Image.Resampling.NEAREST)
@@ -98,7 +97,6 @@ def run(src,out,review):
             tile.save(out/(kind+'-'+names[n]+'.png'));items.append((names[n],tile))
         for scale in [1,3]:sheet(items,review/f'{kind}-{scale}x.png',scale)
     (out/"anchors.json").write_text(json.dumps(anchors,indent=2)+"\n")
-    # Two small props share the same native grain as feet and fists.
     for name in ['cask','bread']:
         im=Image.new('RGBA',(24,24));d=ImageDraw.Draw(im)
         if name=='cask':

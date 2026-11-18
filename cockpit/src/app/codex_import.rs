@@ -37,7 +37,6 @@ fn collect_rollouts(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// Newest-first rollout paths under the Codex sessions root (capped at `limit`).
 pub fn list(limit: usize) -> Vec<PathBuf> {
     let mut files = Vec::new();
     collect_rollouts(&sessions_root(), &mut files);
@@ -47,13 +46,11 @@ pub fn list(limit: usize) -> Vec<PathBuf> {
     files
 }
 
-/// Parse a Codex rollout JSONL into cockpit history (messages only).
 pub fn parse(path: &Path) -> Result<Vec<ChatMsg>, String> {
     let raw = std::fs::read_to_string(path).map_err(|e| format!("read: {e}"))?;
     Ok(parse_rollout(&raw))
 }
 
-/// Pure parser over rollout text — unit-testable without files.
 pub fn parse_rollout(raw: &str) -> Vec<ChatMsg> {
     let mut out = Vec::new();
     for line in raw.lines() {

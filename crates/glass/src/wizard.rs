@@ -28,9 +28,6 @@ pub(crate) enum Frame {
 
 const FRAMES: [Frame; 4] = [Frame::Stand, Frame::StepA, Frame::StepB, Frame::Cast];
 
-/// Facing right. `h` the hat, `r` its band and `g` the staff's stone (the
-/// one warm accent), `f` face and hand, `w` beard, `k` `l` the cloak and
-/// its lit fold, `t` the staff, `o` outline, `b` boots, `.` nothing.
 const BODY: [&str; 22] = [
     "..oo............",
     ".ohho......ogo..",
@@ -64,8 +61,6 @@ fn feet(frame: Frame) -> [&'static str; 2] {
     }
 }
 
-/// The staff raised toward what he faces: `(column, row, ink)`, the
-/// upright staff cleared first.
 const RAISED: [(usize, usize, u8); 12] = [
     (12, 10, b't'),
     (12, 9, b't'),
@@ -96,7 +91,6 @@ fn figure(frame: Frame) -> Vec<Vec<u8>> {
                 }
             }
         }
-        // The stone's setting goes with the staff.
         for y in 1..3 {
             for x in 11..14 {
                 rows[y][x] = b'.';
@@ -124,7 +118,6 @@ fn ink(c: u8) -> Option<[u8; 4]> {
     })
 }
 
-/// Every frame facing right; below, the same row facing left.
 pub(crate) fn sheet() -> Picture {
     let (w, h) = (W * FRAMES.len(), H * 2);
     let mut rgba = vec![0u8; w * h * 4];
@@ -149,9 +142,6 @@ pub(crate) fn sheet() -> Picture {
     }
 }
 
-/// His entrance, in seconds since the panel opened: the walk, the raised
-/// staff, the spark's flight, the panel unfolding at [`IMPACT`], and the
-/// chart swept in over [`SWEEP`] while he holds the spell.
 const WALK_END: f32 = 0.5;
 const CAST_AT: f32 = 0.55;
 pub(crate) const IMPACT: f32 = 0.8;
@@ -166,14 +156,10 @@ pub(crate) fn size(px: f32) -> [f32; 2] {
     [W as f32 * px, H as f32 * px]
 }
 
-/// Which side of the panel he keeps: the right, unless the window ends
-/// there.
 fn on_left(rect: [f32; 4], window: (f32, f32), px: f32) -> bool {
     rect[0] + rect[2] + size(px)[0] + 8.0 > window.0
 }
 
-/// Where he stands beside the panel, feet on its bottom line, and whether
-/// he faces right (standing on its left).
 fn post(rect: [f32; 4], window: (f32, f32), px: f32, scale: f32) -> ([f32; 2], bool) {
     let [x, y, w, h] = rect;
     let [sw, sh] = size(px);
@@ -184,14 +170,12 @@ fn post(rect: [f32; 4], window: (f32, f32), px: f32, scale: f32) -> ([f32; 2], b
     }
 }
 
-/// The stone at the staff's tip in a pose at `at`.
 fn stone(at: [f32; 2], frame: Frame, faces_right: bool, px: f32) -> [f32; 2] {
     let (col, row) = if frame == Frame::Cast { (15.5, 2.5) } else { (12.5, 1.5) };
     let col = if faces_right { col } else { W as f32 - col };
     [at[0] + col * px, at[1] + row * px]
 }
 
-/// His entrance's layers at `t`: himself, and the spark in flight.
 pub(crate) fn entrance(
     t: f32,
     rect: [f32; 4],
@@ -205,7 +189,6 @@ pub(crate) fn entrance(
     let (spot, faces_right) = post(rect, window, px, scale);
     let mut layers = Vec::new();
     let (at, frame) = if t < WALK_END {
-        // In from the window's edge on his side.
         let k = t / WALK_END;
         let from = if faces_right { -size(px)[0] } else { window.0 };
         let from = if faces_right { from.max(spot[0] - 160.0 * scale) } else { from.min(spot[0] + 160.0 * scale) };
@@ -217,7 +200,6 @@ pub(crate) fn entrance(
         (spot, Frame::Stand)
     };
     layers.push(figure_layer(first_id, at, frame, faces_right, px, (t / 0.1).min(1.0)));
-    // The spark: from the stone to the panel's middle.
     if (CAST_AT..IMPACT).contains(&t) {
         let k = (t - CAST_AT) / (IMPACT - CAST_AT);
         let from = stone(at, Frame::Cast, faces_right, px);
@@ -226,24 +208,19 @@ pub(crate) fn entrance(
         let p = [from[0] + (to[0] - from[0]) * k, from[1] + (to[1] - from[1]) * k + lift];
         layers.push(glow(first_id + 1, p, 26.0 * scale, 0.9));
     }
-    // The stone lit while he casts.
     if frame == Frame::Cast {
         let p = stone(at, frame, faces_right, px);
         layers.push(glow(first_id + 2, p, 14.0 * scale, 0.55));
     }
-    // Idle magic: a puff of motes off the stone.
     if let Some(age) = casting.filter(|age| (0.0..PUFF_LIFE).contains(age)) {
         layers.push(puff(first_id + 4, stone(at, Frame::Cast, faces_right, px), age, scale));
     }
-    // Pointing his staff at a mark of the chart: a light where it falls.
     if let Some(p) = pointing.filter(|_| t >= INTRO_END) {
         layers.push(glow(first_id + 3, p, 22.0 * scale, 0.7));
     }
     layers
 }
 
-/// His exit at `t` of `close`: the staff raised, the panel folding into
-/// its middle, and a burst of motes and a flash where it goes.
 pub(crate) fn exit(t: f32, close: f32, rect: [f32; 4], window: (f32, f32), px: f32, scale: f32, id: u64) -> Vec<Layer> {
     let (at, faces_right) = post(rect, window, px, scale);
     let fade = 1.0 - ((t / close - 0.5) / 0.5).clamp(0.0, 1.0);
@@ -274,9 +251,6 @@ pub(crate) fn exit(t: f32, close: f32, rect: [f32; 4], window: (f32, f32), px: f
     layers
 }
 
-/// Idle, he lifts his staff now and then and a puff of motes rises off
-/// the stone. `t` seconds after his entrance: how far into a lift he is
-/// (if he is), and how long until the window must draw him again.
 const IDLE_EVERY: f32 = 6.0;
 const LIFT: f32 = 0.9;
 const PUFF_LIFE: f32 = 0.8;
@@ -287,7 +261,6 @@ pub(crate) fn idle(t: f32) -> (Option<f32>, f32) {
     if into < start {
         (None, start - into)
     } else {
-        // While the puff drifts, every display frame.
         (Some(into - start), 1.0 / 60.0)
     }
 }
@@ -312,8 +285,6 @@ fn puff(id: u64, at: [f32; 2], age: f32, scale: f32) -> Layer {
     layer
 }
 
-/// The motes along the sweep's leading edge, `edge` a column of the
-/// content in window pixels from `top` to `bottom`.
 pub(crate) fn sweep_motes(id: u64, edge: f32, top: f32, bottom: f32, scale: f32) -> Layer {
     let mut layer = Layer::new(
         id,

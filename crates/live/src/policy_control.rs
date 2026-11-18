@@ -10,8 +10,6 @@ pub enum PolicyControlAction {
     Enable,
 }
 
-/// Immediate publication receipt, distinct from a Kernel drain operation.
-/// Generations include code-free disabled tombstones and never reset on enable.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyControl {
     pub contract: String,
@@ -33,9 +31,6 @@ impl Registry {
         if bundle.manifest.kind != "policy" {
             return Err("cannot mix policy overrides and Kernel system controls".into());
         }
-        // API1 policy evaluation has no Kernel resource-import or export
-        // protocol. Do not silently claim those declarations participate in a
-        // dependency-aware withdrawal. Local require dependencies are captured.
         if !bundle.manifest.imports.is_empty() || !bundle.manifest.exports.is_empty() {
             return Err("policy control/1 supports captured local dependencies, not Kernel imports or exports".into());
         }
@@ -65,8 +60,6 @@ impl Registry {
                 .ok_or("policy generation exhausted")?;
             generations.insert(id, next);
         }
-        // Every check precedes publication. Tombstones retain only bounded
-        // identity/generation metadata, not active, previous or captured code.
         for (id, generation) in &generations {
             self.modules.insert(
                 id.clone(),
@@ -85,8 +78,6 @@ impl Registry {
         if ids.iter().any(|id| !self.disabled_policies.contains(id)) {
             return Err("cannot mix policy overrides and Kernel system controls".into());
         }
-        // The common enable preflight checks distinct IDs, suppression and the
-        // retained module bound. Every policy has its original tombstone.
         let mut prepared = Vec::new();
         let mut generations = BTreeMap::new();
         for id in ids {
@@ -106,7 +97,6 @@ impl Registry {
             generations.insert(id.clone(), generation);
             prepared.push((id, bundle, value, generation));
         }
-        // No capture, probe or host validation runs after the first mutation.
         for (id, bundle, value, generation) in prepared {
             self.modules.insert(
                 id.clone(),
@@ -134,7 +124,6 @@ impl Registry {
             action,
             generations,
         };
-        // Serialization is infallible for this fixed string/enum/integer shape.
         let response = serde_json::to_value(&status).expect("policy control receipt serialization");
         self.policy_control = Some(status);
         self.revision += 1;

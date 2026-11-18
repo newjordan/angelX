@@ -27,7 +27,6 @@ fn main() {
     }
 }
 
-// The host is native only; the wasm build of this crate is its client half.
 #[cfg(target_arch = "wasm32")]
 fn main() {}
 
@@ -43,7 +42,6 @@ mod host {
     use std::thread;
     use std::time::{Duration, Instant};
 
-    /// Players must stay this long at their peak before measuring starts.
     const SETTLE: Duration = Duration::from_secs(3);
     const POLL: Duration = Duration::from_secs(1);
 
@@ -151,7 +149,6 @@ mod host {
         }
     }
 
-    /// Wait for a crowd, measure while all of it is in, report when it thins.
     fn measure(server: &Server, measuring: &AtomicBool) {
         let mut peak = 0;
         let mut peak_since = Instant::now();
@@ -187,7 +184,6 @@ mod host {
         }
     }
 
-    /// Every socket client gone (the in-process ones said goodbye already).
     fn start_over_when_empty(server: &Server) {
         while server.totals().players > 0 {
             thread::sleep(POLL);
@@ -225,8 +221,6 @@ mod host {
         println!("  {s}");
     }
 
-    /// Players in this process: the host's own terminal and its couch
-    /// players, each a `NativeLink` on an in-process connection.
     mod couch {
         use angel_muster::MusterClient;
         use angel_muster::rules::{FIELD, Knight, SNAPSHOT_HZ, SUB};
@@ -239,21 +233,15 @@ mod host {
         use std::thread;
         use std::time::{Duration, Instant};
 
-        /// A terminal's display frame, at 60 fps.
         const FRAME: Duration = Duration::from_micros(16_667);
 
-        /// What one in-process player saw while measuring.
         #[derive(Default)]
         pub struct Seen {
             secs: f64,
             snapshots: u64,
             bytes: u64,
-            /// Gaps between snapshot arrivals, ms.
             gaps: Vec<f32>,
-            /// Ping round trips, ms.
             rtts: Vec<f32>,
-            /// `NativeLink::frame` (taking what arrived, the commands, and
-            /// prediction, interpolation and the 320x180 picture), ms.
             frames: Vec<f32>,
             last_snapshot: Option<f64>,
             reconnects: u32,
@@ -307,8 +295,6 @@ mod host {
             }
         }
 
-        /// Play until `stop`: draw every frame, walk about within `stray`
-        /// pixels of the muster point, wave now and then.
         pub fn play(conn: LocalConn, i: u32, stray: i32, measuring: &Arc<AtomicBool>, stop: &AtomicBool) -> Seen {
             let stray = stray * SUB;
             let seen = Arc::new(Mutex::new(Seen::default()));
@@ -366,7 +352,6 @@ mod host {
                 }
                 let on = measuring.load(SeqCst);
                 if on && measured_from.is_none() {
-                    // A window opens: what an abandoned one saw is dropped.
                     *seen.lock().expect("seen lock") = Seen::default();
                     measured_from = Some(Instant::now());
                 } else if !on && let Some(from) = measured_from.take() {

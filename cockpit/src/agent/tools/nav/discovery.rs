@@ -31,7 +31,6 @@ impl SearchOptions {
             };
             let name = name.to_string_lossy();
             let lower = name.to_ascii_lowercase();
-            // These exclusions cannot be overridden by discovery options.
             if matches!(
                 lower.as_str(),
                 ".git"
@@ -77,8 +76,6 @@ struct Rule {
     negate: bool,
 }
 
-// Git-style wildmatch: slash-aware *, ?, **, ranges, escaped punctuation;
-// leading / anchors to the ignore file, slashless patterns match basenames.
 fn rule(line: &str) -> Option<Rule> {
     let mut line = line.trim_end_matches('\r').to_string();
     while line.ends_with(' ') && !line.ends_with("\\ ") {
@@ -197,7 +194,6 @@ impl<'a> Policy<'a> {
         if !self.options.path_allowed(path) {
             return Ok(false);
         }
-        // A negated child cannot resurrect an excluded parent directory.
         let mut ancestors = path
             .ancestors()
             .filter(|p| !p.as_os_str().is_empty())
@@ -259,8 +255,6 @@ pub(super) fn walk(
     Ok(files)
 }
 
-/// Rank the complete shallow listing before slicing; no traversal-prefix cap can
-/// hide a late relevant name. Shared discovery policy is applied by the caller.
 pub(super) fn list_window(
     mut entries: Vec<String>,
     path: &str,
@@ -355,7 +349,6 @@ pub(super) fn list_window(
         if !output.is_empty() {
             output.push('\n');
         }
-        // The window's facts and the next offset stay; how to page is `⠰⠁`.
         let continuation = if end < total {
             format!(
                 "{} offset={end}, limit={limit}",

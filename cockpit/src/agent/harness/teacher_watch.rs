@@ -20,12 +20,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
 
-/// Default teacher seat. Cheap access agent — never required to be up.
 pub(crate) const DEFAULT_TEACHER_CLUB: &str = "luna";
 
 const ERROR_SNIP: usize = 240;
 const TEACHER_PROMPT_CAP: usize = 1_200;
-/// The teacher's one-line reply shape, beside `⠟⠚⠉` (the page quotes it).
 const TEACHER_REPLY_SHAPE: &str =
     "ROLL: <why> | RETRY: <why> | CATCH: <bug> | CONTINUE: <next action>";
 static TEACHER_ASK_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
@@ -46,13 +44,10 @@ pub(crate) fn teacher_watch_ask_enabled() -> bool {
     env_flag("ANGEL_TEACHER_WATCH_ASK", true)
 }
 
-/// Apply to local/student seats. Paid SOTA drivers keep the existing overflow
-/// path only — they are not the long-session crash class.
 pub(crate) fn teacher_watch_applies(club: &dyn Club) -> bool {
     teacher_watch_enabled() && !crate::agent::club::is_sota_label(club.label())
 }
 
-/// Why a long local session needs the monitor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SessionFault {
     ContextOverflow,
@@ -73,8 +68,6 @@ impl SessionFault {
         }
     }
 
-    /// Retry the same student seat after a context roll. Transport death and
-    /// a missing model cannot be fixed by sending the same request again.
     pub(crate) fn retries_same_club(self) -> bool {
         matches!(
             self,
@@ -83,8 +76,6 @@ impl SessionFault {
     }
 }
 
-/// Classify a provider/tool error as a long-session fault, or `None` if it is
-/// an ordinary permanent/auth failure the monitor must not launder.
 pub(crate) fn classify_session_fault(error: &str) -> Option<SessionFault> {
     if is_context_overflow_error(error) {
         return Some(SessionFault::ContextOverflow);
@@ -121,8 +112,6 @@ pub(crate) fn classify_session_fault(error: &str) -> Option<SessionFault> {
     None
 }
 
-/// Cheap teacher: named pin (default luna) if reachable, else another live
-/// cheap seat that is not the dying student. Never invents a down local.
 pub(crate) fn pick_teacher(
     roster: &[Arc<dyn Club>],
     aux: &[Arc<dyn Club>],
@@ -208,8 +197,6 @@ pub(crate) fn parse_teacher_line(reply: &str) -> Option<TeacherLine> {
     None
 }
 
-/// The deterministic recovery note for `fault` as a later prompt carries it:
-/// its page addresses on `⠟⠓` / `⠟⠊`, never the prose.
 pub(crate) fn deterministic_recovery_note(fault: SessionFault) -> String {
     use super::book::{
         d3_roles::pages,
@@ -224,8 +211,6 @@ pub(crate) fn deterministic_recovery_note(fault: SessionFault) -> String {
     }
 }
 
-/// `⠟⠚`: the teacher's brief is the route; the reply shape rides beside its
-/// page, the fault, the hop and the error below.
 pub(crate) fn teacher_ask_prompt(fault: SessionFault, error: &str, hop: usize) -> String {
     use super::book::{d3_roles::pages, q_stop::TEACHER};
     let snip: String = error.chars().take(ERROR_SNIP).collect();
@@ -246,10 +231,6 @@ pub(crate) fn teacher_ask_prompt(fault: SessionFault, error: &str, hop: usize) -
     prompt
 }
 
-/// Fail-open teacher ask with no clock on it: the teacher answers when it
-/// answers, and a dark one (an error or an empty reply) is skipped. The
-/// teacher is connected: offered the ledger reader alone, on `workspace`'s
-/// ledger, so it can read its route.
 pub(crate) fn ask_teacher(
     club: Arc<dyn Club>,
     workspace: &std::path::Path,
@@ -259,8 +240,6 @@ pub(crate) fn ask_teacher(
     if turn_cancel.load(Ordering::Acquire) {
         return None;
     }
-    // One teacher at a time: a fault raised while one is still answering is
-    // not asked twice.
     if TEACHER_ASK_IN_FLIGHT
         .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
         .is_err()
@@ -304,8 +283,6 @@ pub(crate) fn ask_teacher(
     }
 }
 
-/// Roll the live tail with the ordinary model-free compactor. Never waits on
-/// a teacher inference endpoint.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn roll_session_history(
     club: &dyn Club,
@@ -336,9 +313,6 @@ pub(crate) fn roll_session_history(
     compacted || fitted > 0 || after < before
 }
 
-/// Compose the recovery note the operator reads and the ledger keeps as the
-/// `⠭` session route's evidence: the deterministic floor's pages, recited,
-/// then the teacher's annotation. The model's wire carries the route alone.
 pub(crate) fn compose_recovery_note(fault: SessionFault, teacher: Option<&TeacherLine>) -> String {
     let base = super::book::connect::recite(&deterministic_recovery_note(fault));
     match teacher {
@@ -350,9 +324,6 @@ pub(crate) fn compose_recovery_note(fault: SessionFault, teacher: Option<&Teache
     }
 }
 
-/// One recovery attempt: roll history, optionally ask the teacher, return the
-/// note the hop should inject. `None` when the latch is off or the error is
-/// not a session fault.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn recover_session(
     club: &dyn Club,

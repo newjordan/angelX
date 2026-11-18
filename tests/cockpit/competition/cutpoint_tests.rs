@@ -167,8 +167,6 @@ fn dossier_current_post_rename_ambiguity_recovers_visible_state_ac13() {
     let post_rename = root.0.join(".current.after-rename.tmp");
     write_synced(&post_rename, &new_pointer);
     std::fs::rename(&post_rename, &current).unwrap();
-    // The rename is the visibility commit. A later chmod/fsync error makes the
-    // caller uncertain; recovery must accept the complete visible generation.
     assert_eq!(store.load().unwrap(), Some(new_state.clone()));
     store.sync(&new_state).unwrap();
     assert_eq!(store.load().unwrap(), Some(new_state));

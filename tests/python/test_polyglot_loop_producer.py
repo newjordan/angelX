@@ -1,4 +1,3 @@
-"""Loop replay keeps unscored logical samples using offline response fixtures."""
 import contextlib
 import copy
 import importlib.util

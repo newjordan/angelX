@@ -3,18 +3,16 @@
 //! marks off item names, and makes ASCII slugs.
 
 const HIGH: [char; 128] = [
-    'Ç', 'ü', 'é', 'â', 'ä', 'à', 'å', 'ç', 'ê', 'ë', 'è', 'ï', 'î', 'ì', 'Ä', 'Å', //
-    'É', 'æ', 'Æ', 'ô', 'ö', 'ò', 'û', 'ù', 'ÿ', 'Ö', 'Ü', '¢', '£', '¥', '₧', 'ƒ', //
-    'á', 'í', 'ó', 'ú', 'ñ', 'Ñ', 'ª', 'º', '¿', '⌐', '¬', '½', '¼', '¡', '«', '»', //
-    '░', '▒', '▓', '│', '┤', '╡', '╢', '╖', '╕', '╣', '║', '╗', '╝', '╜', '╛', '┐', //
-    '└', '┴', '┬', '├', '─', '┼', '╞', '╟', '╚', '╔', '╩', '╦', '╠', '═', '╬', '╧', //
-    '╨', '╤', '╥', '╙', '╘', '╒', '╓', '╫', '╪', '┘', '┌', '█', '▄', '▌', '▐', '▀', //
-    'α', 'ß', 'Γ', 'π', 'Σ', 'σ', 'µ', 'τ', 'Φ', 'Θ', 'Ω', 'δ', '∞', 'φ', 'ε', '∩', //
-    '≡', '±', '≥', '≤', '⌠', '⌡', '÷', '≈', '°', '∙', '·', '√', 'ⁿ', '²', '■', ' ', //
+    'Ç', 'ü', 'é', 'â', 'ä', 'à', 'å', 'ç', 'ê', 'ë', 'è', 'ï', 'î', 'ì', 'Ä', 'Å',
+    'É', 'æ', 'Æ', 'ô', 'ö', 'ò', 'û', 'ù', 'ÿ', 'Ö', 'Ü', '¢', '£', '¥', '₧', 'ƒ',
+    'á', 'í', 'ó', 'ú', 'ñ', 'Ñ', 'ª', 'º', '¿', '⌐', '¬', '½', '¼', '¡', '«', '»',
+    '░', '▒', '▓', '│', '┤', '╡', '╢', '╖', '╕', '╣', '║', '╗', '╝', '╜', '╛', '┐',
+    '└', '┴', '┬', '├', '─', '┼', '╞', '╟', '╚', '╔', '╩', '╦', '╠', '═', '╬', '╧',
+    '╨', '╤', '╥', '╙', '╘', '╒', '╓', '╫', '╪', '┘', '┌', '█', '▄', '▌', '▐', '▀',
+    'α', 'ß', 'Γ', 'π', 'Σ', 'σ', 'µ', 'τ', 'Φ', 'Θ', 'Ω', 'δ', '∞', 'φ', 'ε', '∩',
+    '≡', '±', '≥', '≤', '⌠', '⌡', '÷', '≈', '°', '∙', '·', '√', 'ⁿ', '²', '■', ' ',
 ];
 
-/// Bytes in code page 437 to a string. ASCII passes through, so the JSON
-/// syntax (and its `\u00XX` escapes) is untouched.
 pub fn decode_cp437(bytes: &[u8]) -> String {
     bytes
         .iter()
@@ -22,8 +20,6 @@ pub fn decode_cp437(bytes: &[u8]) -> String {
         .collect()
 }
 
-/// An item description without DF's decorations: the quality marks
-/// (`-x-`, `+x+`, `*x*`, `≡x≡`, `☼x☼`) and the `«x»` of an improvement.
 pub fn clean_item(s: &str) -> String {
     let kept: String = s
         .chars()
@@ -49,7 +45,6 @@ fn fold(c: char) -> &'static str {
     }
 }
 
-/// Lowercase ASCII words joined by `-`; accented letters lose their accents.
 pub fn slug(s: &str) -> String {
     let mut out = String::new();
     let mut dash = false;
@@ -72,7 +67,6 @@ pub fn slug(s: &str) -> String {
     out
 }
 
-/// `DiningHall` to `Dining Hall`.
 pub fn split_camel(s: &str) -> String {
     let mut out = String::new();
     for (i, c) in s.chars().enumerate() {
@@ -97,11 +91,6 @@ pub fn roman(n: usize) -> String {
     out
 }
 
-
-/// DF's name translator capitalizes only ASCII letters, so a dwarven word
-/// that begins with an accented letter comes out as `ïngiz`; the game shows
-/// `Ïngiz`. Words of DF's English never begin with one, so every such word
-/// is a name and is capitalized.
 pub fn capitalize_names(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut start = true;
@@ -116,7 +105,6 @@ pub fn capitalize_names(s: &str) -> String {
     out
 }
 
-/// `capitalize_names` over every string in a JSON value.
 pub fn capitalize_value(v: &mut serde_json::Value) {
     match v {
         serde_json::Value::String(s) => *s = capitalize_names(s),

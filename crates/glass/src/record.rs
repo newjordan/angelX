@@ -24,7 +24,6 @@ use std::time::{Duration, Instant};
 
 use crate::{Host, UserEvent};
 
-/// What the environment asked to be recorded.
 #[derive(Clone, Debug)]
 pub(crate) struct Plan {
     pub path: std::path::PathBuf,
@@ -57,14 +56,11 @@ impl Plan {
         u64::from(self.fps) * u64::from(self.seconds)
     }
 
-    /// The tick a moment `elapsed` into the film falls on.
     pub fn tick_at(&self, elapsed: Duration) -> u64 {
         (elapsed.as_secs_f64() * f64::from(self.fps)) as u64
     }
 }
 
-/// Start the clock: it asks the window for each frame on time, then for
-/// the end.
 pub(crate) fn start_clock(plan: &Plan, host: &Host) {
     let plan = plan.clone();
     let host = host.clone();
@@ -87,28 +83,21 @@ pub(crate) fn start_clock(plan: &Plan, host: &Host) {
     });
 }
 
-/// What the window hands the writer.
 enum Piece {
     Frame(u64, Vec<u8>),
-    /// The film ran its length: repeat the last frame to the end.
     End,
 }
 
-/// The window's side: the writer thread and the ticks already filmed.
 pub(crate) struct Recorder {
     plan: Plan,
     frames: Option<SyncSender<Piece>>,
     writer: Option<JoinHandle<()>>,
     size: (u32, u32),
-    /// The next tick not yet filmed.
     next: u64,
-    /// Frames drawn but left out because the encoder was behind.
     skipped: u64,
-    /// Frames on their way back from the GPU, oldest first.
     in_flight: VecDeque<(u64, angel_gpu::ReadBack)>,
 }
 
-/// Frames on their way back at once; a tick past that is left to repeat.
 const IN_FLIGHT: usize = 4;
 
 impl Recorder {
@@ -116,10 +105,6 @@ impl Recorder {
         Self { plan, frames: None, writer: None, size: (0, 0), next: 0, skipped: 0, in_flight: VecDeque::new() }
     }
 
-    /// The tick due now, if it still wants a frame. A request that
-    /// arrives after a later tick has come due is answered by that tick's,
-    /// not drawn for its own. With too many frames on their way back, it
-    /// waits for them and the tick repeats the one before.
     pub fn due(&mut self, started: Instant) -> Option<u64> {
         let tick = self.plan.tick_at(started.elapsed());
         if tick < self.next || tick >= self.plan.frames() {
@@ -132,13 +117,11 @@ impl Recorder {
         Some(tick)
     }
 
-    /// A frame drawn for `tick` is on its way back.
     pub fn launch(&mut self, tick: u64, read: angel_gpu::ReadBack) {
         self.in_flight.push_back((tick, read));
         self.next = tick + 1;
     }
 
-    /// Hand the frames that have come back to the writer, in order.
     pub fn collect(&mut self) {
         while let Some((tick, read)) = self.in_flight.front() {
             let Some(pixels) = read.take() else {
@@ -152,9 +135,6 @@ impl Recorder {
         }
     }
 
-    /// Hand over the frame drawn for `tick`. The first frame fixes the
-    /// film's size; a frame of another size (the window was resized) is
-    /// left out and its tick repeats the one before.
     fn push(&mut self, tick: u64, width: u32, height: u32, pixels: Vec<u8>) {
         if self.frames.is_none() && self.writer.is_none() {
             match spawn_writer(&self.plan, width, height) {
@@ -173,8 +153,6 @@ impl Recorder {
         if (width, height) != self.size {
             return;
         }
-        // The window never waits on the encoder: a frame it cannot take
-        // now is left out, and its tick repeats the one before.
         let Some(frames) = &self.frames else {
             return;
         };
@@ -185,8 +163,6 @@ impl Recorder {
         }
     }
 
-    /// Close the film at its length: the writer repeats the last frame to
-    /// the end and ffmpeg finishes the file.
     pub fn finish(&mut self) {
         if let Some(frames) = self.frames.take() {
             let _ = frames.send(Piece::End);
@@ -194,8 +170,6 @@ impl Recorder {
         self.close();
     }
 
-    /// Let the writer finish what it has. A window closed early ends its
-    /// film where it was, unpadded.
     fn close(&mut self) {
         self.frames = None;
         if let Some(writer) = self.writer.take() {
@@ -224,18 +198,12 @@ fn spawn_writer(plan: &Plan, width: u32, height: u32) -> std::io::Result<(SyncSe
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .spawn()?;
-    // A few frames of slack; the window waits on a full queue rather than
-    // filming out of order.
     let (frames, received) = sync_channel(8);
     let plan = plan.clone();
     let writer = std::thread::spawn(move || write_film(&plan, &mut ffmpeg, &received));
     Ok((frames, writer))
 }
 
-/// The quality settings an encoder takes, by its family. NVENC takes the
-/// RGBA as it is and converts it on the GPU (yuv420p out); p5 keeps about
-/// three times a 60 fps film's pace on an RTX 3090, where p7 kept less
-/// than twice it with the CPU converting.
 fn encoder_args(codec: &str) -> Vec<&'static str> {
     if codec.ends_with("_nvenc") {
         vec!["-preset", "p5", "-tune", "hq", "-rc", "vbr", "-cq", "16", "-b:v", "0"]
@@ -263,7 +231,6 @@ fn write_film(plan: &Plan, ffmpeg: &mut Child, received: &Receiver<Piece>) {
                 break;
             }
         };
-        // Ticks the window missed show the frame before them again.
         while written < tick && !broken {
             if let Some(previous) = &last {
                 broken = stdin.write_all(previous).is_err();

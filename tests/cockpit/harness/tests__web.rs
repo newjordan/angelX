@@ -5,8 +5,6 @@
 
 use super::*;
 
-// --- web / HTTP suite -------------------------------------------------------
-
 #[test]
 fn searxng_formats_and_limits() {
     let v = serde_json::json!({
@@ -29,7 +27,6 @@ fn searxng_handles_empty_and_missing() {
         format_searxng(&serde_json::json!({ "results": [] }), 5),
         "no results"
     );
-    // Entries with no title and no content are skipped.
     let blanks = serde_json::json!({ "results": [ { "url": "x" } ] });
     assert_eq!(format_searxng(&blanks, 5), "no results");
 }
@@ -37,8 +34,6 @@ fn searxng_handles_empty_and_missing() {
 #[test]
 fn grok_tool_prompt_frames_a_scout_brief() {
     let p = crate::agent::tools::web::grok_tool_prompt("who won the match last night");
-    // Carries the query and steers Grok toward live, cited, recency-first
-    // search: the scout has no tool channel, so `⡸⠑` is recited in full.
     assert!(p.contains("who won the match last night"));
     let scout = crate::agent::harness::book::d4567_briefs::GROK_RESEARCH;
     assert!(p.starts_with(&scout.sub().pages[0]), "{p}");
@@ -86,7 +81,6 @@ fn html_to_text_collapses_whitespace_and_survives_unterminated_blocks() {
         crate::agent::tools::web::html_to_text("a\n\n\n\n\nb   c"),
         "a\n\nb c"
     );
-    // An unterminated <script> drops the rest instead of panicking.
     let cut = crate::agent::tools::web::html_to_text("keep <script> everything after is gone");
     assert_eq!(cut, "keep");
 }
@@ -228,9 +222,6 @@ fn default_kit_includes_web_fetch() {
 #[test]
 fn tool_name_matches_def_name_for_all_tools() {
     let _guard = crate::tests::env_lock();
-    // The cheap `name()` hot path MUST agree with `def().name` for every
-    // registered tool, or dispatch (which now uses `name()`) would diverge
-    // from the advertised schema. Guards against future drift.
     let r = ToolRegistry::with_defaults();
     for t in &r.tools {
         assert_eq!(

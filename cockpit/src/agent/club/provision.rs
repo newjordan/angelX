@@ -29,7 +29,6 @@ use std::time::{Duration, Instant};
 
 const CONTRACT_MARKER: &str = "angelX output contract";
 
-/// What the judge (or the heuristics) decided for one outbound call.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct ProvisionDirective {
     pub max_tokens: Option<u32>,
@@ -49,9 +48,6 @@ pub(crate) fn econ_enabled() -> bool {
     env_flag("ANGEL_ECON").unwrap_or(true)
 }
 
-/// The last operator or explicit harness ask. Retrieved context and rolling
-/// summaries cannot replace the request used by output provisioning; later
-/// legitimate Harness requests still retain their existing ordering semantics.
 fn last_ask(messages: &[ChatMsg]) -> Option<&ChatMsg> {
     messages.iter().rev().find(|message| {
         if message.content.is_empty() {
@@ -72,9 +68,6 @@ fn last_ask(messages: &[ChatMsg]) -> Option<&ChatMsg> {
     })
 }
 
-/// True when the ask demands a fixed output structure — the only case where a
-/// bounded output cap is provably safe (the requested shape has a natural
-/// size). Deliberately conservative: prose questions never match.
 pub(crate) fn extraction_ask(messages: &[ChatMsg]) -> bool {
     let Some(ask) = last_ask(messages) else {
         return false;
@@ -105,12 +98,6 @@ pub(crate) fn extraction_ask(messages: &[ChatMsg]) -> bool {
     structure && exclusive
 }
 
-/// The tail-side output contract for an extraction-shaped ask, unless one was
-/// already spliced (marker check mirrors caveman's).
-///
-/// A request that offers the model a tool offers it the ledger reader too, so
-/// the contract rides as its route `⠬⠋`; a request with no tools cannot reach
-/// the ledger and keeps the prose.
 pub(crate) fn econ_contract(messages: &[ChatMsg], has_tools: bool) -> Option<String> {
     if !econ_enabled() || !extraction_ask(messages) {
         return None;
@@ -133,9 +120,6 @@ pub(crate) fn econ_contract(messages: &[ChatMsg], has_tools: bool) -> Option<Str
     ))
 }
 
-/// Optional output cap paired with a detected extraction ask. The default is
-/// provider-native even for structured output; a positive operator value opts
-/// into a cap. Applied only when a contract was also spliced.
 pub(crate) fn econ_extract_budget() -> Option<u32> {
     match std::env::var("ANGEL_ECON_EXTRACT_MAX_TOKENS")
         .ok()
@@ -147,10 +131,6 @@ pub(crate) fn econ_extract_budget() -> Option<u32> {
     }
 }
 
-/// Operator stop sequences: `ANGEL_<CLUB>_STOP_SEQS` then `ANGEL_STOP_SEQS`,
-/// comma-separated, `\n` escapes honored, capped at 4 (the common provider
-/// limit). Never auto-derived — a guessed stop sequence can amputate code or
-/// tool JSON, so only the operator (or the judge) supplies them.
 pub(crate) fn econ_stop_seqs(env_prefix: &str) -> Vec<String> {
     let raw = std::env::var(format!("ANGEL_{env_prefix}_STOP_SEQS"))
         .ok()
@@ -164,9 +144,6 @@ pub(crate) fn econ_stop_seqs(env_prefix: &str) -> Vec<String> {
         .collect()
 }
 
-/// Squeeze harness-authored filler whitespace: runs of 3+ newlines collapse to
-/// 2, trailing per-line spaces drop. Operator text and anything carrying a
-/// code fence is left byte-identical — the win is small and correctness wins.
 pub(crate) fn econ_squeeze_ws(text: &str) -> Option<String> {
     if text.contains("```") {
         return None;
@@ -194,14 +171,6 @@ pub(crate) fn econ_squeeze_ws(text: &str) -> Option<String> {
     (out != text).then_some(out)
 }
 
-/// Prompt duplication — the accuracy optimizer, not an efficiency measure. It
-/// *doubles* the ask on purpose, for backends **declared** non-reasoning
-/// (`supports_reasoning == Some(false)`; unknown never triggers — same declared-
-/// truth rule as the effort gate). Defaults on only where tokens are free:
-/// `ANGEL_OPT_DUP` unset/`1` → local fleet links; `all` → metered links too;
-/// `0` → off. Tool-carrying turns never duplicate (the agent loop's contract
-/// with itself is not a quiz), and oversized asks are skipped rather than
-/// doubling a huge context.
 pub(crate) fn optimizer_dup(
     messages: &[ChatMsg],
     supports_reasoning: Option<bool>,
@@ -232,7 +201,6 @@ pub(crate) fn optimizer_dup(
     if last.content.chars().count() > cap {
         return None;
     }
-    // Already duplicated (a retry rebuilding the body must stay idempotent).
     let mut users = messages
         .iter()
         .rev()
@@ -246,21 +214,8 @@ pub(crate) fn optimizer_dup(
     Some(last.content.to_string())
 }
 
-// ---------------------------------------------------------------------------
-// Judge: the resident fleet model pre-provisions the hardest calls
-// ---------------------------------------------------------------------------
-
-/// Failure cooldown so a dark ship costs one fast timeout per minute, not one
-/// per hop. (Instant, not a count: the ship coming back heals it on its own.)
 static JUDGE_COOLDOWN: StdMutex<Option<Instant>> = StdMutex::new(None);
-/// Single-flight gate: parallel asks (swarm fan-out) all pass the cooldown
-/// check before the first failed consult can arm it, so a dark ship logged one
-/// "judge skip" per concurrent ask instead of one per window. While a consult
-/// is in flight every other ask sends unmodified, silently — the in-flight
-/// consult's own outcome is the one report for the window.
 static JUDGE_INFLIGHT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-/// Tiny per-process verdict cache keyed by the ask's hash: retries and multi
-/// -hop resends of the same ask must not re-consult the judge.
 static JUDGE_CACHE: StdMutex<Vec<(u64, Option<ProvisionDirective>)>> = StdMutex::new(Vec::new());
 
 pub(crate) fn judge_enabled() -> bool {
@@ -274,16 +229,12 @@ fn ask_hash(text: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
     text.hash(&mut h);
-    // A connected judge can read the book, so a verdict from an older
-    // generation cannot be reused for the same ask under edited pages.
     if let Some(catalog) = crate::agent::harness::book::catalog::current() {
         catalog.identity().hash(&mut h);
     }
     h.finish()
 }
 
-/// Consult the provisioner model about one outbound ask. Strictly fail-open
-/// and latency-bounded; `None` always means "send unmodified".
 pub(crate) fn judge_directive(club_name: &str, messages: &[ChatMsg]) -> Option<ProvisionDirective> {
     if !judge_enabled() {
         return None;
@@ -333,9 +284,6 @@ pub(crate) fn judge_directive(club_name: &str, messages: &[ChatMsg]) -> Option<P
     verdict
 }
 
-/// One chat completion against the judge, with `tools` offered (the ledger
-/// reader, or none on the last hop). No clock unless the operator set one
-/// (`ANGEL_PROVISION_TIMEOUT_MS`).
 fn judge_hop(
     base: &str,
     model: &str,
@@ -360,10 +308,6 @@ fn judge_hop(
         "stream": false,
         "max_tokens": 512,
         "temperature": 0,
-        // The resident ship is a thinking model (Qwen3.6-35B-A3B): left on, it
-        // spends the whole budget on reasoning_content and returns empty
-        // content (measured live 2026-07-22). Classification needs no chain of
-        // thought; lenient OpenAI-compatible servers ignore the field.
         "chat_template_kwargs": { "enable_thinking": false },
         "messages": messages_to_json(history, false),
     });
@@ -430,9 +374,6 @@ fn judge_consult(club_name: &str, ask: &str) -> Option<ProvisionDirective> {
         .unwrap_or_else(|| "default".to_string());
     let excerpt: String = ask.chars().take(4000).collect();
     let started = Instant::now();
-    // The judge's brief is `⡸⠙`; the excerpt is the data. Connected: the judge
-    // may read its route. It answers when it answers, unless the operator put
-    // a clock on it.
     let deadline = std::env::var("ANGEL_PROVISION_TIMEOUT_MS")
         .ok()
         .and_then(|v| v.trim().parse::<u64>().ok())
@@ -464,8 +405,6 @@ fn judge_consult(club_name: &str, ask: &str) -> Option<ProvisionDirective> {
     directive
 }
 
-/// Extract the first JSON object from the judge's reply and map it to a
-/// directive. Reasoning verdicts intentionally provision nothing.
 pub(crate) fn parse_judge_json(content: &str) -> Option<ProvisionDirective> {
     let start = content.find('{')?;
     let end = content.rfind('}')?;
@@ -484,8 +423,6 @@ pub(crate) fn parse_judge_json(content: &str) -> Option<ProvisionDirective> {
         .and_then(|c| c.as_str())
         .map(str::trim)
         .filter(|c| !c.is_empty())
-        // Spliced into a request with no tools, whose seat cannot reach the
-        // ledger: the contract's frame is `⠬⠑`'s pages, recited around it.
         .map(|c| {
             use crate::agent::harness::book::{
                 connect::recite, d3_roles::pages, ing_drivers::OUTPUT_CONTRACT,

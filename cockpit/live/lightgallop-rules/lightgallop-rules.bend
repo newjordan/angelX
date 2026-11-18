@@ -4,13 +4,6 @@ import ./level.bend as L
 import ./session.bend as N
 import ./bot.bend as B
 
-# The Lightgallop rules module: the Moonwell Road and everything that rides it.
-#
-# The host (index.js) calls three things. `road` lays out the level once. `tick`
-# takes the road and the ride's state as an array of slots (sl.bend, with the
-# layout in rs.bend and hs.bend) and answers the next state. `start` does the
-# same for a fresh ride, and `bot` answers the keys a bot presses.
-
 def road() -> L.Road:
   L.road()
 

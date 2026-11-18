@@ -1,6 +1,3 @@
-# crates/delve/src/rules/trophies.rs — the Trophy Hall; what the step reaches.
-
-# `trophy(cue)`: the trophy a cue counts toward, if any.
 def trophies.trophy(cue: String) -> String?:
     if String.eq(cue, "victory"):
         return Some{"dragon"}
@@ -10,7 +7,6 @@ def trophies.trophy(cue: String) -> String?:
         return Some{String.drop(cue, 10n)}
     return None{}
 
-# Count what fell this tick for the Trophy Hall: the cues since `heard`.
 def trophies.Run.mark_trophies(run: J.Val, heard: U32) -> J.Val:
     cues: [J.Val] = List.drop(&2, J.Val, J.items(J.get(run, "cues")), U32.to_nat(heard))
     for cue: J.Val in cues:

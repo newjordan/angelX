@@ -32,7 +32,6 @@ fn a_piece_stays_over_its_footprint_and_off_the_ground_below() {
             for frame in 0..state.frames() {
                 for s in &solids(id, state, frame).unwrap().solids {
                     let [x0, z0, x1, z1] = s.footprint();
-                    // Smoke drifts and sails sweep a little past the edge; a building does not.
                     let slack = if s.kind == Kind::Plaster && matches!(s.shape, Shape::Sphere) { 8.0 } else { 3.0 };
                     if !(x0 >= -slack && z0 >= -slack && x1 <= w + slack && z1 <= d + slack) {
                         faults.push(format!("{id} {state:?}: {:?} {:?} outside {w} x {d}", s.shape, s.at));
@@ -143,7 +142,6 @@ fn every_load_is_its_own_heap() {
 #[test]
 fn a_hundred_pieces_are_cheap() {
     use std::time::Instant;
-    // Made once: the first sight of each (plan, state, frame) costs; every later one is a lookup.
     let ids: Vec<&str> = flat::plans().collect();
     let started = Instant::now();
     let mut count = 0;
@@ -169,22 +167,17 @@ fn a_hundred_pieces_are_cheap() {
 #[test]
 fn rails_lie_on_sleepers_on_ballast_and_a_line_ends_in_a_buffer() {
     use angel_stage::set::Kind;
-    // A straight run east to west: ballast, sleepers across it, two rails along it.
     let straight = line_solids(LineKind::Tram, lines::E | lines::W, false, 0);
     let count = |v: &[Solid], k: Kind| v.iter().filter(|s| s.kind == k).count();
     assert_eq!(count(&straight, Kind::Sand), 3, "the bed: the middle and an arm each way");
     assert_eq!(count(&straight, Kind::Trunk), 4, "two sleepers an arm");
     assert_eq!(count(&straight, Kind::Road), 4, "a rail in each arm, two rails");
-    // Rails stand over the sleepers, the sleepers over the ballast.
     let top = |k: Kind| straight.iter().filter(|s| s.kind == k).map(|s| s.top()).fold(0.0f32, f32::max);
     assert!(top(Kind::Road) > top(Kind::Trunk) && top(Kind::Trunk) > top(Kind::Sand));
-    // Sleepers run across the line (their long side is z when the line runs along x).
     assert!(straight.iter().filter(|s| s.kind == Kind::Trunk).all(|s| s.size[2] > s.size[0]));
-    // A dead end has its buffer; a through tile does not.
     let end = line_solids(LineKind::Tram, lines::W, false, 0);
     assert!(end.iter().any(|s| s.kind == Kind::Trunk && s.size[1] > 3.0), "a buffer post");
     assert!(!straight.iter().any(|s| s.kind == Kind::Trunk && s.size[1] > 3.0));
-    // A corner mitres: both arms' rails reach into the middle.
     let corner = line_solids(LineKind::Tram, lines::E | lines::S, false, 0);
     assert!(corner.iter().filter(|s| s.kind == Kind::Road).count() >= 4);
 }
@@ -192,18 +185,15 @@ fn rails_lie_on_sleepers_on_ballast_and_a_line_ends_in_a_buffer() {
 #[test]
 fn a_ropeway_cable_sags_between_towers_and_a_tower_stands_over_it() {
     use angel_stage::set::Kind;
-    // The cable's mean height over a tile of the span.
     let cable_at = |span: u32| {
         let tops: Vec<f32> = line_solids_at(LineKind::Rope, lines::E | lines::W, false, span, 0).iter().filter(|s| s.kind == Kind::Road).map(|s| s.top()).collect();
         tops.iter().sum::<f32>() / tops.len() as f32
     };
-    // From a tower the cable falls, is lowest mid-span and rises to the next.
     assert!(cable_at(0) > cable_at(1) && cable_at(1) > cable_at(2), "{} {} {}", cable_at(0), cable_at(1), cable_at(2));
     assert!(cable_at(3) > cable_at(2) && (cable_at(3) - cable_at(1)).abs() < 0.01, "a span is the same both ways");
     let tower = line_solids_at(LineKind::Rope, lines::E | lines::W, true, 0, 0);
     let high = tower.iter().map(|s| s.top()).fold(0.0f32, f32::max);
     assert!(high >= rails::CABLE - 1.0, "a tower reaches the cable: {high}");
-    // A bucket hangs from the cable, clear of the ground.
     let bucket = vehicle_solids(LineKind::Rope, Dir::East, Some(Load::Ashlar), 0);
     let low = bucket.iter().map(|s| s.bottom()).fold(f32::MAX, f32::min);
     assert!(low > 12.0 && low < rails::CABLE, "{low}");
@@ -211,18 +201,15 @@ fn a_ropeway_cable_sags_between_towers_and_a_tower_stands_over_it() {
 
 #[test]
 fn an_ox_walks_and_a_cart_wheel_turns() {
-    // The ox's legs are not the same two steps running, and a wheel's marked block has moved.
     let (a, b) = (vehicle_solids(LineKind::Cart, Dir::East, None, 0), vehicle_solids(LineKind::Cart, Dir::East, None, 2));
     assert_ne!(*a, *b, "a step later the cart is not the same picture");
     assert_eq!(a.len(), b.len());
-    // Four legs, two raised and two down at a time.
     let legs = |v: &[Solid]| v.iter().filter(|s| s.kind == angel_stage::set::Kind::Trunk && s.size[1] > 3.0 && s.at[0] > 18.0).map(|s| s.at[1]).collect::<Vec<_>>();
     let (la, lb) = (legs(&a), legs(&b));
     assert_eq!(la.len(), 4);
     assert_eq!(la.iter().filter(|&&y| y > 0.5).count(), 2);
     assert_eq!(lb.iter().filter(|&&y| y > 0.5).count(), 2);
     assert_ne!(la, lb, "the pairs swap");
-    // Stone, lime, timber and ore on a cart are four different heaps.
     let heaps: Vec<_> = [Load::Stone, Load::Lime, Load::Timber, Load::Ore].iter().map(|l| vehicle_solids(LineKind::Cart, Dir::East, Some(*l), 0)).collect();
     for i in 0..4 {
         for j in i + 1..4 {
@@ -245,8 +232,6 @@ fn a_carrier_seen_from_afar_is_a_few_blocks_of_the_same_silhouette() {
         }
     }
 }
-
-// ------------------------------------------------- the line, the rails, the swape ----
 
 #[test]
 fn every_piece_of_rollerway_builds_every_way_and_keeps_to_its_tile() {
@@ -273,12 +258,9 @@ fn rollers_turn_and_a_stood_line_stands_and_the_ways_differ() {
     let steps: Vec<_> = (0..4u8).map(|p| belts::tile(Piece::Roller, 1, Some(p), false)).collect();
     assert!(steps.iter().any(|s| **s != *steps[0]), "the lugs ride round the logs");
     assert!(steps.iter().any(|s| **s != *still), "a moving tile differs from a stood one");
-    // North and east are the same tile turned: not the same blocks.
     assert_ne!(*belts::tile(Piece::Roller, 0, None, false), *belts::tile(Piece::Roller, 1, None, false));
-    // The hand-chain with its labourer is not the one with its stool, and he moves at work.
     assert_ne!(*belts::tile(Piece::Chain, 1, Some(0), true), *belts::tile(Piece::Chain, 1, Some(0), false));
     assert_ne!(*belts::tile(Piece::Chain, 1, Some(0), true), *belts::tile(Piece::Chain, 1, Some(2), true));
-    // Splitter, merge and gate are three houses.
     let houses: Vec<_> = [Piece::Splitter, Piece::Merge, Piece::Gate].iter().map(|p| belts::tile(*p, 1, None, false)).collect();
     assert!(houses[0] != houses[1] && houses[1] != houses[2] && houses[0] != houses[2]);
 }
@@ -326,7 +308,6 @@ fn the_buildings_the_first_kit_left_undrawn_are_drawn_at_the_size_the_sim_gives_
         assert!(solids(id, State::Idle, 0).is_some(), "{id} has a 3D piece");
         assert!(flat::flat(id, State::Working, 3).is_some(), "{id} has a flat picture");
     }
-    // A mule train is its own look, not a cart's.
     let mule = vehicle_solids(LineKind::Mule, Dir::East, Some(Load::Ore), 0);
     assert_ne!(*mule, *vehicle_solids(LineKind::Cart, Dir::East, Some(Load::Ore), 0));
     assert_ne!(*line_solids(LineKind::Mule, 10, false, 0), *line_solids(LineKind::Cart, 10, false, 0));

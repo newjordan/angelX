@@ -1,25 +1,8 @@
 #!/usr/bin/env python3
-"""Muse Pareto chart: input tokens per task against median wall per task.
-
-Every point is a published receipt in this repo (README bench tables and
-docs/telemetry/), never a recomputed claim:
-
-- angelX + Muse Spark, 2026-10-26 (this branch's base): subset of 16,
-  docs/telemetry/muse-pareto-baseline-20261026.md.
-- angelX + Muse Spark, 2026-09-23: README 0.1.6 table (full 136).
-- angelX vs Muse Code on Muse Spark, 2026-09-30:
-  docs/telemetry/muse-hermes-h2h-20260930.md (full 136; wall is mean
-  agent duration per task there, marked *).
-- DeepSeek harness comparison, 2026-09-21: README table (full 136).
-
-Output: an SVG scatter (log x) with the nondominated frontier drawn
-through the Muse points. Checkout-only tooling, like its neighbours.
-"""
 import math
 import sys
 from pathlib import Path
 
-# (label, input tokens per task, wall seconds per task, solved, group)
 POINTS = [
     ("angelX + Spark\n2026-10-26 (16 tasks)", 43_103, 7.82, "16/16", "muse"),
     ("angelX + Spark\n2026-09-23 (136)", 5_900_000 / 136, 25.5, "136/136", "muse"),
@@ -33,7 +16,6 @@ POINTS = [
 W, H = 1180, 840
 LEFT, RIGHT, TOP, BOT = 110, 60, 90, 170
 
-# Per-point label placement: (anchor, dx, dy) so close points do not collide.
 PLACEMENT = {
     "angelX + Spark\n2026-10-26 (16 tasks)": ("start", 14, -34),
     "angelX + Spark\n2026-09-23 (136)": ("start", 14, -30),
@@ -66,7 +48,6 @@ def main() -> None:
         '<text x="110" y="76" font-family="monospace" font-size="15" fill="#8b949e">'
         "Polyglot-v1 repository repair - input tokens per task vs median wall per task (lower-left wins)</text>",
     ]
-    # Grid: decades on x, 10 s steps on y.
     for tok, name in [(20_000, "20k"), (50_000, "50k"), (100_000, "100k"), (200_000, "200k"),
                       (500_000, "500k"), (1_000_000, "1M"), (2_000_000, "2M")]:
         x = sx(tok)
@@ -78,8 +59,6 @@ def main() -> None:
         parts.append(f'<text x="{LEFT - 12}" y="{y + 5:.0f}" text-anchor="end" font-family="monospace" font-size="14" fill="#8b949e">{wall}s</text>')
     parts.append(f'<text x="{(LEFT + W - RIGHT) / 2:.0f}" y="{H - BOT + 62}" text-anchor="middle" font-family="monospace" font-size="16" fill="#c9d1d9">input tokens per task (log)</text>')
     parts.append(f'<text x="30" y="{(TOP + H - BOT) / 2:.0f}" text-anchor="middle" transform="rotate(-90 30 {(TOP + H - BOT) / 2:.0f})" font-family="monospace" font-size="16" fill="#c9d1d9">median wall per task</text>')
-    # The Muse points in date order: the frontier moving down-left. The
-    # 2026-10-26 point dominates both September points on both axes.
     muse = [p for p in POINTS if p[4] == "muse"][::-1]
     pts = " ".join(f"{sx(p[1]):.0f},{sy(p[2]):.0f}" for p in muse)
     parts.append(f'<polyline points="{pts}" fill="none" stroke="#d29922" stroke-width="2.5" stroke-dasharray="7 5"/>')

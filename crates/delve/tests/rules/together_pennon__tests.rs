@@ -16,7 +16,6 @@ fn game(seats: u32) -> Run {
         },
     )]));
     assert!(r.pennon.is_some());
-    // The title and the 3-2-1 come first: the lanes wait for the table.
     for _ in 0..show::HOLD {
         r.step(&BTreeMap::new());
     }

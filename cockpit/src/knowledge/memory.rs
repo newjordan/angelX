@@ -41,7 +41,6 @@ fn store_path_for(workspace: &Path) -> PathBuf {
     )
 }
 
-/// Load the saved memories (empty if the file is absent or unreadable).
 pub fn load_for(workspace: &Path) -> Vec<String> {
     let path = store_path_for(workspace);
     let Some(raw) = read_bounded_utf8(&path, MAX_MEMORY_RECORD_BYTES) else {
@@ -95,9 +94,6 @@ impl std::fmt::Display for MemorySaveError {
     }
 }
 
-/// Save a validated project record. A failure is explicit; callers must not
-/// acknowledge a memory mutation until this returns success. UTF-8 schemas and
-/// keys remain unchanged; unsupported raw roots are never migrated by guessing.
 pub fn save_for<S: AsRef<str>>(memories: &[S], workspace: &Path) -> Result<(), MemorySaveError> {
     if !memories_within_limits(memories) {
         return Err(MemorySaveError::InvalidMemories);
@@ -146,15 +142,9 @@ pub fn save_for<S: AsRef<str>>(memories: &[S], workspace: &Path) -> Result<(), M
         .map_err(MemorySaveError::Persist)
 }
 
-/// Opening line of the injected memory block, and its closing sentinel. Kept as
-/// constants so the submit path can strip a prior block as a precise span (header
-/// line … sentinel line) and keep only the freshest copy per turn.
 pub(crate) const MEMORY_BLOCK_HEADER: &str = "⠎⠑";
 pub(crate) const MEMORY_BLOCK_SENTINEL: &str = "⠎⠑";
 
-/// Render memories as bounded Harness-role turn context. Wrapped in
-/// [`MEMORY_BLOCK_HEADER`] … [`MEMORY_BLOCK_SENTINEL`] so legacy copies remain
-/// attributable and strippable.
 pub fn context_block<S: AsRef<str>>(memories: &[S]) -> String {
     if memories.is_empty() {
         return String::new();
@@ -177,7 +167,6 @@ pub fn context_block<S: AsRef<str>>(memories: &[S]) -> String {
     }
     let omitted = memories.len().saturating_sub(included);
     if omitted > 0 {
-        // `⠗⠓⠃`, the count beside it.
         out.push_str(&format!(
             "{} {omitted}\n",
             crate::agent::harness::book::d3_roles::pages(

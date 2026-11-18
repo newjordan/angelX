@@ -1,7 +1,6 @@
 use super::*;
 use crate::rules::claim_bosses::{self, Guardian};
 
-/// A won seam three floors down, so a raid may reach it.
 fn deep() -> (Run, industry::Deposit) {
     let (mut run, d) = claim_bosses::tests::fixture(Guardian::Ironroot);
     run.dungeon.depth = stir::RAID_FROM;
@@ -30,7 +29,6 @@ fn far(run: &mut Run, d: &industry::Deposit) {
     let h = run.players.get_mut(&1).unwrap();
     (h.x, h.y) = (d.x + 30.0, d.y);
 }
-/// The party stands by the claim, goes away for `away` ticks and returns.
 fn leave_and_return(run: &mut Run, d: &industry::Deposit, away: u64) {
     near(run, d);
     run.tick_stir_claim(d);
@@ -51,14 +49,11 @@ fn digging_and_working_the_shaft_stir_the_deep_and_it_settles_on_its_own() {
     run.tick = stir::CALM_EVERY * 4;
     run.tick_stir();
     assert_eq!(run.kingdom.stir.level, stir::MAX - 1, "a point settles");
-    // A shift with no mine at work stirs nothing.
     run.kingdom.stir.level = 0;
     run.home.industry.start(crate::kingdom::catalog());
     run.tick = industry::SHIFT_TICKS * 3;
     run.tick_stir();
     assert_eq!(run.kingdom.stir.level, 0, "no mine at work, nothing stirred");
-    // A mine on a claim stirs it a point a shift, and the shaft's machinery
-    // over it a little more.
     run.home.industry.buildings.insert(
         7,
         crate::kingdom::Building { plan: "mine".into(), claim: Some("seam".into()), ..Default::default() },
@@ -93,7 +88,6 @@ fn an_unguarded_claim_in_a_stirred_deep_gets_its_sentries_back() {
     assert!(run.kingdom.stir.raiding(&d.id));
     assert!(run.notices.last().is_some_and(|n| n.starts_with("RAID")), "{:?}", run.notices);
     assert!(run.raided_claims().contains(d.id.as_str()));
-    // The ordinary sentries stand up again, two of them, and are admitted.
     run.tick_ore_sentries(&d);
     assert_eq!(run.enemies.len(), 2);
     assert!(run.enemies.iter().all(|e| run.admitted_ore_sentry(e)));
@@ -140,17 +134,14 @@ fn a_raid_comes_once_to_a_claim_an_expedition() {
 
 #[test]
 fn nothing_raids_a_calm_deep_a_guarded_claim_or_the_first_two_floors() {
-    // Calm: below the threshold.
     let (mut run, d) = deep();
     run.kingdom.stir.level = stir::RAID_AT - 1;
     leave_and_return(&mut run, &d, stir::UNGUARDED + 1);
     assert!(!run.kingdom.stir.raiding(&d.id));
-    // Guarded: the party only stepped out a moment.
     let (mut run, d) = deep();
     run.kingdom.stir.level = stir::MAX;
     leave_and_return(&mut run, &d, stir::UNGUARDED - 30);
     assert!(!run.kingdom.stir.raiding(&d.id));
-    // A new player's first two floors are never raided, however stirred.
     for floor in 1..stir::RAID_FROM {
         let (mut run, d) = deep();
         run.dungeon.depth = floor;
@@ -159,7 +150,6 @@ fn nothing_raids_a_calm_deep_a_guarded_claim_or_the_first_two_floors() {
         assert!(!run.kingdom.stir.raiding(&d.id), "floor {floor}");
         assert!(run.kingdom.stir.raids.is_empty());
     }
-    // Nobody is there: the sentries are not sent to an empty room.
     let (mut run, d) = deep();
     run.kingdom.stir.level = stir::MAX;
     near(&mut run, &d);
@@ -177,14 +167,11 @@ fn a_raid_cannot_lock_the_party_in_or_outlive_the_room() {
     leave_and_return(&mut run, &d, stir::UNGUARDED + 1);
     run.tick_ore_sentries(&d);
     assert_eq!(run.enemies.len(), 2);
-    // Leaving the room discards the bodies as any room does, the raid stays
-    // live, and coming back raises exactly the same two, never more.
     for _ in 0..3 {
         run.enemies.clear();
         run.tick_ore_sentries(&d);
         assert_eq!(run.enemies.len(), 2, "two raiders, however often the room is entered");
     }
-    // A crowded room waits, as for any seam, and never invents a body.
     run.enemies.clear();
     for _ in 0..boss_ecology::ENTITY_CAP - 1 {
         run.spawn_at_for_test(EnemyKind::Skeleton, 1.0, 1.0);
@@ -204,7 +191,6 @@ fn the_stir_is_bounded_and_saved() {
     let back: stir::Stir = serde_json::from_str(&serde_json::to_string(&run.kingdom.stir).unwrap()).unwrap();
     assert_eq!(back, run.kingdom.stir);
     assert!(back.raiding(&d.id) && back.valid());
-    // The whole run, with a raid on, as a guest is sent it.
     let (mut plain, id) = {
         let (r, d) = claim_bosses::tests::fixture(Guardian::Ironroot);
         (r, d.id)

@@ -80,7 +80,6 @@ fn watcher_reports_appear_change_and_gone_exactly_once() {
             activity: "idle".into(),
         }]
     );
-    // Steady state: no repeat events.
     assert!(
         watcher
             .observe(
@@ -89,7 +88,6 @@ fn watcher_reports_appear_change_and_gone_exactly_once() {
             )
             .is_empty()
     );
-    // Activity transition.
     let events = watcher.observe(
         &[heartbeat("a-1", "casper", "turn", t0 + 10_000)],
         t0 + 10_000,
@@ -103,7 +101,6 @@ fn watcher_reports_appear_change_and_gone_exactly_once() {
             to: "turn".into(),
         }]
     );
-    // Heartbeat ages past the stale horizon: Gone, once.
     let stale_at = t0 + 10_000 + STALE_AFTER_MS + 1;
     let events = watcher.observe(&[heartbeat("a-1", "casper", "turn", t0 + 10_000)], stale_at);
     assert_eq!(
@@ -136,8 +133,6 @@ fn beat_publishes_and_retire_removes_the_heartbeat_file() {
     let fixture = Fixture::new();
     let state = fixture.0.join("state");
     std::fs::create_dir_all(&state).unwrap();
-    // Point the slot at a fixture directory through the config file path
-    // peer_dir reads (peers.json under the state root).
     let shared = fixture.0.join("shared");
     std::fs::write(
         state.join("peers.json"),

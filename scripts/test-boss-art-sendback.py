@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Silhouette controls for the actual-cell BOSS-3 acceptance gate."""
 import copy
 import runpy
 import unittest

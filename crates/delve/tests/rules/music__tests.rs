@@ -16,7 +16,6 @@ fn every_track_is_a_file_of_the_game() {
         assert_eq!(known(track.name), Some(track.name));
     }
     assert_eq!(known("no-such-track"), None);
-    // The whole score is in: over two hours of it.
     let all: u32 = [HOME, DUNGEON, BOSS].into_iter().flatten().map(|t| u32::from(t.secs)).sum();
     assert!(all > 2 * 3600, "{all} seconds");
     assert!(DUNGEON.len() >= 30 && BOSS.len() >= 6 && HOME.len() >= 60);
@@ -26,7 +25,6 @@ fn every_track_is_a_file_of_the_game() {
 fn a_list_moves_on_to_its_next_track_as_one_ends() {
     let first = play(DUNGEON, 0, 0);
     let len = ticks(DUNGEON.iter().find(|t| t.name == first).unwrap().secs);
-    // The track still plays until its length is up, then another does.
     let start = (0..len * 2).find(|&t| play(DUNGEON, 0, t) != first).unwrap();
     assert!(start <= len);
     let next = play(DUNGEON, 0, start);
@@ -71,7 +69,6 @@ fn a_floor_plays_many_tracks_and_keeps_them_from_room_to_room() {
         heard.extend(run.music());
     }
     assert!(heard.len() >= 20, "an hour on a floor plays {} tracks", heard.len());
-    // Through a door: the floor's list plays on, the same track.
     run.tick = start + ticks(600);
     let here = run.music();
     let other = (0..run.dungeon.rooms.len()).find(|&i| i != run.at && run.dungeon.rooms[i].kind != crate::rules::RoomKind::Sanctuary).unwrap();
@@ -83,7 +80,6 @@ fn a_floor_plays_many_tracks_and_keeps_them_from_room_to_room() {
 fn a_floor_rests_between_its_tracks_and_never_plays_one_twice_running() {
     use crate::rules::music::{QUIET, play_sparse};
     let hz = u64::from(crate::rules::HZ);
-    // Every second of two hours on one floor: what plays, and the quiets.
     let heard: Vec<Option<&str>> = (0..2 * 3600).map(|s| play_sparse(DUNGEON, 11, s * hz)).collect();
     let mut runs: Vec<(Option<&str>, u64)> = Vec::new();
     for &m in &heard {
@@ -94,8 +90,6 @@ fn a_floor_rests_between_its_tracks_and_never_plays_one_twice_running() {
     }
     let tracks: Vec<&str> = runs.iter().filter_map(|&(m, _)| m).collect();
     assert!(tracks.len() >= 40, "{} tracks in two hours", tracks.len());
-    // A quiet after every track, as long as `QUIET` says (the first and
-    // last run of the window may be cut short).
     for pair in runs.windows(2) {
         assert!(pair[0].0.is_some() != pair[1].0.is_some(), "a track and a quiet by turns: {pair:?}");
     }
@@ -107,7 +101,6 @@ fn a_floor_rests_between_its_tracks_and_never_plays_one_twice_running() {
     for pair in tracks.windows(2) {
         assert_ne!(pair[0], pair[1], "never the same track twice running");
     }
-    // Two delves play their floors' lists in orders of their own.
     let order = |seed: u64| -> Vec<&str> {
         let mut seen = Vec::new();
         for s in 0..3 * 3600 {
@@ -131,10 +124,8 @@ fn a_guardian_brings_the_battle_cues_and_each_floor_deals_its_own_list() {
         let track = run.music().expect("a guardian's fight is never quiet");
         assert!(BOSS.iter().any(|t| t.name == track), "{track} is a battle cue");
     }
-    // It falls: the floor's own list again, or its quiet.
     run.enemies.clear();
     assert!(run.music().is_none_or(|m| DUNGEON.iter().any(|t| t.name == m)));
-    // Floor by floor, a delve's score comes in an order of the floor's own.
     let floor = |run: &Run| -> Vec<Option<&'static str>> {
         let mut run = run.clone();
         run.enemies.clear();

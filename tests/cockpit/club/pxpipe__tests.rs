@@ -4,15 +4,12 @@ use super::*;
 fn pxpipe_is_disabled_by_default() {
     let _guard = crate::tests::env_lock();
     let saved = std::env::var_os("ANGEL_PXPIPE");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_PXPIPE") };
 
     assert!(!pxpipe_enabled());
 
     match saved {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(value) => unsafe { std::env::set_var("ANGEL_PXPIPE", value) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_PXPIPE") },
     }
 }
@@ -72,8 +69,6 @@ fn persistent_roundtrip_rejects_huge_truncated_frame_and_keeps_normal_frames() {
     let _guard = crate::tests::env_lock();
     let _timeout = crate::tests::TestEnvGuard::set("ANGEL_PXPIPE_TIMEOUT_MS", "1000");
 
-    // A maximal declared length with only three body bytes used to request the
-    // entire allocation before discovering EOF.
     let mut truncated = scripted_pxpipe_daemon(
         r#"IFS= read -r h; printf '%s\n' '{"ok":true,"len":18446744073709551615}'; printf abc"#,
     );
@@ -86,7 +81,6 @@ fn persistent_roundtrip_rejects_huge_truncated_frame_and_keeps_normal_frames() {
     );
     let _ = truncated.child.wait();
 
-    // Reading exactly one body must leave the following header intact.
     let mut normal = scripted_pxpipe_daemon(
         r#"IFS= read -r h; printf '%s\n' '{"ok":true,"len":3}'; printf abc; IFS= read -r h; printf '%s\n' '{"ok":true,"len":4}'; printf defg"#,
     );
@@ -223,9 +217,6 @@ fn oneshot_blocked_stdin_fixture() {
     let root = std::env::var_os("ANGEL_T_PXPIPE_STDIN")
         .expect("subprocess fixture requires its parent test");
     let _cleanup = FixtureCleanup::new();
-    // The escaped holder inherits stdin but never reads it. A request larger
-    // than the pipe capacity must time out while writing, even after exit0 of
-    // the launcher and independently of the output readers' deadlines.
     let mut fixture =
         EvidenceFixture::new(std::path::Path::new(&root), "pxpipe-input", "stdout", "{}");
     let started = Instant::now();
@@ -276,8 +267,6 @@ fn oneshot_complete_output_fixture() {
     assert!(output.stdout[..2 * 1024 * 1024].iter().all(|b| *b == b'x'));
     assert_eq!(&output.stdout[2 * 1024 * 1024..], request);
 
-    // A finite launcher can leave a same-group wrapper holding the pipes.
-    // Retirement closes those pipes without erasing the launcher's exit0.
     let marker = std::path::Path::new(&root).join("pxpipe-wrapper.pid");
     let mut command = Command::new("/bin/sh");
     command

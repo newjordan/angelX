@@ -24,12 +24,10 @@ fn art(rows: &[&str]) -> Img {
     im
 }
 
-/// The coat a keeper wears: a dusk ink, a different one down the ring.
 fn coat(stop: usize) -> char {
     ['Q', 'C', 'z', 'M', 'U', 'l', 'Q', 'C', 'z', 'M', 'U'][stop % 11]
 }
 
-/// A keeper facing the road, a cap on, a kettle-apron over the coat.
 fn keeper(stop: usize) -> Img {
     let c = coat(stop);
     let rows = [
@@ -52,9 +50,7 @@ fn keeper(stop: usize) -> Img {
     art(&refs)
 }
 
-/// The lean-to: its roof, posts, back wall with the notice, and the counter.
 fn shelter(over: &mut Img, (x, y): (i32, i32), tick: u32, kettle: bool) {
-    // The roof, shingled in rows of the timber ramp, its edge lit a step.
     over.rect(x + 12, y + 8, 56, 1, 'o');
     over.rect(x + 12, y + 9, 56, 3, 'R');
     over.rect(x + 12, y + 12, 56, 4, 'r');
@@ -65,33 +61,28 @@ fn shelter(over: &mut Img, (x, y): (i32, i32), tick: u32, kettle: bool) {
         over.put(x + 16 + k * 5, y + 14, 'B');
         over.put(x + 13 + k * 5, y + 17, 'b');
     }
-    // Under the eaves, dark; the back wall's planks.
     over.rect(x + 14, y + 20, 52, 2, 'n');
     over.rect(x + 19, y + 22, 42, 24, 'b');
     for k in 0..7 {
         over.rect(x + 23 + k * 6, y + 22, 1, 24, 'I');
     }
-    // Posts on stone feet.
     for px in [16, 62] {
         over.rect(x + px, y + 20, 3, 26, 'P');
         over.rect(x + px + 2, y + 20, 1, 26, 'B');
         over.rect(x + px - 1, y + 44, 5, 3, 'G');
         over.rect(x + px - 1, y + 46, 5, 1, 'X');
     }
-    // The notice on the wall: a board and a paper, its lines.
     over.rect(x + 24, y + 25, 15, 11, 'P');
     over.rect(x + 25, y + 26, 13, 9, 'T');
     for k in 0..3 {
         over.rect(x + 27, y + 28 + k * 2, 9 - k, 1, 'B');
     }
-    // The counter along the front.
     over.rect(x + 20, y + 37, 40, 1, 'o');
     over.rect(x + 20, y + 38, 40, 3, 'r');
     over.rect(x + 20, y + 41, 40, 5, 'B');
     for k in 0..6 {
         over.rect(x + 25 + k * 7, y + 41, 1, 5, 'I');
     }
-    // A kettle on it, steaming a little while the keeper tends it.
     over.rect(x + 50, y + 33, 6, 4, 'X');
     over.rect(x + 50, y + 33, 6, 1, 'g');
     over.put(x + 56, y + 34, 'g');
@@ -104,9 +95,7 @@ fn shelter(over: &mut Img, (x, y): (i32, i32), tick: u32, kettle: bool) {
     }
 }
 
-/// The coach waiting at its post, its cover a patched canvas on bows.
 fn coach(over: &mut Img, (x, y): (i32, i32)) {
-    // The canvas cover, arched, on bows.
     for row in 0..11 {
         let inset = [8, 5, 3, 2, 1, 0, 0, 0, 0, 0, 0][row as usize];
         over.rect(x + 68 + inset, y + 23 + row, 22 - 2 * inset, 1, if row < 2 { 'O' } else { 't' });
@@ -117,16 +106,13 @@ fn coach(over: &mut Img, (x, y): (i32, i32)) {
     }
     over.put(x + 74, y + 28, 'o');
     over.put(x + 82, y + 30, 'o');
-    // The box under it, its rail and a lamp hook.
     over.rect(x + 66, y + 34, 26, 8, 'r');
     over.rect(x + 66, y + 34, 26, 1, 'o');
     over.rect(x + 66, y + 41, 26, 2, 'B');
     over.rect(x + 71, y + 36, 16, 4, 'B');
     over.line(x + 92, y + 36, x + 92, y + 39, 'X');
-    // Shafts, down to the ground at the near end.
     over.line(x + 66, y + 40, x + 60, y + 44, 'P');
     over.line(x + 66, y + 38, x + 60, y + 43, 'B');
-    // Two wheels, an iron rim and a hub.
     for wx in [72, 86] {
         for k in 0..24 {
             let a = k as f32 * std::f32::consts::TAU / 24.0;
@@ -138,8 +124,6 @@ fn coach(over: &mut Img, (x, y): (i32, i32)) {
     }
 }
 
-/// The rally pole on its stone, with its pennon: flying while a rally stands
-/// here, furled at half height otherwise.
 fn pole(over: &mut Img, (x, y): (i32, i32), tick: u32, called: bool) {
     over.rect(x + 3, y + 44, 9, 3, 'G');
     over.rect(x + 3, y + 46, 9, 1, 'X');
@@ -148,7 +132,6 @@ fn pole(over: &mut Img, (x, y): (i32, i32), tick: u32, called: bool) {
     over.put(x + 6, y - 15, 'o');
     over.put(x + 7, y - 15, 'O');
     if called {
-        // Flying: a long pennon rippling, steel blue with a lit edge.
         let wave = [0, 1, 1, 0, -1, -1][(tick / 5 % 6) as usize];
         for k in 0..16 {
             let drop = (k * 4 / 16) + if k > 4 { wave * (k / 6) } else { 0 };
@@ -158,7 +141,6 @@ fn pole(over: &mut Img, (x, y): (i32, i32), tick: u32, called: bool) {
             over.put(x + 8 + k, y - 14 + drop + h.max(2), 'q');
         }
     } else {
-        // Furled and drooping at half height: a short cloth hung from the pole.
         over.rect(x + 8, y + 20, 4, 12, 'u');
         over.rect(x + 8, y + 20, 4, 1, 'U');
         over.rect(x + 8, y + 31, 4, 1, 'S');
@@ -166,14 +148,11 @@ fn pole(over: &mut Img, (x, y): (i32, i32), tick: u32, called: bool) {
     }
 }
 
-/// The lantern on its post: iron and dark glass while nothing is happening;
-/// a warm light and its pool while it burns.
 fn lantern(over: &mut Img, (x, y): (i32, i32), burning: bool, tick: u32) {
     over.rect(x + 103, y + 16, 2, 30, 'P');
     over.rect(x + 104, y + 16, 1, 30, 'B');
     over.rect(x + 100, y + 44, 8, 3, 'G');
     over.rect(x + 100, y + 46, 8, 1, 'X');
-    // The lantern box and its cap.
     over.rect(x + 100, y + 7, 8, 9, 'X');
     over.rect(x + 99, y + 6, 10, 2, 'g');
     over.put(x + 103, y + 5, 'g');
@@ -190,7 +169,6 @@ fn lantern(over: &mut Img, (x, y): (i32, i32), burning: bool, tick: u32) {
     }
 }
 
-/// The ground under a halt: trodden earth, thin at its edges.
 fn ground(over: &mut Img, (x, y): (i32, i32)) {
     for py in 33..56 {
         for px in 0..112 {
@@ -208,9 +186,6 @@ fn ground(over: &mut Img, (x, y): (i32, i32)) {
     }
 }
 
-/// The halts in view, painted onto `over` (whose top-left is world pixel
-/// `origin`), under everything that moves: a knight walks in front of the
-/// counter.
 pub(super) fn draw(over: &mut Img, run: &Run, origin: (i32, i32)) {
     let tick = run.tick as u32;
     for p in halts::placed() {
@@ -226,11 +201,9 @@ pub(super) fn draw(over: &mut Img, run: &Run, origin: (i32, i32)) {
         coach(over, (x, y));
         pole(over, (x, y), tick, called);
         lantern(over, (x, y), burning, tick);
-        // The keeper, in front of his counter.
         let man = keeper(p.stop);
         let (kx, ky) = (p.keeper.0 * TILE + TILE / 2 - origin.0, (p.keeper.1 + 1) * TILE - origin.1);
         over.stamp(&man, kx - man.w / 2, ky - man.h);
-        // Dust where a coach has just come or gone.
         if let Some((from, to, at)) = stops.rode {
             let since = run.tick.saturating_sub(at);
             if (usize::from(from) == p.stop || usize::from(to) == p.stop) && since < crate::rules::trinkets::MOMENT {
@@ -245,8 +218,6 @@ pub(super) fn draw(over: &mut Img, run: &Run, origin: (i32, i32)) {
     }
 }
 
-/// Each halt's name over its roof, and the key by the keeper a knight stands
-/// at; returns the rectangles they take.
 pub(super) fn marks(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option<u32>) -> Vec<(i32, i32, i32, i32)> {
     let hero = run.players.get(&focus.unwrap_or(1));
     let mut taken = Vec::new();
@@ -273,7 +244,6 @@ pub(super) fn marks(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option
     taken
 }
 
-/// The keeper's talk with the knight, as a panel under the view.
 pub(super) fn talk(ui: &mut Img, run: &Run, focus: Option<u32>) {
     let id = focus.unwrap_or(1);
     let Some(view) = run.stop_talk_view(id) else {

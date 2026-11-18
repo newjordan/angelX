@@ -1,8 +1,3 @@
-// Shared pixelfx fitting for the Delve's strips. `spellfx.mjs` and `wishfx.mjs`
-// both snap every pixel to the game's inks and pack a trimmed sheet. The fitting
-// itself is the Mage script's: colour under half its alpha is dropped, light
-// adds onto the colour it falls on, and a glow with no colour under it stays
-// only where it is bright.
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { join } from "node:path";
@@ -44,9 +39,6 @@ export function makePixel(inkList) {
     }
     return near.get(key);
   }
-  // A pixel of colour `c` and light `l` (pixelfx's 0xAABBGGRR words) as an ink,
-  // the light weighed `glow` where it falls on colour and shown alone where it
-  // is `halo` bright, or null where it shows nothing.
   return function pixel(c, l, glow, halo) {
     const ch = (v, s) => (v >>> s) & 255;
     const lit = [ch(l, 0), ch(l, 8), ch(l, 16)];
@@ -56,10 +48,6 @@ export function makePixel(inkList) {
   };
 }
 
-// One direction of an effect: its frames as ink RGBA on a canvas of w x h with
-// the origin at (ox, oy). A numeric `spec.aim` is the Mage's aimed canvas
-// (side 2 * aim, origin in the middle). A boolean aim is only a direction flag
-// and does not resize the canvas.
 export async function play(pfx, spec, angle) {
   const { createFx, createFrame, clearFrame } = await init(pfx);
   const mod = await import(pathToFileURL(join(pfx, "src/fx", `${spec.fx}.js`)));
@@ -94,8 +82,6 @@ function resolveOpts(opts) {
   return out;
 }
 
-// The box every frame of every direction shares, so a strip is no wider than
-// what it draws.
 export function trim(dirs) {
   const { w, h } = dirs[0];
   let x0 = w, y0 = h, x1 = -1, y1 = -1;

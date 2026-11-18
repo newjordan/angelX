@@ -6,8 +6,6 @@
 
 use super::*;
 
-/// Use the full transcript body, leaving only its final column for the scroll
-/// rail. The rail stays at the panel edge even in fullscreen/ultrawide layouts.
 pub(crate) fn transcript_text_and_rail(body: Rect) -> (Rect, Option<Rect>) {
     if body.width < 2 || body.height == 0 {
         return (body, None);
@@ -25,10 +23,6 @@ pub(crate) fn transcript_text_and_rail(body: Rect) -> (Rect, Option<Rect>) {
     (text, Some(rail))
 }
 
-/// Rows claimed by the live tool strip at the bottom of the transcript inner
-/// rect, including one ambient row while idle and the herald's open ledger.
-/// Shared with pane registration so clipboard selection never covers strip
-/// chrome.
 pub(crate) fn tool_strip_height(app: &App, inner_height: u16) -> u16 {
     let strip_on = app.thinking.is_some()
         && app.transcript_mode == crate::app::TranscriptMode::Conversation
@@ -79,14 +73,8 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
             height: inner.height.saturating_sub(strip_h),
             ..inner
         });
-        // One column of side margin only: a vertical margin put a blank text
-        // row between the water and the pane's bottom border, and the fit
-        // pins the frame to the floor of exactly this rect.
         let intro_area =
             crate::app::startup_intro::intro_band(body.inner(ratatui::layout::Margin::new(1, 0)));
-        // Banded before the geometry is derived, so the composed canvas, the
-        // fine-dot raster and the declared cell rect are all one width: a narrow
-        // rect declared over a full-pane raster is what squeezed the clip.
         let geometry = app.viewer.dot_geometry(intro_area);
         app.startup_intro
             .render(frame, intro_area, geometry, app.visual_motion);
@@ -110,12 +98,6 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
         return;
     }
     let thinking = app.thinking.is_some();
-    // While tools run, the live activity strip (status row + lateral loading
-    // bar) claims the bottom rows of the pane; the scrollback keeps only the
-    // agent's directed output. `/trace` restores the old full trace instead.
-    // Status row + lateral bar, plus one in-place note row when the harness
-    // has murmured (guards, compaction, recall) — the play-by-play lives here
-    // instead of stacking in the scrollback.
     let strip_h = tool_strip_height(app, inner.height);
     let full_body = Rect {
         height: inner.height - strip_h,
@@ -137,9 +119,6 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
     let inner_w = body.width as usize;
     let inner_h = body.height;
 
-    // Total wrapped height = cached committed-message rows + the live partial.
-    // The cumulative cache makes the committed total O(1) instead of summing or
-    // re-wrapping the whole history every frame.
     let old_width = app.transcript_heights_w;
     let reader_anchor = (app.scroll > 0).then(|| {
         let top = app.transcript_last_bottom.saturating_sub(app.scroll);
@@ -193,10 +172,6 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
     let total = (hist_total + partial_h).min(u16::MAX as u32) as u16;
 
     let bottom = total.saturating_sub(inner_h);
-    // `scroll` is measured from the bottom. When content grows beneath a reader
-    // who has scrolled back, preserve the absolute top row instead of letting
-    // each token drag the viewport toward the live tail. Publishing a rebuilt
-    // index remaps the current message (or partial) and its clamped intra-row.
     if old_width != 0
         && old_width != app.transcript_heights_w
         && let Some((message, intra)) = reader_anchor
@@ -223,31 +198,20 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
     app.scroll = app.scroll.min(bottom);
     app.transcript_last_bottom = bottom;
     app.transcript_anchor_w = body.width;
-    let y = bottom - app.scroll; // first visible row from the top of the transcript
+    let y = bottom - app.scroll;
 
-    // Window to messages intersecting [y, y + inner_h). The cumulative height
-    // index finds both boundaries with binary search, so an old scrolled-back
-    // viewport does not walk the entire conversation on every frame.
     let (first, intra, end) = transcript_window(
         &app.transcript_height_prefix,
         y as u32,
         inner_h as u32,
         app.transcript_heights.len().min(app.messages.len()),
     );
-    // The partial renders at the very bottom; include it only when the window
-    // reaches the end of committed messages (so its rows can fall in view).
     let at_bottom = end == app.messages.len();
 
-    // Brief arrival emphasis keeps all text visible on the first frame.
-    // Only the pinned-to-newest view animates; scrollback and reduced motion
-    // settle immediately. Output must never wait for an entrance animation.
     let now = app.started.elapsed().as_secs_f32();
     sync_transcript_spawns(app, now);
     let rolling = at_bottom
         && app.scroll == 0
-        // Streaming content wins over decorative entry motion. Otherwise a
-        // fresh user block can clip a fast-growing partial until its roll-in
-        // finishes, which makes the reply look frozen.
         && app.partial.is_empty()
         && matches!(app.visual_motion, MotionMode::Full)
         && transcript_roll_in_allowed()
@@ -256,8 +220,6 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
             .any(|&spawn| now - spawn < ROLL_IN_SECS);
     app.transcript_rolling = rolling;
 
-    // Same committed block origins, clipping and wrap width as either paint
-    // path. Never map oversized-worker or hidden partial rows to stale hits.
     let hidden_history = oversized_partial && app.scroll == 0 && at_bottom;
     if !hidden_history {
         let mut link_y = i32::from(body.y) - intra as i32;
@@ -301,8 +263,6 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
     {
         render_rolling_blocks(frame, app, body, first, end, intra, now, thinking);
     } else {
-        // Holds the window's markdown renders for the frame so `lines` can borrow
-        // span text out of the cache instead of deep-cloning per visible message.
         let mut md_renders: Vec<transcript::MdRender> = Vec::new();
         let pinned_partial_window = (at_bottom && app.scroll == 0)
             .then(|| transcript::oversized_partial_window(&app.partial))
@@ -357,8 +317,6 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
         } else {
             HUD_BLUE_BORDER_STYLE.add_modifier(Modifier::BOLD)
         };
-        // Dotted track + soft disc thumb: a delicate progress chrome that stays
-        // inside the 1-cell rail without the heavy continuous box-drawing bar.
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(None)
@@ -381,19 +339,14 @@ pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
     }
 }
 
-/// Brief arrival emphasis. Comp / lean keeps settled text. Hidden Stage is
-/// unrelated — the transcript is the work surface.
 pub(crate) fn transcript_roll_in_allowed() -> bool {
     crate::drive::comp_mode::ambient_stage_sim_allowed()
 }
 
-/// Brief arrival emphasis. All rows are visible even at age zero.
 const ROLL_IN_SECS: f32 = 0.16;
-/// Cap burst feedback rather than delaying later blocks behind a cascade.
 const ROLL_STAGGER_SECS: f32 = 0.0;
 const ROLL_DIM_UNTIL: f32 = 0.5;
 
-/// Sync arrival times; user echo and restored history settle immediately.
 fn sync_transcript_spawns(app: &mut App, now: f32) {
     if app.transcript_spawns.len() > app.messages.len() {
         app.transcript_spawns.clear();
@@ -409,8 +362,6 @@ fn sync_transcript_spawns(app: &mut App, now: f32) {
     for burst_index in 0..missing {
         let index = app.transcript_spawns.len();
         let spawn = if matches!(app.messages[index].role, Role::User) {
-            // Subtracting the duration can round back inside the animation
-            // window as the f32 clock grows during a long-running session.
             f32::NEG_INFINITY
         } else {
             now + burst_index as f32 * ROLL_STAGGER_SECS
@@ -419,8 +370,6 @@ fn sync_transcript_spawns(app: &mut App, now: f32) {
     }
 }
 
-/// Render arrival emphasis in the same fixed rectangles as settled text.
-/// No translation or timed clipping may delay operator-visible output.
 #[allow(clippy::too_many_arguments)]
 fn render_rolling_blocks(
     frame: &mut Frame,
@@ -454,7 +403,6 @@ fn render_rolling_blocks(
         if draw_bottom <= draw_top {
             continue;
         }
-        // Only genuine viewport clipping can hide rows above this rectangle.
         let skip = (draw_top - final_top).max(0) as u16;
         let rect = Rect {
             x: body.x,
@@ -505,10 +453,6 @@ fn render_rolling_blocks(
                 .set_style(rect, Style::new().add_modifier(Modifier::DIM));
         }
     }
-    // The live partial streams below the committed blocks as a settled
-    // pseudo-block; its reveal is the stream itself, never a slide. With
-    // nothing streamed yet, `transcript::lines` renders the pre-stream reply
-    // cursor row instead.
     if thinking && cursor < body_bottom {
         let draw_top = cursor.max(body_top);
         let rect = Rect {
@@ -575,15 +519,10 @@ fn push_space_pad(spans: &mut Vec<Span<'_>>, n: usize, style: Style) {
     }
 }
 
-/// The live tool-activity strip: a compact status row (current tool, call
-/// count, elapsed) over a lateral dotmax loading bar streaming while the agent
-/// works. Pinned under the transcript body; idle retains a quiet catalog loop.
 fn render_tool_strip(frame: &mut Frame, app: &App, area: Rect) {
     render_tool_strip_at(frame, app, area, std::time::Instant::now());
 }
 
-/// Draw the strip and publish its herald row as the ledger's toggle. The
-/// idle ambient row and a strip with no calls yet offer nothing to open.
 fn place_tool_strip(frame: &mut Frame, app: &mut App, area: Rect) {
     render_tool_strip(frame, app, area);
     app.tool_herald_area =
@@ -595,19 +534,10 @@ fn render_tool_strip_at(frame: &mut Frame, app: &App, area: Rect, now: std::time
         return;
     }
     let w = area.width as usize;
-    // Operator request: the dotmax lanes are ACTIVITY indicators — they must
-    // keep animating even when the terminal window is not focused. Focus loss
-    // no longer pauses the strip; only deliberate reading interactions
-    // (scroll back, text selection, explicit pause) freeze it.
     let paused = app.scroll > 0
         || app.selection.is_some()
         || app.composer_selection_range().is_some()
         || app.tool_strip.reading_paused();
-    // Stall pulse: how long since the worker streamed ANY event, read from
-    // the same clock the turn watchdog uses so the strip and the abandonment
-    // logic can never disagree. Past the threshold the row gains a silence
-    // readout; past half the idle deadline the
-    // readout escalates to the watchdog countdown.
     let child = app
         .thinking
         .as_ref()
@@ -740,10 +670,6 @@ fn render_tool_strip_at(frame: &mut Frame, app: &App, area: Rect, now: std::time
             dim_panel_style(),
         )));
     }
-    // Warp-drive pulse: advance a virtual clock by dt * event-rate drive so
-    // parallel results streak and a silent strip glides honestly. Reduced
-    // motion clamps drive to 1.0; silence pauses this work clock. The separate
-    // catalog ambience clock keeps quiet states alive.
     let reduced = !matches!(app.visual_motion, MotionMode::Full);
     let time = if matches!(app.visual_motion, MotionMode::Off) {
         0.0
@@ -751,8 +677,6 @@ fn render_tool_strip_at(frame: &mut Frame, app: &App, area: Rect, now: std::time
         app.tool_strip
             .warp_time_at(now, reduced, paused || stall_severity.is_some())
     };
-    // Preserve status colors on the stationary receipt or warning marker.
-    // Quiet ambience uses its own dim neutral color.
     let bar_style = match stall_severity {
         Some(toolstrip::StallSeverity::Watchdog) => {
             Style::new().fg(hud::HUD_DANGER).add_modifier(Modifier::DIM)
@@ -772,8 +696,6 @@ fn render_tool_strip_at(frame: &mut Frame, app: &App, area: Rect, now: std::time
     let idle = app.thinking.is_none() || app.tool_strip.is_empty();
     let quiet = idle || app.tool_strip.bar_is_quiet(stall_severity.is_some());
     if crate::drive::comp_mode::ambient_stage_sim_allowed() && quiet {
-        // The stationary receipt remains legible; dim catalog motion next to
-        // it is ambience, independent of tool progress or provider liveness.
         let marker = if idle {
             String::new()
         } else if stall_severity.is_some() {
@@ -799,8 +721,6 @@ fn render_tool_strip_at(frame: &mut Frame, app: &App, area: Rect, now: std::time
             ),
         ]));
     } else {
-        // Tick the ambience clock while work owns the lane, so returning to
-        // idle doesn't reset the loop or borrow a stalled work clock.
         if crate::drive::comp_mode::ambient_stage_sim_allowed() {
             app.tool_strip
                 .ambient_row(0, now, app.visual_motion, paused);
@@ -818,8 +738,6 @@ fn strip_note_row_text(note: &str, count: usize, prefixes: &[String]) -> String 
     toolstrip::note_row_text(note, count, prefixes)
 }
 
-/// A ledger mark keeps its call's semantic colour without the status row's
-/// weight: the list reads as record, the herald above it as the live line.
 fn ledger_mark_style(state: toolstrip::ToolState) -> Style {
     match state {
         toolstrip::ToolState::Running => PHOSPHOR_STYLE,
@@ -831,8 +749,6 @@ fn ledger_mark_style(state: toolstrip::ToolState) -> Style {
     }
 }
 
-/// Stall-readout palette: gold while the stream is merely silent, danger once
-/// the fragment is counting down to the watchdog abandoning the turn.
 fn stall_style(severity: toolstrip::StallSeverity) -> Style {
     match severity {
         toolstrip::StallSeverity::Warn => Style::new().fg(hud::HUD_GOLD),
@@ -842,9 +758,6 @@ fn stall_style(severity: toolstrip::StallSeverity) -> Style {
     }
 }
 
-/// Append at the published width, then advance one unpublished resize index.
-/// A resize retains its complete old index until the replacement is ready.
-/// Cold and appended history share the same budget; giant messages use a worker.
 pub(crate) fn sync_transcript_heights(app: &mut App, inner_w: usize) -> u32 {
     let mut started = None;
     sync_transcript_heights_budgeted(app, inner_w, 64, || {

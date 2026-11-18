@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-"""The world group's private build and case run (the shared build writes one
-rules.bend all eight agents race on). Compiles .bx, assembles the libs + world
-fragments + world stubs into delve/build/world.bend, checks it, and runs cases.
-
-    python3 delve/rules/world/wb.py [--check] [--cases NAME ...]
-"""
 import argparse, gzip, importlib.util, json, os, pathlib, re, subprocess, sys
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -20,7 +14,6 @@ def load(name, path):
 
 
 def unsafe_def(b, blk):
-    """A def that computes a type (`-> Data`) stays checkable; the rest is @unsafe."""
     first = blk.split("\n", 1)[0]
     if first.rstrip().endswith("-> Data:") or first.rstrip().endswith("-> Type:"):
         return blk
@@ -51,11 +44,9 @@ def assemble():
                     continue
                 defined[n] = f
                 blk = unsafe_def(b, blk)
-                # The Rust tests keep the side-on halls on (`cfg!(test)`); the shipped default is off.
                 if n in ("layout.wanted_on", "layout.ledge_on"):
                     blk = blk.replace("False{}", "True{}")
             (out if n is not None else types).append(blk)
-    # The other groups' committed fragments and stubs, only the names mine reach.
     mine = set(defined)
     pool, stub_pool = {}, {}
     for p in sorted(git_files("delve/rules")):
@@ -83,7 +74,6 @@ def assemble():
             if n not in seen and (n in pool or n in stub_pool):
                 seen.add(n)
                 need.append(n)
-    # Foreign defs that do not build against this group's API yet: use this group's stub.
     for n in [n for n in pool if n.startswith(("colosseum.", "nooks."))]:
         pool.pop(n, None)
     for blk in out + types:

@@ -8,13 +8,11 @@ use crate::rules::tide::UP;
 use crate::rules::{Run, TILE_UNITS, Tile};
 use std::f32::consts::TAU;
 
-/// A tentacle up out of the floor, suckers on the inside of its curl.
 const TENTACLE: [&str; 10] = [
     "....z.", "...zQ.", "..zQq.", "..Qq..", ".zQqv.", ".Qqv..", ".zQqv.", "..zQqv", ".zQQq.",
     "zQQqqq",
 ];
 
-/// Ripples, and the tentacles of a ring that has burst.
 pub(super) fn ravages(cv: &mut Img, run: &Run) {
     let room = run.room();
     let open = |ux: f32, uy: f32| {
@@ -32,8 +30,6 @@ pub(super) fn ravages(cv: &mut Img, run: &Run) {
                 continue;
             }
             if ravage.age < bursts {
-                // A ring of shivering water, lighter as its moment nears;
-                // the lane is where it lies still.
                 let left = bursts - ravage.age;
                 let ink = match left {
                     0..=6 => 'U',
@@ -55,11 +51,8 @@ pub(super) fn ravages(cv: &mut Img, run: &Run) {
                 }
                 continue;
             }
-            // Burst: a tentacle every step and a half round the ring, each
-            // ring turned a little from the last so they don't line up.
             let n = ((TAU * radius / 1.5).ceil() as usize).max(6);
             let t = ravage.age - bursts;
-            // Up fast, a moment high, and back down.
             let shown = (t * 3 + 3).min(10).min((UP - t) * 3) as i32;
             for i in 0..n {
                 let a = (i as f32 + 0.5 * f32::from(k % 2)) / n as f32 * TAU;

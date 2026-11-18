@@ -31,8 +31,6 @@ fn belfry() -> Run {
     run
 }
 
-/// An ordinary input bot: predict the crossing, move to a contact point,
-/// aim with arrows, and tap F. It never changes the ball, score, or clock.
 fn bounce_wall(ball: &mut volley::Ball) {
     if ball.x < COURT_LEFT {
         ball.x = 2 * COURT_LEFT - ball.x;
@@ -43,7 +41,6 @@ fn bounce_wall(ball: &mut volley::Ball) {
     }
 }
 
-/// Return the exact paddle crossing and the post-step ball used by the rules.
 fn paddle_crossing(ball: &volley::Ball) -> (i32, i32, volley::Ball) {
     let mut ball = ball.clone();
     for ticks in 1..=64 {
@@ -59,7 +56,6 @@ fn paddle_crossing(ball: &volley::Ball) -> (i32, i32, volley::Ball) {
     panic!("a descending ball must cross the paddle");
 }
 
-/// Play the projected perfect return through the same wall/top intersections.
 fn projected_bell(
     ball: &volley::Ball,
     at: i32,
@@ -106,7 +102,6 @@ fn rally_input(run: &Run) -> BTreeMap<u32, Input> {
         let next = v.next_bell().unwrap_or(0);
         let goal = BELL_X[next];
         let mut best: Option<((bool, i32, i32), i32, i8)> = None;
-        // All candidates stay on the paddle's actual 40-unit movement grid.
         for k in -40..=40 {
             let candidate = 12 * 256 + 40 * k;
             if !(COURT_LEFT..=COURT_RIGHT).contains(&candidate) {
@@ -131,7 +126,6 @@ fn rally_input(run: &Run) -> BTreeMap<u32, Input> {
         if let Some((_, paddle, aim)) = best {
             (target, aim_x) = (paddle, aim);
         } else {
-            // No shaped return is reachable yet: at least chase the ball.
             let k = (at - 12 * 256).div_euclid(40);
             target = (12 * 256 + 40 * k).clamp(COURT_LEFT, COURT_RIGHT);
             aim_x = (goal - at).signum() as i8;
@@ -304,8 +298,6 @@ fn bell_rally_requires_timing_and_survives_a_miss() {
     }
 }
 
-/// Optional real-renderer review, using the same live-input rally.
-/// `ANGEL_BELFRY_SHOTS=/tmp/belfry cargo test belfry_rally_shots -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn belfry_rally_shots() {
@@ -334,8 +326,6 @@ fn belfry_rally_shots() {
             break;
         };
         if saved == 0 || (v.perfect_flash == PERFECT_FLASH_TICKS && before == 0) || v.combo == 3 {
-            // Native room pixels make the actual ball readable; the full
-            // screenshot still includes the same live HUD and room layers.
             let img = crate::render::overworld::arena::frame_for(
                 &run,
                 crate::render::overworld::arena::NATIVE_W,

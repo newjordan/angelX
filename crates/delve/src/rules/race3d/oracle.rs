@@ -41,10 +41,6 @@ impl Noise {
     }
 }
 
-/// The one change from the code that moved: a distance is the root of the sum
-/// of the squares, each rounded as an f32, where the old code asked libm's
-/// `hypot`. libm differs by platform and by an ulp from this, and the leg
-/// cannot reproduce it; this is what the module computes, everywhere.
 fn hyp(a: f32, b: f32) -> f32 {
     (a * a + b * b).sqrt()
 }
@@ -262,8 +258,6 @@ fn bump_balls(race: &mut Race3d, noise: &mut Noise) {
     }
 }
 
-/// A cart's cruising pace, pumped and braked, how fast it gets there, the
-/// jump, and how quick a cart crosses to another line.
 const CRUISE: f32 = 8.5;
 const PUMPED: f32 = 11.0;
 const BRAKED: f32 = 4.0;
@@ -282,7 +276,6 @@ fn ride_cart(race: &mut Race3d, rider: &mut Rider, input: Input, pressed: (bool,
     }
     if rider.crash > 0 {
         rider.crash -= 1;
-        // The cart goes over and the knight goes up; then the rope.
         rider.vz -= JUMP_G * DT;
         rider.z = (rider.z + rider.vz * DT).max(if rider.wreck == Wreck::Gap { -12.0 } else { 0.0 });
         rider.s += rider.vs * DT;
@@ -290,13 +283,11 @@ fn ride_cart(race: &mut Race3d, rider: &mut Rider, input: Input, pressed: (bool,
         rider.spin += 0.4;
         if rider.crash == 0 {
             let s = (track.post(rider.s) - RUN_UP).max(1.0);
-            // Back on a line that is laid there.
             let lane = (0..3u8)
                 .min_by_key(|&l| (!laid(track, s, l), (i32::from(l) - 1).abs()))
                 .unwrap_or(1);
             rider.lane = lane;
             rope_back(track, rider, LANES[usize::from(lane)]);
-            // Set back on the rails rolling.
             rider.vs = BRAKED;
         }
         return;
@@ -312,8 +303,6 @@ fn ride_cart(race: &mut Race3d, rider: &mut Rider, input: Input, pressed: (bool,
     };
     let pull = (goal - rider.vs).clamp(-SPUR * DT * 2.0, SPUR * DT);
     rider.vs = (rider.vs + pull + FALL_G * at.slope * DT * 0.5).clamp(0.0, PUMPED + 2.0);
-    // Switch lines: toward the arrow held, or else to the nearest other
-    // line laid ahead.
     if pressed.1 {
         let ahead = rider.s + 2.0;
         let dir = i32::from(input.move_x);
@@ -347,7 +336,6 @@ fn ride_cart(race: &mut Race3d, rider: &mut Rider, input: Input, pressed: (bool,
     rider.s += rider.vs * DT;
     rider.spin += rider.vs * DT;
     let on_rail = (rider.x - target).abs() < 0.3;
-    // A line that ends at a buffer stop with the cart still on it.
     if !laid(track, rider.s, rider.lane) && laid(track, before, rider.lane) {
         rider.s = before;
         rider.vz = 4.0;
@@ -359,7 +347,6 @@ fn ride_cart(race: &mut Race3d, rider: &mut Rider, input: Input, pressed: (bool,
         wreck(rider, Wreck::Gap, noise);
         return;
     }
-    // A timber across the line: over it or into it.
     for item in &track.items {
         if item.kind == ItemKind::Timber
             && (item.x - rider.x).abs() < 1.0
@@ -376,8 +363,6 @@ fn ride_cart(race: &mut Race3d, rider: &mut Rider, input: Input, pressed: (bool,
     pick_up(race, rider, 0.8, noise);
 }
 
-/// A cart that runs into the back of another on its line shunts it on and
-/// stops dead itself.
 fn bump_carts(race: &mut Race3d, noise: &mut Noise) {
     let ids: Vec<u32> = race.riders.keys().copied().collect();
     for (k, &a) in ids.iter().enumerate() {
@@ -405,8 +390,6 @@ fn bump_carts(race: &mut Race3d, noise: &mut Noise) {
     }
 }
 
-/// The gorge's pace, a burst on top, a ruffled griffin's, how quick a
-/// griffin answers the reins, and how fast a roll throws it aside.
 const WING: f32 = 10.0;
 const WING_BURST: f32 = 5.0;
 const WING_RUFFLED: f32 = 5.0;
@@ -423,7 +406,6 @@ fn fly_griffin(race: &mut Race3d, id: u32, rider: &mut Rider, input: Input, roll
         return;
     }
     if rider.crash > 0 {
-        // Tumbling: feathers everywhere, sinking to the line, slow.
         rider.crash -= 1;
         rider.vs = (rider.vs - 0.6).max(3.0);
         rider.s += rider.vs * DT;
@@ -443,7 +425,6 @@ fn fly_griffin(race: &mut Race3d, id: u32, rider: &mut Rider, input: Input, roll
     rider.stun = rider.stun.saturating_sub(1);
     rider.rest = rider.rest.saturating_sub(1);
     rider.reload = rider.reload.saturating_sub(1);
-    // The reins: across and up, with the weight of a big bird.
     let (wx, wz) = (f32::from(input.move_x), -f32::from(input.move_y));
     rider.vx += (wx * 5.0 - rider.vx) * (REIN * DT).min(1.0) * 0.5;
     rider.vz += (wz * 4.0 - rider.vz) * (REIN * DT).min(1.0) * 0.5;
@@ -454,7 +435,6 @@ fn fly_griffin(race: &mut Race3d, id: u32, rider: &mut Rider, input: Input, roll
         noise.sounds.push("swing");
     }
     rider.rolling = rider.rolling.saturating_sub(1);
-    // Held, F looses a bolt every rest.
     if input.fire && rider.reload == 0 {
         rider.reload = BOLT_REST;
         race.bolts.push(Bolt { owner: id, s: rider.s + 1.0, x: rider.x, z: rider.z, life: BOLT_LIFE });
@@ -464,7 +444,6 @@ fn fly_griffin(race: &mut Race3d, id: u32, rider: &mut Rider, input: Input, roll
     rider.s += rider.vs * DT;
     rider.x = (rider.x + rider.vx * DT).clamp(-SKY_X, SKY_X);
     rider.z = (rider.z + rider.vz * DT).clamp(-SKY_Z, SKY_Z);
-    // Rings, each once for each griffin.
     for (i, item) in track.items.iter().enumerate().take(64) {
         let bit = 1u64 << i;
         if item.kind == ItemKind::Ring
@@ -479,7 +458,6 @@ fn fly_griffin(race: &mut Race3d, id: u32, rider: &mut Rider, input: Input, roll
             noise.sounds.push("gold");
         }
     }
-    // Stone and gargoyles met head-on.
     let hit_block = track.blocks.iter().any(|b| {
         rider.s + 0.5 > b.s
             && before - 0.5 < b.s + b.len
@@ -496,7 +474,6 @@ fn fly_griffin(race: &mut Race3d, id: u32, rider: &mut Rider, input: Input, roll
             && hyp(item.x - rider.x, item.z - rider.z) < 1.0
     });
     if hit_block || hit_goyle {
-        // Off the stone the way it came: beside a spire, under a rampart.
         if let Some(b) = track.blocks.iter().find(|b| rider.s + 0.5 > b.s && before - 0.5 < b.s + b.len) {
             if b.x.1 - b.x.0 > 2.0 * SKY_X {
                 rider.z = if b.z.0 - 0.6 > -SKY_Z { b.z.0 - 0.6 } else { (b.z.1 + 0.6).min(SKY_Z) };
@@ -511,8 +488,6 @@ fn fly_griffin(race: &mut Race3d, id: u32, rider: &mut Rider, input: Input, roll
     }
 }
 
-/// Bolts fly on down the gorge; a gargoyle hit shatters (a burst for the
-/// shooter), a rival hit is ruffled.
 fn fly_bolts(race: &mut Race3d, noise: &mut Noise) {
     let track = track(race.course);
     let mut bolts = std::mem::take(&mut race.bolts);
@@ -556,8 +531,6 @@ fn fly_bolts(race: &mut Race3d, noise: &mut Noise) {
     race.bolts = bolts;
 }
 
-/// The race's tick as it was for the three courses the leg answers: one rider
-/// at a time, then what the field does to itself, then the finish line.
 pub fn tick(race: &mut Race3d, inputs: &BTreeMap<u32, Input>, standing: &[u32]) -> (bool, bool, Vec<&'static str>) {
     let mut noise = Noise::new();
     let ids: Vec<u32> = race.riders.keys().copied().collect();
@@ -596,7 +569,6 @@ pub fn tick(race: &mut Race3d, inputs: &BTreeMap<u32, Input>, standing: &[u32]) 
     (all_home, race.t >= TITLE + race.time_limit(), noise.sounds)
 }
 
-/// What the leg is asked, as far as the oracle reads it.
 #[derive(Deserialize)]
 struct Ask {
     race: Race3d,
@@ -604,8 +576,6 @@ struct Ask {
     standing: Vec<u32>,
 }
 
-/// The oracle's engine: the one op the leg answers, answered natively, in the
-/// shape the leg answers it.
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn answer(id: &str, input: &serde_json::Value) -> Result<serde_json::Value, String> {
     if id != "race3d-rules" {

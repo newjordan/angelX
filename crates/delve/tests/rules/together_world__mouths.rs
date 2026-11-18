@@ -1,6 +1,3 @@
-// The ways down from the kingdom: each listed, on the map, reached by road,
-// with a halt near it.
-
 #[test]
 fn every_entrance_that_goes_down_is_a_way_down_the_kingdom_marks() {
     for e in ENTRANCES.iter().filter(|e| matches!(e.to, Dest::Delve(_)) || e.id == "gate") {

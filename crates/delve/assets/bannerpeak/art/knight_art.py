@@ -1,15 +1,8 @@
-"""Bannerpeak's knight, inked by hand as parts and composed into poses.
-
-Template inks: steel j J h i (dark to spec), seat tones 1 (shade) 2 (base) 3 (light) 4 (spec),
-gold trim o t T, leather I B, eye c. Facing right; the game flips for left.
-The silhouette gets one black rim at the end; inner edges are inked by tone.
-"""
 from engine import parse, shift, over, flip, rot90, rotate, recolor, rows, render, outline
 
 W, H = 24, 28
-CX = 12          # anchor column; the feet are on the last row
+CX = 12
 
-# ---- the helm, 8 x 7, face to the right: the dome tops the 20 px box at row 9
 HELM = parse([
     "..hhhh..",
     ".hiihhJ.",
@@ -20,7 +13,6 @@ HELM = parse([
     ".jJJJJj.",
 ], 8, 9)
 
-# ---- the body: gorget, breastplate under a seat tabard, a gold belt
 TORSO = parse([
     ".jJhhJj..",
     "jJh222Jj.",
@@ -31,7 +23,6 @@ TORSO = parse([
     ".1222J12.",
 ], 8, 16)
 
-# ---- the shield: a heater on the forward arm, gold rim round a seat field, cream crescent
 SHIELD = parse([
     "ottto.",
     "o2332o",
@@ -42,7 +33,6 @@ SHIELD = parse([
     "..oo..",
 ], 13, 17)
 
-# the same shield raised to guard: taller, held high and forward
 SHIELD_UP = parse([
     ".ottto.",
     "o23332o",
@@ -56,7 +46,6 @@ SHIELD_UP = parse([
     "...o...",
 ], 13, 12)
 
-# ---- plumes: a swept feather raked from the helm's top back (11, 8), tones 3 light, 2 base, 1 shade
 def plume(root, ctrl, tip, w=3):
     pts = {}
     n = 40
@@ -104,7 +93,6 @@ def leg(hip, knee, foot, back=False, boot=2):
     out[(fx, fy - boot)] = "j" if back else "J"
     return out
 
-# hip back, foot back, knee back, hip front, foot front, knee front (small knight's rows)
 STANCE = {
     "stand": ((10, 23), (10, 27), (10, 25), (14, 23), (14, 27), (14, 25)),
     "rise": ((10, 23), (7, 26), (8, 25), (14, 23), (16, 24), (16, 23)),
@@ -119,7 +107,6 @@ def stance(pts, big=False):
     def m(p):
         if not big:
             return p
-        # the big knight's hips sit 6 rows lower and its feet 10: legs two thirds longer
         return (p[0], 29 + (p[1] - 23) * 2) if p[1] >= 23 else p
     hb, fb, kb, hf, ff, kf = [m(p) for p in pts]
     return over(leg(hb, kb, fb, back=True), leg(hf, kf, ff))
@@ -150,7 +137,6 @@ def finish(*layers):
     return outline(over(*layers), "k")
 
 def stretch(spr, after, extra, dup_rows=1):
-    """Insert `extra` copies of row `after` (a body row to repeat) into a part."""
     out = {}
     for (x, y), c in spr.items():
         if y <= after:
@@ -163,9 +149,7 @@ def stretch(spr, after, extra, dup_rows=1):
                 out[(x, y + k)] = c
     return out
 
-# the big knight: a taller tabard under a gold gorget, steel pauldrons, a longer shield
 TORSO_BIG = stretch(stretch(TORSO, 16 + 3, 3), 16 + 4 + 3, 3)
-# a steel cuirass over the chest, the seat's tabard hanging below the belt, a gold collar
 _cuirass = {}
 for (x, y), c in TORSO_BIG.items():
     if 17 <= y <= 23 and c in "23":
@@ -212,7 +196,6 @@ def body(*a, **k):
     return outline(raw(*a, **k), "k")
 
 def tuck_raw():
-    """The knight curled in a ball for the somersault and the slam, on a 16 x 16 square."""
     helm = shift(HELM, -4, -4)
     torso = shift({p: c for p, c in TORSO.items() if p[1] <= 21}, -4, -10)
     boots = over(leg((7, 9), (9, 12), (10, 12)), leg((10, 9), (12, 12), (13, 12)))
@@ -223,7 +206,7 @@ def tuck_raw():
 
 def knight_frames(big=False):
     f = {}
-    lo = 10 if big else 0           # how much taller the box is
+    lo = 10 if big else 0
     L = lambda n: legs(n, big)
     f["idle"] = [body("hang", big=big), body("hang", helm_dy=1, big=big)]
     f["run"] = []

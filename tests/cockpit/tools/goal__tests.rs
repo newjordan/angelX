@@ -12,13 +12,11 @@ fn goal_tool_set_show_clear_roundtrip() {
     std::fs::create_dir_all(&workspace).unwrap();
     let tool = GoalTool::new(&workspace);
 
-    // No goal yet.
     assert_eq!(
         tool.call(&serde_json::json!({"action": "show"})).unwrap(),
         "(no goal set)"
     );
 
-    // Set a goal with a verifiable command and criteria.
     let set = tool
         .call(&serde_json::json!({
             "action": "set",
@@ -29,17 +27,14 @@ fn goal_tool_set_show_clear_roundtrip() {
         .unwrap();
     assert!(set.contains("harden the harness"), "set: {set}");
 
-    // It lands in the canonical store.
     let stored = crate::drive::goal::load_for(&workspace).expect("goal persisted");
     assert_eq!(stored.text, "harden the harness");
     assert_eq!(stored.accept_cmd.as_deref(), Some("cargo test"));
     assert_eq!(stored.acceptance, vec!["tests green".to_string()]);
 
-    // show reads it back.
     let shown = tool.call(&serde_json::json!({"action": "show"})).unwrap();
     assert!(shown.contains("harden the harness"), "show: {shown}");
     assert!(shown.contains("cargo test"), "show: {shown}");
-    // Its labels are the goal block's pages, each value beside its address.
     assert!(
         shown.starts_with(
             "⠗⠃⠊ status=Active harden the harness\n⠗⠃⠉\n- tests green\n⠗⠃⠙ cargo test"
@@ -48,7 +43,6 @@ fn goal_tool_set_show_clear_roundtrip() {
     );
     assert!(!shown.contains("acceptance criteria"), "show: {shown}");
 
-    // clear removes it from the store.
     let cleared = tool.call(&serde_json::json!({"action": "clear"})).unwrap();
     assert!(cleared.contains("cleared"), "clear: {cleared}");
     assert!(crate::drive::goal::load_for(&workspace).is_none());

@@ -18,73 +18,46 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// The most plans laid at once.
 pub const MAX_GHOSTS: usize = 256;
-/// The most crews at work, however many shops stand.
 pub const MAX_CREWS: usize = 4;
-/// Tiles a crew covers in a second, carrying or not.
 pub const PACE: u32 = 2;
-/// The most copies a realm keeps.
 pub const MAX_COPIES: usize = 8;
-/// The names a copy is kept under, in the order they are made.
 pub const COPY_NAMES: [&str; MAX_COPIES] = ["copy-a", "copy-b", "copy-c", "copy-d", "copy-e", "copy-f", "copy-g", "copy-h"];
-/// The pseudo-plans of the ground itself.
 pub const ROAD: &str = "road";
 pub const BRIDGE: &str = "bridge";
-/// The pseudo-plans of mending what a raid cut: a piece of rollerway (`mend-roller:<piece>`,
-/// facing the way `face` says) and a tile of rail. The camp's hands raise them like any plan
-/// (`defence`).
 pub const MEND_ROLLER: &str = "mend-roller:";
 pub const MEND_RAIL: &str = "mend-rail";
 
-/// Whether `plan` is one of the ground's own pseudo-plans, or a mend.
 pub fn is_pseudo(plan: &str) -> bool {
     plan == ROAD || plan == BRIDGE || plan == MEND_RAIL || plan.starts_with(MEND_ROLLER)
 }
 
-/// One plan laid on the ground.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ghost {
-    /// A plan's id, or [`ROAD`] or [`BRIDGE`].
     pub plan: String,
     pub tile: Tile,
-    /// 0 low, 1 usual, 2 urgent.
     pub priority: u8,
-    /// The seat that laid it.
     pub by: u32,
-    /// The way a swape planned here is to face when it is raised (0 north, 1 east, 2 south,
-    /// 3 west): set by turning it (`Command::Face`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub face: Option<u8>,
 }
 
-/// Where a crew is in its round.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Leg {
-    /// At the camp, with nothing to do or nothing it can be paid for.
     Idle,
-    /// Walking out with the materials.
     Out,
-    /// At the plan, raising it.
     Raising,
-    /// Walking back, empty-handed.
     Back,
 }
 
-/// A crew of the camp's hands: a labourer who carries and a carpenter who raises.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Crew {
-    /// The plan it is serving, or 0.
     pub ghost: u32,
     pub leg: Leg,
-    /// Seconds left in this leg, and the leg's whole length.
     pub left: u16,
     pub total: u16,
-    /// Where it is going (or came from): the plan's tile.
     pub tile: Tile,
-    /// What it carries out, taken from the camp's stock.
     pub carrying: Stock,
-    /// The plan it carries.
     pub plan: String,
 }
 
@@ -92,20 +65,17 @@ impl Crew {
     fn idle() -> Self {
         Crew { ghost: 0, leg: Leg::Idle, left: 0, total: 0, tile: (0, 0), carrying: Stock::new(), plan: String::new() }
     }
-    /// How far through its leg, 0 to 1.
     pub fn along(&self) -> f32 {
         if self.total == 0 { 1.0 } else { 1.0 - f32::from(self.left) / f32::from(self.total) }
     }
 }
 
-/// The party's plans and the hands at them.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Plans {
     pub next: u32,
     pub ghosts: BTreeMap<u32, Ghost>,
     pub crews: Vec<Crew>,
-    /// Plans raised, over the whole game.
     pub raised: u32,
 }
 
@@ -125,7 +95,6 @@ impl Plans {
     }
 }
 
-/// A thing a player laid, that they may want back.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Laid {
     Ghost(u32),
@@ -133,7 +102,6 @@ pub enum Laid {
     Bridge(Tile),
     Building(u32),
     Line(u32),
-    /// A tile of rollerway or of rail.
     Roller(Tile),
     Rail(Tile),
 }
@@ -144,7 +112,6 @@ fn walk_seconds(from: Tile, to: Tile) -> u16 {
 }
 
 impl Kingdom {
-    /// What a plan costs.
     pub fn ghost_cost(&self, c: &Catalog, plan: &str) -> Stock {
         match plan {
             ROAD => Stock::from([("timber".to_string(), 1)]),
@@ -157,7 +124,6 @@ impl Kingdom {
         }
     }
 
-    /// The tiles a plan would cover.
     pub fn ghost_tiles(&self, c: &Catalog, g: &Ghost) -> Vec<Tile> {
         match g.plan.as_str() {
             ROAD | BRIDGE | MEND_RAIL => vec![g.tile],
@@ -166,12 +132,10 @@ impl Kingdom {
         }
     }
 
-    /// The plan whose ground includes `tile`, if one is laid there.
     pub fn ghost_at(&self, c: &Catalog, tile: Tile) -> Option<u32> {
         self.plans.ghosts.iter().find(|(_, g)| g.tile == tile || self.ghost_tiles(c, g).contains(&tile)).map(|(&id, _)| id)
     }
 
-    /// Whether the ground takes the plan (today, price aside).
     pub fn ghost_land(&self, c: &Catalog, g: &Ghost) -> Result<(), String> {
         match g.plan.as_str() {
             ROAD => {
@@ -203,8 +167,6 @@ impl Kingdom {
         }
     }
 
-    /// What holds a plan back from being raised now, in a few words: the charter or the
-    /// goods it lacks, or the ground. `None` when the camp could send a crew for it.
     pub fn ghost_wait(&self, c: &Catalog, id: u32) -> Option<String> {
         let g = self.plans.ghosts.get(&id)?;
         if let Err(why) = self.ghost_land(c, g) {
@@ -223,7 +185,6 @@ impl Kingdom {
         None
     }
 
-    /// What of `cost` the camp lacks, by name: "12 plank, 4 block".
     pub fn short_of(&self, c: &Catalog, cost: &Stock) -> String {
         let lacking: Stock = cost.iter().filter_map(|(r, n)| (self.amount(r) < *n).then(|| (r.clone(), n - self.amount(r)))).collect();
         lacking
@@ -233,7 +194,6 @@ impl Kingdom {
             .join(", ")
     }
 
-    /// Lay a plan on the ground. Anything the land takes, whatever the camp holds.
     pub fn plan_ghost(&mut self, c: &Catalog, plan: &str, tile: Tile, priority: u8, by: u32) -> Result<String, String> {
         if self.is_empty() {
             return Err("the kingdom is not founded".into());
@@ -250,7 +210,6 @@ impl Kingdom {
         if self.plans.ghosts.values().any(|o| self.ghost_tiles(c, o).iter().any(|t| mine.contains(t))) {
             return Err("a plan is laid there already".into());
         }
-        // A plan's ground is a whole footprint, free of roads and buildings as the sim knows it.
         if let Some(p) = c.plans.get(plan) {
             if p.connector.is_none() {
                 self.check_footprint(c, plan, tile)?;
@@ -263,7 +222,6 @@ impl Kingdom {
         Ok(format!("{name} planned: the camp's hands will raise it"))
     }
 
-    /// Take a plan off the ground. A crew already carrying for it brings the goods back.
     pub fn unplan(&mut self, id: u32) -> Result<String, String> {
         if self.plans.ghosts.remove(&id).is_none() {
             return Err("no such plan".into());
@@ -272,7 +230,6 @@ impl Kingdom {
         Ok("Plan cancelled".into())
     }
 
-    /// The crew serving plan `id` (if one is) puts down its load and walks home.
     pub(crate) fn recall(&mut self, id: u32) {
         let camp = self.camp();
         let mut back = Stock::new();
@@ -292,14 +249,12 @@ impl Kingdom {
         }
     }
 
-    /// Set how urgent a plan is: 0 low, 1 usual, 2 urgent.
     pub fn rank_ghost(&mut self, id: u32, priority: u8) -> Result<String, String> {
         let g = self.plans.ghosts.get_mut(&id).ok_or("no such plan")?;
         g.priority = priority.min(2);
         Ok(["Plan set low", "Plan set usual", "Plan set urgent"][usize::from(g.priority)].into())
     }
 
-    /// How many crews the camp can field: its own, and one for each carpenter's shop that stands.
     pub fn crews_wanted(&self, c: &Catalog) -> usize {
         let shops = self
             .buildings
@@ -317,12 +272,10 @@ impl Kingdom {
         }
     }
 
-    /// Once a second: crews fetch, walk, raise and come back. Costs nothing while no plan is laid.
     pub(crate) fn raise_second(&mut self, c: &Catalog) {
         if self.plans.ghosts.is_empty() && self.plans.crews.is_empty() {
             return;
         }
-        // Plans the ground has taken back (someone raised a thing there by hand) are dropped.
         let serving: BTreeSet<u32> = self.plans.crews.iter().filter(|w| w.ghost != 0).map(|w| w.ghost).collect();
         let stale: Vec<u32> = self.plans.ghosts.iter().filter(|(id, g)| !serving.contains(*id) && self.ghost_land(c, g).is_err()).map(|(&id, _)| id).collect();
         for id in stale {
@@ -377,7 +330,6 @@ impl Kingdom {
         }
     }
 
-    /// Crew `i` takes the most urgent plan the camp can pay for, nearest first.
     fn fetch(&mut self, c: &Catalog, i: usize, camp: Tile) {
         let serving: BTreeSet<u32> = self.plans.crews.iter().filter(|w| w.ghost != 0).map(|w| w.ghost).collect();
         let pick = self
@@ -395,14 +347,11 @@ impl Kingdom {
         self.plans.crews[i] = Crew { ghost: id, leg: Leg::Out, left: there, total: there, tile, carrying: cost, plan };
     }
 
-    /// Crew `i` has raised its plan: the thing stands, built by the hands that carried it.
     fn finish(&mut self, c: &Catalog, i: usize, camp: Tile) {
         let (id, tile, plan) = {
             let w = &self.plans.crews[i];
             (w.ghost, w.tile, w.plan.clone())
         };
-        // The goods go back to the camp's stock and are paid again by the building's own
-        // command, so every rule that applies to a thing laid by hand applies to this.
         for (r, n) in std::mem::take(&mut self.plans.crews[i].carrying) {
             add(&mut self.stock, &r, n);
         }
@@ -420,7 +369,6 @@ impl Kingdom {
             };
             if made.is_ok() {
                 if let Some(face) = g.face {
-                    // A swape planned facing a way is raised so.
                     let _ = self.execute(c, Command::Face { tile, dir: crate::Dir::from_index(face) });
                 }
                 self.plans.raised = self.plans.raised.saturating_add(1);
@@ -435,8 +383,6 @@ impl Kingdom {
         self.plans.crews[i] = Crew { ghost: 0, leg: Leg::Back, left: back, total: back, tile, carrying: Stock::new(), plan: String::new() };
     }
 
-    /// The walk a crew is on, tile by tile from the camp to its plan: along the way east or
-    /// west first, then north or south.
     pub fn crew_way(&self, w: &Crew) -> Vec<Tile> {
         let (a, b) = (self.camp(), w.tile);
         let mut way = vec![a];
@@ -452,15 +398,9 @@ impl Kingdom {
         way
     }
 
-    // ------------------------------------------------------------ taking back ----
-
-    /// Take back what was just laid: plans are cancelled; a road or a thing nobody has used
-    /// yet comes down with every board paid for it back, and one that has worked comes down
-    /// as a demolition does, for half.
     pub fn retract(&mut self, c: &Catalog, what: &[Laid]) -> Result<String, String> {
         let mut undone = 0u32;
         let mut gave = Stock::new();
-        // (A thing taken back gives back what it took: the store had room for it once.)
         fn give(k: &mut Kingdom, gave: &mut Stock, r: &str, n: u32) {
             add(&mut k.stock, r, n);
             add(gave, r, n);
@@ -515,7 +455,6 @@ impl Kingdom {
                         undone += 1;
                     }
                 }
-                // A tile of rollerway or rail comes up as a demolition has it (its goods go to the camp).
                 Laid::Roller(t) | Laid::Rail(t) => {
                     let there = if matches!(item, Laid::Roller(_)) { self.roller_at(*t).is_some() } else { self.rails.cells.contains_key(t) };
                     if there && self.execute(c, Command::Demolish(*t)).is_ok() {
@@ -535,16 +474,10 @@ impl Kingdom {
         Ok(format!("Took back {undone}{back}"))
     }
 
-    // ---------------------------------------------------------------- copying ----
-
-    /// The pattern called `name`: a copy the party kept, or one of the catalogue's.
     pub fn pattern<'a>(&'a self, c: &'a Catalog, name: &str) -> Option<&'a Pattern> {
         self.copies.get(name).or_else(|| c.patterns.get(name))
     }
 
-    /// Copy every work, road and shaft whole inside the rectangle `a`..`b` (inclusive,
-    /// either corner first) into the pattern `name`, offsets from its top left; lines
-    /// between two copied works come with it. Kept with the realm.
     pub fn clip(&mut self, c: &Catalog, name: &str, a: Tile, b: Tile) -> Result<String, String> {
         if !COPY_NAMES.contains(&name) {
             return Err("no such place to keep a copy".into());
@@ -590,9 +523,6 @@ impl Kingdom {
         Ok(words)
     }
 
-    /// Lay a pattern down as plans rather than as buildings: every work and road becomes a
-    /// ghost the hands will raise. Lines between the works are not planned (they join
-    /// buildings that stand), and the words say so.
     pub fn plan_stamp(&mut self, c: &Catalog, name: &str, origin: Tile, turns: u8, priority: u8, by: u32) -> Result<(String, Vec<u32>), String> {
         let p = self.pattern(c, name).ok_or("unknown pattern")?.clone();
         let at = |off: (i16, i16)| {
@@ -608,7 +538,6 @@ impl Kingdom {
         if self.plans.ghosts.len() + want > MAX_GHOSTS {
             return Err(format!("{MAX_GHOSTS} plans are laid already: raise or cancel some"));
         }
-        // All or nothing: on a copy of the kingdom first.
         let mut trial = self.clone();
         let mut ids = Vec::new();
         for &r in &p.roads {
@@ -629,7 +558,6 @@ impl Kingdom {
     }
 }
 
-/// How a plan reads in a sentence: its name.
 pub fn plan_name(c: &Catalog, plan: &str) -> String {
     match plan {
         ROAD => "Road".into(),

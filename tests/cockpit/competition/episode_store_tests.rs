@@ -123,7 +123,6 @@ fn close_terminal(
     state.append_durable(store, &event).unwrap();
 }
 
-/// DC-EP-002-all-terminal-outcomes-finalize-or-recover
 #[test]
 fn dc_ep_002_all_terminal_outcomes_finalize_or_recover() {
     let outcomes = [
@@ -151,7 +150,6 @@ fn dc_ep_002_all_terminal_outcomes_finalize_or_recover() {
     }
 }
 
-/// DC-EP-003-graph-rollout-action-candidate-lineage-complete
 #[test]
 fn dc_ep_003_graph_rollout_action_candidate_lineage_complete() {
     let (dir, start, actions, mut episodes, key, generation) = durable_harness("lineage", false);
@@ -198,7 +196,6 @@ fn dc_ep_003_graph_rollout_action_candidate_lineage_complete() {
     drop(dir);
 }
 
-/// DC-EP-004-crash-replay-equals-uninterrupted-reduction
 #[test]
 fn dc_ep_004_crash_replay_equals_uninterrupted_reduction() {
     let (dir, start, actions, mut episodes, key, generation) = durable_harness("replay", false);

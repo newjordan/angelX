@@ -1,8 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
 
-# Each claim computes to the same term on both sides, so reflexivity discharges them;
-# the verdict itself is the statement.
 def Laws.the_loop_is_three_days():
   {==}
 

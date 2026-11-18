@@ -43,7 +43,6 @@ fn write_freedom_whole_shots() {
         run.step(&BTreeMap::new());
     }
     save(&dir, &whole(&run), "sanctuary");
-    // Every curio shape, in turn.
     for (n, words) in [
         "a marble bust of the king", "a potted fern", "a red banner", "a blue crystal orb", "a goldfish bowl",
         "a golden trophy", "a silver candelabra", "a harp", "a black cat", "an old urn", "zzyzx",

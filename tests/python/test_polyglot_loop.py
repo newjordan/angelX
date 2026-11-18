@@ -1,4 +1,3 @@
-"""Offline checks for cohort integrity and honest pilot telemetry."""
 import importlib.util
 import ctypes
 import json
@@ -154,7 +153,13 @@ class CohortTests(unittest.TestCase):
             files = {"cockpit/Cargo.toml": "cockpit", "vendor/dotmax/Cargo.toml": "dotmax",
                      "vendor/ureq/Cargo.toml": "ureq", "rust-toolchain.toml": "toolchain",
                      "docs/telemetry/model-calibration.toml": "models",
-                     "docs/telemetry/store-caps.toml": "caps", "docs/telemetry/prices.toml": "prices"}
+                     "docs/telemetry/store-caps.toml": "caps", "docs/telemetry/prices.toml": "prices",
+                     "crates/Cargo.toml": "crates", "scripts/runtime/repo-recon.js": "recon",
+                     "scripts/runtime/test-runner-report.mjs": "runner",
+                     "lib/test-runner/report.mjs": "report", "lib/club/moa-preferences.json": "{}",
+                     "lib/tools/definitions.json": "[]", "lib/control/slash-help.json": "{}",
+                     "lib/knowledge/lesson-routing.json": "{}", "lib/native/native_module.rs": "native",
+                     "delve/kingdom/frontier.json": "{}"}
             for name, content in files.items():
                 path = source / name
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -258,8 +263,6 @@ class CohortTests(unittest.TestCase):
 @unittest.skipUnless(sys.platform.startswith("linux"), "Linux process-group cleanup")
 class RunnerProcessTests(unittest.TestCase):
     def check_group_cleanup(self, leader_mode):
-        # Adopt and reap the fixture grandchild even on hosts whose PID 1 does
-        # not reap orphans. Restore this process-wide setting after each case.
         libc = ctypes.CDLL(None, use_errno=True)
         old_subreaper = ctypes.c_int()
         self.assertEqual(libc.prctl(37, ctypes.byref(old_subreaper), 0, 0, 0), 0)
@@ -341,6 +344,45 @@ class RunnerProcessTests(unittest.TestCase):
 
 
 class SummaryTests(unittest.TestCase):
+    def test_conflicting_trace_identity_stays_unattributed_and_unpaired(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cell = Path(tmp)
+            (cell / "manifest.json").write_text(json.dumps({"task_names": ["js-a"], "attempts": 1}))
+            for baseline_score, candidate_score in ((0, 1), (1, 0)):
+                with self.subTest(scores=(baseline_score, candidate_score)):
+                    trace = {"task": {"data": {"name": "py-b"}},
+                             "rewards": {"technical_outcome": {"score": candidate_score}}}
+                    record = {"task": {"data": {"name": "js-a"}}, "traces": [trace]}
+                    (cell / "traces.jsonl").write_text(json.dumps(record) + "\n")
+                    candidate = summary.load_cell(cell)
+                    row = candidate["rows"][0]
+                    self.assertIsNone(row["task"])
+                    self.assertEqual(row["identity_conflict"], {"record": "js-a", "trace": "py-b"})
+                    self.assertEqual((row["score"], row["solved"], row["line"], row["attempt"]),
+                                     (candidate_score, candidate_score == 1, 1, 1))
+                    self.assertFalse(candidate["coverage"]["cohort_complete"])
+                    self.assertEqual(candidate["coverage"]["missing_tasks"], ["js-a"])
+                    self.assertEqual(candidate["summary"]["tasks"], 1)
+                    self.assertEqual(candidate["summary"]["unnamed_attempts"], 1)
+                    baseline = {"path": "baseline", "manifest": {}, "rows": [summary.summarize_trace(
+                        record, {"rewards": {"technical_outcome": {"score": baseline_score}}})]}
+                    for left, right in ((baseline, candidate), (candidate, baseline)):
+                        pair = summary.paired(left, right)
+                        self.assertEqual(pair["jointly_scored_tasks"], 0)
+                        self.assertEqual(pair["solve_gains"], [])
+                        self.assertEqual(pair["solve_losses"], [])
+                        self.assertEqual(pair["deltas_candidate_minus_baseline"], [])
+
+    def test_matching_and_absent_trace_names_preserve_legacy_summary_rows(self):
+        record = {"task": {"data": {"name": "js-a"}}}
+        expected = summary.summarize_trace(record, {})
+        for task in (None, {}, {"data": {}}, {"data": {"name": None}},
+                     {"data": {"name": ""}}, {"data": {"name": "js-a"}}):
+            with self.subTest(task=task):
+                self.assertEqual(summary.summarize_trace(record, {"task": task}), expected)
+        self.assertNotIn("identity_conflict", expected)
+        self.assertIsNone(summary.summarize_trace({}, {"task": {"data": {"name": "js-a"}}})["task"])
+
     def test_missing_telemetry_remains_unknown(self):
         row = summary.summarize_trace({"task": {"data": {"name": "js-a"}}}, {})
         self.assertIsNone(row["score"])

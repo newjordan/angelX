@@ -45,7 +45,6 @@ impl Behaviour {
         })
     }
 
-    /// The most one card may call.
     pub fn most(self) -> u32 {
         match self {
             Behaviour::Swarm => 6,
@@ -54,7 +53,6 @@ impl Behaviour {
         }
     }
 
-    /// A summoning spell's least recharge, in seconds, per creature.
     pub fn seconds_each(self) -> u32 {
         match self {
             Behaviour::Swarm => 4,
@@ -63,7 +61,6 @@ impl Behaviour {
         }
     }
 
-    /// How long one lasts, in ticks.
     fn life(self) -> u32 {
         match self {
             Behaviour::Swarm => 6 * HZ,
@@ -73,11 +70,8 @@ impl Behaviour {
     }
 }
 
-/// A knight keeps at most this many creatures.
 pub const MAX_PER_KNIGHT: usize = 6;
 const SWARM_SPEED: f32 = 9.0;
-/// A swarmer's burst: this much, scaled by its knight's damage, as one
-/// stroke on what is within `SWARM_REACH` of it.
 pub const SWARM_BURST: u32 = 30;
 const SWARM_REACH: f32 = 1.8;
 const SWARM_SEEK: f32 = 14.0;
@@ -89,8 +83,6 @@ pub const TURRET_DAMAGE: u32 = 14;
 const TURRET_RANGE: f32 = 12.0;
 const TURRET_SPEED: f32 = 16.0;
 
-/// One creature: whose, from which card (its look), how it behaves, where
-/// it is, and how long it has left.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Imp {
     pub owner: u32,
@@ -98,23 +90,18 @@ pub struct Imp {
     pub behaviour: Behaviour,
     pub x: f32,
     pub y: f32,
-    /// Which way it last moved: true for left (it is drawn flipped).
     pub left_facing: bool,
     pub life: u32,
-    /// Its place among those called together.
     pub seat: u8,
     pub of: u8,
     pub rearm: u32,
 }
 
 impl Run {
-    /// Knight `owner` calls the creatures card `card_id` defines.
     pub(super) fn call_imps(&mut self, owner: u32, card_id: &str) {
         let Some((count, behaviour)) = self.book.get(card_id).and_then(Card::imps) else {
             return;
         };
-        // Saves also carry cards: keep allocation bounded even for an old
-        // or hand-edited card that did not come through today's checker.
         let count = count.clamp(1, behaviour.most());
         let Some(hero) = self.players.get(&owner) else {
             return;
@@ -142,7 +129,6 @@ impl Run {
                 rearm: TURRET_EVERY / 2,
             });
         }
-        // The oldest let go past the knight's limit.
         let mine = self.imps.iter().filter(|i| i.owner == owner).count();
         let mut extra = mine.saturating_sub(MAX_PER_KNIGHT);
         self.imps.retain(|i| {
@@ -156,7 +142,6 @@ impl Run {
         self.cues.push("summoned:imps".into());
     }
 
-    /// Every creature's tick: hunt, guard or shoot, and age.
     pub(super) fn tick_imps(&mut self) {
         if self.imps.is_empty() {
             return;
@@ -189,7 +174,6 @@ impl Run {
                         .map(|(d, e)| (d, e.x, e.y, e.radius()));
                     let goal = match target {
                         Some((d, _, _, r)) if d <= r + 0.4 => {
-                            // It bursts: one stroke.
                             let damage = hero.spell_damage(&imp.card, SWARM_BURST);
                             let at = (imp.x, imp.y);
                             aoe::strike(&mut self.enemies, at, damage, |e| {

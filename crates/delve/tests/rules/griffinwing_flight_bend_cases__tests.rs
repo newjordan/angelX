@@ -13,7 +13,6 @@ fn some_craft(s: &Session, rng: &mut Rng) -> Option<(u32, Craft)> {
     Some((id, s.seats[&id].craft.clone()))
 }
 
-/// A reticle that points at foe `f` from craft `c`.
 fn aim_at(c: &mut Craft, s_c: i32, f: &Foe, jitter: i32) {
     let ds = (f.s - s_c).max(1);
     c.rx = ((i64::from(f.x - c.x + jitter) * i64::from(FAR) / i64::from(ds)) as i32).clamp(-flight::RX_MAX, flight::RX_MAX);
@@ -75,7 +74,6 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             c.charge = rng.below(40) as u32;
             c.dwell = rng.below(10) as u32;
             if k % 2 == 1 {
-                // some locks held already (some stale, some good)
                 c.locks.clear();
                 for g in s.foes.iter().take(rng.below(4) as usize) {
                     c.locks.push(Lock { foe: g.id, n: 1 + rng.below(2) as u8 });

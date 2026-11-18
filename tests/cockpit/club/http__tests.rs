@@ -59,7 +59,6 @@ fn live_meters_read_usage_without_taking_the_hop_mutex() {
     );
 }
 
-/// Restore-on-drop env guard (the `club/tests` one is module-private).
 struct EnvGuard {
     key: &'static str,
     previous: Option<std::ffi::OsString>,
@@ -67,13 +66,11 @@ struct EnvGuard {
 impl EnvGuard {
     fn set(key: &'static str, value: &str) -> Self {
         let previous = std::env::var_os(key);
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var(key, value) };
         Self { key, previous }
     }
     fn unset(key: &'static str) -> Self {
         let previous = std::env::var_os(key);
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
         Self { key, previous }
     }
@@ -81,9 +78,7 @@ impl EnvGuard {
 impl Drop for EnvGuard {
     fn drop(&mut self) {
         match self.previous.take() {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             Some(value) => unsafe { std::env::set_var(self.key, value) },
-            // TODO: Audit that the environment access only happens in single-threaded code.
             None => unsafe { std::env::remove_var(self.key) },
         }
         if self.key.ends_with("REASONING_EFFORT") || self.key.ends_with("REASONING_DIALECT") {
@@ -186,9 +181,6 @@ fn deepseek_v4_replays_reasoning_on_exact_live_messages_without_cross_matching()
     let restored: ChatMsg = serde_json::from_str(&saved).expect("restore message");
     assert!(restored.private_reasoning.is_none());
 
-    // The extra field is provider-specific; public compatible gateways may
-    // reject it, and a URL containing the official host as userinfo is not
-    // trusted.
     let generic = HttpClub::new(
         "deepseek-proxy",
         "https://api.deepseek.com@gateway.example/v1",
@@ -213,9 +205,6 @@ fn deepseek_v4_replays_reasoning_on_exact_live_messages_without_cross_matching()
     );
 }
 
-/// DeepSeek's thinking mode: while `tools` ride the request, every earlier
-/// assistant turn passes its reasoning back, final answers included; a turn
-/// whose reasoning this process never held goes back empty, never invented.
 #[test]
 fn deepseek_passes_back_every_reasoned_turn_while_tools_ride_the_request() {
     let club = HttpClub::new(
@@ -240,7 +229,6 @@ fn deepseek_passes_back_every_reasoned_turn_while_tools_ride_the_request() {
         ChatMsg::tool("call_1", "source"),
         ChatMsg::assistant_with_reasoning("fixed", Some("the answer's thought".to_string())),
         ChatMsg::user("and the test?"),
-        // A resumed session holds no reasoning for its restored turns.
         ChatMsg::assistant_calls(call.clone()),
         ChatMsg::tool("call_1", "source again"),
     ];
@@ -254,15 +242,12 @@ fn deepseek_passes_back_every_reasoned_turn_while_tools_ride_the_request() {
         Some(serde_json::json!("the answer's thought"))
     );
     assert_eq!(reasoning(5), Some(serde_json::json!("")));
-    // Without tools the provider ignores reasoning: held reasoning still rides
-    // (the prefix renders it), but nothing is filled in.
     let bare = club.build_body(&history, &[], true).unwrap();
     assert_eq!(
         bare["messages"][3]["reasoning_content"],
         "the answer's thought"
     );
     assert!(bare["messages"][5].get("reasoning_content").is_none());
-    // A gateway that only looks like DeepSeek gets neither.
     let generic = HttpClub::new(
         "deepseek-proxy",
         "https://api.deepseek.com@gateway.example/v1",
@@ -305,7 +290,6 @@ fn env_knob_names_are_precomputed_from_the_club_namespace() {
         "ANGEL_DEEPSEEK_V4_PRO_REASONING_DIALECT"
     );
     assert_eq!(club.max_tokens_env_name, "ANGEL_DEEPSEEK_V4_PRO_MAX_TOKENS");
-    // Model-id labels on an aggregator resolve to the provider namespace.
     let openrouter = HttpClub::new(
         "tencent/hy3:free",
         "https://openrouter.ai/api/v1",
@@ -318,8 +302,6 @@ fn env_knob_names_are_precomputed_from_the_club_namespace() {
     );
 }
 
-/// Seed-once cache: EnvGuard overrides of effort/dialect knobs stay
-/// invisible until resync, then restore after the guard drops.
 #[test]
 fn reasoning_effort_env_seeds_once_and_resyncs_under_env_lock() {
     use crate::agent::club::Club;
@@ -391,22 +373,16 @@ fn effort_snapshot_invalidates_on_revision_and_ttl() {
     let _dial = EnvGuard::unset("ANGEL_T_EFFORT_SNAP_REASONING_DIALECT");
     resync_reasoning_effort_env_from_env();
     let mut club = HttpClub::new("t-effort-snap", "http://127.0.0.1:9/v1", "m", None);
-    // Same deterministic clock: TTL transitions are test-controlled.
     let clock = Arc::new(std::sync::Mutex::new(Instant::now()));
     let clock_reader = Arc::clone(&clock);
     club.now = Arc::new(move || *clock_reader.lock().unwrap());
 
-    // Warm the snapshot at the default OpenAI dialect / no effort.
     assert!(club.reasoning_effort().is_none());
     assert_eq!(club.reasoning_dialect(), ReasoningDialect::OpenAiEffort);
 
-    // THINK override bumps route_state_revision → snapshot invalidates now.
     assert_eq!(club.set_reasoning_effort("high").as_deref(), Some("high"));
     assert_eq!(club.reasoning_effort().as_deref(), Some("high"));
 
-    // Dialect env change does not bump revision. Without resync the
-    // process cache stays frozen even after TTL; after resync the expired
-    // snapshot re-resolves from the new seed.
     let _dial_set = EnvGuard::set("ANGEL_T_EFFORT_SNAP_REASONING_DIALECT", "glm");
     let fresh = *clock.lock().unwrap();
     *club.effort_snapshot.lock().unwrap() = Some((
@@ -459,7 +435,6 @@ fn effort_snapshot_invalidates_on_revision_and_ttl() {
         ReasoningDialect::GlmThinking,
         "expired snapshot must re-resolve dialect from the resynced cache"
     );
-    // GLM ladder is binary; the high override still surfaces.
     assert_eq!(club.reasoning_effort().as_deref(), Some("high"));
 }
 
@@ -545,9 +520,6 @@ fn provider_cancel_disconnects_partial_http_chunk_body() {
     assert_provider_cancel_disconnects("100\r\ndata: {", true, true);
 }
 
-/// Read one full HTTP request (headers + `Content-Length` body) off a
-/// socket so a test can assert on what actually went over the wire.
-/// (A local twin of `club/tests.rs`'s helper, which is module-private.)
 fn read_http_request(sock: &mut std::net::TcpStream) -> String {
     use std::io::Read;
     let mut req = Vec::new();
@@ -572,9 +544,6 @@ fn read_http_request(sock: &mut std::net::TcpStream) -> String {
     String::from_utf8_lossy(&req).into_owned()
 }
 
-/// Serve a fixed sequence of canned HTTP responses (one connection each),
-/// capturing the raw request that preceded each. Once the sequence is
-/// exhausted the listener drops, so an over-asking retry loop fails visibly.
 fn serve_seq(
     responses: Vec<String>,
 ) -> (
@@ -585,8 +554,6 @@ fn serve_seq(
     serve_seq_with_accept_timeout(responses, std::time::Duration::from_secs(2))
 }
 
-/// As [`serve_seq`], with a bounded per-connection wait chosen by a test
-/// whose setup can be delayed independently of the fixture thread.
 fn serve_seq_with_accept_timeout(
     responses: Vec<String>,
     accept_timeout: std::time::Duration,
@@ -627,7 +594,6 @@ fn serve_seq_with_accept_timeout(
             captured.lock().unwrap().push(req);
             let _ = sock.write_all(response.as_bytes());
             let _ = sock.flush();
-            // Wait for the client to finish reading and hang up (read → 0).
             let mut buf = [0u8; 512];
             let _ = sock.read(&mut buf);
         }
@@ -635,9 +601,6 @@ fn serve_seq_with_accept_timeout(
     (format!("http://{addr}"), requests, handle)
 }
 
-/// Send one SSE event, pause long enough to trip the client's socket read
-/// timeout, then finish the same response. Models the Qwen/SGLang parser
-/// gap where decoding continues but a large tool argument is withheld.
 fn serve_delayed_stream(
     first_event: &'static str,
     delay: Duration,
@@ -663,8 +626,6 @@ fn serve_delayed_stream(
     (format!("http://{addr}"), handle)
 }
 
-/// Keep sending SSE comments during a quiet gap: the keep-alive path that
-/// refreshes the foreground watchdog.
 fn serve_keepalive_stream(
     first_event: &'static str,
     ping_delay: Duration,
@@ -695,9 +656,6 @@ fn serve_keepalive_stream(
     (format!("http://{addr}"), handle)
 }
 
-/// A streamed call has no read deadline: a tool parser that holds its first
-/// giant `data:` line back past `ANGEL_HTTP_TIMEOUT` (the buffered-call bound)
-/// still lands its call.
 #[test]
 fn a_stream_survives_silence_past_the_buffered_read_bound() {
     let _guard = crate::tests::env_lock();
@@ -705,9 +663,6 @@ fn a_stream_survives_silence_past_the_buffered_read_bound() {
         let _http_timeout = EnvGuard::set("ANGEL_HTTP_TIMEOUT", "1");
         resync_stream_knobs_from_env();
 
-        // A tool-only response can cross the socket deadline inside its
-        // very first giant `data:` line, before the accumulator has seen a
-        // parseable event.
         let first = "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,";
         let rest = concat!(
             "\"id\":\"call_1\",\"function\":{\"name\":\"write_file\",",
@@ -824,8 +779,6 @@ fn keepalives_refresh_the_foreground_watchdog_without_flooding_it() {
     resync_stream_knobs_from_env();
 }
 
-/// A model thinking quietly past the buffered-call read bound is never cut
-/// on a stream, with or without tools offered.
 #[test]
 fn a_tool_free_stream_is_never_cut_by_the_read_bound() {
     let _guard = crate::tests::env_lock();
@@ -947,8 +900,6 @@ fn p05b_glm_reasoning_is_delivered_before_answer_and_answer_bytes_are_preserved(
                 "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"fixture progress\"}}]}\n\n",
             ).as_bytes()).unwrap();
         socket.flush().unwrap();
-        // A test-only handshake proves delivery while the answer is still
-        // withheld. This is not a product deadline or a latency benchmark.
         visible_rx.recv_timeout(Duration::from_secs(5)).unwrap();
         socket
             .write_all(
@@ -1113,10 +1064,6 @@ fn p05c_cancel_during_zai_reasoning_tears_the_stream_down() {
     }
 }
 
-/// Build a one-rule TTSR set without mutating process-global environment.
-/// A temporary `ANGEL_STREAM_RULES` override can race any streaming test
-/// that initializes the global `OnceLock`, permanently contaminating that
-/// test process even when the mutating test itself holds `env_lock`.
 fn probe_stream_rules() -> crate::agent::stream_rules::StreamRules {
     let rules = crate::agent::stream_rules::StreamRules::from_json_for_test(
         r#"[{"pattern":"TTSR-DRIFT-PROBE","reminder":"stay on script"}]"#,
@@ -1125,11 +1072,6 @@ fn probe_stream_rules() -> crate::agent::stream_rules::StreamRules {
     rules
 }
 
-/// The attempt loop encodes by move on the default path (no rules → no
-/// deep clone of the full request tree). This pins the `can_retry` side:
-/// a configured rule tripping mid-stream must still retry with the
-/// ORIGINAL body — proving the clone survives — plus the injected
-/// reminder.
 #[test]
 fn stream_rule_retry_discards_speculative_deltas_and_resends_original_body() {
     let _guard = crate::tests::env_lock();
@@ -1175,7 +1117,6 @@ fn stream_rule_retry_discards_speculative_deltas_and_resends_original_body() {
             &rules,
         )
         .expect("rule retry recovers a clean stream");
-    // The reply comes from the retried stream, not the drifted partial.
     match reply {
         ClubReply::Text(t) => assert_eq!(t, "back on script"),
         other => panic!("expected text, got {other:?}"),
@@ -1208,9 +1149,6 @@ fn stream_rule_retry_discards_speculative_deltas_and_resends_original_body() {
     handle.join().unwrap();
 }
 
-/// The `can_retry = false` side of the same gate: with the retry budget at
-/// zero a matching rule must not fire, the body is encoded by move, and
-/// the stream completes in exactly one request carrying the same bytes.
 #[test]
 fn stream_rule_gate_exhausted_encodes_by_move_single_attempt() {
     let _guard = crate::tests::env_lock();
@@ -1252,8 +1190,6 @@ fn stream_rule_gate_exhausted_encodes_by_move_single_attempt() {
     resync_stream_knobs_from_env();
 }
 
-/// Seed-once cache: EnvGuard overrides are invisible until resync, then
-/// visible, then restored after the guard drops. No knob is a clock.
 #[test]
 fn stream_hop_knobs_seed_once_and_resync_under_env_lock() {
     let _guard = crate::tests::env_lock();
@@ -1291,9 +1227,6 @@ fn stream_hop_knobs_seed_once_and_resync_under_env_lock() {
     );
 }
 
-/// Seed-once cache: EnvGuard overrides of the global and per-club
-/// `STREAM_USAGE` pins stay invisible until resync, then restore after the
-/// guard drops.
 #[test]
 fn stream_usage_pins_seed_once_and_resync_under_env_lock() {
     let _guard = crate::tests::env_lock();
@@ -1323,8 +1256,6 @@ fn stream_usage_pins_seed_once_and_resync_under_env_lock() {
     assert_eq!(stream_usage_club_pin(club_pin), env_truthy_pin(club_pin));
 }
 
-/// Seed-once cache: EnvGuard overrides are invisible until resync, then
-/// visible, then restored after the guard drops. Covers both knobs.
 #[test]
 fn ratelimit_knobs_seed_once_and_resync_under_env_lock() {
     let _guard = crate::tests::env_lock();
@@ -1360,10 +1291,6 @@ fn ratelimit_knobs_seed_once_and_resync_under_env_lock() {
     assert_eq!(max_wait, want_wait);
 }
 
-/// Seed-once cache: EnvGuard overrides of `ANGEL_{CLUB}_MAX_TOKENS` /
-/// `ANGEL_CLUB_MAX_TOKENS` stay invisible until resync, then restore after
-/// the guard drops. Per-club still beats global; parse/zero-filter is
-/// unchanged.
 #[test]
 fn club_max_tokens_env_seeds_once_and_resyncs_under_env_lock() {
     use crate::agent::club::Club;
@@ -1418,9 +1345,6 @@ fn club_max_tokens_env_seeds_once_and_resyncs_under_env_lock() {
     assert_eq!(max_tokens_env(per_club), parse_max_tokens_env(per_club));
 }
 
-/// Seed-once cache: EnvGuard overrides of the global and per-club
-/// `PROMPT_CACHE` pins and `ANGEL_PROMPT_CACHE_KEY` stay invisible until
-/// resync, then restore after the guard drops. Send policy is unchanged.
 #[test]
 fn prompt_cache_pins_seed_once_and_resync_under_env_lock() {
     let _guard = crate::tests::env_lock();
@@ -1466,9 +1390,6 @@ fn prompt_cache_pins_seed_once_and_resync_under_env_lock() {
     );
 }
 
-/// Seed-once cache: EnvGuard overrides of OpenRouter Claude cache knobs
-/// stay invisible until resync, then restore after the guard drops.
-/// Breakpoint floor clamp and TTL `1h` match stay unchanged.
 #[test]
 fn openrouter_anthropic_cache_cfg_seeds_once_and_resyncs_under_env_lock() {
     let _guard = crate::tests::env_lock();
@@ -1501,7 +1422,6 @@ fn openrouter_anthropic_cache_cfg_seeds_once_and_resyncs_under_env_lock() {
         openrouter_anthropic_cache_cfg_from_env()
     );
 }
-/// Operator-ordered F01 contract: a useful output floor may exceed remaining allocation.
 #[test]
 fn formation_graph_wire_cap_fits_shared_remaining_allocation() {
     let _lock = crate::tests::env_lock();
@@ -1553,7 +1473,7 @@ fn formation_budget_turn_abort_preserves_stream_observation_before_attempt_drop(
             "total_tokens":520,"prompt_tokens_details":{"cached_tokens":100,"cache_write_tokens":0},
             "completion_tokens_details":{"reasoning_tokens":5}}}),
     );
-    drop(scope); // The worker still owns its attempt when the turn exits.
+    drop(scope);
     let receipt = crate::agent::harness::formation_budget::snapshot().unwrap();
     assert_eq!(receipt["reserved"], 0);
     assert_eq!(receipt["spent"], 520);
@@ -1565,10 +1485,6 @@ fn formation_budget_turn_abort_preserves_stream_observation_before_attempt_drop(
 #[test]
 fn formation_graph_live_shaped_terminal_usage_releases_workers_before_fanin() {
     let _lock = crate::tests::env_lock();
-    // G01c/root-live-b20 GLM nofault first attempts; fan-in is the
-    // observed GLM worker_fail attempt (nofault fan-in usage is unknown).
-    // This tests adapter accounting under both route labels, not a claim
-    // that the hosted route reported these same token counts.
     for model in ["glm-5.3-flash", "deepseek-v4-flash"] {
         for total in [48_000, 288_000] {
             let budget = crate::agent::harness::formation_budget::Budget::new(Some(total), None);
@@ -1585,7 +1501,6 @@ fn formation_graph_live_shaped_terminal_usage_releases_workers_before_fanin() {
                         "prompt_tokens":input,"completion_tokens":output,
                         "prompt_tokens_details":{"cached_tokens":cached},
                         "completion_tokens_details":{"reasoning_tokens":reasoning}}}));
-                // Observing the last chunk must not release a running stream.
                 assert!(budget.snapshot()["reserved"].as_u64().unwrap() > 0);
                 stream
             };
@@ -1628,7 +1543,7 @@ fn usage_contract_scripted_frames_settle_one_shared_formation_budget() {
                     "total_tokens":520,"prompt_tokens_details":{"cached_tokens":100,"cache_write_tokens":0},
                     "completion_tokens_details":{"reasoning_tokens":5}}});
             attempt.observe(&frame);
-            attempt.observe(&frame); // Repeated cumulative SSE frames charge once.
+            attempt.observe(&frame);
         }
         let usage =
             crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
@@ -1660,8 +1575,6 @@ fn usage_contract_scripted_frames_settle_one_shared_formation_budget() {
     );
 }
 
-/// The legend reaches the model on the Chat Completions wire and, translated,
-/// on DeepSeek's Messages wire: the stamp's English at first sight.
 #[test]
 fn the_legend_reaches_the_chat_and_deepseek_messages_wires() {
     let _guard = crate::tests::env_lock();
@@ -1703,8 +1616,6 @@ fn the_legend_reaches_the_chat_and_deepseek_messages_wires() {
     );
 }
 
-
-/// One chunked SSE answer as a keep-alive server sends it, terminator included.
 fn chunked_sse_answer(answer: &str) -> String {
     let event = format!(
         "data: {{\"choices\":[{{\"delta\":{{\"content\":\"{answer}\"}},\"finish_reason\":\"stop\"}}]}}\n\ndata: [DONE]\n\n"
@@ -1715,10 +1626,8 @@ fn chunked_sse_answer(answer: &str) -> String {
     )
 }
 
-/// A streamed model call leaves its connection to the pool once its terminal
-/// event arrives, so the next call skips the TCP/TLS handshake (and DNS).
 #[test]
-#[cfg(target_os = "linux")] // where abortable requests pool
+#[cfg(target_os = "linux")]
 fn streamed_calls_reuse_one_provider_connection() {
     use std::io::Write;
     let _guard = crate::tests::env_lock();
@@ -1757,14 +1666,11 @@ fn streamed_calls_reuse_one_provider_connection() {
             )
             .unwrap();
         assert!(matches!(&reply, ClubReply::Text(text) if text == answer), "{reply:?}");
-        // The finished body's terminator is read on its own thread; a real
-        // turn runs its tools in that gap.
         std::thread::sleep(Duration::from_millis(100));
     }
     server.join().unwrap();
 }
 
-/// Serve chunked answers on as many connections as arrive, counting them.
 fn serve_chunked_counting(
     answers: Vec<&'static str>,
 ) -> (
@@ -1788,7 +1694,7 @@ fn serve_chunked_counting(
             while let Some(&answer) = answers.peek() {
                 let request = read_http_request(&mut socket);
                 if !request.starts_with("POST") {
-                    break; // the client hung up; take the next connection
+                    break;
                 }
                 if socket.write_all(chunked_sse_answer(answer).as_bytes()).is_err() {
                     break;
@@ -1806,10 +1712,8 @@ fn read_body(response: ureq::Response) -> std::io::Result<String> {
     response.into_reader().read_to_string(&mut body).map(|_| body)
 }
 
-/// An abort handle is detached before its connection returns to the pool:
-/// aborting a finished request never reaches the next request on that socket.
 #[test]
-#[cfg(target_os = "linux")] // where abortable requests pool
+#[cfg(target_os = "linux")]
 fn a_finished_request_abort_never_reaches_the_pooled_connection() {
     let (url, accepted, server) = serve_chunked_counting(vec!["one", "two"]);
     let agent = ureq::AgentBuilder::new().build();
@@ -1831,8 +1735,6 @@ fn a_finished_request_abort_never_reaches_the_pooled_connection() {
     assert_eq!(accepted.load(Ordering::SeqCst), 1, "the pooled connection carried both");
 }
 
-/// A request aborted after its body arrived closes its socket instead of
-/// pooling it; the next request connects afresh and still succeeds.
 #[test]
 fn an_aborted_request_socket_is_never_pooled() {
     let (url, accepted, server) = serve_chunked_counting(vec!["one", "two"]);
@@ -1855,9 +1757,6 @@ fn an_aborted_request_socket_is_never_pooled() {
     assert_eq!(accepted.load(Ordering::SeqCst), 2, "the aborted socket was reused");
 }
 
-
-/// Close a server-side socket the way a provider drops an idle keep-alive
-/// connection: a clean FIN, or an RST (SO_LINGER 0).
 fn drop_connection(sock: std::net::TcpStream, rst: bool) {
     if rst {
         use std::os::unix::io::AsRawFd;
@@ -1865,7 +1764,6 @@ fn drop_connection(sock: std::net::TcpStream, rst: bool) {
             l_onoff: 1,
             l_linger: 0,
         };
-        // SAFETY: a live socket fd and a correctly sized linger struct.
         unsafe {
             libc::setsockopt(
                 sock.as_raw_fd(),
@@ -1879,20 +1777,12 @@ fn drop_connection(sock: std::net::TcpStream, rst: bool) {
     drop(sock);
 }
 
-/// How the fixture ends a kept connection before the next answer.
 #[derive(Clone, Copy, Debug)]
 enum IdleDrop {
-    /// Close it while idle, before the next request arrives.
     WhileIdle,
-    /// Take the next request, then close without a response: the race where
-    /// the idle close crosses the request on the wire.
     AfterRequest,
 }
 
-/// Serve `answers` as chunked SSE. After the first answer on a connection the
-/// server drops that connection (FIN or RST) as `how` says, then serves the
-/// rest on whatever connection comes next. Returns the accepted-socket count
-/// and every request that reached it.
 fn serve_dropping_kept_connection(
     answers: Vec<&'static str>,
     how: IdleDrop,
@@ -1954,14 +1844,10 @@ fn stream_once(club: &HttpClub, cancel: &AtomicBool) -> Result<ClubReply, String
     )
 }
 
-/// A pooled connection the provider closed while idle (FIN or RST) never
-/// costs the next call an error or a retry: the dead socket is discarded and
-/// the call goes out once on a fresh connection.
 #[test]
-#[cfg(target_os = "linux")] // where abortable requests pool
+#[cfg(target_os = "linux")]
 fn a_provider_closed_idle_connection_is_replaced_without_an_error() {
     let _guard = crate::tests::env_lock();
-    // No harness-level retry may paper over a dead socket: one attempt only.
     let _retries = EnvGuard::set("ANGEL_HTTP_RETRIES", "0");
     for rst in [false, true] {
         let (url, accepted, requests, server) =
@@ -1970,7 +1856,7 @@ fn a_provider_closed_idle_connection_is_replaced_without_an_error() {
         let cancel = AtomicBool::new(false);
         let first = stream_once(&club, &cancel).unwrap();
         assert!(matches!(&first, ClubReply::Text(text) if text == "first"), "{first:?}");
-        std::thread::sleep(Duration::from_millis(400)); // the server drops it meanwhile
+        std::thread::sleep(Duration::from_millis(400));
         let second = stream_once(&club, &cancel);
         assert!(
             matches!(&second, Ok(ClubReply::Text(text)) if text == "second"),
@@ -1982,9 +1868,6 @@ fn a_provider_closed_idle_connection_is_replaced_without_an_error() {
     }
 }
 
-/// The idle close crossing the next request on the wire: the server reads it
-/// and closes without a byte of response. The request is sent once more, on a
-/// fresh connection and with the same body, and the call succeeds.
 #[test]
 #[cfg(target_os = "linux")]
 fn a_request_lost_to_an_idle_close_is_resent_once_on_a_fresh_connection() {
@@ -2012,10 +1895,6 @@ fn a_request_lost_to_an_idle_close_is_resent_once_on_a_fresh_connection() {
     }
 }
 
-/// Esc while the call is being resent after a dead recycled connection: the
-/// first attempt dies on the kept socket, the resend reaches a fresh one that
-/// never answers, and the operator cancels. The call ends at once, with no
-/// reply and nothing left running on the wire.
 #[test]
 #[cfg(target_os = "linux")]
 fn esc_during_the_resend_after_a_dead_kept_connection_ends_the_call() {
@@ -2047,12 +1926,11 @@ fn esc_during_the_resend_after_a_dead_kept_connection_ends_the_call() {
         let _ = read_http_request(&mut kept);
         kept.write_all(chunked_sse_answer("first").as_bytes()).unwrap();
         let _ = read_http_request(&mut kept);
-        drop_connection(kept, true); // the idle close crossed the request
+        drop_connection(kept, true);
         let mut fresh = accept();
         fresh.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
         let request = read_http_request(&mut fresh);
         resent.send(request).unwrap();
-        // Never answer; the client's cancel must close this socket.
         let mut byte = [0u8];
         assert_eq!(
             fresh.read(&mut byte).expect("cancel must produce EOF, not timeout or a read error"),
@@ -2098,9 +1976,6 @@ fn esc_during_the_resend_after_a_dead_kept_connection_ends_the_call() {
     eprintln!("H01 case=pooled_cancel peer_eof=true peer_latency_ms={}", peer_latency.as_millis());
 }
 
-/// Esc that lands while the request is still on the dead kept socket: the
-/// abort closes it, and the resend never goes out: an aborted request is not
-/// sent again on any connection.
 #[test]
 #[cfg(target_os = "linux")]
 fn esc_before_the_resend_sends_nothing_more() {
@@ -2117,7 +1992,6 @@ fn esc_before_the_resend_sends_nothing_more() {
         kept.write_all(chunked_sse_answer("first").as_bytes()).unwrap();
         let _ = read_http_request(&mut kept);
         taken.send(()).unwrap();
-        // Hold the request unanswered until the client's abort closes it.
         let mut byte = [0u8];
         let _ = kept.read(&mut byte);
         listener.set_nonblocking(true).unwrap();
@@ -2146,8 +2020,6 @@ fn esc_before_the_resend_sends_nothing_more() {
     server.join().unwrap();
 }
 
-/// Answer the window probes as a slow provider would: every path after
-/// `delay`, each on its own connection, recording the paths asked.
 fn serve_slow_probes(
     delay: Duration,
 ) -> (
@@ -2190,10 +2062,6 @@ fn serve_slow_probes(
     (base, paths, stop, handle)
 }
 
-/// Prewarm starts the seat's first window probe at task start and publishes
-/// nothing early: until the first reader asks, the cache stays empty as
-/// before; that reader gets the same metadata from the same requests, without
-/// waiting for a probe that already finished.
 #[test]
 fn prewarm_runs_the_window_probe_early_and_publishes_it_where_it_always_was() {
     let _guard = crate::tests::env_lock();
@@ -2209,7 +2077,7 @@ fn prewarm_runs_the_window_probe_early_and_publishes_it_where_it_always_was() {
     let (base, warm_paths, stop, server) = serve_slow_probes(delay);
     let warm = Arc::new(HttpClub::new("prewarm-warm", base, "fixture", None));
     Club::prewarm(Arc::clone(&warm));
-    Club::prewarm(Arc::clone(&warm)); // a second prewarm starts nothing more
+    Club::prewarm(Arc::clone(&warm));
     std::thread::sleep(plain_wait + Duration::from_millis(200));
     assert_eq!(warm.metadata_cached(), None, "prewarm must not publish early");
     let started = Instant::now();
@@ -2229,9 +2097,6 @@ fn prewarm_runs_the_window_probe_early_and_publishes_it_where_it_always_was() {
     assert!(warm_wait < delay, "the first reader waited for a finished probe: {warm_wait:?}");
 }
 
-/// A provider error that says `x-should-retry: false` is sent once: no club
-/// retry, whatever its status, and the error carries the veto so the turn
-/// does not replay it either. `true` or no header keep the status rules.
 #[test]
 fn a_provider_retry_veto_is_sent_once() {
     let _guard = crate::tests::env_lock();
@@ -2269,8 +2134,6 @@ fn a_provider_retry_veto_is_sent_once() {
     }
 }
 
-/// A certificate the trust store rejected is the one transport failure that
-/// cannot clear on retry; refused connections, resets and DNS stay retryable.
 #[test]
 fn only_a_rejected_certificate_is_a_permanent_transport_failure() {
     for error in [

@@ -35,24 +35,19 @@ pub(crate) use angel_realm_host::together_sim;
 mod realm_test_support;
 #[cfg(test)]
 mod deathmatch_rules;
-// King Cinder's tick as it was, held against the leg that replaced it.
 #[cfg(test)]
 #[path = "bannerpeak_rules_tests.rs"]
 mod bannerpeak_rules_tests;
-// Griffinwing's tick as it was, held against the module that replaced it.
 #[cfg(test)]
 #[path = "../../../tests/cockpit/drive/griffinwing_rules__tests.rs"]
 mod griffinwing_rules_tests;
 
-// The Delve's tests that need the cockpit: its realm and its save, its
-// screens, its sounds and its keys.
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/delve_moonfall_rules__tests.rs"]
 mod delve_moonfall_rules_tests;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/delve_rooms_rules__tests.rs"]
 mod delve_rooms_rules_tests;
-// The Lightgallop's rules as a Bend module, against the Rust they came from.
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/together_lightgallop__tests.rs"]
 mod together_lightgallop_tests;
@@ -68,8 +63,6 @@ mod together_layout_tests;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/together_secrets__tests.rs"]
 mod together_secrets_tests;
-// The whole party on the engine, headless: it plays the host's terminal and so
-// needs the cockpit's `App`.
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/together_sim__e2e.rs"]
 mod together_sim_e2e_tests;
@@ -98,12 +91,9 @@ mod roundtable_tests;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/world_viz/overworld__art_cells_tests.rs"]
 mod art_cells_tests;
-// The world's tests that need the cockpit (a `LoopState`, the scryglass, the
-// realm's catalog, a guest's picture): they run here, against its public paths.
 #[cfg(test)]
 #[path = "../../../tests/cockpit/world_viz/coupled__tests.rs"]
 mod coupled_tests;
 
-/// The 3D races' moved rules: the oracle and its parity with the Bend leg.
 #[cfg(test)]
 mod delve_rules_tests;

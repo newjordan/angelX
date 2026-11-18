@@ -200,8 +200,6 @@ fn quick_rig_knight_selection_uses_gameplay_countdowns_and_stride() {
     h.fell = 100;
     assert_eq!(sample(&h, 900), Clip::Die);
     assert_eq!(knights::rig_sample(&rig, &h, 100, false).index, 0);
-    // Locomotion depends on distance, not render rate; action progress depends
-    // on countdown, not the absolute time the host/mirror happened to draw it.
     h.hp = 100;
     h.fire_cooldown = 0;
     h.stride = 1.8;
@@ -232,7 +230,6 @@ fn quick_rig_wished_sheet_override_is_live_scoped_and_old_assets_still_work() {
     let overridden = quick_rig::with_sprite_rig(&sprite, rig.clone(), || {
         assert!(knights::rigged_roll(&h, &run.book));
         let image = knights::dressed_hero(&old, &h, &run.book, 0, 0).0;
-        // The actual worn-sheet pipeline selects the rig, not merely a parser.
         assert_ne!(pixels(&image), pixels(&legacy));
         image
     });
@@ -258,7 +255,6 @@ fn quick_rig_live_knight_body_and_worn_attachment_share_selected_frame() {
     let body = knights::rig_figure(&h, 1, false, Default::default(), &rig, 0, false);
     let sample = knights::rig_sample(&rig, &h, 0, false);
     let fit = knights::staged_fit(&sample);
-    // Off-centre source pivot becomes the exact middle pixel of staging.
     let dx = fit.right.anchor.0 - sample.anchors().grip[0];
     assert_eq!(dx + rig.pivot()[0], body.w / 2);
     let mark = crate::rules::looks::Sprite {
@@ -300,16 +296,12 @@ fn quick_rig_default_asset_or_legacy_fallback_preserves_unique_bodies_and_saves(
     let saved = serde_json::to_value(&h).unwrap();
     let restored: crate::rules::Hero = serde_json::from_value(saved.clone()).unwrap();
     assert_eq!(serde_json::to_value(&restored).unwrap(), saved);
-    // Untimed callers keep the original sixteen-pixel figure/fit contract;
-    // the live entry owns the timed quick-rig integration.
     assert_eq!(knights::figure(&h, 1).h, 16);
     let plain = knights::figure_at(&h, 1, false, Default::default(), false, 0);
     assert!(pixels(&plain).iter().any(Option::is_some));
     if quick_rig::seat_knight(1).is_some() {
-        // Real compiled export is connected to figure(), not just parsed.
         assert_eq!(plain.h, quick_rig::seat_knight(1).unwrap().canvas()[1] + 12);
     } else {
-        // Malformed compiled assets must use the old sixteen-pixel knight.
         assert_eq!((plain.w, plain.h), (16, 16));
     }
     let mut shape = h.clone();
@@ -348,7 +340,6 @@ fn quick_rig_roll_bypass_is_actual_composition_and_sparse_sheets_still_tumble() 
             pixels(&knights::rolled_hero(&body, &h, &run.book, 5)),
             pixels(&body)
         );
-        // Override state does not change ordinary, unregistered wish drawing.
         let mut sparse = export();
         sparse["clips"].as_object_mut().unwrap().remove("roll");
         quick_rig::with_sprite_rig(
@@ -457,8 +448,6 @@ fn quick_rig_override_respects_newer_legacy_sheets_and_pivot_height() {
         );
         let body = knights::figure(&h, 1);
         let with_old_registration = knights::dressed_hero(&body, &h, &run.book, 0, 0).0;
-        // The registration belongs to the older sheet; the newer legacy sheet
-        // must not unexpectedly turn into the rig of a previous wish.
         let expected =
             knights::dressed_as(&body, knights::body_of(&h, &body), &h.worn(&run.book), 0, 0).0;
         assert_eq!(pixels(&with_old_registration), pixels(&expected));
@@ -470,7 +459,6 @@ fn quick_rig_override_respects_newer_legacy_sheets_and_pivot_height() {
     assert!(Rig::parse(&blank.to_string()).is_err());
 }
 
-/// Long, irregular one-shots make a fixed short elapsed cap immediately visible.
 fn action_rig() -> Rig {
     let mut j = export();
     let mut frames = Vec::new();
@@ -512,9 +500,6 @@ fn quick_rig_slow_heavy_attacks_reach_contact_and_full_recovery_from_cooldown() 
         ("Sword", Clip::Slash),
     ] {
         let mut h = melee_hero(name);
-        // 51 export ticks mapped onto 45 gameplay ticks: 0, 22, 38, 49.
-        // These literal frame boundaries do not derive the expectation through
-        // Rig::action or any of the selection helpers under test.
         for (remaining, expected) in [(45, 0), (25, 3), (11, 5), (1, 6)] {
             h.fire_cooldown = remaining;
             h.swing = if remaining == 45 { 6 } else { 0 };
@@ -552,7 +537,6 @@ fn quick_rig_live_selector_uses_equipped_arm_card_not_an_unrelated_deck_card() {
     )
     .unwrap()
     .card;
-    // The actual checked card carries forge runes; no animation field needed.
     assert!(matches!(
         card.arm,
         Some(crate::rules::cards::Arm::Forged(_))
@@ -583,8 +567,6 @@ fn quick_rig_grip_free_forged_melee_draws_to_the_exported_tip() {
     h.swing = 0;
     h.fire_cooldown = 0;
     let im = knights::rig_figure(&h, 1, true, Default::default(), &rig, 0, false);
-    // pivot [1,3] stages at x=15, dx=14; top is 12. The blade runs from
-    // the grip out through the exported tip, steel all the way (`blades`).
     let steel = |x, y| {
         ['v', 'V', 'W', 'U'].iter().any(|&c| im.get(x, y) == super::super::ink::ink(c))
     };
@@ -599,7 +581,6 @@ fn quick_rig_grip_free_forged_melee_draws_to_the_exported_tip() {
 #[test]
 fn quick_rig_shield_has_rest_block_aim_throw_and_hit_feedback() {
     let mut j = export();
-    // Large empty body leaves shield pixels visible, including its back layer.
     j["canvas"] = json!([20, 20]);
     j["pivot"] = json!([10, 18]);
     for frames in j["clips"].as_object_mut().unwrap().values_mut() {
@@ -697,7 +678,6 @@ fn quick_rig_cast_uses_event_age_once_and_keeps_image_and_gear_in_step() {
         };
         let start = draw(0, 0);
         assert_eq!(pixels(&start), pixels(&draw(37, 0)));
-        // grip x=3 on frame 0 and x=4 on frame 1, dx=14 and top=12.
         assert_eq!(start.get(17, 14), super::super::ink::ink('9'));
         assert_eq!(draw(37, 6).get(18, 14), super::super::ink::ink('9'));
     });
@@ -996,8 +976,6 @@ mod shots;
 #[path = "arena__knights_v2__shots.rs"]
 mod knights_v2_shots;
 
-/// Three portable wishes, not a body-sheet override: all must follow the
-/// production knight's timed sockets without opting out of the rig.
 fn equip_runtime_gear(run: &mut Run) {
     for (id, at, rows) in [
         ("rig-weapon-1", "right", "W\nW\nB\n"),
@@ -1042,7 +1020,6 @@ fn quick_rig_ordinary_worn_gear_uses_one_timed_sample_in_the_real_arena() {
     let mut run = arena_run();
     equip_runtime_gear(&mut run);
     let mut base = run.players[&1].clone();
-    // Isolate the card-owned gear from the native placeholder bow.
     base.weapon = crate::rules::Weapon::Fists;
     for (mode, clip) in [(0, Clip::Walk), (1, Clip::Roll), (2, Clip::Slash)] {
         let mut previous = None;
@@ -1070,8 +1047,6 @@ fn quick_rig_ordinary_worn_gear_uses_one_timed_sample_in_the_real_arena() {
                 Default::default(),
                 Some(1),
             );
-            // Reconstruct from the selected sample, not rig_figure's native
-            // placeholder weapon or the old axis-aligned dressing path.
             let radius = sample.pivot()[0].max(rig.canvas()[0] - 1 - sample.pivot()[0]) + 12;
             let shift = [radius - sample.pivot()[0], 12];
             let mut body = Img::new(radius * 2 + 1, rig.canvas()[1] + 12);
@@ -1186,7 +1161,6 @@ fn quick_rig_ordinary_worn_gear_uses_one_timed_sample_in_the_real_arena() {
 fn quick_rig_geared_contact_survives_fit_padding_stone_and_toss() {
     let mut run = arena_run();
     equip_runtime_gear(&mut run);
-    // Gear shares the selected body's contact, including its canvas margins.
     let hero = &run.players[&1];
     let composed = knights::dressed_frame(
         || panic!("expected rig"),
@@ -1250,8 +1224,6 @@ fn hero_position(run: &Run) -> (f32, f32) {
 
 #[test]
 fn quick_rig_padded_equipment_carries_the_contact_without_resampling() {
-    // A tall weapon forces top padding; a wide hat at the canvas edge forces
-    // side padding. Keep this fixture's weapon upright: rotation is tested below.
     let mut j = export();
     j["canvas"] = json!([64, 40]);
     j["pivot"] = json!([1, 33]);
@@ -1372,7 +1344,6 @@ fn quick_rig_painted_gear_keeps_its_ink_motion_pivot_after_live_fit() {
         .unwrap().card;
     run.players.get_mut(&1).unwrap().deck.push(card.id.clone());
     run.book.insert(card);
-    // Locomotion fixes the sample by stride; body_of's historical API has no tick.
     run.players.get_mut(&1).unwrap().stride = 1.8;
     for aim in [1.0, -1.0] {
         run.players.get_mut(&1).unwrap().aim_x = aim;
@@ -1406,8 +1377,6 @@ fn quick_rig_painted_gear_keeps_its_ink_motion_pivot_after_live_fit() {
                 p.inks, expected,
                 "painting and fallback motion share the fitted pivot"
             );
-            // The square stays at the exact fitted origin: no paint-only
-            // half-pixel correction after the ink motion has been resolved.
             let origin = fit.left.origin((inks.w, inks.h));
             let pad = (composed.image.w - rig_body.w) / 2;
             assert_eq!(
@@ -1418,8 +1387,6 @@ fn quick_rig_painted_gear_keeps_its_ink_motion_pivot_after_live_fit() {
     }
 }
 
-// Rig orientation intentionally does not redefine the saved Sprite contact:
-// this asymmetric blade has both a tail below the centre and a marked hilt.
 fn oriented_weapon_rows() -> Vec<String> {
     [
         ".7.", ".W.", ".W.", ".WJ", ".W.", ".W.", "69.", ".B.", ".B.", ".B.", ".B.", ".B.", ".B.",
@@ -1456,8 +1423,6 @@ fn quick_rig_weapon_rotation_keeps_exact_centre_and_bottom_contacts() {
             assert!(geometry.angle.is_finite());
         }
     }
-    // Oblique inverse-nearest rotations mirror both silhouette and handed
-    // detail. Compare in world coordinates, independently of tight crop sizes.
     for tip in [[27, 17], [29, 26], [14, 27]] {
         let right = WeaponOrientation::new([1, 6], [20, 20], tip);
         let left = WeaponOrientation::new([1, 6], [40, 20], [60 - tip[0], tip[1]]);
@@ -1478,7 +1443,6 @@ fn quick_rig_weapon_rotation_keeps_exact_centre_and_bottom_contacts() {
 #[test]
 fn quick_rig_oriented_right_slot_keeps_left_native_and_all_padding_at_the_hand() {
     let mut j = export();
-    // Four cardinal poses exercise above/below-floor and both side extents.
     for frames in j["clips"].as_object_mut().unwrap().values_mut() {
         frames[0]["anchors"]["grip"] = json!([4, 3]);
         frames[0]["anchors"]["tip"] = json!([4, 0]);
@@ -1617,8 +1581,6 @@ fn quick_rig_live_right_weapon_and_painting_swing_with_slash_and_thrust() {
                 grip[0] + pivot[0] - sample.pivot()[0],
                 grip[1] + pivot[1] - sample.pivot()[1],
             ];
-            // The built-in profile is bottom=true; wished Body::human rigs
-            // use centre contacts. Neither is the PNG's square pivot.
             let native = crate::rules::looks::profile("realm_right").right;
             let sprite = run.book.get(&id).unwrap().looks.worn.as_ref().unwrap();
             let fitted = wear::fitted(sprite, native);
@@ -1673,8 +1635,6 @@ fn quick_rig_live_right_weapon_and_painting_swing_with_slash_and_thrust() {
                     .flat_map(|f| &f.paints)
                     .any(|q| q.inks == p.inks && (q.placed().1 - angle).abs() < 1e-5)
             );
-            // The real stage compositor must retain the turn, not just
-            // capture metadata while leaving the rendered PNG axis aligned.
             const TEST_PAINT: u32 = 1_234_567;
             let stage = stage_frame::StageMaker::default().make_with(
                 &Arc::new(scene.clone()),
@@ -1717,15 +1677,12 @@ fn quick_rig_live_right_weapon_and_painting_swing_with_slash_and_thrust() {
 
 #[test]
 fn quick_rig_weapon_alias_and_authored_motion_keep_shared_ink_paint_transform() {
-    // In an up-pointing pose rig rotation is identity, so every pre-existing
-    // motion/PNG pivot result must be byte-for-byte the native composition.
     let mut j = export();
     j["clips"]["idle"][0]["anchors"]["grip"] = json!([4, 3]);
     j["clips"]["idle"][0]["anchors"]["tip"] = json!([4, 0]);
     let rig = Rig::parse(&j.to_string()).unwrap();
     let sample = rig.sample(Clip::Idle, 0, Playback::Once, false);
     let template = knights::rig_figure(&knight(), 1, false, Default::default(), &rig, 0, false);
-    // Extra floor space keeps this test about motion rather than floor lift.
     let body = Img::new(template.w, template.h + 30);
     let mut fit = knights::staged_fit(&sample);
     fit.right.size = (3, 13);
@@ -1733,7 +1690,6 @@ fn quick_rig_weapon_alias_and_authored_motion_keep_shared_ink_paint_transform() 
         "name Moving Blade\nkind hold\narmor 1\ndraw worn at=right paint={} move=bob,wobble,stretch\n{}\n",
         "ab".repeat(32), oriented_weapon_rows().join("\n"))).unwrap().card;
     let mut sprite = card.looks.worn.as_ref().unwrap().clone();
-    // Old saves may use this alias even though the checker canonicalizes it.
     sprite.at = Some("weapon".into());
     for tick in [0, 7, 31, 63] {
         let native = knights::dressed_as(&body, fit, &[&sprite], tick, 37);
@@ -1744,8 +1700,6 @@ fn quick_rig_weapon_alias_and_authored_motion_keep_shared_ink_paint_transform() 
         assert_eq!(p.at, q.at);
         assert_eq!(p.placed(), q.placed());
     }
-    // An oblique tip rotates the already moved hard inks and the already
-    // placed painting, not the unmoved PNG square about its centre.
     j["clips"]["idle"][0]["anchors"]["tip"] = json!([0, 1]);
     let rig = Rig::parse(&j.to_string()).unwrap();
     let tilted = rig.sample(Clip::Idle, 0, Playback::Once, false);
@@ -1775,17 +1729,12 @@ fn quick_rig_weapon_alias_and_authored_motion_keep_shared_ink_paint_transform() 
     }
 }
 
-// ─── the four seat knights ─────────────────────────────────────────────────
-
 #[test]
 fn every_seat_design_is_its_own_full_rig_on_the_old_knights_geometry() {
     let old = quick_rig::knight().expect("the old knight stays as the fallback");
     for design in quick_rig::Design::ALL {
         let rig = quick_rig::design(design).expect("a compiled design");
-        // Its own asset parsed: a fallback would be the old knight itself.
         assert!(!std::ptr::eq(rig, old), "{design:?} fell back to the old knight");
-        // Staging, rolls and pivots are measured on seat one's design for
-        // every seat (`with_selected_rig`): the geometry must agree.
         assert_eq!(rig.canvas(), old.canvas(), "{design:?}");
         assert_eq!(rig.pivot(), old.pivot(), "{design:?}");
         for clip in Clip::ALL {
@@ -1806,7 +1755,6 @@ fn each_seat_plays_its_own_knight_in_its_own_colour() {
             Design::KettleHat
         ]
     );
-    // Ivory cloth would hide the crusader's cross in its white.
     assert_ne!(Design::of_seat(6), Design::SugarloafCrusader);
     let mut h = knight();
     h.owned.shield = false;
@@ -1825,7 +1773,6 @@ fn each_seat_plays_its_own_knight_in_its_own_colour() {
             );
         }
     }
-    // Every knight wears their seat's cloth where it reads at 1x.
     for (seat, cloth) in [(1, '7'), (2, '1'), (3, 'A'), (4, '4')] {
         let ink = super::super::ink::ink(cloth);
         let n = figures[seat - 1].pixels().filter(|&c| Some(c) == ink).count();
@@ -1837,14 +1784,10 @@ fn each_seat_plays_its_own_knight_in_its_own_colour() {
 fn seat_knights_cut_with_the_crescent_cast_in_the_rite_and_roll_a_frame_a_tick() {
     for design in quick_rig::Design::ALL {
         let rig = quick_rig::design(design).unwrap();
-        // The sword's 8-tick swing shows every slash frame, in order, from
-        // the top of the cut on its first tick (the crescent is already
-        // mid-sweep then) to the contact as the body's own blade reappears.
         let shown: Vec<usize> = (0..8)
             .map(|e| rig.action(Clip::Slash, 8 - e, 8, false).index)
             .collect();
         assert_eq!(shown, [0, 1, 2, 3, 3, 4, 4, 5], "{design:?}");
-        // The cut comes down as the game's crescent does: raised, then low.
         let tip = |i: usize| {
             let s = (0..rig.duration(Clip::Slash))
                 .map(|t| rig.sample(Clip::Slash, t, Playback::Once, false))
@@ -1858,15 +1801,12 @@ fn seat_knights_cut_with_the_crescent_cast_in_the_rite_and_roll_a_frame_a_tick()
             let (dx, dy) = tip(contact);
             assert!(dx > 0 && dy > 0, "{design:?} lands the cut down and forward");
         }
-        // A rite shows its caster for CAST_SHOWN ticks from the event: the
-        // whole gesture, gather to the held release, lands inside it.
         let cast: Vec<usize> = (0..u64::from(crate::rules::minions::CAST_SHOWN))
             .map(|age| rig.sample(Clip::Cast, age, Playback::Once, false).index)
             .collect();
         assert_eq!(cast.first(), Some(&0), "{design:?}");
         assert_eq!(cast.last(), Some(&4), "{design:?} holds the release");
         assert!(cast.contains(&3), "{design:?} shows the release");
-        // The 10-tick roll shows each of its frames for one tick.
         assert_eq!(rig.duration(Clip::Roll), 40, "{design:?}");
         let rolled: Vec<usize> = (0..10)
             .map(|e| rig.action(Clip::Roll, 10 - e, 10, false).index)

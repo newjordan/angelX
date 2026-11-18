@@ -41,7 +41,6 @@ fn the_cook_wants_all_three_and_the_best_picker_stirs() {
     press(&mut run, 2, 2);
     press(&mut run, 1, 3);
     assert_eq!(run.forage.as_ref().unwrap().carried, [2, 2, 1]);
-    // Two picks for knight two, one for knight one.
     run.forage.as_mut().unwrap().carried[2] = 0;
     run.found = None;
     press(&mut run, 1, 4);
@@ -54,7 +53,6 @@ fn the_cook_wants_all_three_and_the_best_picker_stirs() {
     assert!(run.found.as_ref().unwrap().2.contains("TWO IS DEPUTY STIRRER"));
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_forage_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_forage_shots() {

@@ -8,8 +8,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// `rules.js` for the game whose crate folder is `game`, and every path it
-/// was made from (the list, each module folder and file).
 pub fn rules_js(game: &Path) -> (String, Vec<PathBuf>) {
     let list = game.join("rules.list");
     let mut out = String::from(
@@ -54,20 +52,16 @@ pub fn rules_js(game: &Path) -> (String, Vec<PathBuf>) {
     (out, read)
 }
 
-/// A name that is its own JavaScript string literal.
 fn plain(name: &str) -> bool {
     !name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric() || b"._/-".contains(&b))
 }
 
-/// The string value of `"field"` in a small JSON manifest.
 fn string_field(json: &str, field: &str) -> Option<String> {
     let rest = &json[json.find(&format!("\"{field}\""))? + field.len() + 2..];
     let rest = rest.trim_start().strip_prefix(':')?.trim_start().strip_prefix('"')?;
     Some(rest[..rest.find('"')?].to_string())
 }
 
-/// Every `*.js` under `dir`, named from `root` with `/`; dotfiles skipped, as
-/// the live loader captures a module.
 fn js_files(root: &Path, dir: &Path, files: &mut Vec<(String, PathBuf)>) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;

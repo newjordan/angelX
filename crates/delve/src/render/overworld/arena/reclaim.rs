@@ -27,15 +27,12 @@ fn px(tile: f32) -> i32 {
     (tile * TILE as f32) as i32
 }
 
-/// A scatter offset in `0..span`, from a hash.
 fn scatter(a: i32, b: i32, seed: u32, span: i32) -> i32 {
     (hash(a, b, seed) % span.max(1) as u32) as i32
 }
 
-/// A hall as the party finds it now.
 struct Look {
     i: usize,
-    /// The King's by the realm's word, or played out and waiting on it.
     won: bool,
     how: String,
     stage: u8,
@@ -67,7 +64,6 @@ fn look(run: &Run) -> Option<Look> {
     })
 }
 
-/// What the hall's still art depends on, for the cached drawing.
 pub(super) fn print(run: &Run) -> u64 {
     let Some(l) = look(run) else { return 0 };
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -75,10 +71,6 @@ pub(super) fn print(run: &Run) -> u64 {
     h.finish()
 }
 
-// ── Sprites ──────────────────────────────────────────────────────────────
-
-/// Chief Nubbin Tallowtooth: a goblin in a dwarf's cracked helm with a
-/// tallow candle burning on it, fat in a leather vest.
 const NUBBIN: [&str; 19] = [
     ".......@........",
     "......@6@.......",
@@ -101,8 +93,6 @@ const NUBBIN: [&str; 19] = [
     "...nn......nn...",
 ];
 
-/// Thane Madoc Greyhelm: a dwarf in a grey helm and a white beard to his
-/// belt, drawn in the cold ink of the dead.
 const MADOC: [&str; 20] = [
     ".....GGGGGG.....",
     "....GhhhhhhG....",
@@ -126,8 +116,6 @@ const MADOC: [&str; 20] = [
     ".....x.....x....",
 ];
 
-/// Olwen Anvilhand: a copper braid, a soot-dark beard braided with rings, a
-/// leather apron.
 const OLWEN: [&str; 17] = [
     "....pPPPPPp.....",
     "...pPPPPPPPp....",
@@ -161,12 +149,10 @@ fn figure(folk: Folk, pose: Pose, t: u32, loaded: bool, east: bool) -> Img {
     super::barony::figure(&f, t)
 }
 
-/// A goblin tenant: a miner's build in the Tallow-Hands' green.
 fn goblin(t: u32) -> Img {
     figure(Folk::Miner, Pose::Walk, t, false, true).recolor(&[('O', 'M'), ('K', 'F'), ('I', 'l'), ('r', 'E')])
 }
 
-/// The dead: every other pixel falls away down the lower rows.
 fn ghostly(im: &Img, fade_from: i32, tick: u32) -> Img {
     let mut out = im.clone();
     for y in fade_from..im.h {
@@ -180,10 +166,6 @@ fn ghostly(im: &Img, fade_from: i32, tick: u32) -> Img {
     out
 }
 
-// ── Scenery: the halls ───────────────────────────────────────────────────
-
-/// A dwarf-hewn pillar standing on tile `(c, r)`, a bowl on its head that
-/// burns when the hall is the King's.
 fn pillar(cv: &mut Img, lights: &mut Vec<Light>, c: i32, r: i32, lit: bool, tick: u32) {
     let (x, y) = (c * TILE, (r + 1) * TILE);
     cv.rect(x + 1, y - 4, 14, 4, 'j');
@@ -207,7 +189,6 @@ fn pillar(cv: &mut Img, lights: &mut Vec<Light>, c: i32, r: i32, lit: bool, tick
     }
 }
 
-/// A flame of the realm's fire inks with its tip flickering.
 fn flame(cv: &mut Img, x: i32, y: i32, tick: u32, seed: i32) {
     let f = (hash(tick as i32 / 3, seed, 91) % 3) as i32;
     cv.rect(x - 2, y - 2, 4, 3, '@');
@@ -217,7 +198,6 @@ fn flame(cv: &mut Img, x: i32, y: i32, tick: u32, seed: i32) {
     cv.put(x - f % 2, y - 5, '6');
 }
 
-/// The tankard of Caer Dwfn, on a banner or a throne's back.
 fn tankard(cv: &mut Img, x: i32, y: i32, body: char, foam: char) {
     cv.rect(x, y + 2, 6, 7, body);
     cv.rect(x + 6, y + 3, 2, 4, body);
@@ -227,7 +207,6 @@ fn tankard(cv: &mut Img, x: i32, y: i32, body: char, foam: char) {
     cv.put(x + 4, y - 1, foam);
 }
 
-/// A banner of the tankard's red, hung from the wall at tile column `c`.
 fn banner(cv: &mut Img, c: i32) {
     let x = c * TILE;
     cv.rect(x - 1, 1, 12, 2, 'P');
@@ -245,8 +224,6 @@ fn run_has_chief(l: &Look) -> bool {
 }
 
 fn gallery(cv: &mut Img, lights: &mut Vec<Light>, l: &Look, tick: u32) {
-    // The King's grandsire's chair: a hewn throne with the tankard on its
-    // back, barrels piled either side.
     let (cx, cy, cw, _) = CHAIR;
     let x = cx * TILE;
     let y = cy * TILE;
@@ -266,7 +243,6 @@ fn gallery(cv: &mut Img, lights: &mut Vec<Light>, l: &Look, tick: u32) {
     cv.rect(x + 14, y + 28, 36, 3, 'g');
     cv.rect(x + 14, y + 20, 4, 8, 'G');
     cv.rect(x + 46, y + 20, 4, 8, 'G');
-    // The hoard in the corners, or the dwarves' ore.
     for (k, &(hc, hr, hw, _)) in HEAPS.iter().enumerate() {
         let (hx, hy) = (hc * TILE, hr * TILE);
         if l.won {
@@ -287,11 +263,9 @@ fn gallery(cv: &mut Img, lights: &mut Vec<Light>, l: &Look, tick: u32) {
         }
     }
     if run_has_chief(l) {
-        // The candle on the chief's helm lights his chair.
         lights.push(fire(x + 32, y + 30, 70.0, 0.42));
     }
     if !l.won {
-        // The Tallow-Hands' candles, stuck in their own wax about the chair.
         for (n, &(cx2, cy2)) in [(8.0, 5.6), (15.5, 6.2), (7.0, 9.2), (17.0, 9.4), (10.5, 3.8), (13.8, 3.9)].iter().enumerate() {
             let (qx, qy) = (px(cx2), px(cy2));
             cv.rect(qx - 2, qy, 4, 2, 'T');
@@ -307,7 +281,6 @@ fn gallery(cv: &mut Img, lights: &mut Vec<Light>, l: &Look, tick: u32) {
 }
 
 fn lamps(cv: &mut Img, lights: &mut Vec<Light>, l: &Look, seed: u64, tick: u32) {
-    // A faded runner down the nave.
     let (x0, x1) = (11 * TILE, 13 * TILE);
     for y in 3 * TILE..12 * TILE {
         for x in x0..x1 {
@@ -325,8 +298,6 @@ fn lamps(cv: &mut Img, lights: &mut Vec<Light>, l: &Look, seed: u64, tick: u32) 
             cv.put(x, y, ink_);
         }
     }
-    // The four name-stones: a son and his winters each, cut so the dead can
-    // be read by.
     let ages = rite_ages(seed);
     for (k, &(c, r, w, h)) in SLABS.iter().enumerate() {
         let (x, y) = (c * TILE, r * TILE);
@@ -342,7 +313,6 @@ fn lamps(cv: &mut Img, lights: &mut Vec<Light>, l: &Look, seed: u64, tick: u32) 
         let age = format!("AGED {winters}");
         cv.text(x + (w * TILE - text_width(&age)) / 2, y + 19, &age, '1');
     }
-    // The lamps: a bowl on three legs, cold, or kindled.
     for (k, &(lx, ly)) in LAMPS.iter().enumerate() {
         let (x, y) = (px(lx), px(ly));
         let lit = l.won || l.lit.contains(&(k as u8));
@@ -357,21 +327,18 @@ fn lamps(cv: &mut Img, lights: &mut Vec<Light>, l: &Look, seed: u64, tick: u32) 
             lights.push(fire(x, y - 12, 78.0, 0.62));
         }
     }
-    // Wax on the floor, bones at the edges.
     for n in 0..16 {
         let (bx, by) = (2 * TILE + scatter(n, 5, 61, 20 * TILE), 9 * TILE + scatter(n, 6, 61, 3 * TILE));
         cv.rect(bx, by, 3, 1, 'i');
         cv.put(bx + 3, by - (n % 2), 'h');
     }
     if !l.won {
-        // The thane's cold light on the stones.
         lights.push(Light { x: px(11.5) as f32, y: px(5.5) as f32, r: 130.0, s: 0.5, fire: false });
     } else {
         lights.push(Light { x: px(11.5) as f32, y: px(6.5) as f32, r: 90.0, s: 0.28, fire: false });
     }
 }
 
-/// A broken stone with its light on the upper left.
 fn boulder(cv: &mut Img, x: i32, y: i32, rx: f32, ry: f32) {
     cv.ellipse(x as f32, y as f32 + 1.0, rx, ry, 'g');
     cv.ellipse(x as f32, y as f32, rx, ry - 0.5, 'j');
@@ -380,7 +347,6 @@ fn boulder(cv: &mut Img, x: i32, y: i32, rx: f32, ry: f32) {
 }
 
 fn anvils(cv: &mut Img, lights: &mut Vec<Light>, l: &Look, tick: u32) {
-    // The great forge-mouth in the north wall: dark and webbed, or burning.
     let (mc, _, mw, _) = FORGE_MOUTH;
     let x = mc * TILE;
     cv.rect(x - 2, 4, mw * TILE + 4, 28, 'G');
@@ -409,7 +375,6 @@ fn anvils(cv: &mut Img, lights: &mut Vec<Light>, l: &Look, tick: u32) {
             cv.line(x + 14 + k * 12, 12, x + 20 + k * 11, 30, 'g');
         }
     }
-    // Two benches with an anvil on a stump, their tools hung above.
     for &(c, r, w, _) in &ANVILS {
         let (bx, by) = (c * TILE, r * TILE);
         cv.rect(bx + 2, by + 6, w * TILE - 4, 8, 'B');
@@ -421,12 +386,10 @@ fn anvils(cv: &mut Img, lights: &mut Vec<Light>, l: &Look, tick: u32) {
             cv.line(bx + 4 + k * 3, 3, bx + 4 + k * 3, 9, if k % 2 == 0 { 'h' } else { 'G' });
         }
     }
-    // The three heaps of fallen roof, or where they were.
     for (s, &(c, r, w, h)) in DIGS.iter().enumerate() {
         let (hx, hy) = (c * TILE, r * TILE);
         let (cx, cy) = ((hx + w * TILE / 2) as f32, (hy + h * TILE / 2 + 4) as f32);
         if l.dug & 1 << s == 0 && !l.won {
-            // A mound of broken roof, the lowest stones drawn last.
             let mut stones: Vec<(i32, i32, f32)> = (0..20)
                 .map(|n| {
                     let (rx, ry) = ((w * TILE / 2 - 8) as f32, (h * TILE / 2 - 5) as f32);
@@ -441,7 +404,6 @@ fn anvils(cv: &mut Img, lights: &mut Vec<Light>, l: &Look, tick: u32) {
             for (bx, by, r) in stones {
                 boulder(cv, bx, by, r + 1.0, r);
             }
-            // Embers in the rubble: the Keep's imps nest here.
             lights.push(fire(cx as i32, cy as i32 - 2, 44.0, 0.3));
         } else {
             for n in 0..9 {
@@ -451,7 +413,6 @@ fn anvils(cv: &mut Img, lights: &mut Vec<Light>, l: &Look, tick: u32) {
             }
         }
     }
-    // The beam that pinned her, across the smith, until she is freed.
     if !l.won {
         let (bx, by) = (px(KEEPER_AT[2].0), px(KEEPER_AT[2].1));
         cv.rect(bx - 24, by - 8, 48, 5, 'B');
@@ -461,7 +422,6 @@ fn anvils(cv: &mut Img, lights: &mut Vec<Light>, l: &Look, tick: u32) {
     }
 }
 
-/// The hall's still art: pillars, then what each hall keeps in it.
 pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
     let Some(l) = look(run) else { return };
     let tick = run.tick as u32;
@@ -475,10 +435,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
     }
 }
 
-// ── The King's Hall: a lamp for each hall won ────────────────────────────
-
-/// Where the King's Hall hangs its lamps of Caer Dwfn (tile columns), and
-/// the plate before them where the halls are read.
 pub const HALL_LAMPS: [f32; 3] = [15.0, 16.5, 18.0];
 pub const LAMP_PLATE: (i32, i32, i32, i32) = (15, 4, 2, 1);
 
@@ -499,9 +455,6 @@ pub(super) fn kings_lamps(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
     }
 }
 
-// ── Figures ──────────────────────────────────────────────────────────────
-
-/// The keepers and the held halls' dwarves.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     let Some(l) = look(run) else { return };
     let tick = run.tick as u32;
@@ -520,7 +473,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 }
             }
             if l.won {
-                // Delvers back at the ore, or the Tallow-Hands digging for rent.
                 for (k, &(tx, ty)) in [(4.0f32, 5.5f32), (19.5, 5.5), (7.5, 8.0)].iter().enumerate() {
                     let (x, y) = at((tx, ty));
                     let t = tick + k as u32 * 11;
@@ -542,7 +494,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 let rest = l.stage == 2;
                 let mut im = Img::from_rows(&MADOC);
                 if rest {
-                    // Eyes closed, at rest.
                     im.put(6, 4, 'U');
                     im.put(9, 4, 'U');
                 }
@@ -553,12 +504,10 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         _ => {
             let (x, y) = at(KEEPER_AT[2]);
             if l.won {
-                // Pell at the bench, hammering; Olwen on her feet.
                 let pell = figure(Folk::Smith, Pose::Work, tick, false, true);
                 stand(cv, &pell, px(ANVILS[0].0 as f32 + 1.5) + 8, px(ANVILS[0].1 as f32 + 1.5) + 6);
                 stand(cv, &Img::from_rows(&OLWEN), x, y + 18);
             } else {
-                // Only her head and shoulders show above the beam.
                 let buried = Img::from_rows(&OLWEN[..9]);
                 stand(cv, &buried, x, y - 6);
             }
@@ -570,14 +519,10 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     }
 }
 
-// ── Boards ───────────────────────────────────────────────────────────────
-
 fn place(cv: &mut Img, board: &Img, (x, y): (i32, i32)) {
     cv.stamp(board, (x - board.w / 2).clamp(2, cv.w - board.w - 2), y.clamp(2, cv.h - board.h - 2));
 }
 
-/// The set-piece's progress, the dig's hold bars, and the rent plate of a
-/// hall the King holds.
 pub(super) fn boards(cv: &mut Img, run: &Run) {
     let Some(l) = look(run) else { return };
     if l.stage == 1 {
@@ -635,7 +580,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The plate where the rent is read, once the hall is the King's.
 pub(super) fn plates(cv: &mut Img, run: &Run) {
     let Some(l) = look(run) else { return };
     if l.won && run.hall_held() {
@@ -650,7 +594,6 @@ pub(super) fn plates(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The King's Hall: the lamps' plate, and what the halls pay.
 pub(super) fn hall_boards(cv: &mut Img, run: &Run) {
     let b = &run.home.barony;
     if b.court != Court::Sworn || run.room().kind != RoomKind::KingsHall {
@@ -691,8 +634,6 @@ pub(super) fn hall_plate(cv: &mut Img, run: &Run) {
     home::plate_marked(cv, LAMP_PLATE, lit, &Img::from_rows(&["..O..", ".OOO.", "OOOOO", ".OOO.", "..O.."]));
 }
 
-// ── The talk ─────────────────────────────────────────────────────────────
-
 fn wrap(s: &str, n: usize) -> Vec<String> {
     let mut out = Vec::new();
     let mut row = String::new();
@@ -711,7 +652,6 @@ fn wrap(s: &str, n: usize) -> Vec<String> {
     out
 }
 
-/// A speaker's face: the head of their figure, in a well.
 fn portrait(who: Who, run: &Run) -> Img {
     super::resized(&face(who, run), 2.0)
 }
@@ -731,8 +671,6 @@ fn face(who: Who, run: &Run) -> Img {
     }
 }
 
-/// A knight's talk, on their own screen: the speaker's face, their name and
-/// words, and the answers on 1, 2 and 3.
 pub(super) fn screen(cv: &mut Img, run: &Run, focus: Option<u32>) {
     let id = focus.unwrap_or(1);
     let Some(view) = run.reclaim_view(id) else { return };
@@ -761,8 +699,6 @@ pub(super) fn screen(cv: &mut Img, run: &Run, focus: Option<u32>) {
     }
 }
 
-/// What the King's plate says of the lost halls: the one he has sent the
-/// party to, or that he has one to ask.
 pub(super) fn mission_lines(run: &Run) -> Vec<(String, char)> {
     let halls = &run.home.barony.halls;
     if let Some((_, hall)) = halls.asked_hall() {
@@ -777,7 +713,6 @@ pub(super) fn mission_lines(run: &Run) -> Vec<(String, char)> {
     }
 }
 
-/// The King's prompt: E beside him to talk.
 pub(super) fn king_prompt(cv: &mut Img, run: &Run) {
     let b = &run.home.barony;
     if b.court < Court::Met || !run.reclaim.talks.is_empty() {

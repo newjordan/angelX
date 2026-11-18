@@ -7,16 +7,11 @@
 //! references; `sandbox::helper_executable` prefers it beside the cockpit
 //! binary and falls back to re-execing the cockpit itself.
 
-#![allow(dead_code)] // the helper compiles the whole sandbox module but only
-// `exec_helper` is reachable from `main`.
+#![allow(dead_code)]
 
 #[path = "agent/sandbox.rs"]
 mod sandbox;
 
-/// Shim for `crate::agent::harness::env_flag` — copied byte-for-byte from
-/// `src/agent/harness/context.rs`; the helper must not pull the harness in.
-/// Nested under `agent` so the shared `sandbox.rs` resolves the same path in
-/// both binaries.
 mod agent {
     pub(crate) mod harness {
         pub(crate) fn env_flag(key: &str, default: bool) -> bool {
@@ -31,16 +26,10 @@ mod agent {
     }
 }
 
-/// Shim for `crate::tests::env_lock` — the bwrap tests serialize process-env
-/// access through the crate-level lock; the helper's test target needs the
-/// same single lock (same contract: poison-tolerant, no protected invariant).
 #[cfg(test)]
 #[path = "../../tests/cockpit/app/sandbox_main__tests.rs"]
 mod tests;
 
-/// Shim for `crate::platform::yolo::enabled` — env-reading logic copied from
-/// `src/yolo.rs` (`parse(ANGEL_YOLO)` ⇒ Full ⇒ enabled). The helper inherits
-/// `ANGEL_YOLO` from its parent, so behaviour must match byte-for-byte.
 mod platform {
     pub(crate) mod yolo {
         pub(crate) fn enabled() -> bool {

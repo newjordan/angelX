@@ -19,7 +19,6 @@ struct Slot {
 pub(super) struct Anim {
     pub frames: Vec<Img>,
     pub durations: Vec<u32>,
-    /// Every frame is a painted one, not the labelled block.
     pub painted: bool,
 }
 
@@ -55,7 +54,6 @@ fn block(s: &Slot) -> Img {
             }
         }
     }
-    // The label, as many letters as fit.
     let mut label = s.label.as_str();
     while text_width(label) > w - 2 && label.len() > 1 {
         label = &label[..label.len() - 1];
@@ -67,9 +65,6 @@ fn block(s: &Slot) -> Img {
     im
 }
 
-/// A bank is painted whole or not at all: a prop with some of its states
-/// painted and others a labelled block would change its look when it changed
-/// state. One missing frame turns every frame of every state back to `block`.
 pub(super) fn whole_or_blocks(states: &mut [(String, Vec<(Img, bool)>)], block: &Img) {
     if states.iter().all(|(_, made)| made.iter().all(|(_, painted)| *painted)) {
         return;
@@ -81,8 +76,6 @@ pub(super) fn whole_or_blocks(states: &mut [(String, Vec<(Img, bool)>)], block: 
     }
 }
 
-/// A frame hand-inked in the realm's inks (`assets/lanternward/art`), padded
-/// back to its slot's size. The reviewed slot PNGs come first.
 fn inked(s: &Slot, state: &str, i: usize) -> Option<Img> {
     let slot = s.id.strip_prefix("lanternward.")?;
     let set = super::art_data::SETS.iter().find(|set| set.slot == slot && set.state == state)?;
@@ -156,16 +149,12 @@ fn bank() -> &'static BTreeMap<(String, String), Anim> {
     })
 }
 
-/// Whether every frame of `state` is painted art, and so of every other state
-/// of the slot (a bank is painted whole or not at all): the code's own light is
-/// drawn only over the labelled block.
 pub(super) fn painted(id: &str, state: &str) -> bool {
     bank()
         .get(&(format!("lanternward.{id}"), state.to_owned()))
         .is_some_and(|anim| anim.painted)
 }
 
-/// The frame of `state` at animation tick `tick`.
 pub(super) fn frame(id: &str, state: &str, tick: u32) -> &'static Img {
     let anim = bank()
         .get(&(format!("lanternward.{id}"), state.to_owned()))
@@ -179,7 +168,6 @@ pub(super) fn frame(id: &str, state: &str, tick: u32) -> &'static Img {
     &anim.frames[index]
 }
 
-/// Frame number `index` of `state`, held at its last frame when it runs past.
 pub(super) fn frame_at(id: &str, state: &str, index: usize) -> &'static Img {
     let anim = bank()
         .get(&(format!("lanternward.{id}"), state.to_owned()))
@@ -187,13 +175,11 @@ pub(super) fn frame_at(id: &str, state: &str, index: usize) -> &'static Img {
     &anim.frames[index.min(anim.frames.len() - 1)]
 }
 
-/// Stamp a slot's frame with its bottom centre at `(x, foot)`.
 pub(super) fn slot(im: &mut Img, id: &str, state: &str, tick: u32, x: i32, foot: i32) {
     let pic = frame(id, state, tick);
     im.stamp(pic, x - pic.w / 2, foot - pic.h);
 }
 
-/// As `slot`, centred on `(x, y)`.
 pub(super) fn slot_mid(im: &mut Img, id: &str, state: &str, tick: u32, x: i32, y: i32) {
     let pic = frame(id, state, tick);
     im.stamp(pic, x - pic.w / 2, y - pic.h / 2);

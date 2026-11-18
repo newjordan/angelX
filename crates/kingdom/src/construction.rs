@@ -3,7 +3,6 @@ use crate::economy::{covers, take};
 use crate::*;
 use std::collections::{BTreeSet, VecDeque};
 
-/// What the ghost of a building says: the land, the price, what is short.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Placement {
     pub land: Result<(), String>,
@@ -11,15 +10,12 @@ pub struct Placement {
     pub short: Option<String>,
 }
 impl Placement {
-    /// Whether `Command::Build` would be taken as it stands.
     pub fn ok(&self) -> bool {
         self.land.is_ok() && self.short.is_none()
     }
 }
 
 impl Kingdom {
-    /// New sessions get real geography. Existing saves deliberately retain the
-    /// meadow beneath their original buildings and roads.
     pub fn found(&mut self, c: &Catalog, seed: u64) {
         if self.is_empty() {
             self.world = World::new(seed);
@@ -90,10 +86,6 @@ impl Kingdom {
         };
         if valid { Ok(()) } else { Err(reason.into()) }
     }
-    /// Whether a `plan` may be raised with its top-left corner on `tile`, and at
-    /// what price, without changing anything: the ghost the walking builder sees.
-    /// `land` is why the ground refuses it (or Ok); `short` what the camp lacks
-    /// of the price, or the charter it waits on.
     pub fn placement(&self, c: &Catalog, plan: &str, tile: Tile) -> Placement {
         let Some(p) = c.plans.get(plan) else {
             return Placement { land: Err("unknown plan".into()), cost: Stock::new(), short: None };
@@ -125,8 +117,6 @@ impl Kingdom {
         Placement { land, cost: p.cost.clone(), short }
     }
 
-    /// Ground nothing may be built or laid on: a castle's footprint, or a
-    /// model house's camp.
     pub fn reserved_ground(&self, tile: Tile) -> Option<String> {
         if !self.world.is_hillside() {
             return None;
@@ -134,8 +124,6 @@ impl Kingdom {
         if let Some(s) = self.sites.values().find(|s| s.covers(tile)) {
             return Some(format!("This ground is the {}'s: build outside its walls", s.plan));
         }
-        // The Keep's ground is the Keep's from the first day, staked or not
-        // (the game's wall is raised there): only its own fixtures stand on it.
         if crate::hillside::in_rect(tile, crate::hillside::keep_rect())
             && tile != crate::hillside::HILL_SHAFT
             && !crate::hillside::shaft_road().contains(&tile)
@@ -220,9 +208,6 @@ impl Kingdom {
                 .is_none_or(|id| c.plans[&self.buildings[&id].plan].passable)
     }
 
-    /// Builders can carry construction supplies over owned dry ground. Roads
-    /// are still required for workshop deliveries and occupied housing. This
-    /// permits real courtyards and continuous walls without a road per brick.
     pub fn construction_access(&self, c: &Catalog) -> BTreeSet<u32> {
         let (width, height) = self.world.bounds();
         let w = width as usize;
@@ -233,8 +218,6 @@ impl Kingdom {
                 open[at(t)] = true;
             }
         }
-        // A finished building that cannot be walked through blocks the builders;
-        // one still going up does not.
         for b in self.buildings.values() {
             if b.construction == 0 && !c.plans[&b.plan].passable {
                 for t in self.covered(b) {
@@ -264,9 +247,6 @@ impl Kingdom {
             .collect()
     }
 
-    /// The roads that would join a building to the camp's road network, new
-    /// tiles only, nearest way first: a road already beside the building (and
-    /// whatever it already reaches) is used before any new road is cut.
     pub fn plan_connection(&self, c: &Catalog, id: u32) -> Result<Vec<Tile>, String> {
         use std::cmp::Reverse;
         use std::collections::BinaryHeap;
@@ -289,11 +269,9 @@ impl Kingdom {
                 }
             }
         }
-        // A rollerway is not a road: a road is cut round it.
         for t in self.rollers.cells.keys().chain(self.rails.cells.keys()) {
             open[at(*t)] = false;
         }
-        // Where the camp's network already is.
         let mut camp_net = BTreeSet::new();
         let mut queue: VecDeque<Tile> = crate::economy::neighbours(self.camp())
             .into_iter()
@@ -305,7 +283,6 @@ impl Kingdom {
             }
         }
         let camp_docks: BTreeSet<Tile> = crate::economy::neighbours(self.camp()).into_iter().collect();
-        // This building's own island of road, free to walk along.
         let mut island = BTreeSet::new();
         let mut queue: VecDeque<Tile> = self.docks_of(b).into_iter().filter(|t| self.roads.contains(t)).collect();
         while let Some(t) = queue.pop_front() {

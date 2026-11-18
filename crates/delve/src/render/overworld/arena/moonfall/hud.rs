@@ -13,7 +13,6 @@ use crate::rules::moonfall::{
     story::LIGHT_HOLD,
 };
 
-/// A tick mark.
 fn check(im: &mut Img, x: i32, y: i32, ink: char) {
     for (dx, dy) in [(0, 3), (1, 4), (2, 3), (3, 2), (4, 1), (5, 0)] {
         im.put(x + dx, y + dy, ink);
@@ -21,7 +20,6 @@ fn check(im: &mut Img, x: i32, y: i32, ink: char) {
     }
 }
 
-/// `s` broken into lines of at most `n` characters, at spaces.
 pub(super) fn wrap(s: &str, n: usize) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     for word in s.split_whitespace() {
@@ -36,8 +34,6 @@ pub(super) fn wrap(s: &str, n: usize) -> Vec<String> {
     out
 }
 
-/// `s` cut to at most `n` characters: whole words, then `..` where words
-/// were left out.
 pub(super) fn fit(s: &str, n: usize) -> String {
     if s.chars().count() <= n {
         return s.to_string();
@@ -51,7 +47,6 @@ pub(super) fn say_note(n: Note) -> String {
     crate::rules::moonfall::story::note_text(n)
 }
 
-/// The clock bar and the lines around it, at the foot of the screen.
 pub(super) fn bar(im: &mut Img, s: &Session, me: &Knight, me_id: u32, shown: u32, tick: u32) {
     let y0 = VIEW_Y + VIEW_H;
     im.rect(0, y0, im.w, im.h - y0, 'k');
@@ -63,18 +58,15 @@ pub(super) fn bar(im: &mut Img, s: &Session, me: &Knight, me_id: u32, shown: u32
     im.text(8, y0 + HEAD_ROW, &head, if final_now { '7' } else { 'T' });
     let loops = loops_text(s);
     im.text(8 + text_width(&head) + 12, y0 + HEAD_ROW, &loops, 'h');
-    // Candles, right: short, so the clock's marker above the track clears them.
     for c in 0..3u8 {
         let x = 340 + i32::from(c) * 11;
         im.rect(x, y0 + 3, 4, 6, if c < me.candles { 'T' } else { 'g' });
         im.rect(x + 1, y0 + 1, 2, 2, if c < me.candles { '6' } else { 'j' });
     }
-    // Mask and what is in hand.
     let mask = mask_text(me);
     if !mask.is_empty() {
         im.text(300 - text_width(mask), y0 + HEAD_ROW, mask, if me.mask == Mask::Swift { 'z' } else { 'R' });
     }
-    // The bar itself: three days, nights shaded, the Final Hours red.
     let (bx, bw, by) = (8, 368, y0 + 12);
     im.rect(bx, by, bw, 9, 'g');
     let end = clock::end(day).max(1);
@@ -106,7 +98,6 @@ pub(super) fn bar(im: &mut Img, s: &Session, me: &Knight, me_id: u32, shown: u32
     im.text(bx + bw - 30, by + 1, "FINAL", 'T');
     let mx = bx + (i64::from(shown.min(end)) * i64::from(bw) / i64::from(end)) as i32;
     im.rect(mx, by - 3, 1, 15, 'w');
-    // The marker: the sun by day, the moon by night.
     if clock::night(shown, day) {
         im.ellipse(mx as f32, by as f32 + 4.5, 4.0, 4.0, 'V');
         im.ellipse(mx as f32 + 2.0, by as f32 + 3.5, 3.0, 3.0, 'k');
@@ -114,17 +105,13 @@ pub(super) fn bar(im: &mut Img, s: &Session, me: &Knight, me_id: u32, shown: u32
         im.ellipse(mx as f32, by as f32 + 4.5, 4.0, 4.0, '6');
         im.ellipse(mx as f32, by as f32 + 4.5, 2.0, 2.0, 'w');
     }
-    // An hour just struck: the marker rings.
     let hour = (day / 24).max(1);
     if shown % hour < 6 && matches!(s.phase, Phase::Play) {
         im.frame(mx - 6, by - 2, 13, 13, '6');
     }
-    // The foot line.
     im.text(8, y0 + FOOT_ROW, &foot_line(s, me, tick), if me.note.is_some() { '6' } else { 'h' });
 }
 
-/// The clock bar's top row of words sits above the clock's marker, which
-/// stands from the row after it to the foot line.
 const HEAD_ROW: i32 = 2;
 const FOOT_ROW: i32 = 24;
 
@@ -145,7 +132,6 @@ fn mask_text(me: &Knight) -> &'static str {
     }
 }
 
-/// The foot line: a note, what is in hand, or the keys; cut to fit.
 fn foot_line(s: &Session, me: &Knight, tick: u32) -> String {
     let line = if let Some((n, _)) = me.note {
         say_note(n)
@@ -159,9 +145,6 @@ fn foot_line(s: &Session, me: &Knight, tick: u32) -> String {
     fit(&line, 62)
 }
 
-/// Each place in the clock bar, by name: the day, the loop, the mask, the
-/// candles, the seat chips, the clock's track with its marker, the foot line.
-/// None of them touches another.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn bar_rows(s: &Session, me: &Knight, shown: u32, tick: u32) -> Vec<(&'static str, Rect)> {
     let y0 = VIEW_Y + VIEW_H;
@@ -183,9 +166,6 @@ pub(super) fn bar_rows(s: &Session, me: &Knight, shown: u32, tick: u32) -> Vec<(
     rows
 }
 
-/// The lines the whole table reads, top to bottom: the bell's call first (the
-/// one a knight must answer), then the Ledger's writing and the reminders;
-/// four at most, each cut to the width of the picture.
 pub(super) fn news_lines(s: &Session, me: &Knight) -> Vec<(String, char)> {
     let mut lines: Vec<(String, char)> = Vec::new();
     if let Some(c) = s.call {
@@ -210,18 +190,14 @@ pub(super) fn news_lines(s: &Session, me: &Knight) -> Vec<(String, char)> {
     lines.into_iter().take(4).map(|(line, ink)| (fit(&line, 62), ink)).collect()
 }
 
-/// The first row of the news: under the sky's edge, and under the Final Hours
-/// box when it is up.
 fn news_top(s: &Session, me: &Knight) -> i32 {
     let top = VIEW_Y + 4 + if s.final_hours() && s.completed.is_none() { 36 } else { 0 };
-    // While a card stands on the town the lines wait under it.
     match super::moments::card_now(s, me) {
         Some((_, r)) => top.max(r.bottom() + 3),
         None => top,
     }
 }
 
-/// Where each news line's plate stands.
 pub(super) fn news_rects(s: &Session, me: &Knight) -> Vec<Rect> {
     let top = news_top(s, me);
     news_lines(s, me)
@@ -234,7 +210,6 @@ pub(super) fn news_rects(s: &Session, me: &Knight) -> Vec<Rect> {
         .collect()
 }
 
-/// Words the whole table reads: the Ledger writing, reminders, the bell.
 pub(super) fn news(im: &mut Img, s: &Session, me: &Knight) {
     let mut y = news_top(s, me);
     for (line, ink) in news_lines(s, me) {
@@ -250,7 +225,6 @@ fn me_id_bit(s: &Session, me: &Knight) -> u32 {
         .map_or(0, |(&id, _)| id.saturating_sub(1))
 }
 
-/// The Final Hours box: its words, the minutes left, and where it stands.
 fn final_box(s: &Session, shown: u32) -> Option<(String, Rect)> {
     let day = s.nums.day;
     if shown < clock::final_start(day) || s.completed.is_some() || !matches!(s.phase, Phase::Play) {
@@ -262,7 +236,6 @@ fn final_box(s: &Session, shown: u32) -> Option<(String, Rect)> {
     Some((count, Rect::new(192 - pw / 2, VIEW_Y + 3, pw, 30)))
 }
 
-/// FINAL HOURS and the minutes left.
 pub(super) fn final_hours(im: &mut Img, s: &Session, shown: u32, tick: u32) {
     let Some((count, box_at)) = final_box(s, shown) else { return };
     let text = "FINAL HOURS";
@@ -285,12 +258,10 @@ fn panel(im: &mut Img, x: i32, y: i32, w: i32, h: i32) {
     im.frame(x + 1, y + 1, w - 2, h - 2, 'O');
 }
 
-/// The Ledger, open at a page: the folk down the side, their page at right.
 pub(super) fn ledger_panel(im: &mut Img, s: &Session, page: u8, shown: u32, tick: u32) {
     let (px, py, pw, ph) = (14, VIEW_Y + 2, 356, VIEW_H - 4);
     panel(im, px, py, pw, ph);
     im.rect(px + 100, py + 6, 1, ph - 12, 'O');
-    // Tabs.
     let names: [(&str, Option<Folk>); 7] = [
         ("TOWN", None),
         ("MIRA", Some(Folk::Mira)),
@@ -379,7 +350,6 @@ fn town_page(im: &mut Img, s: &Session, cx: i32, cy: &mut i32, shown: u32) {
 
 fn person_page(im: &mut Img, s: &Session, folk: Folk, cx: i32, cy: &mut i32, shown: u32, tick: u32) {
     let page = ledger::page(&s.memory, folk, shown, s.nums.day);
-    // Name, large; the portrait block at the right edge.
     let mut t = Img::new(text_width(folk.name()), 7);
     t.text(0, 0, folk.name(), 'b');
     im.stamp_times(&t, cx, *cy, 1);
@@ -387,7 +357,6 @@ fn person_page(im: &mut Img, s: &Session, folk: Folk, cx: i32, cy: &mut i32, sho
     *cy += 10;
     im.text(cx, *cy, folk.title(), 'P');
     *cy += 12;
-    // The tick.
     im.text(cx, *cy, "FAVOUR", 'I');
     if page.ticked {
         check(im, cx + 44, *cy - 1, 'l');
@@ -415,8 +384,6 @@ fn person_page(im: &mut Img, s: &Session, folk: Folk, cx: i32, cy: &mut i32, sho
         }
     }
     *cy += 3;
-    // The routine fills what room is left, from the line the clock stands in,
-    // so the page reads what is happening and what comes next.
     let room = ((VIEW_Y + 2 + VIEW_H - 4 - 10 - *cy) / 10).max(1) as usize;
     let now = page.routine.iter().position(|l| l.now).unwrap_or(0);
     let from = now.min(page.routine.len().saturating_sub(room));
@@ -439,7 +406,6 @@ fn px_right_edge() -> i32 {
     14 + 356
 }
 
-/// A villager's little portrait: a labelled block.
 pub(super) fn portrait(im: &mut Img, x: i32, y: i32, folk: Folk, tick: u32, size: i32) {
     im.rect(x, y, size, size, 'x');
     im.frame(x, y, size, size, 'k');
@@ -455,7 +421,6 @@ pub(super) fn portrait(im: &mut Img, x: i32, y: i32, folk: Folk, tick: u32, size
     im.rect(x + size / 2 - 2, y + 11, 4, 1, 'k');
 }
 
-/// The bell's menu.
 pub(super) fn bell_menu(im: &mut Img, s: &Session, line_at: u8, tick: u32) {
     let (x, y, w, h) = (96, VIEW_Y + 28, 192, 92);
     panel(im, x, y, w, h);
@@ -483,14 +448,11 @@ pub(super) fn bell_menu(im: &mut Img, s: &Session, line_at: u8, tick: u32) {
     let _ = tick;
 }
 
-/// The box a villager speaks to the viewer in.
 const TALK_BOX: Rect = Rect::new(10, VIEW_Y + VIEW_H - 56, 364, 52);
 
-/// The Ledger's open pages, and the bell's menu.
 const LEDGER_PANEL: Rect = Rect::new(14, VIEW_Y + 2, 356, VIEW_H - 4);
 const BELL_PANEL: Rect = Rect::new(96, VIEW_Y + 28, 192, 92);
 
-/// A villager speaking to the viewer.
 pub(super) fn talk_box(im: &mut Img, s: &Session, me: &Knight, tick: u32) {
     let Some(say) = me.say else { return };
     let (x, y, w, h) = (10, VIEW_Y + VIEW_H - 56, 364, 52);
@@ -508,12 +470,10 @@ pub(super) fn talk_box(im: &mut Img, s: &Session, me: &Knight, tick: u32) {
     }
 }
 
-/// The hold bar and its word, for the room words keep clear.
 fn hold_rect() -> Rect {
     Rect::new(167, VIEW_Y + VIEW_H / 2 + 11, 50, 18)
 }
 
-/// A knight who holds E at a flame, and the bar filling.
 pub(super) fn hold_bar(im: &mut Img, me: &Knight) {
     if me.hold == 0 {
         return;
@@ -524,10 +484,8 @@ pub(super) fn hold_bar(im: &mut Img, me: &Knight) {
     plate_centred(im, 192, y - 10, "LIGHTING", '6');
 }
 
-/// The card of a knight snuffed out.
 const OUT_CARD: Rect = Rect::new(60, VIEW_Y + 50, 264, 36);
 
-/// A knight who lies snuffed out.
 pub(super) fn out_card(im: &mut Img, me: &Knight) {
     if me.down == 0 {
         return;
@@ -538,7 +496,6 @@ pub(super) fn out_card(im: &mut Img, me: &Knight) {
     plate_centred(im, 192, VIEW_Y + 70, "THE MOONWELL CARRIES YOU BACK", 'h');
 }
 
-/// Where the end card stands, while it shows.
 fn end_rect(s: &Session) -> Option<Rect> {
     let free = s.completed.is_some() && matches!(s.phase, Phase::Play);
     if !free {
@@ -548,7 +505,6 @@ fn end_rect(s: &Session) -> Option<Rect> {
     Some(Rect::new(192 - w / 2 - 10, VIEW_Y + 18, w + 20, 56))
 }
 
-/// The end card.
 pub(super) fn end_card(im: &mut Img, s: &Session) {
     let free = s.completed.is_some() && matches!(s.phase, Phase::Play);
     if !free {
@@ -570,8 +526,6 @@ pub(super) fn end_card(im: &mut Img, s: &Session) {
     }
 }
 
-/// Who is at the table: one chip for each seat in the clock bar's top row,
-/// between the day's words and the mask's, the viewer's framed bright.
 fn seat_chips(im: &mut Img, s: &Session, me_id: u32, y0: i32) {
     for (n, (&id, seat)) in s.seats.iter().enumerate() {
         let x = chip_rects(s.seats.len())[n].x;
@@ -585,16 +539,12 @@ fn seat_chips(im: &mut Img, s: &Session, me_id: u32, y0: i32) {
     }
 }
 
-/// The right edge of the seat chips: the mask's words start at 271.
 const CHIPS_END: i32 = 266;
 
-/// Where the chips of `n` seats stand, left to right: in the bar's top row,
-/// 20 pixels apart.
 pub(super) fn chip_rects(n: usize) -> Vec<Rect> {
     (0..n).map(|i| Rect::new(CHIPS_END - 16 - (n - 1 - i) as i32 * 20, VIEW_Y + VIEW_H, 16, 9)).collect()
 }
 
-/// Where the start-of-run hint stands, while it shows.
 fn hint_rect(s: &Session) -> Option<Rect> {
     if s.memory.loops > 0 || s.clock > 150 || !matches!(s.phase, Phase::Play) || s.card > 0 {
         return None;
@@ -603,16 +553,12 @@ fn hint_rect(s: &Session) -> Option<Rect> {
     Some(Rect::new(192 - w / 2 - 1, VIEW_Y + VIEW_H - 15, w + 2, 9))
 }
 
-/// A short start-of-run hint: what the keys are.
 pub(super) fn first_hint(im: &mut Img, s: &Session) {
     if hint_rect(s).is_some() {
         plate_centred(im, 192, VIEW_Y + VIEW_H - 14, "TALK. WRITE. REWIND.", 'T');
     }
 }
 
-/// A word over the town while the bell is working: it winds the town back, or
-/// time runs on to the hour asked for. A banner across a free row of the town
-/// view, clear of the bell's picture and of every plate.
 pub(super) fn bell_banner(labels: &mut Layout, s: &Session) {
     let text = match s.phase {
         Phase::Rewind { fell: true, .. } => "THE MOON FALLS",
@@ -629,11 +575,6 @@ pub(super) fn bell_banner(labels: &mut Layout, s: &Session) {
     labels.banner(text, '6', 'O');
 }
 
-/// Everything the HUD draws over the town that words keep out of: the news
-/// lines, the Final Hours box, the hold bar and the start hint; and what
-/// hides them, which words are left out under: the dawn card, the end card,
-/// the snuffed card, a conversation, the Ledger or the bell's menu, and the
-/// ritual's glass.
 pub(super) fn keep_outs(labels: &mut Layout, s: &Session, me: &Knight, shown: u32) {
     for r in news_rects(s, me) {
         labels.keep(r, false);

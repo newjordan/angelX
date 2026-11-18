@@ -18,10 +18,8 @@ fn px((c, r, w, h): Rect) -> (i32, i32, i32, i32) {
     (c * TILE, r * TILE, w * TILE, h * TILE)
 }
 
-/// The awning's two stripes for each stall: ore grey, wax cream, bone red.
 const STRIPES: [(char, char); 3] = [('G', 'h'), ('o', 'T'), ('R', 'T')];
 
-/// A stall's counter and awning, its goods laid out.
 fn stall(cv: &mut Img, i: usize) {
     let (x, y, w, h) = px(STALLS[i].counter);
     let front = if i == 2 { y } else { y + h - 12 };
@@ -46,7 +44,6 @@ fn stall(cv: &mut Img, i: usize) {
             }
         }
         _ => {
-            // A soup pot on the counter, steaming.
             let (px_, py_) = (x + 15, gy);
             mat::lobe(cv, (px_ as f32, (py_ + 1) as f32), (8.0, 5.0), nooks::IRON, 213, 2.0, 0.0, &nooks::all);
             cv.ellipse(px_ as f32, (py_ - 3) as f32, 7.0, 2.0, 'J');
@@ -64,7 +61,6 @@ fn stall(cv: &mut Img, i: usize) {
     }
 }
 
-/// The stone market cross on its steps.
 fn cross(cv: &mut Img) {
     let (x, y, w, h) = px(CROSS);
     mat::block(cv, (x - 2, y + h - 8, w + 4, 8), ramp::STONE, false, 221);
@@ -73,17 +69,14 @@ fn cross(cv: &mut Img) {
     mat::block(cv, (x + w / 2 - 8, y - 5, 17, 5), ramp::STONE, false, 224);
 }
 
-/// A bathing tub.
 fn tub(cv: &mut Img, x: i32, y: i32) {
     props::tub(cv, x, y, (x * 3) as u32);
 }
 
-/// The copper over its fire, for the hot water.
 fn copper(cv: &mut Img, tick: u32) {
     props::copper(cv, px(COPPER), tick);
 }
 
-/// The towel bench, towels folded on it.
 fn bench(cv: &mut Img) {
     let (x, y, w, h) = px(BENCH);
     mat::shadow(cv, ((x + w / 2 + 4) as f32, (y + h + 2) as f32), (w as f32 * 0.5, 2.0), &nooks::all);
@@ -97,27 +90,22 @@ fn bench(cv: &mut Img) {
     }
 }
 
-/// The smith's hearth, its coals always hot.
 fn hearth(cv: &mut Img, tick: u32) {
     props::hearth(cv, px(HEARTH), 2 + (tick / 6 % 2), 241);
-    // The bellows' nozzle in its west side, and a pair of tongs.
     let (x, y, _, _) = px(HEARTH);
     cv.rect(x - 10, y + 24, 10, 6, 'B');
     cv.rect(x - 3, y + 26, 4, 2, 'o');
 }
 
-/// The anvil on its stump.
 fn anvil(cv: &mut Img) {
     let (x, y, w, h) = px(ANVIL);
     nooks::anvil(cv, x + w / 2, y + h + 2);
 }
 
-/// The armour rack.
 fn rack(cv: &mut Img) {
     props::rack(cv, px(RACK));
 }
 
-/// The quench trough by the door.
 fn barrel(cv: &mut Img) {
     let (x, y, w, h) = px(BARREL);
     nooks::trough(cv, (x, y + 8, w, h - 8), 0);
@@ -131,7 +119,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                 stall(cv, i);
             }
             cross(cv);
-            // Bunting from wall to wall.
             for k in 0..1 {
                 let y = 5 * TILE + 8;
                 let (x0, x1) = (TILE, 23 * TILE);
@@ -146,7 +133,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                     }
                 }
             }
-            // Crates and a barrel by the walls.
             mat::barrel(cv, 9 * TILE + 4, 12 * TILE + 6);
             mat::barrel(cv, 10 * TILE + 2, 12 * TILE + 4);
             mat::crate_box(cv, 12 * TILE, 12 * TILE + 6, 251);
@@ -156,9 +142,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             }
         }
         RoomKind::Bathhouse => {
-            // A tiled dais under the tubs: glazed tiles in close tones, each
-            // lit along its top and west edge and worn at its corners, set in
-            // dark grout.
             for yy in 2 * TILE..5 * TILE + 8 {
                 for xx in 2 * TILE..21 * TILE {
                     let (cx, cy, lx, ly) = (xx / 8, yy / 8, xx % 8, yy % 8);
@@ -188,11 +171,8 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             }
             copper(cv, tick);
             bench(cv);
-            // Washing lines of towels across the south.
             cv.line(9 * TILE, 10 * TILE, 19 * TILE, 10 * TILE + 3, 'o');
             for k in 0..6 {
-                // A towel over the line, falling in soft folds lit from the
-                // west, a stripe woven near its hem.
                 let tx = 9 * TILE + 6 + k * 26;
                 let ramp: &[char] = if k % 2 == 0 { &['J', 'h', 'i', 'H'] } else { &['S', 'u', 'U', 'v'] };
                 for dx in 0..9 {
@@ -204,7 +184,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                     }
                 }
             }
-            // The price, painted on a board by the door.
             let sign = format!("SOAK {BATH_GOLD}G");
             let w = text_width(&sign) + 6;
             chrome::inset_panel(cv, (2 * TILE, 5 * TILE - 2, w, 11), chrome::Tone::TIMBER);
@@ -217,13 +196,11 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             barrel(cv);
             cv.stamp(&kit::blade_rack(4), 3 * TILE, 9 * TILE);
             nooks::coal(cv, 17 * TILE, 11 * TILE + 8);
-            // A stack of bar iron, waiting.
             for k in 0..4 {
                 let by = 10 * TILE + 4 + k * 3;
                 cv.rect(7 * TILE - k % 2, by, 30, 2, if k % 2 == 0 { 'G' } else { 'j' });
                 cv.line(7 * TILE - k % 2, by, 7 * TILE + 29 - k % 2, by, 'J');
             }
-            // Soot and scale on the floor round the anvil.
             for k in 0..40 {
                 let sx = 9 * TILE + (hash(k, 1, 221) % (6 * TILE as u32)) as i32;
                 let sy = 5 * TILE + (hash(k, 2, 221) % (3 * TILE as u32)) as i32;
@@ -253,15 +230,10 @@ pub(super) fn lights(lights: &mut Vec<Light>, run: &Run) {
     }
 }
 
-/// A stall's keeper behind the counter, red in the face as the haggling
-/// climbs; shuttered up when offended.
 fn keeper(cv: &mut Img, run: &Run, i: usize) {
     let (x, y, w, h) = px(STALLS[i].counter);
     if run.town.shut[i] > 0 {
-        // Shutters down, a sulk behind them.
         let front = if i == 2 { y } else { y + h - 12 };
-        // Upright planks of timber, a batten across them, the corners
-        // worn off, its foot in shadow.
         let (sx, sy, sw, sh) = (x + 3, front - 14, w - 6, 26);
         let kept = super::super::chrome::corners(cv, (sx, sy, sw, sh), &[2, 1]);
         mat::boards(cv, (sx, sy, sw, sh), true, 214 + i as u32);
@@ -274,7 +246,6 @@ fn keeper(cv: &mut Img, run: &Run, i: usize) {
     let temper = haggle.map_or(0, |n| n * 3 / t::haggle_limit(i).max(1));
     let face = ['t', 'R', '7'][temper.min(2) as usize];
     let (kx, ky) = (x + w / 2, if i == 2 { y + h - 2 } else { y + h - 13 });
-    // Body behind the counter, then the head over it.
     let (coat, hat) = [('U', 'R'), ('P', 'K'), ('h', 'c')][i];
     cv.rect(kx - 6, ky - 9, 13, 9, coat);
     let _ = face;
@@ -291,14 +262,12 @@ fn keeper(cv: &mut Img, run: &Run, i: usize) {
         }
     }
     if temper >= 2 {
-        // Steam from the ears.
         for s in [-1, 1] {
             cv.line(kx + s * 6, ky - 15, kx + s * 9, ky - 19, 'h');
         }
     }
 }
 
-/// Brother Suds: a monk in a wet habit with a very long brush.
 fn suds(cv: &mut Img, x: i32, y: i32, scrubbing: bool, tick: u64) {
     let frame = if scrubbing { (tick / 4 % 2) as i32 } else { 0 };
     cv.rect(x - 5, y - 14, 11, 14, 'u');
@@ -308,7 +277,6 @@ fn suds(cv: &mut Img, x: i32, y: i32, scrubbing: bool, tick: u64) {
     cv.put(x - 1, y - 18, 'k');
     cv.put(x + 2, y - 18, 'k');
     cv.line(x - 3, y - 21, x + 3, y - 21, 'r');
-    // The brush, reaching into the nearest tub.
     let (bx, by) = (x - 12 - frame * 2, y - 22 + frame * 2);
     cv.line(x - 4, y - 10, bx, by, 'o');
     cv.rect(bx - 4, by - 2, 6, 3, 'T');
@@ -317,30 +285,24 @@ fn suds(cv: &mut Img, x: i32, y: i32, scrubbing: bool, tick: u64) {
     }
 }
 
-/// A knight up to the chin in a tub: the helm, its plume in the seat's
-/// colour, suds and the duck.
 fn soaker(cv: &mut Img, x: i32, y: i32, id: u32, tick: u64) {
     let plume = super::knights::seat_cloth(id);
-    // The helm, still on (it is a very brave bath), the plume up.
     cv.ellipse(x as f32, (y - 6) as f32, 7.0, 7.0, 'J');
     cv.rect(x - 7, y - 6, 15, 6, 'J');
     cv.line(x - 6, y - 12, x + 4, y - 12, 'h');
     cv.rect(x - 5, y - 6, 11, 2, 'k');
     cv.rect(x - 1, y - 18, 3, 6, plume);
     cv.rect(x + 1, y - 19, 3, 3, plume);
-    // Suds round the neck.
     for k in 0..9 {
         let a = k as f32 * std::f32::consts::TAU / 9.0 + (tick / 6) as f32 * 0.3;
         cv.ellipse(x as f32 + a.cos() * 11.0, y as f32 + a.sin() * 3.5, 2.5, 2.0, 'v');
     }
-    // The duck, bobbing.
     let bob = (tick / 10 % 2) as i32;
     let (dx, dy) = (x + 11, y - 1 + bob);
     cv.rect(dx - 3, dy - 3, 7, 4, '5');
     cv.rect(dx + 1, dy - 7, 4, 4, '5');
     cv.rect(dx + 5, dy - 6, 2, 2, '4');
     cv.put(dx + 3, dy - 6, 'k');
-    // Steam.
     for k in 0..2 {
         let sy = y - 14 - ((tick / 5 + k * 7) % 10) as i32;
         cv.put(x - 6 + k as i32 * 12, sy, 'G');
@@ -348,8 +310,6 @@ fn soaker(cv: &mut Img, x: i32, y: i32, id: u32, tick: u64) {
     }
 }
 
-/// Old Dint the smith: broad, bald, bearded, leather-aproned, hammer up
-/// or down.
 fn smith(cv: &mut Img, x: i32, y: i32, swing: bool) {
     cv.rect(x - 7, y - 16, 15, 16, 'B');
     cv.rect(x - 5, y - 14, 11, 14, 'P');
@@ -360,7 +320,6 @@ fn smith(cv: &mut Img, x: i32, y: i32, swing: bool) {
     cv.put(x - 2, y - 21, 'k');
     cv.put(x + 2, y - 21, 'k');
     cv.line(x - 4, y - 24, x + 4, y - 24, 'T');
-    // The hammer: raised over the shoulder, or down on the anvil.
     if swing {
         cv.line(x - 8, y - 12, x - 18, y - 9, 'r');
         cv.rect(x - 22, y - 12, 5, 6, 'X');
@@ -384,7 +343,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                     super::near_prompt(cv, run, (x, y), "HAGGLE");
                 }
             }
-            // The offer over the counter, live.
             for (&_id, &(s, n)) in &run.town.haggles {
                 let i = usize::from(s);
                 let (x, y) = at(STALLS[i].at.0 * 2.0, STALLS[i].at.1 * 2.0);
@@ -392,7 +350,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 let label = format!("{}G", gold);
                 let w = text_width(&label) + 6;
                 let top = gold == STALLS[i].top;
-                // Beside the seller, clear of the keeper's face.
                 let (lx, ly) = (x + 12, y - 22);
                 chrome::board(cv, (lx, ly, w, 11), if top { 'o' } else { 'B' });
                 cv.text(lx + 3, ly + 2, &label, 'O');
@@ -410,18 +367,15 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                     busy.get_or_insert(x);
                 }
             }
-            // Brother Suds goes to whoever is soaking, else waits by the copper.
             let (sx, sy) = busy.map_or((20 * TILE, 8 * TILE), |x| (x + 22, 5 * TILE + 2));
             suds(cv, sx, sy, busy.is_some(), run.tick);
             for (i, &(x, y)) in TUBS.iter().enumerate() {
                 if run.players.values().any(|h| h.soak > 0 && t::tub_of(h) == Some(i)) {
                     continue;
                 }
-                // The price under the knight's feet, clear of the tub.
                 let (x, y) = at(x * 2.0, (y + 1.6) * 2.0);
                 super::near_prompt(cv, run, (x, y + 39), &format!("SOAK {BATH_GOLD}G"));
             }
-            // Fresh from the tub: a twinkle or two.
             for hero in run.players.values().filter(|h| h.scrubbed && h.soak == 0) {
                 let (x, y) = at(hero.x, hero.y);
                 for (n, (dx, dy)) in [(-10, -22), (9, -17), (-4, -30)].into_iter().enumerate() {
@@ -447,11 +401,9 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 cv.stamp(&spark, px(ANVIL).0 + w / 2 - spark.w / 2, y - 6);
             }
             let _ = ax;
-            // Prices under the knight's feet, clear of the anvil and rack.
             super::near_prompt(cv, run, (ax, ay + 36), &format!("TEMPER {TEMPER_GOLD}G"));
             let (rx, ry) = at(AT_RACK.0 * 2.0, AT_RACK.1 * 2.0);
             super::near_prompt(cv, run, (rx, ry + 36), &format!("MEND {MEND_GOLD}G"));
-            // The helmet test: stars round the knight's head.
             if let Some((id, n)) = run.town.ding
                 && let Some(hero) = run.players.get(&id)
             {
@@ -470,8 +422,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The room's board (its name, what to do, the treasury) shows while a
-/// knight stands by a counter, a tub, the anvil or the rack.
 pub(super) fn board_visible(run: &Run) -> bool {
     let spots: Vec<(f32, f32)> = match run.room().kind {
         RoomKind::Market => STALLS.iter().map(|s| s.at).collect(),
@@ -512,8 +462,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         }
     }
     lines.push((format!("TREASURY {}G", run.treasury.get(crate::realm::Spoil::Gold)), 'h'));
-    // The market's board sits low, clear of Magda's and the chandler's
-    // counters; indoors it hangs by the door.
     let board = home::board(&lines);
     let y = if kind == RoomKind::Market { cv.h - board.h - 6 } else { 13 };
     cv.stamp(&board, 4, y);

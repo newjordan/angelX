@@ -15,10 +15,6 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-/// Opening line of the injected goal block, and its closing sentinel. Kept as
-/// constants so the submit path can strip a prior block as a precise span (header
-/// line … sentinel line) and keep only the freshest copy per turn.
-/// `⠗⠃`, open and close; the framing sentence is its ledger page.
 pub(crate) const GOAL_BLOCK_HEADER: &str = "⠗⠃";
 pub(crate) const GOAL_BLOCK_SENTINEL: &str = "⠗⠃";
 pub(crate) const MAX_GOAL_RECORD_BYTES: usize = 512 * 1024;
@@ -28,75 +24,44 @@ pub(crate) const MAX_GOAL_COMMAND_BYTES: usize = 4096;
 pub(crate) const MAX_GOAL_ACCEPTANCE_ITEMS: usize = 32;
 pub(crate) const MAX_GOAL_NOTES: usize = 256;
 pub(crate) const MAX_GOAL_CONTEXT_BYTES: usize = 64 * 1024;
-/// A blocking condition must be ticked this many consecutive rounds (with the
-/// identical reason) before the goal flips to `Blocked` — a transient failure
-/// can never stop a long-running objective on its own.
 pub(crate) const GOAL_BLOCKED_MIN_ROUNDS: u32 = 3;
 pub(crate) const MAX_GOAL_BLOCKED_REASON_BYTES: usize = 1024;
-/// Hard ceiling for a `/goal rounds N` budget (kept well below u32::MAX so a
-/// typo can never mint an effectively unbounded autonomous loop).
 pub(crate) const MAX_GOAL_ROUNDS_HARD: u32 = 10_000;
 
-/// Where the goal stands. Only an `Active` goal is injected into turns.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum GoalStatus {
-    /// Being pursued — injected into every turn.
     #[default]
     Active,
-    /// Met (manually, or verified by the loop's acceptance command).
     Done,
-    /// Set aside without completing; re-armable via `/goal resume`. Canonical
-    /// mission vocabulary is `paused`; legacy records with `"abandoned"` load
-    /// here as a read alias and are re-written as `paused` on the next save.
     #[serde(rename = "paused", alias = "abandoned")]
     Paused,
-    /// The same concrete blocking condition persisted for
-    /// [`GOAL_BLOCKED_MIN_ROUNDS`] consecutive rounds. Terminal for autonomous
-    /// continuation — turns stop inheriting it — but the operator may
-    /// `/goal resume` once the blocker clears.
     Blocked,
 }
 
-/// A durable, structured objective.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Goal {
-    /// Canonical main-worktree root and stable key this goal belongs to. Legacy
-    /// records lack these fields and intentionally fail closed in `load_for`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace: Option<PathBuf>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub project_key: Option<String>,
-    /// The objective in one line / paragraph.
     pub text: String,
-    /// Acceptance criteria — the definition of done, in the user's words.
     #[serde(default)]
     pub acceptance: Vec<String>,
-    /// Optional verifiable check: a shell/cargo command whose success means the
-    /// goal is *actually* met (ground truth for the loop's done-detection).
     #[serde(default)]
     pub accept_cmd: Option<String>,
-    /// Progress notes appended over time.
     #[serde(default)]
     pub notes: Vec<String>,
-    /// Lifecycle status.
     #[serde(default)]
     pub status: GoalStatus,
-    /// Continuation rounds completed (`/goal tick`). Bounded by `max_rounds`
-    /// only when the operator explicitly sets it.
     #[serde(default)]
     pub rounds: u32,
-    /// Optional budget on autonomous continuation rounds (`/goal rounds N`).
-    /// `None` = unbounded. Rounds already spent are never reset by edits.
     #[serde(default)]
     pub max_rounds: Option<u32>,
-    /// The concrete condition currently blocking progress, and how many
-    /// consecutive rounds it has persisted (`/goal blocked <reason>`).
     #[serde(default)]
     pub blocked_reason: Option<String>,
     #[serde(default)]
     pub blocked_streak: u32,
-    /// Creation / last-update timestamps (unix ms).
     #[serde(default)]
     pub created_ms: u64,
     #[serde(default)]
@@ -104,7 +69,6 @@ pub struct Goal {
 }
 
 impl Goal {
-    /// A fresh active goal with the given text.
     pub fn new(text: impl Into<String>) -> Self {
         let now = now_ms();
         Self {
@@ -124,17 +88,10 @@ impl Goal {
         }
     }
 
-    /// Whether another autonomous continuation round is allowed. `Blocked` /
-    /// `Done` / `Paused` goals and a spent round budget are all false —
-    /// continuing past any of them is an explicit operator act.
     pub(crate) fn can_continue(&self) -> bool {
         self.status == GoalStatus::Active && self.max_rounds.is_none_or(|cap| self.rounds < cap)
     }
 
-    /// Record one completed continuation round. Returns `false` (and leaves
-    /// state untouched) when the round budget is spent or the goal is not
-    /// active. A real continuation round clears any blocking candidates — the
-    /// blocker demonstrably did not stop progress.
     pub(crate) fn record_round(&mut self) -> bool {
         if !self.can_continue() {
             return false;
@@ -146,10 +103,6 @@ impl Goal {
         true
     }
 
-    /// Record one blocked round. The status flips to `Blocked` only after the
-    /// SAME reason has persisted for [`GOAL_BLOCKED_MIN_ROUNDS`] consecutive
-    /// rounds; a changing reason restarts the streak and the goal stays
-    /// active. Returns `true` when this tick made the goal terminal.
     pub(crate) fn tick_blocked(&mut self, reason: &str) -> bool {
         if self.status != GoalStatus::Active {
             return false;
@@ -170,9 +123,6 @@ impl Goal {
         false
     }
 
-    /// Re-arm a `Blocked` (or `Paused`) goal. Keeps rounds, budget,
-    /// criteria, and notes — only the blocker state clears. Terminal-by-completion
-    /// (`Done`) goals are not resumable: mint a new one.
     pub(crate) fn rearm(&mut self) -> bool {
         match self.status {
             GoalStatus::Blocked | GoalStatus::Paused => {
@@ -186,9 +136,6 @@ impl Goal {
         }
     }
 
-    /// Copy this goal for explicit campaign import only when it is active and
-    /// bound to the same canonical project. The campaign receives a snapshot;
-    /// authoring it never mutates the standing `/goal` record.
     pub(crate) fn campaign_snapshot_for(&self, workspace: &Path) -> Option<Self> {
         (self.status == GoalStatus::Active && matches_workspace(self, workspace))
             .then(|| self.clone())
@@ -202,16 +149,10 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// The wall clock a fresh session binds its goal gate to. A persisted goal
-/// whose `updated_ms` predates this belongs to an earlier session.
 pub(crate) fn session_clock_ms() -> u64 {
     now_ms()
 }
 
-/// Whether a persisted goal belongs to the current session: touched at or
-/// after the session's binding instant, or the binding is lifted (`0`, a
-/// resumed session). A goal carried over from an earlier session stays on
-/// disk (visible in `/goal show`) but steers nothing until adopted.
 pub(crate) fn goal_belongs_to_session(goal: &Goal, armed_since_ms: u64) -> bool {
     armed_since_ms == 0 || goal.updated_ms >= armed_since_ms
 }
@@ -249,17 +190,12 @@ fn matches_workspace(goal: &Goal, workspace: &Path) -> bool {
     }
 }
 
-/// Load only the goal bound to `workspace`. Missing, malformed, legacy-global,
-/// or cross-project records are all inert.
 pub fn load_for(workspace: &Path) -> Option<Goal> {
     let raw = read_bounded_utf8(&store_path_for(workspace), MAX_GOAL_RECORD_BYTES)?;
     let goal: Goal = serde_json::from_str(&raw).ok()?;
     (matches_workspace(&goal, workspace) && goal_within_limits(&goal)).then_some(goal)
 }
 
-/// Persist the goal atomically and durably. Callers must surface failure: a
-/// control command must never claim a restart-safe transition that did not
-/// cross the storage boundary.
 pub fn save_for(goal: &mut Goal, workspace: &Path) -> Result<(), String> {
     if !goal_within_limits(goal) {
         return Err("goal record violates configured bounds".to_string());
@@ -280,7 +216,6 @@ pub fn save_for(goal: &mut Goal, workspace: &Path) -> Result<(), String> {
     crate::platform::workspace_store::write_private_atomic(&path, &json)
 }
 
-/// Remove the persisted goal file and durably publish the deletion.
 pub fn clear_for(workspace: &Path) -> Result<(), String> {
     let path = store_path_for(workspace);
     let owned = read_bounded_utf8(&path, MAX_GOAL_RECORD_BYTES)
@@ -332,29 +267,14 @@ fn read_bounded_utf8(path: &Path, max_bytes: usize) -> Option<String> {
 }
 
 impl crate::App {
-    /// The goal the next turn should steer by, read through to the canonical
-    /// store. Agent tools (`goal` set/clear) write the store directly — they
-    /// hold no `&mut App` — so reading through here (rather than `self.goal`)
-    /// makes a goal the model just set or cleared effective on the very next
-    /// turn without a restart or `/cd`. The operator's `/goal` verb persists
-    /// every mutation, so the store is the single source of truth and this
-    /// equals `self.goal` except immediately after an agent tool write.
     fn current_goal(&self) -> Option<Goal> {
         load_for(self.tools.current_workspace())
     }
 
-    /// Re-sync the in-memory goal from the canonical store. Local goal-reading
-    /// commands (`/status`, `/goal`, `/loop`, `/campaign`) call this so they
-    /// reflect a goal the agent's `goal` tool just wrote; `launch_pending_turn`
-    /// calls it after the operator echo paints so Enter is not blocked on the
-    /// store read. `/goal` persists every mutation, so the store is authoritative
-    /// and this reload is cheap and idempotent.
     pub(crate) fn refresh_goal_from_disk(&mut self) {
         self.goal = load_for(self.tools.current_workspace());
     }
 
-    /// Render the active goal as bounded Harness-role turn context. Empty string
-    /// unless there's a valid `Active` goal bound to this workspace.
     pub(crate) fn goal_context_block(&self, raw: Option<&str>) -> String {
         let Some(g) = self.current_goal() else {
             return String::new();
@@ -369,7 +289,6 @@ impl crate::App {
         {
             return String::new();
         }
-        // Every field label is a page of `⠗⠃`, its value beside the address.
         use crate::agent::harness::book::r_relentless as book;
         let objective = serde_json::to_string(g.text.trim())
             .unwrap_or_else(|_| "\"<invalid objective>\"".to_string());
@@ -407,8 +326,6 @@ impl crate::App {
             }
         }
         if g.max_rounds.is_some() || g.blocked_reason.is_some() {
-            // `⠗⠃⠑`, then the budget's and the blocker's pages; their values
-            // follow the address run as data.
             let mut pages = vec![book::GOAL_STATE];
             let mut values = Vec::new();
             if let Some(cap) = g.max_rounds {
@@ -436,7 +353,6 @@ impl crate::App {
         if !g.notes.is_empty() {
             out.push_str(&book::GOAL_NOTES.cells());
             out.push('\n');
-            // Only the last few notes — the running log can grow without bound.
             let notes = g.notes.iter().rev().take(5).rev().collect::<Vec<_>>();
             for (index, n) in notes.iter().enumerate() {
                 let note =
@@ -450,7 +366,6 @@ impl crate::App {
             }
         }
         if omitted > 0 {
-            // `⠗⠓⠁`, the count beside it.
             out.push_str(&format!(
                 "{} {omitted}\n",
                 crate::agent::harness::book::d3_roles::pages(
@@ -459,16 +374,11 @@ impl crate::App {
                 )
             ));
         }
-        // Closing sentinel + trailing blank line so the submit path can strip a
-        // prior goal block as a precise span and keep only the freshest copy.
         out.push_str(GOAL_BLOCK_SENTINEL);
         out.push_str("\n\n");
         out
     }
 
-    /// Gate a goal-driving loop and durably reserve one continuation round.
-    /// Explicit status/budget gates return a reason; checkpoint failures return
-    /// an error without publishing candidate counters or clearing blockers.
     pub(crate) fn loop_goal_gate(&mut self) -> Result<Option<String>, String> {
         let workspace = self.tools.current_workspace().to_path_buf();
         let Some(g) = self.goal.as_mut() else {
@@ -502,7 +412,6 @@ impl crate::App {
         Ok(None)
     }
 
-    /// One-line goal summary for `/status`.
     pub(crate) fn goal_status_line(&self) -> String {
         match self.goal.as_ref() {
             None => "(none — /goal <text>)".to_string(),
@@ -549,8 +458,6 @@ impl crate::App {
         }
     }
 
-    /// `/goal`: set / show / clear / refine the long-running goal. Subcommands are
-    /// parsed from the raw arg so `input.rs` needs no special shape.
     pub(crate) fn update_goal(&mut self, arg: Option<String>) -> String {
         let Some(raw) = arg else {
             return self.goal_show();
@@ -563,7 +470,6 @@ impl crate::App {
             );
         }
         let lower = raw.to_ascii_lowercase();
-        // Bare keywords.
         match lower.as_str() {
             "" | "status" | "show" => return self.goal_show(),
             "clear" | "none" | "off" => {
@@ -618,8 +524,6 @@ impl crate::App {
                     None => "no goal set".to_string(),
                 };
             }
-            // One bounded continuation round. A real round clears any blocking
-            // candidates — the blocker demonstrably did not stop progress.
             "tick" | "round" => {
                 let workspace = self.tools.current_workspace().to_path_buf();
                 return match self.goal.as_mut() {
@@ -660,10 +564,7 @@ impl crate::App {
                     None => "no goal set — /goal <text> to set one".to_string(),
                 };
             }
-            // Re-arm a blocked/paused goal. Keeps rounds, budget, criteria,
-            // cmd, and notes — only the blocker state clears.
             "resume" => {
-                // Resuming adopts a goal carried over from an earlier session.
                 self.goal_armed_since_ms = 0;
                 let workspace = self.tools.current_workspace().to_path_buf();
                 return match self.goal.as_mut() {
@@ -683,10 +584,7 @@ impl crate::App {
                     None => "no goal set".to_string(),
                 };
             }
-            // Drive at the goal: hand off to the loop controller so setting an
-            // objective and pursuing it are one gesture, not two commands apart.
             "go" | "run" | "drive" | "pursue" => {
-                // Driving at the goal is an explicit adoption of it.
                 self.goal_armed_since_ms = 0;
                 let active = self
                     .goal
@@ -707,7 +605,6 @@ impl crate::App {
             }
             _ => {}
         }
-        // `<subcommand> <rest>` forms that refine an existing goal.
         if let Some(rest) = strip_word(raw, &["criteria", "accept", "+"]) {
             if rest.len() > MAX_GOAL_ITEM_BYTES {
                 return format!(
@@ -741,9 +638,6 @@ impl crate::App {
                 g.accept_cmd = Some(rest.to_string());
                 format!("verifiable check set: {rest}")
             });
-            // A live loop pinned its accept_cmd at start (anti-reward-hack); the
-            // operator rebinding it here is the intended override, so re-pin the
-            // run too — `/goal cmd <check>` then `/loop resume` just works.
             if self.goal.is_some() {
                 match self.repin_loop_accept_cmd(rest) {
                     Some(true) => msg.push_str(
@@ -785,9 +679,6 @@ impl crate::App {
                 format!("progress note added ({} total)", g.notes.len())
             });
         }
-        // `/goal blocked <reason>`: DSH blocked semantics — the status flips to
-        // Blocked only after the SAME reason persists for GOAL_BLOCKED_MIN_ROUNDS
-        // consecutive rounds; a changing reason restarts the streak.
         if let Some(reason) = strip_word(raw, &["blocked", "block", "stuck"]) {
             if reason.len() > MAX_GOAL_BLOCKED_REASON_BYTES {
                 return format!(
@@ -818,7 +709,6 @@ impl crate::App {
                 None => "no goal set — /goal <text> to set one".to_string(),
             };
         }
-        // `/goal rounds <N|unset>`: bound autonomous continuation.
         if let Some(rest) = strip_word(raw, &["rounds", "budget"]) {
             let workspace = self.tools.current_workspace().to_path_buf();
             return match self.goal.as_mut() {
@@ -866,9 +756,6 @@ impl crate::App {
                 None => "no goal set — /goal <text> to set one".to_string(),
             };
         }
-        // Otherwise: set/replace the goal text (becomes Active). Setting a goal
-        // steers turns but starts nothing — say what actually happens next, so
-        // "/goal did nothing" can't be the takeaway.
         let msg = if self.loop_active() {
             format!("goal set: {raw}\n  the running loop picks this up on its next iteration")
         } else {
@@ -879,9 +766,6 @@ impl crate::App {
         };
         let workspace = self.tools.current_workspace().to_path_buf();
         match self.goal.as_mut() {
-            // Replacing the text of an existing goal keeps its criteria/cmd/notes,
-            // rounds, and budget — but a fresh objective clears any blocking
-            // candidates, because the blocking question is now a different one.
             Some(g) => {
                 g.text = raw.to_string();
                 g.status = GoalStatus::Active;
@@ -904,8 +788,6 @@ impl crate::App {
         msg
     }
 
-    /// Apply `f` to the active goal, persist, and return its message (or a "no
-    /// goal" hint). Keeps the refine subcommands DRY.
     fn goal_refine(&mut self, f: impl FnOnce(&mut Goal) -> String) -> String {
         let workspace = self.tools.current_workspace().to_path_buf();
         match self.goal.as_mut() {
@@ -921,7 +803,6 @@ impl crate::App {
         }
     }
 
-    /// Multi-line rendering of the current goal for the `/goal` command.
     fn goal_show(&self) -> String {
         match self.goal.as_ref() {
             None => "no goal set — /goal <text> to set one".to_string(),
@@ -1007,8 +888,6 @@ fn casual_goal_bypass(raw: &str) -> bool {
             || compact.starts_with("thank you "))
 }
 
-/// If `raw` begins with one of `words` followed by whitespace, return the trimmed
-/// remainder. The `+` shorthand needs no trailing space (`+ship it` / `+ ship it`).
 fn strip_word<'a>(raw: &'a str, words: &[&str]) -> Option<&'a str> {
     for w in words {
         if *w == "+" {

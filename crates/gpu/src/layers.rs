@@ -8,23 +8,14 @@ use bytemuck::Zeroable;
 use crate::Core;
 use crate::frame::{Draw, Instance, LINE, MASK, PRIMITIVE, RING, extend_part, push_part};
 
-/// A lifted layer: how far away the camera is (a layer this high is twice
-/// its size), how much of its lift shows as rising up the screen, and the
-/// height its shadow fades out at.
 const CAMERA_PX: f32 = 600.0;
 const RISE: f32 = 0.5;
 const SHADOW_FADE_PX: f32 = 900.0;
 const SHADOW_LAYER_ALPHA: f32 = 0.55;
 
-/// How long one breath takes (`Layer::breathe`).
 const BREATH_SECONDS: f32 = 3.2;
 
 impl Core {
-    /// Layers in z order as draw parts: for each, its shadow on the ground
-    /// when it is lifted, then the layer itself. `now` is the host's clock
-    /// in seconds since a start of its choosing: what breathes, flickers or
-    /// drifts (motes) is a function of it, and the first breath begins when
-    /// the first breathing layer is seen.
     pub fn layer_parts<'a>(
         &mut self,
         layers: impl Iterator<Item = &'a Layer>,
@@ -34,8 +25,6 @@ impl Core {
         tilt: Option<Tilt>,
         now: f64,
     ) -> Vec<(Draw, Vec<Instance>)> {
-        // The window's side of `angel_stage::MAX_QUADS`: however many
-        // layers arrive, one call emits at most this many instances.
         const MAX_INSTANCES: usize = 1_000_000;
         let mut emitted = 0usize;
         let mut parts = Vec::new();
@@ -43,7 +32,6 @@ impl Core {
             if emitted >= MAX_INSTANCES {
                 break;
             }
-            // Nothing unchecked reaches the GPU (`Layer::sanitized`).
             let Some(layer) = layer.sanitized_cow() else {
                 continue;
             };
@@ -54,8 +42,6 @@ impl Core {
                     [origin.0 + x * cw, origin.1 + y * ch, w * cw, h * ch]
                 }
             };
-            // Where it stands on a tilted stage (the window's own layers name
-            // their foot in placement pixels, as a stage's are).
             let foot = match layer.stand {
                 Stand::Upright(foot) => foot,
                 _ => [x + w / 2.0, y + h],
@@ -65,8 +51,6 @@ impl Core {
             if lift > 0.0
                 && let Some(shadow) = self.shadow()
             {
-                // The shadow keeps the ground footprint, shrinking and
-                // fading as the layer rises.
                 let fade = (1.0 - lift / SHADOW_FADE_PX).clamp(0.0, 1.0);
                 let size = 1.0 - 0.4 * (1.0 - fade);
                 let (sw, sh) = (w * size, (h * 0.35).max(4.0) * size);
@@ -86,25 +70,19 @@ impl Core {
                 );
                 emitted += 1;
             }
-            // A shadow lies on the floor whatever casts it.
             if let (Some(tilt), Some(since)) = (tilt, since) {
                 let floor = if matches!(layer.stand, Stand::Screen) { Stand::Screen } else { Stand::Floor };
                 stamp_since(&mut parts, since, |i| stamp_tilt(&tilt, i, floor, foot));
             }
             let since = tilt.map(|_| part_mark(&parts));
-            // Lifting toward the camera: bigger, and up the screen a little.
             let scale = 1.0 + lift / CAMERA_PX;
             let (lw, lh) = (w * scale, h * scale);
             let (cx, cy) = (x + w / 2.0, y + h / 2.0 - lift * RISE);
             let rect = [cx - lw / 2.0, cy - lh / 2.0, lw, lh];
-            // A light adds: premultiplied colour with no coverage.
             let coverage = if layer.additive { 0.0 } else { 1.0 };
             let strength = layer.opacity * flicker(layer.flicker, layer.id, now);
             match layer.kind {
                 LayerKind::Primitive { shape, color, phase, speed } => {
-                    // The solid is ray-marched in the fragment shader; its
-                    // `uv` carries the turn and the placement's aspect, not
-                    // atlas coordinates.
                     let a = color[3] * strength;
                     push_part(
                         &mut parts,
@@ -122,9 +100,6 @@ impl Core {
                     emitted += 1;
                 }
                 LayerKind::Stroke(ref stroke) => {
-                    // The quad grows past the placement by what the width
-                    // and glow need; the shader takes the same pad back off
-                    // to find the ring's radius or the line's ends.
                     let pad = stroke_pad(stroke) * scale;
                     let a = stroke.color[3] * strength;
                     let c = stroke.color;
@@ -169,7 +144,6 @@ impl Core {
                     emitted += 1;
                 }
                 LayerKind::Particles(ref p) => {
-                    // The motes, square, where the host's clock has them.
                     let size = p.size * scale;
                     let a = p.color[3] * strength;
                     let mut instances: Vec<Instance> = motes(p, rect, now as f32)
@@ -246,8 +220,6 @@ impl Core {
         parts
     }
 
-    /// How far a breathing layer has risen now: from nothing to `amount` and
-    /// back, once a breath, the same for every layer so they breathe together.
     fn breath(&mut self, amount: f32, now: f64) -> f32 {
         if amount <= 0.0 {
             return 0.0;
@@ -258,12 +230,10 @@ impl Core {
     }
 }
 
-/// A flame's strength now (`angel_stage::flicker` on the host's clock).
 fn flicker(amount: f32, seed: u64, now: f64) -> f32 {
     angel_stage::flicker(amount, seed, now as f32)
 }
 
-/// How an instance stands on a tilted stage's floor (`glass.wgsl`).
 fn stamp_tilt(tilt: &Tilt, instance: &mut Instance, stand: Stand, foot: [f32; 2]) {
     let mode = match stand {
         Stand::Screen => return,
@@ -274,12 +244,10 @@ fn stamp_tilt(tilt: &Tilt, instance: &mut Instance, stand: Stand, foot: [f32; 2]
     instance.stand = [mode, foot[0], foot[1], tilt.squash];
 }
 
-/// Where the next instances pushed into `parts` will begin.
 fn part_mark(parts: &[(Draw, Vec<Instance>)]) -> (usize, usize) {
     parts.last().map_or((0, 0), |(_, list)| (parts.len() - 1, list.len()))
 }
 
-/// Apply `f` to every instance pushed since `mark`.
 fn stamp_since(parts: &mut [(Draw, Vec<Instance>)], (part, start): (usize, usize), f: impl Fn(&mut Instance)) {
     for (n, (_, list)) in parts.iter_mut().enumerate().skip(part) {
         let from = if n == part { start } else { 0 };

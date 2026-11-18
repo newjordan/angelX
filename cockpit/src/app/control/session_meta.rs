@@ -36,9 +36,6 @@ fn mutation_paths(call: &crate::agent::club::ToolCall) -> Vec<String> {
     crate::knowledge::cut::mutation_targets(&call.name, &call.args)
 }
 
-/// Provider-free, bounded recap of what the persisted conversation actually
-/// did. This intentionally derives from `history` rather than a second mutable
-/// telemetry ledger, so undo/redo/compaction/session restore stay truthful.
 fn session_recap_text(history: &[ChatMsg]) -> String {
     let users = history
         .iter()
@@ -119,8 +116,6 @@ fn session_recap_text(history: &[ChatMsg]) -> String {
 }
 
 impl App {
-    /// A thread boundary may discard in-memory context only after its exact
-    /// history has a successful durable checkpoint. Preview sessions are no-ops.
     pub(crate) fn checkpoint_before_boundary(&self, command: &str) -> Result<(), String> {
         self.session.checkpoint(&self.history).map_err(|error| {
             format!(
@@ -132,20 +127,12 @@ impl App {
         })
     }
 
-    /// `/cd <path>` (alias `/workspace`): re-root the agent's workspace mid-session.
-    /// With no arg, reports the current root. Otherwise rebuilds the whole tool
-    /// registry scoped to the new directory and starts a fresh model thread.
-    /// Goals, memories, loops, steers, system instructions, and conversation
-    /// history are project-bound and never cross this boundary.
     pub(crate) fn change_workspace(&mut self, arg: Option<&str>) -> String {
         self.launch_interaction();
         let current = self.tools.current_workspace().to_path_buf();
         let Some(arg) = arg else {
             return format!("working directory: {}", current.display());
         };
-        // `/cd` is only reachable via `submit`, which early-returns while a turn or
-        // bg job runs — so a swap can never race an in-flight tool batch. Guard
-        // anyway so a future refactor of that gate can't reintroduce the race.
         if self.thinking.is_some()
             || self.bg_job.is_some()
             || self.loop_pending.is_some()
@@ -153,9 +140,6 @@ impl App {
         {
             return "busy — finish or interrupt the turn before /cd".to_string();
         }
-        // Expand a leading `~` / `~/` via $HOME (no tilde helper exists in-tree);
-        // leave `~user` untouched. A relative path resolves against the current
-        // workspace, shell-like.
         let expanded: PathBuf = match arg.strip_prefix('~') {
             Some(rest) if rest.is_empty() || rest.starts_with('/') => {
                 match std::env::var_os("HOME") {
@@ -170,8 +154,6 @@ impl App {
         } else {
             current.join(expanded)
         };
-        // Require the target to exist and be a directory — an interactive typo
-        // should fail loudly (unlike `--task`, which mkdir's its scratch root).
         let target = match std::fs::canonicalize(&candidate) {
             Ok(p) => p,
             Err(e) => return format!("/cd: {}: {e}", candidate.display()),
@@ -182,10 +164,6 @@ impl App {
         if target == current {
             return format!("working directory unchanged: {}", target.display());
         }
-        // Preserve the old project's transcript and pause/detach any autonomous
-        // controller before changing identity. The new project gets a fresh
-        // session and prompt; retaining the old System message here was the
-        // cross-repository instruction leak.
         if let Err(message) = self.checkpoint_before_boundary("/cd") {
             return message;
         }
@@ -210,9 +188,6 @@ impl App {
             .into_iter()
             .map(Arc::<str>::from)
             .collect();
-        // These fields can all alter a future model turn or restore old model
-        // history. They belong to the old thread, not to the process, so a
-        // project boundary must discard them together with `history`.
         self.parked_threads.clear();
         self.plan_mode = false;
         self.personality = None;
@@ -221,15 +196,9 @@ impl App {
         crate::agent::tools::solo::set_solo_mode(false);
         self.clear_moa_arm();
         self.session_title = None;
-        // PTYs retain their own cwd independently of the tool registry. Keeping
-        // one alive here would leave an apparently-current terminal operating
-        // on the repository we just left.
         self.close_shell(None);
-        // Project-derived artifacts and visualization state must not make the
-        // new repository look as if it produced the old repository's output.
         self.media.clear();
         self.media_scroll = 0;
-        // A screenshot staged before /cd belongs to the thread being detached.
         self.clipboard_paste.clear();
         self.pending_stage_copy = None;
         self.clipboard_image_copy = None;
@@ -255,10 +224,6 @@ impl App {
         format!("working directory → {}", target.display())
     }
 
-    /// `--resume [id]` startup path (the phoenix relight): load a saved session
-    /// before the first frame — the same reload `/resume` does, so a reborn self
-    /// (or a plain restart) continues the conversation it left. `true` when a
-    /// saved session was loaded.
     pub(crate) fn startup_resume(&mut self, id: Option<String>) -> bool {
         let workspace = self.tools.current_workspace().to_path_buf();
         match crate::app::local_command::resume(id, &workspace) {
@@ -290,9 +255,6 @@ impl App {
         }
     }
 
-    /// One SessionStart after process startup. A relight that loaded a saved
-    /// session reports `resume`; a fresh session, including a resume that found
-    /// nothing, reports `startup`.
     pub(crate) fn announce_startup_session(&mut self, resume: Option<Option<String>>) {
         let resumed = resume.is_some_and(|id| self.startup_resume(id));
         self.emit_session_start(if resumed {
@@ -302,7 +264,6 @@ impl App {
         });
     }
 
-    /// Best-effort SessionStart for the session this process is holding.
     pub(crate) fn emit_session_start(&self, source: crate::agent::harness::SessionStartSource) {
         if self.session.is_disabled() {
             return;
@@ -314,7 +275,6 @@ impl App {
         );
     }
 
-    /// The in-hand box and (when it has more than one) the active mode.
     fn in_hand_model(&self) -> String {
         if self.bag.in_hand_label() == "practice" {
             return "no live model".to_string();
@@ -325,7 +285,6 @@ impl App {
         }
     }
 
-    /// `/status`: session configuration + usage at a glance.
     pub(crate) fn status_text(&self) -> String {
         let agents = self
             .bag
@@ -377,15 +336,9 @@ impl App {
                 self.loop_ctl.findings.len()
             ));
         }
-        // The headless Mission ledger projected into the TUI: the most recent
-        // mission's state on one line, so `/status` answers "what am I driving
-        // and how many rounds in" without leaving for the CLI.
         if let Some(mission) = crate::app::mission::latest_mission_line() {
             out.push_str(&format!("\n  mission  {mission}"));
         }
-        // An open Librarium lesson is operator-owned local state worth naming:
-        // which resident tutor owns it, and that the Recall check waits at the
-        // end of the lesson.
         if let Some(lesson) = self.scryglass.lesson() {
             out.push_str(&format!(
                 "\n  lesson   {} · {} · recall ready",
@@ -404,8 +357,6 @@ impl App {
         if !active_modules.is_empty() {
             out.push_str(&format!("\n  modules  {active_modules}"));
         }
-        // Backend-reported usage for the in-hand model (token counts, plan limits),
-        // when it exposes any — e.g. the OpenAI/Codex club after a turn.
         if let Some(usage) = self.bag.in_hand().usage_report() {
             out.push('\n');
             out.push_str(&usage);
@@ -436,7 +387,6 @@ impl App {
         }
     }
 
-    /// `/model`: the in-hand box/model, its reasoning effort, and how to switch.
     pub(crate) fn model_info_text(&self) -> String {
         let agents = {
             let agents = self
@@ -469,12 +419,6 @@ impl App {
         )
     }
 
-    /// `/approvals [on|off]`: flip the swarm human-approval gate. The command
-    /// layer handles `probe` and the provider-free broker `selftest` before this
-    /// operational toggle.
-    /// The nested
-    /// `/approvals actions [observe|on|off]` form controls the lean action
-    /// capsule at the interactive root; neither mode adds a model call.
     pub(crate) fn toggle_approvals(&self, arg: Option<&str>) -> String {
         let raw = arg.map(str::trim).unwrap_or("");
         if let Some(rest) = raw.strip_prefix("actions") {
@@ -498,15 +442,12 @@ impl App {
             };
             match next {
                 crate::agent::harness::ActionCapsuleMode::Off => {
-                    // TODO: Audit that the environment access only happens in single-threaded code.
                     unsafe { std::env::set_var("ANGEL_ACTION_CAPSULES", "off") }
                 }
                 crate::agent::harness::ActionCapsuleMode::Observe => {
-                    // TODO: Audit that the environment access only happens in single-threaded code.
                     unsafe { std::env::set_var("ANGEL_ACTION_CAPSULES", "observe") }
                 }
                 crate::agent::harness::ActionCapsuleMode::Approve => {
-                    // TODO: Audit that the environment access only happens in single-threaded code.
                     unsafe { std::env::set_var("ANGEL_ACTION_CAPSULES", "approve") }
                 }
             }
@@ -532,10 +473,8 @@ impl App {
             Some(_) => return "usage: /approvals [on|off|probe|selftest]".to_string(),
         };
         if target {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::set_var("ANGEL_SWARM_APPROVE", "1") };
         } else {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::remove_var("ANGEL_SWARM_APPROVE") };
         }
         format!(
@@ -545,9 +484,6 @@ impl App {
         )
     }
 
-    /// `/yolo [on|off|status|smart|full]`: operator execution posture.
-    /// `on`/`full` = unrestricted machine authority; `smart` = powerful coding
-    /// without lifting sandbox/timeouts/hooks (same as `/yolos on`).
     pub(crate) fn toggle_yolo(&self, arg: Option<&str>) -> String {
         match arg
             .map(str::trim)
@@ -570,10 +506,6 @@ impl App {
         crate::platform::yolo::status_text()
     }
 
-    /// `/yolos [on|off|status]`: smart / powerful-coding posture — skips
-    /// workspace action modals, auto-approves local shell/write batches and
-    /// gate-green self-edit merges, allows effectful code_mode; keeps sandbox,
-    /// timeouts, hooks, and verify/hop gates. Alias of `/yolo smart`.
     pub(crate) fn toggle_yolos(&self, arg: Option<&str>) -> String {
         match arg
             .map(str::trim)
@@ -588,8 +520,6 @@ impl App {
                 if crate::platform::yolo::smart_enabled() {
                     crate::platform::yolo::set_smart(false);
                 } else if crate::platform::yolo::enabled() {
-                    // Leaving /yolos off while Full is on: tell the operator
-                    // they need /yolo off for full authority.
                     return format!(
                         "YOLO SMART is already off — full YOLO is still active. {}\n\
                          use /yolo off to leave unrestricted mode",
@@ -609,10 +539,6 @@ impl App {
         crate::platform::yolo::smart_status_text()
     }
 
-    /// `/comp [on|off|status|podrace|loop|flash|handoff]` (aliases `/turbo`, `/angelturbo`, `/lean`):
-    /// toggle ultra-lean high-speed execution posture, or immediately launch autonomous loops with RL tools attached.
-    /// Tables the miniworld, Kitty graphics, and terrain raycasting to maximize frame speed
-    /// and eliminate background ticking, while keeping all tools available on demand.
     pub(crate) fn toggle_comp(&mut self, arg: Option<&str>) -> String {
         let trimmed = arg.map(str::trim).unwrap_or("");
         if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("status") {
@@ -666,10 +592,7 @@ impl App {
         }
     }
 
-    /// `/experimental [flag]`: list or toggle feature-flag env vars. Some are read
-    /// live (per turn), some only at startup — reported per flag, honestly.
     pub(crate) fn toggle_experimental(&self, arg: Option<&str>) -> String {
-        // (command name, env var, read-live?)
         const FLAGS: &[(&str, &str, bool)] = &[
             ("fallback", "ANGEL_FALLBACK", true),
             ("approve", "ANGEL_SWARM_APPROVE", true),
@@ -708,14 +631,10 @@ impl App {
                 };
                 let was_on = std::env::var_os(env).is_some();
                 if was_on {
-                    // TODO: Audit that the environment access only happens in single-threaded code.
                     unsafe { std::env::remove_var(env) };
                 } else {
-                    // TODO: Audit that the environment access only happens in single-threaded code.
                     unsafe { std::env::set_var(env, "1") };
                 }
-                // Keep the draw/turn atomic in lockstep with the env for the
-                // live-read fallback flag (every frame used to re-hit env).
                 if *env == "ANGEL_FALLBACK" {
                     crate::agent::club::set_fallback_armed(!was_on);
                 }
@@ -732,7 +651,6 @@ impl App {
         }
     }
 
-    /// `/mcp` (`/tools`): the registered tool registry, MCP tools included.
     pub(crate) fn mcp_text(&self) -> String {
         let defs = self.tools.defs();
         let mut names: Vec<&str> = defs.iter().map(|d| d.name.as_str()).collect();
@@ -743,16 +661,6 @@ impl App {
         format!("tools ({}):\n  {}", names.len(), names.join("  "))
     }
 
-    /// `/compact`: distill older turns into structured notes via the shared
-    /// bounded [`crate::agent::compaction`] core — filing them to long-term memory and replacing
-    /// them with a terse inline note — instead of plain truncation, so nothing is
-    /// lost. Leading system messages and the last `KEEP` turns are preserved.
-    ///
-    /// The bounded deterministic pass (and deposits) runs on a background thread
-    /// so the TUI stays responsive; the result is applied in [`App::advance`] via
-    /// a [`BgOutcome`]. `submit` is gated on `bg_job`, so the window indices stay
-    /// valid until then. `ANGEL_COMPACT_SYNC_LLM=1` restores model-backed
-    /// map/reduce with a finite per-call ceiling for controlled comparisons.
     pub(crate) fn spawn_compact(&mut self) {
         const KEEP: usize = 8;
         let Some((sys_end, window_end)) =
@@ -767,8 +675,6 @@ impl App {
         let dropped = window_end - sys_end;
         let store = self.tools.memory_store();
         let club = self.bag.in_hand_with_fallback();
-        // Candidates for the local-first summarizer policy (cheap Arc clones —
-        // the availability probe happens on the worker thread, never here).
         let aux = crate::app::bootstrap::utility_roster(&self.bag);
         let workspace = self.tools.current_workspace().to_path_buf();
         let wing = crate::agent::compaction::project_wing_for(&workspace);
@@ -785,9 +691,6 @@ impl App {
             }
             let started = std::time::Instant::now();
             let result = if use_model {
-                // Explicit compatibility/quality mode. Unlike the old
-                // `usize::MAX` single request, bound each map/reduce call so one
-                // giant session cannot become a half-hour generation.
                 let club = crate::agent::harness::summarizer_for(club, &aux);
                 crate::agent::compaction::compact_window_with_state_budget(
                     club.as_ref(),
@@ -812,9 +715,6 @@ impl App {
             let outcome = match result {
                 Some(result) => {
                     let n = result.drawers.len();
-                    // Deposits are returned with the splice and started only
-                    // after the UI accepts the result. A cancelled job therefore
-                    // cannot mutate long-term memory after releasing its slot.
                     let deposits = if live && n > 0 {
                         Some(MemoryDepositBatch::new(
                             Arc::clone(&store),
@@ -859,8 +759,6 @@ impl App {
         self.system_msg("compacting context… (kept responsive; result appears here)".to_string());
     }
 
-    /// `/fork`: snapshot the current history into a new session and continue there,
-    /// leaving the original intact.
     pub(crate) fn fork_session(&mut self) -> String {
         let mut forked = session::Session::new();
         forked.bind(self.tools.current_workspace());
@@ -876,7 +774,6 @@ impl App {
         format!("forked → session {id} (original left intact; now writing to the fork)")
     }
 
-    /// `/archive`: move this session's file to an `archived/` dir; caller exits.
     pub(crate) fn archive_session(&mut self) -> String {
         let src = self.session.path().to_path_buf();
         let Some(dir) = src.parent().map(|p| p.join("archived")) else {
@@ -890,7 +787,6 @@ impl App {
         }
     }
 
-    /// `/delete`: remove this session's file; caller exits.
     pub(crate) fn delete_session(&mut self) -> String {
         let path = self.session.path().to_path_buf();
         match std::fs::remove_file(&path) {
@@ -899,9 +795,6 @@ impl App {
         }
     }
 
-    /// `/mention <file>`: read one bounded, descriptor-confined workspace file
-    /// and send its contents as Harness-role evidence beside a separate
-    /// operator task.
     pub(crate) fn mention_file(
         &mut self,
         arg: Option<&str>,
@@ -930,8 +823,6 @@ impl App {
                 let mut content = String::from_utf8_lossy(&prefix.bytes).into_owned();
                 let normalized_was_larger = content.len() > MENTION_CAP_BYTES;
                 crate::agent::harness::truncate_to_char_boundary(&mut content, MENTION_CAP_BYTES);
-                // `⡸⠋`: the frame and the bound are the pages; the path, the
-                // cap and the omitted bytes ride beside them.
                 use crate::agent::harness::book::{d3_roles::pages, d4567_briefs::MENTION};
                 let note = if prefix.truncated {
                     format!(
@@ -961,7 +852,6 @@ impl App {
         }
     }
 
-    /// A custom keybind matching this key, if any (checked before the defaults).
     pub(crate) fn lookup_keybind(&self, code: KeyCode, mods: KeyModifiers) -> Option<Action> {
         self.keybinds
             .iter()
@@ -969,7 +859,6 @@ impl App {
             .map(|b| b.action)
     }
 
-    /// Run a remappable input action.
     pub(crate) fn do_action(&mut self, action: Action) {
         if matches!(
             action,
@@ -1014,8 +903,6 @@ impl App {
         }
     }
 
-    /// `/keymap`: show bindings, or `/keymap <key> <action>` to remap, `reset` to
-    /// clear overrides. Custom binds take precedence over the defaults in `on_key`.
     pub(crate) fn run_keymap(&mut self, arg: Option<&str>) -> String {
         match arg {
             None => {
@@ -1058,8 +945,6 @@ impl App {
         }
     }
 
-    /// `/import`: list recent Codex sessions, or load one as cockpit history.
-    /// `/import` lists, `/import <n>` or `/import latest` imports.
     pub(crate) fn import_codex(&mut self, arg: Option<&str>) -> String {
         let sessions = crate::app::codex_import::list(10);
         if sessions.is_empty() {
@@ -1094,9 +979,6 @@ impl App {
                     .iter()
                     .filter(|m| matches!(m.role, ChatRole::User))
                     .count();
-                // Import is an explicit request to bring conversation content
-                // across, never authority. Discard every foreign System message
-                // and install the current repository's freshly built prompt.
                 crate::app::bootstrap::refresh_history(
                     &self.bag,
                     self.tools.current_workspace(),
@@ -1121,9 +1003,6 @@ impl App {
         }
     }
 
-    /// `/raw`: atomically export the role-filtered persisted conversation
-    /// rendered by `conversation_markdown`. Transient System/Activity display
-    /// rows never cross this boundary.
     pub(crate) fn dump_transcript(&self, body: &str) -> String {
         let Ok(home) = std::env::var("HOME") else {
             return "/raw: HOME is unavailable; no transcript written".to_string();
@@ -1139,8 +1018,6 @@ impl App {
         {
             return format!("/raw: create {}: {error}", dir.display());
         }
-        // Bulk tier: /raw is an exact, regenerable export — atomic publish
-        // without redaction or fsync.
         match crate::platform::workspace_store::write_atomic(&path, body.as_bytes()) {
             Ok(()) => format!(
                 "visible conversation ({} chars) → {} (copy-friendly Markdown)",
@@ -1151,10 +1028,6 @@ impl App {
         }
     }
 
-    /// `/skills`: list skill bundles, or load an ordered stack
-    /// (`/skills <name>[,<name>...] [task]`) and hand it to the agent as
-    /// Harness-role context beside a separate operator task. Returns
-    /// `Some(turn)` when the requested stack is loaded.
     pub(crate) fn run_skill(
         &mut self,
         arg: Option<&str>,
@@ -1249,7 +1122,6 @@ impl App {
             return None;
         }
 
-        // `⡸⠛`: the stand-in task is a page; the names ride beside it.
         use crate::agent::harness::book::{d3_roles::pages, d4567_briefs::SKILLS};
         let operator_task = match task {
             Some(task) => task.to_string(),
@@ -1262,8 +1134,6 @@ impl App {
         ))
     }
 
-    /// A cartridge command (`/<name> <task>`): its skills, as `/skills` would
-    /// stack them, beside the operator's task. `None` when nothing is sent.
     pub(crate) fn run_cartridge_command(
         &mut self,
         name: &str,
@@ -1298,9 +1168,6 @@ impl App {
         confirmation
     }
 
-    /// `/memories`: the persistent memory store. `list` (no arg) · `add <text>` ·
-    /// `forget <n>` · `clear`. Bare text is shorthand for `add`. Saved to disk and
-    /// injected into every agent turn (see `submit`).
     pub(crate) fn run_memories(&mut self, arg: Option<&str>) -> String {
         let Some(a) = arg else {
             if self.memories.is_empty() {
@@ -1343,12 +1210,8 @@ impl App {
                 }
                 _ => format!("usage: /memories forget <1..{}>", self.memories.len()),
             },
-            // Long-form memory palace overview (drawer counts + wing/room map).
-            // The status call is a network round-trip, so run it off-thread and
-            // Search the long-form palace (same as the top-level `/recall`).
             "search" | "recall" if !rest.is_empty() => self.spawn_palace_search(rest),
             "search" | "recall" => "usage: /memories search <query>".to_string(),
-            // show the result via `advance` rather than freezing the UI.
             "palace" | "status" => {
                 let store = self.tools.memory_store();
                 if !store.is_live() {
@@ -1374,7 +1237,6 @@ impl App {
                 self.bg_job = Some(job);
                 "checking long-term memory…".to_string()
             }
-            // Bare text → remember it.
             _ => {
                 if let Err(error) = crate::knowledge::memory::validate_add(&self.memories, a) {
                     return format!("/memories: {error}");
@@ -1386,9 +1248,6 @@ impl App {
         }
     }
 
-    /// `/recall <query>`: search the long-form memory palace from the cockpit
-    /// (the human-facing counterpart to the agent's `recall` tool). The query
-    /// round-trips to MemPalace, so it runs off-thread and lands via `advance`.
     pub(crate) fn run_recall(&mut self, arg: Option<&str>) -> String {
         match arg.map(str::trim).filter(|s| !s.is_empty()) {
             Some(query) => self.spawn_palace_search(query),
@@ -1396,9 +1255,6 @@ impl App {
         }
     }
 
-    /// Run a palace search off the event loop and surface the hits via `advance`.
-    /// Scoped to the current project wing (where this session's drawers are filed).
-    /// Returns the immediate status line; the results arrive as a [`BgOutcome`].
     fn spawn_palace_search(&mut self, query: &str) -> String {
         let store = self.tools.memory_store();
         if !store.is_live() {
@@ -1430,20 +1286,8 @@ impl App {
         format!("searching long-term memory for “{query}”…")
     }
 
-    /// `/quest gauntlet <question>`: fan the question across the reachable fleet
-    /// clubs, tap each one's private reasoning as it streams, and chronicle the
-    /// lot as one themed quest map per model (`questmap::render_party`). Like the
-    /// rest of the quest map this is **pure display** — the traces never re-enter
-    /// history or any turn. Runs off the UI thread like `/compact`; the chronicle
-    /// lands via a [`BgOutcome::Note`]. (Milestone M1 in the questmap handoff.)
-    ///
-    /// Returns the immediate status line; the map arrives in `advance`.
     pub(crate) fn spawn_quest_gauntlet(&mut self, question: &str) -> String {
-        /// Cap on chroniclers so a broad fleet can't flood the transcript.
         const MAX: usize = 6;
-        // Steer every club to think out loud, so a non-reasoning model still
-        // leaves a chartable trail (reasoning models emit `reasoning_content`
-        // regardless): `⠬⠚⠃`. Terse, and never saved to history.
         let steer = crate::agent::harness::book::d3_roles::pages(
             crate::agent::harness::book::ing_drivers::STAND_INS,
             [2],
@@ -1455,8 +1299,6 @@ impl App {
                     model's reasoning"
                 .to_string();
         }
-        // A gauntlet spins up worker threads and lands a `bg_job`; it must not
-        // race a live turn (`bg_job` and `thinking` are mutually exclusive).
         if self.flight_owner().is_agent_busy() {
             return "busy — finish or interrupt the current turn before /quest gauntlet"
                 .to_string();
@@ -1476,9 +1318,6 @@ impl App {
         std::thread::spawn(move || {
             let q = question.as_str();
             let steer = steer.as_str();
-            // Each club answers the same question on its own thread while we tap
-            // its reasoning; wall-clock is the slowest club, not the sum. Bounded
-            // by each club's own idle timeout inside `chat_streaming`.
             let results: Vec<(String, Result<String, String>)> = std::thread::scope(|scope| {
                 let handles: Vec<_> = roster
                     .iter()
@@ -1509,20 +1348,8 @@ impl App {
              chronicle lands here)"
         )
     }
-
-    // `/goal` (set/show/clear/refine) now lives in `goal.rs` as `App::update_goal`,
-    // beside the durable `Goal` type it operates on.
 }
 
-/// The gauntlet's chroniclers: every distinct **base** club that isn't the
-/// practice swing or a metered SOTA link, the in-hand club first (so the one
-/// you're holding always rides), capped at `max`. Dedup + ordering are a stable
-/// pass over the roster, so the same fleet always fields the same party.
-///
-/// Synthesizing meta-drivers (the swarm) are skipped via `reports_to_palace`:
-/// one gauntlet slot must be one model's raw reasoning, not a whole fan-out
-/// pipeline (which is slow and could even trip a SOTA-approval prompt on this
-/// detached worker thread).
 fn select_chroniclers(
     roster: Vec<Arc<dyn crate::agent::club::Club>>,
     in_hand: &str,
@@ -1542,25 +1369,16 @@ fn select_chroniclers(
             out.push(club);
         }
     }
-    // Stable sort with a boolean key floats the in-hand club to the front while
-    // preserving roster order among the rest.
     out.sort_by_key(|c| c.label() != in_hand);
     out.truncate(max);
     out
 }
 
-/// Ask one club the question and return its reasoning trace for the map, or the
-/// reason it sat out. Reasoning models fill `reasoning_content`; for the rest we
-/// chart the answer text itself so every club still leaves a trail. Reachability
-/// is probed here (on the worker), never on the UI thread.
 fn chronicle_one(
     club: &dyn crate::agent::club::Club,
     steer: &str,
     question: &str,
 ) -> (String, Result<String, String>) {
-    // Name the party member by the checkpoint it's serving right now (follow-
-    // backend clubs), falling back to the static label — so a gauntlet across a
-    // reshuffled fleet reads as the models that actually ran, not stale hints.
     let label = club
         .live_model_name()
         .map(|id| crate::agent::club::short_model_label(&id))
@@ -1572,8 +1390,6 @@ fn chronicle_one(
     let cancel = std::sync::atomic::AtomicBool::new(false);
     let mut reasoning = String::new();
     let mut content = String::new();
-    // Connected: the chronicler is offered the ledger reader alone, so it can
-    // read the steer's route; the reasoning of every hop is charted.
     let workspace = crate::agent::harness::book::connect::workspace();
     let outcome =
         crate::agent::harness::book::connect::converse(&workspace, &msgs, |history, tools| {
@@ -1591,9 +1407,6 @@ fn chronicle_one(
     }
 }
 
-/// Assemble the gauntlet chronicle: the party map for every club that left a
-/// trace, plus a terse "sat out" footer for the ones that couldn't. Kept pure so
-/// it's testable without a live fleet.
 fn gauntlet_note(charted: &[(String, String)], skipped: &[String]) -> String {
     if charted.is_empty() {
         return format!(
@@ -1620,8 +1433,6 @@ mod gauntlet_tests;
 #[path = "../../../../tests/cockpit/app/app_control__session_meta__session_start_tests.rs"]
 mod session_start_tests;
 
-/// `⡸⠛`: the frame is the pages; the count and each skill's text ride beside
-/// them, fenced in listed order.
 fn skill_stack_evidence(selected: &[&crate::agent::harness::Skill]) -> String {
     use crate::agent::harness::book::{d3_roles::pages, d4567_briefs::SKILLS};
     let mut evidence = format!(

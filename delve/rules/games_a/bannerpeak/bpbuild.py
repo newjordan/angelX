@@ -74,7 +74,6 @@ def build(subs):
 def check(out_dir):
     r = subprocess.run(["timeout", "300", str(BEND), str(out_dir / "rules.bend")], capture_output=True, text=True)
     txt = r.stdout + r.stderr
-    # the build marks every def unsafe: that verdict is expected
     keep = [l for l in txt.splitlines() if not l.startswith("defs that depend on @unsafe") and "SOME PROOFS FAIL" not in l
             and not re.match(r"Error: \d+ defs rely on unsafe", l)]
     if keep:

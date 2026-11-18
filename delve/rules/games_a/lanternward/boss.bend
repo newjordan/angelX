@@ -1,8 +1,3 @@
-# crates/delve/src/rules/lanternward/boss.rs — the Warden. The Warden being
-# stepped rides in `s["$w"]` (and `s["boss"]` is null meanwhile, as Rust's
-# `take()` leaves it). `$parried` collects whether a beam or ring was parried.
-
-# The lamp-heart's place: [x, y] (in its chest, toward where it faces).
 def lanternward.boss.Warden.heart.x(+w: J.Val) -> U32:
   (ga.u(w, "x") + ga.nu(ga.v(w, "face"), 0) * 9 : U32)
 
@@ -26,7 +21,6 @@ def lanternward.boss.Warden.new.go(+x: U32, +y: U32, +seats: U32, +full: U32, +p
 def lanternward.zeros6() -> J.Val:
   J.JA{[J.JU{0}, J.JU{0}, J.JU{0}, J.JU{0}, J.JU{0}, J.JU{0}]}
 
-# Whether every number is one a save or the wire may carry.
 def lanternward.boss.Warden.valid(+w: J.Val) -> Bool:
   Bool.and(
     Bool.and(
@@ -40,7 +34,6 @@ def lanternward.boss.Warden.valid(+w: J.Val) -> Bool:
           RS.i_le(lanternward.world.dist(ga.nu(ga.v(w, "face"), 0), ga.nu(ga.v(w, "face"), 1)), 264),
           Bool.and(U32.is_le(ga.u(w, "dead"), 600), U32.is_le(ga.u(w, "start"), ga.u(w, "full")))))))
 
-# How many knights' light the shutter wants.
 def lanternward.boss.Warden.need(+w: J.Val, +seats: U32) -> U32:
   Bool.pick(U32, U32.is_ge(ga.u(w, "phase"), 1), RS.u_min(seats, 2), 1)
 
@@ -51,13 +44,11 @@ def lanternward.boss.lit_count(+xs: List<&2, J.Val>, +now: U32) -> U32:
     case Con{+h, +t}:
       (Bool.to_u32(Bool.and(U32.is_gt(J.u32(h), 0), U32.is_gt((J.u32(h) + 90 : U32), now))) + lanternward.boss.lit_count(t, now) : U32)
 
-# Whether the shutter is open at tick `now`.
 def lanternward.boss.Warden.exposed(+w: J.Val, +now: U32, +seats: U32) -> Bool:
   Bool.or(
     lanternward.is(w, "st", "Stagger"),
     U32.is_ge(lanternward.boss.lit_count(ga.items(w, "lit"), now), lanternward.boss.Warden.need(w, seats)))
 
-# Light fell on the lamp-heart from seat `owner`.
 def lanternward.boss.Session.light_heart(+s: J.Val, +owner: U32) -> J.Val:
   lanternward.boss.Session.light_heart.go(
     Bool.and(Bool.not(J.is_null(J.get(s, "boss"))), Bool.and(U32.is_ge(owner, 1), U32.is_le(owner, 6))), s, owner)
@@ -77,8 +68,6 @@ def lanternward.boss.Session.boss_exposed(+s: J.Val) -> Bool:
 def lanternward.boss.Session.boss_open(+s: J.Val) -> Bool:
   lanternward.boss.Session.boss_exposed(s)
 
-# A blade or a pot on the Warden. Only the open heart can be hurt. `$ret` is
-# whether it hurt.
 def lanternward.boss.Session.hurt_boss(+s: J.Val, +dmg: U32, +fx: U32, +fy: U32, +owner: U32) -> J.Val:
   lanternward.boss.Session.hurt_boss.open(lanternward.boss.Session.boss_exposed(s), s, dmg, fx, fy)
 
@@ -122,7 +111,6 @@ def lanternward.boss.Session.hurt_boss.after(dead: Bool, +phase: U32, +before: U
     case False{}:
       lanternward.boss.Session.hurt_boss.live(U32.is_gt(phase, before), phase, w, s)
 
-# It dies: its summons go out with it.
 def lanternward.boss.Session.hurt_boss.die(+w: J.Val, +s: J.Val) -> J.Val:
   ga.sb(
     ga.su(
@@ -155,7 +143,6 @@ def lanternward.boss.Session.hurt_boss.foe(alive: Bool, +s: J.Val, +i: U32) -> J
     case True{}:
       lanternward.es(lanternward.es(lanternward.eset(lanternward.es(s, "foes", i, "hp", 0), "foes", i, "st", J.JS{"Dying"}), "foes", i, "dead", 0), "foes", i, "dead", 0)
 
-# Not dead: a new phase rears it and slams the shutter; else a plain hit.
 def lanternward.boss.Session.hurt_boss.live(rise: Bool, +phase: U32, +w: J.Val, +s: J.Val) -> J.Val:
   match rise:
     case True{}:
@@ -175,7 +162,6 @@ def lanternward.boss.Session.hurt_boss.rise(+phase: U32, +w: J.Val, +s: J.Val) -
       "shake", 8),
     "flash", RS.u_max(ga.u(s, "flash"), 6))
 
-# The Gloam falls: every lamp in the arena is snuffed.
 def lanternward.boss.Session.hurt_boss.dark(last: Bool, +s: J.Val) -> J.Val:
   match last:
     case False{}:
@@ -207,7 +193,6 @@ def lanternward.boss.Session.hurt_boss.spark(+s: J.Val) -> J.Val:
       lanternward.boss.Warden.heart.x(J.get(s, "boss")), lanternward.boss.Warden.heart.y(J.get(s, "boss")), 0),
     "$ret", True{})
 
-# A bomb's blast near the Warden: it counts only on an open heart.
 def lanternward.boss.Session.blast_boss(+s: J.Val, +x: U32, +y: U32) -> J.Val:
   lanternward.boss.Session.blast_boss.go(
     Bool.not(J.is_null(J.get(s, "boss"))), s, x, y)
@@ -230,8 +215,6 @@ def lanternward.boss.Session.blast_boss.hit(near: Bool, +s: J.Val, +x: U32, +y: 
     case True{}:
       lanternward.boss.Session.hurt_boss(s, 8, x, y, 0)
 
-# A retry puts the Warden back at the start of the phase it was in, at the
-# health the table gave it.
 def lanternward.boss.Session.reset_boss_phase(+s: J.Val) -> J.Val:
   lanternward.boss.Session.reset_boss_phase.go(
     Bool.and(Bool.not(J.is_null(J.get(s, "boss"))), U32.is_gt(ga.u(J.get(s, "boss"), "hp"), 0)),
@@ -258,9 +241,6 @@ def lanternward.boss.Session.reset_boss_phase.set(+s: J.Val, +px: U32, +py: U32)
   +w2 = ga.sv(ga.sv(ga.si(ga.si(w1, "x", px), "y", py), "danger", J.JS{"None"}), "lit", lanternward.zeros6())
   ga.sv(s, "boss", ga.su(ga.su(w2, "struck", 0), "n", 0))
 
-# ---- the Warden's tick ----
-
-# Flares held on the heart keep it lit.
 def lanternward.boss.step_boss.flares(+s: J.Val, +ids: List<&2, U32>, +hx: U32, +hy: U32) -> J.Val:
   match ids:
     case Nil{}:
@@ -284,7 +264,6 @@ def lanternward.boss.step_boss.flare(ok: Bool, +s: J.Val, +id: U32) -> J.Val:
     case True{}:
       lanternward.boss.Session.light_heart(s, id)
 
-# One tick of the Warden.
 def lanternward.boss.Session.step_boss(+s: J.Val) -> J.Val:
   lanternward.boss.step_boss.go(J.is_null(J.get(s, "boss")), s)
 
@@ -304,14 +283,12 @@ def lanternward.boss.step_boss.take(+s: J.Val) -> J.Val:
       ga.sv(ga.sv(ga.sv(s, "$w", lanternward.wsub(J.get(s, "boss"))), "boss", J.JNull{}), "$parried", J.JBool{False{}}),
       lanternward.foes.Session.nearest_knight(s, ga.u(J.get(s, "boss"), "x"), ga.u(J.get(s, "boss"), "y"))))
 
-# w.flinch = w.flinch.saturating_sub(1), applied as the Warden is taken.
 def lanternward.wsub(+w: J.Val) -> J.Val:
   ga.su(w, "flinch", RS.u_sat_sub(ga.u(w, "flinch"), 1))
 
 def lanternward.boss.step_boss.fin(+s: J.Val) -> J.Val:
   J.del(ga.sv(lanternward.boss.step_boss.shove(s, ga.ids(J.get(s, "seats"))), "boss", J.get(s, "$w")), "$w")
 
-# It is a body: a knight cannot stand in it.
 def lanternward.boss.step_boss.shove(+s: J.Val, +ids: List<&2, U32>) -> J.Val:
   lanternward.boss.step_boss.shove.go(Bool.not(lanternward.wis(s, "st", "Dying")), s, ids)
 
@@ -487,7 +464,6 @@ def lanternward.boss.step_boss.stagger(zero: Bool, +s: J.Val) -> J.Val:
     case True{}:
       lanternward.ws(lanternward.wsn(s, "st", "Rest"), "t", 30)
 
-# The strike: sweep a beam, or send a ring along the ground.
 def lanternward.boss.step_boss.strike(+s: J.Val) -> J.Val:
   lanternward.boss.step_boss.strike.go(
     (lanternward.boss.atk_ticks(ga.s(J.get(s, "$w"), "atk")) - lanternward.wu(s, "t") : U32), s)
@@ -507,7 +483,6 @@ def lanternward.boss.step_boss.strike.kind(+code: U32, +elapsed: U32, +s: J.Val)
     case _:
       s
 
-# One beam of the sweep (and its twin in the last phase): `b` is 0 or 1.
 def lanternward.boss.step_boss.beam(+s: J.Val, +elapsed: U32, +b: U32) -> J.Val:
   lanternward.boss.step_boss.beam.go(
     U32.is_lt(b, Bool.pick(U32, U32.is_ge(lanternward.wu(s, "phase"), 2), 2, 1)),
@@ -587,7 +562,6 @@ def lanternward.boss.step_boss.strike.tick(zero: Bool, +s: J.Val) -> J.Val:
         lanternward.ws(lanternward.wsn(s, "st", "Recover"), "t", Bool.pick(U32, lanternward.wis(s, "atk", "Summon"), 30, 44)),
         "danger", J.JS{"None"})
 
-# Choose the Warden's next attack and show where it will land.
 def lanternward.boss.pattern(+phase: U32, +n: U32) -> String:
   match phase:
     case 0:
@@ -648,8 +622,6 @@ def lanternward.boss.begin_attack.fan(+aim: U32, +s: J.Val) -> J.Val:
     lanternward.variant("Fan",
       ga.si(ga.si(ga.si(ga.si(ga.si(J.obj(), "x", lanternward.wu(s, "x")), "y", lanternward.wu(s, "y")), "deg", aim), "half", 56), "r", 38400)))
 
-# The Warden's blow on every knight in `line` it has not yet struck. A parry
-# sets `$parried`.
 def lanternward.boss.Session.warden_hits(+s: J.Val, +line: J.Val, +dmg: U32, +kind: String) -> J.Val:
   lanternward.boss.warden_hits.ids(ga.ids(J.get(s, "seats")), s, line, dmg, kind)
 
@@ -686,7 +658,6 @@ def lanternward.boss.warden_hits.res(+out: String, +s: J.Val, +bit: U32) -> J.Va
       ga.sb(lanternward.ws(s, "struck", U32.or(lanternward.wu(s, "struck"), bit)), "$parried", True{}),
       lanternward.ws(s, "struck", U32.or(lanternward.wu(s, "struck"), bit))))
 
-# Snuffers climb out of the fissures (hooded, in the last phase).
 def lanternward.boss.Session.summon(+s: J.Val) -> J.Val:
   lanternward.boss.summon.marks(
     s, lanternward.world.Plan.find(4, 102),
@@ -730,7 +701,6 @@ def lanternward.boss.summon.crawl.go(any: Bool, +s: J.Val) -> J.Val:
         lanternward.eset(s, "foes", (lanternward.len(s, "foes") - 1 : U32), "st", J.JS{"Drift"}),
         "foes", (lanternward.len(s, "foes") - 1 : U32), "t", 30)
 
-# The index of the first prop of this kind at this tile, or null.
 def lanternward.boss.prop_at.go(+ps: List<&2, J.Val>, +kind: String, +tx: U32, +ty: U32, +i: U32) -> J.Val:
   match ps:
     case Nil{}:
@@ -750,7 +720,6 @@ def lanternward.boss.prop_at.hit(hit: Bool, +t: List<&2, J.Val>, +kind: String, 
 def lanternward.boss.Session.prop_at(+s: J.Val, +kind: String, +tx: U32, +ty: U32) -> J.Val:
   lanternward.boss.prop_at.go(ga.items(s, "props"), kind, tx, ty, 0)
 
-# The last room: the heart container, then the Beacon.
 def lanternward.boss.Session.stage_warden(+s: J.Val) -> J.Val:
   lanternward.boss.stage_warden.go(U32.is_eq(ga.u(s, "stage"), 3), s)
 
@@ -805,7 +774,6 @@ def lanternward.boss.stage_warden.relit(yes: Bool, +s: J.Val, +i: U32) -> J.Val:
             "circle_toll"),
           "wish_grant"))
 
-# How long the shutter has left open, 0 if shut.
 def lanternward.boss.min_open(+xs: List<&2, J.Val>, +now: U32, +best: J.Val) -> J.Val:
   match xs:
     case Nil{}:

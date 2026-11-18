@@ -1,8 +1,5 @@
 const { reduce } = require('./patterns-reducer.compiled.js')
 
-// Thin adapter for the pattern reducer's Bend leg. Plain JSON in, the compiled
-// fold out. Rust owns every id and every ordering; this file only turns the
-// plan into Bend constructors and the leg's counters back into plain halves.
 const nil = { $: 'Nil' }
 const cons = values => values.reduceRight((tail, head) => ({ $: 'Con', head, tail }), nil)
 const flag = value => value === true

@@ -9,9 +9,6 @@ use super::value::{Name, Value};
 use std::collections::HashMap;
 use std::hash::{BuildHasherDefault, Hasher};
 
-/// A hasher for a list's ids (small whole numbers, one apiece): one
-/// multiply, where the standard one is a cipher. Ids come from the host
-/// that is sending the list, who could already send whatever they like.
 #[derive(Default)]
 struct IdHasher(u64);
 
@@ -33,51 +30,33 @@ type ById<V> = HashMap<u64, V, BuildHasherDefault<IdHasher>>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Patch {
-    /// The value, whole.
     Set(Value),
-    /// Changed fields, and the names of fields now absent.
     Struct {
         set: Vec<(Name, Patch)>,
         gone: Vec<Name>,
     },
-    /// A list by position: its new length and the items that changed.
     Seq { len: u32, items: Vec<(u32, Patch)> },
-    /// A list by position whose first `skip` items went (a list of what
-    /// fades, the oldest first): the rest moved up, then as `Seq`.
     SeqShift { skip: u32, len: u32, items: Vec<(u32, Patch)> },
-    /// A list of things with ids: their order now, and those that changed
-    /// or are new.
     Keyed {
         order: Vec<u64>,
         items: Vec<(u64, Patch)>,
     },
-    /// A list of things with ids still in the order it had, some gone and
-    /// new ones after the rest (shots loosed, monsters come): the ids gone,
-    /// and those that changed or are new, the new in their order.
     KeyedEdit {
         gone: Vec<u64>,
         items: Vec<(u64, Patch)>,
     },
-    /// A map: keys gone, and entries that changed or are new.
     Map {
         gone: Vec<Value>,
         items: Vec<(Value, Patch)>,
     },
-    /// Still `Some`, and what changed inside.
     Some(Box<Patch>),
-    /// The same variant, and what changed inside.
     Variant(Box<Patch>),
 }
 
-/// What turns `old` into `new`, or None when they are the same. A subtree
-/// both trees share (`Value::Shared`) is passed by unread; any other is
-/// walked once, not compared whole at each level on the way down.
 pub fn diff(old: &Value, new: &Value) -> Option<Patch> {
     diff_with_order(old, new, false)
 }
 
-/// Diff with exact Struct/Map entry order for private owner read views.
-/// Legacy wire callers retain their established compact patch representation.
 pub fn diff_exact(old: &Value, new: &Value) -> Option<Patch> {
     diff_with_order(old, new, true)
 }
@@ -91,15 +70,11 @@ fn diff_with_order(old: &Value, new: &Value, exact: bool) -> Option<Patch> {
     match (old.get(), new.get()) {
         (Value::Struct(a), Value::Struct(b)) => {
             let same_names = a.len() == b.len() && a.iter().zip(b).all(|((n, _), (m, _))| n == m);
-            // Struct patches retain surviving fields then append additions.
-            // Optional serde fields can reappear in the middle; send the whole
-            // subtree when that order cannot be represented by this patch.
             if exact && !same_names && !append_order(a, b) {
                 return Some(Patch::Set(new.clone()));
             }
             let mut set = Vec::new();
             for (i, (name, value)) in b.iter().enumerate() {
-                // A struct's fields come in the same order tick to tick.
                 let was = match a.get(i) {
                     Some((n, v)) if n == name => Some(v),
                     _ => a.iter().find(|(n, _)| n == name).map(|(_, v)| v),
@@ -130,8 +105,6 @@ fn diff_with_order(old: &Value, new: &Value, exact: bool) -> Option<Patch> {
     }
 }
 
-/// A thing's id: a struct's `id` field. A list of things puts it last
-/// (`angel_delve::wire::flight::shot_value`), so the walk starts there.
 fn id_of(item: &Value) -> Option<u64> {
     match item.get() {
         Value::Struct(fields) => fields.iter().rev().find(|(n, _)| n == "id").and_then(|(_, v)| v.as_id()),
@@ -139,11 +112,9 @@ fn id_of(item: &Value) -> Option<u64> {
     }
 }
 
-/// A thing's id, when every item of a list is a struct with a distinct one.
 fn ids(items: &[Value]) -> Option<Vec<u64>> {
     let ids: Option<Vec<u64>> = items.iter().map(id_of).collect();
     let ids = ids?;
-    // Things numbered as they come are in order, and so distinct.
     if ids.windows(2).all(|w| w[0] < w[1]) {
         return Some(ids);
     }
@@ -176,16 +147,10 @@ fn seq(a: &[Value], b: &[Value], exact: bool) -> Option<Patch> {
     (!items.is_empty() || a.len() != b.len()).then_some(Patch::Seq { len, items })
 }
 
-/// The furthest a list's front is looked for further down the old list.
 const MOST_SHIFT: usize = 64;
 
-/// A few ids are found by a walk of the list; more are found by where each
-/// stands.
 const SMALL: usize = 8;
 
-/// How many items went from the front of a list of structs, when more of
-/// what is left lines up with the new list that way than as it stood: 0
-/// when none did.
 fn shift(a: &[Value], b: &[Value]) -> usize {
     let (Some(first), Some(was)) = (b.first(), a.first()) else {
         return 0;
@@ -200,14 +165,10 @@ fn shift(a: &[Value], b: &[Value]) -> usize {
     if alike(&a[skip..]) > alike(a) { skip } else { 0 }
 }
 
-/// A list of things with ids: as an edit of the old order when it is one
-/// (`KeyedEdit`), else with the whole order (`Keyed`).
 fn keyed(a: &[Value], b: &[Value], old_ids: Vec<u64>, new_ids: Vec<u64>, exact: bool) -> Option<Patch> {
     let mut items = Vec::new();
     let mut gone = Vec::new();
     let (mut at, mut tail, mut edit) = (0, false, true);
-    // Where each old id stands, worked out once the first of the rest asks
-    // (a walk of the old order for each would be the square of the list).
     let mut stands: Option<ById<usize>> = None;
     for (&id, value) in new_ids.iter().zip(b) {
         if !tail {
@@ -223,7 +184,6 @@ fn keyed(a: &[Value], b: &[Value], old_ids: Vec<u64>, new_ids: Vec<u64>, exact: 
             gone.extend_from_slice(&old_ids[at..]);
             at = old_ids.len();
         }
-        // After the old ones, only new ones.
         if stood(&old_ids, &mut stands, id).is_some() {
             edit = false;
             break;
@@ -248,8 +208,6 @@ fn keyed(a: &[Value], b: &[Value], old_ids: Vec<u64>, new_ids: Vec<u64>, exact: 
     Some(Patch::Keyed { order: new_ids, items })
 }
 
-/// Where `id` stands in `old_ids`: found by a walk of a short list, by
-/// the places worked out once (`stands`) of a long one.
 fn stood(old_ids: &[u64], stands: &mut Option<ById<usize>>, id: u64) -> Option<usize> {
     if old_ids.len() <= SMALL * 4 {
         return old_ids.iter().position(|&o| o == id);
@@ -260,8 +218,6 @@ fn stood(old_ids: &[u64], stands: &mut Option<ById<usize>>, id: u64) -> Option<u
         .copied()
 }
 
-/// Whether retaining old surviving entries and appending new ones produces
-/// exactly the requested order. This is the order Struct/Map patches encode.
 fn append_order<K: PartialEq, V>(a: &[(K, V)], b: &[(K, V)]) -> bool {
     let mut surviving = a.iter().filter(|(key, _)| b.iter().any(|(other, _)| key == other));
     let mut appended = false;
@@ -284,7 +240,6 @@ fn map(a: &[(Value, Value)], b: &[(Value, Value)], exact: bool) -> Option<Patch>
     }
     let mut items = Vec::new();
     for (i, (key, value)) in b.iter().enumerate() {
-        // A map's keys come in the same order tick to tick.
         let was = match a.get(i) {
             Some((k, v)) if k == key => Some(v),
             _ => a.iter().find(|(k, _)| k == key).map(|(_, v)| v),
@@ -306,14 +261,11 @@ fn map(a: &[(Value, Value)], b: &[(Value, Value)], exact: bool) -> Option<Patch>
     (!gone.is_empty() || !items.is_empty()).then_some(Patch::Map { gone, items })
 }
 
-/// Why a patch did not fit the tree it was applied to.
 #[derive(Debug, PartialEq)]
 pub struct Mismatch;
 
-/// Turn `value` into what the patch describes.
 pub fn apply(value: &mut Value, patch: Patch) -> Result<(), Mismatch> {
     if !matches!(patch, Patch::Set(_)) {
-        // Into what a shared subtree holds, copied first if need be.
         return apply_into(value.get_mut(), patch);
     }
     apply_into(value, patch)
@@ -374,8 +326,6 @@ fn apply_into(value: &mut Value, patch: Patch) -> Result<(), Mismatch> {
             let Value::Seq(list) = value else {
                 return Err(Mismatch);
             };
-            // A crowd of shots is a crowd of ids to drop and to find: each
-            // looked up where it stands, never by a walk of the list.
             if gone.len() > SMALL {
                 let gone: ById<()> = gone.iter().map(|&id| (id, ())).collect();
                 list.retain(|item| id_of(item).is_none_or(|id| !gone.contains_key(&id)));

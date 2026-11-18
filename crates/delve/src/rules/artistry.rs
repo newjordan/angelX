@@ -26,8 +26,6 @@
 //! doodle gives less, a fine sprite most of it, a masterwork all of it, a
 //! legendary one a little over, always inside the caps (`cards::Bonus`).
 
-/// Repair worn rows against the reference attachment before a learned
-/// entry is accepted. The same contract is used for sheets and paintings.
 pub fn fit_worn(sprite: &mut super::looks::Sprite, at: &str) -> Result<(), String> {
     let part = super::looks::profile("knight").part(at)
         .ok_or_else(|| format!("at=`{at}`: use {}", super::looks::PLACES))?;
@@ -38,8 +36,6 @@ pub fn fit_worn(sprite: &mut super::looks::Sprite, at: &str) -> Result<(), Strin
     Ok(())
 }
 
-/// The ink groups the briefs name, each from its darkest to its lightest:
-/// the realm's five banks and the two dyes.
 const GROUPS: [&str; 7] = [
     "kKZXgjGJhiH",
     "fDFEelNmLAMyCY",
@@ -50,17 +46,14 @@ const GROUPS: [&str; 7] = [
     "!?;%+",
 ];
 
-/// The marks' weights, out of 100 together.
 pub const SIZE: u32 = 15;
 pub const SHADING: u32 = 15;
 pub const DETAIL: u32 = 15;
 pub const SILHOUETTE: u32 = 15;
 pub const OUTLINE: u32 = 15;
 pub const FILL: u32 = 5;
-/// Points for 1, 2, 3, ... 9 or more inks (20 at most).
 pub const TONES: [u32; 9] = [0, 6, 13, 20, 20, 20, 16, 14, 8];
 
-/// A wish's grade: what its pictures earn it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Grade {
     Crude,
@@ -69,7 +62,6 @@ pub enum Grade {
     Legendary,
 }
 
-/// The lowest score of each grade above Crude.
 pub const FINE: u32 = 58;
 pub const MASTERWORK: u32 = 78;
 pub const LEGENDARY: u32 = 92;
@@ -84,7 +76,6 @@ impl Grade {
         }
     }
 
-    /// What share of a drafted tier's numbers this grade gives, percent.
     pub fn power(self) -> u32 {
         match self {
             Grade::Crude => 60,
@@ -110,7 +101,6 @@ impl std::fmt::Display for Grade {
     }
 }
 
-/// An ink's step in its group, 0 darkest to 1 lightest.
 fn rank(ink: char) -> Option<f32> {
     GROUPS.iter().find_map(|g| {
         let n = g.chars().count();
@@ -120,8 +110,6 @@ fn rank(ink: char) -> Option<f32> {
     })
 }
 
-/// The six marks of one picture (rows of inks, `.` or space is clear),
-/// each already weighted; their sum is its score.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Marks {
     pub size: u32,
@@ -134,8 +122,6 @@ pub struct Marks {
 }
 
 impl Marks {
-    /// Their sum; a picture with no silhouette at all (specks, a scatter)
-    /// scores half.
     pub fn score(&self) -> u32 {
         let sum = self.size
             + self.tones
@@ -148,13 +134,11 @@ impl Marks {
     }
 }
 
-/// A share `x` of the way from `lo` (nothing) to `hi` (all of `points`).
 fn ramp(x: f32, lo: f32, hi: f32, points: u32) -> u32 {
     let t = ((x - lo) / (hi - lo)).clamp(0.0, 1.0);
     (t * points as f32).round() as u32
 }
 
-/// Score one picture.
 pub fn marks(rows: &[String]) -> Marks {
     let grid: Vec<Vec<char>> = rows.iter().map(|r| r.chars().collect()).collect();
     let inked = |x: i32, y: i32| -> Option<char> {
@@ -207,7 +191,6 @@ pub fn marks(rows: &[String]) -> Marks {
         .count() as f32;
     let detail = ramp(varied / n, 0.1, 0.5, DETAIL);
 
-    // Pieces, eight ways round.
     let at = |x: i32, y: i32| cells.iter().position(|c| c.0 == x && c.1 == y);
     let mut piece = vec![usize::MAX; cells.len()];
     let mut sizes = Vec::new();
@@ -242,7 +225,6 @@ pub fn marks(rows: &[String]) -> Marks {
     let largest = *sizes.iter().max().unwrap() as f32 / n;
     let silhouette = ramp(largest - alone as f32 / n, 0.5, 0.9, SILHOUETTE);
 
-    // Edge: a pixel with clear paper beside it, four ways.
     let (mut edge, mut inside) = (Vec::new(), Vec::new());
     for &(x, y, c) in &cells {
         let Some(r) = rank(c) else { continue };
@@ -253,7 +235,6 @@ pub fn marks(rows: &[String]) -> Marks {
     }
     let mean = |v: &[f32]| v.iter().sum::<f32>() / v.len().max(1) as f32;
     let outline = if inside.is_empty() {
-        // Line art: no inside to set an edge against.
         OUTLINE / 3
     } else {
         ramp(mean(&inside) - mean(&edge), 0.05, 0.35, OUTLINE)
@@ -272,13 +253,10 @@ pub fn marks(rows: &[String]) -> Marks {
     Marks { size, tones, shading, detail, silhouette, outline, fill }
 }
 
-/// Score one picture, out of 100.
 pub fn score(rows: &[String]) -> u32 {
     marks(rows).score()
 }
 
-/// The grade of a wish drawn in `pictures` (its card art, and each look's
-/// first frame): the mean of their scores; none at all is crude.
 pub fn grade<'a>(pictures: impl IntoIterator<Item = &'a [String]>) -> (Grade, u32) {
     let scores: Vec<u32> = pictures
         .into_iter()
@@ -292,8 +270,6 @@ pub fn grade<'a>(pictures: impl IntoIterator<Item = &'a [String]>) -> (Grade, u3
     (Grade::of_score(mean), mean)
 }
 
-/// A drafted number given at `grade`: its share, rounded, never below one
-/// when the draft gave one.
 pub fn graded(value: u32, grade: Grade) -> u32 {
     if value == 0 {
         return 0;

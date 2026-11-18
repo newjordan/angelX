@@ -1,8 +1,3 @@
-"""Base vs fine-tuned Mage on the same targets, same container runtime.
-Pairs bench/results.jsonl (base) with bench/results-tuned.jsonl by target id.
-Held-out test split first; dev targets were trained on and are marked so.
-  python3 -I analyze_ab.py <bench-dir>   -> ab_analysis.json
-"""
 import collections, json, math, sys
 
 root = sys.argv[1]

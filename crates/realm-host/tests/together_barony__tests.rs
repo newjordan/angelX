@@ -29,7 +29,6 @@ fn an_older_realm_loads_without_a_barony_and_a_bad_one_resets_alone() {
     let realm = Realm::beside(Some(&rewards));
     assert_eq!(realm.treasury.get(Spoil::Gold), 5, "the realm kept");
     assert_eq!(realm.home.barony, Barony::default());
-    // And a good one goes round whole.
     let mut realm = realm;
     let mut t = rich();
     settle(
@@ -49,8 +48,6 @@ fn an_older_realm_loads_without_a_barony_and_a_bad_one_resets_alone() {
     realm.save().unwrap();
     let again = Realm::beside(Some(&rewards));
     assert_eq!(again.home.barony, realm.home.barony);
-    // Station keys in the saved home are only the old ones: an older build
-    // reading this realm loses the barony, never the realm.
     let raw: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
     assert!(
         raw["home"]["levels"]

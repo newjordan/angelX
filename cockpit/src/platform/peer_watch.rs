@@ -23,13 +23,8 @@ use std::time::{Duration, Instant};
 
 pub(crate) const PEERS_CONFIG_SCHEMA: &str = "angelX.peers/v1";
 const HEARTBEAT_SCHEMA: &str = "angelX.heartbeat/v1";
-// The heartbeat record and its staleness rule live in the Kernel's host
-// services, shared with the realm host's world view.
 pub(crate) use angel_live::host::peer_watch::{Heartbeat, STALE_AFTER_MS};
-/// Minimum spacing between heartbeat writes from one instance.
 const BEAT_INTERVAL: Duration = Duration::from_secs(5);
-/// Cap on peer files read per scan, so a hostile or bloated shared
-/// directory cannot make a scan unbounded.
 const MAX_PEERS: usize = 256;
 const MAX_HEARTBEAT_BYTES: u64 = 16 * 1024;
 
@@ -55,8 +50,6 @@ struct PeersConfig {
     dir: String,
 }
 
-/// Resolve the shared peer directory: `ANGEL_PEER_DIR`, then
-/// `~/.angelX/peers.json`, then the default `~/.angelX/peers/`.
 pub(crate) fn peer_dir(state_root: &Path) -> PathBuf {
     if let Ok(env) = std::env::var("ANGEL_PEER_DIR")
         && !env.trim().is_empty()
@@ -80,8 +73,6 @@ pub(crate) fn peer_dir(state_root: &Path) -> PathBuf {
     state_root.join("peers")
 }
 
-/// This process's stable instance id: host + pid + start time. Unique per
-/// launch, stable for the process lifetime, safe as a file name.
 pub(crate) fn instance_id(started_ms: u128) -> String {
     let host: String = host_name()
         .chars()
@@ -90,8 +81,6 @@ pub(crate) fn instance_id(started_ms: u128) -> String {
     format!("{host}-{}-{started_ms:013}", std::process::id())
 }
 
-/// Throttled heartbeat writer owned by the app's sampler. Beats are
-/// best-effort bulk-tier writes: losing one only ages this peer's record.
 #[derive(Debug)]
 pub(crate) struct PeerBeat {
     dir: PathBuf,
@@ -127,12 +116,9 @@ impl PeerBeat {
     pub(crate) fn set_activity(&mut self, activity: &str, detail: Option<String>) {
         self.heartbeat.activity = activity.to_string();
         self.heartbeat.detail = detail;
-        // An activity change is exactly what peers watch for: beat promptly.
         self.last_written = None;
     }
 
-    /// Write the heartbeat if the throttle allows. Load fields update from
-    /// the sampler's latest snapshot.
     pub(crate) fn beat(&mut self, cpu_pct: f32, mem_pct: f32, gpu_pct: f32) {
         self.heartbeat.cpu_pct = cpu_pct;
         self.heartbeat.mem_pct = mem_pct;
@@ -154,8 +140,6 @@ impl PeerBeat {
         }
     }
 
-    /// Best-effort goodbye: remove our heartbeat so peers do not wait out
-    /// the stale horizon after a clean exit.
     pub(crate) fn retire(&self) {
         let path = self
             .dir
@@ -164,9 +148,6 @@ impl PeerBeat {
     }
 }
 
-/// Read every peer heartbeat in `dir` (excluding `own_id`), newest first.
-/// Unreadable, oversized, or foreign-schema files are skipped silently: the
-/// shared directory is an untrusted input boundary.
 pub(crate) fn read_peers(dir: &Path, own_id: Option<&str>) -> Vec<Heartbeat> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
@@ -201,8 +182,6 @@ pub(crate) fn read_peers(dir: &Path, own_id: Option<&str>) -> Vec<Heartbeat> {
     peers
 }
 
-/// Mean load across live peers — the fleet aggregate the status bar shows
-/// when no external fleet probe answers.
 pub(crate) fn fleet_means(peers: &[Heartbeat], at_ms: u128) -> Option<(f32, f32)> {
     let live: Vec<&Heartbeat> = peers.iter().filter(|peer| peer.is_live(at_ms)).collect();
     if live.is_empty() {
@@ -214,7 +193,6 @@ pub(crate) fn fleet_means(peers: &[Heartbeat], at_ms: u128) -> Option<(f32, f32)
     Some((cpu, gpu))
 }
 
-/// What changed between two peer scans.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum PeerEvent {
     Appeared {
@@ -248,12 +226,9 @@ impl PeerEvent {
     }
 }
 
-/// Stateful differ: feed it successive scans, get back what changed. Only
-/// live peers are tracked, so a peer crossing the stale horizon reads as
-/// `Gone` exactly once.
 #[derive(Debug, Default)]
 pub(crate) struct PeerWatcher {
-    known: BTreeMap<String, (String, String)>, // instance_id -> (host, activity)
+    known: BTreeMap<String, (String, String)>,
 }
 
 impl PeerWatcher {
@@ -299,7 +274,6 @@ impl PeerWatcher {
     }
 }
 
-/// Operator-facing peer table for `/peers`.
 pub(crate) fn format_peers(peers: &[Heartbeat], at_ms: u128) -> String {
     if peers.is_empty() {
         return "no peer angelX instances are publishing heartbeats here".to_string();

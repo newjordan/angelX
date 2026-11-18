@@ -102,9 +102,6 @@ fn run_command(
     let outcome = parse_test_result(&combined);
     let has_test_summary = combined.contains("test result:");
     let code = output.status.code();
-    // A command runs from the configured workspace, but its filesystem sandbox
-    // can write anywhere in the detached worktree. Check the whole checkout so
-    // a mutation in a sibling path cannot masquerade as a clean proof.
     let dirty = run_git(worktree, &["status", "--porcelain"])?;
     let workspace_clean = dirty.trim().is_empty();
     Ok(CommandProof {
@@ -124,9 +121,6 @@ fn run_command(
     })
 }
 
-/// A marker or passing summary in a prefix cannot prove a completed command.
-/// Keep ordinary user command captures flexible; verifier evidence requires
-/// both complete streams before interpreting any test counts or proof markers.
 fn capture_verifier_output(
     command: Command,
     timeout: std::time::Duration,

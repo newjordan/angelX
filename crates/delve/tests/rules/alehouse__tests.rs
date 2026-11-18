@@ -6,7 +6,6 @@
 use super::*;
 use crate::rules::{knights, world};
 
-/// A party of `seats` in the tavern, as the cockpit begins a delve.
 fn start(seats: u32) -> Run {
     let mut r = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
     for id in 3..=seats {
@@ -27,7 +26,6 @@ fn press(id: u32) -> BTreeMap<u32, Input> {
     BTreeMap::from([(id, Input { interact: true, ..Default::default() })])
 }
 
-/// E pressed once at `at` (a fresh press: E is let go first).
 fn tap(r: &mut Run, id: u32, at: (f32, f32)) {
     place(r, id, at);
     r.step(&BTreeMap::new());
@@ -35,7 +33,6 @@ fn tap(r: &mut Run, id: u32, at: (f32, f32)) {
     r.step(&BTreeMap::new());
 }
 
-/// E held at `at` until the hold has bought.
 fn hold(r: &mut Run, id: u32, at: (f32, f32)) {
     place(r, id, at);
     r.step(&BTreeMap::new());
@@ -45,7 +42,6 @@ fn hold(r: &mut Run, id: u32, at: (f32, f32)) {
     r.step(&BTreeMap::new());
 }
 
-/// The aisle before a patron: where a knight walks up to them.
 fn before(p: &alehouse::Patron) -> (f32, f32) {
     (p.at.0, p.at.1 - 1.0)
 }
@@ -58,7 +54,6 @@ fn gold(r: &Run, id: u32) -> u32 {
     r.players[&id].carried.get(Spoil::Gold)
 }
 
-/// The party stands on plate `at` until it has gone through it.
 fn take(r: &mut Run, at: (i32, i32, i32, i32)) {
     let from = r.room().kind;
     r.step(&BTreeMap::new());
@@ -112,17 +107,14 @@ fn every_knight_is_handed_a_purse_once_and_a_late_friend_too() {
 
 #[test]
 fn the_company_sits_in_the_tavern_by_calling_and_never_by_name() {
-    // Every kit of the company has exactly one seat.
     for kit in knights::COMPANY {
         assert_eq!(alehouse::PATRONS.iter().filter(|p| p.kit == kit.id).count(), 1, "{}", kit.id);
     }
     assert_eq!(alehouse::PATRONS.len(), knights::COMPANY.len());
     for p in &alehouse::PATRONS {
-        // A class kit is shown by its class's own name.
         if let Some(class) = classes::CLASSES.iter().find(|c| c.kit == p.kit) {
             assert_eq!(p.label, class.name);
         }
-        // No personal names: not a knight's, not a title, not "the X".
         let knight = knights::knight(p.kit).unwrap();
         for text in [p.label, p.pitch] {
             let lower = text.to_lowercase();
@@ -136,10 +128,6 @@ fn the_company_sits_in_the_tavern_by_calling_and_never_by_name() {
     }
     let labels: std::collections::BTreeSet<_> = alehouse::PATRONS.iter().map(|p| p.label).collect();
     assert_eq!(labels.len(), alehouse::PATRONS.len(), "no two alike");
-    // Every patron has an open aisle in front of them, a knight's length
-    // off, and no two share a seat.
-    // The recruits sit in the muster tent and are seated there
-    // (`muster_tent`); here, the company in the hall.
     let r = start(1);
     for (i, p) in alehouse::PATRONS.iter().enumerate().filter(|(i, _)| alehouse::patron_room(*i) == RoomKind::Alehouse) {
         let page = (0..COMPANY_PAGES).find(|&page| patron_visible(page, i)).unwrap();
@@ -161,10 +149,7 @@ fn the_company_sits_in_the_tavern_by_calling_and_never_by_name() {
 fn e_at_a_patron_makes_you_that_knight() {
     let mut r = start(2);
     r.step(&BTreeMap::new());
-    // The company in the hall; the recruits are picked in the muster tent
-    // (`muster_tent`).
     for (i, p) in alehouse::PATRONS.iter().enumerate().filter(|(i, _)| alehouse::patron_room(*i) == RoomKind::Alehouse) {
-        // Visit each shared company page, then swap at its visible bench.
         r.alehouse.company_page = (0..COMPANY_PAGES).find(|&page| patron_visible(page, i)).unwrap();
         tap(&mut r, 1, before(p));
         let h = &r.players[&1];
@@ -175,7 +160,6 @@ fn e_at_a_patron_makes_you_that_knight() {
         assert_eq!(h.max_hp, want.max_hp + h.home_hp);
         assert_eq!(h.bombs, want.bombs);
         assert!(said(&r, 1).contains(&p.label.to_uppercase()), "{}", said(&r, 1));
-        // Seat 2 cannot take the same one: the first to the table keeps them.
         if r.players[&2].knight.as_deref() != Some(p.kit) {
             tap(&mut r, 2, before(p));
             assert_ne!(r.players[&2].knight.as_deref(), Some(p.kit), "{i}: one knight, one player");
@@ -188,7 +172,7 @@ fn e_at_a_patron_makes_you_that_knight() {
 fn a_class_kit_takes_its_class_and_its_spells_and_swapping_clears_them() {
     let mut r = start(1);
     let at = |kit: &str| before(alehouse::PATRONS.iter().find(|p| p.kit == kit).unwrap());
-    r.alehouse.company_page = 1; // Mage, Healer and Knight share this company page.
+    r.alehouse.company_page = 1;
     tap(&mut r, 1, at("scryglass"));
     let h = &r.players[&1];
     assert_eq!(h.class.as_deref(), Some("Mage"));
@@ -199,11 +183,9 @@ fn a_class_kit_takes_its_class_and_its_spells_and_swapping_clears_them() {
     assert_eq!(h.class.as_deref(), Some("Healer"));
     assert!(!crate::rules::weave::weaves(h) && h.weave.is_empty(), "the old class's weave goes");
     assert_eq!(h.hand, vec!["censer".to_string(), "choir-crumb".to_string(), "holy-water".to_string()]);
-    // A kit with no class has none.
     tap(&mut r, 1, at("composer"));
     assert_eq!(r.players[&1].class, None);
     assert!(r.valid_snapshot());
-    // Swapping gives the old knight back to the table.
     assert!(r.patron_taken(alehouse::PATRONS.iter().position(|p| p.kit == "loop").unwrap(), 2).is_none());
 }
 
@@ -235,14 +217,12 @@ fn the_keeper_sells_a_potion_a_bomb_and_a_second_wind_for_the_purse() {
     let winds = r.players[&1].winds;
     hold(&mut r, 1, alehouse::TAPS[2]);
     assert_eq!(r.players[&1].winds, winds + 1);
-    // A brief tap buys nothing.
     let spent = gold(&r, 1);
     place(&mut r, 1, alehouse::TAPS[0]);
     r.step(&BTreeMap::new());
     r.step(&press(1));
     r.step(&BTreeMap::new());
     assert_eq!(gold(&r, 1), spent, "a stray press buys nothing");
-    // And a pauper is told so.
     r.players.get_mut(&1).unwrap().hand.clear();
     r.players.get_mut(&1).unwrap().spend_gold(10_000);
     hold(&mut r, 1, alehouse::TAPS[0]);
@@ -252,7 +232,6 @@ fn the_keeper_sells_a_potion_a_bomb_and_a_second_wind_for_the_purse() {
 
 #[test]
 fn the_toys_answer_e_and_some_hand_over_a_small_real_thing() {
-    // Every toy says something, every time, even when tired of you.
     let mut r = start(1);
     r.step(&BTreeMap::new());
     for &(toy, at) in alehouse::TOYS.iter().chain([(alehouse::Toy::Hearth, alehouse::WARM_AT)].iter()) {
@@ -265,7 +244,6 @@ fn the_toys_answer_e_and_some_hand_over_a_small_real_thing() {
             assert!(crate::rules::cards::not_for_work(&line).is_none(), "{line}");
         }
     }
-    // Across seats, the toys give: some seat finds a coin, a bomb, a wind.
     let mut found = (false, false, false);
     for seed in 0..40u64 {
         let mut r = Run::at_home(seed, seed + 3, None, Default::default(), Default::default());
@@ -299,7 +277,6 @@ fn the_toys_are_deterministic_and_tire_of_a_knight() {
         serde_json::to_string(&r).unwrap()
     };
     assert_eq!(play(), play(), "the same inputs, the same hall");
-    // Darts: three throws, then the cat has them.
     let mut r = start(1);
     r.step(&BTreeMap::new());
     for _ in 0..5 {
@@ -360,7 +337,6 @@ fn the_bazaar_door_leads_to_the_bazaar_and_back_and_the_front_door_to_the_kingdo
         let (x, y) = (h.x / TILE_UNITS, h.y / TILE_UNITS);
         assert_eq!(r.room().tile(x as i32, y as i32), Tile::Floor, "arrived on floor at {x},{y}");
     }
-    // The front door: the kingdom, at the Delve's gate, as every delve began.
     let gate = r.kingdom.return_to.as_ref().map(|b| (b.x, b.y)).unwrap();
     take(&mut r, alehouse::FRONT_DOOR);
     assert_eq!(r.room().kind, RoomKind::Kingdom);
@@ -390,7 +366,6 @@ fn the_green_house_in_the_courtyard_is_the_way_back_in() {
     r.arrive(gate, world::COURTYARD_ARRIVAL);
     take(&mut r, alehouse::COURTYARD_DOOR);
     assert_eq!(r.room().kind, RoomKind::Alehouse, "into the tavern");
-    // With no visit to go back to, the front door comes out before it.
     take(&mut r, alehouse::FRONT_DOOR);
     assert_eq!(r.room().kind, RoomKind::Gate);
     let h = &r.players[&1];
@@ -403,8 +378,6 @@ fn the_green_house_in_the_courtyard_is_the_way_back_in() {
 fn an_old_save_without_the_tavern_loads_and_the_world_raises_it() {
     let r = start(2);
     let mut value = serde_json::to_value(&r).unwrap();
-    // A run saved before the tavern: no tavern state, no pockets, no tavern rooms,
-    // standing in the kingdom.
     let obj = value.as_object_mut().unwrap();
     obj.remove("alehouse");
     for hero in obj["players"].as_object_mut().unwrap().values_mut() {
@@ -425,12 +398,10 @@ fn an_old_save_without_the_tavern_loads_and_the_world_raises_it() {
     assert!(old.players.values().all(|h| h.pockets.items.is_empty()));
     assert!(world::room_of(&old.dungeon, RoomKind::Alehouse).is_none());
     assert!(old.valid_snapshot());
-    // The world is raised around it as the party walks, tavern and all.
     assert!(world::raise_world(&mut old.dungeon));
     assert!(world::room_of(&old.dungeon, RoomKind::Alehouse).is_some());
     assert!(world::room_of(&old.dungeon, RoomKind::Bazaar).is_some());
     assert!(old.valid_snapshot());
-    // And the new fields leave the wire when nothing is in them.
     let fresh = serde_json::to_value(Run::at_home(7, 1, None, Default::default(), Default::default())).unwrap();
     assert!(fresh.get("alehouse").is_none());
     assert!(fresh["players"]["1"].get("pockets").is_none());
@@ -735,7 +706,6 @@ fn the_whole_company_sits_in_the_hall_and_every_seat_selects_its_kit() {
     let mut seen = std::collections::BTreeSet::new();
     for (i, p) in PATRONS.iter().enumerate() {
         assert!(patron_visible(r.alehouse.company_page, i), "{} sits in the hall", p.kit);
-        // The recruits are picked in the muster tent (`muster_tent`).
         if alehouse::patron_room(i) != RoomKind::Alehouse {
             seen.insert(p.kit);
             continue;
@@ -761,7 +731,6 @@ fn the_notice_board_reads_a_note_and_leaves_the_company_in_the_hall() {
     let old = r.players[&1].knight.clone();
     r.pick_patron(1, usize::MAX);
     assert_eq!(r.players[&1].knight, old, "invalid patron indices are ignored");
-    // A save from the paged hall still loads, and its page stays bounded.
     let saved = serde_json::to_value(&r.alehouse).unwrap();
     let mut legacy = saved.clone();
     legacy.as_object_mut().unwrap().remove("company_page");
@@ -776,8 +745,6 @@ fn the_notice_board_reads_a_note_and_leaves_the_company_in_the_hall() {
 #[test]
 fn wall_walk_routes_and_simultaneous_six_seat_holds_reach_every_peg() {
     let mut r = start(6);
-    // A floor-only flood from arrival proves the pegs are connected, not
-    // merely six isolated cells marked Floor.
     let mut reached = std::collections::BTreeSet::new();
     let mut pending = vec![(ARRIVAL.0 as i32, ARRIVAL.1 as i32)];
     while let Some((x, y)) = pending.pop() {

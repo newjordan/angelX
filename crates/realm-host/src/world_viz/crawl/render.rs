@@ -10,7 +10,6 @@
 
 use super::super::overworld::ink::Img;
 
-/// A texture: inks as colours, `None` where it is see-through.
 #[derive(Clone, Debug)]
 pub struct Tex {
     pub w: usize,
@@ -19,7 +18,6 @@ pub struct Tex {
 }
 
 impl Tex {
-    /// From rows of realm inks (`.` is see-through).
     pub fn from_rows(rows: &[&str]) -> Tex {
         let w = rows
             .iter()
@@ -37,7 +35,6 @@ impl Tex {
         Tex { w, h, px }
     }
 
-    /// From a sprite drawn for the Delve.
     pub fn from_img(img: &Img) -> Tex {
         let (w, h) = (img.w.max(1) as usize, img.h.max(1) as usize);
         let mut px = vec![None; w * h];
@@ -49,9 +46,6 @@ impl Tex {
         Tex { w, h, px }
     }
 
-    /// Soften a repeating environment surface once at kit load. Only the
-    /// crawl's wall/floor/vault cache calls this; billboards and decals retain
-    /// their exact sprite pixels and coverage. Live sampling is unchanged.
     pub fn soft_surface(mut self) -> Self {
         for _ in 0..2 {
             let source = self.px.clone();
@@ -82,8 +76,6 @@ impl Tex {
         self
     }
 
-    /// Ease the material around an authored detail, then restore that detail
-    /// from the source. The mask is resolved once when the kit is cached.
     pub fn soft_surface_with_details(self, keep: impl Fn(usize, usize) -> bool) -> Self {
         let source = self.clone();
         let mut out = self.soft_surface();
@@ -97,7 +89,6 @@ impl Tex {
         out
     }
 
-    /// The texel at `(u, v)` in 0..1, wrapping.
     pub fn at(&self, u: f32, v: f32) -> Option<[u8; 3]> {
         let x = ((u.rem_euclid(1.0) * self.w as f32) as usize).min(self.w - 1);
         let y = ((v.rem_euclid(1.0) * self.h as f32) as usize).min(self.h - 1);
@@ -105,12 +96,9 @@ impl Tex {
     }
 }
 
-/// What a cell is to the eye.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Cell {
-    /// Open floor, of a kind of ground.
     Open(Ground),
-    /// A wall, faced with a texture (an index into the wall textures).
     Wall(u8),
 }
 
@@ -122,14 +110,11 @@ pub enum Ground {
     Stairs,
 }
 
-/// The dungeon as the eye sees it.
 #[derive(Clone, Debug)]
 pub struct Grid {
     pub w: usize,
     pub h: usize,
     pub cells: Vec<Cell>,
-    /// What hangs on a wall's face: by the wall cell and the way the face
-    /// looks (toward the open cell), a decal (an index into the kit's).
     pub decals: std::collections::HashMap<(i32, i32, i8, i8), u8>,
 }
 
@@ -147,39 +132,28 @@ impl Grid {
     }
 }
 
-/// Where the eye stands and looks.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Eye {
     pub x: f32,
     pub y: f32,
     pub heading: f32,
-    /// Horizontal field of view, radians.
     pub fov: f32,
-    /// Eye height above the floor (a wall is 1 tall), with the walk's bob.
     pub z: f32,
-    /// Looking up (+) or down (-), in screen heights.
     pub pitch: f32,
 }
 
-/// Something standing in the dungeon, drawn as a picture facing the eye.
 pub struct Thing<'a> {
     pub x: f32,
     pub y: f32,
     pub tex: &'a Tex,
-    /// How tall it stands (a wall is 1), and how far its feet are off the
-    /// floor.
     pub height: f32,
     pub lift: f32,
-    /// Its own light (a fire, a glowing eye): the dark doesn't take it.
     pub lit: bool,
-    /// Turned to face left.
     pub flip: bool,
 }
 
-/// The textures the dungeon is faced with.
 pub struct Kit<'a> {
     pub walls: &'a [Tex],
-    /// What hangs on the walls: a sconce (in this moment's flicker), a banner.
     pub decals: &'a [&'a Tex],
     pub floor: &'a Tex,
     pub water: &'a Tex,
@@ -188,23 +162,16 @@ pub struct Kit<'a> {
     pub ceiling: &'a Tex,
 }
 
-/// The torch: how far its light carries and its flicker (1 is steady); and
-/// a second, warmer light standing somewhere in the dungeon (a campfire, a
-/// candle): where, and how far it carries.
 #[derive(Clone, Copy, Debug)]
 pub struct Torch {
     pub reach: f32,
     pub gain: f32,
     pub glow: Option<(f32, f32, f32)>,
-    /// The nearest wall sconces, each a small warm light of its own.
     pub sconces: [Option<(f32, f32)>; 3],
 }
 
-/// How far a sconce's light carries.
 const SCONCE_REACH: f32 = 2.2;
 
-/// How bright a texel at distance `d` from the eye, standing at `(x, y)`,
-/// is under the torch (and any fire), as a warm tint.
 fn lit(c: [u8; 3], d: f32, (x, y): (f32, f32), torch: Torch) -> [u8; 3] {
     let mut fall = torch.gain / (1.0 + d * d / (torch.reach * torch.reach) * 4.0);
     if let Some((gx, gy, reach)) = torch.glow {
@@ -216,7 +183,6 @@ fn lit(c: [u8; 3], d: f32, (x, y): (f32, f32), torch: Torch) -> [u8; 3] {
         fall += 0.5 / (1.0 + g * g / (SCONCE_REACH * SCONCE_REACH) * 4.0);
     }
     let fall = fall.clamp(0.0, 1.05);
-    // Near is warm firelight; far cools to the dark.
     let warm = (1.0 - d / (torch.reach * 1.6)).clamp(0.0, 1.0);
     let tint = [0.96 + 0.04 * warm, 0.93, 0.84 + 0.16 * (1.0 - warm)];
     [
@@ -226,7 +192,6 @@ fn lit(c: [u8; 3], d: f32, (x, y): (f32, f32), torch: Torch) -> [u8; 3] {
     ]
 }
 
-/// One frame: the eye's view of the grid and the things in it, `w` by `h`.
 pub fn render(
     grid: &Grid,
     eye: &Eye,
@@ -239,11 +204,9 @@ pub fn render(
     let mut px = vec![[0u8; 3]; wi * hi];
     let (dx, dy) = (eye.heading.cos(), eye.heading.sin());
     let half = (eye.fov * 0.5).tan();
-    // The camera plane: screen right, scaled to the field of view.
     let (px_, py_) = (-dy * half, dx * half);
     let focal = wi as f32 / (2.0 * half);
     let horizon = hi as f32 * (0.5 + eye.pitch);
-    // The floor and the vault, row by row.
     for y in 0..hi {
         let row = y as f32 + 0.5 - horizon;
         let (dist, floor) = if row > 0.0 {
@@ -276,8 +239,6 @@ pub fn render(
                 px[y * wi + x] = if glow {
                     c
                 } else {
-                    // The vault stays low, so the walls and whatever
-                    // stands before them carry the picture.
                     let c = lit(c, dist, (fx, fy), torch);
                     if floor {
                         c
@@ -292,7 +253,6 @@ pub fn render(
             }
         }
     }
-    // The walls, column by column, remembering how near each one is.
     let mut depth = vec![f32::MAX; wi];
     for (x, near) in depth.iter_mut().enumerate() {
         let cam = 2.0 * (x as f32 + 0.5) / wi as f32 - 1.0;
@@ -338,7 +298,6 @@ pub fn render(
         };
         let perp = if across { side_x - ddx } else { side_y - ddy }.max(0.02);
         *near = perp;
-        // Where along the wall's face the ray struck, for the texture.
         let mut u = if across {
             eye.y + perp * ry
         } else {
@@ -351,7 +310,6 @@ pub fn render(
         let top = horizon - (1.0 - eye.z) * focal / perp;
         let bottom = horizon + eye.z * focal / perp;
         let tex = &kit.walls[usize::from(face).min(kit.walls.len() - 1)];
-        // The face the ray struck looks back the way it came.
         let facing: (i8, i8) = if across {
             (-step_x as i8, 0)
         } else {
@@ -361,8 +319,6 @@ pub fn render(
             .decals
             .get(&(mx, my, facing.0, facing.1))
             .and_then(|&d| kit.decals.get(usize::from(d)).copied());
-        // The sides running north and south are a shade darker, as the old
-        // games drew them, so corners read.
         let shade = if across { 0.78 } else { 1.0 };
         let (y0, y1) = (
             top.max(0.0) as usize,
@@ -370,8 +326,6 @@ pub fn render(
         );
         for y in y0..y1 {
             let v = (y as f32 + 0.5 - top) / (bottom - top);
-            // A decal hangs in the middle of the face, over the stone; its
-            // bright parts (a flame) burn as bright as they are.
             if let Some(d) = decal {
                 let (du, dv) = ((u - 0.3) / 0.4, (v - 0.22) / 0.6);
                 if (0.0..1.0).contains(&du)
@@ -394,8 +348,6 @@ pub fn render(
             }
         }
     }
-    // The things in the dungeon, farthest first, each column hidden by any
-    // nearer wall.
     let (rx_, ry_) = (-dy, dx);
     let mut order: Vec<(f32, &Thing)> = things
         .iter()
@@ -434,7 +386,6 @@ pub fn render(
                     px[y * wi + x] = if thing.lit {
                         c
                     } else {
-                        // Figures stand out a touch brighter than the stone.
                         let c = lit(c, dist, (thing.x, thing.y), torch);
                         [
                             (c[0] as u16 * 5 / 4).min(255) as u8,

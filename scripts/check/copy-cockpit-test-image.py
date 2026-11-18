@@ -38,8 +38,6 @@ def executable(records, name, is_test):
 def copy_executable(source, destination):
     destination.parent.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256()
-    # Open first: Cargo may unlink/replace the shared pathname while the gate
-    # copies. The descriptor retains the selected executable's original bytes.
     descriptor = os.open(source, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
     with os.fdopen(descriptor, "rb") as reader:
         before = os.fstat(reader.fileno())

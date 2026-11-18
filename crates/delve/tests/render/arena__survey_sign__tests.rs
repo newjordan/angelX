@@ -7,7 +7,6 @@ fn the_sign_says_the_rod_is_there_once_motes_are_banked_and_keeps_out_of_its_way
     let mut r = Run::at_home(41, 1, None, Default::default(), Default::default());
     r.walk_kingdom(Some(crate::world::kingdom::keep_stand()));
     let geo = map::geography(&r.kingdom.wishes);
-    // Out in the open, far from every door.
     let hero = r.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (6.0, 6.0);
     r.treasury = Spoils::default();

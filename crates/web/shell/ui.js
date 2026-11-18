@@ -1,11 +1,5 @@
 'use strict';
-// The page's windows: small builders for the elements boot.js lays over
-// the picture, and the sheet (a game's own state, as plain text) set as a
-// framed screen. Nothing here reads the game: it is handed the text.
 
-/* exported el, keyHint, drawSheet */
-
-// An element of `tag` with `cls` and, when given, its text.
 function el(tag, cls, words) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -13,15 +7,12 @@ function el(tag, cls, words) {
   return e;
 }
 
-// "[Enter] what it does": a key cap and its words.
 function keyHint(key, words) {
   const s = el('span', 'hint');
   s.append(el('kbd', '', key), document.createTextNode(' ' + words));
   return s;
 }
 
-// A count out of a few (a wish's ladder, 0/3) as pips; out of many (a
-// gauge, 40/100) as a bar. `null` for anything else.
 function tally(cell) {
   const m = /^(\d+)\/(\d+)$/.exec(cell);
   if (!m) return null;
@@ -36,7 +27,6 @@ function tally(cell) {
   return bar(n, of, 'gauge');
 }
 
-// A meter: the frame, the fill as far as `n` of `of`, the count beside it.
 function bar(n, of, cls) {
   const wrap = el('span', 'meter ' + cls);
   const track = el('span', 'track');
@@ -47,7 +37,6 @@ function bar(n, of, cls) {
   return wrap;
 }
 
-// One cell of a sheet's row: a tally, a locked step, a next step, or words.
 function cell(words) {
   const t = tally(words);
   if (t) return t;
@@ -64,17 +53,9 @@ function cell(words) {
   return el('span', 'cell', words);
 }
 
-// Sections that are long ledgers go in the sheet's second column.
 const LEDGERS = new Set(['TEACHERS']);
 
-// The sheet's text as a screen. Its shape (crates/delve/src/client.rs,
-// `sheet`): a first line "name   health n/m", a few lines about the knight,
-// then sections apart by blank lines, each headed by a line in capitals
-// (its title, then notes after two spaces) over rows indented by two,
-// whose cells are apart by two spaces or more. A line of " · " parts is a
-// list of totals. Any other text is set as it comes, line by line.
 function drawSheet(page, text) {
-  // Where the page and each column were scrolled, kept over the redraw.
   const keep = [page, ...page.querySelectorAll('.column')].map(e => e.scrollTop);
   page.replaceChildren();
   const lines = (text || '').split('\n');
@@ -83,7 +64,6 @@ function drawSheet(page, text) {
     return;
   }
   const left = el('div', 'column'), right = el('div', 'column');
-  // The head: name and health, then the lines about the knight.
   let i = 0;
   const first = /^(.*?)\s{2,}health (\d+)\/(\d+)$/.exec(lines[0] || '');
   const head = el('header', 'who');
@@ -101,7 +81,6 @@ function drawSheet(page, text) {
   }
   head.append(about);
   left.append(head);
-  // The sections.
   let section = null;
   for (; i < lines.length; i++) {
     const line = lines[i];
@@ -135,14 +114,11 @@ function drawSheet(page, text) {
       left.append(section);
     }
     const cells = line.trim().split(/\s{2,}/);
-    // A line of its own words (a note, "none yet: ..."), unless it is a
-    // name alone in a ledger (a held card that adds nothing).
     const named = cells.length === 1 && !cells[0].includes(':') && /^[A-Z0-9]/.test(cells[0]);
     if (cells.length === 1 && !named) {
       section.append(el('p', 'note', cells[0]));
       continue;
     }
-    // A ledger of rows: the first cell names the row.
     let rows = section.querySelector('.rows');
     if (!rows) {
       rows = el('div', 'rows');
@@ -154,8 +130,6 @@ function drawSheet(page, text) {
     for (const c of cells.slice(1)) row.append(cell(c));
     rows.append(row);
   }
-  // The wish ledger (the longest WISHES section) goes beside the knight
-  // too, where there is room for two columns.
   const wishes = [...left.querySelectorAll('section')].filter(s => s.dataset.title === 'WISHES');
   const ledger = wishes.reduce((a, b) => (b.querySelectorAll('.row').length > (a ? a.querySelectorAll('.row').length : 0) ? b : a), null);
   if (ledger && ledger.querySelectorAll('.row').length > 4) right.prepend(ledger);

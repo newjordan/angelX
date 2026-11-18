@@ -115,9 +115,7 @@ pub(crate) const PRIMARY: Primary = Primary {
     ],
 };
 
-/// The model's last red test run, kept for the stop checkpoint's `⠧⠁` fact.
 pub(crate) struct RedRun {
-    /// The workspace it failed on; the fact applies only to that same code.
     pub(crate) workspace: Option<u64>,
     pub(crate) label: String,
     pub(crate) tail: String,
@@ -129,7 +127,6 @@ impl RedRun {
     }
 }
 
-/// Test runs that failed in a row; the third throws `⠧⠙`, once per streak.
 #[derive(Default)]
 pub(crate) struct RedStreak {
     failures: usize,
@@ -147,10 +144,6 @@ impl RedStreak {
     }
 }
 
-/// Where the model last ran a test of any kind — a typed verifier or a test
-/// run inside a shell command. `⠧⠋` means the workspace moved after it: a fact
-/// about what the model saw, not the attested verdict the reward ledger keeps
-/// (a shell green is never attested there).
 #[derive(Default)]
 pub(crate) struct Untested {
     last_attempt: Option<u64>,
@@ -167,8 +160,6 @@ impl Untested {
         self.edited_since = false;
     }
 
-    /// A declared code edit since the last test attempt, or bytes that moved
-    /// since it (an opaque shell edit), prose-only edits aside.
     pub(crate) fn fact(
         &self,
         initial: Option<u64>,
@@ -187,9 +178,6 @@ impl Untested {
     }
 }
 
-/// Whether a started call ran tests, for [`Untested`]. `self_authored_only`
-/// is the opt-in guard: a green that only ran tests written this turn is not a
-/// test of the code.
 pub(crate) fn is_test_attempt(
     registry: &ToolRegistry,
     call: &ToolCall,
@@ -207,22 +195,12 @@ pub(crate) fn is_test_attempt(
                 }))
 }
 
-/// The model's last passing test run and the workspace it passed on.
 pub(crate) struct GreenRun {
     pub(crate) call: ToolCall,
-    /// The workspace it passed on; the re-run happens only on that same code.
     pub(crate) workspace: Option<u64>,
-    /// `run_tests` standing in for a shell run angelX will not repeat as-is.
     pub(crate) substitute: bool,
 }
 
-/// Extra runs of the model's last passing test at its first stop:
-/// `ANGEL_CONFIRM_GREEN_RUNS` (0-5) when set; unset, see
-/// [`confirm_green_by_chance`]. It repeats only what the model already chose
-/// to run. Opt-in on the evidence: a two-seed polyglot-v1 A/B on DeepSeek V4.1
-/// Flash (272 tasks per arm) solved 267 with it at 2 against 269 without, for
-/// 21% more agent time; 255 greens re-run, one flaky pass caught
-/// (cpp-robot-name).
 pub(crate) fn confirm_green_extra_runs(_competition: bool) -> usize {
     std::env::var("ANGEL_CONFIRM_GREEN_RUNS")
         .ok()
@@ -230,23 +208,13 @@ pub(crate) fn confirm_green_extra_runs(_competition: bool) -> usize {
         .map_or(0, |runs| runs.min(5))
 }
 
-/// Extra confirming runs when `ANGEL_CONFIRM_GREEN_RUNS` is unset but the code
-/// the model wrote draws on chance (see [`edits_depend_on_chance`]). Two runs
-/// of a test that fails half the time catch it three times in four.
 pub(crate) const CHANCE_CONFIRM_GREEN_RUNS: usize = 2;
 
-/// Whether the unset-`ANGEL_CONFIRM_GREEN_RUNS` default applies: task mode,
-/// where nobody reviews the answer, and never in competition. An explicit
-/// value, including 0, is the operator's choice and stands.
 pub(crate) fn confirm_green_by_chance(task_active: bool, competition: bool) -> bool {
     task_active && !competition && std::env::var_os("ANGEL_CONFIRM_GREEN_RUNS").is_none()
 }
 
-/// Calls whose presence makes a passing test run a sample rather than a proof:
-/// random numbers, clocks, threads. A plain substring scan over the source the
-/// model edited; a false hit costs two test re-runs.
 const CHANCE_MARKERS: &[&str] = &[
-    // C and C++
     "rand(",
     "random_device",
     "mt19937",
@@ -254,14 +222,12 @@ const CHANCE_MARKERS: &[&str] = &[
     "std::chrono",
     "std::thread",
     "std::async",
-    // Rust
     "rand::",
     "thread_rng",
     "SystemTime",
     "Instant::now",
     "thread::spawn",
     "tokio::spawn",
-    // Python
     "import random",
     "from random",
     "random.",
@@ -270,14 +236,12 @@ const CHANCE_MARKERS: &[&str] = &[
     "datetime.now",
     "threading",
     "asyncio",
-    // JavaScript and TypeScript
     "Math.random",
     "crypto.random",
     "Date.now",
     "new Date(",
     "setTimeout",
     "setInterval",
-    // Go and Java
     "math/rand",
     "time.Now",
     "go func",
@@ -286,23 +250,13 @@ const CHANCE_MARKERS: &[&str] = &[
     "currentTimeMillis",
 ];
 
-/// The source files [`CHANCE_MARKERS`] are written for, as Git pathspecs.
 const CHANCE_SOURCE_GLOBS: &[&str] = &[
     "*.c", "*.cc", "*.cpp", "*.cxx", "*.h", "*.hh", "*.hpp", "*.hxx", "*.rs", "*.py", "*.js",
     "*.mjs", "*.cjs", "*.jsx", "*.ts", "*.tsx", "*.go", "*.java",
 ];
 
-/// A source file larger than this is generated or vendored, not the model's.
 const CHANCE_SCAN_MAX_BYTES: u64 = 1024 * 1024;
 
-/// Whether any non-test source file the model changed draws on chance: the
-/// files its file tools edited, and every source file Git sees changed or new
-/// since `HEAD`, however it was written.
-/// polyglot-v1 cpp-robot-name: Grok 4.7 wrote a name generator that reused a
-/// released name about half the time; one green run was accepted in 5 of 14
-/// angelX runs. Other harnesses caught it only when their first run happened to
-/// fail. Sonnet 5.5 wrote the same bug through a shell here-doc, which no file
-/// tool saw.
 pub(crate) fn edits_depend_on_chance(
     workspace: &Path,
     edited: &std::collections::BTreeSet<String>,
@@ -329,13 +283,6 @@ pub(crate) fn edits_depend_on_chance(
         })
 }
 
-/// Re-run the model's last passing test call up to `extra` more times on the
-/// unchanged workspace, judged exactly as the turn judges any tool result.
-/// `Ok(runs)` when every run passed; `Err((run, output))` at the first that did
-/// not. Runs stop once they have taken `ANGEL_CONFIRM_GREEN_SECS` (default 60),
-/// so a slow suite is not repeated at length. polyglot-v1 cpp-robot-name
-/// passed about one run in four; a single green run was accepted and the
-/// grader's run failed.
 pub(crate) fn confirm_green_run(
     registry: &ToolRegistry,
     call: &ToolCall,
@@ -360,9 +307,6 @@ pub(crate) fn confirm_green_run(
     Ok(runs)
 }
 
-/// A shell test run angelX will not re-run as-is: an `a || b` fallback can turn
-/// a failing test green (`./test || ctest` passes when CTest has nothing
-/// registered). Recognised when the command without its fallbacks is a test run.
 pub(crate) fn test_run_behind_fallback(call: &ToolCall) -> bool {
     if call.name != "shell" {
         return false;
@@ -384,7 +328,6 @@ pub(crate) fn test_run_behind_fallback(call: &ToolCall) -> bool {
     is_verification_call(&probe) || is_progress_verifier_call("shell", &args)
 }
 
-/// A short label for a test call: its tool, and its command when it has one.
 pub(crate) fn run_label(call: &ToolCall) -> String {
     let detail = match call.name.as_str() {
         "shell" => crate::agent::tools::shell::shell_command_arg(&call.args)
@@ -409,17 +352,14 @@ pub(crate) fn run_label(call: &ToolCall) -> String {
     }
 }
 
-/// The last `limit` characters of `text`, trailing whitespace trimmed.
 pub(crate) fn tail_chars(text: &str, limit: usize) -> String {
     let text = text.trim_end();
     let skip = text.chars().count().saturating_sub(limit);
     text.chars().skip(skip).collect()
 }
 
-/// How much of a failing run's output the ledger keeps.
 pub(crate) const RUN_TAIL_CHARS: usize = 1_500;
 
-/// Test files tracked at `HEAD` that now differ from it. `None` outside Git.
 pub(crate) fn changed_test_files(root: &Path) -> Option<Vec<String>> {
     Some(
         crate::agent::harness::workspace_state::changed_tracked_paths(root)?
@@ -429,8 +369,6 @@ pub(crate) fn changed_test_files(root: &Path) -> Option<Vec<String>> {
     )
 }
 
-/// `⠧⠛` when a test file that came with the task changed during this turn;
-/// files already changed before it are not the model's doing.
 pub(crate) fn tests_edited_fact(root: &Path, changed_at_start: &[String]) -> Option<Raise> {
     let changed = changed_test_files(root)?
         .into_iter()
@@ -439,8 +377,6 @@ pub(crate) fn tests_edited_fact(root: &Path, changed_at_start: &[String]) -> Opt
     (!changed.is_empty()).then(|| Raise::new(TESTS_EDITED, changed.join("\n")))
 }
 
-/// A test or spec file by name: `*_test.*`, `*.test.*`, `*.spec.*`,
-/// `test_*.py`, or anything under a `test`/`tests`/`spec`/`__tests__` directory.
 pub(crate) fn is_test_path(path: &str) -> bool {
     let path = path.replace('\\', "/");
     let name = path
@@ -462,12 +398,6 @@ pub(crate) fn is_test_path(path: &str) -> bool {
         || stem.starts_with("test_")
 }
 
-/// The paths a task declares as its editable surface, when it declares one:
-/// the sealed-task allowlist `ANGEL_TASK_EDITABLE_PATHS_JSON` (whose file-tool
-/// edits are already refused outside it, so this catches shell edits), else a
-/// A board's `benchmark.json` in the workspace (`editablePaths` and
-/// `optionalEditablePaths`, and every track's for a schema-v2 manifest). Edits
-/// elsewhere are not evaluated.
 pub(crate) fn task_edit_scope(workspace: &Path) -> Option<Vec<String>> {
     if let Ok(raw) = std::env::var("ANGEL_TASK_EDITABLE_PATHS_JSON") {
         let scope: Vec<String> = serde_json::from_str::<Vec<String>>(&raw)
@@ -501,9 +431,6 @@ pub(crate) fn task_edit_scope(workspace: &Path) -> Option<Vec<String>> {
     (!scope.is_empty()).then_some(scope)
 }
 
-/// `⠧⠓` when a mutation lands outside the declared edit scope, once per path
-/// per turn. polyglot-v1 rust-doubly-linked-list went green locally on edits
-/// to Cargo.toml and src/pre_implemented.rs that the evaluator discards.
 pub(crate) fn out_of_scope_fact(
     scope: Option<&[String]>,
     workspace: &Path,
@@ -541,19 +468,16 @@ pub(crate) fn out_of_scope_fact(
     })
 }
 
-/// One run of the task's pinned acceptance command.
 #[derive(Debug)]
 pub(crate) struct TaskAcceptResult {
     pub(crate) passed: bool,
     pub(crate) result_class: &'static str,
     pub(crate) summary: String,
     pub(crate) elapsed_ms: u128,
-    /// The end of a failing run's output; empty when it passed.
     pub(crate) output_tail: String,
 }
 
 impl TaskAcceptResult {
-    /// The `⠧⠃` / `⠧⠑` fact for a run that did not pass.
     pub(crate) fn fact(&self) -> Option<Raise> {
         if self.passed {
             return None;
@@ -571,20 +495,10 @@ impl TaskAcceptResult {
                 self.summary, self.output_tail
             )
         };
-        // The summary and the failing run's output are what the model reads.
         Some(Raise::inline(route, evidence))
     }
 }
 
-/// Run the task acceptance command until it has passed
-/// `ANGEL_TASK_ACCEPT_REPEATS` times in a row (default 3) or failed once. One
-/// green run is not proof: a solution that depends on randomness, timing or
-/// state shared between tests can pass by luck. On polyglot-v1
-/// cpp-robot-name, a `reset()` that released old names passed about one run
-/// in four, and the single acceptance run happened to be one of them. Repeats
-/// stop once the proof has taken `ANGEL_TASK_ACCEPT_REPEAT_SECS` (default 60)
-/// in total, so a slow suite is not run three times. A failure after an earlier
-/// pass comes back as `flaky`, with the failing output.
 pub(crate) fn run_task_accept(command: &str, workspace: &Path) -> TaskAcceptResult {
     run_task_accept_with(|| run_task_accept_once(command, workspace))
 }

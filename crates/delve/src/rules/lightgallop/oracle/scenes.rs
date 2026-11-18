@@ -8,7 +8,6 @@ use serde_json::{Value, json};
 
 pub type Step<'a> = &'a mut dyn FnMut(Value) -> Value;
 
-/// A deterministic dice.
 pub struct Dice(pub u64);
 impl Dice {
     pub fn next(&mut self, m: u64) -> u64 {
@@ -25,7 +24,6 @@ pub fn ask(op: &str, rest: Value) -> Value {
     a
 }
 
-/// Put knight `id` on the main road at column `x` with ground speed `gsp`.
 pub fn put(session: &mut Value, id: u32, x: i32, gsp: i32) {
     let lvl = level::level();
     let p = &lvl.terrain.paths[lvl.main];
@@ -44,7 +42,6 @@ pub fn put(session: &mut Value, id: u32, x: i32, gsp: i32) {
     session["dim"] = json!(-4000 * 256);
 }
 
-/// A random key press.
 pub fn keys(d: &mut Dice) -> Value {
     json!({
         "move_x": d.next(3) as i64 - 1, "move_y": d.next(3) as i64 - 1, "aim_x": 0, "aim_y": d.next(5).min(2) as i64 - 1,
@@ -52,7 +49,6 @@ pub fn keys(d: &mut Dice) -> Value {
     })
 }
 
-/// Bots ride a table through the tally and, when a knight asks, again.
 pub fn bots(step: Step, seats: u32, route: Option<&str>, skill: Value, limit: u32) {
     let present: Vec<u32> = (1..=seats).collect();
     let mut session = step(ask("start", json!({"present": present})))["session"].clone();
@@ -68,7 +64,6 @@ pub fn bots(step: Step, seats: u32, route: Option<&str>, skill: Value, limit: u3
             }
             inputs.insert(id.to_string(), step(a)["input"].clone());
         }
-        // A knight asks to ride again at the tally.
         if session["tally"].is_object() && t % 2 == 0 {
             inputs.insert("1".into(), json!({"move_x": 0, "move_y": 0, "aim_x": 0, "aim_y": 0, "fire": false, "dash": false, "bomb": false, "interact": true}));
         }
@@ -80,7 +75,6 @@ pub fn bots(step: Step, seats: u32, route: Option<&str>, skill: Value, limit: u3
     }
 }
 
-/// Random keys, random teleports, knights coming and going.
 pub fn fuzz(step: Step, seed: u64, seats: u32, limit: u32) {
     let mut d = Dice(seed);
     let mut present: Vec<u32> = (1..=seats).collect();
@@ -115,8 +109,6 @@ pub fn fuzz(step: Step, seed: u64, seats: u32, limit: u32) {
     }
 }
 
-/// Knights put just before each thing on the road, riding at it, and at each
-/// loop's mouth and the fork's slow and fast.
 pub fn features(step: Step) {
     let lvl = level::level();
     let main = &lvl.terrain.paths[lvl.main];
@@ -129,7 +121,6 @@ pub fn features(step: Step) {
     spots.push((lvl.bell.0, None));
     for q in main.portals.iter().filter(|q| q.dir > 0) {
         let at = main.sample(q.s).x / 256;
-        // The loop's mouth from a standing start falls off the ceiling; from a run-up it holds.
         let (near, slow, fast) = if q.min_speed > 0 { (40, 700, 1700) } else { (80, 0, 1500) };
         spots.push((at + near, Some(slow)));
         spots.push((at + 300, Some(fast)));
@@ -161,8 +152,6 @@ pub fn features(step: Step) {
     }
 }
 
-/// The warden's gate, the bell, the tally and the ride again: knights set down a
-/// little before the warden with the Dimming far behind, bots riding them on.
 pub fn finale(step: Step, seats: u32, limit: u32) {
     let lvl = level::level();
     let warden = lvl.foes.iter().find(|f| f.kind == super::world::FoeKind::Warden).map_or(19_000, |f| f.x);
@@ -199,7 +188,6 @@ pub fn finale(step: Step, seats: u32, limit: u32) {
     }
 }
 
-/// The bots' rides, as the parity test and the dump run them.
 pub fn bots_all(step: Step) {
     let mut step = step;
     bots(&mut step, 1, None, Value::Null, 6200);

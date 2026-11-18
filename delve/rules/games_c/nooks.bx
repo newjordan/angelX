@@ -1,17 +1,9 @@
-# crates/delve/src/rules/nooks.rs and nooks/{kitchen,reading,bellows,ossuary,still,loft}.rs —
-# lived-in rooms below ground. A Nook is the J object of `Run::nook`; the nook is taken
-# out of the run for the tick and handed back with it (GcRN). The hot-loaded Bone Dominoes
-# brain (nooks/ossuary_port.rs) is host-only: with none installed the native tick answers.
-# RoomKind, Pack and EnemyKind are their snake_case names.
-
 def nooks.KINDS(+i: U32) -> String:
   gc.nth_s(["kitchen", "reading", "bellows", "ossuary", "still", "loft"], i)
 
-# RoomKind::nook()
 def nooks.RoomKind.nook(+kind: String) -> Bool:
   Bool.or(String.eq(kind, "kitchen"), Bool.or(String.eq(kind, "reading"), Bool.or(String.eq(kind, "bellows"), Bool.or(String.eq(kind, "ossuary"), Bool.or(String.eq(kind, "still"), String.eq(kind, "loft"))))))
 
-# of_pack(pack)[i]
 def nooks.of_pack(+pack: String, +i: U32) -> String:
   if String.eq(pack, "crypt"):
     gc.nth_s(["ossuary", "loft"], i)
@@ -42,7 +34,6 @@ def nooks.RAISE_CAP() -> U32:
 def nooks.REACH() -> F32:
   1.8
 
-# Block rectangles by kind.
 def nooks.blocks(+kind: String) -> List<&2, GcRect>:
   if String.eq(kind, "kitchen"):
     [GcRect{11, 3, 2, 2}, GcRect{2, 1, 5, 2}, GcRect{18, 1, 4, 2}, GcRect{4, 9, 5, 1}, GcRect{15, 9, 5, 1}]
@@ -61,7 +52,6 @@ def nooks.blocks(+kind: String) -> List<&2, GcRect>:
           else:
             nooks.loft_blocks(0)
 
-# reading::blocks(): the lecterns (1x1) then the shelves.
 def nooks.LECTERN.c(+i: U32) -> U32:
   gc.nth_u([5, 9, 14, 18, 5, 9, 14, 18], i)
 
@@ -74,7 +64,6 @@ def nooks.reading_blocks(+i: U32) -> List<&2, GcRect>:
   else:
     GcRect{nooks.LECTERN.c(i), nooks.LECTERN.r(i), 1, 1} <> nooks.reading_blocks((i + 1 : U32))
 
-# loft::blocks(): the bells (1x1) then the pews.
 def nooks.BELL.c(+i: U32) -> U32:
   gc.nth_u([5, 9, 14, 18], i)
 
@@ -84,7 +73,6 @@ def nooks.loft_blocks(+i: U32) -> List<&2, GcRect>:
   else:
     GcRect{nooks.BELL.c(i), 3, 1, 1} <> nooks.loft_blocks((i + 1 : U32))
 
-# fill(room, rect, tile)
 def nooks.fill_all(+room: J.Val, +rects: List<&2, GcRect>, +tile: LayTile) -> J.Val:
   match rects as List<&2, GcRect>:
     case Nil{}:
@@ -97,14 +85,12 @@ def nooks.fill(+room: J.Val, +at: GcRect, +tile: LayTile) -> J.Val:
     case GcRect{x: U32, y: U32, w: U32, h: U32}:
       colosseum.fill_rows(room, x, y, w, (y + h : U32), x, tile)
 
-# pub fn room(kind, cell, door) -> Room
 def nooks.room(+kind: String, +cx: U32, +cy: U32, +door: U32) -> J.Val:
   r0: J.Val = J.set(layout.Room.solid_rock(cx, cy), "kind", J.JS{kind})
   r1: J.Val = nooks.fill(r0, GcRect{1, 1, (layout.COLS() - 2 : U32), (layout.ROWS() - 2 : U32)}, TileFloor{})
   r2: J.Val = nooks.fill_all(r1, nooks.blocks(kind), TileBlock{})
   layout.Room.open_door(r2, door)
 
-# pub fn add_nook(floor: &mut Floor) -> bool: (floor, added)
 def nooks.add_nook(+floor: J.Val) -> J.Val & Bool:
   rooms: List<&2, J.Val> = J.items(J.get(floor, "rooms"))
   depth: U32 = gc.u(floor, "depth")
@@ -121,7 +107,6 @@ def nooks.any_nook(+rooms: List<&2, J.Val>) -> Bool:
     case Con{h: J.Val, t: List<&2, J.Val>}:
       Bool.or(nooks.RoomKind.nook(gc.s(h, "kind")), nooks.any_nook(t))
 
-# Does the host kind match the `want` row (0 fight; 1 hall; 2 treasure; 3 start or sanctuary)?
 def nooks.wanted(+want: U32, +kind: String) -> Bool:
   if U32.is_eq(want, 0):
     String.eq(kind, "fight")
@@ -134,7 +119,6 @@ def nooks.wanted(+want: U32, +kind: String) -> Bool:
       else:
         Bool.or(String.eq(kind, "start"), String.eq(kind, "sanctuary"))
 
-# The outer loops: want rows, then lonely true/false.
 def nooks.add.hosts(+floor: J.Val, +kind: String, +step: U32) -> J.Val & Bool:
   if U32.is_ge(step, 8):
     (floor, False{})
@@ -146,7 +130,6 @@ def nooks.add.hosts(+floor: J.Val, +kind: String, +step: U32) -> J.Val & Bool:
     else:
       nooks.add.hosts(f2, kind, (step + 1 : U32))
 
-# for i in (0..len).rev(): the room `i` as host; `n` is the number of rooms still to try (from the back).
 def nooks.add.rows(+floor: J.Val, +kind: String, +want: U32, +lonely: Bool, +n: U32) -> J.Val & Bool:
   if U32.is_zero(n):
     (floor, False{})
@@ -172,7 +155,6 @@ def nooks.dir.at(+kind: String, +k: U32) -> U32:
 def nooks.dir.len(+kind: String) -> U32:
   gc.pu(String.eq(kind, "bellows"), 3, 4)
 
-# DIRS = [(0, -1), (1, 0), (0, 1), (-1, 0)] as i32 two's complement
 def nooks.DIRS.dx(+d: U32) -> U32:
   gc.nth_u([0, 1, 0, RS.i_neg(1)], d)
 
@@ -214,7 +196,6 @@ def nooks.add.dirs(+floor: J.Val, +kind: String, +lonely: Bool, +i: U32, +host: 
         else:
           nooks.add.dirs(floor, kind, lonely, i, host, (k + 1 : U32))
 
-# reading::mimics(floor): which lecterns bite (a mask of three).
 def nooks.reading.shape(+rooms: List<&2, J.Val>, +h: W.W) -> W.W:
   match rooms as List<&2, J.Val>:
     case Nil{}:
@@ -224,7 +205,6 @@ def nooks.reading.shape(+rooms: List<&2, J.Val>, +h: W.W) -> W.W:
       v: U32 = RS.i_add(RS.i_mul(gc.nu(cell, 0), 23), gc.nu(cell, 1))
       nooks.reading.shape(t, W.add(W.mul_u32(h, 41), nooks.sext(v)))
 
-# an i32 sign-extended into a u64
 def nooks.sext(+v: U32) -> W.W:
   if U32.is_ge(v, 2147483648):
     W.W{4294967295, v}
@@ -241,7 +221,6 @@ def nooks.reading.mask(+shape: W.W, +k: U32, +mask: U32) -> U32:
   else:
     nooks.reading.mask(shape, (k + 1 : U32), U32.or(mask, U32.shln(1, U32.to_nat(W.rem_u32(rules.mix(W.xor(shape, W.of_u32(k))), 8)))))
 
-# Run::ready_nook()
 def nooks.Run.ready_nook(+run: J.Val) -> J.Val:
   at: U32 = nooks.first_nook(J.items(J.get(J.get(run, "dungeon"), "rooms")), 0)
   if U32.is_eq(at, 4294967295):
@@ -261,14 +240,12 @@ def nooks.first_nook(+rooms: List<&2, J.Val>, +i: U32) -> U32:
       else:
         nooks.first_nook(t, (i + 1 : U32))
 
-# Nook { room, pot: SCOOPS, mimics, ..Default::default() }
 def nooks.Nook.new(+n: J.Val, +mimics: U32) -> J.Val:
   a: J.Val = gc.zeros(n, ["t", "held", "raised", "cook", "beat", "caught", "opened", "heat", "last", "fallen", "next", "stalled", "round", "shown", "pos"])
   b: J.Val = gc.falses(gc.su(a, "mimics", mimics), ["done", "running"])
   c: J.Val = J.set(J.set(J.set(b, "score", J.obj()), "jars", J.obj()), "brews", J.obj())
   gc.snull(c, "lit")
 
-# Run::nook_players(): the knights who can act.
 def nooks.Run.nook_players(+run: J.Val) -> List<&2, U32>:
   nooks.players.go(J.get(run, "players"), gc.ids(J.get(run, "players")))
 
@@ -280,21 +257,17 @@ def nooks.players.go(+hs: J.Val, +ids: List<&2, U32>) -> List<&2, U32>:
       h: J.Val = gc.seat(hs, id)
       gc.ifx_us(Bool.and(U32.is_gt(gc.u(h, "hp"), 0), Bool.and(Bool.not(gc.b(h, "stone")), U32.is_zero(gc.u(h, "privy")))), id, nooks.players.go(hs, t))
 
-# Run::nook_near(id, at, reach)
 def nooks.Run.nook_near(+run: J.Val, +id: U32, +x: F32, +y: F32, +reach: F32) -> Bool:
   h: J.Val = gc.seat(J.get(run, "players"), id)
   Bool.and(Bool.not(J.is_null(h)), F32.is_lt(RS.f_hypot((gc.f(h, "x") - (x * layout.TILE_UNITS() : F32) : F32), (gc.f(h, "y") - (y * layout.TILE_UNITS() : F32) : F32)), reach))
 
-# *nook.score.entry(id).or_default() += 1 (and the same for any counter map)
 def nooks.bump(+nook: J.Val, +field: String, +id: U32) -> J.Val:
   m: J.Val = J.get(nook, field)
   J.set(nook, field, gc.put_seat(m, id, J.JU{(J.u32(gc.seat(m, id)) + 1 : U32)}))
 
-# has(bits, id): bits & 1 << (id & 7) != 0
 def nooks.has(+bits: U32, +id: U32) -> Bool:
   gc.has_bit(bits, U32.and(id, 7))
 
-# Run::nook_raise(nook, kind, at)
 def nooks.Run.nook_raise(+run: J.Val, +nook: J.Val, +kind: String, +x: F32, +y: F32) -> GcRN:
   if U32.is_ge(gc.u(nook, "raised"), nooks.RAISE_CAP()):
     GcRN{run, nook}
@@ -306,7 +279,6 @@ def nooks.spawn(+run: J.Val, +kind: String, +x: F32, +y: F32) -> J.Val:
   (run2: J.Val, id: Maybe<&2, U32>) = r
   run2
 
-# Run::nook_crown(nook) -> Option<u32> (0 for none): the best scorer wears the laurel when the party is more than one.
 def nooks.Run.nook_crown(+run: J.Val, +nook: J.Val) -> J.Val & U32:
   best: U32 = nooks.best(J.int_fields(J.get(nook, "score")), 0, 0)
   if U32.is_zero(best):
@@ -317,7 +289,6 @@ def nooks.Run.nook_crown(+run: J.Val, +nook: J.Val) -> J.Val & U32:
     else:
       (run, best)
 
-# max_by_key(|(id, n)| (n, Reverse(id))): the highest score, the lowest id among equals.
 def nooks.best(+xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +id: U32, +n: U32) -> U32:
   match xs as List<&2, Sigma<&2, &2, String, _ => J.Val>>:
     case Nil{}:
@@ -341,7 +312,6 @@ def nooks.upper_name(+run: J.Val, +id: U32) -> String:
   else:
     String.to_upper(gc.s(gc.seat(J.get(run, "players"), id), "name"))
 
-# hero.carried.add(Gold, n) for knight `id`; hero.hurt(n)
 def nooks.gold(+run: J.Val, +id: U32, +n: U32) -> J.Val:
   h: J.Val = gc.seat(J.get(run, "players"), id)
   if J.is_null(h):
@@ -356,7 +326,6 @@ def nooks.hurt(+run: J.Val, +id: U32, +n: U32) -> J.Val:
   else:
     J.set(run, "players", gc.put_seat(J.get(run, "players"), id, hero.Hero.hurt(h, n)))
 
-# Run::tick_nook(inputs)
 def nooks.Run.tick_nook(+run: J.Val, +inputs: J.Val) -> J.Val:
   nook: J.Val = J.get(run, "nook")
   if J.is_null(nook):
@@ -371,7 +340,6 @@ def nooks.Run.tick_nook(+run: J.Val, +inputs: J.Val) -> J.Val:
     else:
       J.set(run1, "nook", nook1)
 
-# the bits of knights holding E
 def nooks.held(+run: J.Val, +inputs: J.Val, +ids: List<&2, U32>, +bits: U32) -> U32:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -406,15 +374,12 @@ def nooks.tick.dispatch(+run: J.Val, +inputs: J.Val, +nook: J.Val, +pressed: U32
             else:
               GcRN{run, nook}
 
-# --- Grubb's Kitchen ---------------------------------------------------------
-
 def nooks.BEATS(+i: U32) -> U32:
   gc.nth_u([75, 50, 95, 40, 60, 85], U32.mod(i, 6))
 
 def nooks.beat_len(+beat: U32) -> U32:
   (nooks.BEATS(beat) + 15 + 40 : U32)
 
-# cook(nook): 0 Stirring, 1 Turning, 2 Looking
 def nooks.cook(+nook: J.Val) -> U32:
   stir: U32 = nooks.BEATS(gc.u(nook, "beat"))
   if U32.is_lt(gc.u(nook, "cook"), stir):
@@ -468,14 +433,12 @@ def nooks.kitchen.each(+run: J.Val, +nook: J.Val, +inputs: J.Val, +pressed: U32,
         else:
           nooks.kitchen.each(run, nook, inputs, pressed, state, take, t)
 
-# The cook looks and a knight fidgets: the ladle, a shove away from the pot, a shout for cousins.
 def nooks.kitchen.caught(+run: J.Val, +nook: J.Val, +id: U32, +take: U32) -> GcRN:
   n1: J.Val = gc.su(nook, "caught", U32.or(gc.u(nook, "caught"), gc.bit(U32.and(id, 7))))
   r1: J.Val = nooks.kitchen.ladle(nooks.hurt(run, id, 10), nook, id)
   r2: J.Val = gc.found(gc.sound(gc.sound(r1, "clang"), chatter.clip(id, "oof", take)), id, "CAUGHT! COUSINS!")
   nooks.Run.nook_raise(r2, n1, "goblin", 12.0, 6.5)
 
-# The shove: away from the pot's middle by 3.0, only onto floor.
 def nooks.kitchen.ladle(+run: J.Val, +nook: J.Val, +id: U32) -> J.Val:
   h: J.Val = gc.seat(J.get(run, "players"), id)
   hx: F32 = gc.f(h, "x")
@@ -497,8 +460,6 @@ def nooks.is_floor(+t: LayTile) -> Bool:
       True{}
     case _:
       False{}
-
-# --- The Quiet Room ----------------------------------------------------------
 
 def nooks.TITLES(+i: U32) -> String:
   gc.nth_s(["SOUP FOR KNIGHTS, VOL. II", "HOW TO PET A DRAGON (BRIEFLY)", "1001 GOOSE GRIEVANCES", "ON PRIVIES, AND WHY", "A HISTORY OF THE SOCK", "BOOKS ARE NOT TEETH", "THE WEEK MERLIN WAS A TOAD", "MAUD'S TAB, ABRIDGED"], i)
@@ -538,7 +499,6 @@ def nooks.reading.each(+run: J.Val, +nook: J.Val, +pressed: U32, +ids: List<&2, 
       else:
         nooks.reading.each(run, nook, pressed, t)
 
-# The first unopened lectern the knight stands at, or 8.
 def nooks.reading.find(+run: J.Val, +nook: J.Val, +id: U32, +i: U32) -> U32:
   if U32.is_ge(i, 8):
     8
@@ -547,8 +507,6 @@ def nooks.reading.find(+run: J.Val, +nook: J.Val, +id: U32, +i: U32) -> U32:
       i
     else:
       nooks.reading.find(run, nook, id, (i + 1 : U32))
-
-# --- The Great Bellows -------------------------------------------------------
 
 def nooks.HANDLE.x(+s: U32) -> F32:
   gc.nth_f([5.5, 18.5], s)
@@ -600,7 +558,6 @@ def nooks.bellows.roar(+run: J.Val, +nook: J.Val) -> GcRN:
   else:
     GcRN{run, nook}
 
-# for id in nook_players(): temper a knight with a plain arm.
 def nooks.temper(+run: J.Val, +all: List<&2, U32>, +n: U32, +ids: List<&2, U32>) -> J.Val & U32:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -614,9 +571,6 @@ def nooks.temper(+run: J.Val, +all: List<&2, U32>, +n: U32, +ids: List<&2, U32>)
       else:
         nooks.temper(run, all, n, t)
 
-# --- The Bone Dominoes -------------------------------------------------------
-
-# PATH[i] in tiles: (col, row)
 def nooks.PATH.c(+k: U32) -> U32:
   if U32.is_lt(k, 18):
     (3 + k : U32)
@@ -644,7 +598,6 @@ def nooks.at.y(+i: U32) -> F32:
 def nooks.is_gap(+i: U32) -> Bool:
   Bool.or(U32.is_eq(i, 12), Bool.or(U32.is_eq(i, 21), U32.is_eq(i, 33)))
 
-# The first knight (by id) who pressed E and stands near the path's head.
 def nooks.ossuary.starter(+run: J.Val, +pressed: U32, +ids: List<&2, U32>) -> U32:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -652,7 +605,6 @@ def nooks.ossuary.starter(+run: J.Val, +pressed: U32, +ids: List<&2, U32>) -> U3
     case Con{id: U32, t: List<&2, U32>}:
       gc.pu(Bool.and(nooks.has(pressed, id), nooks.Run.nook_near(run, id, nooks.at.x(0), nooks.at.y(0), nooks.REACH())), id, nooks.ossuary.starter(run, pressed, t))
 
-# The first knight within 1.6 of tile `i`.
 def nooks.ossuary.stander(+run: J.Val, +i: U32, +ids: List<&2, U32>) -> U32:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -716,8 +668,6 @@ def nooks.pay_all(+run: J.Val, +n: U32, +ids: List<&2, U32>) -> J.Val:
       run
     case Con{id: U32, t: List<&2, U32>}:
       nooks.pay_all(nooks.gold(run, id, n), n, t)
-
-# --- Mother Mort's Still -----------------------------------------------------
 
 def nooks.JAR.x(+j: U32) -> F32:
   gc.nth_f([7.5, 12.0, 16.5], j)
@@ -808,7 +758,6 @@ def nooks.still.said(+run: J.Val, +id: U32, +a: U32, +b: U32) -> J.Val & String:
 def nooks.set_hero(+run: J.Val, +id: U32, +h: J.Val) -> J.Val:
   J.set(run, "players", gc.put_seat(J.get(run, "players"), id, h))
 
-# A card into the hand, or (hand full) the fallback: "hp" mends 20, "bombs" adds one bomb.
 def nooks.card_or(+h: J.Val, +card: String, +fallback: String) -> J.Val:
   if U32.is_lt(gc.len(J.items(J.get(h, "hand"))), cards.HAND()):
     gc.push_s(h, "hand", card)
@@ -820,8 +769,6 @@ def nooks.card_or(+h: J.Val, +card: String, +fallback: String) -> J.Val:
 
 def nooks.more_bombs(+h: J.Val) -> J.Val:
   gc.su(h, "bombs", gc.umin((gc.u(h, "bombs") + 1 : U32), rules.MAX_BOMBS()))
-
-# --- The Bell Loft -----------------------------------------------------------
 
 def nooks.SEQ.len(+r: U32) -> U32:
   gc.nth_u([3, 4, 5], r)
@@ -838,7 +785,6 @@ def nooks.SEQ.at(+r: U32, +k: U32) -> U32:
 def nooks.show_len(+r: U32) -> U32:
   (16 + (nooks.SEQ.len(r) * 26 : U32) : U32)
 
-# Show: 0 YourTurn, 1 Ringing(None), 2 + b  Ringing(Some(b))
 def nooks.show(+nook: J.Val) -> U32:
   nooks.show.go(gc.u(nook, "round"), gc.u(nook, "shown"))
 
@@ -871,7 +817,6 @@ def nooks.Run.tick_loft(+run: J.Val, +nook: J.Val, +pressed: U32) -> GcRN:
   else:
     nooks.loft.each(run, n1, pressed, r, nooks.Run.nook_players(run))
 
-# lit = Some((b, t - 1)) kept while t > 0
 def nooks.loft.fade(+nook: J.Val, +t: U32, +b: U32) -> J.Val:
   if U32.is_zero(t):
     gc.snull(nook, "lit")
@@ -901,7 +846,6 @@ def nooks.loft.each(+run: J.Val, +nook: J.Val, +pressed: U32, +r: U32, +ids: Lis
       else:
         nooks.loft.each(run, nook, pressed, r, t)
 
-# A right bell: the phrase may be complete.
 def nooks.loft.ring(+run: J.Val, +nook: J.Val, +id: U32, +r: U32, +pressed: U32, +t: List<&2, U32>) -> GcRN:
   if U32.is_eq(gc.u(nook, "pos"), nooks.SEQ.len(r)):
     n1: J.Val = gc.su(gc.su(gc.su(nook, "pos", 0), "shown", 0), "round", (gc.u(nook, "round") + 1 : U32))
@@ -916,7 +860,6 @@ def nooks.loft.ring(+run: J.Val, +nook: J.Val, +id: U32, +r: U32, +pressed: U32,
   else:
     nooks.loft.each(run, nook, pressed, r, t)
 
-# Everyone mended and paid six gold.
 def nooks.hymn(+run: J.Val, +ids: List<&2, U32>) -> J.Val:
   match ids as List<&2, U32>:
     case Nil{}:

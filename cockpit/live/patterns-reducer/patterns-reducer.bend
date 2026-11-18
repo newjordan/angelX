@@ -1,26 +1,5 @@
 import Base
 
-# What one piece of field evidence does to the aggregate it targets: which
-# membership counter it bumps, which outcome counter it bumps, and the
-# uncertainty and cost it adds. Rust keeps every id and every ordering — the
-# field/benchmark bucket keys, the eight-field pattern keys, the canonical and
-# promoted index selection and all validation — and hands this leg the buckets
-# and patterns in sorted order with each active piece of evidence already
-# sitting in its (bucket, pattern) slot. The fold below is the whole counter
-# policy.
-#
-# `apply_evidence` and `apply_to_fields` in
-# cockpit/src/drive/competition/patterns_reducer.rs stay as the native oracle.
-# Restated here, one piece of evidence
-#   1. bumps exactly one membership counter:
-#        0 confirmed official, 1 provisional transfer, 2 operational outcome
-#   2. bumps exactly one outcome counter:
-#        0 improvement, 1 tie, 2 regression, 3 failure, 4 timeout
-#   3. adds `uncertainty_millis` and `cost_microunits` whole.
-# Every counter is a u64 in Rust and U32 here, so each one travels as (hi, lo)
-# and every add carries explicitly: a step that would leave the u64 range sets
-# `over` instead of wrapping, which the host reads as a refused reduction.
-
 type Count is Data:
   Count{hi: U32, lo: U32, over: Bool}
 
@@ -53,13 +32,9 @@ def either(+a: Bool, +b: Bool) -> Bool:
     case False{}:
       b
 
-# `lo + b_lo > 4294967295`, decided before anything is added so no step has to
-# rely on a wrapped sum.
 def carries(+lo: U32, +b_lo: U32) -> Bool:
   U32.is_gt(lo, U32.sub(4294967295, b_lo))
 
-# `lo + b_lo` reduced into one half; the carry branch subtracts the modulus
-# instead of adding past it.
 def low_sum(+lo: U32, +b_lo: U32, +carry: Bool) -> U32:
   match carry:
     case True{}:
@@ -67,7 +42,6 @@ def low_sum(+lo: U32, +b_lo: U32, +carry: Bool) -> U32:
     case False{}:
       U32.add(lo, b_lo)
 
-# One into the high half, refused only when it is already saturated.
 def carried(+hi: U32, +carry: Bool) -> U32:
   match carry:
     case True{}:
@@ -75,8 +49,6 @@ def carried(+hi: U32, +carry: Bool) -> U32:
     case False{}:
       hi
 
-# `a + (b_hi, b_lo)` with Rust's `checked_add`: an out-of-range step raises
-# `over` and leaves the halves where the last in-range step put them.
 def added(+a: Count, +b_hi: U32, +b_lo: U32) -> Count:
   match a:
     case Count{+hi, +lo, +over}:
@@ -99,7 +71,6 @@ def counted(+count: Count, +on: Bool) -> Count:
     case False{}:
       count
 
-# One evidence row: one membership counter, one outcome counter, two sums.
 def step(+aggregate: Aggregate, +row: Evidence) -> Aggregate:
   match aggregate row:
     case Agg{+confirmed_official, +provisional_transfer, +operational, +improvements, +ties, +regressions, +failures, +timeouts, +uncertainty_millis, +cost_microunits} Ev{+kind, +outcome, +uncertainty, +cost_hi, +cost_lo}:
@@ -126,7 +97,6 @@ def fold(+rows: List<&2, Evidence>, +aggregate: Aggregate) -> Aggregate:
 def zero() -> Count:
   Count{0, 0, False{}}
 
-# A pattern with no active evidence keeps Rust's `PatternAggregateV1::default`.
 def empty() -> Aggregate:
   Agg{zero(), zero(), zero(), zero(), zero(), zero(), zero(), zero(), zero(), zero()}
 
@@ -147,8 +117,6 @@ def reduce_bucket(+bucket: Bucket) -> Reduced:
     case Bucket{+patterns}:
       Reduced{reduce_patterns(patterns)}
 
-# The host reads the result in plan order: one `Reduced` per bucket, one
-# aggregate per pattern, exactly the shape it handed over.
 def reduce(+buckets: List<&2, Bucket>) -> List<&2, Reduced>:
   match buckets:
     case Nil{}:

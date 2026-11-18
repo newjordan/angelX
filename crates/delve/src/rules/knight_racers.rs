@@ -24,6 +24,8 @@ mod emberfall;
 mod glassway;
 #[path = "knight_racers/moatwalk.rs"]
 mod moatwalk;
+#[path = "knight_racers/moonward.rs"]
+mod moonward;
 #[path = "knight_racers/pods.rs"]
 pub mod pods;
 #[path = "knight_racers/tune.rs"]
@@ -53,29 +55,21 @@ pub use tune::Tune;
 
 pub const NAME: &str = "Knight Racer";
 pub const ENTRY: (i32, i32) = (128, 22);
-/// Laps of the retired proving circuit; each course now carries its own count.
 pub const LAPS: u32 = 2;
 const NO_NUMBERS: [super::roundtable::Number; 5] = [super::roundtable::Number::stub("racer_unused", "No tuning", "knight_racers::LAPS"); 5];
 const _: () = assert!(race::SEATS == MAX_PLAYERS && race::HZ == HZ as f32);
 #[cfg(test)]
 const GRID: [(f32, f32); 6] = race::GRID;
 
-// The old free functions: thin wrappers over course 0, the proving circuit, for
-// the renderer until it moves to `course(id)`.
 fn proving() -> &'static Course { course(CourseId::Proving) }
-/// Centreline length of one lap of the proving circuit.
 pub fn lap() -> f32 { proving().lap() }
 pub fn slag() -> &'static [Slag] { proving().slag() }
 pub fn strips() -> &'static [Strip] { proving().strips() }
-/// Section starts, excluding the grid line (the start gate already marks it).
 pub fn landmarks() -> Vec<f32> { proving().landmarks() }
 pub fn stretch_at(s: f32) -> (Stretch, &'static str) { let c = proving(); (c.stretch(s), c.zone(s).1) }
-/// Half-width of the racing surface. Narrows through the cavern and hairpins.
 pub fn wall_at(s: f32) -> f32 { let (l, r) = proving().width(s); l.min(r) }
-/// Road height along the centreline. Closes on itself so the lap seam is level.
 pub fn height(s: f32) -> f32 { proving().height(s) }
 pub fn grade(s: f32) -> f32 { proving().grade(s) }
-/// Inside line of the next corner, in track-left metres. Straights stay central.
 pub fn racing_line(s: f32) -> f32 { proving().racing_line(s) }
 pub fn pose(s: f32) -> (f32, f32, f32) { proving().pose(s) }
 pub fn curve(s: f32) -> f32 { proving().curve(s) }
@@ -87,9 +81,6 @@ fn input_of(d: Drive) -> Input {
     Input { move_x: d.steer, move_y: if d.brake { 1 } else if d.gas { -1 } else { 0 }, dash: d.boost, ..Input::default() }
 }
 
-/// What an empty seat presses when it is a CPU rival on the proving circuit.
-/// A live human seat must not come through here: idle input stays idle. On the
-/// other courses use `Session::bot_drives`, which knows the course.
 pub fn bot_drive(id: u32, car: &Car, ticks: u32) -> Input {
     input_of(race::bot_drive_on(proving(), id, car, ticks))
 }
@@ -107,7 +98,6 @@ impl Session {
         s.join_ids(players.keys().copied());
         s
     }
-    /// The same, on a chosen course (and so a chosen place in the cup).
     pub fn new_on(players: &BTreeMap<u32, Hero>, course: CourseId) -> Self {
         let mut s = Self::blank_on(course);
         s.join_ids(players.keys().copied());
@@ -162,7 +152,7 @@ mod tests {
         let boost = [(1, Input { move_y: -1, dash: true, ..Input::default() })].into();
         for _ in 0..101 { session.step(&boost); }
         assert!(session.cars[&1].boost_locked, "depletion must latch cooling");
-        session.step(&boost); // last residual charge powered the depletion tick
+        session.step(&boost);
         assert!(!session.cars[&1].boosting, "held Space must not flutter on recharge");
         for _ in 0..10 { session.step(&boost); assert!(!session.cars[&1].boosting); }
         session.cars.get_mut(&1).unwrap().boost = 0.5;
@@ -202,8 +192,6 @@ mod tests {
     fn one_lap_six_seats_and_reset() {
         let mut r = Run::new(7, 1, None);
         for id in 2..=6 { r.join_seat(id, "Racer"); }
-        // Six seats flat out with no steering only finish on the old oval, whose walls
-        // guide them round; the cup courses need a pilot (see course_tests.rs).
         let mut s = Session::new_on(&r.players, CourseId::Proving);
         assert_eq!(s.cars.len(), 6);
         assert_eq!(s.cars.keys().copied().collect::<Vec<_>>(), (1..=6).collect::<Vec<_>>());
@@ -244,17 +232,12 @@ mod tests {
             assert!(race.valid(), "{id:?}");
             assert!(race.cars.values().filter(|c| c.cpu).all(|c| c.d > 100.), "{id:?}: rivals must pull away on every course");
         }
-        // Pods and the wire: a chosen pod survives the serialised race.
         let race = r.knight_racers.as_mut().unwrap();
         race.choose_pod(1, 5);
         let back: Session = serde_json::from_str(&serde_json::to_string(race).unwrap()).unwrap();
         assert_eq!(back.cars[&1].pod, 5);
     }
 
-
-    /// `cargo test -p angel-delve --lib frame_time -- --ignored --nocapture`: the cost of one race
-    /// frame at the seat's 384x224, on the proving circuit and on each cup course, and of the land
-    /// under it. A measurement, not a gate.
     #[test]
     #[ignore]
     fn frame_time() {
@@ -284,7 +267,6 @@ mod tests {
             for _ in 0..1800 { race.step_drive(&race.bot_drives_all()); }
             assert!(race.cars.values().all(|c| c.yaw == 0.), "a pilot turned about on {id:?}");
         }
-        // A knight who holds the brake and a direction at a standstill turns the pod right round.
         let mut race = Session::blank_on(CourseId::Proving);
         race.join_ids(1..=1);
         race.ticks = 120;
@@ -294,7 +276,6 @@ mod tests {
         let yaw = race.cars[&1].yaw;
         assert!(yaw.abs() > 2.0, "a second's turn gets the nose well round: {yaw}");
         assert!(race.valid(), "a pod turned about is still a valid pod");
-        // At speed the nose is brought back along the road, whatever was held.
         { let c = race.cars.get_mut(&1).unwrap(); c.yaw = 0.8; c.v = 30.; }
         let go: BTreeMap<u32, Drive> = [(1, Drive { gas: true, ..Drive::default() })].into();
         for _ in 0..60 { race.step_drive(&go); }
@@ -334,7 +315,6 @@ mod tests {
         let mut r = Run::at_home(41, 1, None, Default::default(), Default::default());
         r.walk_kingdom(Some(ENTRY));
         assert_eq!(r.room().tile(ENTRY.0, ENTRY.1), Tile::Floor, "gate tile must be walkable");
-        // The sign does not hide another activity's door, shop or errand.
         let geo = map::geography(&r.kingdom.wishes);
         for a in roundtable::ADVENTURES.iter() {
             assert!((a.entry.0 - ENTRY.0).abs() + (a.entry.1 - ENTRY.1).abs() >= 6);
@@ -342,7 +322,6 @@ mod tests {
         for site in &geo.sites {
             assert!((site.stand.0 - ENTRY.0).abs() + (site.stand.1 - ENTRY.1).abs() >= 6, "{}", site.name);
         }
-        // An open tile is not enough if the gate is marooned behind a wall.
         let mut seen = std::collections::BTreeSet::from([geo.sites[0].stand]);
         let mut queue = std::collections::VecDeque::from([geo.sites[0].stand]);
         while let Some((x, y)) = queue.pop_front() {

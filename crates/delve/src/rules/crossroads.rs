@@ -6,23 +6,15 @@ use super::votes::{Action, Command};
 pub const VOTE_TIME: u32 = 20 * HZ;
 pub const RESULTS_TIME: u32 = 5 * HZ;
 pub const DEATHMATCH_TIME: u32 = 3 * 60 * HZ;
-/// The most a Knight Racers card runs at all, a backstop behind the race's own clock
-/// (`RACERS_LIMIT`), so a knight who stops driving cannot hold the floor for ever.
 pub const RACERS_TIME: u32 = 5 * 60 * HZ;
-/// The seconds the race keeps running after the last knight crosses the line.
 pub const RACERS_GRACE: u32 = 2 * HZ;
-/// The share of one lap the crossroads race runs (2026-11-10: "race is way too long ... can be
-/// .25 that map length"): about 2.3 km of a cup course, near 55 s for the rivals.
 pub const RACERS_SHARE: f32 = 0.25;
-/// The race's clock after the flag, counted down on the screen; the order then stands.
 pub const RACERS_LIMIT: u32 = 90 * HZ;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Game {
     Powder,
-    /// Knight Racers, one lap. It took the Gander Joust's place on the cards, so an old save's
-    /// joust card deals as the race.
     #[serde(alias = "gander")]
     Racers,
     Shaft, Griffin, Touge, Deathmatch,
@@ -82,7 +74,6 @@ impl State {
     pub fn counts(&self) -> [usize; 3] {
         std::array::from_fn(|i| self.votes.values().filter(|&&v| usize::from(v) == i).count())
     }
-    /// Most votes wins; equal counts keep the earlier card, even at zero.
     pub fn winner(&self) -> usize {
         let counts = self.counts();
         (0..3).max_by_key(|&i| (counts[i], 3 - i)).unwrap_or(0)
@@ -109,7 +100,6 @@ impl Run {
         self.crossroads.as_ref().is_some_and(State::voting)
     }
 
-    /// Whether the party is racing the Knight Racers card now.
     pub fn crossroads_racing(&self) -> bool {
         self.crossroads.as_ref().is_some_and(|c| c.stage == Stage::Playing
             && c.chosen.is_some_and(|i| c.choices[usize::from(i)] == Game::Racers))
@@ -119,7 +109,6 @@ impl Run {
         let seats: Vec<u32> = self.players.iter().filter(|(_, h)| !h.absent).map(|(&id, _)| id).collect();
         let mut pool: Vec<Game> = Game::ALL.into_iter()
             .filter(|g| *g != Game::Deathmatch || seats.len() >= 2).collect();
-        // A separate seed keeps dealing cards from changing the next floor.
         let mut rng = Rng::new(mix(self.seed ^ self.raid_id.rotate_left(17) ^ u64::from(self.dungeon.depth)));
         for i in (1..pool.len()).rev() {
             let j = (rng.next() % (i + 1) as u64) as usize;
@@ -199,7 +188,6 @@ impl Run {
                             self.finish_crossroads(order);
                         }
                     } else {
-                        // A restored interlude missing its arena still ends cleanly.
                         self.finish_crossroads(Vec::new());
                     }
                 } else if game == Game::Racers {
@@ -215,7 +203,6 @@ impl Run {
                                 self.finish_crossroads(order);
                             }
                         }
-                        // A restored interlude missing its race still ends cleanly.
                         None => self.finish_crossroads(Vec::new()),
                     }
                 } else if game.course().is_some() {
@@ -249,7 +236,6 @@ impl Run {
         c.seats.retain(|id| self.players.get(id).is_some_and(|h| !h.absent));
         let mut chosen = c.winner();
         if c.choices[chosen] == Game::Deathmatch && c.seats.len() < 2 {
-            // A seat may leave after the deal. Use the leftmost playable card.
             chosen = c.choices.iter().position(|g| *g != Game::Deathmatch).unwrap();
         }
         c.chosen = Some(chosen as u8);
@@ -294,9 +280,6 @@ impl Run {
         if self.crossroads.as_ref().unwrap().seats.is_empty() { self.finish_crossroads(Vec::new()); }
     }
 
-    /// The Knight Racers card: every seated knight on the grid of one cup course, picked by the
-    /// run's seed and the floor, for one lap. A lone knight races five rivals; two or more race
-    /// each other, as on the racers' own menus.
     fn start_crossroads_race(&mut self) {
         let c = self.crossroads.as_ref().unwrap();
         let humans: Vec<(u32, String)> = c.seats.iter()
@@ -305,11 +288,9 @@ impl Run {
         let course = cup[(mix(self.seed ^ u64::from(c.depth).rotate_left(29)) % cup.len() as u64) as usize];
         let mut s = knight_racers::Session::blank_on(course);
         knight_racers::flow::quick(&mut s, &humans, knight_racers::Mode::Single, knight_racers::Class::Knight, Some(course), 0);
-        // Each knight in the pod of their seat, not all in one.
         for (id, car) in s.cars.iter_mut() {
             if !car.cpu { car.pod = knight_racers::pods::seat_pod(*id); }
         }
-        // A sprint: a quarter of one lap, against the clock.
         s.laps = 1;
         s.length = s.course().lap() * RACERS_SHARE;
         s.limit = RACERS_LIMIT;
@@ -335,7 +316,6 @@ impl Run {
                 if place == 0 { h.wishes = h.wishes.saturating_add(1).min(overclass::MOST_WISHES); }
             }
         }
-        // The Delve pays: the prize gold is the kingdom's coin too.
         self.tally_coin(&purses);
         self.sounds.push("gold");
     }

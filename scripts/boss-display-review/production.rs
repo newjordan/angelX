@@ -56,8 +56,6 @@ fn write_boss_art_terminal_shots() {
         }
     }
     std::fs::write(dir.join("room-fixtures.json"), serde_json::to_vec_pretty(&rooms).unwrap()).unwrap();
-    // Staged asset gate through the real room and cell painter. The mine is
-    // already at rest; its mark shows the same landing envelope as live play.
     for id in ["cinderjaw", "the-index", "mother-of-spores", "waxen-warden", "the-bone-choir", "crypt-tithe-marshal", "crypt-tax-keeper", "crypt-relic-liege", "iron-tusk-chief", "red-pick-chief", "the-foreman", "late-fee-leviathan"] {
         for age in 0..5u8 {
             let mut run = boss(id);
@@ -70,8 +68,6 @@ fn write_boss_art_terminal_shots() {
                 "kind":"ember","damage":1,"pierce":0,"last_hit":null,"ttl":100
             })).unwrap();
             let mut flying = base.clone();
-            // Keep the moving projectile outside the Index's vertical lane
-            // crop so its animation cannot pass a frozen warning-stage gate.
             flying.x = 26.0;
             flying.look = art.look();
             let mut mine = flying.clone();
@@ -84,8 +80,6 @@ fn write_boss_art_terminal_shots() {
             mine.traits.path.then = angel_delve::rules::patterns::Then::Burst(6,4.0);
             run.projectiles = vec![flying,mine];
             if id == "the-index" {
-                // The catalogue's lane art is reviewed on the existing
-                // crossfire and beam paths, never a synthetic landing mine.
                 run.projectiles.pop();
                 let mut held = base.clone();
                 held.look = art.look();
@@ -114,9 +108,6 @@ fn write_boss_art_terminal_shots() {
                 ttl:[6,4,3,2,1][age as usize],boss_art:Some(art)
             }];
             if matches!(id, "waxen-warden" | "the-bone-choir" | "crypt-tithe-marshal" | "crypt-tax-keeper" | "crypt-relic-liege" | "iron-tusk-chief" | "the-foreman") {
-                // Ordinary volleys travel, and reaim chooses its target on
-                // release. Review the real 36-tick rage ring, never a mine
-                // that this boss does not emit.
                 run.enemies[0].x = 24.0;
                 run.enemies[0].y = 15.0;
                 run.enemies[0].hp = run.enemies[0].max_hp * 3 / 10;

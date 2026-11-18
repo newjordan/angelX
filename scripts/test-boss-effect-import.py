@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Effect integration contracts: palette, phase slots, exact warning coverage and provenance."""
 import json
 import runpy
 import unittest

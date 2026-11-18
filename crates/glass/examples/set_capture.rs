@@ -34,47 +34,26 @@ use angel_stage::scene::{
 };
 use angel_stage::set::{Kind, Mode, SWATCH_ATLAS, SWATCH_CELL, Set, SetCamera, swatch_cell};
 
-/// The plate's picture id, the first neighbour's, and the first sprite's.
 const PLATE: u32 = 1;
 const NEIGHBOURS: u32 = 10;
 const SPRITES: u32 = 100;
 
-/// The most neighbours a capture draws (a chunk has four that share an edge).
 const MAX_NEIGHBOURS: usize = (SPRITES - NEIGHBOURS) as usize;
 
-/// A neighbour is drawn this much larger about the capture camera's eye, so
-/// each of its surfaces lies a hair farther along the same ray than it is:
-/// the same pixels, and where it and the set share a surface (a ground slab
-/// both lay, level with each other, or a wall in the same place) the set's
-/// is nearer whatever the floats do. (Depth is the floor row alone, so no
-/// shift in one direction orders every kind of surface.) At a stage's
-/// distance this is some tenth of a stage pixel of depth.
 const NEIGHBOUR_PUSH: f64 = 1.0e-4;
 
-/// A seam is scored on points this many plate pixels either side of the
-/// border, about every `SEAM_STEP` stage pixels along it.
 const SEAM_OFFSET_PX: f32 = 3.0;
 const SEAM_STEP: f32 = 4.0;
 
-/// The kinds a seam is scored on: the terrain, which a border runs across
-/// without a break.
 const GROUND_KINDS: [Kind; 7] =
     [Kind::Ground, Kind::Grass, Kind::Path, Kind::Road, Kind::Sand, Kind::Water, Kind::Mud];
 
-/// How far the drift camera turns about the stage's middle: at a room's
-/// sides this moves what is there about 4% of the stage's width.
 const DRIFT_DEGREES: f32 = 4.0;
 
-/// A depth step between neighbours larger than this many stage pixels of
-/// floor is an edge (a stage camera's depth runs `1 / 8192` a pixel of
-/// floor, angel_stage::scene `STAGE_DEPTH_PER_PX`).
 const DEPTH_EDGE_PX: f32 = 4.0;
 
-/// A colour step between neighbours of one kind larger than this (any
-/// channel, out of 255) is a crease between two faces.
 const CREASE_LEVELS: u8 = 6;
 
-/// The grey of each edge in `edges.png`, darkest the strongest.
 const EDGE_DEPTH: u8 = 0x22;
 const EDGE_KIND: u8 = 0x48;
 const EDGE_CREASE: u8 = 0x9a;
@@ -172,28 +151,17 @@ fn read_set(path: &Path) -> Result<Set, String> {
     })
 }
 
-/// Another set drawn through this one's camera (docs/WORLD-3D.md, "Seams").
 struct Neighbour {
     set: Set,
-    /// The picture its plate is uploaded as.
     picture: u32,
 }
 
-/// How a neighbour is drawn into a scene.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Draw {
-    /// Its own plate, cast from its own projector.
     Painted,
-    /// Black and unlit: it hides what stands behind it, and is nothing to
-    /// the checks that read the id map.
     Blank,
 }
 
-/// The scene `mode` makes of `set`, with the neighbours drawn among its
-/// blocks and depth-tested with them: a neighbour is behind the set wherever
-/// they share a surface ([`NEIGHBOUR_PUSH`]), in front of it wherever it
-/// really stands in front. The neighbours come first and the set's own blocks
-/// last, so an exact tie is the set's too.
 fn scene_among(set: &Set, mode: Mode, neighbours: &[Neighbour], draw: Draw) -> Scene {
     let mut scene = set.scene(mode);
     let eye = eye(set);
@@ -221,11 +189,8 @@ fn scene_among(set: &Set, mode: Mode, neighbours: &[Neighbour], draw: Draw) -> S
     scene
 }
 
-/// The pinhole the capture camera looks from: the world point where the
-/// camera's clip x, y and w all vanish (`None` for a camera with no such point).
 fn eye(set: &Set) -> Option<[f32; 3]> {
     let m = set.projector().view_projection;
-    // Rows 0, 1 and 3 of the matrix dotted with (x, y, z, 1) are 0.
     let a: [[f64; 3]; 3] =
         [0, 1, 3].map(|r| [f64::from(m[0][r]), f64::from(m[1][r]), f64::from(m[2][r])]);
     let b: [f64; 3] = [0, 1, 3].map(|r| -f64::from(m[3][r]));
@@ -237,7 +202,6 @@ fn eye(set: &Set) -> Option<[f32; 3]> {
     if d.abs() < 1e-18 {
         return None;
     }
-    // Cramer's rule: the column `k` replaced by b.
     let at = |k: usize| {
         let mut with = a;
         for r in 0..3 {
@@ -249,7 +213,6 @@ fn eye(set: &Set) -> Option<[f32; 3]> {
     eye.iter().all(|v| v.is_finite()).then_some(eye)
 }
 
-/// `transform` with its node made [`NEIGHBOUR_PUSH`] larger about `eye`.
 fn push_back(transform: &mut Transform, eye: [f32; 3]) {
     let k = 1.0 + NEIGHBOUR_PUSH as f32;
     for i in 0..3 {
@@ -304,8 +267,6 @@ fn run() -> Result<(), String> {
         return Err("the GPU did not hand the depth back".into());
     }
     write_png(&out("depth.png"), size, png::ColorType::Grayscale, png::BitDepth::Sixteen, &depth_png(&depth))?;
-    // The edges are the set's own: where a neighbour hides it (its id is black)
-    // nothing of the set is drawn.
     let seen: Vec<f32> =
         depth.iter().enumerate().map(|(i, &d)| if ids[i * 4..i * 4 + 3] == [0, 0, 0] { 1.0 } else { d }).collect();
     let edges = edges(size, &ids, &seen, &capture);
@@ -340,7 +301,6 @@ fn run() -> Result<(), String> {
     }
     gpu.core.upload(Picture { id: PLATE, width: pw, height: ph, rgba: plate.clone(), cols: 0, rows: 0 });
     let mut scene = scene_among(&set, Mode::Projected { picture: PLATE }, &neighbours, Draw::Painted);
-    // The blocks (the neighbours' and the set's) before any sprite stands among them.
     let blocks_only = gpu.render(&scene);
     for (i, sprite) in args.sprites.iter().enumerate() {
         let (w, h, rgba) = decode(&sprite.path)?;
@@ -359,7 +319,6 @@ fn run() -> Result<(), String> {
     let projected = if args.sprites.is_empty() { blocks_only.clone() } else { gpu.render(&scene) };
     write_png(&out("projected.png"), size, png::ColorType::Rgb, png::BitDepth::Eight, &rgb_of(&projected))?;
     if (pw, ph) == size {
-        // Where a block of the set is and no sprite stands, the cast plate is the plate.
         let (mut same, mut checked, mut worst) = (0usize, 0usize, 0u8);
         for i in 0..(size.0 * size.1) as usize {
             let at = i * 4;
@@ -389,19 +348,9 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
-/// For each neighbour, along the border its stage shares with the set's, the
-/// colours of the cast plates a few pixels either side of the border, on
-/// ground kinds: prints how many points were scored and the mean colour
-/// difference. The set's side is read from the set cast with its plate alone,
-/// the neighbour's from the neighbour cast with its own (so blocks that run
-/// past the border on both sides, a ground laid into the margin, do not hide
-/// one plate behind the other). Returns `projected` (the blocks of the
-/// scene, every plate cast) with the points marked as RGB: magenta the set's
-/// side, cyan the neighbour's, yellow a point left out.
 fn seam_report(gpu: &mut Gpu, set: &Set, neighbours: &[Neighbour], projected: &[u8]) -> Vec<u8> {
     let (w, h) = (set.plate.0 as i64, set.plate.1 as i64);
     let mut marks = rgb_of(projected);
-    // The pixel under a plate point, if the plate has it.
     let pixel = |p: [f32; 2]| -> Option<usize> {
         let (x, y) = (p[0].floor() as i64, p[1].floor() as i64);
         ((0..w).contains(&x) && (0..h).contains(&y)).then_some((y * w + x) as usize)
@@ -419,7 +368,6 @@ fn seam_report(gpu: &mut Gpu, set: &Set, neighbours: &[Neighbour], projected: &[
     let ground = |ids: &[u8], at: usize| {
         Kind::from_id([ids[at * 4], ids[at * 4 + 1], ids[at * 4 + 2]]).is_some_and(|k| GROUND_KINDS.contains(&k))
     };
-    // The set alone, cast and by kind.
     let mine = gpu.render(&set.scene(Mode::Projected { picture: PLATE }));
     let mine_ids = gpu.render(&set.scene(Mode::Ids));
     for neighbour in neighbours {
@@ -435,8 +383,6 @@ fn seam_report(gpu: &mut Gpu, set: &Set, neighbours: &[Neighbour], projected: &[
         let mut sum = [0f64; 3];
         for k in 0..count {
             let [x, z] = border.at((k as f32 + 0.5) / count as f32);
-            // The direction across the border in the plate, from where the
-            // camera puts the edge and a stage pixel past it.
             let on = set.plate_pixel([x, 0.0, z]);
             let past = set.plate_pixel([x + border.across[0], 0.0, z + border.across[1]]);
             let (Some(on), Some(past)) = (on, past) else { continue };
@@ -480,8 +426,6 @@ fn seam_report(gpu: &mut Gpu, set: &Set, neighbours: &[Neighbour], projected: &[
     marks
 }
 
-/// The capture's camera turned [`DRIFT_DEGREES`] about the vertical through
-/// the floor point at the stage's middle.
 fn drift(set: &Set) -> angel_stage::scene::Mat4 {
     let (w, h) = set.camera.size();
     let middle = match set.camera {
@@ -497,8 +441,6 @@ fn drift(set: &Set) -> angel_stage::scene::Mat4 {
     };
     mat_mul(&set.projector().view_projection, &about.matrix())
 }
-
-// ------------------------------------------------------------------ gpu ----
 
 struct Gpu {
     core: Core,
@@ -539,7 +481,6 @@ impl Gpu {
         Ok(Self { core: Core::new(device, queue, format, 1.0), texture, view, size })
     }
 
-    /// `scene` drawn at the plate's size, as RGBA.
     fn render(&mut self, scene: &Scene) -> Vec<u8> {
         self.core.begin_frame();
         self.core.draw_scene(&self.view, self.size, scene, "set-capture");
@@ -547,18 +488,9 @@ impl Gpu {
     }
 }
 
-// ------------------------------------------------------------- swatches ----
-
-/// How far in from a kind's edge on the plate a patch keeps: the painter's
-/// line along a crease, the antialiased rim.
 const SWATCH_MARGIN: u32 = 3;
-/// The least side of a patch worth having.
 const SWATCH_LEAST: u32 = 8;
 
-/// The swatches picture (`SWATCH_ATLAS`, RGBA) of `kinds` from `plate` where
-/// the id map `ids` (RGBA, `size`) is each kind: each kind's largest clean
-/// square, in by [`SWATCH_MARGIN`], at most [`SWATCH_CELL`] a side, at its
-/// cell; and the kinds it found a patch for, with the patch's side.
 fn swatches(size: (u32, u32), ids: &[u8], plate: &[u8], kinds: &[Kind]) -> (Vec<u8>, Vec<(Kind, u32)>) {
     let (w, h) = (size.0 as usize, size.1 as usize);
     let (aw, ah) = SWATCH_ATLAS;
@@ -567,8 +499,6 @@ fn swatches(size: (u32, u32), ids: &[u8], plate: &[u8], kinds: &[Kind]) -> (Vec<
     let mut run = vec![0u32; w * h];
     for &kind in kinds {
         let want = kind.id();
-        // The side of the largest square of the kind (and of painted,
-        // opaque plate) whose bottom right is each pixel.
         let mut best = (0u32, 0usize, 0usize);
         for y in 0..h {
             for x in 0..w {
@@ -591,7 +521,6 @@ fn swatches(size: (u32, u32), ids: &[u8], plate: &[u8], kinds: &[Kind]) -> (Vec<
         if patch < SWATCH_LEAST {
             continue;
         }
-        // The patch in the middle of the square.
         let x0 = bx + 1 - side as usize + ((side - patch) / 2) as usize;
         let y0 = by + 1 - side as usize + ((side - patch) / 2) as usize;
         let (cx, cy) = swatch_cell(kind);
@@ -608,8 +537,6 @@ fn swatches(size: (u32, u32), ids: &[u8], plate: &[u8], kinds: &[Kind]) -> (Vec<
     (atlas, found)
 }
 
-// --------------------------------------------------------------- images ----
-
 fn rgb_of(rgba: &[u8]) -> Vec<u8> {
     rgba.chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect()
 }
@@ -624,7 +551,6 @@ fn write_png(path: &Path, size: (u32, u32), color: png::ColorType, depth: png::B
     writer.write_image_data(data).map_err(|e| fail(&e))
 }
 
-/// A PNG as straight 8-bit RGBA.
 fn decode(path: &Path) -> Result<(u32, u32, Vec<u8>), String> {
     let fail = |e: &dyn std::fmt::Display| format!("{}: {e}", path.display());
     let file = std::io::BufReader::new(std::fs::File::open(path).map_err(|e| fail(&e))?);
@@ -648,8 +574,6 @@ fn decode(path: &Path) -> Result<(u32, u32, Vec<u8>), String> {
     Ok((w, h, rgba))
 }
 
-/// The depth as 16-bit grey, big-endian: white the nearest drawn, a dark
-/// grey (4096) the farthest, black where nothing is.
 fn depth_png(depth: &[f32]) -> Vec<u8> {
     let drawn = || depth.iter().copied().filter(|&d| d < 1.0);
     let near = drawn().fold(f32::INFINITY, f32::min);
@@ -664,8 +588,6 @@ fn depth_png(depth: &[f32]) -> Vec<u8> {
         .collect()
 }
 
-/// Dark lines on white where neighbours differ: in depth (darkest), in kind,
-/// or, one kind, in the capture's flat colour (a crease between faces).
 fn edges(size: (u32, u32), ids: &[u8], depth: &[f32], capture: &[u8]) -> Vec<u8> {
     let (w, h) = (size.0 as usize, size.1 as usize);
     let step = DEPTH_EDGE_PX / 8192.0;
@@ -694,9 +616,6 @@ fn edges(size: (u32, u32), ids: &[u8], depth: &[f32], capture: &[u8]) -> Vec<u8>
     out
 }
 
-// --------------------------------------------------------------- legend ----
-
-/// 5 x 7 capitals, rows top down, the high bit of 5 the left.
 fn glyph(c: char) -> [u8; 7] {
     match c.to_ascii_uppercase() {
         'A' => [0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
@@ -730,7 +649,6 @@ fn glyph(c: char) -> [u8; 7] {
     }
 }
 
-/// How a lit face turned toward `normal` is shaded (the GPU's Lambert).
 fn shade(normal: [f32; 3]) -> f32 {
     let l = KEY_LIGHT;
     let len = (l[0] * l[0] + l[1] * l[1] + l[2] * l[2]).sqrt();
@@ -738,8 +656,6 @@ fn shade(normal: [f32; 3]) -> f32 {
     AMBIENT_LIGHT + (1.0 - AMBIENT_LIGHT) * lambert
 }
 
-/// A swatch row for each kind: its capture colour as a top, a front and a
-/// right-hand face show it, its id colour, and its name.
 fn legend(kinds: &[Kind]) -> ((u32, u32), Vec<u8>) {
     const ROW: usize = 40;
     const PAD: usize = 16;

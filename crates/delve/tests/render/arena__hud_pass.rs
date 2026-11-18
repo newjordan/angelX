@@ -4,7 +4,6 @@
 //! angel-delve write_hud_pass_shots -- --ignored`).
 use super::*;
 
-/// `run` with every seat filled, as the dev host's bots fill them.
 fn six(mut run: Run) -> Run {
     for id in 2..=6 {
         run.join_seat(id, &format!("Bot {id}"));
@@ -33,7 +32,6 @@ fn write_hud_pass_shots() {
     save("boss-6", &six(testing::boss("cinderjaw")));
     save("kingdom", &testing::kingdom());
     save("kingdom-6", &six(testing::kingdom()));
-    // The taverns, the knight at each place that asks for a key (tiles).
     let spots = |mut run: Run, at: &[(f32, f32)], tag: &str| {
         run.floor_plates.clear();
         for _ in 0..100 {

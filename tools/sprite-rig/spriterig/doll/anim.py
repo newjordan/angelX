@@ -1,4 +1,3 @@
-"""Drive a Doll through a Clip: springs prewarmed, smear/hit events, squash & stretch, fx."""
 import numpy as np
 from . import draw as Dr
 
@@ -22,9 +21,6 @@ def _fx(doll, out, fx, t, X_head_px):
 
 def frames(doll, clip, yaw=0.0, pitch=20.0, facing=90.0, size=None, pad=None, squash=None,
            smear=True, fx=None, loops=1, prewarm=12, travel=False):
-    """-> list of canvases. squash=None uses clip.meta['squash'] (default off).
-    With size and pad unset, the canvas grows (per clip) until nothing touches the edge,
-    so jumps, spins and long weapons never get clipped."""
     if size is None and pad is None:
         p = int(round(doll.h * 0.55))
         for _ in range(4):
@@ -45,7 +41,7 @@ def _frames(doll, clip, yaw, pitch, facing, size, pad, squash, smear, fx, loops,
     fx = fx or getattr(clip, "meta", {}).get("fx")
     hips = clip.hips
     kw = dict(yaw=yaw, pitch=pitch, facing=facing, size=size, pad=pad, dt=dt)
-    for _ in range(prewarm):          # settle capes/plumes at the first pose
+    for _ in range(prewarm):
         doll.frame(clip.rot[0], hips[0] * [0, 1, 0] if not travel else hips[0], **kw)
     out = []
     for k in range(T * loops):

@@ -3,14 +3,10 @@ import assert from 'node:assert/strict'
 import * as fs from 'node:fs'
 import vm from 'node:vm'
 
-// The Moonfall adapter (cockpit/live/moonfall-rules/index.js) carries the run's phase across the
-// hot boundary as one word: 0 Play, 1 Rewind, 2 Skip, 3 Won. The word must never turn into a win
-// by default, in either direction.
 const dir = new URL('../../cockpit/live/moonfall-rules/', import.meta.url)
 const text = name => fs.readFileSync(new URL(name, dir), 'utf8')
 const probe = JSON.parse(text('module.json')).probe
 
-// the adapter, loaded the way the host loads it, over the real compiled rules
 function load() {
   const bendContext = vm.createContext({module: {exports: {}}})
   vm.runInContext(text('moonfall-rules.compiled.js'), bendContext, {timeout: 5000})
@@ -21,14 +17,11 @@ function load() {
   return {bend, adapter: context.module.exports}
 }
 
-// the session scalars are a tree of words, four children to a node; `phase` is the third word
 const PHASE_AT = 2
 const leaves = tree => (tree.$ === 'Lf' ? [tree] : [tree.a, tree.b, tree.c, tree.d].flatMap(leaves))
 const phaseLeaf = tree => leaves(tree)[PHASE_AT]
-// what the adapter returns was built inside the vm; compare it by value
 const plain = value => JSON.parse(JSON.stringify(value))
 
-// run one real step, with the phase word it writes back replaced by `word`
 function stepWithPhaseWord(word, over = {}) {
   const {bend, adapter} = load()
   const step = bend.main_step
@@ -45,7 +38,6 @@ function stepWithPhaseWord(word, over = {}) {
   return adapter.render(structuredClone(probe))
 }
 
-// the phase word the adapter hands the rules for a session in `phase`
 function phaseWordSent(phase) {
   const {bend, adapter} = load()
   let sent

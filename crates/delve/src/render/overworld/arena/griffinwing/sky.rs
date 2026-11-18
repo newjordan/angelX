@@ -16,8 +16,6 @@ use crate::render::world3d::raster::View3;
 use crate::rules::griffinwing::trig::Det;
 use std::sync::OnceLock;
 
-/// Which sky: the gorge's and the causeway's dusk, the roost's smoke, the
-/// way home's dawn.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Sky {
     Dusk,
@@ -25,7 +23,6 @@ pub enum Sky {
     Dawn,
 }
 
-/// The ramp from the horizon up, as inks.
 fn ramp(sky: Sky) -> &'static [char] {
     match sky {
         Sky::Dusk => &['R', 'p', 'b', 'X', 'x', 's', 'K'],
@@ -34,28 +31,13 @@ fn ramp(sky: Sky) -> &'static [char] {
     }
 }
 
-/// The painted bands (`griffinwing.sky`) are 384 by 112; each picture dot is
-/// `SCALE` screen dots square.
 const BAND_H: i32 = 112;
 const SCALE: f32 = 2.0;
-/// How high above the horizon the band's bottom row looks, in radians: the
-/// painted amber sits where the canyon's far floor ends.
 const EL_BOTTOM: f32 = -0.14;
-/// Where the painted moon stands, as an azimuth, and the column it is drawn
-/// at in the dusk band.
 const MOON_AT: f32 = 2.35;
 const MOON_COL: f32 = 233.0;
-/// The share of the painting's light the stage lets through: the painted
-/// amber horizon is as bright as the gold reticle, the lock marks and the
-/// rings that fly over it (about 175 against 202 in luma), so the sky is
-/// drawn under a dark layer of a fifth, snapped once to the palette's plain
-/// inks (never the signal bank). The imported pixels are untouched; drop the
-/// dim and the sky is drawn as painted.
 const KEEP: f32 = 0.8;
 
-/// A sky as one strip of picture, wrapping sideways: its columns, its rows
-/// (`w` by `BAND_H`), the colour above its top row, and whether it is turned
-/// back on itself at every repeat (a single band, so the join never shows).
 struct Strip {
     w: i32,
     px: Vec<Rgb>,
@@ -63,10 +45,6 @@ struct Strip {
     mirror: bool,
 }
 
-/// The strip for `sky`, when the sky slot is painted whole: the dusk's strip
-/// is its band and the cloud band side by side (one moon in two bands' width,
-/// not one in every band), the smoke and the dawn are their own band turned
-/// back at each repeat.
 fn strip(sky: Sky) -> Option<&'static Strip> {
     static STRIPS: OnceLock<[Option<Strip>; 3]> = OnceLock::new();
     let all = STRIPS.get_or_init(|| {
@@ -86,7 +64,6 @@ fn strip(sky: Sky) -> Option<&'static Strip> {
                     }
                 }
             }
-            // The colour above the picture is its top row's most common one.
             let mut top: Vec<Rgb> = px[..w as usize].to_vec();
             top.sort_unstable();
             let (mut zenith, mut best, mut run) = (top[0], 0, 0);
@@ -108,7 +85,6 @@ fn strip(sky: Sky) -> Option<&'static Strip> {
     all[sky as usize].as_ref()
 }
 
-/// Paint every dot the scene left as sky (`depth` infinite).
 pub fn paint(im: &mut Img, depth: &[f32], view: &View3, sky: Sky, tick: u32) {
     match strip(sky) {
         Some(strip) => paint_strip(im, depth, view, sky, strip, tick),
@@ -116,10 +92,6 @@ pub fn paint(im: &mut Img, depth: &[f32], view: &View3, sky: Sky, tick: u32) {
     }
 }
 
-/// The painted sky: each dot looks along its own ray, azimuth to a column of
-/// the strip and elevation to a row of it, so a bend in the canyon turns the
-/// sky and the horizon stays where the camera's pitch puts it. The strip
-/// drifts as the code's clouds did.
 fn paint_strip(im: &mut Img, depth: &[f32], view: &View3, sky: Sky, strip: &Strip, tick: u32) {
     let (w, h) = (im.w, im.h);
     let f = (w as f32 / 2.0) / (view.fov_rad / 2.0).dtan();
@@ -157,8 +129,6 @@ fn paint_strip(im: &mut Img, depth: &[f32], view: &View3, sky: Sky, strip: &Stri
     }
 }
 
-/// The sky drawn in the code: the ramp, clouds, stars and the moon, when the
-/// painted sky is not whole.
 fn paint_code(im: &mut Img, depth: &[f32], view: &View3, sky: Sky, tick: u32) {
     let (w, h) = (im.w, im.h);
     let f = (w as f32 / 2.0) / (view.fov_rad / 2.0).dtan();
@@ -166,7 +136,6 @@ fn paint_code(im: &mut Img, depth: &[f32], view: &View3, sky: Sky, tick: u32) {
     let top = inks.len() as f32 - 1.0;
     for y in 0..h {
         let el = view.pitch + ((h as f32 / 2.0 - y as f32) / f).datan();
-        // 0 at the horizon, 1 straight up.
         let t = ((el + 0.12) / 1.05).clamp(0.0, 1.0);
         for x in 0..w {
             if depth
@@ -177,7 +146,6 @@ fn paint_code(im: &mut Img, depth: &[f32], view: &View3, sky: Sky, tick: u32) {
             }
             let az = view.heading_rad - ((x as f32 - w as f32 / 2.0) / f).datan();
             let mut v = t * (1.6 - 0.6 * t) * top;
-            // Clouds: banks across the middle of the sky.
             let n = vnoise(az * 4.0 + tick as f32 * 0.002, el * 22.0, 3) * 0.7
                 + vnoise(az * 9.0, el * 44.0, 4) * 0.3;
             if (0.12..0.85).contains(&t) {
@@ -195,7 +163,6 @@ fn paint_code(im: &mut Img, depth: &[f32], view: &View3, sky: Sky, tick: u32) {
             } else {
                 inks[i]
             };
-            // Stars, high up, and the moon.
             if sky != Sky::Dawn && t > 0.4 {
                 let hs = hash((az * 170.0).floor() as i32, (el * 170.0).floor() as i32, 7);
                 if hs % 520 == 0 {

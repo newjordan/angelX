@@ -9,49 +9,34 @@
 use super::*;
 use std::f32::consts::{PI, TAU};
 
-/// Ticks of ripples before the first ring bursts.
 pub const WARN: u32 = 36;
-/// The rings' spacing, and their half-width: a hair over half the
-/// spacing, so they overlap.
 pub const RING_GAP: f32 = 2.2;
 pub const BAND: f32 = RING_GAP / 2.0 + 0.05;
-/// How long the tentacles stay up once burst.
 pub const UP: u32 = 15;
-/// How far a struck knight is thrown, and how long it is helpless.
 const THROW: f32 = 1.2;
 pub const TOSSED: u32 = HZ / 2;
 
-/// One Ravage, from where the boss stood.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Ravage {
     pub x: f32,
     pub y: f32,
     pub rings: u8,
-    /// The clear lane: its heading and its width, in radians.
     pub lane: f32,
     pub width: f32,
-    /// Ticks between one ring bursting and the next.
     pub step: u32,
     pub damage: u32,
     pub age: u32,
-    /// Appearance travels with the cast after its owner moves or falls.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub boss_art: Option<bosses::Art>,
-    /// A guardian's slam (`signatures::tag`): its rings strike as that
-    /// charge-up's blow, once a knight (`Hero::blow`).
     #[serde(default, skip_serializing_if = "zero")]
     pub blow: u32,
 }
 
-/// Ticks between one ring bursting and the next, for rings spreading at
-/// `speed`.
 pub fn step_for(speed: f32) -> u32 {
     (RING_GAP / speed.max(1.0) * HZ as f32).round().max(2.0) as u32
 }
 
 impl Ravage {
-    /// A boss's Ravage: `rings` of them spreading at `speed`, the lane
-    /// `arc` degrees wide on a heading the boss's beat picks.
     pub fn cast(
         (x, y): (f32, f32),
         rings: u32,
@@ -74,12 +59,10 @@ impl Ravage {
         }
     }
 
-    /// Ring `k`'s radius and the age it bursts at.
     pub fn ring(&self, k: u8) -> (f32, u32) {
         (RING_GAP * f32::from(k + 1), WARN + u32::from(k) * self.step)
     }
 
-    /// Whether `(x, y)` lies in the clear lane.
     pub fn in_lane(&self, x: f32, y: f32) -> bool {
         let heading = (y - self.y).atan2(x - self.x);
         let off = (heading - self.lane + PI).rem_euclid(TAU) - PI;
@@ -92,7 +75,6 @@ impl Ravage {
 }
 
 impl Run {
-    /// Ravages cast this tick join the room; each ring bursts on its beat.
     pub(super) fn tick_ravage(&mut self, cast: Vec<Ravage>) {
         for ravage in cast {
             if self.ravages.len() < 3 {
@@ -138,7 +120,6 @@ impl Run {
                     );
                     struck = true;
                 }
-                // Beaumains goes up with them.
                 if let Some(hire) = self.hireling.as_mut().filter(|h| !h.down()) {
                     let d = (hire.x - ravage.x).hypot(hire.y - ravage.y);
                     if (d - radius).abs() <= BAND

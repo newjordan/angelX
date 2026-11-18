@@ -38,8 +38,6 @@ def main():
         raise RuntimeError('native semantic probe location must be unique')
     changed = original.replace(needle, needle.replace(b'return 1', b'return 7'))
     env = dict(os.environ)
-    # A compiler wrapper is deliberately used for independent call counting;
-    # do not let an inherited target-specific CC bypass it.
     for key in ('CC', 'TARGET_CC', 'CC_x86_64_unknown_linux_gnu',
                 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER'):
         env.pop(key, None)
@@ -132,8 +130,6 @@ def main():
         try:
             run('prime-host', 4, host=True)
             run('unchanged-host', 0, host=True)
-            # The same default cartridge root, but a changed watched environment
-            # value. The host script must rerun; the native package must not.
             roots = env.get('ANGEL_CARTRIDGES', str(Path(env['HOME']) / '.angelX/cartridges'))
             roots += os.pathsep + str(work / 'nonexistent-cartridge-root')
             run('cartridge-env-host', 0, host=True, overrides={'ANGEL_CARTRIDGES': roots})
@@ -149,8 +145,6 @@ def main():
                 SOURCE.write_bytes(original)
             elif SOURCE.read_bytes() != original:
                 raise RuntimeError('concurrent native edit: refusing to overwrite it')
-            # Restore default CC/CFLAGS and cartridge environment on the real
-            # host. This intentionally compiles native once, without our logger.
             run('restored-host', 0, host=True, bare=True)
         report['all_expectations_met'] = True
         save()

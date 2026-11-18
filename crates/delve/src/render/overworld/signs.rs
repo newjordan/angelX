@@ -9,9 +9,6 @@ use super::scene::Prop;
 use super::TILE;
 use crate::world::signs::{self, Post, Way};
 
-/// A fingerpost with a board pointing each of `ways`: 15 x 22 pixels, the
-/// post up its middle on a stone footing, in the dusk timbers (nothing
-/// brighter than `r`) so it reads on black paper without shining.
 pub fn sprite(ways: &[Way]) -> Img {
     let mut im = Img::new(15, 22);
     im.rect(7, 3, 2, 17, 'P');
@@ -48,12 +45,10 @@ pub fn sprite(ways: &[Way]) -> Img {
     im
 }
 
-/// The world pixel the post's foot stands on.
 fn foot(post: &Post) -> (i32, i32) {
     (post.at.0 * TILE + TILE / 2, post.at.1 * TILE + 14)
 }
 
-/// Every fingerpost as a prop in realm coordinates.
 pub fn stage(props: &mut Vec<Prop>) {
     for post in signs::posts() {
         let ways: Vec<Way> = post.arms.iter().map(|a| a.0).collect();
@@ -67,9 +62,6 @@ pub fn stage(props: &mut Vec<Prop>) {
     }
 }
 
-/// Letter the arms of every post within [`signs::READ`] tiles of `near`
-/// (tile units) onto `cv`, whose top-left is world pixel `origin`; returns
-/// the rectangles they take.
 pub fn arms(cv: &mut Img, origin: (i32, i32), near: (f32, f32)) -> Vec<(i32, i32, i32, i32)> {
     let mut taken = Vec::new();
     for post in signs::posts() {
@@ -81,7 +73,6 @@ pub fn arms(cv: &mut Img, origin: (i32, i32), near: (f32, f32)) -> Vec<(i32, i32
         let (x, y) = (fx - origin.0, fy - origin.1 - 22);
         for (way, name) in &post.arms {
             let text = name.to_uppercase();
-            // A way down wears a stair going down before its name.
             let down = signs::arm_kind(name) == signs::ArmKind::Dungeon;
             let lead = if down { 8 } else { 0 };
             let w = text_width(&text) + lead;

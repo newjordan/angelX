@@ -17,38 +17,21 @@
 
 use ratatui::layout::Rect;
 
-/// The top-level floating panels of the cockpit. Each is its own bordered box
-/// separated from its neighbors by gap cells. Not every kind is present every
-/// frame — `Shell`/`Image` replace the cockpit body only when active, and
-/// `Transcript`/`AgentBay`/`Artifacts` collapse to a single `Transcript` box on
-/// a narrow terminal.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[allow(dead_code)] // layout catalog — Footer is reserved for the transport deck hint
+#[allow(dead_code)]
 pub enum PanelKind {
-    /// Top status strip (in-hand box, mode, CPU/GPU, pet).
     Header,
-    /// The running loop's race ticker, embedded under the header.
     LoopTicker,
-    /// Terminal / chat transcript.
     Transcript,
-    /// Embedded full-access shell (when focused).
     Shell,
-    /// Explicit foreground image viewer (portraits and compatibility paths).
     Image,
-    /// Agent-status / portrait bay.
     AgentBay,
-    /// Canonical Scryglass / Realm Stage.
     Artifacts,
-    /// Command / message input (also the working-metrics strip).
     Input,
-    /// Bottom hint / key-legend strip.
     Footer,
 }
 
 impl PanelKind {
-    /// Stable lowercase tag, suitable as a scene/skin layer key (Phase B can
-    /// publish e.g. `skin.<name>` / `scene.<name>` per panel).
-    // Phase B reads this; the Phase A bin only fills the registry.
     pub const fn name(self) -> &'static str {
         match self {
             Self::Header => "header",
@@ -64,8 +47,6 @@ impl PanelKind {
     }
 }
 
-/// The outer (framed) rects of every floating panel drawn this frame, in
-/// absolute buffer coordinates. Rebuilt from scratch each draw in `ui()`.
 #[derive(Clone, Debug, Default)]
 pub struct PanelFrames {
     frames: Vec<(PanelKind, Rect)>,
@@ -76,24 +57,16 @@ impl PanelFrames {
         self.frames.clear();
     }
 
-    /// Register a panel's outer box rect (empty rects are ignored, so a panel
-    /// that collapsed to nothing on a tiny terminal simply isn't published).
     pub fn push(&mut self, kind: PanelKind, rect: Rect) {
         if rect.width > 0 && rect.height > 0 {
             self.frames.push((kind, rect));
         }
     }
 
-    // The accessors below are the Phase B read surface (iterate the live boxes to
-    // attach a skin frame + scene bg). The Phase A bin only writes the registry,
-    // so they read as dead code here; the tests exercise them.
-
-    /// Iterate the published `(kind, outer_rect)` pairs in draw order.
     pub fn iter(&self) -> impl Iterator<Item = (PanelKind, Rect)> + '_ {
         self.frames.iter().copied()
     }
 
-    /// The outer rect of a specific panel, if it was drawn this frame.
     pub fn get(&self, kind: PanelKind) -> Option<Rect> {
         self.frames
             .iter()

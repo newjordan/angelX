@@ -107,7 +107,6 @@ pub(crate) struct AuxiliaryTracker {
 
 pub(crate) struct AuxiliaryScope(Arc<Mutex<AuxiliaryCoverage>>);
 
-/// Single-use ownership of precisely the scopes charged at this dispatch.
 pub(crate) struct AuxiliaryOperation {
     scopes: Vec<Weak<Mutex<AuxiliaryCoverage>>>,
     operation_id: String,
@@ -156,8 +155,6 @@ impl AuxiliaryOperation {
 }
 
 impl AuxiliaryScope {
-    /// Charge this exact parent only when its retained messages reach a native
-    /// provider dispatch. Rewrites later in the turn cannot erase consumption.
     pub(crate) fn observe_recovery_context(
         &self,
         messages: &[crate::agent::club::ChatMsg],
@@ -221,9 +218,6 @@ impl AuxiliaryTracker {
     }
 
     pub(crate) fn tool_entered(&self, name: &str, args: &serde_json::Value) -> AuxiliaryOperation {
-        // These capabilities can invoke a native model or import delegated work.
-        // An entered capability may subsequently fail before or after model work;
-        // absent a child receipt, neither failure nor success clears its origin.
         let model = matches!(
             name,
             "spawn"
@@ -242,8 +236,6 @@ impl AuxiliaryTracker {
         let model = model
             || (name == "knowledge_graph"
                 && args.get("op").and_then(serde_json::Value::as_str) != Some("stats"));
-        // Charge and capture the same scope set atomically: a concurrently
-        // entering turn cannot steal a completion from an earlier dispatch.
         let mut active = self.active.lock().unwrap_or_else(|p| p.into_inner());
         active.retain(|scope| scope.strong_count() > 0);
         for scope in active.iter().filter_map(Weak::upgrade) {
@@ -256,8 +248,6 @@ impl AuxiliaryTracker {
                 value.complete = false;
             }
         }
-        // Only these two implementations can return a linked artifact. Keep
-        // ordinary reads/edits free of added argument serialization and hashes.
         if !matches!(name, "delegate" | "integrate") {
             return AuxiliaryOperation {
                 scopes: Vec::new(),

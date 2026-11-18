@@ -5,8 +5,6 @@ use super::*;
 use crate::rules::feel::testing::{a_foe, bare, quiet};
 use std::collections::BTreeMap;
 
-/// A calm bare room: a knight at `hero` with `weapon` and a monster `gap`
-/// units east of them, one blow from death and holding still.
 fn scene(kind: EnemyKind, weapon: Weapon, hero: (f32, f32), gap: f32) -> (Run, u32) {
     let mut run = quiet();
     bare(&mut run);
@@ -40,7 +38,6 @@ fn a_point_blank_arrow_kicks_the_monster_back_and_pins_it_to_the_wall() {
     let g = run.gore.last().expect("a finisher");
     assert_eq!((g.cut, g.pin, g.shaft), (Cut::Kick, Pin::Wall, Shot::Arrow));
     assert!(g.big);
-    // It ends against the east stone, a little short of it, on the same line.
     assert!(g.to_x > g.x + 1.0 && g.to_x < 46.0, "{g:?}");
     assert!((g.to_y - g.y).abs() < 0.2);
     assert_eq!(g.id, id);
@@ -106,8 +103,6 @@ fn bosses_spirits_and_the_great_have_none() {
 
 #[test]
 fn what_the_picture_holds_never_changes_the_rules() {
-    // The same fight twice; one run forgets its finishers every tick. The
-    // rules, written out, agree to the byte: nothing reads them back.
     let play = |forget: bool| {
         let (mut run, id) = scene(EnemyKind::Skeleton, Weapon::Bow, (38.5, 14.0), 3.2);
         let mut written = Vec::new();
@@ -197,8 +192,6 @@ fn finishers_age_out_and_a_new_room_clears_them() {
 
 #[test]
 fn the_best_finishers_hold_the_room_only_when_the_knob_is_set() {
-    // Off by default: the rules' time never stands still for a finisher,
-    // which is why no run's outcome moves.
     let (mut run, id) = scene(EnemyKind::Skeleton, Weapon::Bow, (38.5, 14.0), 3.2);
     assert_eq!(run.tune.hitstop_finisher, 0);
     blow(&mut run, id, false);
@@ -208,7 +201,6 @@ fn the_best_finishers_hold_the_room_only_when_the_knob_is_set() {
     assert!(run.tune.set("hitstop_finisher", 3.0) && run.tune.valid());
     blow(&mut run, id, false);
     assert_eq!(run.hitstop.left, 3);
-    // A punch from range is not one of the best.
     let (mut run, id) = scene(EnemyKind::Hexer, Weapon::Crossbow, (12.0, 14.0), 11.0);
     run.tune.set("hitstop_finisher", 3.0);
     blow(&mut run, id, false);
@@ -217,8 +209,6 @@ fn the_best_finishers_hold_the_room_only_when_the_knob_is_set() {
 
 #[test]
 fn the_variant_comes_from_the_kill_and_never_the_dice() {
-    // The same kill twice agrees on everything, and the run's own dice are
-    // where they were: a finisher draws none.
     let play = || {
         let (mut run, id) = scene(EnemyKind::Necromancer, Weapon::Bow, (22.0, 14.0), 1.9);
         blow(&mut run, id, true);
@@ -227,8 +217,6 @@ fn the_variant_comes_from_the_kill_and_never_the_dice() {
     assert_eq!(play(), play());
 }
 
-/// Knight 1's sword chain at `n` strokes (the next swing is its `n + 1`th),
-/// swung at nothing with the monster `id` stood well aside.
 fn chain_to(run: &mut Run, id: u32, n: u32) {
     let at = run.enemies.iter().find(|e| e.id == id).map(|e| (e.x, e.y)).unwrap();
     run.enemies.iter_mut().find(|e| e.id == id).unwrap().x += 20.0;
@@ -244,37 +232,30 @@ fn chain_to(run: &mut Run, id: u32, n: u32) {
 
 #[test]
 fn the_blow_chooses_the_cut_a_level_sweep_the_head_the_backhand_the_middle_the_maul_the_length() {
-    // A level sweep, the chain's first stroke, takes a goblin's head.
     let (mut run, id) = scene(EnemyKind::Goblin, Weapon::Bow, (22.0, 14.0), 1.9);
     blow(&mut run, id, true);
     let g = run.gore.last().expect("a finisher");
     assert_eq!((g.cut, g.slant), (Cut::Behead, None));
-    // The backhand cuts it through the middle, the cut sloping down away
-    // from the knight so the upper piece slides off that way.
     let (mut run, id) = scene(EnemyKind::Goblin, Weapon::Bow, (22.0, 14.0), 1.9);
     chain_to(&mut run, id, 1);
     blow(&mut run, id, true);
     let g = run.gore.last().expect("a finisher");
     assert_eq!(g.cut, Cut::Halve);
     assert!(g.slant.is_some_and(|s| (14..=30).contains(&s)), "{:?}", g.slant);
-    // The finisher takes the head and throws it furthest.
     let (mut run, id) = scene(EnemyKind::Goblin, Weapon::Bow, (22.0, 14.0), 1.9);
     chain_to(&mut run, id, 2);
     blow(&mut run, id, true);
     let g = run.gore.last().expect("a finisher");
     assert_eq!((g.cut, g.span), (Cut::Behead, 18));
-    // A headless thing is cut through the middle by any sweep.
     let (mut run, id) = scene(EnemyKind::Bat, Weapon::Bow, (22.0, 14.0), 1.9);
     blow(&mut run, id, true);
     assert!(run.gore.last().is_some_and(|g| g.cut == Cut::Halve && g.slant.is_some()));
-    // The great maul from above splits a goblin nearly down its length.
     let (mut run, id) = scene(EnemyKind::Goblin, Weapon::Bow, (22.0, 14.0), 1.9);
     assert!(run.take_up(1, "hammerer"));
     blow(&mut run, id, false);
     let g = run.gore.last().expect("a finisher");
     assert_eq!(g.cut, Cut::Halve);
     assert!(g.slant.is_some_and(|s| s >= 58), "{:?}", g.slant);
-    // A knight to the east cuts the other way.
     let (mut run, id) = scene(EnemyKind::Bat, Weapon::Bow, (26.0, 14.0), -1.9);
     run.players.get_mut(&1).unwrap().aim_x = -1.0;
     for _ in 0..40 {
@@ -318,11 +299,9 @@ fn a_head_taken_thuds_when_it_lands_and_a_body_cut_through_slumps_when_it_falls(
         let (now, later) = if cut == Cut::Behead { ("gore_behead", "gore_head_thud") } else { ("gore_bisect", "gore_slump") };
         let at = heard.iter().find(|h| h.1 == now).unwrap_or_else(|| panic!("{kind:?}: {heard:?}")).0;
         let after = heard.iter().find(|h| h.1 == later).unwrap_or_else(|| panic!("{kind:?}: {heard:?}")).0;
-        // When the picture has the head land, or the halves reach the floor.
         assert_eq!(after - at, gore::HOLD + u64::from(g.span), "{kind:?}");
         assert!(!heard.iter().any(|h| h.1 == "gore_chop"), "{kind:?}: {heard:?}");
     }
-    // Bones still crack and clatter.
     let (mut run, id) = scene(EnemyKind::Skeleton, Weapon::Bow, (22.0, 14.0), 1.9);
     run.sounds.clear();
     blow(&mut run, id, true);

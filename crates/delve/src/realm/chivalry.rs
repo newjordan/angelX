@@ -20,21 +20,13 @@ pub enum Mount {
     Mist,
 }
 
-/// How a mount rides at the lists. Ticks are the Delve's (30 a second).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Steed {
-    /// Ticks from the spur to the meeting at the middle of the tilt.
     pub charge: u32,
-    /// How many knocks the rider takes before falling.
     pub balance: u32,
-    /// How far either side of the meeting a strike still lands, in ticks.
     pub strike: u32,
-    /// How long, in ticks, the horse holds its rider steady at the clash:
-    /// with the strike, how long the lances stay crossed.
     pub brace: u32,
-    /// How long before the meeting the rival's guard can be read, in ticks.
     pub tell: u32,
-    /// Extra knocks a clean hit deals.
     pub weight: u32,
 }
 
@@ -50,7 +42,6 @@ impl Mount {
             Self::Mist => "Mist",
         }
     }
-    /// What the mount is like under a rider, in a few words.
     pub fn says(self) -> &'static str {
         match self {
             Self::Bramble => "steady: hard to unhorse, slow to the meeting",
@@ -58,8 +49,6 @@ impl Mount {
             Self::Mist => "light and true: a wide strike, an early read",
         }
     }
-    /// The numbers behind `says`: a mount changes the joust's timing, not a
-    /// score on a menu.
     pub fn steed(self) -> Steed {
         match self {
             Self::Bramble => Steed {
@@ -95,40 +84,28 @@ impl Mount {
     }
 }
 
-/// A tended mount carries its rider one knock longer.
 pub const TENDED_BALANCE: u32 = 1;
 
-/// The most horses the stable's herd yard keeps.
 pub const HERD_CAP: usize = 12;
 
-/// The stable as the realm keeps it: the mount saddled for the lists, which
-/// are tended (brushed, watered, tack checked: one bout's worth), and what
-/// the realm's knights have done at the lists.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Stable {
     #[serde(default)]
     pub selected: Mount,
     #[serde(default)]
     pub tended: [bool; 3],
-    /// Bouts won, by rival id.
     #[serde(default)]
     pub wins: BTreeMap<String, u32>,
     #[serde(default)]
     pub bouts: u32,
-    /// Rivals put on the sand.
     #[serde(default)]
     pub unhorsed: u32,
-    /// The herd: horses owned, traded and bred, beyond the three mounts.
     #[serde(default)]
     pub herd: Vec<Horse>,
-    /// Herd selection is independent of the three jousting mounts.
     #[serde(default)]
     pub selected_herd: Option<usize>,
-    /// Calls served under each house's banner: the usage bloodlines are
-    /// seasoned by, and horse lore is told from.
     #[serde(default)]
     pub yards: BTreeMap<String, u32>,
-    /// Foals bred in this stable, to vary their naming and mutation.
     #[serde(default)]
     pub foals: u32,
 }
@@ -138,24 +115,17 @@ impl Stable {
         self.tended[mount.index()]
     }
 
-    /// Service under a house's banner, tallied in calls served. This is the
-    /// usage a bloodline's lore is earned from: a house whose models work
-    /// seasons its horses, and an idle house's line goes soft.
     pub fn note_service(&mut self, house: &str, calls: u32) {
         if calls > 0 && !house.is_empty() {
             *self.yards.entry(house.to_string()).or_default() += calls;
         }
     }
 
-    /// How seasoned a house's yard is, 0 (never served) to 4 (a great house
-    /// of the road). One tier per 250 calls under the banner.
     pub fn yard_tier(&self, house: &str) -> u8 {
         let calls = self.yards.get(house).copied().unwrap_or(0);
         (calls / 250).min(4) as u8
     }
 
-    /// The horse market on a given day: four horses whose blood is seasoned
-    /// by how much their houses have actually served. Pure in the seed.
     pub fn market(&self, seed: u64) -> Vec<Horse> {
         MARKET_HOUSES
             .iter()
@@ -168,8 +138,6 @@ impl Stable {
             .collect()
     }
 
-    /// Today's market: the four horses on offer, by the yard as it stands.
-    /// The stables' pens and the yard's ledger show the same four.
     pub fn todays_market(&self) -> Vec<Horse> {
         let seed = self.yards.values().map(|&n| u64::from(n)).sum::<u64>()
             ^ (self.herd.len() as u64) << 8
@@ -177,8 +145,6 @@ impl Stable {
         self.market(seed)
     }
 
-    /// Buy a market horse for gold, if the purse and the yard allow it.
-    /// Returns what was spent, or `None` and nothing changes.
     pub fn buy(&mut self, horse: Horse, gold: u32) -> Option<u32> {
         let price = horse.value(self);
         (gold >= price && self.herd.len() < HERD_CAP && !horse.name.eq_ignore_ascii_case("Helios")).then(|| {
@@ -187,7 +153,6 @@ impl Stable {
         })
     }
 
-    /// Sell a herd horse back to the road at seven-tenths of its value.
     pub fn sell(&mut self, at: usize) -> Option<u32> {
         (at < self.herd.len()).then(|| {
             self.selected_herd = self.selected_herd.and_then(|i| {
@@ -203,9 +168,6 @@ impl Stable {
             .or_else(|| self.herd.iter().find(|h| h.mare && h.raceable(wins)))
     }
 
-    /// Breed two herd horses. The foal carries the mean of its parents'
-    /// blood, seasoned by the busier parent's house, and is named from
-    /// both. The stable keeps at most twelve horses.
     pub fn breed(&mut self, sire: usize, dam: usize, seed: u64) -> Option<&Horse> {
         if sire == dam || sire >= self.herd.len() || dam >= self.herd.len() || self.herd.len() >= HERD_CAP
         {
@@ -234,11 +196,8 @@ impl Stable {
     }
 }
 
-/// The houses whose yards sell at the realm's horse market.
 pub const MARKET_HOUSES: [&str; 4] = ["qwen", "grok", "glm", "deepseek"];
 
-/// A house's gift, in the blood: what its models are like, as horseflesh.
-/// Deterministic in the house key, so every realm agrees on a line.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Bloodline {
     pub pace: u8,
@@ -248,8 +207,6 @@ pub struct Bloodline {
 }
 
 impl Bloodline {
-    /// Seasoned blood runs truer: service under the banner lifts the low
-    /// gifts first, which is why a worked line feels more honest.
     pub fn season(&mut self, tier: u8) {
         for gift in [
             &mut self.pace,
@@ -286,7 +243,6 @@ impl Bloodline {
     }
 }
 
-/// The blood a house breeds, from its key alone (3..=9 in each gift).
 pub fn bloodline(house: &str) -> Bloodline {
     let h = mix(house.bytes().fold(0xCBF2_9CE4_8422_2325u64, |a, b| {
         (a ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01B3)
@@ -308,13 +264,9 @@ fn mix(mut h: u64) -> u64 {
     h ^ h >> 31
 }
 
-/// One horse of the realm: its blood, its house, and what the road and the
-/// hippodrome have made of it. The lore is read off this record, never
-/// written beside it, so a horse is exactly what it has done.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Horse {
     pub name: String,
-    /// The model house in whose yard it was foaled (a key in `houses`).
     pub house: String,
     #[serde(default)]
     pub sire: String,
@@ -327,22 +279,16 @@ pub struct Horse {
     pub wins: u32,
     #[serde(default)]
     pub seconds: u32,
-    /// Gold won at the hippodrome.
     #[serde(default)]
     pub earned: u32,
-    /// Older herd records predate sex; they remain eligible mares.
     #[serde(default = "legacy_mare")]
     pub mare: bool,
-    /// Delves won at birth, for horses growing in the flower fields.
     #[serde(default)]
     pub born: Option<u32>,
-    /// A coat the horse was found with, over the one its name gives it (the
-    /// pictures read a coat off the name otherwise): the swamp's white mare.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub coat: Option<HorseCoat>,
 }
 
-/// A coat a horse was found with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HorseCoat {
@@ -367,8 +313,6 @@ impl Horse {
             && self.born.is_none_or(|born| wins.saturating_sub(born) >= crate::rules::ranch::GROWN)
     }
 
-    /// What the horse is worth in gold: blood, record, and a yard made
-    /// honest by service all raise the price; a green horse is cheap.
     pub fn value(&self, stable: &Stable) -> u32 {
         40 + self.blood.sum() * 6
             + self.wins * 60
@@ -377,7 +321,6 @@ impl Horse {
             + u32::from(stable.yard_tier(&self.house)) * 15
     }
 
-    /// The horse's story, told from its record and its house's service.
     pub fn lore(&self, stable: &Stable) -> String {
         let calls = stable.yards.get(&self.house).copied().unwrap_or(0);
         let bred = if self.sire.is_empty() {
@@ -423,9 +366,6 @@ fn foal_name(seed: u64, sire: &str, _dam: &str) -> String {
     )
 }
 
-/// Decode a saved subtree on its own: a malformed or newer one resets to
-/// its default instead of failing the whole realm (`Realm::beside` would
-/// otherwise start the realm over).
 pub fn lenient<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 where
     D: serde::Deserializer<'de>,

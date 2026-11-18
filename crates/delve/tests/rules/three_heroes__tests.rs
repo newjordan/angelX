@@ -308,7 +308,6 @@ fn three_heroes_scope_and_mark_require_line_of_sight_and_shrapnel_slows() {
         },
     );
     assert_eq!(r.enemies[0].hp, hp);
-    // Remove shrapnel so only the delayed mark can damage this target.
     r.heroes.zones.clear();
     for _ in 0..HZ {
         step(&mut r, Input::default());
@@ -469,7 +468,6 @@ fn three_heroes_max_charge_auto_releases_and_replays_identically() {
 #[test]
 fn three_heroes_learned_spells_also_stack_and_dead_owners_leave_no_fields() {
     let mut r = arena("cinderheart");
-    // Stacking is a cast passive, not an alias for the three bespoke spells.
     r.players.get_mut(&1).unwrap().spells[3] = Some("cabbage-storm".into());
     let before = r.players[&1].cooldown(100);
     cast(&mut r, 4);
@@ -491,7 +489,6 @@ fn three_heroes_borrowed_last_light_keeps_a_living_non_kit_owner() {
     let target = r.enemies[0].id;
     assert!(ults::Ult::ALL.contains(&ults::Ult::LastLight));
     let h = r.players.get_mut(&1).unwrap();
-    // All Random can lend any ultimate, independently of the knight's kit.
     h.ult = Some(ults::Ult::LastLight);
     h.ult_charge = ults::ULT_FULL;
     step(
@@ -579,7 +576,6 @@ fn three_heroes_retained_spell_moves_power_to_slot_two_in_host_and_prediction() 
             500
         );
     }
-    // Slot 1 is the retained spell, not a key that can keep Power charging.
     let release = Input {
         cast: 1,
         ..Input::default()

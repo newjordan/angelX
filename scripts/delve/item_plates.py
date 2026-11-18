@@ -1,12 +1,3 @@
-"""The art team's item drawings -> the Delve's pickup plate sheet.
-
-    uv run --no-project --with pillow scripts/delve/item_plates.py CROPS_DIR OUT.png
-
-Every name in PLATES (the order `item_pack.rs` reads them in) is CROPS_DIR/NAME.png,
-a drawing on transparency. Each is fitted into a CELL x CELL cell of a 6 x 6
-sheet, centred, its alpha made hard (a plate stands over the floor with no
-halo), and the sheet is written as one RGBA PNG.
-"""
 import sys
 from PIL import Image
 

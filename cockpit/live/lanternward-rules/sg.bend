@@ -1,6 +1,3 @@
-# The adventure's rooms, one after another: what is in each, what each asks of the
-# party, the way through, the fallen and the retry. crates/delve/src/rules/
-# lanternward/stage.rs, and the Warden's beacon from boss.rs.
 import Base
 import ./r.bend as R
 import ./c.bend as C
@@ -29,9 +26,6 @@ import ./cn.bend as X
 
 def S() -> Data: R.W
 
-# ----- the room's things ------------------------------------------------------------------
-
-# The kind of thing a letter marks, or none.
 def pk_of(+c: U32) -> U32:
   Bool.pick(U32, U32.is_eq(c, 111) || U32.is_eq(c, 120), 0,
   Bool.pick(U32, U32.is_eq(c, 34), 1,
@@ -54,7 +48,6 @@ def pk_of(+c: U32) -> U32:
   Bool.pick(U32, U32.is_eq(c, 70), 18,
   Bool.pick(U32, U32.is_eq(c, 47), 19, C.none()))))))))))))))))))))
 
-# How many things of a kind are already laid.
 def count_kind(+ps: List<&2, R.W8>, +kind: U32) -> U32:
   match ps:
     case Nil{}:
@@ -62,15 +55,11 @@ def count_kind(+ps: List<&2, R.W8>, +kind: U32) -> U32:
     case Con{p, t}:
       U32.add(Bool.to_u32(U32.is_eq(Pr.kind(p), kind)), count_kind(t, kind))
 
-# A gate's number (the exit is 0), a chest's, sign's or folk's place in its room,
-# a bomb pot or the second plate is 1.
 def prop_id(+acc: List<&2, R.W8>, +kind: U32, +c: U32) -> U32:
   Bool.pick(U32, U32.is_eq(kind, C.pk_gate()), Bool.pick(U32, U32.is_eq(c, 71), 0, U32.sub(c, 48)),
   Bool.pick(U32, U32.is_eq(kind, C.pk_chest()) || U32.is_eq(kind, C.pk_sign()) || U32.is_eq(kind, C.pk_folk()), count_kind(acc, kind),
   Bool.pick(U32, U32.is_eq(kind, C.pk_pot()) || U32.is_eq(kind, C.pk_plate()), Bool.to_u32(U32.is_eq(c, 120) || U32.is_eq(c, 89)), 0)))
 
-# One tile's thing, if it holds one. The vault's key chest is not there until the
-# dark is beaten (on = 2); a resting brazier burns for good.
 def lay(+acc: List<&2, R.W8>, +room: U32, +x: U32, +y: U32, +c: U32) -> List<&2, R.W8>:
   +kind = pk_of(c)
   +id = prop_id(acc, kind, c)
@@ -91,10 +80,7 @@ def lay_rows(rows: List<String>, +y: U32, +room: U32, +acc: List<&2, R.W8>) -> L
     case Con{h, t}:
       lay_rows(t, U32.add(y, 1), room, lay_row(h, 0, y, room, acc))
 
-# The room's things, in the order the plan's rows list them.
 def build(+room: U32) -> List<&2, R.W8>: lay_rows(Gr.rows_of(Gr.plan(room)), 0, room, Nil{})
-
-# ----- where the party stands -------------------------------------------------------------------
 
 def at_start(+ks: List<&2, R.T8>, +room: U32) -> List<&2, R.T8>:
   match ks:
@@ -110,8 +96,6 @@ def at_start(+ks: List<&2, R.T8>, +room: U32) -> List<&2, R.T8>:
       +k5 = Seat.set_hp(k4, Bool.pick(U32, U32.is_eq(Seat.hp(k4), 0), U32.min(C.revive_hp(), Seat.max_hp(k4)), Seat.hp(k4)))
       Con{Seat.set_inv(k5, C.spawn_inv()), at_start(t, room)}
 
-# The foes (and the Warden) a room opens with, from the marks of the plan: the first
-# `n` marks of a letter, each a foe of a kind.
 def spawn_marks(+n: Nat, +k: U32, +w: S, +room: U32, +code: U32, +kind: U32, +hooded: Bool, +count: U32) -> S:
   match n:
     case 0n:
@@ -120,7 +104,6 @@ def spawn_marks(+n: Nat, +k: U32, +w: S, +room: U32, +code: U32, +kind: U32, +ho
       +mark = Gr.nth_hit(Gr.find(Gr.rows_of(Gr.plan(room)), code), k)
       spawn_marks(p, U32.add(k, 1), Z.lw(U32.is_lt(k, count), u => Fo.spawn_foe(w, kind, G.middle(U32.shrn(mark, 16n)), G.middle(U32.and(mark, 65535)), hooded), w), room, code, kind, hooded, count)
 
-# The Lamp Hall's wave: the Gloam answers the Lantern.
 def spawn_wave(+w: S) -> S:
   +seats = U32.max(L.len64(W.seats(w)), 1)
   +n = U32.min(U32.add(2, U32.div(U32.sub(seats, 1), 2)), 4)
@@ -138,7 +121,6 @@ def warden_in(+w: S, +mark: U32, +seats: U32) -> S:
   +b1 = B.set_prov(B.set_full(B.set_hp(B.set_y(B.set_x(W.set_boss(w, L.zero64()), G.middle(U32.shrn(mark, 16n))), G.middle(U32.and(mark, 65535))), full), full), N.sclamp(seats, 1, C.max_players()))
   W.set_boss_on(B.set_aim(B.set_atk(B.set_fy(B.set_start(b1, full), 256), C.atk_slam()), 90), 1)
 
-# The foes (and the Warden) a room opens with.
 def provision_room(+w: S, +room: U32) -> S:
   +seats = U32.max(L.len64(W.seats(w)), 1)
   Z.lz(U32.is_eq(room, 0), u => spawn_marks(U32.to_nat(U32.add(1, U32.div(U32.sub(seats, 1), 3))), 0, w, 0, 83, C.fk_snuffer(), False{}, Gr.hits(Gr.find(Gr.rows_of(Gr.plan(0)), 83))),
@@ -146,16 +128,12 @@ def provision_room(+w: S, +room: U32) -> S:
   u => Z.lz(U32.is_eq(room, 3), u => spawn_marks(U32.to_nat(U32.add(2, U32.div(seats, 2))), 0, w, 3, 83, C.fk_snuffer(), True{}, Gr.hits(Gr.find(Gr.rows_of(Gr.plan(3)), 83))),
   u => Z.lw(U32.is_eq(room, 4), u => W.set_props(warden_in(w, Gr.nth_hit(Gr.find(Gr.warden(), 87), 0), seats), lamps_burn(W.props(w))), w))))
 
-# The party goes into room `room`: its things stand, its foes wait, and every
-# seat is at its start (the fallen on their feet again, at the next brazier).
 def enter_room(+w: S, +room: U32) -> S:
   +w1 = W.set_boss_on(W.set_next_foe(W.set_wipe(W.set_exiting(W.set_stage_t(W.set_stage(W.set_room(w, room), 0), 0), 0), 0), 0), 0)
   +w2 = W.set_grid(W.set_props(w1, build(room)), Gd.of(room))
   +w3 = W.set_fuses(W.set_drops(W.set_bolts(W.set_foes(w2, Nil{}), Nil{}), Nil{}), Nil{})
   provision_room(W.set_seats(w3, at_start(W.seats(w3), room)), room)
 
-# The Warden back at the start of the phase it was in, at the health the table
-# gave it (a leaver does not make it weaker).
 def reset_boss_phase(+w: S) -> S:
   +mark = Gr.nth_hit(Gr.find(Gr.warden(), 87), 0)
   +hp = U32.max(U32.min(B.start(w), B.full(w)), 1)
@@ -163,10 +141,6 @@ def reset_boss_phase(+w: S) -> S:
     B.set_n(B.set_struck(B.set_l5(B.set_l4(B.set_l3(B.set_l2(B.set_l1(B.set_l0(B.set_dk(B.set_y(B.set_x(B.set_t(B.set_st(B.set_hp(w, hp), C.ws_rest()), 60), G.middle(U32.shrn(mark, 16n))), G.middle(U32.and(mark, 65535))), 0), 0), 0), 0), 0), 0), 0), 0), 0),
     w)
 
-# ----- the fallen and the retry --------------------------------------------------------------------------
-
-# Back to the room's start: hearts full, foes as the encounter opened, every
-# solved thing still solved.
 def retry_seats(+ks: List<&2, R.T8>, +room: U32, +flame: U32, +lantern: U32) -> List<&2, R.T8>:
   match ks:
     case Nil{}:
@@ -182,7 +156,6 @@ def retry_seats(+ks: List<&2, R.T8>, +room: U32, +flame: U32, +lantern: U32) -> 
       +k6 = Seat.set_pusht(Seat.set_pushy(Seat.set_pushx(k5, 0), 0), 0)
       Con{Seat.set_flame(Seat.set_carry(Seat.set_inv(k6, C.spawn_inv()), 0), Bool.pick(U32, U32.is_ne(lantern, 0), flame, 0)), retry_seats(t, room, flame, lantern)}
 
-# A carried key is put down at its carrier's start.
 def key_follows(+w: S) -> S:
   +k = H.seat_get(W.seats(w), W.hold_a(w))
   Bool.pick(S, U32.is_eq(W.hold_k(w), C.hold_carried()), W.set_hold_y(W.set_hold_x(w, Seat.x(k)), Seat.y(k)), w)
@@ -198,10 +171,6 @@ def retry(+w: S) -> S:
       u => Z.lw(U32.is_eq(room, 4), u => reset_boss_phase(w3), w3)))
   W.set_flash(Q.sound(w4, 26), U32.max(W.flash(w4), 8))
 
-# ----- the things in the room, a tick ---------------------------------------------------------------------
-
-# Where weights lie (knights on the ground, blocks) and where flares burn, as
-# (x, y) pairs gathered before the props move.
 def weights_seats(+ks: List<&2, R.T8>, +acc: List<&2, R.W8>) -> List<&2, R.W8>:
   match ks:
     case Nil{}:
@@ -223,7 +192,6 @@ def flares_of(+ks: List<&2, R.T8>, +acc: List<&2, R.W8>) -> List<&2, R.W8>:
     case Con{k, t}:
       flares_of(t, Bool.pick(List<&2, R.W8>, Q.flaring(k), L.push8(acc, R.W8{Seat.x(k), Seat.y(k), 0, 0, 0, 0, 0, 0}), acc))
 
-# Whether any pair is within `r` of the point.
 def near_any(+ps: List<&2, R.W8>, +x: U32, +y: U32, +r: U32, +hit: Bool) -> Bool:
   match ps:
     case Nil{}:
@@ -235,13 +203,11 @@ def near_any(+ps: List<&2, R.W8>, +x: U32, +y: U32, +r: U32, +hit: Bool) -> Bool
         case False{}:
           near_any(t, x, y, r, N.slt(G.dist(U32.sub(Pt.x(p), x), U32.sub(Pt.y(p), y)), r))
 
-# A brazier that was alight goes out when its flame runs low.
 def brazier_burns(+w: S, +i: U32, +p: R.W8) -> S:
   +t = U32.sub(Pr.t(p), 1)
   +w1 = W.set_props(w, L.set8(W.props(w), U32.to_nat(i), Pr.set_t(p, t)))
   Bool.pick(S, U32.is_eq(t, 0) && U32.is_eq(Pr.on(p), 0), Q.sound(Q.fx(w1, C.fxk_puff(), Pr.x(p), Pr.y(p), 0), 38), w1)
 
-# A plate is pressed by a knight on the ground or a block on it.
 def plate_tick(+w: S, +i: U32, +p: R.W8, +weights: List<&2, R.W8>) -> S:
   +on = Bool.to_u32(near_any(weights, Pr.x(p), Pr.y(p), U32.mul(C.plate_r(), 256), False{}))
   +w1 = W.set_props(w, L.set8(W.props(w), U32.to_nat(i), Pr.set_on(p, on)))
@@ -262,8 +228,6 @@ def block_slide(+w: S, +i: U32, +p: R.W8) -> S:
 def block_tick(+w: S, +i: U32, +p: R.W8) -> S:
   Bool.pick(S, U32.is_ne(Pr.on(p), 0), block_slide(w, i, p), W.set_props(w, L.set8(W.props(w), U32.to_nat(i), Pr.set_t(p, M.dec(Pr.t(p))))))
 
-# A sigil under a flare fills; found, it opens what it hid. `ta` marks it found
-# and `tb`, `tc` are where.
 def sigil_tick(+w: S, +i: U32, +p: R.W8, +flares: List<&2, R.W8>) -> S:
   +lit = near_any(flares, Pr.x(p), Pr.y(p), U32.mul(C.flare_r(), 256), False{})
   +t = Bool.pick(U32, lit, U32.add(Pr.t(p), 1), M.dec(Pr.t(p)))
@@ -331,7 +295,6 @@ def prop_dispatch(+ds: Nat, +w: S, +i: U32, +p: R.W8, +weights: List<&2, R.W8>, 
                                                         case 1n+a14:
                                                           W.set_props(w, L.set8(W.props(w), U32.to_nat(i), Pr.set_t(p, M.dec(Pr.t(p)))))
 
-# Most things in a room have nothing to do on a tick.
 def prop_tick_if(has_work: Bool, +w: S, +i: U32, +p: R.W8, +weights: List<&2, R.W8>, +flares: List<&2, R.W8>) -> S:
   match has_work:
     case False{}:
@@ -351,18 +314,14 @@ def props_go(+n: Nat, +w: S, +i: U32, +weights: List<&2, R.W8>, +flares: List<&2
     case 1n+p:
       props_go(p, prop_tick(w, i, weights, flares), U32.add(i, 1), weights, flares)
 
-# A sigil found opens what it was hiding.
 def sigil_found(+w: S) -> S:
   Bool.pick(S, U32.is_ne(W.ta(w), 0), Q.sound(Q.solved(Q.set_gate(w, 2, 1), W.tb(w), W.tc(w)), 13), w)
 
-# One tick of the things in the room.
 def tick_props(+w: S) -> S:
   +weights = weights_blocks(W.props(w), weights_seats(W.seats(w), Nil{}))
   +flares = flares_of(W.seats(w), Nil{})
   sigil_found(props_go(U32.to_nat(L.len8(W.props(w))), W.set_ta(w, 0), 0, weights, flares))
 
-# A gate that closed or a block that slid over a body puts it out on the nearest
-# open ground: nobody is walled in.
 def unstick_to(+stuck: Bool, +w: S, +k: R.T8) -> R.T8:
   match stuck:
     case False{}:
@@ -380,8 +339,6 @@ def unstick_list(+ks: List<&2, R.T8>, +w: S) -> List<&2, R.T8>:
 
 def unstick(+w: S) -> S: W.set_seats(w, unstick_list(W.seats(w), w))
 
-# ----- what each room asks -----------------------------------------------------------------------------------
-
 def prop_of(+ps: List<&2, R.W8>, +kind: U32, +id: U32, +j: U32, +found: U32, +done: Bool) -> U32:
   match ps:
     case Nil{}:
@@ -394,15 +351,12 @@ def prop_of(+ps: List<&2, R.W8>, +kind: U32, +id: U32, +j: U32, +found: U32, +do
           +hit = U32.is_eq(Pr.kind(p), kind) && U32.is_eq(Pr.id(p), id)
           prop_of(t, kind, id, U32.add(j, 1), Bool.pick(U32, hit, j, found), hit)
 
-# The thing's index, or none.
 def find_prop(+w: S, +kind: U32, +id: U32) -> U32: prop_of(W.props(w), kind, id, 0, C.none(), False{})
 
-# Whether that thing is there and has its `on` at 1.
 def prop_on(+w: S, +kind: U32, +id: U32) -> Bool:
   +j = find_prop(w, kind, id)
   U32.is_ne(j, C.none()) && U32.is_eq(Pr.on(L.get8(W.props(w), U32.to_nat(j))), 1)
 
-# Every thing of a kind is lit (and there is one).
 def all_lit_go(+ps: List<&2, R.W8>, +kind: U32, +any: Bool, +all: Bool) -> Bool:
   match ps:
     case Nil{}:
@@ -418,13 +372,11 @@ def foes_down(+fs: List<&2, R.T8>) -> Bool:
     case Con{f, t}:
       Bool.not(Q.foe_alive(f)) && foes_down(t)
 
-# Whether the way on is open.
 def exit_open(+w: S) -> Bool:
   +room = W.room(w)
   +stage = W.stage(w)
   (U32.is_eq(room, 0) && U32.is_ge(stage, 1)) || (U32.is_eq(room, 1) && U32.is_ge(stage, 4)) || (U32.is_eq(room, 2) && U32.is_ge(stage, 1)) || (U32.is_eq(room, 3) && U32.is_ge(stage, 4))
 
-# The exit gate swings open.
 def open_exit(+w: S) -> S:
   +w1 = Q.set_gate(w, 0, 1)
   +g = L.get8(W.props(w1), U32.to_nat(find_prop(w1, C.pk_gate(), 0)))
@@ -437,8 +389,6 @@ def exit_if(+go: Bool, +w: S) -> S:
     case False{}:
       w
 
-# The lamp hall: three braziers lit at once from one ember, the Lantern in the
-# chest, the Gloam's wave, one light left to throw at the great brazier.
 def chest_opens(+w: S) -> S:
   +g = Q.set_gate(W.set_stage(w, 1), 1, 1)
   +c = L.get8(W.props(w), U32.to_nat(find_prop(w, C.pk_chest(), 0)))
@@ -463,9 +413,6 @@ def lamp_hall(+ds: Nat, +w: S) -> S:
                 case 1n+a4:
                   w
 
-# Plates and a crystal hold the gallery's gate: two plates for two or more
-# knights (the block or a knight on the first, another on the second), one plate
-# alone for one; the crystal once woken holds it for good.
 def plate_held(+ps: List<&2, R.W8>, +id: U32) -> Bool:
   match ps:
     case Nil{}:
@@ -494,7 +441,6 @@ def gallery(+w: S) -> S:
   +w2 = Bool.pick(S, U32.is_ne(W.ret(w1), 0) && Bool.not(U32.is_eq(Bool.to_u32(want), Bool.to_u32(was))), gallery_gate(w1, want, was), w1)
   exit_if(U32.is_eq(W.stage(w2), 0) && crystal, w2)
 
-# The index of the first prop of a kind, or none.
 def find_kind(+ps: List<&2, R.W8>, +kind: U32, +j: U32, +found: U32, +done: Bool) -> U32:
   match ps:
     case Nil{}:
@@ -507,8 +453,6 @@ def find_kind(+ps: List<&2, R.W8>, +kind: U32, +j: U32, +found: U32, +done: Bool
           +hit = U32.is_eq(Pr.kind(p), kind)
           find_kind(t, kind, U32.add(j, 1), Bool.pick(U32, hit, j, found), hit)
 
-# The vault: the dark beaten lights the braziers and wakes the key chest, the
-# Moon Key opens the locked door, the Boss Key chest and then its door.
 def braziers_lit(+ps: List<&2, R.W8>) -> List<&2, R.W8>:
   match ps:
     case Nil{}:
@@ -548,8 +492,6 @@ def vault(+w: S) -> S:
   +w1 = vault_rows(U32.to_nat(W.stage(w)), w)
   Bool.pick(S, any_on(W.props(w1), C.pk_boss(), 0, False{}) && U32.is_ge(W.stage(w1), 4), W.set_stage(w1, 5), w1)
 
-# The last room: the heart container, then the Beacon, relit by knights holding E
-# before it.
 def holders(+ks: List<&2, R.T8>) -> U32:
   match ks:
     case Nil{}:
@@ -571,8 +513,6 @@ def beacon_tick(+w: S, +i: U32, +p: R.W8) -> S:
 def warden_room(+w: S) -> S:
   +i = find_kind(W.props(w), C.pk_beacon(), 0, C.none(), False{})
   Z.lw(U32.is_eq(W.stage(w), 3) && U32.is_ne(i, C.none()), u => beacon_tick(w, i, L.get8(W.props(w), U32.to_nat(i))), w)
-
-# ----- the way on ---------------------------------------------------------------------------------------------------
 
 def on_exit(+ks: List<&2, R.T8>, +w: S) -> Bool:
   match ks:
@@ -608,15 +548,10 @@ def walk_on(+w: S) -> S:
 def leave_on(+w: S) -> S:
   Bool.pick(S, on_exit(W.seats(w), w), Q.sound(W.set_exiting(w, C.exit_ticks()), 14), w)
 
-# What each room asks, and what it gives; then the way on, stood in, a moment, and
-# the next room.
 def tick_stage(+w: S) -> S:
   +w1 = room_rows(U32.to_nat(W.room(w)), W.set_stage_t(w, U32.min(U32.add(W.stage_t(w), 1), C.limit())))
   Z.lz(U32.is_eq(W.exiting(w1), 0) && exit_open(w1) && U32.is_lt(W.room(w1), 4), u => leave_on(w1), u => Z.lw(U32.is_ne(W.exiting(w1), 0), u => walk_on(w1), w1))
 
-# ----- what lies on the floor ------------------------------------------------------------------------------------------
-
-# The first knight (by seat) up and within reach of a point: their id, or none.
 def taker_go(+ks: List<&2, R.T8>, +x: U32, +y: U32, +found: U32, +done: Bool) -> U32:
   match ks:
     case Nil{}:
@@ -629,8 +564,6 @@ def taker_go(+ks: List<&2, R.T8>, +x: U32, +y: U32, +found: U32, +done: Bool) ->
           +hit = Q.up(k) && N.slt(G.dist(U32.sub(Seat.x(k), x), U32.sub(Seat.y(k), y)), U32.mul(C.pick_r(), 256))
           taker_go(t, x, y, Bool.pick(U32, hit, Seat.id(k), found), hit)
 
-# The Boss Key follows its carrier; a carrier who falls or leaves puts it down
-# where they stood, and a knight who comes by takes it up.
 def key_carry(+w: S) -> S:
   +k = H.seat_get(W.seats(w), W.hold_a(w))
   Bool.pick(S, U32.is_eq(W.hold_k(w), C.hold_carried()),
@@ -664,8 +597,6 @@ def drop_taken(+w: S, +id: U32, +kind: U32) -> S:
   u => Z.lz(U32.is_eq(kind, C.dk_gem()), u => drop_gem(w, id),
   u => Z.lz(U32.is_eq(kind, C.dk_bomb()), u => drop_bomb(w, id), u => drop_container(w, id))))
 
-# One drop: it ages, a knight in reach takes it (a heart only if they need it), and
-# it fades after a while unless it is the container. `ret` is 1 when it is gone.
 def drop_one(+w: S, +i: U32) -> S:
   +d = L.get8(W.drops(w), U32.to_nat(i))
   +age = U32.min(U32.add(Dr.age(d), 1), 65535)
@@ -684,14 +615,10 @@ def drops_go(+n: Nat, +w: S, +i: U32) -> S:
       +gone = live && U32.is_ne(W.ret(w1), 0)
       drops_go(p, Bool.pick(S, gone, W.set_drops(w1, L.swap_remove8(W.drops(w1), U32.to_nat(i))), w1), Bool.pick(U32, gone, i, U32.add(i, 1)))
 
-# Drops: hearts mend, gems and bombs are kept, the Boss Key is carried.
 def pickups(+w: S) -> S:
   +w1 = key_pick(key_carry(w))
   drops_go(U32.to_nat(U32.add(U32.mul(L.len8(W.drops(w1)), 2), 1)), w1, 0)
 
-# ----- the fallen ----------------------------------------------------------------------------------------------------------
-
-# How many friends stand up beside a fallen knight holding E.
 def helpers_of(+ks: List<&2, R.T8>, +d: U32, +x: U32, +y: U32) -> U32:
   match ks:
     case Nil{}:
@@ -699,8 +626,6 @@ def helpers_of(+ks: List<&2, R.T8>, +d: U32, +x: U32, +y: U32) -> U32:
     case Con{k, t}:
       U32.add(Bool.to_u32(U32.is_ne(Seat.id(k), d) && Q.up(k) && U32.is_ne(U32.and(Seat.held(k), C.b_ctx()), 0) && U32.is_eq(Seat.act(k), C.a_free()) && N.slt(G.dist(U32.sub(Seat.x(k), x), U32.sub(Seat.y(k), y)), U32.mul(C.revive_reach(), 256))), helpers_of(t, d, x, y))
 
-# A friend holding E gets them up where they lie; a long wait brings them to the
-# next brazier on their own.
 def stand_up(+w: S, +d: U32, +auto: Bool) -> S:
   +hp = U32.max(U32.min(Bool.pick(U32, auto, U32.div(C.revive_hp(), 2), C.revive_hp()), K.max_hp(w)), 1)
   +w1 = K.set_inv(K.set_rev(K.set_t(K.set_act(K.set_hp(w, hp), C.a_free()), 0), 0), C.spawn_inv())
@@ -741,8 +666,6 @@ def all_down(+ks: List<&2, R.T8>) -> Bool:
     case Con{k, t}:
       Bool.not(Q.up(k)) && all_down(t)
 
-# Every knight down: a breath, then the party is back at the room's start with the
-# world as it was.
 def wipe_tick(+w: S) -> S:
   +n = U32.add(W.wipe(w), 1)
   +w1 = W.set_wipe(w, n)
@@ -751,8 +674,6 @@ def wipe_tick(+w: S) -> S:
 
 def tick_wipe(+w: S) -> S:
   Z.lz(U32.is_ne(L.len64(W.seats(w)), 0) && all_down(W.seats(w)), u => wipe_tick(w), u => W.set_wipe(w, 0))
-
-# ----- the tick's leftovers ------------------------------------------------------------------------------------------------
 
 def fx_life(+kind: U32) -> U32:
   Bool.pick(U32, U32.is_eq(kind, C.fxk_puff()) || U32.is_eq(kind, C.fxk_light()), 16, Bool.pick(U32, U32.is_eq(kind, C.fxk_spark()) || U32.is_eq(kind, C.fxk_tick()), 8, Bool.pick(U32, U32.is_eq(kind, C.fxk_ring()) || U32.is_eq(kind, C.fxk_dust()), 10, Bool.pick(U32, U32.is_eq(kind, C.fxk_parry()), 12, Bool.pick(U32, U32.is_eq(kind, C.fxk_solved()), 24, Bool.pick(U32, U32.is_eq(kind, C.fxk_blast()), 14, 20))))))
@@ -764,8 +685,6 @@ def fx_age(+fs: List<&2, R.W8>) -> List<&2, R.W8>:
     case Con{f, t}:
       Con{Fx.set_t(f, U32.min(U32.add(Fx.t(f), 1), 255)), fx_age(t)}
 
-# Puffs and sparks age out; the shake and the flash die down; the cue and the
-# banner run out.
 def age(+w: S) -> S:
   +w1 = W.set_fx(w, L.keep8(~(f => U32.is_lt(Fx.t(f), fx_life(Fx.kind(f)))), fx_age(W.fx(w))))
   +w2 = W.set_flash(W.set_shake(w1, M.dec(W.shake(w1))), M.dec(W.flash(w1)))

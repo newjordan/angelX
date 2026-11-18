@@ -24,18 +24,12 @@ use unicode_width::UnicodeWidthStr;
 use crate::app::control::realm::GameHost;
 use angel_plug::commands::{CommandsWorld, Herald};
 
-/// How many recent result/note events the warp-drive rate window keeps.
 const WARP_EVENT_CAP: usize = 32;
-/// Sliding window for event-rate → drive mapping.
 const WARP_EVENT_WINDOW: Duration = Duration::from_secs(2);
-/// Honest calm glide when nothing is landing.
 const WARP_DRIVE_MIN: f32 = 0.35;
-/// Parallel results landing — warp streaks.
 const WARP_DRIVE_MAX: f32 = 3.0;
-/// Event rate (events/sec) that saturates drive at [`WARP_DRIVE_MAX`].
 const WARP_RATE_SATURATION: f32 = 5.0;
 
-/// Semantic state for the entry pinned in the live strip.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ToolState {
     Running,
@@ -45,12 +39,10 @@ pub(crate) enum ToolState {
     Inconclusive,
 }
 
-/// One tool call observed this turn.
 pub(crate) struct ToolEntry {
     pub(crate) id: ToolEventId,
     pub(crate) name: String,
     pub(crate) args: String,
-    /// The realm's telling of this call, fixed when it starts.
     herald: Option<Herald>,
     pub(crate) done: bool,
     pub(crate) err: bool,
@@ -58,76 +50,40 @@ pub(crate) struct ToolEntry {
     inconclusive: bool,
     verifier: Option<&'static str>,
     result_detail: String,
-    /// Dispatch truth for receipt classification: a verified measurement or
-    /// submission receipt requires `Succeeded`; a failed one arms the loop's
-    /// verifier-blocked diagnostic.
     execution: ExecutionOutcome,
-    /// Redacted command, exit, tail and digest for a failed verifier.
     err_tail: String,
     verifier_failure: Option<VerifierFailure>,
-    /// When this call started — drives the live `call Ns` fragment.
     started: Instant,
-    /// Wall time from start to result, stamped once in `result_event`.
     elapsed_ms: Option<u64>,
-    /// Redacted identity of the bounded result summary. Outcome fingerprints
-    /// can distinguish a changed score/status receipt without persisting its
-    /// potentially sensitive text.
     result_digest: Option<String>,
-    /// A measurement's or submission's own output: a short redacted excerpt of
-    /// its last lines, so a loop can show the model its benchmark history.
     result_excerpt: Option<String>,
-    /// A fixed reason class for a failed call (`timeout`, `policy: denied`):
-    /// never the command body, paths or credentials.
     reason: Option<&'static str>,
 }
 
-/// Machine-readable evidence from one turn's tool activity. The visual strip
-/// used to be the only consumer, so these facts disappeared as soon as its
-/// tally rendered. Long-running loops retain the snapshot for progress
-/// admission and anti-repeat checks.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct ToolStripSnapshot {
     pub(crate) calls: usize,
     pub(crate) errors: usize,
     pub(crate) incomplete: usize,
     pub(crate) diagnostics: usize,
-    /// Canonical fingerprints for costly or externally mutating actions. Output
-    /// filenames and display-only pipe tails are removed so the same benchmark
-    /// cannot look novel merely by writing to a different `/tmp` path.
     pub(crate) costly_actions: Vec<String>,
-    /// Successful actions that materially advance a candidate: mutation,
-    /// validation/benchmark, submission, or score/status. Long-running loops
-    /// deduplicate these receipts and combine them with actual workspace change
-    /// instead of treating prose novelty as the sole progress authority.
     pub(crate) outcome_actions: Vec<String>,
-    /// Verified measurement/submission receipts: calls whose dispatch
-    /// **succeeded** and whose command actually names a benchmark, measure,
-    /// verify, validate, or submit action. Bare `git status`, `submissions`
-    /// listings, status polls, and failed calls stay out — they are activity,
-    /// not a measured candidate. These are execution evidence and activity
-    /// counters; an opaque result digest does not prove objective improvement.
     pub(crate) verified_outcome_actions: Vec<String>,
-    /// Failed measurement/submission actions with a bounded redacted diagnostic.
     pub(crate) verifier_failures: Vec<(String, String)>,
     pub(crate) verifier_failure_details: Vec<VerifierFailure>,
-    /// Each verified receipt's result excerpt and wall time.
     pub(crate) measurement_results: Vec<MeasurementResult>,
 }
 
-/// What a verified measurement or submission printed, bounded and redacted.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct MeasurementResult {
-    /// The receipt in `verified_outcome_actions` this belongs to.
     pub(crate) receipt: String,
     pub(crate) excerpt: String,
     pub(crate) elapsed_ms: Option<u64>,
 }
 
-/// Lines of a measurement's output kept for its excerpt, and the cap on each.
 const EXCERPT_LINES: usize = 4;
 const EXCERPT_LINE_CHARS: usize = 160;
 
-/// The last non-empty lines of `summary`, redacted, joined with ` | `.
 fn result_excerpt(summary: &str) -> String {
     let summary = crate::platform::secrets::redact_str(summary);
     let lines: Vec<String> = summary
@@ -149,56 +105,34 @@ fn result_excerpt(summary: &str) -> String {
     lines.into_iter().rev().collect::<Vec<_>>().join(" | ")
 }
 
-/// Styled status-row content. Keeping the metadata separate lets the draw
-/// layer dim it without sacrificing the semantic state color on the left.
 pub(crate) struct StatusRow {
     pub(crate) left: String,
-    /// Bytes of `left` that are the mark and verb; the draw layer lifts them
-    /// out of the dimmer object that follows. Zero keeps the row one tone.
     pub(crate) lead: usize,
     pub(crate) padding: usize,
     pub(crate) right: String,
-    /// Stream-silence readout riding the right rail, kept apart from `right`
-    /// so the draw layer can color it without re-parsing the rail text.
     pub(crate) stall: Option<StallReadout>,
     pub(crate) state: ToolState,
     pub(crate) verifier: bool,
 }
 
-/// Per-turn tool activity, reset when a new turn is submitted.
 #[derive(Default)]
 pub(crate) struct ToolStrip {
     entries: Vec<ToolEntry>,
-    /// When the first tool of the turn started — drives the elapsed readout.
     started: Option<Instant>,
     diagnostics: usize,
-    /// Latest routine harness murmur (guards, capsules, compaction, recall).
-    /// In Conversation mode these ride here — one in-place line under the
-    /// status row — instead of stacking in the scrollback; `/trace` restores
-    /// the full stream.
     note: Option<String>,
     notes: usize,
-    /// Distinct `notice_strip_prefix` labels seen this turn, arrival order.
-    /// The draw path keeps mixed facts visible on the single note row.
     note_prefixes: Vec<String>,
-    /// Recent result/note event times for warp-drive pulse (capped + windowed).
     event_times: VecDeque<Instant>,
-    /// Virtual clock the pulse bar advances with — `dt * drive` per frame.
-    /// Interior mutability so the draw path (`&App`) can tick it.
     warp_clock: Cell<f32>,
     note_roll: RefCell<rolling_text::RollingText>,
-    /// Explicit transcript reading focus. Core also owns the composer, so its
-    /// module focus alone cannot distinguish reading from ordinary typing.
     reading_paused: bool,
     warp_last_tick: Cell<Option<Instant>>,
     ambience: RefCell<ambient::Ambient>,
-    /// The herald's dropdown: the turn's literal calls under the status row.
-    /// An operator choice, so it outlives the turn that opened it.
     ledger_open: bool,
 }
 
 impl ToolStrip {
-    /// A new turn begins: forget the previous turn's activity.
     pub(crate) fn begin_turn(&mut self) {
         self.entries.clear();
         self.started = None;
@@ -217,7 +151,6 @@ impl ToolStrip {
         self.entries.is_empty() && self.note.is_none()
     }
 
-    /// A routine notice routed to the strip's note line (Conversation mode).
     pub(crate) fn note_event(&mut self, note: &str) {
         if self.started.is_none() {
             self.started = Some(Instant::now());
@@ -249,8 +182,6 @@ impl ToolStrip {
         self.reading_paused
     }
 
-    /// Ambient time is independent of event-rate and provider silence. It
-    /// survives turn boundaries, while the status row keeps its real receipt.
     pub(crate) fn ambient_row(
         &self,
         width: usize,
@@ -294,15 +225,10 @@ impl ToolStrip {
         self.entries.len()
     }
 
-    /// Whether a dispatched tool still owns work for this turn. The provider
-    /// stream is expected to be quiet between its call and result events, so
-    /// the provider-idle watchdog must not mistake that silence for a hung
-    /// socket. Tool implementations retain their own bounded deadlines.
     pub(crate) fn has_running_calls(&self) -> bool {
         self.entries.iter().any(|entry| !entry.done)
     }
 
-    /// The longest-running unfinished call: its name, args and age.
     pub(crate) fn oldest_running(&self) -> Option<(&str, &str, Duration)> {
         self.entries
             .iter()
@@ -322,7 +248,6 @@ impl ToolStrip {
             .is_some_and(|entry| !entry.done && is_agent_wait_tool(&entry.name))
     }
 
-    /// A tool call started.
     pub(crate) fn call_event(&mut self, id: ToolEventId, name: &str, args_summary: &str) {
         if self.entries.iter().any(|entry| entry.id == id) {
             self.diagnostics = self.diagnostics.saturating_add(1);
@@ -354,9 +279,6 @@ impl ToolStrip {
         });
     }
 
-    /// A tool result closes exactly its provider call id. Unknown and duplicate
-    /// ids are neutral diagnostics: they cannot mutate another entry or count a
-    /// second outcome.
     pub(crate) fn result_event(
         &mut self,
         id: &ToolEventId,
@@ -407,7 +329,6 @@ impl ToolStrip {
         self.record_warp_event();
     }
 
-    /// Stamp a result/note into the warp-drive event window.
     fn record_warp_event(&mut self) {
         let now = Instant::now();
         self.event_times.push_back(now);
@@ -423,9 +344,6 @@ impl ToolStrip {
         }
     }
 
-    /// Event-rate → drive factor. Silent strip glides at [`WARP_DRIVE_MIN`];
-    /// a burst of parallel results approaches [`WARP_DRIVE_MAX`]. `reduced`
-    /// clamps to 1.0 (MotionMode::Reduced). Pure display — no agent feedback.
     pub(crate) fn warp_drive(&self, reduced: bool) -> f32 {
         if reduced {
             return 1.0;
@@ -438,13 +356,10 @@ impl ToolStrip {
             .count();
         let rate = n as f32 / WARP_EVENT_WINDOW.as_secs_f32();
         let t = (rate / WARP_RATE_SATURATION).clamp(0.0, 1.0);
-        // Smoothstep ease so the bar doesn't hard-jump between drive bands.
         let t = t * t * (3.0 - 2.0 * t);
         WARP_DRIVE_MIN + t * (WARP_DRIVE_MAX - WARP_DRIVE_MIN)
     }
 
-    /// Advance the virtual pulse clock by `dt * drive` and return it. Safe to
-    /// call from the draw path via interior mutability.
     #[cfg(test)]
     pub(crate) fn warp_time(&self, reduced: bool) -> f32 {
         self.warp_time_at(Instant::now(), reduced, false)
@@ -513,8 +428,6 @@ impl ToolStrip {
         );
     }
 
-    /// The entry the status row shows: the newest still-running call, else the
-    /// newest overall (a just-finished tool lingers until the next starts).
     pub(crate) fn current(&self) -> Option<&ToolEntry> {
         self.entries
             .iter()
@@ -523,7 +436,6 @@ impl ToolStrip {
             .or_else(|| self.entries.last())
     }
 
-    /// The running call's herald, for telemetry rows that lead with it.
     pub(crate) fn current_herald(&self) -> Option<&Herald> {
         self.current()
             .filter(|entry| !entry.done)
@@ -539,7 +451,6 @@ impl ToolStrip {
         self.ledger_open
     }
 
-    /// Rows the open ledger asks for: one per call, up to [`LEDGER_ROWS`].
     pub(crate) fn ledger_height(&self) -> usize {
         if self.ledger_open {
             self.entries.len().min(LEDGER_ROWS)
@@ -548,8 +459,6 @@ impl ToolStrip {
         }
     }
 
-    /// The ledger fitted to `rows` × `width`: the newest calls as they were
-    /// made, oldest first, with anything older folded into one leading line.
     pub(crate) fn ledger_rows(&self, width: usize, rows: usize) -> Vec<LedgerRow> {
         let rows = rows.min(self.ledger_height());
         if rows == 0 || width == 0 {
@@ -575,7 +484,6 @@ impl ToolStrip {
             });
         }
         let shown = &self.entries[total - (rows - out.len())..];
-        // Arguments start in one column, set by the longest name on show.
         let name_col = shown
             .iter()
             .map(|entry| UnicodeWidthStr::width(entry.name.as_str()))
@@ -589,8 +497,6 @@ impl ToolStrip {
                     .elapsed_ms
                     .unwrap_or_else(|| entry.started.elapsed().as_millis() as u64),
             );
-            // "├ ✓ " ahead; a failure's note and " 0.2s" behind; the name
-            // first, arguments in the rest.
             let note = failure_note(entry)
                 .map(|note| format!("{note} "))
                 .unwrap_or_default();
@@ -716,8 +622,6 @@ impl ToolStrip {
         }
     }
 
-    /// Collapse the turn's activity into the one transcript line that survives
-    /// it, then reset. `None` when no tools ran (nothing worth a line).
     pub(crate) fn take_summary(&mut self) -> Option<String> {
         if self.entries.is_empty() {
             let notes = self.notes;
@@ -738,7 +642,6 @@ impl ToolStrip {
             .filter(|e| e.err && !e.not_started)
             .count();
         let not_started = self.entries.iter().filter(|e| e.not_started).count();
-        // Tally per tool name, ordered by first appearance.
         let mut names: Vec<(&str, usize)> = Vec::new();
         for e in &self.entries {
             match names.iter_mut().find(|(n, _)| *n == e.name) {
@@ -792,8 +695,6 @@ impl ToolStrip {
         if secs > 0 {
             out.push_str(&format!(" · {}", format_age_secs(secs)));
         }
-        // Include incomplete calls: cancellation can suppress late result events.
-        // An hour-long delegate must not disappear behind a 56s completed read.
         let incomplete = self.entries.iter().filter(|entry| !entry.done).count();
         if incomplete > 0 {
             out.push_str(&format!(" · {incomplete} unfinished"));
@@ -828,12 +729,9 @@ impl ToolStrip {
     }
 }
 
-/// Rows the herald's dropdown lists at most; older calls fold into one line.
 const LEDGER_ROWS: usize = 8;
-/// Widest tool name the ledger's name column grows to.
 const LEDGER_NAME_COLS: usize = 16;
 
-/// One literal call in the herald's dropdown. `state: None` is the fold line.
 pub(crate) struct LedgerRow {
     pub(crate) branch: &'static str,
     pub(crate) state: Option<ToolState>,
@@ -841,13 +739,10 @@ pub(crate) struct LedgerRow {
     pub(crate) call: String,
     pub(crate) args: String,
     pub(crate) padding: usize,
-    /// How a failed call ended, right before its age.
     pub(crate) note: String,
     pub(crate) age: String,
 }
 
-/// How a failed call ended, in plain words: the fixed reason class when the
-/// result carried one, else the way it stopped. `None` for a call that ran.
 fn failure_note(entry: &ToolEntry) -> Option<String> {
     if !entry.done || !entry.err {
         return None;
@@ -859,8 +754,6 @@ fn failure_note(entry: &ToolEntry) -> Option<String> {
         ExecutionOutcome::Panicked => "panicked",
         ExecutionOutcome::Succeeded | ExecutionOutcome::Failed => "failed",
     };
-    // Only a call that ran and failed has a reason worth naming; a denial or
-    // a call that never started says so itself.
     Some(match entry.reason {
         Some(reason) if ended == "failed" || ended == "panicked" => format!("{ended} · {reason}"),
         _ => ended.to_string(),
@@ -891,7 +784,6 @@ fn state_mark(state: ToolState) -> &'static str {
     }
 }
 
-/// Call age for the ledger: tenths under a second, then the strip's clock.
 fn ledger_age(ms: u64) -> String {
     if ms < 1000 {
         format!("{}.{}s", ms / 1000, (ms % 1000) / 100)
@@ -900,9 +792,6 @@ fn ledger_age(ms: u64) -> String {
     }
 }
 
-/// One-row strip note. Same-family repeats still collapse to a count. Mixed
-/// prefixes lead the row so end-ellipsis cannot hide earlier distinct facts
-/// behind only the latest sentence.
 pub(crate) fn note_row_text(note: &str, count: usize, prefixes: &[String]) -> String {
     if count <= 1 {
         return format!("\u{00b7} {note}");
@@ -920,7 +809,6 @@ pub(crate) fn note_row_text(note: &str, count: usize, prefixes: &[String]) -> St
     }
 }
 
-/// Count plus distinct family prefixes in arrival order, without live sentences.
 fn note_tally_text(notes: usize, prefixes: &[String]) -> String {
     let label = if notes == 1 { "note" } else { "notes" };
     if prefixes.is_empty() {
@@ -930,7 +818,6 @@ fn note_tally_text(notes: usize, prefixes: &[String]) -> String {
     }
 }
 
-/// Compact age for the strip right rail / tally (`43s`, `2m10s`, `1h05m`).
 fn format_age_secs(secs: u64) -> String {
     if secs >= 3600 {
         format!("{}h{:02}m", secs / 3600, (secs % 3600) / 60)
@@ -993,9 +880,6 @@ fn metric_pairs(summary: &str) -> Vec<(u64, String)> {
         )
     };
     let mut pairs = Vec::new();
-    // Structured tool summaries separate each count with commas/semicolons.
-    // Keeping those clauses distinct avoids stealing the next count from
-    // `10 passed, 2 failed` while still accepting `errors: 2`.
     for clause in summary.split([',', ';', '\n']) {
         let words: Vec<String> = clause
             .to_ascii_lowercase()
@@ -1081,10 +965,6 @@ fn verifier_result_detail(summary: &str) -> String {
     )
 }
 
-/// Canonical command shape shared by the action fingerprints: output
-/// filenames and display-only pipe tails are removed so the same action
-/// cannot look novel merely by writing to a different path or paging its
-/// output.
 fn canonical_command_key(args_key: &str) -> String {
     let base = args_key
         .split("2>&1")
@@ -1140,8 +1020,6 @@ fn costly_action_fingerprint(name: &str, args: &str) -> Option<String> {
         return None;
     }
 
-    // Normalize GPU-MODE popcorn submits (cli, wrapper, pipes) so Treebeard /
-    // gpu-comp agents don't thrash the same B200 benchmark under new paths.
     let joined = canonical_command_key(&args_key);
     if joined.contains("popcorn") {
         let mode = if joined.contains("--mode test") || joined.contains("mode test") {
@@ -1151,8 +1029,6 @@ fn costly_action_fingerprint(name: &str, args: &str) -> Option<String> {
         } else {
             "benchmark"
         };
-        // Mode-only identity: filenames, peer flags, and board aliases are noise
-        // for "already burning a B200 slot" dedupe during a single turn.
         return Some(format!("{name_key}:popcorn submit --mode {mode}"));
     }
     Some(format!("{name_key}:{joined}"))
@@ -1198,11 +1074,6 @@ fn outcome_action_fingerprint(name: &str, args: &str) -> Option<String> {
         .then(|| format!("outcome:{name_key}:{}", args_key.trim()))
 }
 
-// Program-position words that name a real measurement. `bench` covers `benchd`, `bench.sh`
-// and `benchmark*`; `baseline`/`score` cover board entrypoints such as `local-baseline.sh` and
-// `*-measure-and-score.sh`. Operands never count (see READ_ONLY_PROGRAMS), so `cat score.json`
-// and `grep bench …` stay reads. Operator finding 2026-09-11: the qwen38 board loop ran 7
-// iterations of real `benchd`/`local-baseline` measurements that never counted as measured.
 const MEASUREMENT_WORDS: [&str; 7] = [
     "benchmark",
     "bench",
@@ -1213,34 +1084,21 @@ const MEASUREMENT_WORDS: [&str; 7] = [
     "score",
 ];
 
-/// Read-only viewers: a measurement word inside their arguments names a file,
-/// not an execution. `cat matrices-leader/benchmark.json` minted a "measured
-/// candidate" on every iteration of a 19-iteration, zero-submission matrices
-/// run (2026-09-05); the first-candidate clock never fired.
 const READ_ONLY_PROGRAMS: [&str; 24] = [
     "cat", "head", "tail", "less", "more", "grep", "rg", "ls", "echo", "printf", "jq", "find",
     "stat", "wc", "diff", "sed", "awk", "cp", "mv", "ln", "file", "tree", "bat", "git",
 ];
 
-/// Generic launchers: the measurement identity is the token they launch
-/// (`timeout 900 python3 bench/measure.py` → `measure.py`).
 const RUNNERS: [&str; 25] = [
     "bash", "sh", "zsh", "python", "python3", "uv", "cargo", "npm", "npx", "node", "bun",
     "timeout", "nice", "env", "sudo", "time", "make", "just", "poetry", "pnpm", "yarn", "exec",
     "nohup", "setsid", "stdbuf",
 ];
 
-/// Whole words of a program name that mark an A/B driver (`run_ab_window.sh`,
-/// `abba.py`, Apache `ab`). Matched per word, never as a substring, so `cabal`
-/// and `tab` stay out. Operator finding 2026-09-25: a pinning seat's night of
-/// locked rig-B A/Bs ran as `run_ab_*.sh` scripts and counted zero measurements.
 const MEASUREMENT_NAME_WORDS: [&str; 3] = ["ab", "abab", "abba"];
 
-/// `ssh` options that take a value. Keep case: `-F config` and background
-/// `-f` are different options, even though receipt fingerprints normalize case.
 const SSH_VALUE_FLAGS: &str = "BbcDEeFIiJLlmOoPpQRSWw";
 
-/// Nesting bound for command-carrying launchers (`ssh … 'flock … bash -c "…"'`).
 const CARRY_DEPTH: usize = 4;
 
 fn basename(token: &str) -> &str {
@@ -1254,11 +1112,6 @@ fn is_env_assignment(token: &str) -> bool {
         })
 }
 
-/// Command segments of a shell line (`;`, `|`, `||`, `&&`, newlines) — split only OUTSIDE
-/// single/double quotes, and never inside a heredoc body (`<<TAG` … `TAG`). Operator finding
-/// 2026-09-11: `grep -rn "verify_rows\|read_row…"` and a `python3 - <<'py' …` body were split at
-/// their inner `|` / newlines, a fragment such as `verify_ro…"` landed in program position, and the
-/// loop minted two "measured candidates" from a read and a script body.
 fn command_segments(args_key: &str) -> Vec<String> {
     let mut segments = Vec::new();
     let mut list_start = 0;
@@ -1269,7 +1122,6 @@ fn command_segments(args_key: &str) -> Vec<String> {
     let mut chars = args_key.chars().peekable();
     while let Some(c) = chars.next() {
         if let Some(tag) = heredoc.as_deref() {
-            // Inside a heredoc body: swallow everything until a line equal to the terminator.
             if c == '\n' {
                 if heredoc_line.trim() == tag {
                     heredoc = None;
@@ -1300,7 +1152,6 @@ fn command_segments(args_key: &str) -> Vec<String> {
             }
             '<' if chars.peek() == Some(&'<') => {
                 chars.next();
-                // `<<-TAG`, `<<'TAG'`, `<<"TAG"`, `<<TAG`
                 let mut tag = String::new();
                 while let Some(&n) = chars.peek() {
                     if n == '-' || n == '\'' || n == '"' || n == ' ' {
@@ -1317,7 +1168,6 @@ fn command_segments(args_key: &str) -> Vec<String> {
                         break;
                     }
                 }
-                // The rest of this line still belongs to the command; the body starts after it.
                 let mut rest = String::new();
                 for n in chars.by_ref() {
                     if n == '\n' {
@@ -1348,10 +1198,6 @@ fn command_segments(args_key: &str) -> Vec<String> {
                 segments.push(std::mem::take(&mut current));
             }
             '&' if !current.ends_with('>') && chars.peek() != Some(&'>') => {
-                // Retain the background marker on this segment. A later
-                // foreground command must not inherit the launcher's credit.
-                // `&` backgrounds the entire preceding AND/OR list, including
-                // its pipelines, not just the final command in the list.
                 for segment in &mut segments[list_start..] {
                     segment.push('&');
                 }
@@ -1366,8 +1212,6 @@ fn command_segments(args_key: &str) -> Vec<String> {
     segments
 }
 
-/// A token can be a program only if it looks like one: a bare command or path. Fragments carrying
-/// quotes, backslashes, brackets, or `=` are operands (or shell noise), never programs.
 fn looks_like_program(token: &str) -> bool {
     !token.is_empty()
         && token
@@ -1375,8 +1219,6 @@ fn looks_like_program(token: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '/' | '-' | '_' | '~' | '+'))
 }
 
-/// The program a segment runs (basename) and its first operand, looking
-/// through generic launchers, flags, and numeric operands.
 fn segment_program(segment: &str) -> Option<(String, Option<String>)> {
     let words = shell_words(segment);
     let mut tokens = words
@@ -1412,10 +1254,7 @@ fn shell_noexec_flag(word: &str) -> bool {
     word == "--noexec" || (word.starts_with('-') && !word.starts_with("--") && word.contains('n'))
 }
 
-/// A successful launcher reports dispatch, not completion of its child.
-/// These checks affect evidence credit only; execution remains unrestricted.
 fn segment_detaches(segment: &str) -> bool {
-    // Escaped/quoted ampersands and fd redirects are ordinary arguments.
     let mut quote = None;
     let mut chars = segment.chars().peekable();
     let mut previous = None;
@@ -1456,8 +1295,6 @@ fn segment_detaches(segment: &str) -> bool {
                         if index + option.len_utf8() == flags.len() {
                             words.next();
                         }
-                        // The remaining bytes are this option's inline value,
-                        // so an `f` in a path is not the background flag.
                         break;
                     }
                 }
@@ -1496,9 +1333,6 @@ fn starts_background_action(name: &str, args: &str) -> bool {
     name.contains("proc_run") || (runs_commands(&name) && line_detaches(args, CARRY_DEPTH))
 }
 
-/// The words of one segment with quotes removed, so a quoted env value
-/// (`QSB_GRINDER="cmd:python3 harness/gpu_wrap.py …"`) stays one assignment
-/// instead of putting `harness/gpu_wrap.py` in program position.
 fn shell_words(segment: &str) -> Vec<String> {
     let mut words = Vec::new();
     let mut word = String::new();
@@ -1536,11 +1370,6 @@ fn shell_words(segment: &str) -> Vec<String> {
     words
 }
 
-/// The command line a launcher carries: `ssh [opts] host '<line>'`,
-/// `bash -c '<line>'`, `flock [opts] LOCK <cmd…>` or `flock LOCK -c '<line>'`.
-/// The measurement is judged on that line. Operator finding 2026-09-25: every
-/// rig-B A/B ran as `ssh … 'cd X && flock … ./benchmark.sh pinning'`, the strip
-/// saw only `ssh`, and a night of locked measurements counted zero.
 fn carried_line(segment: &str) -> Option<String> {
     let words = shell_words(segment);
     let mut words = words
@@ -1556,7 +1385,6 @@ fn carried_line(segment: &str) -> Option<String> {
                     }
                     continue;
                 }
-                // `word` is the host; the rest is the remote line.
                 let rest: Vec<&str> = words.collect();
                 return (!rest.is_empty()).then(|| rest.join(" "));
             }
@@ -1576,7 +1404,6 @@ fn carried_line(segment: &str) -> Option<String> {
                         return words.next().map(str::to_string);
                     }
                     _ if word.starts_with('-') => {}
-                    // A script path, not a carried line.
                     _ => return None,
                 }
             }
@@ -1593,7 +1420,6 @@ fn carried_line(segment: &str) -> Option<String> {
                     }
                     continue;
                 }
-                // `word` is the lock file; the rest runs under it.
                 let rest: Vec<&str> = words.collect();
                 return match rest.split_first() {
                     Some((&("-c" | "--command"), tail)) => {
@@ -1608,9 +1434,6 @@ fn carried_line(segment: &str) -> Option<String> {
     }
 }
 
-/// The first segment of `line` that `qualifies`, looking through
-/// command-carrying launchers: for `ssh host 'cd X && ./benchmark.sh'` it is
-/// the carried `./benchmark.sh` segment.
 fn qualifying_segment(
     line: &str,
     depth: usize,
@@ -1627,14 +1450,6 @@ fn qualifying_segment(
     })
 }
 
-/// The segment of this shell line that *executes* a measurement — a benchmark /
-/// measure / verify / validate program or script, or an A/B driver, in program
-/// position (also inside a line carried by `ssh`, `flock` or `bash -c`), or a
-/// competition family's own measurement subcommand (`<board> run`), and not a
-/// help call. The receipt must name this segment: a heesch loop recorded
-/// `<board> --help 2>&1 | head -80; echo '---'; python3 -m heesch_verify …`
-/// as `measured:shell:<board> --help` because the label came from the first
-/// segment while the qualification scanned all of them (2026-09-25).
 fn shell_measurement_segment(args_key: &str) -> Option<String> {
     qualifying_segment(args_key, CARRY_DEPTH, &|segment| {
         if shell_words(segment).iter().any(|token| {
@@ -1668,9 +1483,6 @@ fn shell_measurement_segment(args_key: &str) -> Option<String> {
     })
 }
 
-/// An explicit echoed status can expose a failed verifier even when the
-/// surrounding shell exits zero. Only interpret the marker the command
-/// actually prints; arbitrary numbers in benchmark output are not statuses.
 fn echoed_exit_failed(args: &str, summary: &str) -> bool {
     let echoes_exit = qualifying_segment(args, CARRY_DEPTH, &|segment| {
         let words = shell_words(segment);
@@ -1691,9 +1503,6 @@ fn echoed_exit_failed(args: &str, summary: &str) -> bool {
         })
 }
 
-/// The segment of this shell line that *executes* a submission — `submit` as
-/// the program or its subcommand (`<board> submit`,
-/// `./submit.sh`), and not a help / dry-run invocation.
 fn shell_submission_segment(args_key: &str) -> Option<String> {
     qualifying_segment(args_key, CARRY_DEPTH, &|segment| {
         if segment
@@ -1703,45 +1512,25 @@ fn shell_submission_segment(args_key: &str) -> Option<String> {
             return false;
         }
         segment_program(segment).is_some_and(|(program, operand)| {
-            // A read-only viewer never submits, whatever its operands name
-            // (`ls challenge/…/submissions`, `cat submitting.md` minted a "submission"
-            // in the operator's ripe loop, 2026-09-11).
             !READ_ONLY_PROGRAMS.contains(&program.as_str())
                 && (program.contains("submit") || operand.as_deref() == Some("submit"))
         })
     })
 }
 
-/// Tools whose arguments are a command line the sandbox runs.
 fn runs_commands(name_key: &str) -> bool {
     matches!(name_key, "shell" | "proc_run" | "bash" | "terminal")
         || name_key.contains("shell")
         || name_key.contains("proc_run")
 }
 
-/// A *verified* outcome receipt must name a real measurement or submission.
-/// For command-running tools the judgement is on the program the line
-/// executes: a `benchmark*.sh` / `bench*` / `benchd` / `*measure*` / `verify` / `validate` /
-/// `*baseline*` / `*score*` program in program position, or `submit` as program / subcommand. A measurement
-/// word inside an operand (`cat …/benchmark.json`, `grep score benchmark.log`)
-/// is a read, `submit --help` is a read, and `code_mode` plans are reads:
-/// none of them are receipts. Other tools qualify by name only (a `benchmark`
-/// tool, a `submit` tool). Bare `git status`, `submissions` listings, and
-/// status polls deliberately never match, so polling cannot masquerade as a
-/// measured candidate. For shell lines the fingerprint names the segment that
-/// qualified, not the first segment of the line. Returns the canonical
-/// fingerprint and whether it is a submission.
 fn measured_submission_fingerprint(name: &str, args: &str) -> Option<(String, bool)> {
     let name_key = name.trim().to_ascii_lowercase();
     let args_key = args.trim();
-    // proc_run returns a process handle immediately. Its correlated terminal
-    // notice remains available through the process monitor; launch success
-    // alone must never advance measured-candidate or submission clocks.
     if name_key.contains("proc_run") {
         return None;
     }
     if runs_commands(&name_key) {
-        // A submission is the stronger claim; a measurement labels itself.
         let (segment, is_submission) = match (
             shell_submission_segment(args_key),
             shell_measurement_segment(args_key),
@@ -1774,7 +1563,6 @@ fn measured_submission_fingerprint(name: &str, args: &str) -> Option<(String, bo
     ))
 }
 
-/// Redacted, bounded execution evidence, kept separate from display summaries.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct VerifierFailure {
     pub command: String,
@@ -1793,8 +1581,6 @@ impl VerifierFailure {
             .and_then(|(_, rest)| rest.split_once(')'))
             .map(|(code, _)| code.chars().take(20).collect())
             .unwrap_or_else(|| "unknown".to_string());
-        // Shell output labels stderr lines. Prefer its last lines, then fill
-        // remaining slots with stdout; a quiet failure remains explicit.
         let lines: Vec<_> = summary
             .lines()
             .filter(|line| {
@@ -1850,13 +1636,10 @@ impl VerifierFailure {
     }
 }
 
-/// Fit `text` to `width` terminal cells with a `…` when it overflows.
 pub(crate) fn ellipsize(text: &str, width: usize) -> String {
     ellipsize_with_width(text, width, UnicodeWidthStr::width(text))
 }
 
-// Rolling notes retain their total width from note arrival. Static/reduced
-// frames must use that fact instead of rescanning the entire note.
 fn ellipsize_with_width(text: &str, width: usize, total: usize) -> String {
     if total <= width {
         return text.to_string();
@@ -1885,14 +1668,9 @@ fn ellipsize_with_width(text: &str, width: usize, total: usize) -> String {
     out
 }
 
-/// Seconds of stream silence before the strip calls the turn stalled.
-/// `ANGEL_STALL_PULSE_SECS` overrides; 0 disarms the readout and the
-/// flattened lane entirely.
 const DEFAULT_STALL_PULSE_SECS: u64 = 20;
 
 pub(crate) fn configured_stall_pulse_secs() -> u64 {
-    // Launch config in release: the strip asks every frame while a turn is
-    // silent. Tests keep the live read so env guards can exercise overrides.
     #[cfg(not(test))]
     {
         static SECS: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
@@ -1909,27 +1687,18 @@ fn stall_pulse_secs_from_env() -> u64 {
         .unwrap_or(DEFAULT_STALL_PULSE_SECS)
 }
 
-/// How urgent a stream-silence readout is: `Warn` past the pulse threshold,
-/// `Watchdog` once the idle-abandon deadline is close enough that its
-/// countdown belongs on the strip.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum StallSeverity {
     Warn,
     Watchdog,
 }
 
-/// One stream-silence fragment for the status row's right rail.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct StallReadout {
     pub(crate) text: String,
     pub(crate) severity: StallSeverity,
 }
 
-/// Pure stall-threshold logic. `silence_secs` is how long the worker stream
-/// has been quiet, `pulse_secs` the operator threshold (0 = off), and
-/// `idle_timeout_secs` the turn watchdog deadline. Past the threshold the
-/// silence is reported outright; past half the deadline the readout escalates
-/// to the abandonment countdown so the watchdog never fires as a surprise.
 pub(crate) fn stall_readout(
     silence_secs: u64,
     pulse_secs: u64,
@@ -1955,10 +1724,6 @@ pub(crate) fn stall_readout(
     })
 }
 
-/// A running tool is not a silent provider: the provider has already handed
-/// work to a bounded executor and will naturally emit nothing until the result
-/// arrives. Keep the wait animation live and leave timeout ownership with the
-/// tool instead of displaying a false provider-stall sentence/countdown.
 pub(crate) fn effective_stall_readout(
     strip: &ToolStrip,
     silence_secs: u64,
@@ -1972,10 +1737,6 @@ pub(crate) fn effective_stall_readout(
     }
 }
 
-/// Structured content for the strip's status row. Verifiers use explicit
-/// RUNNING/PASS/FAIL language; ordinary tools retain the quieter legacy form.
-/// The live draw path carries the silence readout, so outside tests this
-/// stall-free form is currently a convenience wrapper only.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn status_row_parts(strip: &ToolStrip, width: usize) -> Option<StatusRow> {
     status_row_parts_with_silence(strip, width, None)
@@ -1990,8 +1751,6 @@ pub(crate) fn child_quiet_secs(child: &crate::agent::harness::ChildSnapshot) -> 
         .unwrap_or(child.elapsed_secs)
 }
 
-/// Worker telemetry takes precedence over the outer delegate's generic wait.
-/// Never read /proc here: the process owner samples it off the draw thread.
 pub(crate) fn worker_status_row(
     child: &crate::agent::harness::ChildSnapshot,
     herald: Option<&Herald>,
@@ -2070,8 +1829,6 @@ pub(crate) fn delegate_status_row(
     activity_status_row(left, lead, right, width)
 }
 
-/// Lead a live telemetry row with the call's herald, so a long build still
-/// reads `⚔ Trial by cargo test · compiling (rustc) · CPU active`.
 fn heralded(herald: Option<&Herald>, detail: String) -> (usize, String) {
     match herald {
         Some(herald) => (
@@ -2109,12 +1866,6 @@ fn activity_status_row(left: String, lead: usize, right: String, width: usize) -
 #[cfg(test)]
 include!("../../../tests/cockpit/app/toolstrip__standalone_tests.rs");
 
-/// `status_row_parts` plus the stream-silence readout: a present `stall`
-/// fragment joins the right rail (budgeted like the rail, with one separating
-/// space) so a parked stream reports itself on the row the operator already
-/// watches. Very narrow panes drop it with the rest of the rail rather than
-/// overflow; with `stall == None` the layout is byte-identical to the plain
-/// form.
 pub(crate) fn status_row_parts_with_silence(
     strip: &ToolStrip,
     width: usize,
@@ -2124,9 +1875,6 @@ pub(crate) fn status_row_parts_with_silence(
         UnicodeWidthStr::width(readout.text.as_str()) + 1
     });
     let Some(cur) = strip.current() else {
-        // No tool has run yet, but harness murmurs have: show the latest note
-        // as the row so early-turn progress (recall, compaction, gates) is
-        // visible without a scrollback line.
         let note = strip.note()?;
         let left = format!("\u{25b8} {note}");
         if stall_width == 0 || width <= stall_width + 4 {
@@ -2153,8 +1901,6 @@ pub(crate) fn status_row_parts_with_silence(
         });
     };
     let state = entry_state(cur);
-    // The herald names the place, the deed and its object; the literal call
-    // lives one click away in the ledger. Outcomes stay plain words.
     let settled = state == ToolState::Passed;
     let verifier = cur.verifier.is_some();
     let outcome = if verifier && cur.done && !cur.result_detail.is_empty() {
@@ -2190,19 +1936,13 @@ pub(crate) fn status_row_parts_with_silence(
     } else {
         ""
     };
-    // Live fan-out pips: while a multi-seat stage has published seat states,
-    // the right rail leads with "proposer wave 2 · 3/6 back".
     let seat_pips = crate::ui::viz::agentviz::current_seat_pips().unwrap_or_default();
-    // One clock on the rail. Per-call ages and the call count live in the
-    // ledger and the end-of-turn tally.
     let right = format!(
         "{seat_pips}{verdict}{}",
         format_age_secs(strip.elapsed_secs())
     );
     let rail_width = UnicodeWidthStr::width(right.as_str()) + stall_width;
 
-    // Very narrow panes cannot carry a stable right rail. Prefer the semantic
-    // state and operation over overflowing or wrapping the two-row strip.
     let gap = usize::from(width > 0);
     if width <= rail_width + gap + 4 {
         return Some(StatusRow {
@@ -2230,12 +1970,6 @@ pub(crate) fn status_row_parts_with_silence(
     })
 }
 
-/// The lateral loading bar under the status row — a dotmax `ProgressStyle`
-/// in the house style: a dotted guide rail with data packets streaming
-/// left→right on staggered cubic-out phases (each snaps ahead then glides),
-/// and a soft shimmer band sweeping through so the lane never looks parked.
-/// Indeterminate by design: tools don't report progress, so the bar shows
-/// *motion*, not completion.
 pub(crate) struct ToolPulse;
 
 impl ProgressStyle for ToolPulse {
@@ -2256,7 +1990,6 @@ impl ProgressStyle for ToolPulse {
         let mid = (h as f32 - 1.0) / 2.0;
         let amp = (h as f32 * 0.38).max(1.0);
 
-        // 1. Primary flowing sine wave across full width
         for x in 0..w {
             let phase = x as f32 * 0.18 - ctx.time * 4.5;
             let y_val = mid + amp * phase.sin();
@@ -2264,7 +1997,6 @@ impl ProgressStyle for ToolPulse {
             draw::dot_i(grid, x as i32, y_dot);
         }
 
-        // 2. Traveling pulse / crest highlight along the sine wave
         let pulse_pos = (ctx.time * 24.0) % (w as f32 + 16.0) - 8.0;
         for x in 0..w {
             let dx = (x as f32 - pulse_pos).abs();
@@ -2281,10 +2013,6 @@ impl ProgressStyle for ToolPulse {
     }
 }
 
-/// Flatline for a stalled stream — a static dotted rail at the midline. The
-/// missing motion IS the signal: the animated lanes imply progress a parked
-/// provider socket is not making, so past the stall threshold the bar parks
-/// too.
 pub(crate) struct StallFlatline;
 
 impl ProgressStyle for StallFlatline {
@@ -2310,10 +2038,6 @@ impl ProgressStyle for StallFlatline {
     }
 }
 
-/// Early agent wait: dispatch packets leave the council beacon and return on
-/// staggered lanes. The bidirectional motion communicates that workers remain
-/// live and that the parent is awaiting replies, rather than implying measured
-/// completion.
 pub(crate) struct AgentDispatch;
 
 impl ProgressStyle for AgentDispatch {
@@ -2335,15 +2059,12 @@ impl ProgressStyle for AgentDispatch {
         let reach = center.max(1.0);
         let mid = (h.saturating_sub(1)) as i32 / 2;
 
-        // Council beacon: a steady center with a quiet breathing halo.
         draw::dot_i(grid, center.round() as i32, mid);
         if (ctx.time * 2.0).sin() >= 0.0 {
             draw::dot_i(grid, center.round() as i32, (mid - 1).max(0));
             draw::dot_i(grid, center.round() as i32, (mid + 1).min(h as i32 - 1));
         }
 
-        // Three seats, phase-staggered. Each packet moves center→edge→center;
-        // mirrored seats keep the lane balanced without suggesting a percent.
         for seat in 0..3 {
             let phase = (ctx.time * 0.42 + seat as f32 / 3.0).fract();
             let excursion = 1.0 - (phase * 2.0 - 1.0).abs();
@@ -2361,9 +2082,6 @@ impl ProgressStyle for AgentDispatch {
     }
 }
 
-/// Long agent wait: slow reciprocal pings converge on the council beacon. It
-/// stays visibly alive while calming the faster dispatch motion after a minute,
-/// reducing fatigue during long builds and research runs.
 pub(crate) struct AgentRendezvous;
 
 impl ProgressStyle for AgentRendezvous {
@@ -2406,8 +2124,6 @@ enum MotionCue {
     AgentDispatch,
     AgentRendezvous,
     Settled(ToolState),
-    /// The provider stream is silent past the stall threshold: freeze the
-    /// lane so the strip stops faking motion nothing is making.
     Stalled,
 }
 
@@ -2442,8 +2158,6 @@ fn motion_cue(strip: &ToolStrip) -> MotionCue {
     }
 }
 
-/// The strip-derived cue with the stall override: silence outranks whichever
-/// motion style the current tool would otherwise pick.
 fn motion_cue_with_silence(strip: &ToolStrip, stalled: bool) -> MotionCue {
     if stalled {
         MotionCue::Stalled
@@ -2452,18 +2166,11 @@ fn motion_cue_with_silence(strip: &ToolStrip, stalled: bool) -> MotionCue {
     }
 }
 
-/// Render one row of semantic Dotmax motion at `width` cells. Ordinary tools
-/// retain the calm packet lane; verifier calls use the live v2
-/// `glitch/sync-lock` signal so validation reads as a distinct instrumentation
-/// state without adding another row. The live draw path carries the stall
-/// flag, so outside tests this form is currently a convenience wrapper only.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn bar_row(strip: &ToolStrip, width: usize, time: f32) -> String {
     bar_row_with_silence(strip, width, time, false)
 }
 
-/// `bar_row` with the stall pulse: a `stalled` stream flattens the lane to
-/// the static rail so a parked turn cannot masquerade as one doing work.
 pub(crate) fn bar_row_with_silence(
     strip: &ToolStrip,
     width: usize,
@@ -2495,8 +2202,6 @@ pub(crate) fn bar_row_with_silence(
             dotmax::progress::render_lines(&AgentRendezvous, &ctx)
         }
         MotionCue::Settled(state) => {
-            // A correlated terminal result owns this stationary receipt. It
-            // never implies that the completed call is still doing work.
             let marker = match state {
                 ToolState::Passed => "✓",
                 ToolState::Failed => "✗",

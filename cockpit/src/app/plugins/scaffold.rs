@@ -5,8 +5,6 @@
 
 use std::path::{Path, PathBuf};
 
-/// Write a new plugin `id` into `dir` (by default `./<id>`), which must be
-/// empty or absent. Returns the folder.
 pub(crate) fn create(id: &str, dir: Option<&Path>, author: &str) -> Result<PathBuf, String> {
     if !super::valid_id(id) {
         return Err(format!(

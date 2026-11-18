@@ -9,13 +9,9 @@ pub(super) const ROSTER_CAP: usize = 24;
 pub(super) const SPAWN_CAP: u16 = 128;
 pub(super) const EVENT_CAP: usize = 25 * CAMP_CAP + 4 + 2 * SPAWN_CAP as usize;
 
-/// Shared floor-local provision for extra bodies, independent of producer lifetimes.
-/// This is a lone knight's; a party may spend `HEAD_PROVISION` more for each
-/// knight past the first (`Economy::can_emit_for`), up to `SPAWN_CAP`.
 pub(super) fn spawn_allowance(support: u16) -> u16 {
     (8 + support * 4).min(SPAWN_CAP)
 }
-/// Extra bodies a floor may provision for each knight past the first.
 pub(super) const HEAD_PROVISION: u16 = 32;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -199,9 +195,6 @@ impl Economy {
                 };
                 self.factions[i].controlled = false;
                 let reserve = std::mem::take(&mut self.factions[i].reserve);
-                // No living controller, no reserve; the camps still to come
-                // keep the floor's ramp (`pacing`): a fallen chief never
-                // thins the rooms nearer the guardian.
                 if self.profile.structure == Structure::Clans {
                     if let Some(j) = (1..self.factions.len())
                         .map(|n| (i + n) % self.factions.len())
@@ -211,7 +204,6 @@ impl Economy {
                             (self.factions[j].reserve + reserve.min(3)).min(9);
                     }
                 } else {
-                    // Tribute supply loss weakens the future apex escort as well.
                     if let Some(c) = self
                         .camps
                         .last_mut()
@@ -292,7 +284,6 @@ impl Economy {
         let mut roster: Vec<_> = (0..camp.budget)
             .map(|n| pool[(usize::from(n) + usize::from(camp.faction)) % pool.len()])
             .collect();
-        // Rival presence is composition, not NPC-on-NPC warfare. Dangerous kinds stay bounded.
         if self.profile.structure == Structure::Clans && camp.budget >= super::pacing::CLAN_HEAD_FROM {
             roster[0] = if camp.faction.is_multiple_of(2) {
                 super::EnemyKind::Sapper
@@ -303,7 +294,6 @@ impl Economy {
                 roster[1] = if rival % 2 == 0 { Sapper } else { Hob };
             }
         }
-        // A hive has only one splitting slime per deployment, not a multiplication swarm.
         let mut slime = false;
         for k in &mut roster {
             if *k == Slime {
@@ -326,7 +316,6 @@ impl Economy {
                 stage == 0
             }
     }
-    /// All mutable containers are bounded before cloning, replay or indexing.
     pub fn within_bounds(&self) -> bool {
         self.profile.sites.len() <= CAMP_CAP
             && !self.factions.is_empty()
@@ -354,15 +343,12 @@ impl Economy {
                     && (2..=24).contains(&c.budget)
             })
     }
-    /// Whether a party of `knights` may provision another body now: the
-    /// floor's allowance, and `HEAD_PROVISION` more for each knight past one.
     pub fn can_emit_for(&self, knights: usize) -> bool {
         let share = (self.spawn_allowance
             + HEAD_PROVISION * knights.clamp(1, MAX_PLAYERS as usize).saturating_sub(1) as u16)
             .min(SPAWN_CAP);
         self.spawn_spent < share && self.events.len() < EVENT_CAP
     }
-    /// The most a floor may ever provision: a full party's share.
     fn ceiling(&self) -> u16 {
         (self.spawn_allowance + HEAD_PROVISION * (MAX_PLAYERS as u16 - 1)).min(SPAWN_CAP)
     }
@@ -403,8 +389,6 @@ impl Economy {
             self.events.push(event);
         }
     }
-    /// Replay from independently reconstructed, bounded immutable genesis, never
-    /// clone a received mutable roster/journal only to discard it.
     pub fn valid_progress(&self, genesis: &Self, leaders: &[Leader]) -> bool {
         if !self.within_bounds()
             || !genesis.within_bounds()
@@ -436,8 +420,6 @@ impl Economy {
                 .enumerate()
                 .all(|(i, l)| l.defeated == self.events.contains(&Event::Loss(i as u8)))
     }
-    /// The same, in plain words for the sidebar: the camp here, and how
-    /// many have been broken.
     pub fn plain(&self, at: usize) -> Vec<String> {
         let mut out = Vec::new();
         if let Some(c) = self.camp(at) {

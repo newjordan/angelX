@@ -20,8 +20,6 @@ fn git(root: &Path, args: &[&str]) -> String {
         .unwrap_or_else(|error| panic!("git {args:?} in {}: {error}", root.display()))
 }
 
-/// Distinct children with a checkout and a ref each are one wave, and reverting
-/// them in that plan's reverse order restores the repository exactly.
 #[test]
 fn disjoint_worktree_children_revert_in_reverse_order_without_residue() {
     let root = scratch("independence_gate");
@@ -37,8 +35,6 @@ fn disjoint_worktree_children_revert_in_reverse_order_without_residue() {
         &["for-each-ref", "--format=%(refname) %(objectname)"],
     );
 
-    // Worktrees live beside the repository, the shape `DelegateTool::worktree_base`
-    // chooses so a delegated checkout never reads as user dirt.
     let worktrees = root.join(".angel-worktrees");
     std::fs::create_dir_all(&worktrees).unwrap();
     let children: Vec<ChildFootprint> = (0..3)
@@ -57,8 +53,6 @@ fn disjoint_worktree_children_revert_in_reverse_order_without_residue() {
     let revert_order = plan.revert_order();
     assert_eq!(revert_order, vec![2, 1, 0]);
 
-    // Real effects: each child gets its own checkout, off its own ref, with a
-    // commit of its own — the delegate's `prepare_delegate_worktree` path.
     for index in 0..children.len() {
         let worktree = worktrees.join(format!("c{index}"));
         crate::agent::harness::orchestrator::prepare_delegate_worktree(
@@ -77,13 +71,10 @@ fn disjoint_worktree_children_revert_in_reverse_order_without_residue() {
             &["commit", "-q", "-m", &format!("child {index}")],
         );
     }
-    // Three children really ran: three refs, three checkouts, and the shared
-    // checkout untouched.
     assert_eq!(git(&repo, &["worktree", "list"]).lines().count(), 4);
     assert_eq!(git(&repo, &["rev-parse", "HEAD"]).trim(), base);
     assert_eq!(git(&repo, &["status", "--porcelain"]), "");
 
-    // The inverse pair the delegate applies, in the order the plan gives.
     for index in revert_order {
         let worktree = worktrees.join(format!("c{index}"));
         git(
@@ -98,8 +89,6 @@ fn disjoint_worktree_children_revert_in_reverse_order_without_residue() {
         git(&repo, &["branch", "-D", &format!("angel/c{index}")]);
     }
 
-    // Bit-identical to the pre-spawn state (Thm 7's `φ(γ) = γ₀`), witnessed by git
-    // rather than asserted in prose.
     assert_eq!(
         git(&repo, &["rev-parse", "HEAD"]).trim(),
         base,
@@ -131,8 +120,6 @@ fn disjoint_worktree_children_revert_in_reverse_order_without_residue() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// Overlap is *partial*: only the children that share a resource are serialized,
-/// and the refusal names the resource for the caller.
 #[test]
 fn one_shared_ref_serializes_only_the_pair_that_shares_it() {
     let root = scratch("independence_partial");
@@ -159,9 +146,6 @@ fn one_shared_ref_serializes_only_the_pair_that_shares_it() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// The admission gate on the production `spawn` path: `tools=code` seats are
-/// serialized because they claim the one shared workspace — and the refusal says
-/// which resource collided, instead of only which knob to turn.
 #[test]
 fn spawn_code_seats_are_serialized_by_their_shared_workspace_claim() {
     let workspace = scratch("independence_spawn");
@@ -180,14 +164,11 @@ fn spawn_code_seats_are_serialized_by_their_shared_workspace_claim() {
         "the workspace is named: {error}"
     );
 
-    // The gate is about concurrency, not about the grant: one seat is admitted and
-    // fails later for want of a roster, which is a different error.
     let single = tool
         .call(&serde_json::json!({"task": "write", "n": 1, "tools": "code"}))
         .expect_err("no clubs are registered");
     assert!(!single.contains("needs n=1"), "{single}");
 
-    // Read-only seats declare nothing exclusive, so a panel of them is admitted.
     let panel = tool.call(&serde_json::json!({
         "task": "read", "n": 3, "tools": "read_only", "formation": "panel"
     }));

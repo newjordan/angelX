@@ -5,8 +5,6 @@
 
 use super::*;
 
-// --- git tools suite ---
-
 #[test]
 fn git_tools_parse_live_repo() {
     let ws = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -15,8 +13,6 @@ fn git_tools_parse_live_repo() {
     }
     .call(&serde_json::json!({}))
     .expect("git_status on the real repo");
-    // Derive the current branch rather than hardcoding one — otherwise this
-    // test fails on every branch but the one it was written on.
     let branch = Command::new("git")
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
         .current_dir(&ws)
@@ -117,7 +113,6 @@ fn git_diff_argv_is_explicit_and_rejects_option_or_range_bases() {
 
 #[test]
 fn git_status_summary_parses_porcelain() {
-    // X (index) / Y (worktree): "M " staged, " M" modified, "MM" both, "??" untracked.
     let p =
         "## feat/x...origin/feat/x [ahead 2]\nM  src/a.rs\n M src/b.rs\n?? new.txt\nMM src/c.rs\n";
     let s = summarize_git_status(p);
@@ -139,16 +134,13 @@ fn git_log_argv_clamps_and_scopes() {
         git_log_argv(15, None),
         vec!["log", "--oneline", "--no-color", "-n15"]
     );
-    // count clamps to [1,100]
     assert_eq!(git_log_argv(0, None)[3], "-n1");
     assert_eq!(git_log_argv(9999, None)[3], "-n100");
-    // path is scoped after a `--` separator
     let scoped = git_log_argv(5, Some("src/foo.rs"));
     assert_eq!(
         scoped,
         vec!["log", "--oneline", "--no-color", "-n5", "--", "src/foo.rs"]
     );
-    // empty path is ignored (no separator)
     assert!(!git_log_argv(5, Some("")).contains(&"--".to_string()));
 }
 
@@ -190,7 +182,6 @@ fn git_commit_plans_and_executes_atomic_splits() {
         );
     };
     git(&["init", "-q"]);
-    // Default branch name varies; force main for readability.
     let _ = Command::new("git")
         .args(["branch", "-M", "main"])
         .current_dir(&root)
@@ -199,7 +190,6 @@ fn git_commit_plans_and_executes_atomic_splits() {
     git(&["add", "-A"]);
     git(&["commit", "-q", "-m", "init"]);
 
-    // Dirty tree across classes.
     std::fs::write(root.join("src/lib.rs"), "pub fn a() { 1 }\n").unwrap();
     std::fs::write(root.join("tests/lib_test.rs"), "#[test] fn t() {}\n").unwrap();
     std::fs::write(root.join("README.md"), "# fixture\n").unwrap();
@@ -208,7 +198,6 @@ fn git_commit_plans_and_executes_atomic_splits() {
         workspace: root.clone(),
     };
 
-    // Plan-only default.
     let plan = tool.call(&serde_json::json!({})).unwrap();
     assert!(plan.contains("atomic commit plan"), "{plan}");
     assert!(plan.contains("class=source"), "{plan}");
@@ -216,14 +205,12 @@ fn git_commit_plans_and_executes_atomic_splits() {
     assert!(plan.contains("class=docs"), "{plan}");
     assert!(plan.contains("execute=true"), "{plan}");
 
-    // Execute split.
     let done = tool
         .call(&serde_json::json!({ "execute": true, "split": true }))
         .unwrap();
     assert!(done.contains("atomic commit execute"), "{done}");
     assert!(done.contains("source"), "{done}");
 
-    // Tree should be clean.
     let status = Command::new("git")
         .args(["status", "--porcelain"])
         .current_dir(&root)
@@ -235,7 +222,6 @@ fn git_commit_plans_and_executes_atomic_splits() {
         String::from_utf8_lossy(&status.stdout)
     );
 
-    // At least init + 3 class commits.
     let log = Command::new("git")
         .args(["log", "--oneline"])
         .current_dir(&root)

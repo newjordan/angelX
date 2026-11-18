@@ -32,9 +32,6 @@ fn stamp(metadata: &fs::Metadata) -> io::Result<Stamp> {
     })
 }
 
-/// Capture original files into content-named immutable build outputs and return
-/// their paths plus Rust defining PREPARED_FILES. The caller still watches its
-/// original sources. Compiler includes refer only to captured output bytes.
 pub fn capture_static(files: &[(String, PathBuf)], out: &Path) -> io::Result<StaticBuild> {
     capture_with_hook(files, out, |_| {})
 }
@@ -47,8 +44,6 @@ fn capture_with_hook(
         return Err(io::Error::other("embedded browser file limit"));
     }
     fs::create_dir_all(out)?;
-    // Exclusive Cargo output directory: one published build plus its proposed
-    // replacement. Failed proposals remove only the files they created.
     let mut entries = 0usize;
     let mut resident = 0u64;
     for entry in fs::read_dir(out)? {
@@ -124,10 +119,6 @@ fn capture_with_hook(
     result.rust = definitions;
     Ok(result)
 }
-/// A proposed captured build owns new files until its generated source is
-/// atomically published. Dropping a failed proposal cleans those files; older
-/// successful outputs survive. Publication prunes retired content, bounding
-/// repeated edits without touching already-linked binaries.
 pub struct StaticBuild {
     files: Vec<(String, PathBuf)>,
     rust: String,

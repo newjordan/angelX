@@ -75,8 +75,6 @@ fn private(run: &Run) -> serde_json::Value {
     runtime_state::capture(run).unwrap().into_value()
 }
 
-// Frozen legacy DelveServer control prelude, retained independently here so
-// the new phase split is checked against the behavior being extracted.
 fn legacy_controls(run: &mut Run, controls: Controls) {
     if let Some(seat) = run.playtest.seats.get_mut(&2)
         && seat.couch != controls.couch
@@ -334,8 +332,6 @@ fn frame_split_matches_legacy_controls_presence_hold_and_complete_output_order()
                 let fence = begin_frame(&mut owner, input.clone());
                 assert_eq!(private(&owner.run), private(&legacy));
                 assert_eq!(owner.pending_frame.as_ref().unwrap().arrival, arrival);
-                // Native ability effects belong here. A cue/sound stands in for a
-                // resolved ability result, not a model/native callback or second queue.
                 owner.run.sounds.push("boom");
                 legacy.sounds.push("boom");
                 let expected =

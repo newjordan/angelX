@@ -1,7 +1,3 @@
-// The holdings' crews: hands who walk a trip a shift from the yard to the
-// work, the steward's standing order that says which work comes first, and
-// the one clock the rules and the picture keep.
-
 use super::*;
 use super::testing::*;
 use crate::rules::home::{BUY_HOLD, Home};
@@ -16,20 +12,16 @@ fn trips(h: &mut Holdings, key: &str, n: u32) -> Settled {
     settle(h, &mut t, &BTreeMap::from([(trip_mark(key), n)]))
 }
 
-// ── The crew ──────────────────────────────────────────────────────────────
-
 #[test]
 fn a_holding_is_bought_with_two_hands_and_rooms_that_quarter_folk_bring_more() {
     let (mut h, _) = held();
     assert_eq!(h.owned[0].crew(), HANDS);
-    // Inn rooms going up quarter nobody yet.
     h.owned[0].rooms.push(Built { id: "inn".into(), labour: 2 });
     assert_eq!(h.owned[0].crew(), HANDS);
     h.owned[0].rooms.last_mut().unwrap().labour = ROOM_LABOUR;
     assert_eq!(h.owned[0].crew(), HANDS + 1);
     h.owned[0].rooms = built(&["inn", "barracks", "greathall", "garrison", "taproom"]);
     assert_eq!(h.owned[0].crew(), CREW_CAP);
-    // Raiders in it: the crew has scattered.
     h.owned[0].raid = 1;
     assert_eq!(h.owned[0].crew(), 0);
     assert_eq!(h.owned[0].work(0), None);
@@ -39,23 +31,18 @@ fn a_holding_is_bought_with_two_hands_and_rooms_that_quarter_folk_bring_more() {
 fn the_crew_works_its_order_first_and_falls_through_to_what_there_is() {
     let (mut h, _) = held();
     let w = &mut h.owned[0];
-    // All whole, the granary bare: they stock it.
     assert_eq!(w.order, Work::Build);
     assert_eq!(w.work(0), Some(Work::Stock));
-    // A room going up comes first on a building order.
     w.rooms.push(Built { id: "smithy".into(), labour: 0 });
     w.walls = 6;
     assert_eq!(w.work(0), Some(Work::Build));
-    // Ordered to mend, the walls come before the room.
     w.order = Work::Mend;
     assert_eq!(w.work(0), Some(Work::Mend));
     w.walls = WALLS;
     assert_eq!(w.work(0), Some(Work::Build), "walls whole: on to the room");
-    // Ordered to stock, the granary first, until it is full.
     w.order = Work::Stock;
     assert_eq!(w.work(0), Some(Work::Stock));
     assert_eq!(w.work(STORES_CAP), Some(Work::Build));
-    // Nothing to do at all: they rest.
     w.rooms.last_mut().unwrap().labour = ROOM_LABOUR;
     assert_eq!(w.work(STORES_CAP), None);
 }
@@ -65,25 +52,20 @@ fn trips_add_up_to_courses_of_a_room_courses_of_wall_and_sacks() {
     let (mut h, _) = held();
     let key = crypt_key();
     h.owned[0].rooms.push(Built { id: "smithy".into(), labour: 0 });
-    // A course of a room is four trips.
     trips(&mut h, &key, COURSE_TRIPS - 1);
     assert_eq!(h.owned[0].rooms[2].labour, 0);
     trips(&mut h, &key, 1);
     assert_eq!(h.owned[0].rooms[2].labour, 1);
-    // The room stands at six courses, and says so.
     let out = trips(&mut h, &key, COURSE_TRIPS * (ROOM_LABOUR - 1));
     assert!(h.owned[0].rooms[2].standing());
     assert!(out.said.iter().any(|(_, l)| l.contains("Smithy stands at The Crypt")), "{:?}", out.said);
-    // Walls: twelve trips a course.
     h.owned[0].walls = 6;
     trips(&mut h, &key, MEND_TRIPS * 2);
     assert_eq!(h.owned[0].walls, 8);
-    // The granary: twelve trips a sack, once the walls are whole.
     h.owned[0].walls = WALLS;
     trips(&mut h, &key, STOCK_TRIPS * 3);
     assert_eq!(h.stores, 3);
     assert_eq!(h.owned[0].toil, 0);
-    // Never gold, never the coffer.
     assert_eq!(h.owned[0].coffer, 0);
 }
 
@@ -113,8 +95,6 @@ fn unrest_halves_the_crew_and_a_riot_downs_tools() {
     assert_eq!(h.crew_work(&w), None);
 }
 
-// ── One clock ─────────────────────────────────────────────────────────────
-
 #[test]
 fn a_hand_is_back_at_the_work_laden_the_tick_its_trip_lands() {
     let shift = u64::from(SHIFT_SECS * HZ);
@@ -126,15 +106,12 @@ fn a_hand_is_back_at_the_work_laden_the_tick_its_trip_lands() {
                 let l = leg(t, j, hands);
                 assert_eq!((l.along, l.laden, l.working), (0.0, true, true), "setting it down");
             }
-            // Half a shift on, out at the yard or on the way.
             let l = leg(landing[0] + shift / 2, j, hands);
             assert!(l.along > 0.5 && !l.laden, "{l:?}");
-            // Coming back: laden, nearer the work with every tick.
             let a = leg(landing[0] + shift * 7 / 10, j, hands);
             let b = leg(landing[0] + shift * 9 / 10, j, hands);
             assert!(a.laden && b.laden && b.along < a.along);
         }
-        // The hands of a crew land apart, never in step.
         let mut at: Vec<u64> = (0..hands).map(|j| (0..shift).find(|&t| lands(t, j, hands)).unwrap()).collect();
         at.dedup();
         assert_eq!(at.len(), hands as usize);
@@ -172,12 +149,10 @@ fn the_run_marks_each_hands_trip_as_it_lands_wherever_the_party_is() {
     for _ in 0..shift {
         run.step(&BTreeMap::new());
     }
-    // Three hands (two, and the inn's), a trip each a shift.
     let key = crypt_key();
     assert_eq!(run.marks.get(&trip_mark(&key)), Some(&3), "{:?} from {start}", run.marks);
     cockpit(&mut run);
     assert_eq!(run.home.holdings.owned[0].toil, 3);
-    // A crew with nothing to do marks nothing.
     let mut idle = run.home.holdings.clone();
     idle.owned[0].rooms.last_mut().unwrap().labour = ROOM_LABOUR;
     idle.stores = STORES_CAP;
@@ -215,7 +190,6 @@ fn the_order_plate_turns_the_boards_holdings_order_and_says_it() {
     hold(&mut run);
     cockpit(&mut run);
     assert_eq!(run.home.holdings.owned[0].order, Work::Build);
-    // A deed the realm does not hold has no crew to order.
     run.home.holdings.pick = 1;
     assert_eq!(plate_open(&run, Plate::Orders), Err("NOT OURS"));
 }
@@ -235,11 +209,6 @@ fn an_old_holding_loads_with_a_building_order_and_saves_as_it_was() {
     assert_eq!(serde_json::from_str::<Holding>(&saved).unwrap(), w);
 }
 
-/// The evidence the crews' numbers were picked from: a floor takes a bot
-/// four to eight minutes (BARONY.md), so a rent day is 24 to 48 shifts.
-/// At six minutes a floor, a crew of two raises a room and more in a
-/// floor, or six courses of wall, and the order decides which comes first
-/// when a room and a broken wall want the same hands.
 #[test]
 fn a_floors_play_raises_a_room_or_mends_a_siege_and_the_order_says_which_first() {
     let floor = 36;
@@ -271,8 +240,6 @@ fn a_floors_play_raises_a_room_or_mends_a_siege_and_the_order_says_which_first()
     assert!(room.is_some_and(|r| r > 24 && r <= floor), "{room:?}");
 }
 
-// ── Pictures ──────────────────────────────────────────────────────────────
-
 fn below(holdings: Holdings) -> Run {
     let home = Home { holdings, ..Home::default() };
     let mut run = Run::at_home(7, 1, None, home, gold(0));
@@ -292,7 +259,6 @@ fn stand(run: &mut Run, (c, r, w, h): (i32, i32, i32, i32)) {
     hero.invulnerable = 0;
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_crew_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_crew_shots() {
@@ -309,8 +275,6 @@ fn write_crew_shots() {
             .unwrap();
     };
     let shift = u64::from(SHIFT_SECS * HZ);
-    // The Crypt with three rooms standing and an inn's crew of three
-    // raising a smithy: beams from the yard in the next bay.
     let (mut h, _) = held();
     h.owned[0].rooms = built(&["taproom", "shrine", "inn"]);
     h.owned[0].rooms.push(Built { id: "smithy".into(), labour: 2 });
@@ -319,13 +283,10 @@ fn write_crew_shots() {
     let mut run = court(h.clone(), 3000);
     run.tick = shift * 40 + shift * 3 / 4;
     save(&run, "a-court-crew-building");
-    // A strip of the board's bays across one shift, a frame a second.
     for k in 0..10u64 {
         run.tick = shift * 41 + k * shift / 10;
         save(&run, &format!("strip-{k}"));
     }
-    // The same crew ordered to mend after a siege, a knight on the order
-    // plate reading it.
     let mut m = h.clone();
     m.owned[0].walls = 6;
     m.owned[0].order = Work::Mend;
@@ -335,14 +296,11 @@ fn write_crew_shots() {
     run.step(&BTreeMap::new());
     run.players.get_mut(&1).unwrap().buying = BUY_HOLD / 2;
     save(&run, "b-court-order-plate-mend");
-    // Restless: half the crew at work, the line in red.
     let mut r = m.clone();
     r.unrest = RESTLESS + 1;
     let mut run = court(r, 3000);
     run.tick = shift * 40 + shift * 4 / 5;
     save(&run, "c-court-restless-half-crew");
-    // Below, in the Crypt's steward's hall: the crew building, then
-    // mending at the door, then stocking the granary.
     for (name, order, walls, frac) in [
         ("d-hall-building", Work::Build, WALLS, 0.8),
         ("e-hall-mending", Work::Mend, 6, 0.75),

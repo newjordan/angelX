@@ -18,14 +18,11 @@ fn rows(rows: &[&str]) -> Img {
     Img::from_rows(rows)
 }
 
-/// The side a monster looks to: toward the nearest living knight.
 fn side(run: &Run, enemy: &Enemy) -> f32 {
     run.players
         .values()
         .filter(|h| h.hp > 0 && !h.stone)
         .min_by(|a, b| {
-            // Squared distance orders the same as distance, and picks the
-            // same nearest knight, without the square root per comparison.
             let d = |h: &&crate::rules::Hero| {
                 let (dx, dy) = (h.x - enemy.x, h.y - enemy.y);
                 dx * dx + dy * dy
@@ -35,7 +32,6 @@ fn side(run: &Run, enemy: &Enemy) -> f32 {
         .map_or(1.0, |h| h.x - enemy.x)
 }
 
-/// A critter as it stands now, facing the way it faces.
 pub(super) fn art(run: &Run, enemy: &Enemy, tick: u32) -> Img {
     use EnemyKind::*;
     let im = figure(enemy.kind, enemy.stage, enemy.timer, tick);
@@ -65,8 +61,6 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
     let slow = (tick / 8).is_multiple_of(2);
     match kind {
         Biter => {
-            // A grey furball with ears and fangs: at rest its legs patter;
-            // crouched, a shiver and its eyes lit; mid-pounce, jaws wide.
             let shake = if stage == 1 && tick.is_multiple_of(2) {
                 1
             } else {
@@ -119,7 +113,6 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
             }
         }
         Shard => {
-            // A splinter of the geode on crystal legs, quick.
             let glint = if flap { 'W' } else { 'V' };
             let mut im = rows(&[
                 "....W....",
@@ -136,7 +129,6 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
             im.put(4, 0, glint);
             im
         }
-        // Buried, a mound that travels; surfaced, the mole itself.
         Mole if stage >= 1 => {
             let heave = i32::from(tick.is_multiple_of(6));
             let mut im = rows(&[
@@ -148,7 +140,6 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
                 "jbbBBBBBBBbbj",
             ]);
             if stage == 2 {
-                // Rocks jump on the mound as the crack opens.
                 im.put(3, 1, 'j');
                 im.put(9, heave, 'G');
                 im.put(6, 0, 'g');
@@ -184,7 +175,6 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
             let q = rim('Q');
             let w = if stage == 1 { '6' } else { 'W' };
             if stage == 3 {
-                // Shield lowered to the ground, the knight panting behind it.
                 rows(&[
                     "...JhhJ.......",
                     "..JhhhhJ......",
@@ -226,7 +216,6 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
             }
         }
         Leech => match stage {
-            // Reared up, a ring of teeth open.
             1 => rows(&[
                 "..H777H..",
                 ".H7kkk7H.",
@@ -242,7 +231,6 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
                 "EmmmmmmmE",
                 ".EEEEEEE.",
             ]),
-            // Stretched mid-lunge.
             2 => rows(&[
                 "..EEEEEEEE..H7.",
                 ".EmmLLmmLLmEH77",
@@ -250,7 +238,6 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
                 "EmmmmmmmmmmEH77",
                 ".EEEEEEEEEE..H7",
             ]),
-            // Clinging.
             3 => {
                 let swell = i32::from((tick / 6).is_multiple_of(2));
                 let mut im = rows(&[
@@ -271,7 +258,6 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
                 }
                 im
             }
-            // Flung off and flat.
             4 => rows(&[
                 "..EEEEEEEEE..",
                 ".EmmmLLmmmmEk",
@@ -279,7 +265,6 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
                 "EmmmmmmmmmmmE",
                 ".EEEEEEEEEEE.",
             ]),
-            // Looping along like an inchworm, its mouth to the floor.
             _ if flap => rows(&[
                 "....EEEE.....",
                 "...EmLLmE....",
@@ -312,10 +297,8 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
                 '2'
             };
             let hold = if stage == 1 {
-                // The long bow raised level.
                 [".......bbbbbbbV", "......bB.....2V"]
             } else if stage == 2 {
-                // Kicked up from the shot.
                 ["......bB......", ".......bbbbbbb."]
             } else {
                 ["..............", ".......bBb....."]
@@ -373,7 +356,6 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
                     "....V.V.V...."
                 },
             ]);
-            // A shard of mirror held out when it has a shot to give back.
             if stage & 7 != 0 {
                 for (x, y) in [(11, 4), (11, 5), (12, 5), (11, 6)] {
                     im.put(x, y, if casting { 'w' } else { 'W' });
@@ -422,7 +404,6 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
             out
         }
         Ringer => {
-            // Robed, the bell in a raised hand; rung, the bell swings low.
             let (bell, swing) = match stage {
                 1 => (
                     [
@@ -475,12 +456,10 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
                 6,
             );
             if stage == 1 {
-                // The raised arm holding it up.
                 out.put(6, 5, 'R');
                 out.put(7, 5, 'p');
             }
             if swing == 1 {
-                // The bell's long swing and the shine of the stroke.
                 out.put(0, 8, 't');
                 out.put(1, 9, 'T');
                 out.put(0, 10, '6');
@@ -530,9 +509,6 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
             im
         }
         Hound => {
-            // A cinderhound: charcoal hide with ember stripes. It crouches
-            // and fixes its gaze, rushes long and low, and stands winded,
-            // tongue out.
             let eye = if stage == 1 || stage == 2 { '@' } else { '7' };
             match stage {
                 1 => rows(&[
@@ -599,8 +575,6 @@ pub(super) fn figure_raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
     }
 }
 
-/// A dotted line from a point along a way, in ink, with a gap pattern that
-/// crawls with the tick.
 fn dotted(
     cv: &mut Img,
     (x, y): (i32, i32),
@@ -623,12 +597,10 @@ fn dotted(
     }
 }
 
-/// What an enemy is about to do, drawn on the floor under and round it.
 pub(super) fn marks(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
     use EnemyKind::*;
     let (x, y) = at(enemy.x, enemy.y);
     let t = enemy.timer;
-    // A bell's ring on any monster: gold chevrons over its head.
     if enemy.rung > 0 && enemy.hp > 0 {
         let up = (tick / 3 % 3) as i32;
         let top = y - (enemy.radius() * UNIT * 2.0) as i32 - 6 - up;
@@ -644,7 +616,6 @@ pub(super) fn marks(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
             dotted(cv, (x, y), enemy.dir, 6.0, 8.0 + k * 22.0, tick, '7', '8');
         }
         (Mole, 2) => {
-            // The crack ring, closing in on where the floor will go.
             let reach = logic_reach() * UNIT;
             let k = t as f32 / MOLE_TELL as f32;
             let r = reach * (1.25 - 0.25 * k);
@@ -659,7 +630,6 @@ pub(super) fn marks(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
                     );
                 }
             }
-            // Cracks running out from the middle.
             for spoke in 0..6 {
                 let a = spoke as f32 * 1.047 + 0.4;
                 let len = (reach * 0.9 * k) as i32;
@@ -677,7 +647,6 @@ pub(super) fn marks(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
             let k = t as f32 / PAVISE_WINDUP as f32;
             let (dx, dy) = enemy.dir;
             let (px, py) = (-dy, dx);
-            // The bash's arc, filling toward its edge.
             for i in -8..=8 {
                 let a = i as f32 * 0.09;
                 let (c, s) = (a.cos(), a.sin());
@@ -699,7 +668,6 @@ pub(super) fn marks(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
             let (dx, dy) = enemy.dir;
             let locked = t >= AIM_LOCK;
             let k = (t as f32 / AIM_TICKS as f32).min(1.0);
-            // A line to the first thing solid, drawn faint, then hard.
             let room = run.room();
             let mut s = 8.0f32;
             let mut end = s;
@@ -734,7 +702,6 @@ pub(super) fn marks(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
                 }
                 s += 1.0;
             }
-            // The reticle where it ends.
             let (ex, ey) = (x + (dx * end) as i32, y + (dy * end) as i32);
             let rr = 4 - (k * 2.0) as i32;
             for (ox, oy) in [(-rr, 0), (rr, 0), (0, -rr), (0, rr)] {
@@ -742,7 +709,6 @@ pub(super) fn marks(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
             }
         }
         (Mirrorling, s) if s & 8 != 0 => {
-            // A line to the one it means to answer.
             if let Some(h) = run
                 .players
                 .values()
@@ -769,7 +735,6 @@ pub(super) fn marks(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
             }
         }
         (Spitter, 1) => {
-            // The ring on the floor where the glob will fall.
             let (gx, gy) = at(enemy.dir.0, enemy.dir.1);
             let k = t as f32 / SPIT_SWELL as f32;
             let r = logic::PUDDLE_REACH * UNIT * (1.4 - 0.4 * k);
@@ -837,7 +802,6 @@ fn logic_reach() -> f32 {
     2.2
 }
 
-/// Globs in the air, puddles, and the short flashes of what just happened.
 pub(super) fn world(cv: &mut Img, run: &Run) {
     use logic::{Fx, GLOB_FALL, PUDDLE_STAYS};
     let tick = run.tick as u32;
@@ -863,7 +827,6 @@ pub(super) fn world(cv: &mut Img, run: &Run) {
                 cv.put(x + dx, y + dy, ink);
             }
         }
-        // A bubble coming up now and then.
         let b = (tick / 5 + puddle.left) % 6;
         if b < 3 {
             cv.put(x - 3 + (puddle.left % 7) as i32, y - b as i32, 'Y');
@@ -884,13 +847,10 @@ pub(super) fn world(cv: &mut Img, run: &Run) {
             (0, -1, 'y'),
             (1, 1, 'm'),
         ] {
-            // A window drawing it lifted (`lifted_outside`) keeps only the
-            // ring below.
             if !super::lifted_outside() {
                 cv.put(x as i32 + dx, y as i32 + dy, ink);
             }
         }
-        // Its shadow on the floor, the ringed spot.
         cv.put(x as i32, (fy as f32 + (ty - fy) as f32 * k) as i32 + 2, 'k');
     }
     for flash in &run.critters.flashes {

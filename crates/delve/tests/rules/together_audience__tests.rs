@@ -35,7 +35,6 @@ fn retired_sponsor_spin_loads_on_the_normal_wedge() {
     }
 }
 
-/// Floor one's entrance, its monsters gone, the party at ease.
 fn delve() -> Run {
     let mut run = Run::new(5, 1, None);
     run.enter_for_test(0);

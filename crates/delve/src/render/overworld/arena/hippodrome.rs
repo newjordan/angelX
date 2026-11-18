@@ -10,9 +10,6 @@ fn near(run:&Run, p:(f32,f32), reach:f32)->bool {
 pub(super) fn scenery(cv:&mut Img,run:&Run) {
     match run.room().kind {
         RoomKind::Hippodrome => {
-            // The oval itself, painted where the chariots actually run
-            // (`chariot::track_at`): a rutted dirt ring round a grass
-            // infield, a dashed centreline and the start line at the east end.
             let (cx,cy)=(12.0*TILE as f32,7.0*TILE as f32);
             for y in 0..cv.h { for x in 0..cv.w {
                 let (dx,dy)=(x as f32+0.5-cx,y as f32+0.5-cy);
@@ -21,13 +18,9 @@ pub(super) fn scenery(cv:&mut Img,run:&Run) {
                 if outer>=1.0 {continue;}
                 let clump=super::super::ink::vnoise(x as f32/4.0,y as f32/3.0,233);
                 if inner<1.0 {
-                    // The infield's verge: grass in clumps along the kerb.
                     if inner>0.93 {cv.put(x,y,if clump>0.55{'E'}else{'F'});}
                     continue;
                 }
-                // Across the track, inner kerb to outer rail: packed dirt
-                // with clods, the two grooves the wheels have worn, each dark
-                // with a lit far lip, and a rail lit on its north-west.
                 let (ro,ri)=(outer.sqrt(),inner.sqrt());
                 let f=(ri-1.0)/(ri-ro).max(1e-3);
                 let groove=|a:f32|(a..a+0.07).contains(&f);
@@ -43,7 +36,6 @@ pub(super) fn scenery(cv:&mut Img,run:&Run) {
                 else {'b'};
                 cv.put(x,y,ch);
             }}
-            // Two timber grandstands, tiered, the crowd's heads along them.
             for c in [3,15] {
                 for tier in 0..3 {
                     m::block(cv,(c*TILE,2*TILE-6+tier*9,6*TILE,10),m::ramp::TIMBER,true,230+tier as u32);
@@ -59,9 +51,7 @@ pub(super) fn scenery(cv:&mut Img,run:&Run) {
                     }
                 }
             }
-            // The judges' box.
             m::house(cv,(8*TILE+1,9*TILE-6,2*TILE-2,2*TILE+4),&m::House{roof:m::ramp::TILE,stone:false,windows:0},232);
-            // In the infield, clear of the booth and the stands.
             let sign="LAST PLACE IS A PLACE";
             cv.text(12*TILE-super::super::ink::text_width(sign)/2,7*TILE-3,sign,'h');
             for k in 0..48 {
@@ -74,7 +64,6 @@ pub(super) fn scenery(cv:&mut Img,run:&Run) {
                 cv.rect(21*TILE-2,7*TILE+dy,4,3,if i%2==0{'9'}else{'K'});
             }
             cv.text(9*TILE,6*TILE,"RUSTY HIPPODROME",'O');
-            // Race day: bunting in the houses' inks and a crowd on its feet.
             if run.chariot.is_some() {
                 const FLAGS:[char;5]=['5','z','A','1','9'];
                 for c in 3..21 {
@@ -88,7 +77,6 @@ pub(super) fn scenery(cv:&mut Img,run:&Run) {
             }
         }
         RoomKind::Wheelwright => {
-            // The works, its timber stack, the square-wheel rack and a bench.
             m::house(cv,(3*TILE+2,2*TILE-10,5*TILE-4,3*TILE+8),&m::House{roof:m::ramp::TILE,stone:true,windows:2},235);
             for row in 0..3 {
                 for n in 0..(9-row) {
@@ -113,7 +101,6 @@ pub(super) fn scenery(cv:&mut Img,run:&Run) {
             m::sign(cv,2*TILE,12*TILE+2,"NO ROUND REFUNDS",'T');
         }
         RoomKind::TollBridge => {
-            // Two toll houses, the toll booth, a crate stack and a rail.
             for (k,c) in [3,15].into_iter().enumerate() {
                 m::house(cv,(c*TILE+2,2*TILE-10,6*TILE-4,3*TILE+8),&m::House{roof:if k==0{m::ramp::SLATE}else{m::ramp::THATCH},stone:k==0,windows:2},238+k as u32);
             }
@@ -138,7 +125,6 @@ pub(super) fn figures(cv:&mut Img,run:&Run) {
     let (stage,parts)=h::progress(&run.home.countryside,&run.marks);
     if run.room().kind==RoomKind::Wheelwright {
         let (x,y)=at(h::MECHANIC.0*2.0,h::MECHANIC.1*2.0);
-        // The wheelwright's bench: a wheel on a trestle.
         cv.rect(x-7,y-2,14,3,'B');cv.line(x-6,y+1,x-6,y+4,'b');cv.line(x+5,y+1,x+5,y+4,'b');
         part(cv,x,y-7,0);
         super::near_prompt(cv,run,(x,y),"TALK");
@@ -151,18 +137,14 @@ pub(super) fn figures(cv:&mut Img,run:&Run) {
         }
     }
     if run.room().kind!=RoomKind::Hippodrome {return;}
-    // A real race runs on its own big course, not in this room: the stage
-    // (`race_stage` below) owns the view while one is live.
     if run.chariot.is_some() {return;}
     let (x,y)=at(h::BOOTH.0*2.0,h::BOOTH.1*2.0);
-    // The bookie's booth: a striped awning on two posts, a slate of odds.
     cv.line(x-8,y-12,x-8,y+3,'b');cv.line(x+7,y-12,x+7,y+3,'b');
     for k in 0..4 {cv.rect(x-9+k*4,y-15,4,4,if k%2==0{'R'}else{'9'});}
     cv.rect(x-5,y-8,10,6,'k');cv.line(x-3,y-6,x+2,y-6,'h');cv.line(x-3,y-4,x+3,y-4,'h');
     super::near_prompt(cv,run,(x,y),"BET");
     if let Some(round)=&run.pastimes.round {
         if let Some(c)=&round.chariot {
-            // Relative scrolling track: each barrel approaches from the right.
             let base=6*TILE;
             for lap in 0..3 {for &(d,lane) in &BARRELS {
                 let ahead=lap*LAP+d;
@@ -230,8 +212,6 @@ pub(super) fn boards(cv:&mut Img,run:&Run) {
     if !lines.is_empty() {cv.stamp(&home::board(&lines),4,13);}
 }
 
-// ─── the race stage: big courses under a following camera ──────────────────
-
 fn place_word(n:usize)->String {
     let suffix=match n {1=>"ST",2=>"ND",3=>"RD",_=>"TH"};
     format!("{n}{suffix}")
@@ -246,19 +226,14 @@ mod stage;
 mod view;
 mod world;
 
-/// The camera of the race for the team a race calls its own (the first): on its chariot, leaning
-/// into its run, kept inside the course's country.
 pub fn race_camera(race:&crate::rules::chariot::Chariot,w:i32,h:i32)->(i32,i32) {
     view::camera_for(race,0,w,h,0.0,race.racers[0].dist+race.racers[0].coast)
 }
 
-/// The race itself, on its own screen: the course's country under a camera that rides the
-/// viewing seat's own team, the field at SNES density, and the plates and calls over it.
 pub(super) fn race_stage(scene:&mut Img,over:&mut Img,run:&Run,w:i32,h:i32,focus:Option<u32>) {
     stage::frame(scene,over,run,w,h,focus);
 }
 
-/// Every word and box the race screen of `seat` claims at this tick, for the tests.
 #[cfg(any(test, feature = "testing"))]
 pub(crate) fn claims_for(run:&Run,seat:Option<u32>)->Option<Vec<(String,(i32,i32,i32,i32),Option<u8>)>> {
     let v=view::View::new(run,seat,(384,224))?;
@@ -269,8 +244,6 @@ pub(crate) fn claims_for(run:&Run,seat:Option<u32>)->Option<Vec<(String,(i32,i32
 #[path = "../../../../tests/render/arena__hippodrome_show__tests.rs"]
 mod show_tests;
 
-/// A coach part, as it lies about: the square wheel, the goat-proof axle,
-/// the toll receipt.
 fn part(cv:&mut Img,x:i32,y:i32,which:usize) {
     match which {
         0=>{cv.rect(x-5,y-5,10,10,'o');cv.rect(x-3,y-3,6,6,'k');cv.line(x-5,y-5,x+4,y+4,'o');cv.line(x+4,y-5,x-5,y+4,'o');}

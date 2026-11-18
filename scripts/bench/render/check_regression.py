@@ -20,16 +20,17 @@ import glob
 import json
 import os
 import re
+import statistics
 import sys
 
 BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "baseline-v2.json")
 
 
 def median(vals):
-    vals = sorted(vals)
+    vals = list(vals)
     if not vals:
         return None
-    return vals[len(vals) // 2]
+    return statistics.median(vals)
 
 
 def glass_medians(run_dir):

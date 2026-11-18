@@ -23,9 +23,6 @@
 //! variables) so tests and late-loaded credentials are seen without a cache
 //! to invalidate.
 
-// The redactor lives in the Kernel's host services
-// (`angel_live::host::secrets`) so the realm host and the atomic writers stand
-// on the same code; every item is re-exported here at its old path.
 pub(crate) use angel_live::host::secrets::{
     Redactor, contains_secret, redact_bytes, redact_error, redact_str, redact_value,
     to_redacted_vec, to_redacted_vec_pretty,
@@ -35,8 +32,6 @@ pub(crate) use angel_live::host::secrets::{REDACTED, secret_values};
 #[cfg(test)]
 use std::borrow::Cow;
 
-/// Redact one valid JSONL record after decoding escaped strings. Malformed
-/// input is left alone; persistence writers use `to_redacted_vec` directly.
 #[cfg(test)]
 pub(crate) fn redact_line(line: &mut Vec<u8>) -> usize {
     let mut value = match serde_json::from_slice(line) {

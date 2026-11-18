@@ -1,22 +1,3 @@
-"""The review page: every job's variants at true size and zoomed, the
-critic's notes, and votes (keep, fix, drop) with a note, saved to the job.
-
-    kiln-studio serve [--host 127.0.0.1] [--port 8770]
-
-A keep copies the piece to the library; a note becomes a lesson appended to
-~/.angelX/kiln/style/lessons.md, which the next jobs read. The page is one
-static file that talks only to the JSON API below with relative URLs, and a
-vote names its voter, so the same page can be put behind a host later for
-friends to vote remotely.
-
-    GET  /api/jobs                       the jobs, newest first
-    GET  /api/jobs/<id>                  one job: brief, director, status, variants, critique, votes
-    POST /api/jobs/<id>/vote             {variant, vote: keep|fix|drop, note, voter}
-    GET  /api/library                    the kept pieces
-    GET  /files/<id>/<path>              a file in a job's folder
-    GET  /library/<name>/<file>          a file of a kept piece
-    GET  /lighter                        Pixel Art Lighter (also `kiln-studio lighter`)
-"""
 import json
 import mimetypes
 import re

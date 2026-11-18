@@ -22,7 +22,6 @@ const CLOTH: [[f32; 3]; 6] = [
     [0.20, 0.10, 0.12],
 ];
 
-/// A sine good to a thousandth, with no library call (the crowd asks for hundreds a frame).
 #[inline]
 fn fsin(x: f32) -> f32 {
     let x = x - std::f32::consts::TAU * (x * (1.0 / std::f32::consts::TAU) + 0.5).floor();
@@ -43,8 +42,6 @@ fn plain(a: [f32; 3]) -> Texel {
     Texel { a, e: [0.0; 3] }
 }
 
-/// Dressed stone in courses `course` high, blocks of mixed length, mortar
-/// that thickens with distance (so no dot lands in a hair), bevelled edges.
 fn ashlar(u: f32, z: f32, course: f32, seed: u32, lod: f32) -> [f32; 3] {
     let rowf = z / course;
     let row = rowf.floor();
@@ -72,7 +69,6 @@ fn ashlar(u: f32, z: f32, course: f32, seed: u32, lod: f32) -> [f32; 3] {
     }
     let warm = rnd - 0.5;
     let mut a = [STONE[0] * tone * (1.0 + 0.10 * warm), STONE[1] * tone, STONE[2] * tone * (1.0 - 0.12 * warm)];
-    // Age: weather streaks down from the top, blood splashed low, damp at the foot.
     let streak = ((vnoise(u * 2.3 + (seed & 0xff) as f32, z * 0.2, seed) - 0.56) * 2.2).clamp(0.0, 0.5);
     a = scale(a, 1.0 - streak * 0.6);
     if z < 1.4 {
@@ -85,8 +81,6 @@ fn ashlar(u: f32, z: f32, course: f32, seed: u32, lod: f32) -> [f32; 3] {
     a
 }
 
-/// A wall sconce's bracket and flame at `du` across and `dz` above its
-/// seat, plus the glow it throws on the stone round it.
 fn sconce(du: f32, dz: f32, t: u32, seed: u32, base: [f32; 3]) -> Option<Texel> {
     let flick = 0.82 + 0.18 * u01(hash((t / 2) as i32, seed as i32, 0x3c));
     let h = 0.46 * flick;
@@ -109,8 +103,6 @@ fn sconce(du: f32, dz: f32, t: u32, seed: u32, base: [f32; 3]) -> Option<Texel> 
     None
 }
 
-/// A banner hung from the cornice: swallow-tailed, trimmed in gold, a
-/// diamond at its heart, swaying a little at the foot.
 fn banner(du: f32, z: f32, top: f32, bottom: f32, half: f32, t: u32, seed: u32) -> Option<Texel> {
     let sway = 0.035 * fsin((t as f32 * 0.06) + z * 2.1 + (seed & 0xff) as f32) * ((top - z) / (top - bottom)).clamp(0.0, 1.0);
     let du = du + sway;
@@ -136,9 +128,6 @@ fn banner(du: f32, z: f32, top: f32, bottom: f32, half: f32, t: u32, seed: u32) 
     Some(plain(a))
 }
 
-/// An arched cell in the wall: voussoirs round a dark mouth, iron bars
-/// across it, and now and then a fire burning within (`t` is `None` when
-/// baking, which leaves the fire to the live pass).
 fn alcove(du: f32, z: f32, t: Option<u32>, seed: u32, lod: f32) -> Option<Texel> {
     let (a, zs, base) = (0.95, 1.30, 0.34);
     if z < base {
@@ -169,7 +158,6 @@ fn alcove(du: f32, z: f32, t: Option<u32>, seed: u32, lod: f32) -> Option<Texel>
     None
 }
 
-/// The crowd, three ranks deep behind the rail, arms up in a wave.
 pub(super) fn crowd(u: f32, z: f32, rail: f32, t: u32, fever: f32, lod: f32) -> Texel {
     for r in 0..3u32 {
         let zb = rail - 0.2 + r as f32 * 0.5;
@@ -204,12 +192,10 @@ pub(super) fn crowd(u: f32, z: f32, rail: f32, t: u32, fever: f32, lod: f32) -> 
             return plain(scale(c, (0.9 - 0.18 * r as f32) * (1.0 - 0.1 * lod)));
         }
     }
-    // The stand behind, lit by the dusk and the smoke.
     let tone = 0.82 + 0.22 * u01(hash((u * 3.0) as i32, (z * 3.0) as i32, 0x5e));
     Texel { a: scale(GALLERY, tone), e: [0.07, 0.04, 0.025] }
 }
 
-/// Over the parapet: poles and pennants at the posts, else the sky.
 pub(super) fn top(f: &Face, u: f32, z: f32, t: u32) -> Option<Texel> {
     for post in f.pole_posts() {
         let du = u - post;
@@ -224,7 +210,6 @@ pub(super) fn top(f: &Face, u: f32, z: f32, t: u32) -> Option<Texel> {
     None
 }
 
-/// Everything on a face that moves: sconces, banners, the fire in a lit cell.
 pub(super) fn overlay(f: &Face, u: f32, z: f32, t: u32, base: [f32; 3]) -> Option<Texel> {
     if z < 0.34 || z > f.gal || f.feat.get((u * 10.0) as usize).is_none_or(|&m| m == 0) {
         return None;
@@ -267,7 +252,6 @@ pub(super) fn overlay(f: &Face, u: f32, z: f32, t: u32, base: [f32; 3]) -> Optio
     None
 }
 
-/// The balustrade, or the crowd's stand (flagged) through its gaps.
 fn gallery(u: f32, z: f32, gal: f32, gold: bool) -> ([f32; 3], u8) {
     let rail_lo = gal + 0.34;
     let rail_hi = rail_lo + 0.42;
@@ -300,14 +284,11 @@ fn cornice(u: f32, z: f32, gal: f32) -> [f32; 3] {
     scale(STONE, tone)
 }
 
-/// Outer-wall dressing that stays put: the field below the cornice, the
-/// gallery's rail above, the parapet.
 fn tiers(f: &Face, u: f32, z: f32, gal: f32) -> ([f32; 3], u8) {
     if z >= 5.6 {
         return ([0.0; 3], F_TOP);
     }
     if z >= 5.28 {
-        // Crenellated parapet.
         let merlon = (u * 1.25).rem_euclid(1.0) < 0.62;
         if z > 5.42 && !merlon {
             return ([0.0; 3], F_SKY);
@@ -362,8 +343,6 @@ fn gate(f: &Face, u: f32, z: f32) -> ([f32; 3], u8) {
     let (a, zs) = (1.7, 1.45);
     let inside = |r: f32| du.abs() < r && (z < zs || (du * du + (z - zs) * (z - zs)) < r * r);
     if inside(a) {
-        // The mouth is black paper; the raised portcullis hangs in it, its
-        // spikes just clear of the sand.
         let (lo, bars) = (0.95, 0.26);
         let b = ((du / bars).rem_euclid(1.0) - 0.5).abs() * bars;
         let on_bar = z >= lo + 0.28 && b < 0.034;
@@ -381,7 +360,6 @@ fn gate(f: &Face, u: f32, z: f32) -> ([f32; 3], u8) {
         let k = if joint { 0.58 } else if key { 1.3 } else { 1.15 };
         return (scale(STONE, k), F_STATIC);
     }
-    // Piers either side, fluted.
     if du.abs() < a + 1.05 && z < 3.6 && z > 0.3 {
         let flute = ((du * 7.0).rem_euclid(1.0) - 0.5).abs();
         return (scale(ashlar(u, z, 0.5, f.seed, 0.0), 0.85 + 0.35 * flute), F_STATIC);
@@ -389,7 +367,6 @@ fn gate(f: &Face, u: f32, z: f32) -> ([f32; 3], u8) {
     tiers(f, u, z, f.gal)
 }
 
-/// How a face is baked: its colour and what lives on it.
 fn fixed(f: &Face, u: f32, z: f32) -> ([f32; 3], u8) {
     match f.kind {
         Kind::Pillar => (pillar(f, u, z), F_STATIC),
@@ -404,8 +381,6 @@ pub(super) const F_SKY: u8 = 2;
 pub(super) const F_TOP: u8 = 3;
 const RES: f32 = 10.0;
 
-/// A face baked at ten dots to the unit and at two blurrier copies: each
-/// texel is its colour and, last, what lives there (`F_*`).
 pub(super) struct Tex {
     w: [usize; 3],
     h: [usize; 3],
@@ -451,7 +426,6 @@ impl Tex {
         Tex { w: [l0.0, l1.0, l2.0], h: [l0.1, l1.1, l2.1], px: [l0.2, l1.2, l2.2] }
     }
 
-    /// The baked colour and flag at `u` along and `z` up, seen from `depth`.
     #[inline]
     pub(super) fn at(&self, u: f32, z: f32, depth: f32) -> ([f32; 3], u8) {
         let lv = if depth < 8.0 { 0 } else if depth < 17.0 { 1 } else { 2 };
@@ -463,10 +437,8 @@ impl Tex {
     }
 }
 
-/// The wall dressed for one dot: the baked stone, with what moves over it.
 #[inline]
 pub(super) fn wall(f: &Face, u: f32, z: f32, depth: f32, t: u32, fever: f32) -> Option<Texel> {
-    // Close to, the bake would show its dots as blocks: paint the stone itself.
     let (rgb, flag) = if depth < 2.8 { fixed(f, u, z) } else { f.tex.at(u, z, depth) };
     let base = match flag {
         F_SKY => return None,

@@ -1,9 +1,3 @@
-# crates/delve/src/rules/pastimes/{surf,cart,trencher,chariot,halfpipe,volley,duckshoot}.rs
-# — the struct halves of the small festival games. Positions are i32 / i16
-# in 1/256 tile units; every i32 is a two's-complement U32 here.
-
-# ---- surf.rs --------------------------------------------------------------
-
 def pastimes.surf.WAVE_TICKS() -> U32:
   90
 
@@ -29,7 +23,6 @@ def pastimes.surf.Surf.new(+owner: U32) -> J.Val:
   s0: J.Val = gb.su(gb.su(gb.su(J.obj(), "owner", owner), "lean", 0), "phase", 0)
   gb.su(gb.su(gb.su(gb.su(gb.sb(s0, "braced", False{}), "spray", 0), "splash", 0), "crest_glow", 0), "brace_flash", 0)
 
-# Surf::step: one tick of the wave; Some(cleared) when a wave breaks.
 def pastimes.surf.Surf.step(+s: J.Val, +input: J.Val, +tapped: Bool, +wave: U32) -> J.Val & J.Val:
   axis: U32 = gb.axis(input, "aim_x", "move_x")
   push: U32 = Bool.pick(U32, RS.i_lt(axis, 0), RS.i_neg(4), Bool.pick(U32, RS.i_gt(axis, 0), 4, 0))
@@ -49,8 +42,6 @@ def pastimes.surf.Surf.step(+s: J.Val, +input: J.Val, +tapped: Bool, +wave: U32)
   else:
     cleared: Bool = Bool.and(braced, near)
     (gb.su(gb.sb(gb.su(s4, "phase", 0), "braced", False{}), "splash", Bool.pick(U32, cleared, gb.u(s4, "splash"), 12)), J.JBool{cleared})
-
-# ---- cart.rs --------------------------------------------------------------
 
 def pastimes.cart.CART_LOGS(+i: U32) -> U32:
   match i:
@@ -89,8 +80,6 @@ def pastimes.cart.Cart.new(+driver: U32) -> J.Val:
   c0: J.Val = gb.su(gb.su(gb.su(J.obj(), "driver", driver), "x", 768), "y", 1792)
   gb.su(gb.su(gb.su(gb.su(c0, "dx", 16), "dy", 0), "air_left", 0), "rest_left", 0)
 
-# ---- trencher.rs ----------------------------------------------------------
-
 def pastimes.trencher.LANDINGS(+i: U32) -> U32:
   match i:
     case 0:
@@ -112,11 +101,8 @@ def pastimes.trencher.WINDS(+i: U32) -> U32:
 def pastimes.trencher.Trencher.new(+owner: U32) -> J.Val:
   J.set(gb.su(gb.su(gb.su(J.obj(), "owner", owner), "goose", 3072), "wait", 0), "flight", J.JNull{})
 
-# Trencher::target
 def pastimes.trencher.Trencher.target(+progress: U32) -> U32:
   RS.i_add(pastimes.trencher.LANDINGS(U32.min(progress, 2)), RS.i_mul(pastimes.trencher.WINDS(U32.min(progress, 2)), 60))
-
-# ---- chariot.rs -----------------------------------------------------------
 
 def pastimes.chariot.BARREL_POS(+i: U32) -> U32:
   match i:
@@ -145,7 +131,6 @@ def pastimes.chariot.Chariot.new(+owner: U32) -> J.Val:
   c1: J.Val = gb.su(gb.su(gb.su(gb.su(c0, "speed", 0), "bog", 0), "cabbages", 3), "reload", 0)
   J.set(J.set(c1, "rivals", J.JA{[J.JU{0}, J.JU{0}, J.JU{0}]}), "stuns", J.JA{[J.JU{0}, J.JU{0}, J.JU{0}]})
 
-# Chariot::step -> (self, result): 1 home, -1 outraced, 0 racing.
 def pastimes.chariot.Chariot.step(+c: J.Val, +input: J.Val, +tapped: Bool) -> J.Val & J.Val:
   steer: U32 = RS.i_signum(gb.axis(input, "aim_x", "move_x"))
   lane: U32 = RS.i_clamp(RS.i_add(gb.u(c, "lane"), RS.i_mul(steer, 20)), 0, 512)
@@ -155,13 +140,11 @@ def pastimes.chariot.Chariot.step(+c: J.Val, +input: J.Val, +tapped: Bool) -> J.
   c2: J.Val = Bool.pick(J.Val, fire, pastimes.chariot.throw(c1), c1)
   pastimes.chariot.Chariot.step.drive(c2, gb.axis(input, "aim_y", "move_y"))
 
-# A cabbage thrown: the nearest rival ahead within reach and in the lane is stunned.
 def pastimes.chariot.throw(+c: J.Val) -> J.Val:
   hit: U32 = pastimes.chariot.target(c, 0, 3)
   c1: J.Val = gb.su(gb.su(c, "cabbages", (gb.u(c, "cabbages") - 1 : U32)), "reload", 30)
   Bool.pick(J.Val, U32.is_lt(hit, 3), J.set(c1, "stuns", gb.as(J.get(c1, "stuns"), hit, 30)), c1)
 
-# The rival `i..3` to stun: lowest distance among those ahead in reach, or 3.
 def pastimes.chariot.target(+c: J.Val, +i: U32, +best: U32) -> U32:
   match i:
     case 3:
@@ -188,7 +171,6 @@ def pastimes.chariot.Chariot.step.drive(+c: J.Val, +throttle: U32) -> J.Val & J.
   else:
     pastimes.chariot.rivals(c3, 0)
 
-# Barrels passed this tick: lap 0..3, barrel 0..4; hitting one bogs the cart.
 def pastimes.chariot.barrels(+c: J.Val, +before: U32, +distance: U32, +lap: U32, +k: U32) -> J.Val:
   match lap:
     case 3:
@@ -208,7 +190,6 @@ def pastimes.chariot.PACE(+i: U32) -> U32:
     case _:
       14
 
-# The rivals drive on (a stunned one loses its turn); -1 when one is home.
 def pastimes.chariot.rivals(+c: J.Val, +i: U32) -> J.Val & J.Val:
   match i:
     case 3:
@@ -226,20 +207,16 @@ def pastimes.chariot.any_home(+rs: List<&2, J.Val>) -> Bool:
     case Con{h, t}:
       Bool.or(U32.is_eq(J.u32(h), 12288), pastimes.chariot.any_home(t))
 
-# ---- halfpipe.rs ----------------------------------------------------------
-
 def pastimes.halfpipe.Halfpipe.new(+owner: U32) -> J.Val:
   h0: J.Val = gb.su(gb.su(gb.su(J.obj(), "owner", owner), "phase", 0), "momentum", 20)
   gb.su(gb.su(gb.su(gb.su(gb.su(h0, "flight", 0), "spin", 0), "trick_sparkle", 0), "landing_shake", 0), "lip_flash", 0)
 
-# Halfpipe::direction
 def pastimes.halfpipe.Halfpipe.direction(+progress: U32, +mistakes: U32) -> U32:
   Bool.pick(U32, U32.is_eq(U32.mod((progress + mistakes : U32), 2), 0), 1, RS.i_neg(1))
 
 def pastimes.halfpipe.next_pass(+h: J.Val) -> J.Val:
   gb.su(gb.su(gb.su(gb.su(h, "phase", 0), "momentum", 20), "flight", 0), "spin", 0)
 
-# Halfpipe::step -> (self, Some(landed)?).
 def pastimes.halfpipe.Halfpipe.step(+h: J.Val, +input: J.Val, +tapped: Bool, +direction: U32) -> J.Val & J.Val:
   axis: U32 = RS.i_signum(gb.axis(input, "aim_x", "move_x"))
   if U32.is_gt(gb.u(h, "flight"), 0):
@@ -278,18 +255,14 @@ def pastimes.halfpipe.pump(+h: J.Val, +axis: U32, +direction: U32) -> J.Val & J.
   else:
     (h1, J.JNull{})
 
-# Halfpipe::tick_vfx
 def pastimes.halfpipe.Halfpipe.tick_vfx(+h: J.Val) -> J.Val:
   gb.su(gb.su(gb.su(gb.su(h, "trick_sparkle", gb.ssub(gb.u(h, "trick_sparkle"), 1)), "landing_shake", gb.ssub(gb.u(h, "landing_shake"), 1)), "lip_flash", gb.ssub(gb.u(h, "lip_flash"), 1)), "wobble", gb.ssub(gb.u(h, "wobble"), 1))
-
-# ---- volley.rs ------------------------------------------------------------
 
 def pastimes.volley.Volley.new(+owner: U32) -> J.Val:
   v0: J.Val = gb.su(gb.su(gb.su(gb.su(J.obj(), "owner", owner), "paddle", 3072), "bells", 0), "lives", 3)
   v1: J.Val = J.set(J.set(J.set(v0, "ball", J.JNull{}), "bell_ring", J.JA{[J.JU{0}, J.JU{0}, J.JU{0}, J.JU{0}]}), "ball_trail", J.JA{[]})
   J.set(gb.su(gb.su(gb.su(v1, "paddle_flash", 0), "miss_flash", 0), "miss_x", 3072), "bell_shimmer", J.JA{[J.JU{0}, J.JU{0}, J.JU{0}, J.JU{0}]})
 
-# Volley::step -> (self, Option<u8>).
 def pastimes.volley.Volley.step(+v: J.Val, +input: J.Val, +tapped: Bool) -> J.Val & J.Val:
   v1: J.Val = gb.su(gb.su(J.set(v, "bell_ring", gb.sat1(J.get(v, "bell_ring"))), "paddle_flash", gb.ssub(gb.u(v, "paddle_flash"), 1)), "miss_flash", gb.ssub(gb.u(v, "miss_flash"), 1))
   v2: J.Val = J.set(v1, "bell_shimmer", pastimes.volley.shimmer(J.items(J.get(v, "bell_shimmer")), gb.u(v, "bells"), 0))
@@ -362,8 +335,6 @@ def pastimes.volley.fly.bounce(+v: J.Val, +x: U32, +y: U32, +dx: U32, +added: U3
 def pastimes.volley.ball(+x: U32, +y: U32, +dx: U32, +dy: U32) -> J.Val:
   gb.si(gb.si(gb.si(gb.si(J.obj(), "x", x), "y", y), "dx", dx), "dy", dy)
 
-# ---- duckshoot.rs ---------------------------------------------------------
-
 def pastimes.duckshoot.RAIL_K(+i: U32) -> U32:
   match i:
     case 0:
@@ -407,11 +378,9 @@ def pastimes.duckshoot.DuckShoot.new(+owner: U32) -> J.Val:
   d0: J.Val = gb.su(gb.su(gb.su(gb.su(J.obj(), "owner", owner), "ax", 192), "ay", 130), "shots", 0)
   J.set(gb.su(d0, "flash", 0), "ducks", J.JA{[pastimes.duckshoot.duck(RS.i_neg(900), 150), pastimes.duckshoot.duck(400, RS.i_neg(110)), pastimes.duckshoot.duck(1200, 75)]})
 
-# DuckShoot::screen_x
 def pastimes.duckshoot.DuckShoot.screen_x(+lane: U32, +rail: U32) -> U32:
   RS.i_add(192, RS.i_div(RS.i_mul(lane, pastimes.duckshoot.RAIL_K(rail)), 256))
 
-# DuckShoot::step -> (self, Option<rail>).
 def pastimes.duckshoot.DuckShoot.step(+d: J.Val, +input: J.Val, +tapped: Bool) -> J.Val & J.Val:
   ax: U32 = RS.i_clamp(RS.i_add(gb.i(d, "ax"), RS.i_mul(gb.axis(input, "aim_x", "move_x"), 6)), 8, 376)
   ay: U32 = RS.i_clamp(RS.i_add(gb.i(d, "ay"), RS.i_mul(gb.axis(input, "aim_y", "move_y"), 6)), 24, 200)
@@ -448,7 +417,6 @@ def pastimes.duckshoot.drift.down(+duck: J.Val) -> J.Val:
   else:
     duck
 
-# The first rail whose live duck is under the sights goes down.
 def pastimes.duckshoot.shoot(+d: J.Val, +ax: U32, +ay: U32, +rail: U32) -> J.Val & J.Val:
   match rail:
     case 3:
@@ -461,8 +429,6 @@ def pastimes.duckshoot.shoot(+d: J.Val, +ax: U32, +ay: U32, +rail: U32) -> J.Val
         (J.set(d, "ducks", J.set_nth(J.get(d, "ducks"), rail, gb.su(duck, "down", 1))), J.JU{rail})
       else:
         pastimes.duckshoot.shoot(d, ax, ay, (rail + 1 : U32))
-
-# ---- cases ------------------------------------------------------------------
 
 def pastimes.case.out(r: J.Val & J.Val) -> J.Val:
   (s: J.Val, ret: J.Val) = r

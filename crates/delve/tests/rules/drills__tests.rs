@@ -11,7 +11,6 @@ fn hero(run: &mut Run) -> &mut Hero {
     run.players.get_mut(&1).unwrap()
 }
 
-/// One pull of the knight's arm: the path both host and client come through.
 fn loose(run: &mut Run) -> Vec<Projectile> {
     let book = run.book.clone();
     let mut shots = Vec::new();
@@ -172,7 +171,6 @@ fn the_clean_stroke_cuts_behind_the_composer_half_again_as_hard() {
     let hero = hero(&mut run);
     (hero.x, hero.y, hero.aim_x, hero.aim_y) = (12.0, 14.0, 1.0, 0.0);
     hero.invulnerable = 1000;
-    // One before the blade, one behind where a plain stroke never reaches.
     run.spawn_at_for_test(EnemyKind::Demon, 14.0, 14.0);
     run.spawn_at_for_test(EnemyKind::Demon, 9.5, 14.0);
     let held = 100_000;

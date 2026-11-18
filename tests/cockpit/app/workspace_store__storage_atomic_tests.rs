@@ -23,8 +23,6 @@ pub(super) fn after_atomic_rename(path: &Path) -> Result<(), String> {
         .with(|slot| slot.borrow_mut().take())
         .map_or(Ok(()), |hook| hook(path))
 }
-/// One-shot fault in the caller's thread, after publication and before the
-/// directory durability acknowledgement. Other tests/writers are unaffected.
 pub(crate) fn fail_after_publish(path: PathBuf) {
     AFTER_RENAME.with(|slot| {
         *slot.borrow_mut() = Some(Box::new(move |published| {
@@ -157,7 +155,6 @@ fn abort_between_temp_write_and_rename_keeps_old_state_and_reads_ignore_temps() 
     }
     if let Some(root) = std::env::var_os(CHILD_ROOT) {
         let peers = PathBuf::from(root);
-        // A real abrupt death: no unwind, no cleanup, no rename.
         BEFORE_RENAME.with(|slot| {
             *slot.borrow_mut() = Some(Box::new(|_| std::process::abort()))
         });
@@ -195,11 +192,9 @@ fn abort_between_temp_write_and_rename_keeps_old_state_and_reads_ignore_temps() 
     }
     assert!(!status.success());
 
-    // The last complete record is the only published state the crash left.
     let read = crate::platform::guardian::read_record(&peers, "dead-1").unwrap();
     assert_eq!(read.summary, "old complete record");
 
-    // The unpublished body survived only in the crashed temp.
     let temps: Vec<PathBuf> = std::fs::read_dir(&peers)
         .unwrap()
         .flatten()
@@ -214,9 +209,6 @@ fn abort_between_temp_write_and_rename_keeps_old_state_and_reads_ignore_temps() 
     let unpublished = String::from_utf8(std::fs::read(&temps[0]).unwrap()).unwrap();
     assert!(unpublished.contains("never published"), "{unpublished}");
 
-    // Older crashes may leave torn or truncated staging files. The real read
-    // paths open the published name or scan for the record suffix, so neither
-    // reader adopts a temp's bytes.
     let torn = peers.join(".dead-1.resurrection.json.999.0.tmp");
     let truncated = peers.join(".dead-1.resurrection.json.999.1.tmp");
     std::fs::write(&torn, b"{\"dead_instance\":\"dead").unwrap();
@@ -231,8 +223,6 @@ fn abort_between_temp_write_and_rename_keeps_old_state_and_reads_ignore_temps() 
     assert_eq!(records.len(), 1, "{records:?}");
     assert_eq!(records[0].summary, "old complete record");
 
-    // Recovery is the next complete write: fresh bytes publish and no temp
-    // is adopted.
     crate::platform::guardian::write_record(&peers, &record("recovered record")).unwrap();
     assert_eq!(
         crate::platform::guardian::read_record(&peers, "dead-1")

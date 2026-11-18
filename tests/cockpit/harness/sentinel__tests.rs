@@ -35,7 +35,6 @@ fn early_hops_are_quiet_and_drift_fires_once() {
         s.observe(obs(50, false, false, None)),
         Verdict::Drift { budget_spent_bp: 5_000 }
     ));
-    // Latched: a later hop says nothing more.
     assert_eq!(s.observe(obs(60, false, false, None)), Verdict::Quiet);
 }
 
@@ -65,15 +64,12 @@ fn jumping_straight_past_deliver_fires_deliver_not_drift() {
 
 #[test]
 fn deliver_after_edits_needs_named_artifacts_missing() {
-    // Edits landed and every named artifact exists: stay quiet.
     let mut landed = Sentinel::new(budget(), SentinelMode::Observe);
     landed.observe(obs(30, true, false, Some(0)));
     assert_eq!(landed.observe(obs(95, false, false, Some(0))), Verdict::Quiet);
-    // Edits landed, artifacts un-named: nothing factual to demand.
     let mut unnamed = Sentinel::new(budget(), SentinelMode::Observe);
     unnamed.observe(obs(30, true, false, None));
     assert_eq!(unnamed.observe(obs(95, false, false, None)), Verdict::Quiet);
-    // Edits landed but a named artifact is absent: deliver.
     let mut missing = Sentinel::new(budget(), SentinelMode::Observe);
     missing.observe(obs(30, true, false, Some(1)));
     assert!(matches!(
@@ -110,8 +106,6 @@ fn missing_artifacts_counts_only_named_absences() {
 #[test]
 fn edits_elsewhere_do_not_disarm_drift_when_a_named_artifact_is_missing() {
     let mut s = Sentinel::new(budget(), SentinelMode::Intervene);
-    // An edit landed at 20s, but the named deliverable is still absent:
-    // Drift must still fire at the midpoint (the v1 failure mode).
     assert_eq!(s.observe(obs(20, true, false, Some(1))), Verdict::Quiet);
     assert!(matches!(
         s.observe(obs(55, false, false, Some(1))),
@@ -121,17 +115,13 @@ fn edits_elsewhere_do_not_disarm_drift_when_a_named_artifact_is_missing() {
 
 #[test]
 fn gate_blocks_only_when_armed_actionable_and_budgeted() {
-    // Armed + missing artifact + budget left: block, twice at most.
     assert!(gate_should_block(true, 1, 0, false, false, 0, true));
     assert!(gate_should_block(true, 1, 0, false, false, 1, true));
     assert!(!gate_should_block(true, 1, 0, false, false, GATE_MAX_BLOCKS, true));
-    // Failed liveness, exact-dir violation, or an Angel-owned server each
-    // block alone; all-clear never does.
     assert!(gate_should_block(true, 0, 0, true, false, 0, true));
     assert!(gate_should_block(true, 0, 1, false, false, 0, true));
     assert!(gate_should_block(true, 0, 0, false, true, 0, true));
     assert!(!gate_should_block(true, 0, 0, false, false, 0, true));
-    // Observe-only and no-budget-left turns are never blocked.
     assert!(!gate_should_block(false, 2, 1, true, true, 0, true));
     assert!(!gate_should_block(true, 2, 1, true, true, 0, false));
 }

@@ -4,12 +4,10 @@
 
 use super::*;
 
-/// Whether native pixel `(x, y)` lies over a hazard tile.
 fn hazard_at(room: &Room, x: i32, y: i32) -> bool {
     room.tile(x.div_euclid(TILE), y.div_euclid(TILE)) == Tile::Hazard
 }
 
-/// Pit, pool or lava at a native pixel, with the overworld's marks.
 pub(super) fn hazard_mark(pack: Pack, room: &Room, x: i32, y: i32, t: i32) -> Option<char> {
     let mut shore = i32::MAX;
     for k in 1..=3 {
@@ -23,10 +21,7 @@ pub(super) fn hazard_mark(pack: Pack, room: &Room, x: i32, y: i32, t: i32) -> Op
         }
     }
     match pack {
-        // A pit: a broken stone lip, and under the near lip its far wall
-        // going down out of the light into nothing.
         Pack::Crypt => {
-            // The corners are broken off the lip.
             let side = !hazard_at(room, x - 1, y) || !hazard_at(room, x + 1, y);
             if let Some(k) = (1..=6).find(|&k| !hazard_at(room, x, y - k)) {
                 if k == 1 && side {
@@ -47,9 +42,7 @@ pub(super) fn hazard_mark(pack: Pack, room: &Room, x: i32, y: i32, t: i32) -> Op
                 _ => None,
             }
         }
-        // Standing water is open water, drawn whole by `floor_marks`.
         Pack::Cavern | Pack::Archive | Pack::Swamp => None,
-        // Spore pools: a glowing green shimmer that drifts.
         Pack::Fungal => {
             if shore == 1 {
                 return Some('E');
@@ -63,14 +56,12 @@ pub(super) fn hazard_mark(pack: Pack, room: &Room, x: i32, y: i32, t: i32) -> Op
                 'l'
             })
         }
-        // The void: nothing below, now and then a far light.
         Pack::Unknown => {
             if shore == 1 {
                 return (!hash(x, y, 98).is_multiple_of(3)).then_some('0');
             }
             (hash(x, y + t / 8, 99).is_multiple_of(300)).then_some('3')
         }
-        // Lava: dark crust creeping east, the melt glowing through.
         Pack::Hellforge => {
             if shore == 1 {
                 return Some('n');
@@ -93,7 +84,6 @@ pub(super) fn hazard_mark(pack: Pack, room: &Room, x: i32, y: i32, t: i32) -> Op
     }
 }
 
-/// A vent grille's top-left on its wall.
 pub(super) fn vent_at(room: &Room, side: usize, lane: f32) -> (i32, i32) {
     let l = (lane * UNIT) as i32;
     let (pw, ph) = room_px(room);
@@ -105,12 +95,8 @@ pub(super) fn vent_at(room: &Room, side: usize, lane: f32) -> (i32, i32) {
     }
 }
 
-/// Live hazards over the room: rattling and striking spikes, glowing vents,
-/// a doorway about to pour in a wave, rocks coming down.
 pub(super) fn hazards(cv: &mut Img, run: &Run) {
     if atari::here(run) {
-        // On the Atari board what springs from the floor is blocky, in the
-        // first hue.
         let (x, y, w, h) = cv.span();
         let mut layer = Img::window(cv.w, cv.h, (x, y, w, h));
         hazards_drawn(&mut layer, run);
@@ -154,7 +140,6 @@ fn hazards_drawn(cv: &mut Img, run: &Run) {
         }
     }
     if let Some((side, _)) = run.waves.gate {
-        // The doorway burns: something is coming through.
         let (col, row) = doors(run.room())[side];
         let (w, h) = if side % 2 == 0 {
             (2 * TILE, TILE)
@@ -182,7 +167,6 @@ fn hazards_drawn(cv: &mut Img, run: &Run) {
     }
     for rock in &run.rocks {
         let (x, y) = at(rock.x, rock.y);
-        // Hell's embers: a coal for the stone, and cinders for its dust.
         let stone = if rock.ember { sprites::ember(tick) } else { sprites::rock() };
         if rock.fall > 0 {
             let (ring, height) = sprites::falling_rock(rock.fall, hz::ROCK_FALL);
@@ -199,12 +183,10 @@ fn hazards_drawn(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Kegs on the floor and bombs in the air, with the ring where each will go.
 pub(super) fn foes_hazards(cv: &mut Img, run: &Run) {
     use crate::rules::foes::{FLING_FALL, KEG_ARMED, LOB_FALL, SPORE_FALL, WELL_REACH};
     use crate::rules::hunters::{HOOK_RANGE, WEB_REACH};
     let tick = run.tick as u32;
-    // Webs: spokes and rings of silk, thinning as they fade.
     for web in &run.webs {
         let (x, y) = at(web.x, web.y);
         let r = WEB_REACH * 8.0;
@@ -233,7 +215,6 @@ pub(super) fn foes_hazards(cv: &mut Img, run: &Run) {
             }
         }
     }
-    // The Pit Tyrant's slam gathering: a red ring, filling in as it comes.
     for slam in &run.slams {
         use crate::rules::pit::{SLAM_REACH, SLAM_WINDUP};
         let (x, y) = at(slam.x, slam.y);
@@ -258,7 +239,6 @@ pub(super) fn foes_hazards(cv: &mut Img, run: &Run) {
             }
         }
     }
-    // The Flesher's stare: his hook's line, red on the floor.
     for flesher in run
         .enemies
         .iter()
@@ -266,7 +246,6 @@ pub(super) fn foes_hazards(cv: &mut Img, run: &Run) {
     {
         let (x, y) = at(flesher.x, flesher.y);
         let reach = HOOK_RANGE * 8.0;
-        // Two rows of marching dashes, either side of the hook's path.
         let (nx, ny) = (-flesher.dir.1, flesher.dir.0);
         for k in 10..reach as i32 {
             if (k as u32 + tick).rem_euclid(5) > 2 {
@@ -325,7 +304,6 @@ pub(super) fn foes_hazards(cv: &mut Img, run: &Run) {
     }
     for well in &run.wells {
         let (wx, wy) = at(well.x, well.y);
-        // The lean's reach: a fading ring, and grit turning in the bend.
         let reach = (WELL_REACH * UNIT * 0.9) as i32;
         for i in 0..64 {
             let a = i as f32 / 64.0 * std::f32::consts::TAU;
@@ -370,8 +348,6 @@ pub(super) fn foes_hazards(cv: &mut Img, run: &Run) {
     }
     for sac in &run.sacs {
         let (tx, ty) = at(sac.x, sac.y);
-        // Where the garden will be: a ring of pale spores, not a threat
-        // ring — the sac itself is the only thing to dodge.
         let r = 11.0;
         let n = 36;
         for i in (0..n).step_by(3) {
@@ -386,8 +362,6 @@ pub(super) fn foes_hazards(cv: &mut Img, run: &Run) {
             fy + ((ty - fy) as f32 * k) as i32 - arc as i32,
         );
         if !lifted_outside() {
-            // A lumpy sack, swelling as it falls: the last beats draw it
-            // rounder, so the landing reads before it happens.
             let swell = 1 + (k * 2.0).round() as i32;
             for (ox, oy, w, h, c) in [
                 (0, 0, 3, 2, 'R'),

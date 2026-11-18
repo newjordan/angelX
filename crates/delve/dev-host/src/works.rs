@@ -12,8 +12,6 @@ pub fn scene(name: &str) -> Option<&'static str> {
     ["works", "works-won", "works-small", "works-big", "works-castle", "works-face", "works-block", "works-old", "works-gate"].into_iter().find(|n| *n == name)
 }
 
-/// A fresh run of the realm as the live host starts one, and its knight on the spawn in the bailey,
-/// the hillside not yet founded (the first key 4 does that), no stock but what the camp begins with.
 fn fresh() -> Run {
     let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
     run.walk_kingdom(Some(plan::KEEP_STAND));
@@ -47,7 +45,6 @@ fn raise(run: &mut Run, plan: &str, tile: (i16, i16)) -> Result<u32, String> {
     Ok(id)
 }
 
-/// A hillside founded and rich (every good in stock, every charter read), the knight at `at`.
 fn rich(at: (f32, f32)) -> Run {
     let mut run = fresh();
     run.home.industry.found_hillside(catalog(), 7);
@@ -132,14 +129,11 @@ fn castle() -> Run {
     run
 }
 
-/// A realm saved before the hillside: a village of a few works on the old 72 x 54 meadow, the
-/// knight on the surface. The first second of play brings it up onto the hillside round the camp.
 fn old() -> Run {
     let mut run = fresh();
     let c = catalog();
     run.home.industry.found(c, 7);
     let mut built = 0;
-    // Each work on the first plot of the old meadow that takes it.
     for plan in ["forester", "quarry", "cottage", "cottage", "clay-pit", "sawmill"] {
         let spot = (4..40i16).flat_map(|y| (6..60i16).map(move |x| (x, y))).find(|&tile| {
             run.home.industry.apply(c, Command::Build { plan: plan.into(), tile }).is_ok()
@@ -156,7 +150,6 @@ fn old() -> Run {
 pub fn run(name: &str) -> Run {
     match name {
         "works-old" => old(),
-        // The knight at the Delve's gate, a step from E (the walk to it is the walker's own).
         "works-gate" => {
             let mut run = fresh();
             let (gx, gy) = plan::delve_stand();
@@ -164,9 +157,7 @@ pub fn run(name: &str) -> Run {
             settle(&mut run, 30);
             run
         }
-        // A knight at a won face in the Delve, to cut a block (Q).
         "works-face" => angel_delve::rules::quarrying::won_face_run(),
-        // A knight in the bailey with a block on their back, the stockyard to find.
         "works-block" => {
             let mut run = fresh();
             run.home.industry.found_hillside(catalog(), 7);

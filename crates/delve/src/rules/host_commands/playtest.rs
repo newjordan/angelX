@@ -1,7 +1,5 @@
 use super::*;
 
-/// A durable view of a vote export claim. `request` is the original Journal
-/// receipt identity, not a newly allocated acknowledgement request.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VoteBatch {
@@ -13,9 +11,6 @@ pub struct VoteBatch {
     pub changes: Vec<votes::Change>,
 }
 
-/// Reconstruct changes lost only from the transient delta queue. Run records
-/// and the realm snapshot are both durable; their difference recovers clear,
-/// untried and rating edits after a restart before a claim was checkpointed.
 pub(super) fn vote_delta(
     records: &votes::Records,
     baseline: &votes::Records,
@@ -62,8 +57,6 @@ impl Journal {
         self.votes_initialized && run.playtest.ready
     }
 
-    /// Initialize once from realm facts. The durable Journal marker prevents
-    /// a restart from replacing newer run facts with a stale realm snapshot.
     pub fn prepare_votes(
         &mut self,
         run: &mut Run,
@@ -77,16 +70,10 @@ impl Journal {
         if run.playtest.ready && self.votes_initialized {
             return Ok(());
         }
-        // While an export receipt is pending, its captured snapshot is the
-        // baseline: the realm may still be older because IO has not finished.
-        // Recover only edits made after that claim, never its owned queue.
         let (records, seen) = self
             .pending_votes()?
             .map(|batch| (batch.records, batch.seen))
             .unwrap_or((records, seen));
-        // Schema-5 private checkpoints retained vote rows/seats but not the
-        // Journal initialization marker. Preserve those durable facts when
-        // the transient `ready` latch is absent after restore.
         let has_durable_vote_facts = !run.playtest.records.is_empty()
             || !run.playtest.seen.is_empty()
             || !run.playtest.seats.is_empty();
@@ -152,8 +139,6 @@ impl Journal {
         }))
     }
 
-    /// Persist the exact export work in the bounded Journal before any realm
-    /// or file IO. Repeating this method returns the same receipt and rows.
     pub fn claim_votes(&mut self, run: &mut Run) -> Result<Option<VoteBatch>, String> {
         if run.raid_id != self.raid {
             return Err("playtest vote export belongs to another raid".into());
@@ -194,8 +179,6 @@ impl Journal {
         self.pending_votes()
     }
 
-    /// Retire the original persisted claim. A changed seat epoch does not
-    /// invalidate an already-issued rating; request identity fences retries.
     pub fn acknowledge_votes(&mut self, run: &mut Run, batch: &VoteBatch) -> Result<(), String> {
         if batch.session != self.session || batch.raid != self.raid || run.raid_id != self.raid {
             return Err("playtest vote acknowledgement belongs to another session".into());
@@ -215,9 +198,6 @@ impl Journal {
         }
 
         let mut candidate = run.clone();
-        // The captured prefix was transferred to the durable claim before
-        // external IO. Never consume the current queue by value: after a
-        // restore it may contain new events equal to the old claim's values.
         candidate.playtest.dirty = !candidate.playtest.changes.is_empty()
             || candidate.playtest.records != batch.records
             || candidate.playtest.seen != batch.seen;
@@ -408,9 +388,6 @@ mod tests {
                 ..Default::default()
             },
         );
-        // Private durable serialization omits ready/dirty/changes. Restore
-        // through the production serde checkpoint codec, as a schema-5 save
-        // does, rather than setting the transient latch in the test.
         let private_bytes = serde_json::to_vec(&run).unwrap();
         let mut run: Run = serde_json::from_slice(&private_bytes).unwrap();
         assert!(!run.playtest.ready);
@@ -514,7 +491,6 @@ mod tests {
         let mut journal = Journal::restore(journal.capture().unwrap(), "vote-session", 9).unwrap();
         assert_eq!(journal.claim_votes(&mut run).unwrap(), Some(first.clone()));
 
-        // The in-flight claim remains valid after a seat incarnation change.
         run.seat_epochs.insert(1, 88);
         journal.acknowledge_votes(&mut run, &first).unwrap();
         run.playtest.command(
@@ -581,8 +557,6 @@ mod tests {
             .unwrap();
         assert!(restored_run.playtest.changes.is_empty());
 
-        // Recreate the exact same value sequence while the old receipt is
-        // still pending. Its retry must not consume these newer events.
         for (serial, rating) in [(4, 4), (5, 2)] {
             restored_run.playtest.command(
                 1,

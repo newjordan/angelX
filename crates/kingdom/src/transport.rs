@@ -18,8 +18,6 @@ impl Kingdom {
             self.job(c, b).map(|(input, output, _)| (input, output))
         }
     }
-    /// Shortest walk from a loading dock or road tile to the destination dock.
-    /// A removed road can strand a cart; restoring a connection resumes its trip.
     pub fn route(&self, from: Tile, to: u32) -> Option<Vec<Tile>> {
         let destination = self.buildings.get(&to)?.tile;
         if from == destination {
@@ -66,8 +64,6 @@ impl Kingdom {
             .sum::<u32>()
             + self.hauled(resource)
     }
-    /// Counts delivered, buffered and travelling material for conservation checks
-    /// and the supply ledger. Construction spends only delivered camp stock.
     pub fn total(&self, resource: &str) -> u32 {
         self.amount(resource)
             + self.in_transit(resource)
@@ -81,15 +77,12 @@ impl Kingdom {
                 .sum::<u32>()
     }
     pub(crate) fn transport(&mut self, c: &Catalog) {
-        // The hillside hauls on real lines; the valley keeps its carriers.
         if self.world.is_hillside() {
             return self.haul(c);
         }
         let capacity = self.report(c).capacity;
         let mut moving = std::mem::take(&mut self.shipments);
         for cart in &mut moving {
-            // Demolition, pausing or recipe changes never destroy cargo. Goods
-            // no longer wanted by a workshop return to the camp.
             if cart.to != 1
                 && self.buildings.get(&cart.to).is_none_or(|b| {
                     b.paused
@@ -128,8 +121,6 @@ impl Kingdom {
         self.shipments = moving;
         let slots = self.report(c).carriers.min(256) as usize;
         let connected = self.connected();
-        // Rotate loading priority so a busy early workshop cannot monopolise
-        // every carrier. Direct producer-to-consumer routes precede storage.
         let mut ids: Vec<_> = self.buildings.keys().copied().collect();
         ids.sort_by_key(|id| {
             (

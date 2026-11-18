@@ -8,7 +8,6 @@ use crate::agent::harness::live_policy;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 
-/// The Bend leg that folds active evidence into pattern aggregates.
 const PATTERN_REDUCER_LEG: &str = "patterns-reducer";
 
 impl PatternKeyV1 {
@@ -99,8 +98,6 @@ pub(super) fn rebuild_fields(
     reduce_fields(&active, evidence)
 }
 
-/// The `apply_evidence`/`apply_to_fields` pass kept intact as the parity oracle
-/// for the leg: test builds only.
 #[cfg(test)]
 fn reduce_evidence(
     active: &BTreeSet<usize>,
@@ -115,9 +112,6 @@ fn reduce_evidence(
     Ok(fields)
 }
 
-/// One rebuild through the `patterns-reducer` leg. Only the counter arithmetic
-/// is decided by the leg: the bucket and pattern order, the active set and every
-/// id come from Rust, and an out-of-contract answer keeps the shipped decision.
 fn reduce_fields(
     active: &BTreeSet<usize>,
     evidence: &[PatternEvidenceV1],
@@ -131,8 +125,6 @@ fn reduce_fields(
     plan.finish(reduced)
 }
 
-/// `reduce_fields` for a caller that already holds a programme, so a test can
-/// pin one generation and read which leg answered.
 #[cfg(test)]
 pub(super) fn reduce_fields_with(
     program: Option<angel_live::Program>,
@@ -150,8 +142,6 @@ pub(super) fn reduce_fields_with(
     Ok((plan.finish(reduced)?, source))
 }
 
-/// `reduce_fields` through the shipped route with its source, so a test can see
-/// that no live generation still leaves a real decision.
 #[cfg(test)]
 pub(super) fn reduce_fields_shipped(
     evidence: &[PatternEvidenceV1],
@@ -296,8 +286,6 @@ pub(super) fn validate_evidence(evidence: &PatternEvidenceV1) -> Result<(), Stri
     Ok(())
 }
 
-/// One u64 counter as the leg sees it: two u32 halves, plus the refusal flag
-/// the leg raises instead of wrapping a `checked_add` past `u64::MAX`.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct LegCount {
@@ -320,7 +308,6 @@ impl LegCount {
     }
 }
 
-/// `PatternAggregateV1` in the halves that cross the module boundary exactly.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct LegAggregate {
@@ -395,8 +382,6 @@ struct LegBucket {
     patterns: Vec<LegPattern>,
 }
 
-/// The leg's whole answer. `error` is the native channel: a live answer never
-/// carries one, because `check` refuses an overflowing or misshapen one first.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct LegReduction {
@@ -405,9 +390,6 @@ struct LegReduction {
     error: Option<String>,
 }
 
-/// One rebuild's ordered shape, in the order `apply_to_fields`' binary search
-/// builds it, with every active piece of evidence already in its slot. Rust
-/// keeps the keys and the order; the leg decides only what each row counts.
 struct FieldPlan {
     buckets: Vec<FieldBucketKeyV1>,
     patterns: Vec<Vec<PatternKeyV1>>,
@@ -458,8 +440,6 @@ impl FieldPlan {
         serde_json::json!({"buckets": buckets})
     }
 
-    /// The native reduction, encoded for the same shape a live answer has. The
-    /// parity oracle: test builds only.
     #[cfg(test)]
     fn native(&self, active: &BTreeSet<usize>, evidence: &[PatternEvidenceV1]) -> LegReduction {
         match reduce_evidence(active, evidence) {
@@ -490,8 +470,6 @@ impl FieldPlan {
             .collect()
     }
 
-    /// The contract the leg has to keep: the plan's exact shape, no refused
-    /// counter, and one membership and one outcome per row.
     fn check(&self, reduced: &LegReduction) -> Result<(), String> {
         if reduced.error.is_some() {
             return Err("live pattern reducer reported a refused reduction".into());
@@ -513,8 +491,6 @@ impl FieldPlan {
             }
             for (pattern, rows) in bucket.patterns.iter().zip(expected) {
                 let aggregate = &pattern.aggregate;
-                // An exhausted counter is the reducer's own answer; `finish`
-                // turns it into the error, and its other fields mean nothing.
                 if aggregate.counts().iter().any(|count| count.over) {
                     continue;
                 }
@@ -541,13 +517,10 @@ impl FieldPlan {
         Ok(())
     }
 
-    /// Rebuild the native field list from the plan's keys and the counters.
     fn finish(self, reduced: LegReduction) -> Result<Vec<FieldPatternBucketV1>, String> {
         if let Some(error) = reduced.error {
             return Err(error);
         }
-        // The rebuild is all-or-nothing, as the checked arithmetic was. When
-        // several counters run out at once the count message is reported.
         let exhausted = reduced
             .buckets
             .iter()
@@ -595,7 +568,6 @@ fn sum(counts: &[LegCount]) -> Result<u64, String> {
     })
 }
 
-/// One active row, in the numbers the leg folds. Ids never cross.
 fn evidence_row(evidence: &PatternEvidenceV1) -> serde_json::Value {
     serde_json::json!({
         "kind": class_code(&evidence.class),
@@ -606,7 +578,6 @@ fn evidence_row(evidence: &PatternEvidenceV1) -> serde_json::Value {
     })
 }
 
-/// Membership codes shared with `patterns-reducer.bend`.
 fn class_code(class: &PatternEvidenceClassV1) -> u8 {
     match class {
         PatternEvidenceClassV1::ConfirmedOfficial { .. } => 0,
@@ -615,7 +586,6 @@ fn class_code(class: &PatternEvidenceClassV1) -> u8 {
     }
 }
 
-/// Outcome codes shared with `patterns-reducer.bend`.
 fn outcome_code(outcome: PatternOutcomeV1) -> u8 {
     match outcome {
         PatternOutcomeV1::Improvement => 0,

@@ -196,9 +196,6 @@ impl StageController {
         self.clear_overlay();
     }
 
-    /// Close a route because its owning subsystem stopped, without dismissing
-    /// a user-opened overlay. Media keeps playing and returns to the route that
-    /// preceded the closed subsystem.
     pub(crate) fn leave_route(&mut self, route: StageRoute) -> bool {
         if self.route != route {
             return false;
@@ -214,9 +211,6 @@ impl StageController {
     pub(crate) fn show_overlay(&mut self, overlay: StageOverlay) -> bool {
         let teaching_surface = matches!(overlay, StageOverlay::Lesson | StageOverlay::Catalog);
         if teaching_surface {
-            // Lesson and Catalog are two views of one teaching workspace. They
-            // may replace each other directly; unrelated automatic/media
-            // overlays still keep their existing ownership rules.
             let replaces_teaching_surface = matches!(
                 self.overlay,
                 Some(StageOverlay::Lesson | StageOverlay::Catalog)
@@ -267,8 +261,6 @@ impl StageController {
         self.overlay_owner = None;
     }
 
-    /// Back dismisses one overlay, then one recorded route, then returns false
-    /// so the caller can restore focus to Core.
     pub(crate) fn back(&mut self) -> bool {
         if self.overlay.is_some() {
             self.clear_overlay();
@@ -289,20 +281,10 @@ impl StageController {
         matches!(self.route, StageRoute::Realm | StageRoute::Explore(_))
     }
 
-    /// The Realm route shows the pixel overworld, where travel and arrival
-    /// play out on the map instead of cutting to the 3D ride.
     fn map_hosts_travel(&self) -> bool {
         self.route == StageRoute::Realm && world_map_enabled()
     }
 
-    /// The only scene-resolution match. Automatic journey/arrival cues remain
-    /// recorded but never displace an operator-selected destination.
-    ///
-    /// `quest_owns_pane` is `World::quest_owns_pane()` — true while the
-    /// adventure stands anywhere but Castle Town. Z5: an automatic arrival
-    /// then keeps the ride surface instead of cutting to a town establishing
-    /// shot, because the plate underneath is the Mines and the landmark is
-    /// not. Operator-chosen routes and every other overlay are untouched.
     pub(crate) fn resolved_scene(
         &self,
         media_is_video: bool,
@@ -323,8 +305,6 @@ impl StageController {
                     };
                 }
                 StageOverlay::Lifecycle { .. } => return StageSurface::Lifecycle,
-                // On the Realm route the overworld map hosts travel and
-                // arrival itself: the knight walks there on the map.
                 StageOverlay::Journey { .. } | StageOverlay::Arrival { .. }
                     if self.map_hosts_travel() => {}
                 StageOverlay::Journey { .. } if self.automatic_overlay_allowed() => {
@@ -507,7 +487,6 @@ struct ActiveVideo {
 impl Drop for ActiveVideo {
     fn drop(&mut self) {
         self.cancelled.store(true, Ordering::Release);
-        // Wake a worker parked at pause/EOF. The flag bypasses queued controls.
         let _ = self.tx.send(VideoCommand::Stop);
     }
 }
@@ -548,8 +527,6 @@ impl VideoSurface {
         if matches!(&command, VideoCommand::Seek(..) | VideoCommand::Restart(_))
             && let Ok(mut snapshot) = active.mailbox.lock()
         {
-            // Invalidate synchronously: a decode already in flight may finish,
-            // but cannot publish into the newly requested playback generation.
             let generation = NEXT_MEDIA_REQUEST.fetch_add(1, Ordering::Relaxed);
             match &mut command {
                 VideoCommand::Seek(_, value) | VideoCommand::Restart(value) => *value = generation,
@@ -563,10 +540,6 @@ impl VideoSurface {
             return;
         };
 
-        // A decoder can still disappear because its input could not be opened
-        // or its worker could not be spawned. Explicit controls are recovery
-        // points: replace the dead generation and replay the user's command.
-        // Normal EOF never takes this path because the worker parks and waits.
         let key = active.key.clone();
         let visible = active.visible;
         let Some(mut replacement) = spawn_video(key) else {
@@ -589,7 +562,6 @@ impl VideoSurface {
                 _ => {}
             }
         }
-        // One recovery attempt, never recursive respawning on a bad file.
         let _ = replacement.tx.send(replay);
         self.active = Some(replacement);
     }
@@ -620,8 +592,6 @@ impl VideoSurface {
         {
             active.key.width = width;
             active.key.height = height;
-            // Resize the existing scaler, not the decoder or playback clock.
-            // A paused frame remains visible at its original timestamp.
             let _ = active.tx.send(VideoCommand::Resize(width, height));
         }
         if self.active.as_ref().is_none_or(|active| active.key != key) {
@@ -641,9 +611,6 @@ impl VideoSurface {
             .unwrap_or_default()
     }
 
-    /// A visible clip is publishing frames on its own clock: the
-    /// event loop must wake for them instead of idling between its
-    /// ambient lanes (scorecard M7).
     fn playing(&self) -> bool {
         let Some(active) = self.active.as_ref() else {
             return false;
@@ -697,7 +664,6 @@ fn contain_video_cells(
     max_width: usize,
     max_height: usize,
 ) -> (usize, usize) {
-    // At 2x4 source pixels per cell this is at most 98,304 RGBA pixels.
     let max_width = max_width.clamp(1, 192);
     let max_height = max_height.clamp(1, 64);
     if source_width == 0 || source_height == 0 {
@@ -837,11 +803,6 @@ fn video_sample_every(source_fps: f64, fps_cap: u8) -> usize {
     (source_fps / f64::from(fps_cap.max(1))).ceil().max(1.0) as usize
 }
 
-/// How much of a clip's own frame rate playback may show. A clip the
-/// operator asked to watch is media, not ambient motion: Full plays
-/// at source rate (to a 60 fps ceiling), Reduced samples it down,
-/// Off holds a poster frame. (Full was 12 until scorecard v2's M7
-/// measured the result against mpv.)
 pub(crate) fn video_fps_cap(mode: crate::ui::viz::lifecycle_viz::MotionMode) -> u8 {
     use crate::ui::viz::lifecycle_viz::MotionMode;
     match mode {
@@ -935,8 +896,6 @@ fn handle_video_command(
             VideoWorkerControl::KeepFrame
         }
         VideoCommand::Toggle if playback.ended => {
-            // EOF can race the UI's Toggle dispatch. Start a new generation
-            // here too, but never overwrite a newer already-requested seek.
             let previous = *generation;
             *generation = NEXT_MEDIA_REQUEST.fetch_add(1, Ordering::Relaxed);
             if let Ok(mut snapshot) = mailbox.lock()
@@ -1031,7 +990,6 @@ fn video_worker(
         #[allow(unreachable_code)]
         PathBuf::new()
     };
-    // source_file deliberately remains owned until the player/worker exits.
     if cancelled.load(Ordering::Acquire) {
         return;
     }
@@ -1161,8 +1119,6 @@ fn video_worker(
             if pending_frame.is_none() {
                 continue;
             }
-            // Container seeks can land on an earlier keyframe. Decode forward
-            // without publishing obsolete pixels or delaying at old timestamps.
             if seek_floor.is_some_and(|floor| pending_frame.as_ref().unwrap().pts < floor) {
                 pending_frame = None;
                 continue;
@@ -1316,17 +1272,12 @@ impl Default for Scryglass {
 }
 
 impl Scryglass {
-    /// Open the default Dotmax exploration pane. Realm and Explore share the
-    /// sole outdoor renderer while retaining their own controls and routes.
     pub(crate) fn for_world(destination: impl Into<Building>) -> Self {
         let mut stage = Self::default();
         stage.navigate(StageRoute::Explore(destination.into()));
         stage
     }
 
-    /// The stage a session opens on: the overworld map on the Realm route,
-    /// or the Dotmax ride at the destination when the map is switched off
-    /// (`ANGEL_WORLD_MAP=3d`).
     pub(crate) fn for_session(destination: impl Into<Building>) -> Self {
         if world_map_enabled() {
             Self::default()
@@ -1340,16 +1291,6 @@ impl Scryglass {
     }
 }
 
-/// World-frame ink is averaged per braille cell, so neighbouring cells land on
-/// near-identical truecolor values that still break SGR runs at the flush: a
-/// genuinely new ride frame emits one ~19-byte truecolor header every ~1.8
-/// cells (~2k headers at 100×38, measured by `ride_frame_ink_runs_bound_the_sgr_flood`).
-///
-/// Default quantizer is RGB444 (4 bits/channel, max error 8/255) — the remaining
-/// ~20% SGR cut after the 2026-07-27 RGB555 wave. `ANGEL_WORLD_INK=rgb555`
-/// restores the gentler SNES-word quantizer (error ≤4); `full`/`off`/`0` leaves
-/// exact truecolor (debug only — terminal parse cost balloons). Media stills
-/// and video keep exact ink; only the world/ride paint quantizes.
 fn world_ink_mode() -> WorldInkMode {
     #[cfg(not(test))]
     {
@@ -1395,7 +1336,6 @@ fn quantize_world_ink(fg: [u8; 3]) -> [u8; 3] {
     }
 }
 
-/// Whether world/ride paint should quantize ink at all.
 fn world_ink_quantizes() -> bool {
     world_ink_mode() != WorldInkMode::Full
 }
@@ -1452,8 +1392,6 @@ impl Scryglass {
         self.controller.show_overlay(StageOverlay::Media { index });
     }
 
-    /// Deliveries remain on the asset shelf while the operator inspects another
-    /// asset or browses the shelf. Opening the first delivery stays immediate.
     pub(crate) fn receive_media(&mut self, index: usize) -> bool {
         if self.active_media().is_some() || self.controller.route() == StageRoute::Assets {
             return false;
@@ -1502,8 +1440,6 @@ impl Scryglass {
         }
     }
 
-    /// Keep the selected asset and the route history, but retire its preview.
-    /// Back from the shelf then returns to the room the operator came from.
     pub(crate) fn open_assets(&mut self) {
         self.document.clear();
         self.queue.clear();
@@ -1532,9 +1468,6 @@ impl Scryglass {
         }
     }
 
-    /// Persistent map/explore mode is route state, not a second navigation
-    /// latch. Transient Journey overlays may resolve to a first-person scene
-    /// without changing this operator-selected mode.
     pub(crate) fn world_mode(&self) -> WorldMode {
         if matches!(self.controller.route(), StageRoute::Explore(_)) {
             WorldMode::FirstPerson
@@ -1693,7 +1626,6 @@ impl Scryglass {
         true
     }
 
-    /// Ready lesson with roll-in still pending (for A2 invisible-tax tests).
     #[cfg(test)]
     pub(crate) fn set_unrolled_lesson(&mut self, term: &str, title: &str, summary: &str) -> bool {
         if !self.controller.show_overlay(StageOverlay::Lesson) {
@@ -1819,18 +1751,12 @@ impl Scryglass {
         true
     }
 
-    /// Arrival plates and overlay chrome. Hidden / comp-mode still track
-    /// `last_arrived` so a later visible frame can present the journey; they
-    /// do not spawn ARRIVAL overlays.
     pub(crate) fn arrival_overlay_allowed() -> bool {
         crate::drive::comp_mode::ambient_stage_sim_allowed()
     }
 
     pub(crate) fn sync_arrival(&mut self, arrived: Option<impl Into<Building>>) {
         let arrived = arrived.map(Into::into);
-        // The world is already parked at the Keep before the first frame. Treat
-        // that observation as the baseline, never as a journey outcome; only a
-        // later transition may create ARRIVAL.
         if !self.arrival_synced {
             self.arrival_synced = true;
             self.last_arrived = arrived;
@@ -1892,8 +1818,6 @@ impl Scryglass {
         }
     }
 
-    /// Manual inspection is sticky; repeated gestures must never unpin. Drop
-    /// queued automatic reveals so a timer/tool cannot replace the inspected asset.
     pub(crate) fn pin_inspection(&mut self) {
         if let Some(reveal) = self.reveal.as_mut() {
             reveal.pinned = true;
@@ -1913,20 +1837,13 @@ impl Scryglass {
         self.visible && self.renderable && (self.reveal.is_some() || self.arrival.is_some())
     }
 
-    /// Start a logical UI frame with no Stage scene. The Stage renderer earns
-    /// visibility and resolves a concrete surface later in the same draw; any
-    /// layout branch that omits it remains truthfully `Hidden` for inspection.
     pub(crate) fn begin_frame(&mut self) {
         self.surface = StageSurface::Hidden;
-        // This is layout bookkeeping, not a real hide. Sending false here
-        // then true during paint reanchors video on every frame and prevents
-        // its next presentation deadline from ever arriving.
         self.visible = false;
         self.renderable = false;
     }
 
     pub(crate) fn finish_frame(&mut self) {
-        // Layouts which omitted Stage must commit a genuine hide as well.
         self.set_stage_visibility(self.visible, self.renderable);
     }
 
@@ -1973,8 +1890,6 @@ impl Scryglass {
                     self.controller.overlay(),
                     Some(StageOverlay::Arrival { .. })
                 ) {
-                    // On the overworld map the knight simply stands where he
-                    // arrived; the ride only takes over first-person views.
                     if self.controller.automatic_overlay_allowed()
                         && matches!(self.controller.route(), StageRoute::Realm)
                         && !self.controller.map_hosts_travel()
@@ -2122,8 +2037,6 @@ impl Scryglass {
         }
     }
 
-    /// The stage is showing a clip that is playing right now: the
-    /// event loop paces redraws to it (scorecard M7).
     pub(crate) fn video_playing(&self) -> bool {
         matches!(self.surface, StageSurface::Video(_)) && self.video.playing()
     }
@@ -2140,8 +2053,6 @@ impl Scryglass {
         }
     }
 
-    /// Headless visual-dump helper: inspect the settled reveal rather than an
-    /// arbitrary cell-dissolve frame. Interactive timing never calls this.
     pub(crate) fn settle_reveal_for_preview(&mut self) {
         if let Some(reveal) = self.reveal.as_mut() {
             reveal.visible_for = Duration::from_millis(350);
@@ -2162,7 +2073,6 @@ impl Scryglass {
         })
     }
 
-    /// Shelf selection is independent of opening a preview or starting video.
     pub(crate) fn move_asset_selection(&mut self, delta: isize, media: &[Media]) -> Option<usize> {
         let position = self.selected_media(media)?;
         let index = (position as i128 + delta as i128).rem_euclid(media.len() as i128) as usize;
@@ -2205,7 +2115,6 @@ impl Scryglass {
         self.fov = 1.05;
     }
 
-    /// World/ride braille only. Media uses the viewer's native pixel protocols.
     pub(crate) fn paint_image(frame: &mut Frame, area: Rect, image: &ColoredBrailleImage) {
         let quantize = world_ink_quantizes();
         let width = image.width.min(area.width as usize);

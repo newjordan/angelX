@@ -10,7 +10,6 @@ fn usage(input: u64, output: u64) -> UsageObservation {
         ..UsageObservation::default()
     }
 }
-/// Operator-ordered F01 contract: over-allocation and late workers are admitted.
 #[test]
 fn formation_budget_abort_closes_detached_reservations_once() {
     let budget = Budget::new(Some(100), None);
@@ -87,7 +86,6 @@ fn formation_budget_retried_attempts_sum_paid_usage() {
         .unwrap()
         .settle(Some(usage(10, 10)));
     let snap = budget.snapshot();
-    // The stalled attempt sent no usage: the total stays unknown (law), the reported subset is 16.
     assert_eq!(snap["paid_spent"], serde_json::Value::Null);
     assert_eq!(snap["paid_spent_reported"], 16);
     assert_eq!(snap["unreported_attempts"], 1);
@@ -129,7 +127,6 @@ fn formation_graph_request_wall_is_nested_and_restored() {
     assert!(request_wall_remaining().is_none());
 }
 
-/// Operator-ordered F01 contract: outstanding reservations report overruns without denial.
 #[test]
 fn formation_budget_reservations_share_admission_and_settle_inclusive_usage() {
     let budget = Budget::new(Some(100), None);
@@ -150,8 +147,6 @@ fn formation_budget_reservations_share_admission_and_settle_inclusive_usage() {
 }
 #[test]
 fn formation_budget_grid_round_fits_exact_declared_ceiling() {
-    // The recorded width-two proposal requests; refine width is also two.
-    // Settlement releases unused output allowance before the next round.
     let required = (10_030 + 1024) + (10_053 + 1024);
     let budget = Budget::new(Some(required), None);
     let a = budget.reserve("glm-5.3-flash", 10_030, 1024).unwrap();
@@ -169,8 +164,6 @@ fn formation_budget_grid_round_fits_exact_declared_ceiling() {
 }
 #[test]
 fn formation_budget_shared_plan_ceiling_admits_proportional_flash_and_combination() {
-    // G02f default plan ceiling, equal for all arms. Captured b15 wire
-    // reservations and proportional usage; no tokenizer estimate is weakened.
     let flash = Budget::new(Some(131_072), None);
     flash
         .reserve("glm-5.3-flash", 18_378, 1024)
@@ -205,7 +198,6 @@ fn formation_budget_shared_plan_ceiling_admits_proportional_flash_and_combinatio
     assert!(!combination.exhausted());
 }
 
-/// Operator-ordered F01 contract: zero allocation admits each seat and reports the overrun.
 #[test]
 fn formation_budget_zero_allocation_reports_required_and_available_with_admitted_calls() {
     for (prompt, required) in [(10_030, 11_054), (17_732, 18_756)] {
@@ -223,7 +215,6 @@ fn formation_budget_zero_allocation_reports_required_and_available_with_admitted
         assert!(budget.exhausted());
     }
 }
-/// Operator-ordered F01 contract: small explicit wants exceed remaining allocation and proceed.
 #[test]
 fn formation_budget_overrun_accounts_for_outstanding_and_spent_tokens() {
     let budget = Budget::new(Some(100), None);
@@ -244,7 +235,6 @@ fn formation_budget_overrun_accounts_for_outstanding_and_spent_tokens() {
     assert_eq!(budget.snapshot()["over_allocation"], true);
     assert!(!budget.exhausted());
 }
-/// Operator-ordered F01 contract: numeric overflow is explicit and never a denial.
 #[test]
 fn formation_budget_reservation_overflow_is_explicit() {
     let budget = Budget::new(Some(u64::MAX), None);
@@ -255,7 +245,6 @@ fn formation_budget_reservation_overflow_is_explicit() {
     assert_eq!(record["calls"].as_array().unwrap().len(), 1);
     drop(reservation);
 }
-/// Operator-ordered F01 contract: expired wall allocation and unknown usage remain observational.
 #[test]
 fn formation_budget_wall_and_unknown_usage_keep_admission_open() {
     let budget = Budget::new(None, Some(Duration::ZERO));
@@ -295,7 +284,6 @@ impl crate::agent::club::Club for ScriptedSeat {
                 "The complete alternative answer enumerates feasible candidates and selects the minimum."][n % 4].into())
     }
 }
-/// Operator-ordered F01 contract: refinement and synthesis continue past the allocation.
 #[test]
 fn formation_budget_width_two_completes_refinement_and_synthesis_after_overrun() {
     use crate::agent::club::Club;
@@ -326,7 +314,6 @@ fn formation_budget_width_two_completes_refinement_and_synthesis_after_overrun()
     assert_eq!(budget.snapshot()["reserved"], 0);
     assert!(budget.exhausted());
 }
-/// Operator-ordered F01 contract: the next seat is admitted after spend exceeds allocation.
 #[test]
 fn formation_budget_single_seat_uses_same_allowance() {
     use crate::agent::club::Club;
@@ -360,7 +347,6 @@ impl crate::agent::club::Club for StalledSeat {
         Ok("The complete answer remains available after the wall allocation.".into())
     }
 }
-/// Operator-ordered F01 contract: a wall overrun does not abort the stalled seat or formation.
 #[test]
 fn formation_budget_wall_fires_during_stalled_seat() {
     use crate::agent::club::Club;
@@ -383,8 +369,6 @@ fn formation_budget_wall_fires_during_stalled_seat() {
     assert!(start.elapsed() < Duration::from_secs(1));
     assert!(answer.contains("complete answer"));
     assert_eq!(budget.snapshot()["wall_allocation_exceeded"], true);
-    // Wait only for the owned scripted workers to settle before releasing
-    // env_lock; the wall allocation itself did not end the barrier.
     while budget.snapshot()["reserved"] != 0 {
         assert!(start.elapsed() < Duration::from_secs(1));
         std::thread::yield_now();
@@ -402,7 +386,6 @@ fn formation_budget_knobs_read_once_and_identity_records_effective_values() {
     assert_eq!(budgets["formation_token_budget"], 160);
     assert_eq!(budgets["formation_wall_secs"], 1);
 }
-/// Operator-ordered F01 contract: all concurrent seats run and share one overrun ledger.
 #[test]
 fn formation_budget_concurrent_reservations_share_one_overrun_ledger() {
     let _lock = crate::tests::env_lock();
@@ -432,7 +415,6 @@ fn formation_budget_concurrent_reservations_share_one_overrun_ledger() {
     assert_eq!(record["over_allocation_tokens"], 540);
 }
 
-/// Operator-ordered F01 contract: G01e small-want fail-closed behavior is repealed.
 #[test]
 fn formation_budget_fitted_cap_preserves_large_request_intent() {
     for requested in [1, 16_384] {
@@ -448,8 +430,6 @@ fn formation_budget_fitted_cap_preserves_large_request_intent() {
 }
 #[test]
 fn formation_budget_live_glm_release_already_admits_fanin_at_both_allocations() {
-    // Observed nofault G01c/root-live-b20 calls, in settlement order.
-    // Fan-in's usage was missing: test admission only, never invent spend.
     for total in [48_000, 288_000] {
         let budget = Budget::new(Some(total), None);
         for (prompt, input, output) in [
@@ -471,7 +451,6 @@ fn formation_budget_live_glm_release_already_admits_fanin_at_both_allocations() 
         assert_eq!(budget.snapshot()["calls"][8]["reserved"], 7494);
         assert_eq!(budget.snapshot()["spent"], Value::Null);
         assert_eq!(budget.snapshot()["charged"], 17501);
-        // Pending usage is unknown until the terminal provider frame.
         drop(fanin);
         assert_eq!(budget.snapshot()["exhaustion_reason"], "unknown_usage");
     }

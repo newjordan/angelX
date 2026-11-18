@@ -1,4 +1,3 @@
-"""Native edit records responding to the sample contact-sheet review, not rerolls."""
 from pathlib import Path
 import json
 

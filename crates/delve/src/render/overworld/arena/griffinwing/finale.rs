@@ -16,16 +16,13 @@ use crate::rules::griffinwing::{Mode, Session};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-/// Whether the flight is in its victory: the way home or the tally.
 pub(super) fn on(s: &Session) -> bool {
     matches!(s.mode, Mode::Victory | Mode::Tally)
 }
 
-/// How many ticks the beacon has been lit (none before it takes the flame).
 pub(super) fn lit_age(s: &Session) -> Option<u32> {
     match s.mode {
         Mode::Victory if s.mode_t >= LIGHT_AT => Some(s.mode_t - LIGHT_AT),
-        // The tally keeps the sky lit.
         Mode::Tally => Some(20 + s.mode_t),
         _ => None,
     }
@@ -36,15 +33,10 @@ fn smooth(lo: f32, hi: f32, v: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
-// ─── the light that floods the canyon ──────────────────────────────────────
-
 thread_local! {
-    /// The warmed version of each ink the scene is made of, at two strengths.
     static WARM: RefCell<HashMap<([u8; 3], u8), [u8; 3]>> = RefCell::new(HashMap::new());
 }
 
-/// `c` lifted toward gold, snapped to the realm's inks. Level 1 is half the
-/// way, level 2 nearly all of it.
 fn warmed(c: [u8; 3], level: u8) -> [u8; 3] {
     WARM.with(|cache| {
         *cache.borrow_mut().entry((c, level)).or_insert_with(|| {
@@ -59,15 +51,11 @@ fn warmed(c: [u8; 3], level: u8) -> [u8; 3] {
     })
 }
 
-/// The light over the canyon, as the scene's own dots (the sky and the pieces
-/// stood over it are left alone): a front runs from the beacon back down the
-/// gorge to the eye in about nine ticks, then the cast stays.
 pub(super) fn flood(im: &mut Img, depth: &[f32], cam: &Cam, s: &Session) {
     let Some(age) = lit_age(s) else { return };
     let Some(su) = set::beacon_at(s) else { return };
     let (fx, fy, far) = set::project(cam, su, 0.0, 11.0).map_or((W as f32 * 0.5, H as f32 * 0.4, 70.0), |(x, y, d)| (x, y, d.max(20.0)));
     let a = age as f32;
-    // Up at once, a held peak, then a steady warm cast.
     let k = if a < 5.0 {
         a / 5.0
     } else if a < 20.0 {
@@ -88,7 +76,6 @@ pub(super) fn flood(im: &mut Img, depth: &[f32], cam: &Cam, s: &Session) {
             }
             let near = (d / far).clamp(0.0, 1.0);
             let r = ((x as f32 - fx).powi(2) + (y as f32 - fy).powi(2)).sqrt() / W as f32;
-            // Strongest round the beacon and far down the gorge, a little on the near walls.
             let st = (k * reach * (0.05 + 0.3 * near * near + 0.85 * (1.0 - r * 2.4).max(0.0))).clamp(0.0, 0.9);
             let b = bayer(x, y);
             if b >= st {
@@ -101,21 +88,13 @@ pub(super) fn flood(im: &mut Img, depth: &[f32], cam: &Cam, s: &Session) {
     }
 }
 
-// ─── the procession's rings, thin ──────────────────────────────────────────
-
-/// A gate or hearth ring as a hair of a ring strung with lights.
 pub(super) struct Ghost {
     pub at: (f32, f32),
-    /// Its radius across and up, in dots.
     pub r: (f32, f32),
     pub depth: f32,
     pub hearth: bool,
 }
 
-/// Draw `g` over `im` where `depth` leaves it showing, `tick` the flight's.
-/// It is faint while far, strongest in the middle of the run and gone by the
-/// time it would fill the picture; once the beacon is lit it dims, and it
-/// keeps clear of the flame.
 pub(super) fn ghost(im: &mut Img, depth: &[f32], g: &Ghost, s: &Session, flame: Option<(f32, f32)>) {
     let d = g.depth;
     let mut alpha = smooth(8.0, 20.0, d) * (1.0 - 0.7 * smooth(60.0, 110.0, d));
@@ -144,11 +123,9 @@ pub(super) fn ghost(im: &mut Img, depth: &[f32], g: &Ghost, s: &Session, flame: 
     };
     for _ in 0..n {
         let (x, y) = ((g.at.0 + rx * cs).round() as i32, (g.at.1 - ry * sn).round() as i32);
-        // The top of the ring catches more light than the underside.
         lit(im, x, y, if sn > 0.0 { hair } else { ramps::GOLD.at(0.55) }, alpha * 0.85);
         (sn, cs) = (sn * ct + cs * st, cs * ct - sn * st);
     }
-    // The lights on it, turning slowly.
     let beads = if g.hearth { 12 } else { 8 };
     let turn = s.elapsed as f32 * 0.025;
     let size = ((rx.max(ry) / 16.0).round() as i32).clamp(1, 3);

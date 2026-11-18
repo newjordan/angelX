@@ -88,13 +88,10 @@ fn render_cells(
     match formation.id {
         FormationId::SoloStrike => solo_pulse(&base, frame),
         FormationId::Recon => recon_sweep(&base, width, height, frame),
-        // Tag Team shares the Duel card and its two-corners-converge motion —
-        // the same shape reads correctly for a pair trading blows.
         FormationId::Duel | FormationId::TagTeam => duel_convergence(&base, width, height, frame),
         FormationId::Council => council_orbit(&base, width, height, frame),
         FormationId::AllIn => layered_convergence(&base, width, height, frame, false),
         FormationId::GrokWar => layered_convergence(&base, width, height, frame, true),
-        // The standing mixture orbits like Council: a full-panel rotation.
         FormationId::AutoMoa => council_orbit(&base, width, height, frame),
     }
 }

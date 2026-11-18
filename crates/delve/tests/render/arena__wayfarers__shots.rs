@@ -20,8 +20,6 @@ fn kingdom() -> Run {
     r
 }
 
-/// A stretch of road with no door or place name within sight: which road,
-/// and how far along it.
 fn quiet() -> (usize, f32) {
     let geo = geography::geography(&[]);
     wayfarers::paths()
@@ -41,8 +39,6 @@ fn quiet() -> (usize, f32) {
         .expect("a quiet stretch of road")
 }
 
-/// The knight on the first road at a quiet stretch, a traveller of `kind`
-/// three tiles on, both settled and the camera on them.
 fn on_the_road(kind: Kind) -> Run {
     let mut r = kingdom();
     let (road, at) = quiet();
@@ -114,7 +110,6 @@ fn in_3d_the_traveller_stands_up_as_a_figure_beside_the_knight() {
     let r = on_the_road(Kind::Pilgrim);
     let (_, _, figures) = super::kingdom::layers_3d(&r, Some(1));
     assert_eq!(figures.len(), 2, "the knight and the pilgrim");
-    // And the gang, when they draw steel, each its own body.
     let mut r = on_the_road(Kind::Tollkeeper);
     press(&mut r);
     press(&mut r);
@@ -141,9 +136,6 @@ fn write_wayfarer_shots() {
             .save(dir.join(format!("{name}.png")))
             .unwrap();
     };
-    // Each kind alone on black paper: two strides facing east, then lit
-    // as they are when they wait to be spoken to, facing west, and the
-    // peddler's cart beside the one who owns it.
     let cell = (26, 24);
     let mut sheet = Img::new(cell.0 * 5 + 40 + 6, cell.1 * 6 + 6);
     for (i, kind) in wayfarers::KINDS.into_iter().enumerate() {
@@ -166,7 +158,6 @@ fn write_wayfarer_shots() {
         press(&mut r);
         save(&format!("talk-{word}-2-offer"), &frame_for(&r, NATIVE_W, NATIVE_H, Some(1)), 3);
     }
-    // The reeve's rope across the road, and the gang when they draw steel.
     let mut r = on_the_road(Kind::Tollkeeper);
     press(&mut r);
     press(&mut r);
@@ -176,7 +167,6 @@ fn write_wayfarer_shots() {
     }
     r.follow_kingdom_cameras();
     save("gang-fight", &frame_for(&r, NATIVE_W, NATIVE_H, Some(1)), 3);
-    // Felled: what they dropped lies where it fell, and the purse is owed.
     for e in &mut r.enemies {
         e.hp = 0;
     }
@@ -185,14 +175,12 @@ fn write_wayfarer_shots() {
     }
     r.follow_kingdom_cameras();
     save("gang-routed", &frame_for(&r, NATIVE_W, NATIVE_H, Some(1)), 3);
-    // The toll paid: the rope lies slack, and they step aside.
     let mut r = on_the_road(Kind::Tollkeeper);
     r.treasury.add(crate::realm::Spoil::Gold, 200);
     press(&mut r);
     press(&mut r);
     say(&mut r, 1);
     save("gang-paid", &frame_for(&r, NATIVE_W, NATIVE_H, Some(1)), 3);
-    // The squire at the party's heels, a few tiles on.
     let mut r = on_the_road(Kind::Squire);
     r.home.holdings.owned.push(crate::rules::holdings::Holding {
         key: crate::rules::holdings::Deed::Floor(crate::rules::Pack::Crypt).key(),
@@ -214,7 +202,6 @@ fn write_wayfarer_shots() {
     }
     r.follow_kingdom_cameras();
     save("squire-follows", &frame_for(&r, NATIVE_W, NATIVE_H, Some(1)), 3);
-    // After the blessing, the pilgrim's last words; and a minstrel's song.
     let mut r = on_the_road(Kind::Pilgrim);
     press(&mut r);
     press(&mut r);

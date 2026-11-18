@@ -5,7 +5,6 @@
 use angel_plug::services::{OwnedChild, Processes};
 use angel_realm_host::services::{Host, Service};
 
-/// The cockpit's owned child, retired with its process group when dropped.
 struct Owned(Box<dyn OwnedChild>);
 
 impl Service for Owned {
@@ -46,7 +45,6 @@ impl Host for Lent {
     }
 }
 
-/// Lend the realm host the cockpit's answers. The first call wins.
 pub(crate) fn install(processes: Box<dyn Processes>) {
     angel_realm_host::services::install(Box::new(Lent(processes)));
 }

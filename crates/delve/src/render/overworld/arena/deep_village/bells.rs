@@ -16,15 +16,10 @@ use crate::rules::{
     deep::{Village, village as v},
 };
 
-/// The cathedral's stone, dark to light.
 const STONE: [char; 7] = ['k', 'K', 'g', 'j', 'G', 'J', 'h'];
-/// Bell bronze, dark to light, and its verdigris.
 const BRONZE: [char; 7] = ['n', 'b', 'I', 'R', 'o', 'O', 't'];
 const VERDIGRIS: [char; 3] = ['e', 'C', 'y'];
 
-/// The drowned floor: still black water a hand deep over the old
-/// flagstones, their seams just showing through it, long low ripples
-/// catching what light there is.
 pub(super) fn water_floor(cv: &mut Img) {
     let (w, h) = (cv.w, cv.h);
     for y in (v::BACK as i32 * TILE)..h - TILE {
@@ -32,7 +27,6 @@ pub(super) fn water_floor(cv: &mut Img) {
             let n = vnoise(x as f32 / 23.0, y as f32 / 7.0, 9801);
             let row = y.div_euclid(18);
             let seam = y.rem_euclid(18) == 0 || (x + row * 13).rem_euclid(30) == 0;
-            // Ripples run long and low across the water.
             let ripple = ((x as f32 / 13.0 + n * 7.0).sin() * (y as f32 / 3.0 + n).cos()) > 0.93;
             let ink = if ripple {
                 if hash(x, y, 9805) % 3 == 0 { 'u' } else { 'S' }
@@ -51,8 +45,6 @@ pub(super) fn water_floor(cv: &mut Img) {
     }
 }
 
-/// A spire's reflection in the water under it: its dark shape upside down,
-/// broken up by the ripples, its lit windows as streaks.
 fn reflect(cv: &mut Img, cx: i32, foot: i32, half: i32, deep: i32, lit: bool) {
     for d in 1..deep {
         let f = d as f32 / deep as f32;
@@ -67,17 +59,12 @@ fn reflect(cv: &mut Img, cx: i32, foot: i32, half: i32, deep: i32, lit: bool) {
     }
 }
 
-/// The far wall: an arcade of pointed arches along its foot, tall shafts
-/// between them, and the rose window high in the middle, lit green as the
-/// cathedral wakes.
 pub(super) fn back(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>) {
     let face = v::BACK as i32 * TILE;
-    // The arcade.
     for k in 0..12 {
         let cx = 24 + k * 48;
         let (top, foot) = (face - 46, face + 2);
         arch(cv, cx, top, foot, 14, vl.hope >= 3 && k % 3 == 1, lights);
-        // A shaft between the arches, up into the dark.
         for y in 30..foot {
             let half = 3 + (y - 30) / 40;
             for o in -half..=half {
@@ -85,7 +72,6 @@ pub(super) fn back(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>) {
             }
         }
     }
-    // The rose window.
     let (rx, ry) = (288, 44);
     let lit = vl.hope >= 1;
     cv.ellipse(rx as f32, ry as f32, 26.0, 26.0, 'K');
@@ -95,7 +81,6 @@ pub(super) fn back(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>) {
         for r in 4..23 {
             cv.put(rx + (a.cos() * r as f32) as i32, ry + (a.sin() * r as f32) as i32, 'K');
         }
-        // The petals between the spokes.
         let b = a + std::f32::consts::PI / 12.0;
         let (px_, py) = (rx + (b.cos() * 15.0) as i32, ry + (b.sin() * 15.0) as i32);
         cv.ellipse(px_ as f32, py as f32, 3.0, 3.0, if lit { if vl.hope >= 4 { '3' } else { '2' } } else { 's' });
@@ -105,7 +90,6 @@ pub(super) fn back(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>) {
     if lit {
         lights.push(Light { x: rx as f32, y: ry as f32, r: 70.0, s: 0.3 + vl.light() * 0.2, fire: false });
     }
-    // The water line along the wall's foot.
     for x in 0..cv.w {
         if hash(x, 1, 9804) % 2 == 0 {
             cv.put(x, face + 3, 'S');
@@ -114,8 +98,6 @@ pub(super) fn back(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>) {
     }
 }
 
-/// A pointed arch, `half` wide each side of `cx`, from `top` to `foot`:
-/// its dark mouth, its rim of stone, lit green within if `lit`.
 fn arch(cv: &mut Img, cx: i32, top: i32, foot: i32, half: i32, lit: bool, lights: &mut Vec<Light>) {
     for y in top..foot {
         let t = (y - top) as f32 / (half as f32 * 1.6);
@@ -132,15 +114,11 @@ fn arch(cv: &mut Img, cx: i32, top: i32, foot: i32, half: i32, lit: bool, lights
     }
 }
 
-/// A spire house: a stalagmite hollowed out, flowstone banding down its
-/// sides, a pointed door at the water, pointed windows lit green, and a
-/// bell in an open belfry near its tip.
 pub(super) fn house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit: bool, lights: &mut Vec<Light>) {
     let cx = x + w / 2;
     let foot = y + h;
     let tall = h + 46 + (seed % 3) as i32 * 6;
     let tip = foot - tall;
-    // The water round its foot.
     for yy in foot - 6..foot + 6 {
         for xx in x - 6..x + w + 6 {
             let (dx, dy) = ((xx - cx) as f32 / (w / 2 + 6) as f32, (yy - foot) as f32 / 6.0);
@@ -150,7 +128,6 @@ pub(super) fn house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32,
         }
     }
     reflect(cv, cx, foot + 2, w / 2 - 4, 14, lit);
-    // The spire: concave sides narrowing to its tip.
     for yy in tip..foot {
         let f = (yy - tip) as f32 / tall as f32;
         let half = ((w / 2 - 2) as f32 * f.powf(0.75)).max(1.0) as i32;
@@ -164,17 +141,14 @@ pub(super) fn house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32,
             }
             cv.put(cx + o, yy, STONE[i.clamp(0, 6) as usize]);
         }
-        // Drips of flowstone down its flanks.
         if (yy + seed as i32 * 3) % 9 == 0 {
             cv.put(cx - half, yy + 1, STONE[4]);
             cv.put(cx + half, yy + 1, STONE[1]);
         }
     }
-    // The belfry, an open arch near the tip, its bell inside.
     let (by, bw) = (tip + tall / 4, 6);
     pointed(cv, (cx, by), (bw, 10), 'k');
     bell(cv, cx, by - 4, 4, false, lit && seed % 2 == 0);
-    // Pointed windows, lit green.
     for (k, (wx, wy)) in [(cx - w / 5, foot - h + 2), (cx + w / 5, foot - h + 6), (cx, tip + tall / 2)].into_iter().enumerate() {
         if k == 2 && seed % 2 == 1 {
             continue;
@@ -185,17 +159,13 @@ pub(super) fn house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32,
             lights.push(Light { x: wx as f32, y: wy as f32, r: 40.0, s: 0.34, fire: false });
         }
     }
-    // The door at the water, two steps down into it.
     pointed(cv, (cx, foot - 7), (6, 16), 'k');
     cv.line(cx, foot - 18, cx, foot - 1, 'K');
     cv.line(cx - 8, foot - 1, cx + 8, foot - 1, STONE[4]);
     cv.line(cx - 9, foot + 1, cx + 9, foot + 1, STONE[2]);
-    // A drowned candle on the step.
     candles(cv, cx + w / 2 - 4, foot + 1, 2, lit, lights);
 }
 
-/// A pointed opening centred at `(x, y)`, `hw` wide each side and `hh`
-/// tall each way, in `ink`.
 fn pointed(cv: &mut Img, (x, y): (i32, i32), (hw, hh): (i32, i32), ink: char) {
     for yy in y - hh..=y + hh {
         let t = (yy - (y - hh)) as f32 / hh as f32;
@@ -204,7 +174,6 @@ fn pointed(cv: &mut Img, (x, y): (i32, i32), (hw, hh): (i32, i32), ink: char) {
             cv.put(x + o, yy, ink);
         }
     }
-    // Its rim: a pale stone edge.
     for yy in y - hh..=y + hh {
         let t = (yy - (y - hh)) as f32 / hh as f32;
         let half = if t < 1.0 { (hw as f32 * t.sqrt()) as i32 } else { hw };
@@ -213,15 +182,11 @@ fn pointed(cv: &mut Img, (x, y): (i32, i32), (hw, hh): (i32, i32), ink: char) {
     }
 }
 
-/// A bell hanging from `(x, y)`, `r` wide each side at its lip: shoulder,
-/// waist and flared lip, bronze lit on the left, verdigris on it; struck
-/// or lit, it gleams.
 pub(super) fn bell(cv: &mut Img, x: i32, y: i32, r: i32, struck: bool, gleam: bool) {
     let tall = r * 2 + 2;
     cv.line(x, y - 2, x, y, 'K');
     for d in 0..tall {
         let f = d as f32 / tall as f32;
-        // Shoulder, a gentle waist, then the flare to the lip.
         let half = (r as f32 * (0.55 + 0.25 * f + 0.35 * f.powi(4))) as i32;
         for o in -half..=half {
             let u = o as f32 / half.max(1) as f32;
@@ -240,8 +205,6 @@ pub(super) fn bell(cv: &mut Img, x: i32, y: i32, r: i32, struck: bool, gleam: bo
     }
 }
 
-/// `n` drowned candles at `(x, foot)`: stubs of wax guttered down, their
-/// flames cold green.
 pub(super) fn candles(cv: &mut Img, x: i32, foot: i32, n: i32, lit: bool, lights: &mut Vec<Light>) {
     for k in 0..n {
         let (cx, tall) = (x + k * 3 - n, 3 + (k * 5 % 3));
@@ -262,15 +225,11 @@ pub(super) fn candles(cv: &mut Img, x: i32, foot: i32, n: i32, lit: bool, lights
     }
 }
 
-/// The heart: the Great Bell, hung in a pointed arch of two stalagmites
-/// grown together over a round pool; green-gold when the cathedral wakes,
-/// and from then on ringing out over the water (`ambient`).
 pub(super) fn heart(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u32) {
     let (x, y, w, h) = px_rect(v::HEART);
     let (cx, foot) = (x + w / 2, y + h);
     let awake = vl.hope >= 1;
     let light = vl.light();
-    // The pool under it, the bell's reflection in it.
     for yy in foot - 12..foot + 6 {
         for xx in cx - 46..cx + 46 {
             let (dx, dy) = ((xx - cx) as f32 / 46.0, (yy - foot + 3) as f32 / 9.0);
@@ -281,8 +240,6 @@ pub(super) fn heart(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u
             }
         }
     }
-    // The two stalagmites, stout at the foot, leaning in to meet in a
-    // pointed arch over the bell.
     let apex = foot - 92;
     for side in [-1, 1] {
         for yy in apex..foot - 2 {
@@ -293,19 +250,16 @@ pub(super) fn heart(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u
             for o in -half..=half {
                 let u = o as f32 / half as f32;
                 let band = vnoise(o as f32 / 5.0, yy as f32 / 2.5, 9822 + side as u32);
-                // Lit on the side toward the bell once it glows.
                 let toward = if awake { (-u * side as f32).max(0.0) * 0.8 } else { 0.0 };
                 let i = ((1.0 - (u + 0.4).abs()) * 5.2 + (band - 0.5) * 1.4 + toward) as i32 + 1;
                 cv.put(px_ + o, yy, STONE[i.clamp(0, 6) as usize]);
             }
         }
     }
-    // Flowstone where they meet, and the beam the bell hangs from.
     cv.ellipse(cx as f32, (apex + 3) as f32, 9.0, 6.0, STONE[3]);
     cv.ellipse((cx - 2) as f32, (apex + 1) as f32, 5.0, 3.0, STONE[5]);
     cv.rect(cx - 14, apex + 8, 29, 3, 'b');
     cv.line(cx - 14, apex + 8, cx + 14, apex + 8, 'P');
-    // The bell, swinging a little once awake.
     let swing = if awake { ((tick as f32 * 0.05).sin() * 2.0) as i32 } else { 0 };
     let (bx, by) = (cx + swing, apex + 11);
     cv.line(cx, by, bx, by + 4, 'K');
@@ -328,7 +282,6 @@ pub(super) fn heart(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u
             cv.put(bx + o, by + 4 + d, ink);
         }
     }
-    // Its crown, its bands, and its clapper under the lip.
     cv.rect(bx - 4, by + 1, 9, 4, BRONZE[3]);
     cv.line(bx - 4, by + 1, bx + 4, by + 1, BRONZE[5]);
     for d in [9, tall - 7, tall - 4] {
@@ -337,7 +290,6 @@ pub(super) fn heart(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u
     }
     cv.rect(bx - 2 - swing / 2, by + 4 + tall, 5, 3, 'K');
     if awake {
-        // The light caught down its shoulder.
         for d in 4..tall - 6 {
             let half = half_at(d);
             cv.put(bx - half / 2 - 1, by + 4 + d, if light > 0.5 && d < tall / 2 { '6' } else { '5' });
@@ -345,7 +297,6 @@ pub(super) fn heart(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u
         lights.push(fire(bx, by + 24, 80.0 + light * 50.0, 0.3 + light * 0.25));
         lights.push(Light { x: cx as f32, y: (foot - 4) as f32, r: 70.0 + light * 40.0, s: 0.25 + light * 0.2, fire: false });
     }
-    // Candles round the pool's edge.
     for k in 0..7 {
         let a = std::f32::consts::PI * (0.06 + k as f32 * 0.88 / 6.0);
         let (px_, py) = (cx + (a.cos() * 44.0) as i32, foot + (a.sin() * 5.0) as i32 - 1);
@@ -353,7 +304,6 @@ pub(super) fn heart(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u
     }
 }
 
-/// The wishing bell: a small bell on an iron crook over a little pool.
 pub(super) fn wishing_place(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>, tick: u32) {
     let (x, y, w, h) = px_rect(v::WELL);
     let (cx, foot) = (x + w / 2, y + h);
@@ -373,21 +323,16 @@ pub(super) fn wishing_place(cv: &mut Img, vl: &Village, lights: &mut Vec<Light>,
     }
 }
 
-/// A lamp post's head: a stalagmite stump bearing three drowned candles.
 pub(super) fn lamp_head(cv: &mut Img, x: i32, y: i32, on: bool, lights: &mut Vec<Light>) {
     cv.rect(x - 3, y - 22, 8, 3, STONE[3]);
     cv.line(x - 3, y - 22, x + 4, y - 22, STONE[5]);
     candles(cv, x + 1, y - 23, 3, on, lights);
 }
 
-/// What moves in the cathedral: drips falling from the stalactites and
-/// ringing out on the water, the Great Bell's slow rings once it is awake,
-/// mist on the water, and the belfry bells swinging now and then.
 pub(super) fn ambient(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
     let tick = run.tick as u32;
     let lit = vl.light();
     let face = v::BACK as i32 * TILE;
-    // Drips: a bead falling, then a ring going out where it landed.
     for k in 0..12 {
         let h = hash(k, 31, 9830);
         let x = 24 + (h % 528) as i32;
@@ -404,11 +349,9 @@ pub(super) fn ambient(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
             ring(cv, (x, land), age * 1.6 + 1.0, 0.4, if age < 3.0 { 'u' } else { 'S' });
         }
     }
-    // The Great Bell's rings out over the water.
     if vl.hope >= 1 {
         let (hx, hy, hw, hh) = px_rect(v::HEART);
         let (cx, foot) = (hx + hw / 2, hy + hh);
-        // Slow, and fainter the further out: the bell is heard, not seen.
         let period = 120;
         for n in 0..2 {
             let age = ((tick + n * period / 2) % period) as f32;
@@ -423,7 +366,6 @@ pub(super) fn ambient(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
             }
         }
     }
-    // Mist low over the water, drifting.
     for k in 0..50 {
         let h = hash(k, 32, 9831);
         let x = ((h % 600) as i32 + (tick as i32 / 4)) % 600 - 12;
@@ -434,7 +376,6 @@ pub(super) fn ambient(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
     }
 }
 
-/// A ring on the water: a flattened circle of dots, `r` wide.
 fn ring(cv: &mut Img, (x, y): (i32, i32), r: f32, squash: f32, ink: char) {
     let steps = (r * 5.0) as i32 + 6;
     for k in 0..steps {
@@ -446,8 +387,6 @@ fn ring(cv: &mut Img, (x, y): (i32, i32), r: f32, squash: f32, ink: char) {
     }
 }
 
-/// A floor below's drowned bell, silent or rung: a post, a yoke and the
-/// bell under it; rung, it gleams.
 pub(super) fn sign_lamp(cv: &mut Img, x: i32, head: i32, lit: bool) {
     cv.line(x - 8, head - 1, x + 8, head - 1, 'b');
     cv.line(x - 8, head, x + 8, head, 'n');
@@ -456,7 +395,6 @@ pub(super) fn sign_lamp(cv: &mut Img, x: i32, head: i32, lit: bool) {
     bell(cv, x, head + 1, 6, lit, lit);
 }
 
-/// A lump of bell-silver on the floor below, humming.
 pub(super) fn relic(cv: &mut Img, x: i32, cy: i32) {
     cv.ellipse(x as f32, cy as f32, 4.5, 3.5, 'v');
     cv.ellipse((x - 1) as f32, (cy - 1) as f32, 2.5, 2.0, 'W');
@@ -464,7 +402,6 @@ pub(super) fn relic(cv: &mut Img, x: i32, cy: i32) {
     cv.put(x - 2, cy - 2, 'w');
 }
 
-/// A silver handbell over a door, as promised.
 pub(super) fn over_the_door(cv: &mut Img, cx: i32, cy: i32) {
     cv.line(cx, cy - 6, cx, cy - 4, 'K');
     for d in 0..5 {

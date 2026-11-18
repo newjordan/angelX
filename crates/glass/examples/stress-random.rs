@@ -16,7 +16,6 @@ use std::time::Instant;
 use angel_glass::gpu::FxHasher;
 use unicode_width::UnicodeWidthStr;
 
-// ---- deterministic RNG (xorshift64*) ----
 struct Rng(u64);
 impl Rng {
     fn next(&mut self) -> u64 {
@@ -35,7 +34,6 @@ impl Rng {
     }
 }
 
-// ---- byte-exact mirror of backend::symbol_width (pinned below) ----
 #[inline]
 fn fast_width(symbol: &str) -> usize {
     let b = symbol.as_bytes();
@@ -108,10 +106,9 @@ fn fx_hash(s: &str) -> u64 {
 
 fn gen_symbol(rng: &mut Rng) -> String {
     match rng.below(100) {
-        0..=29 => (rng.range(0x20, 0x7E) as u8 as char).to_string(), // ASCII
-        30..=39 => char::from_u32(rng.range(0x2500, 0x28FF)).unwrap().to_string(), // box/block/braille
+        0..=29 => (rng.range(0x20, 0x7E) as u8 as char).to_string(),
+        30..=39 => char::from_u32(rng.range(0x2500, 0x28FF)).unwrap().to_string(),
         40..=54 => {
-            // 2-byte incl. adversarial fallthrough (combining, Hebrew, C2, D2, D6-D9, DB)
             let pools = [
                 (0xC0u32, 0xFFu32),
                 (0x100, 0x2FF),
@@ -127,7 +124,6 @@ fn gen_symbol(rng: &mut Rng) -> String {
         55..=69 => {
             let pools = [(0x800u32, 0xFFFFu32)];
             let (lo, hi) = pools[0];
-            // bias half into E4..=E9 fast block, half anywhere
             let cp = if rng.below(2) == 0 {
                 rng.range(0x4000, 0x9FFF)
             } else {
@@ -139,7 +135,6 @@ fn gen_symbol(rng: &mut Rng) -> String {
             }
         }
         70..=84 => {
-            // supplementary: half in F0 97/A0-AE/B0-BE fast blocks
             let cp = if rng.below(2) == 0 {
                 let blocks = [(0x17000u32, 0x187FFu32), (0x20000, 0x2EBEF), (0x30000, 0x323AF)];
                 let (lo, hi) = blocks[rng.below(3) as usize];
@@ -153,7 +148,6 @@ fn gen_symbol(rng: &mut Rng) -> String {
             }
         }
         85..=94 => {
-            // multi-char: combining, pairs, emoji ZWJ-ish
             let a = char::from_u32(rng.range(0x20, 0x7E)).unwrap();
             let b = char::from_u32(rng.range(0x300, 0x36F)).unwrap_or('́');
             format!("{a}{b}")
@@ -182,7 +176,6 @@ fn main() {
     for _ in 0..N {
         corpus.push(gen_symbol(&mut rng));
     }
-    // class mix report
     let ascii = corpus.iter().filter(|s| s.len() == 1 && s.as_bytes()[0] < 0x80).count();
     let two = corpus.iter().filter(|s| s.as_bytes().len() == 2).count();
     let three = corpus.iter().filter(|s| s.as_bytes().len() == 3).count();
@@ -190,7 +183,6 @@ fn main() {
     let multi = corpus.iter().filter(|s| s.chars().count() > 1).count();
     println!("CORPUS n={N} ascii1={ascii} len2={two} len3={three} len4={four} multichar={multi}");
 
-    // 1) hash: correctness (determinism) + collisions + speed on RANDOM corpus
     let mut fx_set = HashSet::new();
     let mut collisions = 0u32;
     let mut seen: HashMap<u64, &str> = HashMap::new();
@@ -198,7 +190,6 @@ fn main() {
         assert_eq!(fx_hash(s), fx_hash(s), "fx nondeterministic");
         let h = fx_hash(s);
         if !fx_set.insert(h) && seen.get(&h).map(|p| *p != s.as_str()).unwrap_or(true) {
-            // could be a true duplicate symbol hashing same (fine) or a collision
             if seen.get(&h).map(|p| *p != s.as_str()).unwrap_or(false) {
                 collisions += 1;
             }
@@ -207,7 +198,6 @@ fn main() {
     }
     println!("HASH collisions on {N} random symbols: {collisions} (duplicates share hash, expected ~0 true collisions)");
 
-    // time: iterate corpus, accumulate to defeat dead-code elimination
     let reps = 30u64;
     let t_sip = {
         let t = Instant::now();
@@ -233,7 +223,6 @@ fn main() {
     };
     println!("HASH random-corpus sip={:.1}ns fx={:.1}ns speedup={:.2}x", t_sip, t_fx, t_sip / t_fx.max(0.01));
 
-    // per-class hash speedup (is Fx only fast on 1-byte?)
     for (name, kind) in [("ascii", 0u8), ("len2", 1u8), ("len3", 2u8), ("len4", 3u8)] {
         let sub: Vec<&String> = corpus
             .iter()
@@ -274,7 +263,6 @@ fn main() {
         println!("HASH class {name} n={} sip={:.1}ns fx={:.1}ns speedup={:.2}x", sub.len(), a, b, a / b.max(0.01));
     }
 
-    // 2) width: agreement on EVERY random symbol + fast-hit rate + timing
     let mut mism = 0u32;
     let mut fast_hits = 0usize;
     for s in &corpus {
@@ -326,7 +314,6 @@ fn main() {
     };
     println!("WIDTH random-corpus fast={:.1}ns table={:.1}ns speedup={:.2}x", t_fast, t_tab, t_tab / t_fast.max(0.01));
 
-    // ascii-only sub-bench (the fast path's home turf) vs CJK-only (wide path)
     let ascii_c: Vec<&String> = corpus.iter().filter(|s| s.len() == 1 && s.as_bytes()[0] >= 0x20).take(3000).collect();
     let cjk_c: Vec<&String> = corpus
         .iter()
@@ -366,8 +353,6 @@ fn main() {
         println!("WIDTH {name} n={} fast={:.1}ns table={:.1}ns speedup={:.2}x", sub.len(), a, b, b / a.max(0.01));
     }
 
-    // 3) layer sort fast path on RANDOM z-patterns (uses real Layer type shape: z ordering)
-    // We bench the predicate + partition_point vs collect+sort on z-vectors.
     println!("SORT random-pattern check-vs-sort (ns, 100k iters):");
     let mut rng2 = Rng(0xDEAD_BEEF_CAFE_1234);
     for n in [2usize, 4, 8, 16, 64] {
@@ -408,7 +393,6 @@ fn main() {
                 v.sort();
                 black_box(v);
             });
-            // combined: check then sort-if-needed (what the renderer pays on unsorted)
             let both = bench_ns(it, || {
                 if zs.windows(2).all(|w| w[0] <= w[1]) {
                     black_box(zs.partition_point(|x| *x < 0));
@@ -421,7 +405,6 @@ fn main() {
             println!("  n={n:2} {pname:8} check={chk:.1}ns sort={srt:.1}ns check+branch={both:.1}ns overhead-vs-sort={:.2}x", both / srt.max(0.01));
         }
     }
-    // touch the real Layer type so the bench stays tied to it
     let l = angel_glass::Layer {
         id: 1,
         z: -1,
@@ -437,7 +420,6 @@ fn main() {
     };
     black_box(l.z);
 
-    // 4) bg-run key + LUT on random data
     {
         let n = 200_000u64;
         let t1 = bench_ns(n, || {
@@ -452,7 +434,6 @@ fn main() {
             black_box(m.len());
         });
         println!("BGRUN stringkey={:.1}ns rawkey={:.1}ns speedup={:.2}x", t1, t2, t1 / t2.max(0.01));
-        // random colours, not just (12,10,8)
         let mut rr = Rng(99);
         let cols: Vec<(u8, u8, u8)> = (0..4096).map(|_| (rr.below(256) as u8, rr.below(256) as u8, rr.below(256) as u8)).collect();
         let t3 = {

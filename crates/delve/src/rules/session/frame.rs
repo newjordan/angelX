@@ -82,13 +82,11 @@ pub struct Presence {
 pub struct Begin {
     pub network_tick: u32,
     pub expected_tick: u64,
-    /// Exact live seats observed while native derived presence/removal facts.
     pub seats: BTreeMap<u32, u64>,
     pub controls: Controls,
     pub tune: Tune,
     pub input_ages: Vec<InputAge>,
     pub remove: Vec<Seat>,
-    /// Empty means presence has not yet been supplied; preserve existing away.
     pub away: Vec<Away>,
     pub arrival: ArrivalState,
     pub presence: BTreeMap<u32, Presence>,
@@ -146,13 +144,10 @@ pub enum Signal {
 #[serde(deny_unknown_fields)]
 pub struct Outputs {
     pub frame: Fence,
-    /// Departure notices precede retained native ability media/voice events.
     pub prelude: Vec<Signal>,
-    /// Then party sounds, private sounds, all notices, private notices.
     pub postlude: Vec<Signal>,
     pub cues: Vec<String>,
     pub feel: Vec<String>,
-    /// Native retains the network AGAIN_RETELL pacing and maps this to News.
     pub again_due: bool,
     pub mended: Option<Vec<String>>,
 }
@@ -161,7 +156,6 @@ pub struct Outputs {
 pub struct Pending {
     pub frame: Fence,
     pub started_tick: u64,
-    /// Exact input survives the native ability gap and executable handoff.
     pub inputs: BTreeMap<u32, SeatInput>,
     pub prelude: Vec<Signal>,
     pub active_casts: Vec<super::abilities::ActiveCast>,
@@ -277,7 +271,6 @@ pub(super) fn begin(
     policies: &mut impl Policies,
 ) -> Result<Pending, String> {
     input.validate(run, session)?;
-    // Input-age callbacks historically precede DelveServer::step.
     for age in &input.input_ages {
         run.latch_input_age.insert(age.seat.player, age.ticks);
     }
@@ -403,7 +396,6 @@ pub(super) fn finish(
     })
 }
 
-/// Same control projection previously applied by the native server prelude.
 fn apply_controls(run: &mut Run, controls: Controls) -> bool {
     let mut changed = false;
     if let Some(seat) = run.playtest.seats.get_mut(&2)
@@ -483,13 +475,11 @@ impl ArrivalState {
     }
 }
 
-/// Shared pure drains; public wire adapts these values without a second queue.
 pub fn take_sounds(run: &mut Run) -> Vec<Signal> {
     let bard_for_all = crate::rules::bard::heard_by_all();
     let mine = std::mem::take(&mut run.seat_sounds)
         .into_iter()
         .map(move |(knight, name)| Signal::Sound {
-            // The Bard's music is its own ears' unless the host turned it up for the party.
             hear: if bard_for_all && (crate::rules::bard::is_bard_sound(name) || name == crate::rules::bard::HIT) {
                 Hear::Party
             } else {
@@ -536,7 +526,6 @@ pub fn room_can_stop_shot(run: &Run) -> bool {
     }
     true
 }
-/// Existing wire drawable predicate, shared by pure Finish and wire decoding.
 pub fn drawable(run: &Run) -> bool {
     let rooms = run.dungeon.rooms.len();
     rooms > 0

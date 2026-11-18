@@ -12,12 +12,10 @@
 use super::*;
 use std::path::PathBuf;
 
-/// Whether turns are recorded (`ANGEL_MOA_LEDGER`, default on).
 pub(crate) fn ledger_enabled() -> bool {
     env_flag_or("ANGEL_MOA_LEDGER", true)
 }
 
-/// Ledger file: `~/.angelX/moa/ledger.jsonl`, or `ANGEL_MOA_LEDGER_PATH`.
 pub(crate) fn ledger_path() -> PathBuf {
     match std::env::var("ANGEL_MOA_LEDGER_PATH") {
         Ok(p) if !p.trim().is_empty() => PathBuf::from(p),
@@ -25,27 +23,16 @@ pub(crate) fn ledger_path() -> PathBuf {
     }
 }
 
-/// What one `run()` learned about itself, filled in as the turn unfolds.
 #[derive(Default)]
 pub(crate) struct TurnTrace {
-    /// "direct" (tight/single pass), "deliberate" (full pipeline), or
-    /// "fallback" (the pipeline degraded to a direct pass mid-turn).
     pub(crate) route: &'static str,
-    /// Mean pairwise proposer dissent, when the gate measured it.
     pub(crate) dissent: Option<f64>,
-    /// What the gate did: "escalate" | "hold" | "relax".
     pub(crate) gate: Option<&'static str>,
-    /// Proposer drafts collected / surviving dedup collapse.
     pub(crate) proposed: usize,
     pub(crate) kept: usize,
-    /// The knobs that actually ran after gating: (layers, judge, verify, samples).
     pub(crate) effective: Option<(usize, bool, usize, usize)>,
-    /// Progressive proposer-wave telemetry.
     pub(crate) waves: Vec<WaveTrace>,
-    /// Scale coordination telemetry, absent for small turns.
     pub(crate) scale: Option<ScaleTrace>,
-    /// The engaged formation's name, when a formation owned the turn — so
-    /// per-formation economics are measurable from the ledger rows alone.
     pub(crate) formation: Option<String>,
 }
 
@@ -97,18 +84,11 @@ pub(crate) struct MoaTokenReport {
     pub(crate) rows: Vec<MoaModelTokenRow>,
 }
 
-/// Snapshot of cumulative token usage per unique club label. Taken before and
-/// after a turn; the difference is that turn's spend. (Cumulative counters are
-/// process-wide, so traffic from a concurrent turn on the same club would land
-/// in whichever snapshot window it overlaps — close enough for economics.)
 pub(crate) fn usage_by_club(
     clubs: &RoleClubs,
     fallbacks: &[Arc<dyn Club>],
 ) -> Vec<(String, u64, u64)> {
     let mut out: Vec<(String, u64, u64)> = Vec::new();
-    // Raw failover links first. Cheap-role wrappers each expose the whole same
-    // fallback chain through `token_usage`; counting the wrappers first would
-    // multiply real provider spend by the number of role labels.
     for club in fallbacks
         .iter()
         .chain([
@@ -134,7 +114,6 @@ pub(crate) fn usage_by_club(
     out
 }
 
-/// Per-club (input, output) token spend between two snapshots, zero rows dropped.
 pub(crate) fn usage_delta(
     before: &[(String, u64, u64)],
     after: &[(String, u64, u64)],
@@ -157,7 +136,6 @@ pub(crate) fn usage_delta(
         .collect()
 }
 
-/// Serialize one finished turn. Pure — the write happens in [`record_turn`].
 pub(crate) fn turn_record(
     club: &str,
     trace: &TurnTrace,
@@ -218,8 +196,6 @@ pub(crate) fn turn_record(
     record
 }
 
-/// Append one turn to the ledger. Best-effort and test-silent: mock-club test
-/// runs must never touch the user's real `~/.angel`.
 pub(crate) fn record_turn(
     club: &str,
     trace: &TurnTrace,
@@ -241,11 +217,6 @@ pub(crate) fn record_turn(
     crate::knowledge::experience::append_jsonl(&ledger_path(), &record);
 }
 
-// ---------------------------------------------------------------------------
-// The /moa report
-// ---------------------------------------------------------------------------
-
-/// The `/moa` command body: a summary of the ledger (or `clear` to reset it).
 fn record_matches_workspace(record: &serde_json::Value, workspace: &std::path::Path) -> bool {
     let Some(root) = record["repo"]["root"].as_str() else {
         return false;
@@ -321,13 +292,6 @@ pub(crate) fn report_text(arg: Option<&str>, workspace: &std::path::Path) -> Str
     format!("{}\n({})", summarize(&records), path.display())
 }
 
-/// Latest-turn + cumulative per-model token report for the live agent panel.
-///
-/// The draw loop calls this every frame while the agent bay shows metrics, and
-/// the ledger is append-only for the life of the install — an uncached full
-/// read + per-line parse would become a growing render-thread stall. The parsed
-/// report is keyed on (mtime, len) so the file is only re-read when a turn
-/// actually appended to it.
 pub(crate) fn token_report(workspace: &std::path::Path) -> Option<MoaTokenReport> {
     type CacheKey = (std::time::SystemTime, u64, std::path::PathBuf);
     static CACHE: std::sync::Mutex<Option<(CacheKey, Option<MoaTokenReport>)>> =
@@ -357,7 +321,6 @@ pub(crate) fn token_report(workspace: &std::path::Path) -> Option<MoaTokenReport
     report
 }
 
-/// Build a compact per-model report from ledger records. Pure (testable).
 pub(crate) fn token_report_from_records(records: &[serde_json::Value]) -> Option<MoaTokenReport> {
     let latest = records
         .iter()
@@ -420,9 +383,6 @@ pub(crate) fn token_report_from_records(records: &[serde_json::Value]) -> Option
     })
 }
 
-/// Render a project-filtered report in the replaceable analytics module.
-/// Only fields needed by the report cross the worker boundary; workspace paths,
-/// formation metadata and other ledger fields stay in the host.
 pub(crate) fn summarize(records: &[serde_json::Value]) -> String {
     render_report(records).unwrap_or_else(|error| format!("moa report unavailable: {error}"))
 }
@@ -449,8 +409,6 @@ fn render_report(records: &[serde_json::Value]) -> Result<String, String> {
                     })
                     .collect::<Vec<_>>()
             });
-            // A list, not an object: preserve serde_json's sorted key order even
-            // for numeric-looking labels that JavaScript objects reorder.
             let tokens: Vec<Value> = r
                 .get("tokens")
                 .and_then(Value::as_object)

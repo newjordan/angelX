@@ -214,8 +214,6 @@ fn dump_living_painting_stage_cells_for_review() {
                 terminal
                     .draw(|frame| assert!(render_dotmax_interior(frame, &mut app, frame.area())))
                     .unwrap();
-                // Rasterize the actual Dotmax cells with equal 4px pitch
-                // on both axes; this exports the displayed presentation.
                 let mut pixels = image::RgbaImage::from_pixel(
                     u32::from(cols) * 8,
                     u32::from(rows) * 16,
@@ -289,7 +287,6 @@ fn overworld_half_blocks_letterbox_the_frame_on_black_paper() {
     let buf = terminal.backend().buffer();
     let black = ratatui::style::Color::Rgb(0, 0, 0);
     assert!(buf.content.iter().all(|cell| cell.symbol() == "▀"));
-    // 256x176 into a 40x24 half-block grid: about 35 columns wide, centred.
     for y in 0..12 {
         assert_eq!(buf[(0, y)].fg, black, "left letterbox row {y}");
         assert_eq!(buf[(39, y)].bg, black, "right letterbox row {y}");

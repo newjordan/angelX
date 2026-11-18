@@ -102,11 +102,8 @@ fn classify_with(host: &ReloadHost<Generation>, problem: &str, mode: i32) -> boo
         .expect("built-in MoA router failed")
 }
 
-
-/// The shipped Bend leg: one evaluation per problem answers every question here.
 const LEG: &str = "swarm-route";
 
-/// Trivial conversational turns the swarm can add nothing to.
 pub(crate) const TIGHT_PHRASES: &[&str] = &[
     "hi",
     "hello",
@@ -150,8 +147,6 @@ pub(crate) const TIGHT_PHRASES: &[&str] = &[
     "lgtm",
 ];
 
-/// What Rust extracted from the problem text: every word/phrase test the
-/// heuristics perform, as flags and counts.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Features {
     blank: bool,
@@ -170,7 +165,6 @@ pub(crate) struct Features {
     live_word: bool,
 }
 
-/// All routing decisions for one problem, as the leg returns them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
 pub(crate) struct Route {
     pub(crate) tight: bool,
@@ -182,8 +176,6 @@ pub(crate) struct Route {
 }
 
 impl Features {
-    /// The one text pass. Every native heuristic below derives from these same
-    /// values, so the leg and the oracle cannot drift apart.
     pub(crate) fn of(problem: &str) -> Self {
         let p = problem.trim().to_ascii_lowercase();
         let stripped = p.trim_matches(|c: char| matches!(c, '.' | '!' | '?' | ',' | ' '));
@@ -230,10 +222,6 @@ impl Features {
 }
 
 impl Route {
-    /// The contract a loaded generation must satisfy. Synthesis is the narrower
-    /// gate — a longer length threshold and a subset of the same word/phrase
-    /// tests — so it can never fire without deliberation. An edit that breaks
-    /// this keeps the native leg.
     pub(crate) fn check(&self) -> Result<(), String> {
         if self.synthesis && !self.deliberation {
             return Err("a synthesis turn must also earn deliberation".into());
@@ -242,7 +230,6 @@ impl Route {
     }
 }
 
-/// Every decision for one problem, in one leg evaluation.
 pub(crate) fn route_decisions(problem: &str) -> Route {
     route_with_source(problem).0
 }
@@ -258,32 +245,16 @@ pub(crate) fn route_with_source(problem: &str) -> (Route, live_policy::LegSource
     live_policy::decide_shipped(LEG, &Features::of(problem).json(), Route::check)
 }
 
-/// Cheap, conservative pre-classifier: `true` only for trivial conversational
-/// turns the swarm can add nothing to (greetings, acknowledgments, simple
-/// continuations). These would classify `TIGHT` anyway, so skipping the
-/// classifier model call preserves the routing decision while removing one
-/// round-trip from the turn — a small but guaranteed latency cut on chit-chat.
-/// Anything substantive falls through to the model classifier unchanged.
-/// Disable with `ANGEL_SWARM_FASTPATH=0`.
 pub(crate) fn obviously_tight(problem: &str) -> bool {
     route_decisions(problem).tight
 }
 
-/// Whether the trivial-turn fast path is on (default yes; `ANGEL_SWARM_FASTPATH=0`
-/// forces the model classifier on every turn when smart routing is enabled).
 pub(crate) fn fastpath_enabled() -> bool {
     std::env::var("ANGEL_SWARM_FASTPATH")
         .map(|v| !matches!(v.trim(), "0" | "false" | "off"))
         .unwrap_or(true)
 }
 
-/// Open-ended, reasoning-dominant markers — the questions where fanning out
-/// diverse proposers and synthesizing genuinely beats one strong pass. Shared by
-/// [`wants_deliberation`] (does the turn deserve the swarm at all) and
-/// `wants_synthesis` (should the tool-capable driver's *final answer* be
-/// amplified by the MoA fan-out). Kept separate from the action verbs below:
-/// an action turn (fix/build/refactor) works through tools and its answer is
-/// grounded in real output, so re-synthesizing it text-only can only regress it.
 pub(crate) const OPEN_PHRASES: &[&str] = &[
     "trade off",
     "pros and cons",
@@ -349,11 +320,6 @@ pub(crate) const ACTION_WORDS: &[&str] = &[
     "ship",
 ];
 
-/// Requests that clearly earn the swarm's multi-angle deliberation: open-ended,
-/// comparative, exploratory, coding/action requests, or large multi-part asks.
-/// Everything else takes the single fast direct pass. Pure heuristic — no model
-/// call — so the default router costs **zero** routing round-trips. Anything
-/// matched here fans out.
 pub(crate) fn wants_deliberation(problem: &str) -> bool {
     route_decisions(problem).deliberation
 }
@@ -389,9 +355,6 @@ pub(crate) const LIVE_WORDS: &[&str] = &[
     "live",
 ];
 
-/// Whether the request needs live outside-world context. This is intentionally
-/// narrower than deliberation: it should wake the Grok research scout for
-/// latest/current/trending asks, not every ordinary coding or planning turn.
 pub(crate) fn wants_live_research(problem: &str) -> bool {
     route_decisions(problem).research
 }
@@ -441,9 +404,6 @@ pub(crate) fn action_request(words: &[&str], action: &str) -> bool {
     )
 }
 
-/// Default router is SPEED: answer directly unless [`wants_deliberation`]. Set
-/// `ANGEL_SWARM_SMART_ROUTE=1` to instead ask the model to classify each turn —
-/// adaptive, but one extra round-trip per turn.
 pub(crate) fn smart_route_enabled() -> bool {
     std::env::var("ANGEL_SWARM_SMART_ROUTE")
         .map(|v| matches!(v.trim(), "1" | "true" | "on"))

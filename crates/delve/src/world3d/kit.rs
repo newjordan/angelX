@@ -19,7 +19,6 @@
 use super::blockout::{Kind, Shape, Solid};
 use crate::render::overworld::ink::hash;
 
-/// The side of its footprint a building's front (its door) is on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Face {
     South,
@@ -29,7 +28,6 @@ pub enum Face {
 }
 
 impl Face {
-    /// The turn that takes a piece's own frame (front toward `+z`) to it.
     fn turn(self) -> f32 {
         match self {
             Face::South => 0.0,
@@ -40,181 +38,101 @@ impl Face {
     }
 }
 
-/// What tops a castle's towers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Top {
-    /// Battlements: a parapet and merlons.
     Crenel,
-    /// A dome of this kind.
     Dome(Kind),
-    /// A cone roof of this kind.
     Cone(Kind),
 }
 
-/// A castle of the March, as its house builds it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Castle {
     pub walls: Kind,
     pub top: Top,
-    /// Corner towers: 2 at the front, or 4.
     pub towers: u8,
 }
 
-/// What the kit builds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kit {
     Cottage,
     Barn,
     Hall,
-    /// A cottage with a forge's open bay and a tall stack.
     Forge,
-    /// A working shed: a small house and a lean-to on posts.
     Workshop,
-    /// A round tower with a cone roof.
     Tower,
-    /// A slim square turret against the keep, crenellated.
     Turret,
-    /// A tall square tower of roosts.
     Rookery,
-    /// Two towers and an arch over the way through.
     Gatehouse,
     Castle(Castle),
-    /// The King's keep: a great square tower with corner bartizans.
     Keep,
     Windmill,
     Watermill,
-    /// A market stall: a counter under a dark cloth awning.
     Stall,
     Well,
     Lighthouse,
     Chapel,
-    /// A chapel and its cloister.
     Priory,
-    /// A round hall under a cone roof.
     RoundTable,
-    /// A round tower under a dome.
     Observatory,
-    /// A timbered adit in a heap of rock.
     MineMouth,
-    /// A dark, broken keep among rubble.
     DragonKeep,
-    /// A ring of arched walls round a sand floor.
     Colosseum,
-    /// A round tent of cloth.
     Pavilion,
-    /// A tilting post with its arm.
     Quintain,
-    /// The standings board on its posts.
     Board,
-    /// Planted beds in a low hedge.
     Garden,
-    /// The School of Magic: a hall with a spired tower.
     School,
-    /// Labyrinth College: a long hall between towers, a gate tower.
     College,
-    /// The Delve's gate: an arch into a heap of rock.
     DelveGate,
-    /// Tiered stands under an awning before a track.
     Hippodrome,
-    /// A row of arches carrying a water channel.
     Aqueduct,
-    /// A bell tower.
     Belfry,
-    /// A small stone hut under thatch.
     Bothy,
-    /// A broken watchtower and wall stubs.
     Ruins,
-    /// A heap of crags.
     Crag,
-    /// A stepped rock face.
     Cliffs,
-    /// A crag with a great nest on it.
     Eyrie,
-    /// A hut and a dovecote.
     Aviary,
-    /// A hall under a dome.
     Bathhouse,
-    /// A hall with a pillared porch.
     LandOffice,
-    /// A barn and a paddock.
     Ranch,
-    /// A low stable.
     Stable,
-    /// Rows of small fruit trees.
     Orchard,
-    /// Hedge rows in a ring.
     HedgeMaze,
-    /// Log stacks and a saw shed.
     Timberyard,
-    /// Salt pans and a shed.
     Saltworks,
-    /// Upturned boats and net posts.
     Strand,
-    /// A drowned chapel's broken walls.
     SunkenAbbey,
-    /// A stone quay, a crane, crates.
     Quay,
-    /// A raised stone way with posts.
     Causeway,
-    /// A toll hut and its barrier.
     TollBridge,
-    /// Stone piers and a timber gate over a channel.
     Sluice,
-    /// Flower beds in rows, a shed.
     Flowerbeds,
-    /// A dairy hut and hay bales.
     Downs,
-    /// A cairn and flag poles.
     Flags,
-    /// Covered wagons.
     Caravan,
-    /// A workshop and its wheels.
     Wheelwright,
-    /// Archery butts on stands.
     Butts,
-    /// A field of beds and a scarecrow.
     Scarecrow,
-    /// A workshop and arrow racks.
     Fletchery,
-    /// A penned green, a hut, a pond.
     GoosePen,
-    /// Fair booths.
     Fair,
-    /// A players' stage.
     Stage,
-    /// Wash vats, drying lines, a hut.
     Laundry,
-    /// A cottage and kites on poles.
     Kites,
-    /// A ward's hall and its banner.
     Ward,
-    // The run's finds out in the open country (`world::finds`), each a
-    // small piece on its own tile, and the wishes nearest them.
-    /// A wayside shrine: a little stone house on a step, a niche in its front.
     Shrine,
-    /// Standing stones in an arc.
     Stones,
-    /// A cave mouth in a heap of rock.
     Cave,
-    /// Logs crossed under a low fire.
     Campfire,
-    /// A pack and a bedroll against a staff.
     Pack,
-    /// A lean-to of turf on poles, its dark door at the front.
     LeanTo,
-    /// Broken wall stubs among rubble.
     Stubs,
-    /// The Keep as the blank-slate plan has it: a tiny castle just begun
-    /// (`world::plan`): a half-raised tower, wall stubs, scaffolding, a heap
-    /// of stone.
     KeepBegun,
-    /// A house's camp where its castle will be built: two tents, a fire, a
-    /// banner on its pole.
     Camp,
 }
 
 impl Kit {
-    /// What it is, for a painter.
     pub fn what(self) -> &'static str {
         match self {
             Kit::Cottage => "a cottage",
@@ -296,7 +214,6 @@ impl Kit {
         }
     }
 
-    /// Whether it has windows a lamp lights at night.
     pub fn lit(self) -> bool {
         !matches!(
             self,
@@ -347,8 +264,6 @@ impl Kit {
     }
 }
 
-/// Where a piece stands: its footprint `[x0, z0, x1, z1]` in stage pixels,
-/// the side its front is on, and its seed.
 #[derive(Clone, Copy, Debug)]
 pub struct Spot {
     pub foot: [f32; 4],
@@ -356,7 +271,6 @@ pub struct Spot {
     pub seed: u32,
 }
 
-/// The piece `kit` builds on `spot`: its parts, in the world.
 pub fn build(kit: Kit, spot: &Spot) -> Vec<Vec<Solid>> {
     let [x0, z0, x1, z1] = spot.foot;
     let (fw, fd) = (x1 - x0, z1 - z0);
@@ -387,10 +301,6 @@ pub fn build(kit: Kit, spot: &Spot) -> Vec<Vec<Solid>> {
         .collect()
 }
 
-/// A solid turned by `turn` more degrees (a whole number of quarters): a
-/// shape that is the same every quarter turn over its footprint takes it
-/// as its sides swapped; the rest keep it, less the half turns a shape the
-/// same both ways does not show.
 fn orient(solid: &mut Solid, turn: f32) {
     let quarter = ((turn / 90.0).round() as i32).rem_euclid(4);
     let square = matches!(
@@ -408,9 +318,6 @@ fn orient(solid: &mut Solid, turn: f32) {
     solid.turn = if total.abs() < 1e-3 || (half - total).abs() < 1e-3 { 0.0 } else { total };
 }
 
-// ---------------------------------------------------------- the builder ----
-
-/// A piece being built in its own frame.
 struct B {
     w: f32,
     d: f32,
@@ -428,24 +335,20 @@ impl B {
         self.cur.push(s);
     }
 
-    /// End a part: what follows is sized for the camera on its own.
     fn cut(&mut self) {
         if !self.cur.is_empty() {
             self.parts.push(std::mem::take(&mut self.cur));
         }
     }
 
-    /// A number from the seed and `k`.
     fn r(&self, k: u32) -> u32 {
         hash(self.seed as i32, k as i32, 4111)
     }
 
-    /// One of `items`, by the seed and `k`.
     fn pick<T: Copy>(&self, k: u32, items: &[T]) -> T {
         items[self.r(k) as usize % items.len()]
     }
 
-    /// A number in `lo..=hi`, by the seed and `k`.
     fn range(&self, k: u32, lo: f32, hi: f32) -> f32 {
         lo + (self.r(k) % 1000) as f32 / 999.0 * (hi - lo)
     }
@@ -467,13 +370,10 @@ fn sh(shape: Shape, kind: Kind, x: f32, y: f32, z: f32, sx: f32, sy: f32, sz: f3
     Solid::new(shape, kind, [x, y, z], [sx, sy, sz])
 }
 
-/// A seed for a lumpy shape, 1 to 64.
 fn seed16(v: u32) -> u16 {
     (v % 64) as u16 + 1
 }
 
-/// A house: walls, a pitched roof (its ridge along the longer side), a
-/// door and windows on the front, maybe a chimney.
 struct House {
     walls: Kind,
     wall_h: f32,
@@ -516,13 +416,11 @@ fn house(b: &mut B, [x0, z0, x1, z1]: [f32; 4], h: &House) {
     }
 }
 
-/// A plain house of the seed's walls and roof filling `rect`.
 fn cottage_in(b: &mut B, rect: [f32; 4], wall_h: f32, roof_h: f32, windows: u8, chimney: bool) {
     let (walls, roof, hip) = (b.walls(), b.roof(), b.r(3) % 4 == 0);
     house(b, rect, &House { walls, wall_h, roof, roof_h, hip, windows, door: true, chimney });
 }
 
-/// A round tower at `(x, z)`, `r` across its middle, `h` high, under `top`.
 fn tower(b: &mut B, x: f32, z: f32, r: f32, h: f32, walls: Kind, top: Top) {
     b.add(sh(Shape::Cylinder, walls, x, 0.0, z, 2.0 * r, h, 2.0 * r));
     tower_top(b, x, z, r, h, top);
@@ -548,8 +446,6 @@ fn tower_top(b: &mut B, x: f32, z: f32, r: f32, h: f32, top: Top) {
     }
 }
 
-/// Merlons along a wall top from `(x0, z0)` to `(x1, z1)` (one of them
-/// equal), `t` thick, at `y`.
 fn crenels(b: &mut B, (x0, z0): (f32, f32), (x1, z1): (f32, f32), t: f32, y: f32) {
     let along_x = (z1 - z0).abs() < 1e-3;
     let len = if along_x { x1 - x0 } else { z1 - z0 };
@@ -566,8 +462,6 @@ fn crenels(b: &mut B, (x0, z0): (f32, f32), (x1, z1): (f32, f32), t: f32, y: f32
     }
 }
 
-/// A square tower of `walls`, `s` across, `h` high, with a pyramid roof
-/// (`roof`) or crenels (`None`).
 fn square_tower(b: &mut B, x: f32, z: f32, s: f32, h: f32, walls: Kind, roof: Option<Kind>) {
     let hs = s / 2.0;
     b.add(bx(walls, x - hs, z - hs, x + hs, z + hs, 0.0, h));
@@ -580,25 +474,20 @@ fn square_tower(b: &mut B, x: f32, z: f32, s: f32, h: f32, walls: Kind, roof: Op
     }
 }
 
-/// A slim window slot on a front at `z`.
 fn slot(b: &mut B, x: f32, y: f32, z: f32) {
     b.add(sh(Shape::Box, Kind::Window, x, y, z, 2.5, 4.0, 1.0));
 }
 
-/// A tree of an orchard or a yard: a trunk and a round crown.
 fn small_tree(b: &mut B, x: f32, z: f32, s: f32, k: u32) {
     let trunk = s * 0.35;
     b.add(sh(Shape::Cylinder, Kind::Trunk, x, 0.0, z, 2.5, trunk + 2.0, 2.5));
     b.add(sh(Shape::Blob(seed16(b.r(k))), Kind::Foliage, x, trunk, z, s, s * 0.85, s));
 }
 
-/// A wheel standing on edge, facing the front: a disc.
 fn wheel(b: &mut B, x: f32, z: f32, r: f32) {
     b.add(sh(Shape::Sphere, Kind::Wood, x, 0.0, z, 2.0 * r, 2.0 * r, 1.5));
 }
 
-/// A fence of `posts` along a run from `x0` to `x1` at `z` (`along_x`), or
-/// from `z0` to `z1` at `x`.
 fn fence_x(b: &mut B, x0: f32, x1: f32, z: f32, h: f32) {
     let posts = (((x1 - x0) / 8.0).round() as u16).clamp(2, 8);
     b.add(sh(Shape::Fence(posts), Kind::Wood, (x0 + x1) / 2.0, 0.0, z, x1 - x0, h, 2.0));
@@ -609,12 +498,10 @@ fn fence_z(b: &mut B, z0: f32, z1: f32, x: f32, h: f32) {
     b.add(sh(Shape::Fence(posts), Kind::Wood, x, 0.0, (z0 + z1) / 2.0, z1 - z0, h, 2.0).turned(90.0));
 }
 
-/// A heap of `n` rocks over `[x0, z0, x1, z1]`, the tallest `h`.
 fn rock_heap(b: &mut B, [x0, z0, x1, z1]: [f32; 4], h: f32, n: u32, k: u32) {
     let (w, d) = (x1 - x0, z1 - z0);
     for i in 0..n {
         let v = b.r(k + i);
-        // A turned rock's footprint is its corners' reach: keep that inside.
         let s = (0.45 + (v % 7) as f32 * 0.06) * w.min(d) * if i == 0 { 1.0 } else { 0.7 } / 1.35;
         let half = ((s / 2.0).powi(2) + (s * 0.45).powi(2)).sqrt();
         let x = (x0 + half + (v >> 4) as f32 % 997.0 / 997.0 * (w - 2.0 * half).max(0.0)).min(x1 - half);
@@ -623,8 +510,6 @@ fn rock_heap(b: &mut B, [x0, z0, x1, z1]: [f32; 4], h: f32, n: u32, k: u32) {
         b.add(sh(Shape::Rock(seed16(v >> 3)), Kind::Rock, x, 0.0, z, s, rh, s * 0.9).turned(((v >> 9) % 360) as f32));
     }
 }
-
-// ----------------------------------------------------------- the pieces ----
 
 fn piece(kit: Kit, b: &mut B) {
     let (w, d) = (b.w, b.d);
@@ -669,14 +554,12 @@ fn piece(kit: Kit, b: &mut B) {
             let split = if w >= 40.0 { w * 0.58 } else { w * 0.62 };
             let wall_h = 13.0;
             cottage_in(b, [2.0, d - dd + 2.0, split, d - 2.0], wall_h, 10.0, 1, false);
-            // The open bay: a lean-to on posts, its back on the house's side.
             let (x0, x1, z0, z1) = (split, w - 2.0, d - dd + 3.0, d - 2.0);
             for (x, z) in [(x1 - 1.0, z1 - 1.0), (x1 - 1.0, z0 + 1.0)] {
                 b.add(sh(Shape::Box, Kind::Wood, x, 0.0, z, 2.0, wall_h - 2.0, 2.0));
             }
             b.add(sh(Shape::Wedge, b.roof(), (x0 + x1) / 2.0, wall_h - 2.0, (z0 + z1) / 2.0, z1 - z0 + 2.0, 4.0, x1 - x0 + 1.0).turned(90.0));
             if kit == Kit::Forge {
-                // The stack and a hearth block under the bay.
                 b.add(bx(Kind::Brick, split - 6.0, d - dd + 4.0, split - 1.0, d - dd + 9.0, 0.0, wall_h + 13.0));
                 b.add(bx(Kind::Stone, x0 + 2.0, z0 + 4.0, x0 + 9.0, z0 + 10.0, 0.0, 5.0));
             } else {
@@ -709,9 +592,6 @@ fn piece(kit: Kit, b: &mut B) {
             slot(b, w / 2.0, 28.0, z + s / 2.0 + 0.25);
         }
         Kit::Gatehouse => {
-            // Two slender round towers at the front, the gate's arch in the
-            // wall between them; each its own part, so the camera keeps the
-            // towers tall where the wall must stay low.
             let r = (w / 6.0).clamp(3.5, 6.0);
             let z = d - r - 1.0;
             for x in [r + 1.0, w - r - 1.0] {
@@ -726,9 +606,6 @@ fn piece(kit: Kit, b: &mut B) {
         }
         Kit::Castle(c) => castle(b, c),
         Kit::Keep => {
-            // The great block with its windows and merlons; its corner
-            // towers and its door each their own part (they stand beside
-            // it, not on it), so the camera sizes each alone.
             let (x0, z0, x1, z1) = (4.0, 4.0_f32.min(d - 12.0), w - 4.0, d - 3.0);
             b.add(bx(Kind::Stone, x0, z0, x1, z1, 0.0, 40.0));
             crenels(b, (x0, z1 - 0.75), (x1, z1 - 0.75), 1.5, 40.0);
@@ -752,7 +629,6 @@ fn piece(kit: Kit, b: &mut B) {
             b.add(sh(Shape::Cone, b.pick(10, &[Kind::Thatch, Kind::Slate, Kind::Roof]), x, 30.0, z, 1.35 * r, 8.0, 1.35 * r));
             b.add(sh(Shape::Box, Kind::Door, x, 0.0, z + r - 0.25, 5.0, 9.0, 1.0));
             slot(b, x, 18.0, z + r * 0.8);
-            // The sails: a cross on its hub at the front, cloth on the frames.
             let (hub, zs) = (27.0, z + r * 0.62 + 1.0);
             let arm = 13.0;
             b.add(sh(Shape::Box, Kind::Wood, x, hub - 1.0, zs, 2.0 * arm, 2.0, 1.0));
@@ -767,7 +643,6 @@ fn piece(kit: Kit, b: &mut B) {
             let dd = d.min(28.0);
             let x1 = w * 0.62;
             cottage_in(b, [2.0, d - dd + 2.0, x1, d - 2.0], 14.0, 11.0, 2, true);
-            // The race beside it and its wheel on edge.
             b.add(bx(Kind::Water, x1 + 1.0, d - dd + 2.0, w - 2.0, d - 2.0, -2.0, 2.5));
             b.add(bx(Kind::Stone, x1 + 1.0, d - dd + 2.0, w - 2.0, d - dd + 4.0, 0.0, 4.0));
             b.cut();
@@ -775,7 +650,6 @@ fn piece(kit: Kit, b: &mut B) {
             b.add(sh(Shape::Sphere, Kind::Wood, (x1 + w) / 2.0, -2.0, d - 3.5, 2.0 * r, 2.0 * r, 2.5));
         }
         Kit::Stall => {
-            // One stall to a tile along the longer side.
             let n = ((w.max(d)) / 16.0).round().max(1.0) as usize;
             for i in 0..n {
                 let x0 = 1.5 + i as f32 * (w - 3.0) / n as f32;
@@ -812,7 +686,6 @@ fn piece(kit: Kit, b: &mut B) {
             let x1 = (w * 0.55).max(26.0);
             chapel(b, [2.0, (d - 32.0).max(2.0), x1, d - 2.0]);
             b.cut();
-            // The cloister: a low arcade round a garth.
             let (cx0, cz0, cx1, cz1) = (x1 + 2.0, (d - 26.0).max(2.0), w - 2.0, d - 2.0);
             b.add(bx(Kind::Stone, cx0, cz0, cx1, cz0 + 3.0, 0.0, 8.0));
             b.add(bx(Kind::Stone, cx1 - 3.0, cz0, cx1, cz1, 0.0, 8.0));
@@ -934,8 +807,6 @@ fn piece(kit: Kit, b: &mut B) {
             slot(b, w / 2.0, 24.0, z1 + 1.25);
         }
         Kit::DelveGate => {
-            // A rock face with the gate's arch in it, the door dark inside,
-            // a pillar either side; a heap of rock behind where there is room.
             let x = w / 2.0;
             let face = (d - 1.0).min(14.0);
             if d >= 30.0 {
@@ -952,8 +823,6 @@ fn piece(kit: Kit, b: &mut B) {
             }
         }
         Kit::Hippodrome => {
-            // Tiers at the back, facing the front, under an awning; the
-            // track's rail before them.
             let (z0, z1) = (3.0, (d * 0.55).max(16.0));
             b.add(sh(Shape::Stairs, Kind::Wood, w / 2.0, 0.0, (z0 + z1) / 2.0, w - 4.0, 12.0, z1 - z0).turned(180.0));
             b.add(bx(Kind::Wood, 2.0, z0 - 1.0, w - 2.0, z0 + 1.0, 0.0, 22.0));
@@ -1020,7 +889,6 @@ fn piece(kit: Kit, b: &mut B) {
         }
         Kit::Crag | Kit::Cliffs | Kit::Eyrie => {
             if kit == Kit::Cliffs {
-                // A face in two steps, lumped along its tops, scree before it.
                 b.add(bx(Kind::Rock, 2.0, 2.0, w - 2.0, d * 0.5, 0.0, 18.0));
                 b.add(bx(Kind::Rock, 2.0, d * 0.5, w - 2.0, d - 8.0, 0.0, 9.0));
                 let n = ((w - 4.0) / 12.0).floor().max(2.0) as usize;
@@ -1068,7 +936,6 @@ fn piece(kit: Kit, b: &mut B) {
             let dd = d.min(32.0);
             let (x0, z0, x1, z1) = (2.0, d - dd + 2.0, w - 2.0, d - 8.0);
             house(b, [x0, z0, x1, z1], &House { walls: Kind::Stone, wall_h: 16.0, roof: Kind::Slate, roof_h: 11.0, hip: true, windows: 4, door: true, chimney: true });
-            // The porch: a pediment on columns.
             let (px0, px1) = (w / 2.0 - 10.0, w / 2.0 + 10.0);
             for x in [px0 + 1.5, px0 + 7.5, px1 - 7.5, px1 - 1.5] {
                 b.add(sh(Shape::Cylinder, Kind::Stone, x, 0.0, d - 3.5, 2.5, 14.0, 2.5));
@@ -1324,7 +1191,6 @@ fn piece(kit: Kit, b: &mut B) {
             b.add(bx(Kind::Plaster, w * 0.72, d - 22.4, w - 5.0, d - 21.6, 8.0, 5.0));
         }
         Kit::Shrine => {
-            // A find's is 14 across; a wish's wider lot builds it bigger.
             let k = ((w - 2.0) / 14.0).clamp(0.6, 1.6);
             let (cx, z1) = (w / 2.0, d - 1.0);
             let (hw, deep) = (7.0 * k, (8.0 * k).min(d - 2.0));
@@ -1336,7 +1202,6 @@ fn piece(kit: Kit, b: &mut B) {
             b.add(sh(Shape::Box, Kind::Door, cx, 1.5, zf + 0.25, 3.5 * k, 5.0 * k, 1.0));
         }
         Kit::Stones => {
-            // Five stones in an arc opening to the front, the tallest at its back.
             let k = ((w - 6.0) / 34.0).clamp(0.0, 1.0);
             for (dx, dz, h) in [(-17.0, 0.0, 11.0), (-9.0, -4.0, 14.0), (0.0, -6.0, 15.0), (9.0, -4.0, 13.0), (17.0, 0.0, 10.0)] {
                 let (x, z) = (w / 2.0 + dx * k, (d - 2.5 + dz * k).max(2.0));
@@ -1345,7 +1210,6 @@ fn piece(kit: Kit, b: &mut B) {
             }
         }
         Kit::Cave => {
-            // A mound of rock, its dark mouth in its front.
             b.add(sh(Shape::Rock(seed16(b.r(80))), Kind::Rock, w / 2.0, 0.0, d / 2.0, w - 2.0, 11.0, d - 2.0));
             b.add(sh(Shape::Box, Kind::Door, w / 2.0, 0.0, d - 2.0, (w * 0.45).min(11.0), 6.5, 2.0));
         }
@@ -1367,7 +1231,6 @@ fn piece(kit: Kit, b: &mut B) {
         }
         Kit::LeanTo => {
             let (x0, x1, z0, z1) = (1.0, w - 1.0, (d - 11.0).max(1.0), d - 1.0);
-            // High at the front, sloping down to the ground behind.
             b.add(sh(Shape::Wedge, Kind::Thatch, (x0 + x1) / 2.0, 0.0, (z0 + z1) / 2.0, x1 - x0, 10.0, z1 - z0).turned(180.0));
             b.add(sh(Shape::Box, Kind::Door, (x0 + x1) / 2.0, 0.0, z1 + 0.25, (x1 - x0) * 0.45, 6.5, 1.0));
             for x in [x0 + 0.75, x1 - 0.75] {
@@ -1387,9 +1250,6 @@ fn piece(kit: Kit, b: &mut B) {
             rock_heap(b, [2.0, (d - 4.0).max(1.0), w - 2.0, d - 0.5], 3.0, 3, 90);
         }
         Kit::KeepBegun => {
-            // A foundation course, a half-raised tower at the back with a
-            // stump beside it, stubs of wall across the front with the
-            // gate's gap between them, a heap of stone.
             b.add(bx(Kind::Stone, 1.0, 1.0, w - 1.0, d - 1.0, 0.0, 2.5));
             let t = (w * 0.27).min(34.0);
             b.add(bx(Kind::Stone, 8.0, 6.0, 8.0 + t, 6.0 + t, 2.5, 46.0));
@@ -1430,7 +1290,6 @@ fn piece(kit: Kit, b: &mut B) {
     }
 }
 
-/// A market stall over `[x0, z0, x1, z1]`, its counter at the front.
 fn stall(b: &mut B, [x0, z0, x1, z1]: [f32; 4], k: u32) {
     b.add(bx(Kind::Wood, x0 + 0.5, z1 - 4.0, x1 - 0.5, z1 - 0.5, 0.0, 5.0));
     b.add(bx(b.pick(20 + k, &[Kind::Crop, Kind::Cloth, Kind::Wood, Kind::Metal]), x0 + 1.5, z1 - 3.5, x1 - 1.5, z1 - 1.0, 5.0, 1.5));
@@ -1442,8 +1301,6 @@ fn stall(b: &mut B, [x0, z0, x1, z1]: [f32; 4], k: u32) {
     b.add(sh(Shape::Wedge, Kind::Cloth, (x0 + x1) / 2.0, 11.0, (z0 + z1) / 2.0, x1 - x0 + 1.0, 3.5, z1 - z0 + 1.0));
 }
 
-/// A chapel over `rect`: a nave with its gable to the front, a tower at the
-/// front with a spire, lancets down its side.
 fn chapel(b: &mut B, [x0, z0, x1, z1]: [f32; 4]) {
     let walls = b.pick(14, &[Kind::Stone, Kind::Stone, Kind::Plaster]);
     let roof = b.pick(15, &[Kind::Slate, Kind::Slate, Kind::Roof]);
@@ -1464,14 +1321,11 @@ fn chapel(b: &mut B, [x0, z0, x1, z1]: [f32; 4]) {
     slot(b, tx, 18.0, tz + t / 2.0 + 0.25);
 }
 
-/// A castle of the March over the piece: a curtain wall, towers at its
-/// corners, the keep at its back, the gate in its front.
 fn castle(b: &mut B, c: Castle) {
     let (w, d) = (b.w, b.d);
     let (x0, z0, x1, z1) = (4.0, 4.0, w - 4.0, d - 3.5);
     let t = 3.0;
     let wall_h = 14.0;
-    // The keep first: it stands at the back, over the walls.
     let kw = ((x1 - x0) * 0.45).min(20.0);
     let (kx, kz) = ((x0 + x1) / 2.0, z0 + 7.0);
     b.add(bx(c.walls, kx - kw / 2.0, z0 + 1.0, kx + kw / 2.0, z0 + 13.0, 0.0, 28.0));
@@ -1482,7 +1336,6 @@ fn castle(b: &mut B, c: Castle) {
     }
     slot(b, kx, 20.0, z0 + 13.25);
     b.cut();
-    // The curtain wall.
     b.add(bx(c.walls, x0, z0, x1, z0 + t, 0.0, wall_h));
     b.add(bx(c.walls, x0, z0 + t, x0 + t, z1, 0.0, wall_h));
     b.add(bx(c.walls, x1 - t, z0 + t, x1, z1, 0.0, wall_h));
@@ -1492,11 +1345,9 @@ fn castle(b: &mut B, c: Castle) {
     b.add(bx(c.walls, gx1, z1 - t, x1 - t, z1, 0.0, wall_h));
     crenels(b, (x0 + t, z1 - 0.75), (gx0, z1 - 0.75), 1.5, wall_h);
     crenels(b, (gx1, z1 - 0.75), (x1 - t, z1 - 0.75), 1.5, wall_h);
-    // The gate: an arch in a block a little taller than the wall.
     b.add(sh(Shape::Arch, c.walls, (gx0 + gx1) / 2.0, 0.0, z1 - t / 2.0, gate, wall_h + 4.0, t + 1.0));
     b.add(sh(Shape::Box, Kind::Door, (gx0 + gx1) / 2.0, 0.0, z1 - t / 2.0, gate * 0.6 - 0.5, (wall_h + 4.0) * 0.8 - 0.5, t * 0.5));
     b.cut();
-    // The towers, the front pair always, the back pair for four.
     let r = 4.5;
     let mut corners = vec![(x0 + r - 1.0, z1 - r + 1.0), (x1 - r + 1.0, z1 - r + 1.0)];
     if c.towers >= 4 {
@@ -1509,8 +1360,6 @@ fn castle(b: &mut B, c: Castle) {
     }
 }
 
-/// The arena: a ring of arched wall round a sand floor, tiers inside it,
-/// its gate at the front.
 fn colosseum(b: &mut B) {
     let (w, d) = (b.w, b.d);
     let (cx, cz) = (w / 2.0, d / 2.0);
@@ -1524,16 +1373,13 @@ fn colosseum(b: &mut B) {
         let a = (k as f32 + 0.5) / n as f32 * std::f32::consts::TAU;
         let (s, c) = a.sin_cos();
         let (x, z) = (cx + rx * c, cz + rz * s);
-        // The segment's length: the ring's step there.
         let a2 = (k as f32 + 1.5) / n as f32 * std::f32::consts::TAU;
         let (s2, c2) = a2.sin_cos();
         let len = ((rx * (c2 - c)).powi(2) + (rz * (s2 - s)).powi(2)).sqrt() + 0.8;
-        // Tangent's direction, as a turn: the segment's x along it.
         let (tx, tz) = (-rx * s, rz * c);
         let turn = (-tz).atan2(tx).to_degrees();
         let front = s > 0.95;
         if front {
-            // The gate.
             b.add(sh(Shape::Arch, Kind::Stone, x, 0.0, z - 1.0, len + 4.0, 30.0, 6.0));
             b.add(sh(Shape::Box, Kind::Door, x, 0.0, z - 1.0, (len + 4.0) * 0.6 - 0.5, 23.5, 2.0));
         } else {
@@ -1555,7 +1401,6 @@ pub(crate) mod tests {
                 Kit::Stall | Kit::Turret | Kit::Rookery => &[(16.0, 32.0), (16.0, 48.0), (32.0, 16.0)],
                 Kit::Colosseum => &[(160.0, 96.0)],
                 Kit::Board | Kit::Garden | Kit::Stable | Kit::Gatehouse | Kit::DelveGate => &[(48.0, 16.0), (32.0, 16.0), (32.0, 32.0), (48.0, 48.0)],
-                // A find on its tile, as `world3d::lots` stands it; a wish's lot.
                 Kit::Shrine => &[(16.0, 12.0), (32.0, 16.0), (32.0, 32.0)],
                 Kit::Stones => &[(40.0, 12.0)],
                 Kit::Cave => &[(24.0, 14.0)],
@@ -1589,7 +1434,6 @@ pub(crate) mod tests {
         }
     }
 
-    /// Every kit, a castle of each top.
     pub fn all() -> Vec<Kit> {
         let mut kits = vec![
             Kit::Cottage, Kit::Barn, Kit::Hall, Kit::Forge, Kit::Workshop, Kit::Tower, Kit::Turret, Kit::Rookery,

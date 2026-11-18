@@ -11,12 +11,8 @@ use std::collections::BTreeSet;
 pub(crate) struct Memory {
     route: Option<String>,
     used: BTreeSet<String>,
-    /// Digest of the exact catalog snapshot used by this conversation. A
-    /// missing field is the legacy session format.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     catalog_digest: Option<String>,
-    /// A restored conversation predating generation binding. Its first new
-    /// request must use the embedded baseline, not a later edited chapter.
     #[serde(default, skip_serializing_if = "is_false")]
     catalog_legacy: bool,
 }
@@ -25,7 +21,6 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
-/// Read the newest retained book-generation binding from a conversation.
 pub(crate) fn generation_digest(history: &[ChatMsg]) -> Option<&str> {
     history
         .iter()
@@ -42,8 +37,6 @@ pub(crate) fn is_legacy(history: &[ChatMsg]) -> bool {
     })
 }
 
-/// Mark a restored legacy conversation without touching disk. Empty or
-/// system-only histories have no earlier exchange whose book must be pinned.
 pub(crate) fn mark_legacy(history: &mut [ChatMsg]) {
     if generation_digest(history).is_some() || is_legacy(history) {
         return;
@@ -69,8 +62,6 @@ pub(crate) fn mark_legacy(history: &mut [ChatMsg]) {
     }
 }
 
-/// Attach an already-published generation to a message that survives bootstrap
-/// refresh on resume. A conversation cannot silently change generations.
 pub(crate) fn bind_generation(history: &mut [ChatMsg], digest: &str) -> Result<(), String> {
     if digest.len() != 64
         || !digest
@@ -125,8 +116,6 @@ pub(crate) fn bind_generation(history: &mut [ChatMsg], digest: &str) -> Result<(
     Ok(())
 }
 
-/// Preserve the discarded window's inventory even when compaction runs between
-/// turns. Include stamps added after its last provider checkpoint.
 pub(crate) fn compaction_memory(history: &[ChatMsg]) -> Option<std::sync::Arc<Memory>> {
     let state = Continuity::new(history);
     (!state.used.is_empty()
@@ -188,8 +177,6 @@ impl Continuity {
                 .zip(self.tail.as_ref())
                 .is_some_and(|(message, tail)| std::sync::Arc::ptr_eq(&message.content, tail));
         for message in &history[if intact { self.seen } else { 0 }..] {
-            // Standing profiles already have a stable legend in the system
-            // prefix. Carry only signals actually encountered during the run.
             if !matches!(message.role, ChatRole::Tool | ChatRole::Harness) {
                 continue;
             }
@@ -210,8 +197,6 @@ impl Continuity {
         self.tail = history.last().map(|m| m.content.clone());
     }
 
-    /// Called at the final request boundary, including provider overflow
-    /// retries. It neither requests a model nor changes the selected route.
     pub(crate) fn prepare(&mut self, history: &mut Vec<ChatMsg>, route: &RouteIdentity) -> bool {
         self.observe(history);
         let key = crate::knowledge::cut::sha256_hex(

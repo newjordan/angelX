@@ -28,46 +28,32 @@ use crate::rules::Run;
 use crate::rules::hillside::{self as build, Ghost, Tool, Verdict};
 use crate::world::hillside::{self as hill, HillView};
 
-/// The first id of the works' nodes, clear of the chunks', the lots' and the Keep's.
 pub const IDS: u64 = 0x7D00_0000_0000;
 
-/// A building's footprint in kingdom pixels and what it is, for the look's material zones.
 #[derive(Clone, Debug)]
 pub struct Footprint {
-    /// `[x0, z0, x1, z1]`.
     pub rect: [f32; 4],
     pub plan: String,
 }
 
-/// What the works stand as this frame: meshes (`hill_mesh`: a building, a carrier or a chunk of road
-/// each one draw, not forty), and the ghost's nodes.
 #[derive(Debug, Default)]
 pub struct HillNodes {
-    /// The buildings, roads, lines and what runs on them, baked.
     pub parts: Vec<HillPart>,
     pub lamps: Vec<SetLamp>,
     pub footprints: Vec<Footprint>,
-    /// The ghost, apart (it changes every tick, the works once a second).
     pub ghost: Vec<Node>,
     pub bounds: ([f32; 3], [f32; 3]),
 }
 
-/// How much brighter what moves is drawn than the same kind standing still: a cart on its road is a
-/// small dark thing in a dim world, and the look puts a tone on a ramp of eight, so a carrier's
-/// tones are lifted (a wagon's iron and timber, an ox's hide) to stand off the ground it runs on.
 const CARRIER_SCALE: f32 = 1.25;
 
-/// How many carriers a works may have on its roads and lines before they are drawn in few blocks.
 pub const MANY_CARRIERS: usize = 12;
 
-/// A chunk of the kingdom in tiles (`world3d::kingdom::STAGE`: 384 by 256 pixels).
 const CHUNK_TILES: (i32, i32) = (24, 16);
 
-/// A barge's hull, pixels: its length and its beam.
 const BARGE_LENGTH: f32 = 72.0;
 const BARGE_BEAM: f32 = 16.0;
 
-/// How many of the roads about the Keep the look dyes, and how far (tiles) from its ground a road is about it.
 pub const ROAD_RUNS: usize = 6;
 pub const KEEP_REACH: i16 = 14;
 
@@ -75,7 +61,6 @@ fn lifted(t: f32) -> f32 {
     (t * 1.55 + 0.04).min(0.95)
 }
 
-/// A solid as a node, tone and role as the realm draws its blocks (`lots::Share::lit`).
 fn node_of(s: &Solid, alpha: Option<f32>) -> Option<Node> {
     node_with(s, alpha, |t| t)
 }
@@ -115,22 +100,16 @@ fn kept<K: std::hash::Hash + Eq>(memory: &'static Cache<K>, key: K, make: impl F
     made
 }
 
-/// A building's baked pieces, in its own frame (its footprint's corner the origin), and the lamps it
-/// lights there.
 struct Built {
     baked: Vec<Arc<Baked>>,
     lamps: Vec<SetLamp>,
 }
 
-/// The kit's piece for `art` in `state` at `step`, stood on a footprint of `tiles` (across, deep) facing
-/// south, baked once and shared by every building of its plan and size.
 fn building(art: &str, state: State, step: u32, tiles: (i16, i16), face: Face) -> Arc<Built> {
     static MADE: OnceLock<Mutex<HashMap<(String, State, u32, (i16, i16), u8), Arc<Built>>>> = OnceLock::new();
     let step = if state.frames() > 1 { step % state.frames() } else { 0 };
-    // Only a swape has a front to turn: every other building is made facing south and shared as that.
     let face = if art == "swape" { face } else { Face::South };
     let key = (art.to_string(), state, step, tiles, face as u8);
-    // Made with the cache held, so two seats asking at once make one mesh and not two.
     let mut memory = MADE.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
     if let Some(hit) = memory.get(&key) {
         return hit.clone();
@@ -150,7 +129,6 @@ fn building(art: &str, state: State, step: u32, tiles: (i16, i16), face: Face) -
     made
 }
 
-/// A works on fire over a footprint of `tiles`, baked once and shared.
 fn blazing(tiles: (i16, i16), step: u32) -> Arc<Built> {
     static MADE: OnceLock<Mutex<HashMap<((i16, i16), u32), Arc<Built>>>> = OnceLock::new();
     let step = step % flat::FRAMES;
@@ -165,16 +143,11 @@ fn blazing(tiles: (i16, i16), step: u32) -> Arc<Built> {
     made
 }
 
-/// How far below the walked ground the water stands at a point, for what floats: the river's
-/// surface is lowered into its banks (`realm_ground::WATER_Y`), so a barge's lane and a barge
-/// are set down to it and not left standing over the river on the bank's level.
 fn water_drop(x: f32, z: f32) -> f32 {
     use super::realm_ground::{WATER_Y, terrain};
     if terrain().height_at(x, z) < -1.0 { WATER_Y + 0.2 } else { 0.0 }
 }
 
-/// One tile of road or track as the lines lay it: what it is, which sides it joins, a tower, and how
-/// far along a ropeway's span it is (the cable sags between towers).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct Laid {
     kind: LineKind,
@@ -182,20 +155,15 @@ struct Laid {
     post: bool,
     span: u32,
     tile: (i16, i16),
-    /// What the rails add to a tile of track (`rail_extra`): a switch, its throw, a bay; none for the rest.
     extra: u32,
 }
 
-/// A rail tile's switch, the way it is thrown, and its bay (side, held, the board's mark), as one number
-/// for the chunk's hash: bit 0 a switch, bits 1 to 3 the throw (none, or the way plus one), bit 4 a bay,
-/// bits 5 and 6 its side, bit 7 whether a wagon is working it, bits 8 to 10 its mark.
 fn rail_extra(r: &hill::RailTile) -> u32 {
     let mut e = 0u32;
     if r.switch {
         e |= 1 | (r.throw.map_or(0, |d| u32::from(d) + 1) << 1);
     }
     if let Some(b) = &r.bay {
-        // The mark on the board is the name's: a few bits of it, so two bays on a line read apart.
         let tag = b.name.bytes().fold(5u32, |h, c| h.wrapping_mul(31).wrapping_add(u32::from(c))) & 7;
         e |= (1 << 4) | (u32::from(b.side) << 5) | (u32::from(b.held) << 7) | (tag << 8);
     }
@@ -208,9 +176,6 @@ fn rail_solids(extra: u32) -> Vec<Solid> {
     belts::rail_extras(extra & 1 == 1, throw, bay)
 }
 
-/// The tiles of the roads and lines in one chunk of the kingdom, baked into meshes in the world,
-/// kept for as long as the tiles are what they were: a barge's lane has its ripples, one step in
-/// eight; nothing else moves.
 fn chunk_of_tiles(chunk: (i32, i32), tiles: &[Laid], step: u32) -> Arc<Vec<Arc<Baked>>> {
     use std::hash::{Hash, Hasher};
     static MADE: OnceLock<Mutex<HashMap<((i32, i32), u64), Arc<Vec<Arc<Baked>>>>>> = OnceLock::new();
@@ -249,8 +214,6 @@ fn chunk_of_tiles(chunk: (i32, i32), tiles: &[Laid], step: u32) -> Arc<Vec<Arc<B
     made
 }
 
-/// One tile of rollerway as the chunk bakes it: what it is, the way it faces, whether its rollers are
-/// turning (and at which of their four steps) and whether its hand-chain has the labourer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct BeltTile {
     tile: (i16, i16),
@@ -260,8 +223,6 @@ struct BeltTile {
     crewed: bool,
 }
 
-/// The rollerways' tiles in one chunk of the kingdom, baked, for as long as they are what they were: a
-/// line that is streaming has four of these a chunk (the rollers' steps), a stood one has one.
 fn chunk_of_belts(chunk: (i32, i32), tiles: &[BeltTile]) -> Arc<Vec<Arc<Baked>>> {
     use std::hash::{Hash, Hasher};
     static MADE: OnceLock<Mutex<HashMap<((i32, i32), u64), Arc<Vec<Arc<Baked>>>>>> = OnceLock::new();
@@ -289,32 +250,23 @@ fn chunk_of_belts(chunk: (i32, i32), tiles: &[BeltTile]) -> Arc<Vec<Arc<Baked>>>
     made
 }
 
-/// A good on the line, baked once per `(good, which way it lies)` and lifted as the carriers are, so it
-/// stands off the rollers it rides.
 fn good_baked(load: flat::Load, along_x: bool) -> Arc<Vec<Arc<Baked>>> {
     static MADE: OnceLock<Mutex<HashMap<(flat::Load, bool), Arc<Vec<Arc<Baked>>>>>> = OnceLock::new();
     let mut memory = MADE.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
     memory.entry((load, along_x)).or_insert_with(|| Arc::new(hill_mesh::bake(&belts::good(load, along_x), [0.0; 3], lifted))).clone()
 }
 
-/// A beacon (a jam's red one, a held wagon's amber), lit or dark, baked once.
 fn beacon_baked(amber: bool, on: bool) -> Arc<Vec<Arc<Baked>>> {
     static MADE: OnceLock<Mutex<HashMap<(bool, bool), Arc<Vec<Arc<Baked>>>>>> = OnceLock::new();
     let mut memory = MADE.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
     memory.entry((amber, on)).or_insert_with(|| Arc::new(hill_mesh::bake(&belts::beacon(amber, on), [0.0; 3], |t| t))).clone()
 }
 
-/// How many goods a view of the works draws one by one; a longer stream is drawn by its lead good on each
-/// tile (a line of five hundred tiles full is a thousand and a half draws otherwise).
 pub const GOODS_SOLO: usize = 240;
-/// The most goods a view draws at all.
 pub const GOODS_MOST: usize = 600;
 
-/// Where a good in slot `slot` of a lane running `dir` stands on its tile, the tile's own frame, and how
-/// high its bed carries it.
 fn good_place(b: &hill::Belt, lane: u8, slot: usize, back: f32, raised: bool) -> Option<(f32, f32, f32)> {
     let (px, pz) = kroll::slot_at(lane, slot, back);
-    // The first slot's good is still coming in from the tile behind: it is not drawn before this tile's edge.
     let along = if matches!(lane % 4, 1 | 3) { if lane % 4 == 1 { px } else { 16.0 - px } } else if lane % 4 == 2 { pz } else { 16.0 - pz };
     if along < 1.0 {
         return None;
@@ -324,15 +276,12 @@ fn good_place(b: &hill::Belt, lane: u8, slot: usize, back: f32, raised: bool) ->
         Piece::Trestle if raised => belts::TRESTLE_RISE + belts::ROLLER_TOP,
         _ => belts::ROLLER_TOP,
     };
-    // A house hides its middle slot.
     if matches!(b.piece, Piece::Splitter | Piece::Merge | Piece::Gate) && slot == 1 {
         return None;
     }
     Some((px, y, pz))
 }
 
-/// The tiles `[x0, z0, x1, z1]` of a set, as the straight runs of them (a maximal stretch along a row and
-/// along a column), the longest first and at most `most`: where the look dyes its ramp.
 fn tile_runs(set: &std::collections::BTreeSet<(i16, i16)>, most: usize) -> Vec<[i16; 4]> {
     let mut runs: Vec<[i16; 4]> = Vec::new();
     let mut lone: std::collections::BTreeSet<(i16, i16)> = set.clone();
@@ -369,15 +318,10 @@ fn tile_runs(set: &std::collections::BTreeSet<(i16, i16)>, most: usize) -> Vec<[
     runs
 }
 
-/// A carrier's solids, centred on the ground point `(0, 0)` heading `dir`: the kit's (built
-/// heading east from the rear), centred on what they cover so a rider's place is where the carrier
-/// is, not where its rear is, and a cart, wagon or sled a quarter bigger than its tile's measure so it
-/// reads from the stand-back camera (the cable and the water fix the others' size).
 fn carrier_solids(kind: LineKind, dir: flat::lines::Dir, load: Option<flat::Load>, step: u32, near: bool) -> Vec<Solid> {
     let solids = works_kit::vehicle_solids_lod(kind, dir, load, step, near);
     let (mut lo, mut hi) = ([f32::MAX; 2], [f32::MIN; 2]);
     for s in solids.iter() {
-        // Half of a solid's reach in each way, before any turn: enough to find the middle.
         let reach = s.size[0].max(s.size[2]) / 2.0;
         for (axis, at) in [(0, s.at[0]), (1, s.at[2])] {
             lo[axis] = lo[axis].min(at - reach);
@@ -397,16 +341,12 @@ fn carrier_solids(kind: LineKind, dir: flat::lines::Dir, load: Option<flat::Load
         .collect()
 }
 
-/// A carrier's nodes, as [`carrier_solids`] has it: made once per `(kind, dir, load, step, near)` and
-/// shared. (The Keep's yard has its carts as nodes of its own: `works_yard`.)
 pub(super) fn vehicle_nodes(kind: LineKind, dir: flat::lines::Dir, load: Option<flat::Load>, step: u32, near: bool) -> Arc<Vec<Node>> {
     static MADE: Cache<(LineKind, flat::lines::Dir, Option<flat::Load>, u32, bool)> = OnceLock::new();
     let step = step % flat::FRAMES;
     kept(&MADE, (kind, dir, load, step, near), || carrier_solids(kind, dir, load, step, near).iter().filter_map(|s| node_with(s, None, lifted)).collect())
 }
 
-/// A carrier baked: one mesh (and a second for what shines), made once per `(kind, dir, load, step,
-/// near)` and shared by every carrier that looks so.
 fn vehicle(kind: LineKind, dir: flat::lines::Dir, load: Option<flat::Load>, step: u32, near: bool) -> Arc<Vec<Arc<Baked>>> {
     type Key = (LineKind, flat::lines::Dir, Option<flat::Load>, u32, bool);
     static MADE: OnceLock<Mutex<HashMap<Key, Arc<Vec<Arc<Baked>>>>>> = OnceLock::new();
@@ -423,8 +363,6 @@ fn vehicle(kind: LineKind, dir: flat::lines::Dir, load: Option<flat::Load>, step
     made
 }
 
-/// A rectangle of tiles' ground in kingdom pixels, as a flat plate of an accent
-/// and four corner posts.
 fn plate(rect: (i16, i16, i16, i16), colour: [f32; 3]) -> Vec<Node> {
     let (x0, z0) = (f32::from(rect.0) * 16.0, f32::from(rect.1) * 16.0);
     let (x1, z1) = ((f32::from(rect.2) + 1.0) * 16.0, (f32::from(rect.3) + 1.0) * 16.0);
@@ -434,7 +372,6 @@ fn plate(rect: (i16, i16, i16, i16), colour: [f32; 3]) -> Vec<Node> {
         n.transform = Transform { translation: c, scale: size, ..Transform::IDENTITY };
         out.push(n);
     };
-    // The frame of the footprint, flat on the ground, and a post at each corner.
     cube([(x0 + x1) / 2.0, 0.5, z0 + 0.6], [x1 - x0, 1.0, 1.2]);
     cube([(x0 + x1) / 2.0, 0.5, z1 - 0.6], [x1 - x0, 1.0, 1.2]);
     cube([x0 + 0.6, 0.5, (z0 + z1) / 2.0], [1.2, 1.0, z1 - z0]);
@@ -445,7 +382,6 @@ fn plate(rect: (i16, i16, i16, i16), colour: [f32; 3]) -> Vec<Node> {
     out
 }
 
-/// What a verdict's accent is: a pale teal where it fits, amber where the camp is short, ember where the land refuses.
 fn verdict_colour(v: Verdict) -> [f32; 3] {
     match v {
         Verdict::Fits => [0.85, 0.84, 0.72],
@@ -454,8 +390,6 @@ fn verdict_colour(v: Verdict) -> [f32; 3] {
     }
 }
 
-/// The works as meshes for a view `[x0, z0, x1, z1]` of the kingdom's pixels (a margin of a few tiles
-/// is kept round it), and the ghost of `focus`'s builder; `None` off the hillside.
 pub fn of(run: &Run, view: [f32; 4], focus: Option<u32>) -> Option<HillNodes> {
     let hv: Arc<HillView> = hill::of(run)?;
     let step = hill::frame(run);
@@ -486,7 +420,6 @@ pub fn of(run: &Run, view: [f32; 4], focus: Option<u32>) -> Option<HillNodes> {
         out.lamps.extend(piece.lamps.iter().map(|l| SetLamp { at: [l.at[0] + at[0], l.at[1], l.at[2] + at[2]], ..*l }));
         out.footprints.push(Footprint { rect: foot(b.rect), plan: b.plan.clone() });
         grow(&mut out, b.rect, 48.0);
-        // A works the Deep has set alight burns over its roof.
         if b.status == crate::kingdom::Status::Fire {
             let fire = blazing(tiles, step);
             out.parts.extend(fire.baked.iter().map(|baked| HillPart { baked: baked.clone(), at }));
@@ -502,21 +435,15 @@ pub fn of(run: &Run, view: [f32; 4], focus: Option<u32>) -> Option<HillNodes> {
             out.footprints.push(Footprint { rect: foot([x0, z0, x1, z1]), plan: "road-run".to_string() });
         }
     }
-    // The roads and the lines' tiles by the chunk of the kingdom they lie in, whole (not only what
-    // this view takes in, so a chunk's mesh is the same one as the view moves).
     let mut laid: std::collections::BTreeMap<(i32, i32), Vec<Laid>> = std::collections::BTreeMap::new();
     let chunk_of = |t: (i16, i16)| (i32::from(t.0).div_euclid(CHUNK_TILES.0), i32::from(t.1).div_euclid(CHUNK_TILES.1));
     for w in &hv.roads {
         laid.entry(chunk_of(w.tile)).or_default().push(Laid { kind: LineKind::Cart, links: w.links, post: false, span: 0, tile: w.tile, extra: 0 });
     }
-    // The rail network's tiles lie as the tramway's did, sleepers on ballast, and its wagons run as the
-    // tramway's did (the sim's tramways are rail now).
     for r in &hv.rails {
         laid.entry(chunk_of(r.tile)).or_default().push(Laid { kind: LineKind::Tram, links: r.links, post: false, span: 0, tile: r.tile, extra: rail_extra(r) });
     }
     for line in &hv.lines {
-        // A laid tramway, chute, ropeway or cart line lies in the ramp of what it is made of, run by run, so it
-        // stands off the grass and what runs on it reads on it (`works_look`).
         let run_plan = match line.kind {
             flat::lines::Kind::Tram => Some("tram-run"),
             flat::lines::Kind::Chute => Some("chute-run"),
@@ -549,7 +476,6 @@ pub fn of(run: &Run, view: [f32; 4], focus: Option<u32>) -> Option<HillNodes> {
                     _ => 0,
                 };
             }
-            // A ropeway has a tower every fourth tile; the cable sags between them.
             let (post, span) = (kind == LineKind::Rope && i % 4 == 1, ((i + 3) % 4) as u32);
             laid.entry(chunk_of(*t)).or_default().push(Laid { kind, links, post, span, tile: *t, extra: 0 });
         }
@@ -562,8 +488,6 @@ pub fn of(run: &Run, view: [f32; 4], focus: Option<u32>) -> Option<HillNodes> {
         tiles.sort_by_key(|t| (t.tile, t.kind as u8));
         out.parts.extend(chunk_of_tiles(chunk, &tiles, step).iter().map(|baked| HillPart { baked: baked.clone(), at: [0.0; 3] }));
     }
-    // The rail network's runs, for the look's timber ramp (its bays lie in them), and a bay's lantern lit
-    // while a wagon works it.
     if !hv.rails.is_empty() {
         let set: std::collections::BTreeSet<(i16, i16)> = hv.rails.iter().map(|r| r.tile).filter(|t| near([t.0, t.1, t.0, t.1])).collect();
         for run in tile_runs(&set, 24) {
@@ -573,13 +497,9 @@ pub fn of(run: &Run, view: [f32; 4], focus: Option<u32>) -> Option<HillNodes> {
             out.lamps.push(SetLamp { at: [f32::from(r.tile.0) * 16.0 + 8.0, 14.0, f32::from(r.tile.1) * 16.0 + 8.0], reach: 40.0, strength: 0.6 });
         }
     }
-    // The rollerways: their tiles baked a chunk at a time, the goods riding them, and a beacon over the head
-    // of a jam.
     if !hv.belts.is_empty() {
         belt_parts(&mut out, &hv, run, view, margin, &near, &foot);
     }
-    // What runs on them: carts on the roads, a wagon, bucket, sled or barge on each line. Past a
-    // dozen of them in a works the carriers are drawn in a few blocks each (`works_kit::vehicle_solids_lod`).
     let few = hv.carts.len() + hv.wagons.len() + hv.lines.iter().map(|l| l.riders.len()).sum::<usize>() <= MANY_CARRIERS;
     let frac = hill::frac(run);
     let mover = |out: &mut HillNodes, kind: LineKind, r: &hill::Rider| {
@@ -592,14 +512,11 @@ pub fn of(run: &Run, view: [f32; 4], focus: Option<u32>) -> Option<HillNodes> {
         let drop = if kind == LineKind::Barge { water_drop(px, pz) } else { 0.0 };
         out.parts.extend(baked.iter().map(|b| HillPart { baked: b.clone(), at: [px, drop, pz] }));
         if kind == LineKind::Barge {
-            // The barge lies in the timber ramp: a box about its hull, a short way past it.
             let (half_long, half_wide) = (BARGE_LENGTH / 2.0, BARGE_BEAM / 2.0);
             let (hx, hz) = if matches!(r.dir, flat::lines::Dir::East | flat::lines::Dir::West) { (half_long, half_wide) } else { (half_wide, half_long) };
             out.footprints.push(Footprint { rect: [px - hx, pz - hz, px + hx, pz + hz], plan: "barge-hull".to_string() });
         }
     };
-    // The carts bound for the Keep's yard that are near it are drawn in the bailey, on the lane to the
-    // crane's foot (`works_yard`), not here on the road.
     let relayed: std::collections::BTreeSet<usize> = if super::works_yard::shows_real_carts(run) { hv.relayed().collect() } else { Default::default() };
     for (i, r) in hv.carts.iter().enumerate() {
         if !relayed.contains(&i) {
@@ -608,7 +525,6 @@ pub fn of(run: &Run, view: [f32; 4], focus: Option<u32>) -> Option<HillNodes> {
     }
     for w in &hv.wagons {
         mover(&mut out, LineKind::Tram, &w.rider);
-        // A wagon held up for the track carries an amber tag, a jammed one the blinking red.
         let jammed = w.state == crate::kingdom::WagonState::Jammed;
         if jammed || w.state == crate::kingdom::WagonState::Queued {
             let (px, pz) = w.rider.place(frac);
@@ -625,7 +541,6 @@ pub fn of(run: &Run, view: [f32; 4], focus: Option<u32>) -> Option<HillNodes> {
             mover(&mut out, kind, r);
         }
     }
-    // The ghost: a plate of its verdict's accent on the ground, and, for a building, the piece itself half there.
     if let Some(g) = focus.and_then(|id| run.hill_ghost(id)) {
         ghost_nodes(&g, step, &mut out.ghost, &mut next);
     }
@@ -635,9 +550,6 @@ pub fn of(run: &Run, view: [f32; 4], focus: Option<u32>) -> Option<HillNodes> {
     Some(out)
 }
 
-/// The rollerways as parts: their tiles baked a chunk at a time (four steps of the rollers' turn each),
-/// footprints for the look's ramp, the goods on the beds each its small shared mesh moved to its slot,
-/// a beacon at the head of each jam.
 fn belt_parts(out: &mut HillNodes, hv: &HillView, run: &Run, view: [f32; 4], margin: f32, near: &impl Fn([i16; 4]) -> bool, foot: &impl Fn([i16; 4]) -> [f32; 4]) {
     use std::collections::BTreeMap;
     let (step, frac) = (hill::frame(run), hill::frac(run));
@@ -662,8 +574,6 @@ fn belt_parts(out: &mut HillNodes, hv: &HillView, run: &Run, view: [f32; 4], mar
     for run in tile_runs(&set, 24) {
         out.footprints.push(Footprint { rect: foot(run), plan: "roller-run".to_string() });
     }
-    // The goods: every slot of every lane in sight; a stream too long to draw whole is shown by the lead good
-    // on each tile, and past that the nearest to the middle of the view.
     struct Good {
         at: [f32; 3],
         load: flat::Load,
@@ -682,7 +592,6 @@ fn belt_parts(out: &mut HillNodes, hv: &HillView, run: &Run, view: [f32; 4], mar
             let lead = slots.iter().rposition(Option::is_some);
             for (i, g) in slots.iter().enumerate() {
                 let Some(load) = *g else { continue };
-                // The raised lane of a trestle is the sim's first (`slots`); the one under it, `across`.
                 if let Some((px, y, pz)) = good_place(b, dir, i, back, raised) {
                     goods.push(Good { at: [ox + px, y, oz + pz], load, along_x: matches!(dir % 4, 1 | 3), lead: lead == Some(i) });
                 }
@@ -700,7 +609,6 @@ fn belt_parts(out: &mut HillNodes, hv: &HillView, run: &Run, view: [f32; 4], mar
     for g in goods {
         out.parts.extend(good_baked(g.load, g.along_x).iter().map(|baked| HillPart { baked: baked.clone(), at: g.at }));
     }
-    // The beacons over the heads of jams.
     let on = (step / 4) % 2 == 0;
     for b in hv.belts.iter().filter(|b| b.stuck >= 8 && hv.jams.iter().any(|(t, _)| *t == b.tile)) {
         let (x, z) = (f32::from(b.tile.0) * 16.0 + 8.0, f32::from(b.tile.1) * 16.0 + 8.0);
@@ -710,9 +618,6 @@ fn belt_parts(out: &mut HillNodes, hv: &HillView, run: &Run, view: [f32; 4], mar
     }
 }
 
-/// The works as one node a block, the way they were drawn before they were baked into meshes
-/// (`hill_mesh`): what the proof's before-and-after is measured against (`glass/examples/rails3d_proof`),
-/// and nothing else uses.
 #[doc(hidden)]
 pub fn legacy_nodes(run: &Run, view: [f32; 4]) -> Vec<Node> {
     let Some(hv) = hill::of(run) else { return Vec::new() };
@@ -803,16 +708,11 @@ fn line_kind(kind: flat::lines::Kind) -> LineKind {
     }
 }
 
-/// The roads about the Keep as straight runs of three tiles or more, `[x0, z0, x1, z1]` in tiles
-/// (inclusive), the longest first and at most [`ROAD_RUNS`]: the supply lines that reach the castle,
-/// which the look dyes as worn earth so they read from the stand-back camera. Only the tiles within
-/// [`KEEP_REACH`] tiles of the Keep's ground count; the rest of a road net is the plain ribbon.
 fn road_runs(roads: &[hill::Way4], keep: [i16; 4]) -> Vec<[i16; 4]> {
     use std::collections::BTreeSet;
     let near = |t: (i16, i16)| t.0 >= keep[0] - KEEP_REACH && t.0 <= keep[2] + KEEP_REACH && t.1 >= keep[1] - KEEP_REACH && t.1 <= keep[3] + KEEP_REACH;
     let set: BTreeSet<(i16, i16)> = roads.iter().map(|w| w.tile).filter(|t| near(*t)).collect();
     let mut runs: Vec<[i16; 4]> = Vec::new();
-    // Along rows, then along columns: a maximal stretch of the set with no gap.
     for horizontal in [true, false] {
         let mut seen: BTreeSet<(i16, i16)> = BTreeSet::new();
         for &t in &set {
@@ -843,8 +743,6 @@ fn road_runs(roads: &[hill::Way4], keep: [i16; 4]) -> Vec<[i16; 4]> {
     runs
 }
 
-/// A path as its straight runs: the tiles `[x0, z0, x1, z1]` (inclusive) of each stretch that keeps
-/// one heading, a corner tile in both its stretches.
 fn runs(path: &[(i16, i16)]) -> Vec<[i16; 4]> {
     let mut out = Vec::new();
     if path.len() < 2 {
@@ -890,7 +788,6 @@ fn ghost_nodes(g: &Ghost, step: u32, out: &mut Vec<Node>, next: &mut u64) {
             }
         }
     }
-    // Cursor post and a line's walked ground.
     for t in &g.path {
         let mut n = Node::new(0, angel_stage::scene::MeshRef::Cube, Material { accent: true, ..Material::color([0.93, 0.68, 0.33, 1.0]) });
         n.transform = Transform { translation: [(f32::from(t.0) + 0.5) * 16.0, 1.0, (f32::from(t.1) + 0.5) * 16.0], scale: [6.0, 2.0, 6.0], ..Transform::IDENTITY };

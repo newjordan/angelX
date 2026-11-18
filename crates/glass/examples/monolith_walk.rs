@@ -59,7 +59,6 @@ impl App {
             self.follow.back = (self.follow.back + 18.0 * dt).min(90.0);
             self.follow.up = (self.follow.up + 10.0 * dt).min(50.0);
         }
-        // Forward is away from the eye.
         let (mut fwd, mut side) = (0.0f32, 0.0f32);
         if held(KeyCode::KeyW) || held(KeyCode::ArrowUp) {
             fwd += 1.0;
@@ -79,13 +78,11 @@ impl App {
         let speed = if held(KeyCode::ShiftLeft) || held(KeyCode::ShiftRight) { 9.0 } else { monolith::WALK_SPEED };
         let len = (fwd * fwd + side * side).sqrt();
         let (s, c) = self.follow.orbit.sin_cos();
-        // Away from the eye is -Z turned by the orbit; right is +X turned.
         let dx = (side * c - fwd * s) / len * speed * dt;
         let dz = (-side * s - fwd * c) / len * speed * dt;
         let heading = dx.atan2(-dz);
         let mut next = Walker { x: self.walker.x + dx, z: self.walker.z + dz, heading };
         if !monolith::may_step(self.walker, next) {
-            // Slide along whichever way is open.
             next = Walker { x: self.walker.x + dx, z: self.walker.z, heading };
             if !monolith::may_step(self.walker, next) {
                 next = Walker { x: self.walker.x, z: self.walker.z + dz, heading };
@@ -160,8 +157,6 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::KeyboardInput { event, .. } => {
-                // By what the key says (a typed or remapped key as well as a
-                // plain one), else where it is.
                 let code = match &event.logical_key {
                     Key::Named(NamedKey::Escape) => Some(KeyCode::Escape),
                     Key::Named(NamedKey::Shift) => Some(KeyCode::ShiftLeft),

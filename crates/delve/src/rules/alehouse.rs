@@ -38,25 +38,13 @@ use super::*;
 
 pub const NAME: &str = "The Sozzled Griffin";
 
-/// The room bounds in tiles: the great hall and its small east washroom.
 pub const HALL: (usize, usize) = (44, 20);
-/// The small washroom off the hall's east wall (col, row, w, h), including
-/// its walls. The original hall and its fixtures keep their coordinates.
 pub const BATHROOM: (i32, i32, i32, i32) = (35, 0, 9, 9);
-/// An open two-tile doorway, walked through normally; not an entrance plate.
 pub const BATHROOM_DOOR: (i32, i32, i32, i32) = (35, 5, 1, 2);
-/// Solid washstand and the bucket on the floor. The jug sits on the stand;
-/// the towel and mirror hang on the wall and need no floor collision.
 pub const BATHROOM_BASIN: (i32, i32, i32, i32) = (38, 2, 2, 1);
 pub const BATHROOM_BUCKET: (i32, i32, i32, i32) = (41, 5, 1, 1);
-/// Wall mirror centre, in tile coordinates in RoomKind::Alehouse. This is
-/// the art location; use MIRROR_STAND for the clear floor before the basin.
 pub const MIRROR_AT: (f32, f32) = (39.0, 1.125);
-/// Clear floor before the mirror (tiles). Multiply by TILE_UNITS for rules
-/// positions. A location seam only, with no interaction or appearance logic.
 pub const MIRROR_STAND: (f32, f32) = (39.0, 3.6);
-/// The cells of the two rooms on the home floor, north east of the
-/// Colosseum. No doorway joins them on the grid; the plates do.
 pub const CELLS: [(RoomKind, (i32, i32)); 2] =
     [(RoomKind::Alehouse, (16, -12)), (RoomKind::Bazaar, (17, -12))];
 
@@ -64,32 +52,20 @@ pub fn is_room(kind: RoomKind) -> bool {
     matches!(kind, RoomKind::Alehouse | RoomKind::Bazaar | RoomKind::MusterTent)
 }
 
-/// Where patron `i` drinks: the company in the tavern, the recruits in the
-/// muster tent at the mine-head (`muster_tent`).
 pub fn patron_room(i: usize) -> RoomKind {
     if super::recruit_ults::recruit(PATRONS[i].kit) { RoomKind::MusterTent } else { RoomKind::Alehouse }
 }
 
-/// The gold in each knight's purse on arriving, to spend in the tavern and
-/// the bazaar, and what they carry down after.
 pub const PURSE: u32 = 150;
-/// How near (arena units) a knight stands to use a thing.
 pub const REACH: f32 = 3.0;
-/// The home genie's lamp, and the open aisle where a knight rubs it (tiles).
 pub const LAMP_AT: (f32, f32) = (10.5, 4.9);
 pub const LAMP_STAND: (f32, f32) = (10.5, 5.7);
 pub const LAMP_WISHES: u8 = 3;
-/// How long a line stays on a knight's board, in ticks.
 pub const SAID_TICKS: u64 = 5 * HZ as u64;
 
-/// Where the party stands coming in from the start, and from the bazaar's
-/// door (tiles).
 pub const ARRIVAL: (f32, f32) = (17.5, 16.7);
 pub const FROM_BAZAAR: (f32, f32) = (29.5, 16.7);
 
-/// The hall's fixtures (col, row, w, h). The back wall is two rows of
-/// timber; the hearth, bar, kegs, stage, tables and the arm-wrestling table
-/// stand on the floor.
 pub const BACK_WALL: (i32, i32, i32, i32) = (1, 1, 34, 2);
 pub const HEARTH: (i32, i32, i32, i32) = (4, 1, 6, 3);
 pub const BAR: (i32, i32, i32, i32) = (13, 4, 16, 2);
@@ -97,34 +73,23 @@ pub const KEGS: (i32, i32, i32, i32) = (30, 1, 4, 3);
 pub const STAGE: (i32, i32, i32, i32) = (29, 7, 6, 3);
 pub const WRESTLE_TABLE: (i32, i32, i32, i32) = (30, 13, 3, 2);
 pub const CRATES: (i32, i32, i32, i32) = (1, 16, 3, 2);
-/// Barrels stacked along the south wall.
 pub const BARRELS: [(i32, i32, i32, i32); 2] = [(5, 17, 2, 2), (27, 17, 2, 2)];
-/// The notice board on its posts, west.
 pub const NOTICE: (i32, i32, i32, i32) = (1, 5, 2, 2);
 pub const TABLES: [(i32, i32, i32, i32); 5] =
     [(8, 9, 4, 2), (15, 9, 4, 2), (22, 9, 4, 2), (11, 14, 4, 2), (18, 14, 4, 2)];
-/// The doors: east to the bazaar, south to the kingdom.
 pub const BAZAAR_DOOR: (i32, i32, i32, i32) = (34, 14, 1, 3);
 pub const FRONT_DOOR: (i32, i32, i32, i32) = (17, 18, 2, 1);
-/// The tavern from outside: the great oak inn by the well in the Delve's
-/// courtyard, its door (tiles), and where one comes out before it.
 pub const COURTYARD_DOOR: (i32, i32, i32, i32) = (20, 4, 2, 1);
 pub const COURTYARD_FRONT: (f32, f32) = (21.0, 5.5);
-/// The inn's walls in the courtyard (tiles), north of its door: no one
-/// walks through them.
 pub const INN: (i32, i32, i32, i32) = (18, 1, 5, 3);
 
-/// The keeper behind the bar, the lute player on the stage, the fence in
-/// the corner, the two wrestlers at their table (feet, tiles).
 pub const KEEPER_AT: (f32, f32) = (20.5, 3.7);
 pub const LUTE_AT: (f32, f32) = (32.0, 8.9);
 pub const FENCE_AT: (f32, f32) = (3.4, 15.3);
 pub const WRESTLERS_AT: [(f32, f32); 2] = [(29.2, 13.9), (33.4, 13.9)];
 
-/// The keeper's three drinks, where a knight stands to ask for each.
 pub const TAPS: [(f32, f32); 3] = [(16.5, 6.7), (20.5, 6.7), (24.5, 6.7)];
 
-/// What the keeper pours: a name, what it does, its price in gold.
 pub struct Pour {
     pub name: &'static str,
     pub does: &'static str,
@@ -137,10 +102,6 @@ pub const POURS: [Pour; 3] = [
     Pour { name: "Pint of Second Thoughts", does: "A SECOND WIND, ONE FALL", price: 45 },
 ];
 
-/// One of the company, as the tavern sits them: the kit they wear, the
-/// generic name of their calling, a line of what they do, and where they
-/// sit (tiles): on the bench behind a table's long edge, so a knight walks
-/// up to them from the aisle on its far side.
 pub struct Patron {
     pub kit: &'static str,
     pub label: &'static str,
@@ -149,7 +110,6 @@ pub struct Patron {
 }
 
 pub const PATRONS: [Patron; 70] = [
-    // The code-drawn knights, first thing inside the front door.
     Patron { kit: "great-helm", label: "Greathelm", pitch: "A flat steel helm and a cross on the surcoat. Any arm off the rack.", at: (22.6, 16.8) },
     Patron { kit: "sugarloaf-crusader", label: "Crusader", pitch: "A pointed helm and a white surcoat. Any arm off the rack.", at: (24.0, 16.8) },
     Patron { kit: "plumed-bucket", label: "Plumeknight", pitch: "A bucket helm with a swept plume. Any arm off the rack.", at: (25.4, 16.8) },
@@ -170,8 +130,6 @@ pub const PATRONS: [Patron; 70] = [
     Patron { kit: "dispatcher", label: "Crossbowman", pitch: "Crossbow, a quick roll, three bombs and a potion.", at: (13.1, 14.25) },
     Patron { kit: "money", label: "Bombardier", pitch: "Handgonne, kite shield and a sack of bombs.", at: (14.5, 14.25) },
     Patron { kit: "competition", label: "Marksman", pitch: "Crossbow and a quick roll. Quick and precise.", at: (19.9, 14.25) },
-    // The champions stand at the bar, a stride out from the counter so a
-    // knight walks up between them and it, clear of the taps' stands.
     Patron { kit: "hammerer", label: "Hammerer", pitch: "A great maul. 1 thrown hammer, 2 slam, 3 brute force.", at: (13.8, 7.0) },
     Patron { kit: "butcher", label: "Butcher", pitch: "Cleaver and hook. 1 hook, 2 rot, 3 chain haul.", at: (18.6, 7.0) },
     Patron { kit: "alchemist", label: "Alchemist", pitch: "Lobbed fire. 1 foul air, 2 quickfire, 3 elixir.", at: (27.2, 7.0) },
@@ -179,14 +137,10 @@ pub const PATRONS: [Patron; 70] = [
     Patron { kit: "lancer", label: "Lancer", pitch: "A war lance. 1 javelin, 2 vault, 3 brace.", at: (27.6, 12.2) },
     Patron { kit: "phantomlancer", label: "Phantom", pitch: "Doubles that thrust too. 1 spirit lance, 2 doppelganger, 3 juxtapose.", at: (26.1, 12.2) },
     Patron { kit: "mirageduelist", label: "Mirage", pitch: "A quick foil. 1 swashbuckle, 2 mirror swap, 3 echo strike.", at: (24.6, 12.2) },
-    // The barrow's hero takes the far end of the same bench, a little
-    // apart, as his kind do.
     Patron { kit: "gravecaller", label: "Gravecaller", pitch: "Aura; 1-3 dead, 4 Soul Rip; Space wall; G heel/hold golem; R Tombstone.", at: (21.5, 14.25) },
     Patron { kit: "farwatch", label: "Farwatch", pitch: "Long rifle. 1 sightline, 2 brass rain, 3 steady aim; R last light.", at: (5.2, 7.2) },
     Patron { kit: "galeweaver", label: "Galeweaver", pitch: "Swift bow. Hold 1 draw, 2 twin bind, 3 windrun; R rapid fire.", at: (24.1, 14.25) },
     Patron { kit: "cinderheart", label: "Cinderheart", pitch: "Fire wave, delayed pillar, cast-fed speed; R single-target flame.", at: (23.1, 7.2) },
-    // The recruits drink in the muster tent at the mine-head, seven to a
-    // table there (`muster_tent::seat`), not in the tavern.
     Patron { kit: "vesper", label: "Bellkeeper", pitch: "Ring Eclipse Toll through a crowd; Mercy Lantern wards and mends.", at: (7.25, 6.25) },
     Patron { kit: "orrin", label: "Notary", pitch: "A handgonne and falling stars. Cinder Tithe pays fire back as life.", at: (8.75, 6.25) },
     Patron { kit: "iona", label: "Lamplighter", pitch: "A bow behind a lantern ward. Last Light buys another breath.", at: (10.25, 6.25) },
@@ -228,7 +182,6 @@ pub const PATRONS: [Patron; 70] = [
     Patron { kit: "vesperhost", label: "Steward", pitch: "A kettle covers the aisle; the saucers catch three shots. Table for one?", at: (26.75, 15.25) },
 ];
 
-/// The toys of the hall, each with a stand (tiles).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Toy {
     Stew,
@@ -240,7 +193,6 @@ pub enum Toy {
     Lute,
     Snorer(u8),
     Cat,
-    /// The bazaar's: the complaints box and the oracle in the fishbowl.
     Complaints,
     Fishbowl,
 }
@@ -255,25 +207,20 @@ pub const TOYS: [(Toy, (f32, f32)); 8] = [
     (Toy::Snorer(0), (4.2, 12.6)),
     (Toy::Snorer(1), (31.4, 17.3)),
 ];
-/// The hearth's own stand, beside the stew's.
 pub const WARM_AT: (f32, f32) = (4.6, 4.6);
 
-/// What E reaches in the hall.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Spot {
     Patron(usize),
     Lamp,
-    /// A stock arm on the free rack, in catalogue order.
     Arm(usize),
     Pour(usize),
     Fence,
-    /// A ware on a bazaar stall, by slot (`bazaar`).
     Ware(u8),
     Toy(Toy),
 }
 
 impl Spot {
-    /// Pressed once, or held to buy or equip.
     pub fn held(self) -> bool {
         matches!(self, Spot::Lamp | Spot::Arm(_) | Spot::Pour(_) | Spot::Fence | Spot::Ware(_))
     }
@@ -299,8 +246,6 @@ impl Spot {
     }
 }
 
-/// The cat's round of the hall, a loop of waypoints (tiles), and the ticks
-/// it takes to saunter between two.
 const CAT_ROUND: [(f32, f32); 8] = [
     (14.0, 7.2),
     (20.0, 7.2),
@@ -313,7 +258,6 @@ const CAT_ROUND: [(f32, f32); 8] = [
 ];
 const CAT_LEG: u64 = 150;
 
-/// Where the cat is on `tick` (tiles).
 pub fn cat_at(tick: u64) -> (f32, f32) {
     let leg = (tick / CAT_LEG) as usize % CAT_ROUND.len();
     let k = (tick % CAT_LEG) as f32 / CAT_LEG as f32;
@@ -321,10 +265,6 @@ pub fn cat_at(tick: u64) -> (f32, f32) {
     (a.0 + (b.0 - a.0) * k, a.1 + (b.1 - a.1) * k)
 }
 
-/// Six public basics, not a catalogue of champion or player-owned arms.
-/// Blade, staff and maul are common stock with their own modest stats.
-/// The three established ranged arms keep their existing cards and rarity;
-/// no relic or champion/hero-private arm belongs on this wall.
 pub const BASIC_ARMS: [&str; 6] = ["bow", "crossbow", "handgonne", "stock-blade", "stock-staff", "stock-maul"];
 
 pub fn home_arms() -> &'static [Card] {
@@ -336,8 +276,6 @@ pub fn home_arms() -> &'static [Card] {
     })
 }
 
-/// A compact wall south of the tables, leaving the central aisles open.
-/// These are the floor positions in front of the six pegs, not obstacles.
 pub fn arm_stand(slot: usize) -> (f32, f32) {
     (7.8 + slot as f32 * 1.5, 17.0)
 }
@@ -345,14 +283,10 @@ pub fn arm_stand(slot: usize) -> (f32, f32) {
 pub const COMPANY_PAGE_SIZE: usize = 5;
 pub const COMPANY_PAGES: usize = (PATRONS.len() - 3).div_ceil(COMPANY_PAGE_SIZE);
 
-/// Every knight of the company sits in the hall at once, each at their own
-/// seat; `page` is the old notice-board page a save may still carry.
 pub fn patron_visible(_page: usize, i: usize) -> bool {
     i < PATRONS.len()
 }
 
-/// The company's recruits by name, champions aside (`heroes::KITS` have
-/// their own stands).
 pub fn company_roll_call(page: usize) -> String {
     PATRONS.iter().enumerate()
         .filter(|(i, p)| !heroes::KITS.contains(&p.kit) && patron_visible(page, *i))
@@ -361,19 +295,14 @@ pub fn company_roll_call(page: usize) -> String {
         .join(" / ")
 }
 
-/// The thing a knight at `(x, y)` (arena units) would reach with E on
-/// `tick`: the nearest within [`REACH`].
 pub fn spot_near(x: f32, y: f32, tick: u64) -> Option<Spot> {
     spot_near_on_page(x, y, tick, 0)
 }
 
-/// The same visibility contract used for drawing and authoritative actions.
 pub fn spot_near_on_page(x: f32, y: f32, tick: u64, page: usize) -> Option<Spot> {
     spot_near_in(RoomKind::Alehouse, x, y, tick, page)
 }
 
-/// The thing a knight at `(x, y)` in a room of `kind` would reach: in the
-/// muster tent only its recruits.
 pub fn spot_near_in(kind: RoomKind, x: f32, y: f32, tick: u64, page: usize) -> Option<Spot> {
     let mut best: Option<(f32, Spot)> = None;
     let mut see = |spot: Spot, (sx, sy): (f32, f32)| {
@@ -404,16 +333,13 @@ pub fn spot_near_in(kind: RoomKind, x: f32, y: f32, tick: u64, page: usize) -> O
     best.map(|(_, spot)| spot)
 }
 
-/// What a knight was last told, for their own board alone.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Said {
     pub at: u64,
     pub text: String,
-    /// Good news (a coin, a pick) or plain.
     pub good: bool,
 }
 
-/// What a knight has tried of the hall's toys, each a few times at most.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Tries {
     pub darts: u8,
@@ -422,8 +348,6 @@ pub struct Tries {
     pub sleepers: u8,
     pub cat: u8,
     pub keg: u8,
-    /// Times the notice board has been read: the folk's tidings come
-    /// first, newest first, then the board's old notes.
     #[serde(default, skip_serializing_if = "is_zero_u8")]
     pub board: u8,
 }
@@ -432,39 +356,27 @@ fn is_zero_u8(n: &u8) -> bool {
     *n == 0
 }
 
-/// The tavern's and the bazaar's moment-to-moment state.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct House {
-    /// Shared notice-board page; old visits begin on the first company page.
     #[serde(skip_serializing_if = "first_company_page")]
     pub company_page: usize,
-    /// The seats handed their purse (a bit a seat).
     pub funded: u32,
-    /// A run's claims belong to the player, not the patron they currently play.
-    /// Changing kit, spending wishes, or returning home never refills the lamp.
     #[serde(skip_serializing_if = "std::collections::BTreeSet::is_empty")]
     pub lamp_claimed: std::collections::BTreeSet<u32>,
     pub tries: BTreeMap<u32, Tries>,
     pub said: BTreeMap<u32, Said>,
-    /// The knights whose E is down, so a press counts once.
     pub held: Vec<u32>,
-    /// An arm hold belongs to one rack slot; moving to another starts over.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub arm_holds: BTreeMap<u32, usize>,
-    /// A lamp rub belongs to its stand, never a partly held drink or arm.
     #[serde(skip_serializing_if = "std::collections::BTreeSet::is_empty")]
     pub lamp_holds: std::collections::BTreeSet<u32>,
-    /// The lines the hall's folk have up, over their heads (`hall_voices`).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub calls: Vec<hall_voices::Call>,
-    /// The seats the keeper has greeted since the party came in (a bit a seat).
     #[serde(skip_serializing_if = "is_zero_bits")]
     pub greeted: u32,
-    /// The tick a knight last stoked the hearth; 0 when none has.
     #[serde(skip_serializing_if = "is_zero_tick")]
     pub stoked: u64,
-    /// The tick the party last came into a room of the world, for its name.
     #[serde(skip_serializing_if = "is_zero_tick")]
     pub came: u64,
 }
@@ -480,8 +392,6 @@ impl House {
             && self.lamp_holds.len() <= MAX_PLAYERS as usize
             && self.lamp_holds.iter().all(|id| (1..=MAX_PLAYERS).contains(id))
             && self.arm_holds.len() <= MAX_PLAYERS as usize
-            // Old checkpoints can hold one of the twenty aisle bays. The
-            // next tick cancels it unless the knight is at a current peg.
             && self.arm_holds.iter().all(|(id, slot)| (1..=MAX_PLAYERS).contains(id) && *slot < 20)
             && self.lamp_claimed.len() <= MAX_PLAYERS as usize
             && self.lamp_claimed.iter().all(|id| (1..=MAX_PLAYERS).contains(id))
@@ -511,14 +421,9 @@ const fn door(
 
 pub const DOORS: [Entrance; 5] = [
     door("alehouse-bazaar", RoomKind::Alehouse, BAZAAR_DOOR, RoomKind::Bazaar, bazaar::ARRIVAL, "THE BAZAAR"),
-    // Out the front door: back to the kingdom at the Delve's gate (the visit's
-    // return, `Run::returns_to_kingdom`); a party with no visit to return to
-    // (an old save, or one that came in from the courtyard) comes out before
-    // the tavern's own door in the Delve's courtyard.
     door("alehouse-out", RoomKind::Alehouse, FRONT_DOOR, RoomKind::Gate, COURTYARD_FRONT, "THE KINGDOM"),
     door("bazaar-alehouse", RoomKind::Bazaar, bazaar::TAVERN_DOOR, RoomKind::Alehouse, FROM_BAZAAR, "THE SOZZLED GRIFFIN"),
     door("bazaar-out", RoomKind::Bazaar, bazaar::GATE, RoomKind::Gate, world::COURTYARD_ARRIVAL, "THE KINGDOM"),
-    // The way back in, any time: the green house by the courtyard's well.
     door("alehouse-in", RoomKind::Gate, COURTYARD_DOOR, RoomKind::Alehouse, ARRIVAL, "THE SOZZLED GRIFFIN"),
 ];
 
@@ -530,14 +435,10 @@ fn fill(room: &mut Room, (c, r, w, h): (i32, i32, i32, i32), tile: Tile) {
     }
 }
 
-/// The hall laid out: stone round the edge, open floor, the back wall,
-/// the fixtures, and the doors' plates.
 pub fn room(cell: (i32, i32)) -> Room {
     let mut r = Room::solid_rock(cell);
     r.kind = RoomKind::Alehouse;
     r.regrow(HALL.0, HALL.1);
-    // Keep the old east wall intact except for the washroom doorway. Stone
-    // below the annex is outside, not extra unadorned tavern floor.
     fill(&mut r, (BATHROOM.0, 0, BATHROOM.2, HALL.1 as i32), Tile::Wall);
     let (c, row, w, h) = BATHROOM;
     fill(&mut r, (c + 1, row + 1, w - 2, h - 2), Tile::Floor);
@@ -558,13 +459,10 @@ pub fn room(cell: (i32, i32)) -> Room {
     r
 }
 
-/// A short name for a patron's calling: the class if the kit has one.
 pub fn label_of(kit: &str) -> Option<&'static str> {
     PATRONS.iter().find(|p| p.kit == kit).map(|p| p.label)
 }
 
-/// The bard announces a calling, not a house-dependent personal name.
-/// Read the kit's real cards so new recruits automatically enter the songbook.
 pub fn company_ballad(kit: &str, book: &Book) -> Option<String> {
     let knight = knights::knight(kit)?;
     let calling = label_of(kit).unwrap_or(knight.title);
@@ -576,8 +474,6 @@ pub fn company_ballad(kit: &str, book: &Book) -> Option<String> {
     Some(format!("THE BARD STRIKES UP THE BALLAD OF THE {calling}: {arm} AT THE READY.{refrain}").to_uppercase())
 }
 
-/// Eight equipment-led verses keep repeat visits personal without inventing powers.
-/// The caller supplies a deterministic beat; no reward or gameplay RNG is consumed.
 pub fn company_verse(kit: &str, book: &Book, beat: usize) -> Option<String> {
     let knight = knights::knight(kit)?;
     let calling = label_of(kit).unwrap_or(knight.title);
@@ -606,8 +502,6 @@ pub fn company_verse(kit: &str, book: &Book, beat: usize) -> Option<String> {
     Some(line.to_uppercase())
 }
 
-/// A recruitment receipt built from the same cards that `take_up` equips.
-/// Slot numbers teach the controls; card names stay authoritative as kits evolve.
 pub fn company_loadout(kit: &str, book: &Book) -> Option<String> {
     let knight = knights::knight(kit)?;
     let name = |id: &str| book.get(id).map(|card| card.name.as_str());
@@ -625,16 +519,12 @@ pub fn company_loadout(kit: &str, book: &Book) -> Option<String> {
     Some(parts.join(". ").to_uppercase())
 }
 
-/// The patron whose knight `hero` is, if any.
 pub fn patron_of(hero: &Hero) -> Option<usize> {
     let kit = hero.knight.as_deref()?;
     PATRONS.iter().position(|p| p.kit == kit)
 }
 
 impl Run {
-    /// The party begins its delve in the tavern: the kingdom stands behind
-    /// the front door, the Delve's gate before it. A run whose world has no
-    /// tavern (a bare test floor) begins at the gate as it always did.
     pub fn walk_alehouse(&mut self) {
         self.raise_kingdom();
         self.raise_home_world();
@@ -651,8 +541,6 @@ impl Run {
             .map_or_else(|| "The Delve".to_string(), |s| s.name.clone());
         let (x, y) = ((stand.0 as f32 + 0.5) * TILE_UNITS, (stand.1 as f32 + 0.7) * TILE_UNITS);
         let count = self.players.len() as f32;
-        // The way back is the kingdom's gate, the party standing side by
-        // side before it.
         let party = self
             .players
             .keys()
@@ -665,7 +553,6 @@ impl Run {
         self.kingdom.return_to = Some(kingdom::Return { x, y, name, root: RoomKind::Gate, party });
         self.arrive(i, ARRIVAL);
         self.kingdom.door_held = true;
-        // The welcome is the tavern's.
         self.cues.retain(|c| c != "home");
         self.cues.push("alehouse".into());
         for h in self.players.values_mut() {
@@ -673,12 +560,10 @@ impl Run {
         }
     }
 
-    /// Whether the party stands in the tavern or the bazaar.
     pub fn in_alehouse(&self) -> bool {
         is_room(self.room().kind)
     }
 
-    /// Who, if anyone, already plays the knight of patron `i`.
     pub fn patron_taken(&self, i: usize, except: u32) -> Option<u32> {
         self.players
             .iter()
@@ -691,7 +576,6 @@ impl Run {
         self.alehouse.said.insert(id, Said { at: self.tick, text: text.chars().take(200).collect(), good });
     }
 
-    /// One tick in the tavern: the purses, then each knight's E.
     pub(super) fn tick_alehouse(&mut self, inputs: &BTreeMap<u32, Input>) {
         self.fund_purses();
         self.tick_voices();
@@ -757,8 +641,6 @@ impl Run {
         }
     }
 
-    /// Every knight is handed a purse the first time they stand in the
-    /// tavern (or the bazaar): the gold to spend here, carried on after.
     pub(super) fn fund_purses(&mut self) {
         for (&id, hero) in self.players.iter_mut() {
             let bit = 1u32 << (id & 31);
@@ -788,8 +670,6 @@ impl Run {
         }
     }
 
-    /// Reuse the altar's rub notification: the client opens the usual wish
-    /// input and the host's existing genie/learner grants the words, not us.
     fn rub_home_lamp(&mut self, id: u32) {
         let Some(hero) = self.players.get_mut(&id) else {
             return;
@@ -809,7 +689,6 @@ impl Run {
         }
     }
 
-    /// E at a patron: be that knight.
     pub fn pick_patron(&mut self, id: u32, i: usize) {
         if !patron_visible(self.alehouse.company_page, i) { return; }
         let p = &PATRONS[i];
@@ -818,8 +697,6 @@ impl Run {
             return;
         }
         if self.players.get(&id).and_then(patron_of) == Some(i) {
-            // Their own arm lost (an older save swapped it on the floor):
-            // the table arms them again.
             let arm = knights::knight(p.kit).map(|k| k.arm);
             if arm.is_some_and(|arm| self.players.get(&id).is_some_and(|h| h.arm.as_deref() != Some(arm)))
                 && self.take_up(id, p.kit)
@@ -835,9 +712,6 @@ impl Run {
             return;
         }
         if self.take_up(id, p.kit) {
-            // One of the four code-drawn knights is picked to be seen: a
-            // whole-body wish look worn now is set aside (its power stays), so
-            // the design shows. Anyone else picked wears their looks again.
             let aside = match self.players.get(&id) {
                 Some(h) if knights::plain_seat(p.kit).is_some() => h.whole_looks(&self.book),
                 _ => Vec::new(),
@@ -856,8 +730,6 @@ impl Run {
         }
     }
 
-    /// Knight `id` becomes the knight of `kit`: their kit, and their class
-    /// if the kit has one (its hand and its spells).
     pub fn take_up(&mut self, id: u32, kit: &str) -> bool {
         let Some(who) = knights::knight(kit) else {
             return false;
@@ -873,8 +745,6 @@ impl Run {
                 }
             }
             hero.champ = champions::Stance::default();
-            // A recruit's ultimate goes with the recruit (`recruit_ults`),
-            // and a wish for one is let go with them.
             hero.recruit_ult = None;
         }
         let ult = recruit_ults::recruit(who.id).then(|| self.own_ult(Some(who.id)));
@@ -891,9 +761,7 @@ impl Run {
                 }
             }
         }
-        // A champion's three spells, on keys 1 to 3.
         if let (Some(champion), Some(hero)) = (champions::Champion::of_kit(who.id), self.players.get_mut(&id)) {
-            // Whatever spell they carried keeps the fourth key.
             let kept = hero.spells.iter_mut().find_map(Option::take);
             for (k, spell) in champion.spells().into_iter().enumerate() {
                 hero.spells[k] = Some(spell.to_string());
@@ -908,7 +776,6 @@ impl Run {
         true
     }
 
-    /// E held at one of the keeper's taps.
     fn buy_pour(&mut self, id: u32, i: usize) {
         let pour = &POURS[i];
         let Some(hero) = self.players.get_mut(&id) else {
@@ -939,17 +806,14 @@ impl Run {
         self.sounds.push("spoil_pickup");
     }
 
-    /// E held at the fence: its one curio, at a price nobody asks about.
     fn buy_fence(&mut self, id: u32) {
         let (slot, _) = bazaar::fence(self.seed, self.raid_id);
         self.buy_curio(id, slot);
     }
 
-    /// E at a toy.
     fn play_toy(&mut self, id: u32, toy: Toy) {
         let tick = self.tick;
         let seed = self.seed ^ self.raid_id.rotate_left(11);
-        // Each knight's own dice: their seat, the clock and the seed.
         let roll = mix(seed ^ (u64::from(id) << 40) ^ tick.wrapping_mul(0x9e37_79b9)) as usize;
         let ballad = self.players.get(&id)
             .and_then(|hero| hero.knight.as_deref())
@@ -1046,8 +910,6 @@ impl Run {
                     "WILL THE KNIGHT WHO TOOK MY STOOL PLEASE RETURN MY STOOL.",
                 ];
                 let note = notes[(mix(seed) as usize + id as usize) % notes.len()];
-                // The folk's own news is pinned over the old notes: the
-                // newest first, one a reading, while there is any.
                 match told.len().checked_sub(1 + read).map(|n| &told[n]) {
                     Some(tiding) => {
                         let both = format!("{tiding} | {}", rumours[0]);
@@ -1161,7 +1023,6 @@ impl Run {
     }
 }
 
-/// A hold's bar for a knight's board.
 pub fn bar(buying: u32) -> String {
     hold_bar(buying, BUY_HOLD)
 }

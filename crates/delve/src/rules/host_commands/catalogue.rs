@@ -51,7 +51,6 @@ pub struct Batch {
     pub observed: Option<Observed>,
     pub cards: Vec<cards::Card>,
     pub bosses: Vec<BossSource>,
-    /// Polling delivers spells to seat one; explicit reload only installs.
     pub deliver_spells: bool,
 }
 impl Batch {
@@ -163,8 +162,6 @@ impl Batch {
                 card.id
             ));
         }
-        // Check the entire batch before mutation, including capacity and shared
-        // held identities. Rejecting a later entry must not install an earlier one.
         let mut book = run.book.clone();
         let mut admitted = Vec::new();
         for source in &self.cards {
@@ -212,10 +209,6 @@ impl Batch {
                             || h.spells.iter().any(|s| s.as_ref() == Some(&card.id))
                     });
                 if held {
-                    // Recharge is read on the next spell cast. Existing timers,
-                    // issued effects, authored appearance and makers stay owned
-                    // by their current state. Recipes and open scrolls retain
-                    // their complete captured definitions, including recharge.
                     let mut recharge = current.clone();
                     recharge.cooldown = card.cooldown;
                     let cooldown_only = current.kind == cards::Kind::Spell
@@ -260,8 +253,6 @@ impl Batch {
         if self.deliver_spells {
             for (new, card) in admitted {
                 let needs_slot = run.players.get(&1).is_some_and(|h| h.takes(&card));
-                // Existing delivery owns slots, floor drops and the pickup cue.
-                // Only missing spells are delivered on subsequent polls.
                 let already = run
                     .players
                     .get(&1)
@@ -761,8 +752,6 @@ mod tests {
                 run.home.wardrobe.knights.insert("Away knight".into(), kept);
             } else {
                 run.add_card(card("catalogue-owned", 3), 99);
-                // add_card for an absent player only installs; issue an actual
-                // full-slot floor delivery through the production path instead.
                 for (i, slot) in run
                     .players
                     .get_mut(&1)

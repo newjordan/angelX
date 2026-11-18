@@ -19,8 +19,6 @@ pub(super) fn run(
     let mut raw_tail = String::new();
     let mut actual_argvs = plan.argvs.clone();
     if plan.runtime == Runtime::Python {
-        // -B stops writes. Reads are the bootstrap's: bytecode only from the
-        // interpreter's own library, every project module from its source.
         for argv in &mut actual_argvs {
             argv.insert(0, "-B".into());
         }
@@ -46,8 +44,6 @@ pub(super) fn run(
                 .env("GOFLAGS", "")
                 .env("GOWORK", "off");
         }
-        // Python -I -S is authoritative; explicit removal also prevents child
-        // subprocesses from inheriting operator/workspace startup overrides.
         for (name, _) in std::env::vars_os() {
             let text = name.to_string_lossy();
             if text.starts_with("NODE_")
@@ -106,7 +102,6 @@ pub(super) fn run(
             return Ok(format!("{}: {}", plan.kind.summary(), timeout_detail(&out)));
         }
         raw_tail = tail(&format!("{}\n{}", out.stdout, out.stderr), 1500);
-        // Python 3.14 unittest, like pytest, exits 5 for an empty selection.
         let python_empty = plan.runtime == Runtime::Python
             && out.exit == Some(5)
             && ((argv.iter().any(|s| s.contains("pytest.main"))
@@ -145,11 +140,7 @@ pub(super) fn run(
                 counts.passed, counts.failed, counts.ignored, counts.reward()),
             Some(_) if args["args"].as_str().is_some_and(|value| !value.trim().is_empty()) =>
                 "verification inconclusive: no tests ran — reward 0.00".into(),
-            // Preserve the existing fail-closed empty-suite verdict when no
-            // selection was requested (including forged child pass text).
             Some(_) => "no tests ran — reward 0.00".into(),
-            // Child text may contain fake pass summaries. Never attach it to
-            // an inconclusive typed receipt: legacy classifiers scan text.
             None => "verification inconclusive: the pinned runner exited successfully without a recognized final nonempty test report".into(),
         },
         Kind::Lint => unreachable!("unsupported lint adapters are declined before dispatch"),
@@ -165,8 +156,6 @@ pub(super) fn run(
 }
 
 fn node_counts(text: &str) -> Option<TestOutcome> {
-    // Only the complete terminal TAP footer belongs to the fixed reporter.
-    // Test stdout is earlier in this stream and cannot replace that footer.
     static FOOTER: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
     let regex = FOOTER.get_or_init(|| regex::Regex::new(
         r"(?m)^1\.\.[0-9]+\n# tests ([0-9]+)\n# suites [0-9]+\n# pass ([0-9]+)\n# fail ([0-9]+)\n# cancelled ([0-9]+)\n# skipped ([0-9]+)\n# todo ([0-9]+)\n# duration_ms [0-9.]+\n?\z"

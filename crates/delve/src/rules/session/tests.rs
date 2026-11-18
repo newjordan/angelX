@@ -554,8 +554,6 @@ fn session_staged_replay_accepted_tail_preserves_private_checkpoint_and_carried_
         Reply::Job(jobs::Reply::Brew(Some(claim))) => claim,
         reply => panic!("{reply:?}"),
     };
-    // Supervisor seeds recovery only after bootstrap baseline. The exact old
-    // executable + source context is pinned while this accepted tail replays.
     let seed = uninterrupted.checkpoint().unwrap();
     assert!(seed.view_revision > 0);
     let input = crate::rules::cards::check(
@@ -661,7 +659,6 @@ fn session_staged_replay_accepted_tail_preserves_private_checkpoint_and_carried_
         receiver.baseline(&baseline).unwrap().revision(),
         accepted.view_revision
     );
-    // New-owner activation does not reconstruct the last live exchange cache.
     let last = tail.last().unwrap().0.clone();
     assert!(
         recovered

@@ -27,44 +27,32 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-/// The most tiles of rail, routes and wagons a kingdom may have.
 pub const MAX_RAILS: usize = 3_000;
 pub const MAX_ROUTES: usize = 40;
 pub const MAX_WAGONS: usize = 120;
-/// Units a wagon's hands move at a bay in a second.
 const HANDS: u32 = 2;
-/// Seconds a wagon waits at a bay with nothing moving before it goes on.
 const PATIENCE: u8 = 10;
-/// Seconds blocked before a wagon looks for another way round, and before it
-/// is reported as jammed.
 const LOOK_AROUND: u16 = 4;
 pub const JAMMED: u16 = 20;
 
-/// A tile of rail.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Rail {
-    /// The name of the bay that stands here, if one does.
     pub bay: Option<String>,
 }
 
-/// A named place to load and unload: a rail tile beside a building.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Bay {
     pub tile: Tile,
-    /// The way from the rail to the building it serves.
     pub side: Dir,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Act {
-    /// Take on goods.
     #[default]
     Load,
-    /// Put goods off.
     Unload,
-    /// Put off what the place takes, then take on.
     Both,
 }
 impl Act {
@@ -81,7 +69,6 @@ impl Act {
 pub struct Stop {
     pub bay: String,
     pub act: Act,
-    /// The one good it loads or unloads; none takes whatever there is.
     #[serde(default)]
     pub good: Option<String>,
 }
@@ -91,12 +78,9 @@ pub struct Stop {
 pub struct Route {
     pub name: String,
     pub stops: Vec<Stop>,
-    /// Seconds the horses' fodder lasts.
     pub fed: u16,
-    /// Goods delivered by this route's wagons, and trips made.
     pub moved: u64,
     pub trips: u32,
-    /// Units unloaded in each of the last six ten-second shifts, oldest first, and the shift in hand.
     pub recent: [u16; 6],
     pub shift: u16,
 }
@@ -104,10 +88,8 @@ pub struct Route {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Phase {
-    /// On the way to its stop.
     #[default]
     Travel,
-    /// At the bay, working.
     Dwell,
 }
 
@@ -116,21 +98,16 @@ pub enum Phase {
 pub struct Wagon {
     pub route: u32,
     pub tile: Tile,
-    /// The tile it is moving on to, and tenths of a second it has been on the way.
     pub to: Option<Tile>,
     pub clock: u16,
     pub face: Dir,
-    /// The stop it is bound for, or working at.
     pub stop: u8,
     pub phase: Phase,
-    /// Seconds at the bay, and seconds of them with nothing moving.
     pub dwell: u8,
     pub idle: u8,
     pub good: String,
     pub amount: u32,
-    /// Seconds it has been held up by another wagon.
     pub waiting: u16,
-    /// The tile of the wagon that holds it up, for the report.
     pub behind: Option<Tile>,
 }
 
@@ -161,15 +138,12 @@ impl Rails {
     pub fn is_empty(&self) -> bool {
         self.cells.is_empty() && self.wagons.is_empty()
     }
-    /// The neighbours of a tile that are rail: the ways out of it.
     pub fn links(&self, t: Tile) -> Vec<Tile> {
         neighbours(t).into_iter().filter(|n| self.cells.contains_key(n)).collect()
     }
-    /// Whether a tile is a switch: three or four ways out.
     pub fn is_switch(&self, t: Tile) -> bool {
         self.cells.contains_key(&t) && self.links(t).len() >= 3
     }
-    /// The shortest way over rail from `from` to `to`, avoiding `blocked`, as the tiles after `from`.
     pub fn path(&self, from: Tile, to: Tile, blocked: &BTreeSet<Tile>) -> Option<Vec<Tile>> {
         if from == to {
             return Some(Vec::new());
@@ -197,7 +171,6 @@ impl Rails {
         }
         None
     }
-    /// The tiles a wagon holds: where it is and where it is going.
     fn held(&self) -> BTreeMap<Tile, u32> {
         let mut m = BTreeMap::new();
         for (&id, w) in &self.wagons {
@@ -210,17 +183,13 @@ impl Rails {
     }
 }
 
-/// What a wagon is doing, for the report and the picture.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WagonState {
     Moving,
     Loading,
     Unloading,
-    /// Held up by another wagon.
     Queued,
-    /// Held up for so long that it is a jam.
     Jammed,
-    /// Its horse has no fodder.
     Unfed,
 }
 impl WagonState {
@@ -236,21 +205,17 @@ impl WagonState {
     }
 }
 
-/// One route, as the player reads it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RouteRow {
     pub id: u32,
     pub name: String,
     pub stops: usize,
     pub wagons: usize,
-    /// Units a minute unloaded over the last minute.
     pub per_min: u32,
-    /// Units a minute the wagons could carry with goods always waiting: a rough ceiling.
     pub capacity_per_min: u32,
     pub state: WagonState,
 }
 
-/// A knot of wagons that cannot go on.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RailJam {
     pub tile: Tile,
@@ -264,13 +229,11 @@ impl Kingdom {
         &c.lines["tram"]
     }
 
-    /// The building a bay serves, if one stands there.
     pub fn bay_building(&self, name: &str) -> Option<u32> {
         let bay = self.rails.bays.get(name)?;
         self.at(bay.side.step(bay.tile))
     }
 
-    /// The state of one wagon.
     pub fn wagon_state(&self, c: &Catalog, id: u32) -> WagonState {
         let Some(w) = self.rails.wagons.get(&id) else { return WagonState::Moving };
         let spec = self.rail_spec(c);
@@ -291,8 +254,6 @@ impl Kingdom {
             WagonState::Moving
         }
     }
-
-    // ---- laying -----------------------------------------------------------
 
     pub fn check_rail_site(&self, c: &Catalog, tile: Tile) -> Result<(), String> {
         let _ = c;
@@ -347,7 +308,6 @@ impl Kingdom {
         Ok("Rail laid".into())
     }
 
-    /// Take a tile of rail up: a wagon on it goes to the camp's stable, a bay on it is gone.
     pub(crate) fn lift_rail(&mut self, tile: Tile) -> Result<String, String> {
         if !self.rails.cells.contains_key(&tile) {
             return Err("no rail here".into());
@@ -358,7 +318,6 @@ impl Kingdom {
         let rail = self.rails.cells.remove(&tile).unwrap();
         if let Some(name) = rail.bay {
             self.rails.bays.remove(&name);
-            // The stops of that bay go with it.
             for r in self.rails.routes.values_mut() {
                 r.stops.retain(|s| s.bay != name);
             }
@@ -367,7 +326,6 @@ impl Kingdom {
         Ok("Rail taken up".into())
     }
 
-    /// A route with fewer than two stops runs nowhere: it is taken down and its wagons go home.
     fn reap_routes(&mut self) {
         let dead: Vec<u32> = self.rails.routes.iter().filter(|(_, r)| r.stops.len() < 2).map(|(&id, _)| id).collect();
         for id in dead {
@@ -375,7 +333,6 @@ impl Kingdom {
         }
     }
 
-    /// A name for a bay beside a building: its plan's name, and a number when there is more than one.
     fn bay_name(&self, c: &Catalog, building: u32) -> String {
         let base = self.buildings.get(&building).map_or("Bay".to_string(), |b| c.plans[&b.plan].name.clone());
         let mut n = 1;
@@ -388,7 +345,6 @@ impl Kingdom {
         }
     }
 
-    /// Name the rail tile `tile` as a bay serving the building on `side` of it (or the first building beside it).
     pub(crate) fn make_bay(&mut self, c: &Catalog, tile: Tile, side: Option<Dir>, name: Option<String>) -> Result<String, String> {
         let rail = self.rails.cells.get(&tile).ok_or("a bay is a tile of rail")?;
         if rail.bay.is_some() {
@@ -412,7 +368,6 @@ impl Kingdom {
         self.buildings.get(&id).is_some_and(|b| c.plans[&b.plan].swape == 0)
     }
 
-    /// Run `stops` with `wagons` wagons, which are bought and stood at the first bay.
     pub(crate) fn make_route(&mut self, c: &Catalog, name: Option<String>, stops: Vec<Stop>, wagons: u16) -> Result<String, String> {
         if stops.len() < 2 || stops.len() > 12 {
             return Err("a route takes two to twelve stops".into());
@@ -441,7 +396,6 @@ impl Kingdom {
         Ok(format!("The {name} route runs"))
     }
 
-    /// Buy `count` wagons for a route and stand them at its first bay and along the rail behind it.
     pub(crate) fn add_wagons(&mut self, c: &Catalog, route: u32, count: u16) -> Result<String, String> {
         let spec = self.rail_spec(c).clone();
         let r = self.rails.routes.get(&route).ok_or("no such route")?;
@@ -457,7 +411,6 @@ impl Kingdom {
         if !covers(&self.stock, &cost) {
             return Err(format!("{count} wagons need {}", crate::economy::missing(&self.stock, &cost)));
         }
-        // Room for them: the first bay's tile and the free rail nearest it.
         let held = self.rails.held();
         let mut places = Vec::new();
         let mut seen = BTreeSet::from([first]);
@@ -484,7 +437,6 @@ impl Kingdom {
             self.rails.next_wagon = id + 1;
             self.rails.wagons.insert(id, Wagon { route, tile, ..Wagon::default() });
         }
-        // Fed from the first second: the horses come with a day's hay.
         let upkeep = spec.upkeep_seconds;
         let rt = self.rails.routes.get_mut(&route).unwrap();
         if rt.fed == 0 {
@@ -493,7 +445,6 @@ impl Kingdom {
         Ok(format!("{count} wagons on the route"))
     }
 
-    /// Take a route down: its wagons are sold (half their price) and what they carry goes to the camp.
     pub(crate) fn remove_route(&mut self, id: u32) -> bool {
         if self.rails.routes.remove(&id).is_none() {
             return false;
@@ -507,7 +458,6 @@ impl Kingdom {
         true
     }
 
-    /// Sell one wagon of a route (the last), standing at its first bay or anywhere free to be sold.
     pub(crate) fn sell_wagon(&mut self, c: &Catalog, route: u32) -> Result<String, String> {
         let id = *self.rails.wagons.iter().rev().find(|(_, w)| w.route == route).map(|(i, _)| i).ok_or("no wagon on that route")?;
         let w = self.rails.wagons.remove(&id).unwrap();
@@ -518,16 +468,12 @@ impl Kingdom {
         Ok("A wagon sold".into())
     }
 
-    // ---- the day's work ---------------------------------------------------------
-
-    /// One second of every wagon on the rails.
     pub(crate) fn rails_tick(&mut self, c: &Catalog, report: &Report) {
         if self.rails.wagons.is_empty() {
             return;
         }
         let spec = self.rail_spec(c).clone();
         let capacity = report.capacity;
-        // The horses eat: a route's fodder lasts, then is drawn again from the camp.
         let ids: Vec<u32> = self.rails.routes.keys().copied().collect();
         for id in ids {
             let wagons = self.rails.wagons.values().filter(|w| w.route == id).count() as u32;
@@ -577,7 +523,6 @@ impl Kingdom {
             return;
         }
         let Some(bay) = bay else {
-            // Its bay is gone: on to the next stop.
             w.stop = (w.stop + 1) % n as u8;
             put_back(self, w);
             return;
@@ -599,7 +544,6 @@ impl Kingdom {
                 put_back(self, w);
             }
             Phase::Travel => {
-                // On the way between tiles.
                 if let Some(to) = w.to {
                     w.clock += crate::pace::travel_clock();
                     if w.clock >= spec.speed {
@@ -621,17 +565,13 @@ impl Kingdom {
                     put_back(self, w);
                     return;
                 }
-                // Choose the next tile: the shortest way, or another when the shortest is held.
                 let mut way = self.rails.path(w.tile, bay.tile, &BTreeSet::new()).unwrap_or_default();
                 if way.is_empty() {
-                    // Cut off from its bay: it stands.
                     w.waiting = w.waiting.saturating_add(1);
                     w.behind = None;
                     put_back(self, w);
                     return;
                 }
-                // A wagon stands in the lane of the way it means to go (so that one coming the other
-                // way can pass it), if that lane is free to it.
                 if let Some(turn) = Dir::between(w.tile, way[0]) {
                     let others: Vec<Dir> = self.rails.wagons.values().filter(|o| o.tile == w.tile).map(|o| o.face).collect();
                     if others.iter().all(|f| *f == turn.back()) {
@@ -642,7 +582,6 @@ impl Kingdom {
                     w.waiting = w.waiting.saturating_add(1);
                     w.behind = Some(blocker);
                     if w.waiting >= LOOK_AROUND {
-                        // Another way round, if the rails have one: a bypass, a second track.
                         let mut shut = self.shut();
                         shut.remove(&w.tile);
                         if let Some(round) = self.rails.path(w.tile, bay.tile, &shut) {
@@ -663,8 +602,6 @@ impl Kingdom {
         }
     }
 
-    /// Whether wagon `id`, on `from`, may take the tile `next` now; if not, the tile of the wagon in the way.
-    /// (The wagon is not in the map while it is stepped.)
     fn may_take(&self, from: Tile, next: Tile) -> Result<(), Tile> {
         let exclusive = self.rails.links(next).len() != 2 || self.rails.cells.get(&next).is_some_and(|r| r.bay.is_some());
         let mine = Dir::between(from, next);
@@ -673,7 +610,6 @@ impl Kingdom {
             if !there && !coming {
                 continue;
             }
-            // A tile of plain track has a lane each way: a wagon coming the other way, not stopped to work, passes.
             let theirs = if coming { Dir::between(o.tile, next) } else { Some(o.face) };
             let passes = !exclusive && !(there && o.phase == Phase::Dwell) && matches!((mine, theirs), (Some(m), Some(t)) if t == m.back());
             if !passes {
@@ -683,7 +619,6 @@ impl Kingdom {
         Ok(())
     }
 
-    /// The tiles that no wagon can go through now: those held by one, where it holds the whole of the tile.
     fn shut(&self) -> BTreeSet<Tile> {
         let mut shut = BTreeSet::new();
         for o in self.rails.wagons.values() {
@@ -699,7 +634,6 @@ impl Kingdom {
     #[allow(clippy::too_many_arguments)]
     fn dwell(&mut self, c: &Catalog, w: &mut Wagon, stop: &Stop, bay: &Bay, spec: &LineSpec, capacity: u32, route: u32) {
         w.dwell = w.dwell.saturating_add(1);
-        // It takes the berth's time to stand and set the brake.
         if u16::from(w.dwell) <= spec.dwell {
             return;
         }
@@ -709,7 +643,6 @@ impl Kingdom {
         let ok = |g: &str| stop.good.as_deref().is_none_or(|x| x == g);
         if let Some(b) = place {
             if matches!(stop.act, Act::Unload | Act::Both) && w.amount > 0 && ok(&w.good) {
-                // Put off what the place takes.
                 let room = self.room_here(c, b, &w.good, capacity);
                 let n = w.amount.min(HANDS).min(room);
                 if n > 0 {
@@ -722,7 +655,6 @@ impl Kingdom {
                     }
                 }
             } else if matches!(stop.act, Act::Load | Act::Both) && w.amount < cap {
-                // The good it already carries, or the one asked for, or the one there is most of.
                 let take_good = if w.amount > 0 {
                     Some(w.good.clone())
                 } else {
@@ -783,9 +715,6 @@ impl Kingdom {
         limit.saturating_sub(have)
     }
 
-    // ---- reading ----------------------------------------------------------------
-
-    /// Goods riding the wagons.
     pub fn railed(&self, resource: &str) -> u32 {
         self.rails.wagons.values().filter(|w| w.good == resource).map(|w| w.amount).sum()
     }
@@ -802,7 +731,6 @@ impl Kingdom {
                     .into_iter()
                     .find(|s| states.contains(s))
                     .unwrap_or(WagonState::Moving);
-                // A wagon's round: the way round at its speed, and a berth at each stop.
                 let length: u32 = r
                     .stops
                     .windows(2)
@@ -826,7 +754,6 @@ impl Kingdom {
             .collect()
     }
 
-    /// Wagons that cannot go on, and why: the knots of the track.
     pub fn rail_jams(&self, c: &Catalog) -> Vec<RailJam> {
         let mut jams = Vec::new();
         for (&id, w) in &self.rails.wagons {
@@ -854,7 +781,6 @@ impl Kingdom {
         jams
     }
 
-    /// Whether the rails are sound: tiles on ground that suits them, bays and routes that refer to what stands.
     pub(crate) fn rails_valid(&self, c: &Catalog) -> bool {
         let r = &self.rails;
         if r.is_empty() && r.bays.is_empty() && r.routes.is_empty() {
@@ -864,8 +790,6 @@ impl Kingdom {
             return false;
         }
         let covered: BTreeSet<Tile> = self.buildings.values().flat_map(|b| self.covered(b)).collect();
-        // A tile holds a wagon, or two going opposite ways (laying a switch where two stand leaves them there
-        // until they have gone).
         let mut per: BTreeMap<Tile, Vec<&Wagon>> = BTreeMap::new();
         for w in r.wagons.values() {
             per.entry(w.tile).or_default().push(w);
@@ -887,11 +811,6 @@ impl Kingdom {
             })
     }
 
-    // ---- the one-gesture railway ----------------------------------------------------
-
-    /// The way a railway from one work to another would take: the rail tiles in order, the first beside `from` and the
-    /// last beside `to`. The cheapest clear ground (rail already laid counts half what new rail does, so a railway joins
-    /// the network it passes); an error says why there is none. The old tramway's planner, for the rail network.
     pub fn plan_rail_path(&self, c: &Catalog, from: u32, to: u32) -> Result<Vec<Tile>, String> {
         let (a, b) = (self.buildings.get(&from).ok_or("no work to start from")?, self.buildings.get(&to).ok_or("no work to end at")?);
         if from == to {
@@ -910,7 +829,6 @@ impl Kingdom {
         if starts.is_empty() || goals.is_empty() {
             return Err("there is no open ground beside one of the works to lay a bay on".into());
         }
-        // Dijkstra over open ground: rail already laid costs 2, new rail 3 (so a path is not bent to reuse a few tiles).
         let cost = |t: Tile| if self.rails.cells.contains_key(&t) { 2u32 } else { 3 };
         let mut best: BTreeMap<Tile, u32> = BTreeMap::new();
         let mut parent: BTreeMap<Tile, Option<Tile>> = BTreeMap::new();
@@ -926,7 +844,6 @@ impl Kingdom {
             if best.get(&t) != Some(&d) {
                 continue;
             }
-            // Two bays need two tiles: a goal reached with no step taken does not count.
             if goals.contains(&t) && parent[&t].is_some() {
                 found = Some(t);
                 break;
@@ -957,10 +874,6 @@ impl Kingdom {
         Ok(way)
     }
 
-    /// Lay a railway from one work to another in one gesture: the rail along `path` (the shortest way when it is empty),
-    /// a bay at each end named for the work it serves, a route that loads at the first and unloads at the second (the
-    /// one `good`, or whatever there is), and `wagons` wagons. All of it or none: a railway the camp cannot pay for, or
-    /// that would not run, changes nothing.
     pub(crate) fn lay_railway(&mut self, c: &Catalog, from: u32, to: u32, path: Vec<Tile>, wagons: u16, good: Option<String>) -> Result<String, String> {
         let spec = self.rail_spec(c).clone();
         if !spec.requires.iter().all(|r| self.researched.contains(r)) {
@@ -979,7 +892,6 @@ impl Kingdom {
         if path.windows(2).any(|w| Dir::between(w[0], w[1]).is_none()) {
             return Err("a railway's tiles run one beside the next".into());
         }
-        // The ends: each beside the work it serves.
         let facing = |k: &Kingdom, tile: Tile, id: u32| Dir::ALL.into_iter().find(|d| k.at(d.step(tile)) == Some(id));
         let mut trial = self.clone();
         for &t in &path {
@@ -990,7 +902,6 @@ impl Kingdom {
         let mut names = Vec::new();
         for (tile, id) in [(path[0], from), (path[path.len() - 1], to)] {
             let side = facing(&trial, tile, id).ok_or("the railway's ends must stand beside the two works")?;
-            // A bay already there that serves this work is shared.
             let name = match trial.rails.cells[&tile].bay.clone() {
                 Some(n) if trial.rails.bays[&n].side == side => n,
                 Some(_) => return Err("a bay of another work stands on that tile".into()),
@@ -1010,7 +921,6 @@ impl Kingdom {
             Stop { bay: names[1].clone(), act: Act::Unload, good },
         ];
         trial.make_route(c, None, stops, wagons)?;
-        // The new rail must join the bays: the route is reaped if its first stop cannot reach the last.
         let (a, b) = (trial.rails.bays[&names[0]].tile, trial.rails.bays[&names[1]].tile);
         if trial.rails.path(a, b, &BTreeSet::new()).is_none() {
             return Err("that rail does not join the two bays".into());
@@ -1020,17 +930,10 @@ impl Kingdom {
         Ok(format!("The {} to {} railway runs: {laid} tiles laid, {wagons} wagons", names[0], names[1]))
     }
 
-    // ---- the old tramways ----------------------------------------------------------
-
-    /// Whether some tramway line of the old kind is still laid (a save from before the rails).
     pub fn has_tramways(&self) -> bool {
         self.lines.values().any(|l| l.kind == LineKind::Tram)
     }
 
-    /// Bring every point-to-point tramway of an old save onto the network: its track becomes rail, a bay
-    /// stands at each end and the wagons run between them as a route, as they did. A tramway with no track
-    /// between its buildings (they touch, or there is a single tile) has no room for a bay at each end
-    /// and stays as it was. Returns how many were brought over.
     pub fn migrate_tramways(&mut self, c: &Catalog) -> usize {
         let old: Vec<u32> = self.lines.iter().filter(|(_, l)| l.kind == LineKind::Tram && l.path.len() >= 4).map(|(&id, _)| id).collect();
         let mut moved = 0;
@@ -1067,7 +970,6 @@ impl Kingdom {
                     ..Route::default()
                 },
             );
-            // The wagons stand along the track from the first bay; what they carried goes to the camp.
             let mut at = VecDeque::from([first]);
             let mut seen = BTreeSet::from([first]);
             let mut places = Vec::new();

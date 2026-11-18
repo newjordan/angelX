@@ -1,8 +1,3 @@
-// Thin adapter for the `cost` leg. No decision logic lives here: the plain
-// JSON input mirrors the Rust feature builder's fields 1:1, the compiled Bend
-// decides every gate and all of the arithmetic, and the answer converts back
-// to the leg's plain decision shape (a basis plus integer e8 money, so no
-// float ever crosses the decision boundary).
 const { 'Cost.decide': decide } = require('./cost.compiled')
 
 const BASIS = Object.freeze({

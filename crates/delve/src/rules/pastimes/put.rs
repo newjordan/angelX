@@ -99,19 +99,13 @@ impl Run {
             pot.dx = (pot.dx + Put::wind(round.progress)).clamp(1, 260);
             pot.dz -= 12;
             pot.left = pot.left.saturating_sub(1);
-            // Approach glow: pulse when the pot is descending near the target.
             let target = TARGETS[usize::from(round.progress)] * 256;
             if pot.z > 0 && pot.dz < 0 && pot.x.abs_diff(target) < 3 * 256 {
                 p.target_glow = 4;
             }
-            // A structurally valid hand-edited checkpoint can start at a bound
-            // no real launch reaches. Keep acceptance closed under one tick:
-            // terminate a rising/out-of-velocity-bound flight as a miss rather
-            // than emitting an invalid live state. Ordinary arcs are unchanged.
             let outside =
                 !(256..=22 * 256).contains(&pot.x) || pot.left == 0 || (pot.z > 0 && !pot.valid());
             if pot.z <= 0 || outside {
-                // Only a landing scores, not flying through a target or walking.
                 if !outside && pot.x.abs_diff(target) <= 256 {
                     round.progress += 1;
                     round.score_popup = 8;
@@ -167,7 +161,6 @@ impl Run {
                 self.sounds.push("bomb_toss");
             }
         }
-        // Decay the visual-effect timers each tick.
         p.landing_flash = p.landing_flash.saturating_sub(1);
         p.target_glow = p.target_glow.saturating_sub(1);
         if p.shots == 8 && p.flight.is_none() && round.progress < Game::Pot.need() {

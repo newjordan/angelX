@@ -11,12 +11,8 @@ fn tmp_ws(tag: &str) -> (PathBuf, PathBuf) {
     std::fs::create_dir_all(&root).unwrap();
     let harness_dir = root.join("harness-store");
     std::fs::create_dir_all(&harness_dir).unwrap();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_CONTINUAL_HARNESS_DIR", &harness_dir) };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_CONTINUAL_HARNESS", "1") };
-    // Force path-keyed identity so temp dirs don't need git.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_REPO_IDENTITY", "0") };
     let ws = root.join("ws");
     std::fs::create_dir_all(&ws).unwrap();
@@ -24,11 +20,8 @@ fn tmp_ws(tag: &str) -> (PathBuf, PathBuf) {
 }
 
 fn cleanup(root: PathBuf) {
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_CONTINUAL_HARNESS_DIR") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_CONTINUAL_HARNESS") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_REPO_IDENTITY") };
     let _ = std::fs::remove_dir_all(root);
 }
@@ -145,15 +138,11 @@ fn disabled_yields_empty_block() {
     let _g = crate::tests::env_lock();
     let (ws, root) = tmp_ws("off");
     seed_light_prover(&ws);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_CONTINUAL_HARNESS", "0") };
     assert_eq!(context_block(&ws), "");
     cleanup(root);
 }
 
-/// An entry added mid-session reaches the next turn through the knowledge
-/// broker; a block the conversation already carries (the start-up context or
-/// a /loop prompt) is not repeated.
 #[test]
 fn a_mid_session_entry_reaches_the_next_turn_once() {
     let _g = crate::tests::env_lock();
@@ -195,7 +184,6 @@ fn a_mid_session_entry_reaches_the_next_turn_once() {
     crate::agent::harness::refresh_knowledge_broker(&registry, &mut history, 120_000, &[], true);
     assert_eq!(carried(&history), 1, "{history:?}");
 
-    // Already in the start-up context: not added again.
     let mut booted = vec![
         crate::agent::club::ChatMsg::system(format!("stable system\n{}", context_block(&ws))),
         crate::agent::club::ChatMsg::user("keep going"),
@@ -241,8 +229,6 @@ fn the_block_shows_the_entries_the_turn_is_about() {
     let (ws, root) = tmp_ws("ranked");
     seed_eight(&ws);
 
-    // Past the six-per-kind window, the name-last entry still rides when the
-    // turn is about it.
     let ranked = context_block_for(&ws, "why did the pycache ship in the payload?");
     assert!(ranked.contains("Zz payload trap"), "{ranked}");
     assert!(ranked.contains("+2 more memory entries"), "{ranked}");

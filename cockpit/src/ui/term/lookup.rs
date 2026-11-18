@@ -60,8 +60,6 @@ pub(crate) enum ReferenceStatus {
     Unavailable,
 }
 
-/// A local-first lesson shown by the world-owned Scryglass. Wikipedia is an
-/// optional enrichment, never the object that makes the lesson useful.
 pub(crate) struct QuickLookup {
     term: String,
     local: crate::knowledge::library::LocalLesson,
@@ -131,8 +129,6 @@ impl QuickLookup {
         Self::loading(local, receiver)
     }
 
-    /// Construct an explicitly offline lesson. This is also the stable fallback
-    /// when external reference enrichment is disabled.
     #[cfg(test)]
     pub(crate) fn offline(term: String) -> Self {
         Self::from_local(lesson_for_lookup(&term))
@@ -187,24 +183,18 @@ impl QuickLookup {
         self.shown < self.text.len()
     }
 
-    /// The resident tutor delivering this lesson (for status surfaces).
     pub(crate) fn tutor_name(&self) -> &str {
         self.local.tutor.name
     }
 
-    /// The lesson's Recall prompts (for the `/recall` review surface).
     pub(crate) fn recall_prompt(&self) -> String {
         self.local.recall_prompt()
     }
 
-    /// Editable handoff for the ordinary composer. This returns text only; it
-    /// cannot submit a turn or invoke a provider.
     pub(crate) fn ask_prompt(&self) -> String {
         self.local.ask_tutor_prompt()
     }
 
-    /// The inspectable curriculum pointer is always available, including while
-    /// Wikipedia is disabled, loading, or unavailable.
     pub(crate) fn source_url(&self) -> &str {
         self.local.source_url
     }
@@ -310,7 +300,6 @@ impl QuickLookup {
         }
     }
 
-    /// Like [`ready`], but with the roll-in still pending (shown = 0).
     #[cfg(test)]
     pub(crate) fn ready_unrolled(term: &str, title: &str, summary: &str) -> Self {
         let mut lookup = Self::ready(term, title, summary);
@@ -350,10 +339,6 @@ fn lesson_for_lookup(term: &str) -> crate::knowledge::library::LocalLesson {
         .expect("the built-in fallback topic always produces a local lesson")
 }
 
-/// Turn rendered transcript selection into a local lesson topic. Surrounding
-/// prose punctuation is harmless and ordinary multiword subjects are welcome;
-/// control-bearing, overlong, and punctuation-only selections stay ordinary
-/// copy operations.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn selected_term(text: &str) -> Option<String> {
     let mut term = text.trim().trim_matches(is_edge_punctuation);
@@ -498,9 +483,6 @@ fn stem_score(needle: &str, title: &str, extract: &str) -> i32 {
     if extract.contains("may refer to:") || extract.contains("may refer to either") {
         return -100;
     }
-    // MediaWiki search is fuzzy. A scientifically relevant near-name (for
-    // example “Bevy” matching scientist Isabel Bevier) is still unrelated to
-    // the selected word and must not become a confident teaching lesson.
     if !title.contains(needle) && !extract.contains(needle) {
         return -100;
     }
@@ -579,9 +561,6 @@ fn stem_score(needle: &str, title: &str, extract: &str) -> i32 {
             score += 2;
         }
     }
-    // Title proximity ranks candidates only after the extract itself establishes
-    // STEM relevance; otherwise an exact music, company, or placename result
-    // would pass merely because MediaWiki matched the selected word.
     if score == 0 {
         return -100;
     }

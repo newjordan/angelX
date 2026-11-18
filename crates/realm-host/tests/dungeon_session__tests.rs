@@ -278,8 +278,6 @@ fn private_home_outbox_restores_live_quests_newer_facts_and_pending_claim_togeth
         assert!(rejected.restore(&dir).is_err());
         assert!(rejected.shooter.is_none() && rejected.hosting.is_none());
     }
-    // A genuine version-2 checkpoint retains its original country-only
-    // migration behavior, with no invented Home transaction/outbox fields.
     let mut legacy = saved;
     legacy["version"] = 2.into();
     legacy.as_object_mut().unwrap().remove("home_outbox");
@@ -331,7 +329,6 @@ fn a_restored_session_opens_the_same_link_and_serves_the_page_at_its_door() {
         "same door, same key"
     );
     assert!(back.hosting.is_some());
-    // The door answers a browser with the page, as it did before the restart.
     use std::io::{Read, Write};
     let mut stream = std::net::TcpStream::connect(&invitation.0).unwrap();
     stream
@@ -349,8 +346,6 @@ fn a_restored_session_opens_the_same_link_and_serves_the_page_at_its_door() {
         "{}",
         String::from_utf8_lossy(&answer)
     );
-    // Built with the Delve's web crate, the page is the Delve's, and its
-    // wasm is served beside it.
     if crate::together_web::shipped().is_some() {
         let page = String::from_utf8_lossy(&answer).into_owned();
         assert!(page.contains("<title>Delve</title>"), "{page}");
@@ -381,7 +376,6 @@ fn a_restored_session_opens_the_same_link_and_serves_the_page_at_its_door() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// One plain GET to `addr`: the head and the body.
 fn get(addr: &str, path: &str) -> (String, Vec<u8>) {
     use std::io::{Read, Write};
     let mut stream = std::net::TcpStream::connect(addr).unwrap();
@@ -407,10 +401,6 @@ fn get(addr: &str, path: &str) -> (String, Vec<u8>) {
 
 #[test]
 fn the_hosted_page_names_the_gpu_renderer_it_serves() {
-    // Built with the wasm-bindgen CLI at hand (`build.rs`), the full game's
-    // page carries the renderer in both builds beside the Delve's wasm, each
-    // file at an /a/<hash> name with its own content type. Without the CLI the
-    // page names none and keeps its own presenter.
     let Some(bundle) = crate::together_web::shipped() else {
         return;
     };
@@ -464,9 +454,6 @@ fn the_hosted_page_names_the_gpu_renderer_it_serves() {
 
 #[test]
 fn a_session_saved_with_four_seats_restores_and_hosts_six() {
-    // The checkpoint of a delve hosted when the party was four wide: the
-    // merchant's seat memories are four long. It restores, opens the same
-    // door for the host and five friends, and the run steps on.
     let _capacity = crate::tests::browser_capacity();
     let dir = std::env::temp_dir().join(format!("angel-session-four-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -508,9 +495,6 @@ fn a_session_saved_with_four_seats_restores_and_hosts_six() {
 
 #[test]
 fn a_session_saved_by_a_host_with_no_knight_restores_with_six_friend_seats() {
-    // Today's dedicated machine's checkpoint: knight 1 the host's empty
-    // place, stone, beside five friends. It loads on a host that plays no
-    // knight and opens the same door with all six seats for friends.
     let _guard = crate::tests::browser_capacity();
     let _watch = crate::tests::TestEnvGuard::set("ANGEL_DELVE_HOST_KNIGHT", "0");
     let dir = std::env::temp_dir().join(format!("angel-session-watch-{}", std::process::id()));
@@ -656,9 +640,6 @@ fn private_reforge_reservations_and_exact_terminal_results_restore_together() {
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// What the checkpoint on disk says about the door, read as the JSON the
-/// writer produced. The join key is a secret: tests compare it and never
-/// print it.
 fn saved_door(path: &std::path::Path) -> (serde_json::Value, Option<bool>) {
     let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     (saved["invitation"].clone(), saved.get("watch").and_then(serde_json::Value::as_bool))
@@ -689,14 +670,10 @@ fn a_failed_rebind_on_restore_keeps_the_saved_link_for_the_next_start() {
     let saved = saved_door(&path).0;
     assert!(saved == serde_json::json!([addr, key]), "the hosted checkpoint records its link");
 
-    // The address is not free when the host comes back: its port is busy, or
-    // its network is not up yet.
     let busy = std::net::TcpListener::bind(&addr).unwrap();
     let mut back = DungeonView::default();
     assert!(back.restore(&dir).is_err(), "the door cannot be opened again");
     assert!(back.hosting.is_none() && back.shooter.is_some(), "the run plays on, solo");
-    // Its next checkpoints (the service's own, the one on exit) must not
-    // cost the next start its key.
     back.checkpoint(Instant::now(), true).unwrap();
     assert!(
         saved_door(&path).0 == saved,
@@ -706,7 +683,6 @@ fn a_failed_rebind_on_restore_keeps_the_saved_link_for_the_next_start() {
     assert!(saved_door(&path).0 == saved, "the exit save erased the saved link");
     drop(busy);
 
-    // The address answers again: the same run opens the same link.
     let mut again = DungeonView::default();
     again.restore(&dir).unwrap();
     assert!(again.hosting.is_some());
@@ -724,7 +700,6 @@ fn a_host_that_watches_restores_as_a_watching_host_without_the_env_switch() {
     let mut view = DungeonView::default();
     view.save_path = Some(dir.join(".angel/dungeon/session.json"));
     view.shooter.set(Some(Run::new(7, 1, None)));
-    // `/dungeon host --watch`: the flag, no env var.
     view.shooter
         .host_as(
             crate::together_sim::Door {
@@ -750,8 +725,6 @@ fn a_host_that_watches_restores_as_a_watching_host_without_the_env_switch() {
     );
     drop(back);
 
-    // An older save has no `watch`: the env switch is the only default, as
-    // it was, and a host that plays its own knight writes no new field.
     let mut old: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
     old.as_object_mut().unwrap().remove("watch");
     std::fs::write(&path, serde_json::to_vec(&old).unwrap()).unwrap();

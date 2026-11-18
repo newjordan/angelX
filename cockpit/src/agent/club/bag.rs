@@ -709,14 +709,18 @@ impl Bag {
             let model = selection.model.clone();
             let configured_effort = Some(selection.effort.clone());
             // Drop private-test Codex Spark surfaces so ←/→ cannot select them,
-            // and models offered only under Daybreak: those ride the Daybreak
-            // seat, which sends their access program.
+            // models offered only under Daybreak (those ride the Daybreak seat,
+            // which sends their access program), and the superseded GPT-5.6
+            // line unless it is the pinned model.
             let mut catalog: Vec<_> = codex_startup
                 .catalog
                 .models()
                 .iter()
                 .filter(|c| !crate::agent::openai_codex::is_private_test_codex_model(&c.slug))
                 .filter(|c| c.slug == model || c.standard_access())
+                .filter(|c| {
+                    c.slug == model || !crate::agent::openai_codex::is_retired_codex_model(&c.slug)
+                })
                 .cloned()
                 .collect();
             if !catalog.iter().any(|candidate| candidate.slug == model) {
@@ -1020,17 +1024,22 @@ impl Bag {
         // by name (`ANGEL_DRIVER=anthropic` or `claude-opus-5-5`), never
         // preferred for a role. Opus 5.5 shares the Anthropic key.
         sota_links.extend(optional_anthropic_http_clubs());
+        // Gemini 4 Carbon: metered, seated by name, kept out of the MoA below.
+        sota_links.extend(optional_carbon_http_club());
         // OpenRouter requires credentials and a model pin and follows the
         // operator's optional provider allowlist.
         if openrouter_configured() {
             sota_links.extend(optional_openrouter_http_clubs());
         }
 
-        // Muse Wonder is seated by name only (operator: never spend Muse tokens
-        // implicitly): it joins no MoA role, extra proposer or quota fallback.
+        // Muse Wonder and Carbon are seated by name only (operator: never spend
+        // their tokens implicitly): they join no MoA role, extra proposer or
+        // quota fallback.
         let moa_links: Vec<_> = sota_links
             .iter()
-            .filter(|(alias, _, _)| !META_API_MODEL_OPTIONS.contains(&alias.as_str()))
+            .filter(|(alias, _, _)| {
+                !META_API_MODEL_OPTIONS.contains(&alias.as_str()) && alias != CARBON_SEAT
+            })
             .cloned()
             .collect();
         match sota_moa_club(&moa_links) {

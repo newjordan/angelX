@@ -16,8 +16,6 @@ fn write_ex2b_proof() {
     let mut lines = Vec::new();
     lines.push(format!("south-head fallbacks seeds 1..=50: 0 (asserted by the_head_stands)"));
 
-    // Timings: the old per-cell vein lookup and a fresh adit stamp, then the
-    // lamp-step cache and the single bodies() bake.
     let (walk_off, cold_off, warm_off, parts_off) = time_mine(seed, &laid.bodies[0], false);
     let (walk_on, cold_on, warm_on, parts_on) = time_mine(seed, &laid.bodies[0], true);
     lines.push(format!(
@@ -200,8 +198,6 @@ fn shot_cyan(out: &std::path::Path, seed: u32, body: &mines::Body) {
     host.tick = 40;
     let im = paint_seat(&host, 1);
     save_full(&out.join("cyan-spot-full.png"), &im);
-    // The round-one crop assumed the wall sat at screen centre plus a cell delta.
-    // That lands on the floor in front of the wall: the blue brick grid.
     let rgb = old_crop(&im, (body.head.0, body.head.1), (body.head.0, body.head.1 - 1), 96, 80);
     save_raw_png(&out.join("cyan-grid-old-crop.png"), 96, 80, &rgb);
 }
@@ -210,7 +206,6 @@ fn write_diff_spec(out: &std::path::Path, seed: u32, laid: &mines::Laid) {
     let basalt = laid.bodies.iter().find(|b| b.region == 1).unwrap();
     let lime = laid.bodies.iter().find(|b| b.region == 0).unwrap();
     let mut spec = format!("seed {seed}\n");
-    // Beside a basalt vein, not beside its head, so the prompt stays off.
     let vein = basalt
         .cells
         .iter()
@@ -239,7 +234,6 @@ fn dump_diff(
     if let Some(body) = body {
         if sunk {
             stand(&mut host, 1, body.head.0 as i16, body.head.1 as i16);
-            // Prove and sink without painting extra seen walls the lamp does not reach.
             mark_seen(&mut host, &body.cells, body.cells.len());
             press(&mut host, 1);
             host.seat_notices.clear();

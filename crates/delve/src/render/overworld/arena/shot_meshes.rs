@@ -26,23 +26,15 @@ use super::room_scene::{ClassShot, ForgedColour, ForgedShape, SceneShot, ShotFor
 use crate::render::overworld::ink::ink;
 use crate::rules::Shot;
 
-/// How much a ball is flattened in depth (the room's `y`) for the stage's
-/// oblique camera to show it round.
 pub const DEPTH: f32 = 0.45;
 
-/// How high a shot flies over its point on the floor, in the room's pixels.
 pub const LIFT: f32 = 4.0;
 
-/// The ids of a stage's shot nodes start here, thirty-two to a shot.
 const FIRST_NODE: u64 = 0x5_0000_0000;
 const NODES_PER_SHOT: u64 = 32;
 
-/// How far a spinning or tumbling shot travels for one turn, in the room's
-/// pixels. Its turn is a function of where it is, so there is nothing to keep.
 const TURN_PX: f32 = 22.0;
 
-/// What a part is made of: an ink of the palette, how much of it shines by
-/// itself, and how much of it shows through (a veil round a hot core).
 #[derive(Clone, Copy)]
 struct Paint {
     ink: char,
@@ -51,17 +43,14 @@ struct Paint {
 }
 
 impl Paint {
-    /// Lit by the light, and nothing more.
     const fn lit(ink: char) -> Self {
         Self { ink, emissive: 0.0, alpha: 1.0 }
     }
 
-    /// Lit, with `emissive` of it shining by itself.
     const fn glow(ink: char, emissive: f32) -> Self {
         Self { ink, emissive, alpha: 1.0 }
     }
 
-    /// A shining veil `alpha` thick over what is inside it.
     const fn veil(ink: char, emissive: f32, alpha: f32) -> Self {
         Self { ink, emissive, alpha }
     }
@@ -72,23 +61,15 @@ impl Paint {
     }
 }
 
-/// Where a shot is and how it flies, and the nodes built for it so far.
 struct Maker<'a> {
     out: &'a mut Vec<Node>,
     next: u64,
-    /// The world point of the shot: (x, height, z).
     at: [f32; 3],
-    /// The flight frame into the world: a turn about the vertical.
     yaw: [f32; 4],
-    /// The shot's own turn in its frame (a tumble, a spin).
     body: [f32; 4],
-    /// Which way it flies on the floor (unit), and how far it has gone along
-    /// it from the origin: what a turn is a function of.
     travel: f32,
 }
 
-/// The way a vector of the flight frame (`l` along, `u` up, `s` across) goes
-/// in the world.
 fn axis(l: f32, u: f32, s: f32) -> [f32; 3] {
     [l, u, s]
 }
@@ -106,15 +87,11 @@ impl Maker<'_> {
         self.out.push(node);
     }
 
-    /// A shape at `offset` in the flight frame, turned by `turn` there, of
-    /// `size` (its own axes: the mesh's, turned).
     fn solid(&mut self, mesh: MeshRef, offset: [f32; 3], turn: [f32; 4], size: [f32; 3], paint: Paint) {
         let rotation = quat_mul(self.yaw, quat_mul(self.body, turn));
         self.push(mesh, Transform { translation: self.world(offset), rotation, scale: size }, paint);
     }
 
-    /// A ball of diameter `d` at `offset`, flattened in depth so that it is round
-    /// on the stage's screen.
     fn ball(&mut self, offset: [f32; 3], d: f32, paint: Paint) {
         let transform = Transform {
             translation: self.world(offset),
@@ -124,64 +101,50 @@ impl Maker<'_> {
         self.push(MeshRef::Sphere { segments: 12 }, transform, paint);
     }
 
-    /// A ball at a place given in the world's own frame (an eye that looks
-    /// at the viewer however it flies).
     fn ball_in_world(&mut self, offset: [f32; 3], d: f32, paint: Paint) {
         let at = [self.at[0] + offset[0], self.at[1] + offset[1], self.at[2] + offset[2]];
         let transform = Transform { translation: at, rotation: QUAT_IDENTITY, scale: [d, d, d * DEPTH] };
         self.push(MeshRef::Sphere { segments: 12 }, transform, paint);
     }
 
-    /// A box `size` (along, up, across), at `offset`.
     fn bar(&mut self, offset: [f32; 3], size: [f32; 3], paint: Paint) {
         self.solid(MeshRef::Cube, offset, QUAT_IDENTITY, size, paint);
     }
 
-    /// A pointed shape of base `width` and length `len` at `offset`, its point
-    /// forward (`forward`) or back.
     fn spike(&mut self, offset: [f32; 3], width: f32, len: f32, forward: bool, paint: Paint) {
-        // The cone points up its own Y; turn that to the flight's X.
         let quarter = std::f32::consts::FRAC_PI_2;
         let turn = quat_axis_angle([0.0, 0.0, 1.0], if forward { -quarter } else { quarter });
         self.solid(MeshRef::Cone { segments: 6 }, offset, turn, [width, len, width], paint);
     }
 
-    /// An octahedron stretched `size` along, up and across.
     fn gem(&mut self, offset: [f32; 3], size: [f32; 3], paint: Paint) {
         self.solid(MeshRef::Gem, offset, QUAT_IDENTITY, size, paint);
     }
 
-    /// A jack: three stretched gems crossed at `offset`, `reach` end to end.
     fn jack(&mut self, offset: [f32; 3], reach: f32, thick: f32, paint: Paint) {
         self.gem(offset, [reach, thick, thick], paint);
         self.gem(offset, [thick, reach, thick], paint);
         self.gem(offset, [thick, thick, reach], paint);
     }
 
-    /// An orb: a glowing veil round a hot core.
     fn orb(&mut self, offset: [f32; 3], d: f32, veil: Paint, core: Paint) {
         self.ball(offset, d * 0.55, core);
         self.ball(offset, d, veil);
     }
 
-    /// An arrow's fins: two crossed, `len` long and `span` across.
     fn fins(&mut self, l: f32, len: f32, span: f32, paint: Paint) {
         self.bar(axis(l, 0.0, 0.0), [len, span, 0.3], paint);
         self.bar(axis(l, 0.0, 0.0), [len, 0.3, span], paint);
     }
 
-    /// A turn of the shot's own, `turns` of the way it flies a pixel
-    /// (negative the other way), about `about` in its frame.
     fn turn(&mut self, about: [f32; 3], turns: f32) {
         self.body = quat_axis_angle(about, self.travel / TURN_PX * turns * std::f32::consts::TAU);
     }
 
-    /// A phase that goes round once for each [`TURN_PX`] of travel, `times` as fast.
     fn phase(&self, times: f32) -> f32 {
         self.travel / TURN_PX * times * std::f32::consts::TAU
     }
 
-    /// A tail of beads trailing the shot, `(back, diameter, paint)` each.
     fn beads(&mut self, beads: &[(f32, f32, Paint)]) {
         for &(back, d, paint) in beads {
             self.ball(axis(-back, 0.0, 0.0), d, paint);
@@ -189,9 +152,6 @@ impl Maker<'_> {
     }
 }
 
-/// Build shot number `n` as shapes onto `out`, at `(x, y)` in the stage's
-/// pixels (the room's, less the camera). False when this shot is not made of
-/// shapes (a card's own drawing, which stays a sprite) and nothing is added.
 pub fn build(out: &mut Vec<Node>, n: u64, shot: &SceneShot, (cx, cy): (f32, f32)) -> bool {
     if shot.form == ShotForm::Card {
         return false;
@@ -199,9 +159,6 @@ pub fn build(out: &mut Vec<Node>, n: u64, shot: &SceneShot, (cx, cy): (f32, f32)
     let speed = shot.vx.hypot(shot.vy);
     let (dx, dy) = if speed > 0.0 { (shot.vx / speed, shot.vy / speed) } else { (1.0, 0.0) };
     let (x, y) = (shot.x - cx, shot.y - cy);
-    // The flight frame's +X is the flight's direction on the floor; turning
-    // about the vertical by minus its angle takes +X there (the world's +Z
-    // is down the room, the room's +y).
     let yaw = quat_axis_angle([0.0, 1.0, 0.0], -dy.atan2(dx));
     let start = out.len();
     let at = [x, shot.dimension.lift(), y];
@@ -214,8 +171,6 @@ pub fn build(out: &mut Vec<Node>, n: u64, shot: &SceneShot, (cx, cy): (f32, f32)
         ShotForm::Card => return false,
     }
     raise(&mut out[start..], at, [dx, 0.0, dy], travel, shot.dimension);
-    // A knight's shot drawn smaller or bigger (`SceneShot::scale`): its
-    // shapes shrunk about its middle.
     if shot.scale != 1.0 {
         for node in &mut out[start..] {
             let t = &mut node.transform;
@@ -228,9 +183,6 @@ pub fn build(out: &mut Vec<Node>, n: u64, shot: &SceneShot, (cx, cy): (f32, f32)
     true
 }
 
-/// A shot's shapes in its dimension (`dimensions`): low, as built; raised,
-/// grown about its middle `at` and rolled about its flight `along` as far as
-/// it has travelled. A ball keeps its own turn, so it stays round.
 fn raise(nodes: &mut [Node], at: [f32; 3], along: [f32; 3], travel: f32, dimension: super::dimensions::Dimension) {
     let (k, roll) = (dimension.scale(), quat_axis_angle(along, travel * dimension.roll()));
     if k == 1.0 && dimension.roll() == 0.0 {
@@ -247,15 +199,12 @@ fn raise(nodes: &mut [Node], at: [f32; 3], along: [f32; 3], travel: f32, dimensi
     }
 }
 
-/// The shapes of the game's own kinds, each in the inks of its sprite
-/// (`sprites::shot`).
 fn kind_shape(m: &mut Maker, kind: Shot) {
     let profile = super::volleys::ranged::look(kind);
     let up = [0.0, 1.0, 0.0];
     let across = [0.0, 0.0, 1.0];
     let along = [1.0, 0.0, 0.0];
     match kind {
-        // A thrown blade, spinning flat: two steel arms crossed over a hub.
         Shot::Blade => {
             m.turn(up, 1.0);
             m.bar(axis(0.0, 0.0, 0.0), [9.0, 0.8, 1.8], Paint::lit('v'));
@@ -264,24 +213,20 @@ fn kind_shape(m: &mut Maker, kind: Shot) {
             m.bar(axis(-4.0, 0.0, 0.0), [1.6, 0.9, 1.6], Paint::lit('W'));
             m.ball(axis(0.0, 0.5, 0.0), 2.4, Paint::glow('3', 0.6));
         }
-        // A pale ash shaft, a steel head, teal fletching.
         Shot::Arrow => {
             m.bar(axis(-1.0, 0.0, 0.0), [profile.length * 0.8, profile.width, profile.width], Paint::lit('o'));
             m.spike(axis(4.7, 0.0, 0.0), 2.6, 3.4, true, Paint::lit('W'));
             m.fins(-4.4, 2.8, 2.8, Paint::lit('o'));
         }
-        // Shorter and stouter: a reddish stock, a bright head.
         Shot::Bolt => {
             m.bar(axis(-0.5, 0.0, 0.0), [profile.length * 0.8, profile.width * 0.7, profile.width * 0.7], Paint::lit('R'));
             m.spike(axis(3.6, 0.0, 0.0), 2.6, 2.8, true, Paint::lit('V'));
             m.fins(-2.7, 1.8, 2.4, Paint::lit(profile.edge));
         }
-        // A handgonne ball: dull iron, its core still hot.
         Shot::Ball => {
             m.ball(axis(0.0, 0.0, 0.0), profile.width * 1.8, Paint::lit(profile.edge));
             m.ball(axis(1.2, 0.8, 0.0), 2.2, Paint::lit(profile.core));
         }
-        // A tumbling bone, end over end: a shaft with a knuckle at each end.
         Shot::Bone => {
             m.turn(across, 1.0);
             m.bar(axis(0.0, 0.0, 0.0), [1.0, 5.0, 1.0], Paint::lit('h'));
@@ -290,38 +235,31 @@ fn kind_shape(m: &mut Maker, kind: Shot) {
             m.ball(axis(0.0, -2.6, 0.5), 2.2, Paint::lit('H'));
             m.ball(axis(0.0, -2.6, -0.5), 2.2, Paint::lit('H'));
         }
-        // Magic: a teal veil over a hot cream core.
         Shot::Orb => m.orb(axis(0.0, 0.0, 0.0), 6.4, Paint::veil('2', 0.8, 0.6), Paint::glow('9', 1.0)),
-        // A fireball.
         Shot::Ember => m.orb(axis(0.0, 0.0, 0.0), 6.6, Paint::veil('@', 0.9, 0.7), Paint::glow('c', 1.0)),
-        // Pilgrim's Arrow: a long shaft of light with a white head and wings of gold.
         Shot::Sacred => {
             m.bar(axis(-3.0, 0.0, 0.0), [14.0, 1.1, 1.1], Paint::glow('6', 0.9));
             m.spike(axis(6.4, 0.0, 0.0), 3.4, 4.8, true, Paint::glow('9', 1.0));
             m.fins(-9.0, 3.4, 4.0, Paint::glow('5', 0.8));
             m.fins(-6.0, 2.6, 3.2, Paint::glow('6', 0.8));
         }
-        // The Hexer's bolt: frog-green, with two motes turning round it.
         Shot::Hex => {
             m.orb(axis(0.0, 0.0, 0.0), 6.4, Paint::veil('Y', 0.8, 0.65), Paint::glow('9', 1.0));
             let a = m.phase(2.0);
             m.ball(axis(4.2 * a.cos(), 0.0, 4.2 * a.sin()), 1.7, Paint::glow('C', 0.9));
             m.ball(axis(-4.2 * a.cos(), 0.0, -4.2 * a.sin()), 1.7, Paint::glow('C', 0.9));
         }
-        // The Lich's frost: a star of ice.
         Shot::Frost => {
             m.turn(up, 0.4);
             m.jack(axis(0.0, 0.0, 0.0), 7.0, 1.7, Paint::glow('z', 0.45));
             m.ball(axis(0.0, 0.0, 0.0), 3.2, Paint::glow('9', 1.0));
         }
-        // A heat-seeker: a steel nose, a red band, fins at the tail.
         Shot::Missile => {
             m.bar(axis(-0.5, 0.0, 0.0), [7.0, 2.2, 2.2], Paint::lit('J'));
             m.bar(axis(0.8, 0.0, 0.0), [1.5, 2.6, 2.6], Paint::lit('7'));
             m.spike(axis(4.9, 0.0, 0.0), 2.2, 2.8, true, Paint::lit('H'));
             m.fins(-3.4, 2.4, 4.4, Paint::lit('G'));
         }
-        // The Crypt's wisp: a pale light dragging a cold tail.
         Shot::Wisp => {
             m.orb(axis(0.0, 0.0, 0.0), 5.8, Paint::veil('3', 0.8, 0.6), Paint::glow('9', 1.0));
             m.beads(&[
@@ -330,26 +268,22 @@ fn kind_shape(m: &mut Maker, kind: Shot) {
                 (8.8, 2.2, Paint::veil('q', 0.8, 0.7)),
             ]);
         }
-        // The Mines' ore: a rough lump, tumbling, bright where it catches the light.
         Shot::Ore => {
             m.turn([0.3, 1.0, 0.5], 0.8);
             m.solid(MeshRef::Sphere { segments: 5 }, axis(0.0, 0.0, 0.0), QUAT_IDENTITY, [5.2, 4.4, 4.8], Paint::lit('R'));
             m.solid(MeshRef::Gem, axis(1.4, 1.0, -0.6), QUAT_IDENTITY, [3.0, 2.6, 2.6], Paint::lit('o'));
             m.ball(axis(-1.2, -0.8, 1.2), 1.6, Paint::lit('T'));
         }
-        // Dragon Keep's flame: a white-hot head and a teardrop tail.
         Shot::Flame => {
             m.spike(axis(-5.2, 0.0, 0.0), 5.4, 9.0, false, Paint::veil('@', 0.9, 0.75));
             m.orb(axis(0.0, 0.0, 0.0), 6.2, Paint::veil('@', 0.9, 0.7), Paint::glow('c', 1.0));
         }
-        // The Archive's torn page: parchment with a line of ink, fluttering.
         Shot::Page => {
             m.turn(along, 1.2);
             m.bar(axis(0.0, 0.0, 0.0), [4.4, 0.4, 5.4], Paint::lit('$'));
             m.bar(axis(0.0, 0.3, 0.2), [3.0, 0.3, 0.6], Paint::lit('Q'));
             m.bar(axis(0.0, 0.3, -1.2), [2.2, 0.3, 0.5], Paint::lit('Q'));
         }
-        // The Fungal Deep's spore: a green puff, motes about it.
         Shot::Spore => {
             m.ball(axis(0.0, 0.0, 0.0), 5.2, Paint::glow('Y', 0.6));
             m.ball(axis(0.0, 0.0, 0.0), 7.2, Paint::veil('C', 0.7, 0.4));
@@ -357,7 +291,6 @@ fn kind_shape(m: &mut Maker, kind: Shot) {
             m.ball(axis(3.6 * a.cos(), 1.0, 3.6 * a.sin()), 1.6, Paint::glow('y', 0.8));
             m.ball(axis(-3.6 * a.cos(), -1.0, -3.6 * a.sin()), 1.6, Paint::glow('y', 0.8));
         }
-        // The Unknown's eye: a pale ball that watches the viewer.
         Shot::Eye => {
             m.ball(axis(0.0, 0.0, 0.0), 5.8, Paint::glow('9', 0.35));
             m.ball_in_world([0.0, 1.5, 2.4], 3.4, Paint::lit('1'));
@@ -366,8 +299,6 @@ fn kind_shape(m: &mut Maker, kind: Shot) {
     }
 }
 
-/// A forged shot (a rune weapon): its colour's `(core, rim)` inks, as
-/// `sprites::forged_shot` reads them, in the shape it names.
 fn forged_shape(m: &mut Maker, colour: ForgedColour, shape: ForgedShape) {
     let (core, rim) = match colour {
         ForgedColour::Ember => ('6', '7'),
@@ -392,14 +323,12 @@ fn forged_shape(m: &mut Maker, colour: ForgedColour, shape: ForgedShape) {
             m.jack(axis(0.0, 0.0, 0.0), 6.0, 1.6, Paint::glow(rim, 0.55));
             m.ball(axis(0.0, 0.0, 0.0), 3.0, Paint::glow(core, 1.0));
         }
-        // An arc of beads across its flight.
         ForgedShape::Wave => {
             for (i, s) in [-4.0f32, -2.0, 0.0, 2.0, 4.0].into_iter().enumerate() {
                 let paint = Paint::glow(if i == 2 { core } else { rim }, if i == 2 { 1.0 } else { 0.6 });
                 m.ball(axis(-0.12 * s * s + 1.0, 0.0, s), if i == 2 { 2.6 } else { 2.0 }, paint);
             }
         }
-        // A lump of coal with embers in it, tumbling.
         ForgedShape::Coal => {
             m.turn([0.4, 1.0, 0.3], 0.8);
             m.solid(MeshRef::Sphere { segments: 5 }, axis(0.0, 0.0, 0.0), QUAT_IDENTITY, [5.6, 4.6, 5.0], Paint::lit('g'));
@@ -410,10 +339,8 @@ fn forged_shape(m: &mut Maker, colour: ForgedColour, shape: ForgedShape) {
     }
 }
 
-/// A class's own shot (`class_looks::shot`).
 fn class_shape(m: &mut Maker, class: ClassShot) {
     match class {
-        // The Mage's arcane bolt: a pale orb, a wavering cold tail, two motes.
         ClassShot::Arcane => {
             m.orb(axis(0.0, 0.0, 0.0), 6.0, Paint::veil('z', 0.8, 0.6), Paint::glow('9', 1.0));
             let wave = m.phase(3.0);
@@ -426,7 +353,6 @@ fn class_shape(m: &mut Maker, class: ClassShot) {
             m.ball(axis(3.8 * a.cos(), 0.0, 3.8 * a.sin()), 1.6, Paint::glow('V', 0.9));
             m.ball(axis(-3.8 * a.cos(), 0.0, -3.8 * a.sin()), 1.6, Paint::glow('z', 0.9));
         }
-        // The Healer's spark: a warm star, trailing embers.
         ClassShot::Holy => {
             m.turn([1.0, 0.0, 0.0], 0.7);
             m.jack(axis(0.0, 0.0, 0.0), 7.0, 1.6, Paint::glow('6', 0.85));
@@ -438,8 +364,6 @@ fn class_shape(m: &mut Maker, class: ClassShot) {
                 (8.0, 1.4, Paint::veil('P', 0.9, 0.8)),
             ]);
         }
-        // The Bard's note: a gold head on a stem with its flag, bobbing as
-        // it goes, a neon wake of mint and teal behind.
         ClassShot::Song => {
             let bob = m.phase(4.0).sin() * 1.2;
             m.ball(axis(0.0, bob, 0.0), 4.2, Paint::glow('6', 1.0));
@@ -456,7 +380,6 @@ fn class_shape(m: &mut Maker, class: ClassShot) {
     }
 }
 
-/// How many shapes a kind of shot makes (for tests and budgets).
 #[cfg(test)]
 pub fn count(form: ShotForm) -> usize {
     let shot = SceneShot {

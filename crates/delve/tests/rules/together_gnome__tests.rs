@@ -107,7 +107,6 @@ fn the_guests_make_for_the_cellar_door_not_the_knights() {
     ordinary.id = u32::MAX;
     assert_eq!(press::warning_target(&run, &ordinary), Some((e.x, e.y)), "other foes heed the squire");
     run.countryside_squires.clear();
-    // One at the door is in, and the house pays for it.
     let e = run.enemies.iter_mut().find(|e| e.id == id).unwrap();
     (e.x, e.y) = door;
     run.step(&BTreeMap::new());
@@ -123,7 +122,6 @@ fn four_waves_held_pay_every_knight_a_fairy_wish() {
     press(&mut run, 1);
     let mut waves = 0;
     for _ in 0..HZ * 400 {
-        // The knights hold the door: every guest falls where it comes in.
         let guests = yard(&run).guests.clone();
         for e in run.enemies.iter_mut().filter(|e| guests.contains(&e.id)) {
             e.hp = 0;
@@ -189,14 +187,6 @@ fn yard_mut(run: &mut Run) -> &mut Garden {
     run.nook.as_mut().unwrap().garden.as_mut().unwrap()
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_garden_shots -- --ignored`:
-/// a folder a scene, a PNG a frame at twice the room's size. The garden
-/// quiet with knights by the blue folk; the herbs taken; the mushrooms
-/// taken, the room going strange (and as a calm screen sees it); the
-/// party starting and at its height with every kind of guest, as it
-/// looks and as the tripping knights see it; a bite at the hatch from
-/// each kind; the house near gone; the house held; the house lost; and
-/// the Lawn Flamingo.
 #[test]
 #[ignore]
 fn write_garden_shots() {
@@ -214,7 +204,6 @@ fn write_garden_shots() {
         image::RgbaImage::from_raw(img.w as u32, img.h as u32, rgba).unwrap().save(sub.join(format!("{n:03}.png"))).unwrap();
     };
     let idle = |run: &mut Run| run.step(&BTreeMap::new());
-    // Quiet: a knight up close to two of the blue folk.
     let mut run = garden(3);
     put(&mut run, 1, (12.0, 9.0));
     put(&mut run, 2, (8.2, 5.8));
@@ -225,7 +214,6 @@ fn write_garden_shots() {
         }
         idle(&mut run);
     }
-    // The herbs, then the mushrooms.
     put(&mut run, 1, HERBS);
     press(&mut run, 1);
     for t in 0..72 {
@@ -248,8 +236,6 @@ fn write_garden_shots() {
         }
         idle(&mut run);
     }
-    // The party: the gnome's invitation, the lights coming on, the first
-    // wave's banner.
     let mut run = garden(3);
     put(&mut run, 1, GNOME);
     put(&mut run, 2, (8.0, 9.5));
@@ -261,7 +247,6 @@ fn write_garden_shots() {
         }
         idle(&mut run);
     }
-    // At its height: every kind of guest about the lawn.
     put(&mut run, 1, (12.0, 8.6));
     for (kind, (x, y)) in [
         (EnemyKind::Biter, (5.5, 10.0)),
@@ -286,7 +271,6 @@ fn write_garden_shots() {
         }
         idle(&mut run);
     }
-    // A bite at the hatch from each kind, the rest of the guests gone.
     let guests = yard(&run).guests.clone();
     run.enemies.retain(|e| !guests.contains(&e.id));
     yard_mut(&mut run).guests.clear();
@@ -300,7 +284,6 @@ fn write_garden_shots() {
             idle(&mut run);
         }
     }
-    // The house near gone.
     yard_mut(&mut run).house = 20;
     for t in 0..30 {
         if t % 2 == 0 {
@@ -308,7 +291,6 @@ fn write_garden_shots() {
         }
         idle(&mut run);
     }
-    // Held: the knights hold the door through every wave.
     let mut run = garden(2);
     put(&mut run, 1, GNOME);
     put(&mut run, 2, (14.5, 8.5));
@@ -331,7 +313,6 @@ fn write_garden_shots() {
         }
         idle(&mut run);
     }
-    // Lost: every guest gets in.
     let mut run = garden(2);
     put(&mut run, 1, GNOME);
     put(&mut run, 2, (16.0, 9.0));
@@ -355,7 +336,6 @@ fn write_garden_shots() {
         }
         idle(&mut run);
     }
-    // The Lawn Flamingo, up close, beside a knight.
     let mut boss = Run::new(41, 1, None);
     boss.enemies.clear();
     let at = boss.flamingo().unwrap();
@@ -372,7 +352,6 @@ fn the_lawn_flamingo_guards_the_gardens_floor_and_no_other() {
     let flamingo = bosses::lawn_flamingo();
     assert!(flamingo.hp > 0);
     assert!(!bosses::builtin().iter().any(|b| b.id == FLAMINGO), "not in the built-in population");
-    // Its own pack's floors never draw it.
     let mut run = Run::new(41, 1, None);
     assert!(run.flamingo().is_some());
     let at = run.flamingo();
@@ -392,7 +371,6 @@ fn an_open_third_floor_keeps_the_garden_and_the_flamingo_in_the_guardians_chambe
     assert!(raised, "the guardian is the lawn flamingo: {bosses:?}");
     assert!(!run.enemies.iter().chain(run.parked.iter()).any(|e| e.kind == EnemyKind::Dragon), "no dragon in its place");
     assert!(run.valid_snapshot());
-    // A floor below has its pack's own guardian.
     let mut other = Run::new(41, 1, None);
     other.open_floor_for_test(DEPTH + 1);
     let flamingo = other.bosses.iter().position(|b| b.id == FLAMINGO);

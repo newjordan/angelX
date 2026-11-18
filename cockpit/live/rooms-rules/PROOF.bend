@@ -1,9 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
 
-# Every claim is decided by the authored tables themselves, so the checker has
-# only to unfold the query and compare.
-
 def Laws.the_swamp_has_drawn_no_one_screen_rooms():
   {==}
 

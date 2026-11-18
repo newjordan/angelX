@@ -292,11 +292,8 @@ pub(super) fn binding_sha(binding: &OfficialRewardBindingV1) -> Result<String, S
         .map_err(|error| format!("encode official reward binding: {error}"))
 }
 
-/// The shipped Bend leg: one evaluation answers one ledger decision. The row
-/// scans below stay as the native fallback and as the parity oracle.
 const LEG: &str = "rewards";
 
-/// Which row is the episode's effective reward, as the leg reports it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum SelectionKind {
@@ -305,8 +302,6 @@ pub(super) enum SelectionKind {
     Absent,
 }
 
-/// An index into the ledger's own rows: `official` and `provisional` carry one,
-/// `absent` carries none.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Selection {
@@ -315,8 +310,6 @@ pub(super) struct Selection {
 }
 
 impl Selection {
-    /// The native rule's own guarantees, which a hot edit must not break: a
-    /// named row exists and is a row the claim is about.
     pub(super) fn check(&self, bindings: &[bool], shaping: &[bool]) -> Result<(), String> {
         let (name, flags) = match self.kind {
             SelectionKind::Absent => {
@@ -346,15 +339,12 @@ impl Selection {
     }
 }
 
-/// One existing shaping row as the leg reads it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(super) struct ShapingRow {
     pub(super) id_equal: bool,
     pub(super) entry_equal: bool,
 }
 
-/// One existing binding as the leg reads it. Rust decides the text equalities
-/// and the identity/lifecycle comparisons; the leg decides what they mean.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(super) struct BindingRow {
     pub(super) result_id_equal: bool,
@@ -368,9 +358,6 @@ pub(super) struct BindingRow {
     pub(super) revision_lo: u32,
 }
 
-/// The incoming binding's own facts. The revision travels as two `u32` halves
-/// so the comparison is exact for every `u64`, not just the exactly
-/// representable ones.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(super) struct Incoming {
     pub(super) has_correction: bool,
@@ -541,7 +528,6 @@ impl BindingDecision {
     }
 }
 
-/// The existing shaping rows, and the one `record_shaping` is holding.
 pub(super) fn shaping_rows(
     shaping: &[ProvisionalShapingV1],
     candidate: &ProvisionalShapingV1,
@@ -577,8 +563,6 @@ fn decide_shaping(rows: &[ShapingRow]) -> (ShapingDecision, live_policy::LegSour
     })
 }
 
-/// The existing bindings, with every text comparison the native scans make
-/// already decided, and the one `bind_official` is holding.
 pub(super) fn binding_rows(
     bindings: &[OfficialRewardBindingV1],
     binding: &OfficialRewardBindingV1,

@@ -13,8 +13,6 @@ fn cue(door: &str, passage: ResearchPassage, outcome: Outcome) -> Input {
     }
 }
 
-/// Independently flood the collision map; this does not call either the
-/// planner's search or Dungeon::path, which shares its shortest-path engine.
 fn connected(site: &Site) {
     let dungeon = Dungeon::of(&site.floor);
     let start = party::spot(&dungeon, 0);
@@ -142,8 +140,6 @@ fn settlement_planning_preserves_legacy_rooms_and_freezes_partial_jobs() {
             Some(&recorded)
         );
     }
-    // The connected parent gains a doorway on the first new cut only; later
-    // phases and map changes do not regenerate the existing rooms.
     assert_eq!(
         serde_json::to_value(&site.floor.rooms[..6]).unwrap(),
         before

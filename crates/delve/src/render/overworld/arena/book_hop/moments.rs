@@ -15,15 +15,11 @@ use crate::rules::hop::{HOP_TIME, Hop};
 use crate::rules::hop_show::{Cry, SHOUT_LIFE, SINK_LIFE, Shout};
 use crate::rules::{HZ, Run};
 
-/// Ticks each of 3, 2 and 1 shows, and the first one's start.
 const BEAT: u32 = 12;
 const FIRST: u32 = TITLE - 3 * BEAT + 1;
-/// Ticks GO shows.
 pub(super) const GO: u32 = 28;
-/// Where the countdown's middle is.
 const COUNT_AT: (i32, i32) = (NATIVE_W / 2, 100);
 
-/// Whether a banner would sit in the clear; if so, draw it (and claim it).
 #[allow(clippy::too_many_arguments)]
 fn banner(led: &mut Ledger, over: &mut Img, what: &'static str, y: i32, title: &str, sub: &str, age: u32, life: u32, tone: Tone, cap: i32) -> bool {
     if age >= life || !led.free(banner_rect(y, title, sub, age, life, cap)) {
@@ -33,7 +29,6 @@ fn banner(led: &mut Ledger, over: &mut Img, what: &'static str, y: i32, title: &
     true
 }
 
-/// The title, its two plain words with their pictures, and the countdown.
 pub(super) fn opening(led: &mut Ledger, over: &mut Img, run: &Run, h: &Hop) {
     let t = h.t;
     let _ = run;
@@ -47,7 +42,6 @@ pub(super) fn opening(led: &mut Ledger, over: &mut Img, run: &Run, h: &Hop) {
         }
         return;
     }
-    // The view dims behind the title, and clears as the numbers come.
     let k = if t < FIRST { 0.8 } else { 0.8 * (1.0 - (t - FIRST) as f32 / 12.0).max(0.0) };
     for y in 0..NATIVE_H {
         for x in 0..NATIVE_W {
@@ -59,7 +53,6 @@ pub(super) fn opening(led: &mut Ledger, over: &mut Img, run: &Run, h: &Hop) {
     if t < FIRST {
         banner(led, over, "title", 18, "BOOK HOP", "", t, FIRST, Tone::Warm, 3);
     }
-    // Two plain words, each with its picture: a book to ride, a lantern to reach.
     if (6..FIRST).contains(&t) {
         let tick = run.tick as u32;
         let bob = (crate::motion::math::sin(tick as f32 * 0.25) * 2.0) as i32;
@@ -79,7 +72,6 @@ pub(super) fn opening(led: &mut Ledger, over: &mut Img, run: &Run, h: &Hop) {
     }
 }
 
-/// The biggest box a countdown beat can take.
 fn count_box(label: &str) -> (i32, i32, i32, i32) {
     let tw = crate::render::overworld::ink::text_width(label).max(5);
     let rest = (150 / tw).clamp(4, 9);
@@ -100,9 +92,6 @@ fn words(cry: Cry) -> String {
     }
 }
 
-/// The banner: the loudest call of the newest moment, under the far bank;
-/// under it a line of small words: whose it is (not yours) and the other
-/// calls the same moment made.
 pub(super) fn callouts(led: &mut Ledger, over: &mut Img, run: &Run, h: &Hop, focus: Option<u32>, now: u32) {
     let mut calls: Vec<Shout> = h.show.shouts.iter().copied().filter(|c| now.saturating_sub(c.born) < SHOUT_LIFE).collect();
     calls.sort_by_key(|c| (std::cmp::Reverse(c.born), std::cmp::Reverse(c.cry.rank())));
@@ -128,8 +117,6 @@ pub(super) fn callouts(led: &mut Ledger, over: &mut Img, run: &Run, h: &Hop, foc
     banner(led, over, "call", 36, &title, &sub.join("  "), now.saturating_sub(top.born), SHOUT_LIFE, tone, cap);
 }
 
-/// What flies to the strip: each crossing's count, as a number for the seat
-/// looking (a crumb of the knight's ink for the others).
 pub(super) fn fly_ups(led: &mut Ledger, over: &mut Img, run: &Run, h: &Hop, focus: Option<u32>, now: u32) {
     for c in &h.show.crosses {
         let age = now.saturating_sub(c.born);
@@ -149,7 +136,6 @@ pub(super) fn fly_ups(led: &mut Ledger, over: &mut Img, run: &Run, h: &Hop, focu
     }
 }
 
-/// The seat looking sinks: a drowned word over the splash.
 pub(super) fn gloops(led: &mut Ledger, over: &mut Img, h: &Hop, focus: Option<u32>, now: u32) {
     let Some(me) = focus else { return };
     for s in h.show.sinks.iter().filter(|s| u32::from(s.who) == me) {
@@ -162,7 +148,6 @@ pub(super) fn gloops(led: &mut Ledger, over: &mut Img, h: &Hop, focus: Option<u3
     }
 }
 
-/// The last five seconds, one big number a second, slammed in.
 pub(super) fn last_seconds(led: &mut Ledger, over: &mut Img, h: &Hop) {
     if h.done || h.titled() || h.left() > 5 {
         return;
@@ -180,8 +165,6 @@ pub(super) fn last_seconds(led: &mut Ledger, over: &mut Img, h: &Hop) {
     over.stamp(&digit, x, y);
 }
 
-/// A dithered rim of `fill` along the view's edges, `depth` pixels deep, `k`
-/// (0 to 1) how strong.
 fn rim(over: &mut Img, k: f32, depth: i32, fill: char) {
     if k <= 0.0 {
         return;
@@ -207,8 +190,6 @@ fn rim(over: &mut Img, k: f32, depth: i32, fill: char) {
     }
 }
 
-/// The ink closing in on the seat that sank, gold round the one that
-/// crossed, and gold again as the archive is lit.
 pub(super) fn danger(over: &mut Img, h: &Hop, focus: Option<u32>, now: u32) {
     if let Some(me) = focus {
         for s in h.show.sinks.iter().filter(|s| u32::from(s.who) == me) {
@@ -227,7 +208,6 @@ pub(super) fn danger(over: &mut Img, h: &Hop, focus: Option<u32>, now: u32) {
     if let Some(a) = h.show.flared.map(|f| now.saturating_sub(f)).filter(|&a| a < 24) {
         rim(over, (1.0 - a as f32 / 24.0) * 0.7, 14, '@');
     }
-    // The last seconds, a red rim beating once a second.
     if !h.done && !h.titled() && h.left() <= 5 {
         let beat = (h.t % HZ) as f32 / HZ as f32;
         rim(over, (1.0 - beat) * 0.45, 10, 'R');

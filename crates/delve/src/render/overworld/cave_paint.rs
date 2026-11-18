@@ -18,13 +18,10 @@ use crate::rules::caves::world::{
     NATIVE_W,
 };
 
-/// A wall's south face, in pixels, and the shadow at its foot.
 pub(crate) const FACE_PX: i32 = 20;
 const SHADOW_PX: i32 = 5;
-/// Tops are drawn in their own cell square. The painter does not lift them.
 const TOP_LIFT: i32 = 0;
 
-/// The plate's size: the whole cave in pixels.
 const PLATE_W: i32 = MAP_W * CELL;
 const PLATE_H: i32 = MAP_H * CELL;
 
@@ -32,40 +29,26 @@ pub(crate) fn cell_px(x: i32, y: i32) -> (i32, i32) {
     (x * CELL + CELL / 2, y * CELL + CELL / 2)
 }
 
-/// The view's top-left world pixel when it is centred on `centre`, held inside the cave.
 pub(crate) fn camera(centre: (i32, i32)) -> (i32, i32) {
     let x = (centre.0 - NATIVE_W / 2).clamp(0, PLATE_W - NATIVE_W);
     let y = (centre.1 - NATIVE_H / 2).clamp(0, PLATE_H - NATIVE_H);
     (x, y)
 }
 
-// ---------------------------------------------------------------------------
-// Lamps
-// ---------------------------------------------------------------------------
-
-/// A light a knight carries, or the lamp that marks the way out.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct Lamp {
-    /// Where it shines from, in world pixels.
     pub px: (i32, i32),
-    /// The cell its line of sight is cast from.
     pub cell: (i32, i32),
-    /// The way-out lamp: half a knight's reach.
     pub small: bool,
 }
 
-/// A knight's light reaches this many cells, where nothing stands in its way.
 const KNIGHT_CELLS: i32 = 20;
 const SMALL_CELLS: i32 = 10;
-/// At most this many lamps light one frame: a bit each in `Light::los`.
 const LAMPS: usize = 8;
 
-/// The flat heart of a lamp's pool, then the three bands' outer edges, in pixels.
 const HEART: i32 = 28;
 const BAND_EDGE: [i32; 3] = [52, 104, 156];
-/// The light level of the heart and of each band beyond it.
 const BAND_LIT: [u8; 4] = [8, 6, 4, 0];
-/// The farthest a pool reaches on one axis: the last edge and its wander.
 const REACH: i32 = 164;
 const RING_SIDE: i32 = REACH * 2 + 1;
 
@@ -75,7 +58,6 @@ const WANDER: [[i32; 64]; 3] = [
     [-5, -5, -5, -5, -6, -6, -6, -6, -6, -6, -6, -6, -5, -5, -5, -4, -4, -3, -3, -2, -2, -1, -1, 0, 0, 1, 2, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1, 0, 0, -1, -2, -2, -3, -3, -4, -4],
 ];
 
-/// Fixed 64 by 64 blue-noise ranks. Looked up by world pixel so the band does not swim.
 const LAMP_NOISE: [u8; 4096] = [
     123, 146, 66, 251, 102, 137, 64, 185, 108, 246, 64, 173, 118, 192, 82, 244, 75, 220, 84, 159, 75, 184, 95, 138, 106, 178, 82, 221, 70, 195, 72, 160, 122, 254, 98, 221, 103, 178, 81, 195, 89, 140, 72, 135, 119, 173, 108, 198, 76, 195, 123, 247, 64, 179, 118, 234, 109, 158, 80, 216, 114, 230, 71, 212,
     205, 2, 144, 38, 142, 12, 186, 54, 208, 1, 188, 35, 178, 13, 209, 52, 132, 2, 172, 36, 198, 15, 244, 43, 175, 1, 234, 48, 141, 9, 214, 40, 128, 3, 187, 32, 127, 15, 212, 32, 137, 1, 220, 37, 167, 9, 130, 53, 142, 3, 150, 61, 254, 8, 239, 60, 167, 1, 216, 56, 139, 8, 219, 34,
@@ -171,9 +153,6 @@ fn angle_bin(dx: i32, dy: i32) -> usize {
     quad * 16 + fine as usize
 }
 
-/// Where an offset from a lamp falls: the level on the near side of its band,
-/// the level on the far side, and how far across the band it is (0 to 254).
-/// Each edge wanders with the angle, so the pool is not a circle.
 fn ring_parts(dx: i32, dy: i32) -> (u8, u8, u8) {
     let dist = isqrt(dx * dx + dy * dy);
     let bin = angle_bin(dx, dy);
@@ -201,8 +180,6 @@ fn ring_parts(dx: i32, dy: i32) -> (u8, u8, u8) {
     (0, 0, 0)
 }
 
-/// `ring_parts` for every offset a pool reaches, worked out once: near level,
-/// far level and the way across, packed in a word.
 fn rings() -> &'static [u16] {
     static RINGS: OnceLock<Vec<u16>> = OnceLock::new();
     RINGS.get_or_init(|| {
@@ -217,9 +194,6 @@ fn rings() -> &'static [u16] {
     })
 }
 
-/// The light one lamp gives a world pixel, 0 to 8. Between two bands the far
-/// level is dithered in by a fixed noise looked up at the world pixel, so
-/// the edge does not swim as the lamp moves.
 #[inline]
 fn lamp_level(rings: &[u16], lamp: &Lamp, wx: i32, wy: i32) -> u8 {
     let (mut dx, mut dy) = (wx - lamp.px.0, wy - lamp.px.1);
@@ -239,15 +213,12 @@ fn lamp_level(rings: &[u16], lamp: &Lamp, wx: i32, wy: i32) -> u8 {
     }
 }
 
-/// What the lamps reach this frame, for the cells in and just round the view.
 pub(crate) struct Light {
     lamps: Vec<Lamp>,
     origin: (i32, i32),
     cols: i32,
     rows: i32,
-    /// Per cell: the lamps with a clear line to it, a bit a lamp.
     los: Vec<u8>,
-    /// Per cell: some light reaches it, a lamp's or a glow of the cave's own.
     lit: Vec<bool>,
 }
 
@@ -258,8 +229,6 @@ impl Light {
         (sx >= 0 && sy >= 0 && sx < self.cols && sy < self.rows).then(|| (sy * self.cols + sx) as usize)
     }
 
-    /// The light on a floor pixel: the brightest lamp that can see its cell.
-    /// A cell lit only by the cave's own glow takes the first lamp's ring.
     #[inline]
     fn floor_level(&self, rings: &[u16], wx: i32, wy: i32) -> u8 {
         let Some(i) = self.index(wx.div_euclid(CELL), wy.div_euclid(CELL)) else {
@@ -281,8 +250,6 @@ impl Light {
         best
     }
 
-    /// The light on rock: every lamp counts, seen or not, so a wall glows
-    /// from the cavern behind it.
     #[inline]
     fn rock_level(&self, rings: &[u16], wx: i32, wy: i32) -> u8 {
         let mut best = 0;
@@ -293,9 +260,6 @@ impl Light {
     }
 }
 
-/// Cast every lamp's line of sight over the cells in and round the view at
-/// `cam`. Fire, lava and fungus glow a few cells of their own: they show the
-/// ground without brightening it. The first lamp is the seat's own knight.
 pub(crate) fn light_field(cave: &Cave, lamps: &[Lamp], cam: (i32, i32)) -> Light {
     let origin = (cam.0.div_euclid(CELL) - 1, cam.1.div_euclid(CELL) - 1);
     let cols = NATIVE_W / CELL + 3;
@@ -308,7 +272,6 @@ pub(crate) fn light_field(cave: &Cave, lamps: &[Lamp], cam: (i32, i32)) -> Light
         los: vec![0; (cols * rows) as usize],
         lit: vec![false; (cols * rows) as usize],
     };
-    // (cell, reach in cells, the lamp's bit)
     let mut sources: Vec<((i32, i32), i32, u8)> = light
         .lamps
         .iter()
@@ -375,19 +338,11 @@ fn blocked(cave: &Cave, from: (i32, i32), to: (i32, i32)) -> bool {
     false
 }
 
-// ---------------------------------------------------------------------------
-// What the party has seen
-// ---------------------------------------------------------------------------
-
-/// How far into the rock a seen cavern shows: a band of wall this many cells
-/// deep beyond the floor the light reached, and black past it.
 const ROCK_BAND: u8 = 8;
 
 struct Seen {
     seed: u32,
     tick: u32,
-    /// 0 unseen. 1 a floor cell the light reached. 2 a wall the light reached
-    /// or one touching such a floor; then one more for each cell deeper.
     ring: Vec<u8>,
 }
 
@@ -395,10 +350,6 @@ thread_local! {
     static SEEN: RefCell<Seen> = const { RefCell::new(Seen { seed: 0, tick: 0, ring: Vec::new() }) };
 }
 
-/// Keep every cell the light reaches seen after the knights walk on, with a
-/// band of the rock round it, and mark those cells on this frame's `cave`.
-/// The memory is this draw thread's, for one seed; a tick that runs backwards
-/// is a new game and starts it again.
 pub(crate) fn remember(cave: &mut Cave, light: &Light, seed: u32, tick: u32) {
     SEEN.with(|slot| {
         let mut seen = slot.borrow_mut();
@@ -455,10 +406,6 @@ pub(crate) fn remember(cave: &mut Cave, light: &Light, seed: u32, tick: u32) {
     });
 }
 
-// ---------------------------------------------------------------------------
-// The plate
-// ---------------------------------------------------------------------------
-
 const KIND_NONE: u8 = 0;
 const KIND_FLOOR: u8 = 1;
 const KIND_ROCK: u8 = 2;
@@ -469,28 +416,16 @@ const KIND_SHADOW: u8 = 6;
 const KIND_ORE: u8 = 7;
 const KIND_VEIN_FACE: u8 = 8;
 
-/// A cell that changes shape can change the picture of the cells one to
-/// either side, one above (a rounded corner, an ember) and five below (its
-/// face and shadow fall that far, and frost drifts a little farther).
 const LEAN_UP: i32 = 1;
 const LEAN_DOWN: i32 = 5;
 
 struct Plate {
     seed: u32,
-    /// Per world pixel: the ink, and what kind of thing it is.
     ink: Vec<u8>,
     kind: Vec<u8>,
-    /// Per world pixel: a rock top's speck (0 body, 1 dark, 2 mid, 3 pale),
-    /// or how many pixels above a face or shadow pixel its wall's lip is.
     aux: Vec<u8>,
-    /// Per world pixel, for the pixels whose neighbours are all in their own
-    /// cell: `EDGE_KNOWN`, with `EDGE_LIP` on rock beside open ground and
-    /// `EDGE_RIM` on floor against rock. A pixel on a cell's border asks its
-    /// neighbours each frame instead, since they are drawn on their own.
     edge: Vec<u8>,
-    /// Per cell: what its picture and its neighbours' depend on.
     shape: Vec<u32>,
-    /// Per cell: what only its own picture depends on (seen, a fluid's ripple).
     look: Vec<u32>,
     stale: Vec<bool>,
 }
@@ -523,7 +458,6 @@ fn cell_look(cell: &Cell, tick: u32) -> u32 {
     u32::from(cell.seen()) | (ripple << 1)
 }
 
-/// Bring the plate up to date for the cells `x0..=x1` by `y0..=y1`.
 fn sync_plate(plate: &mut Plate, cave: &Cave, (x0, y0, x1, y1): (i32, i32, i32, i32), tick: u32) {
     let cells = (MAP_W * MAP_H) as usize;
     let pixels = (PLATE_W * PLATE_H) as usize;
@@ -637,7 +571,6 @@ const EDGE_KNOWN: u8 = 0x80;
 const EDGE_LIP: u8 = 1;
 const EDGE_RIM: u8 = 2;
 
-/// The plate's kind at a world pixel; nothing outside the cave.
 #[inline]
 fn kind_at(kind: &[u8], wx: i32, wy: i32) -> u8 {
     if wx < 0 || wy < 0 || wx >= PLATE_W || wy >= PLATE_H {
@@ -649,7 +582,6 @@ fn kind_at(kind: &[u8], wx: i32, wy: i32) -> u8 {
 
 const ROUND: [(i32, i32); 8] = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)];
 
-/// A rock pixel beside open, seen ground: the wall's lip.
 fn rock_lip(kind: &[u8], wx: i32, wy: i32) -> bool {
     ROUND.iter().any(|(dx, dy)| {
         let k = kind_at(kind, wx + dx, wy + dy);
@@ -657,7 +589,6 @@ fn rock_lip(kind: &[u8], wx: i32, wy: i32) -> bool {
     })
 }
 
-/// A pixel beside ground the party has not seen.
 fn unseen_edge(kind: &[u8], wx: i32, wy: i32) -> bool {
     let inside = |x: i32, y: i32| x >= 0 && y >= 0 && x < PLATE_W && y < PLATE_H;
     ROUND
@@ -665,7 +596,6 @@ fn unseen_edge(kind: &[u8], wx: i32, wy: i32) -> bool {
         .any(|(dx, dy)| inside(wx + dx, wy + dy) && kind_at(kind, wx + dx, wy + dy) == KIND_NONE)
 }
 
-/// A floor pixel against rock or a wall's face.
 fn floor_rim(kind: &[u8], wx: i32, wy: i32) -> bool {
     [(-1, 0), (1, 0), (0, -1), (0, 1)].iter().any(|(dx, dy)| {
         let k = kind_at(kind, wx + dx, wy + dy);
@@ -673,7 +603,6 @@ fn floor_rim(kind: &[u8], wx: i32, wy: i32) -> bool {
     })
 }
 
-/// A rock or face pixel with open floor on the side nearer `lamp`.
 fn faces_lamp(kind: &[u8], wx: i32, wy: i32, lamp: (i32, i32)) -> bool {
     let here = (wx - lamp.0) * (wx - lamp.0) + (wy - lamp.1) * (wy - lamp.1);
     [(0, 1), (0, -1), (1, 0), (-1, 0)].iter().any(|(dx, dy)| {
@@ -683,10 +612,6 @@ fn faces_lamp(kind: &[u8], wx: i32, wy: i32, lamp: (i32, i32)) -> bool {
             && (x - lamp.0) * (x - lamp.0) + (y - lamp.1) * (y - lamp.1) < here
     })
 }
-
-// ---------------------------------------------------------------------------
-// The light pass
-// ---------------------------------------------------------------------------
 
 struct InkSteps {
     down: [[[u8; 3]; 7]; 128],
@@ -747,8 +672,6 @@ fn sunk(c: ink::Rgb, n: usize) -> ink::Rgb {
     if d == [0, 0, 0] { [11, 10, 8] } else { d }
 }
 
-/// A floor ink at a light level. Signal inks and fireflies keep their own
-/// colour; the rest step down the ink ramp, warmed in the outer bands.
 fn shade(ch: char, level: u8, tint: u8) -> ink::Rgb {
     let Some(base) = ink::ink(ch) else {
         return [0, 0, 0];
@@ -768,9 +691,6 @@ fn shade(ch: char, level: u8, tint: u8) -> ink::Rgb {
     step_rgb(ch, steps, warm)
 }
 
-/// A floor ink under the light, worked out once for every ink, level and
-/// warmth: `[sink][rim]` is the tone sunk that many steps (a dip in the
-/// floor), then one more where the floor meets rock.
 struct FloorTones {
     tone: Vec<[[ink::Rgb; 2]; 3]>,
 }
@@ -817,8 +737,6 @@ fn beside_floor(cave: &Cave, cx: i32, cy: i32) -> Option<(i32, i32)> {
 }
 
 fn glow_ink(ch: char, cell: &Cell, solid: bool) -> bool {
-    // A pool is lit by the lamp like the floor, except lava's melt: molten rock makes its
-    // own light in a dark cave, while its crust plates take the lamp like stone.
     if !pools_flat()
         && !solid
         && cell.amount > 0
@@ -836,8 +754,6 @@ fn glow_ink(ch: char, cell: &Cell, solid: bool) -> bool {
         || (!solid && cell.fluid == FLUID_LAVA && cell.amount > 0)
 }
 
-/// role 0 body, 1 dark chip, 2 mid chip, 3 cap, 4 face, 5 contact, 6 shadow.
-/// band 0 darkest explored, 1 dim, 2 mid, 3 full torch. Grey, not navy.
 const MINE_STONE: [[[u8; 3]; 4]; 7] = [
     [[26, 25, 24], [28, 27, 26], [34, 32, 31], [46, 44, 43]],
     [[12, 11, 10], [14, 13, 12], [18, 17, 16], [24, 22, 20]],
@@ -920,7 +836,6 @@ fn rock_cap(region: u8, level: u8) -> ink::Rgb {
     }
 }
 
-/// A rock top's speck: the ink's own where it names one, else scattered.
 fn speck_role(ch: char, wx: i32, wy: i32) -> u8 {
     match ch {
         'K' => 1,
@@ -940,7 +855,6 @@ fn speck_role(ch: char, wx: i32, wy: i32) -> u8 {
     }
 }
 
-/// Rock dimmed to the light on the floor beside it.
 fn rock_rgb(ch: char, region: u8, level: u8) -> ink::Rgb {
     let role = match ch {
         'K' => 1,
@@ -967,7 +881,6 @@ fn fly_rgb(level: u8) -> ink::Rgb {
     }
 }
 
-/// Which lit thing warms the floor near a cell: 1 fire, 2 lava, 3 fungus.
 fn warm_cells(cave: &Cave, light: &Light) -> Vec<bool> {
     let mut warm = vec![false; (light.cols * light.rows) as usize];
     let mut glows = Vec::new();
@@ -991,8 +904,6 @@ fn warm_cells(cave: &Cave, light: &Light) -> Vec<bool> {
     warm
 }
 
-/// The cave's ground for the view at `cam`, lit by `light`. `cave` carries
-/// what the party has seen (`remember`).
 pub(crate) fn paint(
     cave: &Cave,
     cam: (i32, i32),
@@ -1016,8 +927,6 @@ pub(crate) fn paint(
     let glint = std::time::Instant::now();
     let blinks = blink_cells(cave, sunk, tick);
     note_glint(glint.elapsed().as_micros() as u64);
-    // Per cell of the light's window: the region, and for rock the light on
-    // the open floor beside it (255 where there is none within a cell).
     let n = (light.cols * light.rows) as usize;
     let mut region = vec![0u8; n];
     let mut beside = vec![255u8; n];
@@ -1077,7 +986,6 @@ pub(crate) fn paint(
                             }
                             rgb
                         };
-                        // Rock is never brighter than the floor it stands in.
                         let beside = beside[ci];
                         if beside != 255 {
                             let floor = floor_beside(region, beside);
@@ -1095,8 +1003,6 @@ pub(crate) fn paint(
                         rgb
                     }
                     KIND_FACE | KIND_CONTACT | KIND_SHADOW => {
-                        // A face takes its wall's light, a column at a time:
-                        // the light at the lip straight above this pixel.
                         let lip_y = if kind == KIND_CONTACT { wy } else { wy - i32::from(plate.aux[i]) - 1 };
                         let mut level = light.rock_level(rings, wx, lip_y);
                         if kind == KIND_FACE && level >= 4 && faces_lamp(kinds, wx, wy, own) {
@@ -1149,7 +1055,6 @@ pub(crate) fn paint(
                             UNSEEN_EDGE
                         } else {
                             let rim = if inner { edge & EDGE_RIM != 0 } else { floor_rim(kinds, wx, wy) };
-                            // A dip in the mine's floor, a paler vein, a foundry joint.
                             let (ch, sink) = match (region, ch) {
                                 (0, b'p') => (b'P', 2),
                                 (0, b'r') => (b'o', 0),
@@ -1171,22 +1076,13 @@ pub(crate) fn paint(
     im
 }
 
-/// Where the floor meets ground nobody has seen: a dark warm edge.
 const UNSEEN_EDGE: ink::Rgb = [36, 14, 6];
 
-/// Draw the plate and the lamp's rings for the view a knight will arrive in,
-/// before they arrive. Draw-thread work, never a simulation tick's.
 pub(crate) fn warm(cave: &mut Cave, lamps: &[Lamp], cam: (i32, i32), seed: u32, tick: u32) {
     let light = light_field(cave, lamps, cam);
     remember(cave, &light, seed, tick);
     let _ = paint(cave, cam, &light, tick, &[], 0);
 }
-
-// ---------------------------------------------------------------------------
-// A cell's light fades in and out over six ticks, so a corner does not pop
-// when the lamp's line of sight changes cell. A cell seen for the first time
-// snaps, so the first frame inside is not a fade from black.
-// ---------------------------------------------------------------------------
 
 const GLOW_FULL: u8 = 6;
 
@@ -1194,7 +1090,6 @@ struct Glow {
     seed: u32,
     tick: u32,
     level: Vec<u8>,
-    /// 0 unseen, 1 was dark, 2 was lit.
     seen: Vec<u8>,
 }
 
@@ -1294,13 +1189,9 @@ fn apply_fade(level: u8, fade: &[u8], light: &Light, wx: i32, wy: i32) -> u8 {
     (u16::from(level) * u16::from(fade) / u16::from(GLOW_FULL)) as u8
 }
 
-/// Darkest stone ink, and a lit edge that stays under the lamp's heart.
 fn crack_inks(region: u8) -> (ink::Rgb, ink::Rgb) {
     let heart = floor_beside(region, 8);
     let split = stone_rgb(region, 6, 0);
-    // A one-pixel lit edge: one step lighter than the darkest ink, never the
-    // lamp's heart and never white.
-    // Visible on dark stone at 1x, still under the lamp heart (about 169, 118, 57).
     let mut edge = [72, 54, 36];
     if lum(edge) >= lum(heart) {
         edge = [
@@ -1315,7 +1206,6 @@ fn crack_inks(region: u8) -> (ink::Rgb, ink::Rgb) {
     (split, edge)
 }
 
-/// Screen rectangle the painter fills, in view pixels.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct ScreenRect {
     pub x: i32,
@@ -1330,10 +1220,6 @@ impl ScreenRect {
     }
 }
 
-/// Where the painter draws one cave cell: its top, and the south face that
-/// hangs from it. Both come from the painter's own numbers (`CELL`, `FACE_PX`,
-/// the camera, and `TOP_LIFT`). A narrow pocket shortens the face to the lip
-/// the painter actually fills. A cell with rock to its south has no face.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct CellDrawn {
     pub top: ScreenRect,
@@ -1365,11 +1251,6 @@ pub(crate) fn painted_stone(wx: i32, wy: i32) -> bool {
     })
 }
 
-/// A knight digging the cell to his north. A crack pixel is drawn only where
-/// his sprite has no ink, on that cell's top or face, and only on painted
-/// stone. After the first hit the same jag climbs the top of the wall north
-/// of him; after the second, the wall north of that. The climb is one pixel
-/// narrower, in the same crack inks.
 pub(crate) fn paint_north_cracks(
     im: &mut Img,
     cave: &Cave,
@@ -1440,7 +1321,6 @@ fn lay_crack(
             im.set(sx + dx, sy + dy, rgb);
         }
     };
-    // The climb drops the rightmost pixel of the dug crack, and grows no fork.
     if narrow {
         put(0, 0, split);
         if deep {
@@ -1471,17 +1351,8 @@ fn lay_crack(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Cracks and slides
-// ---------------------------------------------------------------------------
-
-/// How a crack runs down a wall: which of its columns it is in, row by row.
 const CRACK_RUN: [i32; 14] = [0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1];
 
-/// The cracks a shovel has left in loose rock that still stands: a thin one
-/// after the first hit, a wide forked one after the second. They run down the
-/// middle of the wall's top and on down its face, and only ever over that
-/// wall's own stone.
 fn paint_cracks(im: &mut Img, cave: &Cave, cam: (i32, i32), (x0, y0, x1, y1): (i32, i32, i32, i32)) {
     PLATE.with(|slot| {
         let plate = slot.borrow();
@@ -1507,12 +1378,10 @@ fn paint_cracks(im: &mut Img, cave: &Cave, cam: (i32, i32), (x0, y0, x1, y1): (i
                 for row in 1..rows {
                     let x = cx * CELL + 2 + CRACK_RUN[((row as u32 + seed) % 14) as usize];
                     let wy = cy * CELL + row;
-                    // Two pixels of the stone's darkest ink, and a one-pixel lit edge.
                     mark(x, wy, split);
                     mark(x + 1, wy, split);
                     mark(x + 2, wy, edge);
                     if deep {
-                        // The second hit is forked, and a pixel wider.
                         mark(x - 1, wy, split);
                         mark(x + 3, wy, edge);
                         if row % 8 == 3 {
@@ -1532,9 +1401,6 @@ fn paint_cracks(im: &mut Img, cave: &Cave, cam: (i32, i32), (x0, y0, x1, y1): (i
     });
 }
 
-/// A slide's wake on the ice: two thin scores behind the boots, in the
-/// floor's next lighter ink under the same light, drawing in as they age.
-/// `at` is the knight's feet in world pixels, `(dx, dy)` the way it slid.
 pub(crate) fn paint_skid(im: &mut Img, light: &Light, cam: (i32, i32), at: (i32, i32), (dx, dy): (i32, i32), age: u8) {
     const HOLD: i32 = 15;
     let left = HOLD - i32::from(age);
@@ -1548,7 +1414,6 @@ pub(crate) fn paint_skid(im: &mut Img, light: &Light, cam: (i32, i32), at: (i32,
     let (sx, sy) = if dx != 0 { (0, 1) } else { (1, 0) };
     for side in [-2, 2] {
         for k in 3..(8 + left) {
-            // Two pixels on, one off: a score, not a bar.
             if k % 3 == 2 {
                 continue;
             }
@@ -1566,19 +1431,11 @@ pub(crate) fn paint_skid(im: &mut Img, light: &Light, cam: (i32, i32), at: (i32,
     }
 }
 
-// ---------------------------------------------------------------------------
-// What each pixel is made of
-// ---------------------------------------------------------------------------
-
-/// Plate inks for loose rock, the kind a shovel opens: a pale stone and its
-/// lit corner on the earth of the top, a stone course and its seam on the
-/// face. The light pass gives them the region's stone, as it does all rock.
 const LOOSE_STONE: char = 'j';
 const LOOSE_LIGHT: char = 'G';
 const LOOSE_FACE: char = 'b';
 const LOOSE_SEAM: char = 'n';
 
-/// The top of loose rock: earth with small stones bedded in it.
 fn loose_top(wx: i32, wy: i32, seed: u32) -> char {
     let h = hash(wx.div_euclid(4), wy.div_euclid(4), seed.wrapping_add(67));
     if h % 4 != 0 {
@@ -1594,8 +1451,6 @@ fn loose_top(wx: i32, wy: i32, seed: u32) -> char {
     'X'
 }
 
-/// The face of loose rock: packed earth and rounded stones of three sizes.
-/// Centres are jittered and staggered, so no straight course appears.
 fn loose_face(wx: i32, drop: i32) -> char {
     let col = wx.div_euclid(7);
     let row = drop.div_euclid(7);
@@ -1610,7 +1465,6 @@ fn loose_face(wx: i32, drop: i32) -> char {
             let cy = sy * 7 + 2 + jy + stagger;
             let dx = wx - cx;
             let dy = drop - cy;
-            // A round stone, not a squared block. Earth stays in the gaps.
             if dx * dx + dy * dy <= size * size - 1 {
                 hit = true;
             }
@@ -1622,8 +1476,6 @@ fn loose_face(wx: i32, drop: i32) -> char {
     LOOSE_FACE
 }
 
-/// Whether a world pixel is rock. Asked many times over while a cell is
-/// drawn, so the answers are kept for the stretch of plate being drawn.
 fn solid_pixel(cave: &Cave, wx: i32, wy: i32) -> bool {
     if let Some(hit) = solid_cached(wx, wy) {
         return hit;
@@ -1638,7 +1490,6 @@ struct SolidMap {
     y0: i32,
     w: i32,
     h: i32,
-    /// 0 not asked yet, 1 rock, 2 open.
     bits: Vec<u8>,
     live: bool,
 }
@@ -1713,8 +1564,6 @@ fn solid_raw(cave: &Cave, wx: i32, wy: i32) -> bool {
     let ly = wy - cy * CELL;
     let solid_at = |x: i32, y: i32| cave.at(x, y).is_some_and(|c| c.solid());
     if cell.solid() {
-        // A corner is rounded off by two or three pixels: never four, which
-        // would cut a lone cell of rock away to nothing.
         let cut = 2 + (hash(cx, cy, cave.seed.wrapping_add(41)) % 2) as i32;
         if lx < 4 || ly < 4 || lx >= CELL - 4 || ly >= CELL - 4 {
             let nw = (!solid_at(cx - 1, cy) && !solid_at(cx, cy - 1))
@@ -1771,9 +1620,6 @@ fn solid_raw(cave: &Cave, wx: i32, wy: i32) -> bool {
     false
 }
 
-/// A dug pocket is a narrow opening in the rock. Its floor must read as floor,
-/// so only a short lip of the north face hangs into it. A wide cavern keeps
-/// the full face.
 const POCKET_LIP: i32 = 4;
 
 fn narrow_pocket(cave: &Cave, cx: i32, cy: i32) -> bool {
@@ -1964,7 +1810,6 @@ fn face_ink(region: u8, wx: i32, drop: i32) -> char {
             if drop < 5 { 'Q' } else { 'K' }
         }
     };
-    // A straight course would read as masonry. A pit or a chip breaks the line.
     let n = hash(wx, drop, 29);
     if n % 7 == 0 {
         return 'K';

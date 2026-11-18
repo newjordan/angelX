@@ -4,7 +4,6 @@ use knights::Struck;
 use crate::rules::{EnemyKind, Input, Projectile, RoomKind, Shot, Weapon, cards};
 use std::collections::BTreeMap;
 
-/// The first fight on floor one, a party of four in it.
 fn party_fight(seed: u64) -> Run {
     let mut run = Run::new(seed, 1, Some("Friend"));
     run.join_seat(3, "Wren");
@@ -20,7 +19,6 @@ fn party_fight(seed: u64) -> Run {
     run
 }
 
-/// The way from a knight to the nearest monster, as keys.
 fn toward(run: &Run, id: u32) -> (i8, i8) {
     let hero = &run.players[&id];
     run.enemies
@@ -36,9 +34,6 @@ fn toward(run: &Run, id: u32) -> (i8, i8) {
         })
 }
 
-/// A busy fight: four knights (a handgonne, a crossbow, a bow behind a
-/// raised shield, a bow that rolls), a dozen monsters kept coming, every
-/// knight kept standing. `ticks` into it.
 fn busy_fight(ticks: u32) -> Run {
     let mut run = party_fight(11);
     for (id, weapon) in [(1, Weapon::Handgonne), (2, Weapon::Crossbow), (3, Weapon::Bow), (4, Weapon::Bow)] {
@@ -46,7 +41,6 @@ fn busy_fight(ticks: u32) -> Run {
         hero.weapon = weapon;
         hero.guard = if id == 3 { cards::Guard::Shield } else { cards::Guard::Roll };
     }
-    // A party late in a delve: quick hands, two shots a loose.
     for hero in run.players.values_mut() {
         (hero.bonus.rate, hero.bonus.shots) = (80, 1);
     }
@@ -56,7 +50,6 @@ fn busy_fight(ticks: u32) -> Run {
     run
 }
 
-/// One tick of the busy fight.
 fn busy_step(run: &mut Run) {
     let live = run.enemies.iter().filter(|e| e.hp > 0).count();
     if live < 18 {
@@ -83,7 +76,6 @@ fn busy_step(run: &mut Run) {
         );
     }
     run.step(&inputs);
-    // The party holds the middle of the room, the monsters round them.
     for (&id, hero) in run.players.iter_mut() {
         hero.hp = hero.max_hp;
         if id != 4 {
@@ -92,9 +84,6 @@ fn busy_step(run: &mut Run) {
     }
 }
 
-/// Frame time of a busy four-knight fight, for each seat, as a frame
-/// (`frame_for`) and as a scene in parts (`scene_for`):
-/// `cargo test --release -p angel-delve vfx_frame_time -- --ignored --nocapture`.
 #[test]
 #[ignore]
 fn vfx_frame_time() {
@@ -132,7 +121,6 @@ fn vfx_frame_time() {
     report("scene_for", scenes);
 }
 
-/// `img` cut to `w` × `h` round `(cx, cy)`, black where it runs out.
 fn crop(img: &Img, (cx, cy): (i32, i32), w: i32, h: i32) -> Img {
     let mut out = Img::black(w, h);
     for y in 0..h {
@@ -145,7 +133,6 @@ fn crop(img: &Img, (cx, cy): (i32, i32), w: i32, h: i32) -> Img {
     out
 }
 
-/// Frames side by side, a grey rule between.
 fn strip(frames: &[Img]) -> Img {
     let w: i32 = frames.iter().map(|f| f.w + 1).sum::<i32>() - 1;
     let h = frames.iter().map(|f| f.h).max().unwrap_or(1);
@@ -171,14 +158,12 @@ fn save(dir: &std::path::Path, name: &str, img: &Img, k: u32) {
         .unwrap();
 }
 
-/// The seat's whole screen, as a browser draws it, and where `(ux, uy)` is.
 fn seat_view(run: &Run, focus: u32, (ux, uy): (f32, f32)) -> (Img, (i32, i32)) {
     let (w, h) = (NATIVE_W, NATIVE_H + BAND_H + HUD_H);
     let img = seat_scene(run, w, h, Some(focus)).compose();
     (img, seat_px(run, w, h, Some(focus), ux, uy))
 }
 
-/// A calm fight with knight 1 at (24, 14) aiming `aim`.
 fn quiet(aim: (f32, f32), weapon: Weapon, guard: cards::Guard) -> Run {
     let mut run = Run::new(11, 1, None);
     let index = run
@@ -213,9 +198,6 @@ fn hold(id: u32, input: Input) -> BTreeMap<u32, Input> {
     BTreeMap::from([(id, input)])
 }
 
-/// A shot blocked on a raised shield, frame by frame from a tick before
-/// it lands: the knight aiming `aim`, the shot of `kind` coming from
-/// `bearing` degrees off the aim.
 fn block_strip(aim: (f32, f32), kind: Shot, damage: u32, bearing: f32) -> Vec<Img> {
     let mut run = quiet(aim, Weapon::Bow, cards::Guard::Shield);
     let hero = &run.players[&1];
@@ -223,7 +205,6 @@ fn block_strip(aim: (f32, f32), kind: Shot, damage: u32, bearing: f32) -> Vec<Im
     let from = (24.0 + a.cos() * 4.0, 14.0 + a.sin() * 4.0);
     run.projectiles.push(monster_shot(kind, from, (-a.cos() * 12.0, -a.sin() * 12.0), damage));
     let guard = hold(1, Input { dash: true, ..Default::default() });
-    // Up to the tick before it lands.
     for _ in 0..30 {
         let mut ahead = run.clone();
         ahead.step(&guard);
@@ -241,10 +222,6 @@ fn block_strip(aim: (f32, f32), kind: Shot, damage: u32, bearing: f32) -> Vec<Im
     frames
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve write_vfx_shots -- --ignored`
-/// (`ANGEL_VFX_TAG` names the set: before, after): the shield's block, and
-/// each of the fight's effects, as strips of consecutive frames at a
-/// browser's scale and whole seats mid-fight.
 #[test]
 #[ignore]
 fn write_vfx_shots() {
@@ -255,13 +232,11 @@ fn write_vfx_shots() {
     let dir = std::path::PathBuf::from(dir);
     std::fs::create_dir_all(&dir).unwrap();
     let k = 4;
-    // The shield.
     save(&dir, &format!("{tag}-block-ember-side"), &strip(&block_strip((1.0, 0.0), Shot::Ember, 12, 0.0)), k);
     save(&dir, &format!("{tag}-block-ore-heavy-side"), &strip(&block_strip((-1.0, 0.0), Shot::Ore, 30, 20.0)), k);
     save(&dir, &format!("{tag}-block-wisp-down"), &strip(&block_strip((0.0, 1.0), Shot::Wisp, 12, -25.0)), k);
     save(&dir, &format!("{tag}-block-frost-up"), &strip(&block_strip((0.0, -1.0), Shot::Frost, 16, 30.0)), k);
     save(&dir, &format!("{tag}-block-hex-diag"), &strip(&block_strip((1.0, 1.0), Shot::Hex, 12, 0.0)), k);
-    // Hits on a monster, and its death.
     for (name, weapon) in [("crossbow", Weapon::Crossbow), ("handgonne", Weapon::Handgonne), ("bow", Weapon::Bow)] {
         let mut run = quiet((1.0, 0.0), weapon, cards::Guard::Roll);
         run.spawn_at_for_test(EnemyKind::Skeleton, 31.0, 14.0);
@@ -286,7 +261,6 @@ fn write_vfx_shots() {
         save(&dir, &format!("{tag}-fire-{name}"), &strip(&frames[..9]), 3);
         save(&dir, &format!("{tag}-fire-{name}-kill"), &strip(&frames[9..]), 3);
     }
-    // A handgonne ball's burst and a bomb.
     {
         let mut run = quiet((0.0, -1.0), Weapon::Bow, cards::Guard::Roll);
         let mut frames = Vec::new();
@@ -313,7 +287,6 @@ fn write_vfx_shots() {
         save(&dir, &format!("{tag}-bomb"), &strip(&frames[..6]), 2);
         save(&dir, &format!("{tag}-bomb-late"), &strip(&frames[6..]), 2);
     }
-    // A roll, with its dust.
     {
         let mut run = quiet((1.0, 0.0), Weapon::Bow, cards::Guard::Roll);
         run.players.get_mut(&1).unwrap().x = 18.0;
@@ -326,7 +299,6 @@ fn write_vfx_shots() {
         save(&dir, &format!("{tag}-roll"), &strip(&frames[..8]), 3);
         save(&dir, &format!("{tag}-roll-late"), &strip(&frames[8..]), 3);
     }
-    // A card picked up off the floor.
     {
         let mut run = quiet((1.0, 0.0), Weapon::Bow, cards::Guard::Roll);
         run.players.get_mut(&1).unwrap().x = 20.0;
@@ -347,7 +319,6 @@ fn write_vfx_shots() {
         }
         save(&dir, &format!("{tag}-pickup"), &strip(&frames), 3);
     }
-    // Whole seats mid-fight.
     let run = busy_fight(200);
     for focus in [1, 3] {
         let (img, _) = seat_view(&run, focus, (24.0, 14.0));
@@ -355,14 +326,10 @@ fn write_vfx_shots() {
     }
 }
 
-/// A shot from the front, blocked: the run on the tick the block lands.
 fn blocked(aim: (f32, f32), kind: Shot, damage: u32) -> Run {
     let mut run = quiet(aim, Weapon::Bow, cards::Guard::Shield);
     let hero = &run.players[&1];
     let (ax, ay) = (hero.aim_x, hero.aim_y);
-    // Re-pinned 2026-11-02: the art pack moved the floor's pillars, so the
-    // old fixed spawn point no longer met the knight's shield. Send the
-    // shot at the knight, wherever the room seats them.
     let (hx, hy) = (hero.x, hero.y);
     run.projectiles.push(monster_shot(kind, (hx + ax * 4.0, hy + ay * 4.0), (-ax * 12.0, -ay * 12.0), damage));
     let guard = hold(1, Input { dash: true, ..Default::default() });
@@ -397,14 +364,11 @@ fn a_block_is_drawn_for_every_seat_and_composes_from_its_parts() {
     }
 }
 
-/// The scenery slot is shared by every test. A thread that stands the room
-/// up must not leave its plate for a flat draw of the same room to reuse.
 #[test]
 fn a_flat_frame_does_not_reuse_another_threads_stood_plate() {
     let run = blocked((1.0, 0.0), Shot::Ember, 12);
     let (w, h) = (NATIVE_W, NATIVE_H + BAND_H + HUD_H);
     let other = Run::new(3, 2, None);
-    // A flat drawing, then the slot cleared so the stood thread must paint.
     let _ = seat_frame(&other, w, h, None);
     let flat = seat_frame(&run, w, h, Some(1));
     let _ = seat_frame(&other, w, h, None);
@@ -431,18 +395,15 @@ fn a_raised_shield_is_knocked_back_and_flashes_when_struck() {
     let calm = knights::figure_with(hero, 1, false);
     let hit = knights::figure_struck(hero, 1, false, knock);
     assert!(calm.words() != hit.words());
-    // Facing left, the picture is turned over: the shield still goes back.
     let run = blocked((-1.0, 0.0), Shot::Wisp, 12);
     let knock = struck(&run, 1);
     assert_eq!((knock.dx, knock.dy), (-1, 0));
-    // A knight nobody struck is drawn as ever.
     assert_eq!(struck(&run, 2), Struck::default());
 }
 
 #[test]
 fn no_burst_hides_a_monster_shot() {
     let mut run = blocked((1.0, 0.0), Shot::Bone, 30);
-    // A second shot right through the burst, still in flight.
     let b = run.feel.blocks[0];
     run.projectiles.push(monster_shot(Shot::Eye, (b.x + 1.6, b.y - 1.4), (0.0, 0.5), 12));
     let mut bare = run.clone();
@@ -456,17 +417,12 @@ fn no_burst_hides_a_monster_shot() {
     let mut checked = 0;
     for y in 0..NATIVE_H {
         for x in 0..NATIVE_W {
-            // A pixel of the shot's own sprite (its inks are all signal; its
-            // glow is not): the burst leaves it be.
             if shot.get(x, y) != empty.get(x, y) && shot.get(x, y).is_some_and(super::super::super::ink::is_signal) {
                 assert_eq!(with.get(x, y), shot.get(x, y), "{x},{y}");
                 checked += 1;
             }
         }
     }
-    // Re-pinned 2026-11-02: the art pass redrew the Eye shot; its signal
-    // ink is nine pixels now. Every one of them must match through the
-    // burst — that is the rule.
     assert!(checked >= 9, "{checked}");
 }
 
@@ -481,7 +437,6 @@ fn a_room_full_of_blocks_keeps_to_its_motes() {
     let mut budget = Budget::new();
     blocks(&mut cv, &run, &mut budget, false);
     assert_eq!(budget.spent(), PARTICLES, "a full room spends the frame's motes and no more");
-    // A lone block is far under it.
     run.feel.blocks.truncate(1);
     let mut budget = Budget::new();
     blocks(&mut cv, &run, &mut budget, false);
@@ -503,7 +458,6 @@ fn a_roll_kicks_up_dust_leaves_it_along_the_way_and_lands_in_it() {
     assert_eq!(seen.iter().filter(|&&d| d == KICK).count(), 1);
     assert_eq!(seen.iter().filter(|&&d| d == LAND).count(), 1, "{seen:?}");
     assert!(seen.contains(&TRAIL));
-    // A knight walking leaves none.
     let mut run = quiet((1.0, 0.0), Weapon::Bow, cards::Guard::Roll);
     for _ in 0..20 {
         run.step(&hold(1, Input { move_x: 1, ..Default::default() }));
@@ -528,7 +482,6 @@ fn a_hit_knows_its_way_a_death_its_monster_and_a_bomb_pops_what_it_clears() {
     let hit = hit.expect("a hit");
     assert!(hit.dx > 0.9 && hit.dy.abs() < 0.1, "going east: {hit:?}");
     assert_eq!(death.expect("a death").kind, Some(EnemyKind::Skeleton));
-    // The bomb.
     let mut run = quiet((1.0, 0.0), Weapon::Bow, cards::Guard::Roll);
     run.players.get_mut(&1).unwrap().bombs = 2;
     for x in [21.0, 27.0] {
@@ -555,9 +508,6 @@ fn a_find_taken_glints_by_its_rarity() {
     assert!(img.words() != plain.words(), "it shows");
 }
 
-/// The busy fight with only what is wanted of it: its shots or not, its
-/// effects or not. Coins and a rail's tracer are left out of all of them:
-/// they are drawn over the shots, as before.
 fn variant(run: &Run, shots: bool, effects: bool) -> Run {
     let mut run = run.clone();
     run.feel.coins.clear();
@@ -612,8 +562,6 @@ fn in_a_busy_fight_no_effect_hides_a_shot_and_every_seat_composes() {
     assert!(effects > 20, "a busy fight: {effects}");
 }
 
-/// A calm fight with knight 1 at (24, 14) and monsters held still at
-/// `foes`, the Thunder Scroll in hand; the run on the tick it is read.
 fn thunder(foes: &[(EnemyKind, f32, f32)]) -> Run {
     let mut run = quiet((1.0, 0.0), Weapon::Bow, cards::Guard::Roll);
     for &(kind, x, y) in foes {
@@ -627,7 +575,6 @@ fn thunder(foes: &[(EnemyKind, f32, f32)]) -> Run {
     run
 }
 
-/// A scroll let fall at (30, 14) on the tick before, knight 1 well away.
 fn dropped(card: &str) -> Run {
     let mut run = quiet((1.0, 0.0), Weapon::Bow, cards::Guard::Roll);
     let room = run.at;
@@ -636,7 +583,6 @@ fn dropped(card: &str) -> Run {
     run
 }
 
-/// Pixels of `ink` in `img` round `(cx, cy)`, `w` × `h`.
 fn inked(img: &Img, ink: char, (cx, cy): (i32, i32), w: i32, h: i32) -> usize {
     let c = super::super::super::ink::ink(ink).unwrap();
     (cy - h / 2..cy + h / 2).flat_map(|y| (cx - w / 2..cx + w / 2).map(move |x| (x, y))).filter(|&(x, y)| img.get(x, y) == Some(c)).count()
@@ -654,14 +600,12 @@ fn a_thunder_scroll_strikes_what_it_hits_and_goes_out() {
         let without = seat_frame(&calm, w, h, focus);
         assert!(seat_scene(&run, w, h, focus).compose().words() == with.words(), "{focus:?}: parts compose to the frame");
         for b in run.feel.bolts.iter().filter(|b| !b.call) {
-            // The bolt's white stroke, down out of the dark onto it.
             let (x, y) = seat_px(&run, w, h, focus, b.x, b.y);
             let above = inked(&with, 'w', (x, y - 45), 24, 50);
             assert!(above >= 20, "{focus:?}: the stroke shows over ({}, {}): {above}", b.x, b.y);
             assert_eq!(inked(&without, 'w', (x, y - 45), 24, 50), 0);
         }
     }
-    // Its light flashes the room, then it all goes out.
     assert_eq!(bolt_lights(&run).count(), 3, "two strikes and the reader");
     for _ in 0..crate::rules::feel::BOLT_TICKS {
         run.step(&BTreeMap::new());
@@ -672,8 +616,6 @@ fn a_thunder_scroll_strikes_what_it_hits_and_goes_out() {
 
 #[test]
 fn a_scroll_flutters_down_where_it_lands_and_then_lies_still() {
-    // Compare the landing on the same cached room, without another test
-    // evicting its drawing between the two whole-frame comparisons.
     let _pin = scenery::pin_scene_cache();
     let (w, h) = (NATIVE_W, NATIVE_H + BAND_H + HUD_H);
     let mut run = dropped("thunder-scroll");
@@ -690,8 +632,6 @@ fn a_scroll_flutters_down_where_it_lands_and_then_lies_still() {
             (y - 40..y + 6).flat_map(|py| (x - 12..x + 12).map(move |px| (px, py))).filter(|&(px, py)| a.get(px, py) != b.get(px, py)).count()
         };
         assert!(changed(&run) >= 3, "tick {t}: the scroll's landing shows");
-        // A potion hops onto the floor as any find does (`figures::drop_lift`,
-        // 2026-10-29), then just lies there.
         if u64::from(t) >= super::super::figures::DROP_TICKS {
             assert_eq!(changed(&potion), 0, "tick {t}: a potion just lies there");
         }
@@ -701,10 +641,6 @@ fn a_scroll_flutters_down_where_it_lands_and_then_lies_still() {
     assert!(seat_frame(&run, w, h, Some(1)).words() == still(&run).words(), "landed: it lies as any card");
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve write_scroll_shots -- --ignored`:
-/// the Thunder Scroll read in a fight and in an empty room, and a scroll
-/// dropping, as strips of consecutive frames at a browser's scale, and a
-/// whole seat on the stroke.
 #[test]
 #[ignore]
 fn write_scroll_shots() {

@@ -1,22 +1,11 @@
-"""Offline Mage grounding bench against the reference SGLang container.
-
-Per target, five model calls:
-  first   - one look, `ground`'s exact request (/generate, Mage's template, JPEG q95)
-  z2      - first, then re-look on a 2x crop scaled back to full frame
-  casc    - z2, then a 3x crop (what `ground` ships)
-  repeat  - the first look again (run-to-run noise at temperature 0)
-  chat    - one look through SGLang's OpenAI /v1/chat/completions (H6)
-  python3 -I bench_run.py <bench-dir> [limit]   (venv python with PIL + transformers)
-"""
 import base64, io, json, os, re, sys, time, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
 
 root = sys.argv[1]
-FAST = os.environ.get("BENCH_FAST") == "1"  # first / z2 / cascade only
+FAST = os.environ.get("BENCH_FAST") == "1"
 limit = int(sys.argv[2]) if len(sys.argv) > 2 else None
 BASE = "http://127.0.0.1:30001"
-# The prompt `ground` sends; HANDS_GROUND_PROMPT overrides the checkout's copy.
 SYSTEM = open(os.environ.get("HANDS_GROUND_PROMPT") or os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "../../../../cockpit/src/agent/tools/hands_ground_prompt.txt")).read()
 DIRECT = " The target is visible on the current screen; click it directly in one action."
@@ -28,7 +17,7 @@ def user_text(instruction):
             f"actions.\n\nInstruction: {instruction.rstrip('.')}.{DIRECT}\n\nPrevious actions:\nNone")
 
 
-def prompt(instruction):  # byte-identical to hands.rs ground_prompt
+def prompt(instruction):
     return (f"<|im_start|>system\n{SYSTEM}<|im_end|>\n<|im_start|>user\n"
             f"<|vision_start|><|image_pad|><|vision_end|>{user_text(instruction)}<|im_end|>\n"
             "<|im_start|>assistant\n<think>\n\n</think>\n\n")

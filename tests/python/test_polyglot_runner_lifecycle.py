@@ -1,4 +1,3 @@
-"""Real fake-evaluator process groups, with no credentials or model calls."""
 import ctypes
 import json
 import os

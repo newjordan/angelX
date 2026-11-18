@@ -1,10 +1,3 @@
-# crates/delve/src/rules/layout.rs — one room: the quadrant it is drawn from,
-# its mirroring, its fixtures and its company (`room`, `furnish`).
-#
-# A room is built as a LayGrid, then written as its serde J object. `doors` is
-# a J array of four bools. Randomness is the run's `loot::Rng` (a W.W) threaded
-# through, drawn in Rust's order.
-
 def layout.is_kind_in(+kind: String, +kinds: List<&2, String>) -> Bool:
   match kinds as List<&2, String>:
     case Nil{}:
@@ -18,7 +11,6 @@ def layout.is_kind_in(+kind: String, +kinds: List<&2, String>) -> Bool:
 def layout.fight_or_stairs(+kind: String) -> Bool:
   Bool.or(String.eq(kind, "fight"), String.eq(kind, "stairs"))
 
-# Template rows (`.` floor, `#` block, `~` hazard, `,` bog) as a grid.
 def layout.quad.tile(+c: Char) -> LayTile:
   match c:
     case '#':
@@ -55,7 +47,6 @@ def layout.quad.width(+rows: List<&2, String>) -> U32:
     case Con{h: String, t: List<&2, String>}:
       U32.from_nat(String.length(h))
 
-# The nth of a list of row-lists.
 def layout.quads.nth(+qs: List<&2, List<&2, String>>, +i: U32) -> List<&2, String>:
   match qs as List<&2, List<&2, String>>:
     case Nil{}:
@@ -69,7 +60,6 @@ def layout.quads.nth(+qs: List<&2, List<&2, String>>, +i: U32) -> List<&2, Strin
 def layout.quads.len(+qs: List<&2, List<&2, String>>) -> U32:
   U32.from_nat(List.length(&2, List<&2, String>, qs))
 
-# The pack's index in the rooms module's arms.
 def layout.pack_index(+pack: String) -> U32:
   if String.eq(pack, "crypt"):
     0
@@ -91,8 +81,6 @@ def layout.pack_index(+pack: String) -> U32:
             else:
               6
 
-# The quadrant a room of `kind` is drawn from: the pack's own and the dungeon
-# masters' for a fight, a fixed one for every other kind.
 def layout.template_for(+kind: String, +pack: String, +rng: W.W) -> W.W & LayGrid:
   if layout.fight_or_stairs(kind):
     templates: List<&2, List<&2, String>> = layout.Pack.templates(pack)
@@ -112,7 +100,6 @@ def layout.template_for(+kind: String, +pack: String, +rng: W.W) -> W.W & LayGri
       else:
         (rng, layout.quad.of_rows(layout.template.EMPTY()))
 
-# The least a fight room measures for a party this many knights.
 def layout.party_room(+party: U32) -> LayDims:
   match party:
     case 0:
@@ -126,7 +113,6 @@ def layout.party_room(+party: U32) -> LayDims:
     case _:
       LayDims{48, 28}
 
-# The size its kind lays a room at (draws for a fight).
 def layout.room.size(+kind: String, +depth: U32, +rng: W.W) -> W.W & LayDims:
   if String.eq(kind, "stairs"):
     (rng, LayDims{36, 20})
@@ -173,8 +159,6 @@ def layout.room(+cell: LayCell, +kind: String, +doors: J.Val, +depth: U32, +pack
   rows: U32 = Bool.pick(U32, layout.fight_or_stairs(kind), U32.max(rows0, lr), rows0)
   layout.furnish(cell, kind, doors, depth, pack, template, cols, rows, cols0, rows0, company, rng2)
 
-# Lay `quadrant` into a grid `cols` by `rows`, mirrored both ways, walls round
-# it and doorways where `doors` says.
 def layout.mirror.tile(+row: U32, +col: U32, +cols: U32, +rows: U32, +doors: J.Val, +quad: LayGrid) -> LayTile:
   if Bool.or(Bool.or(U32.is_eq(row, 0), U32.is_eq(col, 0)), Bool.or(U32.is_eq(row, (rows - 1 : U32)), U32.is_eq(col, (cols - 1 : U32)))):
     lane_x: Bool = Bool.or(U32.is_eq(col, (layout.half(cols) - 1 : U32)), U32.is_eq(col, layout.half(cols)))
@@ -217,7 +201,6 @@ def layout.mirror.rows(+row: U32, +cols: U32, +rows: U32, +doors: J.Val, +quad: 
 def layout.mirror(+cols: U32, +rows: U32, +doors: J.Val, +quad: LayGrid) -> LayGrid:
   LayGrid{cols, rows, layout.mirror.rows(0, cols, rows, doors, quad)}
 
-# Every doorway and the centre reachable on foot.
 def layout.walkable(+t: LayTile) -> Bool:
   match t:
     case TileFloor{}:
@@ -240,7 +223,6 @@ def layout.connected_grid(+g: LayGrid) -> Bool:
       seen2: LayGrid = layout.connected_grid.flood(g, seen, [LayCell{c0, r0}])
       layout.connected_grid.doors(g, seen2, 0, 0, cols, rows)
 
-# Depth-first over the walkable tiles; `seen` marks reached cells (floor).
 def layout.connected_grid.flood(+g: LayGrid, +seen: LayGrid, +stack: List<&2, LayCell>) -> LayGrid:
   match stack as List<&2, LayCell>:
     case Nil{}:
@@ -268,7 +250,6 @@ def layout.tile_is_door(+t: LayTile) -> Bool:
     case _:
       False{}
 
-# Every door tile was reached.
 def layout.connected_grid.doors(+g: LayGrid, +seen: LayGrid, +r: U32, +c: U32, +cols: U32, +rows: U32) -> Bool:
   if U32.is_ge(r, rows):
     True{}
@@ -281,12 +262,8 @@ def layout.connected_grid.doors(+g: LayGrid, +seen: LayGrid, +r: U32, +c: U32, +
       else:
         layout.connected_grid.doors(g, seen, r, (c + 1 : U32), cols, rows)
 
-# `connected` over a room's J object.
 def layout.connected(+room: J.Val) -> Bool:
   layout.connected_grid(layout.grid.of_room(room))
-
-# A great hall's quadrant
-# -----------------------
 
 def layout.gq.pillars(+g: LayGrid, +y: U32, +yend: U32, +sy: U32, +sx: U32, +w: U32, +rng: W.W) -> LayGrid & W.W:
   if U32.is_ge(y, yend):
@@ -308,7 +285,6 @@ def layout.gq.row(+g: LayGrid, +y: U32, +x: U32, +xend: U32, +sx: U32, +w: U32, 
     else:
       layout.gq.row(g, y, (x + sx : U32), xend, sx, w, rng1)
 
-# Fill the cells [px, px2) x [py, py2) with `t`.
 def layout.grid.fill_rect(+g: LayGrid, +px: U32, +py: U32, +px2: U32, +py2: U32, +t: LayTile) -> LayGrid:
   layout.grid.fill_rect.rows(g, py, px, px2, py2, t)
 
@@ -338,9 +314,6 @@ def layout.gq.clear(+g: LayGrid, +w: U32, +h: U32) -> LayGrid:
   g1: LayGrid = layout.grid.fill_rect(g, (w - 2 : U32), 0, w, h, TileFloor{})
   layout.grid.fill_rect(g1, 0, (h - 2 : U32), w, h, TileFloor{})
 
-# A great hall's quadrant (`w` by `h`, mirrored into the whole room): rows of
-# pillars with gaps, a pool or two, the lanes to the middle and the doorways
-# kept open.
 def layout.great_quadrant(+w: U32, +h: U32, +kind: String, +rng: W.W) -> LayGrid & W.W:
   (rng1: W.W, ax: U32) = layout.rng.below(rng, 2)
   (rng2: W.W, ay: U32) = layout.rng.below(rng1, 2)
@@ -355,9 +328,6 @@ def layout.gq.pools_for(+g: LayGrid, +kind: String, +w: U32, +h: U32, +rng: W.W)
     (rng1: W.W, n: U32) = layout.rng.below(rng, 2)
     layout.gq.pools(g, n, w, h, rng1)
 
-# The swamp's mire over one quadrant (swamp.rs `mire`)
-# ---------------------------------------------------
-
 def layout.swamp.tier(+depth: U32) -> U32:
   (U32.clamp(depth, 1, 3) - 1 : U32)
 
@@ -370,7 +340,6 @@ def layout.swamp.share(+depth: U32) -> U32:
     case _:
       50
 
-# swamp.rs `salt(cell, depth)`.
 def layout.swamp.salt(+cell: LayCell, +depth: U32) -> W.W:
   LayCell{cx: U32, cy: U32} of LayCell = cell
   a: W.W = W.mul(W.of_u32(depth), W.of_u32(2654435769))
@@ -378,7 +347,6 @@ def layout.swamp.salt(+cell: LayCell, +depth: U32) -> W.W:
   c: W.W = W.mul(layout.sext(cy), W.of_u32(625341585))
   layout.mix(W.xor(W.xor(W.xor(a, b), c), W.of_u32(23099)))
 
-# One corner of the smooth noise, 0..1 from 16 bits of the mix.
 def layout.swamp.corner(+gx: U32, +gy: U32, +salt: W.W) -> F32:
   m: W.W = layout.mix(W.xor(W.xor(salt, W.shl(W.of_u32(gx), 20)), W.shl(W.of_u32(gy), 40)))
   (U32.to_f32(W.lo32(W.and(m, W.of_u32(65535)))) / 65535.0 : F32)
@@ -394,7 +362,6 @@ def layout.swamp.wet(+x: U32, +y: U32, +salt: W.W) -> F32:
   bottom: F32 = (layout.swamp.corner(gx, (gy + 1 : U32), salt) * (1.0 - tx : F32) + layout.swamp.corner((gx + 1 : U32), (gy + 1 : U32), salt) * tx : F32)
   (top * (1.0 - ty : F32) + bottom * ty : F32)
 
-# Whether any reed block lies in the 3x3 round (x, y) of the quadrant.
 def layout.swamp.reeds(+g: LayGrid, +x: U32, +y: U32, +w: U32, +h: U32) -> Bool:
   y0: U32 = Bool.pick(U32, U32.is_eq(y, 0), 0, (y - 1 : U32))
   x0: U32 = Bool.pick(U32, U32.is_eq(x, 0), 0, (x - 1 : U32))
@@ -437,7 +404,6 @@ def layout.swamp.open(+g: LayGrid, +x: U32, +y: U32, +w: U32, +h: U32, +salt: W.
       else:
         layout.swamp.open(g, (x + 1 : U32), y, w, h, salt)
 
-# Count the floor cells of the quadrant.
 def layout.swamp.count_floor(+g: LayGrid) -> U32:
   match g as LayGrid:
     case LayGrid{cols: U32, rows: U32, tiles: List<&2, List<&2, LayTile>>}:
@@ -457,7 +423,6 @@ def layout.swamp.count_row(+row: List<&2, LayTile>) -> U32:
     case Con{h: LayTile, t: List<&2, LayTile>}:
       (Bool.to_u32(layout.tile_is_floor(h)) + layout.swamp.count_row(t) : U32)
 
-# Wetter first; ties by (x, y). `b` before `a` when b is wetter.
 def layout.swamp.before(+a: LayWet, +b: LayWet) -> Bool:
   LayWet{wa: F32, ax: U32, ay: U32} of LayWet = a
   LayWet{wb: F32, bx: U32, by: U32} of LayWet = b
@@ -497,7 +462,6 @@ def layout.swamp.bog(+g: LayGrid, +xs: List<&2, LayWet>, +n: U32) -> LayGrid:
         LayWet{wt: F32, x: U32, y: U32} of LayWet = h
         layout.swamp.bog(layout.grid.set(g, x, y, TileBog{}), t, (n - 1 : U32))
 
-# `mire(quadrant, depth, salt)`: the wettest share of the open ground goes to bog.
 def layout.swamp.mire(+g: LayGrid, +depth: U32, +salt: W.W) -> LayGrid:
   match g as LayGrid:
     case LayGrid{w: U32, h: U32, tiles: List<&2, List<&2, LayTile>>}:
@@ -506,14 +470,9 @@ def layout.swamp.mire(+g: LayGrid, +depth: U32, +salt: W.W) -> LayGrid:
       want: U32 = U32.min(U32.div((all * layout.swamp.share(depth) : U32), 100), U32.from_nat(List.length(&2, LayWet, open)))
       layout.swamp.bog(g, layout.swamp.sorted(open), want)
 
-# Furnishing
-# ----------
-
-# The enemy kinds that are one of a room's dangerous ones (monsters.rs `elite`).
 def layout.elite(+kind: String) -> Bool:
   layout.is_kind_in(kind, ["necromancer", "shaman", "warboar", "slime", "flesher", "silkmother", "hexer", "lich", "hollow", "marksman", "spitter", "ringer", "hound", "broodmarrow", "whirlgrave", "drowned"])
 
-# The third company (critters.rs `critter`).
 def layout.critter(+kind: String) -> Bool:
   layout.is_kind_in(kind, ["biter", "shard", "mole", "pavise", "leech", "marksman", "mirrorling", "spitter", "ringer", "geode", "hound"])
 
@@ -560,8 +519,6 @@ def layout.strings.len(+xs: List<&2, String>) -> U32:
 def layout.strings.has(+xs: List<&2, String>, +v: String) -> Bool:
   layout.is_kind_in(v, xs)
 
-# What a room or a wave brings instead of a second of a dangerous kind: the
-# floor's first plain monster.
 def layout.Pack.plain_at(+pack: String, +depth: U32) -> String:
   layout.Pack.plain_first(layout.roster.names(layout.Pack.roster_at(pack, depth)))
 
@@ -575,7 +532,6 @@ def layout.Pack.plain_first(+names: List<&2, String>) -> String:
       else:
         h
 
-# `n` picks from the pack's roster, as J strings.
 def layout.roster.picks(+n: U32, +names: List<&2, String>, +weights: List<&2, U32>, +rng: W.W) -> List<&2, String> & W.W:
   if U32.is_eq(n, 0):
     (Nil{}, rng)
@@ -590,7 +546,6 @@ def layout.strings.repeat(+n: U32, +s: String) -> List<&2, String>:
   else:
     Con{s, layout.strings.repeat((n - 1 : U32), s)}
 
-# The roster a kind of room starts with (before the dedupe), drawing as Rust does.
 def layout.furnish.roster(+kind: String, +pack: String, +depth: U32, +foes: U32, +company: U32, +rng: W.W) -> List<&2, String> & W.W:
   if String.eq(kind, "start"):
     (Bool.pick(List<&2, String>, String.eq(pack, "swamp"), ["leech", "leech"], ["skeleton", "skeleton"]), rng)
@@ -618,7 +573,6 @@ def layout.furnish.roster(+kind: String, +pack: String, +depth: U32, +foes: U32,
               else:
                 (Nil{}, rng)
 
-# One of each dangerous kind a room, and only so many kinds.
 def layout.furnish.dedupe(+roster: List<&2, String>, +plain: String, +seen: List<&2, String>, +limit: U32) -> List<&2, String>:
   match roster as List<&2, String>:
     case Nil{}:
@@ -632,7 +586,6 @@ def layout.furnish.dedupe(+roster: List<&2, String>, +plain: String, +seen: List
       else:
         Con{h, layout.furnish.dedupe(t, plain, seen, limit)}
 
-# The roster's critters that are not elite.
 def layout.furnish.plains(+ros: List<&2, String>) -> List<&2, String>:
   match ros as List<&2, String>:
     case Nil{}:
@@ -665,7 +618,6 @@ def layout.roster_json.go(+xs: List<&2, String>) -> List<&2, J.Val>:
     case Con{h: String, t: List<&2, String>}:
       Con{J.JS{h}, layout.roster_json.go(t)}
 
-# A room as its serde object.
 def layout.room_json(+cell: LayCell, +kind: String, +doors: J.Val, +cols: U32, +rows: U32, +tiles: String, +visited: Bool, +cleared: Bool, +roster: J.Val, +laid: J.Val) -> J.Val:
   LayCell{cx: U32, cy: U32} of LayCell = cell
   r0: J.Val = J.set(J.obj(), "cell", J.JA{[J.of_i32(cx), J.of_i32(cy)]})
@@ -675,20 +627,13 @@ def layout.room_json(+cell: LayCell, +kind: String, +doors: J.Val, +cols: U32, +
   r4: J.Val = J.set(r3, "chest", J.JNull{})
   Bool.pick(J.Val, J.is_null(laid), r4, J.set(r4, "laid", laid))
 
-# Whether a room of the doors J array has door `i`.
 def layout.doors_at(+doors: J.Val, +i: U32) -> Bool:
   J.bool(J.nth(doors, i))
 
-# The room of `kind` at its size (cols, rows) (laid at `laid`, holding
-# `company` more for a great hall): stone from `template` (or a great
-# quadrant), fixtures and company.
 def layout.furnish(+cell: LayCell, +kind: String, +doors: J.Val, +depth: U32, +pack: String, +template: LayGrid, +cols: U32, +rows: U32, +lcols: U32, +lrows: U32, +company: U32, +rng: W.W) -> J.Val & W.W:
   (quad0: LayGrid, rng1: W.W) = layout.furnish.quadrant(cell, kind, depth, pack, template, cols, rows, rng)
   layout.furnish.build(cell, kind, doors, depth, pack, quad0, cols, rows, lcols, lrows, company, rng1)
 
-# The room's quadrant: the template at a screen's size, else a dungeon
-# master's hall most of the time, else the pillared grid; scattered boulders
-# and the swamp's mire on top.
 def layout.furnish.quadrant(+cell: LayCell, +kind: String, +depth: U32, +pack: String, +template: LayGrid, +cols: U32, +rows: U32, +rng: W.W) -> LayGrid & W.W:
   (q: LayGrid, rng1: W.W) = layout.furnish.base(kind, pack, template, cols, rows, rng)
   (q2: LayGrid, rng2: W.W) = layout.furnish.scatter(q, kind, pack, cols, rng1)
@@ -714,7 +659,6 @@ def layout.furnish.base.authored(+authored: List<&2, List<&2, String>>, +kind: S
     else:
       layout.great_quadrant(w, h, kind, rng1)
 
-# `pack.scatter()` loose boulders at a screen's size.
 def layout.Pack.scatter(+pack: String) -> U32:
   if Bool.or(String.eq(pack, "cavern"), String.eq(pack, "fungal")):
     4
@@ -735,8 +679,6 @@ def layout.furnish.scatter.go(+q: LayGrid, +n: U32, +rng: W.W) -> LayGrid & W.W:
     (rng2: W.W, b: U32) = layout.rng.below(rng1, 4)
     layout.furnish.scatter.go(layout.grid.set(q, (1 + a : U32), (1 + b : U32), TileBlock{}), (n - 1 : U32), rng2)
 
-# Mirror the quadrant, rebuild open if a doorway is cut off, set the fixtures,
-# the company and the dedupe.
 def layout.furnish.build(+cell: LayCell, +kind: String, +doors: J.Val, +depth: U32, +pack: String, +quad: LayGrid, +cols: U32, +rows: U32, +lcols: U32, +lrows: U32, +company: U32, +rng: W.W) -> J.Val & W.W:
   g0: LayGrid = layout.mirror(cols, rows, doors, quad)
   open: LayGrid = layout.grid.new((layout.half(cols) - 1 : U32), (layout.half(rows) - 1 : U32), TileFloor{})
@@ -759,17 +701,14 @@ def layout.furnish.fixtures(+cell: LayCell, +kind: String, +doors: J.Val, +depth
         else:
           layout.furnish.company(cell, kind, doors, depth, pack, g, cols, rows, lcols, lrows, company, rng, J.JNull{})
 
-# The chest in the middle of a treasure room.
 def layout.chest_json(+cols: U32, +rows: U32) -> J.Val:
   c0: J.Val = J.set(J.obj(), "x", J.JF{(layout.width_of(cols) / 2.0 : F32)})
   c1: J.Val = J.set(c0, "y", J.JF{(layout.width_of(rows) / 2.0 : F32)})
   J.set(c1, "open", J.JBool{False{}})
 
-# A size in tiles as arena units.
 def layout.width_of(+n: U32) -> F32:
   (U32.to_f32(n) * 2.0 : F32)
 
-# The stairs room's four stairs tiles (none on the swamp's last floor).
 def layout.furnish.stairs(+g: LayGrid, +pack: String, +depth: U32, +cols: U32, +rows: U32) -> LayGrid:
   if Bool.and(String.eq(pack, "swamp"), U32.is_ge(depth, 3)):
     g
@@ -781,7 +720,6 @@ def layout.furnish.stairs(+g: LayGrid, +pack: String, +depth: U32, +cols: U32, +
     g3: LayGrid = layout.grid.set(g2, c, (r + 1 : U32), TileStairs{})
     layout.grid.set(g3, (c + 1 : U32), (r + 1 : U32), TileStairs{})
 
-# A hall: stone everywhere but the passages from each doorway to a hub.
 def layout.furnish.hall(+g: LayGrid, +doors: J.Val, +wide: U32, +cols: U32, +rows: U32) -> LayGrid:
   layout.furnish.hall.rows(g, doors, wide, cols, rows, layout.half(cols), layout.half(rows), 1, 1)
 
@@ -803,8 +741,6 @@ def layout.furnish.hall.cell(+g: LayGrid, +doors: J.Val, +wide: U32, +mc: U32, +
   lane: Bool = Bool.or(Bool.or(Bool.and(Bool.and(layout.doors_at(doors, 0), across), U32.is_le(row, mr)), Bool.and(Bool.and(layout.doors_at(doors, 2), across), U32.is_ge(row, mr))), Bool.or(Bool.and(Bool.and(layout.doors_at(doors, 1), along), U32.is_ge(col, mc)), Bool.and(Bool.and(layout.doors_at(doors, 3), along), U32.is_le(col, mc))))
   Bool.pick(LayGrid, Bool.or(hub, lane), g, layout.grid.set(g, col, row, TileWall{}))
 
-# The Shoggoth fills the north of its hall: stone to feet and shots alike,
-# but for a doorway's lane.
 def layout.furnish.threshold(+g: LayGrid, +doors: J.Val, +cols: U32) -> LayGrid:
   layout.furnish.threshold.rows(g, doors, cols, 1)
 
@@ -821,7 +757,6 @@ def layout.furnish.threshold.cols(+g: LayGrid, +doors: J.Val, +cols: U32, +row: 
     lane: Bool = Bool.and(layout.doors_at(doors, 0), Bool.or(U32.is_eq(col, (layout.half(cols) - 1 : U32)), U32.is_eq(col, layout.half(cols))))
     layout.furnish.threshold.cols(Bool.pick(LayGrid, lane, g, layout.grid.set(g, col, row, TileBlock{})), doors, cols, row, (col + 1 : U32))
 
-# The foes a room holds, deduped and with its extra plain one, and the room.
 def layout.furnish.company(+cell: LayCell, +kind: String, +doors: J.Val, +depth: U32, +pack: String, +g: LayGrid, +cols: U32, +rows: U32, +lcols: U32, +lrows: U32, +company: U32, +rng: W.W, +chest: J.Val) -> J.Val & W.W:
   (rng1: W.W, extra: U32) = layout.rng.below(rng, 2)
   foes: U32 = U32.min((2 + U32.min(depth, 3) + extra : U32), 6)

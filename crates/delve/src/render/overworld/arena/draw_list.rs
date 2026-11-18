@@ -8,19 +8,12 @@
 
 use super::Img;
 
-/// Back to front.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum Layer {
-    /// On the floor: hazards, rooms' fixtures and folk, pools, pots, rings.
     Ground,
-    /// What stands: loot, the fallen, monsters and knights, shots.
     Figures,
-    /// Over the figures: sparks, flourishes, prompts, names, bursts.
     Over,
-    /// The room's own boards and plaques, over everything in it.
     Boards,
-    /// The screen's own marks after the camera's crop: arrows to the way
-    /// on, standings, banners, panels.
     Screen,
 }
 
@@ -36,7 +29,6 @@ impl<'a> DrawList<'a> {
         self.commands.push((layer, Box::new(paint)));
     }
 
-    /// The commands up to and including layer `last`, and the rest.
     pub(super) fn split(self, last: Layer) -> (DrawList<'a>, DrawList<'a>) {
         let (low, high) = self
             .commands
@@ -45,9 +37,7 @@ impl<'a> DrawList<'a> {
         (DrawList { commands: low }, DrawList { commands: high })
     }
 
-    /// Paint every command into `cv`, back layer first.
     pub(super) fn paint(mut self, cv: &mut Img) {
-        // A stable sort: one layer keeps the order its painters came in.
         self.commands.sort_by_key(|(layer, _)| *layer);
         for (_, paint) in self.commands {
             paint(cv);

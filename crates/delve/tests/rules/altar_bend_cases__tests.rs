@@ -40,7 +40,6 @@ impl Lcg {
     }
 }
 
-/// The floor's parts `keeps_an_altar` reads.
 fn thin(floor: &Floor) -> Value {
     json!({
         "depth": floor.depth,
@@ -65,7 +64,6 @@ fn e(id: u32) -> BTreeMap<u32, Input> {
 #[ignore]
 fn record_altar() {
     let mut r = Lcg(0xa17a_2026_1020_0001);
-    // stone_blocks: pure.
     for _ in 0..400 {
         let (c, rr) = (r.below(40) as i32, r.below(30) as i32);
         let (tc, tr) = (c + r.below(7) as i32 - 3, rr + r.below(7) as i32 - 3);
@@ -93,7 +91,6 @@ fn record_altar() {
                             }
                         }
                     }
-                    // place_on: every room still to choose.
                     let mut bare = floor.clone();
                     bare.altar_at.clear();
                     let before = jv(&bare);
@@ -105,7 +102,6 @@ fn record_altar() {
                         &json!({"altar_at": jv(&placed.altar_at)}),
                         40,
                     );
-                    // The pieces of the search, on the rooms that keep one.
                     for index in 0..floor.rooms.len() {
                         if !keeps_an_altar(&floor, index, false) {
                             continue;
@@ -155,7 +151,6 @@ fn record_altar() {
                             }
                         }
                     }
-                    // Run level: the altar for the room the party is in.
                     for at in 0..run.dungeon.rooms.len().min(8) {
                         let mut c = run.clone();
                         c.identity = at % 5 == 4;
@@ -184,7 +179,6 @@ fn record_altar() {
         }
     }
     crate::settings::set(crate::settings::Settings { open_floors: false, ..crate::settings::get() });
-    // tick_wish_altar: knights walking round the lamp, pressing E, with and without wishes.
     for seed in 0..40u64 {
         for extra in [0usize, 1, 3] {
             let mut run = party(seed, extra);
@@ -229,7 +223,6 @@ fn record_altar() {
             }
         }
     }
-    // The lamp's book-keeping and its three host hooks.
     let words = ["a wide bow", "fire", "make me fast", "bees"];
     for seed in 0..50u64 {
         let mut run = party(seed, (seed % 3) as usize);

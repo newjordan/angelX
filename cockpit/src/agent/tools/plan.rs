@@ -9,13 +9,6 @@ use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-// ---------------------------------------------------------------------------
-// Todo tool — the agent's own persisted plan/scratchpad (Claude Code TodoWrite
-// pattern). State lives behind an Arc<Mutex>, and since the cockpit builds one
-// ToolRegistry per session, the list persists across turns. Keeps long-horizon
-// software work coherent.
-// ---------------------------------------------------------------------------
-
 pub(crate) const TODO_STATE_PREFIX: &str = "[todo-state/v1] ";
 const TODO_MAX_ITEMS: usize = 64;
 const TODO_TEXT_MAX_CHARS: usize = 500;
@@ -112,8 +105,6 @@ impl Tool for TodoTool {
                 if arr.len() > TODO_MAX_ITEMS {
                     return Err(format!("'items' exceeds {TODO_MAX_ITEMS} entries"));
                 }
-                // Validate the complete replacement before touching live state:
-                // one malformed later item must not leave a partial new plan.
                 let texts = arr
                     .iter()
                     .map(|value| {
@@ -151,32 +142,12 @@ impl Tool for TodoTool {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Handoff tool — the agent's own compaction-proof continuity note. The todo
-// list carries *steps*; this carries the *narrative* an agent would need to
-// resume cold (goal, done, in-flight, next actions, load-bearing facts). The
-// latest successful result is protected from tool-result aging and the
-// compactor re-emits its body across compaction in Assistant role — the
-// agent's prose never gains System authority.
-// ---------------------------------------------------------------------------
-
-/// Canonical success-result prefix. Detection depends on it being the very
-/// first bytes of the result, so nothing may be prepended.
 pub(crate) const HANDOFF_STATE_PREFIX: &str = "[handoff-note/v1]\n";
 pub(crate) const HANDOFF_NOTE_MAX_CHARS: usize = 6_000;
-/// A resume brief shorter than this cannot name a goal, state, and next step;
-/// reject it at write time rather than discover the shortcut in the next
-/// session. ("No shortcuts" is the operator's explicit contract here.)
 pub(crate) const HANDOFF_NOTE_MIN_CHARS: usize = 200;
 
 const HANDOFF_SCHEMA: &str = "angel-handoff/v1";
 
-/// Age past which a loaded handoff carries a staleness banner. Fast-moving
-/// competition facts (board frontier, scores, in-flight slots, branch tips)
-/// rot in hours; a warm start must not present a days-old brief in the present
-/// tense. 2026-09-01: a 12-day-old brief pinned the lower-track
-/// frontier at 53.13 while the live board stood at 67.67 — the loop spent the
-/// morning working to beat a frontier its own account had already passed.
 const HANDOFF_STALE_AFTER_SECS: u64 = 6 * 60 * 60;
 
 fn handoff_age_compact(secs: u64) -> String {
@@ -189,7 +160,6 @@ fn handoff_age_compact(secs: u64) -> String {
     }
 }
 
-/// Staleness banner for a persisted note, or `None` while it is fresh.
 fn stale_handoff_banner(written_unix: u64) -> Option<String> {
     if written_unix == 0 {
         return None;
@@ -200,7 +170,6 @@ fn stale_handoff_banner(written_unix: u64) -> Option<String> {
         .unwrap_or(0);
     let age = now.saturating_sub(written_unix);
     (age >= HANDOFF_STALE_AFTER_SECS).then(|| {
-        // `⠎⠚`: stale; the age is the data, the words are the ledger page.
         format!(
             "{} {}\n",
             crate::agent::harness::book::s_sources::HANDOFF_STALE.cells(),
@@ -229,10 +198,6 @@ fn handoff_path(workspace: &std::path::Path) -> PathBuf {
     )
 }
 
-/// The persisted handoff for `workspace`, identity-validated — the fresh-
-/// session warm-start reads it without constructing a registry. A stale note
-/// arrives wearing its age banner so the successor re-verifies live facts
-/// instead of resuming inside a frozen world.
 pub(crate) fn load_workspace_handoff(workspace: &std::path::Path) -> Option<String> {
     let (note, written_unix) = HandoffTool::new(workspace).load_disk()?;
     Some(match stale_handoff_banner(written_unix) {
@@ -258,9 +223,6 @@ impl HandoffTool {
         }
     }
 
-    /// The persisted note for this workspace plus its write stamp,
-    /// identity-validated. Used for the cold-session `show` path and by the
-    /// harness warm start; callers turn the stamp into a staleness banner.
     fn load_disk(&self) -> Option<(String, u64)> {
         let raw = std::fs::read_to_string(&self.path).ok()?;
         let record = serde_json::from_str::<HandoffRecord>(&raw).ok()?;
@@ -314,9 +276,6 @@ impl Tool for HandoffTool {
                     return Ok(format!("{HANDOFF_STATE_PREFIX}{note}"));
                 }
                 match self.load_disk() {
-                    // Cold-session pickup: the previous run's persisted brief.
-                    // A stale note wears its age so the successor re-verifies
-                    // board/score/slot facts before acting on them.
                     Some((note, written_unix)) => {
                         *state = Some(note.clone());
                         let banner = stale_handoff_banner(written_unix).unwrap_or_default();
@@ -350,9 +309,6 @@ impl Tool for HandoffTool {
                         crate::agent::harness::book::d467_receipts::DENSE_BRIEF.cells()
                     ));
                 }
-                // Disk is the cross-session contract: a failed persist is a
-                // failed handoff, reported loudly rather than discovered by the
-                // next session.
                 self.persist(note)?;
                 *state = Some(note.to_string());
                 Ok(format!("{HANDOFF_STATE_PREFIX}{note}"))
@@ -364,12 +320,6 @@ impl Tool for HandoffTool {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Notes tool — persistent, cross-session agent memory (a file on disk, unlike
-// the in-memory todo). Every record is bound to canonical repository identity;
-// legacy global markdown and mismatched records are inert.
-// ---------------------------------------------------------------------------
 
 const NOTES_SCHEMA: &str = "angel-project-notes/v1";
 

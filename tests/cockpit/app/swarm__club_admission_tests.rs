@@ -195,7 +195,6 @@ fn cut_swarm_worker_permits_stay_owned_until_actual_return() {
 
 #[test]
 fn repeated_cut_waves_fail_fast_until_actual_workers_return() {
-    // This spawn-heavy test shares TEST_WAVE_INFLIGHT with the other waves.
     let _guard = crate::tests::env_lock();
     TEST_WAVE_INFLIGHT.store(0, Ordering::Release);
     let calls = Arc::new(AtomicUsize::new(0));
@@ -259,8 +258,6 @@ fn repeated_cut_waves_fail_fast_until_actual_workers_return() {
     assert_eq!(TEST_WAVE_INFLIGHT.load(Ordering::Acquire), 0);
 }
 
-/// No quorum, grace or wave clock: a wave waits for every seat that is still
-/// answering, however many have already landed.
 #[test]
 fn a_wave_waits_for_every_seat_still_answering() {
     let _guard = crate::tests::env_lock();
@@ -325,7 +322,6 @@ impl Club for OverallocatedClub {
     }
 }
 
-/// Operator-ordered F01 contract: every queued swarm seat runs after allocation is exceeded.
 #[test]
 fn formation_budget_swarm_queued_seats_report_overrun_and_all_complete() {
     let _guard = crate::tests::env_lock();

@@ -22,8 +22,6 @@ impl Hero {
     pub fn peasant(&self) -> bool { classes::of(self).is_some_and(|c| c.kit == "peasant") }
     pub fn targetable(&self) -> bool { self.hp > 0 && !self.stone && self.flee_ticks == 0 && !self.aloft }
 }
-/// Start before the cast tick's movement. own_keys consumes the extra tick,
-/// leaving sixty movement/damage/targeting ticks including this one.
 pub(super) fn start(hero: &mut Hero, owner: u32, tick: u64, decoys: &mut Vec<Scarecrow>) {
     hero.flee_ticks = SPRINT_TICKS + 1;
     hero.invulnerable = hero.invulnerable.max(SPRINT_TICKS + 1);
@@ -38,8 +36,6 @@ pub(super) fn start(hero: &mut Hero, owner: u32, tick: u64, decoys: &mut Vec<Sca
     decoys.push(Scarecrow { owner, x: hero.x, y: hero.y, until,
         collapse_until: until + u64::from(COLLAPSE_TICKS) });
 }
-/// Scarecrows taunt this room while standing. With several, each enemy's
-/// ordinary AI chooses the nearest decoy position.
 pub(super) fn sights(tick: u64, decoys: &[Scarecrow], enemy: &Enemy,
     knights: &[(u32, f32, f32)], images: &[(f32, f32)], out: &mut Vec<(f32, f32)>) {
     out.clear();
@@ -49,8 +45,6 @@ pub(super) fn sights(tick: u64, decoys: &[Scarecrow], enemy: &Enemy,
 pub fn stone(p: &Projectile) -> bool {
     !p.hostile && p.traits.stone
 }
-/// Visual lob elevation above the authoritative ground sweep and shadow.
-/// Scenery and enemies still stop the stone along that sweep.
 pub fn stone_height(ttl: u32) -> f32 {
     let flight = Weapon::Stones.arms().ttl as f32;
     let t = (ttl as f32 / flight).clamp(0.0, 1.0);

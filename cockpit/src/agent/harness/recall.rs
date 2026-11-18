@@ -4,11 +4,6 @@ use super::coeffect::{Change, Classification, CoeffectStore, Requirement};
 use super::*;
 use std::collections::{HashMap, HashSet};
 
-/// `recall` — pull relevant notes from long-form memory (the palace) on demand.
-/// The agentic counterpart to auto-compaction's deposit: rather than auto-
-/// injecting (which would bloat history and feed back into the next compaction),
-/// the model asks for what it needs, when it needs it — the same pull pattern as
-/// `tool_search`. Scoped to the current project's wing by default.
 pub struct RecallTool {
     store: Arc<dyn crate::knowledge::memory::store::MemoryStore>,
     wing: String,
@@ -56,12 +51,6 @@ impl Tool for RecallTool {
     }
 }
 
-// ---------------------------------------------------------------------------
-// tool_search — BM25 discovery over deferred tools (the Codex deferral pattern),
-// so a large tool set (e.g. many MCP tools) doesn't bloat every request.
-// ---------------------------------------------------------------------------
-
-/// Lowercase alphanumeric tokens.
 pub(crate) fn tokenize(s: &str) -> Vec<String> {
     s.split(|c: char| !c.is_alphanumeric())
         .filter(|t| !t.is_empty())
@@ -69,8 +58,6 @@ pub(crate) fn tokenize(s: &str) -> Vec<String> {
         .collect()
 }
 
-/// Rank `docs` (id, text) against `query` by BM25 (k1=1.5, b=0.75); return the
-/// ids of the top `limit`, best first. Only positive-scoring docs are returned.
 pub(crate) fn bm25_rank(query: &str, docs: &[(usize, String)], limit: usize) -> Vec<usize> {
     let q = tokenize(query);
     if q.is_empty() || docs.is_empty() {
@@ -150,9 +137,6 @@ pub(crate) fn count_bm25_index_token_visits<T>(run: impl FnOnce() -> T) -> (T, u
     })
 }
 
-/// The searchable text for a tool: name (also de-underscored), description, and
-/// each parameter's name + description, with the book pages their braille
-/// names read in full.
 pub(crate) fn tool_search_text(def: &ToolDef) -> String {
     use crate::agent::harness::book::ledger::expand;
     let mut s = format!(
@@ -174,9 +158,6 @@ pub(crate) fn tool_search_text(def: &ToolDef) -> String {
     s
 }
 
-/// One-line, bounded tool summary for discovery and local routing prompts. The
-/// provider receives the exact native schema on the following request, so
-/// copying that schema into tool-result history only bloats every later hop.
 pub(crate) fn compact_tool_summary(description: &str) -> String {
     const MAX_CHARS: usize = 220;
     let one_line = description.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -188,9 +169,6 @@ pub(crate) fn compact_tool_summary(description: &str) -> String {
     compact
 }
 
-/// Strictly parse a local router response. Models may wrap the JSON in a code
-/// fence, but only allow-listed candidate names survive; invented/core tool
-/// names never alter the provider schema set.
 pub(crate) fn parse_tool_bubble_reply(
     reply: &str,
     allowed: &[String],
@@ -238,13 +216,8 @@ pub(crate) fn parse_tool_bubble_reply(
     (names.is_empty() || (named > 0 && !selected.is_empty())).then_some(selected)
 }
 
-/// The router's reply shape, beside `⠸⠊⠃` (the page quotes it).
 pub(crate) const TOOL_BUBBLE_SHAPE: &str = "{\"tools\":[\"tool_name\"]}";
 
-/// Compact prompt for a cheap local model to rerank a deterministic shortlist.
-/// Parameter schemas are intentionally absent: this classifier needs capability
-/// semantics, not the wire contract later sent to the root model. The brief is
-/// `⠸⠊`; the cap and the reply shape ride beside their pages.
 pub(crate) fn tool_bubble_router_prompt(task: &str, candidates: &[&ToolDef], max: usize) -> String {
     use super::book::{d3_roles::pages, d456_knowledge::BUBBLE_ROUTER};
     let task = task.chars().take(8_000).collect::<String>();
@@ -264,26 +237,10 @@ pub(crate) fn tool_bubble_router_prompt(task: &str, candidates: &[&ToolDef], max
     prompt
 }
 
-/// `tool_search(query)` — BM25-rank deferred tools and activate the best native
-/// schemas for the next provider request. Results stay compact because the
-/// structured definitions themselves arrive out-of-band on that request.
-///
-/// Activation is **derived**, not maintained (§3.2 Def 22). `activate(..)` records
-/// what the model asked for; `snapshot()` is that intent intersected with what is
-/// live, computed against the coeffect store at read time. A provider that goes away
-/// reclassifies every dependent as deactivating, so its schema leaves the
-/// advertisement without anyone remembering to retract it — and a neutral change (an
-/// unrelated key, a retune under a live provider) leaves the generation untouched,
-/// which is what lets the turn loop reuse the previous hop's definitions verbatim.
 pub(crate) struct ToolActivations {
-    /// Intent: the names `tool_search` surfaced for the next request.
     names: std::sync::Mutex<std::collections::BTreeSet<String>>,
-    /// Declared specs `d ⊆ K` per tool name (§3.2 Def 21).
     requirements: std::sync::Mutex<std::collections::BTreeMap<String, Requirement>>,
-    /// Σ — what is live right now.
     store: Arc<std::sync::Mutex<CoeffectStore>>,
-    /// Bumped when the *advertised* set can have moved. Deliberately not bumped by
-    /// neutral changes: stability here is the "no reload" property.
     generation: std::sync::atomic::AtomicU64,
 }
 
@@ -298,15 +255,11 @@ impl Default for ToolActivations {
     }
 }
 
-/// The declaration half: what each tool needs, and whether it holds right now.
 impl ToolActivations {
-    /// The coeffect store behind these activations — `Σ`.
     pub(crate) fn store(&self) -> Arc<std::sync::Mutex<CoeffectStore>> {
         Arc::clone(&self.store)
     }
 
-    /// Record a tool's declared spec. The empty spec behaves exactly as every tool
-    /// did before this existed: always satisfiable.
     pub(crate) fn declare(&self, name: &str, requirement: Requirement) {
         self.requirements
             .lock()
@@ -314,8 +267,6 @@ impl ToolActivations {
             .insert(name.to_string(), requirement);
     }
 
-    /// Whether `name`'s declared spec holds right now. An undeclared name is
-    /// admitted — no declaration, no precondition.
     pub(crate) fn admits(&self, name: &str) -> bool {
         let requirement = self
             .requirements
@@ -334,10 +285,7 @@ impl ToolActivations {
     }
 }
 
-/// The reaction half: intent, the derived advertisement, and the classification
-/// log a caller (or a test) reads to see *why* something moved.
 impl ToolActivations {
-    /// Forget a tool entirely: its declaration, its intent, its advertisement.
     pub(crate) fn withdraw(&self, name: &str) -> bool {
         self.requirements
             .lock()
@@ -351,8 +299,6 @@ impl ToolActivations {
         self.bump();
     }
 
-    /// Record intent. A name whose declared spec is unsatisfied is not admitted:
-    /// a stale search index must not advertise a tool whose provider has left.
     pub(crate) fn activate<'a>(
         &self,
         names: impl IntoIterator<Item = &'a str>,
@@ -379,9 +325,6 @@ impl ToolActivations {
         added
     }
 
-    /// Retract one name from the active set. A provider that departs takes its
-    /// schema with it: leaving the name behind would keep
-    /// `activated_schema_failures` non-zero on the next request.
     pub(crate) fn retract(&self, name: &str) -> bool {
         let removed = self
             .names
@@ -394,10 +337,6 @@ impl ToolActivations {
         removed
     }
 
-    /// What may be advertised right now: intent ∩ `σ ⊧ d`, computed at read time.
-    /// This is the whole point of the derivation — nobody has to remember to
-    /// retract a name when its provider leaves, and a name whose spec holds again
-    /// comes back on its own, without re-asking.
     pub(crate) fn snapshot(&self) -> std::collections::BTreeSet<String> {
         let intent = self.names.lock().unwrap_or_else(|e| e.into_inner()).clone();
         let requirements = self
@@ -416,10 +355,6 @@ impl ToolActivations {
             .collect()
     }
 
-    /// Def 22 reaction of every declared tool to one change, moving the generation
-    /// only when something must actually be re-derived. Two neutral changes in a
-    /// row therefore leave every downstream cache untouched — the "no reload" half
-    /// of the classification.
     pub(crate) fn observe(&self, change: &Change) -> Vec<(String, Classification)> {
         let described: Vec<(String, Requirement)> = self
             .requirements
@@ -456,17 +391,11 @@ pub(crate) struct ToolSearchTool {
     pub(crate) activations: Arc<ToolActivations>,
 }
 
-/// Discovery is open-ended unless the operator explicitly bounds it. Keep the
-/// initial automatic shortlist small without making it a capability ceiling.
-/// An explicit zero retains the text-only discovery control.
 pub(crate) fn tool_search_activation_limit() -> usize {
     env_usize("ANGEL_TOOL_SEARCH_ACTIVE_MAX", usize::MAX)
 }
 
 impl ToolSearchTool {
-    /// Entries whose declared spec holds right now. The catalogue is a snapshot,
-    /// so availability is decided at read time — a provider that left after the
-    /// catalogue was built cannot be surfaced by a search.
     fn available_len(&self) -> usize {
         self.entries
             .iter()

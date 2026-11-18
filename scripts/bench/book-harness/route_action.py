@@ -1,22 +1,10 @@
 #!/usr/bin/env python3
-"""route_action.py out/<label>.jsonl... — E3a: does the model's next call act
-on the ⡪ route it was just shown?
-
-For every logged request whose newest model-facing message (a tool result or
-a loop prompt) carries a ⡪ route, the next request's history holds the model's
-reply to it; the reply's first tool call is checked against the route's action
-(`d2467_research.rs`). Routes whose action names no tool (⡪⠋, ⡪⠓, ⡪⠚) are
-counted as raised only. Reads Chat Completions and Responses API logs alike.
-
-  python3 route_action.py out/e3-intro-*.jsonl      # one table over all runs
-  python3 route_action.py --each out/e3-*.jsonl     # one table per run
-"""
 import collections
 import json
 import re
 import sys
 
-ROUTE = re.compile("⡪[⠁-⣿]")  # ⡪ and its sub cell
+ROUTE = re.compile("⡪[⠁-⣿]")
 
 
 def research(action, **extra):
@@ -39,8 +27,6 @@ def not_research(name, args):
 def not_polling(name, args):
     return not (name in {"loop_research", "rl_campaign"} and args.get("action") == "status")
 
-
-# route → (action as the book states it, predicate on the next tool call)
 ACTIONS = {
     "⡪⠁": ("apply its patch from results, then run the loop's verifier", applies_patch),
     "⡪⠃": ("apply this idea first", applies_patch),
@@ -63,7 +49,6 @@ def text_of(content):
 
 
 def history(body):
-    """[(role, text, calls)] in order, for either wire format."""
     out = []
     for message in body.get("messages", []):
         calls = [(c.get("function", {}).get("name", "?"), c.get("function", {}).get("arguments", ""))
@@ -85,7 +70,6 @@ def history(body):
 
 
 def newest_routes(turns):
-    """Routes in the model-facing messages after the last assistant turn."""
     tail = []
     for role, text, _ in reversed(turns):
         if role == "assistant":
@@ -109,7 +93,6 @@ def first_call(turns, start):
 
 
 def tally_bodies(bodies):
-    """Count one already-loaded request snapshot without reopening its wire."""
     raised = collections.Counter()
     matched = collections.Counter()
     judged = collections.Counter()

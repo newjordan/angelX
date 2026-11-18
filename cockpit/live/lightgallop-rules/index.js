@@ -1,18 +1,7 @@
-// Thin adapter for the Lightgallop rules. The session arrives as plain JSON,
-// is laid out into the slots the compiled rules read (their order is the
-// order of rs.bend and hs.bend), and the answer is read back out the same way.
-// Nothing here decides anything: no arithmetic beyond the 32-bit bit patterns
-// and no rule of the ride lives in this file.
-//
-// A signed number crosses as the same bits Rust keeps. A rider's spark bits are
-// 64-bit words and cross as pairs of 32-bit halves, high half first, because a
-// JSON number past 2^53 does not survive JavaScript.
 const rules = require('./lightgallop-rules.compiled')
 
 const DEPTH = 11
 const SLOTS = 1 << DEPTH
-
-// ---- the layout ----------------------------------------------------------------
 
 const RIDER = ['x', 'y', 'vx', 'vy', 'ground_on', 'ground_path', 'ground_s', 'gsp', 'dir', 'roll', 'ball', 'crouch', 'skid',
   'charge', 'spur', 'gauge', 'lock_on', 'lock_target', 'lock_ticks', 'lock_cd', 'spring_cd', 'freeze', 'shake', 'lunge', 'lunged',
@@ -34,8 +23,6 @@ const PLAYERS = 6
 
 const u32 = value => Number(value) >>> 0
 const bits = value => (value === true ? 1 : value === false || value == null ? 0 : Number(value) >>> 0)
-
-// ---- slots to a tree and back ----------------------------------------------------
 
 const tree = slots => {
   let level = slots.map(v => ({ $: 'Lf', v }))
@@ -60,14 +47,11 @@ const slotsOf = root => {
   return out
 }
 
-const list = values => values.reduceRight((tail, head) => ({ $: 'Con', head, tail }), { $: 'Nil' })
 const arr = node => {
   const out = []
   for (; node.$ === 'Con'; node = node.tail) out.push(node.head)
   return out
 }
-
-// ---- the session as slots -----------------------------------------------------------
 
 const putRider = (s, base, id, seat) => {
   const r = seat.rider
@@ -126,8 +110,6 @@ const layOut = ask => {
   return s
 }
 
-// ---- slots to the session -------------------------------------------------------------
-
 const getRider = (s, base) => {
   const get = name => s[base + AT[name]]
   const signed = name => get(name) | 0
@@ -176,10 +158,6 @@ const readOut = (s, foes, timers) => {
   }
 }
 
-// ---- the road ------------------------------------------------------------------------------
-
-// The road is laid out the first time it is asked for and kept for as long as
-// the generation lives.
 let laid = null
 const road = () => laid || (laid = rules.road())
 
@@ -194,8 +172,6 @@ const leaves = (node, out) => {
   return out
 }
 const link = (on, path, s) => (on ? { path, s: i32(s) } : null)
-// Signed, delta-coded integers in a JSON-safe base-32 varint alphabet.
-// The road's geometry is much larger in expanded JSON than on the wire.
 const pack = values => {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
   let previous = 0, out = ''
@@ -242,8 +218,6 @@ const levelOf = r => ({
   bell: [i32(r.bell_x), i32(r.bell_y)],
   par: r.par,
 })
-
-// ---- the asks ------------------------------------------------------------------------------
 
 const timersOf = session => ({ post_t: session.post_t.length, spring_t: session.spring_t.length, pad_t: session.pad_t.length })
 

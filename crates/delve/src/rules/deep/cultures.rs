@@ -16,34 +16,16 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Culture {
-    /// Mushroom-cap folk: cottages under giant caps, spore-lamps, the gills
-    /// glowing blue in the dark.
     Capfolk,
-    /// Crystal miners: halls hewn in the crystal, rails and lodestones, a
-    /// waterfall down the cavern's face.
     Glimmerkin,
-    /// Lava forgers: basalt halls round a forge-heart, channels of slow
-    /// fire, chimneys smoking up into the dark.
     Emberfolk,
-    /// The drowned lamplighters: stilt-houses over black water, a lamp on
-    /// every post, mist on the lake.
     Lampwick,
-    /// The bat-riders: woven nests hung from the roof of the dark on ropes,
-    /// rope bridges between them, red lanterns the bats steer by.
     Roostfolk,
-    /// The root-kin: knotted houses in the roots of a tree too big to see
-    /// the top of, its sap glowing gold where it runs.
     Rootkin,
-    /// The drowned bell-ringers: a half-flooded cathedral of stalagmite
-    /// spires, a bell in every spire, the water ringing back.
     Chimefolk,
-    /// The salt-miners: white terraces cut in the salt, brine pools in
-    /// steps, salt-lamps that glow the colour of dawn.
     Saltkin,
 }
 
-/// The wheel, in its order. The four found first keep their places; the
-/// four after were met later, and come round between them.
 pub const WHEEL: [Culture; 8] = [
     Culture::Capfolk,
     Culture::Glimmerkin,
@@ -54,28 +36,20 @@ pub const WHEEL: [Culture; 8] = [
     Culture::Chimefolk,
     Culture::Saltkin,
 ];
-/// How far the wheel turns a chapter: coprime with its length.
 pub const STEP: u32 = 3;
 
-/// The people of chapter `chapter`'s village, for a realm whose wheel
-/// starts at `wheel`.
 pub fn turn(wheel: u32, chapter: u32) -> Culture {
     let n = WHEEL.len() as u32;
     WHEEL[((wheel % n + chapter.saturating_sub(1) % n * STEP) % n) as usize]
 }
 
-/// One of a village's six who speak.
 pub struct Folk {
     pub name: &'static str,
-    /// What they say as a knight first comes up to them.
     pub hello: &'static str,
-    /// What they ask, if they ask anything: the errand, its title, and why.
     pub asks: Option<Ask>,
-    /// What they say once it is asked, or all they ever say.
     pub after: &'static str,
 }
 
-/// An errand as a villager asks it.
 pub struct Ask {
     pub errand: Errand,
     pub title: &'static str,
@@ -83,14 +57,11 @@ pub struct Ask {
     pub need: u16,
 }
 
-/// The six who speak, by their place in the village (`village::SPEAKERS`):
-/// the elder, three who ask errands, one who only talks, the wishkeeper.
 pub const ELDER: usize = 0;
 pub const TALKER: usize = 4;
 pub const WISHKEEPER: usize = 5;
 
 impl Culture {
-    /// The people, as the boards name them.
     pub fn people(self) -> &'static str {
         match self {
             Culture::Capfolk => "THE CAPFOLK",
@@ -104,8 +75,6 @@ impl Culture {
         }
     }
 
-    /// The town on chapter `chapter`'s floor: each people has three, and a
-    /// deeper chapter comes to the next.
     pub fn town(self, chapter: u32) -> &'static str {
         let names: [&str; 3] = match self {
             Culture::Capfolk => ["MOTHERCAP", "SPORESEND", "GILLHOLLOW"],
@@ -120,7 +89,6 @@ impl Culture {
         names[(chapter.saturating_sub(1) / WHEEL.len() as u32 % 3) as usize]
     }
 
-    /// The old delve whose stone the people's cavern is cut from.
     pub fn kin(self) -> Pack {
         match self {
             Culture::Capfolk => Pack::Fungal,
@@ -134,8 +102,6 @@ impl Culture {
         }
     }
 
-    /// What the village sings while the party is there: the calm places'
-    /// own tunes, a people's own few.
     pub fn music(self) -> &'static [Track] {
         match self {
             Culture::Capfolk => &[
@@ -189,8 +155,6 @@ impl Culture {
         }
     }
 
-    /// What the lost are called, the relics gathered and the lamps lit, on
-    /// the floors below: the tracker's words.
     pub fn sign_words(self) -> (&'static str, &'static str, &'static str) {
         match self {
             Culture::Capfolk => ("SPORE-LAMP", "GLOWCAP", "LOST CAPLING"),
@@ -204,8 +168,6 @@ impl Culture {
         }
     }
 
-    /// The one the party finds below and sends home: their name, and what
-    /// the village says the next time the party comes, with them home.
     pub fn rescued(self) -> (&'static str, &'static str) {
         match self {
             Culture::Capfolk => ("POPPY", "POPPY IS HOME, RED CAP AND ALL. TRUFFLE HAS NOT LET GO OF HER SINCE."),
@@ -219,7 +181,6 @@ impl Culture {
         }
     }
 
-    /// The six who speak.
     pub fn folk(self) -> [Folk; 6] {
         match self {
             Culture::Capfolk => [

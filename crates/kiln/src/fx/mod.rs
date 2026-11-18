@@ -33,14 +33,10 @@ use crate::grain::Grain;
 use crate::palette::{Palette, Ramp};
 use crate::raster::{PartId, Raster};
 
-/// The part number an effect's layer `i` draws with: effects are
-/// `0xF000` and up, so the look tools can tell them from a figure's parts.
 pub const fn part(i: usize) -> PartId {
     0xF000 + i as PartId
 }
 
-/// A layer made ready to draw: its type's defaults filled in, its ramp,
-/// times and places resolved.
 #[derive(Clone, Debug)]
 pub(crate) struct Plan {
     pub kind: Kind,
@@ -83,13 +79,10 @@ pub(crate) struct Plan {
 }
 
 impl Plan {
-    /// How far through its window the layer is at frame `t`, 0 to 1.
     pub fn k(&self, t: f32) -> f32 {
         ((t - self.t0) / (self.t1 - self.t0).max(1e-3)).clamp(0.0, 1.0)
     }
 
-    /// Where the layer is at frame `t`: its place, or along its travel to
-    /// its end, eased, arcing by its lift.
     pub fn anchor(&self, t: f32) -> (f32, f32) {
         let travels = matches!(self.kind, Kind::Particles | Kind::Puffs | Kind::Orb | Kind::Flash | Kind::Comet);
         match self.end {
@@ -102,15 +95,12 @@ impl Plan {
         }
     }
 
-    /// The layer's heat at `k` through its window, faded out over its last
-    /// fifth so nothing stops dead.
     pub fn heat_at(&self, k: f32) -> f32 {
         let h = self.heat.0 + (self.heat.1 - self.heat.0) * k;
         h * self.gain * ((1.0 - k) * 5.0).clamp(0.0, 1.0)
     }
 }
 
-/// An effect ready to render.
 #[derive(Clone, Debug)]
 pub struct Fx {
     pub recipe: Recipe,
@@ -121,19 +111,15 @@ pub struct Fx {
 }
 
 impl Fx {
-    /// An effect from its JSON.
     pub fn parse(json: &str) -> Result<Fx, String> {
         Fx::new(Recipe::parse(json)?)
     }
 
-    /// An effect from its recipe, checked and resolved.
     pub fn new(recipe: Recipe) -> Result<Fx, String> {
         recipe.check()?;
         let beats = recipe.beats.unwrap_or_default();
         let seed = recipe.seed.unwrap_or(1);
         let pivot = recipe.pivot.map_or((recipe.canvas[0] as f32 / 2.0, recipe.canvas[1] as f32 / 2.0), |p| (p[0], p[1]));
-        // How long it runs: as it says, else its beats, else what its
-        // layers ask for.
         let frames = match (recipe.frames, beats.total()) {
             (Some(f), _) => f,
             (None, b) if b > 0.0 => b.ceil() as u32,
@@ -177,12 +163,10 @@ impl Fx {
         self.looping
     }
 
-    /// Its size in game pixels.
     pub fn canvas(&self) -> (u32, u32) {
         (self.recipe.canvas[0], self.recipe.canvas[1])
     }
 
-    /// Frame `frame` at `grain`, on a clear canvas of its own.
     pub fn render(&self, grain: Grain, frame: u32) -> Raster {
         let (w, h) = self.canvas();
         let mut r = Raster::new(w * u32::from(grain.0), h * u32::from(grain.0));
@@ -193,9 +177,6 @@ impl Fx {
         r
     }
 
-    /// Draw frame `t` (fractions allowed) into `raster`, drawn at `grain`,
-    /// the effect's canvas `off` game pixels into it. Front layers go over
-    /// whatever is there (a figure), back layers behind it.
     pub fn draw(&self, raster: &mut Raster, grain: Grain, off: (f32, f32), t: f32) {
         let n = self.frames as f32;
         let t = if self.looping { t.rem_euclid(n) } else { t };
@@ -208,7 +189,6 @@ impl Fx {
                 Kind::Particles | Kind::Puffs => emit::draw(&mut pen, p, t, self.looping.then_some(n)),
                 _ => {
                     if self.looping && p.t0 <= 0.0 && p.t1 >= n {
-                        // A layer the length of the loop goes round with it.
                         let mut q = p.clone();
                         q.heat.1 = q.heat.0;
                         q.t1 = n + 1.0;
@@ -222,7 +202,6 @@ impl Fx {
     }
 }
 
-/// A rim of the darkest ink round everything drawn, a picture pixel wide.
 fn outline(r: &mut Raster) {
     let k = Palette::realm().ink('k').unwrap_or_default();
     let was = r.clone();
@@ -235,7 +214,6 @@ fn outline(r: &mut Raster) {
     }
 }
 
-/// Layer `l` (the `i`th) made ready.
 fn plan(l: &Layer, i: usize, beats: &Beats, frames: f32, pivot: (f32, f32), seed: u32) -> Result<Plan, String> {
     let ramp_name = l.ramp.clone().unwrap_or_else(|| {
         match l.kind {
@@ -271,7 +249,6 @@ fn plan(l: &Layer, i: usize, beats: &Beats, frames: f32, pivot: (f32, f32), seed
         },
         (x1, y1) => Some((pivot.0 + x1.unwrap_or(l.x.unwrap_or(0.0)), pivot.1 + y1.unwrap_or(l.y.unwrap_or(0.0)))),
     };
-    // Each type's own defaults: (r0, r1, th, squash, heat, count, size).
     let (r0, r1, th, squash, heat, count, size) = match l.kind {
         Kind::Particles => (0.0, 0.0, 0.0, 1.0, (1.0, 0.35), 12, form_size(form)),
         Kind::Puffs => (0.0, 0.0, 0.0, 1.0, (0.8, 0.35), 6, (2.0, 2.0)),
@@ -386,7 +363,6 @@ fn plan(l: &Layer, i: usize, beats: &Beats, frames: f32, pivot: (f32, f32), seed
     })
 }
 
-/// A form's size and how it changes over a mote's life, by default.
 fn form_size(f: Form) -> (f32, f32) {
     match f {
         Form::Spark => (1.0, 0.6),

@@ -1,5 +1,3 @@
-"""Exercise E3 ownership with local tmux/proxy fixtures and no model calls."""
-
 import os
 from pathlib import Path
 import shutil
@@ -116,7 +114,6 @@ class E3LifecycleTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="angel-e3-lifecycle-")
         self.addCleanup(self.temp.cleanup)
-        # Spaces and an apostrophe also exercise the generated tmux command.
         self.root = Path(self.temp.name) / "fixture's harness"
         self.root.mkdir()
         self.parent = self.root / "caller temp"

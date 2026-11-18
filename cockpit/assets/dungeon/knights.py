@@ -1,36 +1,19 @@
 #!/usr/bin/env python3
-"""Record the knights' voices with ElevenLabs: a few words of made-up knightly
-chatter for the big moments, and little grunts for rolls, hits, falls and
-ultimates. Nobody narrates; the knights just make their noises.
-
-Each knight voice (a, b, c, d) gets two takes of every clip, written to
-sfx/knights/<voice>_<clip>_<take>.mp3 (mono, 44.1 kHz, 96 kbit/s, like the
-other effects). The takes are trimmed, lifted a touch in pitch, and levelled
-quieter than the effects: chatter at RMS -23 dB, grunts at -26 dB, so they
-sit under the fight. Needs ELEVENLABS_API_KEY. Existing files are kept
-(delete one to re-record it); arguments limit the run to those voices or clips.
-
-  python3 knights.py            record what is missing
-  python3 knights.py a hup      just voice a, and every voice's hup
-"""
 import json, os, pathlib, re, subprocess, sys, tempfile, urllib.request
 
 HERE = pathlib.Path(__file__).resolve().parent
 OUT = HERE / 'sfx' / 'knights'
 MODEL = 'eleven_v4'
 SETTINGS = {'stability': 0.3, 'similarity_boost': 0.8}
-# A touch higher and quicker reads small and cute without going chipmunk.
 LIFT = 1.06
 
 VOICES = {
-    'a': 'WtA85syCrJwasGeHGH2p',  # Ember: bright, game-hero energy
-    'b': '8ZYhGJrsDOe4C8yzEEhP',  # Guy: soft, earnest
-    'c': 'cgSgspJ2msm6clMCkdW9',  # Jessica: playful, sunny
-    'd': 'N2lVS1w4EtoT3dr4eOWO',  # Callum: husky trickster
+    'a': 'WtA85syCrJwasGeHGH2p',
+    'b': '8ZYhGJrsDOe4C8yzEEhP',
+    'c': 'cgSgspJ2msm6clMCkdW9',
+    'd': 'N2lVS1w4EtoT3dr4eOWO',
 }
 
-# Chatter: the knights' own made-up tongue, never English. Each voice takes
-# two of the four lines, so two knights rarely say the same thing.
 CHATTER = {
     'cheer': ['[excited] Wahoo-ba! Fweeba!', '[excited] Hoo-hoo! Zibbadee!',
               '[excited] Yaa-hoo! Zinga-zoo!', '[excited] Wheee! Tibbaloo!'],
@@ -49,7 +32,6 @@ CHATTER = {
     'hehe': ['[giggles] Hehe! Tibbly-wee!', '[laughs] Ha-hoo! Pibbly!',
              '[giggles] Hee-hee, wobba!', '[laughs] Hoho! Dibbadoo!'],
 }
-# Grunts: one sound each, the same two for every voice.
 GRUNTS = {
     'hup': ['Hup!', 'Hyup!'],
     'oof': ['Oof!', 'Ow!'],
@@ -60,7 +42,6 @@ CHATTER_DB, GRUNT_DB, PEAK_DB = -23.0, -26.0, -3.0
 
 
 def takes(voice, clip):
-    """The two lines voice `voice` records for `clip`."""
     if clip in GRUNTS:
         return GRUNTS[clip]
     pool, first = CHATTER[clip], 'abcd'.index(voice)
@@ -87,7 +68,6 @@ def rms_db(path):
 
 
 def finish(raw, out, target_db):
-    """Trim the silence, lift the pitch, then level and limit."""
     shaped = raw.with_suffix('.shaped.wav')
     trim = ('silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.02,'
             'areverse,silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.06,areverse')

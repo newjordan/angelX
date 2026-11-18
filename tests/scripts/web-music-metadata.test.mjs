@@ -1,4 +1,3 @@
-// Shipped MP3s carry frame counts (Xing/Info): no ffprobe dependency needed.
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
@@ -11,8 +10,6 @@ function duration(bytes) {
     const size = bytes.subarray(6, 10).reduce((n, b) => (n << 7) | b, 0)
     start = 10 + size + (bytes[5] & 0x10 ? 10 : 0)
   }
-  // Locate the header using MPEG version/channel layout, not an accidental
-  // occurrence of "Info" in an ID3 comment or compressed payload.
   const h = bytes.readUInt32BE(start)
   assert.equal(h >>> 21, 0x7ff, 'MPEG frame sync after ID3')
   assert.equal((h >>> 19) & 3, 3, 'MPEG-1')
@@ -31,8 +28,6 @@ function duration(bytes) {
   if (flags & 4) encoder += 100
   if (flags & 8) encoder += 4
   assert.match(bytes.toString('ascii', encoder, encoder + 4), /^(Lavc|LAME)$/)
-  // LAME-compatible gapless metadata excludes encoder delay and end padding,
-  // matching ffprobe's reported duration for the shipped final encodes.
   const gapless = bytes.readUIntBE(encoder + 21, 3)
   const trim = (gapless >>> 12) + (gapless & 0xfff)
   return (bytes.readUInt32BE(at + 8) * 1152 - trim) / rate

@@ -102,7 +102,7 @@ fn exact_width_composer_caret_moves_to_the_next_row() {
     let mut app = seed_preview_app();
     app.input = "abcd".to_string();
     app.cursor = app.input.chars().count();
-    let area = Rect::new(0, 0, 6, 4); // 4x2 inner composer
+    let area = Rect::new(0, 0, 6, 4);
     let view = crate::ui::views::status_view::composer_view(&app.input, 4, 2, app.cursor);
 
     assert_eq!(view.cursor_col, 4, "precondition: insertion is after row");
@@ -320,8 +320,6 @@ fn corrective_composer_grapheme_keys_copy_delete_and_insert_agree_with_paint() {
         app.on_key(KeyEvent::new(K::Backspace, M::NONE));
         assert_eq!(app.input, "!");
     }
-    // A restored legacy scalar offset snaps the source insertion to the same
-    // boundary the renderer paints, not after the base but before its accent.
     app.input = "e\u{301}".into();
     app.cursor = 1;
     let view = crate::ui::views::status_view::composer_view(&app.input, 8, 2, app.cursor);
@@ -329,13 +327,11 @@ fn corrective_composer_grapheme_keys_copy_delete_and_insert_agree_with_paint() {
     app.on_key(KeyEvent::new(K::Char('X'), M::NONE));
     assert_eq!(app.input, "Xe\u{301}");
     assert_eq!(app.cursor, 1);
-    // Insertion can join the following cluster; the caret must not end inside it.
     app.input = "\u{301}!".into();
     app.cursor = 0;
     app.on_paste("e");
     assert_eq!(app.input, "e\u{301}!");
     assert_eq!(app.cursor, 2);
-    // Legacy partial selection expands in the clipboard and deletion too.
     app.composer_selection_anchor = Some(1);
     app.cursor = 2;
     app.on_key(KeyEvent::new(K::Char('c'), M::CONTROL | M::SHIFT));
@@ -364,8 +360,6 @@ fn corrective_composer_vim_and_word_edits_do_not_split_clusters() {
     app.on_key(KeyEvent::new(K::Char('Z'), M::NONE));
     assert_eq!(app.input, "e\u{301}Z!");
     app.vim_mode = false;
-    // The combining mark on a space belongs to that space's grapheme; scalar
-    // word movement used to stop between the two.
     app.input = "a \u{301}b".into();
     app.cursor = 4;
     app.on_key(KeyEvent::new(K::Left, M::CONTROL | M::SHIFT));
@@ -410,7 +404,7 @@ fn corrective_composer_up_down_use_painted_rows_and_resize_width() {
     assert_eq!(app.cursor, 4, "uses the last painted width after resize");
     for separator in ['\n', '\u{2028}', '\u{2029}'] {
         app.input = format!("界e\u{301}{separator}abcd");
-        app.cursor = 6; // cell column two in the second row
+        app.cursor = 6;
         app.on_key(KeyEvent::new(K::Up, M::NONE));
         assert_eq!(app.cursor, 1, "{separator:?}");
         app.on_key(KeyEvent::new(K::Down, M::NONE));
@@ -423,7 +417,6 @@ fn corrective_composer_up_down_use_painted_rows_and_resize_width() {
     assert_eq!(app.scroll, 8);
     app.on_key(KeyEvent::new(K::Down, M::NONE));
     assert_eq!(app.scroll, 7);
-    // Empty means the *focused view*, not invariably the transcript.
     app.focus_module("agent");
     app.reasoning_scroll = 3;
     app.on_key(KeyEvent::new(K::Up, M::NONE));
@@ -474,8 +467,6 @@ fn corrective_composer_changing_megabyte_draft_keeps_edit_and_render_cost_small(
     use ratatui::crossterm::event::{KeyCode as K, KeyEvent, KeyModifiers as M};
     let _guard = env_lock();
     let mut app = seed_preview_app();
-    // Test both wordy and unbroken input: classifying a single huge token must
-    // not defeat the bounded render path either.
     for seed in ["word ", "x"] {
         app.input = seed.repeat(1_048_576 / seed.len());
         app.cursor = app.input.len();
@@ -518,7 +509,6 @@ fn corrective_composer_changing_megabyte_draft_keeps_edit_and_render_cost_small(
             "changing 1 MiB {seed:?}: 100 insert/backspace + resize/paint cycles: {elapsed:?}"
         );
         assert!(elapsed < std::time::Duration::from_secs(2), "{elapsed:?}");
-        // Changed middle text and navigation must also retain global offsets.
         app.cursor = app.input.len() / 2;
         app.on_key(KeyEvent::new(K::Char('Z'), M::NONE));
         let view = crate::ui::views::status_view::composer_view_with_selection(

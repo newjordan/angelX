@@ -64,9 +64,6 @@ pub struct Garden {
     competition_receipts: BTreeSet<String>,
 }
 impl Garden {
-    /// Record a real, validated harness measurement in the competition plot.
-    /// Pending/error/timeout states are recorded separately and never add a point.
-    /// Each receipt plots once: `Ok(false)` when it is already on the plot.
     pub fn competition_measurement(
         &mut self,
         label: &str,
@@ -132,7 +129,6 @@ impl Garden {
         Ok(true)
     }
 
-    /// Set the competition status line; `true` when the text changed.
     pub fn competition_status(&mut self, status: impl Into<String>) -> bool {
         let status: String = status.into().chars().take(160).collect();
         if self.competition_status.as_deref() == Some(status.as_str()) {
@@ -152,9 +148,6 @@ impl Garden {
                 {
                     return;
                 }
-                // Hidden Stage time does not advance. Evict an already settled
-                // animation before admitting another real call so data keeps
-                // updating even after hundreds of calls while the pane is shut.
                 if self.jobs.len() >= MAX_JOBS {
                     let oldest = self
                         .jobs
@@ -238,12 +231,10 @@ impl Garden {
             }
         }
     }
-    /// The ordinary ToolResult also closes denied, cancelled, or failed requests.
     pub fn settle(&mut self, id: &ToolEventId, _outcome: ToolOutcome, tick: u64) {
         if let Some(job) = self.jobs.get_mut(id)
             && job.returned.is_none()
         {
-            // Success without a native receipt is not enough to grow anything.
             job.returned = Some((tick, false));
             self.epoch += 1;
         }
@@ -321,8 +312,6 @@ impl Garden {
             }))
             .max()
             .unwrap_or(0);
-        // Match the world's restrained animation cadence and freeze the garden
-        // fingerprint after delivery. An empty or grown garden adds no repaint tax.
         let shown_tick = if self.working() {
             tick / 4 * 4
         } else if tick >= end {
@@ -395,7 +384,6 @@ impl Garden {
     }
 }
 
-/// The existing south-east field screen, with room for axes and a farmer.
 pub fn origin() -> (i32, i32) {
     place_px(33 * TILE, 23 * TILE)
 }
@@ -442,7 +430,6 @@ fn growth(frame: &GardenFrame, index: u8) -> f64 {
     (frame.tick.saturating_sub(at) as f64 / GROW as f64).clamp(0.0, 1.0)
 }
 
-/// Paint on the actual terrain before figures; no independent chart panel.
 pub fn paint_ground(cv: &mut Img, frame: &GardenFrame, view: View) {
     let Some(bed) = &frame.bed else {
         return;
@@ -484,7 +471,6 @@ pub fn paint_ground(cv: &mut Img, frame: &GardenFrame, view: View) {
         }
         im.text(LEFT, BOTTOM + 10, &short(&chart.spec.x_label, 26), 'i');
         im.text(LEFT, 15, &short(&chart.spec.y_label, 26), 'i');
-        // Explicit x scale end points, kept inside the bed.
         im.text(
             LEFT,
             BOTTOM + 2,
@@ -572,7 +558,6 @@ pub fn paint_ground(cv: &mut Img, frame: &GardenFrame, view: View) {
             }
         }
     }
-    // A bounded reset spell: the old geometry is already gone, only dirt sparkles.
     if frame.motion == MotionMode::Full && frame.tick < bed.reset_at + DELIVERY {
         for i in 0..12 {
             let v = hash(i, frame.tick as i32, 93);
@@ -632,8 +617,6 @@ pub fn stage(
                 let (x, y) = point_position(chart, point.x, point.y);
                 (ox + x, oy + y)
             }
-            // Rejected points have no crop coordinate. Keep their sprite at
-            // the farmer rather than projecting an out-of-domain request.
             (GraphRequest::Point { .. }, _) => farmer,
             _ => (ox + W / 2, oy + TOP),
         };
@@ -656,7 +639,6 @@ pub fn stage(
             base: y as i32,
             img: glyph,
         });
-        // Actual x/y values, not invented dialogue or simulated work calls.
         if n == speaker && (elapsed < 40 || returned.is_some_and(|(at, _)| frame.tick < at + 24)) {
             let words = match (&job.request, returned) {
                 (GraphRequest::Point { point, .. }, _) if elapsed < 8 => format!("X={}?", point.x),

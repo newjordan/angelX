@@ -19,10 +19,7 @@ mod imp {
     use std::path::Path;
     use std::time::{Duration, Instant};
 
-    /// Longest a module is trusted without a full comparison, for sources
-    /// inotify cannot see (some network and overlay mounts).
     const RECHECK: Duration = Duration::from_secs(5);
-    /// Directories watched under one module, and how deep.
     const MAX_DIRS: usize = 128;
     const MAX_DEPTH: usize = 8;
 
@@ -40,21 +37,15 @@ mod imp {
 
     pub(crate) struct Watch {
         fd: libc::c_int,
-        /// Watch descriptor to the module it sits under.
         owners: HashMap<libc::c_int, String>,
-        /// Modules whose cache matched the disk at the stored time, with every
-        /// directory watched and no event seen since.
         clean: BTreeMap<String, Instant>,
-        /// Modules a watch could not be placed for: never trusted.
         incomplete: HashSet<String>,
-        /// When each module's current full check began.
         armed: BTreeMap<String, Instant>,
         buffer: Vec<u8>,
     }
 
     impl Watch {
         pub(crate) fn new() -> Option<Self> {
-            // SAFETY: plain syscall; the descriptor is owned by this value.
             let fd = unsafe { libc::inotify_init1(libc::IN_NONBLOCK | libc::IN_CLOEXEC) };
             (fd >= 0).then(|| Self {
                 fd,
@@ -66,18 +57,12 @@ mod imp {
             })
         }
 
-        /// Read every queued event. Anything under a module makes it dirty; a
-        /// lost queue makes every module dirty.
         pub(crate) fn drain(&mut self) {
             loop {
-                // SAFETY: the buffer is owned and the length passed is its own.
                 let read = unsafe {
                     libc::read(self.fd, self.buffer.as_mut_ptr().cast(), self.buffer.len())
                 };
                 if read <= 0 {
-                    // EAGAIN: drained. Any other error: the next full check
-                    // after RECHECK still holds, and the queue is not trusted
-                    // past it.
                     if read < 0
                         && std::io::Error::last_os_error().kind() != std::io::ErrorKind::WouldBlock
                     {
@@ -111,14 +96,10 @@ mod imp {
             }
         }
 
-        /// Whether `id` matched the disk at its last full check and nothing
-        /// has moved under it since.
         pub(crate) fn trusted(&self, id: &str) -> bool {
             self.clean.get(id).is_some_and(|at| at.elapsed() < RECHECK)
         }
 
-        /// A full comparison of `id` is about to run: watch its directories
-        /// first, so an edit during or after the comparison raises an event.
         pub(crate) fn arm(&mut self, id: &str, root: &Path) {
             self.clean.remove(id);
             self.armed.insert(id.to_owned(), Instant::now());
@@ -130,8 +111,6 @@ mod imp {
             }
         }
 
-        /// The comparison ran: `fresh` says the cache matched the disk. Only a
-        /// match with every directory watched earns trust.
         pub(crate) fn confirm(&mut self, id: &str, fresh: bool) {
             if let Some(at) = self.armed.remove(id)
                 && fresh
@@ -153,7 +132,6 @@ mod imp {
             }
             *dirs += 1;
             let path = CString::new(dir.as_os_str().as_bytes()).map_err(|_| ())?;
-            // SAFETY: `path` is a valid NUL-terminated string for the call.
             let wd = unsafe { libc::inotify_add_watch(self.fd, path.as_ptr(), MASK) };
             if wd < 0 {
                 return Err(());
@@ -171,7 +149,6 @@ mod imp {
 
     impl Drop for Watch {
         fn drop(&mut self) {
-            // SAFETY: the descriptor is owned and closed once.
             unsafe { libc::close(self.fd) };
         }
     }
@@ -180,7 +157,6 @@ mod imp {
 #[cfg(target_os = "linux")]
 pub(crate) use imp::Watch;
 
-/// Where inotify does not exist the loader compares every scan.
 #[cfg(not(target_os = "linux"))]
 pub(crate) struct Watch;
 

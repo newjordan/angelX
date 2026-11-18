@@ -13,18 +13,14 @@ use crate::rules::{
     deep::{Culture, Village, village as v},
 };
 
-/// The back wall: the rock face the village stands against, layered and
-/// lit from below, and the stalactites hanging from the roof of the dark.
 pub(super) fn back_wall(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>) {
     let w = cv.w;
     let face = v::BACK as i32 * TILE;
     for x in 0..w {
-        // The face's foot wanders, and the dark above it goes up forever.
         let foot = face + 2 + (vnoise(x as f32 / 13.0, 1.0, 9201) * 6.0) as i32;
         let crest = 40 + (vnoise(x as f32 / 29.0, 2.0, 9202) * 30.0) as i32;
         for y in 0..foot {
             if y < crest {
-                // The dark itself: black paper, a faint grain far up.
                 if hash(x, y, 9203) % 61 == 0 {
                     cv.put(x, y, 'K');
                 }
@@ -36,13 +32,11 @@ pub(super) fn back_wall(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<
             let t = 0.15 + down * 0.45 + (strata - 0.5) * 0.5 + (grain - 0.5) * 0.25;
             let i = ((t * lk.rock.len() as f32) as i32).clamp(0, lk.rock.len() as i32 - 1) as usize;
             cv.put(x, y, lk.rock[i]);
-            // Cracks in the face.
             if (strata * 40.0).fract() < 0.05 {
                 cv.put(x, y, lk.rock[0]);
             }
         }
     }
-    // Stalactites, long and short, from the roof of the dark.
     for k in 0..34 {
         let h = hash(k, 1, 9206);
         let x = (h % w as u32) as i32;
@@ -69,12 +63,7 @@ pub(super) fn back_wall(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<
     }
 }
 
-/// Dwellings cut into the back wall above the village, its far windows
-/// lit one by one as hope grows, ledges and ladders between them: the
-/// cavern is deep, and lived in all the way up.
 pub(super) fn far_dwellings(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>) {
-    // The roost, the cathedral and the salt terraces keep their own up
-    // there: nests, arches and salt-lamps.
     if matches!(vl.culture, Culture::Roostfolk | Culture::Chimefolk | Culture::Saltkin) {
         return;
     }
@@ -85,7 +74,6 @@ pub(super) fn far_dwellings(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut 
         let x = 20 + (h % 536) as i32;
         let y = face - 12 - ((h >> 10) % 30) as i32;
         let lit = (k as u32 % 8) < u32::from(vl.hope);
-        // A ledge under it, and now and then a ladder down.
         cv.line(x - 7, y + 6, x + 8, y + 6, lk.rock[4]);
         cv.line(x - 7, y + 7, x + 8, y + 7, lk.rock[0]);
         if (h >> 20) % 3 == 0 {
@@ -96,7 +84,6 @@ pub(super) fn far_dwellings(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut 
             }
         }
         if rootkin {
-            // A round knothole of a window in the roots.
             cv.ellipse(x as f32, y as f32, 4.0, 4.0, lk.rock[0]);
             cv.ellipse(x as f32, y as f32, 2.6, 2.6, if lit { '4' } else { 'K' });
             if lit {
@@ -105,7 +92,6 @@ pub(super) fn far_dwellings(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut 
             }
             continue;
         }
-        // An arched window in the rock.
         cv.rect(x - 3, y - 4, 7, 9, lk.rock[0]);
         cv.rect(x - 2, y - 3, 5, 8, if lit { '5' } else { 'K' });
         cv.put(x - 2, y - 3, lk.rock[0]);
@@ -117,8 +103,6 @@ pub(super) fn far_dwellings(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut 
     }
 }
 
-/// Far up the Capfolk's wall, the caps of the old giants, silhouettes in
-/// the dark, their gills lit faintly blue.
 fn giant_caps(cv: &mut Img, lk: &Look) {
     for (k, &(x, top, r)) in [(70, 50, 34.0f32), (205, 40, 26.0), (395, 46, 30.0), (520, 38, 22.0)].iter().enumerate() {
         let foot = v::BACK as i32 * TILE;
@@ -143,7 +127,6 @@ fn giant_caps(cv: &mut Img, lk: &Look) {
     }
 }
 
-/// The Glimmerkin's seams: crystal clusters in the face, and the falls.
 fn crystal_seams(cv: &mut Img, lights: &mut Vec<Light>) {
     for k in 0..12 {
         let h = hash(k, 2, 9220);
@@ -151,7 +134,6 @@ fn crystal_seams(cv: &mut Img, lights: &mut Vec<Light>) {
         crystal(cv, x, y, 5 + (h >> 20) as i32 % 9, k as u32);
         lights.push(Light { x: x as f32, y: y as f32 - 4.0, r: 26.0, s: 0.18, fire: false });
     }
-    // The falls: a sheet of water down the face into a pool.
     let x0 = 452;
     for y in 0..v::BACK as i32 * TILE + 6 {
         for x in x0..x0 + 18 {
@@ -163,9 +145,6 @@ fn crystal_seams(cv: &mut Img, lights: &mut Vec<Light>) {
     cv.ellipse((x0 + 9) as f32, (v::BACK as i32 * TILE + 8) as f32, 12.0, 3.0, 'u');
 }
 
-/// A crystal cluster at `(x, y)` (its foot), `size` tall: three shards,
-/// the middle one tallest, each a prism with a lit face, a dark face, a
-/// bright ridge and a pale tip.
 pub(super) fn crystal(cv: &mut Img, x: i32, y: i32, size: i32, seed: u32) {
     for (j, lean) in [-1i32, 0, 1].into_iter().enumerate() {
         let tall = (size * if j == 1 { 10 } else { 6 + (hash(seed as i32, j as i32, 9222) % 3) as i32 } / 10).max(3);
@@ -187,7 +166,6 @@ pub(super) fn crystal(cv: &mut Img, x: i32, y: i32, size: i32, seed: u32) {
     }
 }
 
-/// The Emberfolk's wall: slow falls of fire down the face, into a channel.
 fn lava_falls(cv: &mut Img, lights: &mut Vec<Light>) {
     for &x0 in &[96, 410] {
         for y in 18..v::BACK as i32 * TILE + 4 {
@@ -203,8 +181,6 @@ fn lava_falls(cv: &mut Img, lights: &mut Vec<Light>) {
     }
 }
 
-/// The Lampwick's lake: black water along the foot of the wall, far lamps
-/// on it.
 fn lake(cv: &mut Img) {
     let foot = v::BACK as i32 * TILE;
     for y in foot - 14..foot + 6 {
@@ -218,9 +194,6 @@ fn lake(cv: &mut Img) {
     }
 }
 
-/// The glowworms: the deep people's stars, threads hanging from the roof,
-/// each with a bead of light that breathes. They brighten with the
-/// village, and the falling star wakes them as it passes.
 pub(super) fn glowworms(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
     let tick = run.tick as u32;
     let since = run.tick.saturating_sub(vl.arrived);
@@ -247,12 +220,10 @@ pub(super) fn glowworms(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
     }
 }
 
-/// Each people's own weather, moving in the light.
 pub(super) fn ambient(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
     let tick = run.tick as u32;
     let lit = vl.light();
     match vl.culture {
-        // Spores drift up off the caps and the heart, catching the light.
         Culture::Capfolk => {
             for k in 0..(18 + (lit * 30.0) as u32) {
                 let h = hash(k as i32, 9, 9260);
@@ -264,7 +235,6 @@ pub(super) fn ambient(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
                 cv.put(x, y, if t % 30 < 12 { lk.glow[2] } else { lk.glow[1] });
             }
         }
-        // The falls run, and the crystals glint as the light moves.
         Culture::Glimmerkin => {
             let x0 = 452;
             for k in 0..26 {
@@ -285,7 +255,6 @@ pub(super) fn ambient(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
                 }
             }
         }
-        // Smoke from every chimney, embers rising off the falls.
         Culture::Emberfolk => {
             for &rect in v::HOUSES.iter().chain(std::iter::once(&v::HALL)) {
                 let (cx, cy) = super::houses::chimney(rect);
@@ -305,7 +274,6 @@ pub(super) fn ambient(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
                 cv.put(x + (t as i32 / 9), 118 - t as i32, if t < 30 { '6' } else { '@' });
             }
         }
-        // Mist drifts over the lake and the far lamps sway on it.
         Culture::Lampwick => {
             for k in 0..60 {
                 let h = hash(k, 7, 9264);
@@ -330,14 +298,10 @@ pub(super) fn ambient(cv: &mut Img, run: &Run, vl: &Village, lk: &Look) {
     }
 }
 
-/// The party, falling as a star: a bright head with a long tail streaking
-/// down out of the dark to the plaza, then a burst where it lands, rings
-/// going out, and a glow that lingers.
 pub(super) fn star(cv: &mut Img, run: &Run, vl: &Village) {
     let since = run.tick.saturating_sub(vl.arrived);
     let (lx, ly) = px(v::LANDING);
     let (sx, sy) = (lx - 176, ly - 116);
-    // First a glint in the dark, growing, before it falls.
     const GLINT: u64 = 12;
     if since < GLINT {
         let r = 1 + since as i32 / 3;
@@ -351,13 +315,11 @@ pub(super) fn star(cv: &mut Img, run: &Run, vl: &Village) {
     }
     if since < v::FALL {
         let t = (since - GLINT) as f32 / (v::FALL - GLINT) as f32;
-        // Easing in: the star gathers speed as it falls.
         let e = t * t;
         let (hx, hy) = (sx as f32 + (lx - sx) as f32 * e, sy as f32 + (ly - sy) as f32 * e);
         let (dx, dy) = ((lx - sx) as f32, (ly - sy) as f32);
         let len = (dx * dx + dy * dy).sqrt();
         let (ux, uy) = (dx / len, dy / len);
-        // The tail: thick at the head, thinning and cooling behind it.
         let tail = 60.0 + 80.0 * t;
         for k in 0..(tail as i32) {
             let f = k as f32 / tail;
@@ -367,7 +329,6 @@ pub(super) fn star(cv: &mut Img, run: &Run, vl: &Village) {
             for o in -thick - 1..=thick + 1 {
                 let (px_, py_) = ((x - uy * o as f32) as i32, (y + ux * o as f32) as i32);
                 if o.abs() > thick {
-                    // A faint glow round the tail.
                     if hash(k, o, 9273) % 3 == 0 {
                         cv.put(px_, py_, '1');
                     }
@@ -375,13 +336,11 @@ pub(super) fn star(cv: &mut Img, run: &Run, vl: &Village) {
                     cv.put(px_, py_, ink);
                 }
             }
-            // Sparks shed off the tail.
             if k % 9 == 0 && f > 0.2 {
                 let h = hash(k, since as i32, 9270);
                 cv.put(x as i32 + (h % 9) as i32 - 4, y as i32 + ((h >> 4) % 9) as i32 - 4, if h % 2 == 0 { '9' } else { '6' });
             }
         }
-        // The head: a white core in a halo, with a cross of light.
         let (x, y) = (hx as i32, hy as i32);
         for k in 0..32 {
             let a = k as f32 / 32.0 * std::f32::consts::TAU;
@@ -397,8 +356,6 @@ pub(super) fn star(cv: &mut Img, run: &Run, vl: &Village) {
         return;
     }
     let after = since - v::FALL;
-    // The burst: rings going out across the plaza, light flung off in
-    // rays, a glow that settles on the ground.
     if after < 36 {
         let f = after as f32;
         for (ring, ink) in [(f * 3.2, '9'), (f * 2.3, '6'), (f * 1.5, '3')] {
@@ -429,7 +386,6 @@ pub(super) fn star(cv: &mut Img, run: &Run, vl: &Village) {
             cv.ellipse(lx as f32, (ly - 6) as f32, 14.0 - after as f32, 14.0 - after as f32, 'w');
         }
     }
-    // The glow where it came down, fading while the village gathers.
     if after < v::GATHER {
         let fade = 1.0 - after as f32 / v::GATHER as f32;
         let r = 10.0 + 18.0 * fade;

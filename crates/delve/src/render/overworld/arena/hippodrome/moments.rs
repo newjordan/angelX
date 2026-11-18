@@ -23,34 +23,27 @@ pub(super) fn meets(a: Rect, b: Rect) -> bool {
     a.0 < b.0 + b.2 && b.0 < a.0 + a.2 && a.1 < b.1 + b.3 && b.1 < a.1 + a.3
 }
 
-/// Ticks a call stands.
 const CALL_LIFE: u32 = 62;
-/// Where the title card's top rests, and the call of the moment's.
 const TITLE_Y: i32 = 22;
 const CALL_Y: i32 = 34;
-/// The centre the count slams in at, and the box it claims.
 pub(super) const COUNT_AT: (i32, i32) = (192, 112);
 const COUNT_BOX: Rect = (192 - 66, 60, 132, 92);
 
-/// A line of the 5x7 hand, on a small plate.
 #[derive(Clone, Debug)]
 pub(super) struct Word {
     pub text: String,
     pub at: (i32, i32),
     pub ink: char,
     pub kind: &'static str,
-    /// The team it names, if it names one.
     pub who: Option<u8>,
 }
 
 impl Word {
-    /// The plate the word sits on.
     pub fn rect(&self) -> Rect {
         (self.at.0 - 2, self.at.1 - 1, text_width(&self.text) + 4, 9)
     }
 }
 
-/// A word set in the big hand: the place.
 #[derive(Clone, Debug)]
 pub(super) struct Big {
     pub text: String,
@@ -65,7 +58,6 @@ impl Big {
     }
 }
 
-/// A banner on show.
 #[derive(Clone, Debug)]
 pub(super) struct Banner {
     pub title: String,
@@ -76,12 +68,10 @@ pub(super) struct Banner {
     pub y: i32,
     pub cap: i32,
     pub rank: u8,
-    /// The team it calls, if one's.
     pub who: Option<u8>,
     pub rect: Rect,
 }
 
-/// One beat of the countdown, or the GO.
 #[derive(Clone, Debug)]
 pub(super) struct Count {
     pub label: &'static str,
@@ -90,21 +80,17 @@ pub(super) struct Count {
     pub go: bool,
 }
 
-/// Everything the moments put on the screen at one tick.
 #[derive(Clone, Debug, Default)]
 pub(super) struct Plan {
     pub words: Vec<Word>,
     pub bigs: Vec<Big>,
     pub banner: Option<Banner>,
     pub count: Option<Count>,
-    /// The boxes the picture owns without words: plates, the minimap.
     pub plates: Vec<(&'static str, Rect)>,
-    /// The words the kit sets on the podium's steps: what kind, what, where, whose team.
     pub podium: Vec<(&'static str, String, Rect, Option<u8>)>,
 }
 
 impl Plan {
-    /// Every box the plan claims, with a name for it.
     pub fn claims(&self) -> Vec<(String, Rect, Option<u8>)> {
         let mut out: Vec<_> = self.words.iter().map(|w| (format!("{} {:?}", w.kind, w.text), w.rect(), w.who)).collect();
         out.extend(self.bigs.iter().map(|b| (format!("big {:?}", b.text), b.rect(), None)));
@@ -124,8 +110,6 @@ impl Plan {
     }
 }
 
-/// The pixels the kit's `banner` marks on the canvas, `age` ticks in: the rails, the words and the
-/// line under them, as one box.
 pub(super) fn banner_rect(y: i32, title: &str, sub: &str, age: u32, cap: i32) -> Rect {
     let w = SCREEN.0;
     let tw = text_width(title).max(1);
@@ -149,13 +133,10 @@ pub(super) fn banner_rect(y: i32, title: &str, sub: &str, age: u32, cap: i32) ->
 
 pub(super) fn banner_of(title: String, sub: String, tone: Tone, age: u32, life: u32, y: i32, cap: i32, rank: u8, who: Option<u8>) -> Option<Banner> {
     (age < life).then(|| {
-        // The box stays what it is at its widest and tallest, so a word never meets another
-        // mid-slam: the slam grows it, the claim is the grown one.
         let rect = banner_rect(y, &title, &sub, 0, cap);
         let settled = banner_rect(y, &title, &sub, 99, cap);
         let (x0, y0) = (rect.0.min(settled.0), rect.1.min(settled.1));
         let (x1, y1) = ((rect.0 + rect.2).max(settled.0 + settled.2), (rect.1 + rect.3).max(settled.1 + settled.3));
-        // A sub line is claimed from the start, though it shows after the fourth tick.
         let withsub = banner_rect(y, &title, &sub, 99, cap);
         let (x0, x1) = (x0.min(withsub.0), x1.max(withsub.0 + withsub.2));
         Banner { title, sub, tone, age, life, y, cap, rank, who, rect: (x0, y0, x1 - x0, y1 - y0) }
@@ -172,7 +153,6 @@ fn place_word(n: u32) -> String {
     format!("{n}{suffix}")
 }
 
-/// The call standing for the viewer: the loudest of what happened lately.
 fn call(v: &View) -> Option<Banner> {
     let race = v.race;
     let now = v.now;
@@ -244,7 +224,6 @@ fn call(v: &View) -> Option<Banner> {
     best
 }
 
-/// Where the count is: the beat (3, 2, 1) while the gate holds, the GO after it drops.
 fn count(v: &View) -> Option<Count> {
     let race = v.race;
     match race.phase {
@@ -257,13 +236,10 @@ fn count(v: &View) -> Option<Count> {
     }
 }
 
-/// Ticks of the race the keys stay up.
 const KEYS_FOR: u32 = 5 * HZ;
 
-/// The keys, as the words beside them: one plain word each.
 pub(super) const KEYS: [(&[&str], &str); 3] = [(&["A", "D"], "STEER"), (&["SPACE"], "WHIP"), (&["X"], "IRON")];
 
-/// The prompts' boxes along the foot: for each, the keycaps and the word, left to right.
 pub(super) struct Prompt {
     pub caps: Vec<(Rect, &'static str)>,
     pub word: Word,
@@ -295,14 +271,12 @@ fn keys_up(v: &View) -> bool {
     }
 }
 
-/// The plan of a seat's screen at this tick.
 pub(super) fn plan_of(v: &View) -> Plan {
     if let Some(age) = super::finish::ended(v).filter(|&a| a >= super::finish::OPENS) {
         return super::finish::plan(v, age - super::finish::OPENS);
     }
     let mut p = Plan::default();
     let race = v.race;
-    // The plates the picture owns: the ladder along the top, the team's marks, the minimap.
     p.plates.push(("ladder", (116, 2, 152, 14)));
     p.plates.push(("team", (SCREEN.0 - 70, 2, 66, 22)));
     p.plates.push(("minimap", (SCREEN.0 - 96, SCREEN.1 - 58, 92, 54)));
@@ -322,7 +296,6 @@ pub(super) fn plan_of(v: &View) -> Plan {
         }
     }
     p.count = count(v);
-    // The title card of the course while the gate holds, else the call of the moment.
     if race.phase == Phase::Gate && race.t < 66 {
         let c = v.course();
         let title = c.name.to_uppercase();
@@ -334,14 +307,12 @@ pub(super) fn plan_of(v: &View) -> Plan {
             p.banner = Some(b);
         }
     }
-    // A banner that would meet what is already claimed is not shown.
     if let Some(b) = p.banner.take() {
         let held: Vec<Rect> = p.claims().iter().map(|c| c.1).collect();
         if inside(b.rect) && held.iter().all(|&c| !meets(b.rect, c)) {
             p.banner = Some(b);
         }
     }
-    // The names over the other teams, nearest the viewer first, each on the first free row.
     let cam = v.camera();
     let me = v.map_px(v.me);
     let mut others: Vec<(usize, f32)> = (0..race.racers.len())
@@ -373,9 +344,6 @@ pub(super) fn plan_of(v: &View) -> Plan {
     p
 }
 
-// ─── drawing ─────────────────────────────────────────────────────────────────
-
-/// A word on its plate: dark, with a pixel of rim.
 pub(super) fn draw_word(im: &mut Img, w: &Word) {
     let (x, y, pw, ph) = w.rect();
     for yy in y..y + ph {
@@ -389,7 +357,6 @@ pub(super) fn draw_word(im: &mut Img, w: &Word) {
     im.text(w.at.0, w.at.1, &w.text, w.ink);
 }
 
-/// A thin dither of black paper behind words that sit over a bright scene, softest at its edges.
 fn scrim(im: &mut Img, (x0, y, w, h): Rect) {
     for yy in y.max(0)..(y + h).min(im.h) {
         for xx in x0.max(0)..(x0 + w).min(im.w) {
@@ -402,7 +369,6 @@ fn scrim(im: &mut Img, (x0, y, w, h): Rect) {
     }
 }
 
-/// A figure slamming in at `at`, springing to size, ringing, and going.
 fn slam(im: &mut Img, at: (i32, i32), label: &str, age: u32, life: u32, go: bool) {
     if age >= life {
         return;
@@ -428,7 +394,6 @@ fn slam(im: &mut Img, at: (i32, i32), label: &str, age: u32, life: u32, go: bool
     im.stamp(&t, at.0 - t.w / 2, at.1 - t.h / 2);
 }
 
-/// The gantry of three lamps: red as the beats go by, green on the start.
 fn lamps(im: &mut Img, t: u32, green: bool, since: u32) {
     let (cx, cy) = (192, 74);
     im.rect(cx - 46, cy - 12, 92, 24, 'K');
@@ -464,8 +429,6 @@ fn lamps(im: &mut Img, t: u32, green: bool, since: u32) {
     }
 }
 
-/// The start over the whole canvas: the lamps count red, the digits slam in, the green and GO
-/// ring out.
 pub(super) fn draw_start(over: &mut Img, plan: &Plan, v: &View) {
     let race = v.race;
     let Some(c) = &plan.count else { return };
@@ -477,7 +440,6 @@ pub(super) fn draw_start(over: &mut Img, plan: &Plan, v: &View) {
     slam(over, COUNT_AT, c.label, c.age, c.life, c.go);
 }
 
-/// The banner of the plan.
 pub(super) fn draw_banner(over: &mut Img, b: &Banner) {
     if b.rank >= 6 || b.y == TITLE_Y {
         scrim(over, b.rect);
@@ -485,5 +447,4 @@ pub(super) fn draw_banner(over: &mut Img, b: &Banner) {
     juice::banner(over, b.y, &b.title, &b.sub, b.age, b.life, b.tone, b.cap);
 }
 
-/// How long the gate holds: the title and the three beats.
 pub(super) const GATE: u32 = GATE_TICKS;

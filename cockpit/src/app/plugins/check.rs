@@ -17,12 +17,10 @@ pub(crate) enum Level {
     Publish,
 }
 
-/// What a check found.
 #[derive(Debug, Default)]
 pub(crate) struct Report {
     pub(crate) errors: Vec<String>,
     pub(crate) warnings: Vec<String>,
-    /// The parsed `cartridge.toml`, when it parsed.
     pub(crate) config: Option<Config>,
 }
 
@@ -31,7 +29,6 @@ impl Report {
         self.errors.is_empty()
     }
 
-    /// The findings, one per line, errors first.
     pub(crate) fn lines(&self) -> Vec<String> {
         self.errors
             .iter()
@@ -41,7 +38,6 @@ impl Report {
     }
 }
 
-/// Check the plugin in `dir`.
 pub(crate) fn folder(dir: &Path, level: Level) -> Report {
     let mut report = Report::default();
     let toml = dir.join("cartridge.toml");
@@ -56,7 +52,6 @@ pub(crate) fn folder(dir: &Path, level: Level) -> Report {
         Ok(config) => config,
         Err(error) => {
             report.errors.push(format!("cartridge.toml: {error}"));
-            // A top-level key written below `[plugin]` belongs to that table.
             if error.contains("expected one of `version`, `description`") {
                 report.errors.push(
                     "cartridge.toml: every key under a [table] belongs to it; put [plugin] after the top-level keys".into(),
@@ -143,7 +138,6 @@ pub(crate) fn folder(dir: &Path, level: Level) -> Report {
         }
         None => {}
     }
-    // Commands: each skill is in skills/, and no built-in hides the word.
     let skills = crate::agent::harness::load_skills_from(&dir.join("skills"));
     let mut words = std::collections::BTreeSet::new();
     for command in &config.commands {
@@ -179,7 +173,6 @@ pub(crate) fn folder(dir: &Path, level: Level) -> Report {
             ));
         }
     }
-    // Tools: each program is a file in the folder that may run.
     let mut names = std::collections::BTreeSet::new();
     for tool in &config.tools {
         if !names.insert(tool.name.as_str()) {
@@ -197,7 +190,6 @@ pub(crate) fn folder(dir: &Path, level: Level) -> Report {
     if let Some(setup) = &setup {
         program(dir, setup, "[plugin] setup", false, errors, warnings);
     }
-    // Links stay inside; nothing in the tree is a device or a pipe.
     match digest::read_folder(dir) {
         Ok(entries) => {
             for entry in entries
@@ -267,8 +259,6 @@ fn runnable(_meta: &std::fs::Metadata) -> bool {
     true
 }
 
-/// Whether a link at `path` (relative to the plugin) to `target` stays in the
-/// plugin, by its words alone.
 pub(crate) fn link_inside(path: &str, target: &str) -> bool {
     if target.is_empty() || target.starts_with('/') {
         return false;

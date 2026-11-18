@@ -25,15 +25,12 @@ thread_local! {
     static BEFORE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
-/// Whether the screen is drawn as it was before the juice (the bench's baseline).
 pub(super) fn before() -> bool {
     BEFORE.with(std::cell::Cell::get)
 }
 
 const NAMES: [&str; 6] = ["You", "Knight 2", "Cedric", "Dara", "You", "Wolfgang Amadeus"];
 
-/// A round with `seats` knights, opened by knight one pressing E at the bay. Some knights still carry
-/// the default `You`, and one has a name too long for any box.
 fn table(seats: u32) -> Run {
     let mut r = Run::latch_for_test();
     if seats == 1 {
@@ -52,7 +49,6 @@ fn table(seats: u32) -> Run {
     r
 }
 
-/// How a seat plays: 0 on the beat, 1 sits still, 2 a beat late, 3 too soon, 4 the wrong guard.
 fn bots(r: &Run, modes: &[u32], t: u32) -> Keys {
     let Some(s) = r.latch.as_ref().filter(|s| s.left > 0 && s.count == 0) else { return Keys::new() };
     s.duels
@@ -76,8 +72,6 @@ fn bots(r: &Run, modes: &[u32], t: u32) -> Keys {
         .collect()
 }
 
-/// Every box of words on seat `id`'s screen: the lines of the 5x7 font the pen wrote on the screen,
-/// and the pixels of every layer the kit drew words on.
 fn boxes(r: &Run, id: u32) -> (Vec<(String, Rect)>, said::Said) {
     let ((_, claims), said) = said::read(|| hud::claimed(|| scene::layers(r, Some(id))));
     let mut out: Vec<(String, Rect)> = said
@@ -90,7 +84,6 @@ fn boxes(r: &Run, id: u32) -> (Vec<(String, Rect)>, said::Said) {
     (out, said)
 }
 
-/// No two boxes meet, none leaves the 384 by 224 screen, and `YOU` names only the seat looking.
 fn assert_clear(r: &Run, id: u32, what: &str) {
     let (boxes, said) = boxes(r, id);
     for (i, (a, ra)) in boxes.iter().enumerate() {
@@ -112,11 +105,9 @@ fn assert_clear(r: &Run, id: u32, what: &str) {
         }
         match t {
             "YOU" if line.on == (384, 224) => yous += 1,
-            // The podium's own name for a winner or a runner-up, on a picture of its own.
             "YOU" => assert!(s.left == 0, "{what} seat {id}: a spare YOU in play"),
             "YOU LEAD" => assert!(leads, "{what} seat {id}: YOU LEAD for a knight who is not leading"),
             "YOU WIN" => assert!(wins, "{what} seat {id}: YOU WIN for another's win"),
-            // A line of the table under the podium: its place, who, and their counters.
             other if other.contains(" YOU ") => {
                 let place: usize = other.split(' ').next().and_then(|n| n.parse().ok()).unwrap_or(0);
                 assert_eq!(s.order.iter().position(|&w| w == id).map(|p| p + 1), Some(place), "{what} seat {id}: {other:?} is not this seat's line");
@@ -125,7 +116,6 @@ fn assert_clear(r: &Run, id: u32, what: &str) {
         }
     }
     assert!(yous <= 1, "{what} seat {id}: YOU drawn {yous} times");
-    // The words the kit draws are pictures; the plan of them is a pure function, read here.
     if let Some(b) = moments::banner(r, s, id, Some(id), clock, ended) {
         for text in [&b.title, &b.sub] {
             if text.split(' ').any(|w| w == "YOU") {
@@ -133,7 +123,6 @@ fn assert_clear(r: &Run, id: u32, what: &str) {
             }
         }
     }
-    // And for any other seat looking, a banner about this seat never says YOU.
     for other in s.duels.keys().copied().filter(|&o| o != id) {
         if let Some(b) = moments::banner(r, s, other, Some(other), clock, ended) {
             assert!(
@@ -144,7 +133,6 @@ fn assert_clear(r: &Run, id: u32, what: &str) {
     }
 }
 
-/// The words of a seat are never `YOU` for another seat, in a card or a toast or on the podium.
 #[test]
 fn you_names_only_the_seat_looking() {
     let r = table(6);
@@ -193,8 +181,6 @@ fn walk(seats: u32, modes: &[u32], what: &str, extra: usize) {
 #[test]
 fn the_words_never_meet_and_every_prompt_sits_inside_the_screen_at_one_to_six_seats() {
     for seats in 1..=6u32 {
-        // Quick hands: somebody breaks Clasp. Mixed hands: late, early, wrong and idle knights fold their
-        // guards and the clock runs down.
         walk(seats, &[0, 0, 0, 0, 0, 0], "quick", 0);
         walk(seats, &[0, 1, 2, 3, 4, 0], "mixed", 0);
         walk(seats, &[1, 4, 3, 1, 2, 1], "dismal", 0);
@@ -226,7 +212,6 @@ fn a_storm_of_marks_calls_and_long_names_still_leaves_every_word_clear() {
     for id in 1..=6 {
         assert_clear(&r, id, "storm");
     }
-    // The end screen with six seats and the longest names, at every beat of it.
     let s = r.latch.as_mut().unwrap();
     s.left = 0;
     s.won = true;
@@ -263,8 +248,6 @@ fn every_screen_of_a_round_draws_the_same_on_the_far_side_of_the_wire() {
     }
 }
 
-// ─── the proof reels ─────────────────────────────────────────────────────────
-
 fn save(dir: &std::path::Path, n: u32, im: &Img) {
     image::save_buffer(dir.join(format!("f{n:04}.png")), &im.rgb_bytes(), im.w as u32, im.h as u32, image::ColorType::Rgb8).unwrap();
 }
@@ -273,7 +256,6 @@ fn reel_only(name: &str) -> bool {
     std::env::var("REEL_ONLY").map_or(true, |o| o.split(',').any(|x| x == name))
 }
 
-/// A window of `ticks` of seat one's screen (a frame every step, 30 fps), after `lead` unseen steps.
 fn window(root: &std::path::Path, name: &str, r: &mut Run, lead: u32, ticks: u32, mut keys: impl FnMut(&Run, u32) -> Keys) {
     let dir = root.join(name);
     let _ = std::fs::remove_dir_all(&dir);
@@ -288,7 +270,6 @@ fn window(root: &std::path::Path, name: &str, r: &mut Run, lead: u32, ticks: u32
     println!("{name}: {ticks} frames, {} seats", r.players.len());
 }
 
-/// Skip `n` steps unseen with `modes`.
 fn skip(r: &mut Run, modes: &[u32], n: u32) {
     for t in 0..n {
         r.step(&bots(r, modes, t));
@@ -304,7 +285,6 @@ fn write_latch_reel() {
     let quiet = |_: &Run, _: u32| Keys::new();
 
     if reel_only("before") {
-        // The screen as it was, on the same table and the same bots, for the comparison.
         BEFORE.with(|b| b.set(true));
         let mut r = table(4);
         window(&root, "before", &mut r, COUNT, 300, |r, t| bots(r, &[0, 0, 0, 0], t));
@@ -338,7 +318,6 @@ fn write_latch_reel() {
         window(&root, "finish", &mut r, 0, 560, |r, t| bots(r, &[0, 0, 0, 0], t));
     }
     if reel_only("win") {
-        // Seat one wins: perfect hands against late, wrong-guard and idle ones.
         let mut r = table(4);
         window(&root, "win", &mut r, 0, 520, |r, t| bots(r, &[5, 2, 4, 1], t));
     }
@@ -364,8 +343,6 @@ fn write_latch_reel() {
     let _ = quiet;
 }
 
-/// Where a frame's time goes, over a bot's round: the picture as it is, five draws of each frame and
-/// the quickest taken, the box being what it is.
 #[test]
 #[ignore = "measures the picture's cost"]
 fn latch_frame_time() {

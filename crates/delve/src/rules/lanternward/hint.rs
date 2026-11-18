@@ -4,7 +4,6 @@
 use super::world::*;
 use super::*;
 
-/// What a target that is not a foe says about itself when it is locked.
 pub fn lock_hint(s: &Session, k: &Seat) -> Option<&'static str> {
     let Lock::Prop(i) = k.lock? else {
         return None;
@@ -22,7 +21,6 @@ pub fn lock_hint(s: &Session, k: &Seat) -> Option<&'static str> {
     })
 }
 
-/// The wisp's one line. Few words, always about what to do next.
 pub fn hint(s: &Session, k: &Seat, r: &Rules) -> Option<&'static str> {
     if k.act == Act::Down {
         return Some("WAIT FOR A FRIEND'S HAND");
@@ -71,9 +69,6 @@ pub fn hint(s: &Session, k: &Seat, r: &Rules) -> Option<&'static str> {
     })
 }
 
-
-/// The line at the foot of seat `k`'s screen: a sign or kingsman being read,
-/// else what a locked switch says, else the wisp.
 pub fn line(s: &Session, k: &Seat, r: &Rules) -> Option<String> {
     if let Some((id, _)) = k.read {
         let words = if id >= 100 {
@@ -86,7 +81,6 @@ pub fn line(s: &Session, k: &Seat, r: &Rules) -> Option<String> {
     lock_hint(s, k).or_else(|| hint(s, k, r)).map(str::to_string)
 }
 
-/// What E would do: its label, or the roll or hop it falls back to.
 pub fn context(k: &Seat) -> String {
     match k.ctx {
         Ctx::None if k.lock.is_some() => "E HOP".to_string(),

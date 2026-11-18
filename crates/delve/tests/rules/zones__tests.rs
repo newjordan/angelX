@@ -2,8 +2,6 @@ use super::*;
 use crate::rules::cards::{check, Effect};
 use crate::rules::runtime_state;
 
-/// A calm fight room on floor one, knight one at (12, 14) facing east with
-/// a wished area spell in slot one, a crowd of `foes` placed where they are.
 fn arena(spell: &str, foes: &[(EnemyKind, f32, f32)]) -> Run {
     let mut run = Run::new(21, 1, None);
     let fight = run
@@ -33,8 +31,6 @@ fn cast(run: &mut Run) {
     run.step(&BTreeMap::from([(1, Input { cast: 1, ..Input::default() })]));
 }
 
-/// Foes that wait where they stand, so a test reads the spell, not the walk
-/// (a dormant foe neither steps nor shoots, and still takes a blow).
 fn hold(run: &mut Run) {
     for e in &mut run.enemies {
         e.dormant = true;
@@ -49,7 +45,6 @@ fn idle(run: &mut Run, ticks: u32) {
     }
 }
 
-/// A crowd of `n` slimes in rows, `from` units east of the knight.
 fn crowd(n: usize, from: f32) -> Vec<(EnemyKind, f32, f32)> {
     (0..n)
         .map(|i| (EnemyKind::Slime, 12.0 + from + (i % 4) as f32 * 2.2, 10.0 + (i / 4) as f32 * 2.2))
@@ -64,12 +59,10 @@ fn area_cards_read_in_either_order_and_say_what_they_do() {
             let card = check("a", &raw).unwrap_or_else(|e| panic!("{raw}: {e:?}")).card;
             let want = Area { form, element, size: 1 };
             assert_eq!(card.effects, vec![Effect::Area(want)]);
-            // The line a card says is the line it reads back from.
             let says = Card::line(card.effects[0]);
             assert_eq!(says, format!("cast {} {}", form.word(), element.word()));
             let again = check("a", &format!("name A\nkind spell\ncooldown 5\n{says}\n")).unwrap().card;
             assert_eq!(again.effects, card.effects);
-            // The other order, the way a wish says it.
             let flipped = format!("name A\nkind spell\ncooldown 5\ncast {} {}\n", element.word(), form.word());
             assert_eq!(check("a", &flipped).unwrap().card.effects, card.effects);
         }
@@ -77,7 +70,6 @@ fn area_cards_read_in_either_order_and_say_what_they_do() {
     let sized = check("a", "name A\nkind spell\ncooldown 5\ncast wave frost 3\n").unwrap().card;
     assert_eq!(sized.effects, vec![Effect::Area(Area { form: Form::Wave, element: Element::Frost, size: 3 })]);
     assert_eq!(Card::line(sized.effects[0]), "cast wave frost 3");
-    // A few plain words for the elements.
     let ice = check("a", "name A\nkind spell\ncooldown 5\ncast lava burst\n").unwrap().card;
     assert_eq!(ice.effects, vec![Effect::Area(Area { form: Form::Burst, element: Element::Fire, size: 1 })]);
 }
@@ -89,20 +81,16 @@ fn area_cards_are_checked_like_any_other() {
     assert!(bad("cast wave frost fire"), "one element");
     assert!(bad("cast wave burst frost"), "one shape");
     assert!(bad("cast dragon"), "still no dragon");
-    // A size past the top is clamped with a note, no element is arcane with one.
     let clamped = check("a", "name A\nkind spell\ncooldown 5\ncast wave frost 9\n").unwrap();
     assert_eq!(clamped.card.effects, vec![Effect::Area(Area { form: Form::Wave, element: Element::Frost, size: 3 })]);
     assert!(clamped.notes.iter().any(|n| n.contains("clamped")), "{:?}", clamped.notes);
     let bare = check("a", "name A\nkind spell\ncooldown 5\ncast pillar\n").unwrap();
     assert_eq!(bare.card.effects, vec![Effect::Area(Area { form: Form::Pillar, element: Element::Arcane, size: 1 })]);
     assert!(!bare.notes.is_empty());
-    // Spells only, and one cast to a card.
     assert!(check("a", "name A\nkind hold\ncast wave frost\n").is_err());
     assert!(bad("cast wave frost\ncast ring"));
 }
 
-/// The grammar's names: the same on the card's own text, the cauldron's mix
-/// and the vfx's colour.
 #[test]
 fn an_area_spell_is_made_of_its_element_in_every_book() {
     let card = check("a", "name Whatever\nkind spell\ncooldown 5\ncast wave frost 2\n").unwrap().card;
@@ -130,8 +118,6 @@ fn a_frost_wave_rolls_out_and_meets_each_foe_once() {
         met = met.max(z.hit.len());
     }
     assert!(met >= 8, "the wave met the crowd: {met}");
-    // Each foe the wave met stood frozen or chilled at the moment; the
-    // first three are hurt in full and the rest a quarter.
     let mut lost: Vec<u32> = run
         .enemies
         .iter()
@@ -167,7 +153,6 @@ fn a_frozen_foe_that_dies_shatters_and_its_splinters_strike_its_neighbours() {
         run.step(&BTreeMap::new());
     }
     assert!(!run.zones.rime.is_empty(), "frozen");
-    // One of the frozen is killed by anything at all.
     let victim = run.zones.rime[0].foe;
     let (vx, vy, vi) = {
         let i = run.enemies.iter().position(|e| e.id == victim).unwrap();
@@ -211,7 +196,6 @@ fn a_fire_burst_erupts_on_the_mark_and_leaves_a_pool_that_keeps_burning() {
     hold(&mut run);
     let hp = run.enemies[0].hp;
     cast(&mut run);
-    // Aimed six and a half units out: the pool is there, not at the knight.
     let z = &run.zones.zones[0];
     assert!((z.x - 18.5).abs() < 0.6 && (z.y - 14.0).abs() < 0.6, "the mark: {} {}", z.x, z.y);
     for _ in 0..(zones::BURST_WAIT + 2) {
@@ -219,7 +203,6 @@ fn a_fire_burst_erupts_on_the_mark_and_leaves_a_pool_that_keeps_burning() {
     }
     assert!(run.enemies.iter().all(|e| e.hp < hp), "the eruption struck them");
     assert!(run.works.banes.iter().any(|b| b.kind == skills::Bane::Burn), "burning");
-    // The pool keeps its beat, and a foe that walks in later burns too.
     let foe = run.spawn_body(EnemyKind::Goblin, 18.0, 14.5).unwrap();
     run.works.banes.clear();
     idle(&mut run, 2 * zones::BURST_WAIT);
@@ -276,7 +259,6 @@ fn an_earth_line_cracks_out_segment_by_segment_and_stuns() {
     let mut run = arena("cast line earth 2", &[(EnemyKind::Slime, 15.0, 14.0), (EnemyKind::Slime, 21.0, 14.0), (EnemyKind::Slime, 18.0, 20.0)]);
     hold(&mut run);
     cast(&mut run);
-    // The near foe is hit before the far one.
     let mut order = Vec::new();
     for _ in 0..40 {
         run.step(&BTreeMap::new());
@@ -305,7 +287,6 @@ fn a_holy_pillar_lands_after_its_telegraph_and_mends_the_knights_in_it() {
         run.step(&BTreeMap::new());
         assert_eq!(run.enemies[0].hp, hp, "it only warns");
     }
-    // A second knight in its light is mended with the caster.
     let z = run.zones.zones[0].clone();
     run.players.get_mut(&1).unwrap().hp = 10;
     (run.players.get_mut(&1).unwrap().x, run.players.get_mut(&1).unwrap().y) = (z.x, z.y + 0.5);
@@ -377,7 +358,6 @@ fn a_zone_crosses_to_the_rules_worker_and_back() {
     let mut back = runtime_state::restore_value(&there.into_value()).unwrap();
     assert_eq!(back.zones, run.zones, "the same zones, rime and arcs come back");
     assert!(back.valid_snapshot());
-    // And play on alike: the worker's run and the host's agree tick by tick.
     for _ in 0..20 {
         run.step(&BTreeMap::new());
         back.step(&BTreeMap::new());

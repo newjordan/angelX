@@ -1,16 +1,3 @@
-"""The angelX delve cast, as rig-ready cutouts.
-
-Every character is built from the game's own ink rows (see source.py). A cutout is a
-list of layers; each layer belongs to one bone and has its own ink grid, so where the
-game draws one drawing over another (the hero's shield over the harness) the covered
-pixels survive and show when the part moves. Characters cut from a single drawing get
-the hole behind a moving part filled with the neighbouring body ink.
-
-Bones (side view, facing right): root, torso, head, arm_b (far arm / shield / staff),
-arm_f (near arm / weapon / tool), legs. Legs keep the game's own authored stride
-frames and are swapped by the motion's gait phase rather than bent: at sixteen pixels
-a rotated two-row leg reads worse than delve's hand-drawn step.
-"""
 import numpy as np
 from . import source
 
@@ -39,13 +26,13 @@ class Character:
     def __init__(self, name, w, h, layers, pivots, legs, order, facing="right", view="side",
                  source_ref="", note="", amp=None):
         self.name, self.w, self.h = name, w, h
-        self.layers = layers          # [(bone, grid HxW)] in draw order
-        self.pivots = pivots          # joint -> (x, y) in pixel-edge coords
-        self.legs = legs              # [stand, step_a, step_b] full-size grids (bone 'legs')
+        self.layers = layers
+        self.pivots = pivots
+        self.legs = legs
         self.order = order
         self.facing, self.view, self.source_ref, self.note = facing, view, source_ref, note
         self.amp = amp or {}
-        self.alts = {}               # (bone, snapped degrees) -> authored grid
+        self.alts = {}
 
     def rest(self):
         g = np.full((self.h, self.w), ".", dtype="<U1")
@@ -56,9 +43,6 @@ class Character:
 
 
 def _split(base, rects, fill_under=("arm_b", "arm_f")):
-    """Cut one drawing into bone layers. rects: [(bone, x0, y0, x1, y1)] (inclusive,
-    later wins); unclaimed pixels go to torso. Pixels taken by a moving part are
-    filled in the torso layer with the nearest torso ink (so no hole opens)."""
     h, w = base.shape
     lab = np.full((h, w), "torso", dtype="<U6")
     for bone, x0, y0, x1, y1 in rects:
@@ -81,12 +65,8 @@ def _split(base, rects, fill_under=("arm_b", "arm_f")):
                     tor[y, x] = tor[ty[k], tx[k]]
     return layers
 
-
-# ------------------------------------------------------------------ the hero
 def hero(seat="1", root=source.DEFAULT_ROOT, held="sword"):
-    """kit/hero.rs ACROSS: the realm's knight, sixteen pixels, facing right."""
     p = source.hero_parts(root)
-    # realm_colours: seats 1-3 are seat_colours; the gold seat takes its rim to bronze first
     swaps = source.seat_colours(root).get(seat) if seat in "123" else \
         source.seat_colours(root, "realm_colours")["_"]
     W = H = 16
@@ -105,15 +85,11 @@ def hero(seat="1", root=source.DEFAULT_ROOT, held="sword"):
         source_ref=f"render/overworld/kit/hero.rs ACROSS + arena/knights.rs seat_colours({seat})",
         note="the knight every player starts as; plume/tabard/shield take the seat's colours",
         amp={"head": 0.6, "torso": 0.7})
-    # the game's own strike drawing (held levelled) stands in for the arm thrust forward
     st = p[held][1]
     ch.alts[("arm_f", -90)] = mk(st["rows"], tuple(st["at"]))
     return ch
 
-
-# ------------------------------------------------------------------ folk & foes
 def _stride_legs(rows, n=2):
-    """barony.rs stride(): the last two rows swapped for legs apart."""
     w, h = len(rows[0]), len(rows)
     stand = grid(rows[-n:], w, h, (0, h - n))
     apart = grid(["...n.n......", "..nn.nn....."], w, h, ((w - 12) // 2 + 1, h - 2))
@@ -126,7 +102,6 @@ def folk(kind, root=source.DEFAULT_ROOT):
     base = grid(rows, w, h)
     base[h - 2:] = "."
     spec = {
-        # (rects, pivots, facing/view, note)
         "MINER": ([("head", 0, 0, 7, 3), ("arm_f", 7, 0, 11, 8)],
                   {"hip": (4, 10), "neck": (4, 4), "shoulder_b": (2, 5.5), "shoulder_f": (7.5, 5.5)},
                   "right", "side", "a dwarf miner of Caer Dwfn with his pick (barony folk)"),
@@ -152,8 +127,6 @@ def folk(kind, root=source.DEFAULT_ROOT):
 
 
 def goblin(root=source.DEFAULT_ROOT):
-    """sprites.rs goblin_raw (no sack): the loot goblin, facing right, with his own
-    standing and two running leg drawings."""
     stand = source.goblin_rows(root, False)
     h, w = len(stand), len(stand[0])
     base = grid(stand, w, h)

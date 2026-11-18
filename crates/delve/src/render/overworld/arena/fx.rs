@@ -49,7 +49,6 @@ fn halos() -> &'static [Halo; 3] {
                         if i >= 60 {
                             return c;
                         }
-                        // Light can lift a shadow, but cannot erase a brighter figure.
                         nearest_plain(std::array::from_fn(|k| {
                             c[k].max(tint[k] * (level as u8 + 1) / 4) as f32
                         }))
@@ -68,12 +67,9 @@ fn halos() -> &'static [Halo; 3] {
         })
     })
 }
-/// A quiet halo below a crisp core. Signal pixels already drawn always win.
 pub(super) fn glow(cv: &mut Img, x: i32, y: i32, hue: Hue) {
     glow_within(cv, x, y, hue, 25);
 }
-/// `glow` held to dots within `reach2` (square pixels) of its middle: a
-/// small shot's halo is small (25 is the whole of it).
 pub(super) fn glow_within(cv: &mut Img, x: i32, y: i32, hue: Hue, reach2: i32) {
     let h = &halos()[hue as usize];
     for &(dx, dy, l) in h.dots.iter().filter(|d| d.0 * d.0 + d.1 * d.1 <= reach2) {
@@ -97,8 +93,6 @@ pub(super) enum Stamp {
     SulphurRim,
 }
 type Key = (Stamp, i32, i32, u8);
-/// Each radius/phase is authored once. Hits reuse sparse stamps instead of
-/// evaluating a radial ramp, noise or seven gas lobes for every frame.
 pub(super) fn stamp(kind: Stamp, rx: i32, ry: i32, phase: u8) -> Arc<Img> {
     static CACHE: OnceLock<Mutex<BTreeMap<Key, Arc<Img>>>> = OnceLock::new();
     let mut cache = CACHE.get_or_init(Default::default).lock().unwrap();
@@ -117,7 +111,6 @@ fn bake(kind: Stamp, rx: i32, ry: i32, phase: u8) -> Img {
             }
             let top = (y as f32 / ry.max(1) as f32 + x as f32 / rx.max(1) as f32 * 0.3) * 0.5;
             let ink = match kind {
-                // A held death flash retains the disc and its four held ticks.
                 Stamp::Death => {
                     if x == 0 && y == 0 {
                         '9'
@@ -131,7 +124,6 @@ fn bake(kind: Stamp, rx: i32, ry: i32, phase: u8) -> Img {
                         'S'
                     }
                 }
-                // Gas has a legible danger rim and low rolling lobe shading.
                 Stamp::Gas | Stamp::Sulphur | Stamp::GasWall | Stamp::SulphurWall => {
                     let green = matches!(kind, Stamp::Gas | Stamp::GasWall);
                     let nx = x as f32 / rx.max(1) as f32;
@@ -163,7 +155,6 @@ fn bake(kind: Stamp, rx: i32, ry: i32, phase: u8) -> Img {
                         's'
                     }
                 }
-                // Fireball, from a pin of ivory into amber and cool smoke.
                 Stamp::Fireball => {
                     if x == 0 && y == 0 && phase < 2 {
                         '9'
@@ -179,7 +170,6 @@ fn bake(kind: Stamp, rx: i32, ry: i32, phase: u8) -> Img {
                         'x'
                     }
                 }
-                // Soft flash through gas. The outer extent still follows its age.
                 Stamp::Flash => {
                     if phase >= 4 {
                         if d < 0.3 { 'N' } else { 's' }
@@ -203,8 +193,6 @@ fn bake(kind: Stamp, rx: i32, ry: i32, phase: u8) -> Img {
                         's'
                     }
                 }
-                // A wall's boundary is stamped after all its cloud bodies,
-                // so an overlapping neighbour cannot hide a danger disc.
                 Stamp::GasRim | Stamp::SulphurRim => {
                     if d < 0.72 {
                         continue;
@@ -217,7 +205,6 @@ fn bake(kind: Stamp, rx: i32, ry: i32, phase: u8) -> Img {
                         'C'
                     }
                 }
-                // Glowing embers are quiet and grouped underneath the flames.
                 Stamp::Embers => {
                     if d < 0.3 {
                         'o'
@@ -233,8 +220,6 @@ fn bake(kind: Stamp, rx: i32, ry: i32, phase: u8) -> Img {
     }
     im
 }
-/// Render-authored icons retain custom card art; familiar kit glyphs get
-/// round volumes and a selective warm/cool rim inside their existing well.
 pub(super) fn icon(rows: &[&str]) -> Img {
     static ICONS: OnceLock<Mutex<BTreeMap<String, Img>>> = OnceLock::new();
     let key = rows.join("/");

@@ -1,10 +1,5 @@
 'use strict';
-// Test only. With `?offline`, a test build (crates/web/testgame) plays
-// without a host: this fake socket talks to the loopback server compiled
-// into the same wasm (`loopback_*` exports). `?offline=80` delays every
-// message 80 ms each way. A real game has no loopback and the page says so.
 
-/* exported makeLoopback */
 function makeLoopback(x, delayMs) {
   x.loopback_open(delayMs);
   const sock = {
@@ -22,7 +17,6 @@ function makeLoopback(x, delayMs) {
     close() {
       sock.readyState = 3;
     },
-    // Called each frame: run the server to now, deliver what has arrived.
     pump(now) {
       if (sock.readyState !== 1) return;
       const n = x.loopback_take(now);

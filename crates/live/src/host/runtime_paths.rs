@@ -12,28 +12,18 @@
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-/// What the cockpit's build knows about where it ran.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BuildPaths {
-    /// The cockpit crate's source folder (`ANGEL_SOURCE_COCKPIT_DIR`), absent
-    /// in a portable build so no shipped binary carries the builder's folders.
     pub source_cockpit_dir: Option<&'static str>,
-    /// The release resource identity (`ANGEL_BUILD_RESOURCE_SHA256`), or
-    /// `"unbound"` when the build has none.
     pub bundle_identity: &'static str,
 }
 
 static BUILD: OnceLock<BuildPaths> = OnceLock::new();
 
-/// Record the cockpit's build paths. The first call wins and later calls are
-/// no-ops, so the cockpit can install from every entry point. Returns whether
-/// this call installed them.
 pub fn install(build: BuildPaths) -> bool {
     BUILD.set(build).is_ok()
 }
 
-/// The source tree the installing build ran in. `None` before [`install`] and
-/// in a portable build.
 pub fn source_cockpit_dir() -> Option<&'static Path> {
     BUILD
         .get()
@@ -41,8 +31,6 @@ pub fn source_cockpit_dir() -> Option<&'static Path> {
         .map(Path::new)
 }
 
-/// The release resource identity, `"unbound"` before [`install`] or when the
-/// build has none.
 pub fn bundle_identity() -> &'static str {
     BUILD.get().map_or("unbound", |build| build.bundle_identity)
 }
@@ -69,7 +57,6 @@ pub fn resolve_root(
             }
         }
     }
-    // A portable build has no source tree to fall back on.
     manifest.map_or_else(
         || PathBuf::from("."),
         |manifest| manifest.parent().unwrap_or(manifest).to_path_buf(),

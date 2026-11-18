@@ -23,8 +23,6 @@ fn every_wish_in_the_phrasebook_is_a_card_the_checker_takes_at_every_tier() {
             let card = wish
                 .card(tier)
                 .unwrap_or_else(|e| panic!("{} tier {tier}: {e}", wish.id));
-            // The identity start's weapons and magic are arms and spells
-            // (`identity`); every other stock wish is held.
             assert_eq!(card.kind.word(), wish.kind, "{}", wish.id);
             assert!(
                 !card.effects.is_empty() || card.arm.is_some() || card.ult.is_some(),
@@ -73,7 +71,6 @@ fn a_wish_climbs_its_ladder_and_stops_at_the_top() {
 #[test]
 fn wish_ids_fit_the_card_id_at_every_tier_without_losing_the_ladder_marker() {
     let id = "a".repeat(MAX_ID);
-    // Each tier gives more than the one below, as every ladder must.
     let tiers: String = (0..MAX_TIERS)
         .map(|t| format!("tier damage {} :: A gift.\n", 5 + 4 * t))
         .collect();
@@ -119,14 +116,12 @@ fn an_entry_may_carry_its_own_card_art() {
 fn a_creative_wish_goes_to_be_learned_not_to_the_nearest_stock_card() {
     let book = read(TEXT);
     let id = |said: &str| find_in(&book, said, &[]).map(|w| w.id);
-    // Words no stock phrase covers make a new thing.
     assert_eq!(id("golden spiky armor that explodes"), None);
     assert_eq!(id("spiky armor that spins around me"), None);
     assert_eq!(id("a bigger spiked shield"), None);
     assert_eq!(id("bigger spiked shield"), None);
     assert_eq!(id("armor that explodes"), None);
     assert_eq!(id("tiny golden devils that explode"), None);
-    // Stock wishes still land at once, filler and all.
     assert_eq!(id("armor"), Some("iron".into()));
     assert_eq!(id("give me some armor please"), Some("iron".into()));
     assert_eq!(id("spin around me"), Some("morningstar".into()));
@@ -150,13 +145,11 @@ fn a_tie_goes_to_the_learned_entry_and_a_full_ladder_is_passed_over() {
         Some("iron-pauldrons".into()),
         "the same cover: the learned entry"
     );
-    // Holding the learned one in full, the stock one is found.
     let full = vec![learned.card_id(0)];
     assert_eq!(
         find_in(&book, "armor", &full).map(|w| w.id),
         Some("iron".into())
     );
-    // Holding both in full, nothing is.
     let iron = book.iter().find(|w| w.id == "iron").unwrap();
     let both = vec![learned.card_id(0), iron.card_id(4)];
     assert_eq!(find_in(&book, "armor", &both), None);
@@ -201,7 +194,6 @@ fn bad_sprite_rows_and_unresolved_sheets_reject_the_whole_wish() {
 
 #[test]
 fn every_stock_wish_draws_its_own_art_from_the_game_itself() {
-    // Built in: no file on disk is read for it.
     for wish in read(TEXT) {
         assert!(art_for(&wish.id).is_some(), "{}", wish.id);
     }
@@ -220,7 +212,6 @@ fn a_wish_dresses_its_cards_and_a_tier_may_grow_the_look() {
     let last = iron.card(2).unwrap();
     let spiked = last.looks.worn.as_ref().unwrap();
     assert!(spiked.frames[0].concat().contains('W'), "spiked at the top");
-    // A learned devil swarm: a spell that summons, in its own look.
     let book = read(
         "wish golden-devils | Golden Devils\nkind spell\nsay tiny golden devils that explode | devil swarm\ntier summon 2 swarm; cooldown 8 :: Two devils.\ntier summon 4 swarm; cooldown 16 :: Four devils.\ndraw summon\n.5.|5.5\n555|555\n",
     );
@@ -236,8 +227,6 @@ fn a_wish_dresses_its_cards_and_a_tier_may_grow_the_look() {
 
 #[test]
 fn the_stock_ladders_climb_within_their_caps() {
-    // Every tier of every stock wish gives more than the one below it, and
-    // none promises past what wishes may give.
     for wish in read(TEXT) {
         let mut last = None;
         for tier in 0..wish.tiers.len() {
@@ -250,10 +239,7 @@ fn the_stock_ladders_climb_within_their_caps() {
                     _ => 0,
                 })
                 .sum();
-            // Its knight holds every family (`combos`): the super words count.
             let kit = cards::check("wish-kit-1", "name Kit\nkind hold\ntext frog bullet storm fire shadow corn gun mail fast\nspeed 5\n").unwrap().card;
-            // A weapon's ladder climbs in its runes and a spell's in its
-            // recharge and what it casts (`identity`'s Bright Blade, Firebolt).
             let bonus = (
                 cards::Bonus::of([&kit, &card]),
                 hp,
@@ -282,7 +268,6 @@ fn the_stock_ladders_climb_within_their_caps() {
     }
 }
 
-/// A learned wish, drawn as `art`.
 fn learned_wish(art: &str) -> Wish {
     let text = format!(
         "{LEARNED}\nwish heavy-hits | Heavy Hits\nsay heavy hits\ntier damage 20; velocity 30 :: Hit harder.\ntier damage 25 :: Harder.\nart\n{art}\n"
@@ -345,9 +330,6 @@ fn a_crude_spell_waits_longer_and_calls_fewer() {
 fn every_wish_of_the_last_game_checks_at_every_grade_it_earns() {
     let text = include_str!("fixtures/last_game_phrasebook.txt");
     let (book, errors) = read_checked(&format!("{LEARNED}\n{text}"));
-    // The one the live game's checker turned away then (a guard's `empower`
-    // on its own line) is still turned away; the rest that are, are turned
-    // away for a ladder that does not climb past what wishes give.
     assert!(
         errors.iter().all(|e| e.contains("blocking-bullets")
             || e.contains("more than wishes ever give")
@@ -364,7 +346,6 @@ fn every_wish_of_the_last_game_checks_at_every_grade_it_earns() {
 fn a_wish_not_safe_for_work_is_turned_away_and_none_ships() {
     let rude = "wish rude-bullets | Rude Bullets\nsay butt bullets | shit bullets\ntier homing 1 :: They seek.\ntier homing 2 :: Harder.\n";
     let (book, errors) = read_checked(rude);
-    // A public build has no private table: every wish stays safe for work.
     #[cfg(not(private_table))]
     assert!(
         book.is_empty()
@@ -373,9 +354,6 @@ fn a_wish_not_safe_for_work_is_turned_away_and_none_ships() {
                 .any(|e| e.contains("`shit` is not for this game")),
         "{errors:?}"
     );
-    // Dev's private table grants a rude ask as asked (`private_table`,
-    // 028003d68); only its slurs are turned away. The slur is the one word
-    // of the table's own rot13 list, so no source file here spells it.
     #[cfg(private_table)]
     {
         assert_eq!(book.len(), 1, "{errors:?}");
@@ -396,10 +374,8 @@ fn a_wish_not_safe_for_work_is_turned_away_and_none_ships() {
             "{errors:?}"
         );
     }
-    // Toilet humour is the game's own.
     let (book, errors) = read_checked(&rude.replace(" | shit bullets", " | fart bullets"));
     assert_eq!(book.len(), 1, "{errors:?}");
-    // Nothing the game ships, nor the play-test kept for its tests, says one.
     for (name, text) in [
         ("the delve's phrasebook", TEXT),
         (
@@ -417,8 +393,6 @@ fn a_wish_not_safe_for_work_is_turned_away_and_none_ships() {
     }
 }
 
-/// The last game's wishes, graded: score, grade and each picture's marks.
-/// `cargo test -p angel-delve --lib grade_census -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn grade_census() {
@@ -442,9 +416,6 @@ fn every_stock_wish_climbs_its_ladder_by_the_checker() {
 
 #[test]
 fn a_tier_no_better_than_the_one_below_is_turned_away_by_name() {
-    // The last game's Mirror Copies: tiers 2 and 3 call two turrets, and
-    // the game raises both cooldowns to 20s, so "they answer you sooner"
-    // gave nothing.
     let (book, errors) = read_checked(&format!(
         "{LEARNED}\nwish mirror-copies | Mirror Copies\nkind spell\nsay mirror clones\n\
 tier summon 1 turret; cooldown 14 :: A mirror copy of you stands and looses your bolts.\n\
@@ -458,7 +429,6 @@ tier summon 2 turret; cooldown 10 :: Two mirror copies, and they answer you soon
             && errors.contains("cooldown raised to 20s"),
         "{errors}"
     );
-    // A shorter cooldown that the game keeps is more.
     let (book, errors) = read_checked(
         "wish mirrors | Mirrors\nkind spell\nsay mirrors\ntier summon 2 turret; cooldown 30 :: Two.\ntier summon 2 turret; cooldown 20 :: Sooner.\n",
     );
@@ -467,7 +437,6 @@ tier summon 2 turret; cooldown 10 :: Two mirror copies, and they answer you soon
 
 #[test]
 fn a_tier_past_what_wishes_give_is_turned_away() {
-    // Twin Fletch III promised three arrows; wishes give one more at most.
     let (book, errors) = read_checked(
         "wish twin-fletch | Twin Fletch\nsay twin fletch\ntier shots 1 :: Two arrows.\ntier shots 1; velocity 20 :: Faster.\ntier shots 2; velocity 30 :: Three arrows.\n",
     );
@@ -477,7 +446,6 @@ fn a_tier_past_what_wishes_give_is_turned_away() {
         errors.contains("wish twin-fletch tier 3: shots 2") && errors.contains("shots 1 at most"),
         "{errors}"
     );
-    // A chain repeated is fine while the tier adds something else.
     let (book, errors) = read_checked(
         "wish bolts | Bolts\nsay bolts\ntier chain 1 :: Sparks.\ntier chain 1; velocity 20 :: Faster.\n",
     );
@@ -511,17 +479,12 @@ tier cast meteor; cooldown 9 :: A meatball.\ntier cast meteor; cooldown 7; nova 
         id("increase meatball size", &held),
         Some("large-meatball-spell".into())
     );
-    // Holding none of it, the words are as before: a new thing to learn.
     assert_eq!(id("upgrade my pasta armor", &[]), None);
     assert_eq!(id("increase meatball size", &[]), None);
-    // Upgrade words for nothing held fall through to the stock wishes.
     assert_eq!(id("stronger shots", &held), Some("heavy".into()));
     assert_eq!(id("more shots", &held), Some("twin".into()));
 }
 
-/// A wish said by its own name, or asked up a tier by name with the tier
-/// said back, is the wish the book has: it was learned again three times
-/// over as three different "Permanent Mirrors" (2026-10-23).
 #[test]
 fn a_wish_said_by_its_name_or_upgraded_by_name_is_the_one_held() {
     let book = read(&format!(
@@ -530,7 +493,6 @@ tier armor 1 :: One mirror.\ntier armor 2 :: Two mirrors.\ntier armor 2; max_hp 
     ));
     let mirror = book.iter().find(|w| w.id == "permanent-mirrors").unwrap();
     let mirrors = |said: &str, deck: &[String]| find_in(&book, said, deck).map(|w| w.id);
-    // Its name alone finds it, held or not.
     assert_eq!(
         mirrors("Permanent Mirrors", &[]).as_deref(),
         Some("permanent-mirrors")
@@ -540,7 +502,6 @@ tier armor 1 :: One mirror.\ntier armor 2 :: Two mirrors.\ntier armor 2; max_hp 
         mirrors("permanent mirrors", &held).as_deref(),
         Some("permanent-mirrors")
     );
-    // An upgrade by name, with the tier said back, is that wish too.
     for said in [
         "Upgrade my Permanent Mirrors 1",
         "upgrade permanent mirrors II",
@@ -552,17 +513,12 @@ tier armor 1 :: One mirror.\ntier armor 2 :: Two mirrors.\ntier armor 2; max_hp 
             "{said}"
         );
     }
-    // A new thing that only shares a word is not it.
     assert_ne!(
         mirrors("mirror armor that reflects fire", &held).as_deref(),
         Some("permanent-mirrors")
     );
 }
 
-/// Every stock ladder of more than one tier runs to the fifth (the
-/// operator, 2026-10-28: "we want to expand to level 5 on the items"), its
-/// fourth and fifth each a real climb: more of a word, or a word more,
-/// within what wishes give (`the_stock_ladders_climb_within_their_caps`).
 #[test]
 fn the_stock_ladders_run_to_the_fifth_tier() {
     let book = read(TEXT);
@@ -574,18 +530,13 @@ fn the_stock_ladders_run_to_the_fifth_tier() {
         for tier in 0..MAX_TIERS {
             let card = wish.card(tier).unwrap();
             assert!(card.name.ends_with(["I", "II", "III", "IV", "V"][tier]), "{}", card.name);
-            // The new tiers' lines are whole on the card, never cut.
             let says = &wish.tiers[tier].1;
             assert!(tier < 3 || says.chars().count() <= cards::MAX_TEXT, "{} tier {}: {says}", wish.id, tier + 1);
         }
     }
-    // One-tier wishes (the ultimates, the arms, the plain frame) stay so.
     assert!(book.iter().filter(|w| w.tiers.len() == 1).all(|w| w.kind == "arm" || w.card(0).unwrap().ult.is_some() || w.id == "plain-frame"));
 }
 
-/// A long ladder's cards: the first common, those between rare, the fourth
-/// and fifth relic (the checker's top rarity: the fifth's own mark is on its
-/// picture). A ladder of three keeps its third relic.
 #[test]
 fn a_long_ladders_high_tiers_are_relics() {
     let ricochet = get("ricochet").unwrap();
@@ -597,7 +548,6 @@ fn a_long_ladders_high_tiers_are_relics() {
     assert_eq!(rarities, vec![Common, Rare, Relic]);
 }
 
-/// A learned wish of the last game, written to three tiers.
 fn learned_three(entry: &str) -> (Vec<Wish>, Vec<String>) {
     read_checked(&format!("{LEARNED}\n{entry}"))
 }
@@ -606,11 +556,6 @@ const BIGGER_ARROWS: &str = "wish bigger-arrows | Bigger Arrows\nsay bigger arro
 tier size 1 :: Your arrows are bigger.\ntier size 2 :: Bigger again.\ntier size 2; knock 1 :: Huge arrows that shove.\n\
 draw shot\n.2.......jW.\n22ooooooojWW\n.2.......jW.\n";
 
-/// A learned ladder written to three tiers climbs on to the fifth by rule:
-/// a line raised a step where it can be, a small extra word where nothing
-/// can, each tier checked and more than the one below, never past what
-/// wishes give. The same words climb the same way every time they are
-/// read, and its source is never written past what it said.
 #[test]
 fn a_learned_three_tier_ladder_climbs_on_to_the_fifth_by_rule() {
     let (book, errors) = learned_three(BIGGER_ARROWS);
@@ -628,27 +573,18 @@ fn a_learned_three_tier_ladder_climbs_on_to_the_fifth_by_rule() {
         }
     }
     assert!(arrows.ladder_fault().is_none());
-    // Pure: read again, or from its own source, it is the same ladder.
     assert_eq!(learned_three(BIGGER_ARROWS).0, book);
     let source = arrows.definition_file();
     assert_eq!(source.matches("\ntier ").count(), 3, "only what was written:\n{source}");
     assert_eq!(read(&source), book);
     assert_eq!(arrows.written().tiers.len(), 3);
     assert!(super::super::wish_jobs::valid_wish(arrows));
-    // Captured before ladders climbed (an old save's open scroll), the
-    // ladder as written is still its own source's.
     assert!(super::super::wish_jobs::valid_wish(&arrows.written()));
-    // The delve's own, and a learned ladder written whole, are as written.
     assert!(read(TEXT).iter().all(|w| w.derived == 0));
     let whole = format!("{LEARNED}\n{}", get("ricochet").unwrap().definition_file());
     assert_eq!(read(&whole)[0].derived, 0);
 }
 
-/// Each kind climbs in its own numbers: a spell's recharge sooner, a
-/// summons one more (its recharge raised to match), a wall wider, a
-/// weapon's runes harder, a held word to what wishes give and then a word
-/// beside it. What cannot climb at all (a shield, a plain bow, a ladder of
-/// one or two) stays as written.
 #[test]
 fn every_kind_of_learned_ladder_climbs_in_its_own_numbers() {
     let climbed = |entry: &str| {
@@ -666,17 +602,12 @@ fn every_kind_of_learned_ladder_climbs_in_its_own_numbers() {
     assert_eq!(club[3..], ["melee damage=36 reach=2 arc=90 every=20", "melee damage=41 reach=2 arc=90 every=20"]);
     let speed = climbed("wish zoom | Zoom\nsay zoom zoom\ntier speed 5 :: Zoom.\ntier speed 8 :: Zoomier.\ntier speed 12 :: Zoomiest.\n");
     assert_eq!(speed[3..], ["speed 16", "speed 20"]);
-    // A shield has no number to raise: its ladder stays at three.
     let (book, _) = learned_three("wish turtle | Turtle\nkind guard\nsay turtle\ntier guard roll :: Roll.\ntier guard shield :: Shield.\ntier guard spin :: Spin.\n");
     assert_eq!((book[0].tiers.len(), book[0].derived), (3, 0));
-    // A ladder of two, or one, is as it was written.
     let (book, _) = learned_three("wish two-step | Two Step\nsay two step\ntier rate 5 :: One.\ntier rate 10 :: Two.\n");
     assert_eq!(book[0].tiers.len(), 2);
 }
 
-/// A learned ladder the painter dressed past its written top (`draw worn
-/// paint=… 5`, painted for the climbed fifth) still reads: its looks are
-/// counted against the ladder it climbs to.
 #[test]
 fn a_look_painted_for_a_climbed_tier_reads_with_its_ladder() {
     let entry = format!("{BIGGER_ARROWS}\ndraw shot 5\n.5.......jW.\n55ooooooojWW\n.5.......jW.\n");
@@ -686,10 +617,6 @@ fn a_look_painted_for_a_climbed_tier_reads_with_its_ladder() {
     assert_eq!(read(&book[0].definition_file()), book, "and writes back as it was read");
 }
 
-/// A learned entry as the genie's model writes it on its own: its `vfx`
-/// lines said for the whole wish, outside any tier. It reads, and every
-/// tier that names no recipe of its own carries them (2026-11-05: such
-/// answers were turned away as "unknown line `vfx`").
 #[test]
 fn a_wish_wide_vfx_line_is_every_tiers_recipe() {
     let text = "wish rotten-fish-stench | Rotten Fish Stench\n\
@@ -708,7 +635,6 @@ fn a_wish_wide_vfx_line_is_every_tiers_recipe() {
     assert!(top.looks.vfx.layers[0].line().contains("ring"), "{:?}", top.looks.vfx.layers[0].line());
 }
 
-/// A `vfx` line right after an `art` block ends the block; it is not a row.
 #[test]
 fn a_vfx_line_ends_an_art_block() {
     let text = "wish glow | Glow\nsay glow\nart\n..YY..\n.YYYY.\nvfx aura flies poop count=4\ntier damage 5 :: Glows.\n";
@@ -717,8 +643,6 @@ fn a_vfx_line_ends_an_art_block() {
     assert_eq!(book[0].art.len(), 2, "{:?}", book[0].art);
 }
 
-/// "Ice waves", "lava burst", "frost nova": a wish for an area spell is a spell of area casts, never a
-/// bolt, and its ladder climbs by size and a sooner recharge like any other spell's.
 #[test]
 fn an_area_spell_wish_climbs_by_size_and_a_sooner_recharge() {
     use crate::rules::cards::{Area, Effect, Element, Form};
@@ -738,13 +662,11 @@ tier cast wave frost 3; cooldown 10 :: A great freezing wave.\n",
     assert_eq!(sizes.len(), 5, "and the ladder is climbed to five");
     let waits: Vec<u32> = (0..5).map(|tier| book[0].card(tier).unwrap().cooldown).collect();
     assert!(waits.windows(2).all(|w| w[1] <= w[0]) && waits[4] < waits[0], "ever sooner: {waits:?}");
-    // The same ladder that stays at one size must still climb, by recharge.
     let (book, errors) = learned_three(
         "wish lava-burst | Lava Burst\nkind spell\nsay lava burst | an eruption\n\
 tier cast burst fire; cooldown 14 :: A hot burst.\ntier cast burst fire; cooldown 11 :: Sooner.\ntier cast burst fire; cooldown 8 :: Sooner still.\n",
     );
     assert!(errors.is_empty(), "{errors:?}");
     let waits: Vec<u32> = (0..5).map(|tier| book[0].card(tier).unwrap().cooldown).collect();
-    // (A plain picture grades the numbers, so the wait is longer than written; the climb is the same.)
     assert!(waits.windows(2).all(|w| w[1] <= w[0]) && waits[4] < waits[2], "{waits:?}");
 }

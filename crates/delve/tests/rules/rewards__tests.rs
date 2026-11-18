@@ -16,14 +16,12 @@ fn tick(run: &mut Run, n: u32) {
     }
 }
 
-/// Two knights in a cleared fight room of the first floor, looked at once.
 fn party() -> Run {
     let mut run = Run::new(3, 1, Some("Ada"));
     let room = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight).unwrap();
     run.enter_for_test(room);
     run.clear_for_test();
     run.floor_plates.clear();
-    // What the clearing fell for is left out: each test marks its own.
     run.marks.clear();
     tick(&mut run, 1);
     run.rewards.steps.clear();
@@ -40,7 +38,6 @@ fn a_level_reached_is_cheered_once_and_the_realm_settling_it_cheers_nothing() {
     assert_eq!(steps(&run), [(1, Kind::Level { level: 2 }), (2, Kind::Level { level: 2 })]);
     tick(&mut run, 5);
     assert_eq!(run.rewards.steps.len(), 2, "once");
-    // The realm takes the marks and hands its home back: the same level.
     let key = talents::knight_key(&run.players[&1]);
     run.marks.remove("xp");
     run.home.knights.insert(key, talents::Prowess { xp: talents::LEVELS[0], learned: Vec::new() });
@@ -50,7 +47,6 @@ fn a_level_reached_is_cheered_once_and_the_realm_settling_it_cheers_nothing() {
     assert_eq!(run.rewards.steps.len(), 2, "the settled level is the same level");
     let earned = &run.ledger.earned[&1];
     assert_eq!((earned.from_level, earned.level, earned.xp), (1, 2, talents::LEVELS[0]));
-    // It plays its length and is let go.
     tick(&mut run, 90);
     assert!(run.rewards.steps.is_empty());
 }
@@ -66,7 +62,6 @@ fn a_tier_climbed_is_a_step_and_a_super_wish_is_one_step_of_two_tiers() {
     assert_eq!(steps(&run), [(1, Kind::Tier { wish: volley.name.clone(), from: 0, tier: 1 })]);
     tick(&mut run, 80);
     assert!(steps(&run).is_empty());
-    // A super wish: two steps of the ladder at once, one moment.
     let seeker = phrasebook::get("seeker").unwrap();
     run.wish(1, &seeker).unwrap();
     let hero = run.players.get_mut(&1).unwrap();
@@ -110,7 +105,6 @@ fn a_floor_deeper_than_the_realm_has_been_is_a_record_and_each_knight_climbs_a_r
     assert_eq!(steps(&run), [(0, Kind::Record { floor: 3 })]);
     assert!(run.ledger.record && run.ledger.deepest == 3);
     assert!(run.road().contains(&Road::Record { floor: 3 }));
-    // A knight's own moment waits for the party's banner.
     run.descend_for_test();
     tick(&mut run, 1);
     let record = run.rewards.steps.iter().find(|s| s.knight == 0).unwrap().at;
@@ -164,7 +158,6 @@ fn the_sky_takes_a_star_for_every_wish_and_a_whole_constellation_leaves_a_gift()
     assert_eq!(run.home.sky.gift, GIFT);
     assert!(steps(&run).contains(&(0, Kind::Lit { index: 0, by: "Ada".into() })));
     assert_eq!(run.road().last(), Some(&Road::Sky { index: 1, placed: 0, size: 14, gift: true }));
-    // The realm keeps it through the host's settlement, as the privy wall.
     let mut journal = Journal::new("session-a".into(), run.raid_id);
     let claim = journal.claim_home(&mut run).unwrap().expect("the run has home news");
     let (mut realm, mut treasury) = (home::Home::default(), crate::realm::Spoils::default());
@@ -177,7 +170,6 @@ fn the_sky_takes_a_star_for_every_wish_and_a_whole_constellation_leaves_a_gift()
     .unwrap();
     assert!(result.changed);
     assert_eq!(result.home.sky, run.home.sky);
-    // The next delve from that realm: a wish more each, once.
     let mut next = Run::at_home(5, 3, Some("Ada"), result.home.clone(), Default::default());
     tick(&mut next, 1);
     next.descend_for_test();
@@ -213,7 +205,6 @@ fn what_is_next_for_a_knight() {
     assert_eq!(ahead[1], Next::Rung { px: 32, at: Climb::Floor(2) });
     assert_eq!(ahead[0].line(), "LV 3 IN 100 XP");
     assert_eq!(ahead[1].line(), "32 PX AT FLOOR 2");
-    // A lesson earned and not taken; the best wish's next tier.
     run.home.knights.insert(key, talents::Prowess { xp: 6000, learned: vec![0, 1] });
     run.ledger.earned.entry(1).or_default().best = Some(("Volley".into(), 2));
     let ahead = run.ahead(1);
@@ -221,15 +212,12 @@ fn what_is_next_for_a_knight() {
     assert_eq!(ahead[1], Next::Lessons(2));
     assert_eq!(ahead.last().unwrap(), &Next::Tier { wish: "Volley".into(), tier: 3, floor: Some(2) });
     assert_eq!(ahead.last().unwrap().line(), "TIER IV AT FLOOR 2");
-    // A wish at its top has no tier ahead.
     run.ledger.earned.get_mut(&1).unwrap().best = Some(("Volley".into(), 4));
     assert!(!run.ahead(1).iter().any(|n| matches!(n, Next::Tier { .. })));
-    // The last level has no level ahead.
     let top = *talents::LEVELS.last().unwrap();
     let all = vec![0; talents::LESSONS.len()];
     run.home.knights.insert(talents::knight_key(&run.players[&1]), talents::Prowess { xp: top, learned: all });
     assert_eq!(run.ahead(1)[0], Next::TopLevel);
-    // Every line fits the road ahead's column.
     for n in run.ahead(1) {
         assert!(n.line().len() <= 24, "{}", n.line());
     }
@@ -296,7 +284,6 @@ fn an_old_run_and_realm_write_nothing_new() {
     assert!(!saved.contains("\"rewards\""));
     let realm = serde_json::to_string(&home::Home::default()).unwrap();
     assert!(!realm.contains("\"sky\""));
-    // A garbled sky never costs the realm.
     let mut garbled: serde_json::Value = serde_json::from_str(&realm).unwrap();
     garbled["sky"] = serde_json::json!({"stars": "many"});
     let back: home::Home = serde_json::from_value(garbled).unwrap();
@@ -324,7 +311,6 @@ fn the_ledger_stays_on_the_host_until_the_run_ends_and_then_goes_to_every_seat()
     assert!(tree.field("ledger").is_none(), "it plays nothing on a seat");
     let seat = crate::wire::read(&tree).unwrap();
     assert!(seat.ledger_shown().quiet());
-    // The run falls: its last results carry the ledger to every seat.
     for hero in run.players.values_mut() {
         hero.hp = 0;
         (hero.winds, hero.talisman) = (0, false);
@@ -344,11 +330,9 @@ fn each_step_lands_with_its_sound_once() {
     tick(&mut run, 1);
     let count = |run: &Run| run.sounds.iter().filter(|s| **s == "level_up").count();
     assert_eq!(count(&run), 2, "one for each knight: {:?}", run.sounds);
-    // The host takes a tick's sounds as it plays them.
     run.sounds.clear();
     tick(&mut run, 3);
     assert_eq!(count(&run), 0, "once");
-    // A step put off behind another sounds when its own moment comes.
     let mut run = party();
     run.marks.insert("xp".into(), talents::LEVELS[0]);
     run.players.get_mut(&1).unwrap().wishes = 2;
@@ -380,7 +364,6 @@ fn the_rung_is_the_resolution_ladders() {
     let mut run = party();
     assert_eq!(rung_px(&run, 1), crate::rules::resolution::rung(&run, 1).px());
     assert_eq!(next_rung(&run, 1), Some((32, Climb::Floor(2))));
-    // One rung for everyone: no climb, and nothing ahead on the ladder.
     crate::rules::resolution::set_rule(Some(crate::rules::resolution::Rule::Fixed(crate::rules::resolution::Rung::of(64).unwrap())));
     let mut run = party();
     run.descend_for_test();

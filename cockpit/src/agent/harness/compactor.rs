@@ -31,28 +31,18 @@ use super::book::st_connected::{
 use super::context::{cap_text, env_flag};
 use crate::agent::club::{ChatMsg, Club};
 
-/// Ceiling on one digest as it rides the receipt: an eighth of the eager
-/// offload floor it stands in for.
 const DIGEST_MAX_BYTES: usize = 2 * 1024;
 
-/// First line of a hand-off receipt (see `exec::HandedOff::receipt`).
 pub(crate) const HANDOFF_RECEIPT_MARK: &str = "[handoff: job ";
 
-/// Whether the lane digests parked bulk. Treebeard only; `ANGEL_TREEBEARD_DIGEST=0`
-/// keeps bare receipts.
 pub(crate) fn enabled() -> bool {
     super::lane::is_treebeard() && env_flag("ANGEL_TREEBEARD_DIGEST", true)
 }
 
-/// Most digests one hop starts; the rest keep bare receipts. Shares the
-/// summarizer's fan-out width (`ANGEL_COMPACT_FANOUT`): it is the same helper.
 pub(crate) fn per_hop() -> usize {
     crate::agent::compaction::fanout_width()
 }
 
-/// The compactor for a turn on `in_hand`, or `None` when the lane keeps bare
-/// receipts: the explicit compaction helper, else a reachable local utility
-/// club when the in-hand driver is paid or a fan-out.
 pub(crate) fn compactor(in_hand: &dyn Club, aux: &[Arc<dyn Club>]) -> Option<Arc<dyn Club>> {
     if !enabled() {
         return None;
@@ -60,9 +50,6 @@ pub(crate) fn compactor(in_hand: &dyn Club, aux: &[Arc<dyn Club>]) -> Option<Arc
     helper(in_hand, aux)
 }
 
-/// The seat that reads a handed-off job: the same helper as the compactor,
-/// in any lane. `None` (no helper, or only the in-hand driver) leaves the
-/// hand-off receipt with its raw facts.
 pub(crate) fn overseer(in_hand: &dyn Club, aux: &[Arc<dyn Club>]) -> Option<Arc<dyn Club>> {
     helper(in_hand, aux)
 }
@@ -77,28 +64,20 @@ fn helper(in_hand: &dyn Club, aux: &[Arc<dyn Club>]) -> Option<Arc<dyn Club>> {
     None
 }
 
-/// What a digest reads: a parked output, or a handed-off job.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Reading {
     Parked,
     Handoff,
 }
 
-/// One digest in flight, for the tool message at `index` (its receipt) and
-/// named by `label` (the handle, or the job) should it land after that
-/// receipt was sent.
 pub(crate) struct Digesting {
     index: usize,
     label: String,
     reading: Reading,
     reply: mpsc::Receiver<Result<String, String>>,
-    /// An answer already taken off `reply` (see [`settle`]).
     answer: Option<Result<String, String>>,
 }
 
-/// Start digesting `body` (the output parked for `identity` under the handle
-/// `label`) on its own thread. The seat reads `⡌⠁`; the call and the output
-/// ride beside it as data, bounded by the summarizer's per-call ceiling.
 pub(crate) fn start(
     helper: &Arc<dyn Club>,
     workspace: PathBuf,
@@ -116,8 +95,6 @@ pub(crate) fn start(
     spawn(helper, workspace, index, label, Reading::Parked, prompt)
 }
 
-/// Start reading a handed-off job (`label`, e.g. `job 7`) from the facts its
-/// receipt carries. The seat reads `⡌⠑`; the facts ride beside it as data.
 pub(crate) fn start_handoff(
     helper: &Arc<dyn Club>,
     workspace: PathBuf,
@@ -145,8 +122,6 @@ fn spawn(
     let (send, reply) = mpsc::channel();
     let helper = Arc::clone(helper);
     let book_catalog = super::book::catalog::current();
-    // A thread that cannot spawn drops `send`; that reads as a miss. Nobody
-    // joins these threads: one still running at exit never holds the process.
     let _ = std::thread::Builder::new()
         .name("treebeard-digest".into())
         .spawn(move || {
@@ -169,27 +144,20 @@ fn spawn(
     }
 }
 
-/// The job a tool result handed to the background (`job 7`), when it is a
-/// hand-off receipt.
 pub(crate) fn handoff_job(content: &str) -> Option<String> {
     let rest = content.trim_start().strip_prefix(HANDOFF_RECEIPT_MARK)?;
     let id: String = rest.chars().take_while(char::is_ascii_digit).collect();
     (!id.is_empty()).then(|| format!("job {id}"))
 }
 
-/// What a set of digests came to.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Landed {
     pub(crate) landed: usize,
     pub(crate) missed: usize,
-    /// Still in flight, carried forward.
     pub(crate) rolling: usize,
-    /// Bytes the landed digests added to root history.
     pub(crate) bytes: usize,
 }
 
-/// A digest's answer if it has one now: `Some(Ok)` landed, `Some(Err)` a miss
-/// (failed, empty, or its thread gone), `None` still in flight. Never waits.
 fn poll(digesting: &mut Digesting) -> Option<Result<String, ()>> {
     let answer = match digesting.answer.take() {
         Some(answer) => answer,
@@ -205,8 +173,6 @@ fn poll(digesting: &mut Digesting) -> Option<Result<String, ()>> {
     }
 }
 
-/// Block until every digest in `pending` has its answer (tests only: the
-/// harness itself never waits on one).
 #[cfg(test)]
 pub(crate) fn settle(pending: &mut [Digesting]) {
     for digesting in pending {
@@ -218,9 +184,6 @@ pub(crate) fn settle(pending: &mut [Digesting]) {
     }
 }
 
-/// Attach every digest of this hop that has already landed to its receipt
-/// (the message is not yet sent, so this is cache-safe) and return the rest,
-/// still in flight, to roll forward. Never waits.
 pub(crate) fn attach_ready(
     history: &mut [ChatMsg],
     pending: Vec<Digesting>,
@@ -247,9 +210,6 @@ pub(crate) fn attach_ready(
     (out, rolling)
 }
 
-/// Append every rolling digest that has landed since at the tail of
-/// `history`, one Harness note each, named by its handle or job; keep the
-/// rest rolling. Never waits; nothing already sent is rewritten.
 pub(crate) fn drain_late(history: &mut Vec<ChatMsg>, rolling: &mut Vec<Digesting>) -> Landed {
     let mut out = Landed::default();
     let mut still = Vec::new();
@@ -270,8 +230,6 @@ pub(crate) fn drain_late(history: &mut Vec<ChatMsg>, rolling: &mut Vec<Digesting
     out
 }
 
-/// The digest as data: its braille broken so nothing it quotes reads as a
-/// harness route, capped at [`DIGEST_MAX_BYTES`].
 fn data(text: &str) -> String {
     let text = text.trim();
     let mut data = String::with_capacity(text.len());
@@ -284,8 +242,6 @@ fn data(text: &str) -> String {
     cap_text(&data, DIGEST_MAX_BYTES, 0).to_string()
 }
 
-/// The digest as it rides its receipt: framed by `⡌⠃` (a parked output) or
-/// `⡌⠋` (a handed-off job).
 fn render(reading: Reading, text: &str) -> String {
     let frame = match reading {
         Reading::Parked => COMPACTOR_DIGEST,
@@ -294,8 +250,6 @@ fn render(reading: Reading, text: &str) -> String {
     format!("\n{}\n{}", frame.cells(), data(text))
 }
 
-/// A digest that landed after its receipt was sent: `⡌⠉` (or `⡌⠋`) with the
-/// handle (or job) beside the route, then the digest.
 fn render_late(reading: Reading, label: &str, text: &str) -> String {
     let frame = match reading {
         Reading::Parked => COMPACTOR_LATE,

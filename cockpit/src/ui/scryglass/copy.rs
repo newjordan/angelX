@@ -37,8 +37,6 @@ impl Scryglass {
         match target {
             StageCopyTarget::Location => {
                 let text = if let Some(source) = card.source() {
-                    // Copy the requested identity without reopening/canonicalizing it.
-                    // Descriptor-bound source reads remain solely in the document loader.
                     if !source.path.is_absolute() {
                         return Err("Stage artifact has no absolute local path; reopen it".into());
                     }
@@ -79,8 +77,6 @@ impl Scryglass {
                         "remote page contents are not loaded; use /copy stage for the URL".into(),
                     );
                 }
-                // Reuse the exact bounded, sanitized preview and confined reader.
-                // request() is asynchronous and discards stale reads on card switches.
                 let document = self.document.request(card)?.ok_or_else(|| {
                     "Stage document is loading; retry /copy stage text when ready".to_string()
                 })?;

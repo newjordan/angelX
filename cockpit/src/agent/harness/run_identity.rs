@@ -13,8 +13,6 @@ pub(crate) struct StaticIdentity {
 }
 
 impl StaticIdentity {
-    /// Bound means the binary was built from clean, committed source. It is
-    /// fixed at build time: a live-module edit made afterwards cannot unbind it.
     pub(crate) fn is_bound(&self) -> bool {
         self.cockpit_source_sha256.len() == 64
             && self
@@ -24,16 +22,12 @@ impl StaticIdentity {
     }
 }
 
-/// Source and output digests from a Bend leg's build receipt.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub(crate) struct BendBuild {
     pub source_digest: String,
     pub output_digest: String,
 }
 
-/// One active live-module generation. `digest` is the bundle's content address
-/// (it covers a Bend module's receipt file); `bend` names the receipt's source
-/// and output digests directly.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub(crate) struct LiveLeg {
     pub id: String,
@@ -41,14 +35,10 @@ pub(crate) struct LiveLeg {
     pub digest: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bend: Option<BendBuild>,
-    /// A rejected candidate; the generation above stays in force.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 
-/// The live-module generations a turn runs under. `sha256` covers each active
-/// leg's id, content digest and Bend digests, never generation counters or the
-/// directory path, so equal behavior hashes equal across runs.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub(crate) struct LiveSet {
     pub root: Option<String>,
@@ -66,7 +56,6 @@ impl LiveSet {
     pub(crate) fn new(root: Option<String>, mut legs: Vec<LiveLeg>) -> Self {
         legs.sort_by(|a, b| a.id.cmp(&b.id));
         let mut bytes = b"angel-live-set/v1".to_vec();
-        // A module that never activated (empty digest) runs no code.
         for leg in legs.iter().filter(|leg| !leg.digest.is_empty()) {
             let (source, output) = leg
                 .bend
@@ -102,8 +91,6 @@ impl LiveSet {
     }
 }
 
-/// Binary identity plus the active legs. A leg edit changes this and leaves the
-/// build fields (and whether the binary is bound) alone.
 pub(crate) fn combined_sha256(build: &StaticIdentity, live: &LiveSet) -> String {
     let mut text = String::from("angel-run-identity/v1");
     for part in [
@@ -135,23 +122,18 @@ pub(crate) struct Dataset {
 pub(crate) struct RunIdentity {
     #[serde(flatten)]
     pub build: StaticIdentity,
-    /// Sealed sandbox posture bound to the run (`None` on ordinary runs).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sandbox: Option<Value>,
     pub model: Model,
-    /// Exact wire controls, including an explicit `none` when no control is sent.
     pub effort: Value,
     pub dataset: Dataset,
     pub budgets: Value,
     pub verifier: Value,
-    /// Live-module generations this turn pinned (empty when no loader runs).
     #[serde(default)]
     pub live: LiveSet,
-    /// `combined_sha256` of the build and `live`: the key paired runs group by.
     #[serde(default)]
     pub combined_sha256: String,
     pub bound_at_ms: u64,
-    /// Original process provenance, retained when emitting the effective request.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial_request: Option<Box<RunIdentity>>,
 }
@@ -160,7 +142,6 @@ pub(crate) struct RunIdentity {
 pub(crate) struct Model {
     pub club: String,
     pub id: String,
-    /// Host, optional port, and path only: credentials/query/fragment omitted.
     pub base_url: String,
     pub driver: String,
 }
@@ -180,7 +161,6 @@ thread_local! {
     static TURN_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
-/// The loader's owner publishes the active generations whenever they change.
 pub(crate) fn publish_live(set: LiveSet) {
     *LIVE.lock().unwrap_or_else(|p| p.into_inner()) = Some(std::sync::Arc::new(set));
 }
@@ -194,13 +174,11 @@ fn published_live() -> std::sync::Arc<LiveSet> {
 
 pub(crate) fn reset_turn_identity() {
     TURN_ACTIVE.with(|slot| slot.set(true));
-    // A turn pins one generation of every leg; later edits apply to the next.
     TURN_LIVE.with(|slot| *slot.borrow_mut() = Some(published_live()));
     REQUEST_IDENTITY.with(|slot| slot.borrow_mut().take());
     TURN_IDENTITY.with(|slot| slot.borrow_mut().take());
 }
 
-/// Exact latest request on this caller, without borrowing another worker's seat.
 pub(crate) fn request_identity() -> Option<RunIdentity> {
     REQUEST_IDENTITY.with(|slot| slot.borrow().clone())
 }
@@ -209,8 +187,6 @@ pub(crate) fn begin_request() {
     REQUEST_IDENTITY.with(|slot| slot.borrow_mut().take());
 }
 
-/// A wrapper may return a different seat, or a synthesized answer with no one
-/// certified seat. Never attach the last attempted seat's endpoint in that case.
 pub(crate) fn select_answer_route(route: &crate::agent::club::RouteIdentity) {
     let request = request_identity().filter(|identity| {
         identity.model.driver == route.driver
@@ -232,7 +208,6 @@ pub(crate) fn select_answer_route(route: &crate::agent::club::RouteIdentity) {
     TURN_IDENTITY.with(|slot| *slot.borrow_mut() = identity);
 }
 
-/// Executing seat identity, independent of immutable first-request provenance.
 pub(crate) struct LiveModelScope(Option<String>);
 
 impl LiveModelScope {
@@ -273,8 +248,6 @@ pub(crate) fn live_turn() -> Option<String> {
     LIVE_TURN.with(|slot| slot.borrow().clone())
 }
 
-// Answer receipts are caller-thread-local, not shared "last winner" state:
-// concurrent users of one logical club must not borrow one another's seat.
 thread_local! {
     static ANSWER_ROUTES: std::cell::RefCell<std::collections::HashMap<usize, crate::agent::club::RouteIdentity>> = std::cell::RefCell::new(std::collections::HashMap::new());
 }
@@ -297,12 +270,6 @@ pub(crate) fn source_sha256() -> &'static str {
     option_env!("ANGEL_BUILD_SOURCE_SHA256").unwrap_or("unbound")
 }
 
-/// Hash executable bytes in bounded memory using the platform SHA-256 already
-/// linked into the harness. Identity never depends on a PATH-selected utility.
-///
-/// The digest is a pure function of the image, so a run that finds the same
-/// image already hashed by an earlier run reuses that digest rather than
-/// reading it all again ([`super::exe_digest`]); any doubt hashes it afresh.
 fn executable_sha256(path: &std::path::Path) -> Result<String, String> {
     let mut file = std::fs::File::open(path)
         .map_err(|error| format!("run identity executable hash: {error}"))?;
@@ -314,9 +281,6 @@ fn executable_sha256(path: &std::path::Path) -> Result<String, String> {
     .map_err(|error| format!("run identity executable hash: {error}"))
 }
 
-/// Start hashing the executable off the request path so the first model
-/// request never waits on it (the `OnceLock` serializes any concurrent caller
-/// behind this thread instead of hashing twice).
 pub(crate) fn prewarm() {
     std::thread::Builder::new()
         .name("run-identity-prewarm".into())
@@ -331,9 +295,6 @@ pub(crate) fn static_identity() -> Result<&'static StaticIdentity, String> {
         .get_or_init(|| {
             let path =
                 std::env::current_exe().map_err(|e| format!("run identity executable: {e}"))?;
-            // A build can replace the launch pathname before the prewarm
-            // thread opens it. procfs pins the actual running image even after
-            // unlink; hashing the new pathname would misattribute this process.
             #[cfg(target_os = "linux")]
             let digest_path = Path::new("/proc/self/exe");
             #[cfg(not(target_os = "linux"))]
@@ -464,8 +425,6 @@ pub(crate) fn wire_effort(body: &Value) -> Value {
     }
 }
 
-/// Parse just request controls; skip potentially large message/tool payloads
-/// without allocating them. The returned object contains no prompt or secrets.
 pub(crate) fn wire_identity_controls(bytes: &[u8]) -> Result<Value, serde_json::Error> {
     struct Controls;
     impl<'de> serde::de::Visitor<'de> for Controls {
@@ -567,17 +526,12 @@ pub(crate) fn bind(model: Model, effort: Value, output_tokens: Value) -> Result<
         .as_ref()
         .map_err(Clone::clone)?;
     REQUEST_IDENTITY.with(|slot| *slot.borrow_mut() = Some(identity.clone()));
-    // Compaction and other auxiliary requests can run on this thread between
-    // policy calls. Their receipts must not replace the turn's answering seat
-    // if a deadline or cancellation ends the turn before the next policy call.
     if !TURN_ACTIVE.with(|slot| slot.get()) || super::trajectory::model_request_active() {
         TURN_IDENTITY.with(|slot| *slot.borrow_mut() = Some(identity));
     }
     Ok(())
 }
 
-/// Build identity stays immutable, but an emitted turn must show its own opt-in
-/// formation limits, including their removal on a later unbounded turn.
 pub(crate) fn current_for_turn() -> Option<RunIdentity> {
     let mut identity = TURN_IDENTITY
         .with(|slot| slot.borrow().clone())

@@ -23,9 +23,6 @@ fn rows(inks: &[&str]) -> Img {
     Img::from_rows(inks)
 }
 
-// Light falls down the left cheek, then breaks into the beard's ribbons.
-// The head sinks a pixel on B while the three tips curl outward: the wisps
-// always reach row 13, so a caller can centre every pose the same way.
 const ROBES: [[&str; 14]; 2] = [
     [
         "..............",
@@ -63,15 +60,12 @@ const ROBES: [[&str; 14]; 2] = [
 
 fn crown(temper: Temper, scared: bool, bob: i32) -> Img {
     let (x, y, drawing): (i32, i32, &[&str]) = match temper {
-        // A squat, toothy circlet: four short points, a heavy brass band.
         Temper::Hound => (2, 2, &["T..t..t..O", "tOtTOtTOOn", ".nOOOOOOn."]),
-        // A pinched, dagger-shaped crown with a single tall centre point.
         Temper::Cutter => (
             4,
             0,
             &["...T...", "..nTn..", "..tTO..", ".tOTOn.", ".nOOOn."],
         ),
-        // The outlying points lean over the ears like little battlements.
         Temper::Flanker => (
             1,
             1,
@@ -82,7 +76,6 @@ fn crown(temper: Temper, scared: bool, bob: i32) -> Img {
                 "..nOOOOOOn..",
             ],
         ),
-        // Already slipping over one eye, its band descends to the left.
         Temper::Drifter => (
             2,
             0,
@@ -97,8 +90,6 @@ fn crown(temper: Temper, scared: bool, bob: i32) -> Img {
     };
     let mut out = Img::new(SIDE, SIDE);
     for (ry, row) in drawing.iter().enumerate() {
-        // Fear tips the whole crown off balance without changing its shape
-        // into another king's: high points right, the heavy band left.
         let lean = if scared {
             match ry {
                 0 | 1 => 1,
@@ -132,10 +123,6 @@ fn eyes(temper: Temper, scared: bool) -> Img {
     }
 }
 
-/// A wraith king: (veil, solid). The veil (robe, body, wisps) is drawn at
-/// half opacity by the caller; the solid (crown, eyes, facial lines and
-/// Cutter's blade) at full. Both are 14x14, centred on the wraith's position;
-/// living robes trail to the bottom row. Rest leaves the veil empty.
 pub fn king(temper: Temper, mood: KingMood, tick: u32) -> (Img, Img) {
     let frame = (tick / 6 % 2) as usize;
     let bob = frame as i32;
@@ -156,14 +143,10 @@ pub fn king(temper: Temper, mood: KingMood, tick: u32) -> (Img, Img) {
     veil.stamp(&rows(beard), 3, 8 + bob);
 
     if scared {
-        // A small open scream under enormous eyes. The brass stays brass:
-        // even a frightened king keeps his unmistakable crown.
         solid.stamp(&rows(&[".ff.", "fKKf", ".ff."]), 5, 8 + bob);
         veil = if mood == KingMood::FleeEnding && (tick / 4).is_multiple_of(2) {
             veil.recolor(&[('F', 'h'), ('e', 'i'), ('C', 'H'), ('Y', 'W'), ('f', 'h')])
         } else {
-            // Swap the old shadow first: F's new green-grey contour must
-            // not be swept up in the e -> h replacement.
             veil.recolor(&[('e', 'h'), ('F', 'e'), ('C', 'i'), ('Y', 'H'), ('f', 'j')])
         };
     } else {
@@ -175,14 +158,12 @@ pub fn king(temper: Temper, mood: KingMood, tick: u32) -> (Img, Img) {
         };
         solid.stamp(&rows(mouth), 4, 8 + bob);
         if temper == Temper::Cutter {
-            // A tiny straight blade, with its pale edge above a brass hilt.
             solid.stamp(&rows(&[".W", "V.", "tO", "n."]), 12, 7 + bob);
         }
     }
     (veil, solid)
 }
 
-/// A drop of candle wax, the pellet: a 4x4 tear with a cream glint.
 pub fn wax(tick: u32) -> Img {
     rows(&[
         ".T..",
@@ -196,7 +177,6 @@ pub fn wax(tick: u32) -> Img {
     ])
 }
 
-/// A vial of holy water, the power pellet: 8x10, with four bob/glint frames.
 pub fn holy(tick: u32) -> Img {
     let frame = (tick / 8 % 4) as usize;
     let bottle = rows(&[
@@ -206,7 +186,6 @@ pub fn holy(tick: u32) -> Img {
     let mut out = Img::new(8, 10);
     let bob = [1, 0, 0, 1][frame];
     out.stamp(&bottle, 0, bob);
-    // A cross-shaped etching in the glass, and a moving specular point.
     out.stamp(&rows(&[".H.", "HVH", ".H."]), 2, 4 + bob);
     let (x, y) = [(2, 3), (3, 2), (5, 4), (4, 6)][frame];
     out.put(x, y + bob, 'W');
@@ -281,8 +260,6 @@ mod tests {
             for mood in MOODS {
                 assert_ne!(king(temper, mood, 0), king(temper, mood, 6));
             }
-            // The warning's four pictures include both wisp poses in both
-            // palettes. Compare equal bob phases to isolate the flash.
             assert_eq!(
                 king(temper, KingMood::FleeEnding, 12),
                 king(temper, KingMood::Flee, 0)
@@ -294,8 +271,6 @@ mod tests {
         }
     }
 
-    // The sprite inks themselves remain opaque palette entries. Only this
-    // review compositor (and the eventual caller) blends the veil with floor.
     fn half_over(sheet: &mut Img, veil: &Img, x: i32, y: i32) {
         for sy in 0..veil.h {
             for sx in 0..veil.w {
@@ -310,7 +285,6 @@ mod tests {
         }
     }
 
-    /// Every temperament, mood and distinct frame, nearest-neighbour at 6x.
     #[test]
     #[ignore]
     fn write_wax_art_sheet() {

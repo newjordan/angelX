@@ -28,8 +28,6 @@ impl Club for GatedProofClub {
 #[test]
 fn paused_run_resumes_from_durable_graph_without_restarting() {
     let _guard = crate::tests::env_lock();
-    // This case exercises an operator-selected pause and later resume, not
-    // automatic outage recovery (whose default now waits for recovery/cancel).
     let _retries = crate::tests::TestEnvGuard::set("ANGEL_PROVIDER_RETRIES", "0");
     if !crate::agent::sandbox::available() {
         eprintln!("skip: host-capability landlock unavailable");
@@ -153,10 +151,6 @@ fn resume_step(run_id: &str) -> String {
     )
 }
 
-/// A process killed mid-stage never reaches the error path that parks the run
-/// as paused, so the file keeps saying `running` with nobody executing it.
-/// `status` is the only signal the model gets; it must point at resume, and
-/// only stay "still active" while an executor really holds the run's lease.
 #[test]
 fn a_run_left_running_by_a_dead_executor_points_at_resume() {
     let _guard = crate::tests::env_lock();
@@ -167,7 +161,6 @@ fn a_run_left_running_by_a_dead_executor_points_at_resume() {
     let tool = super::SwarmCompilerTool::with_store(repo.clone(), roster, store.clone());
     let run_id = prepared_campaign_run(&tool, "orphan");
 
-    // Prepared and never started: nothing is executing it.
     let (state, next) = status_of(&tool, &run_id);
     assert_eq!(state, "planning");
     assert_eq!(
@@ -176,7 +169,6 @@ fn a_run_left_running_by_a_dead_executor_points_at_resume() {
         "a prepared run that nobody runs"
     );
 
-    // The file a killed executor leaves: running, with a node mid-stage.
     let mut run = tool.engine.store.load(&run_id).unwrap();
     run.state = super::super::schema::RunState::Running;
     run.nodes[0].state = super::super::schema::NodeState::Running;
@@ -185,18 +177,15 @@ fn a_run_left_running_by_a_dead_executor_points_at_resume() {
     assert_eq!(state, "running");
     assert_eq!(next, resume_step(&run_id), "a run whose executor is gone");
 
-    // A live executor holds the lease: the run really is active.
     let lease = tool.engine.store.acquire_lease(&run_id).unwrap();
     let (state, next) = status_of(&tool, &run_id);
     assert_eq!(state, "running");
     assert_eq!(next, "Run is still active.");
     drop(lease);
 
-    // The lease is released, as the kernel does for a dead process.
     let (_, next) = status_of(&tool, &run_id);
     assert_eq!(next, resume_step(&run_id));
 
-    // The probe leaves no lock behind: an executor can still start.
     let _lease = tool.engine.store.acquire_lease(&run_id).unwrap();
     let _ = std::fs::remove_dir_all(repo);
     let _ = std::fs::remove_dir_all(store);
@@ -225,9 +214,6 @@ fn a_paused_run_keeps_pointing_at_resume_and_a_finished_run_at_its_outcome() {
     let _ = std::fs::remove_dir_all(store);
 }
 
-/// `failed` on a node has meant two things: the stage rejected the run for
-/// good, or an error interrupted the stage and resume will run it again. The
-/// JSON the model reads must tell them apart.
 #[test]
 fn a_stage_interrupted_mid_run_is_not_reported_as_a_failed_stage() {
     let _guard = crate::tests::env_lock();
@@ -311,8 +297,6 @@ fn a_stage_interrupted_mid_run_is_not_reported_as_a_failed_stage() {
     let _ = std::fs::remove_dir_all(store);
 }
 
-/// A stage that rejects the run leaves its node `failed` and the run
-/// `rejected`: terminal, nothing for resume to redo.
 #[test]
 fn a_stage_that_rejects_the_run_reads_failed() {
     let _guard = crate::tests::env_lock();
@@ -320,7 +304,6 @@ fn a_stage_that_rejects_the_run_reads_failed() {
         eprintln!("landlock unavailable; skipping rejected-stage test");
         return;
     }
-    /// Writes outside `test_scope`, which rejects the run at the test author.
     struct RogueTestAuthor;
     impl Club for RogueTestAuthor {
         fn respond(&self, prompt: &str) -> Result<String, String> {
@@ -377,7 +360,6 @@ fn a_stage_that_rejects_the_run_reads_failed() {
     let _ = std::fs::remove_dir_all(store);
 }
 
-/// Run files written before the split say `failed` for both; they still load.
 #[test]
 fn a_run_file_written_with_failed_nodes_still_loads() {
     let mut value = serde_json::to_value(super::super::schema::SwarmRun::new(

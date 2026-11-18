@@ -7,7 +7,6 @@
 
 use crate::world_viz::Building;
 
-/// Display and rendering identity for one world landmark.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LandmarkIdentity {
     pub kind: Building,
@@ -21,7 +20,6 @@ pub struct LandmarkIdentity {
     pub district_fraction: (f64, f64),
 }
 
-/// The realm's landmarks, in the stable order used by the travel renderer.
 pub const LANDMARKS: [LandmarkIdentity; 8] = [
     LandmarkIdentity {
         kind: Building::Keep,
@@ -130,7 +128,6 @@ pub const fn district_fractions() -> [(f64, f64); 8] {
     ]
 }
 
-// Stage chrome and world-flavor copy. Keep byte-identical until the rename wave.
 pub const STAGE_TITLE_REINFORCE_PREFIX: &str = " Realm / Tiltyard · ";
 pub const STAGE_TITLE_REINFORCE_SUFFIX: &str = " ";
 pub const STAGE_TITLE_QUEST_BOARD: &str = " Realm / Quest Board ";
@@ -144,15 +141,10 @@ pub const STAGE_TITLE_VAULT: &str = " Realm / Vault ";
 pub const STAGE_TITLE_ARRIVAL: &str = "ARRIVAL";
 pub const STAGE_TITLE_EXPLORE: &str = "RIDE";
 pub const STAGE_TITLE_REALM: &str = "REALM";
-/// The world pane's kind while the adventure owns it (Z5). Off Castle Town the
-/// pane is not a ride around the realm, it is the quest — and `World::title()`
-/// already names the region, so the title reads `◈ Scryglass · QUEST · The
-/// Mines · …`.
 pub const STAGE_TITLE_QUEST: &str = "QUEST";
 pub const VILLAGE_HEADING_PREFIX: &str = "◇ the village of ";
 pub const VILLAGE_HEADING_SUFFIX: &str = " — as above, so below\n";
 
-// Toponym parts. Selection remains in world_viz so this module stays data-only.
 pub const TOWN_HEAD: [&str; 12] = [
     "Cam", "Tin", "Ast", "Car", "Lyon", "Ben", "Gal", "Cor", "Ava", "Bed", "Mal", "Dol",
 ];
@@ -160,7 +152,6 @@ pub const TOWN_MID: [&str; 6] = ["e", "a", "o", "i", "er", "or"];
 pub const TOWN_TAIL: [&str; 8] =
     ["lot", "gel", "fort", "mere", "gard", "wick", "shire", "dun"];
 
-// Display-only quest flavor. Theme keys remain in questmap's classifier table.
 pub const QUEST_ARENA_OVERWORLD: &str = "the king's road";
 pub const QUEST_ARENA_DUNGEON: &str = "the undercroft";
 pub const QUEST_ARENA_VOYAGE: &str = "the grail sea";

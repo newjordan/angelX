@@ -20,53 +20,32 @@ use angel_stage::scene::{
 
 use super::campaign::{Cloud, Group, Stage};
 
-/// Horizontal slabs a stage is cut into for the scan.
 pub(crate) const SLABS: usize = 14;
-/// The uploaded meshes' ids: `MESH_BASE | stage << 8 | slab`, and the
-/// projector ring's.
 pub(crate) const MESH_BASE: u32 = 0x4845_0000;
 pub(crate) const RING_MESH: u32 = MESH_BASE | 0xF000;
-/// Cells further than this from the middle are left out: the cloud is
-/// normalized to a 95th-percentile radius of 1, so these are strays that
-/// would only shrink the heart in its frame.
 pub(crate) const MAX_RADIUS: f32 = 2.6;
 
-/// Half the size of a gem, in the cloud's units: cardiac cores, the other
-/// cells' cores, and the cardiac glow shells.
 pub(crate) const CARDIAC_R: f32 = 0.0155;
 pub(crate) const CONTEXT_R: f32 = 0.0105;
 pub(crate) const HALO_R: f32 = 0.038;
-/// How much of a lit cardiac core shines by itself; the rest is the key
-/// light's shading, which makes the gems glint as the heart turns.
 pub(crate) const CARDIAC_EMISSIVE: f32 = 0.82;
 pub(crate) const CONTEXT_EMISSIVE: f32 = 0.32;
-/// The glow shells' alpha.
 pub(crate) const HALO_ALPHA: f32 = 0.11;
-/// What is left of a non-cardiac cell's colour: dimmed and greyed, so the
-/// heart's own lineages carry the picture.
 pub(crate) const CONTEXT_DIM: f32 = 0.42;
 
-/// Seconds a stage is held, and the scan that brings the next one in.
 pub(crate) const HOLD: f32 = 7.5;
 pub(crate) const SCAN: f32 = 2.6;
-/// The turn, radians a second.
 pub(crate) const SPIN: f32 = 0.24;
-/// The heartbeat: seconds a beat, and how much the heart swells at its
-/// strongest (and when a new official score lands).
 pub(crate) const BEAT_PERIOD: f32 = 1.05;
 pub(crate) const BEAT_SWELL: f32 = 0.022;
 pub(crate) const FLARE_SWELL: f32 = 0.07;
 
-/// Where the scan starts and ends, below and above the heart.
 pub(crate) const SCAN_FROM: f32 = -1.6;
 pub(crate) const SCAN_TO: f32 = 1.5;
-/// How far a slab's coming and going is spread round the scan's height.
 pub(crate) const SCAN_SOFT: f32 = 0.22;
-/// The projector ring's height and size under the heart.
 pub(crate) const RING_Y: f32 = -1.32;
 pub(crate) const RING_SCALE: f32 = 0.95;
 
-/// One part of a slab's mesh, drawn with its own material.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Part {
     Cardiac,
@@ -74,8 +53,6 @@ pub(crate) enum Part {
     Halo,
 }
 
-/// One slab of a stage as uploaded: its mesh's id, the height it spans,
-/// the middle of its cells across, and its parts in group order.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Slab {
     pub(crate) id: u32,
@@ -84,7 +61,6 @@ pub(crate) struct Slab {
     pub(crate) parts: Vec<Part>,
 }
 
-/// One stage as uploaded.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Built {
     pub(crate) label: String,
@@ -95,13 +71,10 @@ pub(crate) struct Built {
     pub(crate) slabs: Vec<Slab>,
 }
 
-/// A slab's mesh id.
 pub(crate) fn slab_mesh_id(stage: usize, slab: usize) -> u32 {
     MESH_BASE | ((stage as u32 & 0xF) << 8) | (slab as u32 & 0xFF)
 }
 
-/// The colour a cell is drawn in: its lineage's own for a cardiac cell,
-/// dimmed and greyed toward a cool slate for the rest.
 pub(crate) fn cell_colour(group: Option<&Group>, cardiac: bool) -> [f32; 4] {
     let rgb = group
         .map_or([200, 200, 210], |g| g.rgb)
@@ -120,8 +93,6 @@ pub(crate) fn cell_colour(group: Option<&Group>, cardiac: bool) -> [f32; 4] {
     ]
 }
 
-/// Add one gem (an octahedron with smooth normals, six vertices) of half
-/// size `r` at `at` in `colour`.
 fn push_gem(mesh: &mut MeshData, at: [f32; 3], r: f32, colour: [f32; 4]) {
     let base = mesh.positions.len() as u32;
     const AXES: [[f32; 3]; 6] = [
@@ -142,23 +113,19 @@ fn push_gem(mesh: &mut MeshData, at: [f32; 3], r: f32, colour: [f32; 4]) {
         mesh.uvs.push([0.5, 0.5]);
         mesh.colors.push(colour);
     }
-    // The eight faces, counter-clockwise from outside: (+x, +y, +z) and its
-    // mirrors, flipped where an odd number of axes is negative.
     let (px, nx, py, ny, pz, nz) = (base, base + 1, base + 2, base + 3, base + 4, base + 5);
     mesh.indices.extend([
-        px, py, pz, //
-        nx, pz, py, //
-        px, pz, ny, //
-        nx, ny, pz, //
-        px, nz, py, //
-        nx, py, nz, //
-        px, ny, nz, //
-        nx, nz, ny, //
+        px, py, pz,
+        nx, pz, py,
+        px, pz, ny,
+        nx, ny, pz,
+        px, nz, py,
+        nx, py, nz,
+        px, ny, nz,
+        nx, nz, ny,
     ]);
 }
 
-/// The stage's cells cut into slabs: their meshes, ready to upload, and
-/// what each is. A slab with no cells has no mesh and is left out.
 pub(crate) fn stage_meshes(cloud: &Cloud, index: usize) -> Option<(Built, Vec<(u32, MeshData)>)> {
     let stage: &Stage = cloud.stages.get(index)?;
     let kept: Vec<_> = stage
@@ -250,10 +217,6 @@ pub(crate) fn stage_meshes(cloud: &Cloud, index: usize) -> Option<(Built, Vec<(u
     Some((built, meshes))
 }
 
-/// The projector ring under the heart: two thin rings, a ring of ticks and
-/// four brighter arcs, flat in XZ and facing up, radius about 1. White, with
-/// the strength in the vertex alpha: the material's tint gives it its
-/// colour.
 pub(crate) fn ring_mesh() -> MeshData {
     let mut mesh = MeshData::default();
     let band =
@@ -270,7 +233,6 @@ pub(crate) fn ring_mesh() -> MeshData {
                     mesh.uvs.push([0.5, 0.5]);
                     mesh.colors.push([1.0, 1.0, 1.0, alpha]);
                 }
-                // Facing up (+Y): counter-clockwise seen from above.
                 mesh.indices
                     .extend([base, base + 3, base + 2, base, base + 2, base + 1]);
             }
@@ -299,9 +261,6 @@ pub(crate) fn ring_mesh() -> MeshData {
     mesh
 }
 
-/// Where the cycle is: the stage coming in (`to`), the one it replaces
-/// (`from`, `None` while the first one builds), and how far the scan has
-/// come (0 to 1; 1 is settled).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Moment {
     pub(crate) from: Option<usize>,
@@ -310,15 +269,11 @@ pub(crate) struct Moment {
 }
 
 impl Moment {
-    /// Whether a scan is running.
     pub(crate) fn scanning(&self) -> bool {
         self.k < 1.0
     }
 }
 
-/// The cycle through `n` stages at `t` seconds: each held [`HOLD`] seconds
-/// after a [`SCAN`] that builds it over the last. The first stage builds
-/// from nothing. `None` with no stages.
 pub(crate) fn moment(t: f32, n: usize) -> Option<Moment> {
     if n == 0 {
         return None;
@@ -342,20 +297,16 @@ pub(crate) fn smoothstep(e0: f32, e1: f32, x: f32) -> f32 {
     k * k * (3.0 - 2.0 * k)
 }
 
-/// The scan's height at `k` (0 to 1).
 pub(crate) fn scan_height(k: f32) -> f32 {
     SCAN_FROM + (SCAN_TO - SCAN_FROM) * smoothstep(0.0, 1.0, k)
 }
 
-/// How much of a slab spanning `band` is there, 0 to 1: the incoming
-/// stage's slabs grow in as the scan passes them, the outgoing one's go.
 pub(crate) fn presence(band: [f32; 2], scan: f32, incoming: bool) -> f32 {
     let mid = (band[0] + band[1]) * 0.5;
     let passed = smoothstep(mid - SCAN_SOFT, mid + SCAN_SOFT, scan);
     if incoming { passed } else { 1.0 - passed }
 }
 
-/// The heartbeat at `t`: a lub and a softer dub each beat, 0 to about 1.
 pub(crate) fn beat(t: f32) -> f32 {
     let p = (t / BEAT_PERIOD).rem_euclid(1.0);
     let lub = p.min(1.0 - p);
@@ -363,9 +314,6 @@ pub(crate) fn beat(t: f32) -> f32 {
     pulse(lub, 0.045) + 0.55 * pulse(p - 0.24, 0.05)
 }
 
-/// The heart's trace at `t`, as a monitor draws it: a small P wave, the
-/// sharp QRS spike on the beat's lub ([`beat`]'s peak) and a T wave on its
-/// dub. About -0.3 to 1.
 pub(crate) fn ecg(t: f32) -> f32 {
     let p = (t / BEAT_PERIOD).rem_euclid(1.0);
     let d = if p > 0.5 { p - 1.0 } else { p };
@@ -379,13 +327,9 @@ pub(crate) fn ecg(t: f32) -> f32 {
         + g(0.24, 0.055, 0.26)
 }
 
-/// How long a newly landed official score's flare lasts, and how fast it
-/// fades.
 pub(crate) const FLARE_SECONDS: f32 = 8.0;
 pub(crate) const FLARE_FADE: f32 = 1.8;
 
-/// A newly landed official score's flare: when it began (the panel's
-/// clock) and the row of the board it landed on.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Flare {
     pub(crate) at: f32,
@@ -393,7 +337,6 @@ pub(crate) struct Flare {
 }
 
 impl Flare {
-    /// How strong it is at `t`: up within a few frames, then fading.
     pub(crate) fn strength(&self, t: f32) -> f32 {
         let age = t - self.at;
         if !(0.0..FLARE_SECONDS).contains(&age) {
@@ -402,15 +345,11 @@ impl Flare {
         (age / 0.15).min(1.0) * (-(age / FLARE_FADE)).exp()
     }
 
-    /// Whether it has run its course by `t`. Its first frame is not: it
-    /// starts from nothing.
     pub(crate) fn over(&self, t: f32) -> bool {
         t - self.at >= FLARE_SECONDS
     }
 }
 
-/// The camera: a little above the heart, looking slightly down at it, the
-/// heart's top and the ring's near edge both inside its view.
 pub(crate) fn camera() -> Camera {
     let pitch = quat_axis_angle([1.0, 0.0, 0.0], -0.10);
     Camera {
@@ -428,8 +367,6 @@ pub(crate) fn camera() -> Camera {
     }
 }
 
-/// Where world point `p` lands in a target `size` pixels, as fractions of
-/// its width and height (0, 0 top left), or `None` behind the eye.
 pub(crate) fn project(p: [f32; 3], size: (u32, u32)) -> Option<[f32; 2]> {
     let aspect = size.0.max(1) as f32 / size.1.max(1) as f32;
     let vp = camera().view_projection(aspect)?;
@@ -438,21 +375,15 @@ pub(crate) fn project(p: [f32; 3], size: (u32, u32)) -> Option<[f32; 2]> {
     if w <= 1e-6 {
         return None;
     }
-    // `mat_point` leaves the perspective divide to its caller.
     Some([(clip[0] / w + 1.0) * 0.5, (1.0 - clip[1] / w) * 0.5])
 }
 
-/// The ring's colour: cyan for an observed stage, gold for ours.
 pub(crate) const RING_OBSERVED: [f32; 3] = [0.35, 0.85, 1.0];
 pub(crate) const RING_OURS: [f32; 3] = [1.0, 0.78, 0.30];
 
-/// What the scene shows besides the stages: the clock, the beat's
-/// strength now (with a flare after a new official score), and whether the
-/// stage in front is ours.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Pose {
     pub(crate) t: f32,
-    /// 0 to 1: how strong the flare of a newly landed official score is.
     pub(crate) flare: f32,
 }
 
@@ -467,9 +398,6 @@ fn material(part: Part) -> Material {
     }
 }
 
-/// The scene at `pose`: the stages `built` in their cycle, turning on a
-/// beating root over the projector ring, and the scan ring while a stage
-/// builds. With no stages, the ring alone idles.
 pub(crate) fn scene(built: &[Built], pose: Pose) -> Scene {
     let t = pose.t;
     let flare = pose.flare.clamp(0.0, 1.0);
@@ -505,8 +433,6 @@ pub(crate) fn scene(built: &[Built], pose: Pose) -> Scene {
                 let mut node = Node::new(id, MeshRef::Uploaded(slab.id), material(slab.parts[0]));
                 node.parent = Some(1);
                 node.face_materials = slab.parts.iter().map(|&p| material(p)).collect();
-                // Narrowed toward the slab's own middle, across only: the
-                // scan rebuilds a stage in layers, as a printer would.
                 node.transform = Transform {
                     translation: [slab.centre[0] * (1.0 - s), 0.0, slab.centre[1] * (1.0 - s)],
                     rotation: [0.0, 0.0, 0.0, 1.0],
@@ -522,7 +448,6 @@ pub(crate) fn scene(built: &[Built], pose: Pose) -> Scene {
         }
         place(&built[m.to], true, &mut nodes);
         if m.scanning() {
-            // The scan ring, riding up through the heart.
             let mut hoop = Node::new(
                 20,
                 MeshRef::Uploaded(RING_MESH),
@@ -543,7 +468,6 @@ pub(crate) fn scene(built: &[Built], pose: Pose) -> Scene {
             nodes.push(hoop);
         }
     }
-    // The projector ring: not on the beating root, turning the other way.
     let mut ring = Node::new(
         10,
         MeshRef::Uploaded(RING_MESH),

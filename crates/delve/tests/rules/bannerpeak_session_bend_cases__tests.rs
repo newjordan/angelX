@@ -12,7 +12,6 @@ use crate::rules::bannerpeak::layout;
 use serde_json::{Value, json};
 use std::sync::OnceLock;
 
-/// Every rune, brick and cracked tile of the map, to bump and to slam.
 fn blocks() -> &'static Vec<(i32, i32, u8)> {
     static B: OnceLock<Vec<(i32, i32, u8)>> = OnceLock::new();
     B.get_or_init(|| {
@@ -60,7 +59,6 @@ fn kcase(
     cases::rec(name, &input, &json!({"session": j(sout), "k": j(kout), "say": say_j(say)}));
 }
 
-/// A knight case whose function has no `say`: the answer is the session and the knight.
 fn kcase0(
     name: &str,
     class: &str,
@@ -97,7 +95,6 @@ fn scase(name: &str, class: &str, per: usize, total: usize, sin: &Session, extra
     cases::rec(name, &input, &json!({"session": j(sout), "say": say_j(say)}));
 }
 
-/// The platforms `step` hands a seat.
 fn planks(s: &Session, id: u32) -> (Vec<Mover>, Vec<Mover>) {
     let elapsed = (s.elapsed + 1).min(LIMIT);
     let mut now = layout::movers(elapsed);
@@ -123,12 +120,10 @@ pub fn probe(sm: &Sample) {
     let mut g = Lcg(0x5E55 ^ (sm.tick as u64 * 6700417) ^ (s.elapsed as u64 * 31));
     let changed = j(&s.changed);
 
-    // ---------------------------------------------------------------- whole-session helpers
     {
         let mut s2 = s.clone();
         s2.provision();
         classed("bannerpeak.session.Session.provision", &format!("{}{}", s.scaled, s.seats.len()), 3, 60, json!({"session": j(s)}), j(&s2));
-        // more seats than provisioned for
         let mut s2 = s.clone();
         s2.scaled = s2.scaled.saturating_sub(g.range(0, 5) as u8);
         let mut s3 = s2.clone();
@@ -153,7 +148,6 @@ pub fn probe(sm: &Sample) {
         let mut s2 = s.clone();
         s2.repair();
         cases::rec_cap("bannerpeak.session.Session.repair", &json!({"session": j(s)}), &j(&s2), 30);
-        // a bad save
         let mut bad = s.clone();
         match g.range(0, 15) {
             0 => bad.elapsed = LIMIT + 9,
@@ -230,7 +224,6 @@ pub fn probe(sm: &Sample) {
         }
     }
 
-    // ---------------------------------------------------------------- the tick's steps
     {
         let mut s2 = s.clone();
         let mut say = Vec::new();
@@ -259,7 +252,6 @@ pub fn probe(sm: &Sample) {
         let mut say = Vec::new();
         s3.step_boulders(&feet, &mut say);
         scase("bannerpeak.session.Session.step_boulders", &format!("{}{}", s.boulders.len(), feet.is_empty()), 6, 100, s, json!({"feet": j(&feet)}), &s3, &say);
-        // boulders: a table on the snow ledge, at the toll beat
         let mut s4 = s.clone();
         let ox = (layout::SNOW.ox + 30) * TILE;
         let feet2 = vec![(ox, (layout::SNOW.oy + 10) * TILE)];
@@ -290,7 +282,6 @@ pub fn probe(sm: &Sample) {
         let mut say = Vec::new();
         s8.finale_step(&mut say);
         scase("bannerpeak.session.Session.finale_step", &format!("{}", sin.phase_t), 3, 60, &sin, json!({}), &s8, &say);
-        // the board
         let mut s9 = s.clone();
         let mut say = Vec::new();
         s9.open_board(&mut say);
@@ -304,7 +295,6 @@ pub fn probe(sm: &Sample) {
         s10.open_board(&mut say);
         scase("bannerpeak.session.Session.open_board", &format!("x{}", sin.banners & 7), 8, 120, &sin, json!({}), &s10, &say);
     }
-    // select_step: the board up, a seat presses
     if !s.seats.is_empty() {
         let mut s2 = s.clone();
         let mut say = Vec::new();
@@ -315,7 +305,6 @@ pub fn probe(sm: &Sample) {
             s2.doors |= 2;
         }
         let ids: Vec<u32> = s2.seats.keys().copied().collect();
-        // keys: a press of E, a press of S, up, or none, random per seat
         let mut ins: BTreeMap<u32, Input> = BTreeMap::new();
         for &id in &ids {
             let mut i = Input::default();
@@ -341,7 +330,6 @@ pub fn probe(sm: &Sample) {
             &s2,
             &say,
         );
-        // the choice taken
         let mut s3 = sin.clone();
         s3.phase_t = SELECT_TICKS;
         s3.cursor = g.range(0, 5) as u8;
@@ -351,12 +339,10 @@ pub fn probe(sm: &Sample) {
         scase("bannerpeak.session.Session.select_step", &format!("go{}", sin3.cursor), 6, 180, &sin3, json!({"inputs": json!({})}), &s3, &say);
     }
 
-    // ---------------------------------------------------------------- one knight at a time
     for (&id, _) in &s.seats {
         let input = input_of(sm.inputs, id);
         let (now, before) = planks(s, id);
         let (smin, kin) = split(s, id);
-        // the knight's tick
         {
             let (mut s2, mut k) = (smin.clone(), kin.clone());
             let mut say = Vec::new();
@@ -377,7 +363,6 @@ pub fn probe(sm: &Sample) {
         let (cmd, bits) = kin.cmd(input);
         let _ = cmd;
         let was = kin.body.y;
-        // what a knight touches
         {
             let (mut s2, mut k) = (smin.clone(), kin.clone());
             let mut say = Vec::new();
@@ -390,7 +375,6 @@ pub fn probe(sm: &Sample) {
             s2.touch_things(id, &mut k, bits, was, &mut say);
             kcase("bannerpeak.session.Session.touch_things", &format!("{}{}{}", say.len().min(2), s.foes.len().min(1), s.items.len().min(1)), 8, 160, &smin, &kin, json!({"id": id, "bits": bits, "was": was}), &s2, &k, &say);
         }
-        // the same with the buttons all down, and the knight a size bigger
         for variant in 0..3 {
             let (mut s2, mut k) = (smin.clone(), kin.clone());
             let mut bits2 = bits;
@@ -414,11 +398,9 @@ pub fn probe(sm: &Sample) {
             s2.touch_things(id, &mut k, bits2, was, &mut say);
             kcase("bannerpeak.session.Session.touch_things", &format!("v{variant}{}", say.len().min(3)), 8, 300, &smin, &kin2, json!({"id": id, "bits": bits2, "was": was}), &s2, &k, &say);
         }
-        // caps
         for n in 0..s.items.len() {
             if s.items[n].kind == ItemKind::Cap {
                 let (mut s2, mut k) = (smin.clone(), kin.clone());
-                // put the knight on the cap, or above it
                 let it = s2.items[n].clone();
                 let place = g.range(0, 2);
                 let mut was2 = was;
@@ -441,7 +423,6 @@ pub fn probe(sm: &Sample) {
                 kcase("bannerpeak.session.Session.touch_cap", &format!("{:?}{place}", it.cap), 9, 150, &sin2, &kin2, json!({"id": id, "n": n, "bits": b2, "was": was2}), &s2, &k, &say);
             }
         }
-        // events the body produced, and a few it could
         {
             let view = View { world: layout::world(), changed: &s.changed };
             let mut b = kin.body.clone();
@@ -482,7 +463,6 @@ pub fn probe(sm: &Sample) {
                 );
             }
         }
-        // a head against a block
         for _ in 0..2 {
             let &(bx, by, _) = &blocks()[g.range(0, 5000) as usize % blocks().len()];
             let (mut s2, mut k) = (smin.clone(), kin.clone());
@@ -490,11 +470,9 @@ pub fn probe(sm: &Sample) {
                 k.size = [Size::Small, Size::Big, Size::Flame][g.range(0, 2) as usize];
                 k.body.big = k.size != Size::Small;
             }
-            // sometimes the tile has been struck already
             if g.chance(25) {
                 s2.set_tile(bx, by, Tile::Spent);
             }
-            // a foe or cap standing on it
             if g.chance(40) {
                 if let Some(f) = s2.foes.first_mut() {
                     f.x = (bx * TILE + 8) * Q;
@@ -506,7 +484,6 @@ pub fn probe(sm: &Sample) {
             s2.bump(id, &mut k, bx, by, &mut say);
             kcase("bannerpeak.session.Session.bump", &format!("{}{}", sin2.tile(bx, by).code(), kin2.size as u8), 9, 150, &sin2, &kin2, json!({"id": id, "tx": bx, "ty": by}), &s2, &k, &say);
         }
-        // a slam: here, over the crown, over a cracked floor
         for variant in 0..3 {
             let (mut s2, mut k) = (smin.clone(), kin.clone());
             let (x, y) = match variant {
@@ -530,7 +507,6 @@ pub fn probe(sm: &Sample) {
             s2.slam(id, &mut k, x, y, radius, &mut say);
             kcase("bannerpeak.session.Session.slam", &format!("{variant}{}", say.len().min(3)), 12, 160, &sin2, &kin2, json!({"id": id, "x": x, "y": y, "radius": radius}), &s2, &k, &say);
         }
-        // coin, fall, after_hit, go_down, award, note_safe, step_pole
         {
             let (mut s2, mut k) = (smin.clone(), kin.clone());
             k.coins = [0, 18, 19, 98, 99, 7, 199][g.range(0, 6) as usize];
@@ -575,7 +551,6 @@ pub fn probe(sm: &Sample) {
             let sin3 = s3.clone();
             let mut say = Vec::new();
             s3.award(banner, None, &mut say);
-            // without a knight the case carries the knight along untouched
             kcase("bannerpeak.session.Session.award", "n", 100, 120, &sin3, &kin, json!({"banner": banner, "who": false}), &s3, &kin, &say);
         }
         {
@@ -585,7 +560,6 @@ pub fn probe(sm: &Sample) {
         }
         {
             let (mut s2, mut k) = (smin.clone(), kin.clone());
-            // a pole grab in progress
             if kin.pole == 0 {
                 k.pole = g.range(1, 99) as u32;
                 let (_, pcy) = layout::info().pole;

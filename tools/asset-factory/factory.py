@@ -85,7 +85,6 @@ def clean(source, kind, part, key=None):
         image = opened.convert('RGBA')
     a = np.array(image)
     if key:
-        # Explicit background key, not corner guessing. Preserve dark opaque ink.
         color = np.array(tuple(bytes.fromhex(key.lstrip('#'))), dtype=np.int16)
         if color.shape != (3,):
             raise ValueError('key must be six hex digits')
@@ -100,7 +99,6 @@ def clean(source, kind, part, key=None):
     cw, ch = cropped.size
     ratio = min(tw/cw, th/ch)
     size = (max(1, round(cw*ratio)), max(1, round(ch*ratio)))
-    # Area sampling of a master is intentional; only native ink pixels reach game.
     small = cropped.resize(size, Image.Resampling.BOX if ratio < 1 else Image.Resampling.NEAREST)
     b = np.array(small); b[:,:,3] = np.where(b[:,:,3] >= 128,255,0)
     native = Image.new('RGBA',(tw,th))
@@ -112,7 +110,6 @@ def clean(source, kind, part, key=None):
 def animation(entry):
     base = entry['frames'][0]
     if entry['kind'] == 'vfx':
-        # Hold the source centre, erase outer rays over time. Never translate frames.
         a = np.array([list(row) for row in base]); h,w = a.shape
         yy,xx = np.mgrid[:h,:w]; distance = np.sqrt((xx-w//2)**2+(yy-h//2)**2)
         maximum = max(1,float(distance[a!='.'].max()))
@@ -186,7 +183,6 @@ def repair(image, failures):
         fix=failure['fix']
         if fix=='remove-flecks':
             groups=components(a[:,:,3]>0)
-            # Only remove true single-pixel noise, never missing anatomy or a limb.
             for group in groups[1:]:
                 if len(group)<=1:
                     for y,x in group: a[y,x]=0
@@ -208,8 +204,6 @@ def fit_entry(spec, image):
         entry['part']='whole'
         rig=quick.fit(image, root=str(ROOT))
         game=quick.build(image,rig,root=str(ROOT))
-        # Fit the shared gait to this silhouette's actual raster floor. Save
-        # correction in authoring poses, then rebuild; never shift exported rows.
         for _ in range(3):
             changed=False
             for name in ('idle','walk','run'):
@@ -222,7 +216,6 @@ def fit_entry(spec, image):
             game=quick.build(image,rig,root=str(ROOT))
         entry['rig']=game
         entry['anchors']={k:[int(round(v)) for v in p['point']] for k,p in rig['anchors'].items()}
-        # Source-space sockets must remain inside source; game canvas sockets are in rig.
         entry['anchors']={k:[min(w-1,max(0,p[0])),min(h-1,max(0,p[1]))] for k,p in entry['anchors'].items()}
         return entry,rig
     if kind=='weapon':
@@ -283,7 +276,6 @@ def review(out):
             for n,path in enumerate(poses):
                 with Image.open(path) as opened:
                     im=opened.convert('RGB')
-                # Native Img PNGs intentionally export an opaque background.
                 bounds=ImageChops.difference(im,Image.new('RGB',im.size,im.getpixel((0,0)))).getbbox()
                 if bounds:
                     im=im.crop(bounds); x=n*200+5

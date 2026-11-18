@@ -32,17 +32,12 @@ use std::sync::{Arc, Mutex};
 
 type Inverse = Box<dyn FnOnce() + Send + Sync>;
 
-/// The inverse a provider hands back with a registration.
-///
-/// Dropping a live `Disposable` fires it, so a scope that unwinds along any
-/// path — early return, error, or panic — still recovers what it installed.
 pub struct Disposable {
     armed: AtomicBool,
     undo: Mutex<Option<Inverse>>,
 }
 
 impl Disposable {
-    /// Wrap an inverse.
     pub fn new(undo: impl FnOnce() + Send + Sync + 'static) -> Self {
         Self {
             armed: AtomicBool::new(true),
@@ -50,13 +45,10 @@ impl Disposable {
         }
     }
 
-    /// Whether this inverse has still to fire.
     pub fn is_armed(&self) -> bool {
         self.armed.load(Ordering::Acquire)
     }
 
-    /// Fire the inverse exactly once. Returns `true` when this call ran it, and
-    /// `false` when it had already fired.
     pub fn fire(&self) -> bool {
         if !self.armed.swap(false, Ordering::AcqRel) {
             return false;
@@ -79,12 +71,8 @@ impl Drop for Disposable {
     }
 }
 
-/// One scope's accumulator of inverses — the effect context `∂Γ` of §3.1.1,
-/// realized the way §5.1.1 realizes `ctx.dispose`.
 pub struct RegistrationScope {
     entries: Arc<Mutex<Vec<Arc<Disposable>>>>,
-    /// Cleared once recovery has been handed to a parent scope, so the scope's
-    /// own drop cannot fire an inverse the parent now owns.
     armed: Arc<AtomicBool>,
 }
 
@@ -102,14 +90,11 @@ impl RegistrationScope {
         }
     }
 
-    /// Track an already-built inverse and hand the same handle back, so a
-    /// caller can fire one registration early without disturbing the rest.
     pub fn track(&self, disposable: Arc<Disposable>) -> Arc<Disposable> {
         self.entries().push(Arc::clone(&disposable));
         disposable
     }
 
-    /// Build and track an inverse in one step.
     pub fn track_inverse(&self, undo: impl FnOnce() + Send + Sync + 'static) -> Arc<Disposable> {
         self.track(Arc::new(Disposable::new(undo)))
     }
@@ -122,8 +107,6 @@ impl RegistrationScope {
         self.entries().is_empty()
     }
 
-    /// Fire every tracked inverse in reverse order of registration and clear
-    /// the scope. Returns how many actually ran; a second call fires nothing.
     pub fn dispose(&self) -> usize {
         if !self.armed.swap(false, Ordering::AcqRel) {
             return 0;
@@ -138,8 +121,6 @@ impl RegistrationScope {
         fired
     }
 
-    /// Recover this scope as one inverse on a parent scope: a nested scope's
-    /// teardown is itself an effect (§5.1.1 parent composition).
     pub fn into_disposable(self) -> Disposable {
         let entries = Arc::clone(&self.entries);
         self.armed.store(false, Ordering::Release);
@@ -169,22 +150,12 @@ impl Drop for RegistrationScope {
     }
 }
 
-/// A provider's shared teardown: it fires once, when the **last** registration
-/// bound to it goes away.
-///
-/// A server with three tools is one capability with three registrations. The
-/// per-registration inverse retracts that registration; the provider unloads
-/// when the count reaches zero, which is where the child process, its ports and
-/// its scratch state are reclaimed. Retracting one tool of a live server must
-/// not tear the server down, and retracting the last one must.
 pub struct ProviderScope {
     remaining: AtomicUsize,
     teardown: Mutex<Option<Inverse>>,
 }
 
 impl ProviderScope {
-    /// `registrations` is how many registrations the provider is about to hand
-    /// back; `teardown` runs once, when the last of them is reverted.
     pub fn new(registrations: usize, teardown: impl FnOnce() + Send + Sync + 'static) -> Arc<Self> {
         Arc::new(Self {
             remaining: AtomicUsize::new(registrations),
@@ -192,7 +163,6 @@ impl ProviderScope {
         })
     }
 
-    /// The inverse for one registration of this provider.
     pub fn registration(self: &Arc<Self>) -> Arc<Disposable> {
         let scope = Arc::clone(self);
         Arc::new(Disposable::new(move || {

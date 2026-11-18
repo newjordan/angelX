@@ -16,14 +16,11 @@
 
 use super::*;
 
-/// Floor-spike rhythm: down, rattling, up.
 pub const SPIKE_PERIOD: u32 = 96;
 const SPIKE_RATTLE: u32 = 54;
 const SPIKE_UP: u32 = 72;
-/// Vents glow for the last second of each breath cycle, then fire.
 pub const VENT_PERIOD: u32 = 150;
 pub const VENT_GLOW: u32 = 30;
-/// Ticks between a rock's shadow appearing and its landing.
 pub const ROCK_FALL: u32 = 40;
 const ROCK_DUST: u32 = 12;
 
@@ -42,7 +39,6 @@ pub fn spikes(tick: u64, phase: u32) -> Spikes {
     }
 }
 
-/// Ticks into a vent's breath cycle; the last `VENT_GLOW` glow, 0..18 fire.
 pub fn vent_beat(tick: u64, phase: u32) -> u32 {
     (tick as u32 + phase) % VENT_PERIOD
 }
@@ -50,23 +46,17 @@ pub fn vent_beat(tick: u64, phase: u32) -> u32 {
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Trap {
-    /// A 2x2-tile plate of floor spikes from tile `(col, row)`.
     Spikes { col: i32, row: i32, phase: u32 },
-    /// A wall vent on `side` (north, east, south, west) at `lane` (arena
-    /// units along that wall), breathing fire straight across.
     Vent { side: usize, lane: f32, phase: u32 },
-    /// The ceiling sheds rocks near the knights.
     Rockfall,
 }
 
-/// A rock on its way down (`fall` ticks left), or its dust settling.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Rock {
     pub x: f32,
     pub y: f32,
     pub fall: u32,
     pub dust: u32,
-    /// An ember of hell's (`hell`): it burns, and spares the monsters.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub ember: bool,
 }
@@ -76,7 +66,6 @@ pub struct Waves {
     pub left: u32,
     pub total: u32,
     timer: u32,
-    /// The doorway glowing before a wave comes through, and ticks left.
     pub gate: Option<(usize, u32)>,
     turn: usize,
 }
@@ -87,8 +76,6 @@ impl Waves {
     }
 }
 
-/// Where a wave stands as it comes through doorway `side`: just inside the
-/// doorway, and the way into the room.
 pub fn doorway(room: &Room, side: usize) -> ((f32, f32), (f32, f32)) {
     let (w, h) = (room.width(), room.height());
     match side {
@@ -100,17 +87,14 @@ pub fn doorway(room: &Room, side: usize) -> ((f32, f32), (f32, f32)) {
 }
 
 impl Run {
-    /// Fill a freshly entered room with its waves and traps.
     pub(super) fn arm_room(&mut self) {
         self.traps.clear();
         self.rocks.clear();
         self.waves = Waves::default();
         self.spiked = false;
-        // Book Hop's river is its hall's only hazard (`hop`).
         if self.hop.as_ref().is_some_and(|h| h.room == self.at && !h.done) {
             return;
         }
-        // A hosted game's hall has no traps of its own (`encounter`).
         if self.encounter_hosts() {
             return;
         }
@@ -128,12 +112,10 @@ impl Run {
             0
         } else {
             match kind {
-                // Hold the Stair: the hall's waves are the floor.
                 RoomKind::Fight if horde => 3 + 2 * depth,
                 RoomKind::Lair if horde => 3,
                 RoomKind::Fight => depth.min(3),
                 RoomKind::Stairs => 1,
-                // The Unknown sends everything it has met up to meet you.
                 RoomKind::Threshold => 4,
                 _ => 0,
             }
@@ -157,7 +139,6 @@ impl Run {
             return;
         }
         if kind == RoomKind::Hall {
-            // A passage's trap lies across the passage itself.
             let doors = self.room().doors;
             let (mc, mr) = (self.room().cols as i32 / 2, self.room().rows as i32 / 2);
             let side = (0..4)
@@ -188,7 +169,6 @@ impl Run {
                 let (cols, rows) = (self.room().cols, self.room().rows);
                 for _ in 0..(1 + cols * rows / (COLS * ROWS)).min(4) {
                     let side = if self.rng.chance(50) { 1 } else { 3 };
-                    // Never across a doorway's lane, so a way in stays safe.
                     let lanes: Vec<usize> =
                         (3..rows - 3).filter(|r| r.abs_diff(rows / 2) > 2).collect();
                     let row = lanes[self.rng.below(lanes.len())];
@@ -220,7 +200,6 @@ impl Run {
             let row = 2 + self.rng.below(room.rows - 5) as i32;
             let floor =
                 (0..2).all(|dr| (0..2).all(|dc| room.tile(col + dc, row + dr) == Tile::Floor));
-            // Keep the doorway lanes and the room's middle clear.
             let lane = (col - (room.cols as i32 / 2 - 1)).abs() <= 2
                 || (row - (room.rows as i32 / 2 - 1)).abs() <= 1;
             let apart = placed
@@ -236,7 +215,6 @@ impl Run {
         }
     }
 
-    /// Doorways glow, then pour monsters in; the last wave says so.
     pub(super) fn tick_waves(&mut self) {
         if self.phase != Phase::Fighting || !self.waves.pending() {
             return;
@@ -269,8 +247,6 @@ impl Run {
         } else {
             doors
         };
-        // Never pour a wave onto the party: skip doorways a knight stands by,
-        // or use the one farthest from them all.
         let knights: Vec<(f32, f32)> = self
             .players
             .values()
@@ -306,11 +282,8 @@ impl Run {
             .push(if last { "wave_last" } else { "wave" }.into());
     }
 
-    /// One wave through doorway `side`, in two files walking in.
     fn pour(&mut self, side: usize) {
         let depth = self.dungeon.depth.min(FLOORS) as usize;
-        // Each knight past the first brings two more through the door (one
-        // past the fourth, `stakes::PARTY_EXTRA`).
         let more = stakes::party_extra(self.party_len()) * self.ramp() / 100;
         let count = (2 + depth + more).min(6 + more);
         let ((x0, y0), (ix, iy)) = doorway(&self.dungeon.rooms[self.at], side);
@@ -318,8 +291,6 @@ impl Run {
         let roster = self.dungeon.pack.roster_at(self.dungeon.depth);
         for i in 0..count {
             let kind = self.rng.pick(roster);
-            // A wave never brings a second of a dangerous kind, nor one
-            // more kind than the room holds.
             let mut dangers: Vec<EnemyKind> = Vec::new();
             for enemy in self.enemies.iter().filter(|e| e.hp > 0 && e.kind.elite()) {
                 if !dangers.contains(&enemy.kind) {
@@ -352,11 +323,6 @@ impl Run {
         }
     }
 
-    /// Spikes, vents and falling rocks, after everything has moved.
-    /// The floor is won: its guardian's room (the stairs' or the lair) is
-    /// cleared, or on an open floor its guardian's chamber. Traps, wall
-    /// vents and perils settle then (Frank's play-test, 2026-11), so
-    /// nothing fires on a knight walking a finished floor to the stairs.
     pub(super) fn traps_settled(&self) -> bool {
         if let Some(open) = self.open_here() {
             return open.chambers.get(usize::from(open.guardian)).is_some_and(|c| c.cleared);
@@ -373,7 +339,6 @@ impl Run {
     pub(super) fn tick_traps(&mut self) {
         let tick = self.tick;
         if self.traps_settled() {
-            // Rocks already falling still land, but hurt no one.
             self.rocks.clear();
             return;
         }
@@ -398,7 +363,6 @@ impl Run {
                             }
                         }
                     }
-                    // Monsters on the plate take it once per strike.
                     if (tick as u32 + phase) % SPIKE_PERIOD == SPIKE_UP {
                         for enemy in self
                             .enemies
@@ -421,7 +385,6 @@ impl Run {
                             self.sounds.push("vent_fire");
                         }
                         let ((x, y), (dx, dy)) = match side {
-                            // Just inside the wall, or the wall would swallow them.
                             1 => (
                                 (self.dungeon.rooms[self.at].width() - 2.2, lane),
                                 (-1.0, 0.0),
@@ -451,8 +414,6 @@ impl Run {
                     }
                 }
                 Trap::Rockfall => {
-                    // The ceiling settles once the room is won: no rock falls on a
-                    // knight resting in a cleared room (or sat in its privy).
                     if self.room().cleared {
                         continue;
                     }
@@ -501,7 +462,6 @@ impl Run {
                             hero.hurt(hit);
                         }
                     }
-                    // Hell's fire spares its own.
                     if rock.ember {
                         continue;
                     }
@@ -533,7 +493,6 @@ impl Run {
         self.rocks.retain(|r| r.fall > 0 || r.dust > 0);
     }
 
-    /// A chest that bites: one chest in four, decided when it is touched.
     pub(super) fn wake_mimic(&mut self) -> bool {
         let Some(chest) = self.dungeon.rooms[self.at].chest.filter(|c| !c.open) else {
             return false;
@@ -547,10 +506,9 @@ impl Run {
             return false;
         }
         if self.spawn_at(EnemyKind::Mimic, chest.x, chest.y).is_none() {
-            return false; // exhausted provision leaves the genuine chest usable
+            return false;
         }
         self.dungeon.rooms[self.at].chest = None;
-        // On an open map a mimic is one more foe where it stands.
         if !self.open_map() {
             self.dungeon.rooms[self.at].cleared = false;
             self.phase = Phase::Fighting;

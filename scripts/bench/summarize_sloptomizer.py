@@ -208,8 +208,6 @@ def summarize(root):
         if off in cells and on in cells:
             pair = shared.paired(cells[off], cells[on])
             pair["round"] = round_name
-            # The full contract check above accounts for exactly the live flag
-            # and the per-cell wire path; retain the raw helper's mismatch list.
             expected_difference = {"ANGEL_SLOPTOMIZER_LIVE", "ANGEL_WIRE_LOG_DIR"}
             envs = [{k: v for k, v in raw_manifests[n]["harness_env"].items()
                      if k not in expected_difference} for n in (off, on)]

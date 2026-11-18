@@ -5,8 +5,6 @@ use super::*;
 use crate::rules::{EnemyKind, Input, Phase, RoomKind, TELEGRAPH, bard as sim, knights, ults};
 use std::collections::BTreeMap;
 
-/// Floor one's first fight (seed 21): the Bard at (10, 14) facing right, a
-/// training dummy 4.5 units off, two skeleton archers either side of it.
 fn stage() -> Run {
     let mut r = Run::new(21, 1, None);
     let fight = r.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
@@ -29,9 +27,6 @@ fn stage() -> Run {
     r
 }
 
-/// What the Bard does on tick `t` of the clip: a riff and a half held (the
-/// wub at two seconds, the overload at four), a breath, the Lullaby, then
-/// playing on inside it.
 fn script(t: u32) -> Input {
     let fire = Input { fire: true, aim_x: 1, ..Default::default() };
     match t {
@@ -101,7 +96,6 @@ fn a_held_stream_draws_its_horn_its_beat_and_its_glitch() {
         r.step(&BTreeMap::from([(1, fire)]));
     }
     assert!(sim::stage(r.players[&1].groove) == 2, "a held song drops");
-    // A glitching shot is torn: red and blue either side of its gold.
     let mut mark = Img::new(25, 25);
     note_shot(&mut mark, (12, 12), (18.0, 0.0), 0);
     let clean = mark.clone();

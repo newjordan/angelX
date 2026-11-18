@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""Draw cards with the Demonic Dungeon item icons (VEXED, CC BY 4.0).
-
-    python3 scripts/delve/pack_items.py CARD_ID...
-
-Each named card under `cockpit/assets/dungeon/cards/` whose name names a
-thing the pack draws takes that icon as its 16x16 art, each
-colour as its nearest ink. Cards that share an icon take it in turn across
-the category's icons, then tinted, so no two cards in the book look alike.
-A card the pack has nothing for, or whose category's looks are all spoken
-for, keeps its art.
-"""
 import re
 import sys
 from pathlib import Path
@@ -21,8 +10,6 @@ SHEET = ROOT / "cockpit/assets/dungeon/packs/demonic-dungeon/Items.png"
 INK_RS = ROOT / "crates/delve/src/render/overworld/ink.rs"
 CARDS = ROOT / "cockpit/assets/dungeon/cards"
 
-# Category: (sheet row, columns, words in a card's name). First match wins. A
-# card's text is not read: "a ring of shots" is no ring.
 CATEGORIES = [
     ("crossbow", 2, [0, 1], ["crossbow"]),
     ("quiver", 2, [4, 5, 6, 7], ["quiver"]),
@@ -46,7 +33,6 @@ CATEGORIES = [
     ("light", 10, [0, 1], ["torch", "candle", "wick", "votive"]),
     ("gem", 11, list(range(10)), ["gem", "crystal", "shard", "prism", "jewel", "geode", "diamond"]),
 ]
-# Tints for a repeat, after the category's own icons are used up.
 TINTS = [[], [("7", "u"), ("R", "B")], [("7", "Y"), ("@", "t")], [("7", "%"), ("@", "9")], [("7", "h"), ("R", "G")], [("@", "4"), ("7", "(")]]
 
 
@@ -125,7 +111,7 @@ def main(ids):
                 break
         turn[cat] = n
         if rows is None:
-            continue  # every look in the category is spoken for
+            continue
         key = "\n".join(rows)
         taken.add(key)
         head = text[: text.index("\nart\n") + len("\nart\n")]

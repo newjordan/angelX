@@ -14,8 +14,6 @@ use crate::ui::media::Media;
 #[cfg(feature = "glass")]
 use crate::ui::media::MediaSource;
 
-/// Open `media` in the showcase. False outside the glass window, or
-/// for a kind it has no picture of (links).
 pub(crate) fn open(media: &Media) -> bool {
     #[cfg(feature = "glass")]
     {
@@ -31,9 +29,6 @@ pub(crate) fn open(media: &Media) -> bool {
     }
 }
 
-/// Open evidence a finished reply linked to, nobody having asked: as
-/// [`open`], except it holds back while the operator closed the panel
-/// moments ago ([`EVIDENCE_HOLD`]) and when the very file is already up.
 pub(crate) fn open_evidence(media: &Media) -> bool {
     #[cfg(feature = "glass")]
     {
@@ -63,20 +58,14 @@ pub(crate) fn open_evidence(media: &Media) -> bool {
     }
 }
 
-/// How long a showing nobody asked for holds back after the operator
-/// closed the panel.
 #[cfg_attr(not(feature = "glass"), allow(dead_code))]
 pub(crate) const EVIDENCE_HOLD: std::time::Duration = std::time::Duration::from_secs(30);
 
-/// Whether the operator closed the panel (at `dismissed_at`) too lately
-/// for a showing nobody asked for.
 #[cfg_attr(not(feature = "glass"), allow(dead_code))]
 pub(crate) fn held(dismissed_at: Option<std::time::Instant>, now: std::time::Instant) -> bool {
     dismissed_at.is_some_and(|at| now.saturating_duration_since(at) < EVIDENCE_HOLD)
 }
 
-/// What the showcase makes of `media`: `None` for a kind it has no
-/// picture of.
 #[cfg(feature = "glass")]
 fn item_of(media: &Media) -> Option<Item> {
     let source = media.source()?;
@@ -99,7 +88,6 @@ fn item_of(media: &Media) -> Option<Item> {
     Some(Item::Media { kind, source, title: media.label().to_string() })
 }
 
-/// Whether two showings are of the same file.
 #[cfg(feature = "glass")]
 fn same_file(a: &Item, b: &Item) -> bool {
     match (a, b) {
@@ -108,7 +96,6 @@ fn same_file(a: &Item, b: &Item) -> bool {
     }
 }
 
-/// Note a close by the operator since last looked, and when it was seen.
 #[cfg(feature = "glass")]
 fn note_dismissals(history: &mut History, host: &angel_glass::Host) {
     let dismissals = host.showcase_dismissals();
@@ -118,7 +105,6 @@ fn note_dismissals(history: &mut History, host: &angel_glass::Host) {
     }
 }
 
-/// The card under any confinement.
 #[cfg(feature = "glass")]
 fn card(media: &Media) -> &Media {
     match media {
@@ -127,8 +113,6 @@ fn card(media: &Media) -> &Media {
     }
 }
 
-/// Open a finished chart from the `graph` tool in the showcase, conjured
-/// by the wizard. False outside the glass window.
 pub(crate) fn open_chart(chart: &crate::knowledge::graph_crop::Chart) -> bool {
     #[cfg(feature = "glass")]
     {
@@ -144,11 +128,6 @@ pub(crate) fn open_chart(chart: &crate::knowledge::graph_crop::Chart) -> bool {
     }
 }
 
-/// Answer the panel's buttons: step to an earlier or later showing when
-/// the arrows asked, and hand back what to copy when the copy button was
-/// pressed (the app's clipboard sends it between draws). Called from the
-/// app's loop on the UI thread (where the serving houses are kept); costs
-/// two atomic loads when nothing was asked.
 pub(crate) fn poll() -> Option<crate::ui::scryglass::StageCopyPayload> {
     #[cfg(feature = "glass")]
     {
@@ -172,8 +151,6 @@ pub(crate) fn poll() -> Option<crate::ui::scryglass::StageCopyPayload> {
     None
 }
 
-/// What the copy button copies of `item`: a picture as an image, a page
-/// as its text, a chart as its data (CSV), a video or model as its path.
 #[cfg(feature = "glass")]
 fn copy_payload(item: &Item) -> Option<crate::ui::scryglass::StageCopyPayload> {
     use crate::ui::scryglass::StageCopyPayload;
@@ -209,7 +186,6 @@ fn copy_payload(item: &Item) -> Option<crate::ui::scryglass::StageCopyPayload> {
     })
 }
 
-/// Step to the showing the arrows asked for.
 #[cfg(feature = "glass")]
 fn step(host: &'static angel_glass::Host) {
     {
@@ -233,7 +209,6 @@ fn step(host: &'static angel_glass::Host) {
     }
 }
 
-/// What the showcase has shown, to step back and forth through.
 #[cfg(feature = "glass")]
 #[derive(Clone)]
 enum Item {
@@ -246,24 +221,18 @@ enum Item {
 struct History {
     items: Vec<Item>,
     at: usize,
-    /// The arrows' step count already answered.
     steps: i32,
-    /// The copy button's presses already answered.
     copies: u32,
-    /// The operator's closes already seen, and when the last was seen.
     dismissals: u32,
     dismissed_at: Option<std::time::Instant>,
 }
 
-/// The most showings kept to step back to.
 #[cfg(feature = "glass")]
 const HISTORY_KEEP: usize = 32;
 
 #[cfg(feature = "glass")]
 static HISTORY: std::sync::LazyLock<std::sync::Mutex<History>> = std::sync::LazyLock::new(Default::default);
 
-/// Show `item`, a new one (`fresh`, which ends any forward history) or
-/// one stepped to.
 #[cfg(feature = "glass")]
 fn present(item: Item, fresh: bool) -> bool {
     let Some(host) = crate::ui::glass::host() else {
@@ -281,17 +250,12 @@ fn present(item: Item, fresh: bool) -> bool {
             history.at = history.items.len() - 1;
             history.steps = host.showcase_steps();
             history.copies = host.showcase_copies();
-            // Something opened since the operator's last close: that close
-            // no longer holds evidence back.
             note_dismissals(&mut history, host);
             history.dismissed_at = None;
         }
         (history.at > 0, history.at + 1 < history.items.len())
     };
-    // Read here, on the UI thread, where the serving houses are kept.
     let (livery, retinue, names) = liveries();
-    // This showing is now the newest: one made earlier and still
-    // decoding gives way to it.
     let ticket = TICKET.fetch_add(1, std::sync::atomic::Ordering::AcqRel) + 1;
     let asked = std::time::Instant::now();
     let kind = match &item {
@@ -323,7 +287,6 @@ fn present(item: Item, fresh: bool) -> bool {
         .is_ok()
 }
 
-/// Close the showcase, if it is up.
 pub(crate) fn close() {
     #[cfg(feature = "glass")]
     if let Some(host) = crate::ui::glass::host() {
@@ -331,43 +294,28 @@ pub(crate) fn close() {
     }
 }
 
-/// Who is showing what: the window, the title, and the colours of the
-/// squire who brings it in.
 #[cfg(feature = "glass")]
 struct Shown<'a> {
     host: &'static angel_glass::Host,
     title: &'a str,
     livery: Option<angel_glass::Livery>,
-    /// The formation's other houses, who come along.
     retinue: Vec<angel_glass::Livery>,
-    /// Who each squire is (`liveries`).
     names: Vec<Vec<String>>,
-    /// Whether there are showings to step back and forward to.
     back: bool,
     forward: bool,
-    /// Which showing this is (`TICKET`).
     ticket: u64,
-    /// When it was asked for, and what it is: for `ANGEL_SHOWCASE_TIMING`.
     asked: std::time::Instant,
     kind: &'static str,
 }
 
-/// The newest showing asked for. Showings are made on threads of their
-/// own and a slow one (a big model, a big picture) can finish after a
-/// later quick one; only the newest may reach the window.
 #[cfg(feature = "glass")]
 static TICKET: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
-/// Held while a showing hands its pixels to the window and opens, so
-/// another cannot upload over it in between.
 #[cfg(feature = "glass")]
 static GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[cfg(feature = "glass")]
 impl Shown<'_> {
-    /// Hand this showing to the window (`hand`: its pixels, then the
-    /// open), if it is still the newest; `None`, and nothing sent, when a
-    /// later showing has been asked for since.
     fn publish<R>(&self, hand: impl FnOnce() -> R) -> Option<R> {
         let _gate = GATE.lock().unwrap_or_else(|e| e.into_inner());
         let handed = (TICKET.load(std::sync::atomic::Ordering::Acquire) == self.ticket).then(hand);
@@ -377,8 +325,6 @@ impl Shown<'_> {
         handed
     }
 
-    /// `ANGEL_SHOWCASE_TIMING=path`: one JSON line per showing, how long
-    /// from being asked for to its pixels handed to the window.
     fn note_timing(&self) {
         let Some(path) = std::env::var_os("ANGEL_SHOWCASE_TIMING") else {
             return;
@@ -412,7 +358,6 @@ impl Shown<'_> {
         showing
     }
 
-    /// A chart, brought in by the wizard.
     fn chart(&self, plot: &crate::ui::showcase_chart::Plot) -> Result<(), String> {
         let room = room(self.host);
         let size = (
@@ -423,7 +368,6 @@ impl Shown<'_> {
         let (rgba, marks) =
             crate::ui::showcase_chart::render(plot, size, cell_height).ok_or("the chart has no room to draw")?;
         let mut showing = self.showing(size, angel_glass::Fit::Contain, angel_glass::Herald::Wizard);
-        // The wizard comes alone.
         showing.retinue.clear();
         self.publish(|| {
             self.host.showcase_frame(size.0, size.1, rgba);
@@ -439,10 +383,6 @@ impl Shown<'_> {
     }
 }
 
-/// The serving house's colours as its knights wear them on the map (the
-/// field dyed at dusk, its shadow, the charge), `None` when no house
-/// serves and the squire wears the Keep's own; and the colours of the
-/// houses a formation seated beside it.
 #[cfg(feature = "glass")]
 pub(crate) fn liveries() -> (Option<angel_glass::Livery>, Vec<angel_glass::Livery>, Vec<Vec<String>>) {
     let (lead, retinue, names) =
@@ -460,11 +400,9 @@ enum Kind {
     Model,
 }
 
-/// The most bytes a model file may be.
 #[cfg(feature = "glass")]
 const MODEL_BYTES: u64 = 64 * 1024 * 1024;
 
-/// A 3D model on the window's turntable.
 #[cfg(feature = "glass")]
 fn model(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
     use std::io::Read as _;
@@ -493,16 +431,12 @@ fn model(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
     Ok(())
 }
 
-/// The most pixels the showcase holds for a picture: the window's own
-/// size, so the panel only ever scales down (no blur from scaling up a
-/// thumbnail, no texture past the window).
 #[cfg(feature = "glass")]
 fn room(host: &angel_glass::Host) -> (u32, u32) {
     let grid = host.grid_size();
     (grid.width_px.clamp(320, 8192), grid.height_px.clamp(240, 8192))
 }
 
-/// `size` shrunk to fit in `room`, aspect kept; never grown.
 #[cfg(any(feature = "glass", test))]
 fn fit_within(size: (u32, u32), room: (u32, u32)) -> (u32, u32) {
     if size.0 == 0 || size.1 == 0 {
@@ -521,8 +455,6 @@ fn fit_within(size: (u32, u32), room: (u32, u32)) -> (u32, u32) {
 fn still(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
     let host = shown.host;
     let image = crate::ui::viewer::artifact_preview(source)?;
-    // Up to twice the window, so zooming in finds real detail; no more,
-    // so whole it is never shrunk past what smooth sampling holds.
     let (rw, rh) = room(host);
     let (w, h) = fit_within((image.width(), image.height()), ((rw * 2).min(4096), (rh * 2).min(4096)));
     let image = if (w, h) == (image.width(), image.height()) {
@@ -538,7 +470,6 @@ fn still(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
     Ok(())
 }
 
-/// The most text a page shows, and the column it wraps at.
 #[cfg(feature = "glass")]
 const PAGE_BYTES: u64 = 2 * 1024 * 1024;
 #[cfg(feature = "glass")]
@@ -554,7 +485,6 @@ fn page(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
         .read_to_end(&mut bytes)
         .map_err(|error| format!("read: {error}"))?;
     let text = String::from_utf8_lossy(&bytes);
-    // Data that holds a chart is shown as one: a smart graph.
     let data = std::path::Path::new(&source.path)
         .extension()
         .and_then(|e| e.to_str())
@@ -566,7 +496,6 @@ fn page(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
     show_lines(shown, lines)
 }
 
-/// A message in the showcase, as a short page.
 #[cfg(feature = "glass")]
 fn say(shown: &Shown<'_>, text: &str) -> Result<(), String> {
     show_lines(shown, page_lines(text, 72))
@@ -576,21 +505,17 @@ fn say(shown: &Shown<'_>, text: &str) -> Result<(), String> {
 fn show_lines(shown: &Shown<'_>, mut lines: Vec<String>) -> Result<(), String> {
     let host = shown.host;
     let cell_height = u16::try_from(host.grid_size().cell_height).unwrap_or(16).max(8);
-    // A page is one picture; past the texture's height the rest is
-    // named, not dropped silently.
     let most = (8000 / u32::from(cell_height)).max(1) as usize;
     if lines.len() > most {
         let rest = lines.len() - (most - 1);
         lines.truncate(most - 1);
         lines.push(format!("… {rest} more lines"));
     }
-    // A little margin round the text, in the page itself.
     let mut padded = Vec::with_capacity(lines.len() + 2);
     padded.push(String::new());
     padded.extend(lines.into_iter().map(|line| format!("  {line}  ")));
     padded.push(String::new());
     let rendered = crate::ui::present::with_pager(cell_height, |pager| {
-        // No page colour: the text sits on the showcase's glass.
         pager.render(&padded, angel_glass::page::PLAIN, PAGE_INK, [0, 0, 0, 0])
     })
     .flatten()
@@ -606,8 +531,6 @@ fn show_lines(shown: &Shown<'_>, mut lines: Vec<String>) -> Result<(), String> {
 #[cfg(feature = "glass")]
 const PAGE_INK: [u8; 3] = [184, 188, 196];
 
-/// Text as page lines: tabs to spaces, control characters dropped,
-/// long lines wrapped at `columns` characters.
 #[cfg(any(feature = "glass", test))]
 fn page_lines(text: &str, columns: usize) -> Vec<String> {
     let columns = columns.max(8);
@@ -633,8 +556,6 @@ fn page_lines(text: &str, columns: usize) -> Vec<String> {
     out
 }
 
-/// The most pixels a video frame is decoded at: enough for a sharp
-/// panel, bounded so decoding and uploading keep up.
 #[cfg(feature = "glass")]
 const VIDEO_PIXELS: u64 = 1920 * 1080;
 
@@ -644,8 +565,6 @@ fn video(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
     use crate::agent::sandbox::process_owner::OwnedCommandExt as _;
     use std::io::Read as _;
     use std::process::{Command, Stdio};
-    // The file goes in as stdin, opened through the media's own
-    // confinement; ffmpeg reads it as /dev/stdin, a seekable file.
     let probe = Command::new("ffprobe")
         .args([
             "-v",
@@ -661,15 +580,12 @@ fn video(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
         .stdin(source.open()?)
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        // `output_owned` would put a null stdin in place of the file.
         .spawn_owned()
         .and_then(|child| child.wait_with_output())
         .map_err(|error| format!("ffprobe: {error}"))?;
     let probed = String::from_utf8_lossy(&probe.stdout);
     let (size, fps) = probe_line(&probed).ok_or("ffprobe found no video stream")?;
     let duration = probe_duration(&probed);
-    // Decoded at the window's size, up or down (ffmpeg's bicubic
-    // scaler), so the panel only ever shrinks it: smooth at any size.
     let room = room(host);
     let k = (f64::from(room.0) / f64::from(size.0)).min(f64::from(room.1) / f64::from(size.1));
     let (mut w, mut h) = (
@@ -681,9 +597,7 @@ fn video(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
         let k = over.sqrt();
         (w, h) = ((f64::from(w) / k) as u32, (f64::from(h) / k) as u32);
     }
-    // Even sides: the scaler's chroma wants them.
     let (w, h) = ((w & !1).max(2), (h & !1).max(2));
-    // ffmpeg from `at` seconds on, looping.
     let decode = |at: f64| -> Result<crate::agent::sandbox::process_owner::Child, String> {
         Command::new("ffmpeg")
             .args(["-hide_banner", "-loglevel", "error", "-ss", &format!("{at:.3}"), "-stream_loop", "-1", "-i", "/dev/stdin", "-an"])
@@ -694,9 +608,6 @@ fn video(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
             .spawn_owned()
             .map_err(|error| format!("ffmpeg: {error}"))
     };
-    // Its sound, from `at` seconds on, looping with the picture: ffplay
-    // with no window. None when there is no player (the picture plays on
-    // in silence) or the file has no sound (ffplay just ends).
     let sound = |at: f64| -> Option<crate::agent::sandbox::process_owner::Child> {
         Command::new("ffplay")
             .args(["-nodisp", "-loglevel", "quiet", "-loop", "0", "-ss", &format!("{at:.3}"), "-i", "/dev/stdin"])
@@ -715,7 +626,6 @@ fn video(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
     let mut out = child.stdout.take().ok_or("ffmpeg gave no output")?;
     let frame_bytes = (w as usize) * (h as usize) * 4;
     let mut frame = vec![0u8; frame_bytes];
-    // The first frame opens the panel.
     if out.read_exact(&mut frame).is_err() {
         stop(&mut child);
         return Err("the video has no frames ffmpeg could decode".into());
@@ -724,12 +634,10 @@ fn video(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
         host.showcase_frame(w, h, frame.clone());
         shown.open((w, h), angel_glass::Fit::Contain)
     }) else {
-        // A later showing was asked for while this one started.
         stop(&mut child);
         return Ok(());
     };
     let period = std::time::Duration::from_secs_f64(1.0 / fps);
-    // Where it is: the seconds it started from, and frames shown since.
     let (mut base, mut shown_frames) = (0.0f64, 1u64);
     let place = |base: f64, frames: u64| duration.map(|d| (((base + frames as f64 / fps) % d) / d) as f32);
     let seconds = |base: f64, frames: u64| {
@@ -749,14 +657,12 @@ fn video(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
             clicks = now_clicks;
             due = std::time::Instant::now() + period;
             host.showcase_progress(place(base, shown_frames), paused);
-            // The sound stops with the picture and picks up where it is.
             if paused && !was {
                 hush(&mut audio);
             } else if !paused && was {
                 audio = sound(seconds(base, shown_frames));
             }
         }
-        // A seek: start the decoder again from there.
         if let (Some(to), Some(d)) = (host.showcase_seek(), duration) {
             stop(&mut child);
             hush(&mut audio);
@@ -769,7 +675,6 @@ fn video(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
             }
             due = std::time::Instant::now();
             if paused {
-                // Show where it landed, still paused.
                 if out.read_exact(&mut frame).is_ok() {
                     shown_frames = 1;
                     let _gate = GATE.lock().unwrap_or_else(|e| e.into_inner());
@@ -781,7 +686,6 @@ fn video(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
             }
         }
         if paused {
-            // ffmpeg waits on the full pipe; nothing is decoded ahead.
             std::thread::sleep(std::time::Duration::from_millis(30));
             continue;
         }
@@ -792,14 +696,10 @@ fn video(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
         if due > now {
             std::thread::sleep(due - now);
         } else if now - due > period * 8 {
-            // Far behind (a stall): start the clock again rather than
-            // racing through the frames it missed.
             due = now;
         }
         due += period;
         {
-            // Under the gate: a newer showing cannot open between the
-            // check and the frame, and have this frame land on it.
             let _gate = GATE.lock().unwrap_or_else(|e| e.into_inner());
             if !host.showcase_live(serial) {
                 break;
@@ -818,7 +718,6 @@ fn video(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
 fn stop(child: &mut crate::agent::sandbox::process_owner::Child) {
     #[cfg(unix)]
     let _ = child.with_unreaped_identity(|pid| {
-        // SAFETY: signalling our own claimed, unreaped child.
         if unsafe { libc::kill(pid, libc::SIGKILL) } == 0 {
             Ok(())
         } else {
@@ -828,8 +727,6 @@ fn stop(child: &mut crate::agent::sandbox::process_owner::Child) {
     let _ = child.wait();
 }
 
-/// The container's duration in seconds from ffprobe's second line, when
-/// it has a sensible one.
 #[cfg(any(feature = "glass", test))]
 fn probe_duration(text: &str) -> Option<f64> {
     text.lines()
@@ -839,8 +736,6 @@ fn probe_duration(text: &str) -> Option<f64> {
         .filter(|d| d.is_finite() && *d > 0.0)
 }
 
-/// `width,height,num/den` from ffprobe: the size and frames a second
-/// (30 when the rate is missing or absurd).
 #[cfg(any(feature = "glass", test))]
 fn probe_line(text: &str) -> Option<((u32, u32), f64)> {
     let line = text.lines().find(|line| !line.trim().is_empty())?;

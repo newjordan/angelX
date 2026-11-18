@@ -1,14 +1,6 @@
-// Thin adapter for the rooms module. Plain JSON in, the compiled art out: the
-// quadrants, their sizes, the authored share and the least floor all live in
-// rooms-rules.bend and the per-pack files beside it. Rust owns the pack
-// indices, the room types, the mirroring and every error string; here the only
-// work is putting the id on the module's numbered arms and reading the tagged
-// terms back as rows of text.
 const rooms = require('./rooms-rules.compiled.js')
 
 const word = value => (Number.isFinite(value) ? Math.trunc(value) >>> 0 : 0)
-
-const list = values => values.reduceRight((tail, head) => ({$: 'Con', head, tail}), {$: 'Nil'})
 
 const rows = value => {
   const out = []

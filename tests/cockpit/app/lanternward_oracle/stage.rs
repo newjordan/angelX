@@ -8,16 +8,12 @@ use super::world::*;
 use super::*;
 
 impl Session {
-    /// Where seat `id` starts in this room: its own mark, wrapping.
     pub(super) fn start_of(&self, id: u32) -> (i32, i32) {
         let marks = plan(usize::from(self.room)).find(b'@');
         let (tx, ty) = marks[(id as usize - 1) % marks.len()];
         (middle(tx), middle(ty))
     }
 
-    /// The party goes into room `room`: its things stand, its foes wait, and
-    /// every seat is at its start (the fallen on their feet again, at the
-    /// next brazier).
     pub(super) fn enter_room(&mut self, room: usize, r: &Rules) {
         self.room = room as u8;
         self.stage = 0;
@@ -59,7 +55,6 @@ impl Session {
         let _ = r;
     }
 
-    /// The foes (and the Warden) a room opens with.
     fn provision_room(&mut self, room: usize) {
         let seats = self.seats.len().max(1) as u32;
         let p = plan(room);
@@ -86,7 +81,6 @@ impl Session {
                 if let Some((tx, ty)) = p.find(b'W').first().copied() {
                     self.boss = Some(Warden::new(middle(tx), middle(ty), seats));
                 }
-                // The arena's lamps burn until the Gloam falls.
                 for q in self.props.iter_mut().filter(|q| q.kind == Pk::Brazier) {
                     q.on = 1;
                 }
@@ -95,7 +89,6 @@ impl Session {
         }
     }
 
-    /// The Lamp Hall's wave: the Gloam answers the Lantern.
     fn spawn_wave(&mut self) {
         let seats = self.seats.len().max(1) as u32;
         let n = (2 + (seats - 1) / 2).min(4) as usize;
@@ -123,7 +116,6 @@ impl Session {
         self.foes.iter().all(|f| !f.alive())
     }
 
-    /// Whether the way on is open.
     pub fn exit_open(&self) -> bool {
         match self.room {
             0 => self.stage >= 1,
@@ -134,9 +126,7 @@ impl Session {
         }
     }
 
-    /// One tick of the things in the room.
     pub(super) fn tick_props(&mut self, ev: &mut Events) {
-        // A plate is pressed by a knight on the ground or a block on it.
         let mut revealed = None;
         let weights: Vec<(i32, i32)> = self
             .seats
@@ -215,7 +205,6 @@ impl Session {
                 _ => {}
             }
         }
-        // A sigil found opens what it was hiding.
         if let Some((x, y)) = revealed {
             self.set_gate(2, true);
             self.solved(x, y, ev);
@@ -223,8 +212,6 @@ impl Session {
         }
     }
 
-    /// A gate that closed or a block that slid over a body puts it out on the
-    /// nearest open ground: nobody is walled in.
     pub(super) fn unstick(&mut self) {
         let ids: Vec<u32> = self.seats.keys().copied().collect();
         for id in ids {
@@ -240,7 +227,6 @@ impl Session {
         }
     }
 
-    /// What each room asks, and what it gives.
     pub(super) fn tick_stage(&mut self, r: &Rules, ev: &mut Events) {
         self.stage_t = (self.stage_t + 1).min(super::LIMIT);
         match self.room {
@@ -255,7 +241,6 @@ impl Session {
             3 => self.stage_vault(ev),
             _ => self.stage_warden(r, ev),
         }
-        // The way on: stand in it.
         if self.exiting == 0 && self.exit_open() && self.room < 4 {
             let hit = self.seats.values().any(|k| {
                 k.up() && k.z == 0 && plan(usize::from(self.room)).at(tile_of(k.x), tile_of(k.y)) == b'Q'
@@ -274,7 +259,6 @@ impl Session {
         }
     }
 
-    /// The exit gate swings open.
     fn open_exit(&mut self, ev: &mut Events) {
         if self.set_gate(0, true) {
             let at = self
@@ -289,7 +273,6 @@ impl Session {
 
     fn stage_lamp_hall(&mut self, ev: &mut Events) {
         match self.stage {
-            // Three braziers, all alight at once, from one ember.
             0
                 if self.all_lit(Pk::Brazier) => {
                     self.stage = 1;
@@ -298,7 +281,6 @@ impl Session {
                     self.solved(at.0, at.1, ev);
                     ev.sound("door_open");
                 }
-            // The niche stands open; the Lantern is in the chest.
             1
                 if self.prop_of(Pk::Chest, 0).is_some_and(|i| self.props[i].on == 1) => {
                     self.stage = 2;
@@ -306,13 +288,11 @@ impl Session {
                     self.spawn_wave();
                     ev.sound("wave_gate");
                 }
-            // The Gloam answers.
             2
                 if self.stage_t > 20 && self.foes_down() => {
                     self.stage = 3;
                     ev.sound("play_card");
                 }
-            // One light left to throw.
             3
                 if self.prop_of(Pk::Great, 0).is_some_and(|i| self.props[i].on == 1) => {
                     self.stage = 4;
@@ -323,13 +303,9 @@ impl Session {
     }
 
     fn stage_gallery(&mut self, ev: &mut Events) {
-        // Two plates for two or more knights: the block (or a knight) on the
-        // first, another knight on the second; one plate alone for one.
         let held = |id: u8| self.props.iter().any(|p| p.kind == Pk::Plate && p.id == id && p.on == 1);
         let plate = held(0) && (held(1) || self.seats.len() < 2);
         let crystal = self.props.iter().any(|p| p.kind == Pk::Crystal && p.on == 1);
-        // The plate-gate holds open only while it is held, or for good once
-        // the crystal has woken.
         let was = self.props.iter().any(|p| p.kind == Pk::Gate && p.id == 1 && p.on == 1);
         let want = plate || crystal;
         if self.set_gate(1, want) && want != was {
@@ -360,8 +336,6 @@ impl Session {
                         self.fx(Fxk::Light, x, y, 0);
                         self.solved(x, y, ev);
                     }
-                    // The spark the last snuffer gave back lights the
-                    // vault's braziers for good.
                     for p in self.props.iter_mut().filter(|p| p.kind == Pk::Brazier) {
                         p.on = 1;
                     }
@@ -377,8 +351,6 @@ impl Session {
             3
                 if self.prop_of(Pk::Chest, 0).is_some_and(|i| self.props[i].on == 1) => {
                     self.stage = 4;
-                    // The way out is the Boss Key door; its carrier opens
-                    // it (`Ctx::Unlock`).
                     self.stage = 4;
                 }
             _ => {}
@@ -388,10 +360,7 @@ impl Session {
         }
     }
 
-    /// Drops: hearts mend, gems and bombs are kept, the Boss Key is carried.
     pub(super) fn pickups(&mut self, r: &Rules, ev: &mut Events) {
-        // The Boss Key follows its carrier; a carrier who falls or leaves
-        // puts it down where they stood.
         if let Hold::Carried(id, _, _) = self.inv.boss {
             match self.seats.get(&u32::from(id)).filter(|k| k.up()) {
                 Some(k) => self.inv.boss = Hold::Carried(id, k.x, k.y),
@@ -461,8 +430,6 @@ impl Session {
         }
     }
 
-    /// The fallen: a friend holding E gets them up; a long wait brings them
-    /// to the next brazier on their own.
     pub(super) fn revive_pass(&mut self, ev: &mut Events) {
         let downed: Vec<u32> = self
             .seats
@@ -502,7 +469,6 @@ impl Session {
                 k.inv = SPAWN_INV;
                 let (mut x, mut y) = (k.x, k.y);
                 if at.is_none() {
-                    // Carried to the room's resting brazier.
                     let start = self.start_of(d);
                     (x, y) = start;
                     let k = self.seats.get_mut(&d).unwrap();
@@ -516,8 +482,6 @@ impl Session {
         }
     }
 
-    /// Every knight down: a breath, then the party is back at the room's
-    /// start with the world as it was.
     pub(super) fn tick_wipe(&mut self, r: &Rules, ev: &mut Events) {
         let all_down = !self.seats.is_empty() && self.seats.values().all(|k| !k.up());
         if !all_down {
@@ -533,8 +497,6 @@ impl Session {
         }
     }
 
-    /// Back to the room's start: hearts full, foes as the encounter opened,
-    /// every solved thing still solved.
     pub(super) fn retry(&mut self, r: &Rules, ev: &mut Events) {
         self.wipe = 0;
         self.tries = self.tries.saturating_add(1);
@@ -565,7 +527,6 @@ impl Session {
             k.carry = Carry::Nothing;
             k.flame = if self.inv.lantern { r.flame } else { 0 };
         }
-        // Carried keys are put down at the start.
         if let Hold::Carried(id, _, _) = self.inv.boss {
             let at = self.seats.get(&u32::from(id)).map_or((0, 0), |k| (k.x, k.y));
             self.inv.boss = Hold::Carried(id, at.0, at.1);
@@ -580,7 +541,6 @@ impl Session {
         self.flash = self.flash.max(8);
     }
 
-    /// The tick's leftovers age out.
     pub(super) fn age(&mut self) {
         for f in &mut self.fx {
             f.t = f.t.saturating_add(1);

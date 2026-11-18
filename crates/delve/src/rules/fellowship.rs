@@ -22,33 +22,22 @@
 
 use super::*;
 
-/// The stairs, as a way out beside the four doorways (north, east, south,
-/// west: `0..=3`).
 pub const STAIRS: u8 = 4;
 
-/// The light home after a slain dragon: the whole party steps in together.
 pub const LIGHT: u8 = 5;
 
-/// What each way is called, by number.
 const WAYS: [&str; 6] = ["THE NORTH DOOR", "THE EAST DOOR", "THE SOUTH DOOR", "THE WEST DOOR", "THE STAIRS", "THE LIGHT HOME"];
 
-/// How often a called knight hears the bell again: four seconds.
 pub const CALL_EVERY: u64 = 4 * HZ as u64;
 
-/// The bell that calls a knight to the fellowship: the new circle's bell.
 pub const CALL_SOUND: &str = "circle_toll";
 
-/// The knights waiting in a way out for the rest of the party.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct State {
-    /// Each waiting knight's seat and the way it stands in.
     pub waiting: Vec<(u32, u8)>,
-    /// The knights called to join: most of the party waits in one way and
-    /// these, who count, do not stand in it.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub called: Vec<u32>,
-    /// When each called knight last heard the bell, by tick.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub rung: BTreeMap<u32, u64>,
 }
@@ -59,32 +48,24 @@ impl State {
         self.called.clear();
     }
 
-    /// Knights `ways` (a seat and a way each) wait.
     pub(super) fn wait(&mut self, ways: impl Iterator<Item = (u32, u8)>) {
         self.waiting.extend(ways);
     }
 
-    /// Whether nobody waits or is called (a save then leaves the state out).
     pub fn is_empty(&self) -> bool {
         self.waiting.is_empty() && self.called.is_empty() && self.rung.is_empty()
     }
 
-    /// Whether knight `id` stands waiting.
     pub fn is_waiting(&self, id: u32) -> bool {
         self.waiting.iter().any(|&(seat, _)| seat == id)
     }
 }
 
 impl Run {
-    /// Whether any knight waits in a way out for the rest of the party.
     pub fn waiting_for_fellowship(&self) -> bool {
         !self.fellowship.waiting.is_empty()
     }
 
-    /// What the screen of seat `focus` says of the wait, and whether that
-    /// seat is among those waiting (its words flash): "WAITING FOR
-    /// FELLOWSHIP" to a knight who stands in a way, and to the rest where
-    /// their friends wait.
     pub fn fellowship_line(&self, focus: Option<u32>) -> Option<(String, bool)> {
         let &(_, way) = self.fellowship.waiting.first()?;
         if focus.is_some_and(|id| self.fellowship.is_waiting(id)) {
@@ -94,13 +75,10 @@ impl Run {
         Some((format!("FRIENDS WAIT AT {place}"), false))
     }
 
-    /// Whether knight `id` counts for the fellowship: alive, here, awake and
-    /// not turned to stone.
     pub(super) fn counts_in_fellowship(&self, id: u32) -> bool {
         self.players.get(&id).is_some_and(|h| h.hp > 0 && !h.stone && !h.absent) && !self.away(id) && !self.caves.inside(id)
     }
 
-    /// The way the most knights wait in (the first, on a tie), and how many.
     fn gathered(&self) -> Option<(u8, usize)> {
         let mut best: Option<(u8, usize)> = None;
         for &(_, way) in &self.fellowship.waiting {
@@ -112,11 +90,6 @@ impl Run {
         best
     }
 
-    /// Who the fellowship calls after this tick, and their bells: when the
-    /// knights waiting in one way outnumber the rest who count, each of the
-    /// rest is called, and hears the bell at once and every `CALL_EVERY`.
-    /// A knight who joins, or a wait that ends, stops the bell; a new call
-    /// rings at once.
     pub(super) fn call_fellowship(&mut self) {
         let counted: Vec<u32> = self.players.keys().copied().filter(|&id| self.counts_in_fellowship(id)).collect();
         let called: Vec<u32> = match self.gathered() {
@@ -138,8 +111,6 @@ impl Run {
         state.called = called;
     }
 
-    /// Where the fellowship waits for seat `focus`, when it is called: the
-    /// middle of the knights gathered there, in the room's units.
     pub fn fellowship_call(&self, focus: Option<u32>) -> Option<(f32, f32)> {
         let id = focus?;
         if !self.fellowship.called.contains(&id) {

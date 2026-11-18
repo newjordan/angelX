@@ -26,9 +26,7 @@ use angel_delve::world3d::lift::{self, Ripple, Times};
 use angel_delve::world3d::{self, rooms_lit};
 use angel_gpu::{Core, Draw, Frame, Instance, Picture, Stage};
 
-/// The stage's picture id, as the cockpit names the Delve's.
 const STAGE: u32 = 0x00FA_57A4;
-/// A tile, in the room's pixels.
 const TILE: f32 = 16.0;
 
 fn main() -> ExitCode {
@@ -41,8 +39,6 @@ fn main() -> ExitCode {
     }
 }
 
-/// A move of the lift: its name, how long it is, and the times a strip of it
-/// is shot at: evenly, and more where it lands (fractions of its length).
 struct Move {
     name: &'static str,
     duration: f32,
@@ -57,20 +53,14 @@ const MOVES: [Move; 4] = [
     Move { name: "climb", duration: lift::DURATION, landing: (0.35, 0.80), times: lift::climb },
 ];
 
-/// How many frames evenly across a strip, and how many more in its landing.
 const EVEN: usize = 12;
 const LANDING: usize = 8;
 
-/// A shot: its name and the run as it stands.
 struct Case {
     name: String,
     run: Run,
 }
 
-/// Where a knight stands in room `room` (on a floor of `pack`): on open floor
-/// just behind (north of) the tallest thing its lit blockout stands near
-/// `near`, so it hides the knight's legs; the open floor nearest `near` when
-/// nothing stands. Its feet, in the room's pixels.
 fn spot(room: &Room, pack: Pack, near: (f32, f32), reach: i32) -> (f32, f32) {
     let walk = |c: i32, r: i32| {
         (0..room.cols as i32).contains(&c) && (0..room.rows as i32).contains(&r) && matches!(room.tile(c, r), Tile::Floor | Tile::Door)
@@ -117,8 +107,6 @@ fn spot(room: &Room, pack: Pack, near: (f32, f32), reach: i32) -> (f32, f32) {
     open.unwrap_or(near)
 }
 
-/// Stand the run's knights at `feet` and beside it (the room's pixels), the
-/// view on the first.
 fn stand(run: &mut Run, feet: (f32, f32)) {
     for (k, hero) in run.players.values_mut().enumerate() {
         let dx = k as f32 * 22.0;
@@ -127,8 +115,6 @@ fn stand(run: &mut Run, feet: (f32, f32)) {
     }
 }
 
-/// A run on floor `depth` of `pack` (seed `seed`) standing in its first room
-/// of kind `kind`, two knights in it.
 fn seeded(pack: Pack, depth: u32, seed: u64, kind: RoomKind) -> Option<Run> {
     for seed in seed..seed + 8 {
         let floor = layout::floor_party(depth, pack, 2, &mut Rng::new(seed));
@@ -149,7 +135,6 @@ fn seeded(pack: Pack, depth: u32, seed: u64, kind: RoomKind) -> Option<Run> {
     None
 }
 
-/// Whether the window stands run `run`'s room up in 3D.
 fn stood(run: &Run) -> bool {
     let (w, h) = arena::seat_size();
     world3d::set_enabled(true);
@@ -179,7 +164,6 @@ fn cases(only: &[String]) -> Vec<Case> {
         .collect()
 }
 
-/// The times of a strip of `m`: evenly, and more where it lands.
 fn strip(m: &Move) -> Vec<f32> {
     let mut times: Vec<f32> = (0..EVEN).map(|i| m.duration * i as f32 / (EVEN - 1) as f32).collect();
     times.extend((0..LANDING).map(|i| m.duration * (m.landing.0 + (m.landing.1 - m.landing.0) * i as f32 / (LANDING - 1) as f32)));
@@ -283,8 +267,6 @@ impl Gpu {
         Ok(Self { core, device })
     }
 
-    /// A Delve frame as a stage, drawn into a texture `size` pixels as the
-    /// window draws a stage in its cells, on black, and read back.
     fn stage(&mut self, frame: angel_stage::Frame, size: (u32, u32)) -> Vec<u8> {
         for p in frame.pictures {
             self.core.upload(Picture { id: p.id, width: p.width, height: p.height, rgba: p.rgba, cols: 0, rows: 0 });

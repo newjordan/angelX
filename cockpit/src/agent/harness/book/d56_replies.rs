@@ -23,13 +23,11 @@ pub(crate) const SELF_SAFETY: Route = Route::new(CELL, '⠓');
 pub(crate) const BENCHMARK: Route = Route::new(CELL, '⠊');
 pub(crate) const JEV: Route = Route::new(CELL, '⠚');
 
-// ⠰⠁ the list_dir window
 pub(crate) const NEXT_WINDOW: Page = Page::new(LISTING, 1);
 pub(crate) const KEEP_FILTERS: Page = Page::new(LISTING, 2);
 pub(crate) const RESTART_LISTING: Page = Page::new(LISTING, 3);
 pub(crate) const OPTIONAL_EXCLUSIONS: Page = Page::new(LISTING, 4);
 
-// ⠰⠃ refused seats
 pub(crate) const DO_THE_WORK: Page = Page::new(REFUSALS, 1);
 pub(crate) const UNSET_PIN: Page = Page::new(REFUSALS, 2);
 pub(crate) const OWN_THE_WORKLOAD: Page = Page::new(REFUSALS, 3);
@@ -38,7 +36,6 @@ pub(crate) const SOLO_OFF: Page = Page::new(REFUSALS, 5);
 pub(crate) const PERMIT_CONSULT: Page = Page::new(REFUSALS, 6);
 pub(crate) const LISTED_CLUB: Page = Page::new(REFUSALS, 7);
 
-// ⠰⠉ seats, personas, graphs and children
 pub(crate) const PERSONA_NAME: Page = Page::new(SEAT_HINTS, 1);
 pub(crate) const PERSONA_SEAT: Page = Page::new(SEAT_HINTS, 2);
 pub(crate) const PERSONA_NODE: Page = Page::new(SEAT_HINTS, 3);
@@ -50,10 +47,8 @@ pub(crate) const SHARED_RESOURCE: Page = Page::new(SEAT_HINTS, 8);
 pub(crate) const INITIAL_COMMIT: Page = Page::new(SEAT_HINTS, 9);
 pub(crate) const REVIEW_PRESERVED: Page = Page::new(SEAT_HINTS, 10);
 
-// ⠰⠙ notes and next steps
 pub(crate) const NO_BUDGET: Page = Page::new(NOTES, 1);
 pub(crate) const AUTO_COMPACT: Page = Page::new(NOTES, 2);
-/// `hooks::HOOK_BLOCKED_PREFIX` is this address; the book tests pin it.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const HOOK_BLOCKED: Page = Page::new(NOTES, 3);
 pub(crate) const UNKNOWN_OUTCOME: Page = Page::new(NOTES, 4);
@@ -64,7 +59,6 @@ pub(crate) const RESUME_RUN: Page = Page::new(NOTES, 8);
 pub(crate) const REJECTED_RUN: Page = Page::new(NOTES, 9);
 pub(crate) const RESUME_PAUSED: Page = Page::new(NOTES, 10);
 
-// ⠰⠑ the knowledge graph, jev and semantic_read
 pub(crate) const KG_STORE: Page = Page::new(SERVICES, 1);
 pub(crate) const KG_SUMMARIZE: Page = Page::new(SERVICES, 2);
 pub(crate) const KG_INGEST: Page = Page::new(SERVICES, 3);
@@ -75,7 +69,6 @@ pub(crate) const JEV_BUDGET: Page = Page::new(SERVICES, 7);
 pub(crate) const JEV_NOUL: Page = Page::new(SERVICES, 8);
 pub(crate) const SEMANTIC_EVIDENCE: Page = Page::new(SERVICES, 9);
 
-// ⠰⠋ work landing
 pub(crate) const LANDING_DETECTED: Page = Page::new(WORK_LANDING, 1);
 pub(crate) const LANDING_CONFIRM: Page = Page::new(WORK_LANDING, 2);
 pub(crate) const LANDING_RECORD: Page = Page::new(WORK_LANDING, 3);
@@ -86,7 +79,6 @@ pub(crate) const LANDING_PIN_MODE: Page = Page::new(WORK_LANDING, 7);
 pub(crate) const LANDING_CONFIRMED: Page = Page::new(WORK_LANDING, 8);
 pub(crate) const LANDING_DRIVES: Page = Page::new(WORK_LANDING, 9);
 
-// ⠰⠛ the self-map
 pub(crate) const MAP_TITLE: Page = Page::new(SELF_MAP, 1);
 pub(crate) const MAP_HARNESS: Page = Page::new(SELF_MAP, 2);
 pub(crate) const MAP_LIVE: Page = Page::new(SELF_MAP, 3);

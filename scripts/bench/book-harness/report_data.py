@@ -78,14 +78,10 @@ def build_report_data(data, results_path):
 
     out = {"models": [{"id": m, "name": n} for m, n in MODELS], "arms": [{"id": a, "name": n} for a, n in ARMS]}
 
-    # E1: tokens, turns, wall per model and arm
     e1 = []
     for model, _ in MODELS:
         for arm, _ in ARMS:
             rs = cohort(f"e1-{model}-{arm}-")
-            # Muse's first "intro" arm never received the legend (it lived on the
-            # Chat Completions wire only until 95c85d2); its rerun on the fixed
-            # build is the legend arm.
             rerun = model == "muse" and arm == "intro" and cohort("e1-muse-introfix-")
             if rerun:
                 rs = rerun
@@ -106,7 +102,6 @@ def build_report_data(data, results_path):
                        "host": rs[0]["host"]})
     out["e1"] = e1
 
-    # E2: provider-counted prompt tokens of each stub session's final request
     lengths = {"2": 9, "16": 51, "33": 102, "70": 213}
     e2 = {}
     identities = set()
@@ -134,7 +129,6 @@ def build_report_data(data, results_path):
         {"requests": n, **{arm: e2[model][arm].get(n) for arm in ("prebook", "bare", "intro")}}
         for n in sorted(lengths.values())]} for model, _ in MODELS if model in e2]
 
-    # E5: behind a real model, speed baseline against head (intro arm, two-bug task)
     e5 = []
     for model, _ in MODELS:
         for build in ("base", "head"):
@@ -156,13 +150,11 @@ def build_report_data(data, results_path):
                        "host": rs[0]["host"]})
     out["e5"] = e5
 
-    # The scripted 213-request session and time to first request (stub model)
     def timing_stat(prefix, key):
         return stats(require_clocks(cohort(prefix), key, prefix, timing=True))
     out["stub"] = {build: {"wall_ms": timing_stat(f"{build}-", "wall_ms"),
                            "startup_ms": timing_stat(f"ttfr-{build}-", "startup_ms")} for build in ("base", "head")}
 
-    # X6 and the DeepSeek A/B
     out["x6"] = {build: {"startup_ms": timing_stat(f"x6-{build}-", "startup_ms"),
                          "wall_ms": timing_stat(f"x6-{build}-", "wall_ms")} for build in ("h", "eng")}
     dsab = []
@@ -179,7 +171,6 @@ def build_report_data(data, results_path):
                          "startup_ms": stats(startup)})
     out["dsab"] = dsab
 
-    # Long DeepSeek loops: per-request prompt and cache, cumulative uncached tokens
     loops = []
     for label, name in (("e3-deepseek-flash-bare-1", "Before the fixes (Chat)"),
                         ("dsfinal-chat-1", "Fixed (Chat)"), ("dsfinal-msgs-1", "Fixed (Messages API)")):
@@ -207,7 +198,6 @@ def build_report_data(data, results_path):
                       "prompt": run["prompt"], "cached": run["cached"], "series": series})
     out["loops"] = loops
 
-    # The two-turn follow-up: cache hit on the first request of turn 2
     follow = []
     for label, name in (("twoturn-ds", "Before"), ("twoturn-ds3", "After")):
         run = runs.get(label)
@@ -219,7 +209,6 @@ def build_report_data(data, results_path):
             follow.append({"name": name, "prompt": last["prompt"], "cached": last["cached"]})
     out["followup"] = follow
 
-    # The decision test (decide/decide_table.py beside results.json)
     decide = os.path.join(os.path.dirname(os.path.abspath(str(results_path))), "decide.json")
     if os.path.exists(decide):
         spec = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "decide", "scenarios.json")))
@@ -227,9 +216,6 @@ def build_report_data(data, results_path):
         out["decide"] = {"cells": [c for c in cells if c["scenario"] != "batch2"],
                          "points": [{"id": k, "route": v["route"], "name": v["name"], "action": v["action"]}
                                     for k, v in spec.items() if k != "batch2"]}
-        # The legend against English at every sighting: DeepSeek's prompt-token
-        # counts through one 213-request turn, and the batch cue's second sighting
-        # (turn 2 of a TUI session).
         here = os.path.dirname(os.path.abspath(__file__))
         tokens = []
         for wire in ("intro", "every", "prebook", "bare"):
@@ -237,7 +223,6 @@ def build_report_data(data, results_path):
             if os.path.exists(path):
                 tokens.append({"wire": wire, "points": [{"requests": r["i"], "prompt": require_number(r["prompt"], f"{path} prompt tokens")}
                                                          for r in map(json.loads, open(path))]})
-        # Twenty turns: DeepSeek's count at the last request of each turn.
         turns = []
         for wire in ("intro", "every", "bare"):
             counted = os.path.join(here, "out", f"tokcount-t20-{wire}.jsonl")

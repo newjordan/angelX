@@ -1,15 +1,3 @@
-"""The realm's inks, and the studio's eyes on a PNG.
-
-The eyes work on pictures, not on recipes, so they see every backend's work
-the same way: which inks a picture uses and which it shouldn't, lone pixels,
-where it meets the floor, how it reads at the game's grain, and the grain
-ladder shot a model or a person looks at.
-
-A picture drawn at grain 4 (64 px a tile) is brought to grains 2 and 1 here
-by a reduction (each block's ink by vote, the outline kept on the edge). The
-kiln backend renders a recipe at every grain directly; the reduction stands
-in for it with the backends that draw at one grain only.
-"""
 from collections import Counter
 from functools import lru_cache
 from pathlib import Path
@@ -18,13 +6,11 @@ from PIL import Image, ImageDraw, ImageFont
 
 from . import paths
 
-TILE = 16  # game pixels a tile
+TILE = 16
 CLEAR = "."
 
 
 class Palette:
-    """The realm's inks: key, colour and family, in realm.hex order."""
-
     def __init__(self, rows):
         self.keys = [k for k, _, _ in rows]
         self.rgb = {k: c for k, c, _ in rows}
@@ -56,7 +42,6 @@ class Palette:
         return min(self.keys, key=lambda k: sum((a - b) ** 2 for a, b in zip(self.rgb[k], rgb)))
 
     def ramp(self, keys):
-        """A ramp's keys checked against the realm, dark to light."""
         bad = [k for k in keys if k not in self.rgb]
         if bad:
             raise ValueError(f"ramp {keys!r}: no realm ink {''.join(bad)!r}")
@@ -67,15 +52,10 @@ class Palette:
 def realm():
     return Palette.parse(paths.REALM_HEX.read_text())
 
-
-# --- pictures as ink grids -------------------------------------------------
-
 class Grid:
-    """A picture as rows of ink keys: `.` clear, `?` a colour not in the realm."""
-
     def __init__(self, rows, off=None):
         self.rows = rows
-        self.off = off or Counter()  # off-realm colours (hex) and their counts
+        self.off = off or Counter()
         self.h = len(rows)
         self.w = len(rows[0]) if rows else 0
 
@@ -90,7 +70,6 @@ class Grid:
 
 
 def read_grid(path, palette=None):
-    """A PNG as a Grid. Alpha under 128 is clear; partial alpha above is counted."""
     pal = palette or realm()
     im = Image.open(path).convert("RGBA")
     w, h = im.size
@@ -117,16 +96,11 @@ def read_grid(path, palette=None):
 
 
 def frames_of(grid, frame_w, frame_h, count):
-    """A strip's frames, left to right then down."""
     per_row = max(1, grid.w // frame_w)
     return [grid.crop((i % per_row) * frame_w, (i // per_row) * frame_h, frame_w, frame_h) for i in range(count)]
 
 
 def reduce(grid, n, outline="k"):
-    """A grid brought down by `n` (grain 4 to 1 is n=4): each n x n block is
-    drawn when at least 7/16 of it is; its ink is the block's commonest, except
-    that an edge block holding the outline ink takes the outline, so the
-    silhouette keeps its line."""
     if n <= 1:
         return grid
     pal = realm()
@@ -161,11 +135,7 @@ def to_image(grid, scale=1, palette=None):
                 px[x, y] = pal.rgb[k] + (255,)
     return im.resize((grid.w * scale, grid.h * scale), Image.NEAREST) if scale > 1 else im
 
-
-# --- what the eyes measure -------------------------------------------------
-
 def bbox(grid):
-    """The drawn box: x, y, w, h, or None when nothing is drawn."""
     ys = [y for y, row in enumerate(grid.rows) if row.strip(CLEAR)]
     if not ys:
         return None
@@ -174,8 +144,6 @@ def bbox(grid):
 
 
 def lone_pixels(grid):
-    """Pixels whose ink none of their eight neighbours shares, not counting
-    the outline ink: noise to a pixel artist unless it is a glint or an eye."""
     found = []
     for y, row in enumerate(grid.rows):
         for x, k in enumerate(row):
@@ -187,7 +155,6 @@ def lone_pixels(grid):
 
 
 def pieces(grid):
-    """How many 8-connected pieces the drawing falls into."""
     seen, count = set(), 0
     for y, row in enumerate(grid.rows):
         for x, k in enumerate(row):
@@ -212,8 +179,6 @@ def silhouette(grid):
 
 
 def lint(grid, grain=4, outline="k", rules=None, small=None):
-    """The eyes' lints on one frame, as findings {rule, level, msg}. `small` is
-    the frame at grain 1 when the backend drew it; else it is a reduction."""
     rules = rules or {}
     out = []
     pal = realm()
@@ -260,7 +225,6 @@ def lint(grid, grain=4, outline="k", rules=None, small=None):
 
 
 def edge_inks(grid):
-    """The inks on the silhouette's edge (a drawn pixel beside a clear one)."""
     edge = Counter()
     for y, row in enumerate(grid.rows):
         for x, k in enumerate(row):
@@ -270,7 +234,6 @@ def edge_inks(grid):
 
 
 def facts(grid, grain=4, outline="k", small=None):
-    """The numbers describe reports for one frame."""
     pal = realm()
     box = bbox(grid)
     inks = Counter(k for row in grid.rows for k in row if k not in (CLEAR, "?"))
@@ -289,9 +252,6 @@ def facts(grid, grain=4, outline="k", small=None):
         "grain_1": "drawn" if small is not None and small is not grid and getattr(small, "drawn", False) else "reduced",
     }
 
-
-# --- the shot --------------------------------------------------------------
-
 @lru_cache(maxsize=4)
 def _font(size=11):
     try:
@@ -301,7 +261,6 @@ def _font(size=11):
 
 
 def floor(w, h, tile, inks=("K", "Z")):
-    """A room floor: tiles of `tile` screen px in two inks, a checker."""
     pal = realm()
     a, b = (pal.rgb[k] + (255,) for k in inks)
     im = Image.new("RGBA", (w, h), a)
@@ -314,15 +273,6 @@ def floor(w, h, tile, inks=("K", "Z")):
 
 
 def ladder(frames, out, grain=4, outline="k", floor_inks=("K", "Z"), zoom=4, title="", lower=None, key=0):
-    """The grain ladder shot of a figure drawn at `grain`, written to `out`.
-
-    Row one, the first frame: grain 1 at the game's own size (1 screen px a
-    pixel), then grains 1, 2 and `grain` at one screen size (64 screen px a
-    tile), each on a room floor, then the drawing zoomed. Row two, when there
-    are frames: every frame at 64 px a tile, and the grain-1 frames under them.
-    `lower` holds the backend's own frames at grains 1 and 2 ({1: [...], 2: [...]});
-    without them those grains are reductions. Row one shows frame `key`.
-    """
     lower = lower or {}
 
     def at(g, i):
@@ -332,8 +282,8 @@ def ladder(frames, out, grain=4, outline="k", floor_inks=("K", "Z"), zoom=4, tit
     pal = realm()
     first = frames[key]
     label_h = 16
-    pad = 8  # screen px around a panel's canvas
-    S = 4  # screen px per game px for the side-by-side panels
+    pad = 8
+    S = 4
 
     def panel(grid, scale, tile, label):
         img = to_image(grid, scale)

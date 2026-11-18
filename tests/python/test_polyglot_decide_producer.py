@@ -1,4 +1,3 @@
-"""Decision sample retention uses in-memory replies and isolated output only."""
 import contextlib
 import copy
 import http.client
@@ -196,7 +195,7 @@ class DecisionProducerTests(unittest.TestCase):
                     mock.patch.object(producer.time, "sleep") as sleep:
                 response, seconds, error = producer.call("deepseek-flash", {"messages": []}, 16)
             self.assertIsNone(response)
-            self.assertEqual(seconds, 0)  # Preserve the existing exhausted-call contract.
+            self.assertEqual(seconds, 0)
             self.assertEqual(opener.call_count, 4)
             self.assertEqual(sleep.call_args_list, [mock.call(5), mock.call(10), mock.call(15), mock.call(20)])
             self.assertTrue(error.startswith(str(status)))
@@ -237,7 +236,7 @@ class DecisionProducerTests(unittest.TestCase):
         self.assertEqual(row["error_class"], "OSError")
         self.assertTrue(row["call_error"])
         self.assertIsNone(row["secs"])
-        sleep.assert_not_called()  # This failure escaped before retry in the old producer too.
+        sleep.assert_not_called()
 
 
 if __name__ == "__main__":

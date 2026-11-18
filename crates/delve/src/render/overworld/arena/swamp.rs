@@ -14,7 +14,6 @@ use super::{TILE, UNIT, at, home, sprites, stand, swamp_art};
 use crate::rules::rescues::Captive;
 use crate::rules::{Enemy, EnemyKind, RoomKind, Run, TILE_UNITS, horrors, swamp};
 
-/// A horror's drawing in its state, undressed (`swamp_art`).
 pub(super) fn raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
     match kind {
         EnemyKind::BogHand => swamp_art::bog_hand(stage, t, tick),
@@ -23,8 +22,6 @@ pub(super) fn raw(kind: EnemyKind, stage: u8, t: u32, tick: u32) -> Img {
     }
 }
 
-/// A horror as it stands now, dressed and kept as every foe's picture is,
-/// facing the way it means to go.
 pub(super) fn figure(run: &Run, enemy: &Enemy, tick: u32) -> Img {
     let (kind, stage, t) = (enemy.kind, enemy.stage, enemy.timer);
     let im = super::foe_material::pose(
@@ -53,13 +50,10 @@ fn ring(cv: &mut Img, (x, y): (i32, i32), r: f32, every: usize, ink: char) {
     }
 }
 
-/// What a horror is about to do, drawn on the floor round it.
 pub(super) fn marks(cv: &mut Img, enemy: &Enemy, tick: u32) {
     let (x, y) = at(enemy.x, enemy.y);
     let t = enemy.timer;
     match (enemy.kind, enemy.stage) {
-        // The ripples where the hand will rise: they close in, and burn
-        // hard for the last of the tell.
         (EnemyKind::BogHand, 1) => {
             let k = t as f32 / horrors::HAND_TELL as f32;
             let reach = horrors::HAND_REACH * UNIT;
@@ -68,7 +62,6 @@ pub(super) fn marks(cv: &mut Img, enemy: &Enemy, tick: u32) {
             let inner = reach * (0.35 + 0.4 * ((tick / 3 % 4) as f32 / 4.0));
             ring(cv, (x, y), inner, 4, 'u');
         }
-        // The cleave's arc in front of the lifted blade, filling.
         (EnemyKind::Drowned, 1) => {
             let k = t as f32 / horrors::DROWNED_WINDUP as f32;
             let locked = t >= horrors::DROWNED_LOCK;
@@ -87,7 +80,6 @@ pub(super) fn marks(cv: &mut Img, enemy: &Enemy, tick: u32) {
                 );
             }
         }
-        // The lure: rings drawn in toward the wisp.
         (EnemyKind::Wisp, 1) => {
             let k = t as f32 / horrors::WISP_LURE as f32;
             let reach = horrors::LURE_REACH * UNIT;
@@ -103,7 +95,6 @@ pub(super) fn marks(cv: &mut Img, enemy: &Enemy, tick: u32) {
     }
 }
 
-/// Whether the room the party stands in has fog in it.
 pub(super) fn fogged(run: &Run) -> bool {
     !run.at_home_now() && !patches(run).is_empty()
 }
@@ -112,10 +103,6 @@ fn patches(run: &Run) -> Vec<(f32, f32)> {
     swamp::fog(run.dungeon.pack, run.room(), run.dungeon.depth)
 }
 
-/// The fog: within each patch the room sinks toward black paper, as Lights
-/// Out does everywhere, but here only in the patch, and a knight's lantern
-/// still lights round them. Signal inks (eyes, fire, shots, the tells)
-/// glow through it.
 pub(super) fn fog(scenery: &mut Img, over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
     const LANTERN: f32 = 40.0;
     let patches = patches(run);
@@ -173,8 +160,6 @@ pub(super) fn fog(scenery: &mut Img, over: &mut Img, run: &Run, (ox, oy): (i32, 
     }
 }
 
-/// The Mire King's pen, the white horse in it: frightened while he stands,
-/// and once out, walking off east before she goes home.
 pub(super) fn pen(cv: &mut Img, run: &Run, captive: &Captive) {
     let (x, y) = at(captive.x, captive.y);
     let tick = run.tick as u32;
@@ -207,14 +192,12 @@ pub(super) fn pen(cv: &mut Img, run: &Run, captive: &Captive) {
             ("HOLD E: OPEN THE PEN".to_string(), '5')
         };
         let board = home::board(&[(swamp::HORSE_NAME.to_uppercase(), '9'), last]);
-        // Beside the pen, never over the knights at its gate below it.
         let right = x + im.w / 2 + 4;
         let bx = if right + board.w <= cv.w - 2 { right } else { x - im.w / 2 - 4 - board.w };
         cv.stamp(&board, bx.max(2), (y - im.h + 6).clamp(2, cv.h - board.h - 2));
     }
 }
 
-/// The plate down into the swamp, and its notice post, in Sir Damp's Marsh.
 pub(super) fn marsh(cv: &mut Img) {
     let (c, r, _, _) = swamp::PLATE;
     cv.stamp(&sprites::stairs(true), c * TILE, r * TILE);
@@ -225,7 +208,6 @@ pub(super) fn marsh(cv: &mut Img) {
     cv.stamp(&icon, px - icon.w / 2, py - icon.h - 2);
 }
 
-/// The notice, to a knight at its post.
 pub(super) fn marsh_board(cv: &mut Img, run: &Run) {
     if run.room().kind != RoomKind::Marsh {
         return;
@@ -246,8 +228,6 @@ pub(super) fn marsh_board(cv: &mut Img, run: &Run) {
     cv.stamp(&board, cv.w - board.w - 4, 13);
 }
 
-/// The white horse at grass in the Flower Fields, once she is in the herd:
-/// where she stands (tiles) and her picture.
 pub(super) fn grazing(run: &Run) -> Option<((f32, f32), Img)> {
     if !swamp::in_herd(&run.home.stable) {
         return None;

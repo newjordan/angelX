@@ -24,7 +24,6 @@ pub(crate) const BOUNDS: Route = Route::new(CELL, '⠓');
 pub(crate) const GRADER: Route = Route::new(CELL, '⠊');
 pub(crate) const OPTIMIZER: Route = Route::new(CELL, '⠚');
 
-// `⠗⠃`'s field labels: each page is sent as its address, the field beside it.
 pub(crate) const GOAL_OBJECTIVE: Page = Page::new(GOAL, 2);
 pub(crate) const GOAL_CRITERIA: Page = Page::new(GOAL, 3);
 pub(crate) const GOAL_CHECK: Page = Page::new(GOAL, 4);

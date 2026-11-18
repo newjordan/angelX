@@ -16,71 +16,38 @@ use angel_stage::{Frame, LAYER_PICTURES, Layer, LayerKind, Particles, Picture, P
 
 use super::*;
 
-/// The stage's pictures: the room's still art, what is under and over the
-/// figures, the figures' sheet, the screen's marks.
 pub const GROUND: u32 = LAYER_PICTURES + 0x21;
 pub const UNDER: u32 = LAYER_PICTURES + 0x22;
 pub const SCREEN: u32 = LAYER_PICTURES + 0x23;
 pub const FIGURES: u32 = LAYER_PICTURES + 0x24;
 pub const OVER: u32 = LAYER_PICTURES + 0x25;
 pub const SHOTS: u32 = LAYER_PICTURES + 0x26;
-/// The floor rune's sign, over its ray-marched solid (`RoomScene::solids`).
 const RUNE_SIGN: u32 = LAYER_PICTURES + 0x27;
-/// The room-sized pictures (the ground, under, over, the screen) go in
-/// square tiles, a picture a tile and `MAX_TILES` a kind from its base
-/// here, so a fight that moves one part of the room re-sends that part,
-/// not the whole room a frame (`send_tiled`).
 const TILE_PX: i32 = 32;
 const MAX_TILES: i32 = 0x400;
 const GROUND_TILES: u32 = LAYER_PICTURES + 0x1000;
 const UNDER_TILES: u32 = LAYER_PICTURES + 0x1400;
 const OVER_TILES: u32 = LAYER_PICTURES + 0x1800;
 const SCREEN_TILES: u32 = LAYER_PICTURES + 0x1c00;
-/// A room in 3D (`RoomScene::world`): each figure's own picture from here
-/// up, one a figure (a card shows the whole of a picture). Clear of the
-/// window's other pictures (its HD art and hashed sprites sit below
-/// `LAYER_PICTURES + 0x1000_1000`).
 pub const WORLD_CARDS: u32 = LAYER_PICTURES + 0x2057_1000;
-/// A pickup's drawing, as its card in a room in 3D (`pickup_cards`), by its
-/// place on the plate sheet.
 pub const PICKUP_CARDS: u32 = LAYER_PICTURES + 0x2057_2000;
-/// The pickups' cards' node ids, past any figure's.
 const PICKUP_NODES: u64 = 0x10_0000;
-/// A turning pickup card's sides (`pickup_cards::face`, `back`): a face by
-/// its drawing's place on the sheet and whether it shines, a back by
-/// whether it shines.
 pub const PICKUP_FACES: u32 = LAYER_PICTURES + 0x2057_3000;
 const PICKUP_BACKS: u32 = PICKUP_FACES + 0x800;
-/// The props' grain while a card turns among them: fine enough that its
-/// drawing reads.
 const CARD_GRAIN: u8 = 3;
 
-/// The most figures a room in 3D stands up.
 const MAX_CARDS: usize = 4096;
 
-/// How far the floor tips away from the camera in a window that tilts it
-/// (`angel_stage::Frame::tilt`): knights, monsters and shots stand up on
-/// it, the room and its light lie on it, the screen's marks stay put.
 pub const TILT: f32 = 0.3;
 
-/// How fine the shots' shapes are drawn: this many pixels of the picture they
-/// are drawn into to a pixel of the room (`angel_stage::scene::Props::grain`).
-/// Fine enough that a fletching or a bead reads, coarse enough to be pixel art.
 pub const SHOT_GRAIN: u8 = 2;
 
-/// How much of a light's strength is added at its middle.
 const LIGHT_GAIN: f32 = 0.3;
-/// How far a fire's light wavers either way.
 const LIGHT_FLICKER: f32 = 0.14;
-/// A pool of light on the floor is wider than it is deep.
 const LIGHT_SQUASH: f32 = 0.75;
 
-/// What a stage was last sent: the room pictures' tiles (a tile goes again
-/// only when it changed) and the figures' sheet, and the room shown, for
-/// the way into the next.
 #[derive(Default)]
 pub struct StageMaker {
-    /// The tiled room pictures as last sent, a kind each (`send_tiled`).
     ground: std::sync::Weak<Img>,
     ground_tiles: Option<TileKept>,
     under_tiles: Option<TileKept>,
@@ -88,69 +55,35 @@ pub struct StageMaker {
     screen_tiles: Option<TileKept>,
 
     sheet: Vec<u8>,
-    /// Wire figures have independent pictures; one changing pose must not
-    /// re-upload every other figure on the crowd sheet.
     flat_cards: Vec<Picture>,
     shot_sheet: Vec<u8>,
     room: u64,
-    /// The pickups' models already sent (`item_pack`): to a window again
-    /// with each new room, so one its GPU let go of comes back; a page
-    /// across a wire asks for everything again when it lost one.
     meshes_sent: std::collections::BTreeSet<u32>,
-    /// The Keep's stones and falsework (`world3d::works_site`) not yet sent
-    /// to a page across a wire, and those that were (so a page that drew
-    /// none for a while, its GPU having let them go, is sent them again).
     works_pending: Vec<(u32, Arc<angel_stage::scene::MeshData>)>,
     works_ids: std::collections::BTreeSet<u32>,
-    /// The hillside works' baked meshes (`world3d::hill_mesh`) a page across a wire has been sent.
     hill_ids: std::collections::BTreeSet<u32>,
-    /// Shots as flat sprites and a white-hot core, for a page that cannot
-    /// draw the stage's 3D props (the legacy presenter). Otherwise a shot is
-    /// shapes (`shot_meshes`) in the frame's props, and a sprite only if it
-    /// is a card's own drawing. Such a page draws no room in 3D either: it
-    /// lays the figures over the room's still art, as ever.
     pub flat_shots: bool,
-    /// Each figure card's picture as last sent: its size and its pixels'
-    /// words, compared as they are so an unchanged figure costs no copy.
     cards: Vec<(i32, i32, Vec<u32>)>,
-    /// A drawer across a wire (a browser's renderer), which is sent a
-    /// world by reference (a set's text, then its key) and makes its blocks
-    /// itself.
     pub png_plates: bool,
-    /// The kingdom in 3D: the chunks whose set text went to a page across a
-    /// wire, by key, the most lately drawn last.
     chunk_texts: Vec<u64>,
-    /// A lit room's pieces whose set text went, by key, the most lately
-    /// drawn last (`world3d::rooms_lit`).
     lit_texts: Vec<u64>,
-    /// The pickups' drawings sent, by their place on the plate sheet.
     plates_sent: Vec<u8>,
-    /// The turning cards' sides sent, by picture.
     sides_sent: Vec<u32>,
-    /// Which paintings over the figures were drawn last (`painted_key`).
     over_painted: u64,
-    /// The figures' normal maps made lately, by their look (`look_hash`):
-    /// a knight's few frames are made once, not each time it steps.
     normal_maps: std::collections::HashMap<u64, Vec<u8>>,
 }
 
-/// The most figures' normal maps a maker keeps at once.
 const KEPT_NORMAL_MAPS: usize = 512;
 
 impl StageMaker {
-    /// A maker for a page that cannot draw the stage's props: shots are
-    /// sprites, as they were, until it is said otherwise (`flat_shots`).
     pub fn flat() -> Self {
         Self { flat_shots: true, ..Self::default() }
     }
 
-    /// A maker for a page across a wire (a browser): [`StageMaker::flat`],
-    /// sending a world by reference (`png_plates`).
     pub fn for_wire() -> Self {
         Self { png_plates: true, ..Self::flat() }
     }
 
-    /// Send everything again (the drawer lost its pictures).
     pub fn forget(&mut self) {
         self.ground = std::sync::Weak::new();
         self.ground_tiles = None;
@@ -172,16 +105,10 @@ impl StageMaker {
         self.hill_ids.clear();
     }
 
-    /// `scene` as a stage frame. `hd` names the picture of an HD drawing of
-    /// a sprite's look, when there is one: it is drawn over the figure in
-    /// the sprite's place, the sprite's own pixels taken out from under it.
     pub fn make(&mut self, scene: &Arc<RoomScene>, hd: impl FnMut(&Body) -> Option<super::hd_pack::Placed>) -> Frame {
         self.make_with(scene, hd, |_| None)
     }
 
-    /// `make`, and `paint` names the picture of a painting's frame, flipped
-    /// or not, when the drawer has it (`paintings`): it is drawn in its
-    /// inks' square, moved as they are, the inks taken out from under it.
     pub fn make_with(
         &mut self,
         scene: &Arc<RoomScene>,
@@ -202,14 +129,9 @@ impl StageMaker {
                 LayerKind::Picture(id),
             )
         };
-        // A room in 3D stands where its still art would lie, its figures in
-        // it, all drawn by the window (`Props::world`); a page that draws no
-        // scenes has its still art, as ever.
         let world = scene.world.clone().filter(|_| !self.flat_shots);
-        // The kingdom in 3D lies where its land would.
         let chunks = if self.flat_shots { &[][..] } else { &scene.chunks[..] };
         let (mut world_at, mut figures_at, mut cards) = (0, 0, Vec::new());
-        // The kingdom's pickups that drop as models, among the shapes.
         let mut models = Vec::new();
         if !chunks.is_empty() {
             world_at = layers.len();
@@ -217,15 +139,12 @@ impl StageMaker {
             world_at = layers.len();
         } else if let Some(ground) = &scene.ground {
             if let Some(fine) = &scene.fine {
-                // Fine art keeps its full resolution in the room's native rect.
                 if !self.ground.upgrade().is_some_and(|old| Arc::ptr_eq(&old, &fine.img)) {
                     pictures.push(picture(GROUND, &fine.img));
                     self.ground = Arc::downgrade(&fine.img);
                 }
                 layers.push(room_layer(GROUND, ground));
             } else {
-                // The same `Arc` comes back while the ground is unchanged:
-                // its tiles are last frame's without hashing a whole map.
                 let tiles = match self.ground.upgrade() {
                     Some(old) if Arc::ptr_eq(&old, ground) && self.ground_tiles.is_some() => self
                         .ground_tiles
@@ -238,9 +157,6 @@ impl StageMaker {
                 room_tiles(&mut layers, ground, &tiles, (cx, cy));
             }
         }
-        // The skills bar's veil: the room's still art darkened along the
-        // view's foot, fixed to the screen; all that stands, moves or marks
-        // the floor goes over it at full ink.
         if let Some([x, y, w, h]) = scene.veil {
             let mut veil = Layer::new(
                 3,
@@ -278,7 +194,6 @@ impl StageMaker {
                         1.0,
                     ],
                     phase: solid.phase,
-                    // Simulation time owns the pose, including pause/freeze.
                     speed: 0.0,
                 },
             );
@@ -288,7 +203,6 @@ impl StageMaker {
             }
             layers.push(body);
             if let Some(kind) = solid.rune {
-                // There is at most one floor rune. Keep its sign above the solid.
                 pictures.push(picture(RUNE_SIGN, &super::runes::glyph(kind)));
                 let mut sign = Layer::new(
                     0x5000 + i as u64,
@@ -301,9 +215,6 @@ impl StageMaker {
             }
         }
         if world.is_some() || !chunks.is_empty() {
-            // In the kingdom what lies on the floor stands up as its drawing
-            // (`pickup_cards`), its pool of light laid under the figures; in
-            // a room in 3D it turns as a card, as it does in 2D (below).
             let pickups = if chunks.is_empty() { Vec::new() } else { self.pickup_cards(scene, &mut pictures, &mut layers, &mut models) };
             figures_at = layers.len();
             cards = self.cards_of(scene, &mut pictures, &mut hd, &mut paint);
@@ -337,8 +248,6 @@ impl StageMaker {
                 (rects, vec![FIGURES; images.len()])
             };
             for (i, ((figure, rect), (_, drawings))) in scene.figures.iter().zip(rects).zip(&art).enumerate() {
-                // Where it truly stands, between the room's pixels; on a
-                // tilted floor it stands up on its feet.
                 let (dx, dy) = (figure.frac.0 - cx, figure.frac.1 - cy);
                 let foot = Stand::Upright([
                     figure.x as f32 + dx + rect[2] / 2.0,
@@ -351,8 +260,6 @@ impl StageMaker {
                     layer.stand = foot;
                     layer
                 };
-                // What lies under it (an aura's painting), then the figure,
-                // then what is drawn over it.
                 layers.extend(drawings.iter().filter(|d| d.under).map(drawing));
                 let mut layer = Layer::new(
                     0x100 + i as u64,
@@ -361,25 +268,15 @@ impl StageMaker {
                     LayerKind::PicturePart(ids[i], rect),
                 );
                 layer.stand = foot;
-                // A lifted figure draws a GPU drop-shadow under it (the
-                // window's `layers.rs`), the sprite itself stays put.
                 layer.height = figure.height;
-                // A glowing figure adds light instead of covering (`expand()`
-                // folds this into premultiplied `Quad.color` for the browser,
-                // the window sees `additive` on the layer directly). CPU
-                // compose ignores both, so parity is unaffected.
                 layer.additive = figure.additive;
                 layers.push(layer);
                 layers.extend(drawings.iter().filter(|d| !d.under).map(drawing));
             }
         }
         if let Some(over) = &scene.over {
-            // The paintings over the figures the drawer has, their inks
-            // taken out of what is painted over the figures.
             let painted: Vec<(u32, &Painting)> = scene.paints.iter().filter_map(|p| Some((paint(p)?, p))).collect();
             let key = painted_key(&painted);
-            // What was sent last had another set of paintings' inks in it:
-            // every tile goes again.
             if key != self.over_painted {
                 self.over_tiles = None;
                 self.over_painted = key;
@@ -402,16 +299,10 @@ impl StageMaker {
                 layers.push(layer);
             }
         }
-        // Shots that are shapes go in the props; the rest are sprites.
         let solid = !self.flat_shots;
         let sprite = |shot: &SceneShot| !solid || shot.form == ShotForm::Card;
         let mut shapes: Vec<Node> = std::mem::take(&mut models);
         if !scene.shots.is_empty() {
-            // One sheet of the shots' sprites, each look once: found by its
-            // pixels' hash, so a crowd of shots costs a pass each, never a
-            // look against every other (a stacked knight's hundreds).
-            // A painted shot the drawer has the picture of is its mark with
-            // the card's inks taken out, its painting drawn in their place.
             let painted: Vec<Option<(u32, Img)>> = scene
                 .shots
                 .iter()
@@ -464,16 +355,12 @@ impl StageMaker {
                 }
                 rects
             };
-            // Shots by the square of the room they are in, `CROWD_PX` a side,
-            // so each counts its crowd among its neighbours only.
             let cell = |x: f32, y: f32| ((x / CROWD_PX).floor() as i32, (y / CROWD_PX).floor() as i32);
             let mut cells: std::collections::HashMap<(i32, i32), Vec<usize>> = std::collections::HashMap::new();
             for (i, shot) in scene.shots.iter().enumerate() {
                 cells.entry(cell(shot.x, shot.y)).or_default().push(i);
             }
             for (i, (shot, look)) in scene.shots.iter().zip(which).enumerate() {
-                // Light adds up: where shots crowd (a ring just thrown), each
-                // glows less, so the crowd glows like one and never burns white.
                 let (sx, sy) = cell(shot.x, shot.y);
                 let crowd = (sx - 1..=sx + 1)
                     .flat_map(|x| (sy - 1..=sy + 1).map(move |y| (x, y)))
@@ -493,10 +380,6 @@ impl StageMaker {
                 }
             }
         }
-        // In the kingdom in 3D what lies on the floor is a card standing
-        // (`pickup_cards`); in every room, 2D or 3D, a card turning over a
-        // pool of light, a chest a chest: the deep floors keep the black
-        // dungeon's language (docs/WORLD-3D.md, "Deeper floors").
         let mut grain = SHOT_GRAIN;
         if !self.flat_shots && chunks.is_empty() {
             for (i, item) in scene.pickups.iter().enumerate() {
@@ -505,9 +388,6 @@ impl StageMaker {
                     continue;
                 }
                 let id = super::pickup_meshes::FIRST_NODE + i as u64 * super::pickup_meshes::NODES_PER;
-                // What has an approved model drops onto the floor as it
-                // (the operator, 2026-10-19: "the weapons should be 3d models
-                // that plop on the ground"); the rest turn as cards.
                 let plate = item.plate.unwrap_or_else(|| super::pickup_cards::plate_of(item.kind, ""));
                 if let Some((mesh, model)) = super::item_pack::model(plate, item.pale) {
                     shapes.push(super::pickup_meshes::plop(id, item, mesh, model, plate, (cx, cy)));
@@ -516,8 +396,6 @@ impl StageMaker {
                     shapes.extend(super::pickup_cards::nodes(id, front, back, item, (cx, cy)));
                     grain = CARD_GRAIN;
                 }
-                // A room lit in 3D (the deep) lays a wider, warmer pool: the
-                // dark there hides what lies in it otherwise.
                 let (reach, glow) = if world.is_some() { (LOOT_GLOW.0, LOOT_GLOW.1) } else { (1.0, 1.0) };
                 let (r, ry) = (super::pickup_cards::POOL * reach, super::pickup_cards::POOL * reach * LIGHT_SQUASH);
                 let mut pool = Layer::new(
@@ -531,11 +409,7 @@ impl StageMaker {
                 layers.push(pool);
             }
         }
-        // The shapes lie over everything laid so far (the shots' light and
-        // shadows, the figures) and under the room's light, motes and marks.
         let props_at = layers.len();
-        // Light added over the room: warm pools that flicker round its
-        // fires, and what burns and flies.
         for light in &scene.lights {
             let (r, ry) = (light.radius, light.radius * LIGHT_SQUASH);
             let seed = ((light.x as i64 as u64) << 20) ^ (light.y as i64 as u64);
@@ -566,7 +440,6 @@ impl StageMaker {
             layer.additive = true;
             layers.push(layer);
         }
-        // A guardian's entrance: the camera leans in to meet it, then back.
         let mut lean = ([0.0, 0.0], 1.0);
         if let Some(([bx, by], seconds)) = scene.entrance {
             let zoom = entrance_zoom(seconds);
@@ -577,9 +450,6 @@ impl StageMaker {
                 lean = ([bx - cx, by - cy], zoom);
             }
         }
-        // Down into the deep: the cut held black, the camera close on the
-        // party and easing back as the room's lamps come up
-        // (`world3d::room::beat`).
         if let Some(([px, py], seconds)) = scene.descent {
             let zoom = crate::world3d::room::beat_zoom(seconds);
             if lean.1 == 1.0 && zoom > 1.0 {
@@ -620,20 +490,15 @@ impl StageMaker {
         }
         let kingdom = (!chunks.is_empty())
             .then(|| self.kingdom_world(scene, chunks, &mut pictures, std::mem::take(&mut cards), (world_at, figures_at)));
-        // Through a door, the new room comes in the way the party went.
         let enter = scene.travelled_from(self.room);
         if self.room != scene.room && !self.png_plates {
             self.meshes_sent.clear();
         }
         self.room = scene.room;
-        // A pastime's own screen: a backdrop laid under all else, no
-        // ground, no room-painted over, no figures stood up yet. Its
-        // pinhole render must not be tipped.
         let pastime_scene = scene.ground.is_none()
             && scene.under.is_some()
             && scene.over.is_none()
             && scene.world.is_none();
-        // A model a pickup names goes up the first time it is named.
         let mut meshes = Vec::new();
         for node in &shapes {
             if let Some(angel_stage::scene::MeshRef::Uploaded(id)) = node.mesh
@@ -645,7 +510,6 @@ impl StageMaker {
                 meshes.push((id, mesh.clone()));
             }
         }
-        // The Keep's stones and falsework, new to a page across a wire.
         let room_for = angel_stage::wire::MAX_FRAME_MESHES.saturating_sub(meshes.len());
         let sent_now = self.works_pending.len().min(room_for);
         meshes.extend(self.works_pending.drain(..sent_now).map(|(id, m)| (id, (*m).clone())));
@@ -655,11 +519,6 @@ impl StageMaker {
             pictures,
             scene: scene.room,
             enter,
-            // The Atari board lies flat, as drawn (`atari`). A pastime's own
-            // screen is already a pinhole render (`three.rs`): tipping the
-            // frame tips it twice. Its actors stand up as Upright layers, and
-            // the tilt they see is what `TILT` gives the room's figures; only
-            // the flat backdrop is left level.
             tilt: if scene.board || pastime_scene { 0.0 } else if super::stand_back::on() { 0.62 } else { TILT },
             impact: scene.impact,
             props: match world {
@@ -674,11 +533,6 @@ impl StageMaker {
         }
     }
 
-    /// A lit room's world (`world3d::rooms_lit`, docs/REALM-MONOLITH.md
-    /// "Rooms, lit"): its pieces in sight lit and toned on the stage, their
-    /// flames burning as the room is fought, through the room's look; and by
-    /// reference, each piece's set text the first time it is drawn, for a
-    /// page that makes the same blocks itself. No pictures: no plate.
     fn lit_world(
         &mut self,
         scene: &RoomScene,
@@ -691,8 +545,6 @@ impl StageMaker {
         let view = (scene.view.0.max(1) as u32, scene.view.1.max(1) as u32);
         let sight = angel_stage::scene::stage_camera(TILT, view).view_projection(view.0 as f32 / view.1 as f32);
         let in_sight = |lo: [f32; 3], hi: [f32; 3]| sight.is_none_or(|m| seen(&m, lo, hi));
-        // What burns in flight (embers, fireballs, blasts) lights the room
-        // as lamps, the strongest first.
         let mut fires: Vec<&super::room_scene::SceneLight> = scene.lights.iter().filter(|l| l.hue == Hue::Fire).collect();
         fires.sort_by(|a, b| b.strength.total_cmp(&a.strength));
         let sparks: Vec<angel_stage::look::Lamp> = fires
@@ -703,8 +555,6 @@ impl StageMaker {
         let (scale, offset) = world.placing(camera, lean);
         let mut refs = Vec::new();
         for (key, text) in staged.sets {
-            // The page's sets keep `KEPT_SETS`; what this one says went is
-            // fewer, so the page has all of it.
             let had = match self.lit_texts.iter().position(|&k| k == key) {
                 Some(i) => {
                     self.lit_texts.remove(i);
@@ -727,13 +577,8 @@ impl StageMaker {
             });
         }
         let mut refs = refs.into_iter();
-        // The figures take the room's light, and the depth of field keeps
-        // them sharp: each card stands on its foot (`card`).
         let mut look = staged.look;
         if matches!(world.lit().tone, crate::world3d::rooms_lit_look::Tone::Delve(_)) {
-            // The play is lit where it stands (docs/WORLD-3D.md, "Deeper
-            // floors"): a pool round each knight and a glow over what
-            // lies on the floor, so a party sees what it walks into.
             let (_, offset) = world.placing(camera, lean);
             let zoom = lean.1;
             let pools: Vec<angel_stage::look::Lamp> = play_lamps(scene, &world.moment)
@@ -759,15 +604,6 @@ impl StageMaker {
         }
     }
 
-    /// The kingdom in 3D's world (`RoomScene::chunks`), the realm lit
-    /// (docs/REALM-MONOLITH.md): each chunk the view may show (`seen`) as its
-    /// ground and blocks toned and lit on the stage, its ground's mesh with
-    /// it; to a page across a wire by reference instead (its set's text the
-    /// first time), which the page fills lit itself. What the run stands
-    /// (`world3d::lots`) as lit extra blocks. The look of the view (the
-    /// biomes near it as zones, the sun, the near chunks' lamps, the knight
-    /// kept in sight) goes with it. `cards` are the knights; `at` where the
-    /// world and the figures lie among the layers.
     fn kingdom_world(
         &mut self,
         scene: &RoomScene,
@@ -798,10 +634,7 @@ impl StageMaker {
             had
         };
         for chunk in chunks {
-            // Every near chunk's lamps: a lamp out of sight lights into it.
             lamps.extend(chunk.set.lamps.iter().copied());
-            // What the run stands in it that its set has not (`world3d::lots`):
-            // lit extra blocks to a window, a set of their own to a page.
             if let Some(share) = scene.lots.as_ref().and_then(|l| l.share(chunk.index)) {
                 lamps.extend(share.lamps.iter().copied());
                 if !share.extras.is_empty() && in_sight(share.bounds) {
@@ -825,8 +658,6 @@ impl StageMaker {
                 continue;
             }
             if self.png_plates {
-                // The page's sets keep `KEPT_SETS`; what this one says went
-                // is fewer, so the page has all of it.
                 let text = !touch(&mut self.chunk_texts, chunk.key, angel_stage::set::KEPT_SETS - 8);
                 refs.push(angel_stage::scene::SetRef {
                     key: chunk.key,
@@ -844,10 +675,7 @@ impl StageMaker {
                 world.meshes.extend(lit.meshes.iter().map(|(id, mesh)| (*id, Arc::clone(mesh))));
             }
         }
-        // The Keep's site: its stones and falsework, lamps and all.
         self.works_nodes(scene, &mut world, &mut lamps, offset, &in_sight);
-        // The hillside works: the production sim's buildings, roads and tracks, and the
-        // ghost of the builder.
         if let Some(hill) = &scene.hill {
             lamps.extend(hill.lamps.iter().copied());
             self.hill_nodes(hill, &mut world, offset, &in_sight);
@@ -856,16 +684,12 @@ impl StageMaker {
         let mut refs = refs.into_iter().chain(lots_refs);
         world.set = refs.next();
         world.more = refs.collect();
-        // Where the stage is now (a seat's scene is lifted round its bands
-        // after the view was made), the knight and the clock as the view had them.
         let view = crate::world3d::realm_look::View {
             origin: [cx, cy],
             size: [scene.view.0 as f32, scene.view.1 as f32],
             ..scene.realm.unwrap_or(crate::world3d::realm_look::View { origin: [0.0; 2], size: [0.0; 2], knight: None, others: [None; 3], time: 0.0 })
         };
         let mut look = crate::world3d::realm_look::look(&view, &lamps);
-        // Each building near the view in what it is made of (timber, stone, brick, thatch,
-        // iron, whitewash), over the hillside's green; before the Keep's, which lies over them.
         if let Some(hill) = &scene.hill {
             let feet: Vec<crate::world3d::works_look::Footprint> = hill.footprints.iter().map(|f| crate::world3d::works_look::Footprint::of(&f.plan, f.rect)).collect();
             crate::world3d::works_look::dye_buildings(&mut look, &view, &feet);
@@ -884,11 +708,6 @@ impl StageMaker {
         world
     }
 
-    /// The Keep's site (`world3d::works_site`) as nodes among the world's
-    /// blocks: each mesh of stone or timber in sight, toned by how wet its
-    /// mortar is; its meshes to a window with the world, to a page across a
-    /// wire in the frame, a few a frame (what has not gone yet is left out,
-    /// not drawn half).
     fn works_nodes(
         &mut self,
         scene: &RoomScene,
@@ -898,14 +717,11 @@ impl StageMaker {
         in_sight: &impl Fn(([f32; 3], [f32; 3])) -> bool,
     ) {
         use angel_stage::scene::{Material, MeshRef, Node, Role};
-        /// Clear of the chunks' and the lots' ids.
         const IDS: u64 = 0x7B00_0000_0000;
-        /// The most meshes a frame adds for a page.
         const MOST_NEW: usize = 40;
         let Some(works) = scene.works.as_ref() else { return };
         lamps.extend(works.lamps.iter().copied());
         if !in_sight(works.bounds) {
-            // Out of sight a while: the page's GPU may let the meshes go.
             for id in std::mem::take(&mut self.works_ids) {
                 self.meshes_sent.remove(&id);
             }
@@ -929,7 +745,6 @@ impl StageMaker {
             } else {
                 world.meshes.push((part.id, Arc::clone(&part.mesh)));
             }
-            // Wet mortar darkens a block; it dries as the courses go on.
             let t = 1.0 - 0.42 * wet;
             let (role, tint) = if kind == 0 {
                 (Role::Plain, [t, t, t, 1.0])
@@ -948,16 +763,10 @@ impl StageMaker {
         world.extra.extend(angel_stage::set::place(&nodes, 1.0, offset));
     }
 
-    /// The hillside works' baked meshes (`world3d::hill_mesh`) in sight as nodes among the world's
-    /// blocks: one draw a building, a carrier or a chunk of road. Their meshes go to a window with
-    /// the world (once each a frame), to a page across a wire a few a frame the first time they are
-    /// drawn; a page that drew none of them for a frame forgets them, so it is sent them again.
     fn hill_nodes(&mut self, hill: &crate::world3d::hillside::HillNodes, world: &mut World, offset: [f32; 3], in_sight: &impl Fn(([f32; 3], [f32; 3])) -> bool) {
         use crate::world3d::hill_mesh::PartRole;
         use angel_stage::scene::{Material, MeshRef, Node, Role};
-        /// Clear of the Keep's (`works_nodes`) and the ghost's.
         const IDS: u64 = 0x7D10_0000_0000;
-        /// The most meshes a frame adds for a page.
         const MOST_NEW: usize = 40;
         let mut nodes = Vec::new();
         let mut sent_to_window = std::collections::BTreeSet::new();
@@ -988,7 +797,6 @@ impl StageMaker {
             nodes.push(node);
         }
         if nodes.is_empty() {
-            // None in sight a while: the page's GPU may let the meshes go.
             for id in std::mem::take(&mut self.hill_ids) {
                 self.meshes_sent.remove(&id);
             }
@@ -997,8 +805,6 @@ impl StageMaker {
         world.extra.extend(angel_stage::set::place(&nodes, 1.0, offset));
     }
 
-    /// A turning card's face and back pictures for `item`, each sent the
-    /// first time it is shown.
     fn card_sides(&mut self, item: &super::pickup_meshes::ScenePickup, pictures: &mut Vec<Picture>) -> (u32, u32) {
         use super::pickup_cards as pc;
         let index = item.plate.unwrap_or_else(|| pc::plate_of(item.kind, ""));
@@ -1017,9 +823,6 @@ impl StageMaker {
         (front, back)
     }
 
-    /// What lies on the floor in a room in 3D, as cards standing up with
-    /// their drawings (`pickup_cards`), each drawing sent once, over a warm
-    /// pool of light laid in the room's layers.
     fn pickup_cards(&mut self, scene: &RoomScene, pictures: &mut Vec<Picture>, layers: &mut Vec<Layer>, models: &mut Vec<Node>) -> Vec<Node> {
         use super::pickup_cards as pc;
         let mut cards = Vec::new();
@@ -1028,7 +831,6 @@ impl StageMaker {
             let Some(([x, y, w, h], foot)) = pc::place(item.kind, index, (item.x, item.y), scene.camera, item.tick) else {
                 continue;
             };
-            // What has a model drops onto the ground as it, over its pool.
             if let Some((mesh, model)) = super::item_pack::model(index, item.pale) {
                 let id = super::pickup_meshes::FIRST_NODE + i as u64 * super::pickup_meshes::NODES_PER;
                 models.push(super::pickup_meshes::plop(id, item, mesh, model, index, scene.camera));
@@ -1067,10 +869,6 @@ impl StageMaker {
         cards
     }
 
-    /// A room in 3D's figures as cards (`card`), each its own picture (sent
-    /// when it changed): every figure standing on its foot where its layer
-    /// would, and any HD drawing of its sprites at its own place on the same
-    /// foot, over it.
     fn cards_of(
         &mut self,
         scene: &RoomScene,
@@ -1081,7 +879,6 @@ impl StageMaker {
         let (cx, cy) = scene.camera;
         let figures = &scene.figures[..scene.figures.len().min(MAX_CARDS)];
         self.cards.truncate(figures.len());
-        // A room in 3D lights its cards (the kingdom's look does not).
         let normals = scene.world.is_some() && crate::world3d::rooms_lit_look::lit_cards_on() && crate::world3d::rooms_lit_look::card_normals_on();
         let mut cards = Vec::new();
         for (i, figure) in figures.iter().enumerate() {
@@ -1098,8 +895,6 @@ impl StageMaker {
             });
             if !same {
                 let rgba = card_rgba(&img);
-                // Which way each of its pixels faces, for a look that lights
-                // it pixel by pixel (`Cards::normals`), kept with it.
                 if normals {
                     let key = look_hash(&img);
                     if self.normal_maps.len() >= KEPT_NORMAL_MAPS && !self.normal_maps.contains_key(&key) {
@@ -1120,8 +915,6 @@ impl StageMaker {
                 words.clear();
                 words.extend_from_slice(img.words());
             }
-            // A drawing stands as a card of its own, unturned: one under the
-            // figure (a body alone, under what it carries) before it.
             for d in drawings.iter().filter(|d| d.under) {
                 let [x, y, w, h] = d.rect;
                 cards.push(card(cards.len() as u64 + 1, d.id, [x + dx, y + dy, w, h], foot));
@@ -1136,16 +929,10 @@ impl StageMaker {
     }
 }
 
-/// A lit delve's pools of light for its play, as lamps (reach in the room's
-/// pixels, strength): round each knight, and over what lies on the floor.
 pub const KNIGHT_POOL: (f32, f32) = (38.0, 0.45);
 pub const LOOT_POOL: (f32, f32) = (26.0, 0.6);
-/// How much wider and warmer the glow under a pickup lies in a lit delve
-/// than in a 2D room, which keeps `pickup_cards::POOL` and `POOL_GLOW`.
 const LOOT_GLOW: (f32, f32) = (1.5, 1.8);
 
-/// The lamps a lit delve lights its play with, in the room's pixels: a soft
-/// pool at each knight's feet, and a glow over what lies on the floor.
 fn play_lamps(scene: &RoomScene, moment: &crate::world3d::room::Moment) -> Vec<angel_stage::look::Lamp> {
     use angel_stage::look::Lamp;
     let mut out = Vec::new();
@@ -1161,15 +948,6 @@ fn play_lamps(scene: &RoomScene, moment: &crate::world3d::room::Moment) -> Vec<a
     out
 }
 
-/// Whether any of the box `lo`..`hi` (stage pixels) is in sight of the
-/// stage camera whose clip-space matrix is `m`: its corners' bounds in clip
-/// space overlap the screen's (a corner behind the camera counts as in
-/// sight).
-/// Whether a box of the kingdom (a chunk's blocks', `Chunk::bounds`) is in
-/// sight of `scene`'s stage camera, overlapping the screen (`seen`): a frame
-/// draws only the chunks in sight,
-/// whatever their plates (a set when painted, nodes when not); one near but
-/// out of sight is in no frame, a window only making its plate ready.
 fn kingdom_sight(scene: &RoomScene) -> impl Fn(([f32; 3], [f32; 3])) -> bool + use<> {
     let (cx, cy) = scene.camera;
     let view = (scene.view.0.max(1) as u32, scene.view.1.max(1) as u32);
@@ -1194,14 +972,6 @@ fn seen(m: &angel_stage::scene::Mat4, lo: [f32; 3], hi: [f32; 3]) -> bool {
     x1 >= -1.0 && x0 <= 1.0 && y1 >= -1.0 && y0 <= 1.0
 }
 
-/// A picture standing up on the floor as a card, as its upright layer
-/// would: `rect` its place in the stage's pixels, `foot` the floor point it
-/// stands on. A pixel row `foot.y - h` up the stage is `h` over the floor,
-/// and the whole card is as far off as its foot (`Tilt::camera`), so it
-/// lands on the pixels the layer does, nearest, and hides behind what
-/// stands in front of its foot. Its normal map is the picture's
-/// (`normals::picture_of`), where the drawer has one: a figure's is made
-/// with it (`cards_of`), a painting's or an HD drawing's by the drawer.
 fn card(id: u64, picture: u32, [x, y, w, h]: [f32; 4], [_, foot]: [f32; 2]) -> Node {
     let material = Material {
         alpha: AlphaMode::Blend,
@@ -1218,9 +988,6 @@ fn card(id: u64, picture: u32, [x, y, w, h]: [f32; 4], [_, foot]: [f32; 2]) -> N
     node
 }
 
-/// A card's pixels as straight RGBA (`rgba_of`), its signal inks (game
-/// state: a knight's mark, a foe's eyes, `ink::is_signal`) a step under
-/// opaque, which a look's light leaves as drawn (`look::UNLIT_ALPHA`).
 fn card_rgba(img: &Img) -> Vec<u8> {
     let mut rgba = rgba_of(img);
     for px in rgba.chunks_exact_mut(4) {
@@ -1231,7 +998,6 @@ fn card_rgba(img: &Img) -> Vec<u8> {
     rgba
 }
 
-/// A picture's pixels as straight RGBA, transparent where it is.
 pub fn rgba_of(img: &Img) -> Vec<u8> {
     img.words()
         .iter()
@@ -1239,7 +1005,6 @@ pub fn rgba_of(img: &Img) -> Vec<u8> {
         .collect()
 }
 
-/// Row `r` of the tile at `(x, y)`, `w` wide, in a kept picture `sw` wide.
 fn tile_row(words: &[u32], sw: i32, x: i32, y: i32, w: i32, r: i32) -> &[u32] {
     &words[((y + r) * sw + x) as usize..((y + r) * sw + x + w) as usize]
 }
@@ -1251,21 +1016,15 @@ fn rgba_rows(words: &[u32]) -> Vec<u8> {
         .collect()
 }
 
-/// A tiled picture as last sent: where it kept its pixels, and the words.
 struct TileKept {
     span: (i32, i32, i32, i32),
     words: Vec<u32>,
     tiles: std::collections::BTreeMap<u32, Picture>,
-    /// The tiles as last told for their layer: id, and where each lies in
-    /// the kept pixels, replayed when the layer's pixels have not changed.
     layout: Vec<Tile>,
-    /// The fingerprint of `words` when the tiles were cut.
     hash: u32,
 }
 
 impl TileKept {
-    /// The fingerprint of a layer's own pixels: when it is unchanged the
-    /// tiles are last frame's, however they were cut.
     fn fingerprint(words: &[u32]) -> u32 {
         let mut hash = 0xcbf29ce4u32;
         for &word in words {
@@ -1275,21 +1034,13 @@ impl TileKept {
         hash
     }
 
-    /// True when the layer's pixels are exactly as when its tiles were cut.
     fn fresh(&self, span: (i32, i32, i32, i32), words: &[u32]) -> bool {
         self.span == span && !self.layout.is_empty() && Self::fingerprint(words) == self.hash
     }
 }
 
-/// One tile of a tiled picture for its layer: the picture, and where it
-/// lies in the kept pixels.
 type Tile = (u32, i32, i32, i32, i32);
 
-/// `img` in square tiles of `TILE_PX`: the tiles whose words differ from
-/// `kept` go into `pictures` (at `base`, a tile each, in reading order),
-/// and every tile is told for its layer. A picture with more tiles than
-/// its pictures hold (or keeping no pixels) goes whole at `whole`, as it
-/// did before tiles.
 fn send_tiled(
     pictures: &mut Vec<Picture>,
     kept: &mut Option<TileKept>,
@@ -1318,8 +1069,6 @@ fn send_tiled(
         return vec![(whole, 0, 0, sw.max(0), sh.max(0))];
     }
     let same_span = kept.as_ref().is_some_and(|k| k.span == span && k.words.len() == words.len());
-    // The layer's own pixels are as they were: its tiles are as they were
-    // too, however they were cut, and none need looking at again.
     if let Some(k) = kept.as_ref() {
         if k.fresh(span, words) {
             return k.layout.clone();
@@ -1371,9 +1120,6 @@ fn send_tiled_sparse(
         0
     };
     if tiles == 0 || tiles > MAX_TILES || (sw + TILE_PX - 2) / TILE_PX >= 32 || (sh + TILE_PX - 2) / TILE_PX >= 32 || words.len() != (sw.max(0) * sh.max(0)) as usize {
-        // A picture with no tiles to hold it (an open floor's whole map)
-        // still rides the fingerprint: unchanged pixels are last frame's
-        // picture, not a whole-map byte compare and send.
         if kept.as_ref().is_some_and(|k| k.fresh(span, words)) {
             return vec![(whole, 0, 0, sw.max(0), sh.max(0))];
         }
@@ -1385,9 +1131,6 @@ fn send_tiled_sparse(
         }
         return vec![(whole, 0, 0, sw.max(0), sh.max(0))];
     }
-    // Tile ids belong to room coordinates, not the current camera window.
-    // A scrolling window used to invalidate every tile, even when only its
-    // two edges changed. Reuse interior tiles without changing the wire.
     let (sx, sy, _, _) = span;
     let (first_x, first_y) = (sx / TILE_PX, sy / TILE_PX);
     let (last_x, last_y) = ((sx + sw - 1) / TILE_PX, (sy + sh - 1) / TILE_PX);
@@ -1400,10 +1143,6 @@ fn send_tiled_sparse(
                           ((ty + 1) * TILE_PX).min(sy + sh) - gy);
             let (x, y) = (gx - sx, gy - sy);
             let id = base + (ty.rem_euclid(32) * 32 + tx.rem_euclid(32)) as u32;
-            // Transparent padding is not art. Give the existing picture
-            // quad just the ink's rectangle; a vanished tile needs no quad
-            // or clearing upload. All three browser presenters already
-            // place arbitrary picture rectangles this way.
             let (mut left, mut top, mut right, mut bottom) = (w, h, 0, 0);
             for r in 0..h {
                 for (c, &word) in tile_row(words, sw, x, y, w, r).iter().enumerate() {
@@ -1434,8 +1173,6 @@ fn send_tiled_sparse(
     *kept = Some(TileKept { span, words: Vec::new(), tiles: sent, layout: out.clone(), hash: TileKept::fingerprint(words) });
     out
 }
-/// A room picture's tile layers, where they lie on the room (a window onto
-/// a great room keeps only part of it).
 fn room_tiles(layers: &mut Vec<Layer>, img: &Img, tiles: &[Tile], (cx, cy): (f32, f32)) {
     let (sx, sy, _, _) = img.span();
     for &(id, x, y, w, h) in tiles {
@@ -1449,8 +1186,6 @@ fn room_tiles(layers: &mut Vec<Layer>, img: &Img, tiles: &[Tile], (cx, cy): (f32
 }
 
 fn picture(id: u32, img: &Img) -> Picture {
-    // The pixels it keeps (`Img::span`), which are all of them but for a
-    // window onto a great room.
     let (_, _, w, h) = img.span();
     Picture {
         id,
@@ -1460,10 +1195,6 @@ fn picture(id: u32, img: &Img) -> Picture {
     }
 }
 
-/// A figure with the sprites `hd` has drawings for taken out of it, and
-/// those drawings: picture and place in the room's pixels.
-/// A picture drawn over (or under) a figure in the room's pixels: an HD
-/// drawing of a sprite's look, or a painting, moved and turned as it is.
 struct Drawing {
     id: u32,
     rect: [f32; 4],
@@ -1471,9 +1202,6 @@ struct Drawing {
     under: bool,
 }
 
-/// A figure's picture with what is drawn in its sprites' places taken out
-/// of it, and those drawings: an HD pack's (`hd`), and the paintings of
-/// what it has on that the drawer has (`paint`).
 fn with_art<'a>(
     figure: &'a Figure,
     hd: &mut impl FnMut(&Body) -> Option<super::hd_pack::Placed>,
@@ -1493,9 +1221,6 @@ fn with_art<'a>(
         let Some(super::hd_pack::Placed { id, rect, body: alone }) = hd(body) else {
             continue;
         };
-        // A whole figure's drawing takes all its pixels, over it; a body's
-        // alone takes those of its bare body that nothing it carries covers,
-        // under it, so its arm and shield keep their inks on top.
         let bare = body.named.as_ref().and_then(|n| n.bare.as_deref()).filter(|_| alone);
         let taken = bare.unwrap_or(&body.img);
         let img = img.to_mut();
@@ -1515,8 +1240,6 @@ fn with_art<'a>(
     (img, drawings)
 }
 
-/// A painting's inks taken out of `img`, whose top-left is at `origin` in
-/// the painting's pixels: each pixel still as the inks painted it.
 fn take_inks(img: &mut Img, p: &Painting, origin: (i32, i32)) {
     for by in 0..p.inks.h {
         for bx in 0..p.inks.w {
@@ -1531,8 +1254,6 @@ fn take_inks(img: &mut Img, p: &Painting, origin: (i32, i32)) {
     }
 }
 
-/// Every pixel of `img` under the inked pixels of `inks` at `at` cleared,
-/// whatever colour it took after (a shot's mark is tinted whole).
 fn clear_mask(img: &mut Img, inks: &Img, at: (i32, i32)) {
     for by in 0..inks.h {
         for bx in 0..inks.w {
@@ -1543,8 +1264,6 @@ fn clear_mask(img: &mut Img, inks: &Img, at: (i32, i32)) {
     }
 }
 
-/// Which paintings over the figures were drawn in place of their inks, as
-/// a number: when it changes, what is over the figures goes again.
 fn painted_key(painted: &[(u32, &Painting)]) -> u64 {
     let mut parts = Vec::with_capacity(painted.len() * 3);
     for (id, p) in painted {
@@ -1553,8 +1272,6 @@ fn painted_key(painted: &[(u32, &Painting)]) -> u64 {
     super::paintings::phase_of(&parts) as u64 | (painted.len() as u64) << 32
 }
 
-/// The figures of a frame on one sheet, a shelf at a time with a clear
-/// pixel between them: its size, its pixels, and where each one is.
 fn figure_sheet(images: &[&Img]) -> ((u32, u32), Vec<u8>, Vec<[f32; 4]>) {
     let width = images.iter().map(|img| img.w + 1).max().unwrap_or(1).max(256);
     let mut spots = Vec::with_capacity(images.len());
@@ -1587,7 +1304,6 @@ fn figure_sheet(images: &[&Img]) -> ((u32, u32), Vec<u8>, Vec<[f32; 4]>) {
     ((width as u32, height as u32), rgba, rects)
 }
 
-/// A shot's look as one number: its size and every pixel, mixed.
 fn look_hash(img: &Img) -> u64 {
     let mut h = (img.w as u64) << 32 | img.h as u32 as u64;
     for &w in img.words() {
@@ -1596,18 +1312,10 @@ fn look_hash(img: &Img) -> u64 {
     h
 }
 
-/// How high a shot flies over its point on the floor, in the room's pixels.
 const SHOT_LIFT: f32 = shot_meshes::LIFT;
-/// Shots closer than this (the room's pixels) share their light.
 const CROWD_PX: f32 = 8.0;
-/// How far behind a shot its trail reaches, in seconds of its flight.
 const TRAIL_SECONDS: f32 = 0.09;
 
-/// A shot as the window draws it: its shadow on the floor, and lifted over
-/// it a trail of light behind it, a halo, and, if it is `flat`, its sprite and
-/// a white-hot core. (A shot that is not flat is shapes in the frame's props,
-/// `shot_meshes`, which are its body and its heat; the light stays here, under
-/// and round them.) Arrows, blades and the like keep a faint streak and no glow.
 fn shot_layers(
     layers: &mut Vec<Layer>,
     n: u64,
@@ -1619,10 +1327,7 @@ fn shot_layers(
 ) {
     let (x, y) = (shot.x - cx, shot.y - cy - if flat { SHOT_LIFT } else { shot.dimension.lift() });
     let id = 0x5_0000 + n * 16;
-    // A knight's shot drawn smaller or bigger (`SceneShot::scale`): its
-    // shadow, halo, streaks and sprite follow it.
     let k = shot.scale;
-    // On a tilted floor all of it stands over the shot's point on the floor.
     let foot = Stand::Upright([shot.x - cx, shot.y - cy]);
     let glow = |id: u64, (gx, gy): (f32, f32), r: f32, colour: [f32; 4], additive: bool| {
         let mut layer = Layer::new(id, 3, Placement::Pixels([gx - r, gy - r, 2.0 * r, 2.0 * r]), LayerKind::Glow(colour));
@@ -1633,7 +1338,6 @@ fn shot_layers(
         layer.stand = foot;
         layer
     };
-    // The shadow keeps the floor under it.
     let mut shadow = Layer::new(
         id,
         3,
@@ -1646,8 +1350,6 @@ fn shot_layers(
     let speed = shot.vx.hypot(shot.vy);
     let (dx, dy) = if speed > 0.0 { (shot.vx / speed, shot.vy / speed) } else { (0.0, 0.0) };
     let reach = speed * TRAIL_SECONDS;
-    // A streak along the flight, `length` behind the shot and `width`
-    // across, brightest where the shot is.
     let streak = |id: u64, length: f32, width: f32, colour: [f32; 4]| {
         let (mx, my) = (x - dx * length * 0.42, y - dy * length * 0.42);
         let mut layer = glow(id, (mx, my), 1.0, colour, true);
@@ -1656,8 +1358,6 @@ fn shot_layers(
         layer
     };
     if shot.bright {
-        // A comet's tail: a long thin streak in its colour over a short
-        // wide one, tapering off behind it.
         if speed > 0.0 {
             let length = (reach * 1.6).clamp(10.0, 34.0) * k.sqrt();
             layers.push(streak(id + 1, length, 5.0 * k, [r, g, b, 0.5]));
@@ -1671,8 +1371,6 @@ fn shot_layers(
             layers.push(glow(id + 3, (x, y), 11.0 * k, [1.0, 0.82, 0.35, 0.4], true));
         }
     } else if speed > 0.0 {
-        // A speed line where it just was: a thin streak of air along its
-        // flight, brightest at the shot.
         let length = (reach * 1.4).clamp(8.0, 26.0) * k.sqrt();
         layers.push(streak(id + 1, length, 2.2 * k, [0.92, 0.90, 0.82, 0.6]));
         if shot.empowered {
@@ -1680,8 +1378,6 @@ fn shot_layers(
         }
     }
     if let Some(rect) = look {
-        // The sprite at twice its size (and the shot's), its middle pixel
-        // on the shot, as a terminal paints it.
         let mut sprite = Layer::new(
             id + 4,
             3,
@@ -1692,7 +1388,6 @@ fn shot_layers(
         layers.push(sprite);
     }
     if let Some((picture, p)) = painting {
-        // Its painting in the card's inks' square, from the shot's point.
         let ([px, py, w, h], angle) = p.placed();
         let mut layer = Layer::new(id + 7, 3, Placement::Pixels([x + px * k, y + py * k, w * k, h * k]), LayerKind::Picture(picture));
         layer.angle = angle;
@@ -1705,7 +1400,6 @@ fn shot_layers(
     }
 }
 
-/// A light's colour, `alpha` its strength.
 fn light_colour(hue: Hue, alpha: f32) -> [f32; 4] {
     let [r, g, b] = match hue {
         Hue::Fire => [1.0, 0.62, 0.30],
@@ -1716,13 +1410,11 @@ fn light_colour(hue: Hue, alpha: f32) -> [f32; 4] {
     [r, g, b, alpha.clamp(0.0, 1.0)]
 }
 
-/// How an emitter's motes look and move, in the room's pixels.
 fn motes_of(emitter: &Emitter) -> Particles {
     let k = emitter.strength.clamp(0.0, 1.0);
     let (color, count, life, rise, sway) = match emitter.motes {
         Motes::Embers => ([1.0, 0.58, 0.24, 0.95], 2.0 + 6.0 * k, 1.4, 18.0, 1.5),
         Motes::Dust => ([0.95, 0.82, 0.62, 0.30], 6.0, 7.0, 6.0, 4.0),
-        // A burst: thrown out at up to `rise` a second, falling at `sway`.
         Motes::Sparks => ([1.0, 0.86, 0.52, 1.0], 6.0 + 8.0 * k, 0.45, 70.0, 160.0),
     };
     Particles {
@@ -1737,8 +1429,6 @@ fn motes_of(emitter: &Emitter) -> Particles {
     }
 }
 
-/// How far the camera has leaned in, `seconds` into a guardian's entrance:
-/// in, a breath held, and back out.
 fn entrance_zoom(seconds: f32) -> f32 {
     const IN: f32 = 0.5;
     const HOLD: f32 = 0.8;
@@ -1758,8 +1448,6 @@ fn entrance_zoom(seconds: f32) -> f32 {
     1.0 + LEAN * k
 }
 
-/// The room's layers through a camera leaning in by `zoom` toward `focus`
-/// (stage pixels): everything grows about it.
 fn lean_in(layers: &mut [Layer], focus: [f32; 2], zoom: f32) {
     for layer in layers {
         let (Placement::Pixels(rect) | Placement::Cells(rect)) = &mut layer.placement;
@@ -1779,8 +1467,6 @@ fn lean_in(layers: &mut [Layer], focus: [f32; 2], zoom: f32) {
     }
 }
 
-/// The shots' shapes through the same camera leaning in: everything grows
-/// about `focus` (stage pixels, the floor's), the height with it.
 fn lean_in_shapes(nodes: &mut [Node], focus: [f32; 2], zoom: f32) {
     for node in nodes {
         let t = &mut node.transform;
@@ -1795,8 +1481,6 @@ fn lean_in_shapes(nodes: &mut [Node], focus: [f32; 2], zoom: f32) {
 mod tests {
     use super::*;
 
-    /// Lets a scene be made as the live drawer makes it: parts handed out,
-    /// floor pickups handed over as cards turning; reset on drop.
     struct Cards;
     impl Cards {
         fn on() -> Self {
@@ -1812,8 +1496,6 @@ mod tests {
         }
     }
 
-    /// A pickup's card in the props: its face and back quads and its edge box,
-    /// none of them with a material to each face, so the wire carries all.
     fn assert_one_card(frame: &Frame) {
         let props = frame.props.as_ref().expect("the card rides in the props");
         assert_eq!(props.nodes.len(), 3, "face, back and edge");
@@ -1883,8 +1565,6 @@ mod tests {
         }
     }
 
-    /// A moving camera must not turn every unchanged room tile into a new
-    /// texture. Only its entering/leaving edges need fresh pixels.
     #[test]
     fn scrolling_scenery_keeps_interior_tiles() {
         let mut kept = None;
@@ -1923,14 +1603,12 @@ mod tests {
         assert!(waiting.pickups.is_empty(), "no card before the rune wells up");
         assert_eq!(scene.pickups.len(), 1);
         assert_eq!(scene.pickups[0].kind, super::super::pickup_meshes::PickupKind::Rune(RuneKind::Invisibility));
-        // Its sign is its card's face: the rune's own drawing on the sheet.
         let face = scene.pickups[0].plate.unwrap_or_else(|| super::super::pickup_cards::plate_of(scene.pickups[0].kind, ""));
         assert_eq!(super::super::pickup_cards::PLATES[usize::from(face)], "rune-invisibility");
         let frame = StageMaker::default().make(&Arc::new(scene), |_| None);
         assert_one_card(&frame);
         assert!(frame.layers.iter().any(|l| matches!(l.kind, LayerKind::Glow(_)) && l.additive),
             "a pool of light under the rune");
-        // Without the card pictures the rune turns as pixels over its ring.
         let terminal = scene_for(&run, NATIVE_W, NATIVE_H, Some(1));
         assert!(terminal.pickups.is_empty());
         assert_eq!(terminal.compose(), frame_for(&run, NATIVE_W, NATIVE_H, Some(1)));
@@ -1950,7 +1628,6 @@ mod tests {
         assert!(painted.pickups.is_empty() && painted.solids.is_empty());
         assert_ne!(painted.compose(), empty_pixels, "terminal fallback lost the pickup");
         assert_eq!(painted.compose(), frame_for(&run, NATIVE_W, NATIVE_H, Some(1)));
-        // A page that takes parts and draws shapes is handed the card, not pixels.
         let cards = Cards::on();
         let scene = scene_for(&run, NATIVE_W, NATIVE_H, Some(1));
         run.dungeon.rooms[run.at].items.clear();
@@ -1985,7 +1662,6 @@ mod tests {
         assert!(props.world.is_none(), "a room in 2D, its layers the room");
         let pools = |f: &Frame| f.layers.iter().filter(|l| matches!(l.kind, LayerKind::Glow(_)) && l.additive && l.flicker > 0.0).count();
         assert_eq!(pools(&frame), pools(&bare) + 1, "a pool of light under the card");
-        // The face and back pictures are sent with it.
         assert_eq!(frame.pictures.iter().filter(|p| (PICKUP_FACES..PICKUP_FACES + 0x1000).contains(&p.id)).count(), 2);
     }
 
@@ -2006,13 +1682,10 @@ mod tests {
         assert_eq!(props.nodes.len(), 1, "one node, the model");
         let Some(MeshRef::Uploaded(id)) = props.nodes[0].mesh else { panic!("a model") };
         assert_eq!(frame.meshes.iter().map(|(m, _)| *m).collect::<Vec<_>>(), vec![id], "its mesh goes with it");
-        // Just let go of: up in the air, over its pool of light.
         assert!(props.nodes[0].transform.translation[1] > 6.0);
         let pools = |f: &Frame| f.layers.iter().filter(|l| matches!(l.kind, LayerKind::Glow(_)) && l.additive && l.flicker > 0.0).count();
         assert_eq!(pools(&frame), pools(&StageMaker::default().make(&Arc::new(bare), |_| None)) + 1);
-        // The next frame of the same room names it and sends nothing more.
         assert!(maker.make(&scene, |_| None).meshes.is_empty());
-        // Across a wire the mesh goes whole and comes back.
         let mut out = Vec::new();
         angel_stage::wire::encode(&frame, &[], &mut out);
         let read = angel_stage::wire::decode(&out).expect("it reads");
@@ -2037,7 +1710,6 @@ mod tests {
         assert!(mine.pickups.is_empty(), "the taker sees it gone");
         assert_eq!(friends.pickups.len(), 1, "it lies on for the friend");
         assert_ne!(friends.compose(), unmarked.compose(), "with a pip in the taker's colours");
-        // Another's set-down piece is theirs alone.
         run.dungeon.rooms[run.at].items[0].owner = Some(1);
         let cards = Cards::on();
         assert_eq!(scene_for(&run, NATIVE_W, NATIVE_H, Some(1)).pickups.len(), 1);
@@ -2045,7 +1717,6 @@ mod tests {
         drop(cards);
     }
 
-    /// A first floor's fight, its knights at the door.
     fn fight() -> Run {
         let mut run = Run::new(11, 1, Some("Friend"));
         let index = run
@@ -2058,8 +1729,6 @@ mod tests {
         run
     }
 
-    /// The Village, its party stood about the middle, as parts; with its
-    /// world in 3D (`RoomScene::world`) when `world` says so.
     fn village(world: bool) -> RoomScene {
         use crate::rules::{home::Home, world as places};
         let mut run = Run::at_home(4243, 9, Some("Friend"), Home::default(), Default::default());
@@ -2073,8 +1742,6 @@ mod tests {
         scene
     }
 
-    /// The kingdom with the world in 3D, two knights out in Castle Town's
-    /// Village.
     fn kingdom_3d() -> Arc<RoomScene> {
         super::super::props_meshes(true);
         crate::world3d::set_enabled(true);
@@ -2097,14 +1764,11 @@ mod tests {
         let world = first.props.as_ref().and_then(|p| p.world.clone()).expect("the world rides in the props");
         assert_eq!(world.figures.len(), 2, "a card a knight");
         assert!(!world.floor.is_empty() && !world.blocks.is_empty());
-        // A scene draws one node an id.
         let mut ids: Vec<u64> = world.floor.iter().chain(&world.blocks).chain(&world.extra).map(|n| n.id).collect();
         let count = ids.len();
         ids.sort_unstable();
         ids.dedup();
         assert_eq!(ids.len(), count, "every chunk's nodes their own ids");
-        // Lit and toned: no projector, no picture; every ground named is
-        // among the meshes it carries.
         assert!(world.floor.iter().chain(&world.blocks).all(|n| n.material.projector.is_none()));
         for node in &world.floor {
             if let Some(angel_stage::scene::MeshRef::Uploaded(id)) = node.mesh {
@@ -2115,15 +1779,10 @@ mod tests {
         let look = world.look.as_ref().expect("the realm's look");
         assert!(look.lights() && look.validate().is_ok() && look.reveal.is_some() == crate::world3d::realm_look::REVEAL_ON_STAGE);
         assert!(world.set.is_none(), "a window is sent nodes, not sets");
-        // A page that cannot draw scenes has the kingdom flat, as ever.
         let flat = StageMaker::flat().make(&scene, |_| None);
         assert!(flat.props.is_none_or(|p| p.world.is_none()));
     }
 
-    /// A page's frames of the kingdom: every chunk in sight in every frame
-    /// by its set (its text the first time, then its key; no plate), which
-    /// the page fills lit itself, the look with them; a chunk near but out
-    /// of sight in none.
     fn a_page_draws_every_chunk_in_sight(scene: &Arc<RoomScene>) {
         let in_sight = kingdom_sight(scene);
         let shown: Vec<_> = scene.chunks.iter().filter(|c| in_sight(c.bounds)).collect();
@@ -2136,7 +1795,6 @@ mod tests {
             let mut keys: Vec<u64> = refs.iter().map(|r| r.key).filter(|k| scene.chunks.iter().any(|c| c.key == *k)).collect();
             keys.sort_unstable();
             assert_eq!(keys, keys_shown, "each chunk in sight by its set");
-            // The rest: what the run stands, a set of its own a chunk.
             let shares: Vec<u64> = scene.lots.iter().flat_map(|l| l.shares.iter().map(|s| s.key)).collect();
             assert!(refs.iter().all(|r| keys_shown.contains(&r.key) || shares.contains(&r.key)));
             for r in &refs {
@@ -2149,17 +1807,14 @@ mod tests {
         let first = maker.make(scene, |_| None);
         let world = first.props.as_ref().and_then(|p| p.world.clone()).expect("the world");
         check(&world, true);
-        // The page fills it lit, as the window has it, but baked.
         let mut sets = angel_stage::set::Sets::default();
         let mut made = world.clone();
         assert!(sets.fill(&mut made));
         let lit: usize = shown.iter().map(|c| c.set.shapes.len() + 1).sum();
         let stood: usize = scene.lots.iter().flat_map(|l| &l.shares).filter(|s| world.more.iter().any(|r| r.key == s.key)).map(|s| s.extras.len()).sum();
-        // Baking reduces the node count: the page has far fewer nodes than the window.
         assert!(made.floor.len() + made.blocks.len() < lit + stood,
             "baking reduces nodes: page {} vs window {}",
             made.floor.len() + made.blocks.len(), lit + stood);
-        // Each chunk's ground plus baked meshes.
         assert!(made.meshes.len() >= shown.len(), "a ground a chunk plus baked meshes");
         assert!(made.floor.iter().chain(&made.blocks).all(|n| n.material.projector.is_none()));
         let again = maker.make(scene, |_| None);
@@ -2181,7 +1836,6 @@ mod tests {
         let mut maker = StageMaker::default();
         let frame = maker.make(&scene, |_| None);
         let ids: Vec<u32> = frame.pictures.iter().map(|p| p.id).collect();
-        // The still art does not go; the figures are each a picture, not a sheet.
         assert!(!ids.contains(&GROUND) && !ids.contains(&FIGURES), "{ids:x?}");
         assert_eq!(ids.iter().filter(|&&id| (WORLD_CARDS..PICKUP_CARDS).contains(&id)).count(), scene.figures.len());
         assert!(!frame.layers.iter().any(|l| matches!(l.kind, LayerKind::Picture(GROUND) | LayerKind::PicturePart(FIGURES, _))));
@@ -2192,7 +1846,6 @@ mod tests {
         let set = world.set.as_ref().expect("its set by reference, for a page that makes the blocks itself");
         assert!(set.text.is_some(), "with its text in the room's first frame");
         assert!(set.png.is_none(), "no plate");
-        // The world lies where the still art would, the figures where theirs would: over what is under them.
         assert_eq!(world.at, 0);
         let under = frame.layers[..world.figures_at]
             .iter()
@@ -2202,7 +1855,6 @@ mod tests {
             .iter()
             .any(|l| matches!(l.kind, LayerKind::Picture(id) if (OVER_TILES..SCREEN_TILES).contains(&id))));
         assert!(world.figures_at <= props.at);
-        // Each card stands where its figure's layer would: on its foot, as far off as it.
         let flat = StageMaker::default().make(&Arc::new(village(false)), |_| None);
         let feet: Vec<[f32; 2]> = flat
             .layers
@@ -2220,7 +1872,6 @@ mod tests {
             assert_eq!(card.material.alpha, AlphaMode::Blend);
             assert_eq!(card.material.sampling, angel_stage::scene::Sampling::Nearest);
         }
-        // The set's text goes once, and a figure's picture again only when it changed.
         let again = maker.make(&scene, |_| None);
         let set = again.props.as_ref().and_then(|p| p.world.as_ref()).and_then(|w| w.set.as_ref()).unwrap();
         assert!(set.text.is_none(), "the set's text goes once");
@@ -2240,12 +1891,10 @@ mod tests {
 
     #[test]
     fn a_card_stands_where_its_upright_layer_would() {
-        // A 10 x 20 picture at (30, 40), standing on row 58 (two rows above its bottom).
         let node = card(3, 77, [30.0, 40.0, 10.0, 20.0], [35.0, 58.0]);
         assert_eq!(node.id, 3);
         assert_eq!(node.material.source, angel_stage::scene::TextureSource::Picture(77));
         assert!(node.material.double_sided);
-        // Centred across its place; its top 18 over the floor, its bottom 2 under; as far off as row 58.
         assert_eq!(node.transform.translation, [35.0, 8.0, 58.0]);
         assert_eq!(node.transform.scale, [10.0, 20.0, 1.0]);
     }
@@ -2346,10 +1995,6 @@ mod tests {
         assert!((impact(&run) - 0.25).abs() < 1e-6, "dying away");
     }
 
-    /// A fight with shots in flight, handed over whole as a window has it: an
-    /// ember, a forged bolt and the Mage's own. Made once: handing frames
-    /// over in parts is a switch every test in the process shares, and
-    /// flipping it from many tests at once would show in the others.
     fn fight_with_shots() -> RoomScene {
         static SCENE: std::sync::OnceLock<RoomScene> = std::sync::OnceLock::new();
         SCENE
@@ -2375,7 +2020,6 @@ mod tests {
             .clone()
     }
 
-    /// Just the ember.
     fn fight_with_a_shot() -> RoomScene {
         let mut scene = fight_with_shots();
         scene.shots.truncate(1);
@@ -2393,7 +2037,6 @@ mod tests {
                 ShotForm::Class(ClassShot::Arcane),
             ]
         );
-        // All three are shapes in the props, and none is a sprite.
         let frame = StageMaker::default().make(&Arc::new(fight_with_shots()), |_| None);
         let nodes = frame.props.expect("their shapes").nodes;
         let shots: std::collections::BTreeSet<u64> = nodes.iter().map(|n| (n.id - 0x5_0000_0000) / 32).collect();
@@ -2403,7 +2046,6 @@ mod tests {
 
     #[test]
     fn a_flat_shot_in_flight_stands_up_lit_over_the_floor() {
-        // A page that cannot draw props keeps the sprite and its white-hot core.
         let mut maker = StageMaker { flat_shots: true, ..Default::default() };
         let frame = maker.make(&Arc::new(fight_with_a_shot()), |_| None);
         assert!(frame.tilt > 0.0);
@@ -2414,7 +2056,6 @@ mod tests {
             .iter()
             .find(|l| matches!(l.kind, LayerKind::PicturePart(SHOTS, _)))
             .expect("the shot's sprite");
-        // It stands on its point on the floor, lifted over it.
         let Stand::Upright([_, foot]) = sprite.stand else {
             panic!("a shot stands up");
         };
@@ -2432,26 +2073,21 @@ mod tests {
         let props = frame.props.as_ref().expect("the shot's shapes");
         assert_eq!(props.grain, SHOT_GRAIN);
         assert!(props.nodes.len() >= 2, "an ember is a veil round a core");
-        // No sprite, no sprite sheet, no white-hot core: the shapes are the body and the heat.
         assert!(!frame.pictures.iter().any(|p| p.id == SHOTS));
         assert!(!frame.layers.iter().any(|l| matches!(l.kind, LayerKind::PicturePart(SHOTS, _))));
         let flat = StageMaker { flat_shots: true, ..Default::default() }.make(&scene, |_| None);
         assert_eq!(flat.layers.len(), frame.layers.len() + 2, "the sprite and the white-hot core are what the shapes replace");
-        // The light stays, shadow and halo under, in the shot's layers; and the
-        // shapes lie after them, before the room's own light and the marks.
         assert!(props.at > 0 && props.at < frame.layers.len());
         let under = &frame.layers[..props.at];
         assert!(under.iter().any(|l| l.additive && matches!(l.kind, LayerKind::Glow(_))), "its halo");
         assert!(under.iter().any(|l| !l.additive && matches!(l.kind, LayerKind::Glow(_))), "its shadow");
         assert!(frame.layers[props.at..].iter().any(|l| l.stand == Stand::Screen), "the screen's marks over");
-        // The shapes stand where the shot does: over its point on the floor, lifted.
         let shot = &scene.shots[0];
         let (cx, cy) = scene.camera;
         for node in &props.nodes {
             let [x, y, z] = node.transform.translation;
             assert!((x - (shot.x - cx)).abs() < 12.0 && (z - (shot.y - cy)).abs() < 12.0 && y > 0.0, "{x} {y} {z}");
         }
-        // A frame of nothing in flight has no props.
         let calm = Arc::new(scene_for(&fight(), NATIVE_W, NATIVE_H, Some(1)));
         assert!(StageMaker::default().make(&calm, |_| None).props.is_none());
     }
@@ -2486,8 +2122,6 @@ mod tests {
             Placement::Pixels(r) => r,
             Placement::Cells(r) => r,
         };
-        // The sprite (id + 4) is half as wide and its middle pixel is still
-        // on the shot's point; the halo (id + 2) and the shadow follow.
         let id = 0x5_0000;
         let (a, b) = (rect(&old, id + 4), rect(&small, id + 4));
         assert_eq!((a[2], b[2]), (50.0, 25.0));
@@ -2495,13 +2129,11 @@ mod tests {
         assert_eq!(mid(a), mid(b), "the same middle");
         assert!(rect(&small, id + 2)[2] < rect(&old, id + 2)[2], "a smaller halo");
         assert!(rect(&small, id)[2] < rect(&old, id)[2], "a smaller shadow");
-        // At 1.0 it is exactly what it was: x - 24, 2 x the sprite.
         assert_eq!(a[0], shot.x - 24.0);
     }
 
     #[test]
     fn a_crowd_of_shots_sheets_each_look_once_and_shares_its_light() {
-        // A stacked knight's crowd: three looks over and over.
         let base = fight_with_shots();
         let mut scene = base.clone();
         scene.shots.clear();
@@ -2526,8 +2158,6 @@ mod tests {
         assert_eq!((sheet.width, sheet.height), (w, h), "each look once");
         let sprites = frame.layers.iter().filter(|l| matches!(l.kind, LayerKind::PicturePart(SHOTS, _))).count();
         assert_eq!(sprites, scene.shots.iter().filter(|s| drawn(s)).count(), "every shot its sprite");
-        // Each shot's light is shared with its crowd, counted as every
-        // other shot is measured against it.
         for (i, shot) in scene.shots.iter().enumerate() {
             let crowd = scene.shots.iter().filter(|o| (o.x - shot.x).hypot(o.y - shot.y) < CROWD_PX).count();
             let streak = frame.layers.iter().find(|l| l.id == 0x5_0000 + i as u64 * 16 + 1).expect("its streak");
@@ -2561,7 +2191,6 @@ mod tests {
             &mut |_| None,
         );
         assert_eq!(drawings[0].id, 77);
-        // A pixel of the sprite nothing was painted over.
         let at = |x: i32, y: i32| (body.x + x - figure.x, body.y + y - figure.y);
         let (bx, by) = (0..body.img.h)
             .flat_map(|y| (0..body.img.w).map(move |x| (x, y)))

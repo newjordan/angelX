@@ -12,8 +12,6 @@ use crate::rules::home::{BUY_HOLD, hold_bar, numeral};
 use crate::rules::world::bomrekedan::works::Work;
 use crate::rules::Run;
 
-/// Every work's sign on this level: its plate and board on the floor, and
-/// the offer's panel over a knight standing on it.
 pub(super) fn add<'a>(list: &mut DrawList<'a>, run: &'a Run) {
     if run.bom_works_here().next().is_none() {
         return;

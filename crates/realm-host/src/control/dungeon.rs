@@ -6,68 +6,41 @@ use angel_delve::rules::host_commands::{Command as GameCommand, Reply as GameRep
 use crate::together::Action;
 use crate::together_dungeon::{CombatAction, Direction, Phase};
 
-/// A key that is down: when it last arrived, whether Shift came with it, and
-/// whether the terminal is repeating it.
 pub struct Held {
     pub at: std::time::Instant,
     pub(super) shift: bool,
     pub(super) repeat: bool,
 }
 
-/// Friends a host may seat: a party of six knights is the host's and five
-/// friends' (`MAX_PLAYERS` less the host's own seat).
 pub const MAX_FRIENDS: usize = 5;
 
-/// Friends a host who plays no knight may seat: all six (`MAX_PLAYERS`),
-/// the last in taking the host's own place, knight 1.
 pub const MAX_WATCHED_FRIENDS: usize = crate::together_shooter::MAX_PLAYERS as usize;
 
-/// A delve open to friends.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Hosting {
-    /// Seats for friends, beside the host's own (`watch`: every seat).
     pub friends: usize,
-    /// The host plays no knight (`/dungeon_host --watch`, or
-    /// `ANGEL_DELVE_HOST_KNIGHT=0`): a dedicated machine's, whose own
-    /// knight's place stands empty until the last friend in takes it.
     pub watch: bool,
 }
 
 impl Hosting {
-    /// Whether a host plays no knight unless told: `ANGEL_DELVE_HOST_KNIGHT=0`.
     pub fn watch_by_default() -> bool {
         std::env::var("ANGEL_DELVE_HOST_KNIGHT").is_ok_and(|v| v.trim() == "0")
     }
 
-    /// The most friends a host may seat: five beside its own knight, six
-    /// when it plays none.
     pub fn most_friends(watch: bool) -> usize {
         if watch { MAX_WATCHED_FRIENDS } else { MAX_FRIENDS }
     }
 
-    /// Seats behind the door: the friends', and the host's own unless it
-    /// only watches.
     pub fn seats(&self) -> u32 {
         self.friends as u32 + u32::from(!self.watch)
     }
 }
 
-/// Which game this view has open. The fields behind it come and go on their
-/// own (the sim, the host's door, a friend's link), so this is where the legal
-/// combinations are written down: a friend's delve (`joined`) is never open
-/// beside one of the host's own (`shooter`), and a hosted delve is the host's
-/// own with a door on it (`hosting`). Where they overlap anyway the friend's
-/// wins, as it does in every helper that reads both. The Delve's menu
-/// (`intro`) is not a venue: it opens over any of them, or over none.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Venue {
-    /// No game is open.
     Idle,
-    /// The host's own delve, no door on it.
     Solo,
-    /// The host's own delve, open to friends (`/dungeon host`).
     Hosted,
-    /// Playing in a friend's delve (`/dungeon join`).
     Joined,
 }
 
@@ -79,69 +52,39 @@ pub struct DungeonView {
     pub(super) composer_draft: Option<(String, usize)>,
     pub controls_visible: bool,
     pub notice: String,
-    /// The delve is open to friends behind one link (`/dungeon host`).
     pub hosting: Option<Hosting>,
-    /// The host's delve: stepped by its server, read here as the snapshot
-    /// latched for this frame (`together_sim`), played from this terminal's
-    /// own seats.
     pub shooter: crate::together_sim::Sim,
-    /// angelX's work waiting to reach the holdings (`holdings::feed`).
     pub ops: crate::together_shooter::holdings::Ops,
-    /// Tool calls in flight whose success the holdings count, by event id.
     pub ops_calls: std::collections::BTreeMap<String, crate::together_shooter::holdings::Op>,
-    /// The loop iteration the holdings last counted.
     pub ops_loop: usize,
     pub key_releases: bool,
     pub held: std::collections::HashMap<KeyCode, Held>,
-    /// When the realm last took in what the run banked.
     pub(super) settled: Option<std::time::Instant>,
     pub(super) raid_serial: u64,
     pub save_path: Option<std::path::PathBuf>,
     pub(super) last_saved: Option<std::time::Instant>,
-    /// The card screen (Tab) is open over the room.
     pub cards_open: bool,
     pub activity_menu: Option<u32>,
     pub activity_leave_pending: bool,
-    /// Never reused as notice/HUD/chorus: those surfaces are sent to guests.
     pub exhibit_text: Option<String>,
     pub exhibit_scroll: u16,
-    /// Card screen page (0 = your cards, then the book) and selection.
     pub cards_page: usize,
     pub cards_sel: usize,
-    /// The island's play economy, loaded on first use.
     pub realm: Option<crate::together_realm::Realm>,
-    /// The wish angelX is drafting, when it started, and whether its turn
-    /// has been seen running.
     pub drafting: Option<(String, std::time::Instant, bool)>,
-    /// The cast that speaks at the delve's moments.
     pub chorus: crate::together_chorus::Chorus,
-    /// Music and sound effects, under the voices.
     pub audio: crate::together_audio::Audio,
-    /// The number a knight last picked on the wish scroll, and when: its
-    /// key's repeats are not a spell.
     pub wish_picked: Option<(char, std::time::Instant)>,
-    /// Sanctuary reforges: the prompt, the one angelX is drafting, the queue.
     pub forge: super::Forge,
-    /// Wish painters at work for the host's learned wishes and reforges.
     pub painters: crate::together_painter::Painters,
-    /// The body-maker's jobs for the mirror's wished looks (`together_looker`).
     pub lookers: crate::together_looker::Lookers,
-    /// How many wishes the treasury could raise when the party last heard so.
     pub ready_heard: usize,
-    /// The Delve's intro, open while a knight is being chosen.
     pub intro: Option<crate::delve_intro::Intro>,
-    /// The knight's arrival at the gate has been announced.
     pub gate_said: bool,
-    /// Playing in a friend's delve: the connection to their host.
     pub joined: Option<crate::together_join::Joined>,
-    /// Bounty progress not yet saved: it is, between fights.
     pub bounties_unsaved: bool,
-    /// A home claim just came back changing nothing: no new claim (and its
-    /// three saved checkpoints) until then.
     pub home_quiet_until: Option<std::time::Instant>,
-    /// A settlement cycle off the frame, holding the realm.
     pub(crate) settling: Option<super::dungeon_settle::Settling>,
-    /// The realm as it left to settle, for the screen meanwhile.
     pub(crate) realm_copy: Option<crate::together_realm::Realm>,
 }
 
@@ -173,7 +116,6 @@ impl Session<'_> {
         self.cx.redraw();
     }
 
-    /// Exit keys have priority over every in-game overlay and control capture.
     pub fn activity_key(&mut self, key: event::KeyEvent) -> bool {
         if !self.dungeon_view_active()
             || key.kind == event::KeyEventKind::Release
@@ -195,11 +137,6 @@ impl Session<'_> {
         } else {
             1
         };
-        // The wish scroll's choices are open: on the host Esc rolls it up
-        // and 1, 2 and 3 pick, at once, and 4 turns whom a summoner's wish
-        // is for (`dead_wishes`), and are never held as the menu or spell
-        // keys; a friend's go to the host as their seat's menu and spell
-        // keys, which the scroll takes there (`Run::offer_inputs`).
         if key.kind == event::KeyEventKind::Press && self.dungeon.wish_offer_open(me) {
             match code {
                 KeyCode::Esc => {
@@ -237,7 +174,6 @@ impl Session<'_> {
                 _ => {}
             }
         }
-        // The number just picked, repeated by a held key, casts nothing.
         if let (KeyCode::Char(c), Some((picked, at))) = (code, self.dungeon.wish_picked)
             && c == picked
             && at.elapsed() < std::time::Duration::from_millis(400)
@@ -245,8 +181,6 @@ impl Session<'_> {
             self.dungeon.wish_picked = Some((c, std::time::Instant::now()));
             return true;
         }
-        // Esc closes an open ballot before it can open an activity menu.
-        // A party can now begin in the tavern, which has an activity exit.
         let ballot = if self.dungeon.joined.is_some() {
             self.dungeon.joined_ballot_open
         } else {
@@ -320,9 +254,6 @@ impl Session<'_> {
                 self.dungeon.exhibit_text = None;
                 self.dungeon.forge.draft = None;
                 if self.dungeon.joined.is_some() {
-                    // The mirror may still show the previous room. Let the
-                    // seat's client choose menu or hold-to-leave as it samples
-                    // this key against its newest authoritative run.
                     self.dungeon.hold(code, false);
                     self.send_keys(std::time::Instant::now());
                 } else {
@@ -337,8 +268,6 @@ impl Session<'_> {
         true
     }
 
-    /// The activity menu went up or down for knight `seat`: the menu key on
-    /// its seat's client, which holds the knight while the menu is up.
     fn tap_menu(&self, seat: u32) {
         if let Some(joined) = &self.dungeon.joined {
             joined.menu();
@@ -347,7 +276,6 @@ impl Session<'_> {
         }
     }
 
-    /// The menu passes from one couch knight to the other.
     fn move_menu(&mut self, from: u32, to: u32) {
         if from != to {
             self.tap_menu(from);
@@ -363,7 +291,6 @@ impl Session<'_> {
         self.dungeon.exhibit_text = None;
         self.dungeon.forge.draft = None;
         if let Some(client) = self.dungeon.shooter.seat(seat) {
-            // The menu's tap, if it has not gone, never holds the knight.
             client.untap(angel_net::input::button::MENU);
         }
         if self.dungeon.shooter.is_some() {
@@ -376,13 +303,10 @@ impl Session<'_> {
             format!("Knight {seat} left the activity. Friends still inside can play on.");
     }
 
-    /// Solo pauses outside its surface; a friend's controls only
-    /// ever drive their own knight and never submit prompts.
     pub fn advance_dungeon_guest(&mut self) {
         if self.dungeon.shooter.is_some() {
             self.advance_shooter_at(std::time::Instant::now());
         } else if self.dungeon.forge.learning.iter().any(|lesson| lesson.detached) {
-            // A closed/replaced scene does not own the native model call.
             self.watch_learning();
         }
     }
@@ -429,8 +353,6 @@ impl Session<'_> {
             self.cx.set_composer("/".into(), 1);
             return true;
         }
-        // Preserve explicit stop/redraw and model-menu chords. Other text never
-        // falls through to an invisible composer while the game owns the screen.
         if (key.modifiers.contains(KeyModifiers::CONTROL)
             && matches!(key.code, KeyCode::Char('c' | 'l' | 'g')))
             || matches!(key.code, KeyCode::F(9) | KeyCode::F(10))
@@ -526,7 +448,6 @@ impl DungeonView {
         self.joined.as_ref().map_or(2, Joined::actor)
     }
 
-    /// This seat's knight in the host's HUD.
     pub fn joined_knight(&self) -> Option<serde_json::Value> {
         let joined = self.joined.as_ref()?;
         let me = joined.actor() as u64;
@@ -538,7 +459,6 @@ impl DungeonView {
             .cloned()
     }
 
-    /// The friend's card screen: their own cards, then the book's pages.
     pub fn joined_card_pages(&self) -> usize {
         1 + self.joined
             .as_ref()
@@ -546,9 +466,6 @@ impl DungeonView {
             .map_or(0, |book| crate::card_pages::book_pages(&book))
     }
 
-    /// The wish ladders knight `player` holds, as the wish line offers to
-    /// climb them (`Run::upgrades`), and the line under them when none can
-    /// be: the host's own run, or a friend's view of the host's.
     pub fn wish_upgrades(
         &self,
         player: u32,
@@ -567,8 +484,6 @@ impl DungeonView {
             .unwrap_or_default()
     }
 
-    /// How far knight `player` has wished themselves into being, as this
-    /// angelX knows it: `None` for a knight begun with a kit (`identity`).
     pub fn wish_making(&self, player: u32) -> Option<crate::together_shooter::identity::Making> {
         if let Some(joined) = &self.joined {
             let run = joined.run()?;
@@ -578,8 +493,6 @@ impl DungeonView {
         run.players.get(&player)?.making(&run.book)
     }
 
-    /// The held cards of knight `player`, as this angelX knows them: the
-    /// host's own run, or a friend's view of the host's.
     pub fn wish_deck(&self, player: u32) -> Vec<String> {
         if self.joined.is_some() {
             return self
@@ -600,7 +513,6 @@ impl DungeonView {
             .unwrap_or_default()
     }
 
-    /// Whether knight `id`'s wish scroll has its choices open.
     pub fn wish_offer_open(&self, id: u32) -> bool {
         if self.joined.is_some() {
             return self.joined_knight().is_some_and(|k| k["wish_offer"].as_bool() == Some(true));

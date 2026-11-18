@@ -26,8 +26,6 @@ impl VerificationReceipt {
         value["shared"] = self.shared.into();
         value["verification_scope"] = self.scope.into();
         if let Some(plan) = &self.skipped_plan {
-            // A pending/cancelled row still identifies the concrete obligation;
-            // a digest alone cannot explain an abandoned scaffold later.
             value["cmd"] = plan.cmd.clone().into();
             value["dir"] = plan.dir.clone().into();
             value["source"] = plan.source.into();
@@ -54,7 +52,6 @@ const REPEATED_FAILURE_DEFERRED: &str =
     "repeated-identical-failure; mandatory turn-boundary check pending";
 
 impl PostWriteVerification {
-    /// Called after dispatch, before processing this batch's mutation results.
     pub(crate) fn begin_batch(&mut self) {
         self.batch.clear();
     }
@@ -66,8 +63,6 @@ impl PostWriteVerification {
         cancel: &AtomicBool,
         verdicts: &mut TurnVerdicts,
     ) -> Option<VerificationReceipt> {
-        // Keep the existing unit-test no-spawn contract. The production binary
-        // fixture is mandatory acceptance; planner tests use check_with below.
         if cfg!(test) {
             return None;
         }
@@ -141,8 +136,6 @@ impl PostWriteVerification {
         }
         verdicts.observe(&machine);
         let receipt = receipt(Some(&plan), machine);
-        // Bound retained diagnostics even for a very large multi-file patch.
-        // Overflow may repeat a check, but must never drop verification scope.
         if self.batch.len() >= super::MAX_PENDING {
             self.batch.clear();
         }
@@ -150,9 +143,6 @@ impl PostWriteVerification {
         Some(receipt)
     }
 
-    /// A normal answer closes any scaffold group, even if no entrypoint was
-    /// ever written. Cancellation/deadline reaches run_verify's existing skip
-    /// contract and therefore cannot earn a reward from an earlier pass.
     pub(crate) fn finish(
         &mut self,
         workspace: &Path,
@@ -236,9 +226,6 @@ fn receipt(plan: Option<&VerifyPlan>, machine: Machine) -> VerificationReceipt {
 fn run_namespace() -> &'static str {
     static NAMESPACE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
     NAMESPACE.get_or_init(|| {
-        // RandomState has independently seeded per-instance hash keys. Include
-        // wall time as well; retained receipts must not collide after PID reuse.
-        // This is an accounting nonce, not an authentication token.
         let random = std::collections::hash_map::RandomState::new();
         let seed = (std::process::id(), std::time::SystemTime::now());
         format!(
@@ -249,10 +236,6 @@ fn run_namespace() -> &'static str {
     })
 }
 
-/// Conservative preflight, not a replacement for Cargo's parser/verification.
-/// Only a small, valid package manifest without any declared or conventional
-/// target can defer the default `cargo check`. Virtual workspaces, explicit
-/// targets, malformed/large manifests and unknown layouts run normally.
 fn incomplete_cargo_scaffold(workspace: &Path, plan: &VerifyPlan) -> bool {
     if plan.source != "default" || plan.cmd != "cargo check" {
         return false;
@@ -282,9 +265,6 @@ fn incomplete_cargo_scaffold(workspace: &Path, plan: &VerifyPlan) -> bool {
     implicit_targets_provably_absent(workspace, Path::new(&plan.dir))
 }
 
-/// Constant-count, descriptor-relative metadata checks. Any symlink, unusual
-/// target layout, or ambiguous error declines deferral. In particular, never
-/// list `src/bin` through a pathname that can be swapped outside the workspace.
 #[cfg(unix)]
 fn implicit_targets_provably_absent(workspace: &Path, crate_dir: &Path) -> bool {
     use std::ffi::{CStr, CString};
@@ -293,8 +273,6 @@ fn implicit_targets_provably_absent(workspace: &Path, crate_dir: &Path) -> bool 
     use std::path::Component;
 
     fn directory(parent: &std::fs::File, name: &CStr) -> std::io::Result<Option<std::fs::File>> {
-        // SAFETY: parent owns a live directory descriptor, name is NUL-terminated,
-        // and O_NOFOLLOW forbids symlinks for every individually opened component.
         let fd = unsafe {
             libc::openat(
                 parent.as_raw_fd(),
@@ -310,7 +288,6 @@ fn implicit_targets_provably_absent(workspace: &Path, crate_dir: &Path) -> bool 
                 Err(error)
             };
         }
-        // SAFETY: openat returned a new owned descriptor.
         Ok(Some(unsafe { std::fs::File::from_raw_fd(fd) }))
     }
 
@@ -339,9 +316,6 @@ fn implicit_targets_provably_absent(workspace: &Path, crate_dir: &Path) -> bool 
     };
     for name in [c"main.rs", c"lib.rs", c"bin"] {
         let mut stat = std::mem::MaybeUninit::<libc::stat>::uninit();
-        // SAFETY: source owns its descriptor, the name is a valid C string, and
-        // stat points to writable storage. No returned fields are read. Leaf
-        // symlinks count as present rather than being followed or read.
         let found = unsafe {
             libc::fstatat(
                 source.as_raw_fd(),
@@ -362,8 +336,6 @@ fn implicit_targets_provably_absent(_workspace: &Path, _crate_dir: &Path) -> boo
     false
 }
 
-/// Deferred checks have no new authored row. Record their own execution once,
-/// linked by plan identity to the earlier explicitly unverified authored rows.
 pub(crate) fn record_final_verification(
     workspace: &Path,
     hop: usize,

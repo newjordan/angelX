@@ -26,8 +26,6 @@ pub mod town {
     use std::collections::BTreeMap;
     use std::sync::{Mutex, OnceLock};
 
-    /// Whether a knight's feet (an 8 by 6 box, `x` and `y` in pixels times `Q`)
-    /// stand clear of every solid tile and crate.
     pub fn clear(x: i32, y: i32, ground: Ground, crates: &[(i32, i32)]) -> bool {
         let (px, py) = (x.div_euclid(Q), y.div_euclid(Q));
         for (cx, cy) in [(-4, -3), (3, -3), (-4, 2), (3, 2)] {
@@ -41,7 +39,6 @@ pub mod town {
 
     type FieldKey = ((i32, i32), u8, Option<(i32, i32)>, bool);
 
-    /// The flood from `goal` (cached: a pure function of its arguments).
     pub fn field(goal: (i32, i32), ground: Ground, crate_at: Option<(i32, i32)>) -> std::sync::Arc<Field> {
         static CACHE: OnceLock<Mutex<BTreeMap<FieldKey, std::sync::Arc<Field>>>> = OnceLock::new();
         let key = (
@@ -98,7 +95,6 @@ pub mod walk {
     pub use angel_delve::rules::moonfall::state::{PUSH_TICKS, ROLL, ROLL_REST};
     use angel_delve::rules::moonfall::town::{Ground, Q, TILE, Tile};
 
-    /// Q-pixels a tick a knight walks at.
     pub fn speed(walk_percent: u32, mask: Mask) -> i32 {
         let base = i64::from(PACE_Q) * i64::from(walk_percent) / 100;
         (match mask {
@@ -108,7 +104,6 @@ pub mod walk {
         }) as i32
     }
 
-    /// The key bits a tick's input is read as.
     pub mod key {
         pub const USE: u16 = 1;
         pub const LEDGER: u16 = 2;
@@ -157,7 +152,6 @@ pub mod walk {
         k
     }
 
-    /// Whether `bit` went down this tick.
     pub fn pressed(now: u16, before: u16, bit: u16) -> bool {
         now & bit != 0 && before & bit == 0
     }
@@ -175,18 +169,13 @@ pub mod walk {
         None
     }
 
-    /// What a step of walking did to the world.
     #[derive(Default)]
     pub struct Walked {
-        /// A crate that went into the ditch.
         pub filled: bool,
-        /// A crate moved a tile.
         pub moved: bool,
-        /// Leant on a crate too heavy to move.
         pub heavy: bool,
     }
 
-    /// One tick of walking for a knight who is free to move.
     pub fn step(
         k: &mut Knight,
         input: Input,
@@ -218,7 +207,6 @@ pub mod walk {
         }
         k.stride = (k.stride + 1).min(60_000);
         let speed = if rolling { pace * 22 / 10 } else { pace };
-        // A diagonal is not faster: 181/256 of the pace on each axis.
         let each = if dx != 0 && dy != 0 { speed * 181 / 256 } else { speed };
         let mut leaning = false;
         for (ax, ay) in [(dx, 0), (0, dy)] {
@@ -268,7 +256,6 @@ pub mod walk {
         out
     }
 
-    /// A facing as a step.
     pub fn facing(face: u8) -> (i32, i32) {
         match face {
             0 => (0, 1),
@@ -310,7 +297,6 @@ pub mod walk {
             let mut k = at(17, 15);
             let mut crates = vec![];
             go(&mut k, 0, -1, 60, Mask::Bare, &mut crates, Ground::default());
-            // The Moonwell is in the way north of the plaza's middle.
             assert!(k.y > 14 * TILE * Q, "the well holds {}", k.y / Q);
             let mut k = at(15, 15);
             go(&mut k, 1, 0, 20, Mask::Bare, &mut crates, Ground::default());
@@ -321,11 +307,9 @@ pub mod walk {
         fn only_a_stout_knight_moves_the_crate_and_the_ditch_swallows_it() {
             let ground = Ground::default();
             let mut crates = vec![town::CRATE_START];
-            // A bare knight leans on it and it stays.
             let mut k = at(17, 19);
             go(&mut k, 0, 1, 80, Mask::Bare, &mut crates, ground);
             assert_eq!(crates, vec![town::CRATE_START]);
-            // A stout one pushes it south a tile at a time, then into the ditch.
             let mut k = at(17, 19);
             let mut filled = false;
             for _ in 0..400 {
@@ -388,7 +372,6 @@ pub mod story {
     use angel_delve::rules::moonfall::folk::Folk;
     pub use angel_delve::rules::moonfall::story::*;
 
-    /// What E may mean where a knight stands.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum Use {
         Folk(Folk),
@@ -397,25 +380,14 @@ pub mod story {
         North,
         South,
         Well,
-        /// The Moonwell Bell on its post by the well.
         Bell,
         Lantern(u8),
     }
 
-    /// Hours of Orin's writing.
     pub const PASS_HOURS: u32 = 5;
-    /// Hours reeds are kept in the hand before they are dry.
     pub const DRY_HOURS: u32 = 12;
-    /// Hours a finished pass keeps its ink: after them it smudges.
     pub const PASS_FRESH: u32 = 2;
-    /// How long E is held to light a flame, in ticks.
     pub const LIGHT_HOLD: u32 = 24;
-    /// The windows, in half-hours into a day (06:00 is 0): Pella sorts the post
-    /// 07:00 to 08:30 on the first morning; Orin takes the pot back in the same
-    /// hour; Nessa's oven wants its reeds 08:30 to 10:30 on the second day; Mira's
-    /// pen is fresh 06:30 to 09:00; Tovin airs the keys 17:00 to 20:00 on the
-    /// second day; Nessa's iron cart is at the forge 06:30 to 08:00 on the second
-    /// day.
     pub const POST: (u32, u32) = (2, 5);
     pub const OVEN: (u32, u32) = (5, 9);
     pub const PEN: (u32, u32) = (1, 6);
@@ -431,21 +403,13 @@ pub mod wisps {
     use angel_delve::rules::moonfall::state::*;
     use angel_delve::rules::moonfall::town::{Q, TILE};
 
-    /// Pixels (times `Q`) a wisp drifts a tick: one, and a tenth more for each
-    /// knight beyond the first.
     pub const DRIFT: i32 = 256;
-    /// Ticks a wisp spends putting a flame out.
     pub const SNUFF: u32 = 60;
-    /// How near a knight must stand to a flame to keep a wisp off it, pixels.
     pub const WARD: i32 = 40;
-    /// How near a wisp must come to a knight to touch.
     pub const TOUCH: i32 = 9;
-    /// Ticks a knight is warded after a touch.
     pub const WARDED: u32 = 75;
-    /// Ticks a snuffed knight lies before the well carries them back.
     pub const DOWN: u32 = 90;
 
-    /// Where the wisps come in from, around the edge of the town, in pixels.
     pub const COMING: [(i32, i32); 8] = [
         (-20, 400),
         (150, 440),
@@ -457,7 +421,6 @@ pub mod wisps {
         (-20, 180),
     ];
 
-    /// The length of `(dx, dy)`, in integers: the same answer on every machine.
     pub fn isqrt(dx: i32, dy: i32) -> i32 {
         let n = (i64::from(dx) * i64::from(dx) + i64::from(dy) * i64::from(dy)) as u64;
         let (mut lo, mut hi) = (0u64, 1u64 << 32);
@@ -479,8 +442,6 @@ pub mod ledger {
     pub use angel_delve::rules::moonfall::ledger::*;
     pub use angel_delve::rules::moonfall::ledger::{Fact, Memory};
 
-    /// Appointments the Ledger reminds the party of: a routine line known,
-    /// the hour before it begins. (folk, routine id, on which day or any).
     pub const APPOINTMENTS: [(Folk, u8, Option<u32>); 6] = [
         (Folk::Pella, 2, None),
         (Folk::Pella, 4, None),
@@ -490,9 +451,6 @@ pub mod ledger {
         (Folk::Aster, 0, Some(1)),
     ];
 
-    /// The appointments that fall in the hour starting at `clock`: those
-    /// known to the party whose stop is `ahead` ticks off. Returns
-    /// (folk, routine).
     pub fn reminders(mem: &Memory, clock: u32, day: u32) -> Vec<(Folk, u8)> {
         let hour = day / 24;
         let table = folk::timetable(day);
@@ -539,8 +497,6 @@ pub mod folk {
     use angel_delve::rules::moonfall::clock;
     pub use angel_delve::rules::moonfall::folk::*;
 
-    /// The next tick at or after `clock` that `folk` can be seen (the schedule
-    /// only: Aster after a shoe keeps his own).
     pub fn next_seen(folk: Folk, clock: u32, day: u32) -> Option<u32> {
         let table = timetable(day);
         table.seen[folk.index()]
@@ -561,7 +517,6 @@ pub mod plan {
     use angel_delve::rules::moonfall::state::*;
     use angel_delve::rules::moonfall::town::{Q, TILE};
 
-    /// What a knight must hold for a task.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     enum Hand {
         Free,
@@ -569,24 +524,17 @@ pub mod plan {
         Any,
     }
 
-    /// Where a task is done.
     #[derive(Clone, Copy, Debug)]
     enum Aim {
-        /// Beside a villager, where they are.
         Folk(Folk),
-        /// On a tile, in reach of what is there.
         Tile((i32, i32)),
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     enum Act {
-        /// Press E once, and again to turn the page.
         Tap,
-        /// Hold E until it is done.
         Hold,
-        /// Stand and be there (a thing to witness).
         Stand,
-        /// Bring the crate to the ditch, then the door.
         South,
     }
 
@@ -596,26 +544,22 @@ pub mod plan {
         hand: Hand,
         aim: Aim,
         act: Act,
-        /// The tick it can be done from, and the tick it can no longer be.
         opens: u32,
         closes: u32,
     }
 
-    /// The tile to stand on for each of the places E means something.
     const NORTH_STAND: (i32, i32) = (18, 4);
     const SOUTH_STAND: (i32, i32) = (17, 24);
     const WELL_STAND: (i32, i32) = (17, 14);
     const INK_STAND: (i32, i32) = (11, 3);
     const REED_STAND: (i32, i32) = (13, 5);
 
-    /// A tick on a day (0 to 2) at a label hour and minute.
     fn at(s: &Session, d: u32, hh: u32, mm: u32) -> u32 {
         let since_dawn = if hh < 6 { hh + 24 - 6 } else { hh - 6 };
         let minutes = (d * 24 + since_dawn) * 60 + mm;
         (u64::from(minutes) * u64::from(s.nums.day) / 1440) as u32
     }
 
-    /// Whether any knight at the table holds `item`.
     fn held_by_any(s: &Session, item: Item) -> bool {
         s.seats.values().any(|st| st.knight.held == item)
     }
@@ -628,8 +572,6 @@ pub mod plan {
             .collect()
     }
 
-    /// The table's tasks in the order they matter, whether they can be done
-    /// yet or not.
     fn tasks(s: &Session) -> Vec<Task> {
         let day = s.nums.day;
         let end = clock::end(day);
@@ -647,28 +589,22 @@ pub mod plan {
             });
         };
         let hour = day / 24;
-        // The three lights, once the verse is known and the Final Hours come.
         let fin = clock::final_start(day);
         let ready_soon = |i: usize| match i {
             0 => m.has_keep(NORTH_KEY),
             1 => m.has_keep(SOUTH_SEAL),
             _ => m.has_keep(OIL),
         } && m.knows(Fact::Verse);
-        // The farthest first, then back through the middle: the north tower
-        // (over the planks), the well, the south tower. The first to be lit
-        // has the shortest wait for the last.
         for (i, stand) in [(0, NORTH_STAND), (2, WELL_STAND), (1, SOUTH_STAND)] {
             if ready_soon(i) && !s.flame(i) {
                 add("light", Hand::Any, Aim::Tile(stand), Act::Hold, fin, end);
             }
         }
-        // A knight beside a lit flame keeps the wisps off it.
         for (i, stand) in [(2, WELL_STAND), (1, SOUTH_STAND), (0, NORTH_STAND)] {
             if s.flame(i) {
                 add("guard", Hand::Any, Aim::Tile(stand), Act::Stand, 0, end);
             }
         }
-        // What is in hand goes where it is wanted, at the hour it is wanted.
         for d in 1..3 {
             add(
                 "scroll to Mira",
@@ -711,7 +647,6 @@ pub mod plan {
             at(s, 0, 7, 0),
             at(s, 0, 8, 25),
         );
-        // What there is to witness, at the hour it happens.
         if !m.knows(Fact::AsterComing) {
             add(
                 "hear the herald",
@@ -742,7 +677,6 @@ pub mod plan {
                 at(s, 2, 22, 0),
             );
         }
-        // The seal at dawn, for a knight who wears both masks.
         if m.knows(Fact::MiraSeal) && m.has_mask(SWIFT) && m.has_mask(STOUT) && !m.has_keep(SOUTH_SEAL) {
             for d in 0..3 {
                 add(
@@ -755,7 +689,6 @@ pub mod plan {
                 );
             }
         }
-        // The shoe on the iron cart day, for the rider.
         if m.knows(Fact::AsterLame) && s.world.shod.is_none() && !m.has_keep(OIL) && !held_by_any(s, Item::Shoe) {
             add(
                 "shoe from Nessa",
@@ -766,7 +699,6 @@ pub mod plan {
                 at(s, 1, 7, 55),
             );
         }
-        // The pass, once it is written.
         if let Some(t) = s.world.ink_given {
             if !m.has_keep(NORTH_KEY) && !held_by_any(s, Item::Pass) {
                 add(
@@ -779,7 +711,6 @@ pub mod plan {
                 );
             }
         }
-        // The favours that earn the masks and the pass.
         if m.knows(Fact::OrinLost) && s.world.ink_given.is_none() && !s.world.has(INK_TAKEN) && !m.has_keep(NORTH_KEY) {
             add(
                 "ink pot",
@@ -810,8 +741,6 @@ pub mod plan {
                 at(s, 0, 22, 0),
             );
         }
-        // Ask each of them once, to hear what they want: in the order they
-        // are met, the nearest first.
         let from = up_seats(s)
             .first()
             .map_or(town::Spot::Plaza.px(), |id| s.seats[id].knight.px());
@@ -833,7 +762,6 @@ pub mod plan {
         for (_, _, who) in asks {
             add("ask", Hand::Free, Aim::Folk(who), Act::Tap, 0, end);
         }
-        // Make ready for the night: the crate into the ditch, the doors.
         if m.has_keep(SOUTH_SEAL) && !s.world.has(SOUTH_OPEN) {
             add(
                 "south door",
@@ -854,8 +782,6 @@ pub mod plan {
                 end,
             );
         }
-        // Spare hands: keep the lamps lit.
-        // (Not in the hours before the three lights: everyone is wanted at a tower.)
         if clock::night(now, day) && (now + 2 * hour < fin || now >= fin) {
             for (n, &(tx, ty)) in town::LAMPS.iter().enumerate() {
                 if s.lantern_scheduled(n as u8) && s.world.snuffed & (1 << n) != 0 {
@@ -871,7 +797,6 @@ pub mod plan {
             Aim::Tile((tx, ty)) => Some((tx * TILE + TILE / 2, ty * TILE + TILE / 2)),
             Aim::Folk(f) => {
                 let now = s.clock;
-                // Visible now: where they are. Not: where they will be.
                 let fig = s.figure(f);
                 if fig.visible && when <= now {
                     Some((fig.x, fig.y))
@@ -884,7 +809,6 @@ pub mod plan {
         }
     }
 
-    /// Whether a task can be done this tick.
     fn doable(s: &Session, t: &Task) -> bool {
         if s.clock < t.opens || s.clock >= t.closes {
             return false;
@@ -895,7 +819,6 @@ pub mod plan {
         }
     }
 
-    /// When a task will next be doable, if it still can be this loop.
     fn when(s: &Session, t: &Task) -> Option<u32> {
         if s.clock >= t.closes {
             return None;
@@ -922,8 +845,6 @@ pub mod plan {
         i64::from((a.0 - b.0).abs() + (a.1 - b.1).abs())
     }
 
-    /// Who does what, as every bot at the table works it out: each task, in
-    /// order of importance, to the knight nearest it who can do it.
     fn assign(s: &Session) -> Vec<(u32, Option<Task>)> {
         let ids = up_seats(s);
         if ids.is_empty() {
@@ -932,8 +853,6 @@ pub mod plan {
         let all = tasks(s);
         let mut free: Vec<u32> = ids.clone();
         let mut given: Vec<(u32, Option<Task>)> = Vec::new();
-        // What can be done now goes first, in order of importance; then what
-        // opens soonest goes to whoever is still free.
         let mut later: Vec<(u32, usize)> = Vec::new();
         for pass in 0..2 {
             let order: Vec<usize> = if pass == 0 {
@@ -956,8 +875,6 @@ pub mod plan {
                     continue;
                 };
                 let best = if t.name == "light" {
-                    // Each flame has its knight, by seat order, however they
-                    // have wandered: the hands do not change their minds.
                     let role = match t.aim {
                         Aim::Tile(NORTH_STAND) => 0,
                         Aim::Tile(WELL_STAND) => 1,
@@ -982,8 +899,6 @@ pub mod plan {
         given
     }
 
-    /// The step toward a tile, one tile at a time, centred in each so the
-    /// feet never catch a corner.
     fn walk_to(s: &Session, k: &Knight, goal: (i32, i32), crate_at: Option<(i32, i32)>) -> (i8, i8) {
         let swift = k.mask == Mask::Swift;
         let ground = s.world.ground(s.clock, s.nums.day, swift);
@@ -1016,7 +931,6 @@ pub mod plan {
         if (dx, dy) == (0, 0) {
             return (0, 0);
         }
-        // Centre across the way first, then go.
         if dx != 0 {
             let off = centre.1 - py;
             if off.abs() > 3 {
@@ -1031,12 +945,10 @@ pub mod plan {
         (dx as i8, dy as i8)
     }
 
-    /// Alternating presses: a key is down on one tick and up on the next.
     fn tap(k: &Knight, bit: u16) -> bool {
         k.keys & bit == 0
     }
 
-    /// A wisp close enough to touch: sidestep through it, or step away.
     fn danger(s: &Session, k: &Knight) -> Option<(i32, i32, bool)> {
         if k.hurt > 0 || k.roll > 0 || k.panel != Panel::Shut || !k.up() {
             return None;
@@ -1052,7 +964,6 @@ pub mod plan {
         Some((me.0 - near.0, me.1 - near.1, k.roll_rest == 0))
     }
 
-    /// What `id` presses this tick.
     pub fn bot(s: &Session, id: u32) -> Input {
         let Some(seat) = s.seats.get(&id) else {
             return Input::default();
@@ -1062,7 +973,6 @@ pub mod plan {
             return Input::default();
         }
         let none = Input::default();
-        // A menu is open: finish with it.
         match k.panel {
             Panel::Ledger(_) => {
                 return Input {
@@ -1089,7 +999,6 @@ pub mod plan {
             return none;
         }
         let plan = assign(s);
-        // Nothing left that anyone can do this loop: ring the bell, together.
         let anything = plan.iter().any(|(_, t)| t.is_some());
         let waiting = s.final_hours() || tasks(s).iter().any(|t| when(s, t).is_some());
         if !anything && !waiting {
@@ -1108,7 +1017,6 @@ pub mod plan {
             };
         }
         let mine = plan.iter().find(|(i, _)| *i == id).and_then(|(_, t)| *t);
-        // The mask for the job: Swift for the road, Stout for the crate.
         let want_stout = mine.is_some_and(|t| t.act == Act::South) && !s.world.has(DITCH_FILLED);
         let want = if want_stout && s.memory.has_mask(STOUT) {
             Mask::Stout
@@ -1120,14 +1028,12 @@ pub mod plan {
         if k.mask != want && tap(k, key::MASK) {
             return Input { play: 1, ..none };
         }
-        // A talk in progress: turn the page.
         if k.say.is_some() {
             return Input {
                 interact: tap(k, key::USE),
                 ..none
             };
         }
-        // Hands full of something nobody wants: put it down.
         if k.held != Item::Empty && !tasks(s).iter().any(|t| t.hand == Hand::Holds(k.held)) {
             return Input {
                 bomb: tap(k, key::DROP),
@@ -1138,7 +1044,6 @@ pub mod plan {
             Some(t) => do_task(s, k, &t),
             None => idle(s, k, id),
         };
-        // Something is about to touch us: roll, in the way we were going or away.
         if let Some((dx, dy, can_roll)) = danger(s, k) {
             if (input.move_x, input.move_y) == (0, 0) {
                 if dx.abs() >= dy.abs() {
@@ -1154,7 +1059,6 @@ pub mod plan {
         input
     }
 
-    /// A knight with nothing to do waits near the next thing to happen.
     fn idle(s: &Session, k: &Knight, id: u32) -> Input {
         let mut later: Vec<(u32, Task)> = tasks(s)
             .into_iter()
@@ -1162,7 +1066,6 @@ pub mod plan {
             .filter_map(|t| when(s, &t).map(|w| (w, t)))
             .collect();
         later.sort_by_key(|&(w, _)| w);
-        // Spread the spare hands over the next few.
         let spare = up_seats(s).iter().position(|&i| i == id).unwrap_or(0);
         let spot = later
             .get(spare % later.len().max(1))
@@ -1197,13 +1100,11 @@ pub mod plan {
         if t.act == Act::South {
             return south(s, k, crate_at);
         }
-        // A villager is spoken to from a step away; a place is stood on.
         let reach = match t.aim {
             Aim::Folk(_) => 18,
             Aim::Tile(_) => 5,
         };
         if !doable(s, t) {
-            // Early: be there when it opens.
             return go(s, k, goal, crate_at, 6);
         }
         if near > reach {
@@ -1222,7 +1123,6 @@ pub mod plan {
         }
     }
 
-    /// The south route: the crate into the ditch, then the seal to the door.
     fn south(s: &Session, k: &Knight, crate_at: Option<(i32, i32)>) -> Input {
         let (px, py) = k.px();
         if s.world.has(SOUTH_OPEN) {
@@ -1233,7 +1133,6 @@ pub mod plan {
                 let top = (cx, cy - 1);
                 let here = (px.div_euclid(TILE), py.div_euclid(TILE));
                 if here == top || (here.0 == cx && here.1 < cy && cy - here.1 <= 1) {
-                    // Centred over the crate, lean on it.
                     let centre = cx * TILE + TILE / 2;
                     if (px - centre).abs() > 2 {
                         return Input {
@@ -1263,7 +1162,6 @@ pub mod plan {
         }
     }
 
-    /// What a bot is up to, in words (for the tests that watch one).
     pub fn why(s: &Session, id: u32) -> String {
         let plan = assign(s);
         let mine = plan.iter().find(|(i, _)| *i == id).and_then(|(_, t)| *t);
@@ -1274,7 +1172,6 @@ pub mod plan {
     }
 }
 
-/// The native rules of Moonfall, as they ran in Rust: every method the module now answers.
 pub trait Old {
     fn sit(&mut self, id: u32, joined: u32);
     fn old_step(&mut self, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32, Hero>) -> Vec<&'static str>;
@@ -1336,9 +1233,6 @@ impl Old for Session {
         self.peak = self.peak.max(self.seats.len() as u32);
     }
 
-    /// One tick: the seats are whoever is here and awake, so a knight who
-    /// leaves stands up and one who joins late sits down at the well.
-    /// Returns the sounds to make.
     fn old_step(&mut self, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32, Hero>) -> Vec<&'static str> {
         let mut cues = Vec::new();
         self.elapsed = (self.elapsed + 1).min(LIMIT);
@@ -1350,7 +1244,6 @@ impl Old for Session {
             .collect();
         for id in gone {
             if let Some(seat) = self.seats.remove(&id) {
-                // Only a knight who is still in the party is kept for later.
                 if heroes.contains_key(&id) {
                     self.parked.insert(id, seat);
                 }
@@ -1377,7 +1270,6 @@ impl Old for Session {
         cues
     }
 
-    /// The timers that only run down.
     fn age(&mut self) {
         self.card = self.card.saturating_sub(1);
         for (_, n) in &mut self.news {
@@ -1427,7 +1319,6 @@ impl Old for Session {
         }
     }
 
-    /// One knight's tick.
     fn act(&mut self, id: u32, input: Input, cues: &mut Vec<&'static str>) {
         let keys = keys_of(input);
         let nums = self.nums;
@@ -1492,7 +1383,6 @@ impl Old for Session {
             k.read = written;
             return;
         }
-        // The moon has turned back: the bell has nothing left to wind.
         if press(key::BELL) && self.completed.is_none() {
             if self.call.is_some_and(|c| c.ayes & (1 << (id - 1)) == 0) {
                 self.put_hand(id);
@@ -1517,7 +1407,6 @@ impl Old for Session {
                 k.note = Some((Note::Sign(says::Sign::Dropped), 60));
             }
         }
-        // E: the next page of a talk, or what E means here.
         let talking = self.seats[&id].knight.say;
         if press(key::USE) {
             if let Some(say) = talking {
@@ -1539,7 +1428,6 @@ impl Old for Session {
         } else if let Some(s) = self.seats.get_mut(&id) {
             s.knight.hold = 0;
         }
-        // Walking. Moving away from someone ends the talk.
         let swift = self.seats[&id].knight.mask == Mask::Swift;
         let ground = self.world.ground(clock, nums.day, swift);
         let mut crates = std::mem::take(&mut self.world.crates);
@@ -1588,7 +1476,6 @@ impl Old for Session {
         if !self.ring_ok(ring) {
             return;
         }
-        // The same ring already asked for: this knight's hand is another.
         if let Some(c) = &mut self.call {
             if c.ring == ring {
                 c.ayes |= 1 << (id - 1);
@@ -1618,7 +1505,6 @@ impl Old for Session {
     fn bell_tick(&mut self, cues: &mut Vec<&'static str>) {
         let need = self.bell_need();
         let Some(call) = &mut self.call else { return };
-        // A knight who left takes their hand off the rope.
         let seated: u8 = self.seats.keys().fold(0, |m, &id| m | (1 << (id - 1)));
         call.ayes &= seated;
         call.left = call.left.saturating_sub(1);
@@ -1631,7 +1517,6 @@ impl Old for Session {
         }
     }
 
-    /// Strike the bell: the ritual, or time run on.
     fn ring(&mut self, ring: Ring, cues: &mut Vec<&'static str>) {
         match ring {
             Ring::Rewind => self.begin_rewind(false, cues),
@@ -1656,7 +1541,6 @@ impl Old for Session {
         }
     }
 
-    /// Menus shut and talk ended, for a change of time.
     fn calm(&mut self) {
         self.call = None;
         for s in self.seats.values_mut() {
@@ -1666,7 +1550,6 @@ impl Old for Session {
         }
     }
 
-    /// Ring the rewind from outside a knight's hands (the tests').
     #[cfg(test)]
     fn begin_rewind_for_test(&mut self) {
         let mut cues = Vec::new();
@@ -1700,9 +1583,6 @@ impl Old for Session {
         }
     }
 
-    /// The town returns to the first dawn. The Ledger and the masks stay;
-    /// everything else, carried items and opened doors and the rest, is
-    /// wound back.
     fn reset(&mut self) {
         self.memory.loops += 1;
         self.clock = 0;
@@ -1741,7 +1621,6 @@ impl Old for Session {
         if t >= WON_LEN {
             self.completed = Some(self.elapsed);
             self.clock = clock::end(self.nums.day);
-            // The three lights burn on: the moon has turned back.
             self.world.lit_until = [self.clock * 2; 3];
             self.world.wisps.clear();
             self.phase = Phase::Play;
@@ -1751,12 +1630,10 @@ impl Old for Session {
         }
     }
 
-    /// The town's own tick: the clock, the bells, the Gloam, the Ledger.
     fn world_tick(&mut self, cues: &mut Vec<&'static str>) {
         let day = self.nums.day;
         let hour = (day / 24).max(1);
         let before_bridge = clock::bridge_up(self.clock, day);
-        // The loop ends where it ends, however the day knob has moved.
         self.clock = (self.clock + 1).min(clock::end(day));
         if self.clock % hour == 0 {
             let h = clock::stamp(self.clock, day).hour;
@@ -1770,7 +1647,6 @@ impl Old for Session {
         if self.clock % day == 0 {
             self.world.snuffed = 0;
         }
-        // The moon's shadow puts the street lanterns out, one by one.
         if self.final_hours() {
             let fin = clock::final_start(day);
             for n in 0..6u32 {
@@ -1780,7 +1656,6 @@ impl Old for Session {
                 }
             }
         }
-        // Aster's oil reaches the well.
         if let Some(t) = self.world.shod {
             if !self.memory.has_keep(ledger::OIL) && self.clock >= folk::aster_at_well(t) {
                 self.memory.keeps |= ledger::OIL;
@@ -1800,8 +1675,6 @@ impl Old for Session {
         cues.extend(self.tick_wisps());
     }
 
-    /// Pella cries the hours and Mira says her verse when they reach their
-    /// places.
     fn cries(&mut self) {
         let day = self.nums.day;
         let table = folk::timetable(day);
@@ -1822,7 +1695,6 @@ impl Old for Session {
         }
     }
 
-    /// The Ledger writes what a knight is near enough to see.
     fn witness(&mut self) {
         let notice = self.nums.notice as i32;
         let knights: Vec<(i32, i32)> = self
@@ -1845,7 +1717,6 @@ impl Old for Session {
             if self.memory.witness(who, fig.routine) {
                 self.announce(Note::Wrote(who, fig.routine));
             }
-            // What a person's doing may also be a thing to learn.
             let d = self.day_index();
             let fact = match (who, fig.routine) {
                 (Folk::Pella, 4) if d == 0 => Some(ledger::Fact::AsterComing),
@@ -1865,7 +1736,6 @@ impl Old for Session {
         self.phase == Phase::Play
     }
 
-    /// Ticks a flame burns once lit: tighter with every extra seat.
     fn burn(&self) -> u32 {
         let hour = self.nums.day / 24;
         (hour * 9 / 2)
@@ -1873,7 +1743,6 @@ impl Old for Session {
             .max(hour * 5 / 2)
     }
 
-    /// The thing nearest a knight's feet that E could mean.
     fn nearest_use(&self, who: u32) -> Option<Use> {
         let k = &self.seats.get(&who)?.knight;
         let me = k.px();
@@ -1908,7 +1777,6 @@ impl Old for Session {
         }
     }
 
-    /// Everyone's: the Ledger wrote, or an hour is near.
     fn announce(&mut self, n: Note) {
         match n {
             Note::Wrote(..) | Note::Learned(_) => self.pending.push("card_pickup"),
@@ -1935,28 +1803,23 @@ impl Old for Session {
         self.seats.get(&who).map_or(Item::Empty, |s| s.knight.held)
     }
 
-    /// The part of the day by the clock, for small talk.
     fn band(&self) -> u8 {
         says::band(clock::stamp(self.clock, self.nums.day).hour)
     }
 
-    /// Half-hours since the first dawn.
     fn half(&self) -> u32 {
         clock::half(self.clock, self.nums.day)
     }
 
-    /// Whether it is the `day` (0 to 2) and within `w` half-hours of its dawn.
     fn within(&self, day: Option<u32>, w: (u32, u32)) -> bool {
         let h = self.half();
         day.is_none_or(|d| h / 48 == d) && (w.0..w.1).contains(&(h % 48))
     }
 
-    /// Whether the reeds in a knight's hand are dry.
     fn dry(&self, k: &Knight) -> bool {
         k.held == Item::Reeds && self.clock >= k.held_at + DRY_HOURS * self.nums.day / 24
     }
 
-    /// E pressed: do the one thing it means here.
     fn press_use(&mut self, who: u32) {
         match self.nearest_use(who) {
             Some(Use::Folk(f)) => self.talk(who, f),
@@ -1992,7 +1855,6 @@ impl Old for Session {
                 self.note(who, Note::Sign(sign));
             }
             Some(Use::Bell) => {
-                // E at the post is the bell's own menu, as R is.
                 if self.completed.is_none() && self.call.is_none() {
                     if let Some(s) = self.seats.get_mut(&who) {
                         s.knight.panel = Panel::Bell(0);
@@ -2013,7 +1875,6 @@ impl Old for Session {
         }
     }
 
-    /// The tower doors open to the key and the seal the party keeps.
     fn door(&mut self, who: u32, north: bool) {
         let (flag, keep) = if north {
             (NORTH_OPEN, NORTH_KEY)
@@ -2042,7 +1903,6 @@ impl Old for Session {
         }
     }
 
-    /// E held: at a tower that is ready, light it when the hold is full.
     fn hold_use(&mut self, who: u32) -> Option<u8> {
         let target = self.nearest_use(who);
         let i = match target {
@@ -2081,7 +1941,6 @@ impl Old for Session {
         None
     }
 
-    /// Start a conversation: choose what is said, and do what it means.
     fn talk(&mut self, who: u32, to: Folk) {
         let held = self.held(who);
         let band = self.band();
@@ -2091,8 +1950,6 @@ impl Old for Session {
         let topic = match to {
             Folk::Mira => {
                 if held == Item::Scroll {
-                    // She reads the post aloud at the well on the second and
-                    // third evenings.
                     if self.day_index() >= 1 && self.figure(Folk::Mira).routine == 10 {
                         self.give_away(who);
                         self.keep_mask(who, SWIFT, Mask::Swift, Folk::Pella);
@@ -2271,7 +2128,6 @@ impl Old for Session {
         }
     }
 
-    /// A mask is earned and kept, and the person's tick goes in the Ledger.
     fn keep_mask(&mut self, who: u32, bit: u8, mask: Mask, ticked: Folk) {
         self.memory.masks |= bit;
         if self.memory.tick(ticked) {
@@ -2293,13 +2149,10 @@ impl Old for Session {
         }
     }
 
-    /// The second day's iron cart: Nessa's rack of shoes is out.
     fn shoe_day(&self) -> bool {
         self.within(Some(1), IRON) && self.figure(Folk::Nessa).arrived
     }
 
-    /// How many wisps the night holds for the table: the number, and two
-    /// more for every knight beyond the first, and one more in the Final Hours.
     fn wisp_want(&self) -> usize {
         if !clock::night(self.clock, self.nums.day) || self.completed.is_some() {
             return 0;
@@ -2309,7 +2162,6 @@ impl Old for Session {
         (self.nums.wisps as usize + 2 * (seats - 1) + more).min(MAX_WISPS)
     }
 
-    /// Whether a knight stands close enough to keep wisps off a light.
     fn guarded(&self, at: (i32, i32)) -> bool {
         self.seats.values().any(|s| {
             let (x, y) = s.knight.px();
@@ -2327,7 +2179,6 @@ impl Old for Session {
         self.announce(Note::Out);
     }
 
-    /// One tick of the Gloam. Returns the cues to sound.
     fn tick_wisps(&mut self) -> Vec<&'static str> {
         let mut cues = Vec::new();
         let want = self.wisp_want();
@@ -2363,7 +2214,6 @@ impl Old for Session {
                     if lights.is_empty() {
                         continue;
                     }
-                    // The nearest few, one each by the wisp's birth.
                     let mut order: Vec<_> = lights
                         .iter()
                         .map(|&(id, p)| ((p.0 - here.0).pow(2) + (p.1 - here.1).pow(2), id, p))
@@ -2404,7 +2254,6 @@ impl Old for Session {
                     }
                 },
                 WispMode::Shy(t) => {
-                    // Away from the nearest knight, or from the light.
                     let from = knights
                         .iter()
                         .copied()
@@ -2419,7 +2268,6 @@ impl Old for Session {
                 }
             }
         }
-        // A touch costs a candle.
         let mut hurts: Vec<u32> = Vec::new();
         for w in &wisps {
             let here = (w.x / Q, w.y / Q);
@@ -2445,7 +2293,6 @@ impl Old for Session {
             let ground = self.world.ground(self.clock, self.nums.day, false);
             let crates = self.world.crates.clone();
             let me = self.seats[&id].knight.px();
-            // Pushed away from the nearest wisp.
             let from = self
                 .world
                 .wisps
@@ -2485,7 +2332,6 @@ impl Old for Session {
     }
 }
 
-/// What one tick did beside the session, as the Run used to settle it after the native step.
 #[derive(Default, Debug, PartialEq)]
 pub struct Ticked {
     pub cues: Vec<&'static str>,
@@ -2493,8 +2339,6 @@ pub struct Ticked {
     pub won: Option<(u32, u16)>,
 }
 
-/// `Run::tick_moonfall` as it was, less the writes into the Run: the native step, the
-/// first deliverance, and the knights who walk out after the moon has turned back.
 pub fn tick(s: &mut Session, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32, Hero>) -> Ticked {
     let was_free = s.completed.is_some();
     let cues = s.old_step(inputs, heroes);

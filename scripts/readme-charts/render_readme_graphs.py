@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-"""Render benchmark plots as static Retina PNGs in GitHub light and dark palettes
-for README.md (<picture> + prefers-color-scheme).
-
-Generates:
-  docs/images/bench/solved-{dark,light}.png
-  docs/images/bench/score-{dark,light}.png
-  docs/images/bench/bars-{dark,light}.png
-  docs/images/bench/seconds-{dark,light}.png
-  docs/images/bench/context-{dark,light}.png
-  docs/images/bench/cache-{dark,light}.png
-  (plus legacy fallback attempts-output-{dark,light}.png)
-
-Usage:
-  python3 scripts/readme-charts/render_readme_graphs.py [output_dir]
-"""
 
 from __future__ import annotations
 
@@ -186,7 +171,6 @@ def main() -> None:
                 ], capture_output=True, check=True)
                 print(f"Rendered {png_file.name} ({PAGE_W * 2}x{height * 2})")
 
-        # Copy score as attempts-output fallback for backwards compatibility
         for theme in ("dark", "light"):
             score_png = out_dir / f"score-{theme}.png"
             legacy_png = out_dir / f"attempts-output-{theme}.png"

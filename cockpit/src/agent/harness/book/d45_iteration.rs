@@ -25,7 +25,6 @@ pub(crate) const BRIEF_BENCHMARK: Route = Route::new(CELL, '⠓');
 pub(crate) const LOOP_TOOLS: Route = Route::new(CELL, '⠊');
 pub(crate) const LOOP_TOOL_REFUSALS: Route = Route::new(CELL, '⠚');
 
-// `⠘⠁`: each page is sent alone, as its address.
 pub(crate) const FALLBACK: &str = "⠘⠁⠁";
 pub(crate) const TOOL_ERRORS: &str = "⠘⠁⠃";
 pub(crate) const UNVERIFIED: &str = "⠘⠁⠉";
@@ -33,7 +32,6 @@ pub(crate) const DONE_UNVERIFIED: &str = "⠘⠁⠙";
 pub(crate) const STALLED: &str = "⠘⠁⠑";
 pub(crate) const SUBMIT_DUE: &str = "⠘⠁⠋";
 
-// `⠘⠃`: each page is sent alone, as its address.
 pub(crate) const ERRORED: &str = "⠘⠃⠁";
 pub(crate) const HOP_HORIZON: &str = "⠘⠃⠃";
 pub(crate) const PROVIDER_BLOCKED: &str = "⠘⠃⠉";
@@ -42,7 +40,6 @@ pub(crate) const VERIFY_DIED: &str = "⠘⠃⠑";
 pub(crate) const ACCEPT_FAILED: &str = "⠘⠃⠋";
 pub(crate) const TURN_STOPPED: &str = "⠘⠃⠛";
 
-// `⠘⠊`: each page is sent alone, as its address (a label with its value).
 pub(crate) const RESEARCH_PANICKED: &str = "⠘⠊⠁";
 pub(crate) const RESEARCH_UNSTARTED: &str = "⠘⠊⠃";
 pub(crate) const RESEARCH_APPROACH: &str = "⠘⠊⠉";
@@ -54,9 +51,6 @@ pub(crate) const RESEARCH_NEEDS_VERIFIER: &str = "⠘⠊⠊";
 pub(crate) const RESEARCH_UNKNOWN_ACTION: &str = "⠘⠊⠚";
 pub(crate) const CAMPAIGN_NEEDS_LOOP: &str = "⠘⠊⠛";
 
-// `⠘⠚`: each page is sent alone, as its address. A value of the wrong JSON
-// type stays English, as in every tool; these are a required field missing or
-// a value the tool itself rejects.
 pub(crate) const CANDIDATE_NEEDS_IDEA: &str = "⠘⠚⠁";
 pub(crate) const RUN_NEEDS_IDEA: &str = "⠘⠚⠃";
 pub(crate) const RESEARCH_ID_INVALID: &str = "⠘⠚⠉";
@@ -68,7 +62,6 @@ pub(crate) const AUDIT_NEEDS_SOURCE: &str = "⠘⠚⠓";
 pub(crate) const CAMPAIGN_ID_INVALID: &str = "⠘⠚⠊";
 pub(crate) const CAMPAIGN_ID_UNKNOWN: &str = "⠘⠚⠚";
 
-/// `⠘⠑` without its blocked-attempt page: no attempt was blocked.
 pub(crate) const NO_CANDIDATE: &str = "⠘⠑⠁⠘⠑⠉⠘⠑⠙";
 
 pub(crate) const PRIMARY: Primary = Primary {

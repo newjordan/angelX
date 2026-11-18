@@ -39,35 +39,17 @@ pub use knight::Knight;
 pub use session::{LIMIT, Session};
 
 pub const NAME: &str = "Bannerpeak";
-/// The kingdom tile its door stands on: walk up and press E.
 pub const ENTRY: (i32, i32) = (174, 23);
-/// Its place in `roundtable::ADVENTURES` and in `Tune::roundtable`.
 pub const SLOT: usize = 2;
-/// What a finished run saves to the Home, as the Forest Road's
-/// `CAMPAIGN_MARK` does. Marks are settled at the save (`settle`).
 pub const CAMPAIGN_MARK: &str = "bannerpeak:campaign-begun";
-/// Every mark this adventure may write: the crash-safe intent journal keeps
-/// exactly these (`roundtable::intent_key`).
 pub const MARKS: &[&str] = &[CAMPAIGN_MARK];
 
-/// Top run speed, 1/256 pixel a tick. Higher is quicker to cross a screen and
-/// jumps farther; the range keeps the marsh's 160 pixel bog to a long jump
-/// (below 960 the long jump falls short of it).
 pub const RUN: u32 = 1152;
-/// Ticks after a landing in which the next hop of the triple jump may begin.
-/// Wider forgives; 0 would never chain, and the tower's banner needs the
-/// chain, so the range starts at 4.
 pub const HOP: u32 = 10;
-/// Grace in ticks: a jump pressed this early before a landing is kept, and
-/// one pressed this late after leaving a ledge still takes.
 pub const COYOTE: u32 = 5;
-/// The ground pound's shock radius in pixels (the cracked floors need 24).
 pub const SLAM: u32 = 36;
-/// How fast a raised shield springs a friend upward, 1/256 pixel a tick.
 pub const LEDGE: u32 = 3000;
 
-/// The five numbers, as the F2 panel shows them. `Tune::roundtable[SLOT]`
-/// holds them.
 pub const NUMBERS: [Number; 5] = [
     Number {
         name: "bannerpeak_run",
@@ -111,8 +93,6 @@ pub const NUMBERS: [Number; 5] = [
     },
 ];
 
-/// How its run is registered with the shared shell. Fixed after the prep
-/// commit: the shell never needs a line changed for it.
 pub const ADVENTURE: Adventure = Adventure {
     slug: "bannerpeak",
     name: NAME,
@@ -134,8 +114,6 @@ pub const ADVENTURE: Adventure = Adventure {
         _ => Input::default(),
     },
 };
-/// Its game in the rides (`activity::RIDES`): it plays, takes the seated
-/// knights' keys, and ends when a view leaves the room.
 pub const ACTIVITY: Activity = Activity {
     name: NAME,
     on: Run::bannerpeak_showing,
@@ -149,10 +127,7 @@ pub const ACTIVITY: Activity = Activity {
     settle: Some(settle),
     fields: &["bannerpeak"],
 };
-/// A finished run's mark has been settled into `Home::roundtable[SLOT]`.
 pub const BEGUN: u32 = 1;
-/// What a finished run pays into the realm at the save, once: the mark
-/// becomes a flag in the Home, as the Forest Road's does.
 fn settle(realm: &mut Realm<'_>, marks: &BTreeMap<String, u32>) -> Settled {
     let changed = marks.contains_key(CAMPAIGN_MARK) && realm.home.roundtable[SLOT] & BEGUN == 0;
     if changed {
@@ -171,9 +146,7 @@ fn settle(realm: &mut Realm<'_>, marks: &BTreeMap<String, u32>) -> Settled {
     }
 }
 
-/// Gold a knight is paid for the first time the eight banners are raised.
 pub const FIRST_PURSE: u32 = 60;
-/// Gold for each later time: the walk is worth less than the first.
 pub const REPEAT_PURSE: u32 = 12;
 
 impl Run {
@@ -195,7 +168,6 @@ impl Run {
         ));
         self.sounds.push("play_card");
     }
-    /// The five numbers as the run holds them.
     fn bannerpeak_knobs(&self) -> body::Knobs {
         let n = |i| roundtable::number(&self.tune, SLOT, i);
         body::Knobs {
@@ -221,7 +193,6 @@ impl Run {
         let mut say = Vec::new();
         s.step(inputs, &present, &knobs, &mut say);
         self.sounds.extend(say);
-        // The heaviest blow of the tick holds the room's time, as the realm's hit-stop does.
         let held = s.show.hold.take();
         if !was_done && s.completed.is_some() {
             self.bannerpeak_pays(&s);
@@ -232,7 +203,6 @@ impl Run {
             self.hold_for(weight);
         }
         self.finish_hit_hold();
-        // Done: E takes everyone back to the kingdom.
         if done {
             let returning: Vec<u32> = inputs
                 .iter()
@@ -244,8 +214,6 @@ impl Run {
             }
         }
     }
-    /// The eight banners are up: the mark, the record and the purse, once for
-    /// each knight seated.
     fn bannerpeak_pays(&mut self, s: &Session) {
         let first = self.home.roundtable[SLOT] & BEGUN == 0;
         let purse = if first { FIRST_PURSE } else { REPEAT_PURSE };
@@ -254,7 +222,6 @@ impl Run {
                 h.carried.add(Spoil::Gold, purse);
             }
         }
-        // Quicker is better, to a thousand.
         let seconds = s.elapsed / HZ;
         let score = 1000u32.saturating_sub(seconds.saturating_sub(120)).max(100) as u16;
         let record = &mut self.home.countryside.games.roundtable[SLOT];
@@ -269,21 +236,15 @@ impl Run {
         ));
         self.sounds.push("spoil_pickup");
     }
-    /// The party at the door, let in.
     #[cfg(any(test, feature = "testing"))]
     pub fn bannerpeak_for_test() -> Self {
         roundtable::fixture(&ADVENTURE)
     }
 }
-/// King Cinder's tick as it was before it moved into Bend: the oracle the leg
-/// is held to. Test builds only, and never part of the product.
 #[cfg(test)]
 #[path = "bannerpeak/oracle.rs"]
 pub mod oracle;
 
-/// The engine this crate's own tests tick against: the oracle answers the same
-/// two ops the shipped leg does, so `Session::step` (whose boss calls
-/// `scripted::step`) runs its rules here too.
 #[cfg(test)]
 pub fn install_oracle() {
     crate::scripted::install_for_test("bannerpeak-rules", oracle::answer);

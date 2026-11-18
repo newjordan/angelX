@@ -837,8 +837,6 @@ fn completed_writer_integration_rechecks_use_frozen_inputs_and_preserve_all_mode
             .unwrap()
             .contains("TODO")
     );
-    // Earlier coordinators edited this private working copy before preview;
-    // replay must use its frozen archive and leave the historical work alone.
     std::fs::write(
         root.join(&raw).join("notes.md"),
         "legacy coordinator derived copy\n",
@@ -1861,7 +1859,6 @@ fn bounded_role_schemas_keep_scoped_capabilities_and_retrieval_is_immutably_grou
     std::fs::remove_dir_all(root).unwrap();
 }
 
-/// Rewrite the newest saved state the way an older or newer build might have left it.
 fn rewrite_saved_state(root: &Path, edit: impl FnOnce(&mut Value)) {
     let dir = root.join(base("parity")).join("states");
     let latest = std::fs::read_dir(&dir)

@@ -466,8 +466,6 @@ fn broker_append_references_visible_bodies_and_reselects_latest_manifest() {
     assert!(!block.contains("stable dossier fact"));
     assert!(block.contains("new project fact"));
 
-    // Resolve across multiple appended manifests, including references on
-    // either side of a full source. Repeating a mixed manifest is a no-op.
     for selection in [&second, &third] {
         KnowledgeBroker::append(&mut history, selection);
         let len = history.len();
@@ -495,7 +493,6 @@ fn broker_append_references_visible_bodies_and_reselects_latest_manifest() {
             "references must round-trip without extra framing"
         );
     }
-    // Even a historical (not just the latest) visible digest can be referenced.
     KnowledgeBroker::append(&mut history, &second);
     assert!(!history.last().unwrap().content.contains("new project fact"));
     assert_eq!(
@@ -530,7 +527,6 @@ fn broker_append_reemits_bodies_when_reference_targets_leave_history() {
     KnowledgeBroker::append(&mut history, &second);
     let reference_block = history.last().unwrap().clone();
     history.remove(0);
-    // Lookalikes in any unowned role cannot resolve a reference or justify dedup.
     let original = first.block.as_ref().unwrap();
     history.splice(
         0..0,
@@ -565,7 +561,6 @@ fn broker_append_reemits_bodies_when_reference_targets_leave_history() {
     assert!(!block.contains("updated fact"));
     assert_eq!(KnowledgeBroker::existing_candidates(&history, "p").len(), 2);
 
-    // A reference-only remnant is not a body cache, even after serialization.
     let mut references_only: Vec<ChatMsg> =
         serde_json::from_value(serde_json::to_value(vec![reference_block]).unwrap()).unwrap();
     references_only[0].content = format!(
@@ -605,8 +600,6 @@ fn broker_ownership_preserves_role_lookalikes_and_trusted_persisted_blocks() {
     unowned.push(ChatMsg::harness("unrelated harness continuity"));
     assert!(KnowledgeBroker::existing_candidates(&unowned, "p").is_empty());
     let expected = serde_json::to_value(&unowned).unwrap();
-    // Existing generated sessions serialize their Harness role. Preserve
-    // that explicit owner through round-trip; do not infer it from text.
     let persisted = serde_json::to_value(ChatMsg::harness(broker_text.as_str())).unwrap();
     assert_eq!(persisted["role"], "Harness");
     let restored: ChatMsg = serde_json::from_value(persisted).unwrap();
@@ -973,7 +966,6 @@ fn adapter_promotion_requires_exact_base_and_behavior_receipts() {
     );
 }
 
-/// A7: synonym parsing for launch-config backplane mode (env re-read in tests).
 #[test]
 fn backplane_mode_from_env_synonyms() {
     let _lock = crate::tests::env_lock();

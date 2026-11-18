@@ -35,7 +35,6 @@ fn capabilities_block_names_gates_and_absences() {
             && block.contains("ANGEL_ALLOW_SOTA_DELEGATE=1"),
         "withheld SOTA clubs must name the opt-out and how to restore: {block}"
     );
-    // The header and the no-invented-capabilities rule are the `⠝⠁` pages.
     let pages = crate::agent::harness::book::n_environment::CAPABILITIES
         .sub()
         .pages
@@ -60,7 +59,6 @@ fn delegation_roster_includes_sota_when_allowed() {
         Arc::new(TestClub("openai")),
         Arc::new(TestClub("practice")),
     ];
-    // Opt-out path: local-only fleet.
     let labels: Vec<String> = filter_delegation_roster(roster, false)
         .iter()
         .map(|club| club.label().to_string())
@@ -74,7 +72,6 @@ fn delegation_roster_includes_sota_when_allowed() {
         Arc::new(TestClub("openai")),
         Arc::new(TestClub("practice")),
     ];
-    // Default product path: SOTA seats are full agents.
     let labels: Vec<String> = filter_delegation_roster(roster, true)
         .iter()
         .map(|club| club.label().to_string())

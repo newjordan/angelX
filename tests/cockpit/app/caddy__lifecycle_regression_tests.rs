@@ -1,5 +1,3 @@
-// Included in the existing Caddy storage regression module for owned fixtures
-// and its thread-local, consumed-once metadata hook.
 fn lifecycle_hazard(command: &str) -> Hazard {
     Hazard {
         ts_ms: now_ms(),
@@ -101,8 +99,6 @@ fn caddy_lifecycle_process_lock_contention_is_reported_without_waiting() {
         .open(fixture.0.join("hazards.jsonl.lock"))
         .unwrap();
     lock.try_lock().unwrap();
-    // Keep a duplicate description alive. A fork between `spawn` and `exec`
-    // has the same effect; this makes the release requirement deterministic.
     let _forked_lock = lock.try_clone().unwrap();
     let output = lifecycle_child(
         "knowledge::caddy::storage_regression_tests::caddy_lifecycle_process_lock_contention_is_reported_without_waiting",
@@ -119,8 +115,6 @@ fn caddy_lifecycle_process_lock_contention_is_reported_without_waiting() {
         std::fs::read(fixture.0.join("hazards.jsonl")).unwrap(),
         before
     );
-    // Releasing the advisory lock before closing our descriptor keeps a
-    // forked copy from making this post-contention check spuriously Busy.
     lock.unlock().unwrap();
     drop(lock);
     assert_eq!(
@@ -263,15 +257,11 @@ fn caddy_lifecycle_lock_release_does_not_depend_on_last_close() {
     let _hook = HookGuard;
     AFTER_METADATA.with(|slot| {
         *slot.borrow_mut() = Some(Box::new(move |_| {
-            // A dup shares the lock's open file description, just as a child
-            // does between fork and exec. Keep it alive across both appends.
             for entry in std::fs::read_dir("/proc/self/fd").unwrap().flatten() {
                 if std::fs::read_link(entry.path()).ok().as_ref() == Some(&lock_path) {
                     let fd: i32 = entry.file_name().to_str().unwrap().parse().unwrap();
-                    // SAFETY: append owns this live fd throughout the hook.
                     let copied = unsafe { libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, 0) };
                     assert!(copied >= 0, "{}", std::io::Error::last_os_error());
-                    // SAFETY: fcntl returned a new descriptor owned by this test.
                     *captured.borrow_mut() = Some(unsafe { std::fs::File::from_raw_fd(copied) });
                     return;
                 }

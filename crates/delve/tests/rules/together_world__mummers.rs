@@ -1,4 +1,3 @@
-// Called by the established host/mirror/surface regression, using real inputs.
 fn mummers_adventure_regression(mut run: Run) {
     use super::super::{countryside as c, mummers as m, pastimes::{Game, Halfpipe, LIP_OPEN, LIP_CLOSE, FLIGHT_TICKS}};
     use crate::realm::Spoil;
@@ -36,7 +35,6 @@ fn mummers_adventure_regression(mut run: Run) {
     go(&mut run, RoomKind::Mummers, Game::Halfpipe.start());
     run.tick_pastimes(&empty);
     assert_eq!(run.pastimes.round.as_ref().unwrap().game, Game::Halfpipe);
-    // A malformed snapshot is rejected rather than accepted into the mirror.
     let mut bad = run.pastimes.clone();
     bad.round.as_mut().unwrap().halfpipe.as_mut().unwrap().spin = 1;
     assert!(!bad.valid());
@@ -46,7 +44,6 @@ fn mummers_adventure_regression(mut run: Run) {
         let h = r.halfpipe.as_ref().unwrap();
         let direction = Halfpipe::direction(r.progress, r.mistakes);
         let axis = if h.flight == 0 || h.spin < 352 { direction } else { 0 };
-        // Use the LAST visible gold frame to cover the off-by-one boundary.
         let fire = h.flight == 0 && h.phase == LIP_CLOSE - 1;
         run.tick_pastimes(&keys(axis, fire));
         assert!(run.pastimes.valid());
@@ -70,7 +67,6 @@ fn mummers_adventure_regression(mut run: Run) {
         run.home.countryside.games.plays), original_arrays);
     assert!(country.games.merge(&run.home.countryside.games));
     assert!(!country.games.merge(&run.home.countryside.games));
-    // No visit marks are needed if the player saved all visits before winning.
     assert!(c::settle(&mut country, &mut purse, &BTreeMap::new()).0);
     assert!(country.halfpipe_paid);
     assert_eq!(purse.get(Spoil::Gold), untouched.get(Spoil::Gold) + 80);
@@ -94,7 +90,6 @@ fn mummers_adventure_regression(mut run: Run) {
         assert_eq!(run.room().kind, destination);
         assert!(walkable(run.room(), run.players[&1].x, run.players[&1].y));
     }
-    // Early F and holding F cannot auto-launch or finish a round.
     go(&mut run, RoomKind::Mummers, Game::Halfpipe.start());
     run.tick_pastimes(&empty);
     run.tick_pastimes(&keys(1, true));

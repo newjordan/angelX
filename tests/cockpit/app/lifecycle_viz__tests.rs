@@ -281,12 +281,8 @@ fn journey_captions_distinguish_completion_stop_and_preview() {
 fn library_sequences_wire_into_mapped_ceremonies() {
     let root = default_asset_root();
     if !root.join("library/sequences").is_dir() {
-        return; // library intake not present in this checkout
+        return;
     }
-    // Twin roots isolate one feature each. `no_library` lacks the whole
-    // library, so backdrop rows assert against it; `plates_only` carries
-    // the location plates but no sequences or character stills, so on its
-    // rows an identical backdrop can never mask a sequence regression.
     let scratch = std::env::temp_dir().join(format!("angel-tourney-twins-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&scratch);
     let no_library = scratch.join("no-library");
@@ -303,13 +299,13 @@ fn library_sequences_wire_into_mapped_ceremonies() {
         plates_only.join("library/plates"),
     );
     for (kind, elapsed, twin) in [
-        (CeremonyKind::LoopStart, 0.2, &plates_only), // herald fanfare
-        (CeremonyKind::LoopStart, 0.9, &plates_only), // flag_raise cut-in
-        (CeremonyKind::LoopEscalate, 0.9, &plates_only), // favor, shared cast stays visible
-        (CeremonyKind::LoopEscalate, 1.75, &plates_only), // authored impact FX
-        (CeremonyKind::LoopFailed, 2.55, &plates_only), // authored aftermath FX
-        (CeremonyKind::LoopDone, 2.55, &plates_only), // maiden_wave cut-in
-        (CeremonyKind::LoopStopped, 1.75, &no_library), // lists_dusk backdrop
+        (CeremonyKind::LoopStart, 0.2, &plates_only),
+        (CeremonyKind::LoopStart, 0.9, &plates_only),
+        (CeremonyKind::LoopEscalate, 0.9, &plates_only),
+        (CeremonyKind::LoopEscalate, 1.75, &plates_only),
+        (CeremonyKind::LoopFailed, 2.55, &plates_only),
+        (CeremonyKind::LoopDone, 2.55, &plates_only),
+        (CeremonyKind::LoopStopped, 1.75, &no_library),
     ] {
         let wired = render_with_asset_root(kind, "seq", elapsed, 72, 16, MotionMode::Full, &root);
         let plain = render_with_asset_root(kind, "seq", elapsed, 72, 16, MotionMode::Full, twin);
@@ -385,10 +381,6 @@ fn motion_env_parser_defaults_to_full() {
 #[test]
 fn warmed_large_frame_stays_under_cockpit_draw_budget() {
     warm_assets();
-    // A single wall-clock sample inside the parallel test suite measures
-    // scheduler preemption as if it were render work. Several warmed samples
-    // preserve the strict uncontended draw budget while making that external
-    // noise visible instead of flaky.
     let mut fastest = std::time::Duration::MAX;
     let mut frame = None;
     for _ in 0..5 {

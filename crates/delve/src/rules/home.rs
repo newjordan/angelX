@@ -20,61 +20,38 @@
 use super::*;
 use crate::realm::{Spoil, Spoils};
 
-/// How long E is held on a plate to buy: long enough that a stray press in
-/// passing buys nothing.
 pub const BUY_HOLD: u32 = HZ * 3 / 4;
 
-/// A hold's progress as ten cells of a bar, filled and still to fill, for a
-/// plate's board and the sidebar alike.
 pub fn hold_bar(buying: u32, hold: u32) -> String {
     let filled = (buying.min(hold) * 10 / hold.max(1)) as usize;
     format!("{}{}", "█".repeat(filled), "░".repeat(10 - filled))
 }
-/// How long a knight stands on the Winding Stair before the party goes down.
 pub const DESCEND_HOLD: u32 = HZ;
-/// How near an NPC a knight comes before they speak.
 const NPC_REACH: f32 = 3.6;
-/// What a fallen knight's second wind brings them back with, in percent.
 const WIND_HP: u32 = 40;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Station {
-    /// Tobbin's forge: every knight's edge.
     Forge,
-    /// Old Blaise's hearth: every knight's health.
     Hearth,
-    /// Tobbin's rack: what every knight carries down.
     Rack,
-    /// The Chapel of Bonds: a fallen knight's second wind.
     Chapel,
-    /// Wren's map table: landings further down the Winding Stair.
     Map,
-    /// Dame Fortune's wheel: more wedges, more ways down.
     Wheel,
-    /// The Herald's coffer in Fortune's hall: the boxes achievements earn,
-    /// opened at the coffer.
     Coffer,
-    /// Grubbins' stall in the Training Yard: its three wares.
     StallA,
     StallB,
     StallC,
-    /// Sir Ector's lecterns in the Training Yard: the left talent, and the
-    /// right.
     LessonA,
     LessonB,
-    /// Tobbin's crew digs the west wing out of the Trophy Hall's wall:
-    /// Maud's tavern.
     Wing,
-    /// Maud's three taps: a round for the next delve.
     TapA,
     TapB,
     TapC,
-    /// Sir Dinadan's three songs: an aura for the next delve.
     SongA,
     SongB,
     SongC,
-    /// Beaumains' table: his wage, for the next delve.
     Hire,
 }
 
@@ -105,19 +82,14 @@ impl Station {
     }
 }
 
-/// One step up a station's ladder.
 pub struct Rung {
     pub price: &'static [(Spoil, u32)],
-    /// What it does, on the ledger.
     pub says: &'static str,
-    /// The deepest floor the party must have reached first (0: none).
     pub needs: u32,
 }
 
-/// A station's upgrades, in order.
 pub struct Ladder {
     pub station: Station,
-    /// The ledger's title, before its numeral.
     pub name: &'static str,
     pub rungs: &'static [Rung],
 }
@@ -292,8 +264,6 @@ pub const LADDERS: &[Ladder] = &[
     },
 ];
 
-/// The Undercroft as built: each station's level, the deepest floor the
-/// party has reached, and the landing the stair takes them to.
 enum SavedHomeSquires {
     Yard(super::squires::Yard),
     Lodge(super::squires_lodge::Guild),
@@ -325,9 +295,6 @@ pub struct Home {
     pub industry: crate::kingdom::Kingdom,
     #[serde(default, skip_serializing_if = "super::kingdom_gear::Ledger::is_empty")]
     pub kingdom_gear: super::kingdom_gear::Ledger,
-    /// The Delve gate's stockyard and the Great Shaft over it
-    /// (`stockyard`): rough blocks come up here, and the shaft's tier is the
-    /// number the production game reads. Left out while nothing has come up.
     #[serde(default, skip_serializing_if = "super::stockyard::Stockyard::is_empty")]
     pub stockyard: super::stockyard::Stockyard,
     #[serde(default)]
@@ -340,37 +307,24 @@ pub struct Home {
     pub squire_hall: crate::realm::squires::Company,
     #[serde(default)]
     pub squire_academy: super::squire_academy::Academy,
-    /// Permanent per-knight companions and their independent town works.
     #[serde(default)]
     pub squire_guild: super::squire_guild::Guild,
-    /// Name-owned lodge rosters and buildings, distinct from the training yard.
     #[serde(default, skip_serializing_if = "super::squires_lodge::Guild::is_empty")]
     pub squires_lodge: super::squires_lodge::Guild,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub siege_campaign_begun: bool,
-    /// What the Round Table adventures settled into the realm: a word of
-    /// flags each, in `roundtable::ADVENTURES` order, the bits each its own
-    /// (set in the adventure's `settle`).
     #[serde(default, skip_serializing_if = "super::roundtable::unsaved")]
     pub roundtable: [u32; 5],
     #[serde(default = "super::gear::legacy_wardrobe", deserialize_with = "crate::realm::chivalry::lenient")]
     pub wardrobe: super::gear::Wardrobe,
-    /// What knights have scratched on the privy wall, newest last; it stays
-    /// from delve to delve (`pitstop::WALL`).
     #[serde(default)]
     pub privy_wall: Vec<String>,
-    /// What the realm's freedom wishes made of the safe room and the
-    /// weapons locker, and the freedom wishes its knights hold unspent
-    /// (`freedom`). Written once a wish has been given; decoded on its own.
     #[serde(
         default,
         skip_serializing_if = "super::freedom::Wished::is_empty",
         deserialize_with = "crate::realm::chivalry::lenient"
     )]
     pub wished: super::freedom::Wished,
-    /// The realm's sky: a star for every wish granted, the constellations
-    /// lit and who lit them, and the gift one leaves for the next delve
-    /// (`rewards`). Only the game writes it, as the privy wall.
     #[serde(
         default,
         skip_serializing_if = "super::rewards::Sky::is_empty",
@@ -381,11 +335,8 @@ pub struct Home {
     pub college: super::college::College,
     #[serde(default)]
     pub levels: BTreeMap<Station, u8>,
-    /// What the knights have raised in the kingdom (`raisings`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub raised: Vec<super::raisings::Raised>,
-    /// What the realm has built of Bomrekedan's works
-    /// (`world::bomrekedan::works`); only the home claim writes it.
     #[serde(
         default,
         skip_serializing_if = "super::world::bomrekedan::works::Works::is_empty",
@@ -394,87 +345,48 @@ pub struct Home {
     pub bomrekedan: super::world::bomrekedan::works::Works,
     #[serde(default)]
     pub deepest: u32,
-    /// The floor the Winding Stair lets the party off at (0 and 1: the top).
     #[serde(default)]
     pub landing: u32,
-    /// Achievements earned, each once; the boxes they brought, unopened;
-    /// and how many boxes have been opened.
     #[serde(default)]
     pub feats: std::collections::BTreeSet<String>,
     #[serde(default)]
     pub boxes: Vec<super::feats::Tier>,
     #[serde(default)]
     pub opened: u32,
-    /// Loot goblins that got away: one is enough for Grubbins to come back
-    /// and open his stall.
     #[serde(default)]
     pub goblins: u32,
-    /// The Trophy Hall: how often the party has felled each guardian (by
-    /// its id; the dragon is `dragon`) and found the Grail (`grail`).
     #[serde(default)]
     pub trophies: BTreeMap<String, u32>,
-    /// The Herald's Bestiary: how many of each kind the realm has felled.
     #[serde(default)]
     pub bestiary: BTreeMap<String, u32>,
-    /// The people rescued from the delve's cages, who live here now.
     #[serde(default)]
     pub residents: std::collections::BTreeSet<String>,
-    /// Each knight's prowess, by knight: experience and the talents Sir
-    /// Ector has taught them.
     #[serde(default)]
     pub knights: BTreeMap<String, super::talents::Prowess>,
-    /// The Fellowship of the Carried Fire: each knight's questline
-    /// progress, kept by name.
     #[serde(default)]
     pub questlines: super::questline::Progress,
-    /// Wren's board: the bounties pinned to it, and how often she has paid
-    /// each.
     #[serde(default)]
     pub bounties: Vec<super::bounties::Pinned>,
     #[serde(default)]
     pub bounties_paid: BTreeMap<String, u32>,
-    /// The holdings under raid, pinned beside the bounties as alarms: the
-    /// raiders' purse is won where it is fought for, so her rows pay
-    /// nothing — they pull the party back down.
     #[serde(default)]
     pub raids: Vec<String>,
-    /// The round Maud has poured for the next delve, by its id.
     #[serde(default)]
     pub round: Option<String>,
-    /// The song Sir Dinadan will sing for the next delve, by its id.
     #[serde(default)]
     pub song: Option<String>,
-    /// Who is hired for the next delve: Beaumains, or nobody.
     #[serde(default)]
     pub hire: Option<String>,
-    /// The stables and the lists: the saddled mount, which are tended, the
-    /// record of bouts. Decoded on its own, so a bad subtree never costs
-    /// the realm.
     #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
     pub stable: crate::realm::chivalry::Stable,
-    /// The horse ranch: stud-book attempts and growth progress. Legacy
-    /// foals migrate into the herd. Decoded on its own, like the stable.
     #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
     pub ranch: super::ranch::Ranch,
-    /// King Brannoc's barony: his court, the works paid for, his missions,
-    /// the forges relit and the ledger. Decoded on its own, like the
-    /// stable.
     #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
     pub barony: super::barony::Barony,
-    /// What the barony's forges have made, and what they wait on
-    /// (`goods`). Decoded on its own, like the stable; left out while
-    /// empty.
     #[serde(default, skip_serializing_if = "super::goods::Goods::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
     pub goods: super::goods::Goods,
-    /// The realm's holdings: castles and cleared floors bought at the
-    /// Court of Deeds, and the stores angelX's work keeps them with.
-    /// Decoded on its own, like the stable.
     #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
     pub holdings: super::holdings::Holdings,
-    /// The salvage yard: pieces found and wished, and every vessel made
-    /// of them (`salvage`). Decoded on its own, like the stable; an empty
-    /// yard is not written, so a realm without salvage saves (and streams)
-    /// as it did before.
     #[serde(
         default,
         skip_serializing_if = "super::salvage::Salvage::is_empty",
@@ -483,38 +395,20 @@ pub struct Home {
     pub salvage: super::salvage::Salvage,
     #[serde(default, deserialize_with = "super::countryside::deserialize")]
     pub countryside: super::countryside::Country,
-    /// What the realm remembers of the Deep below the Unknown: the
-    /// villages met and lit, their errands, the wishes made for them
-    /// (`deep`). Decoded on its own, like the stable; left out while empty.
     #[serde(default, skip_serializing_if = "super::deep::Chronicle::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
     pub deep: super::deep::Chronicle,
-    /// The recruits' ultimates, each wished by the first knight to take
-    /// the recruit up (`recruit_ults`); left out while none is.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub recruit_ults: super::recruit_ults::RecruitUlts,
-    /// The rite of passage each new knight made, kept by the realm: a
-    /// weapon or a minion, their words, the card and the day, with their
-    /// name on it (`rite`). Decoded on its own, so a bad subtree never costs
-    /// the realm; left out while empty, so an older save loads as it was.
     #[serde(default, skip_serializing_if = "super::rite::Rites::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
     pub rites: super::rite::Rites,
-    /// Whom the party has met on the kingdom's roads (`wayfarers`). Decoded
-    /// on its own, like the stable; left out while nobody has been met.
     #[serde(default, skip_serializing_if = "super::wayfarers::Ledger::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
     pub wayfarers: super::wayfarers::Ledger,
-    /// What each knight's hands have learned (`trades`): their deeds in each
-    /// trade, by the name the realm keeps a knight's records under. Decoded
-    /// on its own, so a bad subtree never costs the realm; left out while
-    /// empty, so an older save loads as it was.
     #[serde(default, skip_serializing_if = "super::trades::Ledger::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
     pub trades: super::trades::Ledger,
-    /// The cave the realm keeps. 0 means the first entry has not chosen it yet.
     #[serde(default, skip_serializing_if = "u64_is_zero")]
     pub cave_seed: u64,
-    /// Mines sunk in that cave, by body index. Left out while none are sunk.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub mines: BTreeMap<u8, super::caves::mines::SunkMine>,
-    /// This return has already paid the yard. Not saved.
     #[serde(skip)]
     pub delve_paid: bool,
 }
@@ -547,29 +441,18 @@ struct SavedHome {
     pub squire_academy: super::squire_academy::Academy,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub siege_campaign_begun: bool,
-    /// What the Round Table adventures settled into the realm: a word of
-    /// flags each, in `roundtable::ADVENTURES` order, the bits each its own
-    /// (set in the adventure's `settle`).
     #[serde(default, skip_serializing_if = "super::roundtable::unsaved")]
     pub roundtable: [u32; 5],
     #[serde(default = "super::gear::legacy_wardrobe", deserialize_with = "crate::realm::chivalry::lenient")]
     pub wardrobe: super::gear::Wardrobe,
-    /// What knights have scratched on the privy wall, newest last; it stays
-    /// from delve to delve (`pitstop::WALL`).
     #[serde(default)]
     pub privy_wall: Vec<String>,
-    /// What the realm's freedom wishes made of the safe room and the
-    /// weapons locker, and the freedom wishes its knights hold unspent
-    /// (`freedom`). Written once a wish has been given; decoded on its own.
     #[serde(
         default,
         skip_serializing_if = "super::freedom::Wished::is_empty",
         deserialize_with = "crate::realm::chivalry::lenient"
     )]
     pub wished: super::freedom::Wished,
-    /// The realm's sky: a star for every wish granted, the constellations
-    /// lit and who lit them, and the gift one leaves for the next delve
-    /// (`rewards`). Only the game writes it, as the privy wall.
     #[serde(
         default,
         skip_serializing_if = "super::rewards::Sky::is_empty",
@@ -590,87 +473,48 @@ struct SavedHome {
     bomrekedan: super::world::bomrekedan::works::Works,
     #[serde(default)]
     pub deepest: u32,
-    /// The floor the Winding Stair lets the party off at (0 and 1: the top).
     #[serde(default)]
     pub landing: u32,
-    /// Achievements earned, each once; the boxes they brought, unopened;
-    /// and how many boxes have been opened.
     #[serde(default)]
     pub feats: std::collections::BTreeSet<String>,
     #[serde(default)]
     pub boxes: Vec<super::feats::Tier>,
     #[serde(default)]
     pub opened: u32,
-    /// Loot goblins that got away: one is enough for Grubbins to come back
-    /// and open his stall.
     #[serde(default)]
     pub goblins: u32,
-    /// The Trophy Hall: how often the party has felled each guardian (by
-    /// its id; the dragon is `dragon`) and found the Grail (`grail`).
     #[serde(default)]
     pub trophies: BTreeMap<String, u32>,
-    /// The Herald's Bestiary: how many of each kind the realm has felled.
     #[serde(default)]
     pub bestiary: BTreeMap<String, u32>,
-    /// The people rescued from the delve's cages, who live here now.
     #[serde(default)]
     pub residents: std::collections::BTreeSet<String>,
-    /// Each knight's prowess, by knight: experience and the talents Sir
-    /// Ector has taught them.
     #[serde(default)]
     pub knights: BTreeMap<String, super::talents::Prowess>,
-    /// The Fellowship of the Carried Fire: each knight's questline
-    /// progress, kept by name.
     #[serde(default)]
     pub questlines: super::questline::Progress,
-    /// Wren's board: the bounties pinned to it, and how often she has paid
-    /// each.
     #[serde(default)]
     pub bounties: Vec<super::bounties::Pinned>,
     #[serde(default)]
     pub bounties_paid: BTreeMap<String, u32>,
-    /// The holdings under raid, pinned beside the bounties as alarms: the
-    /// raiders' purse is won where it is fought for, so her rows pay
-    /// nothing — they pull the party back down.
     #[serde(default)]
     pub raids: Vec<String>,
-    /// The round Maud has poured for the next delve, by its id.
     #[serde(default)]
     pub round: Option<String>,
-    /// The song Sir Dinadan will sing for the next delve, by its id.
     #[serde(default)]
     pub song: Option<String>,
-    /// Who is hired for the next delve: Beaumains, or nobody.
     #[serde(default)]
     pub hire: Option<String>,
-    /// The stables and the lists: the saddled mount, which are tended, the
-    /// record of bouts. Decoded on its own, so a bad subtree never costs
-    /// the realm.
     #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
     pub stable: crate::realm::chivalry::Stable,
-    /// The horse ranch: stud-book attempts and growth progress. Legacy
-    /// foals migrate into the herd. Decoded on its own, like the stable.
     #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
     pub ranch: super::ranch::Ranch,
-    /// King Brannoc's barony: his court, the works paid for, his missions,
-    /// the forges relit and the ledger. Decoded on its own, like the
-    /// stable.
     #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
     pub barony: super::barony::Barony,
-    /// What the barony's forges have made, and what they wait on
-    /// (`goods`). Decoded on its own, like the stable; left out while
-    /// empty.
     #[serde(default, skip_serializing_if = "super::goods::Goods::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
     pub goods: super::goods::Goods,
-    /// The realm's holdings: castles and cleared floors bought at the
-    /// Court of Deeds, and the stores angelX's work keeps them with.
-    /// Decoded on its own, like the stable.
     #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
     pub holdings: super::holdings::Holdings,
-    /// The salvage yard: pieces found and wished, and every vessel made
-    /// of them (`salvage`). Decoded on its own, like the stable; an empty
-    /// yard is not written, so a realm without salvage saves (and streams)
-    /// as it did before.
     #[serde(
         default,
         skip_serializing_if = "super::salvage::Salvage::is_empty",
@@ -679,41 +523,23 @@ struct SavedHome {
     pub salvage: super::salvage::Salvage,
     #[serde(default, deserialize_with = "super::countryside::deserialize")]
     pub countryside: super::countryside::Country,
-    /// What the realm remembers of the Deep below the Unknown: the
-    /// villages met and lit, their errands, the wishes made for them
-    /// (`deep`). Decoded on its own, like the stable; left out while empty.
     #[serde(default, skip_serializing_if = "super::deep::Chronicle::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
     pub deep: super::deep::Chronicle,
-    /// The recruits' ultimates, each wished by the first knight to take
-    /// the recruit up (`recruit_ults`); left out while none is.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub recruit_ults: super::recruit_ults::RecruitUlts,
-    /// The rite of passage each new knight made, kept by the realm: a
-    /// weapon or a minion, their words, the card and the day, with their
-    /// name on it (`rite`). Decoded on its own, so a bad subtree never costs
-    /// the realm; left out while empty, so an older save loads as it was.
     #[serde(default, skip_serializing_if = "super::rite::Rites::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
     pub rites: super::rite::Rites,
-    /// Whom the party has met on the kingdom's roads (`wayfarers`). Decoded
-    /// on its own, like the stable; left out while nobody has been met.
     #[serde(default, skip_serializing_if = "super::wayfarers::Ledger::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
     pub wayfarers: super::wayfarers::Ledger,
-    /// What each knight's hands have learned (`trades`): their deeds in each
-    /// trade, by the name the realm keeps a knight's records under. Decoded
-    /// on its own, so a bad subtree never costs the realm; left out while
-    /// empty, so an older save loads as it was.
     #[serde(default, skip_serializing_if = "super::trades::Ledger::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
     pub trades: super::trades::Ledger,
-    /// The cave the realm keeps. 0 means the first entry has not chosen it yet.
     #[serde(default, skip_serializing_if = "u64_is_zero")]
     pub cave_seed: u64,
-    /// Mines sunk in that cave, by body index. Left out while none are sunk.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub mines: BTreeMap<u8, super::caves::mines::SunkMine>,
 }
 
 impl Home {
-    /// A realm home with no cave yet must not wipe the run's seed or mines.
     pub(crate) fn keep_cave(
         &mut self,
         seed: u64,
@@ -744,8 +570,6 @@ impl<'de> Deserialize<'de> for Home {
     }
 }
 
-
-/// A price as spoils.
 pub fn price(rung: &Rung) -> Spoils {
     let mut spoils = Spoils::default();
     for &(spoil, n) in rung.price {
@@ -754,21 +578,15 @@ pub fn price(rung: &Rung) -> Spoils {
     spoils
 }
 
-/// Roman numerals for a ledger's rungs.
 pub fn numeral(level: u8) -> &'static str {
     ["", "I", "II", "III", "IV", "V", "VI"][usize::from(level).min(6)]
 }
 
 impl Home {
-    /// The name the realm keeps a knight's records under: the same name Sir
-    /// Ector's talents and the teachers' questlines use, so one knight is
-    /// one knight.
     pub fn profile_key(hero: &Hero) -> String {
         super::talents::profile_key(hero)
     }
 
-    /// A realm from before player records kept prowess and questlines under
-    /// the kit: a player with neither of their own takes their kit's, once.
     pub fn adopt(&mut self, kit: &str, player: &str) -> bool {
         if kit == player
             || self.knights.contains_key(player)
@@ -796,7 +614,6 @@ impl Home {
         self.levels.get(&station).copied().unwrap_or(0)
     }
 
-    /// The next rung up a station's ladder, and its number, if any is left.
     pub fn next(&self, station: Station) -> Option<(u8, &'static Rung)> {
         let level = self.level(station);
         station
@@ -806,8 +623,6 @@ impl Home {
             .map(|rung| (level + 1, rung))
     }
 
-    /// Pay for a station's next rung out of `treasury`. The new level, or
-    /// what stands in the way.
     pub fn buy(&mut self, station: Station, treasury: &mut Spoils) -> Result<u8, String> {
         let ladder = station.ladder();
         let Some((level, rung)) = self.next(station) else {
@@ -835,13 +650,8 @@ impl Home {
         Ok(level)
     }
 
-    /// The floors the stair can let the party off at: the top, and each
-    /// landing Wren has drawn.
     pub fn landings(&self) -> Vec<u32> {
         let mut landings: Vec<u32> = (1..=1 + u32::from(self.level(Station::Map))).collect();
-        // A standing Waypoint on a held floor is a landing of the realm's
-        // own: the Winding Stair sets the party down there, floors Wren
-        // never sells (and the Unknown floor, which she cannot).
         for w in &self.holdings.owned {
             if w.stands("waypoint")
                 && let Some(super::holdings::Deed::Floor(pack)) = w.deed()
@@ -853,13 +663,10 @@ impl Home {
                 }
             }
         }
-        // Below the Unknown, once the realm has stood on it: the Deep Road,
-        // and every village of the Deep lit (`deep`).
         landings.extend(self.deep_landings());
         landings
     }
 
-    /// Where the stair goes now.
     pub fn landing(&self) -> u32 {
         let landings = self.landings();
         if landings.contains(&self.landing) {
@@ -869,34 +676,23 @@ impl Home {
         }
     }
 
-    /// The forge's edge: percent more damage for every knight.
     pub fn edge(&self) -> u32 {
         u32::from(self.level(Station::Forge)) * 8
     }
 
-    /// The hearth's warmth: more health for every knight.
     pub fn warmth(&self) -> u32 {
         u32::from(self.level(Station::Hearth)) * 10
     }
 
-    /// Second winds each knight carries down: none, once a delve (1), or
-    /// once a floor (refilled at every stair).
     pub fn winds(&self) -> u8 {
         self.level(Station::Chapel).min(1)
     }
 }
 
-/// Where a station stands in the Undercroft, in tiles: its furniture (which
-/// stops feet and shots), its engraved plate (which a knight stands on to
-/// buy), and its keeper.
 pub struct Spot {
     pub station: Station,
-    /// Furniture: column, row, width, height in tiles.
     pub furniture: (i32, i32, i32, i32),
-    /// The plate: column, row, width, height in tiles.
     pub plate: (i32, i32, i32, i32),
-    /// The keeper, if one stands here: who, and where (tile coordinates of
-    /// their feet, fractional).
     pub keeper: Option<(&'static str, (f32, f32))>,
 }
 
@@ -933,12 +729,8 @@ pub const SPOTS: [Spot; 5] = [
     },
 ];
 
-/// Wren's bounty board, on its posts south-east of the stair (column, row,
-/// width, height in tiles).
 pub const BOUNTY_BOARD: (i32, i32, i32, i32) = (15, 9, 3, 1);
 
-/// The Winding Stair's parapet (column, row, width, height in tiles); the
-/// stair is its middle two by two, its mouth the two tiles under them.
 pub const STAIRWELL: (i32, i32, i32, i32) = (10, 5, 4, 4);
 pub const STAIR_MOUTH: (i32, i32, i32, i32) = (11, 8, 2, 1);
 
@@ -947,7 +739,6 @@ fn inside((col, row, w, h): (i32, i32, i32, i32), x: f32, y: f32) -> bool {
     c >= col as f32 && c < (col + w) as f32 && r >= row as f32 && r < (row + h) as f32
 }
 
-/// The plate a point stands on in a home room, if any.
 pub fn plate_at(kind: RoomKind, x: f32, y: f32) -> Option<Station> {
     match kind {
         RoomKind::Home => SPOTS
@@ -966,7 +757,6 @@ pub fn plate_at(kind: RoomKind, x: f32, y: f32) -> Option<Station> {
     }
 }
 
-/// A keeper's feet, in arena units.
 #[cfg(any(test, feature = "testing"))]
 pub fn keeper_at(who: &str) -> Option<(f32, f32)> {
     SPOTS.iter().find_map(|spot| {
@@ -976,7 +766,6 @@ pub fn keeper_at(who: &str) -> Option<(f32, f32)> {
     })
 }
 
-/// A purchase a knight asked for at a plate, for the cockpit to pay.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Order {
     pub knight: u32,
@@ -984,8 +773,6 @@ pub struct Order {
 }
 
 impl Run {
-    /// A new delve, begun in the Undercroft: `home` is what the realm has
-    /// built, `treasury` what it can spend.
     pub fn at_home(
         seed: u64,
         raid_id: u64,
@@ -1015,14 +802,10 @@ impl Run {
             run.restore_gear(id);
             run.deal_home(id);
         }
-        // The pieces the realm's new knights made are in the book from the
-        // start (`rite`).
         run.stock_rites();
         run
     }
 
-    /// Explicit admission of a saved loop site. Never called during run ticks,
-    /// and only before leaving home: passive work cannot rewrite a live map.
     pub fn enter_settlement(&mut self, site: super::exhibits::Admission<'_>) -> Result<(), String> {
         if !self.at_home_now() || self.at != 0 || self.tick != 0 || self.settlement_site.is_some() {
             return Err("settlement admission requires a new run in the PLAYER HALL".into());
@@ -1037,13 +820,10 @@ impl Run {
         Ok(())
     }
 
-    /// The party stands in the Undercroft.
     pub fn at_home_now(&self) -> bool {
         self.dungeon.depth == 0
     }
 
-    /// The cockpit's word on what the realm has built, after it paid (or
-    /// banked): every knight's home cards follow.
     pub fn rebuild_home(&mut self, home: Home, treasury: Spoils) {
         let landing = self.home.landing;
         let barony = std::mem::take(&mut self.home.barony);
@@ -1056,8 +836,6 @@ impl Run {
     let mines = self.home.mines.clone();
     self.home = home;
     self.home.keep_cave(cave_seed, &mines);
-        // A rite made in the run and not yet settled stays: the realm's
-        // record only ever adds (`rite`).
         self.home.rites.merge(&rites);
         if industry.rev > self.home.industry.rev { self.home.industry = industry; }
         if kingdom_gear.rev > self.home.kingdom_gear.rev { self.home.kingdom_gear = kingdom_gear; }
@@ -1065,18 +843,14 @@ impl Run {
         for hero in self.players.values() {
             self.home.adopt(&super::talents::knight_key(hero), &super::talents::profile_key(hero));
         }
-        // The yard changes in the run (a find, a wish, a build): the newer
-        // of the two stands.
         if salvage.rev > self.home.salvage.rev {
             self.home.salvage = salvage;
         }
         super::ranch::migrate(&mut self.home.ranch, &mut self.home.stable);
         self.barony_news(&barony);
-        // The stair keeps the landing chosen in this run.
         self.home.landing = landing;
         self.treasury = treasury;
         self.sync_squires();
-        // The west wing dug: the Trophy Hall's wall opens on the tavern.
         if self.at_home_now()
             && self.home.level(Station::Wing) >= 1
             && layout::dig_tavern(&mut self.dungeon)
@@ -1085,7 +859,6 @@ impl Run {
             self.fx.push(Fx::Shake(10));
             self.sounds.push("rock_land");
         }
-        // A checkpoint from before the world: it rises around the party.
         if self.at_home_now() {
             self.raise_home_world();
         }
@@ -1098,8 +871,6 @@ impl Run {
         }
     }
 
-    /// Hand knight `id` the home's cards: the forge's edge and the hearth's
-    /// warmth, as held cards in their deck, at their current rung.
     pub fn deal_home(&mut self, id: u32) {
         self.deal_college_spell(id);
         let mut cards = Vec::new();
@@ -1125,7 +896,6 @@ impl Run {
                 HEARTH_ART,
             ));
         }
-        // Mabel's stew, once she's been brought home.
         let stew = if self.home.residents.contains("mabel") {
             STEW
         } else {
@@ -1140,7 +910,6 @@ impl Run {
                 STEW_ART,
             ));
         }
-        // The Ore-Forge's work: dwarf-forged mail for every knight.
         if self.home.barony.is_lit("ore-forge") {
             cards.push(home_card(
                 "home-mail",
@@ -1150,7 +919,6 @@ impl Run {
                 MAIL_ART,
             ));
         }
-        // Maud's stout, drunk at the top of the stair: this delve's.
         if self.round.as_deref() == Some("stout") {
             cards.push(home_card(
                 "home-round",
@@ -1164,7 +932,6 @@ impl Run {
         for card in &cards {
             self.book.insert(card.clone());
         }
-        // Sir Ector's lessons: this player's own, whichever kit they wear.
         let Some(who) = self.players.get(&id).map(super::talents::profile_key) else {
             return;
         };
@@ -1195,8 +962,6 @@ impl Run {
         hero.deck
             .extend(cards.iter().chain(&lessons).map(|c| c.id.clone()));
         hero.rebonus(&self.book);
-        // The hearth's health is held apart, so a new rung adds only the
-        // difference.
         if warmth > hero.home_hp {
             let more = warmth - hero.home_hp;
             hero.max_hp += more;
@@ -1209,8 +974,6 @@ impl Run {
         hero.home_hp = warmth;
     }
 
-    /// What the rack and the chapel hand each knight at the top of the
-    /// stair: potions, bombs, a scroll, second winds.
     pub(super) fn kit_out(&mut self) {
         let rack = self.home.level(Station::Rack);
         let winds = self.home.winds();
@@ -1233,36 +996,30 @@ impl Run {
             if rack >= 2 {
                 hero.give_bombs(1);
             }
-            // The countryside's crown is worth a bomb below.
             if hero.laurel {
                 hero.give_bombs(1);
             }
             hero.winds = winds;
         }
-        // What the realm's freedom wishes put in the weapons locker.
         self.freedom_kit_out();
     }
 
-    /// The chapel's refill at each new floor: once a floor at its second rung.
     pub(super) fn refill_winds(&mut self) {
         if self.mode == super::fortune::Mode::Ironman {
             return self.iron();
         }
         if self.home.level(Station::Chapel) >= 2 {
             for hero in self.players.values_mut() {
-                // At least one again; Brother Anselm's, if unspent, stays.
                 hero.winds = hero.winds.max(1);
             }
         }
     }
 
-    /// A knight at zero health with a second wind left rises again.
     pub(super) fn second_winds(&mut self) {
         let mut rose = false;
         let mut talisman = false;
         for hero in self.players.values_mut() {
             if hero.hp == 0 && hero.talisman && !hero.stone {
-                // The Talisman: up at once, whole.
                 hero.talisman = false;
                 hero.hp = hero.max_hp;
                 hero.invulnerable = 2 * HZ;
@@ -1293,12 +1050,9 @@ impl Run {
         }
     }
 
-    /// One tick in the Undercroft: plates read and held, the stair's mouth
-    /// turns the landing, keepers greet whoever walks up.
     pub(super) fn tick_home(&mut self, inputs: &BTreeMap<u32, Input>) {
         self.tick_squire_company(inputs);
         self.tick_lane_squire_yard(inputs);
-        // The room's own game, from the registry (`activity::HOME_ROOMS`).
         if self.tick_home_room(inputs) {
             return;
         }
@@ -1330,7 +1084,6 @@ impl Run {
                 }
                 _ => hero.buying = 0,
             }
-            // A tap at the stair's mouth turns the landing.
             if standing && pressing && !hero.buy_spent && inside(STAIR_MOUTH, hero.x, hero.y) {
                 hero.buy_spent = true;
                 turned = true;
@@ -1355,7 +1108,6 @@ impl Run {
             self.sounds.push("play_card");
         }
         self.orders.extend(asked);
-        // Keepers speak as a knight walks up to them, once per approach.
         let mut near = self.greeted & (1 << 7);
         for (bit, spot) in SPOTS.iter().enumerate() {
             let Some((who, (c, r))) = spot.keeper else {
@@ -1379,7 +1131,6 @@ impl Run {
     }
 }
 
-/// A home card, checked like any other card.
 fn home_card(id: &str, name: &str, text: &str, effect: &str, art: &str) -> Card {
     let raw = format!(
         "name {name}\nkind hold\nrarity relic\nby the Undercroft\ntext {text}\ndrop 0\nchest 0\n{effect}\nart\n{art}\n"
@@ -1389,7 +1140,6 @@ fn home_card(id: &str, name: &str, text: &str, effect: &str, art: &str) -> Card 
         .card
 }
 
-/// A mail shirt, its rings bright at the collar.
 const MAIL_ART: &str = "\
 ...hhhhhh...
 ..hiHiiHih..
@@ -1402,10 +1152,8 @@ const MAIL_ART: &str = "\
 ..jjjjjjjj..
 ............";
 
-/// Mabel's stew: what it adds to every knight's health.
 const STEW: u32 = 15;
 
-/// A bowl of Mabel's stew, steaming.
 const STEW_ART: &str = "\
 ....h..h....
 ...h..h.....
@@ -1419,7 +1167,6 @@ const STEW_ART: &str = "\
 ............
 ............";
 
-/// Sir Ector's seal: a sword over an open book.
 const LESSON_ART: &str = "\
 .....HH.....
 .....HH.....
@@ -1433,7 +1180,6 @@ const LESSON_ART: &str = "\
 ..BBBBBBBB..
 ............";
 
-/// Tobbin's hammer over the anvil.
 const EDGE_ART: &str = "\
 ....HH......
 ...HiiH.....
@@ -1447,7 +1193,6 @@ const EDGE_ART: &str = "\
 ....GGGG....
 ...GGGGGG...";
 
-/// Blaise's fire, a heart in it.
 const HEARTH_ART: &str = "\
 .....6......
 ....656.....

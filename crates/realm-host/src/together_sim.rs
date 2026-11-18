@@ -59,25 +59,15 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-/// One fixed step: 30 a second.
 pub const STEP: Duration = Duration::from_nanos(1_000_000_000 / shooter::HZ as u64);
-/// The spell cards are looked for on disk this often.
 const SPELL_SCAN: Duration = Duration::from_millis(500);
-/// A checkpoint is written at most this often.
 const CHECKPOINT: Duration = Duration::from_secs(3);
-/// The service wakes at least this often, for the spell cards.
 const SERVICE_WAKE: Duration = Duration::from_millis(250);
-/// How often the frame-timing log gets a line of the server's own counts.
 const SERVE_STATS: Duration = Duration::from_secs(4);
-/// A room the party has just entered holds (`shooter::Hold::Arriving`)
-/// until every player here has it on screen, three seconds at most: a page
-/// that never shows it stalls nobody for longer.
 const ARRIVAL_CAP: u32 = 3 * shooter::HZ;
 
 static THREADED: AtomicBool = AtomicBool::new(false);
 
-/// Validate the entire candidate before it can replace live game rules.
-/// Use the engine's own names/ranges; the loader never invents a second set.
 pub fn validate_live_rules(policy: &GamePolicy) -> Result<(), String> {
     let knobs = Tune::default().knobs();
     for (name, value) in &policy.knobs {
@@ -97,8 +87,6 @@ pub fn validate_live_rules(policy: &GamePolicy) -> Result<(), String> {
     Ok(())
 }
 
-/// A cached overlay over normal host tuning. One lock publishes the complete
-/// rule set; the simulation never sees half a saved JavaScript generation.
 #[derive(Default)]
 struct LiveTune {
     policy: Arc<GamePolicy>,
@@ -131,7 +119,6 @@ impl LiveTune {
     }
 }
 
-/// The cockpit turns the threads on at startup; tests step by hand.
 pub fn set_threaded(on: bool) {
     THREADED.store(on, Ordering::Relaxed);
 }
@@ -140,53 +127,29 @@ pub fn threaded() -> bool {
     THREADED.load(Ordering::Relaxed)
 }
 
-/// The cockpit's side of the game, set each frame: whether the run plays,
-/// whose keys are on it, where it is saved.
 #[derive(Clone, Default)]
 pub struct Controls {
-    /// The game plays (shown and focused, or friends seated).
     pub active: bool,
-    /// This terminal's keys are on its seats.
     pub keyboard: bool,
-    /// Friends are seated: the host's knight turns to stone while away.
     pub hosted: bool,
-    /// A wish is being forged.
     pub wishing: bool,
-    /// No friends are hosted: knight 2 is a couch partner.
     pub couch: bool,
-    /// The host hosts without a knight of its own (`/dungeon_host --watch`,
-    /// a dedicated machine): knight 1's place stands empty until a friend
-    /// takes its seat, the last a newcomer is given.
     pub watching: bool,
-    /// The workspace's spell cards, hot-loaded while the game runs.
     pub cards: Option<PathBuf>,
-    /// Where the checkpoint goes, and the raid serial it records.
     pub save: Option<(PathBuf, u64)>,
-    /// The campaign's board the heart questline mirrors
-    /// (`together_files::campaign_board`), read by the service.
     pub campaign: Option<PathBuf>,
 }
 
-/// One tick of the delve as the cockpit reads it: never changed once
-/// published.
 pub struct Snapshot {
     pub run: Run,
 }
 
-/// What the server tells the cockpit, in the order it happened.
 #[derive(Clone, Debug, PartialEq)]
 pub enum News {
-    /// A player took knight `knight`'s seat (a newcomer: a resume says nothing).
     Joined { knight: u32, name: String },
-    /// Knight `knight`'s seat was given up for good: the knight has left
-    /// the party (`DelveServer::leave`).
     Left { knight: u32 },
-    /// The run is over and the party asked to go back (`rules::again`): the
-    /// host starts the next run, as its own R does.
     Again,
-    /// A moment for the host's chorus (`Run::cues`).
     Cue(String),
-    /// A one-off from a seat (`together_gear`), whole, during raid `raid`.
     Action {
         raid: u64,
         knight: u32,
@@ -195,70 +158,46 @@ pub enum News {
     },
 }
 
-/// The sim's own counters, for the frame-timing log and the bench.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Telemetry {
     pub ticks: u64,
-    /// The last tick's step time, and the worst since the last read.
     pub step_us: u64,
     pub worst_step_us: u64,
-    /// The last snapshot's copy and tree time.
     pub publish_us: u64,
 }
 
-/// The run, and what the cockpit's edits leave for the next read.
 struct Core {
     run: Run,
     commands: angel_delve::rules::host_commands::Journal,
     abilities: crate::together_abilities::Runtime,
     engine: Option<angel_live::system::System>,
     engine_error: Option<String>,
-    /// The run changed outside a tick: the next read takes a new snapshot.
     edited: bool,
 }
 
-/// What `DelveServer`, the service and the cockpit share.
 struct Shared {
     core: Mutex<Core>,
     catalogue: Mutex<catalogue::Host>,
-    /// The newest snapshot.
     newest: Mutex<Arc<Snapshot>>,
-    /// Serialize checkpoint snapshots with realm settlement. The sim itself
-    /// keeps stepping; no filesystem IO holds Core's lock.
     checkpoint: Arc<Mutex<()>>,
     squire_payment: Mutex<Option<shooter::squires_town::CheckpointPayment>>,
     controls: Mutex<Controls>,
     news: Mutex<Vec<News>>,
-    /// Events the cockpit adds (the chorus's lines), sent with the next tick.
     said: Mutex<Vec<wire::Event>>,
-    /// The feel ledger's lines, for the service to write.
     feel: Mutex<Vec<String>>,
-    /// The run has something for the cockpit's realm to settle.
     outbox: AtomicBool,
     telemetry: Mutex<Telemetry>,
-    /// Each tick's step and publish times, while the frame-timing log is on.
     timings: Option<Mutex<Vec<(u64, u64)>>>,
-    /// The server's counts over the last while (what each client is sent),
-    /// for the frame-timing log.
     serve_stats: Mutex<Vec<String>>,
-    /// Published ticks, counted, for the service to wake on.
     published: (Mutex<u64>, Condvar),
-    /// The door the run is behind, for the checkpoint to record
-    /// (`Sim::host`): a restart opens the same link again.
     doorway: Mutex<Doorway>,
     stop: AtomicBool,
-    /// A friend holds knight 1's seat: the host only watches, behind a door
-    /// opened for that (`Sim::host_as`). Said by the server each tick.
     first_is_friends: AtomicBool,
-    /// The knobs moved (`angel_delve::rules::tune`), set by the server
-    /// between ticks and laid on the run each tick, so a new delve or a
-    /// new door keeps them; and where they are kept.
     tune: Mutex<Tune>,
     live_tune: Mutex<LiveTune>,
     tune_file: Mutex<Option<PathBuf>>,
 }
 
-/// The lock if it is free now (a poisoned one is taken as `lock` takes it).
 fn try_lock<T>(mutex: &Mutex<T>) -> Option<MutexGuard<'_, T>> {
     match mutex.try_lock() {
         Ok(guard) => Some(guard),
@@ -284,8 +223,6 @@ fn delve_system() -> Option<angel_live::system::System> {
     let artifact = explicit.clone().map(PathBuf::from).unwrap_or_else(|| {
         crate::cockpit_dir().join("systems/delve/engine")
     });
-    // Older installed bundles can still play their embedded engine. A source
-    // launcher publishes the worker before starting the cockpit.
     if explicit.is_none() && !artifact.is_file() {
         return None;
     }
@@ -407,12 +344,7 @@ impl Shared {
         }
     }
 
-    /// The run as it stands, published for the cockpit's reads. The
-    /// snapshot is stored under the run's lock, so snapshots are newest in
-    /// the order the run changed.
     fn publish(&self, core: &mut Core) -> Arc<Snapshot> {
-        // A run no page could draw froze every seat at once on the play box
-        // (2026-10-17): it is mended before it goes out, never sent as it is.
         if !angel_delve::wire::drawable(&core.run) {
             let mended = core.run.mend();
             tracing::warn!(?mended, "the run was not drawable; mended before publishing");
@@ -428,7 +360,6 @@ impl Shared {
         snapshot
     }
 
-    /// The newest snapshot, publishing the run first if it was edited.
     fn fresh(&self) -> Arc<Snapshot> {
         let mut core = lock(&self.core);
         if core.edited {
@@ -439,51 +370,24 @@ impl Shared {
     }
 }
 
-/// The Delve as angel-serve runs it. Seat `n` plays knight `n + 1`
-/// (`wire::knight_of`): the host's own in-process seat is knight 1.
 pub struct DelveServer {
     shared: Arc<Shared>,
     seats: u32,
-    /// The door was opened for a host who only watches: seat 0, knight 1,
-    /// is a friend's (`Sim::host_as`).
     watch: bool,
-    /// Each seat's upload in pieces (`together_gear::Uploads`).
     uploads: crate::together_gear::Uploads,
-    /// Builds the tick's tree, keeping each shot's id from tick to tick.
     publisher: wire::Publisher,
-    /// Each seat's player this tick, as the engine knows it (`presence`):
-    /// empty until the engine has said.
     here: Vec<Presence>,
-    /// The party's room as of the last tick (raid, floor, room), and the
-    /// arrival the room holds for, if it does.
     room: Option<(u64, u32, usize)>,
     arrival: Option<Arrival>,
-    /// Each knight whose seat nobody holds, not even for a resume: ticks
-    /// so (`UNSEATED_LEAVE`).
     unseated: BTreeMap<u32, u32>,
-    /// The raid the party last asked to leave, and the server tick the host
-    /// was last told: told again every `AGAIN_RETELL` until it goes, so a
-    /// host busy settling the realm the first time still takes the party
-    /// home.
     again_for: Option<(u64, u32)>,
-    /// The garage's ledger (`.angel/dungeon/garage.json`) as the race gate reads and writes it:
-    /// each knight's career and time-trial ghosts, opened the first time a race is on.
     racers: Option<angel_delve::garage::Bank>,
 }
 
-/// Ticks between telling the host again that the party is due home.
 const AGAIN_RETELL: u32 = 2 * angel_delve::rules::HZ;
 
-/// A knight whose seat nobody holds (no player, nor a player's resume:
-/// knights a restarted host restored, whose players' seats went with the
-/// old server) leaves the party after this long: a minute and a half, for a
-/// friend on a slow line to load the page again and take their seat back by
-/// name (`Sessions::keep`). A seat given
-/// up while this server runs leaves at once (`DelveServer::leave`).
 const UNSEATED_LEAVE: u32 = 90 * shooter::HZ;
 
-/// The party came into a room at tick `tick`: it holds until every player
-/// here has applied that tick, or until tick `until`.
 #[derive(Clone, Copy, Debug)]
 struct Arrival {
     tick: u32,
@@ -507,9 +411,6 @@ impl DelveServer {
         }
     }
 
-    /// Between ticks of a race at the gate: the garage's bank sits knights down with their
-    /// careers, writes what a race won or a part cost, and lays the time-trial ghost on the road.
-    /// With no workspace folder (a test, a bare host) the careers stay in the race.
     fn pump_racers(&mut self, run: &mut Run) {
         let Some(race) = run.knight_racers.as_mut() else { return };
         if self.racers.is_none() {
@@ -522,8 +423,6 @@ impl DelveServer {
         }
     }
 
-    /// Knight `knight` leaves the party, told to everyone: never the host's
-    /// own place (knight 1), which a host who plays no knight keeps absent.
     fn remove_knight(run: &mut Run, knight: u32, events: &mut Events) {
         if knight == 1 {
             return;
@@ -535,9 +434,6 @@ impl DelveServer {
         send(events, &wire::Event::Notice { hear: wire::Hear::All, text: format!("{name} left the party") });
     }
 
-    /// Knights whose seats nobody holds leave once that has lasted
-    /// `UNSEATED_LEAVE` (`unseated`). Until the engine has said who is
-    /// here, nobody is counted.
     fn sweep_unseated(&mut self, run: &mut Run, events: &mut Events) {
         if self.here.is_empty() {
             return;
@@ -562,10 +458,6 @@ impl DelveServer {
         }
     }
 
-    /// Who is here, knight by knight: a knight whose seat's player is not
-    /// playing (still loading, hidden, gone quiet, or nobody's) is away, and
-    /// stands as stone (`Run::set_away`); so is the host's own when it
-    /// hosts without one. Until the engine has said, nobody is marked.
     fn mark_away(&self, run: &mut Run, controls: &Controls) {
         if self.here.is_empty() {
             return;
@@ -579,20 +471,14 @@ impl DelveServer {
         }
     }
 
-    /// A friend holds knight 1's seat (seat 0, the last a newcomer takes),
-    /// behind a door opened for a host who only watches.
     fn friend_holds_one(&self) -> bool {
         self.watch && self.here.first().is_some_and(|here| here.seated)
     }
 
-    /// A host who plays no knight keeps knight 1's place empty until a
-    /// friend holds its seat.
     fn host_place_empty(&self, controls: &Controls) -> bool {
         controls.watching && !self.friend_holds_one()
     }
 
-    /// The party's room changed (a step, or an edit between ticks): the
-    /// new room holds for its arrival from the next tick.
     fn note_room(&mut self, run: &Run, tick: u32) {
         let room = (run.raid_id, run.dungeon.depth, run.at);
         if self.room.is_some_and(|was| was != room) {
@@ -601,11 +487,7 @@ impl DelveServer {
         self.room = Some(room);
     }
 
-    /// Whether the room holds this tick: while nobody living is here
-    /// (`Empty`), and while a player here is yet to see the room the party
-    /// just came into (`Arriving`).
     fn hold_for(&mut self, run: &Run, tick: u32) -> shooter::Hold {
-        // A fallen or finished run has nothing to hold.
         if !run.active() {
             self.arrival = None;
             return shooter::Hold::Open;
@@ -633,11 +515,6 @@ impl DelveServer {
     }
 }
 
-/// The cockpit's side of the game, as the run shows it: whether knight 2 is
-/// a couch partner, whether a wish is being forged, and the host's knight
-/// as stone while friends play on without the host (unless `friend_one`:
-/// a friend holds knight 1, and its seat says how it stands). True if it
-/// changed.
 fn apply_controls(run: &mut Run, controls: &Controls, friend_one: bool) -> bool {
     let mut changed = false;
     if let Some(seat) = run.playtest.seats.get_mut(&2)
@@ -653,12 +530,8 @@ fn apply_controls(run: &mut Run, controls: &Controls, friend_one: bool) -> bool 
     let continuous = run.at_home_now() || run.room().kind == shooter::RoomKind::Kingdom;
     let companion = run.players.get(&2).filter(|h| h.hp > 0).map(|h| (h.x, h.y));
     let outside = run.exits.outside.contains_key(&1);
-    // A friend who took a watching host's place plays knight 1 as any
-    // friend's knight: stone while nobody plays it (`DelveServer::mark_away`).
     if let Some(host) = run.players.get_mut(&1).filter(|_| !friend_one) {
         let stone = (controls.hosted && !controls.keyboard) || host.vigil || host.away || controls.watching;
-        // F6 rejoins a dungeon fight; at home the host keeps their place,
-        // including the tavern and bazaar where a party now begins.
         if host.stone
             && !continuous
             && !outside
@@ -676,7 +549,6 @@ fn apply_controls(run: &mut Run, controls: &Controls, friend_one: bool) -> bool 
     changed
 }
 
-/// Each seat's share of the tick's tree (`wire::seat_tree`).
 pub struct SeatView;
 
 impl DocView for SeatView {
@@ -684,14 +556,11 @@ impl DocView for SeatView {
         wire::seat_tree(tree, seat)
     }
 
-    /// The kingdom's chunks a few a snapshot (`wire::pace`).
     fn pace<'a>(&self, view: Cow<'a, Value>, held: Option<&Value>) -> Cow<'a, Value> {
         wire::pace(view, held)
     }
 }
 
-/// An event for the clients: one knight's to that seat alone, anything
-/// else to everyone (each client keeps what is its seat's to hear).
 fn send(events: &mut Events, event: &wire::Event) {
     match event.hear() {
         wire::Hear::Knight(knight) => {
@@ -755,7 +624,6 @@ impl GameServer for DelveServer {
     }
 
     fn action(&mut self, seat: Option<u32>, kind: u32, body: &[u8], _events: &mut Events) {
-        // Watchers have no knight to act for.
         let Some(seat) = seat else {
             return;
         };
@@ -791,15 +659,11 @@ impl GameServer for DelveServer {
         let friend_one = self.friend_holds_one();
         self.shared.first_is_friends.store(friend_one, Ordering::Relaxed);
         apply_controls(run, &controls, friend_one);
-        // The knobs as the server last set them, on whatever run plays.
         let base_tune = *lock(&self.shared.tune);
         let tune = lock(&self.shared.live_tune).effective(base_tune);
         if run.tune != tune {
             run.tune = tune;
         }
-        // Who is here, and whether the room holds for the party (`presence`).
-        // A host who plays no knight keeps its place absent: no screen shows
-        // it and the party is sized without it.
         run.set_absent(1, self.host_place_empty(&controls));
         self.sweep_unseated(run, events);
         self.mark_away(run, &controls);
@@ -817,14 +681,9 @@ impl GameServer for DelveServer {
                     run.vote_command(knight, command);
                 }
             }
-            // The host retains the seats, transport, effects and committed Run.
-            // A complete live checkpoint crosses the implementation boundary;
-            // only a validated response replaces it. A failed RPC pauses rules
-            // instead of executing an input twice or reverting committed effects.
             step_system(&mut core, &inputs, true);
             self.note_room(&mut core.run, tick);
         } else {
-            // Paused, nothing steps; leaving an activity is still taken at once.
             for (&knight, input) in &inputs {
                 if input.valid() && input.leave_activity {
                     run.leave_activity(knight);
@@ -838,9 +697,6 @@ impl GameServer for DelveServer {
             events.lease_last(Arc::clone(&voice.sound.file));
         }
         let run = &mut core.run;
-        // Back to the kingdom once the run is over (`rules::again`): any
-        // player here asks; the party goes when every one has, or when the
-        // wait runs out, and the host is told until it goes.
         for (&knight, input) in &inputs {
             if input.valid() && input.again {
                 run.ask_again(knight);
@@ -852,8 +708,6 @@ impl GameServer for DelveServer {
             self.again_for = Some((run.raid_id, tick));
             news.push(News::Again);
         }
-        // What the tick said: cues for the host's chorus, sounds for every
-        // seat in the party's room, the feel ledger's lines.
         news.extend(std::mem::take(&mut run.cues).into_iter().map(News::Cue));
         for event in wire::take_sounds(run).into_iter().chain(wire::take_notices(run)) {
             send(events, &event);
@@ -884,7 +738,6 @@ impl GameServer for DelveServer {
     fn publish(&mut self, _tick: u32) -> DocTick {
         let started = Instant::now();
         let snapshot = self.shared.publish(&mut lock(&self.shared.core));
-        // The tree is built from the snapshot, with the run's lock let go.
         let tree = self.publisher.publish(&snapshot.run).unwrap_or(Value::Unit);
         let took = started.elapsed().as_micros() as u64;
         let step_us = {
@@ -902,9 +755,6 @@ impl GameServer for DelveServer {
     }
 }
 
-/// Work after a tick that never holds the run while it reads or writes a
-/// file: the spell cards, the campaign's board, the feel ledger, the
-/// checkpoint and the timing log.
 #[derive(Default)]
 struct Service {
     last_saved: Option<Instant>,
@@ -927,10 +777,6 @@ impl Service {
             self.last_scan = Some(now);
             catalogue::poll(shared, controls.cards.as_deref());
         }
-        // The campaign's board, read with the run let go; the run takes its
-        // counts under the lock, between ticks, only when they moved. The
-        // counts are the board's alone: a run a save brought back, or a new
-        // one, has them again within a second.
         if let Some(campaign) = self.campaign.poll(controls.campaign.as_deref(), now) {
             let mut core = lock(&shared.core);
             if core.run.campaign != campaign {
@@ -942,8 +788,6 @@ impl Service {
         if let Some((path, _)) = &controls.save
             && !feel.is_empty()
         {
-            // The feel ledger (ANGEL_DELVE_FEEL=1): a line per knight per
-            // room, beside the delve's save.
             use std::io::Write as _;
             let ledger = path.with_file_name("feel.jsonl");
             if let Ok(mut file) = std::fs::OpenOptions::new()
@@ -961,8 +805,6 @@ impl Service {
                 .last_saved
                 .is_none_or(|last| now.saturating_duration_since(last) >= CHECKPOINT)
         {
-            // Take the snapshot *after* acquiring the fence. A snapshot
-            // taken while settlement had drained its marks is not a save.
             let _checkpoint = lock(&shared.checkpoint);
             let _snapshot = shared.fresh();
             self.last_saved = Some(now);
@@ -980,8 +822,6 @@ impl Service {
     }
 }
 
-/// The service's thread: after each published tick, and at least every
-/// `SERVICE_WAKE`, until the delve ends.
 fn service_thread(shared: &Shared) {
     let mut service = Service::new();
     let (count, wake) = &shared.published;
@@ -1000,10 +840,6 @@ fn service_thread(shared: &Shared) {
     }
 }
 
-/// `ANGEL_DUNGEON_FRAME_TIMING=<file>`: every 120 ticks, one `sim` line on
-/// the step and the publish (the snapshot copied and the tree built); every
-/// few seconds, one `serve` line of the server's counts (`angel_serve::Stats`:
-/// the bytes each client is sent, the encode time).
 struct TickLog {
     file: std::fs::File,
     step_us: Vec<u64>,
@@ -1063,7 +899,6 @@ impl TickLog {
     }
 }
 
-/// The checkpoint as it is written (`dungeon_session::Saved` reads it back).
 #[derive(Serialize)]
 struct Saving<'a> {
     version: u32,
@@ -1075,16 +910,10 @@ struct Saving<'a> {
     home_outbox: Option<angel_delve::rules::home_settlement::HomeOutbox>,
     #[serde(skip_serializing_if = "Option::is_none")]
     brew_outbox: Option<&'a Vec<shooter::cauldron::Brewing>>,
-    /// The hosted session's door and join key.
     invitation: Option<(String, String)>,
-    /// The host plays no knight (`/dungeon host --watch`): a restart opens
-    /// the door the same way. Absent for a host that plays its own.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     watch: bool,
-    // Historical field name: also carries the pending Squires' Yard debit.
     country_intents: BTreeMap<String, u32>,
-    /// Ordinary Run saves omit transient triumphs. An unclaimed later victory
-    /// must survive beside an older pending bank claim as well.
     realm_triumph: Option<shooter::Triumph>,
 }
 
@@ -1145,16 +974,11 @@ fn persist_checkpoint(
     static WRITING: Mutex<()> = Mutex::new(());
     let _writing = lock(&WRITING);
     let bytes = capture()?;
-    // Private game state and invitation/receipt identities must round-trip
-    // exactly. This payload contains no harness conversation or credentials.
     angel_live::host::workspace_store::write_private_atomic_exact(path, &bytes)
 }
 use angel_delve::rules::home_settlement as home_claims;
 use angel_delve::rules::host_commands::RealmClaim;
 
-/// The game's shared state for the host's settlement, held off the
-/// cockpit's frame: claims, their results and checkpoints go through it
-/// while the server steps on its own threads.
 #[derive(Clone)]
 pub struct Link(Arc<Shared>);
 
@@ -1216,7 +1040,6 @@ impl Link {
         core.edited = true;
         Ok(())
     }
-    /// A checkpoint, serialized with the service's own under the same gate.
     pub fn checkpoint(&self, path: &Path, raid_serial: u64) -> Result<(), String> {
         let _gate = lock(&self.0.checkpoint);
         write_shared_checkpoint(path, raid_serial, &self.0)
@@ -1249,8 +1072,6 @@ fn evaluate_home_on(shared: &Shared, request: &home_claims::HomePolicyRequest) -
             .ok_or("home policy reply was not validated".into())
 }
 
-/// Whether the run holds facts a home claim carries: orders, sales, deeds,
-/// marks. With none, a claim can only re-read what the home already holds.
 fn home_facts_on(shared: &Shared) -> bool {
     let core = lock(&shared.core);
     let run = &core.run;
@@ -1346,7 +1167,6 @@ fn write_shared_checkpoint(path: &Path, raid_serial: u64, shared: &Shared) -> Re
     }
     out
 }
-/// Legacy checkpoint fixture, also proving schema-1 restore compatibility.
 #[cfg(any(test, feature = "testing"))]
 pub fn write_checkpoint(
     path: &Path,
@@ -1358,8 +1178,6 @@ pub fn write_checkpoint(
         encode_checkpoint(raid_serial, run, invitation, false, None)
     })
 }
-/// Whether the run holds something the cockpit's realm takes in: spoils
-/// banked, orders placed, marks made, votes cast.
 pub fn outbox_pending(run: &Run) -> bool {
     !run.bank.is_empty()
         || !run.reclaimed.is_empty()
@@ -1373,20 +1191,15 @@ pub fn outbox_pending(run: &Run) -> bool {
         || !run.playtest.ready
 }
 
-/// Where a delve's server listens, and who may join.
 #[derive(Clone, Debug)]
 pub struct Door {
     pub bind: SocketAddr,
-    /// Seats in all, the host's own included.
     pub seats: u32,
-    /// A fixed join key (a restored session's); a new one without.
     pub key: Option<String>,
-    /// The browser's page and the Delve's wasm.
     pub bundle: Option<ClientBundle>,
 }
 
 impl Door {
-    /// A solo delve's: loopback only, with nobody told its key.
     fn solo() -> Door {
         Door {
             bind: SocketAddr::from(([127, 0, 0, 1], 0)),
@@ -1404,27 +1217,14 @@ impl Door {
     }
 }
 
-/// Which door the run is behind, as a checkpoint records it: one value under
-/// one lock, so a save never reads a link without the watch it was opened
-/// with. `Sim::host_prepared` opens it, `Sim::unhost` closes it, and a
-/// restore that cannot open its saved link again keeps it (`Kept`).
 #[derive(Clone, Default, PartialEq, Eq)]
 pub enum Doorway {
-    /// Loopback only: nobody has a link, and nothing is saved.
     #[default]
     Solo,
-    /// Open to friends at `addr` behind the join key `key`. `watch`: the
-    /// host plays no knight (`Hosting::watch`).
     Hosted { addr: String, key: String, watch: bool },
-    /// A link a saved session had that could not be opened again (its
-    /// address is gone, its port busy). Nothing listens, but the next
-    /// checkpoint writes it back as it was, so a later start can open it:
-    /// a failed re-bind must never cost the friends their link.
     Kept { addr: String, key: String, watch: bool },
 }
 
-/// The join key lets anyone into the run: it never reaches a log or a failed
-/// assertion through `{:?}`.
 impl std::fmt::Debug for Doorway {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (name, addr, watch) = match self {
@@ -1441,8 +1241,6 @@ impl std::fmt::Debug for Doorway {
 }
 
 impl Doorway {
-    /// What a checkpoint records: the door's link, open or kept, and
-    /// whether its host watches.
     fn saved(self) -> (Option<(String, String)>, bool) {
         match self {
             Doorway::Solo => (None, false),
@@ -1452,8 +1250,6 @@ impl Doorway {
         }
     }
 
-    /// The server behind it stopped: an open door is shut. A kept link was
-    /// never open, and stays on record.
     fn shut(&mut self) {
         if matches!(self, Doorway::Hosted { .. }) {
             *self = Doorway::Solo;
@@ -1461,10 +1257,6 @@ impl Doorway {
     }
 }
 
-/// The HD art pack the pages are served at `/hd/` (docs/LADDER.md, "The
-/// browser"), behind `ANGEL_DELVE_HD_WEB=1`: the window's own pack
-/// (`ANGEL_GLASS_ART`, else `~/.angelX/art/delve`), for a page opened with
-/// `?hd=1` to draw the knights' finer rungs as the window does.
 fn hd_web_dir() -> Option<std::path::PathBuf> {
     if !std::env::var("ANGEL_DELVE_HD_WEB").is_ok_and(|v| v == "1") {
         return None;
@@ -1475,27 +1267,19 @@ fn hd_web_dir() -> Option<std::path::PathBuf> {
         .filter(|dir| dir.join("pack.json").is_file())
 }
 
-/// Dev mode (`ANGEL_DELVE_DEV=1`): any seat may set the Delve's knobs from
-/// its page's dev panel, not only the host.
 fn dev_mode() -> bool {
     std::env::var("ANGEL_DELVE_DEV").is_ok_and(|v| v == "1")
 }
 
-/// The server a delve runs on: stepping on its own thread, or by hand.
 struct Running {
     server: Server,
     manual: Option<Manual<DelveServer>>,
     hosted: bool,
-    /// The host plays no knight (read only when `hosted`).
     watch: bool,
-    /// The server's counts at the last `serve` line, while the frame-timing
-    /// log is on.
     counted: Option<(Instant, angel_serve::Totals)>,
 }
 
 impl Running {
-    /// Every `SERVE_STATS`, the server's counts since the last, for the
-    /// service to write to the frame-timing log.
     fn count(&mut self, shared: &Shared, now: Instant) {
         let Some((at, last)) = self.counted.as_mut() else {
             return;
@@ -1511,19 +1295,12 @@ impl Running {
 }
 
 struct Live {
-    /// This terminal's own seats: the host's knight, and a couch partner's.
     host: Option<Seat>,
     couch: Option<Seat>,
-    /// The threads' share. Stepped by hand, the server's own
-    /// (`DelveServer::shared`) is the only one, so a test can edit the run
-    /// with no lock (`Sim::edit`).
     shared: Option<Arc<Shared>>,
     running: Option<Running>,
     service: Option<JoinHandle<()>>,
-    /// The service, run in the pump when stepping by hand.
     inline: Option<Service>,
-    /// The snapshot this frame reads, latched once a frame (or after an
-    /// edit, on the first read).
     view: OnceCell<Arc<Snapshot>>,
 }
 
@@ -1553,8 +1330,6 @@ impl Live {
         live
     }
 
-    /// Start a server for `shared`'s run behind `door`. On failure the run
-    /// stays readable here, and nothing steps it.
     fn serve(
         &mut self,
         shared: Arc<Shared>,
@@ -1578,8 +1353,6 @@ impl Live {
         config.prepared_assets = assets;
         config.live_assets = lock(&shared.core).abilities.media.files.clone();
         config.tune_file = lock(&shared.tune_file).clone();
-        // The workspace's paintings, beside its knobs (`.angel/dungeon/`),
-        // served to the pages and seats that draw them.
         config.paint_dir = config
             .tune_file
             .as_deref()
@@ -1587,12 +1360,6 @@ impl Live {
             .map(|dungeon| dungeon.join("paint"));
         config.hd_dir = hd_web_dir();
         config.dev = dev_mode();
-        // A restored run's knights keep their seats for their players, who
-        // come only through a hosted door: a solo door's seats are this
-        // terminal's own, and its couch partner takes knight 2's. A host who
-        // plays no knight keeps knight 1's seat too, for the name it bears:
-        // newcomers take every other seat first, so the host's place goes
-        // to the last friend in.
         if hosted {
             config.names = lock(&shared.core)
                 .run
@@ -1615,7 +1382,6 @@ impl Live {
             }
         };
         if manual.is_some() {
-            // The server's own share is the only one now.
             drop(shared);
             self.shared = None;
             self.inline = Some(Service::new());
@@ -1627,8 +1393,6 @@ impl Live {
                 .ok();
             self.shared = Some(shared);
         }
-        // The host's own knight is a client like any friend's: seat 0. A
-        // host who plays no knight only watches, and seat 0 is a friend's.
         self.host = server
             .connect_local()
             .ok()
@@ -1645,7 +1409,6 @@ impl Live {
         Ok(())
     }
 
-    /// The share the cockpit reads and edits through.
     fn shared(&self) -> &Arc<Shared> {
         match (
             &self.shared,
@@ -1657,7 +1420,6 @@ impl Live {
         }
     }
 
-    /// Stop the server and the service; the run stays, in the share handed back.
     fn stop(&mut self) -> Arc<Shared> {
         self.host = None;
         self.couch = None;
@@ -1682,23 +1444,16 @@ impl Drop for Live {
     }
 }
 
-/// The host's delve, wherever it steps: `None` before one starts. Reads see
-/// the snapshot latched for this frame. Production changes go through typed
-/// intentions or prepared native resources under the core lock.
 #[derive(Default)]
 pub struct Sim {
     live: Option<Live>,
-    /// This delve's own choice of threads, over the cockpit's (`threaded`).
     thread: Option<bool>,
-    /// Where the knobs moved are kept (the workspace's `.angel/dungeon/tune.json`).
     tune_file: Option<PathBuf>,
     live_rules: Arc<GamePolicy>,
     live_abilities: Vec<angel_live::kernel::Resource>,
     live_appearances: Vec<angel_live::kernel::Resource>,
 }
 
-/// All appearance resources were decoded before selection; installation only
-/// changes native presentation and preserves each hero's gameplay state.
 fn install_appearances(
     run: &mut Run,
     abilities: &mut crate::together_abilities::Runtime,
@@ -1716,8 +1471,6 @@ fn install_appearances(
     changed
 }
 
-/// Fixture-only direct edits. Production callers use identified intentions or
-/// the native presentation/resource owner.
 #[cfg(any(test, feature = "testing"))]
 pub struct RunMut<'a> {
     core: MutexGuard<'a, Core>,
@@ -1962,7 +1715,6 @@ impl Sim {
         core.edited = true;
         true
     }
-    /// The live voices for a frame's sounds, under one lock of the game.
     pub fn live_voices(&self, names: &[String]) -> Vec<Option<crate::together_media::Voice>> {
         let Some(live) = self.live.as_ref() else {
             return names.iter().map(|_| None).collect();
@@ -1970,8 +1722,6 @@ impl Sim {
         let mut core = lock(&live.shared().core);
         names.iter().map(|name| core.abilities.media.voice(name)).collect()
     }
-    /// The wish session, without waiting: `None` while the game's lock is
-    /// held (the caller keeps what it last knew), `Some(None)` with no game.
     pub fn try_wish_session(&self) -> Option<Option<String>> {
         let Some(live) = self.live.as_ref() else {
             return Some(None);
@@ -1979,8 +1729,6 @@ impl Sim {
         let core = try_lock(&live.shared().core)?;
         Some(Some(core.commands.session().to_owned()))
     }
-    /// Whether the playtest votes are ready, without waiting: `None` while
-    /// the game's lock is held.
     pub fn try_playtest_votes_ready(&self) -> Option<bool> {
         let Some(live) = self.live.as_ref() else { return Some(false); };
         let core = try_lock(&live.shared().core)?;
@@ -2048,8 +1796,6 @@ impl Sim {
         self.live.is_none()
     }
 
-    /// A delve on its own threads whatever the cockpit chose (the tests of
-    /// the threads themselves).
     #[cfg(any(test, feature = "testing"))]
     pub fn spawn(run: Run) -> Sim {
         let mut sim = Sim {
@@ -2064,16 +1810,11 @@ impl Sim {
         sim
     }
 
-    /// Step the next delve this view starts on threads of its own (or not),
-    /// whatever the cockpit chose.
     #[cfg(any(test, feature = "testing"))]
     pub fn prefer_thread(&mut self, on: bool) {
         self.thread = Some(on);
     }
 
-    /// Start a new delve (or end this one with `None`). A new delve while
-    /// one runs takes its place on the same server: the seats, the link and
-    /// the friends on it stay.
     pub fn set(&mut self, run: Option<Run>) {
         self.set_session(run, None);
     }
@@ -2122,8 +1863,6 @@ impl Sim {
         }
     }
 
-    /// Consume one prepared character-resource catalogue. Slots and art become
-    /// visible under the same lock; model work and file decoding stay outside.
     pub fn set_live_characters<'a>(
         &mut self,
         sources: impl Iterator<Item = &'a angel_live::kernel::Resource> + Clone,
@@ -2170,7 +1909,6 @@ impl Sim {
         self.live_rules = policy;
     }
 
-    /// Keep the knobs moved in `path`, and start every server from it.
     pub fn set_tune_file(&mut self, path: PathBuf) {
         if let Some(live) = &self.live {
             *lock(&live.shared().tune_file) = Some(path.clone());
@@ -2178,7 +1916,6 @@ impl Sim {
         self.tune_file = Some(path);
     }
 
-    /// The server's knobs, where they stand (`/dungeon tune`).
     pub fn knobs(&self) -> Vec<Knob> {
         let mut knobs = self.server().map(Server::knobs).unwrap_or_default();
         for knob in &mut knobs {
@@ -2193,21 +1930,14 @@ impl Sim {
         self.live_rules.knobs.get(name).copied()
     }
 
-    /// Set a server knob as the host (`/dungeon tune name value`): the value
-    /// it takes, or why not.
     pub fn tune(&self, name: &str, value: f64) -> Result<f64, String> {
         self.server().ok_or_else(|| "no delve is running".to_string())?.tune(name, value)
     }
 
-    /// The caller may hold this independent fence across realm IO without
-    /// borrowing Sim or stopping its ticks. Acquire it before taking Core.
-    /// Whether the run holds facts for a home claim (`home_facts_on`).
     pub fn home_facts_pending(&self) -> bool {
         self.live.as_ref().is_some_and(|live| home_facts_on(live.shared()))
     }
 
-    /// The game's shared state for host work off the cockpit's frame, while
-    /// the server steps on its own threads.
     pub fn link(&self) -> Option<Link> {
         if !self.threaded() {
             return None;
@@ -2232,18 +1962,15 @@ impl Sim {
         }
     }
 
-    /// The run as this frame reads it.
     pub fn as_ref(&self) -> Option<&Run> {
         self.snapshot().map(|s| &s.run)
     }
 
-    /// The snapshot this frame reads.
     pub fn snapshot(&self) -> Option<&Arc<Snapshot>> {
         let live = self.live.as_ref()?;
         Some(live.view.get_or_init(|| live.shared().fresh()))
     }
 
-    /// Direct mutable access is restricted to test fixtures.
     #[cfg(any(test, feature = "testing"))]
     pub fn as_mut(&mut self) -> Option<RunMut<'_>> {
         let live = self.live.as_mut()?;
@@ -2253,8 +1980,6 @@ impl Sim {
         })
     }
 
-    /// The run itself, for a test: stepped by hand, the server's is the
-    /// only share, so an edit needs no lock.
     #[cfg(any(test, feature = "testing"))]
     pub fn edit(&mut self) -> Option<&mut Run> {
         let live = self.live.as_mut()?;
@@ -2271,7 +1996,6 @@ impl Sim {
         Some(&mut core.run)
     }
 
-    /// Look for spell cards on the next pump, however recently it looked.
     #[cfg(any(test, feature = "testing"))]
     pub fn rescan_spells(&mut self) {
         if let Some(service) = self.live.as_mut().and_then(|l| l.inline.as_mut()) {
@@ -2279,23 +2003,17 @@ impl Sim {
         }
     }
 
-    /// Read the newest snapshot for this frame.
     pub fn latch(&mut self) {
         if let Some(live) = self.live.as_mut() {
             live.view.take();
         }
     }
 
-    /// The cockpit's side of the game, for the next tick. What it shows on
-    /// the run (the host's knight as stone, a couch partner, a wish being
-    /// forged) is seen by the next read, as an edit's is.
     pub fn set_controls(&mut self, controls: Controls) {
         let threaded = self.threaded();
         let Some(live) = self.live.as_mut() else {
             return;
         };
-        // On its own threads the server applies them at its next step: the
-        // host's frame never waits on the game's lock for its own controls.
         if threaded {
             *lock(&live.shared().controls) = controls;
             return;
@@ -2312,9 +2030,6 @@ impl Sim {
         *lock(&live.shared().controls) = controls;
     }
 
-    /// Stepping by hand, run the clock to `now` here, then the service:
-    /// how many ticks it stepped. (Either way, the server's counts go to
-    /// the frame-timing log when it is on.)
     pub fn pump(&mut self, now: Instant) -> u32 {
         let Some(live) = self.live.as_mut() else {
             return 0;
@@ -2333,7 +2048,6 @@ impl Sim {
         stepped
     }
 
-    /// Whether the delve steps on threads of its own.
     pub fn threaded(&self) -> bool {
         self.live
             .as_ref()
@@ -2341,7 +2055,6 @@ impl Sim {
             .is_some_and(|r| r.manual.is_none())
     }
 
-    /// What the server said since the last look.
     pub fn drain_news(&self) -> Vec<News> {
         self.live
             .as_ref()
@@ -2349,33 +2062,28 @@ impl Sim {
             .unwrap_or_default()
     }
 
-    /// A line the host's chorus speaks, for every seat to hear.
     pub fn say(&self, event: wire::Event) {
         if let Some(live) = &self.live {
             lock(&live.shared().said).push(event);
         }
     }
 
-    /// Whether the run has something for the realm, since the last look.
     pub fn take_outbox(&self) -> bool {
         self.live
             .as_ref()
             .is_some_and(|live| live.shared().outbox.swap(false, Ordering::Relaxed))
     }
 
-    /// When the clock's next step is due, stepping by hand.
     pub fn clock(&self) -> Option<Instant> {
         let live = self.live.as_ref()?;
         let next = live.running.as_ref()?.manual.as_ref()?.next_due()?;
         Some(next - STEP)
     }
 
-    /// The server this delve runs on.
     pub fn server(&self) -> Option<&Server> {
         Some(&self.live.as_ref()?.running.as_ref()?.server)
     }
 
-    /// Whether the server is one friends can reach (`host`).
     #[cfg(any(test, feature = "testing"))]
     pub fn hosted(&self) -> bool {
         self.live
@@ -2384,8 +2092,6 @@ impl Sim {
             .is_some_and(|r| r.hosted)
     }
 
-    /// This terminal's seat for `knight`: the host's own (1), or a couch
-    /// partner's (2).
     pub fn seat(&self, knight: u32) -> Option<&Seat> {
         let live = self.live.as_ref()?;
         match knight {
@@ -2395,15 +2101,12 @@ impl Sim {
         }
     }
 
-    /// This terminal's seats, the host's first.
     pub fn seats(&self) -> impl Iterator<Item = &Seat> {
         self.live
             .iter()
             .flat_map(|live| live.host.iter().chain(live.couch.iter()))
     }
 
-    /// A couch partner plays knight 2 on this keyboard (or no longer does):
-    /// their seat is a client of its own, beside the host's.
     pub fn set_couch(&mut self, on: bool) {
         let Some(live) = self.live.as_mut() else {
             return;
@@ -2422,28 +2125,20 @@ impl Sim {
         }
     }
 
-    /// Move this delve onto a server behind `door`, for friends to join:
-    /// the same run, a new listener. The host's own seats must dial the new
-    /// server. When the door cannot be opened, the delve stays as it was.
-    #[cfg_attr(not(test), allow(dead_code))] // a host who also plays; a watcher uses `host_as`
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn host(&mut self, door: Door) -> Result<(), String> {
         self.host_as(door, false)
     }
 
-    /// `host`, for a host who plays no knight when `watch`: its own seat
-    /// only watches, and every seat behind the door is a friend's.
     pub fn host_as(&mut self, door: Door, watch: bool) -> Result<(), String> {
         self.host_prepared(door, watch, None)
     }
 
-    /// The browser generation loads independently of native session activation.
     pub fn host_prepared(&mut self, door: Door, watch: bool, assets: Option<angel_serve::http::PreparedAssets>) -> Result<(), String> {
         let thread = self.thread.unwrap_or_else(threaded);
         let Some(live) = self.live.as_mut() else {
             return Err("no delve is running".into());
         };
-        // The new door is tried before the old server stops, so one that
-        // cannot be bound leaves the delve where it was.
         let probe = std::net::TcpListener::bind(door.bind)
             .map_err(|e| format!("cannot host the delve: {e}"))?;
         let bind = probe.local_addr().map_err(|e| e.to_string())?;
@@ -2452,7 +2147,6 @@ impl Sim {
         let shared = live.stop();
         live.view.take();
         if let Err(error) = live.serve_prepared(Arc::clone(&shared), thread, door, true, watch, assets) {
-            // The run goes back to a solo door rather than standing still.
             lock(&shared.doorway).shut();
             if let Err(again) = live.serve(shared, thread, Door::solo(), false, false) {
                 tracing::warn!(error = %again, "the delve's server did not start again");
@@ -2464,8 +2158,6 @@ impl Sim {
         Ok(())
     }
 
-    /// Back to a solo door: the run moves onto a server on loopback, and
-    /// the link no longer works.
     pub fn unhost(&mut self) -> Result<(), String> {
         let thread = self.thread.unwrap_or_else(threaded);
         let Some(live) = self.live.as_mut() else {
@@ -2477,7 +2169,6 @@ impl Sim {
         live.serve(shared, thread, Door::solo(), false, false)
     }
 
-    /// Record the hosted session's door and key again (a new key was made).
     pub fn remember_invitation(&self) {
         let Some(live) = &self.live else {
             return;
@@ -2491,10 +2182,6 @@ impl Sim {
         }
     }
 
-    /// A saved session's link, which is about to be opened again
-    /// (`host_prepared`): on record until it is, so that a door that cannot
-    /// be bound leaves the next checkpoint writing the link it read. A door
-    /// that is open stays as it is.
     pub fn keep_door(&self, addr: String, key: String, watch: bool) {
         let Some(live) = &self.live else {
             return;
@@ -2511,7 +2198,6 @@ impl Sim {
         self.server().ok_or("no hosted server")?.retry_browser(generation).map_err(|e| e.to_string())
     }
 
-    /// The door the run is behind, as the checkpoint records it.
     pub fn doorway(&self) -> Doorway {
         self.live
             .as_ref()
@@ -2519,8 +2205,6 @@ impl Sim {
             .unwrap_or_default()
     }
 
-    /// The open door's address and join key: none while solo, or while a
-    /// saved link is only kept.
     pub fn invitation(&self) -> Option<(String, String)> {
         match self.doorway() {
             Doorway::Hosted { addr, key, .. } => Some((addr, key)),

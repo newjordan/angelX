@@ -23,7 +23,6 @@ use super::skills::{Blaze, BoomKind, Cloud};
 use super::ults::Ult;
 use super::*;
 
-/// Which champion a knight is, by their kit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Champion {
     Hammerer,
@@ -31,9 +30,7 @@ pub enum Champion {
     Alchemist,
     Reaver,
     Lancer,
-    /// Appended, so saved names keep.
     PhantomLancer,
-    /// Appended, so saved names keep.
     MirageDuelist,
 }
 
@@ -64,7 +61,6 @@ impl Champion {
         Champion::ALL.into_iter().find(|c| c.kit() == kit)
     }
 
-    /// Their three spells, for keys 1 to 3.
     pub fn spells(self) -> [&'static str; 3] {
         match self {
             Champion::Hammerer => ["storm-hammer", "groundslam", "brute-force"],
@@ -78,37 +74,25 @@ impl Champion {
     }
 }
 
-/// The champion a knight is, if any.
 pub fn of(hero: &Hero) -> Option<Champion> {
     hero.knight.as_deref().and_then(Champion::of_kit)
 }
 
-/// Whether a spell card is one of the champions'.
 pub fn is_spell(card: &str) -> bool {
     heroes::is_spell(card) || Champion::ALL.iter().any(|c| c.spells().contains(&card))
 }
 
-// ─── the Hammerer ────────────────────────────────────────────────────────────
-
-/// Storm Hammer: how fast it flies, how long (ticks), what it deals to the
-/// first foe, how long it stuns them, and how wide the burst round them.
 pub const HAMMER_SPEED: f32 = 18.0;
 pub const HAMMER_LIFE: u32 = 22;
 pub const HAMMER_DAMAGE: u32 = 50;
 const HAMMER_STUN: u32 = 2 * HZ;
 pub const HAMMER_BURST: f32 = 2.8;
-/// Groundslam: the wind-up (rooted, the maul overhead), the shockwave's
-/// reach, its blow, its stun and how far it throws foes back.
 pub const SLAM_WINDUP: u32 = 12;
 pub const SLAM_REACH: f32 = 5.0;
 pub const SLAM_DAMAGE: u32 = 45;
 const SLAM_STUN: u32 = HZ;
 const SLAM_THROW: f32 = 2.2;
-/// Brute Force: how long the giant's blood is up.
 pub const FURY_TICKS: u32 = 6 * HZ;
-/// Earthsplitter: the crack's length, how long it takes to run out, when
-/// the ground bursts, how long the rubble lies, how near the line a foe
-/// must stand, and the blow and stun of the burst.
 pub const CRACK_LEN: f32 = 18.0;
 pub const CRACK_RUN: u32 = 20;
 pub const CRACK_ERUPT: u32 = 28;
@@ -117,34 +101,21 @@ const CRACK_WIDE: f32 = 1.9;
 const CRACK_DAMAGE: u32 = 130;
 const CRACK_STUN: u32 = 2 * HZ;
 
-// ─── the Butcher ─────────────────────────────────────────────────────────────
-
-/// Meat Hook: its speed out and home, how long it flies out, the blow and
-/// stun when a foe lands at the Butcher's feet.
 pub const HOOK_SPEED: f32 = 26.0;
 const HOOK_OUT: u32 = 16;
 pub const HOOK_DAMAGE: u32 = 55;
 const HOOK_STUN: u32 = HZ;
-/// Rot: how long, how near, how often and how hard it eats.
 pub const ROT_TICKS: u32 = 5 * HZ;
 pub const ROT_REACH: f32 = 3.4;
 pub const ROT_EVERY: u32 = 10;
 pub const ROT_DAMAGE: u32 = 9;
-/// Chain Haul: how far the hook reaches, how fast he is hauled, and what
-/// each foe he bowls over takes.
 pub const HAUL_SPEED: f32 = 36.0;
 const HAUL_DAMAGE: u32 = 25;
-/// Dismember: how near a foe must stand, how long it is held, how often
-/// and how hard it is carved; the Butcher mends half of every cut.
 const GRIP_REACH: f32 = 5.0;
 pub const GRIP_TICKS: u32 = 3 * HZ;
 const GRIP_EVERY: u32 = 10;
 const GRIP_DAMAGE: u32 = 16;
 
-// ─── the Alchemist ───────────────────────────────────────────────────────────
-
-/// A lit flask off the bandolier: its rearm, how far it is lobbed, how long
-/// it flies, its burst, and the small fire it leaves.
 pub const FLASK_REARM: u32 = 20;
 const FLASK_REACH: f32 = 8.0;
 pub const FLASK_FLIGHT: u32 = 14;
@@ -152,150 +123,101 @@ pub const FLASK_DAMAGE: u32 = 22;
 pub const FLASK_BURST: f32 = 1.8;
 pub const FLASK_FIRE: f32 = 1.4;
 pub const FLASK_FIRE_LIFE: u32 = 2 * HZ;
-/// Quickfire: the great flask's burst and its field of flame.
 pub const QUICK_DAMAGE: u32 = 34;
 pub(super) const QUICK_RADIUS: f32 = 3.0;
 pub(super) const QUICK_LIFE: u32 = 5 * HZ;
-/// Miasma: the foul air's poison.
 pub const FOUL_POWER: u32 = 5;
-/// Elixir: how near a friend must stand, and what it mends.
 pub const ELIXIR_REACH: f32 = 6.0;
 pub const ELIXIR_MEND: u32 = 35;
-/// Philosopher's Rain: how many foes, how near, and the wait between each
-/// foe's flasks.
 const RAIN_FOES: usize = 8;
 const RAIN_REACH: f32 = 16.0;
 const RAIN_STAGGER: u32 = 3;
 
-// ─── the Reaver ──────────────────────────────────────────────────────────────
-
-/// Hurl Axe: how fast it spins out and home, how long it flies out, and
-/// what it cuts on each pass (once a foe, out and again on the way home).
 pub const AXE_SPEED: f32 = 20.0;
 const AXE_OUT: u32 = 14;
 pub const AXE_DAMAGE: u32 = 34;
 const AXE_STUN: u32 = 8;
-/// Leap: the farthest bound, how fast he flies, and the quake he lands in.
 pub const LEAP_REACH: f32 = 9.0;
 pub const LEAP_SPEED: f32 = 30.0;
 pub const LEAP_QUAKE: f32 = 3.0;
 pub const LEAP_DAMAGE: u32 = 40;
 const LEAP_STUN: u32 = HZ;
-/// Bloodlust: how long, the share of every cut he takes back as health
-/// (percent), and how much faster he goes.
 pub const LUST_TICKS: u32 = 6 * HZ;
 pub const LUST_FEED: u32 = 30;
 pub const LUST_PACE: f32 = 1.3;
-/// Red Harvest: the sweep's reach, the share of health under which a foe
-/// is cut down outright (percent), the blow everything else takes, and the
-/// charge each foe cut down gives back.
 pub const HARVEST_REACH: f32 = 4.5;
 pub const HARVEST_CULL: u32 = 30;
 pub const HARVEST_DAMAGE: u32 = 90;
 const HARVEST_REFUND: u32 = ults::ULT_FULL / 5;
 
-// ─── the Lancer ──────────────────────────────────────────────────────────────
-
-/// Javelin: how fast, how long, and the blow every foe on its line takes.
 pub const JAVELIN_SPEED: f32 = 28.0;
 pub const JAVELIN_LIFE: u32 = 18;
 pub const JAVELIN_DAMAGE: u32 = 42;
 const JAVELIN_STUN: u32 = 10;
-/// Vault: how far, how fast, and what each foe she vaults over takes.
 pub const VAULT_REACH: f32 = 5.5;
 pub const VAULT_SPEED: f32 = 26.0;
 const VAULT_DAMAGE: u32 = 20;
 const VAULT_STUN: u32 = 14;
-/// Brace: how long the lance is set, the share of a blow she still takes
-/// (percent), and the lance's reach and blow against whatever rushes it.
 pub const BRACE_TICKS: u32 = 2 * HZ;
 pub const BRACE_TAKES: u32 = 50;
 pub const BRACE_REACH: f32 = 3.2;
 const BRACE_DAMAGE: u32 = 30;
 const BRACE_STUN: u32 = HZ;
 const BRACE_THROW: f32 = 1.8;
-/// Skewer Drive: how far the charge runs, how fast, the blow every foe it
-/// carries takes when it stops, and how much more if it stops at a wall.
 pub const DRIVE_REACH: f32 = 14.0;
 pub const DRIVE_SPEED: f32 = 34.0;
 pub const DRIVE_DAMAGE: u32 = 110;
 const DRIVE_WALL: u32 = 50;
 const DRIVE_STUN: u32 = 2 * HZ;
 
-// ─── the Phantom Lancer ──────────────────────────────────────────────────────
-
-/// Spirit Lance: how fast, how long, the blow every foe on its line takes,
-/// and how long the image where it ends stands.
 pub const SPIRIT_SPEED: f32 = 28.0;
 pub const SPIRIT_LIFE: u32 = 18;
 pub const SPIRIT_DAMAGE: u32 = 36;
 const SPIRIT_STUN: u32 = 8;
 pub const SPIRIT_IMAGE: u32 = 6 * HZ;
-/// Doppelganger: how far the blink goes, how long its images stand, and
-/// how far apart the two left at the start stand.
 pub const DOPPEL_REACH: f32 = 6.0;
 pub const DOPPEL_IMAGE: u32 = 5 * HZ;
 const DOPPEL_APART: f32 = 0.9;
-/// Juxtapose: how long it holds, the odds against a thrust making an image
-/// (one in this many), how long that image stands and how far beside the
-/// knight.
 pub const JUXTA_TICKS: u32 = 8 * HZ;
 pub const JUXTA_ODDS: u64 = 3;
 pub const JUXTA_IMAGE: u32 = 4 * HZ;
 const JUXTA_BESIDE: f32 = 1.8;
-/// Phantom Legion: how many images, how long they stand and how far round.
 pub const LEGION_IMAGES: usize = 4;
 pub const LEGION_TICKS: u32 = 8 * HZ;
 const LEGION_RING: f32 = 2.6;
 
-/// How long the figure holds a spell's strike once it has left the hand.
 pub const CAST_POSE: u32 = 10;
 
-/// A champion's own going, on the knight: a wind-up, the giant's blood, a
-/// stink, a haul, and the spell last cast, for the figure. Left out when
-/// still, so a knight of the company is written as it always was.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Stance {
-    /// Groundslam's wind-up: rooted, the maul overhead.
     #[serde(default)]
     pub windup: u32,
-    /// Brute Force.
     #[serde(default)]
     pub fury: u32,
-    /// Rot.
     #[serde(default)]
     pub rot: u32,
-    /// A Chain Haul under way, and the way it runs.
     #[serde(default)]
     pub haul: u32,
     #[serde(default)]
     pub haul_x: f32,
     #[serde(default)]
     pub haul_y: f32,
-    /// Ticks left of a spell's strike on the figure, and which key cast it.
     #[serde(default)]
     pub cast: u32,
     #[serde(default)]
     pub spell: u8,
-    /// Bloodlust.
     #[serde(default)]
     pub lust: u32,
-    /// Brace: the lance set.
     #[serde(default)]
     pub brace: u32,
-    /// Juxtapose: ticks left in which a thrust may make an image.
     #[serde(default, skip_serializing_if = "super::zero")]
     pub juxta: u32,
-    /// Swashbuckle: the dash and the flurry after it.
     #[serde(default, skip_serializing_if = "mirage::Swash::idle")]
     pub swash: mirage::Swash,
-    /// Echo Strike: thrusts still to be echoed, and ticks left to make them.
     #[serde(default, skip_serializing_if = "super::is_zero")]
     pub echoes: u8,
     #[serde(default, skip_serializing_if = "super::zero")]
     pub echo_ticks: u32,
-    /// A bound under way (Leap, Vault, Skewer Drive): ticks left, which,
-    /// and the way it runs.
     #[serde(default)]
     pub dash: u32,
     #[serde(default)]
@@ -306,7 +228,6 @@ pub struct Stance {
     pub dash_y: f32,
 }
 
-/// Which bound a champion is in the middle of.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Dash {
@@ -317,7 +238,6 @@ pub enum Dash {
 }
 
 impl Dash {
-    /// How fast the bound runs (arena units a second).
     pub fn speed(self) -> f32 {
         match self {
             Dash::Leap => LEAP_SPEED,
@@ -332,31 +252,23 @@ impl Stance {
         *self == Stance::default()
     }
 
-    /// Too taken up to shoot: winding up a slam, hauled along a chain, in
-    /// the middle of a bound, or with the lance set.
     pub fn busy(&self) -> bool {
         self.windup > 0 || self.haul > 0 || self.dash > 0 || self.brace > 0 || self.swash.dashing()
     }
 }
 
-/// What a champion threw, in the air.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Thrown {
     Hammer,
     Hook,
-    /// Chain Haul's hook, fast in the wall: the chain the Butcher rides.
     Haul,
     Flask(Brew),
-    /// The Reaver's axe: out, then home to his hand.
     Axe,
-    /// The Lancer's javelin, through everything on its line.
     Javelin,
-    /// The Phantom Lancer's: the same flight, and an image where it ends.
     SpiritLance,
 }
 
-/// What is in a flask.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Brew {
@@ -365,9 +277,6 @@ pub enum Brew {
     Quickfire,
 }
 
-/// A thing a champion threw: where it is, how it flies, how long, and for
-/// a hook the foe it bit and whether it is coming home. A flask is lobbed
-/// from `from` to `to` over its `life`.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Throw {
     pub owner: u32,
@@ -386,8 +295,6 @@ pub struct Throw {
     pub back: bool,
 }
 
-/// A ring going out over the floor: a Groundslam's shockwave, a flask's
-/// burst, an Elixir's mending.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Ring {
     pub x: f32,
@@ -404,13 +311,11 @@ pub enum RingKind {
     Quake,
     Burst,
     Mend,
-    /// Red Harvest's sweep.
     Reap,
 }
 
 pub const RING_LIFE: u32 = 14;
 
-/// Earthsplitter's crack: from where, along which way, how far, how old.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Crack {
     pub owner: u32,
@@ -422,7 +327,6 @@ pub struct Crack {
     pub age: u32,
 }
 
-/// Dismember: the foe the Butcher holds, and how long is left.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Grip {
     pub owner: u32,
@@ -430,7 +334,6 @@ pub struct Grip {
     pub left: u32,
 }
 
-/// The champions' things in the room. Left out when there are none.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Field {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -441,10 +344,8 @@ pub struct Field {
     pub cracks: Vec<Crack>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub grips: Vec<Grip>,
-    /// The foes a Skewer Drive carries before the lance (`left` unused).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub skewered: Vec<Grip>,
-    /// The thrusts Echo Strike will strike again.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub echoes: Vec<mirage::Echo>,
 }
@@ -470,22 +371,17 @@ impl Field {
     }
 }
 
-/// Where a lobbed flask is at `age` of `life`, and how high off the floor
-/// (arena units).
 pub fn lob(t: &Throw) -> ((f32, f32), f32) {
     let k = (t.age as f32 / t.life.max(1) as f32).clamp(0.0, 1.0);
     let at = (t.from.0 + (t.to.0 - t.from.0) * k, t.from.1 + (t.to.1 - t.from.1) * k);
     (at, 4.0 * 2.2 * k * (1.0 - k))
 }
 
-/// Whether a foe is held fast where it stands: a boss, a dragon, a dummy.
 fn anchored(e: &Enemy) -> bool {
     e.boss.is_some() || matches!(e.kind, EnemyKind::Dragon | EnemyKind::Dummy | EnemyKind::Ward)
 }
 
 impl Run {
-    /// A champion's spell, cast from its slot this tick (`arms`), or the
-    /// Alchemist's F (`flask`).
     pub(super) fn champion_feat(&mut self, id: u32, feat: &str) {
         if let Some(spell) = feat.strip_prefix("weave:").and_then(|s| s.parse().ok()) {
             self.weave_cast(id, spell);
@@ -542,7 +438,6 @@ impl Run {
             "chain-haul" => {
                 let reach = hero.spell_step(feat).haul_reach;
                 let grid = Grid { room: &self.dungeon.rooms[self.at], barred: self.barred() };
-                // Along the aim to the first wall or foe, short of it.
                 let mut flown = 0.0;
                 while flown < reach {
                     let (nx, ny) = (hx + ax * (flown + 0.4), hy + ay * (flown + 0.4));
@@ -648,9 +543,6 @@ impl Run {
         }
     }
 
-    /// Start a bound along `(ax, ay)`: as far as `reach`, short of the first
-    /// wall (and, unless it goes `over` them, the first foe). The ticks it
-    /// takes; nothing when there is no room to move.
     fn bound(&mut self, id: u32, (hx, hy): (f32, f32), (ax, ay): (f32, f32), reach: f32, kind: Dash, over: bool) -> u32 {
         let grid = Grid { room: &self.dungeon.rooms[self.at], barred: self.barred() };
         let mut flown = 0.0;
@@ -663,7 +555,6 @@ impl Run {
             flown += 0.4;
         }
         let run = (flown - 0.6).max(0.0);
-        // At least two ticks, so the bound always has a last one to land on.
         let ticks = match (run / (kind.speed() * DT)).round() as u32 {
             0 => 0,
             n => n.max(2),
@@ -679,8 +570,6 @@ impl Run {
         ticks
     }
 
-    /// A champion's ultimate, cast (`cast_ults`). Any knight may carry one
-    /// off the wheel of fortune, so none of them asks who casts it.
     pub(super) fn champion_ult(&mut self, id: u32, ult: Ult) {
         let Some(hero) = self.players.get(&id) else {
             return;
@@ -715,7 +604,6 @@ impl Run {
                         self.champions.grips.retain(|g| g.owner != id);
                         self.champions.grips.push(Grip { owner: id, foe, left: GRIP_TICKS });
                     }
-                    // Nobody near to take hold of: the charge keeps.
                     None => {
                         if let Some(hero) = self.players.get_mut(&id) {
                             hero.ult_charge = ults::ULT_FULL;
@@ -735,7 +623,6 @@ impl Run {
                 let mut cut = 0;
                 for i in self.near((hx, hy), HARVEST_REACH) {
                     let e = &self.enemies[i];
-                    // The wounded are reaped outright; a boss only bleeds.
                     let reaped = !e.is_boss() && e.kind != EnemyKind::Dummy && e.hp * 100 <= e.max_hp * HARVEST_CULL;
                     let blow = if reaped { e.hp } else { damage };
                     self.smite(id, i, blow, 6, false);
@@ -759,7 +646,6 @@ impl Run {
                     hero.champ.spell = 4;
                     hero.invulnerable = hero.invulnerable.max(ticks + 2);
                     if ticks == 0 {
-                        // Hard against a wall already: the charge keeps.
                         hero.ult_charge = ults::ULT_FULL;
                     }
                 }
@@ -770,8 +656,6 @@ impl Run {
                     hero.champ.cast = CAST_POSE;
                     hero.champ.spell = 4;
                 }
-                // A ring of images, off the aim's own line, each as far out
-                // as the room lets it stand.
                 self.phantoms.retain(|p| p.owner != id);
                 let grid = Grid { room: &self.dungeon.rooms[self.at], barred: self.barred() };
                 for k in 0..LEGION_IMAGES {
@@ -800,7 +684,6 @@ impl Run {
                 }
                 for (k, &(_, x, y)) in near.iter().take(RAIN_FOES).enumerate() {
                     let wait = k as u32 * RAIN_STAGGER;
-                    // The foul air first, the fire after it: each one flashes.
                     for (brew, life) in [(Brew::Foul, FLASK_FLIGHT + wait), (Brew::Quickfire, FLASK_FLIGHT + 10 + wait)] {
                         self.champions.throws.push(Throw {
                             owner: id,
@@ -823,8 +706,6 @@ impl Run {
         }
     }
 
-    /// A blow from a champion's spell: dealt, the foe stunned (a boss a
-    /// third as long), credited, and the charge filled when `charge`.
     fn smite(&mut self, owner: u32, i: usize, damage: u32, stun: u32, charge: bool) -> u32 {
         let enemy = &mut self.enemies[i];
         let dealt = damage.min(enemy.hp);
@@ -848,14 +729,10 @@ impl Run {
             }
             self.sounds.push("hit");
         }
-        // Bloodlust: the Reaver's cuts feed him.
         self.feed_bloodlust(&[(owner, dealt)]);
         dealt
     }
 
-    /// Bloodlust: a share of what each knight in it dealt, back as health,
-    /// within the second's lifesteal (`Hero::leech`). Fed the tick's credits
-    /// (`aftermath`) and each of a champion's own blows (`smite`).
     pub(super) fn feed_bloodlust(&mut self, credits: &[(u32, u32)]) {
         for &(id, dealt) in credits {
             if let Some(hero) = self.players.get_mut(&id)
@@ -868,13 +745,10 @@ impl Run {
         }
     }
 
-    /// Every foe within `r` of `at`, nearest first.
     fn near(&self, (x, y): (f32, f32), r: f32) -> Vec<usize> {
         aoe::reached(&self.enemies, (x, y), |e| (e.x - x).hypot(e.y - y) <= r + e.radius() * 0.5)
     }
 
-    /// One tick of the champions: their stances, what they threw, the
-    /// rings, cracks and grips.
     pub(super) fn tick_champions(&mut self) {
         self.champion_stances();
         self.champion_throws();
@@ -932,7 +806,6 @@ impl Run {
             if slam {
                 self.groundslam(id, (hx, hy));
             }
-            // A haul bowls over every foe it passes.
             let hauling = self.players.get(&id).is_some_and(|h| h.champ.haul > 0);
             if hauling {
                 for i in self.near((hx, hy), 1.6) {
@@ -946,7 +819,6 @@ impl Run {
             if let Some(hero) = self.players.get_mut(&id)
                 && hero.champ.dash == 0
             {
-                // A bound done leaves nothing of itself on the stance.
                 (hero.champ.dash_kind, hero.champ.dash_x, hero.champ.dash_y) = (Dash::default(), 0.0, 0.0);
             }
             self.champion_bound(id, (hx, hy));
@@ -955,9 +827,6 @@ impl Run {
         }
     }
 
-    /// A bound under way: a vault cuts what it passes over, a drive gathers
-    /// foes before the lance, and on its last tick a leap lands in a quake
-    /// and a drive pins what it carries.
     fn champion_bound(&mut self, id: u32, (hx, hy): (f32, f32)) {
         let Some((dash, kind, dx, dy)) = self
             .players
@@ -986,7 +855,6 @@ impl Run {
                     if e.kind == EnemyKind::Dummy || self.champions.skewered.iter().any(|g| g.foe == e.id) {
                         continue;
                     }
-                    // Too big to carry: the charge stops on it.
                     stop |= anchored(e);
                     let foe = e.id;
                     self.champions.skewered.push(Grip { owner: id, foe, left: 0 });
@@ -1027,7 +895,6 @@ impl Run {
                 }
                 Dash::Vault => {}
                 Dash::Drive => {
-                    // Driven into a wall, the pin goes deeper.
                     let walled = Grid { room: &self.dungeon.rooms[self.at], barred: self.barred() }.stops_shot(hx + dx * 2.4, hy + dy * 2.4);
                     let base = self.players.get(&id).map_or(DRIVE_DAMAGE, |h| h.scaled(DRIVE_DAMAGE));
                     let damage = if walled { base * (100 + DRIVE_WALL) / 100 } else { base };
@@ -1048,8 +915,6 @@ impl Run {
         }
     }
 
-    /// The lance set: whatever comes within its reach is struck and thrown
-    /// back, once a flinch.
     fn champion_brace(&mut self, id: u32, (hx, hy): (f32, f32)) {
         if !self.players.get(&id).is_some_and(|h| h.champ.brace > 0) {
             return;
@@ -1073,8 +938,6 @@ impl Run {
         }
     }
 
-    /// The maul comes down: every foe in reach is struck, stunned and thrown
-    /// back, and every foe's shot in reach is knocked out of the air.
     fn groundslam(&mut self, id: u32, (hx, hy): (f32, f32)) {
         let damage = self.players.get(&id).map_or(SLAM_DAMAGE, |h| h.spell_damage("groundslam", SLAM_DAMAGE));
         let reach = self.players.get(&id).map_or(SLAM_REACH, |h| h.spell_step("groundslam").slam_reach);
@@ -1118,7 +981,6 @@ impl Run {
                 Thrown::Hammer => self.fly_hammer(&mut t),
                 Thrown::Hook => self.fly_hook(&mut t),
                 Thrown::Haul => {
-                    // The chain hangs from the wall until the Butcher is there.
                     let hauling = self.players.get(&t.owner).is_some_and(|h| h.champ.haul > 0);
                     hauling && t.age < t.life
                 }
@@ -1139,7 +1001,6 @@ impl Run {
                 kept.push(t);
             }
         }
-        // Thrown this tick, while these flew: kept after them.
         kept.append(&mut self.champions.throws);
         self.champions.throws = kept;
     }
@@ -1194,7 +1055,6 @@ impl Run {
                 t.back = true;
                 let e = &mut self.enemies[i];
                 if anchored(e) {
-                    // Too big to drag: it takes the hook where it stands.
                     let damage = self.players.get(&t.owner).map_or(HOOK_DAMAGE, |h| h.spell_damage("meat-hook", HOOK_DAMAGE));
                     self.smite(t.owner, i, damage, HOOK_STUN, true);
                 } else {
@@ -1205,7 +1065,6 @@ impl Run {
             }
             return true;
         }
-        // Home along the chain, the foe with it.
         let (dx, dy) = (ox - t.x, oy - t.y);
         let d = dx.hypot(dy);
         let step = HOOK_SPEED * DT;
@@ -1234,8 +1093,6 @@ impl Run {
         !home
     }
 
-    /// The axe spins out, cutting each foe it passes, and comes home to the
-    /// Reaver's hand cutting again on the way.
     fn fly_axe(&mut self, t: &mut Throw) -> bool {
         let Some((ox, oy)) = self.players.get(&t.owner).filter(|h| h.hp > 0).map(|h| (h.x, h.y)) else {
             return false;
@@ -1263,13 +1120,9 @@ impl Run {
                 self.enemies[i].wits.flinch = feel::FLINCH;
             }
         }
-        // Lost if it has been out far too long (a wall between it and him).
         !home && t.age < AXE_OUT * 6
     }
 
-    /// The javelin flies straight through every foe on its line. The
-    /// Phantom Lancer's spirit lance flies the same, and an image stands
-    /// where it ends.
     fn fly_javelin(&mut self, t: &mut Throw) -> bool {
         let spirit = t.kind == Thrown::SpiritLance;
         let (spell, base, stun) = if spirit { ("spirit-lance", SPIRIT_DAMAGE, SPIRIT_STUN) } else { ("javelin", JAVELIN_DAMAGE, JAVELIN_STUN) };
@@ -1278,7 +1131,6 @@ impl Run {
         if grid.stops_shot(nx, ny) || t.age >= t.life {
             self.champions.ring((t.x, t.y), 0.9, RingKind::Burst);
             if spirit {
-                // Where it ends, never in stone: the line from the cast, halted.
                 let at = grid.halted(t.from, (t.x - t.from.0, t.y - t.from.1));
                 if self.players.get(&t.owner).is_some_and(|h| h.hp > 0) {
                     ults::add_image(&mut self.phantoms, ults::Phantom::standing(t.owner, at, SPIRIT_IMAGE));
@@ -1346,7 +1198,6 @@ impl Run {
                 let (px, py) = (c.x + c.dx * along, c.y + c.dy * along);
                 (e.x - px).hypot(e.y - py) <= CRACK_WIDE + e.radius() * 0.5
             });
-            // One great blow: every foe on the line takes it whole.
             for i in caught {
                 self.smite(c.owner, i, damage, CRACK_STUN, false);
             }
@@ -1380,7 +1231,6 @@ impl Run {
             let Some(i) = self.enemies.iter().position(|e| e.id == g.foe && e.hp > 0) else {
                 return false;
             };
-            // Held fast, unless it is too big to hold: then only carved.
             let e = &mut self.enemies[i];
             if !anchored(e) {
                 e.frozen = e.frozen.max(2);
@@ -1413,10 +1263,6 @@ impl Run {
 }
 
 impl Run {
-    /// Doppelganger: the knight blinks along the aim, as far as `DOPPEL_REACH`
-    /// allows short of stone (`Grid::halted`) and never into a foe, and leaves
-    /// an image to either side of where they stood and one beside where they
-    /// land, each standing in place.
     fn doppelganger(&mut self, id: u32) {
         let Some(hero) = self.players.get(&id).filter(|h| h.hp > 0) else {
             return;
@@ -1425,8 +1271,6 @@ impl Run {
         let (ax, ay) = unit(hero.aim_x, hero.aim_y);
         let (ax, ay) = if ax == 0.0 && ay == 0.0 { (0.0, -1.0) } else { (ax, ay) };
         let grid = Grid { room: &self.dungeon.rooms[self.at], barred: self.barred() };
-        // Floor only, including the body's corners. A door reads as open until
-        // the room bars on this same tick, and then the image is in stone.
         let on_floor = |x: f32, y: f32| {
             let r = HERO_RADIUS;
             [(-r, -r), (r, -r), (-r, r), (r, r), (0.0, 0.0)]
@@ -1457,8 +1301,6 @@ impl Run {
             }
             far -= 0.5;
         }
-        // Beside a point, on either hand, on floor. Never the wall, and never
-        // a door that the next bar would turn to stone.
         let beside = |c: (f32, f32), side: f32| {
             for apart in [DOPPEL_APART, DOPPEL_APART * 0.5] {
                 for s in [side, -side] {
@@ -1499,11 +1341,7 @@ impl Run {
     }
 }
 
-/// Juxtapose: while it holds, a thrust makes an image beside the knight one
-/// time in `JUXTA_ODDS`, by a roll of the tick and the run's seed (`salt`),
-/// so a replay makes the same ones. It stands on whichever hand has floor.
 pub(super) fn juxtapose(phantoms: &mut Vec<ults::Phantom>, hero: &Hero, id: u32, salt: u64, grid: &Grid) {
-    // Nothing extra stands beside a knight whose Hall of Mirrors is up.
     if hero.champ.juxta == 0 || hero.hp == 0 || phantoms.iter().any(|p| p.owner == id && p.charge) {
         return;
     }

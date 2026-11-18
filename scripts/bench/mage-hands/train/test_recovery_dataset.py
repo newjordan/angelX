@@ -1,4 +1,3 @@
-"""Local assembly regression tests; full-data acceptance is a separate artifact audit."""
 import importlib.util
 import json
 from pathlib import Path

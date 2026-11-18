@@ -131,7 +131,6 @@ fn tool_errors_harvested_causes_and_boundaries() {
     for tool in ["read_file", "shell"] {
         assert_eq!(classify_tool_error(tool, &json!({}), Option::None), None);
     }
-    // DIAGNOSIS.md quotes scope arguments, not verbatim OS error bodies.
     let args = json!({"read_only": false, "write_paths": [], "cmd": "cargo test"});
     assert_eq!(
         classify_tool_error("shell", &args, Some("temporary-directory failure")),

@@ -10,7 +10,6 @@ fn sha256_matches_the_known_vectors() {
         sha256_hex(b"abc"),
         "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
     );
-    // Two blocks (>55 bytes) — exercises the padding path.
     assert_eq!(
         sha256_hex(b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"),
         "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
@@ -37,7 +36,6 @@ fn authored_units_read_each_mutation_tool() {
         authored_units("multi_edit", &multi),
         vec![("a.rs".to_string(), "one\ntwo".to_string())]
     );
-    // A read is not a mutation.
     assert!(authored_units("read_file", &write).is_empty());
 }
 
@@ -53,7 +51,6 @@ fn patch_units_keep_only_the_added_text_per_file() {
             ("src/two.rs".to_string(), "second".to_string()),
         ]
     );
-    // The Codex freeform envelope, the other dialect apply_patch accepts.
     let freeform = "*** Begin Patch\n*** Add File: new.rs\n+fn main() {}\n*** End Patch\n";
     assert_eq!(
         authored_units("apply_patch", &serde_json::json!({ "diff": freeform })),
@@ -203,7 +200,6 @@ fn authored_record_redacts_and_stamps_the_digest_of_the_full_text() {
     );
     assert!(text.contains("«redacted»"));
     assert_eq!(rec["redacted_lines"], 1);
-    // The digest and byte count describe what was WRITTEN, not the redacted copy.
     assert_eq!(rec["authored_sha256"], sha256_hex(authored.as_bytes()));
     assert_eq!(rec["authored_bytes"], authored.len());
     assert_eq!(rec["kind"], "authored");
@@ -238,7 +234,6 @@ fn source_kind_admits_code_and_refuses_prose() {
     assert_eq!(source_kind("scripts/tick.mjs"), Some("js"));
     assert_eq!(source_kind("web/app.tsx"), Some("ts"));
     assert_eq!(source_kind("sidecar/run.py"), Some("py"));
-    // A docs edit does not earn a compile.
     assert_eq!(source_kind("docs/plans/the-cut.md"), None);
     assert_eq!(source_kind("public/data/causal-graph.json"), None);
 }
@@ -274,12 +269,9 @@ fn machine_json_and_inline_note_only_speak_on_failure() {
     let note = fail.inline_note().expect("a failure speaks up");
     assert!(note.contains("`cargo check` failed"), "{note}");
     assert!(note.contains("E0425"));
-    // Data, not orders: the route (`⠧⠉`) carries what to do.
     assert!(!note.contains("fix this"), "{note}");
     assert_eq!(fail.to_json()["exit"], 101);
 
-    // A skip is recorded (so the tick can see why there is no verdict) but
-    // never editorializes into the turn.
     let skipped = Machine::Skipped {
         reason: "not-source",
     };
@@ -302,13 +294,10 @@ fn timeout_reports_itself_as_a_non_verdict() {
     assert!(!slow.passed());
     let note = slow.inline_note().unwrap();
     assert!(note.contains("timed out"));
-    // It must not read as "your code is broken".
     assert!(!note.contains("fix this"));
     assert_eq!(slow.to_json()["timed_out"], true);
 }
 
-/// A verdict from a crate-wide check (`cargo check` in `cockpit`) — the key
-/// every write into that crate shares.
 fn crate_check(exit: i32) -> Machine {
     Machine::Ran {
         cmd: "cargo check".into(),
@@ -325,7 +314,6 @@ fn crate_check(exit: i32) -> Machine {
     }
 }
 
-/// A file-scoped check — its own key, because the file rides in the command.
 fn file_check(file: &str, exit: i32) -> Machine {
     Machine::Ran {
         cmd: format!("node --check '{file}'"),
@@ -348,8 +336,6 @@ fn reward_of(machines: &[Machine]) -> Option<f32> {
 
 #[test]
 fn a_turn_that_wrote_no_source_is_never_labeled() {
-    // The rule that protects the corpus: a turn with nothing to verify gets
-    // no reward. A fabricated label is worse than no label.
     assert_eq!(reward_of(&[]), None, "a turn with no writes at all");
     assert_eq!(
         reward_of(&[
@@ -363,8 +349,6 @@ fn a_turn_that_wrote_no_source_is_never_labeled() {
         None,
         "a docs/data turn earns no verdict, so it earns no reward"
     );
-    // A verify that outran its deadline is explicitly NOT "your code is
-    // broken" — it is no answer at all, and must not become a 0.0.
     assert_eq!(
         reward_of(&[Machine::Ran {
             cmd: "cargo check".into(),
@@ -388,7 +372,6 @@ fn a_clean_turn_scores_one() {
         Some(1.0),
         "several writes, nothing broken"
     );
-    // Skips ride along without diluting: they are not labels.
     assert_eq!(
         reward_of(&[
             crate_check(0),
@@ -403,23 +386,15 @@ fn a_clean_turn_scores_one() {
 
 #[test]
 fn broke_then_repaired_lands_strictly_between_the_walk_away_and_the_clean_turn() {
-    // THE case this whole reward exists to capture: angel broke its own
-    // build and fixed it inside the same turn. The ledger contains two of
-    // these, ever.
     let repaired = reward_of(&[crate_check(101), crate_check(0)]).unwrap();
     assert_eq!(repaired, 0.5);
 
-    // Cross-file repair: the crate check goes red on a write to a.rs and
-    // green after a write to b.rs (the caller was what needed fixing). Same
-    // check, so the newer word supersedes — this is a recovery, not an
-    // abandoned file.
     assert_eq!(
         reward_of(&[crate_check(101), crate_check(0)]),
         Some(0.5),
         "a repair that fixed the caller is still a repair"
     );
 
-    // Thrash is priced: three breaks before the fix scores worse than one…
     let thrashed = reward_of(&[
         crate_check(101),
         crate_check(101),
@@ -430,9 +405,6 @@ fn broke_then_repaired_lands_strictly_between_the_walk_away_and_the_clean_turn()
     assert_eq!(thrashed, 0.25);
     assert!(thrashed < repaired);
 
-    // …but no amount of thrash can push a recovery down to the walk-away's
-    // 0.0, or the policy learns to abandon a broken build rather than keep
-    // fixing it. And no recovery reaches 1.0, or breaking the build is free.
     for breaks in 1..25 {
         let mut runs: Vec<Machine> = (0..breaks).map(|_| crate_check(101)).collect();
         runs.push(crate_check(0));
@@ -451,20 +423,16 @@ fn broke_then_repaired_lands_strictly_between_the_walk_away_and_the_clean_turn()
 #[test]
 fn a_turn_that_left_a_check_red_scores_zero() {
     assert_eq!(reward_of(&[crate_check(101)]), Some(0.0));
-    // Earlier successes do not buy off a broken build left at the end.
     assert_eq!(
         reward_of(&[crate_check(0), crate_check(0), crate_check(101)]),
         Some(0.0),
         "three writes, the last one red: the project does not build"
     );
-    // Mixed checks: b.js is green, but a.js was left broken and never
-    // revisited. The turn still shipped a broken file.
     assert_eq!(
         reward_of(&[file_check("a.js", 1), file_check("b.js", 0)]),
         Some(0.0),
         "a green sibling file cannot mask the one left red"
     );
-    // …and repairing a.js afterwards rescues it into the repair band.
     assert_eq!(
         reward_of(&[
             file_check("a.js", 1),
@@ -641,14 +609,9 @@ fn verify_resolution_follows_the_plans_precedence() {
     let _ = std::fs::create_dir_all(root.join("cockpit/src"));
     let _ = std::fs::write(root.join("cockpit/Cargo.toml"), "[package]\n");
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_CUT_VERIFY") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("ANGEL_DOSSIER", "0") }; // no learned ritual in play
+    unsafe { std::env::set_var("ANGEL_DOSSIER", "0") };
 
-    // Default: the nearest enclosing crate, NOT the workspace root (this
-    // repo's Cargo.toml lives one level down — a root-only probe verifies
-    // nothing).
     let targets = vec!["cockpit/src/knowledge/cut.rs".to_string()];
     match resolve_verify(&root, &targets) {
         Verify::Run(plan) => {
@@ -659,14 +622,11 @@ fn verify_resolution_follows_the_plans_precedence() {
         _ => panic!("a .rs edit inside a crate must resolve a check"),
     }
 
-    // Prose is skipped outright.
     assert!(matches!(
         resolve_verify(&root, &["docs/x.md".to_string()]),
         Verify::Skip("not-source")
     ));
 
-    // The env override wins, and runs at the workspace root.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_CUT_VERIFY", "make check") };
     match resolve_verify(&root, &targets) {
         Verify::Run(plan) => {
@@ -677,14 +637,10 @@ fn verify_resolution_follows_the_plans_precedence() {
         _ => panic!("the env override must win"),
     }
 
-    // ANGEL_CUT_VERIFY=0 is the documented opt-out.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_CUT_VERIFY", "0") };
     assert!(matches!(resolve_verify(&root, &targets), Verify::Off));
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_CUT_VERIFY") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_DOSSIER") };
     let _ = std::fs::remove_dir_all(&root);
 }
@@ -695,18 +651,14 @@ fn cargo_rituals_anchor_at_the_edited_files_crate() {
     let _ = std::fs::create_dir_all(root.join("cockpit/src"));
     let _ = std::fs::write(root.join("cockpit/Cargo.toml"), "[package]\n");
 
-    // The first dogfood run: a "cargo check" ritual fired at the workspace
-    // root of a repo whose crate lives in cockpit/ — five phantom reds.
     assert_eq!(
         ritual_dir("cargo check", &root, "cockpit/src/knowledge/cut.rs"),
         "cockpit"
     );
-    // Non-cargo rituals keep the root, where repo-level tools live.
     assert_eq!(
         ritual_dir("make check", &root, "cockpit/src/knowledge/cut.rs"),
         "."
     );
-    // No manifest anywhere: fall back to the root rather than skipping.
     assert_eq!(ritual_dir("cargo check", &root, "scripts/x.rs"), ".");
 
     let _ = std::fs::remove_dir_all(&root);
@@ -723,7 +675,6 @@ fn environment_failures_never_convict_the_write() {
         Some(2),
         "sh: 1: tsc: command not found"
     ));
-    // A real diagnostic stays a real verdict.
     assert!(!environment_failure(
         Some(101),
         "error[E0308]: mismatched types"
@@ -734,13 +685,10 @@ fn environment_failures_never_convict_the_write() {
 #[test]
 fn cut_is_on_by_default_and_opts_out_by_env() {
     let _lock = crate::tests::env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_CUT") };
     assert!(CutCfg::from_env().enabled);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_CUT", "0") };
     assert!(!CutCfg::from_env().enabled);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_CUT") };
 }
 
@@ -940,8 +888,6 @@ fn modular_report_matches_native_golden_on_edge_cases() {
         r#"{"driver":"\ud800","machine":{"exit":0}}"#,
         r#"{"\udc00":"invalid key"}"#,
         r#"{"machine":{"exit":1e99999999999999999999999}}"#,
-        // JSON.parse normally drops these overwritten values before its
-        // reviver runs; serde_json rejects each complete row.
         r#"{"driver":"\ud800","driver":"hidden"}"#,
         r#"{"repo":{"key":"\udc00","key":"hidden"}}"#,
         r#"{"\u0064river":"\ud800","driver":"hidden"}"#,
@@ -950,7 +896,6 @@ fn modular_report_matches_native_golden_on_edge_cases() {
         "not a json record",
     ];
     std::fs::write(dir.join("authored-20260711.jsonl"), rows.join("\n")).unwrap();
-    // Captured from the pre-extraction Rust implementation using these rows.
     let expected = format!(
         "the cut — morning read\nworkspace: /tmp/ws\nmanifest: {} · 8 row(s)\n  authored: 8\n  machine: labeled 3 · skipped 1 · timed_out 1 · unverified 3\n  pass rate: 1/3\n  human: KEPT 1 / EDITED 1 / DISCARDED 1 (judged 3)\n  repair trajectories: 1\n  signal density: 8 authored · 3 labeled · 3 judged\n  slices (counts only; observational — not a ranking)\n    driver: A 1,  1, 𐀀 1\n    model: m 2\n    repo: k 2\n    path: rust 3, TS 1, js 1, py 1, ts 1\n    hour: 07h 2, 00h 1",
         dir.display()

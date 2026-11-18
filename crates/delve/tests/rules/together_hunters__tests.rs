@@ -1,7 +1,5 @@
 use super::*;
 
-/// Floor one's entrance (a plain room) as a fight, knight one at its
-/// middle, one hunter of `kind` at `(x, y)`.
 fn with(kind: EnemyKind, x: f32, y: f32) -> Run {
     let mut run = Run::new(33, 1, None);
     run.enter_for_test(0);
@@ -15,7 +13,6 @@ fn with(kind: EnemyKind, x: f32, y: f32) -> Run {
     run
 }
 
-/// Step with knight one held at full health.
 fn hold(run: &mut Run) {
     let hero = run.players.get_mut(&1).unwrap();
     hero.hp = hero.max_hp;

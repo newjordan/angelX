@@ -1,12 +1,3 @@
-"""ComfyUI on the DGX Spark: concept images, only when a job asks for them.
-
-Started over `ssh $KILN_SPARK_SSH` (default `gpu-host`) in the tmux session `comfy` (the wish painter's
-session, so the two share one ComfyUI), tunnelled to 127.0.0.1:18188, and
-stopped by its own script once its log has been quiet for KILN_COMFY_IDLE
-seconds (default 1200). The graph is z-image turbo, as the painter's `turbo`.
-A concept is a reference to look at: it is never the asset, and its colours
-are not the realm's (a realm-ink copy is written beside it).
-"""
 import json
 import os
 import random
@@ -70,7 +61,6 @@ def start():
 
 
 def up():
-    """ComfyUI reachable through the tunnel, started on the Spark if down; seconds it took."""
     with _lock:
         if answers():
             return 0.0
@@ -126,7 +116,6 @@ def turbo(prompt, seed, out, size=1024):
 
 
 def realm_copy(src, out, side=128):
-    """The concept brought to `side` px and the realm's nearest inks: a guide to shapes and values."""
     from PIL import Image
     from ..realm import realm
     pal = realm()

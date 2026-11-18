@@ -11,7 +11,6 @@ fn every_library_weapon_rebuilds_with_its_baked_numbers() {
     for lw in &k.weapons {
         let w = WeaponCreation::from_library(&lw.id).unwrap_or_else(|| panic!("{} has no recipe", lw.id));
         let a = w.assemble().unwrap_or_else(|| panic!("{} does not assemble", lw.id));
-        // Parts sit exactly where the arms assembler put them.
         for rp in &lw.parts {
             let want = (rp.offset[0], rp.offset[1]);
             let found = a
@@ -70,7 +69,6 @@ fn the_picker_offers_only_parts_that_mate_and_every_chain_assembles() {
         }
     }
     assert_eq!(chains, 192, "4 pommels x 3 grips x 4 guards x 4 blades");
-    // Heads of both classes: choosing one re-seats the butt and haft so nothing is left unmated.
     let mut w = WeaponCreation::of_kind(WeaponKind::Haft);
     assert_eq!(w.joint_class(), 8);
     assert_eq!(w.candidates("head").len(), 6, "mace, axe, hammer, club, spear, scythe");
@@ -88,12 +86,10 @@ fn the_picker_offers_only_parts_that_mate_and_every_chain_assembles() {
     assert_eq!(w.chosen("haft").unwrap().part_id, "w5w.haft-long-banded");
     assert!(w.equip("grip", Some("w5w.grip-bone")).is_err(), "a haft has no grip slot");
     assert!(w.equip("haft", Some("w5w.haft-short-wood")).is_err(), "a J8 haft does not mate a J11 head");
-    // Staves and wands: every school's head with every shaft and pommel.
     let staff = WeaponCreation::of_kind(WeaponKind::Staff);
     assert_eq!(staff.candidates("head").len(), 7);
     assert_eq!(staff.candidates("pommel").len() * staff.candidates("haft").len() * 7, 56);
     assert_eq!(WeaponCreation::of_kind(WeaponKind::Wand).candidates("head").len() * 2, 14);
-    // A shield's rim must match the face; a buckler wears none.
     let mut s = WeaponCreation::of_kind(WeaponKind::Shield);
     s.equip("face", Some("w5w.face-round")).unwrap();
     assert!(["w5w.rim-round", "w5w.rim-bone"].contains(&s.chosen("rim").unwrap().part_id.as_str()));
@@ -113,7 +109,6 @@ fn a_haft_cut_keeps_its_joints_on_the_part() {
         assert!(c.cols.iter().all(|&x| (0..w).contains(&x)));
         assert_eq!(c.cols.first(), Some(&0));
         assert_eq!(c.cols.last(), Some(&(w - 1)));
-        // The distal joint (x 164) stays on the last columns, the proximal one (x 5) on the first.
         assert!(c.map(164) >= c.len() - 8 && c.map(164) < c.len());
         assert!(c.map(5) <= 6);
     }
@@ -149,7 +144,6 @@ fn the_budget_blocks_the_seal_and_a_seal_derives_everything() {
     w.validate().unwrap();
     let mut greedy = WeaponCreation::from_library("winged-blade").unwrap();
     assert_eq!(greedy.spent(), 16, "the grandest sword in the lamp is 16 of 20");
-    // Size is power: the same sword with its blade drawn twice as big no longer fits.
     greedy.parts[3].scale = 200;
     assert!(greedy.spent() > WEAPON_BUDGET, "{}", greedy.spent());
     let over = greedy.validate().unwrap_err();
@@ -165,7 +159,6 @@ fn the_budget_blocks_the_seal_and_a_seal_derives_everything() {
     assert!(sealed.art.is_none(), "an unbaked weapon claims no art");
     w.name.clear();
     assert!(w.seal().is_err());
-    // Hand-built recipes cannot smuggle in a part from the wrong chain.
     let mut bad = WeaponCreation::of_kind(WeaponKind::Wand);
     bad.parts[1].part_id = "w5w.head-staff-fire".into();
     assert!(bad.validate().is_err());
@@ -191,10 +184,8 @@ fn a_stretch_never_outlives_the_part_it_was_made_for() {
     let mut w = WeaponCreation::from_library("war-hammer").unwrap();
     w.set_stretch(Some(200)).unwrap();
     w.validate().unwrap();
-    // A shorter haft of the same class takes the longest length it can have, not an error.
     w.equip("haft", Some("w5w.haft-long-wood")).unwrap();
     w.validate().unwrap();
-    // Changing the head re-seats the haft; a wand's tiny shaft never inherits a staff's length.
     let mut staff = WeaponCreation::of_kind(WeaponKind::Staff);
     staff.set_stretch(Some(180)).unwrap();
     staff.equip("haft", Some("w5w.haft-staff-iron")).unwrap();

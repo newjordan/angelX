@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Native room sheets, contiguous rampart and actual half-block/braille cell gates."""
 from pathlib import Path
 import importlib.util,re,sys
 from PIL import Image,ImageDraw

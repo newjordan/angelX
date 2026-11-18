@@ -5,8 +5,6 @@ use super::*;
 use crate::rules::layout::{OPEN_MAX_COLS, OPEN_MAX_ROWS, open_floor};
 use std::collections::VecDeque;
 
-/// A party of `knights` playing (the host's own seat absent when
-/// `absent_host`), on open floor `depth`.
 fn open_run(seed: u64, knights: u32, absent_host: bool, depth: u32) -> Run {
     let mut run = Run::new(seed, 7, None);
     let names = ["Wren", "Bors", "Ysolde"];
@@ -29,7 +27,6 @@ fn map(run: &Run) -> &Room {
     &run.dungeon.rooms[open(run).map]
 }
 
-/// The tiles a knight can stand on, reached from `from` on foot.
 fn reach(room: &Room, from: (f32, f32)) -> Vec<bool> {
     let walk = |t: Tile| matches!(t, Tile::Floor | Tile::Door | Tile::Stairs);
     let (cols, rows) = (room.cols as i32, room.rows as i32);
@@ -75,7 +72,6 @@ fn every_chamber_and_floor_tile_is_reachable_from_the_arrival() {
                     let reached = (y + 1..y + h - 1).any(|r| (x + 1..x + w - 1).any(|c| seen[usize::from(r) * map.cols + usize::from(c)]));
                     assert!(reached, "chamber {i} cannot be walked to");
                 }
-                // Every door off the map is walked to, and leads back.
                 for door in &open.doors {
                     if floor.secret.is_some_and(|s| s.vault == door.room && !s.found) {
                         continue;
@@ -86,8 +82,6 @@ fn every_chamber_and_floor_tile_is_reachable_from_the_arrival() {
                     let back = (usize::from(door.dir) + 2) % 4;
                     assert_eq!(floor.neighbour(door.room, back), Some(open.map), "{:?}", floor.rooms[door.room].kind);
                 }
-                // The guardian's chamber keeps its stairs (but the dragon's
-                // and the last floor's).
                 let g = &open.chambers[usize::from(open.guardian)];
                 if depth < FLOORS || (FLOORS < depth && depth < DEEPEST) {
                     assert_eq!(g.kind, RoomKind::Stairs);
@@ -124,7 +118,6 @@ fn chambers_never_overlap_and_passages_leave_their_walls_standing() {
                     || b.rect.1 + b.rect.3 <= a.rect.1;
                 assert!(apart, "seed {seed}: {:?} and {:?}", a.rect, b.rect);
             }
-            // A chamber's wall is stone but for its mouths and doors.
             let (x, y, w, h) = (i32::from(a.rect.0), i32::from(a.rect.1), i32::from(a.rect.2), i32::from(a.rect.3));
             let ring = (x..x + w).flat_map(|c| [(c, y), (c, y + h - 1)]).chain((y..y + h).flat_map(|r| [(x, r), (x + w - 1, r)]));
             let gaps = ring.filter(|&(c, r)| map.tile(c, r) != Tile::Wall).count();
@@ -132,7 +125,6 @@ fn chambers_never_overlap_and_passages_leave_their_walls_standing() {
             let doors = open.doors.iter().filter(|d| usize::from(d.chamber) == i).count();
             assert!(gaps <= links * 4 + doors * 2, "seed {seed} chamber {i}: {gaps} gaps for {links} passages, {doors} doors");
         }
-        // Rock between chambers reads as wall, never as a pillar.
         assert!(map.tiles_for_test().iter().filter(|&&t| t == Tile::Wall).count() > map.cols * map.rows / 3);
     }
 }
@@ -146,7 +138,6 @@ fn the_companies_wait_dormant_until_a_knight_comes_and_stay_leashed() {
     assert!(run.enemies.iter().all(|e| e.dormant && e.home.is_some()));
     assert_eq!(run.phase, Phase::Exploring);
     assert!(!run.barred(), "nothing bars a door on an open map");
-    // Standing at the arrival, nothing moves and nothing shoots.
     let before: Vec<(f32, f32)> = run.enemies.iter().map(|e| (e.x, e.y)).collect();
     for _ in 0..90 {
         run.step(&BTreeMap::new());
@@ -155,7 +146,6 @@ fn the_companies_wait_dormant_until_a_knight_comes_and_stay_leashed() {
     assert_eq!(before, after, "a dormant company never moves");
     assert!(run.projectiles.iter().all(|p| !p.hostile), "nor shoots");
     assert!(run.enemies.iter().all(|e| e.dormant), "nor wakes for nobody");
-    // A knight walks into a fight chamber: its company wakes; the others sleep on.
     let fight = (0..o.chambers.len()).find(|&i| o.chambers[i].kind == RoomKind::Fight && !o.chambers[i].cleared).unwrap();
     let (cx, cy) = o.chambers[fight].centre();
     let spot = run.open_spots(o.map, (cx, cy + 3.0), 1)[0];
@@ -165,7 +155,6 @@ fn the_companies_wait_dormant_until_a_knight_comes_and_stay_leashed() {
     assert!(run.enemies.iter().filter(|e| e.home == Some(fight as u8)).all(|e| !e.dormant), "the chamber's company wakes");
     assert!(run.enemies.iter().filter(|e| e.home != Some(fight as u8) && !o.chambers[usize::from(e.home.unwrap())].holds(cx, cy, -40.0)).all(|e| e.dormant));
     assert!(run.fighting(), "a fight is on");
-    // The knight runs back to the arrival: the company never follows past its leash.
     let (x0, y0, x1, y1) = o.chambers[fight].bounds();
     for t in 0..300 {
         (run.players.get_mut(&1).unwrap().x, run.players.get_mut(&1).unwrap().y) = o.arrival;
@@ -214,7 +203,6 @@ fn the_guardians_chamber_seals_behind_the_party_and_opens_when_it_falls() {
     }
     assert!(run.players.values().all(|h| sealed.holds(h.x, h.y, 0.0)), "the party is drawn in together");
     assert!(run.open_guarded(), "the stairs wait");
-    // Its company falls: the gates open, the chamber pays.
     for e in run.enemies.iter_mut().filter(|e| e.home == Some(g as u8)) {
         e.hp = 0;
     }
@@ -224,8 +212,6 @@ fn the_guardians_chamber_seals_behind_the_party_and_opens_when_it_falls() {
     assert!(!run.barred() && !run.open_guarded());
 }
 
-/// Each of the guardian chamber's gates with the way in from it: the tile,
-/// and the unit step from its wall toward the chamber's middle.
 fn gates_inward(ch: &layout::Chamber) -> Vec<((u16, u16), (f32, f32))> {
     let (x, y, w, h) = ch.rect;
     ch.gates
@@ -247,9 +233,6 @@ fn gates_inward(ch: &layout::Chamber) -> Vec<((u16, u16), (f32, f32))> {
 
 #[test]
 fn a_knight_stepping_in_at_a_gate_draws_the_party_in_not_out() {
-    // The first knight in stands just past the gate; the rest wait in the
-    // passage behind it. The seal used to set them down round that knight,
-    // the passage too, and shut the gate between the party.
     let mut cases = 0;
     for seed in 0..6u64 {
         for depth in 1..=3 {
@@ -301,8 +284,6 @@ fn a_shut_chamber_nobody_stands_in_opens_again() {
     }
     run.step(&BTreeMap::new());
     assert!(open(&run).chambers[g].sealed);
-    // Knocked out through a gate, the whole party: the guardian's door
-    // must not shut it out of the floor for good.
     let ((c, r), (ix, iy)) = gates_inward(&o.chambers[g])[0];
     let out = ((f32::from(c) + 0.5 - ix * 2.0) * TILE_UNITS, (f32::from(r) + 0.5 - iy * 2.0) * TILE_UNITS);
     let outside = run.open_spots(o.map, out, 2);
@@ -312,7 +293,6 @@ fn a_shut_chamber_nobody_stands_in_opens_again() {
     assert!(run.players.values().all(|h| !o.chambers[g].holds(h.x, h.y, 0.0)));
     run.step(&BTreeMap::new());
     assert!(!open(&run).chambers[g].sealed && !run.barred(), "the gates open for the party outside");
-    // And shut again behind the next knight in, the party with them.
     (run.players.get_mut(&1).unwrap().x, run.players.get_mut(&1).unwrap().y) = inside;
     run.step(&BTreeMap::new());
     let ch = &open(&run).chambers[g];
@@ -362,7 +342,6 @@ fn leaving_the_map_for_a_side_room_and_back_keeps_its_companies() {
     assert_eq!(run.at, door.room, "the door leads into its room");
     assert_eq!(run.room().kind, RoomKind::Treasure);
     assert!(run.enemies.is_empty());
-    // Out its one door again: back on the map, by that door.
     let back = (usize::from(door.dir) + 2) % 4;
     assert_eq!(run.dungeon.neighbour(run.at, back), Some(o.map));
     run.enter(o.map, Some(usize::from(door.dir)));
@@ -388,7 +367,6 @@ fn the_stairs_lead_down_to_another_open_floor() {
             .unwrap()
     };
     let on = ((f32::from(stairs.0) + 0.5) * TILE_UNITS, (f32::from(stairs.1) + 0.5) * TILE_UNITS);
-    // While the guardian lives the stairs go nowhere.
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = on;
     hero.invulnerable = 100_000;
@@ -400,7 +378,6 @@ fn the_stairs_lead_down_to_another_open_floor() {
         e.hp = 0;
     }
     run.step_sim_for_test(&BTreeMap::new());
-    // Off the stairs, then on again.
     let (cx, cy) = o.chambers[g].centre();
     let off = run.open_spots(o.map, (cx, cy - 6.0), 1)[0];
     (run.players.get_mut(&1).unwrap().x, run.players.get_mut(&1).unwrap().y) = off;
@@ -430,7 +407,6 @@ fn a_wheel_spin_or_the_hosts_switch_lays_the_delve_open() {
 
 #[test]
 fn an_old_save_loads_and_an_open_one_round_trips() {
-    // A save from before open floors: none of their fields.
     let run = Run::new(8, 4, Some("Friend"));
     let mut save = serde_json::to_value(&run).unwrap();
     let fields = save.as_object_mut().unwrap();
@@ -440,29 +416,24 @@ fn an_old_save_loads_and_an_open_one_round_trips() {
     let back: Run = serde_json::from_value(save).unwrap();
     assert!(back.valid_snapshot());
     assert!(!back.open_floors && back.dungeon.open.is_none());
-    // An open floor mid-play saves and loads as it was.
     let mut open_one = open_run(8, 2, false, 3);
     for _ in 0..30 {
         open_one.step(&BTreeMap::new());
     }
     assert!(open_one.valid_snapshot());
     let text = serde_json::to_string(&open_one).unwrap();
-    // Within what the cockpit reads back as a checkpoint (2 MiB).
     assert!(text.len() < 1024 * 1024, "an open floor's save is {} bytes", text.len());
     let again: Run = serde_json::from_str(&text).unwrap();
     assert!(again.valid_snapshot());
     assert_eq!(again.dungeon.open, open_one.dungeon.open);
     assert_eq!(again.enemies.len(), open_one.enemies.len());
     assert!(again.enemies.iter().zip(&open_one.enemies).all(|(a, b)| a.dormant == b.dormant && a.home == b.home));
-    // And the wire's tree reads back drawable.
     let tree = crate::wire::publish(&open_one).unwrap();
     let client = crate::wire::read(&tree).unwrap();
     assert!(crate::wire::drawable(&client));
     assert_eq!(client.dungeon.open, open_one.dungeon.open);
 }
 
-/// What a bot does for knight `id` on an open map: shoot what is awake
-/// and near, else walk the way to `goal`.
 pub(crate) fn bot(run: &Run, id: u32, goal: (f32, f32), path: &mut Vec<(i32, i32)>) -> Input {
     let hero = &run.players[&id];
     if hero.hp == 0 || hero.stone {
@@ -470,7 +441,6 @@ pub(crate) fn bot(run: &Run, id: u32, goal: (f32, f32), path: &mut Vec<(i32, i32
     }
     let mut input = Input::default();
     let grid_room = run.room();
-    // In sight: nothing but floor between.
     let sight = |x: f32, y: f32| {
         let d = (x - hero.x).hypot(y - hero.y);
         let n = (d / 0.5).ceil().max(1.0) as i32;
@@ -488,7 +458,6 @@ pub(crate) fn bot(run: &Run, id: u32, goal: (f32, f32), path: &mut Vec<(i32, i32
         .filter(|&(e, d)| d < 22.0 && sight(e.x, e.y))
         .min_by(|a, b| a.1.total_cmp(&b.1));
     if near.is_some() {
-        // A fight: as the balance harness's patient player fights it.
         return crate::rules::balance_sim_tests::bot_input(run, id);
     }
     let here = ((hero.x / TILE_UNITS) as i32, (hero.y / TILE_UNITS) as i32);
@@ -499,8 +468,6 @@ pub(crate) fn bot(run: &Run, id: u32, goal: (f32, f32), path: &mut Vec<(i32, i32
         path.remove(0);
     }
     if let Some(&(c, r)) = path.first() {
-        // Toward the next tile's middle, each way on its own, so a knight
-        // off the line is brought back onto it and never hangs on a corner.
         let axis = |d: f32| if d > 0.25 { 1 } else if d < -0.25 { -1 } else { 0 };
         let (dx, dy) = ((c as f32 + 0.5) * TILE_UNITS - hero.x, (r as f32 + 0.5) * TILE_UNITS - hero.y);
         (input.move_x, input.move_y) = (axis(dx), axis(dy));
@@ -508,22 +475,15 @@ pub(crate) fn bot(run: &Run, id: u32, goal: (f32, f32), path: &mut Vec<(i32, i32
     input
 }
 
-/// What a bot party's walk through an open floor came to.
 #[derive(Debug, Default)]
 struct Walk {
     ticks: u64,
-    /// Chambers whose companies the party put down, of how many.
     cleared: usize,
     chambers: usize,
-    /// Health the knights lost, in percent of one knight's.
     taken: u64,
     sealed: bool,
 }
 
-/// Bots play a whole open floor: from the arrival through the chambers
-/// to the guardian, and down its stairs. The floor is under test, not the
-/// bots' play: what they lose is counted and given back, so a walk always
-/// reaches its end or shows where the floor stops it.
 fn finish_a_floor(seed: u64, knights: u32, absent_host: bool, depth: u32) -> Walk {
     let mut run = open_run(seed, knights, absent_host, depth);
     assert_eq!(run.party_len() as u32, knights);
@@ -535,7 +495,6 @@ fn finish_a_floor(seed: u64, knights: u32, absent_host: bool, depth: u32) -> Wal
     while run.floor() == start && walk.ticks < 30 * 60 * u64::from(HZ) {
         assert_ne!(run.phase, Phase::Wiped, "seed {seed} knights {knights}: the party fell at tick {}", walk.ticks);
         let Some(o) = run.dungeon.open.clone() else { break };
-        // Back onto the map from any side room.
         if run.at != o.map {
             let door = o.doors.iter().find(|d| d.room == run.at).copied();
             run.enter(o.map, door.map(|d| usize::from(d.dir)));
@@ -550,7 +509,6 @@ fn finish_a_floor(seed: u64, knights: u32, absent_host: bool, depth: u32) -> Wal
                 .flat_map(|r| (x..x + w).map(move |c| (c, r)))
                 .find(|&(c, r)| m.tile(i32::from(c), i32::from(r)) == Tile::Stairs)
                 .unwrap();
-            // Step off and back on, should a stair be held.
             let t = walk.ticks;
             let wobble = on_stairs_at.is_some_and(|at| t - at > 60 && (t / 30).is_multiple_of(2));
             ((f32::from(s.0) + 0.5) * TILE_UNITS, (f32::from(s.1) + if wobble { -3.5 } else { 0.5 }) * TILE_UNITS)
@@ -590,9 +548,6 @@ fn finish_a_floor(seed: u64, knights: u32, absent_host: bool, depth: u32) -> Wal
     walk
 }
 
-/// The first floor's breather (`Tune::clear_rest`): a chamber's company put
-/// down mends every knight standing a share of their health; deeper, and
-/// with the knob at 0, it is the game as it was.
 #[test]
 fn a_chamber_won_on_the_first_floor_mends_every_knight_standing() {
     let mended = |depth: u32, rest: Option<u32>| {
@@ -618,18 +573,12 @@ fn a_chamber_won_on_the_first_floor_mends_every_knight_standing() {
 
 #[test]
 fn a_party_of_two_to_four_with_the_host_away_finishes_an_open_floor() {
-    // Four seats: with the host's own absent, three knights at most play.
     for (seed, knights, absent, depth) in [(31u64, 2u32, true, 1u32), (32, 3, true, 1), (33, 4, false, 2)] {
         let walk = finish_a_floor(seed, knights, absent, depth);
         eprintln!("{knights} knights, floor {depth}: down in {:.0} s, {}% of a knight's health taken", walk.ticks as f32 / HZ as f32, walk.taken);
     }
 }
 
-
-/// `cargo test --release open_floor_tick_and_wire_cost -- --ignored --nocapture`:
-/// a tick of a full open floor (four knights, the floor's whole company,
-/// as many awake as may be, all of them fighting) and what the wire sends
-/// a tick.
 #[test]
 #[ignore]
 fn open_floor_tick_and_wire_cost() {
@@ -638,7 +587,6 @@ fn open_floor_tick_and_wire_cost() {
     let mut run = open_run(77, 4, false, 5);
     let o = open(&run).clone();
     println!("map {}x{}, {} chambers, {} foes raised", map(&run).cols, map(&run).rows, o.chambers.len(), run.enemies.len());
-    // Every knight in a different chamber, unhurt, firing.
     let fights: Vec<usize> = (0..o.chambers.len()).filter(|&i| o.chambers[i].kind == RoomKind::Fight).collect();
     for (k, id) in [1u32, 2, 3, 4].into_iter().enumerate() {
         let (cx, cy) = o.chambers[fights[k % fights.len()]].centre();
@@ -695,7 +643,6 @@ fn open_floor_tick_and_wire_cost() {
     );
 }
 
-/// A plain arrow. Hostile ones answer the knights; the rest hunt the company.
 fn air_shot(n: usize, x: f32, y: f32) -> Projectile {
     let ang = n as f32 * 0.37;
     let speed = 6.0 + (n % 5) as f32;
@@ -716,7 +663,6 @@ fn air_shot(n: usize, x: f32, y: f32) -> Projectile {
     }
 }
 
-/// Top the air back up to `MAX_PROJECTILES` from the floor's open spots.
 fn fill_air(run: &mut Run, spots: &[(f32, f32)]) {
     if spots.is_empty() {
         return;
@@ -729,7 +675,6 @@ fn fill_air(run: &mut Run, spots: &[(f32, f32)]) {
     }
 }
 
-/// Hold the measured load: six living knights, every company awake, 384 shots.
 fn hold_host_load(run: &mut Run, hp: &[u32], spots: &[(f32, f32)]) {
     for (e, full) in run.enemies.iter_mut().zip(hp.iter()) {
         e.dormant = false;
@@ -747,10 +692,6 @@ fn hold_host_load(run: &mut Run, hp: &[u32], spots: &[(f32, f32)]) {
     fill_air(run, spots);
 }
 
-/// `cargo test --profile fast --lib open_floor_host_tick_cost -- --ignored --nocapture`:
-/// `Run::step` on the largest open floor (depth 6, six knights, every
-/// company awake, 384 shots in the air) over a few thousand ticks.
-/// Prints mean and p95 per tick.
 #[test]
 #[ignore]
 fn open_floor_host_tick_cost() {
@@ -778,7 +719,6 @@ fn open_floor_host_tick_cost() {
         if e.age < TELEGRAPH {
             e.age = TELEGRAPH;
         }
-        // One tick of the full air must not empty the company.
         e.hp = e.hp.max(200_000);
         hp.push(e.hp);
     }
@@ -820,9 +760,6 @@ fn open_floor_host_tick_cost() {
     );
 }
 
-/// `cargo test --profile fast --lib open_floor_step_allocations -- --ignored --nocapture`:
-/// allocations and bytes asked per `Run::step` on a depth-6 open floor
-/// with six knights, every company awake and a few hundred shots.
 #[test]
 #[ignore]
 fn open_floor_step_allocations() {
@@ -912,11 +849,6 @@ fn open_floor_step_allocations() {
 
 #[test]
 fn a_knight_walking_out_of_a_side_room_stays_out_until_walking_back_in() {
-    // The way back from a side room kept where the knight stood as they
-    // went in: on the door tile itself, so walking out of the Pit or the
-    // Wanted hall put them back on the door and it took them straight in
-    // again ("fix the room walkouts we bounce back on accident",
-    // 2026-10-19).
     let (mut run, door) = (1..32u64)
         .find_map(|seed| {
             let run = open_run(seed, 1, false, 2);
@@ -929,7 +861,6 @@ fn a_knight_walking_out_of_a_side_room_stays_out_until_walking_back_in() {
         let (dx, dy) = DIRS[dir];
         BTreeMap::from([(1, Input { move_x: dx as i8, move_y: dy as i8, ..Input::default() })])
     };
-    // Up to the door and through it, as a player walks.
     let (lx, ly) = door.landing();
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (lx, ly);
@@ -941,7 +872,6 @@ fn a_knight_walking_out_of_a_side_room_stays_out_until_walking_back_in() {
     }
     assert_eq!(run.at, door.room, "the door leads into the Pit");
     run.clear_for_test();
-    // Out its doorway again, the way back held.
     let back = (usize::from(door.dir) + 2) % 4;
     for _ in 0..HZ * 4 {
         if run.at == o.map {
@@ -953,7 +883,6 @@ fn a_knight_walking_out_of_a_side_room_stays_out_until_walking_back_in() {
     let hero = &run.players[&1];
     let tile = map(&run).tile((hero.x / TILE_UNITS) as i32, (hero.y / TILE_UNITS) as i32);
     assert_ne!(tile, Tile::Door, "out by the door, not on it");
-    // Left alone, or still walking away, the knight stays out.
     for _ in 0..HZ * 2 {
         run.step(&BTreeMap::new());
     }
@@ -961,7 +890,6 @@ fn a_knight_walking_out_of_a_side_room_stays_out_until_walking_back_in() {
         run.step(&walk(back));
     }
     assert_eq!(run.at, o.map, "no bounce back into the Pit");
-    // Walking back to the door on purpose still goes in.
     for _ in 0..HZ * 4 {
         if run.at == door.room {
             break;
@@ -973,9 +901,6 @@ fn a_knight_walking_out_of_a_side_room_stays_out_until_walking_back_in() {
 
 #[test]
 fn holding_west_out_of_a_side_on_hall_by_a_west_door_does_not_walk_back_in() {
-    // A side-on hall is left west, by its one low doorway, whichever wall
-    // of its chamber its door is in. Out by a west door the knight still
-    // held west, and walked onto the door and back in.
     let (mut run, door) = (1..48u64)
         .find_map(|seed| {
             let run = open_run(seed, 1, false, 2);
@@ -1021,16 +946,10 @@ fn holding_west_out_of_a_side_on_hall_by_a_west_door_does_not_walk_back_in() {
     assert_eq!(run.at, door.room, "a fresh press walks back in");
 }
 
-/// How long a company may keep the party before the sweep puts it down,
-/// so a slow fight is not mistaken for a floor that will not end.
 const SOFTLOCK_FIGHT: u64 = 5 * HZ as u64;
-/// No new tile, and no cleared chamber, for this long: the run is sitting.
 const SOFTLOCK_STALL: u64 = 12 * HZ as u64;
-/// A floor that has not reached its stairs by here is not going to.
 const SOFTLOCK_BUDGET: u64 = 8 * 60 * HZ as u64;
 
-/// Keep one uncleared chamber until it is cleared, so a knight on the
-/// boundary of two does not turn around every tick and stand still.
 fn softlock_aim(run: &Run, aim: &mut Option<u8>) -> Option<u8> {
     if let Some(i) = *aim {
         let still = run.dungeon.open.as_ref().is_some_and(|o| {
@@ -1070,8 +989,6 @@ fn softlock_goal_home(run: &Run) -> Option<u8> {
         })
         .map(|(i, _)| i as u8)
 }
-/// Where the sweep is trying to stand: the nearest uncleared chamber, or
-/// the stairs once the guardian's company is down.
 fn softlock_goal(run: &Run) -> Option<(f32, f32)> {
     let o = run.dungeon.open.as_ref()?;
     let hero = run.players.values().find(|h| h.hp > 0 && !h.stone && !h.absent)?;
@@ -1117,8 +1034,6 @@ fn softlock_on_stairs(run: &Run) -> bool {
     })
 }
 
-/// The floor's way on: down the stairs, onto them, or home. The last floor
-/// lays no stairs; clearing its chambers is its end.
 fn softlock_done(run: &Run, start: u32, depth: u32) -> bool {
     if run.floor() > start || run.phase == Phase::Won || softlock_on_stairs(run) {
         return true;
@@ -1158,7 +1073,6 @@ fn lead_tile(run: &Run) -> (i32, i32) {
         .unwrap_or((0, 0))
 }
 
-/// A seat that can still walk, so a parked knight is never the only one.
 fn park_a_seat(run: &mut Run) {
     let ids: Vec<u32> = run.players.iter().filter(|(_, h)| h.hp > 0 && !h.absent).map(|(&id, _)| id).collect();
     let walkers: Vec<u32> = ids.iter().copied().filter(|&id| !run.away(id)).collect();
@@ -1181,9 +1095,6 @@ fn way_out(run: &Run) -> (i8, i8) {
     .unwrap_or((0, 0))
 }
 
-/// Foes the party has been trying to clear for too long go down, so the sweep
-/// measures the floor and not how long a company takes to fall. Killing them
-/// does not clear the chamber: a knight still has to walk in.
 fn put_down_lingering(run: &mut Run, t: u64, fight_at: &mut Option<(u64, Option<u8>)>, goal_home: Option<u8>) {
     let started = match *fight_at {
         Some((at, h)) if h == goal_home => at,
@@ -1209,7 +1120,6 @@ fn put_down_lingering(run: &mut Run, t: u64, fight_at: &mut Option<(u64, Option<
     *fight_at = None;
 }
 
-/// One seeded floor, played by the sweep's bots. `Err` is a softlock.
 fn walk_open_floor(seed: u64, knights: u32, absent_host: bool, seat_away: bool, depth: u32) -> Result<(), String> {
     let mut run = open_run(seed, knights, absent_host, depth);
     if seat_away {
@@ -1254,8 +1164,6 @@ fn walk_open_floor(seed: u64, knights: u32, absent_host: bool, seat_away: bool, 
                     let path = paths.entry(id).or_default();
                     path.clear();
                     let mut input = bot(&run, id, goal, path);
-                    // A key held out of a doorway walks nowhere until it is
-                    // let go. A bot that never releases it stands forever.
                     if t > stall_at + 8 && (t - stall_at).is_multiple_of(12) {
                         input.move_x = 0;
                         input.move_y = 0;
@@ -1314,12 +1222,6 @@ fn walk_open_floor(seed: u64, knights: u32, absent_host: bool, seat_away: bool, 
     ))
 }
 
-/// Seeded open floors with simple bots: walk `open_path` to the nearest
-/// uncleared chamber, fire at the nearest foe, and put down a company that
-/// will not fall. A softlock is a sealed guardian with nobody living inside,
-/// a phase that never ends, or a floor that never reaches its stairs.
-///
-/// `OPEN_SOFTLOCK_SEEDS` overrides the seed count (default 40).
 #[test]
 #[ignore]
 fn seeded_open_floors_do_not_softlock() {
@@ -1344,8 +1246,6 @@ fn seeded_open_floors_do_not_softlock() {
     }
 }
 
-/// A deepest open floor with a full party round-trips through the compact
-/// tile run, and a save that still lists tile names loads to the same cells.
 #[test]
 fn save_round_trips_and_old_tile_lists_still_load() {
     let mut run = Run::new(11, 7, None);
@@ -1365,9 +1265,6 @@ fn save_round_trips_and_old_tile_lists_still_load() {
     assert_eq!(serde_json::to_vec(&back).unwrap(), compact, "the run round-trips exactly");
 
     let old = crate::rules::layout::expand_saved_tiles(&String::from_utf8(compact.clone()).unwrap());
-    // The compact run spares at least four bytes a cell. (Measured per cell,
-    // not as half the save: the run's own book now outweighs its map since
-    // the 10-30 catalogue grew to two hundred more cards.)
     assert!(old.len() > compact.len() + cells.len() * 4, "old {} compact {} cells {}", old.len(), compact.len(), cells.len());
     let from_old: Run = serde_json::from_str(&old).unwrap();
     assert_eq!(from_old.dungeon.rooms[map].tiles_for_test(), cells.as_slice());
@@ -1388,7 +1285,6 @@ fn save_round_trips_and_old_tile_lists_still_load() {
     assert!(run_tiles.is_string(), "the open map is one run, not a list of names");
     assert!(run_tiles.as_str().unwrap().len() < 8_000);
 
-    // A save written before the run: names, not glyphs. Every cell kind is here.
     let raw = r#"{"cell":[1,2],"kind":"fight","doors":[true,false,false,true],"cols":8,"rows":1,"tiles":["wall","floor","block","hazard","door","stairs","ledge","bog"],"visited":true,"cleared":false,"roster":[],"items":[],"chest":null}"#;
     let room: Room = serde_json::from_str(raw).unwrap();
     assert_eq!(

@@ -2,20 +2,6 @@ import Base
 import ./sl.bend as S
 import ./math.bend as M
 
-# The session's header slots (see rs.bend for the whole layout):
-#
-#   0..18     elapsed, the Dimming, the posts lit, how many sat down, the warden's
-#             shrug, the bell (a flag and its tick), paid, again, and the tally
-#             (a flag, then its nine numbers)
-#   19..30    each knight's tally score (19 + id - 1), and a flag that it has one
-#   31..35    the five numbers the host hands in each tick
-#   36, 37..  how many sounds the tick made, and the sounds
-#   106       how many foes there are; 108 is the sparks counter a tick keeps
-#   112..117  which knights are here and awake (111 + id)
-#   120..155  what each knight pressed: run, down, aim down, interact, dash, fire
-#   160..189  where everyone stood at the start of a tick: five slots a knight
-#   192..197  a bot's settings (bot.bend)
-
 def elapsed(+t: S.Sl) -> U32:
   S.g(t, 0)
 
@@ -130,10 +116,6 @@ def t_best(+t: S.Sl) -> U32:
 def set_t_best(+t: S.Sl, +v: U32) -> S.Sl:
   S.p(t, 18, v)
 
-# ---- the sounds a tick makes -------------------------------------------------
-# Slot 36 counts them and 37.. holds them in the order they were made; a sound
-# is the index of its name in `SOUNDS` (crates/delve/src/rules/lightgallop.rs).
-
 def snd(+t: S.Sl, +code: U32) -> S.Sl:
   +n = S.g(t, 36)
   S.pks((n < 63 : U32), S.p(S.p(t, (37 + n : U32), code), 36, (n + 1 : U32)), t)
@@ -213,11 +195,9 @@ def k_shield_up() -> U32:
 def k_chest_open() -> U32:
   26
 
-# The sounds of a chain of lance-locks, rising a step with each link.
 def k_chain(+n: U32) -> U32:
   M.pk(11, M.pk(12, M.pk(13, M.pk(14, 15, M.eq(n, 3)), M.eq(n, 2)), M.eq(n, 1)), M.eq(n, 0))
 
-# The five numbers the host hands in each tick.
 def slope_of(+t: S.Sl) -> U32:
   S.g(t, 31)
 

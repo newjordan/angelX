@@ -25,7 +25,6 @@ fn press(id: u32) -> Keys {
     BTreeMap::from([(id, Input { interact: true, ..Default::default() })])
 }
 
-/// The frames of one scene on disk.
 struct Reel {
     dir: PathBuf,
     n: u32,
@@ -60,7 +59,6 @@ impl Reel {
     }
 }
 
-/// Step `skip` ticks unseen, then record `ticks` ticks, a frame every second one.
 fn play(
     root: &Path,
     game: &str,
@@ -87,7 +85,6 @@ fn join(r: &mut Run, seats: u32) {
     }
 }
 
-/// A seated room game: the party joins, knight one presses E, the game opens.
 fn room_game(mut r: Run, seats: u32, open: impl Fn(&Run) -> bool) -> Run {
     join(&mut r, seats);
     r.step(&press(1));
@@ -106,14 +103,12 @@ fn hash(a: u32, b: u32) -> u32 {
     h ^ (h >> 13)
 }
 
-/// A knight who wanders: a new heading every `hold` ticks.
 fn wander(id: u32, t: u32, hold: u32) -> Input {
     let h = hash(id, t / hold);
     let (x, y) = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)][(h % 8) as usize];
     Input { move_x: x, move_y: y, ..Default::default() }
 }
 
-/// Aim at the nearest foe and shoot.
 fn gunner(r: &Run, id: u32) -> Input {
     let Some(me) = r.players.get(&id) else { return Input::default() };
     let near = r.enemies.iter().min_by(|a, b| {
@@ -141,17 +136,14 @@ fn write_audit_shots() {
     let root = PathBuf::from(root);
     std::fs::create_dir_all(&root).unwrap();
 
-    // Latch Duel: read the hook, counter the beat.
     if want("latch") {
         let mut r = room_game(Run::latch_for_test(), 4, |r| r.latch.is_some());
         play(&root, "latch", &mut r, &[1, 2], 0, 240, |r, _| {
             r.latch.as_ref().map_or_else(Keys::new, |s| s.duels.iter().map(|(&id, d)| (id, d.bot_input(1 + id % 3))).collect())
         });
     }
-    // Cinder Stack.
     if want("cinder") {
         let mut r = room_game(Run::cinder_for_test(), 4, |r| r.cinder.is_some());
-        // The bot at an eighth of its speed: at full speed it cracks the kiln in four seconds.
         play(&root, "cinder", &mut r, &[1, 2], 0, 420, |r, t| {
             if t % 8 != 0 {
                 return Keys::new();
@@ -159,14 +151,12 @@ fn write_audit_shots() {
             r.cinder.as_ref().map_or_else(Keys::new, |s| s.boards.iter().map(|(&id, b)| (id, b.bot_input())).collect())
         });
     }
-    // Mossbell.
     if want("mossbell") {
         let mut r = room_game(Run::mossbell_for_test(), 4, |r| r.mossbell.is_some());
         play(&root, "mossbell", &mut r, &[1, 2], 0, 300, |r, _| {
             r.mossbell.as_ref().map_or_else(Keys::new, |s| s.tables.iter().map(|(&id, t)| (id, t.bot_input())).collect())
         });
     }
-    // Pennon Rush.
     if want("pennon") {
         use crate::rules::pennon::LENGTH;
         let mut r = room_game(Run::pennon_for_test(), 4, |r| r.pennon.is_some());
@@ -174,7 +164,6 @@ fn write_audit_shots() {
             r.pennon.as_ref().map_or_else(Keys::new, |s| s.lanes.iter().map(|(&id, l)| (id, l.bot_input(LENGTH - s.left))).collect())
         });
     }
-    // Rafterwake.
     if want("rafterwake") {
         use crate::rules::rafterwake::LENGTH;
         let mut r = room_game(Run::rafterwake_for_test(), 4, |r| r.rafterwake.is_some());
@@ -182,7 +171,6 @@ fn write_audit_shots() {
             r.rafterwake.as_ref().map_or_else(Keys::new, |s| s.lanes.iter().map(|(&id, l)| (id, l.bot_input(LENGTH - s.left))).collect())
         });
     }
-    // Brasswake.
     if want("brasswake") {
         use crate::rules::brasswake::LENGTH;
         let mut r = room_game(Run::brasswake_for_test(), 4, |r| r.brasswake.is_some());
@@ -191,7 +179,6 @@ fn write_audit_shots() {
         });
     }
 
-    // The Round Table: each adventure's own bot, every seat at once.
     for game in ["bannerpeak", "lightgallop", "griffinwing"] {
         if !want(game) {
             continue;
@@ -205,7 +192,6 @@ fn write_audit_shots() {
         });
     }
 
-    // Forest Road: four knights, the captors' machines.
     if want("forest_road") {
         let mut r = Run::forest_road_for_test();
         join(&mut r, 4);
@@ -216,8 +202,6 @@ fn write_audit_shots() {
         });
     }
 
-    // The follies of the delve: a hall that plays like another game.
-    // The Wax Maze (floor one's folly).
     if want("wax_maze") {
         let mut r = Run::new(41, 1, None);
         join(&mut r, 4);
@@ -231,7 +215,6 @@ fn write_audit_shots() {
             r.players.keys().map(|&id| (id, wander(id, t, 14))).collect::<Keys>()
         });
     }
-    // The Belfry Shoot (the even floors' folly).
     if want("belfry_shoot") {
         let mut r = Run::new(41, 1, None);
         r.descend_for_test();
@@ -242,12 +225,10 @@ fn write_audit_shots() {
             h.carried.add(Spoil::Gold, 40);
         }
         r.enter_for_test(r.folly_room.expect("a hall on floor two"));
-        // Past the title, into the first flocks.
         play(&root, "belfry_shoot", &mut r, &[1, 2], folly::TITLE - 20, 330, |r, _| {
             r.players.keys().map(|&id| (id, gunner(r, id))).collect()
         });
     }
-    // The Powder Room (the third floors' folly).
     if want("powder") {
         let mut r = first_run(|seed| {
             let mut r = Run::new(seed, 1, None);
@@ -260,7 +241,6 @@ fn write_audit_shots() {
         r.pick_folly();
         r.enter_for_test(r.folly_room.expect("a hall"));
         play(&root, "powder", &mut r, &[1, 2], 0, 420, |r, t| {
-            // Each knight walks in from their corner, drops a keg, backs off, and goes round again.
             let (cx, cy) = (r.room().width() / 2.0, r.room().height() / 2.0);
             r.players
                 .iter()
@@ -273,7 +253,6 @@ fn write_audit_shots() {
                 .collect::<Keys>()
         });
     }
-    // Book Hop (the sixth floors' folly).
     if want("book_hop") {
         let mut r = first_run(|seed| {
             let mut r = Run::new(seed, 1, None);
@@ -297,7 +276,6 @@ fn write_audit_shots() {
                 
         });
     }
-    // The Keg Gantry (the side-on hall).
     if want("keg_gantry") {
         let mut r = first_run(|seed| {
             let r = Run::new(seed, 1, None);
@@ -307,7 +285,6 @@ fn write_audit_shots() {
         r.enemies.clear();
         r.pick_gantry();
         r.enter_for_test(r.gantry_room.expect("the gantry hall"));
-        // Seat one climbs at a steady pace, the rest dither: the game ends in seconds if all four climb well.
         play(&root, "keg_gantry", &mut r, &[1, 2], 0, 420, |r, t| {
             r.players
                 .keys()
@@ -321,7 +298,6 @@ fn write_audit_shots() {
         });
     }
 
-    // The races: one hall, three 3D courses.
     for (game, course) in [
         ("race3d_ball", race3d::Course::Shaft),
         ("race3d_cart", race3d::Course::Cart),
@@ -355,7 +331,6 @@ fn write_audit_shots() {
         });
     }
 
-    // The Hippodrome's chariot race (the stable's coach plate).
     if want("chariot") {
         let mut r = Run::at_home(7, 1, Some("Gawain"), Default::default(), Default::default());
         join(&mut r, 4);
@@ -376,7 +351,6 @@ fn write_audit_shots() {
         });
     }
 
-    // The lists: two knights joust, the rest wager from the gallery.
     if want("joust") {
         let mut r = Run::at_home(7, 1, Some("Gawain"), Default::default(), Default::default());
         join(&mut r, 4);
@@ -413,7 +387,6 @@ fn write_audit_shots() {
         });
     }
 
-    // The Griffin Eyrie: the yard, the perch, then a free flight down the gorge.
     if want("eyrie") {
         let mut home = home::Home::default();
         home.deepest = 1;
@@ -438,7 +411,6 @@ fn write_audit_shots() {
         });
     }
 
-    // Fortune's wheel: the lever held, the wheel spun.
     if want("fortune") {
         let mut home = home::Home { deepest: 3, ..home::Home::default() };
         home.levels.insert(home::Station::Wheel, 3);
@@ -454,7 +426,6 @@ fn write_audit_shots() {
         play(&root, "fortune", &mut r, &[1, 2], 0, 300, |_, _| press(1));
     }
 
-    // The Eastern high roads' pigeon post (`aerie.rs`).
     if want("pigeon_post") {
         use crate::rules::aerie as a;
         let mut r = Run::at_home(7, 1, None, Default::default(), Default::default());
@@ -477,7 +448,6 @@ fn write_audit_shots() {
         });
     }
 
-    // The Swamp of Horrors: floor one, a bog hand and its friends.
     if want("swamp") {
         let mut r = Run::new(11, 1, None);
         r.begin_in(Pack::Swamp);
@@ -494,7 +464,6 @@ fn write_audit_shots() {
         });
     }
 
-    // The Ranch: the barn, the rail, the paddock; knights walk the yard.
     if want("ranch") {
         let mut r = Run::at_home(23, 1, Some("Rider"), home::Home::default(), Default::default());
         r.come_to_the_gate();
@@ -505,7 +474,6 @@ fn write_audit_shots() {
         });
     }
 
-    // The Sozzled Griffin: the hall, the dartboard, the arm-wrestling table.
     if want("alehouse") {
         let mut r = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
         join(&mut r, 4);
@@ -517,7 +485,6 @@ fn write_audit_shots() {
         });
     }
 
-    // The Deep: a village below the Unknown, the star fallen.
     if want("deep") {
         let mut r = Run::new(41, 1, None);
         join(&mut r, 4);
@@ -533,8 +500,6 @@ fn write_audit_shots() {
         });
     }
 
-    // Lanternward: its rules run in the Bend module, so the test build plays
-    // none. This is the module's recorded moments, a second of each.
     if want("lanternward") {
         let moments = [
             ("new", 1), ("slash3", 1), ("lamp-wave", 2), ("gallery-tell", 1), ("vault", 1),
@@ -552,8 +517,6 @@ fn write_audit_shots() {
         println!("lanternward: {} frames (recorded moments)", reel.n);
     }
 
-    // Moonfall: its rules run in the Bend module too, so this is the town
-    // posed, the clock turned a half hour a frame and the knights walking.
     if want("moonfall") {
         use moonfall::{clock, state::{Knight, SPAWN, Seat}};
         let mut r = Run::moonfall_for_test();
@@ -584,9 +547,6 @@ fn write_audit_shots() {
     }
 }
 
-/// A knight who keys the obvious things: forward, middle, hop the drift,
-/// switch off an ending line, jump what is ahead, fly round the stone
-/// (`together_race3d__tests::autopilot`, which is private to that module).
 fn autopilot(run: &Run, id: u32) -> Input {
     use race3d::{Course, Ground, ItemKind, drift_bot, laid, rotten, track, ROT};
     let r = run.race3d.as_ref().unwrap();

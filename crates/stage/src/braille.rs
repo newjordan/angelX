@@ -2,7 +2,6 @@
 //! cell takes the dot pattern that best keeps its own light/dark split), and
 //! the graded converter the ride, the crawl and the art kit draw through.
 
-/// Deliberately small palette shared by terminal-native visualizations.
 pub const DMD_PALETTE: [[u8; 3]; 8] = [
     [0, 0, 0],
     [86, 232, 255],
@@ -42,44 +41,21 @@ impl ColoredBrailleImage {
     }
 }
 
-/// One pixel as the braille fitter sees it.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DotSample {
-    /// Brightness after the caller's tone curve, 0..1. Structure is read
-    /// from this.
     pub luma: f32,
-    /// How much ink a flat fill of this pixel deserves, 0..1.
     pub level: f32,
-    /// Its colour.
     pub rgb: [f32; 3],
 }
 
-/// Below this a pixel is true black and never draws a dot.
 const DOT_FLOOR: f32 = 0.07;
-/// Dim haze falls into terminal black in the tonal 3D bridge, instead of
-/// leaving a full rectangle of barely lit sky or mine fog.
 const WORLD_DOT_FLOOR: f32 = 0.14;
 
-/// A cell whose brightness spans less than this (or less than this share
-/// of its brightest pixel) is a flat fill, not an edge.
 const DOT_FLAT: f32 = 0.16;
 const DOT_FLAT_SHARE: f32 = 0.45;
 
-/// Within this of the threshold a pixel follows the edge beside it.
 const DOT_EDGE: f32 = 0.035;
 
-/// Structure-aware braille: for each two-by-four cell, the dot pattern that
-/// best reproduces the cell's own light/dark split, so a shape keeps its
-/// outline instead of becoming dot density.
-///
-/// - A dot is on where the pixel is brighter than a mix of the cell's mean,
-///   its neighbours' mean and the midpoint of its own range.
-/// - True black (below an absolute floor) is always empty.
-/// - A pixel sitting on the threshold copies the decision of the pixel to its
-///   left (else above), so edges run on across cells.
-/// - Only a genuinely flat cell falls back to ordered dither of its level.
-///
-/// Returns, per cell, the dot bits and the mean colour of the on-pixels.
 pub fn fit_braille(
     cells_w: usize,
     cells_h: usize,
@@ -88,8 +64,6 @@ pub fn fit_braille(
     fit_braille_tonal(cells_w, cells_h, sample, false)
 }
 
-/// 3D flat planes carry value in their ink instead of checker density. The
-/// edge fitter still supplies the exact local silhouette and occlusion split.
 pub fn fit_braille_tonal(
     cells_w: usize,
     cells_h: usize,
@@ -146,9 +120,6 @@ pub fn fit_braille_tonal(
                     } else if flat && tonal {
                         true
                     } else if flat {
-                        // A flat fill is drawn solid once it is more than
-                        // dim, so its colour carries the value; only the
-                        // darkest fills thin out, and never into a mesh.
                         let e = ((p.level - DOT_FLOOR) / 0.25).clamp(0.0, 1.0);
                         e * e * (3.0 - 2.0 * e) > dot_bayer(x, y)
                     } else if (p.luma - threshold).abs() < DOT_EDGE {
@@ -180,7 +151,6 @@ pub fn fit_braille_tonal(
     out
 }
 
-/// The 8x8 ordered threshold for flat fills, in 0..1.
 fn dot_bayer(x: usize, y: usize) -> f32 {
     const B: [[u8; 8]; 8] = [
         [0, 32, 8, 40, 2, 34, 10, 42],

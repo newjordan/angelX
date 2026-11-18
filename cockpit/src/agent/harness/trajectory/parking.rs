@@ -18,7 +18,6 @@ fn receipt_digest(content: &str) -> Option<&str> {
     valid_digest(digest).then_some(digest)
 }
 
-/// Resolve and verify the original bytes; never treat a pathname or byte count as recovery.
 fn resolve(root: &Path, digest: &str) -> io::Result<Vec<u8>> {
     if !valid_digest(digest) {
         return Err(io::Error::new(
@@ -54,8 +53,6 @@ fn original_body(root: &Path, content: &str) -> io::Result<(String, Vec<u8>)> {
     Ok((hash, stored))
 }
 
-/// Persist before replacement. On an I/O failure the caller keeps the body in history.
-/// Retention is independent of trajectory logging: every replacement has a durable original.
 pub(crate) fn park_tool_result(
     message: &ChatMsg,
     retained: &str,
@@ -64,8 +61,6 @@ pub(crate) fn park_tool_result(
     let root = trajectory_dir();
     let directory = PrivateDirectory::open(&root.join("evidence"))?;
     directory.secure_owner_only()?;
-    // Text in tool output is untrusted. Only a store-authored association for
-    // this exact receipt body can identify a previously parked original.
     let (digest, original) = original_body(&root, &message.content)?;
     let replacement = if retained.is_empty() {
         String::new()
@@ -74,9 +69,6 @@ pub(crate) fn park_tool_result(
     } else {
         format!("{retained} [{MARKER}{digest}]")
     };
-    // The durable digest is part of the model-facing receipt. A nominally
-    // shorter summary can become larger than the original once it is added.
-    // Keep the original, and do not emit a parking event for a no-op.
     if !retained.is_empty() && replacement.len() >= message.content.len() {
         return Ok(message.content.to_string());
     }
@@ -121,7 +113,6 @@ pub(crate) fn park_tool_result(
             "tool_call_id":message.tool_call_id, "digest_sha256":digest,
             "original_bytes":original.len(), "retained_bytes":replacement.len(), "reason":reason,
             "turn_id":ledger.turn_id, "ts_ms":now_ms()});
-        // Independent journal survives compaction and absence of a final turn record.
         let mut journal = directory.append("parking-events.jsonl".as_ref())?;
         let _lock = TRAJECTORY_WRITE_LOCK
             .lock()
@@ -144,7 +135,6 @@ pub(crate) fn park_compaction_window(messages: &[ChatMsg], note: &str) -> io::Re
         let (digest, _) = original_body(&trajectory_dir(), &message.content)?;
         digests.insert(digest);
     }
-    // Carry references from earlier compaction summaries through repeated compaction.
     for message in messages.iter().filter(|m| m.role == ChatRole::Harness) {
         for suffix in message.content.split(MARKER).skip(1) {
             if let Some(digest) = suffix.get(..64).filter(|digest| valid_digest(digest)) {

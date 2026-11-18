@@ -2,9 +2,6 @@ use super::*;
 
 #[test]
 fn compiled_original_routing_golden_covers_term_combinations() {
-    // Digest captured from the compiled pre-migration classifier and shelf
-    // selector, with all individual terms, every ordered pair, and all eight
-    // disciplines (including the two Unicode/nonmatching cases).
     let routing = capture(None).unwrap();
     let terms = routing
         .classify

@@ -8,7 +8,6 @@ fn seat() -> (i32, i32) {
     (NATIVE_W, NATIVE_H + BAND_H + HUD_H)
 }
 
-/// Two knights in the swamp: floor `depth`, the plate's way down.
 fn swamp_run(seed: u64, depth: u32) -> Run {
     let mut run = Run::at_home(seed, 1, Some("Squire"), Home::default(), Default::default());
     run.begin_in(Pack::Swamp);
@@ -18,8 +17,6 @@ fn swamp_run(seed: u64, depth: u32) -> Run {
     run
 }
 
-/// A foggy fight of the swamp's `depth`, a bog hand rippling, a drowned
-/// knight with its blade up and a wisp luring.
 fn foggy_fight(depth: u32) -> Run {
     let mut run = swamp_run(4, depth);
     let room = (0..run.dungeon.rooms.len())
@@ -63,7 +60,6 @@ fn swamp_frames_draw_in_the_palette_and_the_fog_darkens_only_its_patches() {
     clear.dungeon.pack = Pack::Crypt;
     let lit = frame(&clear, 384, 224);
     assert!(a != lit, "the swamp's fog and mire are drawn");
-    // The pen with the white horse in it, and the Marsh's plate, draw too.
     let mut hall = swamp_run(5, swamp::FLOORS);
     let i = hall.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Stairs).unwrap();
     hall.enter(i, Some(2));
@@ -95,7 +91,6 @@ fn write_swamp_shots() {
         .unwrap();
     };
     let (w, h) = seat();
-    // 1. The plate in Sir Damp's Marsh, a knight reading its notice.
     let mut run = Run::at_home(23, 1, Some("Squire"), Home::default(), Default::default());
     run.come_to_the_gate();
     let marsh = world::room_of(&run.dungeon, RoomKind::Marsh).unwrap();
@@ -107,12 +102,10 @@ fn write_swamp_shots() {
     run.step(&BTreeMap::from([(1, Input { interact: true, ..Default::default() })]));
     run.tick = 60;
     save("01-marsh-plate", &seat_scene(&run, w, h, Some(1)).compose());
-    // 2. A swamp fight: bog, fog, and the horrors' tells.
     for depth in [1, 2] {
         let run = foggy_fight(depth);
         save(&format!("02-swamp-floor{depth}-bog-fog"), &seat_scene(&run, w, h, Some(1)).compose());
     }
-    // 3. The Mire King's hall: the King, the pen with the white horse.
     let mut hall = swamp_run(5, swamp::FLOORS);
     let i = hall.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Stairs).unwrap();
     hall.enter(i, Some(2));
@@ -127,7 +120,6 @@ fn write_swamp_shots() {
     let hero = hall.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (pen.x - 2.0, pen.y + 3.0);
     save("03-mire-king-pen", &seat_scene(&hall, w, h, Some(1)).compose());
-    // 4. He falls; the pen opens and she walks out; the light home.
     hall.clear_for_test();
     let hero = hall.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (pen.x, pen.y + 2.0);
@@ -135,7 +127,6 @@ fn write_swamp_shots() {
         hall.step(&BTreeMap::from([(1, Input { interact: true, ..Default::default() })]));
     }
     save("04-pen-open-light-home", &seat_scene(&hall, w, h, Some(1)).compose());
-    // 5. In the herd, at grass in the Flower Fields.
     let mut home = Home::default();
     home.stable.herd.push(swamp::white_horse());
     let mut fields = Run::at_home(23, 1, Some("Squire"), home, Default::default());

@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Sourced after launcher configuration. By default, configured API providers
-# remain available. An operator can restrict them with ANGEL_API_CLUBS.
-# Credential files and OAuth stores are never modified here.
 
 _angel_api_clubs_normalized="$(printf '%s' "${ANGEL_API_CLUBS:-}" | tr '[:upper:]' '[:lower:]')"
 
@@ -51,6 +48,9 @@ if ! _angel_api_club_enabled openrouter; then
 fi
 if ! _angel_api_club_enabled anthropic; then
   unset ANGEL_ANTHROPIC_KEY ANTHROPIC_API_KEY
+fi
+if ! _angel_api_club_enabled carbon; then
+  unset ANGEL_CARBON_KEY GEMINI_API_KEY
 fi
 unset -f _angel_api_club_enabled
 unset _angel_api_clubs_normalized

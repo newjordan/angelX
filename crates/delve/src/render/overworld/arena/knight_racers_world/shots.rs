@@ -14,8 +14,6 @@ pub(super) fn save(dir: &std::path::Path, name: &str, im: &Img) {
     image::save_buffer(dir.join(name), &im.rgba_bytes(), 384, 224, image::ColorType::Rgba8).unwrap();
 }
 
-/// The six pods of a session, posed as `layers` poses them (no lens close
-/// enough to shrink one: these cameras are wide).
 pub(super) fn pack(s: &rules::Session) -> Mesh {
     let mut movers = Mesh::new();
     for (&other, c) in &s.cars {
@@ -24,7 +22,6 @@ pub(super) fn pack(s: &rules::Session) -> Mesh {
     movers
 }
 
-/// One frame from any camera, through the same raster and dots as the race.
 pub(super) fn view_frame(s: &rules::Session, at: f32, view: &View3) -> Img {
     let track = super::gather_view(super::route::current(), at, s.ticks, view.pos, view.heading_rad, 3.0, &mut Default::default());
     let movers = pack(s);
@@ -45,6 +42,8 @@ pub(super) fn course_id() -> rules::CourseId {
         Some("1" | "emberfall") => rules::CourseId::Emberfall,
         Some("2" | "glassway") => rules::CourseId::Glassway,
         Some("3" | "moatwalk") => rules::CourseId::Moatwalk,
+        Some("4" | "moonward") => rules::CourseId::Moonward,
+        Some("5" | "sunfall") => rules::CourseId::Sunfall,
         _ => rules::CourseId::Proving,
     }
 }
@@ -60,7 +59,6 @@ fn world_shots() {
     let lap = rules::course(id).lap();
     let every: u32 = std::env::var("ANGEL_PODRACER_EVERY").ok().and_then(|v| v.parse().ok()).unwrap_or(8);
     let laps: f32 = std::env::var("ANGEL_PODRACER_LAPS").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0);
-    // Establishing shots: (s of the leader, eye's lateral, eye's height, look-ahead along the road, height looked at).
     let wide: Vec<(f32, f32, f32, f32, f32)> = (0..6).map(|i| {
         let s = lap * (0.03 + 0.165 * i as f32);
         match i % 3 {
@@ -88,7 +86,6 @@ fn world_shots() {
                 wide_done[i] = true;
                 super::route::select(id, race.ticks);
                 let mut eye = point(s - 70., lat, up);
-                // Never inside the hill: at least fifteen metres over the land under the eye.
                 eye.z = eye.z.max(super::route::current().ground(eye.x, eye.y) + 15.);
                 let view = aim(eye, point(s + ahead, 0., look), 1.3);
                 save(&dir, &format!("wide_{i}.png"), &view_frame(&race, s, &view));
@@ -99,8 +96,7 @@ fn world_shots() {
     eprintln!("wrote {frame} chase frames, lap {lap}");
 }
 
-/// A course with one piece on it, for looking at pieces one at a time.
-struct Gallery<'a> { base: &'a dyn super::route::Route, piece: super::route::Piece, key: u32 }
+pub(super) struct Gallery<'a> { pub(super) base: &'a dyn super::route::Route, pub(super) piece: super::route::Piece, pub(super) key: u32 }
 
 impl super::route::Route for Gallery<'_> {
     fn key(&self) -> u32 { self.key }
@@ -124,7 +120,6 @@ impl super::route::Route for Gallery<'_> {
 
 fn render_route(r: &dyn super::route::Route, s: f32, view: &View3) -> Img { render_route_at(r, s, 0, view) }
 
-/// The world alone (no pods, no HUD) through `view`, as the race draws it, at race tick `ticks`.
 fn render_route_at(r: &dyn super::route::Route, s: f32, ticks: u32, view: &View3) -> Img {
     let track = super::gather_view(r, s, ticks, view.pos, view.heading_rad, 3.0, &mut Default::default());
     let look = r.zone(s + 60.).0;
@@ -134,9 +129,6 @@ fn render_route_at(r: &dyn super::route::Route, s: f32, ticks: u32, view: &View3
     im
 }
 
-/// The road and what lies beside it through the chase lens's own height and reach, with no pod and no
-/// HUD in the way, at the distances `ANGEL_PODRACER_AT` lists (comma separated; a spread of the lap
-/// by default), at race tick `ANGEL_PODRACER_TICKS` (300). A second lens stands high, beside the road.
 #[test]
 fn road_look() {
     let Some(dir) = out_dir() else { return };
@@ -166,12 +158,13 @@ fn piece_gallery() {
     super::route::select(id, 0);
     let base = super::route::on(id);
     let kinds = [Kind::Bridge, Kind::Viaduct, Kind::Tunnel, Kind::Arch, Kind::Grandstand, Kind::CastleGate, Kind::Foundry, Kind::Waterfall, Kind::CrystalVault,
-        Kind::ChasmJump, Kind::Drawbridge, Kind::LavaFall, Kind::Statues, Kind::Lanterns, Kind::Pylons, Kind::Gantry, Kind::Rampart, Kind::Spires];
+        Kind::ChasmJump, Kind::Drawbridge, Kind::LavaFall, Kind::Statues, Kind::Lanterns, Kind::Pylons, Kind::Gantry, Kind::Rampart, Kind::Spires,
+        Kind::PitLane, Kind::ForgeArches, Kind::Obelisks, Kind::Banners, Kind::Ribs, Kind::PoleLanterns];
     let only = std::env::var("ANGEL_PODRACER_ONLY").ok();
     for (n, kind) in kinds.into_iter().enumerate() {
         if only.as_ref().is_some_and(|o| !format!("{kind:?}").eq_ignore_ascii_case(o)) { continue; }
         let (s0, len) = (120., match kind { Kind::Arch => 10., Kind::CastleGate => 24., Kind::ChasmJump => 40., Kind::Gantry => 30., _ => 90. });
-        let side = match kind { Kind::Grandstand | Kind::Foundry | Kind::Waterfall | Kind::LavaFall | Kind::Statues | Kind::Rampart | Kind::Spires | Kind::Pylons | Kind::Lanterns => 1., _ => 0. };
+        let side = match kind { Kind::Grandstand | Kind::Foundry | Kind::Waterfall | Kind::LavaFall | Kind::Statues | Kind::Rampart | Kind::Spires | Kind::Pylons | Kind::Lanterns | Kind::PitLane | Kind::Ribs => 1., _ => 0. };
         let g = Gallery { base, piece: Piece { kind, s0, s1: s0 + len, side, seed: 5 }, key: 900 + n as u32 };
         let _ = Look::Dune;
         let mid = s0 + len * 0.5;
@@ -190,8 +183,6 @@ fn piece_gallery() {
 
 fn point_on(r: &dyn super::route::Route, s: f32, lat: f32, up: f32) -> V3 { super::point(r, s, lat, up) }
 
-/// The chase view at the start of every named stretch of the course, and a
-/// quarter of the way into it: where the places change.
 #[test]
 fn zone_shots() {
     let Some(dir) = out_dir() else { return };
@@ -215,8 +206,6 @@ fn zone_shots() {
     }
 }
 
-/// What the eye sees, by material, from the establishing views: a way to find
-/// which surface a stray patch of colour is.
 #[test]
 fn material_census() {
     if std::env::var_os("ANGEL_PODRACER_CENSUS").is_none() { return; }
@@ -237,8 +226,6 @@ fn material_census() {
     }
 }
 
-/// The named stretches of each lap, what they sink to, the gaps in the road and every set piece:
-/// where to look. Prints when `ANGEL_PODRACER_TALLY` is set.
 #[test]
 fn zone_list() {
     if std::env::var_os("ANGEL_PODRACER_TALLY").is_none() { return; }
@@ -251,8 +238,6 @@ fn zone_list() {
     }
 }
 
-/// The sky alone (the dome, the stars, the moon and what stands on the horizon), through the chase lens
-/// at each distance `ANGEL_PODRACER_AT` names: where a night's own light and shapes are judged.
 #[test]
 fn sky_look() {
     let Some(dir) = out_dir() else { return };
@@ -275,5 +260,22 @@ fn sky_look() {
         super::dye(&mut im, rgba.as_raw());
         save(&dir, &format!("{name}_sky_{s:04.0}.png"), &im);
         eprintln!("sky at {s:.0}: {n} triangles, heading {:.2}", view.heading_rad);
+    }
+}
+
+#[test]
+fn free_look() {
+    let Some(dir) = out_dir() else { return };
+    let Ok(spec) = std::env::var("ANGEL_PODRACER_VIEWS") else { return };
+    let id = course_id();
+    let r = super::route::on(id);
+    for entry in spec.split(';') {
+        let f: Vec<&str> = entry.split(',').collect();
+        let v: Vec<f32> = f.iter().skip(1).filter_map(|x| x.trim().parse().ok()).collect();
+        if f.is_empty() || v.len() < 6 { continue; }
+        let (fov, ticks) = (v.get(6).copied().unwrap_or(1.2), v.get(7).copied().unwrap_or(300.) as u32);
+        super::route::select(id, ticks);
+        let view = aim(point_on(r, v[0], v[1], v[2]), point_on(r, v[3], v[4], v[5]), fov);
+        save(&dir, &format!("{}.png", f[0].trim()), &render_route_at(r, v[0], ticks, &view));
     }
 }

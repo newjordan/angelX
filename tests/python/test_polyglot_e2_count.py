@@ -1,4 +1,3 @@
-"""E2 probe receipts are tested with owned in-memory responses only."""
 import contextlib
 import copy
 import http.client

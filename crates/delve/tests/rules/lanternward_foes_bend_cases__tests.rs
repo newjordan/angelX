@@ -82,7 +82,6 @@ fn record_lanternward_foes() {
             }
         });
     }
-    // Foes of every kind and size.
     for seats in 0..=7u32 {
         for (id, kind) in [(0u8, Fk::Snuffer), (3, Fk::Turret)] {
             rec(

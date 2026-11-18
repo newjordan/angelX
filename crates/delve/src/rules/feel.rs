@@ -24,36 +24,24 @@
 
 use super::*;
 
-/// A hit's jolt on a monster, the ticks before the next may land, and the
-/// white frame a death holds before it bursts.
 pub const JOLT_HIT: u32 = 2;
 pub const FLINCH: u8 = 15;
 pub const DEATH_HOLD: u8 = 4;
 pub const DEATH_TICKS: u8 = DEATH_HOLD + 10;
-/// The shake of a handgonne shot, and of a kill by anything heavy.
 pub const SHAKE_SHOT: u32 = 2;
 pub const SHAKE_KILL: u32 = 3;
-/// The handgonne's kick on the knight who fires it, in arena units.
 pub const RECOIL: f32 = 0.6;
-/// Gold a cancelled shot is worth, the most coins a room's end makes, and
-/// how fast a coin flies home.
 pub const COIN_GOLD: u32 = 1;
 pub const COINS: usize = 24;
 const COIN_SPEED: f32 = 22.0;
 const COIN_CATCH: f32 = 0.9;
-/// Valour: the units in a pip, what a hit and a graze earn, the pips.
 pub const VALOUR_PIP: u32 = 600;
 pub const VALOUR_HIT: u32 = 120;
 pub const GRAZE_VALOUR: u32 = 120;
 pub const PIPS: u32 = 3;
-/// A graze: a monster shot passing this near a knight without hitting.
 pub const GRAZE: f32 = 0.5;
-/// Tempering: the most times an arm can be tempered.
 pub const TEMPER_MAX: u8 = 3;
-/// Fire Arrows: ticks the bow's arrows burn after a Fire Pit.
 pub const FIRE_ARROWS: u32 = 4 * HZ;
-/// Visual lists' caps: sparks, stuck shafts, puffs, deaths, tracers,
-/// shield blocks.
 const IMPACTS: usize = 48;
 const STUCK: usize = 24;
 const PUFFS: usize = 32;
@@ -63,25 +51,18 @@ const BLOCKS: usize = 16;
 const GLINTS: usize = 12;
 const TAKES: usize = 8;
 const BOLTS: usize = 16;
-/// Ticks a spark, a tracer, a muzzle flash and a puff of smoke last.
 pub const IMPACT_TICKS: u8 = 6;
 pub const TRACER_TICKS: u8 = 8;
 pub const FLASH_TICKS: u8 = 3;
 pub const SMOKE_TICKS: u8 = 14;
-/// Ticks a shield's block shows: the flash, the knock and the shards.
 pub const BLOCK_TICKS: u8 = 10;
-/// Ticks a roll's dust hangs, and a find's glint rises.
 pub const DUST_TICKS: u8 = 12;
 pub const GLINT_TICKS: u8 = 16;
-/// Ticks another seat sees a knight's take: long enough to read a name.
 pub const TAKE_TICKS: u8 = 45;
-/// Ticks a Thunder Scroll's bolt shows: the strike, then its afterglow.
 pub const BOLT_TICKS: u8 = 18;
-/// Ticks an ultimate's cast is remembered for its look, and how many are.
 pub const ULT_TICKS: u8 = 150;
 const ULTS: usize = 8;
 
-/// A knight's shot by its kind: how far a hit pushes a monster.
 pub fn knock(kind: Shot) -> f32 {
     match kind {
         Shot::Arrow => 0.1,
@@ -92,8 +73,6 @@ pub fn knock(kind: Shot) -> f32 {
     }
 }
 
-/// A spark where a shot struck, in the shot's colour, and the way it was
-/// going (none for a shot popped where it hung).
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Impact {
     pub x: f32,
@@ -106,12 +85,10 @@ pub struct Impact {
     pub dy: f32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub boss_art: Option<bosses::Art>,
-    /// A Bard's note landed: it bursts into notes, not sparks.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub note: bool,
 }
 
-/// An arrow or bolt stuck in the stone, pointing the way it flew.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Stuck {
     pub x: f32,
@@ -121,7 +98,6 @@ pub struct Stuck {
     pub kind: Shot,
 }
 
-/// A rail's fading line, from the bow to where it was when it went.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Tracer {
     pub from: (f32, f32),
@@ -130,8 +106,6 @@ pub struct Tracer {
     pub ttl: u8,
 }
 
-/// A muzzle's flash or a handgonne's smoke; or dust off a roll (`dust`:
-/// `KICK` as it starts, `TRAIL` along it, `LAND` where it ends).
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Puff {
     pub x: f32,
@@ -148,14 +122,10 @@ fn is_zero(v: &u8) -> bool {
     *v == 0
 }
 
-/// A roll's dust: kicked up as it starts, left along it, thrown out where
-/// it lands.
 pub const KICK: u8 = 1;
 pub const TRAIL: u8 = 2;
 pub const LAND: u8 = 3;
 
-/// A monster's death: a white frame, then its parts flying, in the colours
-/// of what it was.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Death {
     pub x: f32,
@@ -166,8 +136,6 @@ pub struct Death {
     pub kind: Option<EnemyKind>,
 }
 
-/// Something taken off the floor: a glint rising where it lay, by how rare
-/// it was (0 a spoil or common find, 1 rare or a spell, 2 a relic).
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Glint {
     pub x: f32,
@@ -176,9 +144,6 @@ pub struct Glint {
     pub ttl: u8,
 }
 
-/// A knight taking something off the floor, for every other seat to see
-/// who did (the operator, 2026-10-19: "we don't see if a friendly picked up
-/// a card or not"): where it lay, who, and the ticks left.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Take {
     pub x: f32,
@@ -187,9 +152,6 @@ pub struct Take {
     pub ttl: u8,
 }
 
-/// A Thunder Scroll's lightning (`nova`): a bolt down out of the dark onto
-/// a monster it struck, or (`call`) the crackle round the knight who read
-/// it, so the scroll shows even in an empty room.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Bolt {
     pub x: f32,
@@ -199,9 +161,6 @@ pub struct Bolt {
     pub ttl: u8,
 }
 
-/// An ultimate just cast, for its wind-up, release and aftermath to be
-/// drawn (`render`'s `ults`): whose, which, when, and where its knight
-/// stood and aimed. The look's alone: nothing in the rules reads it.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UltCast {
     pub owner: u32,
@@ -215,15 +174,11 @@ pub struct UltCast {
 }
 
 impl Bolt {
-    /// Ticks since it struck: 0 the tick it is first drawn.
     pub fn age(&self) -> u8 {
         (BOLT_TICKS - 1).saturating_sub(self.ttl)
     }
 }
 
-/// A shot stopped on a raised shield's face (`shield`): where, the way it
-/// was going (a unit step), the way the face looks out there, what it was,
-/// how heavy (1 to 3) and whose shield it was.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Block {
     pub x: f32,
@@ -241,13 +196,11 @@ pub struct Block {
 }
 
 impl Block {
-    /// Ticks since it struck: 0 the tick it is first drawn.
     pub fn age(&self) -> u8 {
         (BLOCK_TICKS - 1).saturating_sub(self.ttl)
     }
 }
 
-/// A cancelled shot's coin, flying to the nearest knight.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Coin {
     pub x: f32,
@@ -255,30 +208,24 @@ pub struct Coin {
     pub age: u32,
 }
 
-/// One knight's room, for the feel ledger.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, serde::Deserialize)]
 pub struct Tally {
     pub shots: u32,
     pub hits: u32,
     pub kills: u32,
     pub damage: u32,
-    /// Ticks of the fight in which the knight dealt nothing.
     pub dead: u32,
     pub skills: u32,
     pub grazes: u32,
-    /// Ticks from a monster's first wound to its fall, summed over the
-    /// knight's kills.
     pub ttk: u64,
 }
 
-/// The arms' feel, as the run keeps it.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Feel {
     #[serde(default, skip_serializing_if = "melee::State::quiet")]
     pub melee: melee::State,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ranged: Vec<super::ranged::Event>,
-    /// The tick of the last party-wide control ultimate (`press`).
     #[serde(default)]
     pub control: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -303,8 +250,6 @@ pub struct Feel {
     pub bolts: Vec<Bolt>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ults: Vec<UltCast>,
-    /// The ledger this room, by knight, and the tick each monster was first
-    /// wounded; lines ready for the cockpit to write.
     #[serde(
         default,
         skip_serializing_if = "crate::rules::runtime_state::omit",
@@ -323,16 +268,12 @@ pub struct Feel {
         deserialize_with = "crate::rules::runtime_state::transient"
     )]
     pub lines: Vec<String>,
-    /// Owned hits from skills and other blows this tick, beside the shots.
     #[serde(
         default,
         skip_serializing_if = "crate::rules::runtime_state::omit",
         deserialize_with = "crate::rules::runtime_state::transient"
     )]
     pub credits: Vec<(u32, u32)>,
-    /// The blows that killed a monster this tick, for the finishers
-    /// (`gore`), and the sounds of a finisher's later moments. The host's
-    /// alone: the picture is `Run::gore`.
     #[serde(
         default,
         skip_serializing_if = "crate::rules::runtime_state::omit",
@@ -419,13 +360,10 @@ impl Feel {
             && self.ults.iter().all(|u| point(u.x, u.y) && point(u.ax, u.ay) && u.ttl <= ULT_TICKS)
     }
 
-    /// A shot of `kind` going `way` struck at `(x, y)`; `(0, 0)` for one
-    /// popped where it hung.
     pub(super) fn impact(&mut self, x: f32, y: f32, kind: Shot, way: (f32, f32)) {
         self.impact_as(x, y, kind, way, false);
     }
 
-    /// A hit, `note` when a Bard's note landed (it bursts into notes).
     pub(super) fn impact_as(&mut self, x: f32, y: f32, kind: Shot, way: (f32, f32), note: bool) {
         if self.impacts.len() < IMPACTS {
             let (dx, dy) = unit(way.0, way.1);
@@ -495,8 +433,6 @@ impl Feel {
         });
     }
 
-    /// Dust off a roll at a knight's feet `(x, y)`, the roll going `way`:
-    /// `KICK`, `TRAIL` or `LAND`.
     pub(super) fn dust(&mut self, x: f32, y: f32, way: (f32, f32), dust: u8) {
         if self.puffs.len() >= PUFFS {
             self.puffs.remove(0);
@@ -513,7 +449,6 @@ impl Feel {
         });
     }
 
-    /// A find taken off the floor at `(x, y)`.
     pub(super) fn glint(&mut self, x: f32, y: f32, tier: u8) {
         if self.glints.len() >= GLINTS {
             self.glints.remove(0);
@@ -526,7 +461,6 @@ impl Feel {
         });
     }
 
-    /// Knight `by` took what lay at `(x, y)`.
     pub(super) fn take(&mut self, x: f32, y: f32, by: u32) {
         if self.takes.len() >= TAKES {
             self.takes.remove(0);
@@ -534,9 +468,6 @@ impl Feel {
         self.takes.push(Take { x, y, by, ttl: TAKE_TICKS });
     }
 
-    /// Lightning at `(x, y)`: onto a monster, or (`call`) round the knight
-    /// who called it. The oldest gives way: the newest strike is the one
-    /// a knight is looking at.
     pub(super) fn bolt(&mut self, x: f32, y: f32, call: bool) {
         if self.bolts.len() >= BOLTS {
             self.bolts.remove(0);
@@ -544,8 +475,6 @@ impl Feel {
         self.bolts.push(Bolt { x, y, call, ttl: BOLT_TICKS });
     }
 
-    /// Knight `owner` cast `ult` at `tick`, standing at `at` and aiming
-    /// `aim`. The oldest gives way.
     pub(super) fn ult_cast(&mut self, owner: u32, ult: super::ults::Ult, tick: u64, at: (f32, f32), aim: (f32, f32)) {
         self.ults.retain(|u| u.owner != owner || u.ult != ult);
         if self.ults.len() >= ULTS {
@@ -566,9 +495,6 @@ impl Feel {
         }
     }
 
-    /// A shot stopped on knight `knight`'s shield at `at`, where the face
-    /// looks out along `out`, going `way`. The oldest block gives way when
-    /// the list is full: the newest is what a knight is looking at.
     pub(super) fn block(&mut self, knight: u32, at: (f32, f32), out: (f32, f32), way: (f32, f32), kind: Shot, weight: u8) {
         if self.blocks.len() >= BLOCKS {
             self.blocks.remove(0);
@@ -589,7 +515,6 @@ impl Feel {
         });
     }
 
-    /// A new room: what stuck in the last one, and its ledger, are gone.
     pub(super) fn clear_room(&mut self) {
         self.melee = melee::State::default();
         self.ranged.clear();
@@ -610,7 +535,6 @@ impl Feel {
         self.echoes.clear();
     }
 
-    /// One tick of the visuals fading.
     fn fade(&mut self) {
         self.melee.tick();
         self.ranged.retain_mut(|e| { e.ttl = e.ttl.saturating_sub(1); e.ttl > 0 });
@@ -623,11 +547,9 @@ impl Feel {
         for p in &mut self.puffs {
             p.ttl = p.ttl.saturating_sub(1);
             if p.smoke {
-                // Smoke drifts on the way the ball went, and rises.
                 p.x += p.dx * 1.5 * DT;
                 p.y += p.dy * 1.5 * DT - 0.6 * DT;
             } else if p.dust > 0 {
-                // Dust rolls on a little the way the knight went.
                 p.x += p.dx * 0.9 * DT;
                 p.y += p.dy * 0.9 * DT;
             }
@@ -656,15 +578,11 @@ impl Feel {
     }
 }
 
-/// Whether the feel ledger is kept (`ANGEL_DELVE_FEEL=1`, as the host
-/// sets it: `settings::Settings::feel_ledger`).
 pub fn ledger_on() -> bool {
     crate::settings::get().feel_ledger
 }
 
 impl Run {
-    /// The arms' tick: visuals fade, coins fly home, valour fills from the
-    /// tick's damage and grazes, and the ledger counts.
     pub fn tick_feel(&mut self, credits: &[(u32, u32)], grazes: &[u32]) {
         self.feel.fade();
         let mut dealt: BTreeMap<u32, u32> = BTreeMap::new();
@@ -702,13 +620,10 @@ impl Run {
         self.fly_coins();
     }
 
-    /// The room is won: every monster shot still in the air becomes a coin.
     pub(super) fn cancel_shots(&mut self) {
         self.cancel_shots_where(|_| true);
     }
 
-    /// A fight is won: each monster shot in the air that `near` takes
-    /// becomes a coin.
     pub(super) fn cancel_shots_where(&mut self, near: impl Fn(&Projectile) -> bool) {
         let room = COINS.saturating_sub(self.feel.coins.len());
         let coins: Vec<Coin> = self
@@ -728,8 +643,6 @@ impl Run {
         self.feel.coins.extend(coins);
     }
 
-    /// Coins fly to the nearest knight standing, faster as they go, and are
-    /// carried home as gold.
     fn fly_coins(&mut self) {
         if self.feel.coins.is_empty() {
             return;
@@ -755,7 +668,6 @@ impl Run {
                 caught.push(id);
                 return false;
             }
-            // A short hop up before it turns home.
             let speed = COIN_SPEED * (coin.age as f32 / 10.0).min(1.0);
             let step = (speed * DT).min(d);
             let (ux, uy) = unit(kx - coin.x, ky - coin.y);
@@ -775,7 +687,6 @@ impl Run {
         }
     }
 
-    /// Leaving a room: coins still flying are caught at once.
     pub(super) fn bank_coins(&mut self) {
         for coin in std::mem::take(&mut self.feel.coins) {
             if let Some(hero) = self
@@ -795,7 +706,6 @@ impl Run {
         }
     }
 
-    /// Knight `id`'s whole pips of valour.
     pub fn pips(&self, id: u32) -> u32 {
         self.works
             .kits
@@ -803,20 +713,17 @@ impl Run {
             .map_or(0, |k| k.valour / VALOUR_PIP)
     }
 
-    /// A named synergy went off for knight `id`: said on the notice line.
     pub(super) fn synergy(&mut self, id: u32, name: &str, word: &str) {
         self.found = Some((self.tick, id, format!("{name}!")));
         self.cues.push(format!("synergy:{word}"));
     }
 
-    /// The ledger counts a shot loosed, a hit landed, a skill used, a kill.
     pub(super) fn ledger_skill(&mut self, id: u32) {
         if ledger_on() {
             self.feel.ledger.entry(id).or_default().skills += 1;
         }
     }
 
-    /// The room's ledger, a line per knight, for the cockpit to write.
     pub(super) fn close_ledger(&mut self, how: &str) {
         if !ledger_on() {
             return;
@@ -860,8 +767,6 @@ impl Run {
 }
 
 impl Run {
-    /// A skill that meets the arm in hand: a Fire Pit thrown by a knight
-    /// with a bow sets their arrows burning (Fire Arrows).
     pub(super) fn skill_synergy(&mut self, id: u32, which: usize) {
         let bow = self
             .players
@@ -877,15 +782,12 @@ impl Run {
 }
 
 impl Run {
-    /// The synergies this tick's shots set off: Fire Arrows' burning,
-    /// Ricochet's notice, and the clouds a Powder Keg ball lit.
     pub(super) fn land_synergies(
         &mut self,
         burns: Vec<(u32, u8, u8)>,
         turned: Vec<u8>,
         mut kegs: Vec<(usize, u8)>,
     ) {
-        // A `burn N` wish burns N times as hot as Fire Arrows.
         for (foe, owner, hot) in burns {
             let power = self
                 .players

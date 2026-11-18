@@ -138,8 +138,6 @@ pub(super) fn panel(over: &mut Img, run: &Run, focus: Option<u32>) {
     im.text(14, h - 24, controls, 'i');
     im.text(14, h - 13, keys, 'O');
     over.stamp(&im, 8, 8);
-    // On the delivered HUD kit, the window wears the kit's studded frame
-    // round its edge, as the page's own windows do.
     if super::hud_art::enabled(run) {
         super::hud_art::window(over, (4, 4, w + 8, h + 8));
     }

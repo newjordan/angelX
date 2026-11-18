@@ -14,18 +14,14 @@ use crate::rules::juice::Weight;
 use crate::rules::mossbell::{BUMPERS, Ball, Q};
 use crate::rules::mossbell_show::MossShow;
 
-/// The playfield's black window on the screen: left, top, width, height.
 pub(super) const WINDOW: (i32, i32, i32, i32) = (OX + 9, OY + 6, 236, 131);
 
-/// A point of the table (physics pixels) as a pixel of the screen.
 pub(super) fn at(x: i32, y: i32) -> (f32, f32) {
     ((OX + field_x(x)) as f32, (OY + y) as f32)
 }
 
-/// Where the keeper stands on the screen, and where the ball meets it.
 pub(super) const KEEPER: (f32, f32) = (192.0, 73.0);
 
-/// Fireflies drifting in the dark of the table, blinking.
 pub(super) fn ambient(w: &mut Img, tick: u64) {
     let (x0, y0, ww, wh) = WINDOW;
     for k in 0..9 {
@@ -44,8 +40,6 @@ pub(super) fn ambient(w: &mut Img, tick: u64) {
     }
 }
 
-/// Light falling through the conservatory glass: three slow diagonal shafts of dither on
-/// the black of the table, swaying, thinning as they go down.
 pub(super) fn shafts(w: &mut Img, tick: u64) {
     let (x0, y0, ww, wh) = WINDOW;
     let shade = ink('x').unwrap();
@@ -58,7 +52,6 @@ pub(super) fn shafts(w: &mut Img, tick: u64) {
             let half = 8.0 + row as f32 * 0.06;
             let k = 0.34 * (1.0 - down * 0.75);
             let (lo, hi) = (((cx - half) as i32).max(x0), ((cx + half) as i32).min(x0 + ww - 1));
-            // Only the dither's lowest steps can pass under `k`: walk those columns alone.
             for phase in 0..4 {
                 if bayer(phase, y) >= k {
                     continue;
@@ -76,8 +69,6 @@ pub(super) fn shafts(w: &mut Img, tick: u64) {
     }
 }
 
-/// A lit lamp breathes: a dithered ring just outside its bumper, swelling
-/// and fading, under the sprite.
 pub(super) fn lamps(w: &mut Img, b: &Ball, tick: u64) {
     let (hot, warm) = (ink('t').unwrap(), ink('o').unwrap());
     for (i, &(bx, by, _)) in BUMPERS.iter().enumerate() {
@@ -89,7 +80,6 @@ pub(super) fn lamps(w: &mut Img, b: &Ball, tick: u64) {
         let pulse = 0.5 + 0.5 * sin(tick as f32 * 0.2 + i as f32 * 2.0);
         let (r0, r1) = (14.5f32, 18.0 + pulse * 2.0);
         let k = 0.55 - pulse * 0.2;
-        // Each row's two stretches of the ring band, and nothing else.
         for dy in -(r1 as i32)..=r1 as i32 {
             let dy2 = (dy * dy) as f32;
             let outer = (r1 * r1 - dy2).max(0.0).sqrt();
@@ -112,7 +102,6 @@ pub(super) fn lamps(w: &mut Img, b: &Ball, tick: u64) {
     }
 }
 
-/// A bumper struck: a shock ring leaving it and a spray of sparks.
 pub(super) fn bumper_hits(w: &mut Img, b: &Ball, tick: u64) {
     for (i, &(bx, by, _)) in BUMPERS.iter().enumerate() {
         if b.flash[i] == 0 {
@@ -129,7 +118,6 @@ pub(super) fn bumper_hits(w: &mut Img, b: &Ball, tick: u64) {
     }
 }
 
-/// What the last contact was.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Contact {
     Flipper,
@@ -154,7 +142,6 @@ pub(super) fn contact_kind(b: &Ball) -> Contact {
     }
 }
 
-/// A flipper catches the ball: sparks off the paddle and a puff of dust.
 pub(super) fn catch(w: &mut Img, b: &Ball, tick: u64) {
     if b.burst == 0 || contact_kind(b) != Contact::Flipper {
         return;
@@ -168,8 +155,6 @@ pub(super) fn catch(w: &mut Img, b: &Ball, tick: u64) {
     dust.each(age as f32, |m| pfx::mote(&mut pen, &m, Shape::Smoke, ramps::SMOKE, 1, tick));
 }
 
-/// A flipper swung: a swoosh through its arc and a glint at the tip, for the
-/// first ticks of the swing.
 pub(super) fn swoosh(w: &mut Img, b: &Ball, tick: u64) {
     for (swing, pivot, dir) in [(b.left, (37, 119), 1.0f32), (b.right, (123, 119), -1.0)] {
         if swing < 3 {
@@ -178,7 +163,6 @@ pub(super) fn swoosh(w: &mut Img, b: &Ball, tick: u64) {
         let age = 5 - swing;
         let (px, py) = at(pivot.0, pivot.1);
         let reach = 53.0;
-        // From the rest angle, a little below level, up to the raised one.
         let (from, to) = (0.21f32, -0.15f32);
         let mut pen = Pen::new(w, 160);
         for step in 0..=8 {
@@ -200,7 +184,6 @@ pub(super) fn swoosh(w: &mut Img, b: &Ball, tick: u64) {
     }
 }
 
-/// The ball's comet: a tail of embers behind it, longer the faster it goes.
 pub(super) fn comet(w: &mut Img, b: &Ball, tick: u64) {
     let speed = (b.vx.abs() + b.vy.abs()) / 4;
     if speed < 120 {
@@ -231,14 +214,11 @@ pub(super) fn comet(w: &mut Img, b: &Ball, tick: u64) {
             pen.light(x as i32, y as i32, ramp.dithered(0.25 + k * 0.7, x as i32, y as i32));
         }
     }
-    // A glint on the marble's shoulder, twice a second.
     if tick / 8 % 3 == 0 {
         pen.light(hx as i32 - 2, hy as i32 - 2, 'H');
     }
 }
 
-/// The keeper's petals and sparks, and its fall: one burst per blow of this
-/// seat's still on the books.
 pub(super) fn keeper(w: &mut Img, show: &MossShow, me: u32, now: u32, tick: u64) {
     for blow in show.juice.blows.iter().filter(|bl| bl.owner == me && bl.weight >= Weight::Solid) {
         let age = blow.age(now);
@@ -254,14 +234,11 @@ pub(super) fn keeper(w: &mut Img, show: &MossShow, me: u32, now: u32, tick: u64)
         if blow.weight == Weight::Kill {
             juice::death_burst(w, KEEPER, age, seed, tick);
         } else if blow.weight != Weight::Finale {
-            // Where the marble met it.
             juice::impact_burst(w, (KEEPER.0, KEEPER.1 + 8.0), age, seed, blow.weight, tick);
         }
     }
 }
 
-/// The jackpot: a fountain of coins from the keeper's crown and fireworks
-/// over the table, for the seat that took it.
 pub(super) fn jackpot(w: &mut Img, age: u32, tick: u64) {
     let (x0, y0, ww, _) = WINDOW;
     let mut pen = Pen::new(w, 1400);
@@ -276,7 +253,6 @@ pub(super) fn jackpot(w: &mut Img, age: u32, tick: u64) {
         };
         coins.each(age as f32, |m| pfx::mote(&mut pen, &m, Shape::Coin, ramps::GOLD, 1, tick));
     }
-    // Paper and gold over the whole table once the first shots have broken.
     if (8..90).contains(&age) {
         juice::confetti(w, WINDOW, age, 5, 70);
     }
@@ -295,7 +271,6 @@ pub(super) fn jackpot(w: &mut Img, age: u32, tick: u64) {
     }
 }
 
-/// A rim of one ink round the field, `k` (0 to 1) strong: the border bands only.
 pub(super) fn rim(im: &mut Img, k: f32, depth: i32, ink_char: char) {
     if k <= 0.0 {
         return;
@@ -323,7 +298,6 @@ pub(super) fn rim(im: &mut Img, k: f32, depth: i32, ink_char: char) {
     }
 }
 
-/// The drain: a ring and embers at the pit under the paddles.
 pub(super) fn drain(w: &mut Img, b: &Ball, tick: u64) {
     if b.save < 2 || b.drains == 0 {
         return;

@@ -451,7 +451,6 @@ fn terminal_submission_receipts_preserve_verification_without_inventing_promotio
         .as_mut()
         .unwrap()
         .status = notify.status.clone();
-    // Exercise the real watcher delivery hook, including repeated polls.
     crate::agent::harness::book::k_competition::watcher_turn(&root, &notify);
     notify
         .receipt
@@ -500,8 +499,6 @@ fn terminal_submission_receipts_preserve_verification_without_inventing_promotio
     std::fs::remove_dir_all(root).unwrap();
 }
 
-/// Which status words make a board receipt terminal evidence, and which keep
-/// waiting. The same words the slot watcher settles on.
 #[test]
 fn only_settled_status_words_are_mirrored_as_terminal_receipts() {
     use crate::agent::harness::{SubmissionReceipt, WatchNotify};
@@ -577,7 +574,6 @@ fn only_settled_status_words_are_mirrored_as_terminal_receipts() {
         observe_submission(&root, &notify_with(word)).unwrap();
         mirrored += 1;
         let nodes = load(&root).unwrap().unwrap().nodes.len();
-        // One task node, plus one evidence node per distinct status.
         assert_eq!(nodes, 1 + mirrored, "{word:?} must be mirrored");
     }
     std::fs::remove_dir_all(root).unwrap();

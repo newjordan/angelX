@@ -37,7 +37,6 @@ input = "unknown"
 currency = "unknown"
 "#;
 
-// Caller holds the shared env lock before creating or deleting this shared fixture.
 fn with_table(_guard: &std::sync::MutexGuard<'_, ()>, f: impl FnOnce()) {
     let dir = std::env::temp_dir().join(format!("angel-cost-table-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
@@ -75,7 +74,7 @@ fn cost_attempts_price_route_switch_and_retry_at_each_executed_model() {
             Some(&json!({"attempts":3})),
             &samples,
         );
-        assert_eq!(cost["paid"], 5.5); // 2.5 + 1.5 + 1.5; reasoning is already included.
+        assert_eq!(cost["paid"], 5.5);
         assert!(
             cost["model"].is_null(),
             "mixed usage has no single model price"
@@ -153,7 +152,6 @@ fn cost_exact_id_pricing() {
                     "reasoning":100_000,"attempts":1}))
             .as_ref(),
         );
-        // 800k*0.50 + 200k*0.05 + 500k*2.00 + 100k*1.00 = 1.51
         assert_eq!(cost["paid"], json!(1.51));
         assert!(cost.get("plan_fee_usd_month").is_none());
         assert_eq!(cost["cached"], json!(0.01));
@@ -198,12 +196,8 @@ fn cost_family_fallback_never_crosses_families() {
             Some("deepseek-v4-flash-exp"),
             usage(json!({"input":1_000_000,"output":1_000_000})).as_ref(),
         );
-        // 1M*0.30 + 1M*1.20 = 1.50 via the deepseek-v4-flash stem.
         assert_eq!(cost["paid"], json!(1.5));
         assert_eq!(cost["model"], json!("deepseek-v4-flash-exp"));
-        // Any delimiter-bounded extension of a priced stem resolves to it
-        // (`glm-5.3-air-quantized` → glm-5.3-air); only a different stem
-        // (a different family) must stay unpriced.
         let stem = cost_for(
             Some("glm-5.3-air-quantized"),
             usage(json!({"input":1_000_000,"output":0})).as_ref(),
@@ -244,8 +238,6 @@ fn cost_unknown_model_has_no_price_row() {
 #[test]
 fn cost_partial_prices_price_only_reported_fields() {
     let _guard = crate::tests::env_lock();
-    // Row without a cached_input price: cached tokens must not be priced
-    // at the full input rate. Use a separate file for the modified table.
     let table = TABLE.replace("cached_input = \"0.03\"", "cached_input = \"unknown\"");
     let dir = std::env::temp_dir().join(format!("angel-cost-part-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
@@ -260,7 +252,6 @@ fn cost_partial_prices_price_only_reported_fields() {
                 "uncached_input":600_000,"output":0}))
         .as_ref(),
     );
-    // Only 600k uncached at 0.30 is priced; cached rate unknown.
     assert_eq!(cost["paid"], json!(0.18));
     assert!(cost["cached"].is_null());
     std::fs::remove_file(&path).ok();
@@ -281,7 +272,6 @@ fn cost_embedded_table_resolves_and_is_reported() {
         Some("glm-5.3-flash"),
         Some(&json!({"input":1_000,"output":1_000})),
     );
-    // The nominal subscription resolves marginal cost, not token pricing.
     assert_eq!(cost["basis"], json!("subscription-marginal"));
     assert_eq!(cost["paid"], json!(0.0));
     assert_eq!(cost["plan_fee_usd_month"], json!(20.0));
@@ -328,20 +318,12 @@ output = "1.0"
     std::fs::remove_file(&path).ok();
 }
 
-// --- the live `cost` leg -----------------------------------------------------
-//
-// `cost_with_rows` stays the oracle: the leg is only allowed to be a different
-// implementation of the same decision, never a different decision.
-
 fn leg_row<'a>(rows: &'a [PriceRow], model: &str) -> Option<&'a PriceRow> {
     rows.iter()
         .find(|row| row.model == model)
         .or_else(|| rows.iter().find(|row| family_prefix(&row.model, model)))
 }
 
-/// Model ids and usage blocks that reach every gate the native ladder has:
-/// reported fields, cache conventions both blessed and unblessed, reasoning
-/// conventions, zero counts, a subscription row, an unparseable row and no usage.
 fn leg_cases() -> Vec<(&'static str, Option<Value>)> {
     vec![
         ("glm-5.3-air", usage(json!({"input":1_000_000,"cache_read":200_000,"uncached_input":800_000,"output":500_000,"reasoning":100_000,"attempts":1}))),
@@ -393,8 +375,6 @@ fn cost_leg_decides_every_record_exactly_like_the_native_ladder() {
     let cases = leg_cases();
     assert!(cases.len() >= 30, "the parity table stays broad");
     for (model, usage) in &cases {
-        // Every case must be inside the leg's contract: a rate the e8 units
-        // cannot carry keeps the native decision and is reported here.
         let row = leg_row(&rows, model);
         let input = serde_json::to_value(
             cost_leg_input(usage.as_ref(), row).expect("fixture rates are e8-exact"),
@@ -420,7 +400,6 @@ fn cost_leg_decides_every_record_exactly_like_the_native_ladder() {
     }
 }
 
-/// A shipped directory with one deliberately out-of-contract `cost` module.
 fn out_of_contract_leg() -> angel_live::Program {
     let root = std::env::temp_dir().join(format!("angel-cost-broken-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
@@ -480,7 +459,6 @@ fn cost_leg_out_of_contract_answer_keeps_the_native_decision() {
         cost_record(model, usage.as_ref(), row, "fixture", &decision),
         native
     );
-    // The same contract also rejects a subscription row that invents a fee.
     let rows = parse_rows(TABLE);
     let model = "subscription-model";
     let row = leg_row(&rows, model);
@@ -527,8 +505,6 @@ fn cost_leg_decision_timing() {
     );
 }
 
-/// A card whose rates are finer than a cent, or a record whose product outgrows
-/// a Bend Nat immediate, stays on the native decision rather than being rounded.
 #[test]
 fn cost_leg_keeps_records_outside_its_units_on_the_native_decision() {
     const FINE_TABLE: &str = r#"
@@ -555,7 +531,6 @@ output = "1.005"
         cost_with_rows(Some(model), spend.as_ref(), &rows, "fixture")
     );
 
-    // 2*10^12 input tokens at 0.50/M is past the leg's Nat budget (2^46).
     let rows = parse_rows(TABLE);
     let model = "glm-5.3-air";
     let huge = usage(json!({"input":2_000_000_000_000u64}));

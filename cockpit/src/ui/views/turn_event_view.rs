@@ -43,9 +43,6 @@ fn compact_duration(ms: u64) -> String {
     }
 }
 
-/// Text-only provenance receipt placed beside a user-visible answer. It carries
-/// route metadata, first-output latency, and total elapsed time, never
-/// prompt/response content or secrets.
 pub fn answer_receipt_text(
     requested: &crate::agent::club::RouteIdentity,
     resolved: &crate::agent::club::RouteIdentity,
@@ -81,22 +78,12 @@ pub fn notice_text(note: &str) -> String {
     format!("{} {note}", Glyph::Idle.token())
 }
 
-/// Repeat count at which a gauge row's background fill saturates. The fill is
-/// a visual severity meter: a guard firing this many times in one turn has the
-/// operator's full attention (and the harness treadmill stop is already near).
 pub const NOTICE_GAUGE_FULL: usize = 10;
 
-/// One-slot transcript row for a repeating guard notice: the *latest* text
-/// plus a running repeat count. Repeats rewrite the row in place instead of
-/// stacking; the draw layer turns the count into a progressive background
-/// fill.
 pub fn notice_gauge_text(note: &str, count: usize) -> String {
     format!("{} {note} ×{count}", Glyph::Idle.token())
 }
 
-/// The notice body of an Activity row (glyph prefix stripped, gauge count
-/// suffix removed), or `None` for non-notice rows (trace `T:`/`R:` lines,
-/// tool tallies).
 pub fn activity_notice_body(text: &str) -> Option<&str> {
     let body = text.strip_prefix(Glyph::Idle.token())?.trim_start();
     match activity_gauge_count(body) {
@@ -105,8 +92,6 @@ pub fn activity_notice_body(text: &str) -> Option<&str> {
     }
 }
 
-/// Parse the repeat count off a gauge row (`… ×N`, N ≥ 2). Plain rows and
-/// first occurrences carry no suffix and return `None`.
 pub fn activity_gauge_count(text: &str) -> Option<usize> {
     let (_, suffix) = text.rsplit_once(" ×")?;
     let digits = suffix.split(" · ").next()?;
@@ -116,19 +101,7 @@ pub fn activity_gauge_count(text: &str) -> Option<usize> {
     digits.parse::<usize>().ok().filter(|count| *count >= 2)
 }
 
-/// Routine harness murmurs ride the live tool strip's note line instead of
-/// stacking in the scrollback (Conversation mode). Anything unrecognized — and
-/// anything that reads as a failure — keeps its transcript line, so a new or
-/// misbehaving gate can never go silent (`/trace` always restores the full
-/// stream).
 pub fn notice_rides_strip(note: &str) -> bool {
-    // "denying" is listed beside "denied": the verification gate phrases itself
-    // in the present tense, slipped past the failure marks on that technicality,
-    // and so spent its life collapsed into the strip's "(N notes)" counter —
-    // retracting finished answers with no visible reason.
-    // "timed out" is timeout_note's spelling; "timed-out" is the original
-    // fail-open spec, and "timeout"/"timeouts" catch idle-timeout receipts
-    // that never say "timed out". Present-tense "failing" is the same hole.
     const FAILURE_MARKS: [&str; 12] = [
         "error",
         "failed",
@@ -146,14 +119,6 @@ pub fn notice_rides_strip(note: &str) -> bool {
     if FAILURE_MARKS.iter().any(|mark| note.contains(mark)) {
         return false;
     }
-    // Operator decision (2026-08-26): Conversation scrollback is for the
-    // conversation. Every routine harness/policy murmur — capsule previews,
-    // cadence arming, verifier one-shots, broker/recall/cache receipts —
-    // rides the strip, where mixed families stay visible via
-    // `notice_strip_prefix` and `/trace` restores the full stream. The
-    // 2026-08-25 wave moved these into scrollback so its own loop could see
-    // them; that buried real answers under internal telemetry. Failures
-    // (checked above) always keep their transcript line.
     const ROUTINE_PREFIXES: [&str; 27] = [
         "action capsule",
         "action receipt",
@@ -180,12 +145,7 @@ pub fn notice_rides_strip(note: &str) -> bool {
         "competition action cadence armed",
         "cache-first: compaction budget",
         "cache ledger:",
-        // Turn-boundary cache-stable receipt (2026-09-05): it arrives after the
-        // answer finished streaming; in scrollback it flushed the draft and the
-        // committed answer then rendered a second time.
         "cache-stable:",
-        // Sliding-window duplicate suppressions: one in-place strip line plus
-        // "(N notes)", not a wall of identical `.. storm:` scrollback rows.
         "storm:",
     ];
     ROUTINE_PREFIXES
@@ -193,9 +153,6 @@ pub fn notice_rides_strip(note: &str) -> bool {
         .any(|prefix| note.starts_with(prefix))
 }
 
-/// Compact category for a strip note: colon-head when present, else the first
-/// token. Mixed murmurs share one row, so the operator needs a label shorter
-/// than the latest full sentence.
 pub fn notice_strip_prefix(note: &str) -> &str {
     let note = note.trim();
     if let Some(head) = note.split_once(':').map(|(head, _)| head.trim())
@@ -206,9 +163,6 @@ pub fn notice_strip_prefix(note: &str) -> &str {
     note.split_whitespace().next().unwrap_or(note)
 }
 
-/// Stable category for a repeatable cadence guard. Dynamic verdict suffixes
-/// deliberately share one key: the transcript needs one visible receipt for
-/// the guard, while the live strip carries its latest exact state and count.
 pub fn notice_coalesce_key(note: &str) -> Option<&'static str> {
     if note.starts_with(&crate::agent::harness::book::l_loops::STREAK.cells()) {
         Some("unproductive-streak")
@@ -225,8 +179,6 @@ pub fn notice_coalesce_key(note: &str) -> Option<&'static str> {
     }
 }
 
-/// Sub-agent tools whose results are conversation, not chrome: their summaries
-/// surface as `agents` blocks in the transcript.
 pub fn is_council_tool(name: &str) -> bool {
     matches!(name, "spawn" | "delegate" | "integrate")
 }

@@ -8,7 +8,6 @@ fn fresh(text: &str) -> Spec {
     wish_to_spec(text, &seed(&Creation::default(), &WeaponCreation::default()))
 }
 
-/// The wishes said in order, each read against the conversation so far.
 fn chain(texts: &[&str]) -> Vec<Spec> {
     let mut history = seed(&Creation::default(), &WeaponCreation::default());
     let mut out = Vec::new();
@@ -97,7 +96,6 @@ fn a_refinement_chain_mends_the_same_weapon_and_keeps_what_it_did_not_touch() {
     assert_eq!(w.paint.slot_metal.get("guard"), Some(&Material::Gold));
     assert_eq!(w.gem, Some(School::Fire));
     assert!(spec[3].reply.contains("mended"));
-    // Each step saw the one before it.
     assert_eq!(weapon(&spec[1]).gem, None);
     assert!(weapon(&spec[2]).stretch.is_some());
     assert_eq!(w.name, weapon(&spec[0]).name, "mending does not rename it");
@@ -113,11 +111,9 @@ fn a_refinement_chain_mends_the_same_weapon_and_keeps_what_it_did_not_touch() {
     assert_eq!(blue.paint.glow, Some(School::Ice), "tinted blue");
     assert!(blue.powers().abilities.iter().any(|a| a.id == "enchant:fire"));
 
-    // A size word for a thing the weapon does not have changes nothing and says so.
     let none = chain(&["a goblin cleaver", "bigger skull"]);
     assert!(weapon(&none[1]).parts.iter().all(|p| p.scale == 100));
     assert!(none[1].reply.to_lowercase().contains("i see no skull"), "{}", none[1].reply);
-    // A refinement that names no change is answered as such.
     let same = chain(&["a goblin cleaver", "banana"]);
     assert!(same[1].reply.contains("no change"), "{}", same[1].reply);
 }
@@ -154,7 +150,6 @@ fn creature_wishes_set_role_parts_paint_and_sculpt_and_weapons_fork_off() {
     let s = &creature(&caster).spells;
     assert_eq!((s[0].school, s[0].form), (School::Fire, Form::Nova));
 
-    // A refinement mends the creature in hand.
     let mut history = seed(c, &WeaponCreation::default());
     let taller = wish_to_spec("make it taller and slimmer", &history);
     assert!(creature(&taller).sculpt.height > c.sculpt.height && creature(&taller).sculpt.bulk < c.sculpt.bulk);
@@ -184,7 +179,6 @@ fn it_is_offline_deterministic_and_never_takes_numbers_from_the_player() {
     let w = weapon(&cheat);
     assert_eq!(w.powers().stats.damage, w.parts.iter().filter_map(|p| kit().part(&p.part_id)).map(|p| p.stat.dmg).sum::<i32>());
     assert!(cheat.reply.contains(&format!("{} OF 20", cheat.cost)));
-    // With no history at all the first wish still reads (a creature unless it names a weapon).
     assert!(matches!(wish_to_spec("something lovely", &[]).make, Make::Creature(_)));
     assert!(matches!(wish_to_spec("an axe", &[]).make, Make::Weapon(_)));
     assert_eq!(fresh("a sword").parser, PARSER);
@@ -192,12 +186,10 @@ fn it_is_offline_deterministic_and_never_takes_numbers_from_the_player() {
 
 #[test]
 fn a_word_the_game_never_carries_gets_a_censor_bar_and_reaches_nothing() {
-    // The mechanism, with a stand-in rule so it is tested whichever table this build keeps.
     let rule = |w: &str| w.eq_ignore_ascii_case("plunger") || w.eq_ignore_ascii_case("gag");
     assert_eq!(censor_by("a Plunger, a gag; plungers", "####", &rule), ("a ####, a ####; plungers".to_string(), 2));
     assert_eq!(censor_by("nothing here", "####", &rule), ("nothing here".to_string(), 0));
     assert_eq!(censor_by("", "####", &rule), (String::new(), 0));
-    // The game's own list: every word it refuses here is covered, in the spec, the want and the answer.
     let refused = ["penis", "fuck", "shit", "dick"]
         .into_iter()
         .find(|w| crate::rules::cards::not_for_work(w).is_some());

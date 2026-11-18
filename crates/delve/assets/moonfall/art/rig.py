@@ -1,12 +1,3 @@
-"""A small three-view rig for Moonfall's people: front (down), back (up) and
-side (left; right is the mirror). 18 by 28 canvas, bottom-centre anchor, feet
-on row 26, the figure centred on pixel column 9. Each person is a `Cfg`:
-colours for the skin, tunic, sleeves, legs and boots, a body shape, and three
-hooks that draw what makes them themselves (`back`, `hat`, `front`) for each
-view and pose.
-
-A pose is (kind, ph): `idle` phases 0..3, `walk` phases 0..3. Bob and limb
-swing come from the phase; `extra` carries what a particular frame needs."""
 from engine import *
 
 W, H = 18, 28
@@ -22,14 +13,14 @@ class Cfg:
         self.sleeve = None
         self.legs = ["Z", "n", "I"]
         self.boot = ["k", "n", "b"]
-        self.sh = 4.2               # shoulder half-width (front)
-        self.hm = 4.4               # hem half-width (front)
-        self.side_w = 3.2           # torso half-width (side)
-        self.top = 12               # shoulder line
-        self.hem = 21               # where the tunic ends
+        self.sh = 4.2
+        self.hm = 4.4
+        self.side_w = 3.2
+        self.top = 12
+        self.hem = 21
         self.head_r = (3.9, 3.8)
         self.head_y = 9.0
-        self.head_dx = 0.0          # head leans forward in the side view
+        self.head_dx = 0.0
         self.stoop = 0
         self.belt = None
         self.eye = "k"
@@ -70,7 +61,6 @@ def legs_side(sp, c, kind, ph):
     top = c.hem - 1
     x_far = 9 - lw // 2 - s
     x_near = 9 - lw // 2 + s
-    # far leg, in shadow
     sp.paint(rect(x_far, top, lw, FOOT - 1 - top - (up if s == 0 else 0)), [c.legs[0], c.legs[0], c.legs[1]], rim=False, fall=False)
     sp.paint(rect(x_far - 1, FOOT - 2 - (up if s == 0 else 0), lw + 1, 2), [c.boot[0], c.boot[0], c.boot[1]], rim=False, fall=False)
     sp.paint(rect(x_near, top, lw, FOOT - 1 - top), c.legs, rim=True, fall=False)
@@ -81,7 +71,6 @@ def torso_front(sp, c, bob):
     top = c.top + bob + c.stoop
     body = poly([(CX - c.sh, top), (CX + c.sh, top), (CX + c.hm, c.hem), (CX - c.hm, c.hem)])
     sp.paint(body, c.tunic, rim=True, fall=False)
-    # a fold of cloth down the right of the chest, a belt, and the hem
     for y in range(top + 2, c.hem - 1):
         q = (int(CX + c.sh * 0.35), y)
         if q in body and y % 3 != 2:
@@ -122,7 +111,6 @@ def arm_swing(kind, ph):
 
 
 def arms_front(sp, c, bob, kind, ph, skip=()):
-    """Both arms hanging; returns the hand points (left, right)."""
     top = c.top + bob + c.stoop
     sw = arm_swing(kind, ph)
     hands = {}
@@ -195,7 +183,6 @@ def head_side(sp, c, bob, blink=False):
 
 
 def person(c, d, kind="idle", ph=0, bob=None, x=None):
-    """One frame of person `c` facing `d` ('down', 'up', 'left')."""
     sp = Sprite(W, H)
     x = x or {}
     if bob is None:
@@ -236,7 +223,6 @@ def mirrored(sp):
 
 
 def arm_to(sp, c, side, bob, tx, ty, hand=None):
-    """An arm from the `side` shoulder to a hand at (tx, ty)."""
     top = c.top + bob + c.stoop
     sx = CX + side * (c.sh + 0.2)
     arm = cap(sx, top + 1.4, tx, ty, 1.1)

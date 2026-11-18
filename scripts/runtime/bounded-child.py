@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Run one foreground process group with a wall deadline and parent cleanup."""
 import argparse
 import ctypes
+import errno
 import os
 import signal
 import subprocess
@@ -11,6 +11,7 @@ import sys
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--timeout-ms', required=True, type=int)
+    parser.add_argument('--status-fd', type=int)
     parser.add_argument('command', nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ['--'] else args.command
@@ -23,8 +24,6 @@ def main():
 
     for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
         signal.signal(sig, stop)
-    # Linux is the qualified runtime. Parent loss must also stop nested model
-    # clients/tool processes; killing only the immediate shell leaves them alive.
     if sys.platform.startswith('linux'):
         parent = os.getppid()
         if ctypes.CDLL(None).prctl(1, signal.SIGTERM, 0, 0, 0) != 0:
@@ -32,11 +31,22 @@ def main():
         if os.getppid() != parent:
             return 143
     try:
-        child = subprocess.Popen(command, start_new_session=True)
+        pass_fds = []
+        for fd in range(3, args.status_fd or 3):
+            try:
+                os.fstat(fd)
+            except OSError as error:
+                if error.errno != errno.EBADF:
+                    raise
+            else:
+                pass_fds.append(fd)
+        child = subprocess.Popen(command, start_new_session=True, pass_fds=pass_fds)
         try:
             returncode = child.wait(timeout=args.timeout_ms / 1000)
             return returncode if returncode >= 0 else 128 - returncode
         except subprocess.TimeoutExpired:
+            if args.status_fd is not None:
+                os.write(args.status_fd, b'deadline\n')
             print('bounded-child: deadline exceeded', file=sys.stderr)
             return 124
     finally:

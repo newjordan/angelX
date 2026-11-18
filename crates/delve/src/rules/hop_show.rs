@@ -19,16 +19,12 @@
 use super::juice::Weight;
 use super::*;
 
-/// Ticks each kind of moment stays on the books for its effects.
 pub const LAND_LIFE: u32 = 20;
 pub const SINK_LIFE: u32 = 44;
 pub const CROSS_LIFE: u32 = 44;
 pub const SHOUT_LIFE: u32 = super::juice::CALL_LIFE;
-/// Ticks the whole archive flares when the table has all crossed.
 pub const LIT_LIFE: u32 = 60;
-/// Gold each knight keeps for every time the table lit the archive.
 pub const ARCHIVE_GOLD: u32 = 2;
-/// A lone knight lights the archive with this many crossings.
 pub const SOLO_LANTERNS: u8 = 3;
 
 const MOST_LANDS: usize = 14;
@@ -36,20 +32,15 @@ const MOST_SINKS: usize = 10;
 const MOST_CROSSES: usize = 10;
 const MOST_SHOUTS: usize = 6;
 
-/// A knight set down on a book, or back on a bank: where (room pixels,
-/// their feet), the lane (255 for a bank), and when.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Land {
     pub who: u8,
     pub at: (i32, i32),
     pub lane: u8,
-    /// On the very edge of the book: a toe's worth from the ink.
     pub edge: bool,
     pub born: u32,
 }
 
-/// A knight sunk: where, how many rows of the crossing it cost them, and
-/// whether a wall did it (a book carried them into the stone).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sink {
     pub who: u8,
@@ -59,8 +50,6 @@ pub struct Sink {
     pub born: u32,
 }
 
-/// A knight over the far bank: where (room pixels), their count, the run of
-/// clean crossings they are on, and when.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Cross {
     pub who: u8,
@@ -70,20 +59,13 @@ pub struct Cross {
     pub born: u32,
 }
 
-/// What a banner calls. Words are the picture's.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Cry {
-    /// The first knight across.
     First,
-    /// n clean crossings in a row.
     Clean(u8),
-    /// A knight took the lead.
     Lead,
-    /// The whole table has crossed: the n-th time the archive is lit.
     Lit(u8),
-    /// Half the minute gone.
     Half,
-    /// The last ten seconds.
     Last,
 }
 
@@ -100,7 +82,6 @@ impl Cry {
     }
 }
 
-/// A banner called for a knight (`who` 0: for the whole room) at a tick.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Shout {
     pub cry: Cry,
@@ -108,8 +89,6 @@ pub struct Shout {
     pub born: u32,
 }
 
-/// How the minute ended: when (run tick), who took it, the pot, the most
-/// crossings, the hall's best before it, and how often the archive was lit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ended {
     pub at: u32,
@@ -126,25 +105,15 @@ pub struct HopShow {
     pub sinks: Vec<Sink>,
     pub crosses: Vec<Cross>,
     pub shouts: Vec<Shout>,
-    /// Each knight's run of clean crossings (no sinking between).
     pub streak: BTreeMap<u32, u16>,
-    /// The longest run each knight made.
     pub best: BTreeMap<u32, u16>,
-    /// How often each knight sank.
     pub sunk: BTreeMap<u32, u16>,
-    /// The row each knight stood in at the last look, to tell a landing.
     pub rows: BTreeMap<u32, i16>,
-    /// The crossings each knight has made toward lighting the archive.
     pub lit: BTreeMap<u32, u8>,
-    /// How many times the whole table crossed and lit the archive, and when
-    /// it last flared.
     pub waves: u8,
     pub flared: Option<u32>,
-    /// Crossings the whole table made.
     pub team: u16,
-    /// The knight now ahead on their own.
     pub lead: Option<u8>,
-    /// Which of the clock's calls have been made.
     pub called: u8,
     pub ended: Option<Ended>,
 }
@@ -171,7 +140,6 @@ impl HopShow {
             && self.streak.keys().chain(self.best.keys()).chain(self.sunk.keys()).chain(self.rows.keys()).chain(self.lit.keys()).all(seat)
     }
 
-    /// Let go what is old at `now`.
     pub fn tick(&mut self, now: u32) {
         self.lands.retain(|l| now.saturating_sub(l.born) < LAND_LIFE);
         self.sinks.retain(|s| now.saturating_sub(s.born) < SINK_LIFE);
@@ -182,7 +150,6 @@ impl HopShow {
         }
     }
 
-    /// Call a banner (the loudest stays on top when they come together).
     pub fn shout(&mut self, now: u32, cry: Cry, who: u32) {
         if self.shouts.len() >= MOST_SHOUTS {
             self.shouts.remove(0);
@@ -190,13 +157,11 @@ impl HopShow {
         self.shouts.push(Shout { cry, who: who as u8, born: now });
     }
 
-    /// The row `who` stands in now; the row before it, if it was another.
     pub fn stood(&mut self, who: u32, row: i32) -> Option<i32> {
         let was = self.rows.insert(who, row as i16);
         was.map(i32::from).filter(|&r| r != row)
     }
 
-    /// A knight set down on a book (or a bank, `lane` 255).
     pub fn landed(&mut self, now: u32, who: u32, at: (i32, i32), lane: u8, edge: bool) {
         if self.lands.len() >= MOST_LANDS {
             self.lands.remove(0);
@@ -204,7 +169,6 @@ impl HopShow {
         self.lands.push(Land { who: who as u8, at, lane, edge, born: now });
     }
 
-    /// A knight sunk, `lost` rows of the crossing gone. Breaks their run.
     pub fn sank(&mut self, now: u32, who: u32, at: (i32, i32), lost: u32, wall: bool) -> Weight {
         if self.sinks.len() >= MOST_SINKS {
             self.sinks.remove(0);
@@ -212,14 +176,9 @@ impl HopShow {
         self.sinks.push(Sink { who: who as u8, at, lost: lost.min(255) as u8, wall, born: now });
         self.streak.remove(&who);
         *self.sunk.entry(who).or_default() += 1;
-        // A sink is felt, never a freeze: four knights fall in all the time.
         Weight::Graze
     }
 
-    /// A knight over the far bank: `n` is their count now, `seats` how many
-    /// knights are at the table. Counts the run and the lanterns, makes the
-    /// calls, and says how hard it weighed: a third clean crossing in a row
-    /// holds the room, the archive lit more.
     pub fn crossed(&mut self, now: u32, who: u32, at: (i32, i32), n: u16, scores: &BTreeMap<u32, u16>) -> Weight {
         let run = self.streak.entry(who).or_default();
         *run += 1;
@@ -239,7 +198,6 @@ impl HopShow {
             self.shout(now, Cry::Clean(clean.min(255) as u8), who);
         }
         let mut weight = if clean >= 3 { Weight::Crushing } else { Weight::Solid };
-        // The lanterns: one for each seat, or three for a lone knight.
         let need = if scores.len() > 1 { 1 } else { SOLO_LANTERNS };
         let lit = self.lit.entry(who).or_default();
         *lit = (*lit + 1).min(need);
@@ -253,9 +211,6 @@ impl HopShow {
         weight
     }
 
-    /// The tally changed: call a change of lead (once someone has crossed
-    /// twice, out of a tie, taken from another's hands) and the clock's two
-    /// calls.
     pub fn standings(&mut self, now: u32, scores: &BTreeMap<u32, u16>, left: u32) {
         let top = scores.values().copied().max().unwrap_or(0);
         let leaders: Vec<u32> = scores.iter().filter(|&(_, &n)| n == top && top > 0).map(|(&id, _)| id).collect();
@@ -278,17 +233,14 @@ impl HopShow {
         }
     }
 
-    /// The minute is over: who took it, the pot, the most crossings.
     pub fn finish(&mut self, now: u32, winner: u32, pot: u32, most: u16, was: u16) {
         self.ended = Some(Ended { at: now, winner: winner as u8, pot, most, was, waves: self.waves });
     }
 
-    /// Ticks since the minute ended at `now`, while it is the show.
     pub fn since_end(&self, now: u32) -> Option<u32> {
         self.ended.map(|e| now.saturating_sub(e.at))
     }
 
-    /// The knight's run of clean crossings now.
     pub fn run_of(&self, who: u32) -> u16 {
         self.streak.get(&who).copied().unwrap_or(0)
     }

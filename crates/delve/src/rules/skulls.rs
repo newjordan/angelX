@@ -9,22 +9,13 @@
 
 use super::*;
 
-/// How near a skull must be to walk it up, in units.
 pub const SKULL_REACH: f32 = 1.6;
-/// How near a weak monster must be for the interact key to raise a friend
-/// in it, past its own size, in units.
 pub const RAISE_REACH: f32 = 2.4;
-/// Ticks after a fall before the skull can be picked up: the bones settle.
 pub const SKULL_SETTLE: u64 = HZ as u64;
-/// The share of their own health, in percent, a knight rises with in a
-/// monster's body.
 pub const RAISED_SHARE: u32 = 50;
-/// Ticks a raised knight is warded from the first hit.
 pub const RAISED_WARD: u32 = 2 * HZ;
 
 impl Run {
-    /// Where fallen knight `id`'s skull lies, if it lies anywhere: by the
-    /// bones, or where a carrier dropped it. None while a friend carries it.
     pub fn skull_lying(&self, id: u32) -> Option<(f32, f32)> {
         let hero = self.players.get(&id)?;
         if hero.hp > 0 || hero.absent || self.skull_carrier(id).is_some() {
@@ -33,7 +24,6 @@ impl Run {
         Some(hero.skull_at.unwrap_or((hero.x, hero.y)))
     }
 
-    /// The knight carrying fallen knight `id`'s skull.
     pub fn skull_carrier(&self, id: u32) -> Option<u32> {
         self.players
             .iter()
@@ -41,11 +31,6 @@ impl Run {
             .map(|(&carrier, _)| carrier)
     }
 
-    /// Whether a carried skull can raise a knight in `enemy`: a plain
-    /// monster brought down to a tenth of its health or less, not a
-    /// guardian, a boss, the lair's or the Pit's master, nor one whose
-    /// place in the room is a game of its own (the quintain, the goblin's
-    /// sack, Humphrey, the oath's twins, a ward or a gravestone's well).
     pub fn raisable(enemy: &Enemy) -> bool {
         enemy.hp > 0
             && enemy.hp * 10 <= enemy.max_hp
@@ -63,17 +48,12 @@ impl Run {
             )
     }
 
-    /// Whether anyone carries a skull, so the weak monsters show it.
     pub fn skull_carried(&self) -> bool {
         self.players.values().any(|h| h.hp > 0 && h.carrying_skull.is_some())
     }
 
-    /// One tick of skulls: carriers who fell drop theirs, a raised knight
-    /// who fell is themselves again, skulls are walked up, and the interact
-    /// key raises a fallen friend in a weak monster.
     pub(super) fn tick_skulls(&mut self) {
         if self.at_home_now() {
-            // Home again: every knight in their own shape, no skull in hand.
             for hero in self.players.values_mut() {
                 hero.possessed = None;
                 hero.carrying_skull = None;
@@ -81,12 +61,9 @@ impl Run {
             }
             return;
         }
-        // Fallen in a borrowed body: bones again, the body forgotten.
         for hero in self.players.values_mut().filter(|h| h.hp == 0) {
             hero.possessed = None;
         }
-        // A skull goes with no one who is down, and no one carries a friend
-        // who is back on their feet (the stairs, a wind, a talisman).
         let fallen: Vec<u32> = self
             .players
             .iter()
@@ -114,15 +91,12 @@ impl Run {
         if self.phase == Phase::Wiped {
             return;
         }
-        // Walked up: the nearest free skull to each knight with empty hands.
         let tick = self.tick;
         let lying: Vec<(u32, (f32, f32))> = fallen
             .iter()
             .filter(|&&id| {
                 self.players
                     .get(&id)
-                    // Not in the tick it fell (the watcher stamps `fell` after
-                    // it), and not till the bones have settled.
                     .is_some_and(|h| h.fell != 0 && tick >= h.fell + SKULL_SETTLE)
             })
             .filter_map(|&id| self.skull_lying(id).map(|at| (id, at)))
@@ -153,7 +127,6 @@ impl Run {
             self.cues.push("skull_pickup".into());
             self.sounds.push("bones_clatter");
         }
-        // The interact key on a weak monster: a friend rises in its body.
         let carriers: Vec<(u32, u32)> = self
             .players
             .iter()
@@ -180,14 +153,8 @@ impl Run {
             if !self.players.get(&skull).is_some_and(|h| h.hp == 0) {
                 continue;
             }
-            // The seal is judged while the body still stands: a corpse in
-            // the gate is not a way out (2026-11-02, the art-pack regression
-            // that let a possession walk a barred door).
             let barred = self.barred();
             let body = self.enemies.remove(index);
-            // The body leaves the floor's books as a death does, without
-            // its corpse or its spoils: a raised key carrier is its chief's
-            // loss and drops the Boss Key, as its fall would.
             let mut key_lost = false;
             let was_open = self.boss_gates.as_ref().is_some_and(boss_gates::Gates::unlocked);
             if let Some(g) = &mut self.boss_gates {
@@ -206,21 +173,16 @@ impl Run {
             self.floor_tally.line(carrier).raised += 1;
             if let Some(hero) = self.players.get_mut(&carrier) {
                 hero.carrying_skull = None;
-                // The press went to the skull, not to a weapon lying by.
                 hero.taking = false;
             }
             let at = self.at;
             if let Some(hero) = self.players.get_mut(&skull) {
                 hero.hp = (hero.max_hp * RAISED_SHARE / 100).max(1);
-                // The knight takes the body's place. A wall is not in the
-                // way; a barred door on the way is, the stop a step would
-                // give the body. A corpse through the seal is not a way out.
                 let room = &self.dungeon.rooms[at];
                 let grid = Grid { room, barred };
                 let was = (hero.x, hero.y);
                 (hero.x, hero.y) = grid.across_bar(was, (body.x, body.y));
                 hero.possessed = Some(body.kind);
-                // Its arms ready in its hands (`bodies`).
                 (hero.fire_cooldown, hero.body_rearm) = (0, 0);
                 hero.skull_at = None;
                 hero.invulnerable = hero.invulnerable.max(RAISED_WARD);
@@ -235,8 +197,6 @@ impl Run {
         }
     }
 
-    /// The Sanctuary: a knight in a borrowed body is themselves again,
-    /// standing with at least what the stairs would give them.
     pub(super) fn unpossess_all(&mut self) {
         for hero in self.players.values_mut() {
             if hero.possessed.take().is_some() && hero.hp > 0 {

@@ -5,7 +5,6 @@
 use super::EnemyKind;
 use serde::{Deserialize, Serialize};
 
-/// The run's deterministic generator (xorshift64*).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Rng(u64);
 
@@ -44,9 +43,6 @@ impl Rng {
     }
 }
 
-/// A knight's ranged arm. Each is a shape, not a number: the bow a stream,
-/// the crossbow a rail, the handgonne a fan. Shots fly well ahead of the
-/// knight; the monsters' stay slow and readable.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Weapon {
@@ -62,27 +58,14 @@ pub struct Arms {
     pub speed: f32,
     pub damage: u32,
     pub cooldown: u32,
-    /// Monsters a shot passes through before it stops.
     pub pierce: u8,
-    /// Shots in one pull, spread evenly over `arc` degrees.
     pub shots: u32,
     pub arc: f32,
-    /// The most a shot strays from the aim, in radians, so a stream looks
-    /// alive.
     pub jitter: f32,
-    /// Ticks a shot flies before it falls.
     pub ttl: u32,
 }
 
 impl Weapon {
-    /// The arm untempered. Tempering (`feel::TEMPER_MAX` times, by picking
-    /// up the arm already held) adds to its shape, step by step:
-    ///
-    /// | Arm | 1 | 2 | 3 |
-    /// |---|---|---|---|
-    /// | Bow | a second stream | a third | the outer streams home |
-    /// | Crossbow | a thicker rail | it splits on its first kill | it chains |
-    /// | Handgonne | seven balls | they bounce once | they burst |
     pub fn arms(self) -> Arms {
         match self {
             Weapon::Stones => Arms {
@@ -139,28 +122,17 @@ impl Weapon {
     }
 }
 
-/// Something lying on a room's floor.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Item {
-    /// The card's id in the run's book.
     #[serde(alias = "kind", deserialize_with = "card_id")]
     pub card: String,
     pub x: f32,
     pub y: f32,
-    /// A weapon just set down stays put until the knight who dropped it
-    /// steps away, so standing still never swaps arms back and forth.
     pub held_off: Option<u32>,
-    /// Shared loot (the operator, 2026-10-18): the knights who have taken
-    /// their own of it. It lies until every knight has ([`shared`]).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub took: Vec<u32>,
-    /// The tick it came to lie here, 0 for one older than this is kept: a
-    /// drawer drops it onto the floor from then (`pickup_meshes::plop`).
     #[serde(default, skip_serializing_if = "is_zero")]
     pub dropped: u64,
-    /// A knight's own arm or guard, set down when they took another in its
-    /// place (the operator, 2026-10-19: "only cards we can pickup"): theirs
-    /// alone to take back, with the take key, and nobody else sees it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner: Option<u32>,
 }
@@ -170,15 +142,10 @@ fn is_zero(v: &u64) -> bool {
 }
 
 impl Item {
-    /// What lies on the floor, from `dropped` on: nobody's own, nobody's
-    /// taken yet.
     pub fn lying(card: String, x: f32, y: f32, dropped: u64) -> Self {
         Self { card, x, y, held_off: None, took: Vec::new(), dropped, owner: None }
     }
 
-    /// Whether knight `viewer` sees it on the floor: not once they took their
-    /// own of it (shared loot lies on for the rest), and never another's own
-    /// set-down piece. A view that is nobody's sees what is anyone's.
     pub fn seen_by(&self, viewer: Option<u32>) -> bool {
         match viewer {
             Some(v) => !self.took.contains(&v) && self.owner.is_none_or(|o| o == v),
@@ -187,13 +154,10 @@ impl Item {
     }
 }
 
-/// Whether every knight takes their own of a card: all but what goes to the
-/// party's one treasury (gold and the spoils), taken once for all.
 pub fn shared(card: &super::cards::Card) -> bool {
     !card.effects.iter().any(|e| e.spoil().is_some())
 }
 
-/// Percent chance a fallen monster leaves something behind.
 pub fn drop_chance(kind: EnemyKind) -> u32 {
     match kind {
         EnemyKind::Bat => 20,
@@ -216,9 +180,7 @@ pub fn drop_chance(kind: EnemyKind) -> u32 {
         EnemyKind::Mole | EnemyKind::Leech | EnemyKind::Mirrorling | EnemyKind::Geode => 30,
         EnemyKind::Pavise | EnemyKind::Hound => 45,
         EnemyKind::Marksman | EnemyKind::Spitter | EnemyKind::Ringer => 55,
-        // The Pit Tyrant leaves its own: the Talisman, gold, a prize.
         EnemyKind::PitTyrant => 0,
-        // Humphrey always leaves something; consider it compost rent.
         EnemyKind::Risen => 100,
         EnemyKind::Broodmarrow => 90,
         EnemyKind::Oathbound => 55,
@@ -229,7 +191,6 @@ pub fn drop_chance(kind: EnemyKind) -> u32 {
     }
 }
 
-/// Percent chance a fallen monster also leaves its delve's material.
 pub fn spoil_chance(kind: EnemyKind) -> u32 {
     match kind {
         EnemyKind::Bat => 25,
@@ -254,20 +215,16 @@ pub fn spoil_chance(kind: EnemyKind) -> u32 {
         EnemyKind::Mole | EnemyKind::Leech | EnemyKind::Mirrorling | EnemyKind::Geode => 35,
         EnemyKind::Pavise | EnemyKind::Hound => 50,
         EnemyKind::Marksman | EnemyKind::Spitter | EnemyKind::Ringer => 60,
-        // No delve material in him: only cabbages and grudges.
         EnemyKind::Risen => 0,
         EnemyKind::Broodmarrow => 90,
         EnemyKind::Oathbound => 55,
         EnemyKind::Whirlgrave => 65,
-        // Its spoils are spore and compost; the Fungal Deep takes its cut.
         EnemyKind::Fungelder => 70,
         EnemyKind::BogHand | EnemyKind::Wisp => 35,
         EnemyKind::Drowned => 70,
     }
 }
 
-/// Checkpoints from before cards held an item kind; each one is now the
-/// built-in card of the same name.
 fn card_id<'de, D: serde::Deserializer<'de>>(d: D) -> Result<String, D::Error> {
     #[derive(Deserialize)]
     #[serde(untagged)]

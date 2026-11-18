@@ -20,17 +20,12 @@ use crate::rules::moonfall::{
 use std::cell::Cell;
 use std::f32::consts::TAU;
 
-/// Ticks the day's card holds, and the dusk's, and a mask's.
 const DAY_LIFE: u32 = 64;
 const DUSK_LIFE: u32 = 44;
 const MASK_LIFE: u32 = 72;
-/// Ticks a knight's note and a news line start with (the rules' own).
 const NOTE_START: u32 = 90;
 const NEWS_START: u32 = 120;
 
-// ─── cards ───────────────────────────────────────────────────────────────────
-
-/// A card on the town: what it says, how it is inked, how old it is.
 pub(super) struct Card {
     pub title: String,
     pub sub: String,
@@ -40,17 +35,12 @@ pub(super) struct Card {
     pub cap: i32,
 }
 
-/// The row a card's title rests on: in the sky band over the town, where
-/// no word of the town's and none of the HUD's stands, so the knights and
-/// the news stay in view.
 const CARD_Y: i32 = 10;
 
 fn card_y(_: &Session, _: u32) -> i32 {
     CARD_Y
 }
 
-/// The one card on show, by rank: the lights holding, a mask earned, the
-/// day's dawn, the dusk.
 pub(super) fn card(s: &Session, me: &Knight, shown: u32) -> Option<Card> {
     if let Phase::Won { t } = s.phase {
         return Some(Card { title: "THE LIGHTS HOLD".into(), sub: String::new(), age: t, life: 110, tone: Tone::Warm, cap: 3 });
@@ -80,8 +70,6 @@ pub(super) fn card(s: &Session, me: &Knight, shown: u32) -> Option<Card> {
     None
 }
 
-/// The box a card claims: its biggest drawing (the slam, three scales over
-/// its rest) and its rails, so no word and no other card meets it.
 pub(super) fn card_rect(c: &Card, y: i32) -> Rect {
     let tw = text_width(&c.title).max(1);
     let rest = ((384 - 24) / tw).clamp(1, c.cap.max(1));
@@ -93,7 +81,6 @@ pub(super) fn card_rect(c: &Card, y: i32) -> Rect {
     Rect::new(192 - w / 2, top, w, bottom - top)
 }
 
-/// The card on show and the box it claims.
 pub(super) fn card_now(s: &Session, me: &Knight) -> Option<(Card, Rect)> {
     let shown = s.shown_clock();
     let c = card(s, me, shown)?;
@@ -108,11 +95,6 @@ pub(super) fn draw_card(im: &mut Img, s: &Session, me: &Knight) {
     }
 }
 
-// ─── the room's shake ────────────────────────────────────────────────────────
-
-/// How far the town is jolted this tick, in pixels: the hand a touch leaves,
-/// the toll of the bell, the moon landing, each dawn's rumble as it grows, the
-/// lights holding.
 pub(super) fn jolt(s: &Session, me: &Knight, tick: u32) -> (i32, i32) {
     let decay = |age: f32, life: f32| (1.0 - age / life).clamp(0.0, 1.0).powi(2);
     let mut amp = 0.0f32;
@@ -128,7 +110,6 @@ pub(super) fn jolt(s: &Session, me: &Knight, tick: u32) -> (i32, i32) {
                 if t >= land - 3.0 && t < land + 18.0 {
                     amp = amp.max(6.0 * decay((t - land).max(0.0), 18.0));
                 } else if t < land {
-                    // The moon coming down rumbles louder as it nears.
                     amp = amp.max(0.8 + 2.4 * t / land);
                 }
             } else {
@@ -148,7 +129,6 @@ pub(super) fn jolt(s: &Session, me: &Knight, tick: u32) -> (i32, i32) {
         Phase::Play if s.completed.is_none() => {
             let day = s.nums.day.max(1);
             let shown = s.clock;
-            // The moon steps closer at each new dawn; the Final Hours begin with a shudder.
             for k in 1..3u32 {
                 let a = shown.wrapping_sub(k * day);
                 if shown >= k * day && a < 20 {
@@ -169,14 +149,10 @@ pub(super) fn jolt(s: &Session, me: &Knight, tick: u32) -> (i32, i32) {
     ((amp * a.sin()).round() as i32, (amp * (a * 1.37 + 1.0).cos()).round() as i32)
 }
 
-// ─── guide lines ─────────────────────────────────────────────────────────────
-
 thread_local! {
     static GUIDES: Cell<bool> = const { Cell::new(false) };
 }
 
-/// Show the guide lines the effects are drawn along (the shots' debug layer;
-/// always off in play).
 #[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn show_guides(on: bool) {
     GUIDES.with(|g| g.set(on));
@@ -186,9 +162,6 @@ fn guides() -> bool {
     GUIDES.with(Cell::get)
 }
 
-/// A spiral guide: a path from `r_out` in to `r_in` about `c`, turning `turn`
-/// radians on the way (negative: counter-clockwise on the screen), flattened by
-/// `squash`. The rewind's streaks of time ride along it.
 #[derive(Clone, Copy)]
 struct Spiral {
     c: (f32, f32),
@@ -200,7 +173,6 @@ struct Spiral {
 }
 
 impl Spiral {
-    /// The point `t` (0 at the outer end, 1 at the inner) along it.
     fn at(&self, t: f32) -> (f32, f32) {
         let t = t.clamp(0.0, 1.0);
         let r = self.r_in + (self.r_out - self.r_in) * (1.0 - t).powf(1.6);
@@ -209,9 +181,6 @@ impl Spiral {
     }
 }
 
-/// A bowed, swirling guide from `from` to `to`: a swing to one side that
-/// grows and closes again, with a tight wobble along it. The moon's pull
-/// draws the town's dust up along it.
 #[derive(Clone, Copy)]
 struct Swirl {
     from: (f32, f32),
@@ -232,8 +201,6 @@ impl Swirl {
     }
 }
 
-/// The debug layer: a guide's path dotted along its length, a bright mark at
-/// every tenth, the ends in other inks.
 fn draw_guide(im: &mut Img, at: impl Fn(f32) -> (f32, f32)) {
     for i in 0..=300 {
         let (x, y) = at(i as f32 / 300.0);
@@ -244,11 +211,6 @@ fn draw_guide(im: &mut Img, at: impl Fn(f32) -> (f32, f32)) {
     }
 }
 
-// ─── the rewind ──────────────────────────────────────────────────────────────
-
-/// The rewind's under-picture, on the effects layer before the clock's face:
-/// a clock hand sweeps counter-clockwise round the town, dimming a wedge of it
-/// behind it, and time streams in from the edges toward the glass.
 pub(super) fn rewind_under(fx: &mut Img, s: &Session, tick: u32) {
     let Phase::Rewind { t, fell, .. } = s.phase else { return };
     let ctl = control(&s.nums).max(1) as f32;
@@ -273,7 +235,6 @@ pub(super) fn rewind_under(fx: &mut Img, s: &Session, tick: u32) {
             }
         }
     }
-    // The hand's own bright edge, a thin dithered spoke.
     let tint = if fell { 'T' } else { '3' };
     for r in (50..230).step_by(1) {
         let (x, y) = ((cx + hand.sin() * r as f32) as i32, (cy - hand.cos() * r as f32) as i32);
@@ -281,8 +242,6 @@ pub(super) fn rewind_under(fx: &mut Img, s: &Session, tick: u32) {
             fx.put(x, y, tint);
         }
     }
-    // Time streaming in: six spiral guides wind counter-clockwise into the
-    // glass, and bright streaks ride them, a head and a fading tail.
     for arm in 0..6u32 {
         let guide = Spiral { c: (cx, cy), r_out: 215.0, r_in: 44.0, a0: arm as f32 / 6.0 * TAU + 0.4, turn: -1.15 * TAU * 0.75, squash: 0.78 };
         if guides() {
@@ -294,7 +253,6 @@ pub(super) fn rewind_under(fx: &mut Img, s: &Session, tick: u32) {
             if head <= 0.0 || head >= 1.0 {
                 continue;
             }
-            // A streak is a head and a tail, sampled close enough to read as one line.
             for n in 0..30usize {
                 let (x, y) = guide.at((head - n as f32 * 0.0055).max(0.0));
                 let band = n * 6 / 30;
@@ -312,13 +270,10 @@ pub(super) fn rewind_under(fx: &mut Img, s: &Session, tick: u32) {
     }
 }
 
-/// The rewind's over-picture: the bell's toll rings out, shock after shock,
-/// and the moon's landing breaks the ground (the wipe's own flare comes after).
 pub(super) fn rewind_over(fx: &mut Img, s: &Session, tick: u32) {
     let Phase::Rewind { t, fell, .. } = s.phase else { return };
     let ctl = control(&s.nums).max(1) as f32;
     let t = t as f32;
-    // On a scratch, so no ring or ember reaches the clock bar's words.
     let mut scratch = Img::new(fx.w, fx.h);
     {
         let mut pen = Pen::new(&mut scratch, 900);
@@ -348,13 +303,6 @@ pub(super) fn rewind_over(fx: &mut Img, s: &Session, tick: u32) {
     }
 }
 
-// ─── the moon's pull ─────────────────────────────────────────────────────────
-
-/// The Gloam Moon drawing the town's dust up to it: pale motes ride swirling
-/// guides from the town to the moon's face, more of them and faster the
-/// nearer it hangs (a few on the first night, a gale in the Final Hours),
-/// and every guide at once while it falls. Drawn over the moon's edge, under
-/// the words.
 pub(super) fn pull(im: &mut Img, s: &Session, shown: u32, tick: u32) {
     let (p, mx, my, r, _) = super::sky::disc(s, shown);
     let falling = matches!(s.phase, Phase::Rewind { fell: true, t, .. } if (t as f32) < control(&s.nums) as f32 * 0.45);
@@ -391,7 +339,6 @@ pub(super) fn pull(im: &mut Img, s: &Session, shown: u32, tick: u32) {
                 if !(0..im.w).contains(&x) || !(0..VIEW_Y + VIEW_H).contains(&y) {
                     continue;
                 }
-                // Thin out as it nears the face, and as the tail goes.
                 if n > 0 && bayer(x, y) > 0.95 - 0.07 * n as f32 {
                     continue;
                 }
@@ -402,10 +349,6 @@ pub(super) fn pull(im: &mut Img, s: &Session, shown: u32, tick: u32) {
     }
 }
 
-// ─── the town's hours ────────────────────────────────────────────────────────
-
-/// An hour just struck, as rings out from the bell post: the big tolls at
-/// 06, 12, 18 and 24, and every hour in the Final Hours.
 pub(super) fn toll(im: &mut Img, s: &Session, cam: Cam, tick: u32) {
     if !matches!(s.phase, Phase::Play) || s.completed.is_some() {
         return;
@@ -433,13 +376,10 @@ pub(super) fn toll(im: &mut Img, s: &Session, cam: Cam, tick: u32) {
     let _ = tick;
 }
 
-/// Fireflies over the fen after dusk: a few dozen warm points drifting on
-/// slow loops, blinking, over the open ground of the town in view.
 pub(super) fn fireflies(im: &mut Img, s: &Session, cam: Cam, shown: u32, tick: u32) {
     let day = s.nums.day.max(1);
     let m = (u64::from(shown) * 1440 / u64::from(day)) as u32 + 360;
     let hour = (m % 1440) as f32 / 60.0;
-    // Out from dusk, thickest through the night, gone by the dawn.
     let on = if hour >= 18.0 { ((hour - 18.0) / 2.0).min(1.0) } else if hour < 5.5 { 1.0 } else if hour < 6.5 { (6.5 - hour).max(0.0) } else { 0.0 };
     if on <= 0.0 || s.completed.is_some() {
         return;
@@ -467,9 +407,6 @@ pub(super) fn fireflies(im: &mut Img, s: &Session, cam: Cam, shown: u32, tick: u
     }
 }
 
-// ─── a thing found ───────────────────────────────────────────────────────────
-
-/// A mask's face, 13 by 10, in the realm's inks.
 pub(super) fn mask_icon(m: Mask) -> Img {
     let mut im = Img::new(13, 11);
     match m {
@@ -500,7 +437,6 @@ pub(super) fn mask_icon(m: Mask) -> Img {
     im
 }
 
-/// A closed book, 11 by 9.
 fn book_icon() -> Img {
     let mut im = Img::new(11, 9);
     im.rect(0, 0, 11, 8, 'B');
@@ -516,14 +452,11 @@ fn book_icon() -> Img {
     im
 }
 
-/// Where the knight stands on the screen, feet.
 fn feet(k: &Knight, cam: Cam) -> (i32, i32) {
     let (px, py) = k.px();
     (px - cam.x, py - cam.y + VIEW_Y)
 }
 
-/// What the viewer's knight finds, the bursts: a mask blooming in rings and
-/// stars over them, a pickup's pop. (Drawn before the HUD.)
 pub(super) fn found(im: &mut Img, s: &Session, me: &Knight, cam: Cam, tick: u32) {
     if !matches!(s.phase, Phase::Play) || me.down > 0 {
         return;
@@ -550,9 +483,6 @@ pub(super) fn found(im: &mut Img, s: &Session, me: &Knight, cam: Cam, tick: u32)
     }
 }
 
-/// The flights: the mask's face rises over the helm, hangs, and flies to the
-/// clock bar's mask word; a book flies from the knight to the Ledger's key.
-/// Each lands in a twinkle on the bar. (Drawn after the HUD, before the cards.)
 pub(super) fn found_over(im: &mut Img, s: &Session, me: &Knight, cam: Cam, tick: u32) {
     if !matches!(s.phase, Phase::Play) || me.down > 0 {
         return;
@@ -566,7 +496,6 @@ pub(super) fn found_over(im: &mut Img, s: &Session, me: &Knight, cam: Cam, tick:
             let icon = mask_icon(m);
             let word = 300.0 - text_width(if m == Mask::Swift { "SWIFT" } else { "STOUT" }) as f32 / 2.0;
             let rise = ease::out((age as f32 / 16.0).min(1.0));
-            // Over the helm, then up and over to the bar's word.
             if age < 58 {
                 let (px, py) = if age < 36 {
                     (head.0, head.1 - 8.0 * rise)
@@ -581,7 +510,6 @@ pub(super) fn found_over(im: &mut Img, s: &Session, me: &Knight, cam: Cam, tick:
             }
         }
     }
-    // The Ledger writing: a book flies from the viewer's knight to its key.
     let key = (80.0f32, bar + 27.0);
     for &(note, left) in &s.news {
         if !matches!(note, Note::Wrote(..) | Note::Learned(_) | Note::Ticked(_)) {
@@ -610,10 +538,6 @@ pub(super) fn found_over(im: &mut Img, s: &Session, me: &Knight, cam: Cam, tick:
     }
 }
 
-// ─── the lights hold ─────────────────────────────────────────────────────────
-
-/// The moon turned back: three shock rings, fireworks over the town, paper.
-/// Then, once the knights are free, the party goes on at a gentler pace.
 pub(super) fn finale(im: &mut Img, s: &Session, tick: u32) {
     let (age, strong) = match s.phase {
         Phase::Won { t } => (t, true),
@@ -632,7 +556,6 @@ pub(super) fn finale(im: &mut Img, s: &Session, tick: u32) {
             }
         }
     }
-    // Fireworks: every so often a new one rises from low in the town.
     let step = if strong { 8 } else { 40 };
     let cur = age / step;
     for n in cur.saturating_sub(8)..=cur {

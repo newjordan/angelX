@@ -1,8 +1,3 @@
-// The storyteller: bands of raiders sent against the realm's richest
-// holding once it is worth robbing, warned of rent days ahead, stronger
-// each time, broken on walls and a garrison or taking the holding and its
-// coffer, met early in the hall, and quiet after.
-
 use super::*;
 use super::testing::*;
 use crate::realm::{Spoil, Spoils};
@@ -12,12 +7,9 @@ fn built(ids: &[&str]) -> Vec<Built> {
     ids.iter().map(|id| Built { id: id.to_string(), labour: ROOM_LABOUR }).collect()
 }
 
-/// A held Crypt with three rooms standing: worth robbing.
 fn worth() -> Holdings {
     let (mut h, _) = held();
     h.owned[0].rooms = built(&["taproom", "shrine", "smithy"]);
-    // A brave steward keeps the walls from a rent day's wear, so the
-    // tests watch the bands alone.
     h.owned[0].steward = Some("gwen".into());
     h.stores = STORES_CAP;
     h
@@ -37,7 +29,6 @@ fn no_band_musters_until_the_realm_is_worth_robbing() {
 #[test]
 fn a_band_musters_against_the_richest_holding_rent_days_ahead() {
     let mut h = worth();
-    // A second holding, poorer: the band passes it by.
     h.served.insert("sol".into());
     let mut t = gold(10_000);
     settle(&mut h, &mut t, &marks(&[&buy_mark(Deed::Castle(0), false)]));
@@ -47,7 +38,6 @@ fn a_band_musters_against_the_richest_holding_rent_days_ahead() {
     assert_eq!((m.key.as_str(), m.days, m.strength), (crypt_key().as_str(), WARN_DAYS, BANDS[0]));
     assert!(said.iter().any(|l| l == "Scouts: 6 raiders muster against The Crypt, 2 rent days off"), "{said:?}");
     assert_eq!(h.news.last().map(String::as_str), Some("Scouts: 6 raiders muster against The Crypt, 2 rent days off"));
-    // A day nearer, not yet come.
     rent_day(&mut h, 1);
     assert_eq!(h.muster.as_ref().map(|m| m.days), Some(1));
     assert_eq!(h.owned[0].raid, 0);
@@ -70,7 +60,6 @@ fn walls_and_a_garrison_as_strong_as_the_band_break_it_and_are_battered() {
 #[test]
 fn a_band_stronger_than_the_walls_takes_the_holding_and_carries_off_its_coffer() {
     let mut h = worth();
-    // The third band, ten strong, against seven courses and Gwen's two.
     h.sieges = 2;
     h.owned[0].walls = 7;
     rent_day(&mut h, 1);
@@ -80,12 +69,9 @@ fn a_band_stronger_than_the_walls_takes_the_holding_and_carries_off_its_coffer()
     assert!(said.iter().any(|l| l.starts_with("The Crypt fell to 10 raiders: they carried off")), "{said:?}");
     assert_eq!(h.owned[0].raid, 1);
     assert_eq!(h.owned[0].coffer, 0);
-    // While they hold it, the storyteller sends no one else and keeps his
-    // quiet for after.
     let calm = h.calm;
     rent_day(&mut h, 5);
     assert_eq!((h.muster.clone(), h.calm), (None, calm));
-    // Freed: the quiet counts down, then the next band, stronger.
     let mut t = gold(0);
     settle(&mut h, &mut t, &marks(&[&raids::won_mark(&crypt_key())]));
     assert_eq!(h.owned[0].raid, 0);
@@ -107,13 +93,11 @@ fn a_garrison_and_the_courts_retainers_stand_with_the_walls_and_only_those_neede
     h.sieges = 4;
     rent_day(&mut h, 1);
     assert_eq!(h.muster.as_ref().map(|m| m.strength), Some(14));
-    // Walls ten, two barracks rooms and Gwen: sixteen against fourteen.
     assert_eq!(h.garrison(&h.owned[0]), 6);
     h.retainers = 3;
     let said = rent_day(&mut h, WARN_DAYS as usize);
     assert!(said.iter().any(|l| l == "The Crypt held: 14 raiders broke on its walls"), "{said:?}");
     assert_eq!(h.retainers, 3, "none needed");
-    // The next band: walls battered to seven, sixteen strong.
     h.calm = 0;
     h.owned[0].walls = 7;
     rent_day(&mut h, 1);
@@ -135,7 +119,6 @@ fn each_band_comes_stronger_to_a_cap() {
         {
             seen.push(m.strength);
         }
-        // Keep it standing to see every band.
         h.owned[0].raid = 0;
         h.owned[0].walls = WALLS;
         h.retainers = RETAINERS_CAP;
@@ -169,12 +152,9 @@ fn an_old_realm_loads_with_no_band_on_the_road() {
     h.sieges = 2;
     let saved = serde_json::to_string(&h).unwrap();
     assert_eq!(serde_json::from_str::<Holdings>(&saved).unwrap(), h);
-    // A bad muster from a strange file is caught.
     h.muster.as_mut().unwrap().days = 99;
     assert!(!h.valid());
 }
-
-// ── Meeting the band in the hall ──────────────────────────────────────────
 
 fn at_castle(holdings: Holdings) -> Run {
     use crate::render::overworld::{castles, kingdom};
@@ -204,7 +184,6 @@ fn the_band_can_be_met_in_its_halls_before_it_comes_and_scatters() {
     run.step(&BTreeMap::new());
     let fight = run.holding_raid.clone().expect("the vanguard waits in the hall");
     assert_eq!((fight.key.as_str(), fight.level), (key.as_str(), 1));
-    // The stall buys one off: three of the first raid's four.
     assert_eq!(run.enemies.iter().filter(|e| e.hp > 0).count(), 3);
     for e in run.enemies.iter_mut() {
         e.hp = 0;
@@ -223,8 +202,6 @@ fn the_band_can_be_met_in_its_halls_before_it_comes_and_scatters() {
     assert!(out.said.iter().any(|(_, l)| l.starts_with("The raiders were met at")), "{:?}", out.said);
     assert_eq!(h.owned[0].raid, 0);
 }
-
-// ── Pictures ──────────────────────────────────────────────────────────────
 
 fn court(holdings: Holdings) -> Run {
     let home = Home { holdings, ..Home::default() };
@@ -246,7 +223,6 @@ fn below(holdings: Holdings) -> Run {
     run
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_storyteller_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_storyteller_shots() {
@@ -262,7 +238,6 @@ fn write_storyteller_shots() {
             .save(dir.join(format!("{name}.png")))
             .unwrap();
     };
-    // Scouts' word at the Court: eight raiders two rent days off the Crypt.
     let mut h = worth();
     h.owned[0].coffer = 240;
     h.owned[0].rooms.push(Built { id: "inn".into(), labour: 3 });
@@ -272,16 +247,13 @@ fn write_storyteller_shots() {
     let mut run = court(h.clone());
     run.tick += 200;
     save(&run, "a-court-raiders-on-the-road");
-    // Below, in the Crypt's hall: the warning under the banners.
     let mut quiet = h.clone();
     quiet.muster.as_mut().unwrap().days = 1;
     let mut run = below(quiet);
     run.players.get_mut(&1).unwrap().invulnerable = 0;
-    // Hold the vanguard off for the picture: a won mark waits unsettled.
     run.marks.insert(raids::won_mark(&crypt_key()), 1);
     run.step(&BTreeMap::new());
     save(&run, "b-hall-raiders-in-a-day");
-    // Meeting the vanguard there.
     let mut run = below(h.clone());
     for hero in run.players.values_mut() {
         hero.invulnerable = 10_000;
@@ -290,7 +262,6 @@ fn write_storyteller_shots() {
         run.step(&BTreeMap::new());
     }
     save(&run, "c-hall-the-vanguard");
-    // The band broke on the walls; and another realm, too weak, fell.
     let mut held_firm = h.clone();
     rent_day(&mut held_firm, WARN_DAYS as usize);
     let run = court(held_firm);

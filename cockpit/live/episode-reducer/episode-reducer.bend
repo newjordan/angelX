@@ -1,18 +1,10 @@
 import Base
 
-# The deep-cut episode state machine. Rust keeps the episode ids, the canonical
-# bytes and hashes, the stored bodies, the durability authority and every error
-# string; this leg owns which event the current state accepts, which phase
-# follows that append, and whether a permit is granted.
-
-# The three event bodies the state machine distinguishes.
 type EventKind is Data:
   KStart{}
   KEvidence{}
   KTerminal{}
 
-# The reduced episode state. `seq` is the next sequence as two U32 halves so the
-# increment and the u64 exhaustion test are exact for the whole range.
 type St is Data:
   St{
     has_episode: Bool,
@@ -23,9 +15,6 @@ type St is Data:
     journal_lo: U32
   }
 
-# One candidate event, with every comparison Rust already made. The `*_ok` flags
-# are the five append-only equalities of `validate_next`: schema, canonical
-# digest, next sequence, previous head and the episode id.
 type Ev is Data:
   Ev{
     kind: EventKind,
@@ -43,7 +32,6 @@ type Ev is Data:
     end_lo: U32
   }
 
-# A durable start receipt and the start it claims to complete.
 type Rc is Data:
   Rc{
     episode_equal: Bool,
@@ -57,8 +45,6 @@ type Rc is Data:
     started_lo: U32
   }
 
-# Every refusal the native reducer can return. Rust maps each back to the exact
-# string, because the message text stays there.
 type Fault is Data:
   NotAppendOnly{}
   StartFirst{}
@@ -74,8 +60,6 @@ type Fault is Data:
   NotOfficial{}
   ReceiptMismatch{}
 
-# Which phase the accepted event moves the episode to. `PNone` leaves the
-# reduced state alone.
 type Phase is Data:
   PNone{}
   PStarted{}
@@ -86,7 +70,6 @@ type Decision is Data:
   Allow{phase: Phase, next_hi: U32, next_lo: U32, post_terminal: Bool}
   Deny{fault: Fault}
 
-# The five append-only equalities, in the native conjunction.
 def chain(
   +schema_ok: Bool,
   +sha_ok: Bool,
@@ -96,7 +79,6 @@ def chain(
 ) -> Bool:
   Bool.and(schema_ok, Bool.and(sha_ok, Bool.and(sequence_ok, Bool.and(previous_ok, episode_ok))))
 
-# The high half decides a u64 comparison unless the halves are equal.
 def ge_halves(+gt: Bool, +lt: Bool, +lo_ge: Bool) -> Bool:
   match gt:
     case True{}:
@@ -108,19 +90,15 @@ def ge_halves(+gt: Bool, +lt: Bool, +lo_ge: Bool) -> Bool:
         case False{}:
           lo_ge
 
-# a >= b over two U32 halves, which is how one u64 comparison is decided.
 def ge64(+a_hi: U32, +a_lo: U32, +b_hi: U32, +b_lo: U32) -> Bool:
   ge_halves(U32.is_gt(a_hi, b_hi), U32.is_lt(a_hi, b_hi), U32.is_ge(a_lo, b_lo))
 
-# The largest u32, as the leg reads it: all thirty-two bits set.
 def max_u32() -> U32:
   4294967295
 
-# u64::MAX is both halves at their maximum, which `checked_add(1)` refuses.
 def exhausted(+hi: U32, +lo: U32) -> Bool:
   Bool.and(U32.is_eq(hi, max_u32()), U32.is_eq(lo, max_u32()))
 
-# The high half only moves when the low half carries out of the u32 range.
 def carry(+lo: U32) -> U32:
   Bool.to_u32(U32.is_eq(lo, max_u32()))
 
@@ -141,8 +119,6 @@ def link_arm(+valid: Bool) -> Decision:
     case False{}:
       Deny{LinkInvalid{}}
 
-# A closed episode keeps only the official evidence kinds; anything else is an
-# effect it can no longer accept.
 def closed_evidence(+allowed: Bool, +valid: Bool) -> Decision:
   match allowed:
     case True{}:
@@ -157,8 +133,6 @@ def range_arm(+in_range: Bool) -> Decision:
     case False{}:
       Deny{RangeBackward{}}
 
-# The terminal body must validate and may not walk the action-journal range back
-# past the durable start's journal sequence.
 def terminal_arm(+valid: Bool, +end_hi: U32, +end_lo: U32, +journal_hi: U32, +journal_lo: U32) -> Decision:
   match valid:
     case False{}:
@@ -166,7 +140,6 @@ def terminal_arm(+valid: Bool, +end_hi: U32, +end_lo: U32, +journal_hi: U32, +jo
     case True{}:
       range_arm(ge64(end_hi, end_lo, journal_hi, journal_lo))
 
-# A first event must be the start of this very episode.
 def start_gate(+same_episode: Bool, +valid: Bool) -> Decision:
   match same_episode:
     case True{}:
@@ -174,7 +147,6 @@ def start_gate(+same_episode: Bool, +valid: Bool) -> Decision:
     case False{}:
       Deny{StartFirst{}}
 
-# `validate_next`'s state/body arms once the append-only chain has matched.
 def event_arm(
   +has_episode: Bool,
   +kind: EventKind,
@@ -215,7 +187,6 @@ def event_arm(
             case False{}:
               terminal_arm(terminal_valid, end_hi, end_lo, journal_hi, journal_lo)
 
-# The append-only chain first, then the state/body arm in the native order.
 def chained(
   +matched: Bool,
   +state: St,
@@ -279,7 +250,6 @@ def validate(state: St, event: Ev) -> Decision:
         end_lo
       )
 
-# The checked sequence increment a durable append stores; u64::MAX is refused.
 def store(+full: Bool, +phase: Phase, +seq_hi: U32, +seq_lo: U32) -> Decision:
   match full:
     case True{}:
@@ -296,7 +266,6 @@ def advance(+step: Decision, +state: St) -> Decision:
         case St{_, _, seq_hi, seq_lo, _, _}:
           store(exhausted(seq_hi, seq_lo), phase, seq_hi, seq_lo)
 
-# `append_durable`: the same acceptance, then the stored transition.
 def durable(+state: St, event: Ev) -> Decision:
   advance(validate(state, event), state)
 
@@ -307,8 +276,6 @@ def body_arm(+valid: Bool) -> Decision:
     case False{}:
       Deny{TerminalInvalid{}}
 
-# `EpisodeEventV1::append` behind an effect permit: the permit already proved a
-# durable start and an open episode, so only the body is in question.
 def append(event: Ev) -> Decision:
   match event:
     case Ev{kind, _, _, _, _, _, _, _, link_valid, _, terminal_valid, _, _}:
@@ -320,8 +287,6 @@ def append(event: Ev) -> Decision:
         case KTerminal{}:
           body_arm(terminal_valid)
 
-# `link_evidence` refuses a closed episode's unofficial evidence with its own
-# fault, which is why the permit path does not reuse the append arm's name.
 def official_only(+closed: Bool, +official: Bool, +valid: Bool) -> Decision:
   match closed:
     case False{}:
@@ -333,7 +298,6 @@ def official_only(+closed: Bool, +official: Bool, +valid: Bool) -> Decision:
         case False{}:
           Deny{NotOfficial{}}
 
-# `link_evidence`: an already closed episode accepts official evidence only.
 def link_closed(+closed: Bool, +event: Ev) -> Decision:
   match event:
     case Ev{_, _, _, _, _, _, _, _, link_valid, link_post_terminal, _, _, _}:
@@ -369,9 +333,6 @@ def completion(
         case True{}:
           clock_arm(ge64(completed_hi, completed_lo, started_hi, started_lo))
 
-# `start_action_completion`: the receipt must be the durable start of this very
-# episode, at sequence zero, with the start's canonical digest and a completion
-# time that does not precede the start.
 def complete(receipt: Rc) -> Decision:
   match receipt:
     case Rc{
@@ -408,8 +369,6 @@ def permit_gate(+closed: Bool, +started: Bool) -> Decision:
         case False{}:
           Deny{NeedsStart{}}
 
-# `effect_permit`: a closed episode grants none, and an episode without a durable
-# start has no cursor to offer.
 def effect(state: St) -> Decision:
   match state:
     case St{has_episode, has_terminal, _, _, _, _}:
@@ -422,8 +381,6 @@ def evidence_gate(+started: Bool, +closed: Bool) -> Decision:
     case True{}:
       Allow{PNone{}, 0, 0, closed}
 
-# `evidence_permit`: official evidence is the one thing a closed episode still
-# takes, so the permit reports whether the episode is already terminal.
 def evidence(state: St) -> Decision:
   match state:
     case St{has_episode, has_terminal, _, _, _, _}:

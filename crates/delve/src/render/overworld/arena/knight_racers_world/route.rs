@@ -2,26 +2,21 @@
 //! renderer asks of a course, and the course (`rules::Course`) answering.
 use super::super::rules;
 
-
-/// How a stretch of land looks: its palette, sky, fog and what lies beside the road.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-pub enum Look { Dune, Forge, Ash, Deep, Castle }
+pub enum Look { Dune, Forge, Ash, Deep, Castle, Wash }
 
 impl Look {
-    /// The course a look belongs to: each look is one course's own, so a look is also a place.
-    pub fn course(self) -> u32 { match self { Look::Dune => 0, Look::Forge | Look::Ash => 1, Look::Deep => 2, Look::Castle => 3 } }
+    pub fn course(self) -> u32 { match self { Look::Dune => 0, Look::Forge | Look::Ash => 1, Look::Deep => 2, Look::Castle => 3, Look::Wash => 4 } }
 }
 
-/// The set pieces the renderer knows how to raise.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Kind {
     Bridge, Viaduct, Tunnel, Arch, Grandstand, CastleGate, Foundry, Waterfall, CrystalVault,
     ChasmJump, Drawbridge, LavaFall, Statues, Lanterns, Pylons, Gantry, Rampart, Spires,
-    // Set pieces of the world renderer's own, set by name of the stretch (see `extras`).
+    PitLane, ForgeArches, Obelisks, Banners, Ribs, PoleLanterns,
     Stacks, Anvil,
 }
 
-/// `side` is -1 (right) or +1 (left) for a piece beside the road, 0 for one that spans it.
 #[derive(Clone, Copy, Debug)]
 pub struct Piece { pub kind: Kind, pub s0: f32, pub s1: f32, pub side: f32, pub seed: u32 }
 
@@ -31,57 +26,42 @@ pub enum HazardKind { Slag, Rockfall, Jet, Slick }
 #[derive(Clone, Copy, Debug)]
 pub struct Hazard { pub kind: HazardKind, pub s: f32, pub y: f32, pub half_l: f32, pub half_w: f32, pub period: u32, pub on: u32, pub phase: u32 }
 
-/// A boost strip across the road at `y`.
 #[derive(Clone, Copy, Debug)]
 pub struct Strip { pub s0: f32, pub s1: f32, pub half_w: f32, pub y: f32 }
 
-/// A stretch where the road is missing.
 #[derive(Clone, Copy, Debug)]
 #[allow(dead_code)]
 pub struct Gap { pub s0: f32, pub s1: f32, pub ramp: f32 }
 
-/// An alternate road between two points of the main line, over main-line
-/// distances `s0..s1`. Its own pieces, hazards and strips use the same distances.
 pub struct ForkInfo { pub s0: f32, pub s1: f32, pub side: f32, pub look: Look, pub pieces: Vec<Piece>, pub hazards: Vec<Hazard>, pub strips: Vec<Strip> }
 
-/// The road at one distance on one of a course's roads.
 #[derive(Clone, Copy, Debug)]
 pub struct RoadFrame { pub x: f32, pub y: f32, pub th: f32, pub h: f32, pub bank: f32, pub wl: f32, pub wr: f32 }
 
-/// A course, as the world renderer needs to see it.
 pub trait Route {
-    /// Distinguishes this course's cached chunks from every other's.
     fn key(&self) -> u32;
     fn lap(&self) -> f32;
     fn pose(&self, s: f32) -> (f32, f32, f32);
     fn height(&self, s: f32) -> f32;
-    /// Left and right half-widths of the racing surface.
     fn width(&self, s: f32) -> (f32, f32);
     fn zone(&self, s: f32) -> (Look, &'static str);
-    /// How far the land drops beside the road at `s` (a moat, a chasm, a lake): 0 for none.
     fn sink(&self, s: f32) -> f32;
-    /// Terrain height anywhere in world xy.
     fn ground(&self, x: f32, y: f32) -> f32;
     fn pieces(&self) -> &[Piece];
-    /// Alternate roads, numbered from 1 (road 0 is the main line).
     fn forks(&self) -> &[ForkInfo];
-    /// The road `line` at main-line distance `s`.
     fn frame(&self, line: u8, s: f32) -> RoadFrame;
     fn hazards(&self) -> Vec<Hazard>;
     fn strips(&self) -> Vec<Strip>;
     fn gaps(&self) -> Vec<Gap>;
     fn landmarks(&self) -> Vec<f32>;
-    /// Road curvature at `s`, positive in a left-hand bend (1/m).
     fn curve(&self, s: f32) -> f32;
-    /// Every named stretch of the lap: (from, to, look, name).
     fn zones(&self) -> Vec<(f32, f32, Look, &'static str)>;
 }
 
-/// The look of a biome on course `id`: the moor of the Foundry Run is ash flats under its smoke,
-/// the moor of the Glassway is the mouth of the mine, the moor of Moatwalk is its own night.
 fn look_of(id: rules::CourseId, b: rules::Biome) -> Look {
     use rules::Biome as B;
     match (id, b) {
+        (rules::CourseId::Moonward, _) => Look::Wash,
         (_, B::Proving) => Look::Dune,
         (rules::CourseId::Emberfall, B::Moor) => Look::Ash,
         (rules::CourseId::Glassway, B::Moor) => Look::Deep,
@@ -101,6 +81,8 @@ impl From<rules::PieceKind> for Kind {
             P::Drawbridge => Kind::Drawbridge, P::LavaFall => Kind::LavaFall, P::Statues => Kind::Statues,
             P::Lanterns => Kind::Lanterns, P::Pylons => Kind::Pylons, P::Gantry => Kind::Gantry,
             P::Rampart => Kind::Rampart, P::Spires => Kind::Spires,
+            P::PitLane => Kind::PitLane, P::ForgeArches => Kind::ForgeArches, P::Obelisks => Kind::Obelisks,
+            P::Banners => Kind::Banners, P::Ribs => Kind::Ribs, P::PoleLanterns => Kind::PoleLanterns,
         }
     }
 }
@@ -117,7 +99,6 @@ fn strips(list: &[rules::Strip]) -> Vec<Strip> { list.iter().map(|p| Strip { s0:
 
 fn pieces(list: &[rules::Piece]) -> Vec<Piece> { list.iter().map(|p| Piece { kind: p.kind.into(), s0: p.s0, s1: p.s1, side: p.side, seed: p.seed }).collect() }
 
-/// A course's own pieces, converted once.
 struct Dressed { route: &'static rules::Course, pieces: Vec<Piece>, forks: Vec<ForkInfo>, sinks: Vec<(f32, f32, f32)> }
 
 impl Route for Dressed {
@@ -146,14 +127,11 @@ impl Route for Dressed {
     fn landmarks(&self) -> Vec<f32> { self.route.landmarks() }
 }
 
-/// The set pieces the renderer adds of its own to a course, found by the name of the stretch they
-/// stand in: the landmarks a pod sees coming from a kilometre off.
 fn extras(route: &rules::Course) -> Vec<Piece> {
     let mut out = Vec::new();
     if route.id == rules::CourseId::Emberfall {
         for z in route.zones() {
             let mid = (z.s0 + z.s1) * 0.5;
-            // The outside of a bend is the side a monument is seen from; the turn's own curve sets it.
             let outer = if route.curve(mid) > 0. { -1. } else { 1. };
             match z.name {
                 "CHAIN BRIDGES" => out.push(Piece { kind: Kind::Stacks, s0: z.s0 + 30., s1: z.s1 - 30., side: 0., seed: 101 }),
@@ -166,7 +144,6 @@ fn extras(route: &rules::Course) -> Vec<Piece> {
     out
 }
 
-/// The world renderer's view of course `id`, dressed once.
 pub fn on(id: rules::CourseId) -> &'static dyn Route {
     static ALL: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<rules::CourseId, &'static Dressed>>> = std::sync::OnceLock::new();
     let mut all = ALL.get_or_init(Default::default).lock().unwrap();
@@ -182,11 +159,8 @@ pub fn on(id: rules::CourseId) -> &'static dyn Route {
 
 thread_local! { static SEEN: std::cell::Cell<(rules::CourseId, u32)> = const { std::cell::Cell::new((rules::CourseId::Proving, 0)) }; }
 
-/// Chooses the course and the race clock the free functions (`point`, `pose`,
-/// `world`) read, for this thread: the race's view calls it once before it draws.
 pub fn select(id: rules::CourseId, ticks: u32) { SEEN.with(|c| c.set((id, ticks))); }
 
 pub fn current() -> &'static dyn Route { on(SEEN.with(|c| c.get().0)) }
 
-/// The race clock the view last selected, in ticks.
 pub fn ticks() -> u32 { SEEN.with(|c| c.get().1) }

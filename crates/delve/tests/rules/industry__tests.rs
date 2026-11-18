@@ -532,7 +532,6 @@ fn browser_e_builds_once_and_p_changes_page_after_missing_input_releases() {
             ..Default::default()
         },
     );
-    // Browser E is deliberately both interact and pickup; P is cycle.
     let e = Input {
         interact: true,
         take: true,

@@ -34,8 +34,6 @@ impl<'a> Attempt<'a> {
             #[serde(default)]
             reasoning: Reasoning,
         }
-        // Deserialize only identity from the actual serialized request, after
-        // optional transformations. Never retain prompt text or credentials.
         let identity = serde_json::from_slice::<Identity>(wire).unwrap_or_default();
         let mut accounting = club.shared.accounting.attempt();
         accounting.request_bytes(wire.len());
@@ -107,7 +105,6 @@ impl<'a> Attempt<'a> {
             ResponseEvent::Usage(usage) => Some(usage),
             _ => None,
         };
-        // Provider snapshots are cumulative. Replace, never sum repeated frames.
         if let Some(usage) = usage {
             let prior = receipt.usage.unwrap_or_default();
             receipt.usage = Some(Usage {

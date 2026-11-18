@@ -34,7 +34,7 @@ fn company() -> Company {
 fn town() -> Run {
     let mut run = Run::at_home(23, 1, Some("ROWAN"), Home::default(), Default::default());
     run.come_to_the_gate();
-    run.home.goblins = 1; // The eastern stall must remain intact.
+    run.home.goblins = 1;
     run.arrive(
         world::room_of(&run.dungeon, RoomKind::Yard).unwrap(),
         (12.0, 12.0),
@@ -112,8 +112,6 @@ fn write_squires_town_shots() {
     let mut run = town();
     let overview = checked_frame(&run, Some(1));
     save("01-yard-company", &overview);
-    // A native service closeup includes all three signboards, offer figures
-    // and upgrade plates. It stops before the existing quintain feet.
     let mut yard = super::super::scenery(&run);
     figures(&mut yard, &run, Some(1));
     save("02-yard-services-closeup", &crop(&yard, (24, 4, 336, 94)));
@@ -150,7 +148,6 @@ fn write_squires_town_shots() {
             &checked_frame(&run, Some(1)),
         );
     }
-    // A second buyer's company must not leak into the focused player's UI.
     run.join_seat(2, "OTHER");
     let foreign = Home::knight_key(&run.players[&2]);
     run.home.lane_squires.knights.insert(
@@ -250,8 +247,6 @@ fn write_squires_dungeon_shots() {
     save("12-dungeon-personal-view", &checked_frame(&run, Some(1)));
     run.tick += 12;
     save("13-dungeon-smoke-next-frame", &checked_frame(&run, None));
-    // Native-size contact sheet makes role and livery differences reviewable
-    // without asking the reviewer to zoom a whole dungeon frame.
     let mut sheet = Img::black(384, 120);
     for (n, kind) in Kind::ALL.into_iter().enumerate() {
         let x = 10 + n as i32 * 75;

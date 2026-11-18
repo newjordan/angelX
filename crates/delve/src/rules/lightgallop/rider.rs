@@ -20,21 +20,14 @@ pub const SCATTER_MAX: u32 = 16;
 pub const LOOSE_LIFE: u16 = 120;
 pub const HURT_TICKS: u32 = 90;
 pub const DOWN_TICKS: u32 = 24;
-/// Spark slots a rider can have taken (a bit each).
 pub const SPARK_WORDS: usize = 12;
 
-/// The five numbers as the rider reads them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct Numbers {
-    /// Slope pull and friction together, percent (100 is the tuned road).
     pub slope: i32,
-    /// The slowest a rider can run on the loop's ceiling, 1/256 px a tick.
     pub loop_min: i32,
-    /// The spur's top speed, 1/256 px a tick.
     pub spur_cap: i32,
-    /// How far the lance-lock reaches, pixels.
     pub lock_reach: i32,
-    /// The Dimming's pace, 1/256 px a tick, for one knight.
     pub dimming: i32,
 }
 
@@ -44,21 +37,18 @@ impl Default for Numbers {
     }
 }
 
-/// Where a rider stands: a path and a distance along it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ground {
     pub path: u8,
     pub s: i32,
 }
 
-/// A lance-lock in flight: the foe it is after and the ticks it has left.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Lock {
     pub target: u16,
     pub ticks: u8,
 }
 
-/// A spark thrown by a hit, bouncing, there to be taken back for a moment.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Loose {
     pub x: i32,
@@ -70,19 +60,14 @@ pub struct Loose {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Rider {
-    /// Feet, 1/256 pixel. Kept current whether on a path or in the air.
     pub x: i32,
     pub y: i32,
-    /// Air velocity, 1/256 pixel a tick (meaningful while off the ground).
     pub vx: i32,
     pub vy: i32,
     pub ground: Option<Ground>,
-    /// Speed along the path, positive the way its distance grows.
     pub gsp: i32,
-    /// Which way the horse faces: 1 or -1.
     pub dir: i32,
     pub roll: bool,
-    /// A leap or a thrown roll: a body that hurts what it lands on.
     pub ball: bool,
     pub crouch: bool,
     pub skid: bool,
@@ -92,11 +77,7 @@ pub struct Rider {
     pub lock: Option<Lock>,
     pub lock_cd: u8,
     pub spring_cd: u8,
-    /// Ticks the body holds still after a blow lands or a foe pops, the
-    /// hit-stop that gives a strike its weight (this rider only: the shared
-    /// road never pauses).
     pub freeze: u8,
-    /// A jolt the picture shakes with, ticks.
     pub shake: u8,
     pub lunge: u8,
     pub lunged: bool,
@@ -114,20 +95,15 @@ pub struct Rider {
     pub jumping: bool,
     pub air: u32,
     pub draft: bool,
-    /// The horse's lean, in brads, kept smooth so a loop turns cleanly.
     pub ang: i32,
     pub cam_x: i32,
     pub cam_y: i32,
     pub zoom: i32,
-    /// Ticks since the rider last left a loop (for the whoosh).
     pub looping: bool,
-    /// A fresh press of jump in the air with no leap to give: the session
-    /// finds the foe for the lance-lock, or the horse lunges.
     pub want_lock: bool,
     pub loose: Vec<Loose>,
     pub taken: [u64; SPARK_WORDS],
     pub crates: u32,
-    /// The run's own tally.
     pub collected: u32,
     pub falls: u32,
     pub hits: u32,
@@ -137,12 +113,10 @@ pub struct Rider {
 }
 
 impl Rider {
-    /// Standing on a path, not flying.
     pub fn grounded(&self) -> bool {
         self.ground.is_some()
     }
 
-    /// The speed the camera and the lines read: how fast the rider moves.
     pub fn speed(&self) -> i32 {
         if self.grounded() {
             self.gsp.abs()
@@ -151,7 +125,6 @@ impl Rider {
         }
     }
 
-    /// Half the width and the height of the body, in pixels.
     pub fn body(&self) -> (i32, i32) {
         if self.roll || self.ball || self.crouch || self.lock.is_some() {
             (7, 14)
@@ -160,8 +133,6 @@ impl Rider {
         }
     }
 
-    /// The centre of the body, in 1/256 pixel: where sparks are taken and
-    /// foes are met. It sits on the surface's normal, so it turns with a loop.
     pub fn centre(&self, t: &Terrain) -> (i32, i32) {
         let h = self.body().1 * 128;
         match self.ground {

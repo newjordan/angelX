@@ -43,7 +43,6 @@ fn evidence_ignores_scratch_and_sandbox_diagnostics_but_binds_candidate_bytes() 
     let scratch = root.join(".angel-experiment-tmp");
     std::fs::create_dir(&scratch).unwrap();
     std::fs::write(scratch.join("counter"), "x").unwrap();
-    // Exclusion is a product contract, independent of .git/info/exclude.
     let probe_after = git_stream_output(root, &["rev-parse", "HEAD"], |_| true).unwrap();
     assert_eq!(probe_before.stdout.sha256, probe_after.stdout.sha256);
     assert_ne!(probe_before.stderr.sha256, probe_after.stderr.sha256);
@@ -77,7 +76,6 @@ fn evidence_ignores_scratch_and_sandbox_diagnostics_but_binds_candidate_bytes() 
 
 #[test]
 fn sha256_padding_boundaries_preserve_exact_digests() {
-    // Fixed zero-byte vectors cross both the padding and compression edges.
     for (len, expected) in [
         (
             55,
@@ -317,8 +315,6 @@ if sys.argv[2] == 'timeout':
         let observed = receiver.recv_timeout(Duration::from_secs(2));
         let completed = observed.is_ok();
         let elapsed = started.elapsed();
-        // The deliberate new session must be cleaned and reaped even if a
-        // regression blocked the stderr reader past its evidence deadline.
         unsafe { libc::killpg(descendant, libc::SIGKILL) };
         let result =
             observed.unwrap_or_else(|_| receiver.recv_timeout(Duration::from_secs(2)).unwrap());
@@ -368,8 +364,6 @@ fn streamed_child_deadline_bounds_escaped_stderr_after_stdout_eof() {
             break status;
         }
         if Instant::now() >= deadline {
-            // The fixture owns a subreaper/exit handler, so TERM also reaps
-            // the escaped session before this direct child finishes.
             unsafe { libc::kill(child.id() as i32, libc::SIGTERM) };
             let _ = child.wait();
             std::fs::remove_dir_all(&root).unwrap();
@@ -391,9 +385,6 @@ fn evidence_hashes_middle_only_change_in_oversized_tracked_diff() {
     std::fs::create_dir_all(&root).unwrap();
     git(&root, &["init", "-q"]);
 
-    // One very long line makes the binary diff exceed the historical 1 MiB
-    // cap while keeping its first/last 64 KiB unchanged across the two
-    // mutations. The old head/tail sampler therefore collided here.
     let mut contents = vec![b'a'; MAX_EXACT_FINGERPRINT_BYTES as usize + 256 * 1024];
     let middle = contents.len() / 2;
     std::fs::write(root.join("large.txt"), &contents).unwrap();
@@ -824,8 +815,6 @@ fn concurrent_fingerprint_equals_sequential_recomputation() {
     std::fs::write(root.join("untracked.txt"), "untracked").unwrap();
     std::fs::write(root.join("nested").join("deep.txt"), "deep untracked").unwrap();
 
-    // Expected value: the same four probes, run strictly one after another
-    // through git_output, hashed by the same helper the live path uses.
     let deadline = Instant::now() + Duration::from_secs(30);
     let [
         status_args,

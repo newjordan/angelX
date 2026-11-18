@@ -42,8 +42,6 @@ fn typed_alternative(tool: &str, args: &Value) -> bool {
     .any(|prefix| cmd.starts_with(prefix))
 }
 
-/// `err == None` means a successful call, not a missing diagnostic. Callers
-/// also supply non-error verifier failures/timeouts as observed failures.
 pub(crate) fn classify_tool_error(tool: &str, args: &Value, err: Option<&str>) -> ToolErrorClass {
     use ToolErrorClass::*;
     let Some(err) = err else { return None };
@@ -55,10 +53,6 @@ pub(crate) fn classify_tool_error(tool: &str, args: &Value, err: Option<&str>) -
     }
     let text = err.to_ascii_lowercase();
     if text.trim().is_empty() {
-        // A failed dispatch that produced no diagnostic at all is never agent
-        // error: a command-shaped tool failed silently (verifier-like command
-        // failure), while anything else lost its reason between spawn and
-        // receipt (environment).
         return if tool == "shell" {
             Verifier
         } else {
@@ -79,7 +73,6 @@ pub(crate) fn classify_tool_error(tool: &str, args: &Value, err: Option<&str>) -
     if contains_any(&text, &["unknown tool:", "unknown tool "]) {
         return Routing;
     }
-    // Invalid scope schema is an argument error; an enforced valid scope is policy.
     if contains_any(
         &text,
         &[
@@ -145,8 +138,6 @@ pub(crate) fn classify_tool_error(tool: &str, args: &Value, err: Option<&str>) -
     {
         return Policy;
     }
-    // Missing runtimes are never legitimate red verifier results. A pinned
-    // toolchain that drifted names its re-pin page (`⠨⠓⠁`) beside the facts.
     if text.contains(&super::book::d46_recovery::REPIN.cells())
         || contains_any(
             &text,
@@ -184,9 +175,6 @@ pub(crate) fn classify_tool_error(tool: &str, args: &Value, err: Option<&str>) -
     if typed_alternative(tool, args) {
         return Routing;
     }
-    // A failed/inconclusive verification can carry passing host test output.
-    // This identifies a verifier outcome, not trusted evidence or a test failure.
-    // Successful calls have already returned None above.
     if tool == "shell" && has_test_summary(&text) {
         return Verifier;
     }
@@ -222,8 +210,6 @@ pub(crate) fn avoidable(
     match class {
         ToolErrorClass::Argument | ToolErrorClass::Routing => true,
         ToolErrorClass::Policy => typed_alternative(tool, args),
-        // Require explicit evidence; never infer that a shim is installed merely
-        // because a typed tool exists.
         ToolErrorClass::Environment => err.is_some_and(|e| e.contains("available shim:")),
         _ => false,
     }

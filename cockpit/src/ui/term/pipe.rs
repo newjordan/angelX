@@ -36,8 +36,6 @@ use std::sync::mpsc::{Receiver, SyncSender, sync_channel};
 
 const DEFAULT_CAPACITY: usize = 2048;
 
-/// The cockpit's terminal output writer: always forwards to stdout; optionally
-/// mirrors a copy to the capture channel.
 pub struct TeeOut {
     out: io::Stdout,
     tx: Option<SyncSender<Vec<u8>>>,
@@ -54,13 +52,8 @@ impl TeeOut {
 
 impl Write for TeeOut {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        // The real terminal write is authoritative — its result is returned
-        // unchanged, so ratatui sees identical behavior to a bare Stdout.
         let n = self.out.write(buf)?;
         if let Some(tx) = &self.tx {
-            // Best-effort, non-blocking. A full channel (slow/absent consumer)
-            // or a dropped receiver means we discard this copy rather than ever
-            // stall the render loop.
             let _ = tx.try_send(buf[..n].to_vec());
         }
         Ok(n)
@@ -71,17 +64,12 @@ impl Write for TeeOut {
     }
 }
 
-/// Build the terminal output writer, honoring `ANGEL_TERM_PIPE`. Unset/empty =>
-/// transparent passthrough (no thread, no allocation, no capture).
 pub fn tee_stdout() -> TeeOut {
     let Some(path) = std::env::var_os("ANGEL_TERM_PIPE").filter(|s| !s.is_empty()) else {
         return TeeOut::passthrough();
     };
     let shown = path.to_string_lossy().into_owned();
     let (tx, rx) = sync_channel::<Vec<u8>>(capacity());
-    // The writer thread owns the sink. Opening a FIFO for write blocks until a
-    // reader attaches — fine here; the UI keeps running and drops copies until
-    // then. Detached: it ends when the sender (TeeOut) is dropped at shutdown.
     let _ = std::thread::Builder::new()
         .name("angel-term-pipe".into())
         .spawn(move || writer_loop(path, rx));
@@ -103,9 +91,6 @@ fn capacity() -> usize {
 }
 
 fn writer_loop(path: OsString, rx: Receiver<Vec<u8>>) {
-    // append+create: an existing FIFO opens for write (blocking until a reader);
-    // a non-existent path becomes a regular file appended to. Either way, on any
-    // failure we keep draining the channel so the sender side never backs up.
     let sink = std::fs::OpenOptions::new()
         .append(true)
         .create(true)
@@ -126,8 +111,6 @@ fn writer_loop(path: OsString, rx: Receiver<Vec<u8>>) {
     }
 }
 
-/// Keep receiving (and dropping) until the sender disconnects, so a dead sink
-/// can never cause `try_send` on the UI thread to see a full channel forever.
 fn drain_and_discard(rx: Receiver<Vec<u8>>) {
     for _ in rx.iter() {}
 }

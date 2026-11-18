@@ -29,9 +29,7 @@
 
 use super::*;
 
-/// A full charge.
 pub const ULT_FULL: u32 = 1000;
-/// Charge per tick of a fight (a minute of fighting alone fills it twice).
 const PER_TICK: u32 = 1;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,21 +48,16 @@ pub enum Ult {
     AxeStorm,
     Lullaby,
     Desertion,
-    // The champions' (`champions`). Appended, so saved names keep.
     Earthsplitter,
     Dismember,
     PhilosophersRain,
-    /// Appended, so saved names keep.
     Tombstone,
     LastLight,
     NeedleSquall,
     FurnaceVerdict,
-    /// The Reaver's and the Lancer's (`champions`). Appended, so saved names keep.
     RedHarvest,
     SkewerDrive,
-    /// The Phantom Lancer's (`champions`). Appended, so saved names keep.
     PhantomLegion,
-    /// The Mirage Duelist's (`champions::mirage`). Appended, so saved names keep.
     HallOfMirrors,
 }
 
@@ -96,14 +89,10 @@ impl Ult {
         Ult::HallOfMirrors,
     ];
 
-    /// The ultimate a knight of the company carries; a recruit's, until
-    /// one is wished for them (`recruit_ults`), the Pilgrim's Arrow.
     pub fn of(knight: Option<&str>) -> Ult {
         Ult::own(knight.unwrap_or("percival")).unwrap_or(Ult::PilgrimsArrow)
     }
 
-    /// The ultimate the knight of `kit` carries as their own: none for a
-    /// recruit, whose is wished (`recruit_ults`).
     pub fn own(kit: &str) -> Option<Ult> {
         Some(match kit {
             "percival" => Ult::PilgrimsArrow,
@@ -134,14 +123,11 @@ impl Ult {
         })
     }
 
-    /// The ultimate a card's `ult <word>` names (`pilgrims_arrow`; dashes,
-    /// spaces and the name itself are read too).
     pub fn parse(word: &str) -> Option<Ult> {
         let word = word.trim().to_lowercase().replace('\'', "").replace([' ', '-'], "_");
         Ult::ALL.into_iter().find(|u| u.word() == word)
     }
 
-    /// Every ultimate's word, for a card error and the briefs.
     pub fn words() -> String {
         Ult::ALL.map(Ult::word).join(", ")
     }
@@ -175,7 +161,6 @@ impl Ult {
         }
     }
 
-    /// The word in a cue: `ult:pilgrims_arrow`.
     pub fn word(self) -> &'static str {
         match self {
             Ult::PilgrimsArrow => "pilgrims_arrow",
@@ -206,7 +191,6 @@ impl Ult {
     }
 }
 
-/// A shell of Trebuchet on its way: where it lands, ticks until it does.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Strike {
     pub x: f32,
@@ -216,11 +200,9 @@ pub struct Strike {
     pub owner: u32,
 }
 
-/// Trebuchet's shells land this far apart in time, and burst this wide.
 pub const STRIKE_FALL: u32 = 36;
 const STRIKE_REACH: f32 = 3.2;
 
-/// A Stillhour: time stands still inside it for monsters and their shots.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Sphere {
     pub x: f32,
@@ -229,30 +211,20 @@ pub struct Sphere {
     pub left: u32,
 }
 
-/// An image of a knight from Phantasm: it keeps its place beside them,
-/// fires with them, and draws the monsters' eyes. The Phantom Lancer's stand
-/// where they were made (`fixed`) and strike with every thrust (`strikes`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Phantom {
     pub owner: u32,
     pub x: f32,
     pub y: f32,
-    /// Its place beside its knight.
     pub dx: f32,
     pub dy: f32,
     pub left: u32,
-    /// Left standing where it was made, not following its knight.
     #[serde(default, skip_serializing_if = "unfixed")]
     pub fixed: bool,
-    /// How long it was made to last, for the figure's fade; none means the
-    /// eight seconds of Phantasm's.
     #[serde(default, skip_serializing_if = "super::zero")]
     pub life: u32,
-    /// One of the Hall of Mirrors': it runs at the nearest foe itself
-    /// (`champions::mirage`) and takes no part in mirroring a thrust.
     #[serde(default, skip_serializing_if = "unfixed")]
     pub charge: bool,
-    /// Ticks left of its own thrust, for the figure.
     #[serde(default, skip_serializing_if = "super::is_zero")]
     pub strike: u8,
 }
@@ -262,31 +234,22 @@ fn unfixed(fixed: &bool) -> bool {
 }
 
 impl Phantom {
-    /// An image that keeps its place `(dx, dy)` beside its knight at `at`.
     pub fn beside(owner: u32, at: (f32, f32), (dx, dy): (f32, f32), left: u32) -> Phantom {
         Phantom { owner, x: at.0 + dx, y: at.1 + dy, dx, dy, left, life: left, ..Phantom::default() }
     }
 
-    /// An image left standing at `at`.
     pub fn standing(owner: u32, at: (f32, f32), left: u32) -> Phantom {
         Phantom { owner, x: at.0, y: at.1, left, fixed: true, life: left, ..Phantom::default() }
     }
 
-    /// Ticks since it was made.
     pub fn age(&self) -> u32 {
         (if self.life == 0 { PHANTOM_TICKS } else { self.life }).saturating_sub(self.left)
     }
 }
 
 pub const PHANTOM_TICKS: u32 = 8 * HZ;
-/// What a phantom's copy of a shot, or of its knight's thrust, carries, in
-/// percent.
 pub const PHANTOM_SHARE: u32 = 40;
 
-/// Put `image` among the room's phantoms. A room humours only
-/// [`spells::IMPOSTURE_MAX`] of them: when it is full the knight's own
-/// image with the least time left gives way, and another knight's are left
-/// alone (the new one is then not made). True if it stands.
 pub(super) fn add_image(phantoms: &mut Vec<Phantom>, image: Phantom) -> bool {
     if phantoms.len() >= spells::IMPOSTURE_MAX {
         let Some(k) = phantoms
@@ -305,10 +268,8 @@ pub(super) fn add_image(phantoms: &mut Vec<Phantom>, image: Phantom) -> bool {
 }
 
 impl Run {
-    /// The knights' charges fill while the party fights.
     pub(super) fn charge_ults(&mut self, credits: &[(u32, u32)]) {
         let fighting = self.fighting();
-        // A shape with no ultimate wished has none to charge (`identity`).
         for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone && (h.shape.is_none() || h.ult.is_some())) {
             if fighting {
                 hero.ult_charge = (hero.ult_charge + PER_TICK).min(ULT_FULL);
@@ -321,7 +282,6 @@ impl Run {
         }
     }
 
-    /// Cast each knight's ultimate whose key was pressed on a full charge.
     pub(super) fn cast_ults(&mut self, casts: Vec<u32>) {
         let mut champs = Vec::new();
         let mut graves = Vec::new();
@@ -329,8 +289,6 @@ impl Run {
             let Some(ult) = self.players.get(&id).map(Hero::ult) else {
                 continue;
             };
-            // The party-wide holds: a second soon after the first is short
-            // (`press`).
             let hold = match ult {
                 Ult::GrandChord => self.control_hold(press::CHORD_HOLD),
                 Ult::Stillhour => self.control_hold(press::STILL_TICKS),
@@ -394,9 +352,7 @@ impl Run {
                         }
                     }
                 }
-                // Desertion starts at input time, before movement and attacks.
                 Ult::Desertion => {}
-                // The champions' play out in their own field (`champions`).
                 Ult::LastLight
                 | Ult::NeedleSquall
                 | Ult::FurnaceVerdict
@@ -409,7 +365,6 @@ impl Run {
                 | Ult::HallOfMirrors => {
                     champs.push((id, ult));
                 }
-                // The grave is planted once every cast is out (`minions`).
                 Ult::Tombstone => graves.push(id),
                 Ult::Lullaby => {
                     self.bard_songs.push(bard::Song {
@@ -432,8 +387,6 @@ impl Run {
                     let room = &self.dungeon.rooms[self.at];
                     let grid = Grid { room, barred: true };
                     let mut ring = 0;
-                    // One stroke (`aoe`): the nearest take it in full; all
-                    // of them are stunned and pulled.
                     let caught = aoe::reached(&self.enemies, (hx, hy), |e| {
                         (e.x - hx).hypot(e.y - hy) <= 11.0
                     });
@@ -487,7 +440,6 @@ impl Run {
                             .map(|&(_, x, y)| (x - hx, y - hy))
                             .unwrap_or((ax, ay));
                         let (ux, uy) = unit(dx, dy);
-                        // Each leaves at its own angle, then turns home.
                         let fan = aim + (k as f32 - 2.5) * 0.45;
                         let (vx, vy) = unit(fan.cos() + ux, fan.sin() + uy);
                         self.projectiles.push(Projectile {
@@ -580,16 +532,11 @@ impl Run {
                     }
                 }
             }
-            // The cast as its look remembers it (`feel`).
             self.feel.ult_cast(id, ult, self.tick, (hx, hy), (ax, ay));
             self.cues.push(format!("ult:{}", ult.word()));
             self.notice("my_ult");
             self.found = Some((self.tick, id, format!("{}!", ult.name())));
-            // The Bard's song is its own music box, heard by the Bard
-            // alone; every other ultimate rises like a guardian.
             if matches!(ult, Ult::Lullaby) {
-                // Its song's breakdown; the next groove is the next song,
-                // from its top.
                 let songs = self.players.get_mut(&id).map_or(0, |h| {
                     let was = h.songs;
                     h.songs = was.wrapping_add(1);
@@ -610,10 +557,7 @@ impl Run {
         }
     }
 
-    /// The ultimates that play out over time: Bladewind's cuts, the
-    /// sniper's aim, Trebuchet's shells, Stillhours and phantoms.
     pub(super) fn tick_ults(&mut self) {
-        // Bladewind: every few ticks, a blink and a cut.
         let ids: Vec<u32> = self.players.keys().copied().collect();
         for id in ids {
             let hero = &self.players[&id];
@@ -683,7 +627,6 @@ impl Run {
             self.sounds.push("swing");
             self.sounds.push("hit");
         }
-        // Assassinate: the aim holds a second, then the shot.
         for id in self.players.keys().copied().collect::<Vec<_>>() {
             let Some((target, left)) = self.players[&id].aiming else {
                 continue;
@@ -716,7 +659,6 @@ impl Run {
                 kind: Shot::Sacred,
                 look: None,
                 damage,
-                // Straight down the line it was aimed, through anything in it.
                 pierce: u8::MAX,
                 last_hit: None,
                 empowered: false,
@@ -729,7 +671,6 @@ impl Run {
             self.sounds.push("shot_handgonne");
             self.fx.push(Fx::Shake(6));
         }
-        // Trebuchet's shells.
         let mut landed = Vec::new();
         for strike in &mut self.strikes {
             strike.fall = strike.fall.saturating_sub(1);
@@ -754,12 +695,10 @@ impl Run {
             self.sounds.push("bomb");
             self.fx.push(Fx::Shake(5));
         }
-        // Stillhours: time stands still inside.
         for sphere in &mut self.spheres {
             sphere.left = sphere.left.saturating_sub(1);
         }
         self.spheres.retain(|s| s.left > 0);
-        // A monster that has just shaken off a long hold walks through it.
         for enemy in self
             .enemies
             .iter_mut()
@@ -773,7 +712,6 @@ impl Run {
                 enemy.frozen = enemy.frozen.max(2);
             }
         }
-        // Phantoms keep their place beside their knight, and fade.
         for phantom in &mut self.phantoms {
             phantom.left = phantom.left.saturating_sub(1);
             match self.players.get(&phantom.owner).filter(|h| h.hp > 0) {
@@ -789,8 +727,6 @@ impl Run {
     }
 }
 
-/// Copies of this tick's knight shots from each of their phantoms, at a
-/// share of the damage.
 pub(super) fn phantom_shots(
     phantoms: &[Phantom],
     heroes: &BTreeMap<u32, Hero>,
@@ -814,10 +750,6 @@ pub(super) fn phantom_shots(
     shots.extend(copies);
 }
 
-/// A knight's melee thrust, struck again from each of their images (the
-/// copy of a shot, for a blade): the same reach and arc along the knight's
-/// aim, from where the image stands, at a share of the blow. One stroke
-/// from each image. Every foe each struck, nearest first, and what it took.
 pub(super) fn phantom_strikes(
     phantoms: &[Phantom],
     owner: u32,

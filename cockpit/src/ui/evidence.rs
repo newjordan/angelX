@@ -12,25 +12,16 @@ use super::markdown;
 use std::path::Path;
 use std::sync::Arc;
 
-/// The width the reply is laid out at to find its links: wide enough that
-/// a paragraph is one line, so "the line a link sits on" is its paragraph
-/// or list item.
 const LAYOUT_WIDTH: usize = 4096;
 
-/// Words that mark a line's links as evidence.
 const EVIDENCE_WORDS: [&str; 4] = ["evidence", "proof", "report", "receipt"];
 
-/// A linked local file and whether it sits on a line naming evidence.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Candidate {
     pub(crate) target: Arc<str>,
     pub(crate) evidence: bool,
 }
 
-/// The local link targets in `text`, most worth showing first: those on
-/// lines naming evidence (the last of them first), then the rest (last
-/// first). Web URLs, other schemes and in-page anchors are left out; so
-/// is anything inside code.
 pub(crate) fn candidates(text: &str) -> Vec<Candidate> {
     if !text.contains(['[', '<']) {
         return Vec::new();
@@ -53,12 +44,10 @@ pub(crate) fn candidates(text: &str) -> Vec<Candidate> {
         found.push(Candidate { target: Arc::from(target), evidence });
     }
     found.reverse();
-    // Stable: evidence lines first, each group last link first.
     found.sort_by_key(|c| !c.evidence);
     found
 }
 
-/// Whether `target` names a local file rather than a page or an anchor.
 fn local(target: &str) -> bool {
     if target.is_empty() || target.starts_with('#') || target.starts_with("mailto:") {
         return false;
@@ -66,9 +55,6 @@ fn local(target: &str) -> bool {
     !target.contains("://") || target.starts_with("file://")
 }
 
-/// Whether the showcase should bring in `path` unasked: pictures, video,
-/// models and chart data always; written reports and logs only when the
-/// reply called them evidence. Source code and markup stay links.
 pub(crate) fn worth_showing(path: &Path, evidence: bool) -> bool {
     let Some(extension) = path.extension().and_then(|e| e.to_str()) else {
         return false;
@@ -90,8 +76,6 @@ pub(crate) fn worth_showing(path: &Path, evidence: bool) -> bool {
 }
 
 impl crate::app::App {
-    /// Open the evidence `reply` links to in the glass showcase. Does
-    /// nothing outside the glass window, or when no link is worth it.
     pub(crate) fn show_reply_evidence(&mut self, reply: &str) {
         if !crate::ui::glass::active() {
             return;
@@ -103,9 +87,6 @@ impl crate::app::App {
     }
 }
 
-/// The media for the first of `reply`'s candidates that resolves to an
-/// existing file inside `root` worth showing: the same confinement a
-/// click on the link gets.
 pub(crate) fn evidence_media(reply: &str, root: &Path) -> Option<super::media::Media> {
     for candidate in candidates(reply) {
         let Ok(path) = super::media::model_presentation_target_in(&candidate.target, root) else {

@@ -11,24 +11,19 @@ use super::words::Ledger;
 use crate::rules::hop::Hop;
 use crate::rules::{HZ, Run};
 
-/// The strip's top row and where its words sit.
 pub(super) const TOP: i32 = 207;
 pub(super) const TEXT_Y: i32 = 211;
-/// Ticks a crossing's number takes to fly from the far bank to the strip.
 pub(super) const FLY: u32 = 30;
 
 const LEFT: i32 = 40;
 const RIGHT: i32 = 44;
 
-/// One knight's place in the strip.
 pub(super) struct Chip {
     pub id: u32,
     pub x: i32,
-    /// Letters of the name that fit.
     pub name: usize,
 }
 
-/// The chips, left to right in seat order, fitted to the strip.
 pub(super) fn chips(h: &Hop) -> Vec<Chip> {
     let n = h.crossings.len().max(1) as i32;
     let each = (NATIVE_W - 8 - LEFT - RIGHT) / n;
@@ -36,9 +31,6 @@ pub(super) fn chips(h: &Hop) -> Vec<Chip> {
     h.crossings.keys().enumerate().map(|(i, &id)| Chip { id, x: 4 + LEFT + each * i as i32, name }).collect()
 }
 
-/// How the seat looking calls a knight, at most `take` letters: `YOU` for
-/// themselves and only themselves; any other knight by their own name (`KNIGHT
-/// n` for one who still carries the default `You`, or none).
 pub(super) fn called(run: &Run, id: u32, me: Option<u32>, take: usize) -> String {
     if Some(id) == me {
         return "YOU".into();
@@ -50,8 +42,6 @@ pub(super) fn called(run: &Run, id: u32, me: Option<u32>, take: usize) -> String
     full.chars().take(take).collect()
 }
 
-/// A chip's short name: `YOU` for the seat looking, `K` and the seat for a
-/// knight on the default name, else their own first letters.
 pub(super) fn tag(run: &Run, id: u32, me: Option<u32>, take: usize) -> String {
     if Some(id) == me {
         return "YOU".into();
@@ -63,7 +53,6 @@ pub(super) fn tag(run: &Run, id: u32, me: Option<u32>, take: usize) -> String {
     full.chars().take(take).collect()
 }
 
-/// Where a knight's count sits in the strip, for what flies to it.
 pub(super) fn anchor(h: &Hop, run: &Run, id: u32, me: Option<u32>) -> (i32, i32) {
     chips(h)
         .iter()
@@ -71,8 +60,6 @@ pub(super) fn anchor(h: &Hop, run: &Run, id: u32, me: Option<u32>) -> (i32, i32)
         .map_or((NATIVE_W / 2, TEXT_Y + 3), |c| (c.x + 7 + text_width(&tag(run, id, me, c.name)) + 8, TEXT_Y + 3))
 }
 
-/// The strip: the clock, a chip for each knight, the pot. Every word is a
-/// claim in the screen's ledger.
 pub(super) fn strip(led: &mut Ledger, over: &mut Img, run: &Run, h: &Hop, focus: Option<u32>) {
     let now = run.tick as u32;
     chrome::panel(over, (4, TOP, NATIVE_W - 8, 14), chrome::Tone::SLATE);
@@ -96,7 +83,6 @@ pub(super) fn strip(led: &mut Ledger, over: &mut Img, run: &Run, h: &Hop, focus:
         }
         let name = tag(run, chip.id, focus, chip.name);
         let nx = led.small(over, "chip name", chip.x + 7, TEXT_Y, &name, if you { 'T' } else { 'i' });
-        // A crossing flying in lands, and the knight's count swells.
         let landed = h
             .show
             .crosses
@@ -114,7 +100,6 @@ pub(super) fn strip(led: &mut Ledger, over: &mut Img, run: &Run, h: &Hop, focus:
             led.small(over, "chip streak", nx + 6, TEXT_Y, &run_of.min(99).to_string(), '6');
         }
     }
-    // The pot, with a coin.
     let pot: u32 = h.ante.values().sum();
     let tag = format!("{pot}G");
     let px = NATIVE_W - 9 - text_width(&tag) - 8;

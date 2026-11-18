@@ -16,14 +16,13 @@ fn out() -> Option<PathBuf> {
 }
 
 fn tag(id: rules::CourseId) -> &'static str {
-    match id { rules::CourseId::Proving => "proving", rules::CourseId::Emberfall => "emberfall", rules::CourseId::Glassway => "glassway", rules::CourseId::Moatwalk => "moatwalk" }
+    match id { rules::CourseId::Proving => "proving", rules::CourseId::Emberfall => "emberfall", rules::CourseId::Glassway => "glassway", rules::CourseId::Moatwalk => "moatwalk", rules::CourseId::Moonward => "moonward", rules::CourseId::Sunfall => "sunfall" }
 }
 
 fn session(id: rules::CourseId) -> (Run, rules::Session) {
     let run = Run::roundtable_for_test("knight_racers").unwrap();
     let mut race = rules::Session::blank_on(id);
     race.join_ids(1..=6);
-    // Past the grid's count, so the pods drive.
     race.ticks = 200;
     super::route::select(id, race.ticks);
     (run, race)
@@ -34,7 +33,6 @@ fn chase(run: &mut Run, race: &rules::Session, seat: u32) -> Img {
     layers(run, Some(seat)).0
 }
 
-/// The picture through `layers`, and a second lens, side by side in one file name each.
 fn save_pair(dir: &std::path::Path, stem: &str, n: usize, a: &Img, b: &Img) {
     save(dir, &format!("{stem}_chase_{n:04}.png"), a);
     save(dir, &format!("{stem}_wide_{n:04}.png"), b);
@@ -59,8 +57,6 @@ fn jump_close() {
         if car.d < gap.s0 - 120. { continue; }
         if car.d > gap.s1 + 55. { break; }
         let im = chase(&mut run, &race, 1);
-        // The wide lens stands beyond the far lip, to the side and high, looking back at the
-        // gap: the pod runs at it, leaves the lip, flies and lands by the lens.
         let r = super::route::current();
         let mut eye = super::point(r, gap.s1 + 34., -26., 22.);
         eye.z = eye.z.max(r.ground(eye.x, eye.y) + 12.);
@@ -85,14 +81,12 @@ fn fork_close() {
             car.y = if slot % 2 == 0 { -2.4 } else { 2.4 };
             car.v = 44.;
         }
-        // The seat that takes this fork is the first one found on it.
         let mut seat = 0;
         for _ in 0..900 {
             race.step_drive(&race.bot_drives_all());
             if let Some((&id, _)) = race.cars.iter().find(|(_, c)| c.route == i as u8 + 1) { seat = id; break; }
         }
         if seat == 0 { eprintln!("fork {i}: no pod took it"); continue; }
-        // Back to the run-up, with that pod leading, and film it through.
         let (mut run2, mut race2) = session(id);
         for (slot, car) in race2.cars.values_mut().enumerate() {
             car.d = f.s0 - 200. - if car_id(slot) == seat { 0. } else { 14. + slot as f32 * 6. };
@@ -109,20 +103,15 @@ fn fork_close() {
             if car.d > f.s1 + 50. { break; }
             if car.route != 0 { was_on = true; }
             let im = chase(&mut run2, &race2, seat);
-            // The plan: straight down over the middle of the two roads where the pod is, high enough
-            // for both, the pod marked. The roads part and join under it.
             let r = super::route::current();
             let at_s = car.d.clamp(f.s0, f.s1);
             let mid = |s: f32| { let (a, b) = (course.frame(0, s), course.frame(i as u8 + 1, s)); v3((a.x + b.x) * 0.5, (a.y + b.y) * 0.5, (a.z + b.z) * 0.5) };
             let c = mid(at_s);
             let (_, _, th) = course.pose(at_s);
-            // High enough for the widest the two roads lie apart.
             let apart = (0..=24).map(|k| { let s = f.s0 + (f.s1 - f.s0) * k as f32 / 24.; let (a, b) = (course.frame(0, s), course.frame(i as u8 + 1, s)); (a.x - b.x).hypot(a.y - b.y) }).fold(0., f32::max);
             let height = ((apart * 0.5 + 28.) / 0.58).clamp(90., 340.);
             let view = aim(c + v3(0., 0., height), c + v3(th.cos(), th.sin(), 0.) * 3., 1.1);
             let mut high = view_frame(&race2, car.d, &view);
-            // The two roads' centre lines drawn over the picture, so the split can be followed
-            // through the dark: the main road light, the fork's gold.
             for (line, ink) in [(0u8, 'h'), (i as u8 + 1, 'O')] {
                 let mut prev: Option<(i32, i32)> = None;
                 let mut sd = at_s - 260.;
@@ -182,15 +171,12 @@ fn lap_chase() {
     eprintln!("lap: {n} frames on {}", tag(id));
 }
 
-/// Three seconds flat out down the straightest stretch of the lap (or from `ANGEL_PODRACER_AT`), a
-/// frame every tick, the boost held: what 600 km/h looks like through the chase lens.
 #[test]
 fn straight_run() {
     let Some(dir) = out() else { return };
     let id = course_id();
     let course = rules::course(id);
     let at: f32 = std::env::var("ANGEL_PODRACER_AT").ok().and_then(|v| v.split(',').next().and_then(|x| x.parse().ok())).unwrap_or_else(|| {
-        // The start of the 220 m window with the least bend in it, off the grid and clear of any gap.
         let (mut best, mut at) = (f32::MAX, 120.);
         let mut s = 120.;
         while s < course.lap() - 320. {
@@ -218,8 +204,6 @@ fn straight_run() {
     eprintln!("straight: from {at:.0} m on {}, pod 1 now at {:.0} m doing {:.1} m/s", tag(id), race.cars[&1].d, race.cars[&1].v);
 }
 
-/// A pod brakes to a stop, turns right about, drives off the wrong way, and turns back: the
-/// banner comes up once the nose has been held against the road, and goes when it is along it.
 #[test]
 fn wrong_way_turn() {
     let Some(dir) = out() else { return };
@@ -231,7 +215,6 @@ fn wrong_way_turn() {
         car.y = if slot == 0 { 0. } else { 3. };
         car.v = 40.;
     }
-    // Pod 2 keeps driving on its own; pod 1 is the knight's.
     let mut n = 0;
     let script: Vec<(u32, rules::Drive)> = [(40, (0, true, false)), (50, (0, false, true)), (80, (1, false, true)), (70, (0, true, false)), (70, (0, false, true)), (80, (-1, false, true)), (70, (0, true, false))]
         .into_iter().flat_map(|(len, (steer, gas, brake))| (0..len).map(move |_| (0u32, rules::Drive { steer, gas, brake, ..Default::default() }))).collect();
@@ -249,7 +232,6 @@ fn wrong_way_turn() {
     eprintln!("wrong way: {n} frames on {}", tag(id));
 }
 
-/// Chase frames through `layers` at the distances in `ANGEL_PODRACER_AT` (comma separated).
 #[test]
 fn snaps() {
     let Some(dir) = out() else { return };
@@ -266,8 +248,6 @@ fn snaps() {
     }
 }
 
-/// How many triangles a frame holds, by what they are, round each course's lap. Prints when
-/// `ANGEL_PODRACER_TALLY` is set.
 #[test]
 fn tally() {
     if std::env::var_os("ANGEL_PODRACER_TALLY").is_none() { return; }
@@ -289,7 +269,6 @@ fn tally() {
     }
 }
 
-/// How far each fork's road lies from the main road, along the fork, where they part and join.
 #[test]
 fn fork_spread() {
     if std::env::var_os("ANGEL_PODRACER_TALLY").is_none() { return; }
@@ -305,7 +284,6 @@ fn fork_spread() {
     }
 }
 
-/// A plan of each fork from straight above: the two roads and where they part and join.
 #[test]
 fn fork_plan() {
     let Some(dir) = out() else { return };

@@ -11,7 +11,6 @@ use crate::rules::mossbell::{LENGTH, Session};
 use crate::rules::mossbell_show::POP_LIFE;
 use std::sync::OnceLock;
 
-/// A seed pod, whole and cracked, a hollow and a flash: eight by eight.
 fn pods() -> &'static [Img; 4] {
     static PODS: OnceLock<[Img; 4]> = OnceLock::new();
     PODS.get_or_init(|| {
@@ -59,7 +58,6 @@ fn pods() -> &'static [Img; 4] {
     })
 }
 
-/// A lamp, unlit, lit, bright and hot: twelve by twelve.
 fn lamp_set() -> &'static [Img; 4] {
     static LAMPS: OnceLock<[Img; 4]> = OnceLock::new();
     LAMPS.get_or_init(|| {
@@ -123,7 +121,6 @@ fn lamp_set() -> &'static [Img; 4] {
     })
 }
 
-/// A little lamp pip for a card, unlit and lit, and the leader's three-point crown.
 fn pips() -> &'static [Img; 3] {
     static PIPS: OnceLock<[Img; 3]> = OnceLock::new();
     PIPS.get_or_init(|| {
@@ -135,7 +132,6 @@ fn pips() -> &'static [Img; 3] {
     })
 }
 
-/// The brass bell, still and swung either way: fourteen by fourteen.
 fn bells() -> &'static [Img; 3] {
     static BELLS: OnceLock<[Img; 3]> = OnceLock::new();
     BELLS.get_or_init(|| [bell(0), bell(1), bell(-1)])
@@ -162,7 +158,6 @@ fn bell(swing: i32) -> Img {
     if swing == 0 {
         return still;
     }
-    // A swing shears the lower rows a pixel either way.
     let mut out = Img::new(still.w + 2, still.h);
     for y in 0..still.h {
         let shift = 1 + swing * (y * 2 / still.h);
@@ -175,14 +170,10 @@ fn bell(swing: i32) -> Img {
     out
 }
 
-/// The seat's mark in its cloth: the bar up a card's edge.
 fn cloth(id: u32) -> char {
     knights::seat_mark(id)
 }
 
-/// The race column's pictures: a card for each knight in the order of the
-/// race, the keeper's health up its edge, the three lamps, the leader crowned,
-/// and a pulse under the viewer's card when their score has just grown.
 pub(super) fn cards(im: &mut Img, run: &crate::rules::Run, s: &Session, me: u32, now: u32) {
     let rows = claims::order(s);
     let n = rows.len();
@@ -202,12 +193,10 @@ pub(super) fn cards(im: &mut Img, run: &crate::rules::Run, s: &Session, me: u32,
                 }
             }
         }
-        // The keeper's health, up the card's edge in the seat's cloth.
         let bar = rh - 4;
         let full = bar * i32::from(b.hp) / 6;
         im.rect(3, y0 + 1, 2, bar, 'g');
         im.rect(3, y0 + 1 + bar - full, 2, full, cloth(id));
-        // Three lamps, lit as the table's are.
         let (ly, lx) = if n <= 4 { (y0 + 11, 7) } else { (y0 + 10, 7) };
         for lamp in 0..3 {
             im.stamp(&pips()[usize::from(b.lit & (1 << lamp) != 0)], lx + lamp * 6, ly);
@@ -219,7 +208,6 @@ pub(super) fn cards(im: &mut Img, run: &crate::rules::Run, s: &Session, me: u32,
     }
 }
 
-/// The keeper's six pods, the three lamps and the bell, over the right panel.
 pub(super) fn panel(im: &mut Img, s: &Session, me: u32, plan: &Plan, now: u32) {
     let b = &s.tables[&me].ball;
     let pods = pods();
@@ -241,7 +229,6 @@ pub(super) fn panel(im: &mut Img, s: &Session, me: u32, plan: &Plan, now: u32) {
         let sprite = if flash { &lamps[3] } else if !lit { &lamps[0] } else if (now / 8 + i as u32) % 3 == 0 { &lamps[2] } else { &lamps[1] };
         im.stamp(sprite, 332 + i * 16, 98);
     }
-    // The bell, and the bar that ticks to it (or runs down while it rings).
     let age = LENGTH - s.left;
     let (ringing, left, span) = claims::bell_clock(age);
     let swing = if ringing { if (now / 4) % 2 == 0 { 1 } else { -1 } } else { 0 };

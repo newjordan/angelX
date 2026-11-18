@@ -24,7 +24,6 @@ pub(super) fn inside(r: Rect) -> bool {
     r.0 >= 0 && r.1 >= 0 && r.0 + r.2 <= NATIVE_W && r.1 + r.3 <= NATIVE_H
 }
 
-/// One claimed box: what claimed it, where, and the words in it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Claim {
     pub what: &'static str,
@@ -42,14 +41,12 @@ thread_local! {
     static LAST: std::cell::RefCell<Vec<Claim>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
-/// The boxes the last screen claimed (for the test over whole bouts).
 #[cfg(test)]
 pub(crate) fn last() -> Vec<Claim> {
     LAST.with(|l| l.borrow().clone())
 }
 
 impl Ledger {
-    /// Whether `r` is whole in the frame and meets no claimed box.
     pub fn free(&self, r: Rect) -> bool {
         inside(r) && !self.boxes.iter().any(|c| meets(c.rect, r))
     }
@@ -58,15 +55,11 @@ impl Ledger {
         self.boxes.push(Claim { what, rect, text: text.to_string() });
     }
 
-    /// Keep this screen's boxes for a test to read.
     pub fn keep(self) {
         #[cfg(test)]
         LAST.with(|l| *l.borrow_mut() = self.boxes);
     }
 
-    /// Small words on a dark plate, the plate's top-left at `(x, y)`.
-    /// Drawn and claimed (the plate is the box) if it is free; returns
-    /// whether it was.
     pub fn plate(&mut self, im: &mut Img, what: &'static str, (x, y): (i32, i32), text: &str, ink: char) -> bool {
         let r = (x, y, text_width(text) + 7, 11);
         if !self.free(r) {
@@ -78,7 +71,6 @@ impl Ledger {
         true
     }
 
-    /// Small words with no plate, claimed as their own box.
     pub fn text(&mut self, im: &mut Img, what: &'static str, (x, y): (i32, i32), text: &str, ink: char) -> bool {
         let r = (x, y, text_width(text), 7);
         if !self.free(r) {
@@ -89,11 +81,9 @@ impl Ledger {
         true
     }
 
-    /// Big words (the kit's, edged) centred on `cx`, top at `y`.
     #[allow(clippy::too_many_arguments)]
     pub fn big(&mut self, im: &mut Img, what: &'static str, cx: i32, y: i32, text: &str, scale: i32, fill: char, edge: char) -> bool {
         let img = juice::big_text_img(text, scale, fill, edge);
-        // The letters are what must stay clear, not the edge round them.
         let r = (cx - img.w / 2 + 2, y + 2, img.w - 4, img.h - 4);
         if !self.free(r) {
             return false;
@@ -103,8 +93,6 @@ impl Ledger {
         true
     }
 
-    /// The kit's banner as a claim: its rails, its words and the line under
-    /// them, as one box by the kit's own geometry.
     #[allow(clippy::too_many_arguments)]
     pub fn banner(&mut self, im: &mut Img, what: &'static str, y: i32, title: &str, sub: &str, age: u32, life: u32, tone: Mood, cap: i32) {
         if age >= life {
@@ -114,7 +102,6 @@ impl Ledger {
         juice::banner(im, y, title, sub, age, life, tone, cap);
     }
 
-    /// The kit's countdown beat, claimed as the box of its letters.
     #[allow(clippy::too_many_arguments)]
     pub fn count(&mut self, im: &mut Img, what: &'static str, at: (i32, i32), label: &str, age: u32, life: u32, go: bool) {
         if age >= life {
@@ -127,8 +114,6 @@ impl Ledger {
         juice::countdown(im, at, label, age, life, go);
     }
 
-    /// A number that flies from `from` to `to`; if its path meets a claimed
-    /// box it is drawn as a bare crumb of `ink`.
     #[allow(clippy::too_many_arguments)]
     pub fn fly(&mut self, im: &mut Img, what: &'static str, text: &str, from: (i32, i32), to: (i32, i32), age: u32, life: u32, ink: char) {
         if age >= life {
@@ -147,7 +132,6 @@ impl Ledger {
         }
     }
 
-    /// A number that pops up off a place and fades, if its box is free.
     #[allow(clippy::too_many_arguments)]
     pub fn pop(&mut self, im: &mut Img, what: &'static str, text: &str, at: (i32, i32), age: u32, life: u32, scale: i32, ink: char) {
         if age >= life {
@@ -165,8 +149,6 @@ impl Ledger {
     }
 }
 
-/// A banner's box by the kit's own geometry (`juice::banner`): its rails,
-/// its title and the line under it, with the lift of its dissolve.
 pub(super) fn banner_rect(y: i32, title: &str, sub: &str, age: u32, life: u32, cap: i32) -> Rect {
     let tw = text_width(title).max(1);
     let rest = ((NATIVE_W - 24) / tw).clamp(1, cap.max(1));
@@ -190,9 +172,6 @@ pub(super) fn banner_rect(y: i32, title: &str, sub: &str, age: u32, life: u32, c
     (x0, y0, x1 - x0, y1 - y0)
 }
 
-/// How the seat `me` calls a knight, at most `take` letters: `YOU` for
-/// themselves and only themselves; any other knight by their own name
-/// (`KNIGHT n` for one who still carries the default `You`, or none).
 pub(super) fn called(run: &Run, id: u32, me: Option<u32>, take: usize) -> String {
     if Some(id) == me {
         return "YOU".into();
@@ -204,7 +183,6 @@ pub(super) fn called(run: &Run, id: u32, me: Option<u32>, take: usize) -> String
     full.chars().take(take).collect()
 }
 
-/// A key on the board: its letter in a little cap. Claimed by the row.
 pub(super) fn keycap(im: &mut Img, x: i32, y: i32, key: &str, lit: bool) -> i32 {
     let w = text_width(key) + 5;
     chrome::keycap(im, (x, y, w, 11));
@@ -212,9 +190,6 @@ pub(super) fn keycap(im: &mut Img, x: i32, y: i32, key: &str, lit: bool) -> i32 
     w
 }
 
-/// A row of key prompts, each some caps and a word or two, on a dark strip,
-/// centred on `cx` with its top at `y`: claimed as one box. `lit` caps
-/// glow. Returns its box, or none if it could not be placed.
 pub(super) fn prompts(led: &mut Ledger, im: &mut Img, cx: i32, y: i32, items: &[(&[&str], &str)], lit: bool) -> Option<Rect> {
     let gap = 10;
     let widths: Vec<i32> = items

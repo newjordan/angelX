@@ -432,10 +432,6 @@ fn complete_equal_budget_cohort_promotes_real_improvement() {
 
 #[test]
 fn receipt_backed_promotion_and_final_audit_require_real_complete_execution() {
-    // Evaluator identity intentionally includes allowlisted process env
-    // (notably HOME). Serialize against tests that temporarily rewrite it,
-    // otherwise runtime revalidation can observe a mixed policy and turn a
-    // complete cohort into a load-sensitive RejectedIncomplete result.
     let _env = crate::tests::env_lock();
     let receipt_root = std::env::temp_dir().join(format!(
         "angel-receipt-backed-promotion-{}",
@@ -825,9 +821,6 @@ fn receipt_backed_promotion_and_final_audit_require_real_complete_execution() {
     let _ = std::fs::remove_dir_all(receipt_root);
 }
 
-/// The telemetry snapshot is process-global and other tests publish into it, so
-/// the failing campaign is re-run until the snapshot read back is the technical
-/// run's own, and a run that errored out must have published its terminal state.
 fn assert_errored_technical_run_published_failed<T: std::fmt::Debug>(
     run: impl Fn() -> Result<T, String>,
 ) {
@@ -1760,9 +1753,6 @@ fn cohort_manifest_rejects_drift_relabeling_and_final_audit_overlap() {
     assert_eq!(report.decision, PromotionDecision::Promoted);
 }
 
-// The verdict math is a live leg now. The Rust oracle stays the fallback and
-// the parity target, so these tests compare the shipped Bend module against it
-// on raw score samples rather than on a generator.
 fn gate_case(complete: bool, incumbent: &[f32], candidate: &[f32]) -> GateCase {
     GateCase {
         complete,
@@ -1905,10 +1895,6 @@ fn promotion_gate_fixtures() -> Vec<GateFixture> {
     fixtures
 }
 
-// The parity oracle: the arithmetic the shipped `promotion` leg replaced. It
-// lives here so production keeps only the gate's input and contract check.
-/// Native oracle: the arithmetic the live leg must reproduce bit for bit. Sums
-/// run in case order from +0.0, exactly as the score series above.
 fn gate_native(request: &GateRequest<'_>) -> GateVerdict {
     fn blank(decision: u32) -> GateVerdict {
         GateVerdict {
@@ -1982,8 +1968,6 @@ fn live_gate(
     )
 }
 
-/// A throwaway policy module, so a deliberately out-of-contract leg can be
-/// pinned without touching the shipped one.
 fn temporary_policy_leg(id: &str, render: &str) -> angel_live::Program {
     let root = std::env::temp_dir().join(format!("angel-gate-leg-{}-{id}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);

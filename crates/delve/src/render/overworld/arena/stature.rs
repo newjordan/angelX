@@ -17,18 +17,11 @@ use super::super::ink::Img;
 use super::{UNIT, enlarge, sprites};
 use crate::rules::{Enemy, EnemyKind, Run};
 
-/// The knight's height, which every other size is read against. The
-/// numbers are the content checker's (`rules::content::stature`), so a foe
-/// is checked against what it is drawn at.
 pub const KNIGHT: i32 = crate::rules::content::stature::KNIGHT;
-/// The least a monster stands.
 pub const FOE_MIN: i32 = crate::rules::content::stature::FOE_MIN;
-/// The least a boss stands.
 pub const CHIEF: i32 = crate::rules::content::stature::CHIEF;
-/// The least the floor's guardian stands.
 pub const GUARDIAN: i32 = crate::rules::content::stature::GUARDIAN;
 
-/// The least `enemy` stands in the room the party is in.
 pub(super) fn floor(run: &Run, enemy: &Enemy) -> i32 {
     if enemy.kind == EnemyKind::Dragon || (enemy.boss.is_some() && run.guardian_room()) {
         GUARDIAN
@@ -39,10 +32,6 @@ pub(super) fn floor(run: &Run, enemy: &Enemy) -> i32 {
     }
 }
 
-/// A monster's picture `im` at its kind's scale `k` (a slime's stage, an
-/// elite's bulk): never smaller than the art, and never shorter than
-/// `FOE_MIN`, measured on the kind at rest so every pose of one kind keeps
-/// one scale.
 pub(super) fn monster(kind: EnemyKind, im: Img, k: f32) -> Img {
     let mut k = k.max(1.0);
     if im.h as f32 * k < FOE_MIN as f32 {
@@ -52,8 +41,6 @@ pub(super) fn monster(kind: EnemyKind, im: Img, k: f32) -> Img {
     if k > 1.0 { enlarge(&im, k) } else { im }
 }
 
-/// A boss's art at the size it stands: as wide as it strikes (`radius`, in
-/// arena units), and at least `floor` pixels tall.
 pub(super) fn boss(art: &Img, radius: f32, floor: i32) -> Img {
     let strike = radius * 2.0 * UNIT / art.w.max(art.h).max(1) as f32;
     let stand = floor as f32 / art.h.max(1) as f32;
@@ -65,8 +52,6 @@ pub(super) fn boss(art: &Img, radius: f32, floor: i32) -> Img {
     }
 }
 
-/// Boss `index`'s picture at the size it stands in the room the party is
-/// in.
 pub(super) fn boss_figure(run: &Run, index: u8) -> Option<Img> {
     let boss = run.bosses.get(usize::from(index))?;
     let art = if let Some(im) = super::claim_bosses::body(&boss.id) {

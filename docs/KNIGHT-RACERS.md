@@ -18,8 +18,8 @@ gate. In Glass Enter and Backspace work too.
 
 | Mode | What it is |
 |---|---|
-| **Cup** | The three courses in turn, points 10-7-5-3-2-1, a purse for every place, a **podium** and a gold cup at the end with a prize and what winning opens. |
-| **Single Race** | One race on any course (the Proving Run too), for two thirds of the cup's purse. |
+| **Cup** | The four courses in turn, points 10-7-5-3-2-1, a purse for every place, a **podium** and a gold cup at the end with a prize and what winning opens. |
+| **Single Race** | One race on any course (Sunfall and the Proving Run too), for two thirds of the cup's purse. |
 | **Time Trial** | Alone on the road (no rivals) against the **ghost** of your best lap on that course and pod, drawn as a see-through pod with the gap in the corner. A first lap pays 400, a new best 200. Solo only. |
 | **Practice** | The Proving Run, easy rivals, no prize. |
 
@@ -28,15 +28,15 @@ gate. In Glass Enter and Backspace work too.
 pods as they stand) and **Champion** (2% over, harder off the line and in a bend). The
 pilots themselves run at 97.5% of their pod and draft, heat and slam on top of that, so
 these numbers sit near one. Against a clean human run (`flow_tests::class_balance_table`:
-the pilot with no slips in seat 1, six pod rotations on each course, 18 races) a Squire cup
-is won 18 of 18 by 27 s, a Knight cup 13 of 18 and a Champion cup 7 of 18: a knight needs
+the pilot with no slips in seat 1, six pod rotations on each of the four courses, 24 races) a Squire cup
+is won 24 of 24, a Knight cup 18 of 24 and a Champion cup 11 of 24: a knight needs
 the parts and the hands. The purses are
 900/1500/2400 for first and fall away to sixth (`career::PURSE`), and the cup's own
 prize is 3000/5000/8000 for the winner (`career::CUP_PURSE`).
 
 **Winning a cup opens things** (the first time for each class): the Squire cup the
 Knight class and the Ringwright, the Knight cup the Champion class and the
-Bellfounder, the Champion cup the Lancewain. Winning all three races of any cup opens
+Bellfounder, the Champion cup the Lancewain. Winning every race of any cup opens
 the Gatehouse. The Warden and the Wyvern are yours from the start.
 
 **Several knights** pick together: the host (the lowest seat) chooses the mode, the
@@ -91,19 +91,27 @@ Every engine has its own heat, so there is more to a race than the bar: see
    lap, written in the clock plate at the top (where the lap and the time go once
    the lights are out), over a high view of the whole grid. All six pods are in frame.
 2. **The lights.** The light tree at the left of the grid fills one lamp a second and the
-   count runs 3, 2, 1 while the camera swoops down behind your pod. On **GO** the tree
+   count runs 3, 2, 1 while the camera cranes: up and over the grid, round to the pack head-on,
+   and down along its flank into the chase seat behind your pod. On **GO** the tree
    goes green and you drive. Stand on the gas in the last half second, as the last lamp
    burns white, for a **rocket start** (twice the push for a second); stand on it earlier
    and you **flood** the engines (a third of the push and some heat).
 3. **The laps.** A banner announces each new lap with the last lap's time. The
-   last one is **FINAL LAP** in the header and a flashing banner.
+   last one is **FINAL LAP** in the header and a flashing banner. Every lap line but the last
+   takes a **split**: the time over the line and the gap to the pod that was first across it
+   (or, from the front, your lead over the next), flashed for three seconds. The sim keeps each
+   pod's splits (`Car::marks`), so the results board knows every seat's laps, not only the ones one
+   screen watched.
 4. **The flag.** Your place and time, and the rest of the field drives in.
-5. **The results.** Every seat in order with its pod, time, gap to the winner
-   and best lap, and beside it the cup points. **E** starts the next race.
+5. **The results.** The winner is crowned by name across the top of the board (KNIGHT AUREL
+   TAKES SUNFALL), then every seat in order with its pod, time, gap to the winner and best lap,
+   the winner's best lap and which lap it was, and beside it the cup points. **E** starts the
+   next race.
 
 ## The screen
 
-- **Top left** your place out of six. Everything that shows a place (this, the
+- **Top left** your place out of six, with a green arrow beside it for a second and a half after
+  a pass and a red one after a place lost. Everything that shows a place (this, the
   ladder, the tags over the pods, the minimap's blips) reads the same running
   order: finishers by time, then everyone by distance run.
 - **Top centre** the course, the lap, the race clock, this lap's clock and your
@@ -123,8 +131,8 @@ Every engine has its own heat, so there is more to a race than the bar: see
   OVERHEAT.
 - **In the middle of the picture**, one call at a time by how much it matters: BLOWOUT with the
   squires' progress bar, an engine BURNING with its heat and "lift off the gas to cool it",
-  SLAM! (and the side it came from lights up), ROCKET START or FLOODED, PASSED A RIVAL!, and
-  an engine HOT warning. While you ride a wake a **DRAFT** meter shows over the pod and
+  SLAM! (and the side it came from lights up), ROCKET START or FLOODED, PASSED A RIVAL!,
+  TRADED PAINT WITH a rival (in that seat's colour), and an engine HOT warning. While you ride a wake a **DRAFT** meter shows over the pod and
   chevrons run along the road from your nose to the pod you are tucked behind.
 - **WRONG WAY** flashes across the screen when your pod's nose has been held against
   the road's direction (or you are seen running back along the course). It clears
@@ -196,7 +204,10 @@ two seconds: that is the slingshot that carries the pass.
 are pushed apart (the lighter pod gives more ground) and trade speed. A **side slam** (closing at
 4.5 m/s or more) throws both pods on a kick that steering cannot cancel and heats and scars the
 engines that met; a **nose into a tail** shocks the leader's pair of engines through the tethers. A
-rub is racing: no heat, no shake. Nothing goes through anything: the boxes are longer than a pod can
+rub is racing: no heat, no shake. Pods that meet side by side without a slam **trade paint**: each is
+shouldered wide on a small kick as they touch and sheds a breath of speed, flashes the rub (a call-out
+naming the other's seat, flecks of the other's colour off the flank), and carries a scuff of the other's
+enamel on the engine that met it for the rest of the race (`Car::paint`, `scuffs`, `rubs`; `contact.rs`). Nothing goes through anything: the boxes are longer than a pod can
 move in a tick.
 
 **The rivals.** Each CPU pilot reads the whole field: it takes a racing line (wide in, apex, wide
@@ -211,7 +222,7 @@ band, capped, so a clean human run still wins clearly and the field still stays 
 
 ## Courses
 
-The cup runs three big courses, two laps each, about six and a half minutes a
+The cup runs four big courses, two laps each, about six and a half minutes a
 race. The road is authored, not looped: it climbs, crests, drops and banks, it
 narrows, it forks, and there is a jump on every one. Beyond the road there is
 real land (canyon walls, mountains, chasms, a moat), not a corridor.
@@ -221,6 +232,8 @@ real land (canyon walls, mountains, chasms, a moat), not a corridor.
 | **Emberfall Foundry Run** (cup 1) | 9.5 km | 1 | Forge canyons, the Slagworks, a lava lake on chain bridges and a molten leap. |
 | **The Glassway** (cup 2) | 9.1 km | 1 | Down the Mineshaft, through the crystal gallery, over the Broken Span and up behind Whisper Falls. |
 | **Moatwalk** (cup 3) | 9.1 km | 2 | Lanternward by night: the harbour wall, the castle rampart over the moat, and a leap across the drawbridge. |
+| **Moonward** (cup 4) | 9.0 km | 1 | A cold wash under one huge moon: the pale straight and its leap, the Throat through the mountain, the Boneyard and the Jaws, and the lantern road across the shallows. |
+| **Sunfall** (single race, trial) | 3.5 km | 0 | The Proving Run's road the long way: the chute, the forge's brick arches, the meridian's obelisks, and a crest on the straight that sends a fast pod flying. Not in the cup. |
 | **Lanternward Proving Run** (practice) | 2.8 km | 0 | The old circuit: one long straight, a cavern and a bowl. Not in the cup. |
 
 Each course has a road surface of its own, laid in the road's own frame (`roadtex*.rs`: a
@@ -230,9 +243,31 @@ edges and a pool of light under each pylon, and the air over its lava and hot st
 (`knight_racers_game/shimmer.rs`, a pixel or two, far dots only). The Glassway's is dark glass with sheens
 that rush past, violet down the left edge and cyan down the right. Moatwalk's is setts under the
 moon with a torch pool under every lamp, and over it a night sky: a moon in two halos, and a castle
-with its keep and towers on the skyline. Where the land falls away beside the road the rail is
+with its keep and towers on the skyline. Moonward's is frost-glazed flags with a bone-white edge line, rungs across the verge and two lanes of
+ice-blue dashes, under a cold sky with one huge low moon in two halos over two ranges of far mountains
+(`roadtex_wash.rs`, `sky_wash.rs`); in the shallows the wash lies two metres under the road and glints with
+the moon, and pale reeds, bone spikes and cairns carrying cold lights stand along the verge.
+
+The set pieces beyond the first renderer's are drawn in `knight_racers_world/setpieces.rs` (the forge's brick
+arches, the meridian's obelisks, the chute's banners hung on a masonry lining, the boneyard's ribs, the
+shallows' pole lanterns) and `pit.rs` (the pit lane: a low wall, bannered awnings, fuel drums and two squires
+a bay whose arms wave from the race tick). Each wears its place's own materials. They are built only 45 m
+behind and 250 m ahead of the lens (`pieces::reach`): the dressing is lost in the haze before the road is. Where the land falls away beside the road the rail is
 half a metre high and the lava, the moat water or the Glassway's mist lies a couple of metres
 under the road, so the chase lens sees what a fall would be into.
+
+**Sunfall** is the Proving Run's own road run the long way: after the ruins the road drops into **the chute**
+(banners down its walls), runs under **the forge**'s brick arches and sweeps **the meridian** between its
+obelisks before the gate bend. It is raced single or against the clock (not in the cup) and keeps the old
+circuit's hump on the opening straight, the **leap**: a pod over 40 m/s as it passes the crest leaves the road
+(`LEAP_SPEED`, `Spec::crests`), flies with a fraction of its steering authority while its slide bleeds
+away, and lands where its flight puts it; a slower pod is held to the road. The same flight rules (a
+fraction of the steering, a bleeding slide) govern the cup courses' chasm jumps.
+
+Every course's opening straight has a **pit lane** along one rail: a low wall, bannered awnings, fuel drums and
+the squires who wave the next pod past. The running **leader** carries a gold pennant over its chariot,
+visible through fog from any distance, and a pod that **blows out** scorches the road where it sat: the
+mark burns in over the squires' first seconds and stays for the race (`Car::scorch`).
 
 A fork is a second road with its own hazards and strips; the minimap draws it
 dimmer beside the main road, and a car on it shows on its own line. A jump
@@ -274,6 +309,15 @@ time-trial GIF come from `knight_racers_game/flow_proof.rs`
 The proof reels (the grid to go, a boost, a pass, the final lap, the results)
 come from the `podracer_reels` test; see `proof.rs` beside the pods for how to run it.
 
+The reels for what the old circuit had and the cup's courses now carry (Moonward and Sunfall by
+section, the leap, the pit lane, the leader's pennant, a scorch, a paint trade, the splits and standings, the
+crowned board and the crane through the countdown) come from `knight_racers_game/port_proof.rs`:
+
+```
+ANGEL_PORT_PROOF=/dir cargo test -p angel-delve --profile fast --lib port_reels -- --nocapture
+# ANGEL_PORT_REEL=moonward|sunfall|leap|pitlane|pennant|scorch|paint|splits|results|crane for one
+```
+
 The polish proofs (a jump at close range, each fork's split and rejoin, a lap, a pod
 turned about) come from `worldkit/polish.rs`:
 
@@ -286,7 +330,7 @@ The road, its edges and the sky alone (no pod, no HUD) come from `worldkit::shot
 in `ANGEL_PODRACER_AT`): `road_look`, `sky_look`, `zone_shots`, and `zone_list` (prints where each named
 stretch, gap and piece is, with `ANGEL_PODRACER_TALLY=1`).
 
-`ANGEL_PODRACER_COURSE` is 0 for the proving run, 1 Emberfall, 2 the Glassway, 3 Moatwalk.
+`ANGEL_PODRACER_COURSE` is 0 for the proving run, 1 Emberfall, 2 the Glassway, 3 Moatwalk, 4 Moonward, 5 Sunfall.
 The interleaved frame-time comparison is `worldkit::frame_time::frame_time_compared`
 (`ANGEL_PODRACER_COMPARE=0,2`): each course timed at eight places round the lap, round
 after round, so a busy machine slows them alike.

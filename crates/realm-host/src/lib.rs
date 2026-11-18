@@ -70,33 +70,21 @@ pub mod together_web;
 pub mod village;
 pub mod world_viz;
 
-/// The host stress kit's timing lines (`scripts/stress/host-kit`): with
-/// `ANGEL_STRESS_LOG=1` the checkpoint, the claim cycle and the save gate
-/// say on stderr how long each step took. Read once; off, it is a load.
 pub(crate) fn stress_log() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *ON.get_or_init(|| std::env::var_os("ANGEL_STRESS_LOG").is_some_and(|v| v == "1"))
 }
 
-/// The shared data types the game and the cockpit both read.
 pub use angel_live::telemetry;
 
-/// The Delve's rules and the forge's runes are `angel_delve`'s; the moved
-/// modules read them by these names.
 pub use angel_delve::realm::forge as together_forge;
 pub use angel_delve::rules as together_shooter;
 
-/// Where the cockpit's shipped assets sit (`cockpit/assets/...`): the install
-/// paths the cockpit lent the Kernel's host services at startup. This crate's
-/// own tests (and a cockpit test build, which asks for `testing`) lend the
-/// source tree they were built in.
 pub(crate) fn cockpit_dir() -> std::path::PathBuf {
     lend_source_tree();
     angel_live::host::runtime_paths::cockpit_dir()
 }
 
-/// The package or checkout the shipped files sit in (the parent of
-/// `cockpit/`), found as the cockpit finds it.
 pub(crate) fn root() -> std::path::PathBuf {
     lend_source_tree();
     angel_live::host::runtime_paths::root()

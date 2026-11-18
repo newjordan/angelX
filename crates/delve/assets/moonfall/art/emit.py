@@ -1,14 +1,4 @@
 #!/usr/bin/env python3
-"""Ink every Moonfall figure and write
-src/render/overworld/arena/moonfall/art_data.rs.
-
-    python3 emit.py
-
-Frames are cropped to their ink and carry their offset (x, y) from the slot's
-top-left corner. Inks are the realm's (`render/overworld/ink.rs`); the knights'
-house colour is drawn in `#` `&` `*` and swapped for the seat's ramp by the
-bank.
-"""
 import sys
 from pathlib import Path
 

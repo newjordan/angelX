@@ -6,7 +6,6 @@ use crate::rules::home::{BUY_HOLD, Home, Station};
 use crate::rules::{Input, Run};
 use std::collections::BTreeMap;
 
-/// The wheel's frame cost: the hall rendered through a whole spin at four seats.
 #[test]
 #[ignore = "measures the picture's cost"]
 fn fortune_frame_times() {

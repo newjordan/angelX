@@ -42,8 +42,6 @@ fn adversarial_approval_tool_name_and_payload_are_not_transferable() {
         call("shell", serde_json::json!({"command":"cargo test"})),
         workspace,
     );
-    // Typed verifiers do not consume capsule grants at all. Their own
-    // pinned-argv policy authorizes execution independently of shell results.
     assert!(
         ActionBatch::from_calls(
             &[call("run_tests", serde_json::json!({}))],
@@ -104,8 +102,6 @@ fn adversarial_approval_write_reuse_cannot_escape_via_parent_or_symlink() {
         crate::agent::approval::Decision::Deny
     );
     assert!(tool.call(&escape).is_err());
-    // Same lexical arguments and cached approval after an ancestor changes:
-    // the actual descriptor-based write must still reject the escape.
     std::fs::rename(root.join("src"), root.join("original-src")).unwrap();
     std::os::unix::fs::symlink(&outside, root.join("src")).unwrap();
     assert_eq!(
@@ -213,23 +209,17 @@ fn yolo_disables_interactive_action_capsules() {
     let _guard = crate::tests::env_lock();
     let previous = std::env::var_os("ANGEL_YOLO");
     let previous_smart = std::env::var_os("ANGEL_YOLO_SMART");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_YOLO", "1") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_YOLO_SMART") };
     let mut registry = ToolRegistry::new();
     registry.enable_action_capsules();
     assert_eq!(mode_for(&registry), ActionCapsuleMode::Off);
     match previous {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(value) => unsafe { std::env::set_var("ANGEL_YOLO", value) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_YOLO") },
     }
     match previous_smart {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(value) => unsafe { std::env::set_var("ANGEL_YOLO_SMART", value) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_YOLO_SMART") },
     }
 }

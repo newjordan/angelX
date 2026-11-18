@@ -1,8 +1,3 @@
-// Tests for habitsmith H1/H2: D1 cmd events → per-repo workflow facts.
-// Fixture sessions are built step-by-step with explicit seq numbers, since
-// ORDER is the whole point. The coexistence case proves habit facts and
-// dossier facts share the graph without leaking into each other's queues.
-
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -54,7 +49,6 @@ const NOW = '2026-07-06T00:00:00.000Z'
 const NOW_TS = Math.floor(Date.parse(NOW) / 1000)
 const KEY = 'home-u-proj-0011223344556677'
 
-// One D1 cmd-event line, as experience.rs writes it.
 let autoSeq = 0
 const cmd = (
   text,
@@ -71,8 +65,6 @@ const cmd = (
   cmd: { text, exit, timed_out: false, dur_ms: dur, tool: 'shell', bytes_out: 10 },
 })
 
-// One session that runs the canonical habit: build → test → run, optionally
-// with `noise` unrelated commands wedged between build and test.
 const habitSession = (session, { noise = 0, buildExit = 0, testExit = 0, runExit = 0 } = {}) => {
   const rows = [cmd('cargo build', buildExit, { session })]
   for (let i = 0; i < noise; i++) rows.push(cmd(`echo noise-${i}`, 0, { session }))
@@ -84,8 +76,8 @@ const habitSession = (session, { noise = 0, buildExit = 0, testExit = 0, runExit
 test('sessionStepSeqs: classifies, collapses retries to the last attempt, nulls truncated steps', () => {
   const rows = [
     cmd('cargo build', 101, { session: 1 }),
-    cmd('cargo build', 0, { session: 1 }), // retry-until-pass = one step, final ok wins
-    cmd('export KEY=… && deploy', 0, { session: 1 }), // masked → id:null, keeps its slot
+    cmd('cargo build', 0, { session: 1 }),
+    cmd('export KEY=… && deploy', 0, { session: 1 }),
     cmd('cargo test', 0, { session: 1 }),
   ]
   const seq = sessionStepSeqs(rows)[KEY].sessions[1]
@@ -95,6 +87,25 @@ test('sessionStepSeqs: classifies, collapses retries to the last attempt, nulls 
     ['build', null, 'test'],
   )
   assert.equal(seq[0].ok, true, 'collapsed retry keeps the final attempt')
+})
+
+test('sequence parsing reuse stays scoped to root/cwd and never caches outcomes across rows or calls', () => {
+  const text = 'cd /allowed && cargo test'
+  const rows = [
+    { ...cmd(text, 0, { session: 1 }), repo: { key: KEY, root: '/allowed' } },
+    { ...cmd(text, 1, { session: 2 }), repo: { key: KEY, root: '/allowed' } },
+    { ...cmd(text, 0, { session: 3 }), repo: { key: 'foreign', root: '/foreign' } },
+    { ...cmd(text, 0, { session: 4 }), repo: { key: 'cwd-match', root: '/foreign', cwd: '/allowed' } },
+    { ...cmd(text, 0, { session: 5 }), repo: { key: 'cwd-foreign', root: '/foreign', cwd: '/other' } },
+  ]
+  const parsed = sessionStepSeqs(rows)
+  assert.equal(parsed[KEY].sessions[1][0].ok, true)
+  assert.equal(parsed[KEY].sessions[2][0].ok, false, 'cached parse must not reuse the previous exit status')
+  assert.equal(parsed.foreign.sessions[3][0].id, null)
+  assert.notEqual(parsed['cwd-match'].sessions[4][0].id, null)
+  assert.equal(parsed['cwd-foreign'].sessions[5][0].id, null)
+  rows[0].repo.root = '/foreign'
+  assert.equal(sessionStepSeqs(rows)[KEY].sessions[1][0].id, null, 'next call must parse the changed repo stamp anew')
 })
 
 test('matchPattern: gap tolerance is the knob — ≤MAX_GAP matches, more breaks it', () => {
@@ -116,8 +127,8 @@ test('mining finds the habit across sessions, with per-step pass rates and clean
   }
   const rows = [
     ...habitSession(1),
-    ...habitSession(2, { noise: 2 }), // gap-tolerant occurrence
-    ...habitSession(3, { testExit: 101 }), // dirty run: test step failed
+    ...habitSession(2, { noise: 2 }),
+    ...habitSession(3, { testExit: 101 }),
   ]
   const mined = mineWorkflows(rows)
   const wfs = mined[KEY].workflows
@@ -146,13 +157,130 @@ test('below the session floor nothing is mined', () => {
   assert.equal(mined[KEY].workflows.length, 0, `needs ${WORKFLOW_MIN_SESSIONS} sessions`)
 })
 
+test('unattributable workflow outcomes prove recurrence, not success or failure', () => {
+  for (const verdict of ['no_verdict', 'future_verdict']) {
+    const rows = [1, 2, 3].flatMap((session) =>
+      habitSession(session).map((row) => ({
+        ...row,
+        v: 3,
+        cmd: { ...row.cmd, verdict, pipefail: false },
+      })),
+    )
+    const mined = mineWorkflows(rows)[KEY]
+    const wf = mined.workflows[0]
+    assert.equal(wf.support, 3)
+    assert.equal(wf.passes, 0, verdict)
+    assert.equal(wf.verdicts, 0, verdict)
+    assert.ok(wf.steps.every((step) => step.passRate === null))
+    const graph = new CausalGraph()
+    ingestWorkflows(graph, KEY, mined, { now: NOW })
+    const fact = habitFacts(graph, KEY)[0]
+    assert.equal(fact.observed.fails, 0)
+    assert.equal(workflowBelief(graph, fact, { now: NOW }).belief, 0.5)
+  }
+})
+
+test('workflow verdicts distinguish a failed step from an unknown step', () => {
+  const rows = [1, 2, 3].flatMap((session) =>
+    habitSession(session).map((row, i) => ({
+      ...row,
+      v: 3,
+      cmd: {
+        ...row.cmd,
+        verdict: session === 2 && i === 1 ? 'no_verdict' : session === 3 && i === 1 ? 'fail' : 'pass',
+      },
+    })),
+  )
+  const wf = mineWorkflows(rows)[KEY].workflows[0]
+  assert.equal(wf.support, 3)
+  assert.equal(wf.verdicts, 2)
+  assert.equal(wf.passes, 1)
+  assert.equal(wf.steps[1].passRate, 0.5, 'unknown attempts are outside the pass-rate denominator')
+})
+
+test('legacy pipelines without provenance do not certify workflow success', () => {
+  const rows = [1, 2, 3].flatMap((session) => [
+    cmd('cargo build | tail -1', 0, { session }),
+    cmd('cargo test | tail -1', 0, { session }),
+  ])
+  const wf = mineWorkflows(rows)[KEY].workflows[0]
+  assert.equal(wf.passes, 0)
+  assert.equal(wf.verdicts, 0)
+  const current = rows.map((row) => ({
+    ...row,
+    v: 3,
+    cmd: { ...row.cmd, verdict: 'pass', pipefail: true },
+  }))
+  assert.equal(mineWorkflows(current)[KEY].workflows[0].passes, 3)
+})
+
+test('whole-step verdicts retain compound failures and reject another repo\'s commands', () => {
+  const failed = [1, 2, 3].flatMap((session) => [
+    { ...cmd('cargo build | cat', 101, { session }), v: 3, cmd: { text: 'cargo build | cat', exit: 101, verdict: 'fail', pipefail: true } },
+    cmd('cargo test', 0, { session }),
+  ])
+  const wf = mineWorkflows(failed)[KEY].workflows[0]
+  assert.equal(wf.verdicts, 3, 'the full pipeline is the skill step, so its failure is attributable')
+  assert.equal(wf.passes, 0)
+  assert.equal(wf.steps[0].passRate, 0)
+  const foreign = [1, 2, 3].flatMap((session) => [
+    cmd('cd /other/repo && cargo build', 0, { session }),
+    cmd('cd /other/repo && cargo test', 0, { session }),
+  ])
+  assert.equal(mineWorkflows(foreign)[KEY].workflows.length, 0, 'foreign commands cannot become this repo\'s skill')
+})
+
+test('self-selected workflow passes cannot reinforce their own belief or freshness', () => {
+  const independent = [1, 2, 3].flatMap(s => habitSession(s))
+  const echoed = [4, 5, 6, 7].flatMap(s => habitSession(s).map(row => ({
+    ...row,
+    cmd: { ...row.cmd, independent: false, source: 'dossier' },
+    ts: NOW_TS + 3600,
+  })))
+  const before = mineWorkflows(independent)[KEY]
+  const after = mineWorkflows([...independent, ...echoed])[KEY]
+  assert.deepEqual(after, before, 'self-selected passes do not change observations')
+  assert.equal(mineWorkflows(echoed)[KEY].workflows.length, 0, 'echoes cannot mint a workflow')
+  const failed = echoed.slice(0, 3).map((row, i) => ({ ...row, cmd: { ...row.cmd, exit: i === 1 ? 1 : 0 } }))
+  const dissent = mineWorkflows([...independent, ...failed])[KEY].workflows[0]
+  assert.equal(dissent.passes, 3)
+  assert.equal(dissent.verdicts, 4, 'a self-selected failure still disconfirms the existing workflow')
+  assert.equal(dissent.lastSeen, before.workflows[0].lastSeen, 'self-selected runs cannot refresh the decay clock')
+})
+
+test('self-selected dissent cannot add passing votes to its other workflow steps', () => {
+  const independent = [1, 2, 3].flatMap(s => habitSession(s, { buildExit: 1 }))
+  const echo = habitSession(4, { testExit: 1 }).map(row => ({
+    ...row, cmd: { ...row.cmd, independent: false },
+  }))
+  const wf = mineWorkflows([...independent, ...echo])[KEY].workflows[0]
+  assert.equal(wf.steps[0].passRate, 0, 'an echoed build pass is not independent support')
+  assert.equal(wf.steps[1].passRate, 0.75, 'the echoed test failure is real dissent')
+})
+
+test('self-selected retries cannot erase preceding independent workflow evidence', () => {
+  const independent = [1, 2, 3].flatMap(s => habitSession(s))
+  const withRetries = independent.flatMap(row => [row, { ...row, seq: row.seq + 0.5, cmd: { ...row.cmd, independent: false } }])
+  assert.deepEqual(mineWorkflows(withRetries)[KEY], mineWorkflows(independent)[KEY])
+})
+
+test('workflow provenance does not invent end-to-end passes by combining command variants', () => {
+  const rows = [1, 2, 3, 4, 5, 6].flatMap(session => [
+    cmd(session % 2 ? 'cargo build -p alpha' : 'cargo build -p beta', 0, { session }),
+    cmd(session % 2 ? 'cargo test -p beta' : 'cargo test -p alpha', 0, { session }),
+  ])
+  const wf = mineWorkflows(rows)[KEY].workflows[0]
+  const selected = wf.steps.map(step => step.text)
+  assert.ok(selected[0].endsWith('alpha') !== selected[1].endsWith('alpha'), 'canonical steps must come from an actual sequence, not independent modal choices')
+  assert.equal(wf.passes, 3, 'only the chosen concrete sequence\'s runs vote')
+  assert.equal(wf.verdicts, 3)
+})
+
 test('order threshold: a sequence that flips direction too often is rejected', () => {
-  // 3 sessions build→test, 2 sessions test→build: 3/5 = 60% < 70% → no fact.
   const fwd = (s) => [cmd('cargo build', 0, { session: s }), cmd('cargo test', 0, { session: s })]
   const rev = (s) => [cmd('cargo test', 0, { session: s }), cmd('cargo build', 0, { session: s })]
   const flippy = mineWorkflows([...fwd(1), ...fwd(2), ...fwd(3), ...rev(4), ...rev(5)])
   assert.equal(flippy[KEY].workflows.length, 0)
-  // 5 fwd, 2 rev: 5/7 ≈ 71% ≥ 70% → the habit stands.
   const steady = mineWorkflows([
     ...fwd(1),
     ...fwd(2),
@@ -172,7 +300,7 @@ test('order threshold: a sequence that flips direction too often is rejected', (
 test('truncated/masked commands never become skill steps', () => {
   const rows = [1, 2, 3].flatMap((s) => [
     cmd('cargo build', 0, { session: s }),
-    cmd('export TOKEN=… && curl api', 0, { session: s }), // recurs every session, but masked
+    cmd('export TOKEN=… && curl api', 0, { session: s }),
     cmd('cargo test', 0, { session: s }),
   ])
   const mined = mineWorkflows(rows)
@@ -181,12 +309,25 @@ test('truncated/masked commands never become skill steps', () => {
   assert.equal(mined[KEY].workflows.length, 1, 'build→test still mined around the masked slot')
 })
 
+test('order pruning retains directed cycles and the exact threshold boundary', () => {
+  const cycles = [1, 2, 3].flatMap((session) =>
+    ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'alpha', 'bravo', 'charlie', 'delta', 'echo'].map(text => cmd(text, 0, { session })),
+  )
+  const workflows = mineWorkflows(cycles)[KEY].workflows
+  assert.ok(workflows.some(wf => wf.steps.map(step => step.text).join(',') === 'alpha,bravo,charlie,delta,echo,alpha'))
+  const boundary = (forward) => Array.from({ length: 10 }, (_, session) =>
+    (session < forward ? ['cargo build', 'cargo test'] : ['cargo test', 'cargo build'])
+      .map(text => cmd(text, 0, { session })),
+  ).flat()
+  assert.equal(mineWorkflows(boundary(7))[KEY].workflows.length, 1, '70% is included')
+  assert.equal(mineWorkflows(boundary(6))[KEY].workflows.length, 0, '60% is excluded')
+})
+
 test('closed pruning: sub-chains with the same support are folded into the maximal chain', () => {
   const rows = [1, 2, 3, 4].flatMap((s) => habitSession(s))
   const wfs = mineWorkflows(rows)[KEY].workflows
   assert.equal(wfs.length, 1)
   assert.equal(wfs[0].steps.length, 3)
-  // …but a sub-chain that occurs MORE often than the full chain survives on its own.
   const extra = [5, 6, 7].flatMap((s) => [
     cmd('cargo build', 0, { session: s }),
     cmd('cargo test', 0, { session: s }),
@@ -217,6 +358,42 @@ test('ingest is idempotent, ids embed the repo key, facts are perpetual-shaped',
   assert.equal(fact.observed.runs, 3)
 })
 
+test('a replacement workflow cannot inherit the previous sequence\'s verification', () => {
+  const g = new CausalGraph()
+  const original = mineWorkflows([1, 2, 3].flatMap((s) => habitSession(s)))[KEY]
+  ingestWorkflows(g, KEY, original, { now: NOW })
+  const [fact] = habitFacts(g, KEY)
+  g.addNode({ id: 'workflow-probe', type: NODE_TYPE.EXPERIMENT })
+  g.addEdge({ src: 'workflow-probe', dst: fact.id, type: EDGE_TYPE.SUPPORTS, confidence: 0.85 })
+  g.updateNode(fact.id, { lastVerifiedAt: NOW, outcome: 'positive' })
+  const changed = structuredClone(original)
+  changed.workflows[0].steps[1].text = 'cargo test -p replacement'
+  ingestWorkflows(g, KEY, changed, { now: NOW })
+  const updated = g.getNode(fact.id)
+  assert.match(updated.factText, /replacement/)
+  assert.equal(updated.lastVerifiedAt, null)
+  assert.equal(updated.outcome, 'neutral')
+  assert.equal(g.edges().length, 0)
+  assert.ok(g.hasNode('workflow-probe'))
+})
+
+test('workflow evidence is bound to step boundaries, not a lossy joined string', () => {
+  const g = new CausalGraph()
+  const mined = { root: '/home/u/proj', workflows: [{
+    steps: [{ text: 'cargo build && echo ready', class: 'build', passRate: 1 }, { text: 'cargo test', class: 'test', passRate: 1 }],
+    support: 3, verdicts: 3, passes: 3, sessions: 3, lastSeen: NOW_TS,
+  }] }
+  ingestWorkflows(g, KEY, mined, { now: NOW })
+  const [fact] = habitFacts(g, KEY)
+  g.updateNode(fact.id, { lastVerifiedAt: NOW })
+  const changed = structuredClone(mined)
+  changed.workflows[0].steps[0].text = 'cargo build'
+  changed.workflows[0].steps[1].text = 'echo ready && cargo test'
+  ingestWorkflows(g, KEY, changed, { now: NOW })
+  assert.equal(g.getNode(fact.id).factText, fact.factText, 'joined command strings happen to be identical')
+  assert.equal(g.getNode(fact.id).lastVerifiedAt, null, 'step semantics changed despite the equal display string')
+})
+
 test('belief: clean workflow > 0.5 and capped; a probe edge lifts it; evidence rate is all-steps-passed', () => {
   const g = new CausalGraph()
   const clean = mineWorkflows([1, 2, 3].flatMap((s) => habitSession(s)))
@@ -225,14 +402,12 @@ test('belief: clean workflow > 0.5 and capped; a probe edge lifts it; evidence r
   const b = workflowBelief(g, fact, { now: NOW }).belief
   assert.ok(b > 0.5 && b <= 0.7, `observational belief capped (${b})`)
 
-  // A workflow whose runs never fully pass sits at/below neutral.
   const g2 = new CausalGraph()
   const dirty = mineWorkflows([1, 2, 3].flatMap((s) => habitSession(s, { runExit: 1 })))
   ingestWorkflows(g2, KEY, dirty[KEY], { now: NOW })
   const b2 = workflowBelief(g2, habitFacts(g2, KEY)[0], { now: NOW }).belief
   assert.ok(b2 <= 0.5, `no clean run → belief at or below neutral (${b2})`)
 
-  // A SUPPORTS edge (approval / probe) raises belief past the observational cap.
   g.addNode({ id: 'exp_habit_probe', type: NODE_TYPE.EXPERIMENT, label: 'probe' })
   g.addEdge({ src: 'exp_habit_probe', dst: fact.id, type: EDGE_TYPE.SUPPORTS, confidence: 0.9 })
   g.updateNode(fact.id, { lastVerifiedAt: NOW })
@@ -240,9 +415,6 @@ test('belief: clean workflow > 0.5 and capped; a probe edge lifts it; evidence r
   assert.ok(lifted > 0.75, `verified workflow belief rises (${lifted})`)
 })
 
-// ─── H3: skill compiler ──────────────────────────────────────────────────────
-
-// Enough clean sessions that observational belief clears the 0.75 gate (~5+).
 const confidentGraph = () => {
   const g = new CausalGraph()
   const rows = [1, 2, 3, 4, 5, 6].flatMap((s) => habitSession(s))
@@ -259,11 +431,9 @@ test('renderSkillMd: deterministic draft that the harness frontmatter rules can 
 
   assert.equal(a.name, 'proj-build-test-run', 'repo slug (last segment) always in the name')
   assert.equal(skillName(fact), a.name)
-  // Frontmatter exactly as harness/skills.rs parse_skill reads it.
   assert.match(a.markdown, /^---\nname: proj-build-test-run\ndescription: .+/)
   assert.match(a.markdown, new RegExp(`fact: ${fact.id}`), 'provenance rides in frontmatter')
   assert.ok(!a.markdown.includes('risky:'), 'clean steps → no risky tag')
-  // Numbered steps with the canonical commands, then the evidence footer.
   assert.match(a.markdown, /1\. `cargo build` \(build, passes 100%\)/)
   assert.match(a.markdown, /Evidence: 6 run\(s\) across 6 session\(s\), 6 clean end-to-end/)
   assert.match(a.markdown, /belief 0\.\d\d/)
@@ -308,14 +478,11 @@ test('proposeSkills: belief gate, dedupe against existing, daily cap — in that
   const g = confidentGraph()
   const budget = { date: '2026-07-06', runs: 0, cap: 2 }
 
-  // Confident + novel → proposed.
   const fresh = proposeSkills(g, { now: NOW, budget, existing: [] })
   assert.equal(fresh.proposals.length, 1)
   assert.equal(fresh.budget.runs, 1)
   assert.equal(fresh.proposals[0].factId, habitFacts(g, KEY)[0].id)
 
-  // An exact name collision (our own earlier draft) is a dupe no matter how
-  // diluted the other file's step-set is.
   const named = proposeSkills(g, {
     now: NOW,
     budget,
@@ -324,7 +491,6 @@ test('proposeSkills: belief gate, dedupe against existing, daily cap — in that
   assert.equal(named.proposals.length, 0)
   assert.match(named.skipped[0].reason, /already exists/)
 
-  // Same steps already in a skill (any dir) → skipped with the collision named.
   const dup = proposeSkills(g, {
     now: NOW,
     budget,
@@ -338,7 +504,6 @@ test('proposeSkills: belief gate, dedupe against existing, daily cap — in that
   assert.equal(dup.proposals.length, 0)
   assert.match(dup.skipped[0].reason, /duplicate of skill 'run-angelX'/)
 
-  // Budget already spent → skipped as budget, not proposed.
   const broke = proposeSkills(g, {
     now: NOW,
     budget: { date: '2026-07-06', runs: 2, cap: 2 },
@@ -347,7 +512,6 @@ test('proposeSkills: belief gate, dedupe against existing, daily cap — in that
   assert.equal(broke.proposals.length, 0)
   assert.match(broke.skipped[0].reason, /budget/)
 
-  // Not confident enough (3 sessions only) → belief gate names the number.
   const g2 = new CausalGraph()
   ingestWorkflows(g2, KEY, mineWorkflows([1, 2, 3].flatMap((s) => habitSession(s)))[KEY], {
     now: NOW,
@@ -376,9 +540,6 @@ test('a rejected workflow (CONTRADICTS from /habits) never re-proposes via the b
   assert.match(skipped[0].reason, /belief/)
 })
 
-// ─── H5: the closed loop ─────────────────────────────────────────────────────
-
-// One skill-load ledger row, as experience.rs's skill_event_record writes it.
 const skillEvent = (name, ok, { ts = NOW_TS, session = 9 } = {}) => ({
   kind: 'event',
   v: 1,
@@ -396,7 +557,7 @@ test('mineSkillUsage counts loads per skill; attachSkillUsage pins them to the s
     skillEvent('proj-build-test-run', true, { ts: NOW_TS + 60 }),
     skillEvent('proj-build-test-run', false),
     skillEvent('unrelated-skill', true),
-    cmd('cargo build', 0, { session: 9 }), // cmd rows are not usage
+    cmd('cargo build', 0, { session: 9 }),
   ])
   assert.deepEqual(usage[`${KEY}\u0000proj-build-test-run`], {
     uses: 3,
@@ -438,9 +599,6 @@ test('foldVerdicts: approve lifts belief past the cap, reject sinks it; facts st
   const after = workflowBelief(g, node, { now: NOW }).belief
   assert.ok(after > before && after > 0.8, `approval lifts belief (${before} → ${after})`)
 
-  // A reject on a fresh twin pins it under the propose gate — the actual
-  // never-re-propose invariant. (A single CONTRADICTS 0.9 gives edgeShift
-  // ≈ −0.21; even maxed-out observational evidence (+0.4) can't reach 0.75.)
   const g2 = confidentGraph()
   const [fact2] = habitFacts(g2, KEY)
   foldVerdicts(g2, [{ ts: NOW_TS, action: 'reject', name: 'x', fact: fact2.id }], { now: NOW })
@@ -456,26 +614,45 @@ test('compileHabitsStatus flags drift only when a USED skill’s belief has deca
   const g = confidentGraph()
   const [fact] = habitFacts(g, KEY)
 
-  // Confident and used: not drifting.
   attachSkillUsage(g, { s: { uses: 4, ok: 4, lastUsed: NOW_TS } }, { s: fact.id })
   const fresh = compileHabitsStatus(g, { now: NOW })
   assert.equal(fresh.facts.length, 1)
   assert.equal(fresh.facts[0].drifting, false)
   assert.equal(fresh.facts[0].name, 'proj-build-test-run')
 
-  // Two half-lives later, unverified: belief decays under DRIFT_BELIEF while
-  // the usage stays — that combination is drift.
   const later = new Date(Date.parse(NOW) + 40 * 86_400_000).toISOString()
   const stale = compileHabitsStatus(g, { now: later })
   assert.ok(stale.facts[0].belief < DRIFT_BELIEF, `belief decayed (${stale.facts[0].belief})`)
   assert.equal(stale.facts[0].drifting, true)
 
-  // The same decay WITHOUT usage is just a quiet fact, not drift.
   const g2 = confidentGraph()
   const quiet = compileHabitsStatus(g2, { now: later })
   assert.equal(quiet.facts[0].drifting, false)
-  // Round-trips as JSON (written to disk verbatim).
   assert.deepEqual(JSON.parse(JSON.stringify(stale)), stale)
+})
+
+test('status and proposal batches scan evidence once without caching across mutations', () => {
+  const g = confidentGraph()
+  const [fact] = habitFacts(g, KEY)
+  const edges = g.edges.bind(g)
+  let scans = 0
+  g.edges = () => { scans++; return edges() }
+  for (const confidence of [0.1, 0.9]) {
+    g.addEdge({ id: 'batch_habit', src: 'missing', dst: fact.id, type: EDGE_TYPE.CONTRADICTS, confidence })
+    const expected = workflowBelief(g, g.getNode(fact.id), { now: NOW }).belief
+    scans = 0
+    const status = compileHabitsStatus(g, { now: NOW, repoKey: KEY })
+    assert.equal(scans, 1)
+    assert.equal(status.facts[0].belief, Number(expected.toFixed(3)))
+    scans = 0
+    const proposed = proposeSkills(g, { now: NOW, repoKey: KEY, minBelief: 0 })
+    assert.equal(scans, 1)
+    assert.equal(proposed.proposals[0].belief, expected)
+  }
+  scans = 0
+  assert.deepEqual(compileHabitsStatus(g, { now: NOW, repoKey: 'absent' }).facts, [])
+  assert.deepEqual(proposeSkills(g, { now: NOW, repoKey: 'absent' }).proposals, [])
+  assert.equal(scans, 0, 'empty batches need no evidence scan')
 })
 
 test('tick helpers: ANGEL_HABITS=0 kills; factMapFrom reads fact frontmatter', () => {
@@ -504,13 +681,10 @@ test('habit facts coexist with dossier facts: neither leaks into the other’s v
   assert.ok(dossierFacts(g, KEY).length >= 1)
   assert.ok(habitFacts(g).every((n) => n.id.startsWith('hyp_habit_')))
   assert.ok(dossierFacts(g).every((n) => n.id.startsWith('hyp_dossier_')))
-  // The dossier probe queue never surfaces workflow facts.
   const { ranking } = proposeDossierProbe(g, KEY, { now: NOW })
   assert.ok(ranking.every((r) => r.hypothesisId.startsWith('hyp_dossier_')))
 })
 
-// The tick's state-dir lock: the graph lease keys on the graph path, this file on
-// the state dir (heartbeat, verdict spool). It must not outlive a killed tick.
 function tickWithLock(lock) {
   const dir = mkdtempSync(join(tmpdir(), 'angel-habitsmith-lock-'))
   try {

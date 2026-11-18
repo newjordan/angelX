@@ -12,7 +12,6 @@ use super::super::material::{self, House, Leaf, ramp};
 use super::sprites;
 use crate::rules::RoomKind;
 
-/// A row of the sheet: things stood on a common floor line, left to right.
 struct Row {
     im: Img,
     x: i32,
@@ -24,18 +23,14 @@ impl Row {
         Row { im: Img::black(w, h), x: 6, floor: h - 6 }
     }
 
-    /// `im` with its foot on the floor line.
     fn put(&mut self, im: &Img) {
         self.im.stamp(im, self.x, self.floor - im.h + 1);
         self.x += im.w + 6;
     }
 
-    /// A drawing made straight on a scratch canvas `w` x `h` with its foot
-    /// on the canvas's bottom, then stood on the row.
     fn paint(&mut self, w: i32, h: i32, draw: impl FnOnce(&mut Img)) {
         let mut cv = Img::black(w, h);
         draw(&mut cv);
-        // Black paper is no part of the drawing.
         let mut out = Img::new(w, h);
         for y in 0..h {
             for x in 0..w {
@@ -52,7 +47,6 @@ fn rows() -> Vec<Img> {
     let keep = |_: i32, _: i32| true;
     let mut out = Vec::new();
 
-    // The material system's living things.
     let mut r = Row::new(640, 64);
     for (k, leaf) in [Leaf::Oak, Leaf::Focal, Leaf::Copper, Leaf::Hedge, Leaf::Pine, Leaf::Edge, Leaf::EdgePine]
         .into_iter()
@@ -68,7 +62,6 @@ fn rows() -> Vec<Img> {
     r.paint(16, 16, |cv| material::reeds(cv, 8, 15, 8));
     out.push(r.im);
 
-    // The kit's terrain tiles: every tree, and rocks of each kind.
     let tiles = Tiles::get();
     let mut r = Row::new(640, 40);
     for v in 0..8 {
@@ -82,7 +75,6 @@ fn rows() -> Vec<Img> {
     r.put(&tiles.dead);
     out.push(r.im);
 
-    // The material system's buildings.
     let mut r = Row::new(640, 64);
     for (k, (roof, stone)) in [(ramp::THATCH, true), (ramp::TILE, false), (ramp::SLATE, true), (ramp::TILE, true)]
         .into_iter()
@@ -100,7 +92,6 @@ fn rows() -> Vec<Img> {
     });
     out.push(r.im);
 
-    // The kit's buildings, as the kingdom and the mini realm stand them.
     let mut r = Row::new(640, 72);
     for (wall, roof) in [(Wall::Stone, Roof::Tile), (Wall::Timber, Roof::Slate), (Wall::Plaster, Roof::Thatch), (Wall::Dark, Roof::Slate)] {
         r.put(&kit::house(&KHouse {
@@ -133,7 +124,6 @@ fn rows() -> Vec<Img> {
     r.put(&kit::ruins());
     out.push(r.im);
 
-    // Landmarks of the countryside.
     let mut r = Row::new(640, 80);
     for kind in [RoomKind::Orchard, RoomKind::Bothy, RoomKind::Timberyard, RoomKind::Belfry, RoomKind::Crag, RoomKind::Aqueduct] {
         if let Some(im) = landmarks::landmark(kind) {
@@ -142,8 +132,6 @@ fn rows() -> Vec<Img> {
     }
     out.push(r.im);
 
-    // The dungeon: wall tiles of each pack, open to the floor at the south
-    // and east, and its props and lights.
     let mut r = Row::new(640, 52);
     let packs: [(&[char], bool); 5] = [
         (ramp::SLATE, false),
@@ -218,9 +206,6 @@ fn write_scenery_sheet() {
     save("scenery-sheet-1x.png", 1);
 }
 
-/// The world where players walk it, at the browser's 1280x720: the kingdom at the ranch, a crypt fight, the college hall, the
-/// fields, the ranch, the stables, the village and home, and a fight in
-/// each of the other packs. `scene-<name>-<kit>.png`.
 #[test]
 #[ignore]
 fn write_scenery_scenes() {
@@ -243,7 +228,6 @@ fn write_scenery_scenes() {
         run.dungeon.pack = pack;
         run
     };
-    // A fight room with a pit or a pool cut in its open floor.
     let flooded = move |pack: Pack| {
         let mut run = packed(pack);
         let at = run.at;
@@ -275,7 +259,6 @@ fn write_scenery_scenes() {
         ("crypt-pit", Box::new(move || flooded(Pack::Crypt))),
         ("mines-pool", Box::new(move || flooded(Pack::Cavern))),
     ];
-    // The whole kingdom map as the Delve walks it, at one pixel a pixel.
     let k = testing::kingdom();
     save("kingdom-atlas.png", &super::super::kingdom::atlas(&k.kingdom.wishes));
     for (name, run) in &scenes {
@@ -283,17 +266,12 @@ fn write_scenery_scenes() {
     }
 }
 
-/// Frame time where the scenery is baked again as the tick runs (home rooms
-/// redraw their scenery on every torch step), room by room:
-/// `cargo test --release -p angel-delve time_scenery_rooms -- --ignored --nocapture`.
 #[test]
 #[ignore]
 fn time_scenery_rooms() {
     use super::testing;
     use super::frame;
     let time = |label: &str, mut run: crate::rules::Run| {
-        // The first frame draws what is kept (the kingdom's whole map, a
-        // room's still layers); the rest are the frames a player sees.
         let start = std::time::Instant::now();
         std::hint::black_box(frame(&run, super::NATIVE_W, super::NATIVE_H));
         let first = start.elapsed().as_secs_f64() * 1000.0;

@@ -1,8 +1,6 @@
 //! The 3D races: the course, each ride's rules, the crashes and the board.
 use super::*;
 
-/// A two-knight party walked into a race hall holding `course`, each
-/// carrying 100 gold.
 fn race_hall(course: Course) -> Run {
     let mut run = (0..80u64)
         .find_map(|seed| {
@@ -28,7 +26,6 @@ fn race_hall(course: Course) -> Run {
     run
 }
 
-/// Past the countdown.
 fn racing(course: Course) -> Run {
     let mut run = race_hall(course);
     run.race3d.as_mut().unwrap().t = TITLE;
@@ -60,8 +57,6 @@ fn every_course_is_laid_long_enough_and_never_crosses_itself() {
         assert!(t.len() > 280.0, "{course:?} is {} long", t.len());
         assert!(t.finish < t.len() && t.finish > t.len() - 30.0);
         assert!(t.posts.windows(2).all(|w| w[0] < w[1]));
-        // Far-apart stretches of the course keep their distance, so the
-        // walls of one never cut through another.
         let room = if course == Course::Griffin { 18.0 } else { 9.0 };
         for (i, a) in t.samples.iter().enumerate().step_by(2) {
             for b in t.samples.iter().skip(i + 40).step_by(2) {
@@ -84,8 +79,6 @@ fn the_floors_hold_their_races_and_the_first_floor_teaches_instead() {
     assert_eq!(Course::of_floor(2), Course::Shaft);
     assert_eq!(Course::of_floor(3), Course::Griffin);
     assert_eq!(Course::of_floor(4), Course::Cart);
-    // A second floor keeps its race in a free hall (one the folly does not
-    // take); which seeds' floors have one is down to their shape.
     let run = (0..16)
         .map(|seed| {
             let mut run = Run::new(seed, 1, None);
@@ -134,10 +127,8 @@ fn a_ball_rolls_down_the_ramp_and_hops() {
     let hop = keys(&[(1, Input { fire: true, ..Default::default() })]);
     run.step(&hop);
     assert!(race(&run).riders[&1].z > 0.0, "the hop leaves the floor");
-    // Held F does not hop again on landing.
     ticks(&mut run, HZ, &hop);
     assert_eq!(race(&run).riders[&1].z, 0.0);
-    // Down the timbered ramp the ball gathers pace by itself.
     let ramp = track(Course::Shaft).posts[1] + 4.0;
     rider(&mut run, 2).s = ramp;
     ticks(&mut run, HZ, &BTreeMap::new());
@@ -192,7 +183,6 @@ fn a_rotten_plank_goes_a_second_after_the_first_ball_and_takes_the_next() {
 fn a_crossing_ore_cart_bonks_a_ball() {
     let mut run = racing(Course::Shaft);
     let t = track(Course::Shaft);
-    // Halfway across: the first cart is mid-way over the track.
     run.race3d.as_mut().unwrap().t = 4 * HZ * 3 + HZ - 1;
     let race_t = race(&run).t + 1;
     let (cs, cx) = crossing_carts(t, race_t)[0];
@@ -244,7 +234,6 @@ fn a_gem_shard_is_for_whoever_reaches_it_first() {
 fn a_cart_left_on_an_ending_line_hits_the_buffer_and_a_switch_saves_it() {
     let mut run = racing(Course::Cart);
     let t = track(Course::Cart);
-    // The left line ends where the trestle starts.
     let end = t.posts[3];
     assert!(laid(t, end - 1.0, 0) && !laid(t, end + 0.5, 0));
     for id in [1, 2] {
@@ -346,7 +335,6 @@ fn a_bolt_smashes_a_gargoyle_or_ruffles_a_rival_unless_it_rolls() {
     let r = race(&run);
     assert!(r.taken.contains(&(gi as u16)), "smashed");
     assert_eq!(r.riders[&1].haul, 1);
-    // A rival ahead in the line of fire is ruffled...
     let s = t.posts[1];
     {
         let r = rider(&mut run, 1);
@@ -358,7 +346,6 @@ fn a_bolt_smashes_a_gargoyle_or_ruffles_a_rival_unless_it_rolls() {
     }
     ticks(&mut run, 6, &fire);
     assert!(race(&run).riders[&2].stun > 0, "a bolt in the feathers");
-    // ...unless it rolls.
     rider(&mut run, 2).stun = 0;
     {
         let r = rider(&mut run, 1);
@@ -390,7 +377,6 @@ fn the_first_home_takes_the_pot_and_the_laurel_and_everyone_keeps_their_haul() {
     run.step(&BTreeMap::new());
     assert_eq!(race(&run).riders[&2].finish, Some(race(&run).t));
     assert!(!race(&run).done, "still racing while one is out on the course");
-    // The first knight home holds the room a moment (the photo finish's freeze).
     while run.hitstop.frozen() {
         run.step(&BTreeMap::new());
     }
@@ -409,9 +395,7 @@ fn the_first_home_takes_the_pot_and_the_laurel_and_everyone_keeps_their_haul() {
     assert!(run.players[&2].laurel && !run.players[&1].laurel);
     assert!(run.room().cleared && !run.barred());
     assert!(run.found.as_ref().unwrap().2.contains("TWO WON THE SHAFT RUN"));
-    // The board stays up a while, then the hall comes back.
     assert!(run.race3d_showing());
-    // (A few ticks more: the first home's hold stands the board's clock still.)
     ticks(&mut run, PODIUM + 16, &BTreeMap::new());
     assert!(!run.race3d_showing());
     assert!(run.valid_snapshot());
@@ -438,8 +422,6 @@ fn a_friends_mirror_carries_the_race() {
     assert_eq!(friend.race3d, run.race3d);
 }
 
-/// A knight who keys the obvious things: forward, middle, hop the drift,
-/// switch off an ending line, jump what is ahead, fly round the stone.
 pub(crate) fn autopilot(run: &Run, id: u32) -> Input {
     let r = race(run);
     let me = &r.riders[&id];
@@ -480,7 +462,6 @@ pub(crate) fn autopilot(run: &Run, id: u32) -> Input {
             input.fire = threat && me.z == 0.0 && me.keys & 1 == 0;
         }
         Course::Griffin => {
-            // The clearest spot through the next stretch of stone.
             let mut best = (f32::MAX, 0.0f32, 0.0f32);
             for gx in [-3.0f32, -1.5, 0.0, 1.5, 3.0] {
                 for gz in [-2.0f32, 0.0, 2.0] {
@@ -540,10 +521,6 @@ fn a_steady_knight_gets_home_in_a_minute_or_so_on_every_course() {
     }
 }
 
-
-
-// ─── the Griffin Eyrie ──────────────────────────────────────────────────────
-
 use crate::rules::{home::Home, world};
 use crate::render::overworld::kingdom as geography;
 
@@ -570,11 +547,9 @@ fn the_griffin_eyrie_stands_on_the_mountain_with_a_road_to_its_door() {
     let geo = geography::geography(&[]);
     let site = geo.sites.iter().find(|s| s.room == RoomKind::Eyrie).expect("an eyrie door");
     assert!(geography::is_road(&geo, site.stand), "on a road");
-    // Up in the Highlands (its stand may be the row below its lot).
     let (x, y) = site.stand;
     let highland = |x: i32, y: i32| crate::world::biome::at(x, y) == crate::world::biome::Biome::Highlands;
     assert!(highland(x, y) || highland(x, y - 1), "in the Highlands: {:?}", site.stand);
-    // In from the kingdom's door, and out again by the yard gate.
     let mut run = Run::at_home(53, 1, None, Home::default(), Spoils::default());
     run.join_seat(2, "Two");
     run.walk_kingdom(Some(geography::keep_stand()));
@@ -597,7 +572,6 @@ fn the_griffin_eyrie_stands_on_the_mountain_with_a_road_to_its_door() {
 fn e_at_the_perch_flies_everyone_free_and_again_after_the_board() {
     let mut run = at_the_eyrie(2);
     let gold: Vec<u32> = run.players.values().map(|h| h.carried.get(Spoil::Gold)).collect();
-    // Away from the perch, E does nothing.
     run.step(&keys(&[(1, Input { interact: true, ..Default::default() })]));
     run.step(&BTreeMap::new());
     assert!(run.race3d.is_none());
@@ -608,7 +582,6 @@ fn e_at_the_perch_flies_everyone_free_and_again_after_the_board() {
     assert_eq!(r.riders.len(), 2, "every knight flies");
     assert!(r.ante.is_empty());
     assert!(run.race3d_showing() && run.valid_snapshot());
-    // Home first: no gold changes hands, but a race is won.
     assert!(!run.race_won());
     let finish = track(Course::Griffin).finish;
     run.race3d.as_mut().unwrap().t = TITLE;
@@ -644,7 +617,6 @@ fn maud_and_the_gold_arrow_send_knights_to_the_griffins_until_a_race_is_won() {
     run.kingdom.moments.errand = None;
     run.walk_kingdom(Some(geography::keep_stand()));
     assert_eq!(run.kingdom_goal(1).expect("a goal").name, "Griffin Eyrie");
-    // A race won (and settled into the realm): the arrow and Maud move on.
     run.marks.insert(RACE_MARK.into(), 1);
     let mut treasury = Spoils::default();
     let marks = run.marks.clone();
@@ -659,9 +631,6 @@ fn maud_and_the_gold_arrow_send_knights_to_the_griffins_until_a_race_is_won() {
     assert!(countryside::intent_valid(RACE_MARK, 1));
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_eyrie_shots -- --ignored`: the
-/// Eyrie on the kingdom's map, the gold arrow toward it, its yard, and a
-/// practice flight from the countdown to the board.
 #[test]
 #[ignore]
 fn write_eyrie_shots() {
@@ -686,7 +655,6 @@ fn write_eyrie_shots() {
     }
     let geo = geography::geography(&run.kingdom.wishes);
     let site = geo.sites.iter().find(|s| s.room == RoomKind::Eyrie).unwrap();
-    // The gold arrow from the Keep, then the Eyrie's door on the Mountain.
     run.walk_kingdom(Some(geography::keep_stand()));
     run.floor_plates.clear();
     for _ in 0..10 {
@@ -698,10 +666,8 @@ fn write_eyrie_shots() {
         run.step(&BTreeMap::new());
     }
     save(&run, "e2-the-eyrie-on-the-mountain");
-    // In the yard, by the perch.
     let index = geo.sites.iter().position(|s| s.room == RoomKind::Eyrie).unwrap();
     run.enter_kingdom_place(index);
-    // Past the arrival's blink.
     for _ in 0..HZ {
         run.step(&BTreeMap::new());
     }
@@ -733,12 +699,6 @@ fn write_eyrie_shots() {
     save(&run, "e7-practice-board");
 }
 
-
-
-// ─── off an edge only where the picture shows a drop ────────────────────────
-
-/// A ball pushed straight down the middle of the Shaft never falls: every
-/// seam it crosses holds it, so nothing "gives way under the floor".
 #[test]
 fn a_ball_pushed_down_the_shafts_middle_never_falls() {
     let t = track(Course::Shaft);
@@ -758,9 +718,6 @@ fn a_ball_pushed_down_the_shafts_middle_never_falls() {
     }
 }
 
-/// Every walled piece that feeds a narrower open stretch funnels down to it
-/// flush: the width at the seam is the open width, and the wall of the
-/// funnel guides a ball in instead of bouncing it out over the edge.
 #[test]
 fn walled_pieces_funnel_flush_into_narrower_open_stretches() {
     let t = track(Course::Shaft);
@@ -769,14 +726,11 @@ fn walled_pieces_funnel_flush_into_narrower_open_stretches() {
         let (before, after) = (t.at(w[0] - 0.01), t.at(w[0] + 0.01));
         if before.walls && !after.walls {
             seams += 1;
-            // The funnel ends flush at the open width: no cliff at the seam.
             assert!(
                 (before.width - after.width).abs() < 1e-4,
                 "s={:.2}: the funnel ends {:.2} wide but the open stretch is {:.2}",
                 w[0], before.width, after.width
             );
-            // The funnel is drawn and held by the same samples, and its
-            // wall guides a ball in instead of bouncing it out.
             assert!(
                 t.at(w[0] - 1.0).funnel,
                 "s={:.2}: the tapering samples are a chute",
@@ -787,20 +741,14 @@ fn walled_pieces_funnel_flush_into_narrower_open_stretches() {
     assert!(seams >= 3, "the Shaft has several walled-to-open seams");
 }
 
-/// A ball rolling into each open stretch from the middle of the approach is
-/// fed onto it: it rides one ball-radius in from the edge to the end of the
-/// seam without falling.
 #[test]
 fn a_ball_funnelled_into_each_open_stretch_arrives_on_it() {
     let t = track(Course::Shaft);
     for (k, &post) in t.posts.iter().enumerate() {
         let at0 = t.at(post + 0.5);
-        // Only the walled approaches funnel: an open stretch that narrows
-        // into another open one shows a roped, tapered edge instead.
         if at0.walls || !t.at(post - 1.0).walls {
             continue;
         }
-        // Roll down the approach's middle at race pace into the open piece.
         let mut run = racing(Course::Shaft);
         let r = rider(&mut run, 1);
         r.s = (post - 8.0).max(1.0);
@@ -812,8 +760,6 @@ fn a_ball_funnelled_into_each_open_stretch_arrives_on_it() {
             run.step(&BTreeMap::new());
             let r = &race(&run).riders[&1];
             if r.crash > 0 && r.wreck == Wreck::Fall {
-                // A crossing ore cart may bonk the ball on the way in; that
-                // is the crossing's own game, not the floor giving way.
                 fell = Some((r.s, r.x, r.wreck));
                 break;
             }

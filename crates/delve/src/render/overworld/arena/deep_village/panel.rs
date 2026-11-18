@@ -13,7 +13,6 @@ use crate::rules::{
     deep::{self, Culture, Sign, missions::SignKind, village as v},
 };
 
-/// The screen's boards for the Deep, in view pixels.
 pub fn screen(cv: &mut Img, run: &Run, focus: Option<u32>) {
     if let Some(vl) = village(run) {
         let since = run.tick.saturating_sub(vl.arrived);
@@ -31,14 +30,12 @@ pub fn screen(cv: &mut Img, run: &Run, focus: Option<u32>) {
     }
     if let Some(floor) = run.deep_floor() {
         tracker(cv, run, floor);
-        // A talk with what stands on the road.
         if let Some(view) = run.road_view(focus.unwrap_or(1)) {
             board(cv, &super::road::portrait(view.face), &view.people, &view.name, &view.words, &view.answers);
         }
     }
 }
 
-/// Words broken into lines of at most `n` characters.
 fn wrap(s: &str, n: usize) -> Vec<String> {
     let mut out = Vec::new();
     let mut row = String::new();
@@ -57,14 +54,12 @@ fn wrap(s: &str, n: usize) -> Vec<String> {
     out
 }
 
-/// `text` at twice size, in `ink`.
 fn big(text: &str, ink: char) -> Img {
     let mut im = Img::new(text_width(text) + 2, 9);
     im.text(1, 1, text, ink);
     resized(&im, 2.0)
 }
 
-/// The place's name as the star lands: its floor, its town, its people.
 fn arrival(cv: &mut Img, culture: Culture, floor: u32) {
     let name = culture.town(deep::chapter(floor));
     let title = big(name, '9');
@@ -79,7 +74,6 @@ fn arrival(cv: &mut Img, culture: Culture, floor: u32) {
     cv.text((cv.w - text_width(&people)) / 2, 44, &people, 'O');
 }
 
-/// How much hope the village holds: a lamp a step, lit as it grows.
 fn hope(cv: &mut Img, hope: u8, culture: Culture) {
     let full = hope >= v::HOPE_FULL;
     let label = if full { "THE VILLAGE SHINES" } else { "HOPE" };
@@ -101,14 +95,10 @@ fn hope(cv: &mut Img, hope: u8, culture: Culture) {
     }
 }
 
-/// A knight's conversation: the speaker's portrait, their name and words,
-/// and the answers.
 fn talk(cv: &mut Img, culture: Culture, who: usize, name: &str, words: &str, answers: &[String]) {
     board(cv, &folk::portrait(culture, who), culture.people(), name, words, answers);
 }
 
-/// A conversation board: a portrait, a name and the people it belongs to,
-/// their words and the answers on 1, 2 and 3.
 fn board(cv: &mut Img, face: &Img, people: &str, name: &str, words: &str, answers: &[String]) {
     let lines = wrap(words, 50);
     let h = (lines.len() as i32 * 9 + answers.len() as i32 * 10 + 30).max(62);
@@ -137,8 +127,6 @@ fn board(cv: &mut Img, face: &Img, people: &str, name: &str, words: &str, answer
     }
 }
 
-/// The errands' tracker on a floor of the Deep: the floor, the village
-/// they are for, and each one's count.
 fn tracker(cv: &mut Img, run: &Run, floor: u32) {
     let mut lines: Vec<(String, char)> = Vec::new();
     let head = if deep::chapter(floor) == 0 {
@@ -172,8 +160,6 @@ fn tracker(cv: &mut Img, run: &Run, floor: u32) {
         let culture = run.home.deep.culture_at(next);
         lines.push((format!("{} WAITS ON FLOOR {next}", culture.town(deep::chapter(next))), 'h'));
     }
-    // What the road holds on this floor, what the party carries, how the
-    // village ahead stands with it.
     for note in run.road_notes() {
         let ink = if note.ends_with("IS STIRRED") || note.ends_with(": WARY") {
             '7'
@@ -193,7 +179,6 @@ fn tracker(cv: &mut Img, run: &Run, floor: u32) {
     }
 }
 
-/// The errands' signs in the room the party stands in, over its floor.
 pub fn signs(cv: &mut Img, run: &Run) {
     let Some(d) = run.deep.as_ref().filter(|d| d.village.is_none()) else {
         return;
@@ -226,17 +211,12 @@ pub fn signs(cv: &mut Img, run: &Run) {
     }
 }
 
-/// A cold lamp of the village's, lit once the party has lit it: a stone
-/// foot, a tall post, the people's own lamp at its head; lit, a flame and
-/// a ring of light on the floor round it, cold, a faint blue ember.
 pub(super) fn lamp(cv: &mut Img, sign: &Sign, (x, y): (i32, i32), tick: u32) {
     let lit = sign.done;
     let look = super::look(sign.culture);
     super::super::super::material::shadow(cv, ((x + 4) as f32, (y + 1) as f32), (11.0, 3.0), &super::all);
-    // The stone foot.
     cv.ellipse(x as f32, y as f32, 9.0, 3.5, look.rock[2]);
     cv.ellipse(x as f32, (y - 1) as f32, 7.0, 2.5, look.rock[4]);
-    // The post.
     cv.rect(x - 2, y - 34, 5, 34, look.rock[3]);
     cv.line(x - 2, y - 34, x - 2, y - 1, look.rock[5]);
     cv.line(x + 2, y - 34, x + 2, y - 1, look.rock[1]);
@@ -279,7 +259,6 @@ pub(super) fn lamp(cv: &mut Img, sign: &Sign, (x, y): (i32, i32), tick: u32) {
         Culture::Saltkin => super::salt::sign_lamp(cv, x, head, lit),
     }
     if lit {
-        // The flame, and the light it throws on the floor.
         for k in 0..9 {
             let h = hash(k, (tick / 3) as i32, 9502);
             let fx = x - 5 + (h % 11) as i32;
@@ -295,7 +274,6 @@ pub(super) fn lamp(cv: &mut Img, sign: &Sign, (x, y): (i32, i32), tick: u32) {
                 }
             }
         }
-        // Sparks going up from it, a beacon for the village above.
         for k in 0..6u32 {
             let t = (tick + k * 11) % 50;
             cv.put(x - 3 + (hash(k as i32, 2, 9503) % 7) as i32, head - 10 - t as i32, if t < 20 { core } else { halo });
@@ -305,7 +283,6 @@ pub(super) fn lamp(cv: &mut Img, sign: &Sign, (x, y): (i32, i32), tick: u32) {
     }
 }
 
-/// A relic on the floor, glowing and turning, waiting to be picked up.
 fn relic(cv: &mut Img, sign: &Sign, (x, y): (i32, i32), tick: u32) {
     if sign.done {
         return;
@@ -340,7 +317,6 @@ fn relic(cv: &mut Img, sign: &Sign, (x, y): (i32, i32), tick: u32) {
         Culture::Chimefolk => super::bells::relic(cv, x, cy),
         Culture::Saltkin => super::salt::relic(cv, x, cy),
     }
-    // Motes rising off it: a thing of the village's, wanting finding.
     for k in 0..5u32 {
         let t = (tick + k * 13) % 40;
         let mx = x - 4 + (hash(k as i32, 7, 9504) % 9) as i32;
@@ -351,10 +327,6 @@ fn relic(cv: &mut Img, sign: &Sign, (x, y): (i32, i32), tick: u32) {
     }
 }
 
-/// One of the village's own, lost: huddled in the dark and shivering
-/// with nobody near, up and waving when a knight comes, a call over their
-/// head; found, glad, hearts going up, and then away home up the stair as
-/// a little light.
 fn lost(cv: &mut Img, run: &Run, sign: &Sign, (x, y): (i32, i32), tick: u32) {
     let age = sign.at.map(|t| run.tick.saturating_sub(t));
     if let Some(age) = age {
@@ -372,7 +344,6 @@ fn lost(cv: &mut Img, run: &Run, sign: &Sign, (x, y): (i32, i32), tick: u32) {
                 heart(cv, hx, y - im.h - 2 - t as i32, t > 16);
             }
         } else {
-            // Home: up the stair as a mote of light, a trail behind it.
             let t = (a - LOST_GLAD) as f32 / (LOST_GOES - u64::from(LOST_GLAD)) as f32;
             let (hx, hy) = (x as f32 + t * 30.0, y as f32 - 12.0 - t * t * 160.0);
             for k in 0..10 {
@@ -389,10 +360,8 @@ fn lost(cv: &mut Img, run: &Run, sign: &Sign, (x, y): (i32, i32), tick: u32) {
     });
     let pose = if near { folk::Lost::Waving } else { folk::Lost::Huddled };
     let im = folk::lost_figure(sign.culture, pose, tick);
-    // Shivering in the dark, now and then.
     let shiver = if !near && (tick / 3) % 9 < 2 { (tick % 2) as i32 } else { 0 };
     stand(cv, &im, x + shiver, y);
-    // A call over their head: a word, or their song for the chorister.
     let (bx, by) = (x, y - im.h - 6);
     if near || (tick / 40) % 3 != 2 {
         cv.rect(bx - 2, by - 6, 5, 9, 'W');
@@ -406,16 +375,13 @@ fn lost(cv: &mut Img, run: &Run, sign: &Sign, (x, y): (i32, i32), tick: u32) {
         }
     }
     if !near && (tick / 30) % 4 == 0 {
-        // A tear.
         cv.put(x + 1, y - im.h + 8 + ((tick / 4) % 3) as i32, '3');
     }
 }
 
-/// How long a found one is glad before going, and before they are gone.
 const LOST_GLAD: u32 = 36;
 const LOST_GOES: u64 = 70;
 
-/// A heart going up over the glad.
 pub(super) fn heart(cv: &mut Img, x: i32, y: i32, fading: bool) {
     let ink = if fading { 'c' } else { '7' };
     cv.put(x - 1, y, ink);
@@ -425,7 +391,6 @@ pub(super) fn heart(cv: &mut Img, x: i32, y: i32, fading: bool) {
     cv.put(x, y + 3, ink);
 }
 
-/// A note of a song, sung.
 fn note(cv: &mut Img, x: i32, y: i32) {
     cv.rect(x, y + 3, 2, 2, 'W');
     cv.line(x + 1, y, x + 1, y + 3, 'W');

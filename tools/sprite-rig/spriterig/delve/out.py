@@ -1,13 +1,3 @@
-"""Exports in forms delve can use as-is.
-
-* ink rows (JSON and a generated .rs): every frame is `&[&str]` in delve's own ink
-  chars, so `Img::from_rows(&FRAMES[i])` draws it; `flip_h()` gives the left-facing
-  frame (the game already does this for its across views).
-* sprite sheets: native 1x PNG (game scale) and a 4x preview, facing right and left.
-* GIFs on a dungeon backdrop, nearest-upscaled so pixels stay square.
-* braille text in the Dotmax manner (2x4 dots a cell, one colour a cell), plain and
-  ANSI truecolour, for terminal previews.
-"""
 import json, os
 import numpy as np
 from PIL import Image, ImageDraw
@@ -20,7 +10,6 @@ BG, STONE, FLOOR = (21, 22, 20), (37, 20, 11), (61, 58, 54)
 def render_all(ch, anims, scale=1, mode="pixel"):
     r = Renderer(ch, scale=scale, mode=mode)
     out = {a: render_anim(r, a) for a in anims}
-    # one canvas for every motion, feet on the same row (game anchor)
     m = np.zeros((r.H, r.W), bool)
     for fr, _, _ in out.values():
         for f in fr:
@@ -82,8 +71,6 @@ def gif(images, path, fps, k=6, labels=None):
 
 
 def braille(r, pal, idx, colour=True):
-    """Dotmax-style: each 2x4 block -> one braille char; the cell takes its
-    commonest ink."""
     h, w = idx.shape
     H, W = -(-h // 4) * 4, -(-w // 2) * 2
     g = np.zeros((H, W), np.uint8)
@@ -151,7 +138,6 @@ def export(ch, pal, outdir, anims=None, gif_k=6, montage=("idle", "walk", "run",
         with open(f"{outdir}/{a}.braille.ans", "w") as fh:
             fh.write("\n\n".join(braille(r, pal, f, True) for f in fr) + "\n")
     if mont:
-        # left-facing half too: a side-scroller turns round
         gif(mont, f"{outdir}/{ch.name}_montage.gif", mfps, gif_k, labels)
     with open(f"{outdir}/{ch.name}.json", "w") as fh:
         json.dump(data, fh)
@@ -161,8 +147,6 @@ def export(ch, pal, outdir, anims=None, gif_k=6, montage=("idle", "walk", "run",
 
 
 def scroll_demo(chars, pal, path, k=5, W=160):
-    """Side-scroll proof: the first character walks right across a scrolling hall,
-    turns, runs back left and strikes; the rest of the cast idles along the floor."""
     lead = chars[0]
     r, out, feet = render_all(lead, ["walk", "run", "attack_right", "idle"])
     others = []
@@ -181,7 +165,6 @@ def scroll_demo(chars, pal, path, k=5, W=160):
             x += speed
             cam = min(max(0.0, x - W / 2), 400.0)
             bg = backdrop(W, H, ground)
-            # parallax pillars every 40 px
             for px in range(-int(cam) % 40 - 40, W, 40):
                 bg[2:ground, max(px, 0):max(px + 4, 0)] = (50, 43, 43)
             for j, (r2, idle, f2) in enumerate(others):

@@ -1,8 +1,3 @@
-# crates/delve/src/rules/pastimes.rs — Run::play_round: one tick of one
-# knight's round. Answers (run, played).
-
-# ---- the inline games ---------------------------------------------------
-
 def pastimes.MAILBOX_X(+i: U32) -> F32:
   match i:
     case 0:
@@ -89,7 +84,6 @@ def pastimes.SLED_GATE_Y(+i: U32) -> U32:
     case _:
       9
 
-# The wake rings: (x, y) of ring i at a tick.
 def pastimes.WAKE_X(+i: U32) -> F32:
   match i:
     case 0:
@@ -126,7 +120,6 @@ def pastimes.wake(+i: U32, +tick: W.W) -> F32 & F32:
   phase: F32 = (b + U32.to_f32(i) : F32)
   (pastimes.WAKE_X(i), (pastimes.WAKE_Y(i) + (F32.sin(phase) * 0.35 : F32) : F32))
 
-# fn nuisance: the goose / jester / duck's place at a tick.
 def pastimes.nuisance(+game: String, +tick: W.W) -> F32 & F32:
   a: F32 = (U32.to_f32(W.rem_u32(tick, 300)) / 300.0 : F32)
   phase: F32 = (a * 6.2831855 : F32)
@@ -135,14 +128,12 @@ def pastimes.nuisance(+game: String, +tick: W.W) -> F32 & F32:
   else:
     ((16.0 + (F32.sin(phase) * 2.0 : F32) : F32), (7.0 + F32.cos(phase) : F32))
 
-# fn cheese_target: the basket's place.
 def pastimes.cheese_target(+round: J.Val) -> F32 & F32:
   age: U32 = gb.ssub(pastimes.Game.time(4), gb.u(round, "left"))
   phase: U32 = U32.mod((age + gb.u(round, "progress") * 15 : U32), 120)
   wave: F32 = (U32.to_f32(U32.min(phase, (120 - phase : U32))) / 60.0 : F32)
   ((15.0 + (U32.to_f32(U32.mod(gb.u(round, "progress"), 3)) * 2.0 : F32) : F32), (4.5 + (wave * 4.0 : F32) : F32))
 
-# Whether some eligible knight is within `reach` of a point (tiles).
 def pastimes.near(+elig: List<&2, J.Val>, +tx: F32, +ty: F32, +reach: F32) -> Bool:
   match elig:
     case Nil{}:
@@ -150,7 +141,6 @@ def pastimes.near(+elig: List<&2, J.Val>, +tx: F32, +ty: F32, +reach: F32) -> Bo
     case Con{e: J.Val, t: List<&2, J.Val>}:
       Bool.or(F32.is_lt(RS.f_hypot((gb.f(e, "x") - (tx * 2.0 : F32) : F32), (gb.f(e, "y") - (ty * 2.0 : F32) : F32)), reach), pastimes.near(t, tx, ty, reach))
 
-# Run::play_round
 def pastimes.Run.play_round(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & PsPlayed:
   if U32.is_gt(gb.u(round, "intro_ticks"), 0):
     if pastimes.any_fire(gb.entries(inputs)):
@@ -182,7 +172,6 @@ def pastimes.play.clock(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<
     (run3: J.Val, r3: J.Val) = pastimes.play.nuisance(run, r2, gb.s(r2, "game"), elig)
     pastimes.play.arm(run3, r3, gi, shown, gb.u(round, "progress"), inputs, elig, tapped)
 
-# The goose, the jester or the royal duck takes a toll on the first three.
 def pastimes.play.nuisance(+run: J.Val, +round: J.Val, +game: String, +elig: List<&2, J.Val>) -> J.Val & J.Val:
   here: Bool = Bool.or(Bool.or(String.eq(game, "broadsheet"), String.eq(game, "barrel")), String.eq(game, "washtub"))
   (nx: F32, ny: F32) = pastimes.nuisance(game, gb.tick(run))
@@ -194,11 +183,9 @@ def pastimes.play.nuisance(+run: J.Val, +round: J.Val, +game: String, +elig: Lis
   else:
     (run, round)
 
-# Country::has(0): the first plot is built.
 def pastimes.has_plot(+run: J.Val) -> Bool:
   U32.is_ne(U32.and(gb.u(J.get(J.get(run, "home"), "countryside"), "built"), 1), 0)
 
-# One game's arm, then the milestone sounds and the win check.
 def pastimes.play.arm(+run: J.Val, +round: J.Val, +gi: U32, +shown: U32, +prev: U32, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & PsPlayed:
   (run2: J.Val, rest: J.Val & Bool) = pastimes.play.game(run, round, gi, shown, inputs, elig, tapped)
   (round2: J.Val, ok: Bool) = rest
@@ -207,7 +194,6 @@ def pastimes.play.arm(+run: J.Val, +round: J.Val, +gi: U32, +shown: U32, +prev: 
   else:
     (run2, pastimes.lost(round2))
 
-# The score milestones' sounds, the streak, and a finished round's purse.
 def pastimes.play.after(+run: J.Val, +round: J.Val, +gi: U32, +prev: U32) -> J.Val & PsPlayed:
   need: U32 = pastimes.Game.need(gi)
   progress: U32 = gb.u(round, "progress")
@@ -225,7 +211,6 @@ def pastimes.play.after(+run: J.Val, +round: J.Val, +gi: U32, +prev: U32) -> J.V
   else:
     (s3, PsGoing{r1})
 
-# A won round: the result, the records, the realm's marks, the fanfare.
 def pastimes.play.win(+run: J.Val, +round: J.Val, +gi: U32) -> J.Val & PsPlayed:
   progress: U32 = gb.u(round, "progress")
   result: U32 = Bool.pick(U32, U32.is_eq(gi, 18), U32.min((U32.min(gb.u(J.get(round, "siege"), "damage"), 65535) * 5 + U32.min(gb.u(J.get(round, "siege"), "soldiers"), 255) * 25 : U32), 1000), RS.u_clamp(gb.ssub((progress * 75 + U32.div(gb.u(round, "left"), 30) * 5 : U32), (gb.u(round, "mistakes") * 25 : U32)), 25, 1000))

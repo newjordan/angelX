@@ -26,36 +26,23 @@ use super::countryside::Country;
 use super::*;
 use crate::realm::chivalry::{Bloodline, Horse, HorseCoat, Stable};
 
-/// The swamp's floors: the third is the Mire King's.
 pub const FLOORS: u32 = 3;
-/// How fast feet go in the bog, of their pace on dry ground.
 pub const BOG_PACE: f32 = 0.55;
-/// The share of a swamp room's open ground (percent) that is bog, by floor.
 pub const BOG_SHARE: [usize; 3] = [35, 45, 50];
-/// Fog patches a swamp room holds, by floor, and how far one spreads (units).
 pub const FOG_PATCHES: [usize; 3] = [1, 2, 2];
 pub const FOG_REACH: f32 = 7.0;
-/// Fog keeps this far off a doorway, so nobody walks in blind.
 const FOG_DOOR_CLEAR: f32 = 8.0;
 
-/// The plate in Sir Damp's Marsh (tiles), and the notice post beside it.
 pub const PLATE: (i32, i32, i32, i32) = (13, 8, 2, 1);
 pub const NOTICE: (f32, f32) = (15.8, 8.0);
-/// A knight this close to the post (tiles) reads it.
 pub const NOTICE_REACH: f32 = 2.0;
 
-/// The captive's id in the pen, and the mark her rescue leaves.
 pub const HORSE: &str = "white-horse";
 pub const RESCUE_MARK: &str = "rescue:white-horse";
-/// The notice read: Wren's notice has been seen.
 pub const NOTICE_MARK: &str = "country:swamp:notice";
-/// The moment Wren's bounty counts (`cue:white_horse`).
 pub const MOMENT: &str = "white_horse";
-/// The boss file of the swamp's guardian.
 pub const KING: &str = "the-mire-king";
 
-/// Her name, the yard she is kept in, and her blood: quick and brave, a
-/// horse who lived through the swamp. Fixed, as Helios's is.
 pub const HORSE_NAME: &str = "Blanchefleur";
 pub const HORSE_HOUSE: &str = "keep";
 pub const HORSE_BLOOD: Bloodline = Bloodline {
@@ -65,16 +52,12 @@ pub const HORSE_BLOOD: Bloodline = Bloodline {
     nerve: 9,
 };
 
-/// The swamp's marks the private checkpoint journal keeps (`countryside`).
 pub const INTENT_MARKS: [&str; 2] = [NOTICE_MARK, RESCUE_MARK];
 
-/// What a knight at the pen hears while the Mire King stands.
 pub const PEN_HELD: &str = "THE MIRE KING HOLDS THE PEN.";
-/// What the notice post says.
 pub const NOTICE_TEXT: &str =
     "NOTICE: A WHITE HORSE WAS TAKEN INTO THE SWAMP. THE PLATE GOES DOWN. BRING HER HOME.";
 
-/// The white horse, as she joins the herd.
 pub fn white_horse() -> Horse {
     Horse {
         name: HORSE_NAME.into(),
@@ -86,7 +69,6 @@ pub fn white_horse() -> Horse {
     }
 }
 
-/// Whether she is in this stable's herd.
 pub fn in_herd(stable: &Stable) -> bool {
     stable
         .herd
@@ -94,7 +76,6 @@ pub fn in_herd(stable: &Stable) -> bool {
         .any(|h| h.name == HORSE_NAME && h.coat == Some(HorseCoat::White))
 }
 
-/// A room's own salt for the mire and the fog: its place on its floor.
 pub fn salt(cell: (i32, i32), depth: u32) -> u64 {
     mix(u64::from(depth).wrapping_mul(0x9e37_79b9)
         ^ (cell.0 as u64).wrapping_mul(0x51_7cc1)
@@ -106,7 +87,6 @@ fn tier(depth: u32) -> usize {
     (depth.clamp(1, FLOORS) - 1) as usize
 }
 
-/// Smooth noise on a grid of three tiles, from the salt alone.
 fn wet(x: usize, y: usize, salt: u64) -> f32 {
     let corner = |gx: usize, gy: usize| {
         (mix(salt ^ (gx as u64) << 20 ^ (gy as u64) << 40) & 0xffff) as f32 / 65535.0
@@ -119,11 +99,6 @@ fn wet(x: usize, y: usize, salt: u64) -> f32 {
     top * (1.0 - ty) + bottom * ty
 }
 
-/// The mire over one quadrant of a swamp room (`layout`'s mirrored
-/// template): the wettest `BOG_SHARE` of its open ground goes to bog
-/// (`,`). The door lanes and the crossing in the middle (its last two
-/// columns and rows) stay dry, and so does the ground round every reed
-/// clump: a reed island.
 pub fn mire(quadrant: &mut [Vec<u8>], depth: u32, salt: u64) {
     let h = quadrant.len();
     let w = quadrant.first().map_or(0, Vec::len);
@@ -147,9 +122,6 @@ pub fn mire(quadrant: &mut [Vec<u8>], depth: u32, salt: u64) {
     }
 }
 
-/// Where the fog lies in a swamp room: patch centres (arena units), each
-/// `FOG_REACH` across, on the bog and clear of the doorways. None outside
-/// the swamp's fights.
 pub fn fog(pack: Pack, room: &Room, depth: u32) -> Vec<(f32, f32)> {
     if pack != Pack::Swamp || !matches!(room.kind, RoomKind::Fight | RoomKind::Stairs) {
         return Vec::new();
@@ -188,9 +160,6 @@ pub fn fog(pack: Pack, room: &Room, depth: u32) -> Vec<(f32, f32)> {
     patches
 }
 
-/// Where the pen stands in the Mire King's hall: by a wall the party does
-/// not come in by, off the middle where the King himself rises (arena
-/// units, the middle of a tile).
 pub fn pen_spot(room: &Room) -> (f32, f32) {
     let (w, h) = (room.width(), room.height());
     let sides = [
@@ -208,7 +177,6 @@ pub fn pen_spot(room: &Room) -> (f32, f32) {
     )
 }
 
-/// The pen stands on dry ground: the three by three tiles round it.
 fn pen_ground(room: &mut Room, (x, y): (f32, f32)) {
     let (col, row) = ((x / TILE_UNITS) as usize, (y / TILE_UNITS) as usize);
     for r in row - 1..=row + 1 {
@@ -218,9 +186,6 @@ fn pen_ground(room: &mut Room, (x, y): (f32, f32)) {
     }
 }
 
-/// The realm's half: the notice read, and the white horse home. She joins
-/// the herd if the yard has room; if not, she waits at the ranch until it
-/// has. Returns whether the realm changed, and what is said.
 pub fn settle(
     country: &mut Country,
     stable: &mut Stable,
@@ -258,11 +223,6 @@ pub fn settle(
 }
 
 impl Run {
-    /// The floor this delve counts toward the realm's depth records (the
-    /// deepest floor reached, a bounty to reach a floor, the Map station's
-    /// landings): the floor it is on, but 0 in the swamp, a delve of its
-    /// own whose three floors lie beside the keep's and count for none of
-    /// them.
     pub fn record_floor(&self) -> u32 {
         if self.dungeon.pack == Pack::Swamp {
             0
@@ -271,7 +231,6 @@ impl Run {
         }
     }
 
-    /// The notice post by the plate in the Marsh: E reads it.
     pub(super) fn tick_swamp_notice(&mut self, inputs: &BTreeMap<u32, Input>) {
         if self.room().kind != RoomKind::Marsh {
             return;
@@ -295,8 +254,6 @@ impl Run {
         self.found = Some((self.tick, reader, NOTICE_TEXT.into()));
     }
 
-    /// A swamp floor: on the last, the white horse in the Mire King's hall,
-    /// unless the realm already has her.
     pub(super) fn pen_the_horse(&mut self) {
         self.captive = None;
         if self.dungeon.pack != Pack::Swamp
@@ -325,15 +282,12 @@ impl Run {
         });
     }
 
-    /// The Mire King's hall on the swamp's last floor.
     pub fn in_mire_kings_hall(&self) -> bool {
         self.dungeon.pack == Pack::Swamp
             && self.dungeon.depth >= FLOORS
             && self.room().kind == RoomKind::Stairs
     }
 
-    /// The Mire King is fallen: his floor is reclaimed and banked, and the
-    /// pen opens. The light home comes once the horse is out.
     pub(super) fn mire_king_falls(&mut self) {
         self.reclaimed.push(Pack::Swamp);
         self.cues.push("mire_king_falls".into());
@@ -358,7 +312,6 @@ impl Run {
         }
     }
 
-    /// The light home in the middle of the hall: stood in, the delve is won.
     pub(super) fn light_the_way_home(&mut self) {
         if self.light.is_some() {
             return;
@@ -369,7 +322,6 @@ impl Run {
         self.cues.push("homeward_light".into());
     }
 
-    /// She is out of the pen.
     pub(super) fn horse_freed(&mut self, by: u32) {
         self.cues.push(MOMENT.into());
         self.notice("white_horse");

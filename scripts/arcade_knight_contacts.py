@@ -1,8 +1,3 @@
-"""Native contact and cel-fold rows for the authored action layouts.
-
-Fixed drawing data. Rebuild never opens a reference, samples or smooths art.
-Face kits and bandage planes in arcade-knight.py take precedence.
-"""
 CONTACT_ROWS = {
     'idle-0': [
         ('plume', 23, 8, '.C'),

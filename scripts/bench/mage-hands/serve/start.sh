@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Start the Mage-VL-Cowork shim as a background user unit; stop with: systemctl --user stop mage-serve
 set -eu
 MAGE=${MAGE_ROOT:-$HOME/mage}  # the mage working folder: bench/, desk/, bin/, venv/
 MODELS=${MAGE_MODELS:-$HOME/models}  # holds Mage-VL-Cowork and its fine-tunes

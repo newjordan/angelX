@@ -37,14 +37,12 @@ fn frozen_screen_survives_live_texture_replacement_and_dissolves_without_black()
         color: [1.0, 1.0, 1.0, alpha], kind,
         ..bytemuck::Zeroable::zeroed()
     }]);
-    // Two differently coloured halves catch accidentally normalized UVs.
     gpu.pixels(40, 2, 1, vec![255, 0, 0, 255, 0, 255, 0, 255]);
     let mut frame = Frame::default();
     frame.assemble_into(&mut vec![quad(40, 1.0, 2, 1, angel_gpu::PICTURE)], &mut Vec::new());
     gpu.core.draw(&view, size, wgpu::Color::BLACK, &frame, "outgoing-screen");
     gpu.core.keep_frame(frame);
     assert!(gpu.core.freeze_frame(41, size, wgpu::Color::BLACK));
-    // The incoming screen reuses the source id; the frozen screen must not.
     gpu.pixels(40, 2, 1, vec![0, 0, 255, 255, 0, 0, 255, 255]);
     let frozen = gpu.core.use_picture(41).unwrap();
     let mut frame = gpu.core.take_frame();
@@ -95,7 +93,6 @@ impl Gpu {
         self.core.upload(Picture { id, width, height, rgba, cols: 0, rows: 0 });
     }
 
-    /// The stage drawn as the window draws one, shown 1:1, and read back.
     fn stage(&mut self, stage: Stage) -> Vec<u8> {
         let (id, size) = (stage.id, stage.size);
         let texture = self.device.create_texture(&wgpu::TextureDescriptor {
@@ -137,7 +134,6 @@ impl Gpu {
 }
 
 const SIZE: (u32, u32) = (192, 128);
-/// The Delve's tilt.
 const TILT: f32 = 0.3;
 const FIGURE: u32 = 0x8000_7001;
 
@@ -145,7 +141,6 @@ fn a_stage(layers: Vec<Layer>, props: Option<Props>) -> Stage {
     Stage { id: 0x00FA_57A4, size: SIZE, cols: 1, rows: 1, layers, scene: 1, enter: None, tilt: TILT, props, impact: 0.0 }
 }
 
-/// How many pixels are near `want`.
 fn count(pixels: &[u8], want: [u8; 3]) -> usize {
     pixels
         .chunks_exact(4)
@@ -161,23 +156,18 @@ fn unit(rgb: [u8; 3]) -> [f32; 4] {
     [f32::from(rgb[0]) / 255.0, f32::from(rgb[1]) / 255.0, f32::from(rgb[2]) / 255.0, 1.0]
 }
 
-/// The ground under the whole stage.
 fn ground() -> Node {
     let mut node = Node::new(1, MeshRef::Plane, Material::color(unit(GREEN)));
     node.transform = Transform { translation: [96.0, 0.0, 64.0], scale: [400.0, 1.0, 300.0], ..Transform::IDENTITY };
     node
 }
 
-/// A wall across the middle of the stage: its foot at floor row 64, its
-/// front face at row 69, 30 pixels high.
 fn wall() -> Node {
     let mut node = Node::new(2, MeshRef::Cube, Material::color(unit(GREY)));
     node.transform = Transform { translation: [96.0, 15.0, 64.0], scale: [80.0, 30.0, 10.0], ..Transform::IDENTITY };
     node
 }
 
-/// A figure's card: picture [`FIGURE`] standing with its foot at floor point
-/// `(x, z)`, `w` by `h` pixels, `below` of them under its foot.
 fn card(id: u64, (x, z): (f32, f32), (w, h): (f32, f32), below: f32) -> Node {
     let material = Material { alpha: AlphaMode::Blend, double_sided: true, ..Material::picture(FIGURE) };
     let mut node = Node::new(id, MeshRef::Quad, material);
@@ -202,24 +192,19 @@ fn a_figure_behind_a_wall_is_hidden_and_one_in_front_is_not() {
     };
     gpu.pixels(FIGURE, 1, 1, vec![RED[0], RED[1], RED[2], 255]);
     let size = (12.0, 16.0);
-    // In the open, a figure is all there, wherever it stands.
     let open_far = count(&gpu.stage(a_stage(vec![], Some(world(vec![], vec![card(1, (96.0, 50.0), size, 0.0)])))), RED);
     let open_near = count(&gpu.stage(a_stage(vec![], Some(world(vec![], vec![card(1, (96.0, 84.0), size, 0.0)])))), RED);
     println!("in the open: {open_far} red pixels far, {open_near} near");
     assert!(open_far > 100 && open_near > open_far, "{open_far} {open_near}");
-    // Behind the wall (its foot at row 50, the wall's back at 59): hidden.
     let pixels = gpu.stage(a_stage(vec![], Some(world(vec![wall()], vec![card(1, (96.0, 50.0), size, 0.0)]))));
     let behind = count(&pixels, RED);
     println!("behind the wall: {behind} red pixels, {} of wall", count(&pixels, GREY));
     assert_eq!(behind, 0, "the wall hides the figure behind it");
     assert!(count(&pixels, GREY) > 1000, "and the wall is there");
-    // In front of it (row 84, the wall's front at 69): all there, over it.
     let pixels = gpu.stage(a_stage(vec![], Some(world(vec![wall()], vec![card(1, (96.0, 84.0), size, 0.0)]))));
     let front = count(&pixels, RED);
     println!("in front of the wall: {front} red pixels");
     assert_eq!(front, open_near, "the wall hides nothing of a figure in front of it");
-    // Half behind its end: a figure at the wall's left end shows the half
-    // that is past it.
     let pixels = gpu.stage(a_stage(vec![], Some(world(vec![wall()], vec![card(1, (56.0, 50.0), size, 0.0)]))));
     let half = count(&pixels, RED);
     println!("at the wall's end: {half} red pixels");
@@ -234,14 +219,10 @@ fn a_figure_never_sinks_into_the_floor_it_stands_on() {
         return;
     };
     gpu.pixels(FIGURE, 1, 1, vec![RED[0], RED[1], RED[2], 255]);
-    // A figure whose picture reaches 6 pixels below its foot (its shadow):
-    // the floor in front of its foot is nearer, and hides none of it.
     let size = (12.0, 16.0);
     let lifted = count(&gpu.stage(a_stage(vec![], Some(world(vec![], vec![card(1, (96.0, 70.0), size, 0.0)])))), RED);
     let sunk = count(&gpu.stage(a_stage(vec![], Some(world(vec![], vec![card(1, (96.0, 70.0), size, 6.0)])))), RED);
     println!("standing on its foot: {lifted} red pixels; reaching below it: {sunk}");
-    // (Within a row of its pixels, which the shift may round either way: the
-    // floor hiding what is below the foot would take over a third.)
     assert!(lifted > 150);
     assert!(sunk.abs_diff(lifted) <= lifted / 10, "all of it shows: {sunk} against {lifted}");
     gpu.clean();
@@ -253,8 +234,6 @@ fn a_figure_lands_on_the_pixels_its_upright_layer_does() {
         println!("no GPU adapter: skipped");
         return;
     };
-    // A sprite of 6 x 9 pixels, every pixel its own colour, transparent at
-    // two corners.
     let (w, h) = (6u32, 9u32);
     let mut rgba = Vec::new();
     for y in 0..h {
@@ -266,7 +245,6 @@ fn a_figure_lands_on_the_pixels_its_upright_layer_does() {
     gpu.pixels(FIGURE, w, h, rgba);
     for (foot, scale) in [([96.0f32, 80.0f32], 2.0f32), ([40.5, 30.25], 3.0), ([150.0, 110.0], 1.0)] {
         let (fw, fh) = (w as f32 * scale, h as f32 * scale);
-        // The layer's way: the picture placed over its foot, standing up.
         let mut layer = Layer::new(
             1,
             0,
@@ -276,8 +254,6 @@ fn a_figure_lands_on_the_pixels_its_upright_layer_does() {
         layer.stand = Stand::Upright(foot);
         let black = Layer::new(0, 0, Placement::Pixels([0.0, 0.0, SIZE.0 as f32, SIZE.1 as f32]), LayerKind::Solid([0.0, 0.0, 0.0, 1.0]));
         let layered = gpu.stage(a_stage(vec![black.clone(), layer], None));
-        // The world's way: a card at the same foot, the same size, over the
-        // same black.
         let props = Props {
             at: 0,
             grain: 2,
@@ -301,8 +277,6 @@ fn the_world_and_its_figures_lie_where_they_were_put_among_the_layers() {
         return;
     };
     gpu.pixels(FIGURE, 1, 1, vec![RED[0], RED[1], RED[2], 255]);
-    // A blue veil over the left half of the stage, between the world and
-    // its figures: it covers the ground there, never the figure.
     let veil = Layer::new(1, 0, Placement::Pixels([0.0, 0.0, 96.0, 128.0]), LayerKind::Solid([0.0, 0.0, 1.0, 1.0]));
     let props = |figures_at: usize| Props {
         at: 0,
@@ -324,16 +298,11 @@ fn the_world_and_its_figures_lie_where_they_were_put_among_the_layers() {
     assert!(red_over > 150, "over the veil, all of the figure");
     assert!(red_under <= red_over * 3 / 5 && red_under >= red_over * 2 / 5, "under it, only its half past the veil: {red_under}");
     assert!(count(&over, GREEN) > 3000 && count(&over, [0, 0, 255]) > 3000, "the ground on the right, the veil on the left");
-    // No world, no props: the layers alone.
     let alone = gpu.stage(a_stage(vec![], Some(Props { at: 0, grain: 2, nodes: vec![], world: None })));
     assert_eq!(count(&alone, GREEN), 0);
     gpu.clean();
 }
 
-/// A world drawn through a look that lights it (docs/REALM-MONOLITH.md):
-/// a figure behind a wall stays hidden until the look keeps it in sight,
-/// and then shows through the wall's stippled opening, the depth it is
-/// tested against leaving the opening out.
 #[test]
 fn a_lit_worlds_reveal_shows_a_figure_through_the_wall_before_it() {
     use angel_stage::look::{Look, Reveal, Sun};
@@ -367,10 +336,6 @@ fn a_lit_worlds_reveal_shows_a_figure_through_the_wall_before_it() {
     gpu.clean();
 }
 
-/// A lit card with a normal map (docs/WORLD-TIERS.md, "Normal maps"): a
-/// lamp to its left lights the half of it whose pixels turn left more than
-/// the half that turns away, where without the map, or with the look's
-/// `normals` at 0, both halves are lit alike.
 #[test]
 fn a_lit_cards_normal_map_lights_the_side_its_lamp_is_on() {
     use angel_stage::look::{Cards, Lamp, Look};
@@ -380,7 +345,6 @@ fn a_lit_cards_normal_map_lights_the_side_its_lamp_is_on() {
     };
     const SIDE: u32 = 8;
     gpu.pixels(FIGURE, SIDE, SIDE, [120u8, 120, 120, 255].repeat((SIDE * SIDE) as usize));
-    // The left half of the card turned left, the right half right.
     let map: Vec<u8> = (0..SIDE * SIDE)
         .flat_map(|i| angel_stage::normals::encode([if i % SIDE < SIDE / 2 { -0.8 } else { 0.8 }, 0.0, 0.6]))
         .collect();
@@ -397,12 +361,10 @@ fn a_lit_cards_normal_map_lights_the_side_its_lamp_is_on() {
         let world = World { floor: vec![ground], blocks: Vec::new(), at: 0, figures: vec![card], figures_at: 0, look: Some(look), ..World::default() };
         gpu.stage(a_stage(vec![], Some(Props { at: 0, grain: 2, nodes: Vec::new(), world: Some(world) })))
     };
-    // The card's own pixels' brightness, left of its middle and right.
     let halves = |pixels: &[u8]| {
         let (mut left, mut right) = ((0u32, 0u32), (0u32, 0u32));
         for (i, p) in pixels.chunks_exact(4).enumerate() {
             let x = i as u32 % SIZE.0;
-            // Grey, not the ramp's blues: the card.
             if p[0].abs_diff(p[2]) > 12 || p[0] < 50 {
                 continue;
             }

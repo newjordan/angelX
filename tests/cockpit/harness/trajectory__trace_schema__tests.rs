@@ -218,8 +218,6 @@ fn trace_schema_workspace_non_git_and_unborn() {
         );
     };
     git(&["init", "-q"]);
-    // Empty repository has no HEAD; use the existing object's commit only in
-    // real runs. No test creates a commit (worker policy).
     assert_eq!(workspace_state(Some(&root))["head"], "unbound");
     assert_eq!(startup_workspace_state(&root)["head"], "unbound");
     assert!(WorkspaceStartScope::enter(&root).partial_notice().is_none());

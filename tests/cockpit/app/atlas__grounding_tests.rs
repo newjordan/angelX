@@ -105,8 +105,6 @@ fn native_observation_review_restart_linked_retrieval_and_actual_read() {
         crate::agent::backplane::KnowledgeAuthority::Episodic
     );
     assert!(code.content.contains(&source.digest));
-    // A real next action, chosen using the returned graph, crosses the native
-    // file-tool boundary and reads the digest-bound implementation.
     let trace: Value = serde_json::from_str(
         &registry
             .dispatch("atlas", &json!({"action":"trace", "id":concept.id}))
@@ -256,7 +254,6 @@ fn broker_revalidation_removes_revoked_evidence_even_with_prefix_caching() {
     );
     assert_eq!(history[0].content.as_ref(), "stable system");
     assert_eq!(history[1].content.as_ref(), "crystalline");
-    // A different live session's revocation also supersedes the first handle's cache.
     let item = atlas
         .add_operator(AtlasKind::Fact, "crystalline revocable assertion")
         .unwrap();
@@ -450,7 +447,6 @@ fn trace_and_source_read_budgets_are_explicit() {
             .unwrap_err()
             .contains("512 KiB")
     );
-    // A permitted lexical alias still may not redirect an observation.
     std::os::unix::fs::symlink(
         f.workspace.join("src/quartz.rs"),
         f.workspace.join("alias.rs"),

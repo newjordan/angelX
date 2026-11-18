@@ -1,20 +1,4 @@
 #!/usr/bin/env python3
-"""The page's frames, cut from the Delve's own HUD chrome, built to skin.css.
-
-    python3 crates/web/shell/art/frames.py      (needs Pillow)
-
-Every panel, plate and slot the page draws around its words is the realm's
-reviewed HUD kit (crates/delve/assets/art-slots/dgn.hud.chrome/v1): the
-minimap's studded iron frame for windows, the status gem on a window's
-crown, the toast's capped plate for lines and buttons, the action plates
-for keys and slots, wells and buttons. Nothing is redrawn: corners and caps are the kit's
-own pixels, a window's rails are the kit's rail repeated, and its face is
-the plates' own deep teal, darkened for a page of words.
-
-skin.css holds each as a data URI in a custom property on :root, with the
-nine-slice widths beside it; shell.css lays them as border images at the
-picture's own whole-number scale (`--px`), nearest-sampled.
-"""
 
 import base64
 import io
@@ -24,7 +8,6 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 KIT = os.path.join(HERE, '..', '..', '..', 'delve', 'assets', 'art-slots', 'dgn.hud.chrome', 'v1')
 
-# The kit's face, and the deeper face a window of words sits on.
 FACE = (0x13, 0x27, 0x24, 255)
 DEEP = (0x0b, 0x15, 0x14, 255)
 WELL = (0x07, 0x0d, 0x0c, 255)
@@ -52,18 +35,14 @@ def recolour(im, old, new):
 
 
 def window():
-    """The minimap's frame as a window: its four studded corners, its rails
-    run between them, the face filled in. 12 corner + 4 rail + 12 corner."""
     src = kit('minimap')
-    c, mid, n = 12, 4, src.width  # 38
+    c, mid, n = 12, 4, src.width
     size = 2 * c + mid
     out = Image.new('RGBA', (size, size), CLEAR)
-    # Corners.
     out.paste(src.crop((0, 0, c, c)), (0, 0))
     out.paste(src.crop((n - c, 0, n, c)), (c + mid, 0))
     out.paste(src.crop((0, n - c, c, n)), (0, c + mid))
     out.paste(src.crop((n - c, n - c, n, n)), (c + mid, c + mid))
-    # Rails: a plain column and row of the kit's, clear of its ornaments.
     top = src.crop((16, 0, 17, c))
     bottom = src.crop((16, n - c, 17, n))
     left = src.crop((0, 16, c, 17))
@@ -73,7 +52,6 @@ def window():
         out.paste(bottom, (c + i, c + mid))
         out.paste(left, (0, c + i))
         out.paste(right, (c + mid, c + i))
-    # The face: every clear pixel inside the rails.
     px = out.load()
     inside = lambda x, y: 4 <= x < size - 4 and 4 <= y < size - 4
     for y in range(size):
@@ -84,8 +62,6 @@ def window():
 
 
 def is_enclosed(im, x, y):
-    """Whether a clear pixel is inside the frame: ink to its left and right
-    and above and below along its row and column."""
     px = im.load()
     w, h = im.size
     hit = lambda pts: any(px[a, b][3] for a, b in pts)
@@ -94,9 +70,6 @@ def is_enclosed(im, x, y):
 
 
 def even(im, sx, sy, cx, cy, mid=4):
-    """`im` with its middle span made even: its corners (`sx` wide, `sy`
-    tall) kept, column `cx` and row `cy` run `mid` pixels between them, so
-    a nine-slice stretches nothing but a plain rail and the face."""
     w, h = im.size
     out = Image.new('RGBA', (2 * sx + mid, 2 * sy + mid), CLEAR)
     W, H = out.size
@@ -115,12 +88,10 @@ def even(im, sx, sy, cx, cy, mid=4):
 
 
 def plate(name='toast'):
-    """The toast's capped plate: lines and buttons. Caps 9 wide, rails 4."""
     return even(kit(name), 9, 4, 12, 6)
 
 
 def slot(name):
-    """An action plate: keys and slots. Corners 5."""
     return even(kit(name), 5, 5, 8, 8)
 
 

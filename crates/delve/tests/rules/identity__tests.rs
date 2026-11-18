@@ -27,9 +27,6 @@ fn the_scrolls_own_answers_all_check_and_make_a_piece() {
     }
 }
 
-/// A delve begun as the game begins it with the identity start: the host
-/// and `friends` more knights, walked into the first room of the first
-/// floor.
 pub(crate) fn shapes(friends: u32) -> Run {
     let mut run = Run::at_home(7, 1, None, home::Home::default(), Default::default());
     run.naked_start = true;
@@ -47,7 +44,6 @@ fn wish(run: &mut Run, id: u32, wish: &str) -> Result<String, String> {
     run.wish(id, &w)
 }
 
-/// Walk the party into room `index` of the first floor.
 fn walk_in(run: &mut Run, index: usize) {
     run.calm_for_test();
     run.enemies.clear();
@@ -83,14 +79,12 @@ fn the_first_floor_is_three_rooms_a_wish_each() {
     assert!(run.notices.iter().any(|n| n.contains("What are you?")), "{:?}", run.notices);
     walk_in(&mut run, 1);
     assert!(run.players.values().all(|h| h.wishes == 2));
-    // Walking back and in again gives nothing more.
     walk_in(&mut run, 0);
     walk_in(&mut run, 1);
     assert!(run.players.values().all(|h| h.wishes == 2));
     walk_in(&mut run, 2);
     assert!(run.players.values().all(|h| h.wishes == 3));
     assert!(run.cues.iter().any(|c| c == "identity_room:ultimate"));
-    // The second floor is the ordinary game.
     run.descend_for_test();
     assert!(run.dungeon.rooms.len() > 3);
     assert!(run.players.values().all(|h| h.wishes == 3 + overclass::FLOOR_WISHES));
@@ -118,7 +112,6 @@ fn the_questions_are_answered_in_order_and_nothing_else_is_granted() {
     assert!(!h.unmade(&run.book) && h.made);
     assert!(run.cues.iter().any(|c| c == "made"));
     assert!(run.notices.iter().any(|n| n.contains("is whole")), "{:?}", run.notices);
-    // Whole: spells, power and more parts are ordinary wishes.
     run.players.get_mut(&1).unwrap().wishes = 3;
     wish(&mut run, 1, "firebolt").unwrap();
     wish(&mut run, 1, "volley").unwrap();
@@ -302,7 +295,6 @@ fn the_streamlined_floor_is_one_bare_room_with_all_three_wishes() {
     assert!((0..room.rows as i32).any(|r| (0..room.cols as i32).any(|c| room.tile(c, r) == Tile::Stairs)), "the way down");
     let ids: Vec<u32> = run.players.keys().copied().collect();
     assert!(run.players.values().all(|h| h.wishes as usize == ROOMS), "three wishes each");
-    // The stairs wait for the knights to be made, then open.
     assert!(run.creation_holds_stairs());
     for &id in &ids {
         for _ in 0..ROOMS {
@@ -331,7 +323,6 @@ fn the_streamlined_room_is_never_dared_to_fell_a_guardian_it_does_not_hold() {
         assert_ne!(kind, Some(DareKind::MakeItQuick), "seed {seed}: no guardian to fell");
     }
     set_simple(false);
-    // A floor that does hold its guardian may still be dared to fell it.
     let mut quick = false;
     for seed in 0..60 {
         let mut run = Run::new(seed, 1, None);

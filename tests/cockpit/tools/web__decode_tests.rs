@@ -73,7 +73,6 @@ fn http_error_bodies_yield_to_deadline_for_all_web_tools() {
 
 #[test]
 fn latin1_body_is_transcoded_not_mojibake() {
-    // 0xE9 is 'é' in ISO-8859-1 but an invalid lone byte in UTF-8.
     let (text, note) = decode_body(&[b'c', b'a', b'f', 0xE9], Some("iso-8859-1"), false);
     assert_eq!(
         text, "café",
@@ -100,7 +99,6 @@ fn undeclared_but_invalid_utf8_degrades_lossily_with_a_note() {
 fn html_meta_charset_is_sniffed_when_the_header_is_silent() {
     let html = b"<html><head><meta charset=\"shift_jis\"></head><body>";
     assert_eq!(sniff_meta_charset(html).as_deref(), Some("shift_jis"));
-    // A meta charset drives decoding when no HTTP charset is present.
     let body = [b'<', b'p', b'>', 0xE9];
     let mut doc = b"<meta charset=iso-8859-1>".to_vec();
     doc.extend_from_slice(&body);

@@ -72,13 +72,9 @@ const PROFILE_SHELF_II: &str = include_str!("../../../../book/codex_sol_shelf_ii
 const PROFILE_SHELF_III: &str = include_str!("../../../../book/codex_sol_shelf_iii.book");
 const PROFILE_CONTEXT: &str = include_str!("../../../../book/codex_sol_context.book");
 
-/// ⡞ (d23457): the first shelf of ⠞, where the profile opens.
 pub(crate) const CELL: char = '⡞';
-/// ⢞ (d23458): the second shelf of ⠞: the profile continues.
 pub(crate) const SHELF_II_CELL: char = '⢞';
-/// ⣞ (d234578): the third shelf of ⠞: the profile continues.
 pub(crate) const SHELF_III_CELL: char = '⣞';
-/// ⡯ (d123467): the shelf of ⠯, the context window messages.
 pub(crate) const CONTEXT_CELL: char = '⡯';
 
 pub(crate) const OPENING: Route = Route::new(CELL, '⠁');
@@ -113,84 +109,44 @@ pub(crate) const CONTEXT_GUIDANCE: Route = Route::new(CONTEXT_CELL, '⠃');
 pub(crate) const CONTEXT_GUIDANCE_MORE: Route = Route::new(CONTEXT_CELL, '⠉');
 pub(crate) const CONTEXT_FALLBACK: Route = Route::new(CONTEXT_CELL, '⠙');
 
-/// The page an OpenAI seat stands on, by its index in ⡞⠙ (`⡞⠙⠓`): "Do not
-/// settle for a partial or "helpful enough" solution that does not fully
-/// satisfy the user's task to save time, effort or tokens." Sol's reasoning
-/// keeps a token budget of its own and wraps up to it; this is the sentence
-/// Codex answers that habit with.
 pub(crate) const STANDING: (Route, usize) = (AUTONOMY, 7);
 
-/// What the Codex catalog fixes about a seat, as plain data. These are knobs,
-/// not voice: no page carries them, and a driver reads them to shape a seat.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SeatProfile {
-    /// The catalog slug the model answers to.
     pub(crate) slug: &'static str,
-    /// The name the catalog shows for it.
     pub(crate) display_name: &'static str,
-    /// The reasoning effort a turn starts on.
     pub(crate) default_reasoning_level: &'static str,
-    /// Every reasoning effort the seat takes, lightest first.
     pub(crate) reasoning_levels: &'static [&'static str],
-    /// Whether the effort can change between turns of one session.
     pub(crate) reasoning_effort_updates: bool,
-    /// The reasoning summary a turn asks for (`none`: no summary).
     pub(crate) default_reasoning_summary: &'static str,
-    /// The answer verbosity a turn starts on.
     pub(crate) default_verbosity: &'static str,
-    /// Whether the seat takes a verbosity setting at all.
     pub(crate) supports_verbosity: bool,
-    /// How the seat runs shell commands (`unified_exec`: one exec tool).
     pub(crate) shell_type: &'static str,
-    /// How the seat edits files (`freeform`: a freeform patch tool, not JSON arguments).
     pub(crate) apply_patch_tool_type: &'static str,
-    /// The web search tool's result shape.
     pub(crate) web_search_tool_type: &'static str,
-    /// The tool surface (`code_mode_only`: the seat works through code mode alone).
     pub(crate) tool_mode: &'static str,
-    /// Whether the seat can search for tools it was not handed.
     pub(crate) supports_search_tool: bool,
-    /// Extra tools the catalog marks experimental for this seat.
     pub(crate) experimental_tools: &'static [&'static str],
-    /// Whether the seat is spoken to over the lite Responses transport.
     pub(crate) use_responses_lite: bool,
-    /// What a tool result is cut to before the seat reads it: the unit.
     pub(crate) truncation_mode: &'static str,
-    /// What a tool result is cut to before the seat reads it: the size, in that unit.
     pub(crate) truncation_limit: u32,
-    /// The context window, in tokens.
     pub(crate) context_window: u32,
-    /// The largest context window the seat can be raised to, in tokens.
     pub(crate) max_context_window: u32,
-    /// The share of the window a turn may fill before compaction, in percent.
     pub(crate) effective_context_window_percent: u8,
-    /// What the seat reads.
     pub(crate) input_modalities: &'static [&'static str],
-    /// Whether the seat takes an image at its original detail.
     pub(crate) supports_image_detail_original: bool,
-    /// The multi-agent protocol version the seat speaks.
     pub(crate) multi_agent_version: &'static str,
-    /// The reasoning effort its delegates run on.
     pub(crate) multi_agent_reasoning_effort: &'static str,
-    /// Whether the catalog puts the skills usage text in the seat's instructions.
     pub(crate) include_skills_usage_instructions: bool,
-    /// Whether the catalog puts the plugin usage text in the seat's instructions.
     pub(crate) include_plugin_usage_instructions: bool,
-    /// Whether the catalog puts the apps usage text in the seat's instructions.
     pub(crate) include_apps_usage_instructions: bool,
-    /// Whether the context-window reminder is switched on for the seat.
     pub(crate) context_reminder_enabled: bool,
-    /// Tokens left in the window at which the reminder is sent.
     pub(crate) context_reminder_threshold_tokens: u32,
-    /// Whether the history tool extends the seat's notes.
     pub(crate) history_notes_extension: bool,
-    /// Tokens kept back for the notes call when the window is spent.
     pub(crate) context_fallback_buffer_tokens: u32,
 }
 
-/// The Codex catalog's profile for `gpt-6.1-sol` (Codex CLI 0.159.0, fetched
-/// 2026-09-30): the catalog entry and the context-window message's settings.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SEAT: SeatProfile = SeatProfile {
     slug: "gpt-6.1-sol",
@@ -226,8 +182,6 @@ pub(crate) const SEAT: SeatProfile = SeatProfile {
     context_fallback_buffer_tokens: 16_384,
 };
 
-/// The vendor's text, as committed beside this chapter; the tests rebuild every
-/// section from it.
 #[cfg(test)]
 pub(crate) const SOURCE_BASE: &str = include_str!("d23457_codex_sol/sol-base-instructions.md");
 #[cfg(test)]

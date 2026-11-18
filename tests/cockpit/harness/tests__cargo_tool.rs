@@ -56,10 +56,6 @@ fn pinned_cargo_deduplicates_resolver_aliases_before_eager_capture() {
         crate::tests::TestEnvGuard::set("CARGO_HOME", root.join("cargo-home").to_str().unwrap());
     let _pinned = PinnedCargo::capture(&workspace);
 
-    // The deadline itself is exercised above with a deliberately hung process.
-    // Do not time the whole capture here: registry construction now hashes the
-    // complete toolchain eagerly, and debug-mode digest cost is unrelated to
-    // whether canonical resolver aliases were deduplicated.
     assert_eq!(
         std::fs::read_to_string(&marker).unwrap(),
         "x",
@@ -67,8 +63,6 @@ fn pinned_cargo_deduplicates_resolver_aliases_before_eager_capture() {
     );
     let _ = std::fs::remove_dir_all(root);
 }
-
-// --- cargo tool suite ---
 
 #[test]
 fn cargo_tool_reports_version() {
@@ -231,8 +225,6 @@ fn typed_cargo_and_check_ignore_hostile_path_and_replaced_rustup_proxy() {
         eprintln!("landlock unavailable; skipping pinned Cargo integration test");
         return;
     }
-    // The test helper itself is built through Cargo; prime it before poisoning
-    // process PATH so this regression measures the typed build tool only.
     sandbox::prime_helper();
 
     let root = scratch("pinned_cargo_hostile_path");
@@ -278,8 +270,6 @@ fn typed_cargo_and_check_ignore_hostile_path_and_replaced_rustup_proxy() {
     assert_ne!(pinned_path, hostile.join("cargo"));
     assert!(!path_within_test(&pinned_path, &workspace));
 
-    // Replace the resolver after capture. Typed tools must never consult it or
-    // PATH again during this live registry.
     std::fs::remove_file(cargo_home.join("bin/rustup")).unwrap();
     write_executable(
         &cargo_home.join("bin/rustup"),
@@ -288,10 +278,6 @@ fn typed_cargo_and_check_ignore_hostile_path_and_replaced_rustup_proxy() {
             workspace.join("HOSTILE_RUSTUP_RAN").display()
         ),
     );
-    // While the replaced shim is live, hold the capture lock so a concurrent
-    // registry construction cannot resolve (and execute) it — that would be a
-    // foreign capture, not this registry reusing its pin, and the marker
-    // assert must only ever trip on a real dispatch-time reuse.
     let _capture = crate::agent::tools::build::capture_lock();
 
     let cargo_output = CargoTool::in_dir_with_cargo(workspace.clone(), pinned.clone())
@@ -323,9 +309,6 @@ fn pinned_cargo_rejects_replacement_before_first_dispatch() {
     write_executable(&bin.join("rustc"), "#!/bin/sh\nexit 0\n");
 
     let pinned = PinnedCargo::for_test_executable(bin.join("cargo"));
-    // Keep the replacement the same length: an early path/length-only pin is
-    // insufficient, while the captured inode timestamps must fail closed even
-    // before the lazy whole-binary digest has been established.
     write_executable(&bin.join("cargo"), "#!/bin/sh\nprintf 'cargo 2.0\\n'\n");
 
     let error = pinned.verify_for_test().unwrap_err();
@@ -364,10 +347,6 @@ fn green_looking_nonzero_cargo_processes_are_never_typed_green() {
     );
     write_executable(&bin.join("rustc"), "#!/bin/sh\nexit 0\n");
     write_executable(&bin.join("rustdoc"), "#!/bin/sh\nexit 0\n");
-    // PinnedCargo now binds every external Cargo subcommand and its backing
-    // driver, even though this fake `cargo` exits before dispatching them. Keep
-    // the adversarial toolchain complete so the assertion continues to test
-    // pass-shaped output plus a nonzero Cargo status—not a missing component.
     for tool in ["cargo-clippy", "clippy-driver", "cargo-fmt", "rustfmt"] {
         write_executable(&bin.join(tool), "#!/bin/sh\nexit 0\n");
     }
@@ -533,9 +512,6 @@ fn structured_cargo_verifiers_publish_progress_without_changing_verdicts() {
         eprintln!("landlock unavailable; skipping structured verifier progress test");
         return;
     }
-    // The verifier gate reads process-global ANGEL_YOLO while other tests
-    // hold the env lock to flip it — a reader without the lock raced them
-    // under parallel execution ("typed Cargo verification is disabled…").
     let _env = crate::tests::env_lock();
     let root = scratch("structured_verifier_progress");
     std::fs::create_dir_all(root.join("src")).unwrap();
@@ -609,9 +585,6 @@ fn structured_cargo_verifiers_publish_progress_without_changing_verdicts() {
 
 #[test]
 fn run_tests_dispatches_node_test_on_a_js_workspace() {
-    // PinnedCargo::capture reads process-global CARGO_HOME/PATH that sibling
-    // tests flip under the env lock; hold it so the resolver-dedup marker test
-    // never sees this test's capture (it failed twice in full-suite runs).
     let _env = crate::tests::env_lock();
     if !sandbox::available() {
         eprintln!("landlock unavailable; skipping node run_tests integration test");
@@ -649,9 +622,6 @@ fn run_tests_dispatches_node_test_on_a_js_workspace() {
 
 #[test]
 fn run_tests_dispatches_unittest_on_a_python_workspace() {
-    // PinnedCargo::capture reads process-global CARGO_HOME/PATH that sibling
-    // tests flip under the env lock; hold it so the resolver-dedup marker test
-    // never sees this test's capture (it failed twice in full-suite runs).
     let _env = crate::tests::env_lock();
     if !sandbox::available() {
         eprintln!("landlock unavailable; skipping python run_tests integration test");
@@ -680,9 +650,6 @@ fn run_tests_dispatches_unittest_on_a_python_workspace() {
 
 #[test]
 fn run_tests_names_the_missing_runner_instead_of_trying_cargo() {
-    // PinnedCargo::capture reads process-global CARGO_HOME/PATH that sibling
-    // tests flip under the env lock; hold it so the resolver-dedup marker test
-    // never sees this test's capture (it failed twice in full-suite runs).
     let _env = crate::tests::env_lock();
     let root = scratch("run_tests_no_runner");
     std::fs::write(root.join("README.md"), "nothing to test\n").unwrap();
@@ -748,7 +715,6 @@ fn run_tests_picks_the_largest_of_several_nested_crates_and_honours_a_crate_pin(
             format!("pub fn f()->u8{{1}}\n#[cfg(test)]mod tests{{{body}}}\n"),
         )
         .unwrap();
-        // cockpit is the biggest crate by source files
         if name == "cockpit" {
             for extra in ["a.rs", "b.rs"] {
                 std::fs::write(root.join(name).join("src").join(extra), "// filler\n").unwrap();
@@ -790,9 +756,6 @@ fn run_tests_picks_the_largest_of_several_nested_crates_and_honours_a_crate_pin(
 
 #[test]
 fn run_tests_dir_runs_a_python_suite_under_a_js_and_rust_mono_repo() {
-    // PinnedCargo::capture reads process-global CARGO_HOME/PATH that sibling
-    // tests flip under the env lock; hold it so the resolver-dedup marker test
-    // never sees this test's capture (it failed twice in full-suite runs).
     let _env = crate::tests::env_lock();
     if !sandbox::available() {
         eprintln!("landlock unavailable; skipping run_tests dir test");
@@ -843,9 +806,6 @@ fn run_tests_dir_runs_a_python_suite_under_a_js_and_rust_mono_repo() {
 
 #[test]
 fn run_tests_forwards_args_through_npm_with_a_separator() {
-    // PinnedCargo::capture reads process-global CARGO_HOME/PATH that sibling
-    // tests flip under the env lock; hold it so the resolver-dedup marker test
-    // never sees this test's capture (it failed twice in full-suite runs).
     let _env = crate::tests::env_lock();
     if !sandbox::available() {
         eprintln!("landlock unavailable; skipping npm args test");
@@ -873,15 +833,11 @@ fn run_tests_forwards_args_through_npm_with_a_separator() {
     let receipt = RunTestsTool::in_dir(root.clone())
         .call(&serde_json::json!({ "args": "a.test.mjs" }))
         .expect("a file arg selects one file");
-    // The typed native route (pinned node) answers first when it can; the
-    // workspace-scan fallback answers otherwise. Either way one file runs.
     assert!(receipt.contains("tests: 1 passed, 0 failed"), "{receipt}");
-    // Without args both files run.
     let receipt = RunTestsTool::in_dir(root.clone())
         .call(&serde_json::json!({}))
         .expect("no args → the whole suite");
     assert!(receipt.contains("tests: 2 passed, 0 failed"), "{receipt}");
-    // A script with hardcoded globs: the arg must not merely add to them.
     std::fs::write(
         root.join("package.json"),
         "{\"name\":\"x\",\"scripts\":{\"test\":\"node --test 'b.test.mjs'\"}}\n",
@@ -890,8 +846,6 @@ fn run_tests_forwards_args_through_npm_with_a_separator() {
     let receipt = RunTestsTool::in_dir(root.clone())
         .call(&serde_json::json!({ "args": "a.test.mjs" }))
         .expect("the given file runs");
-    // Typed route: the script's file plus the given one (2); scan fallback:
-    // only the given one (1). Both are green and both include a.test.mjs.
     assert!(
         receipt.contains("tests: 1 passed, 0 failed")
             || receipt.contains("tests: 2 passed, 0 failed"),

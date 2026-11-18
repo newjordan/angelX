@@ -89,7 +89,6 @@ def audit():
     def check(name, holds, detail=None):
         checks.append(dict(claim=name, holds=bool(holds), detail=detail))
 
-    # Preserve the previous audit as history, not a current-source certificate.
     old = load('startup-evidence-checkpoint-iteration30-r3.json')
     check('iteration30 retained archival verdict', old['checks_count'] == 302 and not old['failures'])
     for name, digest in old['inputs_sha256'].items():
@@ -99,7 +98,6 @@ def audit():
         read(f'reports/research-82abbb708cda5ae57589ee8a17aeaaaa-{iteration}.md')
     findings['iteration42'] = 'No named top-level report or performance artifact located; no result or test count credited.'
 
-    # Six separate experiments: these scopes cannot be added or multiplied.
     specs = [
         (31, 'launcher-clock-iteration31/timing', 'applied logging-only launcher change'),
         (32, 'launcher-artifact-iteration32/timing', 'Python artifact selector rejected/unapplied'),
@@ -146,7 +144,6 @@ def audit():
     check('iteration34 seven finite status cases match recorded expectations', len(status34['cases']) == 7 and all(r['expected'] for r in status34['cases']))
     findings['status34_limit'] = 'Uninstalled helper-only candidate; returning None alone did not propagate explicit toolchain refusal. Iterations35/36 extend the error path; do not credit iteration34 as a composed production repair.'
 
-    # Artifact relocation remains a live correctness risk, despite Cargo freshness.
     baseline = load('launcher-artifact-iteration32/repro-baseline/summary.json')
     candidate = load('launcher-artifact-iteration32/repro-candidate/summary.json')
     check('iteration32 baseline has four stale launches', len(baseline['stale_launches']) == 4 and baseline['launch_attempts'] == 9)
@@ -154,7 +151,6 @@ def audit():
     findings['artifact_location'] = dict(baseline_stale_cases=baseline['stale_launches'], fix_installed=False,
         consequence='Cargo success alone does not qualify the independently guessed executable under output relocation.')
 
-    # Probe checks progressed to a real upstream test target, not full linking.
     probes = load('blaze-full-probes-iteration36/integration-results-v2.json')
     labels = ['existing-plan-tests', 'existing-state-tests'] + [f'integration-{i:02d}' for i in range(9)] + ['final-checked-probe-tests']
     check('iteration36 final named commands succeeded', [r['label'] for r in probes] == labels and all(r['exit_code'] == 0 for r in probes))
@@ -182,8 +178,6 @@ def audit():
         check('iteration39 row totals: ' + arm, len(selected) == 20 and sum(r['exact_equal'] for r in selected) == expected)
     queries = load('blaze-cwd-identity-iteration39/r2/query-receipts.json')
     for row in cwd['rows']:
-        # One baseline-arm reference is shared by BOTH answer arms. Warm-cache,
-        # repeat and sentinel queries are extra calls, not more matrix rows.
         refs = [r for r in queries if r['case'] == row['case'] and r['flag'] == row['flag'] and r['mode'] == 'reference']
         reference = refs[0] if len(refs) == 1 else None
         answers = [r for r in queries if all(r[k] == row[k] for k in ('arm', 'case', 'flag')) and r['mode'] == 'answer' and reference and r['argv'][2:] == reference['argv'][2:] and r['cwd'] == reference['cwd']]
@@ -232,7 +226,6 @@ def audit():
             check('iteration43 stale-HIT diagnostic primary lines', 'EVIDENCE mutation-schedule:baseline includes new leaf; MISS after content edit' in log and 'EVIDENCE mutation-schedule:candidate omitted new leaf; stale old-result HIT after content edit (qualification FAILURE)' in log and 'test result: ok. 5 passed; 0 failed;' in log)
     findings['watchers40_43'] = 'Reject directory dedup (transient descendant loss plus slowdown) and completed-root suppression (inter-directive creation omitted; later leaf edit stale HIT). Iteration41 stable-fixture success is superseded for promotion by iteration43 mutation diagnostic. Green diagnostic tests that detect stale HIT are not candidate acceptance.'
 
-    # Rerun only the inexpensive source/receipt checker, NOT its experiment.
     verifier = ROOT / 'reports/performance/verify-blaze-path-ownership-iteration44.py'
     read(str(verifier.relative_to(ROOT)))
     verified = subprocess.run([sys.executable, '-B', str(verifier)], cwd=ROOT,
@@ -259,7 +252,6 @@ def audit():
     findings['ownership44'] = ownership
     findings['failed_receipts'] = 'First iteration44 audit requested wrong fn visibility and left an empty capture; corrected audit now reproduced. Iteration43 final capture/manifest command failure is not performance evidence; later diagnostic and explicit withheld verdict remain. No old receipt overwritten.'
 
-    # Live state: report guard failure independently from archival success.
     live_names = ['bin/angelX', 'cockpit/Cargo.toml', 'cockpit/src/drive/loop_ctl.rs',
                   'locks/locked.sha256', 'tests/scripts/native-launch.test.mjs']
     for name in live_names:

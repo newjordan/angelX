@@ -14,11 +14,7 @@ pub(crate) enum AgentMenuKind {
 pub(crate) struct AgentControlMenu {
     pub(crate) kind: AgentMenuKind,
     pub(crate) selected: usize,
-    /// Concrete route whose effort list THINK is inspecting. MODEL keeps this
-    /// empty and uses `selected` as its route cursor.
     pub(crate) route_target: Option<(usize, usize)>,
-    /// A critically full route armed by the first commit gesture. A matching
-    /// second gesture explicitly forces it; navigation clears the arm.
     pub(crate) confirm_target: Option<(usize, usize)>,
 }
 

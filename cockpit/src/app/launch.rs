@@ -42,7 +42,6 @@ impl LaunchInput {
     }
 }
 
-/// Restore once, then apply CLI selection. No auth/catalog rereads or env writes.
 pub(crate) fn prepare(
     launch: &InteractiveLaunch,
     workspace: &std::path::Path,
@@ -66,9 +65,6 @@ pub(crate) fn prepare(
             return Err("initial turn requires a settled operational route".into());
         }
         let mut club = bag.in_hand();
-        // CLI effort may correct an invalid ambient preference on either
-        // subscription or API Responses routes. The checked override still
-        // rejects model, catalog and transport errors before capture.
         if let Some(requested) = &launch.effort {
             let wire = club.checked_launch_effort(requested)?;
             if bag.set_reasoning_effort(&wire).is_none() {
@@ -133,8 +129,6 @@ impl App {
         }
         false
     }
-    /// Call before an interaction that may change the binding. The cancellation
-    /// draft and typed-ahead input are separate; never a steer or concatenation.
     pub(crate) fn launch_interaction(&mut self) {
         self.cancel_launch(true);
         self.launch_route = None;
@@ -177,7 +171,6 @@ impl App {
             self.apply_ultrathink_effort(&text);
             binding.club = self.bag.in_hand();
             if let Some(effort) = self.bag.reasoning_effort() {
-                // Capture the session choice, not a later worker-thread getter.
                 match crate::agent::club::launch_effort(
                     Arc::clone(&binding.club),
                     &effort,

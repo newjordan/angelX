@@ -1,4 +1,3 @@
-"""Host-clock phase diagnostics distinguish measured, assumed and unknown time."""
 import contextlib
 import importlib.util
 import io

@@ -206,13 +206,10 @@ pub(super) fn flight(cv: &mut Img, _run: &Run, shot: &Projectile) -> bool {
         (1.0, 0.0)
     };
     if shot.hostile {
-        // Same danger grammar for every room and species. Keep the rim inside
-        // the collision disc; a dim wake is never another solid bullet.
         let radius = (patterns::girth(shot) * UNIT).max(0.5);
         let r = radius.ceil() as i32;
         for y in -r..=r {
             for x in -r..=r {
-                // Cover cells touched by the disc, at most half a pixel beyond it.
                 let d = ((x.abs() as f32 - 0.5).max(0.0)).hypot((y.abs() as f32 - 0.5).max(0.0));
                 if d <= radius {
                     cv.put(p.0 + x, p.1 + y, '8');
@@ -227,7 +224,6 @@ pub(super) fn flight(cv: &mut Img, _run: &Run, shot: &Projectile) -> bool {
                 }
             }
         }
-        // A detached, dim wake is direction, not a larger collision body.
         for k in 0..6 {
             pixel(
                 cv,
@@ -281,7 +277,6 @@ fn body(
 ) {
     let n = (ink.length * size).round().max(3.0) as i32;
     let width = (ink.width * size).round().max(1.0) as i32;
-    // A frame's travel plus the shaft, capped so a rail never becomes a beam.
     let trail = ((speed / 60.0).ceil() as i32 + n / 2).clamp(3, 18);
     for k in (n / 2..trail + n / 2).rev() {
         pixel(cv, p, way, -k as f32, 0.0, ink.wake);
@@ -367,8 +362,6 @@ pub(super) fn muzzle(cv: &mut Img, run: &Run, puff: &crate::rules::feel::Puff) -
     if !enabled() {
         return false;
     }
-    // A puff has no owner; match its fresh release rather than guessing from
-    // the closest knight (who may be holding an entirely different weapon).
     let Some(release) = run
         .feel
         .ranged
@@ -421,7 +414,6 @@ pub(super) fn accents(cv: &mut Img, run: &Run) {
     if !enabled() {
         return;
     }
-    // A wisp off every non-powder release; powder already has its own smoke.
     for p in run.feel.puffs.iter().filter(|p| !p.smoke && p.dust == 0) {
         let age = crate::rules::feel::FLASH_TICKS.saturating_sub(p.ttl) as f32;
         let pos = at(p.x - p.dx * 0.15, p.y - p.dy * 0.15);
@@ -453,7 +445,6 @@ pub(super) fn events(cv: &mut Img, run: &Run) {
         let ink = look(e.kind);
         match e.mark {
             Mark::Release if e.hostile && age < 4.0 => {
-                // Spawn beat, outside the body and broken, never a safe delay.
                 let r = e.radius * UNIT + 2.0 + age * 0.5;
                 for k in 0..4 {
                     let a = k as f32 * std::f32::consts::FRAC_PI_2;
@@ -465,7 +456,6 @@ pub(super) fn events(cv: &mut Img, run: &Run) {
                 }
             }
             Mark::Release if !e.hostile => {
-                // Bow release, crossbow snap, powder flash, spell bloom.
                 if age < 3.0 {
                     let length = (ink.muzzle * (1.0 - age / 4.0)) as i32;
                     for k in 0..length {
@@ -497,7 +487,6 @@ pub(super) fn events(cv: &mut Img, run: &Run) {
                     }
                 }
                 if ink.body == Body::Ball {
-                    // Powder wad ejected beside the mouth, bounces and rests.
                     let t = age.min(10.0);
                     let bounce = (t * (10.0 - t) * 0.3).max(0.0);
                     let side = 3.0 + t * 0.45;
@@ -510,7 +499,6 @@ pub(super) fn events(cv: &mut Img, run: &Run) {
                 }
             }
             Mark::Wall => {
-                // Stone dust is neutral; chips fall back rather than explode.
                 for k in 0..4 {
                     let side = (k as f32 - 1.5) * (1.0 + age * 0.35);
                     pixel(
@@ -538,7 +526,6 @@ pub(super) fn events(cv: &mut Img, run: &Run) {
                 }
             }
             Mark::Flesh => {
-                // The flesh burst is gore's job. Confirm at the shooter's hand.
                 if age < 4.0
                     && let Some(hero) = run.players.get(&u32::from(e.owner))
                 {
@@ -564,7 +551,6 @@ pub(super) fn events(cv: &mut Img, run: &Run) {
     });
 }
 
-/// One fallback sprite per class, shared by the stage's sheet.
 pub(in super::super) fn mark(form: room_scene::ShotForm) -> Img {
     let mut mark = Img::new(25, 25);
     body(

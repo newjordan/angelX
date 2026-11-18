@@ -165,8 +165,6 @@ fn ore_threats_are_admitted_beside_authentic_floor_camps() {
         run.valid_snapshot(),
         "ore sentries coexist with the live native camp"
     );
-    // This helper advances real steps and therefore settles the ore sentries
-    // too. Inspect admission before it clears the entire company.
     boss_gate_testing::finish_room(&mut run);
     assert!(run.valid_snapshot());
     assert!(run.ore_sentries_defeated(&d.id));
@@ -178,8 +176,6 @@ fn ore_threats_warn_before_their_attacks_hurt_a_careless_knight() {
         let start = run.players[&1].hp;
         let mut warned = false;
         for tick in 0..HZ * 25 {
-            // A copied arrow is fired away from the stalkers; then this
-            // careless player stands on the return line instead of dodging.
             let input = Input {
                 fire: kind == OreKind::Crystal && tick < 45,
                 aim_y: 1,

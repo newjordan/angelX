@@ -87,23 +87,19 @@ fn the_number_keys_take_the_hotbars_slots_and_the_arrows_change_its_bank() {
     press(&mut run, 1, Input { cast: 2, ..Default::default() });
     assert_eq!(board(&run, 1).plan, usize::from(bar[1]));
     assert_eq!(board(&run, 1).rig.slot, 1);
-    // Down an arrow, the next bank: the same place in it.
     press(&mut run, 1, Input { aim_y: 1, ..Default::default() });
     assert_eq!(board(&run, 1).rig.slot, 4);
     assert_eq!(board(&run, 1).plan, usize::from(bar[4]));
     press(&mut run, 1, Input { cast: 3, ..Default::default() });
     assert_eq!(board(&run, 1).rig.slot, 5, "key 3 of the second bank");
-    // Q takes another tool, and the slot in hand holds it.
     let before = board(&run, 1).plan;
     press(&mut run, 1, Input { swing: true, ..Default::default() });
     let now = board(&run, 1).plan;
     assert_ne!(before, now);
     assert_eq!(usize::from(board(&run, 1).rig.bar[5]), now);
-    // The first bank still holds what it did.
     press(&mut run, 1, Input { aim_y: -1, ..Default::default() });
     press(&mut run, 1, Input { cast: 1, ..Default::default() });
     assert_eq!(board(&run, 1).plan, usize::from(bar[0]));
-    // A hotbar is the seat's own.
     assert!(board(&run, 1).valid());
 }
 
@@ -124,7 +120,6 @@ fn what_the_camp_cannot_pay_for_is_laid_as_a_plan_and_the_hands_raise_it_when_it
     press(&mut run, 1, Input { interact: true, ..Default::default() });
     assert_eq!(run.home.industry.plans.ghosts.len(), 1, "laid as a plan: {}", board(&run, 1).message);
     assert!(run.home.industry.buildings.values().all(|b| b.plan != "sawpit"));
-    // Everyone sees it; the camp's goods come; the hands raise it.
     rich(&mut run);
     seconds(&mut run, 40);
     assert!(run.home.industry.plans.ghosts.is_empty(), "raised: {:?}", run.home.industry.plans);
@@ -147,7 +142,6 @@ fn the_comma_key_lays_plans_even_when_the_camp_is_rich_and_f_ranks_one_and_x_can
     assert_eq!(run.home.industry.plans.ghosts.len(), 1, "a plan, though the camp is rich");
     let id = *run.home.industry.plans.ghosts.keys().next().unwrap();
     assert_eq!(run.home.industry.plans.ghosts[&id].priority, 1);
-    // F on the plan: more urgent. X on it: cancelled.
     let at = run.home.industry.plans.ghosts[&id].tile;
     run.kingdom.industry.get_mut(&1).unwrap().tile = at;
     run.kingdom.industry.get_mut(&1).unwrap().pointed = true;
@@ -155,7 +149,6 @@ fn the_comma_key_lays_plans_even_when_the_camp_is_rich_and_f_ranks_one_and_x_can
     assert_eq!(run.home.industry.plans.ghosts[&id].priority, 2, "{}", board(&run, 1).message);
     press(&mut run, 1, Input { bomb: true, ..Default::default() });
     assert!(run.home.industry.plans.ghosts.is_empty(), "{}", board(&run, 1).message);
-    // The comma again: building at once.
     press(&mut run, 1, Input { skill: 2, ..Default::default() });
     assert!(!board(&run, 1).rig.planning);
 }
@@ -174,7 +167,6 @@ fn holding_e_while_walking_lays_a_row_of_plans_that_the_hands_raise_one_after_an
     assert!(n >= 5, "a row of plans behind the knight: {n}");
     let ys: std::collections::BTreeSet<i16> = run.home.industry.plans.ghosts.values().map(|g| g.tile.1).collect();
     assert!(ys.len() <= 2, "in a line: {ys:?}");
-    // It is one step to take back.
     assert_eq!(board(&run, 1).rig.undo.len(), 1);
     seconds(&mut run, 120);
     let wells = run.home.industry.buildings.values().filter(|b| b.plan == "well").count();
@@ -247,20 +239,16 @@ fn a_group_is_copied_with_m_and_stamped_with_e_and_kept_with_the_realm() {
     let in_hand = tools()[board(&run, 1).plan].clone();
     assert_eq!(in_hand, Tool::Pattern("copy-a"), "the copy is in hand");
     let before = run.home.industry.buildings.len();
-    // Stamp it elsewhere.
     let b = run.kingdom.industry.get_mut(&1).unwrap();
     b.tile = (180, 120);
     b.pointed = true;
     press(&mut run, 1, Input { interact: true, ..Default::default() });
     assert_eq!(run.home.industry.buildings.len(), before + 2, "{}", board(&run, 1).message);
-    // Taking it back is one press.
     press(&mut run, 1, Input { play: 1, ..Default::default() });
     assert_eq!(run.home.industry.buildings.len(), before);
-    // It is kept: the realm saves it, and so does a seat read back.
     let saved = serde_json::to_string(&run.home.industry).unwrap();
     let back: crate::kingdom::Kingdom = serde_json::from_str(&saved).unwrap();
     assert!(back.copies.contains_key("copy-a"));
-    // The tool is in the list; an empty place's is skipped by Q.
     let k = &run.home.industry;
     assert!(usable(k, &Tool::Pattern("copy-a")) && !usable(k, &Tool::Pattern("copy-b")));
 }
@@ -284,7 +272,6 @@ fn the_card_is_made_for_the_seat_that_asked_and_sent_to_that_seat_only() {
     assert_eq!(card.kind, "WORKS");
     assert!(card.rows.iter().any(|r| r.label == "STATE"));
     assert!(run.kingdom.industry.get(&2).is_none_or(|b| b.rig.numbers.is_none()), "the other seat asked for nothing");
-    // Across the wire the other seat's view of the tree has none of seat one's numbers.
     let tree = crate::wire::publish(&run).expect("a tree");
     let has = |tree: &angel_net::doc::value::Value| {
         tree.field("kingdom")
@@ -299,7 +286,6 @@ fn the_card_is_made_for_the_seat_that_asked_and_sent_to_that_seat_only() {
     let theirs = crate::wire::seat_tree(&tree, Some(1));
     assert!(has(&mine), "seat one is sent its own numbers");
     assert!(!has(&theirs), "seat two is not");
-    // The card goes when asked to.
     press(&mut run, 1, Input { team: true, ..Default::default() });
     still(&mut run, 2);
     assert!(board(&run, 1).rig.numbers.is_none());
@@ -310,7 +296,6 @@ fn the_ledger_has_goals_output_and_chokes_and_a_choke_sends_the_view_there() {
     let mut run = run(1);
     out(&mut run, 1);
     let c = catalog();
-    // A starving bench to find.
     let k = &mut run.home.industry;
     k.apply(c, Command::Build { plan: "banker".into(), tile: (160, 106) }).unwrap();
     for b in k.buildings.values_mut() {
@@ -323,7 +308,6 @@ fn the_ledger_has_goals_output_and_chokes_and_a_choke_sends_the_view_there() {
         k.stock.remove(r);
     }
     seconds(&mut run, 90);
-    // C opens the ledger; P turns it: charters, claims, people, works, goals, output, chokes.
     press(&mut run, 1, Input { ride: true, ..Default::default() });
     let mut seen = vec![board(&run, 1).page];
     for _ in 0..6 {
@@ -334,7 +318,6 @@ fn the_ledger_has_goals_output_and_chokes_and_a_choke_sends_the_view_there() {
     still(&mut run, 2);
     let chokes = board(&run, 1).rig.numbers.as_ref().expect("numbers").chokes.clone();
     assert!(!chokes.is_empty(), "something chokes the works");
-    // E goes there: the view looks at the place, the ledger is away, walking brings it back.
     press(&mut run, 1, Input { interact: true, ..Default::default() });
     let b = board(&run, 1);
     assert_eq!(b.page, 0);
@@ -368,15 +351,12 @@ fn a_mouse_button_held_and_dragged_lays_a_row_as_holding_e_does() {
     assert_eq!(laid, 7, "a road from (162, 112) to (168, 112): {laid}");
     assert!((162..=168).all(|x| run.home.industry.roads.contains(&(x, 112))));
     assert!(board(&run, 1).rig.drag.is_none(), "the button is up");
-    // The hotbar clicked.
     act(&mut run, A::Slot(2));
     assert_eq!(board(&run, 1).rig.slot, 2);
-    // A right click points: the card, and nothing is laid.
     let before = run.home.industry.roads.len();
     act(&mut run, A::Plot { tile: (165, 112), build: false });
     assert!(board(&run, 1).rig.card);
     assert_eq!(run.home.industry.roads.len(), before);
-    // One undo takes the dragged row.
     press(&mut run, 1, Input { play: 1, ..Default::default() });
     assert_eq!(run.home.industry.roads.len(), roads);
 }
@@ -399,7 +379,6 @@ fn the_recipe_the_claim_and_the_carts_have_keys_of_their_own() {
     assert_eq!(run.home.industry.buildings[&id].carts.len(), 2, "{}", board(&run, 1).message);
     press(&mut run, 1, Input { skill: 3, ..Default::default() });
     assert_eq!(run.home.industry.buildings[&id].carts.len(), 4);
-    // And keys 1, 2 and 3 are the hotbar's now.
     assert!(board(&run, 1).message.contains("CARTS"));
     let _ = Laid::Road((0, 0));
 }
@@ -414,7 +393,6 @@ fn the_party_sees_the_same_plans_and_the_hands_at_them() {
     assert_eq!(v.plans.len(), 1);
     assert_eq!(v.plans[0].priority, 2);
     assert!(!v.crews.is_empty(), "the hands are out: {:?}", run.home.industry.plans.crews);
-    // A second seat's own board has not been touched by the first's keys.
     assert!(run.kingdom.industry.get(&2).is_none_or(|b| b.rig.is_idle()));
     assert!(board(&run, 1).valid());
 }

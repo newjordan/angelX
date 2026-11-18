@@ -10,7 +10,6 @@ fn bytes(cmd: &DelveCmd) -> Vec<u8> {
     out
 }
 
-/// Every field of an input set to something, for the round trips.
 fn busy() -> Input {
     Input {
         builder: Some(crate::rules::builder_input::BuilderAction::Selection(511)),
@@ -60,7 +59,6 @@ fn a_command_reads_back_as_it_was_written() {
         assert!(b.len() <= MAX_BYTES, "{} bytes", b.len());
         assert_eq!(DelveCmd::decode(&b), Some(cmd));
     }
-    // Walking and firing is four bytes; standing still is too.
     assert_eq!(bytes(&walking).len(), 4);
     assert_eq!(bytes(&DelveCmd::default()).len(), 4);
     for action in [
@@ -86,42 +84,33 @@ fn a_command_reads_back_as_it_was_written() {
 #[test]
 fn malformed_bytes_are_refused() {
     let good = bytes(&DelveCmd { held: busy(), pressed: busy() });
-    // Cut short anywhere, or with a byte left over.
     for n in 0..good.len() {
         assert_eq!(DelveCmd::decode(&good[..n]), None, "cut at {n}");
     }
     let mut long = good.clone();
     long.push(0);
     assert_eq!(DelveCmd::decode(&long), None);
-    // An axis code 3 is no axis.
     assert_eq!(DelveCmd::decode(&[0b0000_0011, 0, 0x55, 0]), None);
     assert_eq!(DelveCmd::decode(&[0x55, 0, 0b1100_0000, 0]), None);
-    // A flag past the optional mirror action (bit 19) is malformed.
     assert_eq!(DelveCmd::decode(&[0x55, 0x80, 0x80, 0x20, 0x55, 0]), None);
     assert!(DelveCmd::decode(&[0x55, 0x80, 0x80, 0x10, 0x55, 0]).is_some_and(|c| c.held.team));
     assert!(DelveCmd::decode(&[0x55, 0x80, 0x80, 0x04, 0x55, 0]).is_some_and(|c| c.held.ride));
     assert!(DelveCmd::decode(&[0x55, 0x80, 0x80, 0x08, 0x55, 0]).is_some_and(|c| c.held.cycle && !c.held.ride));
-    // A slots varint claimed and zero, or too wide.
     assert_eq!(DelveCmd::decode(&[0x55, 0x80, 0x20, 0, 0x55, 0]), None);
     assert_eq!(DelveCmd::decode(&[0x55, 0x80, 0x20, 0x80, 0x04, 0x55, 0]), None);
-    // A card slot past the hand (5), a spell past the slots (5), a skill
-    // past the skills (6): read, then refused by `Input::valid`.
     for slots in [5u64, 5 << 3, 6 << 6] {
         let mut b = vec![0x55, 0x80, 0x20];
         put_varint(&mut b, slots);
         b.extend_from_slice(&[0x55, 0]);
         assert_eq!(DelveCmd::decode(&b), None, "slots {slots:#x}");
     }
-    // A vote with no action, an unknown action, a rating of 0 or 6.
     for action in [None, Some(8u8), Some(14), Some(255)] {
         let mut b = vec![0x55, 0x80, 0x40, 9];
         b.extend(action);
         b.extend_from_slice(&[0x55, 0]);
         assert_eq!(DelveCmd::decode(&b), None, "action {action:?}");
     }
-    // Too long to be a command at all.
     assert_eq!(DelveCmd::decode(&[0x55; MAX_BYTES + 1]), None);
-    // Garbage never panics.
     let mut seed = 0x9e37_79b9u32;
     for _ in 0..20_000 {
         let n = (seed % 24) as usize;
@@ -181,7 +170,6 @@ fn a_pile_up_folds_into_the_next_command_keeping_its_presses() {
     assert_eq!(input.move_x, 1, "the newer command's held keys");
     assert!(input.bomb && input.fire);
     assert_eq!((input.cast, input.vote), (2, vote));
-    // The seat's queue folds the same way: the tap is not lost.
     let mut seat = SeatInputs::default();
     seat.push(1, older);
     seat.push(2, DelveCmd::neutral());
@@ -192,8 +180,6 @@ fn a_pile_up_folds_into_the_next_command_keeping_its_presses() {
     assert!(taken.input().bomb);
 }
 
-/// A tap of F shorter than a tick (down and up between two samples) is in
-/// that tick's `pressed` alone, and the knight fires on that tick.
 #[test]
 fn a_tap_shorter_than_a_tick_fires() {
     let mut run = Run::new(7, 1, None);
@@ -210,7 +196,6 @@ fn a_tap_shorter_than_a_tick_fires() {
     let decoded = DelveCmd::decode(&bytes(&tap)).expect("reads");
     run.step(&BTreeMap::from([(1, decoded.input())]));
     assert!(shots(&run) > before, "the tap fired");
-    // The repeat of that tick, had the next command been late, does not.
     let mut quiet = run.clone();
     let before = shots(&quiet);
     for _ in 0..HZ {
@@ -225,7 +210,7 @@ fn a_late_latch_press_keeps_its_tick_through_the_existing_queue() {
     seat.set_cushion(0);
     seat.push(1, DelveCmd::neutral());
     seat.take();
-    seat.take(); // sequence 2 was guessed before its packet arrived
+    seat.take();
     let tap = DelveCmd { held: Input::default(), pressed: Input {
         fire: true, move_y: -1, latch_tick: Some(123), ..Input::default()
     }};
@@ -256,6 +241,5 @@ fn mirror_actions_round_trip_fold_and_reject_unknown_codes() {
         body.extend_from_slice(&[invalid, 0x55, 0]);
         assert_eq!(DelveCmd::decode(&body), None);
     }
-    // The new optional flag never alters pre-creator commands.
     assert_eq!(bytes(&DelveCmd::neutral()), [0x55, 0, 0x55, 0]);
 }

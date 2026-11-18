@@ -72,7 +72,6 @@ os._exit(23)
         Some("Z"),
         "the output-holding descendant must still be alive when the shell is reaped"
     );
-    // Teardown must not signal the already-reaped shell's numeric PID.
     drop(pane);
     let deadline = Instant::now() + Duration::from_secs(3);
     while std::path::Path::new(&stat_path).exists() {

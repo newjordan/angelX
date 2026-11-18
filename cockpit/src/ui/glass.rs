@@ -14,7 +14,6 @@ use angel_plug::glass::GlassArt;
 #[cfg(feature = "glass")]
 static HOST: std::sync::OnceLock<angel_glass::Host> = std::sync::OnceLock::new();
 
-/// Whether this launch asked for the window.
 #[cfg(feature = "glass")]
 pub(crate) fn requested() -> bool {
     std::env::var("ANGEL_GLASS").is_ok_and(|v| v == "1")
@@ -23,12 +22,7 @@ pub(crate) fn requested() -> bool {
 #[cfg(feature = "glass")]
 pub(crate) fn install(host: angel_glass::Host) {
     let _ = HOST.set(host);
-    // The HD art pack is read as the window opens, so the first room drawn
-    // has it (`ArtPack`).
     GameHost::window_opened();
-    // A signal's exit must happen on the window's thread, after the GPU is
-    // released: exit() from the reaper thread tears the driver down while the
-    // window is still presenting (SIGSEGV in the driver).
     #[cfg(target_os = "linux")]
     crate::agent::sandbox::process_owner::route_exit(|code| {
         if let Some(host) = HOST.get() {
@@ -37,14 +31,11 @@ pub(crate) fn install(host: angel_glass::Host) {
     });
 }
 
-/// The window itself, for emitters that speak layers and stages
-/// directly (the mini-viz presentation surface). `None` outside it.
 #[cfg(feature = "glass")]
 pub(crate) fn host() -> Option<&'static angel_glass::Host> {
     HOST.get()
 }
 
-/// Whether the cockpit is drawing into the GPU window.
 pub(crate) fn active() -> bool {
     #[cfg(feature = "glass")]
     return HOST.get().is_some();
@@ -52,8 +43,6 @@ pub(crate) fn active() -> bool {
     false
 }
 
-/// The window's cell size in pixels, for sizing pictures. `None` outside
-/// the window.
 pub(crate) fn cell_pixels() -> Option<(u16, u16)> {
     #[cfg(feature = "glass")]
     if let Some(host) = HOST.get() {
@@ -66,9 +55,6 @@ pub(crate) fn cell_pixels() -> Option<(u16, u16)> {
     None
 }
 
-/// Hand a picture straight to the window in place of a Kitty upload: raw
-/// RGBA, scaled on the GPU into its `cols` × `rows` cells. False outside the
-/// window, where the caller uploads as before.
 pub(crate) fn upload_picture(
     id: u32,
     (width, height): (u32, u32),
@@ -91,8 +77,6 @@ pub(crate) fn upload_picture(
     false
 }
 
-/// Layer groups drawn this frame, and those on screen: a group a frame no
-/// longer draws (its screen has gone) is cleared by `frame_done`.
 #[cfg(feature = "glass")]
 #[derive(Default)]
 struct Groups {
@@ -103,7 +87,6 @@ struct Groups {
 #[cfg(feature = "glass")]
 static GROUPS: std::sync::LazyLock<std::sync::Mutex<Groups>> = std::sync::LazyLock::new(Default::default);
 
-/// Show `layers` as `group` this frame (an empty list clears it).
 #[cfg(feature = "glass")]
 pub(crate) fn show_group(host: &angel_glass::Host, group: u32, layers: Vec<angel_glass::Layer>) {
     let mut groups = GROUPS.lock().unwrap();
@@ -119,8 +102,6 @@ pub(crate) fn show_group(host: &angel_glass::Host, group: u32, layers: Vec<angel
     }
 }
 
-/// GPU geometry for the mini-viz dock. frame_done removes this group on any
-/// frame where its route/pane is no longer rendered.
 pub(crate) fn object_dock(dock: &crate::ui::object_dock::ObjectDock, motion: crate::ui::viz::lifecycle_viz::MotionMode) {
     #[cfg(feature = "glass")]
     if let Some(host) = HOST.get() {
@@ -129,9 +110,6 @@ pub(crate) fn object_dock(dock: &crate::ui::object_dock::ObjectDock, motion: cra
     let _ = (dock, motion);
 }
 
-/// Small, cached gold-coin flip frames above the cockpit. The terminal draws
-/// the same material as colored dots; the window gets its full-resolution rim
-/// and embossed face. At most sixteen 96x96 pictures are uploaded once.
 pub(crate) fn spend_coins(coins: &[crate::ui::viz::spend_viz::CoinPose]) -> bool {
     #[cfg(feature = "glass")]
     if let Some(host) = HOST.get() {
@@ -174,14 +152,10 @@ pub(crate) fn spend_coins(coins: &[crate::ui::viz::spend_viz::CoinPose]) -> bool
     false
 }
 
-/// Pictures already handed to the window, by id.
 #[cfg(feature = "glass")]
 pub(crate) static UPLOADED: std::sync::LazyLock<std::sync::Mutex<std::collections::HashSet<u32>>> =
     std::sync::LazyLock::new(Default::default);
 
-/// After each drawn frame: a layer group nobody drew this frame (its screen
-/// has gone: the Delve, the Old Delve's portrait) leaves the window too, and
-/// so does the Delve's stage.
 pub(crate) fn frame_done() {
     #[cfg(feature = "glass")]
     if let Some(host) = HOST.get() {
@@ -246,8 +220,6 @@ impl angel_plug::screen::Console for Lent {
         buffer: &mut ratatui::buffer::Buffer,
         pixels: &mut dyn FnMut() -> Vec<u8>,
     ) -> bool {
-        // The one picture asked for here is the world map, whose content moves on every few
-        // steps in the same place: it changes in its window picture rather than taking a new one.
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         ("console picture", anchor.x, anchor.y, anchor.width, anchor.height).hash(&mut hasher);
@@ -325,7 +297,6 @@ pub(crate) fn game_surface(active: bool) {
     let _ = active;
 }
 
-/// `Some(copied)` in the window, `None` in a terminal.
 pub(crate) fn copy(text: &str) -> Option<bool> {
     #[cfg(feature = "glass")]
     if let Some(host) = HOST.get() {
@@ -335,7 +306,6 @@ pub(crate) fn copy(text: &str) -> Option<bool> {
     None
 }
 
-/// Put up the window's card (or take it down) with the next completed grid.
 #[cfg(feature = "glass")]
 pub(crate) fn set_card(card: Option<angel_glass::card::Card>) {
     if let Some(host) = HOST.get() {

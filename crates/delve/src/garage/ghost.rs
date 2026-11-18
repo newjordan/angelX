@@ -7,21 +7,16 @@
 //! thousand characters. The text is plain URL-safe base-64; it carries a version byte
 //! and the number of points, and anything that does not parse as one is no ghost.
 
-/// Points a second.
 pub const RATE: f32 = 5.;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Pt {
-    /// Metres into the lap.
     pub s: f32,
-    /// Metres left of the road's middle.
     pub y: f32,
-    /// Metres over the road.
     pub lift: f32,
     pub route: u8,
 }
 
-/// A lap's path, point by point, one every `1 / RATE` seconds from the line.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Path {
     pub pts: Vec<Pt>,
@@ -54,7 +49,6 @@ fn take(text: &str) -> Option<Vec<u8>> {
 }
 
 impl Path {
-    /// The path as text.
     pub fn encode(&self) -> String {
         let n = self.pts.len().min(u16::MAX as usize);
         let mut bytes = vec![VERSION, (n >> 8) as u8, n as u8];
@@ -76,7 +70,6 @@ impl Path {
         out
     }
 
-    /// A path from text, or none if the text is not one.
     pub fn decode(text: &str) -> Option<Path> {
         let b = take(text)?;
         if b.len() < 3 || b[0] != VERSION { return None; }
@@ -99,11 +92,8 @@ impl Path {
         Some(Path { pts })
     }
 
-    /// How long the lap took, in seconds.
     pub fn seconds(&self) -> f32 { self.pts.len().saturating_sub(1) as f32 / RATE }
 
-    /// Where the pod was `t` seconds into the lap, between the points either side; the last
-    /// point for ever once the lap is done.
     pub fn at(&self, t: f32) -> Option<Pt> {
         let last = self.pts.last()?;
         if t <= 0. { return self.pts.first().copied(); }

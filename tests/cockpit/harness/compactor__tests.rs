@@ -4,8 +4,6 @@ use std::sync::Mutex;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
-/// A compactor that answers with `reply` after `delay` (or fails, when
-/// `reply` is `Err`), keeping what it was sent.
 struct Scripted {
     reply: Result<&'static str, &'static str>,
     delay: Duration,
@@ -51,7 +49,6 @@ fn scratch(tag: &str) -> PathBuf {
     root
 }
 
-/// Opt-in flight through the real connected Treebeard digest machinery.
 #[test]
 #[ignore]
 fn local_model_treebeard_digest_flight() {
@@ -114,10 +111,8 @@ fn a_digest_that_has_landed_rides_its_receipt_framed_by_its_route() {
     let (landed, rolling) = attach_ready(&mut history, pending);
     assert_eq!((landed.landed, landed.missed, landed.rolling), (1, 0, 0));
     assert!(rolling.is_empty());
-    // The seat reads its route; the call and the output ride beside it as data.
     let seen = club.seen.lock().unwrap().join("\n");
     assert!(seen.contains("⡌⠁\nread_file|src/lib.rs\n\nBODY"), "{seen}");
-    // The receipt keeps its handle and gains the framed digest, its braille broken.
     let content = history[0].content.to_string();
     assert_eq!(
         content,
@@ -141,8 +136,6 @@ fn a_digest_that_fails_leaves_the_bare_receipt() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A slow digest never holds the hop: the receipt goes out bare, the digest
-/// rolls, and when it lands it joins the tail under its handle — once.
 #[test]
 fn a_slow_digest_rolls_and_lands_at_the_tail_under_its_handle() {
     let root = scratch("slow");
@@ -153,7 +146,6 @@ fn a_slow_digest_rolls_and_lands_at_the_tail_under_its_handle() {
     assert!(started.elapsed() < Duration::from_millis(100));
     assert_eq!((landed.landed, landed.rolling), (0, 1));
     assert_eq!(&*history[0].content, RECEIPT);
-    // Still in flight: nothing joins the tail yet.
     let early = drain_late(&mut history, &mut rolling);
     assert_eq!((early.landed, early.rolling, history.len()), (0, 1, 1));
     settle(&mut rolling);
@@ -162,16 +154,12 @@ fn a_slow_digest_rolls_and_lands_at_the_tail_under_its_handle() {
     assert_eq!(history.len(), 2);
     assert_eq!(history[1].role, ChatRole::Harness);
     assert_eq!(&*history[1].content, "⡌⠉ hnd_1\n- took its time");
-    // The receipt that was already sent is never rewritten.
     assert_eq!(&*history[0].content, RECEIPT);
-    // Nothing lands twice.
     let again = drain_late(&mut history, &mut rolling);
     assert_eq!((again.landed, history.len()), (0, 2));
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A helper that never answers (its host vanished mid-stream) holds nothing:
-/// the hop and every later drain return at once.
 #[test]
 fn a_hung_digest_holds_nothing() {
     let root = scratch("hung");
@@ -214,7 +202,6 @@ fn the_hops_digests_run_side_by_side_and_land_in_place() {
         start(&fast, root.clone(), 0, "hnd_1", "a", "BODY"),
         start(&also, root.clone(), 2, "hnd_2", "b", "BODY"),
     ];
-    // Side by side, two 300 ms digests land in well under 600 ms.
     settle(&mut pending);
     assert!(started.elapsed() < Duration::from_millis(550));
     let (landed, _) = attach_ready(&mut history, pending);
@@ -271,7 +258,6 @@ fn a_handoff_receipt_names_its_job_and_its_read_rolls_like_a_digest() {
         Duration::ZERO,
     );
     let helper: Arc<dyn Club> = club.clone();
-    // Landed in time: it rides the hand-off receipt under ⡌⠋.
     let mut history = vec![ChatMsg::tool("c1", HANDOFF_RECEIPT)];
     let mut pending = vec![start_handoff(
         &helper,
@@ -290,7 +276,6 @@ fn a_handoff_receipt_names_its_job_and_its_read_rolls_like_a_digest() {
     );
     let seen = club.seen.lock().unwrap().join("\n");
     assert!(seen.starts_with("⡌⠑\njob 7\n\n[handoff: job 7"), "{seen}");
-    // Late: it joins the tail named by its job.
     let slow: Arc<dyn Club> = Scripted::new("- still solving", Duration::from_millis(200));
     let mut history = vec![ChatMsg::tool("c1", HANDOFF_RECEIPT)];
     let (_, mut rolling) = attach_ready(
@@ -309,9 +294,6 @@ fn a_handoff_receipt_names_its_job_and_its_read_rolls_like_a_digest() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A paid-labelled driver: calls `calls` in order, one per request, thinking
-/// for `think` before every call after the first; then answers. Keeps every
-/// request's messages.
 struct Driver {
     calls: &'static [&'static str],
     think: Duration,
@@ -355,7 +337,6 @@ impl Club for Driver {
     }
 }
 
-/// A read-only tool with 48 KB of output: bulk the lane parks.
 struct Dump;
 
 impl crate::agent::harness::Tool for Dump {
@@ -407,13 +388,10 @@ fn registry_with(local: &Arc<Scripted>) -> crate::agent::harness::ToolRegistry {
     registry
 }
 
-/// End to end: the hop that parks the bulk sends a bare receipt at once (the
-/// 300 ms digest is still rolling); the digest lands while the root thinks
-/// and reaches it at the tail of the next request.
 #[test]
 fn a_parked_result_reaches_the_paid_root_and_its_digest_follows_at_the_tail() {
     if !enabled() {
-        return; // another lane, or digests switched off in this environment
+        return;
     }
     let driver = Driver::new(&["dump", "noop"], Duration::from_millis(800));
     let local = Scripted::new(
@@ -432,12 +410,10 @@ fn a_parked_result_reaches_the_paid_root_and_its_digest_follows_at_the_tail() {
     )
     .unwrap();
     assert_eq!(answer, "done");
-    // The local seat read the bulk.
     let sent = local.seen.lock().unwrap().join("\n");
     assert!(sent.contains("⡌⠁") && sent.contains("one line of bulk output"));
     let requests = driver.requests.lock().unwrap().clone();
     assert_eq!(requests.len(), 3);
-    // Request 2: the receipt, bare — the hop did not wait for the digest.
     let receipt = requests[1]
         .iter()
         .rev()
@@ -455,7 +431,6 @@ fn a_parked_result_reaches_the_paid_root_and_its_digest_follows_at_the_tail() {
         "{receipt}"
     );
     assert_eq!(late_note(&requests[1]), None);
-    // Request 3: the digest at the tail, named by the receipt's handle.
     let note = late_note(&requests[2]).expect("the late digest");
     assert!(
         note.ends_with("\n- 2000 identical lines of bulk output"),
@@ -465,8 +440,6 @@ fn a_parked_result_reaches_the_paid_root_and_its_digest_follows_at_the_tail() {
     assert!(note.starts_with(&format!("⡌⠉ {handle}\n")), "{note}");
 }
 
-/// A digest still rolling when the driver's turn ends waits in the registry
-/// and joins the tail of the next turn's first request.
 #[test]
 fn a_digest_still_rolling_at_turn_end_lands_in_the_next_turn() {
     if !enabled() {
@@ -474,7 +447,6 @@ fn a_digest_still_rolling_at_turn_end_lands_in_the_next_turn() {
     }
     let local = Scripted::new("- the bulk, digested", Duration::from_millis(300));
     let registry = registry_with(&local);
-    // dump, then answer at once: the digest is still out when the turn ends.
     let first = Driver::new(&["dump"], Duration::ZERO);
     let mut history = vec![ChatMsg::user("dump it")];
     let answer = crate::agent::harness::run_turn(
@@ -490,7 +462,6 @@ fn a_digest_still_rolling_at_turn_end_lands_in_the_next_turn() {
     assert_eq!(registry.rolling_digests.lock().unwrap().len(), 1);
     assert!(history.iter().all(|m| !m.content.starts_with("⡌⠉")));
     settle(&mut registry.rolling_digests.lock().unwrap());
-    // The next turn's first request carries it, once.
     let second = Driver::new(&[], Duration::ZERO);
     history.push(ChatMsg::user("and now?"));
     crate::agent::harness::run_turn(
@@ -515,7 +486,6 @@ fn a_digest_still_rolling_at_turn_end_lands_in_the_next_turn() {
     );
 }
 
-/// A tool result that is a hand-off receipt (as the shell returns one).
 struct Handed;
 
 impl crate::agent::harness::Tool for Handed {
@@ -534,8 +504,6 @@ impl crate::agent::harness::Tool for Handed {
     }
 }
 
-/// End to end: a hand-off receipt in the batch starts the helper's read
-/// (any lane), and the read reaches the root rolling like a digest.
 #[test]
 fn a_handed_off_job_is_read_by_the_helper_and_the_read_reaches_the_root() {
     let driver = Driver::new(&["handed", "noop"], Duration::from_millis(600));
@@ -582,8 +550,6 @@ fn a_handed_off_job_is_read_by_the_helper_and_the_read_reaches_the_root() {
     );
 }
 
-/// Live: the real helper path (HTTP club → connected seat → server). Run with
-/// `ANGEL_TREEBEARD_LIVE_URL=http://host:port/v1 cargo test -- --ignored live_`.
 #[test]
 #[ignore = "live: needs ANGEL_TREEBEARD_LIVE_URL"]
 fn live_compactor_digests_a_parked_output() {

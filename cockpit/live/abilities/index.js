@@ -10,10 +10,8 @@ const motion = motionResource?.value ?? { options: {} }
 const graphResource = resource.optional('character-graphs', 'pack', 'character-animation-graph-pack/1')
 const graphOptions = [...Object.keys(graphResource?.value.options ?? {}), 'off'].join('|')
 const motionOptions = [...Object.keys(motion.options), 'off'].join('|')
-// Delve supports six player seats; ability slots remain four per player.
 const MAX_PLAYERS = 6
 const reference = (module, option) => ({ module, resource: 'pack', option })
-// Bounded exact integers survive JSON/V8/native transport without rounding.
 const nextGraphIntent = (state, player) => {
   const previous = state.graphIntents?.[player] ?? 0
   return Number.isSafeInteger(previous) && previous >= 0 && previous < Number.MAX_SAFE_INTEGER ? previous + 1 : null

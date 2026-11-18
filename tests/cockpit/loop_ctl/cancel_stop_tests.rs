@@ -85,7 +85,7 @@ fn approval_for_live_foreground_or_background_owner_still_surfaces() {
             let (bg_reply, bg_job) =
                 crate::app::control::BackgroundJob::channel("owned approval", "retry");
             if background {
-                app.thinking = None; // held test channels have no actual worker
+                app.thinking = None;
                 app.loop_ctl.status = LoopStatus::Stopped;
                 app.bg_job = Some(bg_job);
             }

@@ -1,22 +1,3 @@
-"""OS-Atlas desktop grounding -> Mage-hands row format.
-
-Target architecture (verified in hands.rs:105-110 and regime.py:44-51):
-  production sends  "Instruction: Click {target}. ..."  and expects back a
-  <tool_call> whose arguments.coordinate is two numbers in the [0,999] frame.
-OS-Atlas gives exactly (referring expression, normalized bbox), so no LLM
-labelling is needed.
-
-Filters, all counted:
-  - empty / whitespace target
-  - target longer than MAX_TARGET chars (concatenated paragraph text, not a
-    clickable element name; their existing targets median ~20 chars)
-  - degenerate or inverted bbox
-  - duplicate (screen, target) pairs
-bbox values slightly outside [0,1] are clamped (210 in linux, 62 in macos).
-
-Rows are TRAIN ONLY. Evaluation stays on the existing 1,258-row holdout, which
-is the production-relevant measure; nothing here touches it.
-"""
 import json, sys, argparse, collections, hashlib
 
 MAX_TARGET = 100

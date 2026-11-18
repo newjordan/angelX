@@ -118,9 +118,6 @@ impl Tool for GitDiffTool {
     }
 }
 
-/// Summarize `git status --porcelain=v1 --branch` into a compact, readable
-/// orientation: branch + ahead/behind, then staged / modified / untracked files.
-/// Pure → testable against canned porcelain.
 pub(crate) fn summarize_git_status(porcelain: &str) -> String {
     let mut branch = String::new();
     let (mut staged, mut modified, mut untracked) = (Vec::new(), Vec::new(), Vec::new());
@@ -139,10 +136,10 @@ pub(crate) fn summarize_git_status(porcelain: &str) -> String {
         }
         let bytes = code.as_bytes();
         if bytes[0] != b' ' {
-            staged.push(path); // index has a change for this path
+            staged.push(path);
         }
         if bytes[1] != b' ' {
-            modified.push(path); // worktree change not yet staged
+            modified.push(path);
         }
     }
     let section = |title: &str, items: &[&str]| -> String {
@@ -190,7 +187,6 @@ impl Tool for GitStatusTool {
     }
 }
 
-/// Build the `git log` argv (clamped count, optional path scope). Pure → tested.
 pub(crate) fn git_log_argv(count: usize, path: Option<&str>) -> Vec<String> {
     let n = count.clamp(1, 100);
     let mut argv = vec![
@@ -234,12 +230,6 @@ impl Tool for GitLogTool {
     }
 }
 
-/// Plan (default) or execute atomic git commits over the dirty worktree.
-///
-/// Ported in spirit from oh-my-pi's `omp commit` split: group dirty paths by
-/// file class (source → test → docs → config → other → lock) and emit one
-/// commit per group, in that order. `execute=false` (default) only prints the
-/// plan; set `execute=true` to stage each unit and `git commit`.
 pub(crate) struct GitCommitTool {
     pub(crate) workspace: PathBuf,
 }
@@ -277,8 +267,6 @@ impl Tool for GitCommitTool {
         let include_untracked = args["include_untracked"].as_bool().unwrap_or(true);
         let message = args["message"].as_str().filter(|m| !m.is_empty());
 
-        // Ensure we're inside a git repo with an identity-friendly environment
-        // (run_git already sets user.name/email for harness commits).
         run_git(&self.workspace, &["rev-parse", "--is-inside-work-tree"])
             .map_err(|e| format!("git_commit: workspace is not a git worktree: {e}"))?;
 
@@ -299,12 +287,9 @@ impl Tool for GitCommitTool {
             return Ok(format_plan(&plan));
         }
 
-        // Execute: stage each unit's paths and commit. Stop on first failure
-        // without rewriting earlier commits (partial progress is reported).
         let mut receipts = Vec::new();
         for (i, unit) in plan.units.iter().enumerate() {
             validate_commit_message(&unit.subject)?;
-            // Stage only this unit's paths (never `git add -A` mid-split).
             let mut add_args: Vec<&str> = vec!["add", "--"];
             let path_refs: Vec<&str> = unit.paths.iter().map(String::as_str).collect();
             add_args.extend(path_refs.iter().copied());
@@ -316,8 +301,6 @@ impl Tool for GitCommitTool {
                     receipts.join("; ")
                 )
             })?;
-            // Skip an empty unit (e.g. its paths vanished between plan and
-            // execute); unrelated pre-staged paths belong to their own unit.
             let mut cached_args: Vec<&str> = vec!["diff", "--cached", "--name-only", "--"];
             cached_args.extend(path_refs.iter().copied());
             let cached = run_git(&self.workspace, &cached_args)?;
@@ -329,8 +312,6 @@ impl Tool for GitCommitTool {
                 ));
                 continue;
             }
-            // `--only` with pathspecs commits only this unit's paths, leaving
-            // any other staged units in the index for their own commits.
             let mut commit_args: Vec<&str> =
                 vec!["commit", "--only", "-q", "-m", &unit.subject, "--"];
             commit_args.extend(path_refs.iter().copied());

@@ -7,7 +7,6 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Token counts the Responses API reports for one turn (`response.usage`).
 #[derive(Clone, Copy, Debug, Default, serde::Serialize)]
 pub(crate) struct Usage {
     pub(crate) input: Option<u64>,
@@ -17,9 +16,6 @@ pub(crate) struct Usage {
     pub(crate) cache_write: Option<u64>,
 }
 
-/// Running usage for the session, plus the most recent rate-limit headers (raw
-/// name→value; the ChatGPT backend's exact header set isn't contractual, so we
-/// capture whatever it sends rather than hardcoding guesses).
 #[derive(Default)]
 pub(crate) struct UsageStats {
     pub(crate) attempts: u64,
@@ -34,8 +30,6 @@ pub(crate) struct UsageStats {
     pub(crate) rate_limits: Vec<(String, String)>,
 }
 
-/// Render accumulated usage for `/status`. `None` until a turn has reported usage
-/// (and no rate-limit headers seen) — so a never-used codex tab adds no noise.
 pub(crate) fn format_usage(s: &UsageStats) -> Option<String> {
     if s.attempts == 0 && s.turns == 0 && s.rate_limits.is_empty() {
         return None;
@@ -70,7 +64,6 @@ pub(crate) fn format_usage(s: &UsageStats) -> Option<String> {
             "\n    attempts  {} · usage unknown {} · partial {}",
             s.attempts, s.unknown_usage_attempts, s.partial_usage_attempts
         ));
-        // A bounded inspection tail; session counters cover evicted receipts.
         for receipt in s.recent_attempts.iter().rev().take(5).rev() {
             if let Ok(json) = serde_json::to_string(receipt) {
                 out.push_str("\n    attempt   ");
@@ -264,9 +257,6 @@ pub(crate) fn truthy(v: &str) -> bool {
     )
 }
 
-/// Pull plan rate-limit headers off a response (raw name→value). The ChatGPT
-/// backend's header set isn't a stable contract, so match defensively: anything
-/// vendor-prefixed (`x-codex-…`) or with `ratelimit`/`rate-limit` in the name.
 pub(crate) fn collect_rate_limits(resp: &ureq::Response) -> Vec<(String, String)> {
     let mut out = Vec::new();
     for name in resp.headers_names() {
@@ -281,7 +271,3 @@ pub(crate) fn collect_rate_limits(resp: &ureq::Response) -> Vec<(String, String)
     out.sort();
     out
 }
-
-// ---------------------------------------------------------------------------
-// SSE decoding for the Responses API
-// ---------------------------------------------------------------------------

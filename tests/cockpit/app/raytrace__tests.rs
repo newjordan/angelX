@@ -9,7 +9,6 @@ fn render_has_requested_dimensions() {
     let t = render(0.0, 20, 8);
     assert_eq!(t.lines.len(), 8);
     assert!(t.lines.iter().all(|l| l.spans.len() == 20));
-    // Two pixels per cell are encoded as fg/bg of one half-block glyph.
     assert!(t.lines[0].spans.iter().all(|s| s.content == HALF_BLOCK));
 }
 
@@ -21,7 +20,6 @@ fn zero_area_is_empty() {
 
 #[test]
 fn cube_is_actually_hit_on_screen() {
-    // A centered ray (down -Z) must strike the cube and be lit, not background.
     let spin = Spin::at(0.0);
     let local_origin = spin.to_local(V3::new(0.0, 0.0, CAM_DIST));
     let dir = spin.to_local(V3::new(0.0, 0.0, -1.0)).normalize();
@@ -33,15 +31,12 @@ fn cube_is_actually_hit_on_screen() {
 
 #[test]
 fn rays_that_miss_return_none() {
-    // Straight up from the eye never meets the box.
     let dir = V3::new(0.0, 1.0, 0.0);
     assert!(intersect_cube(V3::new(0.0, 0.0, CAM_DIST), dir).is_none());
 }
 
 #[test]
 fn frame_contains_both_cube_and_background() {
-    // Over a full frame some pixels hit the saturated cube and some land on the
-    // dim backdrop — i.e. the cube neither fills nor misses the whole window.
     let t = render(0.7, 40, 16);
     let mut saw_bright = false;
     let mut saw_dim = false;
@@ -67,7 +62,7 @@ fn extremes_do_not_panic() {
 
 #[test]
 fn hsv_primaries_are_correct() {
-    assert_eq!(hsv_to_rgb(0.0, 1.0, 1.0), (1.0, 0.0, 0.0)); // red
-    let (r, g, b) = hsv_to_rgb(1.0 / 3.0, 1.0, 1.0); // green
+    assert_eq!(hsv_to_rgb(0.0, 1.0, 1.0), (1.0, 0.0, 0.0));
+    let (r, g, b) = hsv_to_rgb(1.0 / 3.0, 1.0, 1.0);
     assert!(g > 0.99 && r < 0.01 && b < 0.01);
 }

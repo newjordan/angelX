@@ -13,19 +13,15 @@ use crate::tests::{TestEnvGuard, env_lock};
 fn exit_closes_the_app_but_idle_esc_and_ctrl_c_do_not() {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     let mut app = seed_preview_app();
-    // Idle Esc / Ctrl+C must NOT close — closing is deliberate via `exit`.
     app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     app.on_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
     assert!(!app.should_quit, "Esc/Ctrl+C when idle must not quit");
-    // Typing `exit` + Enter closes it.
     for c in "exit".chars() {
         app.on_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
     }
     app.on_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
     assert!(app.should_quit, "typing `exit` + Enter must close the app");
 }
-
-// ---- mouse capture lifecycle + pane-aware selection ----
 
 #[test]
 fn terminal_setup_enters_alt_screen_then_enables_mouse_capture() {
@@ -41,7 +37,6 @@ fn terminal_setup_enters_alt_screen_then_enables_mouse_capture() {
         s.contains(">3u"),
         "key release/repeat reporting requested: {s:?}"
     );
-    // Alt screen must be entered before mouse capture is turned on.
     assert!(
         s.find("?1049h").unwrap() < s.find("?1000h").unwrap(),
         "alt screen before mouse capture: {s:?}"
@@ -83,9 +78,6 @@ fn terminal_setup_can_preserve_native_mouse_selection_without_losing_paste() {
 
 #[test]
 fn terminal_teardown_disables_mouse_capture_before_leaving_alt_screen() {
-    // The critical safety property: an exit/panic must turn mouse reporting
-    // back OFF (else the host terminal is left spewing escape codes), and it
-    // must do so before leaving the alt screen.
     let mut buf = Vec::new();
     write_restore_sequences(&mut buf).unwrap();
     let s = String::from_utf8_lossy(&buf);
@@ -167,8 +159,6 @@ fn terminal_attention_is_focus_aware_coalesced_and_standard_bell() {
     );
 }
 
-/// A7: `ANGEL_TUI_ATTENTION=0` must silence alerts (tests re-read env; production
-/// caches the flag so tool-storm attention requests do not re-hit the process env).
 #[test]
 fn terminal_attention_quiet_mode_env_off() {
     let _lock = env_lock();
@@ -211,10 +201,6 @@ fn final_reply_defers_durable_atlas_write_by_one_tick() {
 
     app.advance();
     assert!(app.pending_atlas_harvest.is_none());
-    // The next tick queues the durable write and waits a bounded slice for its
-    // acknowledgement (ATLAS_ACK_WAIT); a slow disk may overrun that slice, in
-    // which case later ticks collect the acknowledgement. Durability is the
-    // contract, the slice is not: drain before asserting.
     let ack_deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
     while app
         .atlas_harvester

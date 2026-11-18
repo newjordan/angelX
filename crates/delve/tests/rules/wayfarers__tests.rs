@@ -14,7 +14,6 @@ fn kingdom() -> Run {
     r
 }
 
-/// Where the first road is `along` tiles in, in arena units.
 fn road_at(along: f32) -> (f32, f32) {
     let (x, y) = paths()[0].at(along);
     (x * TILE_UNITS, y * TILE_UNITS)
@@ -41,7 +40,6 @@ fn say(r: &mut Run, pick: u8) {
     r.step(&BTreeMap::new());
 }
 
-/// A traveller of `kind` stands in the road beside the knight, who is on it.
 fn meet(r: &mut Run, kind: Kind) {
     let at = road_at(30.0);
     put(r, at);
@@ -67,7 +65,6 @@ fn meet(r: &mut Run, kind: Kind) {
     });
 }
 
-/// Meet, speak, and go on to what they offer.
 fn open(r: &mut Run, kind: Kind) {
     meet(r, kind);
     press(r);
@@ -103,8 +100,6 @@ fn every_road_is_walkable_ground_end_to_end() {
             along += 1.0;
         }
     }
-    // A traveller steps only onto open ground (`walk_on`), so a stray tile
-    // under a gate stops one, never strands it.
     let total: usize = paths().iter().map(|p| p.len() as usize).sum();
     assert!(shut.len() * 50 < total, "{} of {total} road tiles are shut: {shut:?}", shut.len());
 }
@@ -131,7 +126,6 @@ fn a_traveller_is_sent_after_the_party_has_walked_a_road_a_while() {
     assert!((tiles.0 - kx).hypot(tiles.1 - ky) >= OUT_OF_SIGHT - 1.0, "starts out of sight");
     assert!(NAMES.contains(&w.name.as_str()));
     assert!(r.valid_snapshot());
-    // Standing still, off the road, counts for nothing.
     let mut still = kingdom();
     idle(&mut still, FIRST_AFTER as u32 + 120);
     assert!(still.wayfarers.on.is_none(), "the clock runs on the road, walking");
@@ -147,7 +141,6 @@ fn the_traveller_walks_to_the_knights_and_waits_for_a_word() {
         r.step(&BTreeMap::from([(1, walk)]));
     }
     let start = r.wayfarers.on.clone().unwrap();
-    // The knight now stands still on the road; the traveller comes up.
     let here = Input { aim_x: 1, ..Default::default() };
     for _ in 0..30 * HZ {
         put(&mut r, at);
@@ -160,7 +153,6 @@ fn the_traveller_walks_to_the_knights_and_waits_for_a_word() {
     assert!(r.wayfarer_in_reach(1).is_some());
     assert_ne!((w.x, w.y), (start.x, start.y), "it walked");
     assert_eq!(w.name, start.name);
-    // Nobody speaks: after a long wait it takes the road on.
     let mut left = false;
     for _ in 0..IDLE + 60 {
         put(&mut r, at);
@@ -195,7 +187,6 @@ fn the_same_kind_never_comes_twice_running_and_every_kind_comes() {
     for kind in KINDS {
         assert!(seen.contains(&kind), "{kind:?} never came in {} travellers", seen.len());
     }
-    // The same realm on the same seed sends the same traveller.
     let first = |home: &Home| {
         let mut run = kingdom();
         run.home = home.clone();
@@ -215,7 +206,6 @@ fn what_cannot_be_done_is_not_sent() {
     let mut r = kingdom();
     let geo = geography::geography(&[]);
     let lead = road_at(30.0);
-    // A fresh realm has no songs to sing, no deeds to name and no bed.
     assert!(!r.could_send(Kind::Troubadour, &geo, lead));
     assert!(!r.could_send(Kind::Tollkeeper, &geo, lead));
     assert!(!r.could_send(Kind::Squire, &geo, lead));
@@ -233,7 +223,6 @@ fn a_traveller_knows_who_the_party_last_met_from_the_realms_ledger() {
     r.home.wayfarers.lately.push("Brother Corwin".into());
     let words = r.wayfarer_speech(1).unwrap().words;
     assert!(words.contains("you met Brother Corwin"), "{words}");
-    // Not told of themselves.
     r.home.wayfarers.lately.push("Peddler Aldous".into());
     assert!(!r.wayfarer_speech(1).unwrap().words.contains("Word on the road"));
 }
@@ -256,7 +245,6 @@ fn a_pilgrim_blesses_the_party_for_a_while_and_it_is_felt() {
     let words = r.wayfarer_speech(1).unwrap().words;
     assert!(words.contains("15%") && words.contains("60 seconds"), "{words}");
     assert!(r.wayfarers.on.as_ref().unwrap().done);
-    // It wears off.
     for _ in 0..BLESS_TICKS + 5 {
         r.players.get_mut(&1).unwrap().dress();
     }
@@ -307,7 +295,6 @@ fn the_peddler_sells_for_the_treasury_and_never_the_same_coin_twice() {
     say(&mut r, 2);
     assert_eq!(r.players[&1].bombs, belt + 1);
     assert_eq!(r.marks[PAID], POTION + BOMB);
-    // The treasury has 5 gold left: a scroll is out of reach, and nothing moves.
     let hand = r.players[&1].hand.len();
     say(&mut r, 3);
     assert_eq!(r.players[&1].hand.len(), hand);
@@ -440,8 +427,6 @@ fn the_fight_is_real_combat_at_the_health_such_bodies_have_anywhere() {
     open(&mut r, Kind::Tollkeeper);
     say(&mut r, 3);
     assert_eq!(r.enemies.len(), GANG.len());
-    // The same bodies, spawned the way any room spawns them, at the same
-    // party and floor: the gang is not softened.
     let mut twin = kingdom();
     let spawned: Vec<(EnemyKind, u32)> = GANG
         .iter()
@@ -464,7 +449,6 @@ fn a_gang_beaten_pays_its_purse_to_the_realm() {
     let mut r = kingdom();
     open(&mut r, Kind::Tollkeeper);
     say(&mut r, 3);
-    // Felled by the knight's own shots would take a while; felled is felled.
     for e in &mut r.enemies {
         e.hp = 0;
     }
@@ -513,7 +497,6 @@ fn a_lost_squire_follows_the_party_to_the_village_and_takes_a_bed() {
     let geo = geography::geography(&[]);
     let village = geo.sites.iter().find(|s| s.room == RoomKind::Village).unwrap();
     assert_eq!(r.kingdom_goal(1).unwrap().stand, village.stand, "the arrow points to the Village");
-    // Walking the party to the door, she keeps close.
     let door = ((village.stand.0 as f32 + 0.5) * TILE_UNITS, (village.stand.1 as f32 + 0.7) * TILE_UNITS);
     let start = road_at(30.0);
     for k in 1..=40 {
@@ -528,7 +511,6 @@ fn a_lost_squire_follows_the_party_to_the_village_and_takes_a_bed() {
     assert!(r.found.as_ref().unwrap().2.contains("TAKES A BED"), "{:?}", r.found);
     assert_eq!(r.kingdom.moments.errand, None);
 
-    // The save puts her in the holding as a villager.
     let mut home = r.home.clone();
     let mut treasury = r.treasury.clone();
     let settled = settle(
@@ -613,7 +595,6 @@ fn walking_away_ends_the_talk_and_a_held_key_answers_once() {
     let mut r = kingdom();
     treasure(&mut r, 500);
     open(&mut r, Kind::Merchant);
-    // The key held down answers once, not every tick.
     for _ in 0..20 {
         r.step(&BTreeMap::from([(1, Input { cast: 1, ..Default::default() })]));
     }
@@ -658,7 +639,6 @@ fn the_ledger_keeps_who_was_met_and_a_save_without_it_still_loads() {
     press(&mut r);
     assert!(r.wayfarers.on.as_ref().unwrap().met);
     assert_eq!(r.marks["wayfarer:met:pilgrim:Aldous"], 1);
-    // A second word with the same traveller is not a second meeting.
     press(&mut r);
     press(&mut r);
     assert_eq!(r.marks["wayfarer:met:pilgrim:Aldous"], 1);
@@ -679,7 +659,6 @@ fn the_ledger_keeps_who_was_met_and_a_save_without_it_still_loads() {
     assert_eq!(json["wayfarers"]["met"]["pilgrim"], 1);
     let back: Home = serde_json::from_value(json).unwrap();
     assert_eq!(back.wayfarers, home.wayfarers);
-    // A realm saved before the roads had travellers loads, and writes nothing new.
     let mut old = serde_json::to_value(Home::default()).unwrap();
     old.as_object_mut().unwrap().remove("wayfarers");
     let loaded: Home = serde_json::from_value(old).unwrap();
@@ -708,7 +687,6 @@ fn a_run_with_a_traveller_on_the_road_saves_and_loads() {
     let back: Run = serde_json::from_str(&json).unwrap();
     assert_eq!(back.wayfarers, r.wayfarers);
     assert!(back.valid_snapshot());
-    // A quiet road adds nothing to a save.
     let fresh = serde_json::to_value(kingdom()).unwrap();
     assert!(fresh.get("wayfarers").is_none());
 }

@@ -13,12 +13,10 @@
 use super::super::super::ink::Img;
 use crate::rules::trades::Tool;
 
-/// The tool a `Hero::tool` code names, and the load on a hod.
 pub fn of(code: u8) -> Option<(Tool, u8)> {
     Tool::unpack(code)
 }
 
-/// A code for a tool and a load.
 pub fn code(tool: Tool, load: u8) -> u8 {
     tool.pack(load)
 }
@@ -27,16 +25,12 @@ fn dot(cv: &mut Img, (x, y): (f32, f32), ink: char) {
     cv.put(x.round() as i32, y.round() as i32, ink);
 }
 
-/// `tool` from the hand at `hand` toward `dir` (any length), on `cv`; `load`
-/// is what a hod holds; `struck`: the tool mid-stroke, its iron catching the
-/// light.
 pub fn draw(cv: &mut Img, tool: Tool, load: u8, hand: (f32, f32), dir: (f32, f32), struck: bool) {
     let n = dir.0.hypot(dir.1);
     if n <= 0.0 {
         return;
     }
     let (ux, uy) = (dir.0 / n, dir.1 / n);
-    // Across the line: `up` is the side facing up the picture.
     let (mut px, mut py) = (-uy, ux);
     if py > 0.0 || (py == 0.0 && px < 0.0) {
         (px, py) = (-px, -py);
@@ -54,7 +48,6 @@ pub fn draw(cv: &mut Img, tool: Tool, load: u8, hand: (f32, f32), dir: (f32, f32
     };
     match tool {
         Tool::Pick => {
-            // A haft, and a head across it ending in two points: the pick.
             haft(cv, -2.0, 9.0);
             for s in steps(-4.0, 4.0) {
                 dot(cv, at(9.5, s), if s.abs() < 1.0 { 'U' } else { iron });
@@ -65,7 +58,6 @@ pub fn draw(cv: &mut Img, tool: Tool, load: u8, hand: (f32, f32), dir: (f32, f32
             dot(cv, at(11.2, 5.2), 'W');
         }
         Tool::Chisel => {
-            // A short cold chisel, a wooden grip, a flat bright tip.
             for t in steps(-1.5, 1.0) {
                 dot(cv, at(t, 0.0), 'o');
             }
@@ -76,7 +68,6 @@ pub fn draw(cv: &mut Img, tool: Tool, load: u8, hand: (f32, f32), dir: (f32, f32
             dot(cv, at(6.8, 0.0), 'W');
         }
         Tool::Mallet => {
-            // A haft and a heavy block of a head.
             haft(cv, -2.0, 6.0);
             for t in steps(5.5, 8.5) {
                 for s in steps(-2.0, 2.0) {
@@ -96,7 +87,6 @@ pub fn draw(cv: &mut Img, tool: Tool, load: u8, hand: (f32, f32), dir: (f32, f32
             dot(cv, at(9.0, 0.0), iron);
         }
         Tool::Dividers => {
-            // Two legs hinged at the top, spread to a point each.
             for t in steps(0.0, 8.0) {
                 dot(cv, at(t, t * 0.16), 'V');
                 dot(cv, at(t, -t * 0.16), 'v');
@@ -106,7 +96,6 @@ pub fn draw(cv: &mut Img, tool: Tool, load: u8, hand: (f32, f32), dir: (f32, f32
             dot(cv, at(8.5, -1.4), 'W');
         }
         Tool::Ledger => {
-            // A small book, cloth cover, held out.
             for t in steps(1.0, 6.0) {
                 for s in steps(-2.0, 2.0) {
                     dot(cv, at(t, s), if s > 1.2 { 'T' } else { 'B' });
@@ -146,7 +135,6 @@ pub fn draw(cv: &mut Img, tool: Tool, load: u8, hand: (f32, f32), dir: (f32, f32
             }
         }
         Tool::Rope => {
-            // A coil at the hip: loops of cord.
             for k in 0..3 {
                 let r = 2.5 + k as f32 * 0.9;
                 for a in 0..10 {
@@ -171,7 +159,6 @@ pub fn draw(cv: &mut Img, tool: Tool, load: u8, hand: (f32, f32), dir: (f32, f32
             }
         }
         Tool::Sack => {
-            // A sack over the shoulder, tied at the neck.
             for t in steps(0.0, 5.0) {
                 for s in steps(-2.5, 2.5) {
                     dot(cv, at(t, s), if s > 0.8 { 'T' } else { '$' });
@@ -188,12 +175,9 @@ pub fn draw(cv: &mut Img, tool: Tool, load: u8, hand: (f32, f32), dir: (f32, f32
             }
         }
         Tool::Hod => {
-            // A pole on the shoulder, and the hod at its end: a trough of
-            // boards, its load heaped in it.
             haft(cv, -2.0, 6.0);
             let (cx, cy) = at(6.0, -1.0);
             let (cx, cy) = (cx.round() as i32, cy.round() as i32);
-            // The trough: a V of boards.
             cv.rect(cx - 3, cy - 1, 7, 4, 'r');
             cv.rect(cx - 3, cy - 1, 7, 1, 'o');
             cv.put(cx - 3, cy + 3, 'B');
@@ -201,12 +185,10 @@ pub fn draw(cv: &mut Img, tool: Tool, load: u8, hand: (f32, f32), dir: (f32, f32
             cv.rect(cx - 2, cy + 3, 5, 1, 'B');
             match load {
                 1 => {
-                    // A cut stone, pale, with a lit top.
                     cv.rect(cx - 2, cy - 4, 5, 3, 'U');
                     cv.rect(cx - 2, cy - 4, 5, 1, 'V');
                 }
                 2 => {
-                    // Mortar, a grey heap.
                     cv.rect(cx - 2, cy - 3, 5, 2, 'G');
                     cv.rect(cx - 1, cy - 4, 3, 1, 'h');
                 }

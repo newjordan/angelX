@@ -29,8 +29,6 @@ pub(crate) const KG_QUERY: Route = Route::new(CELL, '⠓');
 pub(crate) const BUBBLE_ROUTER: Route = Route::new(CELL, '⠊');
 pub(crate) const ATLAS_CLERK: Route = Route::new(CELL, '⠚');
 
-// `⠸⠁`'s fact pages and `⠸⠃`'s identity and doors: each is sent as its
-// address, the values beside it.
 pub(crate) const DOSSIER_TRAP: Page = Page::new(DOSSIER, 4);
 pub(crate) const DOSSIER_THREAD: Page = Page::new(DOSSIER, 5);
 pub(crate) const CADDY_IDENTITY: Page = Page::new(CADDY, 4);
@@ -38,9 +36,6 @@ pub(crate) const CADDY_RECIPES_DEGRADED: Page = Page::new(CADDY, 5);
 pub(crate) const CADDY_HAZARDS_DEGRADED: Page = Page::new(CADDY, 6);
 pub(crate) const CADDY_DOORS: Page = Page::new(CADDY, 7);
 
-/// The section whose route lines a harness-rendered evidence store opens with:
-/// the dossier's frame, the caddy card's headings. Recalled text never renders
-/// as a whole line of braille in these stores.
 pub(crate) fn store_route(store: &str) -> Option<Route> {
     match store {
         "dossier" => Some(DOSSIER),

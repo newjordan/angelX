@@ -45,31 +45,11 @@ use super::scene::SCENE_SEED;
 use super::wrap_pi;
 use super::{EYE_RELIEF, PARALLAX, VERT_FOV_MAX};
 
-/// How far the operator's pan may swing a staged region camera off its mark,
-/// in radians. Comfortably past the cockpit's own yaw clamp (±π/6) so ordinary
-/// looking-around is linear, and only a wild input gets bent.
 const SWING_LIMIT: f32 = 1.20;
 
-/// How a mark's vertical framing is solved — and, with it, which set of floors
-/// the frame is judged by.
-///
-/// This is the Z3b split. Outdoors the composition is about the **horizon**:
-/// where the sky meets the ground decides the picture, and the world vista law
-/// (sky ≥ 20 %, mass ≤ 50 %, ground ≥ 8 %) is the judge. Indoors there is no
-/// horizon at all — a room is judged the way `interior.rs`'s eight staged rooms
-/// are, on ink bands, a lit floor band and a light in frame — so the mark aims
-/// its identity piece at a point *down* the frame instead.
-///
-/// The first Z3 pass forced the Mines and the Dragon Keep to satisfy the
-/// outdoor floor by taking their roofs off, and the dumps came back reading as
-/// a brick gate under stars and as the castle court with fires in it. The
-/// outdoor floor was right; applying it to an interior was not.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Framing {
-    /// Outdoors: the horizon lands `horizon` down the frame (0 = top).
     Vista { horizon: f32 },
-    /// Indoors: the identity piece, at world height `anchor_z`, lands
-    /// `frame_y` down the frame. Same solve `interior::staged_view` uses.
     Room { anchor_z: f32, frame_y: f32 },
 }
 
@@ -79,14 +59,6 @@ impl Framing {
     }
 }
 
-/// A staged camera mark inside a region.
-///
-/// `eye` and `anchor` are stage-tile positions: where the camera stands and
-/// what it looks at. `frame_x` puts the anchor on a third across the frame;
-/// `framing` solves the vertical (horizon outdoors, identity piece indoors).
-/// `eye_h` is the eye above the stage ground, `lens` narrows the field from
-/// the ride's own, and `hero` names the shot for the dump sheets and the
-/// failure messages.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RegionVantage {
     pub eye: (f32, f32),
@@ -98,14 +70,10 @@ pub struct RegionVantage {
     pub hero: &'static str,
 }
 
-/// True when a stage is an interior — roofed, torch-lit, judged by the
-/// interior floors rather than the outdoor vista floors.
 pub fn is_interior(stage: Stage) -> bool {
     matches!(stage, Stage::Mines | Stage::DragonKeep)
 }
 
-/// Which `Region` has a 3D stage of its own. `CastleTown` is `None`: it keeps
-/// the shipped court path, untouched.
 pub fn stage_for(region: Region) -> Option<Stage> {
     match region {
         Region::CastleTown => None,
@@ -117,14 +85,6 @@ pub fn stage_for(region: Region) -> Option<Stage> {
     }
 }
 
-// ── the marks ─────────────────────────────────────────────────────────────
-
-/// Nine stations down the gallery, walked from the near end to the far one.
-///
-/// Every one looks **along** the tunnel, because that is the whole shot: the
-/// timber frames stepping away, the rail converging, and a black hole at the
-/// end that the torches never reach. Depth is the composition; there is
-/// nothing else in a mine.
 const MINE_MARKS: [RegionVantage; 9] = [
     mine_mark(-17.0, 0.42, "the gallery mouth, timbering stepping away"),
     mine_mark(-13.5, 0.58, "the first frames and the rail running out"),
@@ -137,9 +97,6 @@ const MINE_MARKS: [RegionVantage; 9] = [
     mine_mark(11.0, 0.42, "the far face, where the torches end"),
 ];
 
-/// One station: back a little off the rail, aimed at a point 13 tiles down the
-/// gallery at chest height, so the vanishing point of the timbering sits on a
-/// third and the vault crosses the top of the frame.
 const fn mine_mark(x: f32, frame_x: f32, hero: &'static str) -> RegionVantage {
     RegionVantage {
         eye: (x, 1.05),
@@ -155,15 +112,6 @@ const fn mine_mark(x: f32, frame_x: f32, hero: &'static str) -> RegionVantage {
     }
 }
 
-/// Four marks around the clearing, all standing near its centre and looking
-/// outward past the framing giants at the treeline.
-///
-/// The eyes sit within three tiles of the origin on purpose. The giants ring
-/// the clearing at `FOREST_FRAME_R` (7.6 tiles), so from the middle two or
-/// three of them always land in the left and right thirds with their crowns
-/// across the top — which is the difference between "in the woods" and "a
-/// meadow with a hedge at the far end". It also keeps every trunk 4.6 tiles
-/// off the eye, so the standoff rail holds untouched.
 const FOREST_MARKS: [RegionVantage; 4] = [
     forest_mark(
         -2.4,
@@ -204,12 +152,6 @@ const fn forest_mark(
     }
 }
 
-/// Four marks on the open water, all standing near the middle of the pan.
-///
-/// Pulled in from the old ring for the same reason the forest's were: the
-/// drowned wood now starts at `SWAMP_CLEAR_R` (6.6 tiles), so a mark near the
-/// origin has trunks and reeds at 5–9 tiles — near field — while still holding
-/// its four tiles of standoff.
 const SWAMP_MARKS: [RegionVantage; 4] = [
     swamp_mark(
         -1.6,
@@ -264,12 +206,6 @@ const fn swamp_mark(
     }
 }
 
-/// Three marks up the great hall, all from the door end, all about the dragon.
-///
-/// The dragon sits on the dais at x ≈ 11.9 and spans about seven tiles across
-/// the wings; from nine to thirteen tiles back that is a third of the frame
-/// width, which is what "there is a dragon in this hall" costs. The colonnade
-/// and the runner do the leading-in.
 const KEEP_MARKS: [RegionVantage; 3] = [
     RegionVantage {
         eye: (-2.6, 1.5),
@@ -309,10 +245,6 @@ const KEEP_MARKS: [RegionVantage; 3] = [
     },
 ];
 
-/// Three marks on the walk home. These are the castle court's own
-/// compositions, re-solved for the wide ride pane: Homecoming *is* the court,
-/// and the one thing the stage adds is the lit road, which all three look
-/// along.
 const HOME_MARKS: [RegionVantage; 3] = [
     RegionVantage {
         eye: (8.0, -25.0),
@@ -343,7 +275,6 @@ const HOME_MARKS: [RegionVantage; 3] = [
     },
 ];
 
-/// The marks for a stage, in waypoint order.
 pub fn marks(stage: Stage) -> &'static [RegionVantage] {
     match stage {
         Stage::Mines => &MINE_MARKS,
@@ -354,25 +285,15 @@ pub fn marks(stage: Stage) -> &'static [RegionVantage] {
     }
 }
 
-/// How many waypoints a region's walk has.
 pub fn waypoint_count(region: Region) -> usize {
     stage_for(region).map_or(1, |stage| marks(stage).len())
 }
 
-/// Which waypoint of its region the hero is walking toward — the camera index.
-///
-/// The marks are authored one per chamber, so this stays the loop's own
-/// iteration count modulo the region's waypoint count: exactly the number the
-/// navigation module indexes its legs by. [`hero_station`] is the check that the
-/// two agree; `region_walk::hero_station` is where the map answers from.
 pub fn waypoint(quest: &Quest) -> usize {
     let count = waypoint_count(quest.region());
     quest.iteration() % count.max(1)
 }
 
-/// The authored name of the shot the hero stands on — the debugging window
-/// `/world quest` prints. `CastleTown` has no staged marks, so it has no
-/// waypoint name either.
 pub fn waypoint_label(region: Region, waypoint: usize) -> Option<&'static str> {
     let table = marks(stage_for(region)?);
     table
@@ -380,38 +301,18 @@ pub fn waypoint_label(region: Region, waypoint: usize) -> Option<&'static str> {
         .map(|mark| mark.hero)
 }
 
-/// Where the hero stands in stage tiles — the eye of the waypoint's mark.
 pub fn hero_pos(stage: Stage, waypoint: usize) -> (f32, f32) {
     let table = marks(stage);
     table[waypoint.min(table.len() - 1)].eye
 }
 
-/// The station the authored walk has the hero standing in, asked of the
-/// authored region map rather than of the loop clock.
-///
-/// This is the Z2/Z3 handshake: the marks stay authored per chamber and
-/// [`waypoint`] stays the camera index, but a room-locked region can now be
-/// asked where its hero actually is, and the answer has to agree with the
-/// camera index or the view toggle would move the hero. `None` for a region
-/// that scrolls or has no authored map.
 pub fn hero_station(world: &crate::world_viz::World) -> Option<usize> {
     crate::world_viz::region_walk::hero_station(world)
 }
 
-// ── the haze ──────────────────────────────────────────────────────────────
-
-/// How far you can see in a region at a given stall depth, in tiles.
-///
-/// The court's own [`raster::FOG_DISTANCE`] (52) is a clear night over open
-/// ground. None of these places is that. The falls are per-region because the
-/// air is: a mine gallery is dusty, a forest is closed, a swamp is standing
-/// mist, and the walk home is the clear night again.
 pub fn fog_distance(stage: Stage, danger: u8) -> f32 {
     let danger = danger.min(3) as f32;
     match stage {
-        // A gallery you can see the end of is not a gallery. The near end is
-        // torch-lit and the far end is black, and danger walks the black end
-        // closer until the stall is a wall of dark two frames away.
         Stage::Mines => 32.0 - 6.0 * danger,
         Stage::DarkForest => 30.0 - 4.5 * danger,
         Stage::Swamp => 28.0 - 4.0 * danger,
@@ -420,9 +321,6 @@ pub fn fog_distance(stage: Stage, danger: u8) -> f32 {
     }
 }
 
-// ── the ride seam ─────────────────────────────────────────────────────────
-
-/// The 3D frame for a region, staged on the waypoint the hero stands on.
 pub fn render_stage_frame(
     stage: Stage,
     quest: &Quest,
@@ -453,18 +351,8 @@ pub fn render_stage_frame(
     )
 }
 
-/// How many world ticks one step of the Swamp's wisp drift lasts.
-///
-/// Sixteen puts a step at 0.4 s (the world ticks every 25 ms) and the whole
-/// four-step loop at 1.6 s — the rate a marsh light actually wanders, and slow
-/// enough that the ride's memo still holds for most frames.
 pub const WISP_TICKS: u64 = 16;
 
-/// Which step of the drift a tick bucket is on. Zero for every stage that does
-/// not move, so a static stage can never be re-keyed by the clock.
-/// The wisp phase the live world is on: the region's stage at `tick`, or 0
-/// wherever nothing drifts. `cinematic_key` hashes this so a Swamp frame is
-/// re-keyed every `WISP_TICKS` and a static stage never is.
 pub fn wisp_phase_at(quest: &Quest, tick: u64) -> u8 {
     match stage_for(quest.region()) {
         Some(stage) => wisp_phase(stage, tick / WISP_TICKS),
@@ -480,13 +368,6 @@ pub fn wisp_phase(stage: Stage, bucket: u64) -> u8 {
     }
 }
 
-/// The staged camera in a region: the authored mark, panned and pitched by the
-/// operator.
-///
-/// The arithmetic is [`super::view3_from_ray`]'s settled branch with the road
-/// sweep taken out — there is no approach to a region, the hero is simply
-/// there. Framing is expressed in screen fractions and solved per aspect, so
-/// one table holds up from a 96 × 72 ride pane to a 200 × 304 vista plate.
 pub(super) fn staged_view(
     stage: Stage,
     waypoint: usize,
@@ -508,42 +389,15 @@ pub(super) fn staged_view(
     tan_h *= vantage.lens.clamp(0.35, 1.0);
     let tan_v = tan_h * aspect;
 
-    // The operator's own pan — and *only* that.
-    //
-    // The court measures its swing against the ride's bearing to a lit
-    // landmark billboard (`world3d::operator_swing`), which works because the
-    // court is what the billboards are in. A region is somewhere else: the
-    // town bearing is unrelated to where the region camera points, and feeding
-    // it in swung every staged mark up to `SWING_LIMIT` off its authored
-    // heading — a mark can be tuned to the vista floors and still render a
-    // wall, which is exactly the failure the law exists to stop. So a region
-    // takes the operator's yaw offset straight from the ride seam.
-    //
-    // Soft limit, not a clamp: a hard clamp makes two different operator
-    // headings render the identical frame once both saturate, which is a
-    // camera that has stopped answering the arrow keys. `tanh` bends without
-    // ever flattening.
     let swing = SWING_LIMIT * (yaw / SWING_LIMIT).tanh();
 
     let to_anchor = (vantage.anchor.1 - vantage.eye.1).atan2(vantage.anchor.0 - vantage.eye.0);
     let heading = to_anchor - (tan_h * (2.0 * vantage.frame_x - 1.0)).atan() + swing;
 
-    // Sub-tile parallax, so the stage breathes with the operator instead of
-    // standing dead still — and it rides the **pan**, not the ride's own
-    // sub-tile drift around the town avatar. Same reason the swing does: that
-    // drift is a fact about where the knight stands in Castle Town, and
-    // feeding it in walks a staged mark up to `PARALLAX` tiles off the mark it
-    // was measured on. At yaw zero the camera is exactly where the table put
-    // it, which is what makes the authoring rail and the live seam the same
-    // measurement.
     let (sin_h, cos_h) = heading.sin_cos();
     let dolly = (yaw / SWING_LIMIT).clamp(-1.0, 1.0) * PARALLAX;
     let eye = (vantage.eye.0 - sin_h * dolly, vantage.eye.1 + cos_h * dolly);
 
-    // Vertical framing. Outdoors it is the horizon that has to land where the
-    // table says; indoors there is no horizon, so it is the identity piece —
-    // the same solve `interior::staged_view` runs, and the reason the two
-    // families of region can share one table and one camera.
     let level = match vantage.framing {
         Framing::Vista { horizon } => (tan_v * (2.0 * horizon - 1.0)).atan(),
         Framing::Room { anchor_z, frame_y } => {
@@ -557,9 +411,6 @@ pub(super) fn staged_view(
     let pitch = (level + view.bob * 0.03).clamp(-0.90, 0.90);
 
     let extent = arch::stage_extent(stage);
-    // Interiors have a flat cut floor at z = 0 (`stage_terrain` gives them no
-    // relief), so this is zero for them by construction rather than by a
-    // special case.
     let ground = arch::stage_ground_z(stage, SCENE_SEED, eye.0, eye.1);
     View3 {
         pos: v3(
@@ -573,11 +424,6 @@ pub(super) fn staged_view(
     }
 }
 
-// ── test windows ──────────────────────────────────────────────────────────
-
-/// The settled camera a mark produces — [`staged_view`] with the operator's
-/// hands off. Same arithmetic, not a copy of the intent:
-/// `a_probe_camera_matches_the_staged_ride` fails loudly if the two drift.
 #[cfg(test)]
 pub fn settled_camera(stage: Stage, waypoint: usize, dot_w: usize, dot_h: usize) -> View3 {
     let table = marks(stage);
@@ -614,8 +460,6 @@ pub fn settled_camera(stage: Stage, waypoint: usize, dot_w: usize, dot_h: usize)
     }
 }
 
-/// `(sky, built mass, ground)` for a staged region frame — the vista law's own
-/// vocabulary, measured on the geometry the ride would paint.
 #[cfg(test)]
 pub fn composition_mix(
     stage: Stage,
@@ -633,23 +477,6 @@ pub fn composition_mix(
     )
 }
 
-/// How far away the nearest thing the picture is *about* is — the
-/// anti-close-up rail, measured the way each family of region needs.
-///
-/// **Outdoors** it is a bearing sweep for the nearest built surface inside the
-/// field, exactly as `world3d::standoff` does it for the court. Ground planes
-/// are skipped for the court's own stated reason — standing on the road is not
-/// standing in a doorway — and so is anything whose whole triangle sits below
-/// [`SILL`] above the eye's ground, because a rail sleeper or a lily pad you
-/// could step over is not a wall in your face either.
-///
-/// **Indoors** a bearing sweep is the wrong instrument, and `interior.rs` says
-/// why: a room is a box you stand inside, so there is always a rafter within a
-/// tile of the eye at the edge of the field, and a nearest-vertex rail either
-/// fails every honest interior or gets loosened until it proves nothing.
-/// Instead the nine rays of the central 24 % of the frame are shot into the
-/// scene and the nearest surface any of them lands on is reported — how far
-/// away the thing in the middle of the picture is.
 #[cfg(test)]
 const SILL: f32 = 0.6;
 
@@ -697,10 +524,6 @@ pub fn standoff(
     nearest
 }
 
-/// `(sky, mass, ground)` for the frame the **live seam** would paint — the
-/// authored mark plus whatever drift and pan the ride hands in. The authoring
-/// rail is [`composition_mix`]; this is the same measurement taken on the real
-/// camera, so a mark cannot pass the table and fail the cockpit.
 #[cfg(test)]
 pub fn seam_composition(
     quest: &Quest,

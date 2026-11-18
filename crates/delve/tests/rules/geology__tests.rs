@@ -1,7 +1,6 @@
 use super::*;
 use crate::kingdom::{Claim, catalog};
 
-/// The ore each floor gave before geology: the table `ore_at` kept.
 fn old_ore(pack: Pack, depth: u32) -> Option<&'static str> {
     match pack {
         Pack::Crypt => Some("coal"),
@@ -47,7 +46,6 @@ fn the_old_ores_are_still_won_where_they_were() {
             }
         }
     }
-    // The swamp is clay and peat, bog iron and reeds: no crystal.
     let bog = geology::seam_at(Pack::Swamp, 2);
     assert_eq!(bog.stone(), "clay");
     for r in ["peat", "bog-iron", "reeds"] {
@@ -87,7 +85,6 @@ fn a_mine_on_a_seam_cuts_everything_the_seam_gives() {
     k.start(catalog());
     assert!(k.discover(catalog(), "mines-3".into(), claim));
     assert!(k.secure("mines-3"));
-    // Every resource of the seam is evidence for a land charter.
     for r in seam.yields().keys() {
         assert!(k.has_secured_resource(r), "{r}");
         assert!(k.secured_evidence().contains(r));
@@ -108,7 +105,6 @@ fn a_claim_from_before_geology_is_what_it_was() {
     assert!(old.gives("iron-ore") && !old.gives("limestone"));
     let json = serde_json::to_string(&old).unwrap();
     assert!(!json.contains("yields"), "an old claim saves as it always did: {json}");
-    // A save with no `yields` at all loads, and a new one round-trips.
     let back: Claim = serde_json::from_str(&json).unwrap();
     assert_eq!(back, old);
     let seam = geology::seam_at(Pack::Hellforge, 3);
@@ -150,7 +146,6 @@ fn the_sentries_and_guardian_follow_the_rock() {
         assert_eq!(Guardian::for_kind(seam.guard()), guardian);
         assert!(geology::guards_for(seam.stone()).contains(&kind), "a claim of {} may be held by {kind:?}", seam.stone());
     }
-    // A claim from before geology keeps the sentries its ore had.
     assert_eq!(geology::guard_for("coal"), Some(OreKind::Coal));
     assert_eq!(geology::guard_for("nonsense"), None);
 }
@@ -165,12 +160,9 @@ fn the_words_on_screen_say_what_the_stone_is_good_for() {
     assert_eq!(seam.source(), "The Mines / floor 3");
 }
 
-/// How many seams a floor has, closed rooms and open chambers, over many
-/// seeds: the number the "realm's mine" feel is tuned against.
 fn seams_in(floor: &layout::Floor, open: bool) -> usize {
     if open {
         let Some(o) = &floor.open else { return 0 };
-        // Every chamber that could carry a seam, whether or not it has stirred.
         o.chambers.iter().enumerate().filter(|(i, _)| *i > 0 && (i % industry::SEAM_EVERY == 1 || *i == usize::from(o.guardian))).count()
     } else {
         floor

@@ -4,7 +4,6 @@ fn rows(text: &str) -> Vec<String> {
     text.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect()
 }
 
-/// A shaded, outlined orb: dark rim, mid body, a light core and a glint.
 const ORB: &str = "
     ....jjjjjj....
     ...jJhhhhJj...
@@ -17,7 +16,6 @@ const ORB: &str = "
     ....jjjjjj....
 ";
 
-/// One ink, a filled square: a blob.
 const BLOB: &str = "
     77777777
     77777777
@@ -27,7 +25,6 @@ const BLOB: &str = "
     77777777
 ";
 
-/// A scatter of specks in two inks.
 const SPECKS: &str = "
     7.....2.....
     ....7.....2.

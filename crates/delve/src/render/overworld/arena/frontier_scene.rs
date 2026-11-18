@@ -4,7 +4,6 @@ use super::*;
 use crate::kingdom::{Status, catalog};
 use crate::rules::HZ;
 
-/// Ground-contact ordering keeps a walker behind a roof until their feet pass it.
 enum SceneObject {
     Prop {
         id: &'static str,
@@ -62,8 +61,6 @@ pub(super) fn draw(run: &Run, focus: Option<u32>, walking: bool) -> Img {
         i32::from(center.0) * t + t / 2,
         i32::from(center.1) * t + t / 2,
     );
-    // Follow continuous world coordinates while walking. Round only the final
-    // pixel position so tile crossings never cause whole-tile camera jumps.
     let camera = if walking {
         run.players
             .get(&focus.unwrap_or(1))
@@ -167,7 +164,6 @@ pub(super) fn draw(run: &Run, focus: Option<u32>, walking: bool) -> Img {
         }
     }
     paint_networks(&mut im, run, energy, t, ox, oy);
-    // Props are a separate layer so neighbouring ground cannot clip a grove.
     for ty in min_y..max_y {
         for tx in min_x..max_x {
             let empty = state.world.owned((tx, ty))
@@ -537,8 +533,6 @@ fn paint_frontier_hero(im: &mut Img, run: &Run, id: u32, x: i32, y: i32, tile: i
     );
 }
 
-/// Blend only the inside edge of the material tile; survey and movement rules
-/// retain their exact tile boundary. World-space noise makes the edge stable.
 fn soften_ground_edge(
     im: &mut Img,
     x: i32,
@@ -651,8 +645,6 @@ fn paint_network_segment(
 ) {
     use crate::kingdom::PowerKind;
     let mechanical = kind == PowerKind::Mechanical;
-    // Fixed lanes keep adjacent tiles joined even when only one tile carries
-    // both kinds. The two networks never visually merge at a shared road.
     let shift = if mechanical { -t / 8 } else { t / 8 };
     let (cx, cy) = (x + t / 2 + shift, y + t / 2 + shift);
     let (dark, base, light) = if mechanical {
@@ -711,8 +703,6 @@ fn paint_network_segment(
     }
 }
 
-/// Shared sidebar art for infrastructure that is laid on the ground rather
-/// than stored as a building, and for the mana source's existing crystal rig.
 pub(super) fn plan_preview(im: &mut Img, id: &str, x: i32, y: i32, size: i32, tick: u64) -> bool {
     if id == "mana-engine" {
         return frontier_art::paint_building(im, "conduit", x, y, size, tick, true);

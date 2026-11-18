@@ -1,21 +1,4 @@
 #!/usr/bin/env python3
-"""Synthesize the Delve's spectacle sound effects, offline and from nothing.
-
-No API, no sound pack: every effect here is built from noise bursts, filtered
-sweeps, decaying sine modes and envelopes with numpy and scipy, then encoded
-with ffmpeg to the format the other effects use (mono, 44.1 kHz, 96 kbit/s
-mp3) into sfx/<name>.mp3.
-
-  python3 synth_sfx.py              make every effect
-  python3 synth_sfx.py knight_hit   make just these
-  python3 synth_sfx.py --stats      print each file's length, peak and RMS
-
-Levels follow sfx/README.md: the body of an effect sits at RMS -20 dB with
-peaks limited to -2 dBFS, as `level.py` leaves the rest. Footsteps, which
-come many a second, sit 6 dB under that so a walking party stays a texture
-and not a drumbeat. Run it with numpy and scipy installed (a venv is fine).
-Output is deterministic: every noise source is seeded.
-"""
 import pathlib, subprocess, sys, tempfile, wave
 import numpy as np
 from scipy import signal
@@ -23,20 +6,10 @@ from scipy import signal
 SR = 44100
 HERE = pathlib.Path(__file__).resolve().parent
 OUT = HERE / "sfx"
-PEAK = 0.72  # a hair under -2 dBFS, so the mp3 encode never overshoots it
+PEAK = 0.72
 BODY_DB = -20.0
 STEP_DB = -26.0
-# A hi-hat rides on each note of the Bard's that lands, a few a second: it
-# sits under a single effect's body.
 HAT_DB = -26.0
-# The blades, the magic and the wishes sit by loudness, not body RMS: a
-# whoosh is all treble and a boom all bass, so the same RMS would play the
-# one far louder than the other. Each is set (dB off `BODY_DB`) so that,
-# looped and measured with ffmpeg's ebur128, a swing sits near the old
-# `swing` (-21 LUFS) and under its contact, the contacts climb light to
-# heavy (-20.5, -18.5, -17.5 LUFS), a cast and its break sit with the
-# shots (-19 to -20), and a wish landing rings out a little grander at
-# each tier (-17, -16.5, -16).
 LEVEL = {
     "swing_spear": -4.9, "swing_sword": -4.1, "swing_axe": -3.3, "swing_cleaver": -2.0, "swing_maul": 0.7,
     "hit_flesh_light": -0.5, "hit_flesh_medium": 2.5, "hit_flesh_heavy": 3.5,
@@ -48,21 +21,14 @@ LEVEL = {
     "cast_earth": 1.1, "impact_earth": 1.4,
     "lamp_rub": -0.5, "genie_appear": 1.7, "wish_land": 2.9, "wish_land_grand": 3.7, "wish_land_mythic": 4.1,
     "fairy_wish": 0.0,
-    # The steps up (`rules::rewards`): each a short fanfare of its own, a
-    # little under a wish landing, so a step up never drowns the fight.
     "level_up": 2.5, "rung_up": 1.0, "relic_find": 2.5, "deepest_yet": 2.5, "sky_lit": 1.5,
 }
-
-
-# ─── primitives ──────────────────────────────────────────────────────────────
 
 def rng_for(name):
     return np.random.default_rng(sum(ord(c) * (i + 7) for i, c in enumerate(name)))
 
 
 class Bench:
-    """One effect's workspace: a seeded noise source and the shared tools."""
-
     def __init__(self, name):
         self.r = rng_for(name)
 
@@ -84,7 +50,6 @@ def exp_env(dur, tau, attack=0.002):
 
 
 def shape(n, points):
-    """A piecewise-linear envelope through (time fraction, level) points."""
     xs, ys = zip(*points)
     return np.interp(np.linspace(0, 1, n), xs, ys)
 
@@ -104,7 +69,6 @@ def high(x, hz, order=3):
 
 
 def swept_band(x, f0, f1, width=0.5, steps=24):
-    """A band-pass whose centre glides from f0 to f1 over the signal."""
     n = len(x)
     out = np.zeros(n)
     edges = np.linspace(0, n, steps + 1).astype(int)
@@ -124,7 +88,6 @@ def sweep(f0, f1, dur, expo=True):
 
 
 def modes(freqs, decays, dur, amps=None):
-    """A struck thing: decaying sine modes (metal, bone, glass, bells)."""
     t = t_of(dur)
     amps = amps or [1.0] * len(freqs)
     out = np.zeros_like(t)
@@ -156,7 +119,6 @@ def drive(x, amount):
 
 
 def tail(x, rt, wet=0.3, b=None):
-    """A short room: a decaying noise impulse response."""
     r = b.r if b else np.random.default_rng(3)
     n = int(SR * rt)
     ir = r.standard_normal(n) * np.exp(-np.arange(n) / (SR * rt / 5))
@@ -170,9 +132,6 @@ def fade_out(x, dur=0.03):
     n = min(len(x), int(SR * dur))
     x[-n:] *= np.linspace(1, 0, n)
     return x
-
-
-# ─── the effects ─────────────────────────────────────────────────────────────
 
 def knight_hit(b):
     d = 0.4
@@ -253,8 +212,6 @@ def hit_magic(b):
 
 
 def shot_arcane(b):
-    """The Mage's bolt leaving the staff: a rising glassy zap with a
-    wavering shimmer and a breath of air behind it."""
     d = 0.32
     t = t_of(d)
     f = 520 * (3.1) ** (t / d) + 60 * np.sin(2 * np.pi * 31 * t)
@@ -267,8 +224,6 @@ def shot_arcane(b):
 
 
 def shot_spark(b):
-    """The Healer's spark off the censer: a soft swung whoosh, a tiny bell
-    and a few embers crackling after it."""
     d = 0.45
     x = canvas_of(d)
     place(x, swept_band(b.noise(0.2), 500, 1800, 0.9) * shape(int(SR * 0.2), [(0, 0), (0.4, 1), (1, 0)]), 0, 0.6)
@@ -636,12 +591,7 @@ def circle_toll(b):
     place(x, band(b.noise(0.1), 500, 3000) * exp_env(0.1, 0.02), 0, 0.2)
     return fade_out(tail(x, 0.45, 0.2, b), 0.25)
 
-
-# ─── the finishers (rules::gore) ─────────────────────────────────────────────
-
 def gore_kick(b):
-    """A boot into a monster's ribs: a breath of leather, a dull heavy thump,
-    a slap, a rattle of mail."""
     d = 0.34
     x = canvas_of(d)
     n = int(SR * 0.1)
@@ -653,8 +603,6 @@ def gore_kick(b):
 
 
 def gore_thunk(b):
-    """A shaft and the body on it into wood and stone: a crack, a knock, the
-    weight arriving, and the shaft's short twang."""
     d = 0.3
     x = canvas_of(d)
     place(x, high(b.noise(0.025), 1800) * exp_env(0.025, 0.005), 0, 0.9)
@@ -668,8 +616,6 @@ def gore_thunk(b):
 
 
 def gore_chop(b):
-    """A blade through a neck or a waist: the whistle of the swing, the wet
-    cut, the weight behind it, a bright ring of steel."""
     d = 0.4
     x = canvas_of(d)
     n = int(SR * 0.12)
@@ -684,8 +630,6 @@ def gore_chop(b):
 
 
 def gore_splat(b):
-    """A wet slap on stone: the heavy smack, a low thud, and a few drops
-    falling after it."""
     d = 0.36
     x = canvas_of(d)
     place(x, low(b.noise(0.12), 2200) * exp_env(0.12, 0.03), 0, 1.0)
@@ -699,8 +643,6 @@ def gore_splat(b):
 
 
 def gore_bones(b):
-    """Bones coming apart and settling: a hollow crack, then dry clicks and
-    ticks across the floor, thinning out."""
     d = 0.6
     x = canvas_of(d)
     place(x, high(b.noise(0.03), 1500) * exp_env(0.03, 0.006), 0, 0.7)
@@ -716,8 +658,6 @@ def gore_bones(b):
 
 
 def gore_burst(b):
-    """Something bursting apart: a wet detonation, the low thud under it, and
-    chunks pattering down after."""
     d = 0.7
     x = canvas_of(d)
     n = int(SR * 0.3)
@@ -730,15 +670,7 @@ def gore_burst(b):
     place(x, thud(70, 36, 0.4, 0.14), 0.03, 0.5)
     return fade_out(tail(x, 0.18, 0.14, b))
 
-
-# ─── the Bard (`rules::bard`) ────────────────────────────────────────────────
-# The Bard's songs are slices of Knight Shift Radio's trance (`bard_tracks/`),
-# not synthesised here; what stays is the note that lands: an open hi-hat on
-# top of the groove, so hitting fills it in.
-
 def hit_note(b):
-    """A note lands: an open hi-hat, six square waves out of tune with each
-    other through a high band (the old drum machines' metal), with a hiss."""
     d = 0.22
     t = t_of(d)
     metal = sum(np.sign(np.sin(2 * np.pi * f * t)) for f in [205.3, 304.4, 369.6, 522.7, 540.0, 800.0])
@@ -747,14 +679,7 @@ def hit_note(b):
     x += high(b.noise(d), 8000) * exp_env(d, 0.04, 0.0005) * 0.6
     return fade_out(tail(x, 0.08, 0.1, b), 0.04)
 
-
-# ─── moving filters, blades through air, sparkles ────────────────────────────
-
 def svf(x, fc, q=1.0, mode="band"):
-    """A state-variable filter whose corner `fc` (Hz: a number, or a curve
-    a sample) may move as it plays without a click: a whoosh's band riding
-    the blade's speed, a breath's formants opening. The band output has a
-    gain of one at its centre."""
     n = len(x)
     fc = np.broadcast_to(np.asarray(fc, dtype=float), (n,))
     g = np.tan(np.pi * np.clip(fc, 20.0, SR * 0.45) / SR)
@@ -777,19 +702,11 @@ def svf(x, fc, q=1.0, mode="band"):
 
 
 def speed_of(dur, peak, rise, fall):
-    """A stroke's speed through the air, 0 to 1: it swells to its fastest
-    at `peak` (a fraction of `dur`) and falls away, `rise` and `fall` how
-    broad either side is."""
     u = t_of(dur) / dur
     return np.where(u < peak, np.exp(-((u - peak) / rise) ** 2), np.exp(-((u - peak) / fall) ** 2))
 
 
 def whoosh(b, dur, lo, hi, peak=0.5, rise=0.3, fall=0.16, q=1.2, whistle=0.0, air=0.0, flutter=0.0, rate=0.0):
-    """A blade through the air: noise through a band that climbs from `lo`
-    to `hi` Hz with the blade's speed, loud as the speed's square. Its
-    edge sings a little (`whistle`, Hz at full speed, a narrow band); a
-    heavy one shoves a low push of air before it (`air`); a flat or bearded
-    one flutters as it turns (`flutter` deep at `rate` Hz)."""
     v = speed_of(dur, peak, rise, fall)
     t = t_of(dur)
     out = svf(b.noise(dur), lo + (hi - lo) * v, q) * v ** 2
@@ -803,7 +720,6 @@ def whoosh(b, dur, lo, hi, peak=0.5, rise=0.3, fall=0.16, q=1.2, whistle=0.0, ai
 
 
 def ping(f, tau, dur=None, partial=0.25):
-    """One tiny bright ping: a sine and its octave, gone in `tau`."""
     dur = dur or min(0.4, tau * 7)
     t = t_of(dur)
     x = (np.sin(2 * np.pi * f * t) + partial * np.sin(2 * np.pi * 2.01 * f * t)) * np.exp(-t / tau)
@@ -813,8 +729,6 @@ def ping(f, tau, dur=None, partial=0.25):
 
 
 def sparkle(b, x, start, end, n, lo, hi, gain, tau=(0.012, 0.03), thin=1.0):
-    """`n` pings scattered from `start` to `end` s, `lo` to `hi` Hz, each a
-    random loudness; with `thin` above one they come thinner as they go."""
     for _ in range(n):
         k = b.r.random() ** thin
         at = start + (end - start) * k
@@ -823,16 +737,12 @@ def sparkle(b, x, start, end, n, lo, hi, gain, tau=(0.012, 0.03), thin=1.0):
 
 
 def crackles(b, dur, density, lo, hi, tau):
-    """Sparse clicks through a band, thinning out over `tau`: fire, ice
-    forming, static, grit."""
     n = int(SR * dur)
     clicks = (b.r.random(n) > 1.0 - density) * b.r.standard_normal(n)
     return band(clicks, lo, hi) * exp_env(dur, tau, 0.0005) * 6
 
 
 def pad(freqs, dur, env, vib=4.8, depth=0.004, cents=5.0, phase=0.0):
-    """A held chord: each note two voices `cents` apart, a slow vibrato,
-    under the envelope points `env` (as `shape` takes them)."""
     t = t_of(dur)
     out = np.zeros_like(t)
     for i, f in enumerate(freqs):
@@ -843,22 +753,10 @@ def pad(freqs, dur, env, vib=4.8, depth=0.004, cents=5.0, phase=0.0):
 
 
 def chime(f, dur, decay, partials=((1.0, 1.0), (2.0, 0.4), (3.0, 0.18), (4.2, 0.08))):
-    """A struck chime at `f`: its partials, the higher ones dying quicker."""
     return modes([f * r for r, _ in partials], [decay * (1 + 0.8 * i) for i in range(len(partials))], dur,
                  [a for _, a in partials])
 
-
-# ─── the blades (`rules::melee`): swings by the arm, contacts by their weight ─
-# A swing is the arm's own (`melee::Blade`): the spear a quick high flick,
-# the sword a clean cut with its edge singing, the axe's bearded head
-# chopping round, the cleaver's flat slab fluttering, the maul's block
-# shoving the air before it. A contact is the blow's weight
-# (`melee::Tier`), the steel and the meat together in one take so a
-# stroke is two sounds, never four.
-
 def swing_spear(b):
-    """A spear thrust: light and quick, a tight "fwip" as the point goes
-    out, the shaft's whistle on it, a tick of the grip."""
     d = 0.24
     x = canvas_of(d)
     place(x, band(b.noise(0.012), 1500, 5000) * exp_env(0.012, 0.003), 0, 0.18)
@@ -867,8 +765,6 @@ def swing_spear(b):
 
 
 def swing_sword(b):
-    """A sword's cut: a clean whoosh climbing as the blade comes round, its
-    edge singing, a faint shimmer of steel at the fastest."""
     d = 0.34
     x = canvas_of(d)
     place(x, band(b.noise(0.015), 900, 3000) * exp_env(0.015, 0.004), 0, 0.15)
@@ -879,8 +775,6 @@ def swing_sword(b):
 
 
 def swing_axe(b):
-    """An axe coming round: lower and chunkier than a sword, the bearded
-    head chopping the air as it turns, a push of air behind it."""
     d = 0.38
     x = canvas_of(d)
     place(x, low(b.noise(0.02), 1500) * exp_env(0.02, 0.005), 0, 0.2)
@@ -889,8 +783,6 @@ def swing_axe(b):
 
 
 def swing_cleaver(b):
-    """A cleaver's slab: broad and flat, a heavy "whum" that flutters as
-    the blade's face catches the air."""
     d = 0.4
     x = canvas_of(d)
     place(x, low(b.noise(0.02), 1200) * exp_env(0.02, 0.006), 0, 0.2)
@@ -899,8 +791,6 @@ def swing_cleaver(b):
 
 
 def swing_maul(b):
-    """A maul's heave: slow and deep, the block shoving the air ahead of
-    it in a "vwoom", the haft creaking at the top of the swing."""
     d = 0.5
     x = canvas_of(d)
     place(x, modes([410, 690, 1130], [40, 55, 70], 0.12, [0.6, 0.4, 0.2]), 0.0, 0.12)
@@ -912,8 +802,6 @@ def swing_maul(b):
 
 
 def hit_flesh_light(b):
-    """A light blow landing: the edge's tick, a quick slice, a small wet
-    slap of meat under it."""
     d = 0.26
     x = canvas_of(d)
     place(x, high(b.noise(0.006), 3200) * exp_env(0.006, 0.0012, 0.0002), 0, 1.0)
@@ -928,8 +816,6 @@ def hit_flesh_light(b):
 
 
 def hit_flesh_medium(b):
-    """A solid blow: a crack, a meaty thwack with a knock of bone in it,
-    the weight behind it, and the wet of the cut."""
     d = 0.38
     x = canvas_of(d)
     place(x, high(b.noise(0.006), 2500) * exp_env(0.006, 0.0018, 0.0002), 0, 1.0)
@@ -945,9 +831,6 @@ def hit_flesh_medium(b):
 
 
 def hit_flesh_heavy(b):
-    """A heavy blow, a finisher's or a maul's: a crack, bone crunching
-    under it, the meat giving with a deep thud driven hot under it all, a
-    short room."""
     d = 0.6
     x = canvas_of(d)
     place(x, high(b.noise(0.008), 1800) * exp_env(0.008, 0.0025, 0.0002), 0, 1.0)
@@ -965,12 +848,7 @@ def hit_flesh_heavy(b):
     place(x, squelch, 0.02, 0.65)
     return fade_out(tail(x, 0.22, 0.16, b), 0.05)
 
-
-# ─── the finishers' big moments (`rules::gore`) ──────────────────────────────
-
 def gore_behead(b):
-    """A head taken: the swing's last whistle, a hard thwack through the
-    neck with the vertebra's crack in it, then the spray, pulsing."""
     d = 0.72
     x = canvas_of(d)
     hit = 0.002
@@ -979,7 +857,6 @@ def gore_behead(b):
     place(x, thud(175, 68, 0.22, 0.05), hit, 1.15)
     place(x, modes([1450, 2380, 3620], [90, 120, 150], 0.08, [1.0, 0.6, 0.3]), hit + 0.004, 0.4)
     place(x, high(b.noise(0.004), 3000) * exp_env(0.004, 0.0008, 0.0001), hit + 0.006, 0.6)
-    # The spray: a hiss of drops, three pulses of it, falling off.
     n = 0.62
     t = t_of(n)
     drops = (b.r.random(int(SR * n)) > 0.75).astype(float)
@@ -992,8 +869,6 @@ def gore_behead(b):
 
 
 def gore_head_thud(b):
-    """The head lands: a dull knock of skull on stone, a wet slap, a
-    smaller bounce, a short roll."""
     d = 0.46
     x = canvas_of(d)
     place(x, thud(185, 72, 0.18, 0.045), 0, 1.1)
@@ -1008,8 +883,6 @@ def gore_head_thud(b):
 
 
 def gore_bisect(b):
-    """A body cut through: a long wet rip as the blade goes across, the
-    spine's crack, the weight of it parting, the spill after."""
     d = 0.72
     x = canvas_of(d)
     n = 0.17
@@ -1033,8 +906,6 @@ def gore_bisect(b):
 
 
 def gore_slump(b):
-    """The halves fall: one heavy soft thud and a wet slap, the other a
-    beat after, a squish as it settles."""
     d = 0.56
     x = canvas_of(d)
     place(x, thud(108, 42, 0.4, 0.11), 0, 1.25)
@@ -1047,13 +918,7 @@ def gore_slump(b):
     place(x, squish, 0.15, 0.3)
     return fade_out(tail(x, 0.2, 0.14, b), 0.05)
 
-
-# ─── the parry (`melee::parry`) ──────────────────────────────────────────────
-
 def parry(b):
-    """A bullet turned off the blade: a sharp tick, a bright scrape of
-    edge on it, and a high clean ting that rings on and shimmers (two of
-    its modes a hair apart), well above the shield's clang."""
     d = 1.1
     x = canvas_of(d)
     place(x, high(b.noise(0.004), 4500) * exp_env(0.004, 0.0008, 0.0001), 0, 1.0)
@@ -1066,8 +931,6 @@ def parry(b):
 
 
 def parry_whizz(b):
-    """The turned bullet going back: a whine dropping as it recedes,
-    fluttering as it spins, the air torn round it."""
     d = 0.44
     x = canvas_of(d)
     n = 0.38
@@ -1082,18 +945,10 @@ def parry_whizz(b):
     place(x, air, 0.03, 0.9)
     return fade_out(x, 0.04)
 
-
-# ─── magic by family (`rules::vfx::Voice`) ───────────────────────────────────
-# Each family casts in two beats a breath apart, as the magic pass draws it:
-# the wind-up while the rune opens (`magic::sigil`, a fifth of a second),
-# the release at the hand; and each breaks on what it strikes its own way.
-
-WIND = 0.14  # the release, after the wind-up
+WIND = 0.14
 
 
 def cast_fire(b):
-    """Fire: a roar drawn up, then a whoomph as it goes, the flames
-    fluttering and crackling as it dies."""
     d = 0.8
     x = canvas_of(d)
     n = int(SR * WIND)
@@ -1111,8 +966,6 @@ def cast_fire(b):
 
 
 def impact_fire(b):
-    """Fire breaking: a pop, a boom with a burst of flame through it, a
-    sizzle of embers after."""
     d = 0.75
     x = canvas_of(d)
     place(x, high(b.noise(0.005), 2500) * exp_env(0.005, 0.0015, 0.0002), 0, 1.0)
@@ -1129,8 +982,6 @@ def impact_fire(b):
 
 
 def cast_frost(b):
-    """Frost: a glassy shimmer climbing, then a crystal chime as it goes,
-    the ice crackling as it forms, a breath of cold."""
     d = 0.9
     x = canvas_of(d)
     t = t_of(WIND)
@@ -1149,8 +1000,6 @@ def cast_frost(b):
 
 
 def impact_frost(b):
-    """Frost breaking: a crack, a knock of ice, and it shatters, shards
-    tinkling down and a crunch under them."""
     d = 0.72
     x = canvas_of(d)
     place(x, low(high(b.noise(0.004), 3000), 9000) * exp_env(0.004, 0.0012, 0.0001), 0, 0.55)
@@ -1168,8 +1017,6 @@ def impact_frost(b):
 
 
 def cast_holy(b):
-    """Holy light: a soft choir swelling, then a bell, and the light
-    blooming on after it, a few motes chiming in it."""
     d = 1.15
     x = canvas_of(d)
     choir = pad([440.0, 554.37, 659.25, 880.0], 0.95, [(0, 0), (0.16, 0.55), (0.3, 0.7), (0.65, 0.45), (1, 0)])
@@ -1186,8 +1033,6 @@ def cast_holy(b):
 
 
 def impact_holy(b):
-    """Holy light breaking: a radiant shwing, a bright chime, a soft
-    thump, the light lingering."""
     d = 0.78
     x = canvas_of(d)
     place(x, svf(b.noise(0.06), np.linspace(2000, 8000, int(SR * 0.06)), 1.8) * exp_env(0.06, 0.02, 0.003), 0, 0.5)
@@ -1199,8 +1044,6 @@ def impact_holy(b):
 
 
 def cast_storm(b):
-    """Lightning: a charge buzzing up, the snap as it goes, a zap and a
-    burst of static, the rumble rolling after."""
     d = 0.9
     x = canvas_of(d)
     t = t_of(WIND)
@@ -1221,8 +1064,6 @@ def cast_storm(b):
 
 
 def impact_storm(b):
-    """Lightning striking (and a Thunder Scroll's thunder): a crack like a
-    whip, static spitting, then the thunder rolling away."""
     d = 1.25
     x = canvas_of(d)
     place(x, low(b.noise(0.004), 9000) * exp_env(0.004, 0.0009, 0.00005), 0, 0.9)
@@ -1239,8 +1080,6 @@ def impact_storm(b):
 
 
 def cast_poison(b):
-    """Poison and acid: a hiss drawn up, a wet glorp as it goes, bubbles
-    rising and popping in a sizzle."""
     d = 0.8
     x = canvas_of(d)
     n = int(SR * WIND)
@@ -1265,8 +1104,6 @@ def cast_poison(b):
 
 
 def impact_poison(b):
-    """Poison breaking: a wet splat, the acid sizzling where it lands,
-    bubbles popping in it."""
     d = 0.7
     x = canvas_of(d)
     place(x, low(b.noise(0.08), 2200) * exp_env(0.08, 0.025, 0.0005), 0, 1.0)
@@ -1285,8 +1122,6 @@ def impact_poison(b):
 
 
 def cast_arcane(b):
-    """Arcane: a glassy sweep climbing, then a deep "vwom" as it goes and
-    a shimmering chord with sparkles off it."""
     d = 0.8
     x = canvas_of(d)
     t = t_of(WIND)
@@ -1308,8 +1143,6 @@ def cast_arcane(b):
 
 
 def impact_arcane(b):
-    """Arcane breaking: a hit, a phasing zap falling away, a glassy knock,
-    sparkles left in the air."""
     d = 0.66
     x = canvas_of(d)
     place(x, high(b.noise(0.004), 3000) * exp_env(0.004, 0.0012, 0.0001), 0, 0.8)
@@ -1325,8 +1158,6 @@ def impact_arcane(b):
 
 
 def cast_earth(b):
-    """Earth: stone grinding up out of the floor, then the crunch of rock
-    as it goes, the thud under it, pebbles skittering."""
     d = 0.82
     x = canvas_of(d)
     n = int(SR * WIND)
@@ -1351,8 +1182,6 @@ def cast_earth(b):
 
 
 def impact_earth(b):
-    """Earth breaking: rock cracking on rock, a deep boom, the crunch, and
-    the debris pattering down in dust."""
     d = 0.8
     x = canvas_of(d)
     place(x, high(b.noise(0.006), 2000) * exp_env(0.006, 0.0018, 0.0002), 0, 1.0)
@@ -1374,13 +1203,7 @@ def impact_earth(b):
     place(x, band(b.noise(0.6), 300, 2000) * exp_env(0.6, 0.22, 0.01), 0.02, 0.16)
     return fade_out(tail(x, 0.25, 0.15, b), 0.08)
 
-
-# ─── the wish moments (`altar`, `overclass::grant`, `nooks::gnome`) ──────────
-
 def lamp_rub(b):
-    """The lamp rubbed: three strokes of a palm on brass, a breath drawn
-    in rising through it, and a magic climbing to meet the genie (who
-    comes half a second on, `genie_appear`)."""
     d = 0.78
     x = canvas_of(d)
     for i, at in enumerate([0.0, 0.15, 0.3]):
@@ -1402,8 +1225,6 @@ def lamp_rub(b):
 
 
 def genie_appear(b):
-    """The genie gathers out of the smoke: a soft poof and a whoom, a
-    shimmering chord, sparkles running up it, the smoke swirling."""
     d = 1.3
     x = canvas_of(d)
     place(x, low(b.noise(0.4), 1200) * shape(int(SR * 0.4), [(0, 0), (0.08, 1), (1, 0)]) ** 2, 0, 0.75)
@@ -1425,10 +1246,6 @@ D_MAJOR = [587.33, 739.99, 880.0, 1174.66]
 
 
 def _wish_land(b, d, chord, lows, boom, twinkles, toll=False, climb=False):
-    """A wish landing on its knight: light drawn in for a fifth of a
-    second (`magic::landed`'s wind), then the burst, a sparkling chord
-    swelling and ringing on, the sparkles rising off them. A higher tier
-    adds its lower voices, a boom, a bell, a climb."""
     x = canvas_of(d)
     w = 0.2
     t = t_of(w)
@@ -1458,25 +1275,18 @@ def _wish_land(b, d, chord, lows, boom, twinkles, toll=False, climb=False):
 
 
 def wish_land(b):
-    """A wish lands, tiers I and II: a sparkling D major chord swells."""
     return _wish_land(b, 1.2, D_MAJOR, [293.66], 0.0, 12)
 
 
 def wish_land_grand(b):
-    """Tiers III and IV: the chord with its lower voices, a boom under it,
-    sparkles climbing off it."""
     return _wish_land(b, 1.4, D_MAJOR + [1479.98], [146.83, 293.66, 440.0], 1.0, 20, climb=True)
 
 
 def wish_land_mythic(b):
-    """Tier V: all of it, a bell tolling on top and a deeper boom."""
     return _wish_land(b, 1.42, D_MAJOR + [1479.98, 1760.0], [73.42, 146.83, 293.66, 440.0], 1.4, 28, toll=True, climb=True)
 
 
 def fairy_wish(b):
-    """The fairies pay: a run up through fairy dust, then giggles in
-    chimes (quick bursts of high notes, each bent down at its end, the way
-    a laugh goes "hee-hee-hee"), tinkling dust all through."""
     d = 1.42
     x = canvas_of(d)
     penta = [2637.02, 2959.96, 3520.0, 3951.07, 4698.64]
@@ -1506,14 +1316,7 @@ WEAPON_MAGIC = [
     lamp_rub, genie_appear, wish_land, wish_land_grand, wish_land_mythic, fairy_wish,
 ]
 
-
-# ─── the steps up (`rules::rewards`) ─────────────────────────────────────────
-# A level, a rung on the resolution ladder, a relic, a floor deeper than the
-# realm has stood on, a constellation of the realm's sky lit: each lands with
-# its own short fanfare. A tier climbed has the wish's own landing.
-
 def _brass(f, dur, bright=0.6):
-    """A short brass note: its harmonics swelling in and held, driven warm."""
     t = t_of(dur)
     out = np.zeros_like(t)
     for k in range(1, 9):
@@ -1522,8 +1325,6 @@ def _brass(f, dur, bright=0.6):
 
 
 def level_up(b):
-    """A level reached: a bright fanfare climbing G major, G B D G, its last
-    note held under a shimmer of sparkles."""
     d = 1.15
     x = canvas_of(d)
     for i, f in enumerate([392.0, 493.88, 587.33, 783.99]):
@@ -1536,8 +1337,6 @@ def level_up(b):
 
 
 def rung_up(b):
-    """A rung climbed: a lens finding its focus, a click and a glassy run
-    upward, the last note ringing clear."""
     d = 1.0
     x = canvas_of(d)
     place(x, high(b.noise(0.004), 4000) * exp_env(0.004, 0.001, 0.0001), 0.0, 0.4)
@@ -1550,8 +1349,6 @@ def rung_up(b):
 
 
 def relic_find(b):
-    """A relic taken: light coming down, a bell struck deep, a choir's chord
-    opening under a fall of sparkles."""
     d = 1.4
     x = canvas_of(d)
     place(x, modes([196.0 * r for r in (1.0, 2.0, 2.4, 3.0, 4.2)], [2.0, 1.6, 1.2, 0.9, 0.6], d, [0.8, 0.5, 0.35, 0.25, 0.12]), 0.0, 0.35)
@@ -1561,8 +1358,6 @@ def relic_find(b):
 
 
 def deepest_yet(b):
-    """A floor deeper than the realm has stood on: a boom far down and a
-    horn calling twice, a fourth apart, into the dark."""
     d = 1.4
     x = canvas_of(d)
     place(x, fade_out(drive(thud(90, 40, 1.2, 0.25), 1.3), 0.2), 0.0, 0.5)
@@ -1572,8 +1367,6 @@ def deepest_yet(b):
 
 
 def sky_lit(b):
-    """A constellation lit: its stars ringing in one after another, high
-    and quick, then all of it together as its lines draw."""
     d = 1.4
     x = canvas_of(d)
     for i, f in enumerate([1318.51, 1567.98, 1760.0, 1975.53, 2349.32, 2637.02, 3135.96, 3520.0]):
@@ -1602,12 +1395,7 @@ EFFECTS = {fn.__name__: fn for fn in [
     *STEPS_UP,
 ]}
 
-
-# ─── levelling and encoding ──────────────────────────────────────────────────
-
 def level(x, rms_db):
-    """Body to `rms_db` over the whole file (as level.py measures it), then
-    peaks limited to -2 dBFS with a soft knee."""
     x = x - np.mean(x)
     x = x / (np.sqrt(np.mean(x ** 2)) + 1e-12) * 10 ** (rms_db / 20)
     over = np.abs(x) > PEAK * 0.7
@@ -1615,7 +1403,6 @@ def level(x, rms_db):
         x = np.sign(x) * np.where(np.abs(x) > PEAK * 0.7,
                                   PEAK * 0.7 + (PEAK * 0.3) * np.tanh((np.abs(x) - PEAK * 0.7) / (PEAK * 0.3)),
                                   np.abs(x))
-    # Limiting leaves the body a touch lower than asked: one correction pass.
     rms = np.sqrt(np.mean(x ** 2))
     x = x * 10 ** (rms_db / 20) / rms
     return np.clip(x, -PEAK, PEAK)
@@ -1653,8 +1440,6 @@ def stats(path):
 
 
 def true_peak(path):
-    """The decoded file's true peak (dBTP, ffmpeg ebur128): a sharp click
-    can overshoot between the samples where the sample peak does not."""
     out = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(path), "-af", "ebur128=peak=true", "-f", "null", "-"],
                          capture_output=True, text=True).stderr
     import re
@@ -1675,10 +1460,6 @@ def main(argv):
     for name in names:
         path = render(name)
         s, p, r = stats(path)
-        # The mp3 encode can overshoot a sharp click: pull the level down
-        # until the decoded peak sits under -2 dBFS like the others.
-        # The blades', the magic's and the wishes' (`LEVEL`) keep their true
-        # peak a decibel under full scale too.
         trim = 0.0
         tp = true_peak(path) if name in LEVEL else None
         while p is not None and (p > -2.0 or (tp is not None and tp > -1.0)) and trim > -6.0:

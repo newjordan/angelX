@@ -1,7 +1,3 @@
-// Thin adapter for the reward ledger's Bend leg. Plain JSON in, the compiled
-// leg's decision out: the row flags, the revisions and the order the ledger
-// scans them live in rewards.bend. Rust owns the ids, receipts, scores,
-// canonical decimal arithmetic, binding digests, validation and storage.
 const bend = require('./rewards.compiled.js')
 
 const nil = { $: 'Nil' }

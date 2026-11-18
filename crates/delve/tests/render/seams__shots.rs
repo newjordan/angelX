@@ -27,7 +27,6 @@ fn write_seam_sheets() {
     let dest = std::env::var("ANGEL_SEAM_SHOTS").unwrap_or_else(|_| "/tmp/seam-shots".into());
     let dest = Path::new(&dest);
     std::fs::create_dir_all(dest).unwrap();
-    // Every stone, three grades across.
     let mut sheet = Img::black(3 * 52 + 8, ROWS.len() as i32 * 42 + 8);
     for (r, row) in ROWS.iter().enumerate() {
         for (g, grade) in [Grade::Rough, Grade::Sound, Grade::Prime].into_iter().enumerate() {
@@ -36,7 +35,6 @@ fn write_seam_sheets() {
         }
     }
     save(&sheet, &dest.join("01-stones-by-grade.png"), 4);
-    // Each won, then worked with a camp, then struck and cut, then raided.
     let faces = [Face::Limestone, Face::Flint, Face::Basalt, Face::Slate, Face::Tufa, Face::Clay, Face::Void];
     let mut sheet = Img::black(faces.len() as i32 * 76 + 8, 4 * 42 + 8);
     for (i, face) in faces.into_iter().enumerate() {

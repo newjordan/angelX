@@ -32,14 +32,9 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-/// Goods a tile holds, from its entry end (0) to its exit end.
 pub const SLOTS: usize = 3;
-/// Beats of the line in a sim second.
 pub const BEATS: u32 = 4;
-/// The most tiles of rollerway a kingdom may lay.
 pub const MAX_CELLS: usize = 2_000;
-/// Seconds a good at a tile's exit must have been unable to move before the
-/// tile is called stuck.
 pub const JAM_SECONDS: u16 = 8;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -79,14 +74,12 @@ impl Dir {
         let (dx, dy) = self.delta();
         (x + dx, y + dy)
     }
-    /// 0 north, 1 east, 2 south, 3 west: the way a knight's face is counted.
     pub fn index(self) -> u8 {
         self as u8
     }
     pub fn from_index(i: u8) -> Dir {
         Dir::ALL[usize::from(i % 4)]
     }
-    /// The way from `a` to the tile beside it, if it is beside it.
     pub fn between(a: Tile, b: Tile) -> Option<Dir> {
         Dir::ALL.into_iter().find(|d| d.step(a) == b)
     }
@@ -100,23 +93,15 @@ impl Dir {
     }
 }
 
-/// What a tile of rollerway is.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Piece {
-    /// A labourer a tile passing goods hand to hand: slow, and free to lay.
     Chain,
-    /// Log rollers: the plain line.
     #[default]
     Roller,
-    /// A house that deals goods out to its front, left and right in turn.
     Splitter,
-    /// Three ways in (behind, left, right), one way out, each in its turn.
     Merge,
-    /// Front first; to the sides only while the front is full.
     Gate,
-    /// A low trestle: one line over another. The first runs the way it faces,
-    /// the second a quarter turn to the right of it.
     Trestle,
 }
 impl Piece {
@@ -139,8 +124,6 @@ impl Piece {
     }
 }
 
-/// Never equal, never different: a derived cache that a save need not keep and a
-/// comparison need not see.
 #[derive(Clone, Debug, Default)]
 pub struct Cache<T>(pub T);
 impl<T> PartialEq for Cache<T> {
@@ -150,24 +133,16 @@ impl<T> PartialEq for Cache<T> {
 }
 impl<T> Eq for Cache<T> {}
 
-/// One tile of rollerway.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Cell {
     pub piece: Piece,
-    /// The way it faces: the way goods leave it (a splitter's and a gate's front).
     pub dir: Dir,
-    /// The goods it holds, entry end first; 0 is a free slot, else a good's number in `Rollers::goods`.
     pub slots: [u8; SLOTS],
-    /// A trestle's second line.
     pub across: [u8; SLOTS],
-    /// Whose turn it is where goods meet (a splitter's next output, a merge's next input).
     pub rr: u8,
-    /// Beats of the last second in which something in it moved, for drawing the stream.
     pub moved: u8,
-    /// Seconds the good at its exit has stood, unable to go on.
     pub stuck: u16,
-    /// Beats of this second so far in which something in it moved.
     pub pending: u8,
 }
 impl Default for Cell {
@@ -188,15 +163,12 @@ impl Cell {
     pub fn lane_mut(&mut self, lane: u8) -> &mut [u8; SLOTS] {
         if lane == 0 { &mut self.slots } else { &mut self.across }
     }
-    /// How many goods it holds.
     pub fn held(&self) -> u32 {
         self.slots.iter().chain(&self.across).filter(|g| **g != 0).count() as u32
     }
-    /// How many it can hold.
     pub fn room(&self) -> u32 {
         (SLOTS as u32) * u32::from(self.lanes())
     }
-    /// The way goods travelling `travel` would go in, if this piece takes them from that side.
     fn lane_for(&self, travel: Dir) -> Option<u8> {
         match self.piece {
             Piece::Chain | Piece::Roller | Piece::Merge => (travel != self.dir.back()).then_some(0),
@@ -214,7 +186,6 @@ impl Cell {
     }
 }
 
-/// Where a lane of the cell at `t` hands its goods, best first: tile and direction of travel.
 fn outputs(t: Tile, c: &Cell, lane: u8) -> ([(Tile, Dir); 3], usize) {
     let mut out = [((0, 0), Dir::N); 3];
     let d = if c.piece == Piece::Trestle && lane == 1 { c.dir.right() } else { c.dir };
@@ -229,8 +200,6 @@ fn outputs(t: Tile, c: &Cell, lane: u8) -> ([(Tile, Dir); 3], usize) {
     }
 }
 
-/// The tiles that can feed a cell facing `d`: behind, then the two sides, with the way goods travel
-/// from each into it.
 fn feeders(t: Tile, d: Dir) -> [(Tile, Dir); 3] {
     [(d.back().step(t), d), (d.left().step(t), d.right()), (d.right().step(t), d.left())]
 }
@@ -246,28 +215,20 @@ mod as_list {
     }
 }
 
-/// A place where a rollerway's goods stood too long.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Jam {
-    /// The tile at the head of the jam: the last that cannot move.
     pub tile: Tile,
     pub good: String,
-    /// Seconds it has stood.
     pub seconds: u16,
-    /// Tiles stood behind it.
     pub queue: usize,
     pub why: String,
-    /// Whether the stoppage has reached the start of the line, so that nothing gets on it: a jam. A full
-    /// branch that the rest of the line goes round is only that, and does not count as one.
     pub blocking: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RollerState {
-    /// Nothing on it.
     Empty,
     Flowing,
-    /// Full over most of its length and still moving: it is the limit.
     Backed,
     Jammed,
 }
@@ -282,15 +243,12 @@ impl RollerState {
     }
 }
 
-/// What the player reads off a rollerway to find where it chokes.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RollerRow {
-    /// The first tile of it (the north-west one): its name.
     pub id: Tile,
     pub tiles: usize,
     pub items: u32,
     pub room: u32,
-    /// Goods a minute its swapes took off it in the last minute.
     pub per_min: u32,
     pub state: RollerState,
     pub swapes: usize,
@@ -302,13 +260,10 @@ pub struct RollerRow {
 pub struct Rollers {
     #[serde(with = "as_list")]
     pub cells: BTreeMap<Tile, Cell>,
-    /// The goods on the line, by number minus one.
     pub goods: Vec<String>,
-    /// Goods the swapes have taken off lines since the first was laid.
     pub unloaded: u64,
     #[serde(skip)]
     cache: Cache<Option<Vec<(Tile, u8)>>>,
-    /// Seconds and tiles of the lifts of the last minute.
     #[serde(skip)]
     lifts: Cache<VecDeque<(u64, Tile)>>,
 }
@@ -330,13 +285,11 @@ impl Rollers {
         self.goods.push(good.to_string());
         Some(self.goods.len() as u8)
     }
-    /// Goods of `resource` on the line.
     pub fn holding(&self, resource: &str) -> u32 {
         let Some(i) = self.goods.iter().position(|g| g == resource) else { return 0 };
         let id = i as u8 + 1;
         self.cells.values().flat_map(|c| c.slots.iter().chain(&c.across)).filter(|g| **g == id).count() as u32
     }
-    /// Every good on the line, by name.
     pub fn contents(&self) -> BTreeMap<String, u32> {
         let mut out = BTreeMap::new();
         for c in self.cells.values() {
@@ -348,27 +301,21 @@ impl Rollers {
         }
         out
     }
-    /// Tiles of hand-chain: a labourer each.
     pub fn chain_tiles(&self) -> usize {
         self.cells.values().filter(|c| c.piece == Piece::Chain).count()
     }
-    /// The cache of the order tiles are moved in, to be rebuilt.
     pub(crate) fn touch(&mut self) {
         self.cache.0 = None;
     }
 
-    /// Whether the cell at `target` takes goods travelling `travel` into a lane whose entry slot is free,
-    /// and which lane.
     fn open_lane(&self, target: Tile, travel: Dir) -> Option<u8> {
         let c = self.cells.get(&target)?;
         let lane = c.lane_for(travel)?;
         (c.lane(lane)[0] == 0).then_some(lane)
     }
-    /// Whether a cell takes goods from that side at all, free or not.
     fn takes(&self, target: Tile, travel: Dir) -> bool {
         self.cells.get(&target).is_some_and(|c| c.lane_for(travel).is_some())
     }
-    /// Whether the cell at `from` has a good waiting at an exit that leads into `target` the way `travel`.
     fn offering(&self, from: Tile, target: Tile, travel: Dir) -> bool {
         let Some(f) = self.cells.get(&from) else { return false };
         (0..f.lanes()).any(|l| {
@@ -379,8 +326,6 @@ impl Rollers {
         })
     }
 
-    /// Tiles of every lane, in the order they are moved: downstream first, so that a full line moves
-    /// all at once and a blocked one not at all.
     fn compute_order(&self) -> Vec<(Tile, u8)> {
         let edges = |node: (Tile, u8)| -> Vec<(Tile, u8)> {
             let c = &self.cells[&node.0];
@@ -416,8 +361,6 @@ impl Rollers {
         order
     }
 
-    /// Whether the feeder `from` may put its good into `target` now: the cell takes it, and nobody who has
-    /// the better claim is waiting.
     fn may_enter(&self, from: Tile, target: Tile, travel: Dir) -> bool {
         let Some(c) = self.cells.get(&target) else { return false };
         match c.piece {
@@ -425,7 +368,6 @@ impl Rollers {
                 if travel == c.dir {
                     return true;
                 }
-                // A side feeder waits for the line behind, and takes its turn with the other side.
                 let f = feeders(target, c.dir);
                 if self.offering(f[0].0, target, f[0].1) {
                     return false;
@@ -446,13 +388,11 @@ impl Rollers {
         }
     }
 
-    /// The good at the exit of a lane goes on, if it can.
     fn push(&mut self, t: Tile, lane: u8) -> bool {
         let c = &self.cells[&t];
         let (outs, n) = outputs(t, c, lane);
         let piece = c.piece;
         let rr = c.rr;
-        // The outputs to try, in order, as indexes; and where the splitter's turn begins.
         let mut live_len = 1usize;
         let mut start = 0usize;
         let order: Vec<usize> = match piece {
@@ -483,7 +423,6 @@ impl Rollers {
             };
             {
                 let tc = self.cells.get_mut(&target).unwrap();
-                // Whose turn it is next where goods meet.
                 match tc.piece {
                     Piece::Merge => tc.rr = tc.rr.wrapping_add(1),
                     Piece::Chain | Piece::Roller if travel != tc.dir => tc.rr = tc.rr.wrapping_add(1),
@@ -521,8 +460,6 @@ impl Rollers {
         }
     }
 
-    /// One beat of the line. `speed` is the beats a second each piece moves on, `chain_on` whether the
-    /// hand-chain's labourers are at work this second.
     pub(crate) fn beat(&mut self, beat: u32, speed: &[u8; 6], chain_on: bool) {
         if self.cells.is_empty() {
             return;
@@ -542,7 +479,6 @@ impl Rollers {
         self.cache.0 = Some(order);
     }
 
-    /// The end of a second: what moved, what stood.
     pub(crate) fn settle(&mut self) {
         for c in self.cells.values_mut() {
             c.moved = c.pending.min(BEATS as u8);
@@ -561,7 +497,6 @@ impl Rollers {
         }
     }
 
-    /// The good nearest a cell's exit that `want` takes, leaving the slot free.
     fn pick(&mut self, from: Tile, want: impl Fn(&str) -> bool) -> Option<u8> {
         let goods = self.goods.clone();
         let c = self.cells.get_mut(&from)?;
@@ -577,7 +512,6 @@ impl Rollers {
         }
         None
     }
-    /// The goods in a cell, from the exit end.
     fn goods_at(&self, from: Tile) -> Vec<&str> {
         self.cells
             .get(&from)
@@ -586,7 +520,6 @@ impl Rollers {
             .unwrap_or_default()
     }
 
-    /// Whether some tile of rollerway hands goods into the one at `t`.
     pub fn fed_by_a_tile(&self, t: Tile) -> bool {
         Dir::ALL.into_iter().any(|d| {
             let f = d.back().step(t);
@@ -599,7 +532,6 @@ impl Rollers {
         })
     }
 
-    /// Settled: the stuck heads of lines and why, with the lines.
     pub fn components(&self) -> Vec<Vec<Tile>> {
         let mut seen: BTreeSet<Tile> = BTreeSet::new();
         let mut out = Vec::new();
@@ -616,7 +548,6 @@ impl Rollers {
                     let (outs, n) = outputs(u, c, l);
                     near.extend(outs[..n].iter().filter(|&&(o, d)| self.takes(o, d)).map(|&(o, _)| o));
                 }
-                // And whoever feeds it.
                 for d in Dir::ALL {
                     let f = d.back().step(u);
                     if let Some(fc) = self.cells.get(&f) {
@@ -642,12 +573,9 @@ impl Rollers {
     }
 }
 
-/// How one lift of a swape came out.
 enum Lift {
     Done,
-    /// Nothing there to lift, or nothing wanted.
     Nothing,
-    /// Goods there, and nowhere to put them.
     Blocked,
 }
 
@@ -659,12 +587,10 @@ enum End {
 }
 
 impl Kingdom {
-    /// Whether a building is a swape.
     pub fn is_swape(&self, c: &Catalog, id: u32) -> bool {
         self.buildings.get(&id).is_some_and(|b| c.plans[&b.plan].swape > 0)
     }
 
-    /// What stands at a tile for a swape's purposes: a tile of rollerway, a work, or nothing.
     fn end_of(&self, t: Tile) -> End {
         if self.rollers.cells.get(&t).is_some_and(|c| c.piece != Piece::Trestle) {
             End::Cell(t)
@@ -675,19 +601,16 @@ impl Kingdom {
         }
     }
 
-    /// The two ends of a swape: what it lifts from and what it lifts to.
     pub fn swape_ends(&self, id: u32) -> Option<(Tile, Tile)> {
         let b = self.buildings.get(&id)?;
         let d = Dir::from_index(b.facing);
         Some((d.back().step(b.tile), d.step(b.tile)))
     }
 
-    /// Whether a swape's building at `t` may be lifted from or to.
     fn usable(&self, c: &Catalog, id: u32) -> bool {
         self.buildings.get(&id).is_some_and(|b| b.construction == 0 && !b.paused && c.plans[&b.plan].swape == 0)
     }
 
-    /// Room for one unit of `r` at a building, as a haul reckons it.
     fn room_for(&self, c: &Catalog, id: u32, r: &str, capacity: u32) -> u32 {
         if !self.usable(c, id) && id != 1 {
             return 0;
@@ -708,7 +631,6 @@ impl Kingdom {
                 if !self.usable(c, a) && a != 1 {
                     return Lift::Nothing;
                 }
-                // The good there is most of, or the one asked for.
                 let mut best: Option<(u32, String)> = None;
                 for r in self.store_resources(c, a) {
                     if !ok(&r) {
@@ -784,7 +706,6 @@ impl Kingdom {
         }
     }
 
-    /// One second of every swape and four beats of every rollerway.
     pub(crate) fn rollers_tick(&mut self, c: &Catalog, report: &Report) {
         let swapes: Vec<u32> = self
             .buildings
@@ -796,7 +717,6 @@ impl Kingdom {
             return;
         }
         let capacity = report.capacity;
-        // Whoever goes first changes with the second, so no swape owns the line.
         let turn = if swapes.is_empty() { 0 } else { (self.second % swapes.len() as u64) as usize };
         for k in 0..swapes.len() {
             let id = swapes[(turn + k) % swapes.len()];
@@ -829,13 +749,11 @@ impl Kingdom {
                 Lift::Blocked => b.lift = 2,
             }
         }
-        // The hand-chain works as long as there are hands for it.
         let need = self.rollers.chain_tiles() as u32;
         let chain_on = if need == 0 {
             false
         } else {
             let hands = u32::from(report.population.assigned.get(&1).copied().unwrap_or(0)).min(need);
-            // The labourers at it, spread over the seconds: `hands` seconds in every `need`.
             let s = self.second as u32;
             (s * hands) / need != (s.saturating_sub(1) * hands) / need || hands == need
         };
@@ -846,7 +764,6 @@ impl Kingdom {
         self.rollers.settle();
     }
 
-    /// Beats a second each piece moves on.
     pub(crate) fn piece_speeds(&self, c: &Catalog) -> [u8; 6] {
         let mut speed = [0u8; 6];
         for p in Piece::ALL {
@@ -855,15 +772,11 @@ impl Kingdom {
         speed
     }
 
-    /// Labourers the hand-chain wants this second: one a tile.
     pub fn chain_crew(&self, c: &Catalog) -> u16 {
         let per = c.rollers.get("chain").map_or(1, |s| u16::from(s.crew));
         (self.rollers.chain_tiles() as u16 * per).min(60)
     }
 
-    // ---- laying -----------------------------------------------------------
-
-    /// Why a piece may not be laid on a tile, if it may not.
     pub fn check_roller_site(&self, c: &Catalog, piece: Piece, tile: Tile) -> Result<(), String> {
         let _ = c;
         if !self.world.is_hillside() {
@@ -899,7 +812,6 @@ impl Kingdom {
         Ok(())
     }
 
-    /// Lay a piece of rollerway on `tile` facing `dir`; laid over another piece it replaces it, goods and all.
     pub(crate) fn lay_roller(&mut self, c: &Catalog, piece: Piece, tile: Tile, dir: Dir) -> Result<String, String> {
         let spec = c.rollers.get(piece.key()).ok_or("this catalogue has no such piece")?;
         if !spec.requires.iter().all(|r| self.researched.contains(r)) {
@@ -914,7 +826,6 @@ impl Kingdom {
             return Err("too many tiles of rollerway".into());
         }
         let replaced = self.rollers.cells.get(&tile).map(|o| o.piece);
-        // Laid over the same piece is only turned; over another is paid for as new.
         let cost = if replaced == Some(piece) { Stock::new() } else { spec.cost.clone() };
         if !covers(&self.stock, &cost) {
             return Err(format!("a {} needs {}", spec.name.to_lowercase(), crate::economy::missing(&self.stock, &cost)));
@@ -926,7 +837,6 @@ impl Kingdom {
                 cell.piece = piece;
                 cell.dir = dir;
                 if piece != Piece::Trestle {
-                    // What a trestle's second line held has nowhere to go.
                     let held = std::mem::take(&mut cell.across);
                     for g in held {
                         if let Some(n) = self.rollers.goods.get(usize::from(g).wrapping_sub(1)).cloned() {
@@ -943,7 +853,6 @@ impl Kingdom {
         Ok(format!("{} laid", spec.name))
     }
 
-    /// Take a tile of rollerway up: the goods on it go to the camp.
     pub(crate) fn lift_roller(&mut self, tile: Tile) -> bool {
         let Some(cell) = self.rollers.cells.remove(&tile) else { return false };
         for g in cell.slots.into_iter().chain(cell.across) {
@@ -955,7 +864,6 @@ impl Kingdom {
         true
     }
 
-    /// Turn what stands on `tile` (a tile of rollerway, a swape) to face `dir`.
     pub(crate) fn face(&mut self, c: &Catalog, tile: Tile, dir: Dir) -> Result<String, String> {
         if let Some(cell) = self.rollers.cells.get_mut(&tile) {
             cell.dir = dir;
@@ -966,7 +874,6 @@ impl Kingdom {
             self.buildings.get_mut(&id).unwrap().facing = dir.index();
             return Ok(format!("The swape faces {}", dir.name()));
         }
-        // A swape still a plan faces its way when it is raised.
         if let Some(g) = self.plans.ghosts.values_mut().find(|g| g.tile == tile && c.plans.get(&g.plan).is_some_and(|p| p.swape > 0)) {
             g.face = Some(dir.index());
             return Ok(format!("The swape will face {}", dir.name()));
@@ -974,7 +881,6 @@ impl Kingdom {
         Err("nothing here turns".into())
     }
 
-    /// Set a swape to lift one good only, or any.
     pub(crate) fn filter(&mut self, c: &Catalog, id: u32, good: Option<String>) -> Result<String, String> {
         if !self.is_swape(c, id) {
             return Err("only a swape takes a good to lift".into());
@@ -993,10 +899,6 @@ impl Kingdom {
         })
     }
 
-    // ---- reading ------------------------------------------------------------
-
-    /// The goods a swape might be set to lift: what the work behind it makes and holds, what the one
-    /// in front of it takes (every good the camp holds, for the camp).
     pub fn swape_goods(&self, c: &Catalog, id: u32) -> Vec<String> {
         let mut goods: BTreeSet<String> = BTreeSet::new();
         let Some((src, dst)) = self.swape_ends(id) else { return Vec::new() };
@@ -1022,7 +924,6 @@ impl Kingdom {
         goods.into_iter().filter(|g| c.resources.contains_key(g)).collect()
     }
 
-    /// What a swape is doing, in words.
     pub fn swape_words(&self, c: &Catalog, id: u32) -> String {
         let Some(b) = self.buildings.get(&id) else { return String::new() };
         let Some((src, dst)) = self.swape_ends(id) else { return String::new() };
@@ -1040,7 +941,6 @@ impl Kingdom {
         format!("lifts {what} from {} to {}{state}", name(src), name(dst))
     }
 
-    /// Every rollerway, read as a bottleneck hunter would.
     pub fn roller_report(&self, c: &Catalog) -> Vec<RollerRow> {
         let comps = self.rollers.components();
         let mut rows = Vec::new();
@@ -1073,8 +973,6 @@ impl Kingdom {
         rows
     }
 
-    /// The heads of the jams among these tiles: tiles whose good has stood too long and which have
-    /// nowhere further to send it.
     fn jams_in(&self, c: &Catalog, set: &BTreeSet<Tile>) -> Vec<Jam> {
         let mut jams = Vec::new();
         for t in set {
@@ -1090,7 +988,6 @@ impl Kingdom {
             }
             let good = self.rollers.good_name(cell.lane(lane)[SLOTS - 1]).unwrap_or("goods").to_string();
             let name = c.resources.get(&good).map_or(good.clone(), |r| r.name.to_lowercase());
-            // A swape that picks from this tile, and what it says.
             let taker = self.buildings.iter().find(|(id, b)| c.plans[&b.plan].swape > 0 && self.swape_ends(**id).is_some_and(|(a, _)| a == *t));
             let why = match taker {
                 Some((id, b)) if b.lift == 2 => {
@@ -1100,21 +997,17 @@ impl Kingdom {
                 Some(_) => format!("the swape here lifts nothing of {name}"),
                 None => format!("the line ends and nobody takes {name}"),
             };
-            // The queue behind it: stuck tiles that lead here.
             let queue = set.iter().filter(|u| self.rollers.cells[*u].stuck >= JAM_SECONDS).count().saturating_sub(1);
-            // The line is blocked if a tile nothing feeds (the start of it) cannot move its good either.
             let blocking = set.iter().any(|u| self.rollers.cells[u].stuck >= JAM_SECONDS && !self.rollers.fed_by_a_tile(*u));
             jams.push(Jam { tile: *t, good, seconds: cell.stuck, queue, why, blocking });
         }
         jams
     }
 
-    /// Whether this tile holds a rollerway's piece.
     pub fn roller_at(&self, tile: Tile) -> Option<&Cell> {
         self.rollers.cells.get(&tile)
     }
 
-    /// Whether the rollerways are sound: tiles on ground that suits them, goods that exist.
     pub(crate) fn rollers_valid(&self, c: &Catalog) -> bool {
         let r = &self.rollers;
         if r.cells.len() > MAX_CELLS || r.goods.len() > 250 || (!r.cells.is_empty() && !self.world.is_hillside()) {

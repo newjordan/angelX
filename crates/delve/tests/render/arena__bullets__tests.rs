@@ -3,7 +3,6 @@
 use super::super::*;
 use crate::rules::{Projectile, RoomKind, Run};
 
-/// The first fight of the floor, nothing in it but the knight.
 fn quiet() -> Run {
     let mut run = Run::new(11, 1, Some("Friend"));
     let index = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
@@ -14,7 +13,6 @@ fn quiet() -> Run {
     run
 }
 
-/// A knight's arrow flying right, loosed on a beat of `beat` ticks.
 fn arrow(run: &Run, beat: u8, size: u8) -> Projectile {
     let hero = &run.players[&1];
     serde_json::from_value(serde_json::json!({
@@ -25,8 +23,6 @@ fn arrow(run: &Run, beat: u8, size: u8) -> Projectile {
     .unwrap()
 }
 
-/// The box of what the shot paints that the room alone did not: its width
-/// and height in canvas pixels, and the pixels it changed.
 fn painted(run: &Run, shot: Projectile) -> (i32, i32, usize) {
     let view = |run: &Run| frame_for(run, NATIVE_W, NATIVE_H, Some(1));
     let bare = view(run);
@@ -51,7 +47,6 @@ fn a_fast_arms_shot_is_drawn_smaller_than_a_slow_arms_on_the_dungeons_art_and_th
         let (fast, slow) = (painted(&run, arrow(&run, 4, 0)), painted(&run, arrow(&run, 25, 0)));
         assert!(fast.2 < slow.2, "original {original}: {fast:?} against {slow:?}");
         assert!(fast.0.max(fast.1) >= 4, "original {original}: still seen and still pointing: {fast:?}");
-        // A size wish draws it bigger.
         let wished = painted(&run, arrow(&run, 12, 2));
         let plain = painted(&run, arrow(&run, 12, 0));
         assert!(wished.2 >= plain.2, "original {original}: {wished:?} against {plain:?}");
@@ -75,8 +70,6 @@ fn the_old_size_is_still_there_to_compare_against_and_is_bigger() {
 
 #[test]
 fn a_shrunk_picture_keeps_every_edge_of_its_art() {
-    // Art of four corner blocks and a bright middle: smaller, none of it is
-    // cropped, and the middle is still the brightest.
     let mut art = Img::new(16, 16);
     for (x, y) in [(0, 0), (14, 0), (0, 14), (14, 14)] {
         for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
@@ -96,9 +89,6 @@ fn a_shrunk_picture_keeps_every_edge_of_its_art() {
     assert_eq!(resized(&art, 2.0).w, 32, "bigger is as enlarge makes it");
 }
 
-/// A knight in a borrowed body shoots the monster's shot: the same shape,
-/// in that knight's own cloth, never the room's colours (the user,
-/// 2026-10-23: "the colors of bullets need to change, style stays").
 #[test]
 fn a_borrowed_bodys_shot_keeps_its_shape_in_its_knights_colours() {
     use crate::render::overworld::ink::ink;

@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# The small live-module loop uses the repo's compiler, even when a shell's
-# cargo/rustc shims prefer a different default toolchain.
 set -euo pipefail
 live_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 live_channel=$(awk -F'"' '/^channel[[:space:]]*=/{print $2; exit}' "$live_root/rust-toolchain.toml")

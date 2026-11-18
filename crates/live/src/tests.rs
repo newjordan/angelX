@@ -72,7 +72,6 @@ fn transitive_edits_replace_the_entire_immutable_dependency_generation() {
     let mut registry = fixture.registry();
     assert_eq!(registry.render("report", &json!({})).unwrap(), "first");
     fixture.file("helper.js", "exports.value='second'");
-    // Captured code never reads a modified dependency behind the host's back.
     assert_eq!(registry.render("report", &json!({})).unwrap(), "first");
     registry.refresh(true);
     assert_eq!(registry.render("report", &json!({})).unwrap(), "second");
@@ -128,7 +127,7 @@ fn partial_save_and_module_removal_do_not_unload_working_code() {
     let fixture = Fixture::new();
     let mut registry = fixture.registry();
     fixture.source("module.exports={");
-    registry.refresh(false); // stage only; editors get a quiet debounce window
+    registry.refresh(false);
     assert!(registry.snapshot().statuses[0].error.is_none());
     fixture.source("module.exports={apiVersion:1,render:()=> 'complete'}");
     registry.refresh(false);
@@ -210,8 +209,6 @@ fn worker_picks_up_dependency_edits_automatically_and_retires_on_drop() {
     );
 }
 
-/// Every directory of cockpit/live with a manifest is a shipped module, so a
-/// new leg joins the shipped checks without editing a list.
 fn shipped_module_ids() -> std::collections::BTreeSet<String> {
     std::fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../cockpit/live"))
         .unwrap()
@@ -466,8 +463,6 @@ fn native_contract_validation_rejects_the_whole_game_candidate_before_publicatio
     assert!(validate("ui", serde_json::to_value(ui).unwrap()).is_err());
 }
 
-// Exercise the exact captured bundle in V8 through Node for this small crate's
-// tests. Production injects the cockpit's embedded V8 adapter instead.
 fn test_evaluate(script: &str) -> Result<String, String> {
     let wrapper = r#"const vm = require('node:vm');
 const source = require('node:fs').readFileSync(0, 'utf8');
@@ -745,7 +740,6 @@ fn invalid_resource_closures_reject_the_provider_command_and_code_without_losing
     assert_eq!(after.surfaces, before.surfaces);
     assert_eq!(after.resources["left/pack"].generation, 1);
     assert_eq!(after.resources["report/pack"].generation, 1);
-    // A reducer can also invalidate the selected dependency without editing code.
     std::fs::write(
         &path,
         source.replace(
@@ -1064,8 +1058,6 @@ fn same_size_asset_replacement_with_preserved_mtime_is_detected_without_force() 
     let before = bundle::captured_bytes();
     registry.refresh(false);
     assert_eq!(bundle::captured_bytes(), before);
-    // An in-place edit can keep size, inode, creation and modification time.
-    // Unix change time must still invalidate the cached bytes.
     let path = fixture.0.join("report/sound-0.bin");
     let modified = std::fs::metadata(&path).unwrap().modified().unwrap();
     std::fs::write(&path, "c".repeat(2 * 1024 * 1024)).unwrap();
@@ -1208,7 +1200,7 @@ fn bend_source_edit_compiles_automatically_and_bad_proofs_keep_the_previous_gene
     }
     assert_eq!(render(), "Bend Replacement Field");
     assert_eq!(client.snapshot().unwrap().statuses[0].generation, 2);
-    drop(client); // The existing worker owns and retires all build work.
+    drop(client);
 }
 #[test]
 #[ignore = "requires pinned optional Bend developer compiler; run explicitly"]
@@ -1345,7 +1337,6 @@ fn a_rejected_edit_reports_the_kept_generation_and_the_error() {
             .contains(" ms · kept previous: "),
         "{text}"
     );
-    // The same failing source written again is a verdict again, not silence.
     let watch = board.watch(&["report".into()]);
     fixture.source("module.exports={apiVersion:1,render:()=>{throw Error('init failed')} }");
     let again = board.settle(watch, WINDOW, &|| false).unwrap();
@@ -1357,7 +1348,6 @@ fn a_rejected_edit_reports_the_kept_generation_and_the_error() {
             .unwrap()
             .contains("init failed")
     );
-    // Restoring working code clears the failure and reports the live status.
     let watch = board.watch(&["report".into()]);
     fixture.source("module.exports={apiVersion:1,render: input => 'hello '+input.name}");
     let restored = board.settle(watch, WINDOW, &|| false).unwrap();
@@ -1400,7 +1390,6 @@ fn a_verdict_after_the_window_is_delivered_once_to_the_next_caller() {
     assert_eq!(delivered[0].status.generation, 2);
     assert_eq!(delivered[0].status, client.snapshot().unwrap().statuses[0]);
     assert!(board.take().is_empty());
-    // A caller still waiting keeps its own verdict from the next caller.
     let watch = board.watch(&["report".into()]);
     fixture.source("module.exports={apiVersion:1,render: () => 'waited'}");
     let waiting = std::thread::scope(|scope| {
@@ -1424,7 +1413,6 @@ fn a_write_that_changes_nothing_settles_without_a_report() {
     assert_eq!(board.settle(watch, WINDOW, &|| false), Some(Vec::new()));
     assert!(started.elapsed() < WINDOW);
     assert_eq!(board.settle(watch, Duration::ZERO, &|| false), None);
-    // A stop request abandons the wait but not the watch.
     let watch = board.watch(&["report".into()]);
     assert_eq!(board.settle(watch, WINDOW, &|| true), None);
     assert!(board.take().is_empty());
@@ -2111,8 +2099,6 @@ fn withdrawal_enable_at_real_retained_capacity_is_atomic_and_succeeds_after_a_sl
     assert_eq!(registry.modules.len(), MAX_MODULES);
     registry.withdraw(vec![("provider".into(), 1)]).unwrap();
     assert_eq!(registry.modules.len(), MAX_MODULES - 1);
-    // Real missing-source last-good retention creates a full metadata registry
-    // while keeping discovery within its separate256-directory limit.
     std::fs::remove_dir_all(fixture.0.join("capacity-000")).unwrap();
     withdrawal_capacity_text(&fixture, "capacity-new");
     registry.refresh(true);
@@ -2137,8 +2123,6 @@ fn withdrawal_enable_at_real_retained_capacity_is_atomic_and_succeeds_after_a_sl
     assert_eq!(registry.kernel.checkpoint("report"), checkpoint);
     assert_eq!(registry.revision, before.revision);
     assert_eq!(registry.disabled_modules, before.disabled_modules);
-    // Free a real system slot through the public explicit API,not by deleting
-    // private metadata,and prove the failed enable consumed no generation.
     registry
         .withdraw(vec![("report".into(), generation)])
         .unwrap();
@@ -2160,7 +2144,6 @@ fn withdrawal_actual_v8_evaluate(script: &str) -> Result<String, String> {
 #[cfg(feature = "v8")]
 #[test]
 fn withdrawal_actual_v8_registry_drains_chained_completion_and_readmits_only_on_enable() {
-    // This is the production embedded V8 evaluator,not the Node test adapter.
     let fixture = withdrawal_fixture(false);
     let mut registry = Registry::new(fixture.0.clone(), withdrawal_actual_v8_evaluate);
     registry.refresh(true);
@@ -2468,7 +2451,6 @@ fn failed_component_cache_ignores_unrelated_edits_but_tracks_upstream_state_and_
         COMPONENT_EVALUATIONS.load(std::sync::atomic::Ordering::SeqCst),
         initial
     );
-    // Let any staged debounce mature, then update an unrelated good component.
     std::thread::sleep(DEBOUNCE + Duration::from_millis(5));
     std::fs::write(f.0.join("free/index.js"), component_source(2)).unwrap();
     r.refresh(false);
@@ -2711,7 +2693,6 @@ fn cached_component_failure_restores_exact_diagnostic_after_deferred_and_read_er
     std::fs::write(f.0.join("one/index.js"), "module.exports={broken:").unwrap();
     r.refresh(true);
     let original = r.modules["one"].error.clone().unwrap();
-    // Actual pending consumer edit overwrites the ready provider's diagnostic.
     std::fs::write(f.0.join("consumer/index.js"), component_source(2)).unwrap();
     r.refresh(false);
     r.modules.get_mut("one").unwrap().staged.as_mut().unwrap().1 = Instant::now() - DEBOUNCE;
@@ -2761,7 +2742,6 @@ fn empty_ready_scan_preserves_unsettled_captures_until_overlapping_group_can_pub
     std::fs::write(f.0.join("provider/index.js"), component_source(2)).unwrap();
     std::fs::write(f.0.join("consumer/index.js"), component_source(2)).unwrap();
     r.refresh(false);
-    // Both captured source edits are still debouncing; no group is ready.
     assert_eq!(r.snapshot().resources, before);
     let captured =
         ["provider", "consumer"].map(|id| r.modules[id].captured.as_ref().unwrap().digest.clone());
@@ -2780,8 +2760,6 @@ fn empty_ready_scan_preserves_unsettled_captures_until_overlapping_group_can_pub
         assert_eq!(&r.modules[id].captured.as_ref().unwrap().digest, digest);
         assert!(!r.modules[id].settled);
     }
-    // A ready provider must still wait for its captured dependent, even after
-    // earlier scans took the empty-ready shortcut.
     r.modules
         .get_mut("provider")
         .unwrap()
@@ -2822,8 +2800,6 @@ fn empty_ready_scan_preserves_unsettled_captures_until_overlapping_group_can_pub
     assert!(EMPTY_SCAN_EVALUATIONS.load(std::sync::atomic::Ordering::SeqCst) > evaluations);
 }
 
-// Policy controls affect pure live overrides, not shipped/native policy
-// execution. Each local require is captured with the pinned immutable Program.
 fn policy_control_source(fixture: &Fixture, id: &str, answer: &str) {
     let root = fixture.0.join(id);
     std::fs::create_dir_all(&root).unwrap();

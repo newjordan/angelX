@@ -3,7 +3,6 @@
 
 use crate::ink::hash;
 
-/// The view's size in pixels: 48 cells by 28.
 pub(crate) const NATIVE_W: i32 = 384;
 pub(crate) const NATIVE_H: i32 = 224;
 
@@ -19,16 +18,11 @@ pub(crate) const MAGIC_MAX: u8 = 12;
 pub(crate) const BLAST_COST: u8 = 4;
 pub(crate) const SPELL_COST: u8 = 4;
 pub(crate) const REFREEZE_TICKS: u8 = 40;
-/// A caught fire burns this many ticks, then wood, grass or fungus is ash.
 pub(crate) const FIRE_LIFE: u8 = 40;
-/// Water on a flame leaves this much steam and spends one water.
 pub(crate) const QUENCH_STEAM: u8 = 8;
-/// Lava on ice throws this much steam, the same cloud a cooled plug leaves.
 pub(crate) const LAVA_STEAM: u8 = 10;
-/// A melted ice cell holds this much water, the same pool a spell leaves.
 pub(crate) const MELT_POOL: u8 = 4;
 pub(crate) const SLIDE_ICE: i32 = 5;
-/// Blades on ice coast this many cells. Plain boots coast `SLIDE_ICE` (5).
 pub(crate) const SLIDE_BLADES: i32 = 8;
 pub(crate) const SLIDE_DRY: i32 = 0;
 
@@ -268,14 +262,12 @@ impl World {
             let kind = if next[i].fluid != FLUID_NONE {
                 next[i].fluid
             } else if delta[i] > 0 {
-                // filled from a neighbour; kind applied below
                 FLUID_NONE
             } else {
                 FLUID_NONE
             };
             let _ = kind;
         }
-        // Apply flow from the post-reaction grid, one unit, no cascade.
         let mid = next.clone();
         for i in 0..n {
             if delta[i] >= 0 {
@@ -398,11 +390,6 @@ fn downhill_get(w: i32, h: i32, x: i32, y: i32, get: &mut dyn FnMut(usize) -> Ce
     best.map(|(_, j)| j)
 }
 
-/// The same step as [`World::step`], but only `touch` (the awake cells) and
-/// `sealed` are copied. Neighbours of `touch` are copied so a flow or a
-/// quench can land. Cells outside that set are read through `get` and are
-/// not written. `steps` is the world's step counter at the start of the step.
-/// The host path passes 0, because a fresh view's counter is 0.
 pub(crate) fn react_touch(
     w: i32,
     h: i32,
@@ -656,7 +643,6 @@ pub(crate) fn plug(c: &mut Cell) {
     c.swings = 0;
 }
 
-/// Wood, grass and fungus all catch and all burn down to ash.
 pub(crate) fn fuel(c: Cell) -> bool {
     c.wood() || c.grass() || c.fungus()
 }
@@ -666,7 +652,6 @@ fn ash(c: &mut Cell) {
     c.flags |= FL_ASH;
 }
 
-/// Split two cells so lava can touch its neighbour without aliasing the borrow.
 fn meet_pair(next: &mut [Cell], lava_at: usize, nb_at: usize, nb_snap: Cell) {
     if lava_at == nb_at {
         return;
@@ -684,9 +669,6 @@ fn meet_pair(next: &mut [Cell], lava_at: usize, nb_at: usize, nb_snap: Cell) {
     }
 }
 
-/// Lava against one neighbour. Water, and ice melted into water, quench the
-/// same way: both cells become a cooled plug with a steam cloud. Wood, grass
-/// and fungus catch a full burn.
 fn lava_meets(lava: &mut Cell, nb_snap: Cell, nb: &mut Cell) {
     let water = nb_snap.fluid == FLUID_WATER && nb_snap.amount > 0;
     if nb_snap.ice() && !water {
@@ -866,7 +848,6 @@ pub(crate) fn is_brick_ruin(x: i32, y: i32) -> bool {
     in_rect(x, y, 154, 38, 160, 40) || in_rect(x, y, 168, 46, 173, 48) || in_rect(x, y, 158, 46, 161, 50)
 }
 
-/// The terrain a seed gives a world cell, before the halls are worn through.
 pub fn terrain(seed: u32, x: i32, y: i32) -> Terrain {
     if in_rect(x, y, 12, 33, 16, 37) || in_rect(x, y, 18, 33, 22, 37) {
         return Terrain::Wall;
@@ -1098,8 +1079,6 @@ fn anchor_of(region: u8) -> Option<(i32, i32)> {
     None
 }
 
-/// Worn halls and passages, part of the seed's world. No changed-cell record.
-
 fn open_worn_hall(world: &mut World) {
     if let Some(i) = world.idx(48, 36) {
         world.cells[i].flags |= FL_WALL | FL_LOOSE;
@@ -1193,10 +1172,6 @@ fn link_regions(world: &mut World) {
     }
 }
 
-/// Loose rock, which a shovel opens: patches of the two cells of wall nearest
-/// the open cave. Everything deeper stays hard and takes magic. Brick, the
-/// thin wall acid eats and the hard block beside the first loose patch are
-/// left as they are.
 fn soften_crust(world: &mut World, seed: u32) {
     let near_open = |world: &World, x: i32, y: i32| {
         (-2..=2i32).any(|dy| {
@@ -1256,7 +1231,6 @@ pub(crate) fn close_pockets(world: &mut World) {
     }
 }
 
-/// One cave: every cell of the seed's map, as generated or as the host has changed it.
 #[derive(Clone)]
 pub struct Cave {
     pub seed: u32,

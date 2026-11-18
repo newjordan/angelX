@@ -4,11 +4,13 @@ import fs from 'node:fs'
 import os from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
+import { syncBuiltinESMExports } from 'node:module'
 
 import {
   DEFAULT_RULES,
   auditDuplicateContent,
   explainGroup,
+  findDuplicateGroups,
   globToRegExp,
   matchesAny,
 } from '../../scripts/check/check-duplicate-content.mjs'
@@ -41,7 +43,6 @@ test('globToRegExp anchors and treats ** as zero or more segments', () => {
   assert.ok(!globToRegExp('a/**/b').test('a/x/y'))
   assert.ok(!globToRegExp('a/*/b').test('a/x/y/b'))
   assert.ok(globToRegExp('a/*/b').test('a/x/b'))
-  // Anchored: a matching suffix is not a match.
   assert.ok(!globToRegExp('b').test('a/b'))
   assert.ok(matchesAny('cockpit/research/sloptomizer/x/y.py', ['cockpit/research/sloptomizer/**']))
 })
@@ -53,7 +54,6 @@ test('a duplicate is unexplained until a rule names it', () => {
   const markers = [member('pkg/__init__.py', 1), member('pkg/sub/__init__.py', 1)]
   assert.equal(explainGroup(markers).id, 'python-package-markers')
 
-  // Package markers stop being conventional once they carry real content.
   const heavy = [member('pkg/__init__.py', 9000), member('pkg/sub/__init__.py', 9000)]
   assert.equal(explainGroup(heavy), null)
 })
@@ -62,7 +62,6 @@ test('the embed/archive rule needs both sides of the pair', () => {
   const embed = 'cockpit/research/sloptomizer/orchestrator/self_improvement/stats.py'
   const archive = 'experimental/sloptomizer/upstream/orchestrator/self_improvement/stats.py'
   assert.equal(explainGroup([member(embed), member(archive)]).id, 'research-embed-archive-pair')
-  // Two copies inside the embed alone are a real duplicate, not the intended pair.
   assert.equal(
     explainGroup([member(embed), member('cockpit/research/sloptomizer/orchestrator/x.py')]),
     null,
@@ -96,6 +95,50 @@ test('a synthetic tree with a copied source file fails the gate', () => {
     ['src/one.py', 'src/two.py'],
   )
   assert.equal(report.redundant_bytes, 'print("same")\n'.length)
+})
+
+test('only shared sizes are hashed; equal size alone is not a duplicate', (t) => {
+  const files = {
+    'unique-size.bin': Buffer.alloc(8193, 7),
+    'same-a.bin': Buffer.from([0, 255, 128, 13]),
+    'same-b.bin': Buffer.from([0, 255, 128, 13]),
+    'same-size-different.bin': Buffer.from([255, 0, 128, 13]),
+    'empty-a': '',
+    'empty-b': '',
+  }
+  const root = fixture(files)
+  fs.mkdirSync(join(root, 'directory'))
+  const read = fs.readFileSync
+  const reads = []
+  const mock = t.mock.method(fs, 'readFileSync', function (path, ...args) {
+    reads.push(path)
+    return read.call(this, path, ...args)
+  })
+  syncBuiltinESMExports()
+  let groups
+  try {
+    groups = findDuplicateGroups(root, [...Object.keys(files), 'missing', 'directory'].reverse())
+  } finally {
+    mock.mock.restore()
+    syncBuiltinESMExports()
+  }
+  assert.deepEqual(reads.sort(), Object.keys(files)
+    .filter((path) => path !== 'unique-size.bin')
+    .map((path) => join(root, path)).sort())
+  assert.deepEqual(groups.map((group) => ({
+    size: group.size,
+    redundant: group.redundant_bytes,
+    paths: group.members.map((entry) => entry.path),
+  })), [
+    { size: 4, redundant: 4, paths: ['same-a.bin', 'same-b.bin'] },
+    { size: 0, redundant: 0, paths: ['empty-a', 'empty-b'] },
+  ])
+})
+
+test('an empty or entirely unique-size inventory has no groups', () => {
+  const root = fixture({ first: 'a', second: 'bb', third: '' })
+  assert.deepEqual(findDuplicateGroups(root, []), [])
+  assert.deepEqual(findDuplicateGroups(root, ['first', 'second', 'third']), [])
 })
 
 test('rule order is deterministic and later rules do not rescue earlier groups', () => {

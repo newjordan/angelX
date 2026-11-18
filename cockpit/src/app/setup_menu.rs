@@ -24,8 +24,6 @@ use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-/// The guide's mood on a page: the window's squire acts it out on the
-/// card's roof (`setup_view::knight`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Pose {
     Idle,
@@ -38,8 +36,6 @@ pub(crate) enum Pose {
     ThumbsUp,
 }
 
-/// An API provider a pasted key can be for. `model_var` is set when the
-/// provider has no default model and one must be picked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Provider {
     pub(crate) driver: &'static str,
@@ -117,9 +113,6 @@ pub(crate) const PROVIDERS: &[Provider] = &[
     },
 ];
 
-/// A provider key already in the environment: the driver, its name, the key
-/// variables the cockpit reads (first set wins) and the model variables it
-/// needs (the first is saved). The same table as scripts/runtime/angel-setup.sh.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct EnvSeat {
     pub(crate) driver: &'static str,
@@ -203,10 +196,8 @@ pub(crate) const ENV_SEATS: &[EnvSeat] = &[
     },
 ];
 
-/// Default ports of the common local model servers.
 const LOCAL_PORTS: &[u16] = &[11434, 1234, 8080, 8000, 30000, 1337, 5000, 5001];
 
-/// A plan the operator already pays for, signed in through its own CLI.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Plan {
     ChatGpt,
@@ -269,7 +260,6 @@ impl Plan {
     }
 }
 
-/// A model server answering on this computer.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Server {
     pub(crate) name: String,
@@ -277,17 +267,14 @@ pub(crate) struct Server {
     pub(crate) models: Vec<String>,
 }
 
-/// What this computer already has.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Found {
     pub(crate) servers: Vec<Server>,
-    /// Indices into [`ENV_SEATS`], with the variable that holds the key.
     pub(crate) keys: Vec<(usize, &'static str)>,
     pub(crate) chatgpt: bool,
     pub(crate) grok: bool,
 }
 
-/// Where the plan CLIs live, when they are installed, and whether npm is.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Tools {
     pub(crate) codex: Option<PathBuf>,
@@ -310,15 +297,12 @@ impl Tools {
     }
 }
 
-/// A sign-in in progress: its output so far (it prints the sign-in link)
-/// and its process id, so Esc can stop it.
 #[derive(Clone, Default)]
 pub(crate) struct Login {
     pub(crate) log: Arc<Mutex<String>>,
     pub(crate) pid: Arc<AtomicU32>,
 }
 
-/// Work the cockpit runs off the draw thread for the menu.
 pub(crate) enum Job {
     Scan,
     CheckKey {
@@ -343,8 +327,6 @@ pub(crate) enum Job {
     },
 }
 
-/// What a [`Job`] found. `Answer` is an HTTP status (0 when nothing
-/// answered), the models the answer listed and the address that gave it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Outcome {
     Scanned(Vec<Server>),
@@ -360,7 +342,6 @@ pub(crate) enum Outcome {
     },
 }
 
-/// Settings to save, and the words for what got connected.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Saving {
     pub(crate) pairs: Vec<(&'static str, String)>,
@@ -368,7 +349,6 @@ pub(crate) struct Saving {
     pub(crate) tip: Option<String>,
 }
 
-/// What a key or click asks of the cockpit.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Effect {
     Stay,
@@ -378,7 +358,6 @@ pub(crate) enum Effect {
     Open(String),
 }
 
-/// A clickable spot the view drew.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Hit {
     Item(usize),
@@ -452,7 +431,6 @@ enum Action {
     Finish,
 }
 
-/// What a running job answers to.
 #[derive(Clone, Debug)]
 enum After {
     Key { provider: usize, key: String },
@@ -470,7 +448,6 @@ struct Waiting {
     login: Option<Login>,
 }
 
-/// One row of a menu list.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Item {
     pub(crate) label: String,
@@ -478,14 +455,12 @@ pub(crate) struct Item {
     pub(crate) ready: bool,
 }
 
-/// A text box: what it shows (keys are masked) and its hint when empty.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Field {
     pub(crate) shown: String,
     pub(crate) hint: &'static str,
 }
 
-/// Everything the view draws for one frame.
 #[derive(Clone, Debug)]
 pub(crate) struct Page {
     pub(crate) title: String,
@@ -496,9 +471,7 @@ pub(crate) struct Page {
     pub(crate) note: Option<String>,
     pub(crate) pose: Pose,
     pub(crate) busy: bool,
-    /// The bottom bar: key, then what it does.
     pub(crate) keys: Vec<(&'static str, &'static str)>,
-    /// Ctrl+O has somewhere to go.
     pub(crate) link: bool,
 }
 
@@ -508,19 +481,15 @@ pub(crate) struct Menu {
     cursor: usize,
     field: String,
     note: Option<String>,
-    /// When the note appeared and whether it is good news: the guide
-    /// stumbles at a problem and gives a thumbs-up at good news, briefly.
     noted: Option<(Instant, bool)>,
     found: Found,
     tools: Tools,
     scanning: bool,
     waiting: Option<Waiting>,
-    /// The job [`Menu::take_job`] hands out next.
     job: Option<Job>,
     serial: u64,
     opened: Instant,
     entered: Instant,
-    /// The route in hand, or `None` while angelX has no model.
     pub(crate) current: Option<String>,
 }
 
@@ -545,7 +514,6 @@ impl Menu {
         }
     }
 
-    /// Start looking for local servers; the result comes back as `Scanned`.
     pub(crate) fn scan(&mut self) -> Effect {
         self.scanning = true;
         self.run(Job::Scan)
@@ -607,7 +575,6 @@ impl Menu {
         }
     }
 
-    /// The saved choice went through: show the finish.
     pub(crate) fn show_done(&mut self, name: String, tip: Option<String>, now: Instant) {
         self.waiting = None;
         self.back.clear();
@@ -639,7 +606,6 @@ impl Menu {
         matches!(self.screen, Screen::Key { .. } | Screen::ServerKey { .. })
     }
 
-    /// The list on this screen, each row with what Enter on it does.
     fn actions(&self) -> Vec<(Action, Item)> {
         let item = |label: String, about: &str| Item {
             label,
@@ -854,7 +820,6 @@ impl Menu {
             .collect()
     }
 
-    /// Where Ctrl+O goes on this screen.
     fn link(&self) -> Option<String> {
         if let Some(waiting) = &self.waiting {
             return waiting.login.as_ref().and_then(login_url);
@@ -930,8 +895,6 @@ impl Menu {
         }
     }
 
-    /// Bracketed paste lands in the text box. A key keeps no whitespace;
-    /// anything else keeps its first line.
     pub(crate) fn paste(&mut self, text: &str) {
         if self.waiting.is_some() || !self.has_field() {
             return;
@@ -1153,7 +1116,6 @@ impl Menu {
         }
     }
 
-    /// Several models: let the operator pick. One: take it.
     fn offer_models(&mut self, models: Vec<String>, pick: Pick, now: Instant) -> Effect {
         if models.len() == 1 {
             return Effect::Save(pick_saving(&pick, models[0].clone()));
@@ -1169,14 +1131,12 @@ impl Menu {
         }
     }
 
-    /// Stop the job in hand. A sign-in's browser wait is a process; it ends.
     pub(crate) fn cancel(&mut self) {
         if let Some(waiting) = self.waiting.take()
             && let Some(login) = waiting.login
         {
             let pid = login.pid.load(Ordering::Relaxed);
             if pid != 0 {
-                // SAFETY: plain signal to the child this menu started.
                 unsafe {
                     libc::kill(pid as libc::pid_t, libc::SIGTERM);
                 }
@@ -1184,13 +1144,11 @@ impl Menu {
         }
     }
 
-    /// A job came back. Answers to a job that was cancelled are dropped.
     pub(crate) fn finish(&mut self, serial: u64, outcome: Outcome, now: Instant) -> Effect {
         if let Outcome::Scanned(servers) = outcome {
             let before = self.actions().into_iter().nth(self.cursor).map(|a| a.0);
             self.found.servers = servers;
             self.scanning = false;
-            // New rows arrive at the top: keep the cursor on the same choice.
             if self.cursor > 0
                 && let Some(before) = before
                 && let Some(index) = self.actions().iter().position(|(a, _)| *a == before)
@@ -1348,7 +1306,6 @@ impl Menu {
                 cursor: 0,
                 field: None,
                 note: None,
-                // Hauling on the rope while the job runs: pull, strain, pull.
                 pose: if (since.as_millis() / 700).is_multiple_of(2) {
                     Pose::Pull
                 } else {
@@ -1535,7 +1492,6 @@ impl Menu {
                 page.keys = vec![("Enter", "start")];
             }
         }
-        // A fresh note sets the guide's mood for a moment.
         if let Some((at, good)) = self.noted
             && now.saturating_duration_since(at) < Duration::from_millis(1600)
         {
@@ -1544,8 +1500,6 @@ impl Menu {
         page
     }
 }
-
-// --- what the choices save --------------------------------------------------
 
 fn key_saving(provider: usize, key: String, model: Option<String>) -> Saving {
     let p = PROVIDERS[provider];
@@ -1625,8 +1579,6 @@ fn pick_saving(pick: &Pick, model: String) -> Saving {
     }
 }
 
-// --- small words ------------------------------------------------------------
-
 fn key_problem(key: &str) -> Option<&'static str> {
     if key.is_empty() {
         Some("Paste your key first.")
@@ -1640,7 +1592,6 @@ fn key_problem(key: &str) -> Option<&'static str> {
     }
 }
 
-/// Dots for a key, with its last four characters so a paste can be checked.
 fn masked(key: &str) -> String {
     let count = key.chars().count();
     if count <= 4 {
@@ -1667,7 +1618,6 @@ fn answer_words(status: u16) -> String {
     }
 }
 
-/// A typed server address as a URL: http:// when no scheme, no trailing /.
 fn server_url(typed: &str) -> Option<String> {
     let url = typed.trim().trim_end_matches('/');
     if url.is_empty() {
@@ -1689,7 +1639,6 @@ fn last_line(log: &str) -> Option<String> {
         .map(|l| l.chars().take(160).collect())
 }
 
-/// The sign-in link a login printed, if it printed one.
 fn login_url(login: &Login) -> Option<String> {
     let log = login.log.lock().ok()?;
     log.split_whitespace()
@@ -1710,9 +1659,6 @@ pub(crate) fn settings_path() -> PathBuf {
     home().join(".angelX").join("angel.env")
 }
 
-// --- reading this computer --------------------------------------------------
-
-/// Logins and keys this computer already has. Cheap: env reads and two stats.
 pub(crate) fn found_here() -> Found {
     let set = |var: &str| std::env::var(var).is_ok_and(|v| !v.trim().is_empty());
     let keys = ENV_SEATS
@@ -1728,8 +1674,6 @@ pub(crate) fn found_here() -> Found {
     }
 }
 
-/// PATH only: asking npm where its global tools live takes a node start,
-/// so that waits for an install, which runs off the draw thread.
 pub(crate) fn tools_here() -> Tools {
     Tools {
         codex: on_path("codex"),
@@ -1750,7 +1694,6 @@ fn is_executable(path: &Path) -> bool {
         .is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
 }
 
-/// A tool on PATH, or in npm's global bin when that is not on PATH.
 fn find_tool(tool: &str) -> Option<PathBuf> {
     on_path(tool).or_else(|| {
         on_path("npm")?;
@@ -1764,7 +1707,6 @@ fn find_tool(tool: &str) -> Option<PathBuf> {
     })
 }
 
-/// Model ids in an OpenAI-style `/models` answer, in order.
 pub(crate) fn model_ids(body: &str) -> Vec<String> {
     serde_json::from_str::<serde_json::Value>(body)
         .ok()
@@ -1778,8 +1720,6 @@ pub(crate) fn model_ids(body: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Chat models only: provider lists also carry embedding, speech and image
-/// models.
 pub(crate) fn chat_models(body: &str) -> Vec<String> {
     const NOT_CHAT: &[&str] = &[
         "embed",
@@ -1801,7 +1741,6 @@ pub(crate) fn chat_models(body: &str) -> Vec<String> {
     ids
 }
 
-/// OpenRouter's catalog with the free models first.
 pub(crate) fn openrouter_models(body: &str) -> Vec<String> {
     let mut ids = model_ids(body);
     ids.sort_by_key(|id| (!id.ends_with(":free"), id.clone()));
@@ -1892,11 +1831,9 @@ fn api_url(provider: &Provider) -> String {
     provider.url.to_string()
 }
 
-/// A key's check and, for a provider without a default model, its models.
 fn check_key(driver: &str, url: &str, key: &str) -> (u16, Vec<String>) {
     let patience = Duration::from_secs(20);
     match driver {
-        // OpenRouter lists models for anyone; its key endpoint is the check.
         "openrouter" => {
             let (status, _) = http_get(&format!("{url}/key"), Some(key), patience);
             if !(200..300).contains(&status) {
@@ -1917,7 +1854,6 @@ fn check_key(driver: &str, url: &str, key: &str) -> (u16, Vec<String>) {
 }
 
 fn server_models(url: &str, key: Option<&str>) -> Outcome {
-    // OpenAI-compatible servers answer under /v1; try that first unless typed.
     let bases = if url.ends_with("/v1") {
         vec![url.to_string()]
     } else {
@@ -2059,14 +1995,10 @@ impl Job {
     }
 }
 
-// --- the settings file --------------------------------------------------------
-
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 
-/// Replace these names in the settings file and keep every other line, the
-/// way `angelX setup --text` does. Written whole, owner-only, then renamed.
 pub(crate) fn write_settings(path: &Path, pairs: &[(&str, String)]) -> std::io::Result<()> {
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
@@ -2106,18 +2038,11 @@ pub(crate) fn write_settings(path: &Path, pairs: &[(&str, String)]) -> std::io::
     std::fs::rename(&tmp, path)
 }
 
-// --- the cockpit side ---------------------------------------------------------
-
-/// `/setup`'s place in the cockpit: the open menu, its jobs' answers, and a
-/// rebuilt model list waiting for the cockpit to be idle.
 pub(crate) struct Setup {
     pub(crate) menu: Option<Menu>,
     pub(crate) hits: Vec<(Rect, Hit)>,
-    /// The card last put up in the window, for the pointer to read.
     #[cfg(feature = "glass")]
     pub(crate) card: Option<angel_glass::card::Card>,
-    /// How the card comes in: the title on a first launch, the squire's
-    /// kick otherwise.
     #[cfg(feature = "glass")]
     pub(crate) entrance: angel_glass::card::Entrance,
     tx: Sender<(u64, Outcome)>,
@@ -2151,8 +2076,6 @@ impl Setup {
         self.menu.is_some() || self.rebuild.is_some()
     }
 
-    /// Open on the title (the first launch, `angelX setup`) rather than
-    /// the squire's kick.
     pub(crate) fn title_entrance(&mut self) {
         #[cfg(feature = "glass")]
         {
@@ -2162,7 +2085,6 @@ impl Setup {
 }
 
 impl App {
-    /// The route in hand as words, or `None` on the practice floor.
     fn setup_current_route(&self) -> Option<String> {
         let choice = self
             .bag
@@ -2201,7 +2123,6 @@ impl App {
             menu.cancel();
         }
         self.setup.hits.clear();
-        // Asked and declined: the first launch does not ask again.
         let path = settings_path();
         if !cfg!(test) && !path.exists() {
             let _ = write_settings(&path, &[("ANGEL_SETUP_SKIPPED", "1".into())]);
@@ -2223,8 +2144,6 @@ impl App {
     }
 
     pub(crate) fn setup_mouse(&mut self, ev: MouseEvent) {
-        // The window's card lies flat on its cells: a click off it is
-        // nothing, on it the cell itself.
         #[cfg(feature = "glass")]
         let ev = if let Some(card) = self.setup.card.as_ref() {
             let Some((column, row)) = card.hit(ev.column, ev.row) else {
@@ -2270,7 +2189,6 @@ impl App {
                 let Some(job) = self.setup.menu.as_mut().and_then(Menu::take_job) else {
                     return;
                 };
-                // Tests answer jobs by hand; nothing leaves the process.
                 if cfg!(test) {
                     return;
                 }
@@ -2299,12 +2217,8 @@ impl App {
             Ok(()) => {
                 if !cfg!(test) {
                     for (name, value) in &saving.pairs {
-                        // SAFETY: the cockpit sets its own env from the UI
-                        // thread, as main does at startup; the rebuild below
-                        // reads it.
                         unsafe { std::env::set_var(name, value) };
                     }
-                    // The new choice outranks the last /model pick.
                     let _ = crate::platform::route_preferences::clear();
                     let (tx, rx) = mpsc::channel();
                     let _ = std::thread::Builder::new()
@@ -2330,8 +2244,6 @@ impl App {
         }
     }
 
-    /// Answers from the menu's jobs, and the rebuilt model list once nothing
-    /// is using the old one.
     pub(crate) fn advance_setup(&mut self) {
         while let Ok((serial, outcome)) = self.setup.rx.try_recv() {
             let Some(menu) = self.setup.menu.as_mut() else {

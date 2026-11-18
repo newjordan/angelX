@@ -1,6 +1,3 @@
-# crates/delve/src/rules/layout.rs — `impl Room`: doorways, regrowing, the
-# sanctuary's fixtures.
-
 def layout.half(+n: U32) -> U32:
   (n >> 1n : U32)
 
@@ -47,7 +44,6 @@ def layout.tile_from_name(+s: String) -> LayTile:
               else:
                 TileBog{}
 
-# The room's two doorway cells on side `dir`.
 def layout.Room.lane(+cols: U32, +rows: U32, +dir: U32) -> LayLane:
   match dir as U32:
     case 0:
@@ -59,7 +55,6 @@ def layout.Room.lane(+cols: U32, +rows: U32, +dir: U32) -> LayLane:
     case _:
       LayLane{0, (layout.half(rows) - 1 : U32), 0, layout.half(rows)}
 
-# Open a doorway in side `dir`, where the floor's grid had none.
 def layout.Room.open_door(+room: J.Val, +dir: U32) -> J.Val:
   g: LayGrid = layout.grid.of_room(room)
   LayLane{c0: U32, r0: U32, c1: U32, r1: U32} of LayLane = layout.Room.lane(J.u32(J.get(room, "cols")), J.u32(J.get(room, "rows")), dir)
@@ -67,7 +62,6 @@ def layout.Room.open_door(+room: J.Val, +dir: U32) -> J.Val:
   g2: LayGrid = layout.grid.set(g1, c1, r1, TileDoor{})
   layout.grid.put(J.set(room, "doors", J.set_nth(J.get(room, "doors"), dir, J.JBool{True{}})), g2)
 
-# Open every doorway the room's doors say, from side `i` on.
 def layout.Room.open_doors(+room: J.Val, +i: U32) -> J.Val:
   if U32.is_ge(i, 4):
     room
@@ -77,7 +71,6 @@ def layout.Room.open_doors(+room: J.Val, +i: U32) -> J.Val:
     else:
       layout.Room.open_doors(room, (i + 1 : U32))
 
-# Open floor inside stone walls, `cols` by `rows`.
 def layout.grid.walled(+cols: U32, +rows: U32) -> LayGrid:
   LayGrid{cols, rows, layout.grid.walled.rows(0, cols, rows)}
 
@@ -93,8 +86,6 @@ def layout.grid.walled.row(+edge: Bool, +cols: U32) -> List<&2, LayTile>:
   else:
     Con{TileWall{}, List.append(&2, LayTile, layout.row.fill((cols - 2 : U32), TileFloor{}), Con{TileWall{}, Nil{}})}
 
-# The room laid afresh at `cols` by `rows`: open floor inside stone walls, its
-# doorways where they were. What it measured before is kept as `laid`.
 def layout.Room.regrow(+room: J.Val, +cols: U32, +rows: U32) -> J.Val:
   if Bool.and(U32.is_eq(cols, J.u32(J.get(room, "cols"))), U32.is_eq(rows, J.u32(J.get(room, "rows")))):
     room
@@ -105,7 +96,6 @@ def layout.Room.regrow(+room: J.Val, +cols: U32, +rows: U32) -> J.Val:
       J.get(room, "laid")
     layout.Room.open_doors(layout.grid.put(J.set(room, "laid", laid), layout.grid.walled(cols, rows)), 0)
 
-# Stairs down in the middle of the room (a slain dragon's lair).
 def layout.Room.open_stairs(+room: J.Val) -> J.Val:
   c: U32 = (layout.half(J.u32(J.get(room, "cols"))) - 1 : U32)
   r: U32 = (layout.half(J.u32(J.get(room, "rows"))) - 1 : U32)
@@ -126,8 +116,6 @@ def layout.tile_is_floor(+t: LayTile) -> Bool:
 def layout.grid.clear(+g: LayGrid, +c: U32, +r: U32) -> Bool:
   layout.tile_is_floor(layout.grid.get(g, c, r))
 
-# Where a Sanctuary's privy stands: the first clear two-by-two corner from the
-# north-west (rows 2.., cols 2..), its door facing south.
 def layout.Room.privy.col(+g: LayGrid, +row: U32, +col: U32, +end: U32) -> LayFind:
   if U32.is_ge(col, end):
     LayFind{False{}, 0, 0}
@@ -169,8 +157,6 @@ def layout.Room.privy.out(+found: LayFind) -> Maybe<&2, Sigma<&2, &2, F32, _ => 
       else:
         None{}
 
-# Where a Sanctuary's field banner stands: the first clear tile down the east
-# side from the middle.
 def layout.Room.field_banner.col(+g: LayGrid, +row: U32, +col: U32, +low: U32) -> LayFind:
   if U32.is_lt(col, low):
     LayFind{False{}, 0, 0}
@@ -212,7 +198,6 @@ def layout.Room.field_banner.out(+found: LayFind) -> Maybe<&2, Sigma<&2, &2, F32
       else:
         None{}
 
-# Whether any tile of the run string is stairs.
 def layout.rle.has_stairs(+s: String) -> Bool:
   match s as String:
     case SNil{}:
@@ -223,8 +208,6 @@ def layout.rle.has_stairs(+s: String) -> Bool:
       else:
         layout.rle.has_stairs(t)
 
-# Where a Sanctuary's altar stands: the middle, or above the stairs when the
-# room keeps them.
 def layout.Room.altar(+room: J.Val) -> Sigma<&2, &2, F32, _ => F32>:
   x: F32 = (layout.Room.width(room) / 2.0 : F32)
   y: F32 = (layout.Room.height(room) / 2.0 : F32)

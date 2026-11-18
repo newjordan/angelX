@@ -1,7 +1,3 @@
-# crates/delve/src/rules/deathmatch.rs — Knights Wish: a first-to-ten free-for-all behind each
-# knight's own eyes. The Session is the J object of `Run::deathmatch`; its fighters are
-# J objects keyed by seat, each holding its own copy of the knight's Hero.
-
 def deathmatch.GOAL() -> U32:
   10
 
@@ -32,14 +28,12 @@ def deathmatch.TURN() -> F32:
 def deathmatch.TAU() -> F32:
   6.2831855
 
-# SPAWNS[i]
 def deathmatch.SPAWN.x(+i: U32) -> F32:
   gc.nth_f([5.0, 43.0, 43.0, 5.0, 17.0, 31.0, 23.0, 25.0], i)
 
 def deathmatch.SPAWN.y(+i: U32) -> F32:
   gc.nth_f([5.0, 31.0, 5.0, 31.0, 17.0, 21.0, 9.0, 29.0], i)
 
-# PICKUPS[k] = (x, y, kind): 0 health, 1 armor, 2 power
 def deathmatch.PICKUP.x(+k: U32) -> F32:
   gc.nth_f([9.0, 39.0, 9.0, 39.0, 25.0], k)
 
@@ -49,15 +43,12 @@ def deathmatch.PICKUP.y(+k: U32) -> F32:
 def deathmatch.PICKUP.kind(+k: U32) -> U32:
   gc.nth_u([0, 0, 1, 1, 2], k)
 
-# room(): the arena's own Room (24x18 tiles from MAP), as far as the Grid reads it.
 def deathmatch.room() -> J.Val:
   J.set(J.set(J.set(J.set(J.obj(), "kind", J.JS{"kingdom"}), "cols", J.JU{24}), "rows", J.JU{18}), "tiles", J.JS{"25#10.2#10.2#10.2#10.2#2.2#14.2#2.2#2.2#2.3#4.3#2.2#2.2#6.3#4.3#6.2#22.4#18.6#6.2#2.2#6.6#6.2#2.2#6.4#22.2#22.2#6.3#4.3#6.2#2.2#2.3#4.3#2.2#2.2#2.2#14.2#2.2#10.2#10.2#10.2#10.25#"})
 
-# open(x, y): grid().clear(x, y, HERO_RADIUS, Mover::Hero)
 def deathmatch.open(+x: F32, +y: F32) -> Bool:
   rules.Grid.clear(deathmatch.room(), False{}, x, y, rules.HERO_RADIUS(), 0)
 
-# sight(a, b): every fifth of a unit along the line is open.
 def deathmatch.sight(+ax: F32, +ay: F32, +bx: F32, +by: F32) -> Bool:
   n: U32 = RS.f_as_u32(RS.f_max(F32.ceil((RS.f_hypot((bx - ax : F32), (by - ay : F32)) * 5.0 : F32)), 1.0))
   deathmatch.sight.go(0, n, ax, ay, bx, by)
@@ -72,12 +63,9 @@ def deathmatch.sight.go(+i: U32, +n: U32, +ax: F32, +ay: F32, +bx: F32, +by: F32
     else:
       False{}
 
-# Fighter::alive()
 def deathmatch.Fighter.alive(+f: J.Val) -> Bool:
   Bool.and(gc.b(f, "connected"), Bool.and(U32.is_gt(gc.u(J.get(f, "hero"), "hp"), 0), U32.is_zero(gc.u(f, "respawn"))))
 
-# A stance (hero.champ) with every field, defaults for the ones left out; written back with the
-# key dropped while idle (serde skip_serializing_if = Stance::idle).
 def deathmatch.stance(+h: J.Val) -> J.Val:
   c: J.Val = J.get(h, "champ")
   c1: J.Val = gc.zeros(J.obj(), ["windup", "fury", "rot", "haul", "cast", "spell"])
@@ -97,11 +85,9 @@ def deathmatch.stance.idle(+c: J.Val) -> Bool:
 def deathmatch.put_champ(+h: J.Val, +c: J.Val) -> J.Val:
   gc.ifj(deathmatch.stance.idle(c), _ => J.del(h, "champ"), _ => J.set(h, "champ", c))
 
-# hero.champ = Default::default()
 def deathmatch.clear_champ(+h: J.Val) -> J.Val:
   J.del(h, "champ")
 
-# Fighter::new(hero, slot, book)
 def deathmatch.Fighter.new(+hero: J.Val, +slot: U32, +book: J.Val) -> J.Val:
   h0: J.Val = hero.Hero.rebonus(hero, book)
   h1: J.Val = gc.su(gc.su(gc.su(h0, "hp", gc.u(h0, "max_hp")), "invulnerable", 0), "fire_cooldown", 0)
@@ -116,7 +102,6 @@ def deathmatch.Fighter.new(+hero: J.Val, +slot: U32, +book: J.Val) -> J.Val:
   f1: J.Val = gc.zeros(f0, ["kills", "deaths", "respawn", "power", "flash", "stun", "burn", "burner", "fart_wait"])
   gc.sb(gc.su(gc.sf(f1, "bob", 0.0), "protection", deathmatch.PROTECTION()), "connected", True{})
 
-# Session::new(players, book): the first six seated (not absent) knights, in seat order.
 def deathmatch.Session.new(+players: J.Val, +book: J.Val) -> J.Val:
   s0: J.Val = J.set(J.obj(), "fighters", deathmatch.fighters(players, book, gc.ids(players), 0))
   s1: J.Val = gc.zeros(s0, ["ticks", "ended", "purse"])
@@ -137,7 +122,6 @@ def deathmatch.fighters(+players: J.Val, +book: J.Val, +ids: List<&2, U32>, +n: 
         else:
           J.set(deathmatch.fighters(players, book, t, (n + 1 : U32)), gc.key(id), deathmatch.Fighter.new(h, n, book))
 
-# Session::order(): ids by kills (most first), deaths (fewest), then id.
 def deathmatch.Session.order(+s: J.Val) -> List<&2, U32>:
   deathmatch.sort(gc.ids(J.get(s, "fighters")), J.get(s, "fighters"))
 
@@ -163,7 +147,6 @@ def deathmatch.before(+a: U32, +b: U32, +fs: J.Val) -> Bool:
   fb: J.Val = gc.seat(fs, b)
   Bool.or(U32.is_gt(gc.u(fa, "kills"), gc.u(fb, "kills")), Bool.and(U32.is_eq(gc.u(fa, "kills"), gc.u(fb, "kills")), Bool.or(U32.is_lt(gc.u(fa, "deaths"), gc.u(fb, "deaths")), Bool.and(U32.is_eq(gc.u(fa, "deaths"), gc.u(fb, "deaths")), U32.is_lt(a, b)))))
 
-# fighter and hero accessors
 def deathmatch.F(+s: J.Val, +id: U32) -> J.Val:
   gc.seat(J.get(s, "fighters"), id)
 
@@ -176,7 +159,6 @@ def deathmatch.setH(+s: J.Val, +id: U32, +h: J.Val) -> J.Val:
 def deathmatch.H(+s: J.Val, +id: U32) -> J.Val:
   J.get(deathmatch.F(s, id), "hero")
 
-# The closest any other living fighter stands to (px, py), starting from 100.
 def deathmatch.clearance(+s: J.Val, +me: U32, +px: F32, +py: F32, +ids: List<&2, U32>, +best: F32) -> F32:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -188,7 +170,6 @@ def deathmatch.clearance(+s: J.Val, +me: U32, +px: F32, +py: F32, +ids: List<&2,
       else:
         deathmatch.clearance(s, me, px, py, t, best)
 
-# The spawn farthest from the living (the earliest among equals).
 def deathmatch.pick_spawn(+s: J.Val, +me: U32, +i: U32, +best: U32, +bestc: F32) -> U32:
   if U32.is_ge(i, 8):
     best
@@ -199,7 +180,6 @@ def deathmatch.pick_spawn(+s: J.Val, +me: U32, +i: U32, +best: U32, +bestc: F32)
     else:
       deathmatch.pick_spawn(s, me, (i + 1 : U32), best, bestc)
 
-# fn spawn(&mut self, id)
 def deathmatch.Session.spawn(+s: J.Val, +id: U32) -> J.Val:
   i: U32 = deathmatch.pick_spawn(s, id, 1, 0, deathmatch.clearance(s, id, deathmatch.SPAWN.x(0), deathmatch.SPAWN.y(0), gc.ids(J.get(s, "fighters")), 100.0))
   px: F32 = deathmatch.SPAWN.x(i)
@@ -215,7 +195,6 @@ def deathmatch.Session.spawn(+s: J.Val, +id: U32) -> J.Val:
   f2: J.Val = gc.su(gc.su(gc.su(gc.su(f1, "protection", deathmatch.PROTECTION()), "power", 0), "stun", 0), "burn", 0)
   deathmatch.setF(s, id, f2)
 
-# Fighter::walk_arena(input, fields): a step that a hedge forbids is taken back.
 def deathmatch.Fighter.walk_arena(+f: J.Val, +input: J.Val, +fields: J.Val) -> J.Val:
   f1: J.Val = deathmatch.Fighter.walk(f, input)
   h: J.Val = J.get(f1, "hero")
@@ -231,7 +210,6 @@ def deathmatch.fields_block(+fs: List<&2, J.Val>, +x: F32, +y: F32, +r: F32) -> 
     case Con{h: J.Val, t: List<&2, J.Val>}:
       Bool.or(deathmatch.Field.blocks(h, x, y, r), deathmatch.fields_block(t, x, y, r))
 
-# Fighter::walk(input)
 def deathmatch.Fighter.walk(+f: J.Val, +input: J.Val) -> J.Val:
   if Bool.or(Bool.not(deathmatch.Fighter.alive(f)), U32.is_gt(gc.u(f, "stun"), 0)):
     f
@@ -264,7 +242,6 @@ def deathmatch.Fighter.walk2(+f: J.Val, +input: J.Val, +c: F32, +s: F32, +mx: F3
   h4: J.Val = gc.sf(gc.sf(h3, "x", nx), "y", ny)
   J.set(gc.sf(f, "bob", (gc.f(f, "bob") + (RS.f_hypot((nx - bx : F32), (ny - by : F32)) * 1.8 : F32) : F32)), "hero", h4)
 
-# fn step(&mut self, inputs, book, seed)
 def deathmatch.Session.step(+s: J.Val, +inputs: J.Val, +book: J.Val, +seed: W.W) -> J.Val:
   if Bool.not(J.is_null(J.get(s, "winner"))):
     gc.su(s, "ended", (gc.u(s, "ended") + 1 : U32))
@@ -295,7 +272,6 @@ def deathmatch.cool(+xs: List<&2, U32>) -> List<&2, U32>:
     case Con{h: U32, t: List<&2, U32>}:
       gc.ssub(h, 1) <> deathmatch.cool(t)
 
-# feed.retain(|f| ticks.saturating_sub(f.tick) < 6 * HZ)
 def deathmatch.feed_keep(+fs: List<&2, J.Val>, +ticks: U32) -> List<&2, J.Val>:
   match fs as List<&2, J.Val>:
     case Nil{}:
@@ -303,7 +279,6 @@ def deathmatch.feed_keep(+fs: List<&2, J.Val>, +ticks: U32) -> List<&2, J.Val>:
     case Con{h: J.Val, t: List<&2, J.Val>}:
       gc.ifx_j(U32.is_lt(gc.ssub(ticks, gc.u(h, "tick")), (6 * rules.HZ() : U32)), h, deathmatch.feed_keep(t, ticks))
 
-# The fighters, one by one in seat order; a won round ends the loop (the rest of the turn is skipped).
 def deathmatch.turns(+s: J.Val, +inputs: J.Val, +book: J.Val, +seed: W.W, +ids: List<&2, U32>) -> J.Val:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -320,7 +295,6 @@ def deathmatch.turns(+s: J.Val, +inputs: J.Val, +book: J.Val, +seed: W.W, +ids: 
         else:
           deathmatch.turn(s, inputs, book, seed, id, t, f)
 
-# One living fighter's turn.
 def deathmatch.turn(+s: J.Val, +inputs: J.Val, +book: J.Val, +seed: W.W, +id: U32, +t: List<&2, U32>, +f: J.Val) -> J.Val:
   h: J.Val = J.get(f, "hero")
   f1: J.Val = gc.su(gc.su(gc.su(gc.su(gc.su(f, "protection", gc.ssub(gc.u(f, "protection"), 1)), "power", gc.ssub(gc.u(f, "power"), 1)), "flash", gc.ssub(gc.u(f, "flash"), 1)), "stun", gc.ssub(gc.u(f, "stun"), 1)), "fart_wait", gc.ssub(gc.u(f, "fart_wait"), 1))
@@ -345,7 +319,6 @@ def deathmatch.turn(+s: J.Val, +inputs: J.Val, +book: J.Val, +seed: W.W, +id: U3
     else:
       deathmatch.turns(deathmatch.pickups(s5, id, 0), inputs, book, seed, t)
 
-# The burn: it eases a tick, and every fifteenth the one who set it fires for 4.
 def deathmatch.burn(+s: J.Val, +id: U32) -> J.Val:
   f: J.Val = deathmatch.F(s, id)
   if U32.is_gt(gc.u(f, "burn"), 0):
@@ -360,7 +333,6 @@ def deathmatch.burn(+s: J.Val, +id: U32) -> J.Val:
   else:
     s
 
-# The champion's slam and rot: wind-up and rot run down; both strike on their beats.
 def deathmatch.blows(+s: J.Val, +id: U32) -> J.Val:
   h: J.Val = deathmatch.H(s, id)
   c: J.Val = deathmatch.stance(h)
@@ -378,7 +350,6 @@ def deathmatch.blows(+s: J.Val, +id: U32) -> J.Val:
   s2: J.Val = gc.ifj(slam, _ => deathmatch.Session.area(s1, id, at_x, at_y, slam_reach, slam_damage), _ => s1)
   gc.ifj(rot_hit, _ => deathmatch.Session.area(s2, id, at_x, at_y, rot_reach, rot_damage), _ => s2)
 
-# The pickups a living fighter walks over.
 def deathmatch.pickups(+s: J.Val, +id: U32, +k: U32) -> J.Val:
   if U32.is_ge(k, 5):
     s
@@ -404,11 +375,9 @@ def deathmatch.pickups(+s: J.Val, +id: U32, +k: U32) -> J.Val:
 def deathmatch.taken(+s: J.Val, +id: U32, +k: U32) -> J.Val:
   deathmatch.pickups(J.set(s, "pickups", J.set_nth(J.get(s, "pickups"), k, J.JU{deathmatch.PICKUP_REST()})), id, (k + 1 : U32))
 
-# fn deathmatch_showing(&self)
 def deathmatch.Run.deathmatch_showing(+run: J.Val) -> Bool:
   Bool.not(J.is_null(J.get(run, "deathmatch")))
 
-# pub fn start_deathmatch(&mut self)
 def deathmatch.Run.start_deathmatch(+run: J.Val) -> J.Val:
   if Bool.or(Bool.not(String.eq(J.str(J.get(rules.Run.room(run), "kind")), "forest")), Bool.not(J.is_null(J.get(run, "deathmatch")))):
     run
@@ -418,7 +387,6 @@ def deathmatch.Run.start_deathmatch(+run: J.Val) -> J.Val:
     s1: J.Val = J.set(s0, "ante", deathmatch.ante(J.get(r1, "players"), gc.ids(J.get(r1, "players")), J.get(s0, "fighters")))
     gc.found(J.set(r1, "deathmatch", s1), 0, "Knights Wish: WASD moves, arrows turn, F fires, Space guards, 1-4 cast. First to ten.")
 
-# ante: a tenth of the gold carried, for each seated fighter.
 def deathmatch.ante(+players: J.Val, +ids: List<&2, U32>, +fighters: J.Val) -> J.Val:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -429,7 +397,6 @@ def deathmatch.ante(+players: J.Val, +ids: List<&2, U32>, +fighters: J.Val) -> J
       else:
         deathmatch.ante(players, t, fighters)
 
-# pub(super) fn tick_deathmatch(&mut self, inputs)
 def deathmatch.Run.tick_deathmatch(+run: J.Val, +inputs: J.Val) -> J.Val:
   s: J.Val = J.get(run, "deathmatch")
   if J.is_null(s):
@@ -440,7 +407,6 @@ def deathmatch.Run.tick_deathmatch(+run: J.Val, +inputs: J.Val) -> J.Val:
     s2: J.Val = J.set(s1, "fighters", deathmatch.connect(run, J.get(s1, "fighters"), crossroads, gc.ids(J.get(s1, "fighters"))))
     deathmatch.Run.tick_deathmatch.go(J.set(run, "deathmatch", J.JNull{}), inputs, s2, crossroads)
 
-# Seats arriving late get their real kit, unless the round is won, the crossroads holds, or they are outside.
 def deathmatch.arrivals(+run: J.Val, +s: J.Val, +crossroads: Bool, +ids: List<&2, U32>) -> J.Val:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -455,7 +421,6 @@ def deathmatch.arrivals(+run: J.Val, +s: J.Val, +crossroads: Bool, +ids: List<&2
       else:
         deathmatch.arrivals(run, s, crossroads, t)
 
-# Each fighter is connected while its seat is here (not away, not absent), and inside the room.
 def deathmatch.connect(+run: J.Val, +fs: J.Val, +crossroads: Bool, +ids: List<&2, U32>) -> J.Val:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -485,7 +450,6 @@ def deathmatch.Run.tick_deathmatch.go(+run: J.Val, +inputs: J.Val, +s: J.Val, +c
   else:
     deathmatch.Run.tick_deathmatch.end(r2, s1, crossroads)
 
-# The sound of each shot loosed this tick (flash == 4 on a living fighter).
 def deathmatch.fire_sounds(+run: J.Val, +s: J.Val, +ids: List<&2, U32>) -> J.Val:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -516,7 +480,6 @@ def deathmatch.shot_sound_of(+m: Maybe<&2, String>, +weapon: String) -> String:
         else:
           gc.ps(String.eq(weapon, "handgonne"), "shot_handgonne", "shot_spark")
 
-# The round is won: stakes change hands, the winner takes the purse, the winner sound.
 def deathmatch.podium(+run: J.Val, +s: J.Val) -> J.Val:
   winner: U32 = gc.u(s, "winner")
   r: J.Val & J.Val = deathmatch.stakes(run, s, winner, J.fields(J.get(s, "ante")), 0)
@@ -525,7 +488,6 @@ def deathmatch.podium(+run: J.Val, +s: J.Val) -> J.Val:
   run2: J.Val = gc.ifj(gc.has_seat(J.get(run1, "players"), winner), _ => deathmatch.collect(run1, winner, J.u32(purse)), _ => run1)
   deathmatch.Run.tick_deathmatch.end(gc.cue(gc.sound(run2, "play_card"), "pastime_won"), s1, False{})
 
-# for (seat, stake) in ante: the seat pays min(stake, gold) into the purse; the winner wears the laurel.
 def deathmatch.stakes(+run: J.Val, +s: J.Val, +winner: U32, +ante: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +purse: U32) -> J.Val & J.Val:
   match ante as List<&2, Sigma<&2, &2, String, _ => J.Val>>:
     case Nil{}:
@@ -544,7 +506,6 @@ def deathmatch.collect(+run: J.Val, +winner: U32, +purse: U32) -> J.Val:
   h: J.Val = gc.seat(J.get(run, "players"), winner)
   J.set(run, "players", gc.put_seat(J.get(run, "players"), winner, J.set(h, "carried", realm.Spoils.add(J.get(h, "carried"), "gold", purse))))
 
-# The round's end: after the podium the knights go home.
 def deathmatch.Run.tick_deathmatch.end(+run: J.Val, +s: J.Val, +crossroads: Bool) -> J.Val:
   r1: J.Val = J.set(run, "deathmatch", s)
   if Bool.and(Bool.not(crossroads), Bool.and(Bool.not(J.is_null(J.get(s, "winner"))), U32.is_ge(gc.u(s, "ended"), deathmatch.PODIUM()))):

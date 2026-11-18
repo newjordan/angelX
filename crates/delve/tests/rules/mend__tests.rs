@@ -15,9 +15,6 @@ fn a_sound_run_is_left_as_it_is() {
 fn what_froze_every_page_is_put_right_and_the_run_reads_again() {
     let mut run = Run::new(7, 1, None);
     let rooms = run.dungeon.rooms.len();
-    // The race's way back with knights past its edge (the play box,
-    // 2026-10-17), a way back to a room that is not there, a knight who is
-    // nowhere, and one waiting outside who has left.
     run.exits.entry = Some(Entry { at: run.at, party: BTreeMap::from([(1, (-40.0, 9999.0))]) });
     run.exits.outside.insert(3, Entry { at: rooms + 5, party: BTreeMap::new() });
     run.players.get_mut(&1).unwrap().x = f32::NAN;
@@ -93,6 +90,31 @@ fn a_huge_mend_does_not_overflow_its_worth() {
     let got = stakes::landed(u32::MAX, stakes::Mend::Party, stakes::Stakes::Fight);
     assert!(got >= 1);
     assert!(got < u32::MAX);
+}
+
+#[test]
+fn a_building_the_catalogue_dropped_does_not_stall_the_delve() {
+    let mut run = Run::new(1, 1, None);
+    let catalog = crate::kingdom::catalog();
+    run.home.industry.start(catalog);
+    run.home.industry.buildings.insert(
+        2,
+        crate::kingdom::Building {
+            plan: "shaft-retired".into(),
+            tile: (12, 8),
+            ..crate::kingdom::Building::default()
+        },
+    );
+    run.home.industry.next = 3;
+    assert!(!run.home.industry.valid(catalog));
+    assert!(!crate::wire::drawable(&run));
+    run.home.industry.advance_second(catalog);
+    run.step(&BTreeMap::new());
+    assert!(run.mend().contains(&"industry"));
+    assert!(run.home.industry.is_empty());
+    assert!(run.home.industry.valid(catalog));
+    assert!(crate::wire::drawable(&run) && run.valid_snapshot());
+    assert!(run.mend().is_empty(), "once is enough");
 }
 
 #[test]

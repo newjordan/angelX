@@ -10,7 +10,6 @@ use super::*;
 use crate::agent::harness::interception::Interception;
 use crate::agent::harness::registry::{ROOT_SEAT, SeatGrant};
 
-/// A registry carrying the real file tools, rooted in a scratch directory.
 fn registry_with_files(tag: &str) -> (ToolRegistry, PathBuf) {
     let root = scratch(tag);
     let mut registry = ToolRegistry::new();
@@ -30,7 +29,6 @@ fn the_root_keeps_write_access_a_seat_does_not() {
         .expect("the root context writes");
     assert_eq!(std::fs::read_to_string(&target).unwrap(), "root wrote\n");
 
-    // The child seat is attenuated; nothing about the tool or its registration moved.
     registry.grant_seat(
         "child",
         Interception::deny_tools(["write_file", "str_replace"]),
@@ -51,7 +49,6 @@ fn the_root_keeps_write_access_a_seat_does_not() {
         "the refused write left no trace on disk"
     );
 
-    // The same seat may read the same path: policy is per invocation, not per tool.
     let read = registry
         .dispatch_with_cancel_in_seat(
             "child",
@@ -62,7 +59,6 @@ fn the_root_keeps_write_access_a_seat_does_not() {
         .expect("reading is untouched by a write refusal");
     assert!(read.contains("root wrote"), "{read}");
 
-    // And the root keeps working while the child is attenuated.
     registry
         .dispatch(
             "write_file",
@@ -106,8 +102,6 @@ fn retuning_a_grant_binds_the_next_call_with_no_re_registration() {
         .expect_err("attenuated");
     assert!(denied.contains("deny:tool:write_file"), "{denied}");
 
-    // Retune in place — the write is permitted on the next call. No reload, no
-    // re-registration: the advertised set is exactly what it was.
     registry.grant_seat("child", Interception::empty());
     registry
         .dispatch_with_cancel_in_seat(
@@ -148,7 +142,6 @@ fn an_ancestor_denial_cannot_be_widened_by_a_seat() {
     assert!(error.contains("deny:tool:write_file"), "{error}");
     assert!(!root.join("child.txt").exists());
 
-    // Releasing the ancestor restores both contexts; the child grant survives.
     registry.revoke_seat(ROOT_SEAT);
     registry
         .dispatch_with_cancel_in_seat(
@@ -162,9 +155,6 @@ fn an_ancestor_denial_cannot_be_widened_by_a_seat() {
     assert!(!root.join("root.txt").exists());
 }
 
-/// The production shape: `code_mode` installs its seat's table for the duration of
-/// a run with `SeatGrant::install` and lets the scope's end release it, so an
-/// unwinding run cannot leave its own attenuation behind.
 #[test]
 fn a_seat_grant_is_released_when_its_scope_ends() {
     let (registry, root) = registry_with_files("interception-scope");
@@ -182,7 +172,6 @@ fn a_seat_grant_is_released_when_its_scope_ends() {
         assert!(denied.contains("deny:tool:write_file"), "{denied}");
         assert!(!target.exists());
     }
-    // The scope ended: the grant is gone without anyone remembering to undo it.
     registry
         .dispatch_with_cancel_in_seat(
             "child",

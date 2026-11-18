@@ -86,22 +86,19 @@ fn settlement_durable_receipts_require_canonical_save_not_watchdog_cursor() {
     let mut st = state("durable", &[1]);
     st.workspace = Some(dir.path().to_path_buf());
     st.settlement_checkpoint.borrow_mut().take();
-    st.persisted_log.set(st.log.len()); // Watchdog does NOT establish durability.
+    st.persisted_log.set(st.log.len());
     let mut store = Store::beside(Some(&dir.path().join("island.json")), 77, "Miner").unwrap();
     assert!(!store.sync(&st.summary(), false).unwrap());
     assert!(!store.site.associated());
-    loop_ctl::save(&st); // Idle writes nothing.
+    loop_ctl::save(&st);
     assert!(!path.exists());
     assert!(!store.sync(&st.summary(), false).unwrap());
     st.status = LoopStatus::Stopped;
-    // A destination that cannot be read or replaced must not grant credit.
     std::fs::create_dir(&path).unwrap();
     loop_ctl::save(&st);
     assert!(st.durable_settlement_events().is_none());
     assert!(!store.sync(&st.summary(), false).unwrap());
     std::fs::remove_dir(&path).unwrap();
-    // Corrupt-checkpoint recovery preserves the bad bytes beside a newly
-    // committed canonical save; only that successful save grants credit.
     let corrupt = b"corrupt checkpoint";
     std::fs::write(&path, corrupt).unwrap();
     loop_ctl::save(&st);
@@ -121,7 +118,6 @@ fn settlement_durable_receipts_require_canonical_save_not_watchdog_cursor() {
     assert!(!store.sync(&resumed.summary(), false).unwrap());
     let new = state("durable", &[2]).log.remove(0);
     resumed.log.push(new.clone());
-    // Save failure cannot credit the new row (keep old confirmed snapshot).
     std::fs::remove_file(&path).unwrap();
     std::fs::create_dir(&path).unwrap();
     loop_ctl::save(&resumed);
@@ -131,7 +127,6 @@ fn settlement_durable_receipts_require_canonical_save_not_watchdog_cursor() {
     loop_ctl::save(&resumed);
     assert!(store.sync(&resumed.summary(), false).unwrap());
     assert_eq!(store.site.work, 2);
-    // Truncate the history: preserve old site receipts, do NOT use length/high-water.
     resumed.log = vec![new];
     loop_ctl::save(&resumed);
     assert!(!store.sync(&resumed.summary(), false).unwrap());
@@ -151,7 +146,6 @@ fn settlement_durable_receipts_require_canonical_save_not_watchdog_cursor() {
     next.id = "unsaved-new-loop".into();
     assert!(!store.sync(&next.summary(), false).unwrap());
     assert!(!store.site.loops.contains_key("unsaved-new-loop"));
-    // Deserializing model/file JSON is not by itself persistence authority.
     let unconfirmed: LoopState =
         serde_json::from_value(serde_json::to_value(&restored).unwrap()).unwrap();
     assert!(unconfirmed.durable_settlement_events().is_none());
@@ -221,7 +215,6 @@ fn settlement_exhibits_deposit_duplicate_reload_and_source_inspection() {
             .contains("source changed")
     );
     assert!(f.deposit().unwrap_err().contains("different source/claim"));
-    // A new key is an explicit version, not overwritten evidence.
     f.manifest(json!([{"key":"median-v2", "title":"Changed local claim", "source":"reports/result.txt", "status":"inconclusive"}]));
     assert_eq!(f.deposit().unwrap(), 1);
     let fresh = f.run();
@@ -259,7 +252,6 @@ fn settlement_exhibits_named_manifests_coexist_out_of_order_and_replay() {
         .path()
         .join(exhibits::manifest_path(Some("Research_loop-1")).unwrap());
     let first_manifest = std::fs::read(&first_path).unwrap();
-    // Named admission must never consult a corrupt legacy manifest or enumerate siblings.
     std::fs::write(
         f.dir.path().join(".angelX/settlement-exhibits.json"),
         b"not JSON",
@@ -311,7 +303,6 @@ fn settlement_exhibits_named_manifests_coexist_out_of_order_and_replay() {
                 .contains(&format!("Real iteration {iteration} report"))
         );
     }
-    // Neither named nor legacy mode falls back to the other.
     assert!(f.deposit().is_err());
     f.manifest(json!([{"key":"legacy", "title":"Local report", "source":"reports/result.txt", "status":"reported"}]));
     assert!(f.deposit_named("missing").is_err());
@@ -341,8 +332,6 @@ fn settlement_exhibits_named_host_command_preserves_live_run_and_legacy() {
             .contains("PLAYER HALL")
     );
     let live = serde_json::to_value(app.realm.dungeon.shooter.as_ref().unwrap()).unwrap();
-    // Direct calls normalize command edges and separator whitespace just as
-    // App submission and existing commands do; only the actual name is strict.
     let message = app.dungeon_command(Some(" \tdeposit  \tNative_14 \t\n"));
     assert!(message.contains("Deposited 1"), "{message}");
     assert!(message.contains("No rewards granted"));
@@ -375,12 +364,10 @@ fn settlement_exhibits_named_host_command_preserves_live_run_and_legacy() {
     assert_eq!(site["resources"], before["resources"]);
     assert_eq!(site["work"], before["work"]);
     assert_eq!(site["exhibits"].as_array().unwrap().len(), 1);
-    // A named command must not silently admit the still-valid legacy manifest.
     let message = app.dungeon_command(Some(" \tdeposit  missing \t"));
     assert!(message.contains("not committed"));
     assert!(message.contains(".angelX/settlement-exhibits/missing.json"));
     assert_eq!(value(app.realm.world.settlement_site().unwrap().unwrap()), site);
-    // Empty/whitespace-only tails use None and preserve legacy admission.
     assert!(
         app.dungeon_command(Some(" \tdeposit \t\n"))
             .contains("Deposited 1")
@@ -413,7 +400,6 @@ fn settlement_exhibits_bad_named_admission_rejected_before_reads_or_sync() {
     let before = value(&f.store.site);
     let disk = f.disk();
     let ledger = f.store.path.clone().unwrap();
-    // The strict API validates actual names verbatim, including edge whitespace.
     for name in [
         "",
         "_first",
@@ -460,9 +446,6 @@ fn settlement_exhibits_bad_named_admission_rejected_before_reads_or_sync() {
         exhibits::manifest_path(None).unwrap(),
         ".angelX/settlement-exhibits.json"
     );
-    // Deliberately unsynced durable work: embedded whitespace, multiple tokens,
-    // dots and paths remain invalid after command-edge trimming and must return
-    // before settlement sync or reads, never falling back to legacy admission.
     f.st.log.push(state(&f.st.id, &[15]).log.remove(0));
     f.st.confirm_settlement_checkpoint_for_test();
     let mut app = crate::app::App::preview(crate::ui::viewer::Viewer::static_preview());
@@ -522,7 +505,6 @@ fn settlement_exhibits_named_manifest_and_directory_no_symlink_or_hardlink() {
     symlink(outside.path(), &dir).unwrap();
     assert!(f.deposit_named("safe").unwrap_err().contains("symlink"));
     std::fs::remove_file(&dir).unwrap();
-    // Also refuse an alias at .angelX, not just the immediate manifest directory.
     let angel = f.dir.path().join(".angelX");
     let moved = outside.path().join("angel");
     std::fs::rename(&angel, &moved).unwrap();
@@ -539,7 +521,6 @@ fn settlement_exhibits_named_wrong_loop_unsaved_receipt_and_batch_rollback() {
     let mut f = Fixture::new();
     f.deposit().unwrap();
     let artifact = json!([{"key":"new-named", "title":"Local report", "source":"reports/result.txt", "status":"reported"}]);
-    // An older loop with genuine site receipts is still not the current durable loop.
     let mut older = state("older-loop", &[1]);
     older.workspace = f.st.workspace.clone();
     older.confirm_settlement_checkpoint_for_test();
@@ -556,14 +537,14 @@ fn settlement_exhibits_named_wrong_loop_unsaved_receipt_and_batch_rollback() {
             .unwrap_err()
             .contains("durably recorded")
     );
-    f.st.log.push(state(&f.st.id, &[15]).log.remove(0)); // Live log is not a saved receipt.
+    f.st.log.push(state(&f.st.id, &[15]).log.remove(0));
     f.named("unsaved", 15, artifact.clone());
     assert!(
         f.deposit_named("unsaved")
             .unwrap_err()
             .contains("durably recorded")
     );
-    f.st.confirm_settlement_checkpoint_for_test(); // Now durable, but absent from this site's ledger.
+    f.st.confirm_settlement_checkpoint_for_test();
     assert!(
         f.deposit_named("unsaved")
             .unwrap_err()
@@ -586,7 +567,6 @@ fn settlement_exhibits_named_wrong_loop_unsaved_receipt_and_batch_rollback() {
             .unwrap_err()
             .contains("durably recorded")
     );
-    // A good first proposal must not leak when a later proposal fails.
     f.named(
         "bad-batch",
         14,
@@ -672,7 +652,6 @@ fn settlement_exhibits_worker_prompt_names_stable_distinct_and_native() {
         );
     }
     assert!(!prompt.contains("reports/result.txt"));
-    // The emitted example is directly admissible native JSON, without a JS/CLI helper.
     let mut f = Fixture::new();
     let manifest = example(&exhibits::worker_contract(&f.store.site.id, &f.st.id, 14));
     let source = manifest["artifacts"][0]["source"].as_str().unwrap();
@@ -733,8 +712,6 @@ fn settlement_exhibits_reachable_and_collision_identical_with_visible_props() {
             crate::delve::world_viz::crawl::dungeon::Prop::Crate
                 | crate::delve::world_viz::crawl::dungeon::Prop::Workbench
         )));
-        // Follow the shared path inside each room via the actual playable
-        // collision (the settlement's rooms; the world above has its own).
         for (room, r) in run.dungeon.rooms.iter().enumerate().take(d.halls.len()) {
             let origin = d.halls[room].min;
             for &(x, y) in &path {
@@ -799,7 +776,6 @@ fn settlement_exhibits_validation_atomic_failure_empty_and_ownership() {
     assert!(f.deposit().is_err());
     std::fs::write(f.dir.path().join("reports/result.txt"), [255u8]).unwrap();
     assert!(f.deposit().is_err());
-    // Empty source is a real empty observed artifact, explicitly labelled by byte count.
     std::fs::write(f.dir.path().join("reports/result.txt"), b"").unwrap();
     let temp = f
         .store
@@ -867,7 +843,6 @@ fn settlement_exhibits_no_symlink_hardlink_or_manifest_escape() {
         json!([{"key":"new","title":"private","source":"reports/secret.txt","status":"reported"}]),
     );
     assert!(f.deposit().is_err());
-    // Root aliases and symlinked manifests are refused too.
     let alias = outside.path().join("workspace");
     symlink(f.dir.path(), &alias).unwrap();
     assert!(f.store.site.inspect(&run, &alias).is_err());
@@ -884,7 +859,6 @@ fn settlement_exhibits_guest_geometry_and_pixels_never_contain_private_metadata(
     let mut run = f.run();
     f.approach(&mut run);
     let state = serde_json::to_string(&run).unwrap();
-    // What a friend's client is sent, as bytes on the wire.
     let (guest_bytes, _, guest_picture) = crate::delve::together_seat::guest_view(&run, 1);
     let guest_state = String::from_utf8_lossy(&guest_bytes).into_owned();
     for private in [
@@ -974,8 +948,6 @@ fn settlement_exhibits_deliberate_local_overlay_scrolling_and_private_guest_noti
             .contains("37 samples")
     );
     assert_eq!(app.realm.dungeon.notice, "PUBLIC generic notice");
-    // Away from the exhibit, E is the knight's interact key again: no
-    // overlay and no digest.
     assert!(app.dungeon_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
     assert_eq!(app.realm.dungeon.activity_menu, Some(1));
     assert!(app.dungeon_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
@@ -997,7 +969,6 @@ fn settlement_exhibits_deliberate_local_overlay_scrolling_and_private_guest_noti
 #[test]
 fn settlement_exhibits_capacity_growth_reload_and_bounded_text() {
     let mut f = Fixture::new();
-    // Also exercise deposition BEFORE any room is built: stands belong to the Hall.
     f.store = Store::beside(Some(&f.dir.path().join("early.json")), 77, "Miner").unwrap();
     f.st = state("real-research-loop", &[1]);
     f.st.workspace = Some(f.dir.path().to_path_buf());
@@ -1021,7 +992,6 @@ fn settlement_exhibits_capacity_growth_reload_and_bounded_text() {
     manifest["iteration"] = json!(35);
     for batch in 0..2 {
         manifest["artifacts"] = json!((0..16).map(|n| json!({"key":format!("batch-{batch}-{n}"),"title":"Bounded report","source":"reports/result.txt","status":"reported"})).collect::<Vec<_>>());
-        // second batch would exceed 32; no partial batch is published.
         f.write(manifest.clone());
         if batch == 0 {
             assert_eq!(f.deposit().unwrap(), 16);
@@ -1062,7 +1032,6 @@ fn settlement_exhibit_survey_reaches_stand_without_clipping_or_hiding_it() {
     assert_eq!(serde_json::to_value(&f.store.site).unwrap(), before);
 }
 
-/// Real renderer capture, opt-in only: separate from the focused verifier.
 #[test]
 #[ignore = "visual fixture; set ANGEL_SETTLEMENT_PREVIEW_DIR to a private output directory"]
 fn settlement_exhibit_visual_preview_capture() {
@@ -1083,7 +1052,6 @@ fn settlement_exhibit_visual_preview_capture() {
             .save(out.join(format!("{name}.png")))
             .unwrap();
     }
-    // Fixed seed and actual model receipts; not a synthetic staging snapshot.
     let mut site = Site::new(77, "Miner");
     for (name, receipts) in [
         ("settlement-empty-hall", 0),

@@ -8,7 +8,6 @@ use angel_realm_host::hooks::Hooks;
 use std::sync::OnceLock;
 use std::time::Duration;
 
-/// Short, hard-capped probe client — a wedged head can cost one cycle at most.
 fn probe_agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
     AGENT.get_or_init(|| {
@@ -20,8 +19,6 @@ fn probe_agent() -> &'static ureq::Agent {
     })
 }
 
-/// The chatter client gets more read headroom — a 4B takes a moment to speak —
-/// but still a hard total cap. Background thread only; the UI never waits.
 fn voice_agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
     AGENT.get_or_init(|| {
@@ -58,7 +55,6 @@ fn http_post_json(url: &str, body: serde_json::Value) -> Option<serde_json::Valu
         .ok()
 }
 
-/// Lend the realm host the cockpit's answers. The first call wins.
 pub(crate) fn install(ambient_stage_sim_allowed: fn() -> bool, console: &dyn angel_plug::screen::Console) {
     angel_realm_host::hooks::install(Hooks {
         ambient_stage_sim_allowed,

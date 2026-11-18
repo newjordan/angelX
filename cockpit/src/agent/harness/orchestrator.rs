@@ -2,16 +2,11 @@
 
 use super::*;
 
-/// The plain Driver's system prompt: its personality type (`⠽⠁`, or `⠽⠃`
-/// with teammates) and no words — `ledger://⠽⠃` renders the prompt it
-/// replaces, verbatim. The configured routes are `⠕⠃` ledger evidence. The
-/// interactive cockpit enters as its own type (`y_types::cockpit_entry`).
 #[cfg(test)]
 pub fn orchestrator_system_prompt(workspace: &Path, specialists: &[String]) -> String {
     book::y_types::entry(workspace, &delegate_roles(specialists), false, None, false)
 }
 
-/// Configured delegate routes with their roles, for the `⠕⠃` / `⠕⠋` evidence.
 pub(crate) fn delegate_roles(specialists: &[String]) -> Vec<(String, String)> {
     specialists
         .iter()
@@ -92,23 +87,15 @@ pub(crate) struct DelegateOutcome {
     pub(crate) branch: String,
     pub(crate) base_oid: String,
     pub(crate) club: String,
-    /// Compatibility summary sampled at completion. Audited contributor claims
-    /// use `lineage` and its complete action-route set, not this last sample.
     pub(crate) resolved_route: String,
     pub(crate) model_revision: Option<String>,
     pub(crate) answer: String,
     pub(crate) diff: String,
     pub(crate) elapsed_ms: u128,
     pub(crate) tokens: u64,
-    /// Failed tool results observed during this delegate turn. Existing callers
-    /// treat this as diagnostic; strict read-only gates may fail closed on it.
     pub(crate) tool_failures: usize,
 }
 
-/// The delegate seat system prompt: the worktree contract (`⠜⠁` inspect-only,
-/// `⠜⠃` implementing) plus the shared batching page `⠺⠉⠁`. The words are the
-/// ledger pages; the worktree registry carries `read_file`, so the seat reads
-/// them, and the pages name no tool that registry does not register.
 pub(crate) fn delegate_system_prompt(mode: DelegateMode) -> String {
     use super::book::{ar_seats, w_workflow};
     let seat = if mode.is_read_only() {
@@ -119,7 +106,6 @@ pub(crate) fn delegate_system_prompt(mode: DelegateMode) -> String {
     format!("{}{}⠁", seat.cells(), w_workflow::BATCHING.cells())
 }
 
-/// Runs a specialist club on a task in an isolated git worktree.
 pub(crate) struct DelegateTool {
     workspace: PathBuf,
     clubs: HashMap<String, Arc<dyn Club>>,
@@ -150,9 +136,6 @@ impl DelegateTool {
     }
 
     pub(crate) fn worktree_base(&self) -> PathBuf {
-        // Keep worktrees beside the repository, even when the active workspace
-        // is a nested project directory. Putting `.angel-worktrees` inside the
-        // main worktree makes it appear as user dirt and risks recursive scans.
         let canonical = self
             .workspace
             .canonicalize()
@@ -175,10 +158,6 @@ impl DelegateTool {
         self.run_from(club_name, task, mode, "HEAD")
     }
 
-    /// Run a delegate from an explicit commit-ish. Proof-carrying swarm runs use
-    /// this to make a test-only branch, then base the implementation branch on
-    /// that immutable test contribution without touching the shared checkout.
-    /// The bin calls [`Self::run_from_with_cancel`]; tests enter through [`Self::run`].
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn run_from(
         &self,
@@ -198,14 +177,10 @@ impl DelegateTool {
         base_ref: &str,
         cancel: Option<&AtomicBool>,
     ) -> Result<DelegateOutcome, String> {
-        // Normalize so the model can name a club in any case.
         let club_name = normalize_club_name(club_name);
         let club = self.clubs.get(&club_name).cloned().ok_or_else(|| {
             let mut names: Vec<_> = self.clubs.keys().cloned().collect();
             names.sort();
-            // A SOTA label withheld by the roster gate reads as "unknown"
-            // here; name the gate so the model routes instead of concluding
-            // the capability doesn't exist.
             if crate::agent::club::is_sota_label(&club_name)
                 && (crate::agent::tools::solo::solo_mode_active()
                     || !crate::agent::harness::env_flag("ANGEL_ALLOW_SOTA_DELEGATE", true))
@@ -229,7 +204,6 @@ impl DelegateTool {
                 format!("unknown club '{club_name}'; have: {}", names.join(", "))
             }
         })?;
-        // Solo: even if the SOTA club is on the roster, refuse outbound work.
         if crate::agent::tools::solo::solo_mode_active()
             && crate::agent::club::is_sota_label(club.label())
         {
@@ -288,13 +262,9 @@ impl DelegateTool {
         let started = Instant::now();
         let usage_before = club.token_usage().unwrap_or_default();
 
-        // Never materialize quarantined repository trees as an intermediate
-        // checkout. Install the worktree-local sparse boundary first.
         if let Err(err) =
             prepare_delegate_worktree(&repo, &wt, &branch, &base_oid, "off-limits", cancel)
         {
-            // `worktree add` can create the branch before failing later (for
-            // example on checkout). Best-effort rollback keeps a retry clean.
             let _ = run_git(&repo, &["worktree", "remove", "--force", wt_str.as_str()]);
             let _ = run_git(&repo, &["branch", "-D", branch.as_str()]);
             return Err(err);
@@ -305,11 +275,8 @@ impl DelegateTool {
         let mut session = crate::knowledge::session::Session::at(session_dir, run_id.clone());
         session.bind(&repo);
         let outcome = (|| {
-            // The specialist works in the corresponding workspace directory
-            // inside the worktree, not accidentally at the repository root.
             let mut wt_tools = ToolRegistry::new();
             wt_tools.set_workspace(wt_workspace.clone());
-            // `read_file` decodes the ledger the seat's prompt points into.
             wt_tools.register(Box::new(crate::agent::tools::file::ReadFileTool {
                 root: wt_workspace.clone(),
             }));
@@ -390,15 +357,11 @@ impl DelegateTool {
             if mode.is_read_only() {
                 reject_read_only_delegate_changes(&wt)?;
             } else {
-                // Capture the specialist's work as a commit on its branch (allow-empty so
-                // the branch always has a tip even if nothing changed).
                 run_git(&wt, &["add", "-A"])?;
                 let msg = format!("delegate: {}", truncate(task, 60));
                 run_git(&wt, &["commit", "-q", "--allow-empty", "-m", msg.as_str()])?;
             }
 
-            // Compare against the commit this worktree actually forked from.
-            // The main branch may have advanced while the specialist ran.
             let tip_oid = run_git(&wt, &["rev-parse", "HEAD"])?.trim().to_string();
             let tree_oid = run_git(&wt, &["rev-parse", "HEAD^{tree}"])?
                 .trim()
@@ -460,9 +423,6 @@ impl DelegateTool {
             })
         })();
 
-        // Failure/cancellation is not permission to destroy candidate work.
-        // Retain dirty files AND already-committed changes for explicit recovery.
-        // Empty failed attempts and successful handoffs still clean up normally.
         if let Err(error) = &outcome
             && !mode.is_read_only()
             && delegate_has_recoverable_work(&wt, &base_oid)
@@ -490,8 +450,6 @@ impl DelegateTool {
         }
     }
 
-    /// Delete a completed delegate branch after its contribution has been
-    /// captured elsewhere. Only Angel-owned branches are eligible.
     pub(crate) fn discard_branch(&self, branch: &str) -> Result<(), String> {
         let _process_guard = INTEGRATE_LOCK
             .lock()
@@ -511,7 +469,6 @@ pub(crate) fn delegate_session_dir() -> PathBuf {
     if cfg!(test) {
         std::env::temp_dir().join(format!("angel-delegate-sessions-{}", std::process::id()))
     } else {
-        // A subdirectory keeps child histories out of the operator session picker.
         crate::knowledge::session::sessions_dir().join("delegates")
     }
 }
@@ -520,7 +477,7 @@ pub(super) fn delegate_has_recoverable_work(worktree: &Path, base_oid: &str) -> 
     let unchanged = run_git(worktree, &["status", "--porcelain"])
         .is_ok_and(|status| status.trim().is_empty())
         && run_git(worktree, &["rev-parse", "HEAD"]).is_ok_and(|head| head.trim() == base_oid);
-    !unchanged // If inspection fails, retain the directory conservatively.
+    !unchanged
 }
 
 pub(crate) fn normalize_club_name(label: &str) -> String {
@@ -694,8 +651,6 @@ impl Tool for DelegateTool {
         };
         let header = format!("[club={club} mode={} branch={}]", mode.as_str(), o.branch);
         let bulk = format!("{answer}\n--- diff ---\n{diff}");
-        // Strategy header stays root-visible; large answer/diff bulk is handle-offloaded
-        // so multi-agent RL rollouts keep LID root trajectories.
         let text = if let Some(receipt) = maybe_offload_root_body(
             &bulk,
             HandleKind::Subcall,
@@ -716,7 +671,6 @@ impl Tool for DelegateTool {
     }
 }
 
-/// Merges a delegated branch into the shared workspace, one at a time.
 fn delegate_workspace_digest(workspace: &Path) -> String {
     crate::knowledge::cut::sha256_hex(
         crate::platform::workspace_store::repo_identity(workspace)
@@ -734,8 +688,6 @@ pub(crate) fn prepare_delegate_worktree(
     excluded_directory: &str,
     cancel: Option<&AtomicBool>,
 ) -> Result<(), String> {
-    // This internal parameter permits a wholly synthetic owned fixture. The
-    // production caller fixes it to the quarantined top-level directory.
     if excluded_directory.is_empty()
         || !excluded_directory
             .bytes()
@@ -760,8 +712,6 @@ pub(crate) fn prepare_delegate_worktree(
         ],
         cancel,
     )?;
-    // Check the no-population precondition before configuring sparse checkout.
-    // Only the Git metadata pointer may exist at this stage.
     for entry in
         std::fs::read_dir(worktree).map_err(|e| format!("inspect empty delegate worktree: {e}"))?
     {
@@ -770,8 +720,6 @@ pub(crate) fn prepare_delegate_worktree(
         }
     }
     let exclusion = format!("!/{excluded_directory}/");
-    // Git enables worktreeConfig and migrates existing sparse settings safely;
-    // these patterns therefore apply only to this owned linked worktree.
     delegate_git(
         worktree,
         &[
@@ -784,8 +732,6 @@ pub(crate) fn prepare_delegate_worktree(
         ],
         cancel,
     )?;
-    // `set` alone on a no-checkout worktree leaves an empty index. Populate only
-    // after the exclusion exists; never run an initial unrestricted checkout.
     delegate_git(worktree, &["read-tree", "-mu", "HEAD"], cancel)?;
     Ok(())
 }
@@ -861,17 +807,12 @@ pub(crate) struct RepoIntegrateLock {
 impl Drop for RepoIntegrateLock {
     fn drop(&mut self) {
         use std::os::fd::AsRawFd;
-        // SAFETY: this descriptor is owned by `self` and remains open through
-        // the syscall. Closing it immediately afterwards would also unlock.
         unsafe {
             libc::flock(self.file.as_raw_fd(), libc::LOCK_UN);
         }
     }
 }
 
-/// Cross-process companion to [`INTEGRATE_LOCK`]. `flock` is advisory but all
-/// angelX integrators use this common-Git-dir file; the kernel releases it if a
-/// process crashes, avoiding stale lock cleanup heuristics.
 fn acquire_repo_integrate_lock(repo: &Path) -> Result<RepoIntegrateLock, String> {
     acquire_repo_integrate_lock_with_timeout(repo, git_timeout())
 }
@@ -910,7 +851,6 @@ fn acquire_repo_integrate_lock_with_timeout_and_cancel(
         if cancel.is_some_and(|signal| signal.load(std::sync::atomic::Ordering::Acquire)) {
             return Err("integrate cancelled while waiting for serialization lock".to_string());
         }
-        // SAFETY: `file` owns a live descriptor for the duration of this loop.
         let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
         if rc == 0 {
             return Ok(RepoIntegrateLock { file });
@@ -953,7 +893,6 @@ pub(crate) fn acquire_repo_integrate_lock_for_test_with_cancel(
     acquire_repo_integrate_lock_with_timeout_and_cancel(repo, timeout, cancel)
 }
 
-/// Reasoning is a breakdown of output tokens, not extra generated tokens.
 fn delegate_token_delta(
     before: crate::agent::club::TokenUsage,
     after: crate::agent::club::TokenUsage,

@@ -218,8 +218,6 @@ fn exit_preserves_live_writer_and_its_unpublished_queue() {
     let before_history = serde_json::to_value(&app.history).unwrap();
     let before_disk = std::fs::read(app.session.path()).unwrap();
     let cancel = Arc::clone(&app.thinking.as_ref().unwrap().cancel);
-    // Queueing a steer may already interrupt a provider wait. Exit must not
-    // change that cancellation state or discard the still-owned writer.
     let cancelled_before_exit = cancel.load(std::sync::atomic::Ordering::Relaxed);
     app.input = "/exit".into();
     app.submit();
@@ -247,8 +245,6 @@ fn exit_preserves_live_writer_and_its_unpublished_queue() {
             && response.contains("/raw exports current history only"),
         "{response}"
     );
-    // No model is spawned: the held sender is the actual App worker channel.
-    // Taking the queue here is test inspection only, after the guarded operation.
     let queued = app.steer_queue.drain();
     assert_eq!(queued.len(), 1);
     assert_eq!(queued[0].content.as_ref(), sentinel);
@@ -288,15 +284,13 @@ fn exit_after_stop_and_real_drain_retains_followup_without_a_new_turn() {
             .text
             .contains("worker is still draining")
     );
-    // A real channel terminal receipt releases the existing App lifecycle;
-    // this does not replace it with a model or manually clear the flight slot.
     worker
         .send(Err("owned stopped worker terminal receipt".into()))
         .unwrap();
     app.advance();
     assert!(app.thinking.is_none());
     assert_eq!(app.steer_queue.len(), 1);
-    app.advance(); // The retained exit request owns the next idle boundary.
+    app.advance();
     assert!(app.should_quit);
     assert!(app.thinking.is_none() && app.pending_turn.is_none());
     assert!(app.steer_queue.is_empty());
@@ -395,7 +389,6 @@ fn graceful_exit_saves_the_completed_history_before_any_followup_or_loop_launch(
         serde_json::to_value(&completed).unwrap()
     );
     assert!(!app.should_quit);
-    // Exercise both automatic admission entry points with the slot now free.
     app.flush_queued_steers();
     assert!(app.thinking.is_none() && app.pending_turn.is_none());
     app.loop_ctl.status = loop_ctl::LoopStatus::Running;
@@ -473,7 +466,6 @@ fn finish_live_turn(app: &mut App, worker: &TurnSender) {
             crate::agent::harness::TurnStopReason::Answer,
         )))
         .unwrap();
-    // The first tick takes the finished turn; the next reaches the idle boundary.
     app.advance();
     assert!(app.thinking.is_none());
     app.advance();
@@ -549,7 +541,6 @@ fn new_input_after_a_reborn_landing_cancels_the_restart_and_leaves_no_staged_exe
         "a cancelled exit must not leave the restart staged"
     );
 
-    // A later ordinary exit closes the cockpit; it never execs the old build.
     app.input = "/exit".into();
     app.submit();
     assert!(!app.should_quit);

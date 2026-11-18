@@ -14,7 +14,6 @@
 
 use std::fmt;
 
-/// Coarse file class used for split ordering.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum FileClass {
     Source = 0,
@@ -55,7 +54,6 @@ impl fmt::Display for FileClass {
     }
 }
 
-/// One dirty path from porcelain status.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DirtyFile {
     pub(crate) path: String,
@@ -79,7 +77,6 @@ impl DirtyFile {
     }
 }
 
-/// One planned atomic commit.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CommitUnit {
     pub(crate) class: FileClass,
@@ -87,40 +84,33 @@ pub(crate) struct CommitUnit {
     pub(crate) subject: String,
 }
 
-/// Full plan over the current dirty tree.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CommitPlan {
     pub(crate) units: Vec<CommitUnit>,
     pub(crate) skipped_lock_note: bool,
 }
 
-/// Classify a repo-relative path into a file class.
 pub(crate) fn classify_path(path: &str) -> FileClass {
     let p = path.replace('\\', "/");
     let lower = p.to_ascii_lowercase();
     let name = lower.rsplit('/').next().unwrap_or(lower.as_str());
 
-    // Lockfiles first (OMP excludes them from "analysis" weight).
     if is_lockfile(name) {
         return FileClass::Lock;
     }
 
-    // Tests: path or name signals.
     if is_test_path(&lower, name) {
         return FileClass::Test;
     }
 
-    // Docs.
     if is_docs_path(&lower, name) {
         return FileClass::Docs;
     }
 
-    // Config / project metadata.
     if is_config_path(&lower, name) {
         return FileClass::Config;
     }
 
-    // Source-ish extensions → source; unknown → other.
     if is_source_path(name) {
         return FileClass::Source;
     }
@@ -221,7 +211,6 @@ fn is_config_path(lower: &str, name: &str) -> bool {
     {
         return true;
     }
-    // Top-level CI configs.
     lower.starts_with(".github/")
         || lower.starts_with(".gitlab/")
         || lower.starts_with(".circleci/")
@@ -239,8 +228,6 @@ fn is_source_path(name: &str) -> bool {
     EXTS.iter().any(|e| name.ends_with(e))
 }
 
-/// Parse `git status --porcelain=v1` (no branch header required) into dirty files.
-/// Handles rename `R  old -> new` by keeping the new path only.
 pub(crate) fn parse_porcelain_files(porcelain: &str) -> Vec<DirtyFile> {
     let mut out = Vec::new();
     for line in porcelain.lines() {
@@ -250,7 +237,6 @@ pub(crate) fn parse_porcelain_files(porcelain: &str) -> Vec<DirtyFile> {
         let index_status = line.as_bytes()[0] as char;
         let worktree_status = line.as_bytes()[1] as char;
         let rest = line[2..].trim_start();
-        // Rename / copy: `old -> new`
         let path = if let Some((_, new)) = rest.split_once(" -> ") {
             new.trim()
         } else {
@@ -259,7 +245,6 @@ pub(crate) fn parse_porcelain_files(porcelain: &str) -> Vec<DirtyFile> {
         if path.is_empty() {
             continue;
         }
-        // Skip quoted paths' outer quotes when present.
         let path = path
             .strip_prefix('"')
             .and_then(|p| p.strip_suffix('"'))
@@ -273,9 +258,6 @@ pub(crate) fn parse_porcelain_files(porcelain: &str) -> Vec<DirtyFile> {
     out
 }
 
-/// Validate a commit message subject (and optional body after a blank line).
-/// Subject must be non-empty, ≤72 chars, no trailing period preferred but
-/// allowed; reject empty, control chars, and leading/trailing whitespace-only.
 pub(crate) fn validate_commit_message(message: &str) -> Result<(), String> {
     let message = message.replace("\r\n", "\n").replace('\r', "\n");
     if message.trim().is_empty() {
@@ -295,7 +277,6 @@ pub(crate) fn validate_commit_message(message: &str) -> Result<(), String> {
     if subject.chars().any(|c| c.is_control()) {
         return Err("commit subject must not contain control characters".into());
     }
-    // Optional blank line then body — body lines may be longer.
     if let Some(second) = lines.next()
         && !second.is_empty()
     {
@@ -306,9 +287,6 @@ pub(crate) fn validate_commit_message(message: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Build an atomic commit plan. When `split` is false, a single unit holds every
-/// path (using `message` or a generic subject). When `split` is true, paths are
-/// grouped by [`FileClass`] in dependency order.
 pub(crate) fn plan_atomic_commits(
     files: &[DirtyFile],
     split: bool,
@@ -360,8 +338,6 @@ pub(crate) fn plan_atomic_commits(
             skipped_lock_note = true;
         }
         let subject = if let Some(msg) = message {
-            // Only the first unit gets the full operator message; others get
-            // class-scoped subjects so multi-commit messages stay honest.
             if units.is_empty() {
                 msg.lines().next().unwrap_or(msg).trim_end().to_string()
             } else {
@@ -392,7 +368,6 @@ fn suggest_subject(class: FileClass, paths: &[String]) -> String {
         None => format!("{prefix}: {verb} {focus}"),
     };
     if subject.chars().count() > 72 {
-        // Prefer dropping the focus before the scope.
         let short = match scope.as_deref() {
             Some(s) => format!("{prefix}({s}): {verb} {} files", paths.len()),
             None => format!("{prefix}: {verb} {} files", paths.len()),
@@ -407,8 +382,6 @@ fn suggest_subject(class: FileClass, paths: &[String]) -> String {
     }
 }
 
-/// Conventional-commit scope from a shared top path segment (crate/dir), when
-/// unambiguous across the unit's paths.
 fn common_scope(paths: &[String]) -> Option<String> {
     if paths.is_empty() {
         return None;
@@ -418,7 +391,6 @@ fn common_scope(paths: &[String]) -> Option<String> {
         .iter()
         .all(|p| scope_token(p).as_deref() == Some(first.as_str()))
     {
-        // Keep scopes short and conventional (no dots/slashes).
         let s = first
             .chars()
             .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
@@ -434,14 +406,12 @@ fn scope_token(path: &str) -> Option<String> {
     let p = path.replace('\\', "/");
     let mut parts = p.split('/').filter(|s| !s.is_empty());
     let first = parts.next()?;
-    // Skip boring roots; prefer the package/crate under monorepo roots.
     if matches!(
         first,
         "src" | "lib" | "bin" | "tests" | "test" | "docs" | "doc" | "." | ".."
     ) {
         return None;
     }
-    // cockpit/src/foo.rs → cockpit; packages/hashline/x → hashline when under packages/
     if matches!(first, "packages" | "crates" | "apps" | "services") {
         return parts.next().map(|s| s.to_string());
     }
@@ -449,7 +419,6 @@ fn scope_token(path: &str) -> Option<String> {
 }
 
 fn class_verb(class: FileClass, paths: &[String]) -> &'static str {
-    // Light intent from class + path names (no LLM).
     let joined = paths.join(" ");
     let lower = joined.to_ascii_lowercase();
     if lower.contains("fix") || lower.contains("delete") || lower.contains("remove") {
@@ -470,7 +439,6 @@ fn class_verb(class: FileClass, paths: &[String]) -> &'static str {
 fn subject_focus(paths: &[String]) -> String {
     if paths.len() == 1 {
         let name = paths[0].rsplit('/').next().unwrap_or(&paths[0]);
-        // Drop extension for readability: hashline.rs → hashline
         let stem = name.rsplit_once('.').map(|(s, _)| s).unwrap_or(name);
         stem.to_string()
     } else if let Some(scope) = common_scope(paths) {
@@ -480,7 +448,6 @@ fn subject_focus(paths: &[String]) -> String {
     }
 }
 
-/// Render a human/agent-readable plan.
 pub(crate) fn format_plan(plan: &CommitPlan) -> String {
     let mut out = format!(
         "atomic commit plan: {} commit{}\n",

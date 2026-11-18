@@ -86,8 +86,6 @@ fn host() -> &'static native_module::ReloadHost<Generation> {
     })
 }
 
-// All media buffers use Rust's allocator, so the completed allocation can be
-// moved directly into a Vec without a second payload-sized allocation.
 extern "C" fn grow(ptr: *mut u8, old: usize, new: usize) -> *mut u8 {
     let Ok(layout) = Layout::from_size_align(new, 1) else {
         return std::ptr::null_mut();
@@ -180,7 +178,6 @@ extern "C" fn emit(
         {
             return Err("invalid terminal media allocation");
         }
-        // The ABI transfers each Rust-allocator-backed media buffer exactly once.
         let bytes = unsafe { Vec::from_raw_parts(ptr.cast_mut(), len, cap) };
         let media = match kind {
             1 => Media::Apc(bytes),
@@ -205,8 +202,6 @@ extern "C" fn emit(
     }
 }
 
-/// Incremental ordered media/text splitter. Input is borrowed only until
-/// `split` returns; an open stream retains the generation that created it.
 pub struct Splitter {
     generation: Arc<Generation>,
     rejected: Option<Arc<Generation>>,
@@ -216,8 +211,6 @@ pub struct Splitter {
     text: bool,
     poisoned: bool,
 }
-// The ABI permits moving a state between threads, but each state is used only
-// through `&mut self`. Callbacks are synchronous and never retain references.
 unsafe impl Send for Splitter {}
 unsafe impl Sync for Splitter {}
 impl std::fmt::Debug for Splitter {
@@ -275,9 +268,6 @@ impl Splitter {
         {
             return;
         }
-        // Only called in text state, with no held sequence. A generation owns
-        // its own state, and both construction and destruction stay outside
-        // the publication lock.
         let state = unsafe { (next.create)(self.cap, grow, release) };
         if state.is_null() {
             if next._library.is_some() {

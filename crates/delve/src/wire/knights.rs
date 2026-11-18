@@ -13,12 +13,9 @@ use angel_net::doc::value::{self, Value};
 use std::borrow::Cow;
 use std::sync::OnceLock;
 
-/// The course bytes on a knight, and the clocks beside them.
 const COURSE: &str = "course";
 const CLOCKS: &str = "clocks";
 
-/// A straight step, as the sim adds it. `x` and `y` are where the knight
-/// stood on tick `kf`; each later tick adds `vx` and `vy` once.
 #[derive(Clone, Copy)]
 struct Course {
     x: f32,
@@ -28,8 +25,6 @@ struct Course {
     kf: u64,
 }
 
-/// A field that changes by the same step every tick, sent as the tick that
-/// step was measured from. `base` is the value on `from`.
 #[derive(Clone)]
 struct Clock {
     name: String,
@@ -39,14 +34,10 @@ struct Clock {
 
 #[derive(Clone, Copy)]
 enum Kind {
-    /// An integer field. `unsigned` is how it is written back.
     Int { base: i64, step: i64, unsigned: bool },
-    /// A float field, wound by the same f32 add the course uses.
     Float { base: f32, step: f32 },
 }
 
-/// One knight as last published, and the step we last saw, so a course or a
-/// clock is adopted only once the step has repeated.
 struct Knight {
     id: u32,
     value: Value,
@@ -55,8 +46,6 @@ struct Knight {
     last_vx: f32,
     last_vy: f32,
     course: Option<Course>,
-    /// Numeric fields last seen, and the step into that sight, so the next
-    /// tick can tell a steady count from a jump.
     seen: Vec<Seen>,
     clocks: Vec<Clock>,
 }
@@ -81,9 +70,6 @@ pub(super) struct Knights {
 }
 
 impl Knights {
-    /// The run's knights as the tick's map. A knight already sent, still on
-    /// its course and its clocks, is the same shared value: the patch carries
-    /// nothing for it.
     pub(super) fn publish(&mut self, run: &Run, absent: &[u8]) -> Result<Value, value::Error> {
         let tick = run.tick;
         let step = match self.tick {
@@ -110,7 +96,6 @@ impl Knights {
                     let mut knight = std::mem::replace(&mut was[j], Knight::gone());
                     let raw = value::to_value(hero)?;
                     if knight.hold(hero, &raw, tick, step, bare)? {
-                        // Sent as before.
                     } else {
                         knight.value = Value::shared(knight.shape(hero, &raw, tick, step, bare)?);
                     }
@@ -180,8 +165,6 @@ impl Knight {
         }
     }
 
-    /// The value already sent still lands on this knight: the course flies to
-    /// where it stands, and every clock winds to the value it has.
     fn hold(&mut self, hero: &Hero, raw: &Value, tick: u64, step: u64, bare: &Value) -> Result<bool, value::Error> {
         let on_course = self.course.is_some_and(|c| {
             let (px, py) = at(&c, tick);
@@ -194,8 +177,6 @@ impl Knight {
         if !clocks_hold(&self.clocks, &nums, tick) {
             return Ok(false);
         }
-        // The rest of the knight, with the course and the clocks put back as
-        // they were sent, must be the value the guest already holds.
         let shaped = self.shape_with(hero, raw, self.course, &self.clocks, bare)?;
         Ok(shaped == *self.value.get())
     }
@@ -265,8 +246,6 @@ impl Knight {
     }
 }
 
-/// The step into `value` from what we last saw, when this publish is one
-/// tick on. A gap, or a first sight, is no step to adopt a clock from.
 fn step_of(seen: &[Seen], name: &str, value: Num, step: u64) -> Option<Num> {
     if step != 1 {
         return None;
@@ -288,10 +267,6 @@ fn clocks_hold(clocks: &[Clock], nums: &[(String, Num)], tick: u64) -> bool {
     })
 }
 
-/// Clocks for this tick. One is kept while it still lands on the field. A
-/// new one starts only once the same non-zero step has been seen twice, so a
-/// hit that changes a field once is sent as itself, not as a clock that
-/// breaks on the next tick.
 fn next_clocks(had: &[Clock], seen: &[Seen], nums: &[(String, Num)], tick: u64, step: u64) -> Vec<Clock> {
     let mut out = Vec::new();
     for (name, value) in nums {
@@ -339,7 +314,6 @@ fn clock_from(name: &str, value: Num, step: Num, tick: u64) -> Option<Clock> {
         (Num::Float(base), Num::Float(step)) => Kind::Float { base, step },
         _ => return None,
     };
-    // The clock must land on the value we just saw, or it is not this field.
     let clock = Clock { name: name.to_string(), from: tick, kind };
     (predict(&clock, tick) == Some(value)).then_some(clock)
 }
@@ -391,8 +365,6 @@ fn as_num(value: &Value) -> Option<Num> {
     }
 }
 
-/// A knight deserialized from no fields: what a missing field becomes. A
-/// field sitting at that value is left out of the tree.
 fn bare_hero() -> &'static Value {
     static BARE: OnceLock<Value> = OnceLock::new();
     BARE.get_or_init(|| {
@@ -463,7 +435,6 @@ fn clock_value(clock: &Clock) -> Value {
     Value::Struct(fields)
 }
 
-/// Whether `players` carries a course or a clock a read must bring to the tick.
 pub(super) fn needs_land(players: &Value) -> bool {
     let Value::Map(items) = players.get() else {
         return false;
@@ -471,7 +442,6 @@ pub(super) fn needs_land(players: &Value) -> bool {
     items.iter().any(|(_, hero)| hero.field(COURSE).is_some() || hero.field(CLOCKS).is_some())
 }
 
-/// `players` as the tick's tree carries them, as they stand on `tick`.
 pub(super) fn land(players: &Value, tick: u64) -> Value {
     let Value::Map(items) = players.get() else {
         return players.get().clone();

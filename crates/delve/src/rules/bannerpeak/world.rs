@@ -19,27 +19,21 @@ use serde::{Deserialize, Serialize};
 
 pub const TILE: i32 = 16;
 
-/// One cell of the map.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Tile {
     Air,
     Stone,
     Snow,
     Ledge,
-    /// A rune block that gives a coin.
     Coin,
-    /// A rune block that gives a loaf to a small knight, a flame to a big one.
     Power,
-    /// A rune block that gives up to five coins, one a bump.
     Many(u8),
-    /// A rune block with nothing left.
     Spent,
     Brick,
     Cracked,
     Water,
     Spikes,
     Hatch,
-    /// 0: the courtyard's tapestry door; 1: the summit door.
     Gate(u8),
 }
 
@@ -63,7 +57,6 @@ impl Tile {
             _ => return None,
         })
     }
-    /// The byte the session keeps for a changed tile.
     pub fn code(self) -> u8 {
         match self {
             Tile::Air => 0,
@@ -101,18 +94,15 @@ impl Tile {
             _ => return None,
         })
     }
-    /// A knight cannot enter it.
     pub fn solid(self) -> bool {
         !matches!(
             self,
             Tile::Air | Tile::Ledge | Tile::Water | Tile::Spikes
         )
     }
-    /// A knight can land on it from above and pass up through it.
     pub fn one_way(self) -> bool {
         self == Tile::Ledge
     }
-    /// A rune block: struck from below it gives something.
     pub fn rune(self) -> bool {
         matches!(self, Tile::Coin | Tile::Power | Tile::Many(_))
     }
@@ -121,12 +111,10 @@ impl Tile {
     }
 }
 
-/// What a knight and the foes read of the map: the tile at a cell.
 pub trait Grid {
     fn tile(&self, tx: i32, ty: i32) -> Tile;
 }
 
-/// A thing placed on the map by a glyph: its character and its cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Mark {
     pub k: char,
@@ -143,8 +131,6 @@ pub struct World {
 }
 
 impl World {
-    /// A map from rows of glyphs, the shortest row padded with air. Marks
-    /// are read in reading order (top row first, left to right).
     pub fn parse(rows: &[&str]) -> World {
         let w = rows.iter().map(|r| r.chars().count()).max().unwrap_or(0) as i32;
         let h = rows.len() as i32;
@@ -168,8 +154,6 @@ impl World {
         }
         world
     }
-    /// Sections laid on a blank map `w` by `h`: each `(rows, x, y)` puts the
-    /// section's top-left cell at `(x, y)`. Later sections write over earlier.
     pub fn compose(w: i32, h: i32, sections: &[(&[&str], i32, i32)]) -> World {
         let mut world = World {
             w,

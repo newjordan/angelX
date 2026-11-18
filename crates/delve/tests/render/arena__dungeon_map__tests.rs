@@ -2,7 +2,6 @@ use super::*;
 use crate::rules::votes::{Action, Command};
 use std::collections::BTreeMap;
 
-/// A run on floor two, the party at its entrance.
 fn on_floor(seed: u64) -> Run {
     let mut run = Run::new(seed, 17, None);
     run.descend_for_test();
@@ -31,8 +30,6 @@ fn on_palette(img: &Img) -> bool {
         .all(|c| c == BLACK || super::super::super::ink::palette_index(c).is_some())
 }
 
-/// The seat's whole screen's room view (the band's rows taken off) as parts
-/// composed.
 fn composed(run: &Run, focus: Option<u32>, map: &MapView) -> Img {
     seat_scene_with(run, NATIVE_W, NATIVE_H + BAND_H + HUD_H, focus, map).compose()
 }
@@ -46,8 +43,6 @@ fn the_minimap_stays_inside_its_box_in_the_corner_and_on_the_palette() {
             .unwrap_or_else(|| panic!("seed {seed}: a floor being explored has its minimap"));
         assert_eq!((panel.w, panel.h), (MINI_W, MINI_H), "its box");
         assert!(on_palette(&panel), "seed {seed}: off the palette");
-        // Drawn on a view, it touches nothing but its box, in the top right
-        // corner clear of the view's edges.
         let mut view = Img::new(NATIVE_W, NATIVE_H);
         minimap(&mut view, &seat, Some(1));
         let (x0, y0) = (NATIVE_W - MINI_W - MINI_MARGIN, MINI_MARGIN);
@@ -65,7 +60,6 @@ fn the_minimap_stays_inside_its_box_in_the_corner_and_on_the_palette() {
         }
         assert!(inked > 1500, "the panel is drawn ({inked} pixels)");
         assert!(x0 + MINI_W < NATIVE_W && y0 > 0);
-        // A corner: a thirtieth of the view, no more.
         const { assert!(MINI_W * MINI_H * 25 < NATIVE_W * NATIVE_H) };
     }
 }
@@ -80,10 +74,6 @@ fn the_minimap_is_on_the_seats_screen_under_the_band_and_clear_of_the_way_ons_la
         let panel = band_minimap(&seat, Some(1)).unwrap_or_else(|| panic!("seed {seed}: no minimap"));
         assert_eq!((panel.w, panel.h), (MINI_W, MINI_BAND_H));
         let whole = composed(&seat, Some(1), &MapView::default());
-        // On a seat's screen the minimap is in the HUD's band under the
-        // room's view, at its right end, and not on the view at all. Nothing
-        // else of the screen's marks (the label by a doorway's arrow, say)
-        // lies over it.
         let (x0, y0) = (NATIVE_W - MINI_W - 4, BAND_H + NATIVE_H + (HUD_H - MINI_BAND_H + 1) / 2);
         let in_view = minimap_image(&seat, Some(1)).unwrap();
         let (vx, vy) = (NATIVE_W - MINI_W - MINI_MARGIN, BAND_H + MINI_MARGIN);
@@ -103,7 +93,6 @@ fn the_minimap_is_on_the_seats_screen_under_the_band_and_clear_of_the_way_ons_la
             }
         }
         assert!(same > 1200, "seed {seed}: {same}");
-        // And the band above is the band.
         let band = party::band(&seat, Some(1));
         for y in 0..BAND_H {
             for x in 0..NATIVE_W {
@@ -127,14 +116,12 @@ fn the_minimap_marks_every_knight_and_shows_the_room_the_seat_stands_in_at_its_m
         "the party's own view still counts the knights waiting outside"
     );
     let panel = minimap_of(&map).unwrap();
-    // The seat's own room is lit at the middle: its rim is lit brass.
     let (x, y) = HERE;
     assert_eq!(
         panel.get(x + 4, y),
         Some(super::super::super::ink::ink('O').unwrap()),
         "the seat's room, lit"
     );
-    // The seat's own dot has the brass ring, the others' do not.
     let ring = super::super::super::ink::ink('O').unwrap();
     let lit = |m: &Marker| {
         let node = map.node(m.node).unwrap();
@@ -156,21 +143,17 @@ fn the_minimap_is_there_only_while_a_floor_is_fought_or_explored() {
     let seat = run.view_for_seat(1).unwrap();
     assert!(shown(&seat, Some(1)));
     assert!(shown(&seat, None));
-    // Fighting counts too.
     let mut fighting = seat.clone();
     fighting.phase = Phase::Fighting;
     assert!(shown(&fighting, Some(1)));
-    // Not at home or in the kingdom.
     let home = Run::at_home(41, 1, None, Default::default(), Default::default());
     assert!(!shown(&home, Some(1)));
     assert!(minimap_image(&home, Some(1)).is_none());
-    // Not after the run is won or lost.
     for phase in [Phase::Won, Phase::Wiped] {
         let mut over = seat.clone();
         over.phase = phase;
         assert!(!shown(&over, Some(1)), "{phase:?}");
     }
-    // Not behind the ballot.
     let mut voting = seat.clone();
     voting.vote_command(
         1,
@@ -185,7 +168,6 @@ fn the_minimap_is_there_only_while_a_floor_is_fought_or_explored() {
         shown(&voting, Some(2)) || !voting.playtest.open(2),
         "a friend's ballot is theirs"
     );
-    // Not while a floor's plate holds the screen.
     let mut plate = seat.clone();
     let playing = crate::rules::floor_plates::Playing {
         kind: crate::rules::floor_plates::Kind::Crypt,
@@ -199,8 +181,6 @@ fn the_minimap_is_there_only_while_a_floor_is_fought_or_explored() {
 
 #[test]
 fn the_minimap_keeps_off_a_follys_standings_and_its_lanes() {
-    // The even floors' folly is the Belfry shoot: its standings are top
-    // right, where the minimap would be.
     let mut run = on_floor(41);
     run.join_seat(2, "Two");
     run.deal_legacy_for_test();
@@ -249,7 +229,6 @@ fn the_full_map_is_held_not_kept_and_lays_the_floor_over_the_view() {
         },
     );
     assert!(plain.words() != held.words());
-    // Released, the view is as it was.
     let released = composed(
         &seat,
         Some(1),
@@ -260,8 +239,6 @@ fn the_full_map_is_held_not_kept_and_lays_the_floor_over_the_view() {
         },
     );
     assert!(plain.words() == released.words());
-    // The whole party's map can be handed in. A seat's own view places the
-    // knights waiting outside too, but cannot name them.
     let (mine, whole) = (seat.floor_map(Some(1)), run.floor_map(Some(1)));
     let nameless = |m: &FloorMap| {
         m.party
@@ -303,8 +280,6 @@ fn the_full_map_is_on_the_palette_and_the_room_shows_through_it() {
     let overlay = overlay_of(&map).expect("a floor with rooms on it");
     assert_eq!((overlay.w, overlay.h), (NATIVE_W, NATIVE_H));
     assert!(on_palette(&overlay));
-    // A dither: inside the panel, away from the sidebar, some of the paper
-    // is there and some is clear, about half and half.
     let (px, py, _, ph) = PANEL;
     let (mut there, mut clear) = (0, 0);
     for y in py + 6..py + ph - 6 {
@@ -321,7 +296,6 @@ fn the_full_map_is_on_the_palette_and_the_room_shows_through_it() {
         (0.4..0.75).contains(&share),
         "{share:.2} of the panel is paper"
     );
-    // Where it is clear the room is what the view shows.
     let seat = run.view_for_seat(1).unwrap();
     let plain = composed(&seat, Some(1), &MapView::default());
     let held = composed(
@@ -347,7 +321,6 @@ fn the_full_map_is_on_the_palette_and_the_room_shows_through_it() {
         }
     }
     assert!(shown_through > 5000);
-    // The legend sidebar is solid, so its words read.
     let (sx, sy, sw, sh) = SIDEBAR;
     assert!(
         (sy + 4..sy + sh - 4).all(|y| (sx + 4..sx + sw - 4).all(|x| overlay.get(x, y).is_some()))
@@ -368,13 +341,11 @@ fn the_full_map_leaves_the_band_the_skills_bar_s_row_and_the_hud_alone() {
             ..Default::default()
         },
     );
-    // The party's band above the view.
     for y in 0..BAND_H {
         for x in 0..NATIVE_W {
             assert_eq!(held.get(x, y), plain.get(x, y), "band pixel {x},{y}");
         }
     }
-    // The skills bar's strip along the view's foot.
     let (_, py, _, ph) = PANEL;
     for y in py + ph..NATIVE_H {
         for x in 0..NATIVE_W {
@@ -423,7 +394,6 @@ fn the_full_map_is_drawn_at_the_art_kits_scale_too() {
         &map,
     );
     assert_eq!((two.w, two.h), (NATIVE_W * 2, NATIVE_H * 2 + (BAND_H + HUD_H) * 2));
-    // A pixel of the overlay is a 2 by 2 block there.
     let (px, py, _, _) = PANEL;
     let rim = one.get(px + 8, py + BAND_H);
     assert_eq!(two.get((px + 8) * 2 + 1, (py + BAND_H) * 2 + 1), rim);
@@ -478,8 +448,6 @@ fn a_legend_names_only_what_is_on_the_floor() {
         room.visited = true;
     }
     let after = overlay_of(&run.floor_map(Some(1))).unwrap();
-    // The legend's rows grow as the floor is known: more inked in the
-    // sidebar.
     let (sx, sy, sw, sh) = SIDEBAR;
     let inked = |im: &Img| {
         (sy..sy + sh)
@@ -488,13 +456,9 @@ fn a_legend_names_only_what_is_on_the_floor() {
             .count()
     };
     assert!(inked(&after) > inked(&before));
-    // An empty map has no overlay.
     assert!(overlay_of(&FloorMap::default()).is_none());
 }
 
-/// A mid-floor party of three on floor two: most of the floor walked but
-/// the guardian's room, knight one in the room with most about it, the
-/// other two waiting out in rooms beside it.
 fn midfloor(seed: u64) -> Run {
     let mut run = on_floor(seed);
     run.join_seat(2, "Wren");
@@ -508,7 +472,6 @@ fn midfloor(seed: u64) -> Run {
                 run.dungeon.rooms[i].kind != RoomKind::Fight || i % 3 != 0;
         }
     }
-    // The room with the most walked rooms in the minimap's window.
     let cells: Vec<(i32, i32)> = run.dungeon.rooms.iter().map(|r| r.cell).collect();
     let near = move |a: usize, b: usize| {
         let (ca, cb) = (cells[a], cells[b]);
@@ -519,7 +482,6 @@ fn midfloor(seed: u64) -> Run {
         .collect();
     let here = *visited
         .iter()
-        // A room the minimap is drawn in (not a nook, nor the open world).
         .filter(|&&i| {
             let kind = run.dungeon.rooms[i].kind;
             i != 0 && !kind.in_world() && !kind.nook()
@@ -562,8 +524,6 @@ fn midfloor(seed: u64) -> Run {
     run
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_map_shots -- --ignored`
-/// (`MAP_SEED=<n>` picks the floor).
 #[test]
 #[ignore]
 fn write_map_shots() {
@@ -595,7 +555,6 @@ fn write_map_shots() {
     )
     .compose();
     write_png(&big, 3, &dir.join("full-map.png"));
-    // The minimap alone, and a sheet of the marks.
     if let Some(panel) = minimap_image(&seat, Some(1)) {
         write_png(&panel, 8, &dir.join("minimap-alone.png"));
     }

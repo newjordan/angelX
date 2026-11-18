@@ -15,7 +15,6 @@ fn tavern(seats: u32) -> Run {
     r
 }
 
-/// The first recruit at a table, and one of the old company.
 fn patrons() -> (usize, usize) {
     let new = alehouse::PATRONS.iter().position(|p| recruit(p.kit)).expect("a recruit sits in the tavern");
     let old = alehouse::PATRONS.iter().position(|p| !recruit(p.kit)).expect("the old company sits there too");
@@ -37,7 +36,6 @@ fn the_old_company_carry_their_own_and_the_recruits_none() {
     assert_eq!(owned.len(), 24, "the company before the recruits");
     let ults: std::collections::BTreeSet<&str> = owned.iter().map(|id| Ult::own(id).unwrap().word()).collect();
     assert_eq!(ults.len(), owned.len(), "each their own");
-    // The code-drawn knights came later too, but they are plain knights.
     for k in knights::COMPANY[owned.len()..].iter().filter(|k| knights::plain_seat(k.id).is_none()) {
         assert!(recruit(k.id), "{} came after the company and has none of their own", k.id);
     }
@@ -86,8 +84,6 @@ fn the_scroll_grants_only_the_ultimate_and_it_stays_the_recruits() {
     assert_eq!((kept.ult, kept.by.as_str()), (Ult::Trebuchet, h.name.as_str()));
     assert!(r.cues.iter().any(|c| c == &format!("recruit_ult:{kit}:trebuchet")));
 
-    // The first knight moves on; a friend takes the recruit up and casts it,
-    // with no congratulation and no wish of their own.
     r.pick_patron(1, old);
     assert_eq!(r.players[&1].ult(), Ult::of(Some(alehouse::PATRONS[old].kit)));
     let wishes = r.players[&2].wishes;
@@ -97,7 +93,6 @@ fn the_scroll_grants_only_the_ultimate_and_it_stays_the_recruits() {
     assert!(r.players[&2].making(&r.book).is_none());
     assert_eq!(r.players[&2].ult(), Ult::Trebuchet);
 
-    // Down the stair, and through a save.
     r.descend();
     assert_eq!(r.players[&2].ult(), Ult::Trebuchet, "dealt again on the way down");
     let home: home::Home = serde_json::from_value(serde_json::to_value(&r.home).unwrap()).unwrap();

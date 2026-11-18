@@ -1,7 +1,3 @@
-// Exercise the real shell wish-line handlers and CSS in headless Chromium.
-// The game supplies fixture text through angel_picks; Rust client tests
-// cover the run-to-text half. No host or launcher is needed.
-// node crates/web/probe/wish-picks.mjs [--shots DIR]
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -28,7 +24,7 @@ try {
   let port;
   for (let i = 0; i < 100 && !port; i++) {
     await sleep(50);
-    try { port = Number(fs.readFileSync(path.join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0]); } catch { /* starting */ }
+    try { port = Number(fs.readFileSync(path.join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0]); } catch { }
   }
   assert(port, 'Chromium started');
   const target = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find(t => t.type === 'page');

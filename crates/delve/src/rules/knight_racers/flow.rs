@@ -1,5 +1,5 @@
 //! Knight Racers as a game: the title, the modes, the classes, the menus' state,
-//! the cup over its three courses and what a race pays.
+//! the cup over its four courses and what a race pays.
 //!
 //! The race itself (`race.rs`) knows nothing of this. `tick` is the one door the
 //! realm's tick and the Glass example both go through: it reads what each seat
@@ -19,18 +19,13 @@ use crate::rules::Input;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-/// How a race is entered.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Mode {
-    /// The championship: the three courses, points by place, a podium and a prize.
     #[default]
     Cup,
-    /// One race on a course of your choosing, for a purse.
     Single,
-    /// A lap against your own best, shown as a ghost.
     TimeTrial,
-    /// The Proving Run, for nothing.
     Practice,
 }
 
@@ -41,7 +36,7 @@ impl Mode {
     }
     pub fn blurb(self) -> &'static str {
         match self {
-            Mode::Cup => "THREE COURSES. POINTS 10 7 5 3 2 1. A PODIUM, A TROPHY AND A PRIZE.",
+            Mode::Cup => "FOUR COURSES. POINTS 10 7 5 3 2 1. A PODIUM, A TROPHY AND A PRIZE.",
             Mode::Single => "ONE RACE ON ANY COURSE. TWO THIRDS OF THE CUP'S PURSE.",
             Mode::TimeTrial => "ALONE ON THE ROAD WITH THE GHOST OF YOUR BEST LAP.",
             Mode::Practice => "THE PROVING RUN, NO PRIZE, FIVE EASY RIVALS.",
@@ -49,7 +44,6 @@ impl Mode {
     }
 }
 
-/// How hard the rivals are, and what the prizes are worth.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Class { #[default] Squire, Knight, Champion }
@@ -61,13 +55,9 @@ impl Class {
     pub fn blurb(self) -> &'static str {
         ["RIVALS RACE EASY. FOR LEARNING THE ROAD.", "RIVALS RACE SHARP. EXPECT A FIGHT FOR THE PODIUM.", "RIVALS RACE FAST AND GRIP HARD. NO MERCY."][self.rank()]
     }
-    /// What it takes to open this class.
     pub fn hint(self) -> &'static str {
         ["", "WIN THE SQUIRE CUP", "WIN THE KNIGHT CUP"][self.rank()]
     }
-    /// The multiples a rival's pod races at in this class. The pilots (`pilot.rs`) race at 97.5% of whatever
-    /// the pod has, and draft, heat and slam on top, so these sit near 1: set against a clean human run
-    /// (`flow_tests::class_balance_table`, 11-08) a Squire loses 18 of 18, a Knight 13 of 18 and a Champion 7 of 18.
     pub fn rivals(self) -> Tune {
         match self {
             Class::Squire => Tune { top: 0.93, boost: 0.93, accel: 0.88, grip: 0.96, mass: 1. },
@@ -77,44 +67,31 @@ impl Class {
     }
 }
 
-/// Where the game is, for every seat.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Stage {
-    /// The title: a CPU race behind the name.
     Title,
-    /// The host picks a mode (and any seat may open its own garage or records).
     Modes,
     Classes,
     Courses,
-    /// Every seat picks a pod; the race starts when all are ready.
     Pods,
-    /// The race: the grid, the lights, the laps, the flag and the results board.
     #[default]
     Race,
-    /// The cup is run: the podium.
     Podium,
 }
 
-/// A screen of a seat's own, which does not hold the others up.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Local { #[default] None, Garage, Records }
 
-/// What each seat presses. `x` is +1 for right (D) and `y` -1 for up (W), +1 for down (S).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Pad {
     pub x: i8,
     pub y: i8,
-    /// E, F, Enter: confirm, and E at the flag.
     pub ok: bool,
-    /// Space: boost in the race, confirm in the menus.
     pub boost: bool,
-    /// Q, Backspace: a step back.
     pub back: bool,
-    /// Esc held: a short tap is a step back too, a long hold leaves the game.
     pub leave: bool,
-    /// A CPU pilot has the wheel: skipping ahead, a demo or a proof.
     pub auto: bool,
 }
 
@@ -134,35 +111,24 @@ const RIGHT: u8 = 8;
 const OK: u8 = 16;
 const BOOST: u8 = 32;
 const BACK: u8 = 64;
-/// A tap of Esc shorter than this is a step back.
 const TAP: u8 = 12;
-/// Ticks the results stay up before a press moves them on.
 const GRACE: u32 = 36;
-/// A seat that is ready is waited for this long by the rest.
 const WAIT: u32 = 8 * HZ as u32;
-/// Ticks the attract race runs on a course before the next.
 const ATTRACT: u32 = 25 * HZ as u32;
-/// Ticks a shop or menu note stays up.
 const NOTE: u32 = 2 * HZ as u32;
 
-/// The entries of the mode menu: the four modes, then the two screens of a seat's own.
 pub const MENU: [&str; 6] = ["CUP", "SINGLE RACE", "TIME TRIAL", "PRACTICE", "GARAGE", "RECORDS"];
 
-/// The courses a single race or a trial may be run on: the cup's, then the proving run.
-pub fn choices() -> [CourseId; 4] { [cup()[0], cup()[1], cup()[2], CourseId::Proving] }
+pub fn choices() -> [CourseId; 6] { [cup()[0], cup()[1], cup()[2], cup()[3], CourseId::Sunfall, CourseId::Proving] }
 
-/// What a seat's last race did for it, for the results board and the podium.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settle {
     pub place: usize,
     pub purse: u32,
     pub notes: Notes,
-    /// A time trial's lap beat the best, or was the first.
     pub trial: bool,
-    /// What the cup opened for the seat: words for the podium.
     pub unlocks: Vec<String>,
-    /// The cup's own prize, once the cup is won.
     pub bonus: u32,
 }
 
@@ -170,25 +136,18 @@ pub struct Settle {
 #[serde(default)]
 pub struct SeatFlow {
     pub name: String,
-    /// Whether this seat is a knight in the race now.
     pub here: bool,
     pub career: Career,
-    /// The career is a blank one: the garage's bank replaces it with what the ledger holds.
     pub fresh: bool,
-    /// The career has changed: the bank writes it down.
     pub dirty: bool,
-    /// The pod this seat has its eye on, an index into the roster.
     pub pick: u8,
     pub ready: bool,
-    /// The seat's place in whatever list it is looking at.
     pub cursor: u8,
-    /// The part under the cursor in the garage.
     pub sub: u8,
     pub local: Local,
     pub tab: u8,
     held: u8,
     esc: u8,
-    /// A line for the screen, and the tick it is up until.
     pub note: String,
     pub note_until: u32,
     pub last: Option<Settle>,
@@ -202,7 +161,6 @@ impl SeatFlow {
     pub fn said(&mut self, now: u32, words: &str) { self.note = words.to_string(); self.note_until = now + NOTE; }
 }
 
-/// One seat's cup so far.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct CupLine {
@@ -210,7 +168,6 @@ pub struct CupLine {
     pub places: Vec<usize>,
 }
 
-/// One row of the podium: a seat in the order the cup ended.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PodiumLine {
@@ -220,13 +177,10 @@ pub struct PodiumLine {
     pub human: bool,
 }
 
-/// One seat's lap clock, as the sim sees it (the screen keeps its own for the HUD).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Laps {
-    /// Finished laps, in seconds.
     pub times: Vec<f32>,
-    /// Race seconds at which the lap now running began.
     pub begin: f32,
 }
 
@@ -245,18 +199,15 @@ impl Laps {
     }
 }
 
-/// Where the time-trial ghost is this tick, set by the garage's bank from the saved lap.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GhostPose {
-    /// Metres into the lap.
     pub s: f32,
     pub y: f32,
     pub yaw: f32,
     pub lift: f32,
     pub route: u8,
     pub pod: u8,
-    /// Seconds ahead (+) or behind (-) of the player at this point, for the screen.
     pub gap: f32,
 }
 
@@ -266,11 +217,8 @@ pub struct Flow {
     pub stage: Stage,
     pub mode: Mode,
     pub class: Class,
-    /// The course chosen for a single race or a trial.
     pub course: CourseId,
-    /// Ticks since the stage began.
     pub clock: u32,
-    /// Ticks since the flow began: never reset, for notes and blinking.
     pub now: u32,
     pub seats: BTreeMap<u32, SeatFlow>,
     pub settled: bool,
@@ -278,13 +226,10 @@ pub struct Flow {
     pub podium: Vec<PodiumLine>,
     pub laps: BTreeMap<u32, Laps>,
     pub ghost: Option<GhostPose>,
-    /// Which course of the cup the attract race runs on.
     pub attract: u8,
 }
 
 impl Default for Flow {
-    /// A race with no menus: how a session begins when something else (a test, a proof, an
-    /// old save) made it.
     fn default() -> Flow {
         Flow {
             stage: Stage::Race, mode: Mode::Cup, class: Class::Squire, course: cup()[0], clock: 0, now: 0, seats: BTreeMap::new(),
@@ -294,20 +239,14 @@ impl Default for Flow {
 }
 
 impl Flow {
-    /// A gate: the title is up.
     pub fn at_gate() -> Flow { Flow { stage: Stage::Title, ..Flow::default() } }
 
-    /// The seat that decides: the lowest knight in the race.
     pub fn host(&self) -> Option<u32> { self.seats.iter().find(|(_, s)| s.here).map(|(id, _)| *id) }
 
-    /// Menus are up over a CPU race.
     pub fn attracting(&self) -> bool { matches!(self.stage, Stage::Title | Stage::Modes | Stage::Classes | Stage::Courses) }
 
-    /// A menu of any kind has the screen (the race's own instruments do not).
     pub fn menu(&self) -> bool { self.stage != Stage::Race }
 
-    /// The time trial on the road (or just run, its board still up): the seat, the course and the
-    /// pod, for the bank's ghost.
     pub fn trial(&self, s: &Session) -> Option<(u32, CourseId, u8)> {
         if self.stage != Stage::Race || self.mode != Mode::TimeTrial { return None; }
         let seat = self.host()?;
@@ -337,10 +276,8 @@ impl Flow {
 }
 
 impl Session {
-    /// A session at the race gate: the title over a CPU race, the knights in.
     pub fn at_gate(players: &BTreeMap<u32, crate::rules::Hero>) -> Session { Session::gate_of(players.keys().copied()) }
 
-    /// The same for the seats `ids`.
     pub fn gate_of(ids: impl IntoIterator<Item = u32>) -> Session {
         let mut s = Session::blank();
         s.join_ids(ids);
@@ -349,19 +286,13 @@ impl Session {
         s
     }
 
-    /// Put the menus away: a race on the grid, as a test or a proof wants it.
     pub fn skip_menus(&mut self) { self.flow = Flow::default(); self.ticks = 0; }
 }
 
-/// Everything a seat can see about its own pod, for the pod select: the tuned pod a knight's
-/// parts make of it.
 pub fn tuned_pod(career: &Career, pod: u8) -> super::pods::PodSpec {
     super::pods::pods()[pod as usize % super::pods::pods().len()].tuned(&career.tune())
 }
 
-// ---- The tick ---------------------------------------------------------------
-
-/// One tick of the whole game for the knights in `humans` (seat and name), who pressed `pads`.
 pub fn tick(s: &mut Session, humans: &[(u32, String)], pads: &BTreeMap<u32, Pad>) {
     s.flow.sync(humans);
     let ids: Vec<u32> = humans.iter().map(|(id, _)| *id).collect();
@@ -371,13 +302,11 @@ pub fn tick(s: &mut Session, humans: &[(u32, String)], pads: &BTreeMap<u32, Pad>
     } else {
         s.fill_rivals(ids.len());
     }
-    // What each seat pressed fresh this tick.
     let mut fresh: BTreeMap<u32, u8> = BTreeMap::new();
     for (&id, sf) in s.flow.seats.iter_mut() {
         let pad = pads.get(&id).copied().unwrap_or_default();
         fresh.insert(id, edges(sf, &pad));
     }
-    // A seat in its own screen is not in the others' menus.
     let mut local_done = Vec::new();
     for id in ids.iter().copied() {
         if s.flow.seats.get(&id).is_some_and(|sf| sf.local != Local::None) {
@@ -406,7 +335,6 @@ pub fn tick(s: &mut Session, humans: &[(u32, String)], pads: &BTreeMap<u32, Pad>
     }
 }
 
-/// The new presses of a seat this tick, as bits; and a tap of Esc as a step back.
 fn edges(sf: &mut SeatFlow, pad: &Pad) -> u8 {
     let mut now = 0u8;
     if pad.y < 0 { now |= UP; }
@@ -423,7 +351,6 @@ fn edges(sf: &mut SeatFlow, pad: &Pad) -> u8 {
     fresh
 }
 
-/// Step a list cursor by a press, wrapping.
 fn step_cursor(cursor: u8, len: usize, f: u8) -> u8 {
     let len = len.max(1) as i32;
     let mut c = cursor as i32;
@@ -432,22 +359,17 @@ fn step_cursor(cursor: u8, len: usize, f: u8) -> u8 {
     c.rem_euclid(len) as u8
 }
 
-// ---- The backdrop -----------------------------------------------------------
-
-/// The CPU race behind the menus: every car under a pilot, round the cup's courses in turn.
 fn attract(s: &mut Session) {
     let drives = s.bot_drives_all();
     s.step_drive(&drives);
     let browsing = s.flow.stage == Stage::Courses;
     if s.finished || (s.flow.now % ATTRACT == 0 && s.flow.now > 0 && !browsing) {
-        // Browsing the courses, the race behind is the one under the cursor: it runs again.
         if !browsing { s.flow.attract = s.flow.attract.wrapping_add(1); }
         let next = if browsing { s.course } else { cup()[s.flow.attract as usize % cup().len()] };
         reseed(s, next);
     }
 }
 
-/// A new CPU race on `id`, under way already.
 fn reseed(s: &mut Session, id: CourseId) {
     let mut n = Session::blank_on(id);
     let seats: Vec<(u32, u8)> = s.flow.seats.iter().filter(|(_, sf)| sf.here).map(|(i, sf)| (*i, sf.pick)).collect();
@@ -461,9 +383,6 @@ fn reseed(s: &mut Session, id: CourseId) {
     *s = n;
 }
 
-// ---- Menus ------------------------------------------------------------------
-
-/// The mode menu: every seat has its own cursor on it; only the host's choice starts anything.
 fn modes(s: &mut Session, id: u32, f: u8, host: bool, humans: usize) {
     let now = s.flow.now;
     let Some(sf) = s.flow.seats.get_mut(&id) else { return };
@@ -488,7 +407,6 @@ fn modes(s: &mut Session, id: u32, f: u8, host: bool, humans: usize) {
     }
 }
 
-/// The classes, the courses and the podium: the host's cursor, for every seat to see.
 fn host_menu(s: &mut Session, h: u32, f: u8, humans: usize) {
     let now = s.flow.now;
     let stage = s.flow.stage;
@@ -521,7 +439,6 @@ fn host_menu(s: &mut Session, h: u32, f: u8, humans: usize) {
     }
 }
 
-/// The pod select: every seat picks and readies; the race begins when all are ready.
 fn pods_stage(s: &mut Session, ids: &[u32], fresh: &BTreeMap<u32, u8>, host: Option<u32>) {
     let now = s.flow.now;
     let n = super::pods::pods().len();
@@ -546,7 +463,6 @@ fn pods_stage(s: &mut Session, ids: &[u32], fresh: &BTreeMap<u32, u8>, host: Opt
             return;
         }
     }
-    // The CPU race goes on behind the pod screen only for a look: hold the grid still.
     let all = !ids.is_empty() && ids.iter().all(|i| s.flow.seats.get(i).is_some_and(|sf| sf.ready));
     let waited = host.and_then(|h| s.flow.seats.get(&h)).is_some_and(|sf| sf.ready) && s.flow.clock > WAIT && ids.iter().any(|i| s.flow.seats.get(i).is_some_and(|sf| sf.ready && Some(*i) != host));
     if all || waited {
@@ -554,7 +470,6 @@ fn pods_stage(s: &mut Session, ids: &[u32], fresh: &BTreeMap<u32, u8>, host: Opt
     }
 }
 
-/// A seat's own screens: the garage and the records.
 fn seat_screen(s: &mut Session, id: u32, f: u8) {
     let now = s.flow.now;
     let Some(sf) = s.flow.seats.get_mut(&id) else { return };
@@ -587,17 +502,11 @@ fn seat_screen(s: &mut Session, id: u32, f: u8) {
     }
 }
 
-/// The index in a slot's rack of the part the seat wears there.
 fn slot_cursor(sf: &SeatFlow, slot: usize) -> u8 {
     let worn = sf.career.worn(slot.min(career::WORKING_SLOTS - 1));
     career::wares(slot.min(career::WORKING_SLOTS - 1)).iter().position(|p| p.id == worn).unwrap_or(0) as u8
 }
 
-// ---- The race ---------------------------------------------------------------
-
-/// Set a new race up: the course the mode and the cup say, every knight on the grid in the pod
-/// they picked with their parts on it, the rivals in their class. `round` is the cup's next
-/// race, or none to start a fresh cup.
 fn begin(s: &mut Session, ids: &[u32], round: Option<u8>) {
     let (mode, class) = (s.flow.mode, s.flow.class);
     let id = match mode {
@@ -609,7 +518,6 @@ fn begin(s: &mut Session, ids: &[u32], round: Option<u8>) {
     n.points = if mode == Mode::Cup && round.is_some() { std::mem::take(&mut s.points) } else { BTreeMap::new() };
     n.join_ids(ids.iter().copied());
     if mode != Mode::TimeTrial { n.fill_rivals(ids.len()); }
-    // Practice is gentle whatever the class.
     let rivals = if mode == Mode::Practice { Class::Squire.rivals() } else { class.rivals() };
     for (seat, car) in n.cars.iter_mut() {
         match s.flow.seats.get(seat).filter(|_| !car.cpu) {
@@ -655,9 +563,6 @@ fn race(s: &mut Session, ids: &[u32], pads: &BTreeMap<u32, Pad>, fresh: &BTreeMa
     if s.finished { settle(s); }
 }
 
-/// Skip the menus: begin a race of `mode` and `class` on `course` (the cup's first, or the proving
-/// run, if none) with the pod `pod` for every knight in `humans`. For a command line, a demo or a
-/// proof; the menus come to the same.
 pub fn quick(s: &mut Session, humans: &[(u32, String)], mode: Mode, class: Class, course: Option<CourseId>, pod: u8) {
     s.flow.sync(humans);
     s.flow.mode = mode;
@@ -674,7 +579,6 @@ fn go_menu(s: &mut Session) {
     reseed(s, c);
 }
 
-/// E at the board: the cup's next race, the podium after its last, or the same race again.
 fn advance(s: &mut Session, ids: &[u32]) {
     match s.flow.mode {
         Mode::Cup => {
@@ -685,12 +589,10 @@ fn advance(s: &mut Session, ids: &[u32]) {
     }
 }
 
-/// The flag has fallen for everyone: pay the purses, keep the records.
 fn settle(s: &mut Session) {
     s.flow.settled = true;
     s.flow.clock = 0;
     let (mode, class, id) = (s.flow.mode, s.flow.class, s.course);
-    // With no CPU rivals the class has nothing to be hard on: the prizes are a Squire's.
     let class = if s.cars.values().any(|c| c.cpu) { class } else { Class::Squire };
     let order = s.order();
     for (n, seat) in order.iter().enumerate() {
@@ -724,7 +626,6 @@ fn settle(s: &mut Session) {
     }
 }
 
-/// The last race of the cup is run: its standings, the prize and what winning it opens.
 fn podium(s: &mut Session) {
     let class = if s.cars.values().any(|c| c.cpu) { s.flow.class } else { Class::Squire };
     let rows = s.standings();

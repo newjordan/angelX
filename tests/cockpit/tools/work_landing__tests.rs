@@ -11,7 +11,6 @@ fn live_detection_capture_uses_the_in_process_deadline() {
     );
 }
 
-/// A unique throwaway dir under the system temp dir (no tempfile dep, no env).
 fn temp_dir(tag: &str) -> PathBuf {
     static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let n = N.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -20,8 +19,6 @@ fn temp_dir(tag: &str) -> PathBuf {
     let _ = std::fs::remove_dir_all(&dir);
     dir
 }
-
-// --- git remote normalization (ssh + https → owner/repo). ---
 
 #[test]
 fn normalize_remote_ssh_scp_form() {
@@ -76,11 +73,9 @@ fn normalize_remote_rejects_garbage_and_local_paths() {
     assert!(normalize_remote("").is_none());
     assert!(normalize_remote("   ").is_none());
     assert!(normalize_remote("not a url").is_none());
-    assert!(normalize_remote("/srv/git/repo.git").is_none()); // local path, no host
-    assert!(normalize_remote("https://github.com/only-owner").is_none()); // no repo segment
+    assert!(normalize_remote("/srv/git/repo.git").is_none());
+    assert!(normalize_remote("https://github.com/only-owner").is_none());
 }
-
-// --- gh visibility parsing. ---
 
 #[test]
 fn parse_gh_visibility_maps_known_values() {
@@ -91,19 +86,13 @@ fn parse_gh_visibility_maps_known_values() {
     assert_eq!(parse_gh_visibility("huh?"), Visibility::Unknown);
 }
 
-// --- visibility → mode inference. ---
-
 #[test]
 fn infer_mode_covers_all_cases() {
     assert_eq!(infer_mode(Visibility::Public, true), Mode::PublicFacing);
     assert_eq!(infer_mode(Visibility::Private, true), Mode::InternalDev);
-    // unknown but a remote exists → ask (unset)
     assert_eq!(infer_mode(Visibility::Unknown, true), Mode::Unset);
-    // unknown and purely local → internal-dev (nothing is exposed)
     assert_eq!(infer_mode(Visibility::Unknown, false), Mode::InternalDev);
 }
-
-// --- assemble_context graceful tiers (mock git/gh as strings). ---
 
 #[test]
 fn assemble_public_repo_is_public_facing() {
@@ -133,7 +122,6 @@ fn assemble_private_repo_is_internal_dev() {
 
 #[test]
 fn assemble_missing_gh_with_remote_is_unset() {
-    // Remote exists but gh is unavailable → can't classify → ask.
     let ctx = assemble_context("/w", Some("git@github.com:org/app.git"), None, None);
     assert_eq!(ctx.repo.as_deref(), Some("org/app"));
     assert_eq!(ctx.visibility, Visibility::Unknown);
@@ -142,7 +130,6 @@ fn assemble_missing_gh_with_remote_is_unset() {
 
 #[test]
 fn assemble_no_remote_is_local_internal_dev() {
-    // No remote at all (not a repo / no origin) → folder-only, local internal-dev.
     let ctx = assemble_context("/w", None, None, None);
     assert!(ctx.repo.is_none());
     assert_eq!(ctx.visibility, Visibility::Unknown);
@@ -151,8 +138,6 @@ fn assemble_no_remote_is_local_internal_dev() {
 
 #[test]
 fn assemble_non_github_remote_skips_visibility_and_asks() {
-    // A local-path remote doesn't parse to a slug → repo unknown, but a remote
-    // string is present → mode unset (we shouldn't assume internal).
     let ctx = assemble_context("/w", Some("/srv/git/repo.git"), None, None);
     assert!(ctx.repo.is_none());
     assert_eq!(ctx.mode, Mode::Unset);
@@ -192,7 +177,6 @@ fn assemble_resets_confirmation_when_repo_changes() {
         confirmed: true,
         updated_at: 1,
     };
-    // /cd into a different repo → must re-land.
     let ctx = assemble_context(
         "/w",
         Some("git@github.com:org/new.git"),
@@ -203,8 +187,6 @@ fn assemble_resets_confirmation_when_repo_changes() {
     assert_eq!(ctx.repo.as_deref(), Some("org/new"));
     assert_eq!(ctx.mode, Mode::InternalDev);
 }
-
-// --- persistence roundtrip (explicit dir → no env mutation). ---
 
 #[test]
 fn save_load_roundtrip() {
@@ -240,8 +222,6 @@ fn workspace_key_is_deterministic_and_distinct() {
     assert_ne!(a, b, "different paths → different keys (no collision)");
     assert!(!a.contains('/'), "key is filesystem-safe");
 }
-
-// --- system-prompt block rendering. ---
 
 #[test]
 fn render_block_active_for_confirmed_context() {

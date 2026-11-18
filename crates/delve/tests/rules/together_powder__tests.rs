@@ -39,8 +39,6 @@ fn powder_crates_do_not_paint_a_screen_overlay() {
     run.enter_for_test(run.folly_room.unwrap());
     run.powder.as_mut().unwrap().t = folly::TITLE;
     let frame = crate::render::overworld::arena::frame_for(&run, 768, 448, Some(1));
-    // Keep the room tiles unchanged: crate bookkeeping alone must not
-    // change the picture or paint over actors.
     run.powder.as_mut().unwrap().crates.clear();
     let without_overlay = crate::render::overworld::arena::frame_for(&run, 768, 448, Some(1));
     assert!(frame == without_overlay, "crate bookkeeping must not paint over actors");
@@ -63,7 +61,6 @@ fn powder_finished_board_clears_for_progress_and_repairs_old_saves() {
     run.tick_powder(&BTreeMap::new());
     assert!(run.powder.as_ref().unwrap().done);
     assert_eq!(blocks(&run), 0, "finished game must not obstruct exits");
-    // A pre-fix save may already have discarded its activity state.
     run.dungeon.rooms[index].set(2, 2, Tile::Block);
     run.powder = None;
     run.clear_finished_powder_board();
@@ -76,7 +73,6 @@ fn a_keg_breaks_the_crates_in_its_cross_and_soots_a_knight_in_it() {
     run.pick_folly();
     run.enter_for_test(run.folly_room.unwrap());
     run.powder.as_mut().unwrap().t = folly::TITLE;
-    // Knight one by a crate: drop a keg, step away, wait for it.
     let cols = run.room().cols as i32;
     let (cx, cy) = {
         let p = run.powder.as_ref().unwrap();
@@ -92,7 +88,6 @@ fn a_keg_breaks_the_crates_in_its_cross_and_soots_a_knight_in_it() {
         (h.x, h.y) = ((beside.0 as f32 + 0.5) * TILE_UNITS, (beside.1 as f32 + 0.5) * TILE_UNITS);
         h.invulnerable = 0;
     }
-    // Make the tile walkable for the test, in case the crate's neighbour was a crate.
     let at = run.at;
     run.dungeon.rooms[at].set(beside.0 as usize, beside.1 as usize, Tile::Floor);
     run.step(&bomb(1));
@@ -105,7 +100,6 @@ fn a_keg_breaks_the_crates_in_its_cross_and_soots_a_knight_in_it() {
     assert!(run.valid_snapshot());
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_powder_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_powder_shots() {

@@ -40,19 +40,13 @@ use crate::rules::{
 };
 use std::f32::consts::{PI, TAU};
 
-/// How a dread stands this tick.
 #[derive(Clone, Copy, Debug)]
 struct Pose {
-    /// How far through its wind-up, `0..=1` (0 when not winding).
     wind: f32,
-    /// Mid-blow: dashing, or in the air.
     rush: bool,
-    /// Spent after a blow.
     spent: bool,
     tick: u32,
-    /// The charge-up it is at.
     kind: Option<Windup>,
-    /// A beam it has loosed is burning.
     burn: bool,
 }
 
@@ -73,7 +67,6 @@ fn pose(enemy: &Enemy, boss: &Boss, tick: u32) -> Pose {
     }
 }
 
-/// The dread `enemy` is, drawn, if it is one.
 pub(in super::super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option<Img> {
     if !dread::is(boss) {
         return None;
@@ -90,17 +83,13 @@ pub(in super::super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32)
         Culture::Chimefolk => drowned_toll(p),
         Culture::Saltkin => brine_wyrm(p),
     };
-    // The long ones face left as drawn, the Mist-Mother holds her light to
-    // the right: each turns to face the way it means to go.
     let turned = match culture {
         Culture::Glimmerkin | Culture::Rootkin | Culture::Saltkin => enemy.dir.0 > 0.2,
         Culture::Lampwick => enemy.dir.0 < -0.2,
         _ => false,
     };
     let mut im = if turned { im.flip_h() } else { im };
-    // A dark rim round it, so it reads against any floor.
     im.outline_outside('k');
-    // In the air on a leap: lifted off its shadow.
     if enemy.stage == fight::JUMP {
         let t = enemy.timer as f32 / fight::FLIGHT as f32;
         let rise = ((t * PI).sin() * 30.0).max(0.0) as i32;
@@ -108,7 +97,6 @@ pub(in super::super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32)
         airborne.stamp(&im, 0, 0);
         return Some(airborne);
     }
-    // Shaking at the last of its wind-up.
     if p.wind > 0.7 {
         let mut shaking = Img::new(im.w + 2, im.h);
         shaking.stamp(&im, (tick % 2) as i32 * 2, 0);
@@ -118,8 +106,6 @@ pub(in super::super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32)
     Some(im)
 }
 
-/// `culture`'s dread at rest as `.boss` art rows, at most 32 by 32: the
-/// figure the trophy room hangs (`print_dread_art`).
 #[cfg(any(test, feature = "testing"))]
 pub(in super::super) fn rows_for(culture: Culture) -> Vec<String> {
     let p = Pose { wind: 0.0, rush: false, spent: false, tick: 0, kind: None, burn: false };
@@ -149,7 +135,6 @@ pub(in super::super) fn rows_for(culture: Culture) -> Vec<String> {
         .collect()
 }
 
-/// `n` points round an ellipse, for scalloped edges and rings.
 fn round_pts(cx: f32, cy: f32, rx: f32, ry: f32, n: usize) -> impl Iterator<Item = (i32, i32)> {
     (0..n).map(move |k| {
         let a = k as f32 / n as f32 * TAU;
@@ -157,16 +142,10 @@ fn round_pts(cx: f32, cy: f32, rx: f32, ry: f32, n: usize) -> impl Iterator<Item
     })
 }
 
-/// A shaded ball: `ramp` dark to light, lit from the upper left.
 fn ball(im: &mut Img, (cx, cy): (f32, f32), (rx, ry): (f32, f32), ramp: &[char], seed: u32) {
     mat::lobe(im, (cx, cy), (rx, ry), ramp, seed, 2.5, 0.04, &|_, _| true);
 }
 
-// ─── the Capfolk's dread ─────────────────────────────────────────────────────
-
-/// The Glow-Drinker: a moth-bat as wide as a cottage, its wings spotted
-/// with eyes of stolen glow, its belly a lamp of what it drank, a curled
-/// tongue under its head that uncurls to drink the room's light.
 fn glow_drinker(p: Pose) -> Img {
     let (w, h) = (64, 50);
     let mut im = Img::new(w, h);
@@ -174,18 +153,14 @@ fn glow_drinker(p: Pose) -> Img {
     let drinking = p.kind == Some(Windup::Inhale) && p.wind > 0.0;
     let flap = if p.spent { 0.0 } else { (p.tick as f32 * if p.wind > 0.0 { 0.5 } else { 0.22 }).sin() };
     let spread = 1.0 + p.wind * 0.15;
-    // The wings: membranes from the shoulders to their tips, scalloped
-    // between the finger-bones, an eye of glow on each.
     for side in [-1.0f32, 1.0] {
         let sh = (cx + side * 4.0, 17.0);
         let tips = [(28.0 * spread, -13.0 + flap * 5.0), (31.0 * spread, 2.0 + flap * 3.0), (25.0 * spread, 17.0 + flap * 2.0), (14.0, 22.0)];
-        // Fill: each fan between neighbouring bones.
         for pair in tips.windows(2) {
             let (a, b) = (pair[0], pair[1]);
             for s in 0..=24 {
                 let f = s as f32 / 24.0;
                 let tip = (a.0 + (b.0 - a.0) * f, a.1 + (b.1 - a.1) * f);
-                // The trailing edge scoops in between the bones.
                 let scoop = (f * PI).sin() * 0.22;
                 let end = (sh.0 + side * tip.0 * (1.0 - scoop), sh.1 + tip.1 * (1.0 - scoop));
                 let n = ((end.0 - sh.0).abs().max((end.1 - sh.1).abs())) as i32;
@@ -198,17 +173,14 @@ fn glow_drinker(p: Pose) -> Img {
                 }
             }
         }
-        // The finger-bones.
         for &(tx, ty) in &tips {
             im.line(sh.0 as i32, sh.1 as i32, (sh.0 + side * tx) as i32, (sh.1 + ty) as i32, 'J');
         }
-        // An eye of glow on each wing, brighter as it drinks.
         let (ex, ey) = (sh.0 + side * 15.0 * spread, sh.1 + 1.0 + flap * 2.0);
         im.ellipse(ex, ey, 4.5, 3.5, 'K');
         im.ellipse(ex, ey, 3.2, 2.4, if drinking { '2' } else { 'q' });
         im.ellipse(ex, ey, 1.6, 1.2, if drinking && p.wind > 0.5 { 'w' } else { 'z' });
     }
-    // The body: furred thorax, the belly of drunk light under it.
     ball(&mut im, (cx, 18.0), (6.0, 7.0), &['g', 'j', 'G', 'J', 'h', 'i'], 9602);
     let glow = if drinking { 0.5 + p.wind * 0.5 } else if p.spent { 0.15 } else { 0.35 + (p.tick as f32 * 0.08).sin() * 0.1 };
     let r = 8.0 + glow * 2.5;
@@ -223,13 +195,11 @@ fn glow_drinker(p: Pose) -> Img {
     }
     im.ellipse(cx, 30.0, r * 0.55, r * 0.6, if glow > 0.45 { '2' } else { 'z' });
     im.put(cx as i32 - 2, 27, if glow > 0.5 { 'w' } else { '3' });
-    // Its head: great black eyes, feathered feelers, the curled tongue.
     ball(&mut im, (cx, 9.0), (5.0, 4.5), &['g', 'j', 'G', 'J', 'h'], 9603);
     for side in [-1, 1] {
         let ex = cx as i32 + side * 3;
         im.ellipse(ex as f32, 9.0, 2.6, 2.8, 'k');
         im.put(ex - side, 8, if drinking { '3' } else { '1' });
-        // Feelers, feathered, curling up and out.
         for k in 0..9 {
             let f = k as f32 / 8.0;
             let (fx, fy) = (cx + side as f32 * (2.0 + f * 9.0), 5.0 - f * 6.0 + f * f * 4.0);
@@ -240,7 +210,6 @@ fn glow_drinker(p: Pose) -> Img {
         }
     }
     if drinking {
-        // The tongue uncurls and drinks.
         let reach = 6.0 + p.wind * 14.0;
         im.line(cx as i32, 13, cx as i32, 13 + reach as i32, 'i');
         im.put(cx as i32, 13 + reach as i32, '3');
@@ -251,7 +220,6 @@ fn glow_drinker(p: Pose) -> Img {
             im.put((cx + a.cos() * rr) as i32, (15.0 + a.sin() * rr) as i32, 'h');
         }
     }
-    // Thin legs, dangling.
     for side in [-1, 1] {
         im.line(cx as i32 + side * 3, 38, cx as i32 + side * 6, 47, 'G');
         im.line(cx as i32 + side * 6, 47, cx as i32 + side * 8, 49, 'j');
@@ -259,22 +227,15 @@ fn glow_drinker(p: Pose) -> Img {
     im
 }
 
-// ─── the Glimmerkin's dread ──────────────────────────────────────────────────
-
-/// The Seam-Swallower: a slug of the deep seams, glossy and blue-grey,
-/// crystal broken out through its back, a swallowed cart dark inside it,
-/// a round mouth of teeth that opens as it means to charge.
 fn seam_swallower(p: Pose) -> Img {
     let (w, h) = (68, 46);
     let mut im = Img::new(w, h);
     let rear = p.wind;
     let (cx, cy) = (36.0, 30.0 - rear * 4.0);
     let (rx, ry) = (27.0 - rear * 3.0, 14.0 + rear * 3.0);
-    // The body: a long glossy blob, a sheen along its back.
     for y in (cy - ry) as i32..=(cy + ry) as i32 {
         for x in (cx - rx) as i32..=(cx + rx) as i32 {
             let (dx, dy) = ((x as f32 - cx) / rx, (y as f32 - cy) / ry);
-            // Flat underneath where it lies on the floor.
             let d = dx * dx + if dy > 0.0 { dy * dy * dy.abs() } else { dy * dy };
             if d >= 1.0 || y > 44 {
                 continue;
@@ -292,8 +253,6 @@ fn seam_swallower(p: Pose) -> Img {
             im.put(x, y, ramp[i.clamp(0, 6) as usize]);
         }
     }
-    // The cart it swallowed, dark through its hide: a tub tipped on its
-    // side, wheels up, ore spilled round it.
     let (kx, ky) = (cx as i32 + 4, cy as i32 + 2);
     for y in ky - 4..ky + 4 {
         let lean = (ky + 4 - y) / 3;
@@ -309,7 +268,6 @@ fn seam_swallower(p: Pose) -> Img {
     for k in 0..5 {
         im.put(kx - 9 + k * 4, ky + 3 + k % 2, 'G');
     }
-    // Crystal through its back.
     for (k, (dx, tall)) in [(-14i32, 9), (-6, 14), (3, 11), (11, 15), (18, 8)].into_iter().enumerate() {
         let bx = cx as i32 + dx;
         let foot = (cy - ry * (1.0 - (dx as f32 / rx).powi(2)).max(0.0).sqrt()) as i32 + 3;
@@ -318,7 +276,6 @@ fn seam_swallower(p: Pose) -> Img {
             im.put(bx, foot - tall - 1, 'w');
         }
     }
-    // Its mouth, at the front: a ring of teeth round the dark.
     let open = 3.0 + rear * 4.0 + if p.rush { 3.0 } else { 0.0 };
     let (mx, my) = ((cx - rx + 5.0) as i32, cy as i32 + 2);
     im.ellipse(mx as f32, my as f32, open + 2.0, open + 3.0, 'S');
@@ -326,14 +283,12 @@ fn seam_swallower(p: Pose) -> Img {
     for (tx, ty) in round_pts(mx as f32, my as f32, open + 0.5, open + 1.5, 10) {
         im.put(tx, ty, 'H');
     }
-    // Eye-stalks, waving.
     for (k, dx) in [8, 13].into_iter().enumerate() {
         let sway = ((p.tick as f32 * 0.12 + k as f32).sin() * 2.0) as i32;
         let base = (mx + dx, (cy - ry + 4.0) as i32 + k as i32);
         im.line(base.0, base.1, base.0 - 2 + sway, base.1 - 8, 'v');
         im.put(base.0 - 2 + sway, base.1 - 9, if p.wind > 0.0 { 'w' } else { '3' });
     }
-    // Its slime under it.
     for x in (cx - rx) as i32..(cx + rx) as i32 {
         if hash(x, 1, 9612) % 3 == 0 {
             im.put(x, 45, 'S');
@@ -342,16 +297,6 @@ fn seam_swallower(p: Pose) -> Img {
     im
 }
 
-// ─── the Emberfolk's dread ───────────────────────────────────────────────────
-
-/// The Coal-Glutton: a fat imp of stolen coals, a lump of black coal split
-/// into facets along seams glowing with what it ate, stubby arms, little
-/// horns, and an iron crown with the forge's first spark set in it. Its
-/// face is the fire inside it showing through: two slit eyes under a heavy
-/// brow, and a grin of jagged coal teeth with the furnace behind them. It
-/// crouches and gapes before it leaps (BELLYFLOP); its cheeks puff and its
-/// mouth purses to a little O as it draws the room in (HUUUFF); spent, it
-/// sags, its tongue out.
 fn coal_glutton(p: Pose) -> Img {
     let (w, h) = (60, 56);
     let mut im = Img::new(w, h);
@@ -363,7 +308,6 @@ fn coal_glutton(p: Pose) -> Img {
     let (rx, ry) = (19.0 * (1.0 + squat) + puff * 2.0, 17.0 * (1.0 - squat) + puff);
     let breath = (p.tick as f32 * 0.1).sin();
     let heat = if p.wind > 0.0 { 0.55 + p.wind * 0.45 } else if p.spent { 0.25 } else { 0.42 + breath * 0.08 };
-    // Stubby legs, three toes each.
     for side in [-1.0f32, 1.0] {
         let fx = cx + side * 9.0;
         im.rect((fx - 3.0) as i32, (cy + ry - 4.0) as i32, 7, 6, 'K');
@@ -372,8 +316,6 @@ fn coal_glutton(p: Pose) -> Img {
             im.put(fx as i32 + t, (cy + ry + 1.0) as i32, 'X');
         }
     }
-    // The body: coal in facets, split along seams that glow, hottest deep
-    // in its middle.
     let seeds: Vec<(f32, f32)> = (0..15)
         .map(|k| {
             let hk = hash(k, 5, 9625);
@@ -403,13 +345,10 @@ fn coal_glutton(p: Pose) -> Img {
             let z = (1.0 - d).sqrt();
             let lit = (-dx * 0.45 - dy * 0.6 + z * 0.65).clamp(0.0, 1.0);
             if d2 - d1 < 1.3 && d < 0.92 {
-                // A seam: the fire in it, hotter nearer the middle.
                 let core = (1.0 - d) * heat * 1.6;
                 im.put(x, y, if core > 0.95 { '6' } else if core > 0.5 { '@' } else if d < 0.8 || core > 0.2 { '7' } else { '8' });
                 continue;
             }
-            // A facet: each leans its own way to the light, its edge by the
-            // seam catching it.
             let lean = (hash(id as i32, 6, 9626) % 100) as f32 / 100.0 - 0.5;
             let mut v = lit * 0.85 + lean * 0.35;
             if d2 - d1 < 2.2 && lean > 0.0 {
@@ -419,7 +358,6 @@ fn coal_glutton(p: Pose) -> Img {
             im.put(x, y, coal[if d > 0.86 { i.min(1) } else { i }]);
         }
     }
-    // Arms, stubby: up when it means to leap, on its belly as it draws in.
     for side in [-1.0f32, 1.0] {
         let (sx, sy) = (cx + side * rx * 0.9, cy - 1.0);
         let (hx, hy) = if leaping {
@@ -438,7 +376,6 @@ fn coal_glutton(p: Pose) -> Img {
         }
     }
     face(&mut im, p, (cx, cy, rx, ry), heat, leaping, drawing);
-    // Horns, curling up, and the crown with the first spark.
     let top = (cy - ry) as i32;
     for side in [-1i32, 1] {
         let base = (cx as i32 + side * 9, top + 3);
@@ -466,13 +403,10 @@ fn coal_glutton(p: Pose) -> Img {
     im
 }
 
-/// The Coal-Glutton's face, on its body `(cx, cy, rx, ry)`: the brow, the
-/// eyes and the grin, burning at `heat`.
 fn face(im: &mut Img, p: Pose, (cx, cy, rx, ry): (f32, f32, f32, f32), heat: f32, leaping: bool, drawing: bool) {
     let ey = (cy - ry * 0.36) as i32;
     let my = cy + ry * 0.14;
     let glance = [0, 1, 0, -1][(p.tick / 40 % 4) as usize];
-    // Cheeks, puffing out as it draws in.
     if drawing {
         for side in [-1.0f32, 1.0] {
             let c = (cx + side * rx * 0.55, my - 1.0);
@@ -481,9 +415,6 @@ fn face(im: &mut Img, p: Pose, (cx, cy, rx, ry): (f32, f32, f32, f32), heat: f32
             im.put((c.0 - side * 2.0) as i32, c.1 as i32 - 2, 'G');
         }
     }
-    // Its eyes: slits of fire in dark sockets, a heavy brow over them
-    // coming down to the middle; squeezed shut as it draws in, wide as it
-    // means to leap, the lids down when it is spent.
     for side in [-1i32, 1] {
         let ex = cx as i32 + side * 7;
         im.ellipse(ex as f32, ey as f32, 4.6, 3.2, 'k');
@@ -496,7 +427,6 @@ fn face(im: &mut Img, p: Pose, (cx, cy, rx, ry): (f32, f32, f32, f32), heat: f32
             im.ellipse(ex as f32, ey as f32, 3.4, tall, '@');
             im.ellipse(ex as f32 - side as f32 * 0.3, ey as f32 - 0.3, 2.4, tall - 0.6, '6');
             im.put(ex - side, ey - 1, if p.wind > 0.5 { 'w' } else { '9' });
-            // The slit, looking about.
             let px_ = ex + glance + side * i32::from(leaping);
             im.line(px_, ey - 1, px_, ey + 1, 'k');
             if p.spent {
@@ -504,7 +434,6 @@ fn face(im: &mut Img, p: Pose, (cx, cy, rx, ry): (f32, f32, f32, f32), heat: f32
                 im.line(ex - 4, ey, ex + 4, ey, 'X');
             }
         }
-        // The brow: thick and low, slanting down to the middle.
         for o in -5..=5 {
             let y = ey - 4 + (o * side + 5) / 4;
             im.put(ex + o, y, 'k');
@@ -512,7 +441,6 @@ fn face(im: &mut Img, p: Pose, (cx, cy, rx, ry): (f32, f32, f32, f32), heat: f32
             im.put(ex + o, y - 2, if o % 2 == 0 { 'g' } else { 'X' });
         }
     }
-    // A nose of two holes, a breath of smoke off them.
     for side in [-1i32, 1] {
         im.put(cx as i32 + side * 2, ey + 3, 'k');
         let puff = ((p.tick + side.unsigned_abs() * 7) % 24) as i32;
@@ -520,9 +448,6 @@ fn face(im: &mut Img, p: Pose, (cx, cy, rx, ry): (f32, f32, f32, f32), heat: f32
             im.put(cx as i32 + side * (2 + puff / 6), ey + 2 - puff / 3, if puff < 6 { 'G' } else { 'j' });
         }
     }
-    // The grin: a wide crescent, its ends curling up, the furnace inside;
-    // jagged teeth of coal across its top and a few up from below. As it
-    // draws in it purses to a little round O.
     let half = if drawing { 13.0 - p.wind * 9.0 } else { 13.0 + if leaping { 2.0 } else { 0.0 } };
     let open = if drawing {
         3.0 + p.wind * 2.0
@@ -552,7 +477,6 @@ fn face(im: &mut Img, p: Pose, (cx, cy, rx, ry): (f32, f32, f32, f32), heat: f32
         }
         im.put(x, bottom + 1, 'k');
         if !drawing {
-            // Teeth: a jag down every third pixel, a few up from the lip.
             if o.rem_euclid(3) == 0 && gap > 1.5 {
                 im.put(x, top, 'X');
                 im.put(x, top + 1, 'K');
@@ -567,7 +491,6 @@ fn face(im: &mut Img, p: Pose, (cx, cy, rx, ry): (f32, f32, f32, f32), heat: f32
             }
         }
     }
-    // Spent, its tongue lolls out over its lip; hungry, molten drool.
     if p.spent {
         let ty = (my + open + 1.0) as i32;
         im.ellipse(cx + 3.0, ty as f32 + 1.0, 2.4, 2.0, '@');
@@ -589,20 +512,12 @@ fn breath_of(tick: u32) -> f32 {
     (tick as f32 * 0.1).sin()
 }
 
-// ─── the Lampwick's dread ────────────────────────────────────────────────────
-
-/// The Mist-Mother: a drowned shape in a long wet hood come to a point,
-/// two pale eyes in its dark, her robe going to mist at its hem, long
-/// thin arms, and a crook taller than she is with a lantern that burns
-/// cold: raised and flaring as she means to sweep the floor with its light.
 fn mist_mother(p: Pose) -> Img {
     let (w, h) = (50, 48);
     let mut im = Img::new(w, h);
     let cx = 20;
     let sway = (p.tick as f32 * 0.06).sin() * 1.5;
     let robe = ['k', 's', 'x', 'S', 'u', 'U', 'v'];
-    // The robe: narrow at the shoulders, falling wide, folds down it, its
-    // hem going to mist.
     for y in 14..h {
         let f = (y - 14) as f32 / (h - 14) as f32;
         let half = (8.0 + f * 9.0) as i32;
@@ -621,11 +536,9 @@ fn mist_mother(p: Pose) -> Img {
             im.put(cx + o + drift, y, robe[i.clamp(0, 6) as usize]);
         }
     }
-    // Wet hair hanging out of the hood over her shoulders.
     for k in [-6, -4, 4, 6] {
         im.line(cx + k, 12, cx + k + k.signum(), 24 + k.abs(), 'S');
     }
-    // The hood, peaked, its edge lit.
     for y in 0..16 {
         let f = y as f32 / 15.0;
         let half = (1.0 + f.powf(0.7) * 8.0) as i32;
@@ -636,19 +549,16 @@ fn mist_mother(p: Pose) -> Img {
             im.put(cx + o + tip, y, robe[i.clamp(0, 6) as usize]);
         }
     }
-    // The dark inside it, and her eyes.
     im.ellipse(cx as f32 + 0.5, 11.0, 4.0, 4.5, 'k');
     let eye = if p.wind > 0.0 { 'w' } else { 'W' };
     im.put(cx - 1, 10, eye);
     im.put(cx + 2, 10, eye);
-    // Her arms: one hanging, long-fingered; one up on the crook.
     im.line(cx - 7, 16, cx - 12, 30, 'U');
     im.line(cx - 12, 30, cx - 14, 34, 'v');
     im.line(cx - 12, 30, cx - 11, 35, 'v');
     let (hx, hy) = lamp_hand(&p);
     im.line(cx + 7, 16, hx, hy, 'U');
     im.line(hx - 1, hy, hx + 1, hy - 1, 'v');
-    // The crook and its lantern hung from it.
     let (tx, ty) = (hx + 2, (hy - 18).max(2));
     im.line(hx + 1, (hy + 18).min(h - 1), tx, ty, 'b');
     im.line(hx + 2, (hy + 18).min(h - 1), tx + 1, ty, 'n');
@@ -656,8 +566,6 @@ fn mist_mother(p: Pose) -> Img {
     im.line(tx + 6, ty - 2, tx + 8, ty + 1, 'b');
     let lit = p.wind > 0.0 || p.rush || p.burn;
     let (lx, ly) = lamp_at(&p);
-    // Its cap and ring, its glass in a frame of four bars, and the cold
-    // flame in it: a bead at rest, a tall white tongue when it burns.
     im.rect(lx - 2, ly - 6, 5, 1, 'g');
     im.rect(lx - 3, ly - 5, 7, 2, 'K');
     im.line(lx - 3, ly - 5, lx + 3, ly - 5, 'j');
@@ -683,33 +591,19 @@ fn mist_mother(p: Pose) -> Img {
     im
 }
 
-/// The Mist-Mother's hand on her crook, raised as she means to sweep and
-/// held up while the light burns.
 fn lamp_hand(p: &Pose) -> (i32, i32) {
     let raise = (p.wind * 9.0 + if p.rush { 3.0 } else { 0.0 } + if p.burn { 9.0 } else { 0.0 }).min(9.0) as i32;
     (20 + 12, 26 - raise)
 }
 
-/// The middle of the Mist-Mother's lantern glass, on her picture.
 fn lamp_at(p: &Pose) -> (i32, i32) {
     let (hx, hy) = lamp_hand(p);
     let (tx, ty) = (hx + 2, (hy - 18).max(2));
     (tx + 8, ty + 8)
 }
 
-// ─── the Mist-Mother's light ─────────────────────────────────────────────────
-
-/// Cold lantern-light: white at the flame, through the pale blues.
 const LAMPLIGHT: Ramp = Ramp(['w', '3', 'W', 'V', 'z', 'Q']);
 
-/// The Mist-Mother's lantern light down the beam she sweeps with it, if
-/// `shot` is her beam. While it warns, the glass fills with light, the
-/// mist is drawn in to it and a ghost of the light goes out along the way
-/// it will fall. When it burns she throws it from the lantern like a
-/// searchlight: a cone of cold light down onto the floor, and the line it
-/// lights there is the line that burns, mist rising off it. True when it
-/// has drawn the burning beam whole (the warning's marks are still the
-/// beam's own).
 pub(in super::super) fn lantern_beam(cv: &mut Img, run: &Run, shot: &crate::rules::Projectile, beam: crate::rules::patterns::Beam) -> bool {
     if !shot.hostile {
         return false;
@@ -761,10 +655,6 @@ pub(in super::super) fn lantern_beam(cv: &mut Img, run: &Run, shot: &crate::rule
     true
 }
 
-/// The Drowned Toll's hum, when its beam burns: the note it rings going
-/// out down the line in bowed rings of bronze, one after another, over a
-/// line of it humming on the floor, and the floor ringing round it. True:
-/// the burning beam is drawn whole (the warning's marks are the beam's).
 fn hum(cv: &mut Img, run: &Run, shot: &crate::rules::Projectile, beam: crate::rules::patterns::Beam) -> bool {
     if !beam.burning(shot.traits.path.age) {
         return false;
@@ -783,7 +673,6 @@ fn hum(cv: &mut Img, run: &Run, shot: &crate::rules::Projectile, beam: crate::ru
             pen.put((x + nx * k as f32).round() as i32, (y + ny * k as f32).round() as i32, ink);
         }
     }
-    // The rings of its note, running out along it, bowed the way they go.
     let gap = 11.0;
     let run_on = (tick as f32 * 2.2) % gap;
     let mut d = 6.0 + run_on;
@@ -803,9 +692,6 @@ fn hum(cv: &mut Img, run: &Run, shot: &crate::rules::Projectile, beam: crate::ru
     true
 }
 
-/// A cone of cold light from the lantern `l` down onto the floor line
-/// `a` to `b`: faint at the glass, fuller where it lands, banded by the
-/// mist drifting through it, and only on bare floor (`Pen::keep`).
 fn cone(pen: &mut Pen, l: (f32, f32), a: (f32, f32), b: (f32, f32), power: f32, tick: u32) {
     let power = if pen.calm { power * 0.6 } else { power };
     let x0 = l.0.min(a.0).min(b.0).floor() as i32;
@@ -836,8 +722,6 @@ fn cone(pen: &mut Pen, l: (f32, f32), a: (f32, f32), b: (f32, f32), power: f32, 
     }
 }
 
-/// The lit line on the floor, where her light burns: a white core in a
-/// pale rim, shimmering, mist rising off it.
 fn stripe(pen: &mut Pen, a: (f32, f32), b: (f32, f32), tick: u32) {
     let len = (b.0 - a.0).hypot(b.1 - a.1).max(1.0);
     let (ux, uy) = ((b.0 - a.0) / len, (b.1 - a.1) / len);
@@ -852,7 +736,6 @@ fn stripe(pen: &mut Pen, a: (f32, f32), b: (f32, f32), tick: u32) {
             pen.put((x + nx * k as f32).round() as i32, (y + ny * k as f32).round() as i32, ink);
         }
     }
-    // Mist lifting off the lit floor.
     for k in 0..if pen.calm { 8 } else { 16 } {
         let h = hash(k, 17, 9691);
         let life = 16 + h % 10;
@@ -863,21 +746,12 @@ fn stripe(pen: &mut Pen, a: (f32, f32), b: (f32, f32), tick: u32) {
     }
 }
 
-// ─── the Roostfolk's dread ───────────────────────────────────────────────────
-
-/// The Snare-Queen: a spider the size of a nest, her abdomen marked with
-/// a bat's skull in red, a cluster of red eyes, eight long jointed legs,
-/// and her thread going up from her into the dark, taut as she gathers
-/// herself to drop.
 fn snare_queen(p: Pose) -> Img {
     let (w, h) = (68, 50);
     let mut im = Img::new(w, h);
     let cx = 34.0;
     let gather = p.wind;
-    // Her thread, up off the top of the picture.
     im.line(cx as i32, 0, cx as i32, 12, if gather > 0.0 { 'H' } else { 'i' });
-    // The legs: four a side, fanned, up to the knee then down to the
-    // floor, drawn in as she gathers herself.
     let knees = [(13.0, 12.0), (19.0, 16.0), (20.0, 23.0), (15.0, 29.0)];
     let feet = [(22.0, 33.0), (31.0, 42.0), (30.0, 47.0), (22.0, 48.0)];
     for side in [-1.0f32, 1.0] {
@@ -896,7 +770,6 @@ fn snare_queen(p: Pose) -> Img {
             im.put(foot.0 as i32, foot.1 as i32, 'k');
         }
     }
-    // Her abdomen, big and round, the bat's skull on it.
     ball(&mut im, (cx, 21.0), (13.0, 12.0), &['k', 'K', 'X', 'g', 'j', 'G'], 9641);
     let (sx, sy) = (cx as i32, 19);
     im.ellipse(sx as f32, sy as f32, 4.5, 3.5, '8');
@@ -907,7 +780,6 @@ fn snare_queen(p: Pose) -> Img {
         im.put(sx + side * 2, sy, 'k');
     }
     im.rect(sx - 1, sy + 3, 3, 3, '7');
-    // Her head and its cluster of red eyes.
     ball(&mut im, (cx, 34.0), (7.0, 5.5), &['k', 'K', 'X', 'g', 'j'], 9642);
     for (k, (ex, ey)) in [(-3, 32), (3, 32), (-1, 31), (1, 31), (-4, 34), (4, 34)].into_iter().enumerate() {
         let lit = p.wind > 0.0 || k < 2 || (p.tick / 20 + k as u32) % 5 != 0;
@@ -917,23 +789,16 @@ fn snare_queen(p: Pose) -> Img {
         im.put(cx as i32 - 3, 31, 'c');
         im.put(cx as i32 + 3, 31, 'c');
     }
-    // Fangs.
     im.line(cx as i32 - 2, 38, cx as i32 - 3, 42, 'H');
     im.line(cx as i32 + 2, 38, cx as i32 + 3, 42, 'H');
     im
 }
 
-// ─── the Rootkin's dread ─────────────────────────────────────────────────────
-
-/// The Blight: a beetle of rot as long as a cart, its shell of rotten bark
-/// grown over with fungus, pale rot spots on it, sickly eyes, mandibles,
-/// and black sap leaking from its joints. It rears before it slams.
 fn blight(p: Pose) -> Img {
     let (w, h) = (66, 50);
     let mut im = Img::new(w, h);
     let rear = p.wind;
     let (cx, cy) = (34.0, 30.0 - rear * 6.0);
-    // Six legs.
     for side in [-1.0f32, 1.0] {
         for k in 0..3 {
             let x0 = cx - 10.0 + k as f32 * 9.0;
@@ -944,13 +809,11 @@ fn blight(p: Pose) -> Img {
             im.line(knee.0 as i32, knee.1 as i32, foot.0 as i32, foot.1 as i32, 'b');
         }
     }
-    // The abdomen behind, segmented, and the shell over it.
     for k in 0..4 {
         let x = cx + 10.0 + k as f32 * 5.0;
         ball(&mut im, (x, cy + 4.0 + k as f32), (6.0 - k as f32, 6.0 - k as f32 * 0.8), &['n', 'b', 'I', 'B', 'p'], 9651 + k);
     }
     ball(&mut im, (cx + 2.0, cy), (19.0, 12.0 + rear * 2.0), &['n', 'b', 'I', 'B', 'p', 'P'], 9652);
-    // The seam down the shell, and fungus and rot over it.
     im.line(cx as i32 - 14, cy as i32 - 1, cx as i32 + 18, cy as i32 - 3, 'n');
     for k in 0..22 {
         let hk = hash(k, 3, 9653);
@@ -961,7 +824,6 @@ fn blight(p: Pose) -> Img {
         }
         match k % 4 {
             0 => {
-                // A shelf of fungus.
                 im.ellipse(fx, fy, 3.0, 1.5, 'E');
                 im.line(fx as i32 - 2, fy as i32 - 1, fx as i32 + 2, fy as i32 - 1, 'A');
             }
@@ -973,7 +835,6 @@ fn blight(p: Pose) -> Img {
             _ => im.put(fx as i32, fy as i32, 'J'),
         }
     }
-    // Its head, eyes and mandibles, opening as it rears.
     let (hx, hy) = (cx - 18.0, cy + 3.0 - rear * 2.0);
     ball(&mut im, (hx, hy), (7.0, 6.0), &['n', 'b', 'I', 'B'], 9654);
     im.put(hx as i32 - 2, hy as i32 - 2, 'Y');
@@ -986,7 +847,6 @@ fn blight(p: Pose) -> Img {
         im.line(base.0 as i32, base.1 as i32, tip.0 as i32, tip.1 as i32, 'O');
         im.line(tip.0 as i32, tip.1 as i32, tip.0 as i32 + 2, (tip.1 - side * 2.0) as i32, 'T');
     }
-    // Black sap from its joints, dripping.
     for k in 0..4 {
         let t = ((p.tick + k * 17) % 34) as i32;
         let x = cx as i32 - 12 + k as i32 * 8;
@@ -996,18 +856,11 @@ fn blight(p: Pose) -> Img {
     im
 }
 
-// ─── the Chimefolk's dread ───────────────────────────────────────────────────
-
-/// The Drowned Toll: a giant in waterlogged robes hung with chain, a
-/// cracked bronze bell for its head with the dark under its lip and two
-/// pale eyes in it, and the bell's own clapper for a hammer: lifted over
-/// its head as it means to strike itself.
 fn drowned_toll(p: Pose) -> Img {
     let (w, h) = (56, 50);
     let mut im = Img::new(w, h);
     let cx = 26.0;
     let lift = p.wind;
-    // The robe: heavy and dripping, hung with chain.
     for y in 20..48 {
         let f = (y - 20) as f32 / 28.0;
         let half = (9.0 + f * 9.0) as i32;
@@ -1030,12 +883,10 @@ fn drowned_toll(p: Pose) -> Img {
             im.put(cx as i32 + o, yy, if o % 2 == 0 { 'G' } else { 'J' });
         }
     }
-    // Drips off the hem.
     for k in 0..4 {
         let t = ((p.tick + k * 11) % 22) as i32;
         im.put(cx as i32 - 12 + k as i32 * 8, 47 + t / 8, 'z');
     }
-    // The bell for a head: cracked, verdigris, lit on the left.
     let (bx, by) = (cx as i32, 2);
     let tall = 16;
     for d in 0..tall {
@@ -1049,16 +900,13 @@ fn drowned_toll(p: Pose) -> Img {
             im.put(bx + o, by + d, ink);
         }
     }
-    // The crack down it.
     for (a, b) in [((bx + 2, by + 1), (bx - 1, by + 6)), ((bx - 1, by + 6), (bx + 3, by + 10)), ((bx + 3, by + 10), (bx + 1, by + 15))] {
         im.line(a.0, a.1, b.0, b.1, 'k');
     }
-    // The dark under its lip, and the eyes in it.
     im.rect(bx - 9, by + tall, 19, 3, 'k');
     let eye = if lift > 0.0 { '3' } else { '2' };
     im.put(bx - 4, by + tall + 1, eye);
     im.put(bx + 4, by + tall + 1, eye);
-    // The hammer: the bell's clapper on a haft, up over its head to strike.
     let a = PI * (0.9 - lift * 0.75);
     let (sx, sy) = (cx + 14.0, 24.0);
     let len = 20.0;
@@ -1072,17 +920,10 @@ fn drowned_toll(p: Pose) -> Img {
     im
 }
 
-// ─── the Saltkin's dread ─────────────────────────────────────────────────────
-
-/// The Brine-Wyrm: a lamprey of the brine as thick as a barrel, rearing
-/// out of its own coils, its hide ringed and crusted with salt in cubes,
-/// a round mouth of white teeth, brine dripping from it; it draws its head
-/// down and back before it charges.
 fn brine_wyrm(p: Pose) -> Img {
     let (w, h) = (68, 54);
     let mut im = Img::new(w, h);
     let coil = p.wind;
-    // The coils on the floor behind it.
     for k in 0..3 {
         let (ccx, ccy) = (40.0 + k as f32 * 6.0, 44.0 - k as f32 * 2.0);
         let (rx, ry) = (14.0 - k as f32 * 2.0 - coil * 2.0, 6.0 - k as f32);
@@ -1093,7 +934,6 @@ fn brine_wyrm(p: Pose) -> Img {
             }
         }
     }
-    // The neck rising out of the coils toward its head.
     let (hx, hy) = (20.0 + coil * 6.0, 14.0 + coil * 10.0);
     let segs = 14;
     for k in 0..=segs {
@@ -1103,7 +943,6 @@ fn brine_wyrm(p: Pose) -> Img {
         im.ellipse(x, y, r, r, 'r');
         im.ellipse(x - 1.0, y - 1.0, r - 1.2, r - 1.2, 'o');
         im.ellipse(x - 2.0, y - 2.0, r * 0.45, r * 0.45, 'O');
-        // A ring between segments, and salt crusted white on its back.
         if k % 2 == 0 {
             im.line((x - r) as i32, y as i32, (x + r) as i32, y as i32, 'P');
         }
@@ -1118,7 +957,6 @@ fn brine_wyrm(p: Pose) -> Img {
             super::salt::cube(&mut im, (x + r * 0.5) as i32, (y - r * 0.4) as i32, 5 + (k % 2) as i32, false);
         }
     }
-    // Its head: a round lamprey mouth of white teeth.
     let open = 4.0 + coil * 2.0 + if p.rush { 2.0 } else { 0.0 };
     im.ellipse(hx, hy, open + 5.0, open + 4.0, 'r');
     im.ellipse(hx - 1.0, hy - 1.0, open + 3.5, open + 2.5, 'o');
@@ -1130,7 +968,6 @@ fn brine_wyrm(p: Pose) -> Img {
     for (tx, ty) in round_pts(hx, hy, open * 0.7, open * 0.6, 8) {
         im.put(tx, ty, 'i');
     }
-    // Brine dripping from it.
     for k in 0..3 {
         let t = ((p.tick + k * 9) % 24) as i32;
         im.put(hx as i32 - 3 + k as i32 * 3, (hy + open + 1.0) as i32 + t / 4, if t < 12 { 'z' } else { 'Q' });
@@ -1138,10 +975,6 @@ fn brine_wyrm(p: Pose) -> Img {
     im
 }
 
-// ─── the floor's warnings, in each people's way ──────────────────────────────
-
-/// Under each dread winding up: what is coming, drawn in its people's way
-/// on the floor (under the figures). And after a blow, what it leaves.
 pub(in super::super) fn under(cv: &mut Img, run: &Run) {
     for e in run.enemies.iter().filter(|e| e.hp > 0) {
         let Some(boss) = e.boss.and_then(|i| run.bosses.get(usize::from(i))).filter(|b| dread::is(b)) else {
@@ -1151,7 +984,6 @@ pub(in super::super) fn under(cv: &mut Img, run: &Run) {
         let Some(up) = fight::winding(e, boss) else { continue };
         let t = if e.stage == fight::WIND { (e.timer as f32 / up.wind.max(1) as f32).min(1.0) } else { 1.0 };
         let striking = e.stage != fight::WIND;
-        // How far into standing spent it is: what its blow left fades.
         let after = if e.stage == fight::DAZED { (e.timer as f32 / fight::RECOVER as f32).min(1.0) } else { 0.0 };
         let (x, y) = at(e.x, e.y);
         let tick = run.tick as u32;
@@ -1173,8 +1005,6 @@ pub(in super::super) fn under(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The light of the room drawn in: motes streaming in to the dread from
-/// all round, faster and thicker to the last; then breathed back out.
 fn inhale_marks(pen: &mut Pen, culture: Culture, (x, y): (i32, i32), t: f32, out: bool, tick: u32) {
     let ramp = match culture {
         Culture::Emberfolk => ramps::FIRE,
@@ -1198,9 +1028,6 @@ fn inhale_marks(pen: &mut Pen, culture: Culture, (x, y): (i32, i32), t: f32, out
     }
 }
 
-/// A charge's lane in its people's way: crystal shards (or salt, or
-/// splinters) breaking up out of the floor along it one after another as
-/// the wind-up goes on.
 fn lane_marks(pen: &mut Pen, culture: Culture, a: (i32, i32), b: (i32, i32), t: f32, dashing: bool, tick: u32) {
     let len = ((b.0 - a.0) as f32).hypot((b.1 - a.1) as f32).max(1.0);
     let n = (len / 9.0) as i32;
@@ -1224,7 +1051,6 @@ fn lane_marks(pen: &mut Pen, culture: Culture, a: (i32, i32), b: (i32, i32), t: 
                 }
             }
             Culture::Lampwick => {
-                // Mist rising off the lane.
                 for d in 0..tall {
                     if hash(k, d, tick / 3) % 2 == 0 {
                         pen.light(px_ as i32 + (d % 3) - 1, py as i32 - d * 2, 'u');
@@ -1243,11 +1069,9 @@ fn lane_marks(pen: &mut Pen, culture: Culture, a: (i32, i32), b: (i32, i32), t: 
                 }
             }
         }
-        // Cracks running between the shards.
         pen.put(px_ as i32 + (uy * side * 4.0) as i32, py as i32 - (ux * side * 4.0) as i32 + 1, 'k');
     }
     if dashing {
-        // What it leaves behind: a trail of grit where it went.
         for k in 0..n {
             let f = k as f32 / n.max(1) as f32;
             let (px_, py) = (a.0 as f32 + ux * f * len, a.1 as f32 + uy * f * len + 6.0);
@@ -1256,15 +1080,10 @@ fn lane_marks(pen: &mut Pen, culture: Culture, a: (i32, i32), b: (i32, i32), t: 
     }
 }
 
-/// Where a leap will land, in its people's way: cinders falling on a ring
-/// of heat for the Coal-Glutton, a web spun on the floor and the thread
-/// down to it for the Snare-Queen, spores for the others.
 fn landing_marks(pen: &mut Pen, culture: Culture, (x, y): (i32, i32), t: f32, stage: u8, tick: u32) {
     let r = (fight::LANDING * UNIT) as f32;
     match culture {
         Culture::Roostfolk => {
-            // The web: spokes out from where she will land, and its rings
-            // spun on them one by one.
             let spokes = 10;
             for k in 0..spokes {
                 let a = k as f32 / spokes as f32 * TAU + 0.2;
@@ -1280,7 +1099,6 @@ fn landing_marks(pen: &mut Pen, culture: Culture, (x, y): (i32, i32), t: f32, st
                 }
             }
             if stage == fight::WIND {
-                // Her thread, down out of the dark to the web's middle.
                 for yy in (y - 220).max(0)..y {
                     if (yy + tick as i32) % 5 != 0 {
                         pen.light(x, yy, 'i');
@@ -1310,13 +1128,9 @@ fn landing_marks(pen: &mut Pen, culture: Culture, (x, y): (i32, i32), t: f32, st
     }
 }
 
-/// A slam in its people's way: rot creeping out over the floor round the
-/// Blight, the floor ringing round the Toll like the bell it is, cracks
-/// for the others.
 fn slam_marks(pen: &mut Pen, culture: Culture, (x, y): (i32, i32), t: f32, struck: bool, after: f32, tick: u32) {
     match culture {
         Culture::Rootkin => {
-            // Tendrils of rot, branching out over the floor.
             for k in 0..9 {
                 let a = k as f32 / 9.0 * TAU + 0.3;
                 let reach = 16.0 + t * 46.0;
@@ -1340,7 +1154,6 @@ fn slam_marks(pen: &mut Pen, culture: Culture, (x, y): (i32, i32), t: f32, struc
             }
         }
         Culture::Chimefolk => {
-            // The floor rings: arcs going out, quicker to the last.
             let n = 3;
             for k in 0..n {
                 let ph = ((tick as f32 / (8.0 - t * 4.0)) + k as f32 / n as f32).fract();
@@ -1361,20 +1174,16 @@ fn slam_marks(pen: &mut Pen, culture: Culture, (x, y): (i32, i32), t: f32, struc
     }
 }
 
-/// A beam in its people's way: mist gathering at the Mist-Mother's feet
-/// and a cold glow down the way her light will go; for the Toll a hum.
 fn beam_marks(pen: &mut Pen, culture: Culture, (x, y): (i32, i32), dir: (f32, f32), arc: f32, t: f32, sweeping: bool, tick: u32) {
     let a0 = dir.1.atan2(dir.0);
     let half = arc.to_radians() / 2.0;
     let ramp = if culture == Culture::Lampwick { ramps::FROST } else { ramps::GENIE };
-    // The swept arc, shown faintly on the floor.
     let reach = 40.0 + t * 60.0;
     for k in 0..=12 {
         let a = a0 - half + k as f32 / 12.0 * half * 2.0;
         let p = (x as f32 + a.cos() * reach, y as f32 + a.sin() * reach * 0.6);
         pen.light(p.0 as i32, p.1 as i32, ramp.step(3));
     }
-    // Mist gathering round her.
     for k in 0..30 {
         let h = hash(k, 11, 9674);
         let ph = ((tick + h % 40) % 40) as f32 / 40.0;

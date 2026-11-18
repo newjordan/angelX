@@ -2,8 +2,6 @@ import Base
 import ./terrain.bend as T
 import ./level.bend as L
 
-# What the rules read off the road. (`Road` itself is laid out in level.bend.)
-
 def ro_paths(+r: L.Road) -> List<&2, T.Path>:
   match r:
     case L.Road{paths, foes, sparks, springs, pads, posts, crates, signs, width, dead_y, a0, a1, a2, a3, main, start_path, start_s, bell_x, bell_y, par}:

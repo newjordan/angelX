@@ -11,14 +11,10 @@ use crate::motion::ease;
 use crate::rules::Run;
 use crate::rules::latch::Session;
 
-/// Ticks the play screen is held, shaking, after Clasp yields and after the bell rings.
 pub(super) const HOLD_WON: u32 = 26;
 pub(super) const HOLD_BELL: u32 = 22;
-/// The longest of them, for banners that must last the whole hold and the wipe.
 pub(super) const HOLD: u32 = HOLD_WON;
-/// Ticks the iris takes to close on the play screen and to open on the podium.
 pub(super) const WIPE: u32 = 10;
-/// The podium's box and its floor.
 const STAGE: Rect = (0, 0, 384, 176);
 const FLOOR: i32 = 170;
 
@@ -26,12 +22,10 @@ pub(super) fn held(s: &Session) -> u32 {
     if s.won { HOLD_WON } else { HOLD_BELL }
 }
 
-/// The table in the order it finished.
 fn places(s: &Session) -> Vec<u32> {
     s.order.iter().copied().filter(|id| s.duels.contains_key(id)).collect()
 }
 
-/// A knight as the podium stands them: their guard, trimmed to the figure.
 fn figure(run: &Run, id: u32) -> Img {
     let Some(src) = knight_img(run, id, 0, false) else { return Img::new(8, 8) };
     let (mut x0, mut y0, mut x1, mut y1) = (src.w, src.h, 0, 0);
@@ -56,8 +50,6 @@ fn figure(run: &Run, id: u32) -> Img {
     out
 }
 
-/// What stands under each step, the purse and the way home, as the scene shows them `age` ticks
-/// after the podium opened.
 fn places_of(run: &Run, s: &Session, me: Option<u32>) -> Vec<Place> {
     places(s)
         .iter()
@@ -74,11 +66,9 @@ fn places_of(run: &Run, s: &Session, me: Option<u32>) -> Vec<Place> {
         .collect()
 }
 
-/// The lines of 5x7 words that are not under a step.
 pub(super) fn words(run: &Run, s: &Session, me: Option<u32>, age: u32) -> Vec<Word> {
     let order = places(s);
     let mut out = Vec::new();
-    // Fourth place on, small, down the left.
     if age >= 24 {
         for (k, &who) in order.iter().enumerate().skip(3) {
             let line = format!("{} {} {}/3", k + 1, hud::called(run, who, me, 6), s.duels[&who].counters);
@@ -109,7 +99,6 @@ pub(super) fn words(run: &Run, s: &Session, me: Option<u32>, age: u32) -> Vec<Wo
     out
 }
 
-/// One cheering Clasp, a real sprite, its hook arm up and down, hopping on the spot.
 fn cheer(im: &mut Img, x: i32, age: u32, phase: u32) {
     let beat = (age + phase * 5) / 6 % 2;
     let src = &art().states[0][beat as usize];
@@ -125,7 +114,6 @@ fn cheer(im: &mut Img, x: i32, age: u32, phase: u32) {
     im.stamp(&small, x, 134 - hop);
 }
 
-/// A warm wreath over the winner's head.
 fn laurel(im: &mut Img, at: (i32, i32), age: u32) {
     let k = (age as f32 / 10.0).min(1.0);
     let bob = ((age as f32 * 0.2).sin() * 1.5) as i32;
@@ -138,10 +126,8 @@ fn laurel(im: &mut Img, at: (i32, i32), age: u32) {
     }
 }
 
-/// The podium scene for seat `me` (or the first), `age` ticks after it opened.
 pub(super) fn scene(run: &Run, s: &Session, id: u32, me: Option<u32>, age: u32) -> Img {
     let mut im = Img::black(384, 224);
-    // The floor of the hall: dark flags with a warm line at the steps' feet.
     for y in 112..224 {
         for x in 0..384 {
             let flag = ((x / 24) + (y - 112) / 12) % 2 == 0;
@@ -151,7 +137,6 @@ pub(super) fn scene(run: &Run, s: &Session, id: u32, me: Option<u32>, age: u32) 
         }
     }
     let order = places(s);
-    // Fireworks over the hall, three launchers in turn, when Clasp is broken.
     if s.won && age >= 6 {
         for (j, (x, top, ramp)) in [(70.0, 56.0, ramps::GOLD), (192.0, 34.0, ramps::EMBER), (314.0, 60.0, ramps::BONE)].into_iter().enumerate() {
             let t = age as i32 - 6 - j as i32 * 17;
@@ -161,7 +146,6 @@ pub(super) fn scene(run: &Run, s: &Session, id: u32, me: Option<u32>, age: u32) 
             }
         }
     }
-    // The little Clasps, real sprites, cheering in the corners of the hall.
     if age >= 10 {
         for (n, x) in [6, 40, 312, 346].into_iter().enumerate() {
             cheer(&mut im, x, age, n as u32);
@@ -181,7 +165,6 @@ pub(super) fn scene(run: &Run, s: &Session, id: u32, me: Option<u32>, age: u32) 
     if age >= 14 && s.won {
         juice::confetti(&mut im, (0, 0, 384, 224), age, 9, 150);
     }
-    // The call over it all.
     if age >= 4 {
         let winner = order.first().copied().unwrap_or(id);
         let (title, sub, tone) = if !s.won {
@@ -199,7 +182,6 @@ pub(super) fn scene(run: &Run, s: &Session, id: u32, me: Option<u32>, age: u32) 
     for w in words(run, s, me, age) {
         im.text(w.x, w.y, &w.text, w.ink);
     }
-    // The iris opening from the finale's black.
     juice::iris(&mut im, (192, 100), 1.0 - (age as f32 / WIPE as f32).min(1.0), 'k');
     let _ = (text_width("A"), FLOOR);
     im

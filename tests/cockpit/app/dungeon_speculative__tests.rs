@@ -159,7 +159,6 @@
         assert!(app.dungeon.forge.spoken.is_empty());
         assert!(app.dungeon.forge.wish_session.is_none());
         assert!(std::sync::Arc::ptr_eq(&runners, app.dungeon.forge.grants.runners.as_ref().unwrap()));
-        // Exercise the actual frame pump even though /cd restored no scene.
         while !app.dungeon.forge.learning.is_empty() {
             app.advance_dungeon_guest();
             assert!(Instant::now() < deadline);
@@ -236,7 +235,6 @@
         app.dungeon.forge.learning.push(lesson);
         app.dungeon.shooter.set(Some(run.clone()));
         assert_ne!(app.dungeon.shooter.wish_session(), original_session);
-        // Test the lock-level delivery guard independently of App coordination.
         app.dungeon.shooter.deliver_speculative(&pending).unwrap();
         app.teach_next();
         let current = app.dungeon.shooter.as_ref().unwrap();

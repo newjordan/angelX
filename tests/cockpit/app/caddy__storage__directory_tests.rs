@@ -41,7 +41,6 @@ fn actual_caddy_root_and_project_are_private_under_zero_umask_and_migration() {
     let _guard = crate::tests::env_lock();
     const CHILD: &str = "ANGEL_T_CADDY_DIRECTORY_UMASK_CHILD";
     if std::env::var_os(CHILD).is_some() {
-        // The parent test process never changes its umask.
         unsafe {
             libc::umask(0);
         }

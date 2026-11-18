@@ -29,10 +29,6 @@ MAGE_ROOT = Path(os.environ.get("MAGE_ROOT") or Path.home() / "mage")
 DEFAULT_SOURCE = MAGE_ROOT / "regime-recovery-v1/dataset-20261101-native-v1"
 DEFAULT_OUTPUT = MAGE_ROOT / "dropout-positives-20261101-v1"
 
-# Native families are small and all suitable labels are included.  Non-native
-# families are represented proportionally but capped so one family cannot
-# dominate the addition set.  These are selection quotas, not claims of
-# evidence; the manifest reports actual generated counts.
 NON_NATIVE_QUOTAS = {
     "replay-web": 70,
     "steam-navigation": 70,
@@ -601,7 +597,6 @@ def main(argv=None) -> int:
                     "reason": "no_safe_dropout_candidate",
                 })
 
-    # Exact parent records and unchanged controls/provenance.
     (staging / "parents" / "rows.jsonl").write_text(
         "\n".join(selected_parent_rows) + "\n", encoding="utf-8"
     )
@@ -614,7 +609,6 @@ def main(argv=None) -> int:
     common.write_jsonl(staging / "controls.jsonl", control_rows)
     common.write_jsonl(staging / "train_dropout.jsonl", variant_rows)
 
-    # Source provenance copies.  These are byte copies, never links.
     copy_exact(source / "manifest.json", staging / "provenance" / "source_manifest.json")
     copy_exact(source / "system.txt", staging / "provenance" / "system.txt")
     copy_exact(source / "provenance.json", staging / "provenance" / "provenance.json")
@@ -632,8 +626,6 @@ def main(argv=None) -> int:
 
     by_family = collections.Counter(row["family"] for row in variant_rows)
     by_scope = collections.Counter(row["augmentation"]["scope"] for row in variant_rows)
-    # Control type of a variant is the parent target's control type.  Recompute
-    # from the selected contexts rather than trusting a row field.
     context_by_label = {c["row"]["label_id"]: c for c in selected}
     by_control = collections.Counter(
         context_by_label[row["label_id"]]["control_type"] for row in variant_rows
@@ -661,7 +653,6 @@ def main(argv=None) -> int:
     }
     write_artifact_readme(staging / "README.md", counts, source)
 
-    # Manifest file list excludes itself and the later verifier audit.
     files = {}
     screens = {}
     parent_screens = {}

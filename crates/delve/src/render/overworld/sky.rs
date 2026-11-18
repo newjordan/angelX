@@ -12,9 +12,6 @@ use super::light::step_down;
 use super::map::TILE;
 use super::scene::Weather;
 
-/// Weather over a view whose top-left sits at world pixel `(ox, oy)`.
-/// Wet weather is shade, not streaks: rain and lightning are left out so
-/// the realm stays dark and a frame is not re-sent for every falling drop.
 pub fn weather(cv: &mut Img, sky: Weather, tick: u32, (ox, oy): (i32, i32)) {
     match sky {
         Weather::Fair | Weather::Drizzle => {}
@@ -23,7 +20,6 @@ pub fn weather(cv: &mut Img, sky: Weather, tick: u32, (ox, oy): (i32, i32)) {
     }
 }
 
-/// Soft shadows drifting east, a step darker under the cloud.
 fn cloud_shadows(cv: &mut Img, tick: u32, (ox, oy): (i32, i32)) {
     let drift = tick as f32 * 0.9;
     for y in 0..cv.h {
@@ -39,7 +35,6 @@ fn cloud_shadows(cv: &mut Img, tick: u32, (ox, oy): (i32, i32)) {
     }
 }
 
-/// The recovery rainbow: a dithered arc over the field.
 fn rainbow(cv: &mut Img) {
     let (cx, cy) = (cv.w as f32 / 2.0, cv.h as f32 * 1.15);
     let r0 = cv.h as f32 * 0.95;
@@ -55,8 +50,6 @@ fn rainbow(cv: &mut Img) {
     }
 }
 
-/// Fireworks over the keep: four bursts at staggered phases, each a
-/// flash, a ring of sparks and an inner ring, thinning as they spread.
 pub fn fireworks(cv: &mut Img, tick: u32, (ox, oy): (i32, i32)) {
     const PERIOD: u32 = 12;
     let (kx, ky) = super::map::place_px(23 * TILE + 8, 12 * TILE + 14);
@@ -69,7 +62,6 @@ pub fn fireworks(cv: &mut Img, tick: u32, (ox, oy): (i32, i32)) {
         let (bx, by) = (kx + (h % 120) as i32 - 60, ky + 14 - ((h >> 8) % 30) as i32);
         let ink = inks[((h >> 16) % inks.len() as u32) as usize];
         if phase < 2 {
-            // the rocket climbing
             cv.put(bx, by + 8 - phase as i32 * 4, '6');
             cv.put(bx, by + 9 - phase as i32 * 4, 'a');
             continue;

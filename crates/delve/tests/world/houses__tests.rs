@@ -20,7 +20,6 @@ fn every_family_has_a_house_named_by_its_own_model() {
             );
             continue;
         }
-        // Every name comes from the model's own reply, verbatim.
         let reply = entry["reply"].as_str().unwrap();
         assert!(
             reply.contains(&house.castle),

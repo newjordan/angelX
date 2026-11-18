@@ -22,7 +22,6 @@ pub(super) fn library_figure(run: &Run, enemy: &Enemy, art: Art) -> Option<Arc<I
     library::figure(run, enemy, art)
 }
 
-/// Fill existing effect and display caches without touching a simulation.
 pub(super) fn warm() {
     for art in Art::ALL {
         let _ = kit(art);
@@ -59,8 +58,6 @@ struct EffectDisplay {
     study_v1: Vec<[i32;2]>,
 }
 
-/// Registered warning pigments win a reduced footprint over decorative material.
-/// This retains authored strokes when a larger body occupies the same cell.
 pub(super) fn library_warning_inks(run: &Run) -> Option<&'static std::collections::BTreeSet<[u8; 3]>> {
     let flight = run.projectiles.iter().filter_map(Art::of_shot)
         .any(|art| !effect_slots(art.id()).projectile_signal_inks.is_empty());
@@ -164,8 +161,6 @@ fn reliquary(art: Art) -> bool {
     matches!(art, Art::TaxKeeper | Art::RelicLiege | Art::IronTusk)
 }
 
-/// Rotate sparse authored arc/hook tiles during kit construction. The live
-/// path picks one cached orientation and only stamps integer pixels.
 fn ring_segment(src: &Img, direction: usize) -> Img {
     let angle = direction as f32 * std::f32::consts::TAU / 72.0;
     let (cos, sin) = (angle.cos(), angle.sin());
@@ -218,8 +213,6 @@ fn bake(
             let p3 = turn(&p2);
             [p, p1, p2, p3]
         }),
-        // A hostile point shot hits a knight centre at HERO_RADIUS + 0.16.
-        // Bake the motif to that exact pixel envelope, never a decorative AoE.
         tell: std::array::from_fn(|stage| {
             let authored=tells[stage].clone();
             let r = ((crate::rules::HERO_RADIUS + 0.16) * super::UNIT).ceil() as i32;
@@ -299,8 +292,6 @@ fn kit(art: Art) -> &'static Kit {
     }
 }
 
-/// Other bosses retain their original definition art until the library gate passes.
-/// Each delivered bank is decoded lazily, once, with the same effect baker.
 fn delivered_kit(art: Art) -> &'static Kit {
     static KITS: OnceLock<BTreeMap<&'static str, OnceLock<Kit>>> = OnceLock::new();
     KITS.get_or_init(|| Art::ALL.into_iter().map(|a| (a.id(), OnceLock::new())).collect())
@@ -333,15 +324,11 @@ pub(super) fn body(art: Art) -> Img {
     kit(art).body.clone()
 }
 
-/// Match the cached enlarged effect pigment to its native-kit ink. At low
-/// coverage the cue owns its half-cell, retaining V1's brightness and hue.
 pub(super) fn cell_effect_ink(c: [u8; 3]) -> Option<[u8; 3]> {
     static INKS: OnceLock<BTreeMap<[u8; 3], [u8; 3]>> = OnceLock::new();
     INKS.get_or_init(|| {
         let mut inks = BTreeMap::new();
         for art in [Art::RedPick, Art::Foreman, Art::Leviathan] {
-            // The enlarged effect frames are the native ones at a raised
-            // exposure (`effect_exposure`).
             let native = &kit(art).effects;
             let frames = native.projectile.iter().flatten().chain(&native.tell).chain(&native.impact);
             for a in frames {
@@ -355,8 +342,6 @@ pub(super) fn cell_effect_ink(c: [u8; 3]) -> Option<[u8; 3]> {
         for ink in [[63,156,140], [43,111,102], [131,186,161], [56,126,118], [38,88,89], [80,163,144]] {
             inks.insert(effect_exposure(ink), ink);
         }
-        // Exact prepared emission pigments retain full value at subcell coverage.
-        // Material pixels continue through the ordinary coverage average.
         for art in Art::ALL {
             for &c in &effect_slots(art.id()).projectile_signal_inks {
                 for ink in [c, toned_ink(c)] { inks.insert(ink, ink); }
@@ -366,7 +351,6 @@ pub(super) fn cell_effect_ink(c: [u8; 3]) -> Option<[u8; 3]> {
     }).get(&c).copied()
 }
 
-/// Only flight emission pigments use the terminal's finer dot grid.
 pub(super) fn cell_projectile_signal(c: [u8; 3]) -> bool {
     static SIGNALS: OnceLock<std::collections::BTreeSet<[u8; 3]>> = OnceLock::new();
     SIGNALS.get_or_init(|| {
@@ -381,19 +365,11 @@ pub(super) fn cell_projectile_core(c: [u8; 3]) -> bool {
     }).contains(&c)
 }
 
-/// The furnace core owns its half-cell even at low coverage. Match the exact
-/// cached emitter pigment, never a luminance threshold that also lifts plates.
 pub(super) fn cell_signature_core(c: [u8; 3]) -> bool {
-    // These exact local prop pigments retain their colour block at low
-    // coverage: the captain's steel head/red haft and the overseer's whips.
     if matches!(c, [138,150,160] | [184,58,46] | [106,68,38]) { return true; }
-    // Cinderjaw's furnace core: the brightest pigment of its light study,
-    // at full emission.
     c == [241, 189, 90]
 }
 
-/// A single baseline with short varied ticks. Tiles are decoded once; advancing
-/// fill changes only which of the two cached inks is sampled along the lane.
 pub(super) fn index_lane_pixel(
     i: i32,
     side: i32,
@@ -478,10 +454,8 @@ fn flight(art: Art) -> &'static [[Img;4];2] {
     toned(art, &bank.effects.projectile)
 }
 
-/// Boss flight frames toned for play (operator, 2026-10-15: "insane, and also way too big"): drawn smaller
-/// and dimmer than the delivered banks. Display only: collision, hit radii and timing are untouched.
 const FLIGHT_SCALE: f32 = 0.6;
-const FLIGHT_DIM: u32 = 205; // of 256
+const FLIGHT_DIM: u32 = 205;
 
 fn toned_ink(c: [u8; 3]) -> [u8; 3] {
     c.map(|v| (u32::from(v) * FLIGHT_DIM / 256) as u8)
@@ -513,8 +487,6 @@ fn toned(art: Art, frames: &'static [[Img;4];2]) -> &'static [[Img;4];2] {
     made
 }
 
-/// A boss whose flight frames carry their own light (it has an enlarged
-/// flight set, `projectile_v2`, in its slots) is drawn with no glow under them.
 pub(super) fn native_projectile(art: Art) -> bool {
     effect_slots(art.id()).projectile_v2.is_some()
 }
@@ -534,7 +506,6 @@ pub(super) fn tell(cv: &mut Img, art: Art, x: i32, y: i32, stage: usize) {
     centered(cv, &effects(art).tell[stage], x, y);
 }
 
-/// Keep names and health above the ring's uppermost warning glyphs.
 pub(super) fn ring_clearance(run: &Run, enemy: &Enemy) -> i32 {
     let art = enemy
         .boss
@@ -562,8 +533,6 @@ fn ink_line(cv: &mut Img, start: (i32,i32), end: (i32,i32), colour: [u8;3]) {
     }
 }
 
-/// Fill the narrow final band between two real rays without the holes left
-/// by nested rounded line endpoints. All raster work is integer arithmetic.
 fn ring_band(cv: &mut Img, run: &Run, points: [(i32,i32);4], colour: [u8;3]) {
     let room = run.room();
     let barred = run.barred();
@@ -578,9 +547,6 @@ fn ring_band(cv: &mut Img, run: &Run, points: [(i32,i32);4], colour: [u8;3]) {
                 (b.0-a.0)*(y-a.1)-(b.1-a.1)*(x-a.0)
             });
             if edges.iter().all(|v| *v>=0) || edges.iter().all(|v| *v<=0) {
-                // Same blocking tiles as the shot grid, at the renderer's
-                // integer tile size. Joins cannot paint across a stone corner
-                // merely because their two endpoint rays were unobstructed.
                 if x<0 || y<0 || x>=room.cols as i32*super::TILE || y>=room.rows as i32*super::TILE { continue; }
                 let blocked = match room.tile(x/super::TILE,y/super::TILE) {
                     crate::rules::Tile::Wall | crate::rules::Tile::Block => true,
@@ -593,8 +559,6 @@ fn ring_band(cv: &mut Img, run: &Run, points: [(i32,i32);4], colour: [u8;3]) {
     }
 }
 
-/// The dressed bosses' existing rage ring: exact outgoing angles and open lane.
-/// These are direction glyphs, not a fabricated circular landing area.
 pub(super) fn ring_warning(cv: &mut Img, run: &Run, enemy: &Enemy) -> bool {
     let Some(art) = enemy
         .boss
@@ -628,8 +592,6 @@ pub(super) fn ring_warning(cv: &mut Img, run: &Run, enemy: &Enemy) -> bool {
         let step = rays.windows(2).map(|p| p[1]-p[0]).min_by(f32::total_cmp).unwrap_or(0.0);
         for i in 0..rays.len() {
             let (a,b) = (rays[i],rays[(i+1)%rays.len()]);
-            // The omitted primary directions are the real safe lane. Never
-            // bridge that gap, nor join a segment hidden behind stone.
             if (b-a).rem_euclid(std::f32::consts::TAU) > step*1.01 { continue; }
             if [a,b].iter().any(|angle| crate::rules::patterns::warning_reach(run,(enemy.x,enemy.y),*angle)*super::UNIT < 43.0) { continue; }
             let point = |angle: f32, radius: f32| {
@@ -652,8 +614,6 @@ pub(super) fn ring_warning(cv: &mut Img, run: &Run, enemy: &Enemy) -> bool {
         if radius <= 12.0 {
             continue;
         }
-        // Only endpoint geometry uses trig. Stamping and the outgoing stroke
-        // use integer pixels, with all four glyph drawings decoded once.
         let (ux, uy) = (a.cos(), a.sin());
         let end = (
             x + (ux * (radius - 5.0)).round() as i32,
@@ -664,8 +624,6 @@ pub(super) fn ring_warning(cv: &mut Img, run: &Run, enemy: &Enemy) -> bool {
             y + (uy * (radius - 12.0)).round() as i32,
         );
         if reliquary(art) && !primary {
-            // The fan shares the four shape stages: one dot, then three,
-            // five and eight pixels along its real outgoing direction.
             let length = [1.0,3.0,5.0,8.0][stage];
             let from = (x+(ux*(radius-4.0-length)).round() as i32,
                 y+(uy*(radius-4.0-length)).round() as i32);
@@ -694,9 +652,6 @@ pub(super) fn impact(cv: &mut Img, art: Art, x: i32, y: i32, ttl: u8) {
     centered(cv, &effects(art).impact[phase.min(4)], x, y);
 }
 
-/// Destination marks only: held shots and the stopping point of a braking
-/// mine. Ordinary travelling shots have no landing area; no source ring
-/// pretends they do. Mines warn for their full fuse (51 ticks / 1.7 seconds).
 pub(super) fn landings(cv: &mut Img, run: &Run) {
     for shot in &run.projectiles {
         let Some(art) = Art::of_shot(shot) else {
@@ -716,7 +671,6 @@ pub(super) fn landings(cv: &mut Img, run: &Run) {
                 usize::from(23u8.saturating_sub(p.wait)) * 3 / 23,
             );
         } else if let Some((x, y)) = mine_landing(shot) {
-            // A mine stopped by stone never reaches its projected destination.
             let distance = (x - shot.x).hypot(y - shot.y);
             let reach = crate::rules::patterns::warning_reach(
                 run,
@@ -753,7 +707,6 @@ fn mine_landing(shot: &crate::rules::Projectile) -> Option<(f32, f32)> {
     if speed == 0.0 {
         return Some((shot.x, shot.y));
     }
-    // Sum the simulation's discrete braking steps, which steer before moving.
     let brake = -p.accel * (1.0 / crate::rules::HZ as f32);
     let n = (speed / brake)
         .ceil()
@@ -816,7 +769,6 @@ mod tests {
 
     #[test]
     fn appearance_preserves_live_attacks_and_split_children() {
-        // The coded guardians' own rules follow their ids, which `plain` renames.
         for art in Art::ALL.into_iter().filter(|a| !matches!(a, Art::Grinwick | Art::BigRipper | Art::Cinderjaw | Art::RelicLiege)) {
             let id = art.id();
             let mut painted = super::super::testing::boss(id);

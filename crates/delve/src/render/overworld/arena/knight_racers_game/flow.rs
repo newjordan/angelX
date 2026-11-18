@@ -12,7 +12,6 @@ pub fn draw(im: &mut Img, c: &Ctx) {
         results(im, c);
         return;
     }
-    // The course card is the clock plate's own (it holds the laps and the lap's length on the grid).
     if race.ticks < GRID_TICKS {
         lights(im, race.ticks);
     } else if race.ticks < GRID_TICKS + 30 {
@@ -32,9 +31,6 @@ pub fn draw(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// The light tree: a post of three lamps at the left of the grid, one more lit each second, and the
-/// count beside it in big figures. In the last half second before the flag (the sim's rocket-start
-/// window) the last lamp burns white and the figure goes with it: that is when to stand on the gas.
 pub(super) fn lights(im: &mut Img, ticks: u32) {
     let lit = (1 + ticks / 30).min(3);
     let window = ticks + rules::race::LAUNCH_WINDOW >= GRID_TICKS;
@@ -60,7 +56,6 @@ pub(super) fn lights(im: &mut Img, ticks: u32) {
     centred(im, 62, 156, "ON THE GRID", 1, 'T');
 }
 
-/// The tree goes green: three lamps flare across the top of the road and the flag is down.
 fn go(im: &mut Img, since: u32) {
     let scale = if since < 6 { 6 } else { 5 };
     for n in 0..3 {
@@ -72,18 +67,21 @@ fn go(im: &mut Img, since: u32) {
     centred(im, 192, 78, "GO!", scale, 'y');
 }
 
-/// A new lap, the final lap, and the lap just run.
-fn banner(im: &mut Img, c: &Ctx) {
+pub(super) fn banner_up(c: &Ctx) -> bool {
     let (lap_n, into) = state::lap_of(c.race, c.car);
+    if lap_n == 0 || c.car.finish.is_some() || state::wrong_way(c.clocks, c.race, c.seat) { return false; }
+    into <= if lap_n + 1 >= state::laps(c.race) { 100. } else { 56. }
+}
+
+fn banner(im: &mut Img, c: &Ctx) {
+    if !banner_up(c) { return; }
+    let (lap_n, _) = state::lap_of(c.race, c.car);
     let count = state::laps(c.race);
-    // The wrong-way plate has that part of the screen.
-    if lap_n == 0 || c.car.finish.is_some() || state::wrong_way(c.clocks, c.race, c.seat) { return; }
     let last = lap_n + 1 >= count;
-    let show = if last { 100. } else { 56. };
-    if into > show { return; }
     let flash = c.race.ticks / 5 % 2 == 0;
     let y = 58;
-    plate(im, 96, y, 192, 42);
+    let split = super::hud::split_parts(c);
+    plate(im, 96, y, 192, if split.is_some() { 54 } else { 42 });
     if last {
         centred(im, 192, y + 4, "FINAL LAP", 3, if flash { 'O' } else { 'T' });
     } else {
@@ -101,6 +99,9 @@ fn banner(im: &mut Img, c: &Ctx) {
             centred(im, 192, y + 30, &line, 1, 'h');
         }
     }
+    if let Some((n, _, gap, ink)) = split {
+        centred(im, 192, y + 41, &format!("SPLIT {n}  {gap}"), 1, ink);
+    }
 }
 
 fn finish(im: &mut Img, c: &Ctx) {
@@ -112,46 +113,79 @@ fn finish(im: &mut Img, c: &Ctx) {
     centred(im, 192, 104, &format!("{}   WAITING FOR THE FIELD", state::stamp(time)), 1, 'h');
 }
 
-/// The board: every seat, in order, with pod, time, the gap to the winner and
-/// the best lap the screen saw; beside it the cup, race by race. The sim
-/// stops its clock at the flag, so nothing here moves with the tick.
 fn results(im: &mut Img, c: &Ctx) {
     let (x, y, w, h) = (6, 4, 256, 208);
     plate(im, x, y, w, h);
     shout(im, x + 10, y + 7, "RESULTS", 2, 'T');
-    im.text(x + 10, y + 25, &format!("{}  {} LAPS", state::course_name(c.race), state::laps(c.race)), 't');
+    im.text(x + 10, y + 24, &format!("{}  {} LAPS", state::course_name(c.race), state::laps(c.race)), 't');
     let mine = c.race.flow.seats.get(&c.seat).and_then(|sf| sf.last.as_ref());
     if let Some(last) = mine {
         let flag = if last.trial { Some("NEW TRIAL RECORD") } else if last.notes.new_lap { Some("NEW BEST LAP") } else if last.notes.new_race { Some("NEW BEST RACE") } else { None };
         if let Some(f) = flag { if c.race.ticks / 6 % 3 != 0 { im.text(x + w - 10 - text_w(f, 1), y + 11, f, 'y'); } }
     }
     footer(im, c.race);
+    crowning(im, c, x + 6, y + 33, w - 12);
     let cols = [x + 8, x + 18, x + 28, x + 80, x + 126, x + 176];
     for (i, label) in ["", "", "KNIGHT", "TIME", "GAP", "BEST LAP"].iter().enumerate() {
-        im.text(cols[i], y + 40, label, 't');
+        im.text(cols[i], y + 49, label, 't');
     }
-    im.rect(x + 6, y + 50, w - 12, 1, 'j');
+    im.rect(x + 6, y + 58, w - 12, 1, 'j');
     let win = c.order.first().and_then(|(_, car)| car.finish).unwrap_or(0.);
     for (n, &(id, car)) in c.order.iter().enumerate() {
-        let ry = y + 56 + n as i32 * 24;
+        let ry = y + 63 + n as i32 * 21;
         let me = id == c.seat;
-        if me { im.rect(x + 4, ry - 3, w - 8, 22, 'g'); }
+        if me { im.rect(x + 4, ry - 3, w - 8, 20, 'g'); }
         let ink = if me { 'H' } else if n == 0 { 'T' } else { 'J' };
-        im.text(cols[0], ry + 2, &(n + 1).to_string(), ink);
+        im.text(cols[0], ry + 1, &(n + 1).to_string(), ink);
         im.rect(cols[1], ry, 6, 8, livery(id).ink);
         im.text(cols[2], ry, livery(id).name, ink);
-        im.text(cols[2], ry + 10, &pods::name_of(car), 't');
+        im.text(cols[2], ry + 9, &pods::name_of(car), 't');
         let time = car.finish.unwrap_or(0.);
         im.text(cols[3], ry, &state::stamp(time), ink);
         im.text(cols[4], ry, &if n == 0 { "WINNER".to_string() } else { format!("+{:.2}", time - win) }, if n == 0 { 'T' } else { 't' });
-        let best = c.clocks.seats.get(&id).and_then(|s| s.best());
+        let best = best_lap(car).or_else(|| c.clocks.seats.get(&id).and_then(|s| s.best()));
         im.text(cols[5], ry, &best.map_or("--".into(), state::stamp), if best.is_some() { ink } else { 't' });
+    }
+    if let Some(&(id, car)) = c.order.first() {
+        if let Some((lap, t)) = best_lap_at(car) {
+            let line = format!("WINNER'S BEST LAP  {}  LAP {}", state::stamp(t), lap);
+            im.text(x + 10, y + 192, &line, 'y');
+            im.rect(x + 10 + text_w(&line, 1) + 5, y + 191, 5, 9, livery(id).ink);
+        }
     }
     if c.race.flow.mode == rules::Mode::Cup { cup(im, c, 268, 4, 110, 208); } else { prize(im, c, 268, 4, 110, 208); }
 }
 
-/// The keys at the foot of the results board: the cup goes on or to its podium; any other race
-/// is run again or left.
+pub fn best_lap_at(car: &rules::Car) -> Option<(usize, f32)> {
+    car.lap_times().into_iter().enumerate().filter(|(_, t)| t.is_finite() && *t > 0.).min_by(|a, b| a.1.total_cmp(&b.1)).map(|(i, t)| (i + 1, t))
+}
+fn best_lap(car: &rules::Car) -> Option<f32> { best_lap_at(car).map(|(_, t)| t) }
+
+pub fn crown_line(race: &rules::Session, order: &[(u32, &rules::Car)]) -> Option<String> {
+    let &(id, _) = order.first()?;
+    Some(format!("KNIGHT {} TAKES {}", livery(id).name, state::course_short(race)))
+}
+
+fn crowning(im: &mut Img, c: &Ctx, x: i32, y: i32, w: i32) {
+    let Some(&(id, _)) = c.order.first() else { return };
+    let Some(line) = crown_line(c.race, c.order) else { return };
+    im.rect(x, y, w, 13, 'k');
+    im.frame(x, y, w, 13, 'T');
+    im.rect(x + 1, y + 1, w - 2, 1, livery(id).ink);
+    let tw = text_w(&line, 1);
+    let flash = c.race.ticks / 8 % 6 != 0;
+    centred(im, x + w / 2, y + 3, &line, 1, if flash { 'T' } else { 'H' });
+    for cx in [x + w / 2 - tw / 2 - 12, x + w / 2 + tw / 2 + 5] { crown(im, cx, y + 3); }
+}
+
+fn crown(im: &mut Img, x: i32, y: i32) {
+    im.rect(x, y + 3, 7, 3, 'T');
+    for px in [0, 3, 6] { im.rect(x + px, y, 1, 3, 'T'); }
+    im.rect(x + 1, y + 1, 1, 2, 'T');
+    im.rect(x + 5, y + 1, 1, 2, 'T');
+    im.rect(x + 3, y + 3, 1, 2, '5');
+}
+
 fn footer(im: &mut Img, race: &rules::Session) {
     if race.flow.stage != rules::Stage::Race || !race.flow.settled { return; }
     im.rect(0, 215, 384, 9, 'k');
@@ -163,7 +197,6 @@ fn footer(im: &mut Img, race: &rules::Session) {
     im.text(7, 216, line, 't');
 }
 
-/// What a single race, a trial or a practice run paid, in place of a cup's points.
 fn prize(im: &mut Img, c: &Ctx, x: i32, y: i32, w: i32, h: i32) {
     plate(im, x, y, w, h);
     let mode = c.race.flow.mode;
@@ -194,7 +227,6 @@ fn prize(im: &mut Img, c: &Ctx, x: i32, y: i32, w: i32, h: i32) {
     if mode == rules::Mode::Single { im.text(x + 8, ry, "THE CLASS HAS", 't'); im.text(x + 8, ry + 10, &format!("{} RIVALS", c.race.flow.class.name()), 'h'); }
 }
 
-/// Cup points so far, best first, with what this race added.
 fn cup(im: &mut Img, c: &Ctx, x: i32, y: i32, w: i32, h: i32) {
     plate(im, x, y, w, h);
     shout(im, x + 8, y + 7, "CUP", 2, 'T');
@@ -217,7 +249,6 @@ fn cup(im: &mut Img, c: &Ctx, x: i32, y: i32, w: i32, h: i32) {
         let tag = format!("+{won}");
         im.text(x + w - 8 - text_w(&tag, 1), ry + 9, &tag, if me { 'T' } else { 't' });
     }
-    // What comes next, in words that fit the panel.
     let champion = c.race.standings().first().map_or("", |&(id, _)| livery(id).name);
     let next = cup.get(c.race.round as usize + 1).map(|&id| rules::course(id).name());
     let mut lines: Vec<String> = Vec::new();

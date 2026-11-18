@@ -1,27 +1,6 @@
 'use strict';
-// The dev panel: the game's knobs and the engine's as sliders, moved while
-// the game runs, beside the numbers that say what a move did. See
-// docs/ENGINE.md, "The dev panel".
-//
-// It is offered only on a dev link (<door>/#<key>&dev) or in a session the
-// host started in dev mode, and F2 opens and shuts it; a student's page
-// never shows it. Three kinds of knob, one list:
-//
-// - the server's (the game's rules, the engine's snapshot rate): asked of
-//   the server, which sets them between ticks for everyone and answers
-//   with its table; only the host may, unless the session runs in dev mode;
-// - this page's module's (how far behind everyone else is drawn, how long
-//   a correction eases, the art kit): set at once, here only;
-// - the page's own (whole-number scaling, a frame-rate cap).
-//
-// Client knobs are kept per game in localStorage, so a reload keeps them.
-// "Copy as constants" gives every knob as `CONSTANT = value`, to paste back
-// into the code once a number feels right: tune live, then bake it in.
 
-/* exported makePanel */
 function makePanel(env) {
-  // env: { x, text(len), withString(s, f), stats(), game, dev, page: [knob],
-  //        setPage(name, value), releaseAll() }
   const SEND_EVERY_MS = 80;
   const KEEP = 'angel.knobs.' + env.game;
   const box = document.createElement('aside');
@@ -49,8 +28,8 @@ function makePanel(env) {
 
   let offered = env.dev, open = false, said = -1, may = false;
   let server = [], client = [];
-  const rows = new Map(); // name -> { knob, range, value, reset, side }
-  const sent = new Map(); // name -> { at, timer }
+  const rows = new Map();
+  const sent = new Map();
 
   function button(label, title) {
     const b = document.createElement('button');
@@ -74,7 +53,6 @@ function makePanel(env) {
     localStorage.setItem(KEEP, JSON.stringify(k));
   }
 
-  // The module's knob table: the server's (as it last said it) and its own.
   function read() {
     let t = null;
     try {
@@ -88,7 +66,6 @@ function makePanel(env) {
     client = t.client || [];
   }
 
-  // Client knobs kept from an earlier visit, set once the game is seated.
   function restore() {
     const k = kept();
     for (const [name, value] of Object.entries(k)) {
@@ -149,7 +126,6 @@ function makePanel(env) {
         range.addEventListener('change', () => {
           r.dragging = false;
           set(r, Number(range.value), true);
-          // The keys go back to the game at once.
           range.blur();
         });
         reset.addEventListener('click', e => {
@@ -170,8 +146,6 @@ function makePanel(env) {
     r.value.parentElement.classList.toggle('moved', Number(v) !== r.knob.default);
   }
 
-  // Set a knob: the server's asked for (dragging, at most every
-  // SEND_EVERY_MS, and the last one always), this page's set at once.
   function set(r, v, last) {
     const k = r.knob;
     r.range.value = v;
@@ -204,7 +178,6 @@ function makePanel(env) {
     }
   }
 
-  // The server said a new table: its rows follow, unless one is held.
   function refresh() {
     const n = env.x.angel_knobs_said();
     if (n === said) return;
@@ -226,8 +199,6 @@ function makePanel(env) {
       }
     }
   }
-
-  // ---- the numbers ----
 
   let last = null;
   function numbers() {
@@ -255,8 +226,6 @@ function makePanel(env) {
       `corrections ${per(last.corrections, was.corrections)}/s`;
   }
 
-  // ---- open, shut ----
-
   function toggle() {
     if (!offered) return;
     open = !open;
@@ -282,9 +251,7 @@ function makePanel(env) {
       document.activeElement.blur();
     }
   }, true);
-  // Keys typed into the panel are the panel's: the game lets go at once.
   box.addEventListener('focusin', () => env.releaseAll());
-  // A click on the game gives the keys back.
   document.getElementById('stage').addEventListener('pointerdown', () => {
     if (box.contains(document.activeElement)) document.activeElement.blur();
   });
@@ -309,14 +276,11 @@ function makePanel(env) {
   setInterval(() => { if (open) numbers(); }, 1000);
 
   return {
-    // Seated: what was kept is set, and a dev link or a dev session says
-    // F2 is there.
     seated() {
       read();
       restore();
       if (offered) env.toast('F2 opens the dev panel');
     },
-    // Whether the keyboard is the panel's now.
     focused() {
       return open && box.contains(document.activeElement);
     },

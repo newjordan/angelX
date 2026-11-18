@@ -1,27 +1,4 @@
 #!/usr/bin/env python3
-"""Assemble a Mage training dataset: frozen baseline + sampled OS-Atlas rows.
-
-Inputs (read only):
-  baseline:    mage-train-20261101-v1 shaped dir (train/validation/test.jsonl,
-               system.txt, screens/<content-sha>.png)
-  osatlas:     convert_osatlas.py output JSONL (screen=bare stem, box_norm)
-  images:      one or more dirs of extracted OS-Atlas PNGs named <stem>.png
-
-Output: a NEW directory in exactly the baseline shape, plus a manifest.
-Baseline train rows stay first and byte-identical in order; validation and
-test are copied untouched, so the 1,258-row holdout remains the promotion
-measure. OS-Atlas rows are upgraded to the current schema (pixel box,
-width/height, content-hash screen name, label_id) so verify_training_set.py
-audits them with the same geometry rules as every other row.
-
-Sampling: at most --per-screen rows per unique screen *content* (duplicate
-archive members collapse first), interactive a11y roles before static text,
-deterministic hash order inside a role tier. Drops are counted, never silent:
-missing image, oversized box, quantized centre outside the pixel box,
-duplicate (screen, target), screen colliding with a baseline screen.
-
-Nothing is uploaded, trained, or deployed here.
-"""
 from __future__ import annotations
 
 import argparse
@@ -35,8 +12,6 @@ from pathlib import Path
 
 SPLITS = ("train", "validation", "test")
 
-# Interactive roles first: production targets are clickable widgets.
-# Static text / labels still ground (drivers name text too), just last.
 STATIC_TYPES = {"AXStaticText", "label", "AXGroup", "canvas", "icon"}
 
 
@@ -83,7 +58,6 @@ def main(argv=None) -> int:
     base_counts = {split: len(rows) for split, rows in base.items()}
     base_screens = {row["screen"] for rows in base.values() for row in rows}
 
-    # Index extracted images by stem; a stem in two dirs is an input error.
     stem_file: dict[str, Path] = {}
     for image_dir in args.images:
         for path in sorted(p for p in Path(image_dir).glob("*.png") if p.is_file()):
@@ -94,9 +68,6 @@ def main(argv=None) -> int:
     drop = collections.Counter()
     raw = read_rows(Path(args.osatlas_rows))
 
-    # Resolve every referenced stem to content identity first, so duplicate
-    # archive members (same bytes, different names) share one scene and the
-    # per-screen cap applies to screens, not filenames.
     stem_meta: dict[str, dict] = {}
     for row in raw:
         stem = row["screen"]
@@ -109,14 +80,14 @@ def main(argv=None) -> int:
         sha = digest(path)
         try:
             with Image.open(path) as image:
-                image.convert("RGB").load()  # header alone passes truncated PNGs
+                image.convert("RGB").load()
                 width, height = image.size
         except Exception:  # noqa: BLE001 - counted as missing below, by row
             stem_meta[stem] = {}
             continue
         stem_meta[stem] = {"path": path, "sha": sha, "width": width, "height": height}
 
-    candidates: dict[str, list[dict]] = collections.defaultdict(list)  # by content sha
+    candidates: dict[str, list[dict]] = collections.defaultdict(list)
     for row in raw:
         meta = stem_meta[row["screen"]]
         if not meta:
@@ -150,8 +121,6 @@ def main(argv=None) -> int:
             box = [x0 * width, y0 * height, x1 * width, y1 * height]
             cx = max(0, min(999, round((x0 + x1) / 2 * 999)))
             cy = max(0, min(999, round((y0 + y1) / 2 * 999)))
-            # Same projection verify_training_set.py applies: the quantized
-            # centre must land inside the pixel box or the row teaches a miss.
             px, py = cx / 999 * (width - 1), cy / 999 * (height - 1)
             if not (box[0] <= px <= box[2] and box[1] <= py <= box[3]):
                 drop["centre_outside_box"] += 1

@@ -1,4 +1,3 @@
-# Cases recorded from the Rust original (tests/rules/cover_bend_cases__tests.rs).
 import Base
 
 def case.monsters.EnemyKind.radius(input: J.Val) -> J.Val:

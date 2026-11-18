@@ -8,14 +8,10 @@ const EXPERIMENT_TOKENS: usize = 32_768;
 const EXPERIMENT_SECONDS: u64 = 300;
 
 fn experiment_due(st: &LoopState) -> bool {
-    // Healthy fast wins must not starve the percentage-cut lane. Ordinary
-    // loops admit recovery at a stall; PODRACE also maintains its deep lane.
     (st.podrace && st.iteration >= DEFAULT_LOOP_FIRST_CANDIDATE_ITERS) || stall_limit_reached(st)
 }
 
 wire_status! {
-    /// Where one deep experiment stands. Only a `Running` record has a live
-    /// owner (`App.loop_experiment`); every other word is settled.
     pub enum ExperimentStatus {
         Running = "running",
         Interrupted = "interrupted",
@@ -28,8 +24,6 @@ wire_status! {
 impl ExperimentStatus {
     fn allows(&self, next: &Self) -> bool {
         use ExperimentStatus::*;
-        // A running experiment settles once, as one of the four settled words;
-        // nothing moves out of a settled word.
         matches!(
             (self, next),
             (Running, Interrupted | Cancelled | Failed | Returned)
@@ -55,10 +49,6 @@ pub struct ExperimentRecord {
 }
 
 impl ExperimentRecord {
-    /// The only way a running record settles: its verdict, the iteration it
-    /// settled in, its summary, and the recovery context it leaves behind
-    /// (none for a run that was interrupted or cancelled, which only the
-    /// supervisor may read).
     fn settle(
         &mut self,
         status: ExperimentStatus,
@@ -145,7 +135,6 @@ impl crate::App {
         {
             return;
         }
-        // A completed experiment gets at least three parent cycles for review.
         if self.loop_ctl.experiments.last().is_some_and(|last| {
             self.loop_ctl
                 .iteration
@@ -157,7 +146,6 @@ impl crate::App {
         let Some((tokens, seconds)) = allowance(&self.loop_ctl) else {
             return;
         };
-        // Direct seat: no failover, automatic escalation, Deli, or swarm wrapper.
         let club = match self.loop_ctl.tier {
             EscalationTier::Sota => self.loop_sota_club().or_else(|| self.loop_local_club()),
             EscalationTier::Local | EscalationTier::Swarm => self.loop_local_club(),
@@ -173,8 +161,6 @@ impl crate::App {
             .last()
             .cloned()
             .unwrap_or_else(|| self.loop_task_text());
-        // Harvest already captured this advisory dedup identity. The worker
-        // copies and verifies live bytes off-thread before making a model call.
         let Some(fingerprint) = self.loop_ctl.last_workspace_fingerprint else {
             return;
         };
@@ -191,8 +177,6 @@ impl crate::App {
         let request = LoopExperimentRequest {
             workspace: workspace.clone(),
             artifact_dir: artifact_dir.clone(),
-            // `⠠⠁` labels the objective, hypothesis, steering and evidence
-            // (the data); `⠠⠃` is the experiment's contract.
             task: format!(
                 "{frame}⠁ {}\n{frame}⠃ {}\n{frame}⠉ {}\n{frame}⠙ {}\n{}",
                 self.loop_task_text(),
@@ -218,8 +202,6 @@ impl crate::App {
         let cancel = Arc::new(AtomicBool::new(false));
         let (tx, rx) = std::sync::mpsc::channel();
         let worker_cancel = Arc::clone(&cancel);
-        // Reserve once, conservatively, rather than charging overlapping shared
-        // provider counters as if they were exclusively this child's usage.
         self.loop_ctl.tokens_spent = self.loop_ctl.tokens_spent.saturating_add(tokens);
         self.loop_ctl.experiments.push(ExperimentRecord {
             key: key.clone(),
@@ -272,10 +254,6 @@ impl crate::App {
         {
             self.loop_cancel_experiment();
         }
-        // A record is running only while the owner holds its key. Any other
-        // running record lost its owner: a power loss, or a reply that arrived
-        // after the run or workspace changed. Keep its evidence address and
-        // make recovery visible.
         let owned = self
             .loop_experiment
             .as_ref()
@@ -306,8 +284,6 @@ impl crate::App {
             Ok(result) => result,
         };
         let pending = self.loop_experiment.take().expect("checked owner");
-        // Preserve artifacts on disk, but never import an old run's reply into
-        // a replacement run or newly selected workspace.
         if pending.run_id != self.loop_ctl.id || pending.workspace != self.tools.current_workspace()
         {
             return;
@@ -380,7 +356,6 @@ impl crate::App {
             .iter_mut()
             .find(|r| r.key == pending.key)
         {
-            // A record that is no longer running keeps the verdict it already has.
             let _ = record.settle(
                 status,
                 self.loop_ctl.iteration,
@@ -389,14 +364,11 @@ impl crate::App {
                 supervisor_only || cancelled,
             );
         }
-        // Cancellation has no model-facing completion. The durable record still
-        // points to unfinished work so explicit resume can inspect it.
         if !cancelled {
             self.loop_ctl.pending_proc_completions.push(summary.clone());
             if let Some(reference) = context_ref {
                 self.loop_ctl.pending_recovery_contexts.push(reference);
             }
-            // A waiting loop takes the result now, not after its idle wait.
             if !self.loop_ctl.awaiting_turn {
                 self.loop_ctl.wake_at = Some(Instant::now());
             }
@@ -419,17 +391,11 @@ impl crate::App {
                             == reference.summary_sha256
                     })
                 {
-                    // Lost/mutated queue pairing cannot prove the retained
-                    // context clean. Keep the origin unknown, without reading
-                    // an artifact or interpreting any model prose.
                     reference.producer = None;
                 }
                 refs.push(reference);
             }
         }
-        // Old state may retain A's queued summary after B becomes latest,
-        // without the newly introduced typed queue companion. Join only exact
-        // durable recovery records, never arbitrary process text.
         for record in &self.loop_ctl.experiments {
             if record.status == ExperimentStatus::Cancelled || record.context_is_supervisor_only {
                 continue;
@@ -461,8 +427,6 @@ impl crate::App {
             && !record.context_is_supervisor_only
             && let Some(summary) = &record.summary
         {
-            // Legacy/mismatched metadata remains useful unknown context. It
-            // cannot silently become a clean parent turn or an audited link.
             let reference = record
                 .context_ref
                 .as_ref()
@@ -494,15 +458,12 @@ impl crate::App {
 
     pub(crate) fn loop_experiment_context(&self, prompt: &mut String) {
         if let Some(record) = self.loop_ctl.experiments.last() {
-            // `⠳⠊`: the record is the data; a fixed summary is its own page.
             let deep = crate::agent::harness::book::ou_checkpoints::DEEP.cells();
             let summary = if record.status == ExperimentStatus::Cancelled {
                 format!("{deep}⠉")
             } else {
                 record.summary.clone().unwrap_or_else(|| format!("{deep}⠙"))
             };
-            // Its hypothesis and artifacts are `⠳⠊⠁` and `⠳⠊⠃`, their values
-            // beside the addresses.
             prompt.push_str(&format!(
                 "\n\n{deep} status={}\n{deep}⠁ {}\n{deep}⠃ {}\n{summary}",
                 record.status,

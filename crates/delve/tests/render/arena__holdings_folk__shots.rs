@@ -83,7 +83,6 @@ fn press(run: &mut Run, id: u32) {
     run.step(&BTreeMap::from([(id, Input { interact: true, ..Input::default() })]));
 }
 
-/// Every line the picture writes, for a hall as it stands.
 fn said(run: &Run) -> Vec<String> {
     let (_, said) = crate::render::overworld::ink::said::read(|| whole(run));
     said.lines.into_iter().map(|l| l.text).collect()
@@ -95,7 +94,6 @@ fn the_folk_drawn_in_the_hall_are_the_ledgers_and_the_hall_changes_with_what_it_
     let mut empty = village();
     empty.owned[0].folk.clear();
     assert_ne!(plain.content_hash(), whole(&hall(empty, 300, (12.0, 9.2))).content_hash(), "the village is drawn");
-    // And moves: the same village a little later is somewhere else.
     assert_ne!(plain.content_hash(), whole(&hall(village(), 700, (12.0, 9.2))).content_hash());
     let mut seen = vec![plain.content_hash()];
     for occasion in [
@@ -127,7 +125,6 @@ fn the_hall_says_what_the_village_is_in_the_middle_of_and_only_that() {
     let lines = said(&hall(h, 300, (12.0, 9.2)));
     assert!(lines.iter().any(|l| l == "COL HAS THE WORKSHOP: 2D LEFT"), "{lines:?}");
     assert!(lines.iter().any(|l| l == "COL HAS IT"), "the seized bay's tag says whose it is: {lines:?}");
-    // Its plate promises nothing while it is the craftsman's.
     let at = crate::rules::holdings::bay(1).1;
     let mut run = hall(h_with_seized(), 300, (at.0 as f32 + 1.5, at.1 as f32 + 0.5));
     run.step(&BTreeMap::new());
@@ -146,7 +143,6 @@ fn h_with_seized() -> Holdings {
 fn a_masterwork_board_reads_its_card_word_for_word_and_who_carries_it() {
     let mut h = village();
     h.owned[0].works.push(Masterwork { maker: "Col".into(), trade: Trade::Smith });
-    // Only the maker about, so the knight's beside nobody else.
     h.owned[0].folk.retain(|f| f.name == "Col");
     let held = h.owned[0].clone();
     let curio = held.works[0].curio().unwrap();
@@ -199,7 +195,6 @@ fn the_taverns_board_pins_a_paper_for_each_tiding() {
     }
 }
 
-/// The Windmill with the bakery built and Berta keeping it, a knight at its ring.
 fn bakery(stores: u32, unrest: u32) -> Run {
     let mut h = Holdings::default();
     h.stores = stores;
@@ -223,7 +218,6 @@ fn a_plots_keeper_is_named_over_their_head_and_greys_with_the_realms_larder() {
     let (a, b) = (whole(&fed).content_hash(), whole(&bakery(0, 0)).content_hash());
     assert_ne!(a, b, "a bare granary greys the keeper");
     assert_ne!(a, whole(&bakery(12, crate::rules::holdings::RESTLESS)).content_hash(), "so does a restless realm");
-    // Nobody built, nobody there.
     let mut empty = bakery(12, 0);
     empty.home.countryside.built = 0;
     assert!(!said(&empty).iter().any(|l| l == "BERTA"));
@@ -236,21 +230,16 @@ fn write_folk_shots() {
     let dir = std::path::PathBuf::from(dir).join("folk");
     std::fs::create_dir_all(&dir).unwrap();
 
-    // An ordinary day: the ledger's folk at their benches, the labourer with
-    // timber for the greathall, a child at play, an elder by the fire; a
-    // hungry acolyte in grey.
     let run = hall(village(), 300, (12.0, 9.2));
     save(&dir, "a-hall-ordinary", &whole(&run), 2);
     let run = hall(village(), 650, (8.0, 8.4));
     save(&dir, "a2-hall-ordinary-later", &whole(&run), 2);
 
-    // The feast.
     let mut h = village();
     h.owned[0].occasion = Some(Occasion::Feast);
     let run = hall(h, 500, (12.0, 9.4));
     save(&dir, "b-feast", &whole(&run), 2);
 
-    // The tantrum at the forge.
     let mut h = village();
     h.owned[0].occasion = Some(Occasion::Tantrum { who: "Col".into(), cause: Cause::Hunger, broke: Broke::Course(1) });
     h.owned[0].rooms[1].labour = ROOM_LABOUR - 1;
@@ -258,7 +247,6 @@ fn write_folk_shots() {
     let run = hall(h, 400, (7.5, 6.2));
     save(&dir, "c-tantrum", &whole(&run), 2);
 
-    // The mourning.
     let mut h = village();
     h.owned[0].occasion = Some(Occasion::Mourning { who: "Nyle".into(), trade: Trade::Smith, dying: Dying::Years });
     let run = hall(h, 150, (12.0, 9.8));
@@ -268,13 +256,11 @@ fn write_folk_shots() {
     let run = hall(h, 300, (12.0, 9.8));
     save(&dir, "d-mourning-b", &whole(&run), 2);
 
-    // The fey at the smithy.
     let mut h = village();
     h.owned[0].seized = Some(Seizure { who: "Col".into(), trade: Trade::Smith, days: 2 });
     let run = hall(h, 400, (7.4, 5.2));
     save(&dir, "e-fey-seized", &whole(&run), 2);
 
-    // The finished masterwork, a knight beside its maker.
     let mut h = village();
     h.owned[0].works.push(Masterwork { maker: "Col".into(), trade: Trade::Smith });
     h.owned[0].works.push(Masterwork { maker: "Berta".into(), trade: Trade::Brewer });
@@ -288,7 +274,6 @@ fn write_folk_shots() {
     save(&dir, "f3-masterwork-taken-seat", &seat_scene(&run2, 768, 448, Some(1)).compose(), 2);
     let _ = run;
 
-    // A soul spoken with.
     let at = crate::rules::strolls::strollers(&village().owned[0], 300)[2];
     let mut run = hall(village(), 300, (at.x, at.y + 1.1));
     save(&dir, "g-speak-board", &whole(&run), 2);
@@ -296,7 +281,6 @@ fn write_folk_shots() {
     let img = seat_scene(&run, 768, 448, Some(1)).compose();
     save(&dir, "g2-speak-seat", &img, 2);
 
-    // The Court's cross-section with its folk.
     let court = |h: Holdings, tick: u64| {
         let home = Home { holdings: h, ..Home::default() };
         let mut run = Run::at_home(7, 1, None, home, Spoils::default());
@@ -315,11 +299,9 @@ fn write_folk_shots() {
     let run = court(h, 300);
     save(&dir, "h2-court-feast", &whole(&run), 2);
 
-    // A plot's keeper at the bakery.
     save(&dir, "j-keeper-bakery", &whole(&bakery(12, 0)), 2);
     save(&dir, "j2-keeper-lean", &whole(&bakery(0, 0)), 2);
 
-    // The Griffin's board with the folk's news pinned on it, and read.
     let tavern = |h: Holdings| {
         let home = Home { holdings: h, ..Home::default() };
         let mut r = Run::at_home(41, 1, Some("Friend"), home, Spoils::default());

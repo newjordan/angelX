@@ -24,14 +24,10 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
-/// The user's answer to an approval request.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Decision {
-    /// Allow this one action.
     Approve,
-    /// Reject this one action.
     Deny,
-    /// Allow this and every later action of the same exact scope this turn.
     ApproveAll,
 }
 
@@ -45,9 +41,6 @@ pub enum ApprovalScope {
 }
 
 impl ApprovalScope {
-    /// Trusted one-line identity shown beside the human-authored prompt. The
-    /// enum variant supplies the authority kind; untrusted endpoint fragments
-    /// are bounded and stripped of terminal-confusing format controls.
     pub fn label(&self) -> String {
         match self {
             Self::SelfTest => "self-test".to_string(),
@@ -115,28 +108,15 @@ fn unsafe_scope_format(character: char) -> bool {
     )
 }
 
-/// A pending approval handed to the UI. The UI presents the human-authored
-/// prompt beside a canonical label derived from `scope`, then fills `reply` with
-/// the decision. Coalescing by exact scope happens in [`Broker::ask`] before the
-/// request is sent.
 pub struct Request {
-    /// Human-readable description of what's about to happen.
     pub prompt: String,
     pub scope: ApprovalScope,
-    /// One-shot channel the UI sends the [`Decision`] back on.
     pub reply: Sender<Decision>,
-    /// When the worker stops waiting and denies. Past this the UI drops the
-    /// ask instead of showing a card no one can answer.
     pub deadline: std::time::Instant,
 }
 
-/// How long the worker waits for a decision before defaulting to deny (so a
-/// closed/unresponsive UI can never hang a turn forever).
 const REPLY_TIMEOUT: Duration = Duration::from_secs(600);
 
-/// The approval broker: a UI inbox (None ⇒ headless) + the per-turn approve-all
-/// cache. Kept as a struct so the decision logic is unit-testable without the
-/// global / the real TUI.
 pub struct Broker {
     ui: Mutex<Option<Sender<Request>>>,
     state: Mutex<ApprovalState>,
@@ -163,22 +143,18 @@ impl Default for Broker {
 }
 
 impl Broker {
-    /// Point the broker at a UI; returns the receiver the UI polls for requests.
     fn set_ui(&self) -> Receiver<Request> {
         let (tx, rx) = channel();
         *self.ui.lock().unwrap() = Some(tx);
         rx
     }
 
-    /// Clear per-turn state (the approve-all cache).
     fn reset(&self) {
         let mut state = self.state.lock().unwrap();
         state.turn_epoch = state.turn_epoch.saturating_add(1);
         state.grants.clear();
     }
 
-    /// Ask for approval of an exact scope. Returns [`Decision::Approve`] or
-    /// [`Decision::Deny`] (an approve-all is recorded and reported as Approve).
     fn ask(&self, scope: ApprovalScope, prompt: &str) -> Decision {
         let request_epoch = {
             let mut state = self.state.lock().unwrap();
@@ -193,7 +169,7 @@ impl Broker {
         };
         let ui = self.ui.lock().unwrap().clone();
         let Some(ui) = ui else {
-            return Decision::Deny; // headless: don't run external actions unattended
+            return Decision::Deny;
         };
         let (reply_tx, reply_rx) = channel();
         let req = Request {
@@ -203,12 +179,10 @@ impl Broker {
             deadline: std::time::Instant::now() + REPLY_TIMEOUT,
         };
         if ui.send(req).is_err() {
-            return Decision::Deny; // UI gone
+            return Decision::Deny;
         }
         let reply = reply_rx.recv_timeout(REPLY_TIMEOUT);
         let mut state = self.state.lock().unwrap();
-        // A delayed UI reply cannot authorize an action from an expired turn,
-        // nor seed the current turn's grant cache.
         if state.turn_epoch != request_epoch {
             return Decision::Deny;
         }
@@ -225,7 +199,7 @@ impl Broker {
                 Decision::Approve
             }
             Ok(d) => d,
-            Err(_) => Decision::Deny, // timed out / UI dropped the reply
+            Err(_) => Decision::Deny,
         }
     }
 }
@@ -235,32 +209,22 @@ fn broker() -> &'static Broker {
     BROKER.get_or_init(Broker::default)
 }
 
-/// Install the global broker's UI inbox; returns the receiver the TUI polls.
 pub fn install_ui() -> Receiver<Request> {
     broker().set_ui()
 }
 
-/// Clear the per-turn approve-all cache. Call once at the start of each turn.
 pub fn reset_turn() {
     broker().reset();
 }
 
-/// Whether a TUI approval surface is attached. Choosers that want "popup when
-/// an operator is present, silent default when unattended" branch on this —
-/// calling [`ask`] headless would auto-deny, which is the wrong default for a
-/// choice between two approved options.
 pub fn ui_installed() -> bool {
     broker().ui.lock().unwrap().is_some()
 }
 
-/// Ask the user to approve an action, blocking until they answer. Coalesced by
-/// exact scope; headless auto-denies. See the module docs.
 pub fn ask(scope: ApprovalScope, prompt: &str) -> Decision {
     if crate::platform::yolo::enabled() {
         return Decision::Approve;
     }
-    // Smart YOLO: auto-approve workspace action batches and self-tests only.
-    // Remote phone/peer/host scopes still prompt so spendy escalations stay human-gated.
     if crate::platform::yolo::smart_auto_approves(&scope) {
         return Decision::Approve;
     }

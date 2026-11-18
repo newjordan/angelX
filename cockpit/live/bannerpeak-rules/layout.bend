@@ -2,22 +2,12 @@ import Base
 import ./map.bend as Map
 import ./nums.bend as N
 
-# The world's moving platforms: two logs on the marsh's wide gap, one in the
-# mill-race, and the waterwheel's six buckets. Pure in the tick, so a body can
-# be carried by the difference between two ticks — which is why this leg is
-# exact integer arithmetic and no state at all.
-#
-# Ids are layout::LOG_ID (100, 101, 102) and layout::WHEEL_ID (200 to 205), and
-# they travel as numbers: a body records which mover it stands on by id, never
-# by text.
-
 type Mv is Data:
   Mv{id: U32, x: U32, y: U32, w: U32}
 
 def tile() -> U32:
   16
 
-# The waterwheel in the mill: centre in pixels, radius, buckets, ticks a turn.
 def wheel_x() -> U32:
   3496
 
@@ -36,8 +26,6 @@ def wheel_id() -> U32:
 def log_id() -> U32:
   100
 
-# A sine in 1/1024 for whole degrees: layout::sine's table and its four
-# quarters, which is the rounding the buckets have always climbed by.
 def table() -> List<U32>:
   [0, 18, 36, 54, 71, 89, 107, 125, 143, 160, 178, 195, 213, 230, 248, 265, 282, 299, 316,
    333, 350, 367, 384, 400, 416, 433, 449, 465, 481, 496, 512, 527, 543, 558, 573, 587, 602,
@@ -77,8 +65,6 @@ def sine(+deg: U32) -> U32:
 def cosine(+deg: U32) -> U32:
   sine(N.add(deg, 90))
 
-# A value going back and forth between `lo` and `hi`, `period` ticks a round
-# trip, `phase` ticks along: layout::ping_pong, in the game's fixed units.
 def ping_pong_at(+k: U32, +period: U32, +half: U32, +lo: U32, +hi: U32) -> U32:
   Bool.pick(
     U32,
@@ -107,8 +93,6 @@ def rim(n: Nat, +deg: U32, +phi: U32) -> Mv:
     28
   }
 
-# The wheel turns clockwise, so the near side climbs: bucket `k` of `n`, each a
-# platform 28 wide on the rim, sixty degrees apart.
 def bucket(n: Nat, k: Nat, +deg: U32) -> Mv:
   rim(n, deg, U32.mul(to_u32(k), 60))
 
@@ -119,8 +103,6 @@ def buckets(n: Nat, +k: Nat, +deg: U32) -> List<Mv>:
     case 1n+p:
       Con{bucket(k, k, deg), buckets(p, Nat.add(k, 1n), deg)}
 
-# Every moving platform at tick `t`, in layout::movers' order: the three logs,
-# then the six buckets.
 def movers(+t: U32) -> List<Mv>:
   +bank = ((36 + 12) * 16 : U32)
   +gap = ((80 + 62) * 16 : U32)
@@ -138,8 +120,6 @@ def movers(+t: U32) -> List<Mv>:
     }
   }
 
-# How many platforms a tick carries, and where the first one is: the two shapes
-# a law can hold a whole list to without comparing lists.
 def count(ms: List<Mv>, +acc: U32) -> U32:
   match ms:
     case Nil{}:

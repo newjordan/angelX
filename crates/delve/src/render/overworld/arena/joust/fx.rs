@@ -14,17 +14,13 @@ use crate::motion::{self, ease};
 use crate::rules::juice::Weight;
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
-/// Sand thrown up: warm browns down to the dark of the lists.
 pub(super) const DUST: Ramp = Ramp(['O', 'o', 'P', 'I', 'b', 'n']);
-/// Splinters of ash timber.
 const WOOD: [char; 4] = ['T', 'O', 'o', 'T'];
 
 fn unit(i: u32, seed: u32, s: u32) -> f32 {
     (hash(i as i32, seed as i32, s) & 0xffff) as f32 / 65536.0
 }
 
-/// A puff of dust kicked up at `at`, `age` ticks old, drifting back (`dir`
-/// is the way the horse runs).
 pub(super) fn puff(im: &mut Img, at: (f32, f32), dir: i32, age: u32, seed: u32, n: u32, tick: u64) {
     let mut pen = Pen::new(im, 320);
     let spray = Spray {
@@ -38,8 +34,6 @@ pub(super) fn puff(im: &mut Img, at: (f32, f32), dir: i32, age: u32, seed: u32, 
     spray.each(age as f32, |m| pfx::mote(&mut pen, &m, Shape::Smoke, DUST, 3, tick));
 }
 
-/// The dust of the last few hoofbeats behind a rider at the gallop. `beats`
-/// are `(age, x)` of each beat still in the air.
 pub(super) fn hoofbeats(im: &mut Img, beats: &[(u32, f32)], ground: f32, dir: i32, v: f32, seed: u32, tick: u64) {
     if v < 0.12 {
         return;
@@ -50,8 +44,6 @@ pub(super) fn hoofbeats(im: &mut Img, beats: &[(u32, f32)], ground: f32, dir: i3
     }
 }
 
-/// Speed lines trailing a horse at `v` (0 to 1) of full speed: streaks of
-/// wind behind it along its flanks, longer and more the faster it goes.
 pub(super) fn speed_lines(im: &mut Img, rear: i32, ground: i32, dir: i32, v: f32, tick: u32, seed: u32) {
     if v < 0.25 {
         return;
@@ -61,7 +53,6 @@ pub(super) fn speed_lines(im: &mut Img, rear: i32, ground: i32, dir: i32, v: f32
         let u = |s: u32| unit(i, seed, s);
         let y = ground - 6 - (u(1) * 50.0) as i32;
         let len = (8.0 + v * 64.0 * (0.45 + u(2) * 0.8)) as i32;
-        // Each streak slides along and wraps, so the lines flicker past.
         let slide = ((tick as f32 * (4.0 + u(3) * 6.0)) as i32 + (u(4) * 48.0) as i32) % 36;
         let head = rear - dir * (slide + (u(5) * 12.0) as i32);
         let thick = u(6) > 0.6 && v > 0.6;
@@ -80,9 +71,6 @@ pub(super) fn speed_lines(im: &mut Img, rear: i32, ground: i32, dir: i32, v: f32
     }
 }
 
-/// A dithered rim of `ink` along the edges of the canvas, `k` (0 to 1) how
-/// strong: the same shape as the kit's vignette, but only the pixels of the
-/// rim are visited, in the order they are taken.
 pub(super) fn rim(im: &mut Img, k: f32, ink: char) {
     use std::sync::OnceLock;
     const DEPTH: i32 = 26;
@@ -116,8 +104,6 @@ pub(super) fn rim(im: &mut Img, k: f32, ink: char) {
     }
 }
 
-/// The streaks of wind across the sand at full tilt: thin lines racing
-/// along the lanes, low, behind everything.
 pub(super) fn wind(im: &mut Img, v: f32, tick: u32) {
     if v < 0.5 {
         return;
@@ -136,8 +122,6 @@ pub(super) fn wind(im: &mut Img, v: f32, tick: u32) {
     }
 }
 
-/// Two lances grinding on each other at the clash: sparks flicking off
-/// where they cross.
 pub(super) fn grind(im: &mut Img, at: (f32, f32), tick: u64, hot: f32) {
     let mut pen = Pen::new(im, 120);
     let n = 3 + (hot * 6.0) as u32;
@@ -152,14 +136,10 @@ pub(super) fn grind(im: &mut Img, at: (f32, f32), tick: u64, hot: f32) {
     pen.light(at.0 as i32 + 1, at.1 as i32, '9');
 }
 
-/// The crack of a hit at `at`, `age` ticks after: a flare of cross-rays at
-/// the instant, a star, a ring running out along the ground and sparks, all
-/// scaled by `weight`.
 pub(super) fn crack(im: &mut Img, at: (f32, f32), age: u32, weight: Weight, seed: u32, tick: u64) {
     let big = weight as i32;
     let (cx, cy) = (at.0 as i32, at.1 as i32);
     if age < 3 {
-        // The flare: a plus and an X in pale steel, thick for a heavy blow.
         let r = 6 + big * 5 - age as i32 * 2;
         for k in -r..=r {
             let ink = if k.abs() < r / 2 { 'w' } else { 'W' };
@@ -180,9 +160,6 @@ pub(super) fn crack(im: &mut Img, at: (f32, f32), age: u32, weight: Weight, seed
     }
 }
 
-/// Splinters of a lance breaking at `from`, `age` ticks after: slivers of
-/// timber turning as they fly, falling to the sand, and a long stump
-/// spinning off.
 pub(super) fn splinters(im: &mut Img, from: (f32, f32), age: u32, seed: u32, n: u32, floor: f32) {
     if age > 44 {
         return;
@@ -207,7 +184,6 @@ pub(super) fn splinters(im: &mut Img, from: (f32, f32), age: u32, seed: u32, n: 
         im.line(x as i32, y as i32, ex as i32, ey as i32, ink);
         im.put(x as i32, y as i32, 'H');
     }
-    // The stump: a long one, cartwheeling.
     let sp = a * 0.28;
     let (sx, sy) = (from.0 + (seed % 7) as f32 - 3.0 + a * 0.9, from.1 - 10.0 * ease::out((a / 8.0).min(1.0)) + 0.17 * a * a);
     if sy < floor + 2.0 {
@@ -218,8 +194,6 @@ pub(super) fn splinters(im: &mut Img, from: (f32, f32), age: u32, seed: u32, n: 
     }
 }
 
-/// A rider's landing in the sand: a ring of dust running out along the
-/// ground, puffs thrown up and settling, `age` ticks after he lands.
 pub(super) fn landing(im: &mut Img, at: (f32, f32), age: u32, seed: u32, tick: u64) {
     if age > 40 {
         return;
@@ -236,7 +210,6 @@ pub(super) fn landing(im: &mut Img, at: (f32, f32), age: u32, seed: u32, tick: u
     grit.each(a, |m| pfx::mote(&mut pen, &m, Shape::Dot, DUST, 1, tick));
 }
 
-/// Dizzy stars circling a head at `at`.
 pub(super) fn dizzy(im: &mut Img, at: (i32, i32), tick: u32) {
     for i in 0..3u32 {
         let ang = tick as f32 * 0.22 + i as f32 * TAU / 3.0;
@@ -252,9 +225,6 @@ pub(super) fn dizzy(im: &mut Img, at: (i32, i32), tick: u32) {
     }
 }
 
-/// A favour thrown from the gallery at `from` to a rider at `to`, `age`
-/// ticks into its `life`: a scarf in the rider's colours turning in the air,
-/// a glint where it lands.
 pub(super) fn favour(im: &mut Img, from: (i32, i32), to: (i32, i32), age: u32, life: u32, cloth: (char, char)) {
     if age >= life {
         return;
@@ -263,7 +233,6 @@ pub(super) fn favour(im: &mut Img, from: (i32, i32), to: (i32, i32), age: u32, l
     let (x, y) = motion::arc((from.0 as f32, from.1 as f32), (to.0 as f32, to.1 as f32), 34.0, ease::out_quad(t));
     let (x, y) = (x as i32, y as i32);
     let flip = (age / 2) % 2 == 0;
-    // A ribbon ten long and two thick with a black edge, rippling as it turns.
     let ribbon: Vec<(i32, i32)> = (0..14)
         .map(|k| {
             let w = if flip { (k as f32 * 0.7).sin() } else { -(k as f32 * 0.7).sin() };
@@ -289,7 +258,6 @@ pub(super) fn favour(im: &mut Img, from: (i32, i32), to: (i32, i32), age: u32, l
     }
 }
 
-/// A glint where something lands: a four-armed twinkle that swells and goes.
 pub(super) fn glint(im: &mut Img, at: (i32, i32), age: u32, life: u32) {
     if age >= life {
         return;
@@ -298,15 +266,12 @@ pub(super) fn glint(im: &mut Img, at: (i32, i32), age: u32, life: u32) {
     pen.twinkle((at.0 as f32, at.1 as f32), 5.0, age as f32 / life as f32, ramps::GOLD);
 }
 
-/// The ring of a closing strike over the tilt where the lances will meet:
-/// it closes as they come and burns gold while a strike would land.
 pub(super) fn closing_ring(im: &mut Img, at: (i32, i32), k: f32, hot: bool, tick: u32) {
     let r = 7.0 + (1.0 - k) * 40.0;
     let ink = if hot { if tick / 2 % 2 == 0 { '6' } else { '5' } } else { 'h' };
     let n = (r * 1.4) as i32 + 12;
     for i in 0..n {
         let a = i as f32 / n as f32 * TAU;
-        // Dashed, so a far ring is a light touch.
         if !hot && i % 3 == 0 {
             continue;
         }
@@ -317,7 +282,6 @@ pub(super) fn closing_ring(im: &mut Img, at: (i32, i32), k: f32, hot: bool, tick
         }
     }
     if hot {
-        // Tick marks: the lances' line.
         for dx in [-4, 4] {
             im.put(at.0 + dx * 2, at.1, '6');
         }
@@ -327,9 +291,6 @@ pub(super) fn closing_ring(im: &mut Img, at: (i32, i32), k: f32, hot: bool, tick
     }
 }
 
-/// The weight of a tumble's thump on the sand: a flat flash of dither at the
-/// instant of a hard blow, lighting the ground round `at` (a dim flare, not
-/// a glow that dims anyone).
 pub(super) fn flare(im: &mut Img, at: (i32, i32), k: f32, r: i32, ink: char) {
     if k <= 0.0 {
         return;
@@ -337,7 +298,6 @@ pub(super) fn flare(im: &mut Img, at: (i32, i32), k: f32, r: i32, ink: char) {
     for y in at.1 - r / 2..=at.1 + r / 2 {
         for x in at.0 - r..=at.0 + r {
             let d = ((x - at.0) as f32 / r as f32).powi(2) + ((y - at.1) as f32 / (r as f32 / 2.0)).powi(2);
-            // Only on bare dark sand: a flare never writes over a figure.
             if d < 1.0 && bayer(x, y) < (1.0 - d) * k * 0.55 && im.get(x, y).is_none_or(|c| c[0] < 56 && c[2] < 40) {
                 im.put(x, y, ink);
             }

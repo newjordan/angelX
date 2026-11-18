@@ -1,17 +1,11 @@
-# crates/delve/src/rules/hunt.rs: the foes' turn on a tick (`Run::play`): what
-# each monster sees, where it goes and what it looses.
 import Base
 
-# Is this knight there to be hunted: standing, not fled, not aloft?
 def peasant.Hero.targetable(hero: Hero) -> Bool:
   Bool.and(Bool.and(U32.is_gt(hero.hp, 0), Bool.not(hero.stone)), Bool.and(U32.is_eq(hero.flee_ticks, 0), Bool.not(hero.aloft)))
 
-# runes.rs: this knight carries an Invisibility rune.
 def runes.Hero.invisible(hero: Hero) -> Bool:
   Bool.and(String.eq(J.str(J.get(hero.rune, "kind")), "invisibility"), U32.is_gt(J.u32(J.get(hero.rune, "left")), 0))
 
-# The knights the monsters see: [id, x, y] of each standing one not under an
-# Invisibility rune, in seat order.
 def hunt.knights(players: J.Val) -> J.Val:
   out: J.Val = J.JA{Nil{}}
   for (k: String, hero: Hero) in J.int_fields(players):
@@ -19,8 +13,6 @@ def hunt.knights(players: J.Val) -> J.Val:
       out = J.push(out, J.JA{[J.of_u32(cb.key_u32(k)), J.of_f32(hero.x), J.of_f32(hero.y)]})
   out
 
-# How fast each of those runs, units a second (images and the hireling count
-# as standing still): [dx, dy] each.
 def hunt.knight_paces(players: J.Val, stood: J.Val, hero_speed: F32) -> J.Val:
   out: J.Val = J.JA{Nil{}}
   most: F32 = (hero_speed * 1.5 : F32)
@@ -37,8 +29,6 @@ def hunt.knight_paces(players: J.Val, stood: J.Val, hero_speed: F32) -> J.Val:
       out = J.push(out, cb.of_pair(px, py))
   out
 
-# The decoys the foes also see: the phantoms, the hireling (not down), the
-# minions. An array of [x, y].
 def hunt.decoys(run: Run) -> J.Val:
   out: J.Val = J.JA{Nil{}}
   for p: J.Val in J.items(J.get(run, "phantoms")):
@@ -50,21 +40,12 @@ def hunt.decoys(run: Run) -> J.Val:
     out = J.push(out, d)
   out
 
-# The room holds for its party: foes and their shots wait (Run::holding).
-def presence.Run.holding(run: Run) -> Bool:
-  Bool.not(String.eq(J.str(J.get(run, "held")), "open"))
-
-# Does the list of tags hold `blow`?
 def hunt.has_blow(blows: J.Val, blow: U32) -> Bool:
   for b: J.Val in J.items(blows):
     if U32.is_eq(J.u32(b), blow):
       return True{}
   False{}
 
-# The foes' turn: every monster awake and free to act sees the knights and
-# their images, moves and looses its shots and its pattern, held to its caps
-# and its leash. What they did beyond shooting comes back as deeds.
-# Answers (run, (sortie, deeds)) like the stub the core calls.
 def hunt.Run.foes_turn(run: Run, sortie: Sortie) -> J.Val & J.Val & J.Val:
   room: Room = J.nth(J.get(run.dungeon, "rooms"), run.at)
   ctx: FoeCtx = J.obj()
@@ -117,15 +98,12 @@ def hunt.Run.foes_turn(run: Run, sortie: Sortie) -> J.Val & J.Val & J.Val:
   sortie.shots = shots
   (run, (sortie, deeds))
 
-# One foe's turn. Answers (enemy, shots, deeds).
 def hunt.step(enemy: Enemy, ctx: FoeCtx, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds):
   enemy.signature.lingering = Bool.and(U32.is_ne(enemy.signature.blow, 0), hunt.has_blow(ctx.lingering, enemy.signature.blow))
   if U32.is_eq(enemy.hp, 0):
     return (enemy, shots, deeds)
-  # The room holds for its party: every foe waits, its telegraph and its stun with it.
   if ctx.holding:
     return (enemy, shots, deeds)
-  # Waiting in its chamber for a knight to come.
   if enemy.dormant:
     enemy.age = RS.u_sat_add(enemy.age, 1)
     return (enemy, shots, deeds)
@@ -136,8 +114,6 @@ def hunt.step(enemy: Enemy, ctx: FoeCtx, shots: J.Val, deeds: Deeds) -> (Enemy, 
     return (enemy, shots, deeds)
   living: J.Val = peasant.sights(ctx.tick, ctx.scarecrows, enemy, ctx.knights, ctx.decoys)
   living = minions.roared(ctx.raised, enemy, living)
-  # Lead patterns use the same targets as ordinary attacks, with each selected
-  # knight's pace in the matching slot. Decoys stand still.
   paces: J.Val = J.JA{Nil{}}
   for lv: J.Val in J.items(living):
     pace: J.Val = cb.of_pair(0.0, 0.0)
@@ -159,14 +135,10 @@ def hunt.step(enemy: Enemy, ctx: FoeCtx, shots: J.Val, deeds: Deeds) -> (Enemy, 
   (enemy, shots, deeds) = monsters.act(enemy, living, ctx.room, ctx.barred, ctx.seed, ctx.bosses, shots, deeds)
   if Bool.not(F32.is_eq(ctx.foe_pace, 1.0)):
     enemy = tune.foe_step(enemy, fx, fy, ctx.foe_pace, ctx.room, ctx.barred)
-  # A guardian in its own room fans nothing out: a party meets more of it in
-  # the room at once (`signatures::hold`), never thicker volleys.
   guardian: Bool = Bool.and(Bool.not(J.is_null(J.get(enemy, "boss"))), Bool.not(ctx.wanted))
   if Bool.and(Bool.and(U32.is_gt(enemy.fury, 0), U32.is_gt(J.len(shots), fired)), Bool.not(guardian)):
     shots = J.JA{stakes.fan_out(enemy.fury, J.items(shots), fired)}
-  # Its pattern, thickened by its own numbers, never fanned.
   (enemy, shots) = patterns.volley(enemy, living, paces, ctx.pack, ctx.depth, ctx.heads, ctx.room, ctx.barred, ctx.seed, ctx.bosses, shots)
-  # A library guardian's shots wear its own bank.
   boss: Boss = J.nth(ctx.bosses, J.u32(J.get(enemy, "boss")))
   has_boss: Bool = Bool.and(Bool.not(J.is_null(J.get(enemy, "boss"))), U32.is_lt(J.u32(J.get(enemy, "boss")), J.len(ctx.bosses)))
   if has_boss:
@@ -177,7 +149,6 @@ def hunt.step(enemy: Enemy, ctx: FoeCtx, shots: J.Val, deeds: Deeds) -> (Enemy, 
         if String.eq(s.traits.path.form, "plain"):
           s.look = look
           shots = J.set_nth(shots, (fired + si : U32), s)
-    # A guardian in its own room is held to its stage's caps.
     if Bool.not(ctx.wanted):
       before: U32 = 0
       for si: U32 in cb.range(RS.u_min(fired, J.len(shots))):
@@ -189,13 +160,10 @@ def hunt.step(enemy: Enemy, ctx: FoeCtx, shots: J.Val, deeds: Deeds) -> (Enemy, 
   deeds.bursts = J.JA{Nil{}}
   enemy = critters.quicken(enemy, fx, fy, ctx.room, ctx.barred)
   enemy = wishcraft.slow(enemy, fx, fy, ctx.room, ctx.barred)
-  # A barricade stops whatever walks into it.
   enemy = skills.shove(enemy, ctx.barricades)
   if Bool.and(Bool.and(ctx.side, Bool.not(monsters.EnemyKind.flies(enemy.kind))), Bool.not(outlaw.own_gravity(enemy, ctx.room))):
-    # Side-on, walkers walk; the ground decides their height.
     enemy.y = rest
     enemy = ledge.fall(enemy, ctx.room, ctx.barred)
-  # Never farther from home than its leash.
   match (enemy.home : U32?):
     case Some{h: U32}:
       if U32.is_lt(h, J.len(ctx.leashes)):

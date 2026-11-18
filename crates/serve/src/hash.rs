@@ -5,18 +5,12 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// SHA-1 of `data` (FIPS 180-4).
 pub fn sha1(data: &[u8]) -> [u8; 20] {
     sha1_until(data, &AtomicBool::new(false)).expect("a flag nobody sets")
 }
 
-/// How many bytes `sha1_until` hashes between looks at its flag: about two
-/// milliseconds of work.
 const CANCEL_STRIDE: usize = 1 << 20;
 
-/// SHA-1 of `data`, or `None` once `cancel` is set. The flag is read once per
-/// mebibyte, so a 44 MB file stops in a couple of milliseconds, not after its
-/// last block.
 pub fn sha1_until(data: &[u8], cancel: &AtomicBool) -> Option<[u8; 20]> {
     let mut h: [u32; 5] = [0x6745_2301, 0xEFCD_AB89, 0x98BA_DCFE, 0x1032_5476, 0xC3D2_E1F0];
     let bits = (data.len() as u64).wrapping_mul(8);
@@ -46,7 +40,6 @@ pub fn sha1_until(data: &[u8], cancel: &AtomicBool) -> Option<[u8; 20]> {
     Some(out)
 }
 
-/// One 64-byte block into the state.
 fn compress(h: &mut [u32; 5], block: &[u8]) {
     let mut w = [0u32; 80];
     for (i, word) in block.chunks_exact(4).enumerate() {
@@ -77,7 +70,6 @@ fn compress(h: &mut [u32; 5], block: &[u8]) {
 
 const BASE64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-/// Standard base64 with padding (RFC 4648 §4).
 pub fn base64(data: &[u8]) -> String {
     let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
     for chunk in data.chunks(3) {
@@ -95,7 +87,6 @@ pub fn base64(data: &[u8]) -> String {
     out
 }
 
-/// Whether `text` is base64 of exactly `len` bytes.
 pub fn is_base64_of(text: &str, len: usize) -> bool {
     let b = text.as_bytes();
     let pad = len.div_ceil(3) * 3 - len;
@@ -104,7 +95,6 @@ pub fn is_base64_of(text: &str, len: usize) -> bool {
         && b[b.len() - pad..].iter().all(|&c| c == b'=')
 }
 
-/// Lowercase hex.
 pub fn hex(data: &[u8]) -> String {
     data.iter().map(|b| format!("{b:02x}")).collect()
 }
@@ -128,7 +118,6 @@ mod tests {
     #[test]
     fn sha1_stops_when_cancelled_and_agrees_across_its_stride() {
         let flag = AtomicBool::new(false);
-        // Lengths either side of the stride and of a block.
         for len in [0, 55, 56, 64, CANCEL_STRIDE - 1, CANCEL_STRIDE, CANCEL_STRIDE + 63, 2 * CANCEL_STRIDE + 1] {
             let data: Vec<u8> = (0..len).map(|i| (i * 31 + i / 7) as u8).collect();
             assert_eq!(sha1_until(&data, &flag), Some(sha1(&data)), "{len}");
@@ -136,7 +125,6 @@ mod tests {
         let long = vec![7u8; 3 * CANCEL_STRIDE];
         flag.store(true, Ordering::Relaxed);
         assert_eq!(sha1_until(&long, &flag), None);
-        // Nothing to look at, nothing to cancel: an empty input still hashes.
         assert!(sha1_until(b"", &flag).is_some());
     }
 

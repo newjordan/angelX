@@ -20,11 +20,7 @@ pub(super) struct Host {
     issue: Option<String>,
 }
 
-/// The native queue owns the exact resolved completion through admission
-/// pressure/source removal. It is neither a second game receipt ledger nor a
-/// watcher: admitted effects/replay remain exclusively in the existing Journal.
 fn capture(shared: &Shared, origin: &Origin) -> (Batch, Vec<String>) {
-    // Observe before IO. Resolving native files/sheets never holds the Run lock.
     let (session, raid, book, bosses, seat_one) = {
         let core = lock(&shared.core);
         (
@@ -88,7 +84,6 @@ fn capture(shared: &Shared, origin: &Origin) -> (Batch, Vec<String>) {
     (batch, report)
 }
 enum Attempt {
-    // Only the tests read whether the batch changed anything (`admit_spells`).
     #[cfg_attr(not(test), allow(dead_code))]
     Accepted(bool),
     Deferred(String),
@@ -118,8 +113,6 @@ fn attempt(core: &mut Core, batch: Batch) -> Attempt {
     if let Err(error) = request.validate_payload() {
         return Attempt::Refused(error);
     }
-    // An unadmitted request must preserve its exact payload. An admitted
-    // refusal is authoritative feedback and may be corrected by new source.
     let receipt = match commands.apply(run, request) {
         Ok(receipt) => receipt,
         Err(error) => return Attempt::Deferred(error),
@@ -146,8 +139,6 @@ fn enqueue(shared: &Shared, host: &mut Host, origin: Origin) -> Vec<String> {
     if host.pending.iter().any(|p| p.origin == origin) {
         return vec!["catalogue: captured batch retained; admission will retry".into()];
     }
-    // At most one cards/manual, cards/spell and bosses source per session.
-    // Do not discard an older capture to make room for a different directory.
     if host.pending.len() >= 4 {
         return vec![
             "catalogue: pending source capacity reached; reload again after admission".into(),
@@ -197,7 +188,6 @@ fn retry(shared: &Shared, host: &mut Host) -> Vec<String> {
         let result = attempt(&mut lock(&shared.core), pending.batch.clone());
         match result {
             Attempt::Accepted(_) => {
-                // A no-op may have waited while App consumed a newer stamp.
                 if let Refresh::Replacement(next) = recapture(shared, &pending, true) {
                     host.pending.push_back(next);
                 }
@@ -542,7 +532,6 @@ mod tests {
             lock(&shared.core).run.book.get("captured"),
             Some(&spell("captured", 5))
         );
-        // A separate capture from the old session cannot enter a new owner.
         let origin = Origin::Cards(dir.clone(), false);
         let (batch, _) = capture(&shared, &origin);
         lock(&shared.catalogue)
@@ -571,7 +560,6 @@ mod tests {
             spell("captured", 4).definition_file(),
         )
         .unwrap();
-        // The App has already consumed its stamp; no further reload callback.
         release(&shared, ids);
         poll(&shared, None);
         assert_eq!(
@@ -601,8 +589,6 @@ mod tests {
             lock(&shared.catalogue).pending[0].batch.cards,
             vec![changed_spell("held", 4)]
         );
-        // Logical refusal is admitted feedback: a corrected source can supersede
-        // that refused payload, unlike a request still waiting on receipt space.
         std::fs::write(dir.join("held.card"), spell("held", 3).definition_file()).unwrap();
         std::fs::write(
             dir.join("distinct.card"),
@@ -670,8 +656,6 @@ mod tests {
         lock(&shared.core).run.seat_first("Replacement occupant");
         assert_ne!(lock(&shared.core).run.seat_epoch(1), epoch);
         release(&shared, ids);
-        // This invocation retires the old capture; it cannot manufacture a new
-        // capture for the replacement seat in the same retry pass.
         poll(&shared, Some(&dir));
         let core = lock(&shared.core);
         assert!(core.run.book.get("captured").is_none());
@@ -690,8 +674,6 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         let raw = format!("name Large\nkind hold\ndamage 1\ndraw aura\n{rows}\n");
-        // Individually checked source files fit their card bounds; their combined
-        // captured request exceeds the centralized Journal payload budget.
         cards::check("large-000", &raw).unwrap();
         for i in 0..320 {
             std::fs::write(dir.join(format!("large-{i:03}.card")), &raw).unwrap();
@@ -708,7 +690,7 @@ mod tests {
             spell("large-000", 3).definition_file(),
         )
         .unwrap();
-        poll(&shared, None); // Structural refusal permits a changed-source recapture.
+        poll(&shared, None);
         assert_eq!(
             lock(&shared.catalogue).pending[0].batch.cards,
             vec![spell("large-000", 3)]

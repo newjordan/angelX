@@ -6,11 +6,7 @@
 use super::*;
 
 impl Run {
-    /// The doorway (north, east, south, west) of this room to take next,
-    /// and what lies that way in two words; none in the Undercroft and the
-    /// world above, while the room still fights, or once the aim is here.
     pub fn way_on(&self) -> Option<(usize, &'static str)> {
-        // Side-on halls have one way back and draw their own doors.
         if self.at_home_now()
             || self.room().kind.in_world()
             || self.room().way_back().is_some()
@@ -43,8 +39,6 @@ impl Run {
         if aims.contains(&self.at) {
             return None;
         }
-        // Walks back out from every aim at once; the doorway leading to the
-        // nearest-walk neighbour is the way on.
         let mut far = vec![usize::MAX; rooms.len()];
         let mut queue = std::collections::VecDeque::new();
         for &aim in &aims {
@@ -72,8 +66,6 @@ impl Run {
 }
 
 impl Run {
-    /// In the Undercroft, before the party's first delve: the Winding
-    /// Stair (its middle, in units) and what it is.
     pub fn home_way(&self) -> Option<((f32, f32), &'static str)> {
         if !self.at_home_now() || self.room().kind != RoomKind::Home || self.home.deepest > 0 {
             return None;

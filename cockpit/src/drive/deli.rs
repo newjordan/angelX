@@ -54,43 +54,17 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-// ---------------------------------------------------------------------------
-// Stage prompts
-// ---------------------------------------------------------------------------
-//
-// The worker prompt, the structural-pivot reframe, the curated-state prompt
-// builder, finding parsing and dedup all live in [`crate::drive::iterate`] now, shared
-// with the cross-turn loop controller. Only the synthesis prompt — deli's own
-// final-answer stage — stays here.
-
-/// Fuses the accumulated findings into the final answer for the user: `⠬⠋`,
-/// whose first two pages are the synthesizer's brief and the rest its task.
 const DELI_SYNTHESIS: crate::agent::harness::book::Route =
     crate::agent::harness::book::ing_drivers::DELI_SYNTHESIS;
 
-/// deli's worker is offered no tools ([`DeliClub::call_cancellable`] passes an empty tool
-/// list and rejects a tool request outright), so it reasons over the problem
-/// statement alone. Asking it for filesystem or benchmark citations it has no
-/// way to obtain produces invented ones — see [`EvidenceRegime`].
 const DELI_REGIME: EvidenceRegime = EvidenceRegime::Reasoning;
 
-// ---------------------------------------------------------------------------
-// Knobs
-// ---------------------------------------------------------------------------
-
-/// Every tunable for a deli run, built from env by [`DeliClub::from_env`].
 #[derive(Clone)]
 struct Knobs {
-    /// Hard cap on iterations for one driver turn (≥1). The protocol's 15-round
-    /// session cap, shrunk so an interactive turn still terminates.
     rounds: usize,
-    /// `stale_count` at which the next iteration is forced to pivot structure.
     pivot: usize,
-    /// `stale_count` at which the loop gives up early (0 = never; runs full rounds).
     stall_stop: usize,
-    /// Stop early once this many distinct findings accumulate (0 = run all rounds).
     min_findings: usize,
-    /// Directory for the protocol's `state/` files (empty = in-memory only).
     state_dir: String,
 }
 
@@ -106,33 +80,15 @@ impl Default for Knobs {
     }
 }
 
-// ---------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------
-
-/// One iteration's summary, mirroring the protocol's `iteration_log.jsonl` line.
 #[derive(Clone)]
 struct IterLog {
     iteration: usize,
     direction: String,
     new_findings: usize,
     stale_count: usize,
-    /// Why this round surfaced nothing, when the cause was a failed call rather
-    /// than a worker that simply broke no new ground. A round that produced
-    /// nothing is ambiguous without this — "the model errored" and "the model
-    /// had nothing to add" demand opposite responses from anything watching.
     error: Option<String>,
 }
 
-/// The accumulated state of a run — the in-memory form of the protocol's `state/`.
-///
-/// Findings and hypotheses are kept apart on purpose. Only an *evidenced* finding
-/// is progress: it enters `findings` and resets the stall counter. Everything else
-/// — a bullet the worker labeled a hypothesis, or one it called a finding without
-/// citing a checkable source — lands in `hypotheses`, rides into the next curated
-/// prompt for validation, and never resets stall detection. Demoting rather than
-/// discarding keeps honest labeling free: a worker loses nothing by admitting an
-/// idea is untested, so it has no incentive to dress one up as a fact.
 #[derive(Default)]
 struct DeliState {
     iteration: usize,
@@ -143,12 +99,6 @@ struct DeliState {
     log: Vec<IterLog>,
 }
 
-// ---------------------------------------------------------------------------
-// DeliClub
-// ---------------------------------------------------------------------------
-
-/// A [`Club`] that answers by running a bounded Deli_AutoResearch loop over an
-/// inner club, then synthesizing the findings.
 pub struct DeliClub {
     name: String,
     inner: Arc<dyn Club>,
@@ -157,9 +107,6 @@ pub struct DeliClub {
 }
 
 impl DeliClub {
-    /// Build from env: `ANGEL_DELI_ROUNDS` (6, ≥1), `ANGEL_DELI_PIVOT` (2),
-    /// `ANGEL_DELI_STALL_STOP` (0 = off), `ANGEL_DELI_MIN_FINDINGS` (0 = off),
-    /// `ANGEL_DELI_STATE_DIR` (unset = in-memory).
     pub fn from_env(name: impl Into<String>, inner: Arc<dyn Club>) -> Self {
         let k = Knobs {
             rounds: env_usize("ANGEL_DELI_ROUNDS", 6).max(1),
@@ -176,8 +123,6 @@ impl DeliClub {
         }
     }
 
-    /// A model-selected side excursion. Its result returns to the calling
-    /// turn; it must not overwrite an operator's long-running Deli state.
     pub(crate) fn for_consult(
         inner: Arc<dyn Club>,
         rounds: Option<usize>,
@@ -192,9 +137,6 @@ impl DeliClub {
         deli
     }
 
-    /// One blocking call to the inner club with a fresh system prompt in front of
-    /// `msgs`. Deliberation rounds themselves are text-only; their action pass
-    /// receives the full native tool set.
     fn call_cancellable(
         &self,
         system: &str,
@@ -207,9 +149,6 @@ impl DeliClub {
         let mut full = Vec::with_capacity(msgs.len() + 1);
         full.push(ChatMsg::system(system));
         full.extend_from_slice(msgs);
-        // The text-only worker is connected: offered the ledger reader alone,
-        // so its routes read like every other seat's, on the ledger of the
-        // workspace its turn entered.
         crate::agent::harness::book::connect::chat(
             &*self.inner,
             &crate::agent::harness::book::connect::workspace(),
@@ -219,18 +158,10 @@ impl DeliClub {
         )
     }
 
-    /// Run the bounded loop, accumulating findings. Each round runs on a *fresh*
-    /// context (only [`curated_prompt`](crate::drive::iterate::curated_prompt)), detects
-    /// stalls, and forces a structural pivot once stalled. Returns the state.
     fn iterate(&self, problem: &str, base_sys: &str, cancel: &AtomicBool) -> DeliState {
         let mut st = DeliState::default();
         let mut seen: HashSet<String> = HashSet::new();
         let mut seen_hypotheses: HashSet<String> = HashSet::new();
-        // Direction identity is retained once per invocation. The ordered
-        // original strings still ride in prompts and persist files; membership
-        // uses this set so each prior direction is not re-normalized on every
-        // later round. Distinct from `seen` / `seen_hypotheses`, which key off
-        // finding *claims* (evidence-stripped) rather than DIRECTION lines.
         let mut seen_directions: HashSet<String> = HashSet::new();
         let system = compose(
             &crate::agent::harness::book::er_loop::WORKER.cells(),
@@ -257,19 +188,11 @@ impl DeliClub {
             let (direction, reported, mut leads) =
                 match self.call_cancellable(&system, &[ChatMsg::user(prompt)], cancel) {
                     Ok(out) => parse_iteration_sections(&out),
-                    // A failed iteration counts as a stall, not a crash — the loop
-                    // keeps going (bounded by rounds / stall_stop) rather than
-                    // aborting. The reason is retained so a stalled run can say
-                    // whether the worker was failing or merely unproductive.
                     Err(e) => {
                         round_error = Some(e);
                         (String::new(), Vec::new(), Vec::new())
                     }
                 };
-            // Only an evidenced finding is progress. An unevidenced one is a
-            // lead, not a fact — it joins the hypotheses instead of inflating
-            // the ledger and masking a stall. Dedup keys off the claim, so the
-            // same assertion re-cited a second way is still not new ground.
             let mut fresh = Vec::new();
             for f in reported {
                 if !has_evidence_tag(&f, DELI_REGIME) {
@@ -307,10 +230,6 @@ impl DeliClub {
                 st.stale_count = 0;
                 st.findings.extend(fresh);
             }
-            // A repeated DIRECTION must not grow the tried-list: it rides in
-            // every later prompt, and a padded record misreports the search as
-            // broader than it was. Insert the normalized key once; keep the
-            // first original string in `directions_tried`.
             let direction = direction.trim();
             if !direction.is_empty() && seen_directions.insert(normalize(direction)) {
                 st.directions_tried.push(direction.to_string());
@@ -334,14 +253,6 @@ impl DeliClub {
         st
     }
 
-    /// Fuse the accumulated findings into a single answer. With nothing surfaced
-    /// (e.g. the worker was down), fall back to a direct pass so the user still
-    /// gets an answer rather than an empty one.
-    /// Open leads are handed to the synthesizer alongside the findings, marked
-    /// unverified. A run can legitimately end with leads but no evidenced
-    /// finding; discarding them there would throw away the entire loop and
-    /// answer from a cold pass instead. Only a genuinely empty run — no findings
-    /// *and* no leads, e.g. the worker was down — falls through to a direct pass.
     #[cfg(test)]
     fn synthesize(
         &self,
@@ -369,12 +280,9 @@ impl DeliClub {
     ) -> Result<String, String> {
         use crate::agent::harness::book::d3_roles::pages;
         if findings.is_empty() && hypotheses.is_empty() {
-            // Nothing surfaced: the brief alone (`⠬⠋⠁⠬⠋⠃`), the problem as data.
             let system = compose(&pages(DELI_SYNTHESIS, [1, 2]), base_sys);
             return self.call_cancellable(&system, &[ChatMsg::user(problem)], cancel);
         }
-        // `⠬⠋`: the brief and the task are the pages; the problem, the findings
-        // and the open leads ride as data under their keys.
         let system = compose(&DELI_SYNTHESIS.cells(), base_sys);
         let findings_txt = if findings.is_empty() {
             "none established".to_string()
@@ -390,9 +298,6 @@ impl DeliClub {
         self.call_cancellable(&system, &[ChatMsg::user(msg)], cancel)
     }
 
-    /// Best-effort write under `state_dir/<canonical-project-key>/state/`. A
-    /// no-op when no dir or project-bound turn is configured; IO failures are
-    /// swallowed so persistence can never break a run.
     fn persist(&self, st: &DeliState) {
         if self.k.state_dir.is_empty() {
             return;
@@ -419,8 +324,6 @@ impl DeliClub {
             "stale_count": st.stale_count,
             "status": status,
         });
-        // Bulk tier: rewritten every iteration and polled by readers, so
-        // atomic publish (never torn JSON) matters; fsync does not.
         let _ = crate::platform::workspace_store::write_atomic(
             &dir.join("progress.json"),
             progress.to_string().as_bytes(),
@@ -472,9 +375,6 @@ impl DeliClub {
         );
     }
 
-    /// Drive a turn: iterate, then synthesize. Streams the final answer in one
-    /// delta on the streaming path (the loop itself can't stream — it's many
-    /// internal calls before the answer exists).
     fn run(
         &self,
         history: &[ChatMsg],
@@ -493,7 +393,6 @@ impl DeliClub {
             .map(|m| m.content.clone())
             .unwrap_or_default();
 
-        // Nothing to work on → one direct pass through the inner club.
         if problem.trim().is_empty() {
             let reply = if stream {
                 self.inner.chat_streaming(history, &[], cancel, on_delta)?
@@ -515,8 +414,6 @@ impl DeliClub {
         Ok(answer)
     }
 
-    /// Deliberate once before the action phase, then keep the tool protocol
-    /// intact. Subsequent tool-result hops must not restart all Deli rounds.
     fn run_with_tools(
         &self,
         history: &[ChatMsg],
@@ -554,7 +451,6 @@ impl DeliClub {
             return Err("deli cancelled".into());
         }
         let mut action = history.to_vec();
-        // `⠬⠁`: the action seat carries tools; the frame's words are the pages.
         action.push(ChatMsg::harness(format!(
             "{}\nfindings:\n{}\n\nopen leads:\n{}",
             crate::agent::harness::book::ing_drivers::DELI.cells(),
@@ -585,8 +481,6 @@ impl Club for DeliClub {
         self.inner.usage_accounting()
     }
 
-    /// Deli runs its rounds against the same inner model endpoint, so it's only
-    /// reachable when that endpoint is — delegate the readiness probe.
     fn is_available(&self) -> bool {
         self.inner.is_available()
     }
@@ -658,29 +552,14 @@ impl Club for DeliClub {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Live calibration
-// ---------------------------------------------------------------------------
-
-/// What one live deli run produced, scored against the regime it ran under.
-///
-/// The number that matters is `fabricated`: findings citing a source kind the
-/// worker had no way to obtain. Under [`EvidenceRegime::Reasoning`] that count
-/// must be zero — a tool-less worker citing `file:` or `benchmark:` invented the
-/// reference. It is measured rather than assumed because the failure is a
-/// property of the *model*, not of this code, and models change under us.
 #[derive(Default, Clone)]
 struct CalibrationRun {
     worker: String,
     problem: String,
     iterations: usize,
-    /// Findings admitted as progress (carried an in-regime citation).
     admitted: usize,
-    /// Claims kept as unverified open leads (labeled hypotheses + demotions).
     leads: usize,
-    /// Bullets whose citation names a kind this worker cannot obtain. Must be 0.
     fabricated: usize,
-    /// Bullets carrying no `[evidence: …]` tag at all.
     untagged: usize,
     stale_count: usize,
     directions: usize,
@@ -688,7 +567,6 @@ struct CalibrationRun {
 }
 
 impl CalibrationRun {
-    /// Share of emitted bullets that carried a well-formed in-regime citation.
     fn compliance(&self) -> f64 {
         let total = self.admitted + self.leads;
         if total == 0 {
@@ -698,9 +576,6 @@ impl CalibrationRun {
     }
 }
 
-/// Score every bullet a run produced against `regime`, without re-calling the
-/// model: the state carries the admitted findings, and the open leads carry
-/// everything that was demoted or self-labeled.
 fn score_run(
     worker: &str,
     problem: &str,
@@ -715,8 +590,6 @@ fn score_run(
         leads: st.hypotheses.len(),
         stale_count: st.stale_count,
         directions: st.directions_tried.len(),
-        // A run that surfaced nothing is only interpretable alongside why: a
-        // failing worker and an unproductive one look identical in the counts.
         error: st
             .log
             .iter()
@@ -724,9 +597,6 @@ fn score_run(
             .map(|e| e.chars().take(60).collect()),
         ..Default::default()
     };
-    // A demoted lead still carries whatever citation the worker attached, so
-    // this is where fabrication shows up: the gate rejected it, and we count
-    // *why* it was rejected.
     for lead in &st.hypotheses {
         match crate::drive::iterate::evidence_source(lead) {
             None => out.untagged += 1,
@@ -737,11 +607,6 @@ fn score_run(
     out
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/// Split a conversation into (merged system text, non-system messages).
 fn split_system(history: &[ChatMsg]) -> (String, Vec<ChatMsg>) {
     let mut sys = String::new();
     let mut rest = Vec::new();
@@ -758,7 +623,6 @@ fn split_system(history: &[ChatMsg]) -> (String, Vec<ChatMsg>) {
     (sys, rest)
 }
 
-/// Prepend `primary`, then fold in the conversation's own system prompt (if any).
 fn compose(primary: &str, base_sys: &str) -> String {
     if base_sys.trim().is_empty() {
         primary.to_string()
@@ -774,9 +638,191 @@ fn env_usize(key: &str, default: usize) -> usize {
         .unwrap_or(default)
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct DeliCostEstimate {
+    pub rounds: usize,
+    pub est_tokens: usize,
+    pub min_tokens_runway: usize,
+    pub est_secs: u64,
+    pub est_credits: f64,
+    pub min_credits_runway: f64,
+}
+
+impl DeliCostEstimate {
+    pub(crate) fn for_rounds(rounds: usize) -> Self {
+        let r = rounds.max(1);
+        let est_tokens = 12_000usize.saturating_mul(r).saturating_add(8_000);
+        let est_secs = 75u64.saturating_mul(r as u64).saturating_add(45);
+        let est_credits = 0.30 * (r as f64 + 1.0);
+        Self {
+            rounds: r,
+            est_tokens,
+            min_tokens_runway: est_tokens.saturating_mul(5) / 2,
+            est_secs,
+            est_credits,
+            min_credits_runway: est_credits * 2.5,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct LoopRunwaySnapshot {
+    pub started_ms: u64,
+    pub deadline_secs: u64,
+    pub token_budget: usize,
+    pub tokens_spent: usize,
+    pub max_iters: usize,
+    pub iteration: usize,
+}
+
+static ACTIVE_LOOP_RUNWAY: std::sync::Mutex<Option<LoopRunwaySnapshot>> =
+    std::sync::Mutex::new(None);
+
+pub(crate) fn set_active_loop_runway(snapshot: Option<LoopRunwaySnapshot>) {
+    if let Ok(mut guard) = ACTIVE_LOOP_RUNWAY.lock() {
+        *guard = snapshot;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct DeliDisengaged {
+    pub est: DeliCostEstimate,
+    pub reason: String,
+}
+
+impl DeliDisengaged {
+    pub(crate) fn consult_notice(&self, label: &str) -> String {
+        format!(
+            "[consult_model club={label}] [method=deli disengaged — endgame runway]\n             Deli (rounds={}, est. ~{} tok / ~${:.2}) does not engage at the end of a bounded timer or budget ({}).\n             Spend remaining runway shipping direct, bounded, verifiable increments immediately.",
+            self.est.rounds, self.est.est_tokens, self.est.est_credits, self.reason
+        )
+    }
+}
+
+fn endgame_time_floor_secs(total_secs: u64, est_secs: u64) -> u64 {
+    let ten_pct = total_secs / 10;
+    if total_secs >= 2_400 {
+        900u64.max(ten_pct)
+    } else if total_secs > 0 {
+        (total_secs * 12 / 100).max(est_secs.min(total_secs / 2))
+    } else {
+        900
+    }
+}
+
+pub(crate) fn check_deli_runway_with(
+    rounds: usize,
+    now_epoch_ms: u64,
+    loop_snap: Option<LoopRunwaySnapshot>,
+    env_deadline_epoch: Option<u64>,
+    env_total_secs: Option<u64>,
+    credits_remaining_and_cap: Option<(f64, Option<f64>)>,
+) -> Result<DeliCostEstimate, DeliDisengaged> {
+    let est = DeliCostEstimate::for_rounds(rounds);
+
+    if let Some(snap) = loop_snap {
+        if snap.deadline_secs > 0 && snap.started_ms > 0 {
+            let elapsed_s = now_epoch_ms.saturating_sub(snap.started_ms) / 1_000;
+            let rem_s = snap.deadline_secs.saturating_sub(elapsed_s);
+            let floor_s = endgame_time_floor_secs(snap.deadline_secs, est.est_secs);
+            if rem_s < floor_s {
+                return Err(DeliDisengaged {
+                    est,
+                    reason: format!("{}m {}s left on {}m loop timer (< {}m endgame cutoff)", rem_s / 60, rem_s % 60, snap.deadline_secs / 60, floor_s / 60),
+                });
+            }
+        }
+        if snap.token_budget > 0 {
+            let rem_tok = snap.token_budget.saturating_sub(snap.tokens_spent);
+            let floor_tok = (snap.token_budget / 10).max(est.min_tokens_runway.min(snap.token_budget / 2));
+            if rem_tok < floor_tok {
+                return Err(DeliDisengaged {
+                    est,
+                    reason: format!("{rem_tok} tokens left of {} token budget (< {floor_tok} endgame cutoff)", snap.token_budget),
+                });
+            }
+        }
+        if snap.max_iters > 0 {
+            let rem_iters = snap.max_iters.saturating_sub(snap.iteration);
+            let floor_iters = (snap.max_iters / 10).max(1);
+            if rem_iters <= floor_iters && snap.max_iters > 1 {
+                return Err(DeliDisengaged {
+                    est,
+                    reason: format!("{rem_iters} iteration(s) left of {} max_iters", snap.max_iters),
+                });
+            }
+        }
+    }
+
+    if let Some(dl_epoch) = env_deadline_epoch.filter(|&d| d > 0) {
+        let now_s = now_epoch_ms / 1_000;
+        let rem_s = dl_epoch.saturating_sub(now_s);
+        let floor_s = endgame_time_floor_secs(env_total_secs.unwrap_or(0), est.est_secs);
+        if rem_s < floor_s {
+            return Err(DeliDisengaged {
+                est,
+                reason: format!("{}m left before run deadline (< {}m endgame cutoff)", rem_s / 60, floor_s / 60),
+            });
+        }
+    }
+
+    if let Some((left, cap)) = credits_remaining_and_cap {
+        let pct_floor = cap.filter(|&c| c > 0.0).map(|c| c * 0.10).unwrap_or(0.0);
+        let floor = est.min_credits_runway.max(pct_floor);
+        if left < floor {
+            return Err(DeliDisengaged {
+                est,
+                reason: format!("{left:.2} credits left (< {floor:.2} endgame runway floor)"),
+            });
+        }
+    }
+
+    Ok(est)
+}
+
+fn probe_gateway_credits() -> Option<(f64, Option<f64>)> {
+    if let Ok(rem) = std::env::var("ANGEL_BUDGET_REMAINING_USD")
+        && let Ok(left) = rem.trim().parse::<f64>()
+        && left.is_finite()
+    {
+        let cap = std::env::var("ANGEL_BUDGET_MAX_USD")
+            .ok()
+            .and_then(|v| v.trim().parse::<f64>().ok())
+            .filter(|v| v.is_finite() && *v > 0.0);
+        return Some((left, cap));
+    }
+    let url = std::env::var("OPENRSI_GATEWAY_STATUS_URL")
+        .or_else(|_| std::env::var("ANGEL_GATEWAY_STATUS_URL"))
+        .ok()?;
+    if url.trim().is_empty() {
+        return None;
+    }
+    let agent = ureq::AgentBuilder::new()
+        .timeout(std::time::Duration::from_millis(150))
+        .build();
+    let val: serde_json::Value = agent.get(url.trim()).call().ok()?.into_json().ok()?;
+    let left = val.pointer("/remaining/normalized_usd").and_then(|v| v.as_f64())?;
+    let cap = val.pointer("/limits/max_model_credits").and_then(|v| v.as_f64());
+    Some((left, cap))
+}
+
+pub(crate) fn check_deli_runway(rounds: Option<usize>) -> Result<DeliCostEstimate, DeliDisengaged> {
+    let default_rounds = env_usize("ANGEL_DELI_ROUNDS", 3);
+    let r = rounds.unwrap_or(default_rounds);
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let snap = ACTIVE_LOOP_RUNWAY.lock().ok().and_then(|g| *g);
+    let dl = std::env::var("ANGEL_DEADLINE_EPOCH")
+        .or_else(|_| std::env::var("DUNGENESS_AGENT_DEADLINE_EPOCH"))
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok());
+    let total_s = std::env::var("ANGEL_TOTAL_SECS")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok());
+    check_deli_runway_with(r, now_ms, snap, dl, total_s, probe_gateway_credits())
+}
 
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/deli__tests.rs"]

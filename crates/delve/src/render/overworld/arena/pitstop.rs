@@ -53,7 +53,6 @@ fn fly(cv: &mut Img, x: i32, y: i32, tick: u32) {
     cv.put(x + 2, y - 1, 'J');
 }
 
-/// Each physical stall has its own door and restrained occupancy indicator.
 pub(super) fn booth(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     for (lane, (px, py)) in run.room().privy_stalls().into_iter().enumerate() {
@@ -96,7 +95,6 @@ fn carved(run: &Run, w: i32, names: usize) -> Img {
     let h = 19 + ranked.len().clamp(1, 4) as i32 * 10;
     let mut im = Img::new(w, h);
     chrome::inset_panel(&mut im, (0, 0, w, h), Tone::TIMBER);
-    // The planks' seams, a shade under the wood.
     for y in (9..h - 3).step_by(7) {
         im.line(3, y, w - 4, y, 'b');
     }
@@ -138,7 +136,6 @@ pub(super) fn bob(hero: &Hero, tick: u32) -> i32 {
     }
 }
 
-/// Nearest-neighbour sprite transform: every enlarged texel remains crisp.
 fn resized(im: &Img, w: i32, h: i32) -> Img {
     let mut out = Img::new(w, h);
     for y in 0..h {
@@ -170,8 +167,6 @@ fn sparkle(cv: &mut Img, x: i32, y: i32, tick: u32) {
     cv.put(x, y, 'T');
 }
 
-/// The window's frame: one framed brass board (`chrome`), a brass stud in
-/// each corner, and grooves under the header and over the result.
 fn frame(im: &mut Img) {
     let (w, h) = (im.w, im.h);
     chrome::inset_panel(im, (0, 0, w, h), Tone::FRAMED);
@@ -186,7 +181,6 @@ fn frame(im: &mut Img) {
     chrome::rule(im, 8, w - 9, 146);
 }
 
-/// Slow distant clouds, nearer tree silhouettes, and a textured flagstone bay.
 fn backdrop(cv: &mut Img, tick: u32, seed: u32) {
     cv.rect(0, 0, cv.w, cv.h, 's');
     cv.rect(0, 32, cv.w, 45, 'x');
@@ -197,7 +191,6 @@ fn backdrop(cv: &mut Img, tick: u32, seed: u32) {
         let x = (i * 83 + tick as i32 / 18).rem_euclid(cv.w + 50) - 25;
         cv.ellipse(x as f32, 27.0 + (i % 2) as f32 * 9.0, 27.0, 3.0, 'x');
     }
-    // Far pines move slowly; the nearer oak sprites carry the realm's leaf ink.
     for i in 0..10 {
         let x = (i * 39 - tick as i32 / 70).rem_euclid(cv.w + 40) - 20;
         cv.rect(x, 52, 3, 35, 'f');
@@ -218,7 +211,6 @@ fn backdrop(cv: &mut Img, tick: u32, seed: u32) {
             .recolor(&[('E', 'F'), ('l', 'E'), ('L', 'l'), ('A', 'e')]);
         cv.stamp(&scaled(&tree, 3), x - 24, 37 + i % 2 * 4);
     }
-    // A mossy stone garden wall with chipped caps, behind the changing bay.
     cv.rect(0, 79, cv.w, 8, 'X');
     cv.rect(0, 78, cv.w, 2, 'G');
     for x in (0..cv.w).step_by(18) {
@@ -350,8 +342,6 @@ fn armour_flights(cv: &mut Img, stop: &Stop, hero: &Hero, id: u32) {
         let age = fitted.map_or(age, |t| stop.total.saturating_sub(t));
         let k = (age as f32 / FLIGHT_TICKS as f32).min(1.0);
         let start = (82, 64 + piece as i32 * 10);
-        // Hit the floor at two thirds, then bounce there. Dressing traverses
-        // the exact same path backwards, including the little floor bounce.
         let flight = if dressing { 1.0 - k } else { k };
         let x = start.0 as f32 + (target.0 - start.0) as f32 * flight;
         let y = if flight < 0.67 {
@@ -404,7 +394,6 @@ fn celebration(cv: &mut Img, quality: Quality, age: u32, x: i32, y: i32) {
                     age + i as u32 * 3,
                 );
             }
-            // Tiny trumpet, flared bell and a bobbing ribbon.
             let trumpet = Img::from_rows(&[
                 "..........OO",
                 ".........OTT",
@@ -441,7 +430,6 @@ fn celebration(cv: &mut Img, quality: Quality, age: u32, x: i32, y: i32) {
             }
         }
         Quality::Disaster => {
-            // Unrolling parchment catches a boot and ripples along the floor.
             cv.line(x + 7, y - 5, x + 12, y + 1, 'T');
             for col in 0..48 {
                 let dy = ((col as f32 * 0.3 + age as f32 * 0.25).sin() * 2.0) as i32;
@@ -468,7 +456,6 @@ fn scene(run: &Run, id: u32, hero: &Hero) -> Img {
         tick,
         hash(run.room().cell.0, run.room().cell.1, run.dungeon.depth),
     );
-    // The finish pennants belong to the race; clear the stage for grade props.
     if stop.is_some() {
         finish_line(&mut cv, tick);
     }
@@ -497,7 +484,6 @@ fn scene(run: &Run, id: u32, hero: &Hero) -> Img {
     let booth = scaled(&booth, 2);
     cv.ellipse(213.0, 105.0, 33.0, 5.0, 'X');
     cv.stamp(&booth, 183 + shake, 104 - booth.h);
-    // Ivy, step and moon-window light make the booth part of the realm.
     cv.rect(191, 104, 43, 3, 'P');
     cv.line(191, 104, 232, 104, 'O');
     for i in 0..4 {
@@ -629,7 +615,6 @@ fn pop_offset(age: u32) -> i32 {
     [9, 3, -3, -5, -3, 0, 2, 1, 0][(age / 2).min(8) as usize]
 }
 
-/// The whole visit is one large window, including the result and its close.
 pub(super) fn panel(cv: &mut Img, run: &Run, focus: Option<u32>, _legible: bool) {
     let selected = focus.or_else(|| run.players.keys().next().copied());
     let Some((id, hero)) = selected.and_then(|id| run.players.get(&id).map(|h| (id, h))) else {
@@ -702,7 +687,6 @@ pub(super) fn panel(cv: &mut Img, run: &Run, focus: Option<u32>, _legible: bool)
                     |(g, _)| g.word(),
                 );
                 centered(&mut window, 189, hint, 'h');
-                // A drawn button cap, with the controls branch's fire key.
                 chrome::inset_panel(&mut window, (322, 167, 15, 15), Tone::SLATE);
                 window.text(327, 171, "F", 'i');
             }
@@ -720,9 +704,6 @@ pub(super) fn panel(cv: &mut Img, run: &Run, focus: Option<u32>, _legible: bool)
                     Stage::Inside => "SIT TIGHT",
                     _ => "GO GO!",
                 };
-                // Something to read while sitting: every other beat (two
-                // thirds of a second) a line off the wall stands where the
-                // words were.
                 let read = (stop.stage == Stage::Inside && !run.home.privy_wall.is_empty())
                     .then(|| stop.t as usize / 20)
                     .filter(|beat| beat % 2 == 1);
@@ -776,7 +757,6 @@ pub(super) fn panel(cv: &mut Img, run: &Run, focus: Option<u32>, _legible: bool)
         .result
         .as_ref()
         .map_or(1.0, |r| (r.left as f32 / 10.0).min(1.0));
-    // Opening decelerates into place; closing accelerates out to a thin slit.
     let ease = if closing < 1.0 {
         closing * closing
     } else {
@@ -785,7 +765,6 @@ pub(super) fn panel(cv: &mut Img, run: &Run, focus: Option<u32>, _legible: bool)
     let w = (352.0 * (0.72 + 0.28 * ease)) as i32;
     let h = (202.0 * ease).max(2.0) as i32;
     let window = resized(&window, w, h);
-    // Dim only the seat's own arena; an opaque dither veil keeps the palette.
     for y in 0..cv.h {
         for x in 0..cv.w {
             if (x + y) % 4 != 0 {

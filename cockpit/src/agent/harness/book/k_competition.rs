@@ -25,13 +25,10 @@ pub(crate) const WATCHER: Route = Route::new(CELL, '⠉');
 pub(crate) const SUBMIT: Route = Route::new(CELL, '⠙');
 pub(crate) const IMPROVE: Route = Route::new(CELL, '⠑');
 pub(crate) const NO_TIMEOUT: Route = Route::new(CELL, '⠋');
-// ⠅⠛ ⠅⠓ ⠅⠊ stay in the book; no code raises them since the GPU-comp path went.
 pub(crate) const DOCTRINE: Route = Route::new(CELL, '⠛');
 pub(crate) const LIVING_PEER: Route = Route::new(CELL, '⠓');
 pub(crate) const FREE_TRAIN: Route = Route::new(CELL, '⠊');
 
-/// The competition's shelf, ⡅ (dot 7 on ⠅): the 0.1.6 advisories that only a
-/// competition turn hears. ⠅ has one cell left and these need five.
 pub(crate) const SHELF_CELL: char = '⡅';
 pub(crate) const WINNER_BANK: Route = Route::new(SHELF_CELL, '⠁');
 pub(crate) const CANDIDATE_CHANGED: Route = Route::new(SHELF_CELL, '⠃');
@@ -125,13 +122,10 @@ pub(crate) const PRIMARY: Primary = Primary {
     ],
 };
 
-/// The route order for the competition loop at `pace`.
 pub(crate) fn engage(pace: TaskPace) -> Vec<Raise> {
     engage_routes(pace, None)
 }
 
-/// Competition entry plus the persisted brief, carried inline so the model
-/// receives evidence rather than only recording it in a ledger.
 pub(crate) fn engage_for_workspace(pace: TaskPace, workspace: &std::path::Path) -> Vec<Raise> {
     engage_routes(pace, Some(workspace))
 }
@@ -154,9 +148,6 @@ fn engage_routes(pace: TaskPace, workspace: Option<&std::path::Path>) -> Vec<Rai
     raises
 }
 
-/// The turn a finished slot arrives as: the warpath, then its receipt (id,
-/// status, score or reason) as data, which is what the 0.1.6 watcher notice
-/// carried.
 pub(crate) fn watcher_turn(workspace: &std::path::Path, notify: &WatchNotify) -> String {
     let map_issue = crate::drive::labyrinth::observe_submission(workspace, notify)
         .err()
@@ -177,7 +168,6 @@ pub(crate) fn watcher_turn(workspace: &std::path::Path, notify: &WatchNotify) ->
     )
 }
 
-/// The warpath for a slot the watcher saw finish, with its receipt.
 pub(crate) fn watcher(notify: &WatchNotify) -> Vec<Raise> {
     let mut receipt = format!("submission {} status={}", notify.id, notify.status);
     match (&notify.score, &notify.rejection_reason) {

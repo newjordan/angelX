@@ -41,7 +41,6 @@ fn a_session_is_bounded_and_repair_mends_it() {
 fn the_door_opens_at_its_tile_and_a_personal_leave_returns_to_it() {
     let mut r = Run::at_home(41, 1, None, Default::default(), Default::default());
     r.walk_kingdom(Some(ENTRY));
-    // The press that walked in is let go first, then E opens the door.
     r.step(&BTreeMap::new());
     assert!(!r.moonfall_showing());
     press_e(&mut r);

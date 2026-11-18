@@ -46,8 +46,6 @@ fn settling_a_pin_releases_a_held_reader_and_yields_the_same_digest() {
 
     hold_pin_hashing();
     let pinned = capture_executable(executable.clone(), "held tool").unwrap();
-    // The first reader to settle opens the latch for everyone, so a caller that
-    // needs the digest can never wait on a held thread.
     let digest = pinned.digest().unwrap().cloned();
     release_pin_hashing();
     assert_eq!(

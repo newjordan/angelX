@@ -50,14 +50,9 @@ use state::{
 use town::Q;
 
 pub const NAME: &str = "Moonfall";
-/// The kingdom tile its door stands on: walk up and press E.
 pub const ENTRY: (i32, i32) = (78, 92);
-/// Its place in `roundtable::ADVENTURES` and in `Tune::roundtable`.
 pub const SLOT: usize = 1;
-/// What a finished run saves to the Home, as the Forest Road's
-/// `CAMPAIGN_MARK` does. Marks are settled at the save (`settle`).
 pub const CAMPAIGN_MARK: &str = "moonfall:campaign-begun";
-/// The table that saved the town, by its seats: the purse is for them.
 pub const PARTY_MARKS: [&str; 6] = [
     "moonfall:party-1",
     "moonfall:party-2",
@@ -66,8 +61,6 @@ pub const PARTY_MARKS: [&str; 6] = [
     "moonfall:party-5",
     "moonfall:party-6",
 ];
-/// Every mark this adventure may write: the crash-safe intent journal keeps
-/// exactly these (`roundtable::intent_key`).
 pub const MARKS: &[&str] = &[
     CAMPAIGN_MARK,
     PARTY_MARKS[0],
@@ -77,26 +70,13 @@ pub const MARKS: &[&str] = &[
     PARTY_MARKS[4],
     PARTY_MARKS[5],
 ];
-/// The five numbers (the brief's "five numbers"). `Tune::roundtable[SLOT]`
-/// holds them; each is a live knob on the F2 panel.
 pub const NUMBERS: [Number; 5] = [
-    // Ticks in a day: the loop is three of them. Longer, and the folk are
-    // easier to catch up with; shorter, and the favours press.
     Number { name: "moonfall_day", label: "Ticks in a day", constant: "moonfall::NUMBERS[0]", min: 1800, max: 6000, start: 3000 },
-    // A knight's pace against a villager's, in percent. Higher, and
-    // intercepting is easy; lower, and you must plan the walk.
     Number { name: "moonfall_walk", label: "Knight speed, % of folk", constant: "moonfall::NUMBERS[1]", min: 100, max: 300, start: 150 },
-    // Wisps after dusk for one knight; two more for each knight beyond.
     Number { name: "moonfall_wisps", label: "Wisps after dusk", constant: "moonfall::NUMBERS[2]", min: 0, max: 8, start: 4 },
-    // Ticks the rewind ritual takes: the clock spins back, the bell tolls,
-    // the card fades in. Control returns at seven-tenths of it.
     Number { name: "moonfall_rewind", label: "Rewind ritual ticks", constant: "moonfall::NUMBERS[3]", min: 20, max: 44, start: 40 },
-    // How near a knight must be to witness: the Ledger writes what is seen
-    // inside this many pixels.
     Number { name: "moonfall_notice", label: "Notice radius, pixels", constant: "moonfall::NUMBERS[4]", min: 24, max: 160, start: 64 },
 ];
-/// How its run is registered with the shared shell. Fixed after the prep
-/// commit: the shell never needs a line changed for it.
 pub const ADVENTURE: Adventure = Adventure {
     slug: "moonfall",
     name: NAME,
@@ -118,8 +98,6 @@ pub const ADVENTURE: Adventure = Adventure {
         _ => Input::default(),
     },
 };
-/// Its game in the rides (`activity::RIDES`): it plays, takes the seated
-/// knights' keys, and ends when a view leaves the room.
 pub const ACTIVITY: Activity = Activity {
     name: NAME,
     on: Run::moonfall_showing,
@@ -133,16 +111,10 @@ pub const ACTIVITY: Activity = Activity {
     settle: Some(settle),
     fields: &["moonfall"],
 };
-/// A finished run's mark has been settled into `Home::roundtable[SLOT]`.
 pub const BEGUN: u32 = 1;
-/// What the first deliverance pays the treasury for each knight at the
-/// table: a bounded purse, once, never more than six shares.
 pub const GOLD_PER_SEAT: u32 = 30;
 pub const WAX_PER_SEAT: u32 = 1;
 
-/// The first time the moon is turned back, the purse goes into the realm's
-/// treasury, one share for each knight who stood at the table, and the Home
-/// remembers it. Idempotent: the bit it sets is what stops a second payment.
 fn settle(realm: &mut Realm<'_>, marks: &BTreeMap<String, u32>) -> Settled {
     let changed = marks.contains_key(CAMPAIGN_MARK) && realm.home.roundtable[SLOT] & BEGUN == 0;
     let mut said = Vec::new();
@@ -166,15 +138,10 @@ fn settle(realm: &mut Realm<'_>, marks: &BTreeMap<String, u32>) -> Settled {
     Settled { changed, said }
 }
 
-/// A run never runs past an hour; a longer one is not a run to play.
 pub const LIMIT: u32 = 60 * 60 * HZ;
-/// Ticks the skip to dusk or dawn takes to play.
 pub const SKIP_LEN: u32 = 36;
-/// Ticks the moon's turning back plays before the town is free again.
 pub const WON_LEN: u32 = 120;
-/// Ticks a call for the bell waits for the table's hands.
 pub const CALL_TICKS: u32 = 150;
-/// Largest day length (the knob's bound), for what `valid` allows.
 const DAY_MAX: u32 = NUMBERS[0].max;
 
 pub fn nums_of(tune: &tune::Tune) -> Nums {
@@ -187,8 +154,6 @@ pub fn nums_start() -> Nums {
     Nums { day: n(0), walk: n(1), wisps: n(2), rewind: n(3), notice: n(4) }
 }
 
-/// The ticks into a rewind ritual when the clock stops spinning and the
-/// town stands at dawn again, and the knights may move.
 pub fn control(nums: &Nums) -> u32 {
     (nums.rewind * 7 / 10).max(1)
 }
@@ -196,33 +161,20 @@ pub fn control(nums: &Nums) -> u32 {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Session {
     pub seats: BTreeMap<u32, Seat>,
-    /// Knights who stepped away (a tab hidden, a link gone quiet): they keep
-    /// what they carry and stand where they stood until they are back or the
-    /// town is wound back.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub parked: BTreeMap<u32, Seat>,
     pub elapsed: u32,
-    /// Ticks into the loop: the shared clock. It is the session's own and
-    /// never the Delve's.
     pub clock: u32,
     pub phase: Phase,
-    /// The "Dawn of the First Day" card has this many ticks to run.
     pub card: u32,
     pub world: World,
     pub memory: Memory,
     pub call: Option<Call>,
-    /// A proclamation being cried: who, what, ticks since.
     pub cry: Option<(Folk, Topic, u32)>,
-    /// Words for the whole table: the Ledger wrote, an hour is near.
     pub news: Vec<(Note, u32)>,
-    /// The tick of the run the three lights held.
     pub completed: Option<u32>,
-    /// The most knights who have sat at once: wisps are scaled to it, and
-    /// do not ease when a knight leaves.
     pub peak: u32,
     pub nums: Nums,
-    /// Sounds the Ledger and the town have to make, handed out by the next
-    /// step (never saved: it is empty whenever the session is at rest).
     #[serde(
         default,
         skip_serializing_if = "crate::rules::runtime_state::omit",
@@ -259,8 +211,6 @@ impl Session {
         s
     }
 
-    /// The tick of this tick, in the clock's own time, shown as dawn when
-    /// the ritual spins it back and as dusk when time is skipped.
     pub fn shown_clock(&self) -> u32 {
         let ease = |t: u32, len: u32| -> i64 {
             let x = i64::from(t.min(len)) * 256 / i64::from(len.max(1));
@@ -279,12 +229,10 @@ impl Session {
         }
     }
 
-    /// How many hands the bell needs: more than half the table.
     pub fn bell_need(&self) -> u32 {
         self.seats.len() as u32 / 2 + 1
     }
 
-    /// Whether a ring would do anything now.
     pub fn ring_ok(&self, ring: Ring) -> bool {
         match ring {
             Ring::Rewind => true,
@@ -326,7 +274,6 @@ impl Session {
             })
     }
 
-    /// Mend what a bad save broke.
     pub fn repair(&mut self) {
         self.seats.retain(|&id, _| (1..=MAX_PLAYERS).contains(&id));
         self.parked.retain(|&id, _| (1..=MAX_PLAYERS).contains(&id) && !self.seats.contains_key(&id));
@@ -410,11 +357,8 @@ impl Run {
         s.card = s.nums.rewind;
         self.moonfall = Some(s);
         self.found = Some((self.tick, 0, format!("{NAME}: hold Esc to return.")));
-        // The dawn bell: the first thing a table hears.
         self.sounds.push("circle_toll");
     }
-    /// One tick of the town, through the module: its sounds, the first
-    /// deliverance written into the Run, and the knights who walk out.
     pub(super) fn tick_moonfall(&mut self, inputs: &BTreeMap<u32, Input>) {
         let Some(mut s) = self.moonfall.take() else {
             return;
@@ -446,7 +390,6 @@ impl Run {
             self.leave_activity(id);
         }
     }
-    /// The party at the door, let in.
     #[cfg(any(test, feature = "testing"))]
     pub fn moonfall_for_test() -> Self {
         roundtable::fixture(&ADVENTURE)

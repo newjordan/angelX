@@ -11,8 +11,6 @@ use super::super::super::ink::Img;
 use super::super::knights::Facing;
 use super::{Layer, Look, Pose, View};
 
-/// His canvas: the body is twenty wide, and the staff wants four more
-/// each side, so the feet stay centred whichever way he holds it.
 pub const W: i32 = 28;
 const MARGIN: i32 = 4;
 
@@ -223,8 +221,6 @@ const RAISED: [&str; 25] = [
     "....nbn..",
 ];
 
-/// Where the staff stands against the body's top-left, at rest and
-/// raised, and whether it is behind him.
 fn staff_at(facing: Facing, raised: bool) -> ((i32, i32), bool) {
     let lift = if raised { -12 } else { -4 };
     match facing {
@@ -240,16 +236,10 @@ static VIEWS: [View; 3] = [
     View { body: &BACK, item: Layer { at: (-3, -4), rows: &STAFF }, strike: Layer { at: (-3, -12), rows: &RAISED } },
 ];
 
-/// His drawings as the classes' are kept: the body at rest, the staff at
-/// rest and raised.
 pub(super) fn views() -> &'static [View; 3] {
     &VIEWS
 }
 
-/// The Gravecaller whole, facing right when across (the caller flips him
-/// for left), his feet on the bottom row and his middle at `W / 2`.
-/// `held`: whether the staff is drawn at all. Striking with it, his arm is
-/// up and the staff raised over his head.
 pub(in super::super) fn figure(facing: Facing, pose: Pose, held: bool) -> Img {
     let raised = pose == Pose::Strike;
     let rows: &[&str] = match (facing, raised) {
@@ -284,15 +274,12 @@ pub(super) fn floating_figure(facing: Facing, pose: Pose, held: bool, _tick: u64
         (body.w / 2 + 5, body.h - 9), aim)
 }
 
-/// Where the headstone of his staff is, against the figure's feet (its
-/// middle at `W / 2`), facing right: the grave-fire's place when he casts.
 pub(in super::super) fn staff_head(facing: Facing, raised: bool) -> (i32, i32) {
     let ((sx, sy), _) = staff_at(facing, raised);
     let rows = FRONT.len() as i32;
     (MARGIN + sx + 5 - W / 2, sy + if raised { 2 } else { 1 } - rows)
 }
 
-/// His hood, plate and feet, excluding the staff's headroom.
 pub(super) fn fit(figure: &Img, hero: &crate::rules::Hero) -> crate::rules::looks::Body {
     let top = figure.h - 22;
     let face = super::super::knights::facing(hero.aim_x, hero.aim_y);
@@ -302,7 +289,6 @@ pub(super) fn fit(figure: &Img, hero: &crate::rules::Hero) -> crate::rules::look
     let margin = MARGIN + (figure.w - W) / 2;
     let mut fit = crate::rules::looks::profile(&format!("gravecaller_{view}")).shifted(margin, top - lift);
     let ((sx,sy),_) = staff_at(face, pose == Pose::Strike);
-    // Hand meets the staff's grip, not the canvas edge beside its headstone.
     fit.right.anchor = (margin + sx + 4, top - lift + sy + 14);
     fit
 }

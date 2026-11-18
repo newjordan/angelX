@@ -21,8 +21,6 @@ fn fingerposts_stand_beside_the_roads_apart_with_two_arms_or_more() {
 
 #[test]
 fn every_road_into_another_biome_passes_a_post() {
-    // Each main road's crossing of a biome border has a post within a
-    // post's spacing of it.
     for road in ROADS.iter().filter(|r| r.width == 3) {
         let course = roads::course(road.points);
         for w in course.windows(2) {
@@ -56,7 +54,6 @@ fn an_arm_names_a_region_a_place_a_halt_or_a_way_down() {
             }
         }
     }
-    // Every biome is signposted from somewhere.
     assert_eq!(biomes_named.len(), names.len(), "signposted: {biomes_named:?}");
 }
 

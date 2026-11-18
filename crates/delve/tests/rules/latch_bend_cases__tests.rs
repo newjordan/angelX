@@ -33,7 +33,6 @@ fn record_latch_duel_cases() {
                 json!({"d": kit::js(&before), "input": kit::js(&inp), "tune": kit::js(&tune), "now": at, "allowance": allow}),
                 json!({"d": kit::js(&duel), "ret": sound}),
             );
-            // The next-height rule is read off the duel's seed and attack count.
             now += 1;
             if duel.beat == Beat::Defeat {
                 break;

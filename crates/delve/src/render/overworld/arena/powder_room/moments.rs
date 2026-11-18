@@ -17,15 +17,11 @@ use crate::rules::powder::Powder;
 use crate::rules::powder_show::{Cry, LINK, SHOUT_LIFE, Shout};
 use crate::rules::{HZ, Run};
 
-/// Ticks a flying number takes to reach the strip, from the blast.
 pub(super) const FLY: u32 = 27;
-/// Ticks each of 3, 2 and 1 shows, and the first one's start.
 const BEAT: u32 = 12;
 const FIRST: u32 = TITLE - 3 * BEAT + 1;
-/// Ticks GO shows.
 pub(super) const GO: u32 = 28;
 
-/// The title, its two plain words and the countdown, over the view.
 pub(super) fn opening(led: &mut Ledger, over: &mut Img, run: &Run, p: &Powder) {
     let t = p.t;
     let tick = run.tick as u32;
@@ -33,7 +29,6 @@ pub(super) fn opening(led: &mut Ledger, over: &mut Img, run: &Run, p: &Powder) {
         return;
     }
     if t < TITLE {
-        // The view dims behind the title, and clears as the numbers come.
         let k = if t < FIRST { 0.8 } else { 0.8 * (1.0 - (t - FIRST) as f32 / 12.0).max(0.0) };
         for y in 0..NATIVE_H {
             for x in 0..NATIVE_W {
@@ -45,7 +40,6 @@ pub(super) fn opening(led: &mut Ledger, over: &mut Img, run: &Run, p: &Powder) {
         if t < FIRST + 6 {
             led.banner(over, "title", 36, "THE POWDER ROOM", "", t, FIRST + 6, Tone::Warm, 3);
         }
-        // Two plain words, each with its picture: the keg and the crate.
         if (6..FIRST).contains(&t) {
             let fade = 1.0 - ((t as f32 - 6.0) / 6.0).clamp(0.0, 1.0);
             let bob = (crate::motion::math::sin(tick as f32 * 0.25) * 2.0) as i32;
@@ -55,7 +49,6 @@ pub(super) fn opening(led: &mut Ledger, over: &mut Img, run: &Run, p: &Powder) {
             juice::dissolve(&mut drop_w, fade);
             led.claim("drop", (96 - drop_w.w / 2, 112, drop_w.w, drop_w.h));
             over.stamp(&drop_w, 96 - drop_w.w / 2, 112);
-            // The key to press, on a cap.
             over.rect(88, 134, 15, 12, 'k');
             over.frame(88, 134, 15, 12, 'h');
             led.small(over, "key", 93, 137, "X", 'T');
@@ -76,7 +69,6 @@ pub(super) fn opening(led: &mut Ledger, over: &mut Img, run: &Run, p: &Powder) {
     }
 }
 
-/// The words of a call.
 pub(super) fn words(cry: Cry) -> String {
     match cry {
         Cry::First => "FIRST BLAST".into(),
@@ -102,10 +94,6 @@ pub(super) fn words(cry: Cry) -> String {
     }
 }
 
-/// The banner: the loudest call of the newest moment, big, under the strip;
-/// under it a line of small words: whose it is (not yours) and the other
-/// calls the same moment made. Where the last seconds' numbers hold the
-/// middle it stands lower; where neither fits, it is not shown.
 pub(super) fn callouts(led: &mut Ledger, over: &mut Img, run: &Run, p: &Powder, focus: Option<u32>, now: u32) {
     let mut calls: Vec<Shout> = p.show.shouts.iter().copied().filter(|c| now.saturating_sub(c.born) < SHOUT_LIFE).collect();
     calls.sort_by_key(|c| (std::cmp::Reverse(c.born), std::cmp::Reverse(c.cry.rank())));
@@ -142,9 +130,6 @@ pub(super) fn callouts(led: &mut Ledger, over: &mut Img, run: &Run, p: &Powder, 
     }
 }
 
-/// What flies to the strip: each tick's crates, summed for the knight whose
-/// kegs they were, as a number for the seat looking (a crumb of the
-/// knight's ink for the others).
 pub(super) fn fly_ups(led: &mut Ledger, over: &mut Img, p: &Powder, focus: Option<u32>, (ox, oy): (i32, i32), now: u32) {
     let mut seen: Vec<(u8, u32)> = Vec::new();
     for b in p.show.blasts.iter().filter(|b| !b.crates.is_empty() && b.who != 0) {
@@ -172,8 +157,6 @@ pub(super) fn fly_ups(led: &mut Ledger, over: &mut Img, p: &Powder, focus: Optio
     }
 }
 
-/// What a sooting says, over the knight: what it cost them, as a number
-/// popping off the place they stood.
 pub(super) fn sootings(led: &mut Ledger, over: &mut Img, p: &Powder, (ox, oy): (i32, i32), now: u32) {
     for s in &p.show.soots {
         let age = now.saturating_sub(s.born);
@@ -186,8 +169,6 @@ pub(super) fn sootings(led: &mut Ledger, over: &mut Img, p: &Powder, (ox, oy): (
     }
 }
 
-/// A dithered rim of `fill` along the view's edges, `depth` pixels deep, `k`
-/// (0 to 1) how strong.
 fn rim(over: &mut Img, k: f32, depth: i32, fill: char) {
     if k <= 0.0 {
         return;
@@ -213,9 +194,6 @@ fn rim(over: &mut Img, k: f32, depth: i32, fill: char) {
     }
 }
 
-/// The sting on the seat looking: a red rim when a lane they stand in is
-/// about to burn, a hard one as they are sooted, and the warm flash round
-/// the edge when a chain tears the store.
 pub(super) fn danger(over: &mut Img, run: &Run, p: &Powder, focus: Option<u32>, now: u32) {
     let Some(me) = focus else { return };
     if let Some(hero) = run.players.get(&me).filter(|h| h.hp > 0) {
@@ -244,8 +222,6 @@ pub(super) fn danger(over: &mut Img, run: &Run, p: &Powder, focus: Option<u32>, 
     }
 }
 
-/// The last five seconds, one big number a second, slammed in. Returns
-/// nothing; its box is claimed first so the calls give way to it.
 pub(super) fn last_seconds(led: &mut Ledger, over: &mut Img, p: &Powder) {
     if p.done || p.titled() || p.left() > 5 {
         return;

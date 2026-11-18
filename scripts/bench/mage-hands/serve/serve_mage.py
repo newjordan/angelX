@@ -1,13 +1,3 @@
-"""OpenAI-compatible /v1 shim over transformers for microsoft/Mage-VL-Cowork.
-
-The card's runtimes are SGLang (docker) and plain transformers; vLLM support
-for llava_onevision2 is unverified. This serves /v1/models and
-/v1/chat/completions (stream and non-stream) on loopback so angel's
-ANGEL_VISION_URL sidecar and the grounding probe can talk to it.
-
-  venv/bin/python bin/serve_mage.py --model ~/models/Mage-VL-Cowork --port 30001
-"""
-
 import argparse
 import base64
 import io
@@ -37,9 +27,6 @@ model = AutoModelForCausalLM.from_pretrained(
 ).eval()
 gpu = threading.Lock()
 
-# The checkpoint ships an lm_head distinct from embed_tokens, and the reference
-# SGLang runtime refuses tied embeddings. transformers may tie them on load
-# (tie_word_embeddings defaults on); always serve the checkpoint's own head.
 emb = model.get_input_embeddings().weight
 tied = model.lm_head.weight.data_ptr() == emb.data_ptr()
 from safetensors import safe_open  # noqa: E402
@@ -63,7 +50,6 @@ def load_image(url):
 
 
 def convert(messages):
-    """OpenAI messages -> chat-template messages + images in order."""
     out, images = [], []
     for m in messages:
         role, content = m.get("role", "user"), m.get("content")
@@ -107,9 +93,6 @@ def generate(body):
     if "pixel_values" in inputs:
         inputs["pixel_values"] = inputs["pixel_values"].to(model.dtype)
     if "image_grid_thw" in inputs:
-        # The vision RoPE reads explicit row-major [t, h, w] ids per patch
-        # (the card's transformers example omits them and crashes on None);
-        # same ids as its grid path, each image starting at t=0.
         pos = []
         for t, h, w in inputs["image_grid_thw"].tolist():
             pos.append(torch.stack([
@@ -119,8 +102,6 @@ def generate(body):
             ], dim=-1))
         pp = torch.cat(pos)
         if body.get("mage_pp_layout") == "block":
-            # The official LLaVA-OneVision-2 processor's layout: positions
-            # pre-reordered into 2x2 merge blocks (build_patch_positions).
             out, off = [], 0
             for t, h, w in inputs["image_grid_thw"].tolist():
                 idx = torch.arange(t * h * w).view(t, h // 2, 2, w // 2, 2).permute(0, 1, 3, 2, 4).reshape(-1)
@@ -176,7 +157,7 @@ class H(BaseHTTPRequestHandler):
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("content-length", 0))))
             text, reasoning, usage = generate(body)
-        except Exception as e:  # report, never crash the server
+        except Exception as e:
             return self._json(400, {"error": {"message": f"{type(e).__name__}: {e}"}})
         cid, now = "chatcmpl-" + uuid.uuid4().hex[:12], int(time.time())
         msg = {"role": "assistant", "content": text}

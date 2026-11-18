@@ -726,7 +726,6 @@ fn nonregular_campaign_store_fixture() {
             std::fs::remove_file(&path).unwrap();
         }
         let name = std::ffi::CString::new(path.as_os_str().as_bytes()).unwrap();
-        // SAFETY: the path belongs to this isolated fixture directory.
         assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
         let worker_store = store.clone();
         let worker_record = record.clone();
@@ -753,8 +752,6 @@ fn nonregular_campaign_store_fixture() {
         let result = match first {
             Ok(result) => result,
             Err(mpsc::RecvTimeoutError::Timeout) => {
-                // Release both read and write opens in the old implementation
-                // before failing, leaving no blocked worker or FIFO peer.
                 let peer = std::fs::OpenOptions::new()
                     .read(true)
                     .write(true)
@@ -786,7 +783,6 @@ fn nonregular_campaign_store_fixture() {
     let lock_path = store.record_path().parent().unwrap().join("campaign.lock");
     std::fs::remove_file(&lock_path).unwrap();
     let lock_name = std::ffi::CString::new(lock_path.as_os_str().as_bytes()).unwrap();
-    // SAFETY: lock_name belongs to this isolated fixture directory.
     assert_eq!(unsafe { libc::mkfifo(lock_name.as_ptr(), 0o600) }, 0);
     let lease = store.acquire_lease();
     println!("campaign FIFO lease accepted={}", lease.is_ok());

@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# render.sh <data.json> <out-dir> — input tokens against agent time, pass and fail in the
-# line color, in the site dot-matrix look: a 1200x1200 square (for posts) and a 1600x900 wide (for the
-# README), both at 2x. Data from extract_tokens_time.py.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd); data=$1; out=$2; tmp=$(mktemp -d)
 python3 -c 'import sys; open(sys.argv[3],"w").write(open(sys.argv[1]).read().replace("/*DATA*/null", open(sys.argv[2]).read()))' \

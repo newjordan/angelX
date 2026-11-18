@@ -1,4 +1,3 @@
-"""Offline verifier contracts; no models, services, or GPU jobs."""
 import importlib.util
 from pathlib import Path
 import unittest
@@ -16,7 +15,6 @@ paired = load("summarize_regime")
 
 
 def evidence_row(row, arm, hit):
-    # First point (1.98, 3.00) is inside the test box; failed zoom retains it.
     texts = ['<tool_call>{"arguments":{"coordinate":[20,38]}}</tool_call>', 'no point'] if hit else ['no point']
     return paired.regime.ground_record(row, arm, 'test', (100, 80), texts)
 

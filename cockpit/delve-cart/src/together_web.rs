@@ -15,7 +15,6 @@ use angel_serve::ClientBundle;
 
 use angel_web_bundle::{self as web_bundle, unpack};
 
-/// The page for a hosted delve's server, or `None` in a build without one.
 pub fn bundle() -> Option<ClientBundle> {
     let (index, embedded) = web_bundle::embedded()?;
     let mut files = Vec::with_capacity(embedded.len());
@@ -49,9 +48,6 @@ pub fn bundle() -> Option<ClientBundle> {
     })
 }
 
-/// Every file in `dir` as `<prefix><file>`, added to `files`; their entries
-/// in the sounds manifest (`"name":"{{asset:name.ext}}"`), in name order. A
-/// file the page could not name, or that cannot be read, is left out.
 fn add_folder(dir: &Path, prefix: &str, files: &mut Vec<(String, Vec<u8>, String)>) -> Vec<String> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         crate::together_audio::missing(&format!("could not read the sound folder {}", dir.display()));

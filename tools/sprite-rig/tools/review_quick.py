@@ -21,7 +21,6 @@ def run(game, rig, image, out, *, native=None, root=None):
         env.update(WORN_NATIVE_LEGACY='1', WORN_NATIVE_OUT=str(native))
         env.setdefault('CARGO_TARGET_DIR', str(root / 'crates' / 'target' / 'quick-rig'))
         env.setdefault('CARGO_BUILD_JOBS', '4')
-        # A failed export is a prerequisite failure, never a zero quality score.
         subprocess.run(['cargo', 'test', '--manifest-path', str(root/'crates/Cargo.toml'),
                         '-p', 'angel-delve', '--profile', 'fast', 'export_worn_native'],
                        cwd=root, env=env, check=True)

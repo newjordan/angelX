@@ -5,8 +5,6 @@
 use super::*;
 
 impl Session<'_> {
-    /// Each look: build what has landed, show the party what was built,
-    /// and send the next whole set out. Only the host makes vessels.
     pub(crate) fn watch_salvage(&mut self) {
         if self.dungeon.joined.is_some() {
             return;
@@ -15,8 +13,6 @@ impl Session<'_> {
         if let Some((job, design, by_model)) = self.dungeon.forge.shipwright.landed()
             && !self.dungeon.shooter.is_none()
         {
-            // A yard that moved on (the build made, a piece gone) is planned
-            // again on the next look.
             let built = self.dungeon.shooter.command(Command::BuildVessel {
                 n: job.plan.n,
                 ids: job.ids(),

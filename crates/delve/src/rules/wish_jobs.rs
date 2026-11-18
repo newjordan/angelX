@@ -27,7 +27,6 @@ pub enum Outcome {
     Granted(String),
     Plain(String),
     Refunded(String),
-    /// Refunded because a held identity would be overwritten; do not publish it.
     Conflict(String),
     Stale(String),
 }
@@ -49,7 +48,6 @@ pub struct PolicyRequest {
 pub type PolicyResult = Result<Wish, Vec<String>>;
 
 pub fn valid_ask(ask: &Asked) -> bool {
-    // The mirror's look goes to the worn painter (`cosmetic_wish`), never a job.
     !ask.cosmetic
         && (1..=super::MAX_PLAYERS).contains(&ask.knight)
         && !ask.words.trim().is_empty()
@@ -70,16 +68,12 @@ pub fn valid_wish(wish: &Wish) -> bool {
         && serde_json::to_vec(wish).is_ok_and(|b| b.len() <= 128 * 1024)
         && (0..wish.tiers.len()).all(|tier| wish.card(tier).is_ok())
         && {
-            // Its own source read back, or, captured before learned ladders
-            // climbed on to the fifth (an old save's open scroll), what that
-            // source wrote: kept as it was offered.
             let read = super::phrasebook::read_checked(&wish.definition_file()).0;
             read.as_slice() == [wish.clone()]
                 || (wish.derived == 0 && read.len() == 1 && read[0].written() == *wish)
         }
 }
 impl Work {
-    /// Canonical retained binding identity, shared by owners and read-only clients.
     pub fn binding(session: &str, raid: u64, request: u64) -> String {
         format!("wish-{session}-{raid:x}-{request:x}")
     }
@@ -109,8 +103,6 @@ impl Work {
         if !work.valid() {
             return Err("invalid captured wish".into());
         }
-        // An orphan from an older checkpoint becomes a retained stale result;
-        // it must not block every later player in the queue.
         if let Some(hero) = run.players.get_mut(&work.ask.knight) {
             if hero.wish_jobs.len() >= 64 {
                 return Err("too many retained wishes for this knight".into());
@@ -150,8 +142,6 @@ impl Work {
             let previous_maker = run.makers.get(&wish.id).cloned();
 
             let held = run.players.values().any(|hero| hero.deck.iter().any(|id| super::dead_wishes::wish_of(id) == Some(wish.id.as_str())));
-            // The first owner names a shared canonical definition. A later
-            // model result cannot rename another player's already held card.
             if authored && !held { run.made(player, &wish.id, &self.maker); }
             let mut result = (|| {
                 if let Some(start) = wish.next_tier(&run.players[&player].deck) {
@@ -166,13 +156,10 @@ impl Work {
                     }
                 }
                 run.aim_wish(player, wish, self.ask.target);
-                // A fairy wish's grant is drawn Legendary (`nooks::gnome`).
                 run.fairy_grant = self.ask.fairy.then_some(player);
                 run.grant(player, wish)
             })();
             if result.is_err() {
-                // Reversing aim_wish can heal a wounded summoner. Restore
-                // the captured hero exactly when the grant is refused.
                 run.players.insert(player, previous_hero);
                 if authored {
                     if let Some(maker) = previous_maker {
@@ -198,7 +185,6 @@ impl Work {
         let outcome = match attempt {
             Some(Ok(name)) => {
                 run.lamp_landed(player, &self.ask.words, &name);
-                // Wished upon a star: it lands as the star's (`starfall`).
                 if self.ask.star {
                     run.star_wish_granted(player);
                 }

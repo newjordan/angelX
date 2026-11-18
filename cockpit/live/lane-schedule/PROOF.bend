@@ -1,9 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
 
-# Every law above is a closed, concrete scheduling state, so the proof is the
-# evaluation of that state: reflexivity after reduction.
-
 def Laws.empty_lane_set_seats_nobody():
   {==}
 

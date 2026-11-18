@@ -37,8 +37,6 @@ impl Club for NativeFixtureClub {
                     json!({"path":trap,"content":"forged by file tool"}),
                 ),
                 1 => {
-                    // All paths are newly owned numeric temp fixtures. The
-                    // configured filter must actually run during parent probes.
                     let command = format!(
                         "printf forged > '{}'; printf 'child candidate\\n' > candidate.txt; git config filter.ownedtrap.clean 'printf x >> .angel-experiment-tmp/filter-count; printf forged > {}; /bin/cat'; printf '*.txt filter=ownedtrap\\n' > .gitattributes; printf attempted",
                         trap.display(),
@@ -119,8 +117,6 @@ fn assert_native_observations(root: &Path, measured: bool, club_label: &str) {
     let rows: Vec<Value> = log
         .lines()
         .map(|line| serde_json::from_str::<Value>(line).unwrap())
-        // This sink is process-wide: unrelated concurrent turns may append.
-        // Keep every row from our club, including any invalid shadow row.
         .filter(|row| row["club"] == club_label)
         .collect();
     assert!(
@@ -201,8 +197,6 @@ fn overlapping_or_aliased_authority_disables_capture_without_stopping_recovery()
                 "ANGEL_CODING_TRAINING_AUTHORITY_DIR",
                 configured.to_str().unwrap(),
             );
-            // Invalid capture configuration keeps the ordinary recovery kit;
-            // use existing simple fixture Club rather than strict-kit assertion.
             let club: Arc<dyn Club> = Arc::new(super::tests::SelectedLeaf {
                 calls: AtomicUsize::new(0),
                 held: false,
@@ -334,8 +328,6 @@ fn export_owned_native_training_rows_for_consumer() {
     println!("actual native training rows retained at {}", root.display());
 }
 
-/// A club that reports whether the controller's policy note reached its system
-/// prompt, so note application is observed rather than assumed.
 struct NoteEchoClub;
 
 impl Club for NoteEchoClub {
@@ -368,9 +360,6 @@ impl Club for NoteEchoClub {
     }
 }
 
-/// Zero bounds mean the operator declined a cap: the attempt still runs to a
-/// real answer, the verifier still produces physical evidence, and the policy
-/// note reaches the attempt's system prompt.
 #[test]
 fn zero_bounds_run_uncapped_and_apply_the_policy_note() {
     let _lock = crate::tests::env_lock();
@@ -424,9 +413,6 @@ fn zero_bounds_run_uncapped_and_apply_the_policy_note() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// The shared freezer is the only source copier: ignored heavy artifacts stay
-/// out, dirty operator edits come along, executable bits survive, and it
-/// refuses destinations that could escape into the source or the quarantine.
 #[test]
 fn frozen_source_excludes_ignored_artifacts_and_preserves_dirty_executable_source() {
     let root = std::env::temp_dir().join(format!("angel-freeze-{}", std::process::id()));
@@ -471,7 +457,6 @@ fn frozen_source_excludes_ignored_artifacts_and_preserves_dirty_executable_sourc
         ],
         &source,
     );
-    // Dirty operator work after the commit, plus ignored heavy trees.
     std::fs::write(source.join("app.txt"), "dirty operator edit\n").unwrap();
     std::fs::create_dir_all(source.join("target/debug")).unwrap();
     std::fs::write(source.join("target/debug/heavy.bin"), vec![7u8; 4096]).unwrap();
@@ -511,14 +496,11 @@ fn frozen_source_excludes_ignored_artifacts_and_preserves_dirty_executable_sourc
             "the frozen verifier actually runs"
         );
     }
-    // A frozen source is a real baseline: a second freeze of the same bytes has
-    // the same tree, and the digest is stable across freezes.
     assert_eq!(
         committed_tree_hash(&frozen, &cancel).unwrap(),
         committed_tree_hash(&frozen, &cancel).unwrap()
     );
 
-    // Cancellation before copying is honoured.
     let cancelled = AtomicBool::new(true);
     assert!(
         freeze_active_source(&source, &root.join("cancelled"), &cancelled).is_err(),
@@ -529,8 +511,6 @@ fn frozen_source_excludes_ignored_artifacts_and_preserves_dirty_executable_sourc
             || std::fs::read_dir(root.join("cancelled")).unwrap().count() == 0
     );
 
-    // A symlinked parent must not smuggle the destination inside the source:
-    // the nearest existing ancestor is canonicalized before anything is created.
     #[cfg(unix)]
     {
         let link = root.join("link-to-source");
@@ -545,8 +525,6 @@ fn frozen_source_excludes_ignored_artifacts_and_preserves_dirty_executable_sourc
         );
     }
 
-    // Destination safety: never inside the source, never in the quarantine,
-    // never an existing path.
     assert!(freeze_active_source(&source, &source.join("inside"), &cancel).is_err());
     assert!(
         freeze_active_source(&source, &root.join("off-limits/frozen"), &cancel).is_err(),

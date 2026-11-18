@@ -62,9 +62,6 @@ fn off_and_reduced_modes_hold_static_card_pose() {
 fn warmed_selected_card_stays_under_cockpit_draw_budget() {
     let formation = *formations::formation(FormationId::AllIn);
     let _ = crate::ui::term::art::preload_colored_image(&formation.asset_path());
-    // Use the fastest warmed sample, as the larger lifecycle renderer does:
-    // a single sample in the parallel suite measures scheduler preemption,
-    // not uncontended render cost.
     let mut fastest = std::time::Duration::MAX;
     let mut frame = None;
     for _ in 0..5 {

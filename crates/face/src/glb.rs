@@ -7,12 +7,10 @@
 use angel_stage::scene::Mat4;
 use serde_json::Value;
 
-/// One node: its place relative to its parent, what hangs from it.
 #[derive(Clone, Debug)]
 pub struct GNode {
     pub name: String,
     pub translation: [f32; 3],
-    /// `[x, y, z, w]`.
     pub rotation: [f32; 4],
     pub scale: [f32; 3],
     pub children: Vec<usize>,
@@ -20,23 +18,18 @@ pub struct GNode {
     pub skin: Option<usize>,
 }
 
-/// A skin: its joints (node indices) and their inverse bind matrices.
 #[derive(Clone, Debug)]
 pub struct GSkin {
     pub joints: Vec<usize>,
     pub inverse_bind: Vec<Mat4>,
 }
 
-/// A morph target: how far each vertex it moves goes, and how its normal
-/// turns. Only the vertices it moves are listed.
 #[derive(Clone, Debug, Default)]
 pub struct GTarget {
     pub name: String,
-    /// `(vertex, position delta, normal delta)`.
     pub deltas: Vec<(u32, [f32; 3], [f32; 3])>,
 }
 
-/// A triangle list and what is laid on its vertices.
 #[derive(Clone, Debug, Default)]
 pub struct GPrimitive {
     pub positions: Vec<[f32; 3]>,
@@ -55,9 +48,6 @@ pub struct GMesh {
     pub primitives: Vec<GPrimitive>,
 }
 
-/// A whole file: its nodes, skins, meshes, material names and the scene's
-/// root nodes, and its embedded images (as encoded, PNG or JPEG) with the
-/// image each material's base colour is.
 #[derive(Clone, Debug)]
 pub struct Gltf {
     pub nodes: Vec<GNode>,
@@ -70,12 +60,10 @@ pub struct Gltf {
 }
 
 impl Gltf {
-    /// The node named `name`.
     pub fn node(&self, name: &str) -> Option<usize> {
         self.nodes.iter().position(|n| n.name == name)
     }
 
-    /// Each node's parent.
     pub fn parents(&self) -> Vec<Option<usize>> {
         let mut out = vec![None; self.nodes.len()];
         for (i, node) in self.nodes.iter().enumerate() {
@@ -89,7 +77,6 @@ impl Gltf {
     }
 }
 
-/// Read a `.glb`.
 pub fn read(bytes: &[u8]) -> Result<Gltf, String> {
     let (json, bin) = chunks(bytes)?;
     let file = File { json: &json, bin };
@@ -213,7 +200,6 @@ pub fn read(bytes: &[u8]) -> Result<Gltf, String> {
     })
 }
 
-/// The JSON and binary chunks.
 fn chunks(bytes: &[u8]) -> Result<(Value, &[u8]), String> {
     let u32_at = |at: usize| -> Result<u32, String> {
         bytes
@@ -262,7 +248,6 @@ struct File<'a> {
     bin: &'a [u8],
 }
 
-/// The size of one component of a glTF component type.
 fn component_size(kind: u64) -> Option<usize> {
     match kind {
         5120 | 5121 => Some(1),
@@ -272,10 +257,8 @@ fn component_size(kind: u64) -> Option<usize> {
     }
 }
 
-/// One component at `at`, as a number (normalized integers to 0..1 or
-/// -1..1 when `normalized`).
 fn component(bytes: &[u8], at: usize, kind: u64, normalized: bool) -> Option<f32> {
-    let b = bytes.get(at..at + component_size(kind)?)?;
+    let b = bytes.get(at..at.checked_add(component_size(kind)?)?)?;
     Some(match kind {
         5126 => f32::from_le_bytes([b[0], b[1], b[2], b[3]]),
         5125 => u32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f32,
@@ -304,7 +287,6 @@ fn component(bytes: &[u8], at: usize, kind: u64, normalized: bool) -> Option<f32
 }
 
 impl File<'_> {
-    /// A buffer view's bytes and its stride (0: packed).
     fn view(&self, index: u64) -> Result<(&[u8], usize), String> {
         let v = &self.json["bufferViews"][index as usize];
         if v["buffer"].as_u64().unwrap_or(0) != 0 {
@@ -316,13 +298,11 @@ impl File<'_> {
             .ok_or("a buffer view with no length")? as usize;
         let bytes = self
             .bin
-            .get(start..start + len)
+            .get(start..start.saturating_add(len))
             .ok_or("a buffer view past the binary chunk")?;
         Ok((bytes, v["byteStride"].as_u64().unwrap_or(0) as usize))
     }
 
-    /// An accessor as flat numbers and its components per element, sparse
-    /// values laid over the dense ones (or over zeros).
     fn accessor(&self, index: usize) -> Result<(Vec<f32>, usize), String> {
         let a = &self.json["accessors"][index];
         let n = match a["type"].as_str() {
@@ -353,9 +333,11 @@ impl File<'_> {
             let stride = if stride == 0 { size * n } else { stride };
             for i in 0..count {
                 for c in 0..n {
-                    out[i * n + c] =
-                        component(bytes, offset + i * stride + c * size, kind, normalized)
-                            .ok_or("an accessor past its view")?;
+                    let at = offset
+                        .saturating_add(i.saturating_mul(stride))
+                        .saturating_add(c * size);
+                    out[i * n + c] = component(bytes, at, kind, normalized)
+                        .ok_or("an accessor past its view")?;
                 }
             }
         }

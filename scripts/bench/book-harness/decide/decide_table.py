@@ -82,7 +82,6 @@ def aggregate(rows):
                     for field in ("scenario", "model", "arm"))
         cells[key].append(row)
     known = [(scenario, model, arm) for scenario in SCENARIOS for model in MODELS for arm in ARMS]
-    # Unknown cohorts remain visible after the historical ordering.
     order = [key for key in known if key in cells] + [key for key in cells if key not in known]
     out = []
     for scenario, model, arm in order:

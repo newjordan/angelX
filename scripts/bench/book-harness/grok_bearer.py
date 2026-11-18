@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""Print the operator's Grok OAuth bearer from ~/.grok/auth.json (for
-proxy_log.py's PROXY_KEY_CMD). Refuses only a missing or expired token: near
-expiry the old token is still valid until grok_refresh.sh has angelX's own
-OAuth seat refresh it."""
 import json
 import sys
 from datetime import datetime, timezone

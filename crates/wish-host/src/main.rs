@@ -48,7 +48,6 @@ impl Wish {
         })
     }
 
-    /// Grants one wish: the call that must be microseconds.
     fn ask(&self, request: &str) -> String {
         let request = CString::new(request).unwrap_or_default();
         let answer = unsafe { (self.grant)(request.as_ptr()) };
@@ -69,12 +68,8 @@ fn main() {
     let started = Instant::now();
     let mut asked = 0u64;
     loop {
-        // A new module on disk is a new rule, taken between wishes.
         let written = std::fs::metadata(path).and_then(|it| it.modified()).ok();
         if written != wish.written && written.is_some() {
-            // dlopen answers by path: loading the same name again hands back
-            // the mapping already there. So a new build is copied to a name
-            // of its own first, and the old mapping is left to its wishes.
             let stamp = SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .map(|it| it.as_nanos())
@@ -86,8 +81,6 @@ fn main() {
             let _ = std::fs::copy(path, &fresh);
             if let Some(swapped) = Wish::load(&fresh) {
                 println!("wish: swapped in a new module at {:.1}s", started.elapsed().as_secs_f64());
-                // Keep the *source* module's time, not the copy's, or the
-                // next look at the source sees a new file again.
                 wish = Wish { written, ..swapped };
             }
         }

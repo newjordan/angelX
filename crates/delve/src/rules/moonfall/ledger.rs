@@ -9,24 +9,15 @@ use super::clock;
 use super::folk::{self, Folk, NONE};
 use serde::{Deserialize, Serialize};
 
-/// What the party has learned that opens a door.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Fact {
-    /// Orin lost his ink pot in the reeds.
     OrinLost,
-    /// Nessa's oven wants dry reeds.
     NessaCold,
-    /// Pella has a scroll for Mira.
     PellaScroll,
-    /// Tovin gives no key without a pass.
     TovinPass,
-    /// Mira seals the south door for a knight with the favours done.
     MiraSeal,
-    /// The herald cried a rider is coming on the second evening.
     AsterComing,
-    /// The rider has come, and his horse has lost a shoe.
     AsterLame,
-    /// Mira said the verse of the three lights.
     Verse,
 }
 
@@ -45,7 +36,6 @@ impl Fact {
     fn bit(self) -> u16 {
         1 << (self as u16)
     }
-    /// The line the Ledger keeps for it, on the page of whoever told it.
     pub fn text(self) -> &'static str {
         match self {
             Self::OrinLost => "LOST HIS INK POT IN THE REED BANK. TAKES IT BACK AT SEVEN THE FIRST MORNING, AND WRITES A PASS IN FIVE HOURS, FRESH FOR TWO.",
@@ -58,7 +48,6 @@ impl Fact {
             Self::Verse => "THREE LIGHTS, ONE MIDNIGHT: NORTH, SOUTH AND THE WELL TOGETHER.",
         }
     }
-    /// Whose page it is written on.
     pub fn page(self) -> Folk {
         match self {
             Self::OrinLost => Folk::Orin,
@@ -71,30 +60,20 @@ impl Fact {
     }
 }
 
-/// The two masks, and what a knight keeps.
 pub const SWIFT: u8 = 1;
 pub const STOUT: u8 = 2;
 
-/// What the towers keep for the party once earned: the north key, the
-/// south seal and the oil in the well's sconce.
 pub const NORTH_KEY: u8 = 1;
 pub const SOUTH_SEAL: u8 = 2;
 pub const OIL: u8 = 4;
 
-/// Everything the party keeps across the rewind.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Memory {
-    /// A bit for each `Fact`.
     pub facts: u16,
-    /// For each villager, a bit for each routine line witnessed.
     pub routines: [u32; 6],
-    /// A bit for each villager whose favour is done.
     pub ticks: u8,
-    /// The masks earned.
     pub masks: u8,
-    /// The keys, the seal and the oil.
     pub keeps: u8,
-    /// Times the bell has rewound the town.
     pub loops: u32,
 }
 
@@ -102,7 +81,6 @@ impl Memory {
     pub fn knows(&self, f: Fact) -> bool {
         self.facts & f.bit() != 0
     }
-    /// Learn a fact: true when it is new.
     pub fn learn(&mut self, f: Fact) -> bool {
         let new = !self.knows(f);
         self.facts |= f.bit();
@@ -126,8 +104,6 @@ impl Memory {
         self.ticks |= 1 << folk.index();
         new
     }
-    /// How much the Ledger holds: a count that only grows, for the "new"
-    /// mark on the Ledger key.
     pub fn written(&self) -> u32 {
         self.facts.count_ones()
             + self.routines.iter().map(|r| r.count_ones()).sum::<u32>()
@@ -161,26 +137,20 @@ impl Memory {
     }
 }
 
-/// A line of a page: when, and what.
 pub struct Line {
     pub time: String,
     pub text: String,
-    /// Happening now (the stop the clock stands in).
     pub now: bool,
 }
 
-/// One person's page.
 pub struct Page {
     pub folk: Folk,
     pub ticked: bool,
-    /// What they ask, if the party has heard it.
     pub asks: Vec<&'static str>,
     pub routine: Vec<Line>,
-    /// Facts written on this page.
     pub notes: Vec<&'static str>,
 }
 
-/// A person's page as it stands.
 pub fn page(mem: &Memory, folk: Folk, clock: u32, day: u32) -> Page {
     let mut asks = Vec::new();
     let mut notes = Vec::new();
@@ -192,7 +162,6 @@ pub fn page(mem: &Memory, folk: Folk, clock: u32, day: u32) -> Page {
             }
         }
     }
-    // The routine as witnessed, in the order of the day, each line once.
     let stamp_now = clock::half(clock, day) % 48;
     let mut routine: Vec<(u32, u8)> = (0u8..24)
         .filter(|&id| mem.witnessed(folk, id))

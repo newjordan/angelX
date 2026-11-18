@@ -6,8 +6,6 @@ use super::*;
 use crate::rollers::{Dir, Piece};
 use crate::works_tests::{build, rich};
 
-/// Units of `good` a minute that get from a store to a sink `dist` tiles away, measured over three minutes after the
-/// first two. The store is never empty and the sink is emptied every second.
 fn measure(kind: &str, good: &str, dist: i16, fleet: u16) -> Result<f64, String> {
     let c = catalog();
     let mut k = rich();
@@ -19,7 +17,6 @@ fn measure(kind: &str, good: &str, dist: i16, fleet: u16) -> Result<f64, String>
     let (store, sink): (u32, u32);
     match kind {
         "cart" => {
-            // The camp is the sink: it asks for stone while it is under its level, and is emptied each second.
             store = build(&mut k, "depot", (142 + dist, 96));
             k.buildings.get_mut(&store).unwrap().construction = 0;
             let y = build(&mut k, "carters-yard", (136, 97));
@@ -81,7 +78,6 @@ fn measure(kind: &str, good: &str, dist: i16, fleet: u16) -> Result<f64, String>
     Ok(f64::from(delivered) / 5.0)
 }
 
-/// What laying it costs in goods, and the hands it keeps at work, as the catalogue sets them.
 fn price(kind: &str, dist: i16, fleet: u16) -> (String, u32) {
     let c = catalog();
     let show = |s: &Stock| s.iter().map(|(g, n)| format!("{n} {g}")).collect::<Vec<_>>().join(", ");

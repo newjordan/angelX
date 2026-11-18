@@ -1,8 +1,3 @@
-"""Native authored rows and action layouts; reference art guides gesture only.
-
-The turnaround fixes construction, not acting. Every component and silhouette
-below is drawn at the displayed grain. No reference image is opened or sampled.
-"""
 import json
 from PIL import Image
 from arcade_knight_contacts import CONTACT_ROWS, DETAILS
@@ -12,8 +7,6 @@ INK = dict(zip('cabdefrstuvklmn', [
     '61303b','853d43','ad4e49','cc6854','dc8768',
     '684629','924f1d','a97639','be914b']))
 INK.update(C=INK['c'], P='0a0c12', B='94968c', D='b0b2a8')
-# Dented crown, cool/warm steel bands, and a broad raised visor brim. The
-# repaired bandage is a connected 2px strip, not random scuff texture.
 HELMET = [
     '.....ccccccccc',
     '...ccbbddddeeecc',
@@ -29,7 +22,6 @@ HELMET = [
     '..cabbdddmmnnnnnnc',
     '...cabbbddmCCCCCCc',
 ]
-# Four face kits retain the 7x6 opening, angled brow, 2x3 eye and 5px moustache.
 FACES = {
     'neutral': ['nCCnnnn','mnkPPnn','mnkPPnnn','mnkPPnn','mmnnnnn','mCCCCCn','mCCnnCC'],
     'gritted': ['nCCCCnn','mnkPPCn','mnkPPnnn','mnkPPnn','mmnnnnn','mCCCCCn','mmbbbbn','mCCnnCC'],
@@ -43,7 +35,6 @@ PLUMES = [
     ['..cccccccc','.crrssstttc','crrsssttttc','.crrsssttc','...crsscc','....ccccc'],
 ]
 PLUME_FLOP = ['..cccccccccc','.crrssstttttc','crrsssttttttc','crrsssstttc','.ccccrsscc','....cccc']
-# Broad cel folds only. No crosshatch, checker, diagonally repeated stitches.
 BODY = [
     '...ccccccccccccccc',
     '.ccaabbbdddeeeddbbcc',
@@ -154,8 +145,6 @@ SWORD_BACK = [
     '.............cnmmc','.............cccccc','..............ckkc',
     '..............ckkc','...............ccc',
 ]
-# 30px-wide, 140-degree authored crescent. Three material bands follow the
-# curved stroke, rather than radial hairlines or a ring around the character.
 SMEAR = [
     '......cccccccccccccccc',
     '....ccbbbbdddddeeeeeeccc',
@@ -201,8 +190,6 @@ class Drawing:
                 if ch=='.':self.px.pop(p,None);self.owners.pop(p,None)
                 else:self.px[p]=INK[ch];self.owners[p]=owner
         hx,hy=head[0]-9,head[1]-6
-        # Expression marks are construction, never smoothed into neighbouring
-        # coat or armour planes by the fixed contact corrections.
         for yy,row in enumerate(FACES[expression]):
             for xx,ch in enumerate(row):
                 p=hx+10+xx,hy+6+yy
@@ -237,7 +224,6 @@ class Drawing:
 def helmet(d,hx,hy,expression,plume,flop=False):
     d.part('helmet',HELMET,hx,hy)
     d.part('helmet',FACES[expression],hx+10,hy+6)
-    # The bandage bridges the dent with a warm grey stitch-shaped plane.
     d.part('helmet',['BB','BB','DD','DD'],hx+4,hy+2)
     d.part('helmet',['aa'],hx+10,hy+2)
     d.detail('bandage seam',[(hx+6,hy+3),(hx+6,hy+4)])
@@ -265,7 +251,6 @@ def blade(d,kind,x,y):
     d.part('sword',rows,x,y)
     hand=dict(up=(x,y+18),right=(x-2,y+2),diag=(x,y+15),down=(x,y),back=(x+12,y+15))[kind]
     d.part('hand',HAND,*hand)
-    # Brass is a two-pixel cuff trim on the steel fist, never a mitten.
     d.part('hand',['nn'],hand[0]+1,hand[1]+5)
     d.detail('repaired brass cuff',[(hand[0]+1,hand[1]+5),(hand[0]+2,hand[1]+5)])
     if kind=='up':pts=[(x+4,y+j) for j in [1,2,3]]
@@ -281,8 +266,6 @@ def frame(folder,state,i):
     if state=='defeat':i=[0,1,3,2,3][i]
     d=Drawing();d.contact_key=f'{state}-{i}';tags=[];ex='neutral';hx,hy=23,12;bx,by=19,25
     body=BODY;shield=(12,30);sword=('up',45,16);arm=(38,30);shoulder=(35,25)
-    # Each tuple: leg row set/origin, boot row set/origin. Contact spread is
-    # fourteen pixels, passing legs lift visibly, and the head leads the hips.
     idlelegs=[(LEG,22,39,BOOT_BACK,20,46),(LEG,33,39,BOOT,34,46)]
     legs=idlelegs;plume=i%4;hip=(30,39)
     if state=='idle':
@@ -360,7 +343,6 @@ def frame(folder,state,i):
             hx,hy=12,36-(1 if i==2 else 0);bx,by=28,39-(1 if i==2 else 0);body=BODY_LYING
             shoulder=(38,41);shield=(1,40);arm=(31,48)
             legs=[(LEG_UP,38,36-i%2,BOOT_UP,41,29-i%2),(LEG_UP,45,39-i%2,BOOT_UP,49,33-i%2)]
-    # Back gear and armour first; hands and shield remain visible above them.
     for rows,x,y,boot,bxx,byy in legs:d.part('legs',rows,x,y);d.part('boots',boot,bxx,byy)
     d.part('coat',body,bx,by)
     if state=='hit' or (state=='defeat' and i==0):
@@ -372,20 +354,15 @@ def frame(folder,state,i):
     if state!='defeat':
         hand=blade(d,*sword)
         if state=='attack' and i==0:
-            # Shoulder-cocked grip at the rear of the helmet, connected to elbow.
             d.part('arm',ARM_UP,24,24);blade(d,*sword)
         if state=='victory':
-            # Off-hand pump is above the counterbalancing shield, then settles.
             d.part('arm',ARM_UP,16,22 if i==1 else 24)
             d.part('hand',HAND,14,18 if i==1 else 21)
     d.part('shield',SHIELD,*shield)
     if state=='victory' and i==1:d.part('hand',HAND,14,18)
     if state=='guard':
-        # Re-open the face beside the shield; the raised field braces the cheek.
         helmet(d,hx,hy,ex,plume)
         d.part('shield',SHIELD,42,17+i)
-    # Explicit joint contacts are native strokes. No silhouette cleanup or
-    # pigment interpolation decides the acting on our behalf.
     if state=='attack' and i==2:d.part('arm',['aaa']*7,20,31)
     d.detail('cloth hem',[(bx+15,by+11),(bx+16,by+11)])
     d.head=(hx,hy)

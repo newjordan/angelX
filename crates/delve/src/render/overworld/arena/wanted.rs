@@ -17,9 +17,6 @@ use crate::rules::outlaw::{self, FALL, POSTER, ROPE};
 use crate::rules::{Enemy, Run, Tile, ledge::FOOT};
 use std::f32::consts::PI;
 
-/// The hall at rest: its back wall of boards and beams, shuttered windows,
-/// notices nailed up, the street's stage, balconies with rails, awnings,
-/// crates, barrels and lanterns on chains.
 pub(super) fn scenery(run: &Run) -> Img {
     let room = run.room();
     let st = style(run.dungeon.pack);
@@ -35,7 +32,6 @@ pub(super) fn scenery(run: &Run) -> Img {
             Tile::Floor | Tile::Ledge | Tile::Door | Tile::Hazard
         )
     };
-    // The back wall: boards, a gap between each, a beam every three tiles.
     for y in 0..ph {
         for x in 0..pw {
             if !open(x / TILE, y / TILE) {
@@ -47,7 +43,6 @@ pub(super) fn scenery(run: &Run) -> Img {
             } else if y % 48 < 3 {
                 if y % 48 == 0 { 'P' } else { 'p' }
             } else {
-                // Dark, even boards: the figures and the planks stand out.
                 if hash(board, 1, 5) % 5 == 0 {
                     'I'
                 } else if hash(x, y, 3).is_multiple_of(17) {
@@ -59,7 +54,6 @@ pub(super) fn scenery(run: &Run) -> Img {
             cv.put(x, y, ink);
         }
     }
-    // Shuttered windows and nailed notices along the wall.
     for col in [10, 14, 19, 28, 33, 37] {
         let (x, y) = (col * TILE, 3 * TILE);
         if open(col, 3) {
@@ -94,7 +88,6 @@ pub(super) fn scenery(run: &Run) -> Img {
             }
         }
     }
-    // Balcony rails and awnings over the planks.
     for row in [6, 9] {
         let mut col = 0;
         while col < room.cols as i32 {
@@ -114,7 +107,6 @@ pub(super) fn scenery(run: &Run) -> Img {
             }
         }
     }
-    // Lanterns on chains from the beams.
     for col in [12, 24, 35] {
         let (x, y) = (col * TILE + 8, 4 * TILE);
         for dy in 0..y - 6 {
@@ -125,7 +117,6 @@ pub(super) fn scenery(run: &Run) -> Img {
         cv.stamp(&lantern(tick / 5 + col as u32), x - 4, y - 8);
         lights.push(fire(x, y - 3, 96.0, 0.5));
     }
-    // The doorway: a torch above, bars down while the hall is fought.
     if let Some(row) = (0..room.rows as i32).find(|&r| room.tile(0, r) == Tile::Door) {
         let y = row * TILE;
         cv.stamp(&torch(tick / 4, 7), 4, y - 12);
@@ -139,7 +130,6 @@ pub(super) fn scenery(run: &Run) -> Img {
 }
 
 fn window(cv: &mut Img, x: i32, y: i32, v: u32) {
-    // Frame, dark glass with a gleam, a shutter folded back each side.
     cv.rect(x + 2, y + 1, 12, 20, 'p');
     cv.rect(x + 3, y + 2, 10, 18, 'k');
     cv.rect(x + 4, y + 3, 8, 8, 's');
@@ -156,7 +146,6 @@ fn window(cv: &mut Img, x: i32, y: i32, v: u32) {
     }
 }
 
-/// A small notice nailed to the wall: parchment, a dark face, two nails.
 fn notice(cv: &mut Img, x: i32, y: i32, v: u32) {
     for dy in 0..15 {
         for dx in 0..11 {
@@ -179,7 +168,6 @@ fn notice(cv: &mut Img, x: i32, y: i32, v: u32) {
     cv.put(x + 9, y, 'J');
 }
 
-/// The stage's floor: boards laid along, nails at their ends.
 fn stage_board(cv: &mut Img, x: i32, y: i32, col: i32) {
     for dx in 0..TILE {
         cv.put(x + dx, y, 'O');
@@ -224,7 +212,6 @@ fn plank(cv: &mut Img, x: i32, y: i32, left: bool, right: bool, v: u32) {
     }
 }
 
-/// A balcony's rail: posts every few pixels and a top rail.
 fn rail(cv: &mut Img, x0: i32, x1: i32, y: i32) {
     let mut x = x0 + 1;
     while x < x1 {
@@ -240,7 +227,6 @@ fn rail(cv: &mut Img, x0: i32, x1: i32, y: i32) {
     }
 }
 
-/// A striped cloth awning over a plank, sloping out and up.
 fn awning(cv: &mut Img, x0: i32, x1: i32, y: i32, west: bool) {
     let w = x1 - x0;
     for dx in 0..w {
@@ -257,7 +243,6 @@ fn awning(cv: &mut Img, x0: i32, x1: i32, y: i32, west: bool) {
             };
             cv.put(x0 + dx, yy, ink);
         }
-        // The scalloped hem.
         if (dx / 5) % 2 == 0 {
             cv.put(x0 + dx, y - 6, 'R');
             cv.put(x0 + dx, y - 5, 'r');
@@ -322,9 +307,6 @@ fn lantern(step: u32) -> Img {
     ])
 }
 
-// ─── in the hall ─────────────────────────────────────────────────────────────
-
-/// A taunt, in the outlaw's mouth.
 const TAUNTS: [&str; 5] = [
     "HANG ME IF YOU CAN!",
     "THE REWARD IS MINE!",
@@ -333,15 +315,12 @@ const TAUNTS: [&str; 5] = [
     "COME AND TAKE IT!",
 ];
 
-/// The outlaw as it stands in the hall.
 fn art_of(run: &Run, index: u8) -> Img {
     stature::boss_figure(run, index).unwrap_or_else(|| Img::new(1, 1))
 }
 
 fn bubble(cv: &mut Img, x: i32, y: i32, text: &str, view: (i32, i32)) {
     let w = text_width(text) + 8;
-    // Whole on this seat's screen while the speaker is in its view; the tail
-    // stays at the speaker, inside the bubble's span.
     let (x0, y0) = (super::in_view_x(x, w, view, cv.w), y - 14);
     let x = x.clamp(x0 + 2, x0 + w - 4);
     super::super::chrome::inset_panel(cv, (x0, y0, w, 12), super::super::chrome::Tone::PAINTED.rimmed([ink('b').unwrap_or_default(); 3]));
@@ -352,8 +331,6 @@ fn bubble(cv: &mut Img, x: i32, y: i32, text: &str, view: (i32, i32)) {
     }
 }
 
-/// The hall's live marks, in the world: the tell before a volley, a taunt,
-/// ropes, the outlaw's fall and its coins.
 pub(super) fn over(cv: &mut Img, run: &Run, view: (i32, i32)) {
     if run.room().kind != crate::rules::RoomKind::Wanted {
         return;
@@ -370,7 +347,6 @@ pub(super) fn over(cv: &mut Img, run: &Run, view: (i32, i32)) {
         let h = art_of(run, index).h;
         let tell = outlaw::tell(e, boss);
         if tell > 0.0 {
-            // The gun comes up: a gold flash at the muzzle, a mark over the head.
             let side = nearest_side(run, e);
             let (mx, my) = (x + side * (h / 3 + 3), feet - h * 2 / 3);
             let r = (1.0 + tell * 3.0) as i32;
@@ -386,7 +362,6 @@ pub(super) fn over(cv: &mut Img, run: &Run, view: (i32, i32)) {
             if tell > 0.6
                 && let Some(target) = nearest_knight(run, e)
             {
-                // A dotted sight to the knight it has marked.
                 let (tx, ty) = at(target.0, target.1);
                 let n = ((tx - mx).abs().max((ty - my).abs()) / 3).max(1);
                 for k in 0..n {
@@ -399,12 +374,9 @@ pub(super) fn over(cv: &mut Img, run: &Run, view: (i32, i32)) {
         if e.stage == outlaw::TAUNT {
             let line =
                 TAUNTS[(e.id as usize + usize::try_from(e.age / 400).unwrap_or(0)) % TAUNTS.len()];
-            // Over its name plate (`nameplates`, 22 pixels over its head),
-            // the tail pointing down at it, so the words never cover the name.
             bubble(cv, x, super::in_view_y(feet - h - 39, feet, view) + 14, line, view);
         }
         if e.stage == outlaw::CALL {
-            // A whistle: three notes rising.
             for k in 0..3 {
                 let up = ((tick as i32 + k * 5) % 16) as i32;
                 cv.put(x + 6 + k * 3, feet - h - 4 - up, '6');
@@ -412,7 +384,6 @@ pub(super) fn over(cv: &mut Img, run: &Run, view: (i32, i32)) {
             }
         }
     }
-    // Ropes, lowering their company.
     for rope in &run.works.outlaw.ropes {
         let (rx, _) = at(rope.x, 0.0);
         let ground = 11 * TILE;
@@ -423,7 +394,6 @@ pub(super) fn over(cv: &mut Img, run: &Run, view: (i32, i32)) {
         }
         let im = sprites::enemy(rope.kind, tick as u32);
         cv.stamp(&im, rx - im.w / 2, drop);
-        // Where it will land: a shadow that tightens.
         let r = (8.0 - prog * 4.0) as i32;
         for k in 0..16 {
             let a = k as f32 / 16.0 * 2.0 * PI;
@@ -458,7 +428,6 @@ fn nearest_side(run: &Run, e: &Enemy) -> i32 {
     }
 }
 
-/// Rotate a sprite about its foot (bottom middle) by `angle`, nearest.
 fn rotated(im: &Img, angle: f32) -> Img {
     let size = im.w.max(im.h) * 2;
     let mut out = Img::new(size, size);
@@ -477,7 +446,6 @@ fn rotated(im: &Img, angle: f32) -> Img {
     out
 }
 
-/// A body flashing: every lit pixel to one ink, the dark ones to another.
 fn flash(im: &Img, light: char, dark: char) -> Img {
     let mut out = Img::new(im.w, im.h);
     for y in 0..im.h {
@@ -491,8 +459,6 @@ fn flash(im: &Img, light: char, dark: char) -> Img {
     out
 }
 
-/// The fall: the outlaw flashes and shakes, tips back over its heels and
-/// comes apart, and the coins it carried fly out and bounce.
 fn fall_world(cv: &mut Img, run: &Run, fall: &outlaw::Fall) {
     let age = run.tick.saturating_sub(fall.at) as f32;
     if age >= FALL as f32 {
@@ -501,7 +467,6 @@ fn fall_world(cv: &mut Img, run: &Run, fall: &outlaw::Fall) {
     let p = age / FALL as f32;
     let (x, feet) = at(fall.x, fall.y);
     let art = art_of(run, fall.boss);
-    // The body: flash, then fall.
     let body = if p < 0.3 {
         let bright = (age as i32 / 3) % 2 == 0;
         flash(
@@ -539,8 +504,6 @@ fn fall_world(cv: &mut Img, run: &Run, fall: &outlaw::Fall) {
             feet - shown.h + 1 + (t * 2.0) as i32,
         );
     }
-    // The coins: thrown up from the middle at the first flash, falling and
-    // bouncing on the stage.
     let ground = 11 * TILE - 2;
     for k in 0..16 {
         let start = 6.0 + (k % 4) as f32;
@@ -553,7 +516,6 @@ fn fall_world(cv: &mut Img, run: &Run, fall: &outlaw::Fall) {
         let mut cy = feet as f32 - 16.0 + vy * t + 0.18 * t * t;
         let cx = x as f32 + vx * t;
         if cy > ground as f32 {
-            // A bounce, and then it lies.
             let over = cy - ground as f32;
             cy = ground as f32 - (over * 0.5).min(5.0) * ((t * 0.3).sin().abs());
             cy = cy.min(ground as f32);
@@ -566,9 +528,6 @@ fn fall_world(cv: &mut Img, run: &Run, fall: &outlaw::Fall) {
     }
 }
 
-// ─── the poster and the bounty, in the screen ────────────────────────────────
-
-/// A small text, enlarged `k` times, in `ink`.
 fn big_text(s: &str, k: i32, ink: char) -> Img {
     let mut small = Img::new(text_width(s) + 1, 8);
     small.text(0, 0, s, ink);
@@ -587,7 +546,6 @@ fn thousands(n: u32) -> String {
     out
 }
 
-/// Lettering with a dark edge, so gold reads on parchment.
 fn gilded(cv: &mut Img, x: i32, y: i32, s: &str, k: i32) {
     let edge = big_text(s, k, 'b');
     let face = big_text(s, k, 'o');
@@ -599,7 +557,6 @@ fn gilded(cv: &mut Img, x: i32, y: i32, s: &str, k: i32) {
     cv.stamp(&hi, x, y - 1);
 }
 
-/// The poster, when it is up, and the bounty banner after a fall.
 pub(super) fn poster(cv: &mut Img, run: &Run, legible: bool) {
     if !legible || run.room().kind != crate::rules::RoomKind::Wanted {
         return;
@@ -620,7 +577,6 @@ fn notice_board(cv: &mut Img, run: &Run, t: i32) {
     let Some(boss) = run.bosses.get(usize::from(index)) else {
         return;
     };
-    // The room dims; the poster drops from above and lifts away at the end.
     let total = POSTER as i32;
     let fade = if t > total - 14 {
         (total - t) as f32 / 14.0
@@ -651,7 +607,6 @@ fn notice_board(cv: &mut Img, run: &Run, t: i32) {
         (NATIVE_W - w) / 2 + sway,
         5 - (rise * (h + 20) as f32) as i32,
     );
-    // Parchment, ragged at its edge, stained.
     for y in 0..h {
         for x in 0..w {
             let edge = x.min(w - 1 - x).min(y).min(h - 1 - y);
@@ -675,7 +630,6 @@ fn notice_board(cv: &mut Img, run: &Run, t: i32) {
         cv.rect(x0 + nx - 1, y0 + ny - 1, 3, 3, 'J');
         cv.put(x0 + nx, y0 + ny, 'i');
     }
-    // WANTED, large.
     let title = big_text("WANTED", 3, 'p');
     cv.stamp(
         &big_text("WANTED", 3, 'b'),
@@ -687,7 +641,6 @@ fn notice_board(cv: &mut Img, run: &Run, t: i32) {
     cv.text(x0 + (w - text_width(sub)) / 2, y0 + 40, sub, 'p');
     cv.line(x0 + 14, y0 + 51, x0 + w - 15, y0 + 51, 'p');
     cv.line(x0 + 14, y0 + 53, x0 + w - 15, y0 + 53, 'o');
-    // The likeness, in a frame.
     let art = Img::from_rows(&boss.art.iter().map(String::as_str).collect::<Vec<_>>());
     let pic = enlarge(&art, 2.0);
     let (fx, fy) = (x0 + (w - 72) / 2, y0 + 60);
@@ -704,7 +657,6 @@ fn notice_board(cv: &mut Img, run: &Run, t: i32) {
     for (cx, cy) in [(fx, fy), (fx + 70, fy), (fx, fy + 70), (fx + 70, fy + 70)] {
         cv.rect(cx, cy, 2, 2, 'O');
     }
-    // The name, one line or two.
     let name = boss.name.to_uppercase();
     let mut lines: Vec<String> = Vec::new();
     if name.chars().count() > 22 {
@@ -729,21 +681,18 @@ fn notice_board(cv: &mut Img, run: &Run, t: i32) {
     let crown = "BY ORDER OF THE CROWN";
     cv.text(x0 + (w - text_width(crown)) / 2, ny + 2, crown, 'p');
     cv.line(x0 + 30, ny + 13, x0 + w - 31, ny + 13, 'o');
-    // The reward, in gold.
     let word = "REWARD";
     cv.text(x0 + (w - text_width(word)) / 2, ny + 18, word, 'p');
     let sum = thousands(run.works.outlaw.bounty);
     let k = if text_width(&sum) * 2 <= w - 70 { 2 } else { 1 };
     let sum_w = text_width(&sum) * k;
     let gold = "GOLD";
-    // The coin, the sum and the word, in one line.
     let whole = 9 + sum_w + 5 + text_width(gold);
     let left = x0 + (w - whole) / 2;
     let sy = ny + 28;
     coin(cv, left + 3, sy + 4 * k);
     gilded(cv, left + 9, sy, &sum, k);
     cv.text(left + 9 + sum_w + 5, sy + 4 * k - 3, gold, 'p');
-    // A wax seal, the realm's sun-star in it.
     let (sx, sy) = (x0 + w - 13, y0 + h - 12);
     for y in -7..=7i32 {
         for x in -7..=7i32 {
@@ -763,8 +712,6 @@ fn coin(cv: &mut Img, x: i32, y: i32) {
     cv.stamp(&im, x - im.w / 2, y - im.h / 2);
 }
 
-/// After the fall: a scroll across the foot of the screen counts the
-/// bounty out.
 fn banner(cv: &mut Img, run: &Run, fall: &outlaw::Fall) {
     let age = run.tick.saturating_sub(fall.at) as i32;
     if age < 24 || age > FALL as i32 + 60 {
@@ -778,7 +725,6 @@ fn banner(cv: &mut Img, run: &Run, fall: &outlaw::Fall) {
     cv.rect(x0 + 3, y0 + 36, w - 6, 2, 'O');
     let head = "BOUNTY PAID";
     cv.text(x0 + (w - text_width(head)) / 2, y0 + 5, head, 'p');
-    // The sum counts up.
     let shown = (fall.bounty as f32 * ((age - 24) as f32 / 40.0).min(1.0)) as u32 / 10 * 10;
     let sum = thousands(shown.min(fall.bounty));
     let sum_w = text_width(&sum) * 2;
@@ -786,28 +732,18 @@ fn banner(cv: &mut Img, run: &Run, fall: &outlaw::Fall) {
     coin(cv, x0 + (w - sum_w) / 2 - 4, y0 + 25);
 }
 
-/// Whether boss `e` wears its name plate (`nameplates`), its health the
-/// bar under it: then `marks::enemy_bar` draws no bar of its own.
 pub(super) fn plated(run: &Run, e: &Enemy) -> bool {
     !super::boss_art::library_hidden() && !run.poster_up() && e.boss.is_some_and(|i| run.bosses.get(usize::from(i)).is_some())
 }
 
-/// Ticks a guardian's plate takes to come up after it does.
 pub(super) const ENTRANCE: u32 = 28;
 
-/// A guardian's plate `age` ticks after it came: how far its banner has
-/// unrolled, how much of its name is up, and how full its bar is shown
-/// (all 1 from `ENTRANCE` on).
 pub(super) fn entrance(age: u32) -> (f32, f32, f32) {
     use crate::motion::{ease, share};
     let a = age as f32;
     (ease::out(share(a, 0.0, 8.0)), share(a, 5.0, 9.0), ease::out(share(a, 10.0, (ENTRANCE - 10) as f32)))
 }
 
-/// A boss's name and its health: its name on a dark red banner over its
-/// head, its health on a bar hung under the banner (`guardian_bar`). (The
-/// Boss Key's carrier is an elite, marked over its own bar:
-/// `marks::key_mark`.)
 pub(super) fn nameplates(cv: &mut Img, run: &Run, view: (i32, i32)) {
     for e in run.enemies.iter().filter(|e| e.hp > 0 && plated(run, e)) {
         let Some(boss) = e.boss.and_then(|i| run.bosses.get(usize::from(i))) else {
@@ -822,26 +758,19 @@ pub(super) fn nameplates(cv: &mut Img, run: &Run, view: (i32, i32)) {
         let top = super::marks::enemy_top(run,e,feet,height,view);
         let name = boss.name.to_uppercase();
         let (w, h) = ((text_width(&name) + 8).max(40), 11);
-        // Whole on this seat's screen while the boss is in its view, where
-        // its name always stood (`marks::enemy_top` keeps that room).
         let x0 = super::in_view_x(x, w, view, cv.w);
         let y0 = super::in_view_y(top - 20, feet, view) - 2;
         let delivered = super::hud_art::enabled(run);
-        // Its entrance (`ENTRANCE`): the banner unrolls from its middle,
-        // the name comes up a letter at a time, and the bar fills.
         let (open, typed, fill) = entrance(e.age);
-        // The banner, in the health bar's own rim, whole while it stands.
         let bw = ((w - 2) as f32 * open).round() as i32;
         if bw >= 2 {
             let bx = x0 + 1 + (w - 2 - bw) / 2;
             super::marks::bar(cv, bx, y0 + 1, bw, h - 2, 1.0, '8', delivered);
             cv.rect(bx, y0 + 1, bw, 1, '7');
         }
-        // Its health, hung under the banner once it is open.
         if open >= 1.0 {
             super::guardian_bar::draw(cv, e, boss, (x0, y0 + h - 1, w), run.tick, delivered, fill);
         }
-        // The name, shadowed, its letters in their places as they come.
         let tx = x0 + (w - text_width(&name)) / 2;
         let shown: String = name.chars().take((name.chars().count() as f32 * typed).ceil() as usize).collect();
         cv.text(tx + 1, y0 + 3, &shown, 'k');

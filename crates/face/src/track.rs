@@ -7,23 +7,15 @@ use crate::model::Goddess;
 
 #[derive(Clone, Debug)]
 pub struct Track {
-    /// The shapes its columns are, in its order.
     pub names: Vec<String>,
     pub fps: f32,
-    /// Seconds.
     pub duration: f32,
-    /// For each column of a frame, the channel it drives (`None`: a shape
-    /// she does not have).
     columns: Vec<Option<usize>>,
     frames: Vec<Vec<f32>>,
-    /// The columns that open her mouth, for how loud she is.
     jaw: Option<usize>,
     open: Vec<usize>,
 }
 
-/// How much of a track's weights reach her face, per shape family: the
-/// solver's eyes stay hers (her gaze, her blinks win where they are
-/// stronger), its mouth and brows are taken whole.
 fn reach(name: &str) -> f32 {
     if name.starts_with("eyeLook") {
         0.0
@@ -35,7 +27,6 @@ fn reach(name: &str) -> f32 {
 }
 
 impl Track {
-    /// Read a track for `goddess` from its JSON text.
     pub fn from_json(text: &str, goddess: &Goddess) -> Result<Self, String> {
         let v: serde_json::Value =
             serde_json::from_str(text).map_err(|e| format!("a speech track: {e}"))?;
@@ -97,10 +88,6 @@ impl Track {
         })
     }
 
-    /// Take away a resting face: `rest`'s mean frame (a track of silence),
-    /// shape by shape, from every frame of this one. Audio2Face's actor does
-    /// not rest at zero (Claire's mouth sits frowned and rolled in
-    /// silence); her own face is her rest.
     pub fn without_rest(mut self, rest: &Track) -> Self {
         let n = rest.frames.len().max(1) as f32;
         for (c, name) in self.names.iter().enumerate() {
@@ -115,9 +102,6 @@ impl Track {
         self
     }
 
-    /// Her weights `t` seconds into the line (a weight per channel, zero
-    /// where the track says nothing), and how loud she is then, 0..1.
-    /// `None` past the end.
     pub fn sample(&self, t: f32, channels: usize) -> Option<(Vec<f32>, f32)> {
         if !(t >= 0.0 && t < self.duration) {
             return None;

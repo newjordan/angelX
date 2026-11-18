@@ -15,7 +15,6 @@ use super::{ResolvedSub, Route, ledger, m_method, w_workflow};
 use crate::agent::club::{ChatMsg, ChatRole};
 use std::cell::Cell;
 
-/// The pages the Anthropic seat is never sent: a route and its page's index.
 pub(crate) const OMITTED: &[(Route, usize)] =
     &[(m_method::REPAIR_BATCH, 3), (w_workflow::RESPONSE, 1)];
 
@@ -23,13 +22,10 @@ thread_local! {
     static ACTIVE: Cell<bool> = const { Cell::new(false) };
 }
 
-/// Whether the Anthropic seat stands on this profile (`ANGEL_SEAT_PROFILE`,
-/// default on).
 pub(crate) fn enabled() -> bool {
     crate::agent::harness::env_flag("ANGEL_SEAT_PROFILE", true)
 }
 
-/// `f` with [`OMITTED`] left out of what the book renders on this thread.
 pub(crate) fn omitting<T>(f: impl FnOnce() -> T) -> T {
     struct Restore(bool);
     impl Drop for Restore {
@@ -41,8 +37,6 @@ pub(crate) fn omitting<T>(f: impl FnOnce() -> T) -> T {
     f()
 }
 
-/// Whether `text`, a page of `route`, is left out here. Only the book's own
-/// page is: a cartridge's page on the same route is its own words.
 pub(crate) fn omitted(route: Route, text: &str) -> bool {
     ACTIVE.with(Cell::get)
         && OMITTED
@@ -50,7 +44,6 @@ pub(crate) fn omitted(route: Route, text: &str) -> bool {
             .any(|&(omit, index)| omit == route && book_page(omit, index) == Some(text))
 }
 
-/// A route's pages as rendered here, in order.
 pub(crate) fn kept(sub: &ResolvedSub) -> impl Iterator<Item = &str> + '_ {
     sub.pages.iter().filter(|page| !omitted(sub.route, page))
 }
@@ -65,10 +58,6 @@ fn book_page(route: Route, index: usize) -> Option<&'static str> {
         .copied()
 }
 
-/// The seat's outbound copy, zipped 1:1 with `messages`: a tool's answer — a
-/// ledger read, direct or inside a batch — drops each [`OMITTED`] page's line
-/// (`ledger::page_line`). The history is untouched, and the copy is a pure
-/// function of each message, so the cached prefix holds.
 pub(crate) fn strip_ledger_reads(messages: &[ChatMsg], outbound: &mut [serde_json::Value]) {
     let lines: Vec<String> = OMITTED
         .iter()

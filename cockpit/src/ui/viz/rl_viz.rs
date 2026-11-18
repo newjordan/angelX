@@ -21,8 +21,6 @@ use ratatui::{
     text::{Line, Span, Text},
 };
 
-/// Read-only lenses over one RL run. The branch view preserves the live
-/// operator graph; Research and Sankey reshape the same evidence for review.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum RlView {
     #[default]
@@ -168,12 +166,6 @@ fn idle_lines(width: usize) -> Vec<Line<'static>> {
     lines
 }
 
-// ---------------------------------------------------------------------------
-// Pipeline node row
-// ---------------------------------------------------------------------------
-
-/// Shared with `graph_viz` — the Round Table stage renders its DAG layers with
-/// the same node cells and pulse.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum NodeState {
     Pending,
@@ -187,7 +179,6 @@ pub(crate) fn node_style(state: NodeState, time: f32) -> Style {
     match state {
         NodeState::Pending => Style::new().fg(hud::HUD_DIM),
         NodeState::Active => {
-            // Lantern pulse on the live node so the graph reads as running.
             let bright = (time * 2.4).sin() > 0.0;
             let style = Style::new().fg(hud::HUD_GOLD).add_modifier(Modifier::BOLD);
             if bright {
@@ -224,10 +215,6 @@ pub(crate) fn node_row(nodes: &[(&str, NodeState)], time: f32, width: usize) -> 
     }
     Line::from(spans)
 }
-
-// ---------------------------------------------------------------------------
-// Campaign: measured attempts
-// ---------------------------------------------------------------------------
 
 fn attempt_lines(
     progress: &RunProgress,
@@ -300,8 +287,6 @@ fn attempt_lines(
                 .iter()
                 .map(|point| point.latency_ms as f32)
                 .collect();
-            // One definition: generation time plus the physical verifier's wall
-            // time for that attempt (see `rl_ctl::RunPoint`).
             lines.push(caption_line(
                 "attempt ms · generate+verify",
                 latency.last().copied(),
@@ -327,8 +312,6 @@ fn attempt_lines(
         }
         lines.push(dim_line(log, width));
     }
-    // The receipt-backed cohort narration, when the telemetry spine has a
-    // measured campaign to describe.
     if telemetry::current().is_some() && lines.len() < height {
         lines.push(Line::default());
         lines.extend(campaign_lines(
@@ -366,10 +349,6 @@ fn campaign_outcome_line(outcome: &CampaignOutcome, width: usize) -> Line<'stati
         Style::new().fg(color).add_modifier(Modifier::BOLD),
     ))
 }
-
-// ---------------------------------------------------------------------------
-// Campaign cohort narration (telemetry spine)
-// ---------------------------------------------------------------------------
 
 fn campaign_lines(time: f32, width: usize, height: usize) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
@@ -426,7 +405,6 @@ fn campaign_lines(time: f32, width: usize, height: usize) -> Vec<Line<'static>> 
         lines.push(dim_line("waiting for the first measured cohort…", width));
     }
 
-    // Event timeline fills whatever height remains.
     if let Some(snapshot) = &snapshot {
         let remaining = height.saturating_sub(lines.len() + 1);
         if remaining >= 2 && !snapshot.events.is_empty() {
@@ -561,10 +539,6 @@ fn verdict_line(verdict: &telemetry::CohortVerdict, width: usize) -> Line<'stati
     ))
 }
 
-// ---------------------------------------------------------------------------
-// Research ledger
-// ---------------------------------------------------------------------------
-
 fn research_lines(state: &RlState, width: usize, height: usize) -> Vec<Line<'static>> {
     match state.mode {
         RlMode::Idle => vec![
@@ -586,8 +560,6 @@ fn research_lines(state: &RlState, width: usize, height: usize) -> Vec<Line<'sta
         RlMode::Campaign => research_campaign_lines(state, width, height),
     }
 }
-/// Measured-attempt ledger: the operator's own verifier verdict per attempt,
-/// then the receipt-backed cohort detail when the telemetry spine has it.
 fn research_campaign_lines(state: &RlState, width: usize, height: usize) -> Vec<Line<'static>> {
     let progress = state.progress_snapshot();
     let mut lines = vec![heading_line(
@@ -807,10 +779,6 @@ fn sampled_indices(len: usize, slots: usize) -> Vec<usize> {
     indices
 }
 
-// ---------------------------------------------------------------------------
-// Sankey flow
-// ---------------------------------------------------------------------------
-
 fn sankey_lines(state: &RlState, width: usize) -> Vec<Line<'static>> {
     match state.mode {
         RlMode::Idle => vec![
@@ -963,10 +931,6 @@ fn sankey_promotion_lines(width: usize) -> Vec<Line<'static>> {
     }
     lines
 }
-
-// ---------------------------------------------------------------------------
-// Small helpers
-// ---------------------------------------------------------------------------
 
 fn heading_line(text: &str, width: usize) -> Line<'static> {
     Line::from(Span::styled(

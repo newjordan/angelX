@@ -46,10 +46,6 @@ use promotion::{
     evaluate_final_audit_with_receipts, evaluate_promotion, evaluate_promotion_with_receipts,
 };
 
-/// Output produced by an evaluator-owned process. Test and lint rewards accept
-/// only this type, never candidate-authored prose that merely resembles a tool
-/// transcript. Fields are private so release callers must obtain evidence from
-/// an actual process result rather than relabeling a string.
 #[derive(Clone, Debug)]
 pub struct EvaluatorEvidence {
     source: String,
@@ -94,8 +90,6 @@ struct CapturedEvaluatorExecution {
     stderr_truncated: bool,
 }
 
-// Advisory names cannot make a hash mismatch eligible. They are retained in
-// the manifest for integrity, but racing observations can still be incomplete.
 fn changed_workspace_paths(
     before: Option<std::collections::BTreeMap<PathBuf, String>>,
     after: Option<std::collections::BTreeMap<PathBuf, String>>,
@@ -109,15 +103,11 @@ fn changed_workspace_paths(
         .collect::<std::collections::BTreeSet<_>>()
         .into_iter()
         .filter(|path| before.get(*path) != after.get(*path))
-        // Debug formatting escapes newlines and preserves non-UTF-8 names.
         .map(|path| format!("{path:?}"))
         .collect()
 }
 
 impl EvaluatorEvidence {
-    /// Execute the exact shell command recorded by this receipt. Keeping process
-    /// creation and receipt construction in one function prevents callers from
-    /// attaching an arbitrary `Output` to a trusted-looking command label.
     pub(crate) fn run_shell(
         source: &str,
         command: &str,
@@ -183,13 +173,6 @@ impl EvaluatorEvidence {
         )
     }
 
-    /// Evaluator-owned execution for the operator's own objective command: the
-    /// candidate's working copy is writable in place and the command inherits
-    /// the operator environment (bare tools resolve), while the sandbox still
-    /// denies network and the receipt still fails closed when the verifier
-    /// mutates tracked files. It carries no deadline of its own: a long valid
-    /// build is not a failed learning sample, and the campaign's own
-    /// cancellation is the bound.
     pub(crate) fn run_shell_for_objective(
         source: &str,
         command: &str,
@@ -630,12 +613,6 @@ impl EvaluatorEvidence {
 const EVALUATOR_TIMEOUT: Duration = Duration::from_secs(120);
 const EVALUATOR_EXECUTION_SCHEMA: &str = "angel.rlvr.execution-policy/v3";
 const EVALUATOR_CAPTURE_POLICY: &str = "landlock-source-read-only;scratch=v1;network=deny-inet-socket/seccomp+tcp-landlock;shell-flags=-eu;process-group;stdin=null;stdout=head64KiB+tail960KiB;stderr=head64KiB+tail960KiB";
-/// Execution policy for the operator's own objective command. Its boundary is
-/// the sandbox (writable roots fixed, network denied), not the argv shape or a
-/// sealed allowlist: the command is the operator's own verifier, so it resolves
-/// bare tools through the inherited environment exactly as it does by hand.
-/// The identity marker is fixed rather than a hash of that environment: an
-/// operator command's reproducibility is not claimed to depend on it.
 const EVALUATOR_OBJECTIVE_CAPTURE_POLICY: &str = "landlock-workspace+scratch;network=deny-inet-socket/seccomp+tcp-landlock;shell-flags=-eu;process-group;stdin=null;env=inherited-operator;stdout=head64KiB+tail960KiB;stderr=head64KiB+tail960KiB";
 const EVALUATOR_ENV_ALLOWLIST: &[&str] = &[
     "AR",
@@ -654,7 +631,6 @@ const EVALUATOR_ENV_ALLOWLIST: &[&str] = &[
 
 struct EvaluatorExecutionPolicy {
     shell: PathBuf,
-    /// `None` means the objective's own cancellation is the only bound.
     timeout: Option<Duration>,
     environment: Vec<(OsString, OsString)>,
     manifest_sha256: String,
@@ -665,9 +641,6 @@ impl EvaluatorExecutionPolicy {
         Self::capture_with(Some(timeout), false)
     }
 
-    /// Policy for the operator's own objective command: inherited environment,
-    /// no deadline of its own, documented in the identity as
-    /// `env=inherited-operator`.
     fn capture_operator(timeout: Option<Duration>) -> Result<Self, String> {
         Self::capture_with(timeout, true)
     }
@@ -683,8 +656,6 @@ impl EvaluatorExecutionPolicy {
             )
         })?;
         let mut environment = if operator_environment {
-            // The operator's command keeps the environment it would have by
-            // hand; only the sandbox boundary changes.
             std::env::vars_os().collect::<Vec<_>>()
         } else {
             EVALUATOR_ENV_ALLOWLIST
@@ -697,9 +668,6 @@ impl EvaluatorExecutionPolicy {
         environment.push((OsString::from("LANG"), OsString::from("C")));
         environment.push((OsString::from("LC_ALL"), OsString::from("C")));
         if !operator_environment {
-            // External verifier programs must be absolute paths bound by an
-            // EvaluatorSpec. An empty search path makes undeclared bare tools fail
-            // closed while retaining POSIX shell builtins such as `printf`/`test`.
             environment.push((OsString::from("PATH"), OsString::from("/nonexistent")));
         }
         environment.sort_by(|left, right| os_bytes(&left.0).cmp(os_bytes(&right.0)));
@@ -768,7 +736,6 @@ pub(crate) fn evaluator_execution_policy_sha256() -> Result<String, String> {
     EvaluatorExecutionPolicy::capture(EVALUATOR_TIMEOUT).map(|policy| policy.manifest_sha256)
 }
 
-/// Execution-policy identity for the operator's own objective command.
 pub(crate) fn evaluator_objective_execution_policy_sha256() -> Result<String, String> {
     EvaluatorExecutionPolicy::capture_operator(None).map(|policy| policy.manifest_sha256)
 }
@@ -799,13 +766,7 @@ fn process_output_sha256(stdout: &[u8], stderr: &[u8]) -> String {
     crate::knowledge::cut::sha256_hex(&canonical)
 }
 
-/// Called only after the mandatory sandbox launcher, which emits this first line
-/// before executing evaluator code. Never scan/remove later matching lines: those
-/// belong to the evaluator. Keep the complete stream and bind this boundary in
-/// the manifest; old artifacts default to zero and retain their original meaning.
 fn captured_launcher_stderr_prefix_len(stderr: &[u8]) -> usize {
-    // Only the Linux mandatory launcher emits this pre-exec protocol.
-    // Other platforms must not classify evaluator-authored text as launcher data.
     if cfg!(target_os = "linux") {
         launcher_stderr_prefix_len(stderr)
     } else {
@@ -849,10 +810,6 @@ fn combined_process_output(stdout: &[u8], stderr: &[u8]) -> String {
 const EVALUATOR_EVIDENCE_SCHEMA: &str = "angel.rlvr.evaluator-evidence/v2";
 pub(crate) const CODE_HEALTH_VERIFIER_CONTRACT: &str = "angel.rlvr.code-health/v2";
 pub(crate) const TEST_VERIFIER_CONTRACT: &str = "angel.rlvr.tests/v1";
-/// Verifier contract for a command-success objective case: the operator's own
-/// command, executed by the evaluator over the candidate's working copy. The
-/// case's inventory observation is its frozen source identity, so no test
-/// inventory is implied.
 pub(crate) const COMMAND_SUCCESS_VERIFIER_CONTRACT: &str = "angel.rlvr.command-success/v1";
 const LINT_VERIFIER_CONTRACT: &str = "angel.rlvr.lint/v1";
 
@@ -929,8 +886,6 @@ fn evaluator_manifest_sha256(fields: EvaluatorManifestFields<'_>) -> String {
         canonical.push_str(&value);
         canonical.push('\n');
     }
-    // Empty diagnostics retain the pre-existing artifact manifest identity.
-    // New names are authenticated, but remain advisory to the hash comparison.
     if !workspace_changed_paths.is_empty() {
         canonical.push_str("changed-paths/v1\n");
         for path in workspace_changed_paths {
@@ -948,9 +903,6 @@ fn evaluator_manifest_sha256(fields: EvaluatorManifestFields<'_>) -> String {
     crate::knowledge::cut::sha256_hex(canonical.as_bytes())
 }
 
-/// Provenance-bearing reward input. Candidate output and evaluator evidence are
-/// deliberately different variants so RLVR scorers can fail closed instead of
-/// parsing candidate-authored test/lint lookalikes.
 #[derive(Clone, Copy, Debug)]
 pub enum RewardInput<'a> {
     CandidateOutput(&'a str),
@@ -977,24 +929,18 @@ impl<'a> RewardInput<'a> {
     }
 }
 
-/// A scorer for a generated candidate or evaluator-owned evidence (higher =
-/// better). Each implementation must explicitly select the provenance it
-/// accepts. DICE's kernel speedup_vs_torch or a judge club implements this.
 pub trait Reward: Send + Sync {
     fn score(&self, input: RewardInput<'_>) -> Result<f32, String>;
     fn label(&self) -> &str;
 }
 
-/// A generated candidate before scoring (the article's pre-reward rollout).
 #[derive(Clone, Debug)]
 pub struct Candidate {
-    /// Optimizer step that produced the generating policy (for staleness).
     pub policy_version: u64,
     pub latency: Duration,
     pub output: String,
 }
 
-/// A scored, accept/reject-tagged candidate (the article's "sample").
 #[derive(Clone, Debug)]
 pub struct Rollout {
     pub policy_version: u64,
@@ -1004,26 +950,17 @@ pub struct Rollout {
     pub output: String,
 }
 
-/// Tunable budgets/thresholds — the knobs the article calls out.
 #[derive(Clone, Debug)]
 pub struct ReinforceConfig {
-    /// Candidates per prompt (a GRPO group).
     pub group_size: usize,
-    /// Generate `group_size * (1 + oversample)` and drop the slowest.
     pub oversample: f32,
-    /// Max optimizer-step gap before a candidate is rejected as stale.
     pub staleness_budget: u64,
-    /// Reject rollouts slower than `median_latency * straggler_factor`.
-    /// Zero disables timing-based pruning while retaining measured latencies.
     pub straggler_factor: f32,
-    /// reward >= this counts as a "solve" (for solve-rate / curriculum).
     pub success_threshold: f32,
 }
 
 impl Default for ReinforceConfig {
     fn default() -> Self {
-        // Defaults echo the article's example values (max staleness 16, ~60%
-        // oversample, ~2x straggler tail).
         Self {
             group_size: 8,
             oversample: 0.6,
@@ -1035,22 +972,18 @@ impl Default for ReinforceConfig {
 }
 
 impl ReinforceConfig {
-    /// How many candidates to dispatch for a group, given oversampling.
     pub fn dispatch_count(&self) -> usize {
         ((self.group_size as f32) * (1.0 + self.oversample)).ceil() as usize
     }
 }
 
-/// Per-batch observability — the article's system-health metrics.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct BatchMetrics {
     pub generated: usize,
     pub accepted: usize,
     pub rejected_stale: usize,
     pub rejected_straggler: usize,
-    /// Fraction of accepted rollouts with reward >= success_threshold.
     pub solve_rate: f32,
-    /// Spread of accepted rewards; ~0 ⇒ zero-advantage collapse.
     pub advantage_variance: f32,
     pub median_latency: Duration,
     pub p99_latency: Duration,
@@ -1065,17 +998,11 @@ impl BatchMetrics {
         }
     }
 
-    /// The article's "productive middle band": there's reward spread to learn
-    /// from AND the task isn't pinned at all-pass or all-fail. If false, the
-    /// optimizer step should be skipped (the curriculum needs adjusting).
     pub fn has_learning_signal(&self) -> bool {
         self.advantage_variance > 1e-6 && self.solve_rate > 0.0 && self.solve_rate < 1.0
     }
 }
 
-/// Score a batch of candidates against `reward`, enforcing the staleness budget
-/// and straggler pruning, and computing the advantage-variance / solve-rate
-/// signals. Returns the tagged rollouts plus the batch metrics.
 pub fn evaluate_batch(
     reward: &dyn Reward,
     current_version: u64,
@@ -1084,7 +1011,6 @@ pub fn evaluate_batch(
 ) -> (Vec<Rollout>, BatchMetrics) {
     let generated = candidates.len();
 
-    // Latency distribution → straggler threshold (article: P99 vs median tail).
     let mut lats: Vec<Duration> = candidates.iter().map(|c| c.latency).collect();
     lats.sort_unstable();
     let median = lats.get(lats.len() / 2).copied().unwrap_or_default();
@@ -1104,7 +1030,6 @@ pub fn evaluate_batch(
             .score(RewardInput::CandidateOutput(&c.output))
             .unwrap_or(f32::NEG_INFINITY);
         let stale = current_version.saturating_sub(c.policy_version) > cfg.staleness_budget;
-        // Only count a straggler when there's a meaningful baseline (>0 median).
         let straggler = median > Duration::ZERO
             && straggler_thresh.is_some_and(|threshold| c.latency > threshold);
         let scored_ok = reward_val.is_finite();
@@ -1159,19 +1084,10 @@ fn variance<I: Iterator<Item = f32>>(values: I) -> f32 {
     v.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / v.len() as f32
 }
 
-// ---------------------------------------------------------------------------
-// The live pipeline: generator → reward → reflector (the 3 actors), backed by
-// clubs. The generator samples a club K times for a prompt; the judge club
-// scores each output; the reflector club evolves the system prompt.
-// ---------------------------------------------------------------------------
-
-/// Produces candidate outputs for a (system_prompt, task) at a policy version.
 pub trait Generator: Send + Sync {
     fn generate(&self, system_prompt: &str, task: &str, version: u64, n: usize) -> Vec<Candidate>;
 }
 
-/// Proposes an improved system prompt given the best/worst rollout (GEPA-style
-/// reflective mutation — the optimizer step).
 pub trait Reflector: Send + Sync {
     fn improve(
         &self,
@@ -1182,8 +1098,6 @@ pub trait Reflector: Send + Sync {
     ) -> Result<String, String>;
 }
 
-/// A generator that samples a club K times (each call varies under the model's
-/// sampling temperature → a diverse GRPO group). No tools — plain text answers.
 pub struct ClubGenerator {
     pub club: Arc<dyn Club>,
 }
@@ -1209,7 +1123,6 @@ impl Generator for ClubGenerator {
     }
 }
 
-/// Reward = an LLM judge club grading the output 0–10 against the task.
 pub struct JudgeReward {
     pub judge: Arc<dyn Club>,
     pub task: String,
@@ -1218,8 +1131,6 @@ pub struct JudgeReward {
 impl Reward for JudgeReward {
     fn score(&self, input: RewardInput<'_>) -> Result<f32, String> {
         let output = input.candidate_output(self.label())?;
-        // `⠗⠊`: the grader's brief is the route, the task and the response the
-        // data. Connected, so the judge can read it.
         let prompt = format!(
             "{}\n\nTASK:\n{}\n\nRESPONSE:\n{}",
             crate::agent::harness::book::r_relentless::GRADER.cells(),
@@ -1238,12 +1149,6 @@ impl Reward for JudgeReward {
     }
 }
 
-/// Verifiable reward (RLVR): scores evaluator-owned command evidence by parsing
-/// libtest "test result:" lines — reward = fraction of executed tests that
-/// passed (0 if no summary is present). Candidate-authored text and nonzero
-/// verifier exits fail closed. Pairs with the shared `parse_test_result`,
-/// turning "did the tests pass?" into a ground-truth signal that complements
-/// the LLM `JudgeReward`.
 pub struct TestReward;
 
 impl Reward for TestReward {
@@ -1268,13 +1173,6 @@ impl Reward for TestReward {
     }
 }
 
-/// Physical measurement of one verified coding attempt: the strict libtest
-/// fraction when the verifier reported a summary, otherwise its exit status.
-///
-/// A red verifier is a measured zero rather than an error — the objective being
-/// optimized may legitimately start red — but malformed evidence, a timed-out
-/// verifier, a mismatched verifier contract, or a suite that executed nothing
-/// can never earn reward. Candidate-authored text is never consulted.
 pub fn coding_verifier_reward(evidence: &EvaluatorEvidence) -> Result<f32, String> {
     evidence.validate_for_scoring()?;
     evidence.require_verifier_contract(
@@ -1294,10 +1192,6 @@ pub fn coding_verifier_reward(evidence: &EvaluatorEvidence) -> Result<f32, Strin
     }
 }
 
-/// Binary held-out technical pass reward. A completed evaluator run with at
-/// least one executed test earns one only when the process and every parsed
-/// test are green; ordinary red test runs earn zero rather than making the
-/// cohort incomplete. Missing/unparseable evidence remains an evaluator error.
 pub struct TechnicalPassReward;
 
 impl Reward for TechnicalPassReward {
@@ -1319,9 +1213,6 @@ impl Reward for TechnicalPassReward {
     }
 }
 
-/// Verifiable reward: scores evaluator-owned command evidence by parsing
-/// clippy/rustc diagnostics (via the shared `parse_lint`) — reward = 0 on any
-/// error, else 1/(1+warnings). Candidate text and nonzero exits fail closed.
 pub struct LintReward;
 
 impl Reward for LintReward {
@@ -1346,14 +1237,6 @@ impl Reward for LintReward {
     }
 }
 
-/// Resolve the training reward scorer from `ANGEL_RL_REWARD`.
-///
-/// | Value | Scorer |
-/// |---|---|
-/// | `code_health` / `tests_lint` | [`CompositeReward::code_health`] |
-/// | `test` / `tests` | [`TestReward`] |
-/// | `lint` | [`LintReward`] |
-/// | unset / unknown | [`CompositeReward::code_health`] |
 pub fn reward_from_env() -> Box<dyn Reward> {
     let raw = std::env::var("ANGEL_RL_REWARD").unwrap_or_default();
     let key = raw.trim().to_ascii_lowercase();
@@ -1365,23 +1248,14 @@ pub fn reward_from_env() -> Box<dyn Reward> {
     }
 }
 
-/// Stable label for trajectory / experience stamps (mirrors [`reward_from_env`]).
 pub fn reward_label_from_env() -> String {
     reward_from_env().label().to_string()
 }
 
-/// The scorer every live reward runs. The loop's acceptance, the coding eval,
-/// recovery evals and decision replay all capture test-contract evidence
-/// ([`TEST_VERIFIER_CONTRACT`]); a lint or code-health scorer requested through
-/// `ANGEL_RL_REWARD` has no evaluator producing its evidence, and scoring test
-/// output as lint would either fail closed or credit a clean lint it never ran.
 pub fn live_reward_label() -> &'static str {
     TestReward.label()
 }
 
-/// Blends several rewards by weight (weighted average, so the result stays in
-/// the components' scale). Lets the loop optimize a multi-objective signal —
-/// e.g. judge quality *and* a verifiable test-pass reward.
 pub struct CompositeReward {
     components: Vec<(Box<dyn Reward>, f32)>,
 }
@@ -1392,14 +1266,10 @@ impl CompositeReward {
             components: Vec::new(),
         }
     }
-    /// Add a weighted component (builder style).
     pub fn with(mut self, reward: Box<dyn Reward>, weight: f32) -> Self {
         self.components.push((reward, weight));
         self
     }
-    /// Sensible default verifiable reward: 80% test-pass + 20% lint-clean.
-    /// The evaluator evidence should carry both `cargo test` and `cargo clippy`
-    /// summaries from its owned verification command.
     pub fn code_health() -> Self {
         Self::new()
             .with(Box::new(TestReward), 0.8)
@@ -1435,7 +1305,6 @@ impl Reward for CompositeReward {
     }
 }
 
-/// Reflector backed by a club: asks it to rewrite the system prompt.
 pub struct ClubReflector {
     pub club: Arc<dyn Club>,
 }
@@ -1448,8 +1317,6 @@ impl Reflector for ClubReflector {
         best: &str,
         worst: &str,
     ) -> Result<String, String> {
-        // `⠗⠚`: the optimizer's brief and its labels are the pages; the task,
-        // the prompt and the two rollouts ride as data under their own keys.
         let prompt = format!(
             "{}\n\nTASK:\n{task}\n\nCURRENT:\n{current_prompt}\n\nHIGH:\n{best}\n\nLOW:\n{worst}",
             crate::agent::harness::book::r_relentless::OPTIMIZER.cells(),
@@ -1462,7 +1329,6 @@ impl Reflector for ClubReflector {
     }
 }
 
-/// Find the first numeric token in text (judges sometimes add prose).
 fn parse_score(text: &str) -> Option<f32> {
     let mut num = String::new();
     for ch in text.chars() {
@@ -1481,7 +1347,6 @@ pub struct RoundReport {
     pub metrics: BatchMetrics,
     pub best_reward: f32,
     pub optimized: bool,
-    /// Evidence from the private promotion cohort when a mutation was proposed.
     pub promotion: Option<PromotionReport>,
     pub prompt: String,
 }
@@ -1492,9 +1357,6 @@ pub struct ReinforceReport {
     pub final_prompt: String,
 }
 
-/// Immutable public inputs for one reinforcement campaign. Grouping these
-/// together keeps the release API auditable and prevents positional argument
-/// drift as the loop gains additional safeguards.
 pub struct ReinforceRequest<'a> {
     pub task: &'a str,
     pub initial_prompt: &'a str,
@@ -1502,17 +1364,12 @@ pub struct ReinforceRequest<'a> {
     pub config: &'a ReinforceConfig,
 }
 
-/// Private evaluation cohort and its non-compensable promotion policy.
 pub struct PromotionCohort<'a> {
     pub cases: &'a [HeldoutCase<'a>],
     pub config: &'a PromotionConfig,
     pub manifest: &'a CohortManifest,
 }
 
-/// Receipt-only technical selection cohort. Unlike [`PromotionCohort`], this
-/// type cannot be evaluated from candidate-authored output: evaluator specs,
-/// physical execution, artifact persistence, and durable consumption are all
-/// mandatory fields of the production request.
 pub struct TechnicalPromotionCohort<'a> {
     pub cases: &'a [TechnicalHeldoutCase<'a>],
     pub config: &'a PromotionConfig,
@@ -1520,7 +1377,6 @@ pub struct TechnicalPromotionCohort<'a> {
     pub evaluators: &'a [&'a dyn evaluator::PolicyEvaluator],
 }
 
-/// Disjoint veto-only audit for the last selected technical mutation.
 pub struct TechnicalFinalAuditCohort<'a> {
     pub cases: &'a [TechnicalHeldoutCase<'a>],
     pub config: &'a PromotionConfig,
@@ -1671,11 +1527,6 @@ fn try_hydrate_terminal_release(
     Ok(Some(report))
 }
 
-/// Run the reinforce loop with a separate, fixed-budget promotion cohort.
-/// Training reward may propose a mutation, but only [`evaluate_promotion`] may
-/// promote it. A missing sample, failed evaluator, floor miss, per-case
-/// regression, or insufficient confidence-bound delta leaves the incumbent in
-/// place. Held-out outputs and scores are never sent to the reflector.
 pub fn run_nontechnical_reinforce(
     generator: &dyn Generator,
     reward: &dyn Reward,
@@ -1709,10 +1560,6 @@ pub fn run_nontechnical_reinforce(
     report
 }
 
-/// Production reinforcement for coding/technical policies. Selection is
-/// receipt-only and the last selected mutation is not release-ready until a
-/// manifest-distinct final audit independently approves it. Audit evidence is
-/// computed after reflection has ended and is never returned to the reflector.
 pub fn run_reinforce(
     generator: &dyn Generator,
     training_reward: &dyn Reward,
@@ -1883,9 +1730,6 @@ pub fn run_reinforce(
     Ok(result)
 }
 
-/// Causal off-control for experiments. This preserves the pre-gate behavior:
-/// every non-empty reflected prompt with a training signal is promoted. It is
-/// intentionally named as an ablation and must not be used for release claims.
 pub fn run_reinforce_unchecked_for_ablation(
     generator: &dyn Generator,
     reward: &dyn Reward,
@@ -2034,7 +1878,6 @@ fn run_reinforce_inner(
             Some(best_reward),
         );
 
-        // Optimizer step — only on a real learning signal (the curriculum guard).
         let mut optimized = false;
         let mut promotion = None;
         if metrics.has_learning_signal()
@@ -2128,39 +1971,18 @@ fn run_reinforce_inner(
     })
 }
 
-// ---------------------------------------------------------------------------
-// End-to-end coding eval (RLVR capstone) — drive a coding task through the
-// agent's tool loop, then VERIFY the result with the test suite. Closes the
-// loop: attempt → run_turn → verifiable reward. Receipt construction owns the
-// verifier process so a caller cannot relabel unrelated output as this command.
-// ---------------------------------------------------------------------------
-
-/// Outcome of one coding-task attempt.
 #[derive(Debug, Clone)]
 pub struct CodingEvalReport {
-    /// The agent's final text answer.
     pub answer: String,
-    /// Parsed test result of the post-attempt verification.
     pub test: crate::agent::harness::TestOutcome,
-    /// Verifiable reward in [0,1] (fraction of tests passing).
     pub reward: f32,
-    /// Content-addressed raw evaluator artifact when persistence is configured.
     pub evaluator_artifact: Option<PathBuf>,
-    /// Trusted-store decision identity, only present after both objects publish.
     pub training_decision: Option<String>,
-    /// Failed training capture never changes the ordinary evaluated result.
     pub training_capture_error: Option<String>,
-    /// Root-only LID fingerprint of the attempt (handle receipts vs bulk).
-    /// Same shape as `angel-trajectory/v2` `root_trajectory` — the forge and
-    /// promotion layers use this to measure Hi/Q strategy isomorphism without
-    /// replaying bulk tool bodies.
     pub root_trajectory: serde_json::Value,
-    /// Ablatable harness treatment active during the attempt.
     pub harness_treatment: serde_json::Value,
 }
 
-/// Scoring must reject malformed or overflowing evaluator counters explicitly.
-/// The separate tolerant parser remains available for ordinary tool telemetry.
 fn parse_evaluator_test_result(output: &str) -> Result<crate::agent::harness::TestOutcome, String> {
     let mut outcome = crate::agent::harness::TestOutcome::default();
     for line in output.lines() {
@@ -2221,9 +2043,6 @@ fn parse_evaluator_test_result(output: &str) -> Result<crate::agent::harness::Te
     Ok(outcome)
 }
 
-/// A coding-eval verifier counts only when its evaluator-owned evidence
-/// validates, carries the test contract, exits successfully and reports no
-/// failed test.
 fn validate_coding_eval_evidence(evidence: &EvaluatorEvidence) -> Result<(), String> {
     evidence.validate_for_scoring()?;
     evidence.require_verifier_contract(
@@ -2248,8 +2067,6 @@ fn validate_coding_eval_evidence(evidence: &EvaluatorEvidence) -> Result<(), Str
     Ok(())
 }
 
-/// Score a coding-eval attempt: [`TestReward`] on evaluator-owned evidence
-/// (the default RLVR contract).
 fn score_coding_eval(evidence: &EvaluatorEvidence) -> Result<f32, String> {
     TestReward.score(RewardInput::EvaluatorEvidence(evidence))
 }
@@ -2261,12 +2078,6 @@ pub fn score_coding_eval_reward(
     score_coding_eval(evidence)
 }
 
-/// Drive `task_prompt` through `run_turn` (using `club` + `registry`), then
-/// execute `verify_command` in the active workspace and parse its output into a
-/// reward. The exact executed shell string is bound into evaluator evidence.
-///
-/// Reward selection: [`score_coding_eval_reward`], the libtest fraction via
-/// [`TestReward`].
 pub fn run_coding_eval(
     club: &dyn Club,
     registry: &crate::agent::harness::ToolRegistry,
@@ -2279,8 +2090,6 @@ pub fn run_coding_eval(
     crate::agent::harness::run_identity::configure_verifier(serde_json::json!({
         "plan_kind":"coding-eval", "command":verify_command, "accept_cmd":"none", "evaluator_id":TEST_VERIFIER_CONTRACT,
     }));
-    // `⠜⠊`: the rollout's coding agent carries `read_file`, so it reads its
-    // brief from the ledger like the driver does.
     let mut history = vec![
         ChatMsg::system(crate::agent::harness::book::ar_seats::CODING_AGENT.cells()),
         ChatMsg::user(task_prompt),
@@ -2288,11 +2097,6 @@ pub fn run_coding_eval(
     let cancel = std::sync::atomic::AtomicBool::new(false);
     let (event_tx, _) = std::sync::mpsc::channel::<crate::agent::harness::TurnEvent>();
     let answer = {
-        // This rollout's label is the test suite's, below — a strictly stronger
-        // verdict than the compile check `run_turn` would otherwise reward it
-        // with (it says the code is *right*, not just that it builds). The scope
-        // keeps `run_turn`'s own row unlabeled so the same rollout is never
-        // written twice as two differently-rewarded training samples.
         let _eval_owns_the_label = crate::agent::harness::EvalLabelScope::new();
         crate::agent::harness::run_turn(
             club,
@@ -2328,8 +2132,6 @@ pub fn run_coding_eval(
     )
 }
 
-/// Generic successful shell commands remain useful raw checks, but cannot
-/// become typed training labels without an actually supported measurement.
 pub(crate) fn recovery_training_supported(evidence: &EvaluatorEvidence) -> Result<(), String> {
     validate_coding_eval_evidence(evidence)?;
     let test = parse_evaluator_test_result(evidence.output())?;
@@ -2340,7 +2142,6 @@ pub(crate) fn recovery_training_supported(evidence: &EvaluatorEvidence) -> Resul
     }
 }
 
-/// Score the already executed evaluator; never starts another model or verifier.
 pub(crate) fn finish_coding_eval(
     club_label: &str,
     history: &[ChatMsg],
@@ -2353,13 +2154,8 @@ pub(crate) fn finish_coding_eval(
     let test = parse_evaluator_test_result(evidence.output())?;
     let reward = score_coding_eval(evidence)?;
     let evaluator_artifact = artifact::persist_if_configured(evidence)?;
-    // Hi/Q view of what the root model saw — always computed for coding evals
-    // (they are the RLVR training path). Trajectory log persists the same
-    // fields under angel-trajectory/v2 when ANGEL_TRAJECTORY_LOG is set.
     let root_trajectory = crate::agent::harness::root_trajectory_json(history);
     let harness_treatment = crate::agent::harness::harness_treatment_json();
-    // Persist the attempt as reward-labeled training data (no-op unless
-    // ANGEL_TRAJECTORY_LOG is set).
     let capture = match captured_authority {
         Some(root) => training::publish(root, task_prompt, answer, evidence, reward).map(Some),
         None => training::publish_if_configured(task_prompt, answer, evidence, reward),
@@ -2385,8 +2181,6 @@ pub(crate) fn finish_coding_eval(
         Ok(None) => (None, None),
         Err(error) => (None, Some(error)),
     };
-    // A missing or failed producer authority record cannot emit a measured
-    // training label. Ordinary evaluation remains available without capture.
     Ok(CodingEvalReport {
         answer: answer.to_owned(),
         test,
@@ -2399,22 +2193,9 @@ pub(crate) fn finish_coding_eval(
     })
 }
 
-// ---------------------------------------------------------------------------
-// RL control task — the digit-string reversal task, shared with the standalone
-// nanoGPT+GRPO control in `sidecar/rl-control`. A *known-answer* RLVR target so
-// the pipeline's signal (`evaluate_batch`'s solve_rate / advantage_variance /
-// has_learning_signal) can be validated against a controlled policy of known
-// quality — not just on fuzzy, expensive coding tasks. Both pipelines baseline
-// on the same problem, so their numbers are comparable.
-// ---------------------------------------------------------------------------
-
-/// A deterministic reversal task: prompt `"reverse: d1 d2 … dK"` and the expected
-/// answer `"dK … d1"`. `seed` makes it reproducible with no rng dependency
-/// (splitmix64). Mirrors the Python control's task.
 pub fn reverse_task(k: usize, seed: u64) -> (String, String) {
     let mut s = seed;
     let mut next = || {
-        // splitmix64
         s = s.wrapping_add(0x9E37_79B9_7F4A_7C15);
         let mut z = s;
         z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
@@ -2430,10 +2211,6 @@ pub fn reverse_task(k: usize, seed: u64) -> (String, String) {
     (prompt, expected)
 }
 
-/// Dense reward for the reversal task: the fraction of answer positions that match
-/// the true reversal, in `[0,1]` (exact-match `== 1.0 ==` the ceiling). Parses the
-/// trailing `expected.len()` digit tokens out of `output`, so a model may prefix
-/// prose/reasoning. Mirrors the Python control's reward.
 pub fn reverse_reward_score(output: &str, expected: &str) -> f32 {
     let exp: Vec<&str> = expected.split_whitespace().collect();
     if exp.is_empty() {
@@ -2456,8 +2233,6 @@ pub fn reverse_reward_score(output: &str, expected: &str) -> f32 {
     correct as f32 / exp.len() as f32
 }
 
-/// The reversal reward as a [`Reward`] (carries the per-task expected answer,
-/// since `Reward::score` only sees the output).
 pub struct ReverseControlReward {
     pub expected: String,
 }
@@ -2472,8 +2247,6 @@ impl Reward for ReverseControlReward {
     }
 }
 
-/// An all-wrong answer (each digit shifted by 1) → reward 0 under
-/// [`reverse_reward_score`]. Used to build synthetic groups of known quality.
 fn wrong_reverse_answer(expected: &str) -> String {
     expected
         .split_whitespace()
@@ -2486,11 +2259,6 @@ fn wrong_reverse_answer(expected: &str) -> String {
         .join(" ")
 }
 
-/// Build a synthetic GRPO group for the reversal task at `seed`: `quality` of the
-/// `group` candidates are the exact reversal (reward 1.0), the rest fully wrong
-/// (reward 0.0). Feeding this through [`evaluate_batch`] with a known `quality`
-/// is the *control* for angel's RLVR plumbing — the metrics must track the
-/// known policy quality. Returns the task's expected answer + the candidates.
 pub fn control_group(quality: f32, k: usize, group: usize, seed: u64) -> (String, Vec<Candidate>) {
     let (_, expected) = reverse_task(k, seed);
     let wrong = wrong_reverse_answer(&expected);

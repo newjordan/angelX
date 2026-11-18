@@ -28,40 +28,26 @@ use json::validation::Checked;
 
 use super::glass_scene::WireError;
 
-/// The file, whole, as glass takes it (the APC file medium's own cap).
 pub const ASSET_BYTES: usize = 64 << 20;
-/// Objects and arrays in the JSON, counted before it is parsed, so a file
-/// of tiny objects cannot grow many times its size in memory.
 pub const JSON_STRUCTURES: usize = 1 << 18;
 pub const ASSET_NODES: usize = 4_096;
 pub const ASSET_MESHES: usize = 1_024;
 pub const ASSET_PRIMITIVES: usize = 4_096;
-/// Accessors, buffer views, textures and samplers, each.
 pub const ASSET_ACCESSORS: usize = 16_384;
 pub const ASSET_BUFFERS: usize = 64;
 pub const ASSET_MATERIALS: usize = 1_024;
-/// Pictures decoded for one asset, and their RGBA bytes together.
 pub const ASSET_IMAGES: usize = 32;
 pub const ASSET_TEXTURE_BYTES: usize = 64 << 20;
-/// A texture's side, in pixels: the dialect's own picture cap.
 pub const IMAGE_SIDE: u32 = 4_096;
-/// Vertices and triangle-list indices across one asset (a primitive also
-/// stays within the window's own per-mesh caps).
 pub const ASSET_VERTICES: usize = 1 << 20;
 pub const ASSET_INDICES: usize = 3 << 20;
-/// How deep the node tree may go.
 pub const ASSET_DEPTH: usize = 128;
 pub const ASSET_CLIPS: usize = 64;
-/// Channels across every clip, and keyframe values across every channel.
 pub const ASSET_CHANNELS: usize = 4_096;
 pub const ASSET_KEYS: usize = 1 << 20;
-/// What a vertex and an index cost on the GPU, for the asset budget; a
-/// skinned vertex costs its joints and weights besides.
 pub const VERTEX_BYTES: usize = 48;
 pub const INDEX_BYTES: usize = 4;
 pub const SKIN_BYTES: usize = 24;
-/// Skins in one asset, and joints in one skin (the window's own cap: one
-/// draw's palette).
 pub const ASSET_SKINS: usize = 64;
 pub const ASSET_JOINTS: usize = MAX_JOINTS;
 
@@ -69,27 +55,21 @@ fn err(code: &'static str, message: impl Into<String>) -> WireError {
     WireError::new(code, message)
 }
 
-/// One node of the file: where it sits under its parent, and what it draws.
 #[derive(Clone, Debug)]
 pub struct GNode {
     pub transform: Transform,
     pub children: Vec<usize>,
     pub parent: Option<usize>,
     pub mesh: Option<usize>,
-    /// The skin that bends its mesh.
     pub skin: Option<usize>,
 }
 
-/// One skin of the file: its joints (nodes of the file) and their inverse
-/// bind matrices, one each (the identity where the file gives none).
 #[derive(Clone, Debug)]
 pub struct GSkin {
     pub joints: Vec<usize>,
     pub inverse_bind: Arc<[Mat4]>,
 }
 
-/// One drawable primitive: its triangles, its material, and the mesh id
-/// the window knows it by (given by the dialect before it goes up).
 #[derive(Clone, Debug)]
 pub struct Prim {
     pub mesh: Arc<MeshData>,
@@ -97,9 +77,6 @@ pub struct Prim {
     pub id: u32,
 }
 
-/// A material as the lit path draws it, the picture its colour texture
-/// was decoded into (by index into [`Loaded::images`]), and the file's own
-/// numbers, kept for a physically based path later.
 #[derive(Clone, Debug)]
 pub struct GMaterial {
     pub material: Material,
@@ -107,21 +84,18 @@ pub struct GMaterial {
     pub pbr: Pbr,
 }
 
-/// glTF's metallic-roughness material as the file gave it.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Pbr {
     pub base: [f32; 4],
     pub metallic: f32,
     pub roughness: f32,
     pub emissive: [f32; 3],
-    /// Texture index and its uv set, for each map the file names.
     pub base_texture: Option<(usize, u32)>,
     pub metallic_roughness_texture: Option<(usize, u32)>,
     pub normal_texture: Option<(usize, u32)>,
     pub occlusion_texture: Option<(usize, u32)>,
     pub emissive_texture: Option<(usize, u32)>,
     pub alpha_cutoff: Option<f32>,
-    /// `MASK` in the file; drawn blended until the lit path tests alpha.
     pub masked: bool,
 }
 
@@ -139,48 +113,33 @@ pub enum Interp {
     CubicSpline,
 }
 
-/// One animated property of one node.
 #[derive(Clone, Debug)]
 pub struct Channel {
     pub node: usize,
     pub path: Path,
     pub interp: Interp,
-    /// Keyframe times, seconds, never decreasing.
     pub times: Vec<f32>,
-    /// One value per time (three for a cubic spline: in-tangent, value,
-    /// out-tangent), a vector padded with 0 or a quaternion.
     pub values: Vec<[f32; 4]>,
 }
 
-/// One animation of the file.
 #[derive(Clone, Debug)]
 pub struct Clip {
     pub channels: Vec<Channel>,
-    /// The last keyframe time, seconds.
     pub duration: f32,
 }
 
-/// What was in the file that is not drawn.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Skipped {
-    /// Points and lines.
     pub primitives: usize,
-    /// Pictures named by an external URI.
     pub images: usize,
-    /// Morph-target weight channels.
     pub channels: usize,
 }
 
-/// A whole file, read.
 #[derive(Clone, Debug)]
 pub struct Asset {
     pub nodes: Vec<GNode>,
-    /// Each scene's root nodes. A file with no scenes has one, of every
-    /// node without a parent.
     pub scenes: Vec<Vec<usize>>,
-    /// The scene the file names as its own, else the first.
     pub scene: usize,
-    /// Each mesh's primitives, by index into `prims`.
     pub meshes: Vec<Vec<usize>>,
     pub prims: Vec<Prim>,
     pub materials: Vec<GMaterial>,
@@ -189,11 +148,9 @@ pub struct Asset {
     pub skipped: Skipped,
     pub vertices: usize,
     pub triangles: usize,
-    /// What its meshes cost on the GPU.
     pub bytes: usize,
 }
 
-/// A decoded colour texture.
 #[derive(Clone, Debug)]
 pub struct Image {
     pub width: u32,
@@ -201,14 +158,12 @@ pub struct Image {
     pub rgba: Vec<u8>,
 }
 
-/// An asset and the pictures its materials name.
 #[derive(Debug)]
 pub struct Loaded {
     pub asset: Asset,
     pub images: Vec<Image>,
 }
 
-/// Read a `.glb` or a `.gltf` (with its buffers inside it).
 pub fn load(bytes: &[u8]) -> Result<Loaded, WireError> {
     if bytes.len() > ASSET_BYTES {
         return Err(err("EFBIG", format!("an asset is capped at {ASSET_BYTES} bytes")));
@@ -225,9 +180,6 @@ pub fn load(bytes: &[u8]) -> Result<Loaded, WireError> {
     Reader::new(&root, bin)?.read()
 }
 
-/// The GLB container: a 12-byte header, a JSON chunk, then perhaps a BIN
-/// chunk; other chunks are passed over. Every length is checked against
-/// what is there.
 fn glb(bytes: &[u8]) -> Result<(&[u8], Option<&[u8]>), WireError> {
     let word = |at: usize| -> Option<u32> {
         bytes.get(at..at + 4).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
@@ -264,14 +216,12 @@ fn glb(bytes: &[u8]) -> Result<(&[u8], Option<&[u8]>), WireError> {
         if json_chunk.is_none() {
             return Err(err("EBADF", "the glb's first chunk must be JSON"));
         }
-        // Chunks start on four-byte boundaries.
         at = end.saturating_add(3) & !3;
     }
     let json_chunk = json_chunk.ok_or_else(|| err("EBADF", "the glb has no JSON chunk"))?;
     Ok((json_chunk, bin))
 }
 
-/// Count objects and arrays outside strings, refusing past the cap.
 fn structures(json: &[u8]) -> Result<(), WireError> {
     let (mut count, mut in_string, mut escaped) = (0usize, false, false);
     for &b in json {
@@ -295,7 +245,6 @@ fn structures(json: &[u8]) -> Result<(), WireError> {
     Ok(())
 }
 
-/// The bytes of a `data:` URI with base64 data.
 fn data_uri(uri: &str) -> Option<Vec<u8>> {
     let rest = uri.strip_prefix("data:")?;
     let (head, data) = rest.split_once(',')?;
@@ -321,7 +270,6 @@ fn component_size(c: json::accessor::ComponentType) -> usize {
     }
 }
 
-/// One component as a number, normalized when the accessor says so.
 fn float_of(c: json::accessor::ComponentType, normalized: bool, b: &[u8]) -> f32 {
     use json::accessor::ComponentType as C;
     let Some(b) = b.get(..component_size(c)) else { return 0.0 };
@@ -350,7 +298,6 @@ fn float_of(c: json::accessor::ComponentType, normalized: bool, b: &[u8]) -> f32
     }
 }
 
-/// One component as an unsigned integer (an index).
 fn uint_of(c: json::accessor::ComponentType, b: &[u8]) -> u32 {
     use json::accessor::ComponentType as C;
     let Some(b) = b.get(..component_size(c)) else { return u32::MAX };
@@ -362,7 +309,6 @@ fn uint_of(c: json::accessor::ComponentType, b: &[u8]) -> u32 {
     }
 }
 
-/// The file's JSON and its buffers' bytes, read with every index checked.
 struct Reader<'a> {
     root: &'a json::Root,
     buffers: Vec<Cow<'a, [u8]>>,
@@ -425,7 +371,6 @@ impl<'a> Reader<'a> {
         Ok(Self { root, buffers })
     }
 
-    /// A buffer view's bytes and its stride.
     fn view(&self, index: usize) -> Result<(&[u8], Option<usize>), WireError> {
         let view = self
             .root
@@ -444,7 +389,6 @@ impl<'a> Reader<'a> {
         Ok((&buffer[offset as usize..end as usize], view.byte_stride.map(|s| s.0)))
     }
 
-    /// How many items accessor `index` says it holds.
     fn count(&self, index: usize, what: &str) -> Result<u64, WireError> {
         self.root
             .accessors
@@ -453,8 +397,6 @@ impl<'a> Reader<'a> {
             .ok_or_else(|| err("EINVAL", format!("{what} accessor {index} is out of range")))
     }
 
-    /// Accessor `index`'s items, `width` components each, converted by
-    /// `conv`; at most `cap` items, refused before anything is allocated.
     fn items<T: Copy + Default>(
         &self,
         index: usize,
@@ -465,8 +407,6 @@ impl<'a> Reader<'a> {
         self.read_items(index, cap, what, conv, false)
     }
 
-    /// Accessor `index`'s 4x4 float matrices (inverse bind matrices),
-    /// column-major as glTF stores them; at most `cap`.
     fn mat4s(&self, index: usize, cap: usize, what: &str) -> Result<Vec<Mat4>, WireError> {
         let a = self
             .root
@@ -485,8 +425,6 @@ impl<'a> Reader<'a> {
         Ok(values.chunks_exact(16).map(|m| std::array::from_fn(|c| [m[c * 4], m[c * 4 + 1], m[c * 4 + 2], m[c * 4 + 3]])).collect())
     }
 
-    /// `items`, and with `matrix` a 4x4 matrix accessor's sixteen numbers
-    /// an item (only a float one: its columns need no padding).
     fn read_items<T: Copy + Default>(
         &self,
         index: usize,
@@ -578,7 +516,6 @@ impl<'a> Reader<'a> {
         Ok((width, out))
     }
 
-    /// Floats, every one finite.
     fn floats(&self, index: usize, cap: usize, what: &str) -> Result<(usize, Vec<f32>), WireError> {
         let (width, values) = self.items(index, cap, what, float_of)?;
         if values.iter().any(|v| !v.is_finite()) {
@@ -598,7 +535,6 @@ impl<'a> Reader<'a> {
         for (i, m) in root.materials.iter().enumerate() {
             materials.push(self.material(i, m, &mut images, &mut decoded, &mut texture_bytes, &mut skipped)?);
         }
-        // Primitives without a material take glTF's default one.
         let default_material = materials.len();
         materials.push(GMaterial { material: lit_material(&Pbr::default_material(), Sampling::Linear, false), image: None, pbr: Pbr::default_material() });
         let mut meshes = Vec::with_capacity(root.meshes.len());
@@ -634,7 +570,6 @@ impl<'a> Reader<'a> {
             }
         }
         let skins = self.skins(nodes.len())?;
-        // A skinned node's mesh names no joint its skin does not have.
         for (i, node) in nodes.iter().enumerate() {
             let (Some(k), Some(m)) = (node.skin, node.mesh) else { continue };
             let joints = skins[k].joints.len();
@@ -651,9 +586,6 @@ impl<'a> Reader<'a> {
         Ok(Loaded { asset, images })
     }
 
-    /// Every skin: at most [`ASSET_JOINTS`] joints, each a node that is
-    /// there, and an inverse bind matrix for each (the identity when the
-    /// file gives none).
     fn skins(&self, nodes: usize) -> Result<Vec<GSkin>, WireError> {
         let mut skins = Vec::with_capacity(self.root.skins.len());
         for (k, skin) in self.root.skins.iter().enumerate() {
@@ -689,8 +621,6 @@ impl<'a> Reader<'a> {
         Ok(skins)
     }
 
-    /// The node tree: transforms, parents (each node at most one, no
-    /// cycle, at most [`ASSET_DEPTH`] deep), and each scene's roots.
     #[allow(clippy::type_complexity)]
     fn tree(&self) -> Result<(Vec<GNode>, Vec<Vec<usize>>, usize), WireError> {
         let root = self.root;
@@ -736,8 +666,6 @@ impl<'a> Reader<'a> {
                 nodes[c].parent = Some(i);
             }
         }
-        // Depth by walking up, remembered, so the whole tree costs one
-        // walk; a walk longer than the node count is a cycle.
         let mut depth: Vec<Option<usize>> = vec![None; n];
         let mut chain = Vec::new();
         for start in 0..n {
@@ -868,8 +796,6 @@ impl<'a> Reader<'a> {
         Ok(GMaterial { material, image, pbr })
     }
 
-    /// Decode image `index` into `images`; `None` when it is named by an
-    /// external URI, which glass does not read.
     fn image(
         &self,
         index: usize,
@@ -916,7 +842,6 @@ impl<'a> Reader<'a> {
         Ok(Some(images.len() - 1))
     }
 
-    /// One primitive's triangles, or `None` for points and lines.
     fn primitive(
         &self,
         mi: usize,
@@ -962,8 +887,6 @@ impl<'a> Reader<'a> {
             Some(index) => same("TEXCOORD", index, &[2])?.chunks_exact(2).map(|c| [c[0], c[1]]).collect(),
             None => Vec::new(),
         };
-        // A skinned primitive's four joints and weights a vertex: both, or
-        // neither.
         let (joints, weights): (Vec<[u16; 4]>, Vec<[f32; 4]>) = match (attribute(Semantic::Joints(0)), attribute(Semantic::Weights(0))) {
             (None, None) => (Vec::new(), Vec::new()),
             (Some(j), Some(w)) => {
@@ -1062,8 +985,6 @@ impl<'a> Reader<'a> {
         Ok(Some(mesh))
     }
 
-    /// Every clip's channels, checked: each names a node and a sampler that
-    /// are there, with times that never go back.
     fn clips(&self, nodes: usize, skipped: &mut Skipped) -> Result<Vec<Clip>, WireError> {
         use json::animation::{Interpolation, Property};
         let mut clips = Vec::with_capacity(self.root.animations.len());
@@ -1133,16 +1054,11 @@ impl<'a> Reader<'a> {
 }
 
 impl Pbr {
-    /// glTF's default material: white, fully metallic and rough.
     fn default_material() -> Self {
         Pbr { base: [1.0; 4], metallic: 1.0, roughness: 1.0, ..Pbr::default() }
     }
 }
 
-/// A metallic-roughness material on the lit path: a smooth metal is mostly
-/// reflection, which this path does not draw, so its colour is darkened by
-/// up to half; the emissive colour shines through `emissive` and is mixed
-/// into the tint by as much.
 pub fn lit_material(pbr: &Pbr, sampling: Sampling, blended: bool) -> Material {
     let shine = pbr.metallic * (1.0 - pbr.roughness);
     let dim = 1.0 - 0.5 * shine;
@@ -1161,9 +1077,6 @@ pub fn lit_material(pbr: &Pbr, sampling: Sampling, blended: bool) -> Material {
     }
 }
 
-/// The same triangles, each with its own three vertices and its face's
-/// normal (glTF's rule for a primitive without normals); `None` past the
-/// window's vertex cap.
 fn flat_normals(mesh: &MeshData) -> Option<MeshData> {
     let count = mesh.indices.len();
     if count > MAX_MESH_VERTICES {
@@ -1205,9 +1118,6 @@ fn flat_normals(mesh: &MeshData) -> Option<MeshData> {
     Some(out)
 }
 
-/// A column-major 4x4 matrix as translation, rotation and scale. A matrix
-/// with shear has none exactly; the rotation is then the one its columns
-/// come nearest to. `None` when it is not finite.
 pub fn decompose(m: &[f32; 16]) -> Option<Transform> {
     if m.iter().any(|v| !v.is_finite()) {
         return None;
@@ -1234,7 +1144,6 @@ pub fn decompose(m: &[f32; 16]) -> Option<Transform> {
     Some(Transform { translation: [m[12], m[13], m[14]], rotation, scale })
 }
 
-/// The unit quaternion of a rotation given by its three columns.
 fn quat_from_columns(x: [f32; 3], y: [f32; 3], z: [f32; 3]) -> [f32; 4] {
     let (m00, m01, m02) = (x[0], y[0], z[0]);
     let (m10, m11, m12) = (x[1], y[1], z[1]);
@@ -1256,12 +1165,7 @@ fn quat_from_columns(x: [f32; 3], y: [f32; 3], z: [f32; 3]) -> [f32; 4] {
     angel_glass::scene::quat_normalize(q)
 }
 
-// ------------------------------------------------------------- sampling ----
-
 impl Channel {
-    /// The value at `t` seconds: held before the first key and after the
-    /// last, stepped, mixed (rotations along the shorter arc) or a cubic
-    /// Hermite spline between keys, as the channel's sampler says.
     pub fn sample(&self, t: f32) -> [f32; 4] {
         let n = self.times.len();
         let key = |k: usize| -> [f32; 4] {
@@ -1319,27 +1223,20 @@ impl Channel {
     }
 }
 
-/// Which clip plays.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ClipSel {
     One(usize),
     All,
 }
 
-/// A clip playing on one instance of an asset. Its position is kept as a
-/// time and the clock it was true at; the clock is taken at the first tick
-/// after a change, so a late view of the clock never makes it jump.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Playback {
     pub clip: ClipSel,
     pub speed: f32,
     pub looping: bool,
     pub paused: bool,
-    /// Seconds into the clip, unwrapped, at `since`.
     pub at: f64,
-    /// The clock `at` was true at; `None` until the next tick.
     pub since: Option<u64>,
-    /// The clip time last written, so a still pose is not written again.
     pub shown: Option<f32>,
 }
 
@@ -1348,7 +1245,6 @@ impl Playback {
         Self { clip, speed: 1.0, looping: true, paused: false, at: 0.0, since: None, shown: None }
     }
 
-    /// Seconds into the clip, unwrapped, at `clock`.
     pub fn position(&self, clock: u64) -> f64 {
         match self.since {
             Some(since) if !self.paused => self.at + clock.saturating_sub(since) as f64 / 1000.0 * f64::from(self.speed),
@@ -1356,14 +1252,11 @@ impl Playback {
         }
     }
 
-    /// Hold the position here and take the clock again at the next tick.
     pub fn rebase(&mut self, clock: u64) {
         self.at = self.position(clock);
         self.since = None;
     }
 
-    /// The clip time at `clock`, and whether a clip that does not loop has
-    /// run out.
     pub fn local(&self, clock: u64, duration: f32) -> (f32, bool) {
         let p = self.position(clock);
         let d = f64::from(duration.max(0.0));
@@ -1378,14 +1271,12 @@ impl Playback {
         }
     }
 
-    /// Whether it needs frames: started, not paused, moving, not run out.
     pub fn moving(&self, clock: u64, duration: f32) -> bool {
         self.since.is_some() && !self.paused && self.speed != 0.0 && !self.local(clock, duration).1
     }
 }
 
 impl Asset {
-    /// How long the clips `sel` names run, seconds.
     pub fn duration(&self, sel: ClipSel) -> f32 {
         match sel {
             ClipSel::One(i) => self.clips.get(i).map_or(0.0, |c| c.duration),
@@ -1394,11 +1285,6 @@ impl Asset {
     }
 }
 
-// --------------------------------------------------------- instancing ----
-
-/// Node ids an asset's nodes take in a scene: the top bit set, above every
-/// id a program may name (docs/GLASS_DIALECT.md), then the instance, then
-/// the node or, with the next bit, a primitive's own node.
 pub const EXPANDED: u64 = 1 << 63;
 const PRIM_NODE: u64 = 1 << 62;
 
@@ -1406,22 +1292,16 @@ fn node_id(instance: u32, index: usize) -> u64 {
     EXPANDED | (u64::from(instance) << 32) | (index as u64 & 0xffff_ffff)
 }
 
-/// One asset hung from one node of a scene.
 #[derive(Clone, Debug)]
 pub struct Instance {
-    /// The program's node it hangs from.
     pub host: u64,
     pub asset_id: u32,
     pub asset: Arc<Asset>,
-    /// Each of the asset's nodes to its place among the scene's nodes.
     pub places: Vec<Option<u32>>,
-    /// Each drawing node's place, and the material the file gave it.
     pub drawn: Vec<(u32, Material)>,
     pub play: Option<Playback>,
 }
 
-/// Hang scene `which` of `asset` from node `host`, appending its nodes to
-/// `out`. `room` is how many more nodes the scene may take.
 pub fn instantiate(
     asset: &Arc<Asset>,
     asset_id: u32,
@@ -1437,7 +1317,6 @@ pub fn instantiate(
         .ok_or_else(|| err("EINVAL", format!("asset {asset_id} has no scene {which}")))?;
     let mut places = vec![None; asset.nodes.len()];
     let mut drawn = Vec::new();
-    // Each skin as this instance's joints name it, made at its first mesh.
     let mut skins: Vec<Option<Skin>> = vec![None; asset.skins.len()];
     let mut skin_of = |k: Option<usize>, mesh: &MeshData| -> Option<Skin> {
         let k = k?;
@@ -1506,7 +1385,6 @@ pub fn instantiate(
 }
 
 impl Instance {
-    /// Every node of the asset back in the pose the file gave it.
     pub fn rest(&self, nodes: &mut [Node]) {
         for (gi, place) in self.places.iter().enumerate() {
             if let (Some(place), Some(g)) = (place, self.asset.nodes.get(gi))
@@ -1517,7 +1395,6 @@ impl Instance {
         }
     }
 
-    /// The clips `sel` names, posed at `t` seconds.
     pub fn pose(&self, nodes: &mut [Node], sel: ClipSel, t: f32) {
         let clips: &[Clip] = match sel {
             ClipSel::One(i) => self.asset.clips.get(i..=i).unwrap_or(&[]),
@@ -1537,11 +1414,6 @@ impl Instance {
         }
     }
 
-    /// Every drawing node's material as the host node's own makes it: as
-    /// the file made it, its tint times the host's colour and shining at
-    /// least the host's emissive, liquid as the host is. A chrome host
-    /// draws every one in its own material instead (its colour the
-    /// chrome's tint, no texture), each keeping only its own sides.
     pub fn shade(&self, nodes: &mut [Node], host: &Material) {
         let [chrome, liquid, _] = host.finish_clamped();
         for (place, base) in &self.drawn {

@@ -50,8 +50,6 @@ fn walking_up_to_a_recruit_in_the_tent_picks_them_and_no_one_from_the_tavern() {
         press(&mut r);
         assert_eq!(r.players[&1].knight.as_deref(), Some(p.kit), "{} is picked in the tent", p.label);
     }
-    // The tavern's company is not reachable from the tent, nor the tent's
-    // recruits from the tavern.
     let company = (0..alehouse::PATRONS.len()).find(|&i| alehouse::patron_room(i) == RoomKind::Alehouse).unwrap();
     let at = alehouse::PATRONS[company].at;
     assert!(alehouse::spot_near_in(RoomKind::MusterTent, at.0 * TILE_UNITS, (at.1 - 1.0) * TILE_UNITS, 0, 0)

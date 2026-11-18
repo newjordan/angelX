@@ -159,8 +159,6 @@ fn loop_native_campaign_is_always_advertised_and_runs_through_the_real_tool_turn
         retained["campaigns"][0]["outcome"]["Ok"]["attempted"],
         outcome.attempted
     );
-    // A settled campaign raises its verdict route (`⡪⠚`), and the no-spread
-    // page only when its last round had no advantage spread.
     let status: serde_json::Value = serde_json::from_str(
         &registry
             .dispatch("rl_campaign", &json!({"action":"status"}))
@@ -173,8 +171,6 @@ fn loop_native_campaign_is_always_advertised_and_runs_through_the_real_tool_turn
         if flat { "⡪⠚⡪⠚⠁" } else { "⡪⠚" },
         "{status}"
     );
-    // The round the reflector proposed is an observation for the Sloptomizer
-    // in the loop's own learning scope: suggest is no longer cold.
     if !flat {
         let advice: serde_json::Value = serde_json::from_str(
             &registry
@@ -193,8 +189,6 @@ fn loop_native_campaign_is_always_advertised_and_runs_through_the_real_tool_turn
             .is_err()
     );
 
-    // Fresh registry + fresh loop context, as after restart/resume: no in-memory
-    // campaign state is needed to recover the result into the next iteration.
     let mut app = crate::seed_preview_app();
     app.tools = Arc::new(ToolRegistry::with_team_self(
         workspace.path().into(),
@@ -267,7 +261,6 @@ fn loop_pause_cancels_a_live_campaign_and_resume_restores_availability() {
     waiting
         .recv_timeout(Duration::from_secs(20))
         .expect("real model attempt is in flight");
-    // In flight: `⡪⠛`, keep working.
     let live: Value = serde_json::from_str(
         &app.tools
             .dispatch("rl_campaign", &json!({"action":"status"}))
@@ -275,7 +268,6 @@ fn loop_pause_cancels_a_live_campaign_and_resume_restores_availability() {
     )
     .unwrap();
     assert_eq!(live["campaign"]["warpath"], "⡪⠛", "{live}");
-    // A second launch names the tool's own stop, not the operator's `/rl stop`.
     assert_eq!(
         app.tools
             .dispatch(

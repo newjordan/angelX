@@ -5,7 +5,6 @@
 use super::*;
 use crate::agent::harness::live_policy::{LegSource, decide};
 
-/// Longest wait between two provider replays. A live verdict may not exceed it.
 pub(crate) const MAX_RETRY_DELAY_MS: u32 = 2_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
@@ -36,28 +35,21 @@ pub(crate) struct FailureVerdict {
     pub(crate) delay_ms: u32,
 }
 
-/// What the turn knows about the failed attempt besides its error text.
 pub(crate) struct FailureContext {
     pub(crate) emitted_answer: bool,
     pub(crate) output_cap_exhausted: bool,
-    /// Replays already spent on this hop.
     pub(crate) attempt: usize,
-    /// `ANGEL_PROVIDER_RETRIES`; `None` is unbounded.
     pub(crate) budget: Option<usize>,
     pub(crate) backoff_ms: usize,
     pub(crate) elapsed: Duration,
 }
 
-/// The decision, which leg made it, and whether a live leg refused a replay the
-/// native policy would have made.
 pub(crate) struct FailureDecision {
     pub(crate) verdict: FailureVerdict,
     pub(crate) leg: LegSource,
     pub(crate) declined: bool,
 }
 
-/// The shipped policy: the classification and retry gates the turn used before
-/// the decision became a leg.
 pub(crate) fn native_verdict(error: &str, ctx: &FailureContext) -> FailureVerdict {
     let class = if is_context_overflow_error(error) {
         FailureClass::Context
@@ -102,8 +94,6 @@ fn shape(error: &str, status: Option<u16>) -> &'static str {
     }
 }
 
-/// Everything the leg may read. Text is matched here; the leg sees flags and
-/// numbers only.
 pub(crate) fn failure_facts(error: &str, ctx: &FailureContext) -> serde_json::Value {
     let lower = error.to_ascii_lowercase();
     let status = provider_error_status(&lower);
@@ -129,7 +119,6 @@ pub(crate) fn failure_facts(error: &str, ctx: &FailureContext) -> serde_json::Va
     })
 }
 
-/// A live verdict is accepted only when it asks for no more than the native one.
 fn within_native(live: &FailureVerdict, native: &FailureVerdict) -> Result<(), String> {
     if live.retry && !native.retry {
         return Err("the leg replays a failure the native policy stops on".into());
@@ -149,8 +138,6 @@ fn within_native(live: &FailureVerdict, native: &FailureVerdict) -> Result<(), S
     Ok(())
 }
 
-/// Classify and decide once for this failed attempt, through the turn's pinned
-/// `errors` leg when there is one.
 pub(crate) fn decide_failure(
     registry: &ToolRegistry,
     error: &str,
@@ -172,7 +159,6 @@ pub(crate) fn decide_failure(
     }
 }
 
-/// `LegSource::as_str()` and the first eight characters of the generation digest.
 pub(crate) fn leg_parts(leg: &LegSource) -> (&'static str, Option<&str>) {
     match leg {
         LegSource::Native => (leg.as_str(), None),
@@ -184,7 +170,6 @@ pub(crate) fn leg_parts(leg: &LegSource) -> (&'static str, Option<&str>) {
     }
 }
 
-/// Receipt suffix for a decision a live generation touched; native adds nothing.
 pub(crate) fn leg_note(leg: &LegSource) -> String {
     match leg_parts(leg) {
         (_, None) => String::new(),

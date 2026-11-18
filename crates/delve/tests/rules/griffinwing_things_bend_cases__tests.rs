@@ -53,7 +53,6 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             rec("griffinwing.things.Session.scrape", json!({"s": before, "id": id, "at": at, "x": x, "z": z}), json!({"s": kit::sj(&c)}));
         }
     }
-    // step_props on a prop set across the formation's path
     if want("griffinwing.things.Session.step_props") {
         for _ in 0..3 {
             let mut c = s.clone();

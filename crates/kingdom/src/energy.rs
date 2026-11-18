@@ -16,8 +16,6 @@ impl Kingdom {
                     && (p.fuel.is_empty() || b.fuel_left > 0 || covers(&b.input, &p.fuel))
             })
     }
-    /// Transport may stock a source ahead of its next charge. This is a fuel
-    /// demand, not a production recipe, and must not be consumed by work().
     pub fn source_fuel(&self, c: &Catalog, b: &Building) -> Option<Stock> {
         let p = c.plans.get(&b.plan)?.power.as_ref()?;
         (p.is_source() && b.power_enabled).then(|| p.fuel.clone())
@@ -41,9 +39,6 @@ impl Kingdom {
                         active: running && (p.fuel.is_empty() || b.fuel_left > 0),
                     }
                 } else {
-                    // Readiness does not call report(): population assignment and
-                    // power allocation can therefore use the same recipe facts. A lift up
-                    // the Great Shaft has no recipe: it is ready whenever it is manned.
                     let ready = plan.shaft > 0 || self.job(c, b).is_some_and(|(input, output, _)| {
                         covers(&b.input, &input)
                             && !self.target_met(b, &output)
@@ -71,8 +66,6 @@ impl Kingdom {
             .evaluate(&self.energy_nodes(c), self.world.bounds())
             .unwrap_or_default()
     }
-    /// The command/snapshot validator calls this in addition to ordinary
-    /// building validation. Reports remain harmless for rejected input saves.
     pub fn energy_valid(&self, c: &Catalog) -> bool {
         self.power.valid(self.world.bounds())
             && PowerKind::ALL.into_iter().all(|kind| {
@@ -128,9 +121,6 @@ impl Kingdom {
             {
                 continue;
             }
-            // Consume a prior interval, then charge the next one. In
-            // particular a one-second fuel charge is not spent and erased
-            // before the economy gets to use its one powered work interval.
             b.fuel_left = b.fuel_left.saturating_sub(1);
             if b.fuel_left == 0 && covers(&b.input, &p.fuel) {
                 take(&mut b.input, &p.fuel);

@@ -22,15 +22,12 @@ use crate::rules::knight_racers::race::COUNTDOWN;
 use crate::rules::knight_racers::Session;
 use std::collections::BTreeMap;
 
-/// A time trial being driven: what is being recorded and what is being raced.
 struct Track {
     pod: u8,
     key: String,
-    /// The best lap on the road when the trial began, in ms: a lap must beat it to be kept.
     best: u32,
     ghost: Option<Path>,
     rec: Vec<Pt>,
-    /// Laps already folded into the record.
     laps: usize,
     last_k: i64,
     last_ticks: u32,
@@ -40,13 +37,10 @@ pub struct Bank {
     store: Store,
     ledger: Ledger,
     tracks: BTreeMap<u32, Track>,
-    /// What went wrong the last time the ledger was read or written, if anything did.
     pub error: Option<String>,
 }
 
 impl Bank {
-    /// A bank over the store, holding what the store holds (an empty ledger if it holds
-    /// nothing, or nothing readable: the bad file is kept beside it, see `Store::load`).
     pub fn open(store: Store) -> Bank {
         let (ledger, error) = match store.load() {
             Ok(l) => (l, None),
@@ -58,13 +52,11 @@ impl Bank {
     pub fn ledger(&self) -> &Ledger { &self.ledger }
     pub fn ledger_mut(&mut self) -> &mut Ledger { &mut self.ledger }
 
-    /// Once after each tick: see the module's doc. True if the ledger was written.
     pub fn pump(&mut self, s: &mut Session) -> bool {
         for sf in s.flow.seats.values_mut() {
             if sf.fresh {
                 sf.career = self.ledger.career(&sf.name);
                 sf.fresh = false;
-                // A pod the knight has not got is not the one to start on.
                 if !sf.career.owns_pod(sf.pick) { sf.pick = sf.career.open_pods().first().copied().unwrap_or(0); }
             } else if sf.dirty {
                 self.ledger.set_career(&sf.name, &sf.career);
@@ -87,7 +79,6 @@ impl Bank {
         };
         let Some(name) = s.flow.seats.get(&seat).map(|sf| sf.name.clone()) else { return };
         let key = lap_key(course, pod);
-        // A new trial: another course or pod, or the same one started over.
         let begun = self.tracks.get(&seat).is_none_or(|t| t.key != key || s.ticks < t.last_ticks);
         if begun {
             let ghost = self.ledger.ghost(&name, &key).and_then(|g| Path::decode(&g.path));
@@ -100,7 +91,6 @@ impl Bank {
         let len = s.course().lap();
         let now = s.ticks.saturating_sub(COUNTDOWN) as f32 / crate::rules::knight_racers::race::HZ;
         let (done, begin, lap_time) = s.flow.laps.get(&seat).map_or((0, 0., None), |l| (l.times.len(), l.begin, l.times.get(t.laps).copied()));
-        // A lap just completed: close its path and keep it if it is the best.
         if done > t.laps {
             if let Some(l) = lap_time {
                 let want = (l * RATE).round() as usize + 1;
@@ -120,7 +110,6 @@ impl Bank {
             t.last_k = -1;
         }
         if car.finish.is_some() { s.flow.ghost = None; return; }
-        // The lap being run: one point each fifth of a second.
         let into = (now - begin).max(0.);
         let k = (into * RATE).floor() as i64;
         let at = (car.d - t.laps as f32 * len).max(0.);
@@ -128,8 +117,6 @@ impl Bank {
             t.rec.push(Pt { s: at, y: car.y, lift: car.lift.max(0.), route: car.route });
             t.last_k += 1;
         }
-        // The saved lap, laid on the road: it starts as the knight's lap does and waits at the
-        // line when its lap is done.
         s.flow.ghost = t.ghost.as_ref().and_then(|g| {
             if into > g.seconds() + 2. { return None; }
             let p = g.at(into)?;

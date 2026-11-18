@@ -17,7 +17,6 @@ use crate::rules::tavern::{
 use crate::rules::{RoomKind, Run, Tile};
 use crate::render::overworld::light::Light;
 
-/// The tavern at rest.
 pub(super) fn scenery(run: &Run) -> Img {
     let room = run.room();
     let tick = run.tick as u32;
@@ -25,9 +24,6 @@ pub(super) fn scenery(run: &Run) -> Img {
     let (pw, ph) = (room.cols as i32 * TILE, room.rows as i32 * TILE);
     let mut cv = Img::black(pw, ph);
     let mut lights: Vec<Light> = Vec::new();
-    // Planks, east to west, their ends staggered: each board its own tone
-    // of oak, lit along its top edge and shaded along its foot, with long
-    // grain runs rather than flecks. The lanterns' dusk does the rest.
     for y in 0..ph {
         let row = y / 5;
         let dy = y % 5;
@@ -46,7 +42,6 @@ pub(super) fn scenery(run: &Run) -> Img {
             };
             let along = (x + offset) % 24;
             let grain = dy == 2 && hash((x + offset) / 7, row, 13).is_multiple_of(3);
-            // Two nails a pixel in from each board's end.
             let nail = (along == 2 || along == 22) && (dy == 1 || dy == 3);
             let ink = if dy == 0 || end {
                 'n'
@@ -96,7 +91,6 @@ pub(super) fn scenery(run: &Run) -> Img {
     if let Some(cask) = super::factory::prop_image("tavern-cask", run.tick) {
         cv.stamp(&cask, pw - 3 * TILE - 10, ph - 2 * TILE - cask.h + 10);
     }
-    // Lanterns on the walls, and the light they throw.
     for (col, row) in [(1, 4), (1, 9), (22, 4), (22, 10), (11, 12)] {
         let lamp = kit::lantern(true);
         let (x, y) = (col * TILE + (TILE - lamp.w) / 2, row * TILE - 6);
@@ -109,7 +103,6 @@ pub(super) fn scenery(run: &Run) -> Img {
     cv
 }
 
-/// The shelves behind the bar: two boards of bottles in every colour.
 fn shelves(cv: &mut Img) {
     let (c, _, w, _) = BAR;
     let (x0, x1) = (c * TILE + 4, (c + w) * TILE - 4);
@@ -128,8 +121,6 @@ fn shelves(cv: &mut Img) {
     }
 }
 
-/// The bar: a long counter, its front panelled, three brass taps, mugs;
-/// dusty taps and a cobweb while the tap is dry.
 fn bar(cv: &mut Img, kept: bool) {
     let (c, r, w, h) = BAR;
     let (x, y, bw, bh) = (c * TILE, r * TILE, w * TILE, h * TILE);
@@ -155,7 +146,6 @@ fn bar(cv: &mut Img, kept: bool) {
             cv.put(mx + 4, y, 'c');
         }
     } else {
-        // A cobweb strung between the middle taps.
         let tx = x + bw / 2 - 20;
         for i in 0..20 {
             cv.put(
@@ -167,7 +157,6 @@ fn bar(cv: &mut Img, kept: bool) {
     }
 }
 
-/// A table: a slab of oak, a mug or two, a stool at each end.
 fn table(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32)) {
     let (x, y, tw, th) = (c * TILE + 2, r * TILE + 4, w * TILE - 4, h * TILE - 8);
     cv.rect(x, y, tw, th, 'P');
@@ -184,7 +173,6 @@ fn table(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32)) {
     }
 }
 
-/// The rumour board on its posts: three notes pinned to it.
 fn board(cv: &mut Img) {
     let (c, r, w, _) = BOARD;
     let (x, y, bw) = (c * TILE, r * TILE - 4, w * TILE);
@@ -202,8 +190,6 @@ fn board(cv: &mut Img) {
     }
 }
 
-/// The Siege Perilous: a gilt, high-backed chair on a stone step, a red
-/// seat, and a faint light about it that never quite goes out.
 fn siege(cv: &mut Img, tick: u32) {
     let (c, r, _, _) = SIEGE;
     let (x, y) = (c * TILE, r * TILE);
@@ -224,7 +210,6 @@ fn siege(cv: &mut Img, tick: u32) {
     }
 }
 
-/// The chair itself.
 const CHAIR: [&str; 20] = [
     "...5..5..5...",
     "..55555555...",
@@ -248,11 +233,9 @@ const CHAIR: [&str; 20] = [
     ".a.a.....a.a.",
 ];
 
-/// The taps' plates, as stations to the plate drawer; and the songs'.
 const TAP_STATIONS: [Station; 3] = [Station::TapA, Station::TapB, Station::TapC];
 const SONG_STATIONS: [Station; 3] = [Station::SongA, Station::SongB, Station::SongC];
 
-/// Sir Dinadan's stage: a low dais of boards, footlights along its edge.
 fn stage(cv: &mut Img, lights: &mut Vec<Light>) {
     let (c, r, w, h) = STAGE;
     let (x, y, sw, sh) = (c * TILE, r * TILE, w * TILE, h * TILE);
@@ -270,7 +253,6 @@ fn stage(cv: &mut Img, lights: &mut Vec<Light>) {
     }
 }
 
-/// Sir Dinadan: a jester-knight in motley, his hat belled, his lute.
 pub(super) const DINADAN: [&str; 18] = [
     ".5.......5.....",
     "..7.....q......",
@@ -292,11 +274,8 @@ pub(super) const DINADAN: [&str; 18] = [
     "...nnn..nnn....",
 ];
 
-/// A note, rising.
 const NOTE: [&str; 4] = ["..h", "..h", "hhh", "hh."];
 
-/// Sir Dinadan on his stage, notes rising once a song is asked for; a
-/// song's plate lit under a knight.
 fn dinadan(cv: &mut Img, run: &Run) {
     let (x, y) = at(DINADAN_AT.0 * 2.0, DINADAN_AT.1 * 2.0);
     stand(cv, &Img::from_rows(&DINADAN), x, y);
@@ -314,8 +293,6 @@ fn dinadan(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Maud behind her bar, once she's home, and a tap's plate lit under a
-/// knight; Sir Dinadan on his stage.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     super::hireling::tavern(cv, run);
     if !run.home.residents.contains("maud") {
@@ -332,20 +309,15 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     stand(cv, &super::rescues::sprite_of("maud"), x, y);
 }
 
-/// A living knight within `reach` of the middle of tiles `(c, r, w, h)`.
 fn near(run: &Run, (c, r, w, h): (i32, i32, i32, i32), reach: f32) -> bool {
     let (cx, cy) = ((c as f32 + w as f32 / 2.0) * 2.0, (r as f32 + h as f32 / 2.0) * 2.0);
     run.players.values().any(|p| p.hp > 0 && (p.x - cx).hypot(p.y - cy) < reach)
 }
 
-/// A knight stands below the rumour board, so it is read out over the
-/// room (`boards`), over Brasswake's sign: the sign keeps out of its way.
 pub(super) fn reading_rumours(run: &Run) -> bool {
     run.room().kind == RoomKind::Tavern && near(run, BOARD, 4.5)
 }
 
-/// To a knight below the rumour board, the rumours; to one at the Siege
-/// Perilous, its plaque.
 pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     let near = |rect, reach| near(run, rect, reach);
     if near(BOARD, 4.5) {
@@ -356,8 +328,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
         let bx = ((c * TILE + w * TILE / 2) - board.w / 2).clamp(2, cv.w - board.w - 2);
         cv.stamp(&board, bx, r * TILE + 26);
     }
-    // The seat's own knight at a tap (`shoppers`): what it pours, what it
-    // costs, and the hold.
     if run.home.residents.contains("maud")
         && let Some((hero, tap)) = super::shoppers(run, focus)
             .map(|(_, h)| h)
@@ -388,7 +358,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
         let bx = ((c * TILE + w * TILE / 2) - board.w / 2).clamp(2, cv.w - board.w - 2);
         cv.stamp(&board, bx, (r + 1) * TILE + 4);
     }
-    // A knight at a song's plate: what it does, what it costs, the hold.
     if let Some((hero, plate)) = run
         .players
         .values()
@@ -415,8 +384,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
             }
         };
         let board = home::board(&lines);
-        // Below the plates, clear of Dinadan and his notes, and left of
-        // the tray where the two would meet in the corner.
         let (c, r, w, h) = SONG_PLATES[plate];
         let by = ((r + h) * TILE + 4).min(cv.h - board.h - 2);
         let mut bx = ((c * TILE + w * TILE / 2) - board.w / 2).clamp(2, cv.w - board.w - 2);
@@ -437,16 +404,12 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
                 if deeds >= SIEGE_WORTHY { '5' } else { 'h' },
             ),
         ];
-        // Over the chair, clear of the taps' boards and of whoever stands
-        // beside it.
         let board = home::board(&lines);
         let (c, r, _, _) = SIEGE;
         cv.stamp(&board, (c * TILE - 8).max(2), r * TILE - board.h - 16);
     }
 }
 
-/// The Trophy Hall's west wall until the wing is dug: rubble heaped in the
-/// doorway, planks nailed across it; and Tobbin's plate before it.
 pub(super) fn rubble(cv: &mut Img, run: &Run) {
     let dug = run.dungeon.rooms.iter().any(|r| r.kind == RoomKind::Tavern);
     if !dug {
@@ -470,7 +433,6 @@ pub(super) fn rubble(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Tobbin's plate lit, and the West Wing's ledger, to a knight on it.
 pub(super) fn wing_ledger(cv: &mut Img, run: &Run) {
     if run.home.next(Station::Wing).is_none() {
         return;

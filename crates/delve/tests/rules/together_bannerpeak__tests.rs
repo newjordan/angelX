@@ -53,7 +53,6 @@ fn a_session_is_bounded_and_repair_mends_it() {
 fn the_door_opens_at_its_tile_and_a_personal_leave_returns_to_it() {
     let mut r = Run::at_home(41, 1, None, Default::default(), Default::default());
     r.walk_kingdom(Some(ENTRY));
-    // The press that walked in is let go first, then E opens the door.
     r.step(&BTreeMap::new());
     assert!(!r.bannerpeak_showing());
     press_e(&mut r);
@@ -281,16 +280,10 @@ fn a_finished_runs_mark_settles_into_the_home_once() {
     );
 }
 
-// ---------------------------------------------------------------------
-// The adventure through the shell: the run, the purse, the Home.
-
-/// A party of `seats` at the door, ready to play.
 fn party(seats: u32) -> Run {
     table(seats)
 }
 
-/// Bots at the table through `Run::step` until the run has paid, at most
-/// `limit` ticks: the ticks taken.
 fn play_through(r: &mut Run, limit: u32) -> u32 {
     for n in 0..limit {
         let inputs = r.roundtable_inputs();
@@ -324,7 +317,6 @@ fn bots_clear_the_adventure_through_the_run_and_it_pays_each_seat_once() {
         let record = &r.home.countryside.games.roundtable[SLOT];
         assert_eq!((record.plays, record.wins), (1, 1));
         assert!((100..=1000).contains(&record.best), "a score: {}", record.best);
-        // Standing at the Great Pole a while longer pays nothing more.
         for _ in 0..90 {
             r.step(&BTreeMap::new());
         }
@@ -335,8 +327,6 @@ fn bots_clear_the_adventure_through_the_run_and_it_pays_each_seat_once() {
                 "paid once"
             );
         }
-        // E takes the party back to the kingdom, and the same door opens a
-        // fresh run; its finish pays the smaller later purse.
         let first = r.players[&1].carried.get(Spoil::Gold);
         let all_press: BTreeMap<u32, Input> = (1..=seats)
             .map(|id| {
@@ -404,7 +394,6 @@ fn a_run_stays_valid_and_on_the_wire_every_tick_of_a_party_s_adventure() {
             assert_eq!(r.wire_copy().bannerpeak, r.bannerpeak);
         }
     }
-    // And it reads back from what it writes.
     let json = serde_json::to_string(&r).unwrap();
     let back: Run = serde_json::from_str(&json).unwrap();
     assert_eq!(back.bannerpeak, r.bannerpeak);

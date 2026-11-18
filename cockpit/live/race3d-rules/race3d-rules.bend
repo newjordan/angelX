@@ -1,23 +1,5 @@
 import Base
 
-# The 3D races' rules, moved out of Rust. Rust keeps the course geometry it
-# draws, the public state types, the saves' wire shape and the rewards' text;
-# this leg owns the simulation step: gravity, throttle, hops, pickups, rotten
-# planks, crossing carts, the rope, the title clock and the finish order.
-#
-# Status: the Shaft Run and the race-level rules (grid, title clock, finish
-# order, pot and laurels) live here. The Ore Cart, the Griffin Run and the
-# Torchlight Touge are still native; see .seat/REPORT.md.
-#
-# Every `(.. : F32)` rounds once, exactly as Rust's f32 did, so both legs agree
-# bit for bit. `hyp` (sqrt of squares) and `deg` are spelled out so both legs
-# compute the same bits; trigonometry is Bend's F32.sin/F32.cos.
-#
-# Wreck codes: 0 none, 1 fall, 2 bonk, 3 buffer, 4 gap, 5 timber, 6 tumble,
-# 7 spin. Ground codes: 0 floor, 1 bridge, 2 crossing, 3 lodestone, 4 sluice,
-# 5 collapse, 6 sorter, 7 rails, 8 trestle, 9 gorge. Item kinds: 0 gem,
-# 1 ring, 2 gargoyle, 3 timber. Sound codes are the adapter's table.
-
 type Drift is Data:
   Drift{
     heading: F32, travel: F32, sliding: Bool, charge: U32, boost: U32,
@@ -882,25 +864,15 @@ def v_snd(+x: Vz) -> List<&2, U32>:
 def pick_up(+rs: Rs, +r: Rd, +t: Trk, +reach: F32) -> Pick:
   pick_go(titems(t), 0, rd_s(r), rd_x(r), rd_z(r), reach, rs_taken(rs), rd_haul(r))
 
-# The course table Rust draws, handed in once and read by the tick.
-
 def track(+n: U32, +looped: Bool, +finish: F32, +samples: List<&2, Smp>, +posts: List<&2, F32>, +items: List<&2, It>, +blocks: List<&2, Bl>, +gaps: List<&2, Gp>) -> Trk:
   Trk{n, looped, finish, samples, posts, items, blocks, gaps}
 
-# ─── the race tick: the state in, the next state out ────────────────────────
-
-# What a rider's held keys say this tick: the two presses it just made and the
-# bits it carries into the next tick.
 type Kp is Data:
   Kp{f: Bool, e: Bool, keys: U32}
 
-# One rider's tick as Rust hands it over: their seat's move axes and the one
-# sine the Shaft's sluice reads, taken from the position before the step. A
-# transcendental is the adapter's to compute, so both legs hold the same bits.
 type One is Data:
   One{seat: Seat, sin_s: F32}
 
-# The tick in, and the tick out.
 type Tick is Data:
   Tick{
     t: U32, course: U32, finish: F32, limit: U32, riders: List<&2, Rd>,
@@ -913,15 +885,12 @@ type Tk is Data:
     all_home: Bool, timed_out: Bool
   }
 
-# A rider's moving numbers as one tick walks them.
 type Mv is Data:
   Mv{
     s: F32, x: F32, z: F32, vs: F32, vx: F32, vz: F32, spin: F32,
     stun: U32, rest: U32, haul: U32, keys: U32
   }
 
-# A step in progress: the rider as the tick found it (any wreck already
-# applied), its moving numbers, and the race's own state.
 type Tx is Data:
   Tx{done: Bool, r: Rd, m: Mv, rs: Rs, snd: List<&2, U32>}
 
@@ -937,7 +906,6 @@ type Ids is Data:
 type Bs is Data:
   Bs{riders: List<&2, Rd>, snd: List<&2, U32>}
 
-# The tick rate and the title card in ticks.
 def hz() -> U32:
   30
 
@@ -1046,7 +1014,6 @@ def tx_snd(+p: Tx) -> List<&2, U32>:
     case Tx{_, _, _, _, +snd}:
       snd
 
-# F and E as held last tick (bits 0 and 1), for presses.
 def press(+s: Seat, +keys: U32) -> Kp:
   match s:
     case Seat{_, _, _, +fire, +interact, _, _}:
@@ -1056,8 +1023,6 @@ def press(+s: Seat, +keys: U32) -> Kp:
         U32.or(one_if(fire), Bool.pick(U32, interact, 2, 0))
       }
 
-# The rider as the tick leaves it: its moving numbers over the rider it began
-# as, so crash, burst, rings and finish keep whatever the step set.
 def mv_rd(+m: Mv, +r: Rd) -> Rd:
   match m:
     case Mv{+s, +x, +z, +vs, +vx, +vz, +spin, +stun, +rest, +haul, +keys}:
@@ -1076,8 +1041,6 @@ def mv_after(+p: Tx) -> Rd:
 def keys_rd(+r: Rd, +keys: U32) -> Rd:
   bits(r, rd_rings_hi(r), rd_rings_lo(r), rd_fin(r), keys)
 
-# A wrecked cart: the crash is the bonk's shorter clock and the ball is let
-# through the rest of the crossing.
 def bonk(+r: Rd) -> Rd:
   +w = wrecked(r, 2)
   cnt(w, bonk_ticks(), 2, rd_crashes(w), rd_stun(w), 0, rd_rolling(w), roll_rest(), rd_reload(w), rd_haul(w))
@@ -1088,8 +1051,6 @@ def rope_if(+on: Bool, +t: Trk, +r: Rd) -> Rd:
       rope_back(t, r, 0.0)
     case False{}:
       r
-
-# ── the crossing carts ──
 
 def cross_x_at(+p: F32, +under: Bool) -> F32:
   match under:
@@ -1164,16 +1125,12 @@ def cart_scan(+cs: List<&2, Cart>, +s: F32, +x: F32, +hit: Bool, +cx: F32) -> Hi
 def cart_find(+cs: List<&2, Cart>, +s: F32, +x: F32) -> Hit:
   cart_scan(cs, s, x, False{}, 0.0)
 
-# ── the Shaft Run ──
-
-# Into the sorter: the ball rolls to a stop at the bottom.
 def sh_home(+r: Rd, +rs: Rs, +trk: Trk) -> Pr:
   +vs1 = (rd_vs(r) * 0.9 : F32)
   +s1 = F32.min((rd_s(r) + (vs1 * dt() : F32) : F32), (tlen(trk) - 1.0 : F32))
   +spin1 = (rd_spin(r) + ((vs1 * dt() : F32) / ball_r() : F32) : F32)
   pr_of(True{}, mot(r, s1, rd_x(r), rd_z(r), vs1, rd_vx(r), rd_vz(r), rd_lane(r), spin1), rs, Nil{})
 
-# Down the shaft, tumbling, until the rope comes for it; or out of it, slowing.
 def sh_crash(+r: Rd, +rs: Rs, +trk: Trk) -> Pr:
   +fall = U32.is_eq(rd_wreck(r), 1)
   +crash1 = (rd_crash(r) - 1 : U32)
@@ -1188,7 +1145,6 @@ def sh_crash(+r: Rd, +rs: Rs, +trk: Trk) -> Pr:
   +base = cnt(mot(r, s1, x1, z1, vs1, vx1, vz1, rd_lane(r), spin1), crash1, Bool.pick(U32, done, 0, rd_wreck(r)), rd_crashes(r), rd_stun(r), rd_burst(r), rd_rolling(r), rd_rest(r), rd_reload(r), rd_haul(r))
   pr_of(True{}, rope_if(Bool.and(done, fall), trk, base), rs, Nil{})
 
-# The walls, or the edge.
 def sh_walls_if(+done: Bool, +r: Rd, +m: Mv, +rs: Rs, +snd: List<&2, U32>, +trk: Trk) -> Tx:
   match done:
     case True{}:
@@ -1218,8 +1174,6 @@ def sh_walls(+p: Tx, +trk: Trk) -> Tx:
     case Tx{+done, +r, +m, +rs, +snd}:
       sh_walls_if(done, r, m, rs, snd, trk)
 
-# Rotten planks: the first ball over one starts it going; a ball on a plank
-# that has gone goes with it.
 def sh_planks_if(+done: Bool, +r: Rd, +m: Mv, +rs: Rs, +snd: List<&2, U32>, +trk: Trk, +t: U32) -> Tx:
   match done:
     case True{}:
@@ -1244,7 +1198,6 @@ def sh_planks(+p: Tx, +trk: Trk, +t: U32) -> Tx:
     case Tx{+done, +r, +m, +rs, +snd}:
       sh_planks_if(done, r, m, rs, snd, trk, t)
 
-# The crossing ore carts.
 def sh_carts_if(+done: Bool, +r: Rd, +m: Mv, +rs: Rs, +snd: List<&2, U32>, +trk: Trk, +t: U32) -> Tx:
   match done:
     case True{}:
@@ -1274,7 +1227,6 @@ def sh_carts(+p: Tx, +trk: Trk, +t: U32) -> Tx:
     case Tx{+done, +r, +m, +rs, +snd}:
       sh_carts_if(done, r, m, rs, snd, trk, t)
 
-# Gems on the way: the first ball to one takes it.
 def sh_pick_if(+done: Bool, +r: Rd, +m: Mv, +rs: Rs, +snd: List<&2, U32>, +trk: Trk) -> Tx:
   match done:
     case True{}:
@@ -1295,7 +1247,6 @@ def sh_pick(+p: Tx, +trk: Trk) -> Tx:
     case Tx{+done, +r, +m, +rs, +snd}:
       sh_pick_if(done, r, m, rs, snd, trk)
 
-# The ball racing: along, across, up, and then what it met.
 def sh_live(+r: Rd, +seat: Seat, +kp: Kp, +sin_s: F32, +rs: Rs, +trk: Trk, +t: U32) -> Pr:
   match seat:
     case Seat{_, +mx, +my, _, +interact, _, _}:
@@ -1341,8 +1292,6 @@ def sh_live(+r: Rd, +seat: Seat, +kp: Kp, +sin_s: F32, +rs: Rs, +trk: Trk, +t: U
       +after = sh_pick(sh_carts(sh_planks(sh_walls(Tx{False{}, r, m, rs, snd2}, trk), trk, t), trk, t), trk)
       pr_of(True{}, mv_after(after), tx_rs(after), tx_snd(after))
 
-# A race's tick for one rider: the Shaft's ball today; the other three
-# courses keep their seats until their own port.
 def shaft_state(+r: Rd, +keyed: Rd, +seat: Seat, +kp: Kp, +sin_s: F32, +rs: Rs, +trk: Trk, +t: U32, +racing: Bool, +on_track: Bool) -> Pr:
   match racing on_track:
     case False{} _:
@@ -1372,7 +1321,6 @@ def adv(+live: Bool, +r: Rd, +o: One, +rs: Rs, +trk: Trk, +t: U32, +course: U32)
     case True{}:
       adv_course(r, o, rs, trk, t, U32.is_eq(course, 0))
 
-# The finish line: whoever crosses it while racing is home at this tick.
 def after_step(+p: Pr, +t: U32, +finish: F32) -> Pr:
   match p:
     case Pr{+stop, +r, +rs, +snd}:
@@ -1414,7 +1362,6 @@ def id_b(+p: Ids) -> U32:
     case Ids{_, +bid}:
       bid
 
-# The pairs Rust's nested bump loop visits, in its order.
 def against(+id: U32, +xs: List<&2, Rd>) -> List<&2, Ids>:
   match xs:
     case Nil{}:
@@ -1458,7 +1405,6 @@ def set_rd(+id: U32, +v: Rd, +xs: List<&2, Rd>) -> List<&2, Rd>:
 def racing(+r: Rd) -> Bool:
   Bool.and(U32.is_zero(rd_crash(r)), U32.is_zero(rd_fin(r)))
 
-# Balls that meet bounce apart and trade their pace.
 def bump_pair(+a: Rd, +b: Rd) -> Duo:
   +ds = (rd_s(b) - rd_s(a) : F32)
   +dx = (rd_x(b) - rd_x(a) : F32)
@@ -1519,7 +1465,6 @@ def all_home(+xs: List<&2, Rd>) -> Bool:
     case Con{_, _}:
       all_home_go(xs)
 
-# One tick of a race: the field in, the field out.
 def tick(+x: Tick) -> Tk:
   match x:
     case Tick{+t, +course, +finish, +limit, +riders, +ones, +rs, +trk}:

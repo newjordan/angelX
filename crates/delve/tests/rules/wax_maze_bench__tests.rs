@@ -15,7 +15,6 @@ fn wax_maze_frame_time() {
         let k = keys(&r);
         r.step(&k);
     }
-    // A warm-up, so the scenery's bake is not counted.
     let _ = frame_for(&r, 384, 224, Some(1));
     let mut times: Vec<f64> = Vec::new();
     for _ in 0..240 {

@@ -9,8 +9,6 @@ std::thread_local! {
     static WIRE_SCENERY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
-/// A browser's scenery is lit once; its stage lights already animate fire.
-/// Restore the caller's mode even when drawing returns early or unwinds.
 pub fn wire_scenery(on: bool) -> impl Drop {
     struct Back(bool);
     impl Drop for Back {
@@ -23,10 +21,6 @@ fn still_wire(run: &Run) -> bool {
     WIRE_SCENERY.with(|v| v.get()) && !run.at_home_now()
 }
 
-/// The lit scenery changes only with the room, its doors, its chest and its
-/// traps — and its torches, which flicker five times a second. Drawing it
-/// (dusk light per pixel, over a whole great hall) every tick was what made
-/// frames skip, so one drawing is kept and reused until one of those moves.
 pub(super) fn scenery_cached(run: &Run) -> std::sync::Arc<Img> {
     if live_frame() && !still_wire(run) {
         return scenery_live(run);
@@ -34,12 +28,6 @@ pub(super) fn scenery_cached(run: &Run) -> std::sync::Arc<Img> {
     scenery_cached_exact(run)
 }
 
-/// The room's still art drawn finer from the installed HD pack (`hd_pack`),
-/// and its scale: where the pack has art for the room's kit and the still
-/// art is the kit's (no plate laid down, no entrance art, not stood up in
-/// 3D, not a great room's map), kept a torch step at a time as
-/// `scenery_cached` keeps the 1x art, for a window to draw in its place.
-/// `None` everywhere else: the room shows its 1x art, as ever.
 pub(super) fn fine_scenery_cached(run: &Run) -> Option<(std::sync::Arc<Img>, i32)> {
     type Key = (SteadyKey, u64, i32, u64, bool);
     static CACHE: OnceLock<std::sync::Mutex<Option<(Key, std::sync::Arc<Img>)>>> = OnceLock::new();
@@ -76,17 +64,12 @@ pub(super) fn fine_scenery_cached(run: &Run) -> Option<(std::sync::Arc<Img>, i32
     Some((img, s))
 }
 
-/// Prepare the actual first snapshot before the display loop starts. This
-/// fills room-specific scenery and actor caches without advancing the run.
 pub fn prepare_entry(run: &Run, focus: Option<u32>) {
     let (w, h) = (NATIVE_W, NATIVE_H);
     let _ = frame_for(run, w as i32, h as i32, focus);
     let _ = frame_for_live(run, w as i32, h as i32, focus);
 }
 
-/// A live seat's frame. Same pixels as `frame_for`, except a torch flicker
-/// may show the previous step until its bake lands off the paint thread.
-/// A snapshot still uses `frame_for`, which stays exact.
 pub fn frame_for_live(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
     during_live(||frame_for(run,w,h,focus))
 }
@@ -106,12 +89,6 @@ pub(super) fn live_frame() -> bool {
     LIVE_FRAME.with(|flag| flag.get())
 }
 
-/// Everything in the scenery key except the torch step.
-/// The fields from `run.barred()` through `side_state` are the room's fight
-/// state: they change mid-combat (doors bar at a room clear, traps spring,
-/// a wish is granted) and their art is drawn beside the painter (`scenery_live`
-/// hands the relight to the baker for those) rather than on the paint thread.
-/// The fields around them name the room itself — those still redraw at once.
 type SteadyKey = (
     u64,
     u32,
@@ -127,11 +104,6 @@ type SteadyKey = (
     (bool, crate::world3d::room::Mode),
 );
 
-/// Whether two steady keys name the same room in the same dress: the raid,
-/// the floor, the door taken, the layout's print, the home's print and the
-/// draw settings. The fields left out — bars, fighting, the chest, traps,
-/// wishes, the side state — are the room's *fight* state, which moves
-/// mid-combat: `scenery_live` relights those beside the painter.
 fn same_room(a: &SteadyKey, b: &SteadyKey) -> bool {
     a.0 == b.0 && a.1 == b.1 && a.2 == b.2 && a.3 == b.3 && a.9 == b.9 && a.11 == b.11
 }
@@ -160,13 +132,10 @@ struct LiveScenery {
     img: std::sync::Arc<Img>,
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     baking: Option<u64>,
-    /// A torch step being drawn a stage a frame (a browser has no baker).
     #[cfg(target_arch = "wasm32")]
     staged: Option<Staged>,
 }
 
-/// A torch step's scenery part drawn, from the run as it stood when the
-/// step came.
 #[cfg(target_arch = "wasm32")]
 struct Staged {
     flicker: u64,
@@ -174,14 +143,8 @@ struct Staged {
     bake: DungeonBake,
 }
 
-/// A painter's last lit room, shared with the baker that lands the next one.
 type Slot = std::sync::Arc<std::sync::Mutex<Option<LiveScenery>>>;
 
-// The live slot is the painting thread's own. It was one for the whole process, and a process
-// with two painters (every test that draws a live frame, the dev host's seats) had them
-// overwrite each other's room: a painter's key flipped under it, and a baker's job for one
-// room landed in the other's slot. A painter keeps its own last room, as a window's
-// paint thread always has; the baker is shared and its jobs carry the slot they are for.
 std::thread_local! {
     static LIVE_SCENERY: Slot = Slot::default();
 }
@@ -194,8 +157,6 @@ fn live_slot() -> Slot {
 
 static SCENERY_DRAW: OnceLock<std::sync::Mutex<()>> = OnceLock::new();
 
-/// A job for the baker: the slot it is for, the generation that slot asked for, the room's steady
-/// key and torch step, and the run to draw.
 #[cfg(not(target_arch = "wasm32"))]
 type Job = (Slot, u64, SteadyKey, u64, Run);
 
@@ -209,19 +170,14 @@ fn scenery_draw_lock() -> std::sync::MutexGuard<'static, ()> {
         .unwrap_or_else(|err| err.into_inner())
 }
 
-/// The baker beside the painter. A wasm build has no threads: there a
-/// torch step is drawn at once, like a room change.
 #[cfg(not(target_arch = "wasm32"))]
 fn bake_sender() -> &'static std::sync::mpsc::SyncSender<Job> {
     BAKE_TX.get_or_init(|| {
-        // One queued job: a slow baker skips torch steps (the flicker rides
-        // the stage lights) instead of holding a `Run` clone per step.
         let (tx, rx) = std::sync::mpsc::sync_channel::<Job>(1);
         std::thread::Builder::new()
             .name("delve-scenery".into())
             .spawn(move || {
                 while let Ok((slot, generation, steady, flicker, run)) = rx.recv() {
-                    // This thread draws the room the way the paint thread asked.
                     props_meshes(steady.11.0);
                     let img = lit_scenery(&run);
                     props_meshes(false);
@@ -231,12 +187,6 @@ fn bake_sender() -> &'static std::sync::mpsc::SyncSender<Job> {
                     let Some(live) = guard.as_mut() else {
                         continue;
                     };
-                    // The generation alone accepts or rejects: every path that
-                    // changes what should show — a room change, a fight flip,
-                    // a torch step — takes a new one, so a job that lands late
-                    // is dropped by it alone. The steady key here is the one
-                    // the job carried, which may be the flip the paint thread
-                    // queued while still showing the old art.
                     if live.generation == generation {
                         live.img = img;
                         live.flicker = flicker;
@@ -252,10 +202,6 @@ fn bake_sender() -> &'static std::sync::mpsc::SyncSender<Job> {
     })
 }
 
-/// Live frames keep the last lit room when only the torch step moved, and
-/// bake the new step beside the painter: on a thread natively, a stage a
-/// frame in a browser (a dungeon room's; a room drawn elsewhere is drawn
-/// at once there). A room change is still drawn now.
 fn scenery_live(run: &Run) -> std::sync::Arc<Img> {
     let steady = steady_key(run);
     let flicker = torch_step(run);
@@ -279,15 +225,6 @@ fn scenery_live(run: &Run) -> std::sync::Arc<Img> {
             }
             #[cfg(not(target_arch = "wasm32"))]
             Some(live) if same_room(&live.steady, &steady) => {
-                // The fight moved inside this room — the door barred, a trap
-                // sprung, a wish was granted — so the still art must relight,
-                // but not on the paint thread: the old art shows this frame
-                // (the same one-step lag a torch step has) and the baker
-                // draws the relit room beside the painter. A generation is
-                // taken only when the job is actually queued, so a baker
-                // that is behind never invalidates its own queue; whatever
-                // it lands next lets the frame after retry. A room change
-                // still draws at once, in the arm below.
                 let stale = std::sync::Arc::clone(&live.img);
                 if live.baking != Some(live.generation) {
                     let next = live.generation.wrapping_add(1);
@@ -362,8 +299,6 @@ pub(super) fn scenery_cached_exact(run: &Run) -> std::sync::Arc<Img> {
         (bool, usize, bool, crate::world3d::room::Mode, bool),
     );
     static CACHE: OnceLock<std::sync::Mutex<Option<(Key, std::sync::Arc<Img>)>>> = OnceLock::new();
-    // The 3D switch is per thread in tests. Left out of the key, one thread's
-    // stood plate is handed to a flat draw of the same room.
     let key: Key = (
         run.raid_id,
         run.dungeon.depth,
@@ -399,7 +334,6 @@ thread_local! {
 #[cfg(test)]
 static CACHE_GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// Keep another test's room from evicting the exact drawing between looks.
 #[cfg(test)]
 pub(super) fn pin_scene_cache() -> impl Drop {
     struct Pin {
@@ -415,22 +349,11 @@ pub(super) fn pin_scene_cache() -> impl Drop {
     Pin { _guard: guard }
 }
 
-/// The torches' step the scenery is drawn at: five a second, but an open
-/// floor's map is drawn once and kept (its whole floor is too much to draw
-/// five times a second; a window lights its fires itself, `room_scene`).
-/// The Atari board has no torches: its one drawing is kept, so a browser's
-/// staged bake of the next step (`DungeonBake`, the ordinary dungeon's
-/// art) never lands over it.
 pub(super) fn torch_step(run: &Run) -> u64 {
-    // An open floor's still art is a whole map (thousands of tiles): torch
-    // steps would re-light and re-send it five times a second. Keep its
-    // bake frozen — the flicker rides the stage lights, as `still_wire`
-    // already draws it — so the pixel stream stays still between rooms.
     if still_wire(run)
         || matches!(run.room().kind, RoomKind::Depths | RoomKind::Alehouse | RoomKind::MusterTent)
         || crate::rules::world::bomrekedan::is_level(run.room().kind)
         || atari::here(run)
-        // The Wax Maze's stone is drawn once and kept: no torches burn in it.
         || wax_maze::walled(run)
         || belfry_shoot::walled(run)
         || powder_room::walled(run)
@@ -444,17 +367,12 @@ pub(super) fn torch_step(run: &Run) -> u64 {
     }
 }
 
-/// Ticks in a torch step.
 const TORCH_TICKS: u64 = 6;
 
-/// The tick a torch step's drawing is drawn at: its first. The drawing is
-/// kept the whole step, so whichever of its ticks drew it first (another
-/// seat, a baker a tick late) it is the same drawing.
 pub(super) fn torch_tick(run: &Run) -> u64 {
     torch_step(run) * TORCH_TICKS
 }
 
-/// What the Undercroft has built, for the kept drawing.
 pub(super) fn home_print(run: &Run) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -464,30 +382,19 @@ pub(super) fn home_print(run: &Run) -> u64 {
     for m in &run.settlement_exhibits {
         (m.room, m.col, m.row).hash(&mut h);
     }
-    // Grubbins' stall opens once a goblin has come back.
     (run.home.goblins > 0).hash(&mut h);
-    // The barony: the King's court, the works as built, the forges lit.
     crate::rules::barony::print(&run.home.barony).hash(&mut h);
     run.home.goods.print().hash(&mut h);
-    // Wren's board carries the notices type has printed.
     run.home.bounties.len().saturating_sub(crate::rules::bounties::PINNED).hash(&mut h);
     run.home.trophies.hash(&mut h);
     run.home.countryside.built.hash(&mut h);
     run.home.countryside.lamps.hash(&mut h);
     (run.home.countryside.harbour == 3).hash(&mut h);
-    // The tavern's bar is kept once Maud is home.
     run.home.residents.hash(&mut h);
     run.kingdom.return_to.as_ref().map(|r| &r.name).hash(&mut h);
     h.finish()
 }
 
-/// How far floor pixel `(x, y)` lies from the nearest wall straight left,
-/// right, up or down, up to a tile: the floor is dressed along the walls
-/// and wears away into the dark. Walls are whole tiles and a floor pixel's
-/// own tile is no wall, so within a tile's reach only the next tile each
-/// way can be one: the first wall pixel that way is where that tile starts.
-/// (It was a walk of up to fifteen pixels four ways for every floor pixel,
-/// most of the time a torch step took to draw.)
 pub(super) fn near_wall(room: &Room, x: i32, y: i32) -> i32 {
     let (col, row) = (x.div_euclid(TILE), y.div_euclid(TILE));
     let (ox, oy) = (x.rem_euclid(TILE), y.rem_euclid(TILE));
@@ -501,33 +408,21 @@ pub(super) fn near_wall(room: &Room, x: i32, y: i32) -> i32 {
     best
 }
 
-/// Paint the room's scenery and light it for dusk.
 pub(super) fn scenery(run: &Run) -> Img {
     scenery_with_lights(run).0
 }
 
-/// The room's still art and the lights that lit it (none for a room drawn
-/// elsewhere).
 fn scenery_with_lights(run: &Run) -> (Img, Vec<Light>) {
     let _draw = scenery_draw_lock();
-    // The first floor as the Atari board: its own field, unlit.
     if atari::here(run) {
         return (atari::playfield(run), Vec::new());
     }
-    // A room in 3D is, to a page that draws no scenes (a terminal), its
-    // plate laid back down on its floor. A window that draws scenes stands
-    // the room's world where this lies, and takes only its lights from here:
-    // for it the room is drawn as ever.
     if let Some(mut image) = laid_plate(run).map(|world| world.picture()) {
-        // What lies on its floor that the game moves (its traps, a chest, a
-        // cracked wall) lies on the plate; its doorways' bars stand among the
-        // crowd (`room_list`).
         let mut lights = Vec::new();
         room_details(run, &mut image, &mut lights);
         return (image, lights);
     }
     if let Some(image) = scenery_elsewhere(run) {
-        // A delivered room kit's fixtures are its fires.
         let lights = if dungeon_art::supported(run) && !entrance_art::supported(run) {
             dungeon_art::lights(run)
         } else {
@@ -540,10 +435,6 @@ fn scenery_with_lights(run: &Run) -> (Img, Vec<Light>) {
     (bake.cv, bake.lights)
 }
 
-/// The room's world, when it is drawn in 3D (`world3d`). A deep floor
-/// stands up only on a page that draws scenes; elsewhere (a terminal, the
-/// legacy presenter) it keeps the 2D black look, and only with every room
-/// in 3D (`ANGEL_WORLD3D=1`) is a lit room's plate laid down there.
 pub(super) fn world3d(run: &Run) -> Option<crate::world3d::room::RoomWorld> {
     if !props_meshes_on() && !crate::world3d::enabled() || atari::here(run) {
         return None;
@@ -552,22 +443,15 @@ pub(super) fn world3d(run: &Run) -> Option<crate::world3d::room::RoomWorld> {
     crate::world3d::room::world(room, run.dungeon.pack, run.dungeon.depth, room_px(room))
 }
 
-/// A room in 3D whose still art is its plate laid down: on a page that draws
-/// no scenes (`props_meshes` off), where the world is not stood up.
 pub(super) fn laid_plate(run: &Run) -> Option<crate::world3d::room::RoomWorld> {
     if props_meshes_on() { None } else { world3d(run) }
 }
 
-/// Whether a room in 3D stands its world up on this page (a window that
-/// draws scenes), where its still art is not drawn.
 pub(super) fn world_stood(run: &Run) -> bool {
     props_meshes_on() && world3d(run).is_some()
 }
 
-/// The room's still art to keep, its lights remembered beside it.
 fn lit_scenery(run: &Run) -> std::sync::Arc<Img> {
-    // Keep the initial baked illumination and draw flicker as stage lights,
-    // not a room-sized stream of new texture pixels five times a second.
     let mut frozen;
     let run = if still_wire(run) {
         frozen = run.clone();
@@ -580,8 +464,6 @@ fn lit_scenery(run: &Run) -> std::sync::Arc<Img> {
     img
 }
 
-/// The lights of the last few drawings of rooms, by drawing: a window that
-/// lights the room itself takes them from here (`room_scene`).
 type BakedLights = Vec<(std::sync::Weak<Img>, std::sync::Arc<Vec<Light>>)>;
 
 static BAKED_LIGHTS: std::sync::Mutex<BakedLights> = std::sync::Mutex::new(Vec::new());
@@ -595,7 +477,6 @@ fn remember_lights(img: &std::sync::Arc<Img>, lights: Vec<Light>) {
     baked.push((std::sync::Arc::downgrade(img), std::sync::Arc::new(lights)));
 }
 
-/// The lights that lit `img` (none when it was drawn elsewhere or long ago).
 pub(super) fn baked_lights(img: &std::sync::Arc<Img>) -> std::sync::Arc<Vec<Light>> {
     let baked = BAKED_LIGHTS.lock().unwrap_or_else(|err| err.into_inner());
     baked
@@ -605,21 +486,14 @@ pub(super) fn baked_lights(img: &std::sync::Arc<Img>) -> std::sync::Arc<Vec<Ligh
         .unwrap_or_default()
 }
 
-/// Whether `run`'s room is drawn whole by its own module: the Wanted hall,
-/// the side-on halls and every room at home. A dungeon room is drawn here,
-/// in stages (`DungeonBake`).
 pub(super) fn drawn_elsewhere(run: &Run) -> bool {
     dungeon_art::supported(run) || run.room().kind == RoomKind::Wanted || run.room().kind == RoomKind::DeepVillage || run.side_on() || run.at_home_now()
 }
 
-/// Whether `room_details` drew this room's fixtures, so that a page drawing
-/// props has had the chest's sprite left out: the plain scenery path, and a
-/// dungeon room's kit art (`dungeon_art`), which paints them on top of its own.
 pub(super) fn fixtures_drawn_here(run: &Run) -> bool {
     !entrance_art::supported(run) && (dungeon_art::supported(run) || !drawn_elsewhere(run))
 }
 
-/// The scenery of a room drawn elsewhere (`drawn_elsewhere`), or `None`.
 fn scenery_elsewhere(run: &Run) -> Option<Img> {
     if entrance_art::supported(run) { return Some((*entrance_art::scene(run)).clone()); }
     if dungeon_art::supported(run) { return Some(dungeon_art::scenery(run)); }
@@ -629,7 +503,6 @@ fn scenery_elsewhere(run: &Run) -> Option<Img> {
     if run.room().kind == RoomKind::Wanted {
         return Some(wanted::scenery(run));
     }
-    // A village of the Deep, in its people's own stone and light.
     if run.room().kind == RoomKind::DeepVillage {
         return Some(deep_village::scenery(run));
     }
@@ -663,12 +536,6 @@ fn scenery_elsewhere(run: &Run) -> Option<Img> {
     None
 }
 
-/// A dungeon room's lit scenery, drawn in stages: the floor's marks, the
-/// walls, the fixtures, the material relief, the light. Drawn all at once
-/// it is `scenery`. A browser, which has no thread to draw a torch step
-/// beside the painter as a native host does, draws it a stage a frame
-/// while the step before shows (`scenery_live`). The stages split the same
-/// loops at row boundaries, in the same order: the pixels are the same.
 struct DungeonBake {
     cv: Img,
     lights: Vec<Light>,
@@ -676,9 +543,6 @@ struct DungeonBake {
 }
 
 impl DungeonBake {
-    /// The floor in two halves, the walls in two, the fixtures, the
-    /// relief, the light in two: none of them more than a millisecond or
-    /// so of a desktop's time.
     const STAGES: u8 = 8;
 
     fn new(run: &Run) -> DungeonBake {
@@ -686,7 +550,6 @@ impl DungeonBake {
         DungeonBake { cv: Img::black(pw, ph), lights: Vec::new(), stage: 0 }
     }
 
-    /// Draw the next stage of `run`'s scenery; true once it is whole.
     fn step(&mut self, run: &Run) -> bool {
         let (h, rows) = (self.cv.h, run.room().rows as i32);
         match self.stage {
@@ -704,17 +567,12 @@ impl DungeonBake {
     }
 }
 
-/// The floor's dressing, pixel rows `rows`: skirting along the walls, the
-/// pack's marks, hazards.
 pub(super) fn floor_marks(run: &Run, cv: &mut Img, rows: std::ops::Range<i32>) {
     let room = run.room();
     let pack = run.dungeon.pack;
     let t = (run.tick as u32 / 3) as i32;
     let pw = cv.w;
     let still = still_floor(run, pw, cv.h);
-    // Standing water in the Mines and the Archive is open water, as the
-    // world's: banks that wander, worn round at the corners, deep in the
-    // middle.
     let pools = matches!(pack, Pack::Cavern | Pack::Archive | Pack::Swamp);
     for y in rows.clone() {
         for x in 0..pw {
@@ -724,7 +582,6 @@ pub(super) fn floor_marks(run: &Run, cv: &mut Img, rows: std::ops::Range<i32>) {
                     cv.put(x, y, ch);
                 }
             } else if tile == Tile::Bog {
-                // The mire, drawn whole below.
             } else if let Some(c) = still.get(x, y) {
                 cv.set(x, y, c);
             }
@@ -743,9 +600,6 @@ pub(super) fn floor_marks(run: &Run, cv: &mut Img, rows: std::ops::Range<i32>) {
     }
 }
 
-/// The floor's marks that never move (the skirting along the walls and the
-/// pack's own marks, everything but the hazards), drawn once for each
-/// room's layout and kept, so a torch step draws only what moves.
 fn still_floor(run: &Run, w: i32, h: i32) -> std::sync::Arc<Img> {
     type Cache = std::sync::Mutex<std::collections::HashMap<(u32, u64, i32, i32), std::sync::Arc<Img>>>;
     static CACHE: OnceLock<Cache> = OnceLock::new();
@@ -774,7 +628,6 @@ fn still_floor(run: &Run, w: i32, h: i32) -> std::sync::Arc<Img> {
         if c.len() > 96 {
             c.clear();
         }
-        // An open floor's map is many rooms' worth: keep only the newest.
         let most = (crate::rules::layout::MAX_COLS * crate::rules::layout::MAX_ROWS) as i32 * TILE * TILE;
         if w * h > most {
             c.retain(|k, _| k.2 * k.3 <= most);
@@ -784,8 +637,6 @@ fn still_floor(run: &Run, w: i32, h: i32) -> std::sync::Arc<Img> {
     layer
 }
 
-/// The walls, blocks and corner braziers of tile rows `rows`, and the
-/// braziers' and hot floors' lights.
 fn wall_tiles(run: &Run, cv: &mut Img, lights: &mut Vec<Light>, rows: std::ops::Range<i32>) {
     let room = run.room();
     let pack = run.dungeon.pack;
@@ -793,18 +644,14 @@ fn wall_tiles(run: &Run, cv: &mut Img, lights: &mut Vec<Light>, rows: std::ops::
     let tick = run.tick as u32;
     let fighting = run.phase == Phase::Fighting;
     let tiles = Tiles::get();
-    // The Wax Maze lays its own stone and lanes (`wax_maze::walls`).
     let maze = wax_maze::walled(run);
-    // The Belfry Shoot lays its own stone and boards (`belfry_shoot::walls`).
     let belfry = belfry_shoot::walled(run);
-    // The Powder Room lays its own stone, crates and piers (`powder_room::walls`).
     let store = powder_room::walled(run);
     for row in rows {
         for col in 0..room.cols as i32 {
             let (x, y) = (col * TILE, row * TILE);
             let v = hash(col, row, 101 + run.at as u32);
             match room.tile(col, row) {
-                // An open map's rock: dark, as round an old room.
                 Tile::Wall if open::deep_rock(room, col, row) => {}
                 Tile::Wall if corner(room, col, row) && room.kind != RoomKind::Depths => {
                     let im = sprites::brazier(fighting, tick / 4, v);
@@ -829,18 +676,13 @@ fn wall_tiles(run: &Run, cv: &mut Img, lights: &mut Vec<Light>, rows: std::ops::
                     };
                     super::super::material::wall_tile(cv, (x, y), TILE, open, ramp, rough, 300 + pack as u32);
                 }
-                // A forge-hall's furnace and anvils are drawn whole below.
                 Tile::Block if room.kind == RoomKind::Forge => {}
-                // A nook's furniture is drawn whole below.
                 Tile::Block if room.kind.nook() => {}
-                // A lost hall's pillars, thrones and benches are drawn whole below.
                 Tile::Block if room.kind == RoomKind::DwarfHall => {}
                 Tile::Block if pack == Pack::Crypt => cv.stamp(&sprites::tomb(v), x, y),
                 Tile::Block if pack == Pack::Archive => cv.stamp(&sprites::shelf(v), x, y),
                 Tile::Block if pack == Pack::Fungal => cv.stamp(&sprites::mushroom(v), x, y),
-                // The swamp's reed clumps on their tussocks.
                 Tile::Block if pack == Pack::Swamp => swamp_art::reeds(cv, x, y, v),
-                // The Shoggoth's body fills its threshold's north: drawn whole below.
                 Tile::Block if room.kind == RoomKind::Threshold && row <= 3 => {}
                 Tile::Block if pack == Pack::Unknown => {
                     cv.stamp(&sprites::eye_pillar(v, tick / 6), x, y)
@@ -855,16 +697,11 @@ fn wall_tiles(run: &Run, cv: &mut Img, lights: &mut Vec<Light>, rows: std::ops::
     }
 }
 
-/// What stands in the room over its floor and walls: the doorways' torches
-/// and bars, the stairs, altars, furnaces and nooks, the chest, the traps
-/// at rest, a cracked wall; and their lights.
 pub(super) fn room_fixtures(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
     let room = run.room();
     let tick = run.tick as u32;
-    // An open map's stairs stay shut while its guardian lives.
     let barred = run.barred() || run.open_guarded();
     open::fixtures(run, cv, lights);
-    // Torches flank every doorway; bars close it while the fight lasts.
     for (side, &(col, row)) in doors(room).iter().enumerate() {
         if !room.doors[side] {
             continue;
@@ -889,7 +726,6 @@ pub(super) fn room_fixtures(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
         if barred {
             cv.stamp(&sprites::portcullis(across), x, y);
         }
-        // A doorway that leads side-on hangs a banner over it.
         if run.dungeon.neighbour(run.at, side).is_some_and(|i| {
             matches!(
                 run.dungeon.rooms[i].kind,
@@ -927,13 +763,10 @@ pub(super) fn room_fixtures(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
     room_details(run, cv, lights);
 }
 
-/// Fixtures retain their rules-owned shapes when the delivered room kit is used.
 pub(super) fn room_details(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
     let room = run.room();
     let tick = run.tick as u32;
     if room.kind == crate::rules::RoomKind::Sanctuary {
-        // The reforge altar: Tobbin's travelling anvil on a stone plinth,
-        // candles either side, its coals always lit.
         let altar = sprites::dais(tick, run.wishing);
         let (ax, ay) = room.altar();
         let (x, y) = at(ax, ay);
@@ -941,7 +774,6 @@ pub(super) fn room_details(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
         lights.push(fire(x, y - 6, if run.wishing { 84.0 } else { 64.0 }, 0.55));
     }
     if let Some((ax, ay)) = run.wish_altar() {
-        // The wish altar's candles and lamp light the floor round it.
         let (x, y) = at(ax, ay);
         lights.push(fire(x, y - 16, 58.0, 0.5));
     }
@@ -960,12 +792,10 @@ pub(super) fn room_details(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
     if let Some(c) = room.chest {
         let im = chest(!c.open);
         let (x, y) = at(c.x, c.y);
-        // A page that draws props gets the chest as a shape (`figures_with`).
         if !props_meshes_on() {
             cv.stamp(&im, x - im.w / 2, y - im.h / 2);
         }
     }
-    // Traps at rest are part of the room: plates in the floor, grilles in the walls.
     for trap in &run.traps {
         match *trap {
             Trap::Spikes { col, row, .. } => {
@@ -989,16 +819,11 @@ pub(super) fn room_details(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
         secrets::crack(cv, (cx, cy), side);
     }
     if room.kind == RoomKind::Secret {
-        // The vault's gold catches what light there is.
         let (x, y) = at(room.width() / 2.0, room.height() / 2.0);
         lights.push(fire(x, y, 70.0, 0.45));
     }
 }
 
-/// The Shoggoth at its threshold: the great Unknown, not an enemy — only
-/// what the party has not met yet. A mass along the north wall, heaving,
-/// tendrils trailing, and everywhere eyes: curious, teal, now and then
-/// blinking.
 pub(super) fn shoggoth(cv: &mut Img, room: &Room, tick: u32, lights: &mut Vec<Light>) {
     let pw = room.cols as i32 * TILE;
     let heave = (tick as f32 * 0.05).sin();
@@ -1019,7 +844,6 @@ pub(super) fn shoggoth(cv: &mut Img, room: &Room, tick: u32, lights: &mut Vec<Li
             };
             cv.set(x, y, super::super::ink::ink(ink).unwrap_or(BLACK));
         }
-        // Tendrils, here and there, trailing onto the floor.
         if hash(x / 7, 1, 502).is_multiple_of(5) && x % 7 == 3 {
             let len = 8 + (hash(x, 2, 503) % 14) as i32;
             for k in 0..len {
@@ -1032,7 +856,6 @@ pub(super) fn shoggoth(cv: &mut Img, room: &Room, tick: u32, lights: &mut Vec<Li
             }
         }
     }
-    // Its eyes: many, of every size, curious.
     for i in 0..30 {
         let ex = (hash(i, 7, 504) % pw.max(1) as u32) as i32;
         let ey = 10 + (hash(i, 8, 505) % 40) as i32;
@@ -1106,10 +929,6 @@ mod wire_tests {
 mod live_flip_tests {
     use super::*;
 
-    /// A fight-state flip inside one room (a trap springing, a wish granted,
-    /// the door barring) must not relight the room on the paint thread: the
-    /// old still art shows one frame and the baker lands the relit room.
-    /// A room change still draws at once.
     #[test]
     fn a_fight_flip_relights_beside_the_painter_and_a_room_change_draws_now() {
         *live_slot().lock().unwrap_or_else(|err| err.into_inner()) = None;
@@ -1125,10 +944,8 @@ mod live_flip_tests {
             .expect("a fight room on the floor");
         run.enter_for_test(fight);
 
-        // The first live draw of the room is at once, on the paint thread.
         let first = scenery_live(&run);
 
-        // A trap springs: the steady key flips, now inside one room.
         run.traps.push(crate::rules::Trap::Spikes { col: 4, row: 4, phase: 0 });
         let shown = scenery_live(&run);
         assert!(
@@ -1136,9 +953,6 @@ mod live_flip_tests {
             "a fight flip must show the last art, not relight on the paint thread"
         );
 
-        // The baker lands the relit room beside the painter. The painter goes on painting frames
-        // while it waits, as a window does: the baker is one thread for every painter in the
-        // process and holds one job, so a frame that finds it busy asks again on the next.
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         let landed = loop {
             std::thread::sleep(std::time::Duration::from_millis(5));
@@ -1158,11 +972,9 @@ mod live_flip_tests {
             assert!(std::time::Instant::now() < deadline, "the baker never landed the relit room");
         };
 
-        // With the flip landed, the next frame is a plain hit.
         let again = scenery_live(&run);
         assert!(std::sync::Arc::ptr_eq(&landed, &again), "a landed flip must serve the kept art");
 
-        // A room change still draws at once, on the paint thread.
         let elsewhere = run
             .dungeon
             .rooms

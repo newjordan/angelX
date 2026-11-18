@@ -1,19 +1,9 @@
-# crates/delve/src/rules/powder.rs — the Powder Room, a folly and a nod to
-# Bomberman: pillars in a grid, crates between them, a bomb key that drops a
-# keg that blows in a cross. Most crates broken when the minute is up wins.
-#
-# `run.powder` is {room, t, crates: [u16, ascending], kegs: [{at: [x, y],
-# owner, fuse}], fire: [[[x, y], ticks]], broken: {id: n}, ante: {id: gold},
-# corners: {id: [x, y]}, held: [ids], done}.
-
-# The pillars: every second tile in both directions, inside the walls.
 def powder.pillar(+x: U32, +y: U32) -> Bool:
   Bool.and(U32.is_eq(U32.and(x, 1), 0), U32.is_eq(U32.and(y, 1), 0))
 
 def powder.corners(+cols: U32, +rows: U32) -> List<&2, LayCell>:
   [LayCell{1, 1}, LayCell{(cols - 2 : U32), (rows - 2 : U32)}, LayCell{(cols - 2 : U32), 1}, LayCell{1, (rows - 2 : U32)}]
 
-# |a - b|.
 def powder.near(+x: U32, +y: U32, +c: LayCell, +reach: U32) -> Bool:
   LayCell{cx: U32, cy: U32} of LayCell = c
   U32.is_le((layout.absdiff(cx, x) + layout.absdiff(cy, y) : U32), reach)
@@ -28,7 +18,6 @@ def powder.any_near(+x: U32, +y: U32, +cs: List<&2, LayCell>, +reach: U32) -> Bo
       else:
         powder.any_near(x, y, t, reach)
 
-# The door tiles of the room.
 def powder.doors(+g: LayGrid, +row: U32, +col: U32, +cols: U32, +rows: U32) -> List<&2, LayCell>:
   if U32.is_ge(row, rows):
     Nil{}
@@ -41,8 +30,6 @@ def powder.doors(+g: LayGrid, +row: U32, +col: U32, +cols: U32, +rows: U32) -> L
       else:
         powder.doors(g, row, (col + 1 : U32), cols, rows)
 
-# Lay the store: pillars, crates (seeded by the tile), a clear mouth at each
-# door and corner. Returns the grid and the crate indexes (ascending).
 def powder.lay(+g: LayGrid, +seed: W.W, +cols: U32, +rows: U32, +corners: List<&2, LayCell>, +doors: List<&2, LayCell>, +y: U32, +x: U32, +crates: List<&2, J.Val>) -> LayGrid & List<&2, J.Val>:
   if U32.is_ge(y, (rows - 1 : U32)):
     (g, crates)
@@ -61,7 +48,6 @@ def powder.lay(+g: LayGrid, +seed: W.W, +cols: U32, +rows: U32, +corners: List<&
         else:
           powder.lay(layout.grid.set(g, x, y, TileFloor{}), seed, cols, rows, corners, doors, y, (x + 1 : U32), crates)
 
-# Into the powder store: pillars, crates, a corner each, and the antes.
 def powder.Run.start_powder(+run: J.Val, +index: U32) -> J.Val:
   dungeon: J.Val = J.get(run, "dungeon")
   room: J.Val = layout.Floor.room(dungeon, index)
@@ -80,7 +66,6 @@ def powder.Run.start_powder(+run: J.Val, +index: U32) -> J.Val:
   p: J.Val = J.set(J.set(J.set(J.set(p1, "ante", J.get(taken, "ante")), "corners", corner_of), "held", J.JA{Nil{}}), "done", J.JBool{False{}})
   floors.cue(exits.push_sound(J.set(r2, "powder", p), "door_seal"), "folly")
 
-# Each scoring knight goes to the next corner (round and round).
 def powder.assign(+run: J.Val, +ps: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +scores: J.Val, +corners: List<&2, LayCell>, +k: U32, +acc: J.Val) -> J.Val & J.Val:
   match ps as List<&2, Sigma<&2, &2, String, _ => J.Val>>:
     case Nil{}:
@@ -121,7 +106,6 @@ def powder.owned(+ks: List<&2, J.Val>, +id: U32) -> U32:
 def powder.id_in(+xs: List<&2, J.Val>, +id: U32) -> Bool:
   gantry.u32_in(xs, id)
 
-# The bomb key lights kegs here; the ordinary throw waits.
 def powder.cooldowns(+run: J.Val, +ids: List<&2, U32>) -> J.Val:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -130,7 +114,6 @@ def powder.cooldowns(+run: J.Val, +ids: List<&2, U32>) -> J.Val:
       h: J.Val = exits.hero(run, id)
       powder.cooldowns(exits.set_hero(run, id, J.set(h, "bomb_cooldown", J.JU{U32.max(J.u32(J.get(h, "bomb_cooldown")), 2)})), t)
 
-# The kegs dropped this tick: a knight with the bomb key newly down and a keg to spare.
 def powder.drop(+s: WS, +ids: List<&2, U32>, +inputs: J.Val) -> WS:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -168,7 +151,6 @@ def powder.fuses(+ks: List<&2, J.Val>) -> List<&2, J.Val>:
     case Con{k: J.Val, t: List<&2, J.Val>}:
       Con{J.set(k, "fuse", J.JU{RS.u_sat_sub(J.u32(J.get(k, "fuse")), 1)}), powder.fuses(t)}
 
-# The first keg whose fuse is out (index), or usize::MAX.
 def powder.first_out(+ks: List<&2, J.Val>, +i: U32) -> U32:
   match ks as List<&2, J.Val>:
     case Nil{}:
@@ -189,7 +171,6 @@ def powder.remove_nth(+xs: List<&2, J.Val>, +i: U32) -> List<&2, J.Val>:
       else:
         Con{h, powder.remove_nth(t, (i - 1 : U32))}
 
-# Whether the sorted crate list holds index `v`, and the list without it.
 def powder.crate_has(+xs: List<&2, J.Val>, +v: U32) -> Bool:
   match xs as List<&2, J.Val>:
     case Nil{}:
@@ -210,8 +191,6 @@ def powder.crate_del(+xs: List<&2, J.Val>, +v: U32) -> List<&2, J.Val>:
       else:
         Con{h, powder.crate_del(t, v)}
 
-# The fire set by the kegs gone off: a cross each, stopped by pillars and the
-# first crate in each direction. State: the run (tiles), the powder, the blasts.
 def powder.blow(+s: PowderS) -> PowderS:
   match s as PowderS:
     case PowderS{run: J.Val, p: J.Val, blasts: List<&2, LayCell>}:
@@ -279,7 +258,6 @@ def powder.reach(+s: PowderS, +k: J.Val, +at: LayCell, +d: U32, +r: U32) -> Powd
             p1: J.Val = powder.fuse_out(p, LayCell{x, y})
             powder.reach(PowderS{run, p1, List.append(&2, LayCell, blasts, [LayCell{x, y}])}, k, at, d, (r + 1 : U32))
 
-# The next keg in the cross goes at once.
 def powder.fuse_out(+p: J.Val, +c: LayCell) -> J.Val:
   J.set(p, "kegs", J.JA{powder.fuse_out.go(J.items(J.get(p, "kegs")), c)})
 
@@ -305,7 +283,6 @@ def powder.fire_add(+fire: List<&2, J.Val>, +blasts: List<&2, LayCell>) -> List<
       LayCell{x: U32, y: U32} of LayCell = c
       powder.fire_add(List.append(&2, J.Val, fire, [J.JA{[J.JA{[J.of_i32(x), J.of_i32(y)]}, J.JU{10}]}]), t)
 
-# Fires burn down a tick; the spent ones go.
 def powder.fire_age(+fire: List<&2, J.Val>) -> List<&2, J.Val>:
   match fire as List<&2, J.Val>:
     case Nil{}:
@@ -328,7 +305,6 @@ def powder.burning(+fire: List<&2, J.Val>, +c: LayCell) -> Bool:
       else:
         powder.burning(t, c)
 
-# Sooted: back to the corner, three crates the poorer.
 def powder.soot(+run: J.Val, +p: J.Val, +ids: List<&2, U32>) -> J.Val & J.Val:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -347,7 +323,6 @@ def powder.soot(+run: J.Val, +p: J.Val, +ids: List<&2, U32>) -> J.Val & J.Val:
         p1: J.Val = J.set(p, "broken", J.set(broken, k, J.JU{RS.u_sat_sub(J.u32(J.get(broken, k)), 3)}))
         powder.soot(exits.push_sound(exits.set_hero(run, id, h2), "hero_hurt"), p1, t)
 
-# The store's tick: kegs dropped and blown, crates broken, knights sooted, and the end.
 def powder.Run.tick_powder(+run: J.Val, +inputs: J.Val) -> J.Val:
   p0: J.Val = J.get(run, "powder")
   if J.is_null(p0):
@@ -393,7 +368,6 @@ def powder.bump(+run: J.Val) -> J.Val:
   d: J.Val = J.get(run, "dungeon")
   J.set(run, "dungeon", J.set(d, "world_revision", J.JU{(J.u32(J.get(d, "world_revision")) + 1 : U32)}))
 
-# The pot and the crown: a gold per four crates broken.
 def powder.finish(+run: J.Val, +p: J.Val) -> J.Val:
   best: U32 = gantry.best_by_broken(J.int_fields(J.get(p, "broken")), 4294967295, 0)
   pot: U32 = gantry.pot(J.fields(J.get(p, "ante")))
@@ -406,7 +380,6 @@ def powder.finish(+run: J.Val, +p: J.Val) -> J.Val:
   r3: J.Val = J.set(J.set(r2, "powder", p), "found", J.JA{[J.get(r2, "tick"), J.JU{0}, J.JS{String.append(name, " BROKE THE MOST CRATES!")}]})
   floors.cue(exits.push_sound(r3, "play_card"), "pastime_won")
 
-# The most crates, the least id on a tie.
 def gantry.best_by_broken(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +best: U32, +bn: U32) -> U32:
   match hs as List<&2, Sigma<&2, &2, String, _ => J.Val>>:
     case Nil{}:

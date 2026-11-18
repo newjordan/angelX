@@ -19,16 +19,10 @@ use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
-/// How long the realm waits after a home claim that changed nothing
-/// before it claims again.
 const HOME_QUIET: Duration = Duration::from_secs(2);
 
-/// Claims settled in one cycle at most: a producer that keeps banking
-/// cannot hold the settlement forever.
 const CLAIMS_PER_CYCLE: usize = 16;
 
-/// The game's side of a claim: the hand-stepped sim's own, or the link the
-/// settler thread holds to the server's shared state.
 pub(super) trait Ledger {
     fn claim_realm(&mut self) -> Result<Option<RealmClaim>, String>;
     fn acknowledge_realm(&mut self, claim: &RealmClaim) -> Result<(), String>;
@@ -42,14 +36,11 @@ pub(super) trait Ledger {
         claim: &HomeClaim,
         completed: &HomeCompletion,
     ) -> Result<(), String>;
-    /// Whether the run holds new facts for a home claim.
     fn home_facts(&mut self) -> bool;
-    /// A forced checkpoint of the game.
     fn checkpoint(&mut self) -> Result<(), String>;
     fn saves(&self) -> bool;
 }
 
-/// The cycle in place, on the view's own sim.
 pub(super) struct InPlace<'a>(pub &'a mut DungeonView);
 
 impl Ledger for InPlace<'_> {
@@ -92,7 +83,6 @@ impl Ledger for InPlace<'_> {
     }
 }
 
-/// The cycle on the settler thread, through the server's shared state.
 pub(super) struct Linked {
     pub link: Link,
     pub save_path: Option<PathBuf>,
@@ -145,7 +135,6 @@ impl Ledger for Linked {
     }
 }
 
-/// What a cycle reads from the view, and what it has to say back.
 pub(super) struct Io {
     pub host: String,
     pub bounties_unsaved: bool,
@@ -169,7 +158,6 @@ impl Io {
         }
     }
 
-    /// Tell the view what the cycle did.
     pub(super) fn apply(self, view: &mut DungeonView) {
         let now = Instant::now();
         for cue in &self.cues {
@@ -187,10 +175,7 @@ impl Io {
     }
 }
 
-/// Move what the run banked into the treasury, under each knight's name.
 pub(super) fn realm_cycle(realm: &mut Realm, game: &mut impl Ledger, io: &mut Io) -> bool {
-    // A claim remains in the game journal until both stores agree on its
-    // identity. New spoils can accumulate while this exact claim retries.
     for _ in 0..CLAIMS_PER_CYCLE {
         let settled = (|| {
             let Some(claim) = game.claim_realm()? else {
@@ -199,8 +184,6 @@ pub(super) fn realm_cycle(realm: &mut Realm, game: &mut impl Ledger, io: &mut Io
             if realm.persistent() && !game.saves() {
                 return Err("the game checkpoint path is unavailable".into());
             }
-            // Save the emptied queues AND retained receipt in one core
-            // capture before the destination is allowed to spend it.
             game.checkpoint()?;
             let result = realm.settle_claim(&claim, &io.host)?;
             game.acknowledge_realm(&claim)?;
@@ -236,18 +219,11 @@ pub(super) fn realm_cycle(realm: &mut Realm, game: &mut impl Ledger, io: &mut Io
             io.notice = Some(notice);
         }
     }
-    // Bound the work if a producer keeps banking; a restart/close may not
-    // discard a backlog simply because one bounded transfer completed.
     io.notice = Some("The realm is still banking the party's spoils".into());
     false
 }
 
-/// Pay for what the party asked for at the Undercroft's plates out of the
-/// treasury, and tell the run what now stands and what it can spend.
 pub(super) fn home_cycle(realm: &mut Realm, game: &mut impl Ledger, io: &mut Io) -> bool {
-    // A claim that changed nothing is followed by another at once: the
-    // realm rests a moment before it asks again, unless the run has new
-    // facts for it (an order, a sale, a deed, a mark), which settle now.
     if io.quiet_until.is_some_and(|until| Instant::now() < until) && !game.home_facts() {
         return true;
     }
@@ -261,8 +237,6 @@ pub(super) fn home_cycle(realm: &mut Realm, game: &mut impl Ledger, io: &mut Io)
             if realm.persistent() && !game.saves() {
                 return Err("the game checkpoint path is unavailable".into());
             }
-            // Persist reservations/facts before the destination is allowed
-            // to pay. A replay always uses this same request and payload.
             let t0 = Instant::now();
             if crate::stress_log() {
                 eprintln!(
@@ -286,8 +260,6 @@ pub(super) fn home_cycle(realm: &mut Realm, game: &mut impl Ledger, io: &mut Io)
             let completed = game
                 .home_completion(&claim)?
                 .ok_or("home delivery did not commit")?;
-            // Only after world+delivery is durable may a refund commit and
-            // its destination discard the large prepared result.
             let t2 = t0.elapsed();
             game.checkpoint()?;
             let t3 = t0.elapsed();
@@ -327,7 +299,6 @@ pub(super) fn home_cycle(realm: &mut Realm, game: &mut impl Ledger, io: &mut Io)
             && completed.result.announced.is_empty()
             && completed.delivered.refund.is_empty()
         {
-            // `ANGEL_STRESS_HOME_QUIET_MS` shortens the rest for the stress kit.
             let quiet = std::env::var("ANGEL_STRESS_HOME_QUIET_MS")
                 .ok()
                 .and_then(|v| v.parse().ok())
@@ -369,20 +340,17 @@ pub(super) fn home_cycle(realm: &mut Realm, game: &mut impl Ledger, io: &mut Io)
     false
 }
 
-/// What a settler thread hands back.
 pub(super) struct Settled {
     pub realm: Realm,
     pub io: Io,
 }
 
-/// One settlement cycle running off the frame, holding the realm.
 pub struct Settling {
     done: mpsc::Receiver<Settled>,
     thread: Option<std::thread::JoinHandle<()>>,
 }
 
 impl Settling {
-    /// Settle on a thread of its own: the realm's claims, then the home's.
     pub(super) fn start(realm: Realm, game: Linked, io: Io) -> Settling {
         let (tx, done) = mpsc::channel();
         let thread = std::thread::Builder::new()
@@ -402,8 +370,6 @@ impl Settling {
         }
     }
 
-    /// The cycle's result once it is done (waiting for it if asked). `Err`
-    /// when the thread ended without handing the realm back.
     pub(super) fn poll(&mut self, wait: bool) -> Option<Result<Settled, ()>> {
         let got = if wait {
             self.done
@@ -439,20 +405,14 @@ impl Drop for Settling {
 }
 
 impl DungeonView {
-    /// The realm as the screen shows it: the realm itself, or while it is
-    /// away settling, the copy taken as it left.
     pub fn realm_shown(&self) -> Option<&Realm> {
         self.realm.as_ref().or(self.realm_copy.as_ref())
     }
 
-    /// Whether a settlement cycle off the frame holds the realm now.
     pub fn settling_off_frame(&self) -> bool {
         self.settling.is_some()
     }
 
-    /// Take back the realm from a settlement off the frame that is done, or
-    /// (`wait`) once it is. A settler that ended without it leaves the realm
-    /// to load again from its last save.
     pub fn collect_settled(&mut self, wait: bool) {
         let Some(settling) = self.settling.as_mut() else {
             return;
@@ -477,8 +437,6 @@ impl DungeonView {
         }
     }
 
-    /// Start a settlement cycle off the frame with the realm handed to it.
-    /// False where the server is stepped by hand: the cycle runs in place.
     pub(super) fn settle_off_frame(&mut self) -> bool {
         if self.settling.is_some() {
             return true;
@@ -502,8 +460,6 @@ impl DungeonView {
     }
 }
 
-/// A save running off the frame on a thread of its own, and the slot it
-/// fills when it is done (taken once by the frame that finds it).
 pub struct Saving<T>(std::sync::Arc<std::sync::Mutex<Option<T>>>);
 
 impl<T> Clone for Saving<T> {
@@ -532,16 +488,11 @@ impl<T: Send + 'static> Saving<T> {
         slot
     }
 
-    /// What the save came to, once it is done.
     pub(super) fn done(&self) -> Option<T> {
         self.0.lock().unwrap_or_else(|p| p.into_inner()).take()
     }
 }
 
-/// A finished job's delivery off the frame: a checkpoint, then (unless it
-/// was acknowledged before) its card file published and its receipt
-/// acknowledged, then a checkpoint. The slot says whether it was
-/// acknowledged, and how the saves went.
 pub(super) fn deliver_off_frame(
     link: Link,
     save: PathBuf,
@@ -567,12 +518,8 @@ pub(super) fn deliver_off_frame(
     })
 }
 
-/// An admission save off the frame: the claims (session, request) it covers
-/// are persisted once it is done.
 pub type Admitting = Option<(Saving<Result<(), String>>, Vec<(String, u64)>)>;
 
-/// Start an admission save for `covered` where the server runs on its own
-/// threads. False where it is stepped by hand: the caller saves in place.
 pub(super) fn admit_off_frame(
     view: &mut DungeonView,
     admitting: fn(&mut DungeonView) -> &mut Admitting,
@@ -596,7 +543,6 @@ pub(super) fn admit_off_frame(
     Ok(true)
 }
 
-/// The claims an admission save covered, once it is done (Err when it failed).
 pub(super) fn admitted(slot: &mut Admitting) -> Option<Result<Vec<(String, u64)>, String>> {
     let saved = slot.as_ref()?.0.done()?;
     let (_, covered) = slot.take().expect("checked above");

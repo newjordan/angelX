@@ -14,18 +14,13 @@ use crate::rules::pennon::show::{GO_LIFE, HOLD, Puff, Show};
 use crate::rules::pennon::{FLOOR, Q};
 use std::f32::consts::PI;
 
-/// Ticks a score takes flying to the strip.
 pub(super) const FLY: u32 = 22;
-/// Ticks a number stands over a struck pennon.
 const POP: u32 = 24;
-/// The moat's surface, on the canvas.
 const MOAT: i32 = VIEW_TOP + 176;
 
 const DUST: Ramp = Ramp(['h', 'J', 'G', 'P', 'j', 'g']);
-/// Smoke over a night wall: grey that never glares.
 const ASH: Ramp = Ramp(['J', 'G', 'j', 'g', 'X', 'K']);
 
-/// A flat fan of dust thrown from `at` along the walk.
 fn dust(world: &mut Img, at: (f32, f32), age: u32, seed: u32, n: u32, speed: f32, tick: u64) {
     let mut pen = Pen::new(world, 240);
     let spray = Spray { gravity: -0.012, squash: 0.35, drag: 0.1, ..Spray::round(seed, n, at, (speed * 0.4, speed), (10.0, 20.0)) };
@@ -45,7 +40,6 @@ fn dust(world: &mut Img, at: (f32, f32), age: u32, seed: u32, n: u32, speed: f32
     let _ = tick;
 }
 
-/// Splinters, a seed-weight and a vane thrown off a felled pennon.
 fn wood(world: &mut Img, at: (f32, f32), age: u32, seed: u32, big: bool, tick: u64) {
     let mut pen = Pen::new(world, 700);
     let a = age as f32;
@@ -75,7 +69,6 @@ fn wood(world: &mut Img, at: (f32, f32), age: u32, seed: u32, big: bool, tick: u
     }
 }
 
-/// The "!" over a pennon that has seen you, bobbing, in the danger ink.
 fn alert(world: &mut Img, at: (i32, i32), age: u32) {
     let bob = (ease::out((age as f32 / 5.0).min(1.0)) * 4.0) as i32 - ((age as i32 / 3) % 2);
     let fade = age >= 14;
@@ -92,8 +85,6 @@ fn alert(world: &mut Img, at: (i32, i32), age: u32) {
     world.put(at.0, at.1 - bob - 5, 'T');
 }
 
-/// What goes on the stone, behind the figures: dust, rings of the captain's
-/// blow.
 pub(super) fn behind(world: &mut Img, cx: &Cx) {
     let (show, id, t) = (&cx.s.show, cx.id, cx.t);
     let floor = cx.y(FLOOR) as f32;
@@ -105,7 +96,6 @@ pub(super) fn behind(world: &mut Img, cx: &Cx) {
             Puff::Land => dust(world, (x, floor + 1.0), age, hash(m.born as i32, 2, 0x11), 10, 2.0, cx.tick),
             Puff::Rise => dust(world, (x, floor + 1.0), age, hash(m.born as i32, 3, 0x11), 12, 2.2, cx.tick),
             Puff::Strike if m.dx == 3 => {
-                // The captain's blow: a ring along the stone from where it falls.
                 let f = &cx.d.foes[3];
                 let mut pen = Pen::new(world, 500);
                 let a = age as f32;
@@ -114,7 +104,6 @@ pub(super) fn behind(world: &mut Img, cx: &Cx) {
                     pen.shock((mid, floor), 3.0 + a * 5.0, 2.0, 0.22, ramps::SMOKE, a / 16.0);
                     pen.shock((mid, floor), 2.0 + a * 3.0, 1.4, 0.22, ramps::EMBER, a / 14.0);
                 } else {
-                    // The hook sweeps the length of its lane.
                     let tail = cx.x(f.danger.x) as f32;
                     let head = cx.x(f.x - 20) as f32;
                     for k in 0..4 {
@@ -126,7 +115,6 @@ pub(super) fn behind(world: &mut Img, cx: &Cx) {
             _ => {}
         }
     }
-    // Strides raise a little dust of their own: a trail of three puffs.
     let d = cx.d;
     if d.ground.is_some() && matches!(d.pose, 1 | 2) && d.down == 0 {
         let x = cx.x(d.x / Q) as f32;
@@ -147,11 +135,9 @@ pub(super) fn behind(world: &mut Img, cx: &Cx) {
     }
 }
 
-/// What flies over the figures: bursts, flashes, wards shattering, splashes.
 pub(super) fn front(world: &mut Img, cx: &Cx) {
     let (show, id, t, tick) = (&cx.s.show, cx.id, cx.t, cx.tick);
     let floor = cx.y(FLOOR);
-    // Blows landed in this lane.
     for h in show.hits.iter().filter(|h| h.seat == id) {
         let age = h.age(t);
         let at = (cx.x(i32::from(h.x)) as f32, cx.y(i32::from(h.y)) as f32);
@@ -177,7 +163,6 @@ pub(super) fn front(world: &mut Img, cx: &Cx) {
             }
             Puff::Wake => alert(world, (x, y), age),
             Puff::Strike if m.dx < 3 => {
-                // A pennon looses its bolt: a puff and a flash at the bow.
                 let mut pen = Pen::new(world, 90);
                 let c = ((x - 16) as f32, (floor - 24) as f32);
                 pfx::rays(&mut pen, c, 5, 8.0, 1.0, 0.3, ramps::EMBER, age as f32 / 6.0);
@@ -199,7 +184,6 @@ pub(super) fn front(world: &mut Img, cx: &Cx) {
             _ => {}
         }
     }
-    // A knight struck, a ward broken, a fall into the moat.
     for k in show.downs.iter().filter(|k| k.seat == id) {
         let age = t.saturating_sub(k.born);
         let x = cx.x(i32::from(k.x)) as f32;
@@ -229,7 +213,6 @@ pub(super) fn front(world: &mut Img, cx: &Cx) {
             juice::impact_burst(world, c, age, hash(k.born as i32, 7, 0x33), Weight::Crushing, tick);
         }
     }
-    // A bolt that flies past close: a spark where it whistled by.
     let d = cx.d;
     if d.down == 0 && d.hurt == 0 {
         let (kx, ky) = (d.x / Q, d.y / Q);
@@ -246,13 +229,8 @@ pub(super) fn front(world: &mut Img, cx: &Cx) {
     super::scene::embers(world, cx.cam, t);
 }
 
-/// Numbers over the strike, a score flying home: the unshaken layer.
-/// `shake` is how far the world is being thrown, so a number stays on its
-/// pennon.
 pub(super) fn numbers(im: &mut Img, cx: &Cx, shake: (i32, i32), ids: &[u32]) {
     let show: &Show = &cx.s.show;
-    // The count and the GO own the middle of the screen; no number flies
-    // through them.
     let opening = cx.s.hold > 0 || cx.t < HOLD + GO_LIFE;
     for h in show.hits.iter().filter(|h| h.seat == cx.id) {
         let age = h.age(cx.t);
@@ -260,7 +238,6 @@ pub(super) fn numbers(im: &mut Img, cx: &Cx, shake: (i32, i32), ids: &[u32]) {
         if age < 7 {
             juice::hitmarker(im, (at.0, at.1), age, h.kill);
         }
-        // One number at a time over the strike: the newest hit's.
         let newest = show.hits.iter().filter(|o| o.seat == cx.id).map(|o| o.age(cx.t)).min();
         if opening || newest != Some(age) {
             continue;
@@ -270,7 +247,6 @@ pub(super) fn numbers(im: &mut Img, cx: &Cx, shake: (i32, i32), ids: &[u32]) {
             let to = hud::anchor(ids, cx.id);
             if age < FLY {
                 juice::fly_up(im, &text, (at.0, at.1 - 14), to, age, FLY, 'T');
-                // The same box the kit draws: where the number is.
                 let t = age as f32 / FLY as f32;
                 let (x, y) = crate::motion::arc((at.0 as f32, (at.1 - 14) as f32), (to.0 as f32, to.1 as f32), 26.0, ease::both(t));
                 let big = 1 + i32::from(t < 0.5);
@@ -289,8 +265,6 @@ pub(super) fn numbers(im: &mut Img, cx: &Cx, shake: (i32, i32), ids: &[u32]) {
     }
 }
 
-/// The rim of light round the picture: red for a knight struck, the
-/// captain's colour while his blow is coming down on the knight.
 pub(super) fn rim(im: &mut Img, cx: &Cx) {
     let show = &cx.s.show;
     let mut k = 0.0f32;
@@ -298,7 +272,6 @@ pub(super) fn rim(im: &mut Img, cx: &Cx) {
     if let Some(a) = show.downs.iter().rev().find(|d| d.seat == cx.id && !d.ward).map(|d| cx.t.saturating_sub(d.born)).filter(|&a| a < 24) {
         k = k.max(0.5 * (1.0 - a as f32 / 24.0));
     }
-    // The captain's tell lands on the knight: the rim thickens as it nears.
     let d = cx.d;
     if let Some(f) = d.foes.get(3).filter(|f| f.hp > 0 && f.beat == crate::rules::pennon::Beat::Tell) {
         let (x, y) = (d.x / Q, d.y / Q);

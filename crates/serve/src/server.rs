@@ -23,34 +23,18 @@ use std::sync::{Arc, Mutex, Weak};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-/// How a server is started.
 #[derive(Clone, Debug)]
 pub struct ServeConfig {
     pub bind: SocketAddr,
-    /// The browser client; a placeholder page without one.
     pub bundle: Option<ClientBundle>,
-    /// A retained asynchronous browser generation. Takes precedence over `bundle`.
     pub prepared_assets: Option<http::PreparedAssets>,
     pub live_assets: http::LiveAssets,
-    /// A fixed join key (scripts and tests); a random one without.
     pub key: Option<String>,
-    /// Print a line of stats to stderr this often.
     pub log_every: Option<Duration>,
-    /// Dev mode: any seat may set the server's knobs, not only the host
-    /// (`angel_net::knob`), and every page offers its panel.
     pub dev: bool,
-    /// Where the knobs moved from their defaults are kept: read at the
-    /// start, written whenever one moves.
     pub tune_file: Option<PathBuf>,
-    /// Seats kept for their players by name (`Sessions::keep`): a restored
-    /// run's knights.
     pub names: Vec<(u32, String)>,
-    /// Where the game's paintings are kept, each `<sha256>.png`: served at
-    /// `/paint/<sha256>.png` to the pages and seats that draw them.
     pub paint_dir: Option<PathBuf>,
-    /// An HD art pack (the Delve's: a folder of PNGs and its `pack.json`),
-    /// served at `/hd/` to a page that asks for HD art: its manifest, and
-    /// each drawing the first time a figure on its screen wants it.
     pub hd_dir: Option<PathBuf>,
 }
 
@@ -60,24 +44,16 @@ impl ServeConfig {
     }
 }
 
-/// One published tick, as the writers read it.
 pub(crate) struct TickOut<T> {
     pub tick: u32,
-    /// A snapshot goes out on this tick (`tick_hz / snapshot_hz` apart).
     pub snapshot: bool,
-    /// Each seat's last command seq consumed, by seat.
     pub acks: Vec<u32>,
-    /// The connection playing each seat on this tick, by seat. A writer
-    /// uses its seat's ack, view and private events only on ticks its own
-    /// connection plays it: a seat that just changed hands shows nothing
-    /// of its last player.
     pub playing: Vec<Option<u64>>,
     pub body: T,
     pub events: Vec<Event>,
 }
 
 impl<T> TickOut<T> {
-    /// The seat this connection plays on this tick, if the sim has it so.
     pub fn seat_of(&self, conn: &Conn) -> Option<u32> {
         conn.seat.filter(|&s| self.playing.get(s as usize).copied().flatten() == Some(conn.id))
     }
@@ -85,7 +61,6 @@ impl<T> TickOut<T> {
 
 pub(crate) type Published<G> = Arc<TickOut<<<G as GameServer>::Rep as Replicate>::Tick>>;
 
-/// What every thread of one server shares.
 pub(crate) struct Hub<G: GameServer> {
     pub rates: Rates,
     pub seats: u32,
@@ -95,37 +70,26 @@ pub(crate) struct Hub<G: GameServer> {
     pub live_assets: http::LiveAssets,
     pub sessions: Mutex<Sessions>,
     pub conns: Mutex<HashMap<u64, Arc<Conn>>>,
-    /// The newest published ticks, oldest first, `EVENT_RING` at most.
     pub ticks: Mutex<VecDeque<Published<G>>>,
     pub newest: AtomicU32,
     pub inbound: Sender<Inbound<G::Cmd>>,
     pub tele: Telemetry,
     pub stop: AtomicBool,
-    /// Connections not yet past their hello.
     pub pending: AtomicUsize,
     pub next_conn: AtomicU64,
     pub started: Instant,
     pub addr: SocketAddr,
-    /// The in-process connections' pipes, for a sim stepped by hand to wait on.
     pub locals: Mutex<Vec<Weak<Pipe>>>,
-    /// Anyone may set the server's knobs, not only the host.
     pub dev: bool,
-    /// The server's knobs as they stand (the engine's, then the game's),
-    /// kept by the sim whenever one moves.
     pub knobs: Mutex<Vec<Knob>>,
-    /// Ticks between snapshots (the `snapshot_every` knob), for the writers.
     pub every: AtomicU32,
-    /// Connections that asked for the server's numbers once a second.
     pub watching: Mutex<HashSet<u64>>,
     pub tune_file: Option<PathBuf>,
-    /// Where the paintings served at `/paint/` are (`ServeConfig::paint_dir`).
     pub paint_dir: Option<PathBuf>,
-    /// The HD art pack served at `/hd/` (`ServeConfig::hd_dir`).
     pub hd_dir: Option<PathBuf>,
 }
 
 impl<G: GameServer> Hub<G> {
-    /// The published ticks newer than `after`, oldest first.
     pub fn ticks_since(&self, after: u32, out: &mut Vec<Published<G>>) {
         out.clear();
         let ticks = self.ticks.lock().expect("tick ring lock");
@@ -149,9 +113,6 @@ impl<G: GameServer> Hub<G> {
         }
     }
 
-    /// Wait (at most `wait` in all) until every in-process connection's
-    /// reader has acted on everything its client sent: a sim stepped by
-    /// hand then takes a command sent before the step in that step.
     pub fn settle_local(&self, wait: Duration) {
         let until = Instant::now() + wait;
         let pipes: Vec<Arc<Pipe>> = {
@@ -168,26 +129,21 @@ impl<G: GameServer> Hub<G> {
         self.started.elapsed().as_secs_f64() * 1000.0
     }
 
-    /// Whether a connection may set the server's knobs: the host's own,
-    /// or anyone's in dev mode.
     pub fn may_tune(&self, local: bool) -> bool {
         local || self.dev
     }
 
-    /// The knob table as a connection is told it.
     pub fn knobs_message(&self, local: bool) -> Vec<u8> {
         let json = knob::table_json(self.dev, self.may_tune(local), &self.knobs.lock().expect("knobs lock"));
         ToClient::Knobs { json: &json }.to_vec()
     }
 
-    /// A line to one connection (a knob it may not set, or has no such).
     pub fn tell_one(&self, conn: u64, text: &str) {
         if let Some(c) = self.conns.lock().expect("connections lock").get(&conn) {
             c.send(Out::Msg(ToClient::Notice { text }.to_vec()));
         }
     }
 
-    /// The knob table to one connection.
     pub fn tell_knobs_to(&self, conn: u64) {
         let local = self.conns.lock().expect("connections lock").get(&conn).map(|c| c.local);
         if let Some(local) = local {
@@ -198,7 +154,6 @@ impl<G: GameServer> Hub<G> {
         }
     }
 
-    /// Tell every connection the knob table as it stands.
     pub fn tell_knobs(&self) {
         let (host, guest) = (self.knobs_message(true), self.knobs_message(false));
         for c in self.conns.lock().expect("connections lock").values() {
@@ -212,8 +167,6 @@ impl<G: GameServer> Hub<G> {
     }
 }
 
-/// The host's handle, the same whatever game runs. It opens in-process
-/// connections too (`Dial`), so a `LocalConn` can dial again on its own.
 trait Control: Dial + Send + Sync {
     fn browser_failure(&self, take: bool) -> Option<String>;
     fn retry_browser(&self, generation: http::PreparedAssets) -> io::Result<()>;
@@ -225,7 +178,6 @@ trait Control: Dial + Send + Sync {
     fn players(&self) -> Vec<Player>;
     fn notice(&self, text: &str);
     fn totals(&self) -> Totals;
-    /// True when the accept thread was woken and will end.
     fn stop(&self) -> bool;
     fn live(&self) -> usize;
     fn knobs(&self) -> Vec<Knob>;
@@ -303,7 +255,6 @@ impl<G: GameServer> Control for Hub<G> {
         for c in self.conns.lock().expect("connections lock").values() {
             c.close(code::GOING_AWAY, Some(reject.clone()));
         }
-        // Wake the accept thread, blocked in accept, with a connection of our own.
         let ip = match self.addr.ip() {
             IpAddr::V4(ip) if ip.is_unspecified() => IpAddr::V4(Ipv4Addr::LOCALHOST),
             IpAddr::V6(ip) if ip.is_unspecified() => IpAddr::V6(std::net::Ipv6Addr::LOCALHOST),
@@ -348,32 +299,22 @@ impl<G: GameServer> Dial for Hub<G> {
     }
 }
 
-/// A running server.
 pub struct Server {
     hub: Arc<dyn Control>,
     threads: Vec<JoinHandle<()>>,
     accept: Option<JoinHandle<()>>,
 }
 
-/// How long `stop` waits for connections to finish their close.
-/// Each connection's reader waits `CLOSE_WAIT` for the client's close, then
-/// as long again for a writer stuck on its socket.
 const STOP_WAIT: Duration = Duration::from_secs(5);
-/// How often a stopping server looks for its connections to be gone.
 const STOP_POLL: Duration = Duration::from_millis(20);
 
 impl Server {
-    /// Bind, and start the accept and sim threads.
     pub fn start<G: GameServer>(game: G, config: ServeConfig) -> io::Result<Server> {
         let (mut server, stepper) = Server::open(game, &config)?;
         server.threads.push(thread::Builder::new().name("angel-sim".into()).spawn(move || sim::run(stepper))?);
         Ok(server)
     }
 
-    /// Bind and start the accept thread, with the sim stepped by hand on
-    /// the caller's thread (`Manual::run_to`) instead of a thread of its
-    /// own: a host that keeps its own clock, and tests that step a game
-    /// exactly.
     pub fn start_manual<G: GameServer>(game: G, config: ServeConfig) -> io::Result<(Server, Manual<G>)> {
         let (server, stepper) = Server::open(game, &config)?;
         Ok((server, Manual::new(stepper)))
@@ -429,7 +370,6 @@ impl Server {
             hd_dir: config.hd_dir.clone(),
         });
         let mut stepper = Stepper::new(game, hub.clone(), rx);
-        // The tune file's numbers, before anyone sees the first tick.
         stepper.restore_knobs();
         stepper.publish_start();
         let mut threads = Vec::new();
@@ -444,30 +384,24 @@ impl Server {
 
     pub fn browser_failure(&self) -> Option<String> { self.hub.browser_failure(false) }
     pub fn take_browser_failure(&self) -> Option<String> { self.hub.browser_failure(true) }
-    /// Retry only a failed, unpublished browser; the listener and sessions stay.
     pub fn retry_browser(&self, generation: http::PreparedAssets) -> io::Result<()> { self.hub.retry_browser(generation) }
 
     pub fn addr(&self) -> SocketAddr {
         self.hub.addr()
     }
 
-    /// The join key.
     pub fn key(&self) -> String {
         self.hub.key()
     }
 
-    /// A new join key: the old link stops letting anyone new in.
     pub fn new_key(&self) -> String {
         self.hub.new_key()
     }
 
-    /// Closed to newcomers (seated players still resume).
     pub fn lock(&self, locked: bool) {
         self.hub.lock(locked)
     }
 
-    /// Remove a player; their token stops working. To keep them out, make a
-    /// new key too (they still hold the link).
     pub fn kick(&self, seat: u32) -> bool {
         self.hub.kick(seat)
     }
@@ -476,39 +410,27 @@ impl Server {
         self.hub.players()
     }
 
-    /// A line from the host, shown on every client.
     pub fn notice(&self, text: &str) {
         self.hub.notice(text)
     }
 
-    /// A connection in process, for the host's own seat or a couch
-    /// player's: a client like any other (the same admission, seat, resume,
-    /// writer and replication), over a pipe instead of a socket. It is let
-    /// in without the key and while the session is locked. Its hello is due
-    /// within `limits::HANDSHAKE_TIME`, as a socket's is.
     pub fn connect_local(&self) -> io::Result<LocalConn> {
         let door: Arc<dyn Dial> = self.hub.clone();
         door.dial()
     }
 
-    /// Everything counted so far; two readings give a window (`Totals::since`).
     pub fn totals(&self) -> Totals {
         self.hub.totals()
     }
 
-    /// The server's knobs as they stand: the engine's, then the game's.
     pub fn knobs(&self) -> Vec<Knob> {
         self.hub.knobs()
     }
 
-    /// Set a server knob as the host: the value it will take (inside its
-    /// bounds, on its step), set between the next ticks and told to every
-    /// client; or why not.
     pub fn tune(&self, name: &str, value: f64) -> Result<f64, String> {
         self.hub.tune(name, value)
     }
 
-    /// The doors this server listens behind: the LAN address and this host.
     pub fn doors(&self) -> Vec<String> {
         let addr = self.addr();
         let port = addr.port();
@@ -524,13 +446,11 @@ impl Server {
         doors
     }
 
-    /// The link for each door.
     pub fn links(&self) -> Vec<String> {
         let key = self.key();
         self.doors().iter().map(|d| link(d, &key)).collect()
     }
 
-    /// Every client is told the session is over, then everything stops.
     pub fn stop(mut self) {
         self.shutdown();
     }
@@ -544,9 +464,6 @@ impl Server {
         for t in self.threads.drain(..) {
             let _ = t.join();
         }
-        // An accept thread no connection could reach (the address it was
-        // bound to has left the machine) is not waited for: it ends with
-        // the next connection it accepts, or with the process.
         if let Some(t) = self.accept.take()
             && woke
         {
@@ -570,9 +487,7 @@ fn door(ip: IpAddr, port: u16) -> String {
     }
 }
 
-/// A full door is answered, not ignored, so a browser shows why.
 const BUSY: &[u8] = b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nRetry-After: 1\r\nConnection: close\r\n\r\n";
-/// After a failed accept (out of file descriptors), a short rest.
 const ACCEPT_REST: Duration = Duration::from_millis(10);
 
 fn accept<G: GameServer>(hub: Arc<Hub<G>>, listener: TcpListener) {
@@ -605,7 +520,6 @@ fn accept<G: GameServer>(hub: Arc<Hub<G>>, listener: TcpListener) {
     }
 }
 
-/// How often the log thread looks for the stop flag between lines.
 const LOG_POLL: Duration = Duration::from_millis(100);
 
 fn log<G: GameServer>(hub: Arc<Hub<G>>, every: Duration) {

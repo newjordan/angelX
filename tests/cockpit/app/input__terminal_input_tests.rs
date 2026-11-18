@@ -20,7 +20,6 @@ fn input_keeps_every_byte_while_consumer_is_backpressured() {
         Ok(Some(Event::Key(key)))
     })
     .unwrap();
-    // No consumption until the input worker has drained the entire burst.
     drained.recv_timeout(Duration::from_secs(2)).unwrap();
     for i in 0..count {
         let expected = Event::Key(event::KeyEvent::new(

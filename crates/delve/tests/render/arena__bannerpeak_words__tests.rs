@@ -23,7 +23,6 @@ fn party(seats: u32) -> Run {
     r
 }
 
-/// Knight `seat` standing at the air cell `cell`, the camera settled on them.
 fn put(r: &mut Run, seat: u32, cell: (i32, i32)) {
     let s = r.bannerpeak.as_mut().unwrap();
     let k = s.seats.get_mut(&seat).unwrap();
@@ -35,7 +34,6 @@ fn put(r: &mut Run, seat: u32, cell: (i32, i32)) {
     }
 }
 
-/// Every box of text of seat `id`'s screen, named.
 fn boxes(r: &Run, id: u32) -> Vec<(String, Rect)> {
     let s = r.bannerpeak.as_ref().unwrap();
     let me = s.seats.get(&id);
@@ -48,7 +46,6 @@ fn boxes(r: &Run, id: u32) -> Vec<(String, Rect)> {
         .collect()
 }
 
-/// No two boxes meet, and every one is inside the frame.
 fn clean(r: &Run, id: u32, what: &str) {
     let all = boxes(r, id);
     for (n, (a, ra)) in all.iter().enumerate() {
@@ -66,7 +63,6 @@ fn all_seats(r: &Run, what: &str) {
     }
 }
 
-/// How many signs a seat has in view (their posts in the frame), and how many hang.
 fn signs_in_view(r: &Run, id: u32) -> (usize, usize) {
     let s = r.bannerpeak.as_ref().unwrap();
     let k = &s.seats[&id];
@@ -114,7 +110,6 @@ fn a_banner_box_holds_every_pixel_the_kit_draws() {
                 r.0 <= x0 && r.1 <= y0 && r.0 + r.2 >= x1 && r.1 + r.3 >= y1,
                 "{title} at {age}: the kit drew ({x0},{y0})-({x1},{y1}), outside the box {r:?}"
             );
-            // And the box is no larger than it must be, give or take the dither at its rails.
             if age >= 10 {
                 assert!(r.2 <= (x1 - x0) + 14 && r.3 <= (y1 - y0) + 8, "{title} at {age}: the box {r:?} is looser than the drawing");
             }
@@ -124,8 +119,6 @@ fn a_banner_box_holds_every_pixel_the_kit_draws() {
 
 #[test]
 fn a_banner_and_its_calls_and_the_signs_under_them_never_share_ground() {
-    // Four calls waiting, a card up, three knights, the camera on each sign in turn: the case where
-    // a sign's words stood under the card's and the calls'.
     let mut withheld = 0;
     for (n, &(cx, cy, _)) in info().signs.iter().enumerate() {
         let mut r = party(3);
@@ -140,7 +133,6 @@ fn a_banner_and_its_calls_and_the_signs_under_them_never_share_ground() {
             s.show.shout(now, Cry::Lift, 2);
             s.show.shout(now, Cry::Saved, 3);
             for k in s.seats.values_mut() {
-                // The sign's foot a hand's breadth under the card's calls, whatever its height.
                 let foot = (cy + 1) * 16;
                 k.cam = (cx * 16 + 8 - 192 + (n as i32 % 5) * 24 - 48, foot - 118);
             }
@@ -154,8 +146,6 @@ fn a_banner_and_its_calls_and_the_signs_under_them_never_share_ground() {
 
 #[test]
 fn the_cellar_card_with_its_calls_and_every_hint_of_the_hub() {
-    // The frame the review flagged: the cellar banner raised with friends beside, ALL TOGETHER and
-    // its line, and the hub's signs all about.
     let mut r = party(3);
     for id in 1..=3 {
         put(&mut r, id, HUB.at(22 + id as i32 * 2, 17));
@@ -169,7 +159,6 @@ fn the_cellar_card_with_its_calls_and_every_hint_of_the_hub() {
         s.show.shout(now, Cry::Together(3), 0);
     }
     all_seats(&r, "the cellar card");
-    // The same with the card gone and the call on its own.
     r.bannerpeak.as_mut().unwrap().announce = None;
     all_seats(&r, "the cellar call");
 }
@@ -184,7 +173,6 @@ fn the_finish_with_a_card_waiting_and_every_knight_at_the_pole() {
             s.phase = Phase::Finale;
             s.phase_t = t;
             s.elapsed = 6000;
-            // A card still owed: the finish takes the screen and the card stays down.
             s.announce = Some(Announce { banner: 7, t: 50 });
             if t > 150 {
                 s.completed = Some(5990);
@@ -214,7 +202,6 @@ fn six_seats_with_the_title_the_keys_and_a_knight_in_a_bubble() {
         }
         all_seats(&r, &format!("six seats at {t}"));
     }
-    // And the summit, the crown bar over King Cinder, a call and then a card.
     let mut r = party(6);
     for id in 1..=6 {
         put(&mut r, id, SUMMIT.at(10 + id as i32 * 2, 11));
@@ -249,7 +236,6 @@ fn the_board_and_a_full_purse_of_calls_never_stack_words() {
 
 #[test]
 fn a_whole_adventure_of_bots_keeps_every_box_apart_and_inside() {
-    // Every seat's screen every few ticks of the whole run, the real calls and cards and signs.
     let mut r = party(3);
     let mut sampled = 0;
     let mut hid = 0;

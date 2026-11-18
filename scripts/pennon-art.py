@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""Nearest-sample the retained concepts and hand-clean the native Pennon Rush recipes.
-Usage: python scripts/pennon-art.py SOURCE_DIRECTORY REVIEW_DIRECTORY
-       python scripts/pennon-art.py --check
-"""
 from pathlib import Path
 from collections import Counter
 import importlib.util,json,sys
@@ -42,11 +38,9 @@ def stroke(asset,name,path,width,k):
     asset['rows']=[''.join(k if (x,y) in pts else c for x,c in enumerate(row)) for y,row in enumerate(rs)]
     asset.setdefault('linear_features',[]).append(dict(tag='LINEAR',name=name,path=path,width=width,ink=k,pixels=sorted(pts),underlay=under))
 def perimeter(asset):
-    # Trace the deliberate one-native-pixel contour, retaining exact mass underlays.
     rs=asset['rows'];w=len(rs[0]);h=len(rs)
     boundary={(x,y) for y,r in enumerate(rs) for x,k in enumerate(r) if k!='.' and any(nx<0 or ny<0 or nx>=w or ny>=h or rs[ny][nx]=='.' for nx,ny in boss.neighbours(x,y))}
     for part in boss.components(boundary):
-        # A connected perimeter walk retraces branches; it never tags interior texture.
         if len(part)<6 or max(max(x for x,y in part)-min(x for x,y in part),max(y for x,y in part)-min(y for x,y in part))<5:continue
         start=min(part);path=[start];seen={start}
         def walk(p):
@@ -88,7 +82,6 @@ if __name__=='__main__':
     if sys.argv[1]=='--sample':sampled(Path(sys.argv[2]),Path(sys.argv[3]))
 def prepare(im,authored=False):
     rs=rows(im)
-    # Retain the silhouette from nearest sampling, erase only detached background debris.
     pts={(x,y) for y,r in enumerate(rs) for x,k in enumerate(r) if k!='.'}
     parts=sorted(boss.components(pts),key=len,reverse=True)
     if parts and not authored:
@@ -100,7 +93,6 @@ def finalize(a):
     if a.get('signature_lights'):a['rows']=boss.signature_rows(a)
     return a
 def add_light(a,x,y):
-    # Position the explicit curved slit inside the nearest available full face plane.
     rs=a['rows'];w=len(rs[0]);h=len(rs)
     candidates=[]
     for yy in range(max(2,y-7),min(h-3,y+8)):
@@ -108,13 +100,11 @@ def add_light(a,x,y):
             if all(rs[yy+dy][xx+dx]!='.' for dy in [-1,0,1,2] for dx in [-2,-1,0,1,2]):candidates.append((abs(xx-x)+abs(yy-y),xx,yy))
     assert candidates,(x,y)
     _,x,y=min(candidates)
-    # Signatures belong after the material recipe and never erase its provenance.
     material=a['rows'];light(a,x,y);a['rows']=material
     return (x,y)
 def damage(a,level):
     import copy
     a=copy.deepcopy(a)
-    # Rebuild the broad plates below the retained rims, then split real material.
     old=a.get('linear_features',[]);cells=list(map(list,a['material_rows']))
     for feature in reversed(old):
         for x,y,k in feature['underlay']:cells[y][x]=k
@@ -197,7 +187,6 @@ def canvas(size):
     return im,poly,rect,cap
 
 def captain(source,pose,n,stage=3):
-    # Source silhouette and identity survive as an authored cluster reconstruction.
     im,poly,rect,cap=canvas((64,80))
     crouch=9 if pose.startswith('hook') or pose=='recover' else 0
     if pose=='hook-tell':crouch=18-stage*6
@@ -212,7 +201,6 @@ def captain(source,pose,n,stage=3):
             poly([(x,yy),(x+13,yy),(x+15,77),(x-3,77),(x-3,72)],'a')
             poly([(x+2,yy+2),(x+11,yy+2),(x+11,74),(x-1,74),(x-1,71)],'b')
             rect((x+2,yy+3,x+8,yy+7),'c')
-        # Split cloth below the breastplate remains a separate warm silhouette.
         poly([(20,49),(43,49),(46,69),(35,67),(31,71),(17,67)],'e')
         poly([(23,51),(39,51),(41,64),(32,62),(26,66),(20,64)],'f')
         rect((25,53,31,60),'g');rect((25,53,28,56),'h')
@@ -231,7 +219,6 @@ def captain(source,pose,n,stage=3):
         poly([(21+lean,top+3),(39+lean,top+3),(44,top+9),(42,59),(23,60),(19,53),(18,top+11)],'g')
         poly([(23+lean,top+4),(35,top+4),(40,top+9),(37,top+18),(24,top+19),(20,top+11)],'h')
         rect((24+lean,top+5,30+lean,top+9),'g')
-        # Near pauldron has a broad plane and a copper rim, separate from the chest.
         poly([(10,top),(20,top-2),(27,top+4),(25,top+12),(13,top+13),(7,top+7)],'a')
         poly([(12,top+2),(19,top+1),(23,top+5),(22,top+9),(12,top+9),(10,top+6)],'c')
         if pose=='flinch':arm([(15,43),(8,35),(10,27)])
@@ -239,16 +226,13 @@ def captain(source,pose,n,stage=3):
         elif pose=='drop':arm([(17,43),(9,52),(16,59)])
         else:arm([(16,44+crouch//2),(10,53+crouch//2),(12,64)])
         hx,hy=15+lean,(27-stage*5 if pose=='drop-tell' else 12+crouch//2)
-    # Rounded helmet and flush faceplate. The face stays distinct from the torso.
     poly([(hx+6,hy),(hx+19,hy),(hx+26,hy+6),(hx+28,hy+17),(hx+24,hy+26),(hx+8,hy+28),(hx+1,hy+20),(hx,hy+10)],'a')
     poly([(hx+7,hy+3),(hx+18,hy+3),(hx+22,hy+7),(hx+23,hy+15),(hx+6,hy+17),(hx+3,hy+11)],'b')
     poly([(hx+8,hy+4),(hx+16,hy+4),(hx+20,hy+8),(hx+18,hy+12),(hx+5,hy+12),(hx+4,hy+9)],'c')
     rect((hx+8,hy+4,hx+12,hy+7),'d')
     poly([(hx+4,hy+15),(hx+21,hy+14),(hx+25,hy+18),(hx+22,hy+24),(hx+8,hy+25),(hx+3,hy+21)],'a')
-    # Exposed cheek, with a dark rim against the metal face.
     poly([(hx+8,hy+22),(hx+20,hy+21),(hx+19,hy+27),(hx+11,hy+28),(hx+7,hy+25)],'f')
     rect((hx+10,hy+23,hx+15,hy+26),'g')
-    # The swept fan and pennant are broad native masses, never sampled texture.
     poly([(hx+1,hy+4),(hx-2,hy-7),(hx+5,hy-11),(hx+16,hy-10),(hx+22,hy-3),(hx+23,hy+7),(hx+16,hy+3)],'e')
     poly([(hx+2,hy),(hx+1,hy-6),(hx+6,hy-8),(hx+14,hy-7),(hx+18,hy-2),(hx+17,hy+2)],'f')
     rect((hx+4,hy-6,hx+10,hy-2),'g')
@@ -262,7 +246,6 @@ def captain(source,pose,n,stage=3):
     for x,yy in ([(12,64),(36,64)] if pose!='defeat' else []):
         stroke(a,'rounded steel boot rim',[(x-1,74),(x+4,72),(x+12,74)],2,'c')
     stroke(a,'cheek mouth edge',[(hx+9,hy+25),(hx+13,hy+26),(hx+19,hy+24)],1,'e')
-    # Long ribs and rims articulate the clean masses at the same grain.
     for dx in [2,7,12,17]:stroke(a,'copper crest structural rib',[(hx+dx,hy-8),(hx+dx+3,hy+1)],1,'g')
     stroke(a,'crest raised curved rim',[(hx-1,hy-7),(hx+6,hy-10),(hx+15,hy-9),(hx+21,hy-3)],2,'h')
     stroke(a,'rounded visor lip',[(hx+3,hy+14),(hx+10,hy+12),(hx+22,hy+13)],1,'d')
@@ -287,7 +270,6 @@ def knight(source,n):
     crouch=16 if n==10 else 7 if n==5 else 0
     lean=-3 if n==8 else 0
     hx,hy=15+lean,9+crouch
-    # Whole-body silhouettes change, including both arms and the knee lines.
     if n==9:hx,hy=16,7
     stride=4 if n==1 else -4 if n==2 else 0
     legs=[(15-stride,35),(28+stride,35)]
@@ -300,7 +282,6 @@ def knight(source,n):
     poly([(17+lean,23+crouch),(29+lean,23+crouch),(33,36+crouch//2),(26,40),(16,38),(13,29+crouch)],'e')
     poly([(19+lean,25+crouch),(27+lean,25+crouch),(29,35+crouch//2),(23,37),(17,35),(16,29+crouch)],'f')
     rect((20+lean,27+crouch,24+lean,32+crouch),'g')
-    # Broad helm, two raised steel planes and a warm slit; source plume stays swept.
     poly([(hx+4,hy),(hx+14,hy),(hx+19,hy+5),(hx+20,hy+14),(hx+15,hy+19),(hx+4,hy+18),(hx,hy+12),(hx,hy+5)],'a')
     poly([(hx+4,hy+2),(hx+13,hy+2),(hx+16,hy+5),(hx+16,hy+12),(hx+4,hy+14),(hx+2,hy+10),(hx+2,hy+5)],'b')
     poly([(hx+5,hy+3),(hx+12,hy+3),(hx+15,hy+6),(hx+13,hy+9),(hx+3,hy+9)],'c')
@@ -347,7 +328,6 @@ def sentry(source,n):
     stroke(a,'bow warm rim',[(7,by-4),(4,by),(6,by+6)],1,'h')
     stroke(a,'bow stock',[(5,by+2),(26,by+3)],3,'e')
     stroke(a,'seed weight chain',[(35,22+lower),(38,36)],2,'b')
-    # Pear weight is a large shaped core, carried by an explicit long handle.
     stroke(a,'seed weight',[(38,34),(36,39),(39,43),(42,40),(40,34)],3,'g')
     for xx in [18,26]:stroke(a,'bent stave seam',[(xx,23+lower),(xx+2,28+lower),(xx,35)],1,'e')
     if n in [8,9]:
@@ -376,7 +356,6 @@ def main(src,review):
     source=Image.open(src/'sentry.png').convert('RGBA')
     for n,p in enumerate(POSES):save('sentry-'+p,sentry(source,n))
     props()
-    # Reconstruct the nearest-sampled effect motifs as connected native shapes.
     for kind in ['drop','hook','impact']:
         for n in range(4):
             im,poly,rect,cap=canvas((48,32))
@@ -400,7 +379,6 @@ def main(src,review):
                 poly([(cx-radius+3,cy),(cx-3,cy-3),(cx,cy-radius+3),(cx+3,cy-3),(cx+radius-3,cy),(cx+3,cy+3),(cx,cy+radius-3),(cx-3,cy+3)],'g')
                 rect((21,13,26,18),'h')
             save(f'fx-{kind}-{n}',finalize(prepare(im,True)))
-    # Low, solid two-tone landing dust is behind all bodies.
     for n in range(4):
         im=Image.new('RGBA',(48,24));d=ImageDraw.Draw(im);h=[7,10,12,6][n]
         for x in [3-n,29+n]:

@@ -23,13 +23,9 @@
 
 use super::*;
 
-/// One stroke lands in full on at most this many monsters, nearest first.
 pub const FULL: usize = 3;
-/// Each monster past them takes this share of it, in percent.
 pub const REST: u32 = 25;
 
-/// What the monster `rank` places from a stroke (0 the nearest) takes of
-/// its `damage`.
 pub fn part(damage: u32, rank: usize) -> u32 {
     if rank < FULL || whole() {
         damage
@@ -40,8 +36,6 @@ pub fn part(damage: u32, rank: usize) -> u32 {
 
 #[cfg(any(test, feature = "testing"))]
 thread_local! {
-    /// For the balance harness only: every stroke lands whole on all it
-    /// reaches, as before the rule, to measure the rule against.
     pub static WHOLE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
@@ -55,7 +49,6 @@ fn whole() -> bool {
     false
 }
 
-/// The living monsters a stroke from `at` reaches, nearest first.
 pub(super) fn reached(
     enemies: &[Enemy],
     at: (f32, f32),
@@ -71,9 +64,6 @@ pub(super) fn reached(
     near.into_iter().map(|(_, i)| i).collect()
 }
 
-/// One stroke of `damage` from `at` on every living monster `reaches`
-/// catches, shared as the rule says. Returns each monster struck, nearest
-/// first, and what it took.
 pub(super) fn strike(
     enemies: &mut [Enemy],
     at: (f32, f32),

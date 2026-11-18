@@ -23,7 +23,6 @@ fn the_side_on_hall_is_the_gantry() {
     let g = run.gantry.as_ref().expect("the climb begins");
     assert_eq!(g.ante.values().sum::<u32>(), 6);
     assert!(run.side_on() && run.barred() && run.enemies.is_empty());
-    // Kegs come down.
     for _ in 0..folly::TITLE + gantry::KEG_EVERY * 3 {
         run.step(&BTreeMap::new());
         for h in run.players.values_mut() {
@@ -44,11 +43,9 @@ fn the_first_to_the_top_girder_takes_the_pot_and_the_crown() {
     }
     run.enter_for_test(index);
     run.gantry.as_mut().unwrap().t = folly::TITLE;
-    // Knight two stands on the top girder.
     {
         let h = run.players.get_mut(&2).unwrap();
         h.x = 20.5 * TILE_UNITS;
-        // Standing on the top girder: feet on its upper face.
         h.y = gantry::TOP_ROW as f32 * TILE_UNITS - ledge::FOOT;
         h.grounded = true;
     }
@@ -66,7 +63,6 @@ fn the_first_to_the_top_girder_takes_the_pot_and_the_crown() {
     assert!(!run.barred());
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_gantry_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_gantry_shots() {
@@ -105,7 +101,6 @@ fn a_knight_can_climb_the_scaffold_by_jumping() {
     run.gantry.as_mut().unwrap().kegs.clear();
     let mut best = 0;
     for t in 0..HZ * 20 {
-        // Hop: up pressed for a few ticks, then let go, a little eastward.
         let up = t % 20 < 6 || (t % 20 >= 10 && t % 20 < 14);
         let input = Input { move_y: if up { -1 } else { 0 }, move_x: 1, ..Default::default() };
         run.step(&BTreeMap::from([(1, input)]));

@@ -55,8 +55,6 @@ impl DelegateArtifact {
         let coverage: super::auxiliary::AuxiliaryCoverage =
             serde_json::from_value(audit["auxiliary_coverage"].clone())
                 .map_err(|_| "delegate child has no valid auxiliary coverage")?;
-        // The implemented delegate registry is a leaf (shell/Cargo). Nested
-        // delegate receipts need a separately reviewed linkage contract.
         if coverage.schema != "angel-native-auxiliary-coverage/v1"
             || !coverage.linked_operations.is_empty()
         {
@@ -132,8 +130,6 @@ impl LinkedOperation {
     }
 }
 
-/// Passed only by the registry at actual tool entry. The model cannot supply
-/// these artifacts in tool arguments or fabricate them through result text.
 #[derive(Default)]
 pub struct NativeToolContext {
     artifacts: Arc<Mutex<HashMap<String, DelegateArtifact>>>,
@@ -149,8 +145,6 @@ impl NativeToolContext {
     }
     pub(crate) fn remember(&self, branch: String, artifact: DelegateArtifact) {
         let mut artifacts = self.artifacts.lock().unwrap_or_else(|p| p.into_inner());
-        // This is a bounded process-local handoff. Eviction loses attribution,
-        // never permission to keep working or integrate a selected commit.
         if artifacts.len() >= 64 {
             artifacts.clear();
         }

@@ -1,10 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
 
-# Each law is a closed equality between literal values, so its proof only
-# re-runs the same pure def: no arithmetic is assumed beyond F32's own and
-# nothing is claimed past what the checker computes.
-
 def Laws.every_other_plank_is_rotten():
   {==}
 

@@ -150,8 +150,6 @@ impl App {
         "you are not at a table".into()
     }
 
-    /// The board this terminal sees: the arbiter's own, or the
-    /// server's latest published tree at a guest seat.
     fn table_board(&mut self) -> Option<Board> {
         if let Some(host) = &self.table_host {
             return Some(host.shared.board());
@@ -196,8 +194,6 @@ impl App {
     fn table_board_text(&mut self) -> String {
         let Some(board) = self.table_board() else {
             return if let Some(guest) = &self.table_guest {
-                // Say *why* there is no board: a rejected or dropped
-                // link must not read as "wait longer".
                 format!("the board has not landed yet — link: {}", guest.status_line())
             } else if self.table_host.is_some() {
                 "the board has not landed yet — a breath, then /table again".into()
@@ -295,7 +291,6 @@ fn split_bar(text: &str) -> (String, String) {
     }
 }
 
-/// Run git in `dir`; stdout on success, a one-line refusal otherwise.
 fn git(dir: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
     let out = Proc::new("git")
         .arg("-C")
@@ -312,8 +307,6 @@ fn git(dir: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
 }
 
 impl App {
-    /// Present the active `/table` session's seats and board state on the
-    /// painted Round Table card when the MoA council is idle.
     pub(crate) fn table_council_presentation(
         &mut self,
     ) -> Option<crate::ui::viz::council::CouncilPresentation> {
@@ -394,9 +387,6 @@ impl App {
         })
     }
 
-    /// `/table work <id>`: claim the issue and pitch a worktree for
-    /// this seat's own Angel to work in. The work itself is done by
-    /// the seat's agent with its ordinary tools, in that folder.
     fn table_work(&mut self, id: u64) -> String {
         let seat = self.table_seat();
         let claimed = self.table_cast(Op::Claim { id }, "claimed");
@@ -411,7 +401,6 @@ impl App {
                 let _ = std::fs::create_dir_all(parent);
             }
             let dir_arg = dir.to_string_lossy().to_string();
-            // A leftover branch from a re-claim is fine to reuse.
             let made = git(&workspace, &["worktree", "add", "-b", &branch, &dir_arg, "HEAD"])
                 .or_else(|_| git(&workspace, &["worktree", "add", &dir_arg, &branch]));
             if let Err(e) = made {
@@ -427,8 +416,6 @@ impl App {
         )
     }
 
-    /// `/table submit`: the worktree's whole diff against its base,
-    /// staged and bundled, cast to the arbiter with its evidence.
     fn table_submit(&mut self, id: u64, summary: String, evidence: String) -> String {
         let Some(dir) = self.table_work.get(&id).cloned() else {
             return format!("no worktree for #{id} on this machine; /table work {id} first");
@@ -451,10 +438,6 @@ impl App {
         }
     }
 
-    /// `/table apply` (arbiter): lay the submitted bundle onto a
-    /// scratch worktree of HEAD and report what it touches. Nothing
-    /// is run from the patch; testing it there is the arbiter's next
-    /// ordinary step, then merging by hand and `/table merge`.
     fn table_apply(&mut self, id: u64) -> String {
         let Some(host) = &self.table_host else {
             return "only the arbiter applies bundles, and this terminal is not hosting".into();
@@ -523,8 +506,6 @@ mod tests {
     #[test]
     fn round_table_link_and_council_presentation_track_host_and_board() {
         let mut app = App::preview(Viewer::static_preview());
-        // Hosting restores the board from the workspace's log: give the
-        // table a fresh workspace, so no earlier run's issues come back.
         let workspace = std::env::temp_dir().join(format!(
             "angel-round-table-test-{}-{:?}",
             std::process::id(),

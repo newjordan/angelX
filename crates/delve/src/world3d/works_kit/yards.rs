@@ -7,8 +7,6 @@ use angel_stage::set::Kind;
 use super::W;
 use crate::render::overworld::works_kit::Load;
 
-/// How an ox stands: up with its tail swishing, head down in the hay, or
-/// folded on the straw.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Stance {
     Stand,
@@ -16,8 +14,6 @@ enum Stance {
     Lie,
 }
 
-/// An ox in a stall at `cx`, its rump at `z0` and its head to the front:
-/// a barrel of body over four legs, a hump, a head with its horns out.
 fn ox(b: &mut W, hide: Kind, cx: f32, z0: f32, stance: Stance, tail: f32) {
     let lie = stance == Stance::Lie;
     let (y0, y1) = if lie { (0.4, 5.4) } else { (3.8, 9.8) };
@@ -28,7 +24,6 @@ fn ox(b: &mut W, hide: Kind, cx: f32, z0: f32, stance: Stance, tail: f32) {
             b.bx(Kind::Trunk, [cx + lx, cx + lx + 1.1], [0.0, 3.8], [z0 + lz, z0 + lz + 1.2]);
         }
     }
-    // The head: down at the hay by turns, else up and out over the stall's front.
     let (hy0, hy1) = match stance {
         Stance::Graze => (2.4, 6.0),
         Stance::Lie => (3.6, 7.4),
@@ -41,11 +36,9 @@ fn ox(b: &mut W, hide: Kind, cx: f32, z0: f32, stance: Stance, tail: f32) {
         b.bx(Kind::Bone, [hx - 0.5, hx + 0.5], [hy1 - 0.4, hy1 + 0.5], [z0 + 8.0, z0 + 9.2]);
         b.bx(Kind::Bone, [hx + side * 0.8 - 0.4, hx + side * 0.8 + 0.4], [hy1 + 0.5, hy1 + 1.8], [z0 + 8.2, z0 + 9.0]);
     }
-    // The tail: a strand of hair down the rump, swung aside by turns.
     b.bx(Kind::Trunk, [cx - 0.4 + tail, cx + 0.4 + tail], [if lie { 0.6 } else { 3.0 }, y1 - 0.6], [z0 - 1.0, z0]);
 }
 
-/// A cart standing on its wheels, the pole propped on a fork, `x0` its tail.
 fn cart(b: &mut W, x0: f32, z: f32, loaded: bool) {
     b.bx(Kind::Floor, [x0, x0 + 18.0], [4.6, 6.2], [z, z + 7.0]);
     for zz in [z, z + 6.3] {
@@ -66,8 +59,6 @@ pub(super) fn carters_yard(b: &mut W) {
     let (w, d) = (b.w, b.d);
     let (t, work) = (b.t, b.work);
     b.bx(Kind::Path, [2.0, w - 2.0], [0.0, 0.4], [3.0, d - 3.0]);
-    // The range along the back: a boarded wall, posts front and back, a partition
-    // between the stalls and a roof over their back half sloping to the front; straw on the floor.
     b.bx(Kind::Floor, [1.0, w - 1.0], [0.0, 15.0], [3.0, 4.6]);
     for x in [1.0, 17.0, 33.0, w - 3.0] {
         b.bx(Kind::Floor, [x, x + 2.0], [0.0, 15.0], [4.4, 6.0]);
@@ -78,7 +69,6 @@ pub(super) fn carters_yard(b: &mut W) {
     b.wedge(Kind::Roof, [0.0, w], [2.0, 11.4], 15.0, 5.0);
     b.bx(Kind::Thatch, [3.0, 16.5], [0.4, 0.9], [6.0, 13.5]);
     b.bx(Kind::Thatch, [19.0, 32.5], [0.4, 0.9], [6.0, 13.5]);
-    // The oxen: at rest one lies and one grazes; at work they stand and swish.
     let swing = |k: u32| if work && (t + k) / 2 % 2 == 1 { 1.4 } else { 0.0 };
     let (a, c) = (swing(0), swing(2));
     if work {
@@ -88,33 +78,27 @@ pub(super) fn carters_yard(b: &mut W) {
         ox(b, Kind::Trunk, 10.0, 6.5, Stance::Lie, 0.0);
         ox(b, Kind::Sand, 26.0, 6.5, Stance::Graze, 0.0);
     }
-    // A hay rack on the back wall over each ox.
     for x in [5.0, 21.0] {
         b.bx(Kind::Thatch, [x, x + 10.0], [10.5, 13.5], [4.6, 5.8]);
     }
-    // The tack stall: a collar and a yoke on a pegged board, a sign over it.
     b.bx(Kind::Door, [34.5, w - 3.5], [6.0, 12.0], [4.6, 5.2]);
     b.wheel(Kind::Trunk, 38.0, 8.5, 6.0, 2.6, 0.0, 0, 1.0);
     b.bx(Kind::Floor, [41.0, 46.0], [9.0, 10.4], [5.4, 6.6]);
     for x in [41.8, 44.8] {
         b.bx(Kind::Floor, [x, x + 0.8], [5.0, 9.0], [5.6, 6.4]);
     }
-    // The sign on two chains from the front beam, a wheel painted on it.
     let sway = if work && (t / 2) % 2 == 0 { 0.8 } else { 0.0 };
     b.bx(Kind::Metal, [36.0, 36.6], [12.8, 13.6], [10.4, 11.0]);
     b.bx(Kind::Metal, [44.0, 44.6], [12.8, 13.6], [10.4, 11.0]);
     b.bx(Kind::Plaster, [35.0 + sway, 46.0 + sway], [8.0, 12.8], [10.8, 11.8]);
     b.wheel(Kind::Floor, 40.5 + sway, 10.4, 12.2, 1.6, 0.0, 6, 0.4);
-    // The lantern on a chain at the stall post: lit while it works.
     b.bx(Kind::Metal, [14.7, 15.1], [12.6, 13.6], [10.2, 10.6]);
     b.bx(Kind::Metal, [13.6, 16.2], [9.0, 9.6], [9.4, 11.4]);
     b.bx(if work { Kind::Window } else { Kind::Door }, [13.8, 16.0], [9.6, 12.4], [9.6, 11.2]);
     if work {
         b.lamp([15.0, 10.5, 12.5], 24.0, 0.5);
     }
-    // The cart in the yard, and sometimes goods in it.
     cart(b, 3.0, 20.0, work && (t / 4) % 2 == 1);
-    // Two spare wheels leaning on a low rail, and the trough before them.
     b.bx(Kind::Floor, [34.0, w - 1.0], [0.0, 1.4], [19.0, 21.0]);
     b.wheel(Kind::Floor, 38.5, 5.4, 20.0, 5.2, 0.5, 8, 1.2);
     b.wheel(Kind::Floor, 44.0, 5.0, 18.6, 5.0, 0.0, 8, 1.2);
@@ -122,14 +106,12 @@ pub(super) fn carters_yard(b: &mut W) {
     b.bx(Kind::Water, [35.0, w - 2.5], [2.4, 3.1], [24.8, 27.2]);
 }
 
-/// The sheer legs' and crane's lift in step `t`: how far the block is hoisted.
 fn lift(b: &W) -> f32 {
     if b.work { ((b.turn().cos() + 1.0) * 5.0).round() } else { 8.0 }
 }
 
 pub(super) fn castle_yard(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // The low paling along the back with a gate gap in it, the leaf swung open.
     b.fence(Kind::Floor, [2.0, 17.0], 4.0, 7.0);
     b.fence(Kind::Floor, [30.0, w - 2.0], 4.0, 7.0);
     for x in [17.0, 29.0] {
@@ -137,20 +119,17 @@ pub(super) fn castle_yard(b: &mut W) {
     }
     b.bx(Kind::Floor, [20.0, 20.8], [0.0, 6.6], [4.0, 10.0]);
     b.bx(Kind::Floor, [20.0, 20.8], [2.0, 2.8], [4.0, 10.0]);
-    // The Keep's pennant on its pole at the corner, a cairn at its foot.
     b.bx(Kind::Stone, [0.5, 5.0], [0.0, 2.0], [4.5, 8.0]);
     b.bx(Kind::Floor, [1.6, 2.8], [0.0, 37.0], [5.4, 6.6]);
     for k in 0..6 {
         let wave = if b.work { (b.turn() - k as f32 * 0.8).sin() * 0.9 } else { 0.0 };
         b.bx(Kind::Cloth, [2.8 + k as f32 * 1.5, 4.3 + k as f32 * 1.5], [29.0 + wave, 35.0 + wave - (k as f32 * 0.45)], [5.7, 6.3]);
     }
-    // The stack of dressed stone, its courses laid true; the top one pale.
     for l in 0..5 {
         let inset = if l % 2 == 1 { 0.4 } else { 0.0 };
         let kind = if l == 4 { Kind::Plaster } else { Kind::Stone };
         b.bx(kind, [5.0 + inset, 19.0 - inset], [l as f32 * 2.6, l as f32 * 2.6 + 2.6], [8.0, 15.0]);
     }
-    // The crane: a timber mast on a sill, a jib out over the yard, a block in its sling.
     let (mx, mz) = (41.0, 13.0);
     b.bx(Kind::Floor, [mx - 6.0, mx + 7.0], [0.0, 1.6], [mz - 1.0, mz + 3.4]);
     b.bx(Kind::Floor, [mx, mx + 2.4], [1.6, 42.0], [mz, mz + 2.4]);
@@ -167,13 +146,11 @@ pub(super) fn castle_yard(b: &mut W) {
     b.bx(Kind::Cloth, [24.4, 25.0], [by + 6.0, 40.0], [mz + 0.9, mz + 1.5]);
     b.bx(Kind::Plaster, [21.5, 28.0], [by, by + 5.5], [mz - 1.2, mz + 3.4]);
     b.bx(Kind::Cloth, [22.2, 27.4], [by + 5.5, by + 6.2], [mz + 0.7, mz + 1.7]);
-    // The roller-board under it: a sledge on three rollers with a block already aboard.
     b.bx(Kind::Floor, [20.0, 36.0], [1.8, 3.0], [mz - 3.0, mz + 5.6]);
     for x in [21.5, 27.0, 32.5] {
         b.bx(Kind::Trunk, [x, x + 1.6], [0.0, 1.8], [mz - 3.6, mz + 6.2]);
     }
     b.bx(Kind::Stone, [23.0, 33.0], [3.0, 8.0], [mz - 2.0, mz + 4.0]);
-    // Timber squared and stacked on bearers in three layers.
     for x in [35.0, w - 4.0] {
         b.bx(Kind::Trunk, [x, x + 2.0], [0.0, 1.4], [d - 14.0, d - 6.0]);
     }
@@ -181,7 +158,6 @@ pub(super) fn castle_yard(b: &mut W) {
         let inset = if l == 1 { 1.0 } else { 0.0 };
         b.bx(Kind::Floor, [34.0 + inset, w - 1.0], [1.4 + l as f32 * 3.0, 4.2 + l as f32 * 3.0], [d - 14.0, d - 6.0]);
     }
-    // Quoins in a stack of alternating long and short stones, a tally board, a mortar tub.
     for r in 0..4 {
         let (a, c) = if r % 2 == 0 { (6.0, 3.0) } else { (3.0, 6.0) };
         b.bx(Kind::Plaster, [2.0, 2.0 + a], [r as f32 * 2.4, r as f32 * 2.4 + 2.4], [d - 12.0, d - 8.0]);
@@ -205,7 +181,6 @@ pub(super) fn camp(b: &mut W) {
     let (w, d) = (b.w, b.d);
     let _ = d;
     b.bx(Kind::Path, [0.5, w - 0.5], [0.0, 0.4], [1.0, 15.0]);
-    // The pavilion: low striped walls, a stepped canvas roof in bands, a dark door.
     for k in 0..6 {
         let x = 1.5 + k as f32 * 2.2;
         b.bx(if k % 2 == 0 { Kind::Plaster } else { Kind::Cloth }, [x, x + 2.2], [0.0, 4.6], [2.0, 10.0]);
@@ -216,16 +191,13 @@ pub(super) fn camp(b: &mut W) {
         b.bx(kind, [0.8 + inset, 14.8 - inset], [y0, y1], [1.4 + inset * 0.6, 10.6 - inset * 0.6]);
     }
     b.bx(Kind::Door, [6.2, 9.8], [0.0, 4.2], [9.8, 10.4]);
-    // The banner pole through the apex and its pennant.
     b.bx(Kind::Floor, [7.4, 8.4], [17.0, 27.0], [5.4, 6.4]);
     for k in 0..4 {
         let wave = if b.work { (b.turn() - k as f32 * 0.9).sin() * 0.7 } else { 0.0 };
         b.bx(Kind::Cloth, [8.4 + k as f32 * 1.5, 9.9 + k as f32 * 1.5], [22.0 + wave, 26.0 + wave - k as f32 * 0.7], [5.7, 6.1]);
     }
-    // The crate and sack at the tent's left foot.
     b.bx(Kind::Floor, [1.0, 4.4], [0.0, 3.4], [11.6, 15.0]);
     b.ball(Kind::Plaster, 6.6, 2.4, 12.8, 1.8, 2.4, 1.6);
-    // The fire: a ring of stones, a tripod, a pot; flames while it burns, embers when it does not.
     let (fx, fz) = (11.2, 12.8);
     for k in 0..6 {
         let a = k as f32 / 6.0 * std::f32::consts::TAU;
@@ -245,10 +217,6 @@ pub(super) fn camp(b: &mut W) {
     }
 }
 
-// ------------------------------------------------------ the shaft heads ----
-
-/// The shaft's mouth over the 16 by 16 footprint: a lip of dressed stone
-/// round a black shaft.
 fn shaft_mouth(b: &mut W) {
     b.bx(Kind::Path, [0.5, 15.5], [0.0, 0.4], [0.5, 15.5]);
     b.bx(Kind::Stone, [2.0, 14.0], [0.0, 2.2], [9.0, 12.0]);
@@ -258,7 +226,6 @@ fn shaft_mouth(b: &mut W) {
     b.bx(Kind::Door, [5.0, 11.0], [0.0, 0.6], [6.0, 9.0]);
 }
 
-/// A pole from `(x0, z0)` at height `y0` leaning to `(x1, z1)` at `y1`, in steps.
 fn lean(b: &mut W, (x0, z0): (f32, f32), (x1, z1): (f32, f32), (y0, y1): (f32, f32)) {
     let steps = 5;
     for k in 0..steps {
@@ -268,14 +235,12 @@ fn lean(b: &mut W, (x0, z0): (f32, f32), (x1, z1): (f32, f32), (y0, y1): (f32, f
     }
 }
 
-/// The bucket's height on its rope at step `b.t`: rising and falling when working.
 fn bucket_y(b: &W, lo: f32, hi: f32) -> f32 {
     if b.work { lo + (((b.turn() + 0.9).cos() + 1.0) / 2.0 * (hi - lo)).round() } else { hi }
 }
 
 pub(super) fn shaft_hand(b: &mut W) {
     shaft_mouth(b);
-    // A tripod of poles over the collar, a pulley at its head, two baskets.
     lean(b, (2.0, 13.0), (8.0, 8.0), (0.0, 21.0));
     lean(b, (14.0, 13.0), (8.0, 8.0), (0.0, 21.0));
     lean(b, (8.0, 2.0), (8.0, 8.0), (0.0, 21.0));
@@ -290,7 +255,6 @@ pub(super) fn shaft_hand(b: &mut W) {
 
 pub(super) fn shaft_windlass(b: &mut W) {
     shaft_mouth(b);
-    // Two posts, a beam, a drum on its axle and a crank turning at the end of it.
     for x in [2.0, 13.0] {
         b.bx(Kind::Floor, [x, x + 1.4], [0.0, 17.0], [6.5, 8.0]);
     }
@@ -305,7 +269,6 @@ pub(super) fn shaft_windlass(b: &mut W) {
 
 pub(super) fn shaft_gin(b: &mut W) {
     shaft_mouth(b);
-    // A capstan post carrying a long sweep, a horse yoked to it walking the ring.
     let (cx, cz) = (8.0, 10.0);
     b.cyl(Kind::Path, cx, cz, 7.0, 0.0, 0.3);
     b.cyl(Kind::Floor, cx, cz, 1.2, 0.3, 11.0);
@@ -321,7 +284,6 @@ pub(super) fn shaft_gin(b: &mut W) {
     for (lx, lz) in [(-2.2, -1.0), (1.4, -1.0), (-2.2, 0.4), (1.4, 0.4)] {
         b.bx(Kind::Trunk, [hx + lx, hx + lx + 0.8], [0.0, 3.0], [hz + lz, hz + lz + 0.8]);
     }
-    // A little headframe over the shaft and the rope run to the capstan.
     b.bx(Kind::Floor, [2.0, 3.2], [0.0, 12.0], [2.0, 3.2]);
     b.bx(Kind::Floor, [6.0, 7.2], [0.0, 12.0], [2.0, 3.2]);
     b.bx(Kind::Floor, [1.6, 7.6], [12.0, 13.4], [1.8, 3.4]);
@@ -332,7 +294,6 @@ pub(super) fn shaft_gin(b: &mut W) {
 
 pub(super) fn shaft_water(b: &mut W) {
     shaft_mouth(b);
-    // A headframe over the shaft at the left and a water wheel geared to it at the right.
     for x in [1.0, 6.0] {
         b.bx(Kind::Floor, [x, x + 1.4], [0.0, 14.0], [5.0, 6.4]);
     }
@@ -344,7 +305,6 @@ pub(super) fn shaft_water(b: &mut W) {
     let a = if b.work { b.turn() / 4.0 } else { 0.4 };
     b.wheel(Kind::Floor, 11.5, 6.4, 6.0, 5.0, a, 8, 1.8);
     b.bx(Kind::Floor, [7.0, 11.0], [10.0, 10.8], [5.6, 6.6]);
-    // The race above the wheel, the water falling from it, the pool below.
     b.bx(Kind::Floor, [9.0, 15.4], [13.0, 14.2], [5.2, 7.2]);
     b.bx(Kind::Water, [9.4, 15.0], [14.0, 14.5], [5.8, 6.6]);
     if b.work {
@@ -355,14 +315,12 @@ pub(super) fn shaft_water(b: &mut W) {
 
 pub(super) fn shaft_ley(b: &mut W) {
     shaft_mouth(b);
-    // Two standing stones with crystal heads either side of the mouth.
     for (k, x) in [(0u32, 1.0f32), (1, 12.0)] {
         b.bx(Kind::Stone, [x, x + 3.0], [2.2, 17.0], [6.0, 9.0]);
         let lit = b.work && (b.t / 2 + k) % 2 == 0;
         b.bx(if b.work { Kind::Window } else { Kind::Slate }, [x + 0.3, x + 2.7], [17.0, 22.0], [6.3, 8.7]);
         let _ = lit;
     }
-    // The column of light between them, and the block riding up it.
     if b.work {
         for k in 0..6 {
             let y = 2.0 + k as f32 * 4.0;

@@ -140,8 +140,6 @@ pub(crate) fn scale_signal_at(
         .map(|p| -p * p.ln())
         .sum::<f64>();
     let eclusters = entropy.exp();
-    // The dominant share and the entropy ordering stay native (Bend has no
-    // f64); the replacement-wave leg owns how the two flags choose the gate.
     let (gate, _source) = gate_at(
         dominant >= dominant_relax,
         eclusters >= eclusters_hi || (dominant < 0.55 && eclusters >= 2.0),
@@ -185,9 +183,6 @@ pub(crate) fn stage_char_budget(club: &dyn Club) -> usize {
     let detected = club.metadata().map(|m| m.context_window).filter(|&n| n > 0);
     let configured = env_usize("ANGEL_MOA_CTX_TOKENS", 0);
     let Some(ctx) = detected.or_else(|| (configured > 0).then_some(configured)) else {
-        // An unknown route does not inherit an invented 32K/128K ceiling.
-        // The provider still owns its physical request limit; operators can
-        // supply ANGEL_MOA_CTX_TOKENS when the surface cannot report metadata.
         return usize::MAX;
     };
     let reserve = env_usize("ANGEL_MOA_CTX_RESERVE_OUT", 8192);
@@ -207,8 +202,6 @@ pub(crate) fn per_draft_cap(n: usize, budget_chars: usize) -> Option<usize> {
         None
     } else {
         let configured = moa_draft_max_chars();
-        // Zero means there is no product-authored draft ceiling. The only
-        // remaining bound is the actual downstream route context.
         Some(if configured == 0 {
             per
         } else {
@@ -221,9 +214,6 @@ pub(crate) fn per_draft_cap_for(club: &dyn Club, n: usize) -> Option<usize> {
     per_draft_cap(n, stage_char_budget(club))
 }
 
-/// Whether a stage can consume every draft without product- or context-driven
-/// truncation. A false result asks the pipeline to spend another map/reduce
-/// round instead of silently throwing away proposer output.
 pub(crate) fn drafts_fit_untruncated_for(club: &dyn Club, drafts: &[String]) -> bool {
     let Some(cap) = per_draft_cap_for(club, drafts.len()) else {
         return false;

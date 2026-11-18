@@ -21,7 +21,6 @@ fn three_heroes_original_silhouettes_have_distinct_standing_and_casting_pixels()
     }
 }
 
-/// Explicit opt-in PNGs; the normal suite never writes review artifacts.
 #[test]
 #[ignore = "exports original hero standing/casting PNGs for visual review"]
 fn three_heroes_export_pngs() {
@@ -60,8 +59,6 @@ fn three_heroes_export_pngs() {
             },
         )]));
         save(&format!("{kit}-casting"), &figure(&r.players[&1]), 8);
-        // Existing native arena renderer, so the same artifacts prove kit
-        // placement, spell tell and the client's scene pipeline too.
         let scene = super::super::seat_scene(
             &r,
             super::super::NATIVE_W,
@@ -73,9 +70,6 @@ fn three_heroes_export_pngs() {
     }
 }
 
-/// Each spell of the weave is shown for exactly the frames its strip holds,
-/// two ticks a frame, and a spell cast along the aim has a row for each
-/// eighth of a turn.
 #[test]
 fn every_cast_spell_plays_its_whole_strip() {
     use crate::rules::weave::SHOWN;
@@ -95,8 +89,6 @@ fn every_cast_spell_plays_its_whole_strip() {
     assert_eq!(strips[4].as_ref().unwrap().frames.len(), 8, "Wildfire follows the aim");
 }
 
-/// Explicit opt-in PNGs of the Mage's weave: the essences drawn, then every
-/// spell at three moments after it is woven (`weave`).
 #[test]
 #[ignore = "exports the Mage's weave scenes for visual review"]
 fn weave_export_pngs() {
@@ -152,7 +144,6 @@ fn weave_export_pngs() {
         }
         if name == "hoarfrost" {
             save("mage-orbs-drawn", &scene(&r), 3);
-            // Deeper down: six slots, four spells known, two of them cooling.
             let mut deep = r.clone();
             deep.dungeon.depth = 9;
             let w = &mut deep.players.get_mut(&1).unwrap().weave;
@@ -163,8 +154,6 @@ fn weave_export_pngs() {
         }
         r.players.get_mut(&1).unwrap().weave.known.clear();
         tap(&mut r, 4);
-        // Three moments of the spell: just woven, a third of a second on, and
-        // most of a second on.
         let mut gone = 1;
         for (moment, at) in [3u32, 10, 24].into_iter().enumerate() {
             for _ in gone..at {
@@ -176,9 +165,6 @@ fn weave_export_pngs() {
     }
 }
 
-/// Film only (Knights Wish film, 2026-11-04): the Mage's weave a tick a frame,
-/// native size, three spells back to back among demons.
-/// `KW_WEAVE_FILM=<dir> cargo test kw_weave_film -- --ignored`
 #[test]
 #[ignore = "film export"]
 fn kw_weave_film() {

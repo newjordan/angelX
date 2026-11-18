@@ -45,7 +45,6 @@ thread_local! {
     static TEST_ROOT: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) };
 }
 
-/// Isolate a fixture without changing other parallel test threads' store.
 #[cfg(test)]
 pub(crate) struct TestRootGuard(Option<PathBuf>);
 
@@ -78,7 +77,6 @@ impl Lock {
             .map_err(|error| format!("book generation lock: {error}"))?;
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
-            // SAFETY: file owns a live descriptor until the guard is dropped.
             if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0 {
                 return Ok(Self(file));
             }
@@ -98,7 +96,6 @@ impl Lock {
 }
 impl Drop for Lock {
     fn drop(&mut self) {
-        // SAFETY: the guard still owns the lock's descriptor.
         unsafe {
             libc::flock(self.0.as_raw_fd(), libc::LOCK_UN);
         }
@@ -126,8 +123,6 @@ fn read_generation(dir: &PrivateDirectory, digest: &str) -> Result<Option<Vec<u8
     Ok(Some(bytes))
 }
 
-/// Durably publish exact validated bytes before recording their digest in the
-/// conversation. Concurrent publishers of the same content share one file.
 pub(crate) fn publish(bytes: &[u8]) -> Result<String, String> {
     publish_in(&root(), bytes)
 }
@@ -143,8 +138,6 @@ fn publish_in(path: &Path, bytes: &[u8]) -> Result<String, String> {
         .map_err(|error| format!("book generation directory: {error}"))?;
     let _lock = Lock::acquire(&dir)?;
     if read_generation(&dir, &digest)?.is_some() {
-        // A prior publisher may have renamed the file but failed its directory
-        // fsync. Do not report durable publication without retrying that sync.
         dir.sync()
             .map_err(|error| format!("book generation publication: {error}"))?;
         return Ok(digest);
@@ -172,7 +165,6 @@ fn publish_in(path: &Path, bytes: &[u8]) -> Result<String, String> {
     Ok(digest)
 }
 
-/// Load only a generation whose bytes still match the saved content identity.
 pub(crate) fn load(digest: &str) -> Result<Vec<u8>, String> {
     load_in(&root(), digest)
 }

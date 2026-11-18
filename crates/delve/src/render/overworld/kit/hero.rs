@@ -20,8 +20,6 @@ use std::collections::HashMap;
 
 use super::super::ink::Img;
 
-/// A drawing inked in the structure greys (older armour: a helm in the
-/// air, a breastplate on the pit stop's rack) taken to the hero's steel.
 pub const STEEL: &[(char, char)] = &[
     ('H', 'W'),
     ('i', 'V'),
@@ -31,16 +29,13 @@ pub const STEEL: &[(char, char)] = &[
     ('g', 'x'),
 ];
 
-/// Which way the hero is seen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum View {
     Toward,
-    /// Facing right; the caller flips the picture for the left.
     Across,
     Away,
 }
 
-/// What the hero has in hand.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Held {
     Nothing,
@@ -50,26 +45,18 @@ pub enum Held {
     Sword,
 }
 
-/// One drawing of the hero.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Dress {
     pub view: View,
-    /// The helm on; else the bare head.
     pub helm: bool,
-    /// In harness and tabard; else in smallclothes.
     pub harness: bool,
-    /// The shield at rest on the arm.
     pub shield: bool,
-    /// The stride: 0 standing, 1 the first foot planted, 2 passing, 3 the
-    /// other foot planted, 4 passing again. Passing rides a pixel higher.
     pub step: u8,
     pub held: Held,
-    /// The held thing in its strike: drawn, levelled, fired, swung.
     pub strike: bool,
 }
 
 impl Dress {
-    /// Whole, at rest, toward the viewer: the mini-viz's knight.
     pub const WHOLE: Dress = Dress {
         view: View::Toward,
         helm: true,
@@ -81,25 +68,19 @@ impl Dress {
     };
 }
 
-/// A drawing placed against the figure's top-left.
 struct Layer {
     at: (i32, i32),
     rows: &'static [&'static str],
 }
 
-/// One way of seeing the hero. The head is the top eight rows, the body
-/// the six under it, the legs the last two.
 struct Parts {
     helm: &'static [&'static str],
     bare: &'static [&'static str],
     harness: &'static [&'static str],
     small: &'static [&'static str],
-    /// Legs in harness: standing, the first foot planted, the other.
     steel: [&'static [&'static str]; 3],
-    /// Bare legs, the same three.
     skin: [&'static [&'static str]; 3],
     shield: Layer,
-    /// Bow, crossbow, handgonne, sword: at rest, and in the strike.
     held: [[Layer; 2]; 4],
 }
 
@@ -111,8 +92,6 @@ fn parts(view: View) -> &'static Parts {
     }
 }
 
-/// The hero dressed as `d`, sixteen wide with the feet on the bottom row
-/// (a passing step is a row taller, its last row clear).
 pub fn draw(d: Dress) -> Img {
     thread_local! {
         static DRAWN: RefCell<HashMap<Dress, Img>> = RefCell::new(HashMap::new());
@@ -125,9 +104,6 @@ pub fn draw(d: Dress) -> Img {
     im
 }
 
-/// Native equipment sockets from the same authored layers `compose` draws.
-/// Keep the weapon's grip tied to its resting/striking layer, not a box
-/// inferred from the whole sprite (which includes a blade or bow).
 pub(in super::super) fn sockets(view: View, held: Held, strike: bool) -> ((i32, i32), (i32, i32)) {
     let p = parts(view);
     let shield = (p.shield.at.0 + 2, p.shield.at.1 + 3);
@@ -203,8 +179,6 @@ fn compose(d: Dress) -> Img {
     im
 }
 
-/// The operator's own knight in the mini-viz: the hero with a frost plume,
-/// a sea-green tabard and a blue shield.
 pub fn visitor() -> Img {
     let p = parts(View::Toward);
     let mut im = Img::new(16, 16);
@@ -233,15 +207,11 @@ pub fn visitor() -> Img {
     im
 }
 
-/// The shield at rest on the arm, seen `view`'s way, and where it sits
-/// against a sixteen-pixel figure's top-left: for a figure drawn another
-/// way that carries the knight's shield (a class, a brought picture).
 pub fn shield(view: View) -> (Img, (i32, i32)) {
     let layer = &parts(view).shield;
     (Img::from_rows(layer.rows), layer.at)
 }
 
-/// The helm as it flies off: the head's top rows, cut to the helm.
 pub fn helmet() -> Img {
     let head = Img::from_rows(TOWARD.helm);
     let mut im = Img::new(8, 8);
@@ -255,9 +225,6 @@ pub fn helmet() -> Img {
     im
 }
 
-// ─── the drawings ────────────────────────────────────────────────────────────
-
-/// The hero toward the viewer.
 const TOWARD: Parts = Parts {
     helm: &[
         ".......87.......",
@@ -312,7 +279,6 @@ const TOWARD: Parts = Parts {
         ],
     },
     held: [
-        // the bow
         [
             Layer {
                 at: (11, 5),
@@ -325,7 +291,6 @@ const TOWARD: Parts = Parts {
                 rows: &["...j...", "r.....r", ".r...r.", "..rrr.."],
             },
         ],
-        // the crossbow
         [
             Layer {
                 at: (10, 11),
@@ -336,7 +301,6 @@ const TOWARD: Parts = Parts {
                 rows: &["uVVVVu", "..rB.."],
             },
         ],
-        // the handgonne
         [
             Layer {
                 at: (10, 11),
@@ -347,7 +311,6 @@ const TOWARD: Parts = Parts {
                 rows: &[".Bx.", "..xu", ".6@6", "..6."],
             },
         ],
-        // the sword
         [
             Layer {
                 at: (11, 5),
@@ -365,7 +328,6 @@ const TOWARD: Parts = Parts {
     ],
 };
 
-/// The hero across, facing right.
 const ACROSS: Parts = Parts {
     helm: &[
         "................",
@@ -420,7 +382,6 @@ const ACROSS: Parts = Parts {
         ],
     },
     held: [
-        // the bow
         [
             Layer {
                 at: (12, 5),
@@ -435,7 +396,6 @@ const ACROSS: Parts = Parts {
                 ],
             },
         ],
-        // the crossbow
         [
             Layer {
                 at: (10, 10),
@@ -446,7 +406,6 @@ const ACROSS: Parts = Parts {
                 rows: &[".....u", ".....V", "BBrrrV", ".....V", ".....u"],
             },
         ],
-        // the handgonne
         [
             Layer {
                 at: (10, 11),
@@ -457,7 +416,6 @@ const ACROSS: Parts = Parts {
                 rows: &[".....6.", "BrxuuV@", ".....6."],
             },
         ],
-        // the sword
         [
             Layer {
                 at: (11, 4),
@@ -473,7 +431,6 @@ const ACROSS: Parts = Parts {
     ],
 };
 
-/// The hero away from the viewer.
 const AWAY: Parts = Parts {
     helm: &[
         ".......78.......",
@@ -528,7 +485,6 @@ const AWAY: Parts = Parts {
         ],
     },
     held: [
-        // the bow
         [
             Layer {
                 at: (11, 5),
@@ -539,7 +495,6 @@ const AWAY: Parts = Parts {
                 rows: &["..rrr..", ".r...r.", "r.....r", "...j..."],
             },
         ],
-        // the crossbow
         [
             Layer {
                 at: (11, 10),
@@ -550,7 +505,6 @@ const AWAY: Parts = Parts {
                 rows: &["uVVVVu", "..Br..", "..rB.."],
             },
         ],
-        // the handgonne
         [
             Layer {
                 at: (11, 10),
@@ -561,7 +515,6 @@ const AWAY: Parts = Parts {
                 rows: &["..6.", ".6@6", "..ux", ".xB."],
             },
         ],
-        // the sword
         [
             Layer {
                 at: (11, 5),

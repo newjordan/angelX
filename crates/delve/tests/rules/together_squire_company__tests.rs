@@ -17,9 +17,6 @@ fn yard() -> Run {
     run
 }
 
-// The field/driver seat owns the Yard call site. Drive its public hook
-// alongside the normal step until that integration is merged. The hook is
-// press-latched, so this remains valid when the driver calls it itself.
 fn step(run: &mut Run, inputs: &BTreeMap<u32, Input>) {
     run.step(inputs);
     run.tick_squire_company(inputs);
@@ -316,7 +313,6 @@ fn unpaid_and_incapacitated_requests_never_grant_a_squire() {
     let mut cost = Spoils::default();
     cost.add(Spoil::Gold, price);
     assert!(!run.treasury.covers(&cost));
-    // The driver refuses payment and does not call peddle.
     assert_eq!(run.home.squire_company, company);
     for condition in 0..3 {
         let hero = run.players.get_mut(&1).unwrap();
@@ -391,8 +387,6 @@ fn independent_knights_can_buy_together_but_conflicting_batches_are_serialized()
     assert_eq!(run.home.squire_company.rosters.len(), 2);
 
     run.home.squire_company.delves += 1;
-    // A board upgrade changes a hire quote. Do not charge both from the
-    // driver's pre-priced batch and silently discard the later delivery.
     stand(&mut run, 1, UPGRADE_PLATES[0]);
     stand(&mut run, 2, RECRUIT_PLATES[1]);
     press_both(&mut run);
@@ -404,8 +398,6 @@ fn independent_knights_can_buy_together_but_conflicting_batches_are_serialized()
     let p = run.peddled.pop().unwrap();
     pay(&mut run, p);
 
-    // An order for a name shared by two seats must not be invalidated by
-    // the second seat cycling its active companion in the same batch.
     run.players.get_mut(&2).unwrap().name = "Ada".into();
     stand(&mut run, 1, RECRUIT_PLATES[1]);
     stand(&mut run, 2, SELECT_PLATE);
@@ -483,7 +475,6 @@ fn training_targets_the_selected_id_and_revalidates_selection_and_cadence() {
 
 #[test]
 fn old_partial_squire_save_gets_defaults_and_owned_ids_never_collide() {
-    // The company is saved as `squire_company`, beside the yard's `squires`.
     let home: Home = serde_json::from_str(r#"{"squire_company":{"rosters":{"Ada":{"squires":[{"id":40,"name":"Old Pip","kind":"Ninja","level":2}],"active":40}}}}"#).unwrap();
     assert_eq!(home.squire_company.rosters["Ada"].squires[0].trained_on, None);
     assert!(home.squire_company.rosters["Ada"].claimed.is_empty());
@@ -564,8 +555,6 @@ fn reserved_purchase_delivers_by_captured_name_after_movement_and_seat_reuse() {
     let tick = run.tick;
     run.step(&BTreeMap::new());
     assert!(run.tick > tick, "company reservation must not pause the sim");
-    // The simulation is free to move, die, rename or replace the seat while
-    // the host stages and writes the realm. None changes who is owed goods.
     run.players.get_mut(&1).unwrap().name = "Cy".into();
     run.players.get_mut(&1).unwrap().hp = 0;
     stand(&mut run, 1, SELECT_PLATE);
@@ -589,7 +578,6 @@ fn reservation_defers_selection_new_orders_and_delve_cadence_on_both_outcomes() 
         let mut run = yard();
         let p = ask(&mut run, 1, RECRUIT_PLATES[0]);
         pay(&mut run, p);
-        // A free selection made before reservation must survive failure.
         stand(&mut run, 1, SELECT_PLATE);
         run.tick_squire_company(&BTreeMap::new());
         let interact = BTreeMap::from([(
@@ -616,7 +604,6 @@ fn reservation_defers_selection_new_orders_and_delve_cadence_on_both_outcomes() 
             },
         )]));
         assert!(run.peddled.is_empty(), "new orders cannot race a save");
-        // Actual floor transition, not just a hand-edited counter.
         run.descend_for_test();
         assert_eq!(run.home.squire_company, before);
         assert_eq!(run.squire_pending_delves, 1);
@@ -628,7 +615,6 @@ fn reservation_defers_selection_new_orders_and_delve_cadence_on_both_outcomes() 
         assert_eq!(run.home.squire_company.rosters["Ada"].active, None);
         assert_eq!(run.squire_pending_delves, 0);
         assert!(!run.squire_company_reserved);
-        // Completion's deferred cadence must not be lost to the next rebuild.
         let company = run.reserve_squire_company().unwrap();
         assert_eq!(company.delves, before.delves + 1);
         run.complete_squire_company(Some(company));
@@ -645,7 +631,6 @@ fn failed_save_can_retry_the_same_reserved_company_order_without_charging() {
     let prepared = run.prepare_squire_purchase(orders[0]).unwrap();
     let mut candidate = run.reserve_squire_company().unwrap();
     let cost = prepared.apply(&mut candidate).unwrap();
-    // Failed realm save: candidate/charge are discarded and requests restored.
     run.complete_squire_company(None);
     run.peddled.splice(0..0, orders);
     assert_eq!(run.treasury.get(Spoil::Gold), gold);

@@ -23,16 +23,10 @@ use crate::scene::MeshData;
 use crate::showcase::{Request, SHOWCASE_PICTURE};
 use crate::{GridSize, Host, Layer, LockExt, Shared, Showing, Snapshot, UserEvent, Wake};
 
-/// The same picture id handed over again within this long is a stream (a
-/// video, an animation): its frames are not kept on the far side.
 const STREAM_WITHIN: Duration = Duration::from_millis(1500);
 
-/// How long a layers-only change waits for the frame that usually follows
-/// it, so the two are shown together (the window's own rule: layers ride
-/// the next frame).
 const LAYERS_WAIT: Duration = Duration::from_millis(4);
 
-/// A blob, encoded for the wire once, by the first writer that needs it.
 pub(crate) struct Blob {
     hash: Hash,
     raw: Vec<u8>,
@@ -52,7 +46,6 @@ impl Blob {
             Some(packed) => (true, packed),
             None => (false, self.raw.clone()),
         };
-        // The blob is already deflated or noise: the frame itself is not.
         let message = Down::Blob { hash: self.hash, deflated, bytes };
         let body = wire::encode(&message)?;
         let mut out = Vec::with_capacity(body.len() + 5);
@@ -64,22 +57,15 @@ impl Blob {
     }
 }
 
-/// One thing for a window's writer: a framed message, and the blobs it
-/// names, which go first to a window that lacks them. `keep: false` blobs
-/// are a stream's: sent every time, never counted as held.
 #[derive(Clone)]
 pub(crate) struct Item {
     blobs: Vec<(Arc<Blob>, bool)>,
     frame: Arc<[u8]>,
     kind: usize,
     minimum_protocol: u32,
-    /// A picture's id, size and cells: a writer may send it as a delta of
-    /// what that window shows under the id.
     picture: Option<(u32, u32, u32, u16, u16)>,
 }
 
-/// What the link carried, by kind (`ANGEL_REMOTE_STATS=1` prints it on the
-/// session's stderr every five seconds): the bytes written to windows.
 mod stats {
     use std::sync::atomic::{AtomicU64, Ordering};
     pub(super) const KINDS: [&str; 9] = ["grid", "layers", "stage", "scene", "picture", "mesh", "blob", "other", "delta"];
@@ -163,7 +149,6 @@ impl Item {
     }
 }
 
-/// What a new window needs to catch up: the latest of everything.
 #[derive(Default)]
 struct Mirror {
     cells: Vec<Cell>,
@@ -171,7 +156,6 @@ struct Mirror {
     rows: u16,
     cursor: Option<(u16, u16)>,
     card: Option<Arc<crate::card::Card>>,
-    /// The render side's half of the snapshot double buffer.
     current: Snapshot,
     layers: Arc<Vec<Layer>>,
     pictures: HashMap<u32, Item>,
@@ -180,7 +164,6 @@ struct Mirror {
     meshes: HashMap<u32, Item>,
     stages: HashMap<u32, Item>,
     scenes: HashMap<u32, Item>,
-    /// World meshes already made blobs, by the `Arc` they came in.
     world_meshes: HashMap<usize, (Weak<MeshData>, Arc<Blob>)>,
     showcase: Option<Item>,
     showcase_serial: u64,
@@ -202,14 +185,11 @@ struct Client {
 struct Inner {
     mirror: Mirror,
     clients: Vec<Client>,
-    /// The client whose window sizes the session: the last one used.
     sizer: Option<u64>,
     next_id: u64,
     presence: Presence,
 }
 
-/// The session: its headless host's other half. Cloned freely; every
-/// clone is the same session.
 #[derive(Clone)]
 pub struct Hub {
     host: Host,
@@ -221,15 +201,6 @@ pub struct Hub {
     serial: Arc<AtomicU64>,
 }
 
-/// Header-first serve headers for raw upload `bytes` (file bytes, not decoded
-/// RGBA): `Content-Type` + `Content-Length` plus glass layout/budget/cap/hold
-/// annotations, without decoding pixels. `path` is the artist's filename hint
-/// (rescues truncated prefixes / leading-comment SVG / audio-boxed `m4a`);
-/// `adapter_name` is `wgpu::AdapterInfo::name` (`None` headless → 4096 box).
-/// `None` for unknown bytes (rejected before the decoder, where kitty would
-/// base64-decode per frame to learn the size). Remote-serve answers these
-/// headers once per blob; kitty pays base64 inflation every frame
-/// ([`crate::graphics::serve_vs_kitty_bytes`]).
 pub fn serve_headers_for_bytes(
     bytes: &[u8],
     path: Option<&std::path::Path>,
@@ -239,9 +210,6 @@ pub fn serve_headers_for_bytes(
     Some(plan.http_headers(bytes.len()))
 }
 
-/// A host with no window, sized `size` until a window says otherwise, and
-/// the hub that sends its frames to the windows that attach. Its publisher
-/// runs until the process ends.
 pub fn headless(name: &str, size: GridSize) -> (Host, Hub) {
     let (wake, events) = mpsc::channel();
     let (keys, input) = mpsc::channel();
@@ -292,8 +260,6 @@ impl Hub {
         }
     }
 
-    /// Tell every window the session is over and give their writers a
-    /// moment to say so.
     pub fn end(&self, why: &str) {
         if self.ended.swap(true, Ordering::AcqRel) {
             return;
@@ -310,9 +276,6 @@ impl Hub {
         std::thread::sleep(Duration::from_millis(150));
     }
 
-    /// Serve one window over `reader`/`writer` until it leaves. Returns at
-    /// once; the link runs on its own threads. The first message must be
-    /// the window's hello.
     pub fn serve<R, W>(&self, mut reader: R, mut writer: W) -> io::Result<()>
     where
         R: Read + Send + 'static,
@@ -334,7 +297,6 @@ impl Hub {
         wire::write(&mut writer, &Down::Hello { version, session: self.name.to_string() })?;
         if kind == Kind::Probe {
             wire::write(&mut writer, &Down::Status(self.status()))?;
-            // A probe may ask once more: to end the session.
             if let Ok(Some(Up::Kill)) = wire::read::<Up>(&mut reader) {
                 self.kill();
             }
@@ -342,8 +304,6 @@ impl Hub {
         }
         let (queue, items) = mpsc::channel::<Item>();
         if kind == Kind::Watch {
-            // The presence feed: what it is now, then every change, until
-            // the watcher goes. Nothing it sends is read but its leaving.
             let mut inner = self.inner.lock_recover();
             let id = inner.next_id;
             inner.next_id += 1;
@@ -366,8 +326,6 @@ impl Hub {
             let mut inner = self.inner.lock_recover();
             let id = inner.next_id;
             inner.next_id += 1;
-            // Catching up and joining happen under one lock with the
-            // publisher, so nothing is missed or sent twice.
             for item in self.catch_up(&mut inner) {
                 if item.minimum_protocol <= version {
                     let _ = queue.send(item);
@@ -377,7 +335,6 @@ impl Hub {
             id
         };
         eprintln!("REMOTE: {who} attached ({kind:?}, {}x{})", size.cols, size.rows);
-        // The window that attached last sizes the session.
         self.used(id);
         let held: HashSet<Hash> = have.into_iter().collect();
         std::thread::Builder::new()
@@ -398,8 +355,6 @@ impl Hub {
         Ok(())
     }
 
-    /// Give the session cell pixels if no window has (a terminal that
-    /// never said its own).
     pub fn default_cell(&self, (width, height): (u32, u32)) {
         let mut grid = self.host.shared.grid.lock_recover();
         if grid.cell_width == 0 || grid.cell_height == 0 {
@@ -410,7 +365,6 @@ impl Hub {
         }
     }
 
-    /// Who is at work now: watchers hear it when it changes.
     pub fn set_presence(&self, mut presence: Presence) {
         presence.session = self.name.to_string();
         let mut inner = self.inner.lock_recover();
@@ -426,7 +380,6 @@ impl Hub {
     fn kill(&self) {
         eprintln!("REMOTE: the session was killed");
         self.end("the session was killed");
-        // The cockpit's own signal path ends it, as a terminal's hangup would.
         unsafe {
             libc::kill(libc::getpid(), libc::SIGTERM);
         }
@@ -436,7 +389,6 @@ impl Hub {
         let mut inner = self.inner.lock_recover();
         inner.clients.retain(|c| c.id != id);
         if inner.sizer == Some(id) {
-            // The next to size it is whoever is still here, the newest first.
             inner.sizer = inner.clients.iter().filter(|c| matches!(c.kind, Kind::Window | Kind::Terminal)).map(|c| c.id).max();
             if let Some(next) = inner.sizer {
                 drop(inner);
@@ -445,7 +397,6 @@ impl Hub {
         }
     }
 
-    /// Client `id` was just used: it sizes the session now.
     fn used(&self, id: u64) {
         let mut inner = self.inner.lock_recover();
         inner.sizer = Some(id);
@@ -456,8 +407,6 @@ impl Hub {
             return;
         }
         let old = *self.host.shared.grid.lock_recover();
-        // A window that does not know its cell's pixels yet (its hello
-        // comes before it opens) keeps the ones the session has.
         if size.cell_width == 0 || size.cell_height == 0 {
             size.cell_width = old.cell_width;
             size.cell_height = old.cell_height;
@@ -472,8 +421,6 @@ impl Hub {
                 }
             }
             drop(inner);
-            // New cells or new cell pixels: either way the cockpit refits
-            // its layout and its pictures on a resize.
             let _ = self.keys.send(Event::Resize(size.cols, size.rows));
         }
     }
@@ -516,12 +463,6 @@ impl Hub {
             shared.showcase_seek.store(at.clamp(0.0, 1.0).to_bits(), Ordering::Relaxed);
         }
         if feedback.closed {
-            // A window's operator closed the panel. End the showing as a local
-            // close does, and queue the close for the publisher: it clears the
-            // mirror, so a window that attaches or reconnects is not handed a
-            // panel that was dismissed, and tells every other window too. The
-            // check and the queueing share the request lock, so a showing opened
-            // in between is never overwritten by this close.
             let mut request = shared.showcase.lock_recover();
             if shared.operator_closed(feedback.serial) {
                 *request = Some(Request::Close);
@@ -531,12 +472,7 @@ impl Hub {
         }
     }
 
-    /// Everything a window needs to draw the session as it is now.
     fn catch_up(&self, inner: &mut Inner) -> Vec<Item> {
-        // If attachment observes a lease before the queued publisher wakeup,
-        // advance the shared mirror and deliver it to existing viewers first.
-        // The new viewer gets it once in its catch-up; the next frame sees no
-        // identity change and cannot repeat the same full clip.
         if let Some(item) = self.take_squire_update(&mut inner.mirror) {
             self.broadcast(inner, vec![item]);
         }
@@ -593,8 +529,6 @@ impl Hub {
         });
     }
 
-    /// The publisher: wakes on the host's events, takes what changed and
-    /// sends it to every window as one frame.
     fn publish(self, events: Receiver<UserEvent>) {
         let mut waiting: Option<Instant> = None;
         loop {
@@ -615,7 +549,6 @@ impl Hub {
             let mut items = Vec::new();
             let mut frame = false;
             match event {
-                // A layers-only change waits a moment for its frame.
                 Some(UserEvent::Layers) => {
                     if waiting.is_none() {
                         waiting = Some(Instant::now());
@@ -660,13 +593,9 @@ impl Hub {
         Some(item)
     }
 
-    /// What the window's render thread takes each frame, as messages; the
-    /// mirror keeps the latest of each for windows that attach later.
     fn take_frame(&self, m: &mut Mirror) -> Vec<Item> {
         let shared = &self.host.shared;
         let mut items = Vec::new();
-        // Pictures, meshes, stages and scenes go before the frame that
-        // shows them, as the window applies them before it draws.
         let pictures = std::mem::take(&mut *shared.pictures.lock_recover());
         for picture in pictures {
             let now = Instant::now();
@@ -683,7 +612,6 @@ impl Hub {
             let blob = Blob::new(picture.rgba);
             let message = Down::Picture { id, width, height, cols, rows, hash: blob.hash, keep: !stream };
             if let Some(item) = Item::with(&message, vec![(blob, !stream)]) {
-                // Kept for a late window as a kept picture: it has no stream.
                 let late = Down::Picture { id, width, height, cols, rows, hash: item.blobs[0].0.hash, keep: true };
                 if let Some(kept) = Item::with(&late, vec![(Arc::clone(&item.blobs[0].0), true)]) {
                     m.pictures.insert(id, kept);
@@ -725,7 +653,6 @@ impl Hub {
             }
         }
         items.extend(self.take_squire_update(m));
-        // The showcase: its request, its marks and model, its progress.
         if let Some(request) = shared.showcase.lock_recover().take() {
             match request {
                 Request::Open { title, size, fit, livery, herald, retinue, names, nav } => {
@@ -763,7 +690,6 @@ impl Hub {
             items.extend(Item::plain(&Down::Layers(Arc::clone(&layers))));
         }
         m.layers = layers;
-        // The grid, as the render thread takes it: swap the snapshot.
         let fresh = {
             let mut slot = shared.slot.lock_recover();
             let fresh = slot.fresh;
@@ -806,9 +732,6 @@ impl Hub {
         items
     }
 
-    /// A stage as a message: its world's meshes leave it as blobs (made once
-    /// per mesh), and the set's text and plate, which only a far side that
-    /// remakes the meshes reads, stay home.
     fn stage_item(&self, m: &mut Mirror, id: u32, mut stage: crate::Stage) -> Option<Item> {
         let mut meshes = Vec::new();
         let mut blobs = Vec::new();
@@ -849,17 +772,11 @@ fn wire_card(card: &crate::card::Card) -> WireCard {
     }
 }
 
-/// A window's writer: each item's blobs first (those the window lacks),
-/// then the item. Ends when the window's link breaks or the hub drops it.
 fn write_loop<W: Write>(mut writer: W, items: Receiver<Item>, mut held: HashSet<Hash>) {
-    // The last pictures this window was sent, any id, newest last: the
-    // window keeps the same ring (`client::Screen`), so either end can name
-    // one as the base of a delta.
     let mut recent: std::collections::VecDeque<(u32, Arc<Blob>)> = std::collections::VecDeque::new();
     let mut send = |writer: &mut W, item: Item| -> io::Result<()> {
         if let (Some((id, width, height, cols, rows)), [(blob, keep)]) = (item.picture, item.blobs.as_slice()) {
             let held_already = *keep && held.contains(&blob.hash);
-            // The base: this id's last picture, else the newest of the same size.
             let base = recent
                 .iter()
                 .rev()
@@ -889,6 +806,8 @@ fn write_loop<W: Write>(mut writer: W, items: Receiver<Item>, mut held: HashSet<
             stats::add(6, framed.len());
             if *keep {
                 held.insert(blob.hash);
+            } else {
+                held.remove(&blob.hash);
             }
         }
         stats::add(item.kind, item.frame.len());
@@ -901,7 +820,6 @@ fn write_loop<W: Write>(mut writer: W, items: Receiver<Item>, mut held: HashSet<
         if send(&mut writer, item).is_err() {
             return;
         }
-        // Everything already waiting goes in the same flush.
         while let Ok(item) = items.try_recv() {
             if send(&mut writer, item).is_err() {
                 return;
@@ -923,7 +841,6 @@ mod tests {
         GridSize { cols, rows, width_px: u32::from(cols) * 9, height_px: u32::from(rows) * 18, cell_width: 9, cell_height: 18 }
     }
 
-    /// A window's end of a link: a pipe pair the hub serves.
     fn attach(hub: &Hub, kind: Kind, size: GridSize, have: Vec<Hash>) -> (std::os::unix::net::UnixStream, std::os::unix::net::UnixStream) {
         attach_version(hub, wire::VERSION, kind, size, have)
     }
@@ -969,7 +886,6 @@ mod tests {
         assert_eq!(screen.cells[0], text);
         assert_eq!(screen.cells[1].symbol(), "i");
 
-        // A change goes as a diff and lands.
         backend.draw([(5u16, 2u16, &Cell::new("Z"))].into_iter()).unwrap();
         backend.flush().unwrap();
         let seen = read_until_present(&mut link, &mut screen);
@@ -978,7 +894,6 @@ mod tests {
         assert_eq!(grid.runs.iter().map(|r| r.1.len()).sum::<usize>(), 1);
         assert_eq!(screen.cells[2 * 20 + 5].symbol(), "Z");
 
-        // A key comes back as the cockpit's input.
         let key = Event::Key(crossterm::event::KeyEvent::from(crossterm::event::KeyCode::Char('q')));
         wire::write(&mut up, &Up::Input(key.clone())).unwrap();
         let mut input = host.input_reader().unwrap();
@@ -1008,7 +923,6 @@ mod tests {
         assert!(seen.iter().any(|d| matches!(d, Down::Blob { .. })));
         assert_eq!(screen.picture(7).map(|p| p.rgba.to_vec()), Some(rgba.clone()));
 
-        // The same picture a few pixels on goes as a delta, not again whole.
         let mut moved = rgba.clone();
         moved[400..420].fill(255);
         host.upload_picture(crate::graphics::Picture { id: 7, width: 64, height: 64, rgba: moved.clone(), cols: 0, rows: 0 });
@@ -1024,7 +938,6 @@ mod tests {
         assert_eq!(screen.picture(7).map(|p| p.rgba.to_vec()), Some(moved.clone()));
         let rgba = moved;
 
-        // A second window that already holds the blob is not sent it again.
         let hash = wire::hash(&rgba);
         let (mut late, _up2) = attach(&hub, Kind::Window, size(10, 4), vec![hash]);
         let mut late_screen = Screen::default();
@@ -1060,6 +973,24 @@ mod tests {
     }
 
     #[test]
+    fn a_streamed_blob_the_window_dropped_is_sent_again_when_kept() {
+        let (host, hub) = headless("restream", size(10, 4));
+        let (mut link, _up) = attach(&hub, Kind::Window, size(10, 4), Vec::new());
+        let mut screen = Screen::default();
+        assert!(matches!(wire::read::<Down>(&mut link).unwrap(), Some(Down::Hello { .. })));
+        read_until_present(&mut link, &mut screen);
+        let mut backend = host.backend();
+        let rgba: Vec<u8> = (0..32 * 32 * 4).map(|i| (i % 241) as u8).collect();
+        for (step, id) in [7u32, 7, 8].into_iter().enumerate() {
+            host.upload_picture(crate::graphics::Picture { id, width: 32, height: 32, rgba: rgba.clone(), cols: 0, rows: 0 });
+            backend.draw([(step as u16, 0u16, &Cell::new("s"))].into_iter()).unwrap();
+            backend.flush().unwrap();
+            read_until_present(&mut link, &mut screen);
+            assert_eq!(screen.picture(id).map(|p| p.rgba.to_vec()), Some(rgba.clone()), "step {step}");
+        }
+    }
+
+    #[test]
     fn the_last_window_used_sizes_the_session() {
         let (host, hub) = headless("size", size(80, 24));
         let (mut a, mut a_up) = attach(&hub, Kind::Window, size(100, 30), Vec::new());
@@ -1070,12 +1001,10 @@ mod tests {
         assert!(matches!(wire::read::<Down>(&mut b).unwrap(), Some(Down::Hello { .. })));
         std::thread::sleep(Duration::from_millis(50));
         assert_eq!(host.grid_size().cols, 60, "the newest window sizes it");
-        // Typing in the first takes the size back.
         let key = Event::Key(crossterm::event::KeyEvent::from(crossterm::event::KeyCode::Char('a')));
         wire::write(&mut a_up, &Up::Input(key)).unwrap();
         std::thread::sleep(Duration::from_millis(50));
         assert_eq!(host.grid_size().cols, 100);
-        // A probe answers with the session and two windows.
         let (mut p, _p_up) = attach(&hub, Kind::Probe, GridSize::default(), Vec::new());
         assert!(matches!(wire::read::<Down>(&mut p).unwrap(), Some(Down::Hello { .. })));
         let Some(Down::Status(status)) = wire::read::<Down>(&mut p).unwrap() else { panic!() };
@@ -1139,7 +1068,6 @@ mod tests {
         assert!(matches!(wire::read::<Down>(&mut watch).unwrap(), Some(Down::Hello { .. })));
         let Some(Down::Presence(first)) = wire::read::<Down>(&mut watch).unwrap() else { panic!() };
         assert_eq!((first.session.as_str(), first.knights.len()), ("feed", 0));
-        // A frame of the cockpit's does not reach a watcher; presence does.
         let mut backend = host.backend();
         backend.draw([(0u16, 0u16, &Cell::new("x"))].into_iter()).unwrap();
         backend.flush().unwrap();
@@ -1196,8 +1124,6 @@ mod tests {
     #[test]
     fn clip_updates_replace_remove_and_catch_up_without_resending_each_frame() {
         let (host, hub) = headless("clip", size(10, 4));
-        // Write directly so the background publisher cannot consume the test's
-        // wakeup; this test drives the exact production frame reducer itself.
         *host.shared.showcase_squire_clip.lock_recover() = Some(clip_resource(1));
         let mut mirror = Mirror::default();
         let first = clip_messages(hub.take_frame(&mut mirror));
@@ -1240,7 +1166,6 @@ mod tests {
         let mut screen = Screen::default();
         let initial = read_until_present(&mut link, &mut screen);
         assert!(!initial.iter().any(|message| matches!(message, Down::ShowcaseSquire(_))));
-        // Explicitly exercise broadcast filtering as well as initial catch-up.
         let removed = Item::plain(&Down::ShowcaseSquire(wire::SquireClipUpdate::capture(None).unwrap())).unwrap();
         let present = Item::plain(&Down::Present).unwrap();
         hub.broadcast(&mut hub.inner.lock_recover(), vec![removed, present]);
@@ -1255,8 +1180,6 @@ mod tests {
         let (queue, messages) = mpsc::channel();
         inner.clients.push(Client { id:99, protocol:2, kind:Kind::Window, size:size(10,4), queue });
         for resource in [Some(clip_resource(1)), Some(clip_resource(2)), None] {
-            // Write without a wakeup to model attachment winning the queued
-            // publisher race while the production Inner lock remains held.
             *host.shared.showcase_squire_clip.lock_recover() = resource.clone();
             let expected = resource.as_ref().map(|(identity,_)| identity.clone());
             let caught = clip_messages(hub.catch_up(&mut inner));
@@ -1269,13 +1192,8 @@ mod tests {
         }
     }
 
-    // The showcase's lifecycle across a link: a showing is up until the
-    // producer closes it, a newer one replaces it, or an operator closes it
-    // at any window; whichever it is, no window is shown it afterwards.
     type Link = std::os::unix::net::UnixStream;
 
-    /// Read what the session sends a window until `found` says so; false
-    /// when nothing more arrives within `ms`.
     fn wait_for(link: &mut Link, ms: u64, found: impl Fn(&Down) -> bool) -> bool {
         link.set_read_timeout(Some(Duration::from_millis(ms))).unwrap();
         while let Ok(Some(down)) = wire::read::<Down>(link) {
@@ -1305,7 +1223,6 @@ mod tests {
         matches!(down, Down::ShowcaseClose)
     }
 
-    /// A session with `windows` windows attached and a showing up on all of them.
     fn showing_on(windows: usize) -> (Host, Hub, u64, Vec<(Link, Link)>) {
         let (host, hub) = headless("showing", size(10, 4));
         let mut links: Vec<(Link, Link)> = (0..windows)
@@ -1327,7 +1244,6 @@ mod tests {
         wire::write(up, &Up::Showcase(Feedback { serial, closed: true, ..Feedback::default() })).unwrap();
     }
 
-    /// What a window that attaches now is sent on arrival.
     fn arrival(hub: &Hub) -> Vec<Down> {
         let (mut link, _up) = attach(hub, Kind::Window, size(10, 4), Vec::new());
         assert!(matches!(wire::read::<Down>(&mut link).unwrap(), Some(Down::Hello { .. })));
@@ -1372,7 +1288,6 @@ mod tests {
         let new = host.showcase(Showing::new("next", (8, 8), crate::showcase::Fit::Contain));
         assert!(wait_for(&mut links[1].0, 5000, |d| matches!(d, Down::ShowcaseOpen { serial, .. } if *serial == new)));
         operator_closes(&mut links[0].1, old);
-        // The link is in order: once this click lands, the close before it has been handled.
         let click = Feedback { serial: new, clicks: 1, ..Feedback::default() };
         wire::write(&mut links[0].1, &Up::Showcase(click)).unwrap();
         assert!(wait_until(2000, || host.showcase_clicks() == 1));

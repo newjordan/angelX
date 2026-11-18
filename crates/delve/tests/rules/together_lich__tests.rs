@@ -1,12 +1,8 @@
 use super::*;
 
-/// An open first-floor room of the Crypt, emptied and calmed, with knight
-/// one (and two, if `pair`) standing on the left.
 fn quiet_room(pair: bool) -> Run {
     let mut run = Run::new(4, 1, None);
     run.begin_in(Pack::Crypt);
-    // The friend joins once the floor is laid: a lone knight's room, the
-    // spots below in it.
     if pair {
         run.join("Friend");
     }
@@ -16,7 +12,6 @@ fn quiet_room(pair: bool) -> Run {
         .iter()
         .position(|r| r.kind == RoomKind::Fight)
         .unwrap();
-    // An open room: whatever stone or pits the floor gave it, cleared.
     let open = &mut run.dungeon.rooms[room];
     for row in 1..open.rows - 1 {
         for col in 1..open.cols - 1 {
@@ -27,8 +22,6 @@ fn quiet_room(pair: bool) -> Run {
     run.calm_for_test();
     run.enemies.clear();
     run.rune = None;
-    // A bat frozen in the far corner keeps the fight on (a won room clears
-    // every hostile shot).
     run.spawn_at_for_test(EnemyKind::Bat, 44.0, 3.0);
     if let Some(bat) = run.enemies.last_mut() {
         bat.frozen = u32::MAX / 2;
@@ -41,7 +34,6 @@ fn quiet_room(pair: bool) -> Run {
     run
 }
 
-/// Rimeleap, loosed from `(x, y)` at knight one.
 fn rimeleap(run: &mut Run, (x, y): (f32, f32)) {
     let hero = &run.players[&1];
     let (ux, uy) = unit(hero.x - x, hero.y - y);
@@ -62,7 +54,6 @@ fn rimeleap(run: &mut Run, (x, y): (f32, f32)) {
     });
 }
 
-/// Steps with every knight held still and unhurt by anything but frost.
 fn wait(run: &mut Run, ticks: u32) -> u32 {
     let mut struck = 0;
     for _ in 0..ticks {

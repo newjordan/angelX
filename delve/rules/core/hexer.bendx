@@ -1,10 +1,6 @@
-# crates/delve/src/rules/hexer.rs — the Hexer: a hooded witch who turns a knight to a frog.
-
-# Hexed, and still a frog.
 def hexer.Hero.frog(h: J.Val) -> Bool:
     return U32.is_gt(core.u(h, "hexed"), hexer.HEX_IMMUNE())
 
-# The nearest of `hands` ([x, y] pairs) to a point (the first of equals), or null.
 def core.nearest_hand(hands: J.Val, ex: F32, ey: F32) -> J.Val:
     best: J.Val = J.JNull{}
     best_d: F32 = 0.0
@@ -15,7 +11,6 @@ def core.nearest_hand(hands: J.Val, ex: F32, ey: F32) -> J.Val:
             best_d = d
     return best
 
-# The Hexer's step. (enemy, (shots, whether this was a Hexer)).
 def hexer.act(enemy: J.Val, heroes: J.Val, room: J.Val, barred: Bool, shots: J.Val) -> (J.Val, (J.Val, Bool)):
     if Bool.not(String.eq(core.s(enemy, "kind"), "hexer")):
         return (enemy, (shots, False{}))
@@ -30,7 +25,6 @@ def hexer.act(enemy: J.Val, heroes: J.Val, room: J.Val, barred: Bool, shots: J.V
     (cx: F32, cy: F32) = rules.unit((tx - ex : F32), (ty - ey : F32))
     dist: F32 = RS.f_hypot((tx - ex : F32), (ty - ey : F32))
     enemy = core.set_u(enemy, "timer", core.uadd(core.u(enemy, "timer"), 1))
-    # Keep between nine and thirteen steps off, sidling between.
     side: F32 = Bool.pick(F32, U32.is_zero(U32.mod(core.u(enemy, "id"), 2)), 1.0, F32.neg(1.0))
     wx: F32 = 0.0
     wy: F32 = 0.0
@@ -59,12 +53,10 @@ def hexer.act(enemy: J.Val, heroes: J.Val, room: J.Val, barred: Bool, shots: J.V
         return (enemy, (J.push(shots, shot), True{}))
     return (enemy, (shots, True{}))
 
-# A hex lands on a knight.
 def hexer.Run.hex(run: J.Val, id: U32) -> J.Val:
     h: J.Val = core.hero(run, id)
     if J.is_null(h):
         return run
-    # Warded from the last, or under a Pendragon Sceptre.
     if Bool.or(U32.is_gt(core.u(h, "hexed"), 0), U32.is_gt(core.u(h, "immune"), 0)):
         return run
     h = core.set_u(h, "hexed", (hexer.HEX_TICKS() + hexer.HEX_IMMUNE() : U32))
@@ -78,7 +70,6 @@ def hexer.Run.hex(run: J.Val, id: U32) -> J.Val:
         run = feats.Run.notice(run, "ribbit")
     return run
 
-# Hexes wear off.
 def hexer.Run.tick_hexes(run: J.Val) -> J.Val:
     players: J.Val = J.get(run, "players")
     for (k: String, h: J.Val) in J.fields(players):

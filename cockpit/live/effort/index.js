@@ -1,14 +1,9 @@
 const effort = require('./effort.compiled')
 
-// Emitted Bend reads a Bool as a JS boolean (as every other leg passes it);
-// an object here would be truthy and read as True.
 const flag = on => on === true
 const list = items => items.reduceRight((tail, head) => ({ $: 'Con', head, tail }), { $: 'Nil' })
 const mentions = (text, words) => words.some(word => text.includes(word))
 
-// Thin adapter: Rust passes the request facts, Bend decides. Task-class
-// features come from the head of the user's message, so their word lists edit
-// here without a native build.
 module.exports = {
   apiVersion: 1,
   render(input) {

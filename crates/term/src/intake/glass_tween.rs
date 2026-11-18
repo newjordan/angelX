@@ -13,28 +13,17 @@
 //! the property's value at the moment its run begins, so nothing jumps
 //! when one tween replaces another or a chained one follows.
 
-/// The most tweens kept at once, across every target.
 pub const TWEEN_CAP: usize = 4_096;
-/// The longest `dur=` or `delay=`, in seconds.
 pub const TIME_MAX: f64 = 3_600.0;
-/// The most repeats a counted `repeat=` may ask for.
 pub const REPEAT_MAX: u32 = 1_000_000;
-/// The longest a spring may take to settle, in seconds; past it the
-/// tween ends on its target.
 pub const SPRING_SETTLE_MAX: f64 = 60.0;
-/// How close to its target a spring counts as settled.
 pub const SPRING_EPSILON: f64 = 1e-3;
 
-/// How a tween's time is shaped into its progress.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Ease {
     Linear,
-    /// One of the named curves, in, out or in-out.
     Curve(Curve, Side),
-    /// CSS's `cubic-bezier(x1, y1, x2, y2)`.
     Bezier([f64; 4]),
-    /// A damped spring's step response: stiffness, damping, mass. It sets
-    /// its own duration, the time it takes to settle.
     Spring { stiffness: f64, damping: f64, mass: f64 },
 }
 
@@ -60,8 +49,6 @@ pub enum Side {
 }
 
 impl Ease {
-    /// `linear`, `<curve>-in|out|in-out`, `cubic-bezier(x1,y1,x2,y2)` or
-    /// `spring(stiffness,damping[,mass])`.
     pub fn parse(text: &str) -> Result<Self, String> {
         if text == "linear" {
             return Ok(Ease::Linear);
@@ -115,8 +102,6 @@ impl Ease {
         Ok(Ease::Curve(curve, side))
     }
 
-    /// The progress at `u`, the run's share of its time (0..=1). Back,
-    /// elastic, a bezier with a y outside 0..1 and a spring overshoot.
     pub fn at(&self, u: f64) -> f64 {
         let u = if u.is_finite() { u.clamp(0.0, 1.0) } else { 1.0 };
         match *self {
@@ -143,8 +128,6 @@ impl Ease {
         }
     }
 
-    /// A spring's own duration in milliseconds; `None` for the others,
-    /// which take `dur=`.
     pub fn own_duration_ms(&self) -> Option<f64> {
         match *self {
             Ease::Spring { stiffness, damping, mass } => Some(spring_settle(stiffness, damping, mass) * 1000.0),
@@ -153,7 +136,6 @@ impl Ease {
     }
 }
 
-/// `name(a,b,...)` to its arguments.
 fn call<'a>(text: &'a str, name: &str) -> Option<&'a str> {
     text.strip_prefix(name)?.strip_prefix('(')?.strip_suffix(')')
 }
@@ -169,9 +151,6 @@ fn numbers(args: &str, min: usize, max: usize) -> Option<Vec<f64>> {
     (out.len() >= min).then_some(out)
 }
 
-/// Each named curve's in form; out and in-out are made from it. These
-/// are the usual (Penner) curves: back overshoots by its 1.70158, and the
-/// bounce and elastic are the common ones.
 fn curve_in(curve: Curve, u: f64) -> f64 {
     use std::f64::consts::PI;
     match curve {
@@ -206,8 +185,6 @@ fn curve_in(curve: Curve, u: f64) -> f64 {
     }
 }
 
-/// Back's in-out overshoots further each way (its 1.70158 times 1.525),
-/// as the usual curve does.
 fn back_in_out(u: f64) -> f64 {
     const C2: f64 = 1.70158 * 1.525;
     if u < 0.5 {
@@ -217,8 +194,6 @@ fn back_in_out(u: f64) -> f64 {
     }
 }
 
-/// Elastic's in-out rings on a period of its own (4.5), as the usual
-/// curve does.
 fn elastic_in_out(u: f64) -> f64 {
     use std::f64::consts::PI;
     if u <= 0.0 {
@@ -252,9 +227,6 @@ fn bounce_out(u: f64) -> f64 {
     }
 }
 
-/// CSS's cubic bezier from (0, 0) to (1, 1) through two control points:
-/// `y` where the curve's `x` is `x`. Newton's method from `x` itself,
-/// then bisection if it strays; x1 and x2 in 0..1 make `x(t)` monotone.
 fn bezier(x1: f64, y1: f64, x2: f64, y2: f64, x: f64) -> f64 {
     let cx = 3.0 * x1;
     let bx = 3.0 * (x2 - x1) - cx;
@@ -297,8 +269,6 @@ fn bezier(x1: f64, y1: f64, x2: f64, y2: f64, x: f64) -> f64 {
     ((ay * t + by) * t + cy) * t
 }
 
-/// The damped spring `m x'' = -k (x - 1) - c x'`, from rest at 0, at `t`
-/// seconds: under-, critically or over-damped, in closed form.
 pub fn spring(stiffness: f64, damping: f64, mass: f64, t: f64) -> f64 {
     let w0 = (stiffness / mass).sqrt();
     let zeta = damping / (2.0 * (stiffness * mass).sqrt());
@@ -315,8 +285,6 @@ pub fn spring(stiffness: f64, damping: f64, mass: f64, t: f64) -> f64 {
     }
 }
 
-/// How far from its target the spring can be at `t` at most, from then on:
-/// the decaying envelope of [`spring`], falling with `t` in every case.
 fn spring_envelope(stiffness: f64, damping: f64, mass: f64, t: f64) -> f64 {
     let w0 = (stiffness / mass).sqrt();
     let zeta = damping / (2.0 * (stiffness * mass).sqrt());
@@ -333,8 +301,6 @@ fn spring_envelope(stiffness: f64, damping: f64, mass: f64, t: f64) -> f64 {
     }
 }
 
-/// When the spring has settled within [`SPRING_EPSILON`] for good, in
-/// seconds, at most [`SPRING_SETTLE_MAX`].
 pub fn spring_settle(stiffness: f64, damping: f64, mass: f64) -> f64 {
     if spring_envelope(stiffness, damping, mass, SPRING_SETTLE_MAX) >= SPRING_EPSILON {
         return SPRING_SETTLE_MAX;
@@ -351,26 +317,21 @@ pub fn spring_settle(stiffness: f64, damping: f64, mass: f64) -> f64 {
     hi
 }
 
-/// How many times a tween runs past its first.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Repeat {
     Count(u32),
     Forever,
 }
 
-/// When a tween runs and how often.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Timing {
     pub delay_ms: u64,
-    /// One run, in milliseconds.
     pub run_ms: f64,
     pub repeat: Repeat,
-    /// Every second run goes back the way it came.
     pub yoyo: bool,
 }
 
 impl Timing {
-    /// Every run together; `None` for ever.
     pub fn total_ms(&self) -> Option<f64> {
         match self.repeat {
             Repeat::Forever => None,
@@ -378,9 +339,6 @@ impl Timing {
         }
     }
 
-    /// Where a run that began `elapsed` milliseconds ago stands: the share
-    /// of the run to ease (time runs back on a yoyo's return), and whether
-    /// every run is over.
     pub fn at(&self, elapsed: f64) -> (f64, bool) {
         let elapsed = elapsed.max(0.0);
         if let Some(total) = self.total_ms()
@@ -397,8 +355,6 @@ impl Timing {
         (if back { 1.0 - u } else { u }, false)
     }
 
-    /// The share the last run ends at: 1, or 0 when a yoyo's runs are even
-    /// in number and the last went back.
     fn end_share(&self) -> f64 {
         match self.repeat {
             Repeat::Count(n) if self.yoyo && n % 2 == 1 => 0.0,
@@ -407,20 +363,16 @@ impl Timing {
     }
 }
 
-/// A property's value.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Value {
     F(f32),
     V3([f32; 3]),
     V4([f32; 4]),
-    /// A rotation, `[x, y, z, w]`, mixed along the shorter arc.
     Q([f32; 4]),
-    /// Taken at the end of the run.
     B(bool),
 }
 
 impl Value {
-    /// `self` toward `to` by `p` (past 0..1 for an easing that overshoots).
     pub fn mix(self, to: Value, p: f64) -> Value {
         let p = p as f32;
         let lerp = |a: f32, b: f32| a + (b - a) * p;
@@ -437,8 +389,6 @@ impl Value {
     }
 }
 
-/// What a tween moves. Layers and scenes share the program's ids, so a
-/// `Layer` is a layer, or a scene's placement when no layer has the id.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Target {
     Layer(u32),
@@ -447,7 +397,6 @@ pub enum Target {
 }
 
 impl Target {
-    /// The scene this target lives in, for a scene's own targets.
     pub fn scene(&self) -> Option<u32> {
         match *self {
             Target::Node { scene, .. } | Target::Camera(scene) => Some(scene),
@@ -456,15 +405,12 @@ impl Target {
     }
 }
 
-/// One property of a target.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Prop {
-    /// A layer's `at=` (cells) or `px=` (pixels) rectangle.
     Rect,
     Opacity,
     Angle,
     Color,
-    /// A particle emitter's mote size.
     Size,
     Breathe,
     Lift,
@@ -480,22 +426,16 @@ pub enum Prop {
 }
 
 impl Prop {
-    /// A property written only once its run is over.
     fn at_end(self) -> bool {
         matches!(self, Prop::NodeVisible)
     }
 }
 
-/// Where the caller keeps what tweens move.
 pub trait Targets {
-    /// The property's value now; `None` once the target has gone.
     fn read(&mut self, target: Target, prop: Prop) -> Option<Value>;
-    /// Write the property; `false` once the target has gone.
     fn write(&mut self, target: Target, prop: Prop, value: Value) -> bool;
 }
 
-/// One property a tween moves: to `to`, from where it stood when the run
-/// began.
 #[derive(Clone, Copy, Debug)]
 pub struct Track {
     pub prop: Prop,
@@ -511,17 +451,12 @@ impl Track {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Phase {
-    /// Not yet seen by a tick: the next tick is its start.
     New,
-    /// Waiting for the tween `after=` names to end.
     Waiting,
-    /// Its run begins at this clock.
     Delay(u64),
-    /// Its run began at this clock.
     Running(u64),
 }
 
-/// One tween: some properties of one target, eased together.
 #[derive(Clone, Debug)]
 pub struct Tween {
     pub tid: Option<u32>,
@@ -538,7 +473,6 @@ impl Tween {
         Self { tid: None, target, tracks, ease, timing, after: None, phase: Phase::New }
     }
 
-    /// When its every run is over, once it has begun.
     fn end(&self) -> Option<f64> {
         match self.phase {
             Phase::Running(start) => self.timing.total_ms().map(|t| start as f64 + t),
@@ -547,7 +481,6 @@ impl Tween {
     }
 }
 
-/// Every tween glass is running, in arrival order.
 #[derive(Clone, Debug, Default)]
 pub struct Tweens {
     list: Vec<Tween>,
@@ -563,11 +496,6 @@ impl Tweens {
         self.list.is_empty()
     }
 
-    /// Add a tween. One with a `tid` already running replaces that one.
-    /// One that waits on no other replaces, on every property it moves,
-    /// whatever already moves that property of that target, at once; one
-    /// with `after=` does so when its run begins. Past [`TWEEN_CAP`] the
-    /// tween is refused.
     pub fn add(&mut self, tween: Tween) -> Result<(), String> {
         if let Some(tid) = tween.tid {
             self.list.retain(|t| t.tid != Some(tid));
@@ -585,24 +513,18 @@ impl Tweens {
         Ok(())
     }
 
-    /// Stop every tween on `target`; what they moved stays where it is.
     pub fn stop_target(&mut self, target: Target) {
         self.list.retain(|t| t.target != target);
     }
 
-    /// Stop every tween on a scene's nodes and camera.
     pub fn stop_scene(&mut self, scene: u32) {
         self.list.retain(|t| t.target.scene() != Some(scene));
     }
 
-    /// Stop the tween named `tid`.
     pub fn stop_tid(&mut self, tid: u32) {
         self.list.retain(|t| t.tid != Some(tid));
     }
 
-    /// Take `prop` of `target` away from every tween (but `keep`), only
-    /// from running ones when `running_only`; a tween left moving nothing
-    /// goes.
     fn cancel(&mut self, target: Target, prop: Prop, keep: Option<usize>) {
         self.cancel_where(target, prop, keep, false);
     }
@@ -619,10 +541,6 @@ impl Tweens {
         }
     }
 
-    /// Advance every tween to `now` and write what moved. Returns whether
-    /// anything was written. Chains are followed within the tick: a tween
-    /// that ended at `e` starts the one after it at `e` plus its delay,
-    /// however far the clock jumped.
     pub fn tick(&mut self, now: u64, targets: &mut dyn Targets) -> bool {
         let mut changed = false;
         let mut ended: Vec<(u32, u64)> = Vec::new();
@@ -696,8 +614,6 @@ impl Tweens {
                 if now < start {
                     return Step::Same;
                 }
-                // The run begins: it takes over its properties from any
-                // other running tween, and starts from where they stand.
                 let target = self.list[i].target;
                 let props: Vec<Prop> = self.list[i].tracks.iter().map(|t| t.prop).collect();
                 for prop in props {
@@ -754,10 +670,6 @@ impl Tweens {
         }
     }
 
-    /// When a tick next has something to do: at once for a new tween, at
-    /// the start of a delayed one, a display frame on for a running one
-    /// (or its end, when that comes sooner). A tween that only waits, or
-    /// whose properties change only at the end, wakes nothing in between.
     pub fn deadline(&self, clock: u64, frame_ms: u64) -> Option<u64> {
         let mut out: Option<u64> = None;
         let mut take = |at: u64| out = Some(out.map_or(at, |o| o.min(at)));
@@ -783,14 +695,9 @@ impl Tweens {
 }
 
 enum Step {
-    /// Nothing changed.
     Same,
-    /// Its phase moved on, nothing was written.
     Moved,
-    /// Values were written; it runs on.
     Wrote,
-    /// Its last values were written; it ended at this clock.
     Done(Option<u64>),
-    /// Its target went: it goes, unwritten.
     Gone,
 }

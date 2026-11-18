@@ -30,9 +30,6 @@ pub fn copy(text: &str) -> bool {
     else {
         return false;
     };
-    // The write runs on its own thread with a bounded wait for the
-    // acknowledgement: a wedged clipboard tool with a full pipe must not
-    // block the caller (the cockpit) on write_all forever.
     let text = text.to_owned();
     let (done, written_rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
@@ -48,12 +45,8 @@ pub fn copy(text: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// The most a paste may carry (16 MiB): pasting more into a composer is
-/// never useful, and reading it all first is unbounded memory on the
-/// window thread's time.
 const MAX_PASTE_BYTES: u64 = 16 * 1024 * 1024;
 
-/// Read at most `cap` bytes; one byte more and the whole paste is refused.
 fn read_capped<R: Read>(reader: R, cap: u64) -> Option<Vec<u8>> {
     let mut bytes = Vec::new();
     reader
@@ -72,9 +65,6 @@ pub fn paste() -> Option<String> {
         .stderr(Stdio::null())
         .spawn()
         .ok()?;
-    // The reader runs beside the wait so a full pipe never stalls either,
-    // and the wait is bounded: a stuck clipboard tool must not freeze the
-    // window that asked for the paste.
     let stdout = child.stdout.take()?;
     let reader = std::thread::spawn(move || read_capped(stdout, MAX_PASTE_BYTES));
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);

@@ -37,7 +37,6 @@ fn the_old_practice_games_mount_moves_into_the_stable_once() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let rewards = dir.join("island.json");
-    // A 0.2.0 save: the practice subtree, its tournament and all.
     std::fs::write(
         rewards.with_extension("realm.json"),
         r#"{"treasury":{},"chivalry":{"selected":"mist","tended":[false,false,true],"tournament":{"phase":"finished","mount":"mist","prepared":true,"passes":["aim","guard","charge"]}}}"#,
@@ -46,7 +45,6 @@ fn the_old_practice_games_mount_moves_into_the_stable_once() {
     let mut realm = Realm::beside(Some(&rewards));
     assert_eq!(realm.home.stable.selected, Mount::Mist);
     assert!(realm.home.stable.is_tended(Mount::Mist));
-    // Once moved, the stable is the realm's: later changes stand.
     realm.home.stable.selected = Mount::Cinder;
     realm.save().unwrap();
     let again = Realm::beside(Some(&rewards));

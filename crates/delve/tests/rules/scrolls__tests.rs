@@ -19,8 +19,6 @@ fn an_open_offer_keeps_its_resolved_definition_through_source_change_and_handoff
     run.offer_wish(1, &old.name, Some(&old)).unwrap();
     let live = runtime_state::capture(&run).unwrap();
     let mut next = runtime_state::restore(live).unwrap();
-    // The explicit source need never have been installed globally. Changing
-    // or removing the global entry cannot change this pending choice.
     let result = next.choose(1, 0).unwrap();
     assert!(result.contains("Original Choice"));
     assert_eq!(
@@ -189,7 +187,6 @@ fn built_in_spell_changes_retain_the_open_scroll_and_cooldown_on_refusal() {
     assert!(run.choose(1, 0).unwrap_err().contains("spell changed"));
     assert_eq!(run.players[&1].spell_cooldowns[0], 71);
     assert_eq!(run.players[&1].wishes, 3);
-    // Pure presentation advances do not invalidate a retained executable spell.
     let mut painted = card;
     painted.by = "New painter".into();
     run.book.insert(painted);

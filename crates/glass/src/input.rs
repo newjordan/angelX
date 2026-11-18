@@ -10,29 +10,20 @@ use winit::keyboard::{
     Key, KeyCode as Physical, KeyLocation, ModifiersState, NamedKey, PhysicalKey,
 };
 
-/// The window's own keys; the cockpit never sees them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shortcut {
     Paste,
-    /// Replay the assembly transition.
     Transition,
     ZoomIn,
     ZoomOut,
     ZoomReset,
 }
 
-/// Ctrl+Shift+V or Shift+Insert pastes; Ctrl+Shift+= / − / 0 (or Backspace) zoom. Matched by
-/// the character the key types, so any layout works,
-/// and keymaps made up on the fly (virtual keyboards) too. A key that types
-/// no Latin character falls back to its place on a US keyboard.
 pub fn shortcut(event: &WindowKey, state: ModifiersState) -> Option<Shortcut> {
     shortcut_of(&event.logical_key, event.physical_key, state)
 }
 
-/// The shortcut logic on the event's parts, so it can be tested without
-/// fabricating a winit event (which only winit can construct).
 fn shortcut_of(logical: &Key, physical: PhysicalKey, state: ModifiersState) -> Option<Shortcut> {
-    // Shift+Insert pastes too.
     if state.shift_key()
         && !state.control_key()
         && !state.alt_key()
@@ -40,8 +31,6 @@ fn shortcut_of(logical: &Key, physical: PhysicalKey, state: ModifiersState) -> O
     {
         return Some(Shortcut::Paste);
     }
-    // On macOS the window keys are Cmd: Cmd+V pastes,
-    // Cmd+= / − / 0 zoom.
     if cfg!(target_os = "macos")
         && state.super_key()
         && !state.control_key()
@@ -99,8 +88,6 @@ pub fn modifiers(state: ModifiersState) -> KeyModifiers {
     out
 }
 
-/// `game`: a game holds the keyboard, so modifier keys report on their own
-/// and Shift stays on every key, as the terminal's game keyboard mode does.
 pub fn key(event: &WindowKey, state: ModifiersState, game: bool) -> Option<KeyEvent> {
     key_of(
         &event.logical_key,
@@ -113,7 +100,6 @@ pub fn key(event: &WindowKey, state: ModifiersState, game: bool) -> Option<KeyEv
     )
 }
 
-/// The key logic on the event's parts (`shortcut_of`'s companion).
 #[allow(clippy::too_many_arguments)]
 fn key_of(
     logical: &Key,
@@ -141,8 +127,6 @@ fn key_of(
     Some(KeyEvent::new_with_kind(code, mods, kind))
 }
 
-/// A typed character. Outside games, Shift only stays on letters, as a
-/// terminal reports `A` but plain `!`.
 fn character(ch: char, game: bool, mods: &mut KeyModifiers) -> KeyCode {
     if !game && !ch.is_alphabetic() {
         mods.remove(KeyModifiers::SHIFT);
@@ -262,7 +246,6 @@ mod tests {
         assert_eq!(at("_"), Some(Shortcut::ZoomOut));
         assert_eq!(at(")"), Some(Shortcut::ZoomReset));
         assert_eq!(at("x"), None);
-        // Without both modifiers the cockpit keeps the key.
         assert_eq!(
             shortcut_of(&Key::Character("v".into()), PhysicalKey::Code(Physical::Space), SHIFT),
             None
@@ -275,7 +258,6 @@ mod tests {
             shortcut_of(&Key::Named(NamedKey::Insert), PhysicalKey::Code(Physical::Space), SHIFT),
             Some(Shortcut::Paste)
         );
-        // A layout where the V position types a Cyrillic letter still pastes.
         assert_eq!(
             shortcut_of(
                 &Key::Character("м".into()),
@@ -317,7 +299,6 @@ mod tests {
         assert_eq!(tab.code, KeyCode::Tab);
         let f13 = press(&Key::Named(NamedKey::F13), ModifiersState::empty(), false).unwrap();
         assert_eq!(f13.code, KeyCode::F(13));
-        // Lock and bare modifier keys only speak in game keyboard mode.
         assert!(press(&Key::Named(NamedKey::CapsLock), ModifiersState::empty(), false).is_none());
         assert!(press(&Key::Named(NamedKey::CapsLock), ModifiersState::empty(), true).is_some());
         assert!(press(&Key::Named(NamedKey::Shift), SHIFT, false).is_none());

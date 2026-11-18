@@ -91,8 +91,9 @@ compatibility remains distinct; invalid declared capacity is not fallback permis
 One immutable startup load outcome is shared by the Bag, direct Codex alias,
 registry and vision consumers. Bounded loader retry is not consumer rereading.
 Replacing a store changes the next run, not the current snapshot. Vision shares
-OAuth authority but retains its own effort preference. Explicit vision/Kimi
-precedence and picker identity/deduplication remain intact.
+OAuth authority but retains its own effort preference. Explicit vision
+endpoint precedence and picker identity/deduplication remain intact. Kimi
+credentials are not a vision route.
 
 Supported effort is derived from immutable capabilities and current intent, not a
 sticky earlier error. Each dispatch captures effort once for serialization and

@@ -34,7 +34,6 @@ fn the_banner_slams_holds_and_leaves() {
     assert!(lit(&draw(0)) > 0 && lit(&draw(30)) > 0);
     assert!(lit(&draw(30)) > lit(&draw(76)), "it dissolves at the end");
     assert_eq!(lit(&draw(78)), 0, "and is gone");
-    // The longest word still fits the screen at every age.
     for age in 0..78 {
         let mut im = Img::black(384, 224);
         banner(&mut im, 40, "TAKES THE LEAD", "", age, 78, Tone::Warm, 3);
@@ -76,7 +75,6 @@ fn podium_words_fit_their_steps_and_never_meet() {
     let inside = |r: Rect| r.0 >= 0 && r.1 >= 0 && r.0 + r.2 <= 384 && r.1 + r.3 <= 224;
     let names = ["YOU", "SIR PERCIVAL THE UNYIELDING OF THE LONG ROAD", "WWWWWWWWWWWWWWWWWWWW", "MMMMMMMMMM", "KNIGHT 12", "A"];
     let lines = ["12 NO FALLS", "123456 CRATES AND BARRELS BROKEN", "1234567890123 PTS", "999 KILLS", "OUT", "7"];
-    // The boxes the games use (floors at 182, 162 and 174), and a low one.
     for area in [(0, 0, 384, 188), (0, 34, 384, 134), (0, 56, 384, 124), (0, 0, 384, 210)] {
         for n in 3..=6 {
             for you in 0..n {
@@ -99,12 +97,10 @@ fn podium_words_fit_their_steps_and_never_meet() {
                         assert!(!meet(ra, rb), "{wa} of place {} meets {wb} of place {}: {ra:?} {rb:?} ({area:?}, {n} places)", i + 1, j + 1);
                     }
                 }
-                // Each digit sits inside its own step's face.
                 let floor = area.1 + area.3 - 6;
                 for (s, h) in stands.iter().zip([58, 40, 28]) {
                     assert!(s.rank.1 >= floor - h + 3 && s.rank.1 + s.rank.3 <= floor, "digit {} spills off its step: {:?}", s.rank_scale, s.rank);
                 }
-                // And in the picture: with the words gone, nothing below the floor is lit.
                 let bare: Vec<Place> = places.iter().map(|p| Place { sprite: p.sprite.clone(), name: String::new(), line: String::new() }).collect();
                 let mut im = Img::black(384, 224);
                 podium(&mut im, area, &bare, 80);
@@ -113,7 +109,6 @@ fn podium_words_fit_their_steps_and_never_meet() {
                         assert!(im.get(x, y).is_none_or(|p| p == black), "ink below the steps at {x},{y} ({area:?})");
                     }
                 }
-                // And with the words, they are drawn.
                 let mut full = Img::black(384, 224);
                 podium(&mut full, area, &places, 80);
                 assert!(lit(&full) > lit(&im), "the words are drawn");

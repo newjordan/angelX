@@ -25,8 +25,6 @@ fn bridge_lanterns_and_survey_dial_are_visible_in_small_live_vistas() {
             bare.tris.len() < scene.tris.len(),
             "{name}: decoration missing"
         );
-        // This is the same camera solve used by the live ride, at 72×26
-        // terminal cells. A mesh hidden behind a wall must fail this proof.
         let camera = settled_camera(&VANTAGES[index], 144, 104);
         let before = raster::render_scene(&bare, &camera, 144, 104);
         let after = raster::render_scene(&scene, &camera, 144, 104);
@@ -35,8 +33,6 @@ fn bridge_lanterns_and_survey_dial_are_visible_in_small_live_vistas() {
             .zip(after.pixels())
             .filter(|(a, b)| a != b)
             .count();
-        // Optional review artifacts; assertions run whether or not a preview
-        // destination was supplied. No live session or model is involved.
         if let Some(directory) = std::env::var_os("ANGEL_WORLD_DRESSING_PREVIEW") {
             let directory = std::path::PathBuf::from(directory);
             std::fs::create_dir_all(&directory).unwrap();
@@ -77,8 +73,6 @@ fn retired_view_commands_and_launch_flags_cannot_select_other_outdoors() {
 
 use super::super::raycast::{RayMap, RaySprite, RayView};
 
-/// A 31 × 31 window with one lit landmark billboard `standoff` tiles away
-/// on the +x bearing — the shape `travel_scene()` hands the seam.
 fn window(building: u8, standoff: f32) -> (RayMap, RayView) {
     let span = 31usize;
     let centre = (span as f32 - 1.0) * 0.5;
@@ -100,8 +94,6 @@ fn window(building: u8, standoff: f32) -> (RayMap, RayView) {
     let view = RayView {
         x: centre,
         y: centre,
-        // Looking straight at the landmark, plus the authored thirds
-        // offset — exactly what a settled `RayView` carries.
         heading_rad: super::super::cinematics::VISTA_MARKS[building as usize].thirds_offset_rad,
         look_yaw: 0.0,
         fov_rad: 1.05,
@@ -125,7 +117,6 @@ fn every_building_lands_on_its_own_staged_vantage() {
             (camera.pos.x, camera.pos.y),
             vantage.eye
         );
-        // The eye stands on the court's own ground, not on z = 0.
         let ground = arch::court_ground_z(scene::SCENE_SEED, camera.pos.x, camera.pos.y);
         assert!(
             (camera.pos.z - (ground + vantage.eye_h)).abs() < 1e-3,
@@ -139,8 +130,6 @@ fn every_building_lands_on_its_own_staged_vantage() {
 
 #[test]
 fn the_anchor_lands_on_its_third_and_the_horizon_in_the_lower_third() {
-    // Framing is expressed in screen fractions and solved per aspect, so
-    // both the wide ride pane and the tall vista plate must honour it.
     for &(dot_w, dot_h) in &[(96usize, 72usize), (200, 304), (216, 200)] {
         for building in 0u8..8 {
             let (map, view) = window(building, 5.5);
@@ -205,7 +194,6 @@ fn the_table_stages_thirds_standoff_and_open_sky() {
 
 #[test]
 fn the_ride_sweeps_the_approach_road_before_it_settles() {
-    // Far out: the camera runs the road up from the river crossing.
     let (map, view) = window(2, 19.0);
     let far = view3_from_ray(&map, &view, 96, 72);
     assert!(
@@ -213,7 +201,6 @@ fn the_ride_sweeps_the_approach_road_before_it_settles() {
         "a distant ride should retain the framed approach, got {:?}",
         (far.pos.x, far.pos.y)
     );
-    // The approach moves gently before cutting to the destination mark.
     let reach = |camera: &View3| {
         ((camera.pos.x - VANTAGES[2].eye.0).powi(2) + (camera.pos.y - VANTAGES[2].eye.1).powi(2))
             .sqrt()
@@ -243,8 +230,6 @@ fn operator_yaw_and_pitch_turn_the_staged_camera() {
         taken > 0.44 && taken < 0.5,
         "a settled camera must follow operator yaw, took {taken:.3} of 0.5"
     );
-    // Monotone with no saturation: a bigger turn is always a bigger turn,
-    // or the arrow keys stop answering past some angle.
     view.heading_rad += 0.4;
     let further = view3_from_ray(&map, &view, 96, 72);
     assert!(
@@ -282,8 +267,6 @@ fn a_tall_pane_keeps_its_vertical_field_painterly() {
     }
 }
 
-/// The probe camera has to *be* the settled ride camera, or a staging
-/// session tunes a picture nobody will ever see.
 #[test]
 fn a_probe_camera_matches_the_settled_ride() {
     for building in 0u8..8 {
@@ -301,18 +284,9 @@ fn a_probe_camera_matches_the_settled_ride() {
     }
 }
 
-/// Manual staging bench. Prints, for every mark in `VANTAGES` and for any
-/// candidate poses parked in `PROBE`, exactly the numbers the vista law is
-/// written in — sky / wall / ground, standoff, and where the hero's own
-/// silhouette lands across the frame. Restaging by editing the table and
-/// re-reading PNGs costs a render per guess; this costs one compile for a
-/// whole grid.
-///
-/// `cargo test --bin angel probe_the_staging -- --ignored --nocapture`
 #[test]
 #[ignore = "manual staging bench: run with --nocapture to read the table"]
 fn probe_the_staging() {
-    /// Candidate marks under consideration. Empty in a landed tree.
     const PROBE: &[Vantage] = &[];
 
     let report = |label: &str, vantage: &Vantage| {
@@ -346,7 +320,6 @@ fn probe_the_staging() {
 
 #[test]
 fn a_windowless_scene_still_produces_a_finite_camera() {
-    // Interiors and the first frames of a long journey carry no landmark.
     let map = RayMap {
         width: 9,
         height: 9,
@@ -383,8 +356,6 @@ fn travel_heading_cannot_replace_intentional_camera_look() {
     assert!((raised.pitch - intentional_turn.pitch - 0.30).abs() < 1e-4);
 }
 
-/// Export the production settled cameras for comparing both renderer builds
-/// against identical cached court geometry, without running a visible UI.
 #[test]
 #[ignore]
 fn write_court_shots() {

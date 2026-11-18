@@ -1,16 +1,8 @@
-// CDP driver for the closed-loop web bench: one isolated headless Chrome, a
-// screenshot/click/eval control surface on 127.0.0.1, so a Python scorer can
-// ask Mage for a point, click it for real and check what the page did.
-//   node web_loop_driver.mjs <work-dir> [control-port] [scale]
-// Nothing here touches the operator's Chrome profile, pointer or clipboard.
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { setTimeout as sleep } from "node:timers/promises";
 
-//   node web_loop_driver.mjs <work-dir> [control-port] [scale] [WxH]
-// `scale` is the device-pixel ratio (screenshot size), `WxH` the CSS viewport
-// (layout size), so a laptop frame and a HiDPI frame are both reachable.
 const [workDir, controlArg, scaleArg, viewArg] = process.argv.slice(2);
 if (!workDir) {
   console.error("usage: node web_loop_driver.mjs <work-dir> [control-port] [scale] [WxH]");
@@ -66,8 +58,6 @@ await send("Emulation.setDeviceMetricsOverride", {
   width: VIEW.width, height: VIEW.height, deviceScaleFactor: scale, mobile: false,
 });
 
-// The same element collector capture.mjs uses: visible, named, clickable, and
-// on top at its own centre (so truth is a real click surface, not a hidden node).
 const collect = `(() => {
   const sel = 'a[href], button, input:not([type=hidden]), select, textarea, [role=button], [role=link], [role=tab], [role=menuitem], [role=checkbox], summary';
   const out = [];
@@ -117,10 +107,6 @@ const handlers = {
     return { clicked: [x, y] };
   },
   async eval({ expr }) { return { value: await page(expr) }; },
-  // The keyboard channel. Every act measured so far was a click; a controller
-  // that types has to get the *focus* right first, and the only truth about
-  // focus is document.activeElement. `type` sends real key events (keyDown with
-  // text, keyUp), not insertText, so page handlers see what a user typed.
   async type({ text = "", delay = 0 }) {
     for (const ch of text) {
       await send("Input.dispatchKeyEvent", { type: "keyDown", text: ch, key: ch });
@@ -145,9 +131,6 @@ const handlers = {
                text: (el.innerText || el.value || '').trim().slice(0, 40),
                box: [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)] }; })()`) };
   },
-  // Real pages can answer a click by opening a *new* tab, which is a real
-  // answer but not a change to location.href. Count page targets and close
-  // the extras, so "did the click do anything" is not URL-only.
   async targets() {
     const list = await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`)).json();
     return { pages: list.filter((t) => t.type === "page").map((t) => ({ id: t.id, url: t.url })) };

@@ -17,7 +17,6 @@ pub const B_CTX: u8 = 8;
 pub const B_LAMP: u8 = 16;
 pub const B_BOMB: u8 = 32;
 
-/// The seven buttons the adventure reads, as one byte.
 pub fn buttons(i: &Input) -> u8 {
     (if i.ult { B_LOCK } else { 0 })
         | (if i.dash { B_GUARD } else { 0 })
@@ -30,33 +29,25 @@ pub fn buttons(i: &Input) -> u8 {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Act {
     Free,
-    /// A slash: `Seat::n` is which of the three.
     Slash,
     Lunge,
     Spin,
     Roll,
-    /// A hop: `Seat::n` is 0 side, 1 back, 2 forward.
     Hop,
-    /// The jump attack coming down.
     Plunge,
     Hurt,
-    /// Holding an item overhead.
     Item,
     Down,
-    /// Over a pit and going down.
     Fall,
 }
 
-/// What a lock holds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Lock {
     Foe(u8),
     Prop(u8),
-    /// The Warden's lamp-heart.
     Boss,
 }
 
-/// What the context button would do just now.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Ctx {
     None,
@@ -100,39 +91,28 @@ pub enum Carry {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Seat {
-    /// Which seat this is.
     pub id: u8,
-    /// The tick of the run this knight sat down at (0: from the start).
     pub joined: u32,
     pub x: i32,
     pub y: i32,
-    /// Height off the ground while hopping, in `Q` pixels.
     pub z: i32,
     pub face: (i32, i32),
-    /// Quarter hearts.
     pub hp: u32,
     pub max_hp: u32,
     pub gems: u32,
     pub bombs: u32,
-    /// Ticks of flare left in the lantern.
     pub flame: u32,
-    /// Ticks left of an ember's flame carried to a brazier.
     pub taper: u32,
     pub act: Act,
     pub t: u32,
     pub n: u8,
-    /// Where the act carries the body each tick, in `Q` pixels.
     pub mv: (i32, i32),
-    /// A blow's push, a few ticks.
     pub push: (i32, i32),
     pub pusht: u8,
-    /// The next slash in the chain, and ticks left to start it.
     pub step: u8,
     pub chain: u32,
     pub queued: bool,
-    /// Ticks the sword button has been held.
     pub charge: u32,
-    /// Ticks the shield has been up (1 on the first), 0 when down.
     pub shield: u32,
     pub guard_cd: u32,
     pub lock: Option<Lock>,
@@ -140,27 +120,20 @@ pub struct Seat {
     pub unlock_t: u32,
     pub relock: u32,
     pub inv: u32,
-    /// Ticks left of the blink a hit leaves.
     pub ward: u32,
-    /// The knight's own hit-stop: a blade that landed holds its owner.
     pub freeze: u32,
     pub swing: u32,
     pub lamp: u32,
     pub lamp_cd: u32,
     pub carry: Carry,
     pub ctx: Ctx,
-    /// Sign being read, and how long it stays up.
     pub read: Option<(u8, u32)>,
-    /// The aim keys last tick, to catch a fresh press (cycling a lock).
     pub aim: (i8, i8),
     pub held: u8,
     pub safe: (i32, i32),
     pub cam: (i32, i32),
-    /// Revive progress while down.
     pub rev: u32,
-    /// Ticks the knight has been in no one's way: for the beep.
     pub beep: u32,
-    /// The item held up, while `Act::Item`.
     pub item: Option<Item>,
 }
 
@@ -214,7 +187,6 @@ impl Seat {
         }
     }
 
-    /// Whether every number is one a save or the wire may carry.
     pub fn valid(&self, id: u32, elapsed: u32, w: i32, h: i32) -> bool {
         u32::from(self.id) == id
             && self.joined <= elapsed
@@ -256,7 +228,6 @@ impl Seat {
             && self.read.is_none_or(|(_, t)| t <= READ_TICKS)
     }
 
-    /// Standing and awake: can be hurt, can hurt, can be a foe's target.
     pub fn up(&self) -> bool {
         self.hp > 0 && self.act != Act::Down
     }
@@ -265,7 +236,6 @@ impl Seat {
         self.lamp >= FLARE_AFTER && self.flame > 0 && self.act != Act::Down
     }
 
-    /// Fully wound for the spin.
     pub fn charged(&self) -> bool {
         self.charge >= CHARGE_TICKS
     }
@@ -279,12 +249,10 @@ const SLASH_WIND: [u32; 3] = [2, 2, 4];
 const SLASH_ACTIVE: [u32; 3] = [3, 3, 4];
 const SLASH_REST: [u32; 3] = [6, 6, 12];
 const SLASH_REACH: [i32; 3] = [18, 18, 22];
-/// The cosine of each slash's half-angle, in `Q`.
 const SLASH_COS: [i32; 3] = [66, 66, -44];
 const SLASH_DAMAGE: [u32; 3] = [2, 2, 4];
 
 impl Session {
-    /// One tick of one knight.
     pub(super) fn step_seat(&mut self, id: u32, inp: Input, r: &Rules, ev: &mut Events) {
         let Some(mut k) = self.seats.remove(&id) else {
             return;
@@ -310,8 +278,6 @@ impl Session {
             k.read = None;
         }
         self.refill(&mut k, r);
-        // A blade that landed holds its owner a moment: the knight's own
-        // hit-stop, so six knights never freeze each other.
         if k.freeze > 0 {
             k.freeze -= 1;
             self.camera(&mut k, r);
@@ -345,8 +311,6 @@ impl Session {
         self.seats.insert(id, k);
     }
 
-    /// The lantern's flame comes back: slowly anywhere, quickly at a
-    /// resting brazier.
     fn refill(&self, k: &mut Seat, r: &Rules) {
         if !self.lantern_owned() {
             return;
@@ -362,7 +326,6 @@ impl Session {
             .props
             .iter()
             .any(|p| p.kind == Pk::Rest && dist(p.x - k.x, p.y - k.y) < BRAZIER_R * Q);
-        // A friend's flare kindles yours: stand by it and the tank fills.
         let kindled = self.seats.values().any(|o| {
             o.id != k.id && o.flaring() && dist(o.x - k.x, o.y - k.y) < KINDLE_R * Q
         });
@@ -382,7 +345,6 @@ impl Session {
         self.inv.lantern
     }
 
-    /// Things that go on whatever the knight is doing.
     fn upkeep(&mut self, k: &mut Seat, ev: &mut Events) {
         if k.act == Act::Free && k.z == 0 && !self.pit(k.x, k.y) {
             let (tx, ty) = (tile_of(k.x), tile_of(k.y));
@@ -392,7 +354,6 @@ impl Session {
                 k.safe = (k.x, k.y);
             }
         }
-        // The heart beep: a low knight chirps now and then.
         if k.up() && k.hp <= LOW_HP {
             k.beep = (k.beep + 1) % (BEEP_EVERY * 4);
             if k.beep % BEEP_EVERY == 1 {
@@ -408,9 +369,6 @@ impl Session {
         };
     }
 
-    // ----- lock-on -------------------------------------------------------
-
-    /// Everything a lock may hold: where it is, and whether it is a foe.
     fn targets(&self) -> Vec<(Lock, i32, i32, bool)> {
         let mut out = Vec::new();
         for f in &self.foes {
@@ -444,14 +402,11 @@ impl Session {
         }
     }
 
-    /// Whether the knight's lock is of something still there and in reach.
     fn lock_holds(&self, k: &Seat, l: Lock, r: &Rules) -> bool {
         self.lock_point(l)
             .is_some_and(|(x, y)| dist(x - k.x, y - k.y) <= r.lock * 3 / 2)
     }
 
-    /// The nearest thing in front of the knight, a foe before a switch; with
-    /// nothing in front, the nearest at all.
     fn pick_target(&self, k: &Seat, r: &Rules, skip: Option<Lock>) -> Option<Lock> {
         let mut best: Option<((u8, u8, i32), Lock)> = None;
         for (l, x, y, hostile) in self.targets() {
@@ -471,8 +426,6 @@ impl Session {
         best.map(|(_, l)| l)
     }
 
-    /// The next target in the direction the knight pressed, as seen from the
-    /// current one: up and the lock jumps to what is above it on the screen.
     fn cycle_target(&self, k: &Seat, r: &Rules, dir: (i32, i32)) -> Option<Lock> {
         let cur = k.lock.and_then(|l| self.lock_point(l))?;
         let want = unit(dir.0, dir.1);
@@ -517,8 +470,6 @@ impl Session {
             k.lock = None;
             k.relock = RELOCK;
         }
-        // A fresh press of an aim key while locked cycles to the next target
-        // that way.
         let fresh = (inp.aim_x != 0 || inp.aim_y != 0) && (inp.aim_x, inp.aim_y) != k.aim;
         k.aim = (inp.aim_x, inp.aim_y);
         if k.lock.is_some() && fresh {
@@ -530,7 +481,6 @@ impl Session {
                 if let Some(l) = self.pick_target(k, r, None) {
                     self.take_lock(k, l, ev);
                 } else if press & B_LOCK != 0 {
-                    // Nothing to lock: the view squares up behind the knight.
                     k.unlock_t = EASE_OUT;
                 }
             } else {
@@ -543,8 +493,6 @@ impl Session {
         k.lock = Some(l);
         k.lock_t = 0;
         if let Some((x, y)) = self.lock_point(l) {
-            // The wick-spark settles over the target, and the knight swings
-            // round to face it at once.
             self.fx(Fxk::Tick, x, y, 0);
             let f = unit(x - k.x, y - k.y);
             if f != (0, 0) {
@@ -553,8 +501,6 @@ impl Session {
         }
         ev.sound("card_pickup");
     }
-
-    // ----- facing and walking -------------------------------------------
 
     fn face_and_move(&mut self, k: &mut Seat, inp: &Input, r: &Rules) {
         let walking = (i32::from(inp.move_x), i32::from(inp.move_y));
@@ -600,8 +546,6 @@ impl Session {
         let _ = r;
     }
 
-    /// Walk about a locked target: the sideways part of the step goes round
-    /// it at the same distance, the rest closes or opens it.
     fn orbit(&mut self, k: &mut Seat, t: (i32, i32), v: (i32, i32)) {
         let (rx, ry) = (k.x - t.0, k.y - t.1);
         let len = dist(rx, ry);
@@ -611,9 +555,6 @@ impl Session {
         let rhat = unit(rx, ry);
         let that = (-rhat.1, rhat.0);
         let (mut radial, mut tangent) = (dot(v, rhat), dot(v, that));
-        // A keyboard cannot aim at a tangent: input that is mostly sideways
-        // to the foe is all sideways, and mostly toward or away is all that,
-        // so a held key really does circle.
         let speed = dist(v.0, v.1);
         if tangent.abs() * 10 >= speed * 8 {
             radial = 0;
@@ -633,8 +574,6 @@ impl Session {
         self.shove(k, to.0 - k.x, to.1 - k.y);
     }
 
-    /// Move a body by `(dx, dy)`, a whole axis at a time so it slides along
-    /// a wall; leans on a block it meets; falls into a pit it walks into.
     pub(super) fn shove(&mut self, k: &mut Seat, dx: i32, dy: i32) {
         let airborne = k.airborne() || matches!(k.act, Act::Roll | Act::Hop | Act::Plunge);
         let rr = KNIGHT_R;
@@ -661,7 +600,6 @@ impl Session {
         }
     }
 
-    /// A body pressing on a block: after a moment of leaning, it slides.
     fn lean(&mut self, k: &Seat, sx: i32, sy: i32) {
         let reach = (k.x + sx * (KNIGHT_R + 3 * Q), k.y + sy * (KNIGHT_R + 3 * Q));
         let Some(b) = self
@@ -672,8 +610,6 @@ impl Session {
             return;
         };
         let p = &mut self.props[b];
-        // Two for each tick leaned, one lost each tick not: a push is a
-        // push held for a moment.
         p.t = p.t.saturating_add(2);
         if p.t >= PUSH_LEAN {
             let way = match (sx, sy) {
@@ -713,8 +649,6 @@ impl Session {
         }
     }
 
-    // ----- the verbs ------------------------------------------------------
-
     #[allow(clippy::too_many_arguments)]
     fn verbs(
         &mut self,
@@ -726,7 +660,6 @@ impl Session {
         r: &Rules,
         ev: &mut Events,
     ) {
-        // The shield: held on the ground with a free arm.
         let can_guard = k.carry == Carry::Nothing && k.z == 0;
         if mask & B_GUARD != 0 && matches!(k.act, Act::Free) && can_guard && k.guard_cd == 0 {
             if k.shield == 0 {
@@ -739,7 +672,6 @@ impl Session {
             }
             k.shield = 0;
         }
-        // The sword button held builds the spin.
         if mask & B_SWORD != 0 && k.shield == 0 {
             k.charge = (k.charge + 1).min(255);
             if k.charge == CHARGE_TICKS {
@@ -749,8 +681,6 @@ impl Session {
         }
         let released = k.held_before_sword(mask);
         let _ = released;
-        // A swing's recovery gives way to a dodge or the shield: the knight
-        // is never locked into a blow while something is coming.
         if self.recovering(k) && (press & B_CTX != 0 || mask & B_GUARD != 0) {
             k.act = Act::Free;
             k.t = 0;
@@ -766,18 +696,15 @@ impl Session {
             Act::Plunge => self.plunging(id, k, r, ev),
             _ => {}
         }
-        // Letting the sword go ends the winding; a wound spin goes off.
         if mask & B_SWORD == 0 {
             if k.charged() && k.act == Act::Free && k.shield == 0 {
                 self.begin_spin(k, ev);
             }
             k.charge = 0;
         }
-        // The lantern.
         self.lantern(id, k, mask, press, r, ev);
     }
 
-    /// Whether a slash or a lunge has struck and is only coming back.
     fn recovering(&self, k: &Seat) -> bool {
         match k.act {
             Act::Slash => {
@@ -801,8 +728,6 @@ impl Session {
         ev: &mut Events,
     ) {
         if k.shield > 0 {
-            // A shield up trades the sword and the hop for a wall; E still
-            // meets the world.
             if press & B_CTX != 0 {
                 self.use_context(id, k, r, ev);
             }
@@ -836,8 +761,6 @@ impl Session {
             ev.sound("bomb_toss");
         }
     }
-
-    // ----- sword ----------------------------------------------------------
 
     fn begin_slash(&mut self, k: &mut Seat, step: u8, _r: &Rules, ev: &mut Events) {
         k.act = Act::Slash;
@@ -939,8 +862,6 @@ impl Session {
         let _ = mask;
     }
 
-    /// A swing's arc: every foe, pot, blade-cut thing and iron bolt inside
-    /// it is struck once. True when something was hurt.
     #[allow(clippy::too_many_arguments)]
     fn sweep(
         &mut self,
@@ -1011,7 +932,6 @@ impl Session {
         landed
     }
 
-    /// A lunge's line: from the knight out ahead, narrow and long.
     fn lunge_hit(&mut self, id: u32, k: &Seat, ev: &mut Events) -> bool {
         let seat = (id as usize - 1).min(5);
         let a = (k.x, k.y);
@@ -1045,10 +965,6 @@ impl Session {
         landed
     }
 
-    // ----- dodges ---------------------------------------------------------
-
-    /// E with nothing to do: a roll along the walk, or, locked on, the hop
-    /// the stick asks for.
     fn begin_dodge(&mut self, k: &mut Seat, inp: &Input, ev: &mut Events) {
         let walk = unit(i32::from(inp.move_x), i32::from(inp.move_y));
         let locked = k.lock.and_then(|l| self.lock_point(l));
@@ -1108,13 +1024,11 @@ impl Session {
             let (mx, my) = k.mv;
             self.shove(k, mx, my);
         }
-        // A parabola, peaking mid-hop.
         k.z = (HOP_HEIGHT * Q * 4 * t * (total - t) / (total * total)).max(0);
         if (HOP_IFRAMES.0..=HOP_IFRAMES.1).contains(&k.t) {
             k.inv = k.inv.max(1);
         }
         if press & B_SWORD != 0 && k.z > 2 * Q {
-            // The jump attack: straight down on whatever is below.
             k.act = Act::Plunge;
             k.t = 0;
             k.mv = (0, 0);
@@ -1139,7 +1053,6 @@ impl Session {
         k.inv = k.inv.max(1);
         k.z = (k.z - PLUNGE_FALL * Q).max(0);
         if k.z == 0 {
-            // Down: the blow lands in a ring about the knight.
             let hit = self.sweep(id, k, PLUNGE_REACH, -Q, PLUNGE_DAMAGE, true, ev);
             self.fx(Fxk::Ring, k.x, k.y, 24);
             ev.sound("rock_land");
@@ -1156,8 +1069,6 @@ impl Session {
         }
     }
 
-    // ----- the lantern ----------------------------------------------------
-
     fn lantern(&mut self, id: u32, k: &mut Seat, mask: u8, _press: u8, r: &Rules, ev: &mut Events) {
         if !self.lantern_owned() || !matches!(k.act, Act::Free | Act::Slash | Act::Hop) {
             k.lamp = 0;
@@ -1171,14 +1082,12 @@ impl Session {
             if k.flaring() {
                 k.flame = k.flame.saturating_sub(1);
                 if k.flame == 0 {
-                    // Sputters out: the knight cannot flare again for a bit.
                     k.lamp = 0;
                     k.lamp_cd = SPUTTER;
                     ev.sound("mana_empty");
                 }
             }
         } else {
-            // A tap throws a bolt of light on the release.
             if k.lamp > 0 && k.lamp < FLARE_AFTER && k.lamp_cd == 0 {
                 let cost = r.flame / BOLT_COST_PARTS;
                 if k.flame >= cost {
@@ -1209,18 +1118,11 @@ impl Session {
         let _ = r;
     }
 
-    // ----- camera -----------------------------------------------------------
-
-    /// The view eases to the knight, leaning toward a lock; a fresh lock
-    /// swings it in fast, a let-go eases it back slowly.
     fn camera(&mut self, k: &mut Seat, _r: &Rules) {
         let mut target = (k.x, k.y);
         if let Some((tx, ty)) = k.lock.and_then(|l| self.lock_point(l)) {
             target = (k.x + (tx - k.x) * LOCK_LEAN / 100, k.y + (ty - k.y) * LOCK_LEAN / 100);
         }
-        // The Warden stands head and shoulders over a knight: while it is up
-        // and not the lock, the view leans toward it so its body clears the
-        // top of the picture (and the bar), up to BOSS_PULL pixels.
         if !matches!(k.lock, Some(Lock::Boss))
             && let Some(w) = self.boss.as_ref().filter(|w| w.hp > 0 && w.st != Ws::Asleep)
         {
@@ -1230,7 +1132,6 @@ impl Session {
             target.0 += (i64::from(dx) * i64::from(pull) / i64::from(d)) as i32;
             target.1 += (i64::from(dy) * i64::from(pull) / i64::from(d)) as i32;
         }
-        // A door or a switch that came right: every view looks at it a moment.
         let mut cued = false;
         if let Some((cx, cy, t)) = self.cue {
             let on = if t > CUE_TICKS - 8 {
@@ -1265,8 +1166,6 @@ impl Session {
 }
 
 impl Seat {
-    /// Whether the sword button was held a tick ago (unused by the verbs,
-    /// kept so the release rule reads in one place).
     fn held_before_sword(&self, mask: u8) -> bool {
         mask & B_SWORD != 0
     }

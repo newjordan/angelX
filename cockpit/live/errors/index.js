@@ -1,5 +1,3 @@
-// A failed provider request becomes {class, retry, delay_ms}. The host reduces
-// the error to flags and numbers; errors.bend owns the policy.
 const policy = require('./errors.compiled')
 const SHAPES = { status: 'Status', transport: 'Transport', stream: 'Stream', empty: 'Empty', other: 'Other' }
 const CLASSES = { Permanent: 'permanent', Transient: 'transient', Quota: 'quota', Context: 'context' }

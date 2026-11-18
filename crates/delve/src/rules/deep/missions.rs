@@ -19,10 +19,7 @@
 use super::*;
 use crate::realm::Spoil;
 
-/// The most signs laid on one floor.
 pub const MOST_SIGNS: usize = 16;
-/// How near (tiles) a knight stands to light a lamp, pick up a relic or
-/// speak to the lost.
 pub const REACH: f32 = 1.6;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -35,8 +32,6 @@ pub enum Errand {
 }
 
 impl Errand {
-    /// The errand's sign, as the art names it: the lamp, the relic, the
-    /// lost one (none for a hunt).
     pub fn sign(self) -> Option<SignKind> {
         match self {
             Errand::Beacons => Some(SignKind::Lamp),
@@ -46,13 +41,10 @@ impl Errand {
         }
     }
 
-    /// Whether its sign is laid on the `k`th floor of the chapter (1 to 9).
     fn laid_on(self, k: u32) -> bool {
         match self {
             Errand::Beacons => k % 2 == 1,
             Errand::Gather => true,
-            // The lost wander: first on the fourth floor, then the sixth
-            // and the eighth for a party that missed them.
             Errand::Rescue => matches!(k, 4 | 6 | 8),
             Errand::Slay(_) => false,
         }
@@ -67,14 +59,11 @@ pub enum SignKind {
     Lost,
 }
 
-/// An errand a village asked.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Mission {
     pub errand: Errand,
-    /// The village that asked: its floor.
     pub village: u32,
     pub culture: Culture,
-    /// Who asked, by their place among the six who speak.
     pub giver: u8,
     pub have: u16,
     pub need: u16,
@@ -87,7 +76,6 @@ impl Mission {
         self.have >= self.need
     }
 
-    /// The tracker's line: what, and how far along.
     pub fn line(&self) -> String {
         let (lamp, relic, lost) = self.culture.sign_words();
         let what = match self.errand {
@@ -100,43 +88,31 @@ impl Mission {
     }
 }
 
-/// A hunted kind, as a tracker says it.
 pub fn foe_name(kind: EnemyKind) -> String {
     let name = format!("{kind:?}").to_uppercase();
     if name.ends_with('S') { name } else { format!("{name}S") }
 }
 
-/// One of an errand's signs on this floor: where it stands, and whether
-/// it is done.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sign {
     pub kind: SignKind,
-    /// The errand it counts for (an index into the realm's missions).
     pub mission: u8,
     pub room: usize,
-    /// Its tile in that room.
     pub col: u8,
     pub row: u8,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub done: bool,
-    /// The tick it was done, for its flare.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub at: Option<u64>,
     pub culture: Culture,
 }
 
 impl Sign {
-    /// Its point in arena units: the middle of its tile.
     pub fn point(&self) -> (f32, f32) {
         ((f32::from(self.col) + 0.5) * TILE_UNITS, (f32::from(self.row) + 0.5) * TILE_UNITS)
     }
 }
 
-/// Where on `floor` a sign may stand, in an order of the floor's own: a
-/// room with a fight or a passage in it (never the entrance, the
-/// guardian's hall or a side room), as the room and a tile near the
-/// middle of it to search out from; on an open floor, its map, near the
-/// middle of each chamber but the arrival's and the guardian's.
 pub(super) fn hosts(floor: &Floor, salt: u64) -> Vec<(usize, (i32, i32))> {
     let mut places: Vec<(usize, (i32, i32))> = match &floor.open {
         Some(open) => open
@@ -158,8 +134,6 @@ pub(super) fn hosts(floor: &Floor, salt: u64) -> Vec<(usize, (i32, i32))> {
     places
 }
 
-/// A clear tile in `room` for a sign near `(cx, cy)`: the first floor tile
-/// out along a spiral from a point of the salt's own beside it.
 pub(super) fn spot(room: &Room, (cx, cy): (i32, i32), salt: u64) -> Option<(u8, u8)> {
     let (cols, rows) = (room.cols as i32, room.rows as i32);
     let cx = cx + (mix(salt) % 7) as i32 - 3;
@@ -188,7 +162,6 @@ pub(super) fn spot(room: &Room, (cx, cy): (i32, i32), salt: u64) -> Option<(u8, 
 }
 
 impl Run {
-    /// Lay the open errands' signs on floor `floor`, as its chapter asks.
     pub(super) fn lay_signs(&mut self, floor: u32) {
         let Some(village) = errands_from(floor) else {
             return;
@@ -218,8 +191,6 @@ impl Run {
         }
     }
 
-    /// One tick of the signs in the room the party stands in: a relic
-    /// walked over, a lamp lit or the lost spoken to with E.
     pub(super) fn tick_signs(&mut self, deep: &mut Descent, pressed: u8) {
         let reach = REACH * TILE_UNITS;
         let mut done = Vec::new();
@@ -263,7 +234,6 @@ impl Run {
         }
     }
 
-    /// A monster of `kind` felled: a hunt asked for it counts it.
     pub(in crate::rules) fn deep_kill(&mut self, kind: EnemyKind) {
         let Some(floor) = self.deep_floor() else {
             return;
@@ -280,8 +250,6 @@ impl Run {
         }
     }
 
-    /// Errand `index` gains `n`; finished, it pays the party and its
-    /// village remembers.
     pub(super) fn count_errand(&mut self, index: usize, n: u16, floor: u32) {
         let Some(m) = self.home.deep.missions.get_mut(index) else {
             return;
@@ -297,7 +265,6 @@ impl Run {
         {
             town.deeds.push(errand);
         }
-        // A village of friends pays more (`road`).
         let friend = self.home.deep.road.tier(culture) == road::Tier::Friend;
         let gold = purse(floor) + if friend { road::FRIEND_PURSE } else { 0 };
         for hero in self.players.values_mut().filter(|h| h.hp > 0) {

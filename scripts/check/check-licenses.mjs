@@ -1,23 +1,5 @@
 #!/usr/bin/env node
-// Third-party license gate.
-//
-// The release evidence already proves that every dependency *has* license
-// metadata. This gate answers the different question: is the license itself one
-// we may redistribute without obligation? It is default-deny — an identifier
-// the allowlist does not name fails the gate — so a new copyleft or unfamiliar
-// license stops the release instead of shipping unnoticed.
-//
 // SPDX expression handling, so a disjunction is not mistaken for a violation:
-//   OR    passes when either side passes   (Apache-2.0 OR GPL-2.0-only passes)
-//   AND   passes only when both sides pass (MIT AND GPL-2.0-only fails)
-//   WITH  passes only when the base license and the named exception are allowed
-//   ()    groups
-// The legacy `A/B` disjunction that crates and npm emit is read as OR.
-//
-// Offline and dependency-free (stdlib + `cargo metadata`). Exit codes:
-//   0  every dependency is under an allowed license
-//   1  a dependency is denied, unrecognized, or carries no license
-//   2  the check could not run
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -25,8 +7,6 @@ import { pathToFileURL } from 'node:url'
 
 const SCRIPT = 'check-licenses'
 
-// Permissive licenses: redistribute freely, and the only obligations are the
-// notice retention the release artifact already performs.
 export const ALLOWED_LICENSES = new Set(
   [
     '0bsd',
@@ -49,16 +29,9 @@ export const ALLOWED_LICENSES = new Set(
   ].map((id) => id.toLowerCase()),
 )
 
-// Exceptions that leave a permissive base license permissive. `Apache-2.0 WITH
-// LLVM-exception` is Apache-2.0 with a GCC-style runtime-linking carve-out.
 export const ALLOWED_EXCEPTIONS = new Set(['llvm-exception'])
 
 // Licenses that are recognized and deliberately refused. Naming them separately
-// from an unknown identifier keeps the failure message useful: this one needs a
-// policy decision, that one needs a human to read a license they have never
-// seen. File-level copyleft (MPL-2.0, CDDL, EPL) sits here too — it is only
-// ever one file away from a source-disclosure obligation, so including it is a
-// deliberate change to this list, not an accident.
 export const REFUSED_LICENSES = new Set(
   [
     'agpl-1.0',
@@ -107,11 +80,11 @@ export function tokenize(expression) {
   return spaced.split(/\s+/).filter(Boolean)
 }
 
-/** Parse tokens into an expression tree: {kind:'id'|'with'|'or'|'and'}. */
 export function parseExpression(tokens) {
   let at = 0
   const peek = () => tokens[at]
   const take = () => tokens[at++]
+  const structural = (token) => /^(?:\(|\)|AND|OR|WITH)$/i.test(token)
 
   function parseFactor() {
     const token = peek()
@@ -122,11 +95,13 @@ export function parseExpression(tokens) {
       if (take() !== ')') throw new Error('unbalanced parenthesis in SPDX expression')
       return inner
     }
+    if (structural(token)) throw new Error(`expected SPDX license identifier, found ${token}`)
     const id = take()
     if (peek() && peek().toUpperCase() === 'WITH') {
       take()
       const exception = take()
       if (exception === undefined) throw new Error(`WITH without an exception after ${id}`)
+      if (structural(exception)) throw new Error(`expected SPDX exception identifier, found ${exception}`)
       return { kind: 'with', id, exception }
     }
     return { kind: 'id', id }
@@ -156,10 +131,6 @@ export function parseExpression(tokens) {
   return tree
 }
 
-/**
- * Decide one expression. `denied` and `unknown` collect the identifiers that
- * made it fail, so the report can say which arm of a disjunction is at fault.
- */
 export function evaluateExpression(expression) {
   const denied = new Set()
   const unknown = new Set()
@@ -185,8 +156,6 @@ export function evaluateExpression(expression) {
         return baseOk
       }
       case 'or':
-        // Both arms are evaluated: a disjunction reports every arm it could not
-        // use, even when the other arm carries the result.
         return [decide(node.left), decide(node.right)].some(Boolean)
       case 'and':
         return [decide(node.left), decide(node.right)].every(Boolean)
@@ -199,11 +168,6 @@ export function evaluateExpression(expression) {
   return { allowed, denied: [...denied].sort(), unknown: [...unknown].sort() }
 }
 
-/**
- * Audit dependency records. Each record is `{name, version, license}`; a record
- * without a license is a violation of its own because nothing can be checked.
- * Returns violations and a per-expression tally for the summary.
- */
 export function auditLicenses(records) {
   const violations = []
   const byExpression = new Map()
@@ -228,8 +192,6 @@ export function auditLicenses(records) {
     try {
       result = evaluateExpression(license)
     } catch (error) {
-      // A malformed expression is a violation of this dependency, not a reason
-      // to abandon the run: one unreadable string must not hide the rest.
       countExpression(license, 'refused')
       violations.push({ ...record, kind: 'unparsable', detail: error.message })
       continue
@@ -250,7 +212,6 @@ export function auditLicenses(records) {
   return { violations, byExpression, inspected: records.length }
 }
 
-/** Every Rust package cargo resolved for the supported target. */
 export function cargoRecords(repoRoot) {
   const text = execFileSync(
     'cargo',
@@ -276,11 +237,16 @@ export function cargoRecords(repoRoot) {
   }))
 }
 
-/** Every npm package in the lockfile. */
 export function npmRecords(repoRoot) {
   const lock = JSON.parse(readFileSync(join(repoRoot, 'package-lock.json'), 'utf8'))
-  return Object.entries(lock.packages ?? {})
-    .filter(([path]) => path !== '')
+  const packages = lock.packages ?? {}
+  return Object.entries(packages)
+    .filter(([path, meta]) => {
+      if (path === '') return false
+      return !(meta.link === true && typeof meta.resolved === 'string' &&
+        meta.resolved !== '' && Object.hasOwn(packages, meta.resolved) &&
+        packages[meta.resolved] && packages[meta.resolved].link !== true)
+    })
     .map(([path, meta]) => ({
       name: path.replace(/^.*node_modules\//, ''),
       version: meta.version ?? '',

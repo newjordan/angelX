@@ -19,7 +19,6 @@ fn px((c, r, w, h): Rect) -> (i32, i32, i32, i32) {
     (c * TILE, r * TILE, w * TILE, h * TILE)
 }
 
-/// A plank shelf of crocks and jars against the wall.
 fn crocks(cv: &mut Img, (c, r, w, h): Rect, seed: u32) {
     let (x, y, w, h) = px((c, r, w, h));
     for (k, sy) in [y + h / 2 - 1, y + h - 3].into_iter().enumerate() {
@@ -39,24 +38,17 @@ fn crocks(cv: &mut Img, (c, r, w, h): Rect, seed: u32) {
     cv.line(x + w - 2, y, x + w - 2, y + h - 1, 'B');
 }
 
-/// Dark iron, for pots, anvils and tongs.
 pub(super) const IRON: &[char] = &['K', 'X', 'g', 'j', 'G', 'J'];
-/// Tanned leather, for the bellows.
 pub(super) const LEATHER: &[char] = &['n', 'b', 'I', 'B', 'p', 'P', 'r'];
-/// Goblin hide.
 pub(super) const HIDE: &[char] = &['D', 'F', 'E', 'l', 'm', 'A', 'M'];
-/// Linen: the apron, the toque.
 pub(super) const LINEN: &[char] = &['G', 'J', 'h', 'i', 'H'];
-/// Fresh-cut coal.
 pub(super) const COAL: &[char] = &['K', 'K', 'X', 'g', 'j'];
-/// A witch's cloak: dark, cool.
 pub(super) const CLOAK: &[char] = &['K', 's', 'x', 'S', 'u'];
 
 pub(super) fn all(_: i32, _: i32) -> bool {
     true
 }
 
-/// A fire of split logs, flames dancing on the tick.
 pub(super) fn logs(cv: &mut Img, cx: i32, y: i32, tick: u32) {
     for (dx, dy) in [(-7, 0), (2, 1), (-3, -1)] {
         cv.rect(cx + dx, y + dy, 9, 3, 'B');
@@ -73,18 +65,14 @@ pub(super) fn logs(cv: &mut Img, cx: i32, y: i32, tick: u32) {
     }
 }
 
-/// An iron pot (or cauldron) on its fire; `stew` the surface's inks, and
-/// what bobs in it.
 pub(super) fn cauldron(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), stew: (char, char, char), tick: u32) {
     let (cx, cy) = (x + w / 2, y + h / 2);
     mat::shadow(cv, (cx as f32 + 5.0, (cy + 15) as f32), (17.0, 3.5), &all);
     logs(cv, cx, cy + 13, tick);
-    // The belly, lit from the north-west, and three stubby feet.
     mat::lobe(cv, (cx as f32, (cy + 2) as f32), (16.0, 11.0), IRON, 41, 3.0, 0.0, &all);
     for fx in [cx - 10, cx + 9] {
         cv.rect(fx, cy + 10, 3, 4, 'X');
     }
-    // The rim and the stew.
     cv.ellipse(cx as f32, (cy - 7) as f32, 16.0, 5.0, 'J');
     cv.ellipse(cx as f32, (cy - 6) as f32, 15.0, 4.0, 'g');
     cv.ellipse(cx as f32, (cy - 6) as f32, 13.0, 3.0, stew.0);
@@ -94,10 +82,8 @@ pub(super) fn cauldron(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), stew: (
         cv.put(bx, by, if k % 2 == 0 { stew.1 } else { stew.2 });
         cv.put(bx + 1, by, stew.1);
     }
-    // Two lugs and the ladle's hook.
     cv.rect(cx - 18, cy - 6, 3, 3, 'X');
     cv.rect(cx + 16, cy - 6, 3, 3, 'X');
-    // Steam, tonal.
     for k in 0..3 {
         let sy = cy - 13 - ((tick / 4 + k * 5) % 12) as i32;
         cv.put(cx - 6 + k as i32 * 6, sy, 'G');
@@ -105,18 +91,15 @@ pub(super) fn cauldron(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), stew: (
     }
 }
 
-/// A trestle table of boards with a bench either side, laid for supper.
 pub(super) fn table(cv: &mut Img, (c, r, w, h): Rect, seed: u32) {
     let (x, y, w, h) = px((c, r, w, h));
     mat::shadow(cv, ((x + w / 2 + 4) as f32, (y + h + 5) as f32), (w as f32 * 0.5, 3.0), &all);
-    // Benches, then the top over them.
     mat::boards(cv, (x + 2, y - 4, w - 4, 3), false, seed ^ 1);
     mat::boards(cv, (x + 2, y + h + 1, w - 4, 3), false, seed ^ 2);
     mat::boards(cv, (x, y, w, h), false, seed);
     for lx in [x + 3, x + w - 5] {
         cv.rect(lx, y + h, 2, 4, 'b');
     }
-    // Trenchers, mugs, a loaf and a candle stub.
     for k in 0..(w / 16) {
         let tx = x + 6 + k * 16;
         cv.ellipse(tx as f32, (y + 7) as f32, 4.0, 2.0, 'G');
@@ -129,7 +112,6 @@ pub(super) fn table(cv: &mut Img, (c, r, w, h): Rect, seed: u32) {
     cv.put(x + w / 2, y + 1, 'a');
 }
 
-/// Bookshelves: spines in timber and stone inks.
 fn shelves(cv: &mut Img, (c, r, w, h): Rect) {
     let (x, y, w, h) = px((c, r, w, h));
     cv.rect(x, y, w, h, 'b');
@@ -144,12 +126,9 @@ fn shelves(cv: &mut Img, (c, r, w, h): Rect) {
     cv.line(x, y + h - 1, x + w - 1, y + h - 1, 'r');
 }
 
-/// A lectern and its open book: unread, read (a quill laid in it), or
-/// gone (a mimic took it, torn pages left). A mimic breathes now and then.
 fn lectern(cv: &mut Img, (c, r): (i32, i32), state: u8, bob: bool) {
     let (x, y) = (c * TILE, r * TILE);
     mat::shadow(cv, ((x + 11) as f32, (y + 16) as f32), (6.0, 1.5), &all);
-    // The stand: a post on a cross foot, a sloped desk.
     cv.rect(x + 7, y + 7, 3, 9, 'B');
     cv.line(x + 7, y + 7, x + 7, y + 15, 'r');
     cv.rect(x + 3, y + 14, 11, 2, 'b');
@@ -163,7 +142,6 @@ fn lectern(cv: &mut Img, (c, r): (i32, i32), state: u8, bob: bool) {
             }
         }
         _ => {
-            // Open pages either side of the spine, a ribbon hanging.
             let top = y - 3 - lift;
             cv.rect(x + 1, top, 7, 6, 't');
             cv.rect(x + 9, top, 7, 6, 'T');
@@ -176,7 +154,6 @@ fn lectern(cv: &mut Img, (c, r): (i32, i32), state: u8, bob: bool) {
             }
             cv.line(x + 8, top + 6, x + 9, top + 9, '7');
             if state == 1 {
-                // Read: a quill laid across it.
                 cv.line(x + 4, top + 6, x + 13, top - 2, 'h');
                 cv.put(x + 13, top - 3, 'i');
             }
@@ -184,9 +161,6 @@ fn lectern(cv: &mut Img, (c, r): (i32, i32), state: u8, bob: bool) {
     }
 }
 
-/// A great leather bellows, nozzle toward the forge: two hinged boards,
-/// a pleated leather bag between, handles at the wide end. Plumped, or
-/// squashed flat just after a pump. `east` mirrors it.
 fn bellows_bag(cv: &mut Img, (c, r, w, h): Rect, squashed: bool, east: bool) {
     let (x0, y, w, h) = px((c, r, w, h));
     let mid = y + h / 2;
@@ -196,7 +170,6 @@ fn bellows_bag(cv: &mut Img, (c, r, w, h): Rect, squashed: bool, east: bool) {
     let (ox, om) = (6, h / 2 + 8);
     let lip = if squashed { 5 } else { 13 };
     let _ = open;
-    // The leather between the boards, lit from above, pleated in folds.
     for k in 0..span {
         let g = lip * (span - k) / span + 1;
         for dy in -g + 1..g {
@@ -206,7 +179,6 @@ fn bellows_bag(cv: &mut Img, (c, r, w, h): Rect, squashed: bool, east: bool) {
             im.put(ox + k, om + dy, mat::pick(LEATHER, i));
         }
     }
-    // The boards, tapering to the nozzle: lit above, dark below.
     for k in 0..span {
         let g = lip * (span - k) / span + 1;
         im.put(ox + k, om - g, 'r');
@@ -214,7 +186,6 @@ fn bellows_bag(cv: &mut Img, (c, r, w, h): Rect, squashed: bool, east: bool) {
         im.put(ox + k, om + g, 'b');
         im.put(ox + k, om + g + 1, 'B');
     }
-    // The brass nozzle and the handles.
     im.rect(ox + span, om - 2, 9, 4, 'o');
     im.line(ox + span, om - 2, ox + span + 8, om - 2, 'T');
     im.rect(ox - 6, om - lip - 3, 7, 3, 'B');
@@ -225,7 +196,6 @@ fn bellows_bag(cv: &mut Img, (c, r, w, h): Rect, squashed: bool, east: bool) {
     cv.stamp(&im, if east { x0 - 4 } else { x0 - 6 }, mid - om);
 }
 
-/// An anvil on its stump: the horn west, the heel east, a hammer on it.
 pub(super) fn anvil(cv: &mut Img, x: i32, foot: i32) {
     mat::shadow(cv, ((x + 4) as f32, foot as f32), (13.0, 3.0), &all);
     mat::lobe(cv, (x as f32, (foot - 4) as f32), (8.0, 5.0), ramp::TIMBER, 71, 2.0, 0.0, &all);
@@ -238,12 +208,10 @@ pub(super) fn anvil(cv: &mut Img, x: i32, foot: i32) {
         cv.line(x - 10 - k, top + 1 + k / 3, x - 10 - k, top + 3, 'g');
     }
     cv.put(x - 16, top + 2, 'J');
-    // A hammer laid on the face.
     cv.line(x - 2, top - 2, x + 9, top - 4, 'r');
     cv.rect(x - 5, top - 4, 4, 3, 'X');
 }
 
-/// A quench trough: a boarded box of dark water, tongs across it.
 pub(super) fn trough(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), tick: u32) {
     mat::shadow(cv, ((x + w / 2 + 4) as f32, (y + h + 2) as f32), (w as f32 * 0.5, 3.0), &all);
     mat::boards(cv, (x, y + 8, w, h - 8), false, 81);
@@ -258,7 +226,6 @@ pub(super) fn trough(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), tick: u32
     cv.line(x + 7, y - 1, x + w - 6, y + 2, 'g');
 }
 
-/// A heap of coal with a shovel standing in it.
 pub(super) fn coal(cv: &mut Img, x: i32, foot: i32) {
     mat::shadow(cv, ((x + 6) as f32, foot as f32), (22.0, 4.0), &all);
     mat::lobe(cv, (x as f32, (foot - 6) as f32), (20.0, 8.0), COAL, 91, 2.0, 0.25, &all);
@@ -272,7 +239,6 @@ pub(super) fn coal(cv: &mut Img, x: i32, foot: i32) {
     cv.rect(x + 5, foot - 11, 7, 4, 'j');
 }
 
-/// A skull, lit, with its sockets.
 fn skull(cv: &mut Img, x: i32, y: i32) {
     mat::lobe(cv, (x as f32, (y - 1) as f32), (3.5, 3.0), super::props::BONE, (x * 7 + y) as u32, 2.0, 0.0, &all);
     cv.put(x - 1, y - 1, 'k');
@@ -280,8 +246,6 @@ fn skull(cv: &mut Img, x: i32, y: i32) {
     cv.line(x - 1, y + 2, x + 1, y + 2, 'G');
 }
 
-/// One bone domino of the line, stood on end with its pips, or fallen the
-/// way the line runs.
 fn domino(cv: &mut Img, i: usize, fallen: bool) {
     let (c, r) = PATH[i];
     let (x, y) = (c * TILE + TILE / 2, r * TILE + TILE / 2);
@@ -294,12 +258,9 @@ fn domino(cv: &mut Img, i: usize, fallen: bool) {
     }
 }
 
-/// A labelled glass jar: its spoil inside (a bone, a wax candle, an ore
-/// lump), a cork in it, its name on a paper label. Feet at `(x, y)`.
 fn jar(cv: &mut Img, x: i32, y: i32, j: usize, word: Option<&str>) {
     mat::shadow(cv, ((x + 4) as f32, y as f32), (11.0, 2.5), &all);
     let (top, bottom) = (y - 26, y - 1);
-    // The glass: a dark inside, a pale rim, a lit edge on the north-west.
     for yy in top + 3..=bottom {
         let half = if yy < top + 6 { 8 } else { 11 };
         cv.line(x - half + 1, yy, x + half - 1, yy, 's');
@@ -309,10 +270,8 @@ fn jar(cv: &mut Img, x: i32, y: i32, j: usize, word: Option<&str>) {
     cv.line(x - 10, bottom, x + 10, bottom, 'u');
     cv.line(x - 8, top + 3, x + 8, top + 3, 'v');
     cv.line(x - 9, top + 7, x - 9, bottom - 3, 'V');
-    // The cork.
     cv.rect(x - 5, top, 11, 4, 'o');
     cv.line(x - 5, top, x + 5, top, 't');
-    // What is inside.
     match j {
         0 => {
             cv.line(x - 6, top + 15, x + 5, top + 9, 'V');
@@ -334,7 +293,6 @@ fn jar(cv: &mut Img, x: i32, y: i32, j: usize, word: Option<&str>) {
             cv.put(x + 2, top + 14, 'Q');
         }
     }
-    // The label.
     if let Some(word) = word {
         let lw = super::super::ink::text_width(word) + 4;
         super::super::chrome::shaped(cv, (x - lw / 2, bottom - 9, lw, 9), &[1], super::super::chrome::Tone::PAINTED, false);
@@ -342,8 +300,6 @@ fn jar(cv: &mut Img, x: i32, y: i32, j: usize, word: Option<&str>) {
     }
 }
 
-/// A spoil in the air over a knight: the bone, the candle or the ore lump,
-/// on a dark disc so it reads against anything.
 fn token(cv: &mut Img, x: i32, y: i32, j: usize) {
     cv.ellipse(x as f32, y as f32, 6.0, 6.0, 'K');
     match j {
@@ -361,13 +317,9 @@ fn token(cv: &mut Img, x: i32, y: i32, j: usize) {
     }
 }
 
-/// Mother Mort: hooded, hunched, a hooked nose and a wart, knotted hands
-/// on a long spoon in the brew.
 fn mort(cv: &mut Img, x: i32, y: i32, tick: u32) {
     mat::shadow(cv, ((x + 4) as f32, y as f32), (9.0, 2.0), &all);
-    // The cloak, hunched forward.
     mat::lobe(cv, (x as f32, (y - 9) as f32), (9.0, 10.0), CLOAK, 111, 2.5, 0.1, &all);
-    // The hood and the face in it.
     mat::lobe(cv, ((x + 1) as f32, (y - 22) as f32), (7.0, 6.0), CLOAK, 112, 2.0, 0.0, &all);
     cv.rect(x - 1, y - 24, 6, 6, 'o');
     cv.rect(x, y - 23, 4, 4, 't');
@@ -377,9 +329,7 @@ fn mort(cv: &mut Img, x: i32, y: i32, tick: u32) {
     cv.put(x + 6, y - 18, 'R');
     cv.put(x - 1, y - 20, 'P');
     cv.line(x + 1, y - 19, x + 3, y - 19, 'b');
-    // Grey hair straggling out.
     cv.line(x - 3, y - 21, x - 4, y - 15, 'h');
-    // Hands on the spoon, stirring.
     let a = (tick / 5) as f32 * 0.7;
     let (sx, sy) = (x - 4 + (a.cos() * 3.0) as i32, y + 8);
     cv.line(x + 6, y - 14, sx, sy, 'r');
@@ -388,7 +338,6 @@ fn mort(cv: &mut Img, x: i32, y: i32, tick: u32) {
     cv.put(x + 6, y - 15, 'o');
 }
 
-/// Bell `b` on the beam, its rope down to where a ringer stands.
 fn bell(cv: &mut Img, b: usize, lit: bool, tick: u32) {
     let (c, r) = BELLS[b];
     let (x, top) = (c * TILE + TILE / 2, r * TILE - 6);
@@ -408,7 +357,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
             cv.stamp(&kit::barrels(), 19 * TILE + 8, TILE + 2);
             table(cv, (4, 9, 5, 1), 401);
             table(cv, (15, 9, 5, 1), 402);
-            // Hams on hooks over the tables.
             for hx in [6 * TILE, 17 * TILE] {
                 cv.line(hx, 7 * TILE, hx, 7 * TILE + 5, 'j');
                 cv.ellipse(hx as f32, (7 * TILE + 9) as f32, 3.0, 4.0, 'R');
@@ -418,7 +366,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
         RoomKind::Reading => {
             shelves(cv, (2, 1, 7, 1));
             shelves(cv, (15, 1, 7, 1));
-            // A long rug down the middle.
             let (x, y) = (10 * TILE + 4, 2 * TILE);
             cv.rect(x, y, 4 * TILE - 8, 11 * TILE, 'b');
             cv.frame(x + 2, y + 2, 4 * TILE - 12, 11 * TILE - 4, 'p');
@@ -429,7 +376,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
                     cv.line(dx - d, dy + 6 - d, dx + d, dy + 6 - d, 'B');
                 }
             }
-            // A sign on the wall: hush.
             super::super::chrome::inset_panel(cv, (11 * TILE, TILE + 2, 2 * TILE, 11), super::super::chrome::Tone::TIMBER);
             cv.text(11 * TILE + 4, TILE + 4, "SHHH", 'O');
             for &(c, r) in &[(3, 6), (20, 6)] {
@@ -441,7 +387,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
         RoomKind::Bellows => {
             let (x, y, w, h) = px(n::BELLOWS_FORGE);
             mat::block(cv, (x, y + 8, w, h - 8), ramp::STONE, false, 131);
-            // The hood rising to the flue.
             for k in 0..10 {
                 let inset = 8 + k;
                 for xx in x + inset..x + w - inset {
@@ -452,13 +397,11 @@ pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
             cv.rect(x + 14, y + 20, w - 28, 14, 'k');
             cv.line(x + 14, y + 20, x + w - 15, y + 20, 'J');
             lights.push(fire(x + w / 2, y + 30, 80.0, 0.4));
-            // The forge's company: an anvil, a quench trough, a coal heap.
             trough(cv, (8 * TILE, 10 * TILE - 2, 4 * TILE, 16), tick);
             anvil(cv, 14 * TILE, 11 * TILE + 4);
             coal(cv, 19 * TILE, 11 * TILE + 6);
         }
         RoomKind::Ossuary => {
-            // The chalk line the bones stand on.
             for i in 0..PATH.len() - 1 {
                 let (a, b) = (PATH[i], PATH[i + 1]);
                 let (x0, y0) = (a.0 * TILE + TILE / 2, a.1 * TILE + TILE / 2 + 7);
@@ -469,10 +412,8 @@ pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
                     }
                 }
             }
-            // The bone coffer: a block of old bone, skulls along its lid.
             let (x, y, w, h) = px(n::OSSUARY_COFFER);
             mat::block(cv, (x + 1, y + 4, w - 2, h - 4), super::props::BONE, false, 191);
-            // Iron bands and a lock: a coffer, not a wall.
             for bx in [x + 6, x + w - 8] {
                 cv.rect(bx, y + 4, 2, h - 4, 'X');
             }
@@ -487,7 +428,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
                     skull(cv, c * TILE + 5 + (k % 2) * 6, r * TILE + 6 + k * 7);
                 }
             }
-            // The gaps, chalked: a knight's outline on the flags.
             for &g in &GAPS {
                 let (c, r) = PATH[g];
                 let (gx, gy) = (c * TILE + 2, r * TILE + 1);
@@ -509,7 +449,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
             lights.push(fire(12 * TILE, 5 * TILE, 70.0, 0.4));
             crocks(cv, (2, 1, 5, 2), 331);
             crocks(cv, (17, 1, 5, 2), 332);
-            // Herbs drying on a line.
             cv.line(4 * TILE, 4 * TILE, 20 * TILE, 4 * TILE + 2, 'o');
             for k in 0..9 {
                 let hx = 4 * TILE + 6 + k * 28;
@@ -519,7 +458,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
         }
         RoomKind::GnomeParty => super::garden::scenery(cv, run, lights),
         RoomKind::Loft => {
-            // The beam the bells hang from, on two posts.
             for px_ in [3 * TILE, 21 * TILE - 4] {
                 mat::boards(cv, (px_, 2 * TILE - 8, 4, 4 * TILE), true, 201);
             }
@@ -544,26 +482,17 @@ pub(super) fn scenery(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
     }
 }
 
-/// Grubb the goblin cook. Stirring, he shows the room his hunched green
-/// back, apron strings tied in a bow and his long ears out either side of a
-/// tall toque. Turning, his ears prick and an eye comes round. Looking, he
-/// faces the room: yellow eyes, a long nose, a gappy grin, a stained apron
-/// and the ladle up.
 fn grubb(cv: &mut Img, x: i32, y: i32, state: Cook, tick: u32) {
     mat::shadow(cv, ((x + 5) as f32, y as f32), (11.0, 2.5), &all);
     let looking = state == Cook::Looking;
-    // Short legs and big feet.
     cv.rect(x - 5, y - 6, 4, 5, 'b');
     cv.rect(x + 2, y - 6, 4, 5, 'b');
     cv.rect(x - 7, y - 2, 6, 2, 'I');
     cv.rect(x + 2, y - 2, 6, 2, 'I');
-    // The body: a hunched lobe, the hump high on his back.
     mat::lobe(cv, (x as f32, (y - 13) as f32), (9.0, 9.0), HIDE, 121, 2.5, 0.0, &all);
     if !looking {
         mat::lobe(cv, ((x - 1) as f32, (y - 18) as f32), (7.0, 5.0), HIDE, 122, 2.5, 0.0, &all);
-        // His back: a spine shadow and the apron's bow.
         cv.line(x, y - 21, x, y - 8, 'F');
-        // The nape: a dark fold where the head sinks into the hump.
         cv.line(x - 4, y - 21, x + 4, y - 21, 'D');
         cv.line(x - 3, y - 20, x + 3, y - 20, 'F');
         cv.line(x - 6, y - 9, x + 6, y - 9, 'h');
@@ -573,7 +502,6 @@ fn grubb(cv: &mut Img, x: i32, y: i32, state: Cook, tick: u32) {
         cv.line(x - 1, y - 8, x - 2, y - 4, 'h');
         cv.line(x + 1, y - 8, x + 2, y - 4, 'h');
     } else {
-        // The apron, stained.
         cv.rect(x - 6, y - 17, 13, 12, 'h');
         cv.line(x - 6, y - 17, x + 6, y - 17, 'i');
         cv.rect(x - 4, y - 21, 9, 4, 'h');
@@ -581,10 +509,8 @@ fn grubb(cv: &mut Img, x: i32, y: i32, state: Cook, tick: u32) {
             cv.rect(x + dx, y + dy, 2, 2, ink);
         }
     }
-    // The head: green, sunk between the shoulders.
     let hy = y - 24;
     mat::lobe(cv, (x as f32, hy as f32), (6.0, 5.0), HIDE, 123, 2.0, 0.0, &all);
-    // Ears: long and pointed, pricked up when he turns.
     let prick = if state == Cook::Stirring { 0 } else { 3 + (tick / 2 % 2) as i32 };
     for s in [-1, 1] {
         for k in 0..8 {
@@ -607,7 +533,6 @@ fn grubb(cv: &mut Img, x: i32, y: i32, state: Cook, tick: u32) {
             for tx in [x - 2, x + 2] {
                 cv.put(tx, hy + 3, 'i');
             }
-            // Hands and the ladle, raised.
             cv.rect(x - 11, y - 15, 3, 3, 'm');
             cv.rect(x + 9, y - 21, 3, 3, 'm');
             cv.line(x + 10, y - 22, x + 13, y - 36, 'J');
@@ -615,19 +540,16 @@ fn grubb(cv: &mut Img, x: i32, y: i32, state: Cook, tick: u32) {
             cv.put(x + 14, y - 34, 'P');
         }
         Cook::Turning => {
-            // One eye round, wide.
             cv.rect(x + 3, hy - 1, 3, 3, 'Y');
             cv.put(x + 4, hy, 'k');
             cv.line(x + 5, hy + 1, x + 7, hy + 3, 'm');
         }
         Cook::Stirring => {}
     }
-    // The toque.
     cv.rect(x - 5, hy - 10, 11, 6, 'i');
     cv.line(x - 5, hy - 4, x + 5, hy - 4, 'J');
     mat::lobe(cv, (x as f32, (hy - 12) as f32), (7.0, 4.0), LINEN, 125, 2.0, 0.1, &all);
     if !looking {
-        // His stirring arm and the ladle going round in the pot.
         let a = (tick / 4) as f32 * 0.8;
         cv.rect(x + 7, y - 16, 3, 3, 'm');
         cv.line(x + 8, y - 14, x + 4 + (a.cos() * 6.0) as i32, y + 6 + (a.sin() * 2.0) as i32, 'J');
@@ -639,7 +561,6 @@ fn grubb(cv: &mut Img, x: i32, y: i32, state: Cook, tick: u32) {
     }
 }
 
-/// The choirmaster, his baton on the bell he sounds.
 fn choirmaster(cv: &mut Img, x: i32, y: i32, pointing: Option<usize>, tick: u32) {
     let aim = pointing.map(|b| (BELLS[b].0 * TILE + TILE / 2, BELLS[b].1 * TILE));
     super::props::ghost(cv, x, y, aim, tick);
@@ -655,13 +576,11 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             let (x, y) = at(n::KITCHEN_STOVE.0 * 2.0, n::KITCHEN_STOVE.1 * 2.0);
             let state = if nook.pot == 0 { Cook::Stirring } else { n::cook(nook) };
             grubb(cv, x, y + 2, state, tick);
-            // The stew's level, as coins glinting in the pot.
             let (px_, py, pw, _) = px(POT);
             for k in 0..nook.pot.min(SCOOPS) as i32 / 3 {
                 cv.put(px_ + 8 + k * 5, py + 10, '6');
             }
             if nook.pot > 0 && state != Cook::Looking {
-                // Beside the pot, clear of it and of the knights.
                 super::near_prompt(cv, run, (px_ + pw / 2 - 38, py + 46), "SCOOP");
             }
         }
@@ -674,7 +593,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 } else {
                     1
                 };
-                // A mimic breathes now and then: the only tell.
                 let bob = state == 0 && nook.mimics & 1 << i != 0 && (tick + i as u32 * 17) % (2 * 30) < 4;
                 lectern(cv, l, state, bob);
                 if state == 0 {
@@ -686,7 +604,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         RoomKind::Bellows => {
             bellows_bag(cv, (4, 2, 3, 2), nook.last == 1, false);
             bellows_bag(cv, (17, 2, 3, 2), nook.last == 2, true);
-            // The hearth's coals, as hot as the heat.
             let (x, y, w, _) = px(n::BELLOWS_FORGE);
             let hot = nook.heat * 3 / HEAT_FULL;
             for k in 0..10 {
@@ -699,7 +616,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 };
                 cv.rect(cx, y + 28 + (k % 3) as i32 * 2, 3, 2, ink);
             }
-            // The heat gauge on the hood: a mark at the imps, full at the top.
             let (gx, gy) = (x + w - 8, y + 10);
             cv.rect(gx, gy, 4, 24, 'K');
             let fill = (nook.heat * 22 / HEAT_FULL) as i32;
@@ -720,7 +636,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 let fallen = i < usize::from(nook.fallen);
                 if n::is_gap(i) {
                     if fallen {
-                        // A knight fell here: a dented helm on the flags.
                         let (c, r) = PATH[i];
                         cv.rect(c * TILE + 4, r * TILE + 6, 8, 5, 'J');
                         cv.line(c * TILE + 5, r * TILE + 8, c * TILE + 10, r * TILE + 8, 'k');
@@ -748,7 +663,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 jar(cv, x, y - 20, j, Some(word));
                 super::near_prompt(cv, run, (x, y + 36), word);
             }
-            // A knight's first spoil floats over their head until the second.
             for (&id, &j) in &nook.jars {
                 if let Some(hero) = run.players.get(&id) {
                     let (x, y) = at(hero.x, hero.y);
@@ -831,7 +745,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         _ => return,
     }
     let board = home::board(&lines);
-    // The bellows' west bag stands where the board would: it goes low.
     let y = if run.room().kind == RoomKind::Bellows { cv.h - board.h - 6 } else { 13 };
     cv.stamp(&board, 4, y);
 }

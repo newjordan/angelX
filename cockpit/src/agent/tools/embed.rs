@@ -143,8 +143,6 @@ impl EmbeddingConfig {
             .ok()
             .filter(|value| !value.trim().is_empty());
 
-        // Unit tests must not silently inherit a developer's real fleet config.
-        // Explicit test configuration remains supported for integration tests.
         #[cfg(test)]
         if env_url.is_none() && std::env::var_os("ANGEL_EMBED_CONFIG").is_none() {
             return Ok(None);
@@ -509,7 +507,6 @@ impl Tool for SemanticReadTool {
         });
         ranked.truncate(max_results.min(ranked.len()));
 
-        // The untrusted-evidence frame is its `⠰⠑` page; the ranking is data.
         let mut output = vec![
             crate::agent::harness::book::d56_replies::SEMANTIC_EVIDENCE.cells(),
             format!(
@@ -537,10 +534,6 @@ impl Tool for SemanticReadTool {
     }
 }
 
-/// Register the fleet semantic reader only when a global or explicit endpoint
-/// is configured. It is deferred so merely having the service available adds no
-/// recurring schema cost; `tool_search` can activate it when broad reading is
-/// actually useful.
 pub(crate) fn maybe_register_embedding_tools(r: &mut ToolRegistry, workspace: PathBuf) {
     match EmbeddingConfig::load() {
         Ok(Some(config)) => r.register_deferred(Box::new(SemanticReadTool {

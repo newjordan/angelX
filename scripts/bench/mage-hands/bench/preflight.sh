@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Sourced by both live entry points. No provider call is made by preflight.
 MAGE_BENCH_SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 MAGE_REPO=$(cd -- "$MAGE_BENCH_SCRIPT_DIR/../../../.." && pwd)
 BIN=${ANGEL_BENCH_BIN:-${ANGEL_BIN:-$MAGE_REPO/cockpit/target/fast/angel}}
@@ -28,7 +27,6 @@ mage_check_launch() {
 }
 
 mage_brain_env() {
-  # An unset variable is required: ANGEL_FALLBACK=0 still enables fallback.
   BRAIN_UNSET=(-u ANGEL_FALLBACK -u ANGEL_FALLBACK_INCLUDE_SOTA)
   case "$MAGE_BRAIN" in
   grok-4.7)
@@ -56,9 +54,6 @@ mage_brain_env() {
 mage_check_seat() {
   local sock=$1 sig=$2 pid
   pid=${MAGE_SEAT_PID:-}
-  # Inside the isolated task bus systemctl cannot reach the user's systemd.
-  # The parent runner supplies its observed PID; the identity is still checked
-  # against Hyprland's live registry and the private socket on every use.
   if [[ -z $pid ]]; then
     pid=$(systemctl --user show mage-nested.service --property=MainPID --value) || return 1
   fi
@@ -81,9 +76,6 @@ mage_preflight() {
   [[ -x $py && -f $MAGE_BENCH_ROOT/items.json ]] || {
     echo 'missing Mage Python environment or captured benchmark items' >&2; return 1;
   }
-  # A successful /get_model_info is insufficient: the degraded driver returned
-  # HTTP 500 on /generate while the HTTP server was otherwise healthy. Warm up
-  # on a captured benchmark image before touching a display. Local inference only.
   "$py" -I - "$MAGE_BENCH_ROOT" "${ANGEL_GROUND_URL:-http://127.0.0.1:30001}" "$MAGE_REPO" <<'PY'
 import base64, io, json, pathlib, re, sys, urllib.request
 from PIL import Image

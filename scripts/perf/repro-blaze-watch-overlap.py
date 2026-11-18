@@ -99,7 +99,6 @@ fn main() {
     output.write_text(json.dumps(report, indent=2) + "\n")
     with tempfile.TemporaryDirectory(prefix="blaze-watch-", dir=ROOT / "output") as temp:
         temp = Path(temp)
-        # All 512 file paths are explicitly repeated after two recursive parents.
         assets = temp / "assets"
         paths = []
         for kit in range(64):
@@ -109,14 +108,11 @@ fn main() {
                 path = directory / f"{index}.png"
                 path.write_bytes(b"fixture")
                 paths.append(path)
-        # Missing and lexical alias spellings must survive unchanged as well.
         aliases = [assets / "missing", assets / "0/../0/0.png"]
         if os.name == "posix":
             link = temp / "linked.png"
             link.symlink_to(paths[0])
             aliases.append(link)
-            # Exercise discovered symlinks as well as explicit link roots, but
-            # avoid cycles (the upstream traversal itself has no cycle guard).
             (assets / "linked-kit").symlink_to(assets / "0", target_is_directory=True)
             (assets / "dangling").symlink_to(temp / "absent")
         if args.fixture == "tree":

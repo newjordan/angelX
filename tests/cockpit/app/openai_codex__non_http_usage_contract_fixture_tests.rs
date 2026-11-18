@@ -75,7 +75,6 @@ fn rows() -> Vec<Value> {
         ),
     ];
     cases.into_iter().map(|(name, frames, normalized, attempts, conventions)| {
-        // Avoid the catalog-loading convenience constructor and all operator files.
         let club = CodexClub::new_with_reasoning(
             "owned-responses-fixture", "owned-responses-model",
             crate::agent::openai_codex::ChatGptAuth {

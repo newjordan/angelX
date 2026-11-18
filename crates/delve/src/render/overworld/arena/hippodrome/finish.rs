@@ -12,16 +12,11 @@ use super::view::View;
 use crate::rules::chariot::{GATE_TICKS, Phase};
 use crate::rules::HZ;
 
-/// Ticks the last frame is held before the iris closes.
 pub(super) const FREEZE: u32 = 40;
-/// Ticks the iris takes to close.
 const IRIS: u32 = 12;
-/// Where the podium's own clock starts, in ticks after the race was done.
 pub(super) const OPENS: u32 = FREEZE + IRIS;
-/// The podium's box: the kit wants 264 wide and 16 rows free under it.
 const AREA: Rect = (0, 0, 384, 188);
 
-/// Ticks since the race was done, or `None` while it is on.
 pub(super) fn ended(v: &View) -> Option<u32> {
     (v.race.phase == Phase::Done).then_some(v.race.t)
 }
@@ -30,14 +25,12 @@ pub(super) fn on_podium(v: &View) -> bool {
     ended(v).is_some_and(|a| a >= OPENS)
 }
 
-/// A finishing time in seconds and a tenth.
 fn time_of(v: &View, i: usize) -> String {
     let r = &v.race.racers[i];
     let ticks = (r.line - GATE_TICKS as f32).max(0.0) as u32;
     format!("{}.{}S", ticks / HZ, ticks % HZ * 10 / HZ)
 }
 
-/// A figure of a team's driver to stand on a step: the knight at the reins, or the yard's own.
 fn figure(v: &View, i: usize) -> Img {
     let team = v.race.racers[i].team;
     match v.seat_of(team).and_then(|s| v.run.players.get(&s).map(|h| (s, h))) {
@@ -46,8 +39,6 @@ fn figure(v: &View, i: usize) -> Img {
     }
 }
 
-/// The headline of a finish for the seat looking: `YOU WIN` for the knight who won, `<NAME>
-/// WINS` for everyone else.
 pub(super) fn headline(v: &View, winner: usize) -> (String, Option<u8>) {
     let team = v.race.racers[winner].team;
     if v.mine && winner == v.me {
@@ -57,7 +48,6 @@ pub(super) fn headline(v: &View, winner: usize) -> (String, Option<u8>) {
     }
 }
 
-/// The call over the held frame.
 pub(super) fn frozen_banner(v: &View, age: u32) -> Option<moments::Banner> {
     let order = v.race.order();
     let winner = *order.first()?;
@@ -66,7 +56,6 @@ pub(super) fn frozen_banner(v: &View, age: u32) -> Option<moments::Banner> {
     moments::banner_of(title, sub.into(), Tone::Warm, age, FREEZE + 8, 34, 3, 9, who)
 }
 
-/// The places on the podium and the ledger under, as the seat looking calls them.
 fn places(v: &View) -> Vec<Place> {
     v.race
         .order()
@@ -76,7 +65,6 @@ fn places(v: &View) -> Vec<Place> {
         .collect()
 }
 
-/// The ledger rows of the fourth team home and on, and the fastest lap's plate.
 fn ledger(v: &View) -> Vec<Word> {
     let mut out = Vec::new();
     for (k, i) in v.race.order().into_iter().enumerate().skip(3) {
@@ -94,7 +82,6 @@ fn ledger(v: &View) -> Vec<Word> {
     out
 }
 
-/// What the podium scene claims: the banner, the steps' words, the ledger.
 pub(super) fn plan(v: &View, age: u32) -> Plan {
     let mut p = Plan::default();
     p.words = ledger(v);
@@ -112,16 +99,12 @@ pub(super) fn plan(v: &View, age: u32) -> Plan {
     p
 }
 
-// ─── the held frame ──────────────────────────────────────────────────────────
-
-/// Over the held frame: the iris closing on it.
 pub(super) fn iris(over: &mut Img, age: u32) {
     if age >= FREEZE {
         juice::iris(over, (192, 100), ((age - FREEZE) as f32 / IRIS as f32).min(1.0), 'k');
     }
 }
 
-/// Paper fired off the line in the pennants' colours, for a second or two after the first home.
 pub(super) fn paper(layer: &mut Img, at: (i32, i32), age: u32) {
     if age >= 70 {
         return;
@@ -142,9 +125,6 @@ pub(super) fn paper(layer: &mut Img, at: (i32, i32), age: u32) {
     }
 }
 
-// ─── the podium ──────────────────────────────────────────────────────────────
-
-/// A string of pennants along the top of the stage, in the yards' cloths.
 fn bunting(im: &mut Img, age: u32, cloths: &[char]) {
     let mut x = -4;
     let mut n = 0usize;
@@ -161,7 +141,6 @@ fn bunting(im: &mut Img, age: u32, cloths: &[char]) {
     }
 }
 
-/// The wreath above the winner's head.
 fn laurel(im: &mut Img, (x, y): (i32, i32), age: u32) {
     let k = ((age as f32) / 10.0).min(1.0);
     let bob = ((age as f32 * 0.2).sin() * 1.5) as i32;
@@ -176,7 +155,6 @@ fn laurel(im: &mut Img, (x, y): (i32, i32), age: u32) {
     im.rect(x - 4, y - 7, 9, 3, '5');
 }
 
-/// Two tiers of the stands behind, twice life size, on their feet as the podium goes up.
 fn crowd(im: &mut Img, age: u32, fever: f32) {
     for (tier, (base, coat)) in [(106, 'g'), (124, 'j')].into_iter().enumerate() {
         let mut x = -((tier as i32) * 9);
@@ -194,10 +172,8 @@ fn crowd(im: &mut Img, age: u32, fever: f32) {
     }
 }
 
-/// The podium scene for a seat, `age` ticks after the iris has closed.
 pub(super) fn scene(v: &View, age: u32) -> Img {
     let mut im = Img::black(384, 224);
-    // The stage's floor: dark flags.
     for y in 110..224 {
         for x in 0..384 {
             let flag = ((x / 24) + (y - 110) / 12) % 2 == 0;
@@ -207,7 +183,6 @@ pub(super) fn scene(v: &View, age: u32) -> Img {
         }
     }
     let (cx, floor) = (192, 182);
-    // Fireworks over the stage, three launchers in turn.
     if age >= 6 {
         for (j, (x, top, ramp)) in [(72.0, 52.0, ramps::GOLD), (192.0, 34.0, ramps::EMBER), (312.0, 58.0, ramps::BONE)].into_iter().enumerate() {
             let t = age as i32 - 6 - j as i32 * 17;
@@ -220,7 +195,6 @@ pub(super) fn scene(v: &View, age: u32) -> Img {
     crowd(&mut im, age, ((age as f32 - 12.0) / 20.0).clamp(0.0, 1.0));
     let cloths: Vec<char> = v.race.racers.iter().map(|r| art::livery(&r.house).cloth).collect();
     bunting(&mut im, age, &cloths);
-    // The beam of light onto the winner.
     let k = ((age as f32 - 4.0) / 12.0).clamp(0.0, 1.0);
     for y in 14..floor {
         let half = 22.0 + y as f32 * 0.5;

@@ -37,21 +37,15 @@ const P_VARIANT: u8 = 6;
 const P_KEYED_EDIT: u8 = 7;
 const P_SEQ_SHIFT: u8 = 8;
 
-/// Nothing decoded is allowed to claim more than this many items.
 const MAX_ITEMS: u64 = 1 << 20;
-/// Nor nest deeper than this.
 const MAX_DEPTH: u32 = 64;
 
-
-/// The writing end's half of a connection's name table.
-/// Transactional clones share storage until a previously unseen name is added.
 #[derive(Clone, Default)]
 pub struct Writer {
     names: Arc<HashMap<String, u64>>,
 }
 
 impl Writer {
-    /// Entries retained by this stream's field/variant name dictionary.
     pub fn dictionary_len(&self) -> usize { self.names.len() }
 
     fn name(&mut self, out: &mut Vec<u8>, name: &str) {
@@ -191,8 +185,6 @@ impl Writer {
             Patch::Keyed { order, items } => {
                 out.push(P_KEYED);
                 put_varint(out, order.len() as u64);
-                // Ids rise more often than not: send each as the step from
-                // the one before.
                 let mut last = 0u64;
                 for &id in order {
                     put_varint(out, zigzag(id.wrapping_sub(last) as i64));
@@ -228,13 +220,6 @@ impl Writer {
     }
 }
 
-/// A name read off the wire, as a static text where it can be: a field's
-/// name is read once a connection, but cloned with every value that holds
-/// it (a crowd of shots, each with its dozen fields, each tick), and a
-/// clone of a borrowed name is a copy where an owned one is an allocation.
-/// One copy of each distinct short name is kept for the program's life, and
-/// no more than `MOST_NAMES` of them: a sender who names more is read as
-/// before, an owned text apiece.
 fn interned(text: &str) -> Name {
     use std::collections::HashSet;
     use std::sync::{Mutex, OnceLock};
@@ -255,15 +240,11 @@ fn interned(text: &str) -> Name {
     Cow::Owned(text.to_string())
 }
 
-/// The reading end's half of a connection's name table.
-/// Candidate decoders share storage until they encounter a new dictionary name.
 #[derive(Clone, Default)]
 pub struct Reader {
     names: Arc<Vec<Name>>,
 }
 
-/// No list or text may claim more items than there are bytes left, nor more
-/// than `MAX_ITEMS`.
 fn count(bytes: &mut Bytes) -> Result<usize, Malformed> {
     let n = bytes.varint()?;
     if n > MAX_ITEMS || n as usize > bytes.rest.len() {
@@ -272,11 +253,6 @@ fn count(bytes: &mut Bytes) -> Result<usize, Malformed> {
     Ok(n as usize)
 }
 
-/// A text's or a blob's length: no more than the bytes left, which bound
-/// it as they bound the message. Its bytes are the message's own, so it
-/// claims nothing the message does not hold (`MAX_ITEMS` bounds what a
-/// count would make): a picture sent whole, a world plate's PNG of 1.3 MB,
-/// reads.
 fn length(bytes: &mut Bytes) -> Result<usize, Malformed> {
     let n = bytes.varint()?;
     if n > bytes.rest.len() as u64 {
@@ -286,7 +262,6 @@ fn length(bytes: &mut Bytes) -> Result<usize, Malformed> {
 }
 
 impl Reader {
-    /// Entries retained by this stream's field/variant name dictionary.
     pub fn dictionary_len(&self) -> usize { self.names.len() }
 
     fn name(&mut self, bytes: &mut Bytes) -> Result<Name, Malformed> {
@@ -532,7 +507,7 @@ mod tests {
         reader.value(&mut Bytes::new(&initial)).unwrap();
         let original = Arc::clone(&reader.names);
         let mut malformed = candidate_bytes.clone();
-        *malformed.last_mut().unwrap() = 255; // unterminated UINT after new name
+        *malformed.last_mut().unwrap() = 255;
         let mut refused = reader.clone();
         assert!(refused.value(&mut Bytes::new(&malformed)).is_err());
         assert!(!Arc::ptr_eq(&reader.names, &refused.names));
@@ -556,7 +531,6 @@ mod tests {
             out.pop();
             assert_eq!(Reader::default().value(&mut Bytes::new(&out)), Err(Malformed), "one byte short");
         }
-        // A list still may not claim more than `MAX_ITEMS`, whatever is left.
         let mut out = vec![SEQ];
         put_varint(&mut out, MAX_ITEMS + 1);
         out.extend(std::iter::repeat_n(UNIT, MAX_ITEMS as usize + 1));

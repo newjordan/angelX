@@ -1,5 +1,3 @@
-# crates/delve/src/rules/monsters.rs: the dungeon's monsters, and how each one
-# moves and fights (a guardian's from its `.boss` file).
 import Base
 
 def monsters.Enemy.asleep(enemy: Enemy, tick: W.W) -> Bool:
@@ -19,7 +17,6 @@ def monsters.Enemy.base_hp(enemy: Enemy) -> U32:
     case None{}:
       return monsters.EnemyKind.hp(enemy.kind)
 
-# One monster's step: move, then maybe shoot. Answers (enemy, shots, deeds).
 def monsters.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, seed: W.W, bosses: J.Val, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds):
   match (enemy.boss : U32?):
     case Some{bi: U32}:
@@ -56,7 +53,6 @@ def monsters.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, seed: W.
     return (enemy, shots, deeds)
   monsters.walker(enemy, heroes, room, barred, seed, shots, deeds)
 
-# The rest: bats, skeletons, wraiths, imps, demons, the dragon, the mimic.
 def monsters.walker(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, seed: W.W, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds):
   kind: String = enemy.kind
   target: (F32, F32)? = cb.nearest2(heroes, enemy.x, enemy.y)
@@ -78,7 +74,6 @@ def monsters.walker(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, seed:
     mx = (ux * 6.5 * rules.DT() : F32)
     my = (uy * 6.5 * rules.DT() : F32)
   elif String.eq(kind, "skeleton"):
-    # Wander between points near home, re-chosen every three seconds.
     h: W.W = cb.wander_mix(seed, enemy.id, (age / 90 : U32))
     gx: F32 = (enemy.origin_x + (cb.byte0(h) - 0.5 : F32) * 12.0 : F32)
     gy: F32 = (enemy.origin_y + (cb.byte1(h) - 0.5 : F32) * 8.0 : F32)
@@ -97,19 +92,15 @@ def monsters.walker(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, seed:
     mx = (gx - enemy.x : F32)
     my = (gy - enemy.y : F32)
   elif Bool.and(String.eq(kind, "mimic"), U32.is_lt(U32.mod(age, 36), 14)):
-    # Hops: a lunge, then a pause to chew.
     mx = (cx * 7.5 * rules.DT() : F32)
     my = (cy * 7.5 * rules.DT() : F32)
   &(nx: F32, ny: F32) = rules.Grid.slide(room, barred, (enemy.x, enemy.y), (mx, my), monsters.Enemy.radius(enemy), mover)
   enemy.x = nx
   enemy.y = ny
-  # What it throws is its signature (`patterns::volley`), fired after its step.
   if String.eq(kind, "dragon"):
     (enemy, shots, deeds) = desperate.last_stand(enemy, target, shots, deeds)
   (enemy, shots, deeds)
 
-# A guardian's step: its file's movement, then each of its attacks on their
-# own beat, half again as often once its health falls below its rage.
 def monsters.act_boss(enemy: Enemy, boss: Boss, heroes: J.Val, room: Room, barred: Bool, seed: W.W, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds):
   (enemy, deeds, busy: Bool) = signatures.act(enemy, boss, heroes, room, barred, seed, deeds)
   if busy:
@@ -155,8 +146,6 @@ def monsters.act_boss(enemy: Enemy, boss: Boss, heroes: J.Val, room: Room, barre
   &(nx: F32, ny: F32) = rules.Grid.slide(room, barred, (enemy.x, enemy.y), (mx, my), monsters.Enemy.radius(enemy), mover)
   enemy.x = nx
   enemy.y = ny
-  # Its fight builds stage by stage: each line joins at its `from`, and only
-  # its rage quickens it.
   stage: String = bosses.Boss.stage(boss, enemy.hp, enemy.max_hp)
   rank: U32 = bosses.Stage.rank(stage)
   attacks: J.Val = boss.attacks
@@ -164,13 +153,11 @@ def monsters.act_boss(enemy: Enemy, boss: Boss, heroes: J.Val, room: Room, barre
     attack: Attack = J.nth(attacks, index)
     pat: J.Val = attack.pattern
     if Bool.or(Bool.not(J.is_null(J.get(pat, "named"))), U32.is_gt(bosses.Stage.rank(attack.from), rank)):
-      # A named pattern is fired with the rest of the monsters' (`patterns::volley`).
       continue
     every: U32 = Bool.pick(U32, String.eq(stage, "rage"), RS.u_max((attack.every * 2 / 3 : U32), 4), RS.u_max(attack.every, 4))
     if Bool.not(U32.is_eq(U32.mod((age + index * 11 : U32), every), 0)):
       continue
     if String.eq(J.str(pat), "ravage"):
-      # The floor itself, round where it stands; only at someone.
       if Maybe.is_some(&2, Sigma<&2, &2, F32, _ => F32>, target):
         beat: W.W = W.xor(W.xor(seed, W.shl(W.of_u32(age), 12)), W.of_u32(enemy.id))
         ravage: Ravage = tide.Ravage.cast(enemy.x, enemy.y, attack.shots, attack.arc, attack.speed, attack.damage, beat)

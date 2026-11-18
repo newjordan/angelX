@@ -31,37 +31,23 @@
 use super::*;
 use std::collections::BTreeSet;
 
-/// The most a place keeps, and the most freedom wishes a knight holds.
 pub const MOST_PER_PLACE: usize = 6;
 pub const MOST_HELD: u8 = 3;
-/// The most of a wish's words its plaque keeps.
 pub const WORDS: usize = 48;
-/// How near a wishing spot a knight stands to use it, in tiles.
 pub const REACH: f32 = 2.2;
-/// How long a wish's landing is shown, in ticks.
 pub const LANDING_TICKS: u64 = 4 * HZ as u64;
-/// The featherbed's ward, carried out of the safe room, in ticks.
 pub const RESTED_WARD: u32 = 4 * HZ;
-/// The hearth's mend: this share of a knight's health, more.
 pub const HEARTH_SHARE: u32 = 5;
-/// What the whetstone and the fletcher's rack give the first floor, in
-/// percent, and the share of the ultimate the practice dummy fills.
 pub const WHETSTONE: u32 = 10;
 pub const FLETCHING: u32 = 10;
 pub const DUMMY_SHARE: u32 = 4;
 
-/// The weapons locker in the Sozzled Griffin: the foot of the armoire, at
-/// the middle of its front (tiles), beside the free arms and the arrival
-/// rug. Not solid: a knight walks up to it from either side.
 pub const LOCKER_AT: (f32, f32) = (25.4, 17.0);
 
-/// Where a freedom wish is spent.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Place {
-    /// Every Sanctuary below.
     Safe,
-    /// The armoire by the Sozzled Griffin's free arms.
     Locker,
 }
 
@@ -74,30 +60,23 @@ impl Place {
     }
 }
 
-/// What a freedom wish makes of a place.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Gift {
-    // The safe room's.
     Hearth,
     Spring,
     Feast,
     WarMap,
     Featherbed,
-    // The weapons locker's.
     Whetstone,
     Fletching,
     PowderKeg,
     ArmourStand,
     Dummy,
-    /// Anything else: a curio, painted as the words say. A gift a later
-    /// realm knows and this one does not reads as one too.
     #[serde(other)]
     Curio,
 }
 
-/// One of a place's gifts: its place, its name and what it does, as the
-/// plaque and the scroll say them, its key, and the words that ask for it.
 pub struct Kind {
     pub gift: Gift,
     pub place: Place,
@@ -107,8 +86,6 @@ pub struct Kind {
     pub words: &'static [&'static str],
 }
 
-/// Every gift a place can be wished, in the order a tie between two is
-/// broken.
 pub const KINDS: [Kind; 10] = [
     Kind {
         gift: Gift::Hearth,
@@ -225,15 +202,12 @@ pub const KINDS: [Kind; 10] = [
     },
 ];
 
-/// A curio's line on its plaque.
 pub const CURIO_DOES: &str = "For the look of it";
 
-/// The table row of `gift`, none for a curio.
 pub fn kind(gift: Gift) -> Option<&'static Kind> {
     KINDS.iter().find(|k| k.gift == gift)
 }
 
-/// The words, lower case, split at anything not a letter or a number.
 fn tokens(words: &str) -> Vec<String> {
     words
         .to_lowercase()
@@ -243,9 +217,6 @@ fn tokens(words: &str) -> Vec<String> {
         .collect()
 }
 
-/// Whether one of the words says `stem`: the word itself or its plural, a
-/// longer stem's own forms ("sharpening" says "sharpen"), or a phrase of
-/// two words said together.
 fn says(tokens: &[String], phrase: &str, stem: &str) -> bool {
     if stem.contains(' ') {
         return format!(" {phrase} ").contains(&format!(" {stem} "));
@@ -258,8 +229,6 @@ fn says(tokens: &[String], phrase: &str, stem: &str) -> bool {
     })
 }
 
-/// What `words` ask of `place`: the gift whose family the words say most,
-/// the first of the table on a tie, a curio when they say none.
 pub fn read(place: Place, words: &str) -> Gift {
     let tokens = tokens(words);
     let phrase = tokens.join(" ");
@@ -273,15 +242,11 @@ pub fn read(place: Place, words: &str) -> Gift {
     best.map_or(Gift::Curio, |(_, gift)| gift)
 }
 
-/// The words as a plaque keeps them: one line, no control marks, cut to
-/// [`WORDS`] characters.
 pub fn plaque_words(words: &str) -> String {
     let line = words.split_whitespace().collect::<Vec<_>>().join(" ");
     line.chars().filter(|c| !c.is_control()).take(WORDS).collect::<String>().trim().to_string()
 }
 
-/// One thing wished into a place: what it is, the words it was wished
-/// in, and who wished it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Upgrade {
     pub gift: Gift,
@@ -290,7 +255,6 @@ pub struct Upgrade {
 }
 
 impl Upgrade {
-    /// Its plaque's name: the gift's, or a curio's own words.
     pub fn name(&self) -> String {
         match kind(self.gift) {
             Some(k) => k.name.to_string(),
@@ -303,9 +267,6 @@ impl Upgrade {
     }
 }
 
-/// What the realm's freedom wishes have made, place by place, and the
-/// freedom wishes knights hold and have not yet spent, by name. Kept in the
-/// realm (`Home::wished`), written only once a wish has been given.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Wished {
@@ -345,7 +306,6 @@ impl Wished {
         }
     }
 
-    /// The place has `gift` already (a curio is never had: each is its own).
     pub fn has(&self, place: Place, gift: Gift) -> bool {
         gift != Gift::Curio && self.of(place).iter().any(|u| u.gift == gift)
     }
@@ -355,8 +315,6 @@ impl Wished {
     }
 }
 
-/// A freedom wish just landed: where, in which of its slots, whose, and
-/// when, for its moment on every seat's screen.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Landed {
     pub place: Place,
@@ -365,24 +323,17 @@ pub struct Landed {
     pub tick: u64,
 }
 
-/// The run's side of it: the wish just landed, and what the safe room has
-/// given on this floor. Left out of saves and the wire until a freedom
-/// wish has done something.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct State {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub landed: Option<Landed>,
-    /// This floor's Sanctuary has given the safe room's gifts.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub given: bool,
-    /// The war map has charted this floor.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub charted: bool,
-    /// The featherbed's ward waits for the first door out of the safe room.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub rested: bool,
-    /// Knights holding E at a wishing spot, so a held key asks once.
     #[serde(
         skip_serializing_if = "crate::rules::runtime_state::omit",
         deserialize_with = "crate::rules::runtime_state::transient"
@@ -391,7 +342,6 @@ pub struct State {
 }
 
 impl State {
-    /// Nothing to write: the run reads as it did before freedom wishes.
     pub fn omit(v: &State) -> bool {
         v.landed.is_none()
             && !v.given
@@ -400,7 +350,6 @@ impl State {
             && (crate::rules::runtime_state::omit(v) || v.held.is_empty())
     }
 
-    /// Bounded: a seat that leaves mid-landing still leaves a whole state.
     pub fn valid(&self) -> bool {
         let seat = |id: &u32| (1..=MAX_PLAYERS).contains(id);
         self.held.len() <= MAX_PLAYERS as usize
@@ -408,7 +357,6 @@ impl State {
             && self.landed.as_ref().is_none_or(|l| usize::from(l.slot) < MOST_PER_PLACE && seat(&l.knight))
     }
 
-    /// A new floor: its Sanctuary has given nothing yet.
     pub(super) fn new_floor(&mut self) {
         self.given = false;
         self.charted = false;
@@ -416,16 +364,11 @@ impl State {
     }
 }
 
-/// Where the safe room's brazier stands in `room` (arena units, its foot):
-/// in the south-east corner, clear of the merchant's plates and the field
-/// banner.
 pub fn brazier_at(room: &Room) -> (f32, f32) {
     let (cols, rows) = (room.cols as f32, room.rows as f32);
     ((cols / 2.0 + 9.7) * TILE_UNITS, (rows - 2.1) * TILE_UNITS)
 }
 
-/// Where the safe room's `slot`th wish stands (arena units, its foot):
-/// along the south wall either side of the door, the nearest first.
 pub fn slot_at(room: &Room, slot: usize) -> (f32, f32) {
     const FROM_DOOR: [f32; MOST_PER_PLACE] = [2.6, -2.6, 5.1, -5.1, 7.6, -7.6];
     let (cols, rows) = (room.cols as f32, room.rows as f32);
@@ -433,8 +376,6 @@ pub fn slot_at(room: &Room, slot: usize) -> (f32, f32) {
     ((cols / 2.0 + dx) * TILE_UNITS, (rows - 2.1) * TILE_UNITS)
 }
 
-/// The scroll's one line for a freedom wish: what the words became, what
-/// it does, and what it costs. (The scroll names the place over it.)
 fn choice(gift: Gift, words: &str, again: bool) -> genie::Choice {
     let (head, gives) = match kind(gift) {
         Some(k) => (k.name.to_string(), k.does.to_string()),
@@ -453,8 +394,6 @@ fn choice(gift: Gift, words: &str, again: bool) -> genie::Choice {
 }
 
 impl Run {
-    /// The genie is free: every knight standing in the party is given a
-    /// freedom wish, kept by their name in the realm until it is spent.
     pub(super) fn grant_freedom_wishes(&mut self) {
         let ids: Vec<u32> = self.players.iter().filter(|(_, h)| !h.absent).map(|(&id, _)| id).collect();
         for id in ids {
@@ -464,8 +403,6 @@ impl Run {
         self.cues.push("freedom_wish".into());
     }
 
-    /// Knight `id` holds `n` freedom wishes, and the realm keeps as many by
-    /// their name.
     fn set_freedom_wishes(&mut self, id: u32, n: u8) {
         let Some(hero) = self.players.get_mut(&id) else {
             return;
@@ -479,16 +416,12 @@ impl Run {
         }
     }
 
-    /// The freedom wishes the realm keeps for knight `id`'s name, back in
-    /// their hands (a new delve, a new name, a seat taken).
     pub(super) fn restore_freedom_wishes(&mut self, id: u32) {
         if let Some(hero) = self.players.get_mut(&id) {
             hero.freedom_wishes = self.home.wished.held.get(&hero.name).copied().unwrap_or(0).min(MOST_HELD);
         }
     }
 
-    /// The place whose wishing spot this room keeps, if any: a Sanctuary
-    /// below ground is the safe room, the Sozzled Griffin keeps the locker.
     pub fn freedom_place(&self) -> Option<Place> {
         match self.room().kind {
             RoomKind::Sanctuary if !self.at_home_now() => Some(Place::Safe),
@@ -497,10 +430,6 @@ impl Run {
         }
     }
 
-    /// The wishing spot here (its place, and its foot in arena units), when
-    /// it stands: once the place has a wish in it, or a knight here holds a
-    /// freedom wish, or the genie is free. Before that the room is as it
-    /// always was.
     pub fn freedom_spot(&self) -> Option<(Place, (f32, f32))> {
         let place = self.freedom_place()?;
         let shown = !self.home.wished.of(place).is_empty()
@@ -516,7 +445,6 @@ impl Run {
         Some((place, at))
     }
 
-    /// Knight `id` stands within reach of the wishing spot.
     pub fn near_freedom_spot(&self, id: u32) -> bool {
         let (Some((_, (x, y))), Some(hero)) = (self.freedom_spot(), self.players.get(&id)) else {
             return false;
@@ -524,16 +452,10 @@ impl Run {
         hero.hp > 0 && (hero.x - x).hypot(hero.y - y) < REACH * TILE_UNITS
     }
 
-    /// The wish line may open for knight `id`: a wish to spend, the
-    /// mirror's look, a freedom wish begun at a wishing spot, or a
-    /// visitor's wish for a city of the Deep (`deep::city`), which spends
-    /// none of the knight's own and so opens for one who holds none.
     pub fn wish_line_opens(&self, id: u32) -> bool {
         self.can_wish(id) || self.players.get(&id).is_some_and(|h| h.mirror_wish || h.place_wish.is_some()) || self.city_wishing(id)
     }
 
-    /// The line the wish line shows in place of the ladders, while a
-    /// knight's words are for a look or a place and not for them.
     pub fn special_wish_note(&self, id: u32) -> Option<&'static str> {
         let hero = self.players.get(&id)?;
         match hero.place_wish {
@@ -545,8 +467,6 @@ impl Run {
         }
     }
 
-    /// One tick of the wishing spots: E at one begins a freedom wish, a
-    /// knight who leaves the place lets theirs go, and a landing ends.
     pub(super) fn tick_freedom(&mut self, inputs: &BTreeMap<u32, Input>) {
         if self.freedom.landed.as_ref().is_some_and(|l| self.tick.saturating_sub(l.tick) >= LANDING_TICKS) {
             self.freedom.landed = None;
@@ -584,8 +504,6 @@ impl Run {
         }
     }
 
-    /// Knight `id` begins a freedom wish at the wishing spot they stand by:
-    /// their wish line opens, and the words they say are for the place.
     pub fn begin_place_wish(&mut self, id: u32) -> Result<(), String> {
         let place = self.freedom_place().ok_or("NO WISHING SPOT HERE")?;
         if self.home.wished.full(place) {
@@ -604,8 +522,6 @@ impl Run {
         Ok(())
     }
 
-    /// Knight `id` said `words` for the place they began a freedom wish
-    /// at: the scroll opens on what the words became, nothing spent yet.
     pub(crate) fn offer_place_wish(&mut self, id: u32, words: &str) -> Result<(), String> {
         let words = plaque_words(words);
         if words.is_empty() {
@@ -640,8 +556,6 @@ impl Run {
         Ok(())
     }
 
-    /// Knight `id` seals their freedom wish: it is spent, and what it made
-    /// stands in the place from now on.
     pub(super) fn choose_place_wish(&mut self, id: u32, n: usize) -> Result<String, String> {
         let hero = self.players.get(&id).ok_or("No knight.")?;
         let offer = hero.offer.clone().ok_or("No wish is open on the scroll.")?;
@@ -677,8 +591,6 @@ impl Run {
         let slot = (list.len() - 1) as u8;
         self.freedom.landed = Some(Landed { place, slot, knight: id, tick: self.tick });
         if place == Place::Safe && gift != Gift::Curio {
-            // Wished while the party stands in it: it gives at once, and the
-            // room has given this floor.
             self.safe_gift(gift);
             self.freedom.given = true;
         }
@@ -693,8 +605,6 @@ impl Run {
         Ok(name)
     }
 
-    /// The safe room's gifts, as the party comes into a Sanctuary: once a
-    /// floor, whatever has been wished into it.
     pub(super) fn freedom_hallow(&mut self) {
         if self.freedom.given || self.home.wished.safe.iter().all(|u| u.gift == Gift::Curio) {
             return;
@@ -706,7 +616,6 @@ impl Run {
         }
     }
 
-    /// What one of the safe room's gifts gives the party standing in it.
     fn safe_gift(&mut self, gift: Gift) {
         match gift {
             Gift::Hearth => {
@@ -734,7 +643,6 @@ impl Run {
         }
     }
 
-    /// Walked out of the safe room: a featherbed's ward goes with them.
     pub(super) fn freedom_leave_safe_room(&mut self) {
         if !std::mem::take(&mut self.freedom.rested) {
             return;
@@ -744,8 +652,6 @@ impl Run {
         }
     }
 
-    /// The weapons locker's gifts, as a delve begins: what each knight
-    /// carries down from it.
     pub(super) fn freedom_kit_out(&mut self) {
         let gifts: Vec<Gift> = self.home.wished.locker.iter().map(|u| u.gift).collect();
         for gift in gifts {

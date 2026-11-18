@@ -1,24 +1,4 @@
 #!/usr/bin/env python3
-"""Cut the art team's genie into the Delve's embedded assets.
-
-The painted sheets (transparent PNGs, any size) go in; the frames the wish
-scroll draws come out, already shrunk to the size drawn on a 768-wide seat
-screen (the game halves them itself for a 384-wide one):
-
-    genie-idle.png, genie-talk.png, genie-cheer.png  4-frame strips
-    genie-free.png                                   one frame
-    lamp.png                                         one frame (optional)
-
-Each strip is split into four equal frames, cropped to the box all four
-share (so he stays put from frame to frame), and shrunk to HEIGHT rows;
-the four are laid side by side again. Alpha is made hard (the game's
-pictures have no half-clear pixels).
-
-    python3 scripts/delve/genie_art.py [SOURCE_DIR]
-
-SOURCE_DIR defaults to $TMPDIR/delve-play/genie-art (/tmp when unset). Then rebuild:
-the assets are `include_bytes!`'d by crates/delve/src/render/genie.rs.
-"""
 
 import os
 import sys
@@ -27,9 +7,9 @@ from pathlib import Path
 
 from PIL import Image
 
-HEIGHT = 132          # a strip frame's rows on a 768-wide screen
-FREE_HEIGHT = 168     # the freeing's picture
-LAMP_HEIGHT = 28      # the lamp icon beside the gauge
+HEIGHT = 132
+FREE_HEIGHT = 168
+LAMP_HEIGHT = 28
 FRAMES = 4
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,7 +17,6 @@ OUT = ROOT / "crates/delve/assets/genie"
 
 
 def box(images):
-    """The box every image's opaque pixels fit in together."""
     boxes = [im.getchannel("A").point(lambda a: 255 if a > 24 else 0).getbbox() for im in images]
     boxes = [b for b in boxes if b]
     return (min(b[0] for b in boxes), min(b[1] for b in boxes),
@@ -45,7 +24,6 @@ def box(images):
 
 
 def shrink(im, height):
-    """`im` at `height` rows, smoothed then made hard-edged."""
     width = max(1, round(im.width * height / im.height))
     small = im.resize((width, height), Image.LANCZOS, reducing_gap=3.0)
     alpha = small.getchannel("A").point(lambda a: 255 if a >= 128 else 0)

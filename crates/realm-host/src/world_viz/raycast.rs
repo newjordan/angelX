@@ -3,7 +3,6 @@
 
 #![cfg_attr(not(test), allow(dead_code))]
 
-/// Wall material ids used by `RayMap` cells.
 pub const MATERIAL_ROCK: u8 = 2;
 pub const MATERIAL_TIMBER: u8 = 3;
 pub const MATERIAL_STONE: u8 = 4;
@@ -15,7 +14,6 @@ pub const TERRAIN_SAND: u8 = 1;
 pub const TERRAIN_ROAD: u8 = 2;
 pub const TERRAIN_HILL: u8 = 3;
 
-/// A camera-facing world-space billboard, planted on the floor at `(x, y)`.
 pub struct RaySprite {
     pub x: f32,
     pub y: f32,
@@ -25,25 +23,16 @@ pub struct RaySprite {
     pub lit: bool,
 }
 
-/// A small grid map. `cells[y * width + x]`: `0` = open floor, anything else
-/// is a wall drawn with that material id.
 pub struct RayMap {
     pub width: u32,
     pub height: u32,
     pub cells: Vec<u8>,
-    /// Per-cell terrain height ∈ [0,1] for open ground. Walls, water and
-    /// out-of-bounds stay flat (0.0); only today's open-floor cells lift off
-    /// the floor, forming the heightfield the first-person view shades.
     pub terrain: Vec<f32>,
-    /// Per-cell open-ground identity, parallel to `terrain`.
     pub terrain_kind: Vec<u8>,
-    /// Camera-facing landmark billboards.
     pub sprites: Vec<RaySprite>,
 }
 
 impl RayMap {
-    /// Material at `(x, y)`. Out-of-bounds reads as rock so every ray
-    /// terminates without a range check in the march loop.
     pub fn at(&self, x: i32, y: i32) -> u8 {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {
             return MATERIAL_ROCK;
@@ -63,18 +52,12 @@ impl RayMap {
     }
 }
 
-/// Camera state, in map-cell units.
 pub struct RayView {
     pub x: f32,
     pub y: f32,
-    /// Radians; 0 looks along +x, π/2 along +y.
     pub heading_rad: f32,
-    /// Explicit operator yaw, separate from the automatic travel heading.
     pub look_yaw: f32,
-    /// Horizontal field of view in radians (~1.05 reads well here).
     pub fov_rad: f32,
-    /// Canter bob in −1.0..=1.0; offsets the horizon a few pixels.
     pub bob: f32,
-    /// Normalized camera-ground height: 0 is the original flat baseline.
     pub eye_h: f32,
 }

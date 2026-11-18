@@ -174,7 +174,6 @@ impl Lease {
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;
-            // SAFETY: the strict opened regular file remains owned for the lease.
             if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
                 return Err(error(
                     "workflow_busy",
@@ -192,7 +191,6 @@ impl Drop for Lease {
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;
-            // SAFETY: this lease still owns the descriptor being unlocked.
             let _ = unsafe { libc::flock(self.0.as_raw_fd(), libc::LOCK_UN) };
         }
     }
@@ -206,14 +204,11 @@ impl Drop for ReadLease {
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;
-            // SAFETY: the shared reader lease owns its strict-opened descriptor.
             let _ = unsafe { libc::flock(self.0.as_raw_fd(), libc::LOCK_UN) };
         }
     }
 }
 
-/// Read-only callers never initialize a map or create a lock. Once a coordinator
-/// exists, all cooperating readers retain a shared lease through their full read.
 pub(crate) fn read_lease(workspace: &Path) -> Result<Option<ReadLease>, String> {
     let path = Path::new("labyrinth/angel/workflow.lock");
     match std::fs::symlink_metadata(workspace.join(path)) {
@@ -226,7 +221,6 @@ pub(crate) fn read_lease(workspace: &Path) -> Result<Option<ReadLease>, String> 
     #[cfg(unix)]
     {
         use std::os::fd::AsRawFd;
-        // SAFETY: the read lease owns this regular file for the lock lifetime.
         if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_SH | libc::LOCK_NB) } != 0 {
             return Err(error(
                 "workflow_busy",
@@ -261,8 +255,6 @@ pub(crate) fn now() -> String {
     )
 }
 
-/// Append immediately; do not reconstruct a session's discoveries at its end.
-/// The private timeline is merged with authored events by the embedded engine.
 pub(crate) fn append_event(workspace: &Path, event: &Value) -> Result<Value, String> {
     let _lease = Lease::acquire(workspace)?;
     ensure_no_pending(workspace)?;
@@ -316,9 +308,7 @@ fn publish(workspace: &Path, path: &str, bytes: &[u8]) -> Result<(), String> {
     }
 }
 
-/// Retain the final message byte-for-byte and every named piece of agent code
-/// and data. The index is published last; no incomplete archive is consumable.
-#[allow(dead_code)] // campaign tests call this; the bin's live path does not yet
+#[allow(dead_code)]
 pub(crate) fn archive_report(
     workspace: &Path,
     campaign_id: &str,
@@ -2068,8 +2058,6 @@ fn count(ranges: &[(u64, u64)]) -> u64 {
     ranges.iter().map(|(lo, hi)| hi - lo + 1).sum()
 }
 
-/// Compute exact interval cardinalities without expanding large admissible grids.
-/// Unknown and conditional points never inflate the resolved fraction.
 pub(crate) fn frontier_status(frontier: &Value, sota: Option<&Value>) -> Result<Value, String> {
     let sizes = frontier["sizes"]
         .as_array()
@@ -2081,8 +2069,6 @@ pub(crate) fn frontier_status(frontier: &Value, sota: Option<&Value>) -> Result<
                 "frontier needs bounded sizes",
             )
         })?;
-    // The validated size index also avoids scanning all rows for each SOTA
-    // binding. Keep it local to this exact frontier snapshot.
     let mut sizes_by_value = BTreeMap::new();
     let mut summary = Vec::new();
     for row in sizes {
@@ -2509,7 +2495,6 @@ fn transaction_names(workspace: &Path) -> Result<Vec<String>, String> {
     {
         return Ok(Vec::new());
     }
-    // This strict anchor also rejects any aliased parent before enumeration.
     read(workspace, &format!("{PRIVATE}/.gitignore"), 4096)?;
     let metadata = std::fs::symlink_metadata(&directory)
         .map_err(|e| error("transaction_read", Some(TRANSACTIONS), e.to_string()))?;
@@ -2709,8 +2694,6 @@ fn journal_changes(journal: &Value) -> Result<Vec<Change>, String> {
     Ok(result)
 }
 
-/// Explicit recovery never treats partially installed canonical state as valid.
-/// It restores only bytes that are still exactly a prepared before/after image.
 pub(crate) fn recover(workspace: &Path) -> Result<Value, String> {
     let _lease = Lease::acquire(workspace)?;
     let mut recovered = Vec::new();
@@ -2798,8 +2781,6 @@ fn event_count(workspace: &Path, path: &str) -> Result<usize, String> {
     Ok(events)
 }
 
-/// Validate authored data, private timeline and transaction state together.
-/// This deliberately does not execute workspace-authored code or blueprints.
 pub(crate) fn check(workspace: &Path) -> Result<Value, String> {
     let _lease = read_lease(workspace)?;
     ensure_no_pending(workspace)?;
@@ -3010,8 +2991,6 @@ fn canonical_changes(
             Some(serialized(frontier.as_ref().unwrap())?),
         ));
     }
-    // The knowledge file also serves as an unchanged CAS guard if this campaign
-    // documents a reviewed failure without proposing graph updates.
     let knowledge_bytes = if bundle.nodes.is_empty()
         && bundle.frontier.is_none()
         && !reviewed
@@ -3155,8 +3134,6 @@ fn project_failed_routes(
     Ok(())
 }
 
-/// Stage the coordinator's exact JSON images as data for the isolated writer
-/// and spot checks. This cannot write canonical files or bypass final checks.
 pub(crate) fn preview_canonical(
     workspace: &Path,
     bundle: &IntegrationBundle,
@@ -3216,8 +3193,6 @@ fn checked_integration_changes(
     Ok((changes, numerical))
 }
 
-/// Inspect a complete frozen bundle with the same source and check validators
-/// used by integration. This never publishes a transaction or calls a model.
 pub(crate) fn check_integration(workspace: &Path, path: &str) -> Result<Value, String> {
     let _lease = read_lease(workspace)?;
     ensure_no_pending(workspace)?;
@@ -3237,8 +3212,6 @@ pub(crate) fn check_integration(workspace: &Path, path: &str) -> Result<Value, S
     )
 }
 
-/// The coordinator is the single canonical writer. Reports and AI review never
-/// gain reward, tier or publication authority by being archived or agreeing.
 pub(crate) fn integrate(
     workspace: &Path,
     bundle: &IntegrationBundle,
@@ -3384,9 +3357,6 @@ pub(crate) fn integrate(
             ));
         }
     }
-    // Canonical provenance uses this immutable external receipt to avoid a
-    // self-hash cycle with the checked JSON source snapshots. Standalone
-    // callers get the same retained receipt as a running campaign.
     let receipt_path = format!(
         "{PRIVATE}/campaigns/{}/integrations/{}.json",
         bundle.campaign_id, bundle.id

@@ -23,8 +23,6 @@ pub(crate) const PREFLIGHT: Route = Route::new(CELL, '⠓');
 pub(crate) const CONSULTS: Route = Route::new(CELL, '⠊');
 pub(crate) const EVIDENCE: Route = Route::new(CELL, '⠚');
 
-// `⠐⠛`'s grounding headings and `⠐⠚`'s unstated claim, each sent alone as
-// its address.
 pub(crate) const GROK_SCOUT_HEADING: Page = Page::new(LABELS, 8);
 pub(crate) const SEARX_HEADING: Page = Page::new(LABELS, 9);
 pub(crate) const UNSTATED_CLAIM: Page = Page::new(EVIDENCE, 4);

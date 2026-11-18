@@ -17,8 +17,6 @@ pub fn marks_of(list: &[String]) -> BTreeMap<String, u32> {
     list.iter().map(|m| (m.clone(), 1)).collect()
 }
 
-/// The Foreman brings his petition for `room` at `holding`, priced at the
-/// list: staging his ledge by hand, as the tests do.
 pub fn stage(h: &mut Holdings, key: &str, room: &str) {
     let list = holdings::room_def(room).map(|d| holdings::room_price(h, d)).unwrap_or_default();
     h.foreman.queue.push(crate::rules::foreman::Petition {
@@ -38,7 +36,6 @@ pub fn nay() -> String {
     crate::rules::foreman::nay_mark()
 }
 
-/// Holdings whose Crypt is cleared and whose Sol house has served.
 pub fn cleared() -> Holdings {
     let mut h = Holdings::default();
     h.cleared.insert(Pack::Crypt.name().to_string());
@@ -54,7 +51,6 @@ pub fn crypt_key() -> String {
     crypt().key()
 }
 
-/// A Crypt bought outright, with a steward and two rooms standing.
 pub fn held() -> (Holdings, Spoils) {
     let mut h = cleared();
     let mut t = gold(20_000);

@@ -8,7 +8,6 @@ use super::{TILE, at, home};
 use crate::rules::{HZ, Run, forest};
 
 pub(super) fn scenery(cv: &mut Img) {
-    // The grove's old trees: dark oaks and yews at night.
     let keep = |_: i32, _: i32| true;
     let mut trees: Vec<_> = forest::TREES.iter().copied().collect();
     trees.sort_by_key(|t| t.1);
@@ -33,8 +32,6 @@ fn ring(cv: &mut Img, x: i32, y: i32, radius: f32, ink: char) {
 
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     let game = &run.forest;
-    // The lantern's gold ring (the board names it) burns amber only while
-    // the hunt is on; the memory's blue ring is already a quiet ink.
     let lantern = if game.hunt_left > 0 { '4' } else { 'o' };
     for (pad, ink) in [(forest::LANTERN, lantern), (forest::MEMORY, 'u')] {
         let (x, y) = at(pad.0 * 2.0, pad.1 * 2.0);
@@ -55,8 +52,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         cv.line(x + 5, y, x, y + 7, ink);
         cv.line(x, y + 7, x - 5, y, ink);
     }
-    // At rest the flies still show what the lantern starts; caught flies
-    // disappear during the round, never affecting collision or the network.
     for i in 0..forest::FLY_COUNT {
         if game.hunt_left > 0 && game.caught & (1 << i) != 0 {
             continue;
@@ -110,7 +105,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         ("REPEAT FLASHES BY WALKING".into(), 'h'),
         (song, '9'),
     ]);
-    // Each game's rules show while it plays or a knight is at its ring.
     use crate::rules::forest::{LANTERN, MEMORY};
     if game.hunt_left > 0 || super::knight_near(run, LANTERN, 3.5) {
         cv.stamp(&left, 4, cv.h - left.h - 4);

@@ -1,9 +1,5 @@
 use super::*;
 
-/// Knight `id` drawn where its keys `input` take it `seconds` on, as a
-/// client draws its own knight: the newest tick, stepped on by `predict` a
-/// whole tick at a time, and the part of a tick drawn that part of the way
-/// along the next whole one.
 fn ahead(run: &mut Run, before: &Pose, id: u32, input: Input, seconds: f32) -> (f32, f32) {
     let mut own = run.clone();
     let ticks = seconds / DT;
@@ -71,11 +67,9 @@ fn a_view_between_ticks_slides_from_the_last_tick_to_this_one() {
     assert_eq!(at(&mut run, 1.0), now);
     let half = at(&mut run, 0.5);
     assert!((half.0 - (was.0 + now.0) / 2.0).abs() < 1e-4);
-    // Drawn in place, then put back as it was.
     let tick = at(&mut run, 0.25).0;
     assert!((tick - (was.0 + (now.0 - was.0) * 0.25)).abs() < 1e-4);
     assert_eq!((run.players[&1].x, run.players[&1].y), now);
-    // Two ticks apart (a host sending every other tick) it slides too.
     let mut skipped = Run::new(3, 9, None);
     skipped.calm_for_test();
     walk(&mut skipped, 3);
@@ -85,7 +79,6 @@ fn a_view_between_ticks_slides_from_the_last_tick_to_this_one() {
     let to = skipped.players[&1].x;
     let mid = skipped.drawn_with(&two_before, 0.5, None, |view| view.players[&1].x);
     assert!((mid - (from + to) / 2.0).abs() < 1e-4, "{from} {mid} {to}");
-    // Across a longer gap nothing slides.
     walk(&mut run, 2);
     let far = (run.players[&1].x, run.players[&1].y);
     assert_eq!(at(&mut run, 0.0), far);
@@ -101,7 +94,6 @@ fn a_friends_own_knight_is_drawn_where_their_keys_take_it() {
         move_x: 1,
         ..Default::default()
     };
-    // A tenth of a second ahead: about a knight's pace times 0.1 to the east.
     let drawn = ahead(&mut run, &before, 2, right, 0.1);
     assert!(
         drawn.0 > start.0 + 0.8 && drawn.0 < start.0 + 1.6,
@@ -113,7 +105,6 @@ fn a_friends_own_knight_is_drawn_where_their_keys_take_it() {
         start,
         "the mirror itself is untouched"
     );
-    // Never through stone: far ahead into the west wall stops at it.
     let left = Input {
         move_x: -1,
         ..Default::default()
@@ -134,7 +125,6 @@ fn a_frame_of_lead_still_moves_the_knight() {
         move_x: 1,
         ..Default::default()
     };
-    // Less than one 30 Hz tick. Rounding the lead away would leave the knight still.
     let drawn = ahead(&mut run, &before, 2, right, 1.0 / 120.0).0;
     let step = drawn - start;
     assert!(
@@ -268,7 +258,6 @@ fn two_frames_of_lead_move_further_and_a_wall_still_stops_the_knight() {
     );
     assert_eq!(run.players[&2].x, start, "the run itself is untouched");
 
-    // Pressed against the west wall, two frames of lead go nowhere.
     let mut boxed = Run::new(3, 9, Some("Matt"));
     boxed.calm_for_test();
     let before = boxed.pose();

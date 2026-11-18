@@ -12,7 +12,6 @@ use crate::rules::trophies::{GILDED, KAY_AT, PLINTHS, Plinth, plinth_at};
 use crate::rules::{Run, Tile};
 use crate::render::overworld::light::Light;
 
-/// The hall at rest.
 pub(super) fn scenery(run: &Run) -> Img {
     let room = run.room();
     let tick = run.tick as u32;
@@ -68,7 +67,6 @@ pub(super) fn scenery(run: &Run) -> Img {
     cv
 }
 
-/// The realm's red runner, from the door to the Grail's dais.
 fn runner(cv: &mut Img) {
     let (x0, x1) = (11 * TILE + 2, 13 * TILE - 2);
     let (y0, y1) = (0, 10 * TILE - 2);
@@ -88,8 +86,6 @@ fn runner(cv: &mut Img) {
     }
 }
 
-/// A plinth of pale stone, a brass plate on its face; a bigger one for the
-/// dragon, a stepped dais for the Grail.
 fn pedestal(cv: &mut Img, plinth: &Plinth, felled: u32) {
     let (col, row, w, h) = plinth.at;
     let (x0, y0, pw, ph) = (col * TILE + 1, row * TILE + 2, w * TILE - 2, h * TILE - 3);
@@ -100,18 +96,15 @@ fn pedestal(cv: &mut Img, plinth: &Plinth, felled: u32) {
     cv.line(x0, y0 + ph - 1, x0 + pw - 1, y0 + ph - 1, 'g');
     cv.line(x0, y0, x0, y0 + ph - 1, 'G');
     cv.line(x0 + pw - 1, y0, x0 + pw - 1, y0 + ph - 1, 'G');
-    // The plate: brass, brighter once something stands above it.
     let plate = if felled > 0 { '5' } else { 'a' };
     let (mx, my) = (x0 + pw / 2, y0 + ph / 2 + 1);
     cv.rect(mx - 4, my - 1, 8, 3, plate);
     if plinth.id == "grail" {
-        // Steps, and two candles either side.
         cv.line(x0 - 3, y0 + ph, x0 + pw + 2, y0 + ph, 'J');
         cv.line(x0 - 3, y0 + ph + 1, x0 + pw + 2, y0 + ph + 1, 'g');
     }
 }
 
-/// A dust sheet over an empty plinth: what has not been felled yet.
 fn sheet(cv: &mut Img, cx: i32, top: i32) {
     let im = Img::from_rows(&[
         "...JJJJ...",
@@ -124,8 +117,6 @@ fn sheet(cv: &mut Img, cx: i32, top: i32) {
     cv.stamp(&im, cx - im.w / 2, top - im.h + 3);
 }
 
-/// What stands on a plinth: the guardian's statuette, the dragon's, or the
-/// Grail itself.
 fn piece(run: &Run, id: &str, gilded: bool) -> Img {
     match id {
         "grail" => Img::from_rows(&[
@@ -150,8 +141,6 @@ fn piece(run: &Run, id: &str, gilded: bool) -> Img {
     }
 }
 
-/// A guardian's art at half size, cast in bronze (or gold) by how light
-/// each part of it is.
 pub(super) fn statuette(art: &Img, gilded: bool) -> Img {
     let inks = if gilded {
         ['8', 'a', '4', '@', '6']
@@ -179,7 +168,6 @@ pub(super) fn statuette(art: &Img, gilded: bool) -> Img {
     out
 }
 
-/// Sir Kay by the door, and the Grail's candles.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     let (kx, ky) = (KAY_AT.0 * 2.0, KAY_AT.1 * 2.0);
@@ -197,7 +185,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     }
 }
 
-/// A plinth's plaque, to a knight standing at its front.
 pub(super) fn boards(cv: &mut Img, run: &Run) {
     let Some((hero, plinth)) = run
         .players
@@ -226,8 +213,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
     } else if felled > 0 && !found {
         lines.push((format!("GILDED AT {GILDED}"), 'h'));
     }
-    // Under the knight, so the piece it is about stays in sight; over them
-    // at the far end of the hall.
     let board = home::board(&lines);
     let (x, y) = at(hero.x, hero.y);
     let bx = (x - board.w / 2).clamp(2, cv.w - board.w - 2);
@@ -239,7 +224,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
     cv.stamp(&board, bx, by);
 }
 
-/// Sir Kay, the seneschal: grey, stern, his keys at his belt.
 pub(super) const KAY: [&str; 17] = [
     "....hiiih......",
     "...hiiiiih.....",

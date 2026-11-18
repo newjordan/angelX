@@ -1,11 +1,8 @@
 use super::*;
 
-/// One region rule per row: (kind, status, danger, measured, submissions,
-/// verifying) → expected region. Every rule from the Z1 spec has a row.
 #[test]
 fn region_for_table() {
     let rows: Vec<(LoopKind, LoopStatus, u8, usize, usize, bool, Region)> = vec![
-        // idle / no loop → CastleTown (also finished/parked loops).
         (
             LoopKind::Competition,
             LoopStatus::Idle,
@@ -33,7 +30,6 @@ fn region_for_table() {
             false,
             Region::CastleTown,
         ),
-        // LoopStarted → region by kind.
         (
             LoopKind::Competition,
             LoopStatus::Running,
@@ -79,7 +75,6 @@ fn region_for_table() {
             false,
             Region::DarkForest,
         ),
-        // An unknown loop that measures candidates is on the measured path.
         (
             LoopKind::Unknown,
             LoopStatus::Running,
@@ -89,7 +84,6 @@ fn region_for_table() {
             false,
             Region::TheMines,
         ),
-        // Stall level ≥ 2 → Swamp from any loop region; below stays home.
         (
             LoopKind::Competition,
             LoopStatus::Running,
@@ -117,7 +111,6 @@ fn region_for_table() {
             false,
             Region::Swamp,
         ),
-        // AwaitingApproval forces danger ≥ 2.
         (
             LoopKind::Coding,
             LoopStatus::AwaitingApproval,
@@ -127,7 +120,6 @@ fn region_for_table() {
             false,
             Region::Swamp,
         ),
-        // Submitted or Verifying → DragonKeep.
         (
             LoopKind::Competition,
             LoopStatus::Running,
@@ -155,7 +147,6 @@ fn region_for_table() {
             true,
             Region::DragonKeep,
         ),
-        // The judge the loop is waiting on outranks the swamp.
         (
             LoopKind::Competition,
             LoopStatus::Verifying,
@@ -165,7 +156,6 @@ fn region_for_table() {
             false,
             Region::DragonKeep,
         ),
-        // The danger ladder itself.
         (
             LoopKind::Competition,
             LoopStatus::Running,
@@ -193,7 +183,6 @@ fn region_for_table() {
 
 #[test]
 fn danger_from_stall_follows_the_formula() {
-    // stale * 3 / pivot.max(1), clamped 0..=3.
     assert_eq!(Danger::from_stall(0, 2).level(), 0);
     assert_eq!(Danger::from_stall(1, 3).level(), 1);
     assert_eq!(Danger::from_stall(2, 3).level(), 2);
@@ -207,16 +196,13 @@ fn danger_from_stall_follows_the_formula() {
 fn loop_kind_for_table() {
     let empty = ToolMix::default();
     let rows: Vec<(&str, bool, LoopKind)> = vec![
-        // podrace wins outright.
         ("anything at all", true, LoopKind::Competition),
-        // Competition vocabulary.
         ("win the kernel benchmark", false, LoopKind::Competition),
         ("check the leaderboard", false, LoopKind::Competition),
         ("optimize the qr kernel", false, LoopKind::Competition),
         ("optimise and submit", false, LoopKind::Competition),
         ("make it faster", false, LoopKind::Competition),
         ("land a submission", false, LoopKind::Competition),
-        // Research vocabulary.
         (
             "research the failing over pattern",
             false,
@@ -227,14 +213,12 @@ fn loop_kind_for_table() {
         ("explore the repo", false, LoopKind::Research),
         ("find out why it flakes", false, LoopKind::Research),
         ("why does it hang", false, LoopKind::Research),
-        // Coding vocabulary.
         ("fix the login bug", false, LoopKind::Coding),
         ("implement the parser", false, LoopKind::Coding),
         ("refactor the module", false, LoopKind::Coding),
         ("build the dashboard", false, LoopKind::Coding),
         ("test the harness", false, LoopKind::Coding),
         ("write the docs", false, LoopKind::Coding),
-        // Unknown otherwise.
         ("think about it", false, LoopKind::Unknown),
         ("", false, LoopKind::Unknown),
     ];
@@ -247,7 +231,6 @@ fn loop_kind_for_table() {
 #[test]
 fn tool_mix_promotes_unknown_but_never_demotes() {
     let mut mix = ToolMix::default();
-    // 7 of the last 12 calls forge work → Competition by strict majority.
     for _ in 0..7 {
         mix.push(
             Building::Smithy,
@@ -265,7 +248,6 @@ fn tool_mix_promotes_unknown_but_never_demotes() {
         LoopKind::Competition
     );
 
-    // Research majority.
     let mut mix = ToolMix::default();
     for _ in 0..7 {
         mix.push(
@@ -284,7 +266,6 @@ fn tool_mix_promotes_unknown_but_never_demotes() {
         LoopKind::Research
     );
 
-    // A balanced window stays Unknown.
     let mut mix = ToolMix::default();
     for _ in 0..6 {
         mix.push(
@@ -303,7 +284,6 @@ fn tool_mix_promotes_unknown_but_never_demotes() {
         LoopKind::Unknown
     );
 
-    // The mix can never demote a named kind.
     let mut mix = ToolMix::default();
     for _ in 0..12 {
         mix.push(
@@ -313,8 +293,6 @@ fn tool_mix_promotes_unknown_but_never_demotes() {
     }
     assert_eq!(loop_kind_for("fix the bug", false, &mix), LoopKind::Coding);
 
-    // The window really rolls: 12 research calls then 12 forge calls ends
-    // up all-forge.
     let mut mix = ToolMix::default();
     for _ in 0..12 {
         mix.push(
@@ -331,10 +309,6 @@ fn tool_mix_promotes_unknown_but_never_demotes() {
     assert_eq!(loop_kind_for("vague", false, &mix), LoopKind::Competition);
 }
 
-/// The scripted competition loop from the spec: start → 3 iterations → stall
-/// to level 2 → Swamp → unstall → Mines → Measured improved → Submitted →
-/// DragonKeep → accepted → LoopFinished ok → Homecoming → 120 ticks →
-/// CastleTown.
 #[test]
 fn scripted_competition_loop_walks_the_map() {
     let mut q = Quest::idle();
@@ -355,44 +329,35 @@ fn scripted_competition_loop_walks_the_map() {
     }
     assert_eq!(q.iteration(), 3);
 
-    // Stalling into the swamp.
     q.apply(AdventureEvent::Stall { level: 2 }, tick);
     assert_eq!(q.region(), Region::Swamp);
     assert_eq!(q.danger().level(), 2);
 
-    // Unstalling returns to the kind's home region.
     q.apply(AdventureEvent::Stall { level: 0 }, tick);
     assert_eq!(q.region(), Region::TheMines);
 
-    // A measured candidate that improved is a treasure + banner.
     tick += 1;
     q.apply(AdventureEvent::Measured { improved: true }, tick);
     assert_eq!(q.treasures(), 1);
     assert_eq!(q.banner(), Some("treasure!"));
-    // A regression is only an empty chest — no danger, no lost loot.
     q.apply(AdventureEvent::Measured { improved: false }, tick);
     assert_eq!(q.treasures(), 1);
     assert_eq!(q.empty_chests(), 1);
     assert_eq!(q.danger().level(), 0);
     assert_eq!(q.banner(), Some("empty chest"));
 
-    // The banner expires after 40 ticks.
     q.observe_tick(tick + BANNER_TICKS);
     assert_eq!(q.banner(), None);
 
-    // Submitting walks into the Dragon Keep.
     tick += 1;
     q.apply(AdventureEvent::Submitted, tick);
     assert_eq!(q.region(), Region::DragonKeep);
-    // An accepted verdict raises the banner and holds the keep.
     q.apply(AdventureEvent::SubmissionSettled { accepted: true }, tick);
     assert_eq!(q.region(), Region::DragonKeep);
     assert_eq!(q.banner(), Some("banner raised"));
-    // A rejected verdict walks home with no penalty.
     q.apply(AdventureEvent::SubmissionSettled { accepted: false }, tick);
     assert_eq!(q.region(), Region::TheMines);
 
-    // Re-submit and finish the run for the homecoming walk.
     q.apply(AdventureEvent::Submitted, tick);
     assert_eq!(q.region(), Region::DragonKeep);
     tick += 1;
@@ -411,7 +376,6 @@ fn scripted_competition_loop_walks_the_map() {
     q.observe_tick(tick + HOMECOMING_TICKS);
     assert_eq!(q.region(), Region::CastleTown);
 
-    // A failed run retreats straight to town under the retreat banner.
     let mut q = Quest::idle();
     q.apply(start(), 0);
     q.apply(AdventureEvent::LoopFinished { ok: false }, 1);
@@ -475,13 +439,10 @@ fn submission_holds_the_keep_through_stalls_until_the_next_iteration() {
     );
     assert_eq!(q.region(), Region::TheMines);
     q.apply(AdventureEvent::Submitted, 1);
-    // A stall while the judge holds the work does not dislodge the keep —
-    // and neither does the stall clearing (the mirror emits both edges).
     q.apply(AdventureEvent::Stall { level: 3 }, 2);
     assert_eq!(q.region(), Region::DragonKeep);
     q.apply(AdventureEvent::Stall { level: 0 }, 2);
     assert_eq!(q.region(), Region::DragonKeep);
-    // The next iteration resumes the adventure grounds.
     q.apply(AdventureEvent::Iteration { n: 2 }, 3);
     assert_eq!(q.region(), Region::TheMines);
 }
@@ -525,13 +486,13 @@ fn prospective_walk_clock_keeps_history_and_resets_epochs_deterministically() {
         assert_eq!(q.walk_half_ticks(22), 43);
         assert_eq!(q.walk_half_ticks(25), 48);
         q.observe_tick(30);
-        q.apply(AdventureEvent::Stall { level: 1 }, 24); // late fact: no retroactive motion
+        q.apply(AdventureEvent::Stall { level: 1 }, 24);
         assert_eq!(q.walk_half_ticks(30), 58);
         assert_eq!(q.walk_half_ticks(32), 60);
         q.apply(AdventureEvent::Iteration { n: 1 }, 32);
         assert_eq!(q.walk_half_ticks(32), 0);
         assert_eq!(q.walk_half_ticks(34), 2);
-        q.apply(AdventureEvent::Stall { level: 2 }, 34); // actual region transition is a new epoch
+        q.apply(AdventureEvent::Stall { level: 2 }, 34);
         assert_eq!(q.region(), Region::Swamp);
         assert_eq!(q.walk_half_ticks(34), 0);
         q.apply(AdventureEvent::Pivot, 36);
@@ -569,7 +530,6 @@ fn same_tick_stall_pivot_preserves_mines_journey_and_room_history() {
     q.observe_tick(100);
     let history: Vec<_> = (88..=100).map(|tick| q.walk_half_ticks(tick)).collect();
     let region_since = q.region_since();
-    // LoopMirror::drain emits these in one batch, without a painted Swamp frame.
     q.apply(AdventureEvent::Stall { level: 2 }, 100);
     q.apply(AdventureEvent::Pivot, 100);
     assert_eq!(q.region(), Region::TheMines);
@@ -611,7 +571,6 @@ fn walk_history_is_bounded_with_exact_twelve_tick_anchor_and_released_epochs() {
         assert!(q.walk_clock.len() <= WALK_SEGMENTS);
         assert!(q.walk_clock.capacity() <= WALK_SEGMENTS);
     }
-    // Older queries clamp to the anchor, not a fabricated old pace or zero.
     assert_eq!(q.walk_clock[0].tick, 100_000 - WALK_LOOKBACK);
     assert_eq!(q.walk_half_ticks(0), expected(100_000 - WALK_LOOKBACK));
     q.apply(AdventureEvent::Stall { level: 2 }, 100_000);
@@ -647,7 +606,7 @@ fn same_tick_round_trip_does_not_override_explicit_iteration_or_cross_tick_entry
         0,
     );
     q.apply(AdventureEvent::Stall { level: 2 }, 40);
-    q.observe_tick(41); // now Swamp is a committed epoch
+    q.observe_tick(41);
     q.apply(AdventureEvent::Pivot, 41);
     assert_eq!(q.walk_half_ticks(41), 0);
     q.apply(AdventureEvent::Stall { level: 2 }, 50);

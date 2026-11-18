@@ -41,24 +41,12 @@ use std::time::{Duration, Instant, SystemTime};
 #[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
-/// One early-bound Rust toolchain shared by every typed Cargo-backed tool in a
-/// registry. Resolution deliberately never searches the task's `PATH`: a
-/// writable workspace can put a `cargo` shim first there. Rustup is consulted
-/// once, before the model can mutate the workspace, solely to preserve a
-/// repository's `rust-toolchain` selection. Every later dispatch executes the
-/// canonical toolchain Cargo directly and supplies a sealed, host-only PATH.
 #[derive(Clone)]
 pub(crate) struct PinnedCargo {
     inner: Arc<Result<PinnedCargoExecutable, String>>,
 }
 
-/// Hash independent toolchains concurrently, but publish neither until both
-/// captures finish. Every executable remains eagerly pinned before model code
-/// can run; avoiding serial image reads keeps registry startup responsive.
 pub(crate) fn capture_verifier_runtimes(workspace: &Path) -> (PinnedCargo, PinnedNativeRuntimes) {
-    // A capture the launch began for this very workspace is the one this registry
-    // owns. It is taken exactly once, and only by a registry for that workspace;
-    // a capture that panicked, or none at all, falls through to capturing here.
     let begun = {
         let mut slot = PREFETCHED_RUNTIMES
             .lock()
@@ -80,19 +68,12 @@ pub(crate) fn capture_verifier_runtimes(workspace: &Path) -> (PinnedCargo, Pinne
     capture_verifier_runtimes_now(workspace)
 }
 
-/// The capture started by [`prefetch_verifier_runtimes`] and the workspace it is for.
 type PrefetchedRuntimes = (
     PathBuf,
     std::thread::JoinHandle<(PinnedCargo, PinnedNativeRuntimes)>,
 );
 static PREFETCHED_RUNTIMES: Mutex<Option<PrefetchedRuntimes>> = Mutex::new(None);
 
-/// Begin the startup toolchain capture for `workspace` on its own thread, so the
-/// registry that is built a little later finds the pins resolved (rustup's answer
-/// and both toolchains' identities) instead of waiting on a child process. The
-/// capture is the same one [`capture_verifier_runtimes`] runs, taken before the
-/// registry returns and so before any model-owned dispatch; only when it starts
-/// moves. A thread that cannot start leaves the registry to capture as before.
 pub(crate) fn prefetch_verifier_runtimes(workspace: &Path) {
     let workspace = workspace.to_path_buf();
     let for_workspace = workspace.clone();
@@ -116,7 +97,6 @@ fn capture_verifier_runtimes_now(workspace: &Path) -> (PinnedCargo, PinnedNative
             Ok(worker) => worker
                 .join()
                 .unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
-            // Thread pressure must not disable verification or defer pinning.
             Err(_) => PinnedNativeRuntimes::capture(workspace),
         };
         (cargo, native)
@@ -137,9 +117,6 @@ struct PinnedCargoExecutable {
     controls: cargo_controls::CargoControls,
 }
 
-/// Serializes toolchain captures against tests that poison Cargo/rustup env.
-/// See [`PinnedCargo::capture`]; tests holding this during an env swap must
-/// never call `capture` themselves while holding it (non-reentrant).
 static CAPTURE_LOCK: Mutex<()> = Mutex::new(());
 
 #[cfg(test)]
@@ -152,19 +129,10 @@ pub(crate) fn capture_lock() -> std::sync::MutexGuard<'static, ()> {
 struct PinnedExecutable {
     path: PathBuf,
     captured: PinnedFileIdentity,
-    /// Established at registry construction and checked on every dispatch.
-    /// Filesystems are allowed to coalesce consecutive same-length in-place
-    /// writes onto identical inode/mtime/ctime values, so metadata alone cannot
-    /// safely defer this digest until the first tool call.
     sha256: OnceLock<String>,
-    /// The capture-time digest while it is still being read: the file is
-    /// opened at capture and hashed off the start-up path, and every tool
-    /// dispatch first waits for all such digests ([`settle_pending_pins`]), so
-    /// no tool runs before the pin exists. Taken only through [`Self::digest`].
     pending: Option<Arc<PendingDigest>>,
 }
 
-/// A capture-time digest being read on a background thread.
 struct PendingDigest {
     settled: OnceLock<Result<String, String>>,
     worker: Mutex<Option<std::thread::JoinHandle<Result<String, String>>>>,
@@ -172,7 +140,6 @@ struct PendingDigest {
 
 impl PendingDigest {
     fn settle(&self) -> &Result<String, String> {
-        // A caller that needs the digest must not wait on a held reader.
         PIN_HASHING.release();
         self.settled.get_or_init(|| {
             let worker = self
@@ -190,13 +157,8 @@ impl PendingDigest {
     }
 }
 
-/// Digests still being read, settled together before the first dispatch.
 static PENDING_PINS: Mutex<Vec<Arc<PendingDigest>>> = Mutex::new(Vec::new());
 
-/// A latch the background digest readers wait on. Open unless a headless run
-/// asks to hold them: their threads would otherwise compete with the start-up
-/// that leads to the first model request, for digests that are only needed
-/// before the first tool runs, which is after the model has answered.
 struct HashHold {
     held: Mutex<bool>,
     changed: std::sync::Condvar,
@@ -232,21 +194,14 @@ impl HashHold {
 
 static PIN_HASHING: HashHold = HashHold::new();
 
-/// Hold the digest readers until [`release_pin_hashing`] or the first settle.
-/// Executables are still opened and identity-checked at capture; only the
-/// reading of the already-open image moves.
 pub(crate) fn hold_pin_hashing() {
     PIN_HASHING.hold();
 }
 
-/// Let the digest readers run. Idempotent.
 pub(crate) fn release_pin_hashing() {
     PIN_HASHING.release();
 }
 
-/// Wait for every executable digest captured so far. Called before any tool
-/// dispatch: a model-owned action can never precede a pin it is judged by.
-/// Cheap once settled (the list is drained).
 pub(crate) fn settle_pending_pins() {
     let pending = std::mem::take(
         &mut *PENDING_PINS
@@ -259,8 +214,6 @@ pub(crate) fn settle_pending_pins() {
 }
 
 impl PinnedExecutable {
-    /// The capture-time digest, waiting for it if it is still being read. A
-    /// capture that could not be read fails closed here, at first use.
     fn digest(&self) -> Result<Option<&String>, String> {
         if let Some(pending) = &self.pending {
             match pending.settle() {
@@ -300,14 +253,7 @@ struct PinnedFileIdentity {
 }
 
 impl PinnedCargo {
-    /// Capture once per registry, before any model-owned tool dispatch.
     pub(crate) fn capture(workspace: &Path) -> Self {
-        // Serialize against env-poisoning tests: capture reads process-global
-        // Cargo/rustup env (CARGO_HOME, CARGO, PATH fallbacks), and a test that
-        // swaps those vars mid-window must hold [`capture_lock`] while the swap
-        // is live — otherwise a concurrent capture resolves (and executes) its
-        // replaced resolver shim, the "captured registry reused a replaced
-        // rustup proxy" flake. Production captures are rare and fast.
         let _guard = CAPTURE_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -323,10 +269,6 @@ impl PinnedCargo {
             .map_err(|error| format!("trusted Cargo unavailable: {error}"))
     }
 
-    /// Revalidate the named executable immediately before dispatch. The path
-    /// is outside every task-writable sandbox root; the identity check also
-    /// makes an operator-side replacement fail closed instead of silently
-    /// changing what a typed verifier means during a live session.
     fn verified_executable(&self) -> Result<&PinnedCargoExecutable, String> {
         let executable = self.executable()?;
         executable.controls.revalidate()?;
@@ -342,10 +284,6 @@ impl PinnedCargo {
         .into_iter()
         .filter_map(|(tool, label)| tool.map(|tool| (tool, label)))
         .collect();
-        // Every image is re-hashed, each on its own thread: the check costs the
-        // largest binary rather than the toolchain's sum (~85 MB). The first
-        // failure in toolchain order is the one reported.
-        // Thread pressure falls back to the same check inline.
         let verdicts: Vec<Result<(), String>> = std::thread::scope(|scope| {
             let workers: Vec<_> = tools
                 .iter()
@@ -369,9 +307,6 @@ impl PinnedCargo {
         for verdict in verdicts {
             verdict?;
         }
-        // Re-land every canonical path after the complete toolchain has been
-        // hashed. Without this aggregate pass, a replacement could race while
-        // a later (large) binary was still being read.
         require_landed_toolchain(executable)?;
         Ok(executable)
     }
@@ -438,9 +373,6 @@ impl PinnedCargo {
         Self {
             inner: Arc::new(capture_direct_cargo(path, Path::new("/nonexistent")).map(
                 |mut executable| {
-                    // Synthetic toolchains live under their scratch fixture;
-                    // keep their equally synthetic Cargo home there instead
-                    // of mutating the operator's real ~/.rustup in tests.
                     executable.private_home_parent = private_home_parent;
                     executable.cache_source = None;
                     executable
@@ -476,9 +408,6 @@ impl PinnedCargo {
         self.verified_executable().map(|_| ())
     }
 
-    /// Ledger-visible identity of what verified the task: the pinned cargo
-    /// path plus the sha256 captured at registry construction. `None` when
-    /// no pin could be established (the verifier then refuses elsewhere).
     pub(crate) fn pin_note(&self) -> Option<String> {
         let executable = self.executable().ok()?;
         let sha256 = executable.cargo.digest().ok().flatten()?;
@@ -498,7 +427,6 @@ impl PinnedCargo {
 struct EphemeralCargoHome {
     path: PathBuf,
     target: PathBuf,
-    /// Held for the life of the process (see [`CARGO_HOME_REUSE_ENV`]).
     kept: bool,
 }
 
@@ -510,14 +438,6 @@ impl Drop for EphemeralCargoHome {
     }
 }
 
-/// On when `ANGEL_CARGO_HOME_REUSE=1`, which a small workspace's headless task
-/// sets by default: keeps one private Cargo home and
-/// target for the life of this process instead of one per verifier run, so the
-/// second and later runs compile only what changed. The home is still private
-/// to this process (mode 0700, outside the workspace, never the workspace's
-/// own `target/`) and is removed at exit. Measured on a crate with one
-/// dependency: every run, the post-write check and each confirming re-run
-/// rebuilt the dependency tree, about 2 s a time.
 pub(crate) const CARGO_HOME_REUSE_ENV: &str = "ANGEL_CARGO_HOME_REUSE";
 
 static KEPT_CARGO_HOME: std::sync::Mutex<Option<(PathBuf, PathBuf)>> = std::sync::Mutex::new(None);
@@ -552,7 +472,6 @@ fn ephemeral_cargo_home(executable: &PinnedCargoExecutable) -> Result<EphemeralC
         )) {
             let _ = std::fs::remove_dir_all(stale);
         } else {
-            // SAFETY: registers a plain `extern "C"` function with no captures.
             unsafe {
                 libc::atexit(remove_kept_cargo_home);
             }
@@ -888,10 +807,6 @@ fn direct_cargo_candidates() -> Vec<PathBuf> {
 
 const RUSTUP_RESOLVE_TIMEOUT: Duration = Duration::from_secs(3);
 
-/// Ask one already-pinned rustup resolver for Cargo without allowing registry
-/// construction to inherit an unbounded subprocess. This runs before any
-/// ordinary tool executor exists and while the capture lock is held, so its
-/// deadline must be owned here rather than delegated to the later tool timer.
 pub(crate) fn bounded_rustup_cargo_path(command: Command, timeout: Duration) -> Option<PathBuf> {
     let out = crate::platform::workspace_store::capture_bounded_command(command, timeout)?;
     let path = PathBuf::from(String::from_utf8_lossy(&out).trim());
@@ -986,11 +901,6 @@ fn capture_pinned_cargo(workspace: &Path) -> Result<PinnedCargoExecutable, Strin
             Err(error) => failures.push(error),
         }
     }
-    // Every resolver's failure rides the error: reporting only the last one
-    // (`/bin/cargo: No such file`) hid why the rustup proxy itself was
-    // rejected, and the model spent 24 hops inventorying toolchains it could
-    // not see (arena rust-capped-backoff, 2026-09-06). The fallback hint is
-    // the escape hatch the model would otherwise have to discover.
     let detail = failures
         .iter()
         .take(8)
@@ -1048,9 +958,6 @@ fn capture_direct_cargo(path: PathBuf, workspace: &Path) -> Result<PinnedCargoEx
     }
     let trusted_path = std::env::join_paths(trusted_dirs)
         .map_err(|error| format!("construct trusted Cargo PATH: {error}"))?;
-    // The private Cargo homes live under the rustup home: `RUSTUP_HOME` when
-    // the operator relocated it (a redirected HOME must not drag the verifier
-    // into a task-writable tree), `~/.rustup` otherwise.
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
         .ok_or_else(|| "HOME is unavailable; cannot create an isolated Cargo home".to_string())?;
@@ -1099,9 +1006,6 @@ fn capture_executable(path: PathBuf, label: &str) -> Result<PinnedExecutable, St
     })
 }
 
-/// Open the executable now and hash that open file off the start-up path:
-/// the digest is of the image captured here even if the path is replaced
-/// before the read finishes, and no dispatch runs until it has.
 fn initial_executable_digest(
     path: &Path,
     label: &str,
@@ -1110,7 +1014,6 @@ fn initial_executable_digest(
     let mut file = std::fs::File::open(path)
         .map_err(|error| format!("open {label} {} for hashing: {error}", path.display()))?;
     let described = format!("{label} {}", path.display());
-    // The open file is the captured image, and it must still be when read.
     let opened = file
         .metadata()
         .map_err(|error| format!("inspect open {described}: {error}"))?;
@@ -1145,7 +1048,6 @@ fn initial_executable_digest(
                 .unwrap_or_else(|poisoned| poisoned.into_inner())
                 .push(Arc::clone(&pending));
         }
-        // Thread pressure: pin inline, as before.
         Err(_) => {
             let mut file = std::fs::File::open(path)
                 .map_err(|error| format!("open {label} {} for hashing: {error}", path.display()))?;
@@ -1177,10 +1079,6 @@ fn capture_toolchain_executable(
     capture_executable(path, label)
 }
 
-/// Bounded raw output for verifier-style commands. Unlike the ordinary shell
-/// receipt, callers need the terminal cargo/libtest summary to derive a reward,
-/// so this keeps the capped head+tail supplied by `output_timed` rather than
-/// flattening it to a short display snippet.
 pub(crate) use crate::agent::sandbox::strip_launcher_stderr;
 
 struct CapturedCommand {
@@ -1192,18 +1090,12 @@ struct CapturedCommand {
     timed_out: bool,
     cancelled: bool,
     dur_ms: u128,
-    /// Kill-time hang evidence from the shared capture path, present only when
-    /// the command timed out (what state the child was in, how long it had been
-    /// silent, whether a SIGTERM grace was honored).
     timeout_diag: Option<crate::agent::harness::TimeoutDiagnostics>,
 }
 
 const MAX_DIRECT_ARG_BYTES: usize = 64 * 1024;
 const MAX_DIRECT_ARGS: usize = 256;
 
-/// Split a direct-process argument string without invoking a shell. Quoting and
-/// backslash escaping preserve argv boundaries, but no variables, globs,
-/// substitutions, or operators are interpreted.
 pub(crate) fn parse_direct_argv(raw: &str) -> Result<Vec<String>, String> {
     if raw.len() > MAX_DIRECT_ARG_BYTES {
         return Err(format!(
@@ -1283,9 +1175,6 @@ pub(crate) fn parse_direct_argv(raw: &str) -> Result<Vec<String>, String> {
 fn cargo_argv(subcommand: &str, extra: &str) -> Result<Vec<String>, String> {
     let mut words = parse_direct_argv(extra)
         .map_err(|error| format!("invalid cargo {subcommand} arguments: {error}"))?;
-    // Arguments that open by repeating the command this route already runs
-    // (`test`, `cargo test`) are that command, not a test-name filter: as a
-    // filter, `test` matched no Rust test at all (GLM 2026-09-30, 8 re-runs).
     let repeated = match words.as_slice() {
         [cargo, sub, ..] if cargo == "cargo" && sub == subcommand => 2,
         [sub, ..] if sub == subcommand => 1,
@@ -1305,11 +1194,6 @@ fn cargo_args_are_typed_verifier(args: &[&str]) -> bool {
     }
 }
 
-/// The directory Cargo should run in: the workspace when it has a root
-/// `Cargo.toml`, else the single first-level directory that has one (angelX
-/// itself keeps its crate under `cockpit/`, and every typed verifier used to
-/// fail there with "no Cargo.toml"). Ambiguous (several nested crates) or none
-/// → `None`; callers keep their existing error paths.
 pub(crate) fn cargo_workspace_root(workspace: &Path) -> Option<PathBuf> {
     if workspace.join("Cargo.toml").is_file() {
         return Some(workspace.to_path_buf());
@@ -1318,9 +1202,6 @@ pub(crate) fn cargo_workspace_root(workspace: &Path) -> Option<PathBuf> {
     match nested.len() {
         0 => None,
         1 => nested.pop(),
-        // Several crates one level down (angelX: cockpit/, harness/, render-kit/):
-        // the one with the most source files is the product; the receipt names
-        // it and `run_tests {crate: ...}` pins another.
         _ => {
             nested.sort_by_key(|dir| std::cmp::Reverse(source_file_count(&dir.join("src"))));
             nested.into_iter().next()
@@ -1328,8 +1209,6 @@ pub(crate) fn cargo_workspace_root(workspace: &Path) -> Option<PathBuf> {
     }
 }
 
-/// Depth-1 directories holding a `Cargo.toml` (vendored/build dirs skipped),
-/// alphabetical.
 pub(crate) fn nested_crate_dirs(workspace: &Path) -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = crate::platform::workspace_lang::detect(workspace)
         .into_iter()
@@ -1379,13 +1258,6 @@ fn workspace_cargo_control_file(workspace: &Path) -> Option<PathBuf> {
 }
 
 fn trusted_verifier_argv(args: &[&str], workspace: &Path) -> Result<Vec<OsString>, String> {
-    // Under YOLO the typed Cargo verifier survives only on the pinned
-    // toolchain: `capture_pinned_cargo` resolved the cargo/rustc this
-    // workspace would select (through rustup) and refused any candidate
-    // inside a task-writable root, and `verified_executable` re-checks the
-    // captured size+sha256 immediately before every spawn. When no pin could
-    // be established the executable lookup below refuses instead. The
-    // Non-YOLO keeps its existing control-file refusal; YOLO uses the pin.
     if !cargo_args_are_typed_verifier(args) {
         return Err("internal error: non-verifier requested trusted Cargo mode".to_string());
     }
@@ -1482,9 +1354,6 @@ fn sandboxed_cargo_output_with_env(
     {
         return Err("trusted Cargo fmt unavailable in the pinned toolchain".to_string());
     }
-    // Raw explicit manifests are relative to the caller's workspace. Only
-    // auto-detect a crate when Cargo is choosing the manifest for the caller.
-    // Arguments after `--` belong to the program, not Cargo.
     let explicit_manifest = !trusted_verifier
         && args
             .iter()
@@ -1512,8 +1381,6 @@ fn sandboxed_cargo_output_with_env(
     let collect_sources = trusted_verifier && args.first() == Some(&"check");
     if collect_sources {
         let argv = trusted_args.as_mut().expect("trusted check argv");
-        // The internal protocol is fixed; caller-selected formats cannot remove
-        // records or inject a second presentation channel.
         if argv.iter().any(|arg| {
             arg == "--message-format" || arg.as_encoded_bytes().starts_with(b"--message-format=")
         }) {
@@ -1630,10 +1497,6 @@ fn timeout_detail(output: &CapturedCommand) -> String {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Cargo tool — pull crates, build, test, in a sandboxed workspace.
-// ---------------------------------------------------------------------------
-
 pub(crate) struct CargoTool {
     workspace: PathBuf,
     policy: SandboxPolicy,
@@ -1653,7 +1516,6 @@ impl CargoTool {
         Self::in_dir_with_cargo(workspace, cargo)
     }
 
-    /// The same tool with the network denied, for schema tests.
     #[cfg(test)]
     pub(crate) fn offline(mut self) -> Self {
         self.policy.allow_network = false;
@@ -1723,8 +1585,6 @@ impl Tool for CargoTool {
         let required = (parts.first().is_some_and(|part| part == "check"))
             .then(|| targets::required(&self.workspace, &self.mutation_targets));
         let part_refs = parts.iter().map(String::as_str).collect::<Vec<_>>();
-        // Raw build/run/custom Cargo subcommands can execute arbitrary package
-        // code and edit ignored source. They cannot reset the source inventory.
         if !cargo_args_are_typed_verifier(&part_refs) {
             self.mutation_targets.mark_opaque();
         }
@@ -1753,7 +1613,6 @@ impl Tool for CargoTool {
             timed_out: out.timed_out,
             dur_ms: out.dur_ms,
             bytes_out: out.stdout.len() + out.stderr.len(),
-            // Exec'd directly: no shell, so no pipeline can steal the status.
             shell: crate::knowledge::experience::CmdShell::Direct,
         };
         crate::knowledge::experience::record_cmd_event(&experience, &self.workspace);
@@ -1806,13 +1665,6 @@ fn append_command_verdict(mut output: String, marker: &str) -> String {
     output
 }
 
-// Verifiable test reward — run the suite, parse pass/fail, derive an RL reward.
-// A ground-truth signal for software-dev RL (complements the DICE reward):
-// trajectories that make tests pass score higher. `TestOutcome` /
-// `parse_test_result` are public so the reinforce loop can score on them too.
-// ---------------------------------------------------------------------------
-
-/// Structured outcome of a test run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct TestOutcome {
     pub passed: usize,
@@ -1826,8 +1678,6 @@ impl TestOutcome {
     pub fn all_passed(&self) -> bool {
         self.failed == 0 && self.passed > 0
     }
-    /// Reward in [0,1]: fraction of executed tests that passed; 0 if none ran
-    /// (a build error or empty suite earns nothing).
     pub fn reward(&self) -> f32 {
         match self.ran() {
             0 => 0.0,
@@ -1836,8 +1686,6 @@ impl TestOutcome {
     }
 }
 
-/// Parse libtest/cargo summary lines ("test result: ok. 12 passed; 0 failed;
-/// 1 ignored; …"), summing across the per-binary lines cargo emits.
 pub fn parse_test_result(output: &str) -> TestOutcome {
     let mut o = TestOutcome::default();
     for line in output.lines() {
@@ -1896,19 +1744,8 @@ impl RunTestsTool {
         }
     }
 }
-/// Default cap for one managed foreground process in headless `--task` mode.
-/// A sealed task keeps foreground ownership (no background hand-off), so
-/// without it one hung command (`find /`, a test binary that never exits)
-/// holds the call until the evaluator's wall kills the whole rollout:
-/// polyglot-v1 rust-bowling and cpp-zebra-puzzle on 2026-11-01, both 600 s.
-/// Interactive turns get no default; long task work uses `proc_run` or an
-/// explicit `ANGEL_TASK_CALL_TIMEOUT_SECS` (`0` turns the cap off).
 pub(crate) const TASK_CALL_TIMEOUT_SECS: u64 = 120;
 
-/// Cap for one managed foreground process, read from
-/// `ANGEL_TASK_CALL_TIMEOUT_SECS` (or the deprecated
-/// `ANGEL_TEST_RUN_TIMEOUT_SECS`). `0` is no cap. Unset is no cap
-/// interactively and [`TASK_CALL_TIMEOUT_SECS`] in headless task mode.
 pub(crate) fn task_call_budget() -> Option<Duration> {
     let knob = std::env::var("ANGEL_TASK_CALL_TIMEOUT_SECS")
         .or_else(|_| std::env::var("ANGEL_TEST_RUN_TIMEOUT_SECS"))
@@ -1922,8 +1759,6 @@ pub(crate) fn task_call_budget() -> Option<Duration> {
     }
 }
 
-/// Add unfinished-test clues without attributing a timeout to this cap: a
-/// tighter execution limit may have fired. Preserve the original timing report.
 pub(crate) fn hung_suite_report(report: &str) -> String {
     let hung: Vec<&str> = report
         .lines()
@@ -1933,7 +1768,6 @@ pub(crate) fn hung_suite_report(report: &str) -> String {
                 .strip_suffix(" has been running for over 60 seconds")
         })
         .collect();
-    // The facts stay; where to look is the `⠨⠓` page on its own line.
     let what = if hung.is_empty() {
         String::new()
     } else {
@@ -1987,15 +1821,6 @@ impl Tool for RunTestsTool {
     }
 }
 
-/// `run_tests` arguments read the way models write them, so each reaches the
-/// field the tool reads. A `runner` (or `lang`) written as the command the
-/// description names (`npm test`, `npx jest`, `cargo test`, `python3 -m
-/// pytest`, `node --test`) becomes its language, and the entrypoint it names.
-/// `args` that open by repeating such a command keep only what follows it.
-/// An absolute `dir`/`crate` inside the workspace, or one spelled from the
-/// launch directory (`ws/bowling`), becomes workspace-relative. Values already
-/// in canonical form pass through unchanged; an explicit `entrypoint` always
-/// wins, and nothing the model asked to run is dropped or swapped.
 pub(crate) fn normalize_run_tests_args(args: &Value, workspace: &Path) -> Value {
     use crate::platform::workspace_lang::{self, parse_runner_command};
     let Some(original) = args.as_object() else {
@@ -2039,7 +1864,6 @@ pub(crate) fn normalize_run_tests_args(args: &Value, workspace: &Path) -> Value 
         && let Ok(words) = parse_direct_argv(raw)
     {
         let refs = words.iter().map(String::as_str).collect::<Vec<_>>();
-        // The Cargo route strips its own repeated subcommand (`cargo_argv`).
         if let Some(command) =
             parse_runner_command(&refs).filter(|command| command.lang != workspace_lang::Lang::Rust)
         {
@@ -2105,7 +1929,6 @@ pub(crate) fn normalize_run_tests_args(args: &Value, workspace: &Path) -> Value 
 }
 
 impl RunTestsTool {
-    /// One suite run under whatever call budget the caller set.
     fn run_suite(
         &self,
         args: &Value,
@@ -2115,12 +1938,6 @@ impl RunTestsTool {
         use crate::platform::workspace_lang::{self, Lang};
         let normalized = normalize_run_tests_args(args, &self.workspace);
         let args = &normalized;
-        // Typed native verification first (pinned runtimes, reward-labeled
-        // evidence). It declines with "verification inconclusive: …" for mixed
-        // roots, package scripts and unsupported frameworks, and errors under
-        // YOLO; every one of those used to cost the model a hop (2026-09-06
-        // arena capture, 2026-09-07 dogfoods), so instead of returning them the
-        // workspace-scan route below runs the suite and carries the reason.
         let sub_requested = args["dir"]
             .as_str()
             .or_else(|| args["crate"].as_str())
@@ -2190,9 +2007,6 @@ impl RunTestsTool {
             progress.clone(),
         ) {
             match &result {
-                // An executed native selection already has its final receipt.
-                // In particular, never rerun an empty selector via a fallback
-                // that could discover a different suite.
                 Ok(text) if text.contains("\n[verifier attribution] ") => return result,
                 Ok(text) | Err(text) if text.starts_with("verification inconclusive:") => {
                     typed_note = Some(text.clone());
@@ -2218,8 +2032,6 @@ impl RunTestsTool {
                 })
             })
             .transpose()?;
-        // `dir` (alias `crate`): a subdirectory whose own files choose the runner —
-        // mono-repos keep suites under e.g. sidecar/forge (python) or cockpit (rust).
         let sub = args["dir"]
             .as_str()
             .or_else(|| args["crate"].as_str())
@@ -2297,10 +2109,6 @@ impl RunTestsTool {
 }
 
 impl RunTestsTool {
-    /// The Cargo route: pinned toolchain, trusted verifier semantics. Under YOLO the
-    /// typed (reward-labeled) verifier is unavailable, so the suite still runs on
-    /// the pinned cargo but the receipt says the reward is unlabeled — one hop of
-    /// real evidence instead of an error the model has to route around.
     fn run_cargo(
         &self,
         cargo_dir: &Path,
@@ -2310,10 +2118,6 @@ impl RunTestsTool {
     ) -> Result<String, String> {
         let argv = cargo_argv("test", args["args"].as_str().unwrap_or(""))?;
         let argv_refs = argv.iter().map(String::as_str).collect::<Vec<_>>();
-        // Under YOLO the typed verifier runs only when the pinned toolchain
-        // identity held for this spawn; a drifted or unpinnable toolchain
-        // errors inside `sandboxed_cargo_output` instead, so the receipt can
-        // never claim trusted evidence without a live pin.
         let yolo_pin = crate::platform::yolo::enabled()
             .then(|| self.cargo.pin_note())
             .flatten();
@@ -2345,7 +2149,6 @@ impl RunTestsTool {
                 timed_out: out.timed_out,
                 dur_ms: out.dur_ms,
                 bytes_out: out.stdout.len() + out.stderr.len(),
-                // Exec'd directly: no shell, so no pipeline can steal the status.
                 shell: crate::knowledge::experience::CmdShell::Direct,
             },
             &self.workspace,
@@ -2417,9 +2220,6 @@ impl RunTestsTool {
         Ok(summary)
     }
 
-    /// Non-Cargo runners (node, npm, pytest/unittest, go, swift): the program is
-    /// resolved from PATH, run under the same sandbox policy in the directory the
-    /// marker was found in, and the counts are parsed per runner.
     fn run_plan(
         &self,
         scan_root: &Path,
@@ -2438,16 +2238,11 @@ impl RunTestsTool {
                 .as_deref()
                 .is_some_and(|sc| sc.trim_start().starts_with("node --test"));
             if plan.program == "npm" && node_script {
-                // The script is node's own runner with its globs baked in; an
-                // appended file only ADDS to them (a real-repo run on 2026-09-07
-                // ran all 765 root tests for one file). Call the runner directly
-                // so the caller's files/names are the whole selection.
                 plan.program = "node";
                 argv = vec!["--test".to_string()];
                 plan.label =
                     "node --test (bypassing the npm script for the given args)".to_string();
             } else if plan.program == "npm" && !argv.iter().any(|a| a == "--") {
-                // Other scripts (jest, vitest, mocha) take filters after `--`.
                 argv.push("--".to_string());
             }
             argv.extend(parse_direct_argv(extra)?);
@@ -2488,8 +2283,6 @@ impl RunTestsTool {
         if out.timed_out {
             return Ok(format!("tests: {}\n{}", timeout_detail(&out), both()));
         }
-        // A project-controlled runner can print any counts it likes. Its
-        // actual unsuccessful exit always wins over the report on stdout.
         if !out.success {
             let code = out
                 .exit
@@ -2529,8 +2322,6 @@ impl RunTestsTool {
                 both()
             ));
         }
-        // Only the typed route labels a reward; this route always says why it
-        // is unlabeled (typed verification declined, or YOLO).
         let reward = if crate::platform::yolo::enabled() {
             "reward unlabeled (YOLO: typed native verification is off; the suite ran on the host runtime but this receipt is not trusted evidence)".to_string()
         } else {
@@ -2556,8 +2347,6 @@ impl RunTestsTool {
     }
 }
 
-/// Run a PATH-resolved program under the sandbox policy in `dir`, with the same
-/// bounded capture the Cargo verifiers use.
 fn sandboxed_program_output(
     program: &str,
     args: &[String],
@@ -2567,15 +2356,10 @@ fn sandboxed_program_output(
     context: (Option<Arc<ToolOutputProgress>>, &Value),
 ) -> Result<CapturedCommand, String> {
     let (progress, env_args) = context;
-    // npm is usually an env-node script: resolve its interpreter before spawn
-    // so an absent Node does not surface as a raw /usr/bin/env failure.
     let node = (program == "npm")
         .then(|| crate::agent::tools::runtime_missing::resolve("node"))
         .transpose()?;
     let resolved = crate::agent::tools::runtime_missing::resolve(program)?;
-    // Use a pinned Node directly for npm's standard node shebang. The pin's
-    // basename need not be `node`; merely prepending its parent to PATH would
-    // silently lose such a pin. Non-Node npm wrappers keep their own semantics.
     let npm_uses_node = node.is_some() && {
         use std::io::Read;
         let mut prefix = [0; 256];
@@ -2616,7 +2400,6 @@ fn sandboxed_program_output(
         );
     }
     cmd.current_dir(dir);
-    // Deterministic, machine-readable output where the runner supports it.
     cmd.env("CI", "1");
     cmd.env("NO_COLOR", "1");
     cmd.env("FORCE_COLOR", "0");
@@ -2661,9 +2444,6 @@ fn sandboxed_program_output(
 #[cfg(test)]
 use crate::platform::workspace_lang::resolve_on_path;
 
-/// Reward text that never rounds a red suite up to "1.00": two decimals when
-/// everything passed, three when anything failed (764 passed / 1 failed printed
-/// as "reward 1.00" in a real-repo run on 2026-09-07).
 pub(crate) fn reward_text(passed: usize, failed: usize) -> String {
     let ran = passed + failed;
     let reward = if ran == 0 {
@@ -2678,7 +2458,6 @@ pub(crate) fn reward_text(passed: usize, failed: usize) -> String {
     }
 }
 
-/// Last `max` bytes of `s` (char-boundary safe), for surfacing failure detail.
 pub(crate) fn tail(s: &str, max: usize) -> String {
     if s.len() <= max {
         return s.trim().to_string();
@@ -2690,12 +2469,6 @@ pub(crate) fn tail(s: &str, max: usize) -> String {
     format!("…[earlier output omitted]\n{}", s[start..].trim())
 }
 
-/// One trimmed output line that opens a diagnostic block: a failing test's
-/// own section (cargo `---- t stdout ----`, pytest `___ t ___`, unittest
-/// `FAIL: t`, jest `● t`, TAP `not ok`), a trace, or a compiler error. Not the
-/// runner's progress or failure-name listing, nor dependency build chatter, so
-/// the first assertion/trace stays visible and a model need not execute the
-/// suite again to retrieve it.
 pub(crate) fn is_failure_marker(text: &str) -> bool {
     (text.starts_with("---- ")
         && (text.ends_with(" stdout ----") || text.ends_with(" stderr ----")))
@@ -2748,8 +2521,6 @@ fn failure_detail(output: &str, max: usize) -> String {
         if marker && first_failure.is_none() {
             first_failure = Some(offset);
         }
-        // stdout and stderr are captured separately, so Cargo's stderr build
-        // chatter can follow its stdout test summary in the combined text.
         if text.starts_with("test result: FAILED.") {
             summary_end = Some(offset + line.trim_end().len());
         }
@@ -2768,8 +2539,6 @@ fn failure_detail(output: &str, max: usize) -> String {
     let Some(available) = max.checked_sub(earlier.len() + BETWEEN.len()) else {
         return fallback();
     };
-    // Two thirds to the first diagnostic, one third to the runner's terminal
-    // summary. Both excerpts share the original 1500-byte failure budget.
     let final_bytes = available / 3;
     let mut end = start + available - final_bytes;
     while !output.is_char_boundary(end) {
@@ -2786,11 +2555,6 @@ fn failure_detail(output: &str, max: usize) -> String {
     )
 }
 
-// ---------------------------------------------------------------------------
-// Lint reward — run clippy, count warnings/errors, derive a quality reward.
-// A second verifiable signal alongside run_tests: fewer lints = higher reward.
-// ---------------------------------------------------------------------------
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct LintOutcome {
     pub warnings: usize,
@@ -2800,7 +2564,6 @@ impl LintOutcome {
     pub fn clean(&self) -> bool {
         self.errors == 0 && self.warnings == 0
     }
-    /// Reward in [0,1]: 0 if anything errored, else 1/(1+warnings).
     pub fn reward(&self) -> f32 {
         if self.errors > 0 {
             0.0
@@ -2810,8 +2573,6 @@ impl LintOutcome {
     }
 }
 
-/// Count clippy/rustc diagnostics, skipping cargo's summary lines ("generated
-/// N warnings", "aborting due to …", "could not compile …").
 pub fn parse_lint(output: &str) -> LintOutcome {
     let mut o = LintOutcome::default();
     for line in output.lines() {
@@ -2826,8 +2587,6 @@ pub fn parse_lint(output: &str) -> LintOutcome {
                 && !l.contains("could not compile")
                 && !l.contains("generated"))
         {
-            // `error[E…]` is always a real diagnostic; bare `error:` counts too
-            // unless it's one of cargo's summary lines.
             o.errors += 1;
         }
     }
@@ -3217,7 +2976,6 @@ pub(crate) fn resolve_on_path_for_test(program: &str) -> Option<PathBuf> {
     resolve_on_path(program)
 }
 
-/// Prefix assignments affect only the child, never the process environment.
 fn apply_verifier_env(command: &mut std::process::Command, args: &Value) -> Result<(), String> {
     let Some(env) = args.get("env") else {
         return Ok(());

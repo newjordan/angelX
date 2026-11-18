@@ -98,16 +98,13 @@ def measure(captures, recipe=ROOT/'scripts/boss-art-reliquary.json', names=NAMES
                     im = Image.open(ROOT/'cockpit/assets/dungeon/bosses'/name/file).convert('RGBA')
                     inks.update(c[:3] for c in im.get_flattened_data() if c[3])
                 masks = [pigment_shape(frames[s], g['tell'], inks) for s in range(4)]
-                ignore = []  # Known pigments cannot be a changed body pose.
+                ignore = []
                 print(f'{name} v{kit}: exact registered warning pigments; includes body overlap')
             else:
                 masks = [shape(frames[s], bg[s], g['tell']) for s in range(4)]
             for stage in range(1,4):
                 active = [q for q in masks[stage] if (masks[stage][q] or masks[stage-1][q]) and not any(
                     b[0]//8<=q[0]<math.ceil(b[2]/8) and b[1]//16<=q[1]<math.ceil(b[3]/16) for b in ignore)]
-                # V1 always emits the same half-block codepoint. Its occupied
-                # upper/lower halves are the glyph shape, just as braille bits
-                # are in V2; changing ink alone cannot change this mask.
                 diff = sum(masks[stage][q] != masks[stage-1][q] for q in active)
                 ratio = diff/len(active) if active else 0
                 print(f'{name} v{kit}: tell {stage-1}->{stage} glyphs change {diff}/{len(active)} = {ratio:.1%} (need >=30%)')

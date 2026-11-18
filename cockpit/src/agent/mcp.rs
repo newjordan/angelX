@@ -34,10 +34,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, mpsc};
 use std::time::{Duration, Instant};
 
-/// The MCP protocol revision we advertise in `initialize`.
 const PROTOCOL_VERSION: &str = "2024-11-05";
 
-/// One configured server: how to spawn it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServerSpec {
     pub name: String,
@@ -46,7 +44,6 @@ pub struct ServerSpec {
     pub env: Vec<(String, String)>,
 }
 
-/// A tool advertised by a server's `tools/list`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RemoteTool {
     pub name: String,
@@ -54,11 +51,6 @@ pub struct RemoteTool {
     pub schema: Value,
 }
 
-// ---------------------------------------------------------------------------
-// Pure protocol helpers (unit-tested without a subprocess)
-// ---------------------------------------------------------------------------
-
-/// A JSON-RPC 2.0 request line (newline-terminated for stdio framing).
 fn build_request(id: u64, method: &str, params: Value) -> String {
     format!(
         "{}\n",
@@ -66,7 +58,6 @@ fn build_request(id: u64, method: &str, params: Value) -> String {
     )
 }
 
-/// A JSON-RPC 2.0 notification line (no id, so no response is expected).
 fn build_notification(method: &str, params: Value) -> String {
     format!(
         "{}\n",
@@ -74,10 +65,6 @@ fn build_notification(method: &str, params: Value) -> String {
     )
 }
 
-/// Interpret one inbound line against the `id` we're waiting for:
-/// - `Some(Ok(result))`   — the matching success response
-/// - `Some(Err(message))` — the matching error response
-/// - `None`               — a different id, a notification, or unparseable: skip
 fn parse_response(line: &str, id: u64) -> Option<Result<Value, String>> {
     let v: Value = serde_json::from_str(line.trim()).ok()?;
     if v.get("id").and_then(|i| i.as_u64()) != Some(id) {
@@ -93,7 +80,6 @@ fn parse_response(line: &str, id: u64) -> Option<Result<Value, String>> {
     Some(Ok(v.get("result").cloned().unwrap_or(Value::Null)))
 }
 
-/// Pull `(name, description, inputSchema)` out of a `tools/list` result.
 fn parse_tools_list(result: &Value) -> Vec<RemoteTool> {
     result
         .get("tools")
@@ -122,8 +108,6 @@ fn parse_tools_list(result: &Value) -> Vec<RemoteTool> {
         .unwrap_or_default()
 }
 
-/// Flatten a `tools/call` result's `content` array into text. A truthy `isError`
-/// turns the joined text into an `Err` so the agent sees it as a failure.
 fn parse_tool_content(result: &Value) -> Result<String, String> {
     let mut text = String::new();
     if let Some(items) = result.get("content").and_then(|c| c.as_array()) {
@@ -148,7 +132,6 @@ fn parse_tool_content(result: &Value) -> Result<String, String> {
         }
     }
     if text.is_empty() {
-        // Fall back to the raw result so nothing is silently dropped.
         text = result.to_string();
     }
     if result.get("isError").and_then(|e| e.as_bool()) == Some(true) {
@@ -158,7 +141,6 @@ fn parse_tool_content(result: &Value) -> Result<String, String> {
     }
 }
 
-/// Human-readable summary of an MCP `resources/list` result.
 fn parse_resources_list(result: &Value) -> String {
     let Some(resources) = result.get("resources").and_then(|r| r.as_array()) else {
         return "no resources".to_string();
@@ -194,8 +176,6 @@ fn parse_resources_list(result: &Value) -> String {
     out
 }
 
-/// Flatten MCP `resources/read` content. Text is returned directly; blobs and
-/// unknown content kinds are represented so the model knows something existed.
 fn parse_resource_read(result: &Value) -> String {
     let Some(contents) = result.get("contents").and_then(|c| c.as_array()) else {
         return result.to_string();
@@ -227,7 +207,6 @@ fn parse_resource_read(result: &Value) -> String {
     }
 }
 
-/// Human-readable summary of an MCP `prompts/list` result.
 fn parse_prompts_list(result: &Value) -> String {
     let Some(prompts) = result.get("prompts").and_then(|p| p.as_array()) else {
         return "no prompts".to_string();
@@ -272,7 +251,6 @@ fn parse_prompts_list(result: &Value) -> String {
     out
 }
 
-/// Flatten MCP `prompts/get` result into readable messages.
 fn parse_prompt_get(result: &Value) -> String {
     let mut out = String::new();
     if let Some(desc) = result.get("description").and_then(|v| v.as_str())
@@ -309,8 +287,6 @@ fn parse_prompt_get(result: &Value) -> String {
     out
 }
 
-/// Cockpit tool name for a remote tool: `<server>__<tool>`, sanitized to the
-/// `[A-Za-z0-9_-]` set most providers accept for function names.
 fn mangle_tool_name(server: &str, tool: &str) -> String {
     let clean = |s: &str| {
         s.chars()
@@ -326,8 +302,6 @@ fn mangle_tool_name(server: &str, tool: &str) -> String {
     format!("{}__{}", clean(server), clean(tool))
 }
 
-/// Parse a Claude-desktop-style config blob into server specs:
-/// `{ "mcpServers": { "<name>": { "command": "...", "args": [...], "env": {...} } } }`
 fn parse_mcp_config(text: &str) -> Vec<ServerSpec> {
     let v: Value = match serde_json::from_str(text) {
         Ok(v) => v,
@@ -341,7 +315,7 @@ fn parse_mcp_config(text: &str) -> Vec<ServerSpec> {
     for (name, cfg) in map {
         let command = match cfg.get("command").and_then(|c| c.as_str()) {
             Some(c) => c.to_string(),
-            None => continue, // a server with no command is unusable
+            None => continue,
         };
         let args = cfg
             .get("args")
@@ -372,8 +346,6 @@ fn parse_mcp_config(text: &str) -> Vec<ServerSpec> {
     out
 }
 
-/// Load configured servers from `ANGEL_MCP_CONFIG` (default `~/.angelX/mcp.json`).
-/// Missing file → no servers.
 fn load_mcp_servers() -> Vec<ServerSpec> {
     let path = std::env::var_os("ANGEL_MCP_CONFIG")
         .map(PathBuf::from)
@@ -389,23 +361,10 @@ fn load_mcp_servers() -> Vec<ServerSpec> {
     }
 }
 
-/// Whether inherited secret-named variables are withheld from server children.
-/// The same knob and default as the tool-child scrub in `harness::exec`
-/// (`ANGEL_TOOL_STRIP_SECRETS`, on). Unlike that scrub, YOLO does not bypass
-/// it: a server is spawned at discovery and respawned on crash mid-session, so
-/// a posture-dependent environment would let one generation of the same daemon
-/// carry keys another lacks; a server's own credential belongs in its
-/// `mcp.json` `env` entry, which is applied regardless of the knob.
 fn strip_inherited_secrets() -> bool {
     crate::agent::harness::env_flag("ANGEL_TOOL_STRIP_SECRETS", true)
 }
 
-/// Build the server process for `spec`. `inherited` names the parent
-/// environment the child would otherwise receive unchanged; when
-/// `strip_secrets`, every secret-named entry among them is withheld. `spec.env`
-/// is applied afterwards, so a key configured in `mcp.json` always reaches the
-/// server even when the cockpit holds a same-named variable. Pure over its
-/// inputs so the environment contract is unit-testable without a process.
 fn server_command(
     spec: &ServerSpec,
     inherited: impl IntoIterator<Item = OsString>,
@@ -424,13 +383,7 @@ fn server_command(
     command
 }
 
-// ---------------------------------------------------------------------------
-// The stdio client
-// ---------------------------------------------------------------------------
-
 struct Conn {
-    // A failed/partial write closes the pipe permanently: appending another
-    // JSON-RPC frame would corrupt the protocol or replay an ambiguous call.
     stdin: Option<ChildStdin>,
     rx: mpsc::Receiver<String>,
 }
@@ -438,7 +391,6 @@ struct Conn {
 #[cfg(unix)]
 fn nonblocking_stdin(stdin: &ChildStdin) -> io::Result<()> {
     let fd = stdin.as_raw_fd();
-    // SAFETY: the caller owns this descriptor; fcntl only changes its flags.
     let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
     if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
         return Err(io::Error::last_os_error());
@@ -467,8 +419,6 @@ fn write_until(mut stdin: &ChildStdin, mut bytes: &[u8], deadline: Instant) -> i
                     .as_millis()
                     .saturating_add(1)
                     .min(i32::MAX as u128);
-                // SAFETY: descriptor is live and points to one initialized
-                // pollfd. The stdin owner remains held throughout the poll.
                 let ready = unsafe { libc::poll(&mut descriptor, 1, timeout_ms as i32) };
                 if ready < 0 {
                     let error = io::Error::last_os_error();
@@ -476,8 +426,6 @@ fn write_until(mut stdin: &ChildStdin, mut bytes: &[u8], deadline: Instant) -> i
                         return Err(error);
                     }
                 }
-                // Recheck the deadline after a timeout/interruption, and retry
-                // the write on readiness (including a closed/broken pipe).
             }
             Err(error) => return Err(error),
         }
@@ -491,7 +439,6 @@ fn write_until(mut stdin: &ChildStdin, bytes: &[u8], _deadline: Instant) -> io::
     stdin.flush()
 }
 
-/// A live connection to one MCP server subprocess.
 pub struct McpClient {
     name: String,
     conn: Mutex<Conn>,
@@ -501,9 +448,6 @@ pub struct McpClient {
 }
 
 impl McpClient {
-    /// Serializing a busy connection consumes the caller's local allowance.
-    /// An expired queue has written no frame and leaves the warm transport
-    /// alone; distinguish it from a response/write timeout that needs restart.
     fn connection_until(
         &self,
         method: &str,
@@ -531,8 +475,6 @@ impl McpClient {
         }
     }
 
-    /// Spawn `spec` and wire a reader thread. Does NOT handshake — call
-    /// [`McpClient::initialize`] next.
     fn spawn(spec: &ServerSpec, timeout: Duration) -> Result<Self, String> {
         Self::spawn_in(spec, timeout, None)
     }
@@ -569,7 +511,7 @@ impl McpClient {
                 match line {
                     Ok(l) => {
                         if tx.send(l).is_err() {
-                            break; // client dropped
+                            break;
                         }
                     }
                     Err(_) => break,
@@ -588,8 +530,6 @@ impl McpClient {
         })
     }
 
-    /// Send a request and read inbound lines until the matching response arrives
-    /// or the deadline passes. Serialized by the `conn` lock.
     fn request(&self, method: &str, params: Value) -> Result<Value, String> {
         let deadline = Instant::now() + self.timeout;
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
@@ -605,7 +545,6 @@ impl McpClient {
                     if let Some(res) = parse_response(&l, id) {
                         return res.map_err(|e| format!("mcp {}: {e}", self.name));
                     }
-                    // a notification or other id — keep reading
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
                     return Err(format!("mcp {} timed out on {method}", self.name));
@@ -646,7 +585,6 @@ impl McpClient {
         Ok(())
     }
 
-    /// The `initialize` request + `notifications/initialized` follow-up.
     fn initialize(&self) -> Result<(), String> {
         self.request(
             "initialize",
@@ -687,30 +625,21 @@ impl McpClient {
         Ok(parse_prompt_get(&result))
     }
 
-    /// Spawn `spec` and complete the MCP handshake, returning a shareable client
-    /// ready for [`McpClient::call_tool`]. Unlike [`connect_server`] this does not
-    /// list/wrap tools — it's for host code (e.g. the memory store) that talks to
-    /// one known server directly rather than exposing its tools to the agent.
     pub fn connect(spec: &ServerSpec, timeout: Duration) -> Result<Arc<Self>, String> {
         let client = Arc::new(Self::spawn(spec, timeout)?);
         client.initialize()?;
         Ok(client)
     }
 
-    /// Invoke a remote tool by its raw (un-mangled) name and return its text
-    /// content. Public so host modules can drive a server outside the agent loop.
     pub fn call_tool(&self, name: &str, args: &Value) -> Result<String, String> {
         let result = self.request("tools/call", json!({ "name": name, "arguments": args }))?;
         parse_tool_content(&result)
     }
 
-    /// Whether the server subprocess is still running — the warm-reuse guard.
     fn alive(&self) -> bool {
         self.child.lock().map(|mut c| c.alive()).unwrap_or(false)
     }
 
-    /// The child's process id, for teardown proofs: a retracted provider must
-    /// leave no live child behind.
     fn pid(&self) -> Option<u32> {
         self.child.lock().ok().map(|child| child.id())
     }
@@ -718,7 +647,6 @@ impl McpClient {
 
 impl Drop for McpClient {
     fn drop(&mut self) {
-        // ServiceChild also covers setup failures and poisoned client locks.
         let child = self
             .child
             .get_mut()
@@ -738,10 +666,6 @@ struct McpProviderState {
     client: Arc<McpClient>,
 }
 
-/// A stable capability identity backed by a replaceable MCP process. Tools keep
-/// this provider across process failure, so the next request can resolve a new
-/// implementation without rebuilding the whole cockpit registry. Replacement
-/// is serialized per server and keyed by the exact observed generation.
 struct McpProvider {
     spec: ServerSpec,
     timeout: Duration,
@@ -785,7 +709,6 @@ impl McpProvider {
         self.snapshot().is_ok_and(|(_, client)| client.alive())
     }
 
-    /// The live child's pid, when this provider still has one.
     fn child_pid(&self) -> Option<u32> {
         self.snapshot().ok().and_then(|(_, client)| client.pid())
     }
@@ -797,9 +720,6 @@ impl McpProvider {
             .unwrap_or(0)
     }
 
-    /// Replace only the implementation the caller actually observed. A second
-    /// caller arriving after another replacement adopts that newer generation
-    /// instead of spawning a competing process.
     fn replace_if_current(
         &self,
         observed_generation: u64,
@@ -818,8 +738,6 @@ impl McpProvider {
         }
         drop(state);
 
-        // Keep the slow spawn/handshake outside `state`: callers can still
-        // observe the old generation while one replacement is single-flighted.
         let next = Arc::new(McpClient::spawn_in(
             &self.spec,
             self.timeout,
@@ -839,9 +757,6 @@ impl McpProvider {
                 return Err(format!("mcp {} provider state poisoned", self.spec.name));
             }
         };
-        // Every replacement holds `replacement`, so this should only differ if
-        // a future administrative path changes the provider. Preserve the exact
-        // observed-generation rule instead of silently overwriting it.
         if state.generation != observed_generation || !Arc::ptr_eq(&state.client, observed) {
             let current = Arc::clone(&state.client);
             drop(state);
@@ -853,8 +768,6 @@ impl McpProvider {
         state.generation = state.generation.saturating_add(1);
         drop(state);
         drop(replacement);
-        // Killing/reaping a retired process can block; never do it while the
-        // provider state or replacement lock is held.
         drop(retired);
         Ok(next)
     }
@@ -924,7 +837,6 @@ fn is_unhealthy_mcp_error(server: &str, error: &str) -> bool {
         || error.starts_with(&format!("mcp {server} notify: "))
 }
 
-/// A discovered remote tool, bound to its stable provider.
 struct McpTool {
     provider: Arc<McpProvider>,
     remote_name: String,
@@ -949,10 +861,6 @@ impl Tool for McpTool {
     }
 }
 
-/// A per-server MCP surface tool for capabilities that are not normal actions:
-/// resources (readable context) and prompts (templates). Keeping these behind
-/// one bounded schema prevents a server with many resources/prompts from
-/// exploding the tool list.
 struct McpSurfaceTool {
     provider: Arc<McpProvider>,
     display_name: String,
@@ -1026,27 +934,11 @@ impl Tool for McpSurfaceTool {
     }
 }
 
-/// Live clients kept warm only inside one canonical project. MCP configuration
-/// is user-global, but a server process has cwd and internal session state; it
-/// must not survive `/cd` into another repository.
 type WarmServer = (ServerSpec, String, Arc<McpProvider>);
 type ServerTools = (Arc<McpProvider>, Vec<Box<dyn Tool>>);
 
 static WARM_SERVERS: OnceLock<Mutex<HashMap<String, WarmServer>>> = OnceLock::new();
 
-/// Spawn + handshake every configured server and return their tools as cockpit
-/// [`Tool`] objects, each bound to the teardown that unloads its server. Per-server
-/// failures are reported in the returned `notes` and skipped — one bad server never
-/// blocks the others or the cockpit. Returns an empty set when no `mcp.json` exists.
-///
-/// Servers connect **concurrently** (the work is dominated by waiting on
-/// subprocess startup and the remote handshake), so one dead server costs its
-/// own `ANGEL_MCP_TIMEOUT`, not the chain's sum — and a server already warm
-/// from a previous registry build is reused without respawning at all.
-///
-/// The composition shape is what makes a mid-session unload possible: the registry
-/// retracts each tool with its inverse, and the server's process goes when its last
-/// tool does (arXiv 2608.25512 §5.1.1 parent composition).
 pub(crate) fn discover_mcp_compositions(
     workspace: &std::path::Path,
 ) -> (Vec<McpComposition>, Vec<String>) {
@@ -1061,22 +953,15 @@ fn mcp_timeout() -> Duration {
         .unwrap_or_else(|| Duration::from_secs(15))
 }
 
-/// One connected server: the tools it contributed, the process behind them, and
-/// the handle that unloads the composition.
 pub(crate) struct McpComposition {
     pub(crate) server: String,
     pub(crate) tools: Vec<Box<dyn Tool>>,
-    /// Pid of the process behind this composition, for teardown proofs.
     #[allow(dead_code)]
     pub(crate) child_pid: Option<u32>,
     provider: Arc<McpProvider>,
 }
 
 impl McpComposition {
-    /// Split into the tools the registry registers and the teardown that
-    /// reverts the composition. The teardown owns this composition's provider
-    /// reference: when the registry retracts the last tool, it forgets the warm
-    /// entry and drops that reference, and `McpClient`'s drop reaps the child.
     pub(crate) fn into_parts(self) -> (Vec<Box<dyn Tool>>, impl FnOnce() + Send + Sync + 'static) {
         let server = self.server;
         let provider = self.provider;
@@ -1088,8 +973,6 @@ impl McpComposition {
     }
 }
 
-/// Drop the warm entry for `server`: a later discovery must reconnect instead of
-/// reusing a provider the cockpit explicitly unloaded.
 fn forget_warm_server(server: &str) {
     if let Some(warm) = WARM_SERVERS.get()
         && let Ok(mut map) = warm.lock()
@@ -1098,8 +981,6 @@ fn forget_warm_server(server: &str) {
     }
 }
 
-/// The spec-driven half of [`discover_mcp_compositions`], split out so the
-/// warm-reuse path is testable without touching the global config.
 pub(crate) fn discover_compositions(
     specs: &[ServerSpec],
     timeout: Duration,
@@ -1110,9 +991,6 @@ pub(crate) fn discover_compositions(
     }
     let warm = WARM_SERVERS.get_or_init(|| Mutex::new(HashMap::new()));
     let project_key = crate::platform::workspace_store::repo_identity(workspace).key;
-    // Snapshot the reusable candidates outside the worker threads: same spec,
-    // subprocess still running. The final liveness proof is answering
-    // `tools/list` below — a wedged server fails that and reconnects fresh.
     let candidates: Vec<Option<Arc<McpProvider>>> = {
         let map = warm.lock().unwrap();
         specs
@@ -1186,9 +1064,6 @@ pub(crate) fn discover_compositions(
     (compositions, notes)
 }
 
-/// The flat form: every discovered tool, on its own. The registry's tracked path
-/// uses [`discover_mcp_compositions`] instead, so that a server can be retracted
-/// as one composition rather than tool by tool.
 #[allow(dead_code)]
 fn discover_from_specs(
     specs: &[ServerSpec],
@@ -1203,8 +1078,6 @@ fn discover_from_specs(
     (tools, notes)
 }
 
-/// Connect to one server: spawn, initialize, list, wrap each tool. Returns the
-/// provider alongside the tools so the caller can keep it warm for reuse.
 #[cfg(test)]
 fn connect_server(spec: &ServerSpec, timeout: Duration) -> Result<ServerTools, String> {
     let provider = McpProvider::connect(spec, timeout, None)?;
@@ -1224,8 +1097,6 @@ fn connect_server_in(
     Ok((provider, tools))
 }
 
-/// Wrap a live provider's advertised tools (plus the umbrella surface tool) as
-/// cockpit [`Tool`] objects.
 fn wrap_tools(
     spec: &ServerSpec,
     provider: &Arc<McpProvider>,

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""List the dotted names the assembled world.bend calls and nothing defines."""
 import re, pathlib
 t = pathlib.Path(__file__).resolve().parents[2].joinpath("build/world.bend").read_text()
 defs = set(re.findall(r"^def ([^\s(?]+)\??\(", t, re.M)) | set(re.findall(r"^type (\w+)", t, re.M))

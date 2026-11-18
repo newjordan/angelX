@@ -1,7 +1,6 @@
 //! Actual pinned Cargo checks in a plain, owned split-target workspace.
 use super::*;
 
-/// A check receipt covers the changed files unless its header names a gap.
 fn verification_result_covers_changes(result: &str) -> bool {
     let header = result.lines().next().unwrap_or("");
     !header
@@ -33,7 +32,6 @@ impl TargetFixture {
         )
         .unwrap();
         std::fs::write(root.join("unrelated/Cargo.toml"), "[package]\nname='owned_unrelated'\nversion='0.1.0'\nedition='2021'\n[lib]\npath='subject.rs'\n").unwrap();
-        // A pre-existing broken, unmodified sibling must not force a broad check.
         std::fs::write(
             root.join("unrelated/subject.rs"),
             "compile_error!(\"UNRELATED_TARGET_MUST_NOT_BE_SELECTED\");\n",
@@ -302,8 +300,6 @@ fn verification_target_ignored_shell_worker_cannot_hide_behind_changed_parent() 
     let fixture = TargetFixture::new();
     let _offline = EnvGuard::set("CARGO_NET_OFFLINE", "true");
     let _jobs = EnvGuard::set("CARGO_BUILD_JOBS", "1");
-    // Turn only this owned fixture's existing worker into ignored input before
-    // constructing the registry. It remains the manifest's actual lib source.
     std::fs::write(
         fixture.root.join(".gitignore"),
         "target/\nworker/subject.rs\n",

@@ -42,19 +42,12 @@ fn dungeon_help() -> String {
 }
 
 use crate::together_sim as sim;
-/// The realm settles what the run banked at least this often.
 const SETTLE: Duration = Duration::from_millis(250);
-/// Where the terminal sends no key releases, a key it stops repeating is let
-/// go after this long: the terminal's own hold, kept here, never in the sim.
 const KEY_LEASE: Duration = Duration::from_millis(180);
-/// A tapped move key where the terminal sends no key releases: about one
-/// knight's width of walking. A key the terminal repeats keeps the whole lease.
 const TAP_LEASE: Duration = Duration::from_millis(95);
-/// The listener's default port when no address is given.
 const DEFAULT_PORT: u16 = 8767;
 
 impl DungeonView {
-    /// A key came down, or the terminal repeated one that already was.
     pub fn hold(&mut self, code: KeyCode, shift: bool) {
         let at = Instant::now();
         let repeat = self
@@ -95,40 +88,28 @@ impl DungeonView {
             aim_x: down(KeyCode::Right) - down(KeyCode::Left),
             aim_y: down(KeyCode::Down) - down(KeyCode::Up),
             fire: down(KeyCode::Char('f')) != 0,
-            // Space is the guard key: roll, or hold the shield up.
             dash: down(KeyCode::Char(' ')) != 0
                 || self.held.iter().any(|(code, held)| {
                     held.shift && matches!(code, KeyCode::Char('w' | 'a' | 's' | 'd'))
                 }),
-            // E meets the world: plates, levers, cages, the folk. F only fires.
             interact: down(KeyCode::Char('e')) != 0,
             bomb: down(KeyCode::Char('x')) != 0,
             swing: down(KeyCode::Char('q')) != 0,
-            // Spells sit on 1 to 4.
             cast: (1..=4)
                 .find(|&n| down(KeyCode::Char(char::from(b'0' + n))) != 0)
                 .unwrap_or(0),
-            // Z quaffs: the first card in hand, and the rest move up; P
-            // puts the first at the back, and the next is up.
             play: u8::from(down(KeyCode::Char('z')) != 0),
             cycle: down(KeyCode::Char('p')) != 0,
             vigil: down(KeyCode::Char('g')) != 0,
             ult: down(KeyCode::Char('r')) != 0,
-            // The second knight's take is H and their sword is [, so P is free.
             take: down(KeyCode::Char('e')) != 0,
-            // Gas, Fire, Mines, Barricade, Shield: the bottom row beside the arrows.
             vote: None,
             skill: ['m', ',', '.', ';', '\'']
                 .iter()
                 .position(|c| down(KeyCode::Char(*c)) != 0)
                 .map_or(0, |i| i as u8 + 1),
-            // The host's own way back is R (`start_shooter`).
             again: false,
-            // C climbs on a friend's shoulders, hops off, or throws the top
-            // rider (Tab is the cards).
             ride: down(KeyCode::Char('C')) != 0,
-            // Shift+H relays the shield, or holds a tether to a friend (the
-            // browser's H; h alone is the second knight's take).
             team: down(KeyCode::Char('H')) != 0,
         };
         let mut p2 = ShooterInput {
@@ -146,10 +127,8 @@ impl DungeonView {
             play: u8::from(down(KeyCode::Char(']')) != 0),
             cycle: down(KeyCode::End) != 0,
             ult: down(KeyCode::Char('y')) != 0,
-            // H takes a weapon and meets the world alike.
             take: down(KeyCode::Char('h')) != 0,
             interact: down(KeyCode::Char('h')) != 0,
-            // The second knight's skills are on the number row.
             skill: ['8', '9', '0', '-', '=']
                 .iter()
                 .position(|c| down(KeyCode::Char(*c)) != 0)
@@ -186,8 +165,6 @@ impl DungeonView {
                 )
             })
         };
-        // Arrow aim keys belong to P1, or to P2's creator if P1 is not
-        // using one. Never let those navigation keys also aim P1's weapon.
         if mirrors.1 && !mirrors.0 {
             if let Some(input) = inputs.get_mut(&2) {
                 if input.move_x == 0 {
@@ -239,11 +216,9 @@ impl DungeonView {
 
 impl Session<'_> {
     pub(super) fn prepare_votes(&mut self) {
-        // The realm is away settling: its votes are read next frame.
         if self.dungeon.settling.is_some() {
             return;
         }
-        // Without waiting on the game's lock: a busy game is read next frame.
         if self.dungeon.shooter.as_ref().is_none() || self.dungeon.shooter.try_playtest_votes_ready() != Some(false) {
             return;
         }
@@ -273,9 +248,6 @@ impl Session<'_> {
                 return;
             }
         };
-        // The retained Journal claim is the durable outbox. Do not touch the
-        // realm or export file until its exact rows have reached the private
-        // checkpoint; retries after a crash reuse the same event IDs.
         if let Err(error) = self.dungeon.checkpoint(std::time::Instant::now(), true) {
             self.dungeon.notice = format!("Votes retained in game journal; checkpoint failed: {error}");
             return;
@@ -311,7 +283,6 @@ impl Session<'_> {
         }
     }
 
-    /// Route only this seat's menu keys. A couch partner keeps their controls.
     pub(super) fn ballot_key(&mut self, key: event::KeyEvent) -> bool {
         use shooter::votes::{Action, Command};
         if !self.dungeon_view_active()
@@ -422,7 +393,6 @@ impl Session<'_> {
                     Action::Close => self.dungeon.joined_ballot_open = false,
                     _ => {}
                 }
-                // Each tap goes to the host as it is made, in order.
                 if let Some(joined) = &self.dungeon.joined {
                     joined.vote(command);
                 }
@@ -446,15 +416,8 @@ impl Session<'_> {
         }
     }
 
-    /// This terminal's keys to its own seats as they stand now: each seat's
-    /// held buttons, at once, so a tap shorter than a tick is a press of its
-    /// own. Where the terminal sends no key releases, the keys it stopped
-    /// repeating have let go (`local_inputs`): the terminal's hold, kept
-    /// here, and never in the sim.
     pub(super) fn send_keys(&mut self, now: Instant) {
         let inputs = self.dungeon.local_inputs(now);
-        // N held is the first knight's map: the seat's own screen shows it
-        // (`angel_delve::client::DelveClient::map_open`), the run never hears.
         let map = if self.dungeon.held.contains_key(&KeyCode::Char('n')) {
             angel_net::input::button::MAP
         } else {
@@ -477,20 +440,16 @@ impl Session<'_> {
         }
     }
 
-    /// Where this workspace keeps its own delve cards.
     pub(super) fn cards_dir(&self) -> std::path::PathBuf {
         self.cx.workspace().join(".angel/dungeon/cards")
     }
 
-    /// Read the workspace's cards into the open run's book.
     pub(super) fn reload_cards(&mut self) -> Vec<String> {
         let dir = self.cards_dir();
         self.dungeon.shooter.load_catalogue_cards(&dir)
     }
 
     pub fn start_shooter(&mut self, guest: Option<&str>) {
-        // A friend's delve is the game while it is joined: a run of one's own
-        // would sit beside it, with the keys and the screen split between them.
         if self.dungeon.venue() == Venue::Joined {
             return;
         }
@@ -498,7 +457,6 @@ impl Session<'_> {
         if !self.settle_realm() || !self.settle_home() {
             return;
         }
-        // The knight waits at the Delve's lit gate while the party is below.
         self.world.delve_called = true;
         self.world.delve_lit = true;
         self.realm();
@@ -517,9 +475,6 @@ impl Session<'_> {
                     .collect()
             })
             .unwrap_or_default();
-        // Blocks cut below come up the stair on the knights' backs: the next
-        // run at home begins with them still on their shoulders, to carry on
-        // to the stockyard (`quarrying`). The fallen carry nothing.
         let blocks: Vec<(u32, String)> = self
             .dungeon
             .shooter
@@ -532,9 +487,6 @@ impl Session<'_> {
                     .collect()
             })
             .unwrap_or_default();
-        // Friends seated through the host's invitations come along into the
-        // next delve as the same knights: knight 1 too, when a host who plays
-        // no knight has handed it to a friend.
         let watch = self.dungeon.hosting.as_ref().is_some_and(|h| h.watch);
         let friends: Vec<(u32, String, Option<String>)> =
             if self.dungeon.hosting.is_some() && guest.is_none() {
@@ -553,7 +505,6 @@ impl Session<'_> {
                 Vec::new()
             };
         self.dungeon.raid_serial = self.dungeon.raid_serial.wrapping_add(1);
-        // Every delve begins in the Undercroft, as the realm has built it.
         let (mut home, treasury) = {
             let realm = self.realm();
             (realm.home.clone(), realm.treasury.clone())
@@ -590,12 +541,8 @@ impl Session<'_> {
         if let Err(error) = self.dungeon.shooter.commands_with_avatars(setup, avatars) {
             self.dungeon.notice = error;
         }
-        // The wish grant runners stand ready (and the model warm) before
-        // anyone wishes: the first wish pays no start-up.
         let oracle = self.dungeon.forge.grants.selected(|| self.cx.oracle());
         self.dungeon.forge.grants.ready(&oracle);
-        // At admission only, read the identical durable site the passive camera
-        // sees. Neither loop frames nor receipts mutate a running Delve.
         if let Ok(Some(site)) = self.world.settlement_site()
             && site.associated()
         {
@@ -605,9 +552,6 @@ impl Session<'_> {
                 tracing::warn!(%error, "settlement admission failed");
             }
         }
-        // Every delve begins in the Sozzled Griffin, the party together; its
-        // front door opens on the world, at the Delve's gate, whose stair
-        // goes down to the Undercroft.
         let _ = self.dungeon.shooter.command(GameCommand::Visit {
             destination: Destination::Alehouse,
             wishes: Some(crate::together_realm::standing_wishes()),
@@ -632,7 +576,6 @@ impl Session<'_> {
         self.expand_dungeon();
     }
 
-    /// The hosted session's link(s) and the first one's QR code.
     fn invitation_lines(&self) -> String {
         match self.dungeon.shooter.server() {
             Some(server) => door::invitation(&door::links(server.addr(), &server.key())),
@@ -640,9 +583,6 @@ impl Session<'_> {
         }
     }
 
-    /// `/dungeon_host`: open the delve to friends, then the Delve's menu
-    /// over the party's entrance room, so friends can join at once while
-    /// the host chooses to continue or to begin anew with another knight.
     pub(super) fn host_from_command(&mut self, tail: &str) -> String {
         let message = self.host_dungeon(tail);
         if self.dungeon.hosting.is_some() {
@@ -654,10 +594,6 @@ impl Session<'_> {
         message
     }
 
-    /// Open the delve to friends behind one link: a fresh delve, or the
-    /// open one while the party still stands in its entrance room. The run
-    /// moves onto a server friends can reach; the host's own seat is a
-    /// client of it like theirs.
     pub(super) fn host_dungeon(&mut self, tail: &str) -> String {
         if self.dungeon.venue() == Venue::Joined {
             return "You are in a friend's delve; /dungeon leave first, then /dungeon host.".into();
@@ -675,16 +611,12 @@ impl Session<'_> {
             }
             return format!("Dungeon already hosted.\n{}", self.invitation_lines());
         }
-        // `--3` (or `-3`) seats three friends, up to `--5` (`--6` with
-        // `--watch`); a lone name keeps the old form.
-        // `--watch` hosts without a knight of the host's own.
         let mut friends = 1usize;
         let mut watch = Hosting::watch_by_default();
         let mut rest = Vec::new();
         for word in tail.split_whitespace() {
             match word.trim_start_matches('-').parse::<usize>() {
                 Ok(n) if word.starts_with('-') => friends = n,
-                // The page is the delve's own now: every link opens in a browser.
                 _ if word == "--view" => {}
                 _ if word == "--watch" => watch = true,
                 _ => rest.push(word),
@@ -715,8 +647,6 @@ impl Session<'_> {
             Ok(browser) => browser,
             Err(error) => return format!("Dungeon host: {error}"),
         };
-        // Friends join a delve still in its entrance room; otherwise hosting
-        // begins a fresh one.
         if self
             .dungeon
             .shooter
@@ -740,9 +670,6 @@ impl Session<'_> {
             return format!("Dungeon host: {error}");
         }
         self.dungeon.hosting = Some(hosting);
-        // A named single guest joins at once (beside the host's own knight);
-        // otherwise each friend's knight joins when they open the link and
-        // say who they are.
         if friends == 1
             && !watch
             && !name.is_empty()
@@ -765,9 +692,6 @@ impl Session<'_> {
         )
     }
 
-    /// `/dungeon tune`: the server's knobs and where each stands, or
-    /// `/dungeon tune <name> <value>` to set one for everyone (the host may,
-    /// always; a page's dev panel sets the same ones, F2).
     fn dungeon_tune(&mut self, tail: &str) -> String {
         let mut words = tail.split_whitespace();
         match (words.next(), words.next()) {
@@ -821,8 +745,6 @@ impl Session<'_> {
         }
     }
 
-    /// End the hosting: the link stops working, the friends' knights leave
-    /// the delve, and the run plays on this machine only.
     fn kick_guest(&mut self) -> String {
         let Some(hosting) = self.dungeon.hosting.take() else {
             return "No guest is hosted. /dungeon host [guest-name] invites one.".into();
@@ -842,10 +764,7 @@ impl Session<'_> {
         )
     }
 
-    /// One friend out: their seat's token stops working and their knight
-    /// leaves. To keep them out, make a new link too (they still hold this one).
     fn kick_knight(&mut self, knight: u32) -> String {
-        // A host who plays no knight may have handed knight 1 to a friend.
         let watch = self.dungeon.hosting.as_ref().is_some_and(|h| h.watch);
         let Some(seat) = angel_delve::wire::seat_of(knight).filter(|_| knight != 1 || watch) else {
             return if watch {
@@ -904,8 +823,6 @@ impl Session<'_> {
                 if self.dungeon.joined.is_some() {
                     return "Local deposition is host-only; leave your friend's Delve first.".into();
                 }
-                // Normalize command-edge whitespace like other commands, then validate
-                // the entire remaining name before settlement sync or file reads.
                 let name = if tail.is_empty() { None } else { Some(tail) };
                 let manifest =
                     match crate::together_settlement::exhibits::manifest_path(name) {
@@ -1011,7 +928,6 @@ impl Session<'_> {
                     Ok(Some(_)) => {}
                 }
                 self.start_shooter(None);
-                // The visit is to the hall itself: down the gate's stair.
                 if let Some(site) = self.dungeon.shooter.as_ref().and_then(|run| run.settlement_site.clone()) {
                     if let Err(error) = self.dungeon.shooter.command(GameCommand::EnterSettlement { site }) {
                         self.dungeon.notice = error.clone();
@@ -1022,7 +938,6 @@ impl Session<'_> {
                     let site = self.world.settlement_site().ok().flatten().expect("admitted site");
                     format!("PLAYER HALL · loop settlement west; Winding Stair leads to the Delve.\nSite id: {} · {} LOCAL RESEARCH exhibits. Host /dungeon deposit <name> admits only .angelX/settlement-exhibits/<name>.json after a saved loop receipt; no-arg deposit keeps .angelX/settlement-exhibits.json compatibility. E beside a stand inspects its source locally.", site.id, site.exhibits.len())
                 } else {
-                    // A disk failure during the entry refresh is not success.
                     self.dungeon.notice.clone()
                 }
             }
@@ -1055,7 +970,6 @@ impl Session<'_> {
                     return self.dungeon.notice.clone();
                 }
                 self.dungeon.audio.stop();
-                // Restore the composer before dropping its saved draft with the run.
                 self.collapse_dungeon();
                 *self.together = Default::default();
                 let serial = self.dungeon.raid_serial;
@@ -1083,13 +997,6 @@ impl Session<'_> {
         }
     }
 
-    /// The cockpit's side of the delve, once a frame: take in what the
-    /// delve's server said (friends arriving, the chorus's moments, their
-    /// wishes and votes), hand it this frame's controls and the host's keys,
-    /// play what the host's own seat heard, and settle what the run banked
-    /// into the realm. The ticks are the server's, on its own thread
-    /// (`together_sim`); stepped by hand (the tests) the same clock is run
-    /// here, to `now`. Pauses discard controls and elapsed time.
     pub fn advance_shooter_at(&mut self, now: Instant) {
         self.advance_shooter_inner(now);
         if let Some(error) = self.dungeon.shooter.take_browser_failure() {
@@ -1117,16 +1024,11 @@ impl Session<'_> {
         for news in self.dungeon.shooter.drain_news() {
             match news {
                 News::Joined { knight, name } => {
-                    // This terminal's own seats are the host's knight and its
-                    // couch partner, already in the run; a host who plays no
-                    // knight only watches, and knight 1 is a friend's.
                     let watch = self.dungeon.hosting.as_ref().is_some_and(|h| h.watch);
                     if self.dungeon.shooter.seat(knight).is_none() || (knight == 1 && watch) {
                         hellos.push((knight, name));
                     }
                 }
-                // The server took the knight out of the party (and told
-                // everyone); its seat is free for the next newcomer.
                 News::Left { .. } => {}
                 News::Again => again = true,
                 News::Cue(cue) => self.dungeon.chorus.cue(&cue, now),
@@ -1152,8 +1054,6 @@ impl Session<'_> {
                             }
                         }
                         Gear::Grant(id) => grants.push(id),
-                        // A thing made in the Creator, brought to life: the run kept it for the
-                        // realm and the world takes it in; the maker is told how it went.
                         Gear::Creation(made) => {
                             match self.dungeon.shooter.command(GameCommand::Contribute { player: knight, made }) {
                                 Ok(GameReply::Chosen(line)) => {
@@ -1164,8 +1064,6 @@ impl Session<'_> {
                                 Err(error) => replies.push((knight, error)),
                             }
                         }
-                        // A card dragged in the seat's own hand: the run
-                        // checks the slots, and a stale drag does nothing.
                         Gear::Hand(from, to) => {
                             let _ = self.dungeon.shooter.command(GameCommand::MoveCard { player: knight, from, to });
                         }
@@ -1177,22 +1075,14 @@ impl Session<'_> {
                                 self.dungeon.notice = format!("A new card enters the book: {name}");
                             }
                         }
-                        // A seat's wish opens the scroll's choices on its
-                        // own view (`genie`); new words go to a grant
-                        // runner as it opens, and a choice that spends the
-                        // wish says how they are granted (`teach_spoken`).
-                        // Words while a found piece waits go to the piece
-                        // (`salvage`), free.
                         Gear::Learn(words)
                             if self.dungeon.shooter.as_ref().is_some_and(|run| run.piece_awaiting(knight).is_some()) =>
                         {
-                            // A wish taken is told on the knight's own screen.
                             if let Err(why) = self.dungeon.shooter.command(GameCommand::WishOnPiece { player: knight, words }) {
                                 replies.push((knight, why));
                             }
                         }
                         Gear::Learn(words) => {
-                            // A name typed at the tavern mirror is its name row's, not a wish.
                             let named = self.dungeon.shooter.command(GameCommand::MirrorName { player: knight, words: words.clone() });
                             if named.is_ok_and(|reply| reply == GameReply::Changed(true)) {
                                 continue;
@@ -1211,8 +1101,6 @@ impl Session<'_> {
             replies.push((knight, said.clone()));
             self.dungeon.notice = said;
         }
-        // The run is over and the party asked to go back (`rules::again`):
-        // what the host's own R does, the seats and their knights kept.
         if again
             && self
                 .dungeon
@@ -1244,7 +1132,6 @@ impl Session<'_> {
             }
         }
         for (seat, part, card) in forged {
-            // A friend's own angelX drafted it; this game checks it once more.
             let result = self.dungeon.shooter.is_some().then(|| self.dungeon.shooter.command(GameCommand::Reforge { player: seat, part, card }));
             self.dungeon.notice = match result {
                 Some(Ok(GameReply::Chosen(name))) => format!("Knight {seat} reforged: {name}"),
@@ -1254,7 +1141,6 @@ impl Session<'_> {
             replies.push((seat, self.dungeon.notice.clone()));
         }
         for id in grants {
-            // A guest can raise a paid-for draft; drafting stays with the host.
             if self
                 .realm()
                 .wishes
@@ -1267,7 +1153,6 @@ impl Session<'_> {
         for (knight, text) in replies {
             self.dungeon.shooter.say(angel_delve::wire::Event::Notice { hear: angel_delve::wire::Hear::Knight(knight), text });
         }
-        // The couch partner is a seat of its own while nobody is hosted.
         let couch = self.dungeon.hosting.is_none()
             && self.dungeon.shooter.as_ref().is_some_and(|r| r.players.contains_key(&2));
         self.dungeon.shooter.set_couch(couch);
@@ -1293,7 +1178,6 @@ impl Session<'_> {
             watching: self.dungeon.hosting.as_ref().is_some_and(|h| h.watch),
             cards: self.dungeon.joined.is_none().then(|| self.cards_dir()),
             save,
-            // A friend's delve carries its host's campaign on the wire.
             campaign: self
                 .dungeon
                 .joined
@@ -1301,18 +1185,12 @@ impl Session<'_> {
                 .then(crate::together_files::campaign_board)
                 .flatten(),
         });
-        // Each seat samples its keys at the command rate here, with nothing
-        // drawn (its frames are drawn on a render worker while the room is
-        // shown); stepped by hand, the server then steps the ticks due.
         for seat in self.dungeon.shooter.seats() {
             seat.tick(now);
         }
         self.dungeon.shooter.pump(now);
         self.dungeon.shooter.latch();
         self.hear_seat(now);
-        // The realm takes in what the run banked: at once when the server
-        // says there is something, and every quarter second besides (a
-        // changed wardrobe or landing has no flag of its own).
         let settle = !self.dungeon.shooter.threaded()
             || self.dungeon.shooter.take_outbox()
             || self
@@ -1333,7 +1211,6 @@ impl Session<'_> {
         self.watch_brewing();
         self.watch_salvage();
         if let Some(said) = self.dungeon.chorus.tick(now) {
-            // The chorus speaks for everyone: each seat's client shows it.
             self.dungeon.shooter.say(angel_delve::wire::Event::Say {
                 hear: angel_delve::wire::Hear::All,
                 who: said.line.who.clone(),
@@ -1343,9 +1220,6 @@ impl Session<'_> {
         }
     }
 
-    /// What the seat on screen heard: its sounds, played here (the other
-    /// seat's are the same room's, or none). The chorus's lines are this
-    /// host's own, shown already.
     fn hear_seat(&mut self, now: Instant) {
         let shown = self.dungeon_screen().map_or(1, |(_, knight)| knight);
         let mut sounds = Vec::new();
@@ -1386,7 +1260,6 @@ impl Session<'_> {
         }
     }
 
-    /// Opens the wish hub on this knight's picture. Not on a key tonight: T is the genie's typed line.
     #[allow(dead_code)]
     fn open_wish_hub(&mut self) {
         if self.dungeon.forge.draft.is_some() || self.dungeon.wish_offer_open(1) {
@@ -1403,7 +1276,6 @@ impl Session<'_> {
         })
     }
 
-    /// 1-6 on the hub picks that row. False when the hub is not open, so the key stays free.
     fn wish_pick(&mut self, c: char) -> bool {
         let Some(seat) = self.dungeon.shooter.seat(1) else { return false };
         seat.set_knob("wish_pick", f64::from(c as u8 - b'0'))
@@ -1425,8 +1297,6 @@ impl Session<'_> {
         }
     }
 
-    /// Creator ownership comes before the activity menu and ballot, on
-    /// both hosted/local and joined seats. None leaves another seat's key alone.
     pub fn mirror_key(&mut self, key: event::KeyEvent) -> Option<bool> {
         let joined = self.dungeon.joined.is_some();
         let state = |run: &shooter::Run, id| {
@@ -1455,8 +1325,6 @@ impl Session<'_> {
         if one.is_none() && two.is_none() {
             return None;
         }
-        // Reuse the existing text draft. Only the Name row bypasses wish
-        // picking/phrasebook matching; 'Wish a look' keeps that normal UI.
         if let Some(draft) = &mut self.dungeon.forge.draft {
             let row = if draft.player == 2 && couch { two } else { one };
             if row != Some(9) {
@@ -1528,14 +1396,11 @@ impl Session<'_> {
             KeyCode::Char(c) => KeyCode::Char(c.to_ascii_lowercase()),
             code => code,
         };
-        // C, with or without Shift, is the ride key: it climbs on a friend's
-        // shoulders (and walks the village from the build desk). Tab is the cards.
         let code = if code == KeyCode::Char('c') {
             KeyCode::Char('C')
         } else {
             code
         };
-        // Releases clear controls even when ownership changed after key-down.
         if key.kind == event::KeyEventKind::Release {
             self.dungeon.key_releases = true;
             self.dungeon.held.remove(&code);
@@ -1555,8 +1420,6 @@ impl Session<'_> {
         if self.dungeon.forge.draft.is_some() && self.dungeon_view_active() {
             return self.reforge_key(key);
         }
-        // A new press belongs to the picture before menus or gameplay.
-        // Two knights sharing this terminal also share its displayed plate.
         if self.dungeon_view_active() {
             if self.dungeon.shooter.as_ref().is_some_and(|run| run.floor_plate(Some(1)).is_some()) {
                 if key.kind != event::KeyEventKind::Press { return true; }
@@ -1570,7 +1433,6 @@ impl Session<'_> {
         if self.ballot_key(key) {
             return true;
         }
-        // A key held through a map door needs a fresh press here.
         if key.kind == event::KeyEventKind::Repeat && !self.dungeon.held.contains_key(&code) {
             return self.dungeon_view_active();
         }
@@ -1578,7 +1440,6 @@ impl Session<'_> {
             .modifiers
             .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER);
         if matches!(code, KeyCode::F(4) | KeyCode::F(6)) && !command_modifier {
-            // From the map, the way in is always the Delve's menu.
             if !self.dungeon.expanded {
                 self.open_intro();
             }
@@ -1637,8 +1498,6 @@ impl Session<'_> {
         if command_modifier || !self.dungeon.controls_visible || !self.facts().terminal_focused {
             return true;
         }
-        // E beside a LOCAL RESEARCH exhibit reads it; anywhere else E is the
-        // knight's interact key, like any plate's.
         if code == KeyCode::Char('e')
             && key.kind == event::KeyEventKind::Press
             && !self.dungeon.cards_open
@@ -1740,7 +1599,6 @@ impl Session<'_> {
                 .as_ref()
                 .is_some_and(shooter::Run::active)
             {
-                // While the delve runs, R is the ultimate's key.
                 self.dungeon.hold(code, false);
                 self.send_keys(Instant::now());
                 if let Some(hero) = self
@@ -1759,7 +1617,6 @@ impl Session<'_> {
                     }
                 }
             } else {
-                // A couch friend comes along by name; hosted friends by seat.
                 let guest = self
                     .dungeon
                     .shooter

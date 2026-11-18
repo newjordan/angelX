@@ -18,7 +18,6 @@ fn a_strip_splits_into_frames_and_each_shows_in_turn() {
     assert_eq!(sprite.frame(0), &sprite.frames[0][..]);
     assert_eq!(sprite.frame(TICKS_PER_FRAME), &sprite.frames[1][..]);
     assert_eq!(sprite.frame(TICKS_PER_FRAME * 2), &sprite.frames[0][..]);
-    // And back to the block that makes it.
     assert_eq!(
         sprite.to_block(Slot::Orbit),
         "draw orbit\n.5.|5.5\n555|.5.\n"
@@ -61,8 +60,6 @@ fn a_card_carries_its_looks_slot_by_slot() {
     let card = check("pavise", &raw).unwrap().card;
     let worn = card.looks.worn.as_ref().expect("worn");
     assert_eq!(worn.size(), (24, 24), "put on the 24x24 worn canvas");
-    // Its full silhouette fits the shield arm. An oversized source is
-    // sampled to the part, so a single source accent need not survive.
     let [x, y, w, h] = ink_bounds(&worn.frames).unwrap();
     assert!(w <= 8 && h <= 12, "{w}x{h}");
     assert!((x + w / 2 - 6).abs() <= 1 && (y + h / 2 - 13).abs() <= 1);
@@ -73,11 +70,9 @@ fn a_card_carries_its_looks_slot_by_slot() {
         [cards::Effect::Armor(1)],
         "looks change nothing else"
     );
-    // Saved and sent as data, and read back the same.
     let json = serde_json::to_string(&card).unwrap();
     let back: cards::Card = serde_json::from_str(&json).unwrap();
     assert_eq!(back, card);
-    // A card without looks saves as it always did.
     let plain = check("p", "name P\nkind hold\ndamage 5\n").unwrap().card;
     assert!(!serde_json::to_string(&plain).unwrap().contains("looks"));
 }
@@ -98,8 +93,6 @@ fn a_look_shows_only_where_its_kind_keeps_it() {
     );
     assert!(errors("name X\nkind hold\ndamage 5\ndraw shot at=left\n.5.\n").contains("at=<place>"));
     assert!(errors("name X\nkind hold\ndamage 5\ndraw worn at=tail\n.5.\n").contains("at=`tail`"));
-    // A picture is cut when the card loads from a workspace; sent alone,
-    // a card draws its rows.
     assert!(errors("name X\nkind hold\ndamage 5\nsheet worn shield.png\n").contains("sheets"));
     let icon_after_sprite = check(
         "x",
@@ -109,7 +102,6 @@ fn a_look_shows_only_where_its_kind_keeps_it() {
     .card;
     assert_eq!(icon_after_sprite.art, [".H."]);
     assert_eq!(icon_after_sprite.looks.shot.unwrap().frames[0], [".5."]);
-    // The ash sprite's summons word is still an effect, not a look.
     assert!(check("ash", "name Ash\nkind play\nsprite 1\n").is_ok());
 }
 
@@ -126,7 +118,6 @@ fn shots_of_a_held_or_spell_card_may_take_a_forged_colour_and_shape() {
     assert!(
         errors("name X\nkind hold\ndamage 5\nlook plaid star\n").contains("look takes a colour")
     );
-    // On a weapon it is still a rune.
     let arm = check(
         "x",
         "name Bow\nkind arm\nlook gold arrow\nbolt damage=32 speed=12 every=15 range=48\n",
@@ -173,7 +164,6 @@ fn a_knight_wears_what_their_cards_draw_newest_on_top() {
         Some(("card".into(), "fire".into()))
     );
     assert!(hero.newest(&run.book, Slot::Orbit).is_none());
-    // A spell wish's tier marker in the deck does not recolour the bow.
     let spell = check(
         "spell",
         "name Spell\nkind spell\ncooldown 4\ncast bolt\ndraw shot\n.5.\n555\n",
@@ -186,7 +176,6 @@ fn a_knight_wears_what_their_cards_draw_newest_on_top() {
         run.players[&1].shot_look(&run.book),
         Some(("card".into(), "fire".into()))
     );
-    // Duplicate shirts are one visual layer, too.
     run.players
         .get_mut(&1)
         .unwrap()
@@ -219,7 +208,6 @@ fn plain_shots_and_each_spell_shape_take_the_card_look() {
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (24.0, 14.0);
     hero.deck.push("comet".into());
-    // Clearing an empty room sweeps its old shots; fire after that tick.
     run.step(&BTreeMap::new());
     run.step(&BTreeMap::from([(
         1,
@@ -376,7 +364,6 @@ fn a_painted_moving_sprite_reads_back_from_its_block() {
     let worn = card.looks.worn.as_ref().unwrap();
     assert_eq!(worn.size(), (24, 24), "put on the body as before");
     assert_eq!(worn.paint.as_deref(), Some(SHA));
-    // Written back and read again: the same sprites.
     let again = check(
         "comet",
         &format!(
@@ -387,8 +374,6 @@ fn a_painted_moving_sprite_reads_back_from_its_block() {
     .unwrap()
     .card;
     assert_eq!(again.looks, card.looks);
-    // A sprite in inks alone writes the header it always did, and saves
-    // without the new fields.
     let plain = check("p", "name P\nkind hold\ndamage 5\ndraw shot\n.5.\n")
         .unwrap()
         .card;
@@ -460,8 +445,6 @@ fn worn_parts_distinguish_a_face_a_cape_and_a_ground_aura() {
 
 #[test]
 fn a_sprite_may_colour_inks_of_its_own() {
-    // The player's own purple: any hue, named on the draw line. `%` and `+`
-    // are the realm's violet and pink dyes, so the own ink here is `~`.
     let raw = "name Purple Drank\nkind hold\narmor 1\ndraw orbit pal=~7a2bd1,&e0b0ff\n.~.|.&.\n~&~|&~&\n.~.|.&.\n";
     let card = check("drank", raw).unwrap().card;
     let orbit = card.looks.orbit.as_ref().expect("orbit");
@@ -472,14 +455,11 @@ fn a_sprite_may_colour_inks_of_its_own() {
     let im = crate::render::overworld::ink::Img::from_rows_pal(&rows, &orbit.pal);
     assert_eq!(im.get(1, 0), Some([0x7a, 0x2b, 0xd1]), "drawn in its own colour");
     assert_eq!(crate::render::overworld::ink::Img::from_rows(&rows).get(1, 0), None, "never a realm ink");
-    // Marked as the realm inks nearest it, so its drawing still grades.
     let realm = realm_rows(&orbit.frames[0], &orbit.pal);
     assert!(realm.concat().chars().all(|c| c == '.' || crate::rules::script::INKS.contains(c)));
-    // Back to the block that makes it, and as data.
     assert!(orbit.to_block(Slot::Orbit).starts_with("draw orbit pal=~7a2bd1,&e0b0ff\n"));
     let back: cards::Card = serde_json::from_str(&serde_json::to_string(&card).unwrap()).unwrap();
     assert_eq!(back, card);
-    // An own ink with no colour, a colour that is not one, a realm ink.
     assert!(errors("name X\nkind hold\narmor 1\ndraw orbit\n.~.\n~~~\n").contains("gives it no colour"));
     assert!(errors("name X\nkind hold\narmor 1\ndraw orbit pal=~7a2bz1\n.~.\n").contains("six hex digits"));
     assert!(errors("name X\nkind hold\narmor 1\ndraw orbit pal=a7a2bd1\n.a.\n").contains("own ink is one of"));

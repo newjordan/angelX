@@ -89,7 +89,6 @@ fn a_caltrop_waits_for_the_chariot_behind() {
     race.tick(drop);
     assert_eq!(race.traps.len(), 1);
     assert_eq!(race.player().caltrops, 2);
-    // Put a rival right on the nail and let the tick fall.
     race.racers[1].dist = race.traps[0].0;
     race.racers[1].lane = race.traps[0].1;
     let events = race.tick(Input::default());
@@ -99,7 +98,6 @@ fn a_caltrop_waits_for_the_chariot_behind() {
 
 #[test]
 fn rivals_drop_iron_for_whoever_rides_their_tail() {
-    // The player never touches the caltrop bag, so any drop is a rival's.
     let mut drops = 0;
     for seed in [42u64, 7, 99] {
         let mut race = race(seed);
@@ -125,7 +123,6 @@ fn corners_cap_the_pace_that_straights_allow() {
     for _ in 0..=GATE_TICKS {
         race.tick(Input::default());
     }
-    // In the middle of this course's first real bend, arriving far too fast.
     let course = race.course();
     race.racers[0].dist = (0..400)
         .map(|k| k as f32 * course.lap / 400.0)
@@ -170,13 +167,10 @@ fn the_race_stage_stamps_the_visible_field_and_dots_the_rest_on_the_minimap() {
     for _ in 0..GATE_TICKS + 30 {
         run.step(&BTreeMap::new());
     }
-    // String the field out so the minimap dots do not sit on each other.
     for (i, racer) in run.chariot.as_mut().unwrap().racers.iter_mut().enumerate() {
         racer.dist += i as f32 * 90.0;
     }
     let raced = arena::frame(&run, 384, 224);
-    // On the course stage the camera rides the player, so a racer's box
-    // sits at its course position less the camera's origin.
     let race = run.chariot.as_ref().unwrap();
     let course = race.course();
     let (camx, camy) = arena::race_camera(race, 384, 224);
@@ -206,8 +200,6 @@ fn the_race_stage_stamps_the_visible_field_and_dots_the_rest_on_the_minimap() {
         );
     }
     assert!(seen >= 2, "at least the player and a rival share the view: {seen}");
-    // Whoever the camera left behind is dotted on the minimap
-    // (bottom-right box), the player in '9' and each rival in its banner ink.
     let banner = |house: &str| match house {
         "qwen" => ink('z'),
         "grok" => ink('A'),
@@ -267,7 +259,6 @@ fn keys(move_x: i8, dash: bool, bomb: bool) -> BTreeMap<u32, Input> {
 fn a_full_race_through_the_public_controls() {
     let mut run = boarded_run();
     assert_eq!(run.chariot.as_ref().unwrap().call(), "LET THE CARNAGE BEGIN!");
-    // Through the gate, then A pulls to the rail and D pushes back out.
     for _ in 0..GATE_TICKS + 5 {
         run.step(&keys(0, false, false));
     }
@@ -282,7 +273,6 @@ fn a_full_race_through_the_public_controls() {
     let out_lane = run.chariot.as_ref().unwrap().player().lane;
     assert!(in_lane < -0.6, "A steered in: {in_lane}");
     assert!(out_lane > in_lane + 0.3, "D steered out: {out_lane}");
-    // The whip spends wind; rested on the straight, wind comes back.
     for _ in 0..240 {
         run.step(&keys(0, true, false));
     }
@@ -293,7 +283,6 @@ fn a_full_race_through_the_public_controls() {
         run.step(&keys(0, false, false));
         let r = run.chariot.as_ref().unwrap();
         if !r.player().cornering(r.course()) {
-            // A few strides into the straight, so the resting ticks land.
             for _ in 0..30 {
                 run.step(&keys(0, false, false));
             }
@@ -302,14 +291,12 @@ fn a_full_race_through_the_public_controls() {
         }
     }
     assert!(recovered > blown, "wind recovered on the straight: {blown} -> {recovered}");
-    // X drops a caltrop behind the chariot.
     run.step(&keys(0, false, true));
     {
         let r = run.chariot.as_ref().unwrap();
         assert_eq!(r.player().caltrops, 2);
         assert_eq!(r.traps.len(), 1, "the caltrop waits on the track");
     }
-    // Ride it out: three laps, a place, and the purse settled from marks.
     let mut place = None;
     for _ in 0..40_000 {
         run.step(&keys(0, false, false));
@@ -336,7 +323,6 @@ fn shouldering_in_a_corner_gives_the_rail_to_nerve() {
     }
     race.racers[0].blood.nerve = 9;
     race.racers[1].blood.nerve = 3;
-    // Wherever this seed's course first bends hard, meet the rival there.
     let course = race.course();
     let bendy = (0..400)
         .map(|k| k as f32 * course.lap / 400.0)
@@ -362,7 +348,6 @@ fn the_heading_follows_the_oval_so_corners_do_not_ride_sideways() {
     assert_eq!(at(&mut race, 0.25), Heading::West, "along the south straight");
     assert_eq!(at(&mut race, 0.5), Heading::North, "up the west end, away");
     assert_eq!(at(&mut race, 0.75), Heading::East, "along the north straight");
-    // A caltrop dropped just past the line wraps to just before it.
     assert_eq!(track_at_dist(-6.0, 0.0), track_at_dist(LAP - 6.0, 0.0));
     race.racers[0].dist = 432.0;
     assert_eq!(track_at(&race.racers[0]), track_at_dist(432.0, race.racers[0].lane));
@@ -373,9 +358,6 @@ fn every_yard_runs_in_its_own_banner_ink_and_caltrops_show_on_the_track() {
     use crate::render::overworld::arena;
     use crate::render::overworld::ink::ink;
     let mut run = boarded_run();
-    // String the field along the Rusty Oval, all of it inside the
-    // camera's view of the player. (Mid-race, past the gate grid's
-    // painted fan, so `pos_on` less the camera is where each is drawn.)
     {
         let race = run.chariot.as_mut().unwrap();
         race.track = 0;
@@ -417,7 +399,6 @@ fn every_yard_runs_in_its_own_banner_ink_and_caltrops_show_on_the_track() {
 #[test]
 fn every_course_has_straights_corners_and_headings_that_follow_its_curve() {
     for track in &TRACKS {
-        // The field stays inside the course's country, lanes and all.
         for k in 0..240 {
             let d = k as f32 * track.lap / 240.0;
             for lane in [-1.0, 1.0] {
@@ -428,8 +409,6 @@ fn every_course_has_straights_corners_and_headings_that_follow_its_curve() {
                     track.name
                 );
             }
-            // Heading follows the curve's own travel, measured off
-            // successive positions rather than the heading code itself.
             let (x0, y0) = pos_on(track, d - 4.0, 0.0);
             let (x1, y1) = pos_on(track, d + 4.0, 0.0);
             let (vx, vy) = (x1 - x0, y1 - y0);
@@ -440,14 +419,10 @@ fn every_course_has_straights_corners_and_headings_that_follow_its_curve() {
             } else {
                 Heading::West
             };
-            // Near a loop seam the ±4 pace chord can straddle the wrap;
-            // the sampled points are 1/240th of a lap apart, so only
-            // sample 0 is ever that close to it.
             if k > 0 {
                 assert_eq!(heading_on(track, d), want, "{} heading at {d}", track.name);
             }
         }
-        // A course is a rhythm: some of it bends, some of it flies.
         let corners = (0..480)
             .filter(|&k| bend_on(track, k as f32 * track.lap / 480.0) > CORNER_BEND)
             .count();
@@ -508,10 +483,6 @@ fn the_camera_keeps_the_players_chariot_in_frame_round_every_course() {
 
 #[test]
 fn the_balance_probe_finishes_every_seed_and_the_field_shares_the_wins() {
-    // Two hands at every seed: a passenger who never whips, and a plain
-    // stable policy (whip while the team has wind to spend). The probe is
-    // the handoff's standing balance check: the field shares its wins,
-    // passivity loses, and judged whipping pays without sweeping.
     let (mut idle_winners, mut idle_purse, mut idle_player_wins) = (Vec::new(), 0u32, 0u32);
     let (mut driven_purse, mut driven_wins) = (0u32, 0u32);
     for seed in [1u64, 7, 13, 42, 99, 123, 777, 2026] {
@@ -549,8 +520,6 @@ fn the_balance_probe_finishes_every_seed_and_the_field_shares_the_wins() {
 fn the_plates_stay_up_from_the_gate_to_the_flag() {
     use crate::render::overworld::arena;
     use crate::render::overworld::ink::ink;
-    // At the gate the lamps' casing is up (a rim of '\'g\'' along its top); in the race the ladder of
-    // the whole field runs along the top, plated in the same rim.
     let rim = |run: &Run, y: i32, x0: i32, x1: i32| {
         let frame = arena::frame(run, 384, 224);
         (x0..x1).filter(|&x| frame.get(x, y) == ink('g')).count()
@@ -563,21 +532,16 @@ fn the_plates_stay_up_from_the_gate_to_the_flag() {
     assert!(rim(&run, 2, 117, 267) > 100, "and the ladder stays up mid-race, wherever the driver is");
 }
 
-/// This thread's own CPU time. Wall time counts the machine; a frame's
-/// budget is the work.
 #[cfg(target_os = "linux")]
 fn thread_cpu() -> std::time::Duration {
     unsafe extern "C" {
         fn clock_gettime(clock: i32, at: *mut [i64; 2]) -> i32;
     }
     let mut at = [0i64; 2];
-    // CLOCK_THREAD_CPUTIME_ID: this thread, not the process and not the wall.
     assert_eq!(unsafe { clock_gettime(3, &mut at) }, 0, "thread cpu clock");
     std::time::Duration::new(at[0] as u64, at[1] as u32)
 }
 
-/// Elsewhere the clock id differs: the wall, from a fixed start, and the
-/// cheapest trial still leaves out most of the machine.
 #[cfg(not(target_os = "linux"))]
 fn thread_cpu() -> std::time::Duration {
     static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
@@ -606,7 +570,6 @@ fn successive_hippodrome_frames_move_and_render_fast() {
         run.step(&keys(0, false, false));
     }
     let a = arena::frame(&run, 384, 224);
-    // The cheapest trial is the frame's cost; the rest is the machine.
     let mut per_frame = std::time::Duration::MAX;
     let mut frames = Vec::new();
     for trial in 0..4 {
@@ -692,14 +655,10 @@ fn the_coach_uses_selection_and_never_races_helios_or_a_growing_foal() {
     assert!(run.home.stable.buy(helios, 1_000_000).is_none());
 }
 
-/// A race boarded by knight 1 with friend 2, named "Two", standing in the
-/// Hippodrome at the off.
 fn boarded_pair() -> Run {
     boarded_table(2)
 }
 
-/// A race boarded by knight 1 with friends 2 to `seats`, standing in the
-/// Hippodrome at the off.
 fn boarded_table(seats: u32) -> Run {
     use crate::rules::home::{BUY_HOLD, Home};
     use crate::rules::world;
@@ -719,7 +678,6 @@ fn boarded_table(seats: u32) -> Run {
     }
     run.step(&BTreeMap::new());
     if seats > 2 {
-        // A crowd jostles the first knight off the coach plate: back on it.
         let (c, r, w, h) = crate::rules::hippodrome::COACH;
         let first = run.players.get_mut(&1).unwrap();
         (first.x, first.y) = ((c as f32 + w as f32 / 2.0) * TILE_UNITS, (r as f32 + h as f32 / 2.0) * TILE_UNITS);
@@ -737,7 +695,6 @@ fn friends_in_the_room_drive_the_rival_teams_and_the_best_is_crowned() {
     let race = run.chariot.as_ref().expect("boarded");
     assert_eq!(race.friends, vec![(1, 2)], "the friend takes the first rival team");
     assert_eq!(race.racers[1].name, "Two");
-    // The friend's own keys steer their own team.
     for _ in 0..GATE_TICKS + 5 {
         run.step(&BTreeMap::new());
     }
@@ -746,10 +703,8 @@ fn friends_in_the_room_drive_the_rival_teams_and_the_best_is_crowned() {
         run.step(&BTreeMap::from([(2, Input { move_x: 1, ..Input::default() })]));
     }
     assert!(run.chariot.as_ref().unwrap().racers[1].lane > lane + 0.3);
-    // Their screen shows the race from their own chariot.
     let view = run.view_for_seat(2).unwrap();
     assert_eq!(view.chariot.as_ref().unwrap().player().name, "Two");
-    // Run it home: someone is crowned, the other wears a cabbage.
     for _ in 0..HZ * 200 {
         run.step(&BTreeMap::new());
         if run.chariot.is_none() {
@@ -772,7 +727,6 @@ fn six_knights_at_the_reins_six_teams_race_and_none_watches() {
     let mut lanes: Vec<f32> = race.racers.iter().map(|r| r.lane).collect();
     lanes.sort_by(|a, b| a.total_cmp(b));
     assert!(lanes.windows(2).all(|w| w[1] - w[0] > 0.2), "the grid has a lane for each: {lanes:?}");
-    // Every seat sees the race from its own team.
     for id in 1..=MAX_PLAYERS {
         let view = run.view_for_seat(id).unwrap_or_else(|| run.clone());
         let seen = view.chariot.as_ref().expect("seat sees the race");
@@ -801,8 +755,6 @@ fn a_friends_hands_drive_their_own_team_and_no_one_elses() {
     for _ in 0..=GATE_TICKS {
         race.tick_with(Input::default(), &idle);
     }
-    // Steering: ten ticks left takes the lane in by exactly the hand's rate.
-    // Clear of the rest of the grid: a team steered into another is barged, and this is the hand.
     race.racers[1].dist += 100.0;
     let lane = race.racers[1].lane;
     let left = [Input { move_x: -1, ..Input::default() }];
@@ -815,22 +767,18 @@ fn a_friends_hands_drive_their_own_team_and_no_one_elses() {
         race.racers[1].lane
     );
     assert!((race.racers[0].lane - -0.6).abs() < 0.001, "and not the player's");
-    // The whip spends the friend's wind, no other hand involved.
     let whip = [Input { dash: true, ..Input::default() }];
     for _ in 0..200 {
         race.tick_with(Input::default(), &whip);
     }
     assert!(race.racers[1].wind < 0.7, "whipped down to {}", race.racers[1].wind);
     assert!(race.racers[0].wind > 0.9, "the player's team kept its wind");
-    // One press of the bag, one caltrop; holding it drops no more.
     let bomb = [Input { bomb: true, ..Input::default() }];
     race.tick_with(Input::default(), &bomb);
     assert_eq!(race.racers[1].caltrops, 2, "the friend's iron is on the course");
     race.tick_with(Input::default(), &bomb);
     assert_eq!(race.racers[1].caltrops, 2, "a held key acts once");
     assert_eq!(race.racers[0].caltrops, 3);
-    // With no keys from the friend the team is still theirs: it runs on,
-    // and the rivals' own driving does not take it over.
     let before = race.racers[1].dist;
     for _ in 0..60 {
         race.tick_with(Input::default(), &[]);
@@ -847,16 +795,12 @@ fn a_friend_races_through_the_public_controls_on_their_own_screen() {
     for _ in 0..GATE_TICKS + 5 {
         run.step(&both(Input::default(), Input::default()));
     }
-    // The friend's iron goes on the course, and their keys are the race's
-    // alone: no bomb, shot or dash for the knight in the room.
     let bombs = run.players[&2].bombs;
     let iron = Input { bomb: true, fire: true, dash: true, ..Input::default() };
     run.step(&both(Input::default(), iron));
     assert_eq!(run.chariot.as_ref().unwrap().racers[1].caltrops, 2, "friend dropped iron");
     assert_eq!(run.players[&2].bombs, bombs, "X is consumed by the race alone");
     assert!(run.projectiles.is_empty(), "the reined friend does not fire");
-    // Each seat's view rides its own chariot, and every chariot keeps its
-    // own knight in the friend's view.
     {
         let race = run.chariot.as_mut().unwrap();
         let lap = race.course().lap;
@@ -877,8 +821,6 @@ fn a_friend_races_through_the_public_controls_on_their_own_screen() {
         (20..364).contains(&cx) && (20..204).contains(&cy),
         "the friend's chariot in their frame at {cx},{cy}"
     );
-    // Ride it out together: both drivers step down at the coach, and only
-    // the host's herd horse goes on the record.
     for _ in 0..60_000 {
         run.step(&both(Input::default(), Input::default()));
         if run.chariot.is_none() {
@@ -901,7 +843,6 @@ fn a_friend_races_through_the_public_controls_on_their_own_screen() {
     assert_eq!(stable.herd[0].starts, 1, "only the host's herd horse is recorded");
 }
 
-/// A race a few ticks past the off, the field strung out and the hands off the keys.
 fn racing(seed: u64) -> Chariot {
     let mut race = race(seed);
     for _ in 0..=GATE_TICKS {
@@ -914,7 +855,6 @@ fn racing(seed: u64) -> Chariot {
     race
 }
 
-/// Where this seed's course first bends hard.
 fn corner_of(race: &Chariot) -> f32 {
     let course = race.course();
     (0..400)
@@ -944,7 +884,6 @@ fn a_barge_trades_lane_and_pace_and_is_written_down_for_the_picture() {
     let barge = race.show.fx.iter().find(|f| f.kind == Kind::Barge).expect("a barge is on the books");
     assert_eq!((barge.team, barge.other), (race.racers[0].team, race.racers[1].team));
     assert!(barge.weight >= Weight::Crushing, "a corner at pace is a heavy blow: {:?}", barge.weight);
-    // The pair rest, and then fight again if they are still alongside.
     let again = (0..9).map(|_| race.tick(Input::default())).flatten().filter(|e| matches!(e, Event::Shoulder(_))).count();
     assert_eq!(again, 0, "a locked pair is one barge, not one a tick");
 }
@@ -997,16 +936,13 @@ fn the_second_team_home_inside_half_a_second_is_a_photo_finish() {
 fn the_lead_changes_hands_on_a_clear_margin_and_never_flickers() {
     use super::show::Kind;
     let mut race = racing(9);
-    // The field is away and the first on the road is the lead, quietly.
     race.tick(Input::default());
     let leader = race.order()[0];
     assert_eq!(race.show.leader, Some(race.racers[leader].team));
-    // Wheel to wheel is no change of lead.
     let second = race.order()[1];
     race.racers[second].dist = race.racers[leader].dist + 2.0;
     race.tick(Input::default());
     assert!(race.show.of(Kind::Lead, race.clock).next().is_none(), "two paces is not a pass");
-    // A clear margin is.
     race.racers[second].dist = race.racers[leader].dist + 30.0;
     race.tick(Input::default());
     let lead = race.show.of(Kind::Lead, race.clock).next().expect("the lead changed hands");

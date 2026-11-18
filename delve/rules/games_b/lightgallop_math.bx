@@ -1,7 +1,3 @@
-# crates/delve/src/rules/lightgallop/math.rs — integer trigonometry and
-# friends for the ride. Angles are turns (256 to a circle) or brads (1024);
-# every i32 is a two's-complement U32.
-
 def lightgallop.math.Q() -> U32:
   256
 
@@ -24,7 +20,6 @@ def lightgallop.math.nth(+xs: List<&2, U32>, +i: U32) -> U32:
       else:
         lightgallop.math.nth(t, (i - 1 : U32))
 
-# isqrt: the floor of the square root, by Newton's iteration.
 def lightgallop.math.isqrt(+n: W.W) -> W.W:
   if W.lt(n, W.of_u32(2)):
     n
@@ -37,7 +32,6 @@ def lightgallop.math.isqrt.go(+n: W.W, +x: W.W, +y: W.W) -> W.W:
   else:
     x
 
-# sin(turns): 4096 times the sine of a turn count.
 def lightgallop.math.sin(+turns: U32) -> U32:
   a: U32 = RS.i_rem_euclid(turns, 256)
   quarter: U32 = U32.div(a, 64)
@@ -57,7 +51,6 @@ def lightgallop.math.sin(+turns: U32) -> U32:
 def lightgallop.math.cos(+turns: U32) -> U32:
   lightgallop.math.sin(RS.i_add(turns, 64))
 
-# sin_b: the sine of a brad count, interpolated between whole turns.
 def lightgallop.math.sin_b(+brads: U32) -> U32:
   a: U32 = RS.i_rem_euclid(brads, 1024)
   t: U32 = U32.div(a, 4)
@@ -68,8 +61,6 @@ def lightgallop.math.sin_b(+brads: U32) -> U32:
 def lightgallop.math.cos_b(+brads: U32) -> U32:
   lightgallop.math.sin_b(RS.i_add(brads, 256))
 
-# unit(dx, dy): the direction as 4096 times a unit vector ((4096, 0) for
-# none). The i64 arguments arrive as the i32s they were widened from.
 def lightgallop.math.unit(+dx: U32, +dy: U32) -> U32 & U32:
   ax: W.W = W.of_u32(RS.i_abs(dx))
   ay: W.W = W.of_u32(RS.i_abs(dy))
@@ -81,8 +72,6 @@ def lightgallop.math.unit(+dx: U32, +dy: U32) -> U32 & U32:
     uy: U32 = W.lo32(W.div(W.mul_u32(ay, 4096), len))
     (Bool.pick(U32, RS.i_lt(dx, 0), RS.i_neg(ux), ux), Bool.pick(U32, RS.i_lt(dy, 0), RS.i_neg(uy), uy))
 
-# One octant of the arctangent: small / large as a table lookup with
-# linear interpolation (0..128).
 def lightgallop.math.octant(+small: U32, +large: U32) -> U32:
   r: U32 = W.lo32(W.div_u32(W.mul_u32(W.of_u32(small), 4096), large))
   k: U32 = U32.div(r, 64)
@@ -91,7 +80,6 @@ def lightgallop.math.octant(+small: U32, +large: U32) -> U32:
   b: U32 = lightgallop.math.nth(lightgallop.math.ATAN(), U32.min((k + 1 : U32), 64))
   RS.i_add(a, RS.i_div(RS.i_mul(RS.i_sub(b, a), f), 64))
 
-# atan2(y, x) in brads, 0..1023.
 def lightgallop.math.atan2(+y: U32, +x: U32) -> U32:
   if Bool.and(U32.is_eq(x, 0), U32.is_eq(y, 0)):
     0
@@ -108,19 +96,15 @@ def lightgallop.math.atan2.quad(+xp: Bool, +yp: Bool, +first: U32) -> U32:
   else:
     Bool.pick(U32, yp, RS.i_sub(512, first), RS.i_add(512, first))
 
-# turn_toward: the short way round, `ease` eases it, `slew` caps it.
 def lightgallop.math.turn_toward(+from: U32, +to: U32, +ease: U32, +slew: U32) -> U32:
   gap: U32 = RS.i_sub(RS.i_rem_euclid(RS.i_add(RS.i_sub(to, from), 512), 1024), 512)
   step0: U32 = RS.i_clamp(RS.i_div(gap, RS.i_max(ease, 1)), RS.i_neg(slew), slew)
   step: U32 = Bool.pick(U32, Bool.and(U32.is_ne(gap, 0), U32.is_eq(step0, 0)), RS.i_signum(gap), step0)
   RS.i_rem_euclid(RS.i_add(from, step), 1024)
 
-# smooth: the smoothstep of 0..4096.
 def lightgallop.math.smooth(+t0: U32) -> U32:
   t: U32 = RS.i_clamp(t0, 0, 4096)
   W.lo32(W.div_u32(W.mul32((t * t : U32), (12288 - 2 * t : U32)), 16777216))
-
-# ---- cases -----------------------------------------------------------------------
 
 def lightgallop.case.ret(+v: U32) -> J.Val:
   J.set(J.obj(), "ret", J.of_i32(v))

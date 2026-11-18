@@ -6,7 +6,6 @@ fn rec(name: &str, input: serde_json::Value, ret: impl serde::Serialize) {
     cases::record(name, input, json!({"ret": ret}));
 }
 
-/// The town's clock, over the day lengths the knob allows.
 #[test]
 #[ignore]
 fn record_moonfall_clock() {

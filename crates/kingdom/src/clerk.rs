@@ -12,32 +12,21 @@ use crate::site::Hold;
 use crate::*;
 use std::collections::BTreeSet;
 
-/// What a link of the chain comes down to, for a player (or a script) that wants to act on it
-/// rather than read it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Cause {
-    /// The makers of `good` all work flat out and it is not enough: build another `plan`.
     Capacity { plan: String, good: String },
-    /// Nothing built makes `good`.
     NoMaker { good: String },
-    /// A `plan` has no crew: homes and food bring people.
     NoCrew { plan: String },
-    /// The goods are made and stand waiting: the roads, the carts or a line are the limit.
     Carriage { plan: String, good: String },
-    /// A maker's own shelf is full and nothing takes the goods away.
     Full { plan: String, good: String },
-    /// Worn tools, a bare wood, the Great Shaft, fodder: the maker is stopped by something else.
     Stopped { plan: String, why: String },
-    /// A `plan` is set to the wrong recipe for `good`.
     WrongRecipe { plan: String, good: String },
 }
 
-/// The chain as it is walked: the sentence's links, and what each comes down to.
 #[derive(Clone, Debug, Default)]
 pub struct Chain {
     pub lines: Vec<String>,
     pub causes: Vec<Cause>,
-    /// The makers the walk passed through, each with the good it was asked for.
     pub makers: Vec<(String, String)>,
 }
 impl Chain {
@@ -55,13 +44,9 @@ impl Chain {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Clerk {
     pub site: u32,
-    /// The whole sentence, ready to print.
     pub sentence: String,
-    /// The same, one link of the chain at a time, the cause last.
     pub chain: Vec<String>,
-    /// What each link comes down to, the root cause last.
     pub causes: Vec<Cause>,
-    /// True when nothing at all is holding the masons up.
     pub unhindered: bool,
 }
 
@@ -121,14 +106,10 @@ impl Kingdom {
         Clerk { site, sentence: chain.lines.join("; "), chain: chain.lines, causes: chain.causes, unhindered }
     }
 
-    /// Why the camp is short of one good, walked back to what can be built about it: the
-    /// causes, the root last. Empty when the camp has it or nothing is the matter.
     pub fn causes_for(&self, c: &Catalog, good: &str) -> Vec<Cause> {
         self.walk_for(c, good, 1).causes
     }
 
-    /// The same walk, with the makers it passed through: the chain that makes the good, plan
-    /// by plan, each with the good it was asked for.
     pub fn walk_for(&self, c: &Catalog, good: &str, consumer: u32) -> Chain {
         let report = self.report(c);
         let mut chain = Chain::default();
@@ -136,7 +117,6 @@ impl Kingdom {
         chain
     }
 
-    /// Why one building is not making its goods, walked back the same way.
     pub fn clerk_why_idle(&self, c: &Catalog, id: u32) -> String {
         let report = self.report(c);
         let Some(b) = self.buildings.get(&id) else { return "there is no such building".into() };
@@ -180,10 +160,6 @@ impl Kingdom {
         }
     }
 
-    /// Why `resource` is not reaching `consumer`, one link at a time. A line
-    /// that runs into the consumer is followed first; otherwise the roads are:
-    /// who holds the good, whether a yard, a carter, fodder, a free cart and a
-    /// clear road stand between it and the consumer, and then what makes it.
     #[allow(clippy::too_many_arguments)]
     fn explain(
         &self,
@@ -207,7 +183,6 @@ impl Kingdom {
         let cp = plan_name(consumer);
         let rows = self.line_report(c);
         let inbound: Vec<&crate::LineRow> = rows.iter().filter(|r| r.to == consumer).collect();
-        // A line that is itself the problem is named first.
         for r in &inbound {
             let spec = &c.lines[r.kind.key()];
             let from = plan_name(r.from);
@@ -230,7 +205,6 @@ impl Kingdom {
                 _ => {}
             }
         }
-        // Who holds the good now: a maker's bench, a warehouse, the camp.
         let holders: Vec<u32> = self
             .buildings
             .iter()
@@ -250,7 +224,6 @@ impl Kingdom {
                 return;
             }
         }
-        // Nothing is there to carry: what makes it?
         let makers: Vec<u32> = self.buildings.iter().filter(|(id, b)| b.construction == 0 && makes(**id)).map(|(&id, _)| id).collect();
         if makers.is_empty() {
             chain.cause(Cause::NoMaker { good: resource.to_string() });
@@ -265,7 +238,6 @@ impl Kingdom {
             }
             return;
         }
-        // The maker that lacks something is the cause; one that is working is only slow.
         let ordered: Vec<u32> = {
             let mut m = makers.clone();
             m.sort_by_key(|id| (report.status.get(id) == Some(&Status::Working), *id));
@@ -349,8 +321,6 @@ impl Kingdom {
         }
     }
 
-    /// Goods are waiting at `holders` and `consumer` lacks them: what keeps the
-    /// roads from carrying them? `None` when nothing does (the goods are on their way).
     fn cart_trouble(&self, c: &Catalog, report: &Report, holders: &[u32], consumer: u32) -> Option<String> {
         let plan_name = |id: u32| c.plans[&self.buildings[&id].plan].name.to_lowercase();
         let cp = plan_name(consumer);
@@ -370,7 +340,6 @@ impl Kingdom {
         if roads.yards.iter().all(|y| y.carts == 0 || !y.fed) {
             return Some(format!("the {yard_name}'s oxen have no fodder"));
         }
-        // No road, or no road that joins them.
         let net = self.roads_for_clerk();
         let near = |id: u32| {
             let b = &self.buildings[&id];
@@ -400,12 +369,10 @@ impl Kingdom {
         if id == 1 { self.stock.values().sum() } else { 0 }
     }
 
-    /// Road tiles, for reading only.
     fn roads_for_clerk(&self) -> &BTreeSet<Tile> {
         &self.roads
     }
 
-    /// A full store: what should be taking its goods and is not.
     fn explain_outflow(&self, c: &Catalog, report: &Report, producer: u32, chain: &mut Chain) {
         let rows = self.line_report(c);
         let out: Vec<_> = rows.iter().filter(|r| r.from == producer).collect();
@@ -431,7 +398,6 @@ impl Kingdom {
                 _ => {}
             }
         }
-        // The roads: someone must want the goods, and a cart must be free to take them.
         if let Some(why) = self.cart_trouble(c, report, &[producer], 1) {
             chain.push(why);
         } else {

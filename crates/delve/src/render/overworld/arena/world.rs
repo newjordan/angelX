@@ -18,18 +18,14 @@ use crate::rules::world::{
 use crate::rules::{RoomKind, Run, Tile};
 use crate::render::overworld::light::Light;
 
-/// A rectangle of tiles: column, row, width, height.
 type Rect = (i32, i32, i32, i32);
 
 fn inside((c, r, w, h): Rect, col: i32, row: i32) -> bool {
     col >= c && col < c + w && row >= r && row < r + h
 }
 
-/// The roads through a room of the world, by its doors and entrances.
 fn roads(kind: RoomKind) -> &'static [Rect] {
     match kind {
-        // North-south from the realm's road to the mine-head; east-west
-        // between the stables and the lists; a spur up to the gate's stair.
         RoomKind::Gate => &[(11, 0, 2, 14), (0, 6, 24, 2), (5, 5, 2, 1)],
         RoomKind::Stables => &[
             (9, 0, 6, 5),
@@ -85,8 +81,6 @@ fn roads(kind: RoomKind) -> &'static [Rect] {
     }
 }
 
-/// A road mark at pixel `(x, y)`: the overworld's pebbled bed, its edges
-/// ragged where the road meets the meadow.
 pub(super) fn road_mark(kind: RoomKind, x: i32, y: i32) -> Option<char> {
     let (tx, ty) = (x.div_euclid(TILE), y.div_euclid(TILE));
     let (lx, ly) = (x.rem_euclid(TILE), y.rem_euclid(TILE));
@@ -109,13 +103,8 @@ pub(super) fn road_mark(kind: RoomKind, x: i32, y: i32) -> Option<char> {
         }
     }
     if edge {
-        // The verge: a near-solid line of dark earth where the grass gives way.
         return (!hash(x, y, 16).is_multiple_of(5)).then_some('I');
     }
-    // Trodden earth: clods lying close in a calm band, each lit along its
-    // top, black paper between; the wheel ruts run through it as clear
-    // lines, and here and there a few pebbles lie in it. Grouped marks,
-    // never an even speckle.
     let along_x = roads(kind).iter().any(|&(c, r, w, h)| inside((c, r, w, h), tx, ty) && w > h);
     let across = if along_x { ly } else { lx };
     if across == 4 || across == 11 {
@@ -124,8 +113,6 @@ pub(super) fn road_mark(kind: RoomKind, x: i32, y: i32) -> Option<char> {
     if let Some(stone) = pebbles(x, y, 19) {
         return Some(stone);
     }
-    // Cells of five by four, every other row shifted, each holding a clod
-    // at its own place in the cell so no rows line up.
     let cy = y.div_euclid(4);
     let sx = x + cy.rem_euclid(2) * 2;
     let (cx, px, py) = (sx.div_euclid(5), sx.rem_euclid(5), y.rem_euclid(4));
@@ -140,8 +127,6 @@ pub(super) fn road_mark(kind: RoomKind, x: i32, y: i32) -> Option<char> {
     Some(if py == oy { if (h >> 10) % 3 == 0 { 'P' } else { 'B' } } else { 'b' })
 }
 
-/// A few pebbles in a loose cluster at `(x, y)`, each lit along its top
-/// over a darker body: one cell in nine of five by four pixels holds one.
 fn pebbles(x: i32, y: i32, seed: u32) -> Option<char> {
     let (cx, cy) = (x.div_euclid(5), y.div_euclid(4));
     let (px, py) = (x.rem_euclid(5), y.rem_euclid(4));
@@ -160,8 +145,6 @@ fn pebbles(x: i32, y: i32, seed: u32) -> Option<char> {
     }
 }
 
-/// Trodden ground off the road: grit in clods of two or three pixels,
-/// gathered in patches by a slow field, bare paper between.
 fn clods(x: i32, y: i32) -> Option<char> {
     let (tx, ty) = (x.div_euclid(6), y.div_euclid(5));
     let (ox, oy) = (x.rem_euclid(6), y.rem_euclid(5));
@@ -179,7 +162,6 @@ fn clods(x: i32, y: i32) -> Option<char> {
     }
 }
 
-/// The ground off the road: the place's own field.
 fn field(kind: RoomKind, x: i32, y: i32) -> Option<char> {
     match kind {
         RoomKind::Strand | RoomKind::Saltworks | RoomKind::Lighthouse => material::ground(Ground::Sand, x, y),
@@ -202,7 +184,6 @@ fn field(kind: RoomKind, x: i32, y: i32) -> Option<char> {
     }
 }
 
-/// The room's ground: roads where they run, the place's field everywhere else.
 fn ground(cv: &mut Img, run: &Run) {
     let room = run.room();
     let kind = room.kind;
@@ -214,17 +195,9 @@ fn ground(cv: &mut Img, run: &Run) {
             }
             let on_road = roads(kind).iter().any(|&r| inside(r, tx, ty));
             let mark = if indoor(kind) {
-                // Indoors: dressed flagstones.
                 super::flags(x, y)
             } else if kind == RoomKind::Crag && (4..11).contains(&ty) && (3..22).contains(&tx) {
-                // Smooth trodden snow under the racing piece, its edge
-                // wandering and its corners worn round where it meets the
-                // loose snow. Tonal, not white: packed snow in the cool bank,
-                // its drifts a step lighter in soft patches, sled tracks a
-                // step darker.
                 let (lx, ly) = ((x - 3 * TILE).min(22 * TILE - 1 - x), (y - 4 * TILE).min(11 * TILE - 1 - y));
-                // Smooth noise keeps near its middle: stretched, so the edge
-                // bends.
                 let bend = ((vnoise(x as f32 / 14.0, y as f32 / 14.0, 79) - 0.5) * 3.0).clamp(-1.0, 1.0);
                 let edge = 3.0 + bend * 2.5;
                 let round = 14.0;
@@ -245,8 +218,6 @@ fn ground(cv: &mut Img, run: &Run) {
             } else if on_road {
                 road_mark(kind, x, y)
             } else if kind == RoomKind::MineHead {
-                // Trodden ground before the mine: grit more than grass, in
-                // patches of each.
                 if vnoise(x as f32 / 40.0, y as f32 / 30.0, 61) > 0.42 {
                     clods(x, y)
                 } else {
@@ -262,7 +233,6 @@ fn ground(cv: &mut Img, run: &Run) {
     }
 }
 
-/// How a room of the world is closed: woods, hedges, or the mountain.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Edge {
     Wood(Leaf),
@@ -280,11 +250,7 @@ fn edge_of(kind: RoomKind) -> Edge {
     }
 }
 
-/// The room's edges: a wood of overlapping trees (back row darker, front
-/// row lit, south trees over north ones), clipped hedges in the maze, and
-/// boulders up the mountain. A door leaves a gap for its road.
 fn edges(cv: &mut Img, run: &Run) {
-    // The edge depends on the room's walls alone: grow it once per layout.
     type Cache = std::sync::Mutex<std::collections::HashMap<(u32, u64), std::sync::Arc<Img>>>;
     static CACHE: std::sync::OnceLock<Cache> = std::sync::OnceLock::new();
     let room = run.room();
@@ -303,7 +269,6 @@ fn edges(cv: &mut Img, run: &Run) {
         }
         layer
     });
-    // Its shadows darken the ground marks they fall on.
     for y in 0..cv.h {
         for x in 0..cv.w {
             if let Some(c) = layer.get(x, y) {
@@ -326,7 +291,6 @@ fn grow_edges(cv: &mut Img, run: &Run) {
     if indoor(room.kind) {
         for row in 0..rows {
             for col in 0..cols {
-                // A hall's walls: dressed stone, braziers in the corners.
                 let corner = (col == 0 || col == cols - 1) && (row == 0 || row == rows - 1);
                 if wall(col, row) && !corner {
                     let floor = |c: i32, r: i32| c >= 0 && r >= 0 && c < cols && r < rows && !wall(c, r);
@@ -337,8 +301,6 @@ fn grow_edges(cv: &mut Img, run: &Run) {
         }
         return;
     }
-    // Masses may spill three pixels past their tiles, never further: the
-    // canopy overhangs the path a little, never the way through a door.
     let keep = |x: i32, y: i32| {
         [(-5, -5), (5, -5), (-5, 5), (5, 5), (0, 0)]
             .iter()
@@ -355,10 +317,6 @@ fn grow_edges(cv: &mut Img, run: &Run) {
     }
     match style {
         Edge::Wood(leaf) => {
-            // The back row: smaller, darker, between the front trees; the
-            // front row's crowns sit on the wall tiles, trunks at their foot.
-            // Each tree has its own size, habit and place in its tile, and
-            // now and then a crown of another kind or hue stands among them.
             let pines = leaf == Leaf::Pine;
             let mut back: Vec<_> = spots.iter().map(|&(c, r, v)| (c * TILE + (v % 11) as i32 - 1, r * TILE + 11 + (v >> 4) as i32 % 5, v)).collect();
             back.sort_by_key(|p| p.1);
@@ -373,8 +331,6 @@ fn grow_edges(cv: &mut Img, run: &Run) {
             let mut front: Vec<_> = spots.iter().map(|&(c, r, v)| (c * TILE + 8 + (v >> 12) as i32 % 9 - 4, r * TILE + 19 - (v >> 16) as i32 % 4, v)).collect();
             front.sort_by_key(|p| p.1);
             for (x, y, v) in front {
-                // The wood is background: dark, calm crowns, a rare copper
-                // one where the region is autumnal.
                 let r = 7.0 + (v >> 24) as f32 % 4.5;
                 let seed = v ^ 0x9e37;
                 let other = (v >> 27) % 6 == 0;
@@ -407,8 +363,6 @@ fn grow_edges(cv: &mut Img, run: &Run) {
             stones.sort_by_key(|p| p.1);
             let snow = matches!(room.kind, RoomKind::Crag | RoomKind::Observatory);
             for (x, y, v) in stones {
-                // The mountain is background: its boulders keep the dark
-                // end of their ramps.
                 let ramp: &[char] = if room.kind == RoomKind::MineHead {
                     &['n', 'b', 'I', 'B', 'P']
                 } else if v % 3 == 0 {
@@ -418,7 +372,6 @@ fn grow_edges(cv: &mut Img, run: &Run) {
                 };
                 material::boulder(cv, x, y, 5.5 + (v >> 9) as f32 % 3.0, ramp, v);
                 if snow {
-                    // Snow on the crowns.
                     for k in -3..=2 {
                         cv.put(x + k, y - 9 + (k * k) / 4, if k % 2 == 0 { 'V' } else { 'v' });
                     }
@@ -428,7 +381,6 @@ fn grow_edges(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Paint a room of the world at rest.
 pub(super) fn scenery(run: &Run) -> Img {
     let room = run.room();
     let (pw, ph) = (room.cols as i32 * TILE, room.rows as i32 * TILE);
@@ -443,7 +395,6 @@ pub(super) fn scenery(run: &Run) -> Img {
     match room.kind {
         RoomKind::Gate => {
             gate(&mut cv, &mut lights, tick);
-            // Where the green house stood by the well: the Sozzled Griffin.
             super::alehouse::courtyard_inn(&mut cv, &mut lights, tick);
         },
         RoomKind::Stables => {
@@ -472,12 +423,10 @@ pub(super) fn scenery(run: &Run) -> Img {
     cv
 }
 
-/// The world's indoor rooms: dressed walls, no wood, no water, no weeds.
 fn indoor(kind: RoomKind) -> bool {
     matches!(kind, RoomKind::KingsHall | RoomKind::LandOffice | RoomKind::Market | RoomKind::Bathhouse | RoomKind::Smithy)
 }
 
-/// Every water tile of a room of the world is one body of open water.
 fn waters(cv: &mut Img, run: &Run) {
     let room = run.room();
     if indoor(room.kind) {
@@ -487,8 +436,6 @@ fn waters(cv: &mut Img, run: &Run) {
     material::water_field(cv, (0, 0, cv.w, cv.h), &wet, 40 + room.kind as u32, (run.tick / 6) as u32);
 }
 
-/// Small things on the open ground, never taller than a boot: pebbles,
-/// clover, fallen leaves and toadstools by the wood, puddles in the wet.
 fn scatter(cv: &mut Img, run: &Run) {
     let room = run.room();
     if indoor(room.kind) {
@@ -506,7 +453,6 @@ fn scatter(cv: &mut Img, run: &Run) {
             let near_wood = [(0, -1), (0, 1), (-1, 0), (1, 0)].iter().any(|&(dx, dy)| room.tile(c + dx, r + dy) == Tile::Wall);
             match v % 9 {
                 0 | 1 if road(c, r) || matches!(style, Edge::Rock) => {
-                    // Pebbles, each lit on top.
                     for k in 0..3 {
                         let (px, py) = (x + (hash(c, r + k, 78) % 7) as i32 - 3, y + (hash(c + k, r, 79) % 5) as i32 - 2);
                         cv.put(px, py, 'J');
@@ -516,14 +462,12 @@ fn scatter(cv: &mut Img, run: &Run) {
                     }
                 }
                 2 if !road(c, r) => {
-                    // A clover clump.
                     for k in 0..6 {
                         let h = hash(c * 7 + k, r, 80);
                         cv.put(x + (h % 5) as i32 - 2, y + (h >> 4) as i32 % 3, if k % 3 == 0 { 'm' } else { 'l' });
                     }
                 }
                 3 if near_wood && !road(c, r) => {
-                    // Toadstools at the wood's foot.
                     for k in 0..3 {
                         let (px, py) = (x + k * 3 - 3, y + (k % 2));
                         cv.put(px, py + 1, 'h');
@@ -533,7 +477,6 @@ fn scatter(cv: &mut Img, run: &Run) {
                     }
                 }
                 4 if near_wood && matches!(style, Edge::Wood(Leaf::Copper | Leaf::Oak)) => {
-                    // Fallen leaves.
                     for k in 0..7 {
                         let h = hash(c, r * 5 + k, 81);
                         cv.put(x + (h % 11) as i32 - 5, y + (h >> 4) as i32 % 6 - 3, ['R', 'o', 'p', 'B'][(h >> 8) as usize % 4]);
@@ -548,8 +491,6 @@ fn scatter(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Undergrowth where the wood meets the open ground, and reeds along the
-/// water's edge. Fixed per room; nothing here stands in the way.
 fn undergrowth(cv: &mut Img, run: &Run) {
     let room = run.room();
     if indoor(room.kind) {
@@ -569,7 +510,6 @@ fn undergrowth(cv: &mut Img, run: &Run) {
             let sandy = matches!(room.kind, RoomKind::Strand | RoomKind::Saltworks | RoomKind::Lighthouse);
             if water && sandy {
                 if v % 3 == 0 {
-                    // Shells and wrack along the tide line.
                     let (sx, sy) = (x + 3 + (v >> 3) as i32 % 9, y + 4 + (v >> 6) as i32 % 8);
                     cv.ellipse(sx as f32, sy as f32, 2.5, 1.5, 'J');
                     cv.put(sx - 1, sy - 1, 'i');
@@ -609,23 +549,18 @@ fn undergrowth(cv: &mut Img, run: &Run) {
     }
 }
 
-/// A lantern on its post, lit; its light.
 fn lantern(cv: &mut Img, lights: &mut Vec<Light>, x: i32, y: i32) {
     let im = kit::lantern(true);
     cv.stamp(&im, x - im.w / 2, y - im.h + 1);
     lights.push(fire(x, y - im.h + 3, 44.0, 0.34));
 }
 
-/// A torch on a timber post.
 fn torch(cv: &mut Img, lights: &mut Vec<Light>, x: i32, y: i32, tick: u32, seed: u32) {
     let im = kit::torch(tick / 4, seed);
     cv.stamp(&im, x - im.w / 2, y - im.h + 1);
     lights.push(fire(x, y - im.h + 2, 50.0, 0.4));
 }
 
-/// The Delve's gate, at room scale: a slate rise, a dressed-stone arch, the
-/// stair going down into the dark, a torch on either side. The overworld's
-/// gate (`wishes::delve_sprite`) drawn twice the size, with its detail.
 fn gate_arch(tick: u32) -> Img {
     let (w, h) = (GATE_ARCH.2 * TILE, GATE_ARCH.3 * TILE);
     let mut im = kit::blob(
@@ -652,7 +587,6 @@ fn gate_arch(tick: u32) -> Img {
             let mouth =
                 (x as f32 + 0.5 - cx).abs() <= mr && (y as f32 >= cy || mx * mx + my * my <= 1.0);
             if mouth {
-                // Treads lit near the top, then only the dark going down.
                 let tread = y >= 44 && (y - 44) % 5 == 0;
                 let lip = y >= 44 && (y - 44) % 5 == 1;
                 im.put(
@@ -667,14 +601,12 @@ fn gate_arch(tick: u32) -> Img {
                     },
                 );
             } else if arch {
-                // Dressed blocks: courses three high, joints staggered.
                 let course = y / 4;
                 let joint = y % 4 == 0 || (x + course * 5) % 9 == 0;
                 im.put(x, y, if joint { 'J' } else { 'h' });
             }
         }
     }
-    // The keystone and the voussoirs' bright edge.
     for k in 0..40 {
         let a = std::f32::consts::PI * (k as f32 / 39.0);
         let (x, y) = (cx - a.cos() * (ar - 0.5), cy - a.sin() * (ar - 0.5));
@@ -690,16 +622,13 @@ fn gate(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
     let (c, r, _, _) = GATE_ARCH;
     let arch = gate_arch(tick);
     cv.stamp(&arch, c * TILE, r * TILE);
-    // Torches either side of the mouth, burning: the Delve is open.
     let (sc, sr, sw, _) = GATE_STAIR;
     for (k, x) in [(0u32, sc * TILE - 6), (1, (sc + sw) * TILE + 5)] {
         torch(cv, lights, x, sr * TILE + 14, tick, 31 + k);
     }
-    // The well, its roof and bucket.
     let (wc, wr, _, _) = WELL;
     cv.stamp(&well(), wc * TILE, wr * TILE);
     signpost(cv, 13 * TILE + 4, 6 * TILE - 2);
-    // The notice post by the road: the realm's notices, Wren's hand.
     let (pc, pr, _, _) = POST;
     let (px, py) = (pc * TILE + 8, pr * TILE + 15);
     cv.rect(px - 1, py - 14, 2, 15, 'B');
@@ -713,7 +642,6 @@ fn gate(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
     ] {
         cv.rect(px + dx, py + dy, 3, 2, ink);
     }
-    // The road home to the realm, out through the palisade's south gate.
     for x in [10 * TILE + 12, 13 * TILE + 3] {
         cv.rect(x, 13 * TILE, 2, TILE, 'B');
         cv.put(x, 13 * TILE, 'o');
@@ -723,11 +651,8 @@ fn gate(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
     lantern(cv, lights, 9 * TILE + 8, 11 * TILE);
 }
 
-/// The courtyard's well at room scale: a ring of dressed stone round dark
-/// water, a little shingled roof on two posts, its bucket on the rope.
 fn well() -> Img {
     let mut im = Img::new(32, 32);
-    // The ring, seen from above and a little in front.
     for y in 14..30 {
         for x in 2..30 {
             let (dx, dy) = ((x as f32 - 15.5) / 13.5, (y as f32 - 22.0) / 7.5);
@@ -751,7 +676,6 @@ fn well() -> Img {
             }
         }
     }
-    // Two posts and the roof.
     im.rect(5, 6, 2, 18, 'B');
     im.rect(25, 6, 2, 18, 'B');
     for y in 0..7 {
@@ -761,7 +685,6 @@ fn well() -> Img {
         }
     }
     im.line(2, 7, 29, 7, 'b');
-    // The windlass and the bucket on its rope.
     im.line(7, 9, 24, 9, 'r');
     im.line(16, 10, 16, 15, 'o');
     im.rect(14, 15, 5, 4, 'B');
@@ -770,11 +693,9 @@ fn well() -> Img {
     im
 }
 
-/// A signpost at the crossroads: an arm to each way, its name on it.
 fn signpost(cv: &mut Img, x: i32, y: i32) {
     cv.rect(x, y - 40, 2, 41, 'r');
     cv.line(x, y - 40, x, y, 'o');
-    // North on top, pointing up; west and east below, pointing their ways.
     for (i, (name, way)) in [("MINES", 0), ("STABLES", -1), ("LISTS", 1)]
         .into_iter()
         .enumerate()
@@ -797,15 +718,11 @@ fn signpost(cv: &mut Img, x: i32, y: i32) {
     }
 }
 
-/// The stables, at rest: the stable block with its three stalls, the
-/// trough, the paddock fence (the horses are figures).
 fn stables(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
     let (c, r, w, h) = STABLE_BLOCK;
     let (x0, y0, bw, bh) = (c * TILE, r * TILE, w * TILE, h * TILE);
-    // A long thatched roof over timber walls, three stall doors open.
     for y in y0..y0 + 22 {
         for x in x0..x0 + bw {
-            // Thatch in combed bands, the ridge lit, the eaves in shadow.
             let ramp = ['o', 'r', 'P', 'p', 'B'];
             let k = ((y - y0) * 5 / 22) as usize;
             let comb = (x + (y - y0) / 3) % 5 == 0;
@@ -837,8 +754,6 @@ fn stables(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
         cv.line(dx - 1, y0 + 24, dx - 1, y0 + bh - 1, 'r');
         cv.line(dx + dw, y0 + 24, dx + dw, y0 + bh - 1, 'r');
     }
-    // The trough: a timber box, water in it.
-    // The northern road's arch matches the migrated collision tiles.
     cv.rect(9 * TILE, TILE, 6 * TILE, 3 * TILE, 'k');
     cv.rect(9 * TILE + 3, TILE + 1, 6 * TILE - 6, 3 * TILE - 1, 'r');
     cv.line(9 * TILE, TILE, 15 * TILE - 1, TILE, 'h');
@@ -850,7 +765,6 @@ fn stables(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
     cv.rect(tx, ty, tw * TILE - 4, 9, 'B');
     cv.rect(tx + 2, ty + 2, tw * TILE - 8, 4, 'q');
     cv.line(tx + 3, ty + 3, tx + 9, ty + 3, 'Q');
-    // The paddock fence: two rails on posts.
     let (fc, fr, fw, _) = PADDOCK;
     let (fx, fy) = (fc * TILE, fr * TILE + 8);
     for x in fx..fx + fw * TILE {
@@ -860,7 +774,6 @@ fn stables(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
     for x in (fx..fx + fw * TILE).step_by(16) {
         cv.rect(x, fy - 7, 2, 10, 'B');
     }
-    // Hay bales, a saddle on its stand.
     for (bx, by) in [(18 * TILE + 4, 6 * TILE + 2), (19 * TILE + 6, 6 * TILE + 8)] {
         cv.rect(bx, by, 12, 8, 'o');
         cv.line(bx, by + 3, bx + 11, by + 3, 'r');
@@ -870,15 +783,11 @@ fn stables(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
     let _ = tick;
 }
 
-/// Where the three stall doors stand along the stable block (x, width).
 pub(super) fn stall_doors() -> [(i32, i32); 3] {
     [(5 * TILE, 22), (11 * TILE + 5, 22), (17 * TILE + 10, 22)]
 }
 
-/// The lists, at rest: the stands and their crowd's benches, the tilt's
-/// striped rail, the pavilions.
 pub(super) fn lists(cv: &mut Img, lights: &mut Vec<Light>, tick: u32, north_road: bool) {
-    // Raked sand inside the lists' fence.
     for y in 4 * TILE..12 * TILE {
         for x in 3 * TILE..21 * TILE {
             if hash(x, y, 102).is_multiple_of(11) {
@@ -888,10 +797,7 @@ pub(super) fn lists(cv: &mut Img, lights: &mut Vec<Light>, tick: u32, north_road
     }
     let (c, r, w, h) = STANDS;
     let (x0, y0, sw, sh) = (c * TILE, r * TILE, w * TILE, h * TILE);
-    // A canopy in the realm's red and gold over tiered benches.
     for x in x0..x0 + sw {
-        // The caravan road cuts through the grandstand. Do not paint benches
-        // over the full four-knight collision clearance (columns 9..15).
         if north_road && (9 * TILE..15 * TILE).contains(&x) {
             continue;
         }
@@ -904,7 +810,6 @@ pub(super) fn lists(cv: &mut Img, lights: &mut Vec<Light>, tick: u32, north_road
             cv.put(x, y, if tier { 'r' } else { 'b' });
         }
     }
-    // The tilt: a striped rail on posts down the middle of the lists.
     let (tc, tr, tw, _) = TILT;
     let (tx, ty) = (tc * TILE, tr * TILE + 6);
     for x in tx..tx + tw * TILE {
@@ -915,14 +820,12 @@ pub(super) fn lists(cv: &mut Img, lights: &mut Vec<Light>, tick: u32, north_road
     for x in (tx..tx + tw * TILE).step_by(12) {
         cv.rect(x, ty - 2, 2, 8, 'b');
     }
-    // The fence round the lists.
     for x in 3 * TILE..21 * TILE {
         cv.put(x, 12 * TILE + 4, 'r');
     }
     for x in (3 * TILE..21 * TILE).step_by(8) {
         cv.rect(x, 12 * TILE + 2, 2, 5, 'B');
     }
-    // The pavilions: the realm's (red, west) and the rival's (blue, east).
     for (i, (pc, pr, pw, ph)) in PAVILIONS.into_iter().enumerate() {
         let tent = kit::tent(if i == 0 {
             kit::Heraldry::Red
@@ -940,11 +843,7 @@ pub(super) fn lists(cv: &mut Img, lights: &mut Vec<Light>, tick: u32, north_road
     let _ = tick;
 }
 
-/// The mine-head: the mountain's adit with its timbers and the shaft going
-/// down, the fallen gate-hall of Caer Dwfn to the west, spoil heaps and a
-/// cart to the east.
 pub(super) fn mine_head(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32) {
-    // The adit: a dark mouth in the rock, timbered, rails going in.
     let (c, r, w, h) = ADIT;
     let (x0, y0, ah) = (c * TILE, r * TILE, h * TILE);
     let tiles = Tiles::get();
@@ -965,14 +864,12 @@ pub(super) fn mine_head(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: 
             cv.put(x, y, if tread { 'g' } else { 'k' });
         }
     }
-    // The timber set: two posts, a lintel, a cap piece.
     cv.rect(mx0 - 4, y0 + 8, 4, ah - 8, 'B');
     cv.rect(mx1, y0 + 8, 4, ah - 8, 'B');
     cv.rect(mx0 - 6, y0 + 5, mx1 - mx0 + 12, 4, 'r');
     cv.line(mx0 - 6, y0 + 5, mx1 + 5, y0 + 5, 'o');
     cv.line(mx0 - 4, y0 + 8, mx0 - 4, y0 + ah - 1, 'p');
 
-    // Rails out of the mouth, down the road.
     for x in [mx0 + 6, mx1 - 7] {
         cv.line(x, y0 + ah, x, 13 * TILE, 'h');
     }
@@ -982,7 +879,6 @@ pub(super) fn mine_head(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: 
     super::goods::ore_carts(cv, run, tick);
     torch(cv, lights, mx0 - 10, y0 + ah + 6, tick, 5);
     torch(cv, lights, mx1 + 9, y0 + ah + 6, tick, 6);
-    // Spoil heaps and a cart east of the adit.
     let (pc, pr, _, ph) = SPOIL;
     let heaps = kit::blob(
         64,
@@ -998,18 +894,11 @@ pub(super) fn mine_head(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: 
         2.0,
     );
     cv.stamp(&heaps, pc * TILE, (pr + ph) * TILE - heaps.h);
-    // The ore cart stands east of the muster tent.
     let cart = kit::handcart();
     cv.stamp(&cart, 19 * TILE + 8, 5 * TILE);
-    // The recruits' muster tent, east of the shaft (`muster_tent`).
     super::muster_tent::pavilion(cv, lights, tick);
-    // The gate-hall of Caer Dwfn: a ruin, until the realm pays to raise it.
     super::barony::gate_hall(cv, run, lights, tick);
     if run.room().doors[0] {
-        // A timbered through-road to Mummers' Hollow, not solid mine rock.
-        // Apply after the rubble and stockpile, whose sprite fringes also
-        // overlap this collision-clear road. Preserve the shaft below row
-        // three and all of the great hall's structural tiles to its west.
         for y in TILE..3 * TILE {
             for x in 9 * TILE..15 * TILE {
                 cv.put(x, y, road_mark(RoomKind::MineHead, x, y).unwrap_or('k'));
@@ -1021,11 +910,8 @@ pub(super) fn mine_head(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: 
     }
 }
 
-/// Over everything in a room of the world: the board of the entrance a
-/// knight is near.
 pub(super) fn boards(cv: &mut Img, run: &Run) {
     let kind = run.room().kind;
-    // The College and the Colosseum letter their own doors.
     if crate::rules::college::is_room(kind) || crate::rules::colosseum::is_room(kind) {
         return;
     }
@@ -1039,7 +925,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         let board = home::board(&[(label.into(), '9')]);
         cv.stamp(&board, (cv.w - board.w) / 2, cv.h - board.h - TILE);
     }
-    // What a knight beside a new knight's piece is told (`rite`).
     if matches!(kind, RoomKind::Gate | RoomKind::Alehouse) {
         super::rite_wall::prompt(cv, run);
     }
@@ -1052,10 +937,8 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             crate::rules::countryside::name(kind).into(),
             '9',
         )]);
-        // Keep the north doorway visible instead of putting a title on it.
         cv.stamp(&title, 3, 3);
     }
-    // Names come from real neighbouring rooms, not promised missing routes.
     for dir in 0..4 {
         if !run.room().doors[dir] {
             continue;
@@ -1073,7 +956,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
                     _ => h.x < 5.8,
                 }
         });
-        // At the horse market the pen's own board speaks instead.
         if !near || (dir == 2 && crate::rules::joust::on_market(run)) {
             continue;
         }
@@ -1089,7 +971,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         let (x, y) = match dir {
             0 => ((cv.w - board.w) / 2, TILE * 2),
             1 => (cv.w - board.w - 3, TILE * 4),
-            // Leave a clear gap above the five-line festival ledgers.
             2 => ((cv.w - board.w) / 2, cv.h - board.h - TILE * 3 - 8),
             _ => (3, TILE * 4),
         };
@@ -1157,7 +1038,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             continue;
         }
         let (x, y) = at(ex, ey);
-        // Beside the entrance, never over the knights who arrive below it.
         let bx = if x + 22 + board.w <= cv.w - 2 {
             x + 22
         } else {
@@ -1171,7 +1051,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The ring filling round the entrance a knight stands on.
 pub(super) fn entrance_ring(cv: &mut Img, run: &Run) {
     if run.descending == 0 {
         return;

@@ -235,7 +235,6 @@ fn stage_list_reject() {
     )
     .unwrap();
     assert!(card.contains("proposed"), "{card}");
-    // How to accept or reject is the `⠨⠑` pages; the id rides beside them.
     let steps = crate::agent::harness::book::d46_recovery::run(&[
         crate::agent::harness::book::d46_recovery::STAGED_ACCEPT,
         crate::agent::harness::book::d46_recovery::STAGED_REJECT,

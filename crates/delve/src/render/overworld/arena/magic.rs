@@ -25,20 +25,13 @@ use crate::rules::vfx::When;
 use crate::rules::{HZ, Hero, Run, Shot};
 use std::f32::consts::{PI, TAU};
 
-/// The most motes the magic paints in a pass.
 const BUDGET: u32 = 1600;
-/// How long a cast is drawn after it is cast, in ticks.
 const CAST_TICKS: u32 = 40;
-/// How long a ward's bubble may show.
 const WARD_TICKS: u32 = 3 * HZ;
-/// How long a wish's landing is drawn on its knight.
 const LANDED_TICKS: u64 = 75;
-/// How long the lamp's genie is drawn after a rub.
 const RUB_TICKS: u64 = 60;
-/// How long the fairies' wish is drawn.
 const FAIRY_TICKS: u64 = 120;
 
-/// What a spell does, for its look.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Kind {
     Bolt,
@@ -70,14 +63,12 @@ fn kind(card: &Card) -> Kind {
     Kind::Other
 }
 
-/// A spell's colours, from its recipe.
 fn colours(card: &Card) -> Ramp {
     let recipe = wishfx::recipe(card);
     let p = recipe.first(When::Cast).or_else(|| recipe.layers.first()).map(|l| l.palette);
     p.map_or(ramps::ARCANE, wishfx::ramp)
 }
 
-/// One cast being drawn: who, the card, its slot, and how many ticks ago.
 struct Casting<'a> {
     id: u32,
     hero: &'a Hero,
@@ -87,13 +78,11 @@ struct Casting<'a> {
 }
 
 impl Casting<'_> {
-    /// The mark this cast's shots and their breaks carry.
     fn mark(&self) -> u8 {
         self.slot as u8 + 1
     }
 }
 
-/// Every spell cast lately, by every knight on the field.
 fn castings(run: &Run) -> Vec<Casting<'_>> {
     let mut out = Vec::new();
     for (&id, hero) in run.players.iter().filter(|(_, h)| h.hp > 0 && h.privy == 0 && !h.absent) {
@@ -116,7 +105,6 @@ fn seed(id: u32, card: &Card, salt: u32) -> u32 {
     card.id.bytes().fold(id.wrapping_mul(0x9e37_79b9) ^ salt, |h, b| (h ^ u32::from(b)).wrapping_mul(0x0100_0193))
 }
 
-/// The knight's hand, a little out along their aim.
 fn hand(run: &Run, hero: &Hero) -> (f32, f32) {
     let (_, mid) = wishfx::body(run, hero);
     let l = hero.aim_x.hypot(hero.aim_y);
@@ -124,9 +112,6 @@ fn hand(run: &Run, hero: &Hero) -> (f32, f32) {
     (mid.0 + ux * 6.0, mid.1 + uy * 4.0 - 1.0)
 }
 
-// ─── the passes ──────────────────────────────────────────────────────────────
-
-/// Under the figures: rune circles on the floor, rings at the feet.
 pub(super) fn under(cv: &mut super::super::ink::Img, run: &Run) {
     let mut pen = Pen::new(cv, BUDGET / 2);
     for c in castings(run) {
@@ -137,8 +122,6 @@ pub(super) fn under(cv: &mut super::super::ink::Img, run: &Run) {
     fairy_floor(&mut pen, run);
 }
 
-/// Over the figures: releases, comets, novas, mendings, wards, the
-/// landings, the lamp's genie, the fairies.
 pub(super) fn over(cv: &mut super::super::ink::Img, run: &Run) {
     let mut pen = Pen::new(cv, BUDGET);
     for c in castings(run) {
@@ -162,16 +145,11 @@ pub(super) fn over(cv: &mut super::super::ink::Img, run: &Run) {
     fairies(&mut pen, run);
 }
 
-// ─── casting ─────────────────────────────────────────────────────────────────
-
-/// The rune circle under a caster: drawn on in a breath with an overshoot,
-/// turning while the power is drawn up out of it, then dissolving.
 fn sigil(pen: &mut Pen, run: &Run, c: &Casting) {
     if kind(c.card) == Kind::Ward && c.age >= CAST_TICKS {
         return;
     }
     if kind(c.card) == Kind::Ward {
-        // A ward's six-sided rune, on the floor under its bubble.
         let (feet, _) = wishfx::body(run, c.hero);
         let age = c.age as f32;
         let open = ease::back((age / 8.0).min(1.0));
@@ -196,8 +174,6 @@ fn sigil(pen: &mut Pen, run: &Run, c: &Casting) {
     pen.glyph((feet.0, feet.1 + 1.0), r, 0.42, rot, open, sides, ramp, fade, seed(c.id, c.card, 1));
 }
 
-/// The release at the hand: a flash, a star of rays snapping out past
-/// their length and back, and motes drawn up out of the circle into it.
 fn release(pen: &mut Pen, run: &Run, c: &Casting) {
     if c.age >= 16 {
         return;
@@ -206,8 +182,6 @@ fn release(pen: &mut Pen, run: &Run, c: &Casting) {
     let at = hand(run, c.hero);
     let (feet, _) = wishfx::body(run, c.hero);
     let age = c.age as f32;
-    // Power drawn up out of the circle: motes off its rim, slow and then
-    // all at once into the hand.
     for i in 0..10u32 {
         let start = i as f32 * 0.5;
         let t = (age - start) / 8.0;
@@ -232,9 +206,6 @@ fn release(pen: &mut Pen, run: &Run, c: &Casting) {
     }
 }
 
-/// A spell's own shots, drawn as comets: a hot head, a ribbon of tail
-/// that sways the spell's way, sparks shed behind, and for a falling star
-/// a big head and smoke after it.
 fn comets(pen: &mut Pen, run: &Run, c: &Casting) {
     let k = kind(c.card);
     let shot = if k == Kind::Meteor { Shot::Ball } else { Shot::Bolt };
@@ -262,7 +233,6 @@ fn comets(pen: &mut Pen, run: &Run, c: &Casting) {
         }
         pen.ribbon(&pts[..n], ramp, if big { 2.8 } else if k == Kind::Ring { 1.0 } else { 2.2 });
         pen.glow(head, if big { 11.0 } else if k == Kind::Ring { 4.5 } else { 7.5 }, 1.0, ramp, 1.0);
-        // The hot core: a pip, two for a bolt, a ball for a star.
         let core = if big { 2 } else if k == Kind::Ring { 0 } else { 1 };
         let (hx, hy) = (head.0.round() as i32, head.1.round() as i32);
         for dy in -core..=core {
@@ -272,7 +242,6 @@ fn comets(pen: &mut Pen, run: &Run, c: &Casting) {
                 }
             }
         }
-        // Sparks shed off the tail, each from where the head was.
         let shed = if big { 6 } else { 3 };
         for i in 0..shed {
             let age = (c.age + i * 2) % 8;
@@ -294,8 +263,6 @@ fn comets(pen: &mut Pen, run: &Run, c: &Casting) {
             s.each(age as f32, |m| pfx::mote(pen, &m, Shape::Ember, ramp.cooler(1), 1, run.tick));
         }
         if big {
-            // Smoke after the falling star: puffs left where it passed,
-            // swelling, rising and thinning.
             for i in 0..8u32 {
                 let back = 8.0 + i as f32 * 5.0;
                 if back > flown {
@@ -313,7 +280,6 @@ fn comets(pen: &mut Pen, run: &Run, c: &Casting) {
     }
 }
 
-/// A ring of sparks: the shock of it running out with the sparks.
 fn spark_ring(pen: &mut Pen, run: &Run, c: &Casting) {
     let ramp = colours(c.card);
     let (_, mid) = wishfx::body(run, c.hero);
@@ -327,8 +293,6 @@ fn spark_ring(pen: &mut Pen, run: &Run, c: &Casting) {
     }
 }
 
-/// A nova: the ground torn open in the spell's colour, a ring with a dark
-/// wake running out through the room, shards thrown, the circle flaring.
 fn nova(pen: &mut Pen, run: &Run, c: &Casting) {
     let ramp = colours(c.card);
     let (feet, mid) = wishfx::body(run, c.hero);
@@ -366,19 +330,15 @@ fn nova(pen: &mut Pen, run: &Run, c: &Casting) {
     s.each(age, |m| pfx::mote(pen, &m, sh, ramp, 2, run.tick));
 }
 
-/// A mending: light gathering down onto the knight, motes rising round
-/// them, a ring drawn in to their feet, and small crosses that twinkle.
 fn mending(pen: &mut Pen, run: &Run, c: &Casting) {
     let ramp = colours(c.card);
     let (feet, mid) = wishfx::body(run, c.hero);
     let age = c.age as f32;
     let k = age / CAST_TICKS as f32;
-    // The ring drawn in to the feet.
     if age < 14.0 {
         let r = 20.0 * (1.0 - ease::out(age / 14.0)) + 3.0;
         pen.ring((feet.0, feet.1 + 1.0), r, 1.4, 0.45, ramp, age / 14.0 * 0.5);
     }
-    // Light coming down on them, narrowing as it lands.
     if age < 12.0 {
         let t = age / 12.0;
         let top = mid.1 - 46.0;
@@ -398,9 +358,7 @@ fn mending(pen: &mut Pen, run: &Run, c: &Casting) {
             y += 1.0;
         }
     }
-    // The glow on the knight, swelling and easing.
     pen.glow(mid, 11.0, 1.2, ramp.cooler(1), 0.75 * ease::bump(k.min(1.0)));
-    // Motes rising out of the floor round them.
     let s = Spray {
         seed: seed(c.id, c.card, 3),
         n: if pen.calm { 8 } else { 16 },
@@ -418,7 +376,6 @@ fn mending(pen: &mut Pen, run: &Run, c: &Casting) {
         m.at.0 += (unit(m.i as i32, 3, 0x11) - 0.5) * 14.0 + (age * 0.2 + m.i as f32).sin();
         pfx::mote(pen, &m, if m.i % 3 == 0 { Shape::Star } else { Shape::Dot }, ramp, 1, run.tick);
     });
-    // Little crosses that pop and go.
     for i in 0..4u32 {
         let t = (age - 4.0 - i as f32 * 5.0) / 10.0;
         if !(0.0..1.0).contains(&t) {
@@ -434,9 +391,6 @@ fn mending(pen: &mut Pen, run: &Run, c: &Casting) {
     }
 }
 
-/// A ward: a bubble snapping up round the knight with an overshoot, a
-/// six-sided rune turning on its face, a glint running round it; while
-/// it holds, a faint shimmer of it.
 fn ward(pen: &mut Pen, run: &Run, c: &Casting) {
     let ramp = colours(c.card);
     let (_, mid) = wishfx::body(run, c.hero);
@@ -446,7 +400,6 @@ fn ward(pen: &mut Pen, run: &Run, c: &Casting) {
         let size = ease::back((age / 8.0).min(1.0));
         let fade = ((age - 16.0) / 24.0).clamp(0.0, 1.0);
         pen.ring(centre, 13.0 * size, 1.0, 1.0, ramp, 0.15 + fade * 0.6);
-        // The bubble's lit shoulder, upper left, catching the light.
         for i in 0..14 {
             let a = PI * 1.05 + i as f32 * 0.07;
             let rr = 11.5 * size;
@@ -457,7 +410,6 @@ fn ward(pen: &mut Pen, run: &Run, c: &Casting) {
         }
     }
     if c.hero.invulnerable > 0 {
-        // The bubble while it holds: a dotted rim and a glint going round.
         let t = run.tick as f32;
         let n = 44;
         for i in 0..n {
@@ -472,8 +424,6 @@ fn ward(pen: &mut Pen, run: &Run, c: &Casting) {
     }
 }
 
-/// Where a spell's shots broke: a flash, a ring, rays and a spray of what
-/// it is made of, smoke after; a falling star's the size of a room.
 fn spell_hits(pen: &mut Pen, run: &Run) {
     use ranged_events::Mark;
     let casts = castings(run);
@@ -525,8 +475,6 @@ fn spell_hits(pen: &mut Pen, run: &Run) {
     });
 }
 
-/// Every burst in the room (a handgonne's ball, a shell landing): a shock
-/// running out over the floor with its dark wake, and embers thrown up.
 fn blast_waves(pen: &mut Pen, run: &Run) {
     use crate::rules::BLAST_TICKS;
     for &(x, y, left) in run.blasts.iter().rev().take(8) {
@@ -540,8 +488,6 @@ fn blast_waves(pen: &mut Pen, run: &Run) {
     }
 }
 
-/// A falling star's scorch on the floor where it burst: a rune of fire
-/// burnt into it, cooling.
 fn spell_scorches(pen: &mut Pen, run: &Run) {
     use ranged_events::Mark;
     let casts = castings(run);
@@ -560,9 +506,6 @@ fn spell_scorches(pen: &mut Pen, run: &Run) {
     });
 }
 
-/// The Thunder Scroll and every nova's lightning: a forked arc out of the
-/// dark onto each struck monster, flickering as it strikes twice, a ring
-/// kicked off the floor and sparks; round the reader a circle of static.
 fn thunder(pen: &mut Pen, run: &Run) {
     use crate::rules::feel::BOLT_TICKS;
     for (n, b) in run.feel.bolts.iter().enumerate() {
@@ -574,7 +517,6 @@ fn thunder(pen: &mut Pen, run: &Run) {
             pen.glyph((at.0, at.1 + 1.0), 13.0 * open, 0.42, age * 0.09, open, 6, ramps::STORM, (age / f32::from(BOLT_TICKS)).powi(2), s);
             continue;
         }
-        // Struck, and struck again three ticks on.
         if age < 2.0 || (3.0..5.0).contains(&age) {
             let flick = (run.tick / 2) as u32;
             let top = (at.0 + (unit(s as i32, flick as i32, 1) - 0.5) * 24.0, at.1 - 78.0);
@@ -589,12 +531,6 @@ fn thunder(pen: &mut Pen, run: &Run) {
     }
 }
 
-// ─── the genie's lamp ────────────────────────────────────────────────────────
-
-/// The genie, as the smoke draws him: a topknot and a turban, a face with
-/// two eyes, broad shoulders and arms folded, a waist going to a tail of
-/// smoke that curls down to the spout. `#` his edge, `+` his smoke, `o`
-/// his eyes.
 const GENIE: [&str; 34] = [
     ".........##.........",
     "........#++#........",
@@ -632,10 +568,6 @@ const GENIE: [&str; 34] = [
     "..........#.........",
 ];
 
-/// The genie over `base` (his tail's end), `show` 0 to 1 how much of him
-/// there is: he rises out of the smoke tail first, drawn through a dither
-/// with a bright band running up him, so he is made of the smoke and never
-/// quite solid.
 fn genie(pen: &mut Pen, base: (f32, f32), show: f32, tick: u64) {
     if show <= 0.02 {
         return;
@@ -643,7 +575,6 @@ fn genie(pen: &mut Pen, base: (f32, f32), show: f32, tick: u64) {
     let h = GENIE.len() as i32;
     let (x0, y0) = (base.0.round() as i32 - 10, base.1.round() as i32 - h + 1);
     let t = tick as f32;
-    // From the tail up: how many rows of him are there yet.
     let risen = (show * 1.25 * h as f32) as i32;
     let band = (h as f32 - (t * 0.6) % (h as f32 + 10.0)) as i32;
     for (dy, row) in GENIE.iter().enumerate() {
@@ -652,7 +583,6 @@ fn genie(pen: &mut Pen, base: (f32, f32), show: f32, tick: u64) {
             continue;
         }
         let fresh = ((risen - (h - dy)) as f32 / 4.0).min(1.0) * show.min(1.0);
-        // A sway through him, more toward the tail.
         let sway = ((dy as f32 * 0.45 - t * 0.22).sin() * (dy as f32 / h as f32).powi(2) * 2.0).round() as i32;
         for (dx, c) in row.chars().enumerate() {
             let (x, y) = (x0 + dx as i32 + sway, y0 + dy);
@@ -668,9 +598,6 @@ fn genie(pen: &mut Pen, base: (f32, f32), show: f32, tick: u64) {
     }
 }
 
-/// The lamp rubbed: glints where the hand went over it, smoke curling up
-/// out of the spout, gathering into the genie, who shimmers over the lamp
-/// with a burst of stars and goes back into the smoke.
 fn lamp(pen: &mut Pen, run: &Run) {
     let Some(spout) = super::altar::spout(run) else { return };
     let Some(rubbed) = run.lamp.rubbed.values().filter(|&&t| run.tick.saturating_sub(t) < RUB_TICKS).max().copied() else {
@@ -678,18 +605,15 @@ fn lamp(pen: &mut Pen, run: &Run) {
     };
     let age = run.tick.saturating_sub(rubbed) as f32;
     let s = (rubbed as u32).wrapping_mul(0x9e37);
-    // Rubbing glints on the lamp's body.
     for i in 0..3u32 {
         let t = (age - i as f32 * 3.0) / 6.0;
         let at = (spout.0 - 5.0 + i as f32 * 3.0, spout.1 + 2.0 - (i % 2) as f32);
         pen.twinkle(at, 2.0, t, ramps::HOLY);
     }
-    // Three curls of smoke.
     for i in 0..3u32 {
         let base = (spout.0 + 1.0 + i as f32, spout.1 - 1.0);
         pen.wisp(base, age - 3.0 - i as f32 * 2.0, (0.0, 26.0), 20.0, 16.0 + i as f32 * 5.0, 2.5 + i as f32, ramps::GENIE.cooler(1), s ^ i);
     }
-    // The genie: gathering, held, going.
     let show = if age < 14.0 {
         0.0
     } else if age < 24.0 {
@@ -704,7 +628,6 @@ fn lamp(pen: &mut Pen, run: &Run) {
         pen.glow((base.0, base.1 - 20.0), 18.0, 1.3, ramps::GENIE.cooler(2), 0.45 * show);
     }
     genie(pen, base, show, run.tick);
-    // His coming, a burst of stars.
     let k = (age - 18.0) / 16.0;
     if (0.0..1.0).contains(&k) {
         let at = (base.0, base.1 - 26.0);
@@ -714,15 +637,11 @@ fn lamp(pen: &mut Pen, run: &Run) {
     }
 }
 
-/// The tier the granted card stands at, for a grander show at a higher one.
 fn granted_tier(run: &Run, hero: &Hero, name: &str) -> u32 {
     let held = hero.deck.iter().map(String::as_str).chain(hero.spells.iter().flatten().map(String::as_str)).chain(hero.arm.as_deref());
     held.filter_map(|id| run.book.get(id)).filter(|c| c.name == name).filter_map(|c| crate::rules::vfx::tier(&c.id)).max().unwrap_or(1)
 }
 
-/// A wish landing on its knight: light drawn in to them, then a burst —
-/// a flash, a star of rays, stars thrown up and falling — and sparkles
-/// rising off them long after; a ring of gold opening on the floor.
 fn landed(pen: &mut Pen, run: &Run) {
     for l in run.lamp.landed.iter().rev().take(4) {
         let age = run.tick.saturating_sub(l.tick);
@@ -736,7 +655,6 @@ fn landed(pen: &mut Pen, run: &Run) {
         let (_, mid) = wishfx::body(run, hero);
         let age = age as f32;
         let beats = Beats::new(6.0, 4.0, 6.0, 20.0);
-        // Drawn in: motes from a wide ring, slow and then all at once.
         if age < beats.anticipation {
             for i in 0..14u32 {
                 let a = i as f32 / 14.0 * TAU + age * 0.05;
@@ -753,7 +671,6 @@ fn landed(pen: &mut Pen, run: &Run) {
             pen.glow(mid, 14.0 * grand * beats.size(age).max(0.4), 1.0, ramps::HOLY, 0.8 * beats.power(age));
             pfx::rays(pen, mid, 12, 22.0 * grand, 0.9, 0.2, ramps::HOLY, since / 14.0);
         }
-        // Stars thrown up and out, falling.
         let spray = Spray {
             seed: s,
             n: if pen.calm { 10 } else { (18.0 * grand) as u32 },
@@ -771,13 +688,10 @@ fn landed(pen: &mut Pen, run: &Run) {
             let r = if m.i % 3 == 0 { ramps::GENIE } else { ramps::GOLD };
             pfx::mote(pen, &m, if m.i % 4 == 0 { Shape::Coin } else { Shape::Star }, r, 1, run.tick);
         });
-        // Sparkles rising off them, long after.
         rising(pen, mid, since, LANDED_TICKS as f32 - beats.anticipation, s, if pen.calm { 6 } else { 14 });
     }
 }
 
-/// Sparkles rising off a knight: each on a loop of its own, a twinkle that
-/// swells, drifts up and side to side, and goes.
 fn rising(pen: &mut Pen, mid: (f32, f32), since: f32, length: f32, s: u32, n: u32) {
     for i in 0..n {
         let start = i as f32 * 3.1 % 14.0;
@@ -795,8 +709,6 @@ fn rising(pen: &mut Pen, mid: (f32, f32), since: f32, length: f32, s: u32, n: u3
     }
 }
 
-/// A landing's ring on the floor: gold opening with an overshoot under
-/// the knight, a rune turning in it.
 fn landed_floor(pen: &mut Pen, run: &Run) {
     for l in run.lamp.landed.iter().rev().take(4) {
         let age = run.tick.saturating_sub(l.tick) as f32;
@@ -813,9 +725,6 @@ fn landed_floor(pen: &mut Pen, run: &Run) {
     }
 }
 
-// ─── the fairies' wish ───────────────────────────────────────────────────────
-
-/// How long ago the house held and the fairies paid, while it is drawn.
 fn fairy_age(run: &Run) -> Option<f32> {
     let nook = run.nook.as_ref()?;
     let garden = nook.garden.as_ref()?;
@@ -826,19 +735,14 @@ fn fairy_age(run: &Run) -> Option<f32> {
     if line != crate::rules::nooks::gnome::HELD_LINE {
         return None;
     }
-    // The house has its own cheer first (`garden::FAIRY_LEAD`).
     let age = run.tick.saturating_sub(*at).checked_sub(super::garden::FAIRY_LEAD)?;
     (age < FAIRY_TICKS).then_some(age as f32)
 }
 
-/// The knights in the garden, for the fairies to find.
 fn garden_knights(run: &Run) -> impl Iterator<Item = (u32, &Hero)> {
     run.players.iter().filter(|(_, h)| h.hp > 0 && !h.absent && h.privy == 0).map(|(&id, h)| (id, h)).take(8)
 }
 
-/// Where fairy `f` flying to knight `id` is, `age` ticks after the house
-/// held: out from the cottage on a looping arc to their head, round it,
-/// and up away.
 fn fairy_at(f: u32, id: u32, mid: (f32, f32), age: f32) -> (f32, f32) {
     let (hx, hy) = super::garden::fairy_home();
     let a0 = f as f32 / 3.0 * TAU + id as f32;
@@ -846,7 +750,6 @@ fn fairy_at(f: u32, id: u32, mid: (f32, f32), age: f32) -> (f32, f32) {
     let over = (mid.0, mid.1 - 12.0);
     if age < 30.0 {
         let t = ease::both(age / 30.0);
-        // A loop up and over: a quadratic through a high middle.
         let ctl = ((from.0 + over.0) / 2.0 + (f as f32 - 1.0) * 30.0, from.1.min(over.1) - 40.0);
         let u = 1.0 - t;
         return (u * u * from.0 + 2.0 * u * t * ctl.0 + t * t * over.0, u * u * from.1 + 2.0 * u * t * ctl.1 + t * t * over.1);
@@ -858,9 +761,6 @@ fn fairy_at(f: u32, id: u32, mid: (f32, f32), age: f32) -> (f32, f32) {
     (over.0 + a.cos() * r, over.1 + a.sin() * r * 0.45 - up)
 }
 
-/// The fairies' wish: three fairies out from the cottage to every knight,
-/// a trail of sparkles behind each, round their heads, a burst of stars as
-/// they arrive, and sparkles rising off them as the fairies go up.
 fn fairies(pen: &mut Pen, run: &Run) {
     let Some(age) = fairy_age(run) else { return };
     for (id, hero) in garden_knights(run) {
@@ -870,7 +770,6 @@ fn fairies(pen: &mut Pen, run: &Run) {
             if age > 70.0 && super::super::ink::bayer(at.0 as i32, at.1 as i32) < (age - 70.0) / 30.0 {
                 continue;
             }
-            // Its trail: where it was, a tick at a time behind.
             let mut pts = [(0.0f32, 0.0f32); 10];
             for (j, p) in pts.iter_mut().enumerate() {
                 *p = fairy_at(f, id, mid, (age - j as f32 * 1.2).max(0.0));
@@ -884,7 +783,6 @@ fn fairies(pen: &mut Pen, run: &Run) {
             let im = super::garden::fairy(((run.tick / 3) as usize + f as usize) % 2);
             pen.cv.stamp(&im, at.0.round() as i32 - 3, at.1.round() as i32 - 3);
         }
-        // They arrive: a burst of stars over the knight.
         let since = age - 30.0;
         if (0.0..16.0).contains(&since) {
             pen.glow((mid.0, mid.1 - 6.0), 13.0, 1.0, ramps::HOLY, 0.8 * (1.0 - since / 16.0));
@@ -910,7 +808,6 @@ fn fairies(pen: &mut Pen, run: &Run) {
     }
 }
 
-/// The fairy ring that opens under each knight as the fairies reach them.
 fn fairy_floor(pen: &mut Pen, run: &Run) {
     let Some(age) = fairy_age(run) else { return };
     let since = age - 30.0;
@@ -922,7 +819,6 @@ fn fairy_floor(pen: &mut Pen, run: &Run) {
         let open = ease::back((since / 8.0).min(1.0));
         let fade = ((since - 30.0) / 50.0).clamp(0.0, 1.0);
         pen.glyph((feet.0, feet.1 + 1.0), 14.0 * open, 0.42, since * 0.03, open, 5, ramps::NATURE, fade, id ^ 0xfa);
-        // Little lights round the ring, coming on in turn.
         for i in 0..10u32 {
             let a = i as f32 / 10.0 * TAU + since * 0.03;
             let t = ((since - i as f32 * 1.5) / 40.0).clamp(0.0, 1.0);

@@ -22,26 +22,15 @@
 
 use super::*;
 
-/// How many beats the Loop Knight can hold.
 pub const BEAT_MOST: u32 = 6;
-/// Percent quicker the string draws for each beat held.
 pub const BEAT_RATE: u32 = 8;
-/// Ticks without an arrow before the beat is lost.
 pub const BEAT_LIFE: u32 = 24;
-/// Ticks of rest that make the next bolt a measured one: twice the
-/// crossbow's own rearm, quickened as the rearm is.
 pub const MEASURE: u32 = 46;
-/// A measured bolt's damage, in percent.
 pub const MEASURED: u32 = 250;
-/// Gold carried for each percent the purse adds.
 pub const PURSE_STEP: u32 = 5;
-/// The most the purse adds, in percent.
 pub const PURSE_MOST: u32 = 50;
-/// The stroke of a chain that is the clean copy.
 pub const CLEAN_EVERY: u32 = 3;
-/// Ticks without a stroke before the chain is lost.
 pub const STROKE_LIFE: u32 = 30;
-/// A clean stroke's damage, in percent.
 pub const CLEAN_HIT: u32 = 150;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -52,7 +41,6 @@ pub enum Drill {
     Clean,
 }
 
-/// The drill and the arm that carries it, for the kit `id`.
 pub fn of_kit(id: &str) -> Option<(Drill, &'static str)> {
     match id {
         "loop" => Some((Drill::Loop, "bow")),
@@ -63,7 +51,6 @@ pub fn of_kit(id: &str) -> Option<(Drill, &'static str)> {
     }
 }
 
-/// The drill knight `h` is holding to, with their kit's arm in hand.
 pub fn of(h: &Hero) -> Option<Drill> {
     if h.shape.is_some() {
         return None;
@@ -72,21 +59,16 @@ pub fn of(h: &Hero) -> Option<Drill> {
     (h.arm.as_deref() == Some(arm)).then_some(drill)
 }
 
-/// What a drill lends one pull of a plain arm.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Pull {
-    /// The pull's damage, in percent.
     pub damage: u32,
     pub empowered: bool,
 }
 
-/// What the purse adds for `gold` carried, in percent.
 pub fn purse(gold: u32) -> u32 {
     (gold / PURSE_STEP).min(PURSE_MOST)
 }
 
-/// Count a pull of a plain arm: the host and a predicting client both come
-/// through here (`Hero::loose`).
 pub(super) fn pull(h: &mut Hero) -> Pull {
     let mut pull = Pull { damage: 100, empowered: false };
     match of(h) {
@@ -106,7 +88,6 @@ pub(super) fn pull(h: &mut Hero) -> Pull {
     pull
 }
 
-/// Count a stroke of the blade: true on the clean one.
 pub(super) fn stroke(h: &mut Hero) -> bool {
     if of(h) != Some(Drill::Clean) {
         return false;

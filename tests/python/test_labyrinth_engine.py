@@ -1,4 +1,3 @@
-"""Cross-producer dashboard compatibility and pinned upstream provenance."""
 import hashlib
 import importlib.util
 import json

@@ -20,7 +20,6 @@ fn table() -> &'static [[f32; 3]] {
             let k = up.sqrt();
             for a in 0..AZ {
                 let az = a as f32 / AZ as f32 * std::f32::consts::TAU;
-                // Smoke drifting in bands across the haze (wrapping round the bearing).
                 let band = vnoise(az.cos() * 2.2 + 9.0, az.sin() * 2.2 + e as f32 * 0.35, 0x71);
                 let lift = (band - 0.45).max(0.0) * 0.5 * (1.0 - up);
                 v.push([
@@ -34,7 +33,6 @@ fn table() -> &'static [[f32; 3]] {
     })
 }
 
-/// `atan2` good to a ten-thousandth of a radian, with no library call.
 #[inline]
 fn bearing(y: f32, x: f32) -> f32 {
     let (ax, ay) = (x.abs(), y.abs());
@@ -58,7 +56,6 @@ pub(super) fn color(dir: [f32; 3], ticks: u32, frame: &Frame) -> [f32; 3] {
     let ai = (((az + std::f32::consts::PI) * (AZ as f32 / std::f32::consts::TAU)) as usize + (ticks / 9) as usize) % AZ;
     let ei = ((s / TOP * EL as f32) as usize).min(EL - 1);
     let mut c = table()[ei * AZ + ai];
-    // Stars: one dot where a cell's hash says so, twinkling.
     if s > 0.12 {
         let (sa, se) = ((az * frame.px_per_rad) as i32, (s * frame.px_per_rad) as i32);
         let h = hash(sa, se, 0x57);

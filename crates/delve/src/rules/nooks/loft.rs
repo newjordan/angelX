@@ -5,13 +5,9 @@
 //! longer, and the hymn mends everyone whole with coin for the plate.
 use super::*;
 
-/// The bells (tiles, the frame they hang in) and the pews.
 pub const BELLS: [(i32, i32); 4] = [(5, 3), (9, 3), (14, 3), (18, 3)];
 const PEWS: [(i32, i32, i32, i32); 2] = [(4, 9, 5, 1), (15, 9, 5, 1)];
-/// The tunes, by bell.
 pub const SEQS: [&[u8]; 3] = [&[0, 2, 1], &[3, 1, 0, 2], &[1, 3, 2, 0, 3]];
-/// Ticks a bell sounds while the ghost rings it, and between his notes;
-/// how long a rung bell stays lit; the plate's coin.
 pub const NOTE: u32 = 18;
 pub const REST: u32 = 8;
 pub const LIT: u32 = 12;
@@ -21,17 +17,14 @@ pub fn blocks() -> Vec<(i32, i32, i32, i32)> {
     BELLS.iter().map(|&(c, r)| (c, r, 1, 1)).chain(PEWS).collect()
 }
 
-/// Where a ringer stands under bell `b` (tiles).
 pub fn under(b: usize) -> (f32, f32) {
     (BELLS[b].0 as f32 + 0.5, BELLS[b].1 as f32 + 1.8)
 }
 
-/// How long the ghost takes to ring round `r`'s tune, with a beat before.
 pub fn show_len(r: usize) -> u32 {
     REST * 2 + SEQS[r].len() as u32 * (NOTE + REST)
 }
 
-/// While the ghost rings: the bell sounding now, if any.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Show {
     Ringing(Option<u8>),

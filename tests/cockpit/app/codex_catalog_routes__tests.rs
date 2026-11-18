@@ -429,7 +429,6 @@ fn catalog_r2_vision_uses_same_catalog_shared_auth_and_independent_effort() {
     assert_eq!(vision.resolved_model_defaults()["reasoning_effort"], "high");
     vision.set_reasoning_effort("low").unwrap();
     assert_eq!(run.selection.effort, "pi:high");
-    // Explicit vision and Kimi precedence are checked by the existing vision fixtures.
 }
 #[test]
 fn catalog_r2_startup_publication_shared_by_bag_registry_vision_and_next_run() {
@@ -500,8 +499,18 @@ fn catalog_r2_startup_publication_shared_by_bag_registry_vision_and_next_run() {
     let _kimi_key = TestEnvGuard::set("ANGEL_KIMI_KEY", "fixture");
     assert_eq!(
         VisionBackend::new(Some(&run)).0.unwrap().label(),
-        "kimi-vision"
+        "codex-vision/gpt-6.1-sol"
     );
+    let eyes = crate::agent::harness::ToolRegistry::with_team_self_in_run(
+        root.clone(),
+        vec![club.clone()],
+        Some(club.clone()),
+        Some(&run),
+    );
+    assert!(std::sync::Arc::ptr_eq(
+        eyes.vision.0.as_ref().unwrap(),
+        &club
+    ));
     let _vision_url = TestEnvGuard::set("ANGEL_VISION_URL", "http://127.0.0.1:9/v1");
     let _vision_model = TestEnvGuard::set("ANGEL_VISION_MODEL", "explicit-fixture");
     assert_eq!(VisionBackend::new(Some(&run)).0.unwrap().label(), "vision");
@@ -564,4 +573,64 @@ fn catalog_r2_bag_alias_identity_and_picker_revision_preserved() {
         alias.club.resolved_model_defaults()["reasoning_effort"],
         "low"
     );
+}
+
+#[test]
+fn retired_gpt_56_models_are_hidden_from_the_list_unless_pinned() {
+    let _lock = crate::tests::env_lock();
+    let base = catalog(Source::PiStore, Some(8192)).models()[0].clone();
+    let with = |slug: &str| CodexModelInfo {
+        slug: slug.into(),
+        ..base.clone()
+    };
+    let models = vec![
+        with("gpt-6.1-sol"),
+        with("gpt-5.6-sol"),
+        with("gpt-5.6-terra"),
+        with("gpt-5.6-luna"),
+    ];
+    let labels = |pinned: &str| -> Vec<String> {
+        let run = Arc::new(crate::agent::codex_startup::CodexStartup {
+            catalog: Arc::new(CatalogLoad::from_models(Source::PiStore, models.clone())),
+            selection: intent(pinned, "high"),
+            shared: Some(CodexClub::shared_state(ChatGptAuth::detached())),
+        });
+        let bag = crate::agent::club::Bag::standard_in_run(run);
+        bag.agents
+            .iter()
+            .find(|a| a.name == "openai")
+            .unwrap()
+            .slots
+            .iter()
+            .map(|s| s.label.clone())
+            .collect()
+    };
+    assert_eq!(labels("gpt-6.1-sol"), vec!["gpt-6.1-sol"]);
+    assert_eq!(labels("gpt-5.6-luna"), vec!["gpt-6.1-sol", "gpt-5.6-luna"]);
+    assert!(crate::agent::openai_codex::is_retired_codex_model("GPT-5.6-Sol"));
+    assert!(!crate::agent::openai_codex::is_retired_codex_model("gpt-6-luna"));
+}
+
+#[test]
+fn carbon_is_a_model_picker_choice_when_its_key_is_set() {
+    use crate::tests::TestEnvGuard;
+    let _lock = crate::tests::env_lock();
+    let _key = TestEnvGuard::set("GEMINI_API_KEY", "fixture-only");
+    let _clubs = TestEnvGuard::set("ANGEL_API_CLUBS", "carbon");
+    let _unset = ["ANGEL_CARBON_KEY", "ANGEL_CARBON_MODEL", "ANGEL_CARBON_URL", "ANGEL_DRIVER"]
+        .map(TestEnvGuard::unset);
+    let has_carbon = || {
+        let run = Arc::new(crate::agent::codex_startup::CodexStartup {
+            catalog: catalog(Source::PiStore, Some(8192)),
+            selection: intent("gpt-6.1-sol", "high"),
+            shared: Some(CodexClub::shared_state(ChatGptAuth::detached())),
+        });
+        crate::agent::club::Bag::standard_in_run(run)
+            .route_choices()
+            .iter()
+            .any(|c| c.model == "gemini-4-carbon")
+    };
+    assert!(has_carbon());
+    let _other = TestEnvGuard::set("ANGEL_API_CLUBS", "deepseek");
+    assert!(!has_carbon());
 }

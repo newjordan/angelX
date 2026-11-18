@@ -47,9 +47,6 @@ fn take_flag(args: &[String], name: &str) -> Option<String> {
         .map(|pair| pair[1].clone())
 }
 
-/// The mandate handed to the backup model. Deliberately blunt about
-/// uncertainty: the previous instance may have died mid-tool-call, and
-/// the recovered thread marks those outcomes unknown.
 fn recovery_brief(
     dead_host: &str,
     dead_instance: &str,
@@ -81,8 +78,6 @@ fn recovery_brief(
     )
 }
 
-/// Ensure `sessions/<id>.json` exists locally, fetching it (hash-verified)
-/// from the latest backup snapshot when this rig never held the session.
 fn ensure_session_local(state_root: &Path, session_id: &str) -> Result<(), String> {
     if session_id.is_empty()
         || session_id.contains('/')
@@ -106,7 +101,6 @@ fn ensure_session_local(state_root: &Path, session_id: &str) -> Result<(), Strin
         &staging,
     )?;
     let bytes = std::fs::read(&fetched).map_err(|e| format!("read fetched session: {e}"))?;
-    // Publish only into absence: a live local session file always wins.
     if !destination.exists() {
         crate::platform::workspace_store::write_atomic(&destination, &bytes)?;
     }
@@ -114,8 +108,6 @@ fn ensure_session_local(state_root: &Path, session_id: &str) -> Result<(), Strin
     Ok(())
 }
 
-/// Background heartbeat for the resurrecting child, so peers (and the
-/// world's giant) can see the resurrection while it runs.
 fn spawn_beater(
     state_root: &Path,
     workspace: &Path,
@@ -166,7 +158,6 @@ fn parse_resurrect_args(args: &[String]) -> Result<ResurrectArgs, String> {
     })
 }
 
-/// `angel --resurrect <session-id> --workspace DIR` — one-shot recovery.
 pub(crate) fn cli_resurrect(args: Vec<String>) -> std::io::Result<()> {
     let parsed = parse_resurrect_args(&args).map_err(std::io::Error::other)?;
     let state_root = angel_dir();
@@ -247,8 +238,6 @@ fn run_resurrect(
         )
     })?;
 
-    // The resurrection runs in a NEW session seeded with the recovered
-    // thread; the dead instance's session file is never written again.
     let mut session = session::Session::new();
     session.bind(&workspace);
     let new_session_id = session.id.clone();
@@ -297,8 +286,6 @@ fn run_resurrect(
     })
 }
 
-/// One headless recovery turn on this rig's configured model, mirroring
-/// the `--task` path's registry and turn invocation.
 fn run_recovery_turn(
     workspace: &Path,
     history: &mut Vec<ChatMsg>,
@@ -323,13 +310,9 @@ fn run_recovery_turn(
     );
     registry.set_skill_index(&skills);
     registry.enable_tool_search();
-    // A resurrected session is the operator's live work, not a sealed
-    // benchmark task: keep it free of the headless per-call default unless the
-    // operator set a cap.
     if std::env::var_os("ANGEL_TASK_CALL_TIMEOUT_SECS").is_none()
         && std::env::var_os("ANGEL_TEST_RUN_TIMEOUT_SECS").is_none()
     {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var("ANGEL_TASK_CALL_TIMEOUT_SECS", "0") };
     }
     let task_pace = harness::apply_task_runtime_defaults(brief);
@@ -379,10 +362,6 @@ fn run_recovery_turn(
     }
 }
 
-// ---------------------------------------------------------------------------
-// The watcher loop.
-// ---------------------------------------------------------------------------
-
 const GUARDIAN_USAGE: &str = "\
 usage: angel --guardian [--watch-only] [--once] [--stale-secs N] [--driver ROUTE]
        angel --resurrect <session-id> --workspace DIR [--driver ROUTE]
@@ -427,8 +406,6 @@ pub(crate) fn cli_guardian(args: Vec<String>) -> std::io::Result<()> {
     loop {
         guardian.turn();
         if once {
-            // Single scan; if we spawned a resurrection, stay its parent
-            // until it lands so cron sees the real outcome.
             if let Some((mut running, _, _)) = guardian.child.take() {
                 let status = running.wait().map_err(std::io::Error::other)?;
                 guardian.beat.retire();
@@ -445,24 +422,16 @@ pub(crate) fn cli_guardian(args: Vec<String>) -> std::io::Result<()> {
     }
 }
 
-/// A resurrection child this guardian is parenting: the process, the death it
-/// answers, and when it started.
 type Resurrection = (std::process::Child, guard::Candidate, u128);
 
-/// What the guardian is doing, as its peers read it off the heartbeat. It is
-/// derived from what the guardian holds (see [`Guardian::phase`]), never set
-/// on its own, so a label cannot outlive its cause.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum GuardianPhase {
     Sleeping,
-    /// Watch-only found a death it will not answer.
     Watching,
-    /// A resurrection child is running.
     Resurrecting,
 }
 
 impl GuardianPhase {
-    /// The heartbeat activity strings peers match on; a wire contract.
     fn label(self) -> &'static str {
         match self {
             GuardianPhase::Sleeping => "guardian-sleeping",
@@ -472,8 +441,6 @@ impl GuardianPhase {
     }
 }
 
-/// One running guardian: what it was started with, its heartbeat, and the
-/// resurrection it is parenting, if any.
 struct Guardian {
     state_root: PathBuf,
     peers_dir: PathBuf,
@@ -482,7 +449,6 @@ struct Guardian {
     driver: Option<String>,
     beat: PeerBeat,
     child: Option<Resurrection>,
-    /// The last scan found a death and this guardian is watch-only.
     watching: bool,
 }
 
@@ -517,9 +483,6 @@ impl Guardian {
         }
     }
 
-    /// Put the current phase on the heartbeat. Called wherever the phase may
-    /// have moved, so no branch has to remember to set or reset a label; a
-    /// change is beaten out promptly.
     fn sync_activity(&mut self) {
         let label = self.phase().label();
         if self.beat.heartbeat.activity != label {
@@ -527,10 +490,7 @@ impl Guardian {
         }
     }
 
-    /// One pass of the watcher loop: supervise the running resurrection, beat,
-    /// and, when idle, look for a death to answer.
     fn turn(&mut self) {
-        // Supervise the running resurrection, if any.
         if let Some((running, candidate, started)) = &mut self.child {
             match running.try_wait() {
                 Ok(Some(status)) => {

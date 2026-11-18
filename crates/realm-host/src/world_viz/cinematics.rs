@@ -15,31 +15,20 @@ pub(super) const ARRIVAL_HOLD_TICKS: u32 = 6;
 const ARRIVAL_ZOOM_TICKS: u32 = 64;
 pub(super) const CINEMATIC_SETTLE_TICKS: u32 = ARRIVAL_HOLD_TICKS + ARRIVAL_ZOOM_TICKS;
 const LOCATION_ZOOM_STEPS: f32 = 32.0;
-/// Ticks over which a departure dissolves from the story plate into the
-/// first-person world.
 pub(super) const DEPART_FADE_TICKS: u32 = 8;
-/// Half-extent of the raycast map window around the knight, in world tiles —
-/// comfortably past the art layer's fog horizon so the window edge never
-/// pops into view.
 const FP_WINDOW: i32 = 15;
 const TRAVEL_TERRAIN_HEIGHT_CAP: f32 = 0.72;
-/// Geometry safety rail for every travelling camera pose. Authored arrival
-/// marks sit much farther back; this only prevents an approach clipping walls.
 const DOOR_PULL_UP: f32 = 1.45;
 const VISTA_EASE_START: f32 = 9.0;
 
 #[derive(Clone, Copy, Debug)]
 pub(super) struct VistaMark {
     pub(super) standoff: f32,
-    /// Rotation from the facade normal pointing toward the road or keep.
     pub(super) bearing_offset_rad: f32,
-    /// Camera-heading offset from looking directly at the landmark.
     pub(super) thirds_offset_rad: f32,
     pub(super) eye_lift: Option<f32>,
 }
 
-/// Keep, Gatehouse, Rookery, Scriptorium, Smithy, Chapel, Round Table,
-/// Observatory. Alternating thirds make the sequence read as authored cuts.
 pub(super) const VISTA_MARKS: [VistaMark; 8] = [
     VistaMark {
         standoff: 5.8,
@@ -97,34 +86,18 @@ struct LandmarkFootprint {
     depth: i32,
 }
 
-/// Landmark depth in cells, in stable `building_index` order. Width remains
-/// part of the shared landmark identity; this local table gives the outdoor
-/// raycast enough return wall to read as architecture from a quarter view.
 const LANDMARK_DEPTHS: [i32; 8] = [3, 2, 2, 2, 2, 3, 2, 3];
 
-/// Prop billboards live well above landmark ids (0..=7), leaving room for
-/// future building silhouettes without collisions.
 pub(super) const PROP_ID_BASE: u8 = 32;
-/// Fleet-village silhouettes occupy their own gap between civic landmarks
-/// (0..=7) and arrival props (32..=39).
 pub(super) const VILLAGE_FORGE_ID: u8 = 16;
 pub(super) const VILLAGE_GRANARY_ID: u8 = 17;
 pub(super) const VILLAGE_COTTAGE_ID: u8 = 18;
-/// Outdoor ambient life reuses existing authored silhouettes, avoiding a new
-/// atlas or renderer branch.
-// Keep ambient ids disjoint while retaining the low three-bit authored prop
-// shapes (raven/soft puff/standing figure) in the shared scene vocabulary.
 pub(super) const RAVEN_SPRITE_ID: u8 = 84;
 pub(super) const SMOKE_SPRITE_ID: u8 = 81;
 pub(super) const VILLAGER_SPRITE_ID: u8 = 86;
-/// Ceremony pennants are separate from permanent arrival dressing.
 pub(super) const CEREMONY_PENNANT_ID: u8 = 87;
-/// Reserved solely to make the first-person invariant explicit and testable.
 pub(super) const KNIGHT_SELF_SPRITE_ID: u8 = 15;
-/// District waymarkers occupy the upper half of the prop id range; the low
-/// three bits preserve the deterministic district banner palette.
 pub(super) const DISTRICT_WAYMARKER_ID_BASE: u8 = 48;
-/// Natural scenery has a disjoint id range above district banners (48..=55).
 pub(super) const SCENERY_TREE_ID: u8 = 72;
 pub(super) const SCENERY_BOULDER_ID: u8 = 73;
 pub(super) const SCENERY_BUSH_ID: u8 = 74;
@@ -133,14 +106,10 @@ const SCENERY_SPRITE_CAP: usize = 48;
 pub(super) const RAVEN_SPRITE_CAP: usize = 3;
 pub(super) const SMOKE_SPRITE_CAP: usize = 3;
 pub(super) const VILLAGER_SPRITE_CAP: usize = 18;
-/// The sleeping giant by the keep: one figure plus its breath/sparks.
 pub(super) const GUARDIAN_SPRITE_CAP: usize = 4;
 pub(super) const AMBIENT_SPRITE_CAP: usize =
     RAVEN_SPRITE_CAP + SMOKE_SPRITE_CAP + VILLAGER_SPRITE_CAP + GUARDIAN_SPRITE_CAP;
 pub(super) const AMBIENT_TICK_TICKS: u64 = 8;
-/// Interior firelight is atmospheric scenery. Ten fresh frames per second at
-/// the 40 Hz simulation clock are enough for a tiny terminal pane and keep the
-/// mesh rasterizer out of latency-sensitive UI frames.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(super) const INTERIOR_FRAME_HOLD_TICKS: u64 = 4;
 const ARRIVAL_PROP_DISTANCE: f32 = 4.25;
@@ -161,49 +130,22 @@ pub fn warm_assets() {
 }
 
 impl World {
-    /// Stable semantic key for the current miniviz frame. Pane dimensions live
-    /// in the viewer cache key; this key changes only when visible world state
-    /// crosses a useful animation step.
     pub fn cinematic_key(&self) -> u64 {
-        // Room entry is a semantic change even when the outdoor pacing lane
-        // is relaxed; room and outdoor keys occupy distinct domains.
         if self.ambient_interior_visible() {
             return self.ambient_scene_sequence(crate::telemetry::MotionMode::Off);
         }
         let mut hash = std::collections::hash_map::DefaultHasher::new();
         building_index(self.target).hash(&mut hash);
-        // Z1: the adventure re-keys the frame — region, danger, party, a live
-        // banner, and the loot count all change what Z2 draws.
         hash_quest_state(&mut hash, self.quest());
-        // Z3b: the Swamp's wisps drift one step every `WISP_TICKS`; every other
-        // stage reports phase 0, so only the marsh is ever re-keyed by the clock.
         super::world3d::region::wisp_phase_at(self.quest(), self.tick).hash(&mut hash);
-        // Z2: only the camera-top arm paints the authored regions, and it
-        // reads more than the quest summary — the camera window, the room
-        // slide, the hero's facing and walk frame, the monsters' animation
-        // bucket, the party line and the chests. Hashing it under any other
-        // view would churn the first-person memos for nothing. The nominal
-        // canvas keeps the key independent of pane size, which the ride
-        // cache's own view key already carries.
-        // The first-person palette follows the persisted realm clock. Keep
-        // beat drift out of this semantic key: the hearth bucket already
-        // quantizes daylight to five steps and carries the two weather bits.
         self.outcome_hearth_render_bucket().hash(&mut hash);
-        // Presence matters as well as light: an all-dark enabled village must
-        // not reuse a pre-village frame. Bit 0 is the working forge; bits
-        // 1..=63 follow cottage layout order and therefore head identity.
         self.village_lit_mask().hash(&mut hash);
-        // Two live-work bits plus one slow movement bucket. Health already
-        // rides village_lit_mask above.
         let ambient_bits = self.active_ambient_bits();
         ambient_bits.hash(&mut hash);
         self.completion_ceremony_active.hash(&mut hash);
         if ambient_bits != 0 || self.village_lit_mask().is_some_and(|mask| mask != 0) {
             (self.tick / AMBIENT_TICK_TICKS).hash(&mut hash);
         }
-        // Outdoor first-person always carries the bottom rider overlay. Its
-        // observed activity and clamped frame must re-key the frame
-        // whether travelling or settled.
         if self.interior.is_none()
             && super::world3d::region::stage_for(self.quest().region()).is_none()
         {
@@ -215,9 +157,6 @@ impl World {
             quantize_quarter(self.avatar_vis.0).hash(&mut hash);
             quantize_quarter(self.avatar_vis.1).hash(&mut hash);
             self.facing_left.hash(&mut hash);
-            // The first-person view also turns with the eased heading, steps
-            // through the departure dissolve, and dissolves from a specific
-            // origin plate.
             quantize_heading(self.travel_heading).hash(&mut hash);
             self.travel_ticks.min(DEPART_FADE_TICKS).hash(&mut hash);
             building_index(self.plate_from).hash(&mut hash);
@@ -225,25 +164,16 @@ impl World {
             1u8.hash(&mut hash);
             location_atlas().is_some().hash(&mut hash);
             self.cinematic_zoom_step().hash(&mut hash);
-            // The arrival camera hold advances the door pulse and prop reveal.
             self.settle_ticks.min(ARRIVAL_HOLD_TICKS).hash(&mut hash);
-            // The settled camera's slow sway re-keys the frame as it turns.
             ((self.orbit_sway() * 24.0).round() as i16).hash(&mut hash);
         }
         hash.finish()
     }
 
-    /// True only for an authored outdoor arrival composition. The reveal hold
-    /// and later settled pose share this grade; travel and rooms do not.
     pub(super) fn settled_vista_grade(&self) -> bool {
         self.interior.is_none() && !self.cinematic_travelling()
     }
 
-    /// The raycast scene for the current travel frame: a window of world
-    /// tiles becomes the grid map, buildings use compact multi-cell footprints
-    /// (the destination's front-center is its accent-framed door), and the
-    /// eased travel heading points the saddle camera. The braille ride renders
-    /// its geometry from this scene.
     pub(super) fn travel_scene(&self) -> (RayMap, RayView) {
         if let Some(building) = self.interior
             && let Some(scene) = super::interiors::scene(building, self.tick, self.orbit_sway())
@@ -269,16 +199,9 @@ impl World {
         let camera_world_y = camera_world.1.round() as i32;
         let smoothed_elevation = self.smoothed_travel_elevation(camera_world_x, camera_world_y);
         let relief = travel_terrain_height(smoothed_elevation);
-        // travel_terrain_height caps at 0.72; normalize that world-space
-        // camera-ground height to RayView's plain [0,1] eye-height contract.
         let eye_h =
             ((relief / TRAVEL_TERRAIN_HEIGHT_CAP) + vista_eye_lift * vista_ease).clamp(0.0, 1.0);
         let mut cells = vec![0u8; (span * span) as usize];
-        // Per-cell normalized terrain height (0.0..=1.0) for the open-ground
-        // cells. Walls/buildings/water keep their facade behavior; only the
-        // open terrain cells (today's floor) gain height here. Built from the
-        // island's continuous elevation field so the landscape the rider sees
-        // stays shared with the world geometry.
         let mut terrain = vec![0.0f32; (span * span) as usize];
         let mut terrain_kind = vec![raycast::TERRAIN_MEADOW; (span * span) as usize];
         let mut biomes = vec![Biome::DeepWater; (span * span) as usize];
@@ -308,9 +231,6 @@ impl World {
                         0.0
                     };
                     terrain[idx] = match biome {
-                        // Hills are open near-wall-tall masses. Eye-relative
-                        // relief lets a crest overlook its peers, but the
-                        // 0.55 floor keeps every mountain materially present.
                         Biome::Hill => (0.88_f32 - relief).clamp(0.55, TRAVEL_TERRAIN_HEIGHT_CAP),
                         Biome::Peak => (1.0_f32 - relief).clamp(0.55, TRAVEL_TERRAIN_HEIGHT_CAP),
                         _ => (travel_terrain_height(elevation as f64) - relief).clamp(0.0, 1.0),
@@ -322,12 +242,6 @@ impl World {
         let mut sprites =
             Vec::with_capacity(self.buildings.len() + village_capacity + AMBIENT_SPRITE_CAP + 8);
         for &(building, building_pos) in &self.buildings {
-            // The front lies across the road's broad approach vector. A short
-            // solid footprint gives every landmark real mass at
-            // the authored quarter-view arrival angles instead of leaving a
-            // paper-thin façade. The skyline sprite remains one cell behind
-            // the front so its authored roof/tower silhouette still rises over
-            // the unit-height footprint.
             let axis = self.travel_facade_axis(building_pos);
             let behind = self.travel_facade_behind(building_pos);
             let footprint = travel_landmark_footprint(building);
@@ -445,8 +359,6 @@ impl World {
         }
         let mut cam_x = camera_world.0 - origin_x as f32;
         let mut cam_y = camera_world.1 - origin_y as f32;
-        // Authored vistas own the arrival. This is only the hard geometry
-        // safety rail for an intermediate eased pose.
         let door_x = door.0 as f32 - origin_x as f32 + 0.5;
         let door_y = door.1 as f32 - origin_y as f32 + 0.5;
         let dx = cam_x - door_x;
@@ -462,7 +374,6 @@ impl World {
                 cam_y = door_y + bearing.sin() * DOOR_PULL_UP;
             }
         }
-        // The saddle cell is always open.
         let cam_cell = (cam_y.max(0.0) as usize).min(span as usize - 1) * span as usize
             + (cam_x.max(0.0) as usize).min(span as usize - 1);
         cells[cam_cell] = 0;
@@ -488,14 +399,10 @@ impl World {
         let view = RayView {
             x: cam_x,
             y: cam_y,
-            // Once settled, the saddle camera sways in a slow arc — the facade
-            // keeps shifting against the sky (the living-realm orbit).
             heading_rad: lerp_angle(self.travel_heading, vista_heading, vista_ease)
                 + self.orbit_sway(),
             look_yaw: 0.0,
             fov_rad: 1.05,
-            // Follow the rider's clamped cadence so the silhouette and horizon
-            // cannot strobe against one another.
             bob: if (self.tick / RIDER_FRAME_HOLD_TICKS).is_multiple_of(2) {
                 0.5
             } else {
@@ -506,7 +413,6 @@ impl World {
         (map, view)
     }
 
-    /// Compact truth payload for the first-person village render.
     pub(super) fn village_lit_mask(&self) -> Option<u64> {
         self.village.as_ref().map(|village| {
             let mut bits = u64::from(village.forge_up && village.training);
@@ -631,10 +537,6 @@ impl World {
             }
         }
 
-        // The sleeping giant: the fleet's guardian as a villager writ
-        // large. Asleep it slumps by the keep breathing slow puffs;
-        // watching it stands lit; resurrecting it kneels at the granary
-        // in a drift of rising sparks.
         if let Some((width, height, lit)) = super::guardian::giant_pose(self.guardian_state) {
             let width = width * self.live_realm_style.scale;
             let height = height * self.live_realm_style.scale;
@@ -670,9 +572,6 @@ impl World {
         );
     }
 
-    /// Unit axis across the landmark's approach. Paths connect destinations to
-    /// the keep, so using that stable vector makes the façade face the rider
-    /// without storing another orientation system in the world state.
     fn travel_facade_front(&self, building: (usize, usize)) -> (f32, f32) {
         let keep = self.building_pos(Building::Keep);
         let toward_keep = (
@@ -802,24 +701,15 @@ impl World {
         total / 9.0
     }
 
-    /// Biome → wall material for the shared travel scene. Open ground is
-    /// anything the knight could plausibly ride over; water alone walls the
-    /// route; hills and peaks are tall open terrain the road winds between.
     fn travel_material(&self, x: i32, y: i32) -> u8 {
         match self.tile_at_world(x as f32 + 0.5, y as f32 + 0.5) {
             Biome::DeepWater | Biome::Water => raycast::MATERIAL_WATER,
-            // Forest is traversable ground dressed with sparse tree
-            // billboards. A hedge wall in every forest cell would turn the
-            // continuous island back into corridors.
             Biome::Forest => 0,
             Biome::Hill | Biome::Peak => 0,
             Biome::Sand | Biome::Grass | Biome::Path => 0,
         }
     }
 
-    /// The landmark the knight has settled at — the braille plate scene shows
-    /// its illustrated card. `None` while travelling (the town map owns the
-    /// pane so the ride stays visible).
     pub fn arrived_building(&self) -> Option<Building> {
         (!self.cinematic_travelling()).then_some(self.target)
     }
@@ -843,15 +733,10 @@ impl World {
     }
 }
 
-/// Material identity for the first-person façade wings. Reading and making
-/// spaces stay timber-framed; civic, sacred and science landmarks use stone.
 fn travel_facade_material(building: Building) -> u8 {
     crate::identity::landmark(building).facade_material
 }
 
-/// Half-width of the façade in world cells (door excluded). Gatehouse and
-/// keep need twin-tower breadth; the council pavilion and dome get a wider
-/// civic silhouette; work buildings remain intimate.
 fn travel_facade_span(building: Building) -> i32 {
     crate::identity::landmark(building).facade_span
 }
@@ -863,18 +748,10 @@ fn travel_landmark_footprint(building: Building) -> LandmarkFootprint {
     }
 }
 
-/// 64 steps per turn: coarse enough that easing doesn't thrash the frame
-/// cache, fine enough that turns stay smooth.
 fn quantize_heading(heading: f32) -> i16 {
     (heading / std::f32::consts::TAU * 64.0).round() as i16
 }
 
-/// Map an island elevation sample to a normalized terrain height the
-/// renderer treats as a fraction of wall height (0.0 = flat floor, 1.0 =
-/// wall-tall). Open terrain spans sand at 0.02 through meadow/forest floor at
-/// 0.42. The eased curve keeps meadows low, lets hill-feet rise, and caps every
-/// open cell below a full wall. Stable and continuous, so neighbouring cells
-/// project to a smooth heightfield.
 fn travel_landmark_height(building: Building) -> f32 {
     crate::identity::landmark(building).landmark_height
 }
@@ -902,7 +779,6 @@ fn location_atlas() -> Option<&'static DynamicImage> {
     LOCATION_ATLAS.get().and_then(Option::as_ref)
 }
 
-/// Observe actual work state. Idle time cannot rotate the cast or imply work.
 pub(super) fn rider_frame_key(world: &World) -> RiderFrameKey {
     use crate::knight_cast::Activity;
     let activity = if world.riding() {
@@ -951,17 +827,12 @@ pub(super) fn building_index(building: Building) -> u8 {
     crate::identity::landmark(building).index
 }
 
-/// The quest facts a Z2 frame depends on: region, danger level, party size,
-/// a live banner, and the loot count. Hashed in every `cinematic_key` branch
-/// so adventure transitions never stick on a cached frame.
 fn hash_quest_state(hash: &mut std::collections::hash_map::DefaultHasher, quest: &Quest) {
     quest.region().hash(hash);
     quest.danger().level().hash(hash);
     quest.party().hash(hash);
     quest.banner_is_some().hash(hash);
     quest.treasures().hash(hash);
-    // Where the hero stands in the region: Dotmax keys its camera on
-    // it (Z3), so a frame that has moved on must not be served from the memo.
     super::world3d::region::waypoint(quest).hash(hash);
 }
 
@@ -1001,7 +872,6 @@ struct SceneryCandidate {
     jitter_y: f32,
 }
 
-/// Stable world-cell noise: moving the camera window cannot move scenery.
 fn scenery_hash01(seed: u64, x: i32, y: i32, salt: u64) -> f32 {
     let mut bits = seed
         ^ (x as i64 as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15)
@@ -1020,8 +890,6 @@ fn scenery_candidate(
     biome: Biome,
     beside_rock: bool,
 ) -> Option<SceneryCandidate> {
-    // Rocks may cluster beside high ground, but scenery itself only occupies
-    // rideable natural surfaces, never a Hill/Peak cell.
     if !matches!(biome, Biome::Grass | Biome::Forest | Biome::Sand) {
         return None;
     }

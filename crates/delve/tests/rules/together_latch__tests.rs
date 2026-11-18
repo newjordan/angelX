@@ -16,7 +16,6 @@ fn game(n: u32) -> Run {
         },
     )]));
     assert!(r.latch.is_some());
-    // The title and 3-2-1 stand the bout still; these tests are about the bout.
     r.latch.as_mut().unwrap().count = 0;
     r
 }
@@ -312,7 +311,6 @@ fn latch_each_feel_knob_changes_its_own_beat() {
             }
             result
         };
-        // The rest/tell/window/recover knobs all affect this scripted early player.
         if name != "latch_stop" {
             assert_ne!(play(&base), play(&moved), "{name}");
         } else {
@@ -473,7 +471,6 @@ fn latch_delayed_counter_uses_its_sample_tick_and_restores_the_chain() {
     assert_eq!((b.counters,b.misses,b.error,b.chain), (2,0,1,2));
     assert_eq!(b.freeze, STOP);
     assert!(remote.valid_snapshot());
-    // A resent press cannot buy a second counter, including after recovery.
     for _ in 0..STOP + RECOVER + REST { remote.step(&BTreeMap::new()); }
     remote.step(&BTreeMap::from([(1, input)]));
     assert_eq!(remote.latch.as_ref().unwrap().duels[&1].counters, 2);
@@ -493,8 +490,6 @@ fn latch_lag_does_not_forgive_early_late_or_wrong_height_inputs() {
         assert_eq!((d.counters,d.misses), (0,1));
         assert_eq!(d.beat, Beat::Miss);
     }
-    // Transit cannot turn an early sample into a hit merely because it arrives
-    // while the host itself is inside the counter window.
     let mut early = game(2);
     early.latch_input_age.insert(1, 2);
     let input = sample_counter(&mut early, WINDOW + 1);
@@ -503,7 +498,6 @@ fn latch_lag_does_not_forgive_early_late_or_wrong_height_inputs() {
     early.step(&BTreeMap::from([(1,input)]));
     assert_eq!(early.latch.as_ref().unwrap().duels[&1].counters,0);
     assert_eq!(early.latch.as_ref().unwrap().duels[&1].beat,Beat::Miss);
-    // An early attempt already consumed this tell; it cannot be rewritten later.
     let mut r = game(2);
     let input = sample_counter(&mut r, WINDOW + 1);
     r.step(&BTreeMap::from([(1,input)]));
@@ -519,7 +513,6 @@ fn latch_same_winning_tick_can_arrive_during_the_existing_contact_hold() {
     let input = sample_counter(&mut r, 2);
     for d in r.latch.as_mut().unwrap().duels.values_mut() { d.counters=2; d.chain=2; }
     r.step(&BTreeMap::from([(1,input)]));
-    // The common input tick remains fixed if the live recovery knob moves.
     let winning = r.latch.as_ref().unwrap().finish_at;
     r.tune.latch_recover = 9;
     assert_eq!(r.latch.as_ref().unwrap().finish_at,winning);
@@ -549,8 +542,6 @@ fn latch_sample_age_rejects_a_spoofed_old_perfect_tick_and_future_tick() {
         assert_eq!(d.error, 0);
         assert_eq!(d.misses, 1);
     }
-    // Both allowance boundaries are inclusive, without promoting a stale tick
-    // to the current perfect tick or forgiving an expired sample.
     let mut r = game(2);
     r.latch_input_age.insert(1, 3);
     let input = sample_counter(&mut r, 2);
@@ -586,8 +577,6 @@ fn latch_miss_rollback_keeps_records_and_the_paid_pot_consistent() {
     for _ in 0..3 { r.step(&BTreeMap::new()); }
     assert_eq!(r.latch.as_ref().unwrap().duels[&2].beat, Beat::Miss);
     r.step(&BTreeMap::from([(1, input)]));
-    // The blow that breaks Clasp holds the bay still for the realm's hit-stop; simulation time stands
-    // still through it, so the late press below is no staler for it.
     while r.hitstop.left > 0 { r.step(&BTreeMap::new()); }
     for _ in 0..4 { r.step(&BTreeMap::new()); }
     r.step(&BTreeMap::from([(2, input)]));

@@ -25,8 +25,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
-// The prose type system: HUD blues carry structure, candlelight gold is the
-// single accent (inline code, code-block language tabs, heading sigils).
 const EMPTY_STYLE: Style = Style::new();
 const BULLET_STYLE: Style = Style::new().fg(HUD_BLUE);
 const LINK_STYLE: Style = Style::new()
@@ -42,10 +40,6 @@ const ITALIC_STYLE: Style = Style::new().add_modifier(Modifier::ITALIC);
 const CROSSED_OUT_STYLE: Style = Style::new().add_modifier(Modifier::CROSSED_OUT);
 const MATH_STYLE: Style = Style::new().fg(HUD_TEXT);
 const DISPLAY_MATH_STYLE: Style = Style::new().fg(HUD_TEXT).add_modifier(Modifier::BOLD);
-
-// -----------------------------------------------------------------------
-// syntect state (loaded once)
-// -----------------------------------------------------------------------
 
 struct SyntaxState {
     syntax_set: syntect::parsing::SyntaxSet,
@@ -63,9 +57,6 @@ fn syntax() -> &'static SyntaxState {
     })
 }
 
-/// Process-wide `ANGEL_MARKDOWN_SYNTAX` gate. Default on; transcript renders
-/// consult this every fence, so the env var is read once. Live/test toggles
-/// write the bit (and mark seeded) the same way `/experimental fallback` does.
 static SYNTAX_HIGHLIGHTING_ENABLED: AtomicBool = AtomicBool::new(true);
 static SYNTAX_HIGHLIGHTING_SEEDED: AtomicBool = AtomicBool::new(false);
 
@@ -92,49 +83,22 @@ fn syntax_highlighting_enabled() -> bool {
     SYNTAX_HIGHLIGHTING_ENABLED.load(Ordering::Relaxed)
 }
 
-/// Sync the process-wide bit after `set_var` / `remove_var`. Marks seeded so
-/// the render path does not re-hit env. Same contract as `set_fallback_armed`.
 #[cfg(test)]
 fn set_syntax_highlighting_enabled(on: bool) {
     SYNTAX_HIGHLIGHTING_SEEDED.store(true, Ordering::Relaxed);
     SYNTAX_HIGHLIGHTING_ENABLED.store(on, Ordering::Relaxed);
 }
 
-/// Re-read `ANGEL_MARKDOWN_SYNTAX` into the cache. Tests that hold
-/// `crate::tests::env_lock()` and mutate the var must call this so the cache
-/// observes the override; call again after the env guard drops to restore.
 #[cfg(test)]
 fn resync_syntax_highlighting_from_env() {
     SYNTAX_HIGHLIGHTING_SEEDED.store(false, Ordering::Relaxed);
     seed_syntax_highlighting_from_env();
 }
 
-// -----------------------------------------------------------------------
-// Public API
-// -----------------------------------------------------------------------
-
-/// Render a markdown string into styled ratatui Lines, wrapped to `width`.
-/// Plain text (no markdown structure) comes through as a single line — so
-/// system messages and simple replies look identical to before.
-///
-/// Memoized per `(text, width)` in a small thread-local LRU: during a turn the
-/// transcript re-renders every committed message every frame (~30fps), and the
-/// CommonMark parse + optional syntect highlight is pure, so we cache the
-/// rendered lines behind an `Arc` — a hit clones the Arc, never the Lines
-/// (a deep clone per visible message per frame is exactly the cost the cache
-/// exists to avoid). For the live streaming partial use [`render_partial`];
-/// its ever-growing text would turn every frame into a miss+insert here,
-/// evicting committed messages' renders.
 pub fn render(text: &str, width: usize) -> Arc<Vec<Line<'static>>> {
     RENDER_CACHE.with(|c| c.borrow_mut().get_or_render(text, width))
 }
 
-/// Render for the live streaming partial. Its text grows every token, so the
-/// shared LRU would take a miss + a dead insert per frame (evicting a committed
-/// message's render each time). A single slot keyed on `(text, width)` still
-/// lets the two per-frame uses (height pass + line build) share one render,
-/// without ever touching the LRU. The key is `Arc<str>` so a same-frame second
-/// lookup does not re-allocate the full stream body as a comparison key.
 pub fn render_partial(text: &str, width: usize) -> Arc<Vec<Line<'static>>> {
     PARTIAL_CACHE.with(|slot| {
         let mut slot = slot.borrow_mut();
@@ -150,9 +114,6 @@ pub fn render_partial(text: &str, width: usize) -> Arc<Vec<Line<'static>>> {
     })
 }
 
-/// The uncached render: the actual CommonMark walk. Output is a pure function of
-/// `(text, width)` and the (process-stable) syntax-highlight env knob — so it is
-/// safe to memoize.
 fn render_uncached(text: &str, width: usize) -> Vec<Line<'static>> {
     let opts = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_MATH;
     let normalized = normalize_tex_delimiters(text);
@@ -164,11 +125,6 @@ fn render_uncached(text: &str, width: usize) -> Vec<Line<'static>> {
     walker.finish()
 }
 
-/// Pulldown-cmark's math extension recognizes dollar delimiters. Models also
-/// commonly emit TeX's `\(...\)` and `\[...\]` forms, so normalize those before
-/// parsing while leaving Markdown code spans and fenced code byte-for-byte
-/// alone. The common path borrows `text`; allocation happens only when a TeX
-/// delimiter is actually present.
 fn normalize_tex_delimiters(text: &str) -> Cow<'_, str> {
     if !text.contains(r"\(")
         && !text.contains(r"\)")
@@ -261,17 +217,12 @@ fn fence_marker(line: &[u8]) -> Option<(u8, usize)> {
     (count >= 3).then_some((marker, count))
 }
 
-// -----------------------------------------------------------------------
-// Render memo — thread-local bounded LRU keyed by (text, width).
-// -----------------------------------------------------------------------
-
 const RENDER_CACHE_CAP: usize = 128;
 
 type PartialRenderCache = Option<(Arc<str>, usize, Arc<Vec<Line<'static>>>)>;
 
 thread_local! {
     static RENDER_CACHE: RefCell<RenderCache> = RefCell::new(RenderCache::default());
-    // Single-slot cache for the streaming partial (see `render_partial`).
     static PARTIAL_CACHE: RefCell<PartialRenderCache> = const { RefCell::new(None) };
 }
 
@@ -284,9 +235,6 @@ struct CacheEntry {
 
 #[derive(Default)]
 struct RenderCache {
-    // Keyed by a hash of (text, width); the stored `content`/`width` are checked
-    // on a hit so a (rare) hash collision degrades to a re-render, never a wrong
-    // result.
     map: HashMap<u64, CacheEntry>,
     tick: u64,
 }
@@ -309,7 +257,6 @@ impl RenderCache {
 
     fn insert(&mut self, key: u64, content: String, width: usize, lines: Arc<Vec<Line<'static>>>) {
         if self.map.len() >= RENDER_CACHE_CAP && !self.map.contains_key(&key) {
-            // Evict the least-recently-used entry (n <= cap, so a linear scan is fine).
             if let Some(victim) = self
                 .map
                 .iter()
@@ -339,18 +286,12 @@ fn hash_key(text: &str, width: usize) -> u64 {
     h.finish()
 }
 
-/// Render text with *no* markdown parsing — just split into lines. Used for
-/// system messages and user echoes where we don't want `#` to become a heading.
-#[allow(dead_code)] // kept as the plain-text rendering path alongside render()
+#[allow(dead_code)]
 pub fn render_plain(text: &str, style: Style) -> Vec<Line<'static>> {
     text.lines()
         .map(|l| Line::from(vec![Span::styled(l.to_string(), style)]))
         .collect()
 }
-
-// -----------------------------------------------------------------------
-// Walker — accumulates spans into the current line, flushes on block end
-// -----------------------------------------------------------------------
 
 #[derive(Clone, Debug)]
 pub(crate) struct MarkdownLink {
@@ -359,8 +300,6 @@ pub(crate) struct MarkdownLink {
     pub(crate) target: std::sync::Arc<str>,
 }
 
-// A small, separate metadata cache leaves the established text-render API and
-// visible styles untouched. Only visible, ordinarily sized rich messages use it.
 type LinkCacheEntry = (String, usize, Arc<Vec<MarkdownLink>>);
 thread_local! {
     static LINK_CACHE: RefCell<std::collections::VecDeque<LinkCacheEntry>> = const {
@@ -397,23 +336,13 @@ struct Walker {
     lines: Vec<Line<'static>>,
     link_target: Option<Arc<str>>,
     link_spans: Vec<MarkdownLink>,
-    /// Spans for the line currently being built.
     current: Vec<Span<'static>>,
-    /// Whether the current line has any non-whitespace content yet (for
-    /// deciding whether to push an empty line vs a flush).
     pending_text: bool,
-    /// Stack of inline style modifiers (bold, italic, etc). We OR-merge them
-    /// so nested emphasis like ***bold italic*** works.
     style_stack: Vec<Style>,
-    /// List nesting depth (each level adds indent).
     list_depth: usize,
-    /// Ordered-list counters per depth level.
     list_counters: Vec<Option<usize>>,
-    /// Inside a fenced code block? If so, the language hint for highlighting.
-    in_code_block: Option<Option<String>>, // outer Option = "in block", inner = lang
-    /// Accumulated code block text fragments (raw text, pre-highlighting).
+    in_code_block: Option<Option<String>>,
     code_lines: Vec<String>,
-    /// Inside a block quote? Adds `▎ ` rail prefix to every line.
     quote_depth: usize,
     width: usize,
 }
@@ -436,7 +365,6 @@ impl Walker {
         }
     }
 
-    /// The current merged style from the stack.
     fn style(&self) -> Style {
         self.style_stack
             .iter()
@@ -459,7 +387,6 @@ impl Walker {
         }
     }
 
-    /// Flush the current line into `lines`, applying quote rail + indent.
     fn flush_line(&mut self) {
         let mut spans = Vec::new();
         if self.quote_depth > 0 {
@@ -467,7 +394,6 @@ impl Walker {
         }
         spans.append(&mut self.current);
         if spans.is_empty() {
-            // Empty line — push a bare line so spacing is preserved.
             self.lines.push(Line::raw(""));
         } else {
             self.lines.push(Line::from(spans));
@@ -475,25 +401,20 @@ impl Walker {
         self.pending_text = false;
     }
 
-    /// Push a blank line (paragraph separator).
     fn blank_line(&mut self) {
-        // If we have pending content, flush it first.
         if self.pending_text || !self.current.is_empty() {
             self.flush_line();
         }
-        // Avoid double-blank lines.
         if self.lines.last().is_some_and(|line| !line.spans.is_empty()) {
             self.lines.push(Line::raw(""));
         }
     }
 
-    /// Indent string for the current list depth.
     fn indent(&self) -> String {
         "  ".repeat(self.list_depth.saturating_sub(1))
     }
 
     fn handle(&mut self, event: Event) {
-        // Code blocks are collected whole, then highlighted + flushed.
         if self.in_code_block.is_some() {
             match event {
                 Event::Text(t) => self.code_lines.push(t.into_string()),
@@ -502,15 +423,13 @@ impl Walker {
                     self.in_code_block = None;
                     self.code_lines.clear();
                 }
-                _ => {} // ignore everything else inside code
+                _ => {}
             }
             return;
         }
 
         match event {
-            // ----- inline text -----
             Event::Text(t) => {
-                // Split on newlines within the text (soft breaks / hard breaks).
                 let mut parts = t.split('\n');
                 if let Some(first) = parts.next()
                     && !first.is_empty()
@@ -525,7 +444,6 @@ impl Walker {
                 }
             }
             Event::Code(t) => {
-                // Inline code — candlelight gold, the one prose accent.
                 self.push_span(t.into_string(), self.style().patch(INLINE_CODE_STYLE));
             }
             Event::InlineMath(t) => {
@@ -544,7 +462,6 @@ impl Walker {
                 self.flush_line();
             }
 
-            // ----- emphasis -----
             Event::Start(Tag::Strong) => self.style_stack.push(BOLD_STYLE),
             Event::End(TagEnd::Strong) => {
                 self.style_stack.pop();
@@ -558,7 +475,6 @@ impl Walker {
                 self.style_stack.pop();
             }
 
-            // ----- links -----
             Event::Start(Tag::Link { dest_url, .. }) => {
                 self.link_target = Some(Arc::from(dest_url.as_ref()));
                 self.style_stack.push(LINK_STYLE);
@@ -568,13 +484,11 @@ impl Walker {
                 self.style_stack.pop();
             }
 
-            // ----- headings -----
             Event::Start(Tag::Heading { level, .. }) => {
                 self.blank_line();
                 let (color, modi) = heading_style(level);
                 self.style_stack
                     .push(Style::new().fg(color).add_modifier(modi));
-                // Descending sigil weight: full bar → half → soft dot.
                 match level {
                     HeadingLevel::H1 => self.push_span("▌ ", CODE_TAB_STYLE),
                     HeadingLevel::H2 => self.push_span("▎ ", CODE_TAB_STYLE),
@@ -585,7 +499,6 @@ impl Walker {
             Event::End(TagEnd::Heading(level)) => {
                 self.style_stack.pop();
                 self.flush_line();
-                // H1 gets a hairline under-rule — the terminal's type scale.
                 if level == HeadingLevel::H1 {
                     let rule = "─".repeat(self.width.clamp(10, 48));
                     self.lines
@@ -594,7 +507,6 @@ impl Walker {
                 self.blank_line();
             }
 
-            // ----- paragraphs -----
             Event::Start(Tag::Paragraph) if !self.lines.is_empty() => {
                 self.blank_line();
             }
@@ -602,10 +514,8 @@ impl Walker {
                 self.flush_line();
             }
 
-            // ----- code blocks -----
             Event::Start(Tag::CodeBlock(kind)) => {
                 self.blank_line();
-                // pulldown-cmark CodeBlockKind: Indented or Fenced(lang)
                 let lang = match kind {
                     pulldown_cmark::CodeBlockKind::Fenced(s) => Some(s.into_string()),
                     pulldown_cmark::CodeBlockKind::Indented => None,
@@ -613,19 +523,14 @@ impl Walker {
                 self.in_code_block = Some(lang);
             }
 
-            // ----- lists -----
             Event::Start(Tag::List(start)) => {
-                // Outer lists breathe from the previous block; nested lists
-                // stay tight against their parent item.
                 if self.list_depth == 0 {
                     self.blank_line();
                 }
                 self.list_depth += 1;
-                // start=None → unordered; start=Some(n) → ordered beginning at n.
                 self.list_counters.push(start.map(|n| n as usize));
             }
             Event::End(TagEnd::List(false)) => {
-                // Unordered list end
                 self.list_depth = self.list_depth.saturating_sub(1);
                 self.list_counters.pop();
                 if self.list_depth == 0 {
@@ -633,7 +538,6 @@ impl Walker {
                 }
             }
             Event::End(TagEnd::List(true)) => {
-                // Ordered list end
                 self.list_depth = self.list_depth.saturating_sub(1);
                 self.list_counters.pop();
                 if self.list_depth == 0 {
@@ -641,7 +545,6 @@ impl Walker {
                 }
             }
             Event::Start(Tag::Item) => {
-                // Flush any pending line, then emit the bullet/number.
                 if self.pending_text {
                     self.flush_line();
                 }
@@ -652,7 +555,6 @@ impl Walker {
                         *counter += 1;
                         self.push_span(format!("{indent}{n}. "), BULLET_STYLE);
                     } else {
-                        // Top-level items lead with a pointer; nested use soft dots.
                         let bullet = if depth == 0 { "▸ " } else { "· " };
                         self.push_span(format!("{indent}{bullet}"), BULLET_STYLE);
                     }
@@ -664,7 +566,6 @@ impl Walker {
                 self.flush_line();
             }
 
-            // ----- block quotes -----
             Event::Start(Tag::BlockQuote(_)) => {
                 self.blank_line();
                 self.quote_depth += 1;
@@ -677,10 +578,8 @@ impl Walker {
                 self.blank_line();
             }
 
-            // ----- horizontal rule -----
             Event::Rule => {
                 self.blank_line();
-                // Soft hairline capped by middle-dots — lighter than a solid bar.
                 let inner = self.width.clamp(8, 56).saturating_sub(2);
                 let bar = format!("·{}·", "─".repeat(inner));
                 self.lines
@@ -688,13 +587,9 @@ impl Walker {
                 self.blank_line();
             }
 
-            // ----- tables (basic: render as text rows) -----
             Event::Start(Tag::Table(_))
             | Event::Start(Tag::TableHead)
             | Event::Start(Tag::TableRow) => {
-                // Table rendering is complex; we collect cells into lines.
-                // For now, tables fall through to text-level rendering of their
-                // cell contents, which is readable if not pretty.
             }
             Event::Start(Tag::TableCell) => {
                 self.push_span(" ", EMPTY_STYLE);
@@ -709,7 +604,6 @@ impl Walker {
                 self.blank_line();
             }
 
-            // ----- images: show alt text in brackets -----
             Event::Start(Tag::Image { .. }) => {
                 self.push_span("[", IMAGE_STYLE);
             }
@@ -717,7 +611,6 @@ impl Walker {
                 self.push_span("]", IMAGE_STYLE);
             }
 
-            // ----- footnotes / definitions / HTML / pass-through -----
             Event::FootnoteReference(f) => {
                 self.push_span(format!("[{}]", f), DIM_STYLE);
             }
@@ -728,13 +621,11 @@ impl Walker {
             Event::InlineHtml(h) | Event::Html(h) => {
                 self.push_span(h.into_string(), DIM_STYLE);
             }
-            _ => {} // DefinitionList, etc — pass through
+            _ => {}
         }
     }
 
-    /// Flush accumulated code block lines through syntect highlighting.
     fn emit_code_block(&mut self) {
-        // Language hint → syntax. Fallback to plain (no highlighting).
         let lang_str = self.in_code_block.as_ref().and_then(|l| l.as_deref());
         let syntax_state = syntax_highlighting_enabled().then(syntax);
         let syntax = syntax_state.and_then(|st| {
@@ -745,21 +636,12 @@ impl Walker {
             })
         });
 
-        // Cell-bounded framed top border with the language as a gold tab:
-        // ` ┌─ rust ──────────────`. It keeps the existing 58-cell visual cap but
-        // never exceeds a narrower pane.
         let label = lang_str.unwrap_or("");
         self.lines.push(code_frame_top(self.width, label));
 
-        // Pulldown commonly delivers a whole multiline code block as one Text
-        // event. Re-split the concatenated fragments here so embedded newlines
-        // become real ratatui Lines instead of control graphemes that disappear
-        // and collapse adjacent source lines together.
         let source = self.code_lines.concat();
         let physical_lines = physical_code_lines(&source);
 
-        // Highlight into owned (Style, String) pairs — avoids lifetime issues
-        // with syntect_tui::into_span which borrows the source &str.
         let mut highlighted: Vec<Vec<(syntect::highlighting::Style, String)>> = Vec::new();
 
         if let (Some(st), Some(syntax)) = (syntax_state, syntax) {
@@ -778,7 +660,6 @@ impl Walker {
                 highlighted.push(owned);
             }
         } else {
-            // No syntax found — plain dim text.
             for raw_line in &physical_lines {
                 highlighted.push(vec![(
                     syntect::highlighting::Style::default(),
@@ -787,9 +668,6 @@ impl Walker {
             }
         }
 
-        // Emit one or more cell-bounded visual rows for each physical source
-        // line. Blank source lines stay as blank rows; long rows wrap without
-        // depending on Paragraph to reinterpret embedded control characters.
         for regions in &highlighted {
             let spans: Vec<Span> = regions
                 .iter()
@@ -798,7 +676,6 @@ impl Walker {
             self.lines.extend(wrap_code_spans(spans, self.width));
         }
 
-        // Bottom border, matching the top frame width.
         self.lines.push(code_frame_bottom(self.width));
         self.blank_line();
     }
@@ -814,9 +691,6 @@ impl Walker {
     }
 }
 
-/// Split code-block source into physical lines while preserving intentional
-/// blank lines. A final newline terminates the preceding line; it does not add
-/// a synthetic blank row of its own.
 fn physical_code_lines(source: &str) -> Vec<String> {
     let mut lines: Vec<&str> = source.split('\n').collect();
     if source.ends_with('\n') {
@@ -828,8 +702,6 @@ fn physical_code_lines(source: &str) -> Vec<String> {
         .collect()
 }
 
-/// Ratatui intentionally filters control graphemes, so expand tabs before
-/// highlighting/rendering or pasted indentation would silently collapse.
 fn expand_code_tabs(line: &str) -> String {
     const TAB_STOP: usize = 4;
     let mut out = String::with_capacity(line.len());
@@ -852,7 +724,6 @@ fn code_frame_top(width: usize, label: &str) -> Line<'static> {
     if frame_width == 0 {
         return Line::raw("");
     }
-    // Rounded corners read softer than square box-drawing in the agent shell.
     let prefix = match frame_width {
         1 => "╭",
         2 => " ╭",
@@ -954,8 +825,6 @@ fn wrap_code_spans(spans: Vec<Span<'static>>, width: usize) -> Vec<Line<'static>
     rows
 }
 
-/// The heading scale descends through the HUD family: brightest + boldest at
-/// H1, receding to dim italics — weight carries hierarchy, not rainbow hue.
 fn heading_style(level: HeadingLevel) -> (Color, Modifier) {
     match level {
         HeadingLevel::H1 => (HUD_TEXT, Modifier::BOLD),
@@ -967,19 +836,8 @@ fn heading_style(level: HeadingLevel) -> (Color, Modifier) {
     }
 }
 
-/// Convert a syntect style to a ratatui style. We do this manually (rather than
-/// using syntect_tui::into_span) to avoid lifetime issues — into_span returns a
-/// Span that borrows the source &str, but we need owned 'static spans.
 fn syntect_to_ratatui_style(s: syntect::highlighting::Style) -> Style {
     let fg = s.foreground;
-    // The code-block fallback (syntax highlighting disabled — the default — or an
-    // unrecognized language token like `shell`) uses syntect's Style::default(),
-    // whose foreground is pure black: Color { r:0, g:0, b:0, a:255 }. Mapping that
-    // straight to Rgb(0,0,0) renders code blocks as black-on-black, i.e. the
-    // invisible blackout over shell commands. Remap a pure-black foreground to
-    // phosphor green (classic CRT) so commands are clearly visible; real themed
-    // colors (which never use pure black for code text in our dark theme) are
-    // passed through unchanged.
     let mut style = if fg.r == 0 && fg.g == 0 && fg.b == 0 {
         Style::new().fg(Color::Rgb(51, 255, 51))
     } else {
@@ -990,8 +848,6 @@ fn syntect_to_ratatui_style(s: syntect::highlighting::Style) -> Style {
     {
         style = style.add_modifier(Modifier::BOLD);
     }
-    // Code spans are never italicized — the user wants italics reserved for
-    // intentional markdown emphasis only (syntect themes italicize comments/keywords).
     if s.font_style
         .contains(syntect::highlighting::FontStyle::UNDERLINE)
     {
@@ -999,10 +855,6 @@ fn syntect_to_ratatui_style(s: syntect::highlighting::Style) -> Style {
     }
     style
 }
-
-// -----------------------------------------------------------------------
-// Tests
-// -----------------------------------------------------------------------
 
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/markdown__tests.rs"]

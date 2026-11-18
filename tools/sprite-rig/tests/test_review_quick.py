@@ -1,4 +1,3 @@
-"""The convenience gate must not measure a failed or fabricated baseline."""
 from pathlib import Path
 import subprocess
 import sys

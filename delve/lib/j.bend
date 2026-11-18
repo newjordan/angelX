@@ -1,11 +1,5 @@
 import Base
 
-# The Run as the host serializes it: one tree of JSON values. Numbers keep the
-# Rust type's shape: JU is an integer 0 ≤ n < 2^32, JI a negative integer by
-# its magnitude, JW a u64 past 2^32 as two words, JF an f32 by value. Objects
-# are string-keyed Maps, arrays lists. The wire is BJ1
-# (docs/architecture/delve-in-bend.md): floats as their bits, big integers as
-# hex, so reading and showing never round.
 type Val is Data:
   JNull{}
   JBool{v: Bool}
@@ -17,14 +11,10 @@ type Val is Data:
   JA{v: List<&2, Val>}
   JO{v: Map<&2, Val>}
 
-# Reading
-# -------
-
 def get.in(r: Map<&2, Val> & Val) -> Val:
   (m, v) = r
   v
 
-# Field `k` of an object, or JNull.
 def get(+o: Val, +k: String) -> Val:
   match o:
     case JO{+m}:
@@ -50,7 +40,6 @@ def at.go(ks: List<&2, String>, +o: Val) -> Val:
     case Con{+k, t}:
       at.go(t, get(o, k))
 
-# The value at a path of keys.
 def at(+o: Val, ks: List<&2, String>) -> Val:
   at.go(ks, o)
 
@@ -63,7 +52,6 @@ def nth.go(+xs: List<&2, Val>, n: Nat) -> Val:
     case Con{+h, +t} 1n+p:
       nth.go(t, p)
 
-# Item `i` of an array, or JNull.
 def nth(+a: Val, +i: U32) -> Val:
   match a:
     case JA{+xs}:
@@ -71,7 +59,6 @@ def nth(+a: Val, +i: U32) -> Val:
     case _:
       JNull{}
 
-# The items of an array (none for anything else).
 def items(+a: Val) -> List<&2, Val>:
   match a:
     case JA{+xs}:
@@ -79,7 +66,6 @@ def items(+a: Val) -> List<&2, Val>:
     case _:
       Nil{}
 
-# The fields of an object as (key, value) pairs.
 def fields(+o: Val) -> List<&2, Sigma<&2, &2, String, _ => Val>>:
   match o:
     case JO{+m}:
@@ -104,7 +90,6 @@ def bool(+j: Val) -> Bool:
     case _:
       False{}
 
-# An integer as its low 32 bits: u32 as it is, i32 as two's complement.
 def u32(+j: Val) -> U32:
   match j:
     case JU{+v}:
@@ -121,7 +106,6 @@ def u32(+j: Val) -> U32:
 def i32(+j: Val) -> U32:
   u32(j)
 
-# A u64 as (hi, lo).
 def w64(+j: Val) -> U32 & U32:
   match j:
     case JU{+v}:
@@ -151,9 +135,6 @@ def str(+j: Val) -> String:
     case _:
       ""
 
-# Writing
-# -------
-
 def obj() -> Val:
   JO{Map.new(&2, Val)}
 
@@ -167,7 +148,6 @@ def of_i32.if(neg: Bool, +v: U32) -> Val:
     case False{}:
       JU{v}
 
-# A two's-complement i32 back to its integer.
 def of_i32(+v: U32) -> Val:
   of_i32.if(U32.is_ge(v, 2147483648), v)
 
@@ -190,7 +170,6 @@ def of_bool(+v: Bool) -> Val:
 def of_str(+v: String) -> Val:
   JS{v}
 
-# Field `k` set to `v` (an object is made of anything else).
 def set(o: Val, k: String, v: Val) -> Val:
   match o:
     case JO{m}:
@@ -212,7 +191,6 @@ def put.go(ks: List<&2, String>, +o: Val, v: Val) -> Val:
     case Con{+k, t}:
       set(o, k, put.go(t, get(o, k), v))
 
-# The value at a path set to `v`, making objects on the way.
 def put(+o: Val, ks: List<&2, String>, v: Val) -> Val:
   put.go(ks, o, v)
 
@@ -225,7 +203,6 @@ def set_nth.go(xs: List<&2, Val>, n: Nat, v: Val) -> List<&2, Val>:
     case Con{h, t} 1n+p:
       h <> set_nth.go(t, p, v)
 
-# Item `i` of an array set to `v`; at the length it appends.
 def set_nth(+a: Val, +i: U32, v: Val) -> Val:
   JA{set_nth.go(items(a), U32.to_nat(i), v)}
 
@@ -234,9 +211,6 @@ def push(+a: Val, v: Val) -> Val:
 
 def truncate(+a: Val, +n: U32) -> Val:
   JA{List.take(&2, Val, items(a), U32.to_nat(n))}
-
-# Comparing
-# ---------
 
 def bool_eq(x: Bool, y: Bool) -> Bool:
   match x y:
@@ -288,8 +262,6 @@ def eq.list.kv?(+xs: List<&2, Sigma<&2, &2, String, _ => Val>>, +ys: List<&2, Si
     case _ _:
       False{}
 
-# Object fields by numeric key, as Rust's BTreeMap<u32, _> iterates them
-# (decimal keys without leading zeros: shorter first, then by text).
 def key.lt.cmp(c: Cmp, +a: String, +b: String) -> Bool:
   match c:
     case LT{}:

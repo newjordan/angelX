@@ -15,13 +15,10 @@ use crate::rules::juice::Weight;
 use crate::rules::race3d::{self as r3, Course, Race3d, Rider, Wreck, show::{Fx, Kind}};
 use std::f32::consts::TAU;
 
-/// The most motes a layer paints in a frame, however much happens at once.
 const BUDGET: u32 = 1300;
-/// Timber that stays readable on black paper as it cools, and cut stone.
 const WOOD: Ramp = Ramp(['t', 'O', 'o', 'R', 'r', 'P']);
 const STONE: Ramp = Ramp(['V', 'v', 'U', 'u', 'S', 'x']);
 
-/// What the lens sees through: the camera, the canvas, and the course.
 pub(super) struct Lens<'a> {
     pub view: &'a View3,
     pub w: i32,
@@ -32,11 +29,9 @@ pub(super) struct Lens<'a> {
 }
 
 impl Lens<'_> {
-    /// A course point on the canvas: `(x, y, depth)`.
     pub fn at(&self, p: [f32; 3]) -> Option<(f32, f32, f32)> {
         raster::project_point(self.view, self.w as usize, self.h as usize, super::world(self.track, p[0], p[1], p[2]))
     }
-    /// How many dots a course unit is at `depth`.
     pub fn per_unit(&self, depth: f32) -> f32 {
         raster::dots_tall(self.view, self.w as usize, self.h as usize, 1.0, depth)
     }
@@ -45,7 +40,6 @@ impl Lens<'_> {
     }
 }
 
-/// The top pace a course's ride is judged against, units a second.
 pub(super) fn top_pace(course: Course) -> f32 {
     match course {
         Course::Shaft => 11.0,
@@ -55,36 +49,24 @@ pub(super) fn top_pace(course: Course) -> f32 {
     }
 }
 
-/// How fast a ride goes, 0 (crawling) to 1 (flat out).
 pub(super) fn pace(course: Course, r: &Rider) -> f32 {
     ((r.vs.abs() - 3.0) / (top_pace(course) - 3.0)).clamp(0.0, 1.0)
 }
 
-// ─── things thrown ──────────────────────────────────────────────────────────
-
-/// A handful of pieces thrown from one point of the course, flying on the
-/// course's own axes: along, across and up, in units a second.
 #[derive(Clone, Copy)]
 struct Throw {
     seed: u32,
     n: u32,
     at: [f32; 3],
-    /// The pace along the course the pieces keep (negative: thrown back).
     carry: f32,
-    /// Speed away from the point, and up, each between the bounds.
     out: (f32, f32),
     up: (f32, f32),
-    /// Pull down, units a second a second.
     g: f32,
-    /// Ticks each lives.
     life: (f32, f32),
     shape: Shape,
     ramp: Ramp,
     size: u8,
-    /// Lowest a piece falls to: a floor it comes to rest on.
     floor: Option<f32>,
-    /// A solid piece this many course units across, drawn as a block that
-    /// grows as it comes near the lens (0: a mote of the kit's).
     chunk: f32,
 }
 
@@ -140,7 +122,6 @@ impl Throw {
     }
 }
 
-/// Every piece of `th`, `age` ticks after the throw.
 fn throw(pen: &mut Pen, lens: &Lens, th: &Throw, age: f32, tick: u64) {
     for i in 0..th.n.min(pfx::MOST_MOTES) {
         let u = |salt: u32| pfx::unit(i as i32, th.seed as i32, salt);
@@ -162,7 +143,6 @@ fn throw(pen: &mut Pen, lens: &Lens, th: &Throw, age: f32, tick: u64) {
         };
         let (Some(a0), Some(a1)) = (lens.at(pos(age)), lens.at(pos(age + 1.0))) else { continue };
         if th.chunk > 0.0 {
-            // A solid piece: a block of two inks, turning end over end.
             let side = (lens.per_unit(a0.2) * th.chunk).round().clamp(2.0, 7.0) as i32;
             let (bw, bh) = if (tick as u32 / 3 + i) % 2 == 0 { (side, (side * 2 / 3).max(2)) } else { ((side * 2 / 3).max(2), side) };
             let k = age / life;
@@ -180,8 +160,6 @@ fn throw(pen: &mut Pen, lens: &Lens, th: &Throw, age: f32, tick: u64) {
     }
 }
 
-/// A ring flat on the floor round `c`, `r` units across, flattened as the
-/// lens sees the floor.
 fn floor_ring(pen: &mut Pen, lens: &Lens, c: [f32; 3], r: f32, thick: f32, ramp: Ramp, fade: f32) {
     let Some(mid) = lens.at(c) else { return };
     let (Some(side), Some(far)) = (lens.at([c[0], c[1] + r, c[2]]), lens.at([c[0] + r, c[1], c[2]])) else { return };
@@ -190,8 +168,6 @@ fn floor_ring(pen: &mut Pen, lens: &Lens, c: [f32; 3], r: f32, thick: f32, ramp:
     pen.shock((mid.0, mid.1), rx, thick, (ry / rx).clamp(0.12, 1.0), ramp, fade);
 }
 
-/// A ring standing across the course round `c` (a ring flown through, a
-/// burst): `r` units, drawn as the lens sees its edge.
 fn loop_ring(pen: &mut Pen, lens: &Lens, c: [f32; 3], r: f32, ramp: Ramp, k: f32) {
     let pts: Vec<(f32, f32)> = (0..20)
         .filter_map(|j| {
@@ -209,10 +185,6 @@ fn loop_ring(pen: &mut Pen, lens: &Lens, c: [f32; 3], r: f32, ramp: Ramp, k: f32
     }
 }
 
-// ─── the two layers ─────────────────────────────────────────────────────────
-
-/// The race's world effects for the lens's seat, as two transparent layers
-/// (`None` for a layer nothing was painted on).
 pub(super) fn layers(lens: &Lens, surge: f32) -> (Option<Img>, Option<Img>) {
     let mut back = Img::new(lens.w, lens.h);
     let mut front = Img::new(lens.w, lens.h);
@@ -239,17 +211,12 @@ pub(super) fn layers(lens: &Lens, surge: f32) -> (Option<Img>, Option<Img>) {
     (back_used.then_some(back), front_used.then_some(front))
 }
 
-// ─── wind and slipstream ────────────────────────────────────────────────────
-
-/// Where the course vanishes on the canvas.
 fn vanishing(lens: &Lens, me: &Rider) -> (f32, f32) {
     lens.at([me.s + 60.0, me.x * 0.5, me.z]).map_or((lens.w as f32 / 2.0, lens.h as f32 * 0.42), |p| {
         (p.0.clamp(lens.w as f32 * 0.3, lens.w as f32 * 0.7), p.1.clamp(lens.h as f32 * 0.3, lens.h as f32 * 0.55))
     })
 }
 
-/// Streaks of wind out of the vanishing point, more and longer with pace; a
-/// start or a burst drives a surge of them.
 fn wind(pen: &mut Pen, lens: &Lens, me: &Rider, surge: f32) {
     let course = lens.race.course;
     let boosted = me.burst > 0 || me.drift.boost > 0;
@@ -271,7 +238,6 @@ fn wind(pen: &mut Pen, lens: &Lens, me: &Rider, surge: f32) {
         let u = |salt: u32| pfx::unit(i as i32, lap ^ 0x77, salt);
         let a = u(2) * TAU;
         let (ux, uy) = (a.cos(), a.sin());
-        // How far the ray runs before it leaves the canvas.
         let to_x = if ux > 0.01 { (w - cx) / ux } else if ux < -0.01 { -cx / ux } else { f32::MAX };
         let to_y = if uy > 0.01 { (h - cy) / uy } else if uy < -0.01 { -cy / uy } else { f32::MAX };
         let edge = to_x.min(to_y);
@@ -279,7 +245,6 @@ fn wind(pen: &mut Pen, lens: &Lens, me: &Rider, surge: f32) {
         let f = (age / life).powf(1.4);
         let r = (inner + (1.0 - inner) * f) * edge;
         let (hx, hy) = (cx + ux * r, cy + uy * r);
-        // Keep the middle of the road and the knight's own spot clear.
         if (hx - cx).abs() < 46.0 && hy > cy + 2.0 {
             continue;
         }
@@ -287,14 +252,11 @@ fn wind(pen: &mut Pen, lens: &Lens, me: &Rider, surge: f32) {
         let k = (0.42 - 0.3 * power - 0.1 * f).max(0.02);
         pen.streak((hx, hy), (ux, uy), len, ramp, k);
         if power > 0.55 && f > 0.3 {
-            // A fast ride's lines are two dots thick.
             pen.streak((hx + uy.abs().max(0.4), hy - ux.abs().max(0.4) * ux.signum()), (ux, uy), (len * 0.7).round(), ramp, k + 0.1);
         }
     }
 }
 
-/// Chevrons of wind streaming off the rival ahead whose wake this ride is
-/// in: the picture of a tow (it moves nothing).
 fn tow(pen: &mut Pen, lens: &Lens, me: &Rider) {
     let race = lens.race;
     if me.crash > 0 || me.finish.is_some() || race.titled() {
@@ -330,18 +292,12 @@ fn tow(pen: &mut Pen, lens: &Lens, me: &Rider) {
     }
 }
 
-// ─── what a wheel throws ────────────────────────────────────────────────────
-
-/// A puff of dust or spray that stays where it was kicked up.
 fn puff(pen: &mut Pen, lens: &Lens, at: [f32; 3], age: f32, life: f32, i: u32, ramp: Ramp, size: u8, tick: u64) {
     let Some(p) = lens.at([at[0], at[1], at[2] + age * 0.012]) else { return };
     let m = Mote { i, at: (p.0, p.1), vel: (0.0, -0.2), k: (age / life).clamp(0.0, 0.99), seed: hash(i as i32, at[0] as i32, 0x3d) };
     pfx::mote(pen, &m, Shape::Smoke, ramp, size, tick);
 }
 
-/// What a ride leaves behind it: dust off a ball's floor, sparks off a
-/// cart's wheels and a lodestone's rail, spray in the sluice, embers behind
-/// a burst, sparks and flame behind the Touge's slide.
 fn trail(back: &mut Pen, front: &mut Pen, lens: &Lens, id: u32, r: &Rider) {
     let race = lens.race;
     let course = race.course;
@@ -356,7 +312,6 @@ fn trail(back: &mut Pen, front: &mut Pen, lens: &Lens, id: u32, r: &Rider) {
     let v = if revving { 5.0 * pace_k } else { r.vs };
     let seed = id.wrapping_mul(0x9e37);
     let ground = race.course != Course::Griffin;
-    // Dust: five puffs a ride streams, each where it was kicked up.
     if ground && (r.z <= 0.05 || course == Course::Touge) {
         let at = r3::track(course).at(r.s);
         let (ramp, size) = match at.ground {
@@ -378,7 +333,6 @@ fn trail(back: &mut Pen, front: &mut Pen, lens: &Lens, id: u32, r: &Rider) {
     }
     match course {
         Course::Cart if r.z <= 0.05 && pace_k > 0.4 => {
-            // Sparks off the rear wheels, flicking back along the rails.
             for side in [-0.5f32, 0.5] {
                 let seed = seed ^ u32::from(side > 0.0);
                 let age = (now % 6) as f32;
@@ -404,7 +358,6 @@ fn trail(back: &mut Pen, front: &mut Pen, lens: &Lens, id: u32, r: &Rider) {
             }
         }
         Course::Griffin if r.burst > 0 => {
-            // Embers streaming off a burst.
             for j in 0..6u32 {
                 let age = j as f32 * 2.0 + (now % 2) as f32;
                 let back_s = r.s - r.vs * age / 30.0;
@@ -442,9 +395,6 @@ fn trail(back: &mut Pen, front: &mut Pen, lens: &Lens, id: u32, r: &Rider) {
     }
 }
 
-// ─── what happened ──────────────────────────────────────────────────────────
-
-/// How many pieces a blow of `weight` throws.
 fn pieces(weight: Weight) -> u32 {
     match weight {
         Weight::Graze => 5,
@@ -550,13 +500,10 @@ fn r3_pace(race: &Race3d, f: &Fx) -> f32 {
     race.riders.get(&u32::from(f.seat)).map_or(0.0, |r| r.vs)
 }
 
-/// A course point on the canvas, as a bare pair (the centre if it is not
-/// on screen).
 fn project(lens: &Lens, at: [f32; 3], lift: f32) -> (f32, f32) {
     lens.at([at[0], at[1], at[2] + lift]).map_or((lens.w as f32 / 2.0, lens.h as f32 / 2.0), |p| (p.0, p.1))
 }
 
-/// A wreck: a flash, a ring, and the wreck's own debris in the air.
 fn wreck(back: &mut Pen, front: &mut Pen, lens: &Lens, f: &Fx, age: f32, seed: u32, tick: u64) {
     let race = lens.race;
     let n = pieces(f.weight);
@@ -565,7 +512,6 @@ fn wreck(back: &mut Pen, front: &mut Pen, lens: &Lens, f: &Fx, age: f32, seed: u
     let ground = [f.at[0], f.at[1], 0.0];
     let hard = f.weight >= Weight::Crushing;
     let big = f.weight >= Weight::Kill;
-    // The instant of contact.
     if age < 6.0 && hard {
         pfx::rays(front, project(lens, f.at, 0.5), 10, if big { 30.0 } else { 20.0 }, 0.8, seed as f32, ramps::GOLD, age / 6.0);
     }
@@ -574,7 +520,6 @@ fn wreck(back: &mut Pen, front: &mut Pen, lens: &Lens, f: &Fx, age: f32, seed: u
     }
     let carry = pace * 0.4;
     let size = if big { 3 } else { 2 };
-    // Dust always, in a cloud that drifts up and thins.
     let dust = Throw::new(seed ^ 1, n + 4, [f.at[0], f.at[1], 0.2], Shape::Smoke, ramps::SMOKE)
         .carry(carry * 0.5)
         .out(0.5, 2.8)
@@ -593,7 +538,6 @@ fn wreck(back: &mut Pen, front: &mut Pen, lens: &Lens, f: &Fx, age: f32, seed: u
         Wreck::Bonk => {
             throw(front, lens, &sparks(ramps::FIRE), age, tick);
             throw(front, lens, &wood(0).up(2.5, 7.0), age, tick);
-            // Stars about a bonked head.
             let stars = Throw::new(seed ^ 4, 5, [f.at[0], f.at[1], 1.4], Shape::Star, ramps::GOLD).out(0.3, 1.0).up(0.0, 0.8).g(0.0).life(16.0, 28.0).floor(None).size(2);
             throw(front, lens, &stars, age, tick);
         }
@@ -606,14 +550,12 @@ fn wreck(back: &mut Pen, front: &mut Pen, lens: &Lens, f: &Fx, age: f32, seed: u
             throw(front, lens, &sparks(ramps::GOLD), age, tick);
         }
         Wreck::Gap => {
-            // Planks and chips falling through the broken rail.
             let falling = Throw::new(seed ^ 5, n, c, Shape::Shard, WOOD).carry(carry * 0.3).out(0.5, 2.5).up(0.0, 2.5).g(22.0).life(18.0, 32.0).size(3).floor(None).chunk(0.32);
             throw(front, lens, &falling, age, tick);
         }
         Wreck::Fall => {
             let falling = Throw::new(seed ^ 6, n / 2 + 3, c, Shape::Shard, WOOD).carry(carry * 0.3).out(0.3, 1.8).up(0.0, 2.5).g(20.0).life(20.0, 36.0).size(2).floor(None).chunk(0.26);
             throw(front, lens, &falling, age, tick);
-            // The wail: a thin streak of dust falling after the ball.
             let streak = Throw::new(seed ^ 7, 6, c, Shape::Smoke, ramps::SMOKE).out(0.1, 0.5).up(-2.0, 0.0).g(10.0).life(14.0, 28.0).floor(None).size(2);
             throw(back, lens, &streak, age, tick);
         }
@@ -632,13 +574,11 @@ fn wreck(back: &mut Pen, front: &mut Pen, lens: &Lens, f: &Fx, age: f32, seed: u
     }
 }
 
-/// A pickup: a flash and a handful of sparks where it was, in its own ink.
 fn pick(front: &mut Pen, lens: &Lens, f: &Fx, age: f32, seed: u32, tick: u64) {
     let course = lens.race.course;
     let c = [f.at[0], f.at[1], f.at[2]];
     match f.n {
         2 => {
-            // A gargoyle smashed: stone, embers and a puff.
             let chips = Throw::new(seed, 12, c, Shape::Shard, STONE).out(1.5, 5.5).up(-2.0, 3.5).g(10.0).life(14.0, 28.0).floor(None).size(3).chunk(0.24);
             throw(front, lens, &chips, age, tick);
             let embers = Throw::new(seed ^ 1, 8, c, Shape::Spark, ramps::EMBER).out(2.0, 6.0).up(-1.5, 3.0).g(4.0).life(8.0, 16.0).floor(None);
@@ -648,7 +588,6 @@ fn pick(front: &mut Pen, lens: &Lens, f: &Fx, age: f32, seed: u32, tick: u64) {
             }
         }
         1 => {
-            // A ring flown: a gold ring that swells and goes.
             if age < 14.0 {
                 loop_ring(front, lens, c, 1.1 + age * 0.12, ramps::GOLD, age / 14.0);
             }
@@ -666,8 +605,6 @@ fn pick(front: &mut Pen, lens: &Lens, f: &Fx, age: f32, seed: u32, tick: u64) {
     }
 }
 
-/// A sprite flash for the knight `id` right now: the white impact frame's
-/// ink, if a blow landed on them within its flash.
 pub(super) fn struck(race: &Race3d, id: u32) -> Option<(Weight, u32)> {
     let now = race.t;
     race.show
@@ -679,9 +616,6 @@ pub(super) fn struck(race: &Race3d, id: u32) -> Option<(Weight, u32)> {
         .min_by_key(|&(_, a)| a)
 }
 
-/// A thin dither of ink over a box for one tick: the pale of a big blow, or
-/// the flash of a photograph. Only the cells of the ordered dither that are
-/// lit are visited, so the cost goes with the density and not the canvas.
 pub(super) fn pale(im: &mut Img, rect: (i32, i32, i32, i32), density: f32, ink: char) {
     for cy in 0..4 {
         for cx in 0..4 {

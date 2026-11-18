@@ -1,4 +1,3 @@
-"""Create the small, deliberately asymmetric authoring example (not body art)."""
 from pathlib import Path
 import sys
 

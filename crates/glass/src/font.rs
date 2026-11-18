@@ -14,17 +14,14 @@ use swash::scale::image::{Content, Image};
 use swash::scale::{Render, ScaleContext, Source, StrikeWith};
 use swash::zeno::{Angle, Format, Transform};
 
-/// Pixel size of one cell and where things sit inside it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CellMetrics {
     pub width: u32,
     pub height: u32,
-    /// Distance from the cell top to the baseline.
     pub baseline: u32,
     pub underline_y: u32,
     pub underline_height: u32,
     pub strike_y: u32,
-    /// Stroke widths of light and heavy box-drawing lines: 1 and 2 points.
     pub line: u32,
     pub heavy: u32,
 }
@@ -36,8 +33,6 @@ struct Face {
     synthetic_italic: bool,
 }
 
-/// A glyph picture: an alpha mask or premultiplied RGBA, placed relative to
-/// the cell's top-left corner.
 pub struct Picture {
     pub width: u32,
     pub height: u32,
@@ -49,10 +44,8 @@ pub struct Picture {
 
 pub struct Fonts {
     family: String,
-    /// Regular, bold, italic, bold italic.
     faces: [Face; 4],
     fallbacks: Vec<FontRef<'static>>,
-    /// Whether each fallback face is bold and italic.
     fallback_style: Vec<u8>,
     fallback_files: HashMap<(PathBuf, u32), usize>,
     fallback_for: HashMap<(char, u8), Option<usize>>,
@@ -66,8 +59,6 @@ pub const ITALIC: u8 = 2;
 
 impl Fonts {
     pub fn load(family: &str, size_px: f32, point: f32) -> Result<Self, String> {
-        // The four styles are looked up at once: each lookup is a fontconfig
-        // process of its own, and startup waits for them.
         let [regular, bold, italic, bold_italic] = std::thread::scope(|scope| {
             let styles = ["", ":weight=bold", ":slant=italic", ":weight=bold:slant=italic"];
             let lookups = styles.map(|style| (style, std::thread::Builder::new().spawn_scoped(scope, move || load_face(family, style))));
@@ -122,16 +113,12 @@ impl Fonts {
         self.cell = measure(self.faces[0].font, self.size_px, point);
     }
 
-    /// Draw one grapheme (a cell's symbol) spanning `span` cells. `None` when
-    /// no font has it.
     pub fn draw(&mut self, symbol: &str, style: u8, span: u32) -> Option<Picture> {
         let mut chars = symbol
             .chars()
             .filter(|c| !matches!(c, '\u{fe0e}' | '\u{fe0f}' | '\u{200d}'));
         let base = chars.next()?;
         let mut picture = self.draw_char(base, style, span)?;
-        // Combining marks, centred over the base cell. Fonts disagree on
-        // where a zero-advance mark sits; real mark placement needs shaping.
         for mark in chars {
             if unicode_width::UnicodeWidthChar::width(mark) != Some(0) {
                 break;
@@ -178,7 +165,6 @@ impl Fonts {
         let data = match image.content {
             Content::Mask => image.data,
             Content::Color => premultiply(image.data),
-            // Subpixel masks are not requested; keep their green channel.
             Content::SubpixelMask => image.data.chunks_exact(4).map(|p| p[1]).collect(),
         };
         let (width, height, data) =
@@ -194,8 +180,6 @@ impl Fonts {
         }
     }
 
-    /// Colour bitmaps (emoji) come at their strike's size; shrink them to the
-    /// cells they cover and centre them there.
     fn fit_color(&self, picture: Picture, span: u32) -> Picture {
         if !picture.colored || picture.width == 0 || picture.height == 0 {
             return picture;
@@ -233,7 +217,6 @@ impl Fonts {
         let index = self.fallback(ch, style & 3)?;
         let font = self.fallbacks[index];
         let glyph = font.charmap().map(ch);
-        // A fallback with a real bold face draws bold itself.
         let has = self.fallback_style[index];
         (glyph != 0).then_some((
             Face {
@@ -245,8 +228,6 @@ impl Fonts {
         ))
     }
 
-    /// A fallback face holding `ch`, in the style asked for when the system
-    /// has one (fontconfig picks).
     fn fallback(&mut self, ch: char, style: u8) -> Option<usize> {
         if let Some(found) = self.fallback_for.get(&(ch, style)) {
             return *found;
@@ -256,7 +237,6 @@ impl Fonts {
         let found = loaded
             .or_else(|| self.find_fallback(ch, style))
             .or_else(|| {
-                // No face in this style: the plain one, made bold by the scaler.
                 (style != 0).then(|| self.fallback(ch, 0)).flatten()
             });
         self.fallback_for.insert((ch, style), found);
@@ -264,8 +244,6 @@ impl Fonts {
     }
 
     fn find_fallback(&mut self, ch: char, style: u8) -> Option<usize> {
-        // Each new face is a whole font file kept for the life of the
-        // process; a stream cycling scripts must not load them all.
         if !room_for_fallback(self.fallbacks.len()) {
             return None;
         }
@@ -279,9 +257,6 @@ impl Fonts {
         let (path, index) = fc_match(&format!("{}{suffix}:charset={code:x}", self.family))
             .or_else(|| fc_match(&format!(":charset={code:x}{suffix}")))
             .or_else(|| {
-                // No fontconfig: the platform's own fallback faces, in order.
-                // Already-loaded faces answer from the cache: opening here
-                // would leak another copy of the file on every new char.
                 static_fallbacks().into_iter().find_map(|path| {
                     if let Some(&slot) = self.fallback_files.get(&(path.clone(), 0)) {
                         return (self.fallbacks[slot].charmap().map(ch) != 0)
@@ -308,7 +283,6 @@ impl Fonts {
             has |= ITALIC;
         }
         if style != 0 && has != style {
-            // fontconfig answered with another style; keep it for that style.
             self.fallbacks.push(font);
             self.fallback_style.push(has);
             let slot = self.fallbacks.len() - 1;
@@ -323,7 +297,6 @@ impl Fonts {
     }
 }
 
-/// `point`: pixels per point at the window's scale (lines are 1 and 2 pt).
 #[allow(clippy::manual_clamp)]
 fn measure(font: FontRef<'static>, size_px: f32, point: f32) -> CellMetrics {
     let metrics = font.metrics(&[]).scale(size_px);
@@ -337,14 +310,10 @@ fn measure(font: FontRef<'static>, size_px: f32, point: f32) -> CellMetrics {
         .unwrap_or(size_px * 0.6);
     let ascent = metrics.ascent;
     let descent = metrics.descent.abs();
-    // Bounded both ways with max/min (NaN resolves to a bound): every
-    // later canvas and atlas entry is sized by these numbers, so a font
-    // claiming a kilometre-wide cell gets a large cell, not an allocation.
     let height = (ascent + descent + metrics.leading).ceil().max(1.0).min(4096.0) as u32;
     let baseline = (ascent + metrics.leading / 2.0).round().max(0.0).min(4096.0) as u32;
     let width = advance.round().max(1.0).min(4096.0) as u32;
     let underline_height = metrics.stroke_size.round().max(1.0).min(4096.0) as u32;
-    // Saturating: a font may claim a stroke thicker than the cell is tall.
     let underline_y = (baseline as f32 - metrics.underline_offset)
         .round()
         .clamp(0.0, height.saturating_sub(underline_height) as f32) as u32;
@@ -368,11 +337,6 @@ fn measure(font: FontRef<'static>, size_px: f32, point: f32) -> CellMetrics {
     }
 }
 
-/// A raster's bytes made to match the size they claim, or `None` when the
-/// claim itself is absurd. Everything downstream (`composite`, the atlas)
-/// indexes by width and height; a corrupt or hostile font must not turn
-/// that into a panic or a giant allocation. Runs once per glyph, before
-/// the atlas cache, so the check is free.
 fn normalize(mut data: Vec<u8>, width: u32, height: u32, colored: bool) -> Option<(u32, u32, Vec<u8>)> {
     if width > 4096 || height > 4096 {
         return None;
@@ -444,7 +408,6 @@ fn premultiply(mut rgba: Vec<u8>) -> Vec<u8> {
     rgba
 }
 
-/// Box filter: each target pixel averages the source pixels it covers.
 fn downscale_rgba(src: &[u8], sw: u32, sh: u32, dw: u32, dh: u32) -> Vec<u8> {
     let mut out = vec![0u8; (dw * dh * 4) as usize];
     for y in 0..dh {
@@ -472,8 +435,6 @@ fn downscale_rgba(src: &[u8], sw: u32, sh: u32, dw: u32, dh: u32) -> Vec<u8> {
     out
 }
 
-/// A face and the file it came from (to tell a real bold from a fallback to
-/// the regular file).
 fn load_face(family: &str, style: &str) -> Option<(FontRef<'static>, (PathBuf, u32))> {
     let path = Path::new(family);
     let (file, index) = if path.is_file() {
@@ -489,7 +450,6 @@ fn load_face(family: &str, style: &str) -> Option<(FontRef<'static>, (PathBuf, u
     Some((open(&file, index)?, (file, index)))
 }
 
-/// Folders a system without fontconfig (macOS, Windows) keeps fonts in.
 fn font_dirs() -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = Vec::new();
     if let Some(home) = std::env::var_os("HOME") {
@@ -507,9 +467,6 @@ fn font_dirs() -> Vec<PathBuf> {
     dirs
 }
 
-/// A family's file by its name, without fontconfig: `Berkeley Mono` with
-/// `:weight=bold` finds `BerkeleyMono-Bold.otf`. Regular prefers a file
-/// named Regular, or one with no style in its name.
 fn find_in_font_dirs(family: &str, style: &str) -> Option<(PathBuf, u32)> {
     let squash = |s: &str| {
         s.chars()
@@ -546,7 +503,6 @@ fn find_in_font_dirs(family: &str, style: &str) -> Option<(PathBuf, u32)> {
             if has_bold != bold || has_italic != italic {
                 continue;
             }
-            // Regular, or the plain name, beats light/medium/condensed cuts.
             let score = match rest {
                 "" | "regular" | "bold" | "italic" | "oblique" | "bolditalic" | "boldoblique" => 0,
                 _ => 1,
@@ -559,7 +515,6 @@ fn find_in_font_dirs(family: &str, style: &str) -> Option<(PathBuf, u32)> {
     best.map(|(_, path)| (path, 0))
 }
 
-/// Fallback faces on a system without fontconfig, tried in order.
 fn static_fallbacks() -> Vec<PathBuf> {
     [
         "/System/Library/Fonts/Apple Color Emoji.ttc",
@@ -578,7 +533,6 @@ fn static_fallbacks() -> Vec<PathBuf> {
     .collect()
 }
 
-/// Where a system without fontconfig keeps a monospace font.
 fn platform_default(regular: bool) -> Option<(PathBuf, u32)> {
     if !regular {
         return None;
@@ -595,9 +549,6 @@ fn platform_default(regular: bool) -> Option<(PathBuf, u32)> {
 }
 
 fn fc_match(pattern: &str) -> Option<(PathBuf, u32)> {
-    // Bounded wait: fontconfig can legitimately take seconds building a
-    // cache, but a wedged one must not freeze the window (this runs on
-    // the render thread, at startup and on first fallback glyphs).
     let mut child = Command::new("fc-match")
         .args(["-f", "%{file}\t%{index}", pattern])
         .stdout(std::process::Stdio::piped())
@@ -629,34 +580,24 @@ fn fc_match(pattern: &str) -> Option<(PathBuf, u32)> {
         .then(|| (file, index.trim().parse().unwrap_or(0)))
 }
 
-/// The largest real font collections stay well under this; anything
-/// bigger named like a font is not read into memory at all.
 const MAX_FONT_BYTES: u64 = 256 << 20;
 
-/// Fallback faces kept at once. Real text mixes a handful of scripts;
-/// each face is a font file retained for the life of the process.
 const MAX_FALLBACK_FACES: usize = 64;
 
 fn room_for_fallback(loaded: usize) -> bool {
     loaded < MAX_FALLBACK_FACES
 }
 
-/// Font files stay loaded for the life of the process.
 fn open(path: &Path, index: u32) -> Option<FontRef<'static>> {
     if std::fs::metadata(path).ok()?.len() > MAX_FONT_BYTES {
         return None;
     }
     let data = std::fs::read(path).ok()?;
-    // Validate before leaking: a non-font file (or a bad index into a
-    // collection) must not stay in memory for the life of the process.
     FontRef::from_index(&data, index as usize)?;
     let data: &'static [u8] = Box::leak(data.into_boxed_slice());
     FontRef::from_index(data, index as usize)
 }
 
-/// Cached `swash` page rasterizer for `present::document`, holding a single
-/// loaded font family and a per-size glyph mask cache so 40×80 document pages
-/// blit in microseconds.
 struct PageFonts {
     fonts: Fonts,
     size_bits: u32,
@@ -666,10 +607,6 @@ struct PageFonts {
 static PAGE_FONTS: std::sync::LazyLock<std::sync::Mutex<Option<PageFonts>>> =
     std::sync::LazyLock::new(|| std::sync::Mutex::new(None));
 
-/// Rasterize a scrolled document view (`receipt` header + wrapped `text` body
-/// starting at wrapped line `scroll`) into a straight-RGBA pixel page sized to
-/// `(cols * cell_px.0, rows * cell_px.1)`. Returns `None` when dimensions are
-/// degenerate or no system font can be loaded.
 pub fn render_page(
     receipt: &str,
     text: &str,
@@ -707,7 +644,6 @@ pub fn render_page(
     }
 
     let mut rgba = vec![0u8; (width * height * 4) as usize];
-    // Obsidian page card with a 1px slate rule border and subtle header band.
     for y in 0..height {
         let is_header = y < ch;
         let bg = if y == 0 || y + 1 == height {
@@ -786,10 +722,8 @@ pub fn render_page(
         }
     };
 
-    // Row 0: receipt header.
     draw_row(state, &mut rgba, 0, receipt, [138, 162, 190], 0);
 
-    // Rows 1..rows: wrapped document lines starting at `scroll`.
     let body_rows = usize::from(rows.saturating_sub(1));
     if body_rows > 0 {
         let wrap_cols = usize::from(cols.max(1));
@@ -879,7 +813,6 @@ mod tests {
         let junk = dir.join(format!("glass-font-junk-{}.ttf", std::process::id()));
         std::fs::write(&junk, b"not a font").unwrap();
         assert!(open(&junk, 0).is_none());
-        // Sparse: oversized by metadata alone, so this stays instant.
         let huge = dir.join(format!("glass-font-huge-{}.ttc", std::process::id()));
         std::fs::File::create(&huge)
             .unwrap()
@@ -899,7 +832,6 @@ mod tests {
 
     #[test]
     fn rasters_are_made_to_match_their_claimed_size() {
-        // Short data is padded, long data cut, absurd sizes rejected.
         let (w, h, data) = normalize(vec![7, 8], 2, 2, false).unwrap();
         assert_eq!((w, h), (2, 2));
         assert_eq!(data, [7, 8, 0, 0]);

@@ -47,11 +47,8 @@ pub mod world;
 pub use rider::Numbers;
 pub use session::{LIMIT, Seat, Session, Tally};
 
-/// The module that owns the rules: the road, every knight's tick, the foes,
-/// the Dimming, the tally and what a bot presses.
 const MODULE: &str = "lightgallop-rules";
 
-/// The sounds a tick can make, by the index the module answers them with.
 pub const SOUNDS: [&str; 27] = [
     "step_wood", "rock_land", "roll", "shot_spark", "engine_whistle", "spell_fire", "step_gravel",
     "wheel_spin", "knight_hit", "swing", "kill", "hit_magic", "card_pickup", "gold", "spoil_pickup",
@@ -59,15 +56,10 @@ pub const SOUNDS: [&str; 27] = [
     "wall_up", "vent_fire", "circle_toll", "shield_up", "chest_open",
 ];
 
-/// One call of the module. JSON numbers lose bits past 2^53 on the way into
-/// JavaScript, so a rider's spark bits cross as 32-bit halves (`split_taken`)
-/// and are made whole again on the way back. An engine that is missing, or an
-/// answer that is not one, takes no step.
 fn ask<T: serde::de::DeserializeOwned>(mut ask: serde_json::Value) -> Option<T> {
     #[cfg(test)]
     install_oracle();
     if let Some(session) = ask.get_mut("session") {
-        // What the picture remembers (`show.rs`) is not the module's to see.
         if let Some(fields) = session.as_object_mut() {
             fields.remove("show");
         }
@@ -81,7 +73,6 @@ fn ask<T: serde::de::DeserializeOwned>(mut ask: serde_json::Value) -> Option<T> 
     serde_json::from_value(said).map_err(|error| debug_assert!(false, "{MODULE}: {error}")).ok()
 }
 
-/// Each seat's spark bits, a word to a slot: `[u64; 12]` as 24 halves.
 pub fn split_taken(session: &mut serde_json::Value) {
     for taken in taken_of(session) {
         let words: Vec<u64> = taken.as_array().into_iter().flatten().filter_map(|w| w.as_u64()).collect();
@@ -89,7 +80,6 @@ pub fn split_taken(session: &mut serde_json::Value) {
     }
 }
 
-/// The halves, whole again.
 pub fn join_taken(session: &mut serde_json::Value) {
     for taken in taken_of(session) {
         let halves: Vec<u64> = taken.as_array().into_iter().flatten().filter_map(|w| w.as_u64()).collect();
@@ -103,17 +93,10 @@ fn taken_of(session: &mut serde_json::Value) -> impl Iterator<Item = &mut serde_
 }
 
 pub const NAME: &str = "Lightgallop";
-/// The kingdom tile its door stands on: walk up and press E.
 pub const ENTRY: (i32, i32) = (175, 71);
-/// Its place in `roundtable::ADVENTURES` and in `Tune::roundtable`.
 pub const SLOT: usize = 4;
-/// What a finished run saves to the Home, as the Forest Road's
-/// `CAMPAIGN_MARK` does. Marks are settled at the save (`settle`).
 pub const CAMPAIGN_MARK: &str = "lightgallop:campaign-begun";
-/// Every mark this adventure may write: the crash-safe intent journal keeps
-/// exactly these (`roundtable::intent_key`).
 pub const MARKS: &[&str] = &[CAMPAIGN_MARK];
-/// The five numbers, bounded and named; `Tune::roundtable[SLOT]` holds them.
 pub const NUMBERS: [Number; 5] = [
     Number {
         name: "lightgallop_slope",
@@ -156,8 +139,6 @@ pub const NUMBERS: [Number; 5] = [
         start: 1000,
     },
 ];
-/// How its run is registered with the shared shell. Fixed after the prep
-/// commit: the shell never needs a line changed for it.
 pub const ADVENTURE: Adventure = Adventure {
     slug: "lightgallop",
     name: NAME,
@@ -179,8 +160,6 @@ pub const ADVENTURE: Adventure = Adventure {
         _ => Input::default(),
     },
 };
-/// Its game in the rides (`activity::RIDES`): it plays, takes the seated
-/// knights' keys, and ends when a view leaves the room.
 pub const ACTIVITY: Activity = Activity {
     name: NAME,
     on: Run::lightgallop_showing,
@@ -194,15 +173,9 @@ pub const ACTIVITY: Activity = Activity {
     settle: Some(settle),
     fields: &["lightgallop"],
 };
-/// A finished run's mark has been settled into `Home::roundtable[SLOT]`.
 pub const BEGUN: u32 = 1;
-/// What the first clear pays each knight, by rank (C, B, A, S): the cap is
-/// 40 gold a seat, once. A later ride pays `REPLAY`, a token, so the road is
-/// a place to come back to and never a faucet.
 pub const PURSE: [u32; 4] = [10, 20, 30, 40];
 pub const REPLAY: u32 = 5;
-/// What a finished run pays into the realm at the save, once: the mark
-/// becomes a flag in the Home, as the Forest Road's does.
 fn settle(realm: &mut Realm<'_>, marks: &BTreeMap<String, u32>) -> Settled {
     let changed = marks.contains_key(CAMPAIGN_MARK) && realm.home.roundtable[SLOT] & BEGUN == 0;
     if changed {
@@ -236,7 +209,6 @@ impl Run {
         self.found = Some((self.tick, 0, format!("{NAME}: run, leap, spur. Hold Esc to return.")));
         self.sounds.push("play_card");
     }
-    /// The five numbers as the rider reads them.
     pub fn lightgallop_numbers(&self) -> Numbers {
         let n = |i| super::roundtable::number(&self.tune, SLOT, i) as i32;
         Numbers { slope: n(0), loop_min: n(1), spur_cap: n(2), lock_reach: n(3), dimming: n(4) }
@@ -259,7 +231,6 @@ impl Run {
             self.pay_lightgallop(&s);
         }
         if s.again {
-            // The ride again: a fresh road, in one tick, no menu between.
             if let Some(fresh) = Session::new(&present) {
                 s = fresh;
                 self.home.countryside.games.roundtable[SLOT].plays =
@@ -269,14 +240,11 @@ impl Run {
         }
         let held = s.show.held(s.elapsed);
         self.lightgallop = Some(s);
-        // The winning blow stops the room a moment: the warden's fall.
         if let Some(weight) = held {
             self.hold_for(weight);
             self.finish_hit_hold();
         }
     }
-    /// The ride is done: mark the campaign, pay each seated knight once, and
-    /// keep the best.
     fn pay_lightgallop(&mut self, s: &Session) {
         let Some(tally) = &s.tally else { return };
         let first = self.home.roundtable[SLOT] & BEGUN == 0;
@@ -302,25 +270,19 @@ impl Run {
         ));
         self.sounds.push("wish_grant");
     }
-    /// The party at the door, let in.
     #[cfg(any(test, feature = "testing"))]
     pub fn lightgallop_for_test() -> Self {
         roundtable::fixture(&ADVENTURE)
     }
 }
-/// The rules as they ran in Rust before they became Bend: the oracle the
-/// module is held to, and the engine this crate's own tests tick against.
-/// Test builds only, and never part of the product.
 #[cfg(test)]
 pub mod oracle;
 
-/// What the oracle's files take from the game around them.
 #[cfg(test)]
 mod host {
     pub use super::{SOUNDS, join_taken, split_taken};
     pub use crate::rules::{HZ, Hero, Input, MAX_PLAYERS};
 
-    /// A knight to seat.
     pub fn hero() -> Hero {
         Hero::new("Knight", 0.0, 0.0)
     }

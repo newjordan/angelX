@@ -18,75 +18,55 @@ use crate::palette::{Ink, Palette, Ramp};
 use crate::raster::{PartId, Raster};
 use serde::{Deserialize, Serialize};
 
-/// Heat below this draws nothing.
 pub const CUT: f32 = 0.06;
-/// Heat below this is a sparse halo, dithered away to the floor.
 pub const HALO: f32 = 0.3;
-/// How wide the dither is where one ink of a ramp meets the next, as a
-/// share of a step.
 const SEAM: f32 = 0.2;
 
-/// How a layer's inks meet what is already drawn.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Mode {
-    /// Only where it brightens: light adds and never dims.
     #[default]
     Light,
-    /// Over whatever is no nearer: solid things, shards, coins, cracks.
     Over,
-    /// Only on bare ground, behind everything: smoke, dust, wakes.
     Under,
 }
 
-/// A raster being drawn into at a grain, with the depth, part and mode of
-/// the layer drawing.
 pub struct Pen<'a> {
     raster: &'a mut Raster,
     g: f32,
-    /// Where the effect's model origin lies in the raster, in game pixels.
     off: (f32, f32),
     pub depth: f32,
     pub part: PartId,
     pub mode: Mode,
     luma: Vec<f32>,
-    /// Pixels laid so far.
     pub laid: u32,
 }
 
 impl<'a> Pen<'a> {
-    /// A pen on `raster`, drawn at `grain` pixels a game pixel, the
-    /// effect's origin at `off` game pixels into it.
     pub fn new(raster: &'a mut Raster, grain: f32, off: (f32, f32)) -> Pen<'a> {
         let p = Palette::realm();
         let luma = (0..=255u8).map(|i| p.luma(Ink(i))).collect();
         Pen { raster, g: grain, off, depth: 0.0, part: 0, mode: Mode::Light, luma, laid: 0 }
     }
 
-    /// Pixels a game pixel.
     pub fn grain(&self) -> f32 {
         self.g
     }
 
-    /// One of the picture's pixels, in game pixels.
     pub fn px(&self) -> f32 {
         1.0 / self.g
     }
 
-    /// `r` game pixels, held to at least half a picture pixel and a little,
-    /// so the thinnest stroke still lays a connected line at any grain.
     pub fn thin(&self, r: f32) -> f32 {
         r.max(0.55 / self.g)
     }
 
-    /// Lay `ink` at picture pixel `(x, y)` by the pen's mode.
     pub fn lay(&mut self, x: i32, y: i32, ink: Ink) {
         if ink.is_clear() || x < 0 || y < 0 || x as u32 >= self.raster.w || y as u32 >= self.raster.h {
             return;
         }
         let i = (y as u32 * self.raster.w + x as u32) as usize;
         let (here, d) = (self.raster.ink[i], self.raster.depth[i]);
-        // What went under lies far behind, so anything after it covers it.
         let under = d < self.depth - 2000.0;
         let ok = match self.mode {
             Mode::Over => d <= self.depth,
@@ -95,16 +75,12 @@ impl<'a> Pen<'a> {
         };
         if ok {
             self.raster.ink[i] = ink;
-            // What goes under stays farther than anything drawn after it.
             self.raster.depth[i] = if self.mode == Mode::Under { self.depth - 4000.0 } else { self.depth };
             self.raster.part[i] = self.part;
             self.laid += 1;
         }
     }
 
-    /// The picture pixels whose centres fall in the model box `(x0, y0, x1,
-    /// y1)`: the first and last column and row, none when it is off the
-    /// picture.
     fn span(&self, (x0, y0, x1, y1): (f32, f32, f32, f32)) -> Option<(i32, i32, i32, i32)> {
         let g = self.g;
         let lo = |v: f32, o: f32| ((v + o) * g - 0.5).floor().max(0.0);
@@ -114,13 +90,10 @@ impl<'a> Pen<'a> {
         (px0 <= px1 && py0 <= py1).then_some((px0 as i32, px1 as i32, py0 as i32, py1 as i32))
     }
 
-    /// The model point picture pixel `(px, py)` samples.
     fn sample(&self, px: i32, py: i32) -> (f32, f32) {
         ((px as f32 + 0.5) / self.g - self.off.0, (py as f32 + 0.5) / self.g - self.off.1)
     }
 
-    /// Draw a field of heat over a model box: `heat(x, y)` at each pixel's
-    /// model point, toned by `ramp`.
     pub fn field(&mut self, bbox: (f32, f32, f32, f32), ramp: &Ramp, mut heat: impl FnMut(f32, f32) -> f32) {
         let Some((px0, px1, py0, py1)) = self.span(bbox) else { return };
         for py in py0..=py1 {
@@ -133,8 +106,6 @@ impl<'a> Pen<'a> {
         }
     }
 
-    /// Draw a field of chosen inks over a model box: `ink(x, y, px, py)`
-    /// for the model point and the picture pixel, none to leave it.
     pub fn field_ink(&mut self, bbox: (f32, f32, f32, f32), mut ink: impl FnMut(f32, f32, i32, i32) -> Option<Ink>) {
         let Some((px0, px1, py0, py1)) = self.span(bbox) else { return };
         for py in py0..=py1 {
@@ -148,7 +119,6 @@ impl<'a> Pen<'a> {
     }
 }
 
-/// The ink heat `i` takes on `ramp` at picture pixel `(x, y)`, or none.
 pub fn tone(ramp: &Ramp, i: f32, x: i32, y: i32) -> Option<Ink> {
     if i.is_nan() || i < CUT {
         return None;
@@ -174,8 +144,6 @@ pub fn tone(ramp: &Ramp, i: f32, x: i32, y: i32) -> Option<Ink> {
     Some(ramp.0[(lo as usize + usize::from(up)).min(n - 1)])
 }
 
-/// The distance from `p` to the segment `a`-`b`, and how far along it the
-/// nearest point is (0 at `a`, 1 at `b`).
 pub fn seg(p: (f32, f32), a: (f32, f32), b: (f32, f32)) -> (f32, f32) {
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
     let l2 = dx * dx + dy * dy;
@@ -184,7 +152,6 @@ pub fn seg(p: (f32, f32), a: (f32, f32), b: (f32, f32)) -> (f32, f32) {
     ((p.0 - qx).hypot(p.1 - qy), t)
 }
 
-/// The box round points, grown by `r` on every side.
 pub fn bounds(pts: &[(f32, f32)], r: f32) -> (f32, f32, f32, f32) {
     let mut b = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
     for &(x, y) in pts {
@@ -193,9 +160,6 @@ pub fn bounds(pts: &[(f32, f32)], r: f32) -> (f32, f32, f32, f32) {
     (b.0 - r, b.1 - r, b.2 + r, b.3 + r)
 }
 
-/// The distance in the picture from `(dx, dy)` to an ellipse of radius `r`
-/// squashed by `squash` up and down, near enough for a ring's thickness to
-/// read the same all the way round.
 pub fn ellipse_gap(dx: f32, dy: f32, r: f32, squash: f32) -> f32 {
     let sq = squash.max(0.05);
     let (ux, uy) = (dx, dy / sq);

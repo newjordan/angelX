@@ -19,8 +19,6 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
-/// The nook's working state as the module sees it: the fields the ossuary
-/// rule reads and writes. `score` is ascending by knight id.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OssuaryState {
@@ -33,9 +31,6 @@ pub struct OssuaryState {
     pub score: Vec<(u32, u16)>,
 }
 
-/// One playable knight, in id order. `at_start` is within reach of the first
-/// bone; `at_bone` within reach of the bone the line is about to topple
-/// (bone `state.fallen`). Both are answered by Rust.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct OssuaryKnight {
     pub id: u32,
@@ -85,7 +80,6 @@ pub enum OssuaryBeast {
     Skeleton,
 }
 
-/// What the module may ask of the world, in the order it asks.
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
 #[serde(tag = "k", rename_all = "lowercase", deny_unknown_fields)]
 pub enum OssuaryEffect {
@@ -103,23 +97,15 @@ pub struct OssuaryStep {
     pub effects: Vec<OssuaryEffect>,
 }
 
-/// The most effects one tick may carry, and the most coin one grant may be:
-/// the host's envelope around whatever the module decides.
 pub const MAX_EFFECTS: usize = 32;
 pub const MAX_GRANT: u32 = 100;
 
-/// The brain: a frame in, a step out, or why not. One per thread (tests, a
-/// pinned generation) or one for the whole process (the host's setting).
 pub type OssuaryBrain = Rc<dyn Fn(&OssuaryFrame) -> Result<OssuaryStep, String>>;
 pub type SharedOssuaryBrain = Arc<dyn Fn(&OssuaryFrame) -> Result<OssuaryStep, String> + Send + Sync>;
 
-/// How the installed brain has fared on this thread.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct BrainTally {
-    /// Ticks the brain answered and the host applied.
     pub applied: u64,
-    /// Ticks handed back to the native code: an error, or an answer that
-    /// failed the host's check.
     pub fell_back: u64,
     pub last_error: Option<String>,
 }
@@ -133,21 +119,16 @@ thread_local! {
     static ARMED: Cell<bool> = const { Cell::new(false) };
 }
 
-/// Run the ossuary tick through `brain` on this thread (`None`: native
-/// again); returns the brain it replaced. The tally keeps counting.
 pub fn install_ossuary_brain(brain: Option<OssuaryBrain>) -> Option<OssuaryBrain> {
     ARMED.with(|armed| armed.set(brain.is_some()));
     BRAIN.with(|slot| std::mem::replace(&mut *slot.borrow_mut(), brain))
 }
 
-/// Run the ossuary tick through `brain` on every thread that has none of its
-/// own (`None`: native again). This is the host's setting.
 pub fn install_shared_ossuary_brain(brain: Option<SharedOssuaryBrain>) {
     SHARED_ARMED.store(brain.is_some(), Ordering::Release);
     *SHARED.write().unwrap_or_else(|poisoned| poisoned.into_inner()) = brain;
 }
 
-/// Whether a brain, this thread's or the shared one, will answer the tick.
 pub fn ossuary_brain_installed() -> bool {
     ARMED.with(Cell::get) || SHARED_ARMED.load(Ordering::Acquire)
 }
@@ -185,8 +166,6 @@ pub fn reset_ossuary_brain_tally() {
 }
 
 impl OssuaryStep {
-    /// The host's check of an answer against the frame it answered. Nothing
-    /// the module returned is trusted until this passes.
     pub fn admit(&self, before: &OssuaryState, frame: &OssuaryFrame) -> Result<(), String> {
         let state = &self.state;
         if usize::from(state.fallen) > PATH.len()
@@ -238,9 +217,6 @@ impl OssuaryStep {
 }
 
 impl Run {
-    /// The frame for this tick: the nook's state, and what each playable
-    /// knight is doing and standing near. The bone in question is the one the
-    /// line has reached before this tick runs.
     pub fn ossuary_frame(&self, nook: &Nook, pressed: u8) -> OssuaryFrame {
         let bone = usize::from(nook.fallen);
         let knights = self
@@ -267,9 +243,6 @@ impl Run {
         }
     }
 
-    /// Tick the ossuary through the installed brain. True when the brain's
-    /// answer was applied; false (nothing touched) when none is installed or
-    /// the answer did not pass, and the native tick should run instead.
     pub(super) fn tick_ossuary_brain(&mut self, nook: &mut Nook, pressed: u8) -> bool {
         let Some(brain) = current_brain() else {
             return false;
@@ -293,7 +266,6 @@ impl Run {
         }
     }
 
-    /// Write a checked step into the nook and the world, effects in order.
     fn apply_ossuary(&mut self, nook: &mut Nook, step: OssuaryStep) {
         let OssuaryState { running, done, fallen, next, stalled, raised, score } = step.state;
         nook.running = running;
@@ -334,9 +306,6 @@ impl Run {
         }
     }
 
-    /// `tick_nook`, for hosts outside the crate that script a nook (the
-    /// parity harness, the benchmark). It is the real tick: the installed
-    /// brain answers it if there is one.
     pub fn tick_nook_for_test(&mut self, inputs: &BTreeMap<u32, Input>) {
         self.tick_nook(inputs);
     }

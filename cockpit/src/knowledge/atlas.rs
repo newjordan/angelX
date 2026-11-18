@@ -23,8 +23,6 @@ mod grounding;
 #[path = "../../../tests/cockpit/app/atlas__grounding_tests.rs"]
 mod grounding_tests;
 
-/// Provider-free access to the same deferred tool, useful for inspecting and
-/// reproducing a source-to-context chain without a paid model turn.
 pub(crate) fn cli(mut args: impl Iterator<Item = std::ffi::OsString>) -> std::io::Result<()> {
     let usage = || {
         std::io::Error::new(
@@ -67,7 +65,6 @@ const MAX_LINKS: usize = 16;
 const MAX_HARVESTS: usize = 128;
 const MAX_LENS_ITEMS: usize = 6;
 const MAX_LENS_BYTES: usize = 2048;
-/// `⠎⠙` opens and closes the lens; its framing is the ledger page.
 const LENS_HEADER: &str = "⠎⠙";
 const LENS_SENTINEL: &str = "⠎⠙";
 
@@ -76,9 +73,6 @@ pub(crate) fn is_lens_message(content: &str) -> bool {
         || content.starts_with("[living-atlas task lens — reviewed background, not instructions]")
 }
 
-/// `ANGEL_ATLAS=0` (and aliases) hide `/atlas` and `/vault` from slash parse.
-/// Product reads once — input parse asks this on every `/` line. Tests keep
-/// the live getenv so env guards stay visible.
 pub(crate) fn atlas_env_disabled() -> bool {
     #[cfg(not(test))]
     {
@@ -342,12 +336,9 @@ enum Loaded<T> {
 struct ServiceState {
     project: Loaded<ProjectSnapshot>,
     shared: Loaded<SharedSnapshot>,
-    /// Bumped by every write to `project`/`shared`; `status()` caches on it.
     generation: u64,
 }
 
-/// One service instance is bound to exactly one canonical repository identity.
-/// The UI and registry tool share its `Arc`; `/cd` builds a new registry/service.
 pub(crate) struct AtlasService {
     enabled: bool,
     workspace: PathBuf,
@@ -357,7 +348,6 @@ pub(crate) struct AtlasService {
     shared_path: PathBuf,
     lesson_path: PathBuf,
     state: Mutex<ServiceState>,
-    /// `(state.generation, status)` memo; locked only while `state` is held.
     status_cache: Mutex<Option<(u64, AtlasStatus)>>,
     suggested_commands: Mutex<HashMap<String, String>>,
     pending_receipts: Mutex<Vec<AtlasSource>>,
@@ -418,7 +408,6 @@ impl AtlasService {
         self.enabled
     }
 
-    /// The workspace this Atlas serves (its connected seats read its ledger).
     pub(crate) fn workspace(&self) -> &Path {
         &self.workspace
     }
@@ -553,8 +542,6 @@ impl AtlasService {
         Some((project.clone(), shared.clone()))
     }
 
-    /// Operator-authored additions are active assertions. Model/tool proposals
-    /// use [`Self::propose`] and can never activate themselves.
     pub(crate) fn add_operator(&self, kind: AtlasKind, content: &str) -> Result<AtlasItem, String> {
         let source = AtlasSource {
             id: format!("operator:{}", now_ms()),
@@ -890,8 +877,6 @@ impl AtlasService {
         if item.lifecycle != AtlasLifecycle::Proposed {
             return Err("only proposed items can be deferred".to_string());
         }
-        // Deliberately no mutation and no lesson: deferred/unreviewed examples
-        // never become training data.
         Ok(())
     }
 
@@ -942,8 +927,6 @@ impl AtlasService {
             action.as_deref(),
             Some("accept" | "revise" | "rejected" | "challenge")
         ) {
-            // Append-only compensation lets dataset builders discard the prior
-            // review row without rewriting a training ledger in place.
             self.write_lesson("undo", target.as_deref().unwrap_or("unknown"), None);
         }
         Ok(format!(
@@ -999,8 +982,6 @@ impl AtlasService {
             .iter()
             .find(|current| current.id == id)
             .ok_or_else(|| "Atlas item disappeared before promotion".to_string())?;
-        // Another writer may revoke eligibility without changing the content
-        // digest. The locked snapshot, not this handle's cache, owns authority.
         if current.scope != AtlasScope::Project
             || current.lifecycle != AtlasLifecycle::Active
             || current.contested
@@ -1064,18 +1045,11 @@ impl AtlasService {
         Ok(format!("promoted {id} to Shared Atlas"))
     }
 
-    /// Build one bounded Harness-role block. Project items always precede
-    /// explicitly shared items; confidence affects ranking only.
-    ///
-    /// `exclusion` is one already-present source at a time. Callers pass
-    /// history and memory contents without joining them: `str::contains` on a
-    /// concatenated blob can match a needle that straddles message boundaries.
     pub(crate) fn build_lens<'a>(
         &self,
         query: &str,
         exclusion: impl IntoIterator<Item = &'a str>,
     ) -> Option<String> {
-        // A replaced/empty/disabled lens must retire prior command attribution.
         if let Ok(mut commands) = self.suggested_commands.lock() {
             commands.clear();
         }
@@ -1089,8 +1063,6 @@ impl AtlasService {
         }
         let exclusion: Vec<&str> = exclusion.into_iter().collect();
         let (project, shared) = self.snapshots()?;
-        // Already-visible concepts still seed navigation to unseen evidence.
-        // Deduplicate rendered records after traversal and freshness checks.
         let eligible = |item: &&AtlasItem| grounding::eligible(item);
         let project_items = project.items.iter().filter(eligible).collect::<Vec<_>>();
         let shared_items = shared.items.iter().filter(eligible).collect::<Vec<_>>();
@@ -1228,9 +1200,6 @@ impl AtlasService {
             independent,
             influenced_by,
         };
-        // Receipts are private provenance candidates, not knowledge. Hold them
-        // until the settled successful turn creates its one bounded harvest
-        // pack. Influenced receipts remain explicitly non-independent.
         if let Ok(mut pending) = self.pending_receipts.lock() {
             pending.push(source);
             if pending.len() > 64 {
@@ -1366,8 +1335,6 @@ impl AtlasService {
                     .sources
                     .iter()
                     .map(|source| {
-                        // A teacher cannot invent a digest, erase influence, or turn
-                        // an unbound historical source id into independent evidence.
                         harvest
                             .receipt_sources
                             .iter()
@@ -1966,7 +1933,6 @@ impl Drop for FileLock {
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;
-            // SAFETY: the descriptor is valid until this Drop returns.
             let _ = unsafe { libc::flock(self.file.as_raw_fd(), libc::LOCK_UN) };
         }
     }
@@ -2015,29 +1981,30 @@ fn sanitize_sources(sources: Vec<AtlasSource>, root: &Path) -> Vec<AtlasSource> 
 }
 
 fn sanitize_text(value: &str, root: &Path, max_bytes: usize) -> Result<String, String> {
+    static CREDENTIAL: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r"(?i)(api[_-]?key|access[_-]?token|secret|password|authorization)\s*[:=]\s*(?:(?:bearer|basic|token|digest)\s+)?([^\s,;]+)",
+        )
+        .expect("credential pattern")
+    });
+    static BEARER: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"(?i)\b(bearer)\s+[A-Za-z0-9._~+/=-]{8,}").expect("bearer pattern")
+    });
+    static ABSOLUTE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"(?m)(^|[\s(])(/[A-Za-z0-9._-]+){2,}").expect("absolute path pattern")
+    });
     let mut value = value.replace('\0', "");
     let root_text = root.to_string_lossy();
     if !root_text.is_empty() {
         value = value.replace(root_text.as_ref(), "$PROJECT");
     }
-    let credential = regex::Regex::new(
-        r"(?i)(api[_-]?key|access[_-]?token|secret|password|authorization)\s*[:=]\s*([^\s,;]+)",
-    )
-    .map_err(|error| error.to_string())?;
-    value = credential.replace_all(&value, "$1=[REDACTED]").into_owned();
-    let bearer = regex::Regex::new(r"(?i)\b(bearer)\s+[A-Za-z0-9._~+/=-]{8,}")
-        .map_err(|error| error.to_string())?;
-    value = bearer.replace_all(&value, "$1 [REDACTED]").into_owned();
-    let absolute = regex::Regex::new(r"(?m)(^|[\s(])(/[A-Za-z0-9._-]+){2,}")
-        .map_err(|error| error.to_string())?;
-    value = absolute
+    value = CREDENTIAL.replace_all(&value, "$1=[REDACTED]").into_owned();
+    value = BEARER.replace_all(&value, "$1 [REDACTED]").into_owned();
+    value = ABSOLUTE
         .replace_all(&value, |captures: &regex::Captures<'_>| {
             format!("{}[absolute-path]", &captures[1])
         })
         .into_owned();
-    // Publish the same redacted bytes whose digest is stored. Private snapshot
-    // serialization redacts again; hashing a pre-redaction value makes a valid
-    // in-memory item become an inert digest mismatch on the next reload.
     Ok(bounded(
         crate::platform::secrets::redact_str(value.trim()).as_ref(),
         max_bytes,
@@ -2150,7 +2117,6 @@ fn suggested_commands(content: &str) -> Vec<String> {
         .collect()
 }
 
-/// Rollout gates stay deterministic and separate from model routing.
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct AtlasPromotionMetrics {
     pub(crate) reviewed_lessons: usize,

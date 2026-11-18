@@ -34,7 +34,6 @@ fn a_signal_wakes_the_reaper_at_once() {
         "the reaper slept through a signal"
     );
     writer.join().unwrap();
-    // The wake was drained: the next sleep waits again.
     let again = Instant::now();
     reaper_sleep_on(fd, Duration::from_millis(80));
     assert!(again.elapsed() >= Duration::from_millis(60));

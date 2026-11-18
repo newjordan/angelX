@@ -11,7 +11,6 @@ use crate::telemetry::{ExecutionOutcome, ToolOutcome, VerificationOutcome};
 pub use angel_delve::render::overworld::outcomes::lantern;
 pub use angel_delve::render::overworld::outcomes::{Echo, Seal};
 
-/// A tool's receipt as the seal it leaves.
 fn seal_of(outcome: ToolOutcome) -> Seal {
     match (outcome.execution, outcome.verification) {
         (ExecutionOutcome::Failed | ExecutionOutcome::Panicked, _)
@@ -22,7 +21,6 @@ fn seal_of(outcome: ToolOutcome) -> Seal {
     }
 }
 
-/// Three seconds on the world's 40 Hz clock, including a quiet final hold.
 const LIFETIME: u64 = 120;
 const FRAME_TICKS: u64 = 10;
 
@@ -34,7 +32,6 @@ struct Stamp {
 
 #[derive(Default)]
 pub struct Outcomes {
-    // Fixed storage: a storm of results can never grow a particle queue.
     places: [Option<Stamp>; Place::ALL.len()],
 }
 
@@ -61,15 +58,11 @@ impl Outcomes {
                     Echo {
                         place,
                         seal: stamp.seal,
-                        // Motes have settled by frame six; the final hold must
-                        // not invalidate the frame cache with invisible phases.
                         phase: (age / FRAME_TICKS).min(6) as u8,
                     },
                 ))
             })
             .collect();
-        // The blank-slate map (`angel_delve::world::plan`) puts every place at
-        // the Keep, so the seals would stand one on another: the newest shows.
         if angel_delve::world::plan::tabula() {
             shown.sort_by_key(|&(tick, _)| tick);
             shown.drain(..shown.len().saturating_sub(1));

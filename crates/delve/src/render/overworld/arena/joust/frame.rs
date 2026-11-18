@@ -22,18 +22,13 @@ use crate::rules::joust::show::{Meet, weight_of};
 use crate::rules::joust::{Aim, Hit, Joust, Stage};
 use crate::rules::juice::Weight;
 
-/// Pixels to an arena unit.
 pub(super) const UNIT: f32 = 8.0;
-/// How far each rider is drawn back along his run at the meeting, so the
-/// lances touch across the tilt while the riders' bodies are still apart.
 const PULL: f32 = 26.0;
 
-/// Everything a draw needs to know, from one seat's view.
 pub(super) struct Cx<'a> {
     pub run: &'a Run,
     pub j: &'a Joust,
     pub me: Option<u32>,
-    /// The show's clock.
     pub t: u32,
     pub tick: u32,
 }
@@ -43,7 +38,6 @@ impl<'a> Cx<'a> {
         Cx { run, j, me, t: j.show.t, tick: run.tick as u32 }
     }
 
-    /// The rider the viewer is: 0 the knight, 1 the other; none in the gallery.
     pub fn side(&self) -> Option<u8> {
         let me = self.me?;
         if me == self.j.knight {
@@ -55,7 +49,6 @@ impl<'a> Cx<'a> {
         }
     }
 
-    /// A rider's name as this seat reads it.
     pub fn name(&self, side: u8, take: usize) -> String {
         match self.j.rider(side) {
             Some(id) => hud::called(self.run, id, self.me, take),
@@ -63,12 +56,10 @@ impl<'a> Cx<'a> {
         }
     }
 
-    /// The last meeting and how long ago it was.
     pub fn meet(&self) -> Option<(&'a Meet, u32)> {
         self.j.show.last().map(|m| (m, m.age(self.t)))
     }
 
-    /// How hard the room is cheering: 0 hushed, 1 on its feet.
     pub fn fever(&self) -> f32 {
         let j = self.j;
         let base = match j.stage {
@@ -89,7 +80,6 @@ impl<'a> Cx<'a> {
         base.max(hot)
     }
 
-    /// How far a charge has built, 0 at the spur to 1 at the meeting.
     pub fn speed(&self) -> f32 {
         let j = self.j;
         if j.stage != Stage::Charge {
@@ -108,11 +98,9 @@ impl<'a> Cx<'a> {
     }
 }
 
-/// One rider as the picture has him.
 pub(super) struct Placed {
     pub side: u8,
     pub east: bool,
-    /// The body's middle (pixels) and the sand under its hooves.
     pub x: i32,
     pub ground: i32,
     pub pose: Pose,
@@ -122,7 +110,6 @@ pub(super) struct Placed {
     pub down: bool,
 }
 
-/// How far the riders are drawn back (0 to 1 of `PULL`).
 fn pull(j: &Joust) -> f32 {
     match j.stage {
         Stage::Charge => {
@@ -141,7 +128,6 @@ fn pull(j: &Joust) -> f32 {
     }
 }
 
-/// A lance's height 0 to 4 as it turns from one aim to the other.
 fn lance_q(now: Aim, turned: Option<u32>, t: u32) -> u8 {
     let to = if now == Aim::High { 4.0 } else { 0.0 };
     let q = match turned {
@@ -162,7 +148,6 @@ fn guard_q(now: Aim, turned: Option<u32>, t: u32) -> u8 {
     }
 }
 
-/// Both riders as they stand now.
 pub(super) fn placed(cx: &Cx) -> [Placed; 2] {
     let j = cx.j;
     let (a, b) = j.riders();
@@ -177,7 +162,6 @@ pub(super) fn placed(cx: &Cx) -> [Placed; 2] {
         None => (rival_colours(usize::from(j.rival)), RIVAL_COAT),
     };
     let stride = if j.clashing() { j.meeting() } else { j.t };
-    // Spurred riders paw the ground, a few strides, until the flag drops.
     let paw = |side: usize, spurred: bool| -> Option<u32> {
         let at = j.show.spurred[side]?;
         (spurred && j.stage == Stage::Ready).then(|| (cx.t.saturating_sub(at)) / 3 % 4)
@@ -245,7 +229,6 @@ fn coat_of(j: &Joust) -> Coat {
     coat(j.mount)
 }
 
-/// Where a rider's lance tip is in the picture (the unbroken lance).
 pub(super) fn tip_of(p: &Placed) -> (i32, i32) {
     let reach = 30;
     let a = i32::from(p.pose.aim.min(4));
@@ -255,15 +238,12 @@ pub(super) fn tip_of(p: &Placed) -> (i32, i32) {
     (p.x + x, p.ground - riders::HOOF_Y + sy)
 }
 
-/// A rider's sprite in the picture: facing, shaken by a blow it took.
 fn stamp_rider(world: &mut Img, cx: &Cx, p: &Placed) {
     let built = riders::mounted(p.coat, p.barding, p.col, p.pose);
     let body = if p.east { riders::BODY_X } else { riders::W - 1 - riders::BODY_X };
-    // A standing horse breathes.
     let breathe = i32::from(p.pose.gait.is_none() && (cx.tick / 14) % 3 == 0);
     let base_y = p.ground + (riders::H - riders::HOOF_Y) + breathe;
     let (x0, dir) = (p.x - body, if p.east { 1 } else { -1 });
-    // The blur of speed: echoes behind, dimmer and thinner.
     if cx.j.stage == Stage::Charge && !p.down {
         let v = cx.speed();
         for (k, (off, need)) in [(7, 0.45), (15, 0.62), (24, 0.8)].into_iter().enumerate() {
@@ -275,7 +255,6 @@ fn stamp_rider(world: &mut Img, cx: &Cx, p: &Placed) {
     }
     let mut sprite = None;
     let mut dx = 0;
-    // A blow taken: the white frame, then the squash, and the lurch back.
     if let Some((m, age)) = cx.meet() {
         let taken = if p.side == 0 { m.taken.0 } else { m.taken.1 };
         let by = if p.side == 0 { m.hits.1 } else { m.hits.0 };
@@ -297,9 +276,6 @@ fn stamp_rider(world: &mut Img, cx: &Cx, p: &Placed) {
     }
 }
 
-/// The knight flung from the saddle: up and over, turning as he goes, down
-/// into the sand, a little bounce, and he lies on his back, the helm rolling
-/// off on its own.
 fn tumble(world: &mut Img, cx: &Cx, p: &Placed, age: u32) {
     const LAND: u32 = 24;
     let dir = if p.east { 1 } else { -1 };
@@ -317,7 +293,6 @@ fn tumble(world: &mut Img, cx: &Cx, p: &Placed, age: u32) {
         (s * (1.0 - s) * 4.0 * 5.0) as i32
     };
     let y = (y0 + ((ground - y0) as f32 * (a / LAND as f32).min(1.0)) as i32) - up;
-    // Turning head over heels, slowing into a flat landing.
     let turns = 630.0 * ease::out((a / (LAND as f32 + 2.0)).min(1.0));
     let kick = age >= LAND && (cx.tick / 4).is_multiple_of(2);
     let body = enlarge(&riders::flung(p.col, age < 7, kick), 2.0);
@@ -325,7 +300,6 @@ fn tumble(world: &mut Img, cx: &Cx, p: &Placed, age: u32) {
     let body = riders::turned(&body, -turns * dir as f32);
     world.stamp(&body, x - body.w / 2, y - body.h / 2);
     if age >= 7 {
-        // The helm: off at the top of the arc, two bounces, a roll.
         let t = (age - 7).min(70) as i32;
         let hx0 = x0 + back * 8;
         let hx = hx0 + back * ((t * 2).min(34) + (t - 16).clamp(0, 12) / 2);
@@ -346,8 +320,6 @@ fn tumble(world: &mut Img, cx: &Cx, p: &Placed, age: u32) {
     }
 }
 
-/// The gallery on the stands' front tier: each knight at the lists in their
-/// own figure with a pennant in the colours of the rider they back.
 pub(super) fn gallery_spots(cx: &Cx) -> Vec<(u32, i32)> {
     let slots: &[i32] = match cx.j.gallery.len() {
         0 | 1 => &[96],
@@ -358,7 +330,6 @@ pub(super) fn gallery_spots(cx: &Cx) -> Vec<(u32, i32)> {
     cx.j.gallery.keys().enumerate().map(|(i, &id)| (id, slots[i.min(slots.len() - 1)])).collect()
 }
 
-/// A gallery knight's figure, at twice its size so the seat is seen.
 pub(super) fn gallery_figure(cx: &Cx, id: u32) -> Option<Img> {
     let hero = cx.run.players.get(&id)?;
     let mut hero = hero.clone();
@@ -374,7 +345,6 @@ fn gallery(world: &mut Img, cx: &Cx, placed: &[Placed; 2]) {
         let stand = hot > 0.5 && (cx.tick / 4 + id) % 2 == 0;
         let y = stage::RAIL_Y - 1 - fig.h - i32::from(stand) * 2;
         world.stamp(&fig, x - fig.w / 2, y);
-        // The pennant in the backed rider's colours, waving.
         if let Some(side) = w.side {
             let p = &placed[usize::from(side.min(1))];
             let (top, flag) = (y - 6, p.col);
@@ -389,14 +359,12 @@ fn gallery(world: &mut Img, cx: &Cx, placed: &[Placed; 2]) {
     }
 }
 
-/// The favours in the air: from each thrower toward the rider.
 fn favours(world: &mut Img, cx: &Cx, placed: &[Placed; 2]) {
     let spots = gallery_spots(cx);
     for f in &cx.j.show.favours {
         let Some(&(_, x)) = spots.iter().find(|(id, _)| *id == f.by) else { continue };
         let p = &placed[usize::from(f.side.min(1))];
         let to = (p.x, p.ground - 34);
-        // The throw: a glint where it leaves his hand.
         fx::glint(world, (x + 8, stage::RAIL_Y - 26), f.age(cx.t), 9);
         fx::favour(world, (x, stage::RAIL_Y - 24), to, f.age(cx.t), crate::rules::joust::show::FAVOUR_LIFE, (p.col.tabard, p.col.field));
         if f.age(cx.t) >= crate::rules::joust::show::FAVOUR_LIFE - 8 {
@@ -405,8 +373,6 @@ fn favours(world: &mut Img, cx: &Cx, placed: &[Placed; 2]) {
     }
 }
 
-/// The scenery, the crowd, the riders and what they throw up: the world,
-/// before it is shaken.
 fn world(cx: &Cx) -> Img {
     let j = cx.j;
     let mut w = stage::backdrop().clone();
@@ -418,7 +384,6 @@ fn world(cx: &Cx) -> Img {
     let speed = cx.speed();
     fx::wind(&mut w, speed, cx.tick);
     let meet = cx.meet();
-    // Far lane first, behind the tilt.
     for (n, p) in placed.iter().rev().enumerate() {
         let dir = if p.east { 1 } else { -1 };
         let v = if j.stage == Stage::Charge { speed } else { 0.0 };
@@ -426,36 +391,30 @@ fn world(cx: &Cx) -> Img {
             fx::speed_lines(&mut w, p.x - dir * 22, p.ground, dir, v, cx.tick, 11 + p.side as u32 * 5);
             hoofbeats(&mut w, cx, p, v);
         } else if p.pose.gait.is_some() && j.stage == Stage::Ready {
-            // Pawing the ground: a puff each stride.
             let age = (cx.t % 9) as u32;
             fx::puff(&mut w, ((p.x - dir * 18) as f32, p.ground as f32 - 2.0), dir, age, 5 + p.side as u32, 3, cx.tick as u64);
         }
         if p.down && meet.is_some() {
-            // The knight's horse runs on without him.
         }
         stamp_rider(&mut w, cx, p);
         if n == 0 {
             w.stamp(stage::tilt(), 0, stage::TILT_Y - 3);
         }
     }
-    // The riders who went over.
     if let Some((m, age)) = meet {
         for p in placed.iter().filter(|p| p.down) {
             let _ = m;
             let fallen_age = if j.stage == Stage::Done { 120 + j.t } else { age };
-            // The fall begins where the riders met, at the moment they did.
             let at = Placed { x: ((m.x * UNIT) as i32 + if p.east { -PULL as i32 } else { PULL as i32 }).clamp(46, 338), ..clone_placed(p) };
             tumble(&mut w, cx, &at, fallen_age);
         }
         impact(&mut w, cx, m, age, &placed);
     }
-    // The clash: lances grinding.
     if j.clashing() && j.hits.is_none() {
         let (a, b) = (tip_of(&placed[0]), tip_of(&placed[1]));
         let mid = ((a.0 + b.0) as f32 / 2.0, (a.1 + b.1) as f32 / 2.0);
         let hot = ((j.t - j.meeting()) as f32 / j.clash().max(1) as f32).min(1.0);
         fx::grind(&mut w, mid, cx.tick as u64, hot);
-        // The horses dig in: dust skids out from under the hooves.
         for p in &placed {
             let dir = if p.east { 1.0 } else { -1.0 };
             fx::puff(&mut w, (p.x as f32 + dir * 16.0, p.ground as f32 - 2.0), if p.east { -1 } else { 1 }, (cx.tick % 8) + 2, 21 + p.side as u32, 4, cx.tick as u64);
@@ -475,7 +434,6 @@ fn clone_placed(p: &Placed) -> Placed {
     Placed { side: p.side, east: p.east, x: p.x, ground: p.ground, pose: p.pose, coat: p.coat, barding: p.barding, col: p.col, down: p.down }
 }
 
-/// The dust each hoofbeat kicked up behind a rider, a few strides back.
 fn hoofbeats(w: &mut Img, cx: &Cx, p: &Placed, v: f32) {
     let j = cx.j;
     let mut beats = Vec::new();
@@ -501,8 +459,6 @@ fn pull_at(j: &Joust, t: u32) -> f32 {
     ease::in_quad((t as f32 / m).min(1.0))
 }
 
-/// The crack of the lances meeting and what follows: flare, star, ring,
-/// sparks, splinters, the dust of the blow.
 fn impact(w: &mut Img, cx: &Cx, m: &Meet, age: u32, placed: &[Placed; 2]) {
     if !m.landed() || age > 60 {
         return;
@@ -511,7 +467,6 @@ fn impact(w: &mut Img, cx: &Cx, m: &Meet, age: u32, placed: &[Placed; 2]) {
     let at = (((a.0 + b.0) / 2) as f32, ((a.1 + b.1) / 2) as f32);
     let heavy = m.heaviest();
     fx::crack(w, at, age, heavy, 5 + u32::from(m.course) * 3, cx.tick as u64);
-    // A lance that broke on a shield, or a mighty one: splinters.
     for (i, (hit, p)) in [(m.hits.0, &placed[0]), (m.hits.1, &placed[1])].into_iter().enumerate() {
         if matches!(hit, Hit::Broke | Hit::Smite) {
             let tip = tip_of(p);
@@ -526,7 +481,6 @@ fn impact(w: &mut Img, cx: &Cx, m: &Meet, age: u32, placed: &[Placed; 2]) {
     }
 }
 
-/// A seat's screen at the lists while a bout is ridden.
 pub(super) fn frame(run: &Run, focus: Option<u32>) -> Img {
     let Some(j) = run.joust.as_ref() else { return Img::black(NATIVE_W, NATIVE_H) };
     let cx = Cx::new(run, j, focus);
@@ -543,13 +497,11 @@ pub(super) fn frame(run: &Run, focus: Option<u32>) -> Img {
     }
     let shake = shake_of(&cx);
     im.stamp(&world, shake.0, shake.1);
-    // The speed of the charge closes in on the edges.
     let v = cx.speed();
     if v > 0.45 {
         fx::rim(&mut im, ((v - 0.4) * 1.7).min(0.95), 'k');
     }
     if let Some((m, age)) = cx.meet() {
-        // A blow taken is a red rim for the knight who took it.
         let mine = cx.side().map(|s| if s == 0 { (m.taken.0, m.hits.1) } else { (m.taken.1, m.hits.0) });
         if let Some((w, by)) = mine && by != Hit::Miss && w >= Weight::Crushing && age < 10 {
             fx::rim(&mut im, (1.0 - age as f32 / 10.0) * 0.28, '7');
@@ -560,9 +512,6 @@ pub(super) fn frame(run: &Run, focus: Option<u32>) -> Img {
     im
 }
 
-/// The camera's punch-in on a heavy blow: how far (1 is none) and on what.
-/// It is at its most the instant of the blow, held through the hit-stop,
-/// and eases home as time moves again.
 fn punch(cx: &Cx) -> Option<(f32, (f32, f32))> {
     let (m, age) = cx.meet()?;
     let amp = match m.heaviest() {
@@ -580,7 +529,6 @@ fn punch(cx: &Cx) -> Option<(f32, (f32, f32))> {
     Some((k, (((a.0 + b.0) / 2) as f32, ((a.1 + b.1) / 2) as f32 + 10.0)))
 }
 
-/// `im` pushed in on `at` by `k`, nearest neighbour, the frame kept.
 fn zoomed(im: &Img, at: (f32, f32), k: f32) -> Img {
     let mut out = Img::black(im.w, im.h);
     for y in 0..im.h {
@@ -594,7 +542,6 @@ fn zoomed(im: &Img, at: (f32, f32), k: f32) -> Img {
     out
 }
 
-/// The world's shake: the rumble of the charge, the blow's own.
 fn shake_of(cx: &Cx) -> (i32, i32) {
     let phase = cx.tick as u64 + u64::from(cx.run.hitstop.left) * 3;
     let mut s = (0, 0);
@@ -605,7 +552,6 @@ fn shake_of(cx: &Cx) -> (i32, i32) {
     }
     let v = cx.speed();
     if s == (0, 0) && v > 0.55 {
-        // The hooves on the sand: a shiver, harder the faster.
         let k = (v - 0.55) / 0.45;
         let up = if cx.tick % 2 == 0 && k > 0.2 { 1 } else { 0 };
         let side = if cx.tick % 3 == 0 && k > 0.6 { 1 } else { 0 };
@@ -614,8 +560,6 @@ fn shake_of(cx: &Cx) -> (i32, i32) {
     s
 }
 
-/// The bout's own `legible` use: the stage for a reduced frame is the same
-/// picture, scaled by the field.
 pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     (frame(run, focus), Img::new(NATIVE_W, NATIVE_H))
 }

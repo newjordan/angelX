@@ -25,8 +25,6 @@ fn rank_fixture_item(id: &str, content: &str, updated_ms: u64) -> AtlasItem {
 
 #[test]
 fn rank_scope_cached_document_frequency_preserves_golden_scores_and_order() {
-    // With four one-token docs, alpha appears twice and beta once. The exact
-    // BM25 IDFs are ln(2) and ln(10/3); gamma has no match and is filtered.
     let owned = [
         rank_fixture_item("z-alpha", "alpha", 7),
         rank_fixture_item("a-alpha", "alpha", 7),
@@ -50,8 +48,6 @@ fn rank_scope_cached_document_frequency_preserves_golden_scores_and_order() {
 }
 
 fn stable_rank_signature(rows: &[RankedItem<'_>]) -> u64 {
-    // Small FNV-1a receipt is stable across baseline/current builds on the same
-    // toolchain, without depending on HashMap iteration order or an extra crate.
     let mut hash = 0xcbf29ce484222325u64;
     let mut feed = |bytes: &[u8]| {
         for byte in bytes {
@@ -180,7 +176,6 @@ fn proposal_never_enters_lens_before_review() {
 fn status_cache_matches_fresh_recount_after_every_mutation_path() {
     let (service, root) = service("status-cache");
     let assert_fresh = |service: &AtlasService| {
-        // Twice: first fill/refresh the cache, then serve from it.
         for status in [service.status(), service.status()] {
             assert_eq!(status.health, AtlasHealth::Healthy);
             assert_eq!(
@@ -207,7 +202,6 @@ fn status_cache_matches_fresh_recount_after_every_mutation_path() {
         )
         .unwrap();
     assert_fresh(&service);
-    // Lifecycle flip only: item totals stay put while review_count moves.
     service.accept(&proposal.id).unwrap();
     assert_fresh(&service);
     let operator = service
@@ -461,9 +455,6 @@ fn lens_exclusion_does_not_false_match_a_needle_split_across_messages() {
     let _atlas = crate::tests::TestEnvGuard::unset("ANGEL_ATLAS");
     let _lens = crate::tests::TestEnvGuard::unset("ANGEL_ATLAS_LENS");
     let (service, root) = service("lens-split");
-    // Needle straddles the old `"\\n".join(history)` boundary: the joined
-    // blob would `contains` this item, but neither message does. That
-    // cross-boundary hit was a false match, not intended exclusion.
     let content = "the cockpit\natlas retrieval";
     service.add_operator(AtlasKind::Fact, content).unwrap();
     let query = "atlas retrieval cockpit";
@@ -789,7 +780,6 @@ fn lens_replacement_is_one_post_task_harness_block() {
 fn model_tool_is_deferred_and_cannot_review_or_share() {
     let _guard = crate::tests::env_lock();
     let previous = std::env::var_os("ANGEL_ATLAS");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_ATLAS") };
     let workspace = std::env::temp_dir().join(format!("atlas-tool-{}", now_ms()));
     std::fs::create_dir_all(&workspace).unwrap();
@@ -816,10 +806,25 @@ fn model_tool_is_deferred_and_cannot_review_or_share() {
         .unwrap_err();
     assert!(error.contains("atlas.action must be"), "{error}");
     match previous {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(value) => unsafe { std::env::set_var("ANGEL_ATLAS", value) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_ATLAS") },
     }
     let _ = std::fs::remove_dir_all(workspace);
+}
+
+#[test]
+fn sanitize_text_redacts_an_authorization_value_with_its_scheme() {
+    let root = Path::new("/nowhere/project");
+    for (input, secret) in [
+        ("Authorization: Bearer ya29.a0AfH6SMBopaque", "ya29"),
+        ("authorization=Basic dXNlcjpwYXNzd29yZA==", "dXNlcjpwYXNz"),
+        ("Authorization: Token tok_live_123456789", "tok_live"),
+        ("send Bearer abcdefghijklmnop now", "abcdefghijklmnop"),
+        ("api_key = sk-live-123456", "sk-live"),
+        ("password: hunter2", "hunter2"),
+    ] {
+        let out = sanitize_text(input, root, 4096).unwrap();
+        assert!(!out.contains(secret), "{input:?} became {out:?}");
+        assert!(out.to_lowercase().contains("redacted"), "{input:?} became {out:?}");
+    }
 }

@@ -1,4 +1,3 @@
-"""Offline decision tables retain failed attempts and unambiguous cost pairs."""
 import contextlib
 import importlib.util
 import io

@@ -60,7 +60,6 @@ fn planted_cohort_tokens_are_found_in_an_ignored_nested_workspace() {
     let manifest: Value =
         serde_json::from_slice(&std::fs::read(fixtures.join("manifest.json")).unwrap()).unwrap();
     assert!(manifest["large"]["file_count"].as_u64().unwrap() >= 5000);
-    // Reproduce the old empty Git name source independently of the tool.
     assert_eq!(
         run_git(&fixtures.join("large"), &git_listing_args(None)).unwrap(),
         ""
@@ -134,7 +133,6 @@ fn planted_cohort_tokens_are_found_in_an_ignored_nested_workspace() {
             }
         }
     }
-    // Greater than the cohort's two directory levels, with 5,012 peers.
     let root = fixtures.join("large");
     std::fs::create_dir_all(root.join("deep/three/levels")).unwrap();
     std::fs::write(
@@ -415,7 +413,6 @@ fn grep_multi_path_and_skip_inputs_stay_confined() {
     assert!(output.contains("skipped 1 requested file"));
     assert!(output.contains("two/b.txt"));
 
-    // Both `path` and `paths` supplied: one merged, deduplicated search.
     let merged = GrepTool {
         root: workspace.0.clone(),
     }

@@ -11,16 +11,13 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-/// Draw and encode one picture: PNG bytes, or None when it cannot be made.
 pub type Recipe = Box<dyn FnOnce() -> Option<Vec<u8>> + Send>;
 
-/// A finished picture: its key and its PNG.
 pub type Finished = (u64, Arc<Vec<u8>>);
 
 #[derive(Default)]
 struct Slot {
     pending: Option<(u64, Recipe)>,
-    /// The key being made now.
     making: Option<u64>,
     done: Option<Finished>,
     stop: bool,
@@ -65,8 +62,6 @@ impl Pipeline {
         Pipeline { shared, worker }
     }
 
-    /// Ask for the picture `key`. Nothing happens when it is already made
-    /// or being made; a recipe still waiting for the worker is replaced.
     pub fn request(&self, key: u64, recipe: Recipe) {
         let mut slot = lock(&self.shared);
         if slot.done.as_ref().is_some_and(|(k, _)| *k == key)
@@ -80,7 +75,6 @@ impl Pipeline {
         self.shared.changed.notify_all();
     }
 
-    /// The picture `key`, waiting at most `budget` for it to be finished.
     pub fn wait(&self, key: u64, budget: Duration) -> Option<Arc<Vec<u8>>> {
         let deadline = Instant::now() + budget;
         let mut slot = lock(&self.shared);
@@ -104,7 +98,6 @@ impl Pipeline {
         }
     }
 
-    /// The newest finished picture.
     pub fn latest(&self) -> Option<Finished> {
         lock(&self.shared).done.clone()
     }

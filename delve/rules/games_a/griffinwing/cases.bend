@@ -1,6 +1,3 @@
-# Case wrappers: `case.<bend name>(input) -> output`, the JSON shape the Rust
-# recorder (crates/delve/tests/rules/griffinwing_bend_cases__tests.rs) writes.
-
 def case.griffinwing.types.norm(+i: J.Val) -> J.Val:
   J.JU{griffinwing.types.norm(ga.nu(i, 0), ga.nu(i, 1), ga.nu(i, 2))}
 
@@ -76,7 +73,6 @@ def case.griffinwing.Session.new(+i: J.Val) -> J.Val:
 def case.griffinwing.Session.sit(+i: J.Val) -> J.Val:
   gw.out_only(griffinwing.Session.sit(J.get(i, "s"), ga.u(i, "id"), ga.u(i, "joined")))
 
-# {"s": s}
 def gw.out_only(+s: J.Val) -> J.Val:
   ga.sv(J.obj(), "s", s)
 
@@ -200,11 +196,8 @@ def case.griffinwing.bot.Session.footprint_away(+i: J.Val) -> J.Val:
 def case.griffinwing.bot.Session.boss_corridor(+i: J.Val) -> J.Val:
   griffinwing.bot.Session.boss_corridor(J.get(i, "s"), J.get(i, "c"), J.get(i, "n"))
 
-# {"s": ws.s, "c": ws.c} with the thing under another name.
 def gw.named(+w: J.Val, +k: String) -> J.Val:
   ga.sv(ga.sv(J.obj(), "s", gw.ps(w)), k, gw.pc(w))
-
-# ─── flight ─────────────────────────────────────────────────────────────────
 
 def case.griffinwing.flight.Session.push_bolt(+i: J.Val) -> J.Val:
   gw.out_only(griffinwing.flight.Session.push_bolt(J.get(i, "s"), J.get(i, "b")))
@@ -217,8 +210,6 @@ def case.griffinwing.flight.Session.acquire(+i: J.Val) -> J.Val:
 
 def case.griffinwing.flight.Session.release(+i: J.Val) -> J.Val:
   griffinwing.flight.Session.release(J.get(i, "s"), ga.u(i, "owner"), J.get(i, "c"), ga.u(i, "s_c"), J.get(i, "n"))
-
-# ─── combat ─────────────────────────────────────────────────────────────────
 
 def case.griffinwing.combat.Session.spawn_foe(+i: J.Val) -> J.Val:
   griffinwing.combat.Session.spawn_foe(J.get(i, "s"), ga.s(i, "kind"),
@@ -296,8 +287,6 @@ def case.griffinwing.combat.Session.turn(+i: J.Val) -> J.Val:
 def case.griffinwing.combat.Session.turn.drop(+r: J.Val) -> J.Val:
   J.del(r, "r")
 
-# ─── boss ───────────────────────────────────────────────────────────────────
-
 def case.griffinwing.boss.Session.rise(+i: J.Val) -> J.Val:
   gw.out_only(griffinwing.boss.Session.rise(J.get(i, "s")))
 
@@ -309,8 +298,6 @@ def case.griffinwing.boss.Session.begin_tell(+i: J.Val) -> J.Val:
 
 def case.griffinwing.boss.Session.spit(+i: J.Val) -> J.Val:
   gw.out_only(griffinwing.boss.Session.spit(J.get(i, "s"), J.get(i, "b")))
-
-# ─── script ─────────────────────────────────────────────────────────────────
 
 def case.griffinwing.script.script(+i: J.Val) -> J.Val:
   griffinwing.script.script(J.u32(i))
@@ -327,15 +314,11 @@ def case.griffinwing.script.Session.act(+i: J.Val) -> J.Val:
 def case.griffinwing.script.Session.victory_gates(+i: J.Val) -> J.Val:
   gw.out_only(griffinwing.script.Session.victory_gates(J.get(i, "s")))
 
-# ─── things ─────────────────────────────────────────────────────────────────
-
 def case.griffinwing.things.Session.take(+i: J.Val) -> J.Val:
   gw.out_only(griffinwing.things.Session.take(J.get(i, "s"), ga.u(i, "id"), J.get(i, "p"), ga.b(i, "boosting")))
 
 def case.griffinwing.things.Session.scrape(+i: J.Val) -> J.Val:
   gw.out_only(griffinwing.things.Session.scrape(J.get(i, "s"), ga.u(i, "id"), ga.u(i, "at"), ga.u(i, "x"), ga.u(i, "z")))
-
-# ─── the Run's hooks ────────────────────────────────────────────────────────
 
 def case.griffinwing.Run.griffinwing_showing(+i: J.Val) -> J.Val:
   J.JBool{griffinwing.Run.griffinwing_showing(J.get(i, "run"))}

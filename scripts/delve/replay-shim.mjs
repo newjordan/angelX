@@ -1,21 +1,12 @@
 #!/usr/bin/env node
-// A stand-in for a Bend worker: speaks BJ1 and/or the resident state protocol
-// on stdin/stdout and proxies every request to the Rust worker. It exists to
-// prove that replay.mjs's codec and delta paths are right before a real Bend
-// worker is put in front of them, and to prove the gate fails when it should.
-//
-//   SHIM_WORKER=<rust worker> [SHIM_BJ1=1] [SHIM_RESIDENT=1] [SHIM_BREAK=N] \
-//     node scripts/delve/replay.mjs scripts/delve/replay-shim.mjs <corpus>
-//
-// SHIM_BREAK=N flips the last bit of one float of the Nth apply's state.
 import { Worker, applyOps, diff, f32bits, f32from, fields, fromBj1, parse, show, toBj1, Fl, API } from './replay-lib.mjs';
 
 const rust = new Worker(process.env.SHIM_WORKER, [], 120000);
 const bj1 = process.env.SHIM_BJ1 === '1';
 const resident = process.env.SHIM_RESIDENT === '1';
 const breakAt = process.env.SHIM_BREAK ? Number(process.env.SHIM_BREAK) : -1;
-let live = false; // BJ1 frames start after prepare
-let held = null; // the resident state tree
+let live = false;
+let held = null;
 let applies = 0;
 
 let buf = Buffer.alloc(0);
@@ -50,7 +41,6 @@ function reply(request, generation, ok, err) {
   process.stdout.write(Buffer.concat([head, payload]));
 }
 
-// Flip the last bit of the first float in a tree (depth first).
 function nudge(tree) {
   if (tree instanceof Fl) {
     tree.v = f32from(f32bits(tree.v) ^ 1);

@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""Furnish a delve pack's rooms from the Demonic Dungeon (VEXED, CC BY 4.0).
-
-    python3 scripts/delve/pack_kit.py crypt teal
-    python3 scripts/delve/pack_kit.py keep red
-
-With `pack_tiles.py` (floors and walls) this makes a whole room kit of the
-pack's own pieces, so nothing of the earlier kit stands among them: the
-obstacles (`block`), props and lights (`decor`), the gates and doors
-(`gate`, `odoor`, `sidedoor-<pack>`) and the pits (`hazard`), each at the size
-and name its slot already has, every pixel its nearest game ink.
-"""
 import sys
 from pathlib import Path
 
@@ -20,13 +9,10 @@ from pack_tiles import ROCK, ROCK_EDGE, ROCK_LIP, ROOT, SLOTS, STYLES, ink_table
 
 PACK = ROOT / "cockpit/assets/dungeon/packs/demonic-dungeon"
 
-# Sprites on the sheets: (sheet, x, y, w, h). Doors and stairs come in both
-# styles; the furniture is the same wood in either.
 DOOR = {
     "teal": {"open": (81, 32), "barred": (97, 32), "locked": (113, 32), "stairs": (1, 97), "steps": (18, 97)},
     "red": {"open": (81, 80), "barred": (97, 80), "locked": (113, 80), "stairs": (33, 97), "steps": (50, 97)},
 }
-# The cave's way in is its mouth (Cave.png); its way down a hole with a ladder.
 CAVE_MOUTH = (81, 33, 14, 14)
 CAVE_HOLE = (1, 96, 14, 15)
 CAVE_LADDER = (35, 96, 10, 14)
@@ -44,7 +30,6 @@ def canvas(w, h):
 
 
 def stand(sprite, w=16, h=24):
-    """A sprite on its feet, centred, at the bottom of a w x h canvas."""
     im = canvas(w, h)
     im.alpha_composite(sprite, ((w - sprite.width) // 2, h - sprite.height))
     return im
@@ -57,7 +42,7 @@ def main(pack, style):
     cave = Image.open(PACK / "Cave.png").convert("RGBA")
     bg = Image.open(PACK / "Background.png").convert("RGBA")
     table = ink_table()
-    out = {}  # (slot, name) -> image
+    out = {}
 
     def door(kind):
         if style == "cave":
@@ -67,7 +52,6 @@ def main(pack, style):
                 return crop(cave, *CAVE_LADDER)
             mouth = crop(cave, *CAVE_MOUTH)
             if kind in ("barred", "locked"):
-                # Timbers across the mouth; a locked one shows its hasp.
                 for y in range(5, 14):
                     for x in (3, 6, 9, 12):
                         if mouth.getpixel((x, y))[3]:
@@ -80,10 +64,8 @@ def main(pack, style):
         w = 12 if kind == "steps" else 14
         return crop(dun, x, y, w, 15 if kind in ("open", "barred", "locked") else 14)
 
-    # ── obstacles ───────────────────────────────────────────────────────
     blk = f"dgn.block.{pack}"
     if style == "cave":
-        # A mine's obstacles: stalagmites, crystal clusters, rock and barrels.
         stalag = [crop(cave, 49, 224, 14, 17), crop(cave, 65, 224, 14, 16)]
         out[(blk, "pillar-0")] = stand(stalag[0])
         out[(blk, "pillar-1")] = stand(stalag[1])
@@ -93,8 +75,6 @@ def main(pack, style):
     else:
         for i in range(3):
             out[(blk, f"pillar-{i}")] = stand(crop(dun, *SHELVES[i], 14, 15))
-    # The Crypt's tombs are its coffers and slab in the wall's stone, not wood:
-    # a room of chests reads as a treasury.
     stone = {"D1935F": "A69998", "904B41": "5F575E", "56212A": "2F3D3A", "EF9E4E": "8EB89E"}
 
     def tomb(sprite):
@@ -126,7 +106,6 @@ def main(pack, style):
         out[(blk, "broken-1")] = stand(crop(cave, *small).transpose(Image.FLIP_LEFT_RIGHT))
         out[(blk, "broken-2")] = stand(crop(dun, *CHESTS[3], 14, 13))
 
-    # ── props and lights ────────────────────────────────────────────────
     dec = f"dgn.decor.{pack}"
     for i, x in enumerate([5, 21, 37]):
         out[(dec, f"flame-{i}")] = stand(crop(cave, x, 144, 7, 16))
@@ -145,7 +124,6 @@ def main(pack, style):
         out[(dec, "prop-1")] = stand(crop(dun, 52, 308, 8, 8))
         out[(dec, "decal-0")] = stand(crop(dun, 6, 244, 4, 6))
         out[(dec, "decal-1")] = stand(crop(dun, 54, 260, 5, 7))
-    # A light's pool: the pack's dither, densest at the heart, on nothing.
     glow = canvas(64, 64)
     bayer = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
     for y in range(64):
@@ -155,9 +133,7 @@ def main(pack, style):
                 glow.putpixel((x, y), d)
     out[(dec, "glow")] = glow
 
-    # ── gates and doors ─────────────────────────────────────────────────
     def face(w, h):
-        """The north wall as `pack_tiles` lays it: outline, lit top, its face."""
         im = canvas(w, h)
         for x in range(w):
             im.putpixel((x, 0), o)
@@ -218,7 +194,6 @@ def main(pack, style):
         return im
 
     def side_door(room_side, state):
-        """A door in a side wall, 16 x 32: its dark mouth, planks or bars."""
         im = side_wall(16, 32, room_side)
         x0, x1 = (3, 15) if room_side == "east" else (1, 13)
         for y in range(8, 26):
@@ -267,7 +242,6 @@ def main(pack, style):
         for state in ("closed", "open", "locked"):
             out[(sd, f"{side}-{state}")] = side_door(room_side, state)
 
-    # ── pits ────────────────────────────────────────────────────────────
     hz = f"dgn.hazard.{pack}"
     col = s["floor"]
 
@@ -287,7 +261,7 @@ def main(pack, style):
 
     def rimmed(edges):
         im = pit(3)
-        if "n" in edges:  # the far wall of the pit shows its brick face
+        if "n" in edges:
             for x in range(16):
                 im.putpixel((x, 0), hl)
                 im.putpixel((x, 1), d)

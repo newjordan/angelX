@@ -51,13 +51,9 @@ fn steer_idle_interrupt_defaults_disables_and_falls_back() {
 
 #[test]
 fn steer_interrupt_due_covers_off_none_queued_under_and_over() {
-    // Knob off: never, no matter how idle or queued.
     assert!(!steer_interrupt_due(10_000, 3, 0));
-    // Nothing queued: never — there is nothing to deliver.
     assert!(!steer_interrupt_due(10_000, 0, 60));
-    // Under the threshold: the stream may still be warming up.
     assert!(!steer_interrupt_due(59, 1, 60));
-    // At and over the threshold with steers waiting: fire.
     assert!(steer_interrupt_due(60, 1, 60));
     assert!(steer_interrupt_due(600, 3, 60));
 }
@@ -105,7 +101,6 @@ fn aged(secs: u64) -> Instant {
 fn idle_warnings_fire_exactly_once_per_stage_with_aged_stream() {
     let mut thinking = Thinking::pending_for_test("practice");
     thinking.idle_timeout_secs = Some(600);
-    // Aged past 50% (300s) but not 80% (480s).
     thinking.last_stream_at = aged(301);
     let warning = thinking.idle_warning_due().expect("50% stage due");
     assert_eq!(warning.stage_pct, 50);
@@ -115,7 +110,6 @@ fn idle_warnings_fire_exactly_once_per_stage_with_aged_stream() {
         thinking.idle_warning_due().is_none(),
         "50% is one-shot across frames"
     );
-    // The stall deepens past 80%.
     thinking.last_stream_at = aged(481);
     let warning = thinking.idle_warning_due().expect("80% stage due");
     assert_eq!(warning.stage_pct, 80);
@@ -129,14 +123,12 @@ fn idle_warnings_fire_exactly_once_per_stage_with_aged_stream() {
 fn idle_warning_80_subsumes_50_and_progress_rearms_both() {
     let mut thinking = Thinking::pending_for_test("practice");
     thinking.idle_timeout_secs = Some(100);
-    // First observation is already past 80%: exactly one notice.
     thinking.last_stream_at = aged(90);
     assert_eq!(thinking.idle_warning_due().expect("80% due").stage_pct, 80);
     assert!(
         thinking.idle_warning_due().is_none(),
         "the skipped 50% stage must not fire late"
     );
-    // Stream progress re-arms; a fresh stall escalates from 50% again.
     thinking.note_stream_progress();
     assert!(
         thinking.idle_warning_due().is_none(),
@@ -155,7 +147,6 @@ fn idle_warnings_respect_disabled_and_tiny_timeouts() {
         thinking.idle_warning_due().is_none(),
         "disabled watchdog never warns"
     );
-    // Thresholds that truncate to zero must never warn at idle 0.
     thinking.idle_timeout_secs = Some(1);
     thinking.last_stream_at = Instant::now();
     assert!(thinking.idle_warning_due().is_none());

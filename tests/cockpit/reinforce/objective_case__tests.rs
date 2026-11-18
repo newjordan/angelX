@@ -7,11 +7,7 @@ use std::sync::Mutex;
 
 const TASK: &str = "make the objective's verifier pass";
 
-/// A club that does the work once and then answers, so the attempt under
-/// test is a real experiment artifact rather than a hand-built directory.
 struct WorkerClub {
-    /// When set, the attempt also rewrites the verifier's own script — the
-    /// exact self-grading move the verifier scope exists to catch.
     tamper_verifier: bool,
 }
 
@@ -78,8 +74,6 @@ impl Drop for Fixture {
     }
 }
 
-/// Build a frozen case source, run one real attempt in it, and return the
-/// artifacts. `marker` distinguishes independent case sources.
 fn fixture(tag: &str, marker: &str) -> Fixture {
     fixture_with_club(tag, marker, Arc::new(WorkerClub::new()))
 }
@@ -182,10 +176,6 @@ fn request<'a>(
     }
 }
 
-/// A measured sample must be bound to the case's frozen source, the
-/// attempt's recorded patch and its working copy — a swapped attempt, a
-/// forged patch, a hand-edited working copy or a rewritten verifier is
-/// refused before any evidence exists.
 #[test]
 fn objective_case_receipts_bind_the_case_spec_identity_and_reject_forgeries() {
     let _lock = crate::tests::env_lock();
@@ -229,9 +219,6 @@ fn objective_case_receipts_bind_the_case_spec_identity_and_reject_forgeries() {
         "the verifier ran the frozen script"
     );
 
-    // The measurement sink reports the two real durations for the sample:
-    // the candidate's own recorded generation time, and the verifier's
-    // measured wall time.
     let captured: Arc<Mutex<Vec<(f32, u64, u64)>>> = Arc::new(Mutex::new(Vec::new()));
     let sink_slot = Arc::clone(&captured);
     let observed = ObjectiveCaseEvaluator::new(
@@ -268,7 +255,6 @@ fn objective_case_receipts_bind_the_case_spec_identity_and_reject_forgeries() {
         rows[0].2
     );
 
-    // Cross-case swap: an attempt from another case's frozen source.
     let swapped = receipt(&other);
     let error = match evaluator.evaluate(&request(&swapped, &manifest, &prompt)) {
         Ok(_) => panic!("a swapped attempt must not produce evidence"),
@@ -279,7 +265,6 @@ fn objective_case_receipts_bind_the_case_spec_identity_and_reject_forgeries() {
         "a swapped attempt must be refused, got: {error}"
     );
 
-    // A receipt naming a path outside this campaign's attempts.
     let outside = Candidate {
         output: format!("attempt {} · patch x · stop answer", other.root.display()),
         ..candidate.clone()
@@ -293,7 +278,6 @@ fn objective_case_receipts_bind_the_case_spec_identity_and_reject_forgeries() {
         "{error}"
     );
 
-    // Forged patch bytes.
     let patch_path = case.attempt.join("candidate.patch");
     let patch = std::fs::read(&patch_path).unwrap();
     std::fs::write(&patch_path, b"forged patch\n").unwrap();
@@ -304,8 +288,6 @@ fn objective_case_receipts_bind_the_case_spec_identity_and_reject_forgeries() {
     assert!(error.contains("patch does not match"), "{error}");
     std::fs::write(&patch_path, &patch).unwrap();
 
-    // A change made after the attempt recorded its patch, and never staged:
-    // `git diff HEAD` sees it, so it cannot ride along unbound.
     std::fs::write(case.attempt.join("working/unstaged.txt"), "late\n").unwrap();
     let error = match evaluator.evaluate(&request(&candidate, &manifest, &prompt)) {
         Ok(_) => panic!("an unbound working-tree change must be refused"),
@@ -314,7 +296,6 @@ fn objective_case_receipts_bind_the_case_spec_identity_and_reject_forgeries() {
     assert!(error.contains("patch does not match"), "{error}");
     std::fs::remove_file(case.attempt.join("working/unstaged.txt")).unwrap();
 
-    // A working copy edited after the attempt was recorded.
     std::fs::write(case.attempt.join("working/extra.txt"), "smuggled\n").unwrap();
     git(
         &case.attempt.join("working"),
@@ -327,9 +308,6 @@ fn objective_case_receipts_bind_the_case_spec_identity_and_reject_forgeries() {
     assert!(error.contains("patch does not match"), "{error}");
 }
 
-/// The scope check has to be reachable for the real threat: the attempt
-/// itself rewrites the script that judges it, so the patch and working copy
-/// agree and only the declared verifier scope can refuse the sample.
 #[test]
 fn candidate_cannot_rewrite_the_verifier_during_the_attempt() {
     let _lock = crate::tests::env_lock();
@@ -358,8 +336,6 @@ fn candidate_cannot_rewrite_the_verifier_during_the_attempt() {
     };
     assert!(error.contains("verifier-owned input"), "{error}");
 
-    // Without a declared scope the same attempt is only exploration: the
-    // operator named no verifier-owned inputs, so nothing can be released.
     let unscoped = ObjectiveCaseEvaluator::new(
         &case.fixture,
         "sh tests/check.sh",

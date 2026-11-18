@@ -35,92 +35,58 @@
 
 use super::*;
 
-/// The freedom gauge's whole.
 pub const FREEDOM: u32 = 100;
-/// The share of a knight's health the bolder take costs (a third).
 pub const BLOOD_PRICE: u32 = 3;
-/// How long the scroll stays up after a wish is sealed, and the freeing's
-/// scene, in ticks.
 pub const GRANTED_TICKS: u64 = 3 * HZ as u64;
 pub const FREED_TICKS: u64 = 6 * HZ as u64;
-/// The wishes each floor gives once the genie is free (`FLOOR_WISHES` + 1).
 pub const FREED_FLOOR_WISHES: u8 = overclass::FLOOR_WISHES + 1;
-/// The words that free him, as the scroll writes them.
 pub const FREE_WORDS: &str = "I wish the genie were free";
 
-/// One of the ways the scroll offers to grant a wish.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Take {
-    /// The wish as said.
     Said,
-    /// A step further up its ladder, for a blood price.
     Bolder,
-    /// A wish the genie picks, a step further, no price.
     Whim,
-    /// A super wish's one step, and a plain wish kept.
     Split,
-    /// The wish as said, and a purse besides: none of it to his freedom.
     Deal,
-    /// The genie set free, with a super wish on a full gauge.
     Free,
 }
 
-/// What the genie's deal adds to the wish.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Tip {
-    /// This much gold, carried.
     Purse(u32),
-    /// Health mended whole, and this much gold.
     Mend(u32),
 }
 
-/// One choice on the scroll.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Choice {
     pub take: Take,
-    /// The known wish it grants (its phrasebook id); none for words the
-    /// scroll has yet to learn.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wish: Option<String>,
-    /// Steps up the wish's ladder.
     pub steps: u8,
-    /// Its heading, and what it gives, as the scroll writes them.
     pub head: String,
     pub gives: String,
-    /// What it costs, if anything.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub cost: String,
-    /// The genie's deal's tip.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tip: Option<Tip>,
 }
 
-/// A wish a knight has asked for and not yet sealed: what they said, and
-/// the choices the scroll offers.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Offer {
-    /// The words, or the known wish's name.
     pub said: String,
     #[serde(default, skip_serializing_if = "super::scrolls::omit")]
     pub binding: Option<super::scrolls::Binding>,
-    /// The wish to be spent is a super one.
     #[serde(default)]
     pub great: bool,
     pub choices: Vec<Choice>,
-    /// What the genie says over it.
     #[serde(default)]
     pub line: String,
     pub opened: u64,
-    /// The identity start's question to a knight still unmade
-    /// (`identity::Making::heading`): the scroll asks it over the choices.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ask: Option<String>,
-    /// Whom a summoner's wish is for, turned with 4 (`dead_wishes`): none
-    /// on any other knight's scroll.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target: Option<dead_wishes::Target>,
-    /// The wish to be spent is a shooting star's (`starfall`): free, one
-    /// step, never a super one.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub star: bool,
 }
@@ -140,24 +106,17 @@ impl Offer {
         }
     }
 }
-/// A wish just sealed, for the scroll's last look and the genie's cheer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sealed {
     pub knight: u32,
     pub tick: u64,
     pub line: String,
-    /// A Masterwork or Legendary grade, or a ladder's top: he cheers.
     #[serde(default)]
     pub cheer: bool,
-    /// Landed while the knight played on (a wish the host's runners wrote,
-    /// long after its scroll was rolled up): no scroll comes back over
-    /// their view for it; the lamp's flare over them says it.
     #[serde(default)]
     pub quiet: bool,
 }
 
-/// The genie: his freedom gauge, the wishes sealed (the dice of each
-/// offer), the last one, and when (and by whom) he was freed.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Genie {
     #[serde(default)]
@@ -166,13 +125,11 @@ pub struct Genie {
     pub sealed: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last: Option<Sealed>,
-    /// The tick he was freed, and the knight who freed him.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub freed: Option<(u64, String)>,
 }
 
 impl Genie {
-    /// Nothing has happened to him yet: the wire and saves leave him out.
     pub fn quiet(&self) -> bool {
         *self == Genie::default()
     }
@@ -181,12 +138,10 @@ impl Genie {
         self.freed.is_some()
     }
 
-    /// The gauge is full.
     pub fn ready(&self) -> bool {
         self.freedom >= FREEDOM
     }
 
-    /// The one-line goal the scroll shows under the gauge.
     pub fn hint(&self) -> &'static str {
         if self.free() {
             "Free! Every floor now gives 3 wishes"
@@ -198,16 +153,10 @@ impl Genie {
     }
 }
 
-/// A wish learned words were spent on, for the host to teach: who asked,
-/// the words, the steps, and whether it fills the gauge. It stays on the
-/// run, and in its save, until the grant lands or the wish is given back.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Asked {
-    /// Mirror ink: never spend or grant a gameplay wish for these words.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub cosmetic: bool,
-    /// A painter follows the realm knight even if the seat leaves before
-    /// the host starts its job. Empty in old saves and gameplay wishes.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub cosmetic_name: String,
     pub knight: u32,
@@ -215,22 +164,14 @@ pub struct Asked {
     pub steps: u8,
     pub great: bool,
     pub fills: bool,
-    /// A fairy wish's (`nooks::gnome`): granted Legendary.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub fairy: bool,
-    /// A shooting star's wish (`starfall`): its grant is drawn as the
-    /// star's when it lands.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub star: bool,
-    /// The knight is still wishing themselves into being: what they have
-    /// still to wish, for the learner's brief (`identity`).
     pub making: Option<identity::Making>,
-    /// Whom a summoner wished it for (`dead_wishes`): the learner's brief
-    /// says so, and it is granted for them.
     pub target: dead_wishes::Target,
 }
 
-/// Whether `words` wish the genie free.
 pub fn frees(words: &str) -> bool {
     let words = words.to_lowercase();
     words.contains("genie")
@@ -239,9 +180,6 @@ pub fn frees(words: &str) -> bool {
             .any(|w| words.contains(w))
 }
 
-/// What a wish sealed at `tier` (counting from 0) is worth to the gauge:
-/// its grade's points (the delve's own wishes are drawn as meant, a Fine's
-/// two) times the tier it reached, double for a super wish.
 pub fn freedom_of(grade: Option<artistry::Grade>, tier: usize, great: bool) -> u32 {
     let points = match grade {
         Some(artistry::Grade::Crude) => 1,
@@ -256,42 +194,26 @@ fn numeral(tier: usize) -> &'static str {
     ["I", "II", "III", "IV", "V"].get(tier).copied().unwrap_or("+")
 }
 
-/// The wish line's heading over the ladders a knight holds.
 pub const UPGRADE_HEAD: &str = "Upgrade what you hold";
-/// Under it when there is no wish to spend.
 pub const NO_WISHES: &str = "No wishes held: each floor brings two";
-/// Under it when a wish is held and no ladder yet.
 pub const NOTHING_HELD: &str = "Nothing held yet: say a new wish";
-/// Under it while a shooting star's wish is held (`starfall`).
 pub const STAR_HELD: &str = "A star's wish: free, one step. Say it before you leave its room";
 
-/// One held wish ladder offered by the wish line. Picking it says
-/// [`Upgrade::words`] as typed words would, and the scroll opens on its
-/// next tier. Own spells and wished spells share the same line.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Upgrade {
     pub name: String,
-    /// Wished spells appear before the other ladders.
     pub spell: bool,
-    /// The tier held, from 0, and the next; none at the ladder's top.
     pub tier: usize,
     pub next: Option<usize>,
-    /// The next tier's short line from the phrasebook; empty at the top;
-    /// the floor it waits for when this one is not deep enough for it.
     pub says: String,
-    /// A next tier exists, this floor gives it, and this knight has a wish
-    /// to spend.
     pub available: bool,
 }
 
 impl Upgrade {
-    /// The words that ask the scroll for its next tier (`phrasebook::find_for`
-    /// reads "upgrade" and a held wish's name as that wish).
     pub fn words(&self) -> String {
         format!("upgrade {}", self.name)
     }
 
-    /// Its tiers as the scroll writes them: "I → II", or "III" at the top.
     pub fn tiers(&self) -> String {
         match self.next {
             Some(next) => format!("{} → {}", numeral(self.tier), numeral(next)),
@@ -301,9 +223,6 @@ impl Upgrade {
 }
 
 impl Run {
-    /// Refresh learned ladders already held, including runs saved before
-    /// ladder text travelled to seats. The host calls this after reloading
-    /// its workspace phrasebook.
     pub fn remember_ladders(&mut self, book: &[phrasebook::Wish]) {
         for wish in book.iter().filter(|w| w.learned) {
             if self.players.values().any(|h| h.deck.iter().any(|c| super::dead_wishes::wish_of(c) == Some(wish.id.as_str()))) {
@@ -313,8 +232,6 @@ impl Run {
         }
     }
 
-    /// Held ladders, spells first, then by name. Learned ladders travel
-    /// with the run so every seat can show their next tier's words.
     pub fn upgrades(&self, id: u32) -> Vec<Upgrade> {
         let Some(hero) = self.players.get(&id) else {
             return Vec::new();
@@ -344,8 +261,6 @@ impl Run {
                 || known.is_some_and(|w| w.kind == "spell"),
                 |c| c.kind == cards::Kind::Spell,
             );
-            // A next tier deeper than this floor gives (`overclass::top_tier`)
-            // is shown, faint, with the floor it waits for.
             let waits = next.and_then(|t| overclass::tier_waits(t, self.dungeon.depth));
             Some(Upgrade {
                 name, spell, tier, next,
@@ -362,8 +277,6 @@ impl Run {
         list
     }
 
-    /// The line under the wish line's ladders when none can be picked for
-    /// want of a wish to spend or a ladder to climb.
     pub fn upgrade_note(&self, id: u32, list: &[Upgrade]) -> Option<&'static str> {
         if !self.can_wish(id) {
             Some(NO_WISHES)
@@ -378,24 +291,18 @@ impl Run {
 }
 
 impl Run {
-    /// Knight `id` asks for a wish: the known one `wish` (its words
-    /// `said`), or words the scroll has yet to learn. The scroll opens with
-    /// its choices; nothing is spent until one is picked (`choose`).
     pub fn offer_wish(
         &mut self,
         id: u32,
         said: &str,
         wish: Option<&phrasebook::Wish>,
     ) -> Result<(), String> {
-        // A freedom wish's words are for its place (`freedom`).
         if self.players.get(&id).is_some_and(|h| h.place_wish.is_some()) {
             return self.offer_place_wish(id, said);
         }
-        // The tavern mirror's look is a wish of its own (`cosmetic_wish`).
         if self.players.get(&id).is_some_and(|h| h.mirror_wish) {
             return self.offer_mirror_wish(id, said, wish);
         }
-        // A visitor's wish for a city of the Deep (`deep::city`).
         if self.city_wishing(id) {
             return self.offer_city_wish(id, said);
         }
@@ -406,7 +313,6 @@ impl Run {
         Ok(())
     }
 
-    /// Knight `id` rolls the scroll up: nothing is spent.
     pub fn drop_offer(&mut self, id: u32) -> bool {
         if let Some(h) = self.players.get_mut(&id) {
             h.mirror_wish = false;
@@ -418,7 +324,6 @@ impl Run {
         self.players.get_mut(&id).and_then(|h| h.offer.take()).is_some()
     }
 
-    /// Knight `id` opens the genie's typed line. An offer already open stays.
     pub fn open_wish_line(&mut self, id: u32) -> bool {
         let Some(hero) = self.players.get_mut(&id) else {
             return false;
@@ -432,7 +337,6 @@ impl Run {
         true
     }
 
-    /// A letter on the open typed line. False when the line is not taking letters.
     pub fn type_wish_letter(&mut self, id: u32, c: char) -> bool {
         let Some(hero) = self.players.get_mut(&id) else {
             return false;
@@ -454,9 +358,6 @@ impl Run {
         true
     }
 
-    /// Knight `id` picks choice `n` (from 0) of their open scroll: the wish
-    /// is spent and granted as that choice says. A grant refused spends
-    /// nothing. The name granted, or why not.
     pub fn choose(&mut self, id: u32, n: usize) -> Result<String, String> {
         if self.players.get(&id).is_some_and(|h| h.place_wish.is_some()) {
             return self.choose_place_wish(id, n);
@@ -481,7 +382,6 @@ impl Run {
         let known = binding.chosen(self, id, &offer, n)?;
         let hero = &self.players[&id];
         if offer.star {
-            // A star's scroll spends the star's wish, or nothing (`starfall`).
             if !hero.star_wish {
                 return Err("The star's wish has faded; reopen the scroll. Your own wishes are kept.".into());
             }
@@ -503,8 +403,6 @@ impl Run {
             return result;
         }
         let making = self.players.get(&id).and_then(|h| h.making(&self.book)).filter(|m| !m.made());
-        // A fairy wish (`nooks::gnome`) is spent first, and lands three
-        // steps up at once: a new wish at its third tier, Legendary.
         let fairy = !offer.star && making.is_none() && self.players.get(&id).is_some_and(|h| h.fairy_wishes > 0);
         let mut choice = choice;
         if fairy {
@@ -516,9 +414,6 @@ impl Run {
         let target = offer.target.unwrap_or_default();
         let name = match known {
             Some(wish) => {
-                // For whom the scroll says (`dead_wishes`); as it was, when
-                // the grant is refused. A grant refused spends nothing, and the
-                // knight is told why on their own screen.
                 self.aim_wish(id, &wish, target);
                 if fairy {
                     self.fairy_grant = Some(id);
@@ -549,16 +444,12 @@ impl Run {
                 self.sealed(id, &wish, great, fills);
                 self.fairy_grant = None;
                 if offer.star {
-                    // The star falls onto its knight: no scroll over their
-                    // view for it (`starfall`).
                     self.sealed_quietly(id);
                     self.star_wish_granted(id);
                 }
                 name
             }
             None => {
-                // Words the scroll has yet to learn: spent now, granted
-                // when the host's angelX has written them in.
                 if offer.star {
                     self.spend_star_wish(id);
                 } else if fairy {
@@ -592,7 +483,6 @@ impl Run {
         Ok(name)
     }
 
-    /// The genie's deal's tip, given to knight `id`: the gold it carries.
     fn genie_gold(&mut self, id: u32, choice: &Choice) -> u32 {
         let Some(hero) = self.players.get_mut(&id) else {
             return 0;
@@ -611,15 +501,11 @@ impl Run {
         }
     }
 
-    /// Knight `id`'s wish `wish` is sealed (a super one when `great`): the
-    /// gauge fills by its grade and the tier it reached unless it was the
-    /// genie's deal (`fills`), and the scroll shows it a moment.
     pub fn sealed(&mut self, id: u32, wish: &phrasebook::Wish, great: bool, fills: bool) {
         let Some(hero) = self.players.get(&id) else {
             return;
         };
         let tier = wish.next_tier(&hero.deck).map_or(wish.tiers.len(), |t| t).saturating_sub(1);
-        // A fairy wish's grant is Legendary whatever its art (`nooks::gnome`).
         let grade = if self.fairy_grant == Some(id) { Some(artistry::Grade::Legendary) } else { wish.grade().map(|(g, _)| g) };
         self.genie.sealed += 1;
         if fills && !self.genie.free() {
@@ -641,16 +527,12 @@ impl Run {
         });
     }
 
-    /// Knight `id`'s wish landed while they played on (`sealed`, then
-    /// this): its seal is shown by the lamp's flare over them, never by a
-    /// scroll darkening their view mid-fight.
     pub fn sealed_quietly(&mut self, id: u32) {
         if let Some(last) = self.genie.last.as_mut().filter(|s| s.knight == id && s.tick == self.tick) {
             last.quiet = true;
         }
     }
 
-    /// Knight `id` spends a super wish to free the genie.
     fn free_genie(&mut self, id: u32) -> Result<String, String> {
         if self.genie.free() || !self.genie.ready() {
             return Err("The shackle holds.".into());
@@ -673,22 +555,14 @@ impl Run {
         self.cues.push("genie_free".into());
         self.sounds.push("wish_grant");
         self.shake = self.shake.max(8);
-        // His thanks to every knight here: a freedom wish (`freedom`).
         self.grant_freedom_wishes();
         Ok("The genie is free".into())
     }
 
-    /// The wishes a new floor gives each knight: one more once the genie
-    /// is free.
     pub fn floor_wishes(&self) -> u8 {
         if self.genie.free() { FREED_FLOOR_WISHES } else { overclass::FLOOR_WISHES }
     }
 
-    /// The scroll's keys: a knight with a scroll open picks with 1, 2 or 3
-    /// (the spell keys), turns whom a summoner's wish is for with 4
-    /// (`dead_wishes`), and rolls it up with the menu key, and those keys do
-    /// nothing else that tick. Letters that also steer or fire do neither
-    /// while the typed line or the choices are open.
     pub(super) fn offer_inputs(&mut self, inputs: &BTreeMap<u32, Input>) -> Option<BTreeMap<u32, Input>> {
         self.offer_keys.retain(|id, _| inputs.contains_key(id));
         let busy = inputs.iter().any(|(&id, input)| {

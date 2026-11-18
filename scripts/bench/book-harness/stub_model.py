@@ -1,33 +1,4 @@
 #!/usr/bin/env python3
-"""A scripted OpenAI-compatible model for wire benchmarks.
-
-Every request body is appended to LOG (one JSON object per line) with the
-wall time it arrived. The reply follows a fixed coding script, so two harness
-builds see the same model behaviour and only the harness's own bytes differ.
-
-MODE=plain   never decodes braille.
-MODE=reader  before each scripted step, reads every braille run it has not
-             read yet with read_file ledger://<cells> (a diligent model that
-             decodes each route once).
-MODE=prefix  joins the [workspace-context/v1] `workspace` value onto every
-             path it sends (path, dir), as Muse, GLM and DeepSeek did with the
-             relative `ws/<task>` the polyglot kit's workspace was shown as.
-
-STUB_KEEPALIVE=1 streams with chunked transfer encoding and keeps the
-connection open, as a provider does, so a client can reuse it. Every logged
-request carries the client's connection (its source port) and the
-provider-routing headers it sent, so a run shows its connection reuse.
-STUB_TLS_CERT / STUB_TLS_KEY serve HTTPS with that certificate (the client
-then needs its CA, e.g. SSL_CERT_FILE).
-STUB_IDLE_CLOSE_SECS=N closes a kept connection that has carried no request
-for N seconds, as providers drop idle keep-alive sockets; STUB_IDLE_CLOSE_MODE
-picks a clean FIN (default) or an RST (SO_LINGER 0). Each idle close is
-logged to <log>.closes.
-STUB_ERROR_FROM=K answers every model request from the K-th (0-based) on
-with STUB_ERROR_STATUS (default 503) instead of a reply, carrying
-`x-should-retry: STUB_ERROR_SHOULD_RETRY` when that is set: a provider whose
-failure will not clear.
-"""
 import json
 import os
 import re
@@ -39,7 +10,6 @@ LOG = os.environ["STUB_LOG"]
 MODE = os.environ.get("STUB_MODE", "plain")
 PORT = int(os.environ.get("STUB_PORT", "18080"))
 KEEPALIVE = os.environ.get("STUB_KEEPALIVE") == "1"
-# STUB_NODELAY=0 leaves Nagle on, as a server that never sets TCP_NODELAY.
 NODELAY = os.environ.get("STUB_NODELAY", "1") != "0"
 IDLE_CLOSE = float(os.environ["STUB_IDLE_CLOSE_SECS"]) if os.environ.get("STUB_IDLE_CLOSE_SECS") else None
 IDLE_RST = os.environ.get("STUB_IDLE_CLOSE_MODE", "fin") == "rst"
@@ -55,13 +25,10 @@ SCRIPT = [
     ("read_file", {"path": "test_calc.py"}),
     ("str_replace", {"path": "calc.py", "old": "return a - b", "new": "return a + b"}),
     ("run_tests", {"runtime": "python", "entrypoint": "unittest"}),
-    None,  # final answer
+    None,
 ]
 FINAL = "Fixed `add` in calc.py (it subtracted); the unittest suite now passes."
 
-# STUB_CYCLES=N: a long session. Each cycle reads, runs the red suite, and
-# swaps one wrong operator for another (the workspace changes, the tests stay
-# red); then the real fix, a green run, and the answer. 3N+3 tool turns.
 CYCLES = int(os.environ.get("STUB_CYCLES", "0"))
 if CYCLES:
     SCRIPT = []
@@ -79,9 +46,6 @@ if CYCLES:
         ("run_tests", {"runtime": "python", "entrypoint": "unittest"}),
         None,
     ]
-# STUB_SCRIPT=<file.json>: a scenario's own steps, a list of [tool, args] with
-# null for the answer (decision-point captures, decide_capture.sh); or a list
-# of such lists, one per user turn (decide_turns.sh).
 TURNS = None
 PROMPTS = [line.strip() for line in open(os.environ["STUB_PROMPTS"])] if os.environ.get("STUB_PROMPTS") else []
 if os.environ.get("STUB_SCRIPT"):
@@ -104,7 +68,6 @@ def text_of(message):
 
 
 def scripted_steps_done(messages):
-    """How many scripted (non-ledger) tool calls the conversation already holds."""
     done = 0
     for message in messages:
         for call in message.get("tool_calls") or []:
@@ -115,8 +78,6 @@ def scripted_steps_done(messages):
 
 
 def unread_routes(messages):
-    """Braille the harness sent (prompt, notes, tool-result tails), not the
-    addresses inside a ledger read's own decoded reply."""
     ledger_ids = set()
     for message in messages:
         for call in message.get("tool_calls") or []:
@@ -147,7 +108,6 @@ def advertised_workspace(messages):
 
 
 def prefixed(action, messages):
-    """The step with the advertised workspace joined onto its paths."""
     if action is None:
         return None
     workspace = advertised_workspace(messages)
@@ -179,9 +139,6 @@ def scripted_action(body):
             return ("read_file", {"path": f"ledger://{run}"})
     script = SCRIPT
     if TURNS is not None:
-        # The operator's prompts (STUB_PROMPTS, one per line; the harness adds
-        # its own user-role context beside them) mark the turns; each turn
-        # counts its own steps.
         prompts = [i for i, m in enumerate(messages)
                    if m.get("role") == "user" and text_of(m).strip() in PROMPTS]
         script = TURNS[min(len(prompts), len(TURNS)) - 1] if prompts else TURNS[0]
@@ -193,7 +150,6 @@ def scripted_action(body):
 
 
 def responses_messages(body):
-    """A Responses request as Chat Completions messages, for the same script."""
     out = []
     if body.get("instructions"):
         out.append({"role": "system", "content": body["instructions"]})
@@ -217,8 +173,6 @@ class Handler(BaseHTTPRequestHandler):
 
     def setup(self):
         if IDLE_CLOSE:
-            # StreamRequestHandler applies `timeout` to the socket; a read of
-            # the next request that waits this long ends the connection.
             self.timeout = IDLE_CLOSE
         super().setup()
         if NODELAY:
@@ -232,7 +186,6 @@ class Handler(BaseHTTPRequestHandler):
             if IDLE_RST:
                 import socket, struct
                 self.connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
-                # A bare RST: the server must not send its usual FIN first.
                 self.server.rst_fds.add(self.connection.fileno())
         super().finish()
 
@@ -259,7 +212,6 @@ class Handler(BaseHTTPRequestHandler):
         super().handle_one_request()
 
     def _wire(self):
-        """The connection this request arrived on and its routing headers."""
         headers = {name: self.headers[name] for name in ROUTING_HEADERS if self.headers.get(name)}
         return {"conn": self.client_address[1], "headers": headers}
 
@@ -291,7 +243,6 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.flush()
 
     def _responses(self, body, raw):
-        """The Responses API (Muse's and the Codex seats' wire), streamed."""
         arrived = time.time()
         action = next_action({"messages": responses_messages(body)})
         state["calls"] += 1
@@ -415,9 +366,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 class Server(ThreadingHTTPServer):
-    """ThreadingHTTPServer whose idle RST closes skip the FIN (SHUT_WR) that
-    socketserver sends before every close."""
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.rst_fds = set()

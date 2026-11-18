@@ -12,9 +12,6 @@ pub fn fight() -> Run {
         .iter()
         .position(|room| room.kind == RoomKind::Fight && !room.great())
         .unwrap();
-    // A wraiths' room, whichever company the floor gave it: the tableau
-    // this was drawn for (a skeleton's bone shots are not yet kept whole
-    // by the v2 art; the overlay test fails on them at the base too).
     r.dungeon.rooms[i].roster = vec![EnemyKind::Wraith; 4];
     r.enter_for_test(i);
     r.dungeon.pack = Pack::Crypt;
@@ -30,7 +27,6 @@ pub fn fight() -> Run {
             },
         )]));
     }
-    // Repeatable tableau; projectiles come from the actual simulation.
     if let Some(e) = r.enemies.first().cloned() {
         r.enemies.truncate(2);
         for (i, (x, y, kind)) in [
@@ -74,7 +70,6 @@ pub fn fight() -> Run {
     r
 }
 
-/// One live guardian, using its own pack and unchanged attacks.
 pub fn boss(id: &str) -> Run {
     let mut run = fight();
     run.calm_for_test();
@@ -83,7 +78,6 @@ pub fn boss(id: &str) -> Run {
     run.feel = Default::default();
     if !run.bosses.iter().any(|b| b.id == id) {
         let boss = crate::rules::bosses::checked(id).expect("review boss definition");
-        // Retain the existing single-pack replacement in the original fixtures.
         if matches!(id, "crypt-tithe-marshal" | "crypt-tax-keeper" | "crypt-relic-liege" | "red-pick-chief" | "iron-tusk-chief") {
             run.bosses.retain(|b| b.only_in != boss.only_in);
         }
@@ -119,8 +113,6 @@ pub fn kingdom() -> Run {
     r
 }
 
-/// Existing side-on rules and the Book Hop folly, for kit coverage measurements.
-/// The Ledge is off outside tests, so the floor is laid with it asked for.
 pub fn hall() -> Run {
     let mut r = crate::rules::layout::with_ledge_for_test(|| Run::new(0, 1, None));
     let at = r.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Ledge).unwrap();

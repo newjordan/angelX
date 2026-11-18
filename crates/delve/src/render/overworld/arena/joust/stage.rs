@@ -10,29 +10,21 @@
 use super::super::super::ink::{Img, bayer, hash};
 use std::sync::OnceLock;
 
-/// Where the riders' hooves meet the sand in the far lane and the near one.
 pub(super) const FAR_Y: i32 = 132;
 pub(super) const NEAR_Y: i32 = 176;
-/// The tilt's rail: its top row and its height.
 pub(super) const TILT_Y: i32 = 134;
 pub(super) const TILT_H: i32 = 11;
-/// The stands' front rail and the fence.
 pub(super) const RAIL_Y: i32 = 86;
 pub(super) const FENCE_Y: i32 = 193;
-/// The stands' benches: the row each tier of the crowd sits on.
 pub(super) const TIERS: [i32; 4] = [47, 59, 71, 83];
-/// The stands' horizontal run.
 pub(super) const STANDS: (i32, i32) = (46, 338);
-/// Where the torches stand (their flame's base).
 pub(super) const TORCHES: [(i32, i32); 4] = [(44, 96), (340, 96), (12, 150), (372, 150)];
 
-/// The still picture: everything that does not move.
 pub(super) fn backdrop() -> &'static Img {
     static B: OnceLock<Img> = OnceLock::new();
     B.get_or_init(paint)
 }
 
-/// The tilt and its posts, on clear paper, to go over the far rider.
 pub(super) fn tilt() -> &'static Img {
     static T: OnceLock<Img> = OnceLock::new();
     T.get_or_init(|| {
@@ -47,12 +39,10 @@ pub(super) fn tilt() -> &'static Img {
             }
             im.put(x, y + 7, if stripe { 'p' } else { 'r' });
             im.put(x, y + 8, 'b');
-            // Boards: a seam every few rows.
             if (x + y) % 7 == 0 {
                 im.put(x, y + 4, 'B');
             }
         }
-        // Posts every 48, capped.
         for x in (10..=370).step_by(48) {
             im.rect(x, 0, 3, TILT_H + 5, 'I');
             im.line(x, 0, x + 2, 0, 'o');
@@ -63,7 +53,6 @@ pub(super) fn tilt() -> &'static Img {
     })
 }
 
-/// The fence in front of the sand, on clear paper.
 pub(super) fn fence() -> &'static Img {
     static F: OnceLock<Img> = OnceLock::new();
     F.get_or_init(|| {
@@ -88,7 +77,6 @@ pub(super) fn fence() -> &'static Img {
 }
 
 fn sky(im: &mut Img) {
-    // Deep night, a little warmer where the stands' glow rises.
     for y in 0..40 {
         for x in 0..384 {
             let k = y as f32 / 40.0;
@@ -103,11 +91,9 @@ fn sky(im: &mut Img) {
     }
 }
 
-/// A pavilion: a striped canvas roof on a pole, a dark mouth, guy lines.
 fn pavilion(im: &mut Img, left: i32, ground: i32, cloth: [char; 2], face: i32) {
     let (w, h) = (52, 40);
     let apex = (left + w / 2, ground - h - 8);
-    // The roof: wedges striped from the apex to the eaves.
     for y in apex.1..ground - 12 {
         let t = (y - apex.1) as f32 / (ground - 12 - apex.1) as f32;
         let half = (t * (w as f32 / 2.0 + 3.0)) as i32;
@@ -118,7 +104,6 @@ fn pavilion(im: &mut Img, left: i32, ground: i32, cloth: [char; 2], face: i32) {
             let c = if shade == 1 { c } else { dim(c) };
             im.put(x, y, c);
         }
-        // The scalloped edge: the last rows hang in points.
         if y >= ground - 16 {
             let mut x = apex.0 - half;
             while x < apex.0 + half {
@@ -127,7 +112,6 @@ fn pavilion(im: &mut Img, left: i32, ground: i32, cloth: [char; 2], face: i32) {
             }
         }
     }
-    // The walls under the eaves and the dark mouth.
     for y in ground - 12..ground {
         for x in left + 3..left + w - 3 {
             let stripe = ((x + 100) / 6) % 2 == 0;
@@ -137,7 +121,6 @@ fn pavilion(im: &mut Img, left: i32, ground: i32, cloth: [char; 2], face: i32) {
     im.rect(apex.0 - 7, ground - 12, 14, 12, 'k');
     im.rect(apex.0 - 8, ground - 12, 1, 12, 'I');
     im.rect(apex.0 + 7, ground - 12, 1, 12, 'I');
-    // The pole and its finial.
     im.line(apex.0, apex.1 - 8, apex.0, apex.1 + 2, 'o');
     im.put(apex.0, apex.1 - 9, '5');
 }
@@ -157,7 +140,6 @@ fn dim(c: char) -> char {
 
 fn stands(im: &mut Img) {
     let (x0, x1) = STANDS;
-    // The back wall: timber planks in the shade.
     for y in 24..RAIL_Y {
         for x in x0..x1 {
             let plank = (x / 8) % 2 == 0;
@@ -173,7 +155,6 @@ fn stands(im: &mut Img) {
             im.put(x, y, ink);
         }
     }
-    // The tiers: a bench's lit edge and its shadowed riser.
     for &t in &TIERS {
         for x in x0..x1 {
             im.put(x, t + 1, 'P');
@@ -183,7 +164,6 @@ fn stands(im: &mut Img) {
             }
         }
     }
-    // The awning: a scalloped canvas in dim red and ochre.
     for y in 22..33 {
         for x in x0 - 6..x1 + 6 {
             let stripe = (x / 8) % 2 == 0;
@@ -196,7 +176,6 @@ fn stands(im: &mut Img) {
             im.put(x, y, if y == 22 { 'k' } else { c });
         }
     }
-    // The posts that hold it up, and the front rail with its painted shields.
     for x in [x0 - 4, x1 + 2] {
         im.rect(x, 22, 4, RAIL_Y - 20, 'I');
         im.rect(x, 22, 1, RAIL_Y - 20, 'o');
@@ -226,7 +205,6 @@ fn stands(im: &mut Img) {
 fn sand(im: &mut Img) {
     for y in RAIL_Y + 6..FENCE_Y + 8 {
         for x in 0..384 {
-            // The lanes: warmer where the hooves run, in a soft band each.
             let lane = |c: i32| {
                 let d = ((y - c) as f32 / 18.0).abs();
                 (1.0 - d).max(0.0)
@@ -248,7 +226,6 @@ fn sand(im: &mut Img) {
             im.put(x, y, ink);
         }
     }
-    // Hoofprints along each lane, old.
     for (lane, base) in [(FAR_Y, 3), (NEAR_Y, 4)] {
         for i in 0..52 {
             let x = (hash(i, base, 61) % 360) as i32 + 8;
@@ -257,7 +234,6 @@ fn sand(im: &mut Img) {
             im.put(x + 1, y, 'b');
         }
     }
-    // A chalk line along the lists' ends.
     for y in RAIL_Y + 10..FENCE_Y {
         if y % 3 != 0 {
             im.put(5, y, 'j');
@@ -269,7 +245,6 @@ fn sand(im: &mut Img) {
 fn paint() -> Img {
     let mut im = Img::black(384, 224);
     sky(&mut im);
-    // Flag poles at the corners, over the awning.
     for x in [8, 375] {
         im.rect(x, 4, 2, 60, 'I');
         im.put(x, 3, '5');
@@ -279,7 +254,6 @@ fn paint() -> Img {
     pavilion(&mut im, 336, 124, ['u', 'T'], -1);
     stands(&mut im);
     sand(&mut im);
-    // Torch posts.
     for &(x, y) in &TORCHES {
         im.rect(x - 1, y, 3, 22, 'I');
         im.line(x - 1, y, x - 1, y + 21, 'o');
@@ -289,18 +263,13 @@ fn paint() -> Img {
     im
 }
 
-/// The moving parts of the scenery, over the still picture and under the
-/// riders: the torches' flames and the pools of light they throw on the
-/// sand, the pennants on the poles and the pavilions, the stars.
 pub(super) fn live(im: &mut Img, tick: u32) {
-    // Stars twinkle.
     for i in 0..9 {
         let (x, y) = ((hash(i, 3, 91) % 384) as i32, (hash(i, 9, 92) % 24) as i32);
         if (tick / 9 + i as u32) % 5 == 0 {
             im.put(x, y, 'w');
         }
     }
-    // Pennants on the poles: a swallowtail each, rippling.
     for (x, dir, cloth) in [(10, 1, ['7', 'T']), (375, -1, ['1', 'W'])] {
         for k in 0..9 {
             let ripple = ((tick / 4 + k as u32) % 4) as i32;
@@ -312,7 +281,6 @@ pub(super) fn live(im: &mut Img, tick: u32) {
             }
         }
     }
-    // The pavilions' pennons.
     for (apex, dir) in [(22, 1), (362, -1)] {
         let y = 124 - 40 - 17;
         for k in 0..3 {
@@ -322,7 +290,6 @@ pub(super) fn live(im: &mut Img, tick: u32) {
             }
         }
     }
-    // The torches: a light on the sand round each, then the flame.
     for (i, &(x, y)) in TORCHES.iter().enumerate() {
         let flick = (hash(i as i32, (tick / 2) as i32, 33) % 3) as i32;
         let r = 26 + flick * 2;
@@ -337,7 +304,6 @@ pub(super) fn live(im: &mut Img, tick: u32) {
                 }
             }
         }
-        // The flame: three tongues, flickering.
         let h = 5 + flick;
         im.rect(x - 1, y - 2 - h, 3, h, '@');
         im.rect(x, y - 3 - h, 1, h, '6');

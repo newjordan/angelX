@@ -109,14 +109,12 @@ fn a_spell_casts_and_breaks_in_its_familys_voice() {
         ("name Acid Spray\nkind spell\ncooldown 6\ncast bolt\n", Voice::Poison),
         ("name Stone Fist\nkind spell\ncooldown 6\ncast meteor\n", Voice::Earth),
         ("name Moon Thread\nkind spell\ncooldown 6\ncast bolt\n", Voice::Arcane),
-        // A recipe of its own speaks first.
         ("name Plain Bolt\nkind spell\ncooldown 6\ncast bolt\nvfx cast glyph frost\n", Voice::Frost),
     ] {
         let c = card(raw);
         assert_eq!(palette(&c).voice(), voice, "{raw}");
         assert_eq!((cast_sound(&c), impact_sound(&c)), (voice.cast(), voice.impact()), "{raw}");
     }
-    // Every palette sounds in a family, and every family is some palette's.
     let all = [Voice::Fire, Voice::Frost, Voice::Holy, Voice::Storm, Voice::Poison, Voice::Arcane, Voice::Earth];
     for v in all {
         assert!(Palette::ALL.iter().any(|p| p.voice() == v), "{v:?}");

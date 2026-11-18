@@ -13,7 +13,6 @@ fn every_thing_has_a_sprite_in_quiet_inks() {
                 for x in 0..im.w {
                     if let Some(c) = im.get(x, y) {
                         assert!(!is_signal(c), "{item:?} uses a signal ink at ({x}, {y})");
-                        // Nothing past a quiet grey: no stark whites.
                         assert!(c.iter().map(|&v| u32::from(v)).sum::<u32>() < 3 * 0xd0, "{item:?} is too bright at ({x}, {y}): {c:?}");
                         lit += 1;
                     }
@@ -35,8 +34,6 @@ fn a_clearing_is_a_loose_oval_of_worn_ground() {
     assert!(bay(0, 0, (40, 28)).is_none(), "nothing worn far off");
 }
 
-/// Every thing at four times its size on black, in rows by biome, as a PNG:
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_dressing_sheet -- --ignored`.
 #[test]
 #[ignore]
 fn write_dressing_sheet() {

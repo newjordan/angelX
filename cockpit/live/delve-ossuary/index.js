@@ -1,8 +1,3 @@
-// Thin adapter for the Bone Dominoes leg. Plain JSON in, the compiled rule's
-// next state and ordered effects out: every timer, branch, score and effect
-// lives in ossuary.bend. Rust owns the Run, the geometry (who stands where),
-// the sound names, the banner words and the monster bodies, and applies the
-// effects in the order they arrive.
 const bend = require('./ossuary.compiled.js')
 
 const flag = value => value === true

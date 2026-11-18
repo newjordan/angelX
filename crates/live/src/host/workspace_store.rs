@@ -9,14 +9,10 @@ use std::hash::{Hash, Hasher};
 use std::io::Write as _;
 use std::path::Path;
 
-/// A stable, filesystem-safe key for a workspace path: a sanitized,
-/// length-bounded prefix plus a deterministic hash suffix.
 pub fn workspace_key(workspace: &Path) -> String {
     let s = workspace.to_string_lossy();
     let mut hasher = DefaultHasher::new();
     if workspace.to_str().is_some() {
-        // Keep existing keys for all UTF-8 paths; invalid paths must not
-        // collapse to the same replacement-character spelling.
         s.hash(&mut hasher);
     } else {
         b"angel-workspace-non-utf8-v1".hash(&mut hasher);
@@ -36,44 +32,19 @@ pub fn workspace_key(workspace: &Path) -> String {
     format!("{trimmed}-{h:016x}")
 }
 
-/// Atomically publish a private state file and make the file plus directory
-/// entry durable before returning. A unique same-directory temporary keeps
-/// concurrent cockpit processes from corrupting each other's staging bytes.
-///
-/// This is the **durable** tier: after it returns, the bytes survive a power
-/// cut. Use it for state that cannot be regenerated (sessions, memories,
-/// goals, credentials, ledgers). For regenerable or bulk output where a torn
-/// last write is recoverable by rewriting, use [`write_atomic`], which keeps
-/// the atomic publish but skips both fsyncs and secret redaction.
 pub fn write_private_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let redacted = crate::host::secrets::redact_bytes(bytes);
     write_atomic_inner(path, redacted.as_slice(), true)
 }
 
-/// Atomically publish a file (unique temp sibling + rename) **without**
-/// fsync or redaction. A crash can lose the newest write or expose the
-/// previous complete file, but a reader never observes torn bytes and
-/// concurrent writers never corrupt each other's staging files.
-///
-/// The **bulk** tier: only for non-sensitive, regenerable output (art,
-/// exports, reports, caches with a rebuild path). Anything a user would
-/// mourn belongs in [`write_private_atomic`].
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
     write_atomic_inner(path, bytes, false)
 }
 
-/// Durable publish of **exact** bytes: fsync file + directory and private
-/// (0600) like [`write_private_atomic`], but without secret redaction.
-/// Only for stores whose bytes must round-trip verbatim — credential files
-/// holding live tokens, or content whose hash certifies the exact body.
-/// Callers own proving the bytes belong on disk unredacted.
 pub fn write_private_atomic_exact(path: &Path, bytes: &[u8]) -> Result<(), String> {
     write_atomic_inner(path, bytes, true)
 }
 
-/// Serialize read/compare/write transactions across processes. Keep this
-/// sibling inode after unlocking: unlinking it would let a third writer lock
-/// a different inode while another process still holds the old one.
 pub fn try_private_lock(path: &Path) -> Result<std::fs::File, String> {
     let parent = path
         .parent()
@@ -125,8 +96,6 @@ fn write_atomic_inner(path: &Path, bytes: &[u8], durable: bool) -> Result<(), St
         #[cfg(unix)]
         {
             use std::os::unix::fs::OpenOptionsExt as _;
-            // Durable state is private by default; bulk output keeps the
-            // caller's umask so exported artifacts stay shareable.
             options
                 .mode(if durable { 0o600 } else { 0o666 })
                 .custom_flags(libc::O_NOFOLLOW);
@@ -168,10 +137,6 @@ fn write_atomic_inner(path: &Path, bytes: &[u8], durable: bool) -> Result<(), St
     result
 }
 
-/// Test-only fault injection for the atomic writers: one-shot hooks armed per
-/// thread, so other tests and writers are unaffected. Compiled for this
-/// crate's tests and for dependents that enable the `fault-hooks` feature
-/// (the cockpit's dev-dependency); a release build carries none of it.
 #[cfg(any(test, feature = "fault-hooks"))]
 pub mod fault {
     use std::cell::RefCell;

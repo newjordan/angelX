@@ -2,9 +2,7 @@
 
 pub(crate) const ADIT_W: i32 = 26;
 pub(crate) const ADIT_H: i32 = 34;
-/// First row of the black tunnel. The lintel is the rows above it.
 pub(crate) const MOUTH_ROW: i32 = 4;
-/// First row of the floor rails and the ore cart.
 pub(crate) const CART_ROW: i32 = 22;
 
 pub(crate) const BASE: [&str; 34] = [
@@ -44,8 +42,6 @@ pub(crate) const BASE: [&str; 34] = [
     ".........BJBBBBJB.........",
 ];
 
-/// Cart ore that is not limestone: (row, col) and the replacement ink.
-/// Limestone keeps the sheet (`V` highlight, `v` main).
 pub(crate) fn cart_ink(region: u8, row: usize, col: usize, ch: char) -> char {
     const ORE: [(usize, usize); 11] = [
         (24, 10), (24, 12), (24, 14), (24, 15),

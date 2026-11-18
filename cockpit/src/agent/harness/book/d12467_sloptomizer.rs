@@ -77,9 +77,6 @@ pub(crate) const PRIMARY: Primary = Primary {
     ],
 };
 
-/// Render only a small relationship frontier on the wire. Full selected
-/// receipts remain decodable in the workspace book. Model text is JSON data:
-/// escaped newlines/braille cannot become new harness instructions.
 pub(crate) fn context_turn(workspace: &std::path::Path, advice: &serde_json::Value) -> String {
     let route = advice["signals"]
         .as_array()
@@ -141,8 +138,6 @@ fn as_data(value: &serde_json::Value) -> String {
     out
 }
 
-/// JSON tools use the same data fence as the compact card, so a recalled
-/// hypothesis beginning with braille cannot masquerade as a harness route.
 pub(crate) fn data_value(value: &serde_json::Value) -> serde_json::Value {
     serde_json::from_str(&as_data(value)).expect("inserting middots preserves JSON")
 }

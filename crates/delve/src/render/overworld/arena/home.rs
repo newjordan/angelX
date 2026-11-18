@@ -16,14 +16,11 @@ use crate::rules::home::{
 use crate::rules::{RoomKind, Run, Tile};
 use crate::render::overworld::light::Light;
 
-/// The Winding Stair's middle, in native pixels.
 pub(super) fn stair_centre() -> (i32, i32) {
     let (c, r, w, h) = STAIRWELL;
     ((c * 2 + w) * TILE / 2, (r * 2 + h) * TILE / 2)
 }
 
-/// The cellar at rest: flags and the rug, the walls and their braziers,
-/// each station as built, the plates, and the stair.
 pub(super) fn scenery(run: &Run) -> Img {
     let room = run.room();
     let tick = run.tick as u32;
@@ -66,8 +63,6 @@ pub(super) fn scenery(run: &Run) -> Img {
     rack(&mut cv, levels(Station::Rack));
     chapel(&mut cv, &mut lights, levels(Station::Chapel), tick);
     if room.doors[3] {
-        // Match the loop miners' real access cut through the chapel screen.
-        // A home without the wing keeps its existing painting unchanged.
         for y in (room.rows as i32 / 2 - 1) * TILE..(room.rows as i32 / 2 + 1) * TILE {
             for x in TILE..2 * TILE {
                 if let Some(ch) = flags(x, y) {
@@ -89,8 +84,6 @@ pub(super) fn scenery(run: &Run) -> Img {
     cv
 }
 
-/// Loop-built wing: furniture/collision comes from the saved shared Floor.
-/// Do not accidentally draw the home shop's purchase plates in every room.
 pub(super) fn settlement_scenery(run: &Run) -> Img {
     let room = run.room();
     let (pw, ph) = room_px(room);
@@ -128,7 +121,6 @@ pub(super) fn settlement_scenery(run: &Run) -> Img {
     cv
 }
 
-/// Shared pixels are deliberately generic: no worker title, path or prose.
 pub(super) fn research_exhibits(cv: &mut Img, run: &Run) {
     for m in run.settlement_exhibits.iter().filter(|m| m.room == run.at) {
         let (x, y) = (m.col as i32 * TILE, m.row as i32 * TILE);
@@ -139,9 +131,6 @@ pub(super) fn research_exhibits(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The stair up to the Delve's gate, in the north wall east of the
-/// Training Yard's door: steps rising into an arch, daylight's dusk at the
-/// top, a torch beside it. Drawn only where the world has risen.
 fn cellar_stair(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32) {
     use crate::rules::world::CELLAR_STAIR;
     let (c, r, w, h) = CELLAR_STAIR;
@@ -149,7 +138,6 @@ fn cellar_stair(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32) {
         return;
     }
     let (x0, x1) = (c * TILE + 2, (c + w) * TILE - 2);
-    // The opening in the wall above: an arch onto the dark of the stair.
     for y in 2..TILE + 2 {
         for x in x0..x1 {
             let (dx, dy) = ((x - (x0 + x1) / 2) as f32 / 13.0, (y - 12) as f32 / 10.0);
@@ -166,7 +154,6 @@ fn cellar_stair(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32) {
         );
         cv.put(x as i32, y as i32, 'J');
     }
-    // The steps, lightest at the top, where the gate is.
     for (i, y) in (TILE + 2..(r + h) * TILE).step_by(3).enumerate() {
         let ink = ['h', 'J', 'G', 'j', 'g'][i.min(4)];
         cv.line(x0, y, x1 - 1, y, ink);
@@ -182,7 +169,6 @@ fn cellar_stair(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32) {
     ));
 }
 
-/// The runner from the foot of the room up to the stair's mouth.
 fn rug(cv: &mut Img) {
     let (mc, mr, mw, _) = STAIR_MOUTH;
     let (x0, x1) = (mc * TILE + 2, (mc + mw) * TILE - 2);
@@ -211,8 +197,6 @@ fn rug(cv: &mut Img) {
     }
 }
 
-/// Two long banners of the company on the north wall, either side of the
-/// stair: the realm's red, worked in timber inks so they never glow.
 fn banners(cv: &mut Img) {
     for x0 in [124i32, 248] {
         for y in 2i32..30 {
@@ -237,10 +221,7 @@ fn banners(cv: &mut Img) {
     }
 }
 
-/// Tobbin's forge: a stone hood into the north wall, the firebox under it
-/// (cold ash until the edge is bought), the anvil, and his blade rack.
 fn forge(cv: &mut Img, lights: &mut Vec<Light>, level: u8, tick: u32) {
-    // The hood, narrowing into the wall.
     for y in 0..20 {
         let inset = (20 - y) / 5;
         for x in 36 + inset..68 - inset {
@@ -279,7 +260,6 @@ fn forge(cv: &mut Img, lights: &mut Vec<Light>, level: u8, tick: u32) {
     if lit {
         lights.push(fire(52, 38, 60.0 + f32::from(level) * 6.0, 0.62));
     }
-    // The anvil.
     let (ax, ay) = (72, 33);
     cv.line(ax, ay, ax + 18, ay, 'h');
     cv.line(ax - 3, ay + 1, ax + 19, ay + 1, 'J');
@@ -288,15 +268,12 @@ fn forge(cv: &mut Img, lights: &mut Vec<Light>, level: u8, tick: u32) {
     cv.rect(ax + 3, ay + 8, 13, 3, 'j');
     cv.line(ax + 2, ay + 11, ax + 16, ay + 11, 'g');
     if lit {
-        // A blade on the anvil, still glowing.
         cv.line(ax + 4, ay - 1, ax + 14, ay - 1, '@');
     }
     let rack = kit::blade_rack(u32::from(level).clamp(1, 5));
     cv.stamp(&rack, 74, 4);
 }
 
-/// Wren's map table: a timber table under a parchment map of the Winding
-/// Stair, a mark for every landing drawn, and her candles.
 fn map_table(cv: &mut Img, lights: &mut Vec<Light>, level: u8, tick: u32) {
     let (x0, y0) = (290, 22);
     cv.rect(x0, y0, 60, 16, 'P');
@@ -305,11 +282,9 @@ fn map_table(cv: &mut Img, lights: &mut Vec<Light>, level: u8, tick: u32) {
     for lx in [x0 + 2, x0 + 56] {
         cv.line(lx, y0 + 17, lx, y0 + 24, 'b');
     }
-    // The parchment, a little askew.
     cv.rect(x0 + 6, y0 + 2, 46, 12, 'T');
     cv.line(x0 + 6, y0 + 13, x0 + 51, y0 + 13, 't');
     cv.line(x0 + 51, y0 + 2, x0 + 51, y0 + 13, 't');
-    // The stair drawn on it: a spiral, and a mark for each floor reached.
     let (sx, sy) = (x0 + 14, y0 + 8);
     for k in 0..28 {
         let a = k as f32 * 0.42;
@@ -333,8 +308,6 @@ fn map_table(cv: &mut Img, lights: &mut Vec<Light>, level: u8, tick: u32) {
     lights.push(fire(357, 21, 38.0, 0.3));
 }
 
-/// Old Blaise's hearth against the south wall: always lit, and bigger for
-/// every rung of warmth bought.
 fn hearth(cv: &mut Img, lights: &mut Vec<Light>, level: u8, tick: u32) {
     let (x0, y0) = (34, 176);
     cv.rect(x0, y0, 60, 32, 'S');
@@ -347,7 +320,6 @@ fn hearth(cv: &mut Img, lights: &mut Vec<Light>, level: u8, tick: u32) {
     }
     cv.line(x0, y0, x0 + 59, y0, 'v');
     cv.rect(x0 + 10, y0 + 6, 40, 22, 'k');
-    // Logs, more of them as the hearth is built up.
     for i in 0..=i32::from(level).min(3) {
         let y = y0 + 24 - i * 2;
         cv.line(
@@ -382,14 +354,11 @@ fn hearth(cv: &mut Img, lights: &mut Vec<Light>, level: u8, tick: u32) {
         }
     }
     lights.push(fire(x0 + 30, y0 + 14, 70.0 + f32::from(level) * 8.0, 0.7));
-    // Blaise's stool.
     cv.rect(100, 200, 10, 3, 'r');
     cv.line(101, 203, 101, 206, 'b');
     cv.line(108, 203, 108, 206, 'b');
 }
 
-/// Tobbin's rack against the south wall: a plank shelf that fills with
-/// potions, bombs and a scroll as its rungs are bought.
 fn rack(cv: &mut Img, level: u8) {
     let (x0, y0) = (288, 180);
     cv.rect(x0, y0 + 18, 64, 4, 'I');
@@ -434,8 +403,6 @@ fn rack(cv: &mut Img, level: u8) {
     }
 }
 
-/// The Chapel of Bonds: an alcove in the west wall, its altar, its candles
-/// lit and its two rings bright once the second wind is bought.
 fn chapel(cv: &mut Img, lights: &mut Vec<Light>, level: u8, tick: u32) {
     let (x0, y0) = (17, 82);
     cv.rect(x0, y0, 14, 60, 'U');
@@ -472,13 +439,10 @@ fn chapel(cv: &mut Img, lights: &mut Vec<Light>, level: u8, tick: u32) {
     }
 }
 
-/// A station's engraved plate: a dark slab with a bronze edge and the
-/// station's mark, bright while a knight stands on it.
 pub(super) fn plate(cv: &mut Img, rect: (i32, i32, i32, i32), lit: bool, station: Station) {
     plate_marked(cv, rect, lit, &mark(station));
 }
 
-/// An engraved plate with its own mark (ink `O`, lit to `6`).
 pub(super) fn plate_marked(
     cv: &mut Img,
     (c, r, w, h): (i32, i32, i32, i32),
@@ -493,7 +457,6 @@ pub(super) fn plate_marked(
     cv.stamp(&mark, x + (pw - mark.w) / 2, y + (ph - mark.h) / 2);
 }
 
-/// Each station's mark, engraved on its plate.
 fn mark(station: Station) -> Img {
     Img::from_rows(match station {
         Station::Forge => &["OOOO..", "OOOOO.", "..O...", "..O...", "..O..."],
@@ -518,9 +481,6 @@ fn mark(station: Station) -> Img {
     })
 }
 
-/// The Winding Stair from above: a stone parapet round a spiral of steps
-/// going down clockwise into the dark, open to the south where the party
-/// walks in, a newel post in its middle.
 fn stair(cv: &mut Img) {
     use std::f32::consts::{FRAC_PI_2, TAU};
     const RAMP: [char; 9] = ['V', 'v', 'U', 'u', 'S', 'x', 's', 'K', 'k'];
@@ -558,8 +518,6 @@ fn stair(cv: &mut Img) {
                 } else if r < 6.2 {
                     'k'
                 } else {
-                    // Clockwise from the mouth, each step a little lower: a
-                    // lit lip at its front, a shadow under the next.
                     let twist = (r - 6.0) / 19.0 * 0.35;
                     let a = (theta - FRAC_PI_2 - twist).rem_euclid(TAU);
                     let along = a / TAU * STEPS;
@@ -579,7 +537,6 @@ fn stair(cv: &mut Img) {
             }
         }
     }
-    // The parapet's ends either side of the mouth: two posts.
     for side in [-1.0f32, 1.0] {
         let a = FRAC_PI_2 + side * 0.5;
         let (px, py) = (
@@ -592,8 +549,6 @@ fn stair(cv: &mut Img) {
     }
 }
 
-/// The live part of the cellar under the knights: the keepers, and the
-/// plates knights stand on.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     for spot in &SPOTS {
@@ -605,21 +560,17 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         let im = keeper(who, tick, near(run, kx, ky, 5.0));
         stand(cv, &im, x, y);
     }
-    // Merlin by the stair, the realm's guide.
     {
         use crate::rules::merlin::MERLIN_AT;
         let (mx, my) = (MERLIN_AT.0 * 2.0, MERLIN_AT.1 * 2.0);
         let (x, y) = at(mx, my);
         stand(cv, &Img::from_rows(&MERLIN), x, y);
     }
-    // Lady Tallow by the fire, once the hearth is warm enough for her.
     if run.home.level(Station::Hearth) >= crate::rules::cat::HEARTH_FOR_TALLOW {
         let (x, y) = at(8.4 * 2.0, 12.6 * 2.0);
         let im = super::sprites::tallow(false, false, false, tick);
         cv.stamp(&im, x - im.w / 2, y - im.h + 2);
     }
-    // The stair's ring fills while a knight stands on it (the stair up to
-    // the gate wears its own).
     if run.descending > 0 && crate::rules::world::entrance_under(run).is_none() {
         let (cx, cy) = stair_centre();
         let k = run.descending as f32 / home::DESCEND_HOLD as f32;
@@ -650,10 +601,7 @@ fn near(run: &Run, x: f32, y: f32, reach: f32) -> bool {
         .any(|h| h.hp > 0 && (h.x - x).hypot(h.y - y) < reach)
 }
 
-/// Over everything: the ledger of the station a knight is reading, or
-/// else where the stair goes when a knight stands at its mouth.
 pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
-    // The seat's own knight's ledger and hold bar (`shoppers`).
     let reading = super::shoppers(run, focus)
         .filter(|(_, h)| h.hp > 0)
         .find_map(|(id, h)| {
@@ -676,7 +624,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
         cv.stamp(&board, bx, by);
         return;
     }
-    // Wren's board, to a knight standing at it.
     let (fx, fy) = super::bounties::foot();
     if near(run, fx, fy, 3.4) {
         let sheet = super::bounties::sheet(run);
@@ -691,7 +638,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     if near(run, mx, my, 3.2) {
         let landing = run.home.landing();
         let mut lines = vec![(format!("DOWN TO FLOOR {landing}"), '9')];
-        // Below the Unknown: the Deep Road, or a village lit before.
         if landing > crate::rules::DEEPEST {
             let floor = landing;
             lines.push((
@@ -713,8 +659,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     }
 }
 
-/// A keeper's figure: Tobbin hammers while someone is near; Wren's lantern
-/// flickers; Blaise sits by his fire.
 fn keeper(who: &str, tick: u32, busy: bool) -> Img {
     match who {
         "tobbin" if busy && (tick / 9).is_multiple_of(2) => Img::from_rows(&TOBBIN_UP),
@@ -731,17 +675,12 @@ fn keeper(who: &str, tick: u32, busy: bool) -> Img {
     }
 }
 
-/// The most lines a quest board laid over play shows: its title, what to
-/// do now, and one line more.
 pub(super) const QUEST_LINES: usize = 3;
 
-/// A quest's board over play, kept small: the first `QUEST_LINES` lines.
 pub(super) fn quest_board(lines: &[(String, char)]) -> Img {
     board(&lines[..lines.len().min(QUEST_LINES)])
 }
 
-/// A board of lines in the 5x7 hand: night slate in a timber edge, like
-/// the realm's signs (`chrome::Tone::SIGN`), and its shadow.
 pub(super) fn board(lines: &[(String, char)]) -> Img {
     let w = lines.iter().map(|(s, _)| text_width(s)).max().unwrap_or(0) + 10;
     let h = lines.len() as i32 * 9 + 5;
@@ -754,8 +693,6 @@ pub(super) fn board(lines: &[(String, char)]) -> Img {
     im
 }
 
-/// A station's ledger: its next rung, what it does, its price in spoils
-/// (short ones in red), and the hold that buys it.
 pub(super) fn ledger_board(run: &Run, station: Station, buying: u32) -> Img {
     let ladder = LADDERS
         .iter()
@@ -780,7 +717,6 @@ pub(super) fn ledger_board(run: &Run, station: Station, buying: u32) -> Img {
         lines.push((String::new(), 'h'));
     }
     let mut im = board(&lines);
-    // The price, as each spoil's mark and its count.
     let row_y = 3 + 2 * 9 + if locked { 9 } else { 0 };
     let items: Vec<(Img, String, bool)> = rung
         .price
@@ -805,7 +741,6 @@ pub(super) fn ledger_board(run: &Run, station: Station, buying: u32) -> Img {
         x = im.text(x, row_y, n, if *have { 'i' } else { '7' }) + 7;
     }
     if !locked {
-        // HOLD E, and the bar it fills.
         let bar_y = row_y + 9;
         let label = "HOLD E";
         let lw = text_width(label);
@@ -818,7 +753,6 @@ pub(super) fn ledger_board(run: &Run, station: Station, buying: u32) -> Img {
     im
 }
 
-/// A spoil's little mark for a price.
 pub(super) fn spoil_mark(spoil: Spoil) -> Img {
     Img::from_rows(match spoil {
         Spoil::Gold => &[".444.", "45654", "46564", "45654", ".444."],
@@ -839,8 +773,6 @@ pub(super) fn spoil_mark(spoil: Spoil) -> Img {
     })
 }
 
-/// Merlin: a tall hat with a star on it, a beard to his belt, a robe of
-/// stars, his staff's head glowing.
 pub(super) const MERLIN: [&str; 19] = [
     "......Q.......3.",
     ".....QQ......323",

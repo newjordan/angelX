@@ -11,8 +11,6 @@ use std::time::{Duration, Instant};
 #[path = "capture_evidence_fixture.rs"]
 pub(crate) mod capture_evidence_fixture;
 
-/// Run process-reaper tests in a separate image; installing its global exit
-/// handler in the parallel Rust suite would take ownership of other fixtures.
 #[cfg(target_os = "linux")]
 pub(crate) fn isolated_fixture(filter: &str, env_name: &str) {
     let listing = Command::new("/proc/self/exe")
@@ -50,8 +48,6 @@ pub(crate) fn isolated_fixture(filter: &str, env_name: &str) {
             break status;
         }
         if Instant::now() >= deadline {
-            // Its installed subreaper/exit handler cleans the wrapper and all
-            // recorded descendants before this owned child is waited.
             unsafe { libc::kill(child.id() as i32, libc::SIGTERM) };
             let _ = child.wait();
             std::fs::remove_dir_all(&root).unwrap();
@@ -138,8 +134,6 @@ os._exit(17)
     }
 
     pub(crate) fn assert_unreaped_launcher(pid: i32) {
-        // Give the steady-state orphan reaper a full iteration. The direct
-        // service claim must keep this exited launcher and its PGID pinned.
         std::thread::sleep(Duration::from_millis(300));
         let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap();
         assert_eq!(
@@ -164,8 +158,6 @@ impl FixtureCleanup {
 #[cfg(target_os = "linux")]
 impl Drop for FixtureCleanup {
     fn drop(&mut self) {
-        // This is the isolated fixture's final ownership cleanup, including
-        // assertion failures. No other suite's child runs in this process.
         crate::agent::sandbox::process_owner::cleanup();
     }
 }
@@ -200,10 +192,8 @@ fn service_child_retirement_fixture() {
     ServiceFixture::assert_reaped(descendant);
     assert_eq!(child.retire().unwrap().code(), Some(17));
     assert!(!child.alive());
-    drop(child); // cached status only; the group identity was released above.
+    drop(child);
 
-    // A pipe/setup error can return before a full MCP/LSP client exists. The
-    // local process guard must still retire its live wrapper and descendants.
     let fixture = ServiceFixture::new(Path::new(&root), "setup-failure");
     let mut pids = None;
     let setup: io::Result<()> = (|| {
@@ -276,7 +266,7 @@ fn global_cleanup_retirement_fixture() {
         assert!(child.retired);
         assert!(!child.alive());
     }
-    drop(child); // Reuses the refused decision; no numeric PID/PGID signal.
+    drop(child);
 }
 
 #[cfg(target_os = "linux")]

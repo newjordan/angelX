@@ -12,44 +12,27 @@
 
 use serde::Serialize;
 
-/// The four slots every wish fills. A wish that fits none of them is engine
-/// work, and says so.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Slot {
-    /// When it happens: on hit, on kill, on clear, on entry, on cast.
     Trigger,
-    /// Who it happens to: the knight, their dead, a friend, the floor.
     Target,
-    /// What happens: one or more effect words, each with a number.
     Effect,
-    /// What it may cost: mana, a wish window, gold, health, a cooldown.
     Budget,
 }
 
-/// What a wish's effects may compose into: bodies that shoot, walk, stand or
-/// hold the field.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Family {
-    /// Shots and swings: the words that change what a hit is.
     Shot,
-    /// The knight: numbers, guards, spells, worn and held things.
     Self_,
-    /// Things that walk and fight: summons, minions, a wished structure's.
     Unit,
-    /// Things that stand on a floor: barracks, nests, walls, wells, auras.
     Field,
-    /// What a casting puts on the field: the shapes a magic may take.
     Cast,
-    /// How a wished thing looks and reads: colour, sprite, name, its words.
     Look,
-    /// The game's own rules: windows, laws, rewinds.
     Meta,
 }
 
-/// A bound the checker enforces, so an agent can propose something legal
-/// without guessing.
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct Bound {
     pub what: &'static str,
@@ -57,8 +40,6 @@ pub struct Bound {
     pub high: i64,
 }
 
-/// The vocabulary, by family. Words here are honoured by the card checker or
-/// by the composition modules beside it.
 pub const VOCABULARY: &[(Family, &[&str])] = &[
     (
         Family::Shot,
@@ -99,7 +80,6 @@ pub const VOCABULARY: &[(Family, &[&str])] = &[
     ),
 ];
 
-/// Every bound a wish is measured against, from the modules that compose it.
 pub const BOUNDS: &[Bound] = &[
     Bound { what: "spell bolts a casting", low: 1, high: super::invented::MAX_BOLTS as i64 },
     Bound { what: "spell damage a bolt", low: 1, high: super::invented::MAX_DAMAGE },
@@ -112,7 +92,6 @@ pub const BOUNDS: &[Bound] = &[
     Bound { what: "mana a wish may take", low: 0, high: super::invented::MAX_MANA as i64 },
 ];
 
-/// The whole answer an agent reads before composing a wish.
 pub fn manifest() -> serde_json::Value {
     serde_json::json!({
         "slots": [Slot::Trigger, Slot::Target, Slot::Effect, Slot::Budget],
@@ -131,7 +110,6 @@ pub fn manifest() -> serde_json::Value {
 mod tests {
     use super::*;
 
-    /// The checker's own words, read from the source that honours them.
     fn honoured() -> Vec<String> {
         let source = include_str!("cards.rs");
         let mut words = Vec::new();
@@ -161,7 +139,6 @@ mod tests {
         assert!(manifest["families"].as_array().is_some_and(|it| it.len() >= 5));
         let bounds = manifest["bounds"].as_array().expect("bounds");
         assert!(bounds.iter().all(|it| it["low"].as_i64().unwrap() <= it["high"].as_i64().unwrap()));
-        // A made-up magic is inside the vocabulary, not outside it.
         let words: Vec<&str> = manifest["families"]
             .as_array()
             .unwrap()

@@ -12,7 +12,6 @@ pub(super) fn review_verdict(text: &str) -> ReviewVerdict {
             return ReviewVerdict::Block;
         }
     }
-    // Review is a safety gate. A malformed verdict cannot silently approve.
     ReviewVerdict::Block
 }
 

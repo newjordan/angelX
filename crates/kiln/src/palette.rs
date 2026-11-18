@@ -6,12 +6,10 @@
 
 use std::sync::OnceLock;
 
-/// One of the realm's inks, or clear (0).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct Ink(pub u8);
 
 impl Ink {
-    /// No ink: the pixel is clear.
     pub const CLEAR: Ink = Ink(0);
 
     pub fn is_clear(self) -> bool {
@@ -19,7 +17,6 @@ impl Ink {
     }
 }
 
-/// A palette: inks by key, colour and family.
 #[derive(Clone, Debug)]
 pub struct Palette {
     keys: Vec<char>,
@@ -28,7 +25,6 @@ pub struct Palette {
 }
 
 impl Palette {
-    /// The realm's own, compiled in.
     pub fn realm() -> &'static Palette {
         static REALM: OnceLock<Palette> = OnceLock::new();
         REALM.get_or_init(|| {
@@ -36,8 +32,6 @@ impl Palette {
         })
     }
 
-    /// A palette from `.hex` text: `rrggbb key family` a line; blank lines
-    /// and lines starting with `#` are skipped.
     pub fn parse(text: &str) -> Result<Palette, String> {
         let (mut keys, mut rgb, mut family) = (Vec::new(), Vec::new(), Vec::new());
         for (n, line) in text.lines().enumerate() {
@@ -69,7 +63,6 @@ impl Palette {
         Ok(Palette { keys, rgb, family })
     }
 
-    /// How many inks it has, clear not counted.
     pub fn len(&self) -> usize {
         self.keys.len()
     }
@@ -78,7 +71,6 @@ impl Palette {
         self.keys.is_empty()
     }
 
-    /// The ink a key names; `.` is clear.
     pub fn ink(&self, key: char) -> Option<Ink> {
         if key == '.' {
             return Some(Ink::CLEAR);
@@ -86,38 +78,31 @@ impl Palette {
         self.keys.iter().position(|&k| k == key).map(|i| Ink(i as u8 + 1))
     }
 
-    /// An ink's key; clear is `.`.
     pub fn key(&self, ink: Ink) -> char {
         if ink.is_clear() { '.' } else { self.keys.get(ink.0 as usize - 1).copied().unwrap_or('?') }
     }
 
-    /// An ink's colour; clear has none.
     pub fn rgb(&self, ink: Ink) -> Option<[u8; 3]> {
         if ink.is_clear() { None } else { self.rgb.get(ink.0 as usize - 1).copied() }
     }
 
-    /// An ink's family (structure, foliage, stone, violet, ...).
     pub fn family(&self, ink: Ink) -> &str {
         if ink.is_clear() { "" } else { self.family.get(ink.0 as usize - 1).map_or("", |s| s) }
     }
 
-    /// Every ink, in order.
     pub fn inks(&self) -> impl Iterator<Item = Ink> + '_ {
         (1..=self.keys.len()).map(|i| Ink(i as u8))
     }
 
-    /// An ink's lightness, 0..=1 (Rec. 601 luma).
     pub fn luma(&self, ink: Ink) -> f32 {
         self.rgb(ink).map_or(0.0, |[r, g, b]| (0.299 * r as f32 + 0.587 * g as f32 + 0.114 * b as f32) / 255.0)
     }
 }
 
-/// Inks from dark to light: a material's tones.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Ramp(pub Vec<Ink>);
 
 impl Ramp {
-    /// A ramp from its keys, dark to light (`"sxSuUvVW"`).
     pub fn parse(keys: &str, palette: &Palette) -> Result<Ramp, String> {
         let inks = keys
             .chars()
@@ -129,15 +114,12 @@ impl Ramp {
         Ok(Ramp(inks))
     }
 
-    /// The tone at `v` (0 darkest, 1 lightest), held to the ramp.
     pub fn at(&self, v: f32) -> Ink {
         let n = self.0.len();
         let i = (v.clamp(0.0, 1.0) * n as f32).floor() as usize;
         self.0[i.min(n - 1)]
     }
 
-    /// `ink` moved `steps` along the ramp (negative darker), held to its ends;
-    /// an ink not on the ramp is returned as it is.
     pub fn step(&self, ink: Ink, steps: i32) -> Ink {
         match self.0.iter().position(|&i| i == ink) {
             Some(p) => self.0[(p as i32 + steps).clamp(0, self.0.len() as i32 - 1) as usize],
@@ -153,7 +135,6 @@ impl Ramp {
         *self.0.last().expect("a ramp has an ink")
     }
 
-    /// Its keys, dark to light.
     pub fn keys(&self, palette: &Palette) -> String {
         self.0.iter().map(|&i| palette.key(i)).collect()
     }

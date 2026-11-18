@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-"""stubgen: Bend stubs from Rust signatures, by PORTING.md's value mapping.
-
-    python3 stubgen.py <rust-src-dir> NAME...        NAME = a `Run` method or `module::fn`
-
-Prints `def <module>.Run.<m>(...)` stubs (harmless defaults) for the named
-methods of every `impl Run` in crates/delve/src, found by name.
-"""
 import re, sys, pathlib
 
 def split_top(s, sep=","):

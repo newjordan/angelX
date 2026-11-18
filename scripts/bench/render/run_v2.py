@@ -1,14 +1,4 @@
 #!/usr/bin/env python3
-"""Scorecard v2 driver: paired, order-randomized repetitions of the
-pre-registered races, then bootstrap verdicts (analyze.py).
-
-  SCORECARD_RUN=/tmp/render-scorecard/v2-1 \
-    python3 scripts/bench/render/run_v2.py [reps] [angel-binary]
-
-Randomization is seeded (recorded in the run dir), so the schedule
-itself is reproducible. Kitty runs steelmanned (kitty-steel.conf via
-run_scorecard.sh); glass numbers are presented-frame durations.
-"""
 import glob
 import json
 import os
@@ -54,8 +44,6 @@ def glass_frames(pattern):
         out += json.load(open(path))["frames_ms"]
     return out
 
-
-# (metric, kitty-args, glass-args, kitty-glob, glass-glob)
 RACES = [
     ("M2-blast4", ["kitty", "blast4", "--transport", "shm"],
      ["glass", "blast4"], "kitty-blast4-*-r*.json", "glass-blast4-immediate-r*.series.json"),
@@ -79,7 +67,6 @@ for rep in range(1, REPS + 1):
         for side in order:
             run(f"-r{rep}", *(kargs if side == "kitty" else gargs))
 
-# M1: keyframe, alternating start side, up to 3 reps.
 if ANGEL:
     for rep in range(1, 4):
         order = "kitty glass" if rep % 2 else "glass kitty"

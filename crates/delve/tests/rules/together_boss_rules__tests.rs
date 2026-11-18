@@ -9,31 +9,18 @@ use super::balance_sim_tests::{Party, bot_input, dir8, floor_run_in};
 use super::*;
 use std::f32::consts::{FRAC_PI_4, PI};
 
-/// How a knight fights a guardian.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Play {
-    /// The patient bot of the balance sims, standing where its eight-way
-    /// aim holds the guardian when nothing is coming at it, and blind to
-    /// any rule.
     Ignore,
-    /// The same, until the rule says otherwise: out of Cinderjaw's breath,
-    /// at its chest while the furnace stands open (the ultimate kept for
-    /// it); one knight holding the Relic Liege's gaze while the rest go
-    /// round to its back, a knight alone circling closer in than it turns.
     Rule,
 }
 
-/// One fight to the end, or to `CAP`.
 #[derive(Clone, Copy, Debug, Default)]
 struct Duel {
     secs: f32,
     cleared: bool,
-    /// Health the party lost, as a share of its pool, in percent.
     dmg: f32,
-    /// Seconds in its opening, middle and rage.
     stages: [f32; 3],
-    /// The share of its health taken while it stood open: the furnace
-    /// venting, the court spent after a charge-up.
     open: f32,
 }
 
@@ -57,22 +44,17 @@ fn key(v: f32) -> i8 {
     }
 }
 
-/// Walk toward `to`, eight ways, as keys do.
 fn walk(input: &mut Input, from: (f32, f32), to: (f32, f32)) {
     let (dx, dy) = (to.0 - from.0, to.1 - from.1);
     let d = dx.hypot(dy);
     (input.move_x, input.move_y) = if d < 0.4 { (0, 0) } else { (key(dx / d), key(dy / d)) };
 }
 
-/// The spot `r` out from `at` on the eight-way line nearest `angle`: where
-/// an eight-way aim holds the guardian.
 fn on_line(at: (f32, f32), angle: f32, r: f32) -> (f32, f32) {
     let a = (angle / FRAC_PI_4).round() * FRAC_PI_4;
     (at.0 + a.cos() * r, at.1 + a.sin() * r)
 }
 
-/// Something is coming at the knight that the bot steps from: a shot near
-/// and closing, a lob's landing mark, a beam's line, a leap's shadow.
 fn threatened(run: &Run, hero: &Hero) -> bool {
     run.projectiles.iter().filter(|p| p.hostile && p.ttl > 0).any(|shot| {
         if let Some(((lx, ly), _)) = patterns::lob_flight(shot) {
@@ -95,9 +77,6 @@ fn threatened(run: &Run, hero: &Hero) -> bool {
     })
 }
 
-/// The bot, lined up: with nothing coming at it, a ranged knight stands at
-/// the bot's own distance on the nearest eight-way line, as a player at a
-/// keyboard does once they see their shots miss.
 fn lined_input(run: &Run, id: u32) -> Input {
     let mut input = bot_input(run, id);
     let hero = &run.players[&id];
@@ -141,15 +120,12 @@ fn rule_input(run: &Run, id: u32) -> Input {
         let breathing = e.stage == signatures::WIND
             && signatures::winding(e, b).is_some_and(|u| u.kind == bosses::Windup::Inhale);
         if furnace::venting(e, b) {
-            // At its chest while the door stands open.
             go(&mut input, on_line(at, bearing, e.radius() + 1.6));
             input.ult = full;
         } else if breathing {
-            // Out of the pull, firing as it goes.
             go(&mut input, (me.0 + bearing.cos() * 4.0, me.1 + bearing.sin() * 4.0));
             input.ult = false;
         } else {
-            // The iron turns most of it: the ultimate waits for the core.
             input.ult = full && furnace::molten(e, b);
         }
     } else if court::is(b) {
@@ -159,16 +135,12 @@ fn rule_input(run: &Run, id: u32) -> Input {
         let holder = living.len() > 1 && living.first() == Some(&id);
         let melee = hero.forged.as_ref().is_some_and(|w| w.melee.is_some() && w.bolt.is_none() && w.throw.is_none());
         if spent {
-            // Its back while it cannot turn, close enough for the blade.
             go(&mut input, on_line(at, back, e.radius() + 1.6));
         } else if holder {
-            // Hold its gaze, nearer it than the rest.
             go(&mut input, on_line(at, bearing, e.radius() + 4.0));
         } else if living.len() > 1 && !melee {
-            // Round to its back, farther out than the knight it watches.
             go(&mut input, on_line(at, back, e.radius() + 6.5));
         } else {
-            // Alone, or with a blade: round it, closer in than it can turn.
             let r = e.radius() + if melee { 1.2 } else { 4.0 };
             let pull = (d - r) * 0.6;
             let (vx, vy) = (-bearing.sin() - bearing.cos() * pull, bearing.cos() - bearing.sin() * pull);
@@ -179,8 +151,6 @@ fn rule_input(run: &Run, id: u32) -> Input {
     input
 }
 
-/// A fresh party of `knights` on floor `depth` of `pack`, in its stairs
-/// hall with `boss` alone.
 fn duel_room(seed: u64, depth: u32, pack: Pack, boss: &Boss, knights: usize) -> Run {
     let mut run = floor_run_in(seed, depth, Party::Fresh, knights, Some(pack));
     let stairs = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Stairs).expect("a stairs hall");
@@ -244,9 +214,6 @@ fn duel(mut run: Run, play: Play) -> Duel {
     out
 }
 
-/// The guardian as its file stood before its rule: its own numbers under
-/// another name, so no rule knows it, and Cinderjaw's breath back in its
-/// rage alone, as it was (d59b1096a).
 fn before_its_rule(boss: &Boss) -> Boss {
     let mut old = boss.clone();
     old.id = format!("{}-before", boss.id);
@@ -283,7 +250,6 @@ fn of(id: &str) -> Boss {
     bosses::builtin().into_iter().find(|b| b.id == id).or_else(|| bosses::checked(id)).expect("a guardian")
 }
 
-/// The table for one reworked guardian, its two floors' halls together.
 fn table(rule: &Boss, plain: &Boss, pack: Pack) {
     let old = before_its_rule(rule);
     println!();
@@ -305,13 +271,6 @@ fn table(rule: &Boss, plain: &Boss, pack: Pack) {
     }
 }
 
-/// Each reworked guardian against its old self and a plain one of its
-/// size, on both floors it guards, for one, two and four knights: seconds
-/// to the kill (and against the old fight), fights won inside `CAP`, health
-/// lost as a share of the party's, seconds in each stage, and the share of
-/// its health taken while it stood open. `DUEL=<id>` for one of them;
-/// `NO_ULT=1` keeps every knight's ultimate back, for the fight without its
-/// one great blow.
 #[test]
 #[ignore]
 fn boss_rule_duels() {
@@ -326,9 +285,6 @@ fn boss_rule_duels() {
     }
 }
 
-/// The duels' shape, kept: for each guardian with a rule, a pair of knights
-/// that plays it clears sooner than a pair that ignores it, and the pair
-/// that ignores it still clears, inside twice and a half the old fight.
 #[test]
 fn playing_a_guardians_rule_beats_ignoring_it_and_ignoring_it_is_no_wall() {
     for (id, pack) in [(furnace::ID, Pack::Cavern), (court::ID, Pack::Crypt)] {
@@ -347,8 +303,6 @@ fn playing_a_guardians_rule_beats_ignoring_it_and_ignoring_it_is_no_wall() {
     }
 }
 
-/// One duel traced blow by blow: `BOSS_DUEL_TRACE=1 DUEL=<id> KNIGHTS=n
-/// PLAY=rule|ignore SEED=s DEPTH=d`.
 #[test]
 #[ignore]
 fn boss_rule_trace() {

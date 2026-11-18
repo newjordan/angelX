@@ -9,7 +9,6 @@
 use super::*;
 use crate::realm::{Spoil, Spoils};
 
-/// A loot box's grade.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Tier {
@@ -29,7 +28,6 @@ impl Tier {
         }
     }
 
-    /// What a box of this grade holds, the `n`th the realm has opened.
     pub fn contents(self, n: u32) -> Spoils {
         let roll =
             |salt: u32, span: u32| mix(u64::from(n) * 7919 + u64::from(salt)) as u32 % span.max(1);
@@ -64,7 +62,6 @@ impl Tier {
     }
 }
 
-/// One achievement: its id, its name, what the Herald says, its box.
 pub struct Feat {
     pub id: &'static str,
     pub name: &'static str,
@@ -349,24 +346,15 @@ pub fn feat(id: &str) -> Option<&'static Feat> {
     FEATS.iter().find(|f| f.id == id)
 }
 
-/// How long a new achievement's banner stays up.
 pub const BANNER_TICKS: u64 = 5 * HZ as u64;
 
 impl Run {
-    /// The game noticed something worth an achievement (each is kept once
-    /// by the realm; noticing it again does nothing there).
     pub(super) fn notice(&mut self, id: &'static str) {
-        // Each escaped goblin is also an economy fact. Keeping an older
-        // notice pending must not suppress a later escape before settlement.
         if (id == "sticky_fingers" || !self.feats.contains(&id)) && feat(id).is_some() {
             self.feats.push(id);
         }
     }
 
-    /// The cockpit's word that an achievement is new. Down in a delve it
-    /// is kept for the match's end (`deeds`), never thrown up over the
-    /// fighting (the operator, 2026-10-18: "they are unecessary until the
-    /// end of the match"); up in the realm its banner shows.
     pub fn announce(&mut self, id: &str) {
         let Some(feat) = feat(id) else { return };
         if !self.at_home_now() {
@@ -380,7 +368,6 @@ impl Run {
         self.sounds.push("wheel_land");
     }
 
-    /// The banner up now, if any: the achievement it shows.
     pub fn banner_now(&self) -> Option<&'static Feat> {
         let (at, id) = self.banner.as_ref()?;
         (self.tick.saturating_sub(*at) < BANNER_TICKS)
@@ -388,7 +375,6 @@ impl Run {
             .flatten()
     }
 
-    /// The cockpit opened a box at the coffer: show what came out.
     pub fn unbox(&mut self, tier: Tier, spoils: &Spoils) {
         self.unboxed = Some((self.tick, tier, spoils.label()));
         self.cues.push(format!("box_opened:{}", tier_word(tier)));

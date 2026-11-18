@@ -54,8 +54,6 @@ pub fn build(out: &str, watched: &mut Vec<PathBuf>) {
     );
 }
 
-/// Alpha trim and aspect-preserving fit happen once at compile time. Filter
-/// premultiplied colours so invisible pixels cannot fringe a bright outline.
 pub fn prepare(source: &image::RgbaImage, size: u32, texture: bool) -> image::RgbaImage {
     let (mut x0, mut y0, mut x1, mut y1) = (source.width(), source.height(), 0, 0);
     for (x, y, p) in source.enumerate_pixels() {

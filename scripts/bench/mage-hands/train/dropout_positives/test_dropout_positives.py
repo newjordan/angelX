@@ -1,9 +1,3 @@
-"""Focused regression tests for the isolated element-dropout add-on.
-
-These are intentionally small.  They exercise the fail-closed rules that keep
-the generated rows positive, full-frame and target-preserving; they do not run
-the full artifact audit (that is `verify.py` on the actual artifact).
-"""
 from __future__ import annotations
 
 import sys
@@ -21,9 +15,9 @@ import common  # noqa: E402
 def synthetic_scene():
     image = Image.new("RGB", (200, 100), (245, 245, 245))
     draw = ImageDraw.Draw(image)
-    draw.rectangle([20, 20, 60, 50], fill=(200, 0, 0))       # target
-    draw.rectangle([70, 20, 120, 50], fill=(0, 0, 200))     # identifying context
-    draw.rectangle([140, 60, 180, 90], fill=(0, 160, 0))    # distractor
+    draw.rectangle([20, 20, 60, 50], fill=(200, 0, 0))
+    draw.rectangle([70, 20, 120, 50], fill=(0, 0, 200))
+    draw.rectangle([140, 60, 180, 90], fill=(0, 160, 0))
     elements = [
         {"target": "the target", "box": [20, 20, 60, 50]},
         {"text": "Email address field", "box": [70, 20, 120, 50]},

@@ -75,8 +75,6 @@ pub(crate) fn resolve(program: &str) -> Result<std::path::PathBuf, String> {
     })
 }
 
-/// Only inspect a failed process's loader/shell diagnostics, never arbitrary
-/// mentions of a runtime in successful test output.
 pub(crate) fn from_command_not_found(output: &str) -> Option<String> {
     for runtime in ["node", "python3", "cargo"] {
         if output.lines().any(|line| {
@@ -99,8 +97,6 @@ pub(crate) fn from_command_not_found(output: &str) -> Option<String> {
     None
 }
 
-/// A later verifier result supersedes the earlier infrastructure error. Do not
-/// change turn policy or prevent the model from recovering before it finishes.
 pub(crate) fn unresolved_verifier(tools: &[serde_json::Value]) -> Option<RuntimeMissing> {
     let last = tools
         .iter()

@@ -62,7 +62,6 @@ pub(crate) fn hidden() -> bool {
     { false }
 }
 
-/// Keep the ground receiver at the same position while exporting its floor.
 #[cfg(feature = "testing")]
 pub(crate) fn floor_review<T>(draw: impl FnOnce() -> T) -> T {
     struct Restore(bool);
@@ -102,8 +101,6 @@ struct Bank {
     poses: [[Arc<Img>; 4]; 3],
 }
 
-/// Reflected light stays inside the delivered alpha. Only the outer two
-/// logical pixels receive it, with a stronger upper/left source direction.
 fn rim(im: &Img, scale: i32) -> Img {
     let mut out = im.clone();
     for y in 0..im.h { for x in 0..im.w {
@@ -114,15 +111,12 @@ fn rim(im: &Img, scale: i32) -> Img {
         let value = (54*u32::from(c[0])+183*u32::from(c[1])+19*u32::from(c[2]))/256;
         let target = if lit { 64 } else { 48 };
         if value >= target { continue; }
-        // Hue ratios come from this material, rather than a foreign white rim.
         let gain = (target*256/value.max(1)).min(180*256/u32::from(*c.iter().max().unwrap()).max(1));
         out.set(x,y,c.map(|v| (u32::from(v)*gain/256) as u8));
     }}
     out
 }
 
-/// The bounded material grade every library figure gets, keeping source contours and hue
-/// ratios. Terminal reduction (`cells`) needs value without acid-green moss.
 fn grade(im: &mut Img, exposure: u32, cells: bool, mix: u32) {
     for y in 0..im.h {
         for x in 0..im.w {
@@ -142,14 +136,11 @@ fn grade(im: &mut Img, exposure: u32, cells: bool, mix: u32) {
     }
 }
 
-/// A baked frame dressed as the library dresses its own bosses (grade, then rim light): the
-/// Creator's preview feed draws a made creature through this, never a copy of it.
 pub(crate) fn dress(mut im: Img, exposure: u32) -> Img {
     grade(&mut im, exposure, false, 0);
     rim(&im, 1)
 }
 
-/// The breathing frame: the rest pose a pixel shorter, standing on the same feet.
 pub(crate) fn breathe(rest: &Img) -> Img {
     let (w, h) = (rest.w, rest.h);
     let mut out = Img::new(w, h);
@@ -157,7 +148,6 @@ pub(crate) fn breathe(rest: &Img) -> Img {
     out
 }
 
-/// The library's own idle rule: which of the rest and breath frames shows at `tick`.
 pub(crate) fn breathing(tick: u64, id: u64) -> bool {
     (tick / 18 + id) % 4 == 1
 }
@@ -204,7 +194,6 @@ fn bank(art: Art, cells: bool) -> Option<Arc<Bank>> {
                         "{}/library-{kit}{suffix}-{pose}.png",
                         art.id()
                     )));
-                    // Cache a bounded material grade, keeping source contours and hue ratios.
                     grade(&mut im, exposure, cells, policies()[art.id()].cell_moss_mix);
                     rim(&im, 1)
                 };
@@ -233,8 +222,6 @@ pub(super) fn warm(art: Art) {
     }
 }
 
-// The receiver covers the projected body and a soft margin, rather than
-// painting an opaque disc over the floor. Kernels are cached per display size.
 fn receiver(w: i32, h: i32, k: i32) -> Arc<Vec<(i32, i32, u16)>> {
     type Cache = Mutex<BTreeMap<(i32,i32,i32),Arc<Vec<(i32,i32,u16)>>>>;
     static CACHE: OnceLock<Cache> = OnceLock::new();
@@ -345,7 +332,6 @@ mod tests {
         let im=figure(&run,enemy,Art::IronTusk).unwrap();
         let mut bars=Img::new(384,224);
         let _ = im;
-        // Its health is its name plate's fill (`wanted::nameplates`).
         super::super::super::wanted::nameplates(&mut bars,&run,(0,0));
         let fill = crate::render::overworld::ink::ink('7');
         assert!(bars.pixels().any(|p| Some(p) == fill), "clipped art must retain its health bar");
@@ -367,8 +353,6 @@ mod tests {
         let mut figures = Img::new(384,224);
         let body = [228,210,175];
         for y in 0..4 { for x in 0..4 { figures.set(x,y,body); }}
-        // Exercise explicit priority with a dim warning. Bright flight cores
-        // already beat this body by luminance without a protected bank.
         let luma=|c:[u8;3]|299*u32::from(c[0])+587*u32::from(c[1])+114*u32::from(c[2]);
         let warning = *inks.iter().filter(|&&c| !crate::render::overworld::ink::is_signal(c) && luma(c)<luma(body)).max().unwrap();
         figures.set(1,1,warning);

@@ -22,7 +22,6 @@ pub(super) fn profile(floor: &Floor, seed: u64, raid: u64) -> Profile {
         .enumerate()
         .filter(|(_, r)| r.kind == RoomKind::Fight)
         .map(|(room, r)| {
-            // Interior support is stable when a secret doorway is opened at the boundary.
             let (mut wet, mut works, mut open) = (0, 0, 0);
             for y in 1..r.rows.saturating_sub(1) {
                 for x in 1..r.cols.saturating_sub(1) {
@@ -34,7 +33,6 @@ pub(super) fn profile(floor: &Floor, seed: u64, raid: u64) -> Profile {
                     }
                 }
             }
-            // A room grown for the party is reckoned as the room it was laid.
             if let Some((c, rr)) = r.laid {
                 let scale = |n: u16| (usize::from(n) * c * rr / (r.cols * r.rows).max(1)) as u16;
                 (wet, works, open) = (scale(wet), scale(works), scale(open));
@@ -85,8 +83,6 @@ impl Profile {
     }
 }
 
-/// Population owns ecology; gates own access and encounter death evidence.
-/// The tests populate a floor with no guardian named.
 #[cfg(test)]
 pub(super) fn populate(
     floor: &Floor,
@@ -98,8 +94,6 @@ pub(super) fn populate(
     populate_with(floor, bosses, seed, raid, mode, None)
 }
 
-/// `populate`, with the guardian at the stairs named outright: the Deep's
-/// dread on the floor above a village (`deep::dread`), already in `bosses`.
 pub(super) fn populate_with(
     floor: &Floor,
     bosses: &mut Vec<Boss>,
@@ -108,8 +102,6 @@ pub(super) fn populate_with(
     mode: super::fortune::Mode,
     dread: Option<u8>,
 ) -> Option<Gates> {
-    // Admission is transactional: an unsupported floor/catalog cannot leave
-    // partially appended templates behind or iterate malformed geometry.
     if bosses.len() > 64
         || floor.rooms.len() > 64
         || floor.rooms.iter().any(|r| !r.valid_snapshot())
@@ -139,8 +131,6 @@ fn populate_checked(
     dread: Option<u8>,
 ) -> Option<Gates> {
     use super::fortune::Mode;
-    // The swamp keeps no chiefs: its horrors answer to the Mire King alone,
-    // and he waits in the last floor's hall (`swamp`).
     if !(1..=super::DEEPEST).contains(&floor.depth)
         || matches!(mode, Mode::Gauntlet | Mode::HoldTheStair)
         || floor.pack == Pack::Swamp
@@ -160,17 +150,12 @@ fn populate_checked(
         return None;
     }
     let mean = profile.mean();
-    // One chief a floor, whatever its politics: its camp's elite carries the
-    // Boss Key (`keyring`). The guardian at the stairs is the floor's boss.
     let access = match profile.structure {
         Structure::Clans => Access::Any,
         Structure::Hive | Structure::Stronghold => Access::All,
     };
     let (required, count) = (1, 1);
     let mut choices = super::encounter_catalog::leaders(bosses, floor.pack, count)?;
-    // Every floor's stairs are held by its guardian (the dragon holds the lair):
-    // now and then a pack's signature boss, the rare hive apex or the
-    // engine at a cavern's stairs, since a chief's camp is led by an elite.
     let signature = match floor.pack {
         Pack::Fungal if profile.salt % 8 == 1 => Some(super::signatures::RIPPER),
         Pack::Cavern if profile.salt % 4 == 1 => Some(super::signatures::ENGINE),
@@ -198,14 +183,10 @@ fn populate_checked(
                 as u8
         })
     };
-    // A checked custom apex is a separate encounter, not recycled as a chief.
     choices.retain(|&i| Some(i as u8) != guardian_boss);
     if choices.len() < count {
         return None;
     }
-    // The chief waits mid-floor: never in the entrance's ring, never beside
-    // the guardian's door or a showdown's, nearest the middle of the floor's
-    // depth, with independent seeded ties. No combat RNG.
     let steps = floor.steps();
     sites.sort_by_key(|s| {
         (
@@ -277,7 +258,6 @@ fn populate_checked(
                 && s.capacity >= 2
                 && s.room % 2 == 0)
                 .then_some((faction + 1) % count as u8);
-            // The ramp: a camp musters by how deep into the floor it lies.
             let budget = super::pacing::camp_foes(floor.depth, steps[s.room]);
             Camp {
                 room: s.room,
@@ -314,7 +294,6 @@ fn populate_checked(
         .iter()
         .enumerate()
         .map(|(i, _)| {
-            // No reserve: the first camps entered muster no more than the ramp.
             let reserve = 0;
             Faction {
                 name: match bosses[usize::from(leaders[i].boss)].id.as_str() {

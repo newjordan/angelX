@@ -7,8 +7,6 @@ pub mod math;
 pub mod mesh;
 pub mod raster;
 
-/// Shared by Dotmax's outdoor and interior lighting. Retained at the same
-/// bearing as before the obsolete raycast art implementation was removed.
 pub const MOON_BEARING: f32 = 0.62;
 
 pub const NOIR_NIGHT_HAZE: [u8; 3] = [9, 13, 24];

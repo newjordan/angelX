@@ -3,11 +3,7 @@
 pub(crate) mod atlas;
 pub(crate) mod atlas_clerk;
 pub(crate) mod barrel;
-// Deli (deep-over-time research loop) folds into the swarm rather than being its
-// own selectable agent — kept pending that symbiotic integration.
 pub(crate) mod caddy;
-// The Cut: the authored-diff manifest + the machine verdict on every write
-// (docs/plans/the-cut.md). Rust only appends JSONL; the Node tick folds it.
 pub(crate) mod cut;
 pub(crate) mod dossier;
 pub(crate) mod evidence;

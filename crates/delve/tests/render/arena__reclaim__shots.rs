@@ -48,7 +48,6 @@ fn stand_at(run: &mut Run, at: (f32, f32)) {
     (hero.x, hero.y) = (at.0 * 2.0, at.1 * 2.0);
 }
 
-/// The party in a delve's hall of `depth` floors down from the Mines.
 fn in_hall(home: Home, floors: usize, treasury: crate::realm::Spoils) -> Run {
     let mut run = Run::at_home(7, 1, None, home, treasury);
     run.dungeon.pack = Pack::Cavern;
@@ -90,7 +89,6 @@ fn write_reclaim_shots() {
         s
     };
 
-    // The King at his camp: his talk, and the ask.
     let mut run = Run::at_home(7, 1, None, met(), Default::default());
     let i = world::room_of(&run.dungeon, RoomKind::MineHead).unwrap();
     run.arrive(i, (12.0, 11.0));
@@ -107,7 +105,6 @@ fn write_reclaim_shots() {
     run.step(&answer(2));
     seat_shot("king-3-lore", &run);
 
-    // The King's Hall: the lamps, none lit, then two, then all three.
     for (name, held) in [("kings-hall-0", 0usize), ("kings-hall-2", 2), ("kings-hall-3", 3)] {
         let mut home = met();
         home.barony.court = Court::Sworn;
@@ -128,7 +125,6 @@ fn write_reclaim_shots() {
         super::reclaim::hall_boards(&mut cv, &run);
         save_img(name, &cv, 2);
         if held == 3 {
-            // The King on his seat, in his talk, with all three halls his.
             let (sx, sy) = barony::SEAT_AT;
             stand_at(&mut run, (sx + 1.0, sy + 1.2));
             tap(&mut run);
@@ -137,7 +133,6 @@ fn write_reclaim_shots() {
         }
     }
 
-    // The Delvers' Gallery: cold with Nubbin, his talk, the fight, won each way.
     let mut home = met();
     home.barony.halls.asked = Some(0);
     let mut run = in_hall(home.clone(), 1, toll.clone());
@@ -161,7 +156,6 @@ fn write_reclaim_shots() {
     let run = in_hall(bargained, 1, Default::default());
     save_img("gallery-5-won-by-toll", &whole(&run), 2);
 
-    // The Hall of Lamps: cold, the rite half done, at rest.
     let mut home = met();
     won(&mut home, &[("gallery", "fight")]);
     home.barony.halls.asked = Some(1);
@@ -191,7 +185,6 @@ fn write_reclaim_shots() {
     let run = in_hall(rested, 2, Default::default());
     save_img("lamps-4-at-rest", &whole(&run), 2);
 
-    // The Anvil Gallery: buried, one heap down, freed.
     let mut home = met();
     won(&mut home, &[("gallery", "fight"), ("lamps", "rite")]);
     home.barony.halls.asked = Some(2);
@@ -240,7 +233,6 @@ fn every_hall_draws_in_every_state_and_every_talk_shows() {
     };
     let ids = [("gallery", "fight"), ("lamps", "rite"), ("anvils", "freed")];
     for floors in 1..=3usize {
-        // Asked and cold, played out and held: each has its look.
         for held in [false, true] {
             let mut home = met();
             won(&mut home, &ids[..floors - 1]);
@@ -259,7 +251,6 @@ fn every_hall_draws_in_every_state_and_every_talk_shows() {
             let (w, h) = seat();
             let shot = seat_scene(&run, w, h, Some(1)).compose();
             assert!(run.reclaim_view(1).is_some(), "hall {floors} held {held}: a keeper to talk to");
-            // The talk is on the seat's screen: the picture differs with it open.
             let mut away = run.clone();
             away.reclaim.talks.clear();
             let plain = seat_scene(&away, w, h, Some(1)).compose();
@@ -283,7 +274,6 @@ fn the_kings_talk_shows_on_the_seat_and_the_lamps_burn_for_each_hall_held() {
             run.step(&BTreeMap::new());
         }
         let cv = whole(&run);
-        // Count the flames: warm fire inks along the hall's north wall.
         let mut flames = 0;
         for x in 0..cv.w {
             for y in 0..14 {

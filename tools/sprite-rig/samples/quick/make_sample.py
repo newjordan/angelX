@@ -1,9 +1,3 @@
-"""Generate a native 24px right-facing quick-rig input and a 2-cell PNG sheet.
-
-Run from tools/sprite-rig: python samples/quick/make_sample.py
-No resized stock art: every rectangle is authored at its final pixel size;
-colours come from the checkout's real Delve ink table.
-"""
 from pathlib import Path
 import sys
 
@@ -21,7 +15,6 @@ def make_sample():
     def box(bounds, ink):
         draw.rectangle(bounds, fill=(*pal[ink], 255))
 
-    # Cape, rear limbs, torso and front limbs, deliberately distinct silhouettes.
     box((5, 7, 7, 19), '8')
     box((6, 9, 8, 12), 'q')
     box((6, 13, 7, 15), 'Q')
@@ -36,7 +29,6 @@ def make_sample():
     box((15, 8, 16, 11), 'Q')
     box((16, 12, 17, 14), 'z')
     box((17, 15, 18, 16), 'c')
-    # Helm profile and forward nose identify the facing without resampling.
     box((8, 2, 14, 6), 'Q')
     box((9, 2, 13, 3), 'V')
     box((14, 4, 16, 5), 'Q')

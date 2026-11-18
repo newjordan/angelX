@@ -142,9 +142,6 @@ fn catalog_r1_negative_shape_identity_dimensions_and_thinking() {
 }
 #[test]
 fn given_pi_off_metadata_when_loading_then_high_works_without_enabling_off() {
-    // Given the two actual Pi off-map forms in the same store,
-    // When that store is checked, Then selectable reasoning models survive,
-    // while neither pi:off nor a native none effort is authorized.
     let mut none = record();
     none["id"] = json!("gpt-6-luna");
     none["thinkingLevelMap"]["off"] = json!("none");
@@ -283,7 +280,7 @@ fn catalog_r3_effort_namespaces_null_omission_extended_and_no_clamping() {
             .as_deref(),
         Some("low")
     );
-    assert!(load.resolve("gpt-6.1-sol", Some("minimal"), false).is_err()); // explicit mapping declares low, not native minimal
+    assert!(load.resolve("gpt-6.1-sol", Some("minimal"), false).is_err());
     assert_eq!(
         load.resolve("gpt-6.1-sol", Some("ultra"), false)
             .unwrap()

@@ -1,9 +1,3 @@
-# crates/delve/src/rules.rs — `Input`, one seat's keys for a tick. The J shape
-# is serde's: unit fields are always written; the `skip_serializing_if`
-# fields (leave_activity, leave_held, activity_menu, vote, latch_tick, vigil,
-# ult, take, interact, skill, ride, cycle, skip_plate, again) only when set.
-
-# `Input::default()`: nothing pressed.
 def rules.Input.default() -> J.Val:
   i0 = J.obj()
   i1 = J.set(i0, "move_x", J.JU{0})
@@ -17,7 +11,6 @@ def rules.Input.default() -> J.Val:
   i9 = J.set(i8, "play", J.JU{0})
   J.set(i9, "cast", J.JU{0})
 
-# An axis, -1, 0 or 1 (i8 on the wire; JI for -1).
 def rules.Input.axis_ok(+v: U32) -> Bool:
   Bool.or(U32.is_le(v, 1), U32.is_eq(v, 4294967295))
 
@@ -30,7 +23,6 @@ def rules.Input.valid(+i: J.Val) -> Bool:
     Bool.and(U32.is_le(core.u(i, "cast"), cards.SPELL_SLOTS()), U32.is_le(core.u(i, "skill"), skills.SKILLS())))
   Bool.and(axes, Bool.and(slots, rules.Input.vote_ok(J.get(i, "vote"))))
 
-# `self.vote.is_none_or(votes::Command::valid)`
 def rules.Input.vote_ok(+v: J.Val) -> Bool:
   rules.Input.vote_ok.go(J.is_null(v), v)
 
@@ -41,7 +33,6 @@ def rules.Input.vote_ok.go(none: Bool, +v: J.Val) -> Bool:
     case False{}:
       votes.Command.valid(v)
 
-# `*i != Input::default()`: anything pressed, held or asked.
 def rules.Input.pressing(+i: J.Val) -> Bool:
   +moved = Bool.or(
     Bool.or(U32.is_ne(core.u(i, "move_x"), 0), U32.is_ne(core.u(i, "move_y"), 0)),

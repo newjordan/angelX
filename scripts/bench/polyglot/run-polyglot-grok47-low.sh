@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# angelX × Grok 4.7 (reasoning low) on polyglot-v1.
-# Same Prime Verifiers 0.3.1 cell as the 2026-09-21 round: 136 tasks, one attempt,
-# 600s wall, grade-any-exit, fresh HOME, sampling imposed by the interception proxy.
-# Upstream auth is the local Grok OAuth bearer (no XAI_API_KEY in host_env).
-# The agent itself only sees the proxy secret, on the grok-api HTTP seat.
 set -euo pipefail
 
 RR=~/angel_tests/angelX-bench/polyglot-20260921
@@ -132,7 +127,6 @@ else
   SRC_SHA=$("$ANGEL_BIN" --build-info --json | python3 -c 'import json,re,sys; v=json.load(sys.stdin).get("cockpit_source_sha256") or ""; print(v if re.fullmatch(r"[0-9a-f]{64}", v) else "")')
 fi
 
-# OAuth bearer from the Grok CLI login. Printed fields are expiry only.
 KEY_VALUE=$(python3 - <<'PY'
 import json, sys
 from datetime import datetime, timezone
@@ -186,8 +180,6 @@ fi
 TAG=${ONLY:+smoke-}seed${SEED}
 OUT=$RR/${OUT_ROOT:-runs}/grok/angelx
 RUN_DIR=$TAG-$(date -u +%Y%m%dT%H%M%SZ)
-# Per-call wire records (club/wire_log.rs) land beside the traces: rollout
-# workdirs are deleted after grading, so this is the only copy.
 FLAGS+=(--env.agent.harness.env.ANGEL_WIRE_LOG_DIR "$OUT/$RUN_DIR/wire")
 mkdir -p "$OUT" "$RR/logs"
 printf '%s\n' "$OUT/$RUN_DIR" >"$RR/logs/grok-angelx-current-run.txt"

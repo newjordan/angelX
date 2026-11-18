@@ -15,7 +15,6 @@ def cells(path):
         x=i%96*8;y=i//96*16;d.rectangle((x,y,x+7,y+15),fill=tuple(c['bg']));d.text((x,y-2),c['glyph'],font=font,fill=tuple(c['fg']))
     return im
 
-# Twelve native frames, each shown at 3x; in-room plates below show native 1x.
 sheet=Image.new('RGB',(1540,720),(8,11,14));d=ImageDraw.Draw(sheet)
 for row,boss in enumerate(I['BOSSES']):
     for col,(kit,pose) in enumerate([(1,'rest'),(1,'windup'),(2,'rest'),(2,'windup')]):
@@ -31,14 +30,12 @@ for boss in I['BOSSES']:
         y=row*480+28;d.text((10,y-20),f'{boss} / {label} / V{kit} NATIVE 1X',fill='wheat');d.text((796,y-20),'ACTUAL HALF-BLOCK / BRAILLE CELLS',fill='wheat')
         sheet.paste(rgb,(10,y));sheet.paste(terminal,(796,y))
     sheet.save(out/(boss+'-rooms.png'))
-# Busy rooms at tick133: six RGB and six cell views, same authoritative rooms.
 sheet=Image.new('RGB',(1570,2880),(8,11,14));d=ImageDraw.Draw(sheet)
 for row,(boss,kit) in enumerate((b,k) for b in I['BOSSES'] for k in (1,2)):
     stem=out/'after/terminal'/f'{boss}-current-133-v{kit}';y=row*480+28
     d.text((10,y-20),f'{boss} V{kit} / LIVE RULES TICK133',fill='wheat')
     sheet.paste(Image.open(str(stem)+'-rgb.png'),(10,y));sheet.paste(cells(Path(str(stem)+'-cells.json')),(796,y))
 sheet.save(out/'combat.png')
-# Existing tell/projectile/impact bank beside the new body, twelve views.
 sheet=Image.new('RGB',(1540,720),(8,11,14));d=ImageDraw.Draw(sheet)
 for row,boss in enumerate(I['BOSSES']):
     for col,role in enumerate(['library-v2-rest','tell-2','projectile','impact-2']):

@@ -71,15 +71,11 @@ fn the_walked_ground_is_the_floor_and_nothing_stands_over_it() {
                 let (px, pz) = (x as f32 * TILE + 8.0, y as f32 * TILE + 8.0);
                 assert_eq!(terrain.height_at(px, pz), 0.0, "tile {x},{y} is walked: the floor");
                 for s in &set.shapes {
-                    // What lies on the floor, and the boot-high dressing a
-                    // knight walks through.
                     if s.at[1] + s.size[1] <= blockout::LOW {
                         continue;
                     }
                     let [a, b, cc, d] = crate::world3d::fit::footprint(s);
                     let slender = (cc - a).min(d - b) <= 2.5 && (cc - a).max(d - b) <= 7.0;
-                    // Inset: a crown or a slab may spill a pixel or two over
-                    // its tile's edge, never over a tile's middle.
                     let inside = |px: f32, pz: f32| px > a + 3.0 && px < cc - 3.0 && pz > b + 3.0 && pz < d - 3.0;
                     let samples = [(px, pz), (px - 4.0, pz - 4.0), (px + 4.0, pz + 4.0), (px - 4.0, pz + 4.0), (px + 4.0, pz - 4.0)];
                     assert!(
@@ -127,7 +123,6 @@ fn each_biome_has_a_dark_monotone_palette_of_its_own() {
         let levels: Vec<f32> = ramp.iter().map(|&c| luminance(unit_rgb(c))).collect();
         assert!(levels.windows(2).all(|w| w[0] < w[1]), "{b:?}: dark to light {levels:?}");
         assert!(levels[0] < 0.08 && levels[7] < 0.62, "{b:?}: dark {levels:?}");
-        // Nearly monotone: no channel far from the entry's grey.
         for c in ramp {
             let grey = (u16::from(c[0]) + u16::from(c[1]) + u16::from(c[2])) / 3;
             assert!(c.iter().all(|&v| (i32::from(v) - i32::from(grey)).abs() < 40), "{b:?}: {c:?}");
@@ -156,13 +151,9 @@ fn a_views_look_is_valid_and_slides_its_palette_over_a_border() {
         assert_eq!(look.ramp, realm_look::palette(crate::world::biome::chunk(cx, cz)).to_vec());
         let _ = index;
     }
-    // Over a border (Castle Town into the Tilt-Yards, chunks 4,3 and 5,3):
-    // the same mix of the two either side of the flip of the look's own ramp.
     let border = 5.0 * (CHUNK.0 as f32 * TILE);
     let z = 3.5 * (CHUNK.1 as f32 * TILE);
     let weight = |look: &angel_stage::look::Look, ramp: [[u8; 3]; 8], at: [f32; 2]| -> f32 {
-        // The share of `ramp` at stage point `at`: 1 where it is the look's
-        // own and no zone covers it, else the zones' feathers.
         let mut w = if look.ramp == ramp.to_vec() { 1.0 } else { 0.0 };
         for zone in &look.zones {
             let d = (zone.distance(at[0], at[1]) - zone.radius).max(0.0);
@@ -204,11 +195,8 @@ fn a_cloth_ramp_is_as_bright_as_the_hillside_entry_for_entry_and_keeps_the_cloth
         for (entry, base) in ramp.iter().zip(realm_look::HILLSIDE) {
             assert!((luma(*entry) - luma(base)).abs() < 0.012, "{cloth:?}: {entry:?} against {base:?}");
         }
-        // As much of the guide as the hillside's own ramp keeps: its colour
-        // and one hue (its brightness steps are the hillside's, entry for entry).
         let breaches: Vec<_> = audit_ramp("cloth", &ramp, &ladder_of(&ramp)).into_iter().filter(|b| b.rule != "ramp-value").collect();
         assert_eq!(breaches, vec![], "{cloth:?}");
-        // The cloth's own hue, where it has one worth speaking of.
         if chroma(cloth) > 0.1 {
             let (want, got) = (hue(cloth).unwrap(), hue(ramp[6]).unwrap());
             assert!(((want - got + 540.0).rem_euclid(360.0) - 180.0).abs() < 25.0, "{cloth:?}: hue {want} then {got}");
@@ -220,7 +208,6 @@ fn a_cloth_ramp_is_as_bright_as_the_hillside_entry_for_entry_and_keeps_the_cloth
 fn the_blank_slates_camps_dye_their_cloth_in_zones_a_look_takes() {
     use crate::world::plan::tabula as t;
     let size = [384.0, 224.0];
-    // Every camp's cloth and the Keep's banner, each as the one the view is on.
     let mut spots: Vec<(f32, f32)> = t::CAMPS.iter().map(|c| ((c.0 as f32 + c.2 as f32 / 2.0) * TILE, (c.1 as f32 + 1.0) * TILE)).collect();
     spots.push(((t::KEEP.0 as f32 + t::KEEP.2 as f32 / 2.0) * TILE, (t::KEEP.1 as f32 + 1.0) * TILE));
     for (x, z) in spots {
@@ -230,7 +217,6 @@ fn the_blank_slates_camps_dye_their_cloth_in_zones_a_look_takes() {
         assert!(look.zones.len() <= angel_stage::look::ZONE_MAX);
         if crate::world::plan::tabula() {
             assert!(!look.zones.is_empty(), "a camp is in view at {x},{z}");
-            // The nearest, last, lies over the others and is the one in view.
             let nearest = look.zones.last().unwrap();
             assert!((nearest.at[0] - size[0] / 2.0).abs() < 90.0 && (nearest.at[1] - size[1] / 2.0).abs() < 60.0, "{:?}", nearest.at);
         } else {

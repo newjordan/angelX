@@ -1,4 +1,3 @@
-// Additional northern intents through the existing failed-save/checkpoint test.
 fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     use crate::delve::together_realm::Spoil;
     use crate::delve::together_shooter::{RoomKind, Run, countryside as c, world};
@@ -10,8 +9,6 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     app.realm.dungeon.shooter.set(Some(Run::at_home(12, 7, None, home, before.clone())));
     {
         let r = app.realm.dungeon.shooter.edit().unwrap();
-        // Real interactions, ordered and spatially separate; no injected
-        // completion bits. Restore has to carry all six pending requests.
         for &(kind, at) in &c::FORECAST {
             r.arrive(world::room_of(&r.dungeon, kind).unwrap(), at);
             r.step(&BTreeMap::from([(
@@ -35,7 +32,6 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         }
         assert_eq!(c::forecast_stage(&r.home.countryside, &r.marks), 6);
         assert_eq!(r.marks.get("country:build:ropeway"), Some(&1));
-        // An old settled floor needs all three northern rooms back.
         r.arrive(
             world::room_of(&r.dungeon, RoomKind::Gate).unwrap(),
             (12.0, 9.5),
@@ -58,8 +54,6 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     assert_eq!(saved["country_intents"]["country:forecast:5"], 1);
     assert_eq!(saved["country_intents"]["country:build:ropeway"], 1);
     assert!(saved["run"].get("marks").is_none());
-    // The whitelist has one finite entry per authored action. A fully occupied finite journal
-    // must not be rejected by the old hardcoded limit of 32 on restart.
     let mut full = saved.clone();
     let journal = full["country_intents"].as_object_mut().unwrap();
     for (prefix, count) in [
@@ -107,15 +101,12 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         assert!(c::intent_key(&key));
         journal.insert(key, 1.into());
     }
-    // The Round Table adventures' campaign marks, each its own module's.
     for a in &crate::delve::together_shooter::roundtable::ADVENTURES {
         for key in a.marks {
             assert!(c::intent_key(key));
             journal.insert((*key).into(), 1.into());
         }
     }
-    // College requests share this bounded journal with the countryside.
-    // Include every finite College action when exercising its full limit.
     use crate::delve::together_shooter::college;
     let mut college_keys: Vec<String> = [
         "tome",
@@ -150,8 +141,6 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         assert!(c::intent_key(&key));
         journal.insert(key, 1.into());
     }
-    // The squire company's slots stay free: its intents stand only while a
-    // company holds them, and this fixture hires none.
     assert_eq!(
         journal.len(),
         c::INTENT_LIMIT - crate::delve::together_shooter::countryside_squires::INTENT_SLOTS
@@ -167,7 +156,6 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         app.realm.dungeon.shooter.as_ref().unwrap().marks.len(),
         c::INTENT_LIMIT - crate::delve::together_shooter::countryside_squires::INTENT_SLOTS
     );
-    // An unknown key is rejected, never admitted by the larger finite limit.
     full["country_intents"]["country:unbounded-string"] = 1.into();
     std::fs::write(&path, serde_json::to_vec(&full).unwrap()).unwrap();
     assert!(app.realm.dungeon.restore(&fixture.workspace).is_err());

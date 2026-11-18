@@ -12,40 +12,28 @@ use std::ffi::OsString;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-/// Does a warpath carry `route` (two cells, primary then sub) as one of its
-/// aligned pairs?
 pub(super) fn has_route(cells: &str, route: &str) -> bool {
     let cells = cells.trim().chars().collect::<Vec<_>>();
     let route = route.chars().collect::<Vec<_>>();
     cells.len() % 2 == 0 && cells.chunks(2).any(|pair| pair == route.as_slice())
 }
 
-/// The first line of a message: a warpath's stamps, with any facts beside them
-/// on the lines after.
 pub(super) fn first_line(content: &str) -> &str {
     content.lines().next().unwrap_or_default()
 }
 
-// Legacy harness-telemetry messages, exactly as older persisted sessions carry
-// them. The harness no longer writes prose like this (it speaks in braille
-// warpaths, `harness/book/`), but resumed histories still hold it, and
-// summaries must keep dropping it.
 pub(crate) const NOPROGRESS_NUDGE: &str = "[harness-telemetry] You've spent several turns re-reading files you already pulled into \
     context, without making an edit, running a command, or examining anything new. The information \
     is already above — act on it: make the change, run the test/build, or give your answer. If \
     you're missing something specific, search for that one thing rather than re-reading the whole \
     file.";
 
-/// Fired when the same mutation signature is re-issued (including failed non-unique
-/// multi_edit of identical short snippets). Distinct from anti-spin, which requires
-/// the entire tool *batch* bytes to match.
 pub(crate) const MUTATION_THRASH_NUDGE: &str = "[harness-telemetry] MUTATION THRASH. You re-issued the same edit signature multiple times \
     (same path and old/new payload, or the same non-unique short snippet). Stop replaying it. \
     If the tool said 'old is not unique', include the enclosing function or more unique context \
     in `old`. If the edit already applied, run a verifier or change approach. Do not spend the \
     remaining horizon re-applying an identical patch.";
 
-/// Fired when many mutations land only under docs/testdata without core library hits.
 pub(crate) const PERIPHERAL_FANOUT_NUDGE: &str = "[harness-telemetry] PERIPHERAL FAN-OUT. Several edits landed under docs/, testdata/, fixtures, \
     or generated examples without a corresponding change in the implementing library (src/, pkg/, \
     lib/, core/). Find the code that *produces* those artifacts and fix it at the source instead of \
@@ -59,14 +47,12 @@ pub(crate) struct EnvGuard {
 impl EnvGuard {
     pub(crate) fn set(key: &'static str, value: &str) -> Self {
         let old = std::env::var_os(key);
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var(key, value) };
         Self { key, old }
     }
 
     pub(crate) fn unset(key: &'static str) -> Self {
         let old = std::env::var_os(key);
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
         Self { key, old }
     }
@@ -75,16 +61,13 @@ impl EnvGuard {
 impl Drop for EnvGuard {
     fn drop(&mut self) {
         if let Some(old) = &self.old {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::set_var(self.key, old) };
         } else {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::remove_var(self.key) };
         }
     }
 }
 
-/// A scripted club: first chat → call `reverse`, second chat → final text.
 struct ScriptedClub {
     hops: AtomicUsize,
 }
@@ -114,10 +97,6 @@ impl Club for ScriptedClub {
     }
 }
 
-/// Temp dir for harness tests.
-///
-/// Unique per call so parallel tests that share a tag cannot collide under the
-/// same process id (which previously flaked rollout capture inventory).
 fn scratch(tag: &str) -> PathBuf {
     use std::sync::atomic::{AtomicU64, Ordering};
     static SCRATCH_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -128,7 +107,6 @@ fn scratch(tag: &str) -> PathBuf {
     d
 }
 
-/// Tiny ToolCall builder for schedule fixtures (shared).
 fn tc(name: &str, args: Value) -> ToolCall {
     ToolCall {
         id: "x".into(),
@@ -137,8 +115,6 @@ fn tc(name: &str, args: Value) -> ToolCall {
     }
 }
 
-/// A club that returns a fixed summary from `respond` (empty string => error),
-/// for exercising auto-compaction without a live model.
 struct SummarizerClub(&'static str);
 impl Club for SummarizerClub {
     fn respond(&self, _p: &str) -> Result<String, String> {
@@ -187,8 +163,6 @@ fn long_history() -> Vec<ChatMsg> {
     h
 }
 
-/// A bare registry carrying `store` — what `maybe_compact` reads its store,
-/// session id, and (empty) aux-club list from in these tests.
 fn registry_with_store(
     store: std::sync::Arc<dyn crate::knowledge::memory::store::MemoryStore>,
 ) -> ToolRegistry {
@@ -333,7 +307,6 @@ fn lifecycle_idle_timeout_has_truthful_stop_and_cancelled_tool_receipt() {
         }
     }
     let dir = scratch("idle-process");
-    // Initialize the process helper before measuring a one-second idle window.
     ShellTool::in_dir(dir.clone())
         .call(&serde_json::json!({"command": "true"}))
         .unwrap();
@@ -417,14 +390,11 @@ fn t06c_tool_idle_escalation_is_failed_and_model_can_recover() {
             Ok(ClubReply::Calls(vec![ToolCall {
                 id: "stdin-idle".into(),
                 name: "shell".into(),
-                // Plain cat must see EOF; a deliberately supplied pipe recreates
-                // the observed stdin wait without regressing the null default.
                 args: serde_json::json!({"command":"echo $$ > worker.pid; cat < <(sleep 8)", "read_only":false}),
             }]))
         }
     }
     let dir = scratch("t06c-idle");
-    // Measure idle recovery after process-helper initialization, not cold startup.
     ShellTool::in_dir(dir.clone())
         .call(&serde_json::json!({"command": "true"}))
         .unwrap();
@@ -478,7 +448,6 @@ fn t06c_tool_idle_escalation_is_failed_and_model_can_recover() {
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-// Exercise the real turn/deadline/dispatch/envelope seam, not a fabricated row.
 fn assert_lifecycle_proc_envelope(
     cancel_after_launch: bool,
     provider_failure: bool,

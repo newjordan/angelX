@@ -18,12 +18,9 @@ use std::sync::OnceLock;
 
 use serde::Deserialize;
 
-
-/// A house: an index into [`all`], in the Round Table's own order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct HouseId(pub u8);
 
-/// How a castle is built, as its model chose from the kit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Walls {
     PaleStone,
@@ -46,19 +43,15 @@ pub enum RoofKind {
     Thatch,
 }
 
-/// One knight of a house, as the house's model named them.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Knight {
     pub name: String,
     pub epithet: String,
 }
 
-/// One model family's house.
 #[derive(Clone, Debug)]
 pub struct House {
-    /// The roster key (`deepseek`, `sol`, …), also what saves record.
     pub key: &'static str,
-    /// What the family is called on the map.
     pub family: &'static str,
     pub castle: String,
     pub knights: Vec<Knight>,
@@ -66,26 +59,21 @@ pub struct House {
     pub tops: Tops,
     pub towers: u8,
     pub roof: RoofKind,
-    /// Banner inks (signal bank): the field and its charge.
     pub field: char,
     pub charge: char,
-    /// No answer yet: the castle stands, its knights are unnamed.
     pub placeholder: bool,
 }
 
 impl House {
-    /// The castle's name in capitals for a map label.
     pub fn label(&self) -> String {
         self.family.to_uppercase()
     }
 
-    /// The knight of this house who wears kit `slot` (0-based), if named.
     pub fn knight(&self, slot: usize) -> Option<&Knight> {
         (!self.knights.is_empty()).then(|| &self.knights[slot % self.knights.len()])
     }
 }
 
-/// The houses in placement order: each key and its family's name.
 const ORDER: [(&str, &str); 16] = [
     ("sol", "Sol"),
     ("luna", "Luna"),
@@ -160,7 +148,6 @@ fn parse() -> Vec<House> {
         .map(|&(key, family)| {
             let entry = asset.houses.iter().find(|e| e.key == key);
             let Some(e) = entry.filter(|e| !e.placeholder && !e.knights.is_empty()) else {
-                // Not asked yet: a bare castle in the house's place, no names.
                 return House {
                     key,
                     family,
@@ -213,7 +200,6 @@ fn parse() -> Vec<House> {
         .collect()
 }
 
-/// Every house, in placement order.
 pub fn all() -> &'static [House] {
     static HOUSES: OnceLock<Vec<House>> = OnceLock::new();
     HOUSES.get_or_init(parse)
@@ -227,7 +213,6 @@ pub fn ids() -> impl Iterator<Item = HouseId> {
     (0..all().len() as u8).map(HouseId)
 }
 
-/// A house by its saved key.
 pub fn by_key(key: &str) -> Option<HouseId> {
     ORDER
         .iter()
@@ -235,7 +220,6 @@ pub fn by_key(key: &str) -> Option<HouseId> {
         .map(|i| HouseId(i as u8))
 }
 
-/// A house by its family or its castle's name, as an operator types it.
 pub fn find(name: &str) -> Option<HouseId> {
     let squash = |text: &str| {
         text.chars()
@@ -253,31 +237,23 @@ pub fn find(name: &str) -> Option<HouseId> {
     })
 }
 
-/// Who is serving right now.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Serving {
-    /// The house whose route is in hand (or answering the running turn).
     pub lead: Option<HouseId>,
-    /// Other houses a formation has seated beside the lead, in seat order.
     pub seated: Vec<HouseId>,
-    /// A turn is running.
     pub turn: bool,
 }
 
 impl Serving {
-    /// Every house with a knight out: the lead first, then the seated.
     pub fn houses(&self) -> impl Iterator<Item = HouseId> + '_ {
         self.lead.into_iter().chain(self.seated.iter().copied())
     }
 }
 
 thread_local! {
-    // Published by the app on its own thread each frame; the Delve reads it
-    // on the same thread when it dresses a party.
     static SERVING: RefCell<Serving> = RefCell::new(Serving::default());
 }
 
-/// Publish who is serving (the app, once a frame).
 pub fn note_serving(serving: &Serving) {
     SERVING.with(|cell| {
         let mut cell = cell.borrow_mut();
@@ -291,10 +267,6 @@ pub fn serving() -> Serving {
     SERVING.with(|cell| cell.borrow().clone())
 }
 
-/// The house a party seat's knight comes from: seat 1 is the serving house,
-/// later seats the houses a formation seated beside it, then the castles
-/// next along the March. `None` when nothing serves (the stub route): the
-/// Keep's own household takes the field.
 pub fn for_seat(serving: &Serving, seat: u32) -> Option<HouseId> {
     let lead = serving.lead?;
     let mut order: Vec<HouseId> = Vec::new();
@@ -315,17 +287,7 @@ pub fn for_seat(serving: &Serving, seat: u32) -> Option<HouseId> {
         .copied()
 }
 
-/// Where each house's castle stands on the March, in realm tiles: the
-/// footprint `(tx, ty, tw, th)` of its curtain wall, by house index. A
-/// castle is a great walled exterior, never seen whole: 14 to 21 tiles
-/// across and 8 to 10 deep, closed ground with its gate in the middle of
-/// its south face. Eight stand with their backs to the Marchwater and
-/// their gates on the frontier road, eight more behind the road with their
-/// gates on the far lane; each wholly inside one chunk, the two rows
-/// staggered, six tiles or more of open ground between any two. Set by
-/// hand (`docs/KINGDOM-OPEN.md`).
 const SITES: [(i32, i32, i32, i32); 16] = [
-    // Along the Marchwater, west to east: gates on the frontier road.
     (3, 146, 16, 8),
     (30, 148, 14, 8),
     (50, 147, 18, 8),
@@ -334,7 +296,6 @@ const SITES: [(i32, i32, i32, i32); 16] = [
     (123, 146, 20, 10),
     (149, 146, 15, 8),
     (170, 146, 21, 9),
-    // Behind the road, west to east: gates on the far lane.
     (8, 162, 16, 8),
     (32, 162, 15, 8),
     (53, 163, 14, 8),
@@ -345,10 +306,6 @@ const SITES: [(i32, i32, i32, i32); 16] = [
     (192, 161, 17, 9),
 ];
 
-/// A house's site in realm tiles `(tx, ty, tw, th)`: in the full plan its
-/// castle's curtain wall and all it holds, closed ground for the walker; in
-/// the blank-slate plan its camp (`super::plan::tabula::CAMPS`), where its
-/// castle will be built.
 pub fn footprint(id: HouseId) -> (i32, i32, i32, i32) {
     match super::plan::active() {
         super::plan::Plan::Full => SITES[usize::from(id.0) % SITES.len()],
@@ -358,22 +315,15 @@ pub fn footprint(id: HouseId) -> (i32, i32, i32, i32) {
     }
 }
 
-/// Whether a house's site is a camp (the blank-slate plan) and not yet a
-/// castle.
 pub fn is_camp() -> bool {
     super::plan::tabula()
 }
 
-/// The road tile before a castle's gate (a camp's fire), where its knight
-/// stands at home: the middle of its south face, a tile out.
 pub fn stand(id: HouseId) -> (i32, i32) {
     let (tx, ty, tw, th) = footprint(id);
     (tx + tw / 2, ty + th)
 }
 
-/// Every house castle's footprint, for the walker's closed ground. The
-/// Keep and the Dragon Keep are great castles too: `super::castles` has
-/// them all.
 pub fn footprints() -> impl Iterator<Item = (i32, i32, i32, i32)> {
     ids().map(footprint)
 }

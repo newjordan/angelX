@@ -25,7 +25,6 @@ fn table(seats: u32) -> Run {
     r
 }
 
-/// Every seat's bot, the later seats held at the gate a little so the pack spreads.
 fn bots(r: &Run, stagger: u32) -> BTreeMap<u32, Input> {
     let s = r.lightgallop.as_ref().expect("a ride");
     s.seats
@@ -79,8 +78,6 @@ fn want(name: &str) -> bool {
     std::env::var("LG_ONLY").map_or(true, |o| o.split(',').any(|x| x == name))
 }
 
-/// Ride from the gate until `found` says so (at most `limit` ticks); the
-/// tick it did.
 fn find(seats: u32, stagger: u32, limit: u32, found: impl Fn(&Run) -> bool) -> u32 {
     let mut r = table(seats);
     for _ in 0..limit {
@@ -92,7 +89,6 @@ fn find(seats: u32, stagger: u32, limit: u32, found: impl Fn(&Run) -> bool) -> u
     panic!("the moment never came in {limit} ticks");
 }
 
-/// Ride to `from`, then film `ticks` ticks, a frame every second tick.
 fn film(root: &Path, name: &str, views: &[u32], seats: u32, stagger: u32, from: u32, ticks: u32) -> Run {
     let mut r = table(seats);
     while r.lightgallop.as_ref().unwrap().elapsed < from {
@@ -119,26 +115,21 @@ fn write_lightgallop_film() {
     std::fs::create_dir_all(&root).unwrap();
     let lvl = level();
 
-    // The gate: the title, the pack leaving, the first slope.
     if want("start") {
         film(&root, "start", &[1, 2], 4, 24, 0, 200);
     }
-    // The downhill run: speed lines, dust, the pace building.
     if want("speed") {
         let t = find(4, 24, 3000, |r| r.lightgallop.as_ref().unwrap().seats[&1].rider.x / 256 > 560);
         film(&root, "speed", &[1], 4, 24, t, 120);
     }
-    // The first loop.
     if want("loop") {
         let t = find(4, 24, 4000, |r| r.lightgallop.as_ref().unwrap().seats[&1].rider.looping);
         film(&root, "loop", &[1], 4, 24, t.saturating_sub(40), 110);
     }
-    // A hit.
     if want("hit") {
         let t = find(4, 24, 6000, |r| r.lightgallop.as_ref().unwrap().seats[&1].rider.hurt > 0);
         film(&root, "hit", &[1], 4, 24, t.saturating_sub(40), 100);
     }
-    // The warden and the bell.
     if want("warden") {
         let t = find(4, 24, 8000, |r| {
             let s = r.lightgallop.as_ref().unwrap();
@@ -146,7 +137,6 @@ fn write_lightgallop_film() {
         });
         film(&root, "warden", &[1], 4, 24, t.saturating_sub(50), 130);
     }
-    // The finish: the bell and the podium.
     if want("finish") {
         let t = find(4, 24, 9000, |r| r.lightgallop.as_ref().unwrap().bell_t.is_some());
         film(&root, "finish", &[1], 4, 24, t.saturating_sub(30), 420);
@@ -157,7 +147,6 @@ fn write_lightgallop_film() {
 #[ignore = "times Lightgallop's frames"]
 fn time_lightgallop_frames() {
     use std::time::Instant;
-    // Four seats, the same ride, a window of frames at four places on the road.
     for (name, from) in [("gate", 10u32), ("downhill", 330), ("midway", 1400), ("late", 2600)] {
         let mut r = table(4);
         while r.lightgallop.as_ref().unwrap().elapsed < from {

@@ -190,8 +190,6 @@ fn adversarial_io_directory_swap_after_check_is_denied() {
     })
     .join()
     .unwrap();
-    // Reuse the previously accepted pathname: the actual descriptor operation
-    // must resolve beneath the root again, never trust the earlier check.
     assert!(confined_fs::confined_read(&root, &checked).is_err());
     assert!(confined_fs::confined_write(&root, &checked, b"replacement\n").is_err());
     let mut registry = ToolRegistry::new();

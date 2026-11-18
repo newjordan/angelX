@@ -13,7 +13,6 @@ use std::path::PathBuf;
 
 type Keys = BTreeMap<u32, Input>;
 
-/// What the bots press this tick, for whatever the hall is playing.
 fn bots(run: &Run) -> Keys {
     let Some(live) = run.encounter.as_ref() else { return Keys::new() };
     if live.end.is_some() {
@@ -30,7 +29,6 @@ fn bots(run: &Run) -> Keys {
         },
         Kind::KnightsWish => Keys::new(),
         k if k.adventure().is_some() => run.roundtable_inputs(),
-        // The arcade: the rounds are the knights' own; a bot walks and taps.
         Kind::Arcade(_) => run
             .players
             .keys()
@@ -44,8 +42,6 @@ fn bots(run: &Run) -> Keys {
     }
 }
 
-/// A run of `seats` knights on floor two with `kind` pinned to the folly hall,
-/// the party at the door and every knight with gold to stake.
 fn dealt(seats: u32, kind: Kind) -> (Run, usize) {
     let mut run = Run::new(41, 1, None);
     for id in 2..=seats {
@@ -68,10 +64,7 @@ fn dealt(seats: u32, kind: Kind) -> (Run, usize) {
     (run, index)
 }
 
-/// Make `kind`'s game end its own way (an objective met, the line crossed, a
-/// round won, a winner), so the payout shows.
 fn finish(run: &mut Run, kind: Kind) {
-    // A round that ended before the reel asked (a lost one) has nothing left to make end.
     if run.encounter.is_none() || (matches!(kind, Kind::Arcade(_)) && run.pastimes.heat.is_none()) {
         return;
     }
@@ -122,7 +115,6 @@ fn finish(run: &mut Run, kind: Kind) {
     }
 }
 
-/// Whether the engine this game's rules need is not in this build.
 fn needs_engine(kind: Kind) -> bool {
     matches!(kind, Kind::KnightsWish)
 }
@@ -138,9 +130,6 @@ fn slug(kind: Kind) -> String {
     }
 }
 
-/// One game's reel: the hall at its door, the game opening with its card, the
-/// game running under the bots, the game made to end, its payout card, and the
-/// hall after, cleared. Every other tick is a frame.
 fn reel(root: &PathBuf, kind: Kind, seats: u32) {
     let dir = root.join(slug(kind));
     let _ = std::fs::remove_dir_all(&dir);
@@ -159,25 +148,18 @@ fn reel(root: &PathBuf, kind: Kind, seats: u32) {
             *n += 1;
         }
     };
-    // At the door: the room before the hall.
     for _ in 0..16 {
         tick(&mut run, &Keys::new(), &mut n, true);
     }
     run.enter_for_test(index);
     if kind == Kind::KnightsWish {
-        // Past its own title, as the crossroads' shots do: the arena is what is drawn.
         run.deathmatch.as_mut().unwrap().ticks = deathmatch::TITLE + 1;
     }
-    // The card, then the game under its bots. (An arcade round an idle table loses in a few
-    // seconds is shown for two of them and then won, so its payout card shows as well.)
     let arcade = matches!(kind, Kind::Arcade(_));
     for _ in 0..(if arcade { 60 } else { encounter::TITLE_TICKS + 90 }) {
         let keys = bots(&run);
         tick(&mut run, &keys, &mut n, true);
     }
-    // And on a little longer, as a table would play it. (Lanternward's rules are
-    // the cockpit's engine's, which this build has not: its reel shows the moments the
-    // engine recorded, one after another, in the hall.)
     let moments = ["slash3", "lamp-lit", "gallery-solved", "lever", "beacon"];
     for t in 0..(if arcade { 0 } else { 150 }) {
         if kind == Kind::Lanternward && t % 30 == 0 {
@@ -230,8 +212,6 @@ fn write_encounter_reels() {
     }
 }
 
-/// Every game dealt on every floor to every party, played to its end: no
-/// panic, no stuck room, health and stakes as they should be.
 #[test]
 #[ignore = "the encounter soak: 50 seeds, floors one to six, one to four knights"]
 fn encounter_soak() {
@@ -252,7 +232,6 @@ fn encounter_soak() {
         for floor in 1..=6u32 {
             let halls: Vec<usize> = run.encounter_rooms.iter().map(|&(i, _)| i).collect();
             if halls.is_empty() {
-                // A floor whose ordinary rooms are all camps deals no game.
                 dry += 1;
             }
             for index in halls {
@@ -274,12 +253,10 @@ fn encounter_soak() {
                 while run.encounter.is_some() {
                     let keys = bots(&run);
                     if needs_engine(kind) {
-                        // The free-for-all's rules are the cockpit's engine's: the room's clock alone.
                         finish(&mut run, kind);
                         run.tick_encounter(&keys);
                     } else {
                         run.step(&keys);
-                        // A campaign the bots cannot finish in a minute is cut at its cap.
                         if n == 1800 && kind.co_op() {
                             run.encounter.as_mut().unwrap().t = kind.cap() - 1;
                         }

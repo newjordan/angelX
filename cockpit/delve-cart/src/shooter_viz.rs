@@ -22,8 +22,6 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
 
-// Text inks from the realm palette: stone, parchment, timber gold, and each
-// knight's own colours.
 pub(super) const STONE: Color = Color::Rgb(0x45, 0x60, 0x70);
 pub(super) const PARCHMENT: Color = Color::Rgb(0xc7, 0xb4, 0x8f);
 pub(super) const GOLD: Color = Color::Rgb(0xd8, 0xa9, 0x5e);
@@ -35,7 +33,6 @@ pub(super) const DIM: Color = Color::Rgb(0x6e, 0x8a, 0x8e);
 
 pub(super) const SIDEBAR: u16 = 24;
 
-/// Clip on terminal cells and grapheme boundaries, with an ellipsis.
 pub(crate) fn fit_text(text: &str, width: u16) -> String {
     use unicode_segmentation::UnicodeSegmentation;
     use unicode_width::UnicodeWidthStr;
@@ -67,7 +64,6 @@ pub(super) fn line(frame: &mut Frame, area: Rect, text: &str, color: Color) {
     );
 }
 
-/// Each speaker's subtitle ink, from the realm palette.
 pub(super) fn voice_color(who: &str) -> Color {
     match who {
         "blaise" => PARCHMENT,
@@ -88,8 +84,6 @@ pub(super) fn hero_color(id: u32) -> Color {
     }
 }
 
-/// One frame pixel per half cell: `▀` with the top pixel as foreground and
-/// the bottom one as background.
 pub(crate) fn paint_pixels(frame: &mut Frame, area: Rect, img: &Img) {
     let rgb = |x: i32, y: i32| {
         let [r, g, b] = img.get(x, y).unwrap_or([0, 0, 0]);
@@ -106,8 +100,6 @@ pub(crate) fn paint_pixels(frame: &mut Frame, area: Rect, img: &Img) {
     }
 }
 
-/// The room in cells drawn here from the run itself: the review route
-/// (live play draws each seat's picture on its own client).
 #[cfg(any(test, feature = "testing"))]
 pub(crate) fn paint_room(frame:&mut Frame,area:Rect,run:&Run,focus:Option<u32>) {
     if run.race3d_showing() || run.forest_road_showing() || run.roundtable_showing() || run.cinder_showing() || run.latch_showing() || run.mossbell_showing() || run.brasswake_showing() || run.pennon_showing() || run.rafterwake_showing() {
@@ -120,7 +112,6 @@ pub(crate) fn paint_room(frame:&mut Frame,area:Rect,run:&Run,focus:Option<u32>) 
     paint_pixels(frame,area,&img);
 }
 
-/// A seat's own picture in half blocks, scaled to the room's cells.
 pub(crate) fn paint_picture(frame: &mut Frame, area: Rect, picture: &Picture) {
     let (w, h) = (picture.w.max(1), picture.h.max(1));
     let rows = u32::from(area.height) * 2;
@@ -140,8 +131,6 @@ pub(crate) fn paint_picture(frame: &mut Frame, area: Rect, picture: &Picture) {
     }
 }
 
-/// The room in cells from the seat's own picture (black before its first),
-/// with the tray and panels over it as the cell route draws them.
 pub fn paint_picture_ui(frame: &mut Frame, area: Rect, run: &Run, picture: Option<&Picture>, focus: Option<u32>) {
     if run.race3d_showing() || run.forest_road_showing() || run.roundtable_showing() || run.cinder_showing() || run.latch_showing() || run.mossbell_showing() || run.brasswake_showing() || run.rafterwake_showing() || run.pennon_showing() {
         let (base, fx) = arena::terminal_layers_live(run, focus).expect("Mini-game cell layers");
@@ -160,22 +149,18 @@ pub fn paint_picture_ui(frame: &mut Frame, area: Rect, run: &Run, picture: Optio
     paint_overlay(frame, area, run, focus);
 }
 
-/// The cell route used by review.
 #[cfg(any(test, feature = "testing"))]
 pub fn paint_room_ui(frame:&mut Frame,area:Rect,run:&Run,focus:Option<u32>) {
     paint_room(frame,area,run,focus);
     paint_overlay(frame, area, run, focus);
 }
 
-/// The tray and the art's panels over the room's cells.
 fn paint_overlay(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>) {
     paint_game_panels(frame, area, run, focus);
     let id = focus.unwrap_or(1);
     if run.can_hold_leave(id) && area.width >= 24 && area.height >= 2 {
         let n = (10 * run.leave_progress(id) / angel_delve::rules::exits::LEAVE_TICKS) as usize;
         let text = format!("Esc: leave [{}{}]", "=".repeat(n), " ".repeat(10 - n));
-        // Older stages carry the native HUD in their seat picture. Cover
-        // its two sampled rows before placing the legible cell label.
         let backing = Rect::new(area.right() - 24, area.bottom() - 2, 24, 2);
         frame.render_widget(Block::default().style(Style::new().bg(Color::Rgb(0x19, 0x29, 0x34))), backing);
         let hud = Rect::new(area.right() - 24, area.bottom() - 1, 24, 1);
@@ -214,7 +199,6 @@ fn paint_game_panels(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32
     }
 }
 
-/// Small fixed-cost wrapping for the narrow status panel; no renderer layout expansion.
 fn status_chunks(text: &str, width: u16) -> Vec<String> {
     let chars: Vec<_> = text.chars().collect();
     chars
@@ -224,11 +208,8 @@ fn status_chunks(text: &str, width: u16) -> Vec<String> {
         .collect()
 }
 
-/// What the floor map's marks mean, short enough for the sidebar.
 pub(crate) const MAP_LEGEND: [&str; 2] = ["◆ you  ▼ stair  C chief", "♦ lair  * rest  ■ clear"];
 
-/// The floor's rooms as far as the party knows them: walked rooms, the
-/// doors seen from them, the stairs or lair once found.
 pub(super) fn floor_map(run: &Run) -> Vec<String> {
     let rooms = &run.dungeon.rooms;
     let leaders: Vec<usize> = run.boss_leader_rooms().collect();
@@ -267,7 +248,6 @@ pub(super) fn floor_map(run: &Run) -> Vec<String> {
                             RoomKind::Hall => '+',
                             RoomKind::Sanctuary => '*',
                             RoomKind::Ledge => '≡',
-                            // The Wanted hall: a star while its outlaw lives.
                             RoomKind::Wanted if !r.cleared => '★',
                             RoomKind::Wanted => '☆',
                             RoomKind::Pit if !r.cleared => '☠',
@@ -286,18 +266,13 @@ pub(super) fn floor_map(run: &Run) -> Vec<String> {
         .collect()
 }
 
-/// Where the room's cells come from.
 #[derive(Clone, Copy)]
 pub(crate) enum Room<'a> {
-    /// Drawn here from the run itself (a review, a still screen).
     #[cfg(test)]
     Run,
-    /// A seat's own picture, drawn by its client (live play); black before
-    /// its first.
     Seat(Option<&'a Picture>),
 }
 
-/// The delve's whole screen, the room drawn from the run (`Room::Run`).
 #[cfg(test)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn render(
@@ -318,7 +293,6 @@ pub(crate) fn render(
     render_room(frame, run, Room::Run, area, notice, key_releases, paused, hosted, harness, cards, realm, said, reforge, native)
 }
 
-/// The delve's whole screen around `room`.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn render_room(
     frame: &mut Frame,
@@ -495,7 +469,6 @@ pub(crate) fn render_room(
             card_screen(frame, run, room, page, selected);
         }
     } else if !native {
-        // Cells, unless the terminal's own picture is placed over them.
         let focus = Some(run.playtest.local_seat());
         match room_cells {
             #[cfg(test)]
@@ -504,10 +477,6 @@ pub(crate) fn render_room(
         }
     }
 
-    // Every knight's HUD, always up: health, weapon and guard, spells with
-    // their recharge, cards, bombs, the ultimate.
-    // The chiefs that hold the stair are told in the sidebar only, so a
-    // tall HUD steps down to its short form to leave them room.
     let gate = if run.at_home_now() {
         Vec::new()
     } else {
@@ -520,14 +489,11 @@ pub(crate) fn render_room(
     let mut knights: Vec<_> = run.players.iter().collect();
     knights.sort_by_key(|(id, _)| (**id != own, **id));
     for (&id, hero) in knights {
-        // The second knight's keys only for a second knight on this keyboard.
         let Some(hud) = run.hud(id, Keys::of(id, !hosted)) else {
             continue;
         };
         let named = hero.knight_name();
         let who = format!("P{id} {}", named.as_deref().unwrap_or(hero.name.as_str()));
-        // The picture carries the party along its top and the skills bar
-        // along its foot; the cells say it only where there is no picture.
         if native {
             chrome_rows.push((hud_rows.len(), "seat"));
             hud_rows.push(ratatui::text::Line::from(ratatui::text::Span::styled(
@@ -546,7 +512,6 @@ pub(crate) fn render_room(
                 compact,
             ));
         }
-        // A wish to make, and the key that makes it.
         if run.can_reforge(id) || run.can_wish(id) {
             hud_rows.push(ratatui::text::Line::from(ratatui::text::Span::styled(
                 if id == 1 {
@@ -604,8 +569,6 @@ pub(crate) fn render_room(
     }
     rows.push((String::new(), DIM));
     if run.at_home_now() {
-        // The ledger of the plate a knight stands on, in the HUD's own
-        // crisp hand.
         let reading = run.players.values().filter(|h| h.hp > 0).find_map(|h| {
             crate::together_shooter::home::plate_at(run.room().kind, h.x, h.y)
                 .map(|s| (s, h.buying))
@@ -620,7 +583,6 @@ pub(crate) fn render_room(
                         GOLD,
                     ));
                     rows.push((rung.says.to_string(), TEXT));
-                    // Each spoil it costs, red where the treasury is short.
                     let mut short = false;
                     for &(spoil, n) in rung.price {
                         let have = run.treasury.get(spoil);
@@ -655,7 +617,6 @@ pub(crate) fn render_room(
             }
             rows.push((String::new(), DIM));
         }
-        // The stables and the lists: the saddled mount and the record.
         if matches!(run.room().kind, RoomKind::Stables | RoomKind::Lists) {
             use crate::together_shooter::joust;
             let stable = &run.home.stable;
@@ -681,8 +642,6 @@ pub(crate) fn render_room(
                 format!("  {} bouts · {} unhorsed", stable.bouts, stable.unhorsed),
                 STONE,
             ));
-            // A bout being ridden: the course, the score, the balance and
-            // what the lances last did, for a view too small for its board.
             if let Some(j) = &run.joust {
                 let rival = j.rival();
                 rows.push((format!("BOUT · course {}/3", j.course + 1), PARCHMENT));
@@ -719,7 +678,6 @@ pub(crate) fn render_room(
             }
             rows.push((String::new(), DIM));
         }
-        // King Brannoc's barony: where he is, his mission, the work going up.
         let b = &run.home.barony;
         if b.here() {
             use crate::together_shooter::barony::{self, Court};
@@ -750,7 +708,6 @@ pub(crate) fn render_room(
             }
             rows.push((String::new(), DIM));
         }
-        // Home: what the realm can spend, and where the stair goes.
         rows.push(("THE TREASURY".to_string(), PARCHMENT));
         for spoil in crate::together_realm::Spoil::ALL {
             let n = run.treasury.get(spoil);
@@ -789,7 +746,6 @@ pub(crate) fn render_room(
             },
             if run.spin.is_some() { GOLD } else { STONE },
         ));
-        // Maud's round, poured and waiting for the stair.
         if let Some(drink) = run
             .home
             .round
@@ -798,7 +754,6 @@ pub(crate) fn render_room(
         {
             rows.push((format!("Round: {}", drink.name), GOLD));
         }
-        // Sir Dinadan's song, asked for and waiting for the stair.
         if let Some(song) = run
             .home
             .song
@@ -807,11 +762,9 @@ pub(crate) fn render_room(
         {
             rows.push((format!("Song: {}", song.name), GOLD));
         }
-        // Beaumains, hired and waiting at the stair.
         if run.home.hire.is_some() {
             rows.push(("Hired: Beaumains".to_string(), GOLD));
         }
-        // Sir Ector's word on each knight: their level, and lessons waiting.
         for hero in run.players.values() {
             use crate::together_shooter::talents::knight_key;
             let prowess = run.home.prowess(&knight_key(hero));
@@ -862,8 +815,6 @@ pub(crate) fn render_room(
             ));
             rows.push((String::new(), DIM));
         }
-        // Beaumains or a minion, fighting beside the party, or sitting this
-        // one out.
         if let Some(hire) = &run.hireling {
             let name = hire.kind.name();
             rows.push((
@@ -878,7 +829,6 @@ pub(crate) fn render_room(
         }
         floor_chrome=Some(rows.len());
         rows.push((run.dungeon.pack.name().to_string(), PARCHMENT));
-        // The chiefs, the key and the camps, in plain words, here only.
         for (i, said) in gate.into_iter().enumerate() {
             for chunk in status_chunks(&said, side.width) {
                 rows.push((chunk, if i == 0 { GOLD } else { STONE }));
@@ -997,34 +947,23 @@ pub(crate) fn render_room(
     true
 }
 
-/// Inks for the sealing pop-up.
 const SCROLL_INK: Color = Color::Rgb(0xd8, 0xc9, 0xa8);
 const ARCANE: Color = Color::Rgb(0x50, 0xc6, 0xb3);
 
-/// What the wish prompt shows: which part, the words, and the confirm
-/// pop-up's choice once Enter asks to seal it (`Some(true)`: seal).
 pub(crate) struct Wish<'a> {
     pub(crate) part: &'a str,
     pub(crate) words: &'a str,
     pub(crate) confirm: Option<bool>,
-    /// The known wishes this knight can still be granted (phrasebook index,
-    /// name with tier, what it does), and the one picked.
     pub(crate) known: Vec<(String, String, String)>,
     pub(crate) pick: Option<String>,
-    /// The known wish the scroll read back, by name and what it does.
     pub(crate) resolved: Option<(String, String)>,
-    /// At a Sanctuary's dais: any words may be wished for.
     pub(crate) sanctuary: bool,
-    /// The knight's wishes held, the genie's gauge (`scroll_of`).
     pub(crate) scroll: Option<Scroll>,
-    /// The ladders the knight holds, each climbed with its number key
-    /// (`Run::upgrades`), and the line under them when none can be.
     pub(crate) upgrades: Vec<crate::together_shooter::genie::Upgrade>,
     pub(crate) upgrade_note: Option<&'static str>,
     pub(crate) upgrade_page: usize,
 }
 
-/// The ONE WISH pop-up: plain about what sealing means, two clear choices.
 pub(super) fn wish_confirm(frame: &mut Frame, room: Rect, wish: &Wish, seal: bool) {
     let w = 56u16.min(room.width);
     let h = 12u16.min(room.height);
@@ -1083,7 +1022,6 @@ pub(super) fn wish_confirm(frame: &mut Frame, room: Rect, wish: &Wish, seal: boo
         None => (format!("Your {part}:"), format!("“{}”", wish.words.trim())),
     };
     center(frame, 3, &heading, Style::new().fg(TEXT));
-    // The wish itself, on up to two lines.
     let width = usize::from(inner.width.saturating_sub(4)).max(8);
     let mut lines: Vec<String> = vec![String::new()];
     for word in said.split_whitespace() {
@@ -1163,8 +1101,6 @@ fn rarity_color(rarity: Rarity) -> Color {
     }
 }
 
-/// One card as a framed box: its name, its art in half-block pixels, its
-/// kind and its rules.
 fn card_box(frame: &mut Frame, area: Rect, card: &Card, label: &str, selected: bool) {
     let color = rarity_color(card.rarity);
     let block = Block::default()
@@ -1210,8 +1146,6 @@ fn card_box(frame: &mut Frame, area: Rect, card: &Card, label: &str, selected: b
     );
 }
 
-/// The card screen: your hand, weapon and held cards, then every card the
-/// run can find, with how to make your own.
 fn card_screen(frame: &mut Frame, run: &Run, area: Rect, page: usize, selected: usize) {
     let mine = run.players.get(&1).map(|hero| Mine {
         hand: &hero.hand,
@@ -1223,7 +1157,6 @@ fn card_screen(frame: &mut Frame, run: &Run, area: Rect, page: usize, selected: 
     cards_of(frame, &run.book, mine, area, page, selected);
 }
 
-/// One knight's cards, by id: hand in slot order, the weapon, what is held.
 pub(crate) struct Mine<'a> {
     pub(crate) hand: &'a [String],
     pub(crate) spells: &'a [Option<String>],
@@ -1232,8 +1165,6 @@ pub(crate) struct Mine<'a> {
     pub(crate) deck: &'a [String],
 }
 
-/// The card screen: page 0 is the knight's own cards, pages 2 on the book
-/// (page 1 is the realm's, drawn elsewhere).
 pub(crate) fn cards_of(
     frame: &mut Frame,
     book: &crate::together_shooter::Book,
@@ -1402,10 +1333,6 @@ pub(crate) fn cards_of(
     );
 }
 
-/// The realm page: what the party carries, what the treasury holds, and the
-/// wishes it can pay for — the reason to go back down.
-/// The Herald's Bestiary: every kind the realm has felled, how many, and
-/// the Herald's note; the kinds not yet met, as rumours.
 fn bestiary_screen(frame: &mut Frame, run: &Run, area: Rect) {
     use crate::together_shooter::bestiary::{ENTRIES, GUARDIANS, key};
     frame.render_widget(Clear, area);
@@ -1549,7 +1476,6 @@ fn realm_screen(frame: &mut Frame, run: &Run, realm: Option<&Realm>, area: Rect,
             TEXT,
         );
     }
-    // The selected wish, large: its art, its words, its price and its makers.
     if let Some(wish) = realm.wishes.get(selected) {
         let x = area.x + list_w + 2;
         let w = area.right().saturating_sub(x);
@@ -1593,10 +1519,6 @@ fn realm_screen(frame: &mut Frame, run: &Run, realm: Option<&Realm>, area: Rect,
     );
 }
 
-/// A seat's own screen through the terminal's picture path: its client
-/// draws the frame on the game's render worker, where it is scaled and
-/// encoded too; this frame only places it. False where the terminal has no
-/// picture path (the cells are drawn instead).
 pub fn render_seat(
     frame: &mut Frame,
     viewer: &mut dyn angel_plug::screen::Screen<crate::cart::viewer::State>,
@@ -1612,10 +1534,8 @@ pub fn render_seat(
     let Some(room) = room_viewport(area, expanded) else {
         return false;
     };
-    // The seat's whole screen: the party's band over the room's view.
     let size = arena::seat_size();
     if viewer.console().glass_active() && arena::parts_outside() {
-        // The GPU window draws the frame from its parts (a stage).
         let budget = if seat.has_scene() {
             render_wait()
         } else {
@@ -1626,24 +1546,17 @@ pub fn render_seat(
         };
         let placed = crate::cart::viewer::game_placement(viewer.console(), room, size);
         crate::cart::glass::stage(viewer.console(), &scene, room, placed, frame.buffer_mut());
-        // Thrown things follow the stage's floor where it tips away.
         let tilt = if scene.is_flat() { 0.0 } else { arena::stage_frame::TILT };
         crate::cart::glass::lifted(viewer.console(), &seat.lifted(), size, placed, tilt);
         return true;
     }
-    // Terminal picture path. Every display frame is a new picture: the
-    // seat's own knight answers its keys at once, everyone else moves
-    // between ticks. Glass never reaches here: it draws from parts above.
     let sequence = now.duration_since(*EPOCH.get_or_init(std::time::Instant::now)).as_micros() as u64;
     let draw = seat.drawer();
     viewer.render_game_async(frame, room, sequence, size, render_wait(), move || draw(now))
 }
 
-/// Where display frames are counted from.
 static EPOCH: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
 
-/// How long a frame waits for its own picture from the render worker before
-/// showing the last one (`ANGEL_DELVE_RENDER_WAIT_MS`, default 4).
 fn render_wait() -> std::time::Duration {
     static WAIT: std::sync::OnceLock<std::time::Duration> = std::sync::OnceLock::new();
     *WAIT.get_or_init(|| {

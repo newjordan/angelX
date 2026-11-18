@@ -173,8 +173,6 @@ fn composer_placeholder_pads_full_width_to_kill_ghosts() {
     }
 }
 
-/// A3: a double-width glyph in a width-1 pane must still pad/clip to one cell
-/// after the draw-path pad pass (otherwise a neighbor cell ghosts).
 #[test]
 fn pad_composer_lines_clips_wide_glyph_in_narrow_pane() {
     let width = 1;
@@ -193,21 +191,20 @@ fn pad_composer_lines_clips_wide_glyph_in_narrow_pane() {
     );
 }
 
-/// A3: multi-span rows (styled tokens + wide glyphs) truncate to exact width.
 #[test]
 fn pad_composer_lines_multi_span_truncates_to_exact_display_width() {
     let width = 8;
     let mut lines = vec![Line::from(vec![
         Span::styled("hi", HUD_TEXT_STYLE),
-        Span::styled("🙂🙂🙂", HUD_GOLD_BOLD_STYLE), // typically 6 cells
+        Span::styled("🙂🙂🙂", HUD_GOLD_BOLD_STYLE),
     ])];
     pad_composer_lines(&mut lines, width);
     let flat: String = lines[0].spans.iter().map(|s| s.content.as_ref()).collect();
     assert_eq!(composer_display_width(&flat), width, "exact={flat:?}");
 
     let mut long = vec![Line::from(vec![
-        Span::styled("hello", HUD_TEXT_STYLE),    // 5
-        Span::styled("世界世界", HUD_TEXT_STYLE), // 8
+        Span::styled("hello", HUD_TEXT_STYLE),
+        Span::styled("世界世界", HUD_TEXT_STYLE),
     ])];
     pad_composer_lines(&mut long, width);
     let flat: String = long[0].spans.iter().map(|s| s.content.as_ref()).collect();
@@ -229,18 +226,15 @@ fn pad_composer_lines_rewrites_short_rows() {
     assert_eq!(composer_display_width(&flat), width);
 }
 
-/// A3: wide glyphs are 2 terminal cells — char-count pad left ghost cells.
 #[test]
 fn pad_composer_row_uses_display_width_for_wide_glyphs() {
     let width = 10;
-    // "🙂" is typically width 2; "hi" is 2 → content display 4 → pad 6 spaces.
     let row = pad_composer_row("hi🙂", width);
     assert_eq!(
         composer_display_width(&row),
         width,
         "row={row:?} must fill {width} cells"
     );
-    // Truncate: a string wider than the pane must still land on exact width.
     let wide = pad_composer_row("日本語テスト長め", 6);
     assert_eq!(composer_display_width(&wide), 6, "wide={wide:?}");
 }
@@ -248,13 +242,11 @@ fn pad_composer_row_uses_display_width_for_wide_glyphs() {
 #[test]
 fn pad_composer_lines_clears_wide_glyph_residue_on_shorten() {
     let width = 12;
-    // Simulate a long draft row that then shrinks to a short one.
     let mut lines = vec![Line::from(Span::styled(
         pad_composer_row("旧い長い下書き🙂残渣", width),
         HUD_TEXT_STYLE,
     ))];
     assert_eq!(composer_display_width(&flatten_line(&lines[0])), width);
-    // User cleared to a short draft.
     lines[0] = Line::from(Span::styled("ok", HUD_TEXT_STYLE));
     pad_composer_lines(&mut lines, width);
     assert_eq!(
@@ -267,8 +259,6 @@ fn pad_composer_lines_clears_wide_glyph_residue_on_shorten() {
     assert!(!flat.contains('旧'), "no residual CJK from prior draft");
 }
 
-/// A3: pasted tabs (and other controls) must not under-pad — unicode-width
-/// treats TAB as 0 while the terminal expands it, leaving residual cells.
 #[test]
 fn pad_composer_row_sanitizes_tabs_to_exact_display_width() {
     let width = 10;
@@ -282,7 +272,6 @@ fn pad_composer_row_sanitizes_tabs_to_exact_display_width() {
         width,
         "tabbed draft must still fill every cell: {row:?}"
     );
-    // Multi-span pad path also rewrites controls.
     let mut lines = vec![Line::from(vec![
         Span::styled("id\t", HUD_TEXT_STYLE),
         Span::styled("name\tval", HUD_GOLD_BOLD_STYLE),
@@ -293,13 +282,10 @@ fn pad_composer_row_sanitizes_tabs_to_exact_display_width() {
     assert_eq!(composer_display_width(&flat), width, "multi-span: {flat:?}");
 }
 
-/// A3: soft-hyphen / ZWSP / BOM report width 0 but terminals may still reserve
-/// a cell — counting them as 0 under-pads and leaves residual neighbor cells.
-/// Format ignorables become spaces (1 cell); emoji ZWJ stays for clusters.
 #[test]
 fn pad_composer_row_sanitizes_format_zwsp_to_exact_display_width() {
     let width = 8;
-    let dirty = "ab\u{200b}\u{00ad}cd\u{feff}"; // 4 letters + ZWSP + SHY + BOM
+    let dirty = "ab\u{200b}\u{00ad}cd\u{feff}";
     let row = pad_composer_row(dirty, width);
     assert!(
         !row.chars().any(|c| matches!(
@@ -319,7 +305,6 @@ fn pad_composer_row_sanitizes_format_zwsp_to_exact_display_width() {
             "painted cell must be ≥1 wide after sanitize: {ch:?} in {row:?}"
         );
     }
-    // Multi-span pad path rewrites format ZW the same way.
     let mut lines = vec![Line::from(vec![
         Span::styled("a\u{200b}", HUD_TEXT_STYLE),
         Span::styled("b\u{00ad}c", HUD_GOLD_BOLD_STYLE),
@@ -332,7 +317,6 @@ fn pad_composer_row_sanitizes_format_zwsp_to_exact_display_width() {
     );
     assert_eq!(composer_display_width(&flat), width, "multi-span: {flat:?}");
 
-    // Wrap path must match pad budget (no TAB-style measure skew).
     let wrapped = wrap_composer_rows(&"x\u{200b}\u{00ad}y".chars().collect::<Vec<_>>(), 4, 2);
     assert!(!wrapped.rows.is_empty());
     let painted = &wrapped.rows[0].text;
@@ -346,7 +330,6 @@ fn pad_composer_row_sanitizes_format_zwsp_to_exact_display_width() {
         "after sanitize every char is 1-cell space or glyph: {painted:?}"
     );
 
-    // Emoji ZWJ sequences stay joinable (not forced to spaces).
     let family = "👨\u{200d}👩";
     let kept = sanitize_composer_display(family);
     assert!(
@@ -355,9 +338,6 @@ fn pad_composer_row_sanitizes_format_zwsp_to_exact_display_width() {
     );
 }
 
-/// A3 adversarial: ZWNJ and bidi marks/embeddings report unicode-width 0
-/// (same class as ZWSP) but were not sanitized — pad under-filled and left
-/// residual cells after a cleared draft. ZWJ / VS16 stay for emoji.
 #[test]
 fn pad_composer_row_sanitizes_zwnj_and_bidi_marks() {
     let width = 10;
@@ -392,7 +372,6 @@ fn pad_composer_row_sanitizes_zwnj_and_bidi_marks() {
             "painted cell ≥1 after sanitize: {ch:?} in {row:?}"
         );
     }
-    // Multi-span + wrap paths share sanitize.
     let mut lines = vec![Line::from(vec![
         Span::styled("x\u{200c}", HUD_TEXT_STYLE),
         Span::styled("y\u{200e}z", HUD_GOLD_BOLD_STYLE),
@@ -413,7 +392,6 @@ fn pad_composer_row_sanitizes_zwnj_and_bidi_marks() {
         "wrap must sanitize bidi/ZWNJ: {painted:?}"
     );
 
-    // ZWJ + variation selector still kept for emoji clusters.
     let emoji = "❤\u{fe0f}\u{200d}🔥";
     let kept = sanitize_composer_display(emoji);
     assert!(
@@ -422,9 +400,6 @@ fn pad_composer_row_sanitizes_zwnj_and_bidi_marks() {
     );
 }
 
-/// A3: Unicode LINE/PARAGRAPH SEPARATOR must hard-break like LF so the
-/// terminal cannot paint an extra physical row under a short pad (ghosts).
-/// Compact/pad paths also sanitize residual LS/PS to spaces.
 #[test]
 fn wrap_composer_rows_hard_breaks_on_unicode_line_separators() {
     let width = 40;
@@ -447,7 +422,6 @@ fn wrap_composer_rows_hard_breaks_on_unicode_line_separators() {
                 row.text
             );
         }
-        // Full composer_view + pad: every painted row fills the pane.
         let mut view = composer_view(&format!("hello{sep}world"), width, 3, 0);
         pad_composer_lines(&mut view.lines, width);
         assert!(view.lines.len() >= 2);
@@ -464,11 +438,9 @@ fn wrap_composer_rows_hard_breaks_on_unicode_line_separators() {
             );
         }
     }
-    // LF still behaves the same.
     let lf = wrap_composer_rows(&"hello\nworld".chars().collect::<Vec<_>>(), width, 4);
     assert_eq!(lf.rows[0].text, "hello");
     assert_eq!(lf.rows[1].text, "world");
-    // Pad-only path: residual LS becomes a space (compact drafts).
     let row = pad_composer_row("ab\u{2028}cd", 8);
     assert!(!row.contains('\u{2028}'));
     assert_eq!(composer_display_width(&row), 8);
@@ -652,7 +624,6 @@ fn composer_unicode_wrap_and_caret_are_cell_bounded_at_every_cursor_and_width() 
                     row.text,
                     chars[row.start..row.end].iter().collect::<String>()
                 );
-                // Never split a combining/ZWJ cluster at a soft boundary.
                 let byte = input
                     .char_indices()
                     .nth(row.start)
@@ -719,8 +690,6 @@ fn composer_multiline_unicode_selection_tracks_scrolled_source_offsets() {
         .map(|span| span.content.as_ref())
         .collect();
     assert_eq!(selected, "界e\u{301}👩‍💻");
-    // Scalar-index selections inside a cluster paint the whole glyph, not
-    // split spans that would change its terminal width or caret position.
     let mut view = composer_view_with_selection("👩‍💻!", 4, 2, 3, Some((1, 2)));
     pad_composer_lines(&mut view.lines, 4);
     assert_eq!(view.lines[0].width(), 4);
@@ -747,8 +716,6 @@ fn composer_height_grows_then_caps_and_reflows_on_resize_and_clear() {
                 <= available.saturating_sub(1)
         );
     }
-    // Match draw.rs's bottom-anchored layout: growth reduces only the
-    // transcript above, never shifts the composer bottom down.
     use ratatui::layout::{Constraint, Layout, Rect};
     let frame = Rect::new(2, 3, 40, 30);
     let sections = |input| {

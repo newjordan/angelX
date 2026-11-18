@@ -8,14 +8,12 @@ fn run() -> Run {
     Run::new(4, 2, Some("Matt"))
 }
 
-/// The mirror wish as a knight makes it: the handoff, the words, the pick.
 fn wished(run: &mut Run, id: u32, words: &str) {
     run.begin_mirror_wish(id).unwrap();
     run.offer_wish(id, words, None).unwrap();
     run.choose(id, 0).unwrap();
 }
 
-/// The worn painter's answer for the knight's look: one ink pixel.
 fn painted(run: &mut Run, id: u32, words: &str, ink: &str) {
     let mut card = run.mirror_paint_card(id, words).unwrap();
     card.looks.worn = Some(looks::Sprite { frames: vec![vec![ink.into()]], ..Default::default() });
@@ -44,7 +42,6 @@ fn a_body_drawn_whole_takes_the_worn_ink_off_the_knight_and_keeps_it_saved() {
     assert_eq!(worn(&run, 1), 1, "the painter's ink is on the knight");
     assert!(run.mirror_bodies().is_empty() && !run.has_mirror_body(1));
 
-    // A result for other words is a late one: nothing changes.
     assert!(!run.set_mirror_body(&key(&name), "a red knight", true));
     assert_eq!(worn(&run, 1), 1);
 
@@ -56,12 +53,10 @@ fn a_body_drawn_whole_takes_the_worn_ink_off_the_knight_and_keeps_it_saved() {
     assert_eq!(kept.worn.frames, vec![vec!["7".to_string()]], "the ink stays saved");
     assert!(!run.set_mirror_body(&key(&name), "a frog knight", true), "nothing to change twice");
 
-    // A later answer of the worn painter for the same words keeps the body.
     painted(&mut run, 1, "a frog knight", "8");
     assert!(run.has_mirror_body(1));
     assert_eq!(worn(&run, 1), 0);
 
-    // Off: the ink is the knight's look again.
     assert!(run.set_mirror_body(&key(&name), "", false));
     assert_eq!(worn(&run, 1), 1);
     assert!(run.mirror_bodies().is_empty() && !run.has_mirror_body(1));
@@ -82,10 +77,8 @@ fn a_new_wish_never_wears_the_old_wishs_body() {
     assert_eq!(worn(&run, 1), 1, "the saved ink is on the knight until the new body lands");
     let card = run.book.get(&key(&name)).unwrap();
     assert_eq!(card.text, "a red knight", "the card's text is the words the knight is drawn from");
-    // The old job's answer, landing late, is turned away.
     assert!(!run.set_mirror_body(&key(&name), "a frog knight", true));
     assert!(!run.has_mirror_body(1));
-    // The new words' own answer is taken.
     assert!(run.set_mirror_body(&key(&name), "a red knight", true));
     assert!(run.has_mirror_body(1));
 }
@@ -101,7 +94,6 @@ fn the_same_words_again_leave_the_knight_the_look_it_already_is() {
     assert!(run.has_mirror_body(1), "already that look");
     assert_eq!(worn(&run, 1), 0);
     assert_eq!(run.book.get(&key(&name)).unwrap().text, "a frog knight");
-    // Other words are another look.
     wished(&mut run, 1, "a frog knight, but red");
     assert!(!run.has_mirror_body(1));
 }
@@ -113,7 +105,6 @@ fn a_body_spends_and_grants_nothing() {
     run.players.get_mut(&1).unwrap().great_wishes = 2;
     let name = run.players[&1].name.clone();
     wished(&mut run, 1, "a frog knight");
-    // The mirror's ask never owns a spent wish: the host takes it off the queue.
     assert!(run.asked.iter().all(|a| a.cosmetic));
     let (before, genie, wishes) = (gameplay(&run), run.genie.clone(), run.players[&1].wishes);
     assert!(run.set_mirror_body(&key(&name), "a frog knight", true));
@@ -137,7 +128,6 @@ fn the_body_is_saved_with_the_look_and_an_old_save_has_none() {
     let saved = serde_json::to_string(&run.home.wardrobe).unwrap();
     assert!(saved.contains("\"body\":true"));
 
-    // A restart: the same wardrobe, the same knight, drawn whole again.
     let mut next = self::run();
     next.home.wardrobe = serde_json::from_str(&saved).unwrap();
     next.restore_gear(1);
@@ -145,12 +135,10 @@ fn the_body_is_saved_with_the_look_and_an_old_save_has_none() {
     assert_eq!(next.mirror_bodies(), vec![(key(&name), 1)]);
     assert_eq!(worn(&next, 1), 0);
 
-    // A guest's snapshot of the run agrees.
     let guest: Run = serde_json::from_slice(&serde_json::to_vec(&run).unwrap()).unwrap();
     assert_eq!(guest.mirror_bodies(), run.mirror_bodies());
     assert_eq!(guest.players[&1].worn(&guest.book).len(), 0);
 
-    // A save from before it (no `body`) reads as no body, with its ink.
     let mut old: serde_json::Value = serde_json::from_str(&saved).unwrap();
     old["mirror_looks"][name.as_str()].as_object_mut().unwrap().remove("body");
     let mut older = self::run();
@@ -188,7 +176,6 @@ fn a_drawn_knight_is_on_the_64_rung_whatever_the_floor() {
     assert_eq!(resolution::drawn_rung(&run, 1), resolution::BODY_RUNG);
     assert_eq!(resolution::rung(&run, 1), Rung::BASE, "the rung a floor gives is not moved");
     assert_eq!(resolution::drawn_rung(&run, 2), Rung::BASE, "the other seat is as it was");
-    // A finer rung is the knight's own.
     resolution::set_rule(Some(resolution::Rule::Fixed(Rung::of(128).unwrap())));
     assert_eq!(resolution::drawn_rung(&run, 1), Rung::of(128).unwrap());
     resolution::set_rule(None);
@@ -205,7 +192,6 @@ fn the_host_tells_the_run_through_the_journal_and_a_stranger_cannot() {
     let receipt = journal.apply(&mut run, ask(1, on)).unwrap();
     assert_eq!(receipt.result, Ok(vec![Reply::Changed(true)]));
     assert!(run.has_mirror_body(1));
-    // A card id that is not a mirror look's is refused outright.
     let not = Command::MirrorBody { card: "iron-helm".into(), words: "x".into(), on: true };
     let refused = journal.apply(&mut run, ask(2, not)).unwrap();
     assert!(refused.result.is_err(), "a receipt that says no: {refused:?}");

@@ -41,7 +41,6 @@ fn the_pit_has_a_face_for_every_edge_of_the_map() {
         }
     }
     assert!(edges > 60);
-    // A gate in each end's notch, a box at each end of the long wall, pillars inside.
     let kinds = |k: Kind| pit.faces.iter().filter(|f| f.kind == k).count();
     assert_eq!(kinds(Kind::Gate), 2);
     assert_eq!(kinds(Kind::Box), 2);
@@ -72,7 +71,6 @@ fn the_paint_is_a_pure_function_of_the_view_and_the_tick() {
 
 #[test]
 fn walls_and_sand_stay_darker_than_the_knights_who_stand_against_them() {
-    // Knights are toned up to 175; nothing in the pit but a flame may rival them.
     for (x, y, yaw) in [(13.0, 23.0, 0.0), (24.0, 18.0, 1.0), (8.0, 14.0, 3.0), (30.0, 28.0, -1.5)] {
         let im = painted(&look(x, y, yaw), 40);
         let (mut bright, mut total) = (0, 0);
@@ -91,7 +89,6 @@ fn walls_and_sand_stay_darker_than_the_knights_who_stand_against_them() {
 #[test]
 fn the_sand_is_warm_and_the_sky_is_not() {
     let im = painted(&look(24.0, 18.0, 0.0), 10);
-    // Bottom row of the view is sand: warmer than it is blue.
     let mut warm = 0;
     for px in 0..im.w {
         let c = im.get(px, im.h - 1).unwrap();
@@ -128,8 +125,6 @@ fn painting_a_six_seat_frame_is_cheap() {
     assert!(per < 40.0, "painting took {per:.1} ms a seat");
 }
 
-// --- the proof: frames of the pit from where a knight stands ---------------------
-
 fn scene() -> Run {
     let mut r = crate::rules::roundtable::fixture(&dm::ADVENTURE);
     for id in 2..=6 {
@@ -155,7 +150,6 @@ fn write_pit_shots() {
         up.stamp_times(&big, 0, 0, 2);
         image::save_buffer(dir.join(format!("{name}.png")), &up.rgba_bytes(), up.w as u32, up.h as u32, image::ColorType::Rgba8).unwrap();
     };
-    // The bare pit, from many places, with the knights standing in it.
     let shots: &[(&str, (f32, f32), f32)] = &[
         ("a-centre-west", (24.0, 18.0), std::f32::consts::PI),
         ("b-centre-east", (24.0, 18.0), 0.0),
@@ -191,7 +185,6 @@ fn write_pit_shots() {
         let im = super::super::layers(&r, Some(1)).0;
         save(&im, name);
     }
-    // Frame time: the whole view for six seats, painted.
     let r = scene();
     let start = std::time::Instant::now();
     for _ in 0..10 {

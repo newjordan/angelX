@@ -80,7 +80,6 @@ fn sir_kay_greets_whoever_walks_up_once() {
         run.cues.iter().any(|c| c == "npc:kay_empty"),
         "an empty hall"
     );
-    // Walk away and back: a second greeting, now with something to show.
     run.home.trophies.insert("cinderjaw".into(), 1);
     run.players.get_mut(&1).unwrap().y = 20.0;
     run.step(&BTreeMap::new());

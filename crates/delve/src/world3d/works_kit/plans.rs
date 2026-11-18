@@ -8,7 +8,6 @@ use angel_stage::set::Kind;
 use super::W;
 use crate::render::overworld::works_kit::Load;
 
-/// Plan `id` drawn into `b`: its finished body, running when `b.work`.
 pub(super) fn draw(id: &str, b: &mut W) -> Option<()> {
     match id {
         "field-quarry" => field_quarry(b),
@@ -92,16 +91,10 @@ pub(super) fn draw(id: &str, b: &mut W) -> Option<()> {
     Some(())
 }
 
-// -------------------------------------------------------------- helpers ----
-
-/// A hall: a plinth, a body of `wall` over `x` by `z` to height `h`, a roof of
-/// `roof` on it (`roof_h` high; hipped or gabled, its ridge along x or z),
-/// a door slot in the front, lit slits along it. Returns the wall's top.
 #[allow(clippy::too_many_arguments)]
 fn hall(b: &mut W, x: [f32; 2], z: [f32; 2], wall: Kind, h: f32, roof: Kind, roof_h: f32, hipped: bool, ridge_z: bool) -> f32 {
     let y0 = b.plinth(Kind::Stone, x, z, &[(2.0, 1.4)]);
     b.bx(wall, x, [y0, y0 + h], z);
-    // A string course and the heavy eave.
     b.bx(Kind::Stone, [x[0] - 1.0, x[1] + 1.0], [y0 + h, y0 + h + 1.6], [z[0] - 1.0, z[1] + 1.0]);
     let top = y0 + h + 1.6;
     if hipped {
@@ -121,13 +114,11 @@ fn hall(b: &mut W, x: [f32; 2], z: [f32; 2], wall: Kind, h: f32, roof: Kind, roo
     top
 }
 
-/// A chimney stack standing on `(cx, cz)`, `r` across, from `y0` to `y1`.
 fn stack(b: &mut W, cx: f32, cz: f32, r: f32, y0: f32, y1: f32) {
     b.bx(Kind::Stone, [cx - r, cx + r], [y0, y1], [cz - r, cz + r]);
     b.bx(Kind::Stone, [cx - r - 0.8, cx + r + 0.8], [y1 - 1.5, y1], [cz - r - 0.8, cz + r + 0.8]);
 }
 
-/// A barrow: a tray on one wheel, handles behind.
 fn barrow(b: &mut W, x: f32, z: f32, load: Option<Load>) {
     b.bx(Kind::Floor, [x, x + 9.0], [2.5, 4.5], [z - 2.5, z + 2.5]);
     b.bx(Kind::Floor, [x - 5.0, x], [3.0, 3.8], [z - 2.5, z - 1.7]);
@@ -138,7 +129,6 @@ fn barrow(b: &mut W, x: f32, z: f32, load: Option<Load>) {
     }
 }
 
-/// A pit's floor, its rim of ground on three sides and a low lip before it so the hole shows.
 fn hole(b: &mut W, rim: Kind, floor: Kind) {
     let (w, d) = (b.w, b.d);
     b.bx(Kind::Mud, [4.0, w - 8.0], [0.0, 1.2], [5.0, d - 12.0]);
@@ -151,7 +141,6 @@ fn hole(b: &mut W, rim: Kind, floor: Kind) {
 fn rubble_pit(b: &mut W) {
     let (w, d) = (b.w, b.d);
     hole(b, Kind::Ground, Kind::Rock);
-    // Tossed stones on the rim, a broken heap of rubble, a barrow of it.
     for k in 0..6 {
         let a = k as f32 / 6.0 * TAU;
         b.rock(Kind::Rock, 14.0 + a.cos() * 11.0, 11.0 + a.sin() * 5.0, 5.0, 5.0 + (k % 2) as f32 * 1.5, 3.0, 40 + k);
@@ -170,7 +159,6 @@ fn rubble_pit(b: &mut W) {
 
 fn sand_pit(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A cut in a sandy bank: terraces of pale sand stepping down to the floor, a smooth cone of spoil, a spade.
     b.bx(Kind::Ground, [2.0, w - 2.0], [0.0, 3.0], [2.0, d - 14.0]);
     for (k, (x0, x1)) in [(3.0, w - 3.0), (6.0, w - 8.0), (9.0, w - 13.0)].into_iter().enumerate() {
         b.bx(Kind::Sand, [x0, x1], [3.0 + k as f32 * 3.0, 6.0 + k as f32 * 3.0], [3.0 + k as f32 * 3.0, 9.0 + k as f32 * 3.0]);
@@ -189,7 +177,6 @@ fn sand_pit(b: &mut W) {
 
 fn clay_pit(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A wet pit: a red rim of clay round a pool of standing water; bricks cut and set out to dry on a rack.
     hole(b, Kind::Brick, Kind::Mud);
     b.bx(Kind::Water, [8.0, w - 12.0], [1.9, 2.5], [9.0, d - 17.0]);
     for (k, row) in [0.0, 3.2, 6.4].into_iter().enumerate() {
@@ -207,11 +194,8 @@ fn clay_pit(b: &mut W) {
     }
 }
 
-// ---------------------------------------------------------------- stone ----
-
 fn field_quarry(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // Three benches of raw rock stepping down toward the front, caps pale.
     for (x, z, h, ww, dd) in [(3.0, 2.0, 24.0, w - 6.0, 10.0), (3.0, 10.0, 15.0, 26.0, 10.0), (w - 20.0, 12.0, 9.0, 17.0, 10.0)] {
         b.bx(Kind::Rock, [x, x + ww], [0.0, h], [z, z + dd]);
         b.bx(Kind::Stone, [x, x + ww], [h - 1.4, h], [z, z + dd]);
@@ -229,10 +213,8 @@ fn field_quarry(b: &mut W) {
 fn claim_quarry(b: &mut W) {
     let (w, d) = (b.w, b.d);
     let (cx, cz) = (w / 2.0, d * 0.5);
-    // The collar: a square of dressed stone round the black shaft.
     b.plinth(Kind::Stone, [cx - 12.0, cx + 12.0], [cz - 12.0, cz + 12.0], &[(3.0, 2.0), (3.0, 0.0)]);
     b.bx(Kind::Door, [cx - 8.0, cx + 8.0], [5.9, 6.2], [cz - 8.0, cz + 8.0]);
-    // The headframe: four legs leaning to one head, a sheave on it.
     for (sx, sz) in [(-1.0f32, -1.0f32), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
         for k in 0..6 {
             let s = k as f32 / 6.0;
@@ -242,11 +224,9 @@ fn claim_quarry(b: &mut W) {
     }
     b.bx(Kind::Floor, [cx - 3.0, cx + 3.0], [46.0, 49.0], [cz - 3.0, cz + 3.0]);
     b.wheel(Kind::Metal, cx, 51.0, cz, 3.0, b.turn(), 4, 2.0);
-    // The bucket on its rope: down into the dark and up with rock.
     let up = if b.work { ((b.turn().cos() + 1.0) * 14.0).round() } else { 20.0 };
     b.bx(Kind::Cloth, [cx - 0.4, cx + 0.4], [6.0 + up + 6.0, 51.0], [cz - 0.4, cz + 0.4]);
     b.bx(Kind::Floor, [cx - 3.0, cx + 3.0], [6.0 + up, 6.0 + up + 6.0], [cz - 3.0, cz + 3.0]);
-    // The windlass drum, the charter banner, rough blocks for the cart.
     b.cyl(Kind::Floor, w - 6.0, cz, 3.0, 5.0, 6.0);
     b.bx(Kind::Floor, [4.0, 5.4], [0.0, 34.0], [4.0, 5.4]);
     b.bx(Kind::Cloth, [5.4, 17.0], [24.0, 33.0], [4.2, 5.2]);
@@ -255,7 +235,6 @@ fn claim_quarry(b: &mut W) {
 
 fn banker(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A shelter: four posts, a lean roof of shingle over a stone bench.
     for (x, z) in [(4.0, 4.0), (w - 6.0, 4.0), (4.0, d - 5.0), (w - 6.0, d - 5.0)] {
         b.bx(Kind::Floor, [x, x + 1.8], [0.0, 22.0], [z, z + 1.8]);
     }
@@ -272,7 +251,6 @@ fn banker(b: &mut W) {
 
 fn tracing_floor(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A raised bed of pale plaster edged in stone, the figures scribed in it as shallow grooves.
     b.bx(Kind::Stone, [2.0, w - 2.0], [0.0, 2.4], [2.0, d - 2.0]);
     b.bx(Kind::Plaster, [3.4, w - 3.4], [2.4, 3.0], [3.4, d - 3.4]);
     for r in [6.0f32, 11.0, 16.0] {
@@ -282,7 +260,6 @@ fn tracing_floor(b: &mut W) {
             b.bx(Kind::Door, [x - 0.5, x + 0.5], [3.0, 3.3], [z - 0.5, z + 0.5]);
         }
     }
-    // The compass at work: a standing arm and a sweeping leg.
     let s = if b.work { b.turn() } else { 2.4 };
     let (px, pz) = (w * 0.64, d * 0.5);
     b.bx(Kind::Metal, [px - 0.5, px + 0.5], [3.0, 18.0], [pz - 0.5, pz + 0.5]);
@@ -291,7 +268,6 @@ fn tracing_floor(b: &mut W) {
         let (x, z) = (px + s.cos() * 16.0 * f, pz + s.sin() * 13.0 * f);
         b.bx(Kind::Metal, [x - 0.5, x + 0.5], [18.0 - 15.0 * f, 18.6 - 15.0 * f], [z - 0.5, z + 0.5]);
     }
-    // The trestle table, template boards leaning on it.
     b.bx(Kind::Floor, [6.0, 22.0], [8.0, 9.4], [d - 14.0, d - 6.0]);
     for x in [7.0, 20.0] {
         b.bx(Kind::Floor, [x, x + 1.4], [3.0, 8.0], [d - 13.0, d - 12.0]);
@@ -311,7 +287,6 @@ fn slater(b: &mut W) {
     b.bx(Kind::Floor, [8.0, 18.0], [0.0, 9.0], [d * 0.4, d * 0.4 + 7.0]);
     b.bx(Kind::Slate, [6.0, 20.0], [9.0, 12.0], [d * 0.4 - 1.0, d * 0.4 + 8.0]);
     b.heap(Load::Slate, w - 9.0, d - 7.0, 11.0, 0.0, 9.0);
-    // Slates already hung on the shed's roof edge, a few leaning against it.
     for k in 0..3 {
         b.bx(Kind::Slate, [20.0 + k as f32, 21.0 + k as f32], [0.0, 14.0], [d - 10.0 + k as f32, d - 8.5 + k as f32]);
     }
@@ -324,7 +299,6 @@ fn mason_yard(b: &mut W) {
     for (i, (x, z)) in [(5.0, 9.0), (19.0, 9.0), (33.0, 9.0), (7.0, 21.0), (21.0, 21.0)].into_iter().enumerate() {
         b.bx(if i % 2 == 0 { Kind::Stone } else { Kind::Slate }, [x, x + 11.0], [0.0, 6.0 + (i % 3) as f32 * 1.2], [z, z + 8.0]);
     }
-    // A carved block on trestles and sheer legs over it.
     b.bx(Kind::Plaster, [34.0, 44.0], [5.0, 12.0], [22.0, 30.0]);
     for k in 0..3 {
         b.bx(Kind::Door, [35.0 + k as f32 * 3.0, 36.0 + k as f32 * 3.0], [11.0, 12.2], [23.0, 29.0]);
@@ -341,12 +315,9 @@ fn mason_yard(b: &mut W) {
     b.smoke(38.0, 12.0, 26.0, 8.0, 2);
 }
 
-// ---------------------------------------------------------------- fire ----
-
 fn lime_kiln(b: &mut W) {
     let (w, d) = (b.w, b.d);
     let (cx, cz) = (w * 0.5, d * 0.42);
-    // A squat pot of rough stone dug into a bank of spoil, wider at its foot.
     b.bx(Kind::Ground, [1.0, w - 1.0], [0.0, 9.0], [2.0, d * 0.7]);
     b.frus(Kind::Rock, cx, cz, 11.5, 0.0, 30.0);
     b.cyl(Kind::Stone, cx, cz, 9.0, 30.0, 2.2);
@@ -354,7 +325,6 @@ fn lime_kiln(b: &mut W) {
     for y in [10.0, 20.0] {
         b.cyl(Kind::Metal, cx, cz, 10.6 - y * 0.05, y, 0.9);
     }
-    // The draw-arch at its foot, a lintel of dressed stone over it.
     b.bx(Kind::Door, [cx - 4.0, cx + 4.0], [0.0, 9.0], [cz + 9.5, cz + 11.0]);
     b.bx(Kind::Stone, [cx - 6.0, cx + 6.0], [9.0, 11.0], [cz + 8.0, cz + 11.5]);
     b.fire(cx, 32.5, cz, 6.0);
@@ -370,7 +340,6 @@ fn lime_kiln(b: &mut W) {
 fn clamp(b: &mut W) {
     let (w, d) = (b.w, b.d);
     let (cx, cz) = (w * 0.5, d * 0.42);
-    // A dome of turf over stacked wood, a chimney hole at the crown, vents low round it.
     b.bx(Kind::Mud, [2.0, w - 2.0], [0.0, 0.7], [3.0, d - 6.0]);
     b.ball(Kind::Hedge, cx, 8.0, cz, 13.0, 8.0, 11.0);
     b.bx(Kind::Door, [cx - 2.0, cx + 2.0], [16.4, 17.0], [cz - 2.0, cz + 2.0]);
@@ -381,7 +350,6 @@ fn clamp(b: &mut W) {
         b.lamp([cx, 6.0, cz + 11.0], 34.0, 0.65);
     }
     b.smoke(cx, 18.0, cz, 18.0, 5);
-    // Log ends ringing the foot, a collier's lean-to, sacks of charcoal.
     for k in 0..6 {
         b.cyl(Kind::Trunk, 4.0 + k as f32 * 4.6, d - 9.0, 1.8, 0.0, 2.6);
     }
@@ -392,7 +360,6 @@ fn clamp(b: &mut W) {
 fn bloomery(b: &mut W) {
     let (w, d) = (b.w, b.d);
     let (cx, cz) = (w * 0.5, d * 0.42);
-    // A tall clay stack, hooped with iron, narrowing as it climbs.
     b.plinth(Kind::Stone, [cx - 6.0, cx + 6.0], [cz - 6.0, cz + 6.0], &[(2.5, 2.0)]);
     b.frus(Kind::Brick, cx, cz, 8.0, 2.5, 40.0);
     for y in [10.0, 20.0, 30.0] {
@@ -401,7 +368,6 @@ fn bloomery(b: &mut W) {
     b.cyl(Kind::Stone, cx, cz, 4.2, 42.5, 1.5);
     b.fire(cx, 44.0, cz, 6.0);
     b.smoke(cx, 46.0, cz, 18.0, 4);
-    // The tuyere hole, and a bellows of boards and leather pumping at it.
     b.bx(if b.work { Kind::Fire } else { Kind::Door }, [cx - 2.0, cx + 2.0], [4.0, 8.0], [cz + 6.6, cz + 7.6]);
     let pump = if b.work { ((b.turn().sin() + 1.0) * 1.8).round() } else { 0.0 };
     b.bx(Kind::Floor, [cx - 12.0, cx - 4.0], [3.0, 4.0], [cz + 7.0, cz + 15.0]);
@@ -414,7 +380,6 @@ fn bloomery(b: &mut W) {
 
 fn ashery(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A burn heap of ash and brush at the back, a rack of leaching tubs beside it.
     b.ball(Kind::Mud, 10.0, 5.0, d * 0.4, 8.0, 5.0, 7.0);
     for k in 0..4 {
         b.bx(if b.work { Kind::Fire } else { Kind::Rock }, [6.0 + k as f32 * 2.0, 7.4 + k as f32 * 2.0], [8.0, 9.2], [d * 0.4 - 1.0 + (k % 2) as f32, d * 0.4 + 0.5 + (k % 2) as f32]);
@@ -436,7 +401,6 @@ fn ashery(b: &mut W) {
 
 fn glassworks(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A beehive furnace of clay brick, glory holes in its flank, a tall brick cone beside it.
     b.plinth(Kind::Stone, [8.0, 32.0], [3.5, 3.5 + 24.0], &[(2.0, 1.5)]);
     b.ball(Kind::Brick, 20.0, 18.0, 3.5 + 12.0, 13.0, 14.0, 13.0);
     for (i, x) in [12.0, 20.0, 28.0].into_iter().enumerate() {
@@ -447,7 +411,6 @@ fn glassworks(b: &mut W) {
     b.smoke(40.0, 46.0, 3.5 + 6.0, 16.0, 4);
     if b.work {
         b.lamp([20.0, 8.0, 3.5 + 28.0], 32.0, 0.75);
-        // The gather on the pipe: a swelling bead of glass.
         let r = 1.4 + (b.turn().sin() + 1.0) * 0.8;
         b.bx(Kind::Metal, [10.0, 20.0], [9.0, 9.6], [3.5 + 25.0, 3.5 + 25.6]);
         b.ball(Kind::Fire, 8.0, 9.4, 3.5 + 25.3, r, r, r);
@@ -458,7 +421,6 @@ fn glassworks(b: &mut W) {
 
 fn smithy(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // An open-fronted shed: back wall, two side walls, a lean roof, a stone stack, a hearth.
     b.bx(Kind::Floor, [2.0, w - 2.0], [0.0, 17.0], [3.0, 5.0]);
     b.bx(Kind::Floor, [2.0, 4.0], [0.0, 17.0], [3.0, d - 5.0]);
     b.bx(Kind::Floor, [w - 4.0, w - 2.0], [0.0, 17.0], [3.0, d - 5.0]);
@@ -470,7 +432,6 @@ fn smithy(b: &mut W) {
         b.lamp([w - 9.0, 11.0, 10.0], 30.0, 0.75);
     }
     b.smoke(w - 8.0, 31.0, 8.0, 14.0, 3);
-    // The anvil on its stump, the quench trough, tools hung on the back wall.
     b.bx(Kind::Trunk, [8.0, 13.0], [0.0, 7.0], [14.0, 19.0]);
     b.bx(Kind::Metal, [6.0, 15.0], [7.0, 10.0], [14.0, 19.0]);
     b.bx(Kind::Floor, [w - 12.0, w - 4.0], [0.0, 4.0], [d - 11.0, d - 6.0]);
@@ -485,7 +446,6 @@ fn smithy(b: &mut W) {
 
 fn forge_shop(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A closed stone hall, a slate roof, a wide arched bay with the hearth blazing in it.
     let top = hall(b, [3.0, w - 11.0], [4.0, d - 4.0], Kind::Stone, 26.0, Kind::Slate, 9.0, false, false);
     b.arch(Kind::Stone, (3.0 + w - 11.0) / 2.0 - 4.0, d - 4.0, 18.0, 20.0, 3.0, 2.0);
     b.bx(if b.work { Kind::Fire } else { Kind::Door }, [8.0, 24.0], [3.0, 18.0], [d - 6.0, d - 5.2]);
@@ -494,7 +454,6 @@ fn forge_shop(b: &mut W) {
     }
     stack(b, w - 22.0, 9.0, 4.0, top - 2.0, top + 20.0);
     b.smoke(w - 22.0, top + 21.0, 9.0, 16.0, 4);
-    // The tilt-hammer on the right: a post, a long helve, the iron head over an anvil.
     let swing = if b.work { ((b.turn().sin() + 1.0) * 3.0).round() } else { 4.0 };
     b.bx(Kind::Floor, [w - 8.0, w - 4.0], [0.0, 16.0], [d - 14.0, d - 10.0]);
     b.bx(Kind::Floor, [w - 24.0, w - 4.0], [14.0 + swing * 0.3, 15.5 + swing * 0.3], [d - 13.0, d - 11.0]);
@@ -505,7 +464,6 @@ fn forge_shop(b: &mut W) {
 
 fn lead_works(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A low stone hearth under a conical hood and flue, moulds in the sand beside it.
     b.bx(Kind::Stone, [3.0, 21.0], [0.0, 9.0], [4.0, 19.0]);
     b.frus(Kind::Metal, 12.0, 11.0, 7.0, 9.0, 18.0);
     b.cyl(Kind::Metal, 12.0, 11.0, 2.0, 27.0, 8.0);
@@ -526,7 +484,6 @@ fn lead_works(b: &mut W) {
 
 fn brick_kiln(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A stack of unfired brick on a plastered base, fire-holes along its foot, a brick chimney.
     b.bx(Kind::Brick, [3.0, w - 14.0], [0.0, 22.0], [5.0, d - 6.0]);
     b.bx(Kind::Thatch, [2.0, w - 13.0], [22.0, 24.5], [4.0, d - 5.0]);
     for (i, x) in [10.0, 19.0, 28.0].into_iter().enumerate() {
@@ -544,7 +501,6 @@ fn brick_kiln(b: &mut W) {
 
 fn royal_forge(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A grand hall of dark stone, a steep slate roof, two chimneys, the great doors thrown wide on the fire.
     let top = hall(b, [3.0, w - 3.0], [4.0, d - 4.0], Kind::Stone, 28.0, Kind::Slate, 11.0, false, false);
     b.arch(Kind::Stone, w / 2.0, d - 4.0, 22.0, 24.0, 3.0, 2.0);
     b.bx(if b.work { Kind::Fire } else { Kind::Door }, [w / 2.0 - 8.0, w / 2.0 + 8.0], [3.0, 22.0], [d - 6.0, d - 5.2]);
@@ -555,7 +511,6 @@ fn royal_forge(b: &mut W) {
         stack(b, x, 10.0, 4.0, top - 2.0, top + 22.0);
         b.smoke(x, top + 23.0, 10.0, 16.0, 4);
     }
-    // The royal banner on its staff, over the ridge.
     let wave = if b.work { (b.turn().sin() * 1.2).round() } else { 0.0 };
     b.bx(Kind::Floor, [w / 2.0 - 0.6, w / 2.0 + 0.6], [top, top + 22.0], [d * 0.5, d * 0.5 + 1.2]);
     b.bx(Kind::Cloth, [w / 2.0 + 0.6, w / 2.0 + 10.0 + wave], [top + 13.0, top + 21.0], [d * 0.5 + 0.3, d * 0.5 + 0.9]);
@@ -564,11 +519,8 @@ fn royal_forge(b: &mut W) {
     }
 }
 
-// ----------------------------------------------------------------- wood ----
-
 fn woodsman_camp(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A lean-to of poles under a roof of brush, stumps, a bundle of coppice poles standing.
     for k in 0..4 {
         b.bx(Kind::Trunk, [3.0 + k as f32 * 4.0, 4.4 + k as f32 * 4.0], [0.0, 20.0], [6.0, 7.4]);
     }
@@ -589,7 +541,6 @@ fn woodsman_camp(b: &mut W) {
 
 fn sawpit(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // Two trestles, a log laid long across them, a boarded pit under it.
     b.bx(Kind::Mud, [10.0, w - 10.0], [0.0, 0.6], [d * 0.3, d * 0.3 + 14.0]);
     b.bx(Kind::Floor, [9.0, w - 9.0], [0.0, 3.0], [d * 0.3 - 1.0, d * 0.3]);
     b.bx(Kind::Floor, [9.0, w - 9.0], [0.0, 3.0], [d * 0.3 + 14.0, d * 0.3 + 15.0]);
@@ -598,7 +549,6 @@ fn sawpit(b: &mut W) {
     }
     b.bx(Kind::Sand, [4.0, w - 4.0], [14.0, 21.0], [d * 0.3 + 3.0, d * 0.3 + 11.0]);
     b.bx(Kind::Floor, [w - 5.0, w - 4.0], [15.0, 20.0], [d * 0.3 + 4.0, d * 0.3 + 10.0]);
-    // The saw: a long blade through the log, handles top and bottom, going up and down.
     let dy = if b.work { (b.turn().sin() * 3.0).round() } else { 0.0 };
     let sx = w * 0.5;
     b.bx(Kind::Plaster, [sx - 0.8, sx + 0.8], [4.0 + dy, 28.0 + dy], [d * 0.3 + 6.0, d * 0.3 + 8.0]);
@@ -613,7 +563,6 @@ fn sawpit(b: &mut W) {
 
 fn carpentry(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A boarded shop with an open front under a shingled roof, joists racked in it; a vault's centring rib standing outside.
     let top = hall(b, [3.0, 32.0], [4.0, d - 6.0], Kind::Floor, 17.0, Kind::Roof, 8.0, false, false);
     for k in 0..5 {
         b.bx(Kind::Floor, [6.0, 28.0], [4.0 + k as f32 * 2.4, 5.0 + k as f32 * 2.4], [d - 8.0, d - 7.0]);
@@ -632,7 +581,6 @@ fn carpentry(b: &mut W) {
 
 fn wheelwright(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A boarded shop under a lean roof, wheels hung on it; one on a stand in the yard with its tyre going on hot.
     let top = hall(b, [3.0, 30.0], [4.0, d - 6.0], Kind::Floor, 20.0, Kind::Roof, 7.0, true, false);
     b.wheel(Kind::Floor, 12.0, 12.0, d - 4.5, 6.0, 0.4, 8, 1.6);
     b.wheel(Kind::Floor, 22.0, 9.0, d - 4.5, 7.0, 1.1, 8, 1.6);
@@ -649,22 +597,18 @@ fn wheelwright(b: &mut W) {
 
 fn ropewalk(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // The long low shed: a back wall, a thatch roof the whole length on posts, the lane clear under it.
     b.bx(Kind::Floor, [3.0, w - 3.0], [0.0, 10.0], [4.0, 6.0]);
     for k in 0..9 {
         let x = 4.0 + k as f32 * (w - 10.0) / 8.0;
         b.bx(Kind::Floor, [x, x + 1.8], [0.0, 13.0], [d - 8.0, d - 6.2]);
     }
     b.gable(Kind::Thatch, [1.0, w - 1.0], [3.0, d - 4.0], 12.0, 6.0, false);
-    // Strands paying out along the lane, thin and pale; the traveller walks back as it lengthens.
     for k in 0..3 {
         b.bx(Kind::Thatch, [14.0, w - 16.0], [4.0 + k as f32 * 2.5, 4.8 + k as f32 * 2.5], [d - 15.0, d - 14.4]);
     }
     let back = if b.work { (b.turn().sin() * 3.0).round() } else { 0.0 };
     b.bx(Kind::Floor, [w - 17.0 + back, w - 12.0 + back], [1.0, 11.0], [d - 17.0, d - 12.0]);
-    // The jack at the left: a great wheel with a handle going round.
     b.wheel(Kind::Floor, 10.0, 8.0, d - 14.0, 7.0, b.turn() * 0.5, 8, 1.6);
-    // A twist of yarn running down the strands while they are spun.
     if b.work {
         for k in 0..3 {
             let x = 16.0 + ((b.t * 8 + k * 24) % 60) as f32;
@@ -677,7 +621,6 @@ fn ropewalk(b: &mut W) {
 
 fn retting_pond(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A pond of dark water lowered into a rim of earth, sheaves of hemp sunk in it, a drying rack.
     b.bx(Kind::Ground, [2.0, w - 12.0], [0.0, 1.6], [3.0, d - 5.0]);
     b.bx(Kind::Water, [4.0, w - 14.0], [1.4, 1.9], [5.0, d - 7.0]);
     for (x, z) in [(10.0, 10.0), (20.0, 16.0), (28.0, 11.0), (14.0, 20.0)] {
@@ -696,11 +639,8 @@ fn retting_pond(b: &mut W) {
     b.heap(Load::Hemp, 7.0, d - 3.0, 10.0, 0.0, 6.0);
 }
 
-// --------------------------------------------------------------- crafts ----
-
 fn farmstead(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // The farmhouse and the barn at the back, furrowed strips of crop before them.
     hall(b, [3.0, 28.0], [4.0, 24.0], Kind::Stone, 12.0, Kind::Thatch, 8.0, true, false);
     hall(b, [34.0, w - 3.0], [4.0, 26.0], Kind::Floor, 15.0, Kind::Thatch, 9.0, false, true);
     for (x0, x1, z0, z1, k) in [(3.0, 30.0, 30.0, 40.0, Kind::Crop), (34.0, w - 3.0, 30.0, 40.0, Kind::Hedge), (3.0, w - 3.0, 42.0, d - 2.0, Kind::Crop)] {
@@ -719,8 +659,6 @@ fn farmstead(b: &mut W) {
 
 fn mill(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A stone mill house of two stages, the upper one the hoop of the stones; a hopper at the loft, a hoist
-    // beam with a sack riding it, a great stone leaning at the door.
     let top = hall(b, [4.0, w - 4.0], [4.0, d - 6.0], Kind::Stone, 24.0, Kind::Slate, 3.0, true, false);
     b.bx(Kind::Plaster, [8.0, w - 8.0], [top - 0.5, top + 11.0], [8.0, d - 10.0]);
     b.hip(Kind::Slate, [7.0, w - 7.0], [7.0, d - 9.0], top + 11.0, 7.0);
@@ -739,7 +677,6 @@ fn mill(b: &mut W) {
 
 fn bakery(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A brick house under tile; a great domed oven bulging out of its flank with an arched mouth; a tall stack.
     let top = hall(b, [3.0, 20.0], [4.0, d - 6.0], Kind::Brick, 22.0, Kind::Roof, 8.0, false, false);
     b.ball(Kind::Brick, 25.0, 9.0, d * 0.55, 8.0, 9.0, 9.0);
     b.arch(Kind::Brick, 25.0, d * 0.55 + 7.0, 7.0, 7.0, 3.0, 0.0);
@@ -756,7 +693,6 @@ fn bakery(b: &mut W) {
 
 fn brewery(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A big timber hall, a steep roof with a louvred vent at the ridge, a copper kettle visible in its bay.
     let top = hall(b, [3.0, w - 3.0], [4.0, d - 5.0], Kind::Floor, 22.0, Kind::Roof, 11.0, false, false);
     b.bx(Kind::Floor, [w / 2.0 - 4.0, w / 2.0 + 4.0], [top + 4.0, top + 10.0], [d * 0.4 - 3.0, d * 0.4 + 3.0]);
     b.bx(Kind::Door, [w / 2.0 - 3.0, w / 2.0 + 3.0], [top + 6.0, top + 8.0], [d * 0.4 + 3.0, d * 0.4 + 3.4]);
@@ -773,7 +709,6 @@ fn brewery(b: &mut W) {
 
 fn pasture(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A fenced paddock open at the front, a trough and a hay rick, stock grazing.
     b.fence(Kind::Floor, [1.0, w - 1.0], 3.0, 6.0);
     b.bx(Kind::Floor, [1.0, 3.0], [0.0, 6.0], [4.0, d - 8.0]);
     b.bx(Kind::Floor, [w - 3.0, w - 1.0], [0.0, 6.0], [4.0, d - 8.0]);
@@ -799,7 +734,6 @@ fn pasture(b: &mut W) {
 
 fn tanyard(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // Two rows of timber-edged tan pits, hides stretched on frames, a scraping beam.
     for (i, (x, z)) in [(3.0, 4.0), (19.0, 4.0), (3.0, 16.0), (19.0, 16.0)].into_iter().enumerate() {
         b.bx(Kind::Floor, [x, x + 13.0], [0.0, 2.2], [z, z + 9.0]);
         b.bx(Kind::Mud, [x + 1.4, x + 11.6], [1.8, 2.5], [z + 1.4, z + 7.6]);
@@ -820,7 +754,6 @@ fn tanyard(b: &mut W) {
 
 fn weaving_shed(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A shed with its front open, thatch over a boarded back; a tall loom inside it, cloth hung on a line outside.
     b.bx(Kind::Floor, [3.0, 32.0], [0.0, 17.0], [4.0, 6.0]);
     for x in [3.0, 30.0] {
         b.bx(Kind::Floor, [x, x + 1.8], [0.0, 17.0], [4.0, d - 4.0]);
@@ -839,12 +772,8 @@ fn weaving_shed(b: &mut W) {
     b.heap(Load::Cloth, w - 7.0, d - 3.0, 9.0, 0.0, 6.0);
 }
 
-// ------------------------------------------------------------ the halls ----
-
 fn lodge(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A long stone hall with its gable to the front, the lodge's mark in the pediment (a square and compasses),
-    // masons' marks cut in the jambs, a banner staff.
     let top = hall(b, [3.0, w - 3.0], [4.0, d - 4.0], Kind::Stone, 24.0, Kind::Roof, 10.0, false, true);
     let (cx, py) = (w / 2.0, top + 1.0);
     b.bx(Kind::Door, [cx - 7.0, cx + 7.0], [py, py + 7.5], [d - 5.2, d - 4.8]);
@@ -868,7 +797,6 @@ fn lodge(b: &mut W) {
 
 fn depot(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A gravelled yard behind a rail fence, a thatched shed on posts over the stock, a signpost.
     b.bx(Kind::Path, [2.0, w - 2.0], [0.0, 0.4], [3.0, d - 3.0]);
     for x in [3.0, w / 2.0, w - 5.0] {
         b.bx(Kind::Floor, [x, x + 1.8], [0.0, 17.0], [5.0, 6.8]);
@@ -886,7 +814,6 @@ fn depot(b: &mut W) {
 
 fn quay(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // Water along the front, a stone quay wall rising from it, bollards, a jib crane swinging a crate.
     b.bx(Kind::Water, [0.0, w], [0.0, 0.6], [d - 10.0, d]);
     b.bx(Kind::Stone, [0.0, w], [0.0, 10.0], [2.0, d - 10.0]);
     b.bx(Kind::Stone, [0.0, w], [10.0, 11.4], [1.0, d - 9.0]);
@@ -907,7 +834,6 @@ fn quay(b: &mut W) {
 
 fn hut(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A round wattle-and-daub hut under a pointed thatch, a smoke hole at its crown, a low door; a woodpile beside it.
     let (cx, cz) = (w * 0.38, d / 2.0);
     b.cyl(Kind::Plaster, cx, cz, 6.8, 0.0, 8.0);
     b.cone(Kind::Thatch, cx, cz, 7.9, 8.0, 10.0);
@@ -919,7 +845,6 @@ fn hut(b: &mut W) {
 
 fn cottage(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A low stone cottage under a deep thatch hip, a squat stack, a porch with two posts.
     hall(b, [3.0, w - 3.0], [3.0, d - 5.0], Kind::Stone, 9.0, Kind::Thatch, 10.0, true, false);
     stack(b, w - 8.0, 6.0, 2.0, 8.0, 21.0);
     b.bx(Kind::Floor, [5.0, 15.0], [8.0, 9.0], [d - 5.0, d - 1.0]);
@@ -931,7 +856,6 @@ fn cottage(b: &mut W) {
 
 fn warehouse(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A big timber hall, double doors, a hoist beam from the loft gable with a crate going up and down.
     let top = hall(b, [3.0, w - 3.0], [4.0, d - 4.0], Kind::Floor, 22.0, Kind::Roof, 11.0, false, false);
     b.bx(Kind::Door, [w / 2.0 - 8.0, w / 2.0 + 8.0], [0.0, 16.0], [d - 4.5, d - 3.7]);
     b.bx(Kind::Door, [w - 20.0, w - 12.0], [top - 12.0, top - 4.0], [d - 4.4, d - 3.8]);
@@ -945,7 +869,6 @@ fn warehouse(b: &mut W) {
 
 fn caravanserai(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A long inn of stone: a low arcaded front, a great arch between, a tower at one end, a wagon in the yard.
     hall(b, [3.0, w - 14.0], [4.0, d - 6.0], Kind::Stone, 30.0, Kind::Roof, 11.0, true, false);
     b.arch(Kind::Stone, (3.0 + w - 14.0) / 2.0, d - 6.0, 22.0, 26.0, 4.0, 0.0);
     b.bx(Kind::Door, [(3.0 + w - 14.0) / 2.0 - 7.0, (3.0 + w - 14.0) / 2.0 + 7.0], [0.0, 22.0], [d - 6.4, d - 5.8]);
@@ -968,7 +891,6 @@ fn caravanserai(b: &mut W) {
 
 fn wall(b: &mut W, kind: Kind) {
     let (w, d) = (b.w, b.d);
-    // A length of curtain: a batter, a string course, crenellated; a cresset on the walk when it is manned.
     b.bx(kind, [0.0, w], [0.0, 3.0], [3.0, d - 3.0]);
     b.bx(kind, [1.0, w - 1.0], [3.0, 17.0], [4.0, d - 4.0]);
     b.bx(Kind::Stone, [0.0, w], [17.0, 19.0], [3.0, d - 3.0]);
@@ -984,7 +906,6 @@ fn wall(b: &mut W, kind: Kind) {
 
 fn brick_cottage(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // Red brick under tile, a tall end stack, a dormer on the front slope, a stoop.
     hall(b, [3.0, w - 3.0], [3.0, d - 3.0], Kind::Brick, 12.0, Kind::Roof, 9.0, false, false);
     stack(b, 6.0, 6.0, 2.4, 10.0, 28.0);
     b.bx(Kind::Brick, [w - 14.0, w - 7.0], [14.0, 19.0], [d - 6.0, d - 3.0]);
@@ -996,7 +917,6 @@ fn brick_cottage(b: &mut W) {
 
 fn brick_gate(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A brick archway between two piers, a stone coping, a portcullis in its throat.
     b.bx(Kind::Brick, [2.0, w - 2.0], [0.0, 28.0], [3.0, d - 3.0]);
     b.bx(Kind::Stone, [1.0, w - 1.0], [28.0, 31.0], [2.0, d - 2.0]);
     for k in 0..4 {
@@ -1013,12 +933,9 @@ fn brick_gate(b: &mut W) {
     }
 }
 
-// ---------------------------------------------------------------- power ----
-
 fn mortar_mill(b: &mut W) {
     let (w, d) = (b.w, b.d);
     let (cx, cz) = (w / 2.0, d * 0.45);
-    // A round stone pan with mortar in it, a post at its middle, a sweep carrying a heavy runner round.
     b.cyl(Kind::Stone, cx, cz, 13.0, 0.0, 4.0);
     b.cyl(Kind::Path, cx, cz, 11.0, 3.8, 0.6);
     b.bx(Kind::Floor, [cx - 1.0, cx + 1.0], [3.0, 20.0], [cz - 1.0, cz + 1.0]);
@@ -1035,7 +952,6 @@ fn mortar_mill(b: &mut W) {
 
 fn intake(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // The river along the back, a stone wall holding its bank with a gate cut through it, a trough leading out.
     b.bx(Kind::Water, [0.0, w], [0.0, 0.8], [1.0, 10.0]);
     b.bx(Kind::Stone, [0.0, 12.0], [0.0, 8.0], [10.0, 20.0]);
     b.bx(Kind::Stone, [20.0, w], [0.0, 8.0], [10.0, 20.0]);
@@ -1047,7 +963,6 @@ fn intake(b: &mut W) {
     b.bx(Kind::Metal, [15.6, 16.4], [12.0, 17.0], [10.8, 11.4]);
     b.bx(Kind::Floor, [12.0, 20.0], [0.0, 1.4], [20.0, d - 1.0]);
     b.bx(Kind::Water, [13.0, 19.0], [1.4, if b.work { 2.4 } else { 1.8 }], [20.0, d - 1.0]);
-    // Glints running down the race and across the river.
     if b.work {
         for k in 0..3 {
             let s = ((b.t + k * 3) % 8) as f32;
@@ -1059,7 +974,6 @@ fn intake(b: &mut W) {
 
 fn treadwheel(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A great drum on a frame, its tread of boards turning, the axle carried off to the right.
     b.bx(Kind::Floor, [2.0, 4.0], [0.0, 28.0], [4.0, d - 3.0]);
     b.bx(Kind::Floor, [w - 4.0, w - 2.0], [0.0, 28.0], [4.0, d - 3.0]);
     b.wheel(Kind::Floor, w / 2.0, 14.0, d / 2.0, 12.0, if b.work { b.turn() / 10.0 * 2.0 } else { 0.1 }, 10, 6.0);
@@ -1071,7 +985,6 @@ fn treadwheel(b: &mut W) {
 
 fn treadwheel_crane(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A timber mast, a jib, the great treadwheel at its foot, a cut block hanging in its sling.
     b.bx(Kind::Floor, [2.0, w - 2.0], [0.0, 2.0], [d * 0.35, d - 4.0]);
     b.bx(Kind::Floor, [w - 8.0, w - 5.0], [2.0, 50.0], [d * 0.45, d * 0.45 + 3.0]);
     for k in 1..8 {
@@ -1088,7 +1001,6 @@ fn treadwheel_crane(b: &mut W) {
 fn horse_gin(b: &mut W) {
     let (w, d) = (b.w, b.d);
     let (cx, cz) = (w / 2.0, d * 0.5);
-    // A drum-house under a thatched cone at the middle of a trodden ring, the sweep out over the ring and a horse yoked to it.
     b.cyl(Kind::Path, cx, cz, 22.0, 0.0, 0.5);
     b.cyl(Kind::Ground, cx, cz, 10.0, 0.5, 0.3);
     b.cyl(Kind::Floor, cx, cz, 8.0, 0.5, 14.0);
@@ -1111,7 +1023,6 @@ fn horse_gin(b: &mut W) {
 fn windmill(b: &mut W) {
     let (w, d) = (b.w, b.d);
     let (cx, cz) = (w / 2.0, d * 0.45);
-    // A tapering whitewashed tower, a boat-cap on it, four sails turning on the hub.
     b.plinth(Kind::Stone, [cx - 9.0, cx + 9.0], [cz - 9.0, cz + 9.0], &[(2.0, 1.0)]);
     b.frus(Kind::Plaster, cx, cz, 10.0, 2.0, 40.0);
     b.cyl(Kind::Roof, cx, cz, 7.0, 42.0, 4.0);
@@ -1138,7 +1049,6 @@ fn windmill(b: &mut W) {
 
 fn waterwheel(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A river across the front, a great wheel on stone piers with its lower boards in it, a gear-shed on the right.
     b.bx(Kind::Water, [0.0, w], [0.0, 0.9], [d - 14.0, d]);
     b.bx(Kind::Stone, [1.0, 7.0], [0.0, 30.0], [10.0, 22.0]);
     b.bx(Kind::Stone, [30.0, 36.0], [0.0, 30.0], [10.0, 22.0]);
@@ -1150,7 +1060,6 @@ fn waterwheel(b: &mut W) {
 
 fn drive_shaft(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // Two posts with bearings and a long round shaft across them, a cog riding it.
     for x in [2.0, w - 4.0] {
         b.bx(Kind::Floor, [x, x + 2.0], [0.0, 10.0], [d / 2.0 - 1.5, d / 2.0 + 1.5]);
         b.bx(Kind::Metal, [x - 0.6, x + 2.6], [9.0, 11.0], [d / 2.0 - 2.0, d / 2.0 + 2.0]);
@@ -1165,7 +1074,6 @@ fn drive_shaft(b: &mut W) {
 
 fn leyline(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A bed of dark flags, a channel inlaid across it, runes down the channel, a pulse running along it.
     b.bx(Kind::Slate, [0.0, w], [0.0, 1.6], [2.0, d - 2.0]);
     b.bx(Kind::Door, [0.0, w], [1.6, 2.0], [d / 2.0 - 2.0, d / 2.0 + 2.0]);
     for k in 0..4 {
@@ -1177,7 +1085,6 @@ fn leyline(b: &mut W) {
 fn mana_engine(b: &mut W) {
     let (w, d) = (b.w, b.d);
     let (cx, cz) = (w / 2.0, d * 0.5);
-    // A stepped dais, six coils round a socket, a tall crystal floating over it that bobs and throws light when it runs.
     b.plinth(Kind::Slate, [cx - 10.0, cx + 10.0], [cz - 10.0, cz + 10.0], &[(3.0, 3.0), (3.0, 1.5)]);
     for k in 0..6 {
         let a = k as f32 / 6.0 * TAU;
@@ -1196,7 +1103,6 @@ fn mana_engine(b: &mut W) {
 
 fn conduit(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A squat stone pylon with a band of brass and a crystal in a cage at its head.
     b.bx(Kind::Slate, [3.0, w - 3.0], [0.0, 10.0], [3.0, d - 3.0]);
     b.bx(Kind::Metal, [4.0, w - 4.0], [10.0, 11.4], [4.0, d - 4.0]);
     b.bx(Kind::Slate, [5.0, w - 5.0], [11.4, 18.0], [5.0, d - 5.0]);
@@ -1210,7 +1116,6 @@ fn conduit(b: &mut W) {
 fn enchanter(b: &mut W) {
     let (w, d) = (b.w, b.d);
     let (cx, cz) = (w / 2.0, d * 0.5);
-    // A round tower of slate-blue stone, a violet cone of roof, a ring of runes, a crystal over the spire.
     b.plinth(Kind::Stone, [cx - 9.0, cx + 9.0], [cz - 9.0, cz + 9.0], &[(2.5, 1.5)]);
     b.frus(Kind::Slate, cx, cz, 11.0, 2.5, 52.0);
     b.cyl(Kind::Stone, cx, cz, 12.0, 54.5, 2.0);
@@ -1229,12 +1134,9 @@ fn enchanter(b: &mut W) {
     }
 }
 
-// ----------------------------------------------------- the rest of the set ----
-
 fn well(b: &mut W) {
     let (w, d) = (b.w, b.d);
     let (cx, cz) = (w / 2.0, d / 2.0);
-    // A ring of dressed stone round black water, two posts, a windlass bar, a bucket on its rope.
     b.cyl(Kind::Stone, cx, cz, 6.5, 0.0, 6.0);
     b.cyl(Kind::Water, cx, cz, 4.5, 5.6, 0.5);
     for x in [cx - 6.5, cx + 5.0] {
@@ -1249,7 +1151,6 @@ fn well(b: &mut W) {
 
 fn slaking_pit(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A boarded pit of milk-white lime, boiling when the water goes on.
     b.bx(Kind::Floor, [3.0, w - 3.0], [0.0, 3.0], [5.0, d - 8.0]);
     b.bx(Kind::Plaster, [4.5, w - 4.5], [2.4, 3.2], [6.5, d - 9.5]);
     if b.work {
@@ -1265,8 +1166,6 @@ fn slaking_pit(b: &mut W) {
 
 fn ditch_gang(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // The cut: a dark trench across the width between two banks with planked faces, water seeping in its foot;
-    // spoil heaped along the near bank, pegs and a cord along the far, spoil flying off the spades when it is worked.
     b.bx(Kind::Mud, [2.0, w - 2.0], [0.0, 1.0], [8.0, 17.0]);
     b.bx(Kind::Water, [4.0, w - 4.0], [1.0, 1.6], [13.0, 16.0]);
     b.bx(Kind::Ground, [2.0, w - 2.0], [0.0, 4.0], [3.0, 8.0]);
@@ -1291,9 +1190,6 @@ fn ditch_gang(b: &mut W) {
     }
 }
 
-// ------------------------------------------------- what stands against the Deep ----
-
-/// A sharpened stake, standing on `(x, z)` with its point at `top`.
 fn stake(b: &mut W, x: f32, z: f32, top: f32, r: f32) {
     b.bx(Kind::Floor, [x - r, x + r], [0.0, top], [z - r, z + r]);
     b.pyr(Kind::Floor, x, z, r, r, top, r * 2.2);
@@ -1301,7 +1197,6 @@ fn stake(b: &mut W, x: f32, z: f32, top: f32, r: f32) {
 
 fn palisade(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // A row of sharpened logs lashed with two rails, no two of a height; a cresset on the middle one when it is manned.
     b.bx(Kind::Mud, [0.0, w], [0.0, 0.5], [d / 2.0 - 3.0, d / 2.0 + 3.0]);
     for k in 0..5 {
         let x = 1.6 + k as f32 * 3.2;
@@ -1317,7 +1212,6 @@ fn palisade(b: &mut W) {
 
 fn wood_gate(b: &mut W) {
     let (w, d) = (b.w, b.d);
-    // Two heavy posts with pointed heads, a lintel, two leaves of boards with iron straps; the leaves stand open a little while carts go through.
     for x in [1.0, w - 4.0] {
         b.bx(Kind::Floor, [x, x + 3.0], [0.0, 26.0], [d / 2.0 - 2.0, d / 2.0 + 2.0]);
         b.pyr(Kind::Floor, x + 1.5, d / 2.0, 1.5, 2.0, 26.0, 4.0);
@@ -1339,8 +1233,6 @@ fn wood_gate(b: &mut W) {
 fn watchtower(b: &mut W) {
     let (w, d) = (b.w, b.d);
     let (cx, cz) = (w / 2.0, d / 2.0);
-    // A stone footing, four timber legs leaning in, cross braces, a deck with a palisade rail, a shingled roof on posts, a ladder up the front;
-    // an archer at the rail and a cresset when it is manned.
     b.bx(Kind::Stone, [cx - 12.0, cx + 12.0], [0.0, 4.0], [cz - 12.0, cz + 12.0]);
     for (sx, sz) in [(-1.0f32, -1.0f32), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
         b.bx(Kind::Floor, [cx + sx * 10.0 - 1.2, cx + sx * 10.0 + 1.2], [4.0, 44.0], [cz + sz * 10.0 - 1.2, cz + sz * 10.0 + 1.2]);
@@ -1373,7 +1265,6 @@ fn watchtower(b: &mut W) {
 fn brazier(b: &mut W) {
     let (w, d) = (b.w, b.d);
     let (cx, cz) = (w / 2.0, d / 2.0);
-    // Three iron legs, a bowl, coals or ash; a fire when it is lit.
     for a in [0.0f32, 2.1, 4.2] {
         b.bx(Kind::Metal, [cx + a.cos() * 3.0 - 0.5, cx + a.cos() * 3.0 + 0.5], [0.0, 9.0], [cz + a.sin() * 3.0 - 0.5, cz + a.sin() * 3.0 + 0.5]);
     }

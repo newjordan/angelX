@@ -1,9 +1,3 @@
-# seat.sh — sourced: seat_env <port> sets SEAT (the harness's env for the seat
-# named by ROUTE) and exports PROXY_UPSTREAM / PROXY_KEY for proxy_log.py.
-# Routes: local (needs PROXY_UPSTREAM, ANGEL_LOCAL_MODEL), glm-flash
-# (ZAI_API_KEY), deepseek-flash and deepseek-messages (DEEPSEEK_API_KEY; the
-# latter on DeepSeek's Messages API), muse (ANGEL_META_KEY), grok (grok-4.7 low
-# through the operator's OAuth bearer, GROK_BEARER_CMD).
 seat_env() {
   local url="http://127.0.0.1:$1/v1"
   case ${ROUTE:-local} in
@@ -19,9 +13,6 @@ seat_env() {
       SEAT=(ANGEL_DRIVER=deepseek-flash ANGEL_DEEPSEEK_URL="$url" ANGEL_DEEPSEEK_API=messages
             ANGEL_DEEPSEEK_KEY="${DEEPSEEK_API_KEY:?}") ;;
     grok)
-      # grok-4.7 at effort low on the grok-api seat; the proxy carries the
-      # operator's Grok OAuth bearer (GROK_BEARER_CMD reads ~/.grok/auth.json),
-      # the harness sees only a placeholder key.
       export PROXY_UPSTREAM=https://api.x.ai/v1 PROXY_KEY=
       export PROXY_KEY_CMD=${GROK_BEARER_CMD:?set GROK_BEARER_CMD to print the Grok OAuth bearer}
       SEAT=(ANGEL_DRIVER=grok-api ANGEL_GROK_URL="$url" ANGEL_GROK_KEY=proxy-held
@@ -33,8 +24,6 @@ seat_env() {
   esac
 }
 
-# start_proxy <log>: proxy_log.py binds its own ephemeral port, then reports
-# that exact listener through a private ready receipt. Sets PORT and PROXY.
 start_proxy() {
   local log=$1 ready i
   seat_env 0 || return 2

@@ -38,7 +38,6 @@ pub(crate) fn resolve(
     let (model, model_source) = pick(model_env, model_config, OPENAI_LUNA_MODEL);
     let (effort, effort_source) = pick(effort_env, effort_config, OPENAI_LUNA_EFFORT);
     let effort = effort.to_ascii_lowercase();
-    // Preserve the established legacy spelling at the input boundary only.
     let effort = if effort == "ultra" {
         "xhigh".into()
     } else {

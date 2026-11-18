@@ -3,112 +3,51 @@
 
 use super::*;
 
-/// The dungeon's monsters and demons.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EnemyKind {
-    /// Erratic flier that bites.
     Bat,
-    /// Wandering archer: bone streams, ore bounces or curving pages.
     Skeleton,
-    /// Drifting shade: ghost rings, weaving pages or staring eye beams.
     Wraith,
-    /// Small demon: leads, accelerating rings or splitting spores.
     Imp,
-    /// Greater demon: opposing spirals and sweeping fire.
     Demon,
-    /// The lair's master.
     Dragon,
-    /// A floor's guardian, drawn and armed by its `.boss` file.
     Boss,
-    /// A treasure chest with teeth: hops, bites, spits coins.
     Mimic,
-    /// A goblin with a keg: plants it near the knights, then runs.
     Sapper,
-    /// Keeps its distance and raises the dead.
     Necromancer,
-    /// Paws the ground, marks a line, charges down it.
     Warboar,
-    /// Hops; splits when it falls, twice.
     Slime,
-    /// Runs with a sack of gold; slips away if not caught.
     Goblin,
-    /// Lobs bombs at where a knight stands.
     Hob,
-    /// Boxes a knight in with serpent wards.
     Shaman,
-    /// A shaman's serpent ward: stands, spits, crumbles.
     Ward,
-    /// A quintain in the Training Yard: takes every blow, falls to none.
     Dummy,
-    /// Rots whoever stands close; throws a meat hook down a marked line
-    /// and reels in what it catches.
     Flesher,
-    /// Keeps her distance, spins webs under the knights, hatches
-    /// spiderlings.
     Silkmother,
-    /// Small, quick, many.
     Spiderling,
-    /// The beast in the Pit: slow, huge, breathing embers, slamming the
-    /// ground round itself.
     PitTyrant,
-    /// Keeps her distance, spits, and turns knights into frogs.
     Hexer,
-    /// Keeps his distance and throws Rimeleap, which leaps knight to
-    /// knight.
     Lich,
-    /// Stones floating round a void: opens Black Holes that drag knights
-    /// in, and holds still while it keeps one open.
     Hollow,
-    /// A swarm of tiny things: circle, shiver, pounce.
     Biter,
-    /// A swarm biter's bigger, quicker cousin, split out of a geode.
     Shard,
-    /// Digs under the floor and bursts up where a knight stood.
     Mole,
-    /// Behind a tower shield that turns every shot from the front.
     Pavise,
-    /// Rears, lunges, latches on and drains.
     Leech,
-    /// Draws a long line and looses one fast bolt down it.
     Marksman,
-    /// Copies the last shot a knight made, and hands it back.
     Mirrorling,
-    /// Spits globs that leave stinging puddles.
     Spitter,
-    /// Rings a bell that quickens every monster near.
     Ringer,
-    /// A crystal that bursts shards, and splits in two when it falls.
     Geode,
-    /// Crouches, fixes its gaze, rushes down the line dropping embers.
     Hound,
-    /// Humphrey the Risen: the countryside's former neighbor, awake and
-    /// shuffling after the party with a hedge grudge. Never a delve spawn.
     Risen,
-    /// The big fat demon: tears implings off its own back and throws
-    /// them at the knights. Each rip is a wound it chose.
     Broodmarrow,
-    /// Grave-knights that swore one wound between them: what one takes,
-    /// both feel, until the oath is broken and the survivor grieves at
-    /// a stride no grave should allow.
     Oathbound,
-    /// A gravestone that leans on the world: it opens a well that drags
-    /// knights, monsters' shots and the knights' own arrows alike. The
-    /// room stops meaning anything while it stands.
     Whirlgrave,
-    /// A gardener that lobs spore-sacs, and whose garden has opinions:
-    /// where a sac bursts, mushrooms stand up that stop every shot in
-    /// the room, knight's and monster's alike. It does not out-damage
-    /// you; it takes the room's sightlines away.
     Fungelder,
-    /// The swamp's horrors (`horrors`): a hand under the bog that rises
-    /// where a knight stands, ripples first, and holds them;
     BogHand,
-    /// a drowned knight who wades the mire, lifts his rusted blade, and
-    /// cleaves in front of him;
     Drowned,
-    /// and a will-o'-wisp that keeps off over the water, flares and draws
-    /// knights to it, then bursts.
     Wisp,
 }
 
@@ -197,14 +136,10 @@ impl EnemyKind {
             EnemyKind::Ringer => 95,
             EnemyKind::Geode => 110,
             EnemyKind::Hound => 140,
-            // A first hunt; his grudge grows him each time he is felled.
             EnemyKind::Risen => 130,
-            // It would tear off children all day; it cannot bleed itself dead.
             EnemyKind::Broodmarrow => 520,
-            // Half of one wound twice over.
             EnemyKind::Oathbound => 240,
             EnemyKind::Whirlgrave => 150,
-            // A gardener, not a fighter: fell it before the garden closes in.
             EnemyKind::Fungelder => 130,
             EnemyKind::BogHand => horrors::HAND_HP,
             EnemyKind::Drowned => horrors::DROWNED_HP,
@@ -212,8 +147,6 @@ impl EnemyKind {
         }
     }
 
-    /// The ones a room keeps to one of: the dangerous casters and chargers,
-    /// and the slime, whose one family is seven bodies.
     pub fn elite(self) -> bool {
         matches!(
             self,
@@ -296,11 +229,8 @@ fn no_guard(n: &u32) -> bool {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Enemy {
-    /// What a boss standing alone carries for the company that never came
-    /// (`BOSS_ALONE_TO`): each kind's drop is rolled when the boss falls.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hoard: Vec<EnemyKind>,
-    /// Floor-local faction and finite camp slot (absent in legacy and special modes).
     #[serde(default)]
     pub faction: Option<u8>,
     #[serde(default)]
@@ -310,113 +240,73 @@ pub struct Enemy {
     pub hp: u32,
     pub max_hp: u32,
     pub kind: EnemyKind,
-    /// Ticks it has been in the run. A save may leave a fresh foe's age out.
     #[serde(default)]
     pub age: u32,
     pub id: u32,
     pub(super) origin_x: f32,
     pub(super) origin_y: f32,
-    /// A boss's index in the run's `bosses`.
     #[serde(default)]
     pub boss: Option<u8>,
     #[serde(default)]
     pub(super) size: Option<f32>,
     #[serde(default)]
     pub(super) base_hp: Option<u32>,
-    /// A guardian past its rage threshold.
     #[serde(default)]
     pub(super) raged: bool,
-    /// Ticks it stands stunned or held in time.
     #[serde(default)]
     pub frozen: u32,
-    /// Ticks the Vesper Bell still holds it to the ground.
     #[serde(default)]
     pub grounded: u32,
-    /// Ticks left it hops about as a frog, harmless and embarrassed (the
-    /// Plague of Frogs).
     #[serde(default)]
     pub frog: u32,
-    /// Read out of the room: when it falls it drops nothing (the
-    /// Excommunicate's shame). One death wide.
     #[serde(default)]
     pub shunned: bool,
-    /// The first simulation tick awake again. Damage never clears sleep.
     #[serde(default, skip_serializing_if = "bard::awake")]
     pub sleep_until: u64,
-    /// Its own state: what it is doing (a slime's size, a boar's charge),
-    /// ticks at it, and which way.
     #[serde(default)]
     pub stage: u8,
     #[serde(default)]
     pub timer: u32,
     #[serde(default)]
     pub dir: (f32, f32),
-    /// What a raised shield has turned since it last went down: past
-    /// `critters::GUARD_BREAK` of its health, it is knocked aside.
     #[serde(default, skip_serializing_if = "no_guard")]
     pub guard: u32,
-    /// Ticks left of the flash a hit leaves, and the health last tick,
-    /// which a drop from tells a hit (`mark_hits`).
     #[serde(default)]
     pub hurt: u8,
     #[serde(default)]
     pub seen_hp: u32,
-    /// A guardian's health as its bar still shows it, falling after its
-    /// health so each blow's bite reads (`mark_hits`); 0 once caught up.
     #[serde(default, skip_serializing_if = "super::zero")]
     pub drain: u32,
-    /// A boss's last stand: ticks into its cycle of telegraphed attacks,
-    /// from the tick it grew desperate (`desperate`).
     #[serde(default)]
     pub dread: u32,
-    /// A tougher one of its kind, drawn larger (`stakes::deepen`).
     #[serde(default)]
     pub elite: bool,
-    /// How many extra shots it adds to each volley it fires, on the deep
-    /// floors (`stakes::fan_out`).
     #[serde(default)]
     pub(super) fury: u8,
-    /// A loot goblin's sack: what it took from the knights' packs, the cards
-    /// it took from their hands or found on the floor, and how many ticks
-    /// "THIEF!" has left over it (`thief`).
     #[serde(default)]
     pub stash: crate::realm::Spoils,
     #[serde(default)]
     pub loot: Vec<String>,
     #[serde(default)]
     pub cry: u32,
-    /// A guardian's rule taught on first meeting (`signatures::teach`):
-    /// ticks left of its hint word and the quiet after it, and how many
-    /// times the word has shown.
     #[serde(default, skip_serializing_if = "super::zero")]
     pub hint: u32,
     #[serde(default, skip_serializing_if = "super::zero")]
     pub hints: u32,
-    /// Ticks left of a bell's ring on it: quickened (`critters::quicken`).
     #[serde(default)]
     pub rung: u32,
-    /// Ticks left of a wish's chill on it: it walks at the chill's pace
-    /// (`wishcraft`).
     #[serde(default, skip_serializing_if = "super::zero")]
     pub chilled: u32,
-    /// Volleys in its signature or boss sequence; rage changes its pace,
-    /// never the order of the chain.
     #[serde(default)]
     pub pattern_volleys: u32,
-    /// Who it hunts, and how it stands up to being held (`press`).
     #[serde(default, skip_serializing_if = "press::Wits::calm")]
     pub wits: press::Wits,
     #[serde(default, skip_serializing_if = "signatures::State::quiet")]
     pub signature: signatures::State,
-    /// The open floor's chamber it lives in (`depths`): it never goes
-    /// farther than its leash from it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub home: Option<u8>,
-    /// Waiting in its chamber for a knight to come: no step, no shot.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub dormant: bool,
-    /// A thing a knight made in the Creator and the world took in, its maker
-    /// named on its health bar (`made`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub made: Option<super::made::Tag>,
 }
@@ -432,20 +322,15 @@ impl Enemy {
         self.base_hp.unwrap_or_else(|| self.kind.hp())
     }
 
-    /// Whether it may fly this tick: the Vesper Bell holds wings to the
-    /// ground, and a frog is in no case to fly at all.
     pub fn wings(&self) -> bool {
         self.kind.flies() && self.grounded == 0 && self.frog == 0
     }
 
-    /// Whether the Plague of Frogs has it: it hops, and can do nothing else.
     pub fn frogged(&self) -> bool {
         self.frog > 0
     }
 }
 
-/// Drop default foe fields from a save. Old saves still carry them; a missing
-/// field is that default (`#[serde(default)]` on each one below).
 pub fn compact_save(value: &mut serde_json::Value) {
     fn walk(value: &mut serde_json::Value) {
         match value {
@@ -511,7 +396,6 @@ fn dir_is_zero(value: &serde_json::Value) -> bool {
     })
 }
 
-/// One monster's step: move, then maybe shoot.
 pub(super) fn act(
     enemy: &mut Enemy,
     heroes: &[(f32, f32)],
@@ -529,8 +413,6 @@ pub(super) fn act(
         }
         return;
     }
-    // The Plague of Frogs: a frogged monster hops away from the knights
-    // and can do nothing else, until the plague wears off. Ribbit.
     if enemy.frogged() {
         enemy.frog = enemy.frog.saturating_sub(1);
         if enemy.timer % frogs::HOP_WINDOW == 0
@@ -594,7 +476,6 @@ pub(super) fn act(
             step(6.5, unit(cx - cy * wobble, cy + cx * wobble))
         }
         EnemyKind::Skeleton => {
-            // Wander between points near home, re-chosen every three seconds.
             let h = mix(seed ^ u64::from(enemy.id) << 20 ^ u64::from(age / 90));
             let gx = enemy.origin_x + ((h & 0xff) as f32 / 255.0 - 0.5) * 12.0;
             let gy = enemy.origin_y + (((h >> 8) & 0xff) as f32 / 255.0 - 0.5) * 8.0;
@@ -644,27 +525,18 @@ pub(super) fn act(
             | EnemyKind::BogHand
             | EnemyKind::Drowned
             | EnemyKind::Wisp => (0.0, 0.0),
-        // Hops: a lunge, then a pause to chew.
         EnemyKind::Mimic if age % 36 < 14 => step(7.5, (cx, cy)),
         EnemyKind::Mimic => (0.0, 0.0),
     };
     (enemy.x, enemy.y) = grid.slide((enemy.x, enemy.y), motion, enemy.radius(), mover);
-    // What it throws is its signature (`patterns::volley`), fired after
-    // its step.
     if enemy.kind == EnemyKind::Dragon {
         desperate::last_stand(enemy, target, shots, deeds);
     }
 }
 
-/// The least a guardian moves at, in arena units a second, whatever its
-/// file says.
 const BOSS_LEAST_PACE: f32 = 2.5;
-/// How far past its own body a guardian that does not chase keeps from the
-/// nearest knight.
 const BOSS_STANDOFF: f32 = 4.0;
 
-/// A guardian's step: its file's movement, then each of its attacks on their
-/// own beat, half again as often once its health falls below its rage.
 fn act_boss(
     enemy: &mut Enemy,
     boss: &Boss,
@@ -696,14 +568,10 @@ fn act_boss(
         let reach = dx.hypot(dy).min(speed * DT);
         (ux * reach, uy * reach)
     };
-    // A guardian is a dance, not a wall: every one keeps on the move, so the
-    // party reads its pattern, slips it and sneaks hits in between (the
-    // 2026-11 play-test: "bullet sponges that barely move").
     let pace = boss.speed.max(BOSS_LEAST_PACE);
     let motion = match boss.moves {
         Move::Chase => toward(tx, ty, boss.speed, enemy),
         Move::Drift => {
-            // A new spot every two seconds, over most of the room's width.
             let h = mix(seed ^ u64::from(enemy.id) << 20 ^ u64::from(age / 60));
             let gx = enemy.origin_x + ((h & 0xff) as f32 / 255.0 - 0.5) * 28.0;
             let gy = enemy.origin_y + (((h >> 8) & 0xff) as f32 / 255.0 - 0.3) * 12.0;
@@ -714,15 +582,11 @@ fn act_boss(
             let gy = enemy.origin_y + (age as f32 * 0.03).sin() * 2.5;
             toward(gx, gy, pace, enemy)
         }
-        // A rooted guardian still sidesteps, side to side about its post.
         Move::Anchor => {
             let gx = enemy.origin_x + (age as f32 * 0.025).sin() * 6.0;
             toward(gx, enemy.origin_y, pace * 0.6, enemy)
         }
     };
-    // Only a chaser closes in: the rest keep a dancer's distance, backing
-    // off a knight who comes too near, so moving never lands a body blow in
-    // the middle of a tell.
     let near = (tx - enemy.x).hypot(ty - enemy.y);
     let motion = if boss.moves != Move::Chase && target.is_some() && near < enemy.radius() + BOSS_STANDOFF {
         let (ux, uy) = unit(enemy.x - tx, enemy.y - ty);
@@ -736,13 +600,9 @@ fn act_boss(
         Mover::Walker
     };
     (enemy.x, enemy.y) = grid.slide((enemy.x, enemy.y), motion, enemy.radius(), mover);
-    // Its fight builds stage by stage: each line joins at its `from`, and
-    // its pressure quickens, then rage quickens it further.
     let stage = boss.stage(enemy.hp, enemy.max_hp);
     for (index, attack) in boss.attacks.iter().enumerate() {
         if matches!(attack.pattern, Pattern::Named(_)) || attack.from > stage {
-            // A named pattern is fired with the rest of the monsters'
-            // (`patterns::volley`).
             continue;
         }
         let every = if stage == Stage::Rage {
@@ -750,8 +610,6 @@ fn act_boss(
         } else {
             attack.every.max(4)
         };
-        // Ravage is a floor hazard with its own duration and safe lane;
-        // don't overlap it by accelerating its authored cadence.
         let every = if attack.pattern == Pattern::Ravage {
             every
         } else {
@@ -761,7 +619,6 @@ fn act_boss(
             continue;
         }
         if attack.pattern == Pattern::Ravage {
-            // The floor itself, round where it stands; only at someone.
             if target.is_some() {
                 let mut ravage = tide::Ravage::cast(
                     (enemy.x, enemy.y),
@@ -815,5 +672,4 @@ fn act_boss(
             });
         }
     }
-    // No last stand: a guardian's rage is its charge-ups.
 }

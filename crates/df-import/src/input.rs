@@ -7,7 +7,6 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
-/// One z-level of the map: the four grids of `tiles/zNNN.txt`, row-major.
 pub struct Grid {
     pub w: usize,
     pub h: usize,
@@ -76,7 +75,6 @@ pub fn parse_grid(bytes: &[u8]) -> Result<(i32, Grid), String> {
     Ok((z, Grid { w, h, shape, mat, liquid, rock }))
 }
 
-/// A room's tile mask: which tiles of its rectangle belong to it.
 pub struct Extents {
     pub x: i32,
     pub y: i32,
@@ -85,7 +83,6 @@ pub struct Extents {
     pub rows: Vec<Vec<u8>>,
 }
 
-/// One entry of `kingdom.json` -> `buildings`.
 pub struct Building {
     pub id: i64,
     pub kind: String,
@@ -113,7 +110,6 @@ impl Building {
     pub fn sub(&self) -> &str {
         self.subtype.as_deref().unwrap_or("")
     }
-    /// Every map tile the building stands on, in row order.
     pub fn cells(&self) -> Vec<(i32, i32)> {
         let mut out = Vec::new();
         if let Some(e) = &self.extents {
@@ -187,7 +183,6 @@ fn parse_building(v: &Value) -> Option<Building> {
     })
 }
 
-/// DFHack's `prospect all`: section name to (material token, tile count).
 pub type Prospect = BTreeMap<String, Vec<(String, u64)>>;
 
 pub fn parse_prospect(text: &str) -> Prospect {

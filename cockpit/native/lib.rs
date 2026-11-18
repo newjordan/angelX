@@ -9,11 +9,7 @@ unsafe extern "C" {
     fn angel_moa_route_abi_version() -> u32;
 }
 
-/// Compiled-in ABI versions (not optional hot-reload modules). Diagnostic only:
-/// reporting actual calls also makes native edit/relink freshness observable.
 pub fn builtin_abi_versions() -> [u32; 4] {
-    // All four functions take no arguments and return a fixed-width integer;
-    // their implementations are in this package's statically linked C archive.
     unsafe {
         [
             angel_skill_route_abi_version(),

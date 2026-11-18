@@ -117,7 +117,6 @@ pub(crate) fn passage(node: &Value) -> Passage {
         "question" | "conjecture" => Passage::Door,
         "hunch" => Passage::Dark,
         "evidence" => Passage::Review,
-        // These are usable tools/references, not proved claims.
         "method" | "source" | "family" => Passage::Charted,
         _ => Passage::Review,
     }
@@ -383,8 +382,6 @@ impl Map {
                 "passage":self.node_passage(i).label(),"tier":self.nodes[i]["tier"]})).collect::<Vec<_>>())}))
     }
 
-    /// Selection advice is derived from the map; it grants no reward and does
-    /// not silently reclassify a failed attempt as a refutation.
     pub(crate) fn plan(&self, task: Option<&str>, limit: usize) -> Value {
         let root = task.map(store::task_id);
         let attempts: Vec<_> = self
@@ -423,7 +420,6 @@ impl Map {
     }
 }
 
-/// Fresh contexts see at most three doors. Missing maps do not alter old loops.
 pub(crate) fn context(workspace: &Path, task: &str) -> String {
     match load(workspace) {
         Ok(Some(map)) => {
@@ -432,8 +428,6 @@ pub(crate) fn context(workspace: &Path, task: &str) -> String {
                 return String::new();
             }
             for door in doors.as_array_mut().unwrap() {
-                // Preserve exact identities in the tool view; fresh prompts
-                // carry only two compact recent attempts for each open door.
                 let history = door["id"]
                     .as_str()
                     .and_then(|id| map.index.get(id))
@@ -445,9 +439,6 @@ pub(crate) fn context(workspace: &Path, task: &str) -> String {
                         door[key] = json!(text.chars().take(400).collect::<String>());
                     }
                 }
-                // Referee provenance can be large and include custom fields.
-                // Carry a bounded cue here; the read-only tool retains the
-                // complete authored record for deliberate inspection.
                 let review = &door["review"];
                 door["review"] = json!({
                     "state":review["state"].as_str(),

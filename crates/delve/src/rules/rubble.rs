@@ -7,14 +7,10 @@
 //! break. Guests are sent the room anew (`Floor::world_revision`).
 use super::*;
 
-/// The most blocks one blow breaks.
 pub const SHATTER_MOST: usize = 6;
-/// How far past a blow's own reach the stone round it gives way, in units.
 pub const SHATTER_PAST: f32 = 2.0;
 
 impl Run {
-    /// Break the blocks whose middles stand within `reach` of `at` in this
-    /// room; how many broke.
     pub(super) fn shatter(&mut self, at: (f32, f32), reach: f32) -> usize {
         let Some(room) = self.dungeon.rooms.get_mut(self.at) else {
             return 0;

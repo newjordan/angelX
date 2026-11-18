@@ -1,7 +1,3 @@
-// Thin adapter for the Bend lane scheduler: plain JSON lane states in, the
-// chosen lane indices out. Seat counts, service gaps, ages, runnable flags and
-// the last single-seat lane travel as Bend numbers and constructors; every
-// ordering rule lives in lane-schedule.bend.
 const { schedule } = require('./lane-schedule.compiled.js')
 
 const nil = { $: 'Nil' }
@@ -14,9 +10,7 @@ const lane = state => ({
   runnable: state.runnable === true,
   age: count(state.age_ticks),
 })
-// `null` is the oracle's `None`: no lane was served last tick.
 const lastLane = value => (Number.isFinite(value) ? { $: 'Some', value: count(value) } : { $: 'None' })
-// The leg answers with a Bend list of Lane records; unwind it back to JSON.
 const indices = chosen => {
   const lanes = []
   for (let cell = chosen; cell.$ === 'Con'; cell = cell.tail) lanes.push(cell.head.index)

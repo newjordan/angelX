@@ -12,17 +12,13 @@ use crate::rules::{
     pastimes::{self, Game},
 };
 
-/// The east stand's steps in the Powder Keg yard: how many, and how wide.
 const TIERS: i32 = 3;
 const TIER: i32 = 25;
 
-/// The Gander Joust hall's gallery rail, its pixel row.
 const RAIL: i32 = 21;
 
-/// Slate, darkest to lightest: the Colosseum's stone.
 const STONE: &[char] = &['k', 's', 'x', 'S', 'u', 'U'];
 
-/// Each gate's banner: its cloth, its lit edge, and its emblem's ink.
 fn banner_inks(game: Game) -> (char, char, char) {
     match game {
         Game::Gander => ('E', 'l', 'h'),
@@ -42,14 +38,11 @@ pub(super) fn scenery(run: &Run) -> Img {
     cv
 }
 
-/// Big worn flagstones, warm and dark under the slate walls: rows of
-/// stones of uneven length, each its own shade, joints darker still.
 fn flags(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), seed: u32) {
     const ROW: i32 = 14;
     for y in y0..y0 + h {
         let row = (y - y0) / ROW;
         let ly = (y - y0) % ROW;
-        // Each row's joints, from its own lengths.
         let mut x = x0 - (hash(row, 0, seed) % 20) as i32;
         let mut k = 0;
         while x < x0 + w {
@@ -73,7 +66,6 @@ fn flags(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), seed: u32) {
     }
 }
 
-/// Raked sand, the arena floor: dark timber tones, never bright.
 fn sand(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), seed: u32) {
     for y in y0..y0 + h {
         for x in x0..x0 + w {
@@ -89,18 +81,14 @@ fn sand(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), seed: u32) {
     }
 }
 
-/// A run of coursed slate, its top edge lit.
 fn wall(cv: &mut Img, rect: (i32, i32, i32, i32), seed: u32) {
     m::ashlar(cv, rect, STONE, seed);
 }
 
-/// An open gate: a round-headed mouth in the wall, its voussoirs lit, the
-/// portcullis drawn up into the arch, and the light of the arena beyond.
 fn gate(cv: &mut Img, x: i32, top: i32, w: i32, foot: i32, beyond: char) {
     let r = w / 2;
     let cx = x + r;
     let spring = top + r;
-    // Voussoirs: a ring a little wider than the mouth.
     for y in top - 4..foot {
         for xx in x - 4..x + w + 4 {
             let dy = (y - spring).min(0) as f32;
@@ -112,8 +100,6 @@ fn gate(cv: &mut Img, x: i32, top: i32, w: i32, foot: i32, beyond: char) {
             }
         }
     }
-    // The mouth: dark, the far end lit by the arena, a strip of its
-    // floor and the stands' foot seen through it.
     for y in top..foot {
         for xx in x..x + w {
             let dy = (y - spring).min(0) as f32;
@@ -133,18 +119,15 @@ fn gate(cv: &mut Img, x: i32, top: i32, w: i32, foot: i32, beyond: char) {
             }
         }
     }
-    // The portcullis, raised: its teeth just below the crown.
     for xx in (x + 2..x + w - 1).step_by(4) {
         cv.line(xx, top + 2, xx, top + 8, 'g');
         cv.put(xx, top + 9, 'j');
     }
     cv.line(x + 3, top + 4, x + w - 4, top + 4, 'g');
-    // A keystone.
     cv.rect(cx - 2, top - 5, 5, 5, 'U');
     cv.line(cx - 2, top - 5, cx + 2, top - 5, 'v');
 }
 
-/// A blind arch: a recess in the arcade.
 fn recess(cv: &mut Img, cx: i32, top: i32, w: i32, foot: i32) {
     let r = w / 2;
     let spring = top + r;
@@ -161,7 +144,6 @@ fn recess(cv: &mut Img, cx: i32, top: i32, w: i32, foot: i32) {
     }
 }
 
-/// A hanging banner on its pole, swallow-tailed, its game's emblem on it.
 fn banner(cv: &mut Img, x: i32, y: i32, game: Game, t: u32) {
     let (cloth, lit, mark) = banner_inks(game);
     let (w, h) = (14, 26);
@@ -170,7 +152,6 @@ fn banner(cv: &mut Img, x: i32, y: i32, game: Game, t: u32) {
     cv.put(x + w + 2, y, 'o');
     let sway = i32::from(t / 20 % 2 == 0);
     for yy in 1..h {
-        // The swallow-tail: a notch cut up into its foot.
         let notch = yy - (h - 5);
         for xx in 0..w {
             if notch > 0 && (xx - w / 2).abs() < notch {
@@ -181,12 +162,10 @@ fn banner(cv: &mut Img, x: i32, y: i32, game: Game, t: u32) {
             cv.put(x + xx + if yy > h / 2 { sway } else { 0 }, y + yy, ink);
         }
     }
-    // Gold trim along its head.
     cv.line(x, y + 1, x + w - 1, y + 1, 'o');
     let (ex, ey) = (x + 3, y + 6);
     match game {
         Game::Gander => {
-            // A goose's head and neck, bill out.
             cv.rect(ex + 2, ey + 6, 6, 4, mark);
             cv.line(ex + 6, ey + 5, ex + 6, ey + 1, mark);
             cv.rect(ex + 5, ey, 3, 2, mark);
@@ -194,7 +173,6 @@ fn banner(cv: &mut Img, x: i32, y: i32, game: Game, t: u32) {
             cv.put(ex + 6, ey, 'k');
         }
         _ => {
-            // A keg on its side, a fuse and its spark.
             cv.rect(ex + 1, ey + 4, 7, 6, mark);
             cv.line(ex + 1, ey + 6, ex + 7, ey + 6, 'g');
             cv.line(ex + 1, ey + 8, ex + 7, ey + 8, 'g');
@@ -204,7 +182,6 @@ fn banner(cv: &mut Img, x: i32, y: i32, game: Game, t: u32) {
     }
 }
 
-/// The upper tiers seen over a wall: rows of the realm's folk, dim.
 fn tiers(cv: &mut Img, (x0, y0, w): (i32, i32, i32), rows: i32, seed: u32) {
     for row in 0..rows {
         let y = y0 + row * 5;
@@ -225,12 +202,9 @@ fn tiers(cv: &mut Img, (x0, y0, w): (i32, i32, i32), rows: i32, seed: u32) {
     }
 }
 
-/// The entrance hall: the arcade along the north wall with the two gates,
-/// the great door to the south, a board on posts before each gate.
 fn hall(cv: &mut Img, t: u32) {
     let (w, h) = (cv.w, cv.h);
     flags(cv, (0, 0, w, h), 61);
-    // A worn runner from the great door up the middle of the hall.
     let (rx, rw) = (11 * TILE + 3, 2 * TILE - 6);
     cv.rect(rx, 4 * TILE, rw, 8 * TILE, 'b');
     cv.line(rx, 4 * TILE, rx, 12 * TILE - 1, 'I');
@@ -244,12 +218,10 @@ fn hall(cv: &mut Img, t: u32) {
             cv.put(cx + d, y + 7 - d, 'B');
         }
     }
-    // The stands beyond the north wall, then the arcade's wall.
     cv.rect(0, 0, w, 3 * TILE, 'k');
     tiers(cv, (TILE, 0, w - 2 * TILE), 2, 7);
     cv.rect(TILE, 10, w - 2 * TILE, 2, 'u');
     wall(cv, (TILE, 12, w - 2 * TILE, 3 * TILE - 12), 31);
-    // Niches between the gates, each with a dim statue of a champion.
     for cx in [9 * TILE, 12 * TILE, 15 * TILE] {
         recess(cv, cx, 22, 14, 3 * TILE - 2);
         cv.rect(cx - 2, 26, 4, 4, 'g');
@@ -265,7 +237,6 @@ fn hall(cv: &mut Img, t: u32) {
         banner(cv, mx - 20, 14, game, t);
         banner(cv, mx + mw + 6, 14, game, t + 7);
     }
-    // Side walls and the south wall, with the great door.
     for x in [0, w - TILE] {
         wall(cv, (x, 0, TILE, h), 33);
         let edge = if x == 0 { TILE - 1 } else { x };
@@ -275,7 +246,6 @@ fn hall(cv: &mut Img, t: u32) {
     let (dx, dy, dw, _) = c::GREAT_DOOR;
     let (px, py) = (dx * TILE, dy * TILE);
     gate(cv, px - 4, py + 2, dw * TILE + 8, h, 's');
-    // The boards' posts and their shadows (the boards are lettered over).
     for &(bx, by, bw, _) in &c::BOARDS {
         for x in [bx * TILE + 10, (bx + bw) * TILE - 12] {
             cv.ellipse(x as f32 + 1.0, (by * TILE + 15) as f32, 5.0, 2.0, 'K');
@@ -283,22 +253,17 @@ fn hall(cv: &mut Img, t: u32) {
             cv.line(x - 1, by * TILE - 6, x - 1, by * TILE + 14, 'P');
         }
     }
-    // Torches on the arcade beside the niches.
     for x in [10 * TILE + 6, 13 * TILE + 6] {
         cv.stamp(&super::super::kit::torch(t / 4, x as u32), x, 26);
     }
 }
 
-/// The Powder Keg yard: the courtyard (its flags, posts and bales) in the
-/// middle, a low parapet round it, the stands north, east and south, the
-/// knights' bench west with the start mark, and the gate back to the hall.
 fn yard(cv: &mut Img) {
     let (w, h) = (cv.w, cv.h);
     sand(cv, (0, 0, w, h), 71);
     let x0 = i32::from(pastimes::POWDER_X0) * TILE;
     let y0 = i32::from(pastimes::POWDER_Y0) * TILE;
     let (yw, yh) = (i32::from(pastimes::POWDER_W) * TILE, i32::from(pastimes::POWDER_H) * TILE);
-    // The courtyard at rest: flagstones, posts and every bale standing.
     for r in 0..pastimes::POWDER_H {
         for c in 0..pastimes::POWDER_W {
             let (x, y) = (x0 + i32::from(c) * TILE, y0 + i32::from(r) * TILE);
@@ -318,11 +283,9 @@ fn yard(cv: &mut Img) {
         let (x, y) = (x0 + i32::from(c) * TILE, y0 + i32::from(r) * TILE);
         m::hay(cv, x + 8, y + 12, 9.5, 300 + i as u32);
     }
-    // The parapet: a low slate curb round the courtyard.
     cv.frame(x0 - 3, y0 - 3, yw + 6, yh + 6, 'u');
     cv.frame(x0 - 2, y0 - 2, yw + 4, yh + 4, 'S');
     cv.frame(x0 - 1, y0 - 1, yw + 2, yh + 2, 'k');
-    // The stands: north over the yard, east in tiers, south a low wall.
     cv.rect(0, 0, w, 2 * TILE, 'k');
     tiers(cv, (TILE, 1, w - 2 * TILE), 2, 17);
     wall(cv, (TILE, 11, w - 2 * TILE, 2 * TILE - 11), 73);
@@ -331,7 +294,6 @@ fn yard(cv: &mut Img) {
     cv.rect(x0s, y0s, ws, hs, 'K');
     for k in 0..TIERS {
         let x = x0s + 4 + k * TIER;
-        // Each step a slab of slate, its lit lip to the west.
         cv.rect(x, y0s, TIER - 4, hs, 'x');
         cv.line(x, y0s, x, y0s + hs - 1, 'u');
         cv.line(x + 1, y0s, x + 1, y0s + hs - 1, 'S');
@@ -339,12 +301,10 @@ fn yard(cv: &mut Img) {
     }
     let (sx, sy, sw, _) = c::YARD_STANDS[2];
     wall(cv, (sx * TILE, sy * TILE, sw * TILE, TILE), 77);
-    // Outer walls.
     wall(cv, (0, 0, TILE, h), 79);
     wall(cv, (w - TILE, 0, TILE, h), 81);
     wall(cv, (0, h - TILE, w, TILE), 83);
     cv.line(TILE - 1, 2 * TILE, TILE - 1, h - TILE, 'k');
-    // The knights' bench along the west wall, and a rack of spare kegs.
     m::boards(cv, (TILE + 2, 7 * TILE, 10, 3 * TILE), true, 85);
     cv.line(TILE + 2, 7 * TILE, TILE + 2, 10 * TILE - 1, 'o');
     for k in 0..3 {
@@ -354,24 +314,17 @@ fn yard(cv: &mut Img) {
         cv.line(x, y + 6, x + 7, y + 6, 'g');
         cv.put(x + 4, y - 1, 'g');
     }
-    // A stone dais under the start mark.
     let (mx, my) = Game::Powder.start();
     let (mx, my) = ((mx * TILE as f32) as i32, (my * TILE as f32) as i32);
     cv.ellipse(mx as f32, my as f32 + 2.0, 15.0, 9.0, 'k');
     cv.ellipse(mx as f32, my as f32, 14.0, 8.0, 'S');
     cv.ellipse(mx as f32, my as f32, 12.0, 6.5, 'x');
-    // The gate back to the hall, in the south wall below the bench.
     let (gx, gy, gw, _) = c::YARD_GATE;
     gate(cv, gx * TILE - 2, gy * TILE + 2, gw * TILE + 4, h, 's');
 }
 
-/// The Gander Joust hall, side-on: a back wall of slate arches with the
-/// folk in the gallery above, pillars at either end, and the gate low in
-/// the west wall. The ledges, the tar and the riders are the game's own
-/// (`pastimes::gander_hall`).
 fn gander_hall(cv: &mut Img) {
     let (w, h) = (cv.w, cv.h);
-    // The back wall: coursed slate, dim, its joints half drawn.
     for y in 0..h {
         for x in 0..w {
             let course = y / 8;
@@ -384,12 +337,9 @@ fn gander_hall(cv: &mut Img) {
             cv.put(x, y, ink);
         }
     }
-    // Great arches along the back wall, dark between the riders' ledges.
     for cx in [5 * TILE, 12 * TILE, 19 * TILE] {
         recess(cv, cx, 3 * TILE + 8, 4 * TILE, 10 * TILE + 8);
     }
-    // The gallery: the realm's folk at the rail above the hall, kept high
-    // so a rider on the top ledge flies clear below it.
     cv.rect(0, 0, w, RAIL + 7, 'k');
     tiers(cv, (TILE, 0, w - 2 * TILE), 2, 23);
     cv.rect(TILE, RAIL, w - 2 * TILE, 3, 'u');
@@ -397,23 +347,18 @@ fn gander_hall(cv: &mut Img) {
     for x in (TILE + 6..w - TILE).step_by(12) {
         cv.line(x, RAIL + 3, x, RAIL + 6, 'S');
     }
-    // The end pillars, full height.
     for x in [0, w - TILE] {
         wall(cv, (x, 0, TILE, h), 91);
         cv.line(if x == 0 { TILE - 1 } else { x }, 0, if x == 0 { TILE - 1 } else { x }, h - 1, 'k');
     }
-    // The gate back to the hall, low in the west wall, and its sill.
     let (gx, gy, gw, gh) = c::HALL_GATE;
     cv.rect(0, gy * TILE - 4, (gx + gw) * TILE, gh * TILE + 4, 'k');
     gate(cv, 2, gy * TILE - 6, gw * TILE + 6, (gy + gh) * TILE, 's');
     cv.rect(0, (gy + gh) * TILE - 3, (gx + gw) * TILE + 4, 3, 'u');
     cv.line(0, (gy + gh) * TILE - 3, (gx + gw) * TILE + 3, (gy + gh) * TILE - 3, 'U');
-    // The floor below the tar.
     wall(cv, (0, h - TILE, w, TILE), 93);
 }
 
-/// The folk in the stands, cheering while a heat is on: drawn per frame
-/// over the scenery's tiers, in the arena rooms only.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     let kind = run.room().kind;
     if !c::is_arena(kind) {
@@ -451,9 +396,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         }
     };
     if kind == RoomKind::KegYard {
-        // North stand, over the yard.
         row(cv, 5 * TILE + 4, cv.w - TILE - 6, 2 * TILE - 13, 1);
-        // East stand, in tiers stepping back.
         let (sx, sy, _, sh) = c::YARD_STANDS[1];
         for k in 0..TIERS {
             let x = sx * TILE + 10 + k * TIER;
@@ -477,22 +420,15 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             }
         }
     } else {
-        // The gallery rail.
         row(cv, TILE + 4, cv.w - TILE - 6, RAIL - 7, 3);
     }
 }
 
-/// The Colosseum's lettering: each room's name, the entrance hall's
-/// boards (one before each gate: the game's name, three words of how to
-/// play, and its best; always up, they are the hall's signs), and the way
-/// out when a knight comes near it.
 pub(super) fn boards(cv: &mut Img, run: &Run) {
     let kind = run.room().kind;
     if !c::is_room(kind) {
         return;
     }
-    // The hall's name, top left; in an arena the game's own board, always
-    // up, names it.
     if kind == RoomKind::ColosseumHall {
         let title = home::board(&[(c::label(kind).into(), 'i')]);
         cv.stamp(&title, 3, 3);
@@ -514,7 +450,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             cv.stamp(&board, cx - board.w / 2, by * TILE - board.h + 6);
         }
     }
-    // The way out, once a knight is near it and no heat holds the gate.
     if run.arena_heat_on() {
         return;
     }
@@ -531,7 +466,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         }
         let board = home::board(&[(label.into(), '9')]);
         let (x, y) = super::at(ex, ey);
-        // Beside the gate, on the side away from the tray.
         let bx = if x - 24 - board.w >= 2 { x - 24 - board.w } else { x + 24 };
         cv.stamp(&board, bx.clamp(2, cv.w - board.w - 2), (y - board.h - 4).clamp(2, cv.h - board.h - 2));
     }

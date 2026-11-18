@@ -1,27 +1,3 @@
-"""Tiny text clip DSL: author a new emote/attack in minutes, on the shared Mixamo skeleton.
-
-    clip dab                      # starts a clip (many per file)
-    fps 12                        # default 12
-    loop no                       # yes|no (default yes)
-    tags emote joke               # free-form
-    # frame  [ease=in|out|inout|linear|snap]  [hit] [smear] [rest]  bone=x,y,z ...
-    0   rest
-    4   ease=out  rarm=135,0,30 rfore=20 larm=60,0,80 head=35,0,0 spine=15
-    10  hold                      # same pose as previous key
-    14  =0                        # copy key 0
-
-Joint angles are degrees, friendly and mirrored per side so both sides read the same:
-  arms   larm/rarm   x = raise forward, y = twist, z = raise outward (sideways)
-  elbows lfore/rfore x = bend (+ = flex)       knees lknee/rknee x = bend (+ = flex)
-  legs   lleg/rleg   x = raise forward, z = spread outward
-  feet   lfoot/rfoot x = toes down;  hands lhand/rhand x = flex fwd, y = twist, z = tilt out
-  body   spine/chest/neck/head  x = bend forward, y = turn to own left, z = lean to own left
-  root   root=x,y,z  whole-body rotation on Hips (y = spin)
-  hips   hips=dx,dy,dz  metres (dy<0 crouch, >0 jump); 'bob=dy' shortcut
-Bones not named keep their value from the previous key ("carry"); `rest` clears all first.
-Keys are interpolated with the key's easing curve (applies to the segment arriving at it).
-Markers: `hit` = contact frame, `smear` = draw weapon trails arriving at this key.
-"""
 import re
 import numpy as np
 from ..skel import skeleton as S
@@ -45,12 +21,11 @@ EASE = {
     "out": lambda u: 1 - (1 - u) ** 3,
     "inout": lambda u: 3 * u * u - 2 * u * u * u,
     "snap": lambda u: 1.0 if u >= 1 else 0.0,
-    "back": lambda u: 1 + 2.70158 * (u - 1) ** 3 + 1.70158 * (u - 1) ** 2,   # overshoot (follow-through)
+    "back": lambda u: 1 + 2.70158 * (u - 1) ** 3 + 1.70158 * (u - 1) ** 2,
 }
 
 
 def expmap(v):
-    """Rotation vector (rad) -> matrix (Rodrigues)."""
     th = float(np.linalg.norm(v))
     if th < 1e-9:
         return np.eye(3)
@@ -60,28 +35,23 @@ def expmap(v):
 
 
 def bone_matrix(kind, side, x, y, z):
-    """Friendly degrees -> local rotation. Swing (x, z) is one rotation about the combined
-    axis, so x and z mix intuitively (x=90,z=90 = diagonal forward-and-out); y twists about
-    the bone itself first (limbs) or turns (body)."""
     if kind in ("limb", "elbow", "hand"):
         return expmap(np.array([-x, 0, side * z]) * D) @ S.ry(side * y * D)
     if kind == "knee":
         return S.rx(x * D)
     if kind == "foot":
         return expmap(np.array([x, 0, side * z]) * D)
-    return expmap(np.array([x, y, -z]) * D)   # body
+    return expmap(np.array([x, y, -z]) * D)
 
 
 class ClipSpec:
     def __init__(self, name):
         self.name, self.fps, self.loop, self.tags = name, 12, True, []
-        self.keys = []   # (frame, ease, flags, {bone: (x,y,z)}, hips, mode)
+        self.keys = []
         self.meta = {}
 
     def build(self):
-        """-> Clip with .events {frame: [hit|smear]} and .meta."""
         keys = sorted(self.keys, key=lambda k: k[0])
-        # resolve carry / copy into absolute per-key poses
         poses, hipss = [], []
         cur, hp = {}, np.zeros(3)
         byframe = {}
@@ -119,7 +89,7 @@ class ClipSpec:
             if "smear" in k[2] and i > 0:
                 smear.update(range(keys[i - 1][0] + 1, k[0] + 1))
         for t in range(T):
-            if self.loop and t > fr[-1]:   # wrap segment last -> first
+            if self.loop and t > fr[-1]:
                 i0, i1, u = len(keys) - 1, 0, (t - fr[-1]) / max(T - fr[-1], 1)
             else:
                 i1 = int(np.searchsorted(fr, t, side="left"))
@@ -143,7 +113,6 @@ def _vec(s):
 
 
 def parse(text):
-    """-> {name: Clip}"""
     specs, cur = {}, None
     for raw in text.splitlines():
         line = raw.split("#")[0].strip()
@@ -187,7 +156,6 @@ def parse(text):
                     bones[k] = _vec(v)
                 else:
                     raise ValueError(f"{cur.name}@{f}: unknown bone '{k}' (know: {', '.join(ALIAS)})")
-            # bare words are labels (anticipation, contact, ...)
         cur.keys.append((f, ease, flags, bones, hips, mode))
     return {n: s.build() for n, s in specs.items()}
 
@@ -196,8 +164,6 @@ def load(path):
     with open(path) as f:
         return parse(f.read())
 
-
-# ---------------------------------------------------------------- blending
 def _quat(R):
     w = np.sqrt(np.clip(1 + R[..., 0, 0] + R[..., 1, 1] + R[..., 2, 2], 1e-12, None)) / 2
     x = np.sqrt(np.clip(1 + R[..., 0, 0] - R[..., 1, 1] - R[..., 2, 2], 0, None)) / 2
@@ -218,7 +184,6 @@ def _mat(q):
 
 
 def blend(Ra, Rb, u):
-    """Per-bone nlerp of two poses [B,3,3] (u = 0..1)."""
     qa, qb = _quat(Ra), _quat(Rb)
     qb = np.where((qa * qb).sum(-1, keepdims=True) < 0, -qb, qb)
     q = qa * (1 - u) + qb * u
@@ -226,7 +191,6 @@ def blend(Ra, Rb, u):
 
 
 def sequence(clips, fade=4, name="sequence"):
-    """Chain clips with eased crossfades of `fade` frames (all resampled to the first clip's fps)."""
     fps = clips[0].fps
     rot, hips, events, smear = [], [], {}, set()
     for c in clips:
@@ -252,7 +216,6 @@ def sequence(clips, fade=4, name="sequence"):
 
 
 def library():
-    """All built-in .clip files: attacks + emotes (+ anything dropped in library/)."""
     import glob, os
     out = {}
     for p in sorted(glob.glob(os.path.join(os.path.dirname(__file__), "library", "*.clip"))):

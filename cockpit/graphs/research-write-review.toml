@@ -1,6 +1,3 @@
-# The canonical starter graph: researcher → writer → read-only reviewer, with
-# the reviewer gate looping back to the writer on rejection. Shared state flows
-# along the edges; the reviewer's feedback rides the retry.
 name = "research-write-review"
 description = "Researcher gathers evidence, writer drafts, adversarial reviewer gates with a loop-back retry."
 

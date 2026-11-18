@@ -46,7 +46,6 @@ fn twenty_clients_on_real_sockets_each_see_everyone_near_them() {
         .collect();
     let results: Vec<(Report, Runtime<Headless>)> = bots.into_iter().map(|b| b.join().unwrap()).collect();
 
-    // Everyone got a seat and nobody was dropped.
     for (report, _) in &results {
         assert!(report.error.is_none() && report.rejected.is_none(), "{report:?}");
         assert!(report.seat.is_some());
@@ -58,7 +57,6 @@ fn twenty_clients_on_real_sockets_each_see_everyone_near_them() {
     seats.dedup();
     assert_eq!(seats.len(), CLIENTS as usize);
 
-    // Where each knight is, by its own client's word (they stood still).
     let truth: Vec<(u32, Knight)> = results
         .iter()
         .map(|(r, rt)| {
@@ -77,7 +75,6 @@ fn twenty_clients_on_real_sockets_each_see_everyone_near_them() {
         for (seat, k) in &truth {
             let near = (k.x - mine.x).abs() <= half_w && (k.y - mine.y).abs() <= half_h;
             if !near {
-                // Nobody moved, so nobody out of view was ever sent.
                 assert!(mirror.get(*seat).is_none(), "seat {me} holds seat {seat}, out of view");
                 continue;
             }
@@ -88,11 +85,9 @@ fn twenty_clients_on_real_sockets_each_see_everyone_near_them() {
             assert_eq!(&held.spawn[1..], format!("Knight {}", truth.iter().position(|(s, _)| s == seat).unwrap()).as_bytes());
         }
     }
-    // The crowd starts close: most of it is in each knight's view.
     assert!(pairs > (CLIENTS * CLIENTS / 2) as usize, "{pairs} pairs in view");
     assert!(truth.iter().all(|(_, k)| (k.x - FIELD / 2).abs() < half_w));
 
-    // Every goodbye frees its seat (the readers take a moment to see them).
     let deadline = Instant::now() + Duration::from_secs(5);
     while !server.players().is_empty() && Instant::now() < deadline {
         thread::sleep(Duration::from_millis(20));
@@ -119,7 +114,6 @@ fn a_dropped_client_resumes_its_seat_and_a_bad_key_is_turned_away() {
     let (ws, first) = hello(KEY, "");
     let Ok(ToClient::Welcome(w)) = ToClient::decode(&first) else { panic!("not a welcome") };
     let (seat, token) = (w.seat.unwrap(), w.seat_token.to_string());
-    // Drop without a goodbye: the seat waits.
     drop(ws);
     thread::sleep(Duration::from_millis(300));
     assert_eq!(server.players().len(), 1);
@@ -128,7 +122,6 @@ fn a_dropped_client_resumes_its_seat_and_a_bad_key_is_turned_away() {
     let Ok(ToClient::Welcome(w)) = ToClient::decode(&first) else { panic!("not a welcome") };
     assert_eq!(w.seat, Some(seat));
     assert_eq!(w.seat_token, token);
-    // A snapshot follows, holding the same knight.
     let mut got_snapshot = false;
     for _ in 0..20 {
         if let Some(Message::Binary(b)) = again.recv(Duration::from_secs(1)).unwrap()
@@ -143,7 +136,6 @@ fn a_dropped_client_resumes_its_seat_and_a_bad_key_is_turned_away() {
     let (_bad, first) = hello("NOTTHEKEY", "");
     assert!(matches!(ToClient::decode(&first), Ok(ToClient::Reject { why: Reject::Key, .. })));
 
-    // The host kicks the seat: the client is told why, and its token is dead.
     assert!(server.kick(seat));
     let mut told = false;
     for _ in 0..40 {
@@ -160,7 +152,6 @@ fn a_dropped_client_resumes_its_seat_and_a_bad_key_is_turned_away() {
     let (_ws, first) = hello(KEY, &token);
     assert!(matches!(ToClient::decode(&first), Ok(ToClient::Reject { why: Reject::Kicked, .. })));
 
-    // Locked: newcomers wait outside.
     server.lock(true);
     let (_ws, first) = hello(KEY, "");
     assert!(matches!(ToClient::decode(&first), Ok(ToClient::Reject { why: Reject::Locked, .. })));

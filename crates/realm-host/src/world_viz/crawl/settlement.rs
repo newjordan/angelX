@@ -18,8 +18,6 @@ enum Job {
     Fit,
 }
 
-/// Side-on, leaning into a tool, not an armed figure looking at the viewer.
-/// Both poses keep the feet planted: time can move a hand, never the rock face.
 fn miner(job: Job, swing: bool) -> &'static Tex {
     static POSES: OnceLock<[Tex; 4]> = OnceLock::new();
     &POSES.get_or_init(|| {
@@ -103,9 +101,6 @@ fn miner(job: Job, swing: bool) -> &'static Tex {
     } + usize::from(swing)]
 }
 
-/// A citizen on foot, side-on like the miners: empty-handed when tending
-/// or wandering, a crate on the shoulder when hauling. Two leg frames;
-/// standing still keeps the feet together.
 fn carrier(carry: bool, stride: bool) -> &'static Tex {
     static POSES: OnceLock<[Tex; 4]> = OnceLock::new();
     &POSES.get_or_init(|| {
@@ -229,8 +224,6 @@ pub(super) fn furnishing(prop: Prop) -> (&'static Tex, f32) {
     }
 }
 
-/// A compact two-line placard AND its lectern. A long, one-line sign must
-/// never be given a furniture height: the raycaster preserves its aspect ratio.
 fn exhibit_art() -> &'static Tex {
     static ART: OnceLock<Tex> = OnceLock::new();
     ART.get_or_init(|| {
@@ -244,7 +237,6 @@ fn exhibit_art() -> &'static Tex {
         im.rect(25, 32, 6, 8, 'B');
         im.rect(3, 40, 50, 7, 'r');
         im.rect(5, 41, 46, 2, 'O');
-        // Open book and two stout legs, using the existing ink primitives.
         im.rect(16, 36, 23, 6, 'H');
         im.line(27, 36, 27, 41, 'B');
         for y in [37, 39] {
@@ -310,10 +302,6 @@ struct Worker {
     job: Job,
 }
 
-/// One ambient citizen of the settlement and the real floor route they
-/// walk. Routes are cut once from the dungeon's own pathfinding; where a
-/// citizen stands on theirs is the shared roster's pure phase function,
-/// so a frame never searches, stores or spends anything.
 #[derive(Clone, Debug)]
 struct CitizenFigure {
     citizen: Citizen,
@@ -367,8 +355,6 @@ impl Scene {
             let (x, y) = super::party::centre(p);
             dungeon.props.retain(|(px, py, _)| *px != x || *py != y);
             dungeon.props.push((x, y, Prop::Exhibit));
-            // This changes the visual wall only; Dungeon's blocked mask stays
-            // intact, so the exhibit is still solid to the camera's feet.
             let index = p.1 as usize * dungeon.grid.w + p.0 as usize;
             dungeon.grid.cells[index] = Cell::Open(render::Ground::Flags);
         }
@@ -382,8 +368,6 @@ impl Scene {
         let in_hall = |p: Point| {
             p.0 >= hall.min.0 && p.0 <= hall.max.0 && p.1 >= hall.min.1 && p.1 <= hall.max.1
         };
-        // A station is chosen on real reachable floor, never at an arbitrary
-        // offset into furniture or the uncut part of a partial excavation.
         let mut connected = std::collections::HashSet::from([start]);
         let mut frontier = std::collections::VecDeque::from([start]);
         while let Some((x, y)) = frontier.pop_front() {
@@ -440,8 +424,6 @@ impl Scene {
             };
             let stand = cell(e.marker.stand);
             let prop = cell((e.marker.col, e.marker.row));
-            // The inspection stand is real, reachable floor. The compact
-            // placard and its legs fit even a tiny pane at this one-pace view.
             arrival = stand;
             target = super::party::centre(prop);
         }
@@ -461,8 +443,6 @@ impl Scene {
                 })
         };
         let mut workers = Vec::new();
-        // Builders stand BESIDE a real workbench/anvil, with their tool aimed
-        // at it. They do not occupy the inspection stand or camera route.
         let benches: Vec<_> = dungeon
             .props
             .iter()
@@ -489,8 +469,6 @@ impl Scene {
                 }
             }
         }
-        // The second station is an actual surviving rock face. For a partial
-        // cut prefer its internal frontier; furnished rooms use their perimeter.
         let desired_face = local(
             &dungeon,
             focus,
@@ -540,8 +518,6 @@ impl Scene {
                 job: Job::Dig,
             });
         }
-        // Low, nonblocking chips dress rock already mined by receipts. Larger
-        // benches, anvils and stacks remain within the existing Block cells.
         let mut rubble = Vec::new();
         if focus != 0 && site.resources.mined_stone > 0 {
             for worker in &workers {
@@ -569,8 +545,6 @@ impl Scene {
                 let (x, y) = super::party::centre(p);
                 (((x - ax - dx * 2.0).powi(2) + (y - ay - dy * 2.0).powi(2)) * 100.0) as i32
             });
-        // Hang the room plaque over the back bench, not through the ceiling
-        // and not behind the anvil worker. It has no new floor footprint.
         let sign_at = if kind == RoomKind::Workshop && !benches.is_empty() {
             let (x, y) = super::party::centre(local(&dungeon, focus, (7, 4)));
             (x - 0.40, y)
@@ -580,13 +554,6 @@ impl Scene {
                 .find(|w| matches!(w.job, Job::Fit))
                 .map_or(target, |w| w.target)
         };
-        // The settlement's citizens: the shared roster over this same
-        // Floor's rooms, each given a real route across connected floor.
-        // The focus room keeps its two close-up workers above; citizens
-        // people the rest of the wing and haul between the player hall
-        // and the newest room, so the survey keeps meeting the folk who
-        // live in what the loops built. Ambience only — receipts still
-        // own every cut, and a citizen's feet never enter the model.
         let seed = key_seed(&site.id);
         let hall_cells = |room: usize| -> Vec<Point> {
             let h = &dungeon.halls[room];
@@ -632,7 +599,7 @@ impl Scene {
                 break;
             }
             if citizen.job != CitizenJob::Haul && citizen.home == focus {
-                continue; // the close-up workers already people this room
+                continue;
             }
             let route = if citizen.job == CitizenJob::Haul {
                 let dest = anchor(citizen.to, {
@@ -687,8 +654,6 @@ impl Scene {
             .unwrap_or_else(|| {
                 let mut heading = self.heading;
                 if let Some(walk) = &self.walk {
-                    // Finish the walk's heading before easing toward the work.
-                    // No position changes during the final look, hence no clip.
                     let from = walk.last_heading(self.heading);
                     let by = (self.heading - from + std::f32::consts::PI)
                         .rem_euclid(std::f32::consts::TAU)
@@ -698,8 +663,6 @@ impl Scene {
                 }
                 (super::party::centre(self.arrival), heading, 0.0)
             });
-        // Keep vertical coverage on wide/tiny panes. The old fixed horizontal
-        // FOV magnified everything when the pane was only 160 pixels tall.
         let focal = (w.max(1) as f32 / (2.0 * (std::f32::consts::FRAC_PI_3 * 0.5).tan()))
             .min(h.max(1) as f32 * 0.95);
         Eye {
@@ -773,8 +736,6 @@ impl Scene {
         }
     }
 
-    /// Where one citizen stands at `elapsed`: their roster phase, their
-    /// eased position between route cells, and the cell they face.
     fn citizen_pose(
         &self,
         figure: &CitizenFigure,
@@ -804,8 +765,6 @@ impl Scene {
         (phase, (ax + (bx - ax) * k, ay + (by - ay) * k), (bx, by))
     }
 
-    /// Measurement/stall ceremonies affect light and a receipt chest only.
-    /// They do not mint resources or call the model's apply/job functions.
     pub fn events_frame(
         &self,
         elapsed: u32,
@@ -837,8 +796,6 @@ impl Scene {
         for worker in &self.workers {
             let (cx, cy) = super::party::centre(worker.at);
             let dir = towards((cx, cy), worker.target);
-            // Keep the feet within this Floor cell, close enough for the head
-            // of the hammer to meet the anvil rather than floating in midair.
             let (x, y) = (cx + dir.cos() * 0.27, cy + dir.sin() * 0.27);
             let right = (-eye.heading.sin(), eye.heading.cos());
             things.push(Thing {
@@ -851,7 +808,6 @@ impl Scene {
                 flip: (worker.target.0 - x) * right.0 + (worker.target.1 - y) * right.1 < 0.0,
             });
             if matches!(worker.job, Job::Dig) && !self.rubble.is_empty() {
-                // A small, fixed worked seam at the very face being picked.
                 things.push(Thing {
                     x: worker.target.0,
                     y: worker.target.1,
@@ -863,9 +819,6 @@ impl Scene {
                 });
             }
         }
-        // Citizens about their rounds: out along their route, a working
-        // pause at the far end, and back — the roster's phase at this
-        // tick, eased between cells. Nobody crosses the surveyor's feet.
         for figure in &self.citizens {
             let (phase, (x, y), (bx, by)) = self.citizen_pose(figure, elapsed);
             if (x - eye.x).hypot(y - eye.y) < 0.7 || (x - eye.x).hypot(y - eye.y) > 16.0 {
@@ -922,8 +875,6 @@ impl Scene {
                     px.floor() as i32 - room.min.0 + 1,
                     py.floor() as i32 - room.min.1 + 1,
                 );
-                // Dress the four paid-for collision cells as one workshop,
-                // not four identical little tables spread across a dungeon.
                 if (col, row) == (4, 4) {
                     tex = anvil();
                     height = 0.44;
@@ -960,9 +911,6 @@ impl Scene {
             && let Some(at) = self.receipt_at
         {
             let (x, y) = super::party::centre(at);
-            // A small, transient measurement receipt, not paid-for storage.
-            // It sits off the camera route and working/inspection stations
-            // on real Floor; it never changes collision or the resource ledger.
             things.push(Thing {
                 x,
                 y,
@@ -1005,7 +953,6 @@ impl Scene {
             });
         }
         let mut out = render::render(&d.grid, &eye, &things, &kit, torch, size);
-        // Surveyor's torch only: routine coding no longer swings a sword.
         let s = size.1 as f32 / 180.0;
         let lamp = &art.torch[(elapsed / 6 % 2) as usize];
         super::stamp(&mut out, lamp, (2.0, size.1 as f32 - lamp.h as f32 * s), s);
@@ -1099,7 +1046,6 @@ mod tests {
     #[test]
     fn settlement_citizens_people_the_built_wing_on_real_floor() {
         let mut site = Site::new(77, "Miner");
-        // Before any work only the player hall has folk about.
         let empty = Scene::of(&site);
         assert!(empty.citizens.iter().all(|f| f.citizen.home == 0));
         for n in 1..=30 {
@@ -1132,7 +1078,6 @@ mod tests {
                 assert_ne!(figure.citizen.home, scene.focus);
             }
         }
-        // The same site always musters the same folk on the same routes.
         let again = Scene::of(&site);
         let shape = |s: &Scene| {
             s.citizens
@@ -1141,14 +1086,11 @@ mod tests {
                 .collect::<Vec<_>>()
         };
         assert_eq!(shape(&scene), shape(&again));
-        // And they move: frames far apart in time cannot all agree.
         let frames: Vec<_> = [0, 300, 900, 2100]
             .into_iter()
             .map(|t| scene.frame(t, (288, 160)))
             .collect();
         assert!(frames.windows(2).any(|w| w[0] != w[1]));
-        // And the survey actually meets them: across one long watch some
-        // citizen stands ahead of the eye, inside torch reach.
         let met = (0..3600).step_by(10).any(|t| {
             let eye = scene.eye(t, (288, 160));
             scene.citizens.iter().any(|figure| {
@@ -1161,7 +1103,6 @@ mod tests {
         assert!(met, "citizens are never in the surveyor's view");
     }
 
-    /// `ANGEL_ARENA_SHOTS=<dir> cargo test write_settlement_citizen_shots -- --ignored`
     #[test]
     #[ignore]
     fn write_settlement_citizen_shots() {
@@ -1175,8 +1116,6 @@ mod tests {
             site.apply("A", n, true).unwrap();
         }
         let scene = Scene::of(&site);
-        // Save the fixed beats, plus the first three ticks at which a
-        // citizen stands ahead of the eye inside torch reach.
         let mut shots: Vec<(String, u32)> = [("a-hall", 0), ("b-arrival", 900)]
             .into_iter()
             .map(|(name, t)| (name.to_string(), t))

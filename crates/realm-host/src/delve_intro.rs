@@ -5,7 +5,6 @@
 
 use crate::together_shooter::knights::{COMPANY, Knight};
 
-/// Where the party begins.
 pub const DELVES: [(&str, &str); 2] = [
     (
         "The Crypt",
@@ -17,7 +16,6 @@ pub const DELVES: [(&str, &str); 2] = [
     ),
 ];
 
-/// Who comes along.
 pub const PARTIES: [(&str, &str); 3] = [
     ("Alone", "one knight, your keyboard"),
     (
@@ -30,20 +28,16 @@ pub const PARTIES: [(&str, &str); 3] = [
     ),
 ];
 
-/// One row of the menu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Field {
-    /// Back into the run under way.
     Continue,
     Knight,
     Delve,
     Party,
     Voices,
-    /// A new delve with the choices above.
     Begin,
 }
 
-/// The Delve's menu: continue the run under way, or choose for a new one.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Intro {
     pub row: usize,
@@ -51,9 +45,7 @@ pub struct Intro {
     pub delve: usize,
     pub party: usize,
     pub quiet: bool,
-    /// The run under way, in a line, when there is one to continue.
     pub resume: Option<String>,
-    /// Seats open to invited friends, while hosting.
     pub hosting: Option<usize>,
 }
 
@@ -81,14 +73,12 @@ impl Intro {
         self.row = (self.row as isize + by).rem_euclid(n) as usize;
     }
 
-    /// Put the cursor on `field`.
     pub fn go(&mut self, field: Field) {
         if let Some(row) = self.fields().iter().position(|&f| f == field) {
             self.row = row;
         }
     }
 
-    /// ←/→ on the current row.
     pub fn turn(&mut self, step: isize) {
         let cycle = |v: usize, n: usize| (v as isize + step).rem_euclid(n as isize) as usize;
         match self.field() {

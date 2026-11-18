@@ -10,8 +10,6 @@ pub(crate) struct StartupContext {
 }
 
 pub(crate) fn build(bag: &Bag, session_id: &str) -> StartupContext {
-    // The interactive TUI operates on the directory it was launched in (like
-    // Claude Code), overridable by `$ANGEL_WORKSPACE`. `/cd` swaps it later.
     let workspace = harness::resolve_workspace(None, harness::current_dir_workspace);
     build_in_workspace(bag, session_id, workspace)
 }
@@ -23,9 +21,6 @@ pub(crate) fn build_in_workspace(
 ) -> StartupContext {
     let (history, mut registry) = build_history_and_registry(bag, session_id, workspace);
     crate::ui::ui_inspect::install(&mut registry, crate::ui::ui_inspect::interactive_broker());
-    // This is the only registry that drives the live TUI. Delegates, worktrees,
-    // task mode, and evaluation registries stay deliberately unattended even if
-    // the action-capsule environment knob is set process-wide.
     registry.enable_action_capsules();
     StartupContext {
         history,
@@ -33,18 +28,10 @@ pub(crate) fn build_in_workspace(
     }
 }
 
-/// Static harness policy. Repository guidance and learned evidence are separate
-/// Harness-role messages, never additions to provider System authority.
 pub(crate) fn build_system_prompt(bag: &Bag, workspace: &Path) -> String {
     let roster = delegation_roster(bag);
     let specialists = specialist_labels(&roster, bag.in_hand_label());
-    // Environment capabilities, verified at prompt build, are the `⠝⠁`
-    // evidence. A model that has to guess what exists here guesses wrong in
-    // both directions — inventing image generation, declaring installs
-    // impossible — and both failure modes cost whole turns.
     let withheld = withheld_sota_labels(bag, &roster);
-    // Lane routes: Treebeard (RLM/HiQ). Static for the process env, so the
-    // entry warpath stays on the prompt-cache prefix.
     let lanes: Vec<harness::book::Route> = harness::lane_route().into_iter().collect();
     let mut system = harness::book::y_types::cockpit_entry(
         workspace,
@@ -52,7 +39,6 @@ pub(crate) fn build_system_prompt(bag: &Bag, workspace: &Path) -> String {
         &capabilities_block(&withheld),
         &lanes,
     );
-    // DeepSeek Flash (and other text-only drivers): eyes via ANGEL_VISION_* sidecar.
     if let Some(sign) = crate::agent::tools::vision::vision_sidecar_prompt_hint_in(
         &crate::agent::tools::vision::VisionBackend::new(bag.codex_startup.as_deref()),
         bag.in_hand().as_ref(),
@@ -64,8 +50,6 @@ pub(crate) fn build_system_prompt(bag: &Bag, workspace: &Path) -> String {
 }
 
 pub(crate) const WORKSPACE_CONTEXT_HEADER: &str = "[workspace-context/v1]";
-/// JSON escaping keeps artifact text inside its named source field; the carrier
-/// remains distinct from actual operator User messages throughout compaction.
 pub(crate) fn workspace_context_message(
     workspace: &Path,
     project_guidance: String,
@@ -75,7 +59,6 @@ pub(crate) fn workspace_context_message(
     workspace_context_message_with_live(workspace, project_guidance, skills_catalog, evidence, None)
 }
 
-/// `live_dir` is the module root the running cockpit hot-loads, when it has one.
 pub(crate) fn workspace_context_message_with_live(
     workspace: &Path,
     project_guidance: String,
@@ -83,7 +66,6 @@ pub(crate) fn workspace_context_message_with_live(
     evidence: String,
     live_dir: Option<&Path>,
 ) -> Option<ChatMsg> {
-    // Even a fresh, empty project needs an unambiguous working-directory anchor.
     let mut payload = serde_json::json!({
         "workspace": workspace.to_string_lossy(),
         "project_guidance": project_guidance,
@@ -102,9 +84,6 @@ pub(crate) fn is_workspace_context(message: &ChatMsg) -> bool {
     message.role == ChatRole::Harness && message.content.starts_with(WORKSPACE_CONTEXT_HEADER)
 }
 
-/// Read the harness-produced byte marker from the guidance field only. A
-/// quoted marker in dossier/skill evidence must not alter prompt telemetry.
-/// Oversized or malformed imported envelopes have no trusted byte measurement.
 pub(crate) fn project_doc_bytes(message: &ChatMsg) -> Option<usize> {
     const MAX_ENVELOPE_BYTES: usize = 1024 * 1024;
     if !is_workspace_context(message) || message.content.len() > MAX_ENVELOPE_BYTES {
@@ -137,9 +116,6 @@ fn build_history_with_skills(
     history
 }
 
-/// The tagged workspace-context message: repository guidance, the skill catalog
-/// and the learned evidence. It reads the workspace and the stores under the
-/// angelX directory, never the bag, so the registry build can run beside it.
 fn build_workspace_context(workspace: &Path, skills: &[harness::Skill]) -> Option<ChatMsg> {
     let mut evidence = crate::agent::tools::work_landing::work_context_block(workspace);
     if !crate::agent::backplane::active() {
@@ -183,8 +159,6 @@ fn build_workspace_context(workspace: &Path, skills: &[harness::Skill]) -> Optio
     )
 }
 
-/// The same explicit role split used by the real headless CLI. Keeping the
-/// assembly here lets offline wire tests exercise the production message list.
 pub(crate) fn build_task_history(
     specialists: &[String],
     skills: &[harness::Skill],
@@ -198,17 +172,10 @@ pub(crate) fn build_task_history(
         system.push_str(sign);
     }
     let mut history = vec![ChatMsg::system(system)];
-    // The workspace map names this task's own directory, so it rides in a
-    // system message of its own: the standing text and the tool list before it
-    // stay byte-identical from task to task, and a provider's prefix cache can
-    // serve them to the next task's first request.
     let map = harness::task_system_contract(workspace);
     if !map.trim().is_empty() {
         history.push(ChatMsg::system(map.trim_start().to_string()));
     }
-    // Lean referral (rides the compact flag): the full skill catalog lists
-    // every name up front; the referral keeps one line and lets the `skill`
-    // tool surface names/descriptions on demand instead.
     let skills_text = if compact {
         harness::skills_referral_card(skills)
     } else {
@@ -227,8 +194,6 @@ pub(crate) fn build_task_history(
 mod compact_prompt_tests {
     use super::*;
 
-    /// Two tasks in different directories open with the same first system
-    /// message; only the map's own message names the directory.
     #[test]
     fn the_workspace_map_rides_after_the_standing_text() {
         let dir = |name: &str| {
@@ -254,9 +219,6 @@ mod compact_prompt_tests {
         }
     }
 
-    /// The task system prompt is the entry warpath — personality type, pace,
-    /// repair discipline — and the workspace map as data; the compact flag
-    /// picks the compact type.
     #[test]
     fn task_system_prompt_is_the_entry_warpath_and_data() {
         let tmp = std::env::temp_dir().join("angel-compact-prompt-test");
@@ -287,9 +249,6 @@ pub(crate) fn build_history(bag: &Bag, workspace: &Path) -> Vec<ChatMsg> {
     build_history_with_skills(bag, workspace, &skills)
 }
 
-/// Replace only bootstrap authority and tagged workspace data. Preserve every
-/// actual operator message, tool pair, and legacy summary; legacy System
-/// summaries are demoted to Harness-role background before being retained.
 pub(crate) fn refresh_history(bag: &Bag, workspace: &Path, history: &mut Vec<ChatMsg>) {
     let mut retained = std::mem::take(history);
     retained.retain_mut(|message| {
@@ -315,23 +274,11 @@ pub(crate) fn refresh_history(bag: &Bag, workspace: &Path, history: &mut Vec<Cha
     history.append(&mut retained);
 }
 
-/// Build the full orchestrator tool registry rooted at `workspace`: the team kit
-/// (scoped file/build/shell + delegate/integrate), skills, self-map, MCP, LSP, and
-/// the long-form memory store, with the session id stamped for drawer provenance.
-///
-/// Used at startup AND by `/cd`, which rebuilds the registry at a new root and
-/// swaps `App.tools`. Dropping the previous `Arc` runs each MCP/LSP client's
-/// `Drop` (which kills its server subprocess), so re-scoping needs no manual
-/// teardown.
 pub(crate) fn build_registry(bag: &Bag, session_id: &str, workspace: PathBuf) -> ToolRegistry {
     let skills = harness::load_skills_for(&workspace);
     build_registry_with_skills(bag, session_id, workspace, skills)
 }
 
-/// Build the two workspace-bound startup surfaces from one admitted skill
-/// catalog. Interactive startup and `/cd` both need the prompt and registry;
-/// sharing the snapshot avoids parsing every compatible skill root twice while
-/// preserving the standalone builders used by resume/import and self-worktrees.
 pub(crate) fn build_history_and_registry(
     bag: &Bag,
     session_id: &str,
@@ -339,10 +286,6 @@ pub(crate) fn build_history_and_registry(
 ) -> (Vec<ChatMsg>, ToolRegistry) {
     let skills = harness::load_skills_for(&workspace);
     let mut history = vec![ChatMsg::system(build_system_prompt(bag, &workspace))];
-    // The workspace evidence (self-map, dossier, caddy, repository identity) and
-    // the tool registry (toolchain pins, MCP, LSP) each read the filesystem and
-    // wait on child processes, and neither needs the other's result. Build them
-    // side by side; the message order is unchanged.
     let (context, registry) = std::thread::scope(|scope| {
         let context = std::thread::Builder::new()
             .name("angel-workspace-context".into())
@@ -353,7 +296,6 @@ pub(crate) fn build_history_and_registry(
             Ok(worker) => worker
                 .join()
                 .unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
-            // Thread pressure must not drop the evidence: build it here.
             Err(_) => build_workspace_context(&workspace, &skills),
         };
         (context, registry)
@@ -362,20 +304,9 @@ pub(crate) fn build_history_and_registry(
     (history, registry)
 }
 
-/// Start the independent file- and process-bound startup reads on their own
-/// threads, so they overlap compatibility probing, terminal setup and route
-/// selection rather than queueing on the main thread when the cockpit is built.
-/// Every one of these is memoized by its owner: the later call on the main
-/// thread waits for (or finds) the same answer. Nothing here is required, and a
-/// thread that cannot start leaves the main thread to do the work as before.
 pub(crate) fn warm_startup(workspace: &Path) {
-    // The self-map render of an angelX checkout (a worker over the source tree).
     crate::agent::tools::self_model::prefetch_context(workspace);
-    // The toolchain pins (rustup's answer and both toolchains' identities) the
-    // tool registry resolves before any model-owned tool can run.
     crate::agent::tools::build::prefetch_verifier_runtimes(workspace);
-    // Repository identity: the git probes behind the workspace, its stores,
-    // the skills directory and the live-module root.
     let roots = [
         Some(workspace.to_path_buf()),
         crate::agent::tools::self_model::source_root(),
@@ -388,12 +319,9 @@ pub(crate) fn warm_startup(workspace: &Path) {
                 let _ = crate::platform::workspace_store::repo_identity(&root);
             });
     }
-    // The TLS trust roots every HTTP route's agent is built on.
     let _ = std::thread::Builder::new()
         .name("angel-tls-warm".into())
         .spawn(|| {
-            // Building the first agent loads the platform trust roots once, for
-            // every agent after it.
             drop(ureq::AgentBuilder::new());
         });
 }
@@ -419,21 +347,14 @@ fn build_registry_with_skills(
             workspace.clone(),
         )));
     }
-    // Explicit self-diagnostics remain available on demand. Bind self-work to
-    // this checkout; an unrelated project never gains a write path into the install.
     registry.register(Box::new(
         crate::agent::tools::self_model::SelfMapTool::for_workspace(&workspace),
     ));
-    // `work_landing` — first-contact onboarding: detect folder/repo/visibility,
-    // confirm with the user, and record the behavior mode for this workspace.
     registry.register(Box::new(
         crate::agent::tools::work_landing::WorkLandingTool::new(workspace.clone()),
     ));
     install_mcp_tools(&mut registry, &workspace);
     install_lsp_tools(&mut registry, &workspace);
-    // Long-form memory ("palace"): auto-compaction deposits distilled notes here
-    // and recall reads them back. No-op unless `ANGEL_MEMPALACE_CMD` is set; only
-    // then is the `recall` tool offered (no point advertising it with no backend).
     let store = crate::knowledge::memory::store::connect_from_env();
     if store.is_live() {
         registry.register(Box::new(harness::RecallTool::new(
@@ -441,25 +362,13 @@ fn build_registry_with_skills(
             &workspace,
         )));
     }
-    // Refresh after every built-in, MCP, LSP, skill, and memory tool is present.
-    // Lean schema profiles can then discover anything they did not advertise.
     registry.enable_tool_search();
     registry.set_memory_store(store);
-    // Stamp the session id so every drawer deposited this run is attributable to
-    // it (see `compaction::provenance`).
     registry.set_session_id(session_id);
-    // Local plain-model clubs for background utility work (compaction summaries),
-    // so bulk summarization never lands on a paid SOTA driver or fans out through
-    // a pipeline club when a local fleet model can do it.
     registry.set_aux_clubs(utility_roster(bag));
     registry
 }
 
-/// Local, plain-model clubs suitable for background utility work: never a
-/// token-metered SOTA link, never the practice echo (its "summaries" are just
-/// the prompt echoed back), never a fan-out pipeline like the swarm (each
-/// summary call would become a whole MoA run). Bag order — the fast MoE (gemma)
-/// leads on the standard fleet, which is exactly the summarizer you want.
 pub(crate) fn utility_roster(bag: &Bag) -> Vec<Arc<dyn Club>> {
     bag.roster()
         .into_iter()
@@ -467,9 +376,6 @@ pub(crate) fn utility_roster(bag: &Bag) -> Vec<Arc<dyn Club>> {
         .collect()
 }
 
-/// SOTA labels present in the bag but stripped from the delegation roster when
-/// the operator sets `ANGEL_ALLOW_SOTA_DELEGATE=0`. Named in the capability
-/// manifest so "not offered" reads as "opted out", never as "does not exist".
 fn withheld_sota_labels(bag: &Bag, roster: &[Arc<dyn Club>]) -> Vec<String> {
     let offered: Vec<&str> = roster.iter().map(|club| club.label()).collect();
     bag.roster()
@@ -479,9 +385,6 @@ fn withheld_sota_labels(bag: &Bag, roster: &[Arc<dyn Club>]) -> Vec<String> {
         .collect()
 }
 
-/// Binaries worth stating up front: the ones agent tasks reach for and models
-/// most often wrongly assume present or absent. Everything else stays a
-/// `command -v` probe away.
 const PROBED_BINARIES: [&str; 15] = [
     "git", "node", "npm", "bun", "python3", "pip3", "uv", "cargo", "ffmpeg", "docker", "gh", "rg",
     "jq", "curl", "make",
@@ -495,8 +398,6 @@ fn path_has(bin: &str) -> bool {
 fn capabilities_block(withheld_sota: &[String]) -> String {
     let (present, absent): (Vec<&str>, Vec<&str>) =
         PROBED_BINARIES.iter().partition(|bin| path_has(bin));
-    // The header and the closing rule are the `⠝⠁` pages; these lines are what
-    // this session found.
     let mut block = format!("- On PATH: {}\n", present.join(", "));
     if !absent.is_empty() {
         block.push_str(&format!(
@@ -529,9 +430,6 @@ fn capabilities_block(withheld_sota: &[String]) -> String {
 }
 
 pub(crate) fn delegation_roster(bag: &Bag) -> Vec<Arc<dyn Club>> {
-    // SOTA seats are first-class agents. Delegation/spawn includes them by
-    // default; operators who want a local-only fleet opt out with
-    // ANGEL_ALLOW_SOTA_DELEGATE=0.
     let allow_sota = crate::agent::harness::env_flag("ANGEL_ALLOW_SOTA_DELEGATE", true);
     filter_delegation_roster(bag.roster(), allow_sota)
 }
@@ -558,11 +456,6 @@ fn install_mcp_tools(registry: &mut ToolRegistry, workspace: &Path) {
         .map(|composition| composition.tools.len())
         .sum();
     let deferred = total > 6;
-    // A server is one capability with N registrations: each tool carries the
-    // inverse the registry fires when it is retracted, and the provider unloads
-    // when the last of them goes (paper §5.1.1 parent composition). That is what
-    // makes a mid-session drop possible: `unregister_prefix("server__")` retracts
-    // the tools and reaps the child without restarting the cockpit.
     for composition in compositions {
         let provider = composition.server.clone();
         let (tools, teardown) = composition.into_parts();
@@ -570,11 +463,6 @@ fn install_mcp_tools(registry: &mut ToolRegistry, workspace: &Path) {
             teardown();
             continue;
         }
-        // §5.1.3 inertial teardown, in the order it asks for: release the
-        // provider's coeffect binding first, so every dependent is reclassified
-        // and its schema leaves the advertisement, and only then let the process
-        // go. The lease's release and the process teardown are one inverse; a
-        // mid-session `unregister_prefix` walks the same path.
         let lease = registry.bind_provider(&provider);
         let scope =
             crate::agent::harness::registration::ProviderScope::new(tools.len(), move || {

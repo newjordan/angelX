@@ -26,49 +26,26 @@ pub mod primitive;
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Placement {
-    /// `[x, y, width, height]` in window pixels.
     Pixels([f32; 4]),
-    /// `[column, row, columns, rows]`; fractions are allowed.
     Cells([f32; 4]),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum LayerKind {
-    /// A flat colour, straight (not premultiplied) RGBA in 0..1.
     Solid([f32; 4]),
-    /// A picture by id (`Host::upload_picture`), over the whole placement.
-    /// Kitty pictures from the cockpit use the same ids, so a layer's own
-    /// pictures take ids from `LAYER_PICTURES` up.
     Picture(u32),
-    /// Part of a picture, `[x, y, width, height]` in its pixels, over the
-    /// whole placement: one figure from a sheet of them.
     PicturePart(u32, [f32; 4]),
-    /// A soft round glow of this colour (straight RGBA), brightest in the
-    /// middle of the placement and gone at its edge: a halo, a lamp.
     Glow([f32; 4]),
-    /// Motes the window animates itself, born across the placement.
     Particles(Particles),
-    /// Lit signed-distance solid with a luminous silhouette. Shapes 0..6:
-    /// cube, sphere, pyramid, cylinder, cone, torus, octahedron. Phase is
-    /// radians; speed is radians/second (zero freezes all motion).
     Primitive { shape: u32, color: [f32; 4], phase: f32, speed: f32 },
-    /// A luminous stroke: a ring, or a line (`Stroke`).
     Stroke(Stroke),
 }
 
-/// A stroke drawn by its distance, so it stays sharp at any size and
-/// turn. A ring is the circle round the placement's middle, as wide as
-/// the placement's shorter side. A line runs along the placement's middle
-/// from its left edge to its right, turned with the layer's angle. `width`
-/// is the stroke's width in pixels; `glow` how far, in pixels, its soft
-/// light reaches beyond it. The window draws past the placement by what
-/// the width and glow need, so neither is cut at its edge.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Stroke {
     pub shape: StrokeShape,
-    /// Straight RGBA.
     pub color: [f32; 4],
     pub width: f32,
     pub glow: f32,
@@ -81,28 +58,15 @@ pub enum StrokeShape {
     Line,
 }
 
-/// The widest stroke and the farthest glow, in pixels.
 pub const MAX_STROKE_PX: f32 = 256.0;
 
-/// How far past its placement a stroke draws: half its width, three
-/// times its glow (where the glow's light is all but gone), and a pixel
-/// for the edge's smoothing. The window's shader keeps the same sum.
 pub fn stroke_pad(stroke: &Stroke) -> f32 {
     stroke.width * 0.5 + stroke.glow * 3.0 + 1.0
 }
 
-/// Motes: embers off a fire, dust in the light, sparks from a blow. Each is
-/// a square of `size` pixels. A stream keeps `count` in the air, each living
-/// `life` seconds, rising `rise` pixels over it (negative falls) and swaying
-/// `sway` either way, born somewhere new each time. A burst (`burst` is how
-/// long ago it went off) throws `count` out from the placement's middle at
-/// up to `rise` pixels a second, falling with `sway` pixels a second
-/// squared, gone after `life`. Every mote fades in and out; `seed` keeps two
-/// emitters apart. All of it is a function of time, so nothing is kept.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Particles {
-    /// Straight RGBA at a mote's brightest.
     pub color: [f32; 4],
     pub count: u16,
     pub size: f32,
@@ -113,8 +77,6 @@ pub struct Particles {
     pub burst: Option<f32>,
 }
 
-/// Where each mote of `p` born in `rect` is at `t` seconds, and how bright
-/// (0 to 1): `[x, y, alpha]`.
 pub fn motes(p: &Particles, rect: [f32; 4], t: f32) -> Vec<[f32; 3]> {
     let [x, y, w, h] = rect;
     let life = p.life.max(0.05);
@@ -151,7 +113,6 @@ pub fn motes(p: &Particles, rect: [f32; 4], t: f32) -> Vec<[f32; 3]> {
     out
 }
 
-/// A steady number in [0, 1) for mote `i` of emitter `seed`.
 fn unit(seed: u32, i: u32, salt: u32, cycle: u32) -> f32 {
     let mut h = seed.wrapping_mul(0x9E37_79B1)
         ^ i.wrapping_mul(0x85EB_CA77)
@@ -194,7 +155,6 @@ mod tests {
                 assert!((0.0..=1.0).contains(&a));
             }
         }
-        // The same moment is the same motes.
         assert_eq!(motes(&p, [0.0; 4], 3.0), motes(&p, [0.0; 4], 3.0));
     }
 
@@ -208,28 +168,15 @@ mod tests {
     }
 }
 
-/// How a layer stands when its stage is seen at a tilt (`Frame::tilt`).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Stand {
-    /// Painted on the floor: it tips away with it (the room, its light).
     #[default]
     Floor,
-    /// Standing on the floor at this point (placement pixels), facing the
-    /// camera: smaller further away, never tipped (knights, monsters, shots).
-    /// Everything drawn on one figure shares its foot.
     Upright([f32; 2]),
-    /// On the glass in front of the scene, untouched by the tilt (the
-    /// screen's own marks).
     Screen,
 }
 
-/// A stage's floor seen at a tilt (`Frame::tilt`), in the stage's own
-/// pixels: rows further up stand further away. Every drawer projects with
-/// it the same way (crates/glass `glass.wgsl`, the browser's `stage.js`):
-/// a point `p` on the floor, `d = p - centre`, depth `w = 1 - near·d.y`,
-/// lands at `centre + (zoom·d.x, zoom·squash·d.y) / w`; what stands upright
-/// is placed on its foot so and scaled by `zoom / w`, never tipped.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Tilt {
@@ -239,38 +186,29 @@ pub struct Tilt {
     pub squash: f32,
 }
 
-/// The most a stage's floor may tip.
 pub const MAX_TILT: f32 = 0.6;
 
 impl Tilt {
-    /// `tilt` over a stage of `size` pixels (any scale of it gives the same
-    /// picture); none when it is flat.
     pub fn for_stage(tilt: f32, (w, h): (u32, u32)) -> Option<Self> {
         if tilt.is_nan() || tilt <= 0.0 || w == 0 || h == 0 {
             return None;
         }
         let tilt = tilt.min(MAX_TILT);
         let (w, h) = (w as f32, h as f32);
-        // The row that keeps its size sits low, near the near wall; the far
-        // wall recedes into the black above.
         const PIVOT: f32 = 0.85;
         let squash = 1.0 - tilt * 0.25;
         Some(Self {
             centre: [w / 2.0, h * PIVOT],
             near: tilt / h,
-            // Zoomed so the near edge lands on the stage's bottom edge: the
-            // whole floor stays in view.
             zoom: (1.0 - tilt * (1.0 - PIVOT)) / squash * if tilt >= 0.55 { 0.78 } else { 1.0 },
             squash,
         })
     }
 
-    /// How much larger something standing on floor point `p` is drawn.
     pub fn scale_at(&self, p: [f32; 2]) -> f32 {
         self.zoom / (1.0 - self.near * (p[1] - self.centre[1])).max(0.05)
     }
 
-    /// Where floor point `p` lands.
     pub fn floor(&self, p: [f32; 2]) -> [f32; 2] {
         let d = [p[0] - self.centre[0], p[1] - self.centre[1]];
         let w = (1.0 - self.near * d[1]).max(0.05);
@@ -278,8 +216,6 @@ impl Tilt {
     }
 }
 
-/// Picture ids from here up belong to layers; the cockpit's Kitty pictures
-/// stay below.
 pub const LAYER_PICTURES: u32 = 0x8000_0000;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -290,49 +226,21 @@ pub struct Layer {
     pub placement: Placement,
     pub opacity: f32,
     pub kind: LayerKind,
-    /// A turn, in radians, about the placement's centre.
     pub angle: f32,
-    /// How far the layer has lifted toward the camera, in pixels. It grows
-    /// and rises as it lifts while its shadow stays on the ground: a lobbed
-    /// bomb, a boss's boulder. 0 is on the ground, with no shadow.
     pub height: f32,
-    /// A slow breath: the layer rises and settles by up to this many pixels
-    /// (on top of `height`) every few seconds, animated by the window itself.
     pub breathe: f32,
-    /// Light: the layer adds to what is under it instead of covering it (a
-    /// glow lighting a room).
     pub additive: bool,
-    /// A flame's flicker: the layer's strength wavers by up to this part of
-    /// itself, animated by the window, each layer in its own time (by id).
     pub flicker: f32,
-    /// How it stands when the stage is tilted.
     pub stand: Stand,
 }
 
-/// The furthest a layer may lift, in pixels: the largest texture side a
-/// host ever deals in. A lift past this is a producer bug, and an
-/// unbounded one would grow a screen-filling quad without limit.
 pub const MAX_LIFT_PX: f32 = 8192.0;
 
-/// The most motes one emitter may keep in the air. An uncapped count is
-/// an uncapped quad allocation per frame in every host.
 pub const MAX_MOTES: u16 = 4096;
 
-/// The most quads one frame's layers may expand to. Layers past the cap
-/// simply do not draw; a producer asking for more has a bug, and the
-/// frame's cost stays bounded whatever it sends.
 pub const MAX_QUADS: usize = 1_000_000;
 
 impl Layer {
-    /// This layer made safe to draw, or `None` when it must not be drawn at
-    /// all. Layers are plain data and arrive from games and, soon, remote
-    /// seats, so nothing a producer sends may reach a renderer unchecked:
-    /// a non-finite placement, colour or lift becomes NaN vertices and
-    /// driver-defined output, and a non-positive size has no quad. Finite
-    /// but out-of-contract values are clamped to the documented ranges
-    /// (straight RGBA in 0..1, lifts from the ground up, flicker no
-    /// stronger than the flame itself). Every host calls this at its draw
-    /// boundary: the window's compositor, and `expand` for the browser.
     pub fn sanitized(mut self) -> Option<Self> {
         let rect = match self.placement {
             Placement::Pixels(rect) | Placement::Cells(rect) => rect,
@@ -399,7 +307,6 @@ impl Layer {
         self.breathe = self.breathe.clamp(0.0, MAX_LIFT_PX);
         self.flicker = self.flicker.clamp(0.0, 1.0);
         self.angle = self.angle.rem_euclid(std::f32::consts::TAU);
-        // A foot nowhere stands on the floor instead.
         if let Stand::Upright(foot) = self.stand
             && !foot.iter().all(|v| v.is_finite())
         {
@@ -408,9 +315,6 @@ impl Layer {
         Some(self)
     }
 
-    /// [`sanitized`](Self::sanitized) without the copy when the layer is
-    /// already sound — the hot path, called per layer per frame by every
-    /// host. Sound means sanitizing would change nothing.
     pub fn sanitized_cow(&self) -> Option<std::borrow::Cow<'_, Layer>> {
         if self.is_sound() {
             Some(std::borrow::Cow::Borrowed(self))
@@ -419,7 +323,6 @@ impl Layer {
         }
     }
 
-    /// Already exactly as [`sanitized`](Self::sanitized) would return it.
     fn is_sound(&self) -> bool {
         let rect = match self.placement {
             Placement::Pixels(rect) | Placement::Cells(rect) => rect,
@@ -464,14 +367,12 @@ impl Layer {
             }
     }
 
-    /// Whether this layer needs autonomous compositor frames.
     pub fn animating(&self) -> bool {
         self.breathe > 0.0 || self.flicker > 0.0
             || matches!(self.kind, LayerKind::Particles(_))
             || matches!(self.kind, LayerKind::Primitive { speed, .. } if speed != 0.0)
     }
 
-    /// A layer on the ground, unturned, fully opaque.
     pub fn new(id: u64, z: i32, placement: Placement, kind: LayerKind) -> Self {
         Self {
             id,
@@ -489,9 +390,6 @@ impl Layer {
     }
 }
 
-/// A flame's strength at `t` seconds: 1, wavering by up to `amount` either
-/// way on two slow waves whose phases come from `seed`, so no two flames
-/// keep time.
 pub fn flicker(amount: f32, seed: u64, t: f32) -> f32 {
     if amount <= 0.0 {
         return 1.0;
@@ -503,11 +401,8 @@ pub fn flicker(amount: f32, seed: u64, t: f32) -> f32 {
     1.0 + amount * wave
 }
 
-/// A flicker's two waves, a second.
 const FLICKER_HZ: [f32; 2] = [1.3, 3.1];
 
-/// A picture a stage's layers name by `id`: straight (not premultiplied)
-/// RGBA rows.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Picture {
     pub id: u32,
@@ -516,10 +411,6 @@ pub struct Picture {
     pub rgba: Vec<u8>,
 }
 
-/// One frame of a stage: its canvas in its own pixels, its layers back to
-/// front, the pictures that are new or changed since the last frame, and
-/// which scene it is, with the way a new one comes in (`[1, 0]`: from the
-/// right).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Frame {
     pub size: (u32, u32),
@@ -527,35 +418,18 @@ pub struct Frame {
     pub pictures: Vec<Picture>,
     pub scene: u64,
     pub enter: Option<[f32; 2]>,
-    /// How far the floor tips away from the camera: 0 is straight down, as
-    /// painted; at 0.3 the far edge stands 1.3 times as far as the near one.
-    /// What stands upright stays facing the camera on it.
     pub tilt: f32,
-    /// 3D things on the stage, between its layers (`scene::Props`).
     pub props: Option<scene::Props>,
-    /// How hard the world was just hit, 0 (nothing) to 1 (a guardian's
-    /// fall): a renderer's post pass splits the colours and lifts the light
-    /// by it for as long as it lasts. The screen's own marks are untouched.
     pub impact: f32,
-    /// Meshes the props name (`MeshRef::Uploaded`) that are new since the
-    /// last frame: each goes up once, as a picture does, and again only
-    /// when the drawer has lost it.
     pub meshes: Vec<(u32, scene::MeshData)>,
 }
 
-/// What a quad shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shape {
-    /// Flat colour, or a picture's texels times the colour's alpha.
     Fill,
-    /// A light's round falloff in the colour, full at the middle.
     Round,
 }
 
-/// One rectangle to draw, in the stage's pixels: where, which part of
-/// which picture (0: none), and its colour, premultiplied. A colour with no
-/// alpha adds to what is under it (light). It turns by `angle` about its
-/// middle, and stands on a tilted floor as `stand` says.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Quad {
     pub rect: [f32; 4],
@@ -567,17 +441,12 @@ pub struct Quad {
     pub stand: Stand,
 }
 
-/// A stage's layers as quads at `t` seconds, back to front, for a renderer
-/// that draws nothing else (the browser). `size` gives each named picture's
-/// size, for a layer that shows all of one. Each quad keeps its layer's turn
-/// and stand; lifting is left to the window (a stage's layers never lift).
 pub fn expand(layers: &[Layer], t: f32, size: impl Fn(u32) -> Option<(u32, u32)>) -> Vec<Quad> {
     let mut out = Vec::with_capacity(layers.len());
     for layer in layers {
         if out.len() >= MAX_QUADS {
             break;
         }
-        // Nothing unchecked becomes a quad (`Layer::sanitized`).
         let Some(layer) = layer.sanitized_cow() else {
             continue;
         };
@@ -589,8 +458,6 @@ pub fn expand(layers: &[Layer], t: f32, size: impl Fn(u32) -> Option<(u32, u32)>
         let strength = layer.opacity * flicker(layer.flicker, layer.id, t);
         match &layer.kind {
             LayerKind::Primitive { shape, color, phase, speed } => {
-                // Quad-only hosts get a bounded projection; Glass evaluates
-                // the surface continuously in the fragment shader.
                 const SIDE: usize = 24;
                 for row in 0..SIDE {
                     for col in 0..SIDE {
@@ -659,8 +526,6 @@ pub fn expand(layers: &[Layer], t: f32, size: impl Fn(u32) -> Option<(u32, u32)>
                 stand: layer.stand,
             }),
             LayerKind::Stroke(stroke) => {
-                // Quad-only hosts get the stroke without its glow: a line
-                // is one turned bar, a ring a bounded loop of short bars.
                 let a = stroke.color[3] * strength;
                 let c = stroke.color;
                 let color = [c[0] * a, c[1] * a, c[2] * a, a * coverage];
@@ -680,8 +545,6 @@ pub fn expand(layers: &[Layer], t: f32, size: impl Fn(u32) -> Option<(u32, u32)>
                         const SEGMENTS: usize = 48;
                         let r = rect[2].min(rect[3]) / 2.0;
                         let step = std::f32::consts::TAU / SEGMENTS as f32;
-                        // Each bar a little longer than its arc's chord, so
-                        // the loop has no gaps at its joints.
                         let length = 2.0 * r * (step / 2.0).sin() + stroke.width * 0.5;
                         for i in 0..SEGMENTS {
                             if out.len() >= MAX_QUADS {
@@ -724,9 +587,6 @@ pub fn expand(layers: &[Layer], t: f32, size: impl Fn(u32) -> Option<(u32, u32)>
     out
 }
 
-/// [`expand`] a frame's layers around its props: the quads, and how many of
-/// them lie under the props, which `at` counts in layers (a layer may be many
-/// quads, motes, or none, if it is unsound), and the wire counts in quads.
 pub fn expand_at(
     layers: &[Layer],
     at: usize,
@@ -741,10 +601,6 @@ pub fn expand_at(
     (quads, under.min(MAX_QUADS))
 }
 
-/// [`expand`] a frame's layers with places marked among them (each mark a
-/// count of layers, as props and a world name where they lie): the quads,
-/// and each mark as the count of quads under it, which is how the wire
-/// counts them.
 pub fn expand_marks(
     layers: &[Layer],
     marks: &[usize],
@@ -771,20 +627,6 @@ pub fn expand_marks(
     (quads, counted)
 }
 
-/// Quads as layers, the other way from [`expand`]: for a renderer that draws
-/// layers (the browser's `angel-gpu`, which compiles them the way the window
-/// does) given the quads the wire carries. A quad is a layer that has had its
-/// moment (opacity applied, flame flickered, motes born), so it comes back as
-/// a layer with none of those left to do: `expand(&layers_of(&quads), t, ..)`
-/// gives the quads again, at any `t`, up to the float rounding of dividing a
-/// premultiplied colour by its alpha and multiplying it back.
-///
-/// - A picture quad is the part of the picture its `source` names, over the
-///   quad's rect, at its alpha.
-/// - A round quad is a glow, a flat one a solid.
-/// - A colour with no alpha adds to what is under it (a light): it comes back
-///   `additive`, its premultiplied colour as the straight colour at full alpha.
-/// - Strength past 1 (a flame flickering up) is clamped to 1, as any layer's is.
 pub fn layers_of(quads: &[Quad]) -> Vec<Layer> {
     quads
         .iter()
@@ -797,8 +639,6 @@ pub fn layers_of(quads: &[Quad]) -> Vec<Layer> {
                 layer.opacity = a;
                 layer
             } else {
-                // Straight colour and alpha from the premultiplied one; no
-                // alpha is light, which adds (and has no alpha to give back).
                 let additive = a.is_nan() || a <= 0.0;
                 let straight = if additive { [r, g, b, 1.0] } else { [r / a, g / a, b / a, a] };
                 let kind = if q.shape == Shape::Round { LayerKind::Glow(straight) } else { LayerKind::Solid(straight) };
@@ -841,7 +681,6 @@ mod expand_tests {
         );
         let mut unsound = solid(8);
         unsound.placement = Placement::Pixels([f32::NAN, 0.0, 4.0, 4.0]);
-        // Under the props: a solid, an unsound layer (no quad), five motes; over: a solid.
         let layers = [solid(1), unsound, motes, solid(2)];
         let (quads, under) = expand_at(&layers, 3, 0.5, |_| None);
         assert_eq!(under, 1 + 5, "motes that are bright enough to show");
@@ -849,7 +688,6 @@ mod expand_tests {
         assert_eq!(expand_at(&layers, 0, 0.5, |_| None).1, 0);
         assert_eq!(expand_at(&layers, 99, 0.5, |_| None).1, quads.len(), "past the end is the end");
         assert_eq!(quads, expand(&layers, 0.5, |_| None), "the same quads, split or whole");
-        // Many marks at once, in any order, each counted as `expand_at` counts one.
         let marks = [3, 0, 99, 1, 3, 2];
         let (many, counted) = expand_marks(&layers, &marks, 0.5, |_| None);
         assert_eq!(many, quads);
@@ -878,7 +716,6 @@ mod expand_tests {
         let mut flat = sound();
         flat.placement = Placement::Cells([0.0, 0.0, 0.0, 4.0]);
         assert_eq!(flat.sanitized(), None);
-        // expand drops them too: one sound layer in, its quad out.
         let quads = expand(&[sound(), nan_place2()], 0.0, |_| None);
         assert_eq!(quads.len(), 1);
         fn nan_place2() -> Layer {
@@ -956,7 +793,6 @@ mod expand_tests {
                 }),
             )
         };
-        // 300 emitters at the mote cap ask for over a million quads.
         let layers: Vec<Layer> = (0..300).map(emitter).collect();
         let quads = expand(&layers, 0.5, |_| None);
         assert!(quads.len() <= MAX_QUADS, "{}", quads.len());
@@ -978,7 +814,6 @@ mod expand_tests {
         assert_eq!(line[0].rect, [100.0, 198.0, 200.0, 4.0]);
         let ring = expand(&[stroke(StrokeShape::Ring)], 0.0, |_| None);
         assert_eq!(ring.len(), 48);
-        // Every bar's middle lies on the circle, radius half the side.
         for q in &ring {
             let (mx, my) = (q.rect[0] + q.rect[2] / 2.0, q.rect[1] + q.rect[3] / 2.0);
             let r = ((mx - 200.0).powi(2) + (my - 200.0).powi(2)).sqrt();
@@ -1031,10 +866,6 @@ mod expand_tests {
 
     #[test]
     fn random_layers_sanitize_to_the_contract_and_the_cow_agrees() {
-        // Layers arrive from games and remote seats as plain data: any
-        // bit pattern in any field must either drop or land inside the
-        // documented ranges, and the fast-path soundness check must
-        // agree with the full sanitize on every one.
         let mut state = 0x2545_f491_u64;
         let mut next = move || {
             state = state
@@ -1124,7 +955,6 @@ mod expand_tests {
                 }
                 _ => {}
             }
-            // Expansion of anything that survives stays finite and capped.
             let quads = expand(&[clean], 1.5, |_| Some((64, 64)));
             assert!(quads.len() <= MAX_QUADS);
             assert!(quads.iter().all(|q| {
@@ -1170,7 +1000,6 @@ mod expand_tests {
                 assert!(!(1e-5..=std::f32::consts::TAU - 1e-5).contains(&turn), "{a:?} {b:?}");
             }
         }
-        // Light comes back as light, a covering colour as covering.
         let quads = expand(&layers[..3], 0.0, size);
         let back = layers_of(&quads);
         assert!(back[0].additive && !back[1].additive && back[2].additive);

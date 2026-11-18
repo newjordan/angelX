@@ -11,21 +11,13 @@ use serde::Deserialize;
 
 use crate::num;
 
-/// How a material takes the light.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Finish {
-    /// Polished: hard bands, a dark core where it turns away, the lightest
-    /// ink only in the glint, and a step of the floor's light thrown back
-    /// onto its lower edge.
     Metal,
-    /// Soft: three tones, lit, mid and shadow.
     Cloth,
-    /// Soft and warm: four tones, a lifted shadow.
     Skin,
-    /// Even: the whole ramp, by how it faces the light.
     Matte,
-    /// Its own light: unshaded, brightest where it faces the viewer.
     Glow,
 }
 
@@ -41,13 +33,10 @@ impl Finish {
     }
 }
 
-/// How squarely normal `n` faces the light `l` (both of unit length).
 pub fn lit(n: [f32; 3], l: [f32; 3]) -> f32 {
     n[0] * l[0] + n[1] * l[1] + n[2] * l[2]
 }
 
-/// Where on its ramp a surface with normal `n` sits under light `l`
-/// (0 darkest, 1 lightest), before any shade is added.
 pub fn tone(finish: Finish, n: [f32; 3], l: [f32; 3]) -> f32 {
     let d = lit(n, l);
     match finish {
@@ -56,7 +45,6 @@ pub fn tone(finish: Finish, n: [f32; 3], l: [f32; 3]) -> f32 {
                 return 0.999;
             }
             let mut v = if d <= 0.0 { 0.16 } else { 0.28 + 0.64 * num::pow(d, 0.95) };
-            // The floor's light, thrown back up onto the underside.
             if n[1] > 0.55 && n[0] > -0.2 && d < 0.35 {
                 v += 0.14;
             }
@@ -92,7 +80,6 @@ mod tests {
         let side = tone(Finish::Metal, [0.0, 0.0, 1.0], L);
         assert!(side > 0.3 && side < 0.92, "{side}");
         assert_eq!(tone(Finish::Metal, [1.0, 0.0, 0.0], L), 0.16);
-        // The underside takes the floor's light.
         assert!(tone(Finish::Metal, [0.0, 0.8, 0.6], L) > tone(Finish::Metal, [-0.6, 0.8, 0.0], L));
     }
 

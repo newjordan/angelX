@@ -39,7 +39,6 @@ fn windup(run: &Run, kind: Windup) -> u8 {
     boss(run).windups.iter().position(|u| u.kind == kind).unwrap() as u8
 }
 
-/// A blow of `dealt` this tick, weighed by the furnace: what it took.
 fn blow(run: &mut Run, dealt: u32) -> u32 {
     let e = &mut run.enemies[0];
     e.seen_hp = e.hp;
@@ -132,7 +131,6 @@ fn furnace_stoked_landings_leave_one_pit_and_the_opening_none() {
 
     at_share(&mut run, 0.6);
     run.tend_furnace();
-    // Held in time on its landing, it lights the spot only once.
     run.tend_furnace();
     assert_eq!(run.works.blazes.len(), 1);
     let pit = run.works.blazes[0];
@@ -187,9 +185,6 @@ fn furnace_each_new_stage_is_called_out_and_its_own_flame_spares_it() {
     assert!(fireproof(&run.enemies[0], &run.bosses));
 }
 
-/// Cinderjaw's fight, a frame for each of its states, written to
-/// `FURNACE_SHOTS` (required).
-/// `cargo test furnace_shots -- --ignored`
 #[test]
 fn furnace_names_its_iron_the_first_few_times_it_turns_a_blow() {
     let mut run = arena();
@@ -208,7 +203,6 @@ fn furnace_names_its_iron_the_first_few_times_it_turns_a_blow() {
     blow(&mut run, 60);
     assert_eq!(run.enemies[0].hints, 1, "not again so soon");
 
-    // Its open core is no lesson in iron.
     let inhale = windup(&run, Windup::Inhale);
     let e = &mut run.enemies[0];
     (e.hint, e.stage, e.timer, e.signature.windup) = (0, signatures::DAZED, 5, inhale);

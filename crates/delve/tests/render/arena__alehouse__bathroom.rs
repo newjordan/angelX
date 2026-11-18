@@ -44,8 +44,6 @@ fn bathroom_has_separate_basin_jug_bucket_and_towel_clusters_in_plain_inks() {
         for y in 0..img.h {
             for x in 0..img.w {
                 if let Some(c) = img.get(x, y) {
-                    // The existing lantern's flame is intentionally emissive;
-                    // crockery, glass and linen are ordinary lit materials.
                     let flame =
                         (36 * T + 8..36 * T + 11).contains(&x) && (T + 5..T + 8).contains(&y);
                     assert!(
@@ -88,7 +86,6 @@ fn bathroom_survives_the_tavern_scenery_lighting_and_old_halls_still_render() {
             .save(dir.join("alehouse-bathroom.png"))
             .unwrap();
     }
-    // An already-saved hall predating the annex has no extra light or art.
     let index = r.at;
     let original = r.room();
     let tiles: Vec<_> = (0..20)

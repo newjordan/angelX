@@ -9,10 +9,6 @@
 
 use super::*;
 
-/// Runtime posture for action capsules. `Off` is a true fast path: callers do
-/// not classify calls or allocate previews. `Observe` shows UI-only previews and
-/// receipts; `Approve` additionally pauses the interactive root turn once per
-/// batch through the existing token-free approval broker.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum ActionCapsuleMode {
     Off,
@@ -22,8 +18,6 @@ pub(crate) enum ActionCapsuleMode {
 }
 
 impl ActionCapsuleMode {
-    /// Parse the one public knob. Keep this pure so the policy has exhaustive
-    /// tests without mutating process-wide environment state.
     pub(crate) fn parse(raw: Option<&str>) -> Self {
         match raw
             .unwrap_or("approve")
@@ -47,22 +41,13 @@ impl ActionCapsuleMode {
     }
 }
 
-/// The mode for one harness turn. Only the interactive root registry is opted
-/// in; task mode, delegates, swarm seats, and evaluators retain their existing
-/// unattended behavior even if the environment happens to contain the knob.
 pub(crate) fn mode_for(registry: &ToolRegistry) -> ActionCapsuleMode {
-    // Full YOLO and Smart YOLO both skip interactive action-capsule modals so
-    // coding turns are not blocked on y/a/n for every shell/write batch. Smart
-    // keeps sandbox/timeouts/hooks; only the modal path is suppressed here.
     if crate::platform::yolo::workspace_power() || !registry.action_capsules_enabled() {
         return ActionCapsuleMode::Off;
     }
     ActionCapsuleMode::parse(std::env::var("ANGEL_ACTION_CAPSULES").ok().as_deref())
 }
 
-/// Preserve the existing footprint scheduler except while an interactive
-/// approval can block. Observation is deliberately non-blocking, so disjoint
-/// writes retain the harness's existing parallel speedup.
 pub(crate) fn parallel_allowed(
     mode: ActionCapsuleMode,
     boundary: &WorkspaceBoundary,
@@ -71,9 +56,6 @@ pub(crate) fn parallel_allowed(
     !mode.needs_approval() && batch_parallelizable_in(boundary, calls)
 }
 
-/// A declarative, no-I/O description of one operation the current batch may
-/// change or execute. It intentionally contains no file preimage, diff, or raw
-/// payload: generating those would add a read/subprocess to the command chain.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ActionPreview {
     pub(crate) tool: String,
@@ -82,9 +64,6 @@ pub(crate) struct ActionPreview {
 }
 
 impl ActionPreview {
-    /// Classify only operations for which an honest preview is available from
-    /// the arguments already parsed by the tool loop. Reads and verifiers are
-    /// intentionally absent, preserving their zero-extra-work path.
     pub(crate) fn from_call(call: &ToolCall) -> Option<Self> {
         let path = || call.args.get("path").and_then(Value::as_str).unwrap_or("?");
         let text_len = |key: &str| {
@@ -173,9 +152,6 @@ impl ActionPreview {
                     command_like: true,
                 }
             }
-            // Read-only code-mode is bounded reconnaissance, not an action.
-            // Effectful mode requires an explicit outer capability and gets one
-            // conservative capsule, avoiding a modal storm from nested calls.
             "code_mode"
                 if call.args.get("allow_effects").and_then(Value::as_bool) == Some(true) =>
             {
@@ -194,8 +170,6 @@ impl ActionPreview {
                 scope: "merge a parked delegate branch into the workspace".to_string(),
                 command_like: false,
             },
-            // Hands: observe actions stay capsule-free; every act is previewed
-            // without leaking typed text (byte counts and targets only).
             "desktop" | "browser"
                 if crate::agent::tools::hands::is_act(
                     call.name.as_str(),
@@ -256,8 +230,6 @@ impl ActionPreview {
         let verb = if result.starts_with("tool error:") {
             "dispatch error"
         } else if self.command_like {
-            // Shell/cargo text is not a verifier protocol; a successful tool
-            // dispatch only proves the command ran, not that its task passed.
             "ran"
         } else {
             "applied"
@@ -273,9 +245,6 @@ impl ActionPreview {
     }
 }
 
-/// A fixed reason class for a failed tool result. Fixed classes cannot leak
-/// command bodies, paths or credentials, so receipts and the tool strip can
-/// both show them.
 pub(crate) fn failure_reason(result: &str) -> Option<&'static str> {
     let error = result.strip_prefix("tool error:")?;
     let first = error
@@ -301,8 +270,6 @@ pub(crate) fn failure_reason(result: &str) -> Option<&'static str> {
     )
 }
 
-/// All action previews in one model-emitted tool batch. A single batch is the
-/// approval unit so an agent does not incur one UI round trip per file.
 #[derive(Clone, Debug)]
 pub(crate) struct ActionBatch {
     items: Vec<(usize, ActionPreview)>,
@@ -328,9 +295,6 @@ impl ActionBatch {
         if items.is_empty() {
             return None;
         }
-        // The key includes the complete parsed arguments, not the bounded UI
-        // summary. `approve all` is therefore limited to an identical batch in
-        // this turn, never all writes of a broad tool kind.
         let material = calls
             .iter()
             .enumerate()
@@ -395,19 +359,12 @@ impl ActionBatch {
     }
 }
 
-/// Turn-level, aggregate-only instrumentation. One existing turn-ledger write
-/// carries these fields at completion; no per-action receipt file hits the inner
-/// loop.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct ActionCapsuleMetrics {
-    /// Number of scoped tool operations across previewed batches.
     pub(crate) operations: usize,
     pub(crate) previews: usize,
     pub(crate) denied: usize,
     pub(crate) preflight_us: u64,
-    /// Human modal wait in explicit approve mode. Kept separate from local
-    /// harness work so rollout analysis does not mistake operator choice time
-    /// for command-chain overhead.
     pub(crate) approval_wait_ms: u64,
     pub(crate) action_exec_ms: u64,
 }

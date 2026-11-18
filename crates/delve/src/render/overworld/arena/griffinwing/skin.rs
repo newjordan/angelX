@@ -22,17 +22,14 @@ fn byte(c: [f32; 3]) -> [u8; 3] {
     c.map(|v| v.round().clamp(0.0, 255.0) as u8)
 }
 
-/// The shortest way from `a` to `b` round the table's edge.
 fn wrap(d: i32) -> i32 {
     (d + SIDE / 2).rem_euclid(SIDE) - SIDE / 2
 }
 
-/// Scales: staggered rows of rounded shields, the upper row over the lower.
 pub(super) fn scales() -> Vec<[u8; 3]> {
     scale_coat([122.0, 142.0, 176.0], [204.0, 222.0, 240.0], [30.0, 38.0, 58.0])
 }
 
-/// The same scales in a darker coat, for the coil's slab that sweeps by close.
 pub(super) fn slab() -> Vec<[u8; 3]> {
     scale_coat([62.0, 74.0, 98.0], [118.0, 136.0, 162.0], [18.0, 22.0, 34.0])
 }
@@ -44,7 +41,6 @@ fn scale_coat(body: [f32; 3], lit: [f32; 3], seam: [f32; 3]) -> Vec<[u8; 3]> {
     let mut out = Vec::with_capacity((SIDE * SIDE) as usize);
     for y in 0..SIDE {
         for x in 0..SIDE {
-            // The topmost scale covering this dot.
             let mut found: Option<(i32, i32, f32, f32)> = None;
             let row0 = y.div_euclid(RH);
             'rows: for dj in -2..=1 {
@@ -71,11 +67,9 @@ fn scale_coat(body: [f32; 3], lit: [f32; 3], seam: [f32; 3]) -> Vec<[u8; 3]> {
                     let t = (dx * dx + dy * dy).sqrt() / R;
                     let tint = (hash(i.rem_euclid(8), j.rem_euclid(16), 0x77) & 15) as f32 - 7.0;
                     let mut c = [body[0] + tint, body[1] + tint, body[2] + tint];
-                    // Lit toward the upper left, shadowed toward the lower right.
                     let shade = (-dx * 0.35 - dy * 0.5) / R;
                     c = mix(c, if shade > 0.0 { lit } else { seam }, shade.abs() * 0.5);
                     if t > 0.8 {
-                        // The free edge: pale below, the seam above.
                         c = if dy > 0.0 {
                             mix(c, lit, 0.85)
                         } else {
@@ -91,7 +85,6 @@ fn scale_coat(body: [f32; 3], lit: [f32; 3], seam: [f32; 3]) -> Vec<[u8; 3]> {
     out
 }
 
-/// Plates: slate panels with a bevelled seam and a brass rivet at each corner.
 pub(super) fn plates() -> Vec<[u8; 3]> {
     let slate = [132.0, 146.0, 172.0];
     let edge = [200.0, 214.0, 232.0];
@@ -103,7 +96,6 @@ pub(super) fn plates() -> Vec<[u8; 3]> {
             let (px, py) = (x.rem_euclid(64), y.rem_euclid(64));
             let n = (hash(x, y, 0x31) & 15) as f32 - 7.0;
             let mut c = [slate[0] + n, slate[1] + n, slate[2] + n];
-            // A shade across each panel, lighter toward its top.
             c = mix(c, edge, (1.0 - py as f32 / 64.0) * 0.18);
             if px < 2 || py < 2 {
                 c = seam;
@@ -120,7 +112,6 @@ pub(super) fn plates() -> Vec<[u8; 3]> {
     out
 }
 
-/// Horn and fang: cream bone ridged along its length.
 pub(super) fn horn() -> Vec<[u8; 3]> {
     let bone = [226.0, 214.0, 184.0];
     let ridge = [150.0, 134.0, 108.0];
@@ -130,14 +121,12 @@ pub(super) fn horn() -> Vec<[u8; 3]> {
         for x in 0..SIDE {
             let n = (hash(x, y, 0x52) & 15) as f32 - 7.0;
             let mut c = [bone[0] + n, bone[1] + n, bone[2] + n];
-            // A ridge every half unit across the horn's length (v is y).
             let r = y.rem_euclid(16);
             if r < 3 {
                 c = mix(c, ridge, 0.8);
             } else if r == 3 {
                 c = mix(c, tip, 0.6);
             }
-            // A faint grain along it.
             if (x * 5 + y).rem_euclid(23) == 0 {
                 c = mix(c, ridge, 0.35);
             }
@@ -147,7 +136,6 @@ pub(super) fn horn() -> Vec<[u8; 3]> {
     out
 }
 
-/// The belly: pale scutes, a dark seam between each.
 pub(super) fn belly() -> Vec<[u8; 3]> {
     let plate = [196.0, 182.0, 156.0];
     let seam = [88.0, 76.0, 64.0];
@@ -157,7 +145,6 @@ pub(super) fn belly() -> Vec<[u8; 3]> {
         for x in 0..SIDE {
             let n = (hash(x, y, 0x61) & 15) as f32 - 7.0;
             let mut c = [plate[0] + n, plate[1] + n, plate[2] + n];
-            // A scute a unit long (v is y), the near edge bright, the far dark.
             let r = y.rem_euclid(32);
             if r < 3 {
                 c = seam;
@@ -172,7 +159,6 @@ pub(super) fn belly() -> Vec<[u8; 3]> {
     out
 }
 
-/// The frill's web: dark plum skin, veins running out to the spines.
 pub(super) fn web() -> Vec<[u8; 3]> {
     let skin = [104.0, 66.0, 92.0];
     let vein = [164.0, 106.0, 124.0];

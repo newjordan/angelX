@@ -6,7 +6,6 @@ use super::kit::{B_BOMB, B_CTX, B_GUARD, B_LAMP, B_LOCK, B_SWORD};
 use super::*;
 use serde_json::{Value, json};
 
-/// A small seeded stream (xorshift64*), so a scenario is its seed.
 #[derive(Clone)]
 pub struct Rng(pub u64);
 
@@ -22,7 +21,6 @@ impl Rng {
     pub fn below(&mut self, n: u32) -> u32 {
         ((self.next() >> 33) % u64::from(n.max(1))) as u32
     }
-    /// True `per_mille` times in a thousand.
     pub fn chance(&mut self, per_mille: u32) -> bool {
         self.below(1000) < per_mille
     }
@@ -31,15 +29,12 @@ impl Rng {
     }
 }
 
-/// The session as the engine reads it: serde's shape with the 64-bit seed as
-/// its two words, since a JSON number past 2^53 would lose bits in a script.
 pub fn wire(s: &Session) -> Value {
     let mut v = serde_json::to_value(s).unwrap();
     v["seed"] = json!([(s.seed >> 32) as u32, s.seed as u32]);
     v
 }
 
-/// `n` knights at the table, as a run seats them.
 pub fn heroes(n: u32) -> BTreeMap<u32, Hero> {
     let mut run = angel_delve::rules::Run::lanternward_for_test();
     for id in 2..=n {
@@ -48,31 +43,22 @@ pub fn heroes(n: u32) -> BTreeMap<u32, Hero> {
     run.players.clone()
 }
 
-/// The seven buttons the adventure reads, as the engine is told them.
 pub fn mask(i: &Input) -> u32 {
     u32::from(kit::buttons(i))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Driver {
-    /// Every seat plays as the scripted bot.
     Bots,
-    /// Every seat presses random keys, held for a few ticks at a time.
     Fuzz,
-    /// The bot, with a random key now and then.
     Noisy,
-    /// Random keys with values the wire may not carry, now and then: the rules
-    /// must take what they cannot read as no keys at all.
     Edge,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Start {
-    /// The adventure as a door opens it.
     Fresh,
-    /// The party in this room, the rooms before it done.
     Room(usize),
-    /// A random room in a random state of being solved.
     Random,
 }
 
@@ -89,7 +75,6 @@ pub struct Scenario {
     back: BTreeMap<u32, u32>,
 }
 
-/// The party in room `room` having done the rooms before it.
 pub fn rooms_to(s: &mut Session, room: usize, r: &Rules) {
     s.enter_room(room, r);
     s.inv.map = room >= 1;
@@ -151,7 +136,6 @@ impl Scenario {
         }
     }
 
-    /// What each seat presses on the next tick.
     pub fn inputs(&mut self) -> BTreeMap<u32, Input> {
         let ids: Vec<u32> = self.heroes.keys().copied().collect();
         let mut out = BTreeMap::new();
@@ -213,7 +197,6 @@ impl Scenario {
         i
     }
 
-    /// A knight stands up from the table or sits back down, now and then.
     pub fn churn(&mut self) {
         if !self.chaos {
             return;
@@ -228,7 +211,6 @@ impl Scenario {
         }
         if self.rng.chance(4) {
             let id = 1 + self.rng.below(self.heroes.len() as u32);
-            // The table is never emptied.
             if self.heroes.values().filter(|h| !h.away).count() > 1 && !self.heroes[&id].away {
                 self.heroes.get_mut(&id).unwrap().away = true;
                 self.back.insert(id, tick + 20 + self.rng.below(160));
@@ -244,7 +226,6 @@ impl Scenario {
         }
     }
 
-    /// A hand on the session between ticks: true when it changed.
     pub fn meddle(&mut self) -> bool {
         if !self.chaos || !self.rng.chance(6) {
             return false;
@@ -266,8 +247,6 @@ fn open_spot(s: &Session, rng: &mut Rng) -> (i32, i32) {
     s.start_of(1)
 }
 
-/// Throw the session about: a few random edits, each one a state some play
-/// could reach (or that a hurried save might hold).
 pub fn scatter(s: &mut Session, rng: &mut Rng) {
     for _ in 0..1 + rng.below(3) {
         if s.seats.is_empty() {
@@ -396,7 +375,6 @@ pub fn scatter(s: &mut Session, rng: &mut Rng) {
     }
 }
 
-/// One tick of a scenario, for whoever is stepping an engine beside it.
 pub struct Tick {
     pub reset: Option<Value>,
     pub inputs: BTreeMap<u32, Input>,
@@ -410,9 +388,6 @@ pub struct Tick {
     pub trace: Vec<(&'static str, Session, Vec<&'static str>, Option<Stop>)>,
 }
 
-/// Play `ticks` of a scenario on the oracle, handing each tick to `on_tick`.
-/// The oracle's session is the truth: whatever `on_tick` does with its own
-/// engine, the next tick's inputs come from this one.
 pub fn play(sc: &mut Scenario, ticks: u32, mut on_tick: impl FnMut(&Scenario, Tick)) {
     for _ in 0..ticks {
         sc.tick += 1;
@@ -447,9 +422,6 @@ pub fn play(sc: &mut Scenario, ticks: u32, mut on_tick: impl FnMut(&Scenario, Ti
     }
 }
 
-/// The engine's ask for one tick: the session in its wire shape, one row of
-/// `[id, move_x, move_y, aim_x, aim_y, buttons]` for every knight at the
-/// table, and the five numbers.
 pub fn ask(t: &Tick) -> Value {
     let rows: Vec<Value> = t
         .here

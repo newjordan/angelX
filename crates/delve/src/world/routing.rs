@@ -3,8 +3,6 @@
 use std::cmp::Reverse;
 use std::collections::{BTreeSet, BinaryHeap};
 
-/// Includes both endpoints. Zero costs and invalid edges are skipped; oversize
-/// maps fail closed. Stable heap ties make a seeded world replay the same walk.
 pub fn shortest_path(
     count: usize,
     start: usize,
@@ -68,9 +66,6 @@ impl TunnelVariant {
     }
 }
 
-/// Grow a connected, finite floor. A frontier is consumed on every pass;
-/// unlike rejection sampling this terminates even when the grid fills.
-/// The seed affects geography only, never learned reward or player power.
 pub fn tunnel_cells(
     variant: TunnelVariant,
     seed: u64,
@@ -109,7 +104,6 @@ pub fn tunnel_cells(
         };
         match variant {
             TunnelVariant::Gallery => {
-                // Favor a long gallery with spurs, avoiding early loops.
                 let last = *cells.last().unwrap();
                 frontier.sort_by_key(|cell| {
                     (
@@ -131,7 +125,6 @@ pub fn tunnel_cells(
             }
             TunnelVariant::Warrens => {}
             TunnelVariant::Karst => {
-                // Compact chambers develop alternate routes around pockets.
                 let best = frontier.iter().map(degree).max().unwrap();
                 frontier.retain(|cell| degree(cell) == best);
             }

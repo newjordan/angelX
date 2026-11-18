@@ -30,25 +30,16 @@ ROOT = Path(__file__).resolve().parents[4]
 ASSETS = ROOT / 'crates/delve/assets'
 SLOTS_JSON = ASSETS / 'lightgallop/slots.json'
 OUT = ASSETS / 'art-slots'
-DELIVERIES = None  # $ART_PROD_RT_SLOTS, set in main()
+DELIVERIES = None
 PREPARED = os.environ.get('LIGHTGALLOP_PREPARED')
 IMPORTER = ROOT / 'scripts/slot-art-import.py'
 
 GEN = 'Luna (gpt-6-luna) via Codex CLI'
 
-# Per slot: the sheet the importer binds, the canvas, how the pieces are found
-# (`grid`: alpha projection gaps, with `merge` listing measured components that
-# are one drawing, or `whole`: the full sheet is the one piece), each piece's
-# source pivot in its own rectangle (None: bottom centre), registration and
-# the reviewed notes. A piece's pivot is in the measured rectangle's pixels.
 SPECS = {
     'lightgallop.layer-far': dict(
         sheet='source-sheet.png', size=(1774, 887), canvas=(192, 96), role='backdrop', whole=True, registration='shared-pivot',
         pivot=(887, 443.5), anchor=(96, 48), runtime=True,
-        # The deep indigo sky sits between realm inks and the nearest-ink snap
-        # stipples it in four. A reviewed ink grade (ink to ink, no pixel moves)
-        # gathers the two darker stipple inks into the sky's own: the stepped
-        # bands, the moon, the stars and the hills keep their pixels.
         grade={'192934': '22303a', '263b40': '22303a'},
         fit='native canvas 192x96, one frame, repeating horizontally; the whole opaque strip is the frame, scrolled slowest behind the road; stage 384x224.',
         basis='The delivered strip is one continuous 2:1 scenery picture (1774x887, opaque RGB), so the whole sheet is the single piece and it is reduced by 0.10823 to exactly 192x96 with no crop and no padding. The moon and the horizon band repeat every 192 px.',

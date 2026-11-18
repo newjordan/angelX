@@ -8,7 +8,6 @@ fn shots_dir() -> Option<std::path::PathBuf> {
     std::env::var_os("ANGEL_ARENA_SHOTS").map(std::path::PathBuf::from)
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_knight_sheet -- --ignored`
 #[test]
 #[ignore]
 fn write_knight_sheet() {
@@ -71,12 +70,10 @@ fn walking_over_a_weapon_keeps_yours_and_the_take_key_swaps() {
         "walking over is not taking"
     );
     assert!(run.room().items.iter().any(|i| i.card == "crossbow"));
-    // P: the crossbow is in hand, the bow lies where it was.
     tick(&mut run, press());
     assert_eq!(run.players[&1].arm.as_deref(), Some("crossbow"));
     assert!(run.room().items.iter().any(|i| i.card == "bow"));
     assert!(!run.room().items.iter().any(|i| i.card == "crossbow"));
-    // Held, it does not swap back and forth; let go and press, and it does.
     for _ in 0..5 {
         tick(&mut run, press());
     }
@@ -296,15 +293,12 @@ fn a_boss_near_death_adds_spiralling_arms_a_healthier_one_does_not() {
     }
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_polish_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_polish_shots() {
     let Some(dir) = shots_dir() else {
         return;
     };
-    // Hits and health bars: a skeleton just struck (cream, then red), one
-    // hurt and one whole, and a guardian's bar.
     let mut run = quiet();
     for (x, y) in [(14.0, 8.0), (20.0, 8.0), (26.0, 8.0), (32.0, 8.0)] {
         run.spawn_at_for_test(EnemyKind::Skeleton, x, y);
@@ -325,7 +319,6 @@ fn write_polish_shots() {
     run.enemies[3].hurt = 5;
     save(&frame(&run), &dir, "hit_bars_b");
 
-    // A guardian at full health, then going desperate: flashing on and off.
     for (share, name) in [
         (1.0, "boss_full"),
         (0.30, "boss_30"),
@@ -339,7 +332,6 @@ fn write_polish_shots() {
         boss.hp = (boss.max_hp as f32 * share) as u32;
         boss.seen_hp = boss.hp;
         run.players.get_mut(&1).unwrap().invulnerable = 100_000;
-        // Walk the clock to a tick when it flashes, and one when it does not.
         let mut on = None;
         let mut off = None;
         for _ in 0..90 {
@@ -364,7 +356,6 @@ fn write_polish_shots() {
         }
     }
 
-    // The last stand's warnings: the ring closing, and the arms.
     let mut run = quiet();
     run.enemies.clear();
     run.spawn_boss(0);
@@ -396,14 +387,12 @@ fn write_polish_shots() {
         }
     }
 
-    // A weapon beside the knight, with its prompt.
     let mut run = quiet();
     let (x, y) = (run.players[&1].x, run.players[&1].y);
     lay(&mut run, "knights-blade", x + 1.8, y - 0.5);
     run.step(&BTreeMap::new());
     save(&frame(&run), &dir, "take_prompt");
 
-    // The dwarf's spin, frame by frame, with enemies round her.
     let mut run = quiet();
     run.outfit(1, knights::knight("ironbraid").unwrap());
     let (x, y) = (run.players[&1].x, run.players[&1].y);
@@ -433,8 +422,6 @@ fn write_polish_shots() {
         }
     }
 
-    // Each stage of dress in the room, with the helmet in the air and the
-    // clothes after it: the knight, then the dwarf.
     for kit in ["percival", "ironbraid"] {
         let mut run = quiet();
         run.outfit(1, knights::knight(kit).unwrap());
@@ -460,7 +447,6 @@ fn write_polish_shots() {
         save(&frame(&run), &dir, &format!("gear_{kit}_2"));
     }
 
-    // A raised shield toward each way the knight faces.
     for (name, ax, ay) in [
         ("right", 1, 0),
         ("left", -1, 0),
@@ -484,7 +470,6 @@ fn write_polish_shots() {
     }
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_goblin_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_goblin_shots() {
@@ -492,8 +477,6 @@ fn write_goblin_shots() {
     let Some(dir) = shots_dir() else {
         return;
     };
-    // The goblin by itself: standing, then running, with the sack empty and
-    // then ever fuller.
     let mut sheet = Img::black(5 * 22 + 4, 2 * 20 + 4);
     for (row, running) in [false, true].into_iter().enumerate() {
         for burden in 0..4u8 {
@@ -505,8 +488,6 @@ fn write_goblin_shots() {
     }
     save(&sheet, &dir, "goblin_sheet");
 
-    // The room: a goblin after a potion on the floor, then robbing a knight,
-    // running with a sack, and dying with it.
     let mut run = Run::new(33, 1, None);
     run.enter_for_test(0);
     run.calm_for_test();
@@ -526,7 +507,6 @@ fn write_goblin_shots() {
             save(&frame(&run), &dir, "goblin_a_scavenging");
         }
     }
-    // It comes for the knight.
     let (mut stole, mut ran, mut dead) = (false, false, false);
     for _ in 0..600 {
         run.step(&BTreeMap::new());
@@ -547,7 +527,6 @@ fn write_goblin_shots() {
             ran = true;
         }
         if ran && !dead {
-            // A few ticks on, then the kill.
             for _ in 0..40 {
                 run.step(&BTreeMap::new());
             }

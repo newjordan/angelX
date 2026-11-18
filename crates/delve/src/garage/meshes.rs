@@ -17,17 +17,12 @@ use crate::render::world3d::math::{V3, v3};
 use crate::render::world3d::mesh::{Mesh, mat};
 use std::f32::consts::{PI, TAU};
 
-/// Structural steel.
 pub const STEEL: u8 = mat::ARMOR;
-/// Dark iron under the paint.
 pub const IRON: u8 = mat::STONE_DARK;
-/// The knight's visor, and the cold arc between the engines.
 pub const GLOW: u8 = mat::CRYSTAL;
-/// Exhaust fire, cool and hot.
 pub const FIRE: u8 = mat::EMBER;
 pub const FIRE_HOT: u8 = mat::FLAME;
 
-/// The two colours a build paints with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Ink {
     pub paint: u8,
@@ -48,8 +43,6 @@ impl Ink {
     }
 }
 
-/// A racer's parts, one mesh to a slot, and the rig (arc and tethers) that
-/// belongs to no slot.
 #[derive(Clone, Debug, Default)]
 pub struct RacerMeshes {
     pub slot: [Mesh; 8],
@@ -71,16 +64,12 @@ impl RacerMeshes {
     }
 }
 
-/// Where the racer's parts sit, given the engine and chassis it wears.
 #[derive(Clone, Copy, Debug)]
 pub struct Lay {
     pub e: EngineShape,
     pub c: ChassisShape,
-    /// Each engine's distance from the middle.
     pub gy: f32,
-    /// The engines' axis height.
     pub ez: f32,
-    /// The chariot's middle, and the height of its floor.
     pub cx: f32,
     pub cz: f32,
 }
@@ -100,9 +89,6 @@ impl Lay {
     }
 }
 
-// ---------------------------------------------------------------- engines
-
-/// One engine, nose at +x, its axis at (y, z).
 fn engine(m: &mut Mesh, e: &EngineShape, ink: Ink, y: f32, z: f32, t: f32) {
     match e.kind {
         EngineKind::Barrel => barrel_engine(m, e, ink, y, z, t, e.r, 1.0),
@@ -120,8 +106,6 @@ fn engine(m: &mut Mesh, e: &EngineShape, ink: Ink, y: f32, z: f32, t: f32) {
     }
 }
 
-/// The barrel of the example's engines: a body, a collar, a band, a nose, a
-/// ram and a ring of spikes, with its flame out the back.
 #[allow(clippy::too_many_arguments)]
 fn barrel_engine(m: &mut Mesh, s: &EngineShape, ink: Ink, y: f32, z: f32, t: f32, r: f32, spikes: f32) {
     let l = s.len;
@@ -141,7 +125,6 @@ fn barrel_engine(m: &mut Mesh, s: &EngineShape, ink: Ink, y: f32, z: f32, t: f32
     plume(m, l, y, z, r, n, t, 2.6);
 }
 
-/// The fire out of an engine's tail, flickering with `t`.
 #[allow(clippy::too_many_arguments)]
 fn plume(m: &mut Mesh, l: f32, y: f32, z: f32, r: f32, n: usize, t: f32, long: f32) {
     let fl = 1.0 + 0.25 * (t * 23.0 + y * 3.0).sin();
@@ -149,17 +132,13 @@ fn plume(m: &mut Mesh, l: f32, y: f32, z: f32, r: f32, n: usize, t: f32, long: f
     spike(m, v3(-l * 0.5 - 0.15, y, z), v3(-l * 0.5 - r * long * fl, y, z), r * 0.6, FIRE_HOT);
 }
 
-/// A short fat drum with a halo of blades round its throat and an intake
-/// cone for a nose.
 fn turbine(m: &mut Mesh, s: &EngineShape, ink: Ink, y: f32, z: f32, t: f32) {
     let (l, r, n) = (s.len, s.r, s.sides);
     barrel(m, [-l * 0.5, l * 0.3], [y, z], [r * 0.9, r], n, ink.paint, true);
     barrel(m, [l * 0.05, l * 0.3], [y, z], [r * 1.1; 2], n, STEEL, false);
     barrel(m, [-l * 0.3, -l * 0.22], [y, z], [r * 1.05; 2], n, ink.trim, false);
-    // the intake
     cone(m, v3(l * 0.3, y, z), v3(l * 0.5 + r * 1.1, y, z), r * 0.85, n, IRON);
     barrel(m, [l * 0.3, l * 0.36], [y, z], [r * 0.86; 2], n, ink.trim, false);
-    // blades: a ring of fins swept back from the throat, and a halo to hold them
     let blades = 12;
     for i in 0..blades {
         let (a0, a1) = (i as f32 / blades as f32 * TAU, (i as f32 + 0.55) / blades as f32 * TAU);
@@ -174,9 +153,6 @@ fn turbine(m: &mut Mesh, s: &EngineShape, ink: Ink, y: f32, z: f32, t: f32) {
     plume(m, l, y, z, r, n, t, 3.4);
 }
 
-// ---------------------------------------------------------------- the rest of the racer
-
-/// Exhaust stacks along an engine's spine (or out its flank).
 fn exhaust(m: &mut Mesh, x: &ExhaustShape, e: &EngineShape, ink: Ink, y: f32, z: f32, sgn: f32) {
     let r = e.r * if e.kind == EngineKind::Twin { 2.1 } else { 1.0 };
     for i in 0..x.pipes {
@@ -198,7 +174,6 @@ fn exhaust(m: &mut Mesh, x: &ExhaustShape, e: &EngineShape, ink: Ink, y: f32, z:
     }
 }
 
-/// Horns, fins or a mast on an engine.
 fn crest(m: &mut Mesh, c: &CrestShape, e: &EngineShape, ink: Ink, y: f32, z: f32) {
     let r = e.r;
     let l = e.len;
@@ -223,7 +198,6 @@ fn crest(m: &mut Mesh, c: &CrestShape, e: &EngineShape, ink: Ink, y: f32, z: f32
     }
 }
 
-/// The knight in the chariot, from the example.
 fn knight(m: &mut Mesh, k: V3, s: f32, lance: bool, ink: Ink, sitting: bool) {
     let k = if sitting { k - v3(0.0, 0.0, 0.1 * s) } else { k };
     cuboid(m, k + v3(-0.15 * s, -0.2 * s, 0.0), k + v3(0.15 * s, 0.2 * s, 0.45 * s), STEEL);
@@ -242,8 +216,6 @@ fn knight(m: &mut Mesh, k: V3, s: f32, lance: bool, ink: Ink, sitting: bool) {
     }
 }
 
-/// The chariot body and its knight: `x` is its middle, `z` its floor.
-/// `with_knight` is false for the empty chariot on a rack.
 fn chassis(m: &mut Mesh, c: &ChassisShape, ink: Ink, x: f32, z: f32, with_knight: bool) {
     let s = c.size;
     let at = |dx: f32, dy: f32, dz: f32| v3(x + dx * s, dy * s, z + dz * s);
@@ -260,7 +232,6 @@ fn chassis(m: &mut Mesh, c: &ChassisShape, ink: Ink, x: f32, z: f32, with_knight
             0.45
         }
         ChassisKind::Wagon => {
-            // high iron sides with plank bands, a ram plate for a nose
             cuboid(m, at(-0.55, -0.42, 0.0), at(0.4, 0.42, 0.18), ink.paint);
             for sgn in [-1.0f32, 1.0] {
                 cuboid(m, at(-0.55, sgn * 0.42 - 0.04, 0.0), at(0.4, sgn * 0.42 + 0.04, 0.7), ink.paint);
@@ -298,7 +269,6 @@ fn chassis(m: &mut Mesh, c: &ChassisShape, ink: Ink, x: f32, z: f32, with_knight
             tri(m, a, at_, tip, ink.paint);
             tri(m, b, bt, tip, ink.paint);
             tri(m, at_, bt, tip, STEEL);
-            // the throne: a tall back with a spired crown, and a gilt rail round the tub
             cuboid(m, at(-0.56, -0.3, 0.3), at(-0.44, 0.3, 1.25), ink.paint);
             cuboid(m, at(-0.58, -0.32, 1.1), at(-0.42, 0.32, 1.2), ink.trim);
             for i in 0..5 {
@@ -321,7 +291,6 @@ fn chassis(m: &mut Mesh, c: &ChassisShape, ink: Ink, x: f32, z: f32, with_knight
     }
 }
 
-/// The running gear under a chariot whose middle is `x`, on the floor.
 fn running(m: &mut Mesh, kind: RunKind, ink: Ink, x: f32, s: f32, t: f32) {
     let z0 = 0.34 * s;
     for sgn in [-1.0f32, 1.0] {
@@ -331,7 +300,6 @@ fn running(m: &mut Mesh, kind: RunKind, ink: Ink, x: f32, s: f32, t: f32) {
                 let c = v3(x - 0.15 * s, y, z0 * 0.5);
                 cyl(m, c - v3(0.0, 0.0, 0.07 * s), c + v3(0.0, 0.0, 0.07 * s), [0.34 * s, 0.34 * s], 8, STEEL, true);
                 cyl(m, c - v3(0.0, 0.0, 0.1 * s), c - v3(0.0, 0.0, 0.065 * s), [0.3 * s, 0.3 * s], 8, ink.trim, true);
-                // the cushion it rides on, a little alive
                 let lift = 0.02 * (t * 14.0 + sgn).sin();
                 disc(m, c - v3(0.0, 0.0, 0.11 * s - lift), 0.4 * s, 8, GLOW);
                 cuboid(m, c + v3(-0.04 * s, -sgn * 0.12 * s, 0.0), c + v3(0.04 * s, -sgn * 0.0, z0 * 0.6), STEEL);
@@ -347,7 +315,6 @@ fn running(m: &mut Mesh, kind: RunKind, ink: Ink, x: f32, s: f32, t: f32) {
                         let d = v3(a.cos(), 0.0, a.sin());
                         spike(m, c + d * 0.29 * s, c + d * 0.4 * s, 0.035 * s, STEEL);
                     }
-                    // spokes
                     for i in 0..4 {
                         let a = i as f32 / 4.0 * PI;
                         let d = v3(a.cos(), 0.0, a.sin()) * 0.28 * s;
@@ -387,7 +354,6 @@ fn running(m: &mut Mesh, kind: RunKind, ink: Ink, x: f32, s: f32, t: f32) {
     }
 }
 
-/// Plating over the engines and the chariot.
 #[allow(clippy::too_many_arguments)]
 fn armour(m: &mut Mesh, kind: ArmourKind, e: &EngineShape, c: &ChassisShape, ink: Ink, lay: &Lay, y: f32, z: f32, sgn: f32) {
     let (l, r) = (e.len, e.r * if e.kind == EngineKind::Twin { 2.1 } else { 1.0 });
@@ -416,7 +382,6 @@ fn armour(m: &mut Mesh, kind: ArmourKind, e: &EngineShape, c: &ChassisShape, ink
                     let a_out = if sgn < 0.0 { PI + 0.9 - row as f32 * 0.6 } else { 0.9 - row as f32 * 0.6 + PI };
                     let _ = a;
                     let dir = v3(0.0, a_out.cos(), a_out.sin());
-                    // scales fan over the flank facing out and over the top
                     let p = v3(x, y, z) + dir * r * 1.04;
                     let tang = v3(0.0, -dir.z, dir.y);
                     quad(m, p - tang * 0.2, p + tang * 0.2, p + tang * 0.2 + dir * 0.06 + v3(-0.2, 0.0, 0.0), p - tang * 0.2 + dir * 0.06 + v3(-0.2, 0.0, 0.0), STEEL);
@@ -424,7 +389,6 @@ fn armour(m: &mut Mesh, kind: ArmourKind, e: &EngineShape, c: &ChassisShape, ink
             }
         }
         ArmourKind::Bastion | ArmourKind::Barding => {
-            // slab plates on the outer flank and the top, bolted on
             for k in 0..3 {
                 let x = -l * 0.38 + k as f32 * l * 0.3;
                 cuboid(m, v3(x, y + sgn * r * 0.9 - 0.06, z - r * 0.55), v3(x + l * 0.26, y + sgn * r * 0.9 + 0.06, z + r * 0.55), STEEL);
@@ -442,7 +406,6 @@ fn armour(m: &mut Mesh, kind: ArmourKind, e: &EngineShape, c: &ChassisShape, ink
             }
         }
     }
-    // the chariot's side: the mirror of the engine's, once for each side
     let cs = c.size;
     let cx = lay.cx;
     let cz = lay.cz;
@@ -478,7 +441,6 @@ fn armour(m: &mut Mesh, kind: ArmourKind, e: &EngineShape, c: &ChassisShape, ink
     }
 }
 
-/// The cold arc between the engines and the tethers that tow the chariot.
 fn rig(m: &mut Mesh, lay: &Lay, ink: Ink, t: f32) {
     let (e, gy, z) = (&lay.e, lay.gy, lay.ez);
     let r = e.r;
@@ -492,7 +454,6 @@ fn rig(m: &mut Mesh, lay: &Lay, ink: Ink, t: f32) {
     }
 }
 
-/// A jagged arc between two points, re-rolled each frame.
 fn arc(m: &mut Mesh, a: V3, b: V3, t: f32, k: u8) {
     let mut prev = a;
     for i in 1..=5 {
@@ -508,8 +469,6 @@ fn arc(m: &mut Mesh, a: V3, b: V3, t: f32, k: u8) {
     }
 }
 
-/// A build's racer, part by part, into `out` (cleared first), centred and
-/// standing on z = 0.
 pub fn build_parts(b: &Build, t: f32, out: &mut RacerMeshes) {
     out.clear();
     let lay = Lay::of(b);
@@ -541,8 +500,6 @@ pub fn build_parts(b: &Build, t: f32, out: &mut RacerMeshes) {
     chassis(&mut out.slot[Slot::Chassis.index()], &c, ink, lay.cx, lay.cz, true);
     running(&mut out.slot[Slot::Running.index()], rk, ink, lay.cx, c.size, t);
     rig(&mut out.rig, &lay, ink, t);
-    // the paint and the trim are the colours of the others
-    // centre the whole on the origin, standing on the floor
     let mut lo = v3(f32::MAX, f32::MAX, f32::MAX);
     let mut hi = v3(f32::MIN, f32::MIN, f32::MIN);
     for m in out.slot.iter().chain([&out.rig]) {
@@ -557,8 +514,6 @@ pub fn build_parts(b: &Build, t: f32, out: &mut RacerMeshes) {
     }
 }
 
-/// The hook the race reads: a build's whole racer, merged into `out`
-/// (cleared first), at the scale of the knight racers example.
 pub fn racer(b: &Build, t: f32, out: &mut Mesh) {
     out.tris.clear();
     let mut parts = RacerMeshes::new();
@@ -568,27 +523,15 @@ pub fn racer(b: &Build, t: f32, out: &mut Mesh) {
     }
 }
 
-/// How big a part's display model is: the box its mesh fits in, which the
-/// shop scales to its rack.
-pub fn display_size(p: &Part) -> V3 {
-    let mut m = Mesh::new();
-    display(p, 0.0, &mut m);
-    bounds(&m).map_or(v3(1.0, 1.0, 1.0), |(lo, hi)| hi - lo)
-}
-
-/// A part on its own, as a rack shows it: centred on the origin in x and y,
-/// standing on z = 0, in the colours of the default racer.
 pub fn display(p: &Part, t: f32, out: &mut Mesh) {
     out.tris.clear();
     let base = Build::kit(0);
-    // on a rack every part is shown in the same pale iron, so it can be read
     let ink = Ink { paint: mat::STONE, trim: GLOW };
     let kit_lay = Lay::of(&base);
     match p.shape {
         Shape::Engine(e) => {
             let z = (e.r + 0.3).max(1.2);
             engine(out, &e, ink, 0.0, z, t);
-            // the cradle it sits in
             for x in [-0.3f32, 0.3] {
                 let cx = e.len * x;
                 cuboid(out, v3(cx - 0.18, -e.r * 1.6 - 0.1, 0.0), v3(cx + 0.18, e.r * 1.6 + 0.1, 0.2), IRON);
@@ -602,7 +545,6 @@ pub fn display(p: &Part, t: f32, out: &mut Mesh) {
         Shape::Running(k) => {
             let s = 1.8;
             running(out, k, ink, 0.0, s, t);
-            // the axle that joins the pair
             cuboid(out, v3(-0.1, -0.5 * s, 0.34 * s), v3(0.1, 0.5 * s, 0.34 * s + 0.12), IRON);
         }
         Shape::Exhaust(x) => {
@@ -625,20 +567,17 @@ pub fn display(p: &Part, t: f32, out: &mut Mesh) {
             armour(out, k, &e, &lay.c, ink, &lay, 0.0, z, 1.0);
         }
         Shape::Paint(k) => {
-            // a tin of paint, its lid off
             cyl(out, v3(0.0, 0.0, 0.0), v3(0.0, 0.0, 0.8), [0.5, 0.5], 10, STEEL, true);
             cyl(out, v3(0.0, 0.0, 0.8), v3(0.0, 0.0, 0.84), [0.42, 0.42], 10, k, true);
             cyl(out, v3(0.0, 0.0, 0.22), v3(0.0, 0.0, 0.5), [0.52, 0.52], 10, k, false);
             beam(out, v3(-0.5, 0.0, 0.9), v3(0.5, 0.0, 0.9), 0.025, IRON);
         }
         Shape::Trim(k) => {
-            // a spool of trim
             cyl(out, v3(0.0, 0.0, 0.0), v3(0.0, 0.0, 0.1), [0.5, 0.5], 10, IRON, true);
             cyl(out, v3(0.0, 0.0, 0.1), v3(0.0, 0.0, 0.7), [0.36, 0.36], 10, k, false);
             cyl(out, v3(0.0, 0.0, 0.7), v3(0.0, 0.0, 0.8), [0.5, 0.5], 10, IRON, true);
         }
     }
-    // stand it on the shelf, whatever hangs below its middle
     if let Some((lo, _)) = bounds(out) {
         place(out, 0, 1.0, 0.0, v3(0.0, 0.0, -lo.z));
     }

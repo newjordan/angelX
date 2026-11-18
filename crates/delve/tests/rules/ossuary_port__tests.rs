@@ -25,7 +25,6 @@ fn put(run: &mut Run, id: u32, (x, y): (f32, f32)) {
     (hero.x, hero.y) = (x * TILE_UNITS, y * TILE_UNITS);
 }
 
-/// A stalled line, then a full one: the same script for both runs.
 fn script(run: &mut Run, tick: u32) {
     let press = tick % 90 == 1;
     let input = Input { interact: press, ..Default::default() };
@@ -69,15 +68,10 @@ fn a_brain_that_errors_leaves_every_tick_to_the_native_code() {
 fn an_answer_outside_the_host_envelope_is_not_applied() {
     let (native, _) = drive(None);
     let lies: [fn(&OssuaryFrame) -> OssuaryStep; 5] = [
-        // Raises a monster it never asked for.
         |f| OssuaryStep { state: OssuaryState { raised: 1, ..f.state.clone() }, effects: vec![] },
-        // Grants coin to a knight who is not in the room.
         |f| OssuaryStep { state: f.state.clone(), effects: vec![OssuaryEffect::Grant { id: 5, gold: 8 }] },
-        // A grant beyond the envelope.
         |f| OssuaryStep { state: f.state.clone(), effects: vec![OssuaryEffect::Grant { id: 1, gold: MAX_GRANT + 1 }] },
-        // A line longer than the line.
         |f| OssuaryStep { state: OssuaryState { fallen: 43, ..f.state.clone() }, effects: vec![] },
-        // More effects than a tick may carry.
         |f| OssuaryStep { state: f.state.clone(), effects: vec![OssuaryEffect::Sound { cue: OssuaryCue::Toll }; MAX_EFFECTS + 1] },
     ];
     for lie in lies {
@@ -89,8 +83,6 @@ fn an_answer_outside_the_host_envelope_is_not_applied() {
 
 #[test]
 fn an_honest_answer_is_applied_in_order_and_counted() {
-    // A brain that only ever says "clatter" and keeps the state: the world
-    // hears it, the nook does not move.
     let _ = install_ossuary_brain(Some(Rc::new(|f| {
         Ok(OssuaryStep { state: f.state.clone(), effects: vec![OssuaryEffect::Sound { cue: OssuaryCue::Clatter }] })
     })));

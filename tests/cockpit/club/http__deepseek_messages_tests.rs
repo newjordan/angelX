@@ -1,8 +1,6 @@
 use super::*;
 use serde_json::json;
 
-/// The Chat body a DeepSeek seat builds, as DeepSeek's Messages API takes it
-/// (the shapes of deepseek-harness `serialize.ts`).
 #[test]
 fn a_chat_body_becomes_deepseek_messages() {
     let chat = json!({
@@ -56,30 +54,25 @@ fn a_chat_body_becomes_deepseek_messages() {
         json!({}),
         "malformed history goes as {{}}"
     );
-    // Both results, then the harness note, in one user message; results first.
     let results = messages[2]["content"].as_array().unwrap();
     assert_eq!(results[0]["type"], "tool_result");
     assert_eq!(results[0]["tool_use_id"], "a");
     assert_eq!(results[1]["content"], json!([]));
     assert_eq!(results[2]["text"], "⠺⠁ note");
-    // An answer without reasoning carries no empty thinking block.
     assert_eq!(
         messages[3]["content"],
         json!([{"type": "text", "text": "done"}])
     );
-    // deepseek-flash takes a later system message in history, after the user turn.
     assert_eq!(
         messages[5],
         json!({"role": "system", "content": [{"type": "text", "text": "contract"}]})
     );
-    // A leading-only route folds it into the user turn instead.
     let mut pro = chat.clone();
     pro["model"] = json!("deepseek-v4-pro");
     let body = to_messages_body(&pro).unwrap();
     let last = body["messages"].as_array().unwrap().last().unwrap().clone();
     assert_eq!(last["role"], "user");
     assert_eq!(last["content"][1]["text"], "contract");
-    // Thinking off sends no effort.
     let mut off = chat;
     off["thinking"] = json!({"type": "disabled"});
     assert!(
@@ -90,7 +83,6 @@ fn a_chat_body_becomes_deepseek_messages() {
     );
 }
 
-/// A Messages stream becomes the Chat frames the accumulator reads.
 #[test]
 fn a_messages_stream_becomes_chat_frames() {
     let mut stream = StreamTranslator::default();
@@ -130,7 +122,6 @@ fn a_messages_stream_becomes_chat_frames() {
         "{\"path\""
     );
     assert!(line(json!({"type": "content_block_stop", "index": 2})).is_none());
-    // A call with no parameters streams no JSON; it closes as `{}`.
     let _ = line(
         json!({"type": "content_block_start", "index": 3, "content_block": {"type": "tool_use", "id": "t2", "name": "list_dir", "input": {}}}),
     );

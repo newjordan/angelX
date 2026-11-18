@@ -19,12 +19,10 @@ fn px((c, r, w, h): Rect) -> (i32, i32, i32, i32) {
     (c * TILE, r * TILE, w * TILE, h * TILE)
 }
 
-/// A straw butt on its stand.
 fn butt(cv: &mut Img, x: i32, y: i32) {
     props::butt(cv, x, y);
 }
 
-/// The butts' bank of turf along the north wall, three butts on it.
 fn butts(cv: &mut Img) {
     let (x, y, w, h) = px(BUTTS);
     mat::hedge(cv, (x, y - 4, w, h + 4), 261);
@@ -33,13 +31,11 @@ fn butts(cv: &mut Img) {
     }
 }
 
-/// The poles' feet and their height above them (pixels).
 fn pole_foot() -> i32 {
     (ROPE * TILE as f32) as i32 + 9
 }
 const POLE: i32 = 30;
 
-/// A tall timber pole, its foot at `(x, y)`.
 fn pole(cv: &mut Img, x: i32, y: i32, height: i32) {
     cv.rect(x - 1, y - height, 3, height, 'r');
     cv.line(x - 1, y - height, x - 1, y, 'B');
@@ -47,8 +43,6 @@ fn pole(cv: &mut Img, x: i32, y: i32, height: i32) {
     cv.line(x - 4, y, x + 4, y, 'B');
 }
 
-/// The judge's tally booth: a striped awning over a boarded counter and a
-/// slate of tallies.
 fn booth(cv: &mut Img) {
     let (x, y, w, h) = px(BOOTH);
     props::stall(cv, (x, y, w, h), ('R', 'T'), y + 14, y, 271);
@@ -58,7 +52,6 @@ fn booth(cv: &mut Img) {
     }
 }
 
-/// Quivers stood in barrels, fletchings up.
 fn quivers(cv: &mut Img, (x, y): (i32, i32), n: i32) {
     for k in 0..n {
         let bx = x + 5 + k * 13;
@@ -71,8 +64,6 @@ fn quivers(cv: &mut Img, (x, y): (i32, i32), n: i32) {
     }
 }
 
-/// The fletcher's open shed: a shingled roof on posts over a bench of
-/// feathers, finished arrows bundled at the posts.
 fn shed(cv: &mut Img) {
     let (x, y, w, h) = px(SHED);
     props::shed(cv, (x, y, w, h), 281);
@@ -92,7 +83,6 @@ fn shed(cv: &mut Img) {
     }
 }
 
-/// The goose pen: a fenced patch of trodden ground and feathers.
 fn pen(cv: &mut Img) {
     let (x, y, w, h) = px(PEN);
     for yy in y + 4..y + h - 2 {
@@ -111,7 +101,6 @@ fn pen(cv: &mut Img) {
     }
 }
 
-/// A goose at `(x, y)` (its feet), facing `face` (1 east, -1 west).
 fn goose(cv: &mut Img, x: i32, y: i32, face: i32, peck: bool) {
     cv.ellipse(x as f32, (y - 4) as f32, 5.0, 3.0, 'v');
     cv.rect(x - face * 5, y - 6, 2, 2, 'U');
@@ -124,7 +113,6 @@ fn goose(cv: &mut Img, x: i32, y: i32, face: i32, peck: bool) {
     cv.line(x + 1, y - 1, x + 1, y, 'O');
 }
 
-/// The arrow-shaft drying rack.
 fn rack(cv: &mut Img) {
     let (x, y, w, h) = px(RACK);
     mat::shadow(cv, ((x + w / 2 + 4) as f32, (y + h + 1) as f32), (w as f32 * 0.5, 2.0), &super::nooks::all);
@@ -140,19 +128,16 @@ fn rack(cv: &mut Img) {
     }
 }
 
-/// A stook of wheat.
 fn stook(cv: &mut Img, x: i32, y: i32, v: u32) {
     props::stook(cv, x + 5, y + 10, v);
 }
 
 fn field(cv: &mut Img) {
-    // Furrows between the stooks, cut short of the roads.
     for &rect in &STOOKS {
         let (x, y, w, h) = px(rect);
         for yy in (y + 1..y + h).step_by(4) {
             cv.line(x, yy, x + w - 1, yy, 'I');
         }
-        // Two rows of stooks, the back row first so the front overlaps it.
         let cols = w / 13;
         for k in 0..cols * 2 {
             let sx = x + 1 + (k % cols) * 13 + (hash(k, y, 162) % 3) as i32 + (k / cols) * 6;
@@ -169,7 +154,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             booth(cv);
             let (qx, qy, _, _) = px(QUIVERS);
             quivers(cv, (qx + 2, qy + 2), 2);
-            // The poles and the popinjay's rope across the butts.
             for c in [POLES.0, POLES.1] {
                 pole(cv, (c * TILE as f32) as i32, pole_foot(), POLE);
             }
@@ -178,7 +162,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                 let sag = ((xx - l) * (r - xx)) / 900;
                 cv.put(xx, pole_foot() - POLE + 2 + sag, 'P');
             }
-            // The shooting line, chalked, and the distance pegs.
             let ly = (LINE * TILE as f32) as i32 + 7;
             for xx in (4 * TILE..20 * TILE).step_by(6) {
                 cv.line(xx, ly, xx + 3, ly, 'J');
@@ -191,7 +174,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
             shed(cv);
             pen(cv);
             rack(cv);
-            // Feathers blown about the yard.
             for k in 0..14 {
                 let fx = 3 * TILE + (hash(k, 1, 171) % (18 * TILE as u32)) as i32;
                 let fy = 5 * TILE + (hash(k, 2, 171) % (4 * TILE as u32)) as i32;
@@ -201,7 +183,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
         RoomKind::Scarecrow => field(cv),
         _ => {}
     }
-    // The Quiver Coach's stair: planked until the realm builds it.
     let stair = match run.room().kind {
         RoomKind::Fletchery => Some(COACH),
         RoomKind::Village => Some(b::VILLAGE_COACH),
@@ -209,7 +190,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
     };
     if let Some((c, r, w, h)) = stair {
         cv.rect(c * TILE, r * TILE, w * TILE, h * TILE, 'I');
-        // The coach's sign: a quiver on a post.
         let (sx, sy) = (c * TILE - 4, r * TILE + 2);
         cv.line(sx, sy - 14, sx, sy + 12, 'r');
         cv.rect(sx - 3, sy - 16, 7, 9, 'B');
@@ -238,7 +218,6 @@ pub(super) fn lights(lights: &mut Vec<Light>, run: &Run) {
     }
 }
 
-/// The popinjay: a painted wooden parrot on a ring, hung from the rope.
 fn popinjay(cv: &mut Img, x: i32, y: i32) {
     cv.line(x, y - 12, x, y - 6, 'P');
     cv.ellipse(x as f32, (y - 1) as f32, 4.0, 5.0, 'A');
@@ -250,7 +229,6 @@ fn popinjay(cv: &mut Img, x: i32, y: i32) {
     cv.line(x, y + 4, x - 1, y + 9, 'A');
 }
 
-/// The wind on the west pole: a pennant streaming the way it blows.
 fn pennant(cv: &mut Img, x: i32, y: i32, wind: i32) {
     cv.line(x, y - 2, x, y + 9, 'o');
     if wind == 0 {
@@ -265,7 +243,6 @@ fn pennant(cv: &mut Img, x: i32, y: i32, wind: i32) {
     }
 }
 
-/// An arrow, point up.
 fn arrow(cv: &mut Img, x: i32, y: i32) {
     cv.line(x, y, x, y + 12, 'O');
     cv.rect(x - 1, y - 2, 3, 2, 'V');
@@ -276,13 +253,9 @@ fn arrow(cv: &mut Img, x: i32, y: i32) {
     }
 }
 
-/// The archer's longbow across their front, bent as far as it is drawn,
-/// and the draw beside them: gold when it will carry to the rope.
-/// At full draw the bow tips tremble and glow.
 fn bow(cv: &mut Img, x: i32, y: i32, draw: u32, tick: u64) {
     let pull = (draw.min(LONGBOW_FULL_DRAW) * 6 / LONGBOW_FULL_DRAW) as i32;
     let top = y - 28;
-    // Full draw tremble: offset bow tips by sin(tick) * 1 pixel.
     let tremble = if draw >= LONGBOW_FULL_DRAW {
         ((tick as f32 * 0.8).sin()) as i32
     } else {
@@ -295,7 +268,6 @@ fn bow(cv: &mut Img, x: i32, y: i32, draw: u32, tick: u64) {
     }
     cv.line(x - 11 + tremble, top, x, top + pull, 'h');
     cv.line(x + 11 + tremble, top, x, top + pull, 'h');
-    // Full draw glow on bow tips.
     if draw >= LONGBOW_FULL_DRAW {
         let glow_ink = if tick % 4 < 2 { '5' } else { 'J' };
         cv.put(x - 11 + tremble, top - 1, glow_ink);
@@ -312,22 +284,18 @@ fn bow(cv: &mut Img, x: i32, y: i32, draw: u32, tick: u64) {
     }
 }
 
-/// The scarecrow on his post, wearing what has come back; his feet at
-/// `(x, y)`.
 fn scarecrow(cv: &mut Img, x: i32, y: i32, dressed: bool, tick: u64) {
     let sway = (hash((tick / 20) as i32, 3, 181) % 2) as i32;
     cv.rect(x - 1, y - 44, 3, 45, 'B');
     cv.line(x - 1, y - 44, x - 1, y, 'b');
     cv.rect(x - 17, y - 33 + sway, 35, 3, 'r');
     cv.line(x - 17, y - 33 + sway, x + 17, y - 33 - sway, 'o');
-    // Straw at the cuffs and neck.
     for s in [-1, 1] {
         let hx = x + s * 18;
         for k in 0..4 {
             cv.line(hx, y - 33 + k, hx + s * (2 + k % 2), y - 35 + k * 2, 't');
         }
     }
-    // A sack head with button eyes and a stitched grin.
     cv.ellipse(x as f32, (y - 42) as f32, 7.0, 7.0, 'o');
     cv.ellipse((x - 1) as f32, (y - 43) as f32, 5.0, 5.0, 'O');
     cv.rect(x - 4, y - 45, 2, 2, 'k');
@@ -340,7 +308,6 @@ fn scarecrow(cv: &mut Img, x: i32, y: i32, dressed: bool, tick: u64) {
         cv.line(x + k, y - 36, x + k + k / 3, y - 33, 't');
     }
     if dressed {
-        // The feather coat, collar up, sleeves along the crossbar.
         cv.rect(x - 8, y - 34, 17, 20, 'U');
         cv.rect(x - 16, y - 34, 8, 5, 'U');
         cv.rect(x + 9, y - 34, 8, 5, 'U');
@@ -348,18 +315,15 @@ fn scarecrow(cv: &mut Img, x: i32, y: i32, dressed: bool, tick: u64) {
             cv.line(x - 7 + k * 2, y - 32, x - 7 + k * 2, y - 16, if k % 2 == 0 { 'v' } else { 'u' });
         }
         cv.line(x, y - 34, x, y - 15, 'S');
-        // The tin hat, dented.
         cv.ellipse(x as f32, (y - 48) as f32, 9.0, 2.0, 'j');
         cv.rect(x - 6, y - 55, 12, 7, 'J');
         cv.rect(x - 5, y - 54, 4, 2, 'h');
         cv.put(x + 2, y - 52, 'G');
-        // One left boot, laced, dangling from the post.
         cv.rect(x - 4, y - 8, 6, 7, 'b');
         cv.rect(x - 8, y - 3, 5, 3, 'b');
         cv.put(x - 1, y - 7, 'o');
         cv.put(x - 1, y - 5, 'o');
     } else {
-        // Striped smallclothes, and nothing else at all.
         cv.rect(x - 6, y - 25, 13, 8, 'T');
         for k in [-5, -2, 1, 4] {
             cv.line(x + k, y - 25, x + k, y - 18, 'R');
@@ -368,8 +332,6 @@ fn scarecrow(cv: &mut Img, x: i32, y: i32, dressed: bool, tick: u64) {
     }
 }
 
-/// A crow, perched or flapping: rook-black, with a grey beak and a
-/// sheen on the wing so it reads against the night.
 fn crow(cv: &mut Img, x: i32, y: i32, frame: u64) {
     cv.ellipse(x as f32, y as f32, 4.0, 3.0, 'X');
     cv.ellipse(x as f32, (y - 1) as f32, 3.0, 1.0, 'g');
@@ -385,7 +347,6 @@ fn crow(cv: &mut Img, x: i32, y: i32, frame: u64) {
     cv.put(x + 1, y + 3, 'G');
 }
 
-/// One of the scarecrow's clothes, lying where the crows dropped it.
 fn piece(cv: &mut Img, i: usize, x: i32, y: i32) {
     match i {
         0 => {
@@ -395,7 +356,6 @@ fn piece(cv: &mut Img, i: usize, x: i32, y: i32) {
             cv.put(x + 2, y - 3, 'G');
         }
         1 => {
-            // A coat of goose feathers, sleeves out.
             cv.rect(x - 6, y - 10, 13, 13, 'U');
             cv.rect(x - 11, y - 10, 5, 8, 'U');
             cv.rect(x + 7, y - 10, 5, 8, 'U');
@@ -406,7 +366,6 @@ fn piece(cv: &mut Img, i: usize, x: i32, y: i32) {
             cv.rect(x - 2, y - 12, 5, 2, 'v');
         }
         _ => {
-            // One left boot, rather chewed.
             cv.rect(x - 2, y - 10, 6, 10, 'b');
             cv.rect(x - 7, y - 3, 6, 4, 'b');
             cv.line(x - 2, y - 10, x + 3, y - 10, 'I');
@@ -418,8 +377,6 @@ fn piece(cv: &mut Img, i: usize, x: i32, y: i32) {
     }
 }
 
-/// The fletcher: a leather apron, a felt hat with a goose quill in it,
-/// an arrow in hand being sighted down.
 fn fletcher(cv: &mut Img, x: i32, y: i32, tick: u64) {
     let look = ((tick / 40) % 3) as i32 - 1;
     cv.rect(x - 4, y - 2, 3, 3, 'b');
@@ -436,13 +393,10 @@ fn fletcher(cv: &mut Img, x: i32, y: i32, tick: u64) {
     cv.rect(x - 3, y - 27, 7, 3, 'I');
     cv.line(x + 4, y - 26, x + 9, y - 33, 'v');
     cv.line(x + 5, y - 26, x + 9, y - 31, 'U');
-    // The arrow, held up to the eye.
     cv.line(x + 6, y - 10, x + 13, y - 22, 'O');
     cv.put(x + 13, y - 23, 'V');
 }
 
-/// The Quiver Coach, standing by its stair: a little covered cart with a
-/// quiver painted on the side.
 fn coach(cv: &mut Img, x: i32, y: i32) {
     cv.rect(x, y - 14, 22, 11, 'B');
     cv.rect(x + 1, y - 13, 20, 9, 'r');
@@ -465,13 +419,11 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         return;
     }
     let (stage, clothes) = b::progress(&run.home.countryside, &run.marks);
-    // The clothes still out, and a crow keeping each company.
     for (i, &(room, p, _)) in CLOTHES.iter().enumerate() {
         if room != kind || stage == 2 || clothes & (1 << i) != 0 {
             continue;
         }
         let (x, y) = at(p.0 * 2.0, p.1 * 2.0);
-        // The tin hat sits on the east pole's top; the rest lie about.
         let lift = if kind == RoomKind::LongbowGreen { y - (pole_foot() - POLE) + 2 } else { 0 };
         piece(cv, i, x, y - lift);
         crow(cv, x + 13, y - lift - 4, run.tick / 8);
@@ -502,15 +454,12 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             let base = y - 10;
             scarecrow(cv, x, base, stage == 2, run.tick);
             if stage < 2 {
-                // His picket sign.
                 let w = super::super::ink::text_width("ON STRIKE") + 6;
                 cv.line(x + 24, base, x + 24, base - 28, 'r');
                 super::super::chrome::inset_panel(cv, (x + 14, base - 40, w, 12), super::super::chrome::Tone::PAINTED);
                 cv.text(x + 17, base - 38, "ON STRIKE", 'b');
             }
-            // The prompt stands off to his left, clear of his straw.
             super::near_prompt(cv, run, (x - 30, y + 4), match stage { 0 => "ASK", 1 if clothes == 7 => "DRESS", _ => "TALK" });
-            // Crows on the stooks, bolder while he's off duty.
             let n = if stage == 2 { 1 } else { 4 };
             for k in 0..n {
                 let (c, r, w, _) = STOOKS[k];
@@ -523,8 +472,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The green in play: the popinjay on its rope, the wind, the archer's
-/// bow and the arrow in the air; at rest, the popinjay parked by its pole.
 fn green(cv: &mut Img, run: &Run) {
     let rope_y = (ROPE * TILE as f32) as i32;
     let round = run.pastimes.round.as_ref().filter(|r| r.game == Game::Longbow);
@@ -538,13 +485,11 @@ fn green(cv: &mut Img, run: &Run) {
         return;
     };
     popinjay(cv, Longbow::target(r) * TILE / 256, rope_y - 2);
-    // Particle burst when an arrow has just struck the popinjay.
     if bw.hit_burst > 0 {
         let impact_x = Longbow::target(r) * TILE / 256;
         let impact_y = rope_y - 2;
         hit_burst_particles(cv, impact_x, impact_y, LONGBOW_HIT_BURST - bw.hit_burst, bw.hit_burst);
     }
-    // Where an arrow loosed now would come down, wind and all.
     if bw.flight.is_none() && bw.wait == 0 {
         let land = (bw.aim + wind * LONGBOW_FLIGHT as i32) * TILE / 256;
         for k in 0..3 {
@@ -552,7 +497,6 @@ fn green(cv: &mut Img, run: &Run) {
         }
     }
     if let Some(a) = &bw.flight {
-        // Fading trail behind the arrow in flight (last 6 positions).
         for (i, &(tx, ty)) in bw.arrow_trail.iter().enumerate() {
             let alpha = (i + 1) as f32 / (bw.arrow_trail.len() + 1) as f32;
             let ink = if alpha > 0.6 { 'h' } else if alpha > 0.3 { 'j' } else { 'n' };
@@ -560,14 +504,11 @@ fn green(cv: &mut Img, run: &Run) {
         }
         arrow(cv, a.x * TILE / 256, a.y() * TILE / 256);
     }
-    // Arrow stuck in ground after a miss, with a small dust puff.
     if bw.ground_arrow > 0 {
         let gx = bw.ground_x * TILE / 256;
         let gy = bw.ground_y * TILE / 256;
-        // The arrow shaft stuck in the ground, angled.
         cv.line(gx, gy, gx + 2, gy - 8, 'O');
         cv.put(gx + 2, gy - 9, 'V');
-        // Dust puff: fades over the 6 ticks.
         let dust = bw.ground_arrow;
         for d in 0..3 {
             let dx = (d as i32 - 1) * (4 - dust as i32);
@@ -580,7 +521,6 @@ fn green(cv: &mut Img, run: &Run) {
         let (x, y) = at(hero.x, hero.y);
         bow(cv, x, y, bw.draw, run.tick);
     }
-    // Arrows left, as fletchings on the quiver stand.
     let left = LONGBOW_ARROWS.saturating_sub(bw.arrows);
     let (qx, qy, _, _) = px(QUIVERS);
     for k in 0..left as i32 {
@@ -588,12 +528,9 @@ fn green(cv: &mut Img, run: &Run) {
     }
 }
 
-/// A burst of feathers and wood chips where the arrow struck the popinjay.
-/// `age` ticks since the hit, `left` ticks remaining in the burst.
 fn hit_burst_particles(cv: &mut Img, cx: i32, cy: i32, age: u8, left: u8) {
     let t = f32::from(age);
     let seed = hash(cx, cy, 77);
-    // The first two ticks: a bright star at the impact point.
     if age <= 1 {
         let reach = 3 - i32::from(age);
         for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
@@ -603,7 +540,6 @@ fn hit_burst_particles(cv: &mut Img, cx: i32, cy: i32, age: u8, left: u8) {
         }
         cv.put(cx, cy, 'W');
     }
-    // Feathers and chips thrown outward, drifting down.
     let n = 10;
     for i in 0..n {
         let h = |s: u32| (hash(i, seed as i32, s) % 1024) as f32 / 1024.0;
@@ -613,18 +549,13 @@ fn hit_burst_particles(cv: &mut Img, cx: i32, cy: i32, age: u8, left: u8) {
         let px_ = cx + (angle.cos() * speed * t * drag) as i32;
         let gravity = 0.15 + h(3) * 0.1;
         let py_ = cy + (angle.sin() * speed * t * drag + gravity * t * t) as i32;
-        // Feathers are light and slow; chips are heavier and drop faster.
         let ink = if i % 3 == 0 {
-            // A wood chip: tan/brown, falls faster.
             if age % 3 == 0 { 'o' } else { 'T' }
         } else {
-            // A feather: white/cream, drifts.
             if age % 2 == 0 { 'J' } else { 'U' }
         };
-        // Only draw while the particle would still be visible (within the burst lifetime).
         if left > 0 || age < 3 {
             cv.put(px_, py_, ink);
-            // A trailing pixel behind fast-moving chips.
             if i % 3 == 0 && t > 1.0 {
                 let prev_drag = 1.0 - (t - 1.0) * 0.06;
                 let tx = cx + (angle.cos() * speed * (t - 1.0) * prev_drag) as i32;
@@ -635,7 +566,6 @@ fn hit_burst_particles(cv: &mut Img, cx: i32, cy: i32, age: u8, left: u8) {
     }
 }
 
-/// Whether the field's errand board is up.
 pub(super) fn board_visible(run: &Run) -> bool {
     run.pastimes.round.is_none()
         && run.room().kind == RoomKind::Scarecrow

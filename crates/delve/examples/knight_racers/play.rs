@@ -22,26 +22,17 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Once};
 use std::time::{Duration, Instant};
 
-// ---------------------------------------------------------------- the circuit
-
-/// One tick of the game, in seconds: input is read and applied every one.
 const DT: f32 = 1.0 / 30.0;
-/// The lap, in track units. A multiple of 48, which the pillars and cages keep to.
 const LAP: f32 = 864.0;
-/// The oval: two straights and two half-circle bends of this radius, bending left.
 const BEND: f32 = 50.0;
 const STRAIGHT: f32 = (LAP - 2.0 * PI * BEND) / 2.0;
 const LAPS: u32 = 1;
-/// The racers are built big for the cinematic; on the circuit they are this much smaller.
 const SCALE: f32 = 0.72;
-/// A racer's box on the track: half its length, and where the middle of it lies behind the racer's own origin.
 const HALF_LEN: f32 = 5.5 * SCALE;
 const CENTRE: f32 = -1.9 * SCALE;
-/// Seconds on the grid before the start.
 const COUNTDOWN: f32 = 3.2;
 const NAMES: [&str; 4] = ["EXCALIBUR", "BASTION", "WRAITH", "CROWN"];
 
-/// Where the track's centre line is at distance `s` round the lap, and which way it points.
 fn pose(s: f32) -> (f32, f32, f32) {
     let s = s.rem_euclid(LAP);
     let arc = PI * BEND;
@@ -58,19 +49,16 @@ fn pose(s: f32) -> (f32, f32, f32) {
     }
 }
 
-/// The world point `y` to the left of the centre line at `s`, `z` up.
 fn at(s: f32, y: f32, z: f32) -> V3 {
     let (px, py, th) = pose(s);
     v3(px - y * th.sin(), py + y * th.cos(), z)
 }
 
-/// How hard the track bends at `s` (1/radius): all the bends bend left.
 fn curve(s: f32) -> f32 {
     let s = s.rem_euclid(LAP);
     if (STRAIGHT..STRAIGHT + PI * BEND).contains(&s) || s >= 2.0 * STRAIGHT + PI * BEND { 1.0 / BEND } else { 0.0 }
 }
 
-/// The distance between two places on the lap, the short way round, signed.
 fn wrap(d: f32) -> f32 {
     (d + LAP * 0.5).rem_euclid(LAP) - LAP * 0.5
 }
@@ -80,8 +68,6 @@ fn smooth(a: f32, b: f32, x: f32) -> f32 {
     u * u * (3.0 - 2.0 * u)
 }
 
-/// A straight dungeon or canyon bent along the oval, tile by tile. The hell
-/// rim light is lit across the track, so each tile carries its pre-bend frame.
 fn bend(m: &Mesh) -> Mesh {
     let mut out = Mesh::new();
     for t in &m.tris {
@@ -91,13 +77,11 @@ fn bend(m: &Mesh) -> Mesh {
     out
 }
 
-/// A barricade across part of the track: slow down or steer round.
 struct Block {
     s: f32,
     y: f32,
     hw: f32,
     hl: f32,
-    /// Which side the racing line takes it: -1 right, +1 left.
     pass: f32,
 }
 
@@ -106,13 +90,10 @@ fn blocks() -> Vec<Block> {
     AT.iter().enumerate().map(|(k, &(y, pass))| Block { s: 120.0 + 52.0 * k as f32, y, hw: 2.2, hl: 1.4, pass }).collect()
 }
 
-/// What the rules of a course need to know, besides its looks.
 struct Track {
     hell: bool,
     blocks: Vec<Block>,
-    /// The racing line: the lateral place to be, a sample every unit of the lap.
     line: Vec<f32>,
-    /// How free of barricades each unit of the lap is (0 beside one, 1 clear).
     free: Vec<f32>,
 }
 
@@ -151,7 +132,6 @@ impl Track {
     }
 }
 
-/// A course built into a bent world, and the rules that go with it.
 struct Circuit {
     world: Mesh,
     track: Track,
@@ -186,7 +166,6 @@ fn cuboid(m: &mut Mesh, lo: V3, hi: V3, k: u8) {
     m.push_quad(p(t, f, f), p(t, t, f), p(t, t, t), p(t, f, t), k);
 }
 
-/// An iron barricade with a glowing hazard band and teeth.
 fn barricade(m: &mut Mesh, b: &Block) {
     let (lo, hi) = (v3(b.s - b.hl, b.y - b.hw, 0.0), v3(b.s + b.hl, b.y + b.hw, 1.3));
     cuboid(m, lo, hi, IRON);
@@ -204,20 +183,14 @@ fn barricade(m: &mut Mesh, b: &Block) {
     }
 }
 
-// ---------------------------------------------------------------- the cars
-
-/// What a driver asks of a car in one tick.
 #[derive(Clone, Copy, Default)]
 struct Input {
-    /// -1 right .. 1 left.
     steer: f32,
     throttle: f32,
     brake: bool,
     boost: bool,
 }
 
-/// How a knight's racer drives: top speed (units/s), pull, steering (units/s
-/// sideways), mass, how much a crash hurts it (lower is tougher), boost thirst.
 struct Stats {
     top: f32,
     accel: f32,
@@ -225,7 +198,6 @@ struct Stats {
     mass: f32,
     hurt: f32,
     thirst: f32,
-    /// The rival's skill when it is not you.
     skill: f32,
     bias: f32,
     tag: &'static str,
@@ -241,9 +213,7 @@ const STATS: [Stats; 4] = [
 #[derive(Clone)]
 struct Car {
     id: usize,
-    /// Distance driven since the line (negative on the grid).
     d: f32,
-    /// Sideways from the centre line, left positive.
     y: f32,
     vy: f32,
     v: f32,
@@ -257,7 +227,6 @@ struct Car {
     note: &'static str,
     note_ttl: f32,
     lap_t0: f32,
-    /// Seconds left on the banner for a lap just done.
     lap_flash: f32,
     laps: Vec<f32>,
     finish: Option<f32>,
@@ -276,7 +245,6 @@ impl Car {
         self.d.rem_euclid(LAP)
     }
 
-    /// How far out the outer engine reaches, and how far out the engines' centres are.
     fn reach(&self) -> f32 {
         (RACERS[self.id].gap + 2.0 * RACERS[self.id].r) * SCALE
     }
@@ -285,7 +253,6 @@ impl Car {
         (RACERS[self.id].gap + RACERS[self.id].r) * SCALE
     }
 
-    /// Sideways speed the steering can make at this speed.
     fn lat(&self) -> f32 {
         STATS[self.id].grip * (0.4 + 0.6 * (self.v / 16.0).min(1.0)) * if self.boosting { 0.8 } else { 1.0 }
     }
@@ -295,7 +262,6 @@ impl Car {
         self.note_ttl = ttl;
     }
 
-    /// A knock: speed lost (scaled by how tough the knight is), once per `guard`.
     fn crash(&mut self, k: f32, what: &'static str) -> bool {
         if self.guard > 0.0 {
             return false;
@@ -339,7 +305,6 @@ impl Car {
         if self.v > top {
             self.v = (self.v - 16.0 * DT).max(top);
         }
-        // steering is snappy: the sideways speed is chased hard
         let cmd = inp.steer * self.lat();
         let rate = if cmd.abs() >= self.vy.abs() || cmd * self.vy < 0.0 { 90.0 } else { 55.0 };
         self.vy += (cmd - self.vy).clamp(-rate * DT, rate * DT);
@@ -355,7 +320,6 @@ impl Car {
         self.lap_flash = (self.lap_flash - DT).max(0.0);
     }
 
-    /// The pillars, the lava, the walls and the barricades.
     fn hit_track(&mut self, tr: &Track) {
         let (r, s, sign) = (&RACERS[self.id], self.s(), self.y.signum());
         let (mid, reach) = (self.mid(), self.reach());
@@ -387,7 +351,6 @@ impl Car {
             self.y = sign * (wall - reach);
             self.vy = -sign * self.vy.abs() * 0.4;
         }
-        // barricades: the car spans from its cart (behind) to its rams (ahead)
         for b in &tr.blocks {
             let ds = wrap(s + CENTRE - b.s);
             let (pen_s, pen_y) = (HALF_LEN + b.hl - ds.abs(), reach * 0.9 + b.hw - (self.y - b.y).abs());
@@ -406,10 +369,8 @@ impl Car {
     }
 }
 
-/// How hard a bend throws a car out (units/s of slide per unit of v^2/R).
 const SLIDE: f32 = 0.075;
 
-/// Two cars touching: bump them apart and trade a little speed.
 fn bump(a: &mut Car, b: &mut Car) {
     let ds = wrap(b.d - a.d);
     let (wa, wb) = (a.reach() * 0.9, b.reach() * 0.9);
@@ -421,7 +382,6 @@ fn bump(a: &mut Car, b: &mut Car) {
     let (ma, mb) = (STATS[a.id].mass, STATS[b.id].mass);
     let (sa, sb) = (mb / (ma + mb), ma / (ma + mb));
     if pen_s < pen_y * 1.6 {
-        // nose to tail: the rear car can go no further in, and gives up most of what it closed by
         let (rear, front) = if ds > 0.0 { (a as &mut Car, b as &mut Car) } else { (b as &mut Car, a as &mut Car) };
         let closing = (rear.v - front.v).max(0.0);
         let (mr, mf) = (STATS[rear.id].mass, STATS[front.id].mass);
@@ -446,22 +406,17 @@ fn bump(a: &mut Car, b: &mut Car) {
     }
 }
 
-/// A race: four cars, a clock that starts on the grid, and whose car is yours.
 #[derive(Clone)]
 struct Race {
     cars: [Car; 4],
     player: usize,
-    /// Seconds since the grid; the start is at `COUNTDOWN`.
     clock: f32,
     cam_y: f32,
     fov: f32,
 }
 
-/// The grid: (distance, sideways) for each of four slots, two abreast.
 const GRID: [(f32, f32); 4] = [(-6.0, -3.6), (-10.0, 3.6), (-22.0, -3.6), (-26.0, 3.6)];
 
-/// The rivals' speed against how far they are ahead of you (negative: behind),
-/// mildly: a long way ahead eases them a few percent, a long way behind eggs them on.
 fn rubber(gap: f32) -> f32 {
     if gap > 0.0 { 1.0 - 0.06 * (gap / 100.0).min(1.0) } else { 1.0 + 0.07 * (-gap / 100.0).min(1.0) }
 }
@@ -477,7 +432,6 @@ impl Race {
         Race { cars, player, clock: 0.0, cam_y, fov: 0.96 }
     }
 
-    /// Seconds into the race (negative on the grid).
     fn time(&self) -> f32 {
         self.clock - COUNTDOWN
     }
@@ -493,13 +447,11 @@ impl Race {
         self.order().iter().position(|&i| i == id).unwrap_or(0)
     }
 
-    /// A rival's hands: the racing line, round the cars in the way, a boost on a clear straight.
     fn ai(&self, tr: &Track, i: usize) -> Input {
         let c = &self.cars[i];
         let s = c.s();
         let look = (c.v * 0.2).max(4.0);
         let mut target = tr.line_at(s + look) + STATS[c.id].bias * tr.free_at(s + look);
-        // cars near it push it off the line, each the other way, but never into a barricade
         if [0.0, 8.0, 16.0, 24.0].iter().all(|k| tr.free_at(s + k) > 0.95) {
             let mut push = 0.0;
             for o in self.cars.iter().filter(|o| o.id != c.id) {
@@ -511,7 +463,6 @@ impl Race {
             }
             target = (target + push).clamp(-6.0, 6.0);
         }
-        // a car just ahead in its lane: lift, so it does not ride the car's tail
         let tailing = self.cars.iter().filter(|o| o.id != c.id).any(|o| {
             let (ahead, dy) = (wrap(o.d - c.d), (c.y - o.y).abs());
             (0.0..11.5).contains(&ahead) && dy < 3.9 && c.v > o.v - 1.5
@@ -548,7 +499,6 @@ impl Race {
             }
         }
         for c in &mut self.cars {
-            // a lap is counted as the line is crossed, timed to the tick it was crossed in
             let done = c.laps.len() as i32;
             if (c.d / LAP).floor() as i32 > done && c.d > 0.0 {
                 let t = rt - (c.d - (done + 1) as f32 * LAP) / c.v.max(1.0);
@@ -560,19 +510,16 @@ impl Race {
                 }
             }
         }
-        // the camera
         let c = &self.cars[p];
         self.cam_y += (c.y * 0.85 - self.cam_y) * 0.2;
         self.fov += ((if c.boosting { 1.1 } else { 0.96 }) - self.fov) * 0.12;
     }
 
-    /// The chase camera behind the player's racer, looking down the track ahead of it.
     fn view(&self) -> View3 {
         let c = &self.cars[self.player];
         let s = c.s();
         let shake = c.hurt * 1.4;
         let jolt = v3((self.clock * 61.0).sin() * shake * 0.3, (self.clock * 47.0).cos() * shake * 0.3, (self.clock * 53.0).sin() * shake * 0.25);
-        // behind the racer along its own heading (not along the bend), looking a little into the bend
         let (anchor, th) = (at(s, self.cam_y, 0.0), pose(s).2);
         let look = th + 0.25 * curve(s + 8.0) * 16.0;
         let pos = anchor + v3(-19.0 * th.cos(), -19.0 * th.sin(), 6.0) + jolt;
@@ -582,9 +529,6 @@ impl Race {
     }
 }
 
-// ---------------------------------------------------------------- lettering
-
-/// A 5x7 face: seven rows of five bits, the leftmost bit highest.
 fn face(ch: char) -> Option<[u8; 7]> {
     Some(match ch.to_ascii_uppercase() {
         'A' => [0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11],
@@ -636,8 +580,6 @@ fn face(ch: char) -> Option<[u8; 7]> {
     })
 }
 
-/// A cell's lettering as filled rectangles in a `cw` x `chh` pixel cell, for the
-/// PNG of a frame (a terminal draws these with its own font).
 pub fn glyph(ch: char, cw: usize, chh: usize, mut f: impl FnMut(usize, usize, usize, usize)) {
     match ch {
         '█' => f(0, 0, cw, chh),
@@ -652,7 +594,6 @@ pub fn glyph(ch: char, cw: usize, chh: usize, mut f: impl FnMut(usize, usize, us
         }
         _ => {
             if let Some(rows) = face(ch) {
-                // 5 columns drawn 8 pixels wide, a pixel of air either side
                 const X: [(usize, usize); 5] = [(1, 2), (3, 1), (4, 2), (6, 1), (7, 2)];
                 let (px, top) = ((cw.saturating_sub(10)) / 2, chh.saturating_sub(14) / 2);
                 for (gy, row) in rows.iter().enumerate() {
@@ -678,7 +619,6 @@ fn mix(a: [u8; 3], b: [u8; 3], k: f32) -> [u8; 3] {
     std::array::from_fn(|i| (a[i] as f32 + (b[i] as f32 - a[i] as f32) * k) as u8)
 }
 
-/// The cells of a frame, for drawing letters and panels over.
 struct Canvas<'a> {
     cells: &'a mut [Cell],
 }
@@ -688,7 +628,6 @@ impl Canvas<'_> {
         (col < CELLS.0 && row < CELLS.1).then(|| &mut self.cells[row * CELLS.0 + col])
     }
 
-    /// A solid ground, `w` x `h` cells.
     fn panel(&mut self, col: usize, row: usize, w: usize, h: usize, bg: [u8; 3]) {
         for r in row..row + h {
             for c in col..col + w {
@@ -699,7 +638,6 @@ impl Canvas<'_> {
         }
     }
 
-    /// Letters from `col`; with a `bg` they sit on that ground, else on the frame.
     fn text(&mut self, col: usize, row: usize, s: &str, fg: [u8; 3], bg: Option<[u8; 3]>) {
         for (i, ch) in s.chars().enumerate() {
             if let Some(x) = self.cell(col + i, row) {
@@ -717,9 +655,6 @@ impl Canvas<'_> {
         self.text(CELLS.0.saturating_sub(s.chars().count()) / 2, row, s, fg, bg);
     }
 
-    /// Big letters from the 5x7 face: scale 1 is a column and half a row to a
-    /// pixel (five columns, four rows a letter), scale 2 two columns and a row.
-    /// Returns the width it took.
     fn big(&mut self, col: usize, row: usize, s: &str, scale: usize, fg: [u8; 3]) -> usize {
         let pitch = if scale == 1 { 6 } else { 12 };
         for (n, ch) in s.chars().enumerate() {
@@ -751,7 +686,6 @@ impl Canvas<'_> {
         s.chars().count() * pitch - pitch / 6
     }
 
-    /// Darken the whole frame, ink and ground.
     fn dim(&mut self, k: f32) {
         for c in self.cells.iter_mut() {
             c.fg = c.fg.map(|v| (v as f32 * k) as u8);
@@ -759,7 +693,6 @@ impl Canvas<'_> {
         }
     }
 
-    /// A bar of `n` cells, `k` full.
     fn bar(&mut self, col: usize, row: usize, n: usize, k: f32, fg: [u8; 3], bg: [u8; 3]) {
         let full = (k.clamp(0.0, 1.0) * n as f32).round() as usize;
         let s: String = (0..n).map(|i| if i < full { '█' } else { '░' }).collect();
@@ -783,12 +716,9 @@ fn ordinal(place: usize) -> &'static str {
     ["1ST", "2ND", "3RD", "4TH"][place.min(3)]
 }
 
-/// A racer's livery colour as it is drawn.
 fn livery(course: Course, id: usize) -> [u8; 3] {
     course.paint(RACERS[id].cloth, true).0.map(|c| c as u8)
 }
-
-// ---------------------------------------------------------------- the game
 
 #[derive(Clone, Copy, PartialEq)]
 enum Mode {
@@ -797,7 +727,6 @@ enum Mode {
     Results,
 }
 
-/// A key the game answers (what is held to drive is read separately).
 #[derive(Clone, Copy, PartialEq)]
 enum Key {
     Left,
@@ -808,7 +737,6 @@ enum Key {
     Char(char),
 }
 
-/// Where a racer stands to be drawn: its knight, place on the lap, sideways, yaw off the track, size.
 #[derive(Clone, Copy)]
 struct Stand {
     id: usize,
@@ -826,12 +754,10 @@ struct Game {
     mode: Mode,
     sel: usize,
     race: Race,
-    /// The finished order, once the player has crossed the line and the rest have followed.
     results: Option<Race>,
     frame: u64,
     paused: bool,
     quit: bool,
-    /// Frames since the player crossed the line.
     after: u32,
 }
 
@@ -868,7 +794,6 @@ impl Game {
         }
     }
 
-    /// One tick of the game, with what is held.
     fn update(&mut self, input: &Input) {
         self.frame += 1;
         if self.mode != Mode::Race || self.paused {
@@ -878,7 +803,6 @@ impl Game {
         if self.race.cars[self.race.player].finish.is_some() {
             self.after += 1;
             if self.after > 90 {
-                // the others finish out of sight; the table is the settled race
                 let mut rest = self.race.clone();
                 for _ in 0..(60.0 / DT) as usize {
                     if rest.cars.iter().all(|c| c.finish.is_some()) {
@@ -892,13 +816,11 @@ impl Game {
         }
     }
 
-    /// Set the frame's cells: the scene, then lettering over it.
     fn draw(&mut self) {
         let Game { shot, circuit, movers, mode, race, sel, frame, results, course, paused, .. } = self;
         let t = *frame as f32 * DT;
         let (view, clk, stand): (View3, f32, Vec<Stand>) = if *mode == Mode::Title {
             let (a, car) = (t * 0.55, at(60.0, 0.0, 0.0));
-            // the car rides high in the frame: the title above and the roster below leave the middle
             let c = car + v3(0.0, 0.0, -1.2);
             let pos = car + v3(a.cos() * 30.0, a.sin() * 30.0, 7.0);
             let d = c - pos;
@@ -941,8 +863,6 @@ impl Game {
     }
 }
 
-// ---------------------------------------------------------------- screens
-
 fn hud(cv: &mut Canvas, race: &Race, course: Course) {
     let (p, rt) = (race.player, race.time());
     let car = &race.cars[p];
@@ -956,12 +876,10 @@ fn hud(cv: &mut Canvas, race: &Race, course: Course) {
     cv.text(62, 0, &if car.laps.is_empty() { "BEST -:--.--".to_string() } else { format!("BEST {}", clock(best)) }, DIM, None);
     let knight = format!("{}  {}", NAMES[car.id], if course == Course::Hell { "HELL" } else { "CANYON" });
     cv.text(CELLS.0 - 2 - knight.len(), 0, &knight, livery(course, car.id), None);
-    // place
     cv.panel(1, 2, 17, 6, PANEL);
     cv.big(3, 3, &format!("{}", place + 1), 1, GOLD);
     cv.text(10, 3, ordinal(place), GOLD, None);
     cv.text(10, 5, "OF 4", INK, None);
-    // the order
     cv.panel(98, 2, 21, 6, PANEL);
     for (n, &id) in race.order().iter().enumerate() {
         let me = id == p;
@@ -972,7 +890,6 @@ fn hud(cv: &mut Canvas, race: &Race, course: Course) {
             cv.text(115, 3 + n, "<", GOLD, None);
         }
     }
-    // speed and boost
     cv.panel(0, CELLS.1 - 1, CELLS.0, 1, PANEL);
     cv.text(2, CELLS.1 - 1, &format!("SPEED {:>3} KM/H", (car.v * 6.0).round() as u32), INK, None);
     cv.text(24, CELLS.1 - 1, "BOOST", INK, None);
@@ -1011,7 +928,6 @@ fn hud(cv: &mut Canvas, race: &Race, course: Course) {
     minimap(cv, race, course);
 }
 
-/// The oval in dots, bottom right, with a mark for each racer.
 fn minimap(cv: &mut Canvas, race: &Race, course: Course) {
     let (col, row, w, h) = (100usize, 31usize, 18usize, 7usize);
     cv.panel(col - 1, row - 1, w + 2, h + 2, PANEL);
@@ -1034,7 +950,6 @@ fn minimap(cv: &mut Canvas, race: &Race, course: Course) {
         let c = &race.cars[id];
         let s = c.s();
         let ink = if id == race.player { INK } else { livery(course, id) };
-        // a racer is the whole cell lit
         let (x, y, _) = pose(s);
         let (dx, dy) = (((x + BEND) * sx) as usize + 1, ((2.0 * BEND - y) * sy) as usize + 1);
         if let Some(c) = cv.cell(col + dx / 2, row + dy / 4) {
@@ -1095,13 +1010,9 @@ fn finish(cv: &mut Canvas, race: &Race, course: Course) {
     cv.text(x + 4, y + 19, "R OR ENTER RACE AGAIN     T CHANGE KNIGHT     Q QUIT", INK, None);
 }
 
-// ---------------------------------------------------------------- the terminal
-
-/// Whether the terminal is ours (so a panic or a signal knows to give it back).
 static ACTIVE: AtomicBool = AtomicBool::new(false);
 static PUSHED: AtomicBool = AtomicBool::new(false);
 
-/// Give the terminal back: cooked mode, the cursor, the main screen. Safe to call twice.
 fn restore() {
     if !ACTIVE.swap(false, Ordering::SeqCst) {
         return;
@@ -1115,7 +1026,6 @@ fn restore() {
     let _ = terminal::disable_raw_mode();
 }
 
-/// The terminal while the game has it: restored when this drops, however it drops.
 struct Term {
     enhanced: bool,
 }
@@ -1142,7 +1052,6 @@ impl Drop for Term {
     }
 }
 
-/// A key that drives: held while down (with key release), or for a moment after each press.
 #[derive(Clone, Copy, Default)]
 struct Held {
     on: bool,
@@ -1157,7 +1066,6 @@ impl Held {
 
 struct Keys {
     enhanced: bool,
-    /// Left, right, throttle, brake, boost.
     held: [Held; 5],
 }
 
@@ -1197,13 +1105,11 @@ impl Keys {
     fn input(&self, now: Instant) -> Input {
         let on = |i: usize, ms: u64| self.held[i].active(now, Duration::from_millis(ms));
         let (left, right, brake) = (on(0, 200), on(1, 200), on(3, 350));
-        // without key release the gas is automatic (a held key would stutter on the repeat delay)
         let gas = if self.enhanced { on(2, 0) } else { !brake };
         Input { steer: left as i32 as f32 - right as i32 as f32, throttle: gas as i32 as f32, brake, boost: on(4, 400) }
     }
 }
 
-/// Play in this terminal.
 pub fn live(course: Course, knight: usize) -> Result<(), Box<dyn Error>> {
     if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
         return Err("the game needs a terminal (try --autopilot to watch a race headless)".into());
@@ -1234,7 +1140,6 @@ fn play(game: &mut Game, enhanced: bool, stop: &AtomicBool) -> Result<(), Box<dy
     let mut size = (0u16, 0u16);
     let mut next = Instant::now();
     loop {
-        // the rest of the tick goes to the keyboard
         loop {
             let left = next.saturating_duration_since(Instant::now());
             if !event::poll(left)? {
@@ -1292,8 +1197,6 @@ fn play(game: &mut Game, enhanced: bool, stop: &AtomicBool) -> Result<(), Box<dy
     }
 }
 
-// ---------------------------------------------------------------- headless
-
 pub struct Opts {
     pub course: Course,
     pub knight: usize,
@@ -1303,7 +1206,6 @@ pub struct Opts {
     pub every: u32,
 }
 
-/// `FRAME keys...` lines: from that tick on, those keys are held.
 fn parse(script: &str) -> Result<Vec<(u32, Input)>, String> {
     let mut out = vec![];
     for (n, line) in script.lines().enumerate() {
@@ -1330,7 +1232,6 @@ fn parse(script: &str) -> Result<Vec<(u32, Input)>, String> {
     Ok(out)
 }
 
-/// Drive a race with no terminal: a script or a driver at the wheel, a report at the end.
 pub fn headless(o: Opts) -> Result<(), Box<dyn Error>> {
     let script = o.script.as_deref().map(|p| std::fs::read_to_string(p).map_err(|e| format!("{p}: {e}")).and_then(|s| parse(&s))).transpose()?;
     let mut game = Game::new(o.course, o.knight);
@@ -1353,7 +1254,6 @@ pub fn headless(o: Opts) -> Result<(), Box<dyn Error>> {
                 held = i;
             }
         } else {
-            // the driver works the keys a player has: left, right or neither
             held = game.race.ai(&game.circuit.track, game.race.player);
             held.steer = if held.steer.abs() < 0.25 { 0.0 } else { held.steer.signum() };
         }

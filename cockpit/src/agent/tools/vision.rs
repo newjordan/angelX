@@ -4,8 +4,10 @@
 //! people bolt a small OpenAI-compatible VLM in front — describe frames to
 //! text, then let the main model reason. Qwen-MM-Plugins is the popular full
 //! plugin stack; the lightweight fit for angel is the same idea we already
-//! use for `video_look`: `ANGEL_VISION_URL` + `ANGEL_VISION_MODEL` (+ key),
-//! with Kimi or the signed-in Codex image model as fallback routes.
+//! use for `video_look`: `ANGEL_VISION_URL` + `ANGEL_VISION_MODEL` (+ key).
+//! An in-hand model that accepts images looks with itself. A text-only driver
+//! falls through to the signed-in Codex image model. Kimi credentials are not
+//! a vision route.
 //!
 //! This module:
 //! - resolves that vision backend once
@@ -24,12 +26,18 @@ use std::time::Duration;
 
 const MEDIA_DURATION_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// Run/registry-owned backend. Creation never rereads catalog or auth.
 #[derive(Clone)]
 pub(crate) struct VisionBackend(pub Result<Arc<dyn Club>, String>);
 impl VisionBackend {
     pub(crate) fn new(run: Option<&crate::agent::codex_startup::CodexStartup>) -> Self {
-        Self(resolve_vision_club_in(run))
+        Self::for_driver(run, None)
+    }
+
+    pub(crate) fn for_driver(
+        run: Option<&crate::agent::codex_startup::CodexStartup>,
+        in_hand: Option<&Arc<dyn Club>>,
+    ) -> Self {
+        Self(resolve_vision_club_in(run, in_hand))
     }
     pub(crate) fn configured(&self) -> bool {
         self.0.is_ok()
@@ -38,6 +46,7 @@ impl VisionBackend {
 
 fn resolve_vision_club_in(
     run: Option<&crate::agent::codex_startup::CodexStartup>,
+    in_hand: Option<&Arc<dyn Club>>,
 ) -> Result<Arc<dyn Club>, String> {
     if let (Some(url), Some(model)) = (
         std::env::var("ANGEL_VISION_URL").ok(),
@@ -46,42 +55,20 @@ fn resolve_vision_club_in(
         let key = std::env::var("ANGEL_VISION_KEY").ok();
         return Ok(Arc::new(HttpClub::new("vision", url, model, key)));
     }
-    if let (Ok(url), Ok(key)) = (
-        std::env::var("ANGEL_KIMI_URL"),
-        std::env::var("ANGEL_KIMI_KEY"),
-    ) {
-        let model = std::env::var("ANGEL_KIMI_MODEL").unwrap_or_else(|_| "k3-256k".into());
-        return Ok(Arc::new(HttpClub::new(
-            "kimi-vision",
-            url,
-            model,
-            Some(key),
-        )));
+    if let Some(club) = in_hand
+        .filter(|club| club_can_read_images(club.as_ref()) && !is_kimi_seat(club.as_ref()))
+    {
+        return Ok(Arc::clone(club));
     }
     run.ok_or("no vision backend configured: no run Codex context")?
         .vision_club()
         .map_err(|e| format!("no vision backend configured ({e})"))
 }
 
-/// Sidecar arming: default on when a vision backend is configured.
-/// `ANGEL_VISION_SIDECAR=0` disables auto `/see` rewrite (tools stay available).
 fn vision_sidecar_enabled_in(backend: &VisionBackend) -> bool {
     env_flag("ANGEL_VISION_SIDECAR", true) && backend.configured()
 }
 
-/// True when the in-hand club cannot take image parts natively.
-///
-/// Declared capability wins. A club that publishes
-/// `RouteMetadata.input_modalities` — the HTTP static model map, the Codex
-/// catalog, the Grok route — is believed: natively multimodal models keep
-/// their attachments and never pay a sidecar hop. Only clubs that declare
-/// *nothing* fall back to the name heuristic, where known vision fragments
-/// short-circuit to false and the text-only families (local/fleet DeepSeek V4
-/// serves, V4 Pro) are caught. A current cloud V4.1 Flash is `deepseek-flash`
-/// and is natively multimodal, so neither list may claim the live cloud id: the
-/// configured DeepSeek route states its own capability, and the retired
-/// `deepseek-v4-flash` fallback only covers an undeclared serve that still uses
-/// the old checkpoint name.
 pub(crate) fn club_is_text_only_for_vision(club: &dyn Club) -> bool {
     let meta = club.route_metadata();
     if !meta.input_modalities.is_empty() {
@@ -102,6 +89,32 @@ pub(crate) fn club_is_text_only_for_vision(club: &dyn Club) -> bool {
     text_only_name(&hay)
 }
 
+fn club_can_read_images(club: &dyn Club) -> bool {
+    let meta = club.route_metadata();
+    if !meta.input_modalities.is_empty() {
+        return meta
+            .input_modalities
+            .iter()
+            .any(|m| m.eq_ignore_ascii_case("image"));
+    }
+    let label = club.label().to_ascii_lowercase();
+    let model = club
+        .model_identity()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    vision_capable_name(&format!("{label} {model}"))
+}
+
+fn is_kimi_seat(club: &dyn Club) -> bool {
+    let label = club.label().to_ascii_lowercase();
+    let model = club
+        .model_identity()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let hay = format!("{label} {model}");
+    hay.contains("kimi") || hay.contains("moonshot")
+}
+
 fn vision_capable_name(hay: &str) -> bool {
     [
         "vision",
@@ -114,6 +127,7 @@ fn vision_capable_name(hay: &str) -> bool {
         "gpt-4o",
         "gpt-4.1",
         "gpt-5",
+        "gpt-6",
         "claude-3",
         "claude-4",
         "gemini",
@@ -121,27 +135,13 @@ fn vision_capable_name(hay: &str) -> bool {
         "qwen2.5-vl",
         "qwen2-vl",
         "qwen-vl",
-        "kimi-vl",
     ]
     .iter()
     .any(|needle| hay.contains(needle))
 }
 
-/// Fallback text-only families, consulted only when a club declares no
-/// `input_modalities` — a declared route (the configured DeepSeek seat, the
-/// Codex catalog, the Grok route) always wins, so nothing here can override a
-/// provider's own capability statement.
 fn text_only_name(hay: &str) -> bool {
     [
-        // The retired V4 Flash id: an undeclared route serving it is presumed
-        // the older text-only checkpoint (a local/fleet serve reusing the old
-        // name), never the cloud model. The configured DeepSeek route declares
-        // `text+image` and never reaches this fallback.
-        //
-        // The live cloud id (`deepseek-flash`) is absent on purpose: matching it
-        // by name is what routed screenshots through the sidecar (2026-09-17
-        // repair). Cloud V4 Pro and the retired chat/reasoner ids stay
-        // text-only.
         "deepseek-v4-flash",
         "deepseek-v4-pro",
         "deepseek-chat",
@@ -156,7 +156,6 @@ fn text_only_name(hay: &str) -> bool {
     .any(|needle| hay.contains(needle))
 }
 
-/// Force sidecar even when the club looks multimodal (`ANGEL_VISION_SIDECAR=force`).
 pub(crate) fn vision_sidecar_forced() -> bool {
     matches!(
         std::env::var("ANGEL_VISION_SIDECAR")
@@ -168,7 +167,6 @@ pub(crate) fn vision_sidecar_forced() -> bool {
     )
 }
 
-/// Should we rewrite this user message's image attachments into text?
 pub(crate) fn should_apply_vision_sidecar_in(
     backend: &VisionBackend,
     club: &dyn Club,
@@ -193,8 +191,6 @@ pub(crate) fn should_apply_vision_sidecar_in(
     club_is_text_only_for_vision(club)
 }
 
-/// Ask the vision club about pre-encoded media. Pure network side-effect.
-/// Callers must not run this on the UI/draw thread — `club.chat` blocks.
 pub(crate) fn describe_media_in(
     backend: &VisionBackend,
     media: Vec<Media>,
@@ -211,8 +207,6 @@ pub(crate) fn describe_media_in(
     }
     let club = vision_describe_club(backend)?;
     let msg = ChatMsg::user_with_media(question, media);
-    // Connected: the describer is offered the ledger reader alone, so a
-    // question sent as routes (the sidecar's `⠸⠙`) reads like any seat's.
     let workspace = crate::agent::harness::book::connect::workspace();
     let reply =
         crate::agent::harness::book::connect::converse(&workspace, &[msg], |history, tools| {
@@ -242,8 +236,6 @@ fn vision_describe_club(backend: &VisionBackend) -> Result<Arc<dyn Club>, String
     backend.0.clone()
 }
 
-/// One image request, without starting a cockpit session or an agent tool loop.
-/// Useful to running sessions whose binary predates automatic vision routing.
 pub(crate) fn image_cli(mut args: impl Iterator<Item = std::ffi::OsString>) -> std::io::Result<()> {
     let invalid = |message| std::io::Error::new(std::io::ErrorKind::InvalidInput, message);
     let usage = "usage: angel --look-image IMAGE QUESTION";
@@ -268,8 +260,6 @@ pub(crate) fn image_cli(mut args: impl Iterator<Item = std::ffi::OsString>) -> s
     Ok(())
 }
 
-/// The sidecar's describe question: `⠸⠙⠁⠸⠙⠃` for a bare image, or `⠸⠙⠉`, the
-/// operator's own question, then `⠸⠙⠙`.
 pub(crate) fn sidecar_question(operator: &str) -> String {
     use crate::agent::harness::book::{d3_roles::pages, d456_knowledge::VISION};
     if operator.is_empty() {
@@ -283,8 +273,6 @@ pub(crate) fn sidecar_question(operator: &str) -> String {
     }
 }
 
-/// The rewritten user frame: `⠸⠙⠑` with the backend and the image count, the
-/// description, then `⠸⠙⠛` with the operator's question beside it.
 pub(crate) fn sidecar_body(backend: &str, n: usize, description: &str, operator: &str) -> String {
     use crate::agent::harness::book::{d3_roles::pages, d456_knowledge::VISION};
     let mut body = format!("{} {backend} · {n}\n{description}", pages(VISION, [5]));
@@ -295,11 +283,6 @@ pub(crate) fn sidecar_body(backend: &str, n: usize, description: &str, operator:
     body
 }
 
-/// Rewrite a user message that carries images into text-only form the main
-/// (text) club can consume. Returns a short operator-facing notice on success.
-///
-/// On failure leaves `msg` unchanged and returns `Err` so the caller can surface
-/// the backend problem instead of silently sending bare base64 to DeepSeek.
 fn apply_vision_sidecar_in(
     backend: &VisionBackend,
     club: &dyn Club,
@@ -321,16 +304,12 @@ fn apply_vision_sidecar_in(
     let question = sidecar_question(msg.content.trim());
     let (backend, description) = describe_media_in(backend, images, &question)?;
     let body = sidecar_body(&backend, n, &description, msg.content.trim());
-    // Drop image parts so a text-only endpoint never sees image_url (400).
-    // Keep non-image attachments (audio) if any.
     let remaining: Vec<Media> = msg
         .attachments
         .iter()
         .filter(|m| !matches!(m, Media::Image { .. }))
         .cloned()
         .collect();
-    // Preserve the message's durable conversation metadata, including its
-    // book generation binding, while replacing the image-bearing content.
     msg.content = body.into();
     msg.attachments = remaining.into();
     Ok(Some(format!(
@@ -339,9 +318,6 @@ fn apply_vision_sidecar_in(
     )))
 }
 
-/// Strip image parts from a text-only driver so a failed sidecar cannot 400
-/// the first provider hop. Leaves attachments in place when the club can take
-/// them natively.
 pub(crate) fn drop_images_if_text_only(club: &dyn Club, msg: &mut ChatMsg) {
     if !club_is_text_only_for_vision(club) {
         return;
@@ -359,7 +335,6 @@ pub(crate) fn drop_images_if_text_only(club: &dyn Club, msg: &mut ChatMsg) {
         .filter(|media| !matches!(media, Media::Image { .. }))
         .cloned()
         .collect();
-    // `⠸⠙⠋`: the sidecar was unavailable and the images were dropped.
     let note = format!(
         "{}\n\n{}",
         msg.content.trim(),
@@ -372,9 +347,6 @@ pub(crate) fn drop_images_if_text_only(club: &dyn Club, msg: &mut ChatMsg) {
     msg.attachments = remaining.into();
 }
 
-/// Rewrite image-bearing user turns in `convo` before hop 1. Cheap no-op when
-/// `should_apply_vision_sidecar` is false (no images / sidecar off / no backend).
-/// Must run on the agent-turn worker so the UI thread never blocks on `club.chat`.
 pub(crate) fn fold_vision_sidecar_into_convo_in(
     backend: &VisionBackend,
     club: &dyn Club,
@@ -397,7 +369,6 @@ pub(crate) fn fold_vision_sidecar_into_convo_in(
     notices
 }
 
-/// Compact system/tool hint when the sidecar is armed for a text-only driver.
 pub(crate) fn vision_sidecar_prompt_hint_in(
     backend: &VisionBackend,
     club: &dyn Club,
@@ -408,15 +379,9 @@ pub(crate) fn vision_sidecar_prompt_hint_in(
     if !club_is_text_only_for_vision(club) && !vision_sidecar_forced() {
         return None;
     }
-    // `⠝⠉`: the text-only driver's eyes; the words are its ledger pages.
     Some(crate::agent::harness::book::n_environment::VISION.cells())
 }
 
-// ---------------------------------------------------------------------------
-// vision_look — still images (and videos via ffmpeg frames) for the agent
-// ---------------------------------------------------------------------------
-
-/// Workspace-confined path helper (same rules as video tools).
 fn confined_path(workspace: &Path, raw: &str) -> Result<PathBuf, String> {
     if raw.trim().is_empty() {
         return Err("path must not be empty".to_string());
@@ -476,10 +441,6 @@ fn probe_duration_command_with_timeout(
     cmd: std::process::Command,
     timeout: Duration,
 ) -> Option<f64> {
-    // Duration discovery sits synchronously inside an agent-facing tool call.
-    // A malformed clip or wedged ffprobe must not own the turn forever, even
-    // under YOLO. The result is a tiny scalar, so overflow or any incomplete
-    // capture fails closed and callers retain their explicit-timestamp escape.
     let capture = crate::agent::harness::output_timed_fixed_captured(cmd, timeout).ok()?;
     if capture.timed_out
         || capture.cancelled
@@ -494,8 +455,6 @@ fn probe_duration_command_with_timeout(
         .ok()
 }
 
-/// Agent-facing eyes for text-only clubs: look at a workspace image (or sample
-/// frames from a video) via the vision sidecar backend.
 pub(crate) struct VisionLookTool {
     backend: VisionBackend,
     workspace: PathBuf,
@@ -601,14 +560,10 @@ impl Tool for VisionLookTool {
     }
 }
 
-/// Register `vision_look` whenever a vision backend is configured.
-/// Independent of `ANGEL_VIDEO_TOOLS` so DeepSeek sessions get eyes without
-/// the full edit suite.
 pub(crate) fn maybe_register_vision_tools(
     r: &mut crate::agent::harness::ToolRegistry,
     workspace: PathBuf,
 ) {
-    // Default on when backend is set; ANGEL_VISION_TOOLS=0 opts out.
     if !env_flag("ANGEL_VISION_TOOLS", true) {
         return;
     }
@@ -638,7 +593,6 @@ fn test_vision_club_slot() -> &'static std::sync::Mutex<Option<Arc<dyn Club>>> {
     SLOT.get_or_init(|| std::sync::Mutex::new(None))
 }
 
-/// Dummy club used only in pure unit tests of sidecar gating.
 #[cfg(test)]
 struct LabelOnlyClub {
     label: &'static str,

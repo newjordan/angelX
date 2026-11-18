@@ -33,7 +33,6 @@ fn parts() -> &'static Vec<Img> {
     })
 }
 
-/// Every library ramp colour, to the ramp and step it belongs to.
 fn lut() -> &'static HashMap<[u8; 3], (Material, usize)> {
     static LUT: OnceLock<HashMap<[u8; 3], (Material, usize)>> = OnceLock::new();
     LUT.get_or_init(|| {
@@ -57,7 +56,6 @@ fn ramp(m: Material, step: usize) -> [u8; 3] {
     kit().ramps.get(m.ramp()).and_then(|r| r.get(step)).map_or([255, 0, 255], |h| rgb(h))
 }
 
-/// The ramps a school's glow repaints: everything on a magic part that is not metal.
 const MAGIC: [Material; 8] = [
     Material::Cloth,
     Material::Shell,
@@ -84,7 +82,6 @@ fn repaint(c: [u8; 3], slot: &str, magic: bool, w: &WeaponCreation) -> [u8; 3] {
     if to == from { c } else { ramp(to, step) }
 }
 
-/// A part as placed: haft or blade stretched, scaled, flipped.
 fn shaped(q: &Placed) -> Img {
     let src = &parts()[q.kit];
     let mut im = src.clone();
@@ -129,7 +126,6 @@ fn painted(w: &WeaponCreation, q: &Placed) -> Img {
     im
 }
 
-/// The weapon on its own axis (tip to the right), every part repainted.
 pub fn assembled(w: &WeaponCreation, _mark: Option<&str>) -> Option<Img> {
     let a = w.assemble()?;
     let mut canvas = Img::new(a.size.0, a.size.1);
@@ -139,7 +135,6 @@ pub fn assembled(w: &WeaponCreation, _mark: Option<&str>) -> Option<Img> {
     Some(canvas)
 }
 
-/// Only one slot's pixels, on a canvas the weapon's size: the part the picker is on.
 pub fn part_mask(w: &WeaponCreation, slot: &str) -> Option<Img> {
     let a = w.assemble()?;
     let mut canvas = Img::new(a.size.0, a.size.1);
@@ -149,10 +144,6 @@ pub fn part_mask(w: &WeaponCreation, slot: &str) -> Option<Img> {
     Some(canvas)
 }
 
-/// What the stage shows: the weapon standing on its pommel or lying along the slab, whichever
-/// shrinks it less, with a one-pixel margin all round and, when `mark` names a slot, that part's
-/// outline in teal at display size (so a reduced weapon still shows where the picker is).
-/// Returns the picture and the whole ratio it was shrunk by.
 pub fn display(w: &WeaponCreation, mark: Option<&str>, up_box: (i32, i32), lie_box: (i32, i32)) -> Option<(Img, i32)> {
     let canvas = assembled(w, None)?;
     let (up, k_up) = fitted(&upright(&canvas), up_box.0, up_box.1);
@@ -185,7 +176,6 @@ pub fn display(w: &WeaponCreation, mark: Option<&str>, up_box: (i32, i32), lie_b
     Some((out, k))
 }
 
-/// The held pose: the axis turned to point up, as `weapon-up.png` is cut.
 pub fn upright(canvas: &Img) -> Img {
     let mut up = Img::new(canvas.h, canvas.w);
     for y in 0..canvas.h {
@@ -198,7 +188,6 @@ pub fn upright(canvas: &Img) -> Img {
     up
 }
 
-/// Shrunk by a whole ratio, a block keeping its most common colour, so outlines survive.
 fn reduced(im: &Img, k: i32) -> Img {
     let (w, h) = ((im.w + k - 1) / k, (im.h + k - 1) / k);
     let mut out = Img::new(w, h);
@@ -225,8 +214,6 @@ fn reduced(im: &Img, k: i32) -> Img {
     out
 }
 
-/// The held weapon fitted to the stage by the largest whole ratio that fits (1, 1/2, 1/3, 1/4).
-/// Returns the picture and the denominator, so the stage can say it is shrunk.
 pub fn fitted(upright: &Img, max_w: i32, max_h: i32) -> (Img, i32) {
     for k in 1..=4 {
         let (w, h) = ((upright.w + k - 1) / k, (upright.h + k - 1) / k);
@@ -237,8 +224,6 @@ pub fn fitted(upright: &Img, max_w: i32, max_h: i32) -> (Img, i32) {
     (reduced(upright, 4), 4)
 }
 
-/// A glint travelling along the metal every few seconds, and a slow pulse in a gem: the idle
-/// shimmer of the arms library's weapons. `age` is in ticks.
 pub fn shimmer(im: &mut Img, tick: u64, gem: Option<School>) {
     const PERIOD: u64 = 96;
     let span = im.w + im.h + 24;
@@ -250,7 +235,6 @@ pub fn shimmer(im: &mut Img, tick: u64, gem: Option<School>) {
             let d = ((x + (im.h - 1 - y)) - at).abs();
             let lum = (u32::from(c[0]) + u32::from(c[1]) + u32::from(c[2])) / 3;
             if d <= 2 && lum > 70 {
-                // A glint with a soft shoulder: bright in the middle, fading over two pixels.
                 let k = [0.9, 0.55, 0.25][d as usize];
                 im.set(x, y, c.map(|v| (f32::from(v) + (255.0 - f32::from(v)) * k) as u8));
             } else if gem.is_some() && lum > 150 && c[0].abs_diff(c[2]) > 40 {
@@ -261,7 +245,6 @@ pub fn shimmer(im: &mut Img, tick: u64, gem: Option<School>) {
     }
 }
 
-/// What the stage says under the weapon.
 pub fn kind_label(kind: WeaponKind) -> &'static str {
     match kind {
         WeaponKind::Blade => "BLADE",

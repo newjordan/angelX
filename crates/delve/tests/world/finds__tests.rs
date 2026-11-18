@@ -20,14 +20,11 @@ fn a_run_finds_thirty_things_out_in_the_open_from_its_seed() {
         }
         let wastes = all.iter().filter(|f| f.biome == Biome::Wastes).count();
         assert!(wastes >= 5, "the Wastes hold the most: {wastes}");
-        // The new kinds are out there, and most finds stand in the clearing
-        // of a wild camp at the end of a footpath.
         for kind in [Kind::LostPack, Kind::Hermit, Kind::Well] {
             assert!(all.iter().any(|f| f.kind == kind), "seed {seed}: no {kind:?}");
         }
         let walked = all.iter().filter(|f| camps.trail(f.at.0, f.at.1)).count();
         assert!(walked * 10 >= all.len() * 8, "seed {seed}: only {walked} of {} are at a footpath's end", all.len());
-        // Every biome has its share, the quieter ones included.
         for (home, share, _) in SHARE.iter().take(8) {
             assert!(all.iter().filter(|f| f.biome == *home).count() >= *share, "seed {seed}: {home:?} short");
         }

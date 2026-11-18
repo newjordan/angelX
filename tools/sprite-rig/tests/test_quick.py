@@ -1,4 +1,3 @@
-"""Quick rig behavior: source fidelity, editable hierarchy, final pixel contract."""
 import copy
 import json
 
@@ -16,27 +15,26 @@ def pal():
 
 
 def humanoid(size=24, pal=None):
-    """Asymmetric native sprite with separately visible hands/feet and a cape."""
     pal = pal or Q._palette()
     colors = list(dict.fromkeys(pal.values()))
     im = Image.new('RGBA', (24, 24))
     d = ImageDraw.Draw(im)
     def rect(box, i):
         d.rectangle(box, fill=(*colors[i], 255))
-    rect((5, 7, 7, 19), 6)       # rear cape
-    rect((8, 2, 14, 6), 12)      # head
-    rect((14, 4, 16, 5), 13)     # facing-right nose
-    rect((9, 7, 14, 13), 8)      # torso
-    rect((7, 8, 8, 10), 10)      # rear upper arm
-    rect((6, 11, 7, 13), 9)      # rear forearm
-    rect((6, 14, 7, 16), 11)     # rear hand
-    rect((15, 8, 16, 10), 10)    # front upper arm
-    rect((16, 11, 17, 13), 9)    # front forearm
-    rect((17, 14, 18, 16), 11)   # front hand
-    rect((9, 14, 10, 20), 5)     # rear leg
-    rect((12, 14, 14, 20), 7)    # front leg
-    rect((8, 21, 11, 22), 8)     # rear foot
-    rect((12, 21, 16, 22), 10)   # front foot
+    rect((5, 7, 7, 19), 6)
+    rect((8, 2, 14, 6), 12)
+    rect((14, 4, 16, 5), 13)
+    rect((9, 7, 14, 13), 8)
+    rect((7, 8, 8, 10), 10)
+    rect((6, 11, 7, 13), 9)
+    rect((6, 14, 7, 16), 11)
+    rect((15, 8, 16, 10), 10)
+    rect((16, 11, 17, 13), 9)
+    rect((17, 14, 18, 16), 11)
+    rect((9, 14, 10, 20), 5)
+    rect((12, 14, 14, 20), 7)
+    rect((8, 21, 11, 22), 8)
+    rect((12, 21, 16, 22), 10)
     return im if size == 24 else im.resize((size, size), Image.Resampling.NEAREST)
 
 
@@ -87,20 +85,16 @@ def test_all_clips_fixed_contract_source_fidelity_and_motion(size, pal):
             assert set(frame['anchors']) == set(Q.ANCHORS)
             assert all(type(v) is int for p in frame['anchors'].values() for v in p)
         assert len({tuple(f['rows']) for f in frames}) > 1, name
-    # No extra pixels, recoloring, scale, accidental corner key, alpha halo or
-    # duplicated silhouette at the zero pose, even with shared seam collars.
     expected = np.full((h, w), '.', dtype='<U1')
     ink = Q._inks(np.asarray(im), pal)
     ox, oy = np.array(rig['pivot'])-rig['origin']
     expected[oy:oy+size, ox:ox+size] = ink
     np.testing.assert_array_equal(array(game['clips']['idle'][0]), expected)
-    # Intentional anticipation/action/recovery, not constant-speed waving.
     for name in ('slash', 'overhead', 'thrust', 'flail'):
         poses = rig['clips'][name]
         assert any(p['smear'] for p in poses)
         assert min(p['ticks'] for p in poses) < poses[0]['ticks']
         assert not poses[-1]['angles']
-    # Death settles rather than snapping upright, and remains on one floor.
     die = [array(f) for f in game['clips']['die']]
     assert not np.array_equal(die[0], die[-1])
     assert all(np.nonzero(a != '.')[0].max() == rig['pivot'][1] for a in die)
@@ -126,7 +120,6 @@ def test_sheet_extraction_left_normalization_and_alpha(pal, tmp_path):
     expected = Q._inks(Q._image(Image.fromarray(raw)), pal)
     np.testing.assert_array_equal(arr[dy:dy+24, dx:dx+24], expected)
     assert rig['source']['cell'] == 3
-    # Palette mapping is Euclidean nearest and keeps alpha separate from RGB.
     opaque = Q._image(Image.fromarray(raw))
     opaque[4, 12] = [91, 132, 183, 255]
     ink = Q._inks(opaque, pal)[4, 12]
@@ -148,8 +141,6 @@ def test_opaque_background_is_not_implicitly_keyed_and_key_is_exact():
 def test_manual_fixups_masks_joint_hierarchy_and_shared_anchors(tmp_path):
     im = humanoid()
     rig = rest_rig(im)
-    # Force an anchor to a known pixel; its runtime location must use exactly
-    # the same chained rigid transform as the source texture, not a heuristic.
     rig['seam_radius'] = 0
     rig['joints']['shoulder_f'] = [16, 8]
     rig['joints']['elbow_f'] = [16, 11]
@@ -161,14 +152,10 @@ def test_manual_fixups_masks_joint_hierarchy_and_shared_anchors(tmp_path):
     rig = Q.load_rig(tmp_path/'rig.json')
     game = Q.build(im, rig)
     anchor = game['clips']['idle'][0]['anchors']['grip']
-    # Upper arm rotates elbow [16,11] to [19,8], forearm's local +90
-    # cancels parent -90, so [17,15] becomes [20,12].
     delta = np.array(rig['pivot'])-rig['origin']
     assert anchor == (np.array([20, 12])+delta).tolist()
     tip = game['clips']['idle'][0]['anchors']['tip']
     assert np.array_equal(np.array(tip)-anchor, [0, -5])
-    # Paint a source head pixel into the front hand: source still identical at
-    # rest, then this exact ink travels with the hand in the edited pose.
     changed = copy.deepcopy(rig)
     y, x = 4, 12
     for part in changed['parts'].values():
@@ -184,7 +171,6 @@ def test_inverse_sampling_solid_rotated_part_has_no_forward_scatter_holes():
     r = Q._rotation(31)
     t = np.array([20, 20])-r@np.array([7, 7])
     Q._stamp(out, texture, (r, t))
-    # Every pixel with an inverse coordinate inside the source is occupied.
     Y, X = np.mgrid[:40, :40]
     source = np.floor((np.stack([X, Y], -1)-t)@r+.5).astype(int)
     expected = np.all((source >= 0) & (source < 15), axis=-1)
@@ -227,8 +213,6 @@ def test_export_png_sheet_json_gif_pixels_transparency_and_ticks(tmp_path):
             assert (gif.info.get('loop') == 0) == (name == 'idle')
             duration = 0
             for frame in ImageSequence.Iterator(gif):
-                # Pillow combines identical consecutive frames; match the
-                # original pose at this cumulative 30Hz/centisecond boundary.
                 elapsed, index = 0, 0
                 while index+1 < len(frames) and round((elapsed+frames[index]['ticks'])*100/30)*10 <= duration:
                     elapsed += frames[index]['ticks']
@@ -390,8 +374,6 @@ def test_non_string_part_references_fail_cleanly(location):
 
 
 def test_autofit_contacts_are_real_source_pixels(pal):
-    # Remove the distal half of each painted hand: a proportional wrist lies
-    # in air, but the visible lower-arm end must still own a real hand contact.
     raw = np.asarray(humanoid(pal=pal)).copy()
     raw[15:17, :8] = 0
     raw[15:17, 17:] = 0
@@ -416,7 +398,7 @@ def test_every_contact_hits_exact_transformed_owner_not_seam_or_other_limb(size)
     rig = Q.fit(image)
     before = copy.deepcopy(rig)
     game = Q.build(image, rig)
-    assert rig == before  # mutable clips/anchor data are not used as work buffers
+    assert rig == before
     ink = Q._inks(Q._image(image), Q._palette())
     textures = Q._textures(rig, ink)
     w, h = rig['canvas']
@@ -430,8 +412,6 @@ def test_every_contact_hits_exact_transformed_owner_not_seam_or_other_limb(size)
                     continue
                 anchor = rig['anchors'][name]
                 part = anchor['part']
-                # Replay inverse-nearest sampling of ONLY this original mask,
-                # not expanded seam texture, whole-body ink or nearby pixels.
                 mask = np.array([list(row) for row in rig['parts'][part]['mask']]) == '#'
                 layer = np.full((h, w), '.', dtype='<U1')
                 Q._stamp(layer, np.where(mask, ink, '.'), transforms[part])
@@ -497,7 +477,6 @@ def test_runtime_limits_inclusive_and_no_invented_total_tick_cap():
     frame['rows'] = [frame['rows'][0]*128]*128
     game['canvas'] = [128, 128]
     assert Q.validate_game(game) is game
-    # Rig::parse sums u64 ticks, with no 216000-total-tick restriction.
     game = tiny_game()
     frame = game['clips']['idle'][0]
     frame['ticks'] = 3600
@@ -610,7 +589,6 @@ def test_bounded_file_inputs_and_duplicate_json_fields(tmp_path, monkeypatch):
     path.write_text('{"version":1,"version":1}')
     with pytest.raises(ValueError, match='duplicate'):
         Q.load_rig(path)
-    # Oversized frame/clip counts are rejected before a raster or sheet allocation.
     game = tiny_game()
     game['clips']['idle'] *= 129
     def forbidden(*args, **kwargs):
@@ -687,7 +665,6 @@ def test_feet_follow_own_contact_chain_and_tip_is_not_snapped():
 
 @pytest.fixture(scope='module')
 def native_knight():
-    """The production 16px source, not a resized or synthetic humanoid."""
     from pathlib import Path
     sample = Path(Q.__file__).parents[1]/'samples/quick/knight'
     image = sample/'source.png'
@@ -697,7 +674,6 @@ def native_knight():
 
 
 def _owned_pixels(rig, pose, ink, parts):
-    """Render original owning masks only: no borrowed seams or other body ink."""
     transforms, _ = Q._transforms(rig, pose)
     layer = np.full(tuple(reversed(rig['canvas'])), '.', dtype='<U1')
     for name in parts:
@@ -715,7 +691,6 @@ def test_native_16px_idle_and_ranged_body_signal(native_knight, kind):
     ink = Q._inks(Q._image(image), Q._palette())
     clips = game['clips']
 
-    # Idle must move actual helmet pixels, not just a virtual tip or a cuff.
     rest = _owned_pixels(rig, rig['clips']['idle'][0], ink, ('head',))
     breath = _owned_pixels(rig, rig['clips']['idle'][2], ink, ('head',))
     assert np.count_nonzero(rest != breath) >= 8
@@ -738,7 +713,6 @@ def test_native_16px_idle_and_ranged_body_signal(native_knight, kind):
     assert cheek_distance(bow[4]) > cheek_distance(bow[2])
 
     gun = clips['gun']
-    # Whole-body kick includes the planted leg chain, not merely an arm twitch.
     for name, dx in (('feet', 2), ('back', 2), ('head', 2)):
         assert gun[2]['anchors'][name][0] <= gun[1]['anchors'][name][0]-dx
     assert rig['clips']['gun'][2]['offset'][0] == -2
@@ -770,13 +744,12 @@ def test_production_native_rebuild_floor_and_owning_contacts(native_knight):
             assert np.nonzero(array(frame) != '.')[0].max() == game['pivot'][1]
     for name, poses in rig['clips'].items():
         for pose, frame in zip(poses, game['clips'][name]):
-            # roll/die additionally ground their transforms inside build().
             ts, base = Q._transforms(rig, pose)
             if name in ('roll', 'die'):
                 ts, base = Q._ground(rig, ts, base, Q._textures(rig, ink))
             for contact, anchor in rig['anchors'].items():
                 if contact == 'tip':
-                    continue  # deliberately virtual weapon direction
+                    continue
                 x, y = anchor['point']
                 assert rig['parts'][anchor['part']]['mask'][y][x] == '#'
                 layer = np.full(tuple(reversed(rig['canvas'])), '.', dtype='<U1')
@@ -785,7 +758,6 @@ def test_production_native_rebuild_floor_and_owning_contacts(native_knight):
                 x, y = frame['anchors'][contact]
                 assert layer[y, x] != '.', (name, contact)
 
-    # Each improved frame remains one hard-pixel mass, without detached limbs.
     for name in ('idle', 'bow', 'gun', 'hurt', 'cast'):
         for frame in game['clips'][name]:
             pixels = set(zip(*np.nonzero(array(frame) != '.')))
@@ -806,7 +778,6 @@ def test_production_native_rebuild_floor_and_owning_contacts(native_knight):
                                               ([1]*6, [30, 40, 30, 30, 40, 30]),
                                               ([2, 3, 4], [70, 100, 130])])
 def test_gif_game_clock_30_ticks_per_second(tmp_path, ticks, expected_ms):
-    # Independent expected boundaries: 6 Delve ticks == 200ms, never 100ms.
     game = tiny_game()
     game['canvas'] = [2, 1]
     first = game['clips']['idle'][0]
@@ -818,4 +789,4 @@ def test_gif_game_clock_30_ticks_per_second(tmp_path, ticks, expected_ms):
     manifest = Q.export(game, tmp_path)
     with Image.open(tmp_path/'idle.gif') as gif:
         assert [f.info['duration'] for f in ImageSequence.Iterator(gif)] == expected_ms
-    assert manifest['clips']['idle']['ticks'] == ticks  # JSON keeps game ticks
+    assert manifest['clips']['idle']['ticks'] == ticks

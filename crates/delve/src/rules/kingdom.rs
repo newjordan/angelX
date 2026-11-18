@@ -5,7 +5,6 @@ use super::map::{self, MAP_H, MAP_W};
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct State {
-    /// The company is walking the replaceable player-built surface.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub frontier: bool,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -14,19 +13,14 @@ pub struct State {
     pub claim_bosses: BTreeMap<String, super::claim_bosses::Encounter>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub ore_sentries: BTreeMap<String, super::ore_threats::Encounter>,
-    /// How stirred the Deep is by the party's digging, the faces cut this
-    /// expedition and the claims under raid (`stir`).
     #[serde(default, skip_serializing_if = "super::stir::Stir::is_calm")]
     pub stir: super::stir::Stir,
-    /// The knights whose E was down last tick, so a press that takes a block
-    /// from a friend is one press (`quarrying`). Never saved nor sent.
     #[serde(
         default,
         skip_serializing_if = "crate::rules::runtime_state::omit",
         deserialize_with = "crate::rules::runtime_state::transient"
     )]
     pub carry_held: std::collections::BTreeSet<u32>,
-    /// Capacity notices are once per seam/room entry, never save evidence.
     #[serde(skip)]
     pub claim_capacity_notice: super::frontier_claims::CapacityNotice,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -34,53 +28,32 @@ pub struct State {
     pub wishes: std::sync::Arc<Vec<crate::realm::Wish>>,
     pub return_to: Option<Return>,
     pub door_held: bool,
-    /// The knights whose E is still down from before the door was there
-    /// for them (`tick_kingdom`): the server's own, never saved nor sent.
     #[serde(
         default,
         skip_serializing_if = "crate::rules::runtime_state::omit",
         deserialize_with = "crate::rules::runtime_state::transient"
     )]
     pub door_latched: std::collections::BTreeSet<u32>,
-    /// In a seat's own view only (`Run::view_for_seat`): this knight waits
-    /// outside while the party plays on inside. Never saved nor sent.
     #[serde(
         default,
         skip_serializing_if = "crate::rules::runtime_state::omit",
         deserialize_with = "crate::rules::runtime_state::transient"
     )]
     pub waiting: Option<Waiting>,
-    /// The places the party has stepped into this outing, so the goal
-    /// marker moves on to somewhere new.
     pub seen: Vec<RoomKind>,
-    /// Knights holding E since it last changed their class, so one press
-    /// is one change.
     pub class_held: std::collections::BTreeSet<u32>,
-    /// The same, at a Sanctuary's field banner below ground.
     pub field_held: std::collections::BTreeSet<u32>,
-    /// The kingdom's little things: who rang, kicked or bowed, and when.
     pub moments: super::trinkets::Moments,
-    /// The waystations: who talks with a keeper, the rally standing, the
-    /// last coach to run.
     #[serde(skip_serializing_if = "super::waystation::Stops::is_idle")]
     pub stops: super::waystation::Stops,
-    /// The biome each knight last came into on the surface, and the tick
-    /// it did (`Biome::index`): the corner of that knight's view names it
-    /// for a moment.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub entered: BTreeMap<u32, (u8, u64)>,
-    /// The run's discoverables found so far, one bit each
-    /// (`crate::world::finds`).
     #[serde(skip_serializing_if = "is_zero")]
     pub found: u32,
-    /// The standing stones last woken, and when: they glow a moment.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub woke: Option<(u8, u64)>,
-    /// Each knight's surveyor's rod, while it is up (`raisings`).
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub survey: BTreeMap<u32, super::raisings::Survey>,
-    /// Knights holding the next-card key since it last moved their rod, so
-    /// one press is one plan.
     #[serde(skip_serializing_if = "std::collections::BTreeSet::is_empty")]
     pub survey_held: std::collections::BTreeSet<u32>,
 }
@@ -89,28 +62,15 @@ fn is_zero(n: &u32) -> bool {
     *n == 0
 }
 
-/// A knight on a kingdom road goes at a trot, twice the walking pace, so
-/// crossing the realm is a run, not a slog.
 pub const ROAD_PACE: f32 = 2.0;
-/// How much of the way to its knight the kingdom camera eases a tick
-/// (`Tune::camera_follow` until moved).
 pub const CAMERA_FOLLOW: f32 = 0.22;
 
-/// Whether a knight standing at `(x, y)` (units) is on a road.
 pub fn on_road(geo: &map::Geography, x: f32, y: f32) -> bool {
     map::is_road(geo, ((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32))
 }
 
-/// How near a knight stands to a kingdom door for E to open it: the
-/// reach its ENTER sign shows at (`render::overworld::arena::kingdom::
-/// footer_sign`). A friend joins 2.4 units beside the first knight
-/// (`Run::join_seat`), so a party arriving at a door is within it.
 pub const DOOR_REACH: f32 = 4.5;
 
-/// The kingdom door (`Geography::sites` index) a knight at `(x, y)` stands
-/// at, as its sign says: the nearest within `DOOR_REACH`, unless a trinket
-/// is nearer (there E is for that). The sign and the key ask this one
-/// question, so ENTER on screen is a door E opens.
 pub fn door_at(geo: &map::Geography, x: f32, y: f32) -> Option<usize> {
     let banner = super::trinkets::things(geo)
         .iter()
@@ -129,15 +89,12 @@ pub fn door_at(geo: &map::Geography, x: f32, y: f32) -> Option<usize> {
         .map(|(i, _)| i)
 }
 
-/// Where the party is while this knight waits outside, and the spot by
-/// the door where E takes them back in (`Run::detached_seats`).
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Waiting {
     pub place: String,
     pub entry: (f32, f32),
 }
 
-/// Where a knight on the surface heads next, and what it is called.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Goal {
     pub name: String,
@@ -232,16 +189,12 @@ impl Run {
             return;
         }
         let geo = map::geography(&self.kingdom.wishes);
-        // The map holds the Keep's site closed; what stands there open or
-        // shut is the Works' (`site::patch_room`).
         let mut room = geo.room.clone();
         if crate::world::works::on_map() {
             super::site::patch_room(&mut room, &self.sites);
         }
         if let Some(i) = world::room_of(&self.dungeon, RoomKind::Kingdom) {
             if self.dungeon.rooms[i].fingerprint() != room.fingerprint() {
-                // A save from before the kingdom opened carries the old,
-                // smaller map: its spots on it mean nothing on this one.
                 let resized = (self.dungeon.rooms[i].cols, self.dungeon.rooms[i].rows) != (geo.room.cols, geo.room.rows);
                 self.dungeon.rooms[i] = room;
                 self.dungeon.world_revision = self.dungeon.world_revision.wrapping_add(1);
@@ -268,10 +221,6 @@ impl Run {
             self.dungeon.world_revision = self.dungeon.world_revision.wrapping_add(1);
         }
     }
-    /// After the kingdom's map changed size under a saved run: the return
-    /// door goes to its place's stand on the new map (the Keep's, if the
-    /// place is gone), the party with it, and a party out on the surface
-    /// stands at the Keep.
     fn rehome_on_new_map(&mut self, geo: &map::Geography) {
         let keep = crate::world::kingdom::keep_stand();
         let unit = |(x, y): (i32, i32)| ((x as f32 + 0.5) * TILE_UNITS, (y as f32 + 0.7) * TILE_UNITS);
@@ -294,12 +243,6 @@ impl Run {
             self.safe_kingdom_arrival();
         }
     }
-    /// After the blank-slate plan (`crate::world::plan`) has taken places off
-    /// the map from under a saved run: what pointed at one of them points at
-    /// nothing now. The errand and the rumour that named a place no door
-    /// leads to, a coach's rally at a halt that is gone, a traveller walking
-    /// a road that is gone, and the goose on its green are let go; the
-    /// knights' standing and everything the realm owns stay.
     fn forget_what_is_gone(&mut self) {
         if !crate::world::plan::tabula() {
             return;
@@ -319,9 +262,6 @@ impl Run {
         }
         self.wayfarers.talks.clear();
         self.wayfarers.keys.clear();
-        // Where a knight stood on the surface when it went into a place, if
-        // the journal has it, may be closed ground now: it comes out at the
-        // Keep's stand instead.
         if let Some(kingdom) = world::room_of(&self.dungeon, RoomKind::Kingdom) {
             let geo = map::geography(&self.kingdom.wishes);
             let stand = crate::world::kingdom::keep_stand();
@@ -337,22 +277,12 @@ impl Run {
             }
         }
     }
-    /// After the kingdom's ground changed under a saved run at the same
-    /// size (the castles grown into great walled exteriors,
-    /// `docs/KINGDOM-OPEN.md`): a return door whose place's door has moved
-    /// goes with it, the party with it, and a knight out on the surface
-    /// who now stands on closed ground steps onto the nearest open ground.
     fn rehome_on_changed_ground(&mut self, geo: &map::Geography) {
         let unit = |(x, y): (i32, i32)| ((x as f32 + 0.5) * TILE_UNITS, (y as f32 + 0.7) * TILE_UNITS);
         if let Some(back) = &mut self.kingdom.return_to {
             let tile = ((back.x / TILE_UNITS) as i32, (back.y / TILE_UNITS) as i32);
             let moved = match geo.sites.iter().find(|s| s.room == back.root && s.name == back.name) {
                 Some(site) => (site.stand != tile).then_some(site.stand),
-                // On the blank-slate plan (`crate::world::plan`) most of the old
-                // places are off the map: a return door to one of them (a save
-                // taken inside the Village, say) comes out at the Keep.
-                // The Delve's gate, whose name an older save may spell otherwise,
-                // is where its own door now stands.
                 None if crate::world::plan::tabula() => Some(
                     geo.sites
                         .iter()
@@ -421,7 +351,6 @@ impl Run {
         self.record_kingdom_visit();
     }
     pub fn record_kingdom_visit(&mut self) {
-        // Legacy surface rooms become visits with a real surface return door.
         let kind = self.room().kind;
         let root = if college::is_room(kind) {
             RoomKind::CollegeGrounds
@@ -510,13 +439,6 @@ impl Run {
         self.safe_kingdom_arrival();
         self.sounds.push("area_leave");
     }
-    /// Whether a place can be walked to from the surface: always in the full
-    /// plan, where every place has its door on the map; on the blank-slate
-    /// plan (`crate::world::plan`) only the Delve's gate is on the map, so a
-    /// place is "on the way" only when the home floor's doors and stairs lead
-    /// to it from there. What points a knight at a place (an errand, a
-    /// gossip's line, a herald's call) asks this first, so nobody is sent
-    /// where no door goes.
     pub fn on_the_way(&self, room: RoomKind) -> bool {
         if !crate::world::plan::tabula() {
             return true;
@@ -525,7 +447,6 @@ impl Run {
         if geo.sites.iter().any(|s| s.room == room) {
             return true;
         }
-        // Out from the Delve's gate by the home floor's doors and stairs.
         let rooms = &self.dungeon.rooms;
         let (Some(gate), Some(goal)) = (world::room_of(&self.dungeon, RoomKind::Gate), world::room_of(&self.dungeon, room)) else {
             return false;
@@ -552,20 +473,14 @@ impl Run {
         }
         false
     }
-    /// Where knight `id` should head on the surface: the Delve until the
-    /// party has been down once, then the nearest place nobody has stepped
-    /// into yet this outing, and the Delve again once all are seen.
     pub fn kingdom_goal(&self, id: u32) -> Option<Goal> {
         if self.room().kind != RoomKind::Kingdom {
             return None;
         }
         let hero = self.players.get(&id)?;
-        // A rally called at a halt calls every knight not yet near it.
         if let Some((halt, stand)) = self.rally_call(id) {
             return Some(Goal { name: format!("RALLY: {}", halt.to_uppercase()), stand });
         }
-        // A knight who has carried a block up from below has one place to go: the stockyard,
-        // where it is set down (`quarrying`).
         if crate::world::plan::tabula() && hero.block.is_some() {
             let (x, y) = super::quarrying::yard_spot();
             return Some(Goal { name: "THE STOCKYARD".into(), stand: ((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32) });
@@ -592,7 +507,6 @@ impl Run {
             .find(|s| s.room == RoomKind::Eyrie)
             .filter(|_| !self.race_won())
         {
-            // Until somebody has won a race, the griffins are the goal.
             eyrie
         } else {
             geo.sites
@@ -618,10 +532,7 @@ impl Run {
         geo.sites.iter().any(|s| s.room == room) || self.gateway(room, geo).is_some()
     }
 
-    /// The kingdom site whose road leads to `room`: walk the home floor's
-    /// doors out from it to the nearest place the map shows.
     pub(super) fn gateway<'g>(&self, room: RoomKind, geo: &'g map::Geography) -> Option<&'g map::Site> {
-        // The Colosseum's arenas are reached through its door.
         if colosseum::is_room(room) {
             return geo.sites.iter().find(|s| s.room == RoomKind::ColosseumHall);
         }
@@ -653,16 +564,13 @@ impl Run {
         if self.tick_roundtable_entry(inputs) || self.roundtable_showing() { return; }
         self.tick_class_stones(inputs);
         if self.room().kind != RoomKind::Kingdom {
-            // A knight who has gone below carries nothing of the Keep's.
             self.release_all_hands();
             self.kingdom.stops.talks.clear();
             self.kingdom.stops.held.clear();
             return;
         }
-        // The masons at the Keep's wall, and the tiles under it.
         self.tick_sites(inputs);
         let geo = map::geography(&self.kingdom.wishes);
-        // Each knight crossing into another biome: its name, for a moment.
         let tick = self.tick;
         for (&id, hero) in &self.players {
             let here = crate::world::biome::at((hero.x / TILE_UNITS) as i32, (hero.y / TILE_UNITS) as i32).index();
@@ -671,9 +579,6 @@ impl Run {
             }
         }
         self.kingdom.entered.retain(|id, _| self.players.contains_key(id));
-        // A door takes a fresh press: an E still down from before (the one
-        // that came through a door) opens nothing until it is let go. Each
-        // knight's own, so one knight holding E holds no one else's door.
         if self.kingdom.door_held {
             self.kingdom.door_held = false;
             self.kingdom.door_latched = self.players.keys().copied().collect();
@@ -681,16 +586,12 @@ impl Run {
         let down = |id: &u32| inputs.get(id).is_some_and(|i| i.interact);
         self.kingdom.door_latched.retain(down);
         self.tick_survey(inputs);
-        // E wakes a knight still stone from its arrival, and that same
-        // press is for the door it stands at.
         for (id, hero) in &mut self.players {
             if let Some(input) = inputs.get(id).filter(|i| i.valid() && i.interact) {
                 Run::wake_on_first_move(hero, input);
             }
         }
         self.tick_stops(inputs);
-        // The door each knight's sign shows (`door_at`), the first knight
-        // pressing a fresh E at one. A knight with the rod up is building.
         let near = self.players.iter().find_map(|(id, h)| {
             let free = !self.kingdom.door_latched.contains(id) && !self.kingdom.survey.contains_key(id);
             (down(id) && free && h.hp > 0 && !h.stone)
@@ -714,9 +615,6 @@ impl Run {
     }
 }
 
-/// One tick of a knight's kingdom camera following them, in a `w`x`h`-unit
-/// map: a 48x28-unit viewport, a 5x3 dead zone, 180 ms easing at 30 Hz. A
-/// client walks its own knight's camera with its own keys by the same step.
 pub fn follow_camera(hero: &mut Hero, w: f32, h: f32, ease: f32) {
     let focus = (hero.x, hero.y - 1.0);
     let cam = hero.camera.unwrap_or(focus);

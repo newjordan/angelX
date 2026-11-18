@@ -10,89 +10,59 @@ use super::terrain::{Hit, Terrain};
 use super::host::Input;
 use serde::{Deserialize, Serialize};
 
-/// The pace a gallop settles at: 5 pixels a tick.
 pub const TOP: i32 = 1280;
-/// Pushing the way you run.
 pub const ACC: i32 = 26;
-/// Pushing against the way you run: the brake, and the skid.
 pub const DEC: i32 = 130;
-/// Letting go: the road's own drag.
 pub const FRIC: i32 = 12;
-/// Above the pace, speed bleeds back toward it this fast.
 pub const DRAG: i32 = 6;
-/// What a slope pulls with, at full steepness; the knob scales it.
 pub const SLOPE: i32 = 28;
-/// A tuck roll feels a downhill this much more and an uphill this much less.
 pub const ROLL_DOWN: i32 = 250;
 pub const ROLL_UP: i32 = 60;
 pub const ROLL_FRIC: i32 = 6;
 pub const ROLL_DEC: i32 = 40;
-/// Slower than this, Down crouches to charge instead of rolling.
 pub const ROLL_MIN: i32 = 192;
-/// A roll that slows below this unrolls.
 pub const ROLL_STOP: i32 = 80;
-/// A roll with Down let go uncurls below this.
 pub const ROLL_UNCURL: i32 = 640;
 pub const GRAVITY: i32 = 100;
 pub const FALL_MAX: i32 = 4096;
 pub const AIR_ACC: i32 = 60;
-/// The leap's push off the ground, along the ground's normal.
 pub const JUMP: i32 = 1560;
-/// Letting go of jump early cuts a rising leap to this.
 pub const JUMP_CUT: i32 = 1024;
 pub const COYOTE: u32 = 4;
 pub const BUFFER: u32 = 5;
-/// The spur: how hard it pushes, the kick as it bites, what it drains.
 pub const SPUR_ACC: i32 = 96;
 pub const SPUR_KICK: i32 = 256;
 pub const SPUR_DRAIN: i32 = 12;
 pub const GAUGE_MAX: i32 = 1000;
 pub const GAUGE_START: i32 = 500;
-/// The charge dash: each tap of jump while crouched, the most it holds, the
-/// least a release launches with.
 pub const CHARGE_STEP: i32 = 320;
 pub const CHARGE_MAX: i32 = 1280;
 pub const CHARGE_BASE: i32 = 768;
-/// A rider in a pack's wake gains this much speed, and this much more cap.
 pub const DRAFT_ACC: i32 = 26;
 pub const DRAFT_CAP: i32 = 128;
-/// The lance-lock's pace, how long it flies at a foe, the lift after a kill.
 pub const LOCK_SPEED: i32 = 3072;
 pub const LOCK_TICKS: u8 = 14;
 pub const LOCK_BOUNCE: i32 = 1280;
 pub const LUNGE_SPEED: i32 = 2304;
 pub const LUNGE_TICKS: u8 = 8;
-/// Bouncing on a foe: the lift, and the extra with jump held.
 pub const BOUNCE: i32 = 1100;
 pub const BOUNCE_HELD: i32 = 320;
-/// The most any speed may be.
 pub const SPEED_MAX: i32 = 4096;
-/// Sparks a hit throws, at most, and how long they last.
 pub const SCATTER_MAX: u32 = 16;
 pub const LOOSE_LIFE: u16 = 120;
 pub const LOOSE_DELAY: u16 = 24;
-/// Ticks of grace after a hit; of lost control; of lying down before the
-/// shared lantern carries a fallen rider home.
 pub const HURT_TICKS: u32 = 90;
 pub const KNOCK_TICKS: u32 = 18;
 pub const DOWN_TICKS: u32 = 24;
-/// How wide the world is, pixels: the rider's walls.
 pub const WORLD_PX: i32 = 20000;
-/// Spark slots a rider can have taken (a bit each).
 pub const SPARK_WORDS: usize = 12;
 
-/// The five numbers as the rider reads them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Numbers {
-    /// Slope pull and friction together, percent (100 is the tuned road).
     pub slope: i32,
-    /// The slowest a rider can run on the loop's ceiling, 1/256 px a tick.
     pub loop_min: i32,
-    /// The spur's top speed, 1/256 px a tick.
     pub spur_cap: i32,
-    /// How far the lance-lock reaches, pixels.
     pub lock_reach: i32,
-    /// The Dimming's pace, 1/256 px a tick, for one knight.
     pub dimming: i32,
 }
 
@@ -102,9 +72,6 @@ impl Default for Numbers {
     }
 }
 
-/// The keys a rider answers, read off the Delve's existing buttons: A and D
-/// run, S (or the down arrow) rolls and crouches, E (or W) leaps, and Space
-/// or F is the spur.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Keys {
     pub x: i32,
@@ -124,21 +91,18 @@ impl Keys {
     }
 }
 
-/// Where a rider stands: a path and a distance along it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ground {
     pub path: u8,
     pub s: i32,
 }
 
-/// A lance-lock in flight: the foe it is after and the ticks it has left.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Lock {
     pub target: u16,
     pub ticks: u8,
 }
 
-/// A spark thrown by a hit, bouncing, there to be taken back for a moment.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Loose {
     pub x: i32,
@@ -148,7 +112,6 @@ pub struct Loose {
     pub age: u16,
 }
 
-/// Things that happened in a rider's tick, for the sounds and the dust.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Ev {
     Jump,
@@ -164,19 +127,14 @@ pub enum Ev {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Rider {
-    /// Feet, 1/256 pixel. Kept current whether on a path or in the air.
     pub x: i32,
     pub y: i32,
-    /// Air velocity, 1/256 pixel a tick (meaningful while off the ground).
     pub vx: i32,
     pub vy: i32,
     pub ground: Option<Ground>,
-    /// Speed along the path, positive the way its distance grows.
     pub gsp: i32,
-    /// Which way the horse faces: 1 or -1.
     pub dir: i32,
     pub roll: bool,
-    /// A leap or a thrown roll: a body that hurts what it lands on.
     pub ball: bool,
     pub crouch: bool,
     pub skid: bool,
@@ -186,11 +144,7 @@ pub struct Rider {
     pub lock: Option<Lock>,
     pub lock_cd: u8,
     pub spring_cd: u8,
-    /// Ticks the body holds still after a blow lands or a foe pops, the
-    /// hit-stop that gives a strike its weight (this rider only: the shared
-    /// road never pauses).
     pub freeze: u8,
-    /// A jolt the picture shakes with, ticks.
     pub shake: u8,
     pub lunge: u8,
     pub lunged: bool,
@@ -208,20 +162,15 @@ pub struct Rider {
     pub jumping: bool,
     pub air: u32,
     pub draft: bool,
-    /// The horse's lean, in brads, kept smooth so a loop turns cleanly.
     pub ang: i32,
     pub cam_x: i32,
     pub cam_y: i32,
     pub zoom: i32,
-    /// Ticks since the rider last left a loop (for the whoosh).
     pub looping: bool,
-    /// A fresh press of jump in the air with no leap to give: the session
-    /// finds the foe for the lance-lock, or the horse lunges.
     pub want_lock: bool,
     pub loose: Vec<Loose>,
     pub taken: [u64; SPARK_WORDS],
     pub crates: u32,
-    /// The run's own tally.
     pub collected: u32,
     pub falls: u32,
     pub hits: u32,
@@ -231,7 +180,6 @@ pub struct Rider {
 }
 
 impl Rider {
-    /// A rider standing at distance `s` along path `path`.
     pub fn new_on(t: &Terrain, path: usize, s: i32) -> Self {
         let at = t.paths[path].sample(s);
         Rider {
@@ -288,9 +236,6 @@ impl Rider {
         }
     }
 
-    /// Set the rider down on a path at rest, as at a lantern post: a new
-    /// start with the run's own tally kept, a moment of grace, and the camera
-    /// snapped to where he stands.
     pub fn place(&mut self, t: &Terrain, path: usize, s: i32) {
         let at = t.paths[path].sample(s);
         let keep = Rider {
@@ -309,24 +254,20 @@ impl Rider {
         self.snap_camera(at.x / 256, at.y / 256);
     }
 
-    /// Put the camera on the rider at once.
     pub fn snap_camera(&mut self, px: i32, py: i32) {
         self.zoom = 256;
         self.cam_x = px - 384 / 2 + 40;
         self.cam_y = py - 224 * 60 / 100;
     }
 
-    /// Standing on a path, not flying.
     pub fn grounded(&self) -> bool {
         self.ground.is_some()
     }
 
-    /// A body that kills what it touches: a roll, a leap, a lock, a lunge.
     pub fn attacking(&self) -> bool {
         self.roll || self.ball || self.lock.is_some() || self.lunge > 0
     }
 
-    /// The speed the camera and the lines read: how fast the rider moves.
     pub fn speed(&self) -> i32 {
         if self.grounded() {
             self.gsp.abs()
@@ -335,7 +276,6 @@ impl Rider {
         }
     }
 
-    /// Half the width and the height of the body, in pixels.
     pub fn body(&self) -> (i32, i32) {
         if self.roll || self.ball || self.crouch || self.lock.is_some() {
             (7, 14)
@@ -344,8 +284,6 @@ impl Rider {
         }
     }
 
-    /// The centre of the body, in 1/256 pixel: where sparks are taken and
-    /// foes are met. It sits on the surface's normal, so it turns with a loop.
     pub fn centre(&self, t: &Terrain) -> (i32, i32) {
         let h = self.body().1 * 128;
         match self.ground {
@@ -358,8 +296,6 @@ impl Rider {
         }
     }
 
-    /// One tick of the body: input, forces, motion, landing. `draft` is
-    /// whether a pack's wake carries it this tick.
     pub fn step(&mut self, k: Keys, t: &Terrain, n: &Numbers, ev: &mut Vec<Ev>) {
         self.hurt = self.hurt.saturating_sub(1);
         self.ctrl = self.ctrl.saturating_sub(1);
@@ -368,7 +304,6 @@ impl Rider {
         self.shake = self.shake.saturating_sub(1);
         self.skid = false;
         if self.freeze > 0 {
-            // Hit-stop: the body holds, the keys are still read.
             self.freeze -= 1;
             if k.jump && !self.jump_key {
                 self.buffer = BUFFER;
@@ -388,7 +323,6 @@ impl Rider {
             self.buffer = BUFFER;
         }
         if self.finish.is_some() {
-            // Victory: the horse brakes to a walk and the keys do nothing.
             let k = Keys::default();
             if self.grounded() {
                 self.ground_tick(k, t, n, ev, false, false);
@@ -406,13 +340,11 @@ impl Rider {
         self.after(t);
     }
 
-    /// The slope's pull on the ground speed this tick.
     fn pull(&self, ty: i32, n: &Numbers) -> i32 {
         let base = (i64::from(SLOPE) * i64::from(n.slope) * i64::from(ty) / (100 * i64::from(ONE))) as i32;
         if !self.roll || base == 0 || self.gsp == 0 {
             return base;
         }
-        // Rolling: more downhill, less uphill.
         let downhill = (base > 0) == (self.gsp > 0);
         base * if downhill { ROLL_DOWN } else { ROLL_UP } / 100
     }
@@ -427,7 +359,6 @@ impl Rider {
         let down = k.down && !locked;
         let slow = self.gsp.abs() < ROLL_MIN;
 
-        // Crouch, and revving the charge with taps of jump.
         if !self.roll && down && slow {
             self.crouch = true;
             if jump_edge {
@@ -450,7 +381,6 @@ impl Rider {
         } else {
             self.charge -= self.charge >> 5;
         }
-        // Down while moving tucks into a roll; it ends when the speed is gone.
         if down && !self.crouch && !self.roll && !slow {
             self.roll = true;
             ev.push(Ev::Roll);
@@ -458,13 +388,10 @@ impl Rider {
         if self.roll && self.gsp.abs() < ROLL_STOP && self.pull(smp.ty, n).abs() < FRIC {
             self.roll = false;
         }
-        // A roll that has slowed uncurls once Down is let go, so a knight who
-        // tucked by accident is never left crawling in a ball.
         if self.roll && !down && self.gsp.abs() < ROLL_UNCURL {
             self.roll = false;
         }
 
-        // The spur.
         let spurring = k.spur && self.gauge > 0 && !self.crouch && !locked;
         self.spur = spurring;
         let mut cap = TOP + if self.draft { DRAFT_CAP } else { 0 };
@@ -477,7 +404,6 @@ impl Rider {
             }
         }
 
-        // A leap, from the buffer (the ground is always fresh here).
         if self.buffer > 0 && !self.crouch && !locked {
             let (c, d) = (i64::from(smp.tx), i64::from(smp.ty));
             let up = (smp.ty, -smp.tx);
@@ -497,9 +423,6 @@ impl Rider {
 
         self.buffer = self.buffer.saturating_sub(1);
 
-        // Forces along the path. A horse pushes well on the flat and not at
-        // all up a wall: his traction fades with the slope's steepness, so a
-        // steep rise is climbed on momentum, never walked.
         let grip = if smp.tx < 0 { 0 } else { (ONE - smp.ty.abs() * 3 / 2).max(0) };
         let acc = ACC * grip / ONE;
         let mut gsp = self.gsp;
@@ -553,7 +476,6 @@ impl Rider {
         }
         self.gsp = gsp.clamp(-SPEED_MAX, SPEED_MAX);
 
-        // Along the path.
         let (mut path, mut s) = (g.path as usize, g.s);
         let was_ring = t.paths[path].kind == super::terrain::Kind::Ring;
         match advance(t, &mut path, &mut s, self.gsp) {
@@ -576,8 +498,6 @@ impl Rider {
         }
         let at = t.paths[path].sample(s);
         let on_ring = t.paths[path].kind == super::terrain::Kind::Ring;
-        // On a loop's ceiling a rider needs speed to stay: below the number
-        // he falls off, with the speed he had along the curve.
         if at.tx < 0 && self.gsp.abs() < n.loop_min {
             self.vx = (i64::from(self.gsp) * i64::from(at.tx) / i64::from(ONE)) as i32;
             self.vy = (i64::from(self.gsp) * i64::from(at.ty) / i64::from(ONE)) as i32;
@@ -609,7 +529,6 @@ impl Rider {
         let locked = self.ctrl > 0 || self.finish.is_some();
         let kx = if locked { 0 } else { k.x };
 
-        // Walking off a ledge still lets a leap through for a moment.
         if self.buffer > 0 && self.coyote > 0 && !locked && !self.jumping {
             self.vy = -JUMP;
             self.buffer = 0;
@@ -621,7 +540,6 @@ impl Rider {
         self.want_lock = jump_edge && self.buffer > 0 && self.lock.is_none() && !locked;
         self.buffer = self.buffer.saturating_sub(1);
 
-        // The spur flies on too, at half its push.
         let spurring = k.spur && self.gauge > 0 && !locked;
         self.spur = spurring;
         let mut cap = TOP + if self.draft { DRAFT_CAP } else { 0 };
@@ -654,7 +572,6 @@ impl Rider {
                 }
                 self.vy = (self.vy + GRAVITY).min(FALL_MAX);
             }
-            // Letting go of jump early cuts the leap short.
             if self.jumping {
                 if !k.jump && self.vy < -JUMP_CUT {
                     self.vy = -JUMP_CUT;
@@ -668,7 +585,6 @@ impl Rider {
 
         let from = (self.x, self.y);
         let mut to = (self.x + self.vx, self.y + self.vy);
-        // The world has walls at either end: nothing flies past them.
         let (lo, hi) = (12 * 256, WORLD_PX * 256 - 8 * 256);
         if to.0 < lo || to.0 > hi {
             to.0 = to.0.clamp(lo, hi);
@@ -682,7 +598,6 @@ impl Rider {
         self.y = to.1;
     }
 
-    /// Touch down on `h`.
     fn land(&mut self, h: Hit, t: &Terrain, k: Keys, ev: &mut Vec<Ev>) {
         let s = t.paths[h.path].sample(h.s);
         let along = (i64::from(self.vx) * i64::from(s.tx) + i64::from(self.vy) * i64::from(s.ty)) / i64::from(ONE);
@@ -705,7 +620,6 @@ impl Rider {
         ev.push(Ev::Land(normal.unsigned_abs() as i32));
     }
 
-    /// The lean, and the camera: what the picture follows.
     fn after(&mut self, t: &Terrain) {
         let (target, ease, slew) = match self.ground {
             Some(g) => {
@@ -719,11 +633,8 @@ impl Rider {
         self.camera();
     }
 
-    /// The camera leads the way he runs, lets the road rise and fall under
-    /// a dead zone, and pulls back when he is very fast.
     fn camera(&mut self) {
         let (px, py) = (self.x / 256, self.y / 256);
-        // Zoom out between a gallop and a spur.
         let want = 256 - ((self.speed() - 1200).clamp(0, 800) * 64 / 800);
         self.zoom += ((want - self.zoom) / 8).clamp(-4, 4);
         if self.zoom == want || (want - self.zoom).abs() < 8 {
@@ -745,8 +656,6 @@ impl Rider {
         }
     }
 
-    /// Strike a foe: a leap or a lock bounces up, a roll just keeps going.
-    /// Returns whether the strike was a chain link (airborne).
     pub fn strike(&mut self) -> bool {
         self.kills += 1;
         if self.lock.take().is_some() {
@@ -770,8 +679,6 @@ impl Rider {
         false
     }
 
-    /// Throw a hit's sparks and either hurt or fell the rider. `from` is the
-    /// x the blow came from, to knock away from it.
     pub fn knock(&mut self, from: i32) -> Blow {
         if self.hurt > 0 || self.down > 0 {
             return Blow::None;
@@ -810,8 +717,6 @@ impl Rider {
         Blow::Down
     }
 
-    /// Throw `n` sparks in a fan, the same way every time: the arcs come from
-    /// a table of angles and paces, never a roll of the dice.
     fn scatter(&mut self, n: u32) {
         self.loose.clear();
         let (cx, cy) = (self.x, self.y - 14 * 256);
@@ -828,7 +733,6 @@ impl Rider {
         }
     }
 
-    /// A fallen rider only falls: no keys, no road, until the lantern comes.
     pub fn tumble(&mut self) {
         self.vy = (self.vy + GRAVITY).min(FALL_MAX);
         self.x += self.vx;
@@ -837,7 +741,6 @@ impl Rider {
         self.zoom = (self.zoom + 8).min(256);
     }
 
-    /// Bounce and age the loose sparks on the road.
     pub fn tick_loose(&mut self, t: &Terrain) {
         for l in &mut self.loose {
             l.age += 1;
@@ -887,20 +790,14 @@ impl Rider {
     }
 }
 
-/// What a blow did to a rider.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Blow {
-    /// Already hurt or down: nothing.
     None,
-    /// A shield-spark took it.
     Shielded,
-    /// This many sparks flew.
     Scattered(u32),
-    /// No sparks: he is down.
     Down,
 }
 
-/// `v` moved `by` toward zero without crossing it.
 fn toward_zero(v: i32, by: i32) -> i32 {
     if v > 0 {
         (v - by).max(0)
@@ -911,13 +808,10 @@ fn toward_zero(v: i32, by: i32) -> i32 {
 
 pub enum Leave {
     Stay,
-    /// Off the end of a path with nothing after it.
     End,
-    /// Against the start of the world.
     Wall,
 }
 
-/// Move along the paths by `d`, through portals and links.
 pub fn advance(t: &Terrain, path: &mut usize, s: &mut i32, d: i32) -> Leave {
     let mut left = d;
     for _ in 0..4 {

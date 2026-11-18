@@ -20,8 +20,6 @@ pub struct Probe {
     draft: String,
     out: Option<std::path::PathBuf>,
     close: bool,
-    /// `ANGEL_GLASS_PROBE_ENTER=1`: submit the draft with Enter once it
-    /// is typed, so a scripted run can drive a command, not just text.
     enter: bool,
     expect: Mutex<Option<(String, Option<Instant>)>>,
     seen: Mutex<Option<Sender<Duration>>>,
@@ -47,7 +45,6 @@ impl Probe {
         })
     }
 
-    /// Called by the render thread after every present.
     pub fn presented(&self, snapshot: &Snapshot, render_time: Duration) {
         self.frames.lock().unwrap().push(render_time);
         let mut expect = self.expect.lock().unwrap();
@@ -92,7 +89,6 @@ impl Probe {
             eprintln!("GLASS_PROBE: never saw {:?}", self.ready);
             return;
         }
-        // Let the startup work settle, as the PTY harness does.
         std::thread::sleep(Duration::from_millis(800));
         self.frames.lock().unwrap().clear();
         let mut typed = String::new();
@@ -125,8 +121,6 @@ impl Probe {
         if let Some(path) = &self.out {
             let _ = std::fs::write(path, format!("{report}\n"));
         }
-        // A scripted run may submit what it typed: the same press and
-        // release the window's own keyboard would send.
         if self.enter {
             let press =
                 KeyEvent::new_with_kind(KeyCode::Enter, KeyModifiers::NONE, KeyEventKind::Press);

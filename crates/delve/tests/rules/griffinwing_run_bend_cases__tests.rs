@@ -5,7 +5,6 @@ use super::bend_kit::{self as kit, j, rec, want, want_with, Rng};
 use super::*;
 use serde_json::{json, Map, Value};
 
-/// The run as the hooks see it.
 fn tj(r: &Run) -> Value {
     let full = crate::rules::runtime_state::capture(r).unwrap().run;
     let mut o = Map::new();
@@ -72,8 +71,6 @@ fn record_griffinwing_run_bend_cases() {
                 (s.mode, s.mode_t, s.finished())
             };
             let quiet = !(finished && mode_t > TALLY_HOLD - 2);
-            // the tick, on states the hooks pass through (never a tick that
-            // lets a knight leave: that is another group's door)
             let sample = want_with("griffinwing.Run.tick_griffinwing", 4, 1500) || (finished && mode_t < 5 && settled_seen < 8);
             if sample && quiet && inputs.values().all(|i| !(finished && i.interact)) {
                 let mut c = r.clone();
@@ -117,7 +114,6 @@ fn record_griffinwing_run_bend_cases() {
                     json!({"run": tj(&c), "inputs": out.map(|m| kit::inputs_j(&m))}),
                 );
             }
-            // the settle on the finished session, many ways
             if finished && mode_t == 1 {
                 settles(&r, &mut rng);
             }
@@ -147,7 +143,6 @@ fn record_griffinwing_run_bend_cases() {
     }
 }
 
-/// The finish paid out, with the finished session changed this way and that.
 fn settles(r: &Run, rng: &mut Rng) {
     for k in 0..8 {
         kit::at(300 + k, 0);
@@ -180,7 +175,6 @@ fn settles(r: &Run, rng: &mut Rng) {
         c.settle_griffinwing(&mut s);
         rec("griffinwing.Run.settle_griffinwing", before, json!({"run": tj(&c), "s": kit::sj(&s)}));
     }
-    // the realm settle
     for k in 0..6 {
         let mut home = r.home.clone();
         home.roundtable[SLOT] = [0, 1, 2, 3, 0, 1][k];
@@ -208,7 +202,6 @@ fn settles(r: &Run, rng: &mut Rng) {
     }
 }
 
-/// The door: the party let in, from homes in each state.
 fn doors(r: &Run, seats: u32, rng: &mut Rng) {
     kit::at(400 + seats as usize, 0);
     for k in 0..10 {
@@ -238,7 +231,6 @@ fn doors(r: &Run, seats: u32, rng: &mut Rng) {
         let before = tj(&c);
         c.start_griffinwing();
         rec("griffinwing.Run.start_griffinwing", json!({"run": before}), json!({"run": tj(&c)}));
-        // not in the forest: it does not start
         let mut d = c.clone();
         d.griffinwing = None;
         let _ = &mut d;

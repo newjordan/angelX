@@ -1,11 +1,6 @@
-# crates/delve/src/rules/griffinwing.rs — the session's tick and what ends a
-# beat: muster, step, tick_lists, end_beat, next_beat, restart, finish, the
-# medal and the purse, valid and repair, and `Session::new`.
-
 def griffinwing.Session.Mode.is(+s: J.Val, +name: String) -> Bool:
   gw.isn(s, "mode", name)
 
-# A fresh session for the knights at the table.
 def griffinwing.Session.new(+players: J.Val) -> J.Val:
   griffinwing.Session.fill_wing(
     griffinwing.Session.new.sit(griffinwing.Session.new.empty(), players, ga.ids(players)))
@@ -39,7 +34,6 @@ def griffinwing.Session.new.empty() -> J.Val:
   +s25 = ga.sv(s24, "snd", J.JA{[]})
   ga.sv(s25, "leave", J.JA{[]})
 
-# `for (&id, _) in players.iter().filter(|(_, h)| !h.away && !h.stone) { s.sit(id, 0) }`
 def griffinwing.Session.new.sit(+s: J.Val, +players: J.Val, +ids: List<&2, U32>) -> J.Val:
   match ids:
     case Nil{}:
@@ -49,13 +43,9 @@ def griffinwing.Session.new.sit(+s: J.Val, +players: J.Val, +ids: List<&2, U32>)
         gw.ifj(griffinwing.Session.here(ga.at(players, id)), _ => griffinwing.Session.sit(s, id, 0), _ => s),
         players, t)
 
-# `!h.away && !h.stone`
 def griffinwing.Session.here(+h: J.Val) -> Bool:
   Bool.and(Bool.not(ga.b(h, "away")), Bool.not(ga.b(h, "stone")))
 
-# Who is at the table now (`present`), seated and stood up, and the foes'
-# health provisioned for the seats now flying: a knight who sits down scales
-# the beat up by its share, and a seat already provisioned does not scale twice.
 def griffinwing.Session.muster(+s0: J.Val, +heroes: J.Val) -> J.Val:
   griffinwing.Session.fill_wing(
     griffinwing.Session.muster.foes(
@@ -64,7 +54,6 @@ def griffinwing.Session.muster(+s0: J.Val, +heroes: J.Val) -> J.Val:
         heroes, ga.ids(heroes)),
       0))
 
-# seats.retain(|id, _| heroes.get(id).is_some_and(|h| !h.away && !h.stone))
 def griffinwing.Session.muster.keep(+seats: J.Val, +heroes: J.Val, +ids: List<&2, U32>) -> J.Val:
   match ids:
     case Nil{}:
@@ -74,7 +63,6 @@ def griffinwing.Session.muster.keep(+seats: J.Val, +heroes: J.Val, +ids: List<&2
         gw.ifj(Bool.and(ga.has_key(heroes, id), griffinwing.Session.here(ga.at(heroes, id))), _ => seats, _ => J.del(seats, U32.show(id))),
         heroes, t)
 
-# for id in here { if !seats.contains(id) && (1..=MAX_PLAYERS).contains(id) { sit; join call } }
 def griffinwing.Session.muster.sit(+s: J.Val, +heroes: J.Val, +ids: List<&2, U32>) -> J.Val:
   match ids:
     case Nil{}:
@@ -92,7 +80,6 @@ def griffinwing.Session.muster.join(+s: J.Val, +id: U32) -> J.Val:
     _ => griffinwing.Session.sound(griffinwing.Session.say(s, id, "Join"), "play_card"),
     _ => s)
 
-# for f in foes { if f.seats < now { hp = hp * now / was; full = full * now / was; seats = now } }
 def griffinwing.Session.muster.foes(+s: J.Val, +i: U32) -> J.Val:
   gw.ifj(U32.is_lt(i, gw.len(s, "foes")),
     _ => griffinwing.Session.muster.foes(
@@ -108,16 +95,12 @@ def griffinwing.Session.muster.foe(+f: J.Val, +now: U32) -> J.Val:
 def griffinwing.Session.muster.foe2(+f: J.Val, +now: U32, +was: U32) -> J.Val:
   ga.su(ga.su(ga.su(f, "hp", U32.div((ga.u(f, "hp") * now : U32), was)), "full", U32.div((ga.u(f, "full") * now : U32), was)), "seats", now)
 
-# The keys of knight `id`: what was pressed if it is a valid Input, else nothing.
 def griffinwing.Session.keys(+inputs: J.Val, +id: U32) -> J.Val:
   griffinwing.Session.keys.of(J.get(inputs, U32.show(id)))
 
 def griffinwing.Session.keys.of(+i: J.Val) -> J.Val:
   gw.ifj(Bool.and(Bool.not(J.is_null(i)), rules.Input.valid(i)), _ => i, _ => rules.Input.default())
 
-# One tick: the seats are whoever is here and awake, so a knight who leaves
-# stands up and one who joins late sits down; then the beat. Answers
-# {"s", "out": {"sounds", "leave"}}.
 def griffinwing.Session.step(+s0: J.Val, +inputs: J.Val, +heroes: J.Val, +n: J.Val) -> J.Val:
   griffinwing.Session.step.mode(
     griffinwing.Session.muster(ga.su(s0, "elapsed", U32.min((ga.u(s0, "elapsed") + 1 : U32), griffinwing.LIMIT())), heroes),
@@ -132,7 +115,6 @@ def griffinwing.Session.step.mode(+s: J.Val, +inputs: J.Val, +n: J.Val) -> J.Val
         _ => griffinwing.Session.step.fly(s, inputs, n, ga.ids(J.get(s, "seats"))))),
     inputs)
 
-# for id in live { self.fly(id, keys(id), nums) }
 def griffinwing.Session.step.flies(+s: J.Val, +inputs: J.Val, +n: J.Val, +ids: List<&2, U32>) -> J.Val:
   match ids:
     case Nil{}:
@@ -165,7 +147,6 @@ def griffinwing.Session.step.retry(+s0: J.Val) -> J.Val:
 def griffinwing.Session.step.retry2(+s: J.Val) -> J.Val:
   gw.ifj(U32.is_zero(ga.u(s, "mode_t")), _ => griffinwing.Session.restart(s), _ => s)
 
-# The rail carries them home; at the tally the wing hovers.
 def griffinwing.Session.step.fly(+s0: J.Val, +inputs: J.Val, +n: J.Val, +live: List<&2, U32>) -> J.Val:
   griffinwing.Session.step.fly2(
     griffinwing.Session.tick_lists(
@@ -192,7 +173,6 @@ def griffinwing.Session.step.fly3(+s: J.Val, +inputs: J.Val, +live: List<&2, U32
       _ => griffinwing.Session.step.leaves(s, inputs, live),
       _ => s))
 
-# for id in live { fresh = spur key not held last tick; if keys(id).interact && fresh { leave.push(id) } }
 def griffinwing.Session.step.leaves(+s: J.Val, +inputs: J.Val, +ids: List<&2, U32>) -> J.Val:
   match ids:
     case Nil{}:
@@ -206,7 +186,6 @@ def griffinwing.Session.step.leaves(+s: J.Val, +inputs: J.Val, +ids: List<&2, U3
           _ => s),
         inputs, t)
 
-# The keys of this tick stand for the next one's presses; the queues are drained.
 def griffinwing.Session.step.done(+s: J.Val, +inputs: J.Val) -> J.Val:
   griffinwing.Session.step.out(griffinwing.Session.step.keys(s, inputs, ga.ids(J.get(s, "seats"))))
 
@@ -224,7 +203,6 @@ def griffinwing.Session.step.out(+s: J.Val) -> J.Val:
     ga.sv(J.obj(), "s", ga.sv(ga.sv(s, "snd", J.JA{[]}), "leave", J.JA{[]})),
     "out", ga.sv(ga.sv(J.obj(), "sounds", J.get(s, "snd")), "leave", J.get(s, "leave")))
 
-# The calls, flashes and counters wind down.
 def griffinwing.Session.tick_lists(+s: J.Val) -> J.Val:
   ga.sv(
     ga.sv(
@@ -232,7 +210,6 @@ def griffinwing.Session.tick_lists(+s: J.Val) -> J.Val:
       "fx", J.JA{griffinwing.Session.tick_lists.wind(ga.items(s, "fx"), False{})}),
     "foes", J.JA{griffinwing.Session.tick_lists.flash(ga.items(s, "foes"))})
 
-# Each item's ticks one less; those at nothing are dropped.
 def griffinwing.Session.tick_lists.wind(+xs: List<&2, J.Val>, +unused: Bool) -> List<&2, J.Val>:
   match xs:
     case Nil{}:
@@ -249,7 +226,6 @@ def griffinwing.Session.tick_lists.flash(+fs: List<&2, J.Val>) -> List<&2, J.Val
     case Con{+f, +t}:
       Con{ga.su(f, "flash", ga.ssub(ga.u(f, "flash"), 1)), griffinwing.Session.tick_lists.flash(t)}
 
-# `!seats.is_empty() && seats.values().all(|s| s.craft.down > 0)`
 def griffinwing.Session.wiped(+s: J.Val, +ids: List<&2, U32>, +any: Bool) -> Bool:
   match ids:
     case Nil{}:
@@ -257,7 +233,6 @@ def griffinwing.Session.wiped(+s: J.Val, +ids: List<&2, U32>, +any: Bool) -> Boo
     case Con{+id, +t}:
       gw.ifb(U32.is_gt(ga.u(gw.craft_of(s, id), "down"), 0), _ => griffinwing.Session.wiped(s, t, True{}), _ => False{})
 
-# The beat's end, a wipe, or the Wyrm's fall.
 def griffinwing.Session.end_beat(+s: J.Val) -> J.Val:
   gw.ifj(griffinwing.Session.wiped(s, ga.ids(J.get(s, "seats")), False{}),
     _ => griffinwing.Session.sound(ga.su(ga.ss(s, "mode", "Retry"), "mode_t", griffinwing.RETRY()), "knight_fall"),
@@ -267,11 +242,9 @@ def griffinwing.Session.end_beat(+s: J.Val) -> J.Val:
         _ => griffinwing.Session.victory(s),
         _ => s)))
 
-# `boss.is_some_and(|b| b.st == Dying && b.ticks == 0)`
 def griffinwing.Session.dying(+b: J.Val) -> Bool:
   Bool.and(Bool.not(J.is_null(b)), Bool.and(gw.isn(b, "st", "Dying"), U32.is_zero(ga.u(b, "ticks"))))
 
-# The Wyrm is down: the warm fly-through.
 def griffinwing.Session.victory(+s0: J.Val) -> J.Val:
   griffinwing.script.Session.victory_gates(
     griffinwing.Session.sound(
@@ -288,8 +261,6 @@ def griffinwing.Session.victory.beat(+s: J.Val) -> J.Val:
     ga.sv(s, "beat", gw.addu(gw.addu(gw.addu(J.get(s, "beat"), "pts", 1000), "base", 1000), "offered", 1000)),
     "home", griffinwing.Session.anchor(s))
 
-# The next beat flies on from where this one ends, the party mended a little and
-# a bomb richer; what the beat made is banked.
 def griffinwing.Session.next_beat(+s0: J.Val) -> J.Val:
   griffinwing.Session.next_beat.seats(
     griffinwing.Session.sound(
@@ -301,7 +272,6 @@ def griffinwing.Session.next_beat(+s0: J.Val) -> J.Val:
       "play_card"),
     ga.ids(J.get(s0, "seats")), 0)
 
-# seats: shield +40, a bomb, the meter full; the wing mended and back.
 def griffinwing.Session.next_beat.seats(+s: J.Val, +ids: List<&2, U32>, +k: U32) -> J.Val:
   match ids:
     case Nil{}:
@@ -322,9 +292,6 @@ def griffinwing.Session.next_beat.wing(+s: J.Val, +k: U32) -> J.Val:
       (k + 1 : U32)),
     _ => s)
 
-# A beat starts over from its checkpoint: the foes the beat had are gone and its
-# script runs again from there; what was banked stays, as do the Wyrm's lamps
-# already out. Everyone is up, mended and unhurt for a moment.
 def griffinwing.Session.restart(+s0: J.Val) -> J.Val:
   griffinwing.Session.restart.seats(
     griffinwing.Session.restart.clear(s0), ga.ids(J.get(s0, "seats")))
@@ -337,7 +304,6 @@ def griffinwing.Session.restart.clear(+s0: J.Val) -> J.Val:
     "props", J.JA{[]}), "bolts", J.JA{[]}), "fx", J.JA{[]}), "calls", J.JA{[]}),
     "foes", J.JA{griffinwing.Session.restart.lamps(ga.items(s0, "foes"))})
 
-# foes.retain(|f| f.kind == Lamp)
 def griffinwing.Session.restart.lamps(+fs: List<&2, J.Val>) -> List<&2, J.Val>:
   match fs:
     case Nil{}:
@@ -354,7 +320,6 @@ def griffinwing.Session.restart.seats(+s: J.Val, +ids: List<&2, U32>) -> J.Val:
         gw.put_craft(s, id, griffinwing.Session.restart.craft(gw.craft_of(s, id), id)),
         t)
 
-# A new craft at the slot, with the progress kept and at least two bombs.
 def griffinwing.Session.restart.craft(+old: J.Val, +id: U32) -> J.Val:
   ga.su(ga.su(ga.su(ga.su(ga.su(
     ga.su(griffinwing.types.Craft.new(griffinwing.flight.slot.x(id), griffinwing.flight.slot.z(id)), "hurt", (2 * rules.HZ() : U32)),
@@ -378,7 +343,6 @@ def griffinwing.Session.restart.wing(+s: J.Val, +k: U32) -> J.Val:
 def griffinwing.Session.restart.fin(+s: J.Val) -> J.Val:
   griffinwing.Session.say(ga.su(ga.ss(s, "mode", "Play"), "mode_t", 0), griffinwing.Session.voice(s), "Hello")
 
-# The Wyrm is down and the fly-through is over: the medal, and the tally.
 def griffinwing.Session.finish(+s0: J.Val) -> J.Val:
   griffinwing.Session.sound(
     ga.su(ga.ss(
@@ -389,8 +353,6 @@ def griffinwing.Session.finish(+s0: J.Val) -> J.Val:
       "mode", "Tally"), "mode_t", 0),
     "play_card")
 
-# The medal the party has earned: the share of what the beats offered that they
-# took, less a little for every fall. A string: "Bronze", "Silver" or "Gold".
 def griffinwing.Session.medal_now(+s: J.Val) -> String:
   griffinwing.Session.medal_now.pct(
     (griffinwing.Session.medal_now.share(ga.u(J.get(s, "bank"), "base"), ga.u(J.get(s, "bank"), "offered")) - (5 * ga.u(s, "retries") : U32) - (4 * ga.u(J.get(s, "bank"), "lost") : U32) : U32))
@@ -401,8 +363,6 @@ def griffinwing.Session.medal_now.share(+base: U32, +offered: U32) -> U32:
 def griffinwing.Session.medal_now.pct(+pct: U32) -> String:
   gw.ifs(gw.ge(pct, 85), _ => "Gold", _ => gw.ifs(gw.ge(pct, 60), _ => "Silver", _ => "Bronze"))
 
-# What the finish pays each knight: a purse and a share for the medal, less for
-# a party that has lit the beacon before.
 def griffinwing.Session.purse(+s: J.Val) -> U32:
   griffinwing.Session.purse.of(ga.b(s, "first"), gw.ifu(J.is_null(J.get(s, "medal")), _ => 0, _ => griffinwing.types.Medal.rank(ga.s(s, "medal"))))
 
@@ -411,10 +371,8 @@ def griffinwing.Session.purse.of(+first: Bool, +rank: U32) -> U32:
     _ => (griffinwing.PURSE() + (griffinwing.PURSE_MEDAL() * rank : U32) : U32),
     _ => (griffinwing.REPLAY() + (griffinwing.REPLAY_MEDAL() * rank : U32) : U32))
 
-# Whether the Wyrm has fallen and the run is over.
 def griffinwing.Session.finished(+s: J.Val) -> Bool:
   griffinwing.Session.Mode.is(s, "Tally")
 
-# The share of what was offered that was taken, in tenths of a percent.
 def griffinwing.Session.permille(+s: J.Val) -> U32:
   U32.min(W.lo32(W.div(W.mul(W.of_u32(ga.u(J.get(s, "bank"), "base")), W.of_u32(1000)), W.of_u32(U32.max(ga.u(J.get(s, "bank"), "offered"), 1)))), 1000)

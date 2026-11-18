@@ -1,5 +1,3 @@
-"""Checked accounting for raw provider receipts recorded by proxy_log.py."""
-
 import importlib.util
 import json
 from pathlib import Path
@@ -23,9 +21,8 @@ def detail(usage, name, field):
 
 
 def receipt_fields(usage):
-    """Retain independent measurements; a cache miss is not an absent field."""
     usage = usage if isinstance(usage, dict) else {}
-    if "prompt_tokens" in usage:  # Chat Completions includes cached input.
+    if "prompt_tokens" in usage:
         prompt = number(usage.get("prompt_tokens"))
         details = usage.get("prompt_tokens_details")
         cached = (detail(usage, "prompt_tokens_details", "cached_tokens")
@@ -34,14 +31,13 @@ def receipt_fields(usage):
         completion = number(usage.get("completion_tokens"))
         reasoning = detail(usage, "completion_tokens_details", "reasoning_tokens")
     elif "cache_read_input_tokens" in usage or "cache_creation_input_tokens" in usage:
-        # Messages input_tokens excludes both cache reads and cache creation.
         pieces = [number(usage.get(key)) for key in
                   ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")]
         prompt = sum(pieces) if all(value is not None for value in pieces) else None
         cached = number(usage.get("cache_read_input_tokens"))
         completion = number(usage.get("output_tokens"))
         reasoning = detail(usage, "output_tokens_details", "reasoning_tokens")
-    else:  # Responses input_tokens already includes its cached share.
+    else:
         prompt = number(usage.get("input_tokens"))
         cached = detail(usage, "input_tokens_details", "cached_tokens")
         completion = number(usage.get("output_tokens"))

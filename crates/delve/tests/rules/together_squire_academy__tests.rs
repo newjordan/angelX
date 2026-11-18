@@ -33,7 +33,7 @@ fn squires_training_cost_time_and_delve_gate() {
     for _ in 0..TRAIN_SECONDS * HZ { r.tick_academy_squires(); }
     let key = r.academy_squire_key(1).unwrap();
     assert_eq!(r.home.squire_academy.rosters[&key].members[0].level, 2);
-    assert!(r.academy_squire_action(1, Action::Train).is_err()); // hall level zero caps at two
+    assert!(r.academy_squire_action(1, Action::Train).is_err());
 }
 #[test]
 fn squires_old_saves_and_receipts_are_idempotent() {
@@ -98,7 +98,7 @@ fn squires_ninja_flanks_backstabs_throws_stars_and_smokes() {
 #[test]
 fn squires_ranger_range_mark_and_alchemist_area_potion() {
     let (mut r, mut c) = fight(Kind::Ranger, 2);
-    let i = foe(&mut r, 29., 10.); // outside kitchen-knight sight, inside arrow range
+    let i = foe(&mut r, 29., 10.);
     r.squire_attack(&mut c.body);
     assert_eq!(r.projectiles.len(), 1); assert!(r.squire_academy.marks.contains_key(&r.enemies[i].id));
     let base = r.projectiles[0].damage; r.squire_attack(&mut c.body);
@@ -160,7 +160,6 @@ fn squires_wire_full_and_patch_and_legacy_run_defaults() {
     guest.read(&tree, None, &crate::wire::Shots::Rebuild).unwrap();
     r.squire_academy.active.get_mut(&1).unwrap().body.hp -= 1;
     let next = pub_.publish(&r).unwrap();
-    // The incremental guest must recognize the additive top-level field.
     let fields = vec![std::borrow::Cow::Borrowed("squire_academy")];
     let patched = guest.read(&next, Some(&fields), &crate::wire::Shots::Same).unwrap();
     assert_eq!(patched.squire_academy, r.squire_academy);

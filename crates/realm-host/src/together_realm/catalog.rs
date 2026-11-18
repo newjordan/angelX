@@ -1,7 +1,6 @@
 //! The realm's own wishes: landmarks any party can work toward from the
 //! first run, as `.wish` files in `cockpit/assets/realm/wishes/`.
 
-/// Wishes offered only once the party has slain the dragon.
 pub const AFTER_VICTORY: &[(&str, &str)] = &[(
     "grail-chapel",
     include_str!("../../../../cockpit/assets/realm/wishes/grail-chapel.wish"),

@@ -3,9 +3,7 @@
 
 use super::Template;
 
-/// One-screen rooms: 11 by 6 quadrants.
 pub const SMALL: &[Template] = &[
-    // The Anvil Nook: an anvil and a slag block in a small yard; a tight two-cover scrap.
     [
         ".###.......",
         ".####......",
@@ -14,7 +12,6 @@ pub const SMALL: &[Template] = &[
         "...........",
         "...........",
     ],
-    // The Slag Heap: one cooling heap in the open; kite round it, dodge across the yard.
     [
         "..####.....",
         "..####.....",
@@ -23,7 +20,6 @@ pub const SMALL: &[Template] = &[
         "...........",
         "...........",
     ],
-    // The Lava Ford: a tongue of lava with a stone ford; shoot over it, walk the ford.
     [
         "...........",
         ".~~~~.~~~..",
@@ -32,7 +28,6 @@ pub const SMALL: &[Template] = &[
         "...........",
         "...........",
     ],
-    // The Forge Ring: a quenching ring open at both ends; step in, step out, never stay.
     [
         "...........",
         ".###.##....",
@@ -43,9 +38,7 @@ pub const SMALL: &[Template] = &[
     ],
 ];
 
-/// Bigger rooms: quadrants of the sizes in `rooms::SIZES`.
 pub const GREAT: &[&[&str]] = &[
-    // The Furnace Floor: furnace mouths banked along the wall and a lava moat below; heat between covers.
     &[
         "...............",
         ".##.##.##......",
@@ -57,7 +50,6 @@ pub const GREAT: &[&[&str]] = &[
         "...............",
         "...............",
     ],
-    // The Lava Channel: a wide channel with three stone bridges and an anvil on the far side.
     &[
         "................",
         "................",
@@ -69,7 +61,6 @@ pub const GREAT: &[&[&str]] = &[
         "................",
         "................",
     ],
-    // The Slag Yard: cooling heaps and a shifting lava pond; no lane stays safe.
     &[
         "................",
         "...###..........",
@@ -81,7 +72,6 @@ pub const GREAT: &[&[&str]] = &[
         "................",
         "................",
     ],
-    // The Great Anvil: the master's anvil at the centre and work blocks to the sides; circle the stem.
     &[
         "...................",
         "...................",
@@ -95,7 +85,6 @@ pub const GREAT: &[&[&str]] = &[
         "...................",
         "...................",
     ],
-    // The Lava River Halls: a broad river with twin fords and open ends; hold the bridges.
     &[
         "....................",
         "....................",
@@ -109,7 +98,6 @@ pub const GREAT: &[&[&str]] = &[
         "....................",
         "....................",
     ],
-    // The Furnace Hall: furnace banks along the wall, a moat before them, an anvil on the floor.
     &[
         "#...................",
         "###.##.##.##.##.....",
@@ -123,7 +111,6 @@ pub const GREAT: &[&[&str]] = &[
         "....................",
         "....................",
     ],
-    // The Great Forge Ring: a ring of anvils about a lava throat; the centre is the high ground.
     &[
         ".......................",
         ".......................",
@@ -139,7 +126,6 @@ pub const GREAT: &[&[&str]] = &[
         ".......................",
         ".......................",
     ],
-    // The Slag Flats: ridges of slag stepping across the flats and ponds between; a running fight.
     &[
         ".......................",
         ".......................",

@@ -9,20 +9,13 @@ use std::sync::{Arc, Mutex, OnceLock};
 use super::{FRAMES, Load, paint};
 use crate::render::overworld::ink::{Img, hash};
 
-/// The kinds of line (`LINES` in the plan catalogue).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Kind {
-    /// An ox cart on a cart road.
     Cart,
-    /// A wagon on a wooden tramway.
     Tram,
-    /// Buckets on a cable between pylons.
     Rope,
-    /// A timber chute, downhill only.
     Chute,
-    /// A barge on the river.
     Barge,
-    /// A string of pack mules on a trodden way.
     Mule,
 }
 
@@ -53,7 +46,6 @@ impl Kind {
     }
 }
 
-/// Which way a thing on a line faces.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Dir {
     East,
@@ -62,14 +54,11 @@ pub enum Dir {
     South,
 }
 
-/// The neighbours a laid tile joins: `N | E | S | W` bits.
 pub const N: u8 = 1;
 pub const E: u8 = 2;
 pub const S: u8 = 4;
 pub const W: u8 = 8;
 
-/// A tile of laid line is sixteen wide; a rope's pylon or a chute's trestle
-/// stands over it, so the picture is taller (its foot on the bottom row).
 pub const TILE_W: i32 = 16;
 pub fn tile_h(kind: Kind) -> i32 {
     match kind {
@@ -93,24 +82,17 @@ fn once<K: std::hash::Hash + Eq + Copy>(memory: &'static Made<K>, key: K, make: 
     made
 }
 
-/// One tile of laid line of `kind` joining the neighbours `links`; a rope's
-/// tile with `post` stands its pylon. `frame` animates what moves in it
-/// (water, a cable's shiver).
 pub fn line_flat(kind: Kind, links: u8, post: bool, frame: u32) -> Arc<Img> {
     static MADE: Made<(Kind, u8, bool, u32)> = OnceLock::new();
     let frame = if matches!(kind, Kind::Barge) { frame % FRAMES } else { 0 };
     once(&MADE, (kind, links & 15, post, frame), || draw_line(kind, links & 15, post, frame))
 }
 
-/// A thing running on a line: `kind`'s carrier facing `dir`, `load` on it,
-/// step `frame` of its eight-step motion (wheels turning, legs walking).
 pub fn vehicle_flat(kind: Kind, dir: Dir, load: Option<Load>, frame: u32) -> Arc<Img> {
     static MADE: Made<(Kind, Dir, Option<Load>, u32)> = OnceLock::new();
     once(&MADE, (kind, dir, load, frame % FRAMES), || draw_vehicle(kind, dir, load, frame % FRAMES))
 }
 
-/// The arms of a laid tile as rectangles `(x, y, w, h)` of width `wide`
-/// about the tile's middle, one per link, and the middle square.
 fn arms(links: u8, wide: i32, h: i32) -> Vec<(i32, i32, i32, i32)> {
     let (c, base) = (TILE_W / 2, h - TILE_W / 2);
     let half = wide / 2;
@@ -141,7 +123,6 @@ fn draw_line(kind: Kind, links: u8, post: bool, frame: u32) -> Img {
     let along_x = links & (E | W) != 0 || links == 0;
     match kind {
         Kind::Cart => {
-            // A road of packed earth, two ruts worn into it, gravel in its crown.
             let road = arms(links, 9, h);
             for y in 0..h {
                 for x in 0..TILE_W {
@@ -166,7 +147,6 @@ fn draw_line(kind: Kind, links: u8, post: bool, frame: u32) -> Img {
             }
         }
         Kind::Tram => {
-            // Sleepers across, two iron rails along: wooden tramway.
             let bed = arms(links, 10, h);
             for y in 0..h {
                 for x in 0..TILE_W {
@@ -189,7 +169,6 @@ fn draw_line(kind: Kind, links: u8, post: bool, frame: u32) -> Img {
             }
         }
         Kind::Chute => {
-            // A trough of planks on trestles, sloping: stilts down to the ground.
             let lift = 6;
             let trough = arms(links, 8, h - 6);
             for y in 0..h {
@@ -201,7 +180,6 @@ fn draw_line(kind: Kind, links: u8, post: bool, frame: u32) -> Img {
                     }
                 }
             }
-            // The legs.
             let (cx, cy) = (TILE_W / 2, base);
             for (lx, ly) in [(cx - 3, cy - lift + 4), (cx + 2, cy - lift + 4)] {
                 for y in ly..h - 1 {
@@ -214,7 +192,6 @@ fn draw_line(kind: Kind, links: u8, post: bool, frame: u32) -> Img {
             let _ = brace;
         }
         Kind::Rope => {
-            // A cable through the tile's head height; a pylon where it is anchored.
             let top = 8;
             let cable = |im: &mut Img| {
                 let (cx, cy) = (TILE_W / 2, top);
@@ -228,7 +205,6 @@ fn draw_line(kind: Kind, links: u8, post: bool, frame: u32) -> Img {
                 if links & S != 0 { for y in cy..h { put(cx, y) } }
                 put(cx, cy);
             };
-            // The pylon first, so the cable crosses its arm.
             if post {
                 for y in top..h - 2 {
                     im.put(7, y, 'o');
@@ -246,7 +222,6 @@ fn draw_line(kind: Kind, links: u8, post: bool, frame: u32) -> Img {
             cable(&mut im);
         }
         Kind::Barge => {
-            // The river lane: a ribbon of moving water, reeds on its banks, a mooring post now and then.
             let water = arms(links, 12, h);
             for y in 0..h {
                 for x in 0..TILE_W {
@@ -277,8 +252,6 @@ fn draw_line(kind: Kind, links: u8, post: bool, frame: u32) -> Img {
             }
         }
         Kind::Mule => {
-            // A trodden way: no road, no ruts. A narrow strip of pale scuffed earth through the grass,
-            // its edge ragged, hoof-prints along it and a tuft or a stone either side.
             let way = arms(links, 5, h);
             for y in 0..h {
                 for x in 0..TILE_W {
@@ -291,7 +264,6 @@ fn draw_line(kind: Kind, links: u8, post: bool, frame: u32) -> Img {
                     im.put(x, y, ch);
                 }
             }
-            // Hoof-prints, two dark flecks side by side, every few pixels along the way's middle.
             for k in 0..4 {
                 let (u, side) = (2 + k * 4, if k % 2 == 0 { -1 } else { 1 });
                 let (x, y) = if along_x { (u, base + side) } else { (TILE_W / 2 + side, base - TILE_W / 2 + u) };
@@ -311,8 +283,6 @@ fn draw_line(kind: Kind, links: u8, post: bool, frame: u32) -> Img {
     }
     im
 }
-
-// ----------------------------------------------------------- vehicles ----
 
 fn draw_vehicle(kind: Kind, dir: Dir, load: Option<Load>, t: u32) -> Img {
     let side = matches!(dir, Dir::East | Dir::West);
@@ -341,7 +311,6 @@ fn pile_on(im: &mut Img, cx: i32, foot: i32, w: i32, h: i32, load: Option<Load>)
 fn ox_cart(load: Option<Load>, t: u32) -> Img {
     let mut im = Img::new(34, 22);
     let stride = (t % 4 / 2) as i32;
-    // The ox: heavy shoulders, a yoke, horns, legs in pairs swinging.
     let ox = 19;
     im.rect(ox, 9, 13, 7, 'P');
     im.rect(ox + 1, 8, 11, 1, 'o');
@@ -358,11 +327,9 @@ fn ox_cart(load: Option<Load>, t: u32) -> Img {
         im.rect(lx, 20 - swing, 2, 1, 'k');
     }
     im.line(ox - 1, 10, ox - 2, 15, 'b');
-    // The yoke bar over its shoulders, the pole back to the cart.
     im.rect(ox + 6, 7, 2, 4, 'O');
     im.line(12, 14, ox + 7, 10, 'o');
     im.line(12, 15, ox + 7, 11, 'B');
-    // The cart: a bed with slatted sides on two big wheels.
     im.rect(1, 10, 13, 5, 'o');
     im.rect(1, 10, 13, 1, 'O');
     for x in [3, 6, 9, 12] {
@@ -379,7 +346,6 @@ fn ox_cart_end(load: Option<Load>, t: u32, toward: bool) -> Img {
     let mut im = Img::new(16, 26);
     let stride = (t % 4 / 2) as i32;
     if toward {
-        // The ox coming at you, its horns wide, the cart behind.
         im.rect(3, 12, 10, 7, 'P');
         im.rect(4, 10, 8, 3, 'o');
         im.rect(5, 8, 6, 5, 'P');
@@ -392,7 +358,6 @@ fn ox_cart_end(load: Option<Load>, t: u32, toward: bool) -> Img {
         im.rect(3 + stride, 19, 3, 5, 'B');
         im.rect(10 - stride, 19, 3, 5, 'B');
     } else {
-        // The cart going away, its back and load, the ox ahead past it.
         im.rect(2, 12, 12, 8, 'o');
         im.rect(2, 12, 12, 1, 'O');
         for x in [4, 7, 10] {
@@ -407,7 +372,6 @@ fn ox_cart_end(load: Option<Load>, t: u32, toward: bool) -> Img {
 
 fn wagon(load: Option<Load>, t: u32) -> Img {
     let mut im = Img::new(26, 18);
-    // A flat-bottomed tub of boards on four small iron wheels.
     im.rect(1, 8, 24, 5, 'o');
     im.rect(1, 8, 24, 1, 'O');
     im.rect(1, 12, 24, 1, 'b');
@@ -417,14 +381,12 @@ fn wagon(load: Option<Load>, t: u32) -> Img {
     im.rect(0, 7, 1, 6, 'U');
     im.rect(25, 7, 1, 6, 'U');
     pile_on(&mut im, 13, 8, 22, 9, load);
-    // A coupling hook at each end, an axle box over each wheel pair.
     im.rect(-1, 11, 2, 1, 'u');
     let a = paint::turn(t) * 2.0 / 6.0;
     for x in [6.0f32, 19.0] {
         paint::wheel(&mut im, x, 14.5, 3.0, a, 6, false, ('U', 'u', 'V'));
         im.rect(x as i32 - 1, 12, 3, 2, 'u');
     }
-    // The rail under it.
     im.rect(0, 17, 26, 1, 'v');
     im
 }
@@ -448,13 +410,11 @@ fn wagon_end(load: Option<Load>, t: u32) -> Img {
 
 fn bucket(load: Option<Load>, t: u32) -> Img {
     let mut im = Img::new(14, 24);
-    // The hanger: a sheave on the cable, a bar down, a bucket swinging below.
     let sway = ((paint::turn(t).sin()) * 1.5).round() as i32;
     paint::wheel(&mut im, 7.0, 2.0, 2.2, paint::turn(t) * 2.0, 4, false, ('V', 'U', 'v'));
     im.line(7, 4, 7 + sway, 9, 'U');
     im.line(8, 4, 8 + sway, 9, 'u');
     let x = 2 + sway;
-    // A bucket of staved wood, iron-hooped, wider at the lip.
     im.rect(x, 9, 11, 1, 'v');
     for y in 10..19 {
         let inset = (y - 10) / 4;
@@ -469,7 +429,6 @@ fn bucket(load: Option<Load>, t: u32) -> Img {
 fn sled(load: Option<Load>, t: u32) -> Img {
     let mut im = Img::new(22, 16);
     let tilt = (t % 2) as i32;
-    // A plank sled with runners, sliding down the trough, load heaped.
     im.rect(1, 10, 20, 2, 'o');
     im.rect(1, 12, 20, 1, 'B');
     im.line(0, 12 - tilt, 3, 13, 'b');
@@ -477,7 +436,6 @@ fn sled(load: Option<Load>, t: u32) -> Img {
     im.rect(2, 9, 1, 2, 'B');
     im.rect(19, 9, 1, 2, 'B');
     pile_on(&mut im, 11, 10, 17, 9, load);
-    // Spray of chips behind it.
     if t % 2 == 0 {
         im.put(0, 9, 'h');
     }
@@ -498,7 +456,6 @@ fn sled_end(load: Option<Load>, t: u32) -> Img {
 fn barge(load: Option<Load>, t: u32) -> Img {
     let mut im = Img::new(52, 24);
     let bob = (paint::turn(t).sin().round()) as i32;
-    // A long flat river barge: planked hull, raked bow and stern, a hold of load.
     let y = 11 + bob;
     for x in 1..51 {
         let rake = if x < 5 { 5 - x } else if x > 46 { x - 46 } else { 0 };
@@ -510,10 +467,8 @@ fn barge(load: Option<Load>, t: u32) -> Img {
     im.rect(4, y + 5, 44, 1, 'b');
     im.rect(10, y - 1, 30, 1, 'O');
     pile_on(&mut im, 25, y, 34, 11, load);
-    // The pole man at the stern, pushing off; a rope coiled at the bow.
     im.line(46, y - 12, 49, y + 12, 'o');
     im.rect(3, y - 3, 4, 3, 't');
-    // Ripples at the waterline.
     for x in (0..52).step_by(6) {
         let g = (x + t as i32 * 2) % 12;
         im.put(x, y + 9, if g < 4 { '3' } else { 'z' });
@@ -525,7 +480,6 @@ fn barge(load: Option<Load>, t: u32) -> Img {
 fn barge_end(load: Option<Load>, t: u32) -> Img {
     let mut im = Img::new(18, 30);
     let bob = (paint::turn(t).sin().round()) as i32;
-    // Bow-on: the narrow prow, the hold behind it.
     let y = 8 + bob;
     im.rect(3, y + 4, 12, 14, 'o');
     for k in 0..6 {
@@ -542,12 +496,9 @@ fn barge_end(load: Option<Load>, t: u32) -> Img {
     im
 }
 
-/// A pack mule walking, ears up, a blanket and a pannier of wicker slung on it, the load piled over:
-/// slighter than the ox, grey where the ox is brown, with no cart behind it.
 fn mule(load: Option<Load>, t: u32) -> Img {
     let mut im = Img::new(26, 22);
     let stride = (t % 4 / 2) as i32;
-    // The body, the neck, the head with its long ears and pale muzzle, the tail.
     im.rect(5, 10, 13, 6, 'G');
     im.rect(6, 9, 11, 1, 'J');
     im.rect(5, 15, 13, 1, 'g');
@@ -558,13 +509,11 @@ fn mule(load: Option<Load>, t: u32) -> Img {
     im.line(17, 5, 17, 2, 'G');
     im.line(19, 5, 20, 2, 'J');
     im.line(5, 11, 3, 16, 'g');
-    // Four slim legs in diagonal pairs, hooves dark.
     for (lx, ph) in [(6, 0), (8, 1), (14, 1), (16, 0)] {
         let swing = if (ph + stride) % 2 == 0 { 1 } else { 0 };
         im.rect(lx, 16, 1, 5 - swing, 'g');
         im.put(lx, 20 - swing, 'k');
     }
-    // The blanket and the pannier on the near flank, its wicker barred, a girth strap under.
     im.rect(7, 9, 8, 2, '7');
     im.rect(8, 11, 6, 5, 'o');
     im.rect(8, 11, 6, 1, 'O');
@@ -582,7 +531,6 @@ fn mule_end(load: Option<Load>, t: u32, toward: bool) -> Img {
     let mut im = Img::new(14, 24);
     let stride = (t % 4 / 2) as i32;
     if toward {
-        // Coming at you: the long face, the ears up, the baskets wide at its sides.
         im.rect(4, 6, 6, 8, 'J');
         im.rect(5, 12, 4, 3, 'h');
         im.put(5, 9, 'k');
@@ -594,7 +542,6 @@ fn mule_end(load: Option<Load>, t: u32, toward: bool) -> Img {
         im.rect(4 + stride, 17, 2, 5, 'g');
         im.rect(8 - stride, 17, 2, 5, 'g');
     } else {
-        // Going away: the rump, the tail, the baskets either side and the load over them.
         im.rect(3, 9, 8, 7, 'G');
         im.rect(3, 9, 8, 1, 'J');
         im.line(7, 10, 7, 16, 'g');

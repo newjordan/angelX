@@ -16,7 +16,6 @@ pub fn dir() -> std::path::PathBuf {
         .expect("set DELVE_CASES to the Bend case directory")
 }
 
-/// The Run as the rules worker holds it.
 pub fn state(run: &Run) -> Value {
     runtime_state::capture_for_rules(run).unwrap().run
 }
@@ -25,7 +24,6 @@ pub fn inputs(inputs: &BTreeMap<u32, Input>) -> Value {
     serde_json::to_value(inputs).unwrap()
 }
 
-/// Append one case; the first write of a name in this process truncates it.
 pub fn record(name: &str, input: Value, output: Value) {
     let dir = dir();
     std::fs::create_dir_all(&dir).unwrap();
@@ -43,8 +41,6 @@ pub fn record(name: &str, input: Value, output: Value) {
     writeln!(file, "{}", serde_json::to_string(&line).unwrap()).unwrap();
 }
 
-/// A method of Run: the Run (and the named extra arguments) go in, the Run
-/// comes out beside the method's return value, when it has one (`ret`).
 pub fn call<R: serde::Serialize>(name: &str, run: &mut Run, extra: Value, f: impl FnOnce(&mut Run) -> R) {
     let before = state(run);
     let ret = serde_json::to_value(f(run)).unwrap();
@@ -61,7 +57,6 @@ pub fn call<R: serde::Serialize>(name: &str, run: &mut Run, extra: Value, f: imp
     record(name, Value::Object(input), Value::Object(output));
 }
 
-/// A method of Run that takes the tick's inputs.
 pub fn call_inputs<R: serde::Serialize>(name: &str, run: &mut Run, keys: &BTreeMap<u32, Input>, f: impl FnOnce(&mut Run, &BTreeMap<u32, Input>) -> R) {
     call(name, run, json!({"inputs": inputs(keys)}), |r| f(r, keys));
 }

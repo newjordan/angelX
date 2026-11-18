@@ -41,7 +41,6 @@ fn the_stairs_lay_the_next_floor_out_for_the_knights_seated() {
     let mut run = Run::new(5, 1, None);
     run.join_seat(2, "Gawain");
     run.join_seat(3, "Lynette");
-    // The host's empty seat is no knight of the party.
     run.set_absent(1, true);
     assert_eq!(run.party_size(), 2);
     run.join_seat(4, "Percival");
@@ -72,7 +71,6 @@ fn a_knight_walking_one_way_with_no_aim_turns_to_face_it_after_half_a_second() {
     }
     walk(&mut hero, 1, 0, 0, 0);
     assert_eq!((hero.aim_x, hero.aim_y), (1.0, 0.0));
-    // Turning the walk starts the half second again.
     walk(&mut hero, 0, 1, 0, 0);
     assert_eq!((hero.aim_x, hero.aim_y), (1.0, 0.0));
     for _ in 0..TURN_TO_WALK {
@@ -89,7 +87,6 @@ fn a_held_aim_always_wins_over_the_walk() {
         walk(&mut hero, 1, 0, -1, 0);
     }
     assert_eq!((hero.aim_x, hero.aim_y), (-1.0, 0.0));
-    // Stopping, then walking again, waits the half second anew.
     walk(&mut hero, 0, 0, 0, 0);
     for _ in 0..TURN_TO_WALK {
         walk(&mut hero, 1, 0, 0, 0);
@@ -97,8 +94,6 @@ fn a_held_aim_always_wins_over_the_walk() {
     assert_eq!((hero.aim_x, hero.aim_y), (-1.0, 0.0));
 }
 
-/// A fight room with its two knights standing at `(x, y)` in it, nothing
-/// else about.
 fn knights_at(spot: impl Fn(&Room) -> (f32, f32)) -> Run {
     let mut run = Run::new(31, 1, Some("Friend"));
     run.descend_for_test();

@@ -379,6 +379,65 @@ pub struct HttpClub {
     messages_flavor: Option<deepseek_messages::Flavor>,
     /// `anthropic-workspace-id` for a first-party Messages seat.
     anthropic_workspace: Option<String>,
+    /// Gemini's tool-call `thought_signature`s, kept per call id and replayed
+    /// on that call's assistant turn (`Some` only on a Gemini seat).
+    gemini_signatures: Option<Mutex<GeminiSignatures>>,
+    /// Gemini's OpenAI-compat SSE repeats each tool call's arguments as a
+    /// cumulative snapshot. The carbon seat sets this; other seats concatenate
+    /// argument deltas.
+    cumulative_tool_args: bool,
+}
+
+/// Placeholder Google documents for a replayed function call whose real
+/// signature this process never held (a resumed session, an evicted entry).
+/// Without one Gemini 3+ answers 400 ("missing a thought_signature").
+pub(crate) const GEMINI_SKIP_SIGNATURE: &str = "skip_thought_signature_validator";
+
+/// Most recent call signatures kept per seat. An older call falls back to
+/// [`GEMINI_SKIP_SIGNATURE`], which Gemini accepts.
+const GEMINI_SIGNATURES_MAX: usize = 4096;
+
+/// Bounded call-id → `extra_content` memory for Gemini's thought signatures.
+#[derive(Default)]
+pub(crate) struct GeminiSignatures {
+    by_id: HashMap<String, serde_json::Value>,
+    order: std::collections::VecDeque<String>,
+}
+
+impl GeminiSignatures {
+    pub(crate) fn remember(&mut self, id: String, extra: serde_json::Value) {
+        if self.by_id.insert(id.clone(), extra).is_none() {
+            self.order.push_back(id);
+        }
+        while self.order.len() > GEMINI_SIGNATURES_MAX {
+            if let Some(old) = self.order.pop_front() {
+                self.by_id.remove(&old);
+            }
+        }
+    }
+
+    /// Give every assistant tool call on the wire its `extra_content`: the
+    /// stored one for its id, else the documented skip placeholder.
+    pub(crate) fn attach(&self, outbound: &mut [serde_json::Value]) {
+        for message in outbound.iter_mut() {
+            if message.get("role").and_then(|r| r.as_str()) != Some("assistant") {
+                continue;
+            }
+            let Some(calls) = message.get_mut("tool_calls").and_then(|c| c.as_array_mut()) else {
+                continue;
+            };
+            for call in calls {
+                let stored = call
+                    .get("id")
+                    .and_then(|id| id.as_str())
+                    .and_then(|id| self.by_id.get(id))
+                    .cloned();
+                call["extra_content"] = stored.unwrap_or_else(|| {
+                    serde_json::json!({ "google": { "thought_signature": GEMINI_SKIP_SIGNATURE } })
+                });
+            }
+        }
+    }
 }
 
 /// Authority attached to this exact built request, never sent as provider JSON.
@@ -832,8 +891,12 @@ pub(crate) fn catalog_capabilities(
 /// the wire.
 /// Does this error read as the backend rejecting the *image parts* of the
 /// request, rather than a transport, auth, or model failure? Conservative on
-/// purpose: client-rejection classes only, and the message must name the
-/// multimodal part — a bare 400 about something else must not poison images.
+/// purpose: client-rejection classes only. Either the message names the
+/// multimodal part, or it says content parts may only be `text` (Z.ai coding
+/// HTTP 400 code 1210: `messages.content.type is invalid, allowed values:
+/// ['text']`, which never says "image"). A bare 400 about something else must
+/// not poison images. The caller still requires the body to have carried an
+/// `image_url` part.
 pub(crate) fn is_image_part_rejection(error: &str) -> bool {
     let rejection_class = error.starts_with("HTTP 400")
         || error.starts_with("HTTP 422")
@@ -847,6 +910,35 @@ pub(crate) fn is_image_part_rejection(error: &str) -> bool {
         || e.contains("multimodal")
         || (e.contains("image")
             && (e.contains("part") || e.contains("not support") || e.contains("unsupported")))
+        || text_only_content_type_rejection(&e)
+}
+
+/// Z.ai's coding endpoint rejects every non-text content part without naming
+/// the image. Match only when the allowed set is text and nothing else — a
+/// list that also names image, audio, or video is a different bug.
+fn text_only_content_type_rejection(error_lower: &str) -> bool {
+    let names_content_type =
+        error_lower.contains("content.type") || error_lower.contains("content_type");
+    if !names_content_type {
+        return false;
+    }
+    let says_invalid = error_lower.contains("invalid")
+        || error_lower.contains("unsupported")
+        || error_lower.contains("not support")
+        || error_lower.contains("not allowed");
+    if !says_invalid {
+        return false;
+    }
+    let allows_text = error_lower.contains("'text'")
+        || error_lower.contains("\"text\"")
+        || error_lower.contains("[text]");
+    if !allows_text {
+        return false;
+    }
+    let allows_other_part = ["image", "audio", "video", "'file'", "\"file\""]
+        .iter()
+        .any(|needle| error_lower.contains(needle));
+    !allows_other_part
 }
 
 pub(crate) fn is_reasoning_field_rejection(error: &str, dialect: ReasoningDialect) -> bool {
@@ -1779,6 +1871,8 @@ impl HttpClub {
             provider_contract: None,
             messages_flavor: None,
             anthropic_workspace: None,
+            gemini_signatures: None,
+            cumulative_tool_args: false,
         }
     }
 
@@ -1816,6 +1910,29 @@ impl HttpClub {
     pub(crate) fn with_provider_contract(mut self, contract: ProviderContract) -> Self {
         self.provider_contract = Some(contract);
         self
+    }
+
+    /// Keep each tool call's Gemini `thought_signature` and send it back with
+    /// that call (Gemini 3+ rejects a replayed call without one). The same
+    /// OpenAI-compat stream resends `function.arguments` as a growing
+    /// snapshot, so tool-call assembly folds those instead of concatenating
+    /// them (`{"path":` + `{"path":"MORNING.md"}` is not valid JSON).
+    pub(crate) fn with_gemini_thought_signatures(mut self) -> Self {
+        self.gemini_signatures = Some(Mutex::new(GeminiSignatures::default()));
+        self.cumulative_tool_args = true;
+        self
+    }
+
+    pub(crate) fn remember_gemini_signatures(&self, extras: Vec<(String, serde_json::Value)>) {
+        if extras.is_empty() {
+            return;
+        }
+        if let Some(store) = &self.gemini_signatures {
+            let mut store = store.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            for (id, extra) in extras {
+                store.remember(id, extra);
+            }
+        }
     }
 
     /// Speak DeepSeek's Messages API: the Chat body this seat builds is
@@ -2401,6 +2518,12 @@ impl HttpClub {
         let collapsed = crate::agent::harness::book::l_loops::collapse_repeats(messages);
         let messages: &[ChatMsg] = &collapsed;
         let mut outbound = messages_to_json(messages, self.images_ok());
+        if let Some(store) = &self.gemini_signatures {
+            store
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .attach(&mut outbound);
+        }
         // Combined 1:1 amendment of the outbound copy before the caveman
         // splice, while live messages still zip onto wire objects. Private
         // reasoning stays on the exact in-memory assistant tool-call
@@ -4094,6 +4217,15 @@ impl HttpClub {
         let msg = &choice["message"];
 
         if let Some(tcs) = msg["tool_calls"].as_array() {
+            self.remember_gemini_signatures(
+                tcs.iter()
+                    .filter_map(|tc| {
+                        let id = tc["id"].as_str().filter(|id| !id.is_empty())?;
+                        let extra = tc.get("extra_content").filter(|x| !x.is_null())?;
+                        Some((id.to_string(), extra.clone()))
+                    })
+                    .collect(),
+            );
             let calls: Vec<ToolCall> = tcs
                 .iter()
                 .enumerate()
@@ -4348,6 +4480,9 @@ impl HttpClub {
                 let poolable = stream_body_poolable(&resp);
                 let mut reader = BufReader::new(accounting.response_reader(resp.into_reader()));
                 let mut acc = StreamAccumulator::default();
+                if self.cumulative_tool_args {
+                    acc = acc.with_cumulative_tool_args();
+                }
                 let mut usage_commit = StreamUsageCommit::from_attempt(self, accounting);
                 let mut saw_data = false;
                 let mut saw_done = false;
@@ -4584,6 +4719,7 @@ impl HttpClub {
                     .unwrap_or(reasoning);
                 let had_reasoning = !reasoning.is_empty();
                 wire.set_finish_reason(acc.finish_reason.as_deref());
+                self.remember_gemini_signatures(acc.tool_call_extras());
                 let reply = acc.into_reply(!tools.is_empty());
                 // Tool-call turns and answers alike: DeepSeek's thinking mode
                 // wants every reasoned turn back while tools are offered.

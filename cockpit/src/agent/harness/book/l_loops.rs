@@ -19,7 +19,6 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::time::Duration;
 
 pub(crate) const CELL: char = '⠇';
-/// A loop route rides its own turn after this sign, not the result's tail.
 pub(crate) const WARNING: char = '⛔';
 pub(crate) const SAME_BATCH: Route = Route::new(CELL, '⠁');
 pub(crate) const STORM: Route = Route::new(CELL, '⠃');
@@ -29,9 +28,6 @@ pub(crate) const REPEATS: Route = Route::new(CELL, '⠑');
 pub(crate) const BLOCKED_REPEAT: Route = Route::new(CELL, '⠋');
 pub(crate) const STREAK: Route = Route::new(CELL, '⠛');
 pub(crate) const UNSTUCK: Route = Route::new(CELL, '⠓');
-/// The ladder a lasting loop climbs, one page per turn. The first is 0.1.6's
-/// redirect (the anti-spin's second stage, at the fourth identical batch, once
-/// its stop was taken away); the rest are the ways out measured on DeepSeek.
 const UNSTUCK_PAGES: &[&str] = &[
     "Recent calls returned the same outcome. Review that evidence and choose the next useful step: inspect missing context, test a different hypothesis, wait for an external change, or edit when the evidence supports it.",
     "name the assumption behind the repeated call and check what could change its answer",
@@ -40,7 +36,6 @@ const UNSTUCK_PAGES: &[&str] = &[
     "if no way forward remains, give your best answer and name what is unresolved",
 ];
 
-// `⠇⠑`: each page is sent alone, as its address, under the loop's setback.
 pub(crate) const SAME_PLAN: &str = "⠇⠑⠁";
 pub(crate) const COSTLY_REPEAT: &str = "⠇⠑⠃";
 pub(crate) const UNCHANGED_SUBMISSION: &str = "⠇⠑⠉";
@@ -134,10 +129,6 @@ pub(crate) const PRIMARY: Primary = Primary {
                 "Recent activity has not produced a new verified outcome after escalation: {streak} hops; last verifier outcome: {last}. Reassess the evidence and choose a useful inspection, experiment, edit, or wait. If an external prerequisite blocks progress, report it clearly.",
             ],
         },
-        // A loop that outlasts its warning meets a new page each time: a
-        // repeated cue becomes part of the loop, a new one re-routes (live on
-        // DeepSeek, only the first of 22–26 identical `⛔⠇⠁` turns changed
-        // the next call).
         Sub {
             route: UNSTUCK,
             name: "unstuck",
@@ -149,14 +140,8 @@ pub(crate) const PRIMARY: Primary = Primary {
     ],
 };
 
-/// A loop that keeps looping has its `⠇` route shown again every this many
-/// hops of it: the cadence of the 0.1.6 spin guard (a nudge at the second
-/// identical batch, a redirect at the fourth, then again). Shown once per
-/// stretch, a DeepSeek polyglot run repeated one read-only call 30–55 times
-/// to the hop cap on tasks the 0.1.x builds had solved.
 pub(crate) const RESHOW_HOPS: usize = 2;
 
-/// The four loop detectors and the latch that paces their route, for one turn.
 pub(crate) struct Loops {
     last_batch: Option<u64>,
     spin: usize,
@@ -167,17 +152,12 @@ pub(crate) struct Loops {
     cycle: Option<ToolBatchCycle>,
     cycle_repeats: usize,
     armed: bool,
-    /// Hops the loop has lasted since its route was last shown.
     quiet: usize,
-    /// Loop turns shown in this stretch without a workspace change.
     shown: usize,
-    /// The last counted batch with its outcome, numbers masked, and how many
-    /// hops in a row it came back.
     last_near: Option<u64>,
     near_spin: usize,
 }
 
-/// What a batch looked like before dispatch, for the after-hop detectors.
 pub(crate) struct Batch {
     pub(crate) counted: bool,
     fingerprint: Option<u64>,
@@ -212,15 +192,10 @@ impl Loops {
         }
     }
 
-    /// Consecutive identical counted batches, for telemetry.
     pub(crate) fn spin(&self) -> usize {
         self.spin
     }
 
-    /// Before dispatch: anti-spin and the storm window see the batch as issued,
-    /// and raise on every hop their loop holds (the latch paces what is shown).
-    /// `counted` is false for a pure competition board wait, whose outcome can
-    /// change under the same call.
     pub(crate) fn before_dispatch(
         &mut self,
         calls: &[ToolCall],
@@ -274,7 +249,6 @@ impl Loops {
         }
     }
 
-    /// The cycle detector's observation of a finished batch, when it is armed.
     pub(crate) fn cycle_observation(
         &self,
         batch: &Batch,
@@ -291,10 +265,6 @@ impl Loops {
         })
     }
 
-    /// With its results: the batch and its outcome with every run of digits
-    /// masked, so a repeat that only renumbers (a fresh `/tmp/o25.txt`, a
-    /// thread id in a panic, a timing) reads as the repeat it is. Paging a
-    /// file changes the output, so it never matches.
     pub(crate) fn observe_outcome(
         &mut self,
         batch: &Batch,
@@ -323,9 +293,6 @@ impl Loops {
         }
     }
 
-    /// After the batch is paired with its results: a renumbered repeat, the
-    /// poll treadmill and the cycle detector. A live background job is a
-    /// wait, not a loop.
     pub(crate) fn after_hop(
         &mut self,
         batch: &Batch,
@@ -344,8 +311,6 @@ impl Loops {
             && self.spin < 2
             && crate::agent::tools::proc::live_job_count() == 0
         {
-            // An exact repeat is anti-spin's, raised before dispatch; a live
-            // job's changing numbers are a wait.
             raises.push(Raise::new(
                 SAME_BATCH,
                 format!(
@@ -383,9 +348,6 @@ impl Loops {
         }
     }
 
-    /// One `⠇` route per hop, whichever detector saw the loop first: shown when
-    /// a loop starts, then again every [`RESHOW_HOPS`] hops while it lasts;
-    /// changed bytes re-arm it at once.
     pub(crate) fn latch(&mut self, raises: &mut Vec<Raise>, mutated: bool) {
         if raises.iter().any(|raise| raise.route.primary == CELL) {
             self.quiet += 1;
@@ -412,9 +374,6 @@ impl Loops {
         }
     }
 
-    /// The cells of this hop's loop turn: the detector's route when a loop
-    /// starts, then the next page of `⠇⠓`, so each turn is new to the model;
-    /// the last page stands once the pages run out.
     pub(crate) fn turn_cells(&self, route_cells: String) -> String {
         let pages = UNSTUCK_PAGES.len();
         match self.shown {
@@ -428,13 +387,8 @@ impl Loops {
     }
 }
 
-/// A batch that comes back with only its numbers changed and the same
-/// outcome is a loop at its third sighting in a row; an exact repeat is one at
-/// its second. Renumbering is weaker evidence: a scan of numbered items can
-/// meet the same empty answer twice.
 pub(crate) const NEAR_REPEATS: usize = 3;
 
-/// Text with each run of ASCII digits replaced by one `#`.
 pub(crate) fn mask_digits(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut in_digits = false;
@@ -452,12 +406,6 @@ pub(crate) fn mask_digits(text: &str) -> String {
     out
 }
 
-/// Whether a hop's tool batch should advance the anti-spin counter.
-///
-/// A8: pure competition board wait/poll (no mutation, no submit/score outcome,
-/// no free-form recon) must not count — the same `head`/`read_file` of the
-/// living handoff can become a new outcome when the shared slot flips.
-/// Repeated submit/score (outcome) and free-form recon still count.
 pub(crate) fn anti_spin_counts_batch(
     mutation: bool,
     outcome: bool,
@@ -467,7 +415,6 @@ pub(crate) fn anti_spin_counts_batch(
     if mutation || outcome || burns {
         return true;
     }
-    // Pure wait/poll: wait_or_progress && !burns && !mutation && !outcome
     !wait_or_progress
 }
 
@@ -487,10 +434,6 @@ fn parse_sleep_duration_secs(token: &str) -> Option<u64> {
     (seconds.is_finite() && seconds >= 0.0).then(|| seconds.ceil() as u64)
 }
 
-/// Return the longest direct `sleep DURATION` command in a shell chain.
-/// Splitting only at shell control separators avoids treating prose such as
-/// `echo sleep is bad` as a wait. Unknown/variable durations fail closed as an
-/// unbounded wait because the harness cannot prove they are short.
 pub(crate) fn shell_passive_sleep_secs(call: &ToolCall) -> Option<u64> {
     if call.name != "shell" {
         return None;
@@ -534,8 +477,6 @@ pub(crate) fn passive_poll_only_batch(calls: &[ToolCall], max_sleep_secs: u64) -
         })
 }
 
-/// Repeated model-owned polling, even when timestamps/counters change in the
-/// output. Distinct inspections remain allowed; other work clears the window.
 pub(crate) struct RepeatedPollGuard {
     limit: usize,
     recent: std::collections::VecDeque<u64>,
@@ -549,13 +490,10 @@ impl RepeatedPollGuard {
         }
     }
 
-    /// Drop all retained observations without firing.
     pub(crate) fn reset(&mut self) {
         self.recent.clear();
     }
 
-    /// Called only after the complete batch is paired with its results. A real
-    /// workspace change or non-poll batch retires all prior observations.
     pub(crate) fn observe(&mut self, fingerprint: Option<u64>, mutated: bool) -> bool {
         let Some(fingerprint) = fingerprint.filter(|_| !mutated && self.limit > 0) else {
             self.recent.clear();
@@ -573,8 +511,6 @@ impl RepeatedPollGuard {
     }
 }
 
-/// Stable anti-spin fingerprint for a tool batch (canonical JSON args so key
-/// order cannot dodge it — same identity as storm signatures).
 #[cfg(test)]
 pub(crate) fn anti_spin_batch_signature(calls: &[ToolCall]) -> String {
     calls
@@ -584,9 +520,6 @@ pub(crate) fn anti_spin_batch_signature(calls: &[ToolCall]) -> String {
         .join("\n")
 }
 
-/// Anti-spin identity. Hashes names + args in place so default hops do not
-/// build or join storm strings. Key order is sorted; mutation bodies hash raw
-/// (same uniqueness as [`payload_fingerprint`]).
 pub(crate) fn anti_spin_batch_fingerprint(calls: &[ToolCall]) -> u64 {
     let mut hasher = DefaultHasher::new();
     calls.len().hash(&mut hasher);
@@ -597,10 +530,6 @@ pub(crate) fn anti_spin_batch_fingerprint(calls: &[ToolCall]) -> u64 {
     hasher.finish()
 }
 
-/// Bounded detector for short alternating tool cycles (A→B→A→B, A→B→C→…).
-/// Anti-spin catches only identical adjacent batches; this retains at most
-/// `max_period * repeats` outcome-aware observations and looks for periods
-/// 2..=max_period.
 pub(crate) struct ToolBatchCycle {
     observations: Vec<u64>,
     max_period: usize,
@@ -625,7 +554,6 @@ impl ToolBatchCycle {
         self.observations.len()
     }
 
-    /// Record one fully paired tool batch and return the detected cycle period.
     pub(crate) fn observe(&mut self, observation: u64) -> Option<usize> {
         let capacity = self.max_period.saturating_mul(self.repeats);
         if capacity == 0 {
@@ -650,8 +578,6 @@ impl ToolBatchCycle {
     }
 }
 
-/// Cycle identity from an already-hashed batch: hop results fold in here
-/// instead of walking write payloads twice.
 pub(crate) fn tool_batch_cycle_observation_from_calls_fp(
     calls_fp: u64,
     results: &[(String, Option<Duration>, ToolOutcome)],
@@ -666,9 +592,6 @@ pub(crate) fn tool_batch_cycle_observation_from_calls_fp(
     hasher.finish()
 }
 
-/// Hash calls together with their actual pre-cap results and typed outcomes.
-/// A board/read whose output changes is progress, not a cycle, even when the
-/// model repeats the same arguments. Elapsed time is deliberately excluded.
 #[cfg(test)]
 pub(crate) fn tool_batch_cycle_observation(
     calls: &[ToolCall],
@@ -677,17 +600,8 @@ pub(crate) fn tool_batch_cycle_observation(
     tool_batch_cycle_observation_from_calls_fp(anti_spin_batch_fingerprint(calls), results)
 }
 
-/// Occurrence at which the opt-in storm detector throws `⠇⠃`.
 pub(crate) const TOOLCALL_STORM_THRESHOLD: usize = 3;
 
-/// Sliding-window duplicate-call tracker (opt-in, `ANGEL_TOOLCALL_STORM`).
-/// Distinct from anti-spin, which compares the whole batch with the one just
-/// before: this matches individual calls across a window of hops.
-///
-/// A duplicate is the same call against the same workspace. A call's result
-/// depends on the files it reads, so an edit starts a fresh window: an earlier
-/// sighting described code that no longer exists (polyglot-v1: 35 of 37 storm
-/// hits came right after an edit before this rule).
 pub(crate) struct ToolCallStorm {
     hops: std::collections::VecDeque<Vec<(String, std::time::Instant)>>,
     window: usize,
@@ -701,11 +615,6 @@ impl ToolCallStorm {
         }
     }
 
-    /// Fold one hop's batch into the window and return each call's occurrence
-    /// count (1 = first sighting). Earlier duplicates in the same batch count,
-    /// so a model that repeats a call inside one batch is caught too. A call
-    /// that follows an edit in the same batch is compared only with what came
-    /// after that edit.
     pub(crate) fn observe(&mut self, calls: &[ToolCall]) -> Vec<usize> {
         let observed_at = std::time::Instant::now();
         let mut counts = Vec::with_capacity(calls.len());
@@ -715,7 +624,6 @@ impl ToolCallStorm {
             let signature = toolcall_storm_signature(call);
             let repeats = |(prior, seen_at): &&(String, std::time::Instant)| {
                 prior == &signature
-                    // A process snapshot is time-dependent: age these sightings.
                     && (!matches!(call.name.as_str(), "proc_status" | "proc_wait")
                         || observed_at.saturating_duration_since(*seen_at).as_secs() < 30)
             };
@@ -731,7 +639,6 @@ impl ToolCallStorm {
             };
             counts.push(seen + 1);
             batch.push((signature, observed_at));
-            // An edit earlier in the batch counts as a change before it runs.
             if is_mutation_call(call) {
                 after_edit = Some(batch.len());
             }
@@ -743,18 +650,11 @@ impl ToolCallStorm {
         counts
     }
 
-    /// The workspace changed during the last hop, through a direct edit or an
-    /// opaque one such as a shell `sed -i`. Every earlier sighting described
-    /// files that are gone. An identical rewrite that changed no bytes does not
-    /// get here, so a storm of no-op writes is still caught.
     pub(crate) fn workspace_changed(&mut self) {
         self.hops.clear();
     }
 }
 
-/// Identity of a call for storm comparison: the tool name plus its arguments in
-/// canonical form, so key order and whitespace cannot dodge it. Mutation
-/// payloads are hashed so ordinary write hops do not allocate megabyte strings.
 pub(crate) fn toolcall_storm_signature(call: &ToolCall) -> String {
     let mut args = String::new();
     write_canonical_json(&call.name, &call.args, &mut args);
@@ -798,25 +698,10 @@ fn write_canonical_json(tool: &str, value: &Value, out: &mut String) {
     }
 }
 
-/// On when `ANGEL_LOOP_COLLAPSE=1`, which a small workspace's headless task
-/// sets by default. When one tool batch has come back with
-/// the same outcome [`COLLAPSE_AT`] times (calls and results compared with
-/// their digits masked), the request keeps its first sighting and drops the
-/// later copies, their results and the `⛔` turns that followed them. Only the
-/// outbound copy changes: the stored history keeps every hop.
-///
-/// Why: in a locked loop DeepSeek Flash repeats the call it sees repeated. A
-/// replay of the loops of 2026-09-30 broke 16 of 50 with the copies collapsed
-/// and 0 of 50 as sent; a new page or the 0.1.6 English alone broke none.
-/// The 2026-11-11 wave P loops (js-bowling, js-forth) broke 5 of 6 collapsed,
-/// 0 of 6 as sent and 0 of 6 with the page's English sent again.
 pub(crate) const LOOP_COLLAPSE_ENV: &str = "ANGEL_LOOP_COLLAPSE";
 
-/// Sightings of one batch, with one outcome, before its copies are collapsed.
 pub(crate) const COLLAPSE_AT: usize = 3;
 
-/// The request as the model should see it in a locked loop; see
-/// [`LOOP_COLLAPSE_ENV`].
 pub(crate) fn collapse_repeats(
     messages: &[crate::agent::club::ChatMsg],
 ) -> std::borrow::Cow<'_, [crate::agent::club::ChatMsg]> {
@@ -824,7 +709,6 @@ pub(crate) fn collapse_repeats(
     if !env_flag(LOOP_COLLAPSE_ENV, false) {
         return std::borrow::Cow::Borrowed(messages);
     }
-    // One signature per assistant batch: its calls and their results.
     let mut signatures: Vec<Option<u64>> = vec![None; messages.len()];
     let mut counts: std::collections::HashMap<u64, usize> = std::collections::HashMap::new();
     for (index, message) in messages.iter().enumerate() {
@@ -875,11 +759,6 @@ pub(crate) fn collapse_repeats(
             }
         }
     }
-    // When the latest batch is itself a dropped copy, the view would end where
-    // an earlier one did, and at temperature 0 the model gives the same call
-    // again: a fixed point (rust-decimal, 2026-11-11, hops 43-60). One loop
-    // turn closes the request instead, a different book page each repeat.
-    // The latest sighting of a collapsed batch is always one of its copies.
     if let Some(signature) = signatures.iter().rev().flatten().next()
         && counts[signature] >= COLLAPSE_AT
     {
@@ -890,10 +769,6 @@ pub(crate) fn collapse_repeats(
     std::borrow::Cow::Owned(kept)
 }
 
-/// The loop turn that closes a collapsed request on its `repeats`-th copy:
-/// the same-batch page with the count, then the `⠇⠓` pages in the order they
-/// broke frozen replays on 2026-11-11 (⠇⠓⠁ last: it broke none), each with
-/// its own words from the book.
 fn rotation_turn(repeats: usize) -> String {
     const ORDER: [usize; 5] = [1, 2, 3, 4, 0];
     let step = (repeats - COLLAPSE_AT) % (ORDER.len() + 1);

@@ -20,8 +20,6 @@ pub enum Terrain {
     Stone,
     ClayBank,
     River,
-    /// A shallow crossing. Roads can cross without an advanced bridge, so
-    /// no survey or construction chain depends on a resource beyond a river.
     Ford,
 }
 impl Terrain {
@@ -54,13 +52,9 @@ impl Terrain {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct World {
-    /// The layout: 1 is the valley of nine earned parcels, 2 is the hillside,
-    /// the whole 240 x 176 realm slope, open from the first day.
     pub version: u8,
     pub seed: u64,
     pub parcels: BTreeSet<Parcel>,
-    /// Missing pre-geography saves retain their entire original build area.
-    /// Resource-site restrictions must also be skipped on these legacy plots.
     pub legacy_core: bool,
     pub cleared: BTreeSet<Tile>,
     #[serde(skip)]
@@ -72,8 +66,6 @@ impl Default for World {
     }
 }
 
-/// Production totals are lifetime evidence, not inventory: a charter never
-/// consumes them, and demolishing a workshop cannot revoke an earned parcel.
 #[derive(Clone, Copy, Debug)]
 pub struct ExpansionEvidence<'a> {
     pub produced: &'a Stock,
@@ -159,7 +151,6 @@ impl World {
             ..Self::new(0)
         }
     }
-    /// The hillside: the realm's whole slope, all open, with its sites set.
     pub fn hillside(seed: u64) -> Self {
         Self {
             version: 2,
@@ -191,14 +182,11 @@ impl World {
         self.parcel_at(tile)
             .is_some_and(|p| self.parcels.contains(&p))
     }
-    /// What the ground holds beneath the grass, for siting. Valleys hold none.
     pub fn deposit(&self, tile: Tile) -> Option<Deposit> {
         self.is_hillside()
             .then(|| self.grid.get(self.seed).deposit(tile))
             .flatten()
     }
-    /// Ground height in steps (a step is about half a metre of climb). Chutes
-    /// run downhill and windmills want the high ground.
     pub fn height(&self, tile: Tile) -> u8 {
         if self.is_hillside() {
             self.grid.get(self.seed).height(tile)
@@ -209,7 +197,6 @@ impl World {
     pub fn hilltop(&self, tile: Tile) -> bool {
         self.is_hillside() && self.height(tile) >= HILLTOP && self.terrain(tile).walkable()
     }
-    /// A deposit of `kind` within `radius` steps (Manhattan, as roads run).
     pub fn near_deposit(&self, tile: Tile, kind: Deposit, radius: u8) -> bool {
         let r = i16::from(radius.min(12));
         (-r..=r).any(|dy| {
@@ -218,8 +205,6 @@ impl World {
             })
         })
     }
-    /// Walkable ground for the whole hillside at once: no terrain is hashed
-    /// per tile per second.
     pub(crate) fn walkable_grid(&self) -> Vec<bool> {
         if self.is_hillside() {
             let mut open = self.grid.get(self.seed).walkable.clone();
@@ -247,8 +232,6 @@ impl World {
         }
     }
     fn natural_terrain(&self, (x, y): Tile) -> Terrain {
-        // Callers must use owned/contains for admission. Outside pixels are
-        // harmless meadow, allowing renderer sampling at the viewport border.
         if !self.contains((x, y)) || self.legacy_plot((x, y)) {
             return Terrain::Meadow;
         }
@@ -267,13 +250,9 @@ impl World {
                 Terrain::River
             };
         }
-        // Wide dry axes make every owned parcel reachable from every other
-        // one. They protect the original camp, road row and expedition gate.
         if (10..=12).contains(&lx) || (8..=10).contains(&ly) {
             return Terrain::Meadow;
         }
-        // Guaranteed local sites, close to roads. These do not rely on the
-        // noise sample and are available before the first expansion payment.
         if (3..=7).contains(&lx) && (3..=7).contains(&ly) {
             return Terrain::Forest;
         }
@@ -283,8 +262,6 @@ impl World {
         if (6..=8).contains(&lx) && (11..=13).contains(&ly) {
             return Terrain::ClayBank;
         }
-        // River-side clay terraces and low-frequency wooded/mineral clusters
-        // vary the rest of each parcel while preserving open building space.
         if (19..=23).contains(&lx) && (11..=15).contains(&ly) {
             return Terrain::ClayBank;
         }
@@ -298,8 +275,6 @@ impl World {
             _ => Terrain::Meadow,
         }
     }
-    /// Manhattan distance matches orthogonal roads and makes placement hints
-    /// reproducible. Unowned sites do not supply a workshop over the border.
     pub fn near(&self, tile: Tile, terrain: Terrain, radius: u8) -> bool {
         if !self.contains(tile) {
             return false;
@@ -320,8 +295,6 @@ impl World {
                 .iter()
                 .any(|&p| self.owned(p) && self.terrain(p).water())
     }
-    /// The command layer pays its chosen forestry/construction effort first.
-    /// Clearing gives no resources here and cannot be repeated for rewards.
     pub fn clear_forest(&mut self, tile: Tile) -> bool {
         if !self.owned(tile) || self.terrain(tile) != Terrain::Forest {
             return false;
@@ -457,8 +430,6 @@ impl World {
             blocked,
         })
     }
-    /// Evidence and adjacency are checked again at commit. The surrounding
-    /// Kingdom command must pay `offer.cost` atomically before committing us.
     pub fn unlock(
         &mut self,
         parcel: Parcel,

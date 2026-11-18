@@ -1,5 +1,3 @@
-// Bend source build adapter. The live host supplies an immutable source capture;
-// compiler IO stays here, outside the V8/game fast path.
 import {spawnSync} from 'node:child_process'
 import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
@@ -44,8 +42,6 @@ export function build(request) {
     if (!local(name) || !name.endsWith('.bend') || typeof text !== 'string') throw Error('Bend capture contains an invalid source')
     bytes += Buffer.byteLength(text)
     imports[name] = []
-    // Pure modules import Base or captured relative Bend files. No hub lookup,
-    // arbitrary foreign files, or changing source-directory reads during build.
     for (const line of text.split('\n')) {
       const match = line.match(/^\s*import\s+([^\s#]+)/)
       if (!match || match[1] === 'Base') continue
@@ -75,7 +71,6 @@ export function build(request) {
     const emitted = performance.now()
     invoke(compiler, [bend.entry, '-o', 'candidate.mjs'], directory)
     const module = fs.readFileSync(path.join(directory, 'candidate.mjs'), 'utf8')
-    // A program with lambdas ends its code with their helpers, with no newline before the export.
     const marker = 'export default {\n'
     const at = module.lastIndexOf(marker)
     if (at < 0 || !module.endsWith('};\n')) throw Error('Bend emitted an incompatible module')

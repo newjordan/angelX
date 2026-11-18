@@ -1,5 +1,4 @@
 use super::*;
-/// One owned loopback server: response remains open until the client closes.
 fn fixture(progressing: bool, headers: bool) -> (String, std::thread::JoinHandle<()>) {
     fixture_response(
         progressing,
@@ -30,7 +29,6 @@ fn fixture_response(
             request.push(byte[0]);
         }
         if let Some(response) = response {
-            // Deliberately no length, chunked encoding, or Connection: close.
             stream.write_all(response).unwrap();
         }
         if progressing {
@@ -198,8 +196,6 @@ fn unlinked_running_image_http_fixture() {
     listener.set_nonblocking(true).unwrap();
     let url = format!("http://{}/running-image", listener.local_addr().unwrap());
     let server = std::thread::spawn(move || {
-        // Bound accept as well as reads: a failed helper launch must not leave
-        // this regression hanging while it holds the process-wide env lock.
         let deadline = Instant::now() + Duration::from_secs(5);
         let mut stream = loop {
             match listener.accept() {
@@ -256,8 +252,6 @@ fn http_helper_survives_unlinking_its_running_executable() {
     std::fs::create_dir_all(&root).unwrap();
     let executable = root.join("fixture-runner");
     let source = std::env::current_exe().unwrap();
-    // Hard-link when possible to avoid duplicating the debug image; the child
-    // unlinks only this test-owned directory entry, preserving the suite image.
     if std::fs::hard_link(&source, &executable).is_err() {
         std::fs::copy(&source, &executable).unwrap();
     }

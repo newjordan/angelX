@@ -11,19 +11,13 @@ use super::anthropic_messages;
 use serde_json::{Map, Value, json};
 use std::collections::HashMap;
 
-/// Whose Messages API a seat speaks.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum Flavor {
-    /// DeepSeek's Anthropic-compatible endpoint (`ANGEL_DEEPSEEK_API=messages`).
     #[default]
     DeepSeek,
-    /// The first-party Anthropic API (the `anthropic` seat).
     Anthropic,
 }
 
-/// DeepSeek's Messages endpoint for the seat's configured Chat base URL: the
-/// provider's own host serves it under `/anthropic`; a forwarder or gateway in
-/// front of the seat serves it beside its Chat path.
 pub(super) fn messages_url(base_url: &str) -> String {
     if let Ok(url) = std::env::var("ANGEL_DEEPSEEK_MESSAGES_URL")
         && !url.trim().is_empty()
@@ -41,14 +35,10 @@ pub(super) fn messages_url(base_url: &str) -> String {
     }
 }
 
-/// Whether the route takes a later `system` message as the whole new system
-/// prompt (`/models` `system_prompt_update: in-history`: deepseek-flash). Other
-/// routes read only the leading one (`leading-only`: deepseek-v4-pro).
 pub(super) fn system_in_history(model: &str) -> bool {
     model.eq_ignore_ascii_case("deepseek-flash")
 }
 
-/// The Messages endpoint a seat of this flavor posts to.
 pub(super) fn messages_url_for(flavor: Flavor, base_url: &str) -> String {
     match flavor {
         Flavor::DeepSeek => messages_url(base_url),
@@ -60,8 +50,6 @@ fn text_block(text: &str) -> Value {
     json!({"type": "text", "text": text})
 }
 
-/// Whether a text block carries something this flavor accepts: the
-/// first-party API rejects a block of only whitespace.
 fn keeps_text(text: &str, flavor: Flavor) -> bool {
     match flavor {
         Flavor::DeepSeek => !text.is_empty(),
@@ -69,7 +57,6 @@ fn keeps_text(text: &str, flavor: Flavor) -> bool {
     }
 }
 
-/// Chat content (a string or text/image parts) as Messages input blocks.
 fn input_blocks(content: &Value, flavor: Flavor) -> Vec<Value> {
     match content {
         Value::String(text) if keeps_text(text, flavor) => vec![text_block(text)],
@@ -95,8 +82,6 @@ fn input_blocks(content: &Value, flavor: Flavor) -> Vec<Value> {
     }
 }
 
-/// Historical tool arguments DeepSeek cannot represent go as `{}`, as its own
-/// harness sends them; the durable history keeps the original.
 fn tool_input(arguments: &Value) -> Value {
     let parsed = match arguments {
         Value::String(raw) => serde_json::from_str::<Value>(raw).ok(),
@@ -114,7 +99,6 @@ fn assistant_blocks(message: &Value, flavor: Flavor) -> Vec<Value> {
     {
         match flavor {
             Flavor::DeepSeek => blocks.push(json!({"type": "thinking", "thinking": thinking})),
-            // The turn's signed blocks, verbatim and first.
             Flavor::Anthropic => blocks.extend(anthropic_messages::replay_blocks(thinking)),
         }
     }
@@ -152,14 +136,11 @@ fn push_merged(messages: &mut Vec<Value>, role: &str, content: Vec<Value>) {
     messages.push(json!({"role": role, "content": content}));
 }
 
-/// Translate a finished Chat Completions body into DeepSeek's Messages body.
 #[cfg(test)]
 pub(super) fn to_messages_body(chat: &Value) -> Result<Value, String> {
     to_messages_body_for(chat, Flavor::DeepSeek)
 }
 
-/// Translate a finished Chat Completions body into a Messages body of this
-/// flavor.
 pub(super) fn to_messages_body_for(chat: &Value, flavor: Flavor) -> Result<Value, String> {
     let model = chat
         .get("model")
@@ -183,8 +164,6 @@ pub(super) fn to_messages_body_for(chat: &Value, flavor: Flavor) -> Result<Value
                 if messages.is_empty() {
                     system.push(text);
                 } else if in_history && messages.last().is_some_and(|last| last["role"] == "user") {
-                    // A later system message on an in-history route is the new
-                    // prompt, after the user turn it follows (append-only).
                     messages.push(json!({"role": "system", "content": [text_block(&text)]}));
                 } else if !text.is_empty() {
                     push_merged(&mut messages, "user", vec![text_block(&text)]);
@@ -201,7 +180,14 @@ pub(super) fn to_messages_body_for(chat: &Value, flavor: Flavor) -> Result<Value
                     "type": "tool_result",
                     "tool_use_id": message.get("tool_call_id").cloned().unwrap_or(Value::Null),
                 });
-                // An empty result goes without content on the first-party API.
+                if flavor == Flavor::Anthropic
+                    && result
+                        .first()
+                        .and_then(|part| part["text"].as_str())
+                        .is_some_and(crate::agent::harness::carries_error_prefix)
+                {
+                    block["is_error"] = json!(true);
+                }
                 if flavor == Flavor::DeepSeek || !result.is_empty() {
                     block["content"] = Value::Array(result);
                 }
@@ -210,7 +196,6 @@ pub(super) fn to_messages_body_for(chat: &Value, flavor: Flavor) -> Result<Value
             _ => push_merged(&mut messages, "user", input_blocks(content, flavor)),
         }
     }
-    // Every tool result leads its user message, answering the calls just made.
     for message in &mut messages {
         if message["role"] == "user"
             && let Some(blocks) = message["content"].as_array_mut()
@@ -243,16 +228,12 @@ pub(super) fn to_messages_body_for(chat: &Value, flavor: Flavor) -> Result<Value
         Flavor::DeepSeek if !system.is_empty() => {
             body.insert("system".into(), json!(system.join("\n\n")));
         }
-        // One block per leading system message, so the last can carry the
-        // cache breakpoint and each stays byte-stable across hops.
         Flavor::Anthropic if !system.is_empty() => {
             let blocks = system.iter().map(|text| text_block(text)).collect();
             body.insert("system".into(), Value::Array(blocks));
         }
         _ => {}
     }
-    // The first-party API takes no sampling controls and sets its own thinking
-    // (`anthropic_messages::finish_body`).
     if flavor == Flavor::DeepSeek {
         if let Some(thinking) = chat.get("thinking") {
             body.insert("thinking".into(), thinking.clone());
@@ -308,8 +289,6 @@ fn finish_reason(stop_reason: &str) -> &'static str {
     }
 }
 
-/// Messages usage (`input_tokens` is uncached, as DeepSeek's harness reads it)
-/// in the Chat fields DeepSeek reports there: prompt = hit + miss.
 fn chat_usage(usage: &Map<String, Value>) -> Value {
     let count = |key: &str| usage.get(key).and_then(Value::as_u64).unwrap_or(0);
     let (input, read, write) = (
@@ -339,14 +318,11 @@ fn flavor_usage(flavor: Flavor, usage: &Map<String, Value>) -> Value {
     }
 }
 
-/// One Messages stream, translated line by line into Chat Completions frames.
 #[derive(Default)]
 pub(super) struct StreamTranslator {
     flavor: Flavor,
     usage: Map<String, Value>,
-    /// Content-block index → ordinal among this reply's tool calls.
     tools: HashMap<u64, (u64, bool)>,
-    /// The first-party API's signed thinking blocks, for replay.
     thinking: anthropic_messages::ThinkingCapture,
 }
 
@@ -358,8 +334,6 @@ impl StreamTranslator {
         }
     }
 
-    /// The reply's thinking blocks as the private reasoning slot keeps them
-    /// (first-party flavor only; DeepSeek replays the accumulated text).
     pub(super) fn take_replay(&mut self) -> Option<String> {
         if self.flavor == Flavor::Anthropic {
             self.thinking.take_json()
@@ -368,14 +342,11 @@ impl StreamTranslator {
         }
     }
 
-    /// The provider's own usage fields, for the wire log (first-party only).
     pub(super) fn native_usage(&self) -> Option<Value> {
         (self.flavor == Flavor::Anthropic && !self.usage.is_empty())
             .then(|| Value::Object(self.usage.clone()))
     }
 
-    /// The Chat line for one Messages SSE line: `None` for a line that carries
-    /// nothing (the `event:` name, a block's close), an SSE comment for a ping.
     pub(super) fn line(&mut self, line: &str) -> Option<String> {
         let payload = line.trim().strip_prefix("data:")?.trim();
         let event: Value = serde_json::from_str(payload).ok()?;
@@ -448,7 +419,6 @@ impl StreamTranslator {
                 }
             }
             "content_block_stop" => {
-                // A call with no parameters streams no JSON; its input is `{}`.
                 let (ordinal, streamed) = *self.tools.get(&index)?;
                 (!streamed).then_some(())?;
                 frame(json!({"tool_calls": [{"index": ordinal, "function": {"arguments": "{}"}}]}))
@@ -483,14 +453,11 @@ impl StreamTranslator {
     }
 }
 
-/// A non-streaming Messages response as a Chat Completions response.
 #[cfg(test)]
 pub(super) fn to_chat_response(message: &Value) -> Value {
     to_chat_response_for(message, Flavor::DeepSeek)
 }
 
-/// A non-streaming Messages response of this flavor as a Chat Completions
-/// response.
 pub(super) fn to_chat_response_for(message: &Value, flavor: Flavor) -> Value {
     if message.get("type").and_then(Value::as_str) == Some("error") {
         return json!({"error": message.get("error")});
@@ -526,7 +493,6 @@ pub(super) fn to_chat_response_for(message: &Value, flavor: Flavor) -> Value {
         }
     }
     if flavor == Flavor::Anthropic {
-        // The signed blocks themselves are what the next hop replays.
         let content = message.get("content").and_then(Value::as_array);
         thinking = content
             .and_then(|content| anthropic_messages::replay_json(content))

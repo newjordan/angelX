@@ -110,14 +110,9 @@ pub(crate) const PRIMARY: Primary = Primary {
     ],
 };
 
-/// Hops in a row where every call failed at dispatch: `ANGEL_ERROR_LIMIT` was 6
-/// in a task turn at 0.1.6, its advisory at half of it.
 pub(crate) const ERROR_NUDGE_HOPS: usize = 3;
 pub(crate) const ERROR_CASCADE_HOPS: usize = 6;
 
-/// Consecutive hops where every call failed at dispatch. The third in a row
-/// throws `⠭⠁`, once per streak; the sixth throws `⠼⠓` and starts the count
-/// again, as the 0.1.6 error breaker did before its stop was taken away.
 #[derive(Default)]
 pub(crate) struct ErrorStreak {
     streak: usize,
@@ -142,19 +137,14 @@ impl ErrorStreak {
     }
 }
 
-/// Cut-off replies in a row, after which a re-send would only repeat itself.
 pub(crate) const OUTPUT_CAP_LIMIT: usize = 3;
 
-/// A provider error meaning the reply hit its output-token cap: re-sending the
-/// same request hits the same cap (polyglot-v1 rust-decimal, DeepSeek: 25
-/// identical 8192-token cut-offs until the task wall).
 pub(crate) fn is_output_cap_truncation(error: &str) -> bool {
     error.starts_with("response incomplete:")
         || error == crate::agent::club::TRUNCATED_OUTPUT_ERR
         || error.contains("finish_reason=length")
 }
 
-/// The route for a reply that failed before it could act, if it has one.
 pub(crate) fn failed_reply(error: &str, reasoning_only: bool) -> Option<Route> {
     if is_output_cap_truncation(error) {
         Some(if reasoning_only {

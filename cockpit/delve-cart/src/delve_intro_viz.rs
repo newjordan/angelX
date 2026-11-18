@@ -28,7 +28,6 @@ fn text(frame: &mut Frame, area: Rect, s: &str, color: Color) {
     );
 }
 
-/// The nearest wish the treasury is working toward, for a reason to go down.
 fn goal_line(realm: Option<&Realm>) -> String {
     let Some(realm) = realm else {
         return "Spoils you carry out alive build the realm.".into();
@@ -86,8 +85,6 @@ pub fn render(
         "“Another knight takes up the search. Good. That is the whole of it, you know. The taking up.” — Old Blaise",
         PARCHMENT,
     );
-    // The chosen knight, large, in their own colours; the serving house
-    // names whoever wears the kit.
     let knight = intro.chosen();
     let house = crate::together_shooter::knights::house_for_seat(1);
     let sprite: Img = arena::knight_of(Some(knight.id), knight.colours);
@@ -102,16 +99,12 @@ pub fn render(
     }
     let art_w = big.w as u16;
     let art = Rect::new(inner.x + 4, inner.y + 4, art_w, (big.h as u16).div_ceil(2));
-    // The GPU window draws the knight itself (square pixels, breathing, a
-    // glow and a shadow); a terminal paints it in half-block cells.
     if !crate::cart::glass::portrait(console, &sprite, art) {
         crate::shooter_viz::paint_pixels(frame, art, &big);
     }
     text(
         frame,
         Rect::new(inner.x + 2, art.bottom() + 1, art_w + 4, 2),
-        // Under the figure: the house knight in their own words, or the
-        // Keep's own knight and calling.
         &knight
             .of_house(house)
             .filter(|k| !k.epithet.is_empty())
@@ -121,7 +114,6 @@ pub fn render(
             ),
         GOLD,
     );
-    // The choices.
     let x = inner.x + art_w + 10;
     let w = inner.right().saturating_sub(x + 2);
     let mut y = inner.y + 4;

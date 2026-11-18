@@ -3,11 +3,6 @@ use crate::drive::reinforce::{TEST_VERIFIER_CONTRACT, TestReward};
 
 #[test]
 fn evaluator_artifact_roundtrip_replays_reward_and_rejects_tamper() {
-    // This fixture spawns raw `git` (not the env-stripping pinned
-    // command), so it holds the crate env lock: a concurrent test that
-    // sets GIT_DIR/GIT_WORK_TREE (the workspace-evidence decoy) would
-    // otherwise redirect the spawned git into a different work tree and
-    // fail `git add` with "pathspec did not match" at random.
     let _guard = crate::tests::env_lock();
     let root =
         std::env::temp_dir().join(format!("angel-evaluator-artifact-{}", std::process::id()));

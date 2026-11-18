@@ -152,10 +152,6 @@ fn git(dir: &Path, args: &[&str]) -> String {
 
 #[test]
 fn engine_uses_durable_non_root_identity() {
-    // `campaign_alignment_review` starts a rollout recorder when a concurrent
-    // fixture temporarily enables local capture. Its backing directory is
-    // process-global configuration, so serialize this reader with fixtures
-    // that set and later remove the configured rollout root.
     let _env_guard = crate::tests::env_lock();
     let base = std::env::temp_dir().join(format!("angel-alignment-engine-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&base);

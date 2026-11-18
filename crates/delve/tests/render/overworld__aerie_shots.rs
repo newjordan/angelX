@@ -1,4 +1,3 @@
-// Extended by the existing ignored write_world_shots export entry point.
 fn aerie_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
     use crate::rules::{aerie as a, countryside as c, pastimes::Game, world};
     let empty = BTreeMap::new();
@@ -32,7 +31,6 @@ fn aerie_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
         let (kind, at, _) = a::DOCUMENTS[i];
         r.arrive(world::room_of(&r.dungeon, kind).unwrap(), at);
         save(&format!("world-minutes-{}-pigeon.png", i + 1), &native(&r));
-        // Bonked: the paper falls, and must lie clear of the HUD.
         let (px, py) = r.bonk_pigeon_for_test(1).expect("a pigeon up");
         let mut paper = Img::new(r.room().cols as i32 * TILE, r.room().rows as i32 * TILE);
         super::aerie::figures(&mut paper, &r);

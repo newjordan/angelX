@@ -12,26 +12,18 @@ use crate::ui::loop_card::{self, Race};
 use ratatui::{Frame, layout::Rect};
 use std::time::Instant;
 
-/// The start: how long the flag and the launch play before the ticker docks.
 const LAUNCH_HOLD: f32 = 1.15;
-/// How long the ticker takes to settle into the subheader after the start.
 const DOCKING: f32 = 0.42;
-/// The ticker's knight comes in over this long as it docks.
 const DOCK_IN: f32 = 0.3;
-/// A finished loop holds its chequers in the ticker this long, then goes.
 const COMPLETE_HOLD: f32 = 6.0;
 
-/// The launch played after the flag drops, and the widget after it.
 #[derive(Default)]
 pub(crate) struct LoopCardState {
     launch: Option<(LoopLaunchDialog, Instant)>,
     dock: Option<Dock>,
-    /// The cell size the ticker's own pictures were handed over at.
     pictures: Option<(u16, u16)>,
 }
 
-/// The widget's run: which loop it follows, the laps it has counted, and
-/// the lap the knight is running now.
 struct Dock {
     purpose: LoopLaunchPurpose,
     since: Instant,
@@ -43,8 +35,6 @@ struct Dock {
 }
 
 impl LoopCardState {
-    /// The flag dropped on `dialog` and its loop is running: in the window,
-    /// play the start and dock. A terminal docks immediately.
     pub(crate) fn launched(&mut self, dialog: LoopLaunchDialog, now: Instant) {
         let purpose = dialog.purpose;
         self.launch = crate::ui::glass::active().then_some((dialog, now));
@@ -59,9 +49,6 @@ impl LoopCardState {
         });
     }
 
-    /// While the start plays or the knight runs, the cockpit draws fast:
-    /// the ticker's road walks and its timer counts. A paused loop is
-    /// still; a finished one draws until its chequers leave.
     pub(crate) fn animating(&self, now: Instant) -> bool {
         self.launch.is_some()
             || self.dock.as_ref().is_some_and(|d| {
@@ -76,7 +63,6 @@ impl LoopCardState {
             })
     }
 
-    /// Whether the widget is up, following a loop.
     #[cfg(test)]
     pub(crate) fn docked(&self) -> bool {
         self.dock.is_some()
@@ -84,7 +70,6 @@ impl LoopCardState {
 }
 
 impl Dock {
-    /// Queue every completed iteration, even during the launch or a modal.
     fn observe(&mut self, done: usize) {
         self.owed = self.owed.saturating_add(done.saturating_sub(self.counted));
         self.counted = done;
@@ -105,10 +90,6 @@ impl Dock {
     }
 }
 
-/// The rows the loop ticker takes in the layout this frame: the strip
-/// under the header once a launched loop is running (in the window, once
-/// the start has played), and none otherwise. The layout reserves them,
-/// so the ticker never covers the transcript or the composer.
 pub(crate) fn ticker_rows(app: &App, root: Rect) -> u16 {
     if app.loop_dialog.is_some() || root.width < loop_card::TICKER_MIN_COLS || root.height < 12 {
         return 0;
@@ -133,9 +114,6 @@ pub(crate) fn ticker_rows(app: &App, root: Rect) -> u16 {
     loop_card::TICKER_ROWS
 }
 
-/// What keeps out from under the loop card in a terminal; the window draws
-/// its card over its pictures. The docked ticker occludes nothing: the
-/// layout reserves its rows.
 pub(crate) fn occluder(root: Rect, app: &App) -> Option<Rect> {
     if app.loop_dialog.is_none() {
         return None;
@@ -147,12 +125,9 @@ pub(crate) fn occluder(root: Rect, app: &App) -> Option<Rect> {
     Some(loop_card::terminal_area(root))
 }
 
-/// This frame's loop card: the open launch, or the start playing out, or
-/// the widget in the corner.
 pub(crate) fn render(frame: &mut Frame, app: &mut App) {
     let root = frame.area();
     if let Some(dialog) = app.loop_dialog.as_ref() {
-        // A new launch outranks the last one's start.
         app.loop_card.launch = None;
         #[cfg(feature = "glass")]
         if crate::ui::glass::active()
@@ -174,7 +149,6 @@ pub(crate) fn render(frame: &mut Frame, app: &mut App) {
     render_running(frame, app, root);
 }
 
-/// The start and the ticker, following the same live counters on both surfaces.
 fn render_running(frame: &mut Frame, app: &mut App, root: Rect) {
     let now = Instant::now();
     let race = app
@@ -183,8 +157,6 @@ fn render_running(frame: &mut Frame, app: &mut App, root: Rect) {
         .as_ref()
         .and_then(|d| race_of(app, d.purpose));
     if race.is_none() {
-        // The loop ended or was stopped: the ticker goes with it, and its
-        // pictures are handed over again for the next one.
         app.loop_card.dock = None;
         app.loop_card.launch = None;
         app.loop_card.pictures = None;
@@ -239,8 +211,6 @@ fn render_window(
     area: Option<Rect>,
     phase: f32,
 ) {
-    // The start: the flag and the launch on the card; then the card goes
-    // and the ticker is in the subheader the layout reserved for it.
     if let Some((dialog, at)) = app.loop_card.launch.as_ref() {
         let t = now.saturating_duration_since(*at).as_secs_f32();
         if t < LAUNCH_HOLD {
@@ -267,8 +237,6 @@ fn render_window(
     let s = dock.step(now);
     let fade = ((phase - LAUNCH_HOLD) / (DOCKING + DOCK_IN)).clamp(0.0, 1.0);
 
-    // The strip's words and road in cells; the knight as a picture over
-    // his slot.
     loop_card::render_ticker(frame.buffer_mut(), area, &race, s, phase, false);
     let Some(cell) = crate::ui::glass::cell_pixels() else {
         return;
@@ -283,12 +251,9 @@ fn render_window(
     crate::ui::glass::show_group(host, DOCK_GROUP, layers);
 }
 
-/// The layer group the widget travels in.
 #[cfg(feature = "glass")]
 const DOCK_GROUP: u32 = 0x4C4F_4F50;
 
-/// What the widget shows of the loop it follows, read from the loop's own
-/// state; none once that loop has ended or been stopped.
 fn race_of(app: &App, purpose: LoopLaunchPurpose) -> Option<Race> {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -361,9 +326,9 @@ mod tests {
             paused: false,
             finished_at: None,
         };
-        dock.observe(2); // two completions while the flag is still falling
-        dock.observe(7); // and a burst while another modal owns the screen
-        dock.observe(7); // a redraw cannot add a lap
+        dock.observe(2);
+        dock.observe(7);
+        dock.observe(7);
         assert_eq!(dock.owed, 7);
         for lap in 0..7 {
             let at =
@@ -412,9 +377,9 @@ mod tests {
             .as_millis() as u64;
         app.loop_ctl.status = LoopStatus::Running;
         app.loop_ctl.task = "ship the parser".into();
-        app.loop_ctl.iteration = 2; // two laps done: the knight is on L03
+        app.loop_ctl.iteration = 2;
         app.loop_ctl.max_iters = 0;
-        app.loop_ctl.deadline_secs = 263; // 04:23 left
+        app.loop_ctl.deadline_secs = 263;
         app.loop_ctl.started_ms = now_ms + 1_000;
         app.loop_card
             .launched(LoopLaunchDialog::new("ship", 0, false), Instant::now());
@@ -455,8 +420,6 @@ mod tests {
             lines.join("\n")
         );
 
-        // Flat chrome on a short terminal: the strip still docks under the
-        // header and the body still starts below it.
         let mut small = ratatui::Terminal::new(ratatui::backend::TestBackend::new(80, 18)).unwrap();
         small.draw(|f| crate::ui::draw::ui(f, &mut app)).unwrap();
         let buf = small.backend().buffer();
@@ -485,7 +448,6 @@ mod tests {
         app.loop_card
             .launched(LoopLaunchDialog::new("ship", 0, false), Instant::now());
         assert!(app.loop_card.docked());
-        // The ticker's rows are reserved by the layout: it occludes nothing.
         assert!(occluder(Rect::new(0, 0, 100, 30), &app).is_none());
         let mut terminal =
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();

@@ -6,8 +6,6 @@ use super::*;
 use crate::rules::{Input, Run, alehouse, bazaar};
 use std::collections::BTreeMap;
 
-/// The whole hall at once, the camera's crop taken off: the scenery with
-/// every layer over it.
 fn whole(run: &Run) -> Img {
     let mut cv = (*scenery_cached(run)).clone();
     cv.stamp(&room_layer(run, None, true), 0, 0);
@@ -45,7 +43,6 @@ fn place(r: &mut Run, id: u32, (x, y): (f32, f32)) {
     (h.x, h.y) = (x * 2.0, y * 2.0);
 }
 
-/// Past the blink of arriving, so every knight is drawn.
 fn settle(r: &mut Run) {
     for _ in 0..100 {
         r.step(&BTreeMap::new());
@@ -97,16 +94,13 @@ fn write_alehouse_shots() {
         let img = seat_scene(run, w, h, Some(focus)).compose();
         save_img(name, &img, 3);
     };
-    // The hall with nobody in it: the one knight waits out at the door.
     let mut run = start(1);
     run.players.clear();
     save_img("tavern-01-empty", &whole(&run), 2);
-    // The party, together, as the delve begins.
     let mut run = start(4);
     settle(&mut run);
     save_img("tavern-02-party-hall", &whole(&run), 2);
     seat_shot("tavern-03-party-seat", &run, 1);
-    // A knight before a patron: the pitch; then picked.
     let mut run = start(2);
     settle(&mut run);
     run.alehouse.company_page = 1;
@@ -121,11 +115,9 @@ fn write_alehouse_shots() {
     press(&mut run, 1);
     seat_shot("tavern-05-picked", &run, 1);
     save_img("tavern-06-picked-hall", &whole(&run), 2);
-    // A second knight is turned away from the same table.
     place(&mut run, 2, (mage.0 + 0.4, mage.1 - 1.0));
     press(&mut run, 2);
     seat_shot("tavern-07-taken", &run, 2);
-    // The keeper's taps, the stew, the cat, the fence.
     let mut run = start(1);
     settle(&mut run);
     place(&mut run, 1, alehouse::TAPS[1]);
@@ -141,7 +133,6 @@ fn write_alehouse_shots() {
     );
     run.step(&BTreeMap::new());
     seat_shot("tavern-10-fence", &run, 1);
-    // The bazaar: empty, with the party, a ware, a purchase.
     let mut run = start(1);
     run.players.clear();
     let to = run
@@ -164,8 +155,6 @@ fn write_alehouse_shots() {
     hold(&mut run, 1);
     seat_shot("bazaar-04-bought", &run, 1);
     save_img("bazaar-05-bought-hall", &whole(&run), 2);
-    // Out in the Delve's courtyard: the green house is the tavern, and the
-    // peddler's plates (on a run whose cart stands there) the bazaar.
     let gate_cart = (41..80)
         .map(|seed| {
             let mut r = Run::at_home(
@@ -195,7 +184,6 @@ fn write_alehouse_shots() {
     settle(&mut run);
     save_img("courtyard-01-hall", &whole(&run), 2);
     seat_shot("courtyard-02-seat", &run, 1);
-    // Come out of the tavern's front: before its door, its name on approach.
     place(
         &mut run,
         1,
@@ -208,7 +196,6 @@ fn write_alehouse_shots() {
     seat_shot("courtyard-03-door", &run, 1);
 }
 
-/// Explicit visual review only; no PNGs are written by ordinary test runs.
 #[test]
 #[ignore]
 fn write_alehouse_home_lamp_shots() {
@@ -243,7 +230,6 @@ fn write_alehouse_home_lamp_shots() {
     save("home-lamp-hall", whole(&r));
 }
 
-/// The complete rack and its per-arm boards, plus equipped and mid-hold states.
 #[test]
 #[ignore]
 fn write_alehouse_home_arms_shots() {

@@ -24,7 +24,6 @@ fn every_act() -> Vec<Act> {
     (0..3u8).flat_map(|st| script(st).iter().map(|e| e.act).collect::<Vec<_>>()).collect()
 }
 
-/// The tables themselves, once.
 pub fn tables() {
     for stage in 0..=3u8 {
         let evs: Vec<Value> = script(stage).iter().map(|e| json!({"at": e.at, "act": act_j(&e.act)})).collect();
@@ -57,7 +56,6 @@ pub fn sample(s: &Session, _n: &Nums, rng: &mut Rng) {
             c.stage = rng.below(3) as u8;
             c.next = rng.below(60) as u16;
             let a = if rng.chance(3) {
-                // an act of a made-up shape
                 match rng.below(5) {
                     0 => Act::Wisps { n: 1 + rng.below(6) as u8, plus: rng.below(3) as u8, shape: rng.below(5) as u8, x: rng.range(-30, 30) as i16, z: rng.range(0, 40) as i16, mode: [0u8, 1, 3][rng.below(3) as usize] },
                     1 => Act::Convoy { n: 1 + rng.below(6) as u8, plus: rng.below(3) as u8, from: [-1i8, 1][rng.below(2) as usize], z: rng.range(0, 40) as i16 },

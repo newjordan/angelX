@@ -53,7 +53,6 @@ fn a_session_is_bounded_and_repair_mends_it() {
 fn the_door_opens_at_its_tile_and_a_personal_leave_returns_to_it() {
     let mut r = Run::at_home(41, 1, None, Default::default(), Default::default());
     r.walk_kingdom(Some(ENTRY));
-    // The press that walked in is let go first, then E opens the door.
     r.step(&BTreeMap::new());
     assert!(!r.griffinwing_showing());
     press_e(&mut r);
@@ -281,10 +280,6 @@ fn a_finished_runs_mark_settles_into_the_home_once() {
     );
 }
 
-/// The picture's memory of the flight (`show.rs`): a bots' run writes down
-/// its pops, volleys, lamps and the Wyrm's fall, the session stays valid
-/// every tick, the module is never shown any of it, and the room holds for
-/// the heavy blows only.
 #[test]
 fn the_picture_remembers_the_flight_and_the_module_never_hears_of_it() {
     use show::What::*;
@@ -307,8 +302,6 @@ fn the_picture_remembers_the_flight_and_the_module_never_hears_of_it() {
         }
         if let Some(weight) = s.show.held(s.elapsed) {
             held += 1;
-            // A kill and the Wyrm always hold; a crushing blow waits on the
-            // realm's cooldown, so a crowd of them never freezes the room.
             if weight >= crate::rules::juice::Weight::Kill {
                 assert!(r.hitstop.frozen(), "a {weight:?} holds the room");
             }
@@ -321,8 +314,6 @@ fn the_picture_remembers_the_flight_and_the_module_never_hears_of_it() {
         assert!(seen.contains(&format!("{what:?}")), "a run never wrote down {what:?}: {seen:?}");
     }
     assert!(held >= 3 && heavy_held >= held, "{held} holds, {heavy_held} heavy blows");
-    // A save and a load keep what the picture remembers, and it shows in no
-    // Home: the finish still pays once.
     let s = r.griffinwing.as_ref().unwrap();
     let back: Session = serde_json::from_str(&serde_json::to_string(s).unwrap()).unwrap();
     assert_eq!(&back, s);

@@ -16,12 +16,9 @@ use ratatui_core::style::Color;
 
 use angel_stage::marks;
 
-/// The placeholder character a picture cell starts with.
 pub const PLACEHOLDER: char = '\u{10EEEE}';
 const PLACEHOLDER_UTF8: [u8; 4] = [0xF4, 0x8E, 0xBB, 0xAE];
 
-/// One cell's share of a picture: the image, and the row and column of its
-/// placement grid this cell shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Placeholder {
     pub image: u32,
@@ -29,15 +26,11 @@ pub struct Placeholder {
     pub col: u16,
 }
 
-/// Fast prefix check: whether `symbol` starts with [`PLACEHOLDER`].
 #[inline]
 pub fn is_placeholder(symbol: &str) -> bool {
     symbol.as_bytes().starts_with(&PLACEHOLDER_UTF8)
 }
 
-/// Read a picture cell from its symbol and foreground: the placeholder, its
-/// row and column marks and, optionally, the id's high byte. `None` for any
-/// other cell. Every frame reads every picture cell, so nothing allocates.
 #[inline]
 pub fn read_placeholder(symbol: &str, fg: Color) -> Option<Placeholder> {
     if !is_placeholder(symbol) {
@@ -65,8 +58,6 @@ fn diacritic(c: char) -> Option<u16> {
     marks::index(c)
 }
 
-/// The image id a colour names: 24-bit colours are the id, palette colours
-/// their index.
 fn color_id(color: Color) -> u32 {
     match color {
         Color::Rgb(r, g, b) => (u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b),
@@ -91,24 +82,8 @@ fn color_id(color: Color) -> u32 {
     }
 }
 
-/// The picture upload type and the check the GPU holds every upload to are
-/// the renderer core's (`angel-gpu`).
 pub use angel_gpu::{Picture, premultiply_in_place, well_formed};
 
-/// Media types glass decodes straight to pictures, without a terminal
-/// graphics protocol in the middle. Kitty's graphics path moves PNGs;
-/// operators also have JPEG photos, GIF stickers and WebP/BMP exports,
-/// and Unreal-bound scenes need textures in whatever the artist saved.
-/// One call sniffs the bytes and hands back a well-formed straight-RGBA
-/// [`Picture`], so every producer (background, sprites, showcase, stages)
-/// serves the same catalog.
-///
-/// Catalog: PNG/JPEG/GIF/BMP/WebP plus TIFF (scans, lossless exports),
-/// QOI (fast game captures), HDR/Radiance (linear light probes for
-/// Unreal-grade looks), ICO (icons) and PNM (tooling Netpbm). All decode
-/// through pure-Rust `image` 0.25 — no CUDA toolkit, no nvcc: this host's
-/// RTX 3090 serves through Vulkan/the NVIDIA driver, which is already how
-/// the compositor routes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MediaKind {
     Png,
@@ -121,24 +96,14 @@ pub enum MediaKind {
     Hdr,
     Ico,
     Pnm,
-    /// Modern still codec: ISO-BMFF `ftypavif`. Recognised so serving routes
-    /// to the video-codec pipeline instead of mis-decoding.
     Avif,
-    /// HEIF/HEIC still (`ftypheic/heix/hevc/heis/heif/mif1/msf1`). Same routing rule.
     Heif,
-    /// Vector (`<svg`). Sniffed so serve can report needs-rasterizer.
     Svg,
-    /// ISO-BMFF video (`ftypisom/mp41/mp42/m4v/m4a/qt/avc1/dash`). Poster lives in the future
-    /// video-texture pipeline; direct decode returns `None`.
     Mp4,
-    /// Matroska/WebM EBML (`1A 45 DF A3`). Same video-pipeline routing.
     Webm,
 }
 
 impl MediaKind {
-    /// Every catalogued kind, in sniff-priority order: stills the direct
-    /// decoder serves first, then routed video/vector kinds. Lets serve /
-    /// showcase enumerate the catalog without drifting from the sniffer.
     pub const ALL: [MediaKind; 15] = [
         MediaKind::Png,
         MediaKind::Jpeg,
@@ -158,9 +123,6 @@ impl MediaKind {
     ];
 }
 
-/// Sniff the container of encoded image bytes. `None` when the bytes are
-/// not a catalogued media type. Pure byte-prefix scan, no allocation, so
-/// unknown uploads are rejected without paying the decoder.
 pub fn sniff_media(bytes: &[u8]) -> Option<MediaKind> {
     if bytes.len() >= 8
         && bytes[..8] == [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]
@@ -181,14 +143,12 @@ pub fn sniff_media(bytes: &[u8]) -> Option<MediaKind> {
         && ((bytes[0] == b'I' && bytes[1] == b'I' && bytes[2] == 42 && bytes[3] == 0)
             || (bytes[0] == b'M' && bytes[1] == b'M' && bytes[2] == 0 && bytes[3] == 42))
     {
-        // TIFF little-endian `II*\0` / big-endian `MM\0*`.
         Some(MediaKind::Tiff)
     } else if bytes.len() >= 4 && &bytes[..4] == b"qoif" {
         Some(MediaKind::Qoi)
     } else if bytes.len() >= 10
         && (&bytes[..10] == b"#?RADIANCE" || &bytes[..6] == b"#?RGBE")
     {
-        // Radiance HDR (`#?RADIANCE` / `#?RGBE`).
         Some(MediaKind::Hdr)
     } else if bytes.len() >= 4
         && bytes[0] == 0
@@ -196,18 +156,14 @@ pub fn sniff_media(bytes: &[u8]) -> Option<MediaKind> {
         && (bytes[2] == 1 || bytes[2] == 2)
         && bytes[3] == 0
     {
-        // ICO/CUR (`00 00 01 00` / `00 00 02 00`).
         Some(MediaKind::Ico)
     } else if bytes.len() >= 3
         && bytes[0] == b'P'
         && (b'1'..=b'6').contains(&bytes[1])
         && matches!(bytes[2], b' ' | b'\t' | b'\n' | b'\r')
     {
-        // Netpbm PBM/PGM/PPM (`P1`..`P6` + whitespace).
         Some(MediaKind::Pnm)
     } else if bytes.len() >= 12 && &bytes[4..8] == b"ftyp" {
-        // ISO-BMFF `....ftypXX`: brand in bytes 8..12 names the family.
-        // No alloc: fixed 4-byte compares on the hot sniff path.
         let brand = &bytes[8..12];
         if brand == b"avif" || brand == b"avis" {
             Some(MediaKind::Avif)
@@ -241,7 +197,6 @@ pub fn sniff_media(bytes: &[u8]) -> Option<MediaKind> {
             None
         }
     } else if bytes.len() >= 4 && bytes[..4] == [0x1A, 0x45, 0xDF, 0xA3] {
-        // EBML header: Matroska/WebM (`1A 45 DF A3`).
         Some(MediaKind::Webm)
     } else if sniff_is_svg(bytes) {
         Some(MediaKind::Svg)
@@ -250,16 +205,8 @@ pub fn sniff_media(bytes: &[u8]) -> Option<MediaKind> {
     }
 }
 
-/// SVG sniff: leading whitespace/BOM skipped, then `<svg` or `<?xml`.
-/// Artist SVG exports often lead with an XML declaration, `<!--` comments,
-/// or `<!DOCTYPE ...>` before `<svg`, so the scanner skips whitespace,
-/// `<?...?>` processing instructions, `<!--...-->` comments and
-/// `<!DOCTYPE...>` preambles while looking for `<svg`.
-/// Bounded scan of the first 512 bytes so hostile uploads cannot force a
-/// long scan; no allocation.
 fn sniff_is_svg(bytes: &[u8]) -> bool {
     let mut i = 0;
-    // Skip UTF-8 BOM.
     if bytes.len() >= 3 && bytes[..3] == [0xEF, 0xBB, 0xBF] {
         i = 3;
     }
@@ -274,7 +221,6 @@ fn sniff_is_svg(bytes: &[u8]) -> bool {
             return false;
         }
         let rest = &bytes[i..end];
-        // `<!-- comment -->`: skip past `-->`, else undecided within window.
         if rest.len() >= 4 && rest[..4] == *b"<!--" {
             match find_bytes(rest, b"-->") {
                 Some(off) => {
@@ -284,7 +230,6 @@ fn sniff_is_svg(bytes: &[u8]) -> bool {
                 None => return false,
             }
         }
-        // `<!DOCTYPE ...>`: skip past `>`, else undecided within window.
         if rest.len() >= 9 && rest[..9].eq_ignore_ascii_case(b"<!doctype") {
             match rest.iter().position(|&b| b == b'>') {
                 Some(off) => {
@@ -294,7 +239,6 @@ fn sniff_is_svg(bytes: &[u8]) -> bool {
                 None => return false,
             }
         }
-        // `<?...?>` processing instruction (covers `<?xml ...?>`): skip it.
         if rest.len() >= 2 && rest[..2] == *b"<?" {
             match find_bytes(rest, b"?>") {
                 Some(off) => {
@@ -311,7 +255,6 @@ fn sniff_is_svg(bytes: &[u8]) -> bool {
     }
 }
 
-/// Bounded substring search over the sniff window; no allocation.
 fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() || haystack.len() < needle.len() {
         return None;
@@ -321,14 +264,8 @@ fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         .position(|w| w == needle)
 }
 
-/// Largest texture side the GPU upload accepts (`angel-gpu` `MAX_SIDE`).
 pub const MAX_TEXTURE_SIDE: u32 = 8192;
 
-/// Scale `(width, height)` to fit inside `budget × budget`, aspect kept,
-/// never upscaled. `(0, 0)` when either side is zero. Pure integer maths
-/// (no `f64` division on the decode-sizing path) so atlas sizing and the
-/// decode path agree on the same box, deterministically across hosts —
-/// kitty's unbounded upload has no budget box at all.
 pub fn fit_inside(width: u32, height: u32, budget: u32) -> (u32, u32) {
     if width == 0 || height == 0 || budget == 0 {
         return (0, 0);
@@ -336,12 +273,6 @@ pub fn fit_inside(width: u32, height: u32, budget: u32) -> (u32, u32) {
     if width <= budget && height <= budget {
         return (width, height);
     }
-    // scale = budget / long_side; floor via u64 so hostile-size maths is
-    // exact and deterministic across hosts (no `f64` on the sizing path).
-    // One division: the long side pins exactly to `budget`, the short side
-    // scales — half the divider cost of the old two-quotient form, and the
-    // long side can no longer come out one pixel low. Kitty's unbounded
-    // upload has no budget box at all.
     let b64 = budget as u64;
     if width >= height {
         let h = ((height as u64 * b64) / width.max(1) as u64).max(1).min(b64);
@@ -352,10 +283,6 @@ pub fn fit_inside(width: u32, height: u32, budget: u32) -> (u32, u32) {
     }
 }
 
-/// Downscale straight-RGBA `rgba` (`width × height`) to `fit_inside`
-/// when it exceeds `budget`; untouched (`None`) when it already fits.
-/// Triangle filter: one pass, no ringing on text captures, ~2× faster
-/// than Lanczos on 8K RGBA in practice.
 fn downscale_to_budget(
     rgba: image::RgbaImage,
     budget: u32,
@@ -369,16 +296,6 @@ fn downscale_to_budget(
     Some((tw, th, out.into_raw()))
 }
 
-/// Decode catalogued image bytes to a straight-RGBA [`Picture`] with `id`
-/// (and an optional placement box in cells), fitting inside `budget`.
-/// Animated GIF/WebP hand back their first frame, the still the window
-/// shows. `None` for unknown bytes, undecodable images, or empty sizes.
-///
-/// Oversized images downscale to `budget` (aspect kept) instead of being
-/// rejected: kitty's unbounded graphics upload lets a hostile 8K image
-/// OOM the session, while glass caps GPU bytes at `budget² × 4`
-/// (256 MiB at 8192, 64 MiB at 4096). The full decode still runs once on
-/// the CPU; the GPU never sees more than the budget.
 pub fn decode_image_bytes_in_budget(
     bytes: &[u8],
     id: u32,
@@ -387,11 +304,6 @@ pub fn decode_image_bytes_in_budget(
     budget: u32,
 ) -> Option<Picture> {
     let kind = sniff_media(bytes)?;
-    // Catalogued but not still-decodable (AVIF/HEIF/SVG/MP4/WebM): routed
-    // to a future codec/rasterizer/video pipeline, never mis-decoded here.
-    // Early `None` also skips paying the `image` decoder for those bytes.
-    // Direct kinds reuse the sniffed format so `image` skips its own
-    // guess loop: one magic scan per image instead of two.
     let format = kind.image_format()?;
     let budget = budget.clamp(1, MAX_TEXTURE_SIDE);
     let decoded = image::load_from_memory_with_format(bytes, format).ok()?;
@@ -412,19 +324,10 @@ pub fn decode_image_bytes_in_budget(
     well_formed(&picture).then_some(picture)
 }
 
-/// Decode catalogued image bytes to a straight-RGBA [`Picture`] with `id`
-/// (and an optional placement box in cells). Animated GIF/WebP hand back
-/// their first frame, the still the window shows. `None` for unknown
-/// bytes, undecodable images, or empty sizes. Oversized images downscale
-/// to the `8192` texture cap instead of failing the upload.
 pub fn decode_image_bytes(bytes: &[u8], id: u32, cols: u16, rows: u16) -> Option<Picture> {
     decode_image_bytes_in_budget(bytes, id, cols, rows, MAX_TEXTURE_SIDE)
 }
 
-/// Decode for a named adapter: the side budget comes from
-/// [`picture_side_budget`] (8192 on RTX/discrete, 4096 on integrated),
-/// so integrated laptops cap hostile uploads at 64 MiB while this host's
-/// RTX 3090 serves full 8K artist exports.
 pub fn decode_image_bytes_for_adapter(
     bytes: &[u8],
     id: u32,
@@ -435,11 +338,6 @@ pub fn decode_image_bytes_for_adapter(
     decode_image_bytes_in_budget(bytes, id, cols, rows, picture_side_budget(adapter_name))
 }
 
-/// Shrink an already-decoded [`Picture`] to `budget` (aspect kept).
-/// No-op (`false`) when it already fits; `true` when it downscaled.
-/// Lets the render boundary cap hostile `Host::upload_picture` bytes the
-/// same way the decode path does, instead of dropping the picture at the
-/// GPU `well_formed` gate.
 pub fn shrink_picture_to_budget(picture: &mut Picture, budget: u32) -> bool {
     let budget = budget.clamp(1, MAX_TEXTURE_SIDE);
     if picture.width <= budget && picture.height <= budget {
@@ -465,9 +363,6 @@ pub fn shrink_picture_to_budget(picture: &mut Picture, budget: u32) -> bool {
     true
 }
 
-/// MIME type and file extension for a catalogued [`MediaKind`], so every
-/// producer (background file picker, showcase, remote serve) names the
-/// same bytes the same way kitty's graphics protocol would.
 impl MediaKind {
     pub fn mime(self) -> &'static str {
         match self {
@@ -509,20 +404,10 @@ impl MediaKind {
         }
     }
 
-    /// Whether `image` 0.25 decodes this kind straight to RGBA today.
-    /// AVIF/HEIF/SVG/MP4/WebM are catalogued (sniffed, routed, served with
-    /// a correct MIME) but need a codec/rasterizer/video pipeline, so the
-    /// direct decode path returns `None` instead of mis-decoding.
     pub fn is_directly_decodable(self) -> bool {
         self.image_format().is_some()
     }
 
-    /// The `image` 0.25 decoder for this kind, when it decodes straight to
-    /// RGBA today. Routed kinds (AVIF/HEIF/SVG/MP4/WebM) return `None`:
-    /// they need a codec/rasterizer/video pipeline, never the still path.
-    /// Lets the decode entry skip `image`'s own format-guess loop (it
-    /// re-scans magic over every decoder) because `sniff_media` already
-    /// named the bytes: one sniff per image instead of two.
     pub fn image_format(self) -> Option<image::ImageFormat> {
         match self {
             MediaKind::Png => Some(image::ImageFormat::Png),
@@ -543,41 +428,27 @@ impl MediaKind {
         }
     }
 
-    /// Video kinds whose poster frame belongs in a future video-texture
-    /// pipeline (Unreal-grade media serving), not the still decode path.
     pub fn is_video(self) -> bool {
         matches!(self, MediaKind::Mp4 | MediaKind::Webm)
     }
 
-    /// Vector kind needing a rasterizer (resvg-equivalent) before upload.
     pub fn needs_rasterizer(self) -> bool {
         matches!(self, MediaKind::Svg)
     }
 
-    /// Codec stills (AVIF/HEIF): catalogued and served with a correct MIME,
-    /// but needing a video-codec pipeline before upload — never the still
-    /// path. Lets serve/showcase explain *why* a routed still is held.
     pub fn is_codec_still(self) -> bool {
         matches!(self, MediaKind::Avif | MediaKind::Heif)
     }
 
-    /// Any catalogued-but-not-still-decodable kind (AVIF/HEIF/SVG/MP4/WebM):
-    /// sniffed, served with a MIME, routed to a future pipeline.
     pub fn is_routed(self) -> bool {
         !self.is_directly_decodable()
     }
 
-    /// Linear-light kinds (HDR/Radiance probes): decoded bytes are scene
-    /// light for Unreal-grade IBL, not sRGB display pixels. The still path
-    /// tone-maps via `to_rgba8`; future Unreal serving must keep these
-    /// linear (half-float) instead of display-referred RGBA.
     pub fn is_linear_light(self) -> bool {
         matches!(self, MediaKind::Hdr)
     }
 
     pub fn from_extension(ext: &str) -> Option<MediaKind> {
-        // Short case-insensitive compare without allocating; runs on file
-        // picks and serve paths, never per frame.
         if ext.eq_ignore_ascii_case("png") {
             Some(MediaKind::Png)
         } else if ext.eq_ignore_ascii_case("jpg") || ext.eq_ignore_ascii_case("jpeg") {
@@ -625,20 +496,11 @@ impl MediaKind {
         }
     }
 
-    /// Map a file path to its catalogued kind via its extension only.
-    /// `Path::extension` (after the last `.`) feeds [`MediaKind::from_extension`],
-    /// so background pickers, showcase open dialogs and remote serve name
-    /// `photo.JPG`, `clip.MP4`, dotfiles and multi-dot artist exports the
-    /// same way without callers splitting strings. `None` for no/bad extension.
     pub fn from_path(path: &Path) -> Option<MediaKind> {
         let ext = path.extension()?.to_str()?;
         Self::from_extension(ext)
     }
 
-    /// Name bytes with an extension hint: the magic sniff wins, the hint
-    /// rescues serving when the prefix is truncated or a text preamble
-    /// (comments, DOCTYPE) pushes `<svg` past the sniff window.
-    /// Lets background/serve/showcase agree on one kind for the same file.
     pub fn probe_with_hint(bytes: &[u8], hint: Option<&str>) -> Option<MediaKind> {
         if let Some(kind) = sniff_media(bytes) {
             return Some(kind);
@@ -646,9 +508,6 @@ impl MediaKind {
         hint.and_then(Self::from_extension)
     }
 
-    /// Name bytes with a file-path hint: sniff wins, else the path's extension.
-    /// The serve path hands both the bytes and the artist's filename here so
-    /// a leading-comment SVG or an audio-boxed `m4a` still routes correctly.
     pub fn probe_path(bytes: &[u8], path: Option<&Path>) -> Option<MediaKind> {
         if let Some(kind) = sniff_media(bytes) {
             return Some(kind);
@@ -657,31 +516,13 @@ impl MediaKind {
     }
 }
 
-/// GPU byte cap for a side `budget`: `budget² × 4` straight-RGBA bytes.
-/// 8192 → 256 MiB on this host's RTX 3090 / discrete / Apple / Radeon,
-/// 4096 → 64 MiB on integrated / unknown. Makes the hostile-upload cap
-/// kitty's unbounded path lacks explicit and testable: the decode path
-/// downscales to `budget` before the GPU ever sees more than this many bytes.
 pub fn texture_byte_budget(budget: u32) -> u64 {
     let side = u64::from(budget.clamp(1, MAX_TEXTURE_SIDE));
     side * side * 4
 }
 
-/// Header-only dimensions: `(kind, width, height)` without paying a full
-/// RGBA decode. Lets serve/layout answer `Content-Length`-style sizing and
-/// the budget box from the file header, where kitty must decode (or
-/// base64-decode per frame) to learn the size. Routed/unknown bytes are
-/// `None` — a poster pipeline owns those, not the still header path.
-///
-/// Fast path first: all ten directly-decodable stills resolve from
-/// fixed-offset or bounded-scan byte math (no `image` dispatch, no
-/// `Cursor`, no alloc), so the hot header probe stays branch-cheap; the
-/// `image` header fallback only serves truncated headers (still no pixels).
 pub fn probe_dimensions(bytes: &[u8]) -> Option<(MediaKind, u32, u32)> {
     let kind = sniff_media(bytes)?;
-    // Routed video/codec/vector kinds resolve header-only through their own
-    // container parsers (BMFF/EBML/SVG), never the still `image` path, so
-    // serve/showcase can reserve a layout box before any poster pipeline.
     if !kind.is_directly_decodable() {
         let (w, h) = routed_header_dimensions(kind, bytes)?;
         if w == 0 || h == 0 {
@@ -695,9 +536,6 @@ pub fn probe_dimensions(bytes: &[u8]) -> Option<(MediaKind, u32, u32)> {
         }
         return Some((kind, w, h));
     }
-    // Fast path declined (truncated header or a kind without a fixed-offset
-    // parser): fall back to the `image` header probe. Routed kinds returned
-    // above, so this never pays a pixel decode.
     let format = kind.image_format()?;
     let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes));
     reader.set_format(format);
@@ -708,9 +546,6 @@ pub fn probe_dimensions(bytes: &[u8]) -> Option<(MediaKind, u32, u32)> {
     Some((kind, w, h))
 }
 
-/// Dimension fast path for every directly-decodable still: pure byte math,
-/// no `image` dispatch, no allocation, bounded scans only. `None` means
-/// "decline to the `image` header fallback", never "not an image".
 fn fast_header_dimensions(kind: MediaKind, bytes: &[u8]) -> Option<(u32, u32)> {
     match kind {
         MediaKind::Png => png_header_dimensions(bytes),
@@ -727,11 +562,6 @@ fn fast_header_dimensions(kind: MediaKind, bytes: &[u8]) -> Option<(u32, u32)> {
     }
 }
 
-/// Routed dimension fast path: header-only sizes for video/codec/vector
-/// kinds kitty would re-base64 per frame to learn. Pure byte math, no
-/// `image` dispatch, no allocation, bounded scans only. `None` means the
-/// poster/rasterizer pipeline must supply the size (truncated header,
-/// non-faststart `moov` past the window, percentage-only SVG).
 fn routed_header_dimensions(kind: MediaKind, bytes: &[u8]) -> Option<(u32, u32)> {
     match kind {
         MediaKind::Mp4 => mp4_header_dimensions(bytes),
@@ -742,12 +572,6 @@ fn routed_header_dimensions(kind: MediaKind, bytes: &[u8]) -> Option<(u32, u32)>
     }
 }
 
-/// MP4/ISO-BMFF video dimensions header-only: first non-zero `tkhd`
-/// track size (16.16 fixed), else the first visual sample entry
-/// (`avc1/hev1/hvc1/vp09/av01/mp4v`) `width/height`. Bounded to the first
-/// 2 MiB (faststart `moov`); tail-`moov` files decline to `None` so the
-/// poster pipeline owns them. No recursion, no alloc: linear marker scan
-/// with strict size-gated parses so hostile bytes cannot force a walk.
 fn mp4_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     let limit = bytes.len().min(2 * 1024 * 1024);
     if let Some(dims) = mp4_tkhd_dimensions(bytes, limit) {
@@ -756,7 +580,6 @@ fn mp4_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     mp4_visual_entry_dimensions(bytes, limit)
 }
 
-/// Scan BMFF boxes in `bytes[..limit]` for a non-zero `tkhd` size.
 fn mp4_tkhd_dimensions(bytes: &[u8], limit: usize) -> Option<(u32, u32)> {
     let mut i = 0usize;
     while i + 8 <= limit {
@@ -840,8 +663,6 @@ fn mp4_tkhd_dimensions(bytes: &[u8], limit: usize) -> Option<(u32, u32)> {
     None
 }
 
-/// Scan BMFF boxes for a visual sample entry (`avc1/hev1/hvc1/vp09/av01/mp4v`):
-/// `width`/`height` are BE `u16` at payload offsets 24/26.
 fn mp4_visual_entry_dimensions(bytes: &[u8], limit: usize) -> Option<(u32, u32)> {
     const VISUAL: [&[u8; 4]; 6] = [b"avc1", b"hev1", b"hvc1", b"vp09", b"av01", b"mp4v"];
     let mut i = 0usize;
@@ -879,9 +700,6 @@ fn mp4_visual_entry_dimensions(bytes: &[u8], limit: usize) -> Option<(u32, u32)>
     None
 }
 
-/// AVIF/HEIF `ispe` (image spatial extents) dimensions header-only:
-/// `ispe` box holds version+flags(4) + BE `w/h`. Linear scan over the
-/// first 1 MiB with strict size gates; no box-tree walk, no alloc.
 fn ispe_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     let limit = bytes.len().min(1024 * 1024);
     let mut i = 0usize;
@@ -936,11 +754,6 @@ fn ispe_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     None
 }
 
-/// WebM/Matroska `PixelWidth (0xB0)` / `PixelHeight (0xBA)` header-only:
-/// EBML varint size + BE uint value, bounded to the first 1 MiB. Both must
-/// parse in range or the poster pipeline owns the size. Heuristic scan
-/// (IDs can alias binary), but strict size/value gates keep hostile bytes
-/// from naming a box.
 fn webm_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     let limit = bytes.len().min(1024 * 1024);
     let mut w: Option<u32> = None;
@@ -967,9 +780,6 @@ fn webm_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     None
 }
 
-/// Parse an EBML 1-byte ID (`0xB0`/`0xBA`) at `pos`: varint size then BE
-/// uint value. Returns `(value, total_bytes)`. `None` on any malformed or
-/// out-of-range read; no alloc.
 fn ebml_uint_value(bytes: &[u8], pos: usize) -> Option<(u32, usize)> {
     if pos + 2 > bytes.len() {
         return None;
@@ -1018,9 +828,6 @@ fn ebml_uint_value(bytes: &[u8], pos: usize) -> Option<(u32, usize)> {
     Some((value, 1 + len + dlen))
 }
 
-/// SVG dimensions header-only from the first 4 KiB: `width`+`height`
-/// attributes win (absolute lengths; `%` declines), else the `viewBox`
-/// `w h`. Lets vector serve reserve a layout box without a rasterizer.
 fn svg_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     let limit = bytes.len().min(4096);
     let window = &bytes[..limit];
@@ -1035,9 +842,6 @@ fn svg_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     svg_viewbox_dimensions(window)
 }
 
-/// Find `name="value"` (single/double quoted, ASCII case-insensitive name)
-/// and parse the value as an absolute SVG length. `%` and unparseable
-/// values are `None`; no alloc.
 fn svg_attr_length(window: &[u8], name: &[u8]) -> Option<u32> {
     let mut i = 0usize;
     while i + name.len() <= window.len() {
@@ -1077,8 +881,6 @@ fn svg_attr_length(window: &[u8], name: &[u8]) -> Option<u32> {
     None
 }
 
-/// Parse an absolute SVG length (`640`, `640px`, `100.5pt`): longest float
-/// prefix, truncated, `1..=16384`. `None` for empty/zero/oversize.
 fn svg_length_value(raw: &[u8]) -> Option<u32> {
     let mut end = 0usize;
     while end < raw.len()
@@ -1102,8 +904,6 @@ fn svg_length_value(raw: &[u8]) -> Option<u32> {
     Some(u)
 }
 
-/// Parse `viewBox="minx miny w h"` from `window`: last two of four
-/// space/comma-separated floats, truncated, `1..=16384`.
 fn svg_viewbox_dimensions(window: &[u8]) -> Option<(u32, u32)> {
     let name = b"viewBox";
     let mut i = 0usize;
@@ -1141,7 +941,6 @@ fn svg_viewbox_dimensions(window: &[u8]) -> Option<(u32, u32)> {
     None
 }
 
-/// Parse four floats from a `viewBox` value; returns `(w, h)` truncated.
 fn svg_viewbox_value(raw: &[u8]) -> Option<(u32, u32)> {
     let s = std::str::from_utf8(raw).ok()?;
     let parts: Vec<&str> = s
@@ -1164,7 +963,6 @@ fn svg_viewbox_value(raw: &[u8]) -> Option<(u32, u32)> {
     Some((wi, hi))
 }
 
-/// PNG: 8-byte signature + 4-byte length + `IHDR` + BE `w/h` at 16..24.
 fn png_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     if bytes.len() < 24 || &bytes[12..16] != b"IHDR" {
         return None;
@@ -1177,7 +975,6 @@ fn png_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     Some((w, h))
 }
 
-/// GIF87a/89a: LE `w/h` at 6..10.
 fn gif_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     if bytes.len() < 10 {
         return None;
@@ -1190,9 +987,6 @@ fn gif_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     Some((w, h))
 }
 
-/// BMP: `BITMAPINFOHEADER` (40-byte DIB) LE `w` at 18, signed `h` at 22
-/// (negative height = top-down; magnitude is the size). Other DIB sizes
-/// decline to the `image` fallback.
 fn bmp_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     if bytes.len() < 26 || &bytes[0..2] != b"BM" {
         return None;
@@ -1209,7 +1003,6 @@ fn bmp_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     Some((w as u32, h.unsigned_abs()))
 }
 
-/// QOI: `qoif` + BE `w` at 4..8 + BE `h` at 8..12.
 fn qoi_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     if bytes.len() < 14 {
         return None;
@@ -1222,8 +1015,6 @@ fn qoi_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     Some((w, h))
 }
 
-/// JPEG: scan markers for the first SOF (`C0`-`CF` except `C4/C8/CC`).
-/// Bounded linear scan over segment lengths only — never the entropy data.
 fn jpeg_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     if bytes.len() < 4 || bytes[0] != 0xFF || bytes[1] != 0xD8 {
         return None;
@@ -1233,7 +1024,6 @@ fn jpeg_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
         if bytes[i] != 0xFF {
             return None;
         }
-        // Skip fill bytes.
         while i < bytes.len() && bytes[i] == 0xFF {
             i += 1;
         }
@@ -1242,7 +1032,6 @@ fn jpeg_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
         }
         let marker = bytes[i];
         i += 1;
-        // Standalone markers: no length field.
         if marker == 0xD8 || marker == 0xD9 || (0xD0..=0xD7).contains(&marker) || marker == 0x01
         {
             continue;
@@ -1260,7 +1049,6 @@ fn jpeg_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
                 | 0xCE | 0xCF
         );
         if is_sof {
-            // Length(2) + precision(1) + h(2) + w(2): need 7 bytes past `i`.
             if seg_len >= 7 && i + 7 <= bytes.len() {
                 let h = u16::from_be_bytes([bytes[i + 3], bytes[i + 4]]) as u32;
                 let w = u16::from_be_bytes([bytes[i + 5], bytes[i + 6]]) as u32;
@@ -1272,23 +1060,16 @@ fn jpeg_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
             return None;
         }
         i += seg_len;
-        // `i` pointed at the 2-byte length field; `seg_len` includes those
-        // 2 bytes, so this lands on the next `FF marker` pair.
     }
     None
 }
 
-/// WebP: `RIFF....WEBP` + chunk. `VP8 ` (lossy), `VP8L` (lossless) and
-/// `VP8X` (extended canvas) all name their size in fixed offsets, so the
-/// hot probe never pays `image` dispatch. Max WebP side is 16384.
 fn webp_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     if bytes.len() < 21 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WEBP" {
         return None;
     }
     match &bytes[12..16] {
         b"VP8 " => {
-            // Lossy: payload at 20; frame tag (3) + start code 9D 01 2A,
-            // then LE14 width at 26..28 and height at 28..30.
             if bytes.len() < 30 {
                 return None;
             }
@@ -1303,7 +1084,6 @@ fn webp_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
             Some((w, h))
         }
         b"VP8L" => {
-            // Lossless: signature 0x2F at 20, then packed 14+14 bits LE.
             if bytes.len() < 25 || bytes[20] != 0x2F {
                 return None;
             }
@@ -1317,8 +1097,6 @@ fn webp_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
             Some((w, h))
         }
         b"VP8X" => {
-            // Extended: 10-byte payload at 20..30; canvas (w-1)/(h-1) as
-            // 24-bit LE at 24..27 and 27..30.
             if bytes.len() < 30 {
                 return None;
             }
@@ -1337,8 +1115,6 @@ fn webp_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     }
 }
 
-/// ICO/CUR: 6-byte header (`00 00 01|02 00 count`) + first entry's
-/// `w` at 6 / `h` at 7 (`0` means 256). Names the icon grid box header-only.
 fn ico_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     if bytes.len() < 8 || bytes[0] != 0 || bytes[1] != 0 {
         return None;
@@ -1355,9 +1131,6 @@ fn ico_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     Some((w, h))
 }
 
-/// PNM (`P1`..`P6` + whitespace): ASCII `width height` after the magic,
-/// with `#` comments skipped. Bounded to the first 1024 bytes so a hostile
-/// preamble cannot burn the serve path; longer headers decline to fallback.
 fn pnm_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     if bytes.len() < 3 || bytes[0] != b'P' || !(b'1'..=b'6').contains(&bytes[1]) {
         return None;
@@ -1407,9 +1180,6 @@ fn pnm_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     Some((vals[0], vals[1]))
 }
 
-/// TIFF: `II*\0` (LE) / `MM\0*` (BE) + first-IFD `ImageWidth` (256) /
-/// `ImageLength` (257) for `SHORT`/`LONG` count-1 entries. Bounded to the
-/// first IFD (<=256 entries) so hostile offsets decline to fallback.
 fn tiff_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     if bytes.len() < 8 {
         return None;
@@ -1483,9 +1253,6 @@ fn tiff_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     Some((w?, h?))
 }
 
-/// Radiance HDR (`#?RADIANCE` / `#?RGBE`): resolution line `-Y H +X W`
-/// (either axis order) inside the first 4 KiB ASCII header. Pure byte
-/// scan for the Unreal IBL probe; pixel data never touched.
 fn hdr_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     if !(bytes.starts_with(b"#?RADIANCE") || bytes.starts_with(b"#?RGBE")) {
         return None;
@@ -1505,7 +1272,6 @@ fn hdr_header_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     None
 }
 
-/// Parse one HDR resolution line (`-Y H +X W` or `+X W -Y H`) without alloc.
 fn parse_hdr_resolution(line: &[u8]) -> Option<(u32, u32)> {
     let mut bounds: [[usize; 2]; 4] = [[0, 0]; 4];
     let mut tokens = 0usize;
@@ -1558,9 +1324,6 @@ fn parse_hdr_resolution(line: &[u8]) -> Option<(u32, u32)> {
     }
 }
 
-/// Header-only dimensions fitted inside `budget` (aspect kept, never
-/// upscaled): the layout box serve can reserve before decoding a pixel.
-/// `None` for routed/unknown/empty headers.
 pub fn probe_fitted_dimensions(bytes: &[u8], budget: u32) -> Option<(MediaKind, u32, u32)> {
     let (kind, w, h) = probe_dimensions(bytes)?;
     let (tw, th) = fit_inside(w, h, budget.clamp(1, MAX_TEXTURE_SIDE));
@@ -1570,9 +1333,6 @@ pub fn probe_fitted_dimensions(bytes: &[u8], budget: u32) -> Option<(MediaKind, 
     Some((kind, tw, th))
 }
 
-/// Why a routed kind is held from the still path, in one static string so
-/// serve/showcase can explain the hold instead of just `None`.
-/// `None` for directly-decodable stills (no hold).
 pub fn routed_reason(kind: MediaKind) -> Option<&'static str> {
     if kind.is_directly_decodable() {
         return None;
@@ -1588,13 +1348,6 @@ pub fn routed_reason(kind: MediaKind) -> Option<&'static str> {
     }
 }
 
-/// What remote-serve/showcase needs for `Content-Type` + `Content-Length`
-/// style headers without paying a full RGBA decode: the kind, its MIME and
-/// extension, the header-native size when the header parses, the fitted
-/// layout box inside `budget`, the hostile-upload byte cap, and why a
-/// routed kind is held (poster/video/rasterizer pipeline owns those).
-/// `None` only for unknown bytes (rejected before the decoder, like kitty's
-/// unbounded upload never is).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ServePlan {
     pub kind: MediaKind,
@@ -1607,15 +1360,6 @@ pub struct ServePlan {
     pub routed_reason: Option<&'static str>,
 }
 
-/// Header-only serve plan for `bytes` with an optional filename hint.
-/// Magic wins; the path rescues truncated prefixes / leading-comment SVG /
-/// audio-boxed `m4a`. Direct stills report header dims when they parse
-/// (else `native`/`fitted` are `None` so the caller knows a full decode is
-/// needed to learn the size); routed kinds report the hold reason with no
-/// decoder cost, plus the header-native/fitted box when the routed header
-/// parses (video `tkhd`/sample entry, WebM pixels, `ispe`, SVG attrs) so
-/// serve/showcase can reserve layout before the poster pipeline runs.
-/// Never decodes pixels.
 pub fn serve_plan(bytes: &[u8], path: Option<&Path>, budget: u32) -> Option<ServePlan> {
     let kind = MediaKind::probe_path(bytes, path)?;
     let budget = budget.clamp(1, MAX_TEXTURE_SIDE);
@@ -1643,19 +1387,11 @@ pub fn serve_plan(bytes: &[u8], path: Option<&Path>, budget: u32) -> Option<Serv
     }
 }
 
-/// Adapter-aware serve budget: `(side_budget, byte_cap)` for
-/// `wgpu::AdapterInfo::name`. RTX/discrete → `8192` / 256 MiB for full
-/// Unreal-grade artist exports on this host's RTX 3090; integrated/unknown
-/// → `4096` / 64 MiB so hostile 8K uploads cap instead of OOMing the way
-/// kitty's unbounded path can. Pure string scan, no GPU handle needed.
 pub fn serve_budget_for_adapter(adapter_name: Option<&str>) -> (u32, u64) {
     let side = picture_side_budget(adapter_name);
     (side, texture_byte_budget(side))
 }
 
-/// Adapter-aware serve plan: the side budget comes from
-/// [`picture_side_budget`] (RTX 3090 → 8192, integrated → 4096) so serve
-/// reserves the same box the decode path enforces. Header-only, no pixels.
 pub fn serve_plan_for_adapter(
     bytes: &[u8],
     path: Option<&Path>,
@@ -1664,39 +1400,19 @@ pub fn serve_plan_for_adapter(
     serve_plan(bytes, path, picture_side_budget(adapter_name))
 }
 
-/// Header values a serve/showcase layer answers without decoding pixels:
-/// `Content-Type`-style MIME, fitted layout box, hostile-upload byte cap
-/// and hold reason. One call names all four so showcase, background picker
-/// and remote-serve agree on the same bytes kitty would re-decode per frame.
 impl ServePlan {
-    /// MIME value for a `Content-Type`-style header (`image/png`, `video/mp4`…).
     pub fn content_type(&self) -> &'static str {
         self.mime
     }
-    /// Layout box to reserve before any pixel decode: `fitted` when the
-    /// header parsed, `None` when a full decode (direct) or poster pipeline
-    /// (routed) must supply the size.
     pub fn layout_box(&self) -> Option<(u32, u32)> {
         self.fitted
     }
-    /// Whether serve/showcase must hold these bytes from the still path
-    /// (poster/video/rasterizer pipeline owns them, with `routed_reason` why).
     pub fn is_held(&self) -> bool {
         self.routed_reason.is_some()
     }
-    /// Whether these bytes carry scene-linear light (HDR probe for
-    /// Unreal-grade IBL): the still preview tone-maps, the IBL path must
-    /// use [`decode_hdr_linear_in_budget`] (half-float future), never `to_rgba8`.
     pub fn is_linear_light(&self) -> bool {
         self.kind.is_linear_light()
     }
-    /// HTTP-style headers remote-serve/showcase answers from this plan
-    /// without decoding pixels: `Content-Type` + `Content-Length` plus
-    /// glass layout/budget/cap/hold annotations. One call so background
-    /// picker, showcase header-first open and remote-serve agree on the
-    /// same bytes kitty would re-base64 per frame. `body_len` is the exact
-    /// bytes that will ride the wire (the stored file bytes, already
-    /// sniffed); allocation is serve-path only, never per-frame pixels.
     pub fn http_headers(&self, body_len: usize) -> Vec<(String, String)> {
         let mut out = Vec::with_capacity(7);
         out.push(("Content-Type".to_string(), self.mime.to_string()));
@@ -1717,8 +1433,6 @@ impl ServePlan {
         }
         out
     }
-    /// The same headers as `"Name: value"` lines, ready to log or to
-    /// answer a header-probe acceptance check with.
     pub fn http_header_lines(&self, body_len: usize) -> Vec<String> {
         self.http_headers(body_len)
             .into_iter()
@@ -1727,33 +1441,16 @@ impl ServePlan {
     }
 }
 
-/// Kitty's per-frame wire cost for `raw_len` bytes: base64 inflates by
-/// 4/3 (`((n+2)/3)*4`, no newlines counted) and kitty pays it *every
-/// frame* because the terminal re-decodes the payload to learn the size.
-/// Glass pays one header-only sniff + one typed decode on pixels, then
-/// serves the raw bytes once with [`ServePlan::http_headers`].
 pub fn kitty_base64_frame_cost(raw_len: usize) -> usize {
     (raw_len.saturating_add(2) / 3).saturating_mul(4)
 }
 
-/// `(kitty_total, glass_total)` wire bytes for `frames` repeats of
-/// `raw_len` bytes: kitty re-sends base64 every frame, glass serves the
-/// raw blob once (framed/deflate aside) after a header-only reserve.
-/// The saving (`kitty_total - glass_total`) is what the header-probe
-/// acceptance check asserts is positive for any `frames >= 2`.
 pub fn serve_vs_kitty_bytes(raw_len: usize, frames: u32) -> (usize, usize) {
     let per = kitty_base64_frame_cost(raw_len);
     let kitty = per.saturating_mul(frames.max(1) as usize);
     (kitty, raw_len)
 }
 
-/// NVIDIA/Unreal serving hint for `adapter_name` (`wgpu::AdapterInfo::name`,
-/// `None` when headless). Pure string scan, no GPU handle, no CUDA
-/// toolkit: this host's RTX 3090 serves via wgpu/Vulkan + driver
-/// (`VK_NV_ray_tracing`, Vulkan Video, Nsight), never `nvcc` — importing
-/// CUDA would fork a second GPU context under the compositor. Returned
-/// text is log/scorecard-ready and names the Unreal-grade path the
-/// video/rasterizer/half-float pipelines plug into.
 pub fn nvidia_unreal_hint(adapter_name: Option<&str>) -> &'static str {
     match adapter_name {
         Some(name) if is_rtx_adapter(name) => {
@@ -1767,14 +1464,6 @@ pub fn nvidia_unreal_hint(adapter_name: Option<&str>) -> &'static str {
     }
 }
 
-/// Linear-light HDR probe decoded without display-referred tone-mapping:
-/// `(width, height, interleaved RGB f32)` scene-linear values for
-/// Unreal-grade IBL. `None` for non-HDR, unknown, empty or undecodable
-/// bytes. Capped at `budget` a side (aspect kept, Triangle) the same way
-/// the still path caps RGBA, so a hostile 8K probe cannot OOM the session.
-/// The still preview path (`decode_image_bytes_in_budget`) tone-maps via
-/// `to_rgba8`; this is the IBL path that must stay linear (future half-float
-/// upload must read these floats, never `to_rgba8`).
 pub fn decode_hdr_linear_in_budget(bytes: &[u8], budget: u32) -> Option<(u32, u32, Vec<f32>)> {
     let kind = sniff_media(bytes)?;
     if !kind.is_linear_light() {
@@ -1801,34 +1490,24 @@ pub fn decode_hdr_linear_in_budget(bytes: &[u8], budget: u32) -> Option<(u32, u3
     Some((width, height, resized.into_raw()))
 }
 
-/// IEEE-754 `f32` → `f16` bits (round-to-nearest-even, pure Rust, no dep):
-/// the half-float upload the Unreal IBL path needs. Handles the cases a
-/// naive truncation gets wrong: NaN stays NaN, ±Inf stays Inf, overflow
-/// saturates to Inf, subnormals flush toward zero with rounding, and
-/// `-0.0` keeps its sign. Lets the future Vulkan uploader read
-/// [`decode_hdr_linear_in_budget`] floats without ever touching `to_rgba8`.
 pub fn f32_to_f16_bits(v: f32) -> u16 {
     let bits = v.to_bits();
     let sign = ((bits >> 16) & 0x8000) as u16;
     let exp = ((bits >> 23) & 0xFF) as i32;
     let mant = bits & 0x7F_FFFF;
     if exp == 0xFF {
-        // Inf/NaN: preserve payload top bits so NaN never becomes Inf.
         return sign | 0x7C00 | if mant == 0 { 0 } else { ((mant >> 13) as u16).max(1) };
     }
-    // Unbiased exponent, rebased from f32 (127) to f16 (15).
     let e = exp - 127 + 15;
     if e >= 31 {
-        return sign | 0x7C00; // Overflow → Inf.
+        return sign | 0x7C00;
     }
     if e <= 0 {
-        // Subnormal or underflow: shift mantissa with the hidden 1 bit.
         if e < -10 {
-            return sign; // Too small even for the smallest subnormal.
+            return sign;
         }
         let with_hidden = mant | 0x80_0000;
         let shift = (14 - e) as u32;
-        // Round-to-nearest-even on the bits being dropped.
         let dropped_mask = (1u32 << shift) - 1;
         let dropped = with_hidden & dropped_mask;
         let half_unit = 1u32 << (shift - 1);
@@ -1838,14 +1517,12 @@ pub fn f32_to_f16_bits(v: f32) -> u16 {
         }
         return sign | (half & 0x3FF);
     }
-    // Normal: drop 13 mantissa bits with round-to-nearest-even.
     let mut half_exp = (e as u16) << 10;
     let mut half_mant = (mant >> 13) as u16;
     let dropped = mant & 0x1FFF;
     if dropped > 0x1000 || (dropped == 0x1000 && (half_mant & 1) == 1) {
         half_mant += 1;
         if half_mant == 0x400 {
-            // Mantissa carry rolls into the exponent.
             half_mant = 0;
             half_exp += 1 << 10;
             if half_exp >= 0x7C00 {
@@ -1856,14 +1533,8 @@ pub fn f32_to_f16_bits(v: f32) -> u16 {
     sign | half_exp | (half_mant & 0x3FF)
 }
 
-/// Pack interleaved RGB `f32` scene-linear pixels (as
-/// [`decode_hdr_linear_in_budget`] returns) into little-endian RGBA
-/// half-float bytes (`R/G/B` converted, `A = 1.0`): the exact upload shape
-/// a Vulkan `R16G16B16A16_SFLOAT` IBL texture wants. `pixels.len()` must be
-/// a multiple of 3; trailing partial pixels are ignored. Byte length is
-/// always `pixels/3*8`, so serve can size the upload before converting.
 pub fn rgb32f_to_rgba_f16le(pixels: &[f32]) -> Vec<u8> {
-    const ONE: u16 = 0x3C00; // 1.0 in f16.
+    const ONE: u16 = 0x3C00;
     let n = pixels.len() / 3;
     let mut out = Vec::with_capacity(n * 8);
     for i in 0..n {
@@ -1875,21 +1546,10 @@ pub fn rgb32f_to_rgba_f16le(pixels: &[f32]) -> Vec<u8> {
     out
 }
 
-/// Byte length of that RGBA half-float upload for a `w × h` HDR probe:
-/// `w*h*8`, checked (saturating) so hostile headers cannot overflow the
-/// multiplication on the serve path.
 pub fn hdr_f16_byte_len(width: u32, height: u32) -> u64 {
     u64::from(width).saturating_mul(u64::from(height)).saturating_mul(8)
 }
 
-/// What the Vulkan/NVIDIA path reports for Unreal sizing: the adapter wgpu
-/// named, whether it is NVIDIA/RTX, the side budget serve and decode share,
-/// and the hostile-upload byte cap. Pure data, no GPU handle, so
-/// remote-serve logging and showcase sizing can record it per session.
-/// This host's RTX 3090 (driver 615.78.08) serves through wgpu/Vulkan — no
-/// CUDA toolkit, no nvcc: importing CUDA would fork a second GPU context
-/// under the compositor. The NVIDIA systems that matter here are the driver
-/// + Vulkan (`VK_NV_ray_tracing`, Vulkan Video, Nsight), not nvcc.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AdapterReport {
     pub adapter: String,
@@ -1900,7 +1560,6 @@ pub struct AdapterReport {
 }
 
 impl AdapterReport {
-    /// One line for logs/scorecards: `adapter (nvidia/rtx …) budget×budget cap`.
     pub fn describe(&self) -> String {
         format!(
             "{} (nvidia={} rtx={}) budget={} cap={}B",
@@ -1909,8 +1568,6 @@ impl AdapterReport {
     }
 }
 
-/// Build the [`AdapterReport`] for `adapter_name` (`wgpu::AdapterInfo::name`,
-/// `None` when headless/unknown). String scan only, no GPU handle.
 pub fn adapter_report(adapter_name: Option<&str>) -> AdapterReport {
     let name = adapter_name.unwrap_or("unknown").to_string();
     let is_nvidia = adapter_name.is_some_and(is_nvidia_adapter);
@@ -1920,8 +1577,6 @@ pub fn adapter_report(adapter_name: Option<&str>) -> AdapterReport {
     AdapterReport { adapter: name, is_nvidia, is_rtx, side_budget, byte_cap }
 }
 
-/// Case-insensitive substring scan over bytes: no alloc, so adapter-name
-/// checks stay testable without touching the GPU.
 fn contains_insensitive(haystack: &str, needle: &[u8]) -> bool {
     if needle.is_empty() || haystack.len() < needle.len() {
         return false;
@@ -1932,11 +1587,6 @@ fn contains_insensitive(haystack: &str, needle: &[u8]) -> bool {
         .any(|w| w.eq_ignore_ascii_case(needle))
 }
 
-/// Whether `adapter_name` (wgpu `AdapterInfo::name`) is an NVIDIA GPU.
-/// Case-insensitive substring match over the vendor/product strings wgpu
-/// hands back (`"NVIDIA GeForce RTX 3090"`, `"NVIDIA Quadro"`, `"Tesla"`),
-/// so the window can prefer the discrete path Unreal scenes need without
-/// parsing PCI ids. Pure string scan: no GPU, no alloc, testable.
 pub fn is_nvidia_adapter(adapter_name: &str) -> bool {
     contains_insensitive(adapter_name, b"nvidia")
         || contains_insensitive(adapter_name, b"geforce")
@@ -1944,9 +1594,6 @@ pub fn is_nvidia_adapter(adapter_name: &str) -> bool {
         || contains_insensitive(adapter_name, b"tesla")
 }
 
-/// Whether the adapter is an RTX card (hardware ray-tracing / Unreal-grade
-/// scenes). Substring `"rtx"` after the NVIDIA check; kept separate so a
-/// future GTX fallback can budget differently.
 pub fn is_rtx_adapter(adapter_name: &str) -> bool {
     if !is_nvidia_adapter(adapter_name) {
         return false;
@@ -1957,12 +1604,6 @@ pub fn is_rtx_adapter(adapter_name: &str) -> bool {
         .any(|w| w.eq_ignore_ascii_case(b"rtx"))
 }
 
-/// Advisory picture-side budget in pixels for `adapter_name`: `8192` where
-/// the GPU has headroom for Unreal-grade textures (NVIDIA RTX/discrete),
-/// `4096` on integrated/unknown adapters so a hostile 8K upload cannot
-/// OOM the session the way kitty's unbounded graphics upload can. The
-/// decode path still enforces the hard `8192` texture cap; this guides
-/// atlas sizing and downscale-before-upload decisions.
 pub fn picture_side_budget(adapter_name: Option<&str>) -> u32 {
     match adapter_name {
         Some(name) if is_rtx_adapter(name) => 8192,
@@ -1977,8 +1618,6 @@ pub fn picture_side_budget(adapter_name: Option<&str>) -> u32 {
             {
                 8192
             } else {
-                // Integrated / unknown: cap hostile 8K uploads the way
-                // kitty's unbounded graphics upload cannot.
                 4096
             }
         }
@@ -1986,8 +1625,6 @@ pub fn picture_side_budget(adapter_name: Option<&str>) -> u32 {
     }
 }
 
-/// The placement box in cells: `cols`/`rows` when given, otherwise the
-/// picture's size in cells, rounded up.
 pub fn box_cells(image: (u32, u32), cols: u16, rows: u16, cell: (u32, u32)) -> (u16, u16) {
     let fit =
         |pixels: u32, size: u32| pixels.div_ceil(size.max(1)).clamp(1, u32::from(u16::MAX)) as u16;
@@ -1997,13 +1634,6 @@ pub fn box_cells(image: (u32, u32), cols: u16, rows: u16, cell: (u32, u32)) -> (
     )
 }
 
-/// Where picture cell (`row`, `col`) lands. The picture is fit inside its
-/// box with its aspect kept and centred; a box that is
-/// only the picture's own size rounded up to cells shows it at its own size,
-/// so a picture made for the cell grid stays pixel for pixel. Returns the
-/// destination inside the cell (`[x, y, w, h]` in pixels from the cell's
-/// top-left) and the source rectangle in picture pixels, or `None` when the
-/// picture does not reach that cell.
 pub fn cell_slice(
     image: (u32, u32),
     box_cells: (u16, u16),
@@ -2014,10 +1644,6 @@ pub fn cell_slice(
     cell_span_slice(image, box_cells, cell, row, col, 1)
 }
 
-/// Where a horizontal run of `cols_span` contiguous picture cells starting at
-/// (`row`, `col`) lands. Returns the destination (`[x, y, w, h]` in pixels from
-/// the first cell's top-left) and the source rectangle in picture pixels, or
-/// `None` when the picture does not intersect the span.
 pub fn cell_span_slice(
     image: (u32, u32),
     box_cells: (u16, u16),
@@ -2101,24 +1727,20 @@ mod tests {
 
     #[test]
     fn own_size_box_shows_pixel_for_pixel() {
-        // 24 × 50 in 12 × 25 cells: exactly 2 × 2 cells.
         let slice = cell_slice((24, 50), (2, 2), (12, 25), 1, 1).unwrap();
         assert_eq!(slice, ([0.0, 0.0, 12.0, 25.0], [12.0, 25.0, 12.0, 25.0]));
     }
 
     #[test]
     fn given_box_scales_and_letterboxes() {
-        // A 2:1 picture in a 4 × 4 box of 10 × 10 cells: 40 × 20, centred.
         let (dst, src) = cell_slice((200, 100), (4, 4), (10, 10), 1, 0).unwrap();
         assert_eq!(dst, [0.0, 0.0, 10.0, 10.0]);
         assert_eq!(src, [0.0, 0.0, 50.0, 50.0]);
-        // Row 0 is above the picture.
         assert_eq!(cell_slice((200, 100), (4, 4), (10, 10), 0, 0), None);
     }
 
     #[test]
     fn routed_kinds_sniff_but_do_not_direct_decode() {
-        // AVIF: ....ftypavif....
         let mut avif = vec![0u8; 12];
         avif[4..8].copy_from_slice(b"ftyp");
         avif[8..12].copy_from_slice(b"avif");
@@ -2128,27 +1750,22 @@ mod tests {
         assert_eq!(MediaKind::from_extension("avif"), Some(MediaKind::Avif));
         assert!(!MediaKind::Avif.is_directly_decodable());
         assert!(decode_image_bytes_in_budget(&avif, 1, 0, 0, 8192).is_none());
-        // HEIC still.
         let mut heic = vec![0u8; 12];
         heic[4..8].copy_from_slice(b"ftyp");
         heic[8..12].copy_from_slice(b"heic");
         assert_eq!(sniff_media(&heic), Some(MediaKind::Heif));
         assert_eq!(MediaKind::Heif.mime(), "image/heif");
-        // MP4 video: ....ftypisom....
         let mut mp4 = vec![0u8; 12];
         mp4[4..8].copy_from_slice(b"ftyp");
         mp4[8..12].copy_from_slice(b"isom");
         assert_eq!(sniff_media(&mp4), Some(MediaKind::Mp4));
         assert!(MediaKind::Mp4.is_video());
         assert!(decode_image_bytes_in_budget(&mp4, 1, 0, 0, 8192).is_none());
-        // WebM: EBML header.
         assert_eq!(sniff_media(&[0x1A, 0x45, 0xDF, 0xA3, 0x00]), Some(MediaKind::Webm));
         assert!(decode_image_bytes_in_budget(&[0x1A, 0x45, 0xDF, 0xA3, 0x00], 1, 0, 0, 8192).is_none());
-        // SVG: whitespace + `<svg`.
         assert_eq!(sniff_media(b"  <svg xmlns=\"x\">"), Some(MediaKind::Svg));
         assert!(MediaKind::Svg.needs_rasterizer());
         assert!(decode_image_bytes_in_budget(b"  <svg xmlns=\"x\">", 1, 0, 0, 8192).is_none());
-        // Catalog enumerates every sniffable kind exactly once.
         assert_eq!(MediaKind::ALL.len(), 15);
         for kind in MediaKind::ALL {
             assert!(!kind.mime().is_empty());
@@ -2161,20 +1778,15 @@ mod tests {
     fn fit_inside_keeps_aspect_with_integer_maths() {
         assert_eq!(fit_inside(0, 10, 100), (0, 0));
         assert_eq!(fit_inside(100, 50, 8192), (100, 50), "never upscales");
-        // Long side pins to budget, aspect kept, no float drift.
         assert_eq!(fit_inside(16384, 8192, 8192), (8192, 4096));
         assert_eq!(fit_inside(8192, 16384, 8192), (4096, 8192));
         assert_eq!(fit_inside(16384, 16384, 4096), (4096, 4096));
         assert_eq!(fit_inside(8000, 6000, 4096), (4096, 3072));
-        // Portrait tall: short side scales, long side exact.
         assert_eq!(fit_inside(6000, 8000, 4096), (3072, 4096));
     }
 
     #[test]
     fn sniffed_format_drives_direct_decode_without_a_second_guess() {
-        // Every directly-decodable kind maps to its `image` format, so the
-        // decode path reuses the sniff instead of paying `image`'s own
-        // guess loop; routed kinds map to `None` and early-out.
         assert_eq!(MediaKind::Png.image_format(), Some(image::ImageFormat::Png));
         assert_eq!(MediaKind::Jpeg.image_format(), Some(image::ImageFormat::Jpeg));
         assert_eq!(MediaKind::Gif.image_format(), Some(image::ImageFormat::Gif));
@@ -2195,7 +1807,6 @@ mod tests {
             assert_eq!(routed.image_format(), None);
             assert!(!routed.is_directly_decodable());
         }
-        // Expanded ISO-BMFF brands route the same way artist exports name them.
         for brand in ["qt  ", "avc1", "m4a ", "m4b ", "m4p "] {
             let mut bytes = vec![0u8; 12];
             bytes[4..8].copy_from_slice(b"ftyp");
@@ -2206,10 +1817,8 @@ mod tests {
         heif[4..8].copy_from_slice(b"ftyp");
         heif[8..12].copy_from_slice(b"heif");
         assert_eq!(sniff_media(&heif), Some(MediaKind::Heif));
-        // Audio-boxed MP4 extensions ride the same video pipeline.
         assert_eq!(MediaKind::from_extension("m4a"), Some(MediaKind::Mp4));
         assert_eq!(MediaKind::from_extension("m4b"), Some(MediaKind::Mp4));
-        // A real still still decodes through the sniffed-format path.
         let mut pixels = image::RgbImage::new(3, 2);
         for (x, y, pixel) in pixels.enumerate_pixels_mut() {
             *pixel = image::Rgb([(x * 37 + y * 91) as u8, (x * 11 + 7) as u8, 200]);
@@ -2258,9 +1867,6 @@ mod tests {
 
     #[test]
     fn fast_header_path_names_dimensions_without_the_image_crate() {
-        // Minimal fixed-offset headers: the fast path must name them, and
-        // the public probe must agree (fallback would too, but the point is
-        // the hot path never pays `image` dispatch for all ten stills).
         let mut png = vec![0u8; 24];
         png[..8].copy_from_slice(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]);
         png[12..16].copy_from_slice(b"IHDR");
@@ -2285,40 +1891,33 @@ mod tests {
         qoi[8..12].copy_from_slice(&2u32.to_be_bytes());
         assert_eq!(fast_header_dimensions(MediaKind::Qoi, &qoi), Some((3, 2)));
 
-        // SOI + SOF0 naming a 3x2 frame; APP0 filler skipped first.
         let jpeg: Vec<u8> = vec![
-            0xFF, 0xD8, // SOI
-            0xFF, 0xE0, 0x00, 0x04, 0xAA, 0xBB, // APP0 (skipped)
+            0xFF, 0xD8,
+            0xFF, 0xE0, 0x00, 0x04, 0xAA, 0xBB,
             0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x02, 0x00, 0x03, 0x01, 0x02,
-            0x03, // SOF0: h=2 w=3
+            0x03,
         ];
         assert_eq!(fast_header_dimensions(MediaKind::Jpeg, &jpeg), Some((3, 2)));
 
-        // Zero-size headers decline (caller maps to `None`, never 0x0).
         let mut zero_png = png.clone();
         zero_png[16..20].copy_from_slice(&0u32.to_be_bytes());
         assert_eq!(fast_header_dimensions(MediaKind::Png, &zero_png), None);
         assert_eq!(fast_header_dimensions(MediaKind::Png, &[0u8; 10]), None);
-        // The remaining five stills resolve header-only too (no `image` dispatch).
-        // WebP lossless: RIFF....WEBP VP8L + 0x2F + packed 14+14 bits (w-1/h-1).
         let mut webp = vec![0u8; 25];
         webp[0..4].copy_from_slice(b"RIFF");
         webp[8..12].copy_from_slice(b"WEBP");
         webp[12..16].copy_from_slice(b"VP8L");
         webp[20] = 0x2F;
-        let bits: u32 = 2 | (1 << 14); // w=3 h=2
+        let bits: u32 = 2 | (1 << 14);
         webp[21..25].copy_from_slice(&bits.to_le_bytes());
         assert_eq!(fast_header_dimensions(MediaKind::WebP, &webp), Some((3, 2)));
-        // ICO: 00 00 01 00 count + w/h bytes.
         let ico = [0u8, 0, 1, 0, 1, 0, 3, 2];
         assert_eq!(fast_header_dimensions(MediaKind::Ico, &ico), Some((3, 2)));
-        // PNM: magic + ASCII "3 2" (comments skipped, bounded scan).
         assert_eq!(fast_header_dimensions(MediaKind::Pnm, b"P6\n3 2\n"), Some((3, 2)));
         assert_eq!(
             fast_header_dimensions(MediaKind::Pnm, b"P6\n# comment\n3 2\n"),
             Some((3, 2))
         );
-        // TIFF LE: II*\0 + IFD with width=3 (256) / height=2 (257), SHORT count-1.
         let mut tiff = vec![0u8; 8 + 2 + 2 * 12];
         tiff[0..4].copy_from_slice(b"II*\0");
         tiff[4..8].copy_from_slice(&8u32.to_le_bytes());
@@ -2332,7 +1931,6 @@ mod tests {
         tiff[26..30].copy_from_slice(&1u32.to_le_bytes());
         tiff[30..34].copy_from_slice(&2u32.to_le_bytes());
         assert_eq!(fast_header_dimensions(MediaKind::Tiff, &tiff), Some((3, 2)));
-        // TIFF BE: MM\0* + SHORT value in the field's first 2 bytes.
         let mut be = vec![0u8; 8 + 2 + 2 * 12];
         be[0..4].copy_from_slice(b"MM\0*");
         be[4..8].copy_from_slice(&8u32.to_be_bytes());
@@ -2346,7 +1944,6 @@ mod tests {
         be[26..30].copy_from_slice(&1u32.to_be_bytes());
         be[30..34].copy_from_slice(&[0x00, 0x02, 0x00, 0x00]);
         assert_eq!(fast_header_dimensions(MediaKind::Tiff, &be), Some((3, 2)));
-        // HDR: magic + resolution line "-Y 2 +X 3".
         let hdr = b"#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 2 +X 3\n";
         assert_eq!(fast_header_dimensions(MediaKind::Hdr, hdr), Some((3, 2)));
     }
@@ -2358,10 +1955,8 @@ mod tests {
         assert_eq!(f32_to_f16_bits(-1.0), 0xBC00);
         assert_eq!(f32_to_f16_bits(f32::INFINITY), 0x7C00);
         assert!(f32_to_f16_bits(f32::NAN) & 0x7C00 == 0x7C00);
-        // Max half + overflow saturates to Inf, never wraps.
         assert_eq!(f32_to_f16_bits(65504.0), 0x7BFF);
         assert_eq!(f32_to_f16_bits(100_000.0), 0x7C00);
-        // RGB→RGBA-half packs 3 floats into 8 LE bytes with alpha 1.0.
         let packed = rgb32f_to_rgba_f16le(&[1.0, 0.0, 0.5]);
         assert_eq!(packed.len(), 8);
         assert_eq!(&packed[0..2], &0x3C00u16.to_le_bytes());
@@ -2372,7 +1967,6 @@ mod tests {
 
     #[test]
     fn routed_header_path_names_video_codec_vector_without_pixel_decode() {
-        // MP4: ftyp(isom) + moov/trak/tkhd v0 naming 640x360 (16.16 fixed).
         let mut mp4 = Vec::new();
         mp4.extend_from_slice(&20u32.to_be_bytes());
         mp4.extend_from_slice(b"ftyp");
@@ -2383,7 +1977,7 @@ mod tests {
         mp4.extend_from_slice(&tkhd_size.to_be_bytes());
         mp4.extend_from_slice(b"tkhd");
         let mut tkhd = vec![0u8; tkhd_payload_len];
-        tkhd[0] = 0; // version 0
+        tkhd[0] = 0;
         tkhd[76..80].copy_from_slice(&(640u32 << 16).to_be_bytes());
         tkhd[80..84].copy_from_slice(&(360u32 << 16).to_be_bytes());
         mp4.extend_from_slice(&tkhd);
@@ -2391,7 +1985,6 @@ mod tests {
         assert_eq!(routed_header_dimensions(MediaKind::Mp4, &mp4), Some((640, 360)));
         assert_eq!(probe_dimensions(&mp4), Some((MediaKind::Mp4, 640, 360)));
 
-        // MP4 visual-entry fallback when tkhd is audio-only (0x0): avc1 640x360.
         let mut mp4v = Vec::new();
         mp4v.extend_from_slice(&20u32.to_be_bytes());
         mp4v.extend_from_slice(b"ftyp");
@@ -2413,11 +2006,10 @@ mod tests {
             Some((640, 360))
         );
 
-        // WebM: EBML header + PixelWidth 640 (0xB0 0x81 ...) + PixelHeight 360.
         let mut webm = vec![0x1A, 0x45, 0xDF, 0xA3, 0x93, 0x42, 0x82, 0x88, b'm', b'a',
             b't', b'r', b'o', b's', b'k', b'a'];
-        webm.extend_from_slice(&[0xB0, 0x82, 0x02, 0x80]); // 640
-        webm.extend_from_slice(&[0xBA, 0x82, 0x01, 0x68]); // 360
+        webm.extend_from_slice(&[0xB0, 0x82, 0x02, 0x80]);
+        webm.extend_from_slice(&[0xBA, 0x82, 0x01, 0x68]);
         assert_eq!(sniff_media(&webm), Some(MediaKind::Webm));
         assert_eq!(
             routed_header_dimensions(MediaKind::Webm, &webm),
@@ -2428,7 +2020,6 @@ mod tests {
             Some((MediaKind::Webm, 640, 360))
         );
 
-        // AVIF: ftyp(avif) + ispe 3x2.
         let mut avif = Vec::new();
         avif.extend_from_slice(&20u32.to_be_bytes());
         avif.extend_from_slice(b"ftyp");
@@ -2436,7 +2027,7 @@ mod tests {
         avif.extend_from_slice(&[0u8; 8]);
         avif.extend_from_slice(&20u32.to_be_bytes());
         avif.extend_from_slice(b"ispe");
-        avif.extend_from_slice(&[0, 0, 0, 0]); // version+flags
+        avif.extend_from_slice(&[0, 0, 0, 0]);
         avif.extend_from_slice(&3u32.to_be_bytes());
         avif.extend_from_slice(&2u32.to_be_bytes());
         assert_eq!(sniff_media(&avif), Some(MediaKind::Avif));
@@ -2446,7 +2037,6 @@ mod tests {
         );
         assert_eq!(probe_dimensions(&avif), Some((MediaKind::Avif, 3, 2)));
 
-        // SVG width/height wins; viewBox fallback; percent declines to viewBox.
         let svg = b"<svg width=\"640\" height=\"480\"></svg>";
         assert_eq!(sniff_media(svg), Some(MediaKind::Svg));
         assert_eq!(routed_header_dimensions(MediaKind::Svg, svg), Some((640, 480)));
@@ -2463,12 +2053,10 @@ mod tests {
             Some((3, 2))
         );
 
-        // Routed serve plans now carry native+fitted plus the hold reason.
         let plan = serve_plan(&mp4, None, 8192).unwrap();
         assert_eq!(plan.native, Some((640, 360)));
         assert_eq!(plan.fitted, Some((640, 360)));
         assert_eq!(plan.routed_reason, Some("video-pipeline"));
-        // Unknown/truncated routed headers decline instead of naming 0x0.
         assert_eq!(routed_header_dimensions(MediaKind::Mp4, b"ftyp"), None);
         assert_eq!(routed_header_dimensions(MediaKind::Svg, b"<svg></svg>"), None);
     }

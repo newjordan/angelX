@@ -19,5 +19,4 @@ pub use rules::MusterCmd;
 #[cfg(not(target_arch = "wasm32"))]
 pub use server::MusterServer;
 
-/// Raised when the welcome's params change: an old page then says to reload.
 pub const PARAMS_VERSION: u64 = 1;

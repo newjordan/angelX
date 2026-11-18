@@ -24,65 +24,43 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Site {
-    /// The castle plan's id in the catalogue (`great-tower`).
     pub plan: String,
     pub centre: Tile,
-    /// Width and depth of the ground it covers, in tiles, gate facing south.
     pub size: (i16, i16),
-    /// The stockyard building deliveries arrive in.
     pub yard: u32,
-    /// The stage the work has reached, an index into the plan's stages.
     pub stage: u16,
-    /// Stones standing, in lay order.
     pub laid: u32,
-    /// Earth moved in the current earthwork stage, in units.
     pub dug: u32,
-    /// Percent of a stone the masons have in hand, carried between shifts.
     pub credit: u16,
-    /// Runs of stone type by laid index: `(end, kind)`. Empty reads as all limestone (old saves).
-    /// Kind is [`crate::pace::delve_stone`]: 0 limestone, 1 green-veined, 2 basalt, 3 ice-stone.
     #[serde(default)]
     pub bands: Vec<(u32, u8)>,
-    /// Cut stone paid by a delve and not yet laid: `(count, kind)`, oldest first.
     #[serde(default)]
     pub stone_due: Vec<(u32, u8)>,
 }
 
-/// What stops more stones being set.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Hold {
-    /// The castle is finished.
     Done,
-    /// The stockyard is not built yet.
     Yard,
-    /// A ditch or mound is being dug: earth, not stone.
     Earthwork,
-    /// The scaffold is not up: the yard lacks poles.
     Scaffold { have: u32, need: u32 },
-    /// Arches need centring the yard lacks.
     Centring { have: u32, need: u32 },
-    /// Something the stage's bill needs has run out.
     Short { resource: String },
-    /// Nobody is at the work: no lodge is staffed.
     Masons,
-    /// Everything is there; the masons' own pace is the limit.
     Pace,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Allowance {
-    /// Stones the masons may set now, never crossing the end of the stage.
     pub stones: u32,
     pub hold: Hold,
 }
 
-/// The least of a perishable good a stockyard asks for while its bill still wants any.
 const PERISHABLE_FLOOR: u32 = 12;
 
 fn ceil_div(a: u64, b: u64) -> u64 {
     a.div_ceil(b)
 }
-/// What the first `done` stones of a stage of `count` have used of a need.
 fn used(need: u32, done: u32, count: u32) -> u32 {
     if count == 0 {
         return need;
@@ -101,8 +79,6 @@ impl Site {
     }
 }
 
-/// The chain goods a stage costs: its bill through the catalogue's rules, and
-/// any fixtures its name calls for.
 pub fn stage_needs(c: &Catalog, stage: &CastleStage) -> Stock {
     let mut needs = Stock::new();
     for (line, qty) in &stage.bill {
@@ -145,8 +121,6 @@ impl Kingdom {
             .is_some_and(|s| usize::from(s.stage) >= self.plan_of(c, s).stages.len())
     }
 
-    /// The goods the yard should hold: the stage in hand and the next, so the
-    /// carts always have the next thing to bring, and the scaffold's stock.
     pub fn site_wants(&self, c: &Catalog, site: &Site) -> Stock {
         let plan = self.plan_of(c, site);
         let mut wants = Stock::new();
@@ -155,7 +129,6 @@ impl Kingdom {
                 add(&mut wants, &r, n);
             }
         }
-        // Bills already paid in the current stage are not wanted again.
         if let Some(stage) = plan.stages.get(usize::from(site.stage)) {
             let done = site.laid.saturating_sub(stage.first);
             for (r, n) in stage_needs(c, stage) {
@@ -165,24 +138,17 @@ impl Kingdom {
                 }
             }
         }
-        // What goes off is asked for a little at a time, but never less than a dozen: a store
-        // loses at least a unit every shift, so a single unit asked for at the very end of a
-        // stage would be gone before the masons could use it.
         for (r, n) in wants.iter_mut() {
             if *n > 0 && c.resources.get(r).is_some_and(|x| x.shelf > 0) {
                 *n = (*n).min(c.works.perishable_stock).max(PERISHABLE_FLOOR);
             }
         }
-        // The scaffold is kept a lift's wear ahead twice over, so the poles that go at the end of
-        // a stage are already on the road to replace them before the masons next want to climb.
         add(&mut wants, "pole", c.works.poles_standing + 2 * c.works.poles_worn);
         add(&mut wants, "centring", c.works.centring_standing + 2 * c.works.centring_worn);
         wants.retain(|_, n| *n > 0);
         wants
     }
 
-    /// The masons at a site: the crews of staffed lodges within range of its
-    /// yard, each counted at the crew's efficiency.
     pub fn masons(&self, c: &Catalog, id: u32) -> u32 {
         let Some(site) = self.sites.get(&id) else { return 0 };
         let Some(yard) = self.buildings.get(&site.yard) else { return 0 };
@@ -200,8 +166,6 @@ impl Kingdom {
                 crew(lid) * u32::from(report.population.efficiency.get(lid).copied().unwrap_or(0)) / 100
             })
             .sum();
-        // Treadwheel cranes raise every stone the masons set: each staffed
-        // crane in range adds its percent, up to double.
         let bonus: u32 = self
             .buildings
             .iter()
@@ -212,7 +176,6 @@ impl Kingdom {
         masons * (100 + bonus.min(100)) / 100
     }
 
-    /// A crane keeps its crew only while a site stands in its range.
     pub(crate) fn crane_posted(&self, c: &Catalog, crane: &Building) -> bool {
         c.plans[&crane.plan].crane > 0
             && self.sites.values().any(|s| {
@@ -222,8 +185,6 @@ impl Kingdom {
             })
     }
 
-    /// Masons wear their tools as they work: a shift at the wall costs each
-    /// staffed lodge a shift of its trowels and hammers.
     fn wear_lodges(&mut self, c: &Catalog, site: u32) {
         let Some(yard) = self.sites.get(&site).and_then(|s| self.buildings.get(&s.yard)).map(|y| y.tile) else { return };
         let report = self.report(c);
@@ -257,13 +218,10 @@ impl Kingdom {
         }
     }
 
-    /// A crane works only while a site stands in its range and nothing stops the post.
     pub(crate) fn crane_ready(&self, c: &Catalog, crane: &Building) -> bool {
         self.post_blocked(c, crane).is_none() && self.crane_posted(c, crane)
     }
 
-    /// True while the yard could pay for at least one stone: the lodge works
-    /// only then (its crew wait at the wall, `lodge_posted`, otherwise).
     pub(crate) fn lodge_ready(&self, c: &Catalog, lodge: &Building) -> bool {
         self.post_blocked(c, lodge).is_none()
             && self.sites.iter().any(|(&id, s)| {
@@ -276,9 +234,6 @@ impl Kingdom {
             })
     }
 
-    /// A lodge keeps its crew at the work while a castle is going up within its
-    /// range, whether or not the yard can pay for the next stone this minute: the
-    /// masons wait at the wall for the lime, and the Clerk says what they wait for.
     pub(crate) fn lodge_posted(&self, c: &Catalog, lodge: &Building) -> bool {
         self.sites.iter().any(|(&id, s)| {
             self.buildings.get(&s.yard).is_some_and(|y| {
@@ -287,9 +242,6 @@ impl Kingdom {
         })
     }
 
-    /// How many stones the masons may set this shift. `masons` is the number
-    /// at the wall (a crew counts as its people); the answer never crosses the
-    /// end of the stage in hand.
     pub fn site_allowance(&self, c: &Catalog, id: u32, masons: u32) -> Allowance {
         let none = |hold| Allowance { stones: 0, hold };
         let Some(site) = self.sites.get(&id) else { return none(Hold::Done) };
@@ -313,7 +265,6 @@ impl Kingdom {
         }
         let done = site.laid - stage.first;
         let left = stage.count - done;
-        // The most stones the yard can pay for, good by good.
         let mut by_stock = left;
         let mut short = None;
         for (r, &need) in &needs {
@@ -342,10 +293,6 @@ impl Kingdom {
         }
     }
 
-    /// Records `stones` as set by `masons`, pays the bill for them out of the
-    /// yard, and moves the site on. The stones must be within the allowance.
-    /// Calling with zero stones still banks the masons' effort, up to two
-    /// stones' worth, so a shift lost to a short yard is not a shift lost.
     pub fn site_set(&mut self, c: &Catalog, id: u32, stones: u32, masons: u32) -> Result<u32, String> {
         let allowed = self.site_allowance(c, id, masons).stones;
         if stones > allowed {
@@ -381,7 +328,6 @@ impl Kingdom {
             }
             site.laid += stones;
             Self::note_kinds(&mut site, stones);
-            // Credit never goes below zero: stones were only allowed within it.
             let have = u32::from(site.credit) + gain;
             site.credit = (have - stones * 100).min(200) as u16;
             if site.laid == stage.first + stage.count {
@@ -395,10 +341,6 @@ impl Kingdom {
         Ok(stones)
     }
 
-    /// Cut stone a returning delve pays the Keep's yard, in one go. Evening
-    /// pace only. The stones still wait on the crane and the masons; this
-    /// only skips the quarry, the tools and the iron. Returns the count, or
-    /// 0 when the pace is off or the Keep has no yard yet.
     pub fn pay_delve(&mut self, depth: u32, boss: bool) -> u32 {
         let n = crate::pace::delve_pays(depth, boss);
         if n == 0 {
@@ -417,7 +359,6 @@ impl Kingdom {
         n
     }
 
-    /// The castle now rising: the great tower if it is staked, else the shell keep, else the motte.
     fn rising_site(&self) -> Option<u32> {
         for plan in ["great-tower", "shell-keep", "motte-and-bailey"] {
             if let Some((&id, _)) = self.sites.iter().find(|(_, s)| s.plan == plan) {
@@ -427,14 +368,12 @@ impl Kingdom {
         None
     }
 
-    /// Ashlar waiting in the rising castle's yard.
     pub fn yard_stone(&self) -> u32 {
         let Some(id) = self.rising_site() else { return 0 };
         let Some(site) = self.sites.get(&id) else { return 0 };
         self.buildings.get(&site.yard).and_then(|b| b.input.get("ashlar").copied()).unwrap_or(0) + site.stone_due.iter().map(|d| d.0).sum::<u32>()
     }
 
-    /// The plate a return shows. Empty when nothing was paid.
     pub fn delve_plate(n: u32) -> String {
         if n == 0 { String::new() } else { format!("THE DELVE PAYS {n} STONE TO THE YARD") }
     }
@@ -487,8 +426,6 @@ impl Kingdom {
         }
     }
 
-    /// Earth the ditch gang may still move in the earthwork stage in hand: the
-    /// units in the yard, up to what the stage needs.
     pub fn earth_may_dig(&self, c: &Catalog, id: u32) -> u32 {
         let Some(site) = self.sites.get(&id) else { return 0 };
         let plan = self.plan_of(c, site);
@@ -498,8 +435,6 @@ impl Kingdom {
         yard.input.get("earth").copied().unwrap_or(0).min(need.saturating_sub(site.dug))
     }
 
-    /// Spreads `units` of the earth in the yard into the current earthwork
-    /// stage: the ditch is dug and the mound heaped as it arrives.
     pub fn site_dig(&mut self, c: &Catalog, id: u32, units: u32) -> Result<u32, String> {
         let allowed = self.earth_may_dig(c, id);
         if units > allowed {
@@ -524,8 +459,6 @@ impl Kingdom {
         Ok(units)
     }
 
-    /// One ten-second shift of masonry at every site, using the masons beside
-    /// each yard. Returns `(site, stones set)` for the game to turn into marks.
     pub fn work_sites(&mut self, c: &Catalog) -> Vec<(u32, u32)> {
         let mut set = Vec::new();
         let ids: Vec<u32> = self.sites.keys().copied().collect();
@@ -533,7 +466,6 @@ impl Kingdom {
             let masons = self.masons(c, id);
             let mut total = 0;
             let mut effort = masons;
-            // A shift can finish one stage and start the next.
             for _ in 0..4 {
                 let dig = self.earth_may_dig(c, id);
                 if dig > 0 {
@@ -586,9 +518,6 @@ impl Kingdom {
             return Err("a castle must stand wholly on the hillside".into());
         }
         let overlaps = |(a0, b0, a1, b1): Rect, (c0, d0, c1, d1): Rect| a0 <= c1 && c0 <= a1 && b0 <= d1 && d0 <= b1;
-        // A castle that stands finished gives way to the next age's: the shell
-        // keep is raised over the motte and bailey, the great tower over the
-        // shell. Ground held by a castle still going up is taken.
         let older: Vec<u32> = self
             .sites
             .iter()
@@ -598,8 +527,6 @@ impl Kingdom {
         if older.iter().any(|&id| !self.site_finished(c, id)) || crate::hillside::CAMP_GROUNDS.iter().any(|&r| overlaps(r, site.rect())) {
             return Err("that ground is already taken".into());
         }
-        // The Great Shaft's hoist and the road to it stand inside the Keep's ground
-        // (the stair comes out in the bailey): they are the Keep's fixtures.
         let road = crate::hillside::shaft_road();
         if self.buildings.values().any(|b| site.covers(b.tile) && c.plans[&b.plan].shaft == 0)
             || self.roads.iter().any(|&t| site.covers(t) && !road.contains(&t))
@@ -615,8 +542,6 @@ impl Kingdom {
         if !c.plans.get("castle-yard").is_some_and(|p| p.yard) {
             return Err("this catalogue has no stockyard".into());
         }
-        // The older castle's stockyard serves the new one when it is named as
-        // the yard; either way the older site is retired.
         let reuse = self.at(yard).filter(|id| older.iter().any(|o| self.sites[o].yard == *id));
         let mut site = site;
         let message = match reuse {
@@ -639,7 +564,6 @@ impl Kingdom {
         Ok(format!("{} staked out; {}", castle.name, message.to_lowercase()))
     }
 
-    /// Validates sites and lines for `valid`.
     pub(crate) fn works_valid(&self, c: &Catalog) -> bool {
         if self.lines.len() > MAX_LINES || self.sites.len() > MAX_SITES {
             return false;
@@ -647,7 +571,6 @@ impl Kingdom {
         if (!self.sites.is_empty() || !self.nature.is_empty() || !self.lines.is_empty()) && !self.world.is_hillside() {
             return false;
         }
-        // What can run out, wear out or go off stays within what the hillside holds.
         if !self.nature.iter().all(|(k, &v)| hillside::patch_capacity(k) > 0 && v <= hillside::patch_capacity(k))
             || !self.buildings.values().all(|b| {
                 let p = &c.plans[&b.plan];
@@ -673,7 +596,6 @@ impl Kingdom {
                 && self.world.contains((s.rect().0, s.rect().1))
                 && self.world.contains((s.rect().2, s.rect().3))
                 && match plan.stages.get(usize::from(s.stage)) {
-                    // Every stone before the stage is laid; none past it.
                     Some(st) => s.laid >= st.first && s.laid <= st.first + st.count,
                     None => s.laid == plan.stones(),
                 }

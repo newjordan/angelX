@@ -19,36 +19,21 @@
 //! start). Smarter fork-point inference is a handoff milestone
 //! (`docs/questmap/QUESTMAP_HANDOFF.md`).
 
-/// Hard cap on parsed steps — keeps a runaway trace from flooding the
-/// transcript. The footer notes when the chronicle is truncated.
 const MAX_STEPS: usize = 400;
-/// Hard cap on rendered expedition lines (the tree can be wider than the map).
 const MAX_EXPEDITIONS_SHOWN: usize = 24;
-/// Hard cap on annotated lines in the lexicon view (`/quest lex`).
 const MAX_LEX_SHOWN: usize = 60;
-/// Snippet length (chars) quoted from a step.
 const SNIP: usize = 56;
 
-/// What a single reasoning step *is*, judged by how it opens.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum StepKind {
-    /// Plain forward progress.
     Step,
-    /// Self-questioning that doesn't abandon the path ("Hmm", "let me check").
     Doubt,
-    /// A deliberate fork ("Alternatively…") — the old path still stands.
     Alternative,
-    /// The model shoots down its own idea ("But that ignores…").
     Rejection,
-    /// A full turnabout ("Wait, actually…").
     Reversal,
-    /// An answer is claimed ("So the answer is…").
     Conclusion,
 }
 
-/// Markers are matched against the lowercased *start* of a step, most decisive
-/// class first (a "Wait, but…" is a reversal, not a rejection). Tuning this
-/// lexicon against real fleet traces is milestone M2 in the handoff.
 const REVERSAL: &[&str] = &[
     "wait",
     "no wait",
@@ -71,9 +56,6 @@ const CONCLUSION: &[&str] = &[
     "so the answer",
     "so, the answer",
     "the answer is",
-    // "Answer: 258 rolls." — a very common conclusion phrasing real models use
-    // (found tuning against deepseek traces, M2); the "the answer is" entry
-    // above missed the bare form.
     "answer:",
     "answer is",
     "therefore",
@@ -139,27 +121,20 @@ const DOUBT: &[&str] = &[
     "sanity check",
 ];
 
-/// One parsed reasoning step, hung in the expedition tree.
 struct QuestNode {
     parent: Option<usize>,
     kind: StepKind,
     text: String,
-    /// This node sits on a path the model later walked away from.
     abandoned: bool,
-    /// Set on the tip a pivot felled: the pivot's kind + quoted snippet.
     fell: Option<(StepKind, String)>,
 }
 
-/// The parsed trace: a tree of steps rooted at the quest's opening line.
 pub(crate) struct QuestTree {
     nodes: Vec<QuestNode>,
-    /// Where the trace ended — the would-be victor's tip.
     tip: usize,
     truncated: bool,
 }
 
-/// A rendering skin. All glyphs are single-column so the map survives any
-/// terminal; rosters are 8 wide to match "ask 8 models one question".
 pub(crate) struct Theme {
     pub(crate) name: &'static str,
     arena: &'static str,
@@ -233,9 +208,6 @@ mod quest_text {
     pub(super) const QUEST_NO_LANDFALL: &str = "no landfall";
 }
 
-/// The theme roster. Variety is the point: which skin a model gets is a
-/// stable hash of its label, so Sir Percival's map and the Kestrel's chart
-/// can chronicle the same question side by side.
 pub(crate) const THEMES: &[Theme] = &[
     Theme {
         name: "overworld",
@@ -290,14 +262,12 @@ pub(crate) const THEMES: &[Theme] = &[
     },
 ];
 
-/// FNV-1a — the module's only "randomness"; stable across runs by design.
 fn fnv(s: &str) -> u64 {
     s.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
         (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3)
     })
 }
 
-/// The stable theme for a model label (override wins if it names one).
 pub(crate) fn theme_for(label: &str, override_name: Option<&str>) -> &'static Theme {
     if let Some(want) = override_name
         && let Some(t) = THEMES.iter().find(|t| t.name.eq_ignore_ascii_case(want))
@@ -308,9 +278,6 @@ pub(crate) fn theme_for(label: &str, override_name: Option<&str>) -> &'static Th
     &THEMES[(fnv(label) % THEMES.len() as u64) as usize]
 }
 
-/// Split a trace into steps: sentence enders followed by whitespace, and
-/// newlines. Decimals ("13/27, 0.5") survive because '.' only splits before
-/// whitespace.
 fn segments(trace: &str) -> (Vec<String>, bool) {
     let mut out = Vec::new();
     let mut cur = String::new();
@@ -342,12 +309,6 @@ fn flush(cur: &mut String, out: &mut Vec<String>) {
     cur.clear();
 }
 
-/// The marker lexicon in precedence order — the first class whose markers match
-/// the lowercased *start* of a step wins ("Wait, but…" is a Reversal, not a
-/// Rejection). Written from priors in M0; tuning it against real fleet traces is
-/// milestone M2. A single ordered table (rather than a chain of `if`s) makes the
-/// precedence explicit and lets `classify_explain` report which marker fired, so
-/// a real trace can be eyeballed line by line (`/quest lex`).
 const LEXICON: &[(StepKind, &[&str])] = &[
     (StepKind::Reversal, REVERSAL),
     (StepKind::Conclusion, CONCLUSION),
@@ -356,25 +317,15 @@ const LEXICON: &[(StepKind, &[&str])] = &[
     (StepKind::Doubt, DOUBT),
 ];
 
-/// Which class of step this is, by its opening words.
 fn classify(seg: &str) -> StepKind {
     classify_explain(seg).0
 }
 
-/// Strip a leading run of markdown / list / emphasis punctuation ("**", "- ",
-/// "#", "> ", "• ") so a marker at the *semantic* start of a line still matches.
-/// Real model reasoning is markdown-formatted — "**Answer: …**", "- But that…" —
-/// and without this the emphasis defeats `starts_with` and the marker is missed
-/// (found tuning against real deepseek traces, M2). Classification-only: the
-/// text shown in the map/lexicon view is never altered.
 fn strip_lead(seg: &str) -> &str {
     seg.trim_start()
         .trim_start_matches(['*', '_', '`', '#', '>', '-', '•', '·', ' ', '\t'])
 }
 
-/// Classify a step *and* report which marker matched — the lexicon-tuning
-/// instrument behind `/quest lex`. A `None` marker means nothing matched and it
-/// fell through to a plain [`StepKind::Step`]. Pure, like `classify`.
 fn classify_explain(seg: &str) -> (StepKind, Option<&'static str>) {
     let s = strip_lead(seg).to_ascii_lowercase();
     for (kind, markers) in LEXICON {
@@ -385,7 +336,6 @@ fn classify_explain(seg: &str) -> (StepKind, Option<&'static str>) {
     (StepKind::Step, None)
 }
 
-/// A short tag for a step class — used by the lexicon view's annotations.
 fn kind_tag(kind: StepKind) -> &'static str {
     match kind {
         StepKind::Step => "step",
@@ -397,8 +347,6 @@ fn kind_tag(kind: StepKind) -> &'static str {
     }
 }
 
-/// First `n` chars, ellipsized, double quotes softened so the map's own
-/// quoting stays readable.
 fn snip(s: &str, n: usize) -> String {
     let clean: String = s.chars().map(|c| if c == '"' { '\'' } else { c }).collect();
     if clean.chars().count() <= n {
@@ -421,7 +369,6 @@ fn push_node(nodes: &mut Vec<QuestNode>, parent: usize, kind: StepKind, text: &s
     nodes.len() - 1
 }
 
-/// Parse a raw reasoning trace into the expedition tree.
 pub(crate) fn parse(trace: &str) -> QuestTree {
     let (segs, truncated) = segments(trace);
     let mut iter = segs.into_iter();
@@ -434,8 +381,6 @@ pub(crate) fn parse(trace: &str) -> QuestTree {
         fell: None,
     }];
     let mut cur = 0_usize;
-    // The last deliberate crossroads — where a felled expedition's successor
-    // departs from.
     let mut fork = 0_usize;
     for seg in iter {
         let kind = classify(&seg);
@@ -449,7 +394,6 @@ pub(crate) fn parse(trace: &str) -> QuestTree {
                 }
                 cur = push_node(&mut nodes, fork, kind, &seg);
             }
-            // A pivot with nothing yet to reject reads as a plain step out.
             StepKind::Alternative => {
                 fork = cur;
                 cur = push_node(&mut nodes, cur, kind, &seg);
@@ -467,7 +411,6 @@ pub(crate) fn parse(trace: &str) -> QuestTree {
 }
 
 impl QuestTree {
-    /// Children lists, index-aligned with `nodes`.
     fn children(&self) -> Vec<Vec<usize>> {
         let mut kids = vec![Vec::new(); self.nodes.len()];
         for (i, n) in self.nodes.iter().enumerate() {
@@ -478,7 +421,6 @@ impl QuestTree {
         kids
     }
 
-    /// The node set on the path root→tip (the surviving line of reasoning).
     fn victor_path(&self) -> Vec<usize> {
         let mut path = Vec::new();
         let mut walk = Some(self.tip);
@@ -489,7 +431,6 @@ impl QuestTree {
         path
     }
 
-    /// Did the surviving path actually claim an answer?
     fn resolved(&self) -> bool {
         self.victor_path()
             .iter()
@@ -497,11 +438,8 @@ impl QuestTree {
     }
 }
 
-/// Render one model's trace as a themed quest map. `width` clamps every line
-/// (transcript panes are narrow; 72 is a good default).
 pub(crate) fn render(tree: &QuestTree, theme: &Theme, label: &str, width: usize) -> String {
     let kids = tree.children();
-    // Expeditions = leaves, chronicled in DFS order.
     let mut leaves = Vec::new();
     let mut stack = vec![0_usize];
     while let Some(i) = stack.pop() {
@@ -527,7 +465,6 @@ pub(crate) fn render(tree: &QuestTree, theme: &Theme, label: &str, width: usize)
     ));
     let shown = leaves.len().min(MAX_EXPEDITIONS_SHOWN);
     for (idx, &leaf) in leaves.iter().take(shown).enumerate() {
-        // Expedition length: nodes from its nearest fork (exclusive) to the leaf.
         let mut len = 0_usize;
         let mut depth = 0_usize;
         let mut walk = leaf;
@@ -624,7 +561,6 @@ pub(crate) fn render(tree: &QuestTree, theme: &Theme, label: &str, width: usize)
         .join("\n")
 }
 
-/// Roster names repeat with a generation mark past 8 ("Sir Kay II").
 fn roster_name(theme: &Theme, idx: usize) -> String {
     let generation = idx / theme.party.len();
     let base = theme.party[idx % theme.party.len()];
@@ -645,7 +581,6 @@ fn clamp_line(s: &str, width: usize) -> String {
     }
 }
 
-/// One-call convenience for `/quest`: parse + theme + render.
 pub(crate) fn render_trace(
     label: &str,
     trace: &str,
@@ -659,11 +594,6 @@ pub(crate) fn render_trace(
     render(&tree, theme_for(label, theme_override), label, width)
 }
 
-/// The lexicon view (`/quest lex`): every step of a trace with the class it was
-/// assigned and the marker that fired. Where the quest map shows the *shape* of
-/// the reasoning, this shows *why* each step was read as it was — the M2 tuning
-/// instrument, so the marker tables can be adjusted against real fleet traces.
-/// Pure display, single-column, bounded like the map.
 pub(crate) fn render_lexicon(label: &str, trace: &str, width: usize) -> String {
     if trace.trim().is_empty() {
         return "the lexicon has nothing to read — no reasoning trace".to_string();
@@ -677,8 +607,6 @@ pub(crate) fn render_lexicon(label: &str, trace: &str, width: usize) -> String {
     for i in 0..shown {
         let (kind, marker) = classified[i];
         let tag = kind_tag(kind);
-        // Show the marker that fired for every non-plain class — that's the
-        // whole point of the view when tuning the tables.
         let note = match marker {
             Some(m) if kind != StepKind::Step => format!("{tag} ← \"{m}\""),
             _ => tag.to_string(),
@@ -691,7 +619,6 @@ pub(crate) fn render_lexicon(label: &str, trace: &str, width: usize) -> String {
     if segs.len() > shown {
         out.push(format!("  … and {} more steps", segs.len() - shown));
     }
-    // Footer tally over the whole trace — non-plain classes, in precedence order.
     let order = [
         StepKind::Reversal,
         StepKind::Conclusion,
@@ -723,9 +650,6 @@ pub(crate) fn render_lexicon(label: &str, trace: &str, width: usize) -> String {
     out.join("\n")
 }
 
-/// Chronicle several models given the same question — one themed map each.
-/// The gauntlet runner (`/quest gauntlet`) feeds this the reasoning it tapped
-/// from each club; the tests exercise it directly.
 pub(crate) fn render_party(traces: &[(String, String)], width: usize) -> String {
     let mut out = vec![format!(
         "⚔ THE GAUNTLET · {} chroniclers, one quest",
@@ -738,10 +662,6 @@ pub(crate) fn render_party(traces: &[(String, String)], width: usize) -> String 
     out.join("\n")
 }
 
-/// A built-in sample trace (`/quest sample`) — the boy-born-on-Tuesday problem,
-/// with the classic wrong turn. Fixed example text so the map can be exercised
-/// on the offline practice agent, which produces no reasoning of its own; it is
-/// never presented as the operator's own reasoning.
 pub(crate) const SAMPLE_TRACE: &str = "\
 A family has two children and at least one is a boy born on a Tuesday; what \
 is the probability both are boys?

@@ -6,7 +6,6 @@ fn catalog_loops_keep_moving_through_idle_and_transitions() {
     for width in [8, 30, 80, 160, 400] {
         let mut ambient = Ambient::default();
         let mut window = HashSet::new();
-        // Two complete rotations, including every crossfade and wrap.
         for step in 0..(PRESETS.len() as u64 * 600) {
             let row = ambient.frame(width, Duration::from_millis(step * 200), MotionMode::Full);
             assert_eq!(row.chars().count(), width);

@@ -50,7 +50,6 @@ fn states_read_differently() {
         let starved = flat(id, State::Starved(Load::Lime), 0).unwrap();
         let backed = flat(id, State::BackedUp(Load::Lime), 0).unwrap();
         assert!(*idle != *starved && *idle != *backed && *starved != *backed, "{id}");
-        // Construction climbs: each step shows more of the building.
         let counts: Vec<usize> = (0..STEPS).map(|s| lit(&flat(id, State::Building(s), 0).unwrap())).collect();
         assert!(counts.windows(2).all(|w| w[0] != w[1]), "{id} steps {counts:?}");
     }
@@ -69,7 +68,6 @@ fn no_two_plans_draw_alike() {
 #[test]
 fn a_hundred_buildings_are_cheap() {
     use std::time::Instant;
-    // The first sight of a (plan, state, frame) draws it; every later one is a lookup of a shared picture.
     let ids: Vec<&str> = plans().collect();
     let started = Instant::now();
     for k in 0..100 {
@@ -88,8 +86,6 @@ fn a_hundred_buildings_are_cheap() {
     println!("works_kit flat: 100 buildings first sight {first:?}; a frame of a hundred again {again:?}");
     assert!(again.as_micros() < 5_000, "{again:?}");
 }
-
-// ----------------------------------------------------------- the proof ----
 
 const GRASS: char = 'E';
 
@@ -112,8 +108,6 @@ fn save(dir: &Path, name: &str, im: &Img, scale: u32) {
         .unwrap();
 }
 
-/// A sheet of `ids`, a row each: the four steps of raising, idle, working
-/// at four steps of its loop, starved, backed up.
 fn sheet(ids: &[&str]) -> Img {
     let cols: Vec<State> = (0..STEPS)
         .map(State::Building)
@@ -158,8 +152,6 @@ fn write_works_sheets() {
     }
 }
 
-/// Detail sheets: idle, two steps of work, starved and backed up, large, a
-/// few plans to a sheet, for looking at.
 #[test]
 #[ignore = "writes the detail sheets when ANGEL_WORKS_SHOTS is set"]
 fn write_works_details() {
@@ -183,8 +175,6 @@ fn write_works_details() {
         save(&dir, &format!("detail-{n:02}"), &sheet, 4);
     }
 }
-
-// ------------------------------------------------- lines, loads, hands ----
 
 #[test]
 fn lines_and_hands_draw() {
@@ -239,14 +229,12 @@ fn write_works_lines_and_hands() {
     let Some(dir) = std::env::var_os("ANGEL_WORKS_SHOTS") else { return };
     let dir = Path::new(&dir).join("flat-lines");
 
-    // Loads: every one, heaped.
     let mut sheet = backdrop(Load::ALL.len() as i32 * 26 + 4, 24);
     for (i, load) in Load::ALL.iter().enumerate() {
         loads::heap(&mut sheet, i as i32 * 26 + 14, 20, 22, 12, *load, 3);
     }
     save(&dir, "loads", &sheet, 4);
 
-    // The laid line per kind: every join, with and without a post.
     for kind in Kind::ALL {
         let th = lines::tile_h(kind);
         let mut sheet = backdrop(16 * 18 + 4, th * 2 + 6);
@@ -259,7 +247,6 @@ fn write_works_lines_and_hands() {
         save(&dir, &format!("line-{}", kind.id()), &sheet, 4);
     }
 
-    // Vehicles: each kind, four ways, empty and with a few loads, two steps.
     let loads = [None, Some(Load::Stone), Some(Load::Lime), Some(Load::Timber), Some(Load::Ore), Some(Load::Grain)];
     for kind in Kind::ALL {
         let cell = lines::vehicle_flat(kind, Dir::East, None, 0).w + 4;
@@ -275,7 +262,6 @@ fn write_works_lines_and_hands() {
         save(&dir, &format!("vehicle-{}", kind.id()), &sheet, 4);
     }
 
-    // Hands: every trade idle, walking, working (four steps), carrying.
     let mut sheet = backdrop(9 * 30 + 4, Trade::ALL.len() as i32 * 28 + 4);
     for (r, trade) in Trade::ALL.iter().enumerate() {
         let acts = [(Act::Idle, 0), (Act::Walk, 0), (Act::Walk, 2), (Act::Work, 0), (Act::Work, 2), (Act::Work, 4), (Act::Work, 6), (Act::Carry(Load::Stone), 1), (Act::Carry(Load::Planks), 3)];
@@ -286,9 +272,6 @@ fn write_works_lines_and_hands() {
     save(&dir, "hands", &sheet, 4);
 }
 
-/// The frames of every plan's working loop, each on the hillside, for the
-/// GIFs (`art/make-gifs.sh` joins them): `frames/<id>/NN.png`; and the
-/// loops of the hands and of the carriers.
 #[test]
 #[ignore = "writes the working loops when ANGEL_WORKS_SHOTS is set"]
 fn write_works_frames() {
@@ -302,12 +285,10 @@ fn write_works_frames() {
             sheet.stamp(&flat(id, State::Working, f).unwrap(), 8, 8);
             save(&dir.join(id), &format!("{f:02}"), &sheet, 6);
         }
-        // The same building idle, to set beside it.
         let mut sheet = backdrop(w + 16, h + 14);
         sheet.stamp(&flat(id, State::Idle, 0).unwrap(), 8, 8);
         save(&dir.join(id), "idle", &sheet, 6);
     }
-    // Hands: every trade at work, four to a frame.
     for (n, group) in Trade::ALL.chunks(8).enumerate() {
         for f in 0..FRAMES {
             let mut sheet = backdrop(group.len() as i32 * 24 + 8, 40);
@@ -317,7 +298,6 @@ fn write_works_frames() {
             save(&dir.join(format!("hands-{n}")), &format!("{f:02}"), &sheet, 6);
         }
     }
-    // Carriers on their lines: a cart on a road, a wagon on rails, a bucket on a cable, a sled, a barge, laden.
     for f in 0..FRAMES {
         let mut sheet = backdrop(5 * 64 + 8, 120);
         for (i, (kind, load)) in [(Kind::Cart, Load::Stone), (Kind::Tram, Load::Lime), (Kind::Rope, Load::Ore), (Kind::Chute, Load::Timber), (Kind::Barge, Load::Grain)].into_iter().enumerate() {

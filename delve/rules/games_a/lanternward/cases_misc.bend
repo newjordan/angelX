@@ -1,10 +1,5 @@
-# Case wrappers for the private steps of blow, foes, boss and stage.
-# Session-level: {s, r, a} in, {s, ev, ret} out. (See cases.bend.)
-
 def lanternward.case.ss(+input: J.Val) -> J.Val:
   ga.sv(ga.sv(J.get(input, "s"), "$r", J.get(input, "r")), "$ev", lanternward.Events.default())
-
-# ---- blow ----
 
 def case.lanternward.blow.Session.bolt_meets(+input: J.Val) -> J.Val:
   lanternward.case.outs(lanternward.blow.Session.bolt_meets(lanternward.case.ss(input), ga.u(lanternward.case.a(input), "i")), J.JNull{})
@@ -19,8 +14,6 @@ def case.lanternward.blow.Session.turn_bolt(+input: J.Val) -> J.Val:
 
 def case.lanternward.blow.Session.light_foe(+input: J.Val) -> J.Val:
   lanternward.case.outs(lanternward.blow.Session.light_foe(lanternward.case.ss(input), ga.u(lanternward.case.a(input), "i")), J.JNull{})
-
-# ---- foes ----
 
 def case.lanternward.foes.Danger.hits(+input: J.Val) -> J.Val:
   J.JBool{lanternward.foes.Danger.hits(J.get(input, "d"), ga.u(input, "x"), ga.u(input, "y"), ga.u(input, "rad"))}
@@ -54,8 +47,6 @@ def lanternward.case.turret.out(+s: J.Val) -> J.Val:
 def case.lanternward.foes.Session.strike_with(+input: J.Val) -> J.Val:
   lanternward.case.out2(
     lanternward.foes.Session.strike_with(lanternward.case.s2(input), ga.u(input, "i"), J.get(input, "danger"), ga.u(input, "dmg")))
-
-# ---- boss ----
 
 def case.lanternward.boss.Warden.new(+input: J.Val) -> J.Val:
   lanternward.boss.Warden.new(ga.u(input, "x"), ga.u(input, "y"), ga.u(input, "seats"))
@@ -98,8 +89,6 @@ def case.lanternward.boss.Session.prop_at(+input: J.Val) -> J.Val:
 
 def case.lanternward.boss.Session.stage_warden(+input: J.Val) -> J.Val:
   lanternward.case.out2(lanternward.boss.Session.stage_warden(lanternward.case.s2(input)))
-
-# ---- stage ----
 
 def case.lanternward.stage.Session.stage_lamp_hall(+input: J.Val) -> J.Val:
   lanternward.case.outs(lanternward.stage.Session.stage_lamp_hall(lanternward.case.ss(input)), J.JNull{})

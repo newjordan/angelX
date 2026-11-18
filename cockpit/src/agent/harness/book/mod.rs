@@ -241,15 +241,11 @@ pub(crate) mod z_brevity;
 
 use std::path::Path;
 
-/// The one standing direction, carried in the `read_file` schema.
 pub(crate) const DIRECTION: &str =
     "braille from the harness is a warpath of routes: `ledger://<cells>` decodes it";
 
-/// Braille numerals: the section and page alphabet (⠁1 … ⠚0).
 pub(crate) const DIGITS: [char; 10] = ['⠁', '⠃', '⠉', '⠙', '⠑', '⠋', '⠛', '⠓', '⠊', '⠚'];
 
-/// Borrow the embedded fallback pages from a chapter asset at compile time.
-/// Each marker starts a page, and exactly one separator newline is removed.
 pub(crate) const fn catalog_pages<const N: usize>(
     catalog: &'static str,
     route: u8,
@@ -328,16 +324,12 @@ const fn catalog_page(catalog: &'static str, route: u8, mut offset: usize) -> (&
     panic!("missing catalog page");
 }
 
-/// Most routes in one warpath: six braille characters.
 pub(crate) const WARPATH_ROUTES: usize = 3;
 
-/// Tray cell for a hop that raised nothing.
 pub(crate) const PASS_GLYPH: char = '⠿';
 
-/// Tray cell for a quiet hop waiting on live background work.
 pub(crate) const WAIT_GLYPH: char = '⠤';
 
-/// One route: a primary surface and one of its subcategories.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct Route {
     pub(crate) primary: char,
@@ -353,13 +345,10 @@ impl Route {
         [self.primary, self.sub].into_iter().collect()
     }
 
-    /// The subcategory this route resolves to on its primary.
-    /// The active cartridge's page wins over the book's own.
     pub(crate) fn sub(self) -> ResolvedSub {
         find(self).expect("every route is attached to a primary surface")
     }
 
-    /// Operator-facing name for the tray and telemetry (`verification.red`).
     pub(crate) fn name(self) -> String {
         let primary_name = primary(self.primary).map_or("?", |primary| primary.name);
         let name = crate::agent::harness::cartridges::page(self)
@@ -374,7 +363,6 @@ impl Route {
     }
 }
 
-/// A primary surface: one braille letter, one chapter.
 pub(crate) struct Primary {
     pub(crate) cell: char,
     pub(crate) name: &'static str,
@@ -382,18 +370,15 @@ pub(crate) struct Primary {
     pub(crate) subs: &'static [Sub],
 }
 
-/// A subcategory attached to a primary: what it signals and where it routes.
 pub(crate) struct Sub {
     pub(crate) route: Route,
     pub(crate) name: &'static str,
     pub(crate) signal: &'static str,
     pub(crate) action: &'static str,
     pub(crate) ideas: &'static str,
-    /// Verbatim pages, one sentence each (a type's pages are addresses).
     pub(crate) pages: &'static [&'static str],
 }
 
-/// A section with owned pages, suitable for a retained catalog generation.
 pub(crate) struct ResolvedSub {
     pub(crate) route: Route,
     pub(crate) name: &'static str,
@@ -403,8 +388,6 @@ pub(crate) struct ResolvedSub {
     pub(crate) pages: ResolvedPages,
 }
 
-/// Unchanged chapters borrow their compiled text. Only an active dynamic
-/// chapter owns strings, so normal route lookups do not clone the whole book.
 pub(crate) enum ResolvedPages {
     Static(&'static [&'static str]),
     Dynamic {
@@ -481,7 +464,6 @@ impl From<&'static Sub> for ResolvedSub {
     }
 }
 
-/// The first layer, in table-of-contents order.
 pub(crate) const TOC: [&Primary; 53] = [
     &k_competition::PRIMARY,
     &l_loops::PRIMARY,
@@ -499,7 +481,6 @@ pub(crate) const TOC: [&Primary; 53] = [
     &x_execution::PRIMARY,
     &y_types::PRIMARY,
     &z_brevity::PRIMARY,
-    // Volume II: the tool library.
     &ch_edits::PRIMARY,
     &sh_shell::PRIMARY,
     &th_team::PRIMARY,
@@ -510,39 +491,29 @@ pub(crate) const TOC: [&Primary; 53] = [
     &with_build::PRIMARY,
     &and_session::PRIMARY,
     &the_sight::PRIMARY,
-    // Volume III: the drivers and their seats.
     &er_loop::PRIMARY,
     &ou_checkpoints::PRIMARY,
     &ow_ledgers::PRIMARY,
     &ar_seats::PRIMARY,
     &ing_drivers::PRIMARY,
     &st_connected::PRIMARY,
-    // The connected seats' overflow shelf: the Treebeard compactor.
     &st_connected::SHELF,
-    // Volume IV: the mixture.
     &d3_roles::PRIMARY,
     &d4_angles::PRIMARY,
     &d5_frames::PRIMARY,
-    // Volume V: the long run.
     &d45_iteration::PRIMARY,
     &d6_long_run::PRIMARY,
-    // Volume VI: the replies.
     &d46_recovery::PRIMARY,
     &d56_replies::PRIMARY,
     &d467_receipts::PRIMARY,
-    // The loop ledgers' overflow shelf: research.
     &d2467_research::PRIMARY,
     &d12467_sloptomizer::PRIMARY,
-    // Volume VII: the seats and the preamble.
     &d456_knowledge::PRIMARY,
     &d4567_briefs::PRIMARY,
-    // Volume VIII: the hop advisories, and the competition's shelf.
     &d3456_advisories::PRIMARY,
     &k_competition::SHELF,
-    // Native research roles and their tool shelf precede vendor seat profiles.
     &labyrinth_campaign::PRIMARY,
     &labyrinth_campaign::SHELF,
-    // Volume IX: the seat profiles, Codex gpt-6.1-sol.
     &d23457_codex_sol::PRIMARY,
     &d23457_codex_sol::SHELF_II,
     &d23457_codex_sol::SHELF_III,
@@ -553,7 +524,6 @@ pub(crate) fn primary(cell: char) -> Option<&'static Primary> {
     TOC.into_iter().find(|primary| primary.cell == cell)
 }
 
-/// The page for `route`, the active cartridge's first; `None` off the book.
 pub(crate) fn find(route: Route) -> Option<ResolvedSub> {
     if let Some(sub) = crate::agent::harness::cartridges::page(route) {
         return Some(ResolvedSub::from(sub));
@@ -575,12 +545,8 @@ pub(crate) fn find(route: Route) -> Option<ResolvedSub> {
     Some(resolved)
 }
 
-/// Attribution follows the resolved pages, including the pinned generation.
 const PROFILE_OVERRIDE_NOTICE: &str = "[local override of the Codex-derived profile]";
 
-// SHA-256 of the original vendor sections, with each UTF-8 page preceded by
-// its eight-byte big-endian length. These identities are independent of the
-// embedded .book files and of operator-published catalog generations.
 fn original_profile_identity(route: Route) -> Option<&'static str> {
     match (route.primary, route.sub) {
         ('⡞', '⠁') => Some("45b0517d29a1cfb5685ae8a1545c36ee9b47174ca5e068b23fe717b5c9dc1dd2"),
@@ -672,8 +638,6 @@ fn displayed_surface(primary: &'static Primary) -> &'static str {
     }
 }
 
-/// A primary's subcategories as the active cartridge plays them: its pages
-/// replace the book's by route, and its new routes follow the book's own.
 pub(crate) fn subs(primary: &'static Primary) -> Vec<ResolvedSub> {
     let mut subs: Vec<ResolvedSub> = primary
         .subs
@@ -688,21 +652,15 @@ pub(crate) fn subs(primary: &'static Primary) -> Vec<ResolvedSub> {
     subs
 }
 
-/// A route a detector threw, with the evidence the ledger should hold for it.
-/// A raise may name one page of its route: the stamp then carries that
-/// sentence alone, new to a model that already met the route.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Raise {
     pub(crate) route: Route,
     pub(crate) page: Option<char>,
     pub(crate) evidence: Option<String>,
-    /// The evidence rides beside the stamp as data, not only in the ledger: a
-    /// failing run's tail, a receipt, facts the sentences refer to.
     pub(crate) inline: bool,
 }
 
 impl Raise {
-    /// Whether this conversation's pinned generation contains the stamp.
     pub(crate) fn available(&self) -> bool {
         let Some(sub) = find(self.route) else {
             return false;
@@ -724,7 +682,6 @@ impl Raise {
         }
     }
 
-    /// A raise whose evidence the model reads beside the stamp.
     pub(crate) fn inline(route: Route, evidence: impl Into<Option<String>>) -> Self {
         Self {
             inline: true,
@@ -732,7 +689,6 @@ impl Raise {
         }
     }
 
-    /// One page of `route`, by its index among the route's pages.
     pub(crate) fn page(route: Route, page: usize, evidence: impl Into<Option<String>>) -> Self {
         Self {
             route,
@@ -742,7 +698,6 @@ impl Raise {
         }
     }
 
-    /// This raise's stamp: the route's cells, then its page when it names one.
     pub(crate) fn cells(&self) -> String {
         let mut cells = self.route.cells();
         cells.extend(self.page);
@@ -750,13 +705,6 @@ impl Raise {
     }
 }
 
-/// The routes that speak in full. Their pages are the harness's advice in its
-/// own second-person words, carried over from the 0.1.6 advisories, and the
-/// legend introduces a route of these with every page rather than its signal
-/// and action. The flag marks a warning: a route that breaks a stuck pattern
-/// rides its own turn under the warning sign; the rest ride their own turn as
-/// bare cells. Either way the advice is a turn of its own, never the tail of a
-/// tool result, where a model reads it as more output and moves on.
 pub(crate) const VOICED: &[(Route, bool)] = &[
     (l_loops::SAME_BATCH, true),
     (l_loops::STORM, true),
@@ -792,21 +740,16 @@ pub(crate) const VOICED: &[(Route, bool)] = &[
     (k_competition::FIRST_WRITE_RAPID, false),
 ];
 
-/// Whether `route` speaks in full (see [`VOICED`]).
 pub(crate) fn is_voiced(route: Route) -> bool {
     VOICED.iter().any(|(voiced, _)| *voiced == route)
 }
 
-/// Whether `route` is a voiced warning: its own turn leads with the sign.
 pub(crate) fn is_warning(route: Route) -> bool {
     VOICED
         .iter()
         .any(|(voiced, warns)| *voiced == route && *warns)
 }
 
-/// The 0.1.6 name of the advisory a route carries, so the experience ledger
-/// and the analysis scripts that count `post_edit_logic_advisory`,
-/// `verification_recovery`, `error_advisory` and the rest keep counting them.
 pub(crate) fn legacy_kind(route: Route) -> Option<&'static str> {
     Some(match route {
         r if r == l_loops::SAME_BATCH => "spin_advisory",
@@ -828,9 +771,6 @@ pub(crate) fn legacy_kind(route: Route) -> Option<&'static str> {
     })
 }
 
-/// Encode raises as one warpath: in order, deduplicated, at most
-/// [`WARPATH_ROUTES`] routes. Every raise's evidence reaches the ledger, even
-/// one past the cap.
 pub(crate) fn warpath(workspace: &Path, raises: &[Raise]) -> String {
     let mut stamps: Vec<String> = Vec::new();
     for raise in raises {
@@ -852,9 +792,6 @@ pub(crate) fn warpath(workspace: &Path, raises: &[Raise]) -> String {
     stamps.into_iter().take(WARPATH_ROUTES).collect()
 }
 
-/// A turn of its own for these raises: the warpath, then the evidence of each
-/// raise that carries it inline, one block per line group. `warning` puts the
-/// sign first.
 pub(crate) fn advice_turn(workspace: &Path, raises: &[Raise], warning: bool) -> String {
     let mut turn = String::new();
     if warning {
@@ -877,7 +814,6 @@ pub(crate) fn advice_turn(workspace: &Path, raises: &[Raise], warning: bool) -> 
     turn
 }
 
-/// Routes as sign lines, [`WARPATH_ROUTES`] to a line, so none is dropped.
 pub(crate) fn sign_lines(routes: &[Route]) -> String {
     routes
         .iter()
@@ -890,7 +826,6 @@ pub(crate) fn sign_lines(routes: &[Route]) -> String {
         .join("\n")
 }
 
-/// Operator-facing names of a warpath's routes, for tray notices.
 pub(crate) fn names(raises: &[Raise]) -> String {
     let mut seen = Vec::new();
     raises

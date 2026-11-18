@@ -2,8 +2,6 @@ use super::*;
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
 
-/// Atomically publish a real executable after the caller's first spawn misses
-/// it. No partially written executable or executable-file-busy race is needed.
 fn publish_after(
     root: &Path,
     label: &str,
@@ -90,8 +88,6 @@ fn fixed_spawn_budget_fixture() {
     let leader = std::fs::read_to_string(marker).unwrap().parse().unwrap();
     ServiceFixture::assert_reaped(leader);
 
-    // Publishing after 300 ms leaves 700 ms of the original 1 s allowance. The
-    // command needs 800 ms, so a refreshed 1 s child timer would wrongly accept it.
     let marker = root.join("active-launch.pid");
     let (program, publisher) = publish_after(
         &root,
@@ -118,8 +114,6 @@ fn fixed_spawn_budget_fixture() {
         ServiceFixture::assert_reaped(pid.parse().unwrap());
     }
 
-    // Ordinary tool calls retain their existing transient-image setup grace
-    // and child timer. The same delayed image + 800 ms command still completes.
     let marker = root.join("ordinary-launch.pid");
     let (program, publisher) = publish_after(
         &root,

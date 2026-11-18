@@ -68,7 +68,6 @@ fn voiced_routes_are_on_the_tree_and_speak_in_full() {
             "{}",
             route.name()
         );
-        // Met at first sight with every page, once.
         let messages = [
             ChatMsg::user("go".to_string()),
             ChatMsg::harness(route.cells()),
@@ -97,7 +96,6 @@ fn voiced_routes_are_on_the_tree_and_speak_in_full() {
                 route.name()
             );
         }
-        // A page of it met later is a new sentence, not a bare repeat.
         let again = [
             ChatMsg::harness(route.cells()),
             ChatMsg::harness(format!("{}{}", route.cells(), DIGITS[0])),
@@ -182,8 +180,6 @@ fn a_raise_can_name_one_page_of_its_route() {
 
 #[test]
 fn the_post_edit_review_is_back_and_never_says_finish() {
-    // Restored at the free ninth slot after 25086af8 deleted it at the first;
-    // every route in use since then keeps its address.
     let route = Route::new('⠼', '⠊');
     assert_eq!(book::legacy_kind(route), Some("post_edit_logic_advisory"));
     assert!(
@@ -196,13 +192,9 @@ fn the_post_edit_review_is_back_and_never_says_finish() {
         "{pages}"
     );
     assert!(pages.contains("smallest relevant verifier"), "{pages}");
-    // The 2026-10-16 failure: a loop model took this page for an operator
-    // order to run one verifier and finish, then ended the run.
     assert!(pages.contains("this advice is not a stop"), "{pages}");
     assert!(!pages.contains("and finish"), "{pages}");
     assert!(!pages.contains("in those cases finish"), "{pages}");
-    // Operator lock: the chapter's addresses, in order. Deleting or
-    // renumbering a sub breaks this before it breaks a live loop.
     let subs = book::d3456_advisories::PRIMARY
         .subs
         .iter()
@@ -265,7 +257,6 @@ fn a_thrashed_edit_is_the_third_issue_of_the_same_one() {
     let raise = thrash.observe(&same).expect("the third issue of one edit");
     assert_eq!(raise.route, book::d3456_advisories::THRASH);
     assert!(thrash.observe(&same).is_none(), "once per edit");
-    // Reads are never thrash.
     let read = ToolCall {
         id: String::new(),
         name: "read_file".into(),
@@ -403,7 +394,6 @@ fn a_finished_slot_arrives_with_its_receipt_beside_the_stamps() {
 
 #[test]
 fn the_posture_speaks_in_full_and_the_world_card_stays_gone() {
-    // Operator law: standing status is never a reply template.
     assert!(
         book::TOC
             .iter()

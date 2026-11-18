@@ -39,10 +39,6 @@ impl PxpipeApi {
     }
 }
 
-/// Transform a serialized OpenAI-style request with pxpipe when explicitly
-/// enabled and the current model is eligible. Opt-in mode is fail-open: a
-/// missing helper/package leaves the original request untouched. Set
-/// `ANGEL_PXPIPE_REQUIRED=1` to fail closed after opting in.
 pub(crate) fn maybe_pxpipe_transform(
     api: PxpipeApi,
     label: &str,
@@ -83,23 +79,13 @@ fn pxpipe_fallback(
     Ok(body)
 }
 
-/// The persistent helper: one node process in `serve` mode answering framed
-/// requests. Replaces a fresh `node` spawn + `pxpipe-proxy` import per SOTA
-/// request (~50-150ms each, on every hop). Protocol per request:
-/// `{"api","label","model","len"}\n` + body bytes → `{"ok","len"|"err"}\n`
-/// (+ body bytes on ok).
 struct PxpipeDaemon {
     child: Child,
     stdin: ChildStdin,
     stdout: BufReader<ChildStdout>,
 }
 
-/// The daemon slot; the mutex also serializes requests (one in flight).
 static PXPIPE_DAEMON: OnceLock<Mutex<Option<PxpipeDaemon>>> = OnceLock::new();
-/// Latched after the first completed round-trip. A helper that has *never*
-/// answered (an `ANGEL_PXPIPE_HELPER` override that predates serve mode)
-/// downgrades to one-shot permanently instead of paying a respawn per request;
-/// a proven daemon that later dies just respawns.
 static PXPIPE_DAEMON_PROVEN: AtomicBool = AtomicBool::new(false);
 static PXPIPE_DAEMON_OFF: AtomicBool = AtomicBool::new(false);
 
@@ -124,8 +110,6 @@ fn pxpipe_watchdog(
         Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => false,
         Err(mpsc::RecvTimeoutError::Timeout) => {
             #[cfg(unix)]
-            // SAFETY: every pxpipe child is placed in its own process group at
-            // spawn, with the child pid as group id.
             unsafe {
                 libc::killpg(pid as libc::pid_t, libc::SIGKILL);
             }
@@ -173,10 +157,6 @@ fn spawn_pxpipe_daemon() -> Result<PxpipeDaemon, String> {
     })
 }
 
-/// One framed request/response on the live daemon. Outer `Err` = transport
-/// failure (dead pipe, bad framing — the daemon gets respawned); inner `Err` =
-/// the helper answered but rejected the transform (final, like a one-shot
-/// non-zero exit — the warm daemon is kept).
 fn pxpipe_daemon_roundtrip(
     d: &mut PxpipeDaemon,
     api: PxpipeApi,
@@ -226,10 +206,6 @@ fn pxpipe_daemon_roundtrip(
     }
 }
 
-/// Do not trust the length in a helper's header as an allocation request.
-/// Reserve at most one bounded chunk ahead of received bytes, while still
-/// accepting complete responses of any representable length. The caller's
-/// watchdog covers every blocking read.
 fn read_pxpipe_frame_body(reader: &mut impl Read, declared: u64) -> Result<Vec<u8>, String> {
     let len = usize::try_from(declared)
         .map_err(|_| "helper response length exceeds this platform's address space".to_string())?;
@@ -247,8 +223,6 @@ fn read_pxpipe_frame_body(reader: &mut impl Read, declared: u64) -> Result<Vec<u
     Ok(out)
 }
 
-/// Transform via the persistent daemon, spawning (or once respawning) it as
-/// needed. Same outer/inner error split as [`pxpipe_daemon_roundtrip`].
 fn run_pxpipe_daemon(
     api: PxpipeApi,
     label: &str,
@@ -274,8 +248,6 @@ fn run_pxpipe_daemon(
                     let _ = dead.child.kill();
                     let _ = dead.child.wait();
                 }
-                // A helper that never completed a round-trip won't on a respawn
-                // either (it likely doesn't speak serve mode) — don't thrash.
                 if !PXPIPE_DAEMON_PROVEN.load(std::sync::atomic::Ordering::Relaxed) {
                     break;
                 }
@@ -291,9 +263,6 @@ pub(super) fn run_pxpipe_helper(
     model: &str,
     body: &[u8],
 ) -> Result<Vec<u8>, String> {
-    // Persistent daemon first. Debug mode stays on one-shot (its per-request
-    // stderr goes to the caller there; the daemon's is detached), and a
-    // transport-dead daemon falls back — permanently when it never worked.
     if pxpipe_persistent()
         && !env_flag("ANGEL_PXPIPE_DEBUG", false)
         && !PXPIPE_DAEMON_OFF.load(std::sync::atomic::Ordering::Relaxed)
@@ -336,10 +305,6 @@ pub(super) fn run_pxpipe_helper(
     Ok(output.stdout)
 }
 
-/// On Unix, writing, process completion and both output EOFs share one budget.
-/// Readers run while stdin is written so a helper may produce output before it
-/// finishes consuming a large request. Keep all transformed bytes: this is a
-/// transport deadline, not a request-size policy.
 #[cfg(unix)]
 fn run_pxpipe_one_shot(
     command: &mut Command,
@@ -371,9 +336,6 @@ fn run_pxpipe_one_shot(
             std::thread::sleep(remaining.min(Duration::from_millis(5)));
         }
     }
-    // Retire the private group before consuming the launcher's wait status.
-    // An escaped pipe holder is outside that group, so the readers also need
-    // their own checks against the same absolute deadline.
     let status = child.retire();
     let stdout = read_stdout
         .join()
@@ -420,7 +382,6 @@ fn write_pxpipe_input(
 ) -> io::Result<()> {
     use std::os::fd::AsRawFd as _;
     let fd = stdin.as_raw_fd();
-    // SAFETY: this is the one-shot helper's exclusively owned write descriptor.
     let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
     if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
         return Err(io::Error::last_os_error());
@@ -444,7 +405,6 @@ fn write_pxpipe_input(
                     .as_millis()
                     .saturating_add(1)
                     .min(i32::MAX as u128) as i32;
-                // SAFETY: one live descriptor; recheck the budget after waking.
                 if unsafe { libc::poll(&mut descriptor, 1, millis) } < 0 {
                     let error = io::Error::last_os_error();
                     if error.kind() != io::ErrorKind::Interrupted {
@@ -592,10 +552,6 @@ fn truncate_for_log(s: &str, max: usize) -> String {
     if s.len() <= max {
         s.to_string()
     } else {
-        // `max` is a byte budget; slicing at it directly panics when it lands
-        // inside a multi-byte UTF-8 char (the only caller passes arbitrary
-        // subprocess stderr, which freely contains non-ASCII). Walk back to the
-        // nearest char boundary first.
         let mut end = max;
         while end > 0 && !s.is_char_boundary(end) {
             end -= 1;

@@ -6,10 +6,8 @@ use super::super::super::ink::Img;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 
-/// How tall a tome is, in pixels (a lane is sixteen).
 pub(super) const TOME_H: i32 = 14;
 
-/// A cover's three inks, lit to deep.
 #[derive(Clone, Copy)]
 pub(super) struct Leather {
     pub lit: char,
@@ -17,7 +15,6 @@ pub(super) struct Leather {
     pub deep: char,
 }
 
-/// The covers a tome may wear: oxblood, moss, slate, plum, tan.
 pub(super) const COVERS: [Leather; 5] = [
     Leather { lit: '7', base: 'p', deep: 'B' },
     Leather { lit: 'l', base: 'e', deep: 'F' },
@@ -26,12 +23,6 @@ pub(super) const COVERS: [Leather; 5] = [
     Leather { lit: 'o', base: 'r', deep: 'b' },
 ];
 
-/// A book lying on the water, `len` pixels long, seen from above and a
-/// little in front: its cover lit along the top with a gilt frame and a
-/// crest, the spine at the left bound in gilt bands, the pages' edge
-/// cream along the front under the cover's lip, all outlined in black so
-/// it stands off the ink. `dip` pulls the whole book a pixel under the
-/// water's face (a knight just landed on it): the cover darkens.
 pub(super) fn tome(len: i32, cover: usize, dip: bool) -> Arc<Img> {
     type Key = (i32, usize, bool);
     static CACHE: OnceLock<Mutex<HashMap<Key, Arc<Img>>>> = OnceLock::new();
@@ -55,8 +46,6 @@ fn make_tome(w: i32, c: Leather, dip: bool) -> Img {
             im.put(x, y, ch);
         }
     };
-    // The outline, then the cover's face: lit on the top row, shaded at its
-    // front edge, rounded at the corners.
     row(&mut im, 0, 2, w - 2, 'k');
     im.put(1, 1, 'k');
     im.put(w - 2, 1, 'k');
@@ -69,13 +58,11 @@ fn make_tome(w: i32, c: Leather, dip: bool) -> Img {
     row(&mut im, 8, 1, w - 1, deep);
     im.put(0, 8, 'k');
     im.put(w - 1, 8, 'k');
-    // The spine: deep leather bound with two gilt bands.
     for y in 1..9 {
         im.put(1, y, deep);
         im.put(2, y, if y > 1 && y < 8 { '4' } else { deep });
         im.put(3, y, deep);
     }
-    // The cover's frame in worn gilt, and a crest in the middle of it.
     let (fx0, fx1) = (6, w - 4);
     for x in fx0..fx1 {
         im.put(x, 3, 'a');
@@ -94,7 +81,6 @@ fn make_tome(w: i32, c: Leather, dip: bool) -> Img {
     im.put(cx, 5, '4');
     im.put(cx + 1, 5, '4');
     if w >= 40 {
-        // A long book's title: two dashes of gilt either side of the crest.
         for x in (fx0 + 3..cx - 4).step_by(2) {
             im.put(x, 4, 'o');
             im.put(x, 5, 'o');
@@ -104,8 +90,6 @@ fn make_tome(w: i32, c: Leather, dip: bool) -> Img {
             im.put(x, 5, 'o');
         }
     }
-    // The pages' edge along the front, a little shorter than the cover,
-    // ruled with fine lines; the cover's lip under them.
     for y in 9..12 {
         im.put(0, y, 'k');
         im.put(w - 1, y, 'k');
@@ -130,8 +114,6 @@ fn make_tome(w: i32, c: Leather, dip: bool) -> Img {
     im
 }
 
-/// An owl on the top shelf, twelve by thirteen: frame 0 watching, 1 blinking,
-/// 2 wings thrown up cheering.
 pub(super) fn owl(frame: u32) -> &'static Img {
     static OWLS: OnceLock<[Img; 3]> = OnceLock::new();
     let owls = OWLS.get_or_init(|| {
@@ -185,8 +167,6 @@ pub(super) fn owl(frame: u32) -> &'static Img {
     &owls[(frame % 3) as usize]
 }
 
-/// A hanging lantern, seven by nine, its chain above: dark iron, a gold
-/// ring, and glass lit in `flame` (or cold when `None`).
 pub(super) fn lantern(flame: Option<char>, tick: u32) -> Img {
     let (core, glass) = match flame {
         Some(f) if tick / 3 % 2 == 0 => (f, '6'),
@@ -209,26 +189,22 @@ pub(super) fn lantern(flame: Option<char>, tick: u32) -> Img {
             im.put(x, y, if y == 4 && x == 3 { core } else { glass });
         }
     }
-    // A cold lantern wears paler iron, so it still shows on the dark case.
     if flame.is_none() {
         return im.recolor(&[('g', 'G'), ('j', 'J')]);
     }
     im
 }
 
-/// The leader's crown, seven by four.
 pub(super) fn crown() -> &'static Img {
     static CROWN: OnceLock<Img> = OnceLock::new();
     CROWN.get_or_init(|| Img::from_rows(&["T.T.T.T", "TtTtTtT", "tOOOOOt", ".nnnnn."]))
 }
 
-/// A gold coin, five square, for the pot.
 pub(super) fn coin() -> &'static Img {
     static COIN: OnceLock<Img> = OnceLock::new();
     COIN.get_or_init(|| Img::from_rows(&[".444.", "46TO4", "4TOa4", "4OaO4", ".444."]))
 }
 
-/// The strip's little closed book, nine by seven.
 pub(super) fn strip_book() -> &'static Img {
     static BOOK: OnceLock<Img> = OnceLock::new();
     BOOK.get_or_init(|| {
@@ -244,7 +220,6 @@ pub(super) fn strip_book() -> &'static Img {
     })
 }
 
-/// A flame, two frames, three by five (a streak's).
 pub(super) fn flame(frame: u32) -> &'static Img {
     static FLAMES: OnceLock<[Img; 2]> = OnceLock::new();
     let f = FLAMES.get_or_init(|| {
@@ -256,7 +231,6 @@ pub(super) fn flame(frame: u32) -> &'static Img {
     &f[(frame % 2) as usize]
 }
 
-/// The arrow over a knight, in `ink` with a black edge, seven by five.
 pub(super) fn arrow(ink: char) -> Img {
     let mut im = Img::from_rows(&["ccccccc", ".ccccc.", "..ccc..", "...c..."]);
     for y in 0..4 {

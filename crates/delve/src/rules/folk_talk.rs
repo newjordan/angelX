@@ -21,8 +21,6 @@ fn inside((col, row, w, h): (i32, i32, i32, i32), x: f32, y: f32) -> bool {
     tx >= col && tx < col + w && ty >= row && ty < row + h
 }
 
-/// What soul `i` of `held` says of themselves, in capitals: who they are,
-/// then the worst of how they fare — a plain count of their own state.
 pub fn words(h: &Holdings, held: &Holding, i: usize) -> String {
     let Some(f) = held.folk.get(i) else {
         return String::new();
@@ -71,9 +69,6 @@ pub fn words(h: &Holdings, held: &Holding, i: usize) -> String {
 }
 
 impl Run {
-    /// One tick of the village in a steward's hall: a press of E beside a
-    /// soul is a word with them, or the artifact from their hands. A knight
-    /// on a plate presses for the plate, not the soul beside it.
     pub(super) fn folk_talk(&mut self, inputs: &BTreeMap<u32, Input>) {
         if self.holding_raid.is_some() {
             return;
@@ -117,7 +112,6 @@ impl Run {
         }
     }
 
-    /// Knight `id` takes the masterwork `curio` into their pockets.
     fn take_work(&mut self, id: u32, curio: &'static curios::Curio) -> String {
         let name = curio.name.to_uppercase();
         if let Some(other) = self.players.iter().find(|(o, h)| **o != id && h.pockets.has(curio.id)).map(|(_, h)| h.name.to_uppercase()) {
@@ -139,8 +133,6 @@ impl Run {
         }
     }
 
-    /// The party comes into a steward's hall: if the village is in the
-    /// middle of something, the hall says what.
     pub(super) fn folk_arrive(&mut self) {
         let Some(held) = held_floor(&self.home.holdings, self.dungeon.pack) else {
             return;

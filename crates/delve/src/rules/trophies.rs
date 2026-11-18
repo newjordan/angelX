@@ -10,8 +10,6 @@
 
 use super::*;
 
-/// One plinth: whose trophy it holds, its name on the plaque, and where it
-/// stands (column, row, width, height in tiles).
 pub struct Plinth {
     pub id: &'static str,
     pub name: &'static str,
@@ -66,13 +64,9 @@ pub const PLINTHS: [Plinth; 9] = [
     },
 ];
 
-/// Felled this many times, a statuette is gilded.
 pub const GILDED: u32 = 10;
-/// Where Sir Kay stands, by the door (tiles).
 pub const KAY_AT: (f32, f32) = (8.6, 2.6);
 
-/// The plinth a knight standing at `(x, y)` (arena units) is reading: the
-/// one whose front they stand at.
 pub fn plinth_at(x: f32, y: f32) -> Option<&'static Plinth> {
     PLINTHS.iter().find(|p| {
         let (col, row, w, h) = p.at;
@@ -84,7 +78,6 @@ pub fn plinth_at(x: f32, y: f32) -> Option<&'static Plinth> {
     })
 }
 
-/// The mark a moment leaves on the realm's trophies, if any.
 fn trophy(cue: &str) -> Option<&str> {
     match cue {
         "victory" => Some("dragon"),
@@ -94,8 +87,6 @@ fn trophy(cue: &str) -> Option<&str> {
 }
 
 impl Run {
-    /// Count what fell this tick for the Trophy Hall: the cues since
-    /// `heard`.
     pub(super) fn mark_trophies(&mut self, heard: usize) {
         let marks: Vec<String> = self
             .cues
@@ -109,7 +100,6 @@ impl Run {
         }
     }
 
-    /// The hall each tick: Sir Kay greets whoever walks up.
     pub(super) fn tick_trophies(&mut self) {
         const KAY_BIT: u8 = 1 << 5;
         let (kx, ky) = (KAY_AT.0 * TILE_UNITS, KAY_AT.1 * TILE_UNITS);

@@ -13,14 +13,10 @@ use crate::rules::HZ;
 use crate::rules::Run;
 use crate::rules::dares::{CALLED, Dare};
 
-/// Ticks it takes to slide in, and to slide out.
 const SLIDE: f32 = 8.0;
-/// The gap kept from the view's left edge and above the tray.
 const MARGIN: i32 = 4;
-/// The tray's height under the room.
 const TRAY: i32 = 32;
 
-/// A dare's card: its picture and how big it is.
 pub(super) fn card(dare: &Dare) -> Img {
     let (name, rule) = (dare.kind.card_name(), dare.kind.card_rule());
     let text = text_width(name).max(text_width(rule));
@@ -28,7 +24,6 @@ pub(super) fn card(dare: &Dare) -> Img {
     let h = 2 * 9 + 7;
     let mut im = Img::new(w + 1, h + 1);
     chrome::panel(&mut im, (0, 0, w, h), chrome::Tone::EMBER);
-    // Her wheel, in little.
     let wheel = Img::from_rows(&[
         "...ooooo...",
         ".oo5.O.5oo.",
@@ -46,19 +41,16 @@ pub(super) fn card(dare: &Dare) -> Img {
     let x = 5 + wheel.w + 5;
     im.text(x, 4, name, 'i');
     im.text(x, 13, rule, 'h');
-    // Her purse: a coin and a gem.
     let (px, py) = (w - 4 - 11, (h - 5) / 2);
     im.stamp(&Img::from_rows(&[".666.", "65556", "65456", "65556", ".666."]), px, py);
     im.stamp(&Img::from_rows(&["..3..", ".323.", "32223", ".323.", "..3.."]), px + 7, py);
     im
 }
 
-/// Where the card rests in a view of `(w, h)`.
 pub(super) fn rest(card: &Img, h: i32) -> (i32, i32) {
     (MARGIN, h - TRAY - MARGIN - card.h)
 }
 
-/// The dare's age in ticks while its card is up.
 pub(super) fn age(run: &Run) -> Option<(Dare, f32)> {
     let after = (run.tune.dare_after * HZ as f32).round().max(0.0) as u64;
     let dare = run.dare.clone()?;
@@ -69,8 +61,6 @@ pub(super) fn age(run: &Run) -> Option<(Dare, f32)> {
     })
 }
 
-/// Whether a game is on its finishing screen, which keeps its own words
-/// along the foot of the view: the card waits behind it and goes.
 fn finished(run: &Run) -> bool {
     let here = run.at;
     run.folly.as_ref().is_some_and(|f| f.room == here && f.done)
@@ -80,7 +70,6 @@ fn finished(run: &Run) -> bool {
         || run.gantry.as_ref().is_some_and(|f| f.room == here && f.done)
 }
 
-/// The card, over the view `cv`, sliding in and out.
 pub(crate) fn board(cv: &mut Img, run: &Run) {
     let Some((dare, age)) = age(run) else { return };
     if finished(run) {
@@ -96,8 +85,6 @@ pub(crate) fn board(cv: &mut Img, run: &Run) {
         crate::ink::said::board(im.w, im.h);
     }
     cv.stamp(&im, x, ry);
-    // Only the resting card counts as words: it moves through the margin on
-    // its way in and out.
     if enter >= 1.0 && leave <= 0.0 {
         claims::note_img("dare", &im, rx, ry);
     }

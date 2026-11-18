@@ -41,7 +41,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.dont_write_bytecode = True  # the bench root is read-only data
+sys.dont_write_bytecode = True
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[1]
@@ -50,7 +50,6 @@ spec = importlib.util.spec_from_file_location("release_report_history", HERE.par
 history = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(history)
 DEFAULT_BENCH = Path.home() / "angel_tests" / "angelX-bench" / "polyglot-20260921"
-# The site (website/, untracked) carries the wordmark; the main checkout's copy is the fallback.
 SITE_DIRS = [REPO_ROOT / "website", Path.home() / "angelX" / "website"]
 LETTERHEAD = "angelX | github.com/newjordan/angelX · @frostforger"
 
@@ -61,7 +60,6 @@ NAMES = {
     "gpt-6-luna": "gpt-6-luna",
     "muse-spark-1.3": "Muse Spark",
 }
-# Announced runs: shown as "running" until their traces hold every task.
 EXPECTED = {"muse": "Muse Spark"}
 GROK_HARNESSES = ["angelx", "omp", "opencode", "hermes", "primebash"]
 LANGS = [("javascript", "JavaScript", "JS"), ("python", "Python", "Python"), ("rust", "Rust", "Rust"), ("cpp", "C++", "C++")]
@@ -69,9 +67,6 @@ LANG_OF = {"js": "javascript", "py": "python", "rust": "rust", "cpp": "cpp"}
 EVALUATOR = "Verifiers v0.3.1"
 FONTS_URL = "https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=VT323&display=swap"
 POST_LIMIT = 280
-
-
-# ---------------------------------------------------------------- data
 
 def load_board(bench: Path):
     sys.path.insert(0, str(bench))
@@ -174,8 +169,6 @@ def entry(board, bench: Path, c: dict, catalog=None) -> dict:
     fields = ("calls", "input", "cached_input", "uncached_input", "output", "reasoning")
     totals, subtotals, coverage = history.receipt_fields({field: [row[field] for row in rows] for field in fields})
     receipt_coverage = {}
-    # A row's partial receipt subtotal remains useful even when its task total
-    # is unknown. Preserve it separately from complete chart/report values.
     for field in fields[1:]:
         values = [history.number(row["usage_reported_subtotals"].get(field)) for row in rows]
         known = [value for value in values if value is not None and value >= 0]
@@ -244,7 +237,6 @@ def entry(board, bench: Path, c: dict, catalog=None) -> dict:
         "isolation": sorted({row["isolation"] for row in rows}),
         "rollouts_per_task": rollouts_per_task(bench, c["model"], c["harness"], c["run"]),
         "unsolved": sorted(row["task"] for row in rows if not row["solved"]),
-        # execution order, as the traces were written
         "attempts": [
             {
                 "task": r["task"],
@@ -269,7 +261,6 @@ def build_data(bench: Path) -> dict:
         if c["status"] == "complete" and c["model"] not in complete:
             complete[c["model"]] = c
     models = [entry(board, bench, c, catalog) for c in complete.values()]
-    # A model without a complete run is listed by name only: no partial numbers anywhere.
     pending: dict[str, dict] = {}
     for c in cells:
         if c["model"] not in complete and c["model"] not in pending:
@@ -346,14 +337,9 @@ def validate_report(data):
                 or model["tasks"] != len(catalog) or model["solved"] != sum(attempt["solved"] for attempt in attempts)
                 or total is None or total < 0):
             raise ValueError(f"unsafe report {model.get('name')}: invalid count/time totals")
-        # Attempt arrays round milliseconds for display; allow only that known
-        # rounding bound when checking the unrounded aggregate used by media.
         if not math.isclose(total, sum(attempt["wall_s"] for attempt in attempts),
                             rel_tol=1e-12, abs_tol=len(attempts) * .0005 + 1e-9):
             raise ValueError(f"unsafe report {model.get('name')}: time total conflicts with attempts")
-
-
-# ---------------------------------------------------------------- formatting
 
 def f_int(v) -> str:
     return f"{v:,}" if v is not None else "not metered"
@@ -389,7 +375,7 @@ def cell_line(data: dict) -> str:
     cap = cell["wall_cap_s"]
     attempts = cell["attempts_per_task"]
     parts = [
-        f"{cap} s wall" if isinstance(cap, int) else "wall " + "/".join(f"{c} s" for c in cap),
+        f"{cap} s wall" if isinstance(cap, (int, float)) else "wall " + "/".join(f"{c} s" for c in cap),
         "one attempt" if attempts == 1 else f"{attempts} attempts",
         "fresh HOME" if cell["home"] == "fresh" else "HOME " + "/".join(cell["home"]),
         "evaluator-owned grading",
@@ -397,9 +383,6 @@ def cell_line(data: dict) -> str:
         "thinking per model: " + ", ".join(f"{m['name']} {m['reasoning']}" for m in data["models"]),
     ]
     return " · ".join(parts)
-
-
-# ---------------------------------------------------------------- fonts
 
 def font_css(cache_dir: Path) -> str:
     """Cinzel + VT323 as inline data: URIs, cached; empty string when offline."""
@@ -416,7 +399,7 @@ def font_css(cache_dir: Path) -> str:
             return f"url(data:font/woff2;base64,{base64.b64encode(data).decode()})"
 
         css = re.sub(r"url\((https://[^)]+)\)", inline, css)
-    except Exception as exc:  # offline: pages fall back to the Google Fonts link
+    except Exception as exc:
         print(f"fonts: inline fetch failed ({exc}); using the Google Fonts link", file=sys.stderr)
         return ""
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -458,9 +441,6 @@ def fill(template: str, **values: str) -> str:
     for key, value in values.items():
         template = template.replace("{{" + key + "}}", value)
     return template
-
-
-# ---------------------------------------------------------------- report.html
 
 def strip_svg(e: dict) -> str:
     """136 tasks grouped by language, two rows per group; filled = solved."""
@@ -581,9 +561,6 @@ def render_report(data: dict, fonts: str, logo: Path | None) -> str:
         STAMP=html.escape(data["generated_at"]),
     )
 
-
-# ---------------------------------------------------------------- post
-
 def render_post(data: dict) -> str:
     validate_report(data)
     suite = data["suite"]
@@ -599,9 +576,6 @@ def render_post(data: dict) -> str:
         if len(text) <= POST_LIMIT:
             return text + "\n"
     raise SystemExit(f"post: {len(text)} chars exceeds {POST_LIMIT}")
-
-
-# ---------------------------------------------------------------- video + card
 
 def render_media(data: dict, fonts: str, out: Path, logo: Path | None) -> None:
     validate_report(data)
@@ -643,9 +617,6 @@ def render_media(data: dict, fonts: str, out: Path, logo: Path | None) -> None:
                         "--mp4", str(out / "scoreboard.mp4"), "--png", str(out / "scoreboard-final.png")], check=True)
         subprocess.run([node, str(capture), "--html", str(tmp / "card.html"), "--size", "1200x675",
                         "--png", str(out / "card.png")], check=True)
-
-
-# ---------------------------------------------------------------- main
 
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

@@ -24,46 +24,33 @@ use crate::motion::{ease, math};
 use crate::rules::juice::Weight;
 use crate::rules::powder_show::{Blast, LINK};
 
-/// The hot colours, white to red to dark: a heat from 1 down to 0 picks one,
-/// the ordered dither mixing neighbours so it never bands.
 const HEAT: [char; 8] = ['9', '6', '@', '4', 'R', '7', 'p', '8'];
 
-/// The colour of `heat` (1 white-hot, 0 gone) at pixel `(x, y)`, or `None`
-/// where it has cooled to nothing.
 fn hot(heat: f32, x: i32, y: i32) -> Option<char> {
     if heat <= 0.05 {
         return None;
     }
     let k = (1.0 - heat.min(1.0)) * 7.0;
     let (i, f) = (k.floor() as usize, k.fract());
-    // Flat bands, as the arcade drew them: only the last third of a band
-    // mixes into the next, so the fire has edges.
     let i = if f > 0.66 && bayer(x, y) < (f - 0.66) / 0.34 { i + 1 } else { i };
     HEAT.get(i.min(7)).copied()
 }
 
-/// Whether a blast's picture reaches `view` (room pixels), with `pad`
-/// pixels of slack.
 fn reaches(b: &Blast, view: (i32, i32), pad: i32) -> bool {
     let (cx, cy) = centre(b.at);
     let far = (i32::from(*b.arms.iter().max().unwrap_or(&0)) + 1) * TILE;
     cx + far + pad >= view.0 && cx - far - pad < view.0 + 384 && cy + far + pad >= view.1 && cy - far - pad < view.1 + 224
 }
 
-/// A tile's middle, in room pixels.
 pub(super) fn centre(t: (i32, i32)) -> (i32, i32) {
     (t.0 * TILE + TILE / 2, t.1 * TILE + TILE / 2)
 }
 
-/// A blast's local age: ticks since its link in the chain went (none while
-/// it waits).
 pub(super) fn local(b: &Blast, now: u32) -> Option<u32> {
     now.checked_sub(b.born + u32::from(b.depth) * LINK).filter(|_| b.age(now) >= u32::from(b.depth) * LINK)
 }
 
-/// How big a blast is drawn: by how it weighed, and how deep a chain.
 fn size(b: &Blast) -> f32 {
-    // The store going up at the end: many small blasts, not big ones.
     if b.who == 0 {
         return 0.62;
     }
@@ -77,7 +64,6 @@ fn size(b: &Blast) -> f32 {
     w * (1.0 + 0.06 * f32::from(b.depth.min(5)))
 }
 
-/// Under the knights: each blast's light on the floor and its shock rings.
 pub(super) fn under(cv: &mut Img, shows: &[Blast], now: u32, view: (i32, i32)) {
     for b in shows {
         let Some(a) = local(b, now) else { continue };
@@ -89,22 +75,14 @@ pub(super) fn under(cv: &mut Img, shows: &[Blast], now: u32, view: (i32, i32)) {
         let af = a as f32;
         let big = size(b);
         let mut pen = Pen::new(cv, 1400);
-        // The instant of the blast: a bloom of cream light round it, a
-        // dither that never covers a figure.
         if a < 3 && b.depth == 0 {
             pen.glow((fx, fy), 58.0 * big, 0.85, ramps::HOLY, [0.75, 0.42, 0.2][a as usize]);
         }
-        // The light the fire throws on the floor and the walls.
         if a < 26 {
             let power = 0.85 * (1.0 - af / 26.0) * big.min(1.3);
-            // A chain's links light their own patch; the root lights the room.
             let reach = if b.depth == 0 { 54.0 } else { 30.0 };
             pen.glow((fx, fy), reach * big, 0.8, ramps::EMBER, power);
         }
-        // The shock: a dark wake in a bright edge running out, then a pale
-        // swell behind it; the arms' tiles are lit hotter under their flames.
-        // One wave a chain, and a heavy link's own: a ring for every keg
-        // would be a target.
         let leads = b.depth == 0 || b.depth % 3 == 0 || b.weight >= Weight::Finale;
         if a < 13 && leads {
             pen.shock((fx, fy + 2.0), 6.0 + af * 6.8 * big, 2.6, 0.62, ramps::EMBER, af / 13.0);
@@ -130,9 +108,7 @@ pub(super) fn under(cv: &mut Img, shows: &[Blast], now: u32, view: (i32, i32)) {
     }
 }
 
-/// Over the knights: everything with height.
 pub(super) fn over(cv: &mut Img, shows: &[Blast], now: u32, view: (i32, i32), tick: u64) {
-    // Far blasts first, so a near one is drawn in front of them.
     let mut order: Vec<&Blast> = shows.iter().collect();
     order.sort_by_key(|b| (b.at.1, b.at.0));
     for b in order {
@@ -145,7 +121,6 @@ pub(super) fn over(cv: &mut Img, shows: &[Blast], now: u32, view: (i32, i32), ti
             flash(cv, b, a);
         }
         crates_pop(cv, b, a);
-        // Flames stand down each arm, the far end last.
         for d in 0..4 {
             for i in 1..=i32::from(b.arms[d]) {
                 let t = b.arm_tile(d, i);
@@ -170,7 +145,6 @@ pub(super) fn over(cv: &mut Img, shows: &[Blast], now: u32, view: (i32, i32), ti
     }
 }
 
-/// The first two ticks: the whole cross white, edges first to go.
 fn flash(cv: &mut Img, b: &Blast, a: u32) {
     for t in b.tiles() {
         let (cx, cy) = centre(t);
@@ -191,8 +165,6 @@ fn flash(cv: &mut Img, b: &Blast, a: u32) {
     }
 }
 
-/// The crates the blast broke, in the instant they break: whited, swelling,
-/// then gone to planks.
 fn crates_pop(cv: &mut Img, b: &Blast, a: u32) {
     if a >= 4 {
         return;
@@ -207,8 +179,6 @@ fn crates_pop(cv: &mut Img, b: &Blast, a: u32) {
     }
 }
 
-/// How high and how hot a flame stands `a` ticks after it caught: up in three
-/// ticks, full while the fire is dangerous, then guttering out.
 fn envelope(a: f32) -> f32 {
     if a < 0.0 {
         0.0
@@ -221,8 +191,6 @@ fn envelope(a: f32) -> f32 {
     }
 }
 
-/// A flame standing on tile `(cx, cy)`: tongues licking up from a pool of
-/// fire, white at the root, going to red at the tips, the tips dithered away.
 pub(super) fn flame(cv: &mut Img, (cx, cy): (i32, i32), a: f32, size: f32, seed: u32) {
     let env = envelope(a);
     if env <= 0.02 {
@@ -230,7 +198,6 @@ pub(super) fn flame(cv: &mut Img, (cx, cy): (i32, i32), a: f32, size: f32, seed:
     }
     let base = cy + 6;
     let hmax = 25.0 * size * env;
-    // The pool on the floor: a squashed ellipse of fire under it.
     for dy in -3..=3i32 {
         for dx in -8..=8i32 {
             let d = (dx * dx) as f32 / 64.0 + (dy * dy) as f32 / 9.0;
@@ -244,8 +211,6 @@ pub(super) fn flame(cv: &mut Img, (cx, cy): (i32, i32), a: f32, size: f32, seed:
     }
     for dx in -7..=7i32 {
         let col = (1.0 - (dx.abs() as f32 / 7.8).powf(3.0)).max(0.0);
-        // Each column licks on its own beat, two noises over each other: a
-        // slow swell of the whole tongue, a quick flutter of its tip.
         let n = vnoise(dx as f32 * 0.5 + a * 0.2, a * 0.7, seed);
         let m = vnoise(dx as f32 * 1.4 - a * 0.6, a * 1.9, seed ^ 0x7);
         let h = hmax * col * (0.5 + 0.65 * n) * (0.82 + 0.36 * m);
@@ -262,9 +227,6 @@ pub(super) fn flame(cv: &mut Img, (cx, cy): (i32, i32), a: f32, size: f32, seed:
     }
 }
 
-/// The ball of fire over the keg: a cauliflower of seven overlapping
-/// lobes that swells in six ticks, then rises and cools through red into
-/// the smoke it turns to, its lobes turning as it boils.
 fn fireball(cv: &mut Img, b: &Blast, a: u32, seed: u32) {
     if a >= 30 {
         return;
@@ -278,7 +240,6 @@ fn fireball(cv: &mut Img, b: &Blast, a: u32, seed: u32) {
     let (cx, cy) = centre(b.at);
     let rise = af * 0.55 + if a >= 6 { (af - 6.0) * 0.25 } else { 0.0 };
     let (fx, fy) = (cx as f32, cy as f32 - 4.0 - rise);
-    // The lobes: a heart and six round it, each turning its own way.
     let lobes = if b.who == 0 { 4 } else { 7 };
     let mut balls = [(fx, fy, r * 0.8); 7];
     for (i, ball) in balls.iter_mut().enumerate().skip(1).take(lobes - 1) {
@@ -304,15 +265,12 @@ fn fireball(cv: &mut Img, b: &Blast, a: u32, seed: u32) {
                 continue;
             }
             let best = 1.0 - least.sqrt();
-            // Hot at the heart, a rolling pattern in it (chunks that change
-            // every few ticks); lit from above.
             let swirl = 0.14 * ((hash(x >> 1, (y >> 1) + beat, seed ^ 0x55) & 0xff) as f32 / 255.0);
             let lit = -((y as f32 - fy) / r) * 0.16;
             let heat = best.powf(0.8) * 1.12 * cool + swirl + lit;
             match hot(heat, x, y) {
                 Some(ink) => cv.put(x, y, ink),
                 None => {
-                    // Cooled: the ball goes to smoke at its edge.
                     if af > 8.0 && bayer(x, y) < 0.6 * (1.0 - (af - 8.0) / 22.0).max(0.0) {
                         cv.put(x, y, if best > 0.2 { 'X' } else { 'g' });
                     }
@@ -322,8 +280,6 @@ fn fireball(cv: &mut Img, b: &Blast, a: u32, seed: u32) {
     }
 }
 
-/// The stalk under the fireball: a column of dark smoke from the floor up
-/// to the ball as it rises, so the blast is a mushroom and not a bubble.
 fn stem(cv: &mut Img, b: &Blast, a: u32, seed: u32) {
     if !(5..34).contains(&a) {
         return;
@@ -350,9 +306,6 @@ fn stem(cv: &mut Img, b: &Blast, a: u32, seed: u32) {
     }
 }
 
-/// Pieces of a crate thrown out of a blast, each its own arc with the floor
-/// to bounce on: planks, chunks, splinters and bent iron, their shadows
-/// small on the stone. Back to rest by the end of their life, blinking out.
 fn debris(cv: &mut Img, b: &Blast, a: u32, seed: u32, tick: u64) {
     const LIFE: u32 = 52;
     if a >= LIFE {
@@ -402,30 +355,25 @@ fn debris(cv: &mut Img, b: &Blast, a: u32, seed: u32, tick: u64) {
             }
             let spin = (tick as u32 / 2 + i) % 4;
             let top = py - z.round() as i32;
-            // Pieces of one crate are the crate's own browns, with iron.
             match i % 6 {
                 0 | 1 => {
-                    // A plank, lit on its top.
                     let (w, h) = if spin % 2 == 0 { (5, 2) } else { (2, 5) };
                     cv.rect(px, top, w, h, if i % 2 == 0 { 'o' } else { 'r' });
                     cv.rect(px, top, if w > h { w } else { 1 }, if w > h { 1 } else { h }, 'T');
                     cv.put(px + w - 1, top + h - 1, 'p');
                 }
                 2 | 3 => {
-                    // A chunk of lid or plank end.
                     cv.rect(px, top, 3, 3, 'r');
                     cv.rect(px, top, 3, 1, 'O');
                     cv.put(px + 2, top + 2, 'p');
                     cv.put(px, top + 1, 'o');
                 }
                 4 => {
-                    // Bent iron, bright where it catches the fire.
                     cv.rect(px, top, 2, 2, 'J');
                     cv.put(px + i32::from(spin < 2), top + i32::from(spin >= 2), 'h');
                     cv.put(px + 1, top + 1, 'g');
                 }
                 _ => {
-                    // A splinter, and a spark of it burning.
                     let (dx, dy) = [(1, -1), (1, 0), (1, 1), (0, 1)][spin as usize];
                     cv.put(px, top, 'T');
                     cv.put(px + dx, top + dy, 'o');
@@ -439,10 +387,6 @@ fn debris(cv: &mut Img, b: &Blast, a: u32, seed: u32, tick: u64) {
     }
 }
 
-/// The pall: columns of black-powder smoke standing off the centre and every
-/// arm tile, billowing, drifting off down the room's wind, going pale. Never
-/// drawn over a figure, so a knight is never lost in it. Greys that read on
-/// the dark stone: the smoke is the lightest thing a blast leaves.
 fn smoke(cv: &mut Img, b: &Blast, a: u32, seed: u32) {
     if a < 3 {
         return;
@@ -475,11 +419,7 @@ fn smoke(cv: &mut Img, b: &Blast, a: u32, seed: u32) {
     }
 }
 
-/// One puff: a dithered disc, grey with a lit upper left and a shaded
-/// underside; only on bare paper when `protect`.
 pub(super) fn puff(cv: &mut Img, (cx, cy): (f32, f32), r: f32, density: f32, age: f32, seed: u32, protect: bool) {
-    // The lobed edge: noise at the corners of a four by four grid over the
-    // puff, blended across it.
     let mut grid = [[0.0f32; 4]; 4];
     for (j, row) in grid.iter_mut().enumerate() {
         for (i, v) in row.iter_mut().enumerate() {
@@ -502,13 +442,10 @@ pub(super) fn puff(cv: &mut Img, (cx, cy): (f32, f32), r: f32, density: f32, age
             if d >= lobe {
                 continue;
             }
-            // Solid in its body, its edge broken by the dither, the whole of
-            // it thinning as it ages.
             let o = density * (1.7 - 1.3 * (d / lobe).powf(1.6));
             if bayer(x, y) >= o || (protect && cv.get(x, y).is_some()) {
                 continue;
             }
-            // Lit from the upper left, shaded below; paler as it ages.
             let lit = -(dx + dy) * 0.5;
             let tone = 0.45 + lit * 0.5 + age * 0.35;
             let ink = if tone < 0.3 {
@@ -527,8 +464,6 @@ pub(super) fn puff(cv: &mut Img, (cx, cy): (f32, f32), r: f32, density: f32, age
     }
 }
 
-/// Sparks thrown from the centre and each arm's end, and embers that rise
-/// and last.
 fn sparks(cv: &mut Img, b: &Blast, a: u32, seed: u32, tick: u64) {
     if a >= 70 {
         return;
@@ -549,14 +484,10 @@ fn sparks(cv: &mut Img, b: &Blast, a: u32, seed: u32, tick: u64) {
         let jets = Spray { gravity: 0.1, drag: 0.08, ..Spray::round(seed ^ (0x77 + d as u32), 7, (end.0 as f32, end.1 as f32 - 3.0), (0.8, 3.0), (8.0, 16.0)) };
         jets.each(af, |m| pfx::mote(&mut pen, &m, Shape::Spark, ramps::EMBER, 1, tick));
     }
-    // Embers climb out of the smoke and last.
     let embers = Spray { gravity: -0.012, drag: 0.03, stagger: 1.5, ..Spray::round(seed ^ 0x9, if b.who == 0 { 3 } else { (14.0 * big) as u32 }, (cx as f32, cy as f32 - 6.0), (0.3, 1.5), (30.0, 64.0)) };
     embers.each(af, |m| pfx::mote(&mut pen, &m, Shape::Ember, ramps::EMBER, 1, tick));
 }
 
-/// A heavy blast kicks a ring of dithered light round the whole view's
-/// edge for a moment: the room feels it. Drawn from the blast's own height,
-/// so it is a mark of weight rather than a second flash.
 fn rim(cv: &mut Img, b: &Blast, a: u32) {
     let (cx, cy) = centre(b.at);
     let big = if b.weight >= Weight::Finale { 1.5 } else { 1.0 };
@@ -565,9 +496,6 @@ fn rim(cv: &mut Img, b: &Blast, a: u32) {
     pen.ring((cx as f32, cy as f32 + 2.0), r, 1.6, 0.62, ramps::EMBER, a as f32 / 24.0);
 }
 
-/// A keg that a blast has set going and that waits its turn (the chain's
-/// links): drawn white-hot where it stands, shaking, the picture's own
-/// reading of "next".
 pub(super) fn primed(cv: &mut Img, b: &Blast, now: u32) {
     let wait = u32::from(b.depth) * LINK;
     let age = b.age(now);

@@ -17,22 +17,11 @@ use crate::render::world3d::raster;
 use crate::rules::griffinwing::trig::Det;
 use crate::rules::griffinwing::{Session, Thing, bit, rail, rail::units};
 
-/// A gate's clear hole is 17.0 dots in radius in its painting and a hearth
-/// ring's band 16.8 (medians over the native idle frames, measured along rays
-/// that miss the clasps and the lanterns): the sprite is scaled until that
-/// opening is the rules' radius less a tenth of a unit (the most a painted
-/// piece may look smaller than its radius), so what a knight must fit through
-/// is what the sim judges (a gate's 2.0 units, a ring's 2.2). The band and the
-/// lanterns stand outside it, their outer edge on about the distance the rules
-/// still count a pass (the radius and a craft's own, one unit).
 const GATE_HOLE: f32 = 17.0;
 const RING_HOLE: f32 = 16.8;
 const WITHIN: f32 = 0.1;
-/// A beacon is drawn from its tower's foot, in the stage's old box's height.
 const BEACON_FOOT: f32 = -16.0;
 const BEACON_TALL: f32 = 31.0;
-/// The painted tower's own height in its picture (it stands 156 dots tall in
-/// the 160 of its canvas).
 const BEACON_PICTURE: f32 = 156.0;
 
 fn slot(thing: Thing) -> Option<&'static str> {
@@ -43,30 +32,23 @@ fn slot(thing: Thing) -> Option<&'static str> {
     }
 }
 
-/// Whether `thing` is drawn as a painted billboard (its slot is painted
-/// whole); if so the 3D scene leaves its blocks out.
 pub(super) fn painted(thing: Thing) -> bool {
     slot(thing).is_some_and(|id| bank::pic(id, "idle", 0).is_some())
 }
 
-/// Whether the last beacon is drawn as a painted billboard.
 pub(super) fn beacon_painted() -> bool {
     bank::pic("beacon", "unlit", 0).is_some()
 }
 
-/// A rail point as the eye has it: the dot it lands on and how far.
 pub(super) fn project(cam: &Cam, s: f32, x: f32, z: f32) -> Option<(f32, f32, f32)> {
     let w = rail::rail().world(s, x, z);
     raster::project_point(&cam.view(), W as usize, H as usize, cam.point(v3(w[0], w[1], w[2])))
 }
 
-/// How many dots a world unit is across at `depth`.
 fn dots_per_unit(cam: &Cam, depth: f32) -> f32 {
     raster::dots_tall(&cam.view(), W as usize, H as usize, 1.0, depth)
 }
 
-/// What is to be stood in the picture: a frame, where its anchor lands, how
-/// many dots a picture dot is across and up, and how far the piece is.
 pub(super) struct Piece {
     pub pic: &'static Pic,
     pub at: (f32, f32),
@@ -74,9 +56,6 @@ pub(super) struct Piece {
     pub depth: f32,
 }
 
-/// Draw `piece` over `im` where `depth` leaves it showing. A far piece is
-/// drawn from a halved picture, so its dots are about one to one with the
-/// screen's.
 pub(super) fn blit(im: &mut Img, depth: &[f32], piece: &Piece) {
     let (mut level, mut k) = (0usize, piece.scale.0.min(piece.scale.1));
     while k < 0.7 && level < 3 {
@@ -111,20 +90,14 @@ pub(super) fn blit(im: &mut Img, depth: &[f32], piece: &Piece) {
     }
 }
 
-/// The rail's way forward at `s`, in the eye's frame: the line a ring's plane
-/// is square to.
 fn forward(cam: &Cam, s: f32) -> V3 {
     let (sin, cos) = rail::rail().at(s).yaw.dsin_cos();
     cam.dir(v3(cos, sin, 0.0))
 }
 
-/// The set pieces of the moment, over `im` (the scene and its sky), as `seat`
-/// sees them.
 pub(super) fn paint(im: &mut Img, depth: &[f32], cam: &Cam, s: &Session, seat: u32) {
     let anchor = units(s.anchor());
     let mut pieces: Vec<Piece> = Vec::new();
-    // On the way home the gates and rings are strings of lights on a hair of a
-    // ring (`finale.rs`), so the beacon is the one great thing in the picture.
     let home = super::finale::on(s);
     let mut ghosts: Vec<super::finale::Ghost> = Vec::new();
     for p in &s.props {
@@ -140,8 +113,6 @@ pub(super) fn paint(im: &mut Img, depth: &[f32], cam: &Cam, s: &Session, seat: u
         if d < 1.0 {
             continue;
         }
-        // A ring is round in a plane square to the rail: turned from the eye,
-        // it narrows by the cosine of the turn.
         let to = cam.point(rail_point(su, units(p.x), units(p.z))).normalize();
         let narrow = to.dot(forward(cam, su)).abs().clamp(0.35, 1.0);
         if home {
@@ -167,7 +138,6 @@ pub(super) fn paint(im: &mut Img, depth: &[f32], cam: &Cam, s: &Session, seat: u
         });
     }
     pieces.extend(beacon_piece(cam, s));
-    // Far to near, so a near piece covers a far one.
     pieces.sort_by(|a, b| b.depth.total_cmp(&a.depth));
     for piece in &pieces {
         blit(im, depth, piece);
@@ -181,8 +151,6 @@ pub(super) fn paint(im: &mut Img, depth: &[f32], cam: &Cam, s: &Session, seat: u
     }
 }
 
-/// The last beacon as a piece, when it is on the rail near enough to draw and
-/// painted.
 fn beacon_piece(cam: &Cam, s: &Session) -> Option<Piece> {
     let su = beacon_at(s)?;
     if !beacon_painted() || (su - units(s.anchor())).abs() >= 160.0 {
@@ -206,8 +174,6 @@ fn rail_point(s: f32, x: f32, z: f32) -> V3 {
     v3(w[0], w[1], w[2])
 }
 
-/// Where along the rail the last beacon stands, when it is on the rail: lit
-/// for the way home, dark before the Wyrm falls.
 pub(super) fn beacon_at(s: &Session) -> Option<f32> {
     use crate::rules::griffinwing::Mode;
     if matches!(s.mode, Mode::Victory | Mode::Tally) {
@@ -219,11 +185,8 @@ pub(super) fn beacon_at(s: &Session) -> Option<f32> {
     }
 }
 
-/// The beacon's frame: dark, or one of the four flames at the sheet's own
-/// durations.
 fn beacon_frame(s: &Session) -> Option<&'static Pic> {
     use crate::rules::griffinwing::Mode;
-    // Dark until the wing's comets reach it, then the sheet's own flame.
     let lit = s.mode == Mode::Tally || (s.mode == Mode::Victory && s.mode_t >= super::moments::LIGHT_AT);
     if matches!(s.mode, Mode::Victory | Mode::Tally) && lit {
         bank::at("beacon", "lit", s.elapsed)

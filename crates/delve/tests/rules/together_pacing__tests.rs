@@ -4,25 +4,19 @@
 
 use super::*;
 
-/// One room as a party finds it.
 #[derive(Clone, Debug)]
 pub(super) struct Seen {
     pub room: usize,
     pub kind: RoomKind,
-    /// Doors from the entrance.
     pub dist: usize,
     pub foes: usize,
     pub bosses: usize,
     pub elites: usize,
     pub kinds: usize,
-    /// Whether the floor's guardian (its one boss) stands here.
     pub guardian: bool,
-    /// Whether the Boss Key's carrier stands here: an elite, no boss.
     pub carrier: bool,
 }
 
-/// A floor's census: every room, and the walk from the entrance to the
-/// stairs (room indices, entrance first).
 pub(super) struct Census {
     pub depth: u32,
     pub pack: Pack,
@@ -50,8 +44,6 @@ fn doors_from(run: &Run, from: usize) -> (Vec<usize>, Vec<Option<(usize, usize)>
     (dist, back)
 }
 
-/// Enter room `i` on a copy of `run` (its gate opened, so a guardian
-/// stands) and count what is there.
 fn look(run: &Run, i: usize, dist: usize, from: Option<usize>) -> Seen {
     let mut copy = run.clone();
     if copy
@@ -101,8 +93,6 @@ pub(super) fn census(run: &Run) -> Census {
     let rooms = (0..run.dungeon.rooms.len())
         .filter(|&i| dist[i] != usize::MAX)
         .map(|i| {
-            // The side the party walks in on: the door of this room that
-            // faces the room it came from.
             let from = back[i].map(|(_, dir)| (dir + 2) % 4);
             look(run, i, dist[i], if i == 0 { None } else { from })
         })
@@ -119,12 +109,9 @@ impl Census {
     pub fn seen(&self, room: usize) -> &Seen {
         self.rooms.iter().find(|s| s.room == room).unwrap()
     }
-    /// Rooms that raise a boss (a guardian, a chief, the dragon, the Pit
-    /// Tyrant, an outlaw), side halls included.
     pub fn boss_rooms(&self) -> Vec<&Seen> {
         self.rooms.iter().filter(|s| s.bosses > 0).collect()
     }
-    /// Boss rooms on the walk from the entrance to the stairs.
     pub fn walk_bosses(&self) -> Vec<&Seen> {
         self.walk
             .iter()
@@ -132,8 +119,6 @@ impl Census {
             .filter(|s| s.bosses > 0)
             .collect()
     }
-    /// The boss fights a party must win to go down: those on the walk, and
-    /// the Boss Key's holder wherever it stands, were it a boss.
     pub fn required_bosses(&self, run: &Run) -> usize {
         let chief = run.boss_gates.as_ref().map(|g| g.leaders[0].room);
         self.walk_bosses().len()
@@ -141,11 +126,9 @@ impl Census {
                 .filter(|c| !self.walk.contains(c) && self.seen(*c).bosses > 0)
                 .map_or(0, |_| 1)
     }
-    /// Doors from the entrance to the nearest boss.
     pub fn first_boss(&self) -> Option<usize> {
         self.boss_rooms().iter().map(|s| s.dist).min()
     }
-    /// The longest walk through boss rooms only, one door to the next.
     pub fn boss_run(&self, run: &Run) -> usize {
         let boss: Vec<usize> = self.boss_rooms().iter().map(|s| s.room).collect();
         fn deepest(run: &Run, boss: &[usize], at: usize, path: &mut Vec<usize>) -> usize {
@@ -169,12 +152,10 @@ impl Census {
     }
 }
 
-/// A run for `knights` (1 or 2) on seed `seed`, at the top of floor 1.
 pub(super) fn party(seed: u64, knights: usize) -> Run {
     Run::new(seed, 17, (knights > 1).then_some("Friend"))
 }
 
-/// Floors 1 to 6 of `seed` for `knights`, each counted as it opens.
 pub(super) fn delve(seed: u64, knights: usize) -> Vec<(Census, Run)> {
     let mut run = party(seed, knights);
     let mut out = Vec::new();
@@ -213,7 +194,6 @@ fn tag(s: &Seen) -> String {
     t
 }
 
-/// `cargo test -p angel-delve pacing_census -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn pacing_census() {
@@ -280,14 +260,8 @@ fn pacing_census() {
     }
 }
 
-
-/// Seeds the pacing pins walk, each with one knight and with two.
 const SEEDS: u64 = 24;
 
-/// Every floor of the seeds that ramps. A floor grown again `GROW_TRIES`
-/// times and still unable to ramp is the generator's last resort (the
-/// deepest of its tries, `layout::floor_party`), and a few first floors are:
-/// `few_floors_are_left_unramped` keeps them few.
 fn every_floor(mut check: impl FnMut(&Census, &Run, usize)) {
     for knights in [1, 2] {
         for seed in 0..SEEDS {
@@ -316,8 +290,6 @@ fn few_floors_are_left_unramped() {
 
 #[test]
 fn floor_one_opens_on_rooms_without_a_boss() {
-    // The entrance and every room one door from it: no boss of any kind
-    // (guardian, chief, outlaw, Pit Tyrant).
     every_floor(|c, _, knights| {
         if c.depth != 1 {
             return;
@@ -339,12 +311,9 @@ fn every_floor_has_one_boss_room_and_it_holds_the_stairs() {
         assert_eq!(c.walk.last(), Some(&g.room), "the end of the walk");
         assert_eq!(g.dist, run.dungeon.stairs_doors());
         assert!(g.dist >= pacing::STAIRS_FROM, "floor {}: stairs {} doors in", c.depth, g.dist);
-        // The one boss fight on the way down: the guardian, at the stairs.
         let walk: Vec<usize> = c.walk_bosses().iter().map(|s| s.room).collect();
         assert_eq!(walk, [g.room], "{knights} knights, floor {}: {:?}", c.depth, c.walk_bosses());
         assert_eq!(c.required_bosses(run), 1, "{knights} knights, floor {}", c.depth);
-        // Its one chief's camp waits mid-floor, never in the guardian's
-        // doorway, led by an elite with the Boss Key and no boss.
         let gates = run.boss_gates.as_ref().unwrap();
         assert_eq!(gates.leaders.len(), 1);
         let chief = c.seen(gates.leaders[0].room);
@@ -353,8 +322,6 @@ fn every_floor_has_one_boss_room_and_it_holds_the_stairs() {
         assert_eq!(c.rooms.iter().filter(|s| s.carrier).count(), 1);
         assert!(chief.dist >= pacing::CHIEF_FROM && chief.dist < g.dist, "{chief:?}");
         assert!((0..4).all(|d| run.dungeon.neighbour(chief.room, d) != Some(g.room)));
-        // Every other boss is a showdown off the floor's end (the Pit, the
-        // Wanted hall), off the walk behind its own door, past the chief's ring.
         for s in c.boss_rooms() {
             if s.room != g.room {
                 assert!(matches!(s.kind, RoomKind::Wanted | RoomKind::Pit), "{s:?}");
@@ -365,9 +332,6 @@ fn every_floor_has_one_boss_room_and_it_holds_the_stairs() {
     });
 }
 
-/// Floor's chief's camp entered by the production path; everyone but the
-/// key carrier falls (the key stays kept), then the carrier: the route
-/// opens and the key lies where it fell. Returns where the key lies.
 fn slay_the_carrier(run: &mut Run) -> (usize, f32, f32) {
     let room = run.boss_gates.as_ref().unwrap().leaders[0].room;
     run.enter(room, Some(2));
@@ -420,7 +384,6 @@ fn the_key_carrier_is_an_elite_mid_floor_and_drops_the_key() {
             loop {
                 let mut floor = run.clone();
                 slay_the_carrier(&mut floor);
-                // The camp's room still clears, and the state stands.
                 for _ in 0..8 {
                     floor.clear_for_test();
                     if floor.room().cleared {
@@ -443,12 +406,10 @@ fn the_guardians_door_opens_with_the_carriers_key() {
     for seed in [3, 41, 7] {
         let mut run = party(seed, 2);
         let (_, x, y) = slay_the_carrier(&mut run);
-        // A knight takes the key up.
         let hero = run.players.get_mut(&1).unwrap();
         (hero.x, hero.y) = (x, y);
         run.step_sim_for_test(&BTreeMap::new());
         assert_eq!(run.key_bearer(), Some(1));
-        // At the guardian's door it opens, and the guardian stands within.
         let guardian = run.boss_gates.as_ref().unwrap().guardian;
         let seen = boss_gates::reachable(&run.dungeon, guardian);
         let (beside, dir) = (0..run.dungeon.rooms.len())
@@ -499,10 +460,6 @@ fn no_two_boss_rooms_stand_door_to_door() {
 #[test]
 fn a_floor_musters_more_monsters_the_deeper_its_rooms_lie() {
     every_floor(|c, _, knights| {
-        // The fight rooms without a boss: none musters fewer than a room
-        // nearer the entrance, along the walk and across the floor. (On the
-        // first floors the key's carrier stands alone, `BOSS_ALONE_TO`: its
-        // room is a duel, not a muster.)
         let plain: Vec<&Seen> = c
             .rooms
             .iter()
@@ -529,7 +486,6 @@ fn a_floor_musters_more_monsters_the_deeper_its_rooms_lie() {
             .map(|s| s.foes)
             .collect();
         assert!(walk.windows(2).all(|w| w[0] <= w[1]), "floor {}: {walk:?}", c.depth);
-        // The first room past the entrance holds the floor's fewest.
         if c.depth == 1 {
             let first = plain.iter().filter(|s| s.dist == 1).map(|s| s.foes).max();
             let fewest = usize::from(pacing::CAMP_FOES[0][0]);
@@ -538,10 +494,6 @@ fn a_floor_musters_more_monsters_the_deeper_its_rooms_lie() {
     });
 }
 
-/// `ANGEL_PACING_SHOTS=dir cargo test -p angel-delve write_floor_one_walk --
-/// --ignored`: floor 1 for two knights, room by room from the entrance to
-/// the stairs (the chief's room in its place by depth), each a moment after
-/// the party walks in.
 #[test]
 #[ignore]
 fn write_floor_one_walk() {

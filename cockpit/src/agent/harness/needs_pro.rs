@@ -16,59 +16,31 @@ use crate::agent::club::{ChatMsg, ChatRole, Club};
 use std::sync::Arc;
 use std::sync::mpsc;
 
-/// Which rung of the tier ladder a turn is being served on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum NeedsProTier {
-    /// Feature disarmed (or no usable seat): no contract, marker is prose.
     Off,
-    /// The fast seat with the escalation contract live; a leading marker aborts
-    /// the attempt and re-runs the turn on the escalation seat.
     Fast,
-    /// The escalation seat: the contract is a stable no-op and a leading marker
-    /// is stripped, never escalated again.
     Pro,
 }
 
-/// Opening token of the self-report marker. The closing `>>>` may be preceded
-/// by `: <reason>`.
 pub(crate) const NEEDS_PRO_OPEN: &str = "<<<NEEDS_PRO";
 const NEEDS_PRO_CLOSE: &str = ">>>";
 
-/// The fast-tier contract, the `⠞⠛` route; its words are the ledger pages.
-/// Deliberately a `const` with no seat name, count, or timestamp in it: it
-/// rides the front of every request, so any dynamic content here would
-/// invalidate a byte-exact provider prefix cache on every turn.
 pub(crate) const FAST_TIER_CONTRACT: &str = "⠞⠛";
 
-/// The escalation seat's replacement contract, `⠞⠓` — same stable-string
-/// rule. The marker is defused rather than left unmentioned so a model that
-/// learned the convention upstream cannot bounce a turn that has nowhere
-/// further to go.
 pub(crate) const PRO_TIER_CONTRACT: &str = "⠞⠓";
 
-/// Is this message an installed contract? Found again so a second turn
-/// replaces it instead of stacking another copy, and so the tier swap is a
-/// replacement rather than an append.
 fn is_contract(content: &str) -> bool {
     content == FAST_TIER_CONTRACT || content == PRO_TIER_CONTRACT
 }
 
-/// What a completed reply's first line means for the tier ladder.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum SelfReport {
-    /// No marker, or the ladder is not armed: ordinary answer text.
     None,
-    /// The model asked for a stronger seat, with the reason it gave (if any).
     Escalate(Option<String>),
-    /// A marker on the top tier: nothing to escalate to. Carries the reply with
-    /// the marker line removed.
     Ignored(String),
 }
 
-/// Split a leading `<<<NEEDS_PRO>>>` / `<<<NEEDS_PRO: reason>>>` line off
-/// `answer`. The marker must be the whole first non-whitespace line — a reply
-/// that merely mentions it further in stays prose, which is what keeps a model
-/// explaining the protocol from triggering it.
 fn split_marker(answer: &str) -> Option<(Option<String>, &str)> {
     let rest = answer.trim_start().strip_prefix(NEEDS_PRO_OPEN)?;
     let (inside, tail) = rest.split_once(NEEDS_PRO_CLOSE)?;
@@ -82,8 +54,6 @@ fn split_marker(answer: &str) -> Option<(Option<String>, &str)> {
             (!reason.is_empty()).then(|| reason.to_string())
         }
     };
-    // Whatever else shares the marker's line was not part of the marker, so
-    // this reply is not the bare control token the contract asks for.
     let (marker_line_tail, body) = tail.split_once('\n').unwrap_or((tail, ""));
     if !marker_line_tail.trim().is_empty() {
         return None;
@@ -91,7 +61,6 @@ fn split_marker(answer: &str) -> Option<(Option<String>, &str)> {
     Some((reason, body))
 }
 
-/// Read a completed reply as a tier self-report.
 pub(crate) fn read_self_report(answer: &str, tier: NeedsProTier) -> SelfReport {
     if tier == NeedsProTier::Off {
         return SelfReport::None;
@@ -106,10 +75,6 @@ pub(crate) fn read_self_report(answer: &str, tier: NeedsProTier) -> SelfReport {
     }
 }
 
-/// Install (or swap) the tier contract inside the leading system run, so the
-/// fragment sits on the stable prefix rather than drifting through the tail as
-/// the conversation grows. Idempotent: re-running a turn at the same tier
-/// leaves history byte-identical.
 pub(crate) fn install_contract(history: &mut Vec<ChatMsg>, contract: &str) {
     let leading = history
         .iter()
@@ -127,8 +92,6 @@ pub(crate) fn install_contract(history: &mut Vec<ChatMsg>, contract: &str) {
     history.insert(leading, ChatMsg::system(contract));
 }
 
-/// Drop a previously installed contract — the armed-but-unusable path, where
-/// promising the model an escalation that cannot happen would be a lie.
 pub(crate) fn remove_contract(history: &mut Vec<ChatMsg>) {
     history.retain(|message| !(message.role == ChatRole::System && is_contract(&message.content)));
 }
@@ -139,15 +102,6 @@ fn speak_disarmed(events: &mpsc::Sender<TurnEvent>, why: &str) {
     )));
 }
 
-/// Resolve the escalation seat for this turn, or `None` to serve it at
-/// [`NeedsProTier::Off`].
-///
-/// `ANGEL_NEEDS_PRO_SEAT` is matched against the session roster with the same
-/// rule every other operator-typed seat name uses
-/// ([`crate::agent::tools::consult::find_in_roster`]): exact label first, then a
-/// label/model-id substring. No ranking and no implicit fallback — an
-/// unresolvable name disarms the feature out loud rather than picking a seat
-/// nobody asked for.
 pub(crate) fn resolve_seat(
     in_hand: &dyn Club,
     registry: &ToolRegistry,

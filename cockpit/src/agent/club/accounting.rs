@@ -37,7 +37,6 @@ pub(crate) const PATHS: [&str; 23] = [
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum CacheConvention {
     Included,
-    // Synthetic contract coverage; no current provider reports this convention.
     #[cfg(test)]
     Separate,
     #[default]
@@ -46,7 +45,6 @@ pub(crate) enum CacheConvention {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum ReasoningConvention {
     Included,
-    /// Direct xAI Chat Completions reports reasoning outside completion_tokens.
     Separate,
     #[default]
     Unknown,
@@ -59,16 +57,12 @@ pub(crate) struct UsageContract {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct UsageObservation {
-    /// Reported input/output/reasoning/cache-read/cache-write, without rewriting totals.
     pub(crate) raw: [Option<u64>; 5],
-    /// Exact accepted wire aliases; arbitrary response keys never enter this array.
     pub(crate) paths: [Option<&'static str>; 5],
     pub(crate) contract: UsageContract,
 }
 
 impl UsageObservation {
-    /// Generated tokens under the provider's explicit contract. Keep raw wire
-    /// counters intact; missing components and overflow remain unknown.
     pub(crate) fn generation_output(self) -> Option<u64> {
         match self.contract.reasoning {
             ReasoningConvention::Included => self.raw[1],
@@ -89,7 +83,6 @@ pub(crate) struct FieldTotal {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct AccountingSnapshot {
     pub(crate) attempts: u64,
-    /// Raw five counters, ordinary input, total prompt, total generated output.
     pub(crate) fields: [FieldTotal; 8],
     pub(crate) cache_conventions: [u64; 3],
     pub(crate) reasoning_conventions: [u64; 3],
@@ -327,8 +320,6 @@ impl AccountingCell {
             response_bytes: None,
         }
     }
-    /// One short critical section publishes the entire completed attempt.
-    /// No network, callback, or tool work is performed under this lock.
     pub(crate) fn record(&self, observation: Option<UsageObservation>) {
         if let Ok(mut state) = self.state.lock() {
             state.record(observation);
@@ -353,7 +344,6 @@ pub(crate) struct AccountingAttempt<'a> {
     response_bytes: Option<std::sync::Arc<AtomicU64>>,
     observation: Option<UsageObservation>,
 }
-/// Counts body bytes below buffering and decoding, including partial/error reads.
 pub(crate) struct ResponseByteReader<R> {
     inner: R,
     count: std::sync::Arc<AtomicU64>,
@@ -375,8 +365,6 @@ impl AccountingAttempt<'_> {
         ResponseByteReader { inner, count }
     }
 
-    /// Attach bookkeeping to this attempt. Settlement records overruns and
-    /// unknown usage; neither affects retry or formation admission.
     pub(crate) fn reserve_formation(
         &mut self,
         reservation: crate::agent::harness::formation_budget::Reservation,

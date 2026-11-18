@@ -83,9 +83,6 @@ pub mod works;
 #[path = "../../../tests/world_viz/world3d__arch__tests.rs"]
 mod tests;
 
-// Flat re-export surface: the renderer side calls `arch::keep(seed)`, not
-// `arch::castle::keep(seed)`. `allow(unused_imports)` because the renderer has
-// not wired these up yet — without it every generator reads as dead on arrival.
 #[allow(unused_imports)]
 pub use castle::{curtain_wall, gatehouse, keep, rookery_dressing, round_tower};
 #[allow(unused_imports)]

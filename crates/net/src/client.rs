@@ -16,7 +16,6 @@ use crate::knob::{self, Knob, Side};
 use crate::proto::{PROTOCOL, Reject, ToClient, ToServer, Welcome};
 use std::collections::VecDeque;
 
-/// A picture: `px` is `w * h` words, `0xAARRGGBB`.
 #[derive(Clone, Default)]
 pub struct Frame {
     pub w: u32,
@@ -34,155 +33,71 @@ impl Frame {
     }
 }
 
-/// What a game needs to draw one display frame.
 pub struct View<'a, C> {
-    /// The server tick, fractional, everyone else is drawn at.
     pub render_tick: f64,
-    /// The newest server tick held.
     pub newest_tick: u32,
-    /// The last of this client's commands the server has consumed.
     pub ack: u32,
-    /// Commands sent but not yet consumed, oldest first: replayed on the
-    /// newest state, they put your own knight where your keys have.
     pub pending: &'a [(u32, C)],
-    /// How far into the current command tick the display is (0..1).
     pub partial: f32,
-    /// The hands now, not yet sampled into a command. A game that walks its
-    /// own knight `partial` of a tick along these shows a key on the very
-    /// next display frame instead of at the next command tick (the muster's
-    /// commands are 50 ms apart: three frames at 60 Hz).
     pub hands: Hands,
     pub seat: Option<u32>,
     pub now_ms: f64,
-    /// How long a correction of your own character is spread over: the
-    /// `correct_ms` knob, `CORRECT_MS` unless moved.
     pub correct_ms: f64,
 }
 
 pub trait GameClient: Sized {
     type Cmd: Command;
-    /// The game's name, as in `Hello` and `Welcome`.
     const GAME: &'static str;
 
-    /// Built from the server's welcome (its params carry what the game
-    /// needs before the first snapshot: a world seed, an art set).
     fn boot(welcome: &Welcome) -> Result<Self, String>;
-    /// A snapshot arrived: the whole state, or a patch against the last one.
     fn snapshot(&mut self, tick: u32, whole: bool, body: &[u8]) -> Result<(), Malformed>;
-    /// A tick's events, turned into lines for the shell to act on:
-    /// `sfx <name>`, `music <name>`, `say <text>`, `notice <text>`.
     fn events(&mut self, tick: u32, events: &[&[u8]], lines: &mut Vec<String>);
-    /// This command tick's command.
     fn command(&mut self, hands: &Hands) -> Self::Cmd;
     fn encode_cmd(cmd: &Self::Cmd, out: &mut Vec<u8>);
-    /// Draw one display frame into `frame` (the game picks its size).
     fn draw(&mut self, view: &View<Self::Cmd>, frame: &mut Frame);
-    /// Lines the game makes of its own state rather than of events, after
-    /// each drawn frame: the Delve's music follows what its own view shows,
-    /// so a reload or a resumed seat hears the right track at once. Most
-    /// games make none.
     fn lines(&mut self, _lines: &mut Vec<String>) {}
-    /// Where the last frame drew the player's own character, in frame
-    /// pixels, for probes that time a key to the character moving.
     fn own_at(&self) -> Option<(f32, f32)> {
         None
     }
-    /// The touch layout as JSON (see `angel-web`).
     fn controls(&self) -> &'static str;
-    /// This client's own knobs (`knob::Side::Client`), where they stand.
     fn knobs(&self) -> Vec<Knob> {
         Vec::new()
     }
-    /// Set one of this client's own knobs: the value it took, or `None` for
-    /// a name it has not.
     fn set_knob(&mut self, _name: &str, _value: f64) -> Option<f64> {
         None
     }
-    /// Numbers for a developer's panel, counted from the start (the panel
-    /// makes rates of them): the Delve's own-knight corrections.
     fn dev_stats(&self, _out: &mut Vec<(&'static str, f64)>) {}
-    /// A sheet of the player's own state as plain text, for the page to
-    /// show while its key is held up (`controls.sheet`): the Delve's cards
-    /// and wishes. Empty for a game without one.
     fn sheet(&self) -> String {
         String::new()
     }
-    /// Choices the game has up for the player to tap, one label a line
-    /// (the Delve's wish scroll): empty when there are none. A page shows
-    /// them as buttons and hands the one tapped to `choose`.
     fn choices(&self) -> String {
         String::new()
     }
-    /// The player tapped choice `n` (from 0) of `choices`.
     fn choose(&mut self, _n: u32) {}
-    /// A pointer press in final frame pixels. True means the game's current
-    /// screen consumed it; otherwise the shell may continue its normal input.
     fn pointer(&mut self, _frame_x:u32, _frame_y:u32, _button:u8)->bool { false }
-    /// The pointer moved to a frame pixel with a button this game took (`pointer`) still
-    /// held: true when the game used it.
     fn pointer_move(&mut self, _frame_x:u32, _frame_y:u32)->bool { false }
-    /// The button a game took was let go on a frame pixel.
     fn pointer_up(&mut self, _frame_x:u32, _frame_y:u32, _button:u8)->bool { false }
-    /// Picks beside the text line (`controls.text`), for a page to show
-    /// while the line is open (the Delve's "Upgrade what you hold"): a
-    /// heading line, then one pick a line as `key\tlabel\ttag\ttip\twords`,
-    /// and any line with no tab a note under them. A pick with no words is
-    /// shown and not taken. One tapped, or its key pressed on an empty line,
-    /// sends its words as the line sends what is typed. Empty for none.
     fn picks(&self) -> String {
         String::new()
     }
-    /// The last frame drawn as a stage, encoded into `out` for a page that
-    /// draws stages itself (`angel-stage`'s wire format, at `now_ms` for
-    /// what flickers and drifts): false for a game that draws only finished
-    /// frames, or before it has a stage. Asking turns the game's stage on:
-    /// its next frames may come only as stages.
     fn stage(&mut self, _now_ms: f64, _out: &mut Vec<u8>) -> bool {
         false
     }
-    /// The page lost what it was sent (a lost GPU context): the next stage
-    /// sends every picture again.
     fn stage_reset(&mut self) {}
-    /// A one-off action the player made (a wish typed in the shell's text line, a vote) that the
-    /// game keeps for itself: true when it was taken here, and then it is not sent. The default
-    /// keeps nothing. The Delve's Creator takes its Wish line this way, so no wish is spent.
     fn keep_action(&mut self, _kind: u32, _body: &[u8]) -> bool {
         false
     }
-    /// One-off actions the game itself has to send its host (the Creator's piece, brought to
-    /// life), drained as commands are sampled: `(kind, body)`. A body too big for one client
-    /// message goes in pieces (`pieces`), one a command, so a seat stays inside its message
-    /// budget. The default sends none.
     fn take_actions(&mut self) -> Vec<(u32, Vec<u8>)> {
         Vec::new()
     }
-    /// Whether the page draws a stage's 3D props (`angel-stage`'s `STG3`
-    /// frames), said before each stage: where it does not, the game draws
-    /// with what a stage had before them (flat sprites). The default is a
-    /// game with no props to draw.
     fn stage_props(&mut self, _on: bool) {}
-    /// The next picture the stage would draw that the page is to fetch
-    /// itself, by name (the Delve's paintings: `/paint/<name>.png` on the
-    /// host): the page decodes it and hands its pixels back
-    /// (`put_painting`), or says it could not (`painting_failed`). `None`
-    /// when nothing is wanted.
     fn painting_wanted(&mut self) -> Option<String> {
         None
     }
-    /// The pixels of a picture `painting_wanted` named, `width` by `height`
-    /// straight RGBA: false when they are not taken.
     fn put_painting(&mut self, _name: &str, _width: u32, _height: u32, _rgba: &[u8]) -> bool {
         false
     }
-    /// The page could not fetch or decode it: the stage draws without it.
     fn painting_failed(&mut self, _name: &str) {}
-    /// The host's HD art manifest (the Delve's `pack.json`, fetched by a
-    /// page that asked for HD art), and the page's whole-number scale of
-    /// the game's pixels: the game names the drawings it wants among its
-    /// paintings (`painting_wanted`) and takes their pixels the same way.
-    /// `rung`: a resolution the page asks every figure be shown at (its
-    /// `?ladder=`, to look at a rung), 0 for the game's own rule. False
-    /// when it is not taken.
     fn hd_manifest(&mut self, _json: &str, _scale: u32, _rung: u32) -> bool {
         false
     }
@@ -190,14 +105,11 @@ pub trait GameClient: Sized {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Status {
-    /// Waiting for the welcome.
     Joining,
     Playing,
-    /// Turned away; the shell shows why and does not retry.
     Rejected(Reject, String),
 }
 
-/// Commands kept unacknowledged at most (a dead link stops piling up).
 const MAX_PENDING: usize = 64;
 const PING_MS: f64 = 1000.0;
 
@@ -215,24 +127,16 @@ pub struct Runtime<G: GameClient> {
     newest_tick: u32,
     last_cmd_ms: f64,
     last_ping_ms: f64,
-    /// The game went off screen (`idle`): the next `tick` starts the
-    /// commands afresh rather than catching up.
     idling: bool,
     rtt_ms: Option<f64>,
     outgoing: Vec<Vec<u8>>,
-    /// Actions the game asked to send, in pieces, one going out with each command.
     queued: std::collections::VecDeque<(u32, Vec<u8>)>,
     lines: Vec<String>,
     frame: Frame,
-    /// The client knobs the engine keeps: everyone else drawn this far
-    /// behind, and a correction eased over this long.
     interp_ms: f64,
     correct_ms: f64,
-    /// The server's knob table as it last said it (JSON), and how many
-    /// times it has said one.
     server_knobs: String,
     knobs_said: u32,
-    /// The server's numbers for this seat, as it last said them (JSON).
     server_stats: String,
 }
 
@@ -272,14 +176,11 @@ impl<G: GameClient> Runtime<G> {
         }
     }
 
-    /// A connection opened: queue the hello. `resume` is the seat token
-    /// from an earlier welcome, or empty. Commands start from 1 again.
     pub fn connected(&mut self, join: &str, resume: &str, name: &str, caps: u32) {
         self.status = Status::Joining;
         self.seq = 0;
         self.pending.clear();
         self.ack = 0;
-        // A new connection may be to a restarted host whose ticks start over.
         self.newest_tick = 0;
         self.clock.reset();
         self.outgoing.clear();
@@ -287,7 +188,6 @@ impl<G: GameClient> Runtime<G> {
         self.outgoing.push(hello.to_vec());
     }
 
-    /// One message from the server.
     pub fn recv(&mut self, bytes: &[u8], now_ms: f64) -> Result<(), Malformed> {
         match ToClient::decode(bytes)? {
             ToClient::Welcome(welcome) => {
@@ -320,10 +220,6 @@ impl<G: GameClient> Runtime<G> {
             }
             ToClient::Events { tick, events } => {
                 if let Some(game) = self.game.as_mut() {
-                    // Retained events precede the newest snapshot after a link
-                    // stall. Extrapolate the server clock at arrival, not the
-                    // last snapshot tick, before emitting transient effects.
-                    // Keep the wire and shell protocols, and all durable text.
                     let late = self.idling
                         || self.clock.tick_at(now_ms - 250.0).is_some_and(|cutoff| f64::from(tick) < cutoff);
                     if late {
@@ -336,9 +232,6 @@ impl<G: GameClient> Runtime<G> {
                 }
             }
             ToClient::Pong { t, .. } => {
-                // A pong that queued behind a big message (the whole tick at
-                // a join) or a busy frame says nothing of the link: a lower
-                // round trip is taken at once, a higher one eased in.
                 let rtt = (now_ms - t).max(0.0);
                 self.rtt_ms = Some(self.rtt_ms.map_or(rtt, |was| if rtt < was { rtt } else { was + (rtt - was) * 0.2 }));
             }
@@ -352,14 +245,10 @@ impl<G: GameClient> Runtime<G> {
         Ok(())
     }
 
-    /// The input sampler: feed it key, pad and touch events as they come.
     pub fn hands(&mut self) -> &mut Sampler {
         &mut self.sampler
     }
 
-    /// Send the commands due at `now_ms` (and a ping, when one is due) with
-    /// nothing drawn: a client whose game is not on screen keeps its seat's
-    /// commands going at the command rate. True while playing.
     pub fn tick(&mut self, now_ms: f64) -> bool {
         if self.game.is_none() || self.status != Status::Playing {
             return false;
@@ -375,18 +264,11 @@ impl<G: GameClient> Runtime<G> {
         true
     }
 
-    /// The game is off screen (a hidden tab): no commands, only the pings
-    /// that keep the link. The server counts a seat sending none as away
-    /// (`angel_serve::Presence`), so a game can keep its character out of
-    /// harm's way until the player looks again; the next `tick` starts the
-    /// commands afresh. True while playing.
     pub fn idle(&mut self, now_ms: f64) -> bool {
         if self.game.is_none() || self.status != Status::Playing {
             return false;
         }
         self.idling = true;
-        // Hidden pages do not drain shell lines until their next frame. Do not
-        // let effects received just before hiding replay when they return.
         self.lines.retain(|line| !line.starts_with("sfx "));
         self.ping(now_ms);
         true
@@ -399,15 +281,11 @@ impl<G: GameClient> Runtime<G> {
         }
     }
 
-    /// One display frame at `now_ms`: send the commands due, then draw.
     pub fn frame(&mut self, now_ms: f64) -> &Frame {
         self.tick(now_ms);
         self.draw(now_ms)
     }
 
-    /// Draw one display frame at `now_ms`, with no command sent: for a
-    /// driver that samples its commands on one thread (`tick`) and draws
-    /// on another.
     pub fn draw(&mut self, now_ms: f64) -> &Frame {
         if self.status != Status::Playing {
             return &self.frame;
@@ -433,17 +311,10 @@ impl<G: GameClient> Runtime<G> {
         &self.frame
     }
 
-    /// The frame `frame` drew last, as it was: for a driver that sends what
-    /// the frame queued before handing the picture on.
     pub fn last_frame(&self) -> &Frame {
         &self.frame
     }
 
-    /// Sample the hands and send a command now, ahead of the command tick,
-    /// and count the next tick from here. For letting go at once (a hidden
-    /// tab, a window that lost focus): otherwise the server repeats the
-    /// keys last held until the next tick's command comes, and a page
-    /// hidden for a while sends none for a second.
     pub fn command_now(&mut self, now_ms: f64) {
         if self.status != Status::Playing || self.game.is_none() {
             return;
@@ -452,7 +323,6 @@ impl<G: GameClient> Runtime<G> {
         self.send_commands(1, now_ms);
     }
 
-    /// Sample `due` commands and queue them in one `Cmds`.
     fn send_commands(&mut self, due: u32, now_ms: f64) {
         let Some(game) = self.game.as_mut() else {
             return;
@@ -473,7 +343,6 @@ impl<G: GameClient> Runtime<G> {
         for (kind, body) in game.take_actions() {
             self.queued.extend(pieces(kind, &body));
         }
-        // Only the newest `MAX_CMDS` of a pile-up go out.
         let skip = bodies.len().saturating_sub(crate::proto::MAX_CMDS);
         let cmds = bodies[skip..].iter().map(|(seq, body)| (*seq, body.as_slice())).collect();
         let msg = ToServer::Cmds { applied: self.newest_tick, cmds };
@@ -484,12 +353,10 @@ impl<G: GameClient> Runtime<G> {
         self.last_cmd_ms = now_ms;
     }
 
-    /// Leaving on purpose: the seat is freed.
     pub fn bye(&mut self) {
         self.outgoing.push(ToServer::Bye.to_vec());
     }
 
-    /// A one-off choice (a vote, a wish, a chat line).
     pub fn action(&mut self, kind: u32, body: &[u8]) {
         if self.game.as_mut().is_some_and(|g| g.keep_action(kind, body)) {
             return;
@@ -497,12 +364,10 @@ impl<G: GameClient> Runtime<G> {
         self.outgoing.push(ToServer::Action { kind, body }.to_vec());
     }
 
-    /// Messages to send, oldest first.
     pub fn take_outgoing(&mut self) -> Vec<Vec<u8>> {
         std::mem::take(&mut self.outgoing)
     }
 
-    /// Lines for the shell (sounds, notices), oldest first.
     pub fn take_lines(&mut self) -> Vec<String> {
         std::mem::take(&mut self.lines)
     }
@@ -515,7 +380,6 @@ impl<G: GameClient> Runtime<G> {
         self.seat
     }
 
-    /// Keep this to take the seat back after a dropped connection.
     pub fn seat_token(&self) -> &str {
         &self.seat_token
     }
@@ -536,17 +400,14 @@ impl<G: GameClient> Runtime<G> {
         self.game.as_ref().map_or("{}", |g| g.controls())
     }
 
-    /// The game's sheet (`GameClient::sheet`).
     pub fn sheet(&self) -> String {
         self.game.as_ref().map_or_else(String::new, G::sheet)
     }
 
-    /// The game's choices to tap (`GameClient::choices`).
     pub fn choices(&self) -> String {
         self.game.as_ref().map_or_else(String::new, G::choices)
     }
 
-    /// A choice tapped (`GameClient::choose`).
     pub fn choose(&mut self, n: u32) {
         if let Some(game) = self.game.as_mut() {
             game.choose(n);
@@ -565,17 +426,14 @@ impl<G: GameClient> Runtime<G> {
         self.game.as_mut().is_some_and(|game|game.pointer_up(frame_x,frame_y,button))
     }
 
-    /// The picks beside the text line (`GameClient::picks`).
     pub fn picks(&self) -> String {
         self.game.as_ref().map_or_else(String::new, G::picks)
     }
 
-    /// Where the last frame drew the own character (`GameClient::own_at`).
     pub fn own_at(&self) -> Option<(f32, f32)> {
         self.game.as_ref().and_then(G::own_at)
     }
 
-    /// This client's own knobs: the engine's, then the game's.
     pub fn knobs(&self) -> Vec<Knob> {
         let mut knobs = vec![
             Knob::new("interp_ms", "net", "Others drawn behind (ms)", "INTERP_MS (angel-net clock.rs)", Side::Client)
@@ -593,8 +451,6 @@ impl<G: GameClient> Runtime<G> {
         knobs
     }
 
-    /// Set one of this client's own knobs: the value it took, or `None`
-    /// for a name it has not (or a number that is not one).
     pub fn set_knob(&mut self, name: &str, value: f64) -> Option<f64> {
         let mine = self.knobs().into_iter().find(|k| k.name == name)?;
         let value = mine.fit(value)?;
@@ -606,36 +462,28 @@ impl<G: GameClient> Runtime<G> {
         Some(value)
     }
 
-    /// Ask the server to set one of its knobs. It answers with its table,
-    /// set or not (only the host may, outside dev mode).
     pub fn tune(&mut self, name: &str, value: f64) {
         if knob::valid_name(name) && value.is_finite() {
             self.action(knob::action::TUNE, &knob::tune_body(name, value));
         }
     }
 
-    /// Ask the server for its numbers once a second (`server_stats`), or stop.
     pub fn watch_stats(&mut self, on: bool) {
         self.action(knob::action::STATS, &[u8::from(on)]);
     }
 
-    /// The server's knob table as JSON (`knob::table_json`), empty before it
-    /// said one.
     pub fn server_knobs(&self) -> &str {
         &self.server_knobs
     }
 
-    /// How many tables the server has said: a panel redraws when it moves.
     pub fn knobs_said(&self) -> u32 {
         self.knobs_said
     }
 
-    /// The server's numbers for this seat as JSON, empty until asked.
     pub fn server_stats(&self) -> &str {
         &self.server_stats
     }
 
-    /// The game's numbers for a developer's panel (`GameClient::dev_stats`).
     pub fn dev_stats(&self, out: &mut Vec<(&'static str, f64)>) {
         if let Some(game) = &self.game {
             game.dev_stats(out);
@@ -643,13 +491,9 @@ impl<G: GameClient> Runtime<G> {
     }
 }
 
-/// An action kind that carries a piece of a larger one: its kind, how many pieces, which this is,
-/// then its bytes. The server puts them back together (`angel_realm_host::together_gear::Uploads`).
 pub const PIECE: u32 = 100;
-/// The bytes a piece carries: the action's framing and the piece's header still fit in a client message.
 pub const PIECE_BYTES: usize = 900;
 
-/// The messages that carry one action: itself when it fits in one, else its pieces, in order.
 pub fn pieces(kind: u32, body: &[u8]) -> Vec<(u32, Vec<u8>)> {
     use crate::codec::put_varint;
     if body.len() <= PIECE_BYTES {
@@ -676,7 +520,6 @@ mod tests {
     use crate::codec::{Bytes, put_varint};
     use crate::input::button;
 
-    /// A one-knight game: the snapshot is the knight's x; a command walks it.
     #[derive(Clone, Debug, PartialEq)]
     struct Walk(i32);
 
@@ -723,7 +566,6 @@ mod tests {
         }
         fn draw(&mut self, view: &View<Walk>, frame: &mut Frame) {
             frame.resize(4, 4);
-            // Your own knight: the server's word, then your keys it has not taken.
             self.drawn = Some(self.x + view.pending.iter().map(|(_, c)| c.0).sum::<i32>());
             self.hands = view.hands;
         }
@@ -770,7 +612,6 @@ mod tests {
             Ok(ToServer::Action { kind: 5, body }) => assert_eq!(body, b"yours"),
             other => panic!("{other:?}"),
         }
-        // Before a game is booted there is nobody to keep anything: it is sent as ever.
         let mut idle = Runtime::<Line>::new();
         idle.action(77, b"x");
         assert_eq!(idle.take_outgoing().len(), 1);
@@ -804,10 +645,8 @@ mod tests {
         assert_eq!(cmds, vec![1, 2, 3]);
         assert_eq!(rt.game().unwrap().drawn, Some(13));
 
-        // The server took two of them and walked the knight to 12.
         rt.recv(&snapshot(2, 2, 12), 3.0 * step).unwrap();
         rt.frame(3.0 * step + 1.0);
-        // 12, plus command 3 and the new command 4 still pending.
         assert_eq!(rt.game().unwrap().drawn, Some(14));
     }
 
@@ -817,7 +656,6 @@ mod tests {
         rt.connected("join", "", "Gwen", 0);
         rt.recv(&welcome(), 0.0).unwrap();
         rt.frame(1.0);
-        // A key between two command ticks: no command yet, but the draw sees it.
         rt.hands().down(button::LEFT);
         rt.frame(10.0);
         assert_eq!(rt.game().unwrap().hands.x, -127);
@@ -832,13 +670,11 @@ mod tests {
         rt.hands().down(button::RIGHT);
         rt.frame(1.0);
         rt.take_outgoing();
-        // Mid-tick, the page is hidden: everything let go, and said now.
         rt.hands().release_all();
         rt.command_now(10.0);
         let sent = rt.take_outgoing();
         assert!(matches!(ToServer::decode(&sent[0]), Ok(ToServer::Cmds { ref cmds, .. }) if cmds.len() == 1 && cmds[0].0 == 2));
         assert_eq!(rt.game().unwrap().drawn, Some(1), "the walk right, then nothing");
-        // The next command tick is a whole step after the one sent now.
         rt.frame(40.0);
         assert!(rt.take_outgoing().iter().all(|m| !matches!(ToServer::decode(m), Ok(ToServer::Cmds { .. }))));
         rt.frame(44.0);
@@ -851,7 +687,6 @@ mod tests {
         rt.connected("join", "", "Gwen", 0);
         rt.recv(&welcome(), 0.0).unwrap();
         let pong = |t: f64| ToClient::Pong { t, server_ms: 0.0 }.to_vec();
-        // The first pong waited behind the whole tick sent at the join.
         rt.recv(&pong(0.0), 300.0).unwrap();
         assert_eq!(rt.rtt_ms(), Some(300.0));
         rt.recv(&pong(1000.0), 1050.0).unwrap();
@@ -875,14 +710,12 @@ mod tests {
                 })
                 .sum::<usize>()
         };
-        // Hidden for three seconds: a ping a second, not one command.
         for second in 1..=3 {
             assert!(rt.idle(f64::from(second) * 1000.0 + 2.0));
         }
         let out = rt.take_outgoing();
         assert_eq!(cmds(&out), 0);
         assert!(out.iter().any(|m| matches!(ToServer::decode(m), Ok(ToServer::Ping { .. }))));
-        // Back: no pile of commands for the time away, one a tick from now.
         rt.frame(3100.0);
         assert_eq!(cmds(&rt.take_outgoing()), 0);
         rt.frame(3100.0 + 1000.0 / 30.0 + 1.0);
@@ -903,7 +736,6 @@ mod tests {
         assert_eq!(rt.set_knob("interp_ms", f64::NAN), None);
         let k = rt.knobs().into_iter().find(|k| k.name == "interp_ms").unwrap();
         assert_eq!((k.value, k.default), (50.0, crate::clock::INTERP_MS));
-        // Everyone else is drawn the knob's distance behind.
         for tick in 1..=4 {
             rt.recv(&snapshot(tick, 0, 0), f64::from(tick) * 1000.0 / 30.0).unwrap();
         }
@@ -911,8 +743,6 @@ mod tests {
         let at = rt.clock.render_tick_behind(now, 50.0).unwrap();
         assert!((rt.clock.tick_at(now).unwrap() - at - 1.5).abs() < 1e-9, "50 ms is a tick and a half");
 
-        // A server knob: asked for with an engine action, and the table the
-        // server says is kept as it said it.
         rt.tune("hero_speed", 15.5);
         let sent = rt.take_outgoing();
         let Ok(ToServer::Action { kind, body }) = ToServer::decode(&sent[0]) else { panic!("an action") };
@@ -942,8 +772,6 @@ mod tests {
         rt.recv(&welcome(), 0.0).unwrap();
         rt.recv(&snapshot(30, 0, 10), 1000.0).unwrap();
         rt.lines.push("notice already queued".to_string());
-        // The writer sends retained events BEFORE the replacement snapshot.
-        // Comparing with newest_tick (still 30) would call all of these fresh.
         let old = ToClient::Events { tick: 40, events: vec![b"old"] }.to_vec();
         rt.recv(&old, 2000.0).unwrap();
         let fresh = ToClient::Events { tick: 60, events: vec![b"fresh"] }.to_vec();

@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-"""Writes ../layout_consts.bend: the rects and rows other modules own that
-layout.rs lays into the home floor and the side-on halls (copied from the Rust)."""
 import re, pathlib
 HERE = pathlib.Path(__file__).resolve().parent
 R = HERE.parents[3] / "crates/delve/src/rules"

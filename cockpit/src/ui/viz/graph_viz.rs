@@ -70,8 +70,6 @@ fn phase_state(phase: GraphNodePhase) -> NodeState {
     }
 }
 
-/// Depth = longest dependency chain above the node; layer rows read top-down,
-/// parallel nodes share a row.
 fn layers(snapshot: &GraphSnapshot) -> Vec<Vec<usize>> {
     let index: std::collections::HashMap<&str, usize> = snapshot
         .nodes
@@ -89,7 +87,6 @@ fn layers(snapshot: &GraphSnapshot) -> Vec<Vec<usize>> {
         if let Some(d) = memo[i] {
             return d;
         }
-        // `guard` bounds recursion against malformed (cyclic) snapshots.
         let d = if guard == 0 {
             0
         } else {
@@ -209,7 +206,6 @@ fn run_lines(
         }
     }
 
-    // Event tail fills the remaining height.
     let remaining = height.saturating_sub(lines.len() + 1);
     if remaining >= 2 && !snapshot.events.is_empty() {
         lines.push(dim_line("─ timeline ─", width));

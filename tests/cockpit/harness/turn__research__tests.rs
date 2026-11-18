@@ -79,8 +79,6 @@ fn research_origin_envelope_schema_and_contract() {
         "Research question: use sources.\nCorpus origin: http://127.0.0.1:12345",
     )];
     assert_eq!(origin(&declared).as_deref(), Some("http://127.0.0.1:12345"));
-    // A declared origin rides after each tool's route as data, behind the
-    // page of its own section whose `{origin}` it fills.
     let mut declared_defs = vec![
         crate::agent::tools::web::WebSearchTool.def(),
         crate::agent::tools::web::WebFetchTool.def(),

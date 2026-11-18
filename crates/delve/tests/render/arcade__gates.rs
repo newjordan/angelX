@@ -198,8 +198,6 @@ fn arcade_rejected_pilot_fails_the_new_drawing_floors() {
         .unwrap()
         .to_rgba8();
     let mut spec = old["states"]["idle"]["frames"][0].clone();
-    // The old box combined chest, rear sleeve and skirt, hiding the flat lit
-    // chest. This is the actual chest plane, unmodified rejected pixels.
     spec["material_regions"][1]["box"] = json!([26, 26, 39, 35]);
     let failures = knight_image_floor(&im, &spec);
     for rule in [
@@ -253,7 +251,6 @@ fn arcade_new_floors_have_independent_negative_controls() {
         )
     };
     let mut im = base.clone();
-    // Broad interior plate remains in palette but is wrongly filled with ink.
     for y in 15..19 {
         for x in 26..30 {
             im.put_pixel(x, y, Rgba([34, 48, 58, 255]));
@@ -264,7 +261,6 @@ fn arcade_new_floors_have_independent_negative_controls() {
     im.put_pixel(30, 16, Rgba([25, 41, 52, 255]));
     expect(&im, spec, "interior-dark:");
     let mut im = base.clone();
-    // A three-sided transparent cut inside the torso is an untagged notch.
     for &(x, y) in &[(29, 29), (30, 29), (31, 29), (29, 30), (31, 30)] {
         im.put_pixel(x, y, Rgba([34, 48, 58, 255]));
     }
@@ -306,8 +302,6 @@ fn arcade_new_floors_have_independent_negative_controls() {
         .push(json!([19, 12]));
     check(&m, "helmet: bounding-box");
     let mut m = manifest.clone();
-    // Bob/box sameness is scoped to non-acting drawings. Clear the deliberate
-    // lean exemption to exercise the unchanged two-pixel bob floor.
     for f in m["states"]["run"]["frames"].as_array_mut().unwrap() {
         f["acting"] = json!([]);
     }

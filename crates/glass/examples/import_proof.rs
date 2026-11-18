@@ -28,13 +28,9 @@ use angel_gpu::{Core, Draw, Frame, Instance, Picture, Stage};
 const STAGE: u32 = 0x00FA_57A4;
 const APART: f32 = 30.0;
 
-/// The rig's clip lengths in ticks, as `knight-great-helm.json` has them (checked by the pack's converter against the file).
 const SLASH: [u32; 6] = [5, 6, 5, 12, 11, 6];
 const DIE: [u32; 8] = [6, 9, 6, 6, 6, 6, 6, 30];
-/// The ages (ticks since the fall) the dying knight is shot at: the start of each rig frame of the die clip, then the bones coming
-/// (the clip's 75 ticks over) and settled.
 const FALLEN_AGES: [u32; 16] = [0, 6, 15, 21, 27, 33, 39, 45, 75, 78, 81, 85, 90, 100, 115, 125];
-/// The ages at which each of the rig's cast frames 0..4 begins (frames of 2, 2, 3, 2 and 6 ticks): the game shows the clip for 15 ticks only.
 const CAST_AGES: [u32; 5] = [0, 2, 4, 7, 9];
 const WALK_TICKS: u32 = 48;
 const RUN_TICKS: u32 = 24;
@@ -55,13 +51,9 @@ enum State {
     Walk(u32),
     Run(u32),
     Slash(u32),
-    /// Loosing the bow: `fire_cooldown` ticks left (the default knight's every shot).
     Bow(u32),
-    /// A cast `age` ticks ago (the game shows it for its first 15 ticks: the rig's cast frames 0 to 4).
     Cast(u32),
-    /// The game's flinch: `struck` countdown.
     Hurt(u32),
-    /// Fell `age` ticks ago.
     Fallen(u32),
 }
 
@@ -80,7 +72,6 @@ impl State {
     }
 }
 
-/// A room with four seats in a row: the Crypt's first fight room (no foes), or Cinderjaw's.
 fn room(boss: bool, aim: (f32, f32)) -> Option<Run> {
     let mut run = if boss {
         testing::boss("cinderjaw")
@@ -104,7 +95,6 @@ fn room(boss: bool, aim: (f32, f32)) -> Option<Run> {
     }
     let room = run.room().clone();
     let (w, h) = (room.cols as f32 * 16.0, room.rows as f32 * 16.0);
-    // The crypt: the row at the middle. Cinderjaw's room: the row on the left of the boss.
     let first = if boss { (w / 2.0 - 150.0, h / 2.0 + 40.0) } else { (w / 2.0 - APART * 1.5, h / 2.0 + 8.0) };
     for (k, hero) in run.players.values_mut().enumerate() {
         (hero.x, hero.y) = ((first.0 + k as f32 * APART) / UNIT, first.1 / UNIT);
@@ -116,13 +106,10 @@ fn room(boss: bool, aim: (f32, f32)) -> Option<Run> {
     Some(run)
 }
 
-/// The tick inside a clip at which rig frame `k` is on, given the frame lengths.
 fn start_of(ticks: &[u32], k: usize) -> u32 {
     ticks[..k].iter().sum()
 }
 
-/// A countdown `n` ticks from the end of `total` that lands on rig frame `k` of a one-shot of `ticks`,
-/// scaled into `duration` game ticks as `Rig::action` does: elapsed * clip / duration.
 fn countdown_for(ticks: &[u32], duration: u32, k: usize) -> u32 {
     let clip: u32 = ticks.iter().sum();
     for elapsed in 0..duration {
@@ -138,12 +125,10 @@ fn countdown_for(ticks: &[u32], duration: u32, k: usize) -> u32 {
             acc += t;
         }
     }
-    // no integer step lands on it: the nearest after
     1
 }
 
 fn apply(run: &mut Run, state: State) {
-    // Seat 1 is the pack's knight; seats 2..4 do the same on the walk and the stroke, so the gaits can be compared, and stand otherwise.
     let everyone = matches!(state, State::Walk(_) | State::Run(_) | State::Slash(_) | State::Idle(_) | State::Bow(_));
     for (&id, hero) in run.players.iter_mut() {
         let mine = id == 1;
@@ -165,7 +150,6 @@ fn apply(run: &mut Run, state: State) {
             State::Cast(_) => {}
             State::Hurt(s) => {
                 hero.struck = s;
-                // Thrown back from a blow that came from the front.
                 hero.struck_dir = (-hero.aim_x.round() as i8, -hero.aim_y.round() as i8);
             }
             State::Fallen(age) => {
@@ -180,7 +164,6 @@ fn apply(run: &mut Run, state: State) {
         run.tick = 1000;
     }
     if let State::Cast(age) = state {
-        // The knight just called: `minions::casting` holds for CAST_SHOWN ticks and the figure samples the rig's cast clip at its age.
         run.tick = 1000;
         run.minions.casts.insert(1, angel_delve::rules::minions::Cast { tick: 1000 - u64::from(age), rite: angel_delve::rules::minions::Rite::Raise, x: 0.0, y: 0.0, torn: Vec::new() });
     }
@@ -205,7 +188,6 @@ fn run() -> Result<(), String> {
     let (dir, out) = (pack.ok_or(usage)?, out.ok_or(usage)?);
     let rung = Rung::of(rung).ok_or("--rung takes 16, 32, 64 or 128")?;
     let opened = hd_pack::Pack::open(&dir).ok_or_else(|| format!("{}: no HD art pack", dir.display()))?;
-    // The loader's own verdict: anything it left out is an error here.
     if !opened.warnings().is_empty() {
         for w in opened.warnings().iter().take(10) {
             eprintln!("hd pack: left out {w}");
@@ -259,10 +241,8 @@ fn run() -> Result<(), String> {
                 let mut run = room(boss, aim).ok_or("no fight room on the Crypt's first floor")?;
                 apply(&mut run, state);
                 let scene = arena::in_seat(|| arena::scene_for(&run, NATIVE_W, NATIVE_H, Some(1)));
-                // What the game asked for, for seat 1.
                 let seat1 = scene.figures.iter().flat_map(|f| &f.bodies).find_map(|b| b.named.as_ref().filter(|n| n.key.contains("/seat1/")).map(|n| (n.key.to_string(), n.dress.to_string())));
                 let (key, dress) = seat1.clone().unwrap_or_default();
-                // The game must have asked for the frame the state says (the walk, the stroke, the idle, the hurt, the fall).
                 let want: Option<String> = match state {
                     State::Idle(k) => Some(format!("idle/{k}")),
                     State::Walk(k) => Some(format!("walk/{k}")),
@@ -271,7 +251,6 @@ fn run() -> Result<(), String> {
                     State::Bow(_) => Some("bow".to_string()),
                     State::Cast(age) => Some(format!("cast/{}", CAST_AGES.iter().rposition(|&a| a <= age).unwrap_or(0))),
                     State::Hurt(_) => Some("hurt".to_string()),
-                    // The clip's frame at that age; once it is over the game draws bones, which have no name.
                     State::Fallen(age) => (age < DIE.iter().sum::<u32>()).then(|| {
                         let (mut acc, mut frame) = (0, 0);
                         for (i, t) in DIE.iter().enumerate() {
@@ -307,10 +286,7 @@ fn run() -> Result<(), String> {
                 let sent: Vec<String> = drawn.iter().map(|p| format!("{}x{}", p.width, p.height)).collect();
                 frame.pictures.extend(drawn);
                 let pixels = gpu.stage(frame, size);
-                // A crop fixed per room and facing, in the room's pixels: the four knights, head room over them. The camera follows the party
-                // (the living ones once seat 1 has fallen), so the box is cut from where the room is on the screen in this frame.
                 let (cx, cy) = scene.camera;
-                // Cinderjaw's room is shown whole (the boss beside the four); the Crypt's as a crop.
                 let room_box = *crop.get_or_insert_with(|| {
                     if boss {
                         return [cx, cy, cx + NATIVE_W as f32, cy + NATIVE_H as f32];
@@ -345,11 +321,9 @@ fn run() -> Result<(), String> {
                 write_png(&folder.join(format!("{index:02}.png")), (cw, ch), &cropped)?;
                 let (hit, drawing) = by_name.clone().unwrap_or((false, String::new()));
                 let _ = writeln!(log, "{room_name}\t{}\t{facing}\t{frame_no}\t{key}\t{dress}\t{hit}\t{drawing}\t{}", state.name(), sent.join(" "));
-                // The whole room, once a facing: the idle frame.
                 if matches!(state, State::Idle(0)) {
                     write_png(&out.join("rooms").join(format!("{room_name}-{facing}.png")), size, &pixels)?;
                 }
-                // The A6 must be drawn by name wherever the pack has the frame.
                 if let (Some(_), false) = (&want, hit) {
                     failures.push(format!("{room_name} {:?} {facing}: `{key}` was asked for and the pack did not draw it", state));
                 }

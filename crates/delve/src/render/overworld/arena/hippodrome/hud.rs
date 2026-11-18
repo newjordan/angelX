@@ -8,7 +8,6 @@ use super::{art, world};
 use crate::rules::chariot::{LAPS, Phase, show::Kind};
 use crate::rules::HZ;
 
-/// A dark plate with a lit rim and a pixel off each corner.
 fn plate(im: &mut Img, (x, y, w, h): Rect) {
     for yy in y..y + h {
         for xx in x..x + w {
@@ -28,7 +27,6 @@ fn plate(im: &mut Img, (x, y, w, h): Rect) {
     }
 }
 
-/// A rank arrow: a little triangle, up in green or down in red.
 fn arrow(over: &mut Img, x: i32, y: i32, up: bool) {
     let rows = ["...#...", "..###..", ".#####.", "#######"];
     for (j, row) in rows.iter().enumerate() {
@@ -41,15 +39,12 @@ fn arrow(over: &mut Img, x: i32, y: i32, up: bool) {
     }
 }
 
-/// A caltrop's four points.
 fn spike(im: &mut Img, x: i32, y: i32, ink: char) {
     for (dx, dy) in [(0, -2), (-2, 0), (2, 0), (0, 2), (0, 0), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
         im.put(x + dx, y + dy, ink);
     }
 }
 
-/// The field in a row along the top: the course's three laps run left to right, a dot for every
-/// team in its ink, the viewer's ringed, the leader crowned, the flag at the end.
 fn ladder(over: &mut Img, v: &View) {
     let (x, y, w, h) = (116, 2, 152, 14);
     plate(over, (x, y, w, h));
@@ -61,14 +56,12 @@ fn ladder(over: &mut Img, v: &View) {
         let tx = x0 + (x1 - x0) * lap / LAPS as i32;
         over.rect(tx, row - 3, 1, 7, 'G');
     }
-    // The flag: four squares.
     for (dx, dy) in [(0, 0), (1, 1), (1, 0), (0, 1)] {
         over.rect(x1 + 4 + dx * 3, row - 4 + dy * 3, 3, 3, if (dx + dy) % 2 == 0 { 'i' } else { 'k' });
     }
     let total = v.course().lap * LAPS as f32;
     let order = v.race.order();
     let lead = order.first().copied().unwrap_or(0);
-    // The back of the field first, so the viewer's dot and the leader's lie on top.
     for &i in order.iter().rev() {
         let r = &v.race.racers[i];
         let k = (r.dist / total).clamp(0.0, 1.0);
@@ -92,7 +85,6 @@ fn ladder(over: &mut Img, v: &View) {
     }
 }
 
-/// The team's wind and iron at the right: ten blocks of breath, and the spikes left in the bag.
 fn team_plate(over: &mut Img, v: &View) {
     let (x, y, w, h) = (SCREEN.0 - 70, 2, 66, 22);
     plate(over, (x, y, w, h));
@@ -101,7 +93,6 @@ fn team_plate(over: &mut Img, v: &View) {
     let n = 10;
     let filled = ((r.wind * n as f32).round() as i32).clamp(0, n);
     let flick = blown && (v.race.clock / 4) % 2 == 0;
-    // A little whip beside the bar.
     over.line(x + 5, y + 8, x + 8, y + 3, 'o');
     over.line(x + 8, y + 3, x + 6, y + 2, 'O');
     over.rect(x + 3, y + 8, 3, 3, 'B');
@@ -114,7 +105,6 @@ fn team_plate(over: &mut Img, v: &View) {
     }
 }
 
-/// The course in its corner, the teams dotted on it.
 fn minimap(over: &mut Img, v: &View) {
     let world = world::world(v.race.track);
     let (bw, bh) = (world.mini.w, world.mini.h);
@@ -133,7 +123,6 @@ fn minimap(over: &mut Img, v: &View) {
             dot(over, i, 2, v.ink(i));
         }
     }
-    // The viewer blinks a little, so they are found.
     let blink = (v.race.clock / 6) % 2 == 0;
     dot(over, v.me, 5, 'k');
     dot(over, v.me, 3, '9');
@@ -142,7 +131,6 @@ fn minimap(over: &mut Img, v: &View) {
     }
 }
 
-/// The keys along the foot, one plain word each.
 fn keys(over: &mut Img) {
     for pr in moments::prompts() {
         for &((x, y, w, h), key) in &pr.caps {
@@ -154,7 +142,6 @@ fn keys(over: &mut Img) {
     }
 }
 
-/// The red rim of a wreck of your own, and the pale of the first home.
 fn rims(over: &mut Img, v: &View) {
     let (w, h) = (over.w, over.h);
     let now = v.now;
@@ -166,14 +153,12 @@ fn rims(over: &mut Img, v: &View) {
     }
 }
 
-/// The whole display over the race: the plates and what the plan holds.
 pub(super) fn draw(over: &mut Img, v: &View, plan: &Plan) {
     let race = v.race;
     rims(over, v);
     if race.phase != Phase::Gate {
         ladder(over, v);
         team_plate(over, v);
-        // The lap's pips under the word, the place big, and the arrow of a place won or lost.
         let lap = (race.racers[v.me].lap(v.course()) + 1).min(LAPS);
         for k in 0..LAPS {
             let (px, py) = (9 + k as i32 * 8, 16);

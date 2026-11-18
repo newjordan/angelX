@@ -6,15 +6,10 @@ use super::*;
 pub struct Look {
     pub words: String,
     pub worn: looks::Sprite,
-    /// The whole knight is drawn from `words` (a body-maker's HD drawings,
-    /// `realm-host`'s `together_looker`, drawn by a window's pack): the
-    /// worn ink stays saved but is left off the knight while this holds. It
-    /// is set only for the words the look has, and a new wish clears it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub body: bool,
 }
 
-/// A stable, filename-safe card key, independent of seat and run.
 pub fn key(name: &str) -> String {
     let hash = name.bytes().fold(0xcbf29ce484222325u64, |h, b| {
         (h ^ u64::from(b)).wrapping_mul(0x100000001b3)
@@ -23,8 +18,6 @@ pub fn key(name: &str) -> String {
 }
 
 impl Run {
-    /// Row 10's handoff. The caller closes its creator; the existing lamp
-    /// ingress opens the normal wish editor. No gameplay wish is required.
     pub fn begin_mirror_wish(&mut self, id: u32) -> Result<(), String> {
         let h = self
             .players
@@ -82,7 +75,6 @@ impl Run {
             .and_then(|h| h.offer.clone())
             .ok_or("No look is open on the scroll.")?;
         let choice = offer.choices.get(n).ok_or("No such choice.")?;
-        // Even a known arm, spell or stat ladder supplies ONLY its worn ink.
         if let Some(wish) = choice.wish.as_deref().and_then(phrasebook::get) {
             if let Some(card) = (0..wish.tiers.len())
                 .rev()
@@ -94,8 +86,6 @@ impl Run {
         let h = self.players.get_mut(&id).unwrap();
         h.offer = None;
         h.mirror_wish = false;
-        // Reserve the realm knight before the first picture arrives. The
-        // painter can finish after that seat has left or changed names.
         let name = h.mirror_owner().to_owned();
         self.home
             .wardrobe
@@ -106,9 +96,6 @@ impl Run {
                 worn: looks::Sprite::default(),
                 body: false,
             });
-        // A new wish never wears the old wish's body: the card's words are
-        // always the words the knight is drawn from. The same words again
-        // leave the body on: the knight is already that look.
         let dropped = self.home.wardrobe.mirror_looks.get_mut(&name).is_some_and(|look| {
             let changed = look.body && look.words != offer.said;
             look.words = offer.said.clone();
@@ -118,7 +105,6 @@ impl Run {
             changed
         });
         if dropped {
-            // The worn ink is the knight's look again until the new body lands.
             self.restore_mirror_look(id);
         }
         self.asked.retain(|a| !(a.cosmetic && a.knight == id));
@@ -138,14 +124,11 @@ impl Run {
         Ok("Your look is with the worn painter; no wish spent.".into())
     }
 
-    /// A neutral card for the EXISTING painter's Card target. It is never
-    /// dealt or granted. The saved sprite includes inline ink/paint assets.
     pub fn mirror_paint_card(&self, id: u32, words: &str) -> Result<Card, String> {
         let h = self.players.get(&id).ok_or("No knight for this look.")?;
         self.mirror_paint_card_for(h.mirror_owner(), words)
     }
 
-    /// The queued job owns a realm name, not a transient connection id.
     pub fn mirror_paint_card_for(&self, name: &str, words: &str) -> Result<Card, String> {
         let mut card = self
             .book
@@ -154,7 +137,6 @@ impl Run {
             .ok_or("No worn card template.")?;
         card.id = key(name);
         card.name = "Mirror look".into();
-        // Source is line-based; prose must not inject card directives.
         card.text = words.split_whitespace().collect::<Vec<_>>().join(" ");
         card.kind = cards::Kind::Hold;
         card.effects.clear();
@@ -175,7 +157,6 @@ impl Run {
         Ok(card)
     }
 
-    /// Security boundary for all painter/known-card output: copy only ink.
     pub fn wear_mirror_card(&mut self, id: u32, words: &str, card: &Card) -> Result<(), String> {
         let worn = card
             .looks
@@ -189,7 +170,6 @@ impl Run {
             .mirror_owner()
             .to_owned();
         let body = self.home.wardrobe.mirror_looks.get(&name).is_some_and(|l| l.body && l.words == words);
-        // A look wished now is worn, whatever was set aside at the pub.
         let mirror = key(&name);
         for h in self.players.values_mut() {
             h.set_aside.retain(|k| k != &mirror);
@@ -206,7 +186,6 @@ impl Run {
         Ok(())
     }
 
-    /// Late painter updates are keyed by realm knight, never by seat id.
     pub fn update_mirror_paint(&mut self, card: &Card) -> bool {
         let Some(worn) = card.looks.worn.clone() else {
             return false;
@@ -260,19 +239,12 @@ impl Run {
         let Ok(mut card) = self.mirror_paint_card(id, &look.words) else {
             return;
         };
-        // A knight drawn whole from its words wears no ink over the rig: its
-        // plain knight is what the room stamps and a pack draws by name.
         if body {
             card.looks.worn = None;
         }
         self.book.insert(card);
     }
 
-    /// The body-maker has drawn (or, `on` false, lost) the whole knight for
-    /// the look whose card is `card` (`key`): kept with the look, for
-    /// every seat that holds the realm knight. Only the words the look has
-    /// count: a late result for an older wish changes nothing. Whether
-    /// anything changed.
     pub fn set_mirror_body(&mut self, card: &str, words: &str, on: bool) -> bool {
         let mut changed = false;
         for (name, look) in self.home.wardrobe.mirror_looks.iter_mut() {
@@ -290,8 +262,6 @@ impl Run {
         changed
     }
 
-    /// The seated knights drawn whole from their look: the card id the
-    /// body-maker's set is kept under and the seat each sits at, by seat.
     pub fn mirror_bodies(&self) -> Vec<(String, u32)> {
         self.players
             .iter()
@@ -306,7 +276,6 @@ impl Run {
             .collect()
     }
 
-    /// Whether knight `id` is drawn whole from their look.
     pub fn has_mirror_body(&self, id: u32) -> bool {
         self.players.get(&id).is_some_and(|h| {
             self.home.wardrobe.mirror_looks.get(h.mirror_owner()).is_some_and(|look| look.body)

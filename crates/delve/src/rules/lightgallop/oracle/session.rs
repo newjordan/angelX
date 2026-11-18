@@ -15,74 +15,45 @@ use super::host::{HZ, Hero, Input, MAX_PLAYERS};
 use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
-/// A run never runs past an hour; a longer one is not a run to play.
 pub const LIMIT: u32 = 60 * 60 * HZ;
-/// A popped foe re-forms after this many ticks if no knight is near.
 pub const REFORM: u16 = 180;
-/// After the first bell, the rest of the pack has this long to ring it.
 pub const GRACE: u32 = 300;
-/// The warden's hits for one knight; each more knight adds one.
 pub const WARDEN_BASE: u8 = 3;
-/// Ticks the warden shrugs off blows after one lands (shared by all).
 pub const WARDEN_INV: u8 = 22;
-/// Sparks each knight is given when the warden falls.
 pub const WARDEN_LIGHT: u32 = 10;
-/// Ticks the warden's fall is shown for.
 pub const WARDEN_FALL: u16 = 90;
-/// Hay bale lifts.
 pub const SPRING_UP: i32 = 2200;
 pub const SPRING_DIAG: (i32, i32) = (1700, 2000);
-/// A boost pad's pace.
 pub const PAD_SPEED: i32 = 1920;
-/// Spur gauge from a lock-chain link (times the link, up to five), a plain
-/// kill, a spark, a lantern post.
 pub const CHAIN_GAUGE: i32 = 140;
 pub const KILL_GAUGE: i32 = 60;
 pub const SPARK_GAUGE: i32 = 12;
 pub const POST_GAUGE: i32 = 200;
-/// The Dimming's pace at each act, percent of the number.
 pub const ACT_PACE: [i32; 4] = [90, 110, 130, 150];
-/// The most the Gloam lets the rearmost knight lead it by, pixels: a pack
-/// that outruns it by more is gained on at once, so the chase is always on.
 pub const LEAD_MAX: i32 = 1200;
-/// The Dimming's pace gains this much more for each knight past the first,
-/// percent; and a lit post holds it this many pixels less far back.
 pub const SEAT_PACE: i32 = 8;
 pub const SEAT_HOLD: i32 = 25;
-/// The slowest and fastest time that scores, in seconds.
 pub const FAST: u32 = 100;
 pub const SLOW: u32 = 300;
-/// The ranks' lines: S, A, B.
 pub const RANKS: [u32; 3] = [850, 650, 420];
-/// A tally takes this long to tick up before an E starts the ride again.
 pub const TALLY_HOLD: u32 = 45;
 
-/// One knight at the table.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Seat {
-    /// The tick of the run this knight sat down at (0: from the start).
     pub joined: u32,
     pub rider: Rider,
 }
 
-/// The end of the ride: what the party scored and how it ranks.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Tally {
-    /// The tick the tally began, for the numbers to tick up from.
     pub at: u32,
-    /// The pack's time (the last bell), in ticks.
     pub time: u32,
-    /// Sparks gathered, the pack's average.
     pub sparks: u32,
-    /// The longest lance-lock chain any knight made.
     pub chain: u32,
-    /// Lantern posts lit by the pack.
     pub posts: u32,
     pub falls: u32,
     pub points: u32,
-    /// 0 C, 1 B, 2 A, 3 S.
     pub rank: u8,
-    /// The knight who rode best (the laurel).
     pub best: u32,
     pub scores: BTreeMap<u32, u32>,
 }
@@ -91,33 +62,24 @@ pub struct Tally {
 pub struct Session {
     pub seats: BTreeMap<u32, Seat>,
     pub elapsed: u32,
-    /// The front of the Dimming, 1/256 pixel along the road.
     pub dim: i32,
-    /// Lantern posts lit, a bit each; and when each was (tick + 1).
     pub posts: u32,
     pub post_t: Vec<u32>,
-    /// The most knights who have sat down; foes are woken for this many.
     pub provisioned: u32,
     pub foes: Vec<FoeState>,
-    /// When each spring and pad last fired (tick + 1), for the picture.
     pub spring_t: Vec<u32>,
     pub pad_t: Vec<u32>,
     pub warden_inv: u8,
-    /// The tick the first bell rang, if it has.
     pub bell_t: Option<u32>,
     pub tally: Option<Tally>,
-    /// The purse has been paid for this ride.
     pub paid: bool,
-    /// A knight asked to ride again at the tally.
     pub again: bool,
 }
 
-/// A rider's ground, set at the shared post or the gate.
 fn ride_from(post: Option<usize>, id: u32) -> (usize, i32) {
     let lvl = level();
     let (path, s) = lvl.spawn(post);
     match post {
-        // Side by side at the gate, a few pixels apart.
         None => (path, s - (id as i32 - 1) * 12 * Q),
         Some(_) => (path, s),
     }
@@ -163,30 +125,23 @@ impl Session {
         Seat { joined, rider }
     }
 
-    /// How far back post `n` holds the Dimming when it is lit, pixels: less
-    /// for a fuller table.
     pub fn hold(&self, n: usize) -> i32 {
         level().posts[n].hold - SEAT_HOLD * (self.seats.len() as i32 - 1).max(0)
     }
 
-    /// The highest post lit, if any.
     pub fn last_post(&self) -> Option<usize> {
         (0..level().posts.len()).rev().find(|&n| self.posts >> n & 1 == 1)
     }
 
-    /// Which act the road is in at column `x` (pixels).
     pub fn act_at(x: i32) -> usize {
         let a = level().acts;
         (0..4).rev().find(|&n| x >= a[n]).unwrap_or(0)
     }
 
-    /// Whether foe `i` is on the road for this many knights.
     fn awake(&self, i: usize) -> bool {
         level().foes[i].min_seats <= self.provisioned
     }
 
-    /// The warden takes one more hit for each knight who sits down; hits
-    /// already taken stay taken.
     fn grow_warden(&mut self, add: u32) {
         for (i, f) in level().foes.iter().enumerate() {
             if f.kind == FoeKind::Warden && self.foes[i].hp > 0 {
@@ -195,8 +150,6 @@ impl Session {
         }
     }
 
-    /// One tick: seat whoever is here and awake, run every knight, the foes
-    /// and the Dimming. Returns the sounds the tick made.
     pub fn step(
         &mut self,
         inputs: &BTreeMap<u32, Input>,
@@ -223,7 +176,6 @@ impl Session {
         }
         self.tick_foes();
 
-        // Who is ahead of whom, for the wake behind a pack.
         let snap: Vec<(u32, i32, i32, i32, i32)> = self
             .seats
             .iter()
@@ -258,8 +210,6 @@ impl Session {
         snd
     }
 
-    /// Foes' own clocks: flinches fade, smoke clears, a popped foe comes back
-    /// if no knight is by.
     fn tick_foes(&mut self) {
         let lvl = level();
         self.warden_inv = self.warden_inv.saturating_sub(1);
@@ -293,7 +243,6 @@ impl Session {
         let act = Self::act_at(self.dim / Q);
         let pace = n.dimming * (100 + SEAT_PACE * (seated - 1).max(0)) / 100 * ACT_PACE[act] / 100;
         self.dim += pace;
-        // Never so far behind the rearmost knight that the chase is lost.
         let rear = self.seats.values().filter(|s| s.rider.finish.is_none() && s.rider.down == 0).map(|s| s.rider.x).min();
         if let Some(rear) = rear {
             self.dim = self.dim.max(rear - LEAD_MAX * Q);
@@ -311,7 +260,6 @@ impl Session {
         }
     }
 
-    /// The pack's slipstream: is a faster rider just ahead?
     fn drafting(snap: &[(u32, i32, i32, i32, i32)], id: u32, r: &Rider) -> bool {
         let (x, y) = (r.x / Q, r.y / Q);
         r.down == 0
@@ -326,7 +274,6 @@ impl Session {
             })
     }
 
-    /// One knight's tick.
     fn ride(
         &mut self,
         id: u32,
@@ -379,8 +326,6 @@ impl Session {
         }
         let c1 = r.centre(t);
         self.wall(r);
-        // A knight who has rung the bell is past the Gloam's reach and every
-        // foe's: the celebration is not interrupted.
         if r.finish.is_none() {
             self.touch_foes(r, c0, c1, snd);
         }
@@ -390,13 +335,11 @@ impl Session {
         self.touch_things(r, c0, c1, snd);
         r.tick_loose(t);
         self.take_loose(r, snd);
-        // The Dimming takes the slowest, and the world's floor takes the rest.
         if r.finish.is_none() && (r.x < self.dim || r.y > lvl.dead_y * Q) {
             self.swallow(r, snd);
         }
     }
 
-    /// The gate's warden bars the road: nothing rides past it alive.
     fn wall(&mut self, r: &mut Rider) {
         let lvl = level();
         let Some((i, w)) = lvl.foes.iter().enumerate().find(|(_, f)| f.kind == FoeKind::Warden) else {
@@ -423,7 +366,6 @@ impl Session {
         }
     }
 
-    /// Point a lance-lock in flight at its foe, or give it up.
     fn steer_lock(&mut self, r: &mut Rider) {
         let lvl = level();
         let Some(lock) = r.lock else { return };
@@ -449,9 +391,6 @@ impl Session {
         }
     }
 
-    /// The nearest foe in the lance's cone for a rider in the air: ahead of
-    /// the horse (a little behind still counts), inside a cone about sixty
-    /// degrees to either side of level, within the lock's reach.
     pub fn find_lock(&self, r: &Rider, n: &Numbers) -> Option<usize> {
         let lvl = level();
         let cen = r.centre(&lvl.terrain);
@@ -483,8 +422,6 @@ impl Session {
         best.map(|(_, i)| i)
     }
 
-    /// A press of jump in the air with no leap left: lock the nearest foe in
-    /// the lance's cone, or lunge once.
     fn begin_lock(&mut self, r: &mut Rider, n: &Numbers, snd: &mut Vec<&'static str>) {
         if r.lock_cd > 0 || r.lock.is_some() || r.grounded() {
             return;
@@ -503,7 +440,6 @@ impl Session {
         }
     }
 
-    /// What the rider's swept body does to the foes it meets.
     fn touch_foes(&mut self, r: &mut Rider, c0: (i32, i32), c1: (i32, i32), snd: &mut Vec<&'static str>) {
         let lvl = level();
         let (hw, h) = r.body();
@@ -528,7 +464,6 @@ impl Session {
                     } else {
                         self.hurt(r, fx, snd);
                     }
-                    // Nothing passes: the blow throws the horse back.
                     if r.down == 0 {
                         r.ground = None;
                         r.roll = false;
@@ -551,7 +486,6 @@ impl Session {
         }
     }
 
-    /// A foe popped into cold smoke and a spark of returned light.
     fn pop(&mut self, i: usize, r: &mut Rider, snd: &mut Vec<&'static str>) {
         self.foes[i] = FoeState { hp: 0, pop: REFORM, flinch: 8 };
         let was_air = !r.grounded() || r.lock.is_some();
@@ -583,8 +517,6 @@ impl Session {
         if st.hp == 0 {
             st.pop = 1;
             snd.push("boss_death");
-            // The room's last foe is down: its light is given back to every
-            // knight at the gate, and the spur refilled for the run to the bell.
             r.sparks += WARDEN_LIGHT;
             r.collected += WARDEN_LIGHT;
             r.gauge = GAUGE_MAX;
@@ -598,13 +530,11 @@ impl Session {
         }
     }
 
-    /// A blow lands on `r` from a foe at column `from`.
     fn hurt(&mut self, r: &mut Rider, from: i32, snd: &mut Vec<&'static str>) {
         match r.knock(from * Q) {
             Blow::None => {}
             Blow::Shielded => snd.push("shield_block"),
             Blow::Scattered(_) => {
-                // The sparks chime as they fly.
                 snd.push("hero_hurt");
                 snd.push("spoil_pickup");
             }
@@ -615,7 +545,6 @@ impl Session {
         }
     }
 
-    /// The Dimming has the rider.
     fn swallow(&mut self, r: &mut Rider, snd: &mut Vec<&'static str>) {
         if r.down > 0 {
             return;
@@ -633,8 +562,6 @@ impl Session {
         snd.push("boss_roar");
     }
 
-    /// The lantern carries a fallen rider to the last post and holds the
-    /// Dimming back from it.
     fn carry_home(&mut self, r: &mut Rider) {
         let lvl = level();
         let post = self.last_post();
@@ -644,7 +571,6 @@ impl Session {
         self.dim = self.dim.min((at - hold * 4 / 5) * Q);
     }
 
-    /// Sparks, springs, pads, posts, crates and the bell.
     fn touch_things(&mut self, r: &mut Rider, c0: (i32, i32), c1: (i32, i32), snd: &mut Vec<&'static str>) {
         let lvl = level();
         let (hw, h) = r.body();
@@ -653,7 +579,6 @@ impl Session {
         let over = |l: i32, rr: i32, tp: i32, bt: i32| hix >= l * Q && lox <= rr * Q && hiy >= tp * Q && loy <= bt * Q;
         let cx = c1.0 / Q;
 
-        // Sparks: a bit each, taken once by this knight.
         let mut got = 0;
         for i in Level::near(&lvl.sparks, cx, 60, |s| s.0) {
             let (sx, sy) = lvl.sparks[i];
@@ -672,7 +597,6 @@ impl Session {
             snd.push("gold");
         }
 
-        // Hay-bale springs.
         for i in Level::near(&lvl.springs, cx, 40, |s| s.x) {
             let sp = lvl.springs[i];
             if r.spring_cd == 0 && over(sp.x - 14, sp.x + 14, sp.y - 18, sp.y + 4) {
@@ -701,7 +625,6 @@ impl Session {
             }
         }
 
-        // Boost pads.
         for i in Level::near(&lvl.pads, cx, 40, |p| p.x) {
             let p = lvl.pads[i];
             if r.grounded() && r.gsp >= 0 && over(p.x - 18, p.x + 18, p.y - 12, p.y + 6) {
@@ -714,7 +637,6 @@ impl Session {
             }
         }
 
-        // Lantern posts: any knight lights them for everyone.
         for (i, p) in lvl.posts.iter().enumerate() {
             if self.posts >> i & 1 == 0 && over(p.x - 22, p.x + 22, p.y - 70, p.y + 10) {
                 self.posts |= 1 << i;
@@ -725,7 +647,6 @@ impl Session {
             }
         }
 
-        // Lantern crates: broken by anything that attacks.
         for (i, c) in lvl.crates.iter().enumerate() {
             if r.crates >> i & 1 == 0 && r.attacking() && over(c.x - 12, c.x + 12, c.y - 24, c.y) {
                 r.crates |= 1 << i;
@@ -750,7 +671,6 @@ impl Session {
             }
         }
 
-        // The bell, once the warden has fallen.
         let open = lvl
             .foes
             .iter()
@@ -764,7 +684,6 @@ impl Session {
         }
     }
 
-    /// Take back sparks thrown by a hit, once they have settled a moment.
     fn take_loose(&mut self, r: &mut Rider, snd: &mut Vec<&'static str>) {
         let c = r.centre(&level().terrain);
         let before = r.loose.len();
@@ -780,7 +699,6 @@ impl Session {
         }
     }
 
-    /// Reckon the ride: the pack's time, sparks, chain and posts.
     fn make_tally(&mut self) {
         let lvl = level();
         let now = self.elapsed;
@@ -853,8 +771,6 @@ impl Session {
             && (self.tally.is_none() || self.bell_t.is_some())
     }
 
-    /// Mend what a bad save broke: whatever cannot be trusted is put back as
-    /// at the start of the road.
     pub fn repair(&mut self) {
         let lvl = level();
         self.seats.retain(|&id, _| (1..=MAX_PLAYERS).contains(&id));
@@ -899,5 +815,4 @@ impl Session {
     }
 }
 
-/// The sounds of a chain of lance-locks, rising a step with each link.
 pub const CHAIN_PITCH: [&str; 5] = ["hit_magic", "card_pickup", "gold", "spoil_pickup", "wish_grant"];

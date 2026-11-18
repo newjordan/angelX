@@ -20,58 +20,35 @@
 
 use super::*;
 
-/// What monsters made happen this tick.
 #[derive(Default)]
 #[cfg_attr(test, derive(Serialize))]
 pub(super) struct Deeds {
     pub(super) clouds: Vec<skills::Cloud>,
-    /// A breath drawing knights in: where to, and the nearest it draws them.
     pub(super) pulls: Vec<(f32, f32, f32)>,
-    /// A dash's or a landing's swept path: from, to, reach, damage, heading,
-    /// and the charge-up it is part of (`signatures::tag`; 0 for none).
     pub(super) sweeps: Vec<((f32, f32), (f32, f32), f32, u32, (f32, f32), u32)>,
     pub(super) sounds: Vec<&'static str>,
     pub(super) shake: u32,
-    /// New monsters: kind, where, and their stage (a slime's size).
     pub(super) spawns: Vec<(EnemyKind, f32, f32, u8)>,
     pub(super) kegs: Vec<(f32, f32)>,
-    /// Bombs thrown: from, to.
     pub(super) lobs: Vec<((f32, f32), (f32, f32))>,
-    /// The Broodmarrows' children thrown: from the shoulder, at a knight.
     pub(super) flings: Vec<((f32, f32), (f32, f32))>,
-    /// The Whirlgraves' wells opened: where they lean.
     pub(super) wells: Vec<(f32, f32)>,
-    /// The Fungelders' sacs lobbed: from the sack, at where a knight stands.
     pub(super) spores: Vec<((f32, f32), (f32, f32))>,
-    /// A charge that runs knights down: where, its reach, its damage and
-    /// the way it pushes.
     pub(super) rams: Vec<(f32, f32, f32, u32, (f32, f32))>,
-    /// Goblins that got away.
     pub(super) escaped: Vec<u32>,
     pub(super) cues: Vec<&'static str>,
-    /// The hunters': hooks thrown (by whom, from, which way), webs spun
-    /// (where), the Flesher's rot (where).
     pub(super) hooks: Vec<(u32, f32, f32, (f32, f32))>,
     pub(super) webs: Vec<(f32, f32)>,
     pub(super) rot: Vec<(f32, f32)>,
-    /// The Pit Tyrant's slams, gathering where it stands.
     pub(super) slams: Vec<(f32, f32)>,
-    /// A guardian's Ravages, cast.
     pub(super) ravages: Vec<super::tide::Ravage>,
-    /// A guardian's charge-up shots, held to the room its caps leave
-    /// (`signatures::hold`).
     pub(super) bursts: Vec<Projectile>,
-    /// Black Holes the Hollow Ones opened: where, and by whom.
     pub(super) holes: Vec<(f32, f32, u32)>,
-    /// Stone a guardian's blow breaks: where, and how far round (`rubble`).
     pub(super) shatters: Vec<((f32, f32), f32)>,
-    /// The third company's moves (`critters`).
     pub(super) crit: super::critters::Doings,
-    /// The swamp's horrors' (`horrors`).
     pub(super) swamp: super::horrors::Doings,
 }
 
-/// A sapper's keg: ticks until it blows.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Keg {
     pub x: f32,
@@ -80,11 +57,9 @@ pub struct Keg {
 }
 
 pub const KEG_FUSE: u32 = 3 * HZ;
-/// A keg is armed (a knight stepping by sets it off) once this much fuse is left.
 pub const KEG_ARMED: u32 = 2 * HZ;
 const KEG_REACH: f32 = 2.8;
 
-/// A hob's bomb in the air, from where it was thrown to where it lands.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Lob {
     pub from: (f32, f32),
@@ -96,9 +71,6 @@ pub struct Lob {
 pub const LOB_FALL: u32 = 36;
 const LOB_REACH: f32 = 2.4;
 
-/// A Whirlgrave's open well: where it leans, and for how long it means
-/// to keep leaning. Knights slide toward it; every shot in the room,
-/// friend or foe, bends a little toward it too.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Well {
     pub x: f32,
@@ -106,16 +78,12 @@ pub struct Well {
     pub left: u32,
 }
 
-/// A well stands this long, reaches this far, drags this hard, and bends
-/// shots by this much a tick. Two to a room, no more.
 pub const WELL_SPAN: u32 = 6 * HZ;
 pub const WELL_REACH: f32 = 7.0;
 const WELL_PULL: f32 = 0.6;
 const WELL_TURN: f32 = 0.09;
 pub const WELLS_MAX: usize = 2;
 
-/// A Broodmarrow's impling in flight: torn from the marrow's shoulder,
-/// thrown at a knight, landing crossways with its teeth out.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Fling {
     pub from: (f32, f32),
@@ -124,11 +92,7 @@ pub struct Fling {
     pub fall: u32,
 }
 
-/// How long an impling is in the air.
 pub const FLING_FALL: u32 = 26;
-/// The Broodmarrow: its wind-up, the wound each rip costs its own hide,
-/// the rest between throws, the most children in flight, the most of its
-/// children a room may hold, the landing bite, and its reach.
 pub const BROOD_WINDUP: u32 = 34;
 pub const BROOD_RIP: u32 = 14;
 pub const BROOD_REST: u32 = 40;
@@ -137,8 +101,6 @@ pub const BROOD_BROOD: usize = 8;
 pub const FLING_BITE: u32 = 10;
 pub const FLING_STOMP: f32 = 1.4;
 
-/// A Fungelder's spore-sac in flight: lobbed from the sack with a hob's
-/// own arc, bursting where it lands into a ring of mushrooms.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Spore {
     pub from: (f32, f32),
@@ -147,9 +109,6 @@ pub struct Spore {
     pub fall: u32,
 }
 
-/// The Fungelder: its wind-up, how long a sac hangs in the air, how long
-/// a mushroom stands before it rots, the most stems a room will humour,
-/// a mushroom's hide, the ring the three stand in, and each stem's girth.
 pub const FUNG_WINDUP: u32 = 24;
 pub const SPORE_FALL: u32 = 30;
 pub const SPORES_MAX: usize = 4;
@@ -159,7 +118,6 @@ pub const MUSHROOM_HP: u32 = 40;
 pub const MUSHROOM_RING: f32 = 1.7;
 pub const MUSHROOM_GIRTH: f32 = 1.5;
 
-/// A slime's health and size by its stage (0 big, 1 split once, 2 small).
 pub fn slime(stage: u8) -> (u32, f32) {
     match stage {
         0 => (80, 1.1),
@@ -168,15 +126,11 @@ pub fn slime(stage: u8) -> (u32, f32) {
     }
 }
 
-/// How long a serpent ward stands before it crumbles.
 pub const WARD_STANDS: u32 = 7 * HZ;
-/// A warboar's wind-up and its charge's speed.
 pub const BOAR_WINDUP: u32 = 24;
-/// How many times a necromancer raises a pair of skeletons.
 pub const NECRO_RAISES: u8 = 3;
 const BOAR_SPEED: f32 = 21.0;
 
-/// One of the second company's steps. False for any other monster.
 pub(super) fn act(
     enemy: &mut Enemy,
     heroes: &[(f32, f32)],
@@ -236,7 +190,6 @@ pub(super) fn act(
             ttl: 8 * HZ,
         });
     };
-    // Keep between `near` and `far` of the nearest knight, sidling between.
     let keep_off = |enemy: &mut Enemy, near: f32, far: f32, speed: f32| {
         let side = if enemy.id.is_multiple_of(2) { 1.0 } else { -1.0 };
         let way = if dist < near {
@@ -253,7 +206,6 @@ pub(super) fn act(
     match enemy.kind {
         Sapper => {
             if enemy.stage == 0 {
-                // Close in to a few steps off, plant, then run.
                 let (gx, gy) = (tx - cx * 5.5, ty - cy * 5.5);
                 let (ux, uy) = unit(gx - enemy.x, gy - enemy.y);
                 if (gx - enemy.x).hypot(gy - enemy.y) > 0.5 {
@@ -272,7 +224,6 @@ pub(super) fn act(
         }
         Necromancer => {
             keep_off(enemy, 8.0, 12.0, 2.0);
-            // Bones for three raisings; then only its orbs.
             if beat % 150 == 60 && enemy.stage < NECRO_RAISES {
                 enemy.stage += 1;
                 for side in [-1.0f32, 1.0] {
@@ -282,10 +233,8 @@ pub(super) fn act(
                 }
                 deeds.cues.push("necro_raise");
             }
-            // Its orbs are its signature (`patterns`).
         }
         Warboar => match enemy.stage {
-            // Stalk, then mark the line.
             0 => {
                 walk(enemy, (cx, cy), 2.6);
                 if enemy.timer >= 60 && target.is_some() && dist < 18.0 {
@@ -297,7 +246,6 @@ pub(super) fn act(
                     (enemy.stage, enemy.timer) = (2, 0);
                 }
             }
-            // Down the line until something stops it.
             2 => {
                 let moved = walk(enemy, enemy.dir, BOAR_SPEED);
                 deeds.rams.push((enemy.x, enemy.y, r + 0.7, 24, enemy.dir));
@@ -308,18 +256,15 @@ pub(super) fn act(
                     (enemy.stage, enemy.timer) = (0, 0);
                 }
             }
-            // Dazed against the wall: a moment to make it pay.
             _ => {
                 if enemy.timer >= 50 {
                     (enemy.stage, enemy.timer) = (0, 0);
                 }
             }
         },
-        // Hops: a lunge, a squat.
         Slime if enemy.age % 40 < 12 => {
             walk(enemy, (cx, cy), 6.0 - f32::from(enemy.stage));
         }
-        // Humphrey: a lurching shamble, a rising wind-up, then the shove.
         Risen => match enemy.stage {
             0 => {
                 let lurch = if beat % 36 < 22 { 2.1 } else { 0.9 };
@@ -329,7 +274,6 @@ pub(super) fn act(
                     (enemy.stage, enemy.timer) = (1, 0);
                 }
             }
-            // Arms up, jaw loose: the party has a moment to step aside.
             1 => {
                 enemy.dir = (cx, cy);
                 if enemy.timer >= 20 {
@@ -344,28 +288,19 @@ pub(super) fn act(
                     (enemy.stage, enemy.timer) = (3, 0);
                 }
             }
-            // Winded, hands on knees, deeply opposed to exercise.
             _ => {
                 if enemy.timer >= 36 {
                     (enemy.stage, enemy.timer) = (0, 0);
                 }
             }
         },
-        // The Broodmarrow: a hill of hide that answers arrows with
-        // offspring. It waddles, stops, lights its seams, and tears a
-        // child from its own back to throw it where a knight stands.
         Broodmarrow => match enemy.stage {
-            // The waddle: never nearer than a spade's length, never far.
             0 => {
                 keep_off(enemy, 4.5, 10.0, 1.6);
                 if enemy.timer >= 80 && target.is_some() && dist < 17.0 {
                     (enemy.stage, enemy.timer) = (1, 0);
                 }
             }
-            // The rip: it stands, its seams come alight, and something on
-            // its back begins to squeal. A marrow bled to its last
-            // measure still lights the seams (the tell stays honest) but
-            // cannot pay, so no child comes.
             1 => {
                 if enemy.timer >= BROOD_WINDUP {
                     if enemy.hp > BROOD_RIP {
@@ -377,17 +312,13 @@ pub(super) fn act(
                     (enemy.stage, enemy.timer) = (2, 0);
                 }
             }
-            // A parent's pride: it watches its child land, then waddles on.
             _ => {
                 if enemy.timer >= BROOD_REST {
                     (enemy.stage, enemy.timer) = (0, 0);
                 }
             }
         },
-        // The Whirlgrave: it drifts, plants itself, and leans. While it
-        // leans, the room's geometry is a rumour.
         Whirlgrave => match enemy.stage {
-            // The drift: never nearer than a shout, never gone.
             0 => {
                 keep_off(enemy, 7.0, 11.0, 1.9);
                 if enemy.timer % 130 == 60 && target.is_some() {
@@ -395,26 +326,19 @@ pub(super) fn act(
                     (enemy.stage, enemy.timer) = (1, 0);
                 }
             }
-            // The lean: it stands, and the well does the walking.
             _ => {
                 if enemy.timer >= WELL_SPAN {
                     (enemy.stage, enemy.timer) = (0, 0);
                 }
             }
         },
-        // The Fungelder: a gardener that keeps its distance and lobs
-        // spore-sacs, and whose garden has opinions. It does not
-        // out-damage a room; it takes the room's sightlines away, so a
-        // Marksman behind its mushrooms becomes a rumour.
         Fungelder => match enemy.stage {
-            // The stroll: never nearer than a shout, never gone.
             0 => {
                 keep_off(enemy, 8.0, 13.0, 2.1);
                 if enemy.timer % 110 == 50 && target.is_some() {
                     (enemy.stage, enemy.timer) = (1, 0);
                 }
             }
-            // The lob: it hitches its sack, and something damp sails out.
             _ => {
                 if enemy.timer >= FUNG_WINDUP {
                     deeds.spores.push(((enemy.x, enemy.y), (tx, ty)));
@@ -422,16 +346,10 @@ pub(super) fn act(
                 }
             }
         },
-        // The Oathbound: their stride is their oath's business. While the
-        // twin lives they hold formation; alone, they grieve at a pace no
-        // grave should allow, with a shove in it.
         Oathbound => match enemy.stage {
-            // Formation: never far from the knights, never crowded.
             0 => {
                 keep_off(enemy, 2.0, 8.0, 2.4);
             }
-            // The grief: half again the stride, and every so often a
-            // two-handed shove that has stopped being a question.
             _ => {
                 keep_off(enemy, 2.0, 8.0, 4.2);
                 if enemy.timer % 70 == 40 && target.is_some() && dist < 5.0 {
@@ -439,7 +357,6 @@ pub(super) fn act(
                 }
             }
         },
-        // A goblin's own steps are the thief's (`thief.rs`).
         Goblin => {}
         Hob => {
             let h = mix(seed ^ u64::from(enemy.id) << 20 ^ u64::from(enemy.age / 75));
@@ -459,7 +376,6 @@ pub(super) fn act(
                 }
                 deeds.cues.push("shaman_wards");
             }
-            // Between wards it calls crossfire (`patterns`).
         }
         Ward => {
             if beat.is_multiple_of(40) && target.is_some() {
@@ -475,7 +391,6 @@ pub(super) fn act(
 }
 
 impl Run {
-    /// Make what the monsters did this tick so.
     pub(super) fn apply_deeds(&mut self, deeds: Deeds) {
         self.signature_deeds(deeds.clouds, deeds.pulls, deeds.sweeps);
         for (at, reach) in deeds.shatters {
@@ -544,7 +459,6 @@ impl Run {
             for (id, hero) in self.players.iter_mut().filter(|(id, h)| h.targetable() && !self.caves.inside(**id)) {
                 if hero.invulnerable == 0 && (hero.x - x).hypot(hero.y - y) < reach {
                     hero.hurt(damage);
-                    // Run down and thrown aside.
                     let (sx, sy) = (-dy, dx);
                     let side = if (hero.x - x) * sx + (hero.y - y) * sy >= 0.0 {
                         1.0
@@ -582,7 +496,6 @@ impl Run {
             }
             let room = self.room();
             let (w, h) = (room.width(), room.height());
-            // The spot asked for, or the nearest floor round it.
             let spot = [
                 (0.0, 0.0),
                 (1.2, 0.0),
@@ -621,7 +534,6 @@ impl Run {
         }
     }
 
-    /// A monster at a spot with its stage: a slime's size, a ward's turn.
     pub(super) fn spawn_staged(
         &mut self,
         kind: EnemyKind,
@@ -669,16 +581,12 @@ impl Run {
                 enemy.hp = enemy.max_hp;
             }
         }
-        // Only now is an actual body present. Failed spot/cap/id attempts do
-        // not debit; all indirect callers share this floor-local provision.
         if let Some(g) = &mut self.boss_gates {
             g.economy.emit(self.at, id, kind, stage);
         }
         Some(id)
     }
 
-    /// The Broodmarrows' children come down where they were thrown:
-    /// biting what they land on, and taking up the fight as imps.
     pub(super) fn tick_flings(&mut self) {
         let mut landed = Vec::new();
         for fling in &mut self.flings {
@@ -694,8 +602,6 @@ impl Run {
             .filter(|e| e.kind == EnemyKind::Imp && e.hp > 0)
             .count();
         for (i, (x, y)) in landed.into_iter().enumerate() {
-            // It stands up, small and furious — the family trade — on the
-            // spot it landed or the nearest floor round it.
             let room = &self.dungeon.rooms[self.at];
             let (w, h) = (room.width(), room.height());
             let spot = [
@@ -712,7 +618,6 @@ impl Run {
             .find(|&(x, y)| {
                 room.tile((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32).ground()
             });
-            // The landing itself bites, crossways, teeth already out.
             for (id, hero) in self.players.iter_mut().filter(|(id, h)| h.targetable() && !self.caves.inside(**id)) {
                 if hero.invulnerable == 0 && (hero.x - x).hypot(hero.y - y) < FLING_STOMP {
                     hero.hurt(FLING_BITE);
@@ -732,10 +637,6 @@ impl Run {
         }
     }
 
-    /// The Fungelder's sacs come down and garden: where one bursts, three
-    /// mushrooms stand up in a ring — thick, democratic, brief. They stop
-    /// every shot in the room, knight's and monster's alike, and rot in
-    /// eight seconds; a sword, a bomb or a mine fells them early.
     pub(super) fn tick_sacs(&mut self) {
         let mut landed = Vec::new();
         for sac in &mut self.sacs {
@@ -762,9 +663,6 @@ impl Run {
                 .tile((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32)
                 .ground()
             {
-                // A triangle of stems round the burst, its flat side to
-                // the gardener: fixed angles off the sac's own flight, so
-                // a raid replays the garden exactly.
                 let base = (y - from.1).atan2(x - from.0);
                 let points: Vec<(f32, f32)> = (0..3)
                     .map(|k| {
@@ -799,8 +697,6 @@ impl Run {
         }
     }
 
-    /// Kegs burn down and blow; bombs come down. Both hurt knights; a keg
-    /// hurts monsters too.
     pub(super) fn tick_kegs_and_lobs(&mut self) {
         let mut blown = Vec::new();
         for keg in &mut self.kegs {
@@ -862,7 +758,6 @@ impl Run {
         }
     }
 
-    /// A knight's shot that reaches a keg sets it off.
     pub(super) fn shoot_kegs(&mut self) {
         for shot in self
             .projectiles
@@ -880,14 +775,11 @@ impl Run {
         }
     }
 
-    /// The second company's fallen: slimes split, goblins spill their gold.
     pub(super) fn fallen_foes(&mut self, fallen: &[(EnemyKind, f32, f32, u8)]) {
         for &(kind, x, y, stage) in fallen {
             match kind {
                 EnemyKind::Slime if stage < 2 => {
                     for side in [-1.0f32, 1.0] {
-                        // A half never lands in a wall or a block, where no
-                        // shot reaches it: beside it, it lands where it fell.
                         let half = x + side * 0.9;
                         let ground = self.room().tile((half / TILE_UNITS) as i32, (y / TILE_UNITS) as i32).ground();
                         let half = if ground { half } else { x };
@@ -896,7 +788,6 @@ impl Run {
                             .is_some()
                             && let Some(enemy) = self.enemies.last_mut()
                         {
-                            // A fresh half doesn't sit still in the telegraph.
                             enemy.age = TELEGRAPH;
                         }
                     }
@@ -913,9 +804,6 @@ impl Run {
 mod tests;
 
 impl Run {
-    /// One oath, shared wounds: every living Oathbound pair in the room
-    /// bleeds to the lesser of the two (floored at one wound while a twin
-    /// stands), and the first to stand alone begins to grieve.
     pub(super) fn tick_oathbound(&mut self) {
         let bound: Vec<(usize, u32)> = self
             .enemies
@@ -935,14 +823,11 @@ impl Run {
                     e.hp = shared;
                 }
                 if e.stage != 0 {
-                    // A twin stood back up (a second pair, or a heal):
-                    // the grief settles.
                     e.stage = 0;
                     e.timer = 0;
                 }
             }
         }
-        // The broken oath: alone now, and it was not alone last tick.
         for i in 0..self.enemies.len() {
             let alone = {
                 let e = &self.enemies[i];
@@ -957,8 +842,6 @@ impl Run {
             };
             if alone {
                 let e = &mut self.enemies[i];
-                // The oath's last cruelty: the shared wound comes due all
-                // at once, and leaves exactly one wound standing.
                 e.hp = e.hp.min(1);
                 e.stage = 1;
                 e.timer = 0;
@@ -970,10 +853,6 @@ impl Run {
 }
 
 impl Run {
-    /// The Whirlgraves' wells: they close with their stone, drag what
-    /// stands, and bend what flies — friend and foe the same. The drag
-    /// uses the same slide as the Hollow One's holes; the bend is the
-    /// homing shot's own arithmetic, pointed at the well.
     pub(super) fn tick_wells(&mut self) {
         if !self.enemies.iter().any(|e| e.kind == EnemyKind::Whirlgrave && e.hp > 0) {
             self.wells.clear();

@@ -7,8 +7,6 @@ pub(crate) use angel_live::{Client, Snapshot, UiPolicy};
 #[cfg(test)]
 pub(crate) use angel_live::RealmStyle;
 
-/// The module root a cockpit loads: `ANGEL_LIVE_DIR`, else the resource
-/// bundle's `cockpit/live`.
 pub(crate) fn root() -> std::path::PathBuf {
     std::env::var_os("ANGEL_LIVE_DIR")
         .map(std::path::PathBuf::from)
@@ -23,17 +21,12 @@ pub(crate) fn start(root: std::path::PathBuf) -> Client {
     Client::start_with_resources(root, evaluate, validate_host_contract, bind_resource)
 }
 
-/// Record the active generations for run identity. Whoever owns a loader calls
-/// this when its snapshot changes; turns pin what was published at their start.
 pub(crate) fn publish_legs(root: &std::path::Path, snapshot: &Snapshot) {
     super::harness::run_identity::publish_live(
         super::harness::run_identity::LiveSet::from_statuses(Some(root), &snapshot.statuses),
     );
 }
 
-/// Headless `--task` runs have no App to own a loader. An explicit
-/// `ANGEL_LIVE_DIR` starts one (unless `ANGEL_HOTLOAD=0`), so a bench run names
-/// the exact legs it measures; unset, headless runs load no live modules.
 static HEADLESS: std::sync::OnceLock<Client> = std::sync::OnceLock::new();
 const HEADLESS_DISCOVERY: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -46,9 +39,6 @@ pub(crate) fn start_headless() {
     }
 }
 
-/// At each turn start: pin the loader's latest snapshot onto the registry's
-/// tool router and into run identity. The first call waits (bounded) for the
-/// initial discovery, so the turn never starts on a half-loaded directory.
 pub(crate) fn pin_headless_legs(registry: &super::harness::ToolRegistry) {
     let Some(client) = HEADLESS.get() else {
         return;
@@ -164,10 +154,6 @@ pub(crate) fn validate_host_contract(
     <GameHost as DriveWorld>::validate_contract(kind, value)
 }
 
-/// Live-module evaluation is the Kernel's V8 backend: a small pool of threads
-/// that each keep one warm isolate; every call still runs in a fresh context
-/// with the same 200 ms and 32 MiB bounds. Callers on any thread wait for
-/// their own reply.
 pub(crate) use angel_live::v8::evaluate;
 
 #[cfg(test)]
@@ -301,7 +287,6 @@ mod tests {
         assert!(edited.generation > first.generation);
         assert_eq!(edited_clip.frames, clip.frames);
         assert_ne!(edited_clip.card, clip.card);
-        // Wire publication is bounded after prepared-data reserialization.
         let edited_identity = angel_glass::ShowcaseClipIdentity {
             module: edited.module.clone(),
             name: edited.name.clone(),
@@ -328,7 +313,6 @@ mod tests {
                 .unwrap(),
             &edited_clip
         ));
-        // A structurally valid oversized track also fails before replacing the lease.
         value["card"]["states"]["busy"]["steps"][0]["millis"] = serde_json::json!(1);
         let steps = value["card"]["states"]["busy"]["steps"]
             .as_array_mut()
@@ -417,7 +401,6 @@ mod tests {
             angel_live::Registry::validated(root.clone(), evaluate, validate_host_contract);
         registry.refresh(true);
         let before = LiveSet::from_statuses(Some(&root), &registry.snapshot().statuses);
-        // Every Bend leg names the receipt its emitted code was built from.
         for leg in &before.legs {
             let receipt = shipped.join(&leg.id).join("bend-build.json");
             assert_eq!(leg.bend.is_some(), receipt.exists(), "{}", leg.id);
@@ -466,8 +449,6 @@ mod tests {
         );
     }
 
-    // The loader is process-global once started, so the headless path runs in a
-    // child of this binary that owns ANGEL_LIVE_DIR.
     #[test]
     fn headless_turns_pin_the_directory_named_by_angel_live_dir() {
         use crate::agent::club::{ChatMsg, Club};

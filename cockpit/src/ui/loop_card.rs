@@ -22,48 +22,34 @@ use ratatui::{
 };
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
-/// Tonal inks, the setup and approval cards' own: no white, one warm accent.
 const TEXT: Color = Color::Rgb(176, 180, 188);
 const SOFT: Color = Color::Rgb(118, 123, 132);
 const FAINT: Color = Color::Rgb(84, 88, 98);
 const BRIGHT: Color = Color::Rgb(224, 226, 230);
 const ACCENT: Color = Color::Rgb(196, 134, 92);
 const EDGE: Color = Color::Rgb(62, 66, 74);
-/// The chosen picker in a terminal, where no glass pill glides under it.
 const PICK_BG: Color = Color::Rgb(30, 33, 40);
 
-/// The card's widest; wider windows centre it.
 const MAX_COLS: u16 = 86;
-/// Three pickers side by side need this much.
 const MIN_COLS: u16 = 60;
-/// Words sit this far in from the card's sides.
 const INSET: u16 = 3;
-/// The race film's rows at most, and the fewest worth showing.
 const FILM_ROWS: u16 = 8;
 const FILM_MIN_ROWS: u16 = 5;
-/// The goal shot's rows and columns.
 const GOAL_ROWS: u16 = 6;
 const GOAL_COLS: u16 = 28;
-/// A picker's value sits between its arrows in this many columns.
 const VALUE_COLS: u16 = 9;
 
 const START: &str = "DROP THE FLAG";
 const CANCEL: &str = "cancel";
 
-// --- the composer -------------------------------------------------------------
-
-/// How much of the page there is room for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Plan {
     pub(crate) width: u16,
-    /// The race film's rows (0: none).
     pub(crate) film_rows: u16,
-    /// The goal shot's rows (0: the objective in words alone).
     pub(crate) goal_rows: u16,
 }
 
 impl Plan {
-    /// The card's rows, `title_rows` above its words.
     pub(crate) fn height(&self, title_rows: u16) -> u16 {
         let film = if self.film_rows > 0 {
             self.film_rows + 1
@@ -75,13 +61,10 @@ impl Plan {
         } else {
             2
         };
-        // goal, gap, three picker rows, gap, the actions, gap, the keys, a margin
         title_rows + film + goal + 1 + 3 + 1 + 1 + 1 + 1 + 1
     }
 }
 
-/// The plan that fits `root`: in the window the race film and the goal
-/// shot, shrinking the film before dropping pictures; in a terminal words.
 pub(crate) fn plan(root: Rect, title_rows: u16, pictures: bool, margin: u16) -> Option<Plan> {
     let width = root.width.saturating_sub(8).min(MAX_COLS);
     if width < MIN_COLS {
@@ -117,8 +100,6 @@ pub(crate) fn plan(root: Rect, title_rows: u16, pictures: bool, margin: u16) -> 
     fits(p).then_some(p)
 }
 
-/// One page laid out on a card: its cells, where the pill goes, what
-/// answers a click, and where the pictures play, all from its top-left.
 pub(crate) struct Composed {
     pub(crate) buffer: Buffer,
     pub(crate) cursor: Option<u16>,
@@ -128,7 +109,6 @@ pub(crate) struct Composed {
     pub(crate) goal: Option<Rect>,
 }
 
-/// The card's title.
 pub(crate) fn title(dialog: &LoopLaunchDialog) -> &'static str {
     match (dialog.is_handoff_rl(), dialog.is_podrace(), dialog.deli) {
         (true, true, _) => "Start a five-day handoff RL",
@@ -139,7 +119,6 @@ pub(crate) fn title(dialog: &LoopLaunchDialog) -> &'static str {
     }
 }
 
-/// What a lap is called: a round of the loop, or a forced roll.
 fn lap_word(dialog: &LoopLaunchDialog) -> &'static str {
     if dialog.is_handoff_rl() {
         "ROLLS"
@@ -148,7 +127,6 @@ fn lap_word(dialog: &LoopLaunchDialog) -> &'static str {
     }
 }
 
-/// The objective: the task as typed, or the goal it drives.
 fn objective(dialog: &LoopLaunchDialog) -> String {
     let task = dialog.task.split_whitespace().collect::<Vec<_>>().join(" ");
     if task.is_empty() {
@@ -158,7 +136,6 @@ fn objective(dialog: &LoopLaunchDialog) -> String {
     }
 }
 
-/// Words wrapped to `width` columns, at most `most` lines; a cut ends in `…`.
 fn wrap(text: &str, width: usize, most: usize) -> Vec<String> {
     if width == 0 || most == 0 {
         return Vec::new();
@@ -211,9 +188,6 @@ fn fit(text: &str, width: usize) -> String {
     out
 }
 
-/// The page on a card `plan.width` wide, its words starting `title_rows`
-/// down. `glass` leaves the chosen picker to the window's pill; a terminal
-/// shades it.
 pub(crate) fn compose(
     dialog: &LoopLaunchDialog,
     plan: Plan,
@@ -233,8 +207,6 @@ pub(crate) fn compose(
         y += plan.film_rows + 1;
     }
 
-    // The objective: beside the knight calling it in the window, a line
-    // of words in a terminal.
     let label = if dialog.is_handoff_rl() {
         "CAMPAIGN"
     } else {
@@ -273,7 +245,6 @@ pub(crate) fn compose(
         y += 3;
     }
 
-    // The pickers, side by side.
     let column = (width.saturating_sub(2 * INSET)) / 3;
     let pickers = dialog.pickers();
     let focus = dialog.focus();
@@ -326,7 +297,6 @@ pub(crate) fn compose(
     }
     y += 4;
 
-    // The actions.
     let gap = 6;
     let total = START.len() as u16 + gap + CANCEL.len() as u16;
     let sx = (width.saturating_sub(total)) / 2;
@@ -392,7 +362,6 @@ pub(crate) fn compose(
     }
     y += 2;
 
-    // What the keys do.
     let keys: &[(&str, &str)] = if dialog.custom_entry_active() {
         if dialog.is_handoff_rl() {
             &[
@@ -453,8 +422,6 @@ pub(crate) fn compose(
     }
 }
 
-/// A picker's value between its arrows at `x`: the arrows warm when it
-/// has focus. Returns the columns it spans.
 fn picker_value(
     buffer: &mut Buffer,
     x: u16,
@@ -504,8 +471,6 @@ fn picker_value(
     span
 }
 
-/// A picker's choices in a row under its value, the chosen one lit. A row
-/// too long for its column closes up, then keeps the chosen one in view.
 fn strip(
     buffer: &mut Buffer,
     x: u16,
@@ -553,7 +518,6 @@ fn strip(
     }
 }
 
-/// Where a card `width` by `height` sits in `root`: centred.
 fn centred(root: Rect, width: u16, height: u16) -> Rect {
     let (width, height) = (width.min(root.width), height.min(root.height));
     Rect::new(
@@ -577,13 +541,8 @@ fn offset(hits: Vec<LoopDialogHit>, area: Rect) -> Vec<LoopDialogHit> {
         .collect()
 }
 
-// --- the terminal -------------------------------------------------------------
-
-/// Keep the window card's title space in the terminal's hairline shell.
 const BOX_TITLE_ROWS: u16 = 4;
 
-/// The terminal card's place in `root`, for what must keep out from under
-/// it. Too small a window gets the whole of it.
 pub(crate) fn terminal_area(root: Rect) -> Rect {
     match plan(root, BOX_TITLE_ROWS, true, 6) {
         Some(plan) => centred(root, plan.width, plan.height(BOX_TITLE_ROWS)),
@@ -591,8 +550,6 @@ pub(crate) fn terminal_area(root: Rect) -> Rect {
     }
 }
 
-/// The card in a terminal: black, a hairline round it, its title on the
-/// first row inside. Returns what answers a click, on screen.
 pub(crate) fn render_terminal(
     buf: &mut Buffer,
     root: Rect,
@@ -603,7 +560,6 @@ pub(crate) fn render_terminal(
         return Vec::new();
     }
     let Some(plan) = plan(root, BOX_TITLE_ROWS, true, 6) else {
-        // Too small for the pickers: say so, and still take Esc.
         Clear.render(area, buf);
         Block::default()
             .borders(Borders::ALL)
@@ -664,10 +620,6 @@ pub(crate) fn render_terminal(
     offset(composed.hits, area)
 }
 
-// --- the corner widget --------------------------------------------------------
-
-/// The same scene rectangles as the glass card, fitted to terminal dots.
-/// Cache the stills so changing focus never rebuilds a 3D scene.
 fn terminal_scenes(composed: &mut Composed, plan: Plan) {
     use std::sync::{Mutex, OnceLock};
     static SCENES: OnceLock<Mutex<Option<(Plan, Buffer)>>> = OnceLock::new();
@@ -700,8 +652,6 @@ fn terminal_scenes(composed: &mut Composed, plan: Plan) {
     }
 }
 
-/// The ticker's racer slot, in absolute cells: two rows of the strip's
-/// content, hard against its left border.
 pub(crate) fn ticker_racer_rect(area: Rect) -> Rect {
     let width = <Realm as LoopArtArt>::ticker_racer_cols(area.width);
     Rect::new(
@@ -712,8 +662,6 @@ pub(crate) fn ticker_racer_rect(area: Rect) -> Rect {
     )
 }
 
-/// The running loop in a terminal: the same strip the window draws, with
-/// the knight in braille.
 pub(crate) fn render_terminal_ticker(
     buf: &mut Buffer,
     area: Rect,
@@ -724,13 +672,6 @@ pub(crate) fn render_terminal_ticker(
     render_ticker(buf, area, race, s, phase, true);
 }
 
-/// The race ticker itself: one strip under the header. Its top and bottom
-/// rules are the header's and the body's own borders (the layout shares
-/// them), so this fills only the rows between, sets the side borders, and
-/// lays the LOOP tab over the top rule. Left to right: the knight in side
-/// profile, the lap he is on, a dotted road, then the clock and fuel left.
-/// `phase` is seconds since the flag dropped; it walks the road's bright
-/// head and flickers the exhaust. `s` is a lap run in flight.
 pub(crate) fn render_ticker(
     buf: &mut Buffer,
     area: Rect,
@@ -744,9 +685,6 @@ pub(crate) fn render_ticker(
     }
     let top = area.y.saturating_add(1);
     let bottom = area.bottom().saturating_sub(1);
-    // No ground of its own: the strip is part of the shell, so its glyphs
-    // sit on whatever the frame already holds. Only the side borders and
-    // the words are drawn.
     for y in top..bottom {
         for x in [area.left(), area.right().saturating_sub(1)] {
             if let Some(cell) = buf.cell_mut((x, y)) {
@@ -756,7 +694,6 @@ pub(crate) fn render_ticker(
         }
     }
 
-    // The tab rides the top rule, hard at the left like a header's title.
     let (state, state_ink) = if race.complete {
         ("✓", Color::Rgb(110, 190, 120))
     } else if race.paused {
@@ -786,13 +723,11 @@ pub(crate) fn render_ticker(
         .0;
     buf.set_stringn(after_state, area.y, " ", 1, Style::new());
 
-    // The knight, in profile, engines lit while he runs.
     let racer = ticker_racer_rect(area);
     if paint_racer_cells && racer.width > 0 && racer.height > 0 {
         <Realm as LoopArtArt>::ticker_racer_cells(buf, racer, race.paused || race.complete, phase);
     }
 
-    // The lap he is on: finished laps plus the one under way.
     let text_y = top;
     let current = if race.complete {
         race.laps_done.max(1)
@@ -827,8 +762,6 @@ pub(crate) fn render_ticker(
             .0;
     }
 
-    // What is left, at the right: the clock as a timer, the fuel compact,
-    // either endless as ∞. Paused carries its bars; complete its chequers.
     let clock = race.clock.map(|(left, _)| ticker_clock(left));
     let fuel = race.fuel.map(|(left, _)| fuel_words(left));
     let mut right = match (clock, fuel) {
@@ -845,7 +778,6 @@ pub(crate) fn render_ticker(
     let right_w = right.width() as u16;
     let mut right_x = area.right().saturating_sub(1).saturating_sub(right_w);
     if right_x <= lap_end.saturating_add(3) {
-        // No room for both gauges: the clock is the one that runs out first.
         right = race
             .clock
             .map(|(left, _)| ticker_clock(left))
@@ -865,8 +797,6 @@ pub(crate) fn render_ticker(
         );
     }
 
-    // The dotted road under the words: spent dots warm, the rest faint, a
-    // bright head walking it while the knight runs.
     let road_y = if area.height >= 4 {
         top.saturating_add(1)
     } else {
@@ -935,8 +865,6 @@ pub(crate) fn render_ticker(
     }
 }
 
-/// A count of seconds as the ticker's timer shows it: `04:23`, then
-/// hours, then days.
 pub(crate) fn ticker_clock(secs: u64) -> String {
     match secs {
         s if s >= 86_400 => format!("{}d {:02}h", s / 86_400, s % 86_400 / 3_600),
@@ -945,25 +873,19 @@ pub(crate) fn ticker_clock(secs: u64) -> String {
     }
 }
 
-/// What the ticker shows of a running loop.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Race {
     pub(crate) laps_done: usize,
-    /// The cap on laps (0: endless).
     pub(crate) laps: usize,
-    /// Seconds left of the clock, and of how many (none: endless).
     pub(crate) clock: Option<(u64, u64)>,
-    /// Tokens left of the fuel, and of how many (none: endless).
     pub(crate) fuel: Option<(usize, usize)>,
     pub(crate) rolls: bool,
     pub(crate) paused: bool,
-    /// The loop ran to its end: chequers, held briefly, then gone.
     pub(crate) complete: bool,
     pub(crate) task: String,
 }
 
 impl Race {
-    /// What is left of the clock and of the fuel, 0 to 1.
     pub(crate) fn left(&self) -> (Option<f32>, Option<f32>) {
         let part = |left: f64, of: f64| {
             if of > 0.0 {
@@ -979,13 +901,9 @@ impl Race {
     }
 }
 
-/// The ticker's outer rows: the shared top rule, two content rows (the
-/// knight and words over the dotted road), and the shared bottom rule.
 pub(crate) const TICKER_ROWS: u16 = 4;
-/// Narrower than this the lap, road, and timer cannot share a strip.
 pub(crate) const TICKER_MIN_COLS: u16 = 34;
 
-/// A count of tokens as the gauge shows it.
 pub(crate) fn fuel_words(tokens: usize) -> String {
     match tokens {
         t if t >= 1_000_000 => format!("{:.1}M", t as f64 / 1e6).replace(".0M", "M"),
@@ -994,11 +912,8 @@ pub(crate) fn fuel_words(tokens: usize) -> String {
     }
 }
 
-/// Seconds a lap run takes along the ticker's road.
 pub(crate) const LAP_RUN: f32 = 2.4;
 
-/// How far along a lap run is `t` seconds in: eased off the line, flat
-/// out, eased home. None once he is home.
 pub(crate) fn lap_run(t: f32) -> Option<f32> {
     (0.0..LAP_RUN).contains(&t).then(|| {
         let u = t / LAP_RUN;
@@ -1009,8 +924,6 @@ pub(crate) fn lap_run(t: f32) -> Option<f32> {
         }
     })
 }
-
-// --- the window ---------------------------------------------------------------
 
 #[cfg(feature = "glass")]
 pub(crate) use window::*;
@@ -1027,7 +940,6 @@ mod window {
 
     pub(crate) use angel_plug::loop_art::ArtKey;
 
-    /// Picture ids: the card's films and the widget's pictures.
     const BASE: u32 = angel_glass::LAYER_PICTURES + 0x4C4F_0000;
     const IDLE: u32 = BASE + 1;
     const LAUNCH: u32 = BASE + 2;
@@ -1036,14 +948,12 @@ mod window {
     pub(crate) const TICKER_RACER_IDLE: u32 = BASE + 6;
     const TEXT_SHADE: u32 = BASE + 7;
 
-    /// What the card is doing: open for choosing, or playing the start.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub(crate) enum Phase {
         Open,
         Launch,
     }
 
-    /// The films at one size: the card's three.
     pub(crate) struct Art {
         pub(crate) key: ArtKey,
         idle: Reel,
@@ -1051,7 +961,6 @@ mod window {
         goal: Reel,
     }
 
-    /// One film as its sheet and how to read it.
     #[derive(Clone)]
     pub(crate) struct Reel {
         pub(crate) sheet: Arc<Picture>,
@@ -1083,9 +992,6 @@ mod window {
 
     static ART: OnceLock<Mutex<Slot>> = OnceLock::new();
 
-    /// The films for `key`, once made. The first ask starts making them on
-    /// a thread of their own (a fraction of a second); until then the card
-    /// shows without them.
     pub(crate) fn art(key: ArtKey) -> Option<Arc<Art>> {
         if !<Realm as LoopArtArt>::card_pictures() {
             return None;
@@ -1095,8 +1001,6 @@ mod window {
         if let Some(art) = held.ready.as_ref().filter(|a| a.key == key) {
             return Some(Arc::clone(art));
         }
-        // A resize can ask for many sizes before one film is finished.
-        // Keep one builder and scale the last ready film in the meantime.
         if held.making.is_none() {
             held.making = Some(key);
             let spawned = std::thread::Builder::new()
@@ -1121,7 +1025,6 @@ mod window {
         held.ready.as_ref().map(Arc::clone)
     }
 
-    /// Make the films for `key` now, on this thread: what `art` does off it.
     pub(crate) fn make(key: ArtKey) -> Option<Art> {
         let sheets = <Realm as LoopArtArt>::card_sheets(key)?;
         Some(Art {
@@ -1149,7 +1052,6 @@ mod window {
         }
     }
 
-    /// The sizes the card at `plan` wants its films made at.
     pub(crate) fn art_key(plan: Plan, cell: (u16, u16)) -> ArtKey {
         ArtKey {
             cell,
@@ -1161,14 +1063,10 @@ mod window {
         }
     }
 
-    /// The card's plan in `root`, with room kept above for the squire.
     pub(crate) fn card_plan(root: Rect) -> Option<Plan> {
         plan(root, TITLE_ROWS, true, 6)
     }
 
-    /// The card for `dialog` in `root`: its words composed, its films from
-    /// `art` when they are made, the squire presenting it, or cheering
-    /// the start. Returns what answers a click, on screen.
     pub(crate) fn card(
         root: Rect,
         dialog: &LoopLaunchDialog,
@@ -1176,7 +1074,6 @@ mod window {
         phase: Phase,
     ) -> Option<(Card, Vec<LoopDialogHit>)> {
         let plan = card_plan(root)?;
-        // Through the start the flag's button stays pressed under the pill.
         let mut pressed;
         let dialog = if phase == Phase::Launch {
             pressed = dialog.clone();
@@ -1200,7 +1097,6 @@ mod window {
         card.films.push(shade);
         if let Some(art) = art {
             if let Some(at) = composed.film {
-                // A film made for a taller box plays in this one, scaled.
                 card.films.push(match phase {
                     Phase::Open => art.idle.film(at, false),
                     Phase::Launch => art.launch.film(at, true),
@@ -1219,9 +1115,6 @@ mod window {
         Some((card, offset(composed.hits, area)))
     }
 
-    /// A still under the words: opaque tonal ink across each text row,
-    /// feathered into the glass outside it. Empty rows and pictures stay clear.
-    /// The title is set by the window in rows 1..3, outside the cell buffer.
     fn text_shade(composed: &Composed) -> Film {
         struct Shade {
             area: Rect,
@@ -1253,9 +1146,6 @@ mod window {
             .as_ref()
             .is_none_or(|s| s.area != area || s.rows != rows)
         {
-            // A logical cell raster scales with the card, including when the
-            // films are still being made. Keep a full cell opaque beneath the
-            // glyphs; only the surrounding margin feathers, never the words.
             let (cw, ch) = (8, 16);
             let (w, h) = (u32::from(area.width) * cw, u32::from(area.height) * ch);
             let mut rgba = vec![0; (w * h * 4) as usize];
@@ -1301,8 +1191,6 @@ mod window {
         }
     }
 
-    /// The card's identity: the same launch keeps its words in place while
-    /// its pickers change.
     fn serial(dialog: &LoopLaunchDialog) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -1312,9 +1200,6 @@ mod window {
         hasher.finish()
     }
 
-    /// The ticker's knight in side profile, engines lit and cold, made at
-    /// the window's cell size for its widest slot. Handed to the window
-    /// once per size.
     pub(crate) fn ticker_pictures(cell: (u16, u16)) -> [Picture; 2] {
         let picture = |id: u32, burn: f32| {
             let still = <Realm as LoopArtArt>::ticker_racer_still(cell, burn);
@@ -1333,10 +1218,6 @@ mod window {
         ]
     }
 
-    /// The ticker's glass for this frame: the knight in profile over his
-    /// slot in the strip, bobbing a touch while he runs. The strip's
-    /// words and road are cells (`render_ticker`); only the racer is a
-    /// picture. `fade` brings him in after the flag drops.
     pub(crate) fn ticker_layers(race: &Race, area: Rect, phase: f32, fade: f32) -> Vec<Layer> {
         let slot = ticker_racer_rect(area);
         if slot.width == 0 || slot.height == 0 {

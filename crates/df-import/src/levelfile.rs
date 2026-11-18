@@ -80,7 +80,7 @@ impl LevelFile {
                 return Err(format!("line {}: expected {head}", i + 1));
             }
             i += 1;
-            let mut rows = Vec::with_capacity(h);
+            let mut rows = Vec::new();
             for r in 0..h {
                 let row = lines.get(i + r).ok_or_else(|| format!("{head}: missing row {r}"))?;
                 if row.len() != w {

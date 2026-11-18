@@ -13,14 +13,10 @@ fn road_like(t: u8) -> bool {
     matches!(t, b'=' | b':' | b'H')
 }
 
-/// Whether a map tile's ground moves with the ambient step: water, streams, falls and lava. Every
-/// other tile's marks are the same at every step (a test holds the rest of the realm to it), which
-/// is what lets a view's still ground be kept between steps.
 pub fn moves(tile: u8) -> bool {
     matches!(tile, b'~' | b'w' | b'f' | b'L' | b'F')
 }
 
-/// The ink at a world pixel at ambient step `tick`, or `None` for black paper.
 pub fn mark(realm: &Realm, wx: i32, wy: i32, tick: u32) -> Option<char> {
     let (tx, ty) = (wx.div_euclid(TILE), wy.div_euclid(TILE));
     let (lx, ly) = (wx.rem_euclid(TILE), wy.rem_euclid(TILE));
@@ -52,7 +48,6 @@ pub fn mark(realm: &Realm, wx: i32, wy: i32, tick: u32) -> Option<char> {
     }
 }
 
-/// What a light pool shows on bare paper: a dim ink matching the ground.
 pub fn pool_ink(realm: &Realm, wx: i32, wy: i32, fire: bool) -> char {
     match realm.at_px(wx, wy) {
         b'~' | b'w' | b'f' => 'q',
@@ -80,12 +75,7 @@ pub fn meadow(wx: i32, wy: i32) -> Option<char> {
     let (cx, cy) = (wx.div_euclid(7), wy.div_euclid(6));
     let (lx, ly) = (wx.rem_euclid(7), wy.rem_euclid(6));
     let h = hash(cx, cy, 21);
-    // The blank-slate plan's country (`crate::world::plan`) is open hillside:
-    // the tufts crowd on the crests of broad swells and thin out in their
-    // hollows, so black paper reads as rolling ground, never a field of marks.
     let swell = crate::world::plan::tabula().then(|| hill(cx * 7 + 3, cy * 6 + 3));
-    // And faint contour dashes along the swells' own levels, as a surveyor
-    // draws a hillside, so the ground reads as rolling and not flat.
     if swell.is_some() {
         let level = |x: i32, y: i32| (hill(x, y) * 6.0) as i32;
         let here = level(wx, wy);
@@ -109,12 +99,9 @@ pub fn meadow(wx: i32, wy: i32) -> Option<char> {
     None
 }
 
-/// How high the hillside stands at a world pixel, 0 (a hollow) to 1 (a crest):
-/// broad swells with smaller ones on them, a pure function of the pixel.
 pub fn hill(wx: i32, wy: i32) -> f32 {
     let (x, y) = (wx as f32, wy as f32);
     let n = 0.7 * vnoise(x / 230.0, y / 170.0, 931) + 0.3 * vnoise(x / 80.0, y / 62.0, 937);
-    // Value noise sits near its middle: stretched so crests and hollows are real.
     ((n - 0.5) * 2.2 + 0.5).clamp(0.0, 1.0)
 }
 
@@ -128,8 +115,6 @@ fn road(
     bed(wx, wy, (tx, ty), (lx, ly), |dx, dy| road_like(realm.at(tx + dx, ty + dy)))
 }
 
-/// A lane cut to a place's door: the road's pebbled bed, edged where the
-/// tile beside it (by `open(dx, dy)`) is not road.
 pub fn lane(wx: i32, wy: i32, open: impl Fn(i32, i32) -> bool) -> Option<char> {
     let (tx, ty) = (wx.div_euclid(TILE), wy.div_euclid(TILE));
     bed(wx, wy, (tx, ty), (wx.rem_euclid(TILE), wy.rem_euclid(TILE)), open)
@@ -144,7 +129,6 @@ fn bed(
 ) -> Option<char> {
     let rag = |a: i32, b: i32, s: u32| (hash(a, b, s) % 3) as i32 + 1;
     let mut edge = false;
-    // How far in from the road's nearest edge this pixel lies.
     let mut inward = i32::MAX;
     for (gone, dist, reach) in [
         (!open(-1, 0), lx, rag(wy, tx, 11)),
@@ -162,15 +146,10 @@ fn bed(
             inward = inward.min(dist);
         }
     }
-    // A wide road is trodden smooth down its middle: the stones lie along
-    // its verges, and the crown is dust.
     let middle = inward > 7;
     if edge {
         return (!hash(wx, wy, 16).is_multiple_of(3)).then_some('I');
     }
-    // A pebbled bed: small stones in loose clusters, each lit along its top
-    // over a darker body and a shadowed foot, and patches of trodden dust
-    // between them; never an even speckle.
     let (cx, cy) = (wx.div_euclid(5), wy.div_euclid(4));
     let (px, py) = (wx.rem_euclid(5), wy.rem_euclid(4));
     let h = hash(cx, cy, 15);
@@ -194,17 +173,10 @@ fn bed(
     (dust > 0.62 && hash(wx, wy, 18) % 3 == 0).then_some('b')
 }
 
-/// A footpath tile: a narrow ribbon of trodden earth wandering through the
-/// tile, joined to whichever neighbours `joined(dx, dy)` says are path or
-/// road, its edges ragged. `None` outside the ribbon (the ground shows
-/// through); `Some(None)` inside it where nothing is drawn, `Some(Some(ink))`
-/// a speck of worn earth.
 pub fn trail(wx: i32, wy: i32, on: u8, joined: impl Fn(i32, i32) -> bool) -> Option<Option<char>> {
     let (tx, ty) = (wx.div_euclid(TILE), wy.div_euclid(TILE));
     let (lx, ly) = (wx.rem_euclid(TILE), wy.rem_euclid(TILE));
     let rag = |a: i32, b: i32, s: u32| (hash(a, b, s) % 3) as i32;
-    // A ribbon is eight pixels across with the edges worn ragged; a side
-    // with no neighbour closes it off.
     let mut inside = true;
     for (open, dist, a, b, salt) in [
         (joined(-1, 0), lx, wy, tx, 25),
@@ -216,8 +188,6 @@ pub fn trail(wx: i32, wy: i32, on: u8, joined: impl Fn(i32, i32) -> bool) -> Opt
             inside = false;
         }
     }
-    // Where it runs straight, the ribbon is trimmed to the middle of the
-    // tile across, so it never fills a whole tile edge to edge.
     let across = |open_a: bool, open_b: bool, d: i32| open_a && open_b && !(5..TILE - 5).contains(&d);
     if across(joined(-1, 0), joined(1, 0), ly) || across(joined(0, -1), joined(0, 1), lx) {
         inside = false;
@@ -225,8 +195,6 @@ pub fn trail(wx: i32, wy: i32, on: u8, joined: impl Fn(i32, i32) -> bool) -> Opt
     if !inside {
         return None;
     }
-    // Worn earth is brown on grass and ash, a darker grey on sand, where
-    // the dunes' own speckle is already brown.
     let n = hash(wx, wy, 29) % 100;
     let (a, b) = if on == b's' { ('X', 'g') } else { ('b', 'I') };
     Some(match n {
@@ -256,9 +224,6 @@ pub fn cobble(wx: i32, wy: i32) -> Option<char> {
     })
 }
 
-/// Still water: a pale shoreline and wave dashes drifting east. The bank
-/// wanders in long bends and every outer corner of a lake is worn round,
-/// so no water is cut in straight runs and right angles.
 fn water(realm: &Realm, wx: i32, wy: i32, t: i32) -> Option<char> {
     let wet = |x: i32, y: i32| matches!(realm.at(x, y), b'~' | b'w' | b'f');
     let (tx, ty) = (wx.div_euclid(TILE), wy.div_euclid(TILE));
@@ -274,7 +239,6 @@ fn water(realm: &Realm, wx: i32, wy: i32, t: i32) -> Option<char> {
         return None;
     }
     if depth < 8.0 {
-        // Smooth noise keeps near its middle: stretched, so the bank bends.
         let n = ((vnoise(wx as f32 / 12.0, wy as f32 / 12.0, 6) - 0.5) * 3.0).clamp(-1.0, 1.0);
         let s = depth - 1.0 - (1.4 + n * 1.4);
         if s < 0.0 {
@@ -300,15 +264,8 @@ fn water(realm: &Realm, wx: i32, wy: i32, t: i32) -> Option<char> {
     None
 }
 
-/// A water tile's eight neighbours, the bit order of `bank_table`'s mask.
 const NEIGHBOURS: [(i32, i32); 8] = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)];
 
-/// How deep each pixel of a water tile lies from its bank, in pixels (0 on
-/// the dry ground a worn corner leaves), for the tile's dry neighbours
-/// `mask` (one bit per `NEIGHBOURS` entry). The banks are measured over the
-/// three by three tiles round it, and every outer corner is worn to a
-/// round: what lies a radius from every bank, grown back out by the
-/// radius. Worked out once per pattern of neighbours.
 fn bank_table(mask: usize) -> &'static [u8] {
     static TABLES: [std::sync::OnceLock<Vec<u8>>; 256] = [const { std::sync::OnceLock::new() }; 256];
     TABLES[mask & 255].get_or_init(|| {
@@ -365,12 +322,9 @@ pub fn sand(wx: i32, wy: i32) -> Option<char> {
     }
 }
 
-/// Bog: standing pools with a dark rim and short ripples on them, and
-/// rushes in small clumps between, never a hatch or a speckle.
 fn swamp(wx: i32, wy: i32) -> Option<char> {
     let n = vnoise(wx as f32 / 9.0, wy as f32 / 7.0, 29);
     if n > 0.64 {
-        // A pool of dark standing water, a short ripple on it here and there.
         let (cx, cy) = (wx.div_euclid(7), wy.div_euclid(4));
         let h = hash(cx, cy, 30);
         let (ox, oy) = (((h >> 4) % 4) as i32, ((h >> 7) % 4) as i32);
@@ -378,7 +332,6 @@ fn swamp(wx: i32, wy: i32) -> Option<char> {
         let ripple = n > 0.68 && h % 3 == 0 && ly == oy && lx >= ox && lx < ox + 3;
         return Some(if ripple { 'q' } else { 'x' });
     }
-    // A clump of rushes: two or three stems, dark at the foot, lit at the tip.
     let (cx, cy) = (wx.div_euclid(6), wy.div_euclid(5));
     let h = hash(cx, cy, 31);
     if h % 3 != 0 {
@@ -394,9 +347,6 @@ fn swamp(wx: i32, wy: i32) -> Option<char> {
     }
 }
 
-/// A sown field: rows of young plants five pixels apart, each plant a small
-/// tuft lit on its top and set a little off the plants beside it, a gap
-/// here and there, dark furrows between the rows. Never a run of stripes.
 fn crops(wx: i32, wy: i32) -> Option<char> {
     let (row, ly) = (wy.div_euclid(5), wy.rem_euclid(5));
     let along = wx + row * 2;
@@ -424,7 +374,6 @@ fn ash(wx: i32, wy: i32) -> Option<char> {
     }
 }
 
-/// Plank bridges: weathered boards at dusk, a darker seam between them.
 pub fn planks(wx: i32, wy: i32) -> char {
     if wy.rem_euclid(4) == 3 {
         'b'
@@ -435,13 +384,10 @@ pub fn planks(wx: i32, wy: i32) -> char {
     }
 }
 
-/// Which way a watercourse runs through tile `(tx, ty)`: down when it
-/// continues above or below, east otherwise.
 fn runs_down(realm: &Realm, (tx, ty): (i32, i32), course: &[u8]) -> bool {
     course.contains(&realm.at(tx, ty - 1)) || course.contains(&realm.at(tx, ty + 1))
 }
 
-/// A stream: dark water with pale streaks sliding along its course.
 fn stream(realm: &Realm, wx: i32, wy: i32, tile: (i32, i32), t: i32) -> char {
     let down = runs_down(realm, tile, b"wf~");
     let (along, across) = if down { (wy - t, wx) } else { (wx - t, wy) };
@@ -454,13 +400,10 @@ fn stream(realm: &Realm, wx: i32, wy: i32, tile: (i32, i32), t: i32) -> char {
     }
 }
 
-/// A fall pouring down a cliff face — water, or lava — with foam or
-/// spatter where it lands.
 fn fall(realm: &Realm, wx: i32, wy: i32, (tx, ty): (i32, i32), t: i32, molten: bool) -> char {
     let same = if molten { b'F' } else { b'f' };
     let landing = realm.at(tx, ty + 1) != same && wy.rem_euclid(TILE) >= TILE - 3;
     let phase = (wy - t * 2 + (hash(wx, 0, 441) % 7) as i32).rem_euclid(6);
-    // Mostly dark water with streaks sliding down it; spray where it lands.
     let streak = hash(wx, 1, 444).is_multiple_of(3);
     match (molten, landing, phase) {
         (false, true, _) => match hash(wx, wy + t, 442) % 4 {
@@ -484,7 +427,6 @@ fn fall(realm: &Realm, wx: i32, wy: i32, (tx, ty): (i32, i32), t: i32, molten: b
     }
 }
 
-/// Lava: a warm crust creeping along its course, glowing through cracks.
 fn lava(realm: &Realm, wx: i32, wy: i32, tile: (i32, i32), t: i32) -> char {
     let down = runs_down(realm, tile, b"LF");
     let (along, across) = if down {
@@ -492,7 +434,6 @@ fn lava(realm: &Realm, wx: i32, wy: i32, tile: (i32, i32), t: i32) -> char {
     } else {
         (wx - t / 2, wy)
     };
-    // Mostly dark crust; the warm melt shows through in slow-moving seams.
     let crust = vnoise(along as f32 / 6.0, across as f32 / 3.0, 451);
     if crust > 0.62 {
         'n'

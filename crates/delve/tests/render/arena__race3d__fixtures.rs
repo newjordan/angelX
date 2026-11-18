@@ -3,8 +3,6 @@
 use super::*;
 use crate::realm::Spoil;
 
-/// A party of `seats` knights in a race hall holding `course`, past the
-/// countdown.
 pub fn racing(course: Course, seats: u32) -> Run {
     let mut run = (0..80u64)
         .find_map(|seed| {
@@ -31,7 +29,6 @@ pub fn racing(course: Course, seats: u32) -> Run {
     run
 }
 
-/// Each seat a different class: a swordsman, a mage, a berserker, a healer.
 pub fn classed(run: &mut Run) {
     for (id, class) in [(1u32, "Swordsman"), (2, "Mage"), (3, "Berserker"), (4, "Healer")] {
         if let Some(hero) = run.players.get_mut(&id) {

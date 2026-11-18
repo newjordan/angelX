@@ -6,8 +6,6 @@ use ratatui_core::terminal::Frame;
 use std::any::Any;
 use std::path::{Path, PathBuf};
 
-/// A workspace's identity: the root its island is seeded from and the key its
-/// saved progress files under.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Identity {
     pub root: PathBuf,
@@ -59,8 +57,6 @@ pub trait Console {
     fn claim_upload(&self, id: u32) -> bool;
 }
 
-/// Readiness is not ownership: a supported pending sprite must not trigger a
-/// second compositor on the draw thread. Legacy routes still use readiness.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WorldPixelsState {
     Ready,

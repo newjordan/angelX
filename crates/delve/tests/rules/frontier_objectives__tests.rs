@@ -80,8 +80,6 @@ fn frontier_objectives_require_real_claim_security_and_keep_survey_payment_separ
         ObjectiveStatus::Secure
     );
     assert!(!run.home.industry.world.parcels.contains(&(2, 0)));
-    // Walk and interact at the real vein. Merely winning the fight above did
-    // not grant a parcel, a claim, or any factory resources.
     for _ in 0..HZ * 20 {
         let hero = &run.players[&1];
         if (hero.x - d.x).hypot(hero.y - d.y) < 2.0 {
@@ -135,9 +133,6 @@ fn work_until(
     );
 }
 
-/// Shared by the integration test and optional renderer review. Production
-/// commands spend founding supplies and actual deliveries; combat uses real
-/// starter inputs, and the final survey uses client-shaped desk inputs.
 pub(crate) fn play_village_expedition() -> Run {
     use crate::kingdom::{Command, Kingdom, catalog};
     let mut kingdom = Kingdom::default();
@@ -232,8 +227,6 @@ pub(crate) fn play_village_expedition() -> Run {
         ObjectiveStatus::SurveyReady
     );
     assert_eq!(fought.home.industry.amount("iron-ore"), 0);
-    // Cross the normal persisted-Home boundary. The encounter test does not
-    // pretend that its isolated room also contains a procedural route home.
     let saved = serde_json::to_string(&fought.home).unwrap();
     let mut returned = Run::at_home(
         511,

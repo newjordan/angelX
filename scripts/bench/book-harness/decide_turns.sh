@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# decide_turns.sh <bin-dir> <label> <scenario> — a multi-turn session in the
-# TUI (tmux) against the scripted stub: one prompt per entry of the scenario's
-# "prompts", the stub following "turns" (decide/scenarios.json). Every request
-# lands in out/<label>.jsonl. Arm: ANGEL_BOOK_INTRO (1, 0 or every).
 set -euo pipefail
 if [[ $# != 3 || ! "$2" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
   printf 'Usage: %s <bin-dir> <label> <scenario>\n' "$0" >&2
@@ -26,7 +22,6 @@ cleanup_session() {
     tmux kill-session -t "$SESSION_TARGET" 2>/dev/null || true
     SESSION_OWNED=0
   fi
-  # As in E3, stop jobs still inside this invocation's private workspace.
   for proc in /proc/[0-9]*; do
     case "$(readlink "$proc/cwd" 2>/dev/null)" in
       "$WORK"|"$WORK"/*) kill -9 "${proc#/proc/}" 2>/dev/null || true ;;
@@ -78,7 +73,6 @@ printf -v RUN_COMMAND '%s 2>%q' "$(printf '%q ' env -i "${ENVS[@]}" "$BIN/angel"
 SESSION_OWNED=1
 tmux new-session -d -s "$SESSION" -x 200 -y 55 -c "$WORK" "$RUN_COMMAND" || exit 2
 say() { tmux send-keys -t "$SESSION_TARGET" -l "$1"; sleep 0.5; tmux send-keys -t "$SESSION_TARGET" Enter; }
-# Idle: the stub's log has not grown for 6 s.
 wait_idle() { local last=-1 n still=0; for ((i=0; i<150; i++)); do sleep 2; n=0
   if [[ -f "$LOG" ]]; then n=$(wc -l < "$LOG"); fi
   if [ "$n" -gt 0 ] && [ "$n" = "$last" ]; then still=$((still + 1)); [ $still -ge 3 ] && return; else still=0; fi; last=$n; done

@@ -11,26 +11,17 @@ use crate::world_viz::overworld::{DoorOpens, Opens};
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
-/// A key the terminal reports letting go walks until it is let go; this
-/// only stops him if a release goes missing (repeats keep renewing it).
 const HELD_LEASE: Duration = Duration::from_millis(700);
-/// A key the terminal only repeats walks while the repeats keep coming.
 const KEY_LEASE: Duration = Duration::from_millis(180);
-/// A single press with no repeat or release behind it: a short step.
 const TAP_LEASE: Duration = Duration::from_millis(110);
 
-/// The keys walk mode holds.
 #[derive(Debug, Default)]
 pub struct Walk {
     pub on: bool,
-    /// Direction keys down: when each was last pressed, and whether it has
-    /// come again since (a repeat).
     pub(crate) held: HashMap<KeyCode, (Instant, bool)>,
-    /// Keys the terminal has been seen to release.
     pub(super) releasing: HashSet<KeyCode>,
 }
 
-/// Which way a key walks him, east and south.
 fn heading(code: KeyCode) -> Option<(i8, i8)> {
     match code {
         KeyCode::Up | KeyCode::Char('w' | 'k') => Some((0, -1)),
@@ -41,7 +32,6 @@ fn heading(code: KeyCode) -> Option<(i8, i8)> {
     }
 }
 
-/// Whether a cell is inside a rectangle.
 pub(super) fn point_in(r: ratatui_core::layout::Rect, x: u16, y: u16) -> bool {
     x >= r.x && x < r.x.saturating_add(r.width) && y >= r.y && y < r.y.saturating_add(r.height)
 }
@@ -54,7 +44,6 @@ fn lower(code: KeyCode) -> KeyCode {
 }
 
 impl Walk {
-    /// A key came up.
     pub(crate) fn release_walk_key(&mut self, key: event::KeyEvent) {
         let code = lower(key.code);
         if heading(code).is_some() {
@@ -92,7 +81,6 @@ impl Session<'_> {
         self.walk.held.clear();
     }
 
-    /// `/world walk`: open the map and step onto it.
     pub fn walk_from_command(&mut self) -> String {
         if self.dungeon.expanded {
             self.collapse_dungeon();
@@ -103,8 +91,6 @@ impl Session<'_> {
             .into()
     }
 
-    /// Keys while he walks (and `p`, which starts him walking on the
-    /// focused map). True when walk mode used the key.
     pub fn walk_key(&mut self, key: event::KeyEvent) -> bool {
         let code = lower(key.code);
         let press = key.kind == event::KeyEventKind::Press;
@@ -122,7 +108,6 @@ impl Session<'_> {
             return false;
         }
         if code == KeyCode::Esc {
-            // The global stop contract wins: Esc stops a running turn first.
             if self.facts().turn_running || self.facts().background_job {
                 return false;
             }
@@ -151,7 +136,6 @@ impl Session<'_> {
             return true;
         }
         match code {
-            // E goes in, as it meets the world inside the Delve; F only fires.
             KeyCode::Enter | KeyCode::Char('e') => {
                 if press {
                     self.go_in();
@@ -164,14 +148,11 @@ impl Session<'_> {
                 }
                 true
             }
-            // Every other letter stays on the map: none reaches the glass's
-            // own keys or the composer while he walks.
             KeyCode::Char(_) => true,
             _ => false,
         }
     }
 
-    /// Where the held keys steer him now, `-1..=1` east and south.
     fn walk_steer(&mut self, now: Instant) -> (i8, i8) {
         if !self.walk.on || !self.facts().terminal_focused {
             self.walk.held.clear();
@@ -197,14 +178,11 @@ impl Session<'_> {
         (x.clamp(-1, 1), y.clamp(-1, 1))
     }
 
-    /// Hand the held keys to the visitor before the world ticks.
     pub fn steer_walk(&mut self) {
         let steer = self.walk_steer(Instant::now());
         self.world.steer_visitor(steer);
     }
 
-    /// While already walking, a click chooses a road destination. Otherwise
-    /// leave it to visible controls, the dungeon sprite, or camera gestures.
     pub fn walk_click(&mut self, x: u16, y: u16) -> bool {
         let Some((area, view)) = *self.overworld_map else {
             return false;
@@ -227,8 +205,6 @@ impl Session<'_> {
         true
     }
 
-
-    /// Go in at the door at hand.
     pub fn go_in(&mut self) {
         let Some(opens) = self.world.visitor_door().and_then(|door| door.opens()) else {
             return;
@@ -259,7 +235,6 @@ impl Session<'_> {
         }
     }
 
-    /// Walk mode lasts while its map is on screen and in focus.
     pub fn settle_walk(&mut self) {
         if self.walk.on && (!self.walk_map_shown() || !self.facts().artifacts_focused) {
             self.stop_walk();

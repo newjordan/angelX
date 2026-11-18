@@ -1,5 +1,3 @@
-# crates/delve/src/rules/signatures.rs, the stage machines: the Big Ripper's
-# breath and rip, Grinwick's rails, and the charge-ups any `.boss` file names.
 import Base
 
 def signatures.swell(enemy: Enemy) -> F32:
@@ -18,7 +16,6 @@ def signatures.swell(enemy: Enemy) -> F32:
     return (2.0 - RS.f_min((cb.f(enemy.timer) / 33.0 : F32), 1.0) : F32)
   1.0
 
-# The charge-ups a guardian fights with: its file's, or the two unruly ones' own.
 def signatures.charge_ups(boss: Boss) -> [String]:
   if String.eq(boss.id, signatures.RIPPER()):
     return ["inhale", "charge"]
@@ -29,19 +26,15 @@ def signatures.charge_ups(boss: Boss) -> [String]:
     out = up.kind <> out
   List.reverse(&2, String, out)
 
-# What a guardian's charge-up strikes with carries this tag.
 def signatures.tag(enemy: Enemy) -> U32:
   RS.u_max(U32.xor(RS.u_rotl(enemy.id, 16), enemy.signature.cycle), 1)
 
-# Ticks a charged beam burns sweeping its arc at BEAM_TURN.
 def signatures.beam_burn(up: ChargeUp) -> U32:
   RS.f_as_u32(RS.f_clamp(F32.ceil((RS.f_abs(up.arc) / signatures.BEAM_TURN() * cb.f(rules.HZ()) : F32)), cb.f(patterns.SWEEP_BURN()), 255.0))
 
-# A slam's clear lane, in degrees.
 def signatures.slam_lane(up: ChargeUp) -> F32:
   RS.f_max(up.arc, RS.f_to_degrees((signatures.SLAM_GAP() / tide.RING_GAP() : F32)))
 
-# Ticks a guardian stands spent after the blow.
 def signatures.spent_for(up: ChargeUp) -> U32:
   blow: U32 = 0
   if String.eq(up.kind, "slam"):
@@ -55,7 +48,6 @@ def signatures.stage(enemy: Enemy, next: U32) -> Enemy:
   enemy.timer = 0
   enemy
 
-# The charge-up it is winding up or striking with.
 def signatures.winding(enemy: Enemy, boss: Boss) -> J.Val:
   if signatures.special(boss):
     return J.JNull{}
@@ -64,7 +56,6 @@ def signatures.winding(enemy: Enemy, boss: Boss) -> J.Val:
     return J.nth(boss.windups, enemy.signature.windup)
   J.JNull{}
 
-# A seeded candidate with the longest clear launch corridor.
 def signatures.rip_direction(enemy: Enemy, room: Room, barred: Bool, seed: W.W) -> (F32, F32):
   salt: W.W = rules.mix(W.xor(W.xor(seed, W.shl(W.of_u32(enemy.id), 32)), W.of_u32(enemy.signature.cycle)))
   start: F32 = (cb.f(W.rem_u32(salt, 65536)) / 65536.0 * cb.TAU() : F32)
@@ -101,7 +92,6 @@ def signatures.begin_rip(enemy: Enemy, room: Room, barred: Bool, seed: W.W) -> E
 def signatures.dash(enemy: Enemy, room: Room, barred: Bool, speed: F32, bounce: Bool, deeds: Deeds) -> (Enemy, Deeds, Bool):
   signatures.dash_for(enemy, room, barred, speed, bounce, 24, 0, deeds)
 
-# A dash in four small collision steps: a continuous trail that cannot tunnel stone.
 def signatures.dash_for(enemy: Enemy, room: Room, barred: Bool, speed: F32, bounce: Bool, damage: U32, blow: U32, deeds: Deeds) -> (Enemy, Deeds, Bool):
   fx: F32 = enemy.x
   fy: F32 = enemy.y
@@ -134,11 +124,9 @@ def signatures.dash_for(enemy: Enemy, room: Room, barred: Bool, speed: F32, boun
   deeds.sweeps = J.push(deeds.sweeps, J.JA{[cb.of_pair(fx, fy), cb.of_pair(enemy.x, enemy.y), J.of_f32((monsters.Enemy.radius(enemy) + rules.HERO_RADIUS() : F32)), J.of_u32(damage), cb.of_pair(ddx, ddy), J.of_u32(blow)]})
   (enemy, deeds, stopped)
 
-# The nearest of `heroes` to the guardian.
 def signatures.nearest(enemy: Enemy, heroes: J.Val) -> (F32, F32)?:
   cb.nearest2(heroes, enemy.x, enemy.y)
 
-# The clear spot nearest `to` where the guardian fits, if any near.
 def signatures.clear_near(enemy: Enemy, room: Room, barred: Bool, tx: F32, ty: F32) -> (F32, F32)?:
   best: (F32, F32)? = None{}
   bd: U32 = 0
@@ -160,7 +148,6 @@ def signatures.clear_near(enemy: Enemy, room: Room, barred: Bool, tx: F32, ty: F
               bd = d
   best
 
-# What a guardian's charge-up shows when it begins.
 def signatures.begin(enemy: Enemy, boss: Boss, up: ChargeUp, target: (F32, F32), room: Room, barred: Bool, seed: W.W, deeds: Deeds) -> (Enemy, Deeds):
   fx: F32 = enemy.x
   fy: F32 = enemy.y
@@ -234,7 +221,6 @@ def signatures.begin(enemy: Enemy, boss: Boss, up: ChargeUp, target: (F32, F32),
         enemy.signature.mark = (fx, fy)
   (enemy, deeds)
 
-# A ring of shots round the guardian (an inhale's breath out, a leap's landing).
 def signatures.ring(enemy: Enemy, boss: Boss, up: ChargeUp, deeds: Deeds) -> Deeds:
   n: U32 = up.shots
   if U32.is_eq(n, 0):
@@ -249,7 +235,6 @@ def signatures.ring(enemy: Enemy, boss: Boss, up: ChargeUp, deeds: Deeds) -> Dee
     deeds.bursts = J.push(deeds.bursts, patterns.Projectile.fresh(enemy.x, enemy.y, (F32.cos(a) * up.speed : F32), (F32.sin(a) * up.speed : F32), True{}, bosses.Bolt.shot(up.bolt, boss.only_in), up.damage, (6 * rules.HZ() : U32), t))
   deeds
 
-# The blow of the charge-up it has wound.
 def signatures.strike(enemy: Enemy, boss: Boss, up: ChargeUp, deeds: Deeds) -> (Enemy, Deeds):
   if String.eq(up.kind, "charge"):
     if U32.is_gt(J.len(enemy.signature.rails), 0):
@@ -272,10 +257,6 @@ def signatures.strike(enemy: Enemy, boss: Boss, up: ChargeUp, deeds: Deeds) -> (
   deeds.shake = 6
   (signatures.stage(enemy, signatures.DAZED()), deeds)
 
-# A guardian's charge-ups from its file, one tick: when one is due (and its
-# burst is in its allowance) it stands and winds up where everyone can see,
-# then strikes, then stands spent. True while it is busy at one, so it neither
-# walks nor shoots. Answers (enemy, deeds, busy).
 def signatures.wind(enemy: Enemy, boss: Boss, heroes: J.Val, room: Room, barred: Bool, seed: W.W, deeds: Deeds) -> (Enemy, Deeds, Bool):
   if Bool.or(signatures.special(boss), U32.is_eq(J.len(boss.windups), 0)):
     return (enemy, deeds, False{})
@@ -293,7 +274,6 @@ def signatures.wind(enemy: Enemy, boss: Boss, heroes: J.Val, room: Room, barred:
             return (enemy, deeds, False{})
           case Some{target: (F32, F32)}:
             if U32.is_gt((enemy.signature.spent + cost : U32), signatures.BANK()):
-              # It gathers itself: what it will throw comes out of its allowance first.
               return (enemy, deeds, False{})
             enemy.signature.spent = (enemy.signature.spent + cost : U32)
             enemy.signature.active = True{}
@@ -346,7 +326,6 @@ def signatures.wind(enemy: Enemy, boss: Boss, heroes: J.Val, room: Room, barred:
     return (enemy, deeds, False{})
   (enemy, deeds, True{})
 
-# The unruly guardians' own stage machines. Answers (enemy, deeds, handled).
 def signatures.act(enemy: Enemy, boss: Boss, heroes: J.Val, room: Room, barred: Bool, seed: W.W, deeds: Deeds) -> (Enemy, Deeds, Bool):
   if Bool.not(signatures.special(boss)):
     return (enemy, deeds, False{})
@@ -355,7 +334,6 @@ def signatures.act(enemy: Enemy, boss: Boss, heroes: J.Val, room: Room, barred: 
   if String.eq(boss.id, signatures.RIPPER()):
     raging: Bool = (cb.f(enemy.hp) < (cb.f(enemy.max_hp) * 0.4 : F32) : F32)
     radius: F32 = (boss.radius * signatures.swell(enemy) : F32)
-    # Each breath pushes his growing belly clear of nearby stone.
     if Bool.and(Bool.or((radius > monsters.Enemy.radius(enemy) : F32), U32.is_eq(enemy.stage, signatures.TELL())), Bool.not(rules.Grid.clear(room, barred, enemy.x, enemy.y, radius, 1))):
       have: Bool = False{}
       bd: U32 = 0
@@ -444,7 +422,6 @@ def signatures.lay_rails(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, 
     rail.a = (enemy.x, enemy.y)
     rail.b = (bx, by)
     rails = List.append(&2, J.Val, rails, [rail])
-  # sorted longest first (a stable sort)
   sorted: [Rail] = Nil{}
   for rail: Rail in rails:
     sorted = signatures.insert_by_reach(sorted, rail)
@@ -459,7 +436,6 @@ def signatures.reach_of(rail: Rail) -> F32:
   (bx: F32, by: F32) = rail.b
   cb.hyp((bx - ax : F32), (by - ay : F32))
 
-# Insert after every earlier rail whose reach is not shorter (stable, descending).
 def signatures.insert_by_reach(sorted: [Rail], rail: Rail) -> [Rail]:
   match (sorted : [Rail]):
     case Nil{}:

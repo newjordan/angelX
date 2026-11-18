@@ -42,7 +42,6 @@ fn the_lead_is_called_when_it_changes_hands_not_when_it_starts() {
     show.standings(20, &eaten, 190);
     assert_eq!(cries(&show), vec![Cry::Lead]);
     assert_eq!(show.shouts[0].who, 2);
-    // A tie holds the lead where it was and calls nothing.
     eaten.insert(1, 15);
     show.standings(30, &eaten, 180);
     assert_eq!(show.lead, Some(2));

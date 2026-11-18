@@ -1,6 +1,3 @@
-# gc.* — small helpers every games_c fragment shares. Not Rust names.
-
-# Field readers: a missing field reads as its Rust Default.
 def gc.u(+o: J.Val, +k: String) -> U32:
   J.u32(J.get(o, k))
 
@@ -13,14 +10,12 @@ def gc.b(+o: J.Val, +k: String) -> Bool:
 def gc.s(+o: J.Val, +k: String) -> String:
   J.str(J.get(o, k))
 
-# Item `i` of an array read as a number / float / bool / text.
 def gc.nu(+a: J.Val, +i: U32) -> U32:
   J.u32(J.nth(a, i))
 
 def gc.nf(+a: J.Val, +i: U32) -> F32:
   J.f32(J.nth(a, i))
 
-# Field writers.
 def gc.su(o: J.Val, +k: String, +v: U32) -> J.Val:
   J.set(o, k, J.JU{v})
 
@@ -36,7 +31,6 @@ def gc.sb(o: J.Val, +k: String, +v: Bool) -> J.Val:
 def gc.ss(o: J.Val, +k: String, +v: String) -> J.Val:
   J.set(o, k, J.JS{v})
 
-# `serde(skip_serializing_if = zero)`: a zero is left out; `Not::not`: false is.
 def gc.sz.if(zero: Bool, o: J.Val, +k: String, +v: U32) -> J.Val:
   match zero:
     case True{}:
@@ -57,11 +51,9 @@ def gc.sbz.if(off: Bool, o: J.Val, +k: String) -> J.Val:
 def gc.sbz(o: J.Val, +k: String, +v: Bool) -> J.Val:
   gc.sbz.if(Bool.not(v), o, k)
 
-# Option fields: null.
 def gc.snull(o: J.Val, +k: String) -> J.Val:
   J.set(o, k, J.JNull{})
 
-# A two-item array.
 def gc.pair(+a: J.Val, +b: J.Val) -> J.Val:
   J.JA{[a, b]}
 
@@ -71,7 +63,6 @@ def gc.pairf(+x: F32, +y: F32) -> J.Val:
 def gc.pairu(+x: U32, +y: U32) -> J.Val:
   J.JA{[J.JU{x}, J.JU{y}]}
 
-# Choose by a flag (both arms are evaluated: keep them cheap and total).
 def gc.pu(+c: Bool, +a: U32, +b: U32) -> U32:
   Bool.pick(U32, c, a, b)
 
@@ -87,7 +78,6 @@ def gc.pj(+c: Bool, +a: J.Val, +b: J.Val) -> J.Val:
 def gc.ps(+c: Bool, +a: String, +b: String) -> String:
   Bool.pick(String, c, a, b)
 
-# Booleans.
 def gc.not(+a: Bool) -> Bool:
   Bool.not(a)
 
@@ -97,7 +87,6 @@ def gc.and(+a: Bool, +b: Bool) -> Bool:
 def gc.or(+a: Bool, +b: Bool) -> Bool:
   Bool.or(a, b)
 
-# Unsigned arithmetic: a.saturating_sub(b), a.saturating_add(b), min, max.
 def gc.ssub(+a: U32, +b: U32) -> U32:
   Bool.pick(U32, U32.is_ge(a, b), (a - b : U32), 0)
 
@@ -110,22 +99,18 @@ def gc.umin(+a: U32, +b: U32) -> U32:
 def gc.umax(+a: U32, +b: U32) -> U32:
   Bool.pick(U32, U32.is_ge(a, b), a, b)
 
-# u8 / u16 saturating add and min.
 def gc.sadd8(+a: U32, +b: U32) -> U32:
   gc.umin((a + b : U32), 255)
 
 def gc.sadd16(+a: U32, +b: U32) -> U32:
   gc.umin((a + b : U32), 65535)
 
-# Floats: min, max by Rust's NaN rules are RS.f_min / RS.f_max; these two are for
-# values known to be finite.
 def gc.fmin(+a: F32, +b: F32) -> F32:
   Bool.pick(F32, F32.is_lt(b, a), b, a)
 
 def gc.fmax(+a: F32, +b: F32) -> F32:
   Bool.pick(F32, F32.is_gt(b, a), b, a)
 
-# A decimal object key and back.
 def gc.key(+n: U32) -> String:
   U32.show(n)
 
@@ -139,7 +124,6 @@ def gc.id.of(m: Maybe<&2, U32>) -> U32:
 def gc.id(+k: String) -> U32:
   gc.id.of(U32.read(k))
 
-# Seat `id` of an object keyed by decimal id.
 def gc.seat(+m: J.Val, +id: U32) -> J.Val:
   J.get(m, gc.key(id))
 
@@ -149,7 +133,6 @@ def gc.has_seat(+m: J.Val, +id: U32) -> Bool:
 def gc.put_seat(m: J.Val, +id: U32, v: J.Val) -> J.Val:
   J.set(m, gc.key(id), v)
 
-# The ids of an object keyed by decimal id, in numeric (BTreeMap) order.
 def gc.ids.go(xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> List<&2, U32>:
   match xs:
     case Nil{}:
@@ -160,7 +143,6 @@ def gc.ids.go(xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> List<&2, U32>:
 def gc.ids(+o: J.Val) -> List<&2, U32>:
   gc.ids.go(J.int_fields(o))
 
-# The values of an object keyed by decimal id, in numeric order.
 def gc.vals.go(xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> List<&2, J.Val>:
   match xs:
     case Nil{}:
@@ -171,7 +153,6 @@ def gc.vals.go(xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> List<&2, J.Va
 def gc.vals(+o: J.Val) -> List<&2, J.Val>:
   gc.vals.go(J.int_fields(o))
 
-# An array of numbers read to a list, and back.
 def gc.us.go(xs: List<&2, J.Val>) -> List<&2, U32>:
   match xs:
     case Nil{}:
@@ -192,14 +173,12 @@ def gc.of_us.go(xs: List<&2, U32>) -> List<&2, J.Val>:
     case Con{+h, t}:
       J.JU{h} <> gc.of_us.go(t)
 
-# A list's length, as U32.
 def gc.len(xs: List<&2, J.Val>) -> U32:
   U32.from_nat(List.length(&2, J.Val, xs))
 
 def gc.len_u(xs: List<&2, U32>) -> U32:
   U32.from_nat(List.length(&2, U32, xs))
 
-# Does the list of numbers contain `x`?
 def gc.has_u(+x: U32, +xs: List<&2, U32>) -> Bool:
   match xs:
     case Nil{}:
@@ -207,7 +186,6 @@ def gc.has_u(+x: U32, +xs: List<&2, U32>) -> Bool:
     case Con{+h, +t}:
       Bool.or(U32.is_eq(h, x), gc.has_u(x, t))
 
-# The numbers 0..n.
 def gc.range.go(+i: U32, +n: U32) -> List<&2, U32>:
   gc.range.if(U32.is_lt(i, n), i, n)
 
@@ -221,14 +199,12 @@ def gc.range.if(more: Bool, +i: U32, +n: U32) -> List<&2, U32>:
 def gc.range(+n: U32) -> List<&2, U32>:
   gc.range.go(0, n)
 
-# Array push of a string / J value onto field `k`.
 def gc.push(+o: J.Val, +k: String, v: J.Val) -> J.Val:
   J.set(o, k, J.push(J.get(o, k), v))
 
 def gc.push_s(o: J.Val, +k: String, +s: String) -> J.Val:
   gc.push(o, k, J.JS{s})
 
-# Remove item `i` of an array.
 def gc.remove.go(+xs: List<&2, J.Val>, +i: U32) -> List<&2, J.Val>:
   match xs:
     case Nil{}:
@@ -246,7 +222,6 @@ def gc.pj_list(+c: Bool, a: List<&2, J.Val>, b: List<&2, J.Val>) -> List<&2, J.V
 def gc.remove(+a: J.Val, +i: U32) -> J.Val:
   J.JA{gc.remove.go(J.items(a), i)}
 
-# The last `n` items of an array (the others dropped).
 def gc.drop_front.go(+xs: List<&2, J.Val>, +n: U32) -> List<&2, J.Val>:
   match xs:
     case Nil{}:
@@ -257,37 +232,30 @@ def gc.drop_front.go(+xs: List<&2, J.Val>, +n: U32) -> List<&2, J.Val>:
 def gc.drop_front(+a: J.Val, +n: U32) -> J.Val:
   J.JA{gc.drop_front.go(J.items(a), n)}
 
-# The first `n` items.
 def gc.take(+a: J.Val, +n: U32) -> J.Val:
   J.truncate(a, n)
 
-# Rust's `x as f32 / y` style conversions come from RS; this is u32 -> f32.
 def gc.uf(+v: U32) -> F32:
   U32.to_f32(v)
 
-# self.sounds.push(name), self.cues.push(name).
 def gc.sound(run: J.Val, +name: String) -> J.Val:
   gc.push_s(run, "sounds", name)
 
 def gc.cue(run: J.Val, +name: String) -> J.Val:
   gc.push_s(run, "cues", name)
 
-# self.found = Some((tick, who, text)).
 def gc.found(+run: J.Val, +who: U32, +text: String) -> J.Val:
   J.set(run, "found", J.JA{[J.get(run, "tick"), J.JU{who}, J.JS{text}]})
 
-# marks.insert(key, v) and marks.contains_key(key).
 def gc.mark(+run: J.Val, +key: String, +v: U32) -> J.Val:
   J.set(run, "marks", J.set(J.get(run, "marks"), key, J.JU{v}))
 
 def gc.marked(+run: J.Val, +key: String) -> Bool:
   J.has(J.get(run, "marks"), key)
 
-# String equality as a Bool.
 def gc.eq(+a: String, +b: String) -> Bool:
   String.eq(a, b)
 
-# Table lookups: item `i` of a list (the last item stands for any index past the end of a table of one).
 def gc.nth_s.go(+xs: List<&2, String>, +i: U32) -> String:
   match xs:
     case Nil{}:
@@ -339,14 +307,12 @@ def gc.nth_f.if(+here: Bool, +h: F32, +t: List<&2, F32>, +i: U32) -> F32:
 def gc.nth_f(+xs: List<&2, F32>, +i: U32) -> F32:
   gc.nth_f.go(xs, i)
 
-# 1 << i, a & (1 << i) != 0
 def gc.bit(+i: U32) -> U32:
   U32.shln(1, U32.to_nat(i))
 
 def gc.has_bit(+mask: U32, +i: U32) -> Bool:
   U32.is_ne(U32.and(mask, U32.shln(1, U32.to_nat(i))), 0)
 
-# A lazy `if`: only the chosen thunk runs (Bool.pick runs both arms).
 def gc.if(-A: Type, c: Bool, a: Unit -> A, b: Unit -> A) -> A:
   match c:
     case True{}:
@@ -369,40 +335,33 @@ def gc.ifb(c: Bool, a: Unit -> Bool, b: Unit -> Bool) -> Bool:
 def gc.ifs(c: Bool, a: Unit -> String, b: Unit -> String) -> String:
   gc.if(String, c, a, b)
 
-# knight `id`'s input for the tick: a valid one, else Input::default().
 def gc.input(+inputs: J.Val, +id: U32) -> J.Val:
   gc.input.of(gc.seat(inputs, id))
 
 def gc.input.of(+i: J.Val) -> J.Val:
   gc.ifj(Bool.and(Bool.not(J.is_null(i)), rules.Input.valid(i)), _ => i, _ => rules.Input.default())
 
-# inputs.get(&id).is_some_and(|i| i.valid() && i.interact)
 def gc.pressed_interact(+inputs: J.Val, +id: U32) -> Bool:
   gc.pressed_interact.of(gc.seat(inputs, id))
 
 def gc.pressed_interact.of(+i: J.Val) -> Bool:
   gc.ifb(J.is_null(i), _ => False{}, _ => Bool.and(rules.Input.valid(i), gc.b(i, "interact")))
 
-# An i8 axis is negative when its two's complement top bit is set.
 def gc.neg(+v: U32) -> Bool:
   U32.is_ge(v, 2147483648)
 
-# The tick as a u64.
 def gc.tick(+run: J.Val) -> W.W:
   W.of_j(J.get(run, "tick"))
 
-# Option<u32>: a number or null.
 def gc.opt_u(+v: J.Val) -> U32:
   J.u32(v)
 
-# Option<u32> equals Some(id).
 def gc.opt_is(+v: J.Val, +id: U32) -> Bool:
   Bool.and(Bool.not(J.is_null(v)), U32.is_eq(J.u32(v), id))
 
 def gc.ifj_us(c: Bool, a: Unit -> List<&2, U32>, b: Unit -> List<&2, U32>) -> List<&2, U32>:
   gc.if(List<&2, U32>, c, a, b)
 
-# The ids of `players` not in `outside` (an object keyed by id), in order.
 def gc.ids_outside.go(+ids: List<&2, U32>, +outside: J.Val) -> List<&2, U32>:
   match ids:
     case Nil{}:
@@ -413,7 +372,6 @@ def gc.ids_outside.go(+ids: List<&2, U32>, +outside: J.Val) -> List<&2, U32>:
 def gc.ids_outside(+players: J.Val, +outside: J.Val) -> List<&2, U32>:
   gc.ids_outside.go(gc.ids(players), outside)
 
-# The values of any object (key order), for maps whose keys are not ids.
 def gc.vals_any.go(xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> List<&2, J.Val>:
   match xs:
     case Nil{}:
@@ -424,14 +382,11 @@ def gc.vals_any.go(xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> List<&2, 
 def gc.vals_any(+o: J.Val) -> List<&2, J.Val>:
   gc.vals_any.go(J.fields(o))
 
-# pastimes::Score is left out of its Records while empty (skip_serializing_if = Score::is_empty):
-# the score named `name` of a Records object, and a Records with it set (or left out when empty).
 def gc.score_put(+games: J.Val, +name: String, +score: J.Val) -> J.Val:
   gc.ifj(Bool.and(U32.is_zero(gc.u(score, "best")), Bool.and(U32.is_zero(gc.u(score, "wins")), U32.is_zero(gc.u(score, "plays")))),
     _ => J.del(games, name),
     _ => J.set(games, name, score))
 
-# Every named field set to 0.
 def gc.zeros(+o: J.Val, +names: List<&2, String>) -> J.Val:
   match names:
     case Nil{}:
@@ -446,7 +401,6 @@ def gc.falses(+o: J.Val, +names: List<&2, String>) -> J.Val:
     case Con{+h, +t}:
       gc.falses(J.set(o, h, J.JBool{False{}}), t)
 
-# Option<u64> from its J value (null is None).
 def gc.maybe_w(+j: J.Val) -> Maybe<&2, W.W>:
   gc.maybe_w.if(J.is_null(j), j)
 
@@ -457,11 +411,9 @@ def gc.maybe_w.if(none: Bool, +j: J.Val) -> Maybe<&2, W.W>:
     case False{}:
       Some{W.of_j(j)}
 
-# A sound ("" for none) as the case's `ret`: a string, or null.
 def gc.ret_s(+s: String) -> J.Val:
   gc.ifj(String.is_empty(s), _ => J.JNull{}, _ => J.JS{s})
 
-# i64 over W.W (two's complement): the few signed 64-bit operations the integer physics uses.
 def gc.l_of(+v: U32) -> W.W:
   gc.ifw(U32.is_ge(v, 2147483648), W.W{4294967295, v}, W.of_u32(v))
 
@@ -473,11 +425,9 @@ def gc.l_neg_p(+a: W.W) -> Bool:
 def gc.l_abs(+a: W.W) -> W.W:
   gc.ifw(gc.l_neg_p(a), W.neg(a), a)
 
-# a < b, signed
 def gc.l_lt(+a: W.W, +b: W.W) -> Bool:
   Bool.pick(Bool, Bool.and(gc.l_neg_p(a), Bool.not(gc.l_neg_p(b))), True{}, Bool.pick(Bool, Bool.and(Bool.not(gc.l_neg_p(a)), gc.l_neg_p(b)), False{}, W.lt(a, b)))
 
-# a / b truncating toward zero (b != 0)
 def gc.l_div(+a: W.W, +b: W.W) -> W.W:
   +q = W.div(gc.l_abs(a), gc.l_abs(b))
   gc.ifw(Bool.not(Bool.pick(Bool, gc.l_neg_p(a), gc.l_neg_p(b), Bool.not(gc.l_neg_p(b)))), W.neg(q), q)
@@ -485,15 +435,12 @@ def gc.l_div(+a: W.W, +b: W.W) -> W.W:
 def gc.l_clamp(+a: W.W, +lo: W.W, +hi: W.W) -> W.W:
   gc.ifw(gc.l_lt(a, lo), lo, gc.ifw(gc.l_lt(hi, a), hi, a))
 
-# A pair of i32 values.
 def gc.pairi(+x: U32, +y: U32) -> J.Val:
   J.JA{[J.of_i32(x), J.of_i32(y)]}
 
-# h <> t over J values.
 def gc.cons(+h: J.Val, +t: List<&2, J.Val>) -> List<&2, J.Val>:
   h <> t
 
-# A sorted set of numbers as a J array: contains, insert.
 def gc.set_has(+arr: J.Val, +v: U32) -> Bool:
   gc.has_u(v, gc.us(arr))
 

@@ -1,5 +1,3 @@
-# crates/delve/src/rules/forest.rs — the clearing's firefly hunt and rune song.
-
 def forest.hunt_time() -> U32:
   900
 
@@ -9,7 +7,6 @@ def forest.song_len() -> U32:
 def forest.show_time() -> U32:
   150
 
-# The pads in index order: lantern, memory stone, the three runes (tiles).
 def forest.pad(+i: U32) -> F32 & F32:
   match i:
     case 0:
@@ -23,7 +20,6 @@ def forest.pad(+i: U32) -> F32 & F32:
     case _:
       (21.0, 7.0)
 
-# The fireflies' home points (tiles).
 def forest.fly(+i: U32) -> F32 & F32:
   match i:
     case 0:
@@ -43,11 +39,9 @@ def forest.fly(+i: U32) -> F32 & F32:
     case _:
       (9.0, 8.5)
 
-# Forest::leave
 def forest.Forest.leave(+f: J.Val) -> J.Val:
   gb.su(gb.su(gb.su(gb.sb(gb.su(gb.su(f, "hunt_left", 0), "caught", 0), "singing", False{}), "show_left", 0), "note", 0), "held", 0)
 
-# Forest::melody: the rune a note of this song strikes.
 def forest.Forest.melody(+f: J.Val, +note: U32) -> U32:
   U32.mod((forest.melody.base(U32.min(note, 3)) + U32.mod(gb.u(f, "songs"), 3) : U32), 3)
 
@@ -62,7 +56,6 @@ def forest.melody.base(+n: U32) -> U32:
     case _:
       2
 
-# forest::firefly: a firefly's place at a tick, in arena units.
 def forest.firefly(+index: U32, +tick: W.W) -> F32 & F32:
   forest.firefly.go(forest.fly(index), forest.firefly.t(index, tick))
 
@@ -76,7 +69,6 @@ def forest.firefly.go(p: F32 & F32, +t: F32) -> F32 & F32:
   (x, y) = p
   ((x * 2.0 + F32.cos(t) * 0.6 : F32), (y * 2.0 + F32.sin(t) * 0.6 : F32))
 
-# Whether a standing knight is within 1.25 of the point (arena units).
 def forest.near(+players: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +x: F32, +y: F32) -> Bool:
   match players:
     case Nil{}:
@@ -87,7 +79,6 @@ def forest.near(+players: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +x: F32, 
 def forest.near.one(+h: J.Val, +x: F32, +y: F32) -> Bool:
   Bool.and(Bool.and(U32.is_gt(gb.u(h, "hp"), 0), Bool.not(gb.b(h, "stone"))), Bool.and(U32.is_eq(gb.u(h, "privy"), 0), F32.is_lt(RS.f_hypot((gb.f(h, "x") - x : F32), (gb.f(h, "y") - y : F32)), 1.25)))
 
-# The bits of the pads some knight stands on.
 def forest.occupied(+players: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> U32:
   forest.occupied.go(players, 0, 0)
 
@@ -109,7 +100,6 @@ def forest.occupied.set(+here: Bool, +i: U32, +acc: U32) -> U32:
     case False{}:
       acc
 
-# Run::tick_forest
 def forest.Run.tick_forest(+run: J.Val) -> J.Val:
   forest.tick.gate(Bool.or(forest_road.Run.forest_road_showing(run), roundtable.Run.roundtable_showing(run)), run)
 
@@ -155,7 +145,6 @@ def forest.tick.song_start.if(go: Bool, +run: J.Val) -> J.Val:
     case True{}:
       gb.sound(forest.with(run, gb.su(gb.su(gb.sb(forest.f(run), "singing", True{}), "show_left", 150), "note", 0)), "play_card")
 
-# The hunt's tick: a step, the catches, the finish.
 def forest.tick.hunt(+run: J.Val) -> J.Val:
   forest.tick.hunt.if(U32.is_gt(gb.u(forest.f(run), "hunt_left"), 0), run)
 
@@ -210,7 +199,6 @@ def forest.hunt.finish.out(over: Bool, +run: J.Val, +caught: U32) -> J.Val:
     case False{}:
       run
 
-# The song's tick: the show counts down, then a struck rune is judged.
 def forest.tick.song(+run: J.Val, +pressed: U32) -> J.Val:
   forest.tick.song.if(gb.b(forest.f(run), "singing"), run, pressed)
 

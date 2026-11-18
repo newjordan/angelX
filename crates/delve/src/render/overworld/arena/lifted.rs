@@ -4,8 +4,6 @@
 
 use super::*;
 
-/// Thrown things in the air on a seat's whole screen (`lifted` below the
-/// band).
 pub fn seat_lifted(run: &Run, w: i32, h: i32, focus: Option<u32>, alpha: f32) -> Vec<Lifted> {
     let band = band_rows(h);
     let mut out = lifted(run, w, view_rows(h), focus, alpha);
@@ -15,13 +13,8 @@ pub fn seat_lifted(run: &Run, w: i32, h: i32, focus: Option<u32>, alpha: f32) ->
     out
 }
 
-/// Thrown things the window draws itself (crates/glass): bombs, implings
-/// and globs in the air leave the picture (their landing rings stay) and are
-/// reported by `lifted`, so the window can lift them toward the camera.
 static LIFTED_OUTSIDE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-/// Draw thrown things outside the picture (true) or in it (false, the
-/// default: a terminal shows them in the frame).
 pub fn draw_lifted_outside(on: bool) {
     LIFTED_OUTSIDE.store(on, std::sync::atomic::Ordering::Relaxed);
 }
@@ -30,21 +23,13 @@ pub fn lifted_outside() -> bool {
     LIFTED_OUTSIDE.load(std::sync::atomic::Ordering::Relaxed)
 }
 
-/// What is in the air.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum LiftedKind {
-    /// A hob's bomb.
     Bomb,
-    /// A Broodmarrow's impling.
     Impling,
-    /// A critter's glob.
     Glob,
 }
 
-/// One thrown thing in the air, for a window that draws it: where its
-/// shadow is (the point under it on the ground, in the frame's pixels), how
-/// far along its flight is (0 thrown, 1 landing), and which picture of it
-/// shows now (`lifted_sprite`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Lifted {
     pub kind: LiftedKind,
@@ -54,9 +39,6 @@ pub struct Lifted {
     pub variant: u8,
 }
 
-/// Everything in the air on a `w` × `h` frame, as `frame_px` places it.
-/// `alpha` is how far the drawing is between this tick and the next, so a
-/// flight moves at the frame rate, not the 30 Hz tick.
 pub fn lifted(run: &Run, w: i32, h: i32, focus: Option<u32>, alpha: f32) -> Vec<Lifted> {
     use crate::rules::critters::GLOB_FALL;
     use crate::rules::foes::{FLING_FALL, LOB_FALL};
@@ -89,8 +71,6 @@ pub fn lifted(run: &Run, w: i32, h: i32, focus: Option<u32>, alpha: f32) -> Vec<
     out
 }
 
-/// A thrown thing's picture at native size (one native pixel per pixel),
-/// as the frame would have drawn it.
 pub fn lifted_sprite(kind: LiftedKind, variant: u8) -> Img {
     match kind {
         LiftedKind::Bomb => sprites::bomb(u32::from(variant) * 2),

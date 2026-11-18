@@ -45,12 +45,10 @@ fn every_builtin_card_builds_inside_its_budget_in_palette_inks() {
     }
 }
 
-/// A tint's brightness on the Rec. 601 weights, 0..=1.
 fn brightness(tint: [f32; 4]) -> f32 {
     0.299 * tint[0] + 0.587 * tint[1] + 0.114 * tint[2]
 }
 
-/// The brightest an ink may be on the floor: the cool grey 'v'.
 fn dusk_ceiling() -> f32 {
     let [r, g, b] = ink('v').unwrap();
     brightness([f32::from(r) / 255.0, f32::from(g) / 255.0, f32::from(b) / 255.0, 1.0]) + 0.005
@@ -90,13 +88,11 @@ fn every_pickup_kind_in_every_ink_stays_under_the_ceiling_and_keeps_its_family()
         let Some([r, g, b]) = ink(at_dusk(ch)) else { panic!("{ch} has no dusk ink") };
         let tint = [f32::from(r) / 255.0, f32::from(g) / 255.0, f32::from(b) / 255.0, 1.0];
         assert!(brightness(tint) <= dusk_ceiling(), "{ch} -> {}", at_dusk(ch));
-        // A step down never lights an ink up.
         let [r0, g0, b0] = ink(ch).unwrap();
         let before = brightness([f32::from(r0) / 255.0, f32::from(g0) / 255.0, f32::from(b0) / 255.0, 1.0]);
         assert!(brightness(tint) <= before + 0.005, "{ch} brightens to {}", at_dusk(ch));
         stepped.insert(at_dusk(ch));
     }
-    // Gold stays brass, steel grey and the magic's cool slate: three inks apart.
     assert_ne!(at_dusk('4'), at_dusk('H'));
     assert_ne!(at_dusk('4'), at_dusk('w'));
     assert_ne!(at_dusk('H'), at_dusk('w'));
@@ -177,10 +173,8 @@ fn a_props_page_gets_the_chest_as_a_shape_and_not_in_the_ground() {
     assert!(sprite.pickups.is_empty());
     assert_eq!(solid.pickups.len(), 1);
     assert_eq!(solid.pickups[0].kind, PickupKind::Chest);
-    // The shape stands where the sprite stood, so the ground must not keep the sprite.
     let ground = |s: &super::super::room_scene::RoomScene| s.ground.as_ref().expect("a layered room").words().to_vec();
     assert_ne!(ground(&sprite), ground(&solid));
-    // And a flat frame drawn after, on the same thread, has its chest again.
     let flat = super::super::frame_for(&run, w, h, Some(1));
     assert_eq!(flat.words(), sprite.compose().words());
 }
@@ -220,9 +214,7 @@ fn a_crowded_floor_and_an_empty_one_both_make_frames_with_their_own_nodes() {
     ids.dedup();
     assert_eq!(ids.len(), spent, "node ids are unique");
     assert!(spent <= 25 * BUDGET);
-    // A flat page keeps the sprites and spends nothing on them.
     assert!(StageMaker::flat().make(&crowded, |_| None).props.is_none());
-    // None on the floor: no shapes.
     run.dungeon.rooms[run.at].items.clear();
     run.dungeon.rooms[run.at].chest = None;
     super::super::props_meshes(true);

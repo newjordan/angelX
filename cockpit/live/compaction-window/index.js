@@ -1,7 +1,3 @@
-// Thin adapter for the Bend compaction window. Plain JSON in, the compiled
-// window out: no counting, clamping or pair rules live here. Rust decides which
-// message is pinned, which one is a tool result and what each one costs in
-// estimated tokens.
 const { window } = require('./compaction-window.compiled.js')
 
 const nil = { $: 'Nil' }

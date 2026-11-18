@@ -14,7 +14,6 @@ use crate::rules::Run;
 use crate::rules::spectacle::{circle_name, circle_title};
 use std::collections::HashMap;
 
-/// The gate at full height, in pixels.
 const W: i32 = 44;
 const H: i32 = 58;
 const POST: i32 = 9;
@@ -31,7 +30,6 @@ fn stone_ink(x: i32, y: i32, edge: i32, wide: i32) -> char {
     }
 }
 
-/// A flame field over a rectangle `(x0, y0, w, h)`: the portal.
 fn flames(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), tick: u32, inside: &dyn Fn(i32, i32) -> bool) {
     let t = tick as f32 * 0.42;
     for y in y0..y0 + h {
@@ -59,7 +57,6 @@ fn flames(cv: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), tick: u32, inside:
     }
 }
 
-/// The skull on the keystone.
 fn skull() -> Img {
     Img::from_rows(&[".iHHi.", "iHHHHi", "HkHHkH", "iHHHHi", ".ihhi.", "..hh.."])
 }
@@ -71,7 +68,6 @@ pub(super) fn draw(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     let r = gate.risen(run.tick);
     let (gx, gy) = at(gate.x, gate.y);
-    // Ground glow and cracks, from the first tick.
     let k = (r * 4.0).min(1.0);
     let (rx, ry) = (34.0 * (0.4 + 0.6 * k), 12.0 * (0.4 + 0.6 * k));
     let pulse = 0.85 + 0.15 * (tick as f32 * 0.2).sin();
@@ -94,7 +90,6 @@ pub(super) fn draw(cv: &mut Img, run: &Run) {
     if r < 0.12 {
         return;
     }
-    // The gate itself climbs from the floor.
     let eased = ((r - 0.12) / 0.88).clamp(0.0, 1.0);
     let eased = eased * eased * (3.0 - 2.0 * eased);
     let hh = (H as f32 * eased) as i32;
@@ -102,7 +97,6 @@ pub(super) fn draw(cv: &mut Img, run: &Run) {
     let (left, right) = (gx - W / 2, gx + W / 2);
     let arch_r = W / 2;
     let arch_cy = gy - H + arch_r - (H - hh);
-    // Portal first: it sits behind the stone.
     let inner_l = left + POST;
     let inner_r = right - POST;
     let inside = |x: i32, y: i32| {
@@ -117,7 +111,6 @@ pub(super) fn draw(cv: &mut Img, run: &Run) {
         dx * dx + dy * dy <= 1.0
     };
     flames(cv, (inner_l, top, inner_r - inner_l, hh + 1), tick, &inside);
-    // The posts, up to where the arch springs.
     for x in left..right {
         let edge = if x < left + POST { x - left } else if x >= right - POST { right - 1 - x } else { -1 };
         if edge < 0 {
@@ -126,14 +119,12 @@ pub(super) fn draw(cv: &mut Img, run: &Run) {
         let stop = arch_cy.max(top);
         for y in stop..gy {
             let mut ch = stone_ink(x, y - top, edge, POST);
-            // Lava running in the joints.
             if hash(x, y / 5, 11) % 11 == 0 && (y + tick as i32 / 6) % 3 != 0 {
                 ch = '7';
             }
             cv.put(x, y, ch);
         }
     }
-    // The arch: a ring of stone round the portal's head.
     for y in top.min(arch_cy - arch_r)..=arch_cy {
         for x in left..right {
             let dx = (x - gx) as f32;
@@ -153,7 +144,6 @@ pub(super) fn draw(cv: &mut Img, run: &Run) {
             }
         }
     }
-    // A black edge down the posts.
     for y in (top - 2)..gy {
         for &x in &[left - 1, right] {
             if y >= arch_cy.max(top) {
@@ -161,7 +151,6 @@ pub(super) fn draw(cv: &mut Img, run: &Run) {
             }
         }
     }
-    // The keystone's skull, and horns on the posts.
     if eased > 0.9 {
         let s = skull();
         cv.stamp(&s, gx - s.w / 2, top - 1);
@@ -171,7 +160,6 @@ pub(super) fn draw(cv: &mut Img, run: &Run) {
             }
         }
     }
-    // Fire licking the posts and the ground before the gate.
     if eased > 0.6 {
         for &px in &[left + POST / 2, right - POST / 2] {
             let base = arch_cy.max(top) - 5;
@@ -192,7 +180,6 @@ pub(super) fn draw(cv: &mut Img, run: &Run) {
             cv.put(x, y, if t < life / 3 { '5' } else if t < life * 2 / 3 { '@' } else { '7' });
         }
     }
-    // Its name, once it stands: the circle it opens.
     if r >= 1.0 {
         let name = circle_name(run.circle() + 1).to_uppercase();
         let sign = super::super::kit::district_sign(&name);
@@ -200,20 +187,17 @@ pub(super) fn draw(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The circle's title card across the middle of the view while it shows.
 pub(super) fn card(cv: &mut Img, run: &Run) {
     let Some((circle, k)) = run.circle_card() else {
         return;
     };
     let tick = run.tick as u32;
-    // Wipes in from the middle, holds, then dithers away.
     let open = (k / 0.1).min(1.0);
     let alive = if k > 0.78 { 1.0 - (k - 0.78) / 0.22 } else { 1.0 };
     let band_h = 64;
     let top = (NATIVE_H - band_h) / 2;
     let half = (NATIVE_W as f32 / 2.0 * open) as i32;
     let shown = |x: i32, y: i32| (x - NATIVE_W / 2).abs() <= half && bayer(x, y) < alive * 1.05;
-    // The plate: black paper, a fire along its top and bottom edges.
     for y in top..top + band_h {
         for x in 0..NATIVE_W {
             if shown(x, y) {
@@ -263,7 +247,6 @@ pub(super) fn card(cv: &mut Img, run: &Run) {
     let (bx, by) = ((NATIVE_W - big.w) / 2, top + 8);
     let (sx, sy) = ((NATIVE_W - sub.w) / 2, top + 8 + big.h + 7);
     for (im, ox, oy) in [(&big, bx, by), (&sub, sx, sy)] {
-        // A dark edge first, so the letters stand off the flames.
         let mut shadow = im.clone();
         shadow.outline_outside('8');
         for y in 0..shadow.h {
@@ -278,8 +261,6 @@ pub(super) fn card(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Rooms of a circle lit from below: every colour but black paper pulled
-/// toward ember, a little more with each circle, kept on the palette.
 pub(super) fn tint(scenery: &mut Img, circle: u32) {
     let strength = (0.30 + 0.07 * circle.min(6) as f32).min(0.72);
     let mut seen: HashMap<Rgb, Rgb> = HashMap::new();

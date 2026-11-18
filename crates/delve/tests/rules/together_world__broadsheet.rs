@@ -1,5 +1,3 @@
-// The Paperboy homage must be winnable by walking, not just by placing a
-// knight at each mailbox. Extend the existing world/mirror test entry.
 fn walk_pastime_to(run: &mut Run, driver: u32, target: (f32, f32), held: bool) {
     use std::collections::VecDeque;
 
@@ -90,7 +88,6 @@ fn broadsheet_walking_regression() {
     let mut run = at_the_gate();
     run.join_seat(3, "Deputy Editor");
     run.players.get_mut(&1).unwrap().stone = true;
-    // No arrive() or coordinate assignments after the initial gate fixture.
     walk_ordinary_road(&mut run, RoomKind::Forest, 2);
     walk_ordinary_road(&mut run, RoomKind::Village, 3);
     let treasury = run.treasury.clone();
@@ -110,8 +107,6 @@ fn broadsheet_walking_regression() {
         let score = run.score;
         let start_left = round.left;
 
-        // Two simultaneous couriers at one non-subscriber count only one
-        // attempted delivery, even if they keep tapping or hold the key.
         for id in [2, 3] {
             walk_pastime_to(&mut run, id, MAILBOXES[wrong[0]], false);
         }
@@ -127,7 +122,6 @@ fn broadsheet_walking_regression() {
         run.step(&fire);
         assert_eq!(run.pastimes.round.as_ref().unwrap().mistakes, mistakes + 1);
 
-        // Walking to another mailbox with F still down does not throw there.
         walk_pastime_to(&mut run, 2, MAILBOXES[wrong[1]], true);
         assert_eq!(run.pastimes.round.as_ref().unwrap().tried, 1 << wrong[0]);
         let mistakes = run.pastimes.round.as_ref().unwrap().mistakes;
@@ -140,8 +134,6 @@ fn broadsheet_walking_regression() {
         walk_pastime_to(&mut run, 2, MAILBOXES[subscribers[0]], false);
         run.step(&fire);
         assert_eq!(run.pastimes.round.as_ref().unwrap().progress, 1);
-        // Checkpoint while both keys are held: restore must retain the exact
-        // subscriber/tried masks, clock, goose cooldown and per-seat key latch.
         let pastimes = run.pastimes.clone();
         run = serde_json::from_slice(&serde_json::to_vec(&run).unwrap()).unwrap();
         assert!(run.valid_snapshot());
@@ -152,8 +144,6 @@ fn broadsheet_walking_regression() {
         run.step(&fire);
         assert_eq!(run.pastimes.round.as_ref().unwrap().progress, 1);
 
-        // Each paper knight walks their own round: the starter walks on to
-        // the next subscriber, and a held key there does not throw.
         let tried = run.pastimes.round.as_ref().unwrap().tried;
         walk_pastime_to(&mut run, 2, MAILBOXES[subscribers[1]], true);
         assert_eq!(run.pastimes.round.as_ref().unwrap().tried, tried);
@@ -187,8 +177,6 @@ fn broadsheet_walking_regression() {
     }
     assert_eq!(masks.len(), 5);
 
-    // A sixth walking retry restores two actual deliveries, then times out on
-    // a genuine final-mailbox tap. No injected timer, progress or pad state.
     walk_pastime_to(&mut run, 2, Game::Broadsheet.start(), false);
     let mask = run.pastimes.round.as_ref().unwrap().recipients;
     let subscribers: Vec<_> = (0..5).filter(|i| mask & (1 << i) != 0).collect();

@@ -1,8 +1,6 @@
 use super::*;
 use angel_delve::render::braille::braille_dot_bit;
 
-/// Braille glyph → dot bits (the codepoint offset IS the bit pattern).
-/// Non-braille glyphs read as empty.
 fn glyph_bits(glyph: char) -> u8 {
     let code = glyph as u32;
     if (0x2800..=0x28FF).contains(&code) {
@@ -12,9 +10,6 @@ fn glyph_bits(glyph: char) -> u8 {
     }
 }
 
-/// Paint a braille image the way a dark terminal would: an 8×16-px cell
-/// per glyph, each dot a 3×3 block of the cell's ink on a near-black
-/// ground. This is the artifact the calibration constants are judged on.
 fn simulate_terminal(image: &ColoredBrailleImage) -> image::RgbaImage {
     let cell_w = 8u32;
     let cell_h = 16u32;
@@ -67,9 +62,6 @@ fn dot_count(image: &ColoredBrailleImage) -> u32 {
         .sum()
 }
 
-/// Equivalent ink at the former 70-channel floor. Tonal 3D can fill a dark
-/// plane with dim dots, so a raw bit count would misread it as a white wash.
-/// The original coverage bands still measure the same visible ink budget.
 fn tonal_coverage(image: &ColoredBrailleImage) -> f32 {
     let ink: f32 = image
         .cells
@@ -82,7 +74,6 @@ fn tonal_coverage(image: &ColoredBrailleImage) -> f32 {
     ink / (image.width * image.height * 8) as f32
 }
 
-/// Run the shared ride claims on the sole retained outdoor renderer.
 fn each_renderer(mut body: impl FnMut(&str)) {
     let _pin = world3d::pin_world3d();
     body("world3d");
@@ -121,14 +112,9 @@ fn retired_launch_selectors_render_the_default_dotmax_frame() {
 
 #[test]
 fn lit_ink_is_luminance_weighted_bright_dots_dominate_the_cell_color() {
-    // One cell: a bright red dot and a dimmer blue dot, everything else
-    // black. A FLAT average would report blue-dominant ink (the red and
-    // blue channels are nearly tied, blue slightly ahead); luminance
-    // weighting makes the bright red dot dominate — the cell shows the
-    // color you actually see.
     let mut frame = image::RgbaImage::from_pixel(2, 4, image::Rgba([0, 0, 0, 255]));
-    frame.put_pixel(0, 0, image::Rgba([255, 40, 40, 255])); // luma ≈ 104, bayer(0,0) lit
-    frame.put_pixel(0, 2, image::Rgba([40, 40, 220, 255])); // luma ≈ 60, bayer(0,2) lit
+    frame.put_pixel(0, 0, image::Rgba([255, 40, 40, 255]));
+    frame.put_pixel(0, 2, image::Rgba([40, 40, 220, 255]));
     let cells = frame_to_braille_graded(&frame, 1, 1, false);
     assert_eq!(cells.width, 1);
     let cell = cells.cells[0];
@@ -138,7 +124,6 @@ fn lit_ink_is_luminance_weighted_bright_dots_dominate_the_cell_color() {
         "bright red must dominate the dimmer blue dot: {:?}",
         cell.fg
     );
-    // And the treatment is deterministic — same frame in, same art out.
     let again = frame_to_braille_graded(&frame, 1, 1, false);
     assert_eq!(cells.cells, again.cells);
 }
@@ -166,8 +151,6 @@ fn ride_frames_are_deterministic() {
 
 #[test]
 fn outdoor_rider_overlay_advances_at_clamped_cadence() {
-    // The saddle plate remains visible after the Dotmax render and
-    // advances at its existing clamped cadence.
     each_renderer(|renderer| {
         let mut world = ride_world();
         world.travel_ticks = cinematics::DEPART_FADE_TICKS + 1;
@@ -199,7 +182,6 @@ fn outdoor_rider_overlay_advances_at_clamped_cadence() {
             "{renderer}: the next clamped rider frame must re-key the outdoor miniviz"
         );
 
-        // Lower-right corner should carry the saddle ink.
         let corner_ink = |image: &ColoredBrailleImage| -> u32 {
             let x0 = image.width.saturating_sub(image.width / 3);
             let y0 = image.height.saturating_sub(image.height / 3);
@@ -237,15 +219,10 @@ fn interior_frames_skip_the_saddle_overlay_key_on(renderer: &str) {
     world.tick();
     world.tick();
     let key_b = world.cinematic_key();
-    // Interior keys still advance on their held firelight bucket, but the
-    // outdoor rider canter bit is not the only driver — just prove
-    // interiors still render.
     let frame = world
         .scryglass_frame_paced(40, 16, false, 0.0, 0.0, 1.05)
         .unwrap_or_else(|| panic!("{renderer}: interior frame"));
     assert!(frame.width == 40 && frame.height == 16);
-    // Keys may or may not differ by ambient; the load-bearing check is
-    // that compositing does not panic and produces a plate.
     let _ = (key_a, key_b);
 }
 
@@ -301,8 +278,6 @@ fn ride_frame_tracks_the_journey() {
 
 #[test]
 fn live_turns_hold_the_ride_frame_instead_of_re_marching() {
-    // The priority lane is the seam's law, not one renderer's: whichever
-    // paints the pane must yield it while a turn is live.
     each_renderer(|renderer| {
         let mut world = ride_world();
         world.travel_ticks = cinematics::DEPART_FADE_TICKS + 1;
@@ -314,8 +289,6 @@ fn live_turns_hold_the_ride_frame_instead_of_re_marching() {
             .expect("frame");
         world.tick();
         assert!(world.riding(), "still mid-journey");
-        // The world moved, but the toy lane must not re-render the world
-        // while a turn is live and the frame is recent.
         let relaxed = world
             .scryglass_frame_paced(40, 16, true, 0.0, 0.0, 1.05)
             .expect("frame");
@@ -323,7 +296,6 @@ fn live_turns_hold_the_ride_frame_instead_of_re_marching() {
             held, relaxed,
             "{renderer}: a live turn reuses the memoized frame"
         );
-        // Full cadence re-renders immediately for the same state.
         let strict = world
             .scryglass_frame_paced(40, 16, false, 0.0, 0.0, 1.05)
             .expect("frame");
@@ -331,7 +303,6 @@ fn live_turns_hold_the_ride_frame_instead_of_re_marching() {
             held, strict,
             "{renderer}: idle cadence tracks the world tick-by-tick"
         );
-        // And even the relaxed lane refreshes once enough ticks pass.
         for _ in 0..30 {
             world.tick();
         }
@@ -345,9 +316,6 @@ fn live_turns_hold_the_ride_frame_instead_of_re_marching() {
     });
 }
 
-/// The 3D renderer is a launch flag (`OnceLock`), so the world-level tests
-/// exercise it the way the seam does — same camera, same dot canvas, same
-/// braille bridge — rather than trying to flip a cached env read.
 fn world3d_plate(world: &World, cells: (usize, usize)) -> image::RgbaImage {
     let (map, view) = world.travel_scene();
     world3d::render_ride_frame(&map, &view, cells.0 as u32 * 2, cells.1 as u32 * 4)
@@ -370,7 +338,6 @@ fn world3d_frame_is_deterministic_and_inks_sky_above_ground_below() {
         "identical world state must render byte-identical 3D dots"
     );
 
-    // The night sky is blue-dominant; moonlit ground is not.
     let pixel = |x: u32, y: u32| plate.get_pixel(x, y).0;
     for row in [0u32, 4] {
         let sky = pixel(48, row);
@@ -380,10 +347,6 @@ fn world3d_frame_is_deterministic_and_inks_sky_above_ground_below() {
             &sky[..3]
         );
     }
-    // ...and the staged world below the horizon carries value the night sky
-    // does not: the bottom band must out-shine the zenith band. (Which
-    // *material* sits at a given dot is the vantage's business, so this
-    // asserts the value structure, not the geometry.)
     let band = |rows: std::ops::Range<u32>| -> f32 {
         let mut sum = 0.0;
         let mut count = 0.0f32;
@@ -410,8 +373,6 @@ fn world3d_frame_is_deterministic_and_inks_sky_above_ground_below() {
         (0.02..0.75).contains(&coverage),
         "3D night coverage out of range: {coverage:.3}"
     );
-    // Depth must read as structure, not as a flat wash: the frame carries
-    // both empty cells and fully-inked ones.
     assert!(
         image.cells.iter().any(|cell| glyph_bits(cell.glyph) == 0),
         "a legible night frame keeps blacks"
@@ -443,8 +404,6 @@ fn world3d_turns_with_the_camera() {
         aside.as_raw(),
         "a quarter turn must show a different stage"
     );
-    // Both headings must land on something — the stage surrounds the eye,
-    // so no camera angle falls off into an empty sky (vista law).
     for (label, plate) in [("ahead", &ahead), ("aside", &aside)] {
         let image = frame_to_braille_graded(plate, cells.0, cells.1, false);
         let coverage = dot_count(&image) as f32 / (cells.0 * 2 * cells.1 * 4) as f32;
@@ -455,8 +414,6 @@ fn world3d_turns_with_the_camera() {
     }
 }
 
-/// The eight civic landmarks, in `building_index` order — the order the
-/// staged 3D vantages are authored in (`world3d::VANTAGES`).
 const EVERY_BUILDING: [Building; 8] = [
     Building::Keep,
     Building::Gatehouse,
@@ -468,8 +425,6 @@ const EVERY_BUILDING: [Building; 8] = [
     Building::Observatory,
 ];
 
-/// A settled world parked at `building`, rendered through the 3D path the
-/// seam takes: same camera, same dot canvas, same braille bridge.
 fn world3d_vista(
     building: Building,
     cells: (usize, usize),
@@ -489,8 +444,6 @@ fn world3d_settled_vistas_stage_sky_mass_and_ground_per_the_vista_law() {
         let (map, view) = world.travel_scene();
         let (sky, wall, ground) = world3d::composition_mix(&map, &view, 200, 304);
         eprintln!("{building:?}: sky={sky:.3} wall={wall:.3} ground={ground:.3}");
-        // The vista law's own floor: open sky above, mass never more than
-        // half the frame, and real ground to stand the composition on.
         assert!(sky >= 0.20, "{building:?}: only {sky:.3} sky");
         assert!(wall <= 0.50, "{building:?}: {wall:.3} of the frame is wall");
         assert!(
@@ -508,9 +461,6 @@ fn world3d_settled_vistas_invert_values_hold_coverage_and_are_deterministic() {
         let (_, second) = world3d_vista(building, cells);
         assert_eq!(first, second, "{building:?}: 3D vista determinism");
 
-        // Same shape as the raycast floor (ride.rs:825): the brightest
-        // value in the sky band must beat the darkest mass below it, so
-        // the picture reads as silhouette against light, not as a wash.
         let (sky_luma, land_luma) =
             first
                 .cells
@@ -539,7 +489,6 @@ fn world3d_settled_vistas_invert_values_hold_coverage_and_are_deterministic() {
             (0.18..=0.82).contains(&coverage),
             "{building:?}: large-vista coverage {coverage:.3}"
         );
-        // Depth must read as structure: blacks kept, masses lit.
         assert!(
             first.cells.iter().any(|cell| glyph_bits(cell.glyph) == 0),
             "{building:?}: no blacks left in the frame"
@@ -561,15 +510,10 @@ fn world3d_small_vistas_stay_moonlit_at_ride_pane_size() {
         let (_, image) = world3d_vista(building, cells);
         let coverage = tonal_coverage(&image);
         eprintln!("{building:?}: small coverage={coverage:.3}");
-        // The structure-aware encoder draws a lit flat fill solid and lets
-        // its colour carry the value, so a moonlit vista inks more cells
-        // than the old density screen did; a blown-out wash still fails.
         assert!(
             (0.02..=0.72).contains(&coverage),
             "{building:?}: small-vista coverage {coverage:.3}"
         );
-        // The staged horizon sits in the lower third, so the bottom rows
-        // carry moonlit ground and must out-ink the sky above them.
         let band = |rows: std::ops::Range<usize>| -> f32 {
             let dots: u32 = rows
                 .clone()
@@ -587,10 +531,6 @@ fn world3d_small_vistas_stay_moonlit_at_ride_pane_size() {
     }
 }
 
-/// A world standing **inside** `building`, rendered through the interior
-/// branch of the seam: same `RayView` the ride hands the renderer, same dot
-/// canvas, same braille bridge. Interiors take the travel tone curve, not
-/// the vista one (`settled_vista_grade()` is false while inside).
 fn world3d_interior(
     building: Building,
     cells: (usize, usize),
@@ -598,8 +538,6 @@ fn world3d_interior(
     world3d_interior_at(building, cells, 0)
 }
 
-/// The same room with its hearth caught at a given tick-bucket — the value
-/// the seam feeds `render_interior_frame` from `tick / 2`.
 fn world3d_interior_at(
     building: Building,
     cells: (usize, usize),
@@ -650,16 +588,7 @@ fn world3d_interiors_are_deterministic_and_distinct_per_building() {
 
 #[test]
 fn world3d_interiors_keep_a_lit_floor_and_a_light_source_in_frame() {
-    // Thresholds measured off the judged plates, then given room. Across
-    // the eight rooms the ride pane runs 0.17–0.57 ink and the plate
-    // 0.20–0.58, and the bottom quarter of the frame — the flags under the
-    // rider's lantern — never inks below 0.29. The bands below catch a
-    // black room or a blown-out wash without pinning the art to today's
-    // dressing.
     for (cells, floor_ink, band) in [
-        // Upper bands raised for the structure-aware encoder: lit stone is
-        // drawn as solid shape with its value in the dot colour, not as a
-        // Bayer screen, so a lit room inks more of the pane.
         ((48usize, 18usize), 0.18f32, (0.08f32, 0.92f32)),
         ((100, 76), 0.20, (0.10, 0.92)),
     ] {
@@ -672,8 +601,6 @@ fn world3d_interiors_keep_a_lit_floor_and_a_light_source_in_frame() {
                 "{building:?}: interior ink {coverage:.3} outside {band:?}"
             );
 
-            // The floor is never black: the rider's lantern pools on the
-            // flags, so the bottom band of the pane must carry real ink.
             let rows = cells.1 - cells.1 / 4..cells.1;
             let dots: u32 = rows
                 .clone()
@@ -687,8 +614,6 @@ fn world3d_interiors_keep_a_lit_floor_and_a_light_source_in_frame() {
                 "{building:?}: the floor band inked only {floor:.3}"
             );
 
-            // ...and the room has a light in it: a hearth, a bay, a
-            // brazier or the night sky through an opening.
             let brightest = plate
                 .pixels()
                 .map(|p| 0.299 * p.0[0] as f32 + 0.587 * p.0[1] as f32 + 0.114 * p.0[2] as f32)
@@ -697,13 +622,6 @@ fn world3d_interiors_keep_a_lit_floor_and_a_light_source_in_frame() {
                 brightest > 140.0,
                 "{building:?}: nothing in the room burns (peak {brightest:.1})"
             );
-            // Structure, not a wash. Indoors this is a *range* claim, not
-            // the exterior's "keep some pure blacks": a lit stone room has
-            // no night sky in it, so the ordered Bayer screen lights a dot
-            // or two in almost every cell and demanding an empty one only
-            // measures how much wall is in shadow. What must hold is that
-            // the frame carries both ends — near-empty cells and near-full
-            // ones — or the room has dithered itself into flat grey.
             let sparse = image
                 .cells
                 .iter()
@@ -714,9 +632,6 @@ fn world3d_interiors_keep_a_lit_floor_and_a_light_source_in_frame() {
                 .iter()
                 .filter(|cell| glyph_bits(cell.glyph).count_ones() >= 6)
                 .count();
-            // Measured floors: shadow bottoms out at 3.0% of cells (the
-            // round table's near board fills the frame) and light at 0.46%
-            // (the gate passage, whose only warm masses are two braziers).
             assert!(
                 sparse * 64 >= image.cells.len(),
                 "{building:?}: only {sparse}/{} cells hold shadow",
@@ -758,18 +673,12 @@ fn world3d_interiors_pan_with_the_operator_and_never_go_blank() {
     }
 }
 
-/// The hearth breathing, as evidence: each room at two ends of its breath,
-/// dumped as braille PNGs with the cell delta between them printed. The
-/// flicker is a few code values on the fire's own dots, so it is judged by
-/// counting what moved, not by squinting at a still.
 #[test]
 #[ignore = "manual art review: dumps the hearth flicker pair as PNGs"]
 fn dump_world3d_hearth_flicker_for_review() {
     let out = std::env::var("WORLD3D_FLICKER_DUMP_DIR")
         .unwrap_or_else(|_| "../artifacts/world3d-polish/flicker".to_string());
     std::fs::create_dir_all(&out).expect("create world3d flicker dump directory");
-    // Bucket 0 is the full burn; a step later (BUCKETS_PER_STEP) the fire
-    // has settled back. Both are states the live ride actually paints.
     let step = world3d::interior::BUCKETS_PER_STEP;
     for cells in [(48usize, 18usize), (100, 76)] {
         for building in EVERY_BUILDING {
@@ -803,8 +712,6 @@ fn dump_world3d_hearth_flicker_for_review() {
 #[test]
 #[ignore = "manual art review: dumps the eight staged 3D interiors as PNGs"]
 fn dump_world3d_interiors_for_review() {
-    // Default lands on the latest review set, so re-running this without
-    // an env var never quietly overwrites an older iteration's evidence.
     let out = std::env::var("WORLD3D_INTERIOR_DUMP_DIR")
         .unwrap_or_else(|_| "../artifacts/world3d-polish/after/interiors".to_string());
     std::fs::create_dir_all(&out).expect("create world3d interior dump directory");
@@ -929,7 +836,6 @@ fn dump_world3d_vantages_for_review() {
             "{building:?}: sky={sky:.3} wall={wall:.3} ground={ground:.3} ink={coverage:.3} standoff={standoff:.1}@({near_x:.1},{near_y:.1}) eye=({ex:.1},{ey:.1},{ez:.1}) hdg={heading:.2} pitch={pitch:.2} fov={fov:.2}"
         );
     }
-    // The mid-ride sweep: same pipeline, travelling rather than settled.
     let mut world = ride_world();
     world.travel_ticks = cinematics::DEPART_FADE_TICKS + 1;
     for _ in 0..4 {
@@ -956,10 +862,6 @@ fn dump_world3d_vantages_for_review() {
     eprintln!("world3d vantages → {out}");
 }
 
-// ── the adventure regions (Z3) ────────────────────────────────────────
-
-/// The five places the quest goes when it leaves Castle Town, in the
-/// order `Region` declares them.
 const EVERY_REGION: [Region; 5] = [
     Region::TheMines,
     Region::DarkForest,
@@ -968,14 +870,6 @@ const EVERY_REGION: [Region; 5] = [
     Region::Homecoming,
 ];
 
-/// A ride world whose quest has walked into `region`, `iteration` steps
-/// in, carrying `treasures` chests of loot and `danger` of stall.
-///
-/// Built out of the harness facts themselves (`AdventureEvent`), never by
-/// poking `Quest`'s fields: the seam has to answer the same edges the live
-/// cockpit feeds it. `danger` is clamped to 1 outside the Swamp, because
-/// `region_for` sends *any* quest with danger ≥ 2 to the Swamp — a deeper
-/// stall would leave the region under test rather than dress it.
 fn region_world(region: Region, iteration: usize, danger: u8, treasures: u32) -> World {
     let mut world = ride_world();
     let kind = match region {
@@ -1010,8 +904,6 @@ fn region_world(region: Region, iteration: usize, danger: u8, treasures: u32) ->
     world
 }
 
-/// A frame's identity, for assertions that must not print a megabyte of
-/// pixels when they fail.
 fn plate_digest(image: &image::RgbaImage) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut hash = std::collections::hash_map::DefaultHasher::new();
@@ -1019,7 +911,6 @@ fn plate_digest(image: &image::RgbaImage) -> u64 {
     hash.finish()
 }
 
-/// One region frame straight off the seam, at cell resolution.
 fn region_plate(world: &World, cells: (usize, usize)) -> image::RgbaImage {
     let (map, view) = world.travel_scene();
     world3d::render_region_frame(
@@ -1035,8 +926,6 @@ fn region_plate(world: &World, cells: (usize, usize)) -> image::RgbaImage {
 
 #[test]
 fn castle_town_still_takes_the_shipped_court_path() {
-    // Z3 changes nothing about the realm itself: an idle quest renders the
-    // identical bytes the court renderer has always produced.
     let world = ride_world();
     assert_eq!(world.quest().region(), Region::CastleTown);
     let (map, view) = world.travel_scene();
@@ -1071,9 +960,6 @@ fn every_region_stages_a_distinct_deterministic_frame_through_the_seam() {
             (0.10..=0.86).contains(&coverage),
             "{region:?}: region-vista coverage {coverage:.3}"
         );
-        // Same ink-band floor as the court's own vistas: the brightest
-        // value in the sky band beats the darkest mass below it, so the
-        // picture reads as silhouette against light and not as a wash.
         let (sky_luma, land_luma) =
             image
                 .cells
@@ -1113,10 +999,6 @@ fn every_region_stages_a_distinct_deterministic_frame_through_the_seam() {
 
 #[test]
 fn region_vista_floors_hold_through_the_live_seam() {
-    // `world3d::region`'s own floor test measures the authored mark. This
-    // one measures what the cockpit actually paints — the same mark plus
-    // the ride's sub-tile drift — because a table that passes in isolation
-    // and fails in the pane is a table that has not passed.
     let _pin = world3d::pin_world3d();
     let mut broken: Vec<String> = Vec::new();
     for region in EVERY_REGION {
@@ -1124,9 +1006,6 @@ fn region_vista_floors_hold_through_the_live_seam() {
         for waypoint in 0..world3d::region::marks(stage).len() {
             let world = region_world(region, waypoint, 1, 2);
             let (map, mut view) = world.travel_scene();
-            // Prepare the view the way `scryglass_frame_paced` does for a
-            // settled world with the operator's hands off the controls:
-            // no canter bob, the default lens.
             view.bob = 0.0;
             view.fov_rad = 1.05;
             for (dot_w, dot_h) in [(144usize, 104usize), (96, 72)] {
@@ -1141,9 +1020,6 @@ fn region_vista_floors_hold_through_the_live_seam() {
                 .expect("a staged region composes");
                 let label = format!("{region:?} [{waypoint}] @{dot_w}x{dot_h}");
                 eprintln!("{label}: sky={sky:.3} wall={wall:.3} ground={ground:.3}");
-                // Roofed stages (Z3b) have no sky by construction; they
-                // are judged by the interior instrument in `region::tests`
-                // and keep only the floor band here.
                 if !world3d::region::is_interior(stage) {
                     if sky < 0.20 {
                         broken.push(format!("{label}: only {sky:.3} sky"));
@@ -1185,9 +1061,6 @@ fn the_seam_restages_when_the_walk_the_loot_or_the_stall_moves() {
             );
         }
 
-        // Loot lands on authored plinths, so it is not in shot from every
-        // waypoint of a nine-gallery walk — but it has to be in shot from
-        // *some* of them, or the chests are staged where nobody stands.
         let looted = (0..world3d::region::waypoint_count(region)).any(|waypoint| {
             digest(&region_plate(&region_world(region, waypoint, 0, 3), cells))
                 != digest(&region_plate(&region_world(region, waypoint, 0, 0), cells))
@@ -1197,12 +1070,6 @@ fn the_seam_restages_when_the_walk_the_loot_or_the_stall_moves() {
             "{region:?}: no waypoint of the walk can see a treasure chest"
         );
 
-        // Stall depth reaches both the haze and the torch count. Outside
-        // the Swamp a quest can only carry danger 1 without `region_for`
-        // sending it to the Swamp — one torch fewer per gallery and a
-        // shorter sight line, which is still a different picture. The
-        // Dragon Keep and the Homecoming road latch their region on a
-        // submission and a finish, so no stall edge reaches them at all.
         if matches!(
             region,
             Region::TheMines | Region::DarkForest | Region::Swamp
@@ -1221,9 +1088,6 @@ fn the_seam_restages_when_the_walk_the_loot_or_the_stall_moves() {
 fn a_region_frame_re_keys_the_ride_cache_it_is_served_from() {
     let _pin = world3d::pin_world3d();
     let mut world = region_world(Region::TheMines, 1, 0, 2);
-    // Warm the lazy rider/atlas assets first: the very first frame of a
-    // process loads them, and `cinematic_key` hashes whether they are
-    // there, so frame one is never comparable with frame two.
     let _warm = world.scryglass_frame_paced(48, 18, false, 0.0, 0.0, 1.05);
     let first = world
         .scryglass_frame_paced(48, 18, false, 0.0, 0.0, 1.05)
@@ -1289,11 +1153,6 @@ fn dump_region3d_stages_for_review() {
 #[test]
 #[ignore = "manual perf probe: run --release --nocapture for real timings"]
 fn bench_region3d_frame_cost() {
-    // Budget: ≤ ~3 ms at 72×26 cells (144×104 dots) and ≤ ~10 ms at
-    // 100×76 (200×304) — the same ceiling the court is held to
-    // (docs/plans/world3d-spec.md). The court is benched alongside on the
-    // same run, because the only number that travels between a debug build
-    // and a release one is the *ratio*.
     for (w, h) in [(72usize, 26usize), (100, 76)] {
         let court = ride_world();
         let _ = world3d_plate(&court, (w, h));
@@ -1326,8 +1185,6 @@ fn bench_region3d_frame_cost() {
 #[test]
 #[ignore = "manual perf probe: run --release --nocapture for real timings"]
 fn bench_world3d_frame_cost() {
-    // Budget: ≤ ~3 ms at 72×26 cells (144×104 dots) and ≤ ~10 ms at
-    // 100×76 (200×304) — see docs/plans/world3d-spec.md.
     for (w, h) in [(72usize, 26usize), (100, 76)] {
         let mut world = ride_world();
         world.travel_ticks = cinematics::DEPART_FADE_TICKS + 1;
@@ -1429,9 +1286,6 @@ fn dump_arrival_vistas_for_review() {
 }
 #[test]
 fn trips_keep_a_framed_view_between_destination_shots() {
-    // Exercise actual world ticks, not just the authored endpoint poses.
-    // The old interpolated camera filled the view with masonry on trips
-    // to the Rookery, Chapel, Smithy and Observatory.
     for building in EVERY_BUILDING {
         for (width, height) in [(48usize, 18usize), (100, 76)] {
             let mut world = World::new(42);

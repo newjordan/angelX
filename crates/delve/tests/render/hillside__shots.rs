@@ -19,7 +19,6 @@ fn keys(input: Input) -> BTreeMap<u32, Input> {
     BTreeMap::from([(1, input)])
 }
 
-/// A hillside run, rich, the knight standing east of the camp with the builder not yet out.
 pub(crate) fn run_at(x: f32, y: f32) -> Run {
     let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
     run.walk_kingdom(None);
@@ -40,7 +39,6 @@ pub(crate) fn run_at(x: f32, y: f32) -> Run {
     run
 }
 
-/// Build `plan` at `tile`, finished.
 pub(crate) fn raise(run: &mut Run, plan: &str, tile: (i16, i16)) -> u32 {
     let k = &mut run.home.industry;
     k.apply(catalog(), Command::Build { plan: plan.into(), tile }).unwrap_or_else(|e| panic!("{plan} at {tile:?}: {e}"));
@@ -49,8 +47,6 @@ pub(crate) fn raise(run: &mut Run, plan: &str, tile: (i16, i16)) -> u32 {
     id
 }
 
-/// A small works round the camp: the carters' yard and its carts, a kiln, a banker, a quarry
-/// on a won seam, a woodsman's camp and a sawpit, all joined to the camp's road.
 pub(crate) fn small_works() -> Run {
     let mut run = run_at(150.5, 100.5);
     let c = catalog();

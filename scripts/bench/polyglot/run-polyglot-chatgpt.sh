@@ -1,14 +1,4 @@
 #!/usr/bin/env bash
-# angelX or Codex CLI on a ChatGPT-plan model (default gpt-6.1-sol, reasoning low),
-# polyglot-v1. Same Prime Verifiers 0.3.1 cell as run-polyglot-luna-medium.sh:
-# 136 tasks, one attempt, 600s wall, grade-any-exit, fresh HOME.
-# Both harnesses sit on the same ChatGPT Codex seat and post to chatgpt.com
-# directly, so the interception proxy sees nothing. Tokens come from angel.usage
-# (angelX) or the `codex exec --json` turn usage (Codex), recorded per trace.
-#
-#   scripts/bench/polyglot/run-polyglot-chatgpt.sh angelx|codex [dry]
-#   MODEL=gpt-6.1-sol EFFORT=low ONLY=<task> ANGEL_BIN=<pin>/angel
-#   ANGEL_SEAT_PROFILE=0 sends angelX without Codex's autonomy page (⡞⠙⠓).
 set -euo pipefail
 
 HARNESS=${1:?harness: angelx|codex}
@@ -66,8 +56,6 @@ RUN_DIR=$TAG-$(date -u +%Y%m%dT%H%M%SZ)
 case "$HARNESS" in
   angelx)
     [[ -x "$ANGEL_BIN" ]] || { echo "missing angel binary: $ANGEL_BIN" >&2; exit 2; }
-    # The luna-direct route (the ChatGPT seat) is patched into the kit by
-    # run-polyglot-luna-medium.sh; it reads LUNA_MODEL/LUNA_EFFORT/LUNA_CODEX_HOME.
     grep -q '"luna-direct"' "$RR/prime_v1/angel_action_v1/harness.py" \
       || { echo "kit harness lacks luna-direct; run run-polyglot-luna-medium.sh once" >&2; exit 2; }
     BIN_SHA=$(sha256sum "$ANGEL_BIN" | cut -d' ' -f1)

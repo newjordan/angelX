@@ -5,7 +5,6 @@
 
 use super::*;
 
-// Behavioral cases remain executable without recompiling this test binary.
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct VerificationCase {
@@ -120,17 +119,13 @@ fn assert_verification_cases(group: &str, expected_count: usize, expected_assert
     assert_eq!(total_assertions, expected_assertions, "{group}: assertion count");
 }
 
-/// The stop checkpoint raised for edits no verifier has covered.
 fn is_unverified_checkpoint(content: &str) -> bool {
     book::ledger::is_warpath_message(content) && has_route(first_line(content), "⠧⠋")
 }
 
-/// A stop checkpoint: a warpath ending in `⠟⠁`, facts beside it on later lines.
 fn is_stop_checkpoint(content: &str) -> bool {
     book::ledger::is_warpath_message(content) && first_line(content).ends_with("⠟⠁")
 }
-
-// --- verification / final-mile suite ---
 
 #[test]
 fn remote_verifiers_require_an_executed_check_not_benchmark_vocabulary() {
@@ -147,9 +142,6 @@ fn verifier_outcomes_do_not_confuse_dispatch_with_green_evidence() {
     assert_verification_cases("outcomes", 20, 32);
 }
 
-/// A JavaScript test runner called directly is a test run, as `npm test` is.
-/// polyglot-v1 js-forth: DeepSeek ran `npx jest` about 30 times, and none of
-/// its red runs reached the verifier state.
 #[test]
 fn direct_js_test_runners_are_verification_calls() {
     assert_verification_cases("direct_js", 18, 40);
@@ -224,13 +216,11 @@ fn structured_kill_execution_events_distinguish_cancellation_from_failure() {
             VerificationOutcome::Inconclusive,
             "{reason}"
         );
-        // Recoverable tool-idle escalation is a failed tool, not a turn cancel.
         let recoverable = format!("tool error: tool_idle: retry with explicit input\n{error}");
         assert_eq!(
             turn_event_outcome(&call, &recoverable, false).execution,
             ExecutionOutcome::Failed
         );
-        // Successful child output that quotes a receipt cannot claim a kill.
         assert_eq!(
             turn_event_outcome(&call, &kill.error("quoted output"), false).execution,
             ExecutionOutcome::Succeeded
@@ -251,7 +241,6 @@ fn execution_outcomes_have_stable_snake_case_projections() {
 #[test]
 fn raw_shell_verifier_is_not_reused_or_completion_skipped() {
     let _env_guard = crate::tests::env_lock();
-    // Counts every verifier execution; completion confirmation would add runs.
     let _confirm = EnvGuard::set("ANGEL_CONFIRM_GREEN_RUNS", "0");
     let root = scratch("raw_shell_verifier_not_reused");
     assert!(
@@ -483,8 +472,6 @@ fn edited_task_turn_gets_one_stop_checkpoint() {
     )
     .unwrap();
 
-    // One checkpoint carrying the fact and the deli route; the next answer
-    // stands.
     assert_eq!(answer, "done with blocker disclosed");
     assert_eq!(club.step.load(Ordering::Relaxed), 3);
     let checkpoints = history
@@ -727,9 +714,6 @@ fn opaque_shell_edit_requires_fresh_workspace_verification() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A PATH-shimmed shell green is a test attempt as far as the model's facts
-/// go (no `⠧⠋`), but it never earns a typed pass: that stays with the
-/// curated check.
 #[test]
 fn path_shim_shell_green_is_an_attempt_but_not_a_typed_pass() {
     use std::os::unix::fs::PermissionsExt;
@@ -822,8 +806,6 @@ fn path_shim_shell_green_is_an_attempt_but_not_a_typed_pass() {
     assert_eq!(answer, "done after curated verification");
     assert!(!club.saw_nudge.load(Ordering::Relaxed));
     assert_eq!(club.step.load(Ordering::Relaxed), 4);
-    // No untested or red route ever showed; the clean run after the edit
-    // showed the finish cue instead.
     assert!(
         !history
             .iter()
@@ -945,18 +927,8 @@ fn dependency_mutation_shells_count_as_first_write_progress() {
     assert!(!is_mutation_call(&call));
 }
 
-// --- B5: banned self-repair priming nouns never return to live prompts ---
-
 #[test]
 fn live_prompts_carry_no_self_repair_priming() {
-    // Regression pin. The two strings that reach the model every session — the
-    // orchestrator posture paragraph and the self-model block — must never re-
-    // introduce the self-repair priming nouns. Naming the forbidden artifact is
-    // exactly what hands a degraded model a searchable token to chase (the
-    // 2026-07-04 MOA incident). build_system_prompt just concatenates these two
-    // with skills/project/work blocks (which never carried the nouns), and it
-    // needs a Bag + filesystem I/O, so pinning the two sources is the live cover.
-    // The orchestrator's words are its personality and workflow chapters.
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let orch = ["⠽⠃", "⠽⠙", "⠽⠑"]
         .map(|cells| crate::agent::harness::book::ledger::read(root, cells).unwrap())
@@ -983,8 +955,6 @@ fn live_prompts_carry_no_self_repair_priming() {
             );
         }
     }
-    // NOTE: `tool_repair` is a legitimate registered tool name and is intentionally
-    // NOT asserted against here; the swarm incident fixture is left untouched.
 }
 
 #[test]
@@ -994,7 +964,6 @@ fn filtered_test_runs_are_not_completion_sufficient() {
         name: name.into(),
         args,
     };
-    // Full test runs qualify.
     for args in ["test", "test --quiet"] {
         assert!(
             verification_is_completion_sufficient(&call(
@@ -1013,10 +982,6 @@ fn filtered_test_runs_are_not_completion_sufficient() {
             "run_tests {args:?} must be completion-sufficient"
         );
     }
-    // A raw compile probe proves the tree builds, not that the task is done —
-    // a check-green arming the wrap-up guard cut run11 off mid-ladder. (The
-    // dedicated `check` TOOL keeps its curated-gate contract; raw cargo does
-    // not.)
     for args in ["check", "check --quiet"] {
         assert!(
             !verification_is_completion_sufficient(&call(
@@ -1026,8 +991,6 @@ fn filtered_test_runs_are_not_completion_sufficient() {
             "cargo {args} must NOT be completion-sufficient"
         );
     }
-    // Shell parsing still recognizes these as verification attempts, but a
-    // zero shell status cannot identify the executable behind `cargo`.
     assert!(!verification_is_completion_sufficient(&call(
         "shell",
         serde_json::json!({"command": "cargo test"})
@@ -1054,10 +1017,6 @@ fn filtered_test_runs_are_not_completion_sufficient() {
             "status-masked full suite must not arm completion: {masked}"
         );
     }
-    // Filtered slices, libtest filters, and --ignored runs are targeted
-    // evidence — they must neither arm nor be skipped by the post-green guard
-    // (run3-sol lost its fixture gate, full suite, and commit to a filtered
-    // green arming the guillotine).
     for args in [
         "test raycast",
         "test --quiet raycast",
@@ -1115,8 +1074,6 @@ fn baseline_green_verifier_is_not_completion_evidence_without_a_mutation() {
     ));
 }
 
-/// Every verifier call the model makes executes: the harness never answers a
-/// verifier from cache or skips it as redundant.
 fn native_verifier_dispatch_scenario(
     calls: Vec<(&'static str, Value)>,
     expected: usize,
@@ -1126,14 +1083,9 @@ fn native_verifier_dispatch_scenario(
     let _mcp = EnvGuard::set("ANGEL_MCP_CONFIG", "/nonexistent/owned-mcp.json");
     let root = scratch("native_verifier_dispatch");
     let output = scratch("native_verifier_output");
-    // Resolve the shared test helper before isolating the fixture Cargo target.
-    // Otherwise helper bootstrap would rebuild the cockpit inside this target.
     crate::agent::sandbox::prime_helper();
     let _target = EnvGuard::set("CARGO_TARGET_DIR", output.to_str().unwrap());
     let _offline = EnvGuard::set("CARGO_NET_OFFLINE", "true");
-    // `extra.rs` is a real bin target so a test that rewrites it exercises a
-    // compiled path: a check that never compiled the changed file is
-    // inconclusive by design (tools/build/targets.rs), not green.
     let manifest = "[package]\nname = \"owned_verifier\"\nversion = \"0.1.0\"\nedition = \"2024\"\n[lib]\npath = \"subject.rs\"\n[[bin]]\nname = \"extra\"\npath = \"extra.rs\"\n";
     std::fs::write(root.join("Cargo.toml"), manifest).unwrap();
     std::fs::write(root.join("extra.rs"), "fn main() {}\n").unwrap();
@@ -1428,8 +1380,6 @@ fn distinct_red_verifier_keeps_source_repair_and_green_recheck_available() {
     );
 }
 
-/// A foreground shell process is bounded even when a here-doc prevents it from
-/// being classified as verification. A later repair and green recheck must work.
 #[test]
 fn task_call_budget_contains_unclassified_shell_and_allows_repair() {
     let _env_guard = crate::tests::env_lock();
@@ -1488,7 +1438,6 @@ fn task_call_budget_contains_unclassified_shell_and_allows_repair() {
     }
 }
 
-/// One table across every decision the `verify-policy` leg owns.
 fn verify_policy_calls() -> Vec<ToolCall> {
     let call = |name: &str, args: Value| ToolCall {
         id: "policy".into(),
@@ -1531,6 +1480,12 @@ fn verify_policy_calls() -> Vec<ToolCall> {
         "./node_modules/.bin/jest",
         "pnpm exec mocha",
         "printf 'done\n'",
+        "cat > lib.py <<'EOF'\nvalue = (1 or 2)  # body\nEOF\npython3 -m pytest -q 2>&1 | tail -3",
+        "cat > a.py <<A; cat > b.py <<B\none\nA\ntwo\nB\nnpm test",
+        "cat > a.rs <<-EOF\n\tfn main() {}\n\tEOF\ncargo test",
+        "cat <<EOF\ncargo test\nEOF",
+        "cat > f <<EOF\ncargo test",
+        "cargo test <<< input",
         "",
     ]
     .into_iter()
@@ -1619,7 +1574,6 @@ fn verify_policy_leg_falls_back_when_its_answer_breaks_the_contract() {
         r#"{"api_version":1,"id":"bad-policy","kind":"policy","entry":"index.js","probe":{}}"#,
     )
     .unwrap();
-    // Every field true: a cargo call that changed nothing cannot owe verification.
     std::fs::write(
         module.join("index.js"),
         "module.exports={apiVersion:1,render:()=>({requires_verification:true,is_verification:true,is_progress_verifier:true,runs_tests_anywhere:true})}",
@@ -1654,10 +1608,6 @@ fn verify_policy_leg_falls_back_when_its_answer_breaks_the_contract() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// The production wrappers route through the generation compiled into the
-/// binary now, with no native fallback: nothing offers a live verify-policy
-/// generation in a test process, so each of the four answers must be the
-/// oracle's, shape for shape.
 #[test]
 fn the_shipped_leg_answers_every_verify_wrapper() {
     for call in verify_policy_calls() {
@@ -1683,6 +1633,44 @@ fn the_shipped_leg_answers_every_verify_wrapper() {
             native.runs_tests_anywhere,
             "{label}"
         );
+    }
+}
+
+#[test]
+fn a_test_run_after_a_heredoc_write_counts_as_a_test_attempt() {
+    for (command, anywhere) in [
+        (
+            "cat > lib.py <<'EOF'\nvalue = (1 or 2)  # body\nEOF\npython3 -m pytest -q 2>&1 | tail -3",
+            true,
+        ),
+        (
+            "python3 - <<'PY'\nimport pathlib\npathlib.Path('a.py').write_text('x = {}\\n')\nPY\npython3 -m unittest 2>&1 | tail -4",
+            true,
+        ),
+        ("cat > a.rs <<-EOF\n\tfn main() {}\n\tEOF\ncargo test", true),
+        (
+            "cat > a.py <<A; cat > b.py <<B\none\nA\ntwo\nB\nnpm test",
+            true,
+        ),
+        ("cat > a.py <<\"E O F\"\nbody\nE O F\ngo test ./...", true),
+        ("cat <<EOF\ncargo test\nEOF", false),
+        ("python3 - <<PY\nprint('cargo test')\nPY", false),
+        ("cat > f <<EOF\ncargo test", false),
+        ("cat > f <<EOF", false),
+        ("cargo test <<< input", false),
+    ] {
+        let call = ToolCall {
+            id: "heredoc".into(),
+            name: "shell".into(),
+            args: serde_json::json!({"command": command}),
+        };
+        assert_eq!(shell_runs_tests_anywhere(&call), anywhere, "{command:?}");
+        assert_eq!(
+            verification_decision_native(&call).runs_tests_anywhere,
+            anywhere,
+            "{command:?}"
+        );
+        assert!(!is_verification_call(&call), "{command:?}");
     }
 }
 

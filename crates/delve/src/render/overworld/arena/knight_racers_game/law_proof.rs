@@ -9,18 +9,17 @@ use super::*;
 use crate::rules::Run;
 use std::collections::BTreeMap;
 
-type Drives = BTreeMap<u32, rules::Drive>;
+pub(super) type Drives = BTreeMap<u32, rules::Drive>;
 
-/// A race staged on one stretch, watched from one seat.
-struct Reel {
-    run: Run,
-    race: rules::Session,
-    seat: u32,
-    shots: u32,
+pub(super) struct Reel {
+    pub(super) run: Run,
+    pub(super) race: rules::Session,
+    pub(super) seat: u32,
+    pub(super) shots: u32,
 }
 
 impl Reel {
-    fn on(id: rules::CourseId, seat: u32) -> Reel {
+    pub(super) fn on(id: rules::CourseId, seat: u32) -> Reel {
         let mut run = Run::roundtable_for_test("knight_racers").unwrap();
         run.knight_racers = None;
         let mut race = rules::Session::blank_on(id);
@@ -28,8 +27,7 @@ impl Reel {
         Reel { run, race, seat, shots: 0 }
     }
 
-    /// Into the race, then every pod where `field` says: (seat, distance, lane, speed).
-    fn stage(&mut self, field: &[(u32, f32, f32, f32)]) {
+    pub(super) fn stage(&mut self, field: &[(u32, f32, f32, f32)]) {
         self.race.ticks = rules::race::COUNTDOWN + 1;
         for &(id, d, y, v) in field {
             let c = self.race.cars.get_mut(&id).unwrap();
@@ -37,25 +35,24 @@ impl Reel {
         }
     }
 
-    fn step(&mut self, drives: &Drives) {
+    pub(super) fn step(&mut self, drives: &Drives) {
         self.race.step_drive(drives);
         assert!(self.race.valid(), "the staged race went invalid at tick {}", self.race.ticks);
         state::observe(&self.race);
     }
 
-    /// The pilots' hands for everyone but `except`.
-    fn pilots(&self, except: &[u32]) -> Drives {
+    pub(super) fn pilots(&self, except: &[u32]) -> Drives {
         let mut all = self.race.bot_drives_all();
         for id in except { all.remove(id); }
         all
     }
 
-    fn frame(&mut self) -> Img {
+    pub(super) fn frame(&mut self) -> Img {
         self.run.knight_racers = Some(self.race.clone());
         layers(&self.run, Some(self.seat)).0
     }
 
-    fn shot(&mut self, dir: &std::path::Path) {
+    pub(super) fn shot(&mut self, dir: &std::path::Path) {
         std::fs::create_dir_all(dir).unwrap();
         let im = self.frame();
         image::save_buffer(dir.join(format!("{:04}.png", self.shots)), &im.rgba_bytes(), 384, 224, image::ColorType::Rgba8).unwrap();
@@ -63,8 +60,7 @@ impl Reel {
     }
 }
 
-/// Steer a pod back toward lane `to`.
-fn hold_lane(c: &rules::Car, to: f32) -> i8 {
+pub(super) fn hold_lane(c: &rules::Car, to: f32) -> i8 {
     if c.y > to + 0.6 { -1 } else if c.y < to - 0.6 { 1 } else { 0 }
 }
 
@@ -88,14 +84,9 @@ fn law_reels() {
     if wanted("battle") { battle(&out.join("battle")); }
 }
 
-/// What a seat saw in one tick of an all-pilot race: for the battle reel's search.
 #[derive(Clone, Copy, Default)]
 struct Beat { slam: bool, draft: bool, blow_near: bool, place: u8 }
 
-/// The mid-pack battle: six pilots race every cup course in every pod rotation until a 20 second window
-/// holds, for one seat that is running second to fifth, a pair of slams, a spell in a deep wake and a
-/// blowout in the pod beside it; that window is then run again and filmed from that seat, every tick.
-/// `ANGEL_LAW_BATTLE=course,rot` skips the search for that race.
 fn battle(dir: &std::path::Path) {
     const WINDOW: usize = 600;
     let start = |id: rules::CourseId, rot: u8| {
@@ -105,7 +96,6 @@ fn battle(dir: &std::path::Path) {
         race
     };
     let mut best: Option<(rules::CourseId, u8, u32, usize, i32)> = None;
-    // `ANGEL_LAW_AT=course,rotation,seat,tick` films a battle already found (the tick is the one the search prints).
     if let Ok(at) = std::env::var("ANGEL_LAW_AT") {
         let v: Vec<&str> = at.split(',').collect();
         let id = rules::cup().iter().copied().find(|id| format!("{id:?}").to_lowercase() == v[0]).expect("a cup course");
@@ -114,7 +104,6 @@ fn battle(dir: &std::path::Path) {
     'search: for rot in 0..6u8 {
         if best.is_some() && std::env::var_os("ANGEL_LAW_AT").is_some() { break; }
         for &id in rules::cup() {
-            // A named battle skips the other seventeen races.
             if let Ok(w) = std::env::var("ANGEL_LAW_BATTLE") {
                 let v: Vec<&str> = w.split(',').collect();
                 if v.len() == 2 && (format!("{id:?}").to_lowercase() != v[0] || rot.to_string() != v[1]) { continue; }
@@ -148,7 +137,6 @@ fn battle(dir: &std::path::Path) {
                     let draft = w.iter().filter(|b| b[&seat].draft).count();
                     let blow = w.iter().any(|b| b[&seat].blow_near);
                     let mid = w.iter().filter(|b| (2..=5).contains(&b[&seat].place)).count();
-                    // All three things in the 20 seconds, the seat in the thick of the pack; the more of each the better.
                     if slams >= 1 && draft >= 30 && blow && mid >= WINDOW * 7 / 10 {
                         let score = (slams.min(4) * 60 + draft.min(200) + mid / 6) as i32;
                         if best.is_none_or(|b| score > b.4) { best = Some((id, rot, seat, from, score)); }
@@ -162,7 +150,6 @@ fn battle(dir: &std::path::Path) {
     println!("filming the battle of seat {seat} on {id:?} (rotation {rot}) from tick {} (score {score})", from + rules::race::COUNTDOWN as usize);
     let mut reel = Reel::on(id, seat);
     reel.race = start(id, rot);
-    // The sim has been run `from` ticks past the first step of the race: the race clock, not the filming's.
     for _ in 0..from { let d = reel.race.bot_drives(); reel.step(&d); }
     for _ in 0..WINDOW {
         reel.shot(dir);
@@ -171,9 +158,7 @@ fn battle(dir: &std::path::Path) {
     }
 }
 
-/// The grid, the lamps one a second, the flag.
 fn countdown(dir: &std::path::Path) {
-    // From a seat in the back rows, and from the pole: the grid is seen from both.
     for seat in [4, 1] {
         let mut reel = Reel::on(rules::cup()[0], seat);
         let dir = dir.join(format!("seat{seat}"));
@@ -185,8 +170,6 @@ fn countdown(dir: &std::path::Path) {
     }
 }
 
-/// Full gas and boost down the straight, a scrape of the left wall: the engines heat, one burns,
-/// the pilot holds on, it blows, the squires patch it, the pod goes again.
 fn heat(dir: &std::path::Path) {
     let mut reel = Reel::on(rules::cup()[0], 1);
     reel.stage(&[(1, 300., -1., 42.), (2, 440., 3., 44.), (3, 520., -4., 44.), (4, 600., 1., 44.), (5, 250., 4., 44.), (6, 215., -3., 44.)]);
@@ -195,7 +178,6 @@ fn heat(dir: &std::path::Path) {
         if t % 2 == 0 { reel.shot(dir); }
         let mut d = reel.pilots(&[1]);
         let c = &reel.race.cars[&1];
-        // Gas and boost throughout; in the third second lean on the left wall and ride it.
         let wall = reel.race.course().frame(0, c.d).wl - 0.3;
         let to = if (75..170).contains(&t) { wall } else { 0. };
         d.insert(1, rules::Drive { gas: true, boost: t < 200, steer: hold_lane(c, to), ..Default::default() });
@@ -203,32 +185,25 @@ fn heat(dir: &std::path::Path) {
     }
 }
 
-/// The engines start warm.
 fn prime_heat(reel: &mut Reel) {
     let c = reel.race.cars.get_mut(&1).unwrap();
     c.heat = [0.48, 0.42];
 }
 
-/// A pod shoulders another across the road.
 fn slam(dir: &std::path::Path) {
     let mut reel = Reel::on(rules::cup()[0], 1);
     reel.stage(&[(1, 300., -3.5, 44.), (2, 301., 3.5, 44.), (3, 470., -4., 44.), (4, 520., 0., 44.), (5, 190., 5., 44.), (6, 150., -5., 44.)]);
-    // The near engine starts warm, so the slam's heat shows on the gauge.
     reel.race.cars.get_mut(&1).unwrap().heat = [0.2, 0.5];
     for t in 0..150 {
         reel.shot(dir);
         let mut d = reel.pilots(&[1, 2]);
         let c1 = &reel.race.cars[&1];
-        // Seat 2 is the brute: it dives across onto seat 1 and holds the line.
         d.insert(1, rules::Drive { gas: true, steer: if t < 45 { 0 } else { hold_lane(c1, -3.5) }, ..Default::default() });
         d.insert(2, rules::Drive { gas: true, steer: if (20..58).contains(&t) { -1 } else { 0 }, ..Default::default() });
         reel.step(&d);
     }
 }
 
-/// A pass the pilots make by themselves, through the draft: the sim is run as a six-CPU race until a
-/// pod settles in front of another having ridden its wake in the seconds before, and the same race is
-/// then run again and filmed from the passer's seat, from five seconds before to three after.
 fn overtake(dir: &std::path::Path) {
     let id = rules::cup()[0];
     let start = |all_cpu: bool| {
@@ -237,7 +212,6 @@ fn overtake(dir: &std::path::Path) {
         for c in race.cars.values_mut() { c.cpu = all_cpu; }
         race
     };
-    // Find it.
     let mut race = start(true);
     let mut settled: std::collections::BTreeMap<(u32, u32), bool> = Default::default();
     let mut pending: std::collections::BTreeMap<(u32, u32), (bool, u32)> = Default::default();
@@ -271,7 +245,6 @@ fn overtake(dir: &std::path::Path) {
     }
     let (at, passer) = found.expect("the pilots pass through a draft somewhere on the first course");
     println!("filming the pass of seat {passer}, which settled at tick {at}");
-    // Film it.
     let mut reel = Reel::on(id, passer);
     reel.race = start(true);
     let from = at.saturating_sub(150 + 60);
@@ -283,8 +256,6 @@ fn overtake(dir: &std::path::Path) {
     }
 }
 
-/// `ANGEL_LAW_TIMES=1`: the cost of a frame at eight places round each cup course, every pod sound and
-/// then every pod on fire, round after round so a busy machine slows both alike.
 #[test]
 fn law_frame_time() {
     if std::env::var_os("ANGEL_LAW_TIMES").is_none() { return; }

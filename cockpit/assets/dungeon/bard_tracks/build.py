@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-"""Bard tracks, step 4: stretch an excerpt to the Bard's tempo, pre-mix the three
-tiers and cut them into one-beat slices.
-
-The Bard looses a volley every 4 ticks at 30 Hz, so a beat of 3 volleys is
-exactly 0.4 s: 150 BPM. Each song's excerpt (`pick.py`) is stretched with its
-pitch kept (rubberband, the finer engine) so its own beats fall on that grid,
-then mixed per tier (1 high synth, 2 + bassline, 3 + drums), levelled and cut
-into 0.4 s slices, each with a short complementary fade at both edges so the
-slices butt together without a click, and encoded as 96 kbit/s stereo mp3 at
-44.1 kHz like the rest of the effects.
-
-    python3 build.py STEMS6_DIR ANALYSIS_DIR WORK_DIR OUT_SFX_DIR SONG_LETTER=ID ...
-
-Needs numpy, scipy, soundfile, and ffmpeg and rubberband on the path.
-"""
 import json
 import pathlib
 import re
@@ -26,16 +11,16 @@ import soundfile as sf
 
 SR_SRC = 48000
 SR = 44100
-BEAT_S = 0.4                       # 3 volleys of 4 ticks at 30 Hz
-BEAT = int(round(BEAT_S * SR))     # 17640 samples
-BEATS = 96                         # 24 bars of 4
-LOOP_FROM_BEAT = 32                # held past the last slice, the song goes round again from bar 9
-FADE = 705                         # 16 ms: the edge fade, and the tail each slice carries into the next beat
-FIRST_FADE = 132                   # 3 ms: the song's first slice has nothing before it to crossfade with
-TIER_AT_BEAT = (0, 4, 12)          # tier 1 on bar 1, tier 2 on bars 2-3, tier 3 from bar 4 (the drop)
-TIER_LUFS = (-22.0, -20.5, -19.5)  # the effects sit at a median of -19.3 LUFS
-CEILING = 0.794                    # -2 dBFS, like the rest of the effects
-LULLABY_BEATS = 5                  # 2 s, the Lullaby's length (`bard::SONG_TICKS`), plus a fade tail
+BEAT_S = 0.4
+BEAT = int(round(BEAT_S * SR))
+BEATS = 96
+LOOP_FROM_BEAT = 32
+FADE = 705
+FIRST_FADE = 132
+TIER_AT_BEAT = (0, 4, 12)
+TIER_LUFS = (-22.0, -20.5, -19.5)
+CEILING = 0.794
+LULLABY_BEATS = 5
 LULLABY_TAIL_S = 0.5
 
 LEAD_STEMS = ("Other", "Guitar", "Piano", "Vocals")
@@ -58,7 +43,6 @@ def read_stem(stems6, sid, name, t0, t1):
 
 
 def local_grid(drums_stem_path, start_s, period_s, beats):
-    """Refit the kick grid over the excerpt itself: (period, t of the excerpt's first beat, rms residual ms)."""
     lo = start_s - 1.0
     hi = start_s + beats * period_s + 1.0
     x, sr = sf.read(drums_stem_path, start=int(lo * SR_SRC), stop=int(hi * SR_SRC), dtype="float64", always_2d=True)
@@ -93,7 +77,6 @@ def local_grid(drums_stem_path, start_s, period_s, beats):
 
 
 def stretch(x, ratio, tmp):
-    """Time-stretch float64 stereo `x` by `ratio` (output/input length), pitch kept."""
     tmp = pathlib.Path(tmp)
     sf.write(tmp / "in.wav", x, SR_SRC, subtype="FLOAT")
     run(["nice", "-n", "10", "rubberband", "-3", "-t", f"{ratio:.9f}", "--no-threads", "-q",
@@ -104,7 +87,7 @@ def stretch(x, ratio, tmp):
 
 
 def resample(x):
-    return ss.resample_poly(x, 147, 160, axis=0)  # 48 kHz -> 44.1 kHz
+    return ss.resample_poly(x, 147, 160, axis=0)
 
 
 def highpass(x, hz, sr=SR_SRC):
@@ -113,7 +96,6 @@ def highpass(x, hz, sr=SR_SRC):
 
 
 def lufs(x, sr, tmp):
-    """Integrated loudness by ffmpeg's ebur128 (BS.1770, gated)."""
     tmp = pathlib.Path(tmp)
     sf.write(tmp / "l.wav", x, sr, subtype="FLOAT")
     r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(tmp / "l.wav"), "-af", "ebur128=peak=true", "-f", "null", "-"],
@@ -123,7 +105,6 @@ def lufs(x, sr, tmp):
 
 
 def limit(x, sr, tmp):
-    """-2 dBFS true-peak-ish ceiling with ffmpeg's look-ahead limiter."""
     tmp = pathlib.Path(tmp)
     sf.write(tmp / "lim_in.wav", x, sr, subtype="FLOAT")
     run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(tmp / "lim_in.wav"),
@@ -133,15 +114,12 @@ def limit(x, sr, tmp):
 
 
 def edge(n_head, n_tail, length_total):
-    """(head, tail) windows: raised-cosine complementary pair (sin^2, cos^2)."""
     head = np.sin(0.5 * np.pi * (np.arange(n_head) + 0.5) / n_head) ** 2
     tail = np.cos(0.5 * np.pi * (np.arange(n_tail) + 0.5) / n_tail) ** 2
     return head, tail
 
 
 def slice_audio(mix, beat_index, first):
-    """One-beat slice `beat_index` of a continuous 44.1 kHz mix, with its edge fades; the tail
-    carries FADE samples of the next beat so a perfectly timed successor crossfades into it."""
     a = beat_index * BEAT
     seg = mix[a:a + BEAT + FADE].copy()
     head, _ = edge(FIRST_FADE if first else FADE, FADE, len(seg))
@@ -152,7 +130,6 @@ def slice_audio(mix, beat_index, first):
 
 
 def kick_sync(drums, sr=SR):
-    """How the stretched drums' kicks sit on the 0.4 s grid: (median ms, std ms, ms drift per beat, kicks used)."""
     bq, aq = ss.butter(4, 140 / (sr / 2), "low")
     low = ss.filtfilt(bq, aq, drums.mean(axis=1))
     env = ss.fftconvolve(np.abs(low), np.hanning(int(sr * 0.006)), "same")
@@ -182,8 +159,6 @@ def encode(seg, path, tmp):
 
 
 def lullaby_start(an, ex):
-    """The lullaby is a breakdown or pad phrase: the loudest lead-and-pads stretch with no drums,
-    at least two bars long, else the excerpt's own first bar."""
     best = None
     for s in an["sections"]:
         if "D" in s["layers"] or "L" not in s["layers"] or s["bars"] < 2:
@@ -192,7 +167,6 @@ def lullaby_start(an, ex):
             best = s
     if best is None:
         return ex["start_bar"], "excerpt bar 1 (no breakdown)"
-    # a bar of it, one bar in when it is long enough (past the entrance)
     bar = best["from_bar"] + (1 if best["bars"] >= 3 else 0)
     return bar, f"{best['name']} bars {best['from_bar']}-{best['to_bar']} ({best['layers']})"
 
@@ -205,7 +179,7 @@ def build_song(letter, sid, stems6, an_dir, work, out_sfx, report):
     drums_path = pathlib.Path(stems6) / f"{sid}_(Drums)_htdemucs_6s.wav"
     period, first_beat_s, resid, nk = local_grid(drums_path, ex["start_s"], an["period_s"], BEATS)
     ratio = BEAT_S / period
-    pre, post = 0.6, 1.2  # source seconds around the excerpt (the tail of the last slice, the stretch's warm-up)
+    pre, post = 0.6, 1.2
     t0 = first_beat_s - pre
     t1 = first_beat_s + BEATS * period + post
     layers = {}
@@ -224,12 +198,10 @@ def build_song(letter, sid, stems6, an_dir, work, out_sfx, report):
             return {k: v[:m] for k, v in c.items()}
 
         st = cut(off)
-        # the kicks' drift along the 0.4 s grid says the tempo fit was a hair off: stretch again by it
         ks = kick_sync(st["drums"])
         if not ks or abs(ks["drift_ms_per_beat"]) < 0.08:
             break
         ratio *= 1 - ks["drift_ms_per_beat"] / (BEAT_S * 1000)
-    # land the median kick a hair after the slice start (the kick is the beat the volley's tick calls)
     first = kick_sync(st["drums"])
     if first:
         off += int(round((first["median_ms"] - 2.0) / 1000 * SR))
@@ -239,20 +211,16 @@ def build_song(letter, sid, stems6, an_dir, work, out_sfx, report):
     gains = []
     final = []
     for t, (mix, (b0, b1)) in enumerate(zip(mixes, span)):
-        # the loudness is measured over the beats the tier plays; tiers 1 and 2 are short, so
-        # measure over the whole phrase from bar 4 on for the full band and the same stretch for the others
         seg = mix[b0 * BEAT:b1 * BEAT]
         if t < 2:
-            seg = mix[TIER_AT_BEAT[2] * BEAT:BEATS * BEAT]  # steady phrase of the same layers, longer window
+            seg = mix[TIER_AT_BEAT[2] * BEAT:BEATS * BEAT]
         l0 = lufs(seg, SR, work)
         g = 10 ** ((TIER_LUFS[t] - l0) / 20)
         gains.append(g)
         y = limit(mix * g, SR, work)
         final.append(y)
-    # lullaby: breakdown / pad phrase, lead only, 5 beats and a fade tail
     lbar, lwhere = lullaby_start(an, ex)
     l_t0 = an["bar0_s"] + lbar * 4 * an["period_s"]
-    # no drums to fit a grid to in a breakdown: the song's own grid places the bar
     lp, lfirst, lres = an["period_s"], l_t0, 0.0
     lratio = BEAT_S / lp
     lt0 = lfirst - 0.4
@@ -285,7 +253,6 @@ def build_song(letter, sid, stems6, an_dir, work, out_sfx, report):
         "kick_sync": kick_sync(st["drums"]),
     }
     report.append(info)
-    # keep the stretched, levelled continuous tier mixes and the drums alone for the checks (not shipped)
     sf.write(work / "drums_ref.wav", st["drums"][:BEATS * BEAT + FADE].mean(axis=1), SR, subtype="PCM_24")
     for t, y in enumerate(final):
         sf.write(work / f"tier{t + 1}.wav", y[:BEATS * BEAT + FADE], SR, subtype="PCM_24")

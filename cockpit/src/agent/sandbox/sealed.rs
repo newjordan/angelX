@@ -20,9 +20,6 @@ use std::sync::OnceLock;
 
 pub const NAME: &str = "sealed";
 
-/// Read-only host trees every sealed run needs: the OS payload and optional
-/// package roots plus compiler alternatives. Excludes broad `/etc`, `/home`, `/root`, `/var`,
-/// `/srv`, `/mnt`, `/media` and `/run`.
 const HOST_READ_ROOTS: [&str; 8] = [
     "/usr",
     "/bin",
@@ -34,11 +31,8 @@ const HOST_READ_ROOTS: [&str; 8] = [
     "/etc/alternatives",
 ];
 
-/// `$HOME` subtrees that must never be readable. Kept even when absent so the
-/// identity digest and the qualification cohort agree on the contract.
 const HOME_DENY: [&str; 5] = [".ssh", ".angelX", ".config", ".gnupg", ".mozilla"];
 
-/// `$HOME` payload directories granted read-only for the pinned toolchains.
 const HOME_TOOLCHAIN_ALLOW: [&str; 5] = [
     ".cargo/bin",
     ".cargo/registry",
@@ -49,8 +43,6 @@ const HOME_TOOLCHAIN_ALLOW: [&str; 5] = [
 
 static ACTIVE: OnceLock<SealedProfile> = OnceLock::new();
 
-/// Resolve `name` on `PATH` without spawning a process: the sealed profile
-/// must be assembled deterministically before any confinement decision.
 fn resolve_on_path(name: &str) -> Option<PathBuf> {
     let path = std::env::var_os("PATH")?;
     std::env::split_paths(&path)
@@ -58,9 +50,6 @@ fn resolve_on_path(name: &str) -> Option<PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
-/// The pinned toolchains' own directories, resolved the way the verifier
-/// registry resolves them: Cargo binaries/caches, `$HOME/.rustup`, `$HOME/.nvm`
-/// read-only, plus the directory of each resolved toolchain binary.
 fn toolchain_read_roots(home: &Path) -> Vec<PathBuf> {
     let mut roots: Vec<PathBuf> = HOME_TOOLCHAIN_ALLOW
         .iter()
@@ -83,14 +72,11 @@ fn canonical(existing: &Path) -> PathBuf {
         .unwrap_or_else(|_| existing.to_path_buf())
 }
 
-/// A fully resolved sealed profile: the bind plan plus its identity digest.
 #[derive(Clone, Debug)]
 pub struct SealedProfile {
     pub name: &'static str,
-    /// Canonical, sorted, deduplicated read-only bind plan.
     #[cfg_attr(not(test), allow(dead_code))]
     pub read_roots: Vec<PathBuf>,
-    /// Denied paths: any overlapping read or write grant is rejected.
     #[cfg_attr(not(test), allow(dead_code))]
     pub deny_roots: Vec<PathBuf>,
     pub policy: SandboxPolicy,
@@ -106,7 +92,6 @@ pub fn build(workspace: &Path, home: Option<&Path>) -> SealedProfile {
 
     let mut read_roots: Vec<PathBuf> = HOST_READ_ROOTS.iter().map(PathBuf::from).collect();
     read_roots.push(workspace.clone());
-    // Bubblewrap mounts a fresh procfs in a private PID namespace.
     if let Some(home) = &home {
         read_roots.extend(toolchain_read_roots(home));
     }
@@ -206,7 +191,6 @@ fn identity_digest(
     super::sha256_hex(canonical.to_string().as_bytes())
 }
 
-/// Reject overlapping grants: additive filesystem permissions cannot subtract secrets.
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub(super) fn validate_policy(policy: &SandboxPolicy) -> Result<(), String> {
     if !policy.enforce || !policy.mandatory || policy.allow_network {
@@ -234,7 +218,6 @@ pub(super) fn validate_policy(policy: &SandboxPolicy) -> Result<(), String> {
     Ok(())
 }
 
-/// Activate the sealed profile for this process. Fails closed — never widens.
 #[cfg(target_os = "linux")]
 pub fn activate(profile: SealedProfile) -> Result<(), String> {
     if crate::platform::yolo::enabled() {
@@ -254,8 +237,6 @@ pub fn activate(_profile: SealedProfile) -> Result<(), String> {
     Err("the sealed sandbox profile requires Linux (Landlock + bwrap)".to_string())
 }
 
-/// Identity carried into the ledger record (`identity.sandbox`) and the
-/// `--task-json` envelope: profile name plus resolved bind plan digest.
 pub fn identity() -> Option<serde_json::Value> {
     ACTIVE.get().map(|profile| {
         serde_json::json!({
@@ -265,16 +246,12 @@ pub fn identity() -> Option<serde_json::Value> {
     })
 }
 
-/// Replace an ad-hoc tool policy with the sealed posture while preserving
-/// tool-requested writable roots that stay inside the workspace. Returns
-/// `None` when sealed is inactive or the policy is already sealed.
 pub(crate) fn override_for(policy: &SandboxPolicy) -> Option<SandboxPolicy> {
     let profile = ACTIVE.get()?;
     if !policy.sealed_reads.is_empty() {
-        return None; // already the sealed posture
+        return None;
     }
     let mut merged = profile.policy.clone();
-    // Intersect with the requested authority, preserving read-only delegates.
     merged.writable_roots.clear();
     for requested in &policy.writable_roots {
         let requested = canonical(requested);

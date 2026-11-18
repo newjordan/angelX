@@ -1,8 +1,3 @@
-// Thin adapter for Griffinwing's rules. The session arrives as the JSON the Delve already saves and
-// sends, is laid out as the flat word frame the Bend rules read (`griffinwing-rules.bend`, section
-// "layout"), and the next session is read back out of the answer the same way. Every rule, number
-// and branch is in the Bend; this file only names fields and orders words. Rust owns the sound
-// names: sounds come back as indices into its table.
 const bend = require('./griffinwing-rules.compiled.js')
 
 const E = {
@@ -18,7 +13,6 @@ const E = {
   Medal: ['Bronze', 'Silver', 'Gold'],
 }
 
-// A record is its fields in word order: `name`, `name:b` for a flag, `name:Enum` for a variant.
 const rec = names => names.map(n => { const [k, t] = n.split(':'); return [k, t === 'b' ? 'b' : t ? E[t] : null] })
 const CRAFT_A = rec(['x', 'z', 'vx', 'vz', 'bank', 'lift', 'back', 'ds', 'rx', 'rz', 'shield', 'hurt', 'down', 'roll',
   'roll_len', 'dir', 'rest', 'held', 'charge', 'cool', 'nlocks'])
@@ -36,8 +30,7 @@ const BEAST_A = rec(['phase', 'st:Wyrm', 'ticks', 'x', 'z'])
 const BEAST_B = rec(['gap', 'side', 'col', 'atk', 'seq'])
 const TALLY = rec(['pts', 'base', 'offered', 'kills', 'saved', 'lost', 'gates'])
 
-// where the tables stand, and how many rows each holds (the Bend's `layout` section)
-const G = 128, SEAT_W = 51, WING_W = 52, FOE_W = 19, BOLT_W = 14, PROP_W = 9, CALL_W = 3, FX_W = 6, BOSS_W = 30
+const SEAT_W = 51, WING_W = 52, FOE_W = 19, BOLT_W = 14, PROP_W = 9, CALL_W = 3, FX_W = 6
 const SEATS = 128, WINGS = 434, FOES = 642, BOLTS = 1402, PROPS = 3642, CALLS = 4002, FXS = 4014, BOSS = 4302, END = 4332
 const SND = 45, LEAVE = 57, KEYS = 71, BOT_OUT = 4336 + 1400
 const CAP = { foes: 40, props: 40, bolts: 160, wing: 4, calls: 4, fx: 48 }
@@ -71,7 +64,6 @@ const getCraft = (w, base) => {
   return { ...a, locks, ...get(w, base + 33, CRAFT_B) }
 }
 
-// the session, the keys, who is at the table and the five numbers, as one frame of words
 function frame(input) {
   const s = input.session, w = new Int32Array(16384)
   NAMES.forEach((k, i) => {
@@ -117,7 +109,6 @@ function frame(input) {
   return w
 }
 
-// a frame as a persistent quad trie of words, the shape the Bend reads (all-zero stretches are shared)
 const Z = { $: 'Z' }
 function lay(w, lo = 0, size = 16384) {
   if (lo >= END) return Z
@@ -135,7 +126,6 @@ function flat(m, w = new Int32Array(16384), lo = 0, size = 16384) {
   return w
 }
 
-// the next session, read back out of the words
 function session(w) {
   const s = {}
   NAMES.forEach((k, i) => {

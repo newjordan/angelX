@@ -549,7 +549,6 @@ fn rejected_operator_route_arrival_never_arms_a_timer() {
 #[cfg(feature = "delve")]
 #[test]
 fn journey_survives_the_in_transit_none_before_arrival() {
-    // The 3D ride path; the overworld map hosts Realm travel by default.
     let _env = crate::tests::env_lock();
     let _ride = crate::tests::TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     let mut stage = Scryglass::default();
@@ -670,8 +669,6 @@ fn arrival_expires_at_exact_visible_boundary_without_redraw_reset() {
     stage.tick_visible(started + Duration::from_millis(1_249), false, false);
     assert_eq!(stage.arrival(), Some(Building::Smithy));
 
-    // A normal redraw reports the same arrival and must not create a fresh
-    // overlay or reset its visible clock.
     stage.sync_arrival(Some(Building::Smithy));
     stage.tick_visible(started + Duration::from_millis(1_250), false, false);
     assert_eq!(stage.arrival(), None);
@@ -681,7 +678,6 @@ fn arrival_expires_at_exact_visible_boundary_without_redraw_reset() {
 #[test]
 fn arrival_expiry_holds_the_destination_in_first_person_without_an_operator_pin() {
     let _env = crate::tests::env_lock();
-    // The 3D ride path; on the overworld map the knight stays on the map.
     let _ride = crate::tests::TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     let mut stage = Scryglass::default();
     let started = Instant::now();
@@ -970,8 +966,6 @@ fn local_mp4_worker_decodes_and_restarts_after_eof_when_ffmpeg_is_available() {
         label: "smoke reel".to_string(),
         path: path.display().to_string(),
     };
-    // Exercise the same visibility lifecycle as every actual compositor
-    // frame. Repeated layout resets must not restart the video clock.
     let displayed_frame = |stage: &mut Scryglass| {
         stage.begin_frame();
         stage.set_stage_visibility(true, true);
@@ -1112,7 +1106,6 @@ fn native_video_pixels_seek_resize_hide_reopen_and_release_the_decoder() {
     stage.begin_frame();
     stage.set_stage_visibility(false, false);
     stage.finish_frame();
-    // Barrier: wait for the same worker to consume the visibility command.
     std::thread::sleep(Duration::from_millis(30));
     let hidden = stage.video.snapshot();
     assert!(
@@ -1137,8 +1130,6 @@ fn native_video_pixels_seek_resize_hide_reopen_and_release_the_decoder() {
     assert_eq!(position, Duration::ZERO);
     let active = stage.video.active.as_ref().unwrap();
     let cancelled = Arc::clone(&active.cancelled);
-    // Closing must bypass an accumulated control backlog, not wait for
-    // hundreds of scaler resizes before reaching the queued Stop message.
     for index in 0..1_000 {
         active
             .tx
@@ -1184,7 +1175,6 @@ fn native_video_old_generation_cannot_publish_state_or_fault_after_seek() {
     );
 }
 
-/// A mid-journey world whose ride frames feed the stage paint during turns.
 #[cfg(feature = "delve")]
 fn riding_world() -> crate::delve::world_viz::World {
     let mut world = crate::delve::world_viz::World::new(2024);
@@ -1195,11 +1185,6 @@ fn riding_world() -> crate::delve::world_viz::World {
     world
 }
 
-/// (distinct fg colors, SGR fg runs, estimated flush bytes) for a full
-/// repaint of `image`, mirroring what `paint_image` writes and how the
-/// crossterm backend emits it: one ~19-byte truecolor SGR per fg change
-/// along the row-major cell walk (fg state survives MoveTo), 3 UTF-8
-/// bytes per braille glyph, ~8 bytes of MoveTo per row.
 #[cfg(feature = "delve")]
 fn ink_stats(
     image: &ColoredBrailleImage,
@@ -1220,10 +1205,6 @@ fn ink_stats(
     (distinct.len(), runs, bytes)
 }
 
-/// (changed cells, SGR headers, estimated flush bytes) for the diff walk
-/// between two consecutive painted frames — the steady-state cost while
-/// the ride animates. MoveTo (~8B) per gap in the changed-cell sequence,
-/// one truecolor header (~19B) per fg change along it.
 #[cfg(feature = "delve")]
 fn diff_stats(
     a: &ColoredBrailleImage,
@@ -1257,7 +1238,6 @@ fn diff_stats(
 #[test]
 fn world_ink_quantizer_is_gentle_and_idempotent() {
     let _guard = crate::tests::env_lock();
-    // Default RGB444: max channel error 8/255.
     let _mode = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_INK");
     for channel in 0..=255u8 {
         let [q, _, _] = quantize_world_ink([channel; 3]);
@@ -1271,7 +1251,6 @@ fn world_ink_quantizer_is_gentle_and_idempotent() {
             "painted values must re-quantize to themselves",
         );
     }
-    // Opt-back RGB555: max channel error 4/255.
     let _rgb555 = crate::tests::TestEnvGuard::set("ANGEL_WORLD_INK", "rgb555");
     for channel in 0..=255u8 {
         let [q, _, _] = quantize_world_ink([channel; 3]);
@@ -1282,17 +1261,6 @@ fn world_ink_quantizer_is_gentle_and_idempotent() {
     }
 }
 
-/// SGR-flood measurement: the terminal-parse cost of a genuinely new ride
-/// frame is set by the ink's run structure, not the changed-cell count
-/// alone. Guards the run structure the world paint relies on; prints the
-/// tallies under --nocapture for perf work.
-///
-/// Z5 pinned this to the mesh ride, which is the frame it has always
-/// measured and whose floor it states. The Dotmax world — the
-/// launch default — is measured beside it in
-/// [`dotmax_frame_ink_runs_are_measured_beside_the_ride`], which holds
-/// the monotonicity claims and reports the run structure without
-/// restating a floor the tile dither does not meet.
 #[cfg(feature = "delve")]
 #[test]
 fn ride_frame_ink_runs_bound_the_sgr_flood() {
@@ -1320,7 +1288,6 @@ fn ride_frame_ink_runs_bound_the_sgr_flood() {
 
     let raw = ink_stats(&first, |fg| fg);
     let q4 = ink_stats(&first, |fg| {
-        // Force the RGB444 math independent of env so this bench is stable.
         fg.map(|channel| {
             let level = (u16::from(channel) * 15 + 127) / 255;
             ((level * 255 + 7) / 15) as u8
@@ -1371,9 +1338,6 @@ fn ride_frame_ink_runs_bound_the_sgr_flood() {
         q5.0 <= raw.0 && q5.1 <= raw.1 && q5_diff.2 <= raw_diff.2,
         "quantizing must never add colors, runs, or flush bytes",
     );
-    // Floor the default-on RGB444 paint must hold: quantized ink keeps
-    // same-color runs long enough that a full repaint stays well under
-    // one truecolor header per cell.
     assert!(
         q4.1 * 2 < first.cells.len(),
         "quantized fg runs ({}) approach one-per-cell; the SGR flood is back",
@@ -1381,16 +1345,6 @@ fn ride_frame_ink_runs_bound_the_sgr_flood() {
     );
 }
 
-/// The same measurement for the view Z5 made the launch default.
-///
-/// The Dotmax world paints a true-3D scene through the
-/// braille bridge, and the two-value rock / sparse-mark grounds alternate
-/// colour from cell to cell by design — so its mean run is near 1 and it
-/// does **not** meet the ride's one-header-per-two-cells floor. That is a
-/// real cost of the flip, recorded here rather than hidden by relaxing the
-/// ride's law: the monotonicity claims (quantizing never *adds* colours,
-/// runs or flush bytes) still hold and are asserted, and the tallies print
-/// under --nocapture so a later pass can attack the run structure.
 #[cfg(feature = "delve")]
 #[test]
 fn dotmax_frame_ink_runs_are_measured_beside_the_ride() {

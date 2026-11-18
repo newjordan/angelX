@@ -14,8 +14,6 @@ use super::blockout::{Dressing, Fix, Kind, Prop, Rect, Setting};
 use super::pilot::{Item, Source};
 use crate::rules::{Pack, RoomKind};
 
-/// One chamber template of `rooms`: which pack's, whether a bigger room's,
-/// which of its quadrants, and what it is.
 struct Def {
     pack: Pack,
     great: bool,
@@ -27,7 +25,6 @@ struct Def {
 
 const TORCHES: &[&str] = &["Torches flank every doorway; bars close them while the fight lasts (sprites)."];
 
-/// Every chamber template but the four of the pilot.
 const DEFS: [Def; 56] = [
     Def { pack: Pack::Crypt, great: false, index: 1, id: "crypt-slid-tombs", title: "The Slid Tombs", what: "A chamber of the Crypt: sarcophagi dragged out of line into a diagonal; slalom between them." },
     Def { pack: Pack::Crypt, great: false, index: 2, id: "crypt-weeping-vault", title: "The Weeping Vault", what: "A chamber of the Crypt: a flooded vault in the corner, a pillar pair across it; shoot over the water." },
@@ -87,7 +84,6 @@ const DEFS: [Def; 56] = [
     Def { pack: Pack::Unknown, great: true, index: 4, id: "unknown-regolith-field", title: "The Regolith Field", what: "A bigger chamber of the Unknown: angular shards lie where they fell in twin ranks; the void pools in the seam between the ranks." },
 ];
 
-/// The chambers: a set for each template of `rooms::*` the pilot left.
 pub fn chambers() -> Vec<Item> {
     DEFS.iter()
         .map(|d| Item {
@@ -120,10 +116,6 @@ const fn column(rect: Rect, kind: Kind, height: f32) -> (Rect, Prop) {
     (rect, Prop::Column { kind, height, lamp: false })
 }
 
-/// The side rooms below ground: the Sanctuary, the vault, the King's
-/// forge-hall, the six nooks, and the rooms of the Undercroft that the game
-/// draws by hand (the company's home, Dame Fortune's hall, the Training Yard,
-/// the Trophy Hall, Maud's tavern).
 pub fn side_rooms() -> Vec<Item> {
     SIDE_ROOMS.to_vec()
 }
@@ -178,7 +170,6 @@ const SIDE_ROOMS: [Item; 14] = [
                 ..Dressing::BASE
             },
         },
-        // ----------------------------------------- the Undercroft, the company's home ----
         Item {
             source: Source::Place(RoomKind::Home),
             dressing: Dressing {
@@ -316,7 +307,6 @@ const SIDE_ROOMS: [Item; 14] = [
             &[]),
 ];
 
-/// A nook: its room, its pack's stone, and what stands in it.
 const fn nook(
     kind: RoomKind,
     id: &'static str,

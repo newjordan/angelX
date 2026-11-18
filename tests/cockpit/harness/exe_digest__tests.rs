@@ -29,7 +29,6 @@ impl Drop for Scratch {
     }
 }
 
-/// Far enough ahead that a file made a moment ago counts as quiet.
 fn later() -> SystemTime {
     SystemTime::now() + Duration::from_secs(60)
 }
@@ -73,7 +72,6 @@ fn a_rebuilt_image_misses_and_gets_its_own_digest() {
     let mut old = dir.image(b"old build");
     let old_digest = digest_at(Some(&dir.memo()), &mut old, later(), counted(&calls)).unwrap();
 
-    // Same path, same length, new bytes: the change time moves, so the key does.
     std::thread::sleep(Duration::from_millis(20));
     let mut new = dir.image(b"new build");
     let new_digest = digest_at(Some(&dir.memo()), &mut new, later(), counted(&calls)).unwrap();
@@ -88,7 +86,6 @@ fn an_image_changed_a_moment_ago_is_hashed_but_not_remembered() {
     let dir = Scratch::new("racy");
     let calls = Cell::new(0);
     let mut file = dir.image(b"just written");
-    // The real clock: the image was written well inside the quiet period.
     digest_at(
         Some(&dir.memo()),
         &mut file,
@@ -205,8 +202,6 @@ fn a_damaged_or_foreign_entry_is_never_trusted() {
         damage(&entry, &key);
         assert_ignored(&dir, why);
     }
-    // The wrong-but-well-formed digest for the right key would be believed:
-    // that is what the private directory and the owner/mode checks defend.
     assert!(valid_digest(&wrong));
 }
 

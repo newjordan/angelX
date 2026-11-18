@@ -1,6 +1,3 @@
-// Authored content belongs here, outside Glass. Add another named look without
-// a Rust enum or a host branch. Each frame may instead be {asset: asset('idle.png').id};
-// declare those local 32x32 PNG files in module.json's "assets" array.
 const options = {
   violet: { armour: [145, 105, 235], trim: [220, 210, 255], frameTicks: 8 },
   gold: { armour: [225, 165, 50], trim: [255, 235, 160], frameTicks: 6 }

@@ -15,17 +15,12 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-/// The fixed limit: ten minutes of a foreground call before it is handed off.
 pub(crate) const HANDOFF_SECS: u64 = 600;
 
-/// Output kept for the receipt and the job log's opening bytes.
 const RECENT_BYTES: usize = 64 * 1024;
-/// Output tail shown on the receipt.
 const RECEIPT_TAIL_BYTES: usize = 1500;
-/// Processes listed on the receipt.
 const RECEIPT_TREE_ROWS: usize = 8;
 
-/// What a hand-off needs to file the job.
 #[derive(Clone, Debug)]
 pub(crate) struct Handoff {
     pub(crate) after: Duration,
@@ -34,14 +29,10 @@ pub(crate) struct Handoff {
 }
 
 thread_local! {
-    /// Set by the shell tool for its call ([`with_handoff`]).
     static PENDING: std::cell::RefCell<Option<Handoff>> = const { std::cell::RefCell::new(None) };
-    /// Live only while the call's one sandboxed process runs ([`armed`]).
     static ARMED: std::cell::RefCell<Option<Handoff>> = const { std::cell::RefCell::new(None) };
 }
 
-/// The hand-off limit: `ANGEL_TOOL_HANDOFF_SECS`, else [`HANDOFF_SECS`];
-/// `None` when it is `0` (hand-off off).
 pub(crate) fn tool_handoff_after() -> Option<Duration> {
     let secs = std::env::var("ANGEL_TOOL_HANDOFF_SECS")
         .ok()
@@ -50,8 +41,6 @@ pub(crate) fn tool_handoff_after() -> Option<Duration> {
     (secs > 0).then(|| Duration::from_secs(secs))
 }
 
-/// Run `f` (one shell tool call) with `spec` waiting for its sandboxed
-/// process. Whatever `f` leaves unused is cleared afterwards.
 pub(crate) fn with_handoff<T>(spec: Option<Handoff>, f: impl FnOnce() -> T) -> T {
     struct Clear;
     impl Drop for Clear {
@@ -64,12 +53,10 @@ pub(crate) fn with_handoff<T>(spec: Option<Handoff>, f: impl FnOnce() -> T) -> T
     f()
 }
 
-/// The spec the shell tool left for this call, consumed.
 pub(crate) fn take_pending() -> Option<Handoff> {
     PENDING.with(|cell| cell.borrow_mut().take())
 }
 
-/// Run `f` (the call's one process) with `spec` armed for it.
 pub(crate) fn armed<T>(spec: Option<Handoff>, f: impl FnOnce() -> T) -> T {
     struct Disarm;
     impl Drop for Disarm {
@@ -82,17 +69,12 @@ pub(crate) fn armed<T>(spec: Option<Handoff>, f: impl FnOnce() -> T) -> T {
     f()
 }
 
-/// The armed spec, consumed by the process it was armed for.
 pub(crate) fn take_armed() -> Option<Handoff> {
     ARMED.with(|cell| cell.borrow_mut().take())
 }
 
-/// Where a handed-off job's output goes from the hand-off on.
 pub(crate) type Sink = Arc<dyn Fn(&[u8]) + Send + Sync>;
 
-/// Both output readers feed this: the recent output until a hand-off, then
-/// the job's log. One lock covers both, so no byte is lost or doubled across
-/// the switch.
 #[derive(Default)]
 pub(crate) struct Tap {
     state: Mutex<TapState>,
@@ -127,8 +109,6 @@ impl Tap {
         }
     }
 
-    /// File the job through `adopt` (given the output so far) and switch the
-    /// readers to its sink. Returns the job and the output so far.
     pub(crate) fn hand_off<T, E>(
         &self,
         adopt: impl FnOnce(&[u8]) -> Result<(T, Sink), E>,
@@ -145,14 +125,12 @@ impl Tap {
     }
 }
 
-/// A call handed to the background, as its receipt reports it.
 #[derive(Clone, Debug)]
 pub(crate) struct HandedOff {
     pub(crate) id: u64,
     pub(crate) pid: u32,
     pub(crate) command: String,
     pub(crate) ran: Duration,
-    /// Since the last output byte; `None` = never wrote one.
     pub(crate) silent: Option<Duration>,
     pub(crate) tree: Vec<String>,
     pub(crate) tail: String,
@@ -183,8 +161,6 @@ impl HandedOff {
         }
     }
 
-    /// The model-facing receipt: the job and its facts as data, then the
-    /// routes (`⡌⠙` the hand-off, `⠏⠙` the job tools).
     pub(crate) fn receipt(&self) -> String {
         let silence = match self.silent {
             Some(silent) => format!(", no output {}s", silent.as_secs()),
@@ -214,11 +190,8 @@ impl HandedOff {
     }
 }
 
-/// The job's process tree, one row each: pid, state, lifetime CPU share, and
-/// the command line.
 #[cfg(target_os = "linux")]
 fn process_tree(leader: u32) -> Vec<String> {
-    // SAFETY: sysconf reads a constant; no pointers are involved.
     let ticks = unsafe { libc::sysconf(libc::_SC_CLK_TCK) }.max(1) as f64;
     let uptime = std::fs::read_to_string("/proc/uptime")
         .ok()

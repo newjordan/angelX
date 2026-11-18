@@ -20,7 +20,6 @@ pub(crate) use release::{
 };
 
 thread_local! {
-    // Trusted execution metadata, never inferred from child-controlled output.
     static TOOL_IDLE_ESCALATED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
@@ -29,16 +28,9 @@ thread_local! {
 }
 
 thread_local! {
-    /// A tighter wall bound for the tool call running on this thread, such as
-    /// a test suite's budget. `tool_timeout` never exceeds it, so every
-    /// process the call starts is held to it when a budget is in force.
     static CALL_BUDGET: std::cell::Cell<Option<Duration>> = const { std::cell::Cell::new(None) };
 }
 
-/// Run `f` with every process it starts on this thread held to `budget`. A
-/// budget already in force still binds: nesting keeps the tighter of the two,
-/// and `None` leaves whatever is in force. The previous budget is restored
-/// afterwards.
 pub(crate) fn with_call_budget<T>(budget: Option<Duration>, f: impl FnOnce() -> T) -> T {
     struct Restore(Option<Duration>);
     impl Drop for Restore {
@@ -55,7 +47,6 @@ pub(crate) fn with_call_budget<T>(budget: Option<Duration>, f: impl FnOnce() -> 
     f()
 }
 
-/// The budget [`with_call_budget`] set for the current tool call, if any.
 pub(crate) fn call_budget() -> Option<Duration> {
     CALL_BUDGET.with(|cell| cell.get())
 }
@@ -101,17 +92,6 @@ fn signal_name(signal: i32) -> String {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Utility tools (safe, no exec) — exercise the loop.
-// ---------------------------------------------------------------------------
-
-// `present`, `reverse`, and `word_count` live in `crate::agent::tools::utilities`
-// (imported at the top of this module).
-
-/// What one sandboxed execution observed beyond its combined output: the raw
-/// exit status (`None` when killed by a signal), whether the deadline killed
-/// it, and how long it ran. The experience ledger records these; the plain
-/// [`run_sandboxed`] wrapper discards them.
 pub(crate) struct ExecObservation {
     pub(crate) output: String,
     pub(crate) exit: Option<i32>,
@@ -119,14 +99,9 @@ pub(crate) struct ExecObservation {
     pub(crate) cancelled: bool,
     pub(crate) dur_ms: u128,
     pub(crate) kill: Option<crate::agent::sandbox::process_owner::KillReceipt>,
-    /// The background job this call was handed to after running past the
-    /// hand-off limit; `output` is then its receipt and nothing was stopped.
     pub(crate) handed_off: Option<u64>,
 }
 
-/// Run `program args…` (optionally in `cwd`) through the single-threaded
-/// sandbox helper, returning the combined output plus what the execution
-/// observed (exit status, timeout, duration).
 pub(crate) fn run_sandboxed_observed(
     program: &str,
     args: &[&str],
@@ -154,6 +129,36 @@ pub(crate) fn run_sandboxed_observed_cancellable_with_progress(
     cancel: Option<&std::sync::atomic::AtomicBool>,
     progress: Option<Arc<ToolOutputProgress>>,
 ) -> Result<ExecObservation, String> {
+    run_observed(program, args, cwd, policy, cancel, progress, OutputBound::Excerpt)
+}
+
+pub(crate) fn run_shell_tool_observed(
+    program: &str,
+    args: &[&str],
+    cwd: Option<&Path>,
+    policy: &SandboxPolicy,
+    cancel: Option<&std::sync::atomic::AtomicBool>,
+) -> Result<ExecObservation, String> {
+    run_observed(program, args, cwd, policy, cancel, None, OutputBound::ToolCeiling)
+}
+
+#[derive(Clone, Copy)]
+enum OutputBound {
+    Excerpt,
+    ToolCeiling,
+}
+
+const EXCERPT_BYTES: usize = 4000;
+
+fn run_observed(
+    program: &str,
+    args: &[&str],
+    cwd: Option<&Path>,
+    policy: &SandboxPolicy,
+    cancel: Option<&std::sync::atomic::AtomicBool>,
+    progress: Option<Arc<ToolOutputProgress>>,
+    bound: OutputBound,
+) -> Result<ExecObservation, String> {
     set_sandbox_receipt(None);
     let started = Instant::now();
     let mut cmd = sandbox::command(program, args.iter().copied(), policy)?;
@@ -163,13 +168,6 @@ pub(crate) fn run_sandboxed_observed_cancellable_with_progress(
     if let Some(path) = sandbox_command_path() {
         cmd.env("PATH", path);
     }
-    // The Angel process needs its provider credentials; autonomous commands
-    // never do. Removal happens at the final process boundary so every shell
-    // descendant inherits the credential-free environment while the
-    // already-constructed club keeps its in-memory client configuration.
-    // On by default since 2026-09-07 (audit S04): a tool child that prints
-    // its environment must not put a live key into the trajectory log.
-    // `ANGEL_TOOL_STRIP_SECRETS=0` restores pass-through; YOLO bypasses.
     strip_secret_env(&mut cmd);
     let status_channel = sandbox::status::attach(&mut cmd)
         .map_err(|error| format!("sandbox status channel: {error}"))?;
@@ -205,14 +203,11 @@ pub(crate) fn run_sandboxed_observed_cancellable_with_progress(
     }
     #[cfg(target_os = "linux")]
     if !out.status.success() && stderr.contains("bwrap:") {
-        // A nested Bubblewrap invocation can fail even when our outer probe
-        // succeeds. This is guidance only, never helper-failure attribution.
         let cause = sandbox::compatibility::detect()
             .unwrap_or(sandbox::compatibility::Cause::NamespaceDenied);
         combined.push_str(&format!("\n[doctor hint: {}]", cause.remedy()));
     }
     if let Some(signal) = signal {
-        // `⡨⠉⠃` inside its bracket, the signal beside it.
         combined.push_str(&format!(
             "\n[{} reason=signal:{} signal={signal}]",
             super::book::d467_receipts::WORKER_KILLED.cells(),
@@ -255,12 +250,10 @@ pub(crate) fn run_sandboxed_observed_cancellable_with_progress(
     if cancelled {
         combined.push_str("\n[cancelled — process group killed]");
     }
-    // The low-level reader already keeps both the beginning and end of each
-    // stream. Preserve that property at the smaller model-facing boundary too:
-    // compiler/test diagnostics and exit summaries are commonly at the end,
-    // and the old first-4K slice silently discarded stderr after noisy stdout.
-    const MAX: usize = 4000;
-    combined = cap_text_owned(combined, MAX, 0);
+    combined = match bound {
+        OutputBound::Excerpt => cap_text_owned(combined, EXCERPT_BYTES, 0),
+        OutputBound::ToolCeiling => cap_tool_output_owned(combined, None),
+    };
     Ok(ExecObservation {
         output: combined.trim().to_string(),
         exit,
@@ -290,9 +283,6 @@ pub(crate) fn run_sandboxed_observed_cancellable_with_progress(
     })
 }
 
-/// [`run_sandboxed_observed`] with the observation dropped — the plain
-/// interface for callers that don't record experience (currently exercised by
-/// the harness tests; kept for future tools that have no ledger duty).
 pub(crate) fn run_sandboxed(
     program: &str,
     args: &[&str],
@@ -302,8 +292,6 @@ pub(crate) fn run_sandboxed(
     run_sandboxed_observed(program, args, cwd, policy).map(|o| o.output)
 }
 
-/// Remove credential-named variables from a tool child's environment.
-/// `ANGEL_TOOL_STRIP_SECRETS=0` restores pass-through; YOLO bypasses.
 pub(crate) fn strip_secret_env(cmd: &mut Command) {
     if !crate::platform::yolo::enabled() && env_flag("ANGEL_TOOL_STRIP_SECRETS", true) {
         for (name, _) in std::env::vars_os() {
@@ -314,11 +302,6 @@ pub(crate) fn strip_secret_env(cmd: &mut Command) {
     }
 }
 
-/// `sh -c <script>` in `cwd`, confined like the shell tool: writable
-/// `workspace` (plus a linked worktree's git dirs) and a credential-free env.
-/// Harness-run verifiers execute workspace code the model may have written
-/// (`build.rs`, proc-macros, `node_modules/.bin`), so they get no more
-/// authority than the model's own shell.
 pub(crate) fn sandboxed_workspace_sh(
     script: &str,
     cwd: &Path,
@@ -341,8 +324,6 @@ pub(crate) fn sandboxed_workspace_sh(
 pub(crate) fn sandbox_command_path() -> Option<OsString> {
     let current = std::env::var_os("PATH")?;
     let path = prefer_user_bins(std::env::var_os("HOME").map(PathBuf::from), current);
-    // Runtime shims (`python` → python3 on a python3-only host) go LAST so a
-    // real program on PATH always wins; see workspace_lang::runtime_shims_dir.
     match crate::platform::workspace_lang::runtime_shims_dir() {
         Some(shims) => {
             let mut paths: Vec<PathBuf> = std::env::split_paths(&path).collect();
@@ -360,9 +341,6 @@ pub(crate) fn prefer_user_bins(home: Option<PathBuf>, current: OsString) -> OsSt
         return current;
     };
     let preferred = [home.join(".local/bin"), home.join("bin")];
-    // Omarchy's ~/.local/bin entries can be auto-install wrappers (mise use -g).
-    // Keep already-resolved mise binaries ahead of those wrappers: running an
-    // installed tool must not try to mutate configuration inside the sandbox.
     let installs = home.join(".local/share/mise/installs");
     let mut paths: Vec<PathBuf> = std::env::split_paths(&current)
         .filter(|p| p.starts_with(&installs) && p.is_dir())
@@ -388,16 +366,8 @@ pub(crate) fn truncate_to_char_boundary(s: &mut String, max_bytes: usize) {
     s.truncate(end);
 }
 
-/// External-command wall ceiling: `ANGEL_TOOL_TIMEOUT` seconds, an operator
-/// cap only — unset or `0` = no limit. There is no default ceiling: a tool
-/// that is still producing output or burning CPU is doing the work the
-/// operator asked for (CUDA builds, benchmark runs, remote validation), and
-/// the old 120 s default killed every real one of those the fleet ran
-/// (2026-09-05 board verifiers; 2026-09-10 the qwen38 loop had to hide its
-/// 104 s builds and 95 s scored runs behind keepalive ticks).
 pub(crate) fn tool_timeout() -> Option<Duration> {
     if crate::platform::yolo::enabled() {
-        // A call budget is containment for one tool call, not an approval.
         return call_budget();
     }
     within_call_budget(
@@ -437,9 +407,6 @@ fn proc_activity(pid: u32) -> Option<ProcessActivity> {
     })
 }
 
-/// Observe this tool's descendants across setsid/process-group boundaries.
-/// The sandbox subreaper retains orphaned payloads under this same root.
-/// This is a liveness snapshot, never authority to signal a process.
 #[cfg(target_os = "linux")]
 fn owned_process_activity(leader: u32) -> Vec<(u32, ProcessActivity)> {
     let Some(root) = proc_activity(leader) else {
@@ -463,7 +430,6 @@ fn owned_process_activity(leader: u32) -> Vec<(u32, ProcessActivity)> {
             children.entry(row.parent).or_default().push((pid, row));
         }
     }
-    // A reaped/reused root cannot lend its identity to another worker.
     if proc_activity(leader).is_none_or(|now| now.started != root.started) {
         return Vec::new();
     }
@@ -482,7 +448,6 @@ fn owned_process_activity(leader: u32) -> Vec<(u32, ProcessActivity)> {
     owned
 }
 
-/// Process birth identity and parent relationship from the native macOS API.
 #[cfg(target_os = "macos")]
 fn proc_identity(pid: u32) -> Option<ProcessActivity> {
     use std::mem::MaybeUninit;
@@ -490,7 +455,6 @@ fn proc_identity(pid: u32) -> Option<ProcessActivity> {
     let pid_arg = i32::try_from(pid).ok()?;
     let mut bsd = MaybeUninit::<libc::proc_bsdinfo>::uninit();
     let bsd_size = std::mem::size_of::<libc::proc_bsdinfo>() as i32;
-    // SAFETY: proc_pidinfo writes no more than the aligned structure size.
     let written = unsafe {
         libc::proc_pidinfo(
             pid_arg,
@@ -524,8 +488,6 @@ fn proc_identity(pid: u32) -> Option<ProcessActivity> {
     })
 }
 
-/// Add cumulative task CPU for an already identified process, rejecting PID
-/// reuse between the identity and task-info reads.
 #[cfg(target_os = "macos")]
 fn proc_activity(pid: u32) -> Option<ProcessActivity> {
     use std::mem::MaybeUninit;
@@ -534,7 +496,6 @@ fn proc_activity(pid: u32) -> Option<ProcessActivity> {
     let pid_arg = i32::try_from(pid).ok()?;
     let mut task = MaybeUninit::<libc::proc_taskinfo>::uninit();
     let task_size = std::mem::size_of::<libc::proc_taskinfo>() as i32;
-    // SAFETY: proc_pidinfo writes no more than the aligned structure size.
     let written = unsafe {
         libc::proc_pidinfo(
             pid_arg,
@@ -559,9 +520,6 @@ fn proc_activity(pid: u32) -> Option<ProcessActivity> {
     Some(activity)
 }
 
-/// Observe this tool's descendants on macOS using libproc birth identities and
-/// cumulative task CPU. Like the Linux snapshot, this is liveness observation,
-/// never authority to signal a process.
 #[cfg(target_os = "macos")]
 fn owned_process_activity(leader: u32) -> Vec<(u32, ProcessActivity)> {
     use std::collections::HashMap;
@@ -570,8 +528,6 @@ fn owned_process_activity(leader: u32) -> Vec<(u32, ProcessActivity)> {
         return Vec::new();
     };
 
-    // proc_listpids(PROC_ALL_PIDS) returns bytes copied. Grow until the entire
-    // live PID list fits so the snapshot does not impose an arbitrary process cap.
     const PROC_ALL_PIDS: u32 = 1;
     let mut pids = vec![0i32; 1024];
     let count = loop {
@@ -582,7 +538,6 @@ fn owned_process_activity(leader: u32) -> Vec<(u32, ProcessActivity)> {
         else {
             return Vec::new();
         };
-        // SAFETY: pids is writable for exactly buffer_bytes bytes.
         let copied = unsafe {
             libc::proc_listpids(
                 PROC_ALL_PIDS,
@@ -615,7 +570,6 @@ fn owned_process_activity(leader: u32) -> Vec<(u32, ProcessActivity)> {
         }
     }
 
-    // Do not lend a reaped/reused leader's identity to a different process tree.
     if proc_identity(leader).is_none_or(|now| now.started != root.started) {
         return Vec::new();
     }
@@ -632,9 +586,6 @@ fn owned_process_activity(leader: u32) -> Vec<(u32, ProcessActivity)> {
         owned.push((pid, row));
     }
 
-    // Query cumulative task CPU only for this process tree, not every process
-    // on the host; one birth identity read per system PID was needed to follow
-    // descendants that can leave the leader's process group.
     owned
         .into_iter()
         .filter_map(|(pid, row)| {
@@ -645,8 +596,6 @@ fn owned_process_activity(leader: u32) -> Vec<(u32, ProcessActivity)> {
         .collect()
 }
 
-/// Helper setup is distinct from payload progress. Allow at most 60 seconds
-/// for the helper to apply confinement and exec before starting idle sampling.
 fn sandbox_helper_process(pid: u32) -> bool {
     let comm = std::fs::read_to_string(format!("/proc/{pid}/comm")).unwrap_or_default();
     if comm.trim() == "angel-sandbox" {
@@ -664,8 +613,6 @@ fn sandbox_helper_still_setting_up(pid: u32) -> bool {
     if !sandbox_helper_process(pid) {
         return false;
     }
-    // The lifecycle supervisor keeps the helper name after its child execs.
-    // Its name alone must not exempt a sleeping payload for another minute.
     let children =
         std::fs::read_to_string(format!("/proc/{pid}/task/{pid}/children")).unwrap_or_default();
     !children
@@ -674,24 +621,12 @@ fn sandbox_helper_still_setting_up(pid: u32) -> bool {
         .any(|child| !sandbox_helper_process(child))
 }
 
-/// Best-effort `SIGKILL` to the whole process group led by `pid` (the child is
-/// the group leader, so `pgid == pid`). Reaps the child *and any grandchildren it
-/// spawned* — e.g. a dev server (`vite`/`npm run dev`) started in the foreground,
-/// which inherits our stdout/stderr pipes and would otherwise hold them open
-/// forever. `killpg` is the reliable syscall (the `kill` binary's negative-pid
-/// syntax is ambiguous across implementations).
 pub(crate) fn kill_process_group(pid: u32) {
-    // SAFETY: a plain signal syscall from the parent; no shared state.
     unsafe {
         libc::killpg(pid as libc::pid_t, libc::SIGKILL);
     }
 }
 
-/// The kill-decision re-read as a pure function: `old` is the budget that
-/// just expired, `live` the freshly-read policy. `None` keeps the historical
-/// kill; `Some(new)` adopts the new budget (`Some(None)` = unlimited). A
-/// strictly-larger live budget is required — unchanged or shorter policies
-/// never defer, and an already-unlimited run has no decision to make.
 fn extension_decision(
     old: Option<Duration>,
     live: Option<Option<Duration>>,
@@ -706,10 +641,6 @@ fn extension_decision(
     }
 }
 
-/// Optional SIGTERM-first grace before the timeout `SIGKILL`:
-/// `ANGEL_TOOL_KILL_GRACE_MS` milliseconds (default 0 = immediate `SIGKILL`,
-/// the historical behavior). Lets a well-behaved tool flush and clean up on
-/// the way down; no timeout default changes.
 pub(crate) fn tool_kill_grace_ms() -> u64 {
     std::env::var("ANGEL_TOOL_KILL_GRACE_MS")
         .ok()
@@ -717,27 +648,16 @@ pub(crate) fn tool_kill_grace_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// What the parent could truthfully observe at the instant a timeout kill
-/// fired: the child's scheduler state, how many group members were still
-/// alive under it, and how long its pipes had been silent. Captured *before*
-/// any signal is sent, so the numbers describe the hang, not the kill.
 #[derive(Debug, Clone)]
 pub(crate) struct TimeoutDiagnostics {
-    /// `/proc/<pid>/stat` state (R/S/D/Z/T…); `None` = already gone.
     pub(crate) child_state: Option<char>,
-    /// Live processes still in the child's process group, besides the leader.
     pub(crate) live_descendants: usize,
-    /// Seconds since the last stdout/stderr chunk; `None` = never wrote a byte.
     pub(crate) last_output_age_secs: Option<u64>,
-    /// The SIGTERM grace that was applied (0 = none, straight to SIGKILL).
     pub(crate) grace_ms: u64,
-    /// Whether the child exited on SIGTERM inside the grace window.
     pub(crate) exited_in_grace: bool,
 }
 
 impl TimeoutDiagnostics {
-    /// One evidence clause for the timeout note, e.g.
-    /// `no output for 118s, child state S, 2 live descendants`.
     pub(crate) fn summary(&self) -> String {
         let age = match self.last_output_age_secs {
             Some(secs) => format!("no output for {secs}s"),
@@ -766,10 +686,6 @@ impl TimeoutDiagnostics {
     }
 }
 
-/// Timeout receipt. The historical prefix and the facts are kept byte-for-byte;
-/// when kill-time diagnostics exist they ride in the middle so a hang reads as
-/// evidence ("what was it doing?") instead of a bare elapsed number. The
-/// `ANGEL_TOOL_TIMEOUT` pointer is the page on the line after.
 pub(crate) fn timeout_note(timeout_secs: u64, diag: Option<&TimeoutDiagnostics>) -> String {
     let page = crate::agent::harness::book::d46_recovery::TIMEOUT_KNOB.cells();
     match diag {
@@ -781,9 +697,6 @@ pub(crate) fn timeout_note(timeout_secs: u64, diag: Option<&TimeoutDiagnostics>)
     }
 }
 
-/// Single-character scheduler state from `/proc/<pid>/stat`, read at kill
-/// time. `comm` may itself contain spaces or `)`, so the fixed fields resume
-/// after the LAST `)`.
 #[cfg(target_os = "linux")]
 fn proc_stat_state(pid: u32) -> Option<char> {
     let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
@@ -848,7 +761,6 @@ fn proc_stat_state(_pid: u32) -> Option<char> {
     None
 }
 
-/// Live owned descendants, including payloads in their own sessions on Linux.
 #[cfg(target_os = "linux")]
 fn live_group_descendants(leader: u32) -> usize {
     owned_process_activity(leader)
@@ -886,11 +798,6 @@ fn live_group_descendants(_leader: u32) -> usize {
     0
 }
 
-/// The timeout kill sequence: capture diagnostics while the hang is still
-/// live, optionally give the group a SIGTERM grace window
-/// (`ANGEL_TOOL_KILL_GRACE_MS`, default 0 = none), then `SIGKILL` the group
-/// and wait for the reap. Returns the reaped status (`None` = the waiter
-/// never delivered one, the caller's existing error path) plus what was seen.
 fn kill_group_on_timeout(
     pid: u32,
     rx_status: &std::sync::mpsc::Receiver<std::io::Result<std::process::ExitStatus>>,
@@ -911,7 +818,6 @@ fn kill_group_on_timeout(
         exited_in_grace: false,
     };
     let mut reaped = None;
-    // SIGTERM is always first, including an explicitly zero-length grace.
     unsafe {
         libc::killpg(pid as libc::pid_t, libc::SIGTERM);
     }
@@ -921,8 +827,6 @@ fn kill_group_on_timeout(
         diag.exited_in_grace = true;
         reaped = Some(status);
     }
-    // Always SIGKILL the group afterwards: it reaps stragglers even when the
-    // leader honored SIGTERM, and is the exact historical behavior at grace 0.
     kill_process_group(pid);
     if reaped.is_none() {
         reaped = rx_status.recv_timeout(Duration::from_secs(5)).ok();
@@ -930,18 +834,6 @@ fn kill_group_on_timeout(
     (reaped, diag)
 }
 
-/// Run `cmd` to completion, draining stdout/stderr in threads (so a full pipe
-/// can't deadlock) and killing it if `timeout` elapses. Returns the captured
-/// output plus whether it was killed for timing out.
-///
-/// The child runs in its **own process group**, and on exit *or* timeout we kill
-/// the whole group — not just the direct child. This is the fix for a real
-/// 3-hour hang: a command that spawned a foreground daemon (a dev server) which
-/// inherited the pipes left `read_to_end` blocked at EOF forever, wedging the
-/// agent loop. Killing the group closes those inherited pipes so the reader
-/// joins are bounded; a properly-detached daemon (`setsid` → its own group, with
-/// redirected output) survives this and never held our pipes. The join is also
-/// hard-bounded by a short grace period as a last-resort backstop.
 pub(crate) fn output_timed(
     cmd: Command,
     timeout: Option<Duration>,
@@ -950,9 +842,6 @@ pub(crate) fn output_timed(
     Ok((captured.output, captured.timed_out))
 }
 
-/// Bounded process output plus the information needed to prove whether either
-/// stream was truncated. Evaluators use this richer form so a head/tail capture
-/// can never be mistaken for a complete verifier transcript.
 #[derive(Debug)]
 pub(crate) struct TimedCapture {
     pub output: std::process::Output,
@@ -962,26 +851,15 @@ pub(crate) struct TimedCapture {
     pub stderr_total_bytes: u64,
     pub stdout_truncated: bool,
     pub stderr_truncated: bool,
-    /// Kill-time forensics, present exactly when `timed_out` — what the child
-    /// was doing (state, descendants, output silence) at the moment the
-    /// deadline killed it.
     pub timeout_diag: Option<TimeoutDiagnostics>,
     pub tool_idle: bool,
     pub grandchild_holds_stdout: bool,
     pub grandchild_holds_stderr: bool,
-    /// True when the kill decision re-read `tool_timeout()` and found a
-    /// strictly-later (or unlimited) live policy — the operator extended a
-    /// safe long job mid-flight instead of letting the original deadline
-    /// kill it.
     pub deadline_extended: bool,
-    /// The job this process was handed to (still running) when an armed
-    /// hand-off limit passed; `output` is then empty and not an exit.
     pub handed_off: Option<handoff::HandedOff>,
 }
 
 impl TimedCapture {
-    /// Neither retained stream was marked truncated or still open at the
-    /// drain boundary. Process success, cancellation, and deadline are separate.
     pub(crate) fn output_complete(&self) -> bool {
         !self.stdout_truncated
             && !self.stderr_truncated
@@ -1014,12 +892,6 @@ pub(crate) fn output_timed_captured_cancellable_with_progress(
     output_timed_inner(cmd, timeout, cancel, progress, false, false)
 }
 
-/// Run a short internal control-plane probe with a deadline that remains fixed
-/// even when YOLO removes operator-workload timeouts. This is intentionally not
-/// exposed to ordinary shell/build work: it is for health and repair probes
-/// whose subprocesses must never own an agent turn indefinitely.
-/// Spawn retries consume that allowance. Existing kill grace and output-drain
-/// convergence remain separate from the fixed execution budget.
 pub(crate) fn output_timed_fixed_captured(
     cmd: Command,
     timeout: Duration,
@@ -1027,7 +899,6 @@ pub(crate) fn output_timed_fixed_captured(
     output_timed_inner(cmd, Some(timeout), None, None, false, true)
 }
 
-/// A fixed internal probe that also follows its owning operation's cancellation.
 pub(crate) fn output_timed_fixed_captured_cancellable(
     cmd: Command,
     timeout: Duration,
@@ -1036,9 +907,6 @@ pub(crate) fn output_timed_fixed_captured_cancellable(
     output_timed_inner(cmd, Some(timeout), Some(cancel), None, false, true)
 }
 
-/// The operator-extensible variant: only callers whose timeout IS the live
-/// `tool_timeout()` policy use this, so the mid-run `ANGEL_TOOL_TIMEOUT` raise
-/// defers the kill. Fixed verifier/recon deadlines stay fixed.
 pub(crate) fn output_timed_extensible_cancellable_with_progress(
     cmd: Command,
     timeout: Option<Duration>,
@@ -1056,18 +924,12 @@ fn output_timed_inner(
     extensible: bool,
     fixed_timeout: bool,
 ) -> Result<TimedCapture, String> {
-    // Internal fixed probes include spawn/retry in their original allowance.
-    // Ordinary and operator-extensible tools retain their setup/relink grace.
     let fixed_started = fixed_timeout.then(Instant::now);
-    // Consumed here whichever way this returns: the spec is for this process.
     let mut handoff_spec = handoff::take_armed();
     use std::io::Read;
     use std::os::unix::process::CommandExt;
     use std::process::Stdio;
     use std::sync::mpsc::channel;
-    // Some internal verifiers and recon tools pass their own fixed deadline
-    // rather than `tool_timeout()`. YOLO ignores those ordinary timers, but an
-    // explicit foreground call budget still bounds sleeping and busy children.
     let timeout = if crate::platform::yolo::enabled() && !fixed_timeout {
         call_budget()
     } else {
@@ -1081,11 +943,7 @@ fn output_timed_inner(
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    // New process group with the child as leader, so `kill -<pid>` reaches the
-    // whole subtree (the child must be the group leader for that to work).
     cmd.process_group(0);
-    // A deleted working directory makes every spawn fail with a bare ENOENT
-    // that reads like a broken shell. Name the real problem instead.
     if let Some(dir) = cmd.get_current_dir()
         && !dir.exists()
     {
@@ -1155,14 +1013,8 @@ fn output_timed_inner(
     let mut activity = activity::ChildActivity::new(pid, cancel);
     let so = child.stdout.take().unwrap();
     let se = child.stderr.take().unwrap();
-    // Readers deliver over channels so the collect below can be *time-bounded*
-    // even in the pathological case where something still holds a pipe open.
     let (tx_out, rx_out) = channel();
     let (tx_err, rx_err) = channel();
-    // Capped readers: keep the first OUTPUT_KEEP_BYTES, then drain-and-discard
-    // so the pipe never backs up (a blocked pipe would wedge the child) while a
-    // runaway printer can no longer buffer hundreds of MB that the tool-result
-    // cap throws away anyway.
     const OUTPUT_KEEP_BYTES: usize = 1 << 20;
     const OUTPUT_HEAD_BYTES: usize = 64 * 1024;
     const OUTPUT_TAIL_BYTES: usize = OUTPUT_KEEP_BYTES - OUTPUT_HEAD_BYTES;
@@ -1179,10 +1031,6 @@ fn output_timed_inner(
     ) -> (Vec<u8>, u64) {
         use std::collections::VecDeque;
 
-        // Keep both diagnostics at the beginning and terminal summaries at the
-        // end. Cargo/libtest often writes the only useful pass/fail line after
-        // megabytes of compiler chatter, so a first-N capture turns a bounded
-        // runner into a misleading verifier.
         let head_cap = OUTPUT_HEAD_BYTES.min(cap);
         let tail_cap = cap.saturating_sub(head_cap).min(OUTPUT_TAIL_BYTES);
         let mut head = Vec::with_capacity(head_cap);
@@ -1193,17 +1041,11 @@ fn output_timed_inner(
             if stop.load(Ordering::Acquire) {
                 break;
             }
-            // A detached descendant can escape the owned process group while
-            // retaining this pipe. Polling makes the read interruptible by the
-            // parent's bounded drain deadline instead of leaking one blocked
-            // reader thread for the descendant's lifetime.
             let mut descriptor = libc::pollfd {
                 fd: r.as_raw_fd(),
                 events: libc::POLLIN | libc::POLLHUP | libc::POLLERR,
                 revents: 0,
             };
-            // SAFETY: descriptor points to one live pollfd for this thread's
-            // owned pipe; poll does not retain the pointer after returning.
             let ready = unsafe { libc::poll(&mut descriptor, 1, 50) };
             if ready == 0 {
                 continue;
@@ -1224,9 +1066,6 @@ fn output_timed_inner(
                     if let Some(tap) = tap.as_ref() {
                         tap.feed(&chunk[..n]);
                     }
-                    // Stamp "ms since epoch" on every chunk (both streams share
-                    // the stamp) so a timeout kill can truthfully report how
-                    // long the child had been silent.
                     last_output_ms
                         .store(output_epoch.elapsed().as_millis() as u64, Ordering::Release);
                     total = total.saturating_add(n);
@@ -1255,9 +1094,6 @@ fn output_timed_inner(
         head.extend(tail);
         (head, total as u64)
     }
-    // Kill-time forensics: the readers stamp this on every chunk, so a
-    // timeout can report last-output age instead of a bare elapsed number.
-    // `u64::MAX` = "never wrote a byte".
     let output_epoch = Instant::now();
     let last_output_ms = Arc::new(AtomicU64::new(u64::MAX));
     let stop_readers = Arc::new(AtomicBool::new(false));
@@ -1295,11 +1131,6 @@ fn output_timed_inner(
             stderr_tap,
         ));
     });
-    // Exit detection: a blocking `wait` on a helper thread signalling a channel
-    // gives exact exit wake-up (`recv_timeout` doubles as the deadline) — the
-    // old 50ms try_wait poll added up to 50ms of pure latency to every shell,
-    // cargo, and hook invocation. The waiter owns the child; on timeout the
-    // group kill reaches the leader, so the waiter unblocks right after.
     let (tx_status, mut rx_status) = channel();
     std::thread::spawn(move || {
         let _ = tx_status.send(child.wait());
@@ -1308,10 +1139,6 @@ fn output_timed_inner(
     let mut cancelled = false;
     let mut timeout_diag = None;
     let mut deadline_extended = false;
-    // Mutable budget: at the kill decision the live `tool_timeout()` is
-    // re-read, and a strictly-larger budget (or `0` = unlimited) defers the
-    // kill — the operator can extend a safe long job mid-flight by raising
-    // `ANGEL_TOOL_TIMEOUT`.
     let mut deadline = timeout;
     let spawn_started = Instant::now();
     let mut wall_started = None;
@@ -1323,7 +1150,6 @@ fn output_timed_inner(
     let idle_limit = tool_idle_timeout();
     let mut wait_started = fixed_started.unwrap_or_else(Instant::now);
     let status = loop {
-        // Observe an already-exited child before any kill decision.
         match rx_status.try_recv() {
             Ok(status) => break status.map_err(|e| format!("wait failed: {e}"))?,
             Err(std::sync::mpsc::TryRecvError::Disconnected) => {
@@ -1343,8 +1169,6 @@ fn output_timed_inner(
                 .ok_or_else(|| "child did not reap after cancellation".to_string())?
                 .map_err(|e| format!("wait failed: {e}"))?;
         }
-        // This exemption expires even if the helper never reaches exec. Once
-        // the payload is observed, a later command name cannot renew setup grace.
         let setting_up = wall_started.is_none()
             && spawn_started.elapsed() < Duration::from_secs(60)
             && sandbox_helper_still_setting_up(pid);
@@ -1372,9 +1196,6 @@ fn output_timed_inner(
             wait_started = Instant::now();
             deadline_due = false;
         }
-        // A watchdog release: the loop watchdog found the turn wedged on this
-        // call. A hand-off goes through the armed hand-off below at once; with
-        // none armed (or one that cannot file the job) the call is stopped.
         let release =
             cancel.and_then(|c| release::take_release(c as *const _ as usize, spawn_started));
         let force_handoff = release == Some(release::Release::HandOff)
@@ -1382,10 +1203,6 @@ fn output_timed_inner(
             && tap.is_some()
             && wall_started.is_some();
         let mut watchdog_stop = release.is_some() && !force_handoff;
-        // The armed hand-off limit: the process moves to the background-job
-        // table, still running — its exit channel goes to the job and the
-        // readers switch to the job's log. A hand-off that cannot file the
-        // job leaves the call waiting exactly as before.
         if let (Some(spec), Some(tap), Some(wall)) =
             (handoff_spec.as_ref(), tap.as_ref(), wall_started)
             && (wall.elapsed() >= spec.after || force_handoff)
@@ -1454,9 +1271,6 @@ fn output_timed_inner(
             }
         }
         if tool_idle || deadline_due || watchdog_stop {
-            // A tool-idle escalation is recoverable by the model; it never
-            // cancels the enclosing run. Preserve trusted metadata for the turn.
-            // So is a watchdog stop.
             if watchdog_stop {
                 release::note_released(release::Release::Stop);
             } else if tool_idle {
@@ -1477,22 +1291,10 @@ fn output_timed_inner(
             break status.map_err(|e| format!("wait failed: {e}"))?;
         }
     };
-    // The direct child has exited — but a grandchild that inherited the pipes can
-    // still hold them open. In the ordinary profile, reap the group so those
-    // pipes close and the readers hit EOF. YOLO deliberately leaves descendants
-    // alone: `command &` must not be silently killed by harness cleanup.
     if !crate::platform::yolo::enabled() {
         kill_process_group(pid);
     }
-    // Bounded collect: use one shared deadline for both readers. If an
-    // out-of-group descendant retained either pipe, ask the poll-based reader
-    // to settle with the bytes already captured and give that handoff one
-    // final short convergence window.
     let drain_deadline = Instant::now() + Duration::from_secs(2);
-    // Block on each reader's hand-off until the shared deadline rather than
-    // sleeping in 10 ms ticks: the readers finish within microseconds of the
-    // child's exit, and a tick would add its whole length to every tool call.
-    // A reader that died without sending (channel closed) settles at once.
     let mut stdout_capture = rx_out
         .recv_timeout(drain_deadline.saturating_duration_since(Instant::now()))
         .ok();

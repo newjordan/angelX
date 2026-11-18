@@ -1,7 +1,3 @@
-// Marshalling for the Moonfall rules leg. Rust sends the session as it saves,
-// the key rows, who is awake and the page count of each open talk; every rule is
-// in moonfall-rules.bend. Enums become small numbers on the way in (the tables
-// below are the order of the Rust enums) and names again on the way out.
 const bend = require('./moonfall-rules.compiled.js')
 
 const FOLK = ['Mira', 'Tovin', 'Nessa', 'Orin', 'Pella', 'Aster']
@@ -12,8 +8,6 @@ const RING = ['Rewind', 'Dusk', 'Dawn']
 const SIGN = ['NoInk', 'InkFound', 'ReedsFound', 'HandsFull', 'NorthLocked', 'NorthOpened', 'SouthLocked', 'SouthOpened', 'TooHeavy', 'WellIdle', 'WellOiled', 'TowerIdle', 'TowerNeedsVerse', 'SealKept', 'KeyKept', 'Relit', 'Dropped']
 const TOPIC_BARE = ['', 'Request', 'Give', 'Thanks', 'Done']
 
-// The knight (33 words) and the session's scalars (43 words) are trees of words, four
-// children to a node and three deep, filled in the order of these names.
 const KN = ['id', 'joined', 'x', 'y', 'face', 'stride', 'roll', 'roll_rest', 'roll_dx', 'roll_dy', 'keys', 'held', 'held_at', 'mask', 'candles', 'hurt', 'down', 'hold', 'push', 'read', 'panel', 'parg', 'say_on', 'say_folk', 'say_tk', 'say_ta', 'say_page', 'say_age', 'note_on', 'note_kind', 'note_a', 'note_b', 'note_left']
 const SS = ['elapsed', 'clock', 'phase', 'p_t', 'p_from', 'p_to', 'p_fell', 'card', 'done_on', 'done_at', 'peak', 'flags', 'ink_on', 'ink_given', 'shod_on', 'shod', 'crate_on', 'crate_x', 'crate_y', 'snuffed', 'lit0', 'lit1', 'lit2', 'facts', 'ticks', 'masks', 'keeps', 'loops', 'call_on', 'call_ring', 'call_by', 'call_ayes', 'call_left', 'cry_on', 'cry_folk', 'cry_tk', 'cry_ta', 'cry_age', 'n_day', 'n_walk', 'n_wisps', 'n_rewind', 'n_notice']
 const grow = (values, at, size) => {
@@ -44,7 +38,6 @@ const array = node => {
 }
 const tag = value => (typeof value === 'string' ? [value, undefined] : Object.entries(value)[0])
 
-// Topic, note, panel, phase and wisp mode: externally tagged on the Rust side.
 const topicIn = value => {
   const [name, arg] = tag(value)
   const bare = TOPIC_BARE.indexOf(name)
@@ -186,9 +179,6 @@ const sessionIn = (frame) => {
   }
 }
 
-// The run's phase word, 0 Play, 1 Rewind, 2 Skip, 3 Won (the order of `sessionIn`'s encoding above).
-// Any other word is a corrupt frame and is refused, as an unknown note is; reading it as Won would
-// pay a win.
 const phaseOut = f => {
   switch (f.phase) {
     case 0: return 'Play'

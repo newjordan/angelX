@@ -67,8 +67,8 @@ class T(unittest.TestCase):
         a = render_pose(rig, pose, (w * 2, h * 2), (w // 2, h // 2), 1, "aa")
         n = render_pose(rig, pose, (w * 2, h * 2), (w // 2, h // 2), 1, "nearest")
         partial = lambda x: ((x[..., 3] > 0) & (x[..., 3] < 255)).sum()
-        self.assertEqual(partial(n), 0)          # nearest keeps hard alpha
-        self.assertGreater(partial(a), 0)        # aa produces smooth edges
+        self.assertEqual(partial(n), 0)
+        self.assertGreater(partial(a), 0)
         self.assertLess(abs(int((a[..., 3] > 127).sum()) - int((n[..., 3] > 127).sum())), 0.05 * (n[..., 3] > 127).sum())
 
     def test_poly_override_last_wins(self):

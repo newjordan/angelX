@@ -49,6 +49,7 @@ fn the_messages_url_never_doubles_v1() {
 
 #[test]
 fn every_request_names_its_key_version_beta_and_workspace() {
+    let _guard = crate::tests::env_lock();
     let headers = request_headers("sk-test", None);
     assert_eq!(
         headers,
@@ -81,9 +82,9 @@ fn effort_takes_the_api_rungs() {
     assert_eq!(effort(Some("ultra")), "medium");
 }
 
-/// The Chat body the seat builds, as the first-party Messages API takes it.
 #[test]
 fn a_chat_body_becomes_an_anthropic_messages_body() {
+    let _guard = crate::tests::env_lock();
     let replay = json!([thinking_block(), redacted_block()]).to_string();
     let chat = json!({
         "model": "claude-sonnet-5-5", "stream": true,
@@ -102,12 +103,10 @@ fn a_chat_body_becomes_an_anthropic_messages_body() {
             {"role": "tool", "tool_call_id": "a", "content": "source"},
             {"role": "tool", "tool_call_id": "b", "content": ""},
             {"role": "user", "content": "⠺⠁ note"},
-            // Another seat's plain-text reasoning cannot be signed: dropped.
             {"role": "assistant", "content": "done", "reasoning_content": "foreign words"},
             {"role": "user", "content": "   "},
             {"role": "user", "content": "and now?"},
             {"role": "system", "content": "contract"},
-            // A trailing assistant turn is a prefill: never sent.
             {"role": "assistant", "content": "Sure, "}
         ],
         "tools": [
@@ -136,13 +135,11 @@ fn a_chat_body_becomes_an_anthropic_messages_body() {
     ] {
         assert!(body.get(gone).is_none(), "{gone}");
     }
-    // System: one block per leading message, the breakpoint on the last.
     assert_eq!(
         body["system"],
-        json!([{"type": "text", "text": "core"},
+        json!([{"type": "text", "text": "core", "cache_control": {"type": "ephemeral"}},
             {"type": "text", "text": "brevity", "cache_control": {"type": "ephemeral"}}])
     );
-    // Tools: the breakpoint on the last definition only.
     assert!(body["tools"][0].get("cache_control").is_none());
     assert_eq!(
         body["tools"][1]["cache_control"],
@@ -150,8 +147,6 @@ fn a_chat_body_becomes_an_anthropic_messages_body() {
     );
     let messages = body["messages"].as_array().unwrap();
     assert_eq!(messages[0]["role"], "user");
-    // The tool-call turn: its signed blocks verbatim and first, then its text
-    // and calls.
     let turn = messages[1]["content"].as_array().unwrap();
     assert_eq!(messages[1]["role"], "assistant");
     assert_eq!(turn[0], thinking_block());
@@ -160,7 +155,6 @@ fn a_chat_body_becomes_an_anthropic_messages_body() {
     assert_eq!(turn[3]["type"], "tool_use");
     assert_eq!(turn[3]["input"], json!({"path": "x"}));
     assert_eq!(turn[4]["id"], "b");
-    // Both results lead one user message; an empty result carries no content.
     let results = messages[2]["content"].as_array().unwrap();
     assert_eq!(results[0]["tool_use_id"], "a");
     assert_eq!(
@@ -176,8 +170,6 @@ fn a_chat_body_becomes_an_anthropic_messages_body() {
         messages[3]["content"],
         json!([{"type": "text", "text": "done"}])
     );
-    // The whitespace turn is gone; the later system message folds into the
-    // last user turn, which ends the request and carries the moving breakpoint.
     let last = messages.last().unwrap();
     assert_eq!(messages.len(), 5);
     assert_eq!(last["role"], "user");
@@ -189,8 +181,100 @@ fn a_chat_body_becomes_an_anthropic_messages_body() {
         last["content"][1],
         json!({"type": "text", "text": "contract", "cache_control": {"type": "ephemeral"}})
     );
-    assert_eq!(body.to_string().matches("cache_control").count(), 3);
+    assert_eq!(body.to_string().matches("cache_control").count(), 4);
     assert!(!body.to_string().contains("foreign words"));
+}
+
+#[test]
+fn binding_controls_can_be_left_off_the_wire() {
+    use crate::tests::TestEnvGuard;
+    let _guard = crate::tests::env_lock();
+    let chat = json!({
+        "model": "claude-sonnet-5-5",
+        "reasoning_effort": "high",
+        "messages": [{"role": "user", "content": "fix it"}]
+    });
+    {
+        let _binding = TestEnvGuard::set("ANGEL_ANTHROPIC_THINKING_BINDING", "0");
+        let headers = request_headers("sk-test", None);
+        assert!(!headers.iter().any(|(name, _)| *name == "anthropic-beta"));
+        assert_eq!(headers.len(), 2);
+        let body = to_messages_body_for(&chat, Flavor::Anthropic).unwrap();
+        assert_eq!(body["thinking"], json!({"type": "adaptive"}));
+        assert_eq!(body["output_config"], json!({"effort": "high"}));
+    }
+    let _binding = TestEnvGuard::unset("ANGEL_ANTHROPIC_THINKING_BINDING");
+    assert_eq!(request_headers("sk-test", None).len(), 3);
+    let body = to_messages_body_for(&chat, Flavor::Anthropic).unwrap();
+    assert_eq!(
+        body["thinking"]["block_binding"],
+        json!({"prefix_mismatch_behavior": "drop_block"})
+    );
+}
+
+#[test]
+fn a_failed_tool_call_is_flagged_on_the_anthropic_wire_only() {
+    let chat = json!({
+        "model": "claude-sonnet-5-5",
+        "messages": [
+            {"role": "user", "content": "fix it"},
+            {"role": "assistant", "content": "", "tool_calls": [
+                {"id": "a", "type": "function", "function": {"name": "str_replace", "arguments": "{}"}},
+                {"id": "b", "type": "function", "function": {"name": "shell", "arguments": "{}"}}]},
+            {"role": "tool", "tool_call_id": "a", "content": "tool error: 'old' not found"},
+            {"role": "tool", "tool_call_id": "b", "content": "tests: 4 passed, 0 failed"}
+        ]
+    });
+    let body = to_messages_body_for(&chat, Flavor::Anthropic).unwrap();
+    let results = body["messages"][2]["content"].as_array().unwrap();
+    assert_eq!(results[0]["is_error"], true);
+    assert!(results[1].get("is_error").is_none());
+    let deepseek = to_messages_body_for(&chat, Flavor::DeepSeek).unwrap();
+    assert!(!deepseek.to_string().contains("is_error"));
+}
+
+#[test]
+fn the_standing_system_blocks_keep_their_own_breakpoint() {
+    let chat = |workspace: &str| {
+        json!({
+            "model": "claude-sonnet-5-5",
+            "messages": [
+                {"role": "system", "content": "pages"},
+                {"role": "system", "content": "brevity"},
+                {"role": "system", "content": workspace},
+                {"role": "user", "content": "fix it"}
+            ],
+            "tools": [{"type": "function", "function": {"name": "shell", "description": "run",
+                "parameters": {"type": "object", "properties": {}}}}]
+        })
+    };
+    let first = to_messages_body_for(&chat("workspace one"), Flavor::Anthropic).unwrap();
+    let second = to_messages_body_for(&chat("workspace two"), Flavor::Anthropic).unwrap();
+    let marked = |body: &Value| {
+        body["system"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|block| block.get("cache_control").is_some())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(marked(&first), [false, true, true]);
+    assert_eq!(first["tools"], second["tools"]);
+    assert_eq!(first["system"][0], second["system"][0]);
+    assert_eq!(first["system"][1], second["system"][1]);
+    assert_ne!(first["system"][2], second["system"][2]);
+    assert_eq!(first.to_string().matches("cache_control").count(), 4);
+
+    let single = json!({
+        "model": "claude-sonnet-5-5",
+        "messages": [
+            {"role": "system", "content": "pages"},
+            {"role": "user", "content": "fix it"}
+        ]
+    });
+    let body = to_messages_body_for(&single, Flavor::Anthropic).unwrap();
+    assert_eq!(marked(&body), [true]);
+    assert_eq!(body.to_string().matches("cache_control").count(), 2);
 }
 
 #[test]
@@ -209,8 +293,6 @@ fn no_effort_named_sends_medium() {
     assert!(to_messages_body_for(&only_assistant, Flavor::Anthropic).is_err());
 }
 
-/// A recorded tool hop: the accumulator sees two calls and the usage split,
-/// and the reply's signed blocks come back verbatim for the next hop.
 #[test]
 fn a_recorded_stream_replays_its_signed_thinking() {
     let mut stream = StreamTranslator::new(Flavor::Anthropic);
@@ -239,7 +321,6 @@ fn a_recorded_stream_replays_its_signed_thinking() {
         json!({"prompt_tokens": 22772, "completion_tokens": 187,
             "cache_read_input_tokens": 20480, "cache_creation_input_tokens": 1880})
     );
-    // angelX's accounting reads the uncached input as prompt - read - write.
     let parsed = crate::agent::club::usage::parse_http_usage(&usage).unwrap();
     assert_eq!(
         (parsed.input, parsed.cache_read, parsed.cache_write),
@@ -293,11 +374,9 @@ fn thinking_text_and_signature_deltas_assemble_verbatim() {
         replay,
         json!([{"type": "thinking", "thinking": "plan it", "signature": "c2ln"}])
     );
-    // A block that never got its signature cannot be replayed.
     let mut unsigned = StreamTranslator::new(Flavor::Anthropic);
     let _ = unsigned.line(r#"data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"x","signature":""}}"#);
     assert!(unsigned.take_replay().is_none());
-    // DeepSeek's flavor keeps replaying its accumulated text.
     assert!(
         StreamTranslator::new(Flavor::DeepSeek)
             .take_replay()
@@ -305,7 +384,6 @@ fn thinking_text_and_signature_deltas_assemble_verbatim() {
     );
 }
 
-/// A refusal is an error naming the classifier's category, streamed or not.
 #[test]
 fn a_refusal_names_its_category() {
     let mut stream = StreamTranslator::new(Flavor::Anthropic);
@@ -336,7 +414,6 @@ fn a_refusal_names_its_category() {
         error.contains("stop_details.category: unspecified"),
         "{error}"
     );
-    // A cut-off reply is a length stop.
     let mut stream = StreamTranslator::new(Flavor::Anthropic);
     let cut = stream
         .line(r#"data: {"type":"message_delta","delta":{"stop_reason":"max_tokens"},"usage":{"output_tokens":32000}}"#)
@@ -364,7 +441,6 @@ fn a_whole_reply_keeps_its_signed_blocks() {
     assert_eq!(chat["usage"]["cache_creation_input_tokens"], 7);
 }
 
-/// One request as the loopback server read it: request line, headers, body.
 struct Seen {
     head: String,
     body: Value,
@@ -398,7 +474,6 @@ fn read_request(socket: &mut std::net::TcpStream) -> Option<Seen> {
     })
 }
 
-/// Answer each POST with the next scripted SSE stream; anything else is a 404.
 fn serve_streams(
     streams: Vec<String>,
 ) -> (
@@ -450,9 +525,6 @@ fn header<'a>(head: &'a str, name: &str) -> Option<&'a str> {
     })
 }
 
-/// The seat as the bench launches it (env only), over a loopback server: the
-/// first hop's request carries the whole first-party contract, and the second
-/// replays the first reply's signed thinking verbatim, first in its turn.
 #[test]
 fn the_seat_round_trips_its_signed_thinking_on_the_wire() {
     use crate::agent::club::{ChatMsg, ToolDef};
@@ -599,17 +671,14 @@ fn the_seat_round_trips_its_signed_thinking_on_the_wire() {
     );
     assert_eq!(turn[3]["id"], "toolu_01FixtureA");
     assert_eq!(turn[4]["id"], "toolu_01FixtureB");
-    // Parallel results go back in one user message.
     let results = messages.last().unwrap()["content"].as_array().unwrap();
     assert_eq!(messages.last().unwrap()["role"], "user");
     assert_eq!(results[0]["tool_use_id"], "toolu_01FixtureA");
     assert_eq!(results[1]["tool_use_id"], "toolu_01FixtureB");
     assert_eq!(second["tools"], body["tools"], "tools stay byte-stable");
     assert_eq!(second["system"], body["system"], "system stays byte-stable");
-    // The answer's own signed block is kept for the hop after it.
     let answer_reasoning = crate::agent::club::take_pending_tool_reasoning().unwrap();
     assert!(answer_reasoning.contains("Ehop2=="), "{answer_reasoning}");
-    // Usage reached angelX's accounting with cached and uncached input apart.
     let usage = crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
     let usage = serde_json::to_value(usage).unwrap();
     assert_eq!(usage["cache_read"], 20480 + 22000, "{usage}");

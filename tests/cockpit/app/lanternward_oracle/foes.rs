@@ -8,35 +8,26 @@ use super::*;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Fk {
     Snuffer,
-    /// Iron-bound: a blade does nothing to it, a parried bolt stuns it.
     Turret,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Fs {
-    /// Asleep until a knight comes near or it is struck.
     Dormant,
     Drift,
     Tell,
     Strike,
     Recover,
-    /// Parried: open to a double blow for a full second.
     Stagger,
-    /// Puffing out; gone when `Foe::dead` runs out.
     Dying,
 }
 
-/// A foe's footprint: where its blow lands, in `Q` pixels. Drawn from the
-/// first tick of the tell and never changed after.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Danger {
     None,
-    /// A line `a` to `b`, `r` either side.
     Capsule { ax: i32, ay: i32, bx: i32, by: i32, r: i32 },
     Circle { x: i32, y: i32, r: i32 },
-    /// A wedge: `half` degrees either side of `deg`, out to `r`.
     Fan { x: i32, y: i32, deg: i32, half: i32, r: i32 },
-    /// A band `w` either side of radius `r`.
     Ring { x: i32, y: i32, r: i32, w: i32 },
 }
 
@@ -53,7 +44,6 @@ fn seg_dist2(p: (i64, i64), a: (i64, i64), b: (i64, i64)) -> i64 {
 }
 
 impl Danger {
-    /// Whether a body of radius `rad` at `(x, y)` stands in it.
     pub fn hits(self, x: i32, y: i32, rad: i32) -> bool {
         match self {
             Danger::None => false,
@@ -77,36 +67,26 @@ impl Danger {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Foe {
-    /// Which one in the room: a lock-on holds this, not a place in the list.
     pub id: u8,
     pub kind: Fk,
     pub x: i32,
     pub y: i32,
     pub hp: u32,
     pub full: u32,
-    /// The seats this foe's health was made for.
     pub prov: u8,
     pub st: Fs,
     pub t: u16,
-    /// Where it faces and, in a tell, where it will go.
     pub fx: i32,
     pub fy: i32,
     pub danger: Danger,
-    /// Hooded in the Gloam: a blade passes through it unless it is lit.
     pub hooded: bool,
-    /// Ticks the hood stays off after light fell on it.
     pub lit: u16,
     pub flinch: u8,
-    /// A hit holds it still this many ticks, itself alone.
     pub freeze: u8,
     pub dead: u8,
-    /// The next blow is doubled (it was parried).
     pub open: bool,
-    /// The last swing of each seat that landed, so one swing lands once.
     pub hit: [u32; 6],
-    /// Seats already struck by this blow.
     pub struck: u8,
-    /// Pushed this way for a few ticks after a blow.
     pub kb: (i32, i32),
     pub kbt: u8,
     pub n: u8,
@@ -150,7 +130,6 @@ impl Foe {
         self.hp > 0 && self.st != Fs::Dying
     }
 
-    /// Its body's radius in `Q` pixels (what a blade and a bolt find).
     pub fn radius(&self) -> i32 {
         match self.kind {
             Fk::Snuffer => 6 * Q,
@@ -158,8 +137,6 @@ impl Foe {
         }
     }
 
-    /// Its tell in ticks: the snuffer's is short and fixed, the turret's is
-    /// the table's number.
     pub fn tell(&self, r: &Rules, seats: u32) -> u16 {
         match self.kind {
             Fk::Snuffer => SNUFFER_TELL,
@@ -167,7 +144,6 @@ impl Foe {
         }
     }
 
-    /// Whether a blade may hurt it now.
     pub fn vulnerable(&self) -> bool {
         match self.kind {
             Fk::Snuffer => !(self.hooded && self.lit == 0),
@@ -176,18 +152,12 @@ impl Foe {
     }
 }
 
-/// What a bolt is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Bk {
-    /// A foe's: hurts a knight, is stopped or turned by a shield.
     Iron,
-    /// A knight's thrown light.
     Light,
-    /// A pot thrown by a knight.
     Pot,
-    /// An iron bolt parried: fast and bright, it wakes a crystal.
     Bright,
-    /// An iron bolt blocked late: it turns back, dim and short.
     Dim,
 }
 
@@ -199,7 +169,6 @@ pub struct Bolt {
     pub vx: i32,
     pub vy: i32,
     pub ttl: u16,
-    /// 0 a foe's, else the seat that threw or turned it.
     pub owner: u8,
 }
 
@@ -213,7 +182,6 @@ impl Bolt {
 }
 
 impl Session {
-    /// A foe of `kind` where a snuffer or turret mark stands.
     pub(super) fn spawn_foe(&mut self, kind: Fk, x: i32, y: i32, hooded: bool) {
         if self.foes.len() >= FOE_CAP {
             return;
@@ -225,9 +193,6 @@ impl Session {
         self.foes.push(f);
     }
 
-    /// Scale foes already standing to a table that has grown, keeping the
-    /// share of health they have left; a seat that comes back to a table it
-    /// had already provisioned scales nothing twice.
     pub(super) fn provision(&mut self) {
         let now = self.seats.len().clamp(1, MAX_PLAYERS as usize) as u32;
         for f in &mut self.foes {
@@ -249,7 +214,6 @@ impl Session {
         }
     }
 
-    /// The living knight nearest a point, by distance then seat.
     pub(super) fn nearest_knight(&self, x: i32, y: i32) -> Option<(u32, i32, i32, i32)> {
         self.seats
             .iter()
@@ -259,7 +223,6 @@ impl Session {
             .map(|(d, id, kx, ky)| (id, kx, ky, d))
     }
 
-    /// One tick of every foe.
     pub(super) fn step_foes(&mut self, r: &Rules, ev: &mut Events) {
         let seats = self.seats.len() as u32;
         let mut strikes: Vec<(usize, Danger, u32)> = Vec::new();
@@ -298,7 +261,6 @@ impl Session {
                 Fk::Turret => step_turret(f, target, r, seats, &mut shots, ev),
             }
         }
-        // Keep a snuffer out of the walls it drifts into.
         for i in 0..self.foes.len() {
             let f = &self.foes[i];
             if f.kind == Fk::Snuffer && !self.clear(f.x, f.y, 4 * Q) {
@@ -317,11 +279,9 @@ impl Session {
         for (i, danger, dmg) in strikes {
             self.strike_with(i, danger, dmg, r, ev);
         }
-        // Those that have puffed out are gone; a lock on one lets go.
         self.foes.retain(|f| !(f.st == Fs::Dying && f.dead >= DEATH_TICKS));
     }
 
-    /// The nearest open point to one that is in a wall.
     pub(super) fn nudge(&self, x: i32, y: i32, r: i32) -> (i32, i32) {
         for ring in 1..=8 {
             for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)] {
@@ -334,8 +294,6 @@ impl Session {
         (x, y)
     }
 
-    /// A foe's blow lands on every knight standing in its footprint that it
-    /// has not yet struck.
     fn strike_with(&mut self, i: usize, danger: Danger, dmg: u32, r: &Rules, ev: &mut Events) {
         let ids: Vec<u32> = self.seats.keys().copied().collect();
         for id in ids {
@@ -376,8 +334,6 @@ impl Foe {
     }
 }
 
-/// One tick of a snuffer: drift to a ring about the nearest knight, show the
-/// line it will lunge along, lunge, tire.
 fn step_snuffer(
     f: &mut Foe,
     target: Option<(u32, i32, i32, i32)>,
@@ -397,8 +353,6 @@ fn step_snuffer(
         Fs::Drift => {
             let (ux, uy) = unit(tx - f.x, ty - f.y);
             (f.fx, f.fy) = (ux, uy);
-            // Close to the ring, back off inside it; a sideways drift keeps
-            // it circling.
             let want = RING * Q;
             let (mx, my) = if d > want + 4 * Q {
                 (ux, uy)
@@ -413,8 +367,6 @@ fn step_snuffer(
             f.y += my * SNUFFER_DRIFT / Q;
             f.t = f.t.saturating_sub(1);
             if f.t == 0 && d < STRIKE_FROM * Q {
-                // Lock the line: from here toward the knight, and a little
-                // beyond.
                 let (lx, ly) = unit(tx - f.x, ty - f.y);
                 (f.fx, f.fy) = (lx, ly);
                 f.danger = Danger::Capsule {
@@ -475,8 +427,6 @@ fn step_snuffer(
     }
 }
 
-/// One tick of a turret: wait for a knight in sight, lock the line, loose an
-/// iron bolt along it.
 fn step_turret(
     f: &mut Foe,
     target: Option<(u32, i32, i32, i32)>,

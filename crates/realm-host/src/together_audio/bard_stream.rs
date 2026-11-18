@@ -17,14 +17,10 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-/// One beat: 0.4 s (150 BPM), the length the slices are cut to.
 const BEAT: f32 = 0.4;
 const BEATS: u32 = angel_delve::rules::bard::BEATS;
 const LOOP_FROM: u32 = angel_delve::rules::bard::LOOP_FROM;
-/// With no beat named for this long the fire has stopped without its rest reaching us (or the
-/// game has stalled that long): the player is paused.
 const SILENCE: Duration = Duration::from_millis(1500);
-/// Paused this long, a player is stopped; the next press starts a new one.
 const IDLE: Duration = Duration::from_secs(90);
 
 struct Stream {
@@ -33,7 +29,6 @@ struct Stream {
     #[cfg(unix)]
     ipc: Option<std::os::unix::net::UnixStream>,
     playing: bool,
-    /// The last beat named while playing, or the pause.
     heard: Instant,
 }
 
@@ -42,15 +37,12 @@ impl Stream {
         matches!(self.child.try_wait(), Ok(None))
     }
 
-    /// One command to the player. False when it cannot be reached yet (it opens its socket a
-    /// few tens of milliseconds after it starts) or any more.
     #[cfg(unix)]
     fn send(&mut self, command: &str) -> bool {
         use std::io::Write;
         if self.ipc.is_none() {
             let Ok(ipc) = std::os::unix::net::UnixStream::connect(&self.sock) else { return false };
             let _ = ipc.set_write_timeout(Some(Duration::from_millis(100)));
-            // The player answers every command; nobody reads the answers but this drain.
             if let Ok(mut answers) = ipc.try_clone() {
                 let _ = std::thread::Builder::new().name("delve-bard-ipc".into()).spawn(move || {
                     let _ = std::io::copy(&mut answers, &mut std::io::sink());
@@ -79,7 +71,6 @@ impl Stream {
         paused
     }
 
-    /// Play on from `beat`.
     fn resume(&mut self, beat: u32, now: Instant) -> bool {
         let at = beat as f32 * BEAT;
         let resumed = self.send(&format!(r#"{{"command":["seek",{at:.3},"absolute+exact"]}}"#))
@@ -98,11 +89,9 @@ impl Stream {
     }
 }
 
-/// Each song's player, by its letter.
 fn state() -> &'static Mutex<BTreeMap<char, Stream>> {
     static STATE: OnceLock<Mutex<BTreeMap<char, Stream>>> = OnceLock::new();
     STATE.get_or_init(|| {
-        // The watch: pauses a player whose beats stopped coming, stops one paused too long.
         let _ = std::thread::Builder::new().name("delve-bard-stream".into()).spawn(|| {
             loop {
                 std::thread::sleep(Duration::from_millis(60));
@@ -135,8 +124,6 @@ fn cache() -> PathBuf {
     std::env::temp_dir().join(format!("angelx-bard-stream-{}", std::process::id()))
 }
 
-/// Where a song's player listens: a short path (a socket path is capped near 100 bytes, and the
-/// temp dir can be long).
 fn sock(song: char) -> PathBuf {
     let dir = std::env::var_os("XDG_RUNTIME_DIR")
         .map(PathBuf::from)
@@ -145,7 +132,6 @@ fn sock(song: char) -> PathBuf {
     dir.join(format!("angelx-bard-{}-{song}.sock", std::process::id()))
 }
 
-/// The song's joined file, or none while it is being built (started here, once a song).
 fn song_file(sfx: &Path, song: char) -> Option<PathBuf> {
     let file = cache().join(format!("bard_{song}.wav"));
     if file.is_file() {
@@ -179,15 +165,12 @@ fn song_file(sfx: &Path, song: char) -> Option<PathBuf> {
     None
 }
 
-/// Every song's file, built ahead (on a thread each), so no press ever waits on one.
 pub fn warm(sfx: &Path) {
     for song in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] {
         let _ = song_file(sfx, song);
     }
 }
 
-/// Slice `name` was named now. True when the stream carries it (playing on through it, or picked
-/// up or started on its beat); false when the caller should play the slice itself.
 pub fn heard(sfx: &Path, name: &str, level: f32, now: Instant) -> bool {
     if cfg!(not(unix)) {
         return false;
@@ -201,8 +184,6 @@ pub fn heard(sfx: &Path, name: &str, level: f32, now: Instant) -> bool {
     if let Some(stream) = streams.get_mut(&song) {
         if stream.alive() {
             if stream.playing {
-                // Held: the player is the song's clock. A beat named a little early or late
-                // never moves it.
                 stream.heard = now;
                 return true;
             }
@@ -240,8 +221,6 @@ pub fn heard(sfx: &Path, name: &str, level: f32, now: Instant) -> bool {
     true
 }
 
-/// The fire was let go (`rules::bard::REST`): every playing song pauses where it is. A player
-/// that cannot be reached is stopped instead, so the music never runs on.
 pub fn rest() {
     let Ok(mut streams) = state().lock() else { return };
     let now = Instant::now();

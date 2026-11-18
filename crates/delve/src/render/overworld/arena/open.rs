@@ -7,14 +7,11 @@
 use super::*;
 use crate::rules::layout::Open;
 
-/// A wall tile of an open map with no floor round it (diagonals too):
-/// rock, left dark.
 pub(super) fn deep_rock(room: &Room, col: i32, row: i32) -> bool {
     room.kind == RoomKind::Depths
         && (-1..=1).all(|dr| (-1..=1).all(|dc| matches!(room.tile(col + dc, row + dr), Tile::Wall)))
 }
 
-/// The open map's fixtures and their lights, drawn once into its scenery.
 pub(super) fn fixtures(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
     let Some(open) = run.open_here() else {
         return;
@@ -24,8 +21,6 @@ pub(super) fn fixtures(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
     let sealed = run.barred();
     corner_braziers(open, cv, lights, tick);
     sconces(room, open, cv, lights, tick);
-    // Torches beside each door off the map, a banner over one that leads
-    // side-on.
     for (k, door) in open.doors.iter().enumerate() {
         let [(c0, r0), _] = door.tiles();
         if room.tile(c0, r0) != Tile::Door {
@@ -49,7 +44,6 @@ pub(super) fn fixtures(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
             }
         }
     }
-    // The guardian's mouths: torches either side, bars while it seals.
     for ch in &open.chambers {
         let (x0, y0) = (i32::from(ch.rect.0), i32::from(ch.rect.1));
         for &(c, r) in &ch.gates {
@@ -70,8 +64,6 @@ pub(super) fn fixtures(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
     }
 }
 
-/// A brazier in each inner corner of every chamber, as each old room had
-/// in its corners.
 fn corner_braziers(open: &Open, cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
     for (i, ch) in open.chambers.iter().enumerate() {
         let (x, y, w, h) = (i32::from(ch.rect.0), i32::from(ch.rect.1), i32::from(ch.rect.2), i32::from(ch.rect.3));
@@ -83,7 +75,6 @@ fn corner_braziers(open: &Open, cv: &mut Img, lights: &mut Vec<Light>, tick: u32
             cv.stamp(&im, px + (TILE - im.w) / 2, py + TILE - im.h);
             lights.push(fire(px + TILE / 2, py + 4, 64.0, lit));
         }
-        // A great chamber's long walls keep a torch along them too.
         if w > COLS as i32 + 4 {
             for (c, r) in [(x + w / 4, y), (x + 3 * w / 4, y)] {
                 let im = torch(tick / 4, (c * 3 + r) as u32);
@@ -95,8 +86,6 @@ fn corner_braziers(open: &Open, cv: &mut Img, lights: &mut Vec<Light>, tick: u32
     }
 }
 
-/// Torches on the walls either side of a doorway of `wide` tiles whose
-/// first tile is `(c, r)`, in a wall on `side` of its chamber.
 fn flank(cv: &mut Img, lights: &mut Vec<Light>, (c, r): (i32, i32), side: usize, wide: i32, tick: u32, seed: u32) {
     let across = side.is_multiple_of(2);
     let (x, y) = (c * TILE, r * TILE);
@@ -113,15 +102,12 @@ fn flank(cv: &mut Img, lights: &mut Vec<Light>, (c, r): (i32, i32), side: usize,
     }
 }
 
-/// A doorway tile barred: half a two-tile portcullis.
 pub(super) fn bar(cv: &mut Img, c: i32, r: i32, across: bool) {
     let im = sprites::portcullis(across);
     let half = if across { Img::from_view(&im, 0, 0, TILE, im.h) } else { Img::from_view(&im, 0, 0, im.w, TILE) };
     cv.stamp(&half, c * TILE, r * TILE);
 }
 
-/// Sconces along the passages: on the north wall of a passage running
-/// east-west, the west wall of one running north-south, a few tiles apart.
 fn sconces(room: &Room, open: &Open, cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
     let near_chamber = |c: i32, r: i32| {
         open.chambers.iter().any(|ch| {

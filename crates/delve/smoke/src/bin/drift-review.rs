@@ -40,8 +40,6 @@ fn main() {
     let mut run = arena::race3d::testing::racing(Course::Touge, 4);
     run.floor_plates.clear();
     let mut seen = [false; 3];
-    // Seat one supplies recorded driver inputs; the other seats use the same
-    // public bot controller as the development host's three native clients.
     let mut inputs_file = Vec::new();
     loop {
         let race = run.race3d.as_ref().unwrap();

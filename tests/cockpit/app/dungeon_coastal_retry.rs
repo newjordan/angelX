@@ -1,4 +1,3 @@
-// The existing failed realm-save/checkpoint/restart test also exercises the coast.
 fn coastal_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     use crate::delve::together_realm::Spoil;
     use crate::delve::together_shooter::{
@@ -14,7 +13,6 @@ fn coastal_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         let r = app.realm.dungeon.shooter.edit().unwrap();
         for &(kind, at) in &coast::ERRAND {
             r.arrive(world::room_of(&r.dungeon, kind).unwrap(), at);
-            // Await the next low tide through real ticks, never inject quest bits.
             if kind == RoomKind::Strand {
                 while !coast::low_tide(r.tick + 1) {
                     r.step(&BTreeMap::new());
@@ -95,7 +93,6 @@ fn coastal_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     let paid = app.economy().treasury.clone();
     assert!(app.settle_home());
     assert_eq!(app.economy().treasury, paid);
-    // Checkpoint a charged put through the same private session envelope.
     let r = app.realm.dungeon.shooter.edit().unwrap();
     r.arrive(
         world::room_of(&r.dungeon, RoomKind::Strand).unwrap(),

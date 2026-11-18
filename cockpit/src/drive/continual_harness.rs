@@ -26,7 +26,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const SCHEMA: u32 = 1;
 const GLOBAL_FILE: &str = "global.json";
 
-/// `⠎⠋` opens and closes the block; its framing sentences are the ledger pages.
 pub(crate) const HARNESS_BLOCK_HEADER: &str = "⠎⠋";
 pub(crate) const HARNESS_BLOCK_SENTINEL: &str = "⠎⠋";
 
@@ -36,15 +35,9 @@ const DEFAULT_MAX_CONTENT: usize = 180;
 const DEFAULT_MAX_BLOCK_BYTES: usize = 3 * 1024;
 const MAX_TITLE: usize = 120;
 const MAX_CONTENT: usize = 4 * 1024;
-/// Entries are ranked per turn (see [`rank_entries`]), so a store larger than
-/// the prompt block stays reachable; `ANGEL_CONTINUAL_HARNESS_MAX_ENTRIES` overrides.
 const DEFAULT_MAX_ENTRIES_TOTAL: usize = 256;
 const DEFAULT_SEARCH_LIMIT: usize = 5;
 const MAX_SEARCH_LIMIT: usize = 16;
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
 #[serde(rename_all = "lowercase")]
@@ -144,7 +137,6 @@ pub(crate) struct RefinementEvent {
     #[serde(default)]
     pub outcome: String,
     pub created_at: String,
-    /// Full before/after snapshots for rollback (JSON-encoded entries).
     #[serde(default)]
     pub snapshots: Vec<EditSnapshot>,
 }
@@ -202,20 +194,15 @@ impl HarnessState {
 
 #[derive(Clone, Debug)]
 pub(crate) struct RefinementEdit {
-    pub action: String, // create | update | delete
+    pub action: String,
     pub kind: EntryKind,
     pub id: Option<String>,
     pub title: Option<String>,
     pub content: Option<String>,
     pub path: Option<String>,
-    /// Operator/tool free-text; retained for API symmetry with Prime edits.
     #[allow(dead_code)]
     pub reason: Option<String>,
 }
-
-// ---------------------------------------------------------------------------
-// Paths + load/save
-// ---------------------------------------------------------------------------
 
 fn root_dir() -> PathBuf {
     if let Ok(p) = std::env::var("ANGEL_CONTINUAL_HARNESS_DIR")
@@ -223,8 +210,6 @@ fn root_dir() -> PathBuf {
     {
         return PathBuf::from(p);
     }
-    // A test never reads the real store: memories a live session saved there
-    // would ride into the prompts the tests check.
     if cfg!(test) {
         return std::env::temp_dir().join(format!(
             "angel-continual-harness-test-{}",
@@ -248,7 +233,6 @@ fn now_iso() -> String {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    // Compact UTC-ish stamp; fine for local ledger ordering.
     format!("{secs}")
 }
 
@@ -285,7 +269,6 @@ fn load_state(path: &Path) -> HarnessState {
             if state.schema == 0 {
                 state.schema = SCHEMA;
             }
-            // Drop garbage entries that would poison prompt injection.
             state.entries.retain(|_, e| {
                 !e.id.is_empty()
                     && !e.title.is_empty()
@@ -316,8 +299,6 @@ pub(crate) fn load_global() -> HarnessState {
     load_state(&global_state_path())
 }
 
-/// Merge already-loaded global + project stores. Project ids win on collision
-/// by taking a `project:` display prefix only when both scopes share an id.
 fn merge_states(global: HarnessState, project: HarnessState) -> HarnessState {
     let mut merged = HarnessState::empty();
     merged.schema = SCHEMA.max(global.schema).max(project.schema);
@@ -339,15 +320,9 @@ fn merge_states(global: HarnessState, project: HarnessState) -> HarnessState {
     merged
 }
 
-/// Merge global + project for prompt injection. Project ids win on collision
-/// by taking a `project:` display prefix only when both scopes share an id.
 pub(crate) fn load_merged(workspace: &Path) -> HarnessState {
     merge_states(load_global(), load_project(workspace))
 }
-
-// ---------------------------------------------------------------------------
-// Apply edits
-// ---------------------------------------------------------------------------
 
 fn validate_edit(edit: &RefinementEdit, id: &str) -> Result<(), String> {
     if id.is_empty() {
@@ -380,7 +355,6 @@ fn validate_edit(edit: &RefinementEdit, id: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Apply a batch of edits to one scope store. Returns a human summary.
 pub(crate) fn apply_edits(
     workspace: &Path,
     scope: Scope,
@@ -539,7 +513,6 @@ pub(crate) fn apply_edits(
         created_at: now_iso(),
         snapshots,
     });
-    // Cap history growth.
     if state.refinements.len() > 64 {
         let drop_n = state.refinements.len() - 64;
         state.refinements.drain(0..drop_n);
@@ -561,7 +534,6 @@ pub(crate) fn apply_edits(
     Ok(msg)
 }
 
-/// Roll back one recorded refinement on its original scope store.
 pub(crate) fn rollback(workspace: &Path, scope: Scope, event_id: &str) -> Result<String, String> {
     let path = match scope {
         Scope::Project => project_state_path(workspace),
@@ -615,10 +587,6 @@ pub(crate) fn rollback(workspace: &Path, scope: Scope, event_id: &str) -> Result
     ))
 }
 
-// ---------------------------------------------------------------------------
-// Prompt formatting
-// ---------------------------------------------------------------------------
-
 fn compact_text(text: &str, max: usize) -> String {
     let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");
     if normalized.chars().count() <= max {
@@ -632,15 +600,10 @@ fn enabled() -> bool {
     crate::agent::harness::env_flag("ANGEL_CONTINUAL_HARNESS", true)
 }
 
-/// Compact overview for system prompt / task warm-start. Empty when disabled
-/// or no entries exist. With no turn text to rank against, each kind shows its
-/// most recently updated entries.
 pub(crate) fn context_block(workspace: &Path) -> String {
     context_block_for(workspace, "")
 }
 
-/// [`context_block`], with each kind's visible entries chosen by BM25 relevance
-/// to `query` (the turn's own text) instead of name order.
 pub(crate) fn context_block_for(workspace: &Path, query: &str) -> String {
     if !enabled() {
         return String::new();
@@ -709,7 +672,6 @@ pub(crate) fn context_block_for(workspace: &Path, query: &str) -> String {
     lines.push(HARNESS_BLOCK_SENTINEL.to_string());
     let mut block = lines.join("\n");
     if block.len() > max_bytes {
-        // Keep header + sentinel; truncate middle.
         let head = HARNESS_BLOCK_HEADER;
         let tail = HARNESS_BLOCK_SENTINEL;
         let budget = max_bytes
@@ -740,8 +702,6 @@ fn updated_secs(entry: &HarnessEntry) -> u64 {
     entry.updated_at.parse().unwrap_or(0)
 }
 
-/// The `limit` entries most relevant to `query` (BM25 over title + content,
-/// best first), topped up with the most recently updated when fewer match.
 fn rank_entries<'a>(
     entries: &[&'a HarnessEntry],
     query: &str,
@@ -766,8 +726,6 @@ fn rank_entries<'a>(
     picked.into_iter().map(|i| entries[i]).collect()
 }
 
-/// `continual_harness action=search`: full text of the entries that best match
-/// `query`, best first. Only entries sharing a term with the query are returned.
 fn search_text(workspace: &Path, query: &str, kind: Option<EntryKind>, limit: usize) -> String {
     let state = load_merged(workspace);
     let entries = state
@@ -806,11 +764,6 @@ fn search_text(workspace: &Path, query: &str, kind: Option<EntryKind>, limit: us
     out
 }
 
-// ---------------------------------------------------------------------------
-// /refine CLI
-// ---------------------------------------------------------------------------
-
-/// `/refine` surface — status, CRUD helpers, and rollback.
 pub(crate) fn run(arg: Option<&str>, workspace: &Path) -> String {
     if !enabled() {
         return "continual harness disabled (ANGEL_CONTINUAL_HARNESS=0)".into();
@@ -858,7 +811,6 @@ fn parse_scope_prefix(rest: &str) -> (Scope, &str) {
 
 fn parse_and_add(workspace: &Path, rest: &str, action: &str) -> String {
     let (scope, rest) = parse_scope_prefix(rest);
-    // kind id title — content
     let Some((meta, content)) = rest.split_once("—").or_else(|| rest.split_once(" - ")) else {
         return format!("need `title — content`\n{}", usage());
     };
@@ -898,7 +850,6 @@ fn parse_and_delete(workspace: &Path, rest: &str) -> String {
     if id.is_empty() {
         return format!("need entry id\n{}", usage());
     }
-    // Kind is required by the type but delete only needs id — look up from store.
     let state = match scope {
         Scope::Project => load_project(workspace),
         Scope::Global => load_global(),
@@ -988,8 +939,6 @@ fn status_text(workspace: &Path) -> String {
     out
 }
 
-/// Project-scoped lessons for the lighter-prover benchmark workspace.
-/// Safe no-op when entries already exist with the same ids.
 pub(crate) fn seed_light_prover(workspace: &Path) -> String {
     let seeds: &[(&str, EntryKind, &str, &str)] = &[
         (
@@ -1074,10 +1023,6 @@ secrets, home env files, or unrelated private repos into the session.",
     )
     .unwrap_or_else(|e| format!("seed-light: {e}"))
 }
-
-// ---------------------------------------------------------------------------
-// Tool
-// ---------------------------------------------------------------------------
 
 pub(crate) struct ContinualHarnessTool {
     workspace: PathBuf,
@@ -1249,10 +1194,6 @@ create, update, delete, rollback, seed_light. Scope project (default) or global.
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/continual_harness__tests.rs"]

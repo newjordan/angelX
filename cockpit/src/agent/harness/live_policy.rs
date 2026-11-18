@@ -35,8 +35,6 @@ pub(super) fn rank_tools(
 
 pub(crate) use angel_live::policy::{LegSource, decide_with, offer, offered};
 
-/// One decision from the turn's pinned `name` leg. Any evaluation, decode or
-/// `check` failure keeps the native leg, so a bad edit never blocks a turn.
 pub(crate) fn decide<T: serde::de::DeserializeOwned>(
     registry: &ToolRegistry,
     name: &str,
@@ -47,9 +45,6 @@ pub(crate) fn decide<T: serde::de::DeserializeOwned>(
     decide_with(registry.live_policy(name), name, input, check, native)
 }
 
-/// One decision from `name`: the newest live generation when it answers
-/// within `check`, else the generation compiled into this binary. A shipped
-/// leg that cannot answer is a build defect, not a runtime condition.
 pub(crate) fn decide_shipped<T: serde::de::DeserializeOwned>(
     name: &str,
     input: &serde_json::Value,
@@ -58,8 +53,6 @@ pub(crate) fn decide_shipped<T: serde::de::DeserializeOwned>(
     with_shipped(offered(name), name, input, check, true)
 }
 
-/// [`decide_shipped`] for callers whose questions do not repeat (the game's
-/// per-frame rules): it asks V8 every time and keeps nothing.
 pub(crate) fn decide_shipped_unmemoized<T: serde::de::DeserializeOwned>(
     name: &str,
     input: &serde_json::Value,
@@ -68,7 +61,6 @@ pub(crate) fn decide_shipped_unmemoized<T: serde::de::DeserializeOwned>(
     with_shipped(offered(name), name, input, check, false)
 }
 
-/// `decide_shipped` with the turn's pinned generation instead of the newest.
 pub(crate) fn decide_pinned<T: serde::de::DeserializeOwned>(
     registry: &ToolRegistry,
     name: &str,
@@ -78,21 +70,6 @@ pub(crate) fn decide_pinned<T: serde::de::DeserializeOwned>(
     with_shipped(registry.live_policy(name), name, input, check, true)
 }
 
-/// What a generation answered for an input, so the same question put to the
-/// same generation is not put to V8 again.
-///
-/// A policy module is a pure projection: it reads its input, never the clock,
-/// the filesystem or the host, and every call runs in a fresh context. Its
-/// output is therefore a function of the bundle's content digest and the input
-/// alone. A turn asks the same few questions again and again (each tool result
-/// is classified by several callers, each hop re-reads the same standing
-/// policy), and each evaluation costs a context and a script run.
-///
-/// Only the module's decoded-and-validated answer is kept. The caller's `check`
-/// still runs on every use, a failed evaluation is never kept, and the retry
-/// after a failed answer bypasses the memo, so nothing a leg can do changes
-/// except how often V8 is asked. A generation that is edited has a new digest
-/// and starts with no entries.
 mod memo {
     use std::collections::{HashMap, VecDeque};
     use std::sync::Mutex;
@@ -151,13 +128,11 @@ mod memo {
         });
     }
 
-    /// `(hits, misses)` since the process started.
     #[cfg(test)]
     pub(super) fn counts() -> (u64, u64) {
         with(|memo| (memo.hits, memo.misses))
     }
 
-    /// Entries held now.
     #[cfg(test)]
     pub(super) fn len() -> usize {
         with(|memo| memo.answers.len())
@@ -172,8 +147,6 @@ mod memo {
     pub(super) const CAPACITY: usize = ENTRIES;
 }
 
-/// `program.render(input)` through the memo. `fresh` asks V8 regardless: the
-/// retry after a failed answer must not meet the answer that just failed.
 fn render_memoized(
     program: &angel_live::Program,
     input: &serde_json::Value,
@@ -219,7 +192,6 @@ fn with_shipped<T: serde::de::DeserializeOwned>(
         },
         None => None,
     };
-    // One retry: a run terminated by the evaluator's deadline rebuilds its isolate.
     let value = answer(shipped, false)
         .or_else(|_| answer(shipped, true))
         .unwrap_or_else(|error| panic!("shipped leg {name} failed: {error}"));
@@ -230,7 +202,6 @@ fn with_shipped<T: serde::de::DeserializeOwned>(
     (value, source)
 }
 
-/// The shipped `cockpit/live/<id>` leg in the embedded engine, for parity tests.
 #[cfg(test)]
 pub(crate) fn shipped_leg(id: &str) -> angel_live::Program {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("live");
@@ -269,8 +240,6 @@ fn every_shipped_leg_is_the_directory_generation_and_answers_its_probe() {
     }
 }
 
-/// The engine `angel_delve::scripted` rules run on in this process: the newest
-/// live generation of the module, else the shipped one.
 pub(crate) fn install_scripted_rules() {
     use crate::app::control::realm::GameHost;
     use angel_plug::drive::DriveWorld;

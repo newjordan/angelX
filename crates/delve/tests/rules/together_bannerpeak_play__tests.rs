@@ -17,7 +17,6 @@ const KNOBS: Knobs = Knobs {
     ledge: LEDGE as i32,
 };
 
-/// A table of `seats` knights and the keys they press.
 struct Table {
     s: Session,
     heroes: BTreeMap<u32, Hero>,
@@ -58,7 +57,6 @@ impl Table {
             self.tick(&[]);
         }
     }
-    /// Knight `id` standing in the air cell `cell`, still, settled.
     fn put(&mut self, id: u32, cell: (i32, i32)) {
         let (x, y) = cell_feet(cell);
         let k = self.s.seats.get_mut(&id).unwrap();
@@ -72,7 +70,6 @@ impl Table {
     fn heard(&self, name: &str) -> bool {
         self.said.contains(&name)
     }
-    /// Press jump (held `hold` ticks), then keep `x` pressed for `after` more.
     fn jump(&mut self, id: u32, x: i8, hold: usize, after: usize) {
         for n in 0..hold + after {
             self.tick(&[(id, inp(x, n < hold, false))]);
@@ -100,7 +97,6 @@ fn a_rune_block_struck_from_below_gives_a_coin_and_goes_dull() {
     assert_eq!(t.k(1).coins, 1);
     assert!(t.heard("gold") && t.heard("clang"), "a ping and a bump");
     assert!(pinged, "the coin pings up out of the block");
-    // Struck again: nothing more.
     t.idle(30);
     t.jump(1, 0, 20, 10);
     assert_eq!(t.k(1).coins, 1);
@@ -144,7 +140,6 @@ fn a_loaf_rises_out_of_its_block_and_a_small_knight_grows_a_big_one_is_mended() 
     assert_eq!(t.s.items.len(), 1, "a loaf");
     assert_eq!(t.s.items[0].kind, ItemKind::Loaf);
     assert!(!t.s.items[0].rising(), "out of the block now, and walking");
-    // The knight meets it: grown.
     let (ix, iy) = (t.s.items[0].x, t.s.items[0].y);
     {
         let k = t.s.seats.get_mut(&1).unwrap();
@@ -154,7 +149,6 @@ fn a_loaf_rises_out_of_its_block_and_a_small_knight_grows_a_big_one_is_mended() 
     assert_eq!(t.k(1).size, Size::Big);
     assert!(t.k(1).body.dims().1 > 20, "a bigger body");
     assert!(t.s.items.is_empty() && t.heard("potion"));
-    // A big knight eating another is mended, a wedge pair.
     let k = t.s.seats.get_mut(&1).unwrap();
     k.pips = 4;
     t.s.items.push(Item::new(ItemKind::Loaf, 100, 100));
@@ -186,7 +180,6 @@ fn a_big_knight_gets_a_flame_that_throws_bouncing_bolts_that_beat_snuffers() {
     t.s.seats.get_mut(&1).unwrap().body.place(ix, iy);
     t.tick(&[]);
     assert_eq!(t.k(1).size, Size::Flame);
-    // Fire: a bolt leaves, bounces along the ground and beats the snuffer ahead.
     t.put(1, marsh(14, 13));
     t.s.foes.retain(|f| f.kind == FoeKind::Wisp);
     t.s.foes
@@ -216,7 +209,6 @@ fn a_big_knight_gets_a_flame_that_throws_bouncing_bolts_that_beat_snuffers() {
     );
 }
 
-/// A snuffer standing on the marsh's first bank, held still.
 fn snuffer_at(t: &mut Table, col: i32, kind: FoeKind) -> usize {
     t.s.foes.retain(|f| f.kind == FoeKind::Wisp);
     t.s.foes.push(Foe::new(kind, marsh(col, 13), 901));
@@ -232,7 +224,6 @@ fn a_stomp_beats_a_snuffer_and_a_held_jump_bounces_higher() {
         let mut t = Table::new(1);
         let n = snuffer_at(&mut t, 14, FoeKind::Snuffer);
         t.s.foes[n].vx = 0;
-        // High above it, falling.
         {
             let (x, y) = cell_feet(marsh(14, 6));
             let k = t.s.seats.get_mut(&1).unwrap();
@@ -279,7 +270,6 @@ fn a_capped_snuffer_leaves_its_cap_to_kick_or_carry() {
     assert_eq!(t.s.items.len(), 1);
     let cap = &t.s.items[0];
     assert_eq!((cap.kind, cap.cap), (ItemKind::Cap, CapState::Rest));
-    // Walked into, a cap flies the way it was run at.
     let (cx, cy) = (cap.x / Q, cap.y / Q);
     t.idle(10);
     t.s.seats.get_mut(&1).unwrap().body.place(cx - 22, cy);
@@ -300,7 +290,6 @@ fn a_capped_snuffer_leaves_its_cap_to_kick_or_carry() {
         t.s.foes.iter().all(|f| f.mark != 902 || !f.alive()),
         "a flying cap flips what it meets"
     );
-    // Carried with fire held, thrown on release.
     let mut t = Table::new(1);
     t.s.foes.clear();
     t.s.items.push(Item::new(ItemKind::Cap, 15 * 16 + 8 + MARSH.ox * 16, (MARSH.oy + 14) * 16));
@@ -368,7 +357,6 @@ fn a_gate_is_raised_by_whoever_reaches_it_and_is_where_the_party_returns() {
     t.tick(&[]);
     assert_eq!(t.s.checkpoint, 2, "the second gate");
     assert!(t.s.gates & 0b10 != 0);
-    // A knight arriving late sits down at that gate.
     let mut heroes = t.heroes.clone();
     let mut r = Run::bannerpeak_for_test();
     for id in 2..=3 {
@@ -381,7 +369,6 @@ fn a_gate_is_raised_by_whoever_reaches_it_and_is_where_the_party_returns() {
     let (x, _) = t.k(3).body.foot();
     assert!((x - cell_feet(gate).0).abs() <= 24, "at the gate: {x}");
     assert!(t.k(3).joined > 0);
-    // Never put back earlier by a gate behind.
     t.put(1, info().gates[0]);
     t.tick(&[]);
     assert_eq!(t.s.checkpoint, 2);
@@ -413,7 +400,6 @@ fn the_flagpole_scores_by_height_slides_down_and_raises_the_marsh_banner() {
         assert!(t.s.banners & 4 != 0, "the marsh banner");
         assert!(t.heard("wish_grant"));
         scores.push(t.k(1).score);
-        // Slides to the foot, then walks off.
         for _ in 0..200 {
             t.tick(&[]);
             if t.k(1).pole == 0 && t.k(1).poled {
@@ -424,7 +410,6 @@ fn the_flagpole_scores_by_height_slides_down_and_raises_the_marsh_banner() {
         let (fx2, fy2) = t.k(1).body.foot();
         assert_eq!(fy2, (py + 1) * TILE, "at the foot of the pole");
         assert!(fx2 > px * TILE + 8, "walked off, past it");
-        // And is not grabbed twice.
         t.idle(10);
         assert!(t.k(1).free() || t.k(1).pole == 0);
     }
@@ -437,7 +422,6 @@ fn a_fall_into_the_bog_costs_a_wedge_and_puts_the_knight_on_the_last_safe_ledge(
     t.put(1, marsh(16, 13));
     t.idle(12);
     assert_eq!(t.k(1).safe, cell_feet(marsh(16, 13)));
-    // Walk off into the first bog.
     let mut fell_at = None;
     let mut safe = t.k(1).safe;
     for n in 0..80 {
@@ -473,7 +457,6 @@ fn a_cellar_hatch_goes_to_the_bonus_room_and_back() {
     }
     let (x, y) = t.k(1).body.foot();
     assert!(y > (MARSH.oy + 20) * TILE, "down in the room: {x},{y}");
-    // Spark in the room; the way out is the other hatch.
     let out = MARSH.at(56, 26);
     t.put(1, (out.0, out.1 - 1));
     t.idle(6);
@@ -490,7 +473,6 @@ fn a_slam_breaks_the_cracked_floor_and_the_cellar_beneath_holds_a_banner() {
     assert_eq!(t.s.tile(cracked.0, cracked.1), Tile::Cracked);
     t.put(1, HUB.at(23, 17));
     t.idle(8);
-    // Jump, then slam.
     for n in 0..60 {
         let k = t.k(1);
         let down = n > 16 && k.body.vy > -200;
@@ -501,7 +483,6 @@ fn a_slam_breaks_the_cracked_floor_and_the_cellar_beneath_holds_a_banner() {
     }
     assert_eq!(t.s.tile(cracked.0, cracked.1), Tile::Air, "the floor is broken");
     assert!(t.heard("crack_open") && t.heard("rock_land"));
-    // Into the cellar.
     t.idle(60);
     assert!(t.k(1).body.foot().1 >= HUB.at(0, 21).1 * TILE, "down below");
 }
@@ -512,7 +493,6 @@ fn a_friend_reaches_a_bubble_and_a_lone_fall_is_a_quick_retry() {
     t.put(1, marsh(14, 13));
     t.put(2, marsh(20, 12));
     t.s.seats.get_mut(&1).unwrap().pips = 1;
-    // A snuffer that takes the last wedge.
     t.s.foes.retain(|f| f.kind == FoeKind::Wisp);
     let (x, y) = t.k(1).body.foot();
     let mut f = Foe::new(FoeKind::Snuffer, (x / TILE + 1, y / TILE - 1), 904);
@@ -524,11 +504,9 @@ fn a_friend_reaches_a_bubble_and_a_lone_fall_is_a_quick_retry() {
     assert_eq!(t.k(1).pips, 0);
     let (bx, by) = (b.x / Q, b.y / Q);
     assert!(by < y, "the bubble floats up");
-    // The bubble's knight steers it (they are not a spectator): right.
     let before = t.k(1).bubble.unwrap().x;
     t.tick(&[(1, inp(1, false, false))]);
     assert!(t.k(1).bubble.unwrap().x > before);
-    // The friend arrives: the knight is back with a few wedges.
     let (bx2, by2) = (t.k(1).bubble.unwrap().x / Q, t.k(1).bubble.unwrap().y / Q);
     t.s.seats.get_mut(&2).unwrap().body.place(bx2, by2 + 12);
     t.tick(&[]);
@@ -536,7 +514,6 @@ fn a_friend_reaches_a_bubble_and_a_lone_fall_is_a_quick_retry() {
     assert_eq!(t.k(1).pips, BACK_PIPS);
     assert!(t.heard("wish_grant"));
     let _ = (bx, by);
-    // Alone: down, and the checkpoint takes the knight back inside a second.
     let mut solo = Table::new(1);
     solo.put(1, marsh(14, 13));
     solo.s.seats.get_mut(&1).unwrap().pips = 1;
@@ -557,7 +534,6 @@ fn a_friend_reaches_a_bubble_and_a_lone_fall_is_a_quick_retry() {
     assert!(n <= WIPE_TICKS as usize + 2, "back after {n} ticks");
     assert_eq!(solo.k(1).body.foot().1, cell_feet(info().start).1);
     assert!(solo.k(1).pips >= 4);
-    // The world kept its progress: the snuffer that struck is still there.
     assert!(solo.s.foes.iter().any(|f| f.kind == FoeKind::Snuffer));
     let _ = BUBBLE_TICKS;
 }
@@ -592,7 +568,6 @@ fn a_raised_shield_is_a_ledge_for_a_friend_and_springs_them_higher() {
     let mut t = Table::new(2);
     t.put(1, HUB.at(12, 17));
     t.put(2, HUB.at(40, 17));
-    // Seat 2 stands with the shield up; seat 1 jumps without help, then with.
     t.idle(8);
     let mut own = 0;
     let y0 = t.k(1).body.foot().1;
@@ -671,7 +646,6 @@ fn the_course_board_starts_the_party_where_the_choice_says() {
     t.s.award(0, None, &mut Vec::new());
     t.s.award(1, None, &mut Vec::new());
     t.idle(2);
-    // E at the courtyard door opens the board for everyone.
     let arch = info().arch;
     t.put(1, arch);
     t.tick(&[(
@@ -683,7 +657,6 @@ fn the_course_board_starts_the_party_where_the_choice_says() {
     )]);
     assert_eq!(t.s.phase, Phase::Select);
     assert_eq!(t.s.cursor, 0, "the first banner not raised: the marsh flag");
-    // Another seat moves the cursor down; the third takes the choice.
     t.tick(&[(2, inp(0, false, true))]);
     assert_eq!(t.s.cursor, 1);
     t.tick(&[]);
@@ -701,13 +674,11 @@ fn the_course_board_starts_the_party_where_the_choice_says() {
         assert!((x - cell_feet(mill).0).abs() <= 30 && y == cell_feet(mill).1, "seat {id}");
     }
     assert_eq!(t.s.checkpoint, 3);
-    // The summit line is locked until its door opens.
     t.s.phase = Phase::Select;
     t.s.cursor = 5;
     t.s.phase_t = super::session::SELECT_TICKS - 1;
     t.tick(&[]);
     assert_eq!(t.s.phase, Phase::Select, "the summit door is shut");
-    // A board nobody answers takes the cursor's line after its time.
     t.s.cursor = 0;
     t.s.phase_t = super::session::SELECT_TICKS - 1;
     t.tick(&[]);
@@ -724,7 +695,6 @@ fn more_seats_bring_more_foes_and_never_fewer() {
     assert!(counts[2] > counts[1], "three adds some: {counts:?}");
     assert!(counts[3] > counts[2], "five adds more: {counts:?}");
     assert_eq!(counts[3], counts[4]);
-    // A knight who joins mid-run scales the world once; leaving does not undo it.
     let mut t = Table::new(1);
     let base = t.s.foes.len();
     let mut r = Run::bannerpeak_for_test();
@@ -760,13 +730,11 @@ fn the_camera_leads_the_way_and_never_loses_the_knight() {
     let sx = k.body.foot().0 - k.cam.0;
     assert!(sx < 192 - 8, "running right, the view leads ahead: knight at {sx}");
     assert!(worst.0 >= 90 && worst.1 <= 300, "never near the edge: {worst:?}");
-    // Running left, it swings the other way.
     for _ in 0..80 {
         t.tick(&[(1, inp(-1, false, false))]);
     }
     let k = t.k(1);
     assert!(k.body.foot().0 - k.cam.0 > 192 + 8, "leads left");
-    // A long fall pulls the view down after the knight.
     let (x, y) = cell_feet(HUB.at(30, 3));
     {
         let k = t.s.seats.get_mut(&1).unwrap();
@@ -808,10 +776,6 @@ fn the_world_is_the_party_s_and_a_retry_keeps_its_progress() {
     assert_eq!(t.s.tile(spent.0, spent.1), Tile::Spent);
 }
 
-
-
-
-/// Bots at the table: every seat's keys from `bot_input`.
 fn bots(t: &mut Table, ticks: usize) {
     for _ in 0..ticks {
         let keys: Vec<(u32, Input)> = t
@@ -824,8 +788,6 @@ fn bots(t: &mut Table, ticks: usize) {
     }
 }
 
-/// A table of `seats` bots at the start of a stage: the banners and sparks
-/// earned before it, standing at its gate.
 fn stage(seats: u32, banners: u8, sparks: u8, gate: usize) -> Table {
     let mut t = Table::new(seats);
     t.s.banners = banners;
@@ -841,7 +803,6 @@ fn stage(seats: u32, banners: u8, sparks: u8, gate: usize) -> Table {
     t
 }
 
-/// Bots at the table until `done`, at most `limit` ticks: the ticks taken.
 fn until(t: &mut Table, limit: usize, done: impl Fn(&Session) -> bool) -> usize {
     for n in 0..limit {
         if done(&t.s) {
@@ -919,8 +880,6 @@ fn the_bot_beats_king_cinder_at_any_table() {
 #[test]
 fn a_party_that_missed_a_ring_spark_goes_back_for_it_by_the_board() {
     for seats in [1, 3] {
-        // Snow behind them, the marsh's spark over the bog never taken, the
-        // summit door shut: back to the last gate, E, the board, the marsh.
         let mut t = stage(seats, 0b11_1111, 0xFF & !0b10, 6);
         assert_eq!(t.s.doors & 2, 0);
         let ticks = until(&mut t, 3000, |s| s.doors & 2 != 0);
@@ -930,7 +889,6 @@ fn a_party_that_missed_a_ring_spark_goes_back_for_it_by_the_board() {
     }
 }
 
-/// The whole adventure, every knight a bot, from the door to the finale.
 fn whole(seats: u32) -> (usize, Table) {
     let mut t = Table::new(seats);
     let ticks = until(&mut t, 12000, |s| s.completed.is_some());
@@ -945,12 +903,10 @@ fn whole_checks(seats: u32, limit: usize) {
     assert_eq!((t.s.banners, t.s.sparks), (0xFF, 0xFF));
     assert!(t.s.boss.defeated() && t.s.phase == Phase::Finale);
     assert_eq!(t.s.seats.len(), seats as usize);
-    // The finale is at the Great Pole, every knight home.
     let pole = layout::cell_feet(info().great_pole).0;
     for k in t.s.seats.values() {
         assert!((k.body.foot().0 - pole).abs() < 120, "at the pole");
     }
-    // What it saves and reads back.
     let back: Session = serde_json::from_str(&serde_json::to_string(&t.s).unwrap()).unwrap();
     assert_eq!(back, t.s);
 }
@@ -979,8 +935,6 @@ fn a_scripted_six_clear_the_adventure() {
 
 #[test]
 fn a_raised_shield_gets_a_friend_up_to_the_tower_roof() {
-    // The roof is seven tiles up: past a plain jump, a run jump and nearly a
-    // triple. A friend with the shield up is a step, and a spring.
     let roof_edge = (HUB.ox + 56) * TILE;
     let roof_y = (HUB.oy + 11) * TILE;
     let mut t = Table::new(2);
@@ -994,8 +948,6 @@ fn a_raised_shield_gets_a_friend_up_to_the_tower_roof() {
         t.tick(&[(2, brace)]);
     }
     assert_eq!(t.k(2).body.mode, Move::Brace);
-    // The other knight comes down on the raised shield, then springs off it
-    // toward the roof.
     let (sx, _) = t.k(2).body.foot();
     {
         let k = t.s.seats.get_mut(&1).unwrap();
@@ -1026,7 +978,6 @@ fn a_raised_shield_gets_a_friend_up_to_the_tower_roof() {
 
 #[test]
 fn the_bell_boulder_comes_quicker_and_in_twos_for_a_fuller_table() {
-    // (ticks between boulders, pixels they roll in a tick, most at once)
     let mut seen = Vec::new();
     for seats in [1u32, 2, 4, 6] {
         let mut t = Table::new(seats);
@@ -1039,7 +990,6 @@ fn the_bell_boulder_comes_quicker_and_in_twos_for_a_fuller_table() {
         let mut most = 0;
         let mut was = 0usize;
         for n in 0..1400 {
-            // The knights stand and are not hurt: the clock is what counts.
             for k in t.s.seats.values_mut() {
                 k.hurt = 70;
             }
@@ -1080,7 +1030,6 @@ fn a_bell_boulder_hurts_from_the_side_and_is_a_springboard_from_above() {
         }
     }
     assert!(t.k(1).hurt > 0 && t.k(1).pips == START_PIPS - 1, "knocked");
-    // From above: a bounce, no wedge.
     let mut t = Table::new(1);
     t.s.foes.clear();
     t.s.boulders.push(super::foes::Boulder {
@@ -1088,7 +1037,6 @@ fn a_bell_boulder_hurts_from_the_side_and_is_a_springboard_from_above() {
         t: 0,
     });
     {
-        // A hand above the boulder's top, falling onto it.
         let (x, _) = cell_feet(SNOW.at(40, 4));
         let k = t.s.seats.get_mut(&1).unwrap();
         k.body.place(x, layout::SNOW_FLOOR * TILE - 30);
@@ -1102,11 +1050,6 @@ fn a_bell_boulder_hurts_from_the_side_and_is_a_springboard_from_above() {
     }
     assert!(bounced && t.k(1).pips == START_PIPS, "sprang off the top");
 }
-
-// ---------------------------------------------------------------------
-// The tuning sweeps (`cargo test -p angel-delve --lib write_bannerpeak_tuning
-// -- --ignored --nocapture`): each knob across its F2 range with the others at
-// their shipped values, the scripted party playing the whole adventure.
 
 fn sweep_whole(seats: u32, knobs: Knobs) -> Option<usize> {
     let mut t = Table::new(seats);
@@ -1151,8 +1094,6 @@ fn write_bannerpeak_tuning() {
     }
 }
 
-/// How many of a ring of snuffers a slam beats, by how far each stood from
-/// where the knight landed: the radius knob's reach.
 #[test]
 #[ignore = "prints the tuning table's slam rows"]
 fn write_bannerpeak_slam_reach() {
@@ -1191,9 +1132,6 @@ fn write_bannerpeak_slam_reach() {
     }
 }
 
-/// The shield a friend stands on is held as long as the friend needs it. The
-/// stance's own clock must never count the session out: a host that stops
-/// being valid is one every other screen refuses to draw.
 #[test]
 fn a_shield_held_past_the_old_clock_keeps_the_session_valid() {
     let mut t = Table::new(2);
@@ -1209,7 +1147,6 @@ fn a_shield_held_past_the_old_clock_keeps_the_session_valid() {
     assert_eq!(t.k(2).body.mode, Move::Brace, "the hold really was a hold");
 }
 
-/// A table left at the Great Pole after the finale, for as long as it likes.
 #[test]
 fn a_table_idling_at_the_pole_past_the_limit_stays_valid() {
     let mut t = Table::new(2);
@@ -1224,9 +1161,6 @@ fn a_table_idling_at_the_pole_past_the_limit_stays_valid() {
     }
 }
 
-/// A velocity no sim reaches is a velocity `valid` refuses, the smallest
-/// number included: its absolute value does not fit, and a check built on
-/// `abs()` would let it through in a release build.
 #[test]
 fn the_smallest_velocity_is_not_a_valid_one() {
     let mut t = Table::new(1);

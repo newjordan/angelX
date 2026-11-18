@@ -119,7 +119,6 @@ fn write_quick_rig_shots() {
                 sample.index,
                 sample.pivot()
             ));
-            // This is the same public arena path used by production windows.
             let arena = frame(&run, NATIVE_W, NATIVE_H);
             let (cx, cy) = frame_px(&run, NATIVE_W, NATIVE_H, None, hero.x, hero.y);
             let mut close = Img::new(64, 64);

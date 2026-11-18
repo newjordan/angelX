@@ -15,40 +15,24 @@ use crate::ui::term::art::{ColoredBrailleCell, ColoredBrailleImage};
 use crate::ui::viz::lifecycle_viz::MotionMode;
 use std::time::Instant;
 
-/// The pen's left origin and the frontier (where the wizard stands), as
-/// fractions of the canvas width; the base and summit heights as fractions of
-/// its height. The same framing as the intro's ascent.
 const X_ORIGIN: f32 = 0.06;
 const X_FRONTIER: f32 = 0.84;
 const X_GROUND_END: f32 = 0.92;
 const Y_BASE: f32 = 0.89;
 const Y_SUMMIT: f32 = 0.43;
-/// A discovery's rise takes this share of the width before its point, so the
-/// line climbs like the intro's slopes while the shelves stay flat.
 const RISE_WIDTH: f32 = 0.018;
-/// The line scale never tops out below this many discoveries, so one early
-/// finding reads as a first step rather than the summit.
 const MIN_SCALE: usize = 4;
-/// Seconds to trace the whole line on first sight, and to draw a new rise.
 const TRACE_SECS: f32 = 2.0;
 const RISE_SECS: f32 = 1.2;
-/// The wizard's walk onto the frontier once the first trace is done.
 const WALK_SECS: f32 = 2.0;
-/// The wizard's height as a share of the canvas: he fits the headroom above
-/// the summit shelf.
 const WIZARD_HEIGHT: f32 = 0.34;
 
-/// One discovery on the run's clock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Discovery {
     pub(crate) offset_ms: u64,
-    /// A measurement or submission rather than a finding: marked on the line.
     pub(crate) measured: bool,
 }
 
-/// The run's discoveries in time order: admitted findings by their stamp,
-/// measured candidates and submissions by their record time. Findings
-/// admitted before stamping existed have no time and are left out.
 pub(crate) fn discoveries(st: &LoopState) -> Vec<Discovery> {
     let start = st.started_ms;
     let offset = |at_ms: u64| at_ms.saturating_sub(start);
@@ -78,7 +62,6 @@ pub(crate) fn discoveries(st: &LoopState) -> Vec<Discovery> {
     out
 }
 
-/// `+12s`, `+4m07s`, `+1h02m`: an offset from the run's start.
 pub(crate) fn offset_label(ms: u64) -> String {
     let secs = ms / 1000;
     match secs {
@@ -88,17 +71,11 @@ pub(crate) fn offset_label(ms: u64) -> String {
     }
 }
 
-/// How much of the line is drawn in, and where the wizard is.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Reveal {
-    /// Discoveries already drawn in full; later ones draw with `progress`.
-    /// `None` traces the whole line from the origin (first sight).
     pub(crate) settled: Option<usize>,
-    /// 0..=1 through the current trace or rise.
     pub(crate) progress: f32,
-    /// `Some` while the wizard walks on from the right (0..=1).
     pub(crate) walk_in: Option<f32>,
-    /// Idle pose (0..8): the wind in the cloak and hat.
     pub(crate) idle_pose: u8,
 }
 
@@ -113,7 +90,6 @@ impl Reveal {
     }
 }
 
-/// Per-view motion: what the viewer has seen of which run.
 #[derive(Debug, Default)]
 pub(crate) struct PlotMotion {
     run: String,
@@ -124,7 +100,6 @@ pub(crate) struct PlotMotion {
 }
 
 impl PlotMotion {
-    /// Advance to `total` discoveries of run `run` and say what to draw.
     pub(crate) fn observe(
         &mut self,
         run: &str,
@@ -143,7 +118,6 @@ impl PlotMotion {
             return Reveal::still(total);
         }
         if self.run != run {
-            // A run seen for the first time is traced in whole, as the intro is.
             *self = Self {
                 run: run.to_string(),
                 shown: total,
@@ -186,15 +160,12 @@ impl PlotMotion {
     }
 }
 
-/// The idle wind cycle, four poses a second off the process clock.
 fn wind_pose(now: Instant) -> u8 {
     static EPOCH: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
     let epoch = *EPOCH.get_or_init(Instant::now);
     ((now.saturating_duration_since(epoch).as_millis() / 250) % 8) as u8
 }
 
-/// Compose the plotline on a `columns` × `rows` Braille canvas (each cell is
-/// 2 × 4 dots). `elapsed_ms` is the frontier's offset from the run's start.
 pub(crate) fn compose(
     discoveries: &[Discovery],
     elapsed_ms: u64,
@@ -225,8 +196,6 @@ pub(crate) fn compose(
     let x_at = |offset_ms: u64| X_ORIGIN + (offset_ms as f32 / span) * (X_FRONTIER - X_ORIGIN);
     let y_at = |count: usize| Y_BASE - (count as f32 / scale) * (Y_BASE - Y_SUMMIT);
 
-    // The contour: flat shelves, and a short climb into each discovery.
-    // `owner[i]` is how many discoveries are complete at vertex i.
     let mut vertices = vec![(X_ORIGIN, Y_BASE)];
     let mut owner = vec![0usize];
     let mut marks = Vec::new();
@@ -246,8 +215,6 @@ pub(crate) fn compose(
     vertices.push((X_GROUND_END, y_at(total)));
     owner.push(total);
 
-    // Settled segments are drawn whole; the rest trace in with `progress`,
-    // measured along their length as the intro's pen is.
     let segments: Vec<((f32, f32), (f32, f32), usize)> = vertices
         .windows(2)
         .zip(owner.windows(2))
@@ -262,7 +229,6 @@ pub(crate) fn compose(
         .sum();
     let mut budget = pending * reveal.progress.clamp(0.0, 1.0);
     let mut frontier = (X_ORIGIN, Y_BASE);
-    // Discoveries whose point the pen has reached: their marks show.
     let mut reached = 0;
     for (a, b, owner) in &segments {
         if is_settled(*owner) {
@@ -295,7 +261,6 @@ pub(crate) fn compose(
         budget -= whole;
     }
 
-    // A measurement or submission wears a small open ring where it landed.
     for (owner, (x, y)) in marks {
         if owner > reached {
             continue;
@@ -315,9 +280,6 @@ pub(crate) fn compose(
         }
     }
 
-    // The wizard stands at the frontier on the current shelf; while a rise
-    // draws in he climbs with the pen, and on first sight he walks on from
-    // the right once the trace is done.
     let traced = reveal.progress >= 1.0 || reveal.settled == Some(total);
     let ground_y = if traced { y_at(total) } else { frontier.1 };
     let wizard_x = match reveal.walk_in {
@@ -328,13 +290,11 @@ pub(crate) fn compose(
     if let Some(x) = wizard_x {
         let (wx, wy) = point(x, ground_y);
         let walking = reveal.walk_in.is_some_and(|walk| walk < 1.0) || !traced;
-        // The intro's gait: a new pose every third of its 24 walking ticks.
         let pose = match reveal.walk_in {
             Some(walk) if walk < 1.0 => ((walk * 24.0) as u8 / 3) % 8,
             _ if !traced => ((reveal.progress * 24.0) as u8 / 3) % 8,
             _ => reveal.idle_pose,
         };
-        // Sized to the headroom above the summit, as tall as the chart allows.
         let height = (dot_h * WIZARD_HEIGHT).max(12.0);
         draw_wizard_sized(&mut image, wx, wy - 1, height, pose, !walking, 255);
     }

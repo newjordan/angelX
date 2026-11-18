@@ -1,12 +1,6 @@
 import Base
 import ./math.bend as M
 
-# The ride's whole state is one persistent array of 32-bit slots: a binary tree
-# of depth 11, 2048 slots, read and written by index. A slot holds a U32; a
-# signed number is the same bits, a flag is 0 or 1. The host lays the session
-# out into slots on the way in and reads it back on the way out (index.js), so
-# a rule here is `Sl -> Sl`, and the Rust session never has a second owner.
-
 type Sl is Data:
   Lf{v: U32}
   Nd{lo: Sl, hi: Sl}
@@ -34,22 +28,18 @@ def set_go(+n: Nat, +t: Sl, +i: U32, +x: U32) -> Sl:
     case _ _:
       t
 
-# The slot at `i`, and the array with slot `i` set to `v`.
 def g(+t: Sl, +i: U32) -> U32:
   get_go(11n, t, i)
 
 def p(+t: Sl, +i: U32, +v: U32) -> Sl:
   set_go(11n, t, i, v)
 
-# Add `d` to slot `i`.
 def add(+t: Sl, +i: U32, +d: U32) -> Sl:
   p(t, i, (g(t, i) + d : U32))
 
-# A choice between two arrays.
 def pks(+c: Bool, +a: Sl, +b: Sl) -> Sl:
   Bool.pick(Sl, c, a, b)
 
-# An array of zeros of the given depth.
 def zeros(+n: Nat) -> Sl:
   match n:
     case 0n:

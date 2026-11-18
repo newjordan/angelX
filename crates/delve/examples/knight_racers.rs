@@ -24,32 +24,20 @@ use std::fmt::Write as _;
 use std::io::{self, Write as _};
 use std::{error::Error, time::Duration};
 
-/// The game: a looped circuit, the racing rules, the rivals and the terminal.
 #[path = "knight_racers/play.rs"]
 mod play;
-
-// The art (racers, knights, the dungeon and the canyon, their light) is the
-// library's (`angel_delve::render::racers`), shared with the cockpit's loop card.
 
 const CELLS: (usize, usize) = (120, 40);
 const DOTS: (usize, usize) = (CELLS.0 * 2, CELLS.1 * 4);
 const FRAMES: usize = 96;
 const FPS: f32 = 24.0;
-/// A lean dump keeps every this-many-th race frame (all three camera shots).
 const KEY_EVERY: usize = 8;
-/// The PNG of a braille frame: one dot is DOT pixels square on a PITCH grid.
 const DOT: usize = 4;
 const PITCH: usize = 5;
 
-// ---------------------------------------------------------------- one frame
-
-/// One braille cell: its dots, the ink they are drawn in, and the ground. A
-/// `ch` other than a space (the game's lettering) is drawn in place of the dots.
 #[derive(Clone, Copy)]
 struct Cell { bits: u8, ch: char, fg: [u8; 3], bg: [u8; 3] }
 
-/// A frame and every buffer it takes, kept between frames: the race's
-/// flat-shaded raster at dot resolution and the braille cells made from it.
 struct Shot { course: Course, raster: Raster, cells: Vec<Cell> }
 
 impl Shot {
@@ -57,16 +45,12 @@ impl Shot {
         Shot { course, raster: Raster::new(course, DOTS.0, DOTS.1), cells: Vec::with_capacity(CELLS.0 * CELLS.1) }
     }
 
-    /// `scene` is the track, then each racer with its place in RACERS.
     fn take(&mut self, scene: &[(&Mesh, Option<usize>)], v: &View3) {
         self.raster.course = self.course;
         self.raster.draw(scene, v);
         self.braille();
     }
 
-    /// Two-tone braille: each 2x4 cell splits into its brighter and darker
-    /// halves; the cell ground carries one, the dots the other. Hell draws
-    /// light dots on a dark ground, the canyon dark ink on pale paper.
     fn braille(&mut self) {
         let hell = self.course == Course::Hell;
         self.cells.clear();
@@ -94,7 +78,6 @@ impl Shot {
         }
     }
 
-    /// The frame as terminal text: truecolor SGR only where the colours change.
     fn ansi(&self, out: &mut String) {
         for row in self.cells.chunks(CELLS.0) {
             let (mut fg, mut bg) = (None, None);
@@ -119,7 +102,6 @@ impl Shot {
         }
     }
 
-    /// The cells painted as a terminal would, each dot a lit square.
     fn cells_png(&self) -> RgbImage {
         let (cw, ch) = (2 * PITCH, 4 * PITCH);
         let width = CELLS.0 * cw;
@@ -145,7 +127,6 @@ impl Shot {
         out
     }
 
-    /// Write this frame as `stem_term.png`; with `all`, also `stem.ans` and `stem_raster.png`.
     fn save(&self, dir: &str, stem: &str, all: bool, text: &mut String) -> Result<(), Box<dyn Error>> {
         let create = |ext: &str| {
             let path = format!("{dir}/{stem}{ext}");
@@ -166,9 +147,6 @@ impl Shot {
     }
 }
 
-// ---------------------------------------------------------------- main
-
-/// The race: live in the terminal, or its frames written under `dump`.
 fn race(course: Course, dump: Option<&str>, all: bool, out: &mut io::StdoutLock) -> Result<(), Box<dyn Error>> {
     let world = course.world();
     let (mut shot, mut movers, mut text) = (Shot::new(course), [Mesh::new(), Mesh::new(), Mesh::new(), Mesh::new()], String::new());
@@ -194,7 +172,6 @@ fn race(course: Course, dump: Option<&str>, all: bool, out: &mut io::StdoutLock)
     }
     if let Some(dir) = dump {
         for (i, r) in RACERS.iter().enumerate() {
-            // each racer on its own, from one angle
             movers[0].tris.clear();
             racer(&mut movers[0], i, 0.3, V3::ZERO);
             shot.take(&[(&world, None), (&movers[0], Some(i))], &sheet_view(course));
@@ -217,8 +194,6 @@ fn run(course: Course, dump: Option<&str>, all: bool) -> Result<(), Box<dyn Erro
     done
 }
 
-/// The loop card's films (`racers::card`) as PNG frames under `dir`, at the
-/// sizes a 10 by 22 pixel cell gives them on the card.
 fn card(dir: &str) -> Result<(), Box<dyn Error>> {
     use angel_delve::render::racers::card;
     std::fs::create_dir_all(dir).map_err(|e| format!("{dir}: {e}"))?;
@@ -290,7 +265,6 @@ fn main() {
         run(course, dump.as_deref(), all)
     };
     if let Err(e) = result {
-        // a closed pipe (`| head`) is the reader saying enough
         if e.downcast_ref::<io::Error>().is_none_or(|e| e.kind() != io::ErrorKind::BrokenPipe) {
             eprintln!("knight_racers: {e}");
             std::process::exit(1);

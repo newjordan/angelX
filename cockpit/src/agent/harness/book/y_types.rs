@@ -86,9 +86,6 @@ pub(crate) const PRIMARY: Primary = Primary {
     ],
 };
 
-/// The interactive cockpit's entry warpath: the cockpit type, then its lane
-/// routes (Treebeard). The session's verified capabilities are the `⠝⠁`
-/// evidence.
 pub(crate) fn cockpit_entry(
     workspace: &Path,
     specialists: &[(String, String)],
@@ -101,14 +98,12 @@ pub(crate) fn cockpit_entry(
         record_routes(workspace, specialists, o_orchestration::ROUTES);
         COCKPIT_TEAM
     };
-    // The capabilities ride inside the type; only their evidence is recorded.
     super::ledger::record(workspace, n_environment::CAPABILITIES, capabilities);
     let mut raises = vec![Raise::new(kind, None)];
     raises.extend(lanes.iter().map(|lane| Raise::new(*lane, None)));
     warpath(workspace, &raises)
 }
 
-/// Configured delegate routes (`label`, role) as the `listed` section's evidence.
 fn record_routes(workspace: &Path, specialists: &[(String, String)], listed: Route) {
     let routes = specialists
         .iter()
@@ -118,9 +113,6 @@ fn record_routes(workspace: &Path, specialists: &[(String, String)], listed: Rou
     super::ledger::record(workspace, listed, &routes);
 }
 
-/// The entry warpath: the personality type, then a headless task's pace and
-/// its repair discipline. Configured delegate routes (`label`, role) are the
-/// `⠕⠃` / `⠕⠋` evidence.
 pub(crate) fn entry(
     workspace: &Path,
     specialists: &[(String, String)],

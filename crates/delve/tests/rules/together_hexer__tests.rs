@@ -1,7 +1,5 @@
 use super::*;
 
-/// Floor one of the Crypt, its first fight room emptied and calmed, knight
-/// one standing on the left.
 fn quiet_room() -> Run {
     let mut run = Run::new(4, 1, None);
     run.begin_in(Pack::Crypt);
@@ -11,7 +9,6 @@ fn quiet_room() -> Run {
         .iter()
         .position(|r| r.kind == RoomKind::Fight)
         .unwrap();
-    // An open room: whatever stone or pits the floor gave it, cleared.
     let open = &mut run.dungeon.rooms[room];
     for row in 1..open.rows - 1 {
         for col in 1..open.cols - 1 {
@@ -39,7 +36,6 @@ fn a_hexed_knight_is_a_frog_that_can_only_hop() {
     assert!(run.players[&1].frog());
     assert!(run.cues.iter().any(|c| c == "hexed"));
     assert_eq!(run.found.as_ref().map(|f| f.2.as_str()), Some("Ribbit."));
-    // It neither shoots, nor rolls.
     let shoot = keys(Input {
         fire: true,
         aim_x: 1,
@@ -54,7 +50,6 @@ fn a_hexed_knight_is_a_frog_that_can_only_hop() {
         "a frog looses nothing"
     );
     assert_eq!(run.players[&1].rolling(), None, "nor rolls");
-    // It hops, slowly.
     let walk = |frog: bool| {
         let mut run = quiet_room();
         if frog {

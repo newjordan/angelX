@@ -55,9 +55,6 @@ mod research_bridge;
 pub(crate) mod research_live;
 pub(crate) use loop_campaign::LoopCampaignContext;
 
-/// Learned-policy entry in the workspace's continual-harness store. Later
-/// ordinary and headless turns consume it through
-/// [`crate::drive::continual_harness::context_block`].
 pub(crate) const RL_POLICY_ENTRY_ID: &str = "rl-policy";
 const RL_POLICY_TITLE_PREFIX: &str = "RL policy v";
 
@@ -67,8 +64,6 @@ const DEFAULT_SAMPLES: usize = 2;
 const LOG_TAIL: usize = 8;
 const POINT_CAP: usize = 2_048;
 const RUN_SCHEMA: &str = "angel.rl-campaign/v1";
-/// Technical-release cohorts require a floor of at least 0.80; a command-success
-/// objective is binary per sample, so the floor is where it belongs.
 const OBJECTIVE_ABSOLUTE_FLOOR: f32 = 0.80;
 
 fn objective_promotion_config(samples: usize, cases: usize) -> PromotionConfig {
@@ -85,21 +80,13 @@ fn objective_promotion_config(samples: usize, cases: usize) -> PromotionConfig {
 fn reinforce_config(group: usize) -> ReinforceConfig {
     ReinforceConfig {
         group_size: group,
-        // Every sample is a real agent attempt; do not dispatch extra attempts
-        // only to prune them for latency.
         oversample: 0.0,
         staleness_budget: 1,
-        // Timing-based pruning is disabled for this path: a thorough coding
-        // attempt is never thrown away for having taken longer. Keep its actual
-        // latency in the measured record.
         straggler_factor: 0.0,
         success_threshold: 1.0,
     }
 }
 
-/// A campaign is a single long-lived model workflow. Carry its caller's book
-/// generation into the worker, or pin one published generation for an
-/// independently launched UI campaign before making any campaign artifacts.
 fn campaign_book() -> Result<Arc<crate::agent::harness::book::catalog::Catalog>, String> {
     use crate::agent::harness::book::catalog::{Catalog, current};
     current()
@@ -129,11 +116,6 @@ pub(crate) enum RlMode {
     Campaign,
 }
 
-/// One measured attempt: reward is the operator's verifier verdict on that
-/// attempt's work, and `latency_ms` is that attempt's real cost —
-/// generation time (measured around the attempt) plus the physical verifier's
-/// wall time for the same sample. Both come from recorded measurements; nothing
-/// here is synthesised, rounded up to a floor, or guessed.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct RunPoint {
     pub step: usize,
@@ -144,9 +126,6 @@ pub(crate) struct RunPoint {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct RunProgress {
     pub points: Vec<RunPoint>,
-    /// The objective this campaign was launched with, exactly as the operator
-    /// spelled it. The stage and `/rl status` show it, so an expensive run is
-    /// auditable while it is still going.
     pub objective: Option<LaunchedObjective>,
     pub planned_attempts: usize,
     pub log_tail: VecDeque<String>,
@@ -195,8 +174,6 @@ impl RunProgress {
         self.observed.max(self.points.len())
     }
 
-    /// Rebuild the curve from a durable record (the `/rl` stage opening on real
-    /// history) without inventing a per-attempt count.
     pub(crate) fn replace_points(&mut self, points: Vec<RunPoint>) {
         self.points.clear();
         self.observed = 0;
@@ -218,8 +195,6 @@ impl RunProgress {
     }
 }
 
-/// What the campaign actually produced. Every field is a measurement or a
-/// durable artifact path.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct CampaignOutcome {
     pub attempted: usize,
@@ -230,25 +205,19 @@ pub(crate) struct CampaignOutcome {
     pub policy_version: u64,
     pub decision: String,
     pub mean_delta: Option<f32>,
-    /// True when an independently authored audit case approved a release.
     pub validated: bool,
-    /// Whether an independently authored audit case was supplied at all.
     pub audit_supplied: bool,
     pub release_sha256: Option<String>,
     pub solve_rate: Option<f32>,
     pub advantage_variance: Option<f32>,
     pub reflection: bool,
-    /// Continual-harness entry holding the installed policy note.
     pub accepted_entry: Option<String>,
-    /// Refinement event recording the install (`/refine rollback <event>`).
     pub accepted_event: Option<String>,
     pub report_path: String,
     pub route: RouteIdentity,
     pub wall_s: f32,
 }
 
-/// What a running campaign was launched with: the selection cases, the audit
-/// cases and the declared verifier scope, all verbatim.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct LaunchedObjective {
     pub cases: Vec<RlCase>,
@@ -256,10 +225,6 @@ pub(crate) struct LaunchedObjective {
     pub verifier_scope: Vec<String>,
 }
 
-/// One case: a task and the verifiable check that measures it. Selection cases
-/// run over the campaign workspace; an audit case names its own source scope so
-/// the audit is a genuinely independent objective rather than a relabelled
-/// repeat of the selection case.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RlCase {
     pub id: String,
@@ -268,16 +233,10 @@ pub(crate) struct RlCase {
     pub source: Option<PathBuf>,
 }
 
-/// Operator-selected campaign shape.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RlPlan {
     pub cases: Vec<RlCase>,
-    /// Independently authored audit case(s). Empty = measured exploration only.
     pub audit: Vec<RlCase>,
-    /// Verifier-owned inputs (relative to each case's frozen source). The
-    /// candidate may author code and tests outside these paths, but it may not
-    /// modify what judges it — which is what makes a passing verifier evidence
-    /// rather than a claim the candidate authored about itself.
     pub verifier_scope: Vec<String>,
     pub rounds: usize,
     pub group: usize,
@@ -285,17 +244,11 @@ pub(crate) struct RlPlan {
 }
 
 impl RlPlan {
-    /// Parse the operator's raw `/rl run` command line: quoting is resolved by
-    /// [`split_command_args`] first, so a multiword `--task` or `--verify` (or an
-    /// audit source path with spaces) reaches the parser exactly as typed.
     pub(crate) fn parse_command_line(workspace: &Path, raw: &str) -> Result<Self, String> {
         let args = split_command_args(raw)?;
         Self::parse(workspace, &args)
     }
 
-    /// Parse already-split `/rl run` arguments, falling back to the workspace's
-    /// configured objective. Never invents a task: when nothing is configured
-    /// the error names exactly what the operator has to supply.
     pub(crate) fn parse(workspace: &Path, args: &[String]) -> Result<Self, String> {
         let mut task: Option<String> = None;
         let mut verify: Option<String> = None;
@@ -418,22 +371,6 @@ impl RlPlan {
     }
 }
 
-/// Operator-selected shape: any positive value is accepted. Only zero is
-/// rejected, because a campaign with no rounds or no samples is not a smaller
-/// campaign, it is an undefined one.
-/// Split a `/rl run` command line into arguments without running anything.
-///
-/// The rules are deliberately small and lossless:
-/// * whitespace separates arguments outside quotes;
-/// * single quotes hold their contents literally until the next single quote;
-/// * double quotes hold their contents literally, honouring an escaped quote and
-///   an escaped backslash;
-/// * outside quotes a backslash escapes the next character, so a path with a
-///   space can also be written escaped;
-/// * nothing is expanded, globbed, substituted, comment-stripped or rewritten —
-///   a verifier command keeps its inner shell syntax intact;
-/// * an unterminated quote is an error the operator can act on, raised before
-///   anything is frozen or launched.
 pub(crate) fn split_command_args(raw: &str) -> Result<Vec<String>, String> {
     let mut words: Vec<String> = Vec::new();
     let mut word = String::new();
@@ -511,8 +448,6 @@ pub(crate) fn split_command_args(raw: &str) -> Result<Vec<String>, String> {
     Ok(words)
 }
 
-/// Split the command verb (`run`, `stop`, `status`) from the rest of the line
-/// without disturbing the remainder's quoting.
 pub(crate) fn split_command_verb(raw: &str) -> (&str, &str) {
     let trimmed = raw.trim_start();
     match trimmed.find(char::is_whitespace) {
@@ -559,10 +494,6 @@ fn parse_case(raw: &str, prefix: &str, ordinal: usize) -> Result<RlCase, String>
     })
 }
 
-/// An audit case must name its own source scope: the release gate refuses an
-/// audit whose frozen source, verifier or inventory identity overlaps the
-/// selection cohort, so a repeat of the same objective can never be presented
-/// as independent generalization.
 fn parse_audit_case(raw: &str, ordinal: usize) -> Result<RlCase, String> {
     let mut parts = raw.splitn(3, "::");
     let task = parts.next().map(str::trim).unwrap_or_default();
@@ -620,12 +551,6 @@ fn configured_cases(workspace: &Path) -> Result<Vec<RlCase>, String> {
     }])
 }
 
-// ---------------------------------------------------------------------------
-// Generator: the selected club does the real work
-// ---------------------------------------------------------------------------
-
-/// Prefix marking a candidate receipt; the case evaluator resolves the attempt
-/// directory from it and refuses anything outside the campaign's attempt root.
 const ATTEMPT_MARKER: &str = "attempt ";
 
 struct CodingPolicyGenerator {
@@ -659,17 +584,13 @@ impl CodingPolicyGenerator {
         let attempt = self
             .attempts_root
             .join(format!("attempt-{step:04}-v{version}"));
-        // Attempts start from the frozen case source: the case identity in the
-        // receipt describes exactly the bytes the work began from.
         let request = crate::agent::harness::LoopExperimentRequest {
             workspace: fixture.clone(),
             artifact_dir: attempt.clone(),
             task: task.to_string(),
-            // Productive work is uncapped by default; `/rl stop` is the bound.
             max_hops: 0,
             deadline_secs: 0,
             token_budget: 0,
-            // The evaluator owns measurement; the attempt only produces work.
             verify_command: None,
             policy_note: Some(policy_note.to_string()).filter(|note| !note.trim().is_empty()),
         };
@@ -709,8 +630,6 @@ impl CodingPolicyGenerator {
                 }
                 Candidate {
                     policy_version: version,
-                    // Real generation time for this attempt, measured here and
-                    // carried by the engine (never a placeholder zero).
                     latency: Duration::from_millis(latency_ms),
                     output,
                 }
@@ -728,8 +647,6 @@ impl Generator for CodingPolicyGenerator {
     }
 }
 
-/// A cancelled campaign reports the operator's stop, never a child's own
-/// wording for having been interrupted.
 fn cancellation_aware<T>(result: Result<T, String>, cancel: &AtomicBool) -> Result<T, String> {
     match result {
         Err(_) if cancel.load(Ordering::Acquire) => Err("stopped by operator".to_string()),
@@ -737,39 +654,20 @@ fn cancellation_aware<T>(result: Result<T, String>, cancel: &AtomicBool) -> Resu
     }
 }
 
-/// One attempt's measured cost for the stage: the recorded generation time plus
-/// the recorded verifier wall time. A generation time that was not recorded is
-/// reported as missing, never counted as zero work.
 fn attempt_cost_ms(generation_ms: Option<u64>, verification_ms: Option<u64>) -> u64 {
     generation_ms
         .unwrap_or(0)
         .saturating_add(verification_ms.unwrap_or(0))
 }
 
-/// Generation time recorded per attempt, keyed by [`receipt_key`]. The engine
-/// hands a reward only the candidate's text, so this in-process book keeps the
-/// generator's own measurement available when the training batch is scored. It
-/// is the same attempt identity the receipt already binds, not a second record.
 type TimingBook = Arc<Mutex<BTreeMap<String, u64>>>;
 
-/// Key that ties a candidate receipt back to the measurement of its attempt: the
-/// first receipt line names the attempt and is stable for the sample.
 fn receipt_key(receipt: &str) -> String {
     receipt.lines().next().unwrap_or_default().to_string()
 }
 
-/// Verdicts measured for this campaign's attempts, keyed by [`receipt_key`].
-/// Used only to show the reflector what the verifier actually said; the receipt
-/// stays the authoritative record.
 type VerdictBook = Arc<Mutex<BTreeMap<String, String>>>;
 
-// ---------------------------------------------------------------------------
-// Training reward: the operator's verifier, not the model's word
-// ---------------------------------------------------------------------------
-
-/// Measured reward for the training batch. Candidate text only names an attempt;
-/// the evaluator re-executes the operator's verifier over that attempt's working
-/// copy, so no score is ever read from model output.
 struct ObjectiveTrainingReward {
     evaluator: Arc<ObjectiveCaseEvaluator>,
     task: String,
@@ -806,9 +704,6 @@ impl Reward for ObjectiveTrainingReward {
                 (reward, verdict, generation_ms, Some(verification_ms))
             }
         };
-        // Only a sample with a recorded measurement is charted: a scored
-        // evaluation that carries no timing is never drawn as a zero-cost
-        // attempt.
         if (generation_ms.is_some() || verification_ms.is_some())
             && let Ok(mut progress) = self.progress.lock()
         {
@@ -834,11 +729,8 @@ impl Reward for ObjectiveTrainingReward {
     }
 }
 
-/// Reflection through the club's own cancellation-aware call path, so `/rl stop`
-/// reaches a request that is already in flight rather than only the next one.
 struct CancellableReflector {
     club: Arc<dyn Club>,
-    /// The campaign's workspace: the ledger the connected seat reads.
     workspace: PathBuf,
     cancel: Arc<AtomicBool>,
     progress: Arc<Mutex<RunProgress>>,
@@ -846,9 +738,6 @@ struct CancellableReflector {
 }
 
 impl CancellableReflector {
-    /// The reflection prompt the reflector club sees: what the attempt did, plus
-    /// the physical verdict the evaluator measured for it. Its words are `⠠⠉`;
-    /// the task, the note and the attempts ride after their labels' addresses.
     fn prompt(&self, current_prompt: &str, task: &str, best: &str, worst: &str) -> String {
         let optimizer = crate::agent::harness::book::d6_long_run::OPTIMIZER.cells();
         let annotate = |output: &str| {
@@ -883,8 +772,6 @@ impl Reflector for CancellableReflector {
             return Err("campaign cancelled".into());
         }
         let prompt = self.prompt(current_prompt, task, best_output, worst_output);
-        // The reflector has no workspace tools: it is connected, so it reads
-        // its route through the ledger reader and answers in text.
         let improved = match crate::agent::harness::book::connect::chat(
             &*self.club,
             &self.workspace,
@@ -911,27 +798,15 @@ impl Reflector for CancellableReflector {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Campaign state
-// ---------------------------------------------------------------------------
-
-/// Where the /rl campaign stands. `RlState` keeps the mode flag, the outcome the
-/// worker thread writes into the shared progress, and the cancel flag apart;
-/// [`RlState::phase`] is the one place they are read together.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum CampaignPhase {
     Idle,
     Running,
-    /// A stop was requested but the worker has not settled yet, so the
-    /// campaign still holds its slot and a new one cannot start.
     Stopping,
-    /// An outcome is in, this session's or one read back from disk.
     Settled,
 }
 
 impl CampaignPhase {
-    /// The status word the model's `rl_campaign` tool reports. A stopping
-    /// campaign is still "running" there; `stop_requested` carries the rest.
     pub(crate) fn status_word(self) -> &'static str {
         match self {
             CampaignPhase::Idle => "idle",
@@ -975,7 +850,6 @@ impl RlState {
         }
     }
 
-    /// A campaign holds the slot until its worker settles, stop requested or not.
     pub fn running(&self) -> bool {
         matches!(
             self.phase(),
@@ -987,11 +861,6 @@ impl RlState {
         self.progress.lock().map(|p| p.clone()).unwrap_or_default()
     }
 
-    /// Cancel a running campaign. Every in-flight attempt and the reflector
-    /// observe the flag — including a request already on the wire and a verifier
-    /// process already running — so the run stops without installing a policy.
-    /// The campaign thread reports the stop itself once its children have ended;
-    /// nothing here claims completion on their behalf.
     pub fn stop(&mut self) -> bool {
         if self.phase() != CampaignPhase::Running {
             return false;
@@ -1007,10 +876,6 @@ impl RlState {
         self.run_dir.as_deref()
     }
 
-    /// Launch one campaign on the operator's selected club. Returns the
-    /// operator-facing launch line; all work happens on the campaign thread.
-    /// Test-only: the cockpit types a command line, so production enters through
-    /// `start_campaign_argv`.
     #[cfg(test)]
     pub fn start_campaign(
         &mut self,
@@ -1022,9 +887,6 @@ impl RlState {
         self.start_with_plan(plan, workspace, club)
     }
 
-    /// Launch a campaign from the raw command line the operator typed, split by
-    /// [`split_command_args`] so quoted multiword objectives and verifier
-    /// commands arrive exactly as written.
     pub fn start_campaign_argv(
         &mut self,
         workspace: &Path,
@@ -1053,7 +915,6 @@ impl RlState {
     ) -> Result<String, String> {
         let phase = self.phase();
         if matches!(phase, CampaignPhase::Running | CampaignPhase::Stopping) {
-            // The model's rl_campaign cannot type `/rl stop`; its own stop can.
             return Err(if owner.is_some() {
                 crate::agent::harness::book::ow_ledgers::CAMPAIGN_ACTIVE.into()
             } else if phase == CampaignPhase::Stopping {
@@ -1159,8 +1020,6 @@ fn new_run_id() -> String {
     )
 }
 
-/// Root of the durable campaign store. `ANGEL_RL_DIR` overrides it (tests and
-/// sandboxed runners must never write the operator's real `~/.angelX`).
 fn rl_root() -> PathBuf {
     match std::env::var("ANGEL_RL_DIR") {
         Ok(path) if !path.trim().is_empty() => PathBuf::from(path),
@@ -1173,10 +1032,6 @@ fn workspace_run_root(workspace: &Path) -> PathBuf {
         &crate::platform::workspace_store::repo_identity(workspace).root,
     ))
 }
-
-// ---------------------------------------------------------------------------
-// The campaign itself
-// ---------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]
 fn run_plan(
@@ -1191,13 +1046,9 @@ fn run_plan(
     let started = Instant::now();
     let attempts_root = run_dir.join("attempts");
     let fixture_root = run_dir.join("fixture");
-    // Freeze the source once: every sample starts from these exact bytes, and
-    // the case receipts can name that identity.
     crate::agent::harness::freeze_active_source(workspace, &fixture_root, cancel)?;
 
     let mut evaluators: BTreeMap<String, Arc<ObjectiveCaseEvaluator>> = BTreeMap::new();
-    // Selection cases share the campaign source freeze; an audit case freezes its
-    // own source so the gate sees a genuinely independent objective.
     let mut fixtures: BTreeMap<String, PathBuf> = BTreeMap::new();
     for case in plan.cases.iter() {
         fixtures.insert(case.task.clone(), fixture_root.clone());
@@ -1211,8 +1062,6 @@ fn run_plan(
         crate::agent::harness::freeze_active_source(&source, &dest, cancel)?;
         fixtures.insert(case.task.clone(), dest);
     }
-    // Every measurement the evaluator takes — promotion and audit samples —
-    // is reported to the stage; the authoritative verdict stays the receipt.
     let sink_progress = Arc::clone(progress);
     let sink: crate::drive::reinforce::objective_case::MeasurementSink =
         Arc::new(move |reward, generation_ms, verification_ms| {
@@ -1349,7 +1198,7 @@ fn run_plan(
     let mut incumbent = current_policy_note(workspace).unwrap_or_default();
     let mut version = 0u64;
     let mut rounds_recorded: Vec<RecordedRound> = Vec::new();
-    let mut release: Option<(String, String)> = None; // prompt, release sha
+    let mut release: Option<(String, String)> = None;
     let task = plan.cases[0].task.clone();
 
     for round in 0..plan.rounds {
@@ -1359,9 +1208,6 @@ fn run_plan(
         let campaign_id = format!("{}-r{}", run_id_of(run_dir), round + 1);
         let authority = TechnicalCampaignAuthority::new(campaign_id.clone())?;
         match audit_manifest.as_ref() {
-            // No independently authored audit case: measured exploration. The
-            // promotion verdict is real and receipt-backed, and nothing is
-            // installed as validated learning.
             None => {
                 if cancel.load(Ordering::Acquire) {
                     return Err("stopped by operator".into());
@@ -1414,8 +1260,6 @@ fn run_plan(
                     });
                     continue;
                 };
-                // A stop during reflection is the operator's stop, not the
-                // reflector's own wording for having been interrupted.
                 let candidate = cancellation_aware(
                     reflector.improve(&incumbent, &task, &best.output, &worst.output),
                     cancel,
@@ -1442,8 +1286,6 @@ fn run_plan(
                     ),
                     cancel,
                 )?;
-                // The same learner as loop_research: the measured round is a
-                // paired observation of the reflector's proposal.
                 if let Err(error) = research::observe_campaign_round(
                     workspace,
                     &club.route_identity(),
@@ -1473,7 +1315,6 @@ fn run_plan(
                     advantage_variance: metrics.advantage_variance,
                 });
             }
-            // An independently authored audit case exists: the release path.
             Some(audit_manifest) => {
                 let report = cancellation_aware(
                     run_reinforce(
@@ -1483,8 +1324,6 @@ fn run_plan(
                         ReinforceRequest {
                             task: task.as_str(),
                             initial_prompt: incumbent.as_str(),
-                            // The technical campaign is a one-transition API; each
-                            // /rl round is one auditable campaign.
                             rounds: 1,
                             config: &config,
                         },
@@ -1549,7 +1388,6 @@ fn run_plan(
         return Err("stopped by operator".into());
     }
 
-    // Install only what an approved audit released.
     let mut accepted_entry = None;
     let mut accepted_event = None;
     if let Some((prompt, _)) = release.as_ref()
@@ -1751,7 +1589,6 @@ fn persist_policy_note(
     Ok((RL_POLICY_ENTRY_ID.to_string(), event))
 }
 
-/// The policy note later turns currently consume, if a campaign released one.
 pub(crate) fn current_policy_note(workspace: &Path) -> Option<String> {
     crate::drive::continual_harness::load_project(workspace)
         .entries
@@ -1769,10 +1606,6 @@ fn now_ms() -> u64 {
         .map(|duration| duration.as_millis() as u64)
         .unwrap_or(0)
 }
-
-// ---------------------------------------------------------------------------
-// Durable run record
-// ---------------------------------------------------------------------------
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct RecordedCase {
@@ -1839,8 +1672,6 @@ fn write_run_record(run_dir: &Path, record: &RunRecord) -> Result<(), String> {
     crate::platform::workspace_store::write_private_atomic(&path, &bytes)
 }
 
-/// Newest campaign record for this workspace, so the stage opens on real
-/// history instead of an empty graph.
 pub(crate) fn hydrate_latest_campaign(
     workspace: &Path,
 ) -> Option<(Vec<RunPoint>, CampaignOutcome)> {
@@ -1911,7 +1742,6 @@ pub(crate) fn hydrate_latest_campaign(
     Some((points, outcome))
 }
 
-/// Summary of the durable technical-campaign authority, if one exists.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct AuthoritySummary {
     pub campaigns: usize,

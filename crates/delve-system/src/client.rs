@@ -36,9 +36,6 @@ fn projection(checkpoint: checkpoint::SessionCheckpoint) -> Result<view::Receive
 }
 
 impl Client {
-    /// Construct the initial immutable view at an explicit checkpoint boundary.
-    /// No mutable game owner is retained here. Initialization consumes revision
-    /// zero once; subsequent baselines preserve the carried revision.
     pub fn new(checkpoint: &checkpoint::SessionCheckpoint) -> Result<Self, String> {
         Ok(Self {
             receiver: projection(checkpoint.clone())?,
@@ -134,8 +131,6 @@ impl Client {
         }
         Ok(frame.reply)
     }
-    /// Only a newly accepted live event supplies a reply. Recovery and image
-    /// handoff never republish prior effects through this slot.
     pub fn take_reply(&mut self) -> Option<session::Reply> {
         self.reply.take()
     }
@@ -360,7 +355,6 @@ fn valid_job_event_reply(
                 && done.valid(&claim.work)
         }
         (E::CancelBrew { claim, .. }, R::BrewCompleted(Some(done))) => {
-            // A terminal claim returns its original completion on cancellation.
             valid_brew_claim(session_id, raid, claim) && done.valid(&claim.work)
         }
         (
@@ -550,7 +544,6 @@ impl Validator for Client {
         if serde_json::to_value(&checkpoint).map_err(|e| e.to_string())? != *value {
             return Err("owned checkpoint is incomplete or noncanonical".into());
         }
-        // Full validation is restricted to checkpoint boundaries, never events.
         checkpoint::restore(checkpoint)?;
         Ok(())
     }
@@ -892,8 +885,6 @@ mod tests {
         let (_, client, claim) = pending_brew_pair();
         let mut foreign = claim.clone();
         foreign.work.ask.raid += 1;
-        // Work validation alone checks that an ask is internally consistent;
-        // the Client must additionally fence it to the owner that returned it.
         assert!(foreign.work.valid());
         let query = client.query(session::Query::Job(jobs::Query::PendingBrews));
         let response = query_value(&client, session::QueryReply::Job(jobs::Reply::Brews(vec![foreign.clone()])));

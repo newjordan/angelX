@@ -185,8 +185,6 @@ fn combat_progress_is_marked_for_durability_before_its_source_facts_are_acknowle
     let mut run = Run::new(3, 9, None);
     run.marks.insert("xp".into(), 2);
     run.marks.insert("slay:skeleton".into(), 1);
-    // Re-pinned 2026-11-02: a fresh delve opens on the wishing room, calm
-    // and cleared — mark the transfer from a fight, as combat does.
     run.phase = game::Phase::Fighting;
     let transfer = HomeTransfer::capture_and_reserve(&mut run).unwrap();
     assert!(transfer.fighting);

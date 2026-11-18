@@ -389,13 +389,10 @@ fn reseed_after_new_keeps_only_the_bootstrap_system_prompt() {
 #[test]
 fn reseed_after_new_handles_degenerate_history() {
     assert!(reseed_after_new(&[]).is_empty(), "empty stays empty");
-    // A non-System first message (shouldn't happen, but be safe) → clear.
     let odd = vec![ChatMsg::user("no system prompt here")];
     assert!(reseed_after_new(&odd).is_empty());
 }
 
-// Mirror submit's migration + replacement behavior: old embedded blocks are
-// stripped from User messages, while current context gets one Harness turn.
 fn simulate_turn(history: &mut Vec<ChatMsg>, block: &str, user_text: &str) {
     for m in history.iter_mut() {
         if m.role == ChatRole::User {
@@ -425,7 +422,6 @@ fn memory_block_is_deduped_to_the_latest_turn() {
         .filter(|m| m.content.contains(header))
         .count();
     assert_eq!(count, 1, "exactly one memory block survives");
-    // Every operator turn stays byte-for-byte intact.
     assert_eq!(&*history[0].content, "user turn 0");
     assert_eq!(&*history[1].content, "user turn 1");
     assert_eq!(&*history[2].content, "user turn 2");
@@ -435,7 +431,6 @@ fn memory_block_is_deduped_to_the_latest_turn() {
 
 #[test]
 fn goal_block_is_deduped_to_the_latest_turn() {
-    // Build a goal block from the same constants goal_context_block uses.
     let goal = format!(
         "{}\nship the cockpit\n{}\n\n",
         crate::drive::goal::GOAL_BLOCK_HEADER,
@@ -458,21 +453,17 @@ fn goal_block_is_deduped_to_the_latest_turn() {
 
 #[test]
 fn strip_removes_both_blocks_but_keeps_other_steers() {
-    // The goal's field lines open with the header's own cells (`⠗⠃⠃ …`); only
-    // the whole `⠗⠃` line closes the block.
     let goal = format!(
         "{}\n⠗⠃⠃ \"ship\"\n⠗⠃⠙ \"cargo test\"\n{}\n\n",
         crate::drive::goal::GOAL_BLOCK_HEADER,
         crate::drive::goal::GOAL_BLOCK_SENTINEL
     );
     let mem = crate::knowledge::memory::context_block(&["a fact".to_string()]);
-    // Real submit order is {goal}{memory}{steer}\n{text}.
     let mut s: Arc<str> =
         format!("{goal}{mem}[plan your approach before acting] \nreal ask").into();
     strip_context_blocks(&mut s);
     assert!(!s.contains(crate::drive::goal::GOAL_BLOCK_HEADER));
     assert!(!s.contains(crate::knowledge::memory::MEMORY_BLOCK_HEADER));
-    // Non-dedup steers and the user text survive.
     assert_eq!(&*s, "[plan your approach before acting] \nreal ask");
 }
 
@@ -561,7 +552,6 @@ fn context_report_itemizes_window_occupancy() {
     );
     assert!(report.contains("~32768 model context window"), "{report}");
     assert!(report.contains("64 tool hops per turn"), "{report}");
-    // Skill hints never ran — the row must be absent, not shown as 0.
     assert!(!report.contains("skill hint"), "{report}");
 }
 
@@ -583,7 +573,6 @@ fn context_report_without_budget_or_window_stays_honest() {
         report.contains("hard 20 provider calls; ANGEL_MAX_HOPS can stop sooner"),
         "{report}"
     );
-    // Optional injection rows stay absent on a plain conversation.
     for label in [
         "compaction note",
         "recall notes",
@@ -596,7 +585,6 @@ fn context_report_without_budget_or_window_stays_honest() {
 
 #[test]
 fn strip_leaves_legacy_block_without_sentinel_untouched() {
-    // A block written before sentinels existed has no [/memory]; leave it be.
     let mut s: Arc<str> = format!(
         "{}\n- old fact\n\nreal ask",
         crate::knowledge::memory::MEMORY_BLOCK_HEADER
@@ -654,8 +642,6 @@ fn strip_delimited_block_borrows_when_header_is_absent_or_not_anchored() {
 
 #[test]
 fn flush_queued_steers_persists_with_save_async() {
-    // Session has no UI-thread hook that distinguishes save vs save_async,
-    // so pin the call site. Crash window is documented on the persist line.
     let src = include_str!("../../../cockpit/src/app/control/commands.rs");
     let start = src
         .find("pub(crate) fn flush_queued_steers")

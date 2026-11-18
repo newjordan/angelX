@@ -282,7 +282,6 @@ fn legacy_v1_publication_remains_loadable_after_v2_expansion() {
         Catalog::baseline().bytes()
     );
 
-    // A partial v2 publication must not be mistaken for a valid legacy bundle.
     manifest["schema"] = MANIFEST_SCHEMA.into();
     let mut incomplete = serde_json::to_vec(&manifest).unwrap();
     incomplete.push(b'\n');

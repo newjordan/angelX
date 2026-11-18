@@ -5,7 +5,6 @@ use super::super::layout::{self, COLS, ROWS, RoomKind};
 
 const PACKS: [Pack; 6] = [Pack::Crypt, Pack::Cavern, Pack::Hellforge, Pack::Archive, Pack::Fungal, Pack::Unknown];
 
-/// The room a quadrant makes at its size, every doorway open.
 fn laid(quadrant: &[&str]) -> Room {
     let (w, h) = (quadrant[0].len(), quadrant.len());
     let (cols, rows) = (2 * (w + 1), 2 * (h + 1));
@@ -17,7 +16,6 @@ fn laid(quadrant: &[&str]) -> Room {
     room
 }
 
-/// What is wrong with a drawn quadrant, if anything.
 fn fault(quadrant: &[&str]) -> Option<String> {
     let w = quadrant.first()?.len();
     if quadrant.iter().any(|r| r.len() != w) {
@@ -26,14 +24,10 @@ fn fault(quadrant: &[&str]) -> Option<String> {
     if let Some(c) = quadrant.iter().flat_map(|r| r.chars()).find(|c| !matches!(c, '.' | '#' | '~')) {
         return Some(format!("a mark that is none of . # ~: {c:?}"));
     }
-    // The doorway lanes' far ends: the last column at the top row and the
-    // last row at the left column, where the doorways come in.
     let h = quadrant.len();
     if quadrant[0].as_bytes()[w - 1] != b'.' || quadrant[h - 1].as_bytes()[0] != b'.' {
         return Some("a doorway lane is shut at its door".into());
     }
-    // The middle of the room (each quadrant's corner by both lanes) stays
-    // open: the stairs and a guardian stand there.
     if quadrant[h - 3..].iter().any(|r| r.as_bytes()[w - 3..].iter().any(|&b| b != b'.')) {
         return Some("the middle of the room is not open (the last 3x3 of the quadrant)".into());
     }
@@ -93,8 +87,6 @@ fn the_check_catches_a_shut_room() {
     assert!(fault(&island).unwrap().contains("no one can walk to"));
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_hand_drawn_room_shots -- --ignored`:
-/// every hand-drawn room, as a knight sees it, one PNG each.
 #[test]
 #[ignore]
 fn write_hand_drawn_room_shots() {

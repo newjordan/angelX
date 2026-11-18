@@ -1,6 +1,3 @@
-# Case wrappers: `case.<def>` takes a recorded case's `in` and answers its `out`.
-# (compute.* and cards.* wrappers sit beside their defs.)
-
 def case.presence.Run.set_away(+input: J.Val) -> J.Val:
   presence.Run.set_away(J.get(input, "run"), J.u32(J.get(input, "id")), J.bool(J.get(input, "away")))
 

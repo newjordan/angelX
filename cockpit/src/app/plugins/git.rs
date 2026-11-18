@@ -14,7 +14,6 @@ use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-/// The program, `ANGEL_PLUGIN_GIT` or `git`.
 fn program() -> String {
     std::env::var("ANGEL_PLUGIN_GIT")
         .ok()
@@ -22,7 +21,6 @@ fn program() -> String {
         .unwrap_or_else(|| "git".to_owned())
 }
 
-/// A 40-character lowercase hex commit id.
 pub(crate) fn valid_commit(commit: &str) -> bool {
     commit.len() == 40
         && commit
@@ -30,9 +28,6 @@ pub(crate) fn valid_commit(commit: &str) -> bool {
             .all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
 }
 
-/// A repository address an install may fetch from: https (what the public
-/// registry takes), http, a `file://` URL or an absolute path (private
-/// registries and tests).
 pub(crate) fn fetchable(url: &str) -> bool {
     let tail = |scheme: &str| {
         url.strip_prefix(scheme)
@@ -45,7 +40,6 @@ pub(crate) fn fetchable(url: &str) -> bool {
         && !url.chars().any(|c| c.is_whitespace() || c.is_control())
 }
 
-/// Run git in `dir` and return its stdout; a failure carries the end of stderr.
 pub(crate) fn run(
     dir: &Path,
     args: &[&str],
@@ -56,7 +50,6 @@ pub(crate) fn run(
     command
         .args(args)
         .current_dir(dir)
-        // A private repository must fail, not wait for a password.
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_ASKPASS", "")
         .env("SSH_ASKPASS", "")
@@ -116,7 +109,6 @@ pub(crate) fn run(
     ))
 }
 
-/// Stop a child and everything it started.
 pub(crate) fn kill(child: &mut std::process::Child) {
     #[cfg(unix)]
     unsafe {
@@ -140,8 +132,6 @@ fn text(bytes: Vec<u8>) -> String {
     String::from_utf8_lossy(&bytes).trim().to_owned()
 }
 
-/// The files of `path` (the repository root when empty) at `commit` of the
-/// repository at `url`, fetched into a fresh bare repository at `scratch`.
 pub(crate) fn fetch(
     url: &str,
     commit: &str,
@@ -185,8 +175,6 @@ pub(crate) fn fetch(
         if first == "cancelled" {
             return Err(first);
         }
-        // A server that will not send an unadvertised commit by id: take its
-        // branches and look for the commit among them.
         run(
             scratch,
             &[
@@ -265,7 +253,6 @@ pub(crate) fn fetch(
         .collect())
 }
 
-/// Fetch the blobs a partial fetch left out, in batches.
 fn fetch_missing(scratch: &Path, oids: &[&str], cancel: Option<&AtomicBool>) -> Result<(), String> {
     let query = oids
         .iter()
@@ -275,8 +262,6 @@ fn fetch_missing(scratch: &Path, oids: &[&str], cancel: Option<&AtomicBool>) -> 
     command
         .args(["cat-file", "--batch-check"])
         .current_dir(scratch)
-        // Without this an older git fetches each missing blob on its own,
-        // which still works, only slower.
         .env("GIT_NO_LAZY_FETCH", "1")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -312,7 +297,6 @@ fn fetch_missing(scratch: &Path, oids: &[&str], cancel: Option<&AtomicBool>) -> 
     Ok(())
 }
 
-/// The contents of `oids`, in order.
 fn read_blobs(
     scratch: &Path,
     oids: &[&str],

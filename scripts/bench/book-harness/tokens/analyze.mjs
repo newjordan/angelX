@@ -1,7 +1,3 @@
-// node analyze.mjs <label.jsonl>...  — per-run wire tokens under four tokenizers.
-// Input per request = system + messages + tool schemas (JSON). "Fresh" input
-// estimates perfect caching of an exact unchanged prefix. It is not measured
-// provider cache usage; changed tools invalidate the represented request.
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'

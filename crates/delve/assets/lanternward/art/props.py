@@ -1,7 +1,3 @@
-"""Lanternward's props, painted in the realm's inks: pots and grass, the
-sign and the kingsman, the lever, plate, block and doors, the sigil, the
-resting brazier and the ember bowl, the fissure, the pickups, the bolts, the
-wisp and the lock-on spark."""
 import math
 from engine import *
 
@@ -15,7 +11,6 @@ GRASS = ["f", "E", "m", "y"]
 
 
 def flame(sp, cx, base, h, w, ph=0, cool=False):
-    """A pixel flame: a teardrop that sways and licks, red-gold at the foot, a white core."""
     for dy in range(h):
         t = dy / max(1, h - 1)
         half = max(0, round((w / 2) * (1 - t ** 2.0) * (0.6 + 0.4 * min(1.0, t * 4))))
@@ -104,23 +99,19 @@ def sign():
 
 
 def folk():
-    """The kingsman: a steel helm, a red tabard with a gold crown, a staff."""
     out = {}
     def man(talk, arm):
         s = Sprite(12, 18)
-        # boots and tabard
         s.paint(rect(3, 14, 2, 3) | rect(7, 14, 2, 3), IRON, rim=False)
         s.paint(poly([(2, 8), (10, 8), (10, 15), (2, 15)]), ["p", "7", "R", "O"])
         s.fill(rect(5, 9, 2, 1), "6"); s.fill(rect(4, 10, 4, 1), "6"); s.put(4, 9, "6"); s.put(7, 9, "6")
         s.fill(rect(2, 14, 8, 1), "B")
-        # arms
         s.paint(cap(2, 9, 1, 13, 1.2), STEEL)
         if arm:
             s.paint(cap(10, 9, 11, 5, 1.2), STEEL)
             s.put(11, 4, "T")
         else:
             s.paint(cap(10, 9, 10, 13, 1.2), STEEL)
-        # head: helm with a nasal guard and a plume
         s.paint(ell(6, 5, 3.6, 3.8), STEEL)
         s.fill(rect(5, 5, 2, 4), "T")
         s.fill(rect(4, 4, 4, 1), "k")
@@ -132,7 +123,6 @@ def folk():
         return s.finish()
     out["idle"] = [man(False, False), man(False, False)]
     out["talk"] = [man(True, True), man(False, False)]
-    # the second idle frame breathes
     b = Sprite(12, 18)
     for (x, y), c in out["idle"][0].px.items():
         b.px[(x, y + (1 if y < 14 else 0))] = c
@@ -149,7 +139,7 @@ def lever():
         s = Sprite(12, 14)
         s.paint(rect(1, 9, 10, 5), STONE)
         s.paint(rect(3, 7, 6, 3), STONE_L)
-        s.fill(rect(4, 10, 4, 1), "k")  # the slot
+        s.fill(rect(4, 10, 4, 1), "k")
         if pulled:
             s.paint(cap(6, 9, 10, 5, 1.0), IRON)
             s.paint(ell(10.5, 4.5, 1.8, 1.8), ["a", "R", "@", "6"])
@@ -194,7 +184,7 @@ def block():
     for (x, y) in [(3, 8), (4, 8), (10, 10), (11, 10), (7, 12)]:
         s.put(x, y, "g")
     s.fill(rect(5, 7, 6, 1), "g")
-    s.fill(rect(7, 6, 1, 6), "g")  # a carved cross seam
+    s.fill(rect(7, 6, 1, 6), "g")
     s.fill(rect(1, 4, 1, 10), "G")
     return {"idle": [s.finish()]}
 
@@ -208,7 +198,6 @@ def cracked():
     for (x, y) in [(4, 0), (10, 5), (3, 10)]:
         for k in range(5):
             s.put(x, y + k, "g")
-    # the crack, with a faint light in it
     for (x, y) in [(7, 1), (7, 2), (8, 3), (8, 4), (7, 5), (6, 6), (7, 7), (8, 8), (9, 9), (9, 10), (8, 11), (8, 12), (9, 13)]:
         s.put(x, y, "k")
     for (x, y) in [(8, 2), (9, 5), (7, 9)]:
@@ -230,7 +219,6 @@ def cracked():
 
 
 def doorframe(s, ring, chains=False, open_=False):
-    # a stone arch round an oak door, one tile
     s.paint(rect(0, 0, 16, 16), STONE, rim=False, fall=False)
     s.fill(rect(0, 0, 16, 2), "j")
     s.fill(rect(0, 0, 1, 16), "G"); s.fill(rect(15, 0, 1, 16), "K")
@@ -447,7 +435,6 @@ def wisp():
         s = Sprite(8, 10)
         s.fill(ell(4, 6, 2.6, 3), "5")
         s.fill(ell(4, 6.4, 1.6, 2), "w")
-        # the pointed head and the tail
         s.fill(poly([(3, 4), (4, 0 + (i % 2)), (5, 4)]), "6")
         s.put(4, 2 + (i % 2), "w")
         for k in range(3):
@@ -460,7 +447,6 @@ def mark():
     out = []
     for i in range(2):
         s = Sprite(10, 10)
-        # a small gold diamond-spark, a point of wick-light
         for (x, y, c) in [(5, 1, "6"), (4, 2, "6"), (5, 2, "w"), (6, 2, "6"), (3, 3, "5"), (4, 3, "w"), (5, 3, "w"), (6, 3, "w"), (7, 3, "5"),
                           (4, 4, "6"), (5, 4, "w"), (6, 4, "6"), (5, 5, "6")]:
             s.put(x, y + i, c)
@@ -471,7 +457,6 @@ def mark():
 
 
 def all_props():
-    """{slot id: {state: [Sprite]}}"""
     out = {"pot": pot(), "grass": grass(), "sign": sign(), "folk": folk(), "lever": lever(), "plate": plate(),
            "block": block(), "cracked": cracked(), "sigil": sigil(), "rest": brazier_rest(), "ember": ember(),
            "fissure": fissure(), "bolt": bolts(), "wisp": wisp(), "mark": mark()}
@@ -488,7 +473,6 @@ if __name__ == "__main__":
             for f in fr:
                 allf.append(f.rows())
                 names.append(f"{k}.{s}")
-    # pad frames to a common cell
     cw = max(len(r[0]) for r in allf)
     ch = max(len(r) for r in allf)
     padded = [[row.ljust(cw, ".") for row in f] + ["." * cw] * (ch - len(f)) for f in allf]

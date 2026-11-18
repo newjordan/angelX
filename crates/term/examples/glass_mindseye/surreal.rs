@@ -23,18 +23,11 @@ use std::sync::{Arc, Mutex};
 
 use super::{ByteWriter, Canvas, H, W, b64, envelope, gradient, hex, mix, smooth};
 
-/// Program picture ids this show uploads.
 const PIZZA: u32 = 900;
 const EYEBALL: u32 = 901;
 const BALLOON_FACE: u32 = 902;
-/// The cast: Mixamo characters glass reads from their files, by asset id.
-/// Michelle (samba), Soldier (walk), X Bot (nods, head shakes) and the
-/// star, a low-poly Mixamo-rigged man exported from Blender, dancing seven
-/// dances retargeted from the CMU motion capture database.
 const CAST: [(u32, &str); 4] = [(1, "Michelle.glb"), (2, "Soldier.glb"), (3, "Xbot.glb"), (4, "man.glb")];
-/// Whether the glass on the other end takes `chrome` and `liquid` on nodes.
 const CHROME: bool = true;
-/// The man's clips, as man.glb lists them.
 const CHICKEN: u32 = 0;
 const DANCING_ANT: u32 = 2;
 const HIPPO_BALLERINA: u32 = 3;
@@ -43,27 +36,21 @@ const PIROUETTES: u32 = 6;
 const SALSA: u32 = 7;
 const WALK: u32 = 8;
 const WHIRL: u32 = 9;
-/// Whether it takes the `roundcube` mesh with `faces` and a glowing `edge`.
 const ROUNDCUBE: bool = true;
 const VIDEO_BASE: u32 = 910;
 const TEXT_BASE: u32 = 1000;
-/// The 3D scene's program id.
 const SCENE: u32 = 60;
-/// The scene behind the sacred geometry, for what looms at the back.
 const SCENE_BACK: u32 = 61;
 const VIDEO_SIDE: u32 = 160;
-/// ffmpeg's own generators, one a video.
 const VIDEOS: [&str; 4] = [
     "mandelbrot=s=160x160:rate=30",
     "life=s=160x160:rate=30:mold=10:ratio=0.12:life_color=0x00ff66:death_color=0x880022",
     "cellauto=s=160x160:rate=30:rule=110",
     "sierpinski=s=160x160:rate=30",
 ];
-/// The scene's camera: on +Z looking at the middle, this field of view.
 const CAMERA_Z: f32 = 9.0;
 const FOV: f32 = 0.8;
 
-/// Text that streams across, and its colour.
 const STRIPS: [(&str, &str); 24] = [
     ("fn main() { let eye = Eye::open(); loop { eye.see(); } }", "#33ff77"),
     ("SEGFAULT IN THE THIRD EYE", "#ff2244"),
@@ -90,7 +77,6 @@ const STRIPS: [(&str, &str); 24] = [
     ("I AM THE TERMINAL", "#00e5ff"),
     ("10,847 layers a frame and still hungry", "#ff3fa4"),
 ];
-/// Giant characters, drifting.
 const GLYPHS: [(&str, &str, &str); 6] = [
     ("眼", "Noto-Sans-CJK-JP-Bold", "#ff2244"),
     ("∞", "Berkeley-Mono-Regular", "#00e5ff"),
@@ -100,7 +86,6 @@ const GLYPHS: [(&str, &str, &str); 6] = [
     ("目", "Noto-Sans-CJK-JP-Bold", "#ff3fa4"),
 ];
 
-/// A small, steady hash: the same input, the same 0..1 every frame.
 fn hash(a: u32, b: u32) -> f32 {
     let mut x = a.wrapping_mul(0x9e37_79b9) ^ b.wrapping_mul(0x85eb_ca6b);
     x ^= x >> 16;
@@ -111,12 +96,10 @@ fn hash(a: u32, b: u32) -> f32 {
     (x >> 8) as f32 / (1u32 << 24) as f32
 }
 
-/// A picture op for straight RGBA under `id`.
 pub fn upload(out: &mut Vec<u8>, id: u32, width: u32, height: u32, rgba: &[u8]) {
     let _ = write!(ByteWriter(out), "\x1b_glass;picture;id={id};f=32;s={width};v={height};{}\x1b\\", b64(rgba));
 }
 
-/// Text drawn by ImageMagick into RGBA (PAM out), or nothing without it.
 pub fn render_text(text: &str, font: &str, points: u32, color: &str) -> Option<(u32, u32, Vec<u8>)> {
     let out = Command::new("magick")
         .args(["-background", "none", "-fill", color, "-font", font, "-pointsize", &points.to_string()])
@@ -148,8 +131,6 @@ pub fn render_text(text: &str, font: &str, points: u32, color: &str) -> Option<(
     Some((width, height, rgba))
 }
 
-/// A pizza slice's top: cheese, pepperoni, basil, and the crust where the
-/// slice is widest. The slice's apex is at (0.5, 0.02), its axis down.
 fn pizza_texture() -> Vec<u8> {
     let side = 256usize;
     let pepperoni = [(0.0f32, 0.35f32), (-0.18, 0.62), (0.2, 0.7), (0.02, 0.82), (-0.05, 0.55)];
@@ -161,7 +142,6 @@ fn pizza_texture() -> Vec<u8> {
             let r = (x * x + y * y).sqrt();
             let noise = hash(px as u32, py as u32);
             let mut c = if r > 0.88 {
-                // Crust, browned unevenly.
                 mix(hex("#c98a3a"), hex("#7a4416"), noise * 0.6 + 0.2 * ((r - 0.88) * 30.0).sin().abs())
             } else {
                 let melt = 0.5 + 0.5 * (x * 9.0 + (y * 13.0).sin() * 2.0).sin();
@@ -186,8 +166,6 @@ fn pizza_texture() -> Vec<u8> {
     rgba
 }
 
-/// An eyeball, wrapped round a sphere: white, red veins, an iris and a
-/// pupil where u is a half and v a half.
 fn eyeball_texture() -> Vec<u8> {
     let (w, h) = (256usize, 128usize);
     let mut rgba = vec![0u8; w * h * 4];
@@ -219,12 +197,9 @@ fn eyeball_texture() -> Vec<u8> {
     rgba
 }
 
-/// A pizza slice as an inline mesh: apex at the origin's side, the crust
-/// arc beyond, a top that shows the picture, a crust round the rest.
 fn pizza_mesh() -> String {
     let (segments, span, thick) = (8usize, 0.8f32, 0.12f32);
     let (mut pos, mut uv, mut nrm, mut idx) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
-    // The slice's middle sits on the origin: shift it back along its axis.
     let shift = 0.6;
     let arc: Vec<(f32, f32)> = (0..=segments)
         .map(|i| {
@@ -246,7 +221,6 @@ fn pizza_mesh() -> String {
         let mut uvs = vec![[0.5, 0.02]];
         for &(x, y) in &arc {
             points.push([x, y - shift, z]);
-            // The bottom is all crust.
             uvs.push(if flip { [0.5, 0.97] } else { [0.5 + x * 0.5, 0.02 + y * 0.9] });
         }
         if flip {
@@ -256,7 +230,6 @@ fn pizza_mesh() -> String {
             (1..=segments).map(|i| if flip { [0, i + 1, i] } else { [0, i, i + 1] }).collect();
         face(&points, &uvs, n, &tri);
     }
-    // The crust's rim and the two cut sides.
     let mut edges: Vec<((f32, f32), (f32, f32))> = arc.windows(2).map(|w| (w[0], w[1])).collect();
     edges.push(((0.0, 0.0), arc[0]));
     edges.push((arc[segments], (0.0, 0.0)));
@@ -284,21 +257,18 @@ fn pizza_mesh() -> String {
     )
 }
 
-/// A rotation about an axis as the wire's quaternion.
 fn quat(axis: [f32; 3], angle: f32) -> [f32; 4] {
     let l = (axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]).sqrt().max(1e-6);
     let s = (angle / 2.0).sin() / l;
     [axis[0] * s, axis[1] * s, axis[2] * s, (angle / 2.0).cos()]
 }
 
-/// Where a world point in the scene lands in design units.
 fn on_screen(p: [f32; 3]) -> (f32, f32) {
     let d = (CAMERA_Z - p[2]).max(0.1);
     let half = (FOV / 2.0).tan();
     (W / 2.0 + p[0] / (d * half * W / H) * W / 2.0, H / 2.0 - p[1] / (d * half) * H / 2.0)
 }
 
-/// One of ffmpeg's generators, its newest frame kept.
 struct Video {
     child: Child,
     latest: Arc<Mutex<Option<Vec<u8>>>>,
@@ -339,16 +309,11 @@ impl Drop for Video {
     }
 }
 
-/// The terminal's own text, raining.
 struct Rain {
     cols: u16,
     rows: u16,
-    /// Per column: where its head is (rows, may be negative), its speed in
-    /// rows a second, its trail's length.
     drops: Vec<(f32, f32, f32)>,
     glyphs: Vec<char>,
-    /// What each cell of the rain shows now, so a frame writes only the
-    /// cells that change.
     cells: Vec<(char, (u8, u8, u8))>,
 }
 
@@ -365,9 +330,6 @@ impl Rain {
         Self { cols, rows, drops, glyphs, cells }
     }
 
-    /// The rain at `t` over rows 2..rows-1 (the corner rows stay), in
-    /// `density` of the columns. Only the cells that changed are written,
-    /// in as few cursor moves and colours as they take.
     fn draw(&mut self, out: &mut Vec<u8>, t: f32, dt: f32, density: f32, frame: u64) {
         let rows = self.rows.saturating_sub(2);
         if density <= 0.0 && self.cells.iter().all(|c| c.0 == ' ') {
@@ -389,14 +351,12 @@ impl Rain {
                 let cell = if !on || !(0.0..len).contains(&back) {
                     (' ', (0, 0, 0))
                 } else {
-                    // Ten shades of green, so colours repeat.
                     let fade = ((1.0 - back / len) * 10.0).round() / 10.0;
                     let color = if back < 1.0 {
                         (220, 255, 230)
                     } else {
                         ((40.0 * fade) as u8, (90.0 + 165.0 * fade) as u8, (60.0 * fade) as u8)
                     };
-                    // Each cell changes glyph at its own pace; heads every frame.
                     let key = u32::from(col) * 131 + u32::from(row);
                     let period = 4 + (hash(key, 9) * 14.0) as u64;
                     let turn = if back < 1.0 { frame } else { (frame + (hash(key, 10) * 50.0) as u64) / period };
@@ -417,7 +377,6 @@ impl Rain {
                 }
                 let mut buf = [0u8; 4];
                 out.extend_from_slice(cell.0.encode_utf8(&mut buf).as_bytes());
-                // A half-width glyph or a space moves the cursor one cell.
                 cursor = Some((row, col + 1));
             }
         }
@@ -427,8 +386,6 @@ impl Rain {
     }
 }
 
-/// A text stream: which strip, which way, how fast, where across, how
-/// big, in front or behind, and from when.
 struct Stream {
     picture: usize,
     angle: f32,
@@ -445,24 +402,17 @@ struct Stream {
 pub struct Surreal {
     rain: Rain,
     videos: Vec<Video>,
-    /// Uploaded strips and glyphs: (id, width, height).
     strips: Vec<(u32, u32, u32)>,
     glyphs: Vec<(u32, u32, u32)>,
     streams: Vec<Stream>,
     pizza: String,
-    /// The window's size in pixels, for the scene.
     window: (f32, f32),
     last_t: f32,
-    /// The cast's assets that were found and sent.
     cast: Vec<u32>,
-    /// Character nodes whose clip has been started.
     playing: std::collections::HashSet<u64>,
-    /// Balloons popping this frame: where on screen, how long ago, colour.
     pops: Vec<(f32, f32, f32, [f32; 3])>,
 }
 
-/// One of the cast in a frame: its node, which asset and clip, where, and
-/// how it looks.
 struct Actor {
     node: u64,
     asset: u32,
@@ -474,11 +424,9 @@ struct Actor {
     scale: f32,
     color: [f32; 3],
     liquid: f32,
-    /// In the scene behind the geometry rather than in front of it.
     back: bool,
 }
 
-/// `a` then `b`: the rotation `b` applied after `a`.
 fn quat_mul(b: [f32; 4], a: [f32; 4]) -> [f32; 4] {
     [
         b[3] * a[0] + b[0] * a[3] + b[1] * a[2] - b[2] * a[1],
@@ -488,15 +436,11 @@ fn quat_mul(b: [f32; 4], a: [f32; 4]) -> [f32; 4] {
     ]
 }
 
-/// A balloon's face, badly: eyes that do not match, looking two ways, a
-/// lopsided grin, angry brows and pink cheeks, all hard edged, on white
-/// the balloon's colour tints. The face is where u and v are a half.
 fn balloon_face() -> Vec<u8> {
     let (w, h) = (256usize, 128usize);
     let mut rgba = vec![255u8; w * h * 4];
     for py in 0..h {
         for px in 0..w {
-            // Angles round the sphere, so circles stay round near the face.
             let (x, y) = ((px as f32 / w as f32 - 0.5) * TAU, (py as f32 / h as f32 - 0.5) * PI);
             let d = |cx: f32, cy: f32| ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
             let mut c: Option<[u8; 3]> = None;
@@ -542,7 +486,6 @@ impl Surreal {
         show
     }
 
-    /// The show without its video generators running.
     fn bare(cols: u16, rows: u16, window: (f32, f32)) -> Self {
         let streams = (0..40)
             .map(|i| {
@@ -577,12 +520,10 @@ impl Surreal {
         }
     }
 
-    /// The pictures that do not move: the pizza, the eyeball, the text.
     pub fn setup(&mut self, out: &mut Vec<u8>) {
         upload(out, PIZZA, 256, 256, &pizza_texture());
         upload(out, EYEBALL, 256, 128, &eyeball_texture());
         upload(out, BALLOON_FACE, 256, 128, &balloon_face());
-        // glass reads the characters itself (`asset` with `t=f`).
         let dir = std::env::var("MINDSEYE_ASSETS")
             .unwrap_or_else(|_| format!("{}/models/mixamo", std::env::var("HOME").unwrap_or_default()));
         for (id, file) in CAST {
@@ -594,7 +535,6 @@ impl Surreal {
         }
         let mut id = TEXT_BASE;
         for (text, color) in STRIPS {
-            // Berkeley Mono for the ASCII, a CJK face for the rest.
             let font = if text.is_ascii() { "Berkeley-Mono-Regular" } else { "Noto-Sans-CJK-JP-Bold" };
             if let Some((w, h, rgba)) = render_text(text, font, 40, color) {
                 upload(out, id, w, h, &rgba);
@@ -611,7 +551,6 @@ impl Surreal {
         }
     }
 
-    /// Where the pizza slices are at `t`: (world point, spin axis, angle).
     fn pizzas(t: f32) -> Vec<([f32; 3], [f32; 3], f32)> {
         let storm = envelope(t, 66.0, 80.0, 1.5, 2.0);
         let count = if t > 6.0 { 3 } else { 0 } + (storm * 16.0) as usize;
@@ -628,8 +567,6 @@ impl Surreal {
             .collect()
     }
 
-    /// Before the show draws: where the eye looks, how far the fractal
-    /// goes, and the infection's tint.
     pub fn before(&mut self, cv: &mut Canvas, t: f32) {
         let pizzas = Self::pizzas(t);
         let (cx, cy) = (W / 2.0, H / 2.0);
@@ -649,14 +586,10 @@ impl Surreal {
         cv.tint = (gore > 0.0).then(|| (hex("#ff1133"), 0.4 * gore));
     }
 
-    /// After the show draws: this show's own layers into the frame, and
-    /// what goes beside them (`pre` before the groups: video frames; `post`
-    /// after: the scene and the rain).
     pub fn after(&mut self, cv: &mut Canvas, t: f32, frame: u64, pre: &mut Vec<u8>, post: &mut Vec<u8>) {
         let dt = (t - self.last_t).clamp(0.0, 0.1);
         self.last_t = t;
         cv.tint = None;
-        // MINDSEYE_SKIP=scene,video,... leaves pieces out, to see what each costs.
         let skip = std::env::var("MINDSEYE_SKIP").unwrap_or_default();
         let on = |name: &str| !skip.split(',').any(|s| s == name);
         if on("prims") {
@@ -677,7 +610,6 @@ impl Surreal {
         if on("gore") {
             self.gore(cv, t, frame);
         }
-        // Video frames, at the generators' own pace.
         if on("video") {
             for (n, video) in self.videos.iter().enumerate() {
                 if let Some(rgba) = video.take() {
@@ -687,7 +619,6 @@ impl Surreal {
         }
         if on("scene") {
             self.scene(t, post);
-            // Popped balloons burst into confetti, glass's own particles.
             for &(x, y, age, c) in &self.pops {
                 let rgb = super::Rgb(c[0], c[1], c[2]);
                 let rec = format!(
@@ -706,7 +637,6 @@ impl Surreal {
         }
     }
 
-    /// Big lit solids, slowly crossing.
     fn prims(&self, cv: &mut Canvas, t: f32) {
         let k = envelope(t, 3.0, 82.0, 3.0, 3.0);
         for i in 0..5u32 {
@@ -718,7 +648,6 @@ impl Surreal {
             let y = 120.0 + (H - 240.0) * r(4) + 90.0 * (t * 0.3 + i as f32).sin();
             let c = gradient(&[hex("#ff3fa4"), hex("#00e5ff"), hex("#ffc861"), hex("#8a5cff")], r(5) + t / 30.0);
             cv.prim(x, y, size, i % 7, c, k * 0.9, t * (0.3 + 0.4 * r(6)));
-            // A glowing border: marching dashes, and comets running round.
             let edge = gradient(&[hex("#00e5ff"), hex("#ff3fa4"), hex("#ffc861"), hex("#33ff77")], r(7) + t / 5.0);
             let ring = size * 1.12;
             let dashes = 20;
@@ -734,7 +663,6 @@ impl Surreal {
         }
     }
 
-    /// Giant characters turning in the dark.
     fn glyphs(&self, cv: &mut Canvas, t: f32) {
         let k = envelope(t, 8.0, 82.0, 4.0, 3.0);
         for (n, &(id, w, h)) in self.glyphs.iter().enumerate() {
@@ -746,7 +674,6 @@ impl Surreal {
             let angle = t * (r(6) - 0.5) * 0.5;
             let (bw, bh) = (w as f32 * scale, h as f32 * scale);
             cv.picture(id, x, y, bw, bh, angle, k * 0.45, z);
-            // A glowing frame with a light running round it.
             let (sn, cs) = angle.sin_cos();
             let corner = |cx: f32, cy: f32| (x + cx * cs - cy * sn, y + cx * sn + cy * cs);
             let (hw, hh) = (bw * 0.56, bh * 0.56);
@@ -760,7 +687,6 @@ impl Surreal {
         }
     }
 
-    /// Magritte's men, falling in rows like rain: coats, bowler hats.
     fn men(&self, cv: &mut Canvas, t: f32) {
         let k = envelope(t, 2.0, 27.0, 2.0, 3.0).max(0.85 * envelope(t, 50.0, 81.0, 3.0, 3.0));
         if k <= 0.0 {
@@ -793,7 +719,6 @@ impl Surreal {
         }
     }
 
-    /// Melting clocks running backwards; one hangs over the eye's lid.
     fn clocks(&self, cv: &mut Canvas, t: f32) {
         let k = envelope(t, 34.0, 72.0, 3.0, 3.0);
         if k <= 0.0 {
@@ -807,7 +732,6 @@ impl Surreal {
             let mut radius = 60.0 + 40.0 * r(4);
             let mut sag = 50.0 + 60.0 * (t * 0.3 + r(5) * 4.0).sin().abs();
             if n == 0 {
-                // The one that found the eye.
                 x = x + (W / 2.0 + 190.0 - x) * hung;
                 y = y + (H / 2.0 - 175.0 - y) * hung;
                 radius += 20.0 * hung;
@@ -833,8 +757,6 @@ impl Surreal {
         }
     }
 
-    /// Text strips crossing every way, in front and behind; a few rush out
-    /// of the middle at the eye.
     fn streams(&self, cv: &mut Canvas, t: f32) {
         if self.strips.is_empty() {
             return;
@@ -848,7 +770,6 @@ impl Surreal {
             let (w, h) = (w as f32 * s.scale, h as f32 * s.scale);
             let fade = k * smooth(s.start, s.start + 1.5, t);
             if s.zoom {
-                // Out of the middle at the eye: growing, turning, gone.
                 let p = ((t - s.start) * 0.25).fract();
                 let grow = 0.15 + 4.0 * p * p;
                 cv.picture(id, W / 2.0, H / 2.0 + s.lane * 0.2, w * grow, h * grow, s.angle * 0.3 + t * s.spin, fade * s.alpha * (1.0 - p), s.z);
@@ -863,8 +784,6 @@ impl Surreal {
         }
     }
 
-    /// Techno gore: cables crawling in to the eye with pulses running
-    /// along them, the eye weeping light, and bands tearing the picture.
     fn gore(&self, cv: &mut Canvas, t: f32, frame: u64) {
         let k = envelope(t, 56.0, 81.0, 4.0, 2.0);
         if k <= 0.0 {
@@ -890,7 +809,6 @@ impl Surreal {
                 })
                 .collect();
             cv.polyline(&points, false, deep, k * 0.75, 7.0, 8.0);
-            // A pulse running in, toward the eye.
             let at = (t * 0.7 + r(3)).fract();
             for pair in points.windows(2).enumerate() {
                 let s = pair.0 as f32 / 28.0;
@@ -899,7 +817,6 @@ impl Surreal {
                 cv.line(a.0, a.1, b.0, b.1, mix(blood, hex("#ffd0d8"), pulse), k * (0.35 + 0.65 * pulse), 2.0 + 2.0 * pulse, 4.0 + 6.0 * pulse);
             }
         }
-        // The eye weeps light from its lower lid.
         let weep = envelope(t, 60.0, 80.0, 2.0, 2.0);
         for i in 0..14u32 {
             let r = |salt: u32| hash(i, salt + 120);
@@ -911,7 +828,6 @@ impl Surreal {
             cv.line(x, lid, x, y - 6.0, blood, weep * 0.5 * (1.0 - tau / period), 1.2, 2.5);
             cv.glow(x, y, 9.0 + 6.0 * r(4), blood, weep * (1.0 - tau / period));
         }
-        // Bands tear across, a few frames each.
         let tear = k * smooth(58.0, 72.0, t);
         let beat = (-((t * 1.2).fract() * 8.0)).exp();
         cv.glow(cx, cy, 1400.0, blood, tear * 0.18 * beat);
@@ -928,13 +844,6 @@ impl Surreal {
         }
     }
 
-    /// The cast's choreography at `t`. The man (4) walks the ceiling and a
-    /// wall, dances in a conga line along the floor in gold, each in a
-    /// different dance and out of step, looms as a giant dancing ant beside
-    /// the eye, and rings the eye upside down doing the chicken dance at
-    /// the end. Michelle (1) does the samba on top of the eye, then lifts
-    /// off spinning. X Bot (3) rides the first pizza nodding, then towers
-    /// behind it all shaking its head.
     fn actors(&self, t: f32) -> Vec<Actor> {
         let mut cast = Vec::new();
         let y_axis = |a: f32| quat([0.0, 1.0, 0.0], a);
@@ -988,7 +897,6 @@ impl Surreal {
         cast
     }
 
-    /// The 3D things: pizza, video cubes, eyeballs, Escher's stairs.
     fn scene(&mut self, t: f32, out: &mut Vec<u8>) {
         let skip = std::env::var("MINDSEYE_SKIP").unwrap_or_default();
         let on = |name: &str| !skip.split(',').any(|s| s == name);
@@ -1007,7 +915,6 @@ impl Surreal {
                 format!(r#""at":{},"rot":{},"scale":[0.9,0.9,0.9],"mesh":{},"picture":{PIZZA},"lit":true,"emissive":0.35"#, f3(at), f4(quat(axis, angle)), self.pizza),
             );
         }
-        // Cubes playing video on every face.
         let cubes = if t > 16.0 { 2 } else { 0 } + if t > 31.0 { 2 } else { 0 };
         let cube_k = envelope(t, 16.0, 82.0, 1.0, 3.0);
         if !self.videos.is_empty() && cube_k > 0.0 && on("cubes") {
@@ -1025,8 +932,6 @@ impl Surreal {
                 let at = [5.2 * orbit.cos(), 2.2 * (orbit * 1.3).sin(), -1.5 + 2.5 * orbit.sin()];
                 let size = 1.4 + 0.5 * r(2);
                 if ROUNDCUBE {
-                    // One rounded cube, a video on each face, its edges a
-                    // glowing border cycling colour and breathing.
                     let faces: Vec<String> = (0..6).map(|n| (VIDEO_BASE + ((n + c) % self.videos.len()) as u32).to_string()).collect();
                     let edge = gradient(&[hex("#00e5ff"), hex("#ff3fa4"), hex("#ffc861"), hex("#33ff77")], t / 3.0 + c as f32 * 0.25);
                     let glow = 0.6 + 0.4 * (t * 3.0 + c as f32).sin();
@@ -1057,7 +962,6 @@ impl Surreal {
                 }
             }
         }
-        // Eyeballs rolling, looking about.
         let eyes_k = envelope(t, 12.0, 66.0, 2.0, 3.0);
         if eyes_k > 0.0 && on("eyes") {
             for e in 0..3u32 {
@@ -1070,7 +974,6 @@ impl Surreal {
                 );
             }
         }
-        // Escher's stairs and an arch, floating behind it all, going nowhere.
         let mut back: Vec<String> = Vec::new();
         let stairs_k = envelope(t, 20.0, 82.0, 3.0, 3.0);
         if stairs_k > 0.0 && on("stairs") {
@@ -1088,7 +991,6 @@ impl Surreal {
                 );
             }
         }
-        // Balloons with faces, cheap and cheerful, rising; now and then one pops.
         let balloon_k = envelope(t, 8.0, 82.0, 2.0, 3.0);
         let mut pops: Vec<(f32, f32, f32, [f32; 3])> = Vec::new();
         if on("balloons") && balloon_k > 0.0 {
@@ -1098,7 +1000,6 @@ impl Surreal {
                 let period = 13.0 + 7.0 * r(1);
                 let cycle = ((t + r(2) * period) / period).floor() as u32;
                 let phase = ((t + r(2) * period) / period).fract();
-                // Half the balloons pop on their way up, each cycle anew.
                 let pop_at = 0.45 + 0.4 * hash(b, cycle + 300);
                 let pops_now = hash(b, cycle + 400) > 0.5;
                 let since = (phase - pop_at) * period;
@@ -1126,7 +1027,6 @@ impl Surreal {
             }
         }
         self.pops = pops;
-        // The cast, in chrome where glass takes it.
         let mut present = Vec::new();
         let mut plays = Vec::new();
         if on("cast") {
@@ -1159,7 +1059,6 @@ impl Surreal {
         self.playing = present.into_iter().collect();
         let (w, h) = self.window;
         let (sw, sh) = (w.min(2048.0) as u32, h.min(2048.0) as u32);
-        // The back scene under every layer of the geometry, the front over.
         for (id, z, list) in [(SCENE_BACK, -3, &back), (SCENE, 0, &nodes)] {
             let json = format!(
                 r#"{{"v":1,"scene":{{"camera":{{"eye":[0,0,{CAMERA_Z}],"fov":{FOV}}},"nodes":[{}]}}}}"#,
@@ -1172,7 +1071,6 @@ impl Surreal {
         }
     }
 
-    /// Take it all down: the scene, the rain's text.
     pub fn end(&mut self, out: &mut Vec<u8>) {
         let _ = write!(ByteWriter(out), "\x1b_glass;remove;all=1\x1b\\");
         self.videos.clear();
@@ -1192,7 +1090,6 @@ mod tests {
         assert_eq!(v["uvs"].as_array().unwrap().len(), positions);
         assert_eq!(v["normals"].as_array().unwrap().len(), positions);
         assert!(indices.iter().all(|i| (i.as_u64().unwrap() as usize) < positions));
-        // The storm's slices together stay under a scene's 4096 vertices.
         assert!(positions * 29 <= 4096, "{positions}");
     }
 
@@ -1202,8 +1099,6 @@ mod tests {
         let mut out = Vec::new();
         show.scene(74.0, &mut out);
         let text = String::from_utf8(out).unwrap();
-        // Two scenes: the back one under the geometry, the front over it,
-        // each under the 1 MiB a scene may carry.
         assert!(text.starts_with("\x1b_glass;scene;id=61;z=-3;"));
         assert!(text.contains("\x1b_glass;scene;id=60;z=0;"));
         for op in text.split("\x1b_glass;scene;").skip(1) {
@@ -1223,12 +1118,10 @@ mod tests {
         for row in [1, 10] {
             assert!(!text.contains(&format!("\x1b[{row};")), "row {row} is the corner's");
         }
-        // Standing still, the next frame rewrites only the heads.
         let first = out.len();
         out.clear();
         rain.draw(&mut out, 1.0, 0.0, 1.0, 2);
         assert!(out.len() < first / 2, "{} of {first}", out.len());
-        // Gone: one frame clears it, then nothing.
         out.clear();
         rain.draw(&mut out, 1.1, 0.0, 0.0, 3);
         assert!(!out.is_empty() && rain.cells.iter().all(|c| c.0 == ' '));

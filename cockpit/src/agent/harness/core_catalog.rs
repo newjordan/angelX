@@ -11,8 +11,6 @@ use std::{
 
 const EMBEDDED: &str = include_str!("../../../../lib/tools/definitions.json");
 const LIMIT: u64 = 1024 * 1024;
-// A version-one override published before these baseline-only entries existed
-// remains complete for its original generation; they are filled natively.
 const V1_ADDITIONS: &[&str] = &[
     "rl_campaign",
     "benchmark_compare",
@@ -50,7 +48,6 @@ const V1_CAMPAIGN_ADDITIONS: &[&str] = &[
     "loop_research",
     "labyrinth_campaign",
 ];
-// These entries are native book or internal schema, not free-form guidance.
 const NATIVE_DESCRIPTIONS: &[&str] = &["labyrinth_campaign_spec", "labyrinth_campaign"];
 
 #[derive(Clone, Debug, Deserialize)]
@@ -208,8 +205,6 @@ pub(crate) fn snapshot() -> Arc<Generation> {
     capture(path.as_deref().map(Path::new))
 }
 
-/// Bind one generation to the turn-local book Arc. The book's transient field
-/// travels with existing code-mode/seat propagation and is excluded from bytes.
 pub(crate) fn bind_book(
     mut book: Arc<super::book::catalog::Catalog>,
 ) -> Arc<super::book::catalog::Catalog> {
@@ -223,14 +218,10 @@ pub(crate) fn current() -> Option<Arc<Generation>> {
     super::book::catalog::current()?.tool_generation.clone()
 }
 
-// Only these schema fields are native constants applied by their Tool::def.
-// Normalization permits description reload after a future native limit change,
-// while every other part of the schema must remain byte-for-byte equivalent.
 fn schema_matches(name: &str, baseline: &Value, native: &Value) -> bool {
     if baseline == native {
         return true;
     }
-    // The nested campaign specification is always supplied by the native host.
     if name == "loop_research" {
         let mut normalized = native.clone();
         let Some(old) = baseline
@@ -296,7 +287,6 @@ impl Generation {
         std::ptr::eq(self, baseline().as_ref())
     }
 
-    /// Leave lean or otherwise dynamic definitions in native control.
     pub(crate) fn overlay(&self, definition: &mut ToolDef) {
         if NATIVE_DESCRIPTIONS.contains(&definition.name.as_str())
             || !self.contains(&definition.name)

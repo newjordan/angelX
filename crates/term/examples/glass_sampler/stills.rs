@@ -8,30 +8,21 @@ fn to_byte(v: f32) -> u8 {
     (v.clamp(0.0, 1.0).powf(1.0 / 2.2) * 255.0).round() as u8
 }
 
-/// Linear light out to sRGB bytes, with a soft shoulder so a highlight
-/// rolls off instead of clipping flat. For the ray tracer, which works in
-/// linear light.
 fn tone(c: Rgb) -> [u8; 4] {
     let shoulder = |v: f32| v / (1.0 + v * 0.18);
     [to_byte(shoulder(c[0])), to_byte(shoulder(c[1])), to_byte(shoulder(c[2])), 255]
 }
 
-/// Colours already chosen as they should look, out to bytes, with the
-/// same soft shoulder. For the sunset and the tunnel.
 fn display(c: Rgb) -> [u8; 4] {
     let byte = |v: f32| ((v / (1.0 + v * 0.12) * 1.06).clamp(0.0, 1.0) * 255.0).round() as u8;
     [byte(c[0]), byte(c[1]), byte(c[2]), 255]
 }
 
-// ------------------------------------------------------------- ray tracer --
-
 struct Ball {
     centre: V3,
     radius: f32,
     color: Rgb,
-    /// 0 matte .. 1 a mirror.
     mirror: f32,
-    /// Shines by itself.
     glow: f32,
 }
 
@@ -67,8 +58,6 @@ fn hit_ball(origin: V3, dir: V3, ball: &Ball) -> Option<f32> {
     (t > 1e-3).then_some(t)
 }
 
-/// How much of the sun reaches `p`: a soft shadow from how near each ball
-/// passes the shadow ray.
 fn sunlight(p: V3) -> f32 {
     let dir = SUN.norm();
     let mut light: f32 = 1.0;
@@ -137,8 +126,6 @@ fn trace(origin: V3, dir: V3, depth: u32) -> Rgb {
     add(mix(matte, tinted, k), scale(WHITE, spec * 2.5))
 }
 
-/// Five balls on a reflecting checkerboard at sunset: a mirror in the
-/// middle, glossy colour round it, soft shadows, four rays a pixel.
 pub fn raytrace(w: u32, h: u32) -> Vec<u8> {
     let w = w.max(1);
     let h = h.max(1);
@@ -169,11 +156,6 @@ pub fn raytrace(w: u32, h: u32) -> Vec<u8> {
     rgba
 }
 
-// ------------------------------------------------------------- synthwave --
-
-/// A synthwave sunset: a striped sun over dark mountains with a neon rim, a
-/// perspective grid running to the horizon, stars, and the sun's glow
-/// laid on the floor.
 pub fn synthwave(w: u32, h: u32) -> Vec<u8> {
     let w = w.max(1);
     let h = h.max(1);
@@ -226,8 +208,6 @@ pub fn synthwave(w: u32, h: u32) -> Vec<u8> {
                 };
                 let fw_x = (z * 7.0 / h as f32 * 2.2).clamp(0.01, 0.5);
                 let fw_z = (z * z * 7.0 / 0.12 / h as f32 * 1.5).clamp(0.01, 0.5);
-                // A line finer than about a pixel only aliases: it fades out
-                // as it gets that fine, so the horizon is a glow, not a moire.
                 let grid = (line(gx, fw_x) * smooth(0.30, 0.10, fw_x)).max(line(gz, fw_z) * smooth(0.30, 0.10, fw_z));
                 let fade = smooth(0.0, 0.3, depth);
                 let floor = mix([0.06, 0.0, 0.10], [0.02, 0.0, 0.05], fade);
@@ -243,11 +223,6 @@ pub fn synthwave(w: u32, h: u32) -> Vec<u8> {
     rgba
 }
 
-// ----------------------------------------------------------------- tunnel --
-
-/// One frame of a neon tunnel flying forward: a pipe of lit tiles that
-/// twists as it goes, bright seams between them, fog to a white-hot
-/// vanishing point that wanders.
 pub fn tunnel(i: u64, frames: u64, w: u32, h: u32) -> Vec<u8> {
     let w = w.max(1);
     let h = h.max(1);
@@ -266,8 +241,6 @@ pub fn tunnel(i: u64, frames: u64, w: u32, h: u32) -> Vec<u8> {
             let v = depth * 4.5 + t * 6.0;
             let (fu, fv) = (u - u.floor(), v - v.floor());
             let tile = ((u.floor() + v.floor()) as i32) & 1;
-            // Seams thin with distance in screen terms: their width is in
-            // tile units, and a far tile is small.
             let fw = (0.03 * depth).clamp(0.03, 0.35);
             let seam_u = smooth(fw, 0.0, fu.min(1.0 - fu));
             let seam_v = smooth(fw * 1.4, 0.0, fv.min(1.0 - fv));
@@ -331,8 +304,6 @@ mod tests {
         assert!(lit > 2 && lit < w as usize, "grid lines cross the floor: {lit}");
     }
 
-    /// `SAMPLER_DUMP=dir cargo test --release --example glass_sampler --
-    /// --ignored dump_stills` writes each still as a PNG to look at.
     #[test]
     #[ignore]
     fn dump_stills() {

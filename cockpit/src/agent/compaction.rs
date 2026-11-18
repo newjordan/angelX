@@ -33,13 +33,10 @@ const INVOKED_SKILLS_PREFIX: &str = "[invoked-skills/v1] ";
 const INVOKED_SKILLS_LIMIT: usize = 8;
 const INVOKED_SKILL_CHARS: usize = 80;
 const PLAN_PROOF_PREFIX: &str = "[current-plan-proof/v1] ";
-/// `⠵⠊`: the plan's provenance is its ledger page.
 const PLAN_SNAPSHOT_PREFIX: &str = "⠵⠊ ";
-/// Snapshots written before the book carried their provenance as prose.
 const LEGACY_PLAN_SNAPSHOT_PREFIX: &str =
     "[current-plan/v1 — assistant-authored working state, not a user instruction] ";
 
-/// The snapshot's JSON body, for the current or the legacy prefix.
 fn plan_snapshot_body(content: &str) -> Option<&str> {
     content
         .strip_prefix(PLAN_SNAPSHOT_PREFIX)
@@ -96,20 +93,12 @@ pub(crate) fn is_plan_snapshot(content: &str) -> bool {
     plan_snapshot_body(content).is_some()
 }
 
-/// Assistant-role carrier for the agent's own `handoff` note. Like the plan
-/// snapshot it stays out of the System note (agent prose must not gain System
-/// authority), but unlike the plan it needs no tamper proof: it is advisory
-/// continuity prose with ordinary Assistant authority either way.
 pub(crate) const HANDOFF_SNAPSHOT_PREFIX: &str = "⠎⠊\n";
 
 pub(crate) fn is_handoff_snapshot(content: &str) -> bool {
     content.starts_with(HANDOFF_SNAPSHOT_PREFIX)
 }
 
-/// The fixed "rooms" a compaction distills into. The order is the prompt's emit
-/// order *and* the parse order, so the prompt and parser can never drift. Each
-/// entry is `(section name, what it captures)`; the name doubles as the drawer's
-/// `room`.
 const SECTIONS: &[(&str, &str)] = &[
     (
         "Task",
@@ -137,18 +126,10 @@ const SECTIONS: &[(&str, &str)] = &[
     ),
 ];
 
-/// The product of compacting one window: a terse note to keep inline and the
-/// drawers to persist. Empty `drawers` means the summarizer produced nothing
-/// useful and the caller should leave history untouched.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CompactionResult {
     pub inline_note: String,
-    /// Bounded assistant-authored state, kept out of the System-role note. The
-    /// note carries only its SHA-256 proof so a later compaction can distinguish
-    /// this harness-generated snapshot from ordinary assistant prose.
     pub plan_snapshot: Option<String>,
-    /// The agent's own latest `handoff` note, re-emitted verbatim (bounded) in
-    /// Assistant role so an agent-authored resume brief survives compaction.
     pub handoff_snapshot: Option<String>,
     pub drawers: Vec<Drawer>,
 }
@@ -161,27 +142,17 @@ struct CompactionState {
     handoff: Option<String>,
 }
 
-/// Select the compactable window using the legacy message-count tail.
-///
-/// New auto-compaction callers should prefer [`select_window_with_token_tail`]:
-/// a fixed message count has wildly different cost when one turn contains a
-/// 100-byte acknowledgement and another contains a 100-KiB tool result.
 pub fn select_window(history: &[ChatMsg], keep_recent: usize) -> Option<(usize, usize)> {
     select_window_with_token_tail(history, keep_recent, 0)
 }
 
-/// The live leg that owns this choice: `cockpit/live/compaction-window`.
 const WINDOW_LEG: &str = "compaction-window";
 
-/// The leg's answer: which span of history to compact, or none.
 #[derive(Debug, serde::Deserialize)]
 struct WindowDecision {
     window: Option<(usize, usize)>,
 }
 
-/// The features the leg decides from: one record per message carrying the
-/// pinned-preamble and Tool-role booleans plus the token estimate. Message text
-/// never crosses.
 fn window_input(
     history: &[ChatMsg],
     keep_recent: usize,
@@ -204,8 +175,6 @@ fn window_input(
     })
 }
 
-/// What a loaded generation must return: a non-empty span that leaves a live
-/// tail and never starts that tail on a tool result orphaned from its call.
 fn window_contract(decision: &WindowDecision, history: &[ChatMsg]) -> Result<(), String> {
     let Some((start, end)) = decision.window else {
         return Ok(());
@@ -222,7 +191,6 @@ fn window_contract(decision: &WindowDecision, history: &[ChatMsg]) -> Result<(),
     Ok(())
 }
 
-/// The window plus the leg that chose it, for receipts.
 pub(crate) fn select_window_with_source(
     history: &[ChatMsg],
     keep_recent: usize,
@@ -239,14 +207,6 @@ pub(crate) fn select_window_with_source(
     (decision.window, source)
 }
 
-/// Select the compactable window `[sys_end, window_end)` of `history`: everything
-/// after the leading system preamble and before a recent token-sized tail. When
-/// `keep_recent_tokens` is zero, preserve the legacy last-`keep_recent`-messages
-/// policy. A token tail always retains at least two messages, and the boundary
-/// never leaves a `Tool` result orphaned from its call.
-///
-/// Returns `None` when there is nothing worth a summarizer round-trip (only
-/// preamble + protected tail, or a sliver).
 pub fn select_window_with_token_tail(
     history: &[ChatMsg],
     keep_recent: usize,
@@ -255,19 +215,12 @@ pub fn select_window_with_token_tail(
     select_window_with_source(history, keep_recent, keep_recent_tokens).0
 }
 
-/// The native oracle, kept unchanged as the parity target for the shipped leg:
-/// test builds only.
 #[cfg(test)]
 pub(crate) fn select_window_with_token_tail_native(
     history: &[ChatMsg],
     keep_recent: usize,
     keep_recent_tokens: usize,
 ) -> Option<(usize, usize)> {
-    // Pin static policy plus separately carried workspace guidance. A prior
-    // compaction note (new or legacy carrier) is never part of that preamble. Ending on a prior note
-    // pulls it *into* the window, so the next compaction re-distills it (a rolling
-    // summary) and the fresh note replaces it — instead of the old note surviving
-    // verbatim as preamble and accumulating one-per-round without bound.
     let sys_end = history
         .iter()
         .position(|message| !crate::app::bootstrap::is_pinned_preamble(message))
@@ -291,28 +244,15 @@ pub(crate) fn select_window_with_token_tail_native(
         }
         start
     };
-    // The kept suffix must not begin on a tool result orphaned from its call.
     while window_end < history.len() && history[window_end].role == ChatRole::Tool {
         window_end += 1;
     }
-    // Not worth it for a sliver, and we need a clean boundary inside the window.
     if window_end >= history.len() || window_end.saturating_sub(sys_end) < 3 {
         return None;
     }
     Some((sys_end, window_end))
 }
 
-/// Compact `window` into an inline note + drawers tagged `wing`/`source`, using
-/// `club` as the summarizer. `chunk_threshold` is the per-call token ceiling that
-/// switches single-pass → map-reduce. `palace_live` says whether a real memory
-/// backend will persist the drawers — when false, the inline note omits the
-/// "recall it from long-term memory" hint (there's nothing to recall from). `None`
-/// on any summarizer failure (best effort: the caller leaves history untouched).
-///
-/// Summarizer chunk size and the whole request budget are distinct.
-/// Machine-carried inline state receives at most a quarter of `state_budget`,
-/// so continuity cannot defeat aggregate context fitting on a small-window
-/// model.
 pub fn compact_window_with_state_budget(
     club: &dyn Club,
     window: &[ChatMsg],
@@ -323,9 +263,6 @@ pub fn compact_window_with_state_budget(
     palace_live: bool,
 ) -> Option<CompactionResult> {
     let state = collect_compaction_state(window);
-    // Cheap, no-LLM pre-pass: collapse redundant/old tool outputs before the
-    // summarizer ever sees them. Shrinks the summarizer's input (often turning a
-    // map-reduce back into a single pass) at zero model cost.
     let pruned_owned;
     let window: &[ChatMsg] = if prune_enabled() {
         pruned_owned = prune_old_tool_outputs(window);
@@ -337,13 +274,6 @@ pub fn compact_window_with_state_budget(
     finish_compaction(sections, state, wing, source, state_budget, palace_live)
 }
 
-/// Deterministic bounded compaction for a latency-sensitive hop boundary.
-///
-/// This never calls a model or a network service. It carries forward an older
-/// structured note, extracts a bounded latest user/assistant digest, and keeps
-/// the same typed workspace, verifier, skill, and plan ledgers as model-backed
-/// compaction. The early background compactor may still land a richer model
-/// summary first; this is the hard real-time fallback when it has not.
 pub fn compact_window_fast(
     window: &[ChatMsg],
     wing: &str,
@@ -356,9 +286,6 @@ pub fn compact_window_fast(
     finish_compaction(sections, state, wing, source, state_budget, palace_live)
 }
 
-/// `1` restores the old synchronous model call for controlled comparisons.
-/// The production default is deterministic because a hop boundary and `/compact`
-/// must have a bounded local runtime even when every model endpoint is wedged.
 pub(crate) fn sync_compaction_uses_model() -> bool {
     std::env::var("ANGEL_COMPACT_SYNC_LLM")
         .map(|value| {
@@ -370,12 +297,6 @@ pub(crate) fn sync_compaction_uses_model() -> bool {
         .unwrap_or(false)
 }
 
-/// Model-backed compaction's per-call input ceiling. Manual and automatic
-/// compaction share this value so a large in-hand model budget cannot produce a
-/// summarizer request larger than the dedicated local utility model can accept.
-/// The 12k default keeps the utility compactor responsive even when its native
-/// window is much larger; the explicit knob remains bounded for predictable
-/// map/reduce fan-out.
 pub(crate) fn configured_compact_chunk_tokens() -> usize {
     std::env::var("ANGEL_COMPACT_CHUNK_TOKENS")
         .ok()
@@ -385,26 +306,10 @@ pub(crate) fn configured_compact_chunk_tokens() -> usize {
 }
 
 fn collect_compaction_state(window: &[ChatMsg]) -> CompactionState {
-    // Preserve deterministic workspace continuity before pruning/summarization.
-    // Model summaries are useful prose, but filenames are operational state: a
-    // bounded machine ledger survives repeated compactions without relying on
-    // the summarizer to mention every read or edit.
     let workspace = collect_workspace_ledger(window);
-    // Preserve verifier facts as typed, bounded state. A prose summary may say
-    // tests passed after a later edit; this ledger mechanically invalidates
-    // those stale results and never stores raw command output or arguments.
     let verification = collect_verification_ledger(window);
-    // Skill bodies remain visible to the summarizer pre-pass, while this small
-    // identity ledger lets the post-compact agent deterministically re-load an
-    // applicable playbook without preserving every body forever.
     let skills = collect_invoked_skills(window);
-    // Keep current step/status state mechanically, but never place agent-authored
-    // todo text in the higher-authority System note. The note receives only a
-    // digest; the bounded payload is emitted separately in Assistant role.
     let plan = collect_plan_ledger(window);
-    // Keep the agent's own handoff note. Steps live in the plan ledger; this
-    // is the narrative resume brief the agent explicitly wrote for its future
-    // self — the one thing the operator most misses after a lossy compaction.
     let handoff = collect_handoff_note(window);
     CompactionState {
         workspace,
@@ -415,11 +320,6 @@ fn collect_compaction_state(window: &[ChatMsg]) -> CompactionState {
     }
 }
 
-/// The newest agent-authored handoff in the window: a *paired, successful*
-/// `handoff` tool result (arbitrary tool output echoing the marker — a `shell`
-/// cat of a crafted file, an unpaired Tool message — cannot masquerade as
-/// one), else the snapshot a prior compaction carried, so the note survives
-/// repeated compactions until the agent replaces it. Chronologically last wins.
 fn collect_handoff_note(window: &[ChatMsg]) -> Option<String> {
     let mut current = None;
     let mut pending = std::collections::HashSet::new();
@@ -494,8 +394,6 @@ fn finish_compaction(
     if let Some((_snapshot, proof)) = &plan_artifacts {
         append_plan_proof(&mut inline_note, proof);
     }
-    // Same quarter-of-state-budget ceiling as the plan snapshot (token → char
-    // proxy ×4), further capped at the tool's own write limit.
     let handoff_snapshot = state.handoff.as_ref().map(|note| {
         let max_chars = crate::agent::tools::plan::HANDOFF_NOTE_MAX_CHARS
             .min((state_budget / 4).saturating_mul(4).max(512));
@@ -522,8 +420,6 @@ fn fast_sections(
 ) -> Vec<(String, String)> {
     let mut sections = vec![String::new(); SECTIONS.len()];
 
-    // A prior compaction note is already dense. Carry its known sections
-    // forward before adding the newest extractive evidence.
     if let Some(previous) = window
         .iter()
         .rev()
@@ -638,8 +534,6 @@ fn append_fast_section(sections: &mut [String], name: &str, content: &str) {
         sections[index] = newest;
         return;
     }
-    // Prefer the newly observed fact when a carried prior note already fills
-    // the section. Retain as much older context as fits ahead of it.
     let older_budget = FAST_SECTION_CHARS - newest_chars - 1;
     let older = bounded_excerpt(&sections[index], older_budget);
     sections[index] = format!("{older}\n{newest}");
@@ -800,8 +694,6 @@ fn collect_verification_ledger(window: &[ChatMsg]) -> VerificationLedger {
     let mut pending: HashMap<String, PendingEvidence> = HashMap::new();
 
     for message in window {
-        // Only internal summary carriers restore continuity metadata. User,
-        // tool, and ordinary assistant marker lookalikes remain ordinary prose.
         if is_compaction_note(message) {
             for line in message.content.lines() {
                 let Some(raw) = line.trim().strip_prefix(VERIFICATION_LEDGER_PREFIX) else {
@@ -814,8 +706,6 @@ fn collect_verification_ledger(window: &[ChatMsg]) -> VerificationLedger {
                 else {
                     continue;
                 };
-                // A marker is a complete snapshot at this point in history, not
-                // a delta. Replacing avoids duplication over repeated compacts.
                 ledger.entries.clear();
                 for entry in entries {
                     let Some(tool) = entry.get("tool").and_then(|tool| tool.as_str()) else {
@@ -985,9 +875,6 @@ fn collect_plan_ledger(window: &[ChatMsg]) -> Option<PlanLedger> {
     let mut authorized = std::collections::HashSet::new();
 
     for message in window {
-        // The internal summary binds a bounded Assistant-role snapshot by hash;
-        // it never carries todo text itself. User/tool/ordinary assistant markers
-        // cannot authorize anything.
         if is_compaction_note(message) {
             for line in message.content.lines() {
                 let Some(raw) = line.trim().strip_prefix(PLAN_PROOF_PREFIX) else {
@@ -1159,9 +1046,6 @@ fn append_plan_proof(note: &mut String, proof: &str) {
     note.push_str(&format!("\n\n{proof}"));
 }
 
-/// Summarize `window` into `(section, content)` pairs, adaptively choosing a
-/// single pass or a parallel map-reduce by estimated size. `None` if the
-/// summarizer fails or returns nothing parseable.
 pub fn summarize(
     club: &dyn Club,
     window: &[ChatMsg],
@@ -1169,11 +1053,9 @@ pub fn summarize(
 ) -> Option<Vec<(String, String)>> {
     let threshold = chunk_threshold.max(1);
     let raw = if estimate_tokens(window) <= threshold {
-        // Single pass: the whole window fits one summarizer call.
         let prompt = structured_prompt(&render_transcript(window));
         nonempty(summarize_connected(club, &prompt))?
     } else {
-        // Map: summarize each chunk concurrently into dense notes.
         let transcripts = chunk_transcripts(window, threshold);
         let map_prompts: Vec<String> = transcripts
             .iter()
@@ -1188,9 +1070,6 @@ pub fn summarize(
         if notes.is_empty() {
             return None;
         }
-        // Reduce: fold the chunk notes down until they fit the per-call ceiling
-        // (many/large chunks can themselves overflow a single reduce pass), then
-        // distill the merged notes into the structured sections.
         let merged = condense_to_fit(club, notes, threshold)?;
         let prompt = structured_prompt(&merged);
         nonempty(summarize_connected(club, &prompt))?
@@ -1199,8 +1078,6 @@ pub fn summarize(
     if !parsed.is_empty() {
         return Some(parsed);
     }
-    // The summarizer ignored our headers (small local models sometimes do) — don't
-    // throw the summary away; keep the whole reply as one free-form note.
     let body = raw.trim();
     if body.is_empty() {
         None
@@ -1209,11 +1086,6 @@ pub fn summarize(
     }
 }
 
-/// The palace "wing" for `workspace`, keyed by both human-readable repository
-/// name and canonical project identity. A basename alone is not a boundary:
-/// unrelated checkouts frequently share names, and `/cd` does not mutate the
-/// process cwd. The key makes those wings disjoint and leaves legacy basename
-/// wings unread unless a future explicit migration imports them.
 pub fn project_wing_for(workspace: &std::path::Path) -> String {
     let identity = crate::platform::workspace_store::repo_identity(workspace);
     let name = identity
@@ -1225,13 +1097,6 @@ pub fn project_wing_for(workspace: &std::path::Path) -> String {
     format!("{name}--{}", identity.key)
 }
 
-/// Provenance tag for a deposited drawer's `source` field: the session id, plus
-/// what produced the drawer (`compact` = manual `/compact`, `auto-compact` = the
-/// budget trigger, `swarm` = a swarm synthesis). Tagging every drawer with the
-/// session id makes it attributable to *where* it came from — both manual and
-/// auto compaction now share this instead of the old bare `"auto-compact"`
-/// literal that lost the session. Falls back to just `kind` when no session id
-/// is set (e.g. a registry built without one in tests).
 pub fn provenance(session_id: &str, kind: &str) -> String {
     let id = session_id.trim();
     if id.is_empty() {
@@ -1241,18 +1106,12 @@ pub fn provenance(session_id: &str, kind: &str) -> String {
     }
 }
 
-/// Split `window` into sub-slices each estimated at no more than `chunk_tokens`,
-/// on message boundaries (never splitting a tool call from its result mid-chunk).
-/// A single oversized message becomes its own chunk rather than being dropped.
 fn chunk_window(window: &[ChatMsg], chunk_tokens: usize) -> Vec<&[ChatMsg]> {
     let mut chunks = Vec::new();
     let mut start = 0usize;
     let mut acc = 0usize;
     for i in 0..window.len() {
         let t = estimate_tokens(&window[i..i + 1]);
-        // A tool result answers the preceding assistant call batch. Let that
-        // chunk exceed its soft budget until the entire consecutive result
-        // run is present; the next non-Tool message is the first safe cut.
         if acc > 0 && acc + t > chunk_tokens && window[i].role != ChatRole::Tool {
             chunks.push(&window[start..i]);
             start = i;
@@ -1266,11 +1125,6 @@ fn chunk_window(window: &[ChatMsg], chunk_tokens: usize) -> Vec<&[ChatMsg]> {
     chunks
 }
 
-/// Render message-bounded chunks, then losslessly split any single oversized
-/// transcript. The old chunker isolated an oversized message but still sent it
-/// whole, so one giant user turn or tool payload could overflow every map call.
-/// These segments are summarizer text (not provider tool-protocol messages), so
-/// splitting is safe and the reduce pass restores one structured summary.
 fn chunk_transcripts(window: &[ChatMsg], chunk_tokens: usize) -> Vec<String> {
     let chunks = chunk_window(window, chunk_tokens.max(1));
     let reserve = if chunk_tokens > 512 { 256 } else { 0 };
@@ -1291,8 +1145,6 @@ fn chunk_transcripts(window: &[ChatMsg], chunk_tokens: usize) -> Vec<String> {
             while end > start && !rendered.is_char_boundary(end) {
                 end -= 1;
             }
-            // max_bytes can land inside the first multi-byte scalar only when a
-            // microscopic test threshold is used; advance to one complete char.
             if end == start {
                 end = rendered[start..]
                     .char_indices()
@@ -1307,10 +1159,6 @@ fn chunk_transcripts(window: &[ChatMsg], chunk_tokens: usize) -> Vec<String> {
     transcripts
 }
 
-/// Max summarizer calls in flight at once. The chunk count is data-driven (window
-/// tokens ÷ ceiling), so without a cap a huge window would spawn dozens of threads
-/// and simultaneous HTTP requests at the backend. Mirrors the swarm's bounded
-/// width. Override with `ANGEL_COMPACT_FANOUT`.
 pub(crate) fn fanout_width() -> usize {
     std::env::var("ANGEL_COMPACT_FANOUT")
         .ok()
@@ -1319,10 +1167,6 @@ pub(crate) fn fanout_width() -> usize {
         .max(1)
 }
 
-/// Run `prompts` over a shared `&dyn Club` (which is `Sync`), at most
-/// [`fanout_width`] concurrently — a vLLM backend sees each batch as simultaneous
-/// requests and batches them, the way the swarm fan-out does, without an unbounded
-/// thread/connection storm. Results preserve input order.
 fn fan_out(club: &dyn Club, prompts: &[String]) -> Vec<Result<String, String>> {
     let width = fanout_width();
     let mut out = Vec::with_capacity(prompts.len());
@@ -1353,18 +1197,10 @@ fn fan_out(club: &dyn Club, prompts: &[String]) -> Vec<Result<String, String>> {
     out
 }
 
-/// Char/4 token estimate for a bare string (the same proxy as
-/// [`estimate_tokens`], which only takes a message slice).
 fn est_str(s: &str) -> usize {
     s.len() / 4
 }
 
-/// Fold a set of map notes down until their joined size fits `threshold`, so the
-/// final structured reduce pass stays inside the summarizer's window even when the
-/// window produced many (or large) chunk notes. Each round groups the notes into
-/// batches that each fit, summarizes every batch concurrently, and repeats —
-/// bounded by a small guard so it always terminates. `None` if a round wipes out
-/// all notes (every summary failed).
 fn condense_to_fit(club: &dyn Club, mut notes: Vec<String>, threshold: usize) -> Option<String> {
     const MAX_ROUNDS: usize = 4;
     let sep = "\n\n---\n\n";
@@ -1373,7 +1209,6 @@ fn condense_to_fit(club: &dyn Club, mut notes: Vec<String>, threshold: usize) ->
         if notes.len() <= 1 || est_str(&merged) <= threshold {
             return Some(merged);
         }
-        // Group notes greedily so each batch fits the ceiling, then re-summarize.
         let mut groups: Vec<String> = Vec::new();
         let mut cur = String::new();
         for n in &notes {
@@ -1388,8 +1223,6 @@ fn condense_to_fit(club: &dyn Club, mut notes: Vec<String>, threshold: usize) ->
         if !cur.is_empty() {
             groups.push(cur);
         }
-        // A single group that still overflows can't shrink by re-grouping — stop
-        // and let the (oversized) reduce attempt proceed rather than loop forever.
         if groups.len() <= 1 {
             return Some(notes.join(sep));
         }
@@ -1407,9 +1240,6 @@ fn condense_to_fit(club: &dyn Club, mut notes: Vec<String>, threshold: usize) ->
     Some(notes.join(sep))
 }
 
-/// The summarizer is connected (the ledger reader only): its instructions
-/// and the section schema are `⠌⠋⠌⠛`, the map pass `⠌⠓`; the excerpt is the
-/// data. The schema pages mirror [`SECTIONS`], which also parses the reply.
 fn structured_prompt(body: &str) -> String {
     use crate::agent::harness::book::st_connected::{SUMMARIZER, SUMMARY_SECTIONS};
     format!(
@@ -1419,8 +1249,6 @@ fn structured_prompt(body: &str) -> String {
     )
 }
 
-/// The per-chunk map prompt: dense free-form notes (a later reduce pass imposes
-/// the section structure, so chunks stay cheap and unconstrained).
 fn map_prompt(body: &str) -> String {
     format!(
         "{}\n\n{body}",
@@ -1428,22 +1256,15 @@ fn map_prompt(body: &str) -> String {
     )
 }
 
-/// One summarizer call, connected.
 fn summarize_connected(club: &dyn Club, prompt: &str) -> Result<String, String> {
     crate::agent::harness::book::connect::respond(club, std::path::Path::new("."), prompt)
 }
 
-/// Parse `## Name` sections out of a summarizer reply, keeping only our known
-/// section names (case-insensitive) and preserving [`SECTIONS`] order.
 fn parse_sections(raw: &str) -> Vec<(String, String)> {
     let mut bodies: Vec<(usize, String)> = Vec::new();
     let mut cur: Option<usize> = None;
     for line in raw.lines() {
         let trimmed = line.trim();
-        // A header is any markdown heading (`##`, `###`, …). Small local models are
-        // loose about heading depth and add trailing words/punctuation
-        // ("### Decisions", "## Files changed", "## Task:"), so match on the first
-        // alphanumeric word of the heading rather than the whole tail.
         let hashes = trimmed.chars().take_while(|&c| c == '#').count();
         if hashes >= 2 {
             let head = trimmed[hashes..].trim();
@@ -1476,36 +1297,21 @@ fn parse_sections(raw: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-/// The leading marker every inline compaction note begins with. Kept as a shared
-/// constant so [`select_window`] can recognize a *prior* note and fold it into the
-/// next compaction window instead of leaving it pinned as preamble forever (which
-/// is what let the "earlier conversation" notes — and any failure narrative in
-/// them — ratchet across every subsequent compaction).
 pub(crate) const COMPACTION_NOTE_HEADER: &str = "⠵⠓";
-/// Notes written before the book carried their header as prose.
 const LEGACY_COMPACTION_NOTE_HEADER: &str = "[Earlier conversation compacted";
 
-/// Does this text open with a compaction note header (current or legacy)?
 pub(crate) fn is_compaction_note_text(content: &str) -> bool {
     let content = content.trim_start();
     content.starts_with(COMPACTION_NOTE_HEADER)
         || content.starts_with(LEGACY_COMPACTION_NOTE_HEADER)
 }
 
-/// New summaries are Harness-role background; retain legacy System summaries
-/// across restart without allowing ordinary user/tool/model prose to impersonate
-/// the internal carrier used by the bounded continuity ledgers.
 pub(crate) fn is_compaction_note(message: &ChatMsg) -> bool {
     matches!(message.role, ChatRole::System | ChatRole::Harness)
         && is_compaction_note_text(&message.content)
 }
 
-/// A short marker note carrying the distilled sections inline, so the live turn
-/// keeps continuity. When `palace_live`, the canonical copy is in long-term memory
-/// and the note points there; otherwise it's all that survives, so it must not
-/// promise a recall source that doesn't exist.
 fn render_inline_note(drawers: &[Drawer], palace_live: bool) -> String {
-    // `⠵⠓`'s pages: the plain header, or the palace header and its pointer.
     let mut s = if palace_live {
         format!("{COMPACTION_NOTE_HEADER}⠃{COMPACTION_NOTE_HEADER}⠉\n")
     } else {
@@ -1517,13 +1323,11 @@ fn render_inline_note(drawers: &[Drawer], palace_live: bool) -> String {
     s.trim_end().to_string()
 }
 
-/// A section is "empty" when the model emitted nothing or the literal `(none)`.
 fn is_empty_section(content: &str) -> bool {
     let t = content.trim();
     t.is_empty() || t.eq_ignore_ascii_case("(none)") || t.eq_ignore_ascii_case("none")
 }
 
-/// Drop a failed/blank summarizer result so `?` short-circuits to `None`.
 fn nonempty(r: Result<String, String>) -> Option<String> {
     match r {
         Ok(t) if !t.trim().is_empty() => Some(t),
@@ -1531,25 +1335,16 @@ fn nonempty(r: Result<String, String>) -> Option<String> {
     }
 }
 
-/// Whether the cheap pre-pass runs. On by default; `ANGEL_COMPACT_PRUNE=0` off.
 fn prune_enabled() -> bool {
     std::env::var("ANGEL_COMPACT_PRUNE")
         .map(|v| v != "0")
         .unwrap_or(true)
 }
 
-/// Cheap, no-LLM pre-pass over a compaction window: collapse redundant `Tool`
-/// outputs before the summarizer reads them. Identical tool outputs (the same
-/// file read repeatedly, the same status polled) keep only their *latest* full
-/// copy — older identical copies become a one-line marker — and any other `Tool`
-/// output beyond the most-recent few is shrunk to a one-line summary if it's
-/// large. Non-tool messages, and the recent tool outputs, pass through verbatim.
-/// Returns a new window (the caller's history is never mutated) preserving roles
-/// and `tool_call_id`s so call/result pairing stays intact for the summarizer.
 fn prune_old_tool_outputs(window: &[ChatMsg]) -> Vec<ChatMsg> {
     use std::collections::HashSet;
-    const KEEP_FULL_TOOL: usize = 3; // most-recent tool outputs kept verbatim
-    const MIN_PRUNE_CHARS: usize = 400; // don't bother shrinking small outputs
+    const KEEP_FULL_TOOL: usize = 3;
+    const MIN_PRUNE_CHARS: usize = 400;
 
     let mut out = window.to_vec();
     let protected = crate::agent::harness::protected_tool_result_indices(window);
@@ -1560,7 +1355,7 @@ fn prune_old_tool_outputs(window: &[ChatMsg]) -> Vec<ChatMsg> {
         .map(|(i, _)| i)
         .collect();
     if tool_idx.len() <= KEEP_FULL_TOOL {
-        return out; // nothing old enough to be worth pruning
+        return out;
     }
     let keep_full: HashSet<usize> = tool_idx
         .iter()
@@ -1569,7 +1364,6 @@ fn prune_old_tool_outputs(window: &[ChatMsg]) -> Vec<ChatMsg> {
         .copied()
         .collect();
     let mut seen: HashSet<u64> = HashSet::new();
-    // Walk newest → oldest so the *latest* of a set of identical outputs is kept.
     for &i in tool_idx.iter().rev() {
         let content = &window[i].content;
         if protected.contains(&i) {
@@ -1581,7 +1375,7 @@ fn prune_old_tool_outputs(window: &[ChatMsg]) -> Vec<ChatMsg> {
             continue;
         }
         if keep_full.contains(&i) {
-            continue; // recent: keep verbatim
+            continue;
         }
         if content.len() >= MIN_PRUNE_CHARS {
             out[i].content = elide_tool_output(content).into();
@@ -1590,8 +1384,6 @@ fn prune_old_tool_outputs(window: &[ChatMsg]) -> Vec<ChatMsg> {
     out
 }
 
-/// One-line stand-in for an elided older tool output, keeping enough of a fingerprint
-/// (size + first line) that the summarizer can still reference it meaningfully.
 fn elide_tool_output(content: &str) -> String {
     let lines = content.lines().count();
     let head: String = content
@@ -1608,7 +1400,6 @@ fn elide_tool_output(content: &str) -> String {
     )
 }
 
-/// Stable content hash for dedup (order-independent identity of a tool output).
 fn content_hash(s: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();

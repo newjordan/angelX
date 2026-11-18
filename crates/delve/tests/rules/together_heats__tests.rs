@@ -28,13 +28,11 @@ fn every_knight_in_the_room_plays_their_own_round_and_the_first_home_wins() {
     assert_eq!(heat.seats, vec![1, 2, 3], "everyone in the room is in");
     assert_eq!(run.pastimes.round.as_ref().unwrap().game, Game::Barrel);
     assert_eq!(run.pastimes.heats.len(), 2);
-    // Each knight's screen shows their own round.
     for id in [2, 3] {
         let view = run.view_for_seat(id).unwrap();
         assert_eq!(view.pastimes.round.as_ref(), run.pastimes.heats.get(&id));
     }
     assert!(run.valid_snapshot());
-    // Seat two rides the course; seat one's round never moves for it.
     for (i, &flag) in FLAGS.iter().enumerate() {
         place(&mut run, 2, flag);
         run.tick_pastimes(&BTreeMap::new());
@@ -69,8 +67,6 @@ fn a_knight_alone_plays_as_before() {
     assert!(!run.players[&1].laurel, "no crown without a rival");
 }
 
-/// `cargo test --release stage_frame_bench -- --ignored --nocapture`: ms a
-/// frame for the duck range's and the half-pipe's own screens.
 #[test]
 #[ignore]
 fn stage_frame_bench() {
@@ -101,11 +97,6 @@ fn stage_frame_bench() {
     }
 }
 
-/// `cargo test --release stage_parts_bench -- --ignored --nocapture`: ms the
-/// parts path takes for the same screens — `seat_scene` (RoomScene split)
-/// plus `stage_frame` (the layers a Glass window consumes). The frame bench
-/// above only times `frame_for`; this one catches a lift in cost from the
-/// pastime's per-layer work (figures, backdrop, screen canvas).
 #[test]
 #[ignore]
 fn stage_parts_bench() {
@@ -140,9 +131,6 @@ fn stage_parts_bench() {
     }
 }
 
-/// Plates of a heat from each knight's own screen, and the crowned and
-/// booby-prized knights after: `ANGEL_ARENA_SHOTS=<dir> cargo test
-/// write_heat_shots -- --ignored`.
 #[test]
 #[ignore]
 fn write_heat_shots() {
@@ -228,7 +216,6 @@ fn a_far_duck_counts_double() {
     run.tick_pastimes(&BTreeMap::new());
     let round = run.pastimes.round.as_mut().unwrap();
     let range = round.duckshoot.as_mut().unwrap();
-    // Aim dead on where the far rail's duck slides to next, and fire.
     let duck = &range.ducks[2];
     range.ax = duckshoot::DuckShoot::screen_x(duck.x + duck.vx, 2) as i16;
     range.ay = duckshoot::RAIL_SY[2] as i16;

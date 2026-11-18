@@ -13,14 +13,18 @@ mod look;
 mod noise;
 pub mod palette;
 mod pieces;
+mod pit;
+mod setpieces;
 mod props;
 mod road;
 mod roadtex;
 mod roadtex_glass;
 mod roadtex_moat;
+mod roadtex_wash;
 pub mod route;
 mod scenery;
 mod sky;
+mod sky_wash;
 mod terrain;
 mod tex;
 mod trackside;
@@ -38,27 +42,17 @@ use route::Route;
 use crate::render::world3d::math::V3;
 use crate::render::world3d::mesh::{Mesh, Tri};
 
-/// The most triangles one frame of world may hold, whatever the course. The
-/// race renders at 384 by 224 on every seat's own machine, and the raster's
-/// per-triangle set-up is serial: this is what keeps a big map as fast as a small one.
 pub const TRIANGLE_BUDGET: usize = 32_000;
 
-/// How far behind and ahead of the car the road is drawn.
 const ROAD_BEHIND: f32 = 70.;
 const ROAD_AHEAD: f32 = 340.;
-/// The farthest land drawn.
 const HORIZON: f32 = 1150.;
-/// Half the view cone kept when culling land, radians: wider than any lens.
 const KEEP: f32 = 1.0;
 
-/// How far the haze takes the world, in metres, for a place: a cave is deep, and its
-/// lamps and crystals are the only things that must still be seen at the far end.
 pub fn fog_for(look: route::Look) -> f32 {
-    match look { route::Look::Deep => 230., route::Look::Forge | route::Look::Ash => 190., route::Look::Castle => 170., _ => 130. }
+    match look { route::Look::Deep => 230., route::Look::Wash => 210., route::Look::Forge | route::Look::Ash => 190., route::Look::Castle => 170., _ => 130. }
 }
 
-/// Re-inks the dots of the picture whose raw colour was violet (the crystals of the Glassway) from the
-/// violet dye's own ramp by their tone: the plain palette the picture is snapped to has no violet.
 pub fn dye(im: &mut super::Img, rgba: &[u8]) {
     const VIOLET: [char; 6] = ['d', '(', ')', '[', ']', '^'];
     for y in 18..176 {
@@ -74,37 +68,26 @@ pub fn dye(im: &mut super::Img, rgba: &[u8]) {
     }
 }
 
-/// The haze a place fades into, and the colour of whatever the lens sees past the world.
 pub fn haze(look: route::Look) -> [u8; 3] { palette::haze_of(look) }
 
-/// How far down a vault the eye must still be from its mouth for the land to stay unseen:
-/// the haze has taken everything farther, and the mouth is a speck.
 const VAULT_SEE: f32 = 170.;
 
-/// Whether the eye rides the main road inside a tunnel or a vault of crystal, looking
-/// along it, with its far mouth still out of sight: all that is seen is the shell.
 fn enclosed(r: &dyn Route, eye: V3, heading: f32) -> bool {
     let Some(n) = index::of(r).nearest(eye.x, eye.y, 30.) else { return false };
     if n.dist >= n.edge || eye.z - n.h > 14. { return false; }
     let inside = r.pieces().iter().any(|p| matches!(p.kind, route::Kind::Tunnel | route::Kind::CrystalVault) && n.s >= p.s0 + 20. && n.s <= p.s1 - VAULT_SEE);
-    // A fork that parts from the road in sight opens the shell.
     let forked = r.forks().iter().any(|f| f.s0 <= n.s + VAULT_SEE && f.s1 >= n.s - 30.);
     let (_, _, th) = r.pose(n.s);
     let turn = (heading - th + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI;
     inside && !forked && turn.abs() < 1.1
 }
 
-/// Where a point `lat` metres left of the centreline at `s`, `up` above the road, is.
 pub fn point(r: &dyn Route, s: f32, lat: f32, up: f32) -> V3 { row(r, s).pt(lat, up) }
 
-/// The world seen from a car at `s` on the course: everything that could
-/// be in the chase camera's view, as one mesh.
 pub fn build(r: &dyn Route, s: f32) -> Mesh { build_at(r, s, route::ticks()) }
 
-/// The same at race tick `ticks`, which moves the timed hazards.
 pub fn build_at(r: &dyn Route, s: f32, ticks: u32) -> Mesh { gather(r, s, ticks, &mut Tally::default()) }
 
-/// Where a frame's triangles come from.
 #[derive(Default, Debug, Clone, Copy)]
 pub struct Tally { pub sky: usize, pub road: usize, pub props: usize, pub pieces: usize, pub hazards: usize, pub land: usize }
 
@@ -115,17 +98,13 @@ pub fn gather(r: &dyn Route, s: f32, ticks: u32, tally: &mut Tally) -> Mesh {
     gather_view(r, s, ticks, eye, d.y.atan2(d.x), KEEP, tally)
 }
 
-/// The same for a camera at `eye` looking along `heading`; the land beyond
-/// `keep` radians either side of it is left out (pass a wide `keep` for a free camera).
 pub fn gather_view(r: &dyn Route, s: f32, ticks: u32, eye: V3, heading: f32, keep: f32, tally: &mut Tally) -> Mesh {
     let fwd = (heading.cos(), heading.sin());
     let mut tris: Vec<Tri> = Vec::with_capacity(16_384);
-    // Inside a long vault the walls hide the land and the sky: they are not built.
     let vaulted = enclosed(r, eye, heading);
     if !vaulted { sky::dome(&mut tris, r, eye, heading, r.zone(s + 60.).0, ticks); }
     tally.sky = tris.len();
 
-    // The main road, and any fork whose stretch is in range, block by block.
     let lap = r.lap();
     let lines = 1 + r.forks().len();
     for line in 0..lines as u8 {
@@ -143,13 +122,13 @@ pub fn gather_view(r: &dyn Route, s: f32, ticks: u32, eye: V3, heading: f32, kee
             if line == 0 { tris.extend_from_slice(&props::block(r, k)); }
         }
         if line > 0 { tris.extend_from_slice(&props::fork(r, line)); }
-        // Set pieces of this road in range, wherever the lap puts them, a stretch at a time.
         let n = tris.len();
         for (i, p) in pieces::list(r, line).iter().enumerate() {
             for seg in 0..pieces::segments(p) {
                 let (w0, w1) = pieces::window(p, seg);
                 let (a0, a1) = (w0.max(p.s0), w1.min(p.s1));
-                if [-lap, 0., lap].iter().any(|o| a1 + o >= s - ROAD_BEHIND && a0 + o <= s + ROAD_AHEAD) {
+                let (behind, ahead) = pieces::reach(p.kind);
+                if [-lap, 0., lap].iter().any(|o| a1 + o >= s - behind && a0 + o <= s + ahead) {
                     tris.extend_from_slice(&pieces::piece(r, line, i, seg));
                 }
             }
@@ -157,12 +136,12 @@ pub fn gather_view(r: &dyn Route, s: f32, ticks: u32, eye: V3, heading: f32, kee
         tally.pieces += tris.len() - n;
     }
     tally.props = tris.len() - tally.sky - tally.road - tally.pieces;
-    // The channels beside the road and the falls of a cliff run.
     terrain::flow_all(&mut tris[tally.sky..], ticks);
 
     let n = tris.len();
     dynamic::hazards(&mut tris, r, s, ticks);
     dynamic::strips(&mut tris, r, s, ticks);
+    pit::arms(&mut tris, r, s, ticks);
     ambient::air(&mut tris, r, s, eye, heading, ticks);
     tally.hazards = tris.len() - n;
     let n = tris.len();
@@ -181,7 +160,6 @@ pub fn gather_view(r: &dyn Route, s: f32, ticks: u32, eye: V3, heading: f32, kee
                 if (mx * fwd.0 + my * fwd.1) / dist < (keep + spread).min(3.0).cos() { continue; }
             }
             let road_here = cache::flag(r.key(), cx, cy, || terrain::on_road(r, cx, cy));
-            // Detail follows the nearest edge of the chunk, not its middle: the land beside the lens is always fine.
             let reach = ((mx.abs() - c * 0.5).max(0.)).hypot((my.abs() - c * 0.5).max(0.));
             let at = tris.len();
             tris.extend_from_slice(&terrain::chunk(r, cx, cy, terrain::lod_for(reach + 48., road_here)));

@@ -8,10 +8,8 @@ use crate::rules::{
 };
 
 pub(super) fn scenery(cv: &mut Img, run: &Run) {
-    // The sea and the pans are the room's water tiles, drawn by the world.
     match run.room().kind {
         RoomKind::Strand => {
-            // A funny sign and shells on the beach, never hidden collision.
             m::sign(cv, 3 * TILE, 4 * TILE + 4, "CLEAN POTS ONLY", 'T');
             for (x, y) in [(6, 5), (8, 9), (15, 9), (20, 5)] {
                 let (x, y) = (x * TILE, y * TILE);
@@ -19,7 +17,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                 cv.line(x - 2, y - 1, x + 1, y - 1, 'i');
                 cv.put(x + 3, y + 1, 'g');
             }
-            // Driftwood and a beached rowing boat by the north water.
             m::boards(cv, (10 * TILE, 4 * TILE + 8, 18, 3), false, 130);
             let keep = |_: i32, _: i32| true;
             m::lobe(cv, (19.0 * TILE as f32, 5.0 * TILE as f32 + 2.0), (14.0, 5.0), m::ramp::TIMBER, 131, 8.0, 0.0, &keep);
@@ -28,7 +25,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
         }
         RoomKind::Saltworks => {
             for x in [3, 16] {
-                // Stone kerbs round the pans, salt heaped on the dry side.
                 m::block(cv, (x * TILE - 2, 2 * TILE - 4, 5 * TILE + 4, 4), m::ramp::STONE, false, 132);
                 for dx in [1, 3] {
                     let keep = |_: i32, _: i32| true;
@@ -44,8 +40,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
         }
         RoomKind::Lighthouse => {
             let (x, y) = (4 * TILE, 2 * TILE);
-            // The keeper's cottage, and the beacon tower beside it, its
-            // lamp lit once the harbour is done.
             m::house(cv, (x + 2, y - 4, 3 * TILE - 2, 3 * TILE + 2), &m::House { roof: m::ramp::SLATE, stone: true, windows: 1 }, 135);
             let (tx, foot) = (x + 4 * TILE - 2, y + 3 * TILE - 1);
             m::tower(cv, tx, foot, 9, 52, 136);
@@ -86,7 +80,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         match &run.crab {
             Some(crab) => thief(cv, run, crab),
             None => {
-                // Off duty: the crab idles on its rock, oil long gone.
                 let (x, y) = at(19.0 * 2.0, 9.0 * 2.0);
                 let dx = ((run.tick / 8) % 5) as i32 - 2;
                 legs_and_shell(cv, x + dx, y + 4, run.tick, false);
@@ -95,7 +88,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     }
 }
 
-/// A crab: red shell, two claws up, legs going.
 fn legs_and_shell(cv: &mut Img, x: i32, y: i32, tick: u64, running: bool) {
     let kick = if running { (tick / 2 % 2) as i32 } else { 0 };
     for (k, sign) in [(0, -1), (1, -1), (0, 1), (1, 1)] {
@@ -112,7 +104,6 @@ fn legs_and_shell(cv: &mut Img, x: i32, y: i32, tick: u64, running: bool) {
     }
 }
 
-/// The oil thief: running with the jar, or dug in with only its eyes up.
 fn thief(cv: &mut Img, run: &Run, crab: &coast::Crab) {
     let (x, y) = at(crab.x, crab.y);
     if crab.dug {
@@ -127,7 +118,6 @@ fn thief(cv: &mut Img, run: &Run, crab: &coast::Crab) {
     }
     cv.ellipse(x as f32, (y + 5) as f32, 7.0, 2.0, 'k');
     legs_and_shell(cv, x, y, run.tick, true);
-    // The stolen jar, held aloft.
     cv.rect(x - 3, y - 14, 6, 6, 'B');
     cv.rect(x - 2, y - 15, 4, 1, 'O');
     cv.rect(x - 2, y - 12, 2, 2, 'O');
@@ -146,7 +136,6 @@ pub(super) fn put_figures(cv: &mut Img, run: &Run) {
         } else {
             '9'
         };
-        // Target glow: the active target pulses 'O' when the pot approaches.
         let ink = if active.is_some_and(|r| usize::from(r.progress) == i)
             && active.unwrap().put.as_ref().is_some_and(|p| p.target_glow > 0)
         {
@@ -154,7 +143,6 @@ pub(super) fn put_figures(cv: &mut Img, run: &Run) {
         } else {
             base_ink
         };
-        // Sand/speckles must not compete with the target's landing bracket.
         cv.rect(x - TILE - 2, y + 1, 2 * TILE + 5, 11, 'k');
         cv.line(x - TILE, y + 5, x + TILE, y + 5, ink);
         cv.line(x - TILE, y + 5, x - TILE, y + 1, ink);
@@ -175,8 +163,6 @@ pub(super) fn put_figures(cv: &mut Img, run: &Run) {
             'O',
         );
         cv.rect(x - 11, y + 19, 22, 3, 'r');
-        // Charge bar flash: when in optimal range for the current target,
-        // cycle the fill ink between '6' and 'O' to guide the player.
         let target_dist = (TARGETS[usize::from(r.progress)] - 4) * 256;
         let optimal = (target_dist as f32 / 136.8).clamp(0.0, HZ as f32) as u32;
         let bar_ink = if p.charge > 0
@@ -196,9 +182,6 @@ pub(super) fn put_figures(cv: &mut Img, run: &Run) {
         if let Some(pot) = &p.flight {
             let (px, py) = at(pot.x as f32 / 128.0, 14.0);
             cv.ellipse(px as f32, (py + 5) as f32, 4.0, 1.0, 'k');
-            // At full charge/70 degrees, a physical peak is 2053 fixed units.
-            // Fit even that arc below the top board (bottom at y45). Compress
-            // only screen height; physics, landing range and shadows unchanged.
             let y = py - pot.z.min(2053) * TILE / 640 - 7;
             cv.ellipse(px as f32, (y + 2) as f32, 5.0, 3.0, 'h');
             cv.line(px - 4, y - 1, px + 4, y - 1, 'O');
@@ -207,7 +190,6 @@ pub(super) fn put_figures(cv: &mut Img, run: &Run) {
             cv.line(px + 5, y, px + 6, y + 2, 'n');
             cv.line(px + 6, y + 2, px + 5, y + 4, 'n');
         }
-        // Landing impact: expanding dust ring + bright flash at the landing x.
         if p.landing_flash > 0 {
             let (lx, ly) = at(p.landing_x as f32 / 128.0, 14.0);
             let radius = (6 - p.landing_flash) as f32 * 3.0 + 4.0;
@@ -228,7 +210,6 @@ pub(super) fn board_visible(run: &Run) -> bool {
         return false;
     }
     if s == 1 && run.room().kind == RoomKind::Strand {
-        // The chase: a board while the crab is about.
         return run.crab.is_some();
     }
     let (kind, (x, y)) = coast::ERRAND[usize::from(s)];

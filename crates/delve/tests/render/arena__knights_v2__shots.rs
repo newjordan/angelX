@@ -34,7 +34,6 @@ fn plain(h: &mut crate::rules::Hero) {
     (h.aim_x, h.aim_y) = (1.0, 0.0);
 }
 
-/// A calm fight room with the four seats' plain knights in a row.
 fn company() -> Run {
     let mut run = Run::new(21, 1, Some("Rig"));
     let room = run
@@ -79,7 +78,6 @@ fn close(run: &Run, id: u32) -> Img {
     crop(run, h.x, h.y, 56, 52, 38)
 }
 
-/// The knights' own walk, on their own: the others step aside.
 fn alone(run: &mut Run, id: u32) {
     for other in SEATS.into_iter().filter(|&o| o != id) {
         run.players.get_mut(&other).unwrap().y = 26.0;
@@ -91,7 +89,6 @@ fn line_up(run: &Run) -> Img {
     crop(run, (a.x + b.x) / 2.0, a.y, 176, 56, 40)
 }
 
-/// Step the run `ticks` times with one seat's input on the first tick.
 fn strip(run: &mut Run, id: u32, input: Input, ticks: i32, name: &str, dir: &std::path::Path) {
     let mut out = Img::new(56 * ticks, 52);
     for t in 0..ticks {
@@ -114,7 +111,6 @@ fn write_knights_v2_shots() {
     let dir = std::path::PathBuf::from(dir);
     std::fs::create_dir_all(&dir).unwrap();
 
-    // All four in a room, at rest, then each about something.
     let mut run = company();
     save(&dir, "room-four-seats-idle", &line_up(&run));
     run.players.get_mut(&1).unwrap().stride = 1.3;
@@ -127,7 +123,6 @@ fn write_knights_v2_shots() {
 
     for id in SEATS {
         let design = quick_rig::Design::of_seat(id).name();
-        // A sword swing, the game's own crescent over the body's cut.
         let mut run = company();
         alone(&mut run, id);
         strip(
@@ -138,7 +133,6 @@ fn write_knights_v2_shots() {
             &format!("seat{id}-{design}-swing"),
             &dir,
         );
-        // A roll.
         let mut run = company();
         alone(&mut run, id);
         strip(
@@ -149,7 +143,6 @@ fn write_knights_v2_shots() {
             &format!("seat{id}-{design}-roll"),
             &dir,
         );
-        // A shot with the knight's own crossbow (the gun clip).
         let mut run = company();
         alone(&mut run, id);
         strip(
@@ -160,7 +153,6 @@ fn write_knights_v2_shots() {
             &format!("seat{id}-{design}-shoot"),
             &dir,
         );
-        // A walk to the right, holding fire.
         let mut run = company();
         alone(&mut run, id);
         let mut out = Img::new(56 * 16, 52);
@@ -170,7 +162,6 @@ fn write_knights_v2_shots() {
             out.stamp(&close(&run, id), t * 56, 0);
         }
         save(&dir, &format!("seat{id}-{design}-walk"), &out);
-        // A cast, from its event.
         let mut run = company();
         alone(&mut run, id);
         let mut out = Img::new(56 * 10, 52);
@@ -190,7 +181,6 @@ fn write_knights_v2_shots() {
             out.stamp(&close(&run, id), t as i32 * 56, 0);
         }
         save(&dir, &format!("seat{id}-{design}-cast"), &out);
-        // Worn wishes: a held weapon, a crest on the head, a cape on the back.
         let mut run = company();
         alone(&mut run, id);
         for (card, at, rows) in [

@@ -5,9 +5,6 @@ use super::author::*;
 use super::course::*;
 
 pub fn build(id: CourseId) -> Course {
-    // Counter-clockwise round the keep: east along High Street, north up the harbour
-    // wall, west along the rampart, south down the west side, with the moorside lake
-    // as a lobe off the east edge and the weavers' lanes as a weave down the west.
     let plan: Vec<(f32, f32, &str)> = vec![
         (0., 0., "gate"), (330., 0., ""), (680., 12., ""), (980., 70., "harbour"), (1230., 190., ""), (1390., 360., ""),
         (1470., 540., "moor"), (1640., 660., ""), (1860., 690., ""), (2050., 620., ""), (2150., 780., ""), (2080., 960., ""), (1900., 1060., ""), (1700., 1030., ""), (1560., 1120., "moor_end"),
@@ -61,7 +58,6 @@ pub fn build(id: CourseId) -> Course {
         zone("TANNERS' WAY", "lanes_end", "return", Biome::Town, Stretch::Canyon, Shape::new(18., 8., 1., 0., 30.)),
         zone("LANTERN RETURN", "return", "", Biome::Town, Stretch::Open, Shape::new(12., 14., 4., 0., 25.)),
     ];
-    // The moorside lobe has no section name of its own after its start: it is one zone.
     let zones: Vec<Zone> = { let mut z = zones; z.insert(3, Zone { s0: at(tag("moor_end")), s1: at(tag("gatehouse")), biome: Biome::Castle, stretch: Stretch::Open, name: "KEEP ROAD", shape: Shape::new(14., 20., 3., 0., 45.) }); z };
     let landmarks = zones.iter().skip(1).map(|z| z.s0).collect();
 
@@ -92,7 +88,6 @@ pub fn build(id: CourseId) -> Course {
         Strip { s0: t("return", 1.), s1: t("return", 1.) + 90., half_w: 3.2, y: 0. },
     ];
 
-    // Gatehouse cut: a straight chord inside the corner below the rampart, through the guard yard.
     let (m0, m1) = (t("gatehouse", -0.8), t("rampart", 0.3));
     let mut market = Fork::new(&line, "GATEHOUSE CUT", m0, m1, 1., &chord(&line, m0, m1, 1., 0., 2., 5.4, 2), true, Biome::Castle, Shape::new(18., 6., 1., 0., 30.));
     market.hazards = vec![
@@ -103,7 +98,6 @@ pub fn build(id: CourseId) -> Course {
     ];
     market.strips = vec![Strip { s0: market.s0 + 20., s1: market.s0 + 60., half_w: 2.0, y: 0. }];
     market.pieces = vec![Piece { kind: PieceKind::Lanterns, s0: market.s0 + 10., s1: market.s1 - 10., side: -1., seed: 55 }];
-    // The postern path: a longer, safe road beside the rampart that skips the drawbridge leap.
     let (p0, p1) = (leap0 - 90., leap1 + 60.);
     let mut postern = Fork::new(&line, "POSTERN PATH", p0, p1, 1., &chord(&line, p0, p1, 1., 22., -1., 5.6, 4), false, Biome::Castle, Shape::new(0., 20., 2., 22., 60.));
     postern.hazards = vec![Hazard::block(HazardKind::Slag, along(&postern, 0.35), 2., 1.9, 1.2), Hazard::block(HazardKind::Slag, along(&postern, 0.65), -2.5, 1.9, 1.2)];
@@ -111,7 +105,7 @@ pub fn build(id: CourseId) -> Course {
 
     let p = |kind, a: f32, b: f32, side: f32, seed: u32| Piece { kind, s0: a, s1: b, side, seed };
     let pieces = vec![
-        p(PieceKind::Grandstand, 30., 170., -1., 1), p(PieceKind::Grandstand, 30., 170., 1., 2), p(PieceKind::Arch, 0., 6., 0., 3), p(PieceKind::Lanterns, 180., t("harbour", 0.), -1., 4), p(PieceKind::Lanterns, 180., t("harbour", 0.), 1., 5),
+        p(PieceKind::Grandstand, 30., 170., -1., 1), p(PieceKind::Grandstand, 30., 170., 1., 2), p(PieceKind::PitLane, 190., 410., 1., 42), p(PieceKind::Arch, 0., 6., 0., 3), p(PieceKind::Lanterns, 180., t("harbour", 0.), -1., 4), p(PieceKind::Lanterns, 180., t("harbour", 0.), 1., 5),
         p(PieceKind::Arch, t("harbour", 0.), t("harbour", 0.) + 6., 0., 6), p(PieceKind::Pylons, t("harbour", 0.5), t("harbour", 2.), 1., 7),
         p(PieceKind::Viaduct, t("harbour", 1.), t("harbour", 2.4), 0., 8), p(PieceKind::Arch, t("moor", 0.), t("moor", 0.) + 6., 0., 9),
         p(PieceKind::Spires, t("moor", 1.), t("moor", 6.), -1., 10), p(PieceKind::Statues, t("moor", 3.), t("moor", 4.), 1., 11),
@@ -127,6 +121,6 @@ pub fn build(id: CourseId) -> Course {
         id, name: "MOATWALK",
         blurb: "Lanternward by night: the harbour wall, the castle rampart over the moat, and a leap across the drawbridge.",
         laps: 2, line, zones, hazards, strips, pieces, forks: vec![postern, market],
-        gaps: vec![Gap { s0: leap0, s1: leap1, ramp: 0.12 }], landmarks,
+        gaps: vec![Gap { s0: leap0, s1: leap1, ramp: 0.12 }], crests: Vec::new(), landmarks,
     })
 }

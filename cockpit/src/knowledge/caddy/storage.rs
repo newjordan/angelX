@@ -9,8 +9,6 @@ use std::path::{Path, PathBuf};
 
 const MAX_NEW_ENTRIES: usize = 1024;
 const MAX_RECORD_BYTES: usize = 16 * 1024;
-/// M05 entry ceiling: the published snapshot never carries more rows than
-/// this regardless of bytes; oldest rows are dropped first (compaction).
 pub(crate) const MAX_STORE_ROWS: usize = 2048;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -62,12 +60,9 @@ pub(crate) enum WriteStatus {
 #[derive(Clone, Debug)]
 pub(crate) struct WriteReport {
     pub(crate) status: WriteStatus,
-    /// Newly supplied records present in the published snapshot, not attempted writes.
     pub(crate) written: usize,
     pub(crate) retained: usize,
     pub(crate) evicted: usize,
-    /// Admission exclusions plus new rows evicted by a successful publication.
-    /// Failed publications do not report speculative retention as eviction.
     pub(crate) skipped_new: usize,
     pub(crate) read_health: ReadHealth,
 }
@@ -85,8 +80,6 @@ impl Default for WriteReport {
     }
 }
 
-/// Preserve a byte snapshot's explicit metadata bound, including when the file
-/// grows after metadata. One preceding byte prevents dropping an intact first row.
 pub(super) fn tail_bytes(path: &Path, max_bytes: u64) -> io::Result<(Vec<u8>, u64, bool)> {
     if !std::fs::symlink_metadata(path)?.file_type().is_file() {
         return Err(io::Error::from(io::ErrorKind::InvalidInput));
@@ -180,8 +173,6 @@ pub(super) fn load<T: for<'de> Deserialize<'de>>(path: &Path) -> Loaded<T> {
     inspect(path).0
 }
 
-/// Inspect abandoned staging files and held advisory locks without creating a
-/// lock or removing a peer's files. An unlocked persistent lock is normal.
 pub(super) fn probe_writer(dir: &Path, name: &str) -> Option<WriteStatus> {
     let staging = dir.join(format!(".{name}.next"));
     match std::fs::symlink_metadata(&staging) {
@@ -226,9 +217,6 @@ impl Write for LimitedRecord {
     }
 }
 
-// A concurrent process spawn can duplicate this open file description until
-// exec. Explicitly unlock it: closing only our descriptor can leave the lock
-// held by the child and make the next append spuriously report Busy.
 struct StoreLock(File);
 
 impl Drop for StoreLock {
@@ -237,8 +225,6 @@ impl Drop for StoreLock {
     }
 }
 
-/// Stable lock filename remains in place across data-file replacement. Try once;
-/// a busy peer is reported immediately and no UI or worker sleeps for the lock.
 pub(super) fn append<T: Serialize + for<'de> Deserialize<'de> + GetCommand>(
     repo_dir: &Path,
     name: &str,
@@ -324,11 +310,6 @@ pub(super) fn append<T: Serialize + for<'de> Deserialize<'de> + GetCommand>(
             seen.insert((command.to_string(), ts / 86_400_000));
         }
     }
-    // M05 compaction: drop superseded rows (same command, older ts) so a
-    // fresh verified execution refreshes the stored record instead of
-    // accumulating history. Recipes supersede per command; hazards per
-    // (command, diagnostic). Rows are kept positionally aligned with
-    // `loaded.rows` (both skip malformed/invalid lines identically).
     let mut keep = vec![true; loaded.rows.len()];
     let mut newest: HashMap<String, (usize, (bool, u64))> = HashMap::new();
     for (index, value) in loaded.rows.iter().enumerate() {
@@ -407,8 +388,6 @@ pub(super) fn append<T: Serialize + for<'de> Deserialize<'de> + GetCommand>(
     let day = super::now_ms() / 86_400_000;
     let admission_skipped = entries.len().saturating_sub(MAX_NEW_ENTRIES);
     report.skipped_new = admission_skipped;
-    // Admit the newest suffix, preserving execution order and first-observation
-    // tie semantics within that suffix.
     for entry in &entries[entries.len().saturating_sub(MAX_NEW_ENTRIES)..] {
         let key = (entry.command().to_string(), day);
         if name != "recipes.jsonl" && seen.contains(&key) {
@@ -422,15 +401,10 @@ pub(super) fn append<T: Serialize + for<'de> Deserialize<'de> + GetCommand>(
             return report;
         }
         record.0.push(b'\n');
-        // Refresh a recipe even on the same day; replaying the exact receipt is
-        // a no-op. Never let an older/unverified row supersede verified evidence.
         if name == "recipes.jsonl" {
             let incoming: serde_json::Value =
                 serde_json::from_slice(&record.0).expect("serialized row");
             if incoming["workspace_state"].is_null() {
-                // V1 records have no workspace identity: preserve the existing
-                // day-bucket migration contract until a bound verifier replaces
-                // them. Untrusted legacy text never suppresses typed execution.
                 if seen.contains(&key) {
                     continue;
                 }
@@ -469,14 +443,11 @@ pub(super) fn append<T: Serialize + for<'de> Deserialize<'de> + GetCommand>(
         retained.push_back((record.0, true));
         seen.insert(key);
     }
-    // Input snapshots and supplied batches need not arrive in timestamp order.
-    // Evict the oldest evidence, not whichever row happened to be written first.
     retained.make_contiguous().sort_by_cached_key(|(line, _)| {
         serde_json::from_slice::<serde_json::Value>(line).expect("validated row")["ts_ms"]
             .as_u64()
             .unwrap_or(0)
     });
-    // Enforce both ceilings even when every offered row was a duplicate.
     while bytes > store_cap(name) || retained.len() > MAX_STORE_ROWS {
         let (old, fresh) = retained.pop_front().expect("oversized snapshot");
         bytes -= old.len();
@@ -484,8 +455,6 @@ pub(super) fn append<T: Serialize + for<'de> Deserialize<'de> + GetCommand>(
         report.skipped_new += usize::from(fresh);
     }
     if superseded > 0 {
-        // Superseded rows dropped by compaction count as evictions, but they
-        // were not new records rejected this call.
         report.evicted += superseded;
         report.retained = report.retained.saturating_sub(superseded);
     }
@@ -527,8 +496,6 @@ fn store_cap(name: &str) -> usize {
 }
 
 fn publish(repo_dir: &Path, name: &str, body: &[u8]) -> Result<Option<io::ErrorKind>, WriteStatus> {
-    // The stable lock excludes cooperative publishers. A crash-left temporary
-    // is never overwritten: create_new failure preserves it for inspection.
     let temporary = repo_dir.join(format!(".{name}.next"));
     let mut options = OpenOptions::new();
     options.create_new(true).write(true);
@@ -544,10 +511,6 @@ fn publish(repo_dir: &Path, name: &str, body: &[u8]) -> Result<Option<io::ErrorK
             WriteStatus::Failed(error.kind())
         }
     })?;
-    // Redact each JSONL record without its delimiter. redact_bytes preserves
-    // pretty layout for a JSON document containing newlines; passing a single
-    // row plus its trailing newline would turn it into unreadable JSONL after
-    // the first secret is scrubbed (and lose the terminating newline).
     let body: Vec<u8> = body
         .split(|byte| *byte == b'\n')
         .filter(|line| !line.is_empty())
@@ -569,8 +532,6 @@ fn publish(repo_dir: &Path, name: &str, body: &[u8]) -> Result<Option<io::ErrorK
             .err()
             .map(|error| error.kind()))
     })();
-    // Only this successfully-created file is owned; a collision is returned
-    // before this cleanup path. After rename this name no longer exists.
     match result {
         Ok(value) => Ok(value),
         Err(error) => match std::fs::remove_file(&temporary) {
@@ -584,9 +545,6 @@ fn publish(repo_dir: &Path, name: &str, body: &[u8]) -> Result<Option<io::ErrorK
     }
 }
 
-// Secure only the explicitly configured Caddy root and this project directory.
-// PrivateDirectory creates missing components as 0700 and checks every ancestor
-// without following symlinks; unrelated existing ancestors keep their modes.
 fn prepare_directory(repo_dir: &Path) -> io::Result<()> {
     use crate::platform::workspace_store::private_io::PrivateDirectory;
     let base = super::caddy_dir();

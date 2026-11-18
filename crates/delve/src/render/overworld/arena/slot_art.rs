@@ -22,9 +22,6 @@ pub const GAMES: [Game; 6] = [
     Game::Pennon,
 ];
 
-/// Prepare before starting the display loop (including single-threaded wasm).
-/// These private four-seat sessions only feed the painter. No live run is read
-/// or stepped, and the same OnceLocks serve subsequent entrances and restarts.
 pub fn warm(game: Game) {
     static READY: [OnceLock<()>; 12] = [const { OnceLock::new() }; 12];
     READY[game as usize + 6 * usize::from(enabled())].get_or_init(|| {
@@ -68,7 +65,6 @@ pub fn warm(game: Game) {
                 let _ = draw(&run, Some(seat));
             }
         }
-        // Podium trim is another cache, used on an immediate replay too.
         macro_rules! podium {
             ($field:ident) => {
                 if let Some(s) = &mut run.$field {
@@ -89,7 +85,6 @@ pub fn warm(game: Game) {
     });
 }
 
-/// Prepare the dungeon and boss banks for the selected host art kit.
 pub fn warm_dungeon() {
     static READY: [OnceLock<()>; 2] = [const { OnceLock::new() }; 2];
     READY[usize::from(enabled())].get_or_init(|| {
@@ -131,10 +126,6 @@ pub fn cell_layout(game: &str) -> &'static CellLayout {
 }
 
 impl CellLayout {
-    /// Native coordinates and terminal alignment are independent. Any score
-    /// field may move to a compact strip through this same mapping; callers
-    /// keep the renderer's complete label list, including all four seats.
-    /// Podium information is never hidden or relocated by a play layout.
     pub fn place(&self, x: i32, y: i32, podium: bool, elapsed: u32) -> Option<(i32, i32, bool)> {
         if !podium {
             if self.hide_hints_after_ticks.is_some_and(|t| elapsed >= t)
@@ -150,8 +141,6 @@ impl CellLayout {
     }
 }
 
-/// Stable native-bank fingerprint including dimensions and transparent pixels.
-/// Used for review/cache identity, not as a cryptographic source signature.
 pub fn bank_hash(image: &Img) -> u64 {
     let mut hash = 0xcbf29ce484222325u64;
     let mut add = |byte: u8| {
@@ -187,7 +176,6 @@ struct CellBank {
 static CELL_BANKS: OnceLock<Mutex<Vec<CellBank>>> = OnceLock::new();
 static OTHER_BANKS: OnceLock<Mutex<Vec<(u64, u64)>>> = OnceLock::new();
 
-/// Register an existing specialised baker without changing its treatment.
 pub(super) fn record_bank(source: &Img, cells: &Img) {
     let pair = (bank_hash(source), bank_hash(cells));
     let mut banks = OTHER_BANKS
@@ -199,9 +187,6 @@ pub(super) fn record_bank(source: &Img, cells: &Img) {
     }
 }
 
-/// Reuse exactly equal cleaned/graded pixels across stages, facings and games.
-/// Palette order is significant on equal-distance ties; alpha participates in
-/// identity. Exact equality after the hash lookup also handles hash collisions.
 pub(super) fn cell_sprite(source: &Img, palette: &[[u8; 3]], rim: [u8; 3]) -> Img {
     let hash = bank_hash(source);
     let mut banks = CELL_BANKS
@@ -246,8 +231,6 @@ pub(super) fn cell_sprite(source: &Img, palette: &[[u8; 3]], rim: [u8; 3]) -> Im
     out
 }
 
-/// Audit the actual post-cleanup, post-grade banks, rather than source sheets.
-/// Mask/procedure SHA-256 provenance is in art-requests.json's runtime_slots.
 pub fn runtime_banks() -> Vec<(u64, u64)> {
     let banks = CELL_BANKS
         .get_or_init(|| Mutex::new(Vec::new()))
@@ -284,7 +267,6 @@ pub(super) fn enabled() -> bool {
     }
 }
 
-/// Review builds can capture identical simulation states with the original art.
 #[cfg(any(test, feature = "testing"))]
 pub fn use_original(value: bool) {
     ORIGINAL.with(|v| v.set(value));

@@ -1,28 +1,5 @@
 import Base
 
-# The reward ledger's decisions: which row is an episode's effective reward, and
-# whether a new provisional shaping event or official result is appended,
-# recognised as an existing row, or refused.
-#
-# Rust keeps everything a decision cannot see: the ids, receipts, scores,
-# canonical decimal arithmetic, `binding_sha`, the validation error strings and
-# the ledger storage. It hands over the row flags the native scans read — which
-# existing row carries the same shaping id, the same official result id, the
-# same receipt, the same episode, the same reward identity, the same full
-# binding — plus each binding's revision split into two U32 halves, and this
-# module owns which row wins and what happens next.
-#
-# The native scans in `cockpit/src/drive/competition/rewards.rs` stay as the
-# fallback and the parity oracle:
-#   * `effective_reward` takes the newest binding for the episode and only falls
-#     back to the newest provisional shaping event when there is none (so
-#     `canonical_binding` is a reverse scan);
-#   * `record_shaping` appends, recognises an identical row, or refuses a
-#     same-id row that differs;
-#   * `bind_official` looks up the official result id first, then the receipt,
-#     and only then decides whether the binding is the episode's first reward or
-#     a correction that advances the canonical one.
-
 type Hit is Data:
   Hit{found: Bool, at: U32}
 
@@ -42,8 +19,6 @@ type BindingRow is Data:
     revision_lo: U32
   }
 
-# The incoming binding's own facts: whether it claims to be a correction, and
-# its revision as two U32 halves so the comparison is exact for any u64.
 type Incoming is Data:
   Incoming{has_correction: Bool, incoming_hi: U32, incoming_lo: U32}
 
@@ -79,7 +54,6 @@ type Canon is Data:
     revision_lo: U32
   }
 
-# The newest row whose flag is set, which is `iter().rev().find(...)`.
 def flag_last(+flag: Bool, +at: U32, +hit: Hit) -> Hit:
   match flag:
     case True{}:
@@ -94,8 +68,6 @@ def last_match(+flags: List<&2, Bool>, +at: U32, +hit: Hit) -> Hit:
     case Con{+head, tail}:
       last_match(tail, U32.add(at, 1), flag_last(head, at, hit))
 
-# An official binding outranks a provisional shaping event; a shaping event is
-# only the effective reward when the episode has no binding at all.
 def provisional(+hit: Hit) -> Selection:
   match hit:
     case Hit{found, at}:
@@ -117,8 +89,6 @@ def official(+hit: Hit, +shaping: List<&2, Bool>) -> Selection:
 def select(+bindings: List<&2, Bool>, +shaping: List<&2, Bool>) -> Selection:
   official(last_match(bindings, 0, Hit{False{}, 0}), shaping)
 
-# The first existing shaping row with the same shaping id decides the outcome:
-# an identical row is the same event, any other row is a conflicting identity.
 def shaping_at(+rows: List<&2, ShapingRow>, +at: U32) -> Shaping:
   match rows:
     case Nil{}:
@@ -139,8 +109,6 @@ def shaping_at(+rows: List<&2, ShapingRow>, +at: U32) -> Shaping:
 def record_shaping(+rows: List<&2, ShapingRow>) -> Shaping:
   shaping_at(rows, 0)
 
-# `bind_official`'s three scans, in the native order: result id, then receipt,
-# then the canonical binding of the episode with its correction rule.
 def result_at(+rows: List<&2, BindingRow>, +at: U32) -> Step:
   match rows:
     case Nil{}:
@@ -195,8 +163,6 @@ def provenance_at(+rows: List<&2, BindingRow>, +at: U32) -> Step:
             case False{}:
               provenance_at(tail, U32.add(at, 1))
 
-# `canonical_binding`: the newest binding of the episode, and the facts the
-# correction rule reads from it.
 def episode_at(+rows: List<&2, BindingRow>, +at: U32, +canon: Canon) -> Canon:
   match rows:
     case Nil{}:
@@ -224,7 +190,6 @@ def episode_at(+rows: List<&2, BindingRow>, +at: U32, +canon: Canon) -> Canon:
             case False{}:
               episode_at(tail, U32.add(at, 1), canon)
 
-# A correction must strictly advance the canonical revision, halves and all.
 def half_rule(+greater: Bool, +same: Bool, +low_greater: Bool) -> Bool:
   match greater:
     case True{}:

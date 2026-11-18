@@ -10,9 +10,6 @@ use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, sync::Arc};
 
 pub const API: u32 = 1;
-/// JSON numeric byte arrays expand by at most four times. A view frame also
-/// checks its actual encoded JSON size, leaving four MiB of the System's 16 MiB
-/// frame for its outer envelope and other bounded session outputs.
 pub const MAX_ENCODED_FRAME_BYTES: usize = 12 * 1024 * 1024;
 pub const MAX_BASELINE_BYTES: usize = 3 * 1024 * 1024;
 pub const MAX_DELTA_BYTES: usize = 512 * 1024;
@@ -68,8 +65,6 @@ const PRIVATE: &[&str] = &[
 const HERO_PRIVATE: &[&str] = &["avatar", "reforge_job", "wish_jobs"];
 const STATUS: &str = "host_status";
 
-/// Only summary facts. Exact claims, completions and definitions are obtained
-/// through the owner's typed queries, never reconstructed from the read view.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Outbox {
@@ -165,8 +160,6 @@ impl Limits {
     }
 }
 
-/// There is deliberately no mutable getter, serde implementation, or authority
-/// restore/capture operation. Omitted private state reads only as its defaults.
 #[derive(Debug)]
 pub struct HostView {
     session: Arc<str>,
@@ -204,10 +197,6 @@ pub struct Publisher {
     limits: Limits,
 }
 impl Publisher {
-    /// Revision comes from the owner at initialization or reload. It cannot be
-    /// reset by an ordinary event; its first publication is an explicit baseline.
-    /// Construct a fresh Publisher after restoring/replacing Run, even if its
-    /// session/raid or Book revision happens to match the previous authority.
     pub fn new(session: String, raid: u64, revision: u64, limits: Limits) -> Result<Self, String> {
         session_valid(&session)?;
         Ok(Self {
@@ -278,8 +267,6 @@ impl Publisher {
             bytes,
         };
         self.limits.frame(&frame)?;
-        // Cache fingerprints may advance on refusal, but the externally visible
-        // tree, revision and name dictionary commit only after all bounds pass.
         self.budget = budget;
         self.tree = Some(tree);
         self.writer = writer;
@@ -314,9 +301,6 @@ impl Receiver {
     pub fn view(&self) -> Option<&Arc<HostView>> {
         self.view.as_ref()
     }
-    /// Compare complete accepted public state at a checkpoint/recovery boundary.
-    /// Job revision is an invalidation hint rebuilt after restore; all public
-    /// game fields, outbox facts and the session/view ownership must match.
     pub fn same_public_state(&self, other: &Self) -> bool {
         let (Some(a), Some(b)) = (&self.view, &other.view) else { return false; };
         if self.session != other.session || self.raid != other.raid || a.revision != b.revision {
@@ -332,7 +316,6 @@ impl Receiver {
             _ => false,
         }
     }
-    /// Explicit init/resync/reload boundary. A new session creates a new receiver.
     pub fn baseline(&mut self, frame: &Frame) -> Result<Arc<HostView>, String> {
         if frame.kind != Kind::Baseline {
             return Err("expected host view baseline".into());
@@ -388,9 +371,6 @@ impl Receiver {
         }
         share_top_fields(&mut tree);
         let budget = validate_tree(&tree, &self.budget)?;
-        // Status-only changes and private drains do not alter any public game
-        // subtree. Keep the previously validated typed Run rather than decoding
-        // and cloning its entire book for another accepted revision.
         let retained = match (&self.tree, &self.view) {
             (Some(previous), Some(view))
                 if frame.kind == Kind::Delta && same_game_fields(previous, &tree) =>
@@ -403,8 +383,6 @@ impl Receiver {
             Some(run) => run,
             None => {
                 let mut run: Run = value::from_value(&tree).map_err(|e| e.to_string())?;
-                // Ordinary Run deserialization intentionally discards these
-                // transient display fields. Restore their exact public values.
                 run.marks = value::from_value(tree.field("marks").ok_or("missing host marks")?)
                     .map_err(|e| e.to_string())?;
                 run.campaign = value::from_value(tree.field("campaign").ok_or("missing host campaign")?)
@@ -428,7 +406,6 @@ impl Receiver {
             run,
             status,
         });
-        // Reader name additions from bad/truncated frames never escape staging.
         self.reader = reader;
         self.budget = budget;
         self.tree = Some(tree);
@@ -437,9 +414,6 @@ impl Receiver {
     }
 }
 
-/// Every top-level public game field is an immutable shared subtree after
-/// acceptance. Pointer identity proves it was untouched by this delta; a new
-/// baseline or any changed/reordered game field must be decoded normally.
 fn same_game_fields(previous: &Value, candidate: &Value) -> bool {
     let (Value::Struct(previous), Value::Struct(candidate)) = (previous.get(), candidate.get()) else {
         return false;
@@ -503,8 +477,6 @@ fn project(run: &Run, status: &Status, fields: &mut kept::Fields) -> Result<Valu
     add(STATUS, &kept::erased::Of(status))?;
     Ok(Value::shared(Value::Struct(out)))
 }
-/// Filter at serialization/fingerprint time: native avatar bytes are neither
-/// copied nor traversed, and never enter a cache awaiting later stripping.
 struct Players<'a>(&'a std::collections::BTreeMap<u32, Hero>);
 impl kept::erased::Field for Players<'_> {
     fn print(&self, out: &mut Vec<u8>) -> Result<(), value::Error> {
@@ -545,9 +517,6 @@ impl kept::erased::Field for Players<'_> {
         Ok(node.retain_built(self.build()?, depth))
     }
 }
-// Only the accepted tree's bounded top-level set is retained. Pointer identity
-// proves that a subtree is exactly the already-counted immutable value; names
-// and the root container are counted again on every candidate.
 const MAX_BUDGET_FIELDS: usize = 256;
 #[derive(Clone, Default)]
 struct BudgetCache(Vec<BudgetEntry>);
@@ -696,7 +665,6 @@ mod tests {
         assert_eq!(UNIT_VISITS.with(|visits| visits.get()), 0);
         assert!(Arc::ptr_eq(&accepted.0[0].subtree, &next.0[0].subtree));
 
-        // Exactly root(16) + field name(4) + payload fits; one more fails.
         let exact = Value::Struct(vec![(Cow::Borrowed("book"),
             Value::shared(Value::Bytes(vec![0; MAX_VIEW_UNITS - 20].into())))]);
         let edge = validate_tree(&exact, &accepted).unwrap();
@@ -705,7 +673,6 @@ mod tests {
         let too_large = Value::Struct(vec![(Cow::Borrowed("book"),
             Value::shared(Value::Bytes(vec![0; MAX_VIEW_UNITS - 19].into())))]);
         assert!(validate_tree(&too_large, &accepted).is_err());
-        // Failed candidates do not replace the sole accepted budget cache.
         UNIT_VISITS.with(|visits| visits.set(0));
         assert!(validate_tree(&tree, &accepted).is_ok());
         assert_eq!(UNIT_VISITS.with(|visits| visits.get()), 0);
@@ -718,8 +685,6 @@ mod tests {
     #[test]
     fn publication_refusal_keeps_accepted_budget_and_receiver_reuses_shared_book() {
         let mut run = game();
-        // A changed book travels; the built-in one stays off the view
-        // (`Book::wire_omits`), and this test is about a big shared field.
         run.book.revision += 1;
         let (mut publisher, mut receiver) = pair();
         receiver.baseline(&publisher.baseline(&run, status(&run)).unwrap()).unwrap();
@@ -774,8 +739,6 @@ mod tests {
         run.join_seat(4, "Four");
         run
     }
-    /// Opt-in receiver-only benchmark; apply independently before/after the reuse change.
-    /// ANGELX_EXPECT_VIEW_REUSE=0 measures the original implementation.
     #[test]
     #[ignore = "receiver latency measurement; run explicitly in release mode"]
     fn receiver_large_book_acceptance_latency() {
@@ -801,8 +764,6 @@ mod tests {
             samples.sort_unstable();
             samples[(samples.len() * percent).div_ceil(100) - 1]
         }
-        // Build and encode all frames before starting the receiver timer.
-        // Separate streams preserve each receiver's sequential dictionary state.
         for game_changes in [false, true] {
             let mut run = fixture();
             let (mut publisher, mut receiver) = pair();
@@ -815,7 +776,6 @@ mod tests {
                 if game_changes {
                     run.step(&inputs);
                 } else {
-                    // Owner-only activity must not enter the public Run.
                     run.cues.push("private latency cue".into());
                 }
                 let mut owner_status = status(&run);
@@ -829,8 +789,6 @@ mod tests {
                 let started = Instant::now();
                 let accepted = std::hint::black_box(receiver.delta(frame).unwrap());
                 let elapsed = started.elapsed();
-                // Keep the old view alive, so allocation address recycling cannot
-                // produce a false positive; assertions stay outside the timer.
                 assert_eq!(
                     std::ptr::eq(previous.run(), accepted.run()),
                     !game_changes && expect_reuse,
@@ -850,7 +808,6 @@ mod tests {
                 if game_changes { "game-changing" } else { "status-only" },
                 expect_reuse, SAMPLES, p50, p95, baseline.bytes.len(),
             );
-            // A fresh baseline must decode even when its logical state is equal.
             let refreshed = receiver.baseline(&publisher.baseline(&run, status(&run)).unwrap()).unwrap();
             assert!(!std::ptr::eq(previous.run(), refreshed.run()));
         }
@@ -873,8 +830,6 @@ mod tests {
         let initial = receiver.baseline(&baseline).unwrap();
         let initial_hp = initial.run().players[&1].hp;
 
-        // Private cues are not part of a public view; only the owner status
-        // changes. The previous Run must remain usable by an older frame.
         run.cues.push("private cue".into());
         let mut next_status = status(&run);
         next_status.job_revision += 1;
@@ -928,9 +883,6 @@ mod tests {
         let mut run = game();
         assert!(run.valid_snapshot());
         assert!(run.boss_gates.is_some());
-        // The first floor's opening room is bare of foes now (the wishing
-        // room, 2026-11-02): walk into a fight room the production way, so
-        // the gates stand and the ecology reads a live foe.
         if run.enemies.is_empty() {
             let fight = run
                 .dungeon
@@ -946,8 +898,6 @@ mod tests {
         let baseline = publisher.baseline(&run, status(&run)).unwrap();
         let view = receiver.baseline(&baseline).unwrap();
         assert!(view.run().valid_read_view());
-        // The public mirror cannot pass the private allocation invariant, and
-        // must never invent the missing authority just to satisfy that check.
         assert!(!view.run().valid_snapshot());
         assert!(publisher.tree.as_ref().unwrap().field("next_id").is_none());
         assert!(receiver.tree.as_ref().unwrap().field("next_id").is_none());
@@ -1070,7 +1020,6 @@ mod tests {
                 .iter()
                 .all(|(_, h)| HERO_PRIVATE.iter().all(|field| h.field(field).is_none()))
         );
-        // Changing only native/private payloads leaves projected hero cache shared.
         let kept = Arc::clone(shared_field(publisher.tree.as_ref().unwrap(), "players"));
         run.players
             .get_mut(&1)
@@ -1104,7 +1053,7 @@ mod tests {
         run.players.get_mut(&1).unwrap().guard = cards::Guard::Shield;
         let good = publisher.delta(&run, status(&run)).unwrap();
         let mut malformed = good.clone();
-        malformed.bytes.push(255); // dictionary names decoded before trailing refusal
+        malformed.bytes.push(255);
         assert!(receiver.delta(&malformed).is_err());
         assert_eq!(receiver.reader.dictionary_len(), dictionary);
         assert!(Arc::ptr_eq(receiver.view().unwrap(), &before));
@@ -1188,7 +1137,6 @@ mod tests {
             receiver.view().unwrap().run().book.get("retry-book"),
             Some(&added)
         );
-        // Explicit resync retains the exact current book and resets codec state.
         receiver
             .baseline(&publisher.baseline(&run, status(&run)).unwrap())
             .unwrap();

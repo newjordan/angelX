@@ -40,21 +40,17 @@ fn main() -> ExitCode {
     }
 }
 
-/// A cell of a scene: a piece, where it stands, which way it faces.
 struct Cell {
     piece: Arc<Piece>,
     foot: [f32; 4],
 }
 
-/// The hillside's look, as `realm_look::look` makes a view's, on the
-/// stage's own pixels.
 fn look(stage: (u32, u32), lamps: &[angel_stage::set::SetLamp], time: f32) -> Look {
     let mut look = Look::new(realm_look::HILLSIDE.to_vec());
     look.accent = vec![realm_look::GLINT, realm_look::WINDOW, realm_look::FIRE];
     look.dither = Dither::Bayer4;
     look.metre = realm_look::METRE;
     look.time = time;
-    // `WORKS_LIFT=1` lifts the ambient and the sun a little, for looking at forms on a dark look.
     let lift = std::env::var("WORKS_LIFT").is_ok();
     look.sun = Some(Sun {
         toward: realm_look::SUN,
@@ -73,8 +69,6 @@ fn look(stage: (u32, u32), lamps: &[angel_stage::set::SetLamp], time: f32) -> Lo
     look
 }
 
-/// The set text of a scene of cells on a stage: grass under everything and
-/// each cell's solids.
 fn scene_text(stage: (u32, u32), cells: &[Cell]) -> (String, Vec<angel_stage::set::SetLamp>) {
     let mut text = format!("set works-kit\ncamera room {} {}\n", stage.0, stage.1);
     text.push_str(&format!("box grass at {} -4 {} size {} 4 {}\n", stage.0 / 2, stage.1 / 2, stage.0, stage.1));
@@ -124,7 +118,6 @@ fn run() -> Result<(), String> {
             for id in &ids {
                 for f in 0..FRAMES {
                     let piece = kit::solids(id, State::Working, f).ok_or("no piece")?;
-                    // Idle beside it for company: the loop is the right one.
                     let still = kit::solids(id, State::Idle, 0).ok_or("no piece")?;
                     shoot_row(&mut gpu, &out.join(format!("{id}-work-{f:02}.png")), id, &[still, piece], scale, f as f32 / 8.0)?;
                 }
@@ -138,7 +131,6 @@ fn run() -> Result<(), String> {
     }
 }
 
-/// A row of pieces of one plan side by side, one stage, one picture.
 fn shoot_row(gpu: &mut Gpu, path: &Path, id: &str, pieces: &[Arc<Piece>], scale: u32, time: f32) -> Result<(), String> {
     let (w, d) = kit::extent(id).ok_or("no plan")?;
     let gap = 14.0;
@@ -156,7 +148,6 @@ fn shoot_row(gpu: &mut Gpu, path: &Path, id: &str, pieces: &[Arc<Piece>], scale:
 }
 
 fn lines(gpu: &mut Gpu, out: &Path, scale: u32) -> Result<(), String> {
-    // Every join of each kind of line, then each carrier in four ways with a few loads.
     let tiles: Vec<(LineKind, u8, bool)> = LineKind::ALL.iter().flat_map(|k| (0..16u8).map(move |l| (*k, l, l % 2 == 0))).collect();
     let stage = (16 * 18 + 14, 5 * 40 + 130);
     let cells: Vec<Cell> = tiles
@@ -171,7 +162,6 @@ fn lines(gpu: &mut Gpu, out: &Path, scale: u32) -> Result<(), String> {
         .collect();
     let pixels = gpu.shoot(stage, &cells, scale, 0.0)?;
     write_png(&out.join("lines.png"), (stage.0 * scale, stage.1 * scale), &pixels)?;
-    // Carriers: a picture a kind, the four ways in rows, a load a column.
     let loads = [None, Some(Load::Stone), Some(Load::Lime), Some(Load::Timber), Some(Load::Ore), Some(Load::Grain)];
     for kind in LineKind::ALL {
         let long = kit::vehicle_solids(kind, Dir::East, None, 0).iter().map(|s| s.footprint()[2] - s.footprint()[0]).fold(0.0f32, f32::max).max(16.0) + 24.0;
@@ -245,8 +235,6 @@ impl Gpu {
         Ok(Self { core, device, target: None })
     }
 
-    /// A scene of `cells` on a stage of `stage` pixels at the game camera,
-    /// lit by the hillside's look, `scale` window pixels to a stage pixel.
     fn shoot(&mut self, stage: (u32, u32), cells: &[Cell], scale: u32, time: f32) -> Result<Vec<u8>, String> {
         let (text, lamps) = scene_text(stage, cells);
         let set = Set::parse(&text).map_err(|e| e.iter().map(|r| r.to_string()).collect::<Vec<_>>().join("; "))?;

@@ -1,35 +1,11 @@
 #!/usr/bin/env python3
-"""bendx: structured Bend for the combat port.
-
-Rust function bodies are statement-shaped (early return, if/else, loops with
-continue/break, rebinding). Bend 2 has none of that: a `match` takes only a
-parameter, there is no `if`, and a pair is split only by a def that receives it.
-bendx takes a def body written with those statements and emits plain Bend, one
-def per control point (continuation passing), so the translation can follow the
-Rust line by line. Expressions are Bend, passed through untouched.
-
-    python3 delve/rules/combat/_tools/bendx.py [file.bendx ...]    (default: all beside it)
-
-writes foo.bend next to foo.bendx.  Source forms (inside `def f(a: T, b: U) -> R:`):
-
-    x: T = EXPR            new variable      x = EXPR       rebind (type kept)
-    (a: T, b: U) = EXPR    split a pair      (a, b: U) = ... rebinds a
-    if C: / elif C: / else:                  return EXPR
-    for e: T in LIST: / for (a: T, b: U) in LIST:   continue / break
-    while C:
-    match (EXPR : T):  with  case Pat{x: T, y: U}:  blocks
-    EXPR                   (the last statement) the result
-
-Types: `(A, B, C)` a Data tuple, `[T]` List<&2, T>, `T?` Maybe<&2, T>.
-Every parameter is reusable (`+`). Lines starting with `#` are comments.
-"""
 import pathlib
 import re
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent.parent
 IDENT = re.compile(r"[A-Za-z_][A-Za-z_0-9]*(?:\.[A-Za-z_0-9?]+)*")
-STRUCTS = {}   # name -> {field: (kind, skip)}
+STRUCTS = {}
 KIND_TYPE = {"f32": "F32", "u32": "U32", "bool": "Bool", "str": "String", "w64": "W.W", "json": "J.Val",
              "pair": "Sigma<&2, &2, F32, _ => F32>", "u32?": "Maybe<&2, U32>", "f32?": "Maybe<&2, F32>", "str?": "Maybe<&2, String>",
              "pair?": "Maybe<&2, Sigma<&2, &2, F32, _ => F32>>", "w64?": "Maybe<&2, W.W>"}
@@ -66,9 +42,6 @@ def load_structs(text):
 class Err(Exception):
     pass
 
-
-# ---------------------------------------------------------------- types
-
 def split_top(s, sep=","):
     out, depth, cur, q = [], 0, [], False
     for ch in s:
@@ -88,7 +61,6 @@ def split_top(s, sep=","):
 
 
 def ty(s):
-    """Sugar -> Bend type text."""
     s = s.strip()
     if " & " in s:
         parts = split_top(s, "&")
@@ -127,9 +99,6 @@ def sigma(ts):
     if len(ts) == 1:
         return ts[0]
     return "Sigma<&2, &2, %s, _ => %s>" % (ts[0], sigma(ts[1:]))
-
-
-# ---------------------------------------------------------------- lines
 
 class Line:
     def __init__(self, ind, text, no):
@@ -172,9 +141,6 @@ def logical(src):
     if cur is not None:
         raise Err("unbalanced brackets at line %d" % no0)
     return out
-
-
-# ---------------------------------------------------------------- parse
 
 def find_eq(text):
     d, q = 0, False
@@ -292,9 +258,6 @@ def child_ind(lines, i, ind, ln):
         raise Err("line %d: empty block" % ln.no)
     return lines[i].ind
 
-
-# ---------------------------------------------------------------- analysis
-
 def idents(text):
     text = re.sub(r'"(?:[^"\\]|\\.)*"', '""', text)
     return {m.split(".")[0] for m in IDENT.findall(text) if not m[0].isupper() or "." not in m}
@@ -372,9 +335,6 @@ def assigned(stmts):
             for _, b in s[3]:
                 a |= assigned(b)
     return a
-
-
-# ---------------------------------------------------------------- emit
 
 class Cont:
     def __init__(self, name, params):
@@ -460,7 +420,6 @@ def bind_types(p, env):
 
 
 def case_pattern(text, env, tags=None):
-    """`Some{x: F32}` -> (`Some{+x}`, {x: F32})."""
     bound = {}
     tags = tags if tags is not None else {}
 
@@ -492,7 +451,6 @@ FIELD = re.compile(r"(?<![\w.])([A-Za-z_]\w*)((?:\.[A-Za-z_]\w*)+)")
 
 
 def chain(ctx, var, fields):
-    """(getter expr text, kind or tag) for var.f1.f2..."""
     if var not in ctx.tags:
         raise Err("%s is not a struct variable" % var)
     tag, expr = ctx.tags[var], var
@@ -513,7 +471,6 @@ def chain(ctx, var, fields):
 
 
 def rw(ctx, expr):
-    """Struct field reads `var.field` -> getter calls (outside string literals)."""
     parts = re.split(r'("(?:[^"\\]|\\.)*")', expr)
     out = []
     for i, part in enumerate(parts):
@@ -531,7 +488,6 @@ def rw(ctx, expr):
 
 
 def setter_text(ctx, var, fields, value):
-    """The new value of `var` with var.f1.f2 = value (value already rewritten)."""
     if var not in ctx.tags:
         raise Err("%s is not a struct variable" % var)
 
@@ -758,7 +714,6 @@ def lift_loop(ctx, s, env, kn, ind):
         pat, lst, elem_t, pnames = None, None, None, set()
     carried = assigned(blk) & set(env) - pnames
     p0 = uses(blk, None, True) | carried | (set(kn.params) if kn else set())
-    # a nested loop's continue/break stay inside it; ordinary ones count here
     if s[0] == "while":
         p0 |= idents(cond)
     P = ordered(p0 - pnames, env)
@@ -789,14 +744,10 @@ def lift_loop(ctx, s, env, kn, ind):
             body += block(ctx, blk, env2, cont, lc2, "      ")
         add_def(ctx, name, header, body, ctx.ret)
         return ["%s%s(%s)" % (ind, name, ", ".join([rw(ctx, lst)] + P))]
-    # while: loop header is the lifted if on the condition
     inner = [("if", [(cond, blk + [("continue", no)])], [("break", no)], no)]
     body = block(ctx, inner, env2, None, lc2, "  ")
     add_def(ctx, name, header, body, ctx.ret)
     return ["%s%s(%s)" % (ind, name, ", ".join(P))]
-
-
-# ---------------------------------------------------------------- top level
 
 def parse_params(s):
     out = []
@@ -851,7 +802,6 @@ def compile_text(src, origin):
 
 
 def keep_comments(src):
-    """Top-level comment blocks survive in front of the def that follows."""
     return src
 
 

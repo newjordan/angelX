@@ -1,7 +1,6 @@
 use super::*;
 use crate::rules::home::{BUY_HOLD, Home};
 
-/// A delve at home, walked north into the Training Yard.
 fn in_the_yard(goblins: u32) -> Run {
     let home = Home {
         goblins,
@@ -78,7 +77,6 @@ fn grubbins_keeps_a_stall_only_once_a_goblin_got_away() {
     let run = in_the_yard(1);
     assert_eq!(run.stall.len(), 3);
     assert!(run.stall.iter().all(|id| run.book.get(id).is_some()));
-    // The same three for the whole delve.
     assert_eq!(in_the_yard(1).stall, run.stall);
 }
 

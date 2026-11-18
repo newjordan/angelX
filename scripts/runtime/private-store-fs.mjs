@@ -1,5 +1,3 @@
-// Synchronous text persistence for local agent stores. The Python adapter owns
-// nofollow file publication, permissions, and the canonical scanner rule.
 import fs from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'

@@ -81,47 +81,25 @@ use angel_stage::Frame;
 use angel_stage::look::Sun;
 use angel_stage::scene::{MeshData, MeshRef, Node, World};
 
-// ------------------------------------------------------------ the props ----
-
-/// A mass as a card, in the room's pixels: as thick as the dais the ground
-/// lifts under what stands (`rooms_lit`'s `DAIS`, 3) and a half pixel more,
-/// so a rising floor never buries one. A mass lower than this does not lift.
 pub const CARD: f32 = 3.5;
-/// A mass this tall (the room's pixels) is as heavy as a wall: the slowest
-/// to climb.
 const TALL: f32 = 48.0;
 
-/// The first mass starts at 0; the farthest from the ripple's source
-/// `PROP_SPREAD` later, each early or late by up to `PROP_JITTER` by its spot.
 const PROP_SPREAD: f32 = 0.45;
 const PROP_JITTER: f32 = 0.06;
-/// How long a low stone and a wall take to climb to their height.
 const RISE_LOW: f32 = 0.30;
 const RISE_TALL: f32 = 0.45;
-/// The lock: past its height by this much of it, and back, in this long.
 const LOCK_OVER: f32 = 0.10;
 const LOCK_TIME: f32 = 0.14;
 
-/// Flames catch after every mass has seated, and a beat more.
 const IGNITE_GAP: f32 = 0.03;
 const IGNITE_AT: f32 = PROP_SPREAD + PROP_JITTER + RISE_TALL + LOCK_TIME + IGNITE_GAP;
-/// The first flame catches at `IGNITE_AT`, the farthest `IGNITE_SPREAD`
-/// later, each by its spot up to `IGNITE_JITTER` off.
 const IGNITE_SPREAD: f32 = 0.30;
 const IGNITE_JITTER: f32 = 0.05;
-/// A flame takes `IGNITE_TIME` to catch: it grows from a spark over the first
-/// `IGNITE_RISE` of it, flares past its size by `FLARE` of it over the rest,
-/// and settles.
 const IGNITE_TIME: f32 = 0.40;
 const IGNITE_RISE: f32 = 0.55;
 const FLARE: f32 = 0.50;
-/// A spark: this much of a flame's size, and of its width.
 const SPARK: f32 = 0.05;
 const SPARK_WIDTH: f32 = 0.55;
-/// A lamp's pool follows its flame by `POOL_LAG` and blooms in `BLOOM_TIME`,
-/// as a flame catches: it comes up from `POOL_FROM` of its reach over the
-/// first `BLOOM_RISE` of it, its light then flares by `BLOOM_FLARE` of itself
-/// and its reach by `BLOOM_REACH`, and both draw back.
 const POOL_LAG: f32 = 0.08;
 const BLOOM_TIME: f32 = 0.50;
 const BLOOM_RISE: f32 = 0.55;
@@ -129,51 +107,29 @@ const BLOOM_FLARE: f32 = 0.35;
 const BLOOM_REACH: f32 = 0.20;
 const POOL_FROM: f32 = 0.30;
 
-/// The prop lift's whole length, in seconds.
 pub const PROP_DURATION: f32 = IGNITE_AT + IGNITE_SPREAD + IGNITE_JITTER + POOL_LAG + BLOOM_TIME;
 
-// ----------------------------------------------------------- the floor ----
-
-/// The ground's relief is full after `RELIEF_TIME`, past it by `RELIEF_OVER`
-/// of itself, settled `RELIEF_SETTLE` later.
 const RELIEF_TIME: f32 = 0.70;
 const RELIEF_OVER: f32 = 0.10;
 const RELIEF_SETTLE: f32 = 0.20;
-/// The sun starts down at `SUN_AT` and is in its place `SUN_TIME` later.
 const SUN_AT: f32 = 0.20;
 const SUN_TIME: f32 = 1.00;
-/// What of the key light's strength is on while the sun is overhead.
 pub const FLAT_KEY: f32 = 0.78;
-/// The lamps' pools bloom from `POOL_AT`, the farthest from the ripple's
-/// source `POOL_SPREAD` later, each in `BLOOM_TIME`.
 const POOL_AT: f32 = 1.00;
 const POOL_SPREAD: f32 = 0.30;
 
-/// The floor's whole length.
 pub const FLOOR_DURATION: f32 = POOL_AT + POOL_SPREAD + BLOOM_TIME;
 
-// ------------------------------------------------------------- the tip ----
-
-/// The tilt reaches the game's after `TIP_TIME`, past it by `TIP_OVER` of it,
-/// settled `TIP_SETTLE` later.
 const TIP_TIME: f32 = 0.90;
 const TIP_OVER: f32 = 0.20;
 const TIP_SETTLE: f32 = 0.45;
-/// The lamps flare by `CATCH` of themselves at the landing, and fade as the
-/// room settles.
 const CATCH: f32 = 0.30;
 
-/// The tip's whole length.
 pub const TIP_DURATION: f32 = TIP_TIME + TIP_SETTLE;
 
-// ------------------------------------------------------------ the climb ----
-
-/// In the whole climb the floor starts at 0, the props `PROP_AT` in, and the
-/// tip when it will land as the last flame catches.
 const PROP_AT: f32 = 0.35;
 const TIP_AT: f32 = PROP_AT + IGNITE_AT + IGNITE_SPREAD - TIP_TIME;
 
-/// The whole climb's length: the last of the three to end.
 pub const DURATION: f32 = max3(FLOOR_DURATION, PROP_AT + PROP_DURATION, TIP_AT + TIP_DURATION);
 
 const fn max3(a: f32, b: f32, c: f32) -> f32 {
@@ -181,10 +137,6 @@ const fn max3(a: f32, b: f32, c: f32) -> f32 {
     if ab > c { ab } else { c }
 }
 
-// ------------------------------------------------------------- motions ----
-
-/// A lamp's pool: how strong it burns and how far it reaches, each of its
-/// own (1 is as the room lights it).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pool {
     pub strength: f32,
@@ -192,52 +144,33 @@ pub struct Pool {
 }
 
 impl Pool {
-    /// Out.
     pub const OUT: Self = Self { strength: 0.0, reach: POOL_FROM };
-    /// As the room lights it.
     pub const LIT: Self = Self { strength: 1.0, reach: 1.0 };
 }
 
-/// Where something stands in its room, for its motion.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Place {
-    /// 0 at the ripple's source, 1 at the farthest the room goes from it.
     pub order: f32,
-    /// A steady number in 0..=1 for the spot, smooth across the floor so
-    /// what stands together moves together ([`seed`]).
     pub seed: f32,
-    /// How tall it stands when it is up, in the room's pixels.
     pub tall: f32,
 }
 
-/// How a prop stands at one moment of its lift: a mass's height, its flame
-/// and its lamp's pool.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Prop {
-    /// How far up the mass is, from a card ([`CARD`]) to its height: 0 a
-    /// card, 1 up, past it on the lock.
     pub height: f32,
-    /// Of the flame's own size: [`SPARK`] before it catches, past 1 as it
-    /// flares.
     pub flame: f32,
     pub lamp: Pool,
 }
 
 impl Prop {
-    /// A card with a spark on it and its lamp out.
     pub const CARD: Self = Self { height: 0.0, flame: SPARK, lamp: Pool::OUT };
-    /// Up, burning.
     pub const SOLID: Self = Self { height: 1.0, flame: 1.0, lamp: Pool::LIT };
 }
 
-/// How the floor stands at one moment of its rise.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Floor {
-    /// Of the ground's own heights: 0 flat, 1 as it is, past it on the lock.
     pub relief: f32,
-    /// How far the sun has come down: 0 straight overhead, 1 in its place.
     pub sun: f32,
-    /// Of the key light's strength at the sun's place: [`FLAT_KEY`] to 1.
     pub key: f32,
 }
 
@@ -246,13 +179,9 @@ impl Floor {
     pub const LIT: Self = Self { relief: 1.0, sun: 1.0, key: 1.0 };
 }
 
-/// How the room is tipped at one moment of its tip.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Tip {
-    /// Of the frame's own tilt: 0 flat, 1 as the game has it, past it on the
-    /// landing.
     pub tilt: f32,
-    /// Of every lamp's strength: 1, flaring at the landing.
     pub catch: f32,
 }
 
@@ -261,8 +190,6 @@ impl Tip {
     pub const TIPPED: Self = Self { tilt: 1.0, catch: 1.0 };
 }
 
-/// A prop's motion at time `t`: a card at 0 or before its turn, up and lit
-/// from `PROP_DURATION`. A time that is not a number is 0.
 pub fn prop(t: f32, place: Place) -> Prop {
     if t.is_nan() || t <= 0.0 {
         return Prop::CARD;
@@ -272,28 +199,22 @@ pub fn prop(t: f32, place: Place) -> Prop {
     }
     let order = place.order.clamp(0.0, 1.0);
     let seed = place.seed.clamp(0.0, 1.0);
-    // The mass: it climbs, then locks.
     let weight = (place.tall / TALL).clamp(0.0, 1.0);
     let rise = RISE_LOW + (RISE_TALL - RISE_LOW) * weight;
     let start = PROP_SPREAD * order + PROP_JITTER * seed;
     let up = ease_out_cubic((t - start) / rise);
     let height = up + LOCK_OVER * lock((t - start - rise) / LOCK_TIME);
-    // The flame, then the pool under it.
     let catch = IGNITE_AT + IGNITE_SPREAD * order + IGNITE_JITTER * seed;
     let k = (t - catch) / IGNITE_TIME;
     let flame = SPARK + (1.0 - SPARK) * ease_out_cubic(k / IGNITE_RISE) + FLARE * lock((k - IGNITE_RISE) / (1.0 - IGNITE_RISE));
     Prop { height, flame, lamp: bloom((t - catch - POOL_LAG) / BLOOM_TIME) }
 }
 
-/// A pool at `k` of its bloom (0 out, 1 lit): its strength comes up and
-/// flares, its reach opens past and draws back.
 fn bloom(k: f32) -> Pool {
     let (up, flare) = (ease_out_cubic(k / BLOOM_RISE), lock((k - BLOOM_RISE) / (1.0 - BLOOM_RISE)));
     Pool { strength: up + BLOOM_FLARE * flare, reach: POOL_FROM + (1.0 - POOL_FROM) * up + BLOOM_REACH * flare }
 }
 
-/// The floor at time `t`: flat with the sun overhead at 0 (or when `t` is
-/// not a number), as the room has it from `FLOOR_DURATION`.
 pub fn floor(t: f32) -> Floor {
     if t.is_nan() || t <= 0.0 {
         return Floor::FLAT;
@@ -306,8 +227,6 @@ pub fn floor(t: f32) -> Floor {
     Floor { relief, sun, key: FLAT_KEY + (1.0 - FLAT_KEY) * sun }
 }
 
-/// The lamp's pool of a floor at time `t`, at `place`: out until its turn,
-/// then it blooms.
 pub fn pool(t: f32, place: Place) -> Pool {
     if t.is_nan() || t <= 0.0 {
         return Pool::OUT;
@@ -318,8 +237,6 @@ pub fn pool(t: f32, place: Place) -> Pool {
     bloom((t - POOL_AT - POOL_SPREAD * place.order.clamp(0.0, 1.0)) / BLOOM_TIME)
 }
 
-/// The tip at time `t`: flat at 0 (or when `t` is not a number), tipped as
-/// the game has it from `TIP_DURATION`.
 pub fn tip(t: f32) -> Tip {
     if t.is_nan() || t <= 0.0 {
         return Tip::FLAT;
@@ -333,8 +250,6 @@ pub fn tip(t: f32) -> Tip {
     }
 }
 
-/// How far into each of the three a moment is, in seconds: before 0 is flat,
-/// from the move's own length is done.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Times {
     pub floor: f32,
@@ -343,21 +258,14 @@ pub struct Times {
 }
 
 impl Times {
-    /// All three done: the room as it is.
     pub const DONE: Self = Self { floor: FLOOR_DURATION, prop: PROP_DURATION, tip: TIP_DURATION };
-    /// None begun: the flat plan.
     pub const FLAT: Self = Self { floor: 0.0, prop: 0.0, tip: 0.0 };
 }
 
-/// The whole climb at time `t`: each of the three as its start says.
 pub fn climb(t: f32) -> Times {
     Times { floor: t, prop: t - PROP_AT, tip: t - TIP_AT }
 }
 
-// ------------------------------------------------------------- the room ----
-
-/// Where the ripples start: points of the room (its own pixels) the lift
-/// spreads from, and how far it is to the farthest thing from them.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Ripple {
     sources: Vec<[f32; 2]>,
@@ -365,13 +273,10 @@ pub struct Ripple {
 }
 
 impl Ripple {
-    /// From the middle of a room `w` by `h` pixels, out to its corners.
     pub fn centre(w: f32, h: f32) -> Self {
         Self { sources: vec![[w / 2.0, h / 2.0]], reach: (w / 2.0).hypot(h / 2.0) }
     }
 
-    /// From the doors of a room `w` by `h` pixels (a room with none, its
-    /// middle), to the corner farthest from all of them.
     pub fn doors(doors: &[[f32; 2]], w: f32, h: f32) -> Self {
         if doors.is_empty() {
             return Self::centre(w, h);
@@ -385,52 +290,36 @@ impl Ripple {
         self.sources.iter().map(|s| (s[0] - x).hypot(s[1] - z)).fold(f32::INFINITY, f32::min)
     }
 
-    /// How far `(x, z)` is along the ripple: 0 at a source, 1 at the end.
     pub fn order(&self, x: f32, z: f32) -> f32 {
         let d = self.distance(x, z) / self.reach.max(1.0);
         if d.is_finite() { d.clamp(0.0, 1.0) } else { 0.0 }
     }
 
-    /// The place of a thing `tall` high at `(x, z)`.
     pub fn place(&self, x: f32, z: f32, tall: f32) -> Place {
         Place { order: self.order(x, z), seed: seed(x, z), tall }
     }
 }
 
-/// A steady number in 0..=1 for a spot of the room, smooth across it: two
-/// slow waves, so neighbours are alike and the room is not a wave.
 pub fn seed(x: f32, z: f32) -> f32 {
     let v = 0.5 + 0.30 * (x * 0.07 + 1.3).sin() + 0.20 * (z * 0.11 + x * 0.03 + 4.1).sin();
     if v.is_finite() { v.clamp(0.0, 1.0) } else { 0.5 }
 }
 
-/// The least the ground's height scale is drawn at: a node scaled to nothing
-/// has no normals.
 const MIN_RELIEF: f32 = 1e-3;
-/// What lies in the ground (water, lava, a bed: its top no higher than this,
-/// in the room's pixels) goes down with it, and when the ground is flat lies
-/// this far over it: a film, the pond on the plan.
 const SUNK: f32 = 0.5;
 const FILM: f32 = 0.25;
-/// How many masses deep one standing on another is followed.
 const STAND_DEPTH: usize = 6;
 
-/// What a frame's flames are: a lit room's flame nodes have ids of this tag
-/// (`id >> 32`, `rooms_lit::flame_nodes`).
 const FLAME_TAG: u64 = 0xF1A;
 
 fn is_flame(node: &Node) -> bool {
     node.id >> 32 == FLAME_TAG
 }
 
-/// Whether a node is a lit room's ground (an uploaded mesh).
 fn is_ground(node: &Node) -> bool {
     matches!(node.mesh, Some(MeshRef::Uploaded(_)))
 }
 
-/// A frame of a lit room as `times` have it: its tilt, and in its lit world
-/// the ground's relief, every mass's height, each flame, the sun and the
-/// lamps. A frame whose three are done is left exactly as it is.
 pub fn apply(frame: &mut Frame, times: Times, ripple: &Ripple) {
     if times.tip < TIP_DURATION {
         frame.tilt *= tip(times.tip).tilt;
@@ -440,16 +329,13 @@ pub fn apply(frame: &mut Frame, times: Times, ripple: &Ripple) {
     }
 }
 
-/// [`apply`] to a lit world alone (its floor, blocks, flames and look).
 pub fn apply_world(world: &mut World, times: Times, ripple: &Ripple) {
-    // Where the room's pixels are on this stage: the ground's own place.
     let (origin, scale) = world
         .floor
         .iter()
         .find(|n| is_ground(n))
         .map_or(([0.0, 0.0], 1.0), |g| ([g.transform.translation[0], g.transform.translation[2]], g.transform.scale[0].max(1e-6)));
     let room = |x: f32, z: f32| ((x - origin[0]) / scale, (z - origin[1]) / scale);
-    // What lies in the ground, before it moves: the water and the lava.
     let sunk: Vec<bool> = world.extra.iter().map(|n| !is_flame(n) && n.transform.translation[1] + n.transform.scale[1] * 0.5 <= SUNK * scale).collect();
 
     if times.floor < FLOOR_DURATION {
@@ -470,9 +356,6 @@ pub fn apply_world(world: &mut World, times: Times, ripple: &Ripple) {
         }
     }
     if times.prop < PROP_DURATION {
-        // The ground the masses stand on, as the stage has it now: where its
-        // surface is under a point (what stands on a dais stands on it as it
-        // rises, and is a card on it).
         let stretch = world.floor.iter().find(|n| is_ground(n)).map_or(1.0, |g| g.transform.scale[1]);
         let field = world
             .floor
@@ -486,17 +369,12 @@ pub fn apply_world(world: &mut World, times: Times, ripple: &Ripple) {
             let (rx, rz) = room(x, z);
             field.as_ref().map_or(0.0, |f| f.height(rx, rz) * stretch)
         };
-        // What stands together rises together: a mass takes the height and
-        // the place of the tallest thing standing at its middle.
         let columns: Vec<Column> = world.blocks.iter().map(Column::of).collect();
         let stand = |x: f32, z: f32| -> (f32, [f32; 2]) {
             let tallest = |at: [f32; 2]| columns.iter().filter(|c| c.holds(at[0], at[1])).max_by(|a, b| a.top.total_cmp(&b.top));
             let Some(mut column) = tallest([x, z]) else {
                 return (0.0, [x, z]);
             };
-            // And what stands at its middle may be taller still (a plinth
-            // inside a wall): so a flame and the mass it burns on, and a
-            // mass and what holds it, always agree.
             for _ in 0..STAND_DEPTH {
                 match tallest(column.at) {
                     Some(next) if next.top > column.top => column = next,
@@ -505,8 +383,6 @@ pub fn apply_world(world: &mut World, times: Times, ripple: &Ripple) {
             }
             (column.top, column.at)
         };
-        // How much of its height a mass has at `x`, `z`: from a card's
-        // thickness over the ground there to the whole of it (exactly 1).
         let mass = |x: f32, z: f32, now: f32| -> (f32, f32) {
             let (top, at) = stand(x, z);
             let base = ground(x, z);
@@ -523,8 +399,6 @@ pub fn apply_world(world: &mut World, times: Times, ripple: &Ripple) {
                 t.scale[1] *= m;
             }
         }
-        // The flames grow on their masses, and whatever else burns or lies on
-        // one (a bed of coals) rides it.
         for (node, &lies) in world.extra.iter_mut().zip(&sunk) {
             if lies {
                 continue;
@@ -553,12 +427,9 @@ pub fn apply_world(world: &mut World, times: Times, ripple: &Ripple) {
     }
 }
 
-/// What a mass covers on the floor (its footprint, turned about the vertical
-/// as the shape is), and how high it stands (stage pixels).
 struct Column {
     at: [f32; 2],
     half: [f32; 2],
-    /// The sine and cosine of its turn.
     turn: [f32; 2],
     top: f32,
 }
@@ -575,7 +446,6 @@ impl Column {
         }
     }
 
-    /// Whether floor point `(x, z)` is under it.
     fn holds(&self, x: f32, z: f32) -> bool {
         let (dx, dz) = (x - self.at[0], z - self.at[1]);
         let (along, across) = (dx * self.turn[1] - dz * self.turn[0], dx * self.turn[0] + dz * self.turn[1]);
@@ -583,11 +453,8 @@ impl Column {
     }
 }
 
-/// A flame as it rides its mass up (`mass` of its height over `base`, the
-/// ground it stands on) and grows (`size` of its own, about its foot).
 fn grow(node: &mut Node, (mass, base): (f32, f32), size: f32) {
     let t = &mut node.transform;
-    // Where its foot is: a built-in mesh's low corner, else its middle.
     let low = node.mesh.and_then(|m| m.generate()).and_then(|d| d.positions.iter().map(|p| p[1]).reduce(f32::min)).unwrap_or(-0.5);
     let foot = t.translation[1] + t.scale[1] * low;
     let width = if size >= 1.0 { 1.0 } else { SPARK_WIDTH + (1.0 - SPARK_WIDTH) * size.max(0.0) };
@@ -595,9 +462,6 @@ fn grow(node: &mut Node, (mass, base): (f32, f32), size: f32) {
     t.translation[1] = base + (foot - base) * mass - t.scale[1] * low;
 }
 
-/// The ground's heights as its uploaded mesh holds them: corners `step`
-/// apart, a row of `cols` of them to a row, the first at `at` (the room's
-/// pixels), each its height over the floor (`Ground::mesh`).
 struct Field<'a> {
     corners: &'a [[f32; 3]],
     at: [f32; 2],
@@ -614,7 +478,6 @@ impl<'a> Field<'a> {
         (cols >= 2 && step > 0.0 && step.is_finite() && mesh.positions.len() % cols == 0 && mesh.positions.len() >= cols * 2).then_some(field)
     }
 
-    /// The height at floor point `(x, z)`, between the corners round it.
     fn height(&self, x: f32, z: f32) -> f32 {
         let rows = self.corners.len() / self.cols;
         let fx = ((x - self.at[0]) / self.step).clamp(0.0, (self.cols - 1) as f32);
@@ -627,15 +490,8 @@ impl<'a> Field<'a> {
     }
 }
 
-/// The lowest the sun is taken to be, in radians over the floor.
 const MIN_SUN: f32 = 0.05;
 
-/// The sun `progress` of the way down from overhead (1: where it is), `key`
-/// of its light there. The way it goes is its shadows' way: their length
-/// (their casters' height times the cotangent of its height) is `progress`
-/// of what it is where the sun stands, so they grow from nothing at an even
-/// pace, not in a rush at the end. Its strength follows it so that a face
-/// square to the ground keeps its brightness while the angle changes.
 fn lower(sun: &mut Sun, progress: f32, key: f32) {
     let toward = sun.toward_unit();
     let around = toward[0].hypot(toward[2]);
@@ -652,9 +508,6 @@ fn lower(sun: &mut Sun, progress: f32, key: f32) {
     sun.strength *= end.sin() / height.sin() * key;
 }
 
-// -------------------------------------------------------------- curves ----
-
-/// 0 up to `x` = 0, 1 from 1, a cubic that slows into its stop between.
 fn ease_out_cubic(x: f32) -> f32 {
     1.0 - (1.0 - x.clamp(0.0, 1.0)).powi(3)
 }
@@ -669,8 +522,6 @@ fn smooth(x: f32) -> f32 {
     x * x * (3.0 - 2.0 * x)
 }
 
-/// The lock over `k` in 0..1 (0 outside it): up from 0, past, and back, as
-/// `glass::transition`'s walls lock.
 fn lock(k: f32) -> f32 {
     if k > 0.0 && k < 1.0 { (PI * k).sin() * (1.0 - k) } else { 0.0 }
 }

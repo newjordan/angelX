@@ -3,7 +3,6 @@ use std::cell::Cell;
 
 const LEG: &str = "result-classify";
 
-/// A question no other test asks: the leg's own input shape, with a unique exit code.
 fn question() -> serde_json::Value {
     static SEQ: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1_000_000);
     serde_json::json!({
@@ -93,7 +92,6 @@ fn a_different_input_or_a_different_generation_is_a_different_question() {
 fn a_rejected_answer_is_retried_against_the_module_not_the_memo() {
     let input = question();
     let expected = ask_every_time(&input);
-    // Prime the memo, then reject the first answer the caller sees.
     ask(&input);
     let rejections = Cell::new(0);
     let (answer, _) = decide_shipped::<serde_json::Value>(LEG, &input, |_| {

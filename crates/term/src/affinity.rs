@@ -20,18 +20,14 @@
 #[cfg(target_os = "linux")]
 use std::path::Path;
 
-/// CPUs past this are not described; `cpu_set_t` holds 1024.
 const MAX_CPUS: usize = 1024;
 
-/// One last-level cache and the CPUs that share it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Domain {
     bytes: u64,
     cpus: Vec<usize>,
 }
 
-/// A sysfs CPU list (`0-7,16-23`), or `None` if it is not one. CPUs past
-/// [`MAX_CPUS`] are left out.
 fn cpu_list(text: &str) -> Option<Vec<usize>> {
     let mut cpus = Vec::new();
     for part in text.trim().split(',') {
@@ -52,7 +48,6 @@ fn cpu_list(text: &str) -> Option<Vec<usize>> {
     (!cpus.is_empty()).then_some(cpus)
 }
 
-/// A sysfs cache size (`98304K`, `32M`, or bytes), or `None`.
 fn cache_size(text: &str) -> Option<u64> {
     let text = text.trim();
     let (digits, unit) = match text.char_indices().find(|(_, c)| !c.is_ascii_digit()) {
@@ -69,9 +64,6 @@ fn cache_size(text: &str) -> Option<u64> {
     digits.parse::<u64>().ok()?.checked_mul(scale)
 }
 
-/// The CPUs to place the hot path on: the largest domains', when some
-/// domain is smaller than they are. `None` with one size of domain, or
-/// none at all.
 fn largest(domains: &[Domain]) -> Option<Vec<usize>> {
     let most = domains.iter().map(|d| d.bytes).max()?;
     if domains.iter().all(|d| d.bytes == most) {
@@ -83,18 +75,12 @@ fn largest(domains: &[Domain]) -> Option<Vec<usize>> {
     Some(cpus)
 }
 
-/// The L3 domains under a sysfs CPU directory (`/sys/devices/system/cpu`):
-/// for each online CPU not yet in a domain, the cache of level 3 it lists
-/// and the CPUs that share it. Anything missing or malformed ends the
-/// reading with what was read before it.
 #[cfg(target_os = "linux")]
 fn domains(root: &Path) -> Vec<Domain> {
     let read = |path: std::path::PathBuf| std::fs::read_to_string(path).ok();
     let Some(online) = read(root.join("online")).as_deref().and_then(cpu_list) else {
         return Vec::new();
     };
-    // Which cache index is level 3 is read from the first CPU, and the
-    // same index is read for every other.
     let first = root.join(format!("cpu{}/cache", online[0]));
     let Some(index) = (0..8).find(|i| read(first.join(format!("index{i}/level"))).is_some_and(|l| l.trim() == "3")) else {
         return Vec::new();
@@ -115,12 +101,10 @@ fn domains(root: &Path) -> Vec<Domain> {
     found
 }
 
-/// Whether `GLASS_AFFINITY` leaves the placing on.
 fn wanted(setting: Option<&str>) -> bool {
     !matches!(setting.map(str::trim), Some("off" | "0" | "no" | "false"))
 }
 
-/// The CPUs this machine's hot path goes to, read once.
 #[cfg(target_os = "linux")]
 fn chosen() -> Option<&'static [usize]> {
     static CHOSEN: std::sync::OnceLock<Option<Vec<usize>>> = std::sync::OnceLock::new();
@@ -133,14 +117,9 @@ fn chosen() -> Option<&'static [usize]> {
         .as_deref()
 }
 
-/// Place the calling thread on the largest L3's CPUs, among those it may
-/// run on already. Does nothing where the module says it does nothing.
 pub fn place_hot_thread() {
     #[cfg(target_os = "linux")]
     if let Some(cpus) = chosen() {
-        // SAFETY: both sets are plain bit arrays the calls fill or read,
-        // sized as the calls are told; CPU numbers are below MAX_CPUS, the
-        // set's own size, so the bit helpers index inside it.
         unsafe {
             let size = std::mem::size_of::<libc::cpu_set_t>();
             let mut allowed: libc::cpu_set_t = std::mem::zeroed();
@@ -174,7 +153,6 @@ mod tests {
         for bad in ["", "x", "7-3", "1-", "-1", "0-7,,9", "1.5"] {
             assert_eq!(cpu_list(bad), None, "{bad:?}");
         }
-        // A list past what a CPU set holds is cut, never allocated whole.
         assert_eq!(cpu_list("0-18446744073709551615").map(|c| c.len()), Some(MAX_CPUS));
         assert_eq!(cache_size("98304K\n"), Some(96 << 20));
         assert_eq!(cache_size("32M"), Some(32 << 20));
@@ -187,15 +165,12 @@ mod tests {
     #[test]
     fn only_a_larger_domain_is_chosen() {
         let d = |bytes: u64, cpus: &[usize]| Domain { bytes, cpus: cpus.to_vec() };
-        // One die with the stacked cache: its CPUs.
         let x3d = [d(96 << 20, &[0, 1, 16, 17]), d(32 << 20, &[8, 9, 24, 25])];
         assert_eq!(largest(&x3d), Some(vec![0, 1, 16, 17]));
         assert_eq!(largest(&[x3d[1].clone(), x3d[0].clone()]), Some(vec![0, 1, 16, 17]));
-        // One L3, or several the same size: nothing to choose.
         assert_eq!(largest(&[d(32 << 20, &[0, 1, 2, 3])]), None);
         assert_eq!(largest(&[d(32 << 20, &[0, 1]), d(32 << 20, &[2, 3])]), None);
         assert_eq!(largest(&[]), None);
-        // Two of the larger kind: both.
         assert_eq!(largest(&[d(96, &[4]), d(32, &[0]), d(96, &[2])]), Some(vec![2, 4]));
     }
 
@@ -208,8 +183,6 @@ mod tests {
         assert!(!wanted(Some("0")));
     }
 
-    /// A sysfs tree as an X3D part and a one-L3 laptop describe themselves,
-    /// and broken ones, read from a directory of files.
     #[cfg(target_os = "linux")]
     #[test]
     fn domains_are_read_from_sysfs() {
@@ -236,10 +209,8 @@ mod tests {
         assert_eq!(largest(&found), Some(vec![0, 2]));
         let laptop = tree("laptop", "0-3", &[(0, "12M", "0-3"), (1, "12M", "0-3"), (2, "12M", "0-3"), (3, "12M", "0-3")], 3);
         assert_eq!(largest(&domains(&laptop)), None);
-        // The level-3 cache under another index is still found.
         let other = tree("other", "0-1", &[(0, "64M", "0"), (1, "16M", "1")], 2);
         assert_eq!(largest(&domains(&other)), Some(vec![0]));
-        // Missing or malformed: nothing, or what was read before it.
         assert_eq!(domains(&root.join("none")), Vec::new());
         let broken = tree("broken", "0-1", &[(0, "lots", "0"), (1, "16M", "1")], 3);
         assert_eq!(domains(&broken), Vec::new());

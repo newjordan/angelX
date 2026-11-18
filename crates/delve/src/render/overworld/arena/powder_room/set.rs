@@ -14,15 +14,12 @@ use crate::rules::powder::{FUSE, Keg, Powder};
 use crate::rules::powder_show::{self, DROP_LIFE};
 use crate::rules::{Room, Run};
 
-/// Ticks before a keg goes that the lanes it will burn begin to glow.
 pub(super) const WARN: u32 = 54;
 
-/// Whether room pixel `(x, y)` is near enough the view `view` to draw.
 pub(super) fn near((x, y): (i32, i32), (vx, vy): (i32, i32), pad: i32) -> bool {
     x >= vx - pad && x < vx + 384 + pad && y >= vy - pad && y < vy + 224 + pad
 }
 
-/// The tile columns and rows a view covers, with a margin.
 fn tiles(view: (i32, i32), room: &Room, pad: i32) -> (std::ops::Range<i32>, std::ops::Range<i32>) {
     let c0 = ((view.0 - pad) / TILE).max(0);
     let c1 = ((view.0 + 384 + pad) / TILE + 1).min(room.cols as i32);
@@ -31,9 +28,6 @@ fn tiles(view: (i32, i32), room: &Room, pad: i32) -> (std::ops::Range<i32>, std:
     (c0..c1, r0..r1)
 }
 
-/// What lies on the floor and under the knights: soot and its embers, the
-/// lanes a keg will burn, the keg itself, a keg's landing, the lanterns'
-/// pools of light and the blasts' own floor (`boom::under`).
 pub(super) fn under(cv: &mut Img, run: &Run, p: &Powder, view: (i32, i32)) {
     let now = run.tick as u32;
     let room = run.room();
@@ -63,8 +57,6 @@ pub(super) fn under(cv: &mut Img, run: &Run, p: &Powder, view: (i32, i32)) {
     let _ = room;
 }
 
-/// The soot a blast leaves, one of eight kept: the stone blackened in a
-/// dither that thickens to the tile's middle, and specks of char.
 fn soot_img(variant: usize) -> &'static Img {
     static SOOT: std::sync::OnceLock<Vec<Img>> = std::sync::OnceLock::new();
     &SOOT.get_or_init(|| {
@@ -90,8 +82,6 @@ fn soot_img(variant: usize) -> &'static Img {
     })[variant % 8]
 }
 
-/// The soot a blast leaves on the stone, and while it is fresh a few
-/// embers flickering in it.
 fn scorch(cv: &mut Img, run: &Run, p: &Powder, view: (i32, i32), now: u32) {
     let cols = run.room().cols as i32;
     let (cs, rs) = tiles(view, run.room(), 0);
@@ -103,7 +93,6 @@ fn scorch(cv: &mut Img, run: &Run, p: &Powder, view: (i32, i32), now: u32) {
         let (x0, y0) = (c * TILE, r * TILE);
         cv.stamp(soot_img(hash(c, r, 3) as usize), x0, y0);
     }
-    // Embers glow in the newest blasts' tiles while they cool.
     for b in p.show.blasts.iter().filter(|b| b.age(now) < 100 && b.age(now) >= u32::from(b.depth) * crate::rules::powder_show::LINK) {
         let fresh = 1.0 - b.age(now) as f32 / 100.0;
         for (c, r) in b.tiles() {
@@ -125,7 +114,6 @@ fn scorch(cv: &mut Img, run: &Run, p: &Powder, view: (i32, i32), now: u32) {
     }
 }
 
-/// The lanterns' flames and the pools they throw on the floor below.
 fn lanterns(cv: &mut Img, run: &Run, view: (i32, i32)) {
     let room = run.room();
     let (cs, rs) = tiles(view, room, 24);
@@ -145,9 +133,6 @@ fn lanterns(cv: &mut Img, run: &Run, view: (i32, i32)) {
     }
 }
 
-/// The lanes a lit keg will burn, glowing red on the stone as its last
-/// second and a half runs out: the same walk the rules take, so what
-/// glows is what burns. The crate at the end of each lane is bracketed.
 fn lanes(cv: &mut Img, run: &Run, p: &Powder, k: &Keg, now: u32) {
     if k.fuse > WARN {
         return;
@@ -178,7 +163,6 @@ fn lanes(cv: &mut Img, run: &Run, p: &Powder, k: &Keg, now: u32) {
             }
         }
     }
-    // The crates at the lanes' ends: four corner brackets, blinking.
     for &(tx, ty) in &hit {
         if heat > 0.35 && tick / 3 % 2 == 0 {
             let (x0, y0) = (tx * TILE, ty * TILE);
@@ -193,9 +177,6 @@ fn lanes(cv: &mut Img, run: &Run, p: &Powder, k: &Keg, now: u32) {
     let _ = now;
 }
 
-/// A keg standing: its shadow, the barrel (warming as the fuse shortens),
-/// its owner's colour on the lid, the fuse burning down with its spark, a
-/// small light of its own. A keg just set down drops in and lands.
 fn keg(cv: &mut Img, run: &Run, p: &Powder, k: &Keg, now: u32) {
     let (x0, y0) = (k.at.0 * TILE, k.at.1 * TILE);
     let tick = run.tick as u32;
@@ -210,7 +191,6 @@ fn keg(cv: &mut Img, run: &Run, p: &Powder, k: &Keg, now: u32) {
         _ => 0,
     };
     let tremble = if k.fuse < 26 { [0, 1, 0, -1][(tick / 2 % 4) as usize] } else { 0 };
-    // Its shadow on the stone, small as it lands.
     let wide = if fall > 0 { 3 } else { 6 };
     for dx in -wide..=wide {
         for dy in 0..3 {
@@ -221,10 +201,8 @@ fn keg(cv: &mut Img, run: &Run, p: &Powder, k: &Keg, now: u32) {
     }
     let (kx, ky) = (x0 + 2 + tremble, y0 + 2 - fall - bounce + (if since < 5 { 0 } else { 0 }));
     cv.stamp(bits::keg(heat), kx, ky);
-    // The owner's colour on the lid.
     let mark = seat_mark(k.owner);
     cv.rect(kx + 4, ky + 2, 4, 1, mark);
-    // The fuse: a cord rising from the lid, shorter as it burns.
     const CORD: [(i32, i32); 8] = [(8, 1), (8, 0), (9, -1), (9, -2), (10, -3), (10, -4), (11, -4), (11, -5)];
     let len = (1 + (k.fuse as usize * 7) / FUSE as usize).min(8);
     for &(cx, cy) in &CORD[..len] {
@@ -245,7 +223,6 @@ fn keg(cv: &mut Img, run: &Run, p: &Powder, k: &Keg, now: u32) {
     }
 }
 
-/// A keg set down: a small ring of dust leaves its foot, and grit.
 fn landing(cv: &mut Img, run: &Run, d: &powder_show::Drop, now: u32) {
     let age = now.saturating_sub(d.born);
     let (cx, cy) = boom::centre(d.at);
@@ -259,7 +236,6 @@ fn landing(cv: &mut Img, run: &Run, d: &powder_show::Drop, now: u32) {
     grit.each(a, |m| pfx::mote(&mut pen, &m, Shape::Dot, ramps::SMOKE, 1, run.tick));
 }
 
-/// Whether `tile` lies in the lanes keg `k` will burn (its own tile too).
 pub(super) fn in_lane(run: &Run, p: &Powder, k: &Keg, tile: (i32, i32)) -> bool {
     let (arms, _) = powder_show::cross(run.room(), &p.crates, k.at);
     tile == k.at

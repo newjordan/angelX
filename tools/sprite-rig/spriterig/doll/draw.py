@@ -1,7 +1,6 @@
-"""Raster primitives on an ink-index canvas (uint8, 0 = clear). Pure numpy, tiny canvases."""
 import numpy as np
 
-LIGHT = np.array([0.55, 0.83])  # screen dir light travels (down-right): pixels offset this way are shaded
+LIGHT = np.array([0.55, 0.83])
 
 
 _GRID = {}
@@ -16,7 +15,6 @@ def _grid(h, w):
 
 
 def capsule(out, a, b, r, ink, shade=0, mask=None):
-    """Thick segment a->b (screen px, float) radius r. shade ink on the side away from the light."""
     ax, ay, bx, by = float(a[0]), float(a[1]), float(b[0]), float(b[1])
     H, W = out.shape
     x0 = max(int(min(ax, bx) - r - 1), 0); x1 = min(int(max(ax, bx) + r + 2), W)
@@ -63,7 +61,6 @@ def hull(pts):
 
 
 def poly(out, pts, ink, r=0.0, shade=0, mask=None):
-    """Filled convex hull of pts, dilated by r (round)."""
     H = hull(pts)
     if len(H) < 3:
         if len(H) == 2:
@@ -87,20 +84,18 @@ def poly(out, pts, ink, r=0.0, shade=0, mask=None):
         a, b = H[i], H[(i + 1) % n]
         e = b - a
         L = np.hypot(*e) or 1e-9
-        dist = sgn * (e[0] * (py - a[1]) - e[1] * (px - a[0])) / L   # >0 inside
+        dist = sgn * (e[0] * (py - a[1]) - e[1] * (px - a[0])) / L
         inside &= dist >= -r
     reg = out[y0:y1, x0:x1]
     reg[inside] = ink
     if mask is not None:
         mask[y0:y1, x0:x1] |= inside
-    if r > 0:  # round the dilated corners
+    if r > 0:
         for p in H:
             pass
 
 
 def stamp(out, ink, pivot, ang, pos, sx=1.0, sy=1.0, ss=2):
-    """Paste sprite ink[h,w] (0 clear): its pivot (px, in sprite) lands on pos (canvas px),
-    rotated by ang (rad, clockwise on screen), scaled sx (across) / sy (along). Nearest + 1/4 coverage."""
     h, w = ink.shape
     c, s = np.cos(ang), np.sin(ang)
     corners = (np.array([[0, 0], [w, 0], [0, h], [w, h]], float) - pivot) * [sx, sy]
@@ -131,7 +126,6 @@ def stamp(out, ink, pivot, ang, pos, sx=1.0, sy=1.0, ss=2):
 
 
 def outline(out, ink, src_mask=None):
-    """1-px outline around every non-clear pixel (4-neighbour), drawn into clear pixels only."""
     a = out > 0 if src_mask is None else src_mask
     n = np.zeros_like(a)
     n[1:] |= a[:-1]; n[:-1] |= a[1:]; n[:, 1:] |= a[:, :-1]; n[:, :-1] |= a[:, 1:]
@@ -139,17 +133,12 @@ def outline(out, ink, src_mask=None):
 
 
 def cleanup(out, outline_ink=None):
-    """Robustness pass: fill 1-px pinholes (all 4 neighbours set, i.e. seams between
-    capsules/hulls) with the majority neighbour ink, and drop orphan pixels (no
-    8-neighbours). 1-px notches (3 neighbours) are left alone: they are usually real
-    gaps such as between legs or under an arm. Returns (#filled, #dropped)."""
     a = out > 0
     p = np.pad(out, 1)
     nb = np.stack([p[:-2, 1:-1], p[2:, 1:-1], p[1:-1, :-2], p[1:-1, 2:]])
     cnt = (nb > 0).sum(0)
     hole = ~a & (cnt >= 4)
     if hole.any():
-        # majority non-zero neighbour (ties -> first)
         ys, xs = np.nonzero(hole)
         for y, x in zip(ys, xs):
             v = nb[:, y, x]; v = v[v > 0]

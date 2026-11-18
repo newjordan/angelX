@@ -58,8 +58,6 @@ pub(crate) struct Report {
 }
 
 impl Report {
-    /// Observatory reports deliberately enter the same media/open path as any
-    /// other cockpit link instead of growing a second launcher implementation.
     pub(crate) fn media_link(&self) -> Media {
         Media::Link {
             label: self.title.clone(),
@@ -259,9 +257,6 @@ pub(crate) struct ObservatoryState {
 }
 
 impl ObservatoryState {
-    /// Discard geometry captured by the last Observatory draw. Whether the
-    /// destination is open belongs to `StageController`; this state only owns
-    /// catalog and viewport data.
     pub(crate) fn clear_viewport(&mut self) {
         self.rendered_viewport = RenderedViewport::default();
     }
@@ -446,9 +441,6 @@ impl ObservatoryState {
         )
     }
 
-    /// Semantic Observatory state captured alongside the exact Ratatui cells.
-    /// The values come from the already-loaded immutable catalog; inspection
-    /// never performs filesystem work in the draw/capture path.
     pub(crate) fn semantic_state(&self, open: bool) -> Value {
         let selected_campaign = self.catalog.as_ref().and_then(|catalog| {
             self.selected_campaign
@@ -611,11 +603,6 @@ fn default_manifest_path() -> PathBuf {
         return live;
     }
 
-    // Explicit test/development opt-in only — never automatic, in any build
-    // profile. An unconditional fallback would silently present the bundled
-    // test fixture as the operator's real catalog. Absence
-    // instead surfaces as the "no catalog" empty state, which names the missing
-    // path and the operation that publishes one.
     if std::env::var_os("ANGEL_OBSERVATORY_DEV_FIXTURE").is_some() {
         let repository_fixture = crate::platform::runtime_paths::cockpit_dir()
             .join("fixtures/observatory/manifest-v2.json");
@@ -722,8 +709,6 @@ fn range_cue(range: &Range<usize>, total: usize) -> String {
     )
 }
 
-/// Render Observatory inside the existing Artifacts pane. Wide panes get a
-/// lateral campaign rail; compact panes stack the same rail over the ledger.
 pub(crate) fn render(frame: &mut Frame, state: &mut ObservatoryState, area: Rect, time: f32) {
     state.rendered_viewport = RenderedViewport::default();
     if area.width == 0 || area.height == 0 {

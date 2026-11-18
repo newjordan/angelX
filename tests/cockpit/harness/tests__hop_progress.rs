@@ -5,23 +5,18 @@
 
 use super::*;
 
-// --- hop progress suite ---
-
 #[test]
 fn classify_hop_distinguishes_advance_reread_neutral() {
     use std::collections::HashSet;
     let mut seen: HashSet<String> = HashSet::new();
     seen.insert("read_file|a.rs".into());
 
-    // a NEW single-file read advances
     let new_read = vec![tc("read_file", serde_json::json!({"path": "b.rs"}))];
     assert_eq!(classify_hop(&new_read, &seen), HopProgress::Advanced);
 
-    // re-reading a known file (only) is a re-read
     let reread = vec![tc("read_file", serde_json::json!({"path": "a.rs"}))];
     assert_eq!(classify_hop(&reread, &seen), HopProgress::Reread);
 
-    // a write/effect always advances, even alongside a re-read
     let write = vec![
         tc("read_file", serde_json::json!({"path": "a.rs"})),
         tc(
@@ -33,9 +28,6 @@ fn classify_hop_distinguishes_advance_reread_neutral() {
     let exec = vec![tc("shell", serde_json::json!({"cmd": "cargo test"}))];
     assert_eq!(classify_hop(&exec, &seen), HopProgress::Advanced);
 
-    // Read-only shell fallbacks participate in churn detection. Shell remains
-    // effectful everywhere else; only a conservative inspection allowlist is
-    // classified here.
     let shell_read = vec![tc(
         "shell",
         serde_json::json!({"cmd": "sed -n '1,200p' src/lib.rs"}),
@@ -60,20 +52,16 @@ fn classify_hop_distinguishes_advance_reread_neutral() {
         assert_eq!(classify_hop(&calls, &seen), HopProgress::Advanced);
     }
 
-    // A new search advances; repeating it (even with a new call id) is a re-read.
     let grep = vec![tc("grep", serde_json::json!({"pattern": "x"}))];
     assert_eq!(classify_hop(&grep, &seen), HopProgress::Advanced);
     seen.insert(inspection_identities(&grep)[0].clone());
     assert_eq!(classify_hop(&grep, &seen), HopProgress::Reread);
 
-    // Polling a background handle observes state; changing uptime/log prose in
-    // the result must not make the same proc_status call count as new work.
     let poll = vec![tc("proc_status", serde_json::json!({"id": 10}))];
     assert_eq!(classify_hop(&poll, &seen), HopProgress::Advanced);
     seen.insert(inspection_identities(&poll)[0].clone());
     assert_eq!(classify_hop(&poll, &seen), HopProgress::Reread);
 
-    // a known re-read PLUS a new read still advances (new read wins)
     let mixed = vec![
         tc("read_file", serde_json::json!({"path": "a.rs"})),
         tc("read_file", serde_json::json!({"path": "c.rs"})),
@@ -230,8 +218,6 @@ fn inspection_identities_cover_scoped_reads_and_broad_searches() {
     );
 }
 
-/// The streak logic the guard runs: re-reads accumulate, an advance resets,
-/// neutral hops are ignored, and the nudge fires exactly at the limit.
 #[test]
 fn churn_streak_accumulates_and_resets() {
     use std::collections::HashSet;
@@ -250,13 +236,11 @@ fn churn_streak_accumulates_and_resets() {
             *nudges += 1;
         }
     };
-    // reread, reread, neutral (ignored), reread -> hits 3 -> one nudge
     step(&mut streak, &mut nudges, HopProgress::Reread);
     step(&mut streak, &mut nudges, HopProgress::Reread);
     step(&mut streak, &mut nudges, HopProgress::Neutral);
     step(&mut streak, &mut nudges, HopProgress::Reread);
     assert_eq!((streak, nudges), (3, 1));
-    // an advancing hop resets; further re-reads can nudge again later
     step(&mut streak, &mut nudges, HopProgress::Advanced);
     assert_eq!(streak, 0);
 }
@@ -265,7 +249,6 @@ fn churn_streak_accumulates_and_resets() {
 fn is_error_result_only_flags_dispatch_failures() {
     assert!(is_error_result("tool error: unknown tool: foo"));
     assert!(is_error_result("tool error: worker panicked"));
-    // Successful runs that *report* failure are not dispatch errors.
     assert!(!is_error_result("3 tests failed, 10 passed"));
     assert!(!is_error_result("no files match \"*.zzz\""));
     assert!(!is_error_result(""));
@@ -358,8 +341,6 @@ fn blank_duplicate_or_reused_tool_call_ids_still_repair() {
     assert_eq!(blanks[1].id, "keep");
 }
 
-/// One unique provider ID is the default hop. It must not allocate a batch
-/// set, still skip reserved-set repair, and still detect a reused spelling.
 #[test]
 fn single_call_hops_skip_batch_id_set() {
     let history = vec![
@@ -399,8 +380,6 @@ fn single_call_hops_skip_batch_id_set() {
     assert_eq!(reused[0].id, "angel_h5_call_0");
 }
 
-/// Default hops summarize `read_file {path}` without a parts Vec + join.
-/// Multi-key and long values keep the same truncated `k=v` spelling.
 #[test]
 fn summarize_args_writes_tiny_objects_in_place() {
     assert_eq!(summarize_args(&serde_json::json!({})), "");

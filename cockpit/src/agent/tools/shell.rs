@@ -39,7 +39,7 @@ mod scope;
 mod sleep_guard;
 
 use crate::agent::club::ToolDef;
-use crate::agent::harness::{Tool, run_sandboxed_observed_cancellable};
+use crate::agent::harness::{Tool, run_shell_tool_observed};
 use crate::agent::sandbox::SandboxPolicy;
 use crate::knowledge::experience::CmdShell;
 use serde_json::Value;
@@ -55,9 +55,6 @@ fn task_shell_active() -> bool {
         .unwrap_or(false)
 }
 
-/// Sealed benchmark runners can opt into single-command process ownership.
-/// A detached compiler outlives the tool receipt, so the next model hop cannot
-/// tell whether it is observing the same build and commonly launches another.
 fn task_shell_no_detach_active() -> bool {
     task_shell_active()
         && std::env::var("ANGEL_TASK_SHELL_NO_DETACH")
@@ -68,10 +65,6 @@ fn task_shell_no_detach_active() -> bool {
             .unwrap_or(false)
 }
 
-/// Sealed competition runners can make repository control state read-only
-/// while still allowing ordinary source edits. A model that stashes its patch
-/// can make the final workspace look clean and thereby evade scope/provenance
-/// checks, so these tasks admit only Git's inspection commands.
 fn task_shell_protect_git_active() -> bool {
     task_shell_active()
         && std::env::var("ANGEL_TASK_SHELL_PROTECT_GIT")
@@ -180,11 +173,6 @@ fn strip_unquoted_shell_comments(command: &str) -> String {
     clean
 }
 
-/// Remove here-document bodies before policy scanners look for shell control
-/// words/operators. The body is stdin data for the foreground command, not
-/// shell syntax: Python's `left & right`, documentation containing `timeout`,
-/// or a generated script fragment must not be mistaken for a detached process.
-/// Keep the declaration line itself so `python <<'PY' &` is still rejected.
 fn strip_shell_heredoc_bodies(command: &str) -> String {
     fn declarations(line: &str) -> Vec<(String, bool)> {
         let bytes = line.as_bytes();
@@ -286,16 +274,6 @@ fn strip_shell_heredoc_bodies(command: &str) -> String {
 
 const TASK_EDITABLE_PATHS_ENV: &str = "ANGEL_TASK_EDITABLE_PATHS_JSON";
 
-/// Return the literal filesystem targets of shell output redirections. Shell
-/// commands need the whole workspace writable so compilers can populate their
-/// build trees, but that broad execution capability must not make `> scratch`
-/// a second, unscoped file-writing API in sealed competition tasks.
-///
-/// This is deliberately a narrow preflight rather than a shell parser. It
-/// recognizes Bash's output operators, ignores descriptor duplication, strips
-/// here-document bodies, and fails closed when the target uses expansion. The
-/// post-turn workspace audit remains the authority for indirect writes made by
-/// compilers and arbitrary programs.
 fn literal_output_redirection_targets(command: &str) -> Result<Vec<String>, String> {
     fn token_boundary(chars: &[char], at: usize) -> bool {
         at == 0
@@ -415,8 +393,6 @@ fn literal_output_redirection_targets(command: &str) -> Result<Vec<String>, Stri
             continue;
         }
 
-        // `>` is an expression operator inside Bash's conditional and
-        // arithmetic forms, not a file redirection.
         if !conditional
             && arithmetic_depth == 0
             && ch == '['
@@ -455,8 +431,6 @@ fn literal_output_redirection_targets(command: &str) -> Result<Vec<String>, Stri
             at += 1;
             continue;
         }
-        // `>(command)` is process substitution. It has no filesystem target;
-        // keep scanning its body so a nested `> file` is still found.
         if chars.get(at + 1) == Some(&'(') {
             at += 1;
             continue;
@@ -477,8 +451,6 @@ fn literal_output_redirection_targets(command: &str) -> Result<Vec<String>, Stri
             (chars.get(target_at), chars.get(target_at + 1)),
             (Some('>'), Some('(')) | (Some('<'), Some('('))
         ) {
-            // The target is a generated /dev/fd path. Resume at the process
-            // substitution so redirections inside it are still inspected.
             at = target_at;
             continue;
         }
@@ -803,36 +775,16 @@ fn task_shell_detach_redirect(command: &str) -> Option<String> {
     ))
 }
 
-// ---------------------------------------------------------------------------
-// Shell selection — resolved once, recorded on every command it runs.
-// ---------------------------------------------------------------------------
-
-/// The bash argv that keeps a pipeline's failing status *and* stays hermetic.
-/// `--noprofile --norc` are no-ops for a non-interactive `-c` shell, but they
-/// state the intent and cost nothing.
 const BASH_ARGV: &[&str] = &["--noprofile", "--norc", "-o", "pipefail", "-c"];
-/// The same for a non-bash shell that still understands `-o pipefail` (zsh, ksh).
 const PIPEFAIL_ARGV: &[&str] = &["-o", "pipefail", "-c"];
-/// Last resort: a plain POSIX shell. A pipeline's exit is then its last stage's,
-/// so piped commands record **no verdict** rather than a fabricated one.
 const POSIX_ARGV: &[&str] = &["-c"];
 
-/// How the shell tool invokes a command line. Resolved once per process by
-/// [`shell_invocation`] and stamped onto every ledger row it produces, so a
-/// consumer never has to *assume* whether a status was trustworthy.
 struct ShellInvocation {
-    /// The shell program (`bash`, or whatever survived the probe).
     program: String,
-    /// Argv before the command text.
     argv: &'static [&'static str],
-    /// Whether `program argv` propagates a failing pipeline stage into the exit
-    /// status. When false, a piped command's status is not evidence.
     pipefail: bool,
 }
 
-/// Can `program argv…` actually run? Probes with a trivial command, so an
-/// unknown flag (`--noprofile` on a shell that has never heard of it) or a
-/// missing binary is discovered here rather than corrupting a real command.
 fn probe(program: &str, argv: &[&str]) -> bool {
     std::process::Command::new(program)
         .args(argv)
@@ -845,13 +797,6 @@ fn probe(program: &str, argv: &[&str]) -> bool {
         .unwrap_or(false)
 }
 
-/// Pick the shell, preferring one that tells the truth about pipelines.
-///
-/// `ANGEL_SHELL` names the program (default `bash`); `ANGEL_SHELL_PIPEFAIL=0`
-/// opts out of pipefail entirely, which restores the old execution semantics —
-/// and, because the choice is recorded, makes every subsequent piped command
-/// record `no_verdict` instead of a laundered pass. There is no configuration
-/// that both lies and claims not to.
 fn shell_invocation() -> &'static ShellInvocation {
     static SHELL: OnceLock<ShellInvocation> = OnceLock::new();
     SHELL.get_or_init(|| {
@@ -878,7 +823,6 @@ fn shell_invocation() -> &'static ShellInvocation {
                 pipefail: false,
             };
         }
-        // Nothing usable at `program` — fall back to the shell POSIX guarantees.
         ShellInvocation {
             program: "sh".to_string(),
             argv: POSIX_ARGV,
@@ -886,10 +830,6 @@ fn shell_invocation() -> &'static ShellInvocation {
         }
     })
 }
-
-// ---------------------------------------------------------------------------
-// Shell tool — runs the command line under the landlock sandbox.
-// ---------------------------------------------------------------------------
 
 pub(crate) struct ShellTool {
     policy: SandboxPolicy,
@@ -906,12 +846,8 @@ impl ShellTool {
         self
     }
 
-    /// A shell scoped to `dir` (cwd + writable) — used inside worktrees.
     pub(crate) fn in_dir(dir: PathBuf) -> Self {
         let mut policy = SandboxPolicy::permissive();
-        // A linked worktree's git state lives outside `dir`; without these
-        // roots `git commit` dies on index.lock and the agent can never
-        // complete a task's protocol.
         policy
             .writable_roots
             .extend(SandboxPolicy::git_worktree_roots(&dir));
@@ -925,13 +861,6 @@ impl ShellTool {
         }
     }
 
-    /// Run `command` under the resolved shell inside the sandbox.
-    ///
-    /// This is the only site where a shell command's exit status comes into
-    /// existence. [`Tool::call`] deliberately hands the model nothing but the
-    /// output, so the status — the number the whole experience ledger is built
-    /// on, and the number this module's bug was about — is observable only here.
-    /// That is precisely why the tests drive this rather than `call`.
     #[cfg(test)]
     fn observe(
         &self,
@@ -961,10 +890,8 @@ impl ShellTool {
         let shell = shell_invocation();
         let mut argv: Vec<&str> = shell.argv.to_vec();
         argv.push(command);
-        // Capability evidence is recorded before execution, including calls
-        // which fail after a partial write: any shell call may write.
         self.mutation_targets.mark_opaque();
-        let obs = run_sandboxed_observed_cancellable(
+        let obs = run_shell_tool_observed(
             &shell.program,
             &argv,
             self.cwd.as_deref(),
@@ -975,14 +902,6 @@ impl ShellTool {
     }
 }
 
-/// `cd ws/bowling …` written from the launch directory of a relative workspace
-/// (`--workspace ws/bowling`) names the workspace itself, where the shell
-/// already runs; the leading `cd` target resolves to the workspace's absolute
-/// path instead of failing (GLM 2026-09-30: 13 of 15 such shells failed, and
-/// two led to 120 s `find /` scans). Only a leading, plainly spelled `cd`
-/// target that the workspace has no entry for
-/// ([`launch_relative_in_workspace`](crate::agent::harness::launch_relative_in_workspace));
-/// every other byte of the command stays as the model wrote it.
 pub(crate) fn resolve_launch_relative_cd(
     command: &str,
     workspace: Option<&Path>,
@@ -1019,10 +938,6 @@ pub(crate) fn resolve_launch_relative_cd(
     ))
 }
 
-/// A command that tried to elevate or drive a system package manager. Under
-/// `no_new_privs` these can never succeed, and models that watch them fail
-/// tend to conclude "installs are impossible here" and abandon the task —
-/// so the failure carries a pointer at the install paths that do work.
 fn privileged_install_attempt(command: &str) -> bool {
     command.split_whitespace().any(|token| {
         let bin = token.rsplit('/').next().unwrap_or(token);
@@ -1042,10 +957,6 @@ fn privileged_install_attempt(command: &str) -> bool {
     })
 }
 
-/// Piped/bootstrap installers commonly write a CLI payload under
-/// `~/.local/share` and install skills/configuration beside it. Those locations
-/// are intentionally outside the ordinary workspace sandbox, so retrying the
-/// same script (or chmod/copy variants) cannot make progress.
 fn user_home_installer_attempt(command: &str) -> bool {
     let lower = command.to_ascii_lowercase();
     (lower.contains("curl") || lower.contains("wget"))
@@ -1065,11 +976,6 @@ fn looks_like_sandbox_write_denial(output: &str) -> bool {
     .any(|needle| lower.contains(needle))
 }
 
-/// The command tried to start its own sandbox inside Angel's confinement.
-/// macOS refuses a nested `sandbox-exec`/`sandbox_apply` (SwiftPM does this
-/// for manifest and plugin evaluation); bubblewrap cannot create namespaces
-/// under the default Landlock backend. Neither is a defect in the model's
-/// change, so say exactly which side must move.
 fn looks_like_nested_sandbox_denial(output: &str) -> Option<&'static str> {
     let lower = output.to_ascii_lowercase();
     if lower.contains("sandbox_apply: operation not permitted")
@@ -1089,7 +995,6 @@ fn looks_like_nested_sandbox_denial(output: &str) -> Option<&'static str> {
     nested_bwrap.then_some(SANDBOX_NESTED_BWRAP_HINT)
 }
 
-// The sandbox hints are pages of `⠏⠚`: each result names its own page.
 const SANDBOX_NESTED_SEATBELT_HINT: &str = "⠏⠚⠁";
 
 const SANDBOX_NESTED_BWRAP_HINT: &str = "⠏⠚⠃";
@@ -1098,10 +1003,6 @@ const SANDBOX_INSTALL_HINT: &str = "⠏⠚⠉";
 
 const SANDBOX_USER_INSTALL_HINT: &str = "⠏⠚⠙";
 
-/// Read the canonical shell argument, accepting `cmd` and `script` only as
-/// compatibility aliases for recovered/provider tool calls (and code_mode
-/// scripts) that use the wrong vocabulary. Keep `command` authoritative when
-/// several appear so the advertised API stays deterministic.
 pub(crate) fn shell_command_arg(args: &Value) -> Option<&str> {
     args.get("command")
         .and_then(Value::as_str)
@@ -1114,12 +1015,6 @@ impl Tool for ShellTool {
         "shell"
     }
     fn def(&self) -> ToolDef {
-        // The model is told `pipefail` is on, because it changes what it should
-        // write: a pipeline whose early stage is *expected* to fail needs an
-        // explicit `|| true`. Saying "bash" also licenses the bash-isms models
-        // reach for anyway and that used to fail silently under dash.
-        // A YOLO mode's guidance runs past shell's first section, so its
-        // schema names the continued section too (a warpath of both routes).
         let (description, route) = if crate::platform::yolo::enabled() {
             if task_shell_active() {
                 (
@@ -1200,9 +1095,6 @@ impl Tool for ShellTool {
         if let Some(redirect) = task_shell_git_redirect(command) {
             return Err(redirect);
         }
-        // A sealed task rejects `sleep` before spawn. A cancel token that has
-        // already fired outranks that rejection so the runner observes the
-        // cancellation.
         let cancel_already_fired =
             cancel.is_some_and(|c| c.load(std::sync::atomic::Ordering::Relaxed));
         if !cancel_already_fired && let Some(redirect) = task_shell_poll_redirect(command) {
@@ -1211,13 +1103,8 @@ impl Tool for ShellTool {
         if let Some(redirect) = task_shell_detach_redirect(command) {
             return Err(redirect);
         }
-        // Board submissions carry the harness's own attribution, never the
-        // model's copy of someone else's (`submit_identity`).
         let stamped = crate::agent::tools::submit_identity::stamp(command, self.cwd.as_deref())?;
         let command = stamped.as_ref().map_or(command, |s| s.command.as_str());
-        // A call still running past the hand-off limit moves to the
-        // background-job table instead of holding the turn; nothing is
-        // stopped. Sealed tasks keep foreground ownership.
         let handoff = crate::agent::harness::exec::tool_handoff_after()
             .filter(|_| !task_shell_active())
             .map(|after| crate::agent::harness::exec::Handoff {
@@ -1232,7 +1119,6 @@ impl Tool for ShellTool {
             self.observe_with_cancel(command, cancel, &scope)
         })?;
         if obs.handed_off.is_some() {
-            // The job's own completion receipt carries its outcome later.
             return Ok(obs.output);
         }
         if stamped.is_some()
@@ -1250,11 +1136,6 @@ impl Tool for ShellTool {
         if let Some(stamped) = &stamped {
             obs.output = format!("{}\n{}", stamped.notice, obs.output);
         }
-        // Experience ledger: what ran, where, and how it went (exit status is
-        // observed here and nowhere else). The shell we ran it under rides along,
-        // because without it `exit` cannot be told from the exit of whatever
-        // happened to sit last in a pipeline. Best-effort; never alters the
-        // output returned to the model.
         let folder = self
             .cwd
             .clone()
@@ -1273,7 +1154,6 @@ impl Tool for ShellTool {
         };
         crate::knowledge::experience::record_cmd_event(&experience, &folder);
         if obs.cancelled {
-            // The shared cancellation flag also covers a turn deadline.
             let mut message = "shell command cancelled".to_string();
             if !obs.output.trim().is_empty() {
                 message.push('\n');
@@ -1296,12 +1176,6 @@ impl Tool for ShellTool {
                 .map_or_else(|| message.clone(), |kill| kill.error(&message)));
         }
 
-        // The ledger used to know a command failed while the model only saw its
-        // stdout/stderr as an ordinary successful tool result.  That split-brain
-        // contract let long loops build fresh "findings" on top of dozens of
-        // failed commands.  Make the same canonical verdict visible at the tool
-        // boundary: definite failures are tool errors, while a SIGPIPE-style
-        // no-verdict remains usable but is explicitly labelled as inconclusive.
         let (verdict, reason) = crate::knowledge::experience::cmd_verdict(&experience);
         match verdict {
             crate::knowledge::experience::VERDICT_FAIL => {
@@ -1324,7 +1198,6 @@ impl Tool for ShellTool {
                 {
                     return Err(error);
                 }
-                // 127 = command not found: say which program and what exists.
                 if obs.exit == Some(127)
                     && let Some(hint) =
                         crate::platform::workspace_lang::missing_program_hint(command)
@@ -1357,7 +1230,6 @@ impl Tool for ShellTool {
                     && looks_like_sandbox_write_denial(&obs.output)
                 {
                     let workspace = self.cwd.as_deref().unwrap_or_else(|| Path::new("."));
-                    // `⠏⠚⠑`: the boundary's words are the page; the workspace is evidence.
                     crate::agent::harness::book::ledger::record(
                         workspace,
                         crate::agent::harness::book::p_processes::SANDBOX,

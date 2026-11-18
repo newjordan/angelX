@@ -79,13 +79,11 @@ fn parses_local_commands() {
         parse("/open example.com").unwrap(),
         ParsedInput::OpenTarget(target) if target == "http://example.com"
     ));
-    // Existing absolute paths open as file:// targets (folder reveal).
     let dir = std::env::temp_dir();
     assert!(matches!(
         parse(&format!("/open {}", dir.display())).unwrap(),
         ParsedInput::OpenTarget(target) if target == format!("file://{}", dir.display())
     ));
-    // Nonexistent absolute paths do NOT fall through to module-open or http.
     assert!(matches!(
         parse("/open /no/such/path/anywhere").unwrap(),
         ParsedInput::ModuleOpen(id) if id == "/no/such/path/anywhere"
@@ -123,10 +121,6 @@ fn parses_local_commands() {
 
 #[test]
 fn slash_catalog_is_unique_and_help_documented() {
-    // The completion catalog is the command namespace: a duplicate name
-    // here is a field-day collision (see the /recall history), and a name
-    // absent from /help is a command the operator cannot discover. Both
-    // fail here, at compile-test time, instead of in the field.
     let mut seen: std::collections::HashMap<&str, u32> = std::collections::HashMap::new();
     for cmd in CODEX_CMDS.iter().chain(DEDICATED_CMDS.iter()) {
         *seen.entry(cmd).or_default() += 1;
@@ -134,8 +128,6 @@ fn slash_catalog_is_unique_and_help_documented() {
     let dupes: Vec<_> = seen.iter().filter(|(_, n)| **n > 1).collect();
     assert!(dupes.is_empty(), "duplicate slash commands: {dupes:?}");
     let help = crate::app::local_command::help_text(Some("all"));
-    // Names documented under a different spelling (aliases, module toggles
-    // opened via /open <module>, or the help wildcard itself).
     const SPELLINGS: &[(&str, &str)] = &[
         ("thinking", "/think"),
         ("exit", "exit (/quit)"),
@@ -184,7 +176,6 @@ fn parses_practice_command() {
         parse("  /practice  ").unwrap(),
         ParsedInput::Practice
     ));
-    // `/recall` keeps its long-standing memory-recall Cmd meaning.
     assert!(matches!(
         parse("/recall").unwrap(),
         ParsedInput::Cmd { name, arg: None } if name == "recall"
@@ -197,7 +188,6 @@ fn parses_recall_command() {
         parse("/recall deadlock in run_turn").unwrap(),
         ParsedInput::Cmd { name, arg: Some(q) } if name == "recall" && q == "deadlock in run_turn"
     ));
-    // Bare `/recall` → no arg (the handler prints usage).
     assert!(matches!(
         parse("/recall").unwrap(),
         ParsedInput::Cmd { name, arg: None } if name == "recall"
@@ -218,7 +208,6 @@ fn exit_and_quit_close_the_app() {
             "{word:?}"
         );
     }
-    // Anything beyond the bare word is an ordinary message, not a close.
     assert!(matches!(
         parse("exit now").unwrap(),
         ParsedInput::Message(_)
@@ -308,7 +297,6 @@ fn parses_codex_ported_commands() {
         parse("/self fix a clippy finding").unwrap(),
         ParsedInput::SelfLoop(Some(a)) if a == "fix a clippy finding"
     ));
-    // `/selfie` is not `/self` — unknown slash stays an ordinary message.
     assert!(matches!(parse("/selfie").unwrap(), ParsedInput::Message(_)));
     assert!(matches!(
         parse("/moa compare options").unwrap(),
@@ -343,7 +331,6 @@ fn parses_codex_ported_commands() {
         parse("activate the moa").unwrap(),
         ParsedInput::MoaDeck(None)
     ));
-    // Unknown slash + plain text stay ordinary messages.
     assert!(matches!(parse("/nope").unwrap(), ParsedInput::Message(_)));
     assert!(matches!(
         parse("status of the build").unwrap(),
@@ -412,17 +399,14 @@ fn slash_completion_catalog_is_sorted_deduped_and_prefix_scoped() {
 
 #[test]
 fn slash_inline_hint_ghosts_unique_and_lists_ambiguity() {
-    // Unique prefix → ghost the remainder.
     let redr = slash_inline_hint("/redr", 5).expect("unique ghost");
     assert_eq!(redr.suffix, "aw");
     assert!(redr.alternates.is_empty());
 
-    // Ambiguous prefix → alternates list + Tab cue.
     let re = slash_inline_hint("/re", 3).expect("ambiguous ghost");
     assert!(re.alternates.contains("/redo") || re.alternates.contains("/redraw"));
     assert!(re.alternates.contains("Tab"));
 
-    // Fully typed /loop → usage ghost (same as the old special-case).
     let loop_hint = slash_inline_hint("/loop", 5).expect("loop usage");
     assert!(loop_hint.suffix.contains("<task>"));
 
@@ -430,7 +414,6 @@ fn slash_inline_hint_ghosts_unique_and_lists_ambiguity() {
     assert!(learn_hint.suffix.contains("[topic]"));
     assert!(learn_hint.suffix.contains("Librarium"));
 
-    // Mid-line caret or args → no ghost.
     assert!(slash_inline_hint("/loop", 2).is_none());
     assert!(slash_inline_hint("/loop ship", 10).is_none());
     assert!(slash_inline_hint("hello", 5).is_none());
@@ -443,13 +426,11 @@ fn needs_idle_classifies_turn_starting_vs_local() {
     let cases: std::collections::BTreeMap<String, Vec<String>> =
         serde_json::from_slice(&std::fs::read(path).expect("command idle cases fixture"))
             .expect("valid command idle cases fixture");
-    // Turn-starting / history-rewriting inputs wait for the flight slot…
     assert_eq!(cases["idle"].len(), 17);
     assert_eq!(cases["local"].len(), 41);
     for raw in cases["idle"].iter().map(String::as_str) {
         assert!(parse(raw).unwrap().needs_idle(), "{raw:?} needs idle");
     }
-    // …local commands do not: they're the operator's mid-run control surface.
     for raw in cases["local"].iter().map(String::as_str) {
         assert!(!parse(raw).unwrap().needs_idle(), "{raw:?} is local");
     }
@@ -565,7 +546,6 @@ fn further_codex_commands_route_by_name_with_args() {
         parse("/conductor brief").unwrap(),
         ParsedInput::Cmd { name, arg: Some(a) } if name == "conductor" && a == "brief"
     ));
-    // Codex-only-with-no-analog still routes (answered honestly at dispatch).
     assert!(matches!(parse("/pet").unwrap(), ParsedInput::Cmd { .. }));
     assert!(matches!(
         parse("/atlas cargo tests").unwrap(),
@@ -589,7 +569,6 @@ fn further_codex_commands_route_by_name_with_args() {
 fn atlas_off_control_restores_unrecognized_message_parsing() {
     let _guard = crate::tests::env_lock();
     let before = std::env::var_os("ANGEL_ATLAS");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_ATLAS", "0") };
     for raw in ["/atlas cargo tests", "/vault"] {
         let ParsedInput::Message(message) = parse(raw).unwrap() else {
@@ -598,9 +577,7 @@ fn atlas_off_control_restores_unrecognized_message_parsing() {
         assert_eq!(&*message.content, raw);
     }
     match before {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(value) => unsafe { std::env::set_var("ANGEL_ATLAS", value) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_ATLAS") },
     }
 }

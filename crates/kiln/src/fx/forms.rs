@@ -12,31 +12,21 @@ use super::time::bump;
 use crate::palette::{Palette, Ramp};
 use std::f32::consts::PI;
 
-/// One mote as it is now.
 #[derive(Clone, Copy, Debug)]
 pub struct Mote {
     pub at: (f32, f32),
-    /// Game pixels a frame.
     pub vel: (f32, f32),
-    /// How far through its life, 0 to 1.
     pub k: f32,
-    /// Its size, game pixels.
     pub size: f32,
-    /// Its heat, 0 to 1.
     pub heat: f32,
-    /// How far it has turned, radians.
     pub turn: f32,
     pub seed: u32,
-    /// The frame, for what flickers.
     pub frame: f32,
 }
 
-/// The eighth note the game draws a song's mote as.
 const NOTE: [&str; 5] = ["..##", "..#.", "..#.", "###.", "##.."];
-/// The game's heart.
 const HEART: [&str; 3] = ["#.#", "###", ".#."];
 
-/// Draw `m` as `form` in `ramp`.
 pub fn draw(pen: &mut Pen, form: Form, m: &Mote, ramp: &Ramp) {
     let s = m.size.max(0.1);
     let h = m.heat;
@@ -60,7 +50,6 @@ pub fn draw(pen: &mut Pen, form: Form, m: &Mote, ramp: &Ramp) {
             let ember = form == Form::Ember;
             let r = pen.thin(s * if ember { 0.45 } else { 0.6 });
             let flick = if ember { 0.7 + 0.3 * unit(m.seed as i32, m.frame as i32, 0xe1) } else { 1.0 };
-            // A little glow about it, sparse, where there is room for one.
             let glow = if pen.grain() >= 2.0 { r * 2.2 } else { r };
             pen.field((cx - glow, cy - glow, cx + glow, cy + glow), ramp, |x, y| {
                 let d = (x - cx).hypot(y - cy);
@@ -96,7 +85,6 @@ pub fn draw(pen: &mut Pen, form: Form, m: &Mote, ramp: &Ramp) {
                 if e > 1.0 {
                     return 0.0;
                 }
-                // Two facets, the near one to the light, and a glint at the tip.
                 let lit = if u > l * 0.55 { 1.0 } else if v < 0.0 { 0.85 } else { 0.5 };
                 lit * h.max(0.4)
             });
@@ -125,7 +113,6 @@ pub fn draw(pen: &mut Pen, form: Form, m: &Mote, ramp: &Ramp) {
                 let (dx, dy) = (x - cx, y - cy);
                 let d = dx.hypot(dy);
                 if pop {
-                    // It bursts into four drops flung out.
                     let a = dy.atan2(dx).rem_euclid(PI / 2.0) - PI / 4.0;
                     return if (d - rr * 1.25).abs() < th && a.abs() < 0.3 { 0.7 * h } else { 0.0 };
                 }
@@ -239,7 +226,6 @@ pub fn draw(pen: &mut Pen, form: Form, m: &Mote, ramp: &Ramp) {
                 for (j, p) in pts.iter().enumerate() {
                     let d = (x - p.0).hypot(y - p.1);
                     if d <= rs[j] {
-                        // A head, then rings of body, light and dark by turns.
                         let i = if j == 0 { 0.85 } else if j % 2 == 0 { 0.62 } else { 0.5 };
                         best = best.max(i * (1.0 - 0.25 * d / rs[j]));
                     }
@@ -255,7 +241,6 @@ pub fn draw(pen: &mut Pen, form: Form, m: &Mote, ramp: &Ramp) {
                 if d > 1.0 {
                     return 0.0;
                 }
-                // Lit from above: its crown paler, its belly darker.
                 ((0.62 - 0.4 * m.k) * (1.0 - 0.45 * d * d) - 0.14 * dy / r) * h
             });
         }
@@ -285,8 +270,6 @@ fn pen_thin_of(floor: f32, r: f32) -> f32 {
     r.max(floor * 0.9)
 }
 
-/// A mark drawn at the game's own size: `#` an ink, its first row the
-/// hottest; `at` is its top left in game pixels.
 fn mark(pen: &mut Pen, rows: &[&str], at: (f32, f32), ramp: &Ramp, h: f32) {
     let w = rows.iter().map(|r| r.len()).max().unwrap_or(0) as f32;
     let (x0, y0) = (at.0.round(), at.1.round());

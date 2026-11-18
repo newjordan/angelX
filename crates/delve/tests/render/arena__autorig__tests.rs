@@ -93,9 +93,6 @@ fn the_cache_computes_a_sprite_once() {
     let b = autorig::rigged(&rows);
     assert!(a.is_some());
     assert!(std::sync::Arc::ptr_eq(a.as_ref().unwrap(), b.as_ref().unwrap()));
-    // The same Arc back means the second call did not rig again. The attempt
-    // counter is process-wide and other tests rig in parallel, so it can only
-    // be checked from below.
     assert!(mid > before);
 }
 
@@ -275,7 +272,6 @@ fn twelve_rigged_minions_cost_under_a_millisecond_a_frame() {
           }
           (thread_cpu_ms() - start) / 60.0
       };
-      // Interleaved rounds, best of each: a busy machine slows a whole round, not the rig.
       let (mut off_ms, mut on_ms) = (f64::MAX, f64::MAX);
       for _ in 0..5 {
           autorig::force_enabled(Some(false));
@@ -292,7 +288,6 @@ fn thread_cpu_ms() -> f64 {
     let stat = std::fs::read_to_string("/proc/thread-self/stat").unwrap_or_default();
     let rest = stat.rsplit_once(')').map(|(_, r)| r).unwrap_or("");
     let mut fields = rest.split_whitespace();
-    // After the comm field, utime is field 12 and stime field 13 (1-based 14/15).
     let utime: u64 = fields.nth(11).and_then(|s| s.parse().ok()).unwrap_or(0);
     let stime: u64 = fields.next().and_then(|s| s.parse().ok()).unwrap_or(0);
     (utime + stime) as f64 * 1000.0 / 100.0

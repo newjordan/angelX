@@ -9,21 +9,15 @@
 use super::invented::{self, Effect, Reject, Spell};
 use serde::{Deserialize, Serialize};
 
-/// Spells one run may have invented in it. Past this the oldest is forgotten:
-/// a session may keep inventing, but the book stays a book.
 pub const MAX_INVENTED: usize = 64;
 
-/// What a run knows: the made-up magics, by the name the wish gave them.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Spellbook {
-    /// In the order they were taught, so the first to be forgotten is known.
     invented: Vec<(String, Spell)>,
 }
 
 impl Spellbook {
-    /// Taught a magic a wish made up. A book that already knows the name is
-    /// taught the newer version: a wish asked twice makes the better one.
     pub fn learn(&mut self, spell: Spell) -> Result<(), Reject> {
         invented::check(&spell)?;
         let name = spell.name.clone();
@@ -32,37 +26,28 @@ impl Spellbook {
             return Ok(());
         }
         self.invented.push((name, spell));
-        // Forget the oldest: the session keeps inventing, the book stays bounded
-        // by name, and a knight holding a forgotten name simply finds nothing.
         while self.invented.len() > MAX_INVENTED {
             self.invented.remove(0);
         }
         Ok(())
     }
 
-    /// What a name does, if it is one of the made-up ones.
     pub fn get(&self, name: &str) -> Option<&Spell> {
         self.invented.iter().find(|(had, _)| had == name).map(|(_, spell)| spell)
     }
 
-    /// Every made-up magic the run knows, in the order they were taught.
     pub fn names(&self) -> impl Iterator<Item = &str> {
         self.invented.iter().map(|(name, _)| name.as_str())
     }
 
-    /// How many the run has invented.
     pub fn len(&self) -> usize {
         self.invented.len()
     }
 
-    /// Whether the run has invented nothing.
     pub fn is_empty(&self) -> bool {
         self.invented.is_empty()
     }
 
-    /// Casts an invented magic by name. A name the book does not know casts
-    /// nothing at all — the phrasebook's own spells are cast by the rules that
-    /// already hold them, and this book never invents an effect.
     pub fn cast(&self, name: &str, at: (f32, f32), aim: f32) -> Vec<Effect> {
         match self.get(name) {
             Some(spell) => invented::cast(spell, at, aim),

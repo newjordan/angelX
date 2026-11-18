@@ -78,12 +78,9 @@
 use angel_net::client::{GameClient, Runtime, Status};
 use angel_net::knob;
 
-/// The one runtime a page's module holds, and the buffers it hands to JS.
 pub struct Glue<G: GameClient> {
     rt: Runtime<G>,
-    /// Bits held on the keyboard, from `down` and `up`.
     keys: u32,
-    /// Bits held on the polled sources, from `set_held`.
     polled: u32,
     w: u32,
     h: u32,
@@ -91,7 +88,6 @@ pub struct Glue<G: GameClient> {
     text: Vec<u8>,
     rgba: Vec<u8>,
     stage: Vec<u8>,
-    /// Whether the page draws a stage's 3D props (`angel_stage_props`).
     props: bool,
 }
 
@@ -127,7 +123,6 @@ impl<G: GameClient> Glue<G> {
         self.rt.connected(&text(join), &text(resume), &text(name), caps);
     }
 
-    /// One server message; false if it did not read.
     pub fn recv(&mut self, msg: &[u8], now_ms: f64) -> bool {
         self.rt.recv(msg, now_ms).is_ok()
     }
@@ -147,9 +142,6 @@ impl<G: GameClient> Glue<G> {
         self.hold();
     }
 
-    /// The keyboard and the polled sources are held together: a pad poll
-    /// must not let go of a key, nor a key-up of a pad button. The sampler
-    /// notes every bit that goes down, so a tap between two ticks is kept.
     fn hold(&mut self) {
         self.rt.hands().set_held(self.keys | self.polled);
     }
@@ -162,8 +154,6 @@ impl<G: GameClient> Glue<G> {
         self.rt.hands().aim(on.then(|| (axis(x), axis(y))));
     }
 
-    /// Everything let go, and a command saying so sent at once: the server
-    /// would otherwise walk on with the old keys until the next one.
     pub fn release_all(&mut self, now_ms: f64) {
         self.keys = 0;
         self.polled = 0;
@@ -171,13 +161,10 @@ impl<G: GameClient> Glue<G> {
         self.rt.command_now(now_ms);
     }
 
-    /// The page is hidden: pings only, no commands, nothing drawn
-    /// (`Runtime::idle`).
     pub fn idle(&mut self, now_ms: f64) {
         self.rt.idle(now_ms);
     }
 
-    /// One display frame: the `0xAARRGGBB` words, `w * h` of them.
     pub fn frame(&mut self, now_ms: f64) -> &[u32] {
         let frame = self.rt.frame(now_ms);
         self.w = frame.w;
@@ -185,37 +172,17 @@ impl<G: GameClient> Glue<G> {
         &frame.px
     }
 
-    /// One display frame as RGBA bytes, for a canvas `ImageData`. Only the
-    /// page without WebGL takes this; WebGL swizzles in its shader.
     pub fn frame_rgba(&mut self, now_ms: f64) -> &[u8] {
         let frame = self.rt.frame(now_ms);
         self.w = frame.w;
         self.h = frame.h;
-        self.rgba.clear();
-        self.rgba.reserve(frame.px.len() * 4);
-        for &word in &frame.px {
-            let [b, g, r, a] = word.to_le_bytes();
-            self.rgba.extend_from_slice(&[r, g, b, a]);
-        }
-        &self.rgba
+        rgba(&frame.px, &mut self.rgba)
     }
 
-    /// The frame `frame` drew last as RGBA bytes, as `frame_rgba` gives it,
-    /// without drawing it again: for a page that drew its stage from the
-    /// words and found it could not (`angel_frame` then `angel_stage`).
     pub fn last_frame_rgba(&mut self) -> &[u8] {
-        let frame = self.rt.last_frame();
-        self.rgba.clear();
-        self.rgba.reserve(frame.px.len() * 4);
-        for &word in &frame.px {
-            let [b, g, r, a] = word.to_le_bytes();
-            self.rgba.extend_from_slice(&[r, g, b, a]);
-        }
-        &self.rgba
+        rgba(&self.rt.last_frame().px, &mut self.rgba)
     }
 
-    /// The last frame as a stage (`GameClient::stage`), empty when the game
-    /// has none.
     pub fn stage(&mut self, now_ms: f64) -> &[u8] {
         let props = self.props;
         let drawn = self.rt.game_mut().is_some_and(|game| {
@@ -238,14 +205,11 @@ impl<G: GameClient> Glue<G> {
         }
     }
 
-    /// The next picture the page is to fetch itself (`GameClient::
-    /// painting_wanted`): its name in the text buffer, empty for none.
     pub fn painting_wanted(&mut self) -> &[u8] {
         let name = self.rt.game_mut().and_then(|game| game.painting_wanted()).unwrap_or_default();
         self.set_text(&name)
     }
 
-    /// The pixels of the picture named `name`, as the page decoded them.
     pub fn put_painting(&mut self, name: &[u8], width: u32, height: u32, rgba: &[u8]) -> bool {
         let Ok(name) = std::str::from_utf8(name) else {
             return false;
@@ -254,15 +218,12 @@ impl<G: GameClient> Glue<G> {
         whole && self.rt.game_mut().is_some_and(|game| game.put_painting(name, width, height, rgba))
     }
 
-    /// The page could not fetch or decode the picture named `name`.
     pub fn painting_failed(&mut self, name: &[u8]) {
         if let (Ok(name), Some(game)) = (std::str::from_utf8(name), self.rt.game_mut()) {
             game.painting_failed(name);
         }
     }
 
-    /// The host's HD art manifest, as the page fetched it, and the page's
-    /// whole-number scale (`GameClient::hd_manifest`).
     pub fn hd_manifest(&mut self, json: &[u8], scale: u32, rung: u32) -> bool {
         let Ok(json) = std::str::from_utf8(json) else {
             return false;
@@ -270,8 +231,6 @@ impl<G: GameClient> Glue<G> {
         self.rt.game_mut().is_some_and(|game| game.hd_manifest(json, scale, rung))
     }
 
-    /// The page can draw a stage's 3D props (or cannot, again): the game is
-    /// told before each stage it makes.
     pub fn stage_props(&mut self, on: bool) {
         self.props = on;
     }
@@ -280,8 +239,6 @@ impl<G: GameClient> Glue<G> {
         (self.w, self.h)
     }
 
-    /// The messages to send, packed `[u32 len LE][bytes]` one after another;
-    /// returns the packed length.
     pub fn out(&mut self) -> &[u8] {
         self.out.clear();
         for msg in self.rt.take_outgoing() {
@@ -291,7 +248,6 @@ impl<G: GameClient> Glue<G> {
         &self.out
     }
 
-    /// The runtime's lines for the shell, one per `\n`.
     pub fn lines(&mut self) -> &[u8] {
         let lines = self.rt.take_lines();
         self.set_text(&lines.join("\n"))
@@ -341,19 +297,16 @@ impl<G: GameClient> Glue<G> {
         self.rt.rtt_ms().unwrap_or(-1.0)
     }
 
-    /// The game's sheet, in the text buffer.
     pub fn sheet(&mut self) -> &[u8] {
         let sheet = self.rt.sheet();
         self.set_text(&sheet)
     }
 
-    /// The game's choices to tap, one a line, in the text buffer.
     pub fn choices(&mut self) -> &[u8] {
         let choices = self.rt.choices();
         self.set_text(&choices)
     }
 
-    /// The player tapped choice `n`.
     pub fn choose(&mut self, n: u32) {
         self.rt.choose(n);
     }
@@ -370,7 +323,6 @@ impl<G: GameClient> Glue<G> {
         u8::try_from(button).ok().is_some_and(|button|self.rt.pointer_up(x,y,button))
     }
 
-    /// The game's picks beside its text line, in the text buffer.
     pub fn picks(&mut self) -> &[u8] {
         let picks = self.rt.picks();
         self.set_text(&picks)
@@ -380,7 +332,6 @@ impl<G: GameClient> Glue<G> {
         &self.text
     }
 
-    /// Where the last frame drew the own character, or NaN on both.
     pub fn own_at(&self) -> (f64, f64) {
         self.rt.own_at().map_or((f64::NAN, f64::NAN), |(x, y)| (f64::from(x), f64::from(y)))
     }
@@ -389,8 +340,6 @@ impl<G: GameClient> Glue<G> {
         &self.out
     }
 
-    /// The knobs for a panel: the server's table as it said it, and this
-    /// client's own.
     pub fn knobs(&mut self) -> &[u8] {
         let mut json = String::from("{\"server\":");
         let server = self.rt.server_knobs();
@@ -405,19 +354,16 @@ impl<G: GameClient> Glue<G> {
         self.rt.knobs_said()
     }
 
-    /// Set this client's own knob: the value it took, or NaN.
     pub fn set_knob(&mut self, name: &[u8], value: f64) -> f64 {
         std::str::from_utf8(name).ok().and_then(|n| self.rt.set_knob(n, value)).unwrap_or(f64::NAN)
     }
 
-    /// Ask the server to set its knob.
     pub fn tune(&mut self, name: &[u8], value: f64) {
         if let Ok(name) = std::str::from_utf8(name) {
             self.rt.tune(name, value);
         }
     }
 
-    /// The server's numbers for this seat and the game's counts, for a panel.
     pub fn stats(&mut self) -> &[u8] {
         let mut json = String::from("{\"server\":");
         let server = self.rt.server_stats();
@@ -444,39 +390,39 @@ impl<G: GameClient> Glue<G> {
     }
 }
 
-/// A stick's axis from the shell, held to -127..=127.
+fn rgba<'a>(px: &[u32], out: &'a mut Vec<u8>) -> &'a [u8] {
+    out.clear();
+    out.extend(px.iter().flat_map(|&word| {
+        let [b, g, r, a] = word.to_le_bytes();
+        [r, g, b, a]
+    }));
+    out
+}
+
 fn axis(v: i32) -> i8 {
     v.clamp(-127, 127) as i8
 }
 
-/// A buffer for the shell to write into.
 pub fn alloc(len: usize) -> *mut u8 {
     if len == 0 {
         return std::ptr::NonNull::<u8>::dangling().as_ptr();
     }
     let layout = std::alloc::Layout::from_size_align(len, 8).expect("a buffer under 4 GB");
-    // SAFETY: the layout's size is not zero.
     unsafe { std::alloc::alloc(layout) }
 }
 
-/// # Safety
-/// `ptr` came from `alloc(len)` with this `len` and is not used again.
 pub unsafe fn free(ptr: *mut u8, len: usize) {
     if len == 0 {
         return;
     }
     let layout = std::alloc::Layout::from_size_align(len, 8).expect("a buffer under 4 GB");
-    // SAFETY: the caller's promise.
     unsafe { std::alloc::dealloc(ptr, layout) }
 }
 
-/// # Safety
-/// `ptr` points at `len` readable bytes (from `alloc`), or `len` is 0.
 pub unsafe fn bytes<'a>(ptr: *const u8, len: usize) -> &'a [u8] {
     if len == 0 {
         return &[];
     }
-    // SAFETY: the caller's promise.
     unsafe { std::slice::from_raw_parts(ptr, len) }
 }
 
@@ -484,13 +430,10 @@ pub unsafe fn bytes<'a>(ptr: *const u8, len: usize) -> &'a [u8] {
 mod host {
     #[link(wasm_import_module = "angel")]
     unsafe extern "C" {
-        /// The page logs it (level 0 error, 1 info).
         pub fn log(level: u32, ptr: *const u8, len: usize);
     }
 }
 
-/// With `panic = "abort"` a panic is a bare `unreachable` trap in the
-/// browser; its message goes to the page first.
 fn hook_panics() {
     #[cfg(target_arch = "wasm32")]
     {
@@ -498,15 +441,12 @@ fn hook_panics() {
         HOOKED.call_once(|| {
             std::panic::set_hook(Box::new(|info| {
                 let text = info.to_string();
-                // SAFETY: the import reads `len` bytes at `ptr`, during the call.
                 unsafe { host::log(0, text.as_ptr(), text.len()) };
             }));
         });
     }
 }
 
-/// Export a game's client to the shell: one `Runtime` and the ABI above.
-/// Invoke it once, in the game's `cdylib`.
 #[macro_export]
 macro_rules! export_client {
     ($game:ty) => {
@@ -515,8 +455,6 @@ macro_rules! export_client {
             use ::std::cell::RefCell;
 
             ::std::thread_local! {
-                // wasm32 has one thread: this is one static, and the RefCell
-                // turns a re-entered export into a panic instead of aliasing.
                 static GLUE: RefCell<Glue<$game>> = RefCell::new(Glue::new());
             }
 
@@ -529,15 +467,11 @@ macro_rules! export_client {
                 $crate::alloc(len)
             }
 
-            /// # Safety
-            /// `ptr` came from `angel_alloc(len)`.
             #[unsafe(no_mangle)]
             pub unsafe extern "C" fn angel_free(ptr: *mut u8, len: usize) {
                 unsafe { $crate::free(ptr, len) }
             }
 
-            /// # Safety
-            /// Each pointer and length is a buffer from `angel_alloc`.
             #[unsafe(no_mangle)]
             pub unsafe extern "C" fn angel_connected(
                 join: *const u8,
@@ -554,8 +488,6 @@ macro_rules! export_client {
                 with(|g| g.connected(join, resume, name, caps))
             }
 
-            /// # Safety
-            /// `ptr` and `len` are a buffer from `angel_alloc`.
             #[unsafe(no_mangle)]
             pub unsafe extern "C" fn angel_recv(ptr: *const u8, len: usize, now_ms: f64) -> u32 {
                 let msg = unsafe { $crate::bytes(ptr, len) };
@@ -637,8 +569,6 @@ macro_rules! export_client {
                 with(|g| g.painting_wanted().len())
             }
 
-            /// # Safety
-            /// Each pointer and length is a buffer from `angel_alloc`.
             #[unsafe(no_mangle)]
             pub unsafe extern "C" fn angel_put_painting(
                 name: *const u8,
@@ -652,16 +582,12 @@ macro_rules! export_client {
                 with(|g| g.put_painting(name, width, height, rgba) as u32)
             }
 
-            /// # Safety
-            /// `ptr`, `len` is a buffer from `angel_alloc`.
             #[unsafe(no_mangle)]
             pub unsafe extern "C" fn angel_painting_failed(ptr: *const u8, len: usize) {
                 let name = unsafe { $crate::bytes(ptr, len) };
                 with(|g| g.painting_failed(name))
             }
 
-            /// # Safety
-            /// `ptr`, `len` is a buffer from `angel_alloc`.
             #[unsafe(no_mangle)]
             pub unsafe extern "C" fn angel_hd_manifest(ptr: *const u8, len: usize, scale: u32, rung: u32) -> u32 {
                 let json = unsafe { $crate::bytes(ptr, len) };
@@ -793,16 +719,12 @@ macro_rules! export_client {
                 with(|g| g.knobs_said())
             }
 
-            /// # Safety
-            /// `ptr` and `len` are a buffer from `angel_alloc`.
             #[unsafe(no_mangle)]
             pub unsafe extern "C" fn angel_set_knob(ptr: *const u8, len: usize, value: f64) -> f64 {
                 let name = unsafe { $crate::bytes(ptr, len) };
                 with(|g| g.set_knob(name, value))
             }
 
-            /// # Safety
-            /// `ptr` and `len` are a buffer from `angel_alloc`.
             #[unsafe(no_mangle)]
             pub unsafe extern "C" fn angel_tune(ptr: *const u8, len: usize, value: f64) {
                 let name = unsafe { $crate::bytes(ptr, len) };
@@ -819,8 +741,6 @@ macro_rules! export_client {
                 with(|g| g.stats().len())
             }
 
-            /// # Safety
-            /// `ptr` and `len` are a buffer from `angel_alloc`.
             #[unsafe(no_mangle)]
             pub unsafe extern "C" fn angel_action(kind: u32, ptr: *const u8, len: usize) {
                 let body = unsafe { $crate::bytes(ptr, len) };
@@ -852,7 +772,6 @@ mod tests {
         fn absorb(&mut self, _: &Self) {}
     }
 
-    /// Draws one pixel the colour of the held bits.
     struct Pixel {
         held: u32,
         aim: (i8, i8),
@@ -934,7 +853,6 @@ mod tests {
         .to_vec()
     }
 
-    /// Unpack `[u32 len][bytes]...`.
     fn unpack(mut packed: &[u8]) -> Vec<Vec<u8>> {
         let mut msgs = Vec::new();
         while !packed.is_empty() {
@@ -991,7 +909,6 @@ mod tests {
         g.set_held(button::FIRE);
         g.frame(1.0);
         assert_eq!(g.runtime().game().unwrap().held, button::LEFT | button::FIRE);
-        // A pad poll with nothing held lets go of the pad, not the key.
         g.set_held(0);
         g.frame(2.0);
         assert_eq!(g.runtime().game().unwrap().held, button::LEFT);
@@ -1049,7 +966,6 @@ mod tests {
     #[test]
     fn buffers_come_and_go() {
         let p = alloc(64);
-        // SAFETY: from alloc(64).
         unsafe {
             p.write_bytes(7, 64);
             assert_eq!(bytes(p, 64)[63], 7);
@@ -1058,6 +974,5 @@ mod tests {
         assert!(!alloc(0).is_null());
     }
 
-    // The macro expands and links natively too.
     crate::export_client!(Pixel);
 }

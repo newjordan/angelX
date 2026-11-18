@@ -18,7 +18,6 @@ const MAX_LIVE_COINS: u64 = 8;
 pub(crate) struct CoinPose {
     pub(crate) area: Rect,
     pub(crate) face_visible: bool,
-    /// Continuous foreshortening; the milled edge remains visible edge-on.
     pub(crate) face_scale: f32,
 }
 
@@ -80,8 +79,6 @@ pub(crate) fn pose(stage: Rect, elapsed_secs: f32, motion: MotionMode) -> Option
     })
 }
 
-/// Return just the coins currently in flight, with stable lanes and no history
-/// traversal. Motion-off uses a static fan (and a count badge for large totals).
 pub(crate) fn poses(stage: Rect, elapsed_secs: f64, coins: u64, motion: MotionMode) -> Vec<CoinPose> {
     if !burst_active(elapsed_secs, coins, motion) {
         return Vec::new();
@@ -105,9 +102,6 @@ pub(crate) fn poses(stage: Rect, elapsed_secs: f64, coins: u64, motion: MotionMo
     result
 }
 
-/// Procedural minted gold: rounded face, raised double rim, dark inset,
-/// embossed currency stamp, and reeded thickness visible throughout a flip.
-/// Coordinates are -1..1. No external asset or image worker is involved.
 pub(crate) fn gold_pixel(x: f32, y: f32, face_scale: f32) -> Option<[u8; 3]> {
     let scale = face_scale.clamp(0.08, 1.0);
     let thickness = 0.13 * (1.0 - scale * 0.45);
@@ -123,9 +117,9 @@ pub(crate) fn gold_pixel(x: f32, y: f32, face_scale: f32) -> Option<[u8; 3]> {
     }
     let light = (0.88 - fx * 0.14 - fy * 0.18).clamp(0.50, 1.12);
     let mut rgb = if radius > 0.84 {
-        [255.0, 223.0, 112.0] // raised polished rim
+        [255.0, 223.0, 112.0]
     } else if radius > 0.72 {
-        [183.0, 111.0, 19.0] // engraved ring, not a flat yellow blob
+        [183.0, 111.0, 19.0]
     } else {
         [249.0, 183.0, 42.0]
     };

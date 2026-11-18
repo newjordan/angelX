@@ -25,7 +25,6 @@ pub const ERRAND: [(RoomKind, (f32, f32)); 3] = [
     (RoomKind::Strand, (19.0, 9.0)),
     (RoomKind::Lighthouse, (18.5, 8.5)),
 ];
-/// Eight dry seconds followed by four wet seconds. No real-world clock, no RNG.
 pub fn low_tide(tick: u64) -> bool {
     tick % u64::from(12 * HZ) < u64::from(8 * HZ)
 }
@@ -37,19 +36,14 @@ pub fn tide_left(tick: u64) -> u32 {
         12 * HZ - phase
     }
 }
-/// The crab's pace (a knight walks at 13), and how near counts as caught.
 pub const CRAB_PACE: f32 = 10.0;
 pub const GRAB: f32 = 1.4;
-/// The open sand it keeps to, between the pools (tiles, inclusive), so it
-/// never hides off in a corner under a knight's tray.
 const SAND: ((i32, i32), (i32, i32)) = ((2, 21), (4, 10));
 
-/// The thief, on the Strand, in units.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Crab {
     pub x: f32,
     pub y: f32,
-    /// Dug into the sand for the high tide.
     pub dug: bool,
 }
 
@@ -140,8 +134,6 @@ impl Run {
         }.into()));
     }
 
-    /// The chase: the crab runs sideways from the nearest knight, digs in at
-    /// high tide, and gives up the oil to whoever reaches it.
     fn tick_crab(&mut self) {
         let start = (ERRAND[1].1.0 * TILE_UNITS, ERRAND[1].1.1 * TILE_UNITS);
         let mut crab = self.crab.take().unwrap_or(Crab { x: start.0, y: start.1, dug: false });
@@ -161,7 +153,6 @@ impl Run {
                     self.crab_caught(id, chasers.len() > 1);
                     return;
                 }
-                // Away, and sideways: crabs mostly go left and right.
                 let (ax, ay) = (crab.x - kx, (crab.y - ky) * 0.4);
                 let len = ax.hypot(ay).max(0.01);
                 let step = CRAB_PACE * DT;
@@ -172,7 +163,6 @@ impl Run {
                         && (SAND.1.0..=SAND.1.1).contains(&r)
                         && self.room().tile(c, r) == Tile::Floor
                 };
-                // Blocked one way, it slides along the other.
                 if sand(crab.x + dx, crab.y + dy) {
                     (crab.x, crab.y) = (crab.x + dx, crab.y + dy);
                 } else if sand(crab.x + dx.signum() * step, crab.y) && dx.abs() > 0.05 {

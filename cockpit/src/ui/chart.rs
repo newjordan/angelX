@@ -12,8 +12,6 @@ use ratatui::{
     text::{Line, Span, Text},
 };
 
-/// Render `series` as a braille line chart sized `width_cells` × `height_cells`,
-/// auto-scaled to the series' min/max. Fewer than 2 points renders empty.
 pub fn line_chart(series: &[f32], width_cells: u16, height_cells: u16) -> Text<'static> {
     let w = (width_cells as usize).max(1);
     let h = (height_cells as usize).max(1);
@@ -26,8 +24,8 @@ pub fn line_chart(series: &[f32], width_cells: u16, height_cells: u16) -> Text<'
 }
 
 fn plot(grid: &mut BrailleGrid, series: &[f32], w_cells: usize, h_cells: usize) {
-    let dw = (w_cells * 2) as i32; // dots wide  (2 per cell)
-    let dh = (h_cells * 4) as i32; // dots tall  (4 per cell)
+    let dw = (w_cells * 2) as i32;
+    let dh = (h_cells * 4) as i32;
     if series.len() < 2 || dw < 2 || dh < 2 {
         return;
     }
@@ -40,8 +38,8 @@ fn plot(grid: &mut BrailleGrid, series: &[f32], w_cells: usize, h_cells: usize) 
     let n = series.len();
     let point = |i: usize| -> (i32, i32) {
         let x = ((i as f32) / ((n - 1) as f32) * (dw - 1) as f32).round() as i32;
-        let frac = (series[i] - lo) / span; // 0..=1
-        let y = ((1.0 - frac) * (dh - 1) as f32).round() as i32; // invert: high value = top
+        let frac = (series[i] - lo) / span;
+        let y = ((1.0 - frac) * (dh - 1) as f32).round() as i32;
         (x, y)
     };
     for i in 0..n - 1 {

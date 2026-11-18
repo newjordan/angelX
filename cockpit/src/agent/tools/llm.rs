@@ -17,9 +17,6 @@ use std::io::BufRead;
 use std::time::Duration;
 use std::time::Instant;
 
-/// Normalize a user-supplied endpoint to a base URL: trailing slashes and a
-/// trailing `/v1` are stripped, so `http://h:8000`, `http://h:8000/`, and
-/// `http://h:8000/v1` all mean the same server. Pure → testable.
 pub(crate) fn normalize_base(url: &str) -> String {
     let mut u = url.trim().trim_end_matches('/').to_string();
     if u.to_ascii_lowercase().ends_with("/v1") {
@@ -38,7 +35,6 @@ fn bearer(
     }
 }
 
-/// Model ids from a `/v1/models` response body. Pure → testable.
 pub(crate) fn model_ids(v: &Value) -> Vec<String> {
     v.get("data")
         .and_then(|d| d.as_array())
@@ -61,10 +57,6 @@ fn fetch_models(base: &str, key: Option<&str>) -> Result<Vec<String>, String> {
         .map_err(|e| format!("{url}: bad JSON ({e})"))?;
     Ok(model_ids(&v))
 }
-
-// ---------------------------------------------------------------------------
-// llm_probe
-// ---------------------------------------------------------------------------
 
 pub(crate) struct LlmProbeTool;
 
@@ -95,23 +87,14 @@ impl Tool for LlmProbeTool {
     }
 }
 
-// ---------------------------------------------------------------------------
-// llm_bench
-// ---------------------------------------------------------------------------
-
-/// One streamed generation's measurements.
 pub(crate) struct RunStats {
     pub ttft_ms: f64,
     pub decode_tps: f64,
     pub tokens: usize,
     pub total_s: f64,
-    /// Whether `tokens` came from the server's reported usage (exact) or from
-    /// counting SSE content chunks (≈ tokens on most servers).
     pub exact: bool,
 }
 
-/// Does this SSE chunk carry a generated token (content or reasoning delta)?
-/// Pure → testable.
 pub(crate) fn chunk_has_token(v: &Value) -> bool {
     let delta = &v["choices"][0]["delta"];
     for key in ["content", "reasoning_content"] {
@@ -143,8 +126,6 @@ fn bench_one(
         .send_json(body.clone())
     {
         Ok(r) => r,
-        // A strict server may reject stream_options — retry once without it
-        // (we then fall back to chunk-counting for the token count).
         Err(super::http_transport::Error::Status(400, _)) => {
             body.as_object_mut().unwrap().remove("stream_options");
             bearer(super::http_transport::request("POST", &url, false, 5), key)
@@ -278,7 +259,6 @@ impl Tool for LlmBenchTool {
     }
 }
 
-/// Register the LLM endpoint tools, gated on `ANGEL_LLM_TOOLS` (default on).
 pub(crate) fn maybe_register_llm_tools(r: &mut ToolRegistry) {
     if env_flag("ANGEL_LLM_TOOLS", true) {
         r.register(Box::new(LlmProbeTool));

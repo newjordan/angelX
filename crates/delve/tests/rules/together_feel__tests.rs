@@ -6,7 +6,6 @@
 use super::*;
 use super::testing::*;
 
-/// `quiet`, with knights 2 to `n` beside the first.
 fn party(n: u32) -> Run {
     let mut run = quiet();
     for id in 2..=n {
@@ -40,8 +39,6 @@ fn shot(x: f32, y: f32, kind: Shot, vx: f32, hostile: bool) -> Projectile {
     }
 }
 
-// ─── aggro ───────────────────────────────────────────────────────────────────
-
 #[test]
 fn each_monster_sees_its_own_knight_any_knight_near_it_and_every_decoy() {
     let mut run = quiet();
@@ -55,12 +52,10 @@ fn each_monster_sees_its_own_knight_any_knight_near_it_and_every_decoy() {
     assert!(seen.contains(&(own.1, own.2)), "its own knight");
     assert!(seen.contains(&(25.0, 15.0)), "the knight beside it");
     assert!(seen.contains(&(10.0, 10.0)), "the decoy");
-    // Hurt by knight 2, it turns on knight 2.
     let mut turned = enemy.clone();
     turned.wits.foe = 2;
     press::sights(&turned, &knights, &decoys, &mut seen);
     assert!(seen.contains(&(44.0, 24.0)), "{seen:?}");
-    // Alone, a monster sees only the one knight, as it always did.
     press::sights(&enemy, &knights[..1], &[], &mut seen);
     assert_eq!(seen, vec![(4.0, 4.0)]);
 }
@@ -70,7 +65,6 @@ fn a_party_splits_the_monsters_between_its_knights() {
     let mut run = party(2);
     run.players.get_mut(&1).unwrap().x = 12.0;
     run.players.get_mut(&2).unwrap().x = 40.0;
-    // Every imp starts nearer knight 1.
     for k in 0..6 {
         a_foe(&mut run, EnemyKind::Imp, 20.0, 8.0 + k as f32 * 2.0);
     }
@@ -91,8 +85,6 @@ fn a_party_splits_the_monsters_between_its_knights() {
     assert!(near(1) >= 2, "and knight 1: {}", near(1));
 }
 
-// ─── head count ──────────────────────────────────────────────────────────────
-
 #[test]
 fn a_party_is_hit_harder_and_shot_at_thicker_on_every_floor() {
     assert_eq!(stakes::EARLY_PARTY_HIT, [100, 115, 130, 145, 150, 155]);
@@ -106,13 +98,11 @@ fn a_party_is_hit_harder_and_shot_at_thicker_on_every_floor() {
     let mut four = party(4);
     idle(&mut four, 1);
     assert_eq!(four.players[&1].incoming, 145);
-    // Thicker fire: fury by head count, a guardian's too.
     let id = a_foe(&mut four, EnemyKind::Skeleton, 30.0, 10.0);
     let fury = four.enemies.iter().find(|e| e.id == id).unwrap().fury;
     assert_eq!(fury, stakes::party_fury(4));
     let id = a_foe(&mut solo, EnemyKind::Skeleton, 30.0, 10.0);
     assert_eq!(solo.enemies.iter().find(|e| e.id == id).unwrap().fury, 0);
-    // A knight joining mid-room thickens what is already there.
     solo.join_seat(2, "Late");
     assert_eq!(solo.enemies.iter().find(|e| e.id == id).unwrap().fury, 1);
 }
@@ -128,10 +118,8 @@ fn party_fury_fans_plain_shots_but_never_clones_a_beam() {
         burn: patterns::BEAM_BURN,
         ..Default::default()
     });
-    // One earlier shot is left alone; from index 1 on, a plain shot and a beam.
     let mut shots = vec![at(10.0), at(20.0), beam];
     stakes::fan_out(2, &mut shots, 1);
-    // The plain shot gains 2 per side (4), the beam none.
     assert_eq!(shots.len(), 3 + 4);
     assert_eq!(
         shots.iter().filter(|s| s.traits.path.beam.is_some()).count(),
@@ -139,7 +127,6 @@ fn party_fury_fans_plain_shots_but_never_clones_a_beam() {
         "the beam stands alone"
     );
     assert!(shots[3..].iter().all(|s| s.traits.path.beam.is_none()));
-    // Plain fury still fans.
     let mut plain = vec![at(20.0)];
     stakes::fan_out(3, &mut plain, 0);
     assert_eq!(plain.len(), 1 + 6);
@@ -147,8 +134,6 @@ fn party_fury_fans_plain_shots_but_never_clones_a_beam() {
 
 #[test]
 fn a_party_meets_more_monsters_in_every_room() {
-    // Every room past the first: the first fight off the stairs of the
-    // first floors is the room's own company (`stakes::GENTLE_FIRST_TO`).
     let further = |run: &Run| {
         let steps = run.dungeon.steps();
         (0..run.dungeon.rooms.len())
@@ -169,8 +154,6 @@ fn a_party_meets_more_monsters_in_every_room() {
         run.enter_for_test(room);
         (run.enemies.len(), run.ramp())
     };
-    // The first rooms off the stairs bring a share of the party's extras,
-    // the rooms by the guardian all of them (`stakes::RAMP_FIRST`).
     assert!(ramp >= stakes::RAMP_FIRST as usize);
     assert!(
         three >= solo + (2 * stakes::EXTRA_PER_KNIGHT * ramp / 100).max(1) - 1,
@@ -214,10 +197,8 @@ fn a_guardians_room_gets_the_partys_extra_bodies_too() {
     let mut four = party(4);
     bare(&mut four);
     four.spawn_boss(0);
-    // On the first floors a guardian stands alone, whatever the party.
     four.deepen();
     assert_eq!(four.enemies.len(), 1, "a first-floor guardian stands alone");
-    // Below them the party's extra bodies come in with it.
     let mut four = party(4);
     bare(&mut four);
     four.spawn_boss(0);
@@ -248,8 +229,6 @@ fn a_party_floor_provisions_more_bodies_than_a_lone_knights() {
     );
 }
 
-// ─── crowd control ───────────────────────────────────────────────────────────
-
 #[test]
 fn a_long_hold_leaves_a_monster_steady_for_a_while_but_a_jolt_still_lands() {
     let mut run = quiet();
@@ -260,15 +239,12 @@ fn a_long_hold_leaves_a_monster_steady_for_a_while_but_a_jolt_still_lands() {
     let held = foe(&mut run);
     assert_eq!(held.frozen, 0);
     assert!(held.wits.steady > 0, "{:?}", held.wits);
-    // A second long stun slides off.
     run.enemies.iter_mut().find(|e| e.id == id).unwrap().frozen = 60;
     idle(&mut run, 1);
     assert_eq!(foe(&mut run).frozen, 0);
-    // A hit's jolt still lands.
     run.enemies.iter_mut().find(|e| e.id == id).unwrap().frozen = feel::JOLT_HIT;
     idle(&mut run, 1);
     assert_eq!(foe(&mut run).frozen, feel::JOLT_HIT - 1);
-    // Steady wears off.
     idle(&mut run, u32::from(press::STEADY));
     run.enemies.iter_mut().find(|e| e.id == id).unwrap().frozen = 60;
     idle(&mut run, 1);
@@ -343,14 +319,11 @@ fn a_bomb_clears_the_monsters_shots_around_the_thrower_not_the_whole_room() {
     assert!(BOMB_CLEAR > 8.0 && BOMB_CLEAR < 10.0);
 }
 
-// ─── rising, bonds and vigils ────────────────────────────────────────────────
-
 #[test]
 fn a_fallen_knight_rises_at_the_stairs_with_a_quarter_of_their_health() {
     let mut run = party(2);
     run.players.get_mut(&2).unwrap().hp = 0;
     run.descend_for_test();
-    // A quarter, and what the next floor's first room gives everyone.
     let (one, two) = (&run.players[&1], &run.players[&2]);
     assert_eq!(REVIVE_SHARE, 25);
     assert!(two.hp < two.max_hp / 2, "{} of {}", two.hp, two.max_hp);
@@ -406,21 +379,17 @@ fn no_knight_kneels_to_a_vigil_mid_fight_but_one_may_wake_from_it() {
     assert!(!run.players[&1].vigil, "but waking is always allowed");
 }
 
-// ─── the arms ────────────────────────────────────────────────────────────────
-
 #[test]
 fn every_arm_is_fast_and_its_own_shape() {
     let pace = HERO_SPEED;
     for weapon in [Weapon::Bow, Weapon::Crossbow, Weapon::Handgonne] {
         let arms = weapon.arms();
         assert!(arms.speed >= 2.5 * pace, "{weapon:?} {}", arms.speed);
-        // Damage a second stays near the old arms' 64-70.
         let dps = (arms.damage * arms.shots) as f32 * HZ as f32 / arms.cooldown as f32;
         assert!((64.0..=90.0).contains(&dps), "{weapon:?} {dps}");
     }
     assert_eq!(Weapon::Crossbow.arms().pierce, u8::MAX, "a rail");
     assert_eq!(Weapon::Handgonne.arms().shots, 5, "a fan");
-    // A pull of each, aimed right.
     for (weapon, shots) in [
         (Weapon::Bow, 1),
         (Weapon::Crossbow, 1),
@@ -433,7 +402,6 @@ fn every_arm_is_fast_and_its_own_shape() {
         let mine: Vec<&Projectile> = run.projectiles.iter().filter(|p| !p.hostile).collect();
         assert_eq!(mine.len(), shots, "{weapon:?}");
     }
-    // The handgonne kicks its knight back, smokes and shakes the view.
     let mut run = quiet();
     run.players.get_mut(&1).unwrap().weapon = Weapon::Handgonne;
     let x = run.players[&1].x;
@@ -524,8 +492,6 @@ fn the_rooms_end_turns_the_monsters_shots_into_gold_for_the_nearest_knight() {
     );
 }
 
-// ─── tempering ───────────────────────────────────────────────────────────────
-
 #[test]
 fn taking_the_arm_in_hand_tempers_it_up_to_three_times() {
     let mut run = quiet();
@@ -549,13 +515,11 @@ fn taking_the_arm_in_hand_tempers_it_up_to_three_times() {
         assert_eq!(run.players[&1].temper, want.min(feel::TEMPER_MAX));
     }
     assert_eq!(run.room().items.len(), 1, "a fourth bow stays where it lay");
-    // A thrice-tempered bow looses three streams, the outer two homing.
     a_foe(&mut run, EnemyKind::Skeleton, 44.0, 4.0);
     run.step(&BTreeMap::from([(1, fire(1, 0))]));
     let mine: Vec<&Projectile> = run.projectiles.iter().filter(|p| !p.hostile).collect();
     assert_eq!(mine.len(), 3);
     assert_eq!(mine.iter().filter(|p| p.traits.homing > 0).count(), 2);
-    // Another arm starts untempered.
     let at = run.at;
     run.dungeon.rooms[at].items.clear();
     run.dungeon.rooms[at].items.push(Item {
@@ -674,8 +638,6 @@ fn tempered_handgonne_balls_bounce_and_burst() {
     );
 }
 
-// ─── valour ──────────────────────────────────────────────────────────────────
-
 #[test]
 fn a_skill_spends_a_pip_of_valour_earned_by_hits_and_grazes() {
     let mut run = quiet();
@@ -690,7 +652,6 @@ fn a_skill_spends_a_pip_of_valour_earned_by_hits_and_grazes() {
     run.step(&BTreeMap::new());
     run.step(&gas);
     assert!(run.works.clouds.is_empty(), "no valour, no skill");
-    // Five hits earn a pip, whatever their damage.
     run.tick_feel(&[(1, 12); 5], &[]);
     assert_eq!(run.pips(1), 1);
     assert_eq!(run.hud(1, &hud::Keys::FIRST).unwrap().valour, 1);
@@ -703,7 +664,6 @@ fn a_skill_spends_a_pip_of_valour_earned_by_hits_and_grazes() {
         skills::REST[skills::GAS]
     );
     assert!(skills::REST.iter().all(|&r| r <= 3 * HZ));
-    // Valour tops out at three pips.
     run.tick_feel(&[(1, 12); 50], &[]);
     assert_eq!(run.pips(1), feel::PIPS);
 }
@@ -714,7 +674,6 @@ fn a_shot_that_passes_close_grazes_once() {
     let hero = run.players.get_mut(&1).unwrap();
     hero.invulnerable = 0;
     let (hx, hy) = (hero.x, hero.y);
-    // A foe held far off, so the room stays a fight.
     a_foe(&mut run, EnemyKind::Skeleton, 44.0, 4.0);
     run.enemies[0].frozen = 10_000;
     run.projectiles.push(Projectile {
@@ -833,8 +792,6 @@ fn feel_effects_and_tempering_survive_save_and_live_mirror() {
     assert_eq!(saved.pips(1), 1);
 }
 
-// ─── renders ─────────────────────────────────────────────────────────────────
-
 #[test]
 fn tempered_arms_keep_card_looks_and_the_tray_uses_each_seats_keys() {
     for (weapon, arm, count) in [
@@ -884,7 +841,6 @@ fn tempered_arms_keep_card_looks_and_the_tray_uses_each_seats_keys() {
     }
 }
 
-/// A row of tough skeletons across the room's far side, standing still.
 fn targets(run: &mut Run) {
     for k in 0..5 {
         let id = a_foe(run, EnemyKind::Skeleton, 36.0, 6.0 + k as f32 * 4.0);
@@ -894,14 +850,12 @@ fn targets(run: &mut Run) {
     }
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_feel_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_feel_shots() {
     let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS").map(std::path::PathBuf::from) else {
         return;
     };
-    // The bow's stream, tempered twice: three lanes of quick arrows.
     let mut run = quiet();
     bare(&mut run);
     targets(&mut run);
@@ -917,7 +871,6 @@ fn write_feel_shots() {
             save(&frame(&run), &dir, "stream");
         }
     }
-    // The crossbow's rail: the tracer through the line, bolts in the wall.
     let mut run = quiet();
     bare(&mut run);
     targets(&mut run);
@@ -931,7 +884,6 @@ fn write_feel_shots() {
             save(&frame(&run), &dir, &format!("rail_{n:02}"));
         }
     }
-    // The handgonne's fan: muzzle flash, smoke, sparks, a shoved line.
     let mut run = quiet();
     bare(&mut run);
     targets(&mut run);
@@ -953,7 +905,6 @@ fn write_feel_shots() {
     }
     assert!(!run.feel.impacts.is_empty(), "the fan has landed");
     save(&frame(&run), &dir, "sparks");
-    // A death's white frame, then its burst.
     let mut run = quiet();
     bare(&mut run);
     let id = a_foe(&mut run, EnemyKind::Skeleton, 30.0, 14.0);
@@ -970,7 +921,6 @@ fn write_feel_shots() {
         }
         run.step(&BTreeMap::new());
     }
-    // The room's end: the monsters' shots in the air become coins.
     let mut run = quiet();
     bare(&mut run);
     let id = a_foe(&mut run, EnemyKind::Skeleton, 40.0, 6.0);
@@ -1021,7 +971,6 @@ fn a_forked_shot_splits_past_its_mark_twice_and_fart_bombs_leave_a_cloud() {
     }
     assert_eq!(once, 2, "one shot forks into two");
     assert_eq!(clouds, 1, "the hit farts, once per rest");
-    // A shot without the card stops where it hits.
     let mut run = quiet();
     bare(&mut run);
     a_foe(&mut run, EnemyKind::Dummy, 27.0, 14.0);
@@ -1036,8 +985,6 @@ fn a_forked_shot_splits_past_its_mark_twice_and_fart_bombs_leave_a_cloud() {
 
 #[test]
 fn awakened_fork_forks_with_a_spread_volley_and_off_a_chain() {
-    // A spread (five shots at once) used to fill the knight's child budget
-    // with its own volley, so its forks never flew.
     let mut run = quiet();
     bare(&mut run);
     let mark = a_foe(&mut run, EnemyKind::Dummy, 27.0, 14.0);
@@ -1051,7 +998,6 @@ fn awakened_fork_forks_with_a_spread_volley_and_off_a_chain() {
         forked = forked.max(run.projectiles.iter().filter(|p| !p.hostile && p.traits.forked).count());
     }
     assert!(forked >= 2, "a spread's shot forks where it stops: {forked}");
-    // A chaining shot's chain forks too, at its first link.
     let mut run = quiet();
     bare(&mut run);
     a_foe(&mut run, EnemyKind::Dummy, 27.0, 14.0);
@@ -1077,17 +1023,14 @@ fn a_new_round_stands_every_knight_as_stone_until_it_moves() {
     run.players.get_mut(&1).unwrap().invulnerable = 0;
     run.rest_until_moved();
     let hp = run.players[&1].hp;
-    // Idle, the knight is stone: nothing it stands near hurts it.
     for _ in 0..(4 * HZ) {
         run.step(&BTreeMap::new());
         assert!(run.players[&1].stone && run.players[&1].idle);
     }
     assert_eq!(run.players[&1].hp, hp, "an idle knight is not hurt");
-    // The first move wakes it.
     let step = Input { move_x: 1, ..Input::default() };
     run.step(&BTreeMap::from([(1, step)]));
     assert!(!run.players[&1].stone && !run.players[&1].idle);
-    // Back from away, it is idle again until it moves.
     run.set_away(1, true);
     run.set_away(1, false);
     assert!(run.players[&1].stone && run.players[&1].idle);
@@ -1103,14 +1046,11 @@ fn a_knight_not_yet_moved_keeps_the_party_up_when_a_friend_falls() {
     run.join("Friend");
     let friend = *run.players.keys().find(|&&id| id != 1).unwrap();
     run.rest_until_moved();
-    // Knight 1 wakes and falls; the friend still stands as stone, unmoved.
     run.step(&BTreeMap::from([(1, Input { move_x: 1, ..Input::default() })]));
     run.players.get_mut(&1).unwrap().hp = 0;
     run.step(&BTreeMap::new());
     assert!(run.players[&friend].idle && run.players[&friend].hp > 0);
     assert_ne!(run.phase, Phase::Wiped, "an unmoved friend keeps the party up");
-    // A friend whose player is away keeps it up too: the run waits for
-    // them (one knight's fall never ends it while a friend's knight stands).
     run.set_away(friend, true);
     run.players.get_mut(&friend).unwrap().idle = false;
     run.step(&BTreeMap::new());
@@ -1124,7 +1064,6 @@ fn a_fallen_party_goes_home_on_its_own_when_nobody_asks() {
     run.step(&BTreeMap::new());
     assert!(run.over());
     let mut due_at = None;
-    // The verdict's own hold, the road ahead's included (`floor_stats`).
     let hold = run.verdict_hold();
     assert!(hold >= crate::rules::again::VERDICT_HOLD);
     for t in 0..(hold + 2) {
@@ -1142,7 +1081,6 @@ fn the_hosts_empty_place_never_keeps_a_fallen_party_up() {
     bare(&mut run);
     run.join("Friend");
     let friend = *run.players.keys().find(|&&id| id != 1).unwrap();
-    // Knight 1 is the host's empty place, as a watching host keeps it.
     run.set_absent(1, true);
     run.rest_until_moved();
     assert!(!run.players[&1].idle, "the empty place is not waiting to move");

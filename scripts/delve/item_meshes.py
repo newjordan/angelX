@@ -1,43 +1,13 @@
-"""Generated item GLBs (TRELLIS.2) -> the Delve's floor-pickup mesh pack.
-
-    uv run --no-project --with numpy,pillow,pygltflib,fast-simplification,scipy \
-        scripts/delve/item_meshes.py GLB_DIR OUT.mesh [--faces N] [--preview DIR] [--only a,b]
-
-Every NAME.glb in GLB_DIR becomes one mesh named NAME. Each is welded at its
-texture seams and decimated to about N faces (thin arms keep a few more), then
-coloured per vertex from the base-colour texture: each original face's texel,
-auto-levelled (PBR albedo is darker than the painted look it came from), and
-area-weighted onto the nearest decimated vertices. Normals are split at
-creases sharper than 45 degrees, so a blade keeps its edge and a coin its rim.
-
-glTF is Y-up with +Z towards the viewer, as the Delve's stage is (`x` across,
-`y` up, `z` down the room): no turn. Each mesh is centred on its box and
-scaled so its longest side is 1; the game sizes it.
-
-The pack (`crates/delve/src/render/overworld/arena/item_pack.rs` reads it),
-little-endian:
-
-    "AIM1", count u32
-    each mesh: name length u8, name bytes, vertices u32, triangles u32,
-               each vertex: position i16 x3 (/32767), normal i8 x3 (/127),
-                            pad u8, colour u8 x4 (straight RGBA)
-               each triangle: u16 x3, counter-clockwise from the front
-"""
 import argparse, io, json, os, struct, sys
 import numpy as np
 from PIL import Image, ImageDraw
 import pygltflib, fast_simplification
 from scipy.spatial import cKDTree
 
-# Arms are long and thin: their faces go further along them, and they are
-# stood up along their length (`orient`).
 THIN = {"bow", "sword", "axe", "staff", "spear", "hammer", "dagger", "crossbow", "handgonne", "mace", "key"}
 
-# Flat things, turned to face the camera (`orient`).
 FLAT = {"shield", "gear", "scale"}
 
-# After `orient`, the arms whose head came out at the bottom, turned over
-# (judged on the previews; the head is the business end: tip, blade, bit).
 FLIP = {"sword", "spear", "hammer", "mace"}
 
 
@@ -100,7 +70,6 @@ def load_glb(path):
 
 
 def face_colours(v, f, uv, tex):
-    """Each face's base colour: a 3x3 texel patch at its middle's uv."""
     if tex is None:
         return np.full((len(f), 3), 150.0)
     c = uv[f].mean(1)
@@ -121,8 +90,6 @@ def tri_normals(p, f):
 
 
 def crease_split(p, f, colour, crease_deg=45.0):
-    """Vertices split where faces meet at more than `crease_deg`; each corner
-    takes the area-weighted normal of the faces on its side of the crease."""
     fn, area = tri_normals(p, f)
     cos = np.cos(np.radians(crease_deg))
     incident = [[] for _ in range(len(p))]
@@ -149,21 +116,15 @@ def crease_split(p, f, colour, crease_deg=45.0):
 
 
 def orient(v, f, name):
-    """An arm stood up: its longest extent along y, its thinnest along z
-    (its broad side to the camera). Something flat (a shield, a cog) turned
-    to face the camera, its bulge (a boss) towards it, keeping the side
-    nearest up as up. Anything else as it was made."""
     c = v[f].mean(1)
     _, area = tri_normals(v, f)
     mid = (c * area[:, None]).sum(0) / max(area.sum(), 1e-12)
     d = c - mid
     cov = (d * area[:, None]).T @ d
-    val, vec = np.linalg.eigh(cov)  # ascending: thinnest first
+    val, vec = np.linalg.eigh(cov)
     if name in THIN:
-        r = np.stack([vec[:, 1], vec[:, 2], vec[:, 0]])  # rows: new x, y, z
+        r = np.stack([vec[:, 1], vec[:, 2], vec[:, 0]])
     elif name in FLAT:
-        # Flat: the thinnest axis to z; of the other two, the one nearer the
-        # model's own up is y.
         a, b = vec[:, 1], vec[:, 2]
         up = a if abs(a[1]) > abs(b[1]) else b
         up = up if up[1] >= 0 else -up
@@ -176,7 +137,6 @@ def orient(v, f, name):
         r[0] = -r[0]
     out = (v - mid) @ r.T
     if name in FLAT:
-        # The bulge (a boss, a rim) faces the camera.
         if (out[f].mean(1)[:, 2] * area).sum() < 0:
             out[:, 0] = -out[:, 0]
             out[:, 2] = -out[:, 2]
@@ -190,14 +150,12 @@ def convert(path, faces, name=""):
     v = orient(v, f, name)
     raw = face_colours(v, f, uv, tex)
     _, area0 = tri_normals(v, f)
-    # Auto-level: lift the area-weighted 95th percentile of brightness to ~205.
     lum = raw.mean(1)
     order = np.argsort(lum)
     cum = np.cumsum(area0[order]) / max(area0.sum(), 1e-12)
     p95 = lum[order][min(int(np.searchsorted(cum, 0.95)), len(lum) - 1)]
     gain = float(np.clip(205.0 / max(p95, 1.0), 1.0, 1.7))
     raw = np.clip(raw * gain, 0, 255)
-    # Weld the seams, or the simplifier keeps every one of them.
     _, first, inv = np.unique(np.round(v, 5), axis=0, return_index=True, return_inverse=True)
     vw, fw = v[first], inv.reshape(-1)[f]
     keep = (fw[:, 0] != fw[:, 1]) & (fw[:, 1] != fw[:, 2]) & (fw[:, 0] != fw[:, 2])
@@ -206,16 +164,13 @@ def convert(path, faces, name=""):
     v2, f2 = fast_simplification.simplify(vw.astype(np.float32), fw.astype(np.int32), target_reduction=target, agg=7)
     v2 = v2.astype(np.float64)
     f2 = f2.astype(np.int64)
-    # Drop slivers: no area, no facing to shade.
     _, a2 = tri_normals(v2, f2)
     f2 = f2[a2 > 1e-10]
-    # A vertex's colour: the original faces nearest it, by area.
     tree = cKDTree(v[f].mean(1))
     k = min(12, len(f))
     d, idx = tree.query(v2, k=k)
     w = area0[idx] / np.maximum(d, 1e-6)
     colour = (raw[idx] * w[..., None]).sum(1) / np.maximum(w.sum(1, keepdims=True), 1e-12)
-    # Centre on the box; the longest side is 1.
     lo, hi = v2.min(0), v2.max(0)
     v2 = (v2 - (lo + hi) / 2) / max((hi - lo).max(), 1e-9)
     p, n, c, ff = crease_split(v2, f2, colour)
@@ -230,7 +185,7 @@ def pack(meshes):
         nb = name.encode()
         out += struct.pack("<B", len(nb)) + nb
         out += struct.pack("<II", len(p), len(f))
-        q = np.clip(np.round(p * 2 * 32767), -32767, 32767).astype("<i2")  # +-0.5 -> full range
+        q = np.clip(np.round(p * 2 * 32767), -32767, 32767).astype("<i2")
         nq = np.clip(np.round(n * 127), -127, 127).astype("i1")
         cq = np.clip(np.round(c), 0, 255).astype("u1")
         for i in range(len(p)):
@@ -240,7 +195,6 @@ def pack(meshes):
 
 
 def preview(p, n, c, f, size=256, yaw=0.5, pitch=0.35):
-    """A quick look: lit by one light from the upper left, painter's order."""
     cy, sy, cp, sp = np.cos(yaw), np.sin(yaw), np.cos(pitch), np.sin(pitch)
     r = np.array([[cy, 0, sy], [0, 1, 0], [-sy, 0, cy]]) @ np.eye(3)
     r = np.array([[1, 0, 0], [0, cp, -sp], [0, sp, cp]]) @ r

@@ -13,8 +13,6 @@ use super::kit::Kit;
 use super::realm_ground::Terrain;
 use super::realm_mono::{Mono, Piece, spire};
 
-/// What a build stands: its pieces, and its lamps each with how much it
-/// matters (the chunk keeps the few that matter most).
 #[derive(Default)]
 pub struct Stood {
     pub pieces: Vec<Piece>,
@@ -31,13 +29,10 @@ impl Stood {
     }
 }
 
-/// How tall a place's main mass is on a footprint `w` by `d` (pixels):
-/// 60 on two tiles, 90 on four, at most 120.
 pub fn height_for(w: f32, d: f32) -> f32 {
     (28.0 + w.min(d)).clamp(44.0, 120.0)
 }
 
-/// Build `b` (not a castle: `realm_castle`) on its footprint.
 pub fn place(b: &Build, terrain: &Terrain) -> Stood {
     let foot = super::blockout::px(b.foot);
     let mut m = Mono::on(foot, b.face, b.seed);
@@ -68,7 +63,6 @@ pub fn place(b: &Build, terrain: &Terrain) -> Stood {
             let door = hall(&mut m, Kind::Stone, h, y0, town);
             stack(&mut m, Kind::Stone, h * 1.45);
             if b.kit == Kit::Forge {
-                // The forge's fire in its bay: activity.
                 let at = m.brazier(door[0] + m.w * 0.28, m.d / 2.0 - 3.5, 0.0);
                 s.lamp(&m, at, 54.0, 0.85, 2.0);
             }
@@ -94,7 +88,6 @@ pub fn place(b: &Build, terrain: &Terrain) -> Stood {
         Kit::Windmill => {
             let h = base * 1.2;
             tower(&mut m, Kind::Plaster, h, y0, 0.0);
-            // The sails: a cross of slabs standing proud of the front.
             let z = m.d / 2.0 - 2.5;
             let span = (m.w * 1.1).min(m.w - 1.0);
             m.block(Kind::Wood, [-span / 2.0, span / 2.0], [h * 0.72 - 2.0, h * 0.72 + 2.0], [z, z + 2.0]);
@@ -146,10 +139,7 @@ pub fn place(b: &Build, terrain: &Terrain) -> Stood {
             if b.kit == Kit::Eyrie {
                 m.put("cylinder-12", Kind::Wood, [0.0, h - 3.0, -2.0], [m.w * 0.5, 7.0, m.d * 0.5], 0.0);
             }
-            // (The Great Shaft's head on the DelveGate's crown is the run's
-            // own, at the tier it has raised the shaft to: `shaft_head`.)
         }
-        // The blank-slate plan's two places (`crate::world::plan`).
         Kit::KeepBegun => super::realm_camp::keep_begun(&mut m, y0, &mut s),
         Kit::Camp => super::realm_camp::camp(&mut m, y0, &mut s),
         Kit::Colosseum | Kit::Hippodrome => {
@@ -174,8 +164,6 @@ pub fn place(b: &Build, terrain: &Terrain) -> Stood {
             well(&mut m, y0);
         }
         Kit::DragonKeep | Kit::Keep | Kit::Castle(_) => {
-            // Castles are `realm_castle`'s; one that comes here stands as a
-            // great tower.
             tower(&mut m, Kind::Stone, base * 1.6, y0, 0.2);
         }
         _ => {
@@ -186,9 +174,6 @@ pub fn place(b: &Build, terrain: &Terrain) -> Stood {
     s
 }
 
-/// The Great Shaft's head at `tier` on the crown of the Delve gate's heap,
-/// `b` the gate as the chunks stand it (`chunks::delve_gate_on`): the run's
-/// to stand, as the shaft has been raised (`realm_shaft`).
 pub fn shaft_head(b: &Build, tier: crate::rules::stockyard::Tier) -> Stood {
     let mut m = Mono::on(super::blockout::px(b.foot), b.face, b.seed);
     let mut s = Stood::default();
@@ -197,13 +182,8 @@ pub fn shaft_head(b: &Build, tier: crate::rules::stockyard::Tier) -> Stood {
     s
 }
 
-/// How high the Delve gate's heap rises, where the shaft's head stands.
 const GATE_CROWN: f32 = 110.0;
 
-/// The common mass: a stepped plinth, a body to `h`, its cornice, a string
-/// course, fins across the front, a row of slits high in it (`lit` of them
-/// lit) and a door as a deep slot in the middle of the front, the plinth
-/// parted round it. Returns the door's foot (the frame's).
 pub fn hall(m: &mut Mono, kind: Kind, h: f32, y0: f32, lit: f32) -> [f32; 3] {
     let (hx, hz) = (m.w / 2.0 - 0.5, m.d / 2.0 - 0.5);
     let inset = if m.w.min(m.d) < 28.0 { 2.5 } else { 4.5 };
@@ -212,7 +192,6 @@ pub fn hall(m: &mut Mono, kind: Kind, h: f32, y0: f32, lit: f32) -> [f32; 3] {
     let dw = (m.w * 0.18).clamp(5.0, 10.0);
     let gap = dw / 2.0 + 3.0;
     let front = bz[1];
-    // The plinth: two tiers, parted at the door.
     m.block(kind, [-hx, hx], [y0, t0], [-hz, front]);
     m.block(kind, [-hx, -gap], [y0, t0], [front, hz]);
     m.block(kind, [gap, hx], [y0, t0], [front, hz]);
@@ -231,7 +210,6 @@ pub fn hall(m: &mut Mono, kind: Kind, h: f32, y0: f32, lit: f32) -> [f32; 3] {
     [0.0, 0.0, front]
 }
 
-/// A roof as two stepped tiers on a hall's top, darker: a house reads as a house.
 fn roof_steps(m: &mut Mono, kind: Kind, h: f32) {
     let (hx, hz) = (m.w / 2.0 - 0.5, m.d / 2.0 - 0.5);
     let inset = if m.w.min(m.d) < 28.0 { 2.5 } else { 4.5 };
@@ -240,7 +218,6 @@ fn roof_steps(m: &mut Mono, kind: Kind, h: f32) {
     m.block(roof, [-hx + inset + 7.0, hx - inset - 7.0], [h + 7.0, h + 12.0], [-hz + inset + 6.0, hz - inset - 6.0]);
 }
 
-/// A taller block rising at the back of a long hall, to one side.
 fn back_tower(m: &mut Mono, kind: Kind, h: f32, y0: f32, lit: f32) {
     let (hx, hz) = (m.w / 2.0 - 0.5, m.d / 2.0 - 0.5);
     let tw = (m.w * 0.3).clamp(14.0, 30.0);
@@ -255,7 +232,6 @@ fn back_tower(m: &mut Mono, kind: Kind, h: f32, y0: f32, lit: f32) {
     }
 }
 
-/// A chimney stack at a back corner.
 fn stack(m: &mut Mono, kind: Kind, h: f32) {
     let (hx, hz) = (m.w / 2.0 - 0.5, m.d / 2.0 - 0.5);
     let x = hx - 8.0;
@@ -263,9 +239,6 @@ fn stack(m: &mut Mono, kind: Kind, h: f32) {
     m.block(kind, [x - 4.0, x + 4.0], [h - 3.0, h], [-hz + 2.5, -hz + 10.5]);
 }
 
-/// A tall square tower: a stepped plinth all round, its body, a crown band,
-/// two deep slots up its front with a pier standing proud between them and
-/// a few lit windows in them, a door at its foot.
 pub fn tower(m: &mut Mono, kind: Kind, h: f32, y0: f32, lit: f32) {
     let (hx, hz) = (m.w / 2.0 - 0.5, m.d / 2.0 - 0.5);
     let small = m.w.min(m.d) < 24.0;
@@ -297,8 +270,6 @@ pub fn tower(m: &mut Mono, kind: Kind, h: f32, y0: f32, lit: f32) {
     m.block(Kind::Door, [-dw / 2.0, dw / 2.0], [y0, 14.0], [face - 0.3, hz + 0.1]);
 }
 
-/// A temple: a long hall, a stepped portico across its front, a tall slab
-/// tower at its back.
 fn temple(m: &mut Mono, kind: Kind, h: f32, y0: f32, lit: f32) {
     let hall_h = h * 0.62;
     hall(m, kind, hall_h, y0, lit);
@@ -312,14 +283,12 @@ fn temple(m: &mut Mono, kind: Kind, h: f32, y0: f32, lit: f32) {
     if m.unit(11) < 0.7 {
         m.block(Kind::Window, [-0.8, 0.8], [h - 22.0, h - 15.0], [z1 + 0.2, z1 + 0.3]);
     }
-    // Fins up the tower's flanks.
     for side in [-1.0f32, 1.0] {
         let x = side * (tw / 2.0 + 0.8);
         m.block(kind, [x - 0.8, x + 0.8], [hall_h, h - 5.0], [z0 + 2.0, z1 - 2.0]);
     }
 }
 
-/// A colonnade: posts standing free along the front of the plinth.
 fn colonnade(m: &mut Mono, kind: Kind, h: f32) {
     let hz = m.d / 2.0 - 0.5;
     let n = ((m.w - 10.0) / 8.0).floor() as i32;
@@ -333,7 +302,6 @@ fn colonnade(m: &mut Mono, kind: Kind, h: f32) {
     m.block(kind, [-m.w / 2.0 + 2.0, m.w / 2.0 - 2.0], [h, h + 3.0], [hz - 4.0, hz - 0.5]);
 }
 
-/// A round hall: drums stepping in, a cornice ring, slots round it.
 fn round_hall(m: &mut Mono, kind: Kind, h: f32, y0: f32) {
     let r = m.w.min(m.d) / 2.0 - 0.5;
     m.put("cylinder-16", kind, [0.0, y0, 0.0], [2.0 * r, 6.0 - y0, 2.0 * r], 0.0);
@@ -344,8 +312,6 @@ fn round_hall(m: &mut Mono, kind: Kind, h: f32, y0: f32) {
     m.block(Kind::Door, [-3.0, 3.0], [y0, 16.0], [r - 4.6, r - 3.3]);
 }
 
-/// A gatehouse: two towers and a slot of a way through between them under
-/// a heavy lintel.
 fn gatehouse(m: &mut Mono, kind: Kind, h: f32, y0: f32) {
     let (hx, hz) = (m.w / 2.0 - 0.5, m.d / 2.0 - 0.5);
     let tw = (m.w * 0.34).max(8.0);
@@ -361,7 +327,6 @@ fn gatehouse(m: &mut Mono, kind: Kind, h: f32, y0: f32) {
     m.block(Kind::Door, [-inner, inner], [y0, h * 0.45], [-hz + 2.0, -hz + 3.5]);
 }
 
-/// A heap of rock as great slabs stacked into a stepped mass to `h`.
 fn heap(m: &mut Mono, h: f32, y0: f32) {
     let (hx, hz) = (m.w / 2.0 - 0.5, m.d / 2.0 - 0.5);
     let tiers = 3;
@@ -376,7 +341,6 @@ fn heap(m: &mut Mono, h: f32, y0: f32) {
     }
 }
 
-/// A portal in a heap's front: two jamb slabs, a lintel, the dark slot.
 fn portal(m: &mut Mono, h: f32) {
     let hz = m.d / 2.0 - 0.5;
     let w = (m.w * 0.22).clamp(8.0, 14.0);
@@ -390,21 +354,16 @@ fn portal(m: &mut Mono, h: f32) {
     m.block(Kind::Stone, [-w / 2.0 - 5.0, w / 2.0 + 5.0], [tall, tall + 7.0], [z - 3.0, hz]);
 }
 
-/// An arena: a ring of tall walls round the footprint, pylons at its
-/// corners, fins outside, a gate slot in the front.
 fn arena(m: &mut Mono, kind: Kind, h: f32, y0: f32) {
     let (hx, hz) = (m.w / 2.0 - 0.5, m.d / 2.0 - 0.5);
     let t = (m.w.min(m.d) * 0.12).clamp(6.0, 16.0);
     let gate = 10.0;
-    // The floor inside.
     m.block(Kind::Sand, [-hx + t, hx - t], [y0, 0.6], [-hz + t, hz - t]);
-    // The ring: front parted at the gate, back, sides.
     m.block(kind, [-hx, -gate], [y0, h], [hz - t, hz]);
     m.block(kind, [gate, hx], [y0, h], [hz - t, hz]);
     m.block(kind, [-hx, hx], [y0, h], [-hz, -hz + t]);
     m.block(kind, [-hx, -hx + t], [y0, h], [-hz + t, hz - t]);
     m.block(kind, [hx - t, hx], [y0, h], [-hz + t, hz - t]);
-    // The cornice standing out inward and the lintel over the gate.
     m.block(kind, [-gate - 2.0, gate + 2.0], [h * 0.42, h], [hz - t, hz]);
     m.block(Kind::Door, [-gate, gate], [y0, h * 0.42], [hz - t + 1.0, hz - t + 2.0]);
     for (x, z) in [(-hx, -hz), (hx - t * 1.4, -hz), (-hx, hz - t * 1.4), (hx - t * 1.4, hz - t * 1.4)] {
@@ -416,7 +375,6 @@ fn arena(m: &mut Mono, kind: Kind, h: f32, y0: f32) {
     m.slits([gate + 2.0, hx - t * 1.4], hz + 0.5, h * 0.7, 7.0, 9.0, 0.25);
 }
 
-/// Works by the water: battered low walls, a mass, and what each is for.
 fn waterworks(m: &mut Mono, kit: Kit, base: f32, y0: f32) {
     let (hx, hz) = (m.w / 2.0 - 0.5, m.d / 2.0 - 0.5);
     match kit {
@@ -431,7 +389,6 @@ fn waterworks(m: &mut Mono, kit: Kit, base: f32, y0: f32) {
             m.block(Kind::Water, [-hx + 1.0, hx - 1.0], [base * 0.7 + 7.0, base * 0.7 + 7.4], [-m.d * 0.12, m.d * 0.12]);
         }
         Kit::Saltworks | Kit::Strand => {
-            // Pans (or boats) in rows before a shed.
             let rows = 2;
             for r in 0..rows {
                 let z = hz - 6.0 - r as f32 * 11.0;
@@ -445,7 +402,6 @@ fn waterworks(m: &mut Mono, kit: Kit, base: f32, y0: f32) {
             m.cornice(Kind::Stone, [-hx, -hx + m.w * 0.4], [-hz, -hz + m.d * 0.4], base * 0.55, 0.0);
         }
         _ => {
-            // A battered quay along the front, a mass behind.
             m.put("wedge", Kind::Stone, [0.0, y0, hz - 5.0], [2.0 * hx, 10.0 - y0, 10.0], 180.0);
             let h = base * if kit == Kit::Watermill { 0.85 } else { 0.6 };
             m.block(Kind::Stone, [-hx + 3.0, hx - 3.0], [y0, h], [-hz, hz - 10.0]);
@@ -462,7 +418,6 @@ fn waterworks(m: &mut Mono, kit: Kit, base: f32, y0: f32) {
     }
 }
 
-/// A ruin: stubs of wall of many heights, a broken tower, a fallen slab.
 fn ruin(m: &mut Mono, h: f32, y0: f32) {
     let (hx, hz) = (m.w / 2.0 - 0.5, m.d / 2.0 - 0.5);
     let n = 6;
@@ -473,14 +428,12 @@ fn ruin(m: &mut Mono, h: f32, y0: f32) {
         let tall = h * (0.15 + 0.5 * m.unit(60 + k as u32));
         m.block(Kind::Stone, [x - 3.5, x + 3.5], [y0, tall], [z - 2.5, z + 2.5]);
     }
-    // The broken tower at a back corner.
     let tw = (m.w * 0.26).clamp(10.0, 20.0);
     m.block(Kind::Stone, [-hx, -hx + tw], [y0, h * 1.1], [-hz, -hz + tw]);
     m.block(Kind::Stone, [-hx + tw * 0.4, -hx + tw], [h * 1.1, h * 1.25], [-hz, -hz + tw * 0.6]);
     m.put("box", Kind::Stone, [hx * 0.2, y0, hz * 0.1], [m.w * 0.4, 5.0 - y0, 5.0], 14.0);
 }
 
-/// A well: a stepped square kerb, a dark mouth, a lintel on two posts.
 fn well(m: &mut Mono, y0: f32) {
     let (hx, hz) = (m.w / 2.0 - 1.0, m.d / 2.0 - 1.0);
     m.block(Kind::Stone, [-hx, hx], [y0, 3.0], [-hz, hz]);
@@ -493,7 +446,6 @@ fn well(m: &mut Mono, y0: f32) {
     m.block(Kind::Stone, [-hx + 1.0, hx - 1.0], [17.0, 19.5], [-1.6, 1.6]);
 }
 
-/// Logs stacked in a yard's front corner.
 fn logs(m: &mut Mono, y0: f32) {
     let (hx, hz) = (m.w / 2.0 - 0.5, m.d / 2.0 - 0.5);
     for k in 0..3 {
@@ -502,9 +454,6 @@ fn logs(m: &mut Mono, y0: f32) {
     }
 }
 
-/// The open places (gardens, butts, greens, fairs, stalls, flags...): a low
-/// kerb round the footprint, parted at the front, and what each stands in
-/// it, low or slender, a monolith or two where it has one.
 fn yard(m: &mut Mono, kit: Kit, base: f32, y0: f32, s: &mut Stood) {
     let (hx, hz) = (m.w / 2.0 - 0.5, m.d / 2.0 - 0.5);
     let small = m.w.min(m.d) < 24.0;
@@ -551,7 +500,6 @@ fn yard(m: &mut Mono, kit: Kit, base: f32, y0: f32, s: &mut Stood) {
             }
         }
         Kit::Butts | Kit::Board | Kit::Flags | Kit::Kites | Kit::Downs | Kit::Quintain | Kit::Scarecrow => {
-            // Standing slabs: targets, a board, banners as monoliths.
             let n = match kit {
                 Kit::Board | Kit::Quintain | Kit::Scarecrow => 1,
                 Kit::Butts => 3,
@@ -576,7 +524,6 @@ fn yard(m: &mut Mono, kit: Kit, base: f32, y0: f32, s: &mut Stood) {
             }
         }
         Kit::Fair | Kit::Stage | Kit::Laundry | Kit::GoosePen | Kit::Caravan | Kit::Fletchery => {
-            // A stage or a green: a stepped platform and a back wall; booths.
             let h = base * 0.5;
             m.block(Kind::Stone, [-ix, ix], [y0, 4.0], [-iz, 0.0]);
             m.block(Kind::Stone, [-ix + 3.0, ix - 3.0], [4.0, 8.0], [-iz, -iz * 0.4]);
@@ -598,7 +545,6 @@ fn yard(m: &mut Mono, kit: Kit, base: f32, y0: f32, s: &mut Stood) {
             m.put("pyramid", if kit == Kit::Pavilion { Kind::Cloth } else { Kind::Slate }, [0.0, h, 0.0], [m.w - 1.0, 10.0, m.d - 1.0], 0.0);
         }
         _ => {
-            // Anything else: a low mass in the yard.
             if small {
                 m.block(Kind::Stone, [-hx, hx], [y0, base * 0.5], [-hz, hz]);
             } else {
@@ -608,11 +554,6 @@ fn yard(m: &mut Mono, kit: Kit, base: f32, y0: f32, s: &mut Stood) {
     }
 }
 
-/// One of the run's finds standing on its tile (`world::finds`), over the
-/// footprint `foot` (kingdom pixels), facing south as its flat art does: in
-/// the same language, small enough for the open ground it stands on. A
-/// campfire burns (a lamp); a shrine's candle once a knight has knelt; a
-/// ruin's cache till it is taken.
 pub fn find(kind: crate::world::finds::Kind, foot: [f32; 4], seed: u32, found: bool) -> Stood {
     use crate::world::finds::Kind as F;
     let mut m = Mono::on(foot, super::kit::Face::South, seed);

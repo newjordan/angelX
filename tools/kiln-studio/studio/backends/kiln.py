@@ -1,19 +1,3 @@
-"""kiln, the realm's own renderer: a recipe (`<name>.kiln.json`) in, every grain out.
-
-The `kiln` command (crates/kiln, feature `cli`; `KILN_BIN`, else `kiln` on
-PATH, else crates/target/fast/kiln) takes both kinds of recipe,
-told apart by their version field:
-
-    {"kiln": 0, ...}  a figure (docs/KILN-RECIPE.md): lit volumes on a rig, clips
-    {"fx": 0, ...}    an effect (docs/KILN-FX.md): shapes and emitters timed in beats
-
-`kiln render` writes a PNG a frame a grain; the backend puts each grain's
-frames side by side. A figure is shown in its `idle` clip (else its first,
-else at rest). kiln draws each grain itself, so a render carries real grain
-1 and 2 strips beside grain 4, and the studio's ladder shows them instead of
-reductions. Without the command an effect still renders through kiln-fx
-(tools/kiln-studio/fx-render), and a figure job falls back to pxl.
-"""
 import json
 import re
 import shutil
@@ -32,20 +16,18 @@ def kind_of(recipe):
 
 
 def clip_of(recipe):
-    """The clip a figure is judged in: idle, else its first, else none (at rest)."""
     clips = recipe.get("clips") or {}
     return "idle" if "idle" in clips else next(iter(clips), None)
 
 
 def strips(files, out):
-    """Each grain's frames, side by side: {grain: (strip path, frames, (w, h))}."""
     from PIL import Image
     by = {}
     for f in files:
         m = FRAME.search(f)
         if m:
             by.setdefault(int(m.group(1)), {})[int(m.group(2))] = f
-    if not by:  # a figure at rest: one frame a grain
+    if not by:
         for f in files:
             m = STILL.search(f)
             if m:
@@ -128,7 +110,6 @@ class KilnBackend(Backend):
                       files=list(s.values()), meta={"grains": {g: p for g, p in s.items() if g != "4"}, "via": "kiln-fx"})
 
     def check(self, source, name):
-        """kiln's own lints, for a figure (an effect has none beyond reading)."""
         cli = paths.kiln_bin()
         if not cli or kind_of(self._recipe(source)) == "vfx":
             return []

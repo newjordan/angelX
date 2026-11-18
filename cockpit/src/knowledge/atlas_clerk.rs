@@ -87,8 +87,6 @@ impl AtlasClerkWorker {
         if !foreground_idle || queue_depth == 0 || state.in_flight {
             return;
         }
-        // Resolved only past the bails above: the route walk hashes every
-        // fleet candidate (SHA-256 ×3 apiece) — far too heavy per idle frame.
         let Some(route) = route() else {
             state.status.health = ClerkHealth::WaitingForRoute;
             state.status.selected_model_revision = None;
@@ -118,8 +116,6 @@ impl AtlasClerkWorker {
         drop(state);
 
         let worker = Arc::clone(self);
-        // The idle scheduler can run on the UI thread. Capture an inherited
-        // catalog there, but do any fresh catalog I/O in the worker itself.
         let inherited_catalog = crate::agent::harness::book::catalog::current();
         let spawn_result = std::thread::Builder::new()
             .name("atlas-clerk".to_string())
@@ -164,7 +160,6 @@ impl AtlasClerkWorker {
     }
 }
 
-/// The clerk's reply shape, beside `⠸⠚⠉` (the page quotes it).
 pub(crate) const CLERK_SHAPE: &str = "{\"schema\":\"angel-atlas-clerk/v1\",\"action\":\"propose|merge|abstain\",\"candidates\":[{\"kind\":\"fact|decision|procedure|note|preference|open_thread|entity|artifact\",\"content\":\"...\",\"confidence\":0.0,\"sources\":[{\"id\":\"...\",\"kind\":\"...\",\"digest\":\"...\",\"excerpt\":null,\"independent\":true,\"influenced_by\":null}],\"merge_into\":null}]}";
 
 fn run_one(
@@ -175,8 +170,6 @@ fn run_one(
 ) -> Result<String, String> {
     let harvest_json = serde_json::to_string(harvest)
         .map_err(|error| format!("could not encode Atlas harvest: {error}"))?;
-    // `⠸⠚`: the teacher's brief is the route; the reply shape rides beside its
-    // page, the harvest below. Connected, so the teacher can read it.
     use crate::agent::harness::book::{d3_roles::pages, d456_knowledge::ATLAS_CLERK};
     let prompt = format!(
         "{}\n{} {CLERK_SHAPE}\n\nHARVEST:\n{harvest_json}",

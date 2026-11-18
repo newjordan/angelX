@@ -1,5 +1,3 @@
-"""Curated showcase reels: python -m spriterig.doll.reels [outdir]
-Loadout swap, weapon-attack reel, emote reel (labelled grids, looping GIFs)."""
 import os, sys
 from . import Doll, Loadout, dsl
 from . import anim as A
@@ -27,7 +25,6 @@ def main(out="showcase/curated"):
     os.makedirs(out, exist_ok=True)
     los = ["peasant", "knight", "knight_blue", "paladin", "ranger", "rogue", "spearman", "mage",
            "goblin_raider", "dwarf_berserker", "king"]
-    # one figure, same clip, loadout swaps every loop (+ the full roster grid below)
     lib = dsl.library(); ims = []
     seq = [("peasant", "idle"), ("knight", "slash"), ("knight_blue", "slash"), ("paladin", "shield_bash"),
            ("ranger", "bow_shot"), ("rogue", "dagger_flurry"), ("spearman", "thrust"), ("mage", "staff_cast"),

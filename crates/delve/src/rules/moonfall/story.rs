@@ -23,9 +23,7 @@ use super::state::*;
 use super::town::{self, TILE};
 use super::Session;
 
-/// Hours of Orin's writing.
 pub const PASS_HOURS: u32 = 5;
-/// How long E is held to light a flame, in ticks.
 pub const LIGHT_HOLD: u32 = 24;
 
 impl Session {
@@ -37,8 +35,6 @@ impl Session {
         (self.clock / self.nums.day.max(1)).min(clock::DAYS - 1)
     }
 
-    /// The lantern lights by the lamplighter's round, and stays lit unless
-    /// the Gloam or the moon's shadow put it out.
     pub fn lantern_scheduled(&self, n: u8) -> bool {
         folk::lamp_lit_at(n, self.nums.day).is_some_and(|at| self.clock % self.nums.day >= at)
     }
@@ -47,7 +43,6 @@ impl Session {
         self.lantern_scheduled(n) && self.world.snuffed & (1 << n) == 0 && self.completed.is_none()
     }
 
-    /// A flame of the three towers: 0 north, 1 south, 2 the well.
     pub fn flame(&self, i: usize) -> bool {
         self.world.lit_until[i] > self.clock
     }
@@ -56,7 +51,6 @@ impl Session {
         self.clock >= clock::final_start(self.nums.day)
     }
 
-    /// Whether tower `i` has what it needs to take a flame.
     pub fn tower_ready(&self, i: usize) -> bool {
         self.memory.knows(Fact::Verse)
             && self.final_hours()
@@ -67,7 +61,6 @@ impl Session {
             }
     }
 
-    /// The seats' count the table is scaled to.
     pub fn seats_peak(&self) -> u32 {
         self.peak.max(1)
     }
@@ -84,22 +77,18 @@ impl Session {
         }
     }
 
-    /// The lines a knight would read for `topic` from `who` just now.
     pub fn words(&self, folk: Folk, topic: Topic) -> Vec<String> {
         says::lines(folk, topic, self.ctx())
     }
 
-    /// Whether `folk` is in the middle of crying a proclamation.
     pub fn cry_active(&self, who: Folk) -> bool {
         self.cry.is_some_and(|(f, _, _)| f == who)
     }
 
-    /// Whether a conversation page `n` exists for what a knight is saying.
     pub fn say_pages(&self, say: &Say) -> usize {
         self.words(say.folk, say.topic).len().div_ceil(2).max(1)
     }
 
-    /// The lit lights, by id and place, in pixels.
     pub fn lights(&self) -> Vec<(u8, (i32, i32))> {
         let mut out = Vec::new();
         for n in 0..6u8 {
@@ -117,7 +106,6 @@ impl Session {
     }
 }
 
-/// The words for a note: what the Ledger or the town says to the table.
 pub fn note_text(n: Note) -> String {
     match n {
         Note::Wrote(f, id) => {
@@ -151,8 +139,6 @@ pub fn note_text(n: Note) -> String {
     }
 }
 
-/// The Ledger page `page` (0 the town's, 1 to 6 the folk's) as plain lines,
-/// for the terminal, which cannot read the picture's small print.
 pub fn page_lines(s: &Session, page: u8) -> Vec<String> {
     let st = clock::stamp(s.shown_clock(), s.nums.day);
     let wrap = |text: &str, n: usize| -> Vec<String> {

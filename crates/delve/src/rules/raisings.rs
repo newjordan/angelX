@@ -18,48 +18,30 @@ use super::*;
 use crate::realm::{Status, Wish};
 use crate::world::wishes::{self, Lot};
 
-/// The most raisings a realm holds: the rest of the ground is the wishes'.
 pub const MOST_RAISED: usize = 16;
 pub const TOP_LEVEL: u8 = 3;
-/// How many tiles apart two lots may stand to count as beside each other.
 pub const BESIDE: i32 = 12;
-/// How many tiles from a raising a knight stands to raise it a level.
 pub const REACH: i32 = 4;
-/// Gold in every knight's purse, each new floor, a point of Purse.
 pub const PURSE: u32 = 40;
-/// Ticks of ward on every arrival, a point of Ward.
 pub const WARD: u32 = HZ * 2;
-/// The most a delve's start gives of each thing, however much is raised.
 pub const MOST_GIVEN: u32 = 3;
 
-/// What a raising does for the delve, a point at a time.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Gift {
-    /// A wish more at a delve's start.
     Wishes,
-    /// Gold in the purse on reaching each new floor (never on the first, so
-    /// a stair walked down and up pays nothing).
     Purse,
-    /// A bomb at a delve's start.
     Bombs,
-    /// A piece of mail at a delve's start.
     Mail,
-    /// Untouchable a moment on every arrival.
     Ward,
 }
 
-/// A building the surveyor can set down.
 pub struct Plan {
     pub id: &'static str,
     pub name: &'static str,
     pub gift: Gift,
-    /// The gift, on the surveyor's panel.
     pub says: &'static str,
-    /// What the first level wants; each next level wants that many times more.
     pub wants: &'static [(Spoil, u32)],
-    /// The plan that stands it a point stronger, beside it.
     pub friend: &'static str,
-    /// A realm wish's file: only its art is read.
     source: &'static str,
 }
 
@@ -116,7 +98,6 @@ pub fn plan(id: &str) -> Option<&'static Plan> {
 }
 
 impl Plan {
-    /// What the level after `level` costs: level 0 is the raising itself.
     pub fn price(&self, level: u8) -> Spoils {
         let mut price = Spoils::default();
         for &(spoil, n) in self.wants {
@@ -135,7 +116,6 @@ impl Plan {
             .collect()
     }
 
-    /// This plan as a built wish on the lot at `tile`.
     fn wish(&self, by: &str, tile: (i32, i32), raised: u32) -> Wish {
         Wish {
             id: format!("raised-{}-{}-{}", self.id, tile.0, tile.1),
@@ -152,14 +132,12 @@ impl Plan {
         }
     }
 
-    /// The lot this plan covers from `tile`, its top left.
     pub fn lot(&self, tile: (i32, i32)) -> Lot {
         let (tw, th) = wishes::footprint(&self.wish("", tile, 0));
         Lot { tx: tile.0, ty: tile.1, tw, th }
     }
 }
 
-/// A raising standing in the kingdom: its top-left tile, chosen by a knight.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Raised {
     pub plan: String,
@@ -169,8 +147,6 @@ pub struct Raised {
     pub by: String,
 }
 
-/// A knight's hold run out: raise this plan on this tile, or a level on the
-/// same plan already there. Paid for when the home claim settles.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Order {
     pub plan: String,
@@ -179,8 +155,6 @@ pub struct Order {
     pub by: String,
 }
 
-/// The raisings as built wishes, after the realm's own. They are numbered past
-/// any wish, so the order wishes were raised in never moves them.
 pub fn standing(raised: &[Raised]) -> Vec<Wish> {
     raised
         .iter()
@@ -189,7 +163,6 @@ pub fn standing(raised: &[Raised]) -> Vec<Wish> {
         .collect()
 }
 
-/// Raising `i`'s points: its level, and one for its friend beside it.
 pub fn strength(raised: &[Raised], i: usize) -> u32 {
     let Some(here) = raised.get(i) else {
         return 0;
@@ -202,14 +175,10 @@ pub fn strength(raised: &[Raised], i: usize) -> u32 {
     u32::from(here.level) + u32::from(friend)
 }
 
-/// The realm pays for what the knights ordered, in order, and says what rose.
-/// The treasury decides here: an order the run saw it could pay may have been
-/// spent by the order ahead of it. Returns whether anything changed.
 pub fn settle(raised: &mut Vec<Raised>, treasury: &mut Spoils, orders: &[Order]) -> (bool, Vec<String>) {
     let mut changed = false;
     let mut said = Vec::new();
     for order in orders {
-        // A `bom:` order is a work of Bomrekedan's (`bomrekedan::works`).
         if order.plan.starts_with(super::world::bomrekedan::works::PREFIX) {
             continue;
         }
@@ -256,23 +225,17 @@ pub fn settle(raised: &mut Vec<Raised>, treasury: &mut Spoils, orders: &[Order])
     (changed, said)
 }
 
-/// A knight's surveyor's rod, while it is up: the plan shown and how long E
-/// has been held.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Survey {
     pub pick: u8,
     pub hold: u32,
 }
 
-/// What a knight's rod is pointing at: the question the ghost, the panel and
-/// the key all ask, so what is on screen is what E does.
 pub struct Target {
     pub plan: &'static Plan,
     pub lot: Lot,
-    /// The level E would bring it to: 1 raises it.
     pub level: u8,
     pub price: Spoils,
-    /// Why E would do nothing here, on the panel.
     pub refused: Option<String>,
 }
 
@@ -318,8 +281,6 @@ impl Run {
         (!short.is_empty()).then(|| short.to_uppercase())
     }
 
-    /// Open country a knight may build on: what any wish's lot wants, off
-    /// every place's door and off the court's plot.
     fn ground_for(&self, lot: Lot) -> bool {
         let geo = map::geography(&self.kingdom.wishes);
         wishes::open_for(&self.kingdom.wishes, lot)
@@ -329,9 +290,6 @@ impl Run {
             })
     }
 
-    /// The kingdom's rods, a tick: the next-card key's press moves on a plan,
-    /// and E held runs out the hold. Runs after the doors' latches are
-    /// settled: the E that came through a door raises nothing.
     pub(super) fn tick_survey(&mut self, inputs: &BTreeMap<u32, Input>) {
         let ids: Vec<u32> = self.players.keys().copied().collect();
         for id in ids {
@@ -391,11 +349,8 @@ impl Run {
         self.kingdom.survey_held.retain(|id| players.contains_key(id));
     }
 
-    /// What the raisings give the party as a floor begins: `first` when a
-    /// delve starts.
     pub(super) fn raised_gifts(&mut self, first: bool) {
         let raised = &self.home.raised;
-        // Bomrekedan's works add theirs, at most MOST_GIVEN of each gift.
         let works = &self.home.bomrekedan;
         let points = |gift: Gift| -> u32 {
             (0..raised.len())

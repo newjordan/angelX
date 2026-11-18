@@ -1,13 +1,9 @@
-# crates/delve/src/realm.rs — spoils. `Spoils` is the object of spoil name ->
-# amount; a spoil is its serde name ("gold").
-
 def realm.Spoil.ALL() -> List<&2, String>:
   ["gold", "bone", "wax", "ore", "gem", "ember", "scale", "bond", "hearthstone", "forgeheart", "bellmetal", "ledgerglass", "warhorn", "waystone", "wishmote"]
 
 def realm.Spoil.word(+spoil: String) -> String:
   spoil
 
-# `word.trim_end_matches('s')`.
 def realm.trim_s(+word: String) -> String:
   String.reverse(realm.trim_s.go(String.reverse(word)))
 
@@ -21,7 +17,6 @@ def realm.trim_s.go(+rev: String) -> String:
       else:
         rev
 
-# The spoil a word names (a plural names it too), or none.
 def realm.Spoil.from_word(+word: String) -> Maybe<&2, String>:
   realm.Spoil.find(realm.Spoil.ALL(), realm.trim_s(word))
 
@@ -35,7 +30,6 @@ def realm.Spoil.find(+all: List<&2, String>, +word: String) -> Maybe<&2, String>
       else:
         realm.Spoil.find(t, word)
 
-# Where it comes from, for a player deciding where to delve.
 def realm.Spoil.source(+spoil: String) -> String:
   if String.eq(spoil, "gold"):
     "anywhere"
@@ -66,7 +60,6 @@ def realm.Spoil.source(+spoil: String) -> String:
 def realm.in(+spoil: String, +xs: List<&2, String>) -> Bool:
   layout.is_kind_in(spoil, xs)
 
-# Worth in gold, for a wish's floor price.
 def realm.Spoil.worth(+spoil: String) -> U32:
   if String.eq(spoil, "gold"):
     1
@@ -132,7 +125,6 @@ def realm.pair_k(+p: Sigma<&2, &2, String, _ => J.Val>) -> String:
     case (k: String, v: J.Val):
       k
 
-# Half of each, rounded down: what a wiped party carries home.
 def realm.Spoils.half(+spoils: J.Val) -> J.Val:
   realm.Spoils.half.go(J.fields(spoils), J.obj())
 
@@ -160,7 +152,6 @@ def realm.Spoils.covers.go(+xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +sp
       else:
         False{}
 
-# Take the price out; empty slots go.
 def realm.Spoils.take(+spoils: J.Val, +price: J.Val) -> J.Val:
   realm.Spoils.retain(J.fields(realm.Spoils.take.go(J.fields(price), spoils)), J.obj())
 
@@ -195,7 +186,6 @@ def realm.Spoils.worth.go(+xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> U
     case Con{h: Sigma<&2, &2, String, _ => J.Val>, t: List<&2, Sigma<&2, &2, String, _ => J.Val>>}:
       (realm.Spoil.worth(realm.pair_k(h)) * realm.pair_n(h) + realm.Spoils.worth.go(t) : U32)
 
-# `12 bone · 3 wax · 150 gold`, in the order spoils are listed.
 def realm.Spoils.label(+spoils: J.Val) -> String:
   parts: List<&2, String> = realm.Spoils.label.parts(spoils, realm.Spoil.ALL())
   if List.is_empty(&2, String, parts):
@@ -214,7 +204,6 @@ def realm.Spoils.label.parts(+spoils: J.Val, +all: List<&2, String>) -> List<&2,
       else:
         Con{String.append(U32.show(n), String.append(" ", h)), realm.Spoils.label.parts(spoils, t)}
 
-# `need 4 more bone · 1 scale`, or empty when covered.
 def realm.Spoils.shortfall(+spoils: J.Val, +price: J.Val) -> String:
   missing: J.Val = realm.Spoils.shortfall.go(J.fields(price), spoils, J.obj())
   if realm.Spoils.is_empty(missing):
@@ -230,7 +219,6 @@ def realm.Spoils.shortfall.go(+xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, 
       k: String = realm.pair_k(h)
       realm.Spoils.shortfall.go(t, spoils, realm.Spoils.add(missing, k, RS.u_sat_sub(realm.pair_n(h), realm.Spoils.get(spoils, k))))
 
-# The cases
 def case.realm.Spoils.add(+input: J.Val) -> J.Val:
   realm.Spoils.add(J.get(input, "spoils"), J.str(J.get(input, "spoil")), J.u32(J.get(input, "n")))
 

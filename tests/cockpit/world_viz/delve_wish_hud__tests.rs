@@ -16,8 +16,6 @@ fn party() -> Run {
 #[test]
 fn wish_counts_remain_in_compact_cells_for_all_four_knights() {
     let mut run = party();
-    // A delve's three wishes and a fallen boss's super wish each; knight 4
-    // spends the super one.
     for hero in run.players.values_mut() {
         (hero.wishes, hero.great_wishes) = (0, 0);
     }

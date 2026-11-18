@@ -4,13 +4,9 @@
 
 use super::*;
 
-/// Who is here, on a frame already drawn (`rules::presence`): "AWAY" over
-/// each knight whose player is not, and a banner while the room holds for
-/// its party. Drawn last, over either art, on every seat's own frame.
 pub fn presence_marks(img: &mut Img, run: &Run, focus: Option<u32>) {
     let (w, h) = (img.w, img.h);
     let tw = super::super::ink::text_width("AWAY") + 6;
-    // Knights side by side stack their tags rather than overprint them.
     let mut tags: Vec<(i32, i32)> = Vec::new();
     for hero in run.players.values().filter(|h| h.away && h.hp > 0) {
         let (x, y) = frame_px(run, w, h, focus, hero.x, hero.y);
@@ -26,8 +22,6 @@ pub fn presence_marks(img: &mut Img, run: &Run, focus: Option<u32>) {
         img.text(bx + 3, by + 2, "AWAY", 'O');
     }
     skull_tags(img, run, focus);
-    // A fallen or finished run says so itself; a seat says the hold in its
-    // band, under the view (`hold_line`).
     if !run.active() || hud_in_band() {
         return;
     }
@@ -45,9 +39,6 @@ pub fn presence_marks(img: &mut Img, run: &Run, focus: Option<u32>) {
     img.text(x + 10, 19, banner, 'O');
 }
 
-/// The room's hold as a seat's band says it (`party::hud_band`): the line,
-/// and whether it is lit (to the waiting, a fellowship line flashes, a
-/// third of a second each way). `None` while nothing holds.
 pub(in super::super) fn hold_line(run: &Run, focus: Option<u32>) -> Option<(String, bool)> {
     if !run.active() {
         return None;
@@ -61,9 +52,6 @@ pub(in super::super) fn hold_line(run: &Run, focus: Option<u32>) -> Option<(Stri
     }
 }
 
-/// While knights wait in a doorway or on the stairs for the rest of the
-/// party (`Run::fellowship_line`): to the waiting, "WAITING FOR FELLOWSHIP"
-/// flashing; to their friends, where they are awaited.
 fn fellowship_banner(img: &mut Img, run: &Run, focus: Option<u32>) {
     let Some((line, mine)) = run.fellowship_line(focus) else {
         return;
@@ -72,17 +60,12 @@ fn fellowship_banner(img: &mut Img, run: &Run, focus: Option<u32>) {
     if bw > img.w || img.h < 40 {
         return;
     }
-    // Flashing: brass, then slate, a third of a second each.
     let lit = !mine || run.tick / u64::from(crate::rules::HZ / 3) % 2 == 0;
     let x = (img.w - bw) / 2;
     chrome::panel(img, (x, 12, bw, 21), if lit { chrome::Tone::BRASS } else { chrome::Tone::SLATE });
     img.text(x + 10, 19, &line, if lit { 'O' } else { 'h' });
 }
 
-/// To a knight the fellowship calls (`Run::fellowship_call`), a blinking
-/// arrow to where the rest of the party waits: over them when they are in
-/// view, at the edge toward them when not. On and off a third of a second
-/// each, as the waiting's own line flashes.
 pub(super) fn fellowship_arrow(cv: &mut Img, run: &Run, focus: Option<u32>, origin: (i32, i32)) {
     if !run.active() || run.tick / u64::from(crate::rules::HZ / 3) % 2 == 1 {
         return;
@@ -94,21 +77,13 @@ pub(super) fn fellowship_arrow(cv: &mut Img, run: &Run, focus: Option<u32>, orig
     kingdom::pointer_toward(cv, (px - origin.0, py - origin.1), "FELLOWSHIP", run.tick as u32);
 }
 
-/// How far above a carrier's head the skull they carry floats, in the
-/// room's pixels: clear of the seat's own mark.
 pub(super) const CARRIED_SKULL_GAP: i32 = 5;
 
-/// The skulls' words: over a skull lying on the floor (to its own knight,
-/// what a friend can do with it), over a knight raised in a monster's body
-/// (their name, so friends know them), and over this seat's knight while
-/// it carries one (what to do with it).
 fn skull_tags(img: &mut Img, run: &Run, focus: Option<u32>) {
     if !run.active() || run.phase == Phase::Wiped {
         return;
     }
     let (w, h) = (img.w, img.h);
-    // The tags stand off their figures by the room's own pixels, at the
-    // scale this frame shows them.
     let scale = {
         let (a, _) = frame_px(run, w, h, focus, 0.0, 0.0);
         let (b, _) = frame_px(run, w, h, focus, 10.0, 0.0);
@@ -137,8 +112,6 @@ fn skull_tags(img: &mut Img, run: &Run, focus: Option<u32>) {
         let tw = super::super::ink::text_width(&text) + 6;
         let (x, y) = frame_px(run, w, h, focus, ux, uy);
         let by = y - (lift as f32 * scale).round() as i32 - 11;
-        // A tag wider than the room beside its anchor slides in along the
-        // edge rather than being dropped: the words must always show.
         let bx = (x - tw / 2).min(w - tw).max(0);
         if by < 0 || bx + tw > w || by + 11 > h {
             continue;

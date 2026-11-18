@@ -1,5 +1,3 @@
-// Edit these values with AngelX open. The host applies a validated replacement
-// on the next UI tick; world state, sessions and work remain native-owned.
 module.exports = {
   apiVersion: 1,
   render() {

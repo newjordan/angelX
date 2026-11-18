@@ -45,7 +45,6 @@ fn couch_creator_routes_p1_arrows_and_p2_ijkl_without_combat() {
         }
     );
 
-    // If only P2's creator is up, the arrow keys navigate it, never aim P1.
     app.dungeon
         .shooter
         .edit()
@@ -109,7 +108,6 @@ fn creator_name_uses_the_existing_text_draft_without_spending_a_wish() {
     let mut app = mirror_game();
     let wishes = {
         let run = app.dungeon.shooter.edit().unwrap();
-        // The name row answers only a knight at the glass (`creator::near_mirror`).
         run.walk_alehouse();
         let hero = run.players.get_mut(&1).unwrap();
         (hero.x, hero.y) = (

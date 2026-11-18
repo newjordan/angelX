@@ -21,7 +21,6 @@ pub fn shape(room: &mut Room) {
             for rect in [(3, 1, 6, 2), (16, 1, 5, 2), (4, 11, 4, 2)] { fill(room, rect, Tile::Block); }
         }
         RoomKind::Laundry => {
-            // Four wash vats leave a cross-shaped road and two inspection aisles.
             for rect in [(4, 2, 4, 3), (16, 2, 4, 3), (4, 9, 4, 3), (16, 9, 4, 3)] {
                 fill(room, rect, Tile::Block);
             }
@@ -48,7 +47,6 @@ pub fn settle(country: &mut Country, treasury: &mut Spoils, marks: &BTreeMap<Str
     for (i, mark) in VISIT_MARKS.iter().enumerate() {
         if marks.contains_key(*mark) { country.mummers_visited |= 1 << i; }
     }
-    // Records merge before settlement; the medal has one persistent paid flag.
     if country.games.halfpipe.wins > 0 && !country.halfpipe_paid {
         country.halfpipe_paid = true;
         treasury.add(Spoil::Gold, 80);

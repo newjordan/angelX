@@ -5,13 +5,10 @@
 //! `cargo test --release knight_balance -- --ignored --nocapture`
 use super::*;
 
-/// One knight's bot input: close in to `reach` (or hold at range), aim and
-/// fire at the nearest monster, roll from shots about to land.
 fn bot(run: &Run, reach: f32, ranged: bool) -> Input {
     bot_as(run, 1, reach, ranged)
 }
 
-/// Knight `id`'s bot input, as `bot`.
 fn bot_as(run: &Run, id: u32, reach: f32, ranged: bool) -> Input {
     let hero = &run.players[&id];
     let Some(target) = run.enemies.iter().filter(|e| e.hp > 0).min_by(|a, b| {
@@ -39,7 +36,6 @@ fn bot_as(run: &Run, id: u32, reach: f32, ranged: bool) -> Input {
         } else if d > 13.0 {
             toward
         } else {
-            // Strafe round the target.
             (-toward.1, toward.0)
         }
     } else if d > reach * 0.8 {
@@ -47,8 +43,6 @@ fn bot_as(run: &Run, id: u32, reach: f32, ranged: bool) -> Input {
     } else {
         (0, 0)
     };
-    // Step out of what the floor telegraphs, as a player would: a bomb's
-    // shadow, a lit keg, a boar's marked line.
     let away = |x: f32, y: f32| (sign(hero.x - x, 0.1), sign(hero.y - y, 0.1));
     let bomb = run
         .lobs
@@ -89,7 +83,6 @@ fn bot_as(run: &Run, id: u32, reach: f32, ranged: bool) -> Input {
         .or(rock)
         .or(boar)
         .unwrap_or((move_x, move_y));
-    // Walled that way? Slide along it, or go round, as a player would.
     let room = run.room();
     let open = |(mx, my): (i8, i8)| {
         let (x, y) = (hero.x + f32::from(mx) * 1.4, hero.y + f32::from(my) * 1.4);
@@ -144,8 +137,6 @@ fn play(knight: &knights::Knight, seeds: std::ops::Range<u64>) -> Tally {
     play_with(knight, seeds, None, false)
 }
 
-/// As `play`, with the Undercroft built to `home` and the bot casting its
-/// ultimate whenever it is full (`ults`).
 fn play_with(
     knight: &knights::Knight,
     seeds: std::ops::Range<u64>,
@@ -194,7 +185,6 @@ fn play_with(
                 input.ult = ults
                     && run.players[&1].ult_charge >= ults::ULT_FULL
                     && run.tick.is_multiple_of(2);
-                // A potion when low, as a player would.
                 if home.is_some() && run.players[&1].hp < 35 && !run.players[&1].hand.is_empty() {
                     input.play = 1;
                 }
@@ -207,7 +197,6 @@ fn play_with(
                 tally.won += 1;
             }
             if run.phase == Phase::Wiped {
-                // Back on its feet for the next room.
                 run.phase = Phase::Exploring;
                 let hero = run.players.get_mut(&1).unwrap();
                 hero.hp = hero.max_hp;
@@ -233,8 +222,6 @@ fn knight_balance() {
     }
 }
 
-/// The same bot with the Undercroft built a little (Edge II, Hearth II,
-/// Rack I), then with its ultimate too: what the new progression is worth.
 #[test]
 #[ignore]
 fn knight_balance_with_home() {
@@ -257,7 +244,6 @@ fn knight_balance_with_home() {
     }
 }
 
-/// How a knight's bot fights: its reach, and whether it holds at range.
 fn style(run: &Run, id: u32) -> (f32, bool) {
     let hero = &run.players[&id];
     match hero.forged.as_ref().and_then(|w| w.melee) {
@@ -268,11 +254,6 @@ fn style(run: &Run, id: u32) -> (f32, bool) {
     }
 }
 
-/// Film plates: `ANGEL_ARENA_SHOTS=<dir> cargo test --release write_delve_film -- --ignored`.
-/// The room's own pixels, one tick a frame: four bot knights, each holding
-/// a wish, through the first floor's fights (`party/`); and one knight
-/// before and after "triple wide fire my shots" (`wish/`, grants in
-/// `wish/marks.txt`).
 #[test]
 #[ignore]
 fn write_delve_film() {
@@ -344,7 +325,6 @@ fn write_delve_film() {
                 })
                 .collect();
             run.step(&inputs);
-            // Bruised, never felled: the film is the fight, not the wipe.
             for hero in run.players.values_mut() {
                 hero.hp = hero.hp.max(hero.max_hp / 3);
             }
@@ -356,8 +336,6 @@ fn write_delve_film() {
         }
     }
 
-    // One knight, before and after the wish: standing, loosing up at a
-    // row of monsters that never fall.
     let mut run = Run::new(11, 4, None);
     run.outfit(1, knights::knight("percival").unwrap());
     let room = run
@@ -395,12 +373,6 @@ fn write_delve_film() {
     std::fs::write(dir.join("wish/marks.txt"), marks).unwrap();
 }
 
-/// Film plates: `ANGEL_ARENA_SHOTS=<dir> cargo test write_fun_film -- --ignored`.
-/// Scripted fun moments, the room's own pixels one tick a frame: a boss
-/// felled by a sword swing (`boss/`), a dive roll through a bullet storm
-/// (`dive/`), three morningstars shredding a pack (`star/`), a triple-wide
-/// chained volley wiping a wave (`volley/`). Each folder's `marks.txt` notes
-/// the beat to cut on.
 #[test]
 #[ignore]
 fn write_fun_film() {
@@ -413,8 +385,6 @@ fn write_fun_film() {
         let mut out = format!("P6\n{} {}\n255\n", img.w, img.h).into_bytes();
         out.extend(img.rgb_bytes());
         std::fs::write(dir.join(sub).join(format!("{f:04}.ppm")), out).unwrap();
-        // Where the action is, as a fraction of the room, for the film's camera.
-        // On-screen pixels: eight to an arena unit, less the game's camera.
         let (ox, oy) = crate::render::overworld::arena::camera(run, Some(1));
         let px = |x: f32, y: f32| (x * 8.0 - ox as f32, y * 8.0 - oy as f32);
         let hero = run.players.get(&1).map_or((192.0, 112.0), |h| px(h.x, h.y));
@@ -445,7 +415,6 @@ fn write_fun_film() {
         }
     };
 
-    // The boss: the party fights the floor guardian; Galahad lands the blow.
     std::fs::create_dir_all(dir.join("boss")).unwrap();
     let mut run = Run::new(3, 9, Some("Matt"));
     run.join_seat(3, "Bree");
@@ -472,7 +441,6 @@ fn write_fun_film() {
             .collect();
         if let Some(b) = boss {
             let (bx, by) = (run.enemies[b].x, run.enemies[b].y);
-            // After eight seconds the guardian is nearly spent; Galahad closes in.
             if f == 30 * 8 {
                 let e = &mut run.enemies[b];
                 e.hp = e.hp.min(60);
@@ -495,7 +463,6 @@ fn write_fun_film() {
                         ..Default::default()
                     },
                 );
-                // Only the sword may finish it.
                 for id in [2, 3, 4] {
                     if let Some(i) = inputs.get_mut(&id) {
                         i.fire = false;
@@ -516,7 +483,6 @@ fn write_fun_film() {
     }
     std::fs::write(dir.join("boss/marks.txt"), marks).unwrap();
 
-    // The dive: rolling through a storm of embers and orbs.
     std::fs::create_dir_all(dir.join("dive")).unwrap();
     let mut run = Run::new(5, 10, None);
     run.outfit(1, knights::knight("percival").unwrap());
@@ -556,7 +522,6 @@ fn write_fun_film() {
     }
     std::fs::write(dir.join("dive/marks.txt"), marks).unwrap();
 
-    // The morningstars: three of them shred a pack.
     std::fs::create_dir_all(dir.join("star")).unwrap();
     let mut run = Run::new(6, 11, None);
     run.outfit(1, knights::knight("galahad").unwrap());
@@ -591,7 +556,6 @@ fn write_fun_film() {
         save(&run, "star", f);
     }
 
-    // The volley: triple-wide, chained, into a charging wave.
     std::fs::create_dir_all(dir.join("volley")).unwrap();
     let mut run = Run::new(7, 12, None);
     run.outfit(1, knights::knight("percival").unwrap());
@@ -618,10 +582,6 @@ fn write_fun_film() {
     }
 }
 
-/// Film plates: `ANGEL_ARENA_SHOTS=<dir> cargo test write_posse_film -- --ignored`.
-/// The posse in the Delve: the whole company lined up (`lineup.ppm`), and
-/// the Composer, Dispatcher, Money and Scryglass knights felling a floor
-/// guardian (`posse/`, with `pos.txt` for the film's camera).
 #[test]
 #[ignore]
 fn write_posse_film() {
@@ -635,7 +595,6 @@ fn write_posse_film() {
         out.extend(img.rgb_bytes());
         out
     };
-    // The line-up: every knight of the company, in their colours.
     let mut sheet = crate::render::overworld::Img::new(16 * 11, 24);
     for (i, k) in knights::COMPANY.iter().enumerate() {
         sheet.stamp(&crate::render::overworld::arena::sprites::knight_in(k.colours), 4 + i as i32 * 17, 4);
@@ -674,11 +633,6 @@ fn write_posse_film() {
     std::fs::write(dir.join("posse/pos.txt"), pos).unwrap();
 }
 
-/// The night's playtest film: `ANGEL_ARENA_SHOTS=<dir> cargo test
-/// write_night_film -- --ignored`. One knight's evening, one frame a tick:
-/// home in the Undercroft, Tobbin's forge lit, Fortune's wheel spun before
-/// the audience, the Winding Stair, and a fight with an ultimate and an
-/// achievement. Frames land in `<dir>/night/NNNNN.ppm`.
 #[test]
 #[ignore]
 fn write_night_film() {
@@ -696,7 +650,6 @@ fn write_night_film() {
         std::fs::write(dir.join(format!("{frame_no:05}.ppm")), out).unwrap();
         frame_no += 1;
     };
-    // Walk knight one toward a spot, a tick a frame.
     let walk = |run: &mut Run, (tx, ty): (f32, f32), fire: bool| -> Input {
         let hero = &run.players[&1];
         let step = |d: f32| if d > 0.4 { 1 } else if d < -0.4 { -1 } else { 0 };
@@ -714,7 +667,6 @@ fn write_night_film() {
     let mut run = Run::at_home(23, 1, None, home::Home::default(), treasury.clone());
     run.begin_in(Pack::Cavern);
     run.outfit(1, knights::knight("gareth").unwrap());
-    // Home: a breath, then to the forge's plate and hold F.
     for _ in 0..20 {
         run.step(&BTreeMap::new());
         save(&run);
@@ -730,7 +682,6 @@ fn write_night_film() {
         run.step(&BTreeMap::from([(1, Input { fire: true, ..Default::default() })]));
         save(&run);
     }
-    // The cockpit pays: Edge I, and the forge lights.
     let mut built = run.home.clone();
     built.buy(home::Station::Forge, &mut treasury).unwrap();
     run.rebuild_home(built, treasury);
@@ -739,7 +690,6 @@ fn write_night_film() {
         run.step(&BTreeMap::new());
         save(&run);
     }
-    // Follow waypoints, a tick a frame, until `done` or the ticks run out.
     let path = |run: &mut Run,
                     points: &[(f32, f32)],
                     ticks: u32,
@@ -761,7 +711,6 @@ fn write_night_film() {
             save(run);
         }
     };
-    // Round the stairwell and east through the door to Fortune's hall.
     path(
         &mut run,
         &[(8.0, 20.0), (40.0, 20.0), (40.0, 14.0), (47.8, 14.0), (47.9, 14.0)],
@@ -780,7 +729,6 @@ fn write_night_film() {
         run.step(&BTreeMap::new());
         save(&run);
     }
-    // Back west, round the stairwell, and down the Winding Stair.
     path(
         &mut run,
         &[(10.0, 15.0), (2.0, 14.0), (0.2, 14.0), (0.1, 14.0)],
@@ -795,7 +743,6 @@ fn write_night_film() {
         &|run| !run.at_home_now(),
         &mut save,
     );
-    // Floor one: the bot fights; when its charge fills, Trebuchet.
     let fights: Vec<usize> = run
         .dungeon
         .rooms
@@ -827,11 +774,6 @@ fn write_night_film() {
     eprintln!("NIGHT FILM {frame_no} frames, mode {:?}", run.mode);
 }
 
-/// The night's second film, a tick a frame: the Undercroft's new corners
-/// (Wren's board, the Trophy Hall), then down the Winding Stair to the
-/// Fungal Deep, where the Flesher hooks and a fan box falls, and a cut to
-/// the Archive's brood.
-/// `ANGEL_ARENA_SHOTS=dir cargo test write_deep_film -- --ignored`
 #[test]
 #[ignore]
 fn write_deep_film() {
@@ -893,7 +835,6 @@ fn write_deep_film() {
             save(run);
         }
     };
-    // A realm some way along: a built home, three bounties, trophies.
     let mut home = home::Home {
         deepest: 5,
         landing: 5,
@@ -934,7 +875,6 @@ fn write_deep_film() {
     run.begin_in(Pack::Crypt);
     run.outfit(1, knights::knight("percival").unwrap());
     idle(&mut run, 20, &mut save);
-    // Wren's board, read.
     path(
         &mut run,
         &[(30.0, 23.5), (33.0, 21.6)],
@@ -943,7 +883,6 @@ fn write_deep_film() {
         &mut save,
     );
     idle(&mut run, 75, &mut save);
-    // Down the runner to the Trophy Hall.
     path(
         &mut run,
         &[(24.0, 24.0), (24.0, 27.9), (24.0, 28.5)],
@@ -967,7 +906,6 @@ fn write_deep_film() {
         &mut save,
     );
     idle(&mut run, 45, &mut save);
-    // Back up, and down the Winding Stair to the Fungal Deep.
     path(
         &mut run,
         &[
@@ -995,7 +933,6 @@ fn write_deep_film() {
         run.step(&BTreeMap::new());
         save(&run);
     }
-    // A fight room of the Fungal Deep, with the Flesher in it.
     let fights: Vec<usize> = run
         .dungeon
         .rooms
@@ -1034,7 +971,6 @@ fn write_deep_film() {
         fight(&mut run, 22, &mut save);
         idle(&mut run, 40, &mut save);
     }
-    // A cut to the Drowned Archive, and the Silkmother.
     let mut run = Run::new(31, 1, None);
     run.outfit(1, knights::knight("percival").unwrap());
     for _ in 1..4 {
@@ -1045,7 +981,6 @@ fn write_deep_film() {
         .collect();
     if let Some(&room) = rooms.first() {
         run.enter_for_test(room);
-        // The cut comes in mid-floor: no Sanctuary sign from the descent.
         run.hallowed = None;
         run.calm_for_test();
         run.enemies.clear();
@@ -1062,11 +997,6 @@ fn write_deep_film() {
     eprintln!("DEEP FILM {frame_no} frames");
 }
 
-/// The night's third film, a tick a frame: Lady Tallow by the fire, a
-/// lesson at Sir Ector's lectern, down the Winding Stair to Fortune's dare,
-/// the Pit and its Lord (the slam, the fall, the Talisman, the cat fetching the
-/// gold), and a cut to the Bone Choir.
-/// `ANGEL_ARENA_SHOTS=dir cargo test write_third_film -- --ignored`
 #[test]
 #[ignore]
 fn write_third_film() {
@@ -1129,8 +1059,6 @@ fn write_third_film() {
             save(run);
         }
     };
-    // A realm some way along: a warm hearth (so Tallow comes), a map to the
-    // second floor, a lesson waiting.
     let home_for = || {
         let mut home = home::Home {
             deepest: 3,
@@ -1154,7 +1082,6 @@ fn write_third_film() {
         );
         home
     };
-    // A seed whose second floor has a pit.
     let seed = (0..200u64)
         .find(|&seed| {
             let mut run = Run::at_home(seed, 1, None, home_for(), Default::default());
@@ -1167,7 +1094,6 @@ fn write_third_film() {
     run.begin_in(Pack::Crypt);
     run.outfit(1, knights::knight("percival").unwrap());
     idle(&mut run, 30, &mut save);
-    // North to the Training Yard, round the stairwell, to Sir Ector.
     path(
         &mut run,
         &[(16.0, 23.5), (16.0, 3.0), (24.0, 2.0), (24.0, -2.0)],
@@ -1195,7 +1121,6 @@ fn write_third_film() {
         )]));
         save(&run);
     }
-    // The cockpit's part: Sir Ector teaches it, and the card is dealt.
     let mut learned = run.home.clone();
     let key = knight_key(&run.players[&1]);
     learned.learn(&key, 0).unwrap();
@@ -1203,7 +1128,6 @@ fn write_third_film() {
     run.rebuild_home(learned, treasury);
     run.orders.clear();
     idle(&mut run, 30, &mut save);
-    // Back down through the Undercroft to the Winding Stair.
     path(
         &mut run,
         &[(24.0, 24.0), (24.0, 27.9), (24.0, 28.5)],
@@ -1225,9 +1149,7 @@ fn write_third_film() {
         run.step(&BTreeMap::new());
         save(&run);
     }
-    // Fortune's dare drops in.
     idle(&mut run, 120, &mut save);
-    // The Pit.
     let pit = run
         .dungeon
         .rooms
@@ -1240,7 +1162,6 @@ fn write_third_film() {
         .iter_mut()
         .filter(|e| e.kind == EnemyKind::PitTyrant)
     {
-        // A film's fight: shorter than a real one.
         enemy.hp = enemy.max_hp / 3;
     }
     for _ in 0..(40 * HZ) {
@@ -1255,7 +1176,6 @@ fn write_third_film() {
         run.step(&BTreeMap::from([(1, input)]));
         save(&run);
     }
-    // The Talisman, taken; Tallow fetches the gold.
     let talisman = run
         .room()
         .items
@@ -1272,7 +1192,6 @@ fn write_third_film() {
         );
     }
     idle(&mut run, 150, &mut save);
-    // A cut to the Crypt's stairs, where the Bone Choir sings.
     let choir = (0..64u64)
         .find_map(|raid| {
             let mut run = Run::new(9, raid, None);
@@ -1312,12 +1231,6 @@ fn write_third_film() {
     eprintln!("THIRD FILM {frame_no} frames, seed {seed}");
 }
 
-/// The night's fourth film: the Undercroft with its rescued residents and
-/// Tallow by the hearth; Fortune's wheel coming to rest on All Random; a
-/// fight on floor one with a stranger's ultimate and a Double Damage rune
-/// raced for; a Crypt room where the Hexer makes a frog of the knight; and a
-/// cage opened in a treasure room.
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_fourth_film -- --ignored`
 #[test]
 #[ignore]
 fn write_fourth_film() {
@@ -1333,7 +1246,6 @@ fn write_fourth_film() {
     let mut heard = 0usize;
     let mut place = (u64::MAX, u32::MAX, usize::MAX);
     let mut save = |run: &Run| {
-        // Where the film's scenes and moments fall, for the cut list.
         let here = (run.seed, run.dungeon.depth, run.at);
         if here != place {
             eprintln!("FRAME {frame_no} room {:?}", run.room().kind);
@@ -1411,8 +1323,6 @@ fn write_fourth_film() {
             save(run);
         }
     };
-    // A bot's fight, the knight kept on its feet for the film; `steer`
-    // may take the keys over for a tick.
     let fight = |run: &mut Run,
                  ticks: u32,
                  steer: &dyn Fn(&Run, Input) -> Input,
@@ -1429,7 +1339,6 @@ fn write_fourth_film() {
             hero.hp = hero.hp.max(70);
             let known = run.feats.len();
             run.step(&BTreeMap::from([(1, input)]));
-            // The cockpit's part: a new achievement gets its banner.
             let newly_unlocked = run.feats[known..].to_vec();
             for id in newly_unlocked {
                 run.announce(id);
@@ -1437,8 +1346,6 @@ fn write_fourth_film() {
             save(run);
         }
     };
-    // A realm some way along: the hearth warm (Tallow comes), Fortune's
-    // third rung bought, all four rescued and at home.
     let mut built = home::Home {
         deepest: 3,
         ..Default::default()
@@ -1457,7 +1364,6 @@ fn write_fourth_film() {
     run.begin_in(Pack::Cavern);
     run.outfit(1, knights::knight("percival").unwrap());
     idle(&mut run, 40, &mut save);
-    // Past Mabel at her pot, then east to Fortune's hall.
     let w = run.room().width();
     path(
         &mut run,
@@ -1479,7 +1385,6 @@ fn write_fourth_film() {
         &mut save,
     );
     hold_f(&mut run, &mut save);
-    // Fortune's wheel, for the film, comes to rest on All Random.
     if let Some(spin) = run.spin {
         let wedge = Mode::WHEEL
             .iter()
@@ -1488,7 +1393,6 @@ fn write_fourth_film() {
         run.spin = Some(Spin { wedge, ..spin });
     }
     idle(&mut run, SPIN_TICKS + 3 * HZ, &mut save);
-    // Down the stair: a stranger's ultimate, half charged, and a fight.
     run.descend_for_test();
     let room = run
         .dungeon
@@ -1509,7 +1413,6 @@ fn write_fourth_film() {
         &mut run,
         10 * HZ,
         &|run, input| match run.rune {
-            // Race for the rune once it is up.
             Some(rune) if run.tick >= rune.at => Input {
                 fire: input.fire,
                 aim_x: input.aim_x,
@@ -1521,8 +1424,6 @@ fn write_fourth_film() {
         &mut save,
     );
     idle(&mut run, HZ, &mut save);
-    // A cut to a Crypt room open enough to see across, where the Hexer
-    // waits.
     let mut run = Run::new(4, 1, None);
     run.begin_in(Pack::Crypt);
     run.outfit(1, knights::knight("percival").unwrap());
@@ -1537,7 +1438,6 @@ fn write_fourth_film() {
     run.rune = None;
     run.hallowed = None;
     run.enemies.clear();
-    // Open floor near each wanted spot: nobody starts inside a tomb.
     let open = |run: &Run, (x, y): (f32, f32)| -> (f32, f32) {
         let room = run.room();
         let (c0, r0) = ((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32);
@@ -1559,7 +1459,6 @@ fn write_fourth_film() {
     let (hx, hy) = open(&run, (32.0, 12.0));
     run.spawn_at_for_test(EnemyKind::Hexer, hx, hy);
     if let Some(hexer) = run.enemies.last_mut() {
-        // A film's witch: she lasts long enough to be seen at work.
         (hexer.hp, hexer.max_hp) = (420, 420);
     }
     let (sx, sy) = open(&run, (38.0, 21.0));
@@ -1568,8 +1467,6 @@ fn write_fourth_film() {
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (kx, ky);
 
-    // For the film the knight doesn't see the green bolt coming: no roll,
-    // and a step the wrong way as it closes.
     fight(
         &mut run,
         16 * HZ,
@@ -1596,7 +1493,6 @@ fn write_fourth_film() {
         &mut save,
     );
     idle(&mut run, 4 * HZ, &mut save);
-    // A treasure room with a cage, and Brother Anselm in it.
     let mut run = Run::new(4, 1, None);
     run.begin_in(Pack::Crypt);
     run.outfit(1, knights::knight("percival").unwrap());
@@ -1624,12 +1520,6 @@ fn write_fourth_film() {
     eprintln!("FOURTH FILM {frame_no} frames");
 }
 
-/// The fifth film, session two's: through the Trophy Hall into Maud's
-/// tavern, a stout poured at her tap, the rumour board read, a knight put
-/// out of the Siege Perilous; the Lich's Rimeleap going round a pair in
-/// the Drowned Archive; and on a Hollow Walls floor, a bomb, a wall coming
-/// down, and the vault behind it.
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_fifth_film -- --ignored`
 #[test]
 #[ignore]
 fn write_fifth_film() {
@@ -1725,7 +1615,6 @@ fn write_fifth_film() {
             (r as f32 + h as f32 / 2.0) * TILE_UNITS,
         )
     };
-    // A realm that has dug the west wing and brought Maud home.
     let mut built = home::Home {
         deepest: 4,
         ..Default::default()
@@ -1744,7 +1633,6 @@ fn write_fifth_film() {
     run.begin_in(Pack::Crypt);
     run.outfit(1, knights::knight("percival").unwrap());
     idle(&mut run, 20, &mut save);
-    // South down the runner to the Trophy Hall, then west into the tavern.
     let hall = run
         .dungeon
         .rooms
@@ -1758,8 +1646,6 @@ fn write_fifth_film() {
         &|run| run.at == hall,
         &mut save,
     );
-    // Round the dragon's plinth in the middle, then west along the
-    // doorway's row.
     path(
         &mut run,
         &[(17.0, 4.5), (17.0, 13.0), (4.0, 13.0), (-0.6, 13.0)],
@@ -1767,11 +1653,9 @@ fn write_fifth_film() {
         &|run| run.room().kind == RoomKind::Tavern,
         &mut save,
     );
-    // Up to the rumour board, and a moment to read it.
     let (bx, by) = centre(BOARD);
     path(&mut run, &[(bx, by + 3.2)], 300, &|_| false, &mut save);
     idle(&mut run, 3 * HZ, &mut save);
-    // A stout at Maud's middle tap (the cockpit's part: she pours it).
     let tap = centre(TAPS[1]);
     path(
         &mut run,
@@ -1796,9 +1680,7 @@ fn write_fifth_film() {
     run.rebuild_home(poured, treasury);
     run.orders.clear();
     idle(&mut run, HZ, &mut save);
-    // And then, against all advice, the Siege Perilous.
     let chair = centre(SIEGE);
-    // Between the tables and under them, to the corner.
     path(
         &mut run,
         &[(20.0, 12.0), (20.0, 21.0), (chair.0 + 3.0, 21.0), chair],
@@ -1807,7 +1689,6 @@ fn write_fifth_film() {
         &mut save,
     );
     idle(&mut run, 3 * HZ, &mut save);
-    // A cut to the Drowned Archive: the Lich, and a pair standing too close.
     let mut run = Run::new(6, 1, Some("Friend"));
     run.begin_in(Pack::Crypt);
     run.outfit(1, knights::knight("percival").unwrap());
@@ -1828,7 +1709,6 @@ fn write_fifth_film() {
     run.hallowed = None;
     run.spawn_at_for_test(EnemyKind::Lich, 33.0, 13.0);
     if let Some(lich) = run.enemies.last_mut() {
-        // A film's Lich: he lasts long enough to be seen at work.
         (lich.hp, lich.max_hp) = (900, 900);
     }
     for (id, (x, y)) in [(1, (14.0, 11.0)), (2, (15.0, 17.0))] {
@@ -1842,7 +1722,6 @@ fn write_fifth_film() {
         run.step(&BTreeMap::new());
         save(&run);
     }
-    // A cut to a Hollow Walls floor: a bomb, a wall, a vault.
     let mut run = Run::at_home(31, 1, None, home::Home::default(), Default::default());
     run.mode = Mode::HollowWalls;
     run.outfit(1, knights::knight("percival").unwrap());
@@ -1858,8 +1737,6 @@ fn write_fifth_film() {
     run.step(&BTreeMap::new());
     let (_, cx, cy) = run.dungeon.crack().unwrap();
     let (dx, dy) = DIRS[secret.side];
-    // The knight starts on the open floor before the crack (the doorway's
-    // lane is clear, or the vault would not have been hung there).
     let before = (cx - dx as f32 * 6.0, cy - dy as f32 * 6.0);
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = before;
@@ -1873,7 +1750,6 @@ fn write_fifth_film() {
     )]));
     save(&run);
     idle(&mut run, 2 * HZ, &mut save);
-    // Through the new doorway, into the vault.
     let door = (cx + dx as f32 * 2.0, cy + dy as f32 * 2.0);
     path(
         &mut run,
@@ -1894,10 +1770,6 @@ fn write_fifth_film() {
     eprintln!("FIFTH FILM {frame_no} frames");
 }
 
-/// The deep, by bot: every fight room, guardian and threshold from floor
-/// one to six, one knight and then two, with the Undercroft built well
-/// (Edge III, Hearth III, Rack II, Chapel I) and ultimates cast when full.
-/// `cargo test deep_balance -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn deep_balance() {
@@ -1912,11 +1784,8 @@ fn deep_balance() {
     }
     for party in [1u32, 2] {
         for depth in 1..=DEEPEST {
-            // (rooms, won, hp lost, ticks, wiped) for fights, guardians, the
-            // threshold.
             let mut tally = [(0u32, 0u32, 0u32, 0u64, 0u32); 3];
             let mut packs: Vec<&str> = Vec::new();
-            // Fortune's audience over the floor, and its fan boxes.
             for seed in 0..8 {
                 let mut run = Run::new(seed, 1, (party == 2).then_some("Friend"));
                 run.rebuild_home(built.clone(), Default::default());
@@ -2004,10 +1873,6 @@ fn deep_balance() {
     }
 }
 
-/// Which monster makes a deep floor hard: the bot plays floor
-/// `PROBE_DEPTH`'s fight rooms (or, with `PROBE_THRESHOLD`, the threshold)
-/// once as they are and once without each kind of its roster.
-/// `PROBE_DEPTH=5 cargo test deep_probe -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn deep_probe() {
@@ -2112,9 +1977,6 @@ fn deep_probe() {
     }
 }
 
-/// The Pit Tyrant, by bot: one knight and two, the Undercroft built well,
-/// ultimates cast when full. How often the Pit is won, and how long it
-/// takes. `cargo test pit_balance -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn pit_balance() {
@@ -2139,7 +2001,6 @@ fn pit_balance() {
             run.enter_for_test(0);
             run.calm_for_test();
             run.enemies.clear();
-            // Where the beast and the knights stand varies by seed.
             let (bx, by) = (
                 14.0 + (seed % 5) as f32 * 5.0,
                 8.0 + (seed % 3) as f32 * 3.0,
@@ -2188,9 +2049,6 @@ fn pit_balance() {
     }
 }
 
-/// Each of a deep floor's guardians on its own, against the same eight
-/// delves, one knight and two: which one is the harder fight.
-/// `PROBE_DEPTH=4 cargo test guardian_probe -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn guardian_probe() {
@@ -2268,14 +2126,6 @@ fn guardian_probe() {
     }
 }
 
-/// Every floor's guardian against parties of two to five, as dressed and
-/// built (each knight's cards stacked to `GS_POWER` times a fresh knight's
-/// strength, as a delve's later floors stack them), the floor's own pick of
-/// guardian, bots at the keys: how long it stands, what it costs the party,
-/// how often it wipes them, and how thick its fire is (hostile shots in the
-/// air, on average).
-/// `cargo test guardian_scale_sim -- --ignored --nocapture`
-/// (env: GS_SEEDS, GS_DEPTHS, GS_NS, GS_POWER).
 #[test]
 #[ignore]
 fn guardian_scale_sim() {
@@ -2309,8 +2159,6 @@ fn guardian_scale_sim() {
                     for _ in 1..depth {
                         run.descend_for_test();
                     }
-                    // Damage and rate each carry half the stack: their
-                    // product is the power asked for.
                     let each = ((power.sqrt() - 1.0) * 100.0).round() as u32;
                     for hero in run.players.values_mut() {
                         hero.bonus.damage += each;
@@ -2318,8 +2166,6 @@ fn guardian_scale_sim() {
                         hero.hp = hero.max_hp;
                         hero.winds = 1;
                     }
-                    // The guardian's hall: the stairs room, the dragon's lair,
-                    // the Unknown's threshold.
                     let hall = [RoomKind::Stairs, RoomKind::Lair, RoomKind::Threshold]
                         .iter()
                         .find_map(|&kind| run.dungeon.rooms.iter().position(|r| r.kind == kind))
@@ -2372,9 +2218,6 @@ fn guardian_scale_sim() {
     }
 }
 
-/// What Beaumains is worth to one knight: each floor's fights and its
-/// guardian, the same eight delves, with him and without.
-/// `cargo test hireling_probe -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn hireling_probe() {
@@ -2389,7 +2232,6 @@ fn hireling_probe() {
     }
     for depth in 1..=4u32 {
         for hired in [false, true] {
-            // (rooms, won, wiped) for fights, then the guardian.
             let mut tally = [(0u32, 0u32, 0u32); 2];
             let mut downs = 0u32;
             for seed in 0..8 {
@@ -2465,11 +2307,6 @@ fn hireling_probe() {
     }
 }
 
-/// What a delve brings home, by bot: one knight (then two) with a well-built
-/// Undercroft fights every fight room and the guardian of floors one to
-/// three, opens the chests and walks over everything dropped, and takes the
-/// stairs. The barony's prices are picked from these numbers.
-/// `cargo test haul_probe -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn haul_probe() {
@@ -2483,7 +2320,6 @@ fn haul_probe() {
     ] {
         built.levels.insert(station, level);
     }
-    // Walk every knight over what lies in the room, and into its chest.
     fn gather(run: &mut Run) {
         for _ in 0..60 {
             let room = run.room();
@@ -2502,7 +2338,6 @@ fn haul_probe() {
             if run.phase == Phase::Fighting {
                 break;
             }
-            // Something that cannot be taken (a full hand) stays put.
             let still = run
                 .room()
                 .items
@@ -2568,7 +2403,6 @@ fn haul_probe() {
                     }
                 }
                 ticks[depth as usize] += run.tick - start_tick;
-                // What the knights carry up the stairs (or out of the lair).
                 let mut floor = Spoils::default();
                 for haul in std::mem::take(&mut run.bank) {
                     floor.merge(&haul.spoils);

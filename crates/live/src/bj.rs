@@ -69,7 +69,6 @@ fn number(n: &Number, out: &mut Vec<u8>) -> Result<(), String> {
     written.map_err(|e| e.to_string())
 }
 
-/// Reads BJ1 text; JSON whitespace between tokens is tolerated.
 pub fn from_str(s: &str) -> Result<Value, String> {
     let mut parser = Parser { s, i: 0 };
     let v = parser.value(0)?;
@@ -103,7 +102,6 @@ impl Parser<'_> {
         self.i += 1;
         Ok(())
     }
-    /// After an item: `true` on a comma, `false` on the closing bracket.
     fn more(&mut self, close: u8) -> Result<bool, String> {
         self.ws();
         let comma = self.peek() == Some(b',');

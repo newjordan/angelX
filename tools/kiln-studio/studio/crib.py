@@ -1,9 +1,3 @@
-"""crib.md: the ops of a source format an agent needs, put in its folder.
-
-A Claude job agent has no shell, so it can't run `pxl help`; the crib is
-made from pxl's own help at job time (so it follows pxl as it changes), and
-from the vfx cartridge's README for vfx recipes.
-"""
 import json
 import re
 from pathlib import Path
@@ -49,7 +43,6 @@ def pxl_crib():
         code, text, err = run([paths.NODE, paths.PXL, "help", op], env=paths.node_env(), timeout=30)
         if code or not text.strip():
             continue
-        # The reference's own lines, not the list of other places it is mentioned.
         body = text.split("[reference.md: also mentioned in]")[0].split("[examples:")[0].strip()
         body = re.sub(r"^\[reference\.md: [^\]]*\]\n?", "", body, flags=re.M).strip()
         if body:
@@ -96,8 +89,6 @@ An example (the cartridge's frost nova, in `$ice`):
 
 
 def kiln_crib(kind="figure"):
-    """kiln's own reference: docs/KILN-FX.md and two of its example recipes for an
-    effect, docs/KILN-RECIPE.md (when the core lane has written it) for a figure."""
     if kind == "vfx":
         doc = paths.REPO / "docs" / "KILN-FX.md"
         text = doc.read_text() if doc.exists() else "(docs/KILN-FX.md is not in this checkout)"

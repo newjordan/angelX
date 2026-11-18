@@ -8,15 +8,11 @@ use super::bot::Skill;
 use super::*;
 use serde_json::{json, Value};
 
-/// One run's plan.
 struct Plan {
     seats: u32,
-    /// Seats flown by the novice's hands (a bit each, from seat 1).
     novice: u32,
-    /// 0: bots only; 1: some random presses; 2: random bursts for everyone.
     chaos: u8,
     nums: Nums,
-    /// A late knight sits down at 400, one stands up at 1600 and returns at 2200.
     churn: bool,
     limit: u32,
 }
@@ -75,7 +71,6 @@ fn record_griffinwing_bend_cases() {
     }
 }
 
-/// Every function the recorders write, for the count at the end.
 const NAMES: &[&str] = &[
     "griffinwing.types.norm",
     "griffinwing.types.scale3",
@@ -150,7 +145,6 @@ const NAMES: &[&str] = &[
     "griffinwing.bot.Session.bot_input",
 ];
 
-/// The tick's inputs: bots (sure or novice hands), some scripted mistakes.
 fn inputs_for(
     s: &Session,
     heroes: &BTreeMap<u32, Hero>,
@@ -182,7 +176,6 @@ fn play(ri: usize, p: &Plan) {
         r.join_seat(id, &format!("Knight {id}"));
     }
     let mut heroes = r.players.clone();
-    // The late knight sits out until 400.
     if let Some(h) = heroes.get_mut(&late) {
         h.away = true;
     }
@@ -214,13 +207,11 @@ fn play(ri: usize, p: &Plan) {
     }
 }
 
-/// The pure arithmetic, and the odd corners no flight reaches.
 fn fixed_cases() {
     kit::at(0, 0);
     script::bend_script_tests::tables();
     bot::bend_bot_tests::noise_cases();
     let mut rng = Rng::new(77, 3);
-    // norm / flat over the ranges the sim lives in, and past them.
     for k in 0..80 {
         let span = match k % 4 {
             0 => 300,
@@ -243,13 +234,11 @@ fn fixed_cases() {
         let amp = [dm(16), dm(6), dm(24), dm(30), dm(18), 1000, 7, -dm(10)][k % 8];
         rec("griffinwing.types.tri", json!({"t": t, "period": period, "amp": amp}), json!(tri(t, period, amp)));
     }
-    // swept tests: through, beside, past, a point, and the real thing's magnitudes.
     for k in 0..120 {
         let reach = [60, 200, 2500, 12000][k % 4];
         let a = (rng.range(-reach, reach), rng.range(-reach, reach), rng.range(-reach, reach));
         let b = if k % 9 == 0 { a } else { (a.0 + rng.range(-1200, 1200), a.1 + rng.range(-600, 600), a.2 + rng.range(-600, 600)) };
         let p = if k % 3 == 0 {
-            // a point near the segment
             (a.0 + (b.0 - a.0) / 2 + rng.range(-90, 90), a.1 + (b.1 - a.1) / 2 + rng.range(-90, 90), a.2 + (b.2 - a.2) / 2 + rng.range(-90, 90))
         } else {
             (rng.range(-reach, reach), rng.range(-reach, reach), rng.range(-reach, reach))
@@ -257,7 +246,6 @@ fn fixed_cases() {
         let r = [dm(9), dm(5), dm(14), dm(21), 100, 3, 0][k % 7];
         rec("griffinwing.types.near", json!({"a": v3j(a), "b": v3j(b), "p": v3j(p), "r": r}), json!(near(a, b, p, r)));
     }
-    // the table
     for id in 1..=8u32 {
         rec("griffinwing.flight.slot", json!(id), json!(flight::slot(id)));
         rec("griffinwing.bit", json!(id), json!(bit(id)));
@@ -267,13 +255,11 @@ fn fixed_cases() {
     for k in 0..4usize {
         rec("griffinwing.flight.rider_slot", json!(k), json!(flight::rider_slot(k)));
     }
-    // inputs to bits
     for k in 0..40 {
         let mut rng2 = Rng::new(k, 5);
         let i = random_input(&mut rng2);
         rec("griffinwing.flight.bits", j(&i), json!(flight::bits(i)));
     }
-    // the five numbers
     for k in 0..60u32 {
         let mut tune = tune::Tune::default();
         for i in 0..5 {
@@ -287,14 +273,12 @@ fn fixed_cases() {
     }
     let n0 = Nums::default();
     rec("griffinwing.Nums.of", json!({"tune": {"roundtable": tune::Tune::default().roundtable}}), kit::nums_j(&n0));
-    // shutters
     for k in 0..60u32 {
         let p = Prop { thing: Thing::Shutter, s: 0, x: 0, z: 0, w: 0, h: 0, len: dm(30), taken: 0, phase: (k * 13 % 150) as u16 };
         let t = k * 31;
         let wx = Nums::default().wx();
         rec("griffinwing.things.shutter_gap", json!({"p": j(&p), "t": t, "wx": wx}), json!(things::shutter_gap(&p, t, wx)));
     }
-    // the tally and the beast and the craft, whole and broken
     for k in 0..60u32 {
         let mut t = Tally { pts: k * 997, base: k * 311, offered: k * 677, kills: k, saved: (k % 7) as u16, lost: (k % 5) as u16, gates: (k % 11) as u16 };
         rec("griffinwing.types.Tally.valid", j(&t), json!(t.valid()));
@@ -316,7 +300,6 @@ fn v3j(t: (i32, i32, i32)) -> Value {
     json!([t.0, t.1, t.2])
 }
 
-/// Everything recorded on a state the flight passes through.
 fn sample(s: &Session, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32, Hero>, n: &Nums, tick: u32) {
     let (ri, _) = kit::clock();
     let mut rng = Rng::new(ri as u64 * 1_000_003, tick as u64 + 1);
@@ -330,14 +313,12 @@ fn sample(s: &Session, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32, Her
     bot::bend_bot_tests::sample(s, n, &mut rng);
 }
 
-/// The types' readers and checks over the live session.
 fn types_cases(s: &Session, rng: &mut Rng) {
     if want("griffinwing.types.Foe.alive") {
         for f in s.foes.iter().take(3) {
             rec("griffinwing.types.Foe.alive", j(f), json!(f.alive()));
             rec("griffinwing.types.Foe.lockable", j(f), json!(f.lockable()));
         }
-        // each state of each kind
         for (k, st) in [St::Fly, St::Tell, St::Rest, St::Hunt, St::Latched, St::Flee, St::Hide, St::Dive, St::Shut, St::Open, St::Broken].iter().enumerate() {
             if let Some(f) = s.foes.get(k % s.foes.len().max(1)) {
                 let mut f = f.clone();
@@ -409,7 +390,6 @@ fn types_cases(s: &Session, rng: &mut Rng) {
     }
 }
 
-/// The session's own readers and mutators.
 fn session_cases(s: &Session, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32, Hero>, n: &Nums, rng: &mut Rng) {
     if want("griffinwing.Session.anchor") {
         rec("griffinwing.Session.anchor", kit::sj_keys(s, &["stage", "t"]), json!(s.anchor()));
@@ -624,11 +604,8 @@ fn session_cases(s: &Session, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u
             json!({"s": kit::sj(&c), "out": {"sounds": out.sounds, "leave": out.leave}}),
         );
     }
-    // the phases of a tick, on the state the tick passes through
     phases(s, inputs, heroes, n);
-    // the transitions, on states made to need them
     transitions(s, rng);
-    // what the bots press
     for (&id, _) in s.seats.iter() {
         for skill in [Skill::Sure, Skill::Novice] {
             if want_with("griffinwing.bot.Session.bot_with", 6, 90) {
@@ -651,8 +628,6 @@ fn session_cases(s: &Session, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u
     }
 }
 
-/// Phases of `Session::step` replayed one by one on a copy, each recorded
-/// before and after.
 fn phases(s: &Session, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32, Hero>, n: &Nums) {
     if s.mode != Mode::Play {
         return;
@@ -695,7 +670,6 @@ fn phases(s: &Session, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32, Her
     phase!("griffinwing.flight.Session.step_craft", c.step_craft(n));
 }
 
-/// The beat's transitions, on the session as it stands and on made-up ends.
 fn transitions(s: &Session, rng: &mut Rng) {
     if want("griffinwing.Session.end_beat") {
         let mut variants = vec![s.clone()];
@@ -747,7 +721,6 @@ fn transitions(s: &Session, rng: &mut Rng) {
     }
 }
 
-/// A Wyrm for the states that need one.
 fn boss_for_test(s: &Session) -> Beast {
     Beast {
         phase: 2,

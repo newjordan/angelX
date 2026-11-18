@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Three repetitions of eight live tasks. Requires explicit selected-provider approval.
-# Example AFTER approval: MAGE_ALLOW_MUSE=1 LIVE_DIR=angel-live-tuned bash live_bench.sh 3
-# --preflight checks the binary/dependencies and local Mage inference, no Muse call.
 set -euo pipefail
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 . "$HERE/preflight.sh"
@@ -20,7 +17,6 @@ mkdir -p "$MAGE_BENCH_ROOT/$LIVE_DIR"
 exec 9>"$MAGE_BENCH_ROOT/.live-bench.lock"
 flock -n 9 || { echo 'another Mage live benchmark is running' >&2; exit 1; }
 mage_preflight
-# Score existing evidence once; skip only validated runs, never launcher failures.
 python3 -I "$HERE/live_score.py" "$MAGE_BENCH_ROOT"
 SCORE="$MAGE_BENCH_ROOT/live_analysis-$LIVE_DIR.json"
 [[ $LIVE_DIR != angel-live ]] || SCORE="$MAGE_BENCH_ROOT/live_analysis.json"

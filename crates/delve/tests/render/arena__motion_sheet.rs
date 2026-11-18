@@ -13,26 +13,17 @@ use crate::rules::{EnemyKind, Input, Phase, Weapon};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-/// Where the knight stands: the middle of a bare fight room.
 const KX: f32 = 22.0;
 const KY: f32 = 14.0;
 
-// ─── the film ────────────────────────────────────────────────────────────────
-
-/// A moment's frames, and the tick each was taken at, from the press.
 struct Reel {
     frames: Vec<(i64, Img)>,
 }
 
-/// What a frame is taken of.
 #[derive(Clone, Copy)]
 enum Lens {
-    /// A `w` by `h` window of the seat's view about arena point `at`,
-    /// fixed to the room (the shake shows as the room moving in it).
     Room { at: (f32, f32), size: (i32, i32) },
-    /// The seat's whole view.
     View,
-    /// The seat's whole screen, bands and all.
     Seat,
 }
 
@@ -61,9 +52,6 @@ fn take(run: &Run, lens: Lens) -> Img {
     }
 }
 
-/// `ticks` ticks of `run` through `lens`, a frame before each step; on
-/// tick `t` the knights press what `press(t, run)` gives (it may also set
-/// the scene: a foe hurt, a coin found). Ticks are counted from `from`.
 fn roll(
     run: &mut Run,
     from: i64,
@@ -113,7 +101,6 @@ impl Reel {
         println!("{name}: {} frames", self.frames.len());
     }
 
-    /// The frames in rows, `k` times their size, each under its tick.
     fn sheet(&self, k: i32) -> Img {
         let (w, h) = (self.frames[0].1.w, self.frames[0].1.h);
         let per = ((1200 / (w * k + 4)).max(1) as usize).min(self.frames.len());
@@ -142,12 +129,6 @@ fn scaled(img: &Img, k: i32) -> Img {
     out
 }
 
-// ─── a GIF, by hand ──────────────────────────────────────────────────────────
-
-/// `frames` as an animated GIF, `k` times their size, each shown for its
-/// tick (30 a second: delays of 3 and 4 hundredths, alternating so the
-/// whole runs true). One palette for the reel: its commonest 256 colours,
-/// the rest drawn as the nearest of them.
 fn gif(path: &Path, frames: &[(i64, Img)], k: i32) {
     let (w, h) = (frames[0].1.w * k, frames[0].1.h * k);
     let rgb = |img: &Img, x: i32, y: i32| img.get(x / k, y / k).unwrap_or([0, 0, 0]);
@@ -183,7 +164,6 @@ fn gif(path: &Path, frames: &[(i64, Img)], k: i32) {
     for i in 0..256 {
         out.extend(palette.get(i).copied().unwrap_or([0, 0, 0]));
     }
-    // Loop for ever.
     out.extend([0x21, 0xff, 0x0b]);
     out.extend(b"NETSCAPE2.0");
     out.extend([3, 1, 0, 0, 0]);
@@ -214,8 +194,6 @@ fn gif(path: &Path, frames: &[(i64, Img)], k: i32) {
     std::fs::write(path, out).unwrap();
 }
 
-/// GIF's LZW: variable-width codes, least significant bit first, the
-/// table cleared when it fills.
 fn lzw(data: &[u8], min: u32) -> Vec<u8> {
     let (clear, end) = (1u32 << min, (1u32 << min) + 1);
     let mut table: std::collections::HashMap<(u32, u8), u32> = std::collections::HashMap::new();
@@ -268,9 +246,6 @@ fn lzw(data: &[u8], min: u32) -> Vec<u8> {
     out
 }
 
-// ─── the rooms ───────────────────────────────────────────────────────────────
-
-/// A quiet bare fight room: knight 1 at its middle with `kit`, facing east.
 fn room(kit: &str) -> Run {
     let mut r = crate::rules::feel::testing::quiet();
     crate::rules::feel::testing::bare(&mut r);
@@ -304,7 +279,6 @@ fn room(kit: &str) -> Run {
     r
 }
 
-/// A foe of `kind` at `(x, y)`, awake but holding still, with `hp`.
 fn foe(r: &mut Run, kind: EnemyKind, x: f32, y: f32, hp: u32) -> u32 {
     r.spawn_at_for_test(kind, x, y);
     let e = r.enemies.last_mut().unwrap();
@@ -316,8 +290,6 @@ fn foe(r: &mut Run, kind: EnemyKind, x: f32, y: f32, hp: u32) -> u32 {
     e.id
 }
 
-/// A far foe asleep at the room's edge, so a kill does not clear the room
-/// and bring its rewards in over the picture.
 fn witness(r: &mut Run) {
     foe(r, EnemyKind::Goblin, KX - 14.0, KY - 8.0, 10_000);
     r.enemies.last_mut().unwrap().sleep_until = u64::MAX;
@@ -327,25 +299,19 @@ fn swing() -> Input {
     Input { swing: true, ..Default::default() }
 }
 
-/// About the knight and a little ahead of them.
 fn near(size: (i32, i32)) -> Lens {
     Lens::Room { at: (KX + 1.6, KY - 0.8), size }
 }
 
-// ─── the moments ─────────────────────────────────────────────────────────────
-
-/// Every moment, by name, as a reel.
 fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
     let mut all: Vec<(&'static str, Box<dyn Fn() -> Reel>)> = Vec::new();
 
-    // A sword's blow on a foe that takes it.
     all.push(("swing-hit", Box::new(|| {
         let mut r = room("sword");
         foe(&mut r, EnemyKind::Goblin, KX + 2.6, KY, 10_000);
         roll(&mut r, -3, 24, near((112, 64)), |t, _| on(t, 0, swing()))
     })));
 
-    // A sword's kill: the hold, the cut, what is left.
     all.push(("swing-kill", Box::new(|| {
         let mut r = room("sword");
         witness(&mut r);
@@ -353,7 +319,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         roll(&mut r, -3, 36, near((112, 64)), |t, _| on(t, 0, swing()))
     })));
 
-    // The great maul's kill: weight.
     all.push(("maul-kill", Box::new(|| {
         let mut r = room("hammerer");
         witness(&mut r);
@@ -361,7 +326,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         roll(&mut r, -3, 40, near((128, 80)), |t, _| on(t, 0, Input { fire: true, aim_x: 1, ..Default::default() }))
     })));
 
-    // A bullet turned off the blade and home to its shooter.
     all.push(("parry", Box::new(|| {
         let mut r = room("sword");
         foe(&mut r, EnemyKind::Marksman, KX + 9.0, KY, 60);
@@ -374,7 +338,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         roll(&mut r, -2, 30, Lens::Room { at: (KX + 5.0, KY - 0.8), size: (176, 64) }, |t, _| on(t, 0, swing()))
     })));
 
-    // An arrow loosed, its flight, and its sparks on a skeleton.
     all.push(("arrow-hit", Box::new(|| {
         let mut r = room("bow");
         foe(&mut r, EnemyKind::Skeleton, KX + 7.0, KY, 10_000);
@@ -383,7 +346,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })
     })));
 
-    // A knight struck, small and heavy.
     for (name, damage) in [("struck", 1u32), ("struck-heavy", 8)] {
         all.push((name, Box::new(move || {
             let mut r = room("sword");
@@ -399,7 +361,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })));
     }
 
-    // A foe's death by an arrow: the white hold and the burst.
     all.push(("foe-death", Box::new(|| {
         let mut r = room("bow");
         witness(&mut r);
@@ -409,8 +370,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })
     })));
 
-    // Each kind of find: dropped in front of the knight, who walks over it
-    // (and takes it, where it waits to be taken).
     for (name, card) in [
         ("pickup-gold", "gold"),
         ("pickup-heart", "heart"),
@@ -438,7 +397,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })));
     }
 
-    // A wish granted: the ring at the knight's feet, the twinkles rising.
     all.push(("wish-grant", Box::new(|| {
         let mut r = room("sword");
         witness(&mut r);
@@ -458,7 +416,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })
     })));
 
-    // A spell cast and landing.
     for (name, id, ticks) in [("spell-firebolt", "firebolt", 34u32), ("spell-frost-nova", "frost-nova", 36), ("spell-spark-ring", "spark-ring", 34)] {
         all.push((name, Box::new(move || {
             let mut r = room("sword");
@@ -486,9 +443,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })));
     }
 
-    // A wish made from the templates (Frost Fletching, its recipe
-    // `templates/effect-shot.vfx`): the loosing, the trail, the hit, and a
-    // kill (docs/TEMPLATES.md).
     for (name, hp, ticks) in [("wish-frost-arrow", 10_000u32, 30u32), ("wish-frost-kill", 1, 30)] {
         all.push((name, Box::new(move || {
             let mut r = room("bow");
@@ -507,7 +461,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })));
     }
 
-    // Out of a cleared room through its door and into the next.
     all.push(("door", Box::new(|| {
         let mut r = crate::rules::feel::testing::quiet();
         r.clear_for_test();
@@ -524,7 +477,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         before.then(roll(&mut r, 0, 40, Lens::View, none))
     })));
 
-    // A knight falls while a friend stands: the bones come apart.
     all.push(("fall", Box::new(|| {
         let mut r = room("sword");
         r.join_seat(2, "Seat 2");
@@ -542,7 +494,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })
     })));
 
-    // The last knight falls: the party is FALLEN.
     all.push(("wipe", Box::new(|| {
         let mut r = room("sword");
         witness(&mut r);
@@ -556,7 +507,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })
     })));
 
-    // The HUD: a hit taken, and a potion drunk.
     all.push(("hud", Box::new(|| {
         let mut r = room("sword");
         witness(&mut r);
@@ -573,7 +523,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })
     })));
 
-    // A guardian comes into the room.
     all.push(("boss-intro", Box::new(|| {
         let mut r = room("sword");
         r.players.get_mut(&1).unwrap().y = KY + 6.0;
@@ -582,7 +531,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         roll(&mut r, 0, 75, Lens::View, none)
     })));
 
-    // The last foe falls: the room's end, the coins, the wish's sign.
     all.push(("room-clear", Box::new(|| {
         let mut r = room("sword");
         r.dungeon.rooms[r.at].roster.clear();
@@ -602,7 +550,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         roll(&mut r, -2, 110, Lens::View, |t, _| on(t, 0, swing()))
     })));
 
-    // A room won gives wishes: the sign says so, and goes.
     all.push(("wish-sign", Box::new(|| {
         let mut r = room("sword");
         r.players.get_mut(&1).unwrap().y = KY + 5.0;
@@ -614,9 +561,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })
     })));
 
-    // ── The steps up (`rules::rewards`, `arena::rewards`). ──
-
-    // A level reached: the experience the kill marked crosses it.
     all.push(("level-up", Box::new(|| {
         let mut r = room("sword");
         roll(&mut r, -3, 96, Lens::Room { at: (KX, KY - 3.2), size: (128, 96) }, |t, r| {
@@ -627,7 +571,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })
     })));
 
-    // A wish's ladder climbed a tier, and a super wish climbing two.
     for (name, id, great) in [("tier-up", "volley", false), ("tier-up-super", "seeker", true)] {
         all.push((name, Box::new(move || {
             let mut r = room("sword");
@@ -650,8 +593,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })));
     }
 
-    // The fifth tier's violet, the rung climbed, the party's banners: put up
-    // as the rules put them up.
     for (name, knight, kind, ticks, lens) in [
         ("tier-five", 1u32, crate::rules::rewards::Kind::Tier { wish: "Triple Volley".into(), from: 3, tier: 4 }, 64u32, Lens::Room { at: (KX, KY - 3.2), size: (112, 88) }),
         ("rung-up", 1, crate::rules::rewards::Kind::Rung { px: 32 }, 108, Lens::Room { at: (KX, KY - 3.0), size: (112, 88) }),
@@ -670,7 +611,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })));
     }
 
-    // A relic taken off the floor.
     all.push(("relic", Box::new(|| {
         let mut r = room("sword");
         witness(&mut r);
@@ -687,7 +627,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })
     })));
 
-    // The verdict comes in on the steps it has stood.
     all.push(("verdict-in", Box::new(|| {
         let mut r = room("sword");
         roll(&mut r, -2, 40, Lens::View, |t, r| {
@@ -699,7 +638,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         })
     })));
 
-    // A finished run's last word: the road ahead, for a party of three.
     all.push(("road-ahead", Box::new(|| {
         let mut r = room("sword");
         r.join_seat(2, "Ada");
@@ -717,8 +655,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
                 rung: 32,
             });
         }
-        // The realm as it would stand: each knight's experience kept, the
-        // party on the floor it won on.
         for id in 1..=3u32 {
             let key = crate::rules::talents::knight_key(&r.players[&id]);
             let xp = if id == 2 { 300 } else { r.ledger.earned[&id].xp + 600 - 420 };
@@ -732,7 +668,6 @@ fn moments() -> Vec<(&'static str, Box<dyn Fn() -> Reel>)> {
         Reel { frames: (0..170).map(|t| (t, super::rewards::road_page(&r, t as u32))).collect() }
     })));
 
-    // The run won.
     all.push(("victory", Box::new(|| {
         let mut r = room("sword");
         roll(&mut r, -2, 40, Lens::View, |t, r| {
@@ -763,13 +698,10 @@ fn write_motion_sheet() {
     }
 }
 
-/// The GIF writer's codes read back: a small picture through `lzw` and a
-/// plain decoder gives the same indices.
 #[test]
 fn the_sheets_gif_codes_read_back() {
     let data: Vec<u8> = (0..20_000u32).map(|i| ((i * 7 + i / 13) % 37) as u8).collect();
     let packed = lzw(&data, 8);
-    // Decode.
     let (clear, end) = (256u32, 257u32);
     let mut table: Vec<Vec<u8>> = (0..258).map(|i| if i < 256 { vec![i as u8] } else { vec![] }).collect();
     let (mut size, mut pos, mut out) = (9u32, 0usize, Vec::<u8>::new());

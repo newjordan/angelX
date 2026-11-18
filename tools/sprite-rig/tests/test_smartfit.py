@@ -1,4 +1,3 @@
-"""The silhouette fit reads each bestiary sprite the way an artist would cut it."""
 from pathlib import Path
 
 import numpy as np
@@ -57,7 +56,6 @@ def test_the_head_is_whole_and_above_the_torso(name, tmp_path):
     head, torso = mask(rig, 'head'), mask(rig, 'torso')
     assert head.sum() >= 12 and torso.sum() >= 6
     assert np.nonzero(head)[0].mean() < np.nonzero(torso)[0].mean()
-    # the eyes (the top third of the figure) are never cut off the head
     ys = np.nonzero(head | torso)[0]
     top_third = ys.min() + (ys.max() - ys.min()) // 4
     assert not torso[:top_third].any()
@@ -94,5 +92,5 @@ def test_it_builds_every_clip_and_idle_starts_as_drawn(name, tmp_path):
 
 
 def test_a_sprite_with_no_outline_falls_back_to_the_proportional_fit():
-    squire = HERE.parent / 'quick' / 'squire.png'  # flat colour, no dark outline
+    squire = HERE.parent / 'quick' / 'squire.png'
     assert S.fit(squire) == Q.fit(squire)

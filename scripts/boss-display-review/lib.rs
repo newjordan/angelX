@@ -67,7 +67,6 @@ mod tests {
                     return;
                 }
             }
-            // The cockpit's V1 paint_room route: frame_for(96,56), then paint_pixels.
             let im=arena::frame_for(run,96,56,Some(1));
             for y in 0..28u16 { for x in 0..96u16 {
                 let [r,g,b]=im.get(x as i32,y as i32*2).unwrap_or([0;3]);

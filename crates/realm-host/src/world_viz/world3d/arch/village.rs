@@ -11,11 +11,8 @@ use super::super::mesh::{Mesh, mat};
 use super::prim::{self, F_SIDES, F_SIDES_TOP};
 use super::rng::{Rng, sub_seed};
 
-/// Cottage. **Footprint ~4.2 × 2.8 tiles** (3.44 × 2.76 under the roof, plus a
-/// lean-to shed off one gable end — which end is seeded), **~3.6 tiles tall**
-/// to the chimney cap. Centred on the origin, door on the −y face.
 pub fn cottage(seed: u64) -> Mesh {
-    let mut r = Rng::new(sub_seed(seed, 0x43_4F_54_54)); // "COTT"
+    let mut r = Rng::new(sub_seed(seed, 0x43_4F_54_54));
     let mut m = Mesh::new();
 
     let hx = 1.50_f32;
@@ -58,7 +55,6 @@ pub fn cottage(seed: u64) -> Mesh {
         mat::ROOF,
     );
 
-    // Chimney: off-centre, tall enough to break the ridge line.
     let ch_x = r.range(0.55, 1.05) * if r.chance(0.5) { -1.0 } else { 1.0 };
     prim::boxed(
         &mut m,
@@ -68,7 +64,6 @@ pub fn cottage(seed: u64) -> Mesh {
         F_SIDES_TOP,
     );
 
-    // Door and windows.
     prim::rect_panel(
         &mut m,
         v3(-0.34, -hy - 0.02, 0.28),
@@ -95,7 +90,6 @@ pub fn cottage(seed: u64) -> Mesh {
         );
     }
 
-    // Lean-to shed on one gable end.
     let sx = if r.chance(0.5) { -1.0_f32 } else { 1.0 };
     let x_in = sx * hx;
     let x_out = sx * (hx + 0.95);
@@ -127,11 +121,8 @@ pub fn cottage(seed: u64) -> Mesh {
     m
 }
 
-/// Chapel. **Footprint ~7.4 × 3.6 tiles**, **~6.9 tiles tall** to the spire.
-/// Centred on the origin (the nave sits off-centre so the bell tower balances
-/// the mass), entrance on the −y face.
 pub fn chapel(seed: u64) -> Mesh {
-    let mut r = Rng::new(sub_seed(seed, 0x43_48_50_4C)); // "CHPL"
+    let mut r = Rng::new(sub_seed(seed, 0x43_48_50_4C));
     let mut m = Mesh::new();
 
     let cx = 0.0_f32;
@@ -201,7 +192,6 @@ pub fn chapel(seed: u64) -> Mesh {
         mat::WINDOW,
     );
 
-    // Bell tower with a pyramidal spire.
     let tx = cx - hx - 1.05;
     let z_belfry = 5.00 + r.jitter(0.15);
     prim::battered(
@@ -272,15 +262,12 @@ pub fn chapel(seed: u64) -> Mesh {
         mat::DOOR,
     );
 
-    // Re-centre: the tower hangs off −x, so slide the whole thing back.
     let (lo, hi) = prim::bbox(&m).unwrap_or((V3::ZERO, V3::ZERO));
     m.translated(v3(-(lo.x + hi.x) * 0.5, 0.0, 0.0))
 }
 
-/// Market stall. **Footprint ~2.8 × 2.0 tiles**, **~2.3 tiles tall**.
-/// Centred on the origin, counter facing −y.
 pub fn market_stall(seed: u64) -> Mesh {
-    let mut r = Rng::new(sub_seed(seed, 0x53_54_4C_4C)); // "STLL"
+    let mut r = Rng::new(sub_seed(seed, 0x53_54_4C_4C));
     let mut m = Mesh::new();
 
     prim::boxed(
@@ -332,8 +319,6 @@ pub fn market_stall(seed: u64) -> Mesh {
     m
 }
 
-/// Draw well. **Footprint ~1.9 × 1.5 tiles**, **~2.5 tiles tall**.
-/// Centred on the origin.
 pub fn well() -> Mesh {
     let mut m = Mesh::new();
     prim::prism(&mut m, 0.0, 0.0, 0.0, 0.75, 0.66, 0.62, 8, 0.0, mat::STONE);
@@ -363,11 +348,6 @@ pub fn well() -> Mesh {
     m
 }
 
-/// Arched stone bridge spanning along **+x**, centred on the origin.
-/// **Footprint (`length` + 1.4) × 2.6 tiles**, **~2.4 tiles tall** to the
-/// parapet crown. The deck cambers up to the middle and a single faceted
-/// segmental arch springs from z = 0 at ±0.40 × `length`, so the void under the
-/// crown is a clean dark lozenge at dot scale.
 pub fn bridge(length: f32) -> Mesh {
     let mut m = Mesh::new();
 
@@ -397,7 +377,6 @@ pub fn bridge(length: f32) -> Mesh {
         let (d0, d1) = (deck(x0), deck(x1));
         let (s0, s1) = (soffit(x0), soffit(x1));
 
-        // Roadway.
         prim::quad(
             &mut m,
             v3(x0, -hw, d0),
@@ -406,7 +385,6 @@ pub fn bridge(length: f32) -> Mesh {
             v3(x0, hw, d0),
             mat::PATH,
         );
-        // Spandrel faces — these carry the arch silhouette.
         for &sy in &[-1.0_f32, 1.0] {
             prim::quad(
                 &mut m,
@@ -417,7 +395,6 @@ pub fn bridge(length: f32) -> Mesh {
                 mat::STONE,
             );
         }
-        // Arch barrel underside (skipped where the arch has landed).
         if s0 > 1e-3 || s1 > 1e-3 {
             prim::quad(
                 &mut m,
@@ -428,7 +405,6 @@ pub fn bridge(length: f32) -> Mesh {
                 mat::STONE_DARK,
             );
         }
-        // Parapets: outer face + coping only.
         for &sy in &[-1.0_f32, 1.0] {
             let y_out = sy * hw;
             let y_in = sy * (hw - 0.26);
@@ -451,7 +427,6 @@ pub fn bridge(length: f32) -> Mesh {
         }
     }
 
-    // Abutments at both ends.
     for &sx in &[-1.0_f32, 1.0] {
         let x_in = sx * half;
         let x_out = sx * (half + 0.70);

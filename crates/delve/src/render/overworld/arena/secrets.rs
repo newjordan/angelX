@@ -7,9 +7,6 @@ use super::{at, sprites, stand};
 use crate::rules::EnemyKind;
 use crate::rules::secrets::snibbet_at;
 
-/// The fissures, for a wall that runs east to west (the north and south
-/// walls); turned for the east and west. `k` the gap, `h` its broken,
-/// lit edge.
 const FISSURE: [&str; 16] = [
     "...........h....................",
     "..........hk..........h.........",
@@ -29,8 +26,6 @@ const FISSURE: [&str; 16] = [
     "................................",
 ];
 
-/// The crack at `(cx, cy)` (the middle of the doorway it hides, arena
-/// units) in the wall on `side` (north, east, south, west).
 pub(super) fn crack(cv: &mut Img, (cx, cy): (f32, f32), side: usize) {
     let (x, y) = at(cx, cy);
     let across = Img::from_rows(&FISSURE);
@@ -48,7 +43,6 @@ pub(super) fn crack(cv: &mut Img, (cx, cy): (f32, f32), side: usize) {
         turned
     };
     cv.stamp(&im, x - im.w / 2, y - im.h / 2);
-    // Stones fallen at the wall's foot, inside the room.
     let (ix, iy) = inward(side, 11);
     for (k, (dx, dy)) in [(-8, -1), (-4, 1), (1, 0), (5, 2), (9, -1), (-1, 3)]
         .iter()
@@ -67,7 +61,6 @@ pub(super) fn crack(cv: &mut Img, (cx, cy): (f32, f32), side: usize) {
     }
 }
 
-/// A step from the wall on `side` into the room, `by` pixels.
 fn inward(side: usize, by: i32) -> (i32, i32) {
     match side {
         0 => (0, by),
@@ -77,8 +70,6 @@ fn inward(side: usize, by: i32) -> (i32, i32) {
     }
 }
 
-/// The draught through the crack: pale motes drifting into the room, a
-/// wall that breathes.
 pub(super) fn draught(cv: &mut Img, run: &crate::rules::Run) {
     let Some((host, cx, cy)) = run.dungeon.crack() else {
         return;
@@ -101,8 +92,6 @@ pub(super) fn draught(cv: &mut Img, run: &crate::rules::Run) {
     }
 }
 
-/// Snibbet in his vault, a retired loot goblin on his sack; once he has
-/// paid, he waves the party off.
 pub(super) fn snibbet(cv: &mut Img, run: &crate::rules::Run) {
     let Some(secret) = run
         .dungeon

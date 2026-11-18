@@ -385,9 +385,6 @@ export function runAdvisoryVerification(
   try {
     const sourceRoot = extractVerifiedRows(verified.rows, scratch)
     const scanRoot = join(scratch, 'scan')
-    // The official scanner runs as a non-host UID. Directory traversal must be
-    // world-readable even though the bind remains read-only and contains only
-    // the exact public release lockfiles.
     mkdirSync(join(scanRoot, 'cockpit'), { recursive: true, mode: 0o755 })
     for (const lockfile of policy.lockfiles) {
       const source = join(sourceRoot, lockfile.path)

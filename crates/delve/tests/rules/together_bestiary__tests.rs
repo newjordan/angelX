@@ -1,10 +1,7 @@
 use super::*;
 
-/// Whether a kind belongs in the Bestiary; every kind is named, so a new
-/// monster has to be thought about here.
 fn in_the_book(kind: EnemyKind) -> bool {
     match kind {
-        // Guardians have the Trophy Hall; quintains never fall.
         EnemyKind::Boss | EnemyKind::Dummy => false,
         EnemyKind::Bat
         | EnemyKind::Skeleton

@@ -18,15 +18,9 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { pathToFileURL } from 'node:url'
 
 export const RELEASE_SCHEMA = 'angelX-source-release-evidence/v1'
-// The archive is the ordinary terminal cockpit and its headless task runtime.
 export const RELEASE_SCOPE = 'ordinary-terminal-cockpit-source'
 export const SUPPORTED_CARGO_TARGET = 'x86_64-unknown-linux-gnu'
 
-// Files consumed by compile-time include_* macros (release build and unit
-// tests). Keep these explicit: selecting all of cockpit/ also publishes
-// operator-only skills, personas, fleet metadata, design work, and source
-// artwork that the runner neither builds nor needs. The release test derives
-// the include set from the packaged crates and fails when this list drifts.
 export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'cockpit/assets/dungeon/bosses/archive-drowned-reeve.boss',
   'cockpit/assets/dungeon/bosses/deep-blight.boss',
@@ -224,7 +218,6 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'cockpit/research/labyrinth/upstream/tools/codex_smoke.py',
   'cockpit/research/labyrinth/upstream/tools/make_graphics.py',
   'cockpit/research/labyrinth/upstream/tools/screenshots.py',
-  // Offline Sloptomizer options are embedded; no experimental checkout dependency.
   'cockpit/research/sloptomizer/runner.py',
   'cockpit/research/sloptomizer/relations.py',
   'cockpit/research/sloptomizer/UPSTREAM.json',
@@ -276,7 +269,6 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'cockpit/fixtures/sheets/golden-devils.png',
   'cockpit/fixtures/sheets/spiked-pavise.png',
   'cockpit/fixtures/observatory/manifest-v2.json',
-  // Painted crawl textures and sprites are compiled into the game renderer.
   'cockpit/assets/crawl/ceiling.ink',
   'cockpit/assets/crawl/door.ink',
   'cockpit/assets/crawl/floor_flags.ink',
@@ -325,7 +317,6 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'cockpit/assets/realm/inscriptions/accelerando-spoken-here.json',
   'cockpit/assets/realm/palette.json',
   'cockpit/assets/realm/v2/interiors/station-round-table.png',
-  // The Delve's built-in cards, bosses, phrasebook, chorus and realm wishes.
   'cockpit/assets/dungeon/bosses/archive-bellkeeper.boss',
   'cockpit/assets/dungeon/bosses/cinderjaw.boss',
   'cockpit/assets/dungeon/bosses/crypt-relic-liege.boss',
@@ -414,11 +405,9 @@ export const REQUIRED_COCKPIT_EMBEDDED_FILES = Object.freeze([
   'cockpit/assets/realm/wishes/wayside-shrine.wish',
   'cockpit/assets/together/ember-spell.json',
   'cockpit/assets/together/spark-wand.json',
-  // Telemetry tables the cockpit compiles in for cost/calibration/store caps.
   'docs/telemetry/model-calibration.toml',
   'docs/telemetry/prices.toml',
   'docs/telemetry/store-caps.toml',
-  // Synthetic wire fixtures consumed by the provider parser tests.
   'cockpit/fixtures/usage/native-usage-wire-v1.json',
   'cockpit/fixtures/usage/supplemental-chat-usage-wire-v1.json',
   'cockpit/assets/dungeon/wish-art/chain.art',
@@ -1322,8 +1311,6 @@ const PUBLIC_RELEASE_NOTICES = Object.freeze([
   'third-party/sources.json',
 ])
 
-// Build/runtime data is separate from the exact literal-include inventory,
-// but both enter the source identity and are required in source releases.
 export const REQUIRED_COCKPIT_BUILD_RUNTIME_FILES = Object.freeze([
   'cockpit/native/activity_classifier.c',
   'cockpit/native/generate_moa_router.py',
@@ -1352,7 +1339,6 @@ export const RELEASE_PATHS = Object.freeze([
   'scripts/runtime/angel-setup.sh',
   'scripts/release/build-prebuilt.sh',
   'scripts/release/package-prebuilt.sh',
-  // The Delve's art scripts, named by the art notes beside each asset set.
   'scripts/arcade-art.py',
   'scripts/arcade-fx-polish.py',
   'scripts/arcade-knight.py',
@@ -1389,15 +1375,12 @@ export const RELEASE_PATHS = Object.freeze([
   'cockpit/web-bundle/build.rs',
   'cockpit/web-bundle/lib.rs',
   'cockpit/web-bundle/pack_asset.rs',
-  // V8's compilation boundary: the cockpit's angel-code-mode path dependency.
   'cockpit/code-mode',
   'cockpit/delve-cart',
   'cockpit/README.md',
   'cockpit/Cargo.lock',
   'cockpit/src',
   'cockpit/examples',
-  // The engine's crates: the cockpit's path dependencies (the Delve, its net
-  // and server) and the browser client build.rs compiles and embeds.
   'crates',
   'tests/cockpit',
   'tests/README.md',
@@ -1430,8 +1413,6 @@ export const RELEASE_PATHS = Object.freeze([
   'vendor/dotmax/LICENSE-MIT',
   'vendor/dotmax/README.md',
   'vendor/dotmax/src',
-  // ureq is the cockpit's second local Cargo path dependency (a vendored,
-  // patched fork); the archive cannot build offline without it.
   'vendor/ureq/ANGEL_PATCH.md',
   'vendor/ureq/Cargo.toml',
   'vendor/ureq/LICENSE-APACHE',
@@ -1506,8 +1487,6 @@ export const REQUIRED_RELEASE_FILES = Object.freeze([
   'cockpit/src/main.rs',
   'crates/Cargo.toml',
   'crates/Cargo.lock',
-  // The Delve's browser page is built and embedded by the realm host's build
-  // script, with its working-build helper module.
   'crates/realm-host/build.rs',
   'crates/realm-host/build_fast.rs',
   'crates/web/rules_js.rs',
@@ -1600,8 +1579,6 @@ export function sha256File(path) {
 }
 
 export function isCockpitSourceIdentityInput(path) {
-  // dotmax is the cockpit's local Cargo path dependency, so its manifest and
-  // complete source tree must share the binary's source identity.
   return (
     path === 'cockpit/Cargo.toml' ||
     path === 'cockpit/Cargo.lock' ||
@@ -1778,13 +1755,6 @@ function isCgnatHost(host) {
   )
 }
 
-/**
- * Reject operator-local material even if a future edit widens RELEASE_PATHS.
- *
- * Synthetic values are allowed only in test/fixture sources so private-network
- * behavior remains testable. Production source and documentation may not carry
- * any CGNAT literal or absolute per-user home path.
- */
 export function assertPublicReleaseEntries(repoRoot, entries) {
   const embedded = new Set(REQUIRED_COCKPIT_EMBEDDED_FILES)
   for (const entry of entries) {
@@ -1830,7 +1800,6 @@ export function assertPublicReleaseEntries(repoRoot, entries) {
 
     if (!isTextReleasePath(path)) continue
     const source = readFileSync(join(repoRoot, path), 'utf8')
-    // A root home folder only: a repository folder named `home` (delve/rules/home/) is not one.
     for (const match of source.matchAll(/(?<![A-Za-z0-9._~-])\/(?:home|Users)\/([A-Za-z0-9._-]+)(?:\/|\b)/gu)) {
       if (!SYNTHETIC_HOME_NAMES.has(match[1])) {
         fail(`machine-specific absolute home path in public release entry: ${path}`)
@@ -1859,8 +1828,6 @@ export function assertPublicReleaseEntries(repoRoot, entries) {
   }
 }
 
-// Check against the archive inventory, not the development checkout: a private
-// helper present locally cannot satisfy an instruction in the distributed docs.
 export function assertDocumentedSourcePaths(repoRoot, entries) {
   const paths = new Set(entries.map((entry) => entry.path))
   const present = (path) =>
@@ -1871,9 +1838,6 @@ export function assertDocumentedSourcePaths(repoRoot, entries) {
       .join('/')
   for (const path of paths) {
     if (!path.endsWith('.md') || /^(vendor|third-party)\//u.test(path)) continue
-    // The book embeds Markdown as model instructions. Its examples describe
-    // files in a future user workspace, not dependencies of the source archive.
-    // Keep these bytes in the inventory and public-content checks above.
     if (path.startsWith('cockpit/src/agent/harness/book/')) continue
     const source = readFileSync(join(repoRoot, path), 'utf8')
     for (const match of source.matchAll(/\]\(([^\s)]+)(?:\s+"[^"]*")?\)/gu)) {
@@ -1888,7 +1852,6 @@ export function assertDocumentedSourcePaths(repoRoot, entries) {
         /(?<![\w/])((?:scripts|docs|cockpit|lib|bin|assets)\/[A-Za-z0-9_./-]+\.[A-Za-z0-9]+)/gu,
       )) {
         const target = match[1]
-        // These are documented generated build outputs, never source inputs.
         if (target.startsWith('cockpit/target/')) continue
         if (!present(target) && !present(local(path, target))) {
           fail(`documented source absent from release: ${path} -> ${target}`)
@@ -1898,8 +1861,6 @@ export function assertDocumentedSourcePaths(repoRoot, entries) {
   }
 }
 
-// Resolve runtime imports against the distributed inventory. A dependency in
-// the private checkout cannot make an incomplete public bundle pass.
 export function assertRuntimeHelperClosure(repoRoot, entries) {
   const paths = new Set(entries.map((entry) => entry.path))
   for (const path of paths) {
@@ -2071,9 +2032,6 @@ function parseCargoLock(repoRoot) {
   return { path, packages, rows, registryPackages }
 }
 
-// Packaged lockfiles that are frozen candidate input rather than a dependency
-// graph of the release. The narrowed archive carries only its three dependency
-// locks, so nothing is exempt; the manifest still records the (empty) list.
 const NON_DEPENDENCY_FIXTURE_LOCKFILES = new Set()
 
 function advisoryLockfileEcosystem(path) {

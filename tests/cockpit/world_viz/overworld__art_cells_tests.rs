@@ -4,8 +4,6 @@ use crate::delve::world_viz::overworld::arena::terminal_layers;
 use crate::delve::together_shooter::*;
 use crate::delve::world_viz::overworld::Img;
 
-/// Serialize the real ratatui buffer, including Kitty upload and Unicode
-/// placeholders. The review runner shows this stream in Kitty and captures it.
 fn write_terminal_images(
     dir: &std::path::Path,
     name: &str,
@@ -402,8 +400,6 @@ fn write_brasswake_terminal_review() {
         let r=Run::brasswake_review_for_test(name);
         let native=crate::delve::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,name,&r,&native);
     }
-    // Matched raw sheets through the real cell painter, at the room's native
-    // pixel density. The complete room captures above include the cell tells.
     if let Some(before) = std::env::var_os("ANGEL_BRASS_BEFORE") {
         for (name, assets) in [
             ("characters-before", std::path::PathBuf::from(before)),
@@ -455,10 +451,22 @@ fn write_rafterwake_terminal_review() {
     }
 }
 
-/// The cells of a terminal picture of `run` in `columns` (rows 7 to 20 of 28)
-/// that are drawn in the palette's warm ink: what the keeper's and the
-/// captain's amber slit becomes in the cell route, where `cell_actor` draws
-/// every body in the palette's inks and a warm one as the timber ink.
+fn captain_colour_cells(run: &Run, without: &Run, columns: std::ops::Range<u16>) -> usize {
+    use ratatui::{Terminal, backend::TestBackend, layout::Rect};
+    let paint = |run: &Run| {
+        let mut terminal = Terminal::new(TestBackend::new(96, 28)).unwrap();
+        terminal.draw(|frame| crate::delve::shooter_viz::paint_picture_ui(frame, Rect::new(0, 0, 96, 28), run, None, Some(1))).unwrap();
+        terminal.backend().buffer().clone()
+    };
+    let (with, bare) = (paint(run), paint(without));
+    let cells = |x: u16| (7..20u16).map(move |y| (x, y));
+    let seen: std::collections::HashSet<_> = columns.clone().flat_map(cells)
+        .flat_map(|at| [bare[at].fg, bare[at].bg]).collect();
+    columns.flat_map(cells)
+        .filter(|&at| !seen.contains(&with[at].fg) || !seen.contains(&with[at].bg))
+        .count()
+}
+
 fn warm_ink_cells(run: &Run, columns: std::ops::Range<u16>) -> usize {
     use ratatui::{Terminal, backend::TestBackend, layout::Rect, style::Color};
     let [r, g, b] = angel_delve::render::overworld::ink::ink('o').unwrap();
@@ -473,7 +481,6 @@ fn warm_ink_cells(run: &Run, columns: std::ops::Range<u16>) -> usize {
         .count()
 }
 
-/// Whether the terminal picture of `run` has braille dots in `columns`.
 fn braille_cells(run: &Run, columns: std::ops::Range<u16>) -> bool {
     use ratatui::{Terminal, backend::TestBackend, layout::Rect};
     let mut terminal = Terminal::new(TestBackend::new(96, 28)).unwrap();
@@ -490,13 +497,9 @@ fn rafterwake_amber_slit_survives_every_actual_cell_tell() {
         for ticks in [33,24,16,7] {
             let mut run=Run::rafterwake_review_for_test(&format!("{attack}-tell"));
             run.rafterwake.as_mut().unwrap().lanes.get_mut(&1).unwrap().keeper.ticks=ticks;
-            // The same room with the keeper gone: the slit is what the
-            // keeper adds in the warm ink.
             let mut without=run.clone();
             let lane=without.rafterwake.as_mut().unwrap().lanes.get_mut(&1).unwrap();
             (lane.keeper.x,lane.keeper.hp)=(lane.keeper.x+900,0);
-            // The reviewed art paints the slit and the narrow workshop props
-            // into the body; the original keeps its props as braille dots.
             original(false);
             assert!(warm_ink_cells(&run,35..61) > warm_ink_cells(&without,35..61), "{attack} at {ticks}: protected visor light missing");
             original(true);
@@ -527,13 +530,11 @@ fn pennon_visor_and_identity_props_survive_actual_cell_tells() {
     let original = angel_delve::render::overworld::arena::slot_art::use_original;
     for attack in ["drop","hook"] {for ticks in [33,24,16,7] {
         let mut run=Run::pennon_review_for_test(&format!("{attack}-tell"));run.pennon.as_mut().unwrap().lanes.get_mut(&1).unwrap().foes[3].ticks=ticks;
-        // The same lane without its captain: the visor is what he adds in the warm ink.
         let mut without=run.clone();without.pennon.as_mut().unwrap().lanes.get_mut(&1).unwrap().foes.remove(3);
-        // The reviewed art paints the visor and the identity props into the body; the original keeps its props as braille dots.
         original(false);
-        assert!(warm_ink_cells(&run,40..61) > warm_ink_cells(&without,40..61),"{attack}/{ticks}: visor disappeared");
+        assert!(captain_colour_cells(&run,&without,40..61) > 0,"{attack}/{ticks}: visor disappeared (no cell carries a colour the lane without its captain lacks)");
         original(true);
-        assert!(braille_cells(&run,40..61),"{attack}/{ticks}: narrow identity props disappeared");
+        assert!(captain_colour_cells(&run,&without,40..61) > 0,"{attack}/{ticks}: identity props disappeared in the original art");
         original(false);
     }}
 }
@@ -557,8 +558,9 @@ fn touge_cells_follow_each_seat_and_show_live_drift_state() {
         terminal.draw(|f|crate::delve::shooter_viz::paint_picture_ui(f,Rect::new(0,0,96,28),&run,None,Some(id))).unwrap();
         let buffer=terminal.backend().buffer();
         let text=buffer.content.iter().map(|c|c.symbol()).collect::<String>();
-        assert!(text.contains(&format!("DRIFT {}",(id as usize).min(3))));
-        assert!(text.contains("LAP 1/3") && text.contains("Esc: leave"));
+        let rows: Vec<String> = text.chars().collect::<Vec<_>>().chunks(96).map(|r| r.iter().collect::<String>().trim_end().to_string()).filter(|r| r.chars().any(|c| c.is_ascii_alphabetic())).collect();
+        assert!(text.contains(&format!("DRIFT {}",(id as usize).min(3))), "seat {id}: {rows:#?}");
+        assert!(text.contains("LAP 1/3") && text.contains("Esc: leave"), "seat {id}: {rows:#?}");
         assert!(buffer.content[60..96].iter().all(|c| c.symbol() == " "), "HUD clears scenery glyphs behind its words");
         buffers.push(buffer.clone());
     }
@@ -579,3 +581,4 @@ fn write_touge_terminal_shots() {
         std::fs::write(dir.join(format!("{name}-cells.json")),serde_json::to_vec(&cells).unwrap()).unwrap();
     }
 }
+

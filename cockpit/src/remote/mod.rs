@@ -19,10 +19,8 @@ use std::path::PathBuf;
 
 pub(crate) use serve::{presence_tick, serve, serve_requested};
 
-/// The session a bare attach goes to.
 pub(crate) const DEFAULT_SESSION: &str = "main";
 
-/// Where a machine keeps its sessions' sockets and logs.
 pub(crate) fn dir() -> io::Result<PathBuf> {
     let home = std::env::var_os("HOME").ok_or_else(|| io::Error::other("no HOME"))?;
     let dir = PathBuf::from(home).join(".angelX").join("remote-glass");
@@ -39,7 +37,6 @@ pub(crate) fn socket(name: &str) -> io::Result<PathBuf> {
     Ok(dir()?.join(format!("{name}.sock")))
 }
 
-/// A session name: letters, digits, `.`, `_` and `-`, up to 32.
 pub(crate) fn valid_name(name: &str) -> bool {
     !name.is_empty()
         && name.len() <= 32
@@ -47,8 +44,6 @@ pub(crate) fn valid_name(name: &str) -> bool {
         && name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
-/// `host`, `host:name` or `:name` (this machine). `local` and `localhost`
-/// are this machine too, without SSH.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Target {
     pub host: Option<String>,
@@ -90,7 +85,6 @@ fn usage() -> io::Error {
     )
 }
 
-/// The remote-glass commands.
 pub(crate) fn cli(args: &[OsString]) -> io::Result<()> {
     let args: Vec<String> = args
         .iter()
@@ -106,7 +100,6 @@ pub(crate) fn cli(args: &[OsString]) -> io::Result<()> {
         ["--kill-session", target] => attach::kill(&Target::parse(target)?),
         _ => Err(usage()),
     };
-    // One line, as the rest of the launcher speaks.
     if let Err(error) = result {
         eprintln!("angelX: {error}");
         std::process::exit(1);

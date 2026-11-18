@@ -3,9 +3,7 @@
 
 use super::*;
 
-/// The room's paint list (`room_layer`).
 pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawList<'_> {
-    // The seat's view of the room, for the marks that keep inside it.
     let view = view_origin(run, focus);
     let mut scene = DrawList::default();
     scene.add(Layer::Ground, move |cv| industry::deposits(cv, run, focus));
@@ -78,16 +76,13 @@ pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawLis
     });
     scene.add(Layer::Ground, move |cv| {
         if !run.at_home_now() {
-            // A floor the realm holds: its banners, its steward's hall.
             holdings::start_banners(cv, run);
             if run.room().kind == RoomKind::Holding {
                 holdings::hall(cv, run);
             }
             nooks::figures(cv, run);
-            // A lost hall's keeper, and the plate where its rent is read.
             reclaim::plates(cv, run);
             reclaim::figures(cv, run);
-            // The Deep: a village's folk and its star, the errands' signs.
             deep_village::figures(cv, run);
             deep_village::signs(cv, run);
             deep_village::meeting(cv, run);
@@ -207,7 +202,6 @@ pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawLis
                 RoomKind::Forest => forest::boards(cv, run),
                 RoomKind::LandOffice => holdings::office_boards(cv, run, focus),
                 RoomKind::RealmHall => holdings::castle_boards(cv, run, focus),
-                // Alehouse/bazaar prompts dock after the seat crop.
                 _ => {}
             }
             colosseum::boards(cv, run);

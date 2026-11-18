@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-"""pending.py <run-dir>: print the newest unanswered request as a model-facing
-transcript (system prompt, tool schemas, conversation), or 'DONE <rc>' when the
-run has exited, or 'WAIT' when angel has not sent its next request yet."""
 import glob
 import json
 import os

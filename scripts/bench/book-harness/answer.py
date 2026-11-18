@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-"""answer.py <run-dir> <reply-json-file>: answer the oldest pending request,
-wait for the next one (or the run's exit), and refresh <run-dir>.pending.txt."""
 import glob
 import json
 import os

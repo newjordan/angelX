@@ -35,8 +35,6 @@ fn the(h: &Holdings) -> &Holding {
     &h.owned[0]
 }
 
-// ── Occasions ─────────────────────────────────────────────────────────────
-
 #[test]
 fn a_full_granary_is_a_feast_that_eats_its_sacks_and_cheers_the_table() {
     let rooms = ["taproom", "smithy", "shrine", "stall"];
@@ -78,7 +76,6 @@ fn no_feast_for_a_hungry_few_or_a_raided_holding() {
 
 #[test]
 fn a_soul_one_step_from_leaving_throws_a_tantrum_that_breaks_their_own_room() {
-    // An empty granary: the smith goes hungry, and the smithy pays.
     let mut h = village(&["smithy"], 0);
     h.owned[0].folk.push(soul("Col", Trade::Smith, -2, 1));
     rent_day(&mut h, 1);
@@ -96,7 +93,6 @@ fn a_soul_one_step_from_leaving_throws_a_tantrum_that_breaks_their_own_room() {
 
 #[test]
 fn a_tantrum_with_no_room_spills_a_sack_and_names_what_soured_it() {
-    // Two beds' worth of rooms for three souls: the last has none.
     let mut h = village(&["smithy"], 6);
     h.owned[0].folk.push(soul("Col", Trade::Smith, 3, 1));
     h.owned[0].folk.push(soul("Dunstan", Trade::Labourer, 3, 0));
@@ -108,7 +104,6 @@ fn a_tantrum_with_no_room_spills_a_sack_and_names_what_soured_it() {
         panic!("{:?}", w.occasion);
     };
     assert_eq!((who.as_str(), *cause, *broke), ("Edith", Cause::NoBed, Broke::Sack));
-    // The steward's wage, dinner for three, and the one that was spilled.
     assert_eq!(h.stores, before - 1 - 1 - 1);
     assert!(h.news.iter().any(|n| n.contains("Edith") && n.contains("bedless") && n.contains("spills a sack")), "{:?}", h.news);
 }
@@ -126,14 +121,12 @@ fn a_tantrum_in_a_bare_house_finds_nothing_to_break_and_says_so() {
 
 #[test]
 fn the_old_the_frail_and_the_raided_die_and_the_village_mourns() {
-    // Years.
     let mut h = village(&["taproom"], 20);
     h.owned[0].folk.push(Villager { age: 100, ..soul("Uda", Trade::Brewer, 3, 1) });
     h.owned[0].folk.push(soul("Col", Trade::Labourer, 3, 0));
     rent_day(&mut h, 1);
     assert!(matches!(&the(&h).occasion, Some(Occasion::Mourning { who, dying: Dying::Years, .. }) if who == "Uda"), "{:?}", the(&h).occasion);
 
-    // An empty granary starves a child already at the end of their belly.
     let mut h = village(&["taproom"], 0);
     h.owned[0].folk.push(Villager { age: 6, hunger: 3, ..soul("Mabel", Trade::Child, 3, 0) });
     h.owned[0].folk.push(soul("Col", Trade::Labourer, 3, 0));
@@ -143,13 +136,11 @@ fn the_old_the_frail_and_the_raided_die_and_the_village_mourns() {
     assert!(h.news.iter().any(|n| n.contains("Mabel") && n.contains("starved") && n.contains("mourned")), "{:?}", h.news);
     assert!(h.tidings.iter().any(|t| t.contains("MABEL")), "{:?}", h.tidings);
 
-    // Hardy grown souls only walk away from hunger.
     let mut h = village(&["taproom"], 0);
     h.owned[0].folk.push(Villager { hunger: 3, ..soul("Col", Trade::Labourer, 3, 0) });
     rent_day(&mut h, 1);
     assert!(the(&h).folk.iter().any(|f| f.name == "Col"), "a grown soul does not starve in a day");
 
-    // Raiders who have held the place two rent days kill a guard first.
     let mut h = village(&["barracks"], 20);
     h.owned[0].folk.push(soul("Col", Trade::Labourer, 3, 0));
     h.owned[0].folk.push(soul("Goda", Trade::Guard, 3, 0));
@@ -198,12 +189,9 @@ fn old_saves_without_any_of_it_read_and_new_state_round_trips() {
     let mut h = Holdings::default();
     h.owned.push(w);
     assert!(h.valid());
-    // A folk-less, event-less realm writes none of it.
     let quiet = serde_json::to_string(&Holding::default()).unwrap();
     assert!(!quiet.contains("occasion") && !quiet.contains("seized") && !quiet.contains("works"), "{quiet}");
 }
-
-// ── The fey craftsman ────────────────────────────────────────────────────
 
 fn smithy_with_master(stores: u32) -> Holdings {
     let mut h = village(&["smithy", "taproom"], stores);
@@ -234,7 +222,6 @@ fn a_practiced_smith_seizes_the_workshop_pays_in_grain_and_makes_a_named_work() 
     assert!(h.news.iter().any(|n| n.contains(curio.name) && n.contains("the knights may take it")), "{:?}", h.news);
     assert!(h.tidings.iter().any(|t| t.contains("FINISHES")), "{:?}", h.tidings);
     assert!(h.valid());
-    // A craftsman makes one masterwork.
     for _ in 0..4 {
         rent_day(&mut h, 1);
     }
@@ -243,21 +230,17 @@ fn a_practiced_smith_seizes_the_workshop_pays_in_grain_and_makes_a_named_work() 
 
 #[test]
 fn the_fey_wait_on_the_granary_a_skilled_fed_content_hand_and_a_standing_workshop() {
-    // Not enough grain to pay for it.
     let mut h = smithy_with_master(fey::FEY_SACKS + 1);
     rent_day(&mut h, 1);
     assert!(the(&h).seized.is_none(), "{} sacks cannot pay for the work", h.stores);
-    // Not practiced enough.
     let mut h = village(&["smithy"], 30);
     h.owned[0].folk.push(soul("Col", Trade::Smith, 4, 1));
     rent_day(&mut h, 1);
     assert!(the(&h).seized.is_none());
-    // No workshop standing.
     let mut h = village(&["taproom"], 30);
     h.owned[0].folk.push(soul("Col", Trade::Smith, 4, 2));
     rent_day(&mut h, 1);
     assert!(the(&h).seized.is_none());
-    // A guard or a labourer has no workshop to seize.
     let mut h = village(&["barracks"], 30);
     h.owned[0].folk.push(soul("Col", Trade::Guard, 4, 3));
     rent_day(&mut h, 1);
@@ -288,7 +271,6 @@ fn every_artifact_card_is_written_out_of_the_rules_it_runs() {
                 let parts = fey::describe(*rule);
                 assert!(!parts.is_empty(), "{} has a rule its card cannot say: {rule:?}", curio.id);
                 for (boon, text) in parts {
-                    // The card carries the very words the rule gives.
                     assert!(if boon { curio.boon.contains(&text) } else { curio.bane.contains(&text) }, "{}: {text}", curio.id);
                     if boon { good += 1 } else { bad += 1 }
                 }
@@ -319,7 +301,6 @@ fn a_masterwork_in_the_pockets_does_exactly_what_its_card_says() {
         let share = |f: &dyn Fn(crate::rules::curios::Rule) -> i32| curio.rules.iter().map(|r| f(*r)).sum::<i32>();
         use crate::rules::curios::Rule::*;
         let pct = |shares: i32| (100 + shares).max(10) as u32;
-        // At full health (the hero starts hale), Hale's first number applies.
         let dmg = share(&|r| match r { Damage(n) => n, Hale { full, .. } => full, _ => 0 });
         assert_eq!(h.curio_damage(), pct(dmg), "{}", curio.name);
         assert_eq!(h.curio_hurt(), pct(share(&|r| if let Hurt(n) = r { n } else { 0 })), "{}", curio.name);
@@ -329,8 +310,6 @@ fn a_masterwork_in_the_pockets_does_exactly_what_its_card_says() {
         assert_eq!(h.curio_coupon(), share(&|r| if let Coupon(n) = r { n as i32 } else { 0 }).max(0) as u32, "{}", curio.name);
     }
 }
-
-// ── The hall ─────────────────────────────────────────────────────────────
 
 fn below(holdings: Holdings) -> Run {
     let home = Home { holdings, ..Home::default() };
@@ -388,20 +367,17 @@ fn everyone_about_the_hall_is_somebody_in_the_ledger_at_their_trade() {
         }
         assert_eq!(all, strolls::strollers(held, tick), "a pure function of the state and the tick");
     }
-    // A craftsman works at their own room's bay: the smith at the smithy (bay 1).
     let spot = strolls::work_spot(1);
     let at_bench = (0..strolls::DAY).step_by(10).any(|t| {
         let s = strolls::strollers(held, t)[1];
         s.pose == Pose::Work && (s.x, s.y) == spot
     });
     assert!(at_bench, "Col is found at the smithy's bench");
-    // A labourer carries timber to the room going up (bay 5), laden on the way.
     let laden = (0..strolls::DAY).step_by(10).any(|t| {
         let s = strolls::strollers(held, t)[5];
         s.laden && s.pose == Pose::Walk
     });
     assert!(laden, "Jory carries to the rising greathall");
-    // The child plays; the old keep the fireside.
     assert!((0..300).any(|t| strolls::strollers(held, t)[6].pose == Pose::Play));
     assert!((0..300).all(|t| strolls::strollers(held, t)[7].pose == Pose::Seated));
 }
@@ -429,7 +405,6 @@ fn a_feast_seats_the_village_a_tantrum_stops_the_work_a_mourning_walks_the_bier(
     assert!(all.iter().filter(|s| s.pose == Pose::Mourn).count() >= 2, "the rest walk behind");
     let ((bx, by), _) = strolls::bier(90);
     assert!(bearers.iter().all(|s| (s.x - bx).abs() < 1.2 && (s.y - by).abs() < 0.1));
-    // The bier crosses the hall and comes back.
     let (a, _) = strolls::bier(0);
     let (b, _) = strolls::bier(14 * 30 - 1);
     assert!(b.0 > a.0 + 10.0);
@@ -463,10 +438,8 @@ fn a_word_with_a_soul_is_said_from_their_own_state() {
     assert!(holdings_words(&h, &held, 6).contains("AT PLAY. 7 YEARS OLD"));
     let old = Holding { rooms: vec![Built { id: "taproom".into(), labour: ROOM_LABOUR }], folk: vec![Villager { age: 70, ..soul("Uda", Trade::Brewer, 1, 2) }], ..Holding::default() };
     assert!(holdings_words(&h, &old, 0).contains("BY THE FIRE"), "{}", holdings_words(&h, &old, 0));
-    // Goda, glum, but with a bed, fed, and a calm realm.
     let goda = holdings_words(&h, &held, 2);
     assert!(goda.contains("GLUM"), "{goda}");
-    // Souls past the standing rooms' beds have none.
     let mut few = held.clone();
     few.rooms.truncate(2);
     assert!(holdings_words(&h, &few, 4).contains("NO BED"), "{}", holdings_words(&h, &few, 4));
@@ -483,17 +456,13 @@ fn e_beside_a_soul_speaks_with_them_and_a_plate_keeps_its_own_press() {
         h.owned[0].rooms.pop();
         h
     });
-    // Find a tick where Harold the guard is idle at an end of his watch, or
-    // simply stand at his place whenever he is: ask the rules where he is.
     let tick = run.tick;
     let held = the(&run.home.holdings).clone();
     let s = strolls::strollers(&held, tick)[4];
     place(&mut run, 1, (s.x, s.y + 0.8));
-    // Not on a plate: that tile must be free.
     tap(&mut run, 1);
     let line = run.found.as_ref().map(|f| f.2.clone()).unwrap_or_default();
     assert!(line.contains(":"), "a soul answered: {line:?}");
-    // On the steward's plate the press is the plate's.
     run.found = None;
     place(&mut run, 1, (12.0, 7.5));
     run.step(&BTreeMap::new());
@@ -519,10 +488,8 @@ fn a_knight_takes_the_masterwork_from_its_maker_one_at_a_time_and_it_is_back_nex
     assert_eq!(run.players[&1].pockets.items, vec![id.clone()], "{line}");
     assert!(line.starts_with(&name) && line.contains("+ ") && line.contains("- "), "{line}");
     assert!(run.valid_snapshot());
-    // It does what it says in the run.
     assert_ne!(run.players[&1].curio_damage() * run.players[&1].curio_hurt(), 100 * 100);
 
-    // A friend finds it with the first knight.
     run.join_seat(2, "Friend");
     place(&mut run, 2, (s.x, s.y + 1.1));
     tap(&mut run, 2);
@@ -530,7 +497,6 @@ fn a_knight_takes_the_masterwork_from_its_maker_one_at_a_time_and_it_is_back_nex
     assert!(run.players[&2].pockets.items.is_empty(), "{line}");
     assert!(line.contains("CARRIES THE"), "{line}");
 
-    // A knight with full pockets is told so.
     let mut full = below(h.clone());
     full.players.get_mut(&1).unwrap().pockets.items = ["boots-mild-inconvenience", "spoon-unreasonable-confidence", "hat-also-pigeon", "cape-dramatic-entrances", "pendant-pessimist", "soup-pot-helm"].map(String::from).to_vec();
     let s = strolls::strollers(the(&full.home.holdings), full.tick)[0];
@@ -539,7 +505,6 @@ fn a_knight_takes_the_masterwork_from_its_maker_one_at_a_time_and_it_is_back_nex
     assert_eq!(full.players[&1].pockets.items.len(), 6);
     assert!(full.found.as_ref().is_some_and(|f| f.2.contains("POCKETS ARE FULL")));
 
-    // Next run, the work is in the workshop again.
     let again = below(h);
     assert_eq!(the(&again.home.holdings).works.len(), 1);
     assert!(again.players[&1].pockets.items.is_empty());
@@ -551,7 +516,6 @@ fn a_seized_workshop_gives_the_party_nothing_until_the_work_is_done() {
     rent_day(&mut h, 1);
     let mut run = below(h.clone());
     run.players.get_mut(&1).unwrap().mana = 0.0;
-    // The smithy is bay 0 (its boon is a heal); the taproom bay 1 (a brawler).
     let hurt = |run: &mut Run| run.players.get_mut(&1).unwrap().hp = 10;
     hurt(&mut run);
     for _ in 0..crate::rules::home::BUY_HOLD + 4 {
@@ -578,12 +542,9 @@ fn walking_into_a_hall_in_the_middle_of_something_says_what_and_the_knights_chat
     let line = run.found.as_ref().map(|f| f.2.clone()).unwrap_or_default();
     assert!(line.contains("THE VILLAGE MOURNS NYLE THE SMITH, DEAD OF OLD AGE"), "{line}");
     assert!(run.cues.iter().any(|c| c == "folk_mourning"));
-    // A quiet village says nothing.
     let quiet = below(full_village());
     assert!(!quiet.cues.iter().any(|c| c.starts_with("folk_")));
 }
-
-// ── The tavern's board ───────────────────────────────────────────────────
 
 fn tavern(h: Holdings) -> Run {
     let home = Home { holdings: h, ..Home::default() };
@@ -612,10 +573,8 @@ fn the_taverns_board_pins_the_folks_news_over_its_old_notes_newest_first() {
     assert!(first.starts_with("THE GRANARY IS FULL"), "{first}");
     let second = read_board(&mut r);
     assert!(second.starts_with("MABEL THE CHILD HAS STARVED"), "{second}");
-    // Then the old notes, as ever.
     let third = read_board(&mut r);
     assert!(third.contains(" | ") && !third.contains("MABEL") && !third.contains("GRANARY IS FULL"), "{third}");
-    // A realm with no news reads as it always did.
     let mut r = tavern(Holdings::default());
     let plain = read_board(&mut r);
     assert!(plain.contains(" | "), "{plain}");

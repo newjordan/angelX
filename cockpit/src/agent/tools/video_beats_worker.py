@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-"""video_beats worker: decode audio -> tempo/beat grid/onsets/energy curve -> JSON.
-
-Backends tried in order: librosa (pure python + numba/llvmlite wheels), aubio,
-essentia. `beat_this` is intentionally skipped (torch is too heavy to pull
-transitively for a tool). With no backend installed we still emit the onset/energy
-channels so a beat grid can be hand-authored from them.
-"""
 import json
 import subprocess
 import sys
@@ -84,7 +77,7 @@ def main():
             tempo, beats, onsets, energy = fn(path)
         except ImportError:
             continue
-        except Exception as e:  # backend present but choked — surface it
+        except Exception as e:
             print(json.dumps({"backend": name, "error": f"{type(e).__name__}: {e}"}))
             return
         print(json.dumps({
@@ -92,7 +85,6 @@ def main():
             "onsets": onsets, "energy_5s": energy,
         }))
         return
-    # No backend: still useful — energy curve + ffmpeg-level silence hints.
     y, sr = decode_mono(path)
     print(json.dumps({
         "backend": "energy-only",

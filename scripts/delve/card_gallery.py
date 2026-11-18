@@ -54,11 +54,9 @@ def gallery(paths, palette):
         out.append(f'<g><title>{html.escape(path.name)}: {label} ({html.escape(kind)})</title>')
         out.append(f'<text x="{x+12}" y="{y+18}" font-size="12">{label}</text>')
         out.append(f'<text x="{x+12}" y="{y+36}" font-size="11">{html.escape(kind)}</text>')
-        # Compare dark and light backdrops without changing sprite colours.
         for dx, bg in ((12, "#090e18"), (154, "#c9c3b6")):
             out.append(f'<rect x="{x+dx}" y="{y+48}" width="132" height="132" fill="{bg}"/>')
             out.append(sprite(rows, palette, x+dx+2, y+50, 8))
-        # Native-size contrast matters too: enlarged previews can hide weak silhouettes.
         for dx, bg in ((12, "#090e18"), (154, "#c9c3b6")):
             out.append(f'<rect x="{x+dx}" y="{y+188}" width="20" height="20" fill="{bg}"/>')
             out.append(sprite(rows, palette, x+dx+2, y+190, 1))
@@ -89,8 +87,6 @@ def audit(paths, palette):
                             remaining.remove(neighbour)
                             stack.append(neighbour)
             components.append(size)
-        # The renderer places every icon on the same 16x16 canvas. Missing
-        # trailing cells/rows are transparent, not a visual distinction.
         signature = tuple(tuple(pixels.get((x, y)) for x in range(16))
                           for y in range(16))
         signatures.setdefault(signature, []).append(str(path))
@@ -101,9 +97,6 @@ def audit(paths, palette):
                         "review_hints": (["fully transparent"] if not pixels else []) +
                                         (["isolated pixels (may be intentional sparks)"]
                                          if len(components) > 1 and 1 in components else [])})
-    # Fixed-canvas Jaccard overlap deliberately ignores colour: a recolour
-    # should not hide a recycled silhouette. Do not align or shift sprites,
-    # and exclude tiny glyphs where overlap is not useful evidence.
     similar = []
     translated = []
 
@@ -120,7 +113,6 @@ def audit(paths, palette):
                 continue
             na, nb = normalized(a), normalized(b)
             ni, nu = len(na & nb), len(na | nb)
-            # Separate signal: placement on the canvas can be intentional.
             if na != a or nb != b:
                 if ni * 100 >= nu * 90 and len(a & b) * 100 < len(a | b) * 90:
                     translated.append({"paths": [left, right],

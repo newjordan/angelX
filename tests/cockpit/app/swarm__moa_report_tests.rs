@@ -1,7 +1,6 @@
 use super::*;
 use serde_json::{Value, json};
 
-// Independent original implementation retained only as a parity oracle.
 fn legacy_summarize(records: &[serde_json::Value]) -> String {
     let s = |v: &serde_json::Value, k: &str| v.get(k).and_then(|x| x.as_str()).map(str::to_string);
     let count_by = |key: &str| -> Vec<(String, usize)> {
@@ -131,7 +130,6 @@ fn legacy_summarize(records: &[serde_json::Value]) -> String {
             mean("eclusters")
         ));
     }
-    // Token spend per club, summed across every recorded turn.
     let mut spend: Vec<(String, u64, u64)> = Vec::new();
     for r in records {
         let Some(tokens) = r.get("tokens").and_then(|t| t.as_object()) else {
@@ -190,7 +188,6 @@ fn legacy_summarize(records: &[serde_json::Value]) -> String {
     out
 }
 
-/// `12345` → `12.3k`; keeps small counts exact.
 fn kfmt(n: u64) -> String {
     if n >= 10_000 {
         format!("{:.1}k", n as f64 / 1000.0)

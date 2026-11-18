@@ -19,8 +19,6 @@ fn null_store_is_a_silent_noop() {
 
 #[test]
 fn connect_from_env_without_config_is_a_noop_store() {
-    // No ANGEL_MEMPALACE_CMD in the test environment → never spawns a process.
-    // (Set-and-restore would race other tests; absence is the default path.)
     if std::env::var_os("ANGEL_MEMPALACE_CMD").is_none() {
         assert!(!connect_from_env().is_live());
     }
@@ -28,11 +26,9 @@ fn connect_from_env_without_config_is_a_noop_store() {
 
 #[test]
 fn interpret_write_distinguishes_soft_failures() {
-    // success:true (incl. dedupe) and plain confirmations stay Ok…
     assert!(interpret_write(r#"{"success": true, "id": "abc"}"#).is_ok());
     assert!(interpret_write(r#"{"success": true, "reason": "already_exists"}"#).is_ok());
-    assert!(interpret_write("filed").is_ok()); // non-JSON confirmation
-    // …but an in-result failure becomes Err so it isn't counted as stored.
+    assert!(interpret_write("filed").is_ok());
     assert_eq!(
         interpret_write(r#"{"success": false, "error": "bad wing"}"#),
         Err("bad wing".to_string())
@@ -58,10 +54,8 @@ fn parse_search_results_extracts_one_block_per_hit() {
 
 #[test]
 fn parse_search_results_handles_error_and_nonjson() {
-    // An error dict (no `results`) → nothing to recall, never injected as memory.
     assert!(parse_search_results(r#"{"error": "No palace found"}"#).is_empty());
     assert!(parse_search_results(r#"{"results": []}"#).is_empty());
-    // Non-JSON → fall back to the raw text rather than silently dropping it.
     assert_eq!(
         parse_search_results("plain text"),
         vec!["plain text".to_string()]
@@ -84,8 +78,6 @@ fn shell_split_handles_plain_and_quoted_args() {
         vec!["ssh", "model-host", "mempalace-mcp", "--palace", "/data/p"]
     );
     assert!(shell_split("   ").is_empty());
-    // An unterminated quote absorbs the rest into the final token (graceful, no
-    // panic) — fine for a single config string.
     assert_eq!(
         shell_split(r#"cmd --palace "/srv/p"#),
         vec!["cmd", "--palace", "/srv/p"]

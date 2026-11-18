@@ -30,7 +30,6 @@ fn m05_experience_compacts_without_archive_growth() {
 
 #[test]
 fn env_flag_reads_truthiness() {
-    // Unset falls through to the default without touching the environment.
     assert!(env_flag("ANGEL_EXPERIENCE_DEFINITELY_UNSET_XYZ", true));
     assert!(!env_flag("ANGEL_EXPERIENCE_DEFINITELY_UNSET_XYZ", false));
 }
@@ -42,7 +41,6 @@ fn secret_names_are_denied_case_insensitively() {
     assert!(is_secret_name("Z_AI_SECRET"));
     assert!(is_secret_name("GH_AUTH"));
     assert!(is_secret_name("db_password"));
-    // The catalog knobs must all pass (never look like secrets).
     for &k in KNOB_CATALOG {
         assert!(!is_secret_name(k), "{k} tripped the secret denylist");
     }
@@ -52,9 +50,9 @@ fn secret_names_are_denied_case_insensitively() {
 fn snapshot_drops_secrets_and_empties_and_trims() {
     let names = [
         "ANGEL_SOTA_MOA_AGG_CLUB",
-        "ANGEL_FAKE_API_KEY", // secret-named → dropped
-        "ANGEL_EMPTY",        // empty → dropped
-        "ANGEL_MISSING",      // unset → dropped
+        "ANGEL_FAKE_API_KEY",
+        "ANGEL_EMPTY",
+        "ANGEL_MISSING",
     ];
     let snap = snapshot_from(&names, |k| match k {
         "ANGEL_SOTA_MOA_AGG_CLUB" => Some("  codex-run  ".to_string()),
@@ -65,7 +63,6 @@ fn snapshot_drops_secrets_and_empties_and_trims() {
     assert_eq!(snap.len(), 1);
     assert_eq!(snap.get("ANGEL_SOTA_MOA_AGG_CLUB").unwrap(), "codex-run");
     assert!(!snap.contains_key("ANGEL_FAKE_API_KEY"));
-    // The secret value never made it into the map at all.
     assert!(!snap.values().any(|v| v.contains("sk-")));
 }
 
@@ -77,7 +74,6 @@ fn cfg_hash_is_stable_and_order_independent() {
         "codex-run".to_string(),
     );
     a.insert("ANGEL_PXPIPE".to_string(), "1".to_string());
-    // Same entries, different insertion order → identical hash (sorted map).
     let mut b = BTreeMap::new();
     b.insert("ANGEL_PXPIPE".to_string(), "1".to_string());
     b.insert(
@@ -85,11 +81,9 @@ fn cfg_hash_is_stable_and_order_independent() {
         "codex-run".to_string(),
     );
     assert_eq!(cfg_hash(&a), cfg_hash(&b));
-    // A different value → a different hash.
     let mut c = a.clone();
     c.insert("ANGEL_SOTA_MOA_AGG_CLUB".to_string(), "longcat".to_string());
     assert_ne!(cfg_hash(&a), cfg_hash(&c));
-    // 16 hex chars.
     assert_eq!(cfg_hash(&a).len(), 16);
 }
 
@@ -104,9 +98,6 @@ fn rotated_path_preserves_stem() {
 
 #[test]
 fn hiq_outcome_prefers_treebeard_and_eager_offload() {
-    // Serialized: this test mutates process-global environment that other
-    // tests also read or write. Without the lock they interleave and each
-    // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
     let counters = TurnCounters {
         eager_offload_results: 4,
@@ -118,9 +109,7 @@ fn hiq_outcome_prefers_treebeard_and_eager_offload() {
         ..TurnCounters::default()
     };
     let prev = std::env::var_os("ANGEL_LANE");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_LANE", "treebeard") };
-    // Seed strip snapshot so outcome carries true root LID mass.
     crate::agent::harness::note_last_root_hiq(crate::agent::harness::LastRootHiq {
         offload_ratio: 1.0,
         hiq_priority: 2.1875,
@@ -138,27 +127,19 @@ fn hiq_outcome_prefers_treebeard_and_eager_offload() {
     assert!((j["root_offload_ratio"].as_f64().unwrap() - 1.0).abs() < 1e-9);
     assert!(j["root_hiq_priority"].as_f64().unwrap() > 2.0);
     assert!(j.get("living_peer_us").is_none());
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_LANE") };
     let j2 = hiq_outcome_json(&counters);
     assert_eq!(j2["lane"], "default");
     assert!(j2["hiq_priority"].as_f64().unwrap() < tree_p);
     match prev {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_LANE", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_LANE") },
     }
 }
 
 #[test]
 fn hiq_outcome_weight_max_env_raises_cap() {
-    // Serialized: this test mutates process-global environment that other
-    // tests also read or write. Without the lock they interleave and each
-    // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
-    // Soft treebeard full-offload proxy is 2.1875; default WEIGHT_MAX 3.0
-    // leaves room. Explicit low cap still clamps (forge contract).
     let counters = TurnCounters {
         eager_offload_results: 8,
         aged_inspection_results: 2,
@@ -167,31 +148,24 @@ fn hiq_outcome_weight_max_env_raises_cap() {
     };
     let prev_lane = std::env::var_os("ANGEL_LANE");
     let prev_wmax = std::env::var_os("FORGE_HIQ_WEIGHT_MAX");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_LANE", "treebeard") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("FORGE_HIQ_WEIGHT_MAX") };
     let open = hiq_outcome_json(&counters)["hiq_priority"]
         .as_f64()
         .unwrap();
     assert!(open > 2.0);
     assert!(open <= 3.0);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("FORGE_HIQ_WEIGHT_MAX", "1.5") };
     let capped = hiq_outcome_json(&counters)["hiq_priority"]
         .as_f64()
         .unwrap();
     assert!((capped - 1.5).abs() < 1e-9);
     match prev_wmax {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("FORGE_HIQ_WEIGHT_MAX", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("FORGE_HIQ_WEIGHT_MAX") },
     }
     match prev_lane {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_LANE", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_LANE") },
     }
 }
@@ -442,7 +416,6 @@ fn turn_record_has_expected_shape() {
     assert_eq!(rec["outcome"]["tokens"]["codex-run"]["in"], 91_234);
     assert_eq!(rec["outcome"]["failovers"][0]["reason"], "raw tool markup");
     assert_eq!(rec["outcome"]["failovers"][0]["from"], "longcat");
-    // Every record is one line of valid JSON.
     let line = rec.to_string();
     assert!(!line.contains('\n'));
     assert!(serde_json::from_str::<serde_json::Value>(&line).is_ok());
@@ -450,8 +423,6 @@ fn turn_record_has_expected_shape() {
 
 #[test]
 fn schema_class_tool_errors_increment_the_schema_bucket() {
-    // The four live waste shapes the audit attributed to pure
-    // argument-schema misuse all classify as schema.
     let schema_errors = [
         "tool error: grep: missing 'pattern'",
         "tool error: provide at most one of 'path' or 'paths'",
@@ -488,7 +459,6 @@ fn schema_class_tool_errors_increment_the_schema_bucket() {
         })
     );
 
-    // The neighboring classes stay distinct.
     assert!(matches!(
         classify_tool_error("tool error: shell command timed out after 30000ms"),
         ToolErrorClass::Timeout
@@ -578,8 +548,6 @@ fn moa_record_carries_dissent_judge_verify() {
     assert!(rec["outcome"]["formation"].is_null());
 }
 
-/// A turn an engaged formation owned must carry that formation's name, so
-/// per-formation token economics are measurable from the ledger rows.
 #[test]
 fn moa_record_carries_the_engaged_formation_name() {
     let cfg = serde_json::json!({ "hash": "0", "knobs": {} });
@@ -607,8 +575,6 @@ fn moa_record_carries_the_engaged_formation_name() {
 
 #[test]
 fn append_jsonl_writes_a_parseable_line_to_a_fresh_dir() {
-    // Exercise the real write path (create_dir_all + rotation check + append)
-    // — `append_jsonl` has no cfg!(test) guard, only record_* wrappers do.
     let base = std::env::temp_dir().join(format!("angel-exp-{}-{}", std::process::id(), 1));
     let path = base.join("nested").join("ledger.jsonl");
     let _ = std::fs::remove_dir_all(&base);
@@ -620,7 +586,6 @@ fn append_jsonl_writes_a_parseable_line_to_a_fresh_dir() {
     assert_eq!(lines.len(), 2, "one JSONL line per append");
     let parsed: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
     assert_eq!(parsed["kind"], "turn");
-    // A small file is well under the rotation threshold, so nothing rotates.
     maybe_rotate(&path);
     assert!(path.exists(), "small ledger is not rotated");
     clear_jsonl(&path).expect("locked clear");
@@ -709,29 +674,23 @@ fn concurrent_jsonl_writers_never_interleave_records() {
 
 #[test]
 fn scrub_masks_assignments_flags_headers_and_urls() {
-    // Rule 1: NAME=value / Header:value keep the name, mask the value.
     assert_eq!(
         scrub_secrets("export OPENAI_API_KEY=sk-live-abc123 && cargo test"),
         "export OPENAI_API_KEY=… && cargo test"
     );
-    // Rule 2: a bare marker masks the next non-marker token — chained
-    // markers (`Authorization: Bearer <cred>`) keep the arm until a value.
     assert_eq!(
         scrub_secrets(r#"curl -H "Authorization: Bearer sk-abc" http://x"#),
         r#"curl -H "Authorization: Bearer … http://x"#
     );
     assert_eq!(scrub_secrets("cli --token abc123 run"), "cli --token … run");
-    // Rule 3: URL userinfo.
     assert_eq!(
         scrub_secrets("git clone https://user:hunter2@github.com/o/r.git"),
         "git clone https://…@github.com/o/r.git"
     );
-    // Non-secret text is untouched (modulo whitespace normalization).
     assert_eq!(
         scrub_secrets("cargo  test -p cockpit"),
         "cargo test -p cockpit"
     );
-    // The masked value never survives anywhere in the output.
     for cmd in [
         "A_KEY=sk-99 x",
         "--password hunter2",
@@ -744,7 +703,7 @@ fn scrub_masks_assignments_flags_headers_and_urls() {
 
 #[test]
 fn cap_text_is_char_boundary_safe() {
-    let long = "é".repeat(CMD_TEXT_MAX); // 2 bytes per char
+    let long = "é".repeat(CMD_TEXT_MAX);
     let capped = cap_text(&long);
     assert!(capped.len() <= CMD_TEXT_MAX + '…'.len_utf8());
     assert!(capped.ends_with('…'));
@@ -780,25 +739,18 @@ fn cmd_event_record_has_expected_shape_and_scrubs() {
     assert_eq!(rec["cmd"]["dur_ms"], 48_211);
     assert_eq!(rec["cmd"]["tool"], "shell");
     assert_eq!(rec["cmd"]["bytes_out"], 1_874);
-    // The provenance that makes `exit` readable, and the verdict it earns.
     assert_eq!(rec["cmd"]["shell"], "bash");
     assert_eq!(rec["cmd"]["pipefail"], true);
     assert_eq!(rec["cmd"]["verdict"], "fail");
     assert!(rec["cmd"]["verdict_reason"].is_null());
-    // Nothing was asserted into the prompt, so this run is the agent's own.
     assert_eq!(rec["cmd"]["source"], "agent");
     assert_eq!(rec["cmd"]["independent"], true);
-    // Scrubbed at the builder — no path records raw text.
     assert_eq!(rec["cmd"]["text"], "MY_TOKEN=… cargo test -p cockpit");
-    // Signal-killed commands serialize exit as null, and earn no verdict:
-    // the status was the killer's.
     let killed = CmdExperience { exit: None, ..exp };
     let rec = cmd_event_record(&killed, &[], &repo, 0, 0, 0);
     assert!(rec["cmd"]["exit"].is_null());
     assert_eq!(rec["cmd"]["verdict"], "no_verdict");
     assert_eq!(rec["cmd"]["verdict_reason"], "signal");
-    // A directly-exec'd command has no shell, so there is no pipefail question
-    // to answer — `null`, not `false`, which would imply a stealable status.
     let direct = CmdExperience {
         shell: CmdShell::Direct,
         ..exp
@@ -807,15 +759,11 @@ fn cmd_event_record_has_expected_shape_and_scrubs() {
     assert!(rec["cmd"]["shell"].is_null());
     assert!(rec["cmd"]["pipefail"].is_null());
     assert_eq!(rec["cmd"]["verdict"], "fail");
-    // One line of valid JSON.
     let line = rec.to_string();
     assert!(!line.contains('\n'));
     assert!(serde_json::from_str::<serde_json::Value>(&line).is_ok());
 }
 
-/// The self-confirmation guard. A command the dossier asserted in this
-/// session's prompt is the dossier's own echo — it must never be recorded as
-/// independent evidence for the fact that suggested it.
 #[test]
 fn a_command_the_dossier_suggested_is_not_independent_evidence() {
     let repo = serde_json::json!({ "key": "k", "root": "/r", "slug": null });
@@ -836,12 +784,9 @@ fn a_command_the_dossier_suggested_is_not_independent_evidence() {
         cmd_event_record(&exp, asserted, &repo, 0, 0, 0)
     };
 
-    // The loop we are breaking: dossier says "build: `cargo check`" → agent
-    // runs `cargo check` → miner must NOT count it as support for that fact.
     let rec = row("cargo check", &asserted);
     assert_eq!(rec["cmd"]["independent"], false);
     assert_eq!(rec["cmd"]["source"], "dossier");
-    // And through the plumbing agents actually write it with.
     for echo in [
         "cd cockpit && cargo check 2>&1 | tail -20",
         "cargo check --all-features",
@@ -853,14 +798,11 @@ fn a_command_the_dossier_suggested_is_not_independent_evidence() {
             "`{echo}` echoes an asserted `cargo check`"
         );
     }
-    // A genuinely different command is still independent evidence.
     for own in ["cargo test", "cargo build", "npm run lint"] {
         let rec = row(own, &asserted);
         assert_eq!(rec["cmd"]["independent"], true, "{own}");
         assert_eq!(rec["cmd"]["source"], "agent");
     }
-    // With nothing asserted (dossier off, or an empty block), everything the
-    // agent runs is its own.
     assert_eq!(row("cargo check", &[])["cmd"]["independent"], true);
 }
 
@@ -873,7 +815,7 @@ fn asserted_commands_are_project_scoped_and_deduped() {
     std::fs::create_dir_all(&beta).unwrap();
     let marker = "zzz-marker-only-this-test --flag";
     note_asserted_commands(&alpha, &[marker.to_string(), marker.to_string()]);
-    note_asserted_commands(&alpha, &["   ".to_string()]); // blank is not an assertion
+    note_asserted_commands(&alpha, &["   ".to_string()]);
     let all = asserted_commands_for(&alpha);
     assert_eq!(
         all.iter().filter(|c| c.as_str() == marker).count(),
@@ -892,9 +834,6 @@ fn asserted_commands_are_project_scoped_and_deduped() {
     let _ = std::fs::remove_dir_all(base);
 }
 
-/// A pipeline is detected over-eagerly and `||` is not one. Over-detection
-/// only ever costs evidence; under-detection would let a stolen exit status be
-/// recorded as a verdict.
 #[test]
 fn looks_piped_finds_pipelines_and_ignores_or() {
     for piped in [
@@ -902,7 +841,7 @@ fn looks_piped_finds_pipelines_and_ignores_or() {
         "cd cockpit && cargo build | head",
         "a|b",
         "grep x f | wc -l | cat",
-        "awk '{print $1 | \"sort\"}' f", // a quoted pipe still counts (safe side)
+        "awk '{print $1 | \"sort\"}' f",
     ] {
         assert!(looks_piped(piped), "{piped}");
     }
@@ -917,8 +856,6 @@ fn looks_piped_finds_pipelines_and_ignores_or() {
     }
 }
 
-/// The verdict tristate — the rule that decides whether a recorded exit code
-/// is allowed to mean anything at all.
 #[test]
 fn cmd_verdict_never_calls_an_inherited_exit_a_pass() {
     let base = CmdExperience {
@@ -938,14 +875,11 @@ fn cmd_verdict_never_calls_an_inherited_exit_a_pass() {
         pipefail: false,
     };
 
-    // THE BUG: a piped command under a shell that cannot propagate pipeline
-    // failure. Its exit is `tail`'s. It is not a pass — it is not anything.
     let (v, r) = cmd_verdict(&CmdExperience {
         shell: no_pipefail,
         ..base
     });
     assert_eq!((v, r), (VERDICT_NONE, Some("no_pipefail")));
-    // …and that holds whatever the number happens to be.
     let (v, _) = cmd_verdict(&CmdExperience {
         shell: no_pipefail,
         exit: Some(1),
@@ -953,7 +887,6 @@ fn cmd_verdict_never_calls_an_inherited_exit_a_pass() {
     });
     assert_eq!(v, VERDICT_NONE);
 
-    // With pipefail the same pipeline is real evidence, both ways.
     assert_eq!(cmd_verdict(&base), (VERDICT_PASS, None));
     assert_eq!(
         cmd_verdict(&CmdExperience {
@@ -963,8 +896,6 @@ fn cmd_verdict_never_calls_an_inherited_exit_a_pass() {
         (VERDICT_FAIL, None)
     );
 
-    // A producer killed by its own consumer (`… | head -2`) is plumbing, not a
-    // failing build: an explicit non-verdict, never a fail.
     assert_eq!(
         cmd_verdict(&CmdExperience {
             text: "seq 1 100000 | head -2",
@@ -973,8 +904,6 @@ fn cmd_verdict_never_calls_an_inherited_exit_a_pass() {
         }),
         (VERDICT_NONE, Some("sigpipe"))
     );
-    // But an UNPIPED command that genuinely exits 141 is just a failure — the
-    // sigpipe rule must not swallow real verdicts.
     assert_eq!(
         cmd_verdict(&CmdExperience {
             text: "cargo check",
@@ -984,8 +913,6 @@ fn cmd_verdict_never_calls_an_inherited_exit_a_pass() {
         (VERDICT_FAIL, None)
     );
 
-    // A command we killed reached no verdict of its own; nor did one that died
-    // to a signal. Neither is "your code is broken".
     assert_eq!(
         cmd_verdict(&CmdExperience {
             timed_out: true,
@@ -999,8 +926,6 @@ fn cmd_verdict_never_calls_an_inherited_exit_a_pass() {
         (VERDICT_NONE, Some("signal"))
     );
 
-    // Direct exec (no shell): a pipe cannot exist, so the status is always the
-    // command's own — even for text that happens to contain a `|`.
     assert_eq!(
         cmd_verdict(&CmdExperience {
             tool: "cargo",
@@ -1033,7 +958,6 @@ fn skill_event_record_mirrors_the_cmd_shape() {
     assert_eq!(rec["skill"]["name"], "angelX-build-test-run");
     assert_eq!(rec["skill"]["ok"], true);
     assert_eq!(rec["skill"]["dur_ms"], 3);
-    // One line of valid JSON, like every ledger record.
     let line = rec.to_string();
     assert!(!line.contains('\n'));
     assert!(serde_json::from_str::<serde_json::Value>(&line).is_ok());
@@ -1041,8 +965,6 @@ fn skill_event_record_mirrors_the_cmd_shape() {
 
 #[test]
 fn drain_failovers_is_empty_under_test() {
-    // note_failover is a no-op under cfg!(test) (keeps the global sink clean
-    // across parallel unit tests); the drain therefore stays empty.
     note_failover("a", "b", "c");
     assert!(drain_failovers().is_empty());
 }

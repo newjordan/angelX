@@ -36,9 +36,6 @@ fn startup_entries(root: &std::path::Path) -> Option<Vec<std::path::PathBuf>> {
     Some(entries)
 }
 
-/// Bootstrap is an asset-only preview, replaced by the Registry's validated
-/// publication. Discovery is bounded and checks both selected bytes and the
-/// complete directory/manifest witness before installing a preview.
 pub(crate) fn startup_clip(
     root: &std::path::Path,
 ) -> Option<(
@@ -174,10 +171,6 @@ fn startup_clip_observing(
     ))
 }
 
-/// Compose compatibility policy at admission, using exact identities of both
-/// validated resources. Explicit imports take precedence; old /1 packs without
-/// imports use the unique registered compatibility resource, regardless of ID.
-/// A declared but absent optional motion import keeps art-only fallback.
 pub(crate) fn live_clip(
     host: &angel_glass::Host,
     resources: &std::collections::BTreeMap<String, angel_live::kernel::Resource>,
@@ -252,9 +245,6 @@ pub(crate) fn live_clip(
     let mut combined = (**clip).clone();
     combined.card = Some(prepared.clone());
     let combined = std::sync::Arc::new(combined);
-    // Individually valid resources can exceed the legacy transport budget when
-    // combined. Refuse motion and publish only the current validated art;
-    // retaining an unrelated older composite would retain its retired owners.
     if let Err(error) = angel_glass::remote::wire::SquireClipUpdate::capture(Some(&(
         identity.clone(),
         combined.clone(),
@@ -276,8 +266,6 @@ pub(crate) fn live_clip(
 
 pub(super) fn bind_motion(value: &Value) -> Result<angel_live::kernel::Binding, String> {
     let motion = angel_glass::CardMotion::from_json(value)?;
-    // Reserve 16 KiB for the maximum canonical /1 palette, indexed art and
-    // two 64-step clips. This is checked using prepared wire serialization.
     if serde_json::to_value(&motion)
         .map_err(|error| error.to_string())?
         .to_string()
@@ -289,9 +277,6 @@ pub(super) fn bind_motion(value: &Value) -> Result<angel_live::kernel::Binding, 
     Ok(std::sync::Arc::new(motion))
 }
 
-// api_version 2 manifests declare intent even when an optional provider is
-// absent. Keep that declaration with the host binding; Glass's shared clip
-// format and old /1 packs do not need a new field or wire version.
 struct ExplicitMotionArt(std::sync::Arc<ShowcaseSquireClip>);
 
 pub(super) fn bind_live_versioned(
@@ -311,8 +296,6 @@ pub(super) fn bind_live_versioned(
 
 pub(super) fn bind_versioned(contract:&str,name:&str,value:&Value)->Result<angel_live::kernel::Binding,String> {
     if contract==LEGACY {
-        // /1 ignored unknown fields; a coincidental old editor `card` field
-        // must not opt into /2 policy or disable an otherwise valid art pack.
         let mut art=value.clone();art.as_object_mut().ok_or("squire art needs an object")?.remove("card");
         return bind(name,&art);
     }

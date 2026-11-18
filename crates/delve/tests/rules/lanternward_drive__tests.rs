@@ -32,7 +32,6 @@ pub fn rj(r: &Rules) -> Value {
 pub fn evj(ev: &Events) -> Value {
     json!({"sounds": ev.sounds, "stop": ev.stop.map(|s| format!("{s:?}")), "won": ev.won})
 }
-/// The two hero flags the rules read.
 pub fn hj(heroes: &BTreeMap<u32, Hero>) -> Value {
     let mut m = serde_json::Map::new();
     for (id, h) in heroes {
@@ -44,7 +43,6 @@ pub fn hj(heroes: &BTreeMap<u32, Hero>) -> Value {
 thread_local! {
     static COUNTS: RefCell<BTreeMap<String, usize>> = const { RefCell::new(BTreeMap::new()) };
 }
-/// True on every `k`th call for `name`: a stride through the qualifying frames.
 pub fn take(name: &str, k: usize) -> bool {
     COUNTS.with(|c| {
         let mut c = c.borrow_mut();
@@ -81,8 +79,6 @@ fn scramble(i: &mut Input, g: &mut Lcg) {
     }
 }
 
-/// Drive `seats` bots for `limit` ticks, handing every `every`th tick (before
-/// the step) to `f`. Odd seeds add chaos.
 pub fn drive(seats: u32, seed: u64, limit: u32, every: u32, mut f: impl FnMut(&Frame)) {
     let mut run = Run::lanternward_for_test();
     for id in 2..=seats {
@@ -143,7 +139,6 @@ pub fn drive(seats: u32, seed: u64, limit: u32, every: u32, mut f: impl FnMut(&F
     }
 }
 
-/// The usual set of tables: (seats, seed, limit).
 pub const TABLES: [(u32, u64, u32); 8] = [
     (1, 2, 9000),
     (2, 4, 9000),

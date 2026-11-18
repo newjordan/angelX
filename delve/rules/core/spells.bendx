@@ -1,6 +1,3 @@
-# crates/delve/src/rules/spells.rs — reusable spell slots and the shots a spell's shape makes.
-
-# A spell card into the first free slot: whether it went in.
 def spells.Hero.equip_spell(h: J.Val, card: J.Val) -> (J.Val, Bool):
     if Bool.not(String.eq(core.s(card, "kind"), "spell")):
         return (h, False{})
@@ -17,7 +14,6 @@ def spells.Hero.equip_spell(h: J.Val, card: J.Val) -> (J.Val, Bool):
         return (h, False{})
     h = J.set(h, "spells", J.set_nth(J.get(h, "spells"), free, J.get(card, "id")))
     h = J.set(h, "spell_cooldowns", J.set_nth(J.get(h, "spell_cooldowns"), free, J.JU{0}))
-    # The bar mirrors the spells, for older readers.
     bar: [J.Val] = J.items(J.get(h, "bar"))
     j: U32 = 0
     done: Bool = False{}
@@ -28,7 +24,6 @@ def spells.Hero.equip_spell(h: J.Val, card: J.Val) -> (J.Val, Bool):
         j = (j + 1 : U32)
     return (h, True{})
 
-# Shapes use the same damage scaling and shot gifts as the knight's bow.
 def spells.Hero.spell_shots(h: J.Val, shape: String, spell: String, owner: U32, shots: J.Val) -> J.Val:
     count: U32 = 1
     speed: F32 = 22.0

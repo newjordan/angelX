@@ -1,10 +1,8 @@
-# crates/delve/src/rules/tide.rs: a guardian's Ravage (so far: casting one).
 import Base
 
 def tide.step_for(speed: F32) -> U32:
   RS.f_as_u32(RS.f_max(RS.f_round((tide.RING_GAP() / RS.f_max(speed, 1.0) * cb.f(rules.HZ()) : F32)), 2.0))
 
-# A Ravage cast at (x, y): `rings` clamped to 1..=8, a lane chosen by `beat`.
 def tide.Ravage.cast(x: F32, y: F32, rings: U32, arc: F32, speed: F32, damage: U32, beat: W.W) -> Ravage:
   r: Ravage = J.obj()
   r.x = x

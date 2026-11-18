@@ -18,25 +18,15 @@ use unicode_width::UnicodeWidthChar;
 
 use crate::font::{Fonts, Picture, BOLD, ITALIC};
 
-/// The most glyph pictures one pager memoizes before starting over:
-/// far past a document's alphabet, bounded so a producer streaming
-/// novel symbols forever cannot grow it without limit.
 const MEMO_MAX: usize = 8192;
-/// The texture side every host guarantees; a page past it is refused
-/// rather than truncated.
 const MAX_SIDE: u32 = 8192;
 
-/// A loaded font stack that renders text pages. Loading runs
-/// fontconfig, so keep one and reuse it.
 pub struct Pager {
     fonts: Fonts,
     memo: HashMap<String, Option<Arc<Picture>>>,
 }
 
 impl Pager {
-    /// Load `family` (a fontconfig family name, like the window's)
-    /// sized so its cell height lands on `cell_height_px`: load at a
-    /// guess, measure, and correct once. `None` when no font answers.
     pub fn load(family: &str, cell_height_px: u32) -> Option<Self> {
         let target = cell_height_px.max(4) as f32;
         let mut fonts = Fonts::load(family, target, (target / 12.0).max(1.0)).ok()?;
@@ -50,13 +40,10 @@ impl Pager {
         })
     }
 
-    /// The cell a page is laid out on, in pixels `(width, height)`.
     pub fn cell(&self) -> (u32, u32) {
         (self.fonts.cell.width, self.fonts.cell.height)
     }
 
-    /// The pixel size `lines` renders to, or `None` past the texture
-    /// limit. An empty page is `None`: nothing to present.
     pub fn size(&self, lines: &[impl AsRef<str>]) -> Option<(u32, u32)> {
         let cols = lines
             .iter()
@@ -68,9 +55,6 @@ impl Pager {
         (w > 0 && h > 0 && w <= MAX_SIDE && h <= MAX_SIDE).then_some((w, h))
     }
 
-    /// Render `lines` in `fg` (straight RGB; style flags are `BOLD` /
-    /// `ITALIC` bits, same for every line) over `bg` (straight RGBA).
-    /// Returns `(width, height, rgba)`, or `None` past the limit.
     pub fn render(
         &mut self,
         lines: &[impl AsRef<str>],
@@ -90,7 +74,7 @@ impl Pager {
             while let Some(base) = chars.next() {
                 let span = UnicodeWidthChar::width(base).unwrap_or(0) as u32;
                 if span == 0 {
-                    continue; // a mark with no base before it
+                    continue;
                 }
                 let mut symbol = base.to_string();
                 while let Some(&mark) = chars.peek() {
@@ -134,15 +118,10 @@ impl Pager {
     }
 }
 
-/// Style bits for [`Pager::render`], the font stack's own.
 pub const PLAIN: u8 = 0;
 pub const BOLD_STYLE: u8 = BOLD;
 pub const ITALIC_STYLE: u8 = ITALIC;
 
-/// Composite over opaque paper, in integer math: a mask pixel is
-/// `fg` at its alpha, a coloured pixel is already premultiplied, and
-/// the paper's alpha never moves. The document case (dark text on
-/// dark paper, light on light) always takes this path.
 fn composite_opaque(page: &mut [u8], w: u32, h: u32, picture: &Picture, x: i32, y: i32, fg: [u8; 3]) {
     for gy in 0..picture.height as i32 {
         let py = y + gy;
@@ -162,7 +141,6 @@ fn composite_opaque(page: &mut [u8], w: u32, h: u32, picture: &Picture, x: i32, 
                 if a == 0 {
                     continue;
                 }
-                // Stored premultiplied: out = src + dst * (1 - a).
                 for k in 0..3 {
                     let s = u16::from(picture.data.get(i + k).copied().unwrap_or(0));
                     page[at + k] = (s + (u16::from(page[at + k]) * (255 - a)) / 255) as u8;
@@ -181,9 +159,6 @@ fn composite_opaque(page: &mut [u8], w: u32, h: u32, picture: &Picture, x: i32, 
     }
 }
 
-/// Composite one glyph picture over the page at `(x, y)`: a mask
-/// tints `fg`, a coloured picture (premultiplied RGBA) lands as
-/// itself. Straight-alpha `over`, clipped to the page.
 fn composite(page: &mut [u8], w: u32, h: u32, picture: &Picture, x: i32, y: i32, fg: [u8; 3]) {
     for gy in 0..picture.height as i32 {
         let py = y + gy;
@@ -202,7 +177,6 @@ fn composite(page: &mut [u8], w: u32, h: u32, picture: &Picture, x: i32, y: i32,
                 if a == 0 {
                     continue;
                 }
-                // Held premultiplied; un-premultiply for the straight page.
                 let un = |c: u8| ((u16::from(c) * 255 + u16::from(a) / 2) / u16::from(a)).min(255) as u8;
                 (
                     un(picture.data.get(i).copied().unwrap_or(0)),
@@ -248,25 +222,20 @@ mod tests {
             .expect("page renders");
         assert_eq!((w, h), (11 * cw, 2 * ch));
         assert_eq!(rgba.len(), (w * h * 4) as usize);
-        // Paper where nothing was written (last pixel), ink somewhere.
         assert_eq!(&rgba[rgba.len() - 4..], [16, 14, 12, 255]);
         let ink = rgba
             .chunks_exact(4)
             .filter(|px| px[0] > 100 && px[3] == 255)
             .count();
         assert!(ink > 100, "glyphs left ink (got {ink} bright pixels)");
-        // Rendering again (memo warm) is the same page, byte for byte.
         let again = pager.render(&lines, PLAIN, [240, 230, 210], [16, 14, 12, 255]).unwrap();
         assert_eq!(again.2, rgba);
-        // Empty and oversized pages are refused, not truncated.
         assert_eq!(pager.size(&[] as &[&str]), None);
         assert_eq!(pager.size(&["x".repeat(9000).as_str()]), None);
     }
 
     #[test]
     fn opaque_composite_matches_the_general_path_within_rounding() {
-        // A mask glyph (half, full) and a premultiplied colour glyph,
-        // over mid-grey paper, through both compositors.
         let bg = [100u8, 90, 80, 255];
         let mut general: Vec<u8> = bg.repeat(4);
         let mut fast = general.clone();

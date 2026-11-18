@@ -15,7 +15,6 @@ pub(super) enum Style {
     Cave,
 }
 
-/// The pack's style where it dresses the whole floor.
 pub(super) fn style(pack: Pack) -> Option<Style> {
     match pack {
         Pack::Crypt => Some(Style::Teal),
@@ -25,7 +24,6 @@ pub(super) fn style(pack: Pack) -> Option<Style> {
     }
 }
 
-/// A foe as the room it stands in draws it.
 pub(super) fn enemy(run: &Run, kind: EnemyKind, tick: u32) -> Img {
     style(run.dungeon.pack)
         .and_then(|_| super::pack_foes::frame(kind, tick))
@@ -40,8 +38,6 @@ fn set(style: Style) -> [&'static [&'static str; 8]; 3] {
     }
 }
 
-/// A spike trap at rest: sixteen of the pack's holes over its two by two
-/// tiles.
 pub(super) fn spike_plate(style: Style) -> Img {
     let mut im = Img::new(32, 32);
     let hole = Img::from_rows(set(style)[0]);
@@ -53,8 +49,6 @@ pub(super) fn spike_plate(style: Style) -> Img {
     im
 }
 
-/// The spikes over the plate: tips rattling in half the holes, turn about,
-/// before they strike, or all of them up.
 pub(super) fn spikes_out(style: Style, up: bool, tick: u32) -> Img {
     let [_, tip, spike] = set(style);
     let (tip, spike) = (Img::from_rows(tip), Img::from_rows(spike));

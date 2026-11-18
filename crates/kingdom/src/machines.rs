@@ -9,20 +9,15 @@ pub struct MachineRow {
     pub plan: String,
     pub recipe: Option<String>,
     pub status: Status,
-    /// Seconds a batch takes at the crew's efficiency and the power fitted.
     pub batch_seconds: f32,
     pub inputs_per_min: Vec<(String, f32)>,
     pub outputs_per_min: Vec<(String, f32)>,
-    /// What the input buffer holds against what it takes.
     pub input_fill: Vec<(String, u32, u32)>,
-    /// What waits in the output buffer against its limit.
     pub output_fill: Vec<(String, u32, u32)>,
     pub stats: Stats,
 }
 
 impl MachineRow {
-    /// Share of its seconds spent starved of inputs or backed up on output,
-    /// in percent: a machine high on either is where to look.
     pub fn starved_percent(&self) -> u32 {
         let total = self.stats.worked + self.stats.starved + self.stats.backed_up + self.stats.unstaffed + self.stats.stalled;
         if total == 0 { 0 } else { self.stats.starved * 100 / total }

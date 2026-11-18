@@ -139,7 +139,6 @@ fn reservations_and_old_envelopes_cannot_forge_or_drop_wish_ownership() {
     let mut checkpoint = runtime_state::capture(&run).unwrap();
     checkpoint.schema = 4;
     assert!(runtime_state::restore(checkpoint).is_err());
-    // A genuine previous generation with no reservations remains readable.
     let clean = Run::new(0, 9, None);
     let mut old = runtime_state::capture(&clean).unwrap();
     old.schema = 4;
@@ -223,7 +222,6 @@ fn departure_discards_unclaimed_words_and_fences_same_name_rejoins() {
             .claim_wish(&mut run, ask.clone(), String::new())
             .is_err()
     );
-    // Old saves may already have an orphan queued; it cannot block a valid seat.
     run.leave(2);
     run.asked.push(ask.clone());
     let stale = journal.claim_wish(&mut run, ask, String::new()).unwrap();
@@ -386,8 +384,6 @@ fn a_changed_policy_cannot_overwrite_another_players_already_held_definition() {
         Some(&(1, "Original maker".into()))
     );
     assert!(!run.players[&2].deck.contains(&original.id));
-    // A second knight can still take the identical canonical gift; its first
-    // maker and existing card remain unchanged.
     run.asked.push(second.work.ask.clone());
     let third = journal
         .claim_wish(&mut run, second.work.ask.clone(), "Second maker".into())

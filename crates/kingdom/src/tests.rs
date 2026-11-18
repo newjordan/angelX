@@ -59,7 +59,7 @@ fn catalogue_is_replaceable_and_rejects_broken_references() {
     let before = k.amount("timber");
     k.work(&c);
     assert_eq!(k.total("timber"), before + 7);
-    assert_eq!(k.amount("timber"), before); // output awaits a carrier
+    assert_eq!(k.amount("timber"), before);
     for _ in 0..8 {
         k.advance_second(&c);
     }

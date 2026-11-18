@@ -242,7 +242,6 @@ fn a_busy_villager_goes_home_before_it_comes_back_out() {
         deeds.begin(&id(&format!("e{n}")), "shell", "ls", 0);
         deeds.settle(&id(&format!("e{n}")), true, 0);
     }
-    // Everyone delivers and turns for home.
     let mut t = 1;
     while deeds
         .wayfarers()
@@ -254,7 +253,6 @@ fn a_busy_villager_goes_home_before_it_comes_back_out() {
         assert!(t < 3_000, "the crew never turned for home");
     }
     assert_eq!(deeds.record().sacks, 4);
-    // A fifth errand while all four walk home: nobody turns round.
     deeds.begin(&id("late"), "shell", "echo late", t);
     let mut seen = deeds.wayfarers().len();
     let mut gone_in = false;

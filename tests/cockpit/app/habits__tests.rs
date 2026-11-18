@@ -188,7 +188,6 @@ fn installed_section_renders_usage_and_drift_from_the_tick_artifact() {
     );
     assert!(text.contains("proj-lint-test [belief 0.81] · 3 use(s)"));
     assert!(!text.contains("never-installed"), "no usage → not listed");
-    // Garbage status.json never breaks the command.
     std::fs::write(base.join("status.json"), "{nope").unwrap();
     let ok = status_text_in(
         &base.join("nothing-proposed"),
@@ -219,7 +218,6 @@ fn approve_moves_the_folder_and_spools_supports() {
     assert!(spool.contains("\"action\":\"approve\""));
     assert!(spool.contains("hyp_habit_k_build-test"));
 
-    // Approving again: the draft no longer exists.
     let again = approve_in(&proposed, &live, &state, "proj-build-test", &base);
     assert!(again.contains("no proposal named"), "{again}");
     let _ = std::fs::remove_dir_all(&base);
@@ -261,13 +259,10 @@ fn startup_notice_fires_once_per_new_batch() {
     let (proposed, stamp) = (base.join("p"), base.join("s/last-launch"));
     write_draft(&proposed, "proj-build-test", &draft(&base));
 
-    // First launch after the draft appeared: notice (stamp was 0/missing).
     let first = startup_notice_in(&proposed, &stamp, now_secs(), &base);
     assert!(first.is_some_and(|n| n.contains("1 skill proposal(s)")));
-    // Next launch, nothing new: silent (stamp advanced past the mtime).
     let second = startup_notice_in(&proposed, &stamp, now_secs() + 10, &base);
     assert!(second.is_none());
-    // Empty dir: silent.
     let none = startup_notice_in(&base.join("nowhere"), &stamp, now_secs() + 20, &base);
     assert!(none.is_none());
     let _ = std::fs::remove_dir_all(&base);

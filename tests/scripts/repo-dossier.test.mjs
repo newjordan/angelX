@@ -1,9 +1,3 @@
-// Tests for repo-dossier: D1 ledger events → per-repo facts with beliefs.
-// Unit cases use a fresh graph for determinism; the coexistence case seeds
-// research + self + config + dossier domains into one graph and proves the
-// shared scorer keeps them independent (the same guarantee self-causal and
-// config-causal each established for their domain).
-
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
@@ -80,8 +74,6 @@ test('dossier paths use the native cockpit stores and respect explicit overrides
 test('bundled workers refresh dossier facts and habit drafts without a browser data tree', (t) => {
   const root = mkdtempSync(join(tmpdir(), 'angel-dossier-refresh-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
-  // Exercise the installed resource boundary, not a checkout that can hide
-  // missing package entries. No source-tree fallback exists inside this bundle.
   const bundle = join(root, 'bundle')
   const resources = RELEASE_PATHS.filter(
     (path) =>
@@ -96,8 +88,6 @@ test('bundled workers refresh dossier facts and habit drafts without a browser d
     copyFileSync(new URL(`../../${path}`, import.meta.url), target)
   }
   assertRuntimeHelperClosure(bundle, resources)
-  // Node canonicalizes the entry module URL while preserving argv[1]. This
-  // alias reproduces macOS /var → /private/var temp paths on every platform.
   const bundleAlias = join(root, 'bundle-alias')
   symlinkSync(bundle, bundleAlias, 'dir')
   const ledger = join(root, 'ledger.jsonl')
@@ -289,7 +279,6 @@ const NOW_TS = Math.floor(Date.parse(NOW) / 1000)
 const KEY = 'home-u-proj-0011223344556677'
 const KEY2 = 'home-u-other-8899aabbccddeeff'
 
-// One D1 cmd-event line, as experience.rs writes it.
 const cmd = (
   text,
   exit,
@@ -305,8 +294,6 @@ const cmd = (
   cmd: { text, exit, timed_out: timedOut, dur_ms: dur, tool: 'shell', bytes_out: 10 },
 })
 
-// One current (experience schema v3) row, including the verdict/provenance
-// contract the Rust writer places on the ledger.
 const cmdV3 = (
   text,
   verdict,
@@ -356,7 +343,6 @@ const turn = (ts, stop, { key = KEY, driver = 'gemma', ok = true } = {}) => ({
   outcome: { ok, stop, latency_ms: 1, hops: 1, tokens: {}, counters: {}, failovers: [] },
 })
 
-// A repo history: a healthy test ritual, a recurring trap, a one-off command.
 const ROWS = [
   cmd('cargo test -p cockpit', 0, { session: 1 }),
   cmd('cargo test -p cockpit', 0, { session: 2 }),
@@ -385,24 +371,19 @@ test('classifyCommand buckets by leading tokens', () => {
 
 test('normalizeCommand strips the chdir agents always prefix, and keeps the command', () => {
   const repo = { root: '/home/u/proj' }
-  // The shape that made 99.5% of the live ledger unclassifiable.
   assert.deepEqual(normalizeCommand('cd /home/u/proj/cockpit && cargo check', repo), {
     command: 'cargo check',
     attributable: true,
   })
-  // …and its canonical text is the COMMAND, not a path that may not exist
-  // tomorrow (a worktree) — this text is handed to The Cut as a verify command.
   assert.equal(
     classifyCommand(normalizeCommand('cd /home/u/proj && cargo test -p x', repo).command),
     'test',
   )
-  // Chained chdirs, quoted targets, `$(pwd)`, relative — all still in-repo.
   assert.equal(
     normalizeCommand('cd /home/u/proj; cd cockpit && npm test', repo).command,
     'npm test',
   )
   assert.equal(normalizeCommand('cd "$(pwd)" && npm test', repo).command, 'npm test')
-  // A plain command is untouched.
   assert.deepEqual(normalizeCommand('cargo test', repo), {
     command: 'cargo test',
     attributable: true,
@@ -411,8 +392,6 @@ test('normalizeCommand strips the chdir agents always prefix, and keeps the comm
 
 test("a pipeline's exit belongs to its last stage, so the command gets NO verdict", () => {
   const repo = { root: '/home/u/proj' }
-  // `sh -c` has no pipefail: `cargo check … | tail` exits 0 even when the build
-  // fails. Recurrence is real; the verdict is not.
   assert.deepEqual(normalizeCommand('cd /home/u/proj && cargo check 2>&1 | tail -20', repo), {
     command: 'cargo check',
     attributable: false,
@@ -421,19 +400,45 @@ test("a pipeline's exit belongs to its last stage, so the command gets NO verdic
     command: 'cargo test',
     attributable: false,
   })
-  // A bare redirect is not another stage — that exit IS cargo's.
   assert.deepEqual(normalizeCommand('cargo test 2>&1', repo), {
     command: 'cargo test',
     attributable: true,
   })
 })
 
+test('normalization preserves quoted and escaped operator literals', () => {
+  for (const text of [
+    `node -e 'console.log("a|b"); process.exit(0)'`,
+    `node -e 'console.log("> file")'`,
+    'cargo test --filter "left || right; > output"',
+    String.raw`cargo test --filter left\|right`,
+    String.raw`cargo test --filter a\;b`,
+    String.raw`cargo test --filter a\>b`,
+  ]) assert.deepEqual(normalizeCommand(text), { command: text, attributable: true }, text)
+  assert.deepEqual(normalizeCommand(`cargo test --filter 'a|b' 2>&1 | tail -20`), {
+    command: `cargo test --filter 'a|b'`, attributable: false,
+  })
+  assert.deepEqual(normalizeCommand(`cargo test > "file with spaces.log" 2>&1`), {
+    command: 'cargo test', attributable: true,
+  })
+  for (const redirect of ['12>&1', '123> output.log', '&> output.log', '&>> "output log"']) {
+    assert.deepEqual(normalizeCommand(`cargo test ${redirect}`), { command: 'cargo test', attributable: true }, redirect)
+  }
+  for (const text of ['cargo test filter12>log', 'cargo test filter12>&1']) {
+    assert.deepEqual(normalizeCommand(text), { command: 'cargo test filter12', attributable: true }, text)
+  }
+  for (const text of ['cargo test <<EOF', 'cargo test <<< "input"', 'cargo test < input', 'cargo test filter12< input', 'cargo test 0<&3', 'cargo test <> input']) {
+    assert.equal(normalizeCommand(text), null, text)
+  }
+  assert.deepEqual(normalizeCommand('cargo test --filter "a<b"'), { command: 'cargo test --filter "a<b"', attributable: true })
+  for (const text of ['cargo test "unfinished', 'cargo test $(echo nested)', 'cargo test &', 'cargo test\necho done']) {
+    assert.equal(normalizeCommand(text), null, text)
+  }
+})
+
 test("a chdir into ANOTHER repo is that repo's evidence, never this one's", () => {
-  // Run from gpug, but the command builds angelX: it must not become a gpug fact.
   const gpug = { root: '/home/user/gpug' }
   assert.equal(normalizeCommand('cd /home/user/angelX/cockpit && cargo check', gpug), null)
-  // The worktree case: the row's repo is the MAIN checkout, the work happened in
-  // a linked worktree (`cwd`), and that is still this repo's evidence.
   const wt = { root: '/home/user/angelX', cwd: '/tmp/cut-forge/item-3' }
   assert.equal(
     normalizeCommand('cd /tmp/cut-forge/item-3/cockpit && cargo check', wt).command,
@@ -457,11 +462,15 @@ test('chained relative chdirs carry the effective cwd between prefixes', () => {
     attributable: true,
   })
   assert.equal(normalizeCommand('cd cockpit; cd ../../../other && cargo check', repo), null)
+  for (const text of ['cd "$HOME" && cargo test', 'cd ${DEST} && cargo test', 'cd ~/other && cargo test', 'cd - && cargo test', 'cd "$(get-repo)" && cargo test']) {
+    assert.equal(normalizeCommand(text, repo), null, text)
+  }
+  assert.deepEqual(normalizeCommand("cd '$HOME' && cargo test", repo), { command: 'cargo test', attributable: true })
+  assert.deepEqual(normalizeCommand("cd '~' && cargo test", repo), { command: 'cargo test', attributable: true })
+  assert.deepEqual(normalizeCommand('cd "$(pwd)" && cargo test', repo), { command: 'cargo test', attributable: true })
 })
 
 test('unverifiable runs prove recurrence but never move belief', () => {
-  // Three piped `cargo check`s across three sessions: a real ritual candidate
-  // with zero observed exit statuses.
   const piped = [1, 2, 3].map((s) =>
     cmd('cd /home/u/proj/cockpit && cargo check 2>&1 | tail -20', 0, { session: s }),
   )
@@ -473,14 +482,11 @@ test('unverifiable runs prove recurrence but never move belief', () => {
   assert.equal(r.verdicts, 0, 'no exit status was ever this command’s')
   assert.equal(r.passes, 0)
 
-  // Belief must stay at exactly 0.5 — NOT 0.5+0.2 (a fabricated pass rate) and
-  // NOT 0.5-0.2 (which "0 of 3 passed" would otherwise imply).
   const g = new CausalGraph()
   ingestRepoFacts(g, KEY, rec, { now: NOW })
   const node = dossierFacts(g, KEY)[0]
   assert.equal(factBelief(g, node, { now: NOW }).belief, 0.5)
 
-  // …so it is withheld from the injected block, and says why.
   const artifact = compileDossier(g, KEY, { now: NOW })
   assert.equal(artifact.facts[0].verdicts, 0)
   assert.match(artifact.facts[0].evidence, /no attributable verdict/)
@@ -503,9 +509,17 @@ test('v3 pipefail passes cross the Rust-to-miner boundary and mint a real fact',
   assert.ok(factBelief(g, dossierFacts(g, KEY)[0], { now: NOW }).belief > 0.5)
 })
 
+test('quoted operator literals do not suppress an attributable v3 pipefail pass', () => {
+  const text = `cargo test --filter 'left; right || other' 2>&1 | tail -20`
+  const rows = [1, 2, 3].map(session => cmdV3(text, 'pass', { session }))
+  const facts = mineRepoFacts(rows)[KEY]
+  assert.equal(facts.rituals.length, 1)
+  assert.equal(facts.rituals[0].canonical, `cargo test --filter 'left; right || other'`)
+  assert.equal(facts.rituals[0].verdicts, 3)
+  assert.equal(facts.rituals[0].passes, 3)
+})
+
 test('v3 pipeline failures stay unattributed, and dossier echoes cannot self-mint', () => {
-  // Pipefail says some stage failed, not which one. Do not turn a broken `tail`
-  // into a claim that cargo failed.
   const failed = [1, 2, 3].map((session) =>
     cmdV3('cargo check | tail -20', 'fail', { session, exit: 1 }),
   )
@@ -513,8 +527,6 @@ test('v3 pipeline failures stay unattributed, and dossier echoes cannot self-min
   assert.equal(failureFact.verdicts, 0)
   assert.equal(failureFact.passes, 0)
 
-  // Even trustworthy passes are inert when the dossier put the command into
-  // the prompt. This is the ledger-side mirror of machine.source=dossier.
   const echoes = [1, 2, 3].map((session) =>
     cmdV3('cargo check', 'pass', { session, independent: false }),
   )
@@ -522,16 +534,11 @@ test('v3 pipeline failures stay unattributed, and dossier echoes cannot self-min
 })
 
 test('the recurrence floor is enforced on the fact minted, not on the class pool', () => {
-  // Three DIFFERENT one-off `python3 -c …` scripts across three sessions: the
-  // `run` class pool clears 3 runs / 2 sessions, but no single command recurs.
-  // The canonical form would carry ONE run — a belief out of thin evidence.
-  // (This is verbatim what the live gpug ledger minted before the fix.)
   const oneOffs = ['python3 -c "print(1)"', 'python3 -c "print(2)"', 'python3 -c "print(3)"'].map(
     (t, i) => cmd(t, 0, { session: i + 1 }),
   )
   assert.equal(mineRepoFacts(oneOffs)[KEY].rituals.length, 0)
 
-  // The same class, but now one command actually recurs → that one is the fact.
   const recurring = [
     ...oneOffs,
     cmd('python3 -m app', 0, { session: 1 }),
@@ -549,26 +556,20 @@ test('mining mints rituals and traps past their thresholds, with the newest turn
   const rec = mined[KEY]
   assert.ok(rec)
 
-  // `npm test` is in the same class, but only helps SELECT the canonical form
-  // (most frequent passing text); the ritual's evidence is the canonical
-  // command's own runs, so npm's failures don't dilute cargo's record.
   assert.equal(rec.rituals.length, 1)
   const ritual = rec.rituals[0]
   assert.equal(ritual.class, 'test')
   assert.equal(ritual.canonical, 'cargo test -p cockpit')
-  assert.equal(ritual.runs, 3) // the canonical text's own runs
+  assert.equal(ritual.runs, 3)
   assert.equal(ritual.passes, 2)
   assert.ok(ritual.sessions >= 2)
 
-  // The exact `npm test` text never passes → trap.
   assert.equal(rec.traps.length, 1)
   assert.equal(rec.traps[0].text, 'npm test')
   assert.equal(rec.traps[0].fails, TRAP_MIN_FAILS)
 
-  // One-off never becomes a fact (recurrence floor).
   assert.ok(!JSON.stringify(rec.rituals).includes('one-off'))
 
-  // Thread = newest turn.
   assert.equal(rec.thread.stop, 'max_hops')
   assert.equal(rec.thread.ok, false)
 })
@@ -582,7 +583,7 @@ test('below-threshold commands mint nothing', () => {
 
 test('events without a repo stamp or with unknown kinds are ignored', () => {
   const mined = mineRepoFacts([
-    { kind: 'event', event: 'cmd', cmd: { text: 'x', exit: 0 } }, // no repo
+    { kind: 'event', event: 'cmd', cmd: { text: 'x', exit: 0 } },
     { kind: 'bench', suite: 'control-v1' },
     null,
   ])
@@ -599,7 +600,7 @@ test('ingest is idempotent and keeps repos separate', () => {
   ])
 
   const first = ingestRepoFacts(g, KEY, mined[KEY], { now: NOW })
-  assert.equal(first.added.nodes, 2) // ritual + trap
+  assert.equal(first.added.nodes, 2)
   const again = ingestRepoFacts(g, KEY, mined[KEY], { now: NOW })
   assert.equal(again.added.nodes, 0)
   assert.equal(again.added.updated, 2)
@@ -617,6 +618,39 @@ test('ingest is idempotent and keeps repos separate', () => {
   }
 })
 
+test('changing a canonical command invalidates only that command\'s probe evidence', () => {
+  for (const edgeType of [EDGE_TYPE.SUPPORTS, EDGE_TYPE.CONTRADICTS]) {
+    const g = new CausalGraph()
+    const oldRows = [1, 2, 3].map((session) => cmdV3('cargo test -p old', 'no_verdict', { session }))
+    const original = mineRepoFacts(oldRows)[KEY]
+    ingestRepoFacts(g, KEY, original, { now: NOW })
+    const fact = dossierFacts(g, KEY)[0]
+    g.addNode({ id: 'probe', type: NODE_TYPE.EXPERIMENT, evidence: 'tested old command' })
+    g.addNode({ id: 'other', type: NODE_TYPE.HYPOTHESIS })
+    g.addEdge({ src: 'probe', dst: fact.id, type: edgeType, confidence: 0.85 })
+    g.addEdge({ src: 'probe', dst: fact.id, type: EDGE_TYPE.TESTS })
+    g.addEdge({ src: 'probe', dst: 'other', type: edgeType, confidence: 0.85 })
+    g.updateNode(fact.id, { lastVerifiedAt: NOW, outcome: edgeType === EDGE_TYPE.SUPPORTS ? 'positive' : 'negative' })
+
+    ingestRepoFacts(g, KEY, original, { now: NOW })
+    assert.equal(g.getNode(fact.id).lastVerifiedAt, NOW)
+    assert.equal(g.edges().length, 3)
+    const reloaded = CausalGraph.deserialize(g.serialize())
+    const replacement = mineRepoFacts([
+      ...oldRows,
+      ...[4, 5, 6, 7].map((session) => cmdV3('cargo test -p new', 'no_verdict', { session })),
+    ])[KEY]
+    ingestRepoFacts(reloaded, KEY, replacement, { now: NOW })
+    const updated = reloaded.getNode(fact.id)
+    assert.equal(updated.factText, 'cargo test -p new')
+    assert.equal(updated.lastVerifiedAt, null, 'the new command has never been probed')
+    assert.equal(updated.outcome, 'neutral')
+    assert.equal(factBelief(reloaded, updated, { now: NOW }).belief, 0.5)
+    assert.equal(reloaded.edges().length, 1, 'unrelated probe edges survive')
+    assert.equal(reloaded.getNode('probe').evidence, 'tested old command', 'raw experiment evidence survives')
+  }
+})
+
 test('belief: passing ritual > 0.5, trap ~confidently true, probes move it, age decays it', () => {
   const g = new CausalGraph()
   const mined = mineRepoFacts(ROWS)
@@ -626,21 +660,17 @@ test('belief: passing ritual > 0.5, trap ~confidently true, probes move it, age 
     dossierFacts(g, KEY).find((n) => n.factKind === 'trap'),
   ]
 
-  // Observational only: mining-capped, on the right side of 0.5.
   const rb = factBelief(g, ritual, { now: NOW }).belief
   assert.ok(rb > 0.5 && rb <= 0.7, `ritual observational belief capped (${rb})`)
   const tb = factBelief(g, trap, { now: NOW }).belief
   assert.ok(tb > rb, `an always-failing trap (${tb}) is more certain than a 2/3 ritual (${rb})`)
 
-  // A probe SUPPORTS edge raises belief past the observational cap.
   g.addNode({ id: 'exp_probe_1', type: NODE_TYPE.EXPERIMENT, label: 'probe' })
   g.addEdge({ src: 'exp_probe_1', dst: ritual.id, type: EDGE_TYPE.SUPPORTS, confidence: 0.8 })
   g.updateNode(ritual.id, { lastVerifiedAt: NOW })
   const verified = factBelief(g, g.getNode(ritual.id), { now: NOW }).belief
   assert.ok(verified > 0.75, `verified ritual belief rises (${verified})`)
 
-  // Two half-lives later with no re-verification, the same fact has decayed
-  // most of the way back to neutral.
   const later = new Date(Date.parse(NOW) + 28 * 86_400_000).toISOString()
   const decayed = factBelief(g, g.getNode(ritual.id), { now: later }).belief
   assert.ok(decayed < 0.5 + (verified - 0.5) / 3, `decays toward 0.5 (${verified} → ${decayed})`)
@@ -662,8 +692,40 @@ test('compile emits the injection artifact: rituals before traps, evidence strin
   assert.match(artifact.facts[0].evidence, /3 runs, 2 pass/)
   assert.ok(artifact.facts.every((f) => f.belief > 0 && f.belief < 1))
   assert.equal(artifact.thread.stop, 'max_hops')
-  // Round-trips as JSON (it's written to disk verbatim).
   assert.deepEqual(JSON.parse(JSON.stringify(artifact)), artifact)
+})
+
+test('dossier batch paths scan evidence once and refresh after graph mutations', () => {
+  const g = new CausalGraph()
+  ingestRepoFacts(g, KEY, mineRepoFacts(ROWS)[KEY], { now: NOW })
+  const facts = dossierFacts(g, KEY)
+  assert.equal(facts.length, 2)
+  const a = facts[0].id, b = facts[1].id
+  g.addEdge({ id: 'batch_support', src: 'missing', dst: a, type: EDGE_TYPE.SUPPORTS, confidence: 0.8 })
+  g.addEdge({ id: 'batch_contradiction', src: 'missing', dst: a, type: EDGE_TYPE.CONTRADICTS, confidence: NaN })
+  g.addEdge({ id: 'batch_zero', src: 'missing', dst: b, type: EDGE_TYPE.SUPPORTS, confidence: 0 })
+  g.addEdge({ id: 'batch_test', src: 'missing', dst: b, type: EDGE_TYPE.TESTS })
+  const edges = g.edges.bind(g)
+  let scans = 0
+  g.edges = () => { scans++; return edges() }
+  for (const mutate of [
+    () => {},
+    () => g.addEdge({ ...g.getEdge('batch_support'), confidence: -0.7 }),
+    () => g.removeEdge('batch_contradiction'),
+  ]) {
+    mutate()
+    const expected = new Map(facts.map(n => [n.id, factBelief(g, n, { now: NOW }).belief]))
+    scans = 0
+    const compiled = compileDossier(g, KEY, { now: NOW })
+    assert.equal(scans, 1, 'compile must not scan evidence per fact')
+    assert.equal(compiled.facts.length, facts.length)
+    for (const entry of compiled.facts) assert.equal(entry.belief, Number(expected.get(entry.id).toFixed(3)))
+    scans = 0
+    const { ranking } = proposeDossierProbe(g, KEY, { now: NOW })
+    assert.equal(scans, 1, 'probe must reuse the scorer belief')
+    assert.equal(ranking.length, facts.length)
+    for (const entry of ranking) assert.equal(entry.belief, expected.get(entry.hypothesisId))
+  }
 })
 
 test('probe queue ranks stale/uncertain facts first and scopes by repo', () => {
@@ -681,7 +743,6 @@ test('probe queue ranks stale/uncertain facts first and scopes by repo', () => {
 
 test('dossier facts coexist with research/self/config domains under the shared scorer', () => {
   const g = new CausalGraph()
-  // A research-style hypothesis (foreign domain).
   g.addNode({
     id: 'hyp_research_1',
     type: NODE_TYPE.HYPOTHESIS,
@@ -693,27 +754,15 @@ test('dossier facts coexist with research/self/config domains under the shared s
   const mined = mineRepoFacts(ROWS)
   ingestRepoFacts(g, KEY, mined[KEY], { now: NOW })
 
-  // The dossier propose path never surfaces the foreign hypothesis…
   const { ranking } = proposeDossierProbe(g, KEY, { now: NOW })
   assert.ok(ranking.every((r) => r.hypothesisId.startsWith('hyp_dossier_')))
-  // …and the foreign node is untouched by ingest/compile.
   assert.equal(g.getNode('hyp_research_1').projectId, 'research')
   compileDossier(g, KEY, { now: NOW })
   assert.equal(g.getNode('hyp_research_1').status, 'testing')
 })
 
-// ─── The Cut as a second verdict source, and the loop it would otherwise close ──
-// The ledger records what an agent TYPED, and agents type pipelines, so its
-// `exit` is usually tail(1)'s. The Cut runs its verify directly and records the
-// real exit — but it CHOOSES that verify from the dossier's own learned ritual,
-// which is a feedback loop. These tests pin the rule that cuts it:
-//
-//     a dossier-sourced verdict may never SUPPORT the fact that selected it;
-//     it may only CONTRADICT.
+const CUTKEY = 'home-u-proj-0011223344556677'
 
-const CUTKEY = 'home-u-proj-0011223344556677' // == KEY: same repo, second source
-
-/** One Cut manifest row, exactly as cockpit/src/cut.rs appends it. */
 const cutRow = (
   machine,
   { key = CUTKEY, session = 1, ts = NOW_TS, path = 'cockpit/src/lib.rs' } = {},
@@ -736,18 +785,15 @@ const cutRow = (
   machine,
 })
 
-/** A verify verdict: `cargo check` ran directly, unpiped, and returned `exit`. */
 const verdict = (exit, source, opts = {}) =>
   cutRow({ cmd: 'cargo check', dir: 'cockpit', dur_ms: 3000, exit, source, timed_out: false }, opts)
 
-/** The independent base every test builds on: 3 `default`-sourced passes, 2 sessions. */
 const BASE = [
   verdict(0, 'default', { session: 1, ts: NOW_TS }),
   verdict(0, 'default', { session: 1, ts: NOW_TS }),
   verdict(0, 'default', { session: 2, ts: NOW_TS }),
 ]
 
-/** Mine + ingest a cut manifest (no ledger rows) and return the build ritual's belief. */
 const buildFact = (cutRows, { now = NOW } = {}) => {
   const g = new CausalGraph()
   const mined = mineRepoFacts([], cutRows)
@@ -765,8 +811,6 @@ test('cut: skipped / timed-out / unverified rows are not verdicts and take no pa
     null,
   )
   assert.equal(cutSample(cutRow(undefined)), null)
-  // A manifest of nothing but non-verdicts mints nothing at all — an unchecked
-  // write must never look like a passing one.
   const nonVerdicts = [
     cutRow({ skipped: 'not-source' }),
     cutRow({ skipped: 'not-source' }, { session: 2 }),
@@ -785,7 +829,6 @@ test('cut: a default-sourced verdict votes in full — it mints the ritual and m
   assert.equal(fact.observed.passes, 3)
   assert.ok(fact.belief > 0.5, `a passing ritual is believed (${fact.belief})`)
 
-  // …and it votes DOWN as readily as up: swap one pass for a failure.
   const withFail = [BASE[0], BASE[1], verdict(101, 'default', { session: 2 })]
   const failed = buildFact(withFail)
   assert.equal(failed.observed.passes, 2)
@@ -796,9 +839,6 @@ test('cut: a default-sourced verdict votes in full — it mints the ritual and m
 test('cut: a dossier-sourced verdict CANNOT raise belief — the loop is cut', () => {
   const base = buildFact(BASE)
 
-  // The Cut ran `cargo check` twenty times BECAUSE the dossier told it to, and it
-  // passed every time. That is not evidence — it is an echo. Belief must not move
-  // by so much as a float.
   const echoed = Array.from({ length: 20 }, (_, i) =>
     verdict(0, 'dossier', { session: 100 + i, ts: NOW_TS }),
   )
@@ -812,11 +852,7 @@ test('cut: a dossier-sourced verdict CANNOT raise belief — the loop is cut', (
 })
 
 test('cut: dossier-sourced passes cannot keep their own fact fresh (the decay back door)', () => {
-  // Freshness is a belief-raising channel: belief = 0.5 + (raw-0.5)·0.5^(age/halfLife),
-  // so refreshing the clock pushes a >0.5 belief UP. If a self-selected pass could
-  // stamp `lastSeen`, a learned ritual would keep itself permanently fresh and
-  // permanently believed on its own say-so — the same loop, through a side door.
-  const LATER = '2026-07-20T00:00:00.000Z' // 14 days on: one half-life
+  const LATER = '2026-07-20T00:00:00.000Z'
   const laterTs = Math.floor(Date.parse(LATER) / 1000)
 
   const base = buildFact(BASE, { now: LATER })
@@ -831,8 +867,6 @@ test('cut: dossier-sourced passes cannot keep their own fact fresh (the decay ba
 
 test('cut: a dossier-sourced FAILURE lowers belief — a rotted ritual must fall out', () => {
   const base = buildFact(BASE)
-  // The learned ritual starts failing. THIS is real news, and it is the one thing
-  // a dossier-sourced verdict is allowed to say.
   const rotted = buildFact([...BASE, verdict(101, 'dossier', { session: 9 })])
 
   assert.ok(rotted.belief < base.belief, `belief must fall (${base.belief} → ${rotted.belief})`)
@@ -840,7 +874,6 @@ test('cut: a dossier-sourced FAILURE lowers belief — a rotted ritual must fall
   assert.equal(rotted.observed.fails, 1)
   assert.equal(rotted.observed.passes, 3, 'but it adds no passes')
 
-  // And it keeps falling as the rot continues — belief is monotone in dossier fails.
   const worse = buildFact([
     ...BASE,
     verdict(101, 'dossier', { session: 9 }),
@@ -851,9 +884,6 @@ test('cut: a dossier-sourced FAILURE lowers belief — a rotted ritual must fall
 })
 
 test('cut: dossier-sourced verdicts cannot mint a ritual into existence on their own', () => {
-  // No independent evidence anywhere — only The Cut running what the dossier told
-  // it to run. There is no fact here, only a reflection, and recurrence must not
-  // manufacture one.
   const echoOnly = Array.from({ length: 8 }, (_, i) =>
     verdict(0, 'dossier', { session: i + 1, ts: NOW_TS }),
   )
@@ -861,9 +891,6 @@ test('cut: dossier-sourced verdicts cannot mint a ritual into existence on their
 })
 
 test('cut: an unprovenanced verdict is fail-closed — contradict-only, never support', () => {
-  // A row with no `machine.source` (a legacy shard, a future writer that forgot).
-  // We do not guess provenance: we assume the worst, because a belief inflated by
-  // an unprovenanced verdict is exactly the failure this rule exists to prevent.
   assert.equal(cutSample(verdict(0, undefined)).independent, false)
   assert.equal(cutSample(verdict(0, 'default')).independent, true)
   assert.equal(cutSample(verdict(0, 'env')).independent, true)
@@ -878,10 +905,6 @@ test('cut: an unprovenanced verdict is fail-closed — contradict-only, never su
 })
 
 test('cut: verdicts are attributed to the repo key on the row, verbatim', () => {
-  // The key is minted Rust-side (workspace_store::workspace_key, which resolves a
-  // linked worktree to its main worktree). The miner never re-derives it and never
-  // reassigns it: a worktree's verdict landing on the wrong repo is a fabricated
-  // fact, and a fabricated fact is worse than none.
   const mined = mineRepoFacts([], [...BASE, verdict(0, 'default', { key: KEY2, session: 5 })])
   assert.ok(mined[CUTKEY], 'this repo got its own verdicts')
   assert.equal(mined[CUTKEY].rituals.length, 1)
@@ -890,10 +913,6 @@ test('cut: verdicts are attributed to the repo key on the row, verbatim', () => 
 })
 
 test('cut: the ledger and the manifest are one evidence pool, not two', () => {
-  // A repo whose build command recurs in BOTH sources: the ledger proves it is
-  // what the user runs, the manifest proves it actually passes. The ledger's
-  // piped rows carry no verdict (tail(1)'s exit), so they add recurrence only —
-  // and the fact is still minted, with the manifest supplying every verdict.
   const ledger = [
     cmd('cd cockpit && cargo check 2>&1 | tail -20', 0, { session: 7 }),
     cmd('cd cockpit && cargo check 2>&1 | tail -20', 0, { session: 8 }),

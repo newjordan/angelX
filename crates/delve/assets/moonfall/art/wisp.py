@@ -1,7 +1,3 @@
-"""The Gloam's wisp: a hooded blob of pale aqua smoke, shoulder-high, two pale
-eyes and a wick-stub tail that burns when it hunts (18 by 22, bottom-centre
-anchor). One teardrop body as the realm's snuffers; the frames are Moonfall's:
-a drift, a lean into a light, a shy retreat."""
 import math
 from engine import *
 
@@ -12,12 +8,10 @@ CLOAK = ["d", "(", ")", "["]
 
 
 def snuffer(sq=0, lean=0, hem=0, tail=0.0, eyes="3", wick="6", lids=0, hooded=False, stretch=0, wide=0, eyeshape=0, drop=0):
-    """sq squashes the body down, stretch pulls it up, lean slides the head."""
     sp = Sprite(W, H)
     foot = 20 + drop
     top = 1 + sq - stretch
     hx = 8 + lean
-    # the tail first, curling out behind: a thin smoke rope to a wick
     pts = []
     for i in range(9):
         t = i / 8
@@ -26,7 +20,6 @@ def snuffer(sq=0, lean=0, hem=0, tail=0.0, eyes="3", wick="6", lids=0, hooded=Fa
         pts.append((px, py))
     for i in range(len(pts) - 1):
         sp.fill(cap(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], 1.15 - i * 0.05), "U" if i % 2 else "v")
-    # the body: a teardrop, point up
     body = set()
     for y in range(top, foot + 1):
         t = (y - top) / max(1, foot - top)
@@ -35,7 +28,6 @@ def snuffer(sq=0, lean=0, hem=0, tail=0.0, eyes="3", wick="6", lids=0, hooded=Fa
         for x in range(int(cx - rx - 1), int(cx + rx + 2)):
             if abs(x + 0.5 - cx) <= rx:
                 body.add((x, y))
-    # a frayed hem
     for x in range(0, W):
         if (x, foot) in body and ((x * 7 + hem * 3) % 5 < 2):
             body.discard((x, foot))
@@ -43,16 +35,13 @@ def snuffer(sq=0, lean=0, hem=0, tail=0.0, eyes="3", wick="6", lids=0, hooded=Fa
                 body.discard((x, foot - 1))
     cloth = CLOAK if hooded else SMOKE
     sp.paint(body, cloth, rim=True)
-    # a fold line down the hood
     for y in range(top + 3, foot - 2):
         if (hx - 3, y) in sp.px and y % 2 == 0:
             sp.px[(hx - 3, y)] = cloth[0]
-    # the dark of the hood and the eyes in it
     ey = top + 8 - sq // 2
     face = ell(hx + lean * 0.3, ey + 1.5, 3.9, 3.4)
     sp.fill(face, "s")
     if hooded:
-        # a cloak over the whole head, stitched, the eyes shut away
         sp.fill(ell(hx, ey + 1.5, 4.6, 4.4), ")")
         sp.fill(ell(hx, ey + 1.5, 3.4, 3.2), "(")
         sp.put(hx - 2, ey + 1, "d"); sp.put(hx + 2, ey + 1, "d")
@@ -64,19 +53,18 @@ def snuffer(sq=0, lean=0, hem=0, tail=0.0, eyes="3", wick="6", lids=0, hooded=Fa
         if eyeshape == 0:
             sp.put(lx, ey + 1, eyes); sp.put(rx_, ey + 1, eyes)
             sp.put(lx, ey + 2, eyes); sp.put(rx_, ey + 2, eyes)
-        elif eyeshape == 1:   # narrowed, lit
+        elif eyeshape == 1:
             sp.fill(rect(lx - 1, ey + 2, 2, 1), eyes); sp.fill(rect(rx_, ey + 2, 2, 1), eyes)
-        elif eyeshape == 2:   # wide, blazing
+        elif eyeshape == 2:
             sp.fill(rect(lx - 1, ey + 1, 2, 3), eyes); sp.fill(rect(rx_, ey + 1, 2, 3), eyes)
             sp.put(lx, ey + 2, "w"); sp.put(rx_, ey + 2, "w")
-        elif eyeshape == 3:   # dazed: crosses
+        elif eyeshape == 3:
             for (cx_, cy_) in ((lx, ey + 2), (rx_, ey + 2)):
                 sp.put(cx_ - 1, cy_ - 1, "7"); sp.put(cx_ + 1, cy_ - 1, "7")
                 sp.put(cx_, cy_, "7")
                 sp.put(cx_ - 1, cy_ + 1, "7"); sp.put(cx_ + 1, cy_ + 1, "7")
-        elif eyeshape == 4:   # shut: flat lines
+        elif eyeshape == 4:
             sp.fill(rect(lx - 1, ey + 2, 2, 1), "u"); sp.fill(rect(rx_, ey + 2, 2, 1), "u")
-    # the wick on the end of the tail
     wx, wy = pts[-1]
     wx, wy = int(round(wx)), int(round(wy))
     if wick:

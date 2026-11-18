@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Writes delve/rules/home/_spell_tiers.bend from TIERS in crates/delve/src/rules/spell_upgrades.rs."""
 import pathlib
 import re
 
@@ -22,7 +21,6 @@ for kind in ("power", "wait"):
     out.append("    Bool.pick(List<&2, U32>, U32.is_eq(tier, 1), [" + ", ".join(map(str, rows[1])) + "],")
     out.append("      [" + ", ".join(map(str, rows[2])) + "]))")
     out.append("")
-# The numbers beside the tables, as the Step J value.
 fields = ["warden_hp", "rip_reach", "hammer_burst", "slam_reach", "fury", "rot", "rot_reach", "haul_reach", "quick_reach", "quick_life", "elixir_reach", "cabbage_extra", "imposture"]
 out.append("# The step's other numbers, as the Step the Rust holds (power and wait aside).")
 out.append("def spell_upgrades.step(+tier: U32) -> J.Val:")

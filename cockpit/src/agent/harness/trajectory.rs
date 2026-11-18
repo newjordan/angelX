@@ -19,8 +19,6 @@ fn push_truncated_chars(out: &mut String, text: &str, max_chars: usize) {
     }
 }
 
-/// Brief one-line summary of tool-call args for the activity trace.
-/// Default hops (`read_file {path}`) skip the parts Vec and per-key format!.
 pub(crate) fn summarize_args(args: &Value) -> String {
     if let Some(command) = args.get("command").and_then(Value::as_str) {
         return crate::platform::secrets::redact_str(command)
@@ -51,7 +49,6 @@ pub(crate) fn summarize_args(args: &Value) -> String {
     }
 }
 
-/// Brief one-line summary of a tool result for the activity trace.
 pub(crate) fn summarize_result(result: &str) -> String {
     result
         .lines()
@@ -62,30 +59,16 @@ pub(crate) fn summarize_result(result: &str) -> String {
         .collect()
 }
 
-/// Tool-call hop budget for one agent turn. This is a *runaway guard*, not a
-/// reasoning limit: nex2-style extended-reasoning clubs loop through many tool
-/// calls by design, and agentic drivers are multi-step too — so the
-/// default is generous. Override with `ANGEL_MAX_HOPS`; set it to `0` to run
-/// unbounded (loop until the club produces a text answer).
 pub fn default_max_hops() -> usize {
     match std::env::var("ANGEL_MAX_HOPS")
         .ok()
         .and_then(|s| s.trim().parse::<usize>().ok())
     {
-        Some(0) => usize::MAX, // unbounded
+        Some(0) => usize::MAX,
         Some(n) => n,
         None => usize::MAX,
     }
 }
-
-// ---------------------------------------------------------------------------
-// Trajectory logging — persist each run_turn rollout as JSONL for offline RL /
-// analysis. The raw training data the reinforce loop feeds on. Opt-in via
-// `ANGEL_TRAJECTORY_LOG`; dir overridable via `ANGEL_TRAJECTORY_DIR` (default
-// ~/.angelX/trajectories; under cfg(test) a per-process temp dir, so cockpit
-// test suites never feed the live trainer inbox). One file per process,
-// appended.
-// ---------------------------------------------------------------------------
 
 fn trajectory_messages(history: &[ChatMsg]) -> Vec<Value> {
     crate::agent::club::messages_to_json(history, true)
@@ -105,7 +88,6 @@ fn trajectory_messages(history: &[ChatMsg]) -> Vec<Value> {
         .collect()
 }
 
-/// Last-turn root Hi/Q snapshot for the agent strip (process-local, no disk).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub(crate) struct LastRootHiq {
     pub offload_ratio: f64,
@@ -128,9 +110,6 @@ pub(crate) fn last_root_hiq() -> Option<LastRootHiq> {
     LAST_ROOT_HIQ.lock().ok().and_then(|g| *g)
 }
 
-/// Serialize the root-only LID view of a rollout for RL analysis and forge
-/// metadata. Bulk tool bodies are classified, not embedded — this is what the
-/// root model actually conditions on under Hi/Q offload.
 pub(crate) fn root_trajectory_json(history: &[ChatMsg]) -> Value {
     let root = root_trajectory(history);
     let ratio = offload_ratio(
@@ -149,8 +128,6 @@ pub(crate) fn root_trajectory_json(history: &[ChatMsg]) -> Value {
     });
     serde_json::json!({
         "fingerprint": root.fingerprint(),
-        // Strategy token *list* (call:/tool:handle/…) plus a scalar length for
-        // short↔long ablation without re-counting the array in forge.
         "tokens": root.tokens,
         "token_n": root.tokens.len(),
         "root_chars": root.root_chars,
@@ -158,37 +135,23 @@ pub(crate) fn root_trajectory_json(history: &[ChatMsg]) -> Value {
         "handle_receipts": root.handle_receipts,
         "aged_receipts": root.aged_receipts,
         "bulk_tool_results": root.bulk_tool_results,
-        // LID mass ratio: share of tool results that left root as strategy
-        // receipts rather than bulk. Useful for short↔long trajectory pairing.
         "offload_ratio": ratio,
-        // Forge curriculum priority in [0.5, 2.0]: high offload + treebeard
-        // lane preferred for Zhang/Khattab-style generalization training.
         "hiq_priority": prio,
     })
 }
 
-/// LID mass ratio: handle+aged receipts over all classified tool results.
 pub(crate) fn offload_ratio(handle: usize, aged: usize, bulk: usize) -> f64 {
     let offloaded = handle.saturating_add(aged) as f64;
     let total = offloaded + bulk as f64;
     if total <= 0.0 { 0.0 } else { offloaded / total }
 }
 
-/// Relative forge/curriculum weight for a trajectory under Hi/Q training.
-///
-/// `0.5` bulk-stuffed ReAct → `1.75` fully offloaded default → `2.1875`
-/// Treebeard before competition bonuses. Cap matches forge
-/// `FORGE_HIQ_WEIGHT_MAX` default (3.0) so PRIMARY open-lever stacks on the
-/// forge side remain distinguishable (old hard clamp 2.5 flat-lined PRIMARY).
-/// Does not change The Cut's compile reward.
 pub(crate) fn hiq_priority(offload_ratio: f64, lane: Lane) -> f64 {
     let ratio = offload_ratio.clamp(0.0, 1.0);
-    // Linear map: ratio 0 → 0.5, ratio 1 → 1.75 before lane bonus.
     let mut w = 0.5 + 1.25 * ratio;
     if lane == Lane::Treebeard {
         w *= 1.25;
     }
-    // Env override keeps cockpit ↔ forge contract single-sourced for night ops.
     let wmax = std::env::var("FORGE_HIQ_WEIGHT_MAX")
         .ok()
         .and_then(|s| s.parse::<f64>().ok())
@@ -201,8 +164,6 @@ pub(crate) fn hiq_priority(offload_ratio: f64, lane: Lane) -> f64 {
 #[path = "../../../../tests/cockpit/harness/trajectory__hiq_tests.rs"]
 mod hiq_tests;
 
-/// Ablatable harness treatment tags for RL splits (Hi/Q on vs discard-only,
-/// handle_read on/off). Always cheap; no model call.
 pub(crate) fn harness_treatment_json() -> Value {
     let stats = session_stats();
     let mut map = serde_json::Map::new();
@@ -230,9 +191,6 @@ pub(crate) fn harness_treatment_json() -> Value {
         "tool_aging".into(),
         env_flag("ANGEL_TOOL_AGING", true).into(),
     );
-    // Phase-4 RL scorer label. Stamps Cut/Forge goldens so preference
-    // densify can join the same reward contract: the scorer that actually
-    // runs, and the one requested when that differs.
     if let Some(requested) = std::env::var("ANGEL_RL_REWARD")
         .ok()
         .map(|s| s.trim().to_string())
@@ -257,16 +215,10 @@ pub(crate) fn harness_treatment_json() -> Value {
     Value::Object(map)
 }
 
-/// Whether this record should carry root-trajectory / treatment metadata.
-/// Reward-labeled rows are training data and always get it. Unlabeled logs
-/// keep the lighter shape unless `ANGEL_ROOT_TRAJECTORY=1` requests analysis.
 pub(crate) fn should_attach_root_trajectory(reward: Option<f32>) -> bool {
     reward.is_some() || env_flag("ANGEL_ROOT_TRAJECTORY", false)
 }
 
-/// Build the JSON record for one rollout. Pure w.r.t. club/history/answer; may
-/// read handle-store session stats and env for treatment tags. `log_trajectory`
-/// wraps it with the remaining side effects.
 pub(crate) fn trajectory_record(
     club_label: &str,
     history: &[ChatMsg],
@@ -286,24 +238,15 @@ pub(crate) fn trajectory_record(
         "answer": answer,
         "messages": trajectory_messages(history),
     });
-    // A reward-labeled record is training data; an unlabeled one is just a log.
     if let Some(r) = reward {
         rec["reward"] = serde_json::json!(r);
     }
-    // Always refresh the process-local strip snapshot (last_root_hiq) so the
-    // agent bay shows offload% even when the trajectory file omits root meta
-    // (unlabeled + ANGEL_ROOT_TRAJECTORY off). Cheap classify; no disk I/O.
     let root_json = root_trajectory_json(history);
-    // Hi/Q ↔ RL bridge: labeled rollouts always carry the root-only trajectory
-    // fingerprint and the ablatable harness treatment so forge/promotion can
-    // compare Hi/Q vs baseline and train on strategy-level isomorphism.
     if should_attach_root_trajectory(reward) {
         rec["root_trajectory"] = root_json;
         rec["harness_treatment"] = harness_treatment_json();
     }
     trace_schema::defaults(&mut rec);
-    // Standalone evaluation rows also need the current cost schema. No usage
-    // observation means explicitly unknown cost, never a fabricated zero.
     rec["cost"] = cost::cost_for(rec["identity"]["model"]["id"].as_str(), None);
     if let Some(budget) = super::formation_budget::snapshot() {
         rec["formation_budget"] = budget;
@@ -316,10 +259,6 @@ pub(crate) fn trajectory_dir() -> PathBuf {
         return PathBuf::from(dir);
     }
     if cfg!(test) {
-        // Cockpit test suites must never feed the live trainer inbox: a
-        // practice-club rollout written to the real ~/.angelX/trajectories is
-        // rsynced to the trainer within ten minutes. Unit-test binaries
-        // default to a per-process temp directory instead.
         return std::env::temp_dir()
             .join(format!("angel-trajectories-test-{}", std::process::id()));
     }
@@ -338,10 +277,6 @@ pub(crate) fn now_ms() -> u64 {
 
 static TRAJECTORY_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// Append one complete JSON value as one line. Parallel tool/agent workers can
-/// finish turns on the same process simultaneously, so serialize the append
-/// and encode before opening the file; otherwise separate `write_fmt` calls can
-/// interleave into corrupt JSONL.
 pub(crate) fn append_trajectory(path: &Path, record: &Value) -> std::io::Result<()> {
     let _guard = TRAJECTORY_WRITE_LOCK
         .lock()
@@ -356,9 +291,6 @@ pub(crate) fn append_trajectory(path: &Path, record: &Value) -> std::io::Result<
     )
 }
 
-/// Append one record to the per-process JSONL log, if `ANGEL_TRAJECTORY_LOG`
-/// is set. Best-effort: any IO error is silently ignored (logging must never
-/// break a turn).
 pub(crate) fn write_trajectory(record: &Value) {
     if std::env::var_os("ANGEL_TRAJECTORY_LOG").is_none() {
         return;
@@ -372,9 +304,6 @@ pub(crate) fn write_trajectory(record: &Value) {
     let _ = append_trajectory(&path, record);
 }
 
-/// Keep the trajectory store, and the `~/.angel` root above it, readable by
-/// the owner only. The launcher's umask left the store at 775 (audit S08);
-/// a shared box must not let another account read rollouts.
 pub(crate) fn ensure_private_store(dir: &Path) {
     #[cfg(unix)]
     {
@@ -400,14 +329,6 @@ pub(crate) fn ensure_private_store(dir: &Path) {
     }
 }
 
-/// Log a rollout from `run_turn`.
-///
-/// `reward` is The Cut's machine verdict for the turn
-/// ([`crate::knowledge::cut::TurnVerdicts::reward`]): `Some` when angel wrote source and a
-/// compiler answered, `None` — an unlabeled log, exactly as before — when it
-/// wrote no code. When the eval path owns this rollout's label
-/// ([`EvalLabelScope`]), preserve it as an explicit observation that cannot be
-/// admitted through the unlabeled imitation path.
 pub(crate) fn log_trajectory(
     club: &dyn Club,
     history: &[ChatMsg],
@@ -446,17 +367,11 @@ pub(crate) fn log_trajectory(
 }
 
 thread_local! {
-    /// Set while a coding eval owns the label of the rollout running on this
-    /// thread. See [`EvalLabelScope`].
     static EVAL_OWNS_LABEL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 
-    /// `(hop, ms since turn start)` of this turn's FIRST mutating tool call —
-    /// the RESULT-speed telemetry: how long recon lasted before action. Reset
-    /// at turn start, stamped once, consumed by [`log_trajectory`].
     static FIRST_ACTION: std::cell::Cell<Option<(usize, u64)>> = const { std::cell::Cell::new(None) };
 }
 
-/// Record the first mutating action of the running turn (later calls no-op).
 pub(crate) fn note_first_action(hop: usize, ms_since_turn_start: u64) {
     FIRST_ACTION.with(|cell| {
         if cell.get().is_none() {
@@ -465,19 +380,10 @@ pub(crate) fn note_first_action(hop: usize, ms_since_turn_start: u64) {
     });
 }
 
-/// Clear the first-action stamp at turn start (worker threads are reused).
 pub(crate) fn reset_first_action() {
     FIRST_ACTION.with(|cell| cell.set(None));
 }
 
-/// Per-turn telemetry ledger attached to the trajectory record: provider usage
-/// for the turn, the model/tool timing split, and one entry per dispatched
-/// tool call (name, execution outcome, error class, verifier verdict, wall
-/// time, result bytes). Until 2026-09-07 a record carried only the wire
-/// messages and one scalar reward, so the trainer could not see *how fast* or
-/// *how cleanly* a rollout got its answer — the signal every efficiency
-/// reward needs. Thread-local like [`FIRST_ACTION`]: it scopes to the one
-/// rollout running on this worker thread.
 #[derive(Default)]
 struct TurnLedger {
     tools_output: super::turn::background::ToolsOutput,
@@ -529,8 +435,6 @@ thread_local! {
         std::cell::RefCell::new(TurnLedger::default());
 }
 
-/// Open the ledger at turn start: clear the previous turn's entries and
-/// snapshot the driver's cumulative counters so usage lands as a delta.
 pub(crate) fn reset_turn_ledger(club: &dyn Club) {
     super::run_identity::reset_turn_identity();
     LAST_TASK_TIMING.with(|cell| *cell.borrow_mut() = None);
@@ -556,7 +460,6 @@ pub(crate) fn note_research_answer(answer: &str) {
     TURN_LEDGER.with(|cell| {
         let mut ledger = cell.borrow_mut();
         if ledger.research_turn && !answer.trim().is_empty() {
-            // Delivery is the candidate, not a correctness or citation grade.
             ledger.research_answer_delivered = true;
             ledger.hop_progress = true;
         }
@@ -577,8 +480,6 @@ pub(crate) fn note_stop_reason(reason: super::turn::TurnStopReason) {
     TURN_LEDGER.with(|cell| cell.borrow_mut().stop_reason = Some(reason));
 }
 
-// Task lifecycle is separate from the per-turn ledger: resetting a turn must
-// not discard process startup, and interactive turns have no process scope.
 #[derive(Default)]
 struct TaskLifecycle {
     origin: Option<std::time::Instant>,
@@ -679,9 +580,6 @@ pub(crate) fn begin_model_request() {
     });
 }
 
-/// Which leg chose the coming request's reasoning effort, and why a live leg
-/// was set aside (`None`: no leg was consulted). Provider attempts of that
-/// request carry it beside the effort.
 pub(crate) fn note_effort_leg(leg: Option<(String, Option<String>)>) {
     TURN_LEDGER.with(|cell| cell.borrow_mut().effort_leg = leg);
 }
@@ -694,7 +592,6 @@ pub(crate) fn model_request_active() -> bool {
     TURN_LEDGER.with(|cell| cell.borrow().active_model_call.is_some())
 }
 
-/// Provider attempts nest inside harness calls; these samples never add to totals.
 pub(crate) fn begin_provider_attempt(source_id: u64) -> Option<usize> {
     let identity = super::run_identity::request_identity().map(|identity| {
         serde_json::json!({"model":identity.model,"effort":identity.effort,
@@ -751,8 +648,6 @@ pub(crate) fn end_provider_attempt(
             sample["usage_accounting"] = complete_ledger_usage(
                 &crate::agent::club::AccountingReport::from_snapshot(snapshot, false),
             );
-            // Publish each field on every attempt, including retries without a
-            // response. Unknown provider counters must never masquerade as zero.
             let [input, output, _, cached, _] = observation.map(|o| o.raw).unwrap_or([None; 5]);
             let included = observation
                 .is_some_and(|o| o.contract.cache == crate::agent::club::CacheConvention::Included);
@@ -788,7 +683,6 @@ pub(crate) fn provider_call_samples() -> Vec<Value> {
     TURN_LEDGER.with(|cell| cell.borrow().provider_samples.clone())
 }
 
-/// One dispatched tool call, recorded before its result is folded into history.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn note_tool_outcome(
     hop: usize,
@@ -806,7 +700,6 @@ pub(crate) fn note_tool_outcome(
         "hop": hop,
         "tool": name,
         "exec": execution,
-        // Stable status projection for task-envelope consumers.
         "status": execution,
         "err": errored,
         "bytes": result_bytes,
@@ -864,7 +757,6 @@ pub(crate) fn note_tool_outcome(
         let attempt_id = format!("{}:{}", ledger.turn_id.as_deref().unwrap_or("unbound"), ledger.tools.len());
         entry["attempt_id"] = serde_json::json!(attempt_id);
         if verify.is_some() {
-            // Verdict is known, but it does not imply a numeric process exit.
             ledger.verifier.push(serde_json::json!({"attempt_id":attempt_id,
                 "plan": name, "command":args.get("command").and_then(Value::as_str).map(crate::knowledge::experience::scrub_secrets), "exit":null, "ms":elapsed_ms.map(|v| v as u64),
                 "coverage_gap":"numeric_exit_not_captured; command_is_scrubbed_when_available"}));
@@ -873,10 +765,9 @@ pub(crate) fn note_tool_outcome(
             let path = args.get("url").and_then(Value::as_str);
             ledger.artifacts.push(serde_json::json!({"attempt_id":attempt_id,
                 "kind":args.get("kind").and_then(Value::as_str), "path_digest":path.map(|p| crate::knowledge::cut::sha256_hex(p.as_bytes())),
-                "shown":null})); // successful dispatch does not prove terminal rendering
+                "shown":null}));
         }
         if verify.is_some() {
-            // A real verification obligation restores the coding contract.
             ledger.research_turn = false;
         }
         if ledger.research_turn && execution == "ok" && class == super::tool_errors::ToolErrorClass::None {
@@ -892,8 +783,6 @@ pub(crate) fn note_tool_outcome(
         if verify.is_some() {
             ledger.last_verifier = Some(if error_class == Some("timeout")
                 || result.to_ascii_lowercase().contains("timed out") {
-                // Shell timeouts may be successful dispatches with a timeout
-                // footer rather than a tool error. Retain the timeout class.
                 entry["class"] = serde_json::json!("timeout");
                 "timeout".to_string()
             } else {
@@ -911,13 +800,9 @@ pub(crate) fn note_tool_outcome(
         {
             ledger.read_paths.insert(normalized_read_path(path));
             if super::book::ledger::is_ledger_path(path) {
-                // Measurement only: did the model choose to open a stamp's
-                // ledger entry? Reading ideas is not workspace progress.
                 ledger.ledger_reads += 1;
             }
         }
-        // Execution credit is independent of green/completion credit. Repeating
-        // the same verifier on unchanged bytes is not another experiment.
         let remote_receipt = execution == "ok"
             && !errored
             && matches!(name, "shell" | "proc_status")
@@ -943,9 +828,6 @@ pub(crate) fn note_tool_outcome(
                 });
             }
         }
-        // A graph call's product is the chart itself, held in memory: a new
-        // point, begin or finish that the store accepted is progress even
-        // though no workspace byte changes. An identical repeat is not.
         if name == "graph" && execution == "ok" && !errored && new_signature {
             ledger.hop_progress = true;
             ledger.hop_credit = Some("graph_receipt");
@@ -964,7 +846,6 @@ fn is_remote_verification_receipt(result: &str) -> bool {
         || result.contains("officialScore")
 }
 
-// Lexical normalization prevents ./path aliases from manufacturing new reads.
 fn normalized_read_path(path: &str) -> String {
     let mut normalized = std::path::PathBuf::new();
     for component in std::path::Path::new(path).components() {
@@ -981,7 +862,6 @@ fn normalized_read_path(path: &str) -> String {
     normalized.to_string_lossy().into_owned()
 }
 
-// Explicitly sort object keys recursively even if serde_json enables preserve_order.
 fn canonical_signature(name: &str, args: &Value) -> String {
     fn canonical(value: &Value) -> Value {
         match value {
@@ -1009,8 +889,6 @@ pub(crate) fn note_verified(elapsed_ms: u64) {
     });
 }
 
-/// Only stable, named failure lines earn new-failure credit. Timing summaries,
-/// progress chatter, and arbitrary changing stdout are deliberately excluded.
 fn failing_test_signatures(result: &str) -> Vec<String> {
     result
         .lines()
@@ -1042,8 +920,6 @@ pub(crate) fn note_stream_cut(hop: usize) {
     TURN_LEDGER.with(|cell| *cell.borrow_mut().stream_cuts.entry(hop).or_default() += 1);
 }
 
-/// Direct byte snapshots also work in Git-free workspaces and for ignored files.
-/// Failed confined reads cannot manufacture edit credit.
 pub(crate) fn mutation_byte_snapshot(
     root: &Path,
     calls: &[ToolCall],
@@ -1066,7 +942,6 @@ pub(crate) fn mutation_byte_snapshot(
         .collect()
 }
 
-/// Finalize even model-only or pre-dispatch exit hops without changing control flow.
 pub(crate) struct ProgressHop;
 
 pub(crate) fn begin_progress_hop() -> ProgressHop {
@@ -1086,12 +961,6 @@ pub(crate) fn note_progress_hop(mutated: bool) {
     TURN_LEDGER.with(|cell| {
         let mut ledger = cell.borrow_mut();
         ledger.completed_hops += 1;
-        // A hop that ends with a live background job is intervening work, not
-        // an idle hop: the turn is waiting on real work it dispatched (rig or
-        // build). Accruing an unproductive streak across such waits is how a
-        // legitimate loop gets escalated/stopped mid-build (the BUG-0005
-        // failure class). Hold the streak instead of incrementing it; the
-        // streak can still fire on hops with no dispatched work at all.
         let live_background_jobs = crate::agent::tools::proc::live_job_count();
         if mutated {
             ledger.research_turn = false;
@@ -1109,7 +978,6 @@ pub(crate) fn note_progress_hop(mutated: bool) {
         ledger.unproductive_streak = if ledger.hop_progress {
             0
         } else if live_background_jobs > 0 {
-            // Hold, do not accrue: this hop was a wait on dispatched work.
             ledger.unproductive_streak
         } else {
             ledger.unproductive_streak + 1
@@ -1125,9 +993,6 @@ pub(crate) fn note_progress_hop(mutated: bool) {
     });
 }
 
-/// Tray strip: one braille cell per completed hop — the primary of the first
-/// route the hop raised, else `⠤` while background jobs run, else `⠿` pass.
-/// Local only; the model never pays for the strip.
 pub(crate) fn note_hop_stamps(raised: &[super::book::Route]) {
     use super::book::{PASS_GLYPH, WAIT_GLYPH};
     let glyph = match raised.first() {
@@ -1151,14 +1016,6 @@ pub(crate) fn note_hop_stamps(raised: &[super::book::Route]) {
     });
 }
 
-/// Evaluate completed hops only; the turn loop calls this before another request.
-/// Progress and reset semantics are owned by the existing progress ledger.
-///
-/// Two advisories come back, both stamps of `⠇⠛` with their facts beside them:
-/// the notice at `escalate` consecutive unproductive hops (and every multiple
-/// of it while the streak lasts), and, at `redirect`, the redirect that 0.1.6
-/// gave before it stopped the turn. The stop is gone; the redirect stands, and
-/// the count starts again after it. `redirect` 0 gives none.
 pub(crate) fn unproductive_escalation(
     hop: usize,
     escalate: usize,
@@ -1187,7 +1044,6 @@ pub(crate) fn unproductive_escalation(
                 "last_verifier": last, "elapsed_ms": elapsed_ms,
             }));
             ledger.streak_escalated = true;
-            // The streak is `⠇⠛`: its page address, then the facts as data.
             let streak_route = crate::agent::harness::book::l_loops::STREAK;
             if ledger.research_turn {
                 Some(format!("{}⠁ streak={streak}", streak_route.cells()))
@@ -1213,8 +1069,6 @@ pub(crate) fn unproductive_escalation(
             format!("{}⠉ streak={streak} last={last}", streak_route.cells())
         });
         if redirected {
-            // The redirect is the last word for this stretch; a stretch that
-            // goes on unproductive earns the next notice, then the next redirect.
             ledger.unproductive_streak = 0;
             ledger.streak_escalated = false;
             ledger.last_streak_evaluation_hop = Some(hop);
@@ -1231,8 +1085,6 @@ pub(crate) fn note_escalation(hop: usize, kind: &str) {
     });
 }
 
-/// The provider stopped answering this hop. The class and the leg that ended
-/// its retries ride on the same record as the plain `provider_unavailable`.
 pub(crate) fn note_provider_unavailable(hop: usize, class: &str, leg: &str, digest: Option<&str>) {
     TURN_LEDGER.with(|cell| {
         cell.borrow_mut().escalations.push(serde_json::json!({
@@ -1241,7 +1093,6 @@ pub(crate) fn note_provider_unavailable(hop: usize, class: &str, leg: &str, dige
     });
 }
 
-/// Record the route that actually supplied a successful policy reply.
 pub(crate) fn note_route_switch(
     hop: usize,
     from: &crate::agent::club::RouteIdentity,
@@ -1265,7 +1116,6 @@ pub(crate) fn last_route_switch() -> Option<crate::agent::club::RouteIdentity> {
     })
 }
 
-/// Effective caller-local request with immutable first-request provenance.
 pub(crate) fn turn_identity() -> Option<super::run_identity::RunIdentity> {
     super::run_identity::current_for_turn()
 }
@@ -1292,14 +1142,10 @@ pub(crate) fn progress_ledger_snapshot() -> Value {
     })
 }
 
-/// The per-call tool ledger of the running turn (for the task envelope, which
-/// consumers read without trajectory logging).
 pub(crate) fn tool_ledger_snapshot() -> Vec<Value> {
     TURN_LEDGER.with(|cell| cell.borrow().tools.clone())
 }
 
-/// Merge the terminal outcome into its launch call; never append an unrelated
-/// synthetic call or depend on the completion-notice queue being undrained.
 pub(crate) fn note_proc_kills(kills: &[(u64, crate::agent::sandbox::process_owner::KillReceipt)]) {
     TURN_LEDGER.with(|cell| {
         let mut ledger = cell.borrow_mut();
@@ -1315,8 +1161,6 @@ pub(crate) fn note_proc_kills(kills: &[(u64, crate::agent::sandbox::process_owne
     });
 }
 
-/// Latest timing split for the running turn (refreshed after every model wait
-/// and tool batch, so the record written at any exit seam is current).
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn note_timing<T: serde::Serialize>(timing: &T) {
     if let Ok(v) = serde_json::to_value(timing) {
@@ -1328,9 +1172,6 @@ pub(crate) fn note_timing<T: serde::Serialize>(timing: &T) {
     }
 }
 
-/// The running turn's own receipt, kept as it is and serialized only when a
-/// record is written: the turn refreshes it twice a hop, and its call samples
-/// grow with the turn.
 pub(crate) fn note_task_timing(timing: &super::turn::TaskTimingTelemetry) {
     TURN_LEDGER.with(|cell| {
         let mut ledger = cell.borrow_mut();
@@ -1339,11 +1180,6 @@ pub(crate) fn note_task_timing(timing: &super::turn::TaskTimingTelemetry) {
     });
 }
 
-/// `/ledger [N]` — the last N (default 12) recorded turns with their ledger,
-/// newest last: hops, tool calls/errors, model and tool seconds, output and
-/// reasoning tokens, the last verifier verdict and The Cut's reward. Reads the
-/// trajectory dir this process writes to, so the operator sees the efficiency
-/// of their own recent turns without leaving the cockpit.
 pub(crate) fn ledger_status_text(arg: &str) -> String {
     format!(
         "{}\n{}",
@@ -1375,12 +1211,6 @@ fn ledger_rows_text(arg: &str) -> String {
         })
         .unwrap_or_default();
     files.sort_by_key(|entry| std::cmp::Reverse(entry.0));
-    // Session files are append-only, so the newest records sit at the tail:
-    // read the last TAIL_BYTES of each file instead of the whole thing (the live
-    // corpus is ~700 MB across ~1,000 sessions; a whole-file scan froze the UI
-    // for 8.7 s on 2026-09-07). Records without a ledger predate this build; once
-    // the newest sessions have none, older ones will not either, so the search
-    // ends after LEDGERLESS_SESSIONS consecutive misses instead of reading on.
     const TAIL_BYTES: u64 = 1 << 20;
     const LEDGERLESS_SESSIONS: usize = 24;
     let mut rows: Vec<Value> = Vec::new();
@@ -1501,7 +1331,6 @@ fn ledger_rows_text(arg: &str) -> String {
     out
 }
 
-/// The last `max` bytes of a file as text, starting at the first whole line.
 fn read_tail(path: &Path, max: u64) -> Option<String> {
     use std::io::{Read, Seek, SeekFrom};
     let mut f = std::fs::File::open(path).ok()?;
@@ -1519,9 +1348,6 @@ fn read_tail(path: &Path, max: u64) -> Option<String> {
     Some(text)
 }
 
-/// Shared UI accounting retains reported subtotals and coverage. A durable
-/// turn ledger must not present those subtotals as complete run measurements.
-/// The raw per-attempt samples retain every actual provider observation.
 pub(crate) fn complete_ledger_usage(report: &crate::agent::club::AccountingReport) -> Value {
     let mut value = serde_json::to_value(report).expect("accounting report serializes");
     for key in [
@@ -1567,8 +1393,6 @@ pub(crate) fn complete_ledger_usage(report: &crate::agent::club::AccountingRepor
     value
 }
 
-/// Attach the ledger (usage delta, timing, tools) to a record. Fields are
-/// explicit-null when unknown; every existing legacy key remains available.
 fn attach_turn_ledger(record: &mut Value, club: Option<&dyn Club>) {
     record["identity"] = serde_json::to_value(turn_identity()).expect("identity serializes");
     if let Some(fields) = progress_ledger_snapshot().as_object() {
@@ -1579,7 +1403,6 @@ fn attach_turn_ledger(record: &mut Value, club: Option<&dyn Club>) {
     TURN_LEDGER.with(|cell| {
         let ledger = cell.borrow();
         if let (Some(before), Some(club)) = (ledger.usage_before.as_ref(), club) {
-            // Same gate as task_mode::task_usage_delta, on borrowed views.
             let report = club.usage_accounting().delta(before);
             if report.attempts > 0 || report.untracked_sources {
                 record["usage"] = complete_ledger_usage(&report);
@@ -1612,8 +1435,6 @@ fn attach_turn_ledger(record: &mut Value, club: Option<&dyn Club>) {
         crate::knowledge::experience::current_turn_workspace().as_deref(),
     );
     trace_schema::attach_start(&mut record["workspace_state"]);
-    // Cost binds from the record's own usage totals against the list-price
-    // table; the earlier explicit-null placeholder is always explained.
     record["cost"] = cost::cost_for_attempts(
         record["identity"]["model"]["id"].as_str(),
         record["usage"].as_object().map(|_| &record["usage"]),
@@ -1629,18 +1450,6 @@ pub(crate) fn eval_owns_label() -> bool {
     EVAL_OWNS_LABEL.with(|f| f.get())
 }
 
-/// **Do not double-count.** The coding-eval path drives `run_turn` and *then*
-/// scores the workspace with the test suite ([`log_eval_trajectory`]) — a
-/// strictly stronger verdict than a compile check, since it says the code is
-/// *right*, not merely that it builds. Without this guard the same rollout would
-/// be written twice, both times labeled, with two different rewards, and the
-/// forge would train on it as two samples.
-///
-/// While this guard is alive, `run_turn`'s own row is an explicit coding-eval
-/// observation. Only the later authoritative eval row can be training data.
-/// Thread-local, so it scopes to the
-/// one rollout the eval is driving — a subagent spawned on another thread still
-/// earns its own label for its own rollout.
 pub(crate) struct EvalLabelScope(bool);
 
 impl EvalLabelScope {
@@ -1655,8 +1464,6 @@ impl Drop for EvalLabelScope {
     }
 }
 
-/// Log a **reward-labeled** rollout — actual training data for the reinforce
-/// loop. Called from the coding-eval path once a verifiable reward is known.
 #[allow(dead_code)]
 pub fn log_eval_trajectory(
     club_label: &str,
@@ -1680,15 +1487,10 @@ pub fn log_eval_trajectory(
         now_ms(),
     );
     record["repo"] = repo;
-    // The eval row is the reward-labeled training sample: it carries the same
-    // turn ledger as the run_turn row (timing + per-call tool outcomes; usage
-    // needs the club and is left to the run_turn row).
     attach_turn_ledger(&mut record, None);
     write_trajectory(&record);
 }
 
-/// Only the coding evaluator producer can attach this immutable decision.
-/// The consumer independently audits it and emits the exact task/answer pair.
 pub(crate) fn log_verified_coding_eval_trajectory(
     club_label: &str,
     history: &[ChatMsg],
@@ -1710,7 +1512,6 @@ pub(crate) fn log_verified_coding_eval_trajectory(
     record["evaluator_task"] = serde_json::json!(task);
     record["evaluator_decision_sha256"] = serde_json::json!(decision.decision_sha256);
     record["evaluator_artifact_sha256"] = serde_json::json!(decision.artifact_sha256);
-    // Retired v1 field: always null, still echoed so consumer requests parse.
     record["competition"] = Value::Null;
     record["repo"] = repo;
     write_trajectory(&record);
@@ -1735,7 +1536,6 @@ pub(crate) fn eval_trajectory_record(
 #[path = "../../../../tests/cockpit/harness/trajectory__progress_tests.rs"]
 mod progress_tests;
 
-/// Adds dispatch-authenticated routing to the just-recorded tool entry.
 pub(crate) fn note_tool_routing(receipt: &super::shell_verifier::RoutingReceipt) {
     TURN_LEDGER.with(|cell| {
         if let Some(entry) = cell.borrow_mut().tools.last_mut() {

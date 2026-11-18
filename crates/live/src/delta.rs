@@ -20,17 +20,11 @@ fn to_path(path: &[Key<'_>]) -> Value {
     )
 }
 
-/// Ops that turn `old` into `new`, applied in order.
 pub fn diff(old: &Value, new: &Value) -> Vec<Value> {
     let mut ops = Vec::new();
     walk(old, new, &mut Vec::with_capacity(16), &mut ops);
     ops
 }
-/// How far down a subtree is first asked whether it is untouched whole
-/// (`identical`): a run's fields and their own children. Most of a state is
-/// the same as it was a tick ago, and one comparison of a subtree costs a
-/// third of walking it; a subtree that did change is left on its first
-/// difference, so asking it too is cheap, and below this the walk goes on.
 const WHOLE_FROM: usize = 2;
 const WHOLE_TO: usize = 3;
 
@@ -74,8 +68,6 @@ fn walk<'a>(old: &'a Value, new: &'a Value, path: &mut Vec<Key<'a>>, ops: &mut V
     }
 }
 
-/// Nothing differs between the trees, as `walk` would find: equal, and bit for
-/// bit where a float is.
 fn identical(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Object(x), Value::Object(y)) => {
@@ -86,7 +78,6 @@ fn identical(a: &Value, b: &Value) -> bool {
     }
 }
 
-/// Equal, and bit for bit when a float: a worker must see `-0.0` become `0.0`.
 fn same(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Number(x), Value::Number(y)) => {
@@ -96,7 +87,6 @@ fn same(a: &Value, b: &Value) -> bool {
     }
 }
 
-/// Applies `ops` in order. On an error `v` may be partly changed: patch a copy.
 pub fn patch(v: &mut Value, ops: &[Value]) -> Result<(), String> {
     ops.iter()
         .try_for_each(|op| apply(v, op).map_err(|e| format!("delta op {op}: {e}")))
@@ -160,7 +150,6 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    /// `diff` as it was before whole subtrees were asked about first: every node walked.
     fn walk_all<'a>(old: &'a Value, new: &'a Value, path: &mut Vec<Key<'a>>, ops: &mut Vec<Value>) {
         match (old, new) {
             (Value::Object(a), Value::Object(b)) => {
@@ -206,7 +195,6 @@ mod tests {
         }
     }
 
-    /// A tree like a state: objects of objects, lists, text, whole numbers and floats.
     fn tree(dice: &mut Dice, depth: u32) -> Value {
         match if depth == 0 { dice.next(4) } else { dice.next(7) } {
             0 => json!(dice.next(100)),
@@ -218,7 +206,6 @@ mod tests {
         }
     }
 
-    /// A tree with a few places changed, as a tick changes a state.
     fn changed(dice: &mut Dice, v: &Value) -> Value {
         match v {
             Value::Object(map) => {
@@ -260,7 +247,6 @@ mod tests {
         let mut dice = Dice(0xde17a);
         let mut with_ops = 0;
         for case in 0..400 {
-            // A state: a run of fields, each a tree, under the checkpoint's envelope.
             let run: Value = Value::Object((0..8).map(|k| (format!("field{k}"), tree(&mut dice, 5))).collect());
             let old = json!({"schema": 8, "run": run});
             let new = changed(&mut dice, &old);

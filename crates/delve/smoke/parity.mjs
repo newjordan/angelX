@@ -1,10 +1,7 @@
-// Read-only parity evidence using the timer's same 60-tick horizon.
-// node parity.mjs angel_delve_smoke.wasm BOSS_ID
 import { readFileSync } from "node:fs";
 const {instance} = await WebAssembly.instantiate(readFileSync(process.argv[2]), {});
 const {scene,plain_art,force_rage,step,state_hash,frame,hitstop_off,party} = instance.exports;
 const names = ["first-room", "kingdom", "busy-fight", "cinder-stack", "latch-duel", "mossbell", "brasswake", "rafterwake", "pennon-rush", "cinderjaw", "the-index", "mother-of-spores", "waxen-warden", "the-bone-choir", "crypt-tithe-marshal", "crypt-tax-keeper", "crypt-relic-liege", "iron-tusk-chief", "red-pick-chief", "the-foreman", "late-fee-leviathan", "side-hall", "book-hop"];
-// The Round Table adventures' stubs are scene kinds 39 to 43.
 ["lanternward", "moonfall", "bannerpeak", "griffinwing", "lightgallop"].forEach((name, i) => { names[39 + i] = name; });
 const kind = names.indexOf(process.argv[3]);
 if (kind < 0) throw new Error("parity needs a smoke scene ID");

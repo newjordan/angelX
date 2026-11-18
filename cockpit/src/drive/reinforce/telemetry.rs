@@ -13,7 +13,6 @@
 use std::collections::VecDeque;
 use std::sync::Mutex;
 
-/// Bounded event-timeline length: old transitions fall off the back.
 const MAX_EVENTS: usize = 96;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -46,10 +45,8 @@ impl RlPhase {
     }
 }
 
-/// One held-out case's fill state during a cohort evaluation.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CaseSlot {
-    /// Opaque cohort case ID (already required to be uninformative).
     pub id: String,
     pub requested_per_policy: usize,
     pub incumbent_observed: usize,
@@ -59,7 +56,6 @@ pub struct CaseSlot {
     pub failed: bool,
 }
 
-/// Batch-health counters (mirrors `BatchMetrics`, minus latencies).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct BatchCounters {
     pub generated: usize,
@@ -70,7 +66,6 @@ pub struct BatchCounters {
     pub advantage_variance: f32,
 }
 
-/// The final verdict of one cohort evaluation (promotion or final audit).
 #[derive(Clone, Debug, PartialEq)]
 pub struct CohortVerdict {
     pub role: String,
@@ -88,24 +83,18 @@ pub struct RlEvent {
 
 #[derive(Clone, Debug, Default)]
 pub struct RlSnapshot {
-    /// Monotonic per publish — readers re-render when this moves.
     pub seq: u64,
-    /// Which pipeline is running ("technical", "nontechnical", "ablation", …).
     pub source: String,
     pub phase: RlPhase,
-    /// 1-based round in progress.
     pub round: usize,
     pub rounds: usize,
     pub policy_version: u64,
     pub batch: Option<BatchCounters>,
     pub best_reward: Option<f32>,
-    /// Role of the cohort currently being evaluated, when one is.
     pub cohort_role: Option<String>,
     pub cohort_cases_total: usize,
     pub cases: Vec<CaseSlot>,
-    /// Latest promotion-gate verdict this run.
     pub gate: Option<CohortVerdict>,
-    /// Latest final-audit verdict this run.
     pub audit: Option<CohortVerdict>,
     pub released: bool,
     pub events: VecDeque<RlEvent>,
@@ -130,7 +119,6 @@ fn note(snapshot: &mut RlSnapshot, label: String) {
     }
 }
 
-/// Start a fresh run snapshot, replacing any prior run's state.
 pub fn begin(source: &str, rounds: usize) {
     let Ok(mut guard) = SNAPSHOT.lock() else {
         return;
@@ -257,18 +245,11 @@ pub fn failed() {
     });
 }
 
-/// Start a run snapshot and hand back the guard that ends it. A run function
-/// has one success exit and many `?` exits; the guard makes "the run ended" the
-/// guard's job instead of every exit's.
 pub fn begin_run(source: &str, rounds: usize) -> RunGuard {
     begin(source, rounds);
     RunGuard { finished: false }
 }
 
-/// Owns the end of one published run. [`finish`](Self::finish) publishes
-/// `done()`; leaving the run any other way (an error return, the operator's
-/// stop, a panic) drops the guard and publishes `failed()`, so the panel never
-/// keeps showing a dead run as live.
 #[must_use = "dropping the guard before finish() publishes the run as failed"]
 pub struct RunGuard {
     finished: bool,
@@ -289,7 +270,6 @@ impl Drop for RunGuard {
     }
 }
 
-/// The latest snapshot, if any run has published since startup.
 pub fn current() -> Option<RlSnapshot> {
     SNAPSHOT.lock().ok().and_then(|guard| guard.clone())
 }

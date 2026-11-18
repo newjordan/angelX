@@ -30,7 +30,6 @@ fn tavern(seats: u32) -> Run {
     r
 }
 
-/// A champion of `kit` in a fight room, a ring of tough demons before them.
 fn fight(kit: &str) -> Run {
     let mut r = Run::new(21, 1, Some("Friend"));
     let room = r.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
@@ -88,7 +87,6 @@ fn write_champion_shots() {
         let img = seat_scene(run, w, h, Some(1)).compose();
         save_img(name, &img, 3);
     };
-    // The bar with the champions standing at it, and one walked up to.
     let mut run = tavern(2);
     save_img("champions-01-bar-hall", &whole(&run), 2);
     let at = alehouse::PATRONS.iter().find(|p| p.kit == "hammerer").unwrap().at;
@@ -99,8 +97,6 @@ fn write_champion_shots() {
     run.step(&BTreeMap::from([(1, Input { interact: true, ..Default::default() })]));
     run.step(&BTreeMap::new());
     seat_shot("champions-03-bar-picked", &run);
-    // The Hammerer: the swing, the thrown hammer, the slam, the fury, the
-    // Earthsplitter.
     let mut run = fight("hammerer");
     seat_shot("hammerer-01-stand", &run);
     step(&mut run, Input { fire: true, ..Default::default() });
@@ -127,15 +123,12 @@ fn write_champion_shots() {
     seat_shot("hammerer-07-earthsplitter-runs", &run);
     idle(&mut run, champions::CRACK_ERUPT - champions::CRACK_RUN + 10);
     seat_shot("hammerer-08-earthsplitter-bursts", &run);
-    // The Butcher: the cleaver, the hook out and coming home, the rot, the
-    // haul, Dismember.
     let mut run = fight("butcher");
     seat_shot("butcher-01-stand", &run);
     step(&mut run, Input { fire: true, ..Default::default() });
     idle(&mut run, 1);
     seat_shot("butcher-02-chop", &run);
     let mut run = fight("butcher");
-    // The near ones out of the way, so the hook flies to the far one.
     run.enemies.retain(|e| e.x - run.players[&1].x > 7.0);
     step(&mut run, Input { cast: 1, ..Default::default() });
     idle(&mut run, 6);
@@ -154,8 +147,6 @@ fn write_champion_shots() {
     step(&mut run, Input { ult: true, ..Default::default() });
     idle(&mut run, 21);
     seat_shot("butcher-07-dismember", &run);
-    // The Alchemist: a flask in the air, foul air, quickfire into it, the
-    // elixir, the rain.
     let mut run = fight("alchemist");
     seat_shot("alchemist-01-stand", &run);
     step(&mut run, Input { fire: true, ..Default::default() });
@@ -182,8 +173,6 @@ fn write_champion_shots() {
     seat_shot("alchemist-06-rain", &run);
     idle(&mut run, 30);
     seat_shot("alchemist-07-rain-flashes", &run);
-    // The Reaver: the chops, the axe out and home, the leap and its quake,
-    // the bloodlust, the Red Harvest.
     let mut run = fight("reaver");
     seat_shot("reaver-01-stand", &run);
     step(&mut run, Input { fire: true, ..Default::default() });
@@ -213,7 +202,6 @@ fn write_champion_shots() {
     step(&mut run, Input { ult: true, ..Default::default() });
     idle(&mut run, 3);
     seat_shot("reaver-08-red-harvest", &run);
-    // The Lancer: the thrust, the javelin, the vault, the brace, the drive.
     let mut run = fight("lancer");
     seat_shot("lancer-01-stand", &run);
     step(&mut run, Input { fire: true, ..Default::default() });
@@ -259,13 +247,11 @@ fn every_champion_draws_in_every_facing_and_movement_and_their_things_draw() {
                     _ => {}
                 }
                 let im = super::champions::figure(&run.players[&1], c);
-                // Half a head over the company (22 tall to the knight's 16), the maul's headroom over that.
                 assert!(im.w > 40 && im.h > 32, "{kit}: half a head over the company");
                 let feet = (0..im.w).any(|x| im.get(x, im.h - 1).is_some());
                 assert!(feet, "{kit} {stance}: feet on the bottom row");
             }
         }
-        // Everything they throw and leave, drawn under and over.
         for key in 1..=3 {
             step(&mut run, Input { cast: key, ..Default::default() });
             idle(&mut run, 3);
@@ -282,12 +268,6 @@ fn every_champion_draws_in_every_facing_and_movement_and_their_things_draw() {
     }
 }
 
-/// The heroes beside the realm's knight, for their size: each champion and
-/// the Gravecaller toward the viewer, across both ways and away, standing
-/// and through every drawing of their stride and their arm, then the bar
-/// with them standing at it, their busts in a seat's frame, and the
-/// Gravecaller's staff head where the grave-fire flares.
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_hero_size_shots -- --ignored`.
 #[test]
 #[ignore]
 fn write_hero_size_shots() {
@@ -306,7 +286,6 @@ fn write_hero_size_shots() {
             .save(dir.join(format!("{name}.png")))
             .unwrap();
     };
-    // Rows of figures, each on the floor line, a cell apiece.
     let sheet = |rows: &[Vec<Img>]| {
         let (gap, cell) = (4, rows.iter().flatten().map(|f| f.w).max().unwrap());
         let tall: Vec<i32> = rows.iter().map(|r| r.iter().map(|f| f.h).max().unwrap_or(0)).collect();
@@ -318,7 +297,6 @@ fn write_hero_size_shots() {
         for (row, t) in rows.iter().zip(&tall) {
             let floor = y + gap + t;
             im.rect(0, floor, wide, 1, 'g');
-            // The knight's sixteen pixels, and the heroes' twenty-two.
             for (k, ink) in [(16, 'X'), (22, 'Z')] {
                 for x in (0..wide).step_by(3) {
                     im.put(x, floor - k, ink);
@@ -345,7 +323,6 @@ fn write_hero_size_shots() {
         let im = knights::figure(&k, 1);
         if ax < -0.3 { im.flip_h() } else { im }
     };
-    // Each hero standing beside the knight, all four ways.
     let mut line: Vec<Vec<Img>> = Vec::new();
     for kit in ["hammerer", "butcher", "alchemist", GRAVECALLER] {
         let mut r = fight(kit);
@@ -359,7 +336,6 @@ fn write_hero_size_shots() {
         line.push(row);
     }
     save_img("hero-size-01-lineup", &sheet(&line), 5);
-    // Every drawing of each champion, a facing to a row, the knight first.
     for kit in ["hammerer", "butcher", "alchemist"] {
         let mut r = fight(kit);
         let mut rows = Vec::new();
@@ -387,7 +363,6 @@ fn write_hero_size_shots() {
         }
         save_img(&format!("hero-size-02-{kit}-frames"), &sheet(&rows), 4);
     }
-    // The Gravecaller: standing, his stride, the strike, casting, bare.
     let mut r = fight(GRAVECALLER);
     let mut rows = Vec::new();
     for (ax, ay) in facings {
@@ -403,7 +378,6 @@ fn write_hero_size_shots() {
             let casting = stance == 6;
             let mut im = draw(&r.players[&1], casting);
             if casting {
-                // Where the grave-fire flares, against the feet's middle.
                 let face = knights::facing(ax, ay);
                 let (mut sx, sy) = gravecaller::staff_head(face, true);
                 if ax < -0.3 && face == Facing::Side {
@@ -425,14 +399,12 @@ fn write_hero_size_shots() {
         rows.push(row);
     }
     save_img("hero-size-02-gravecaller-frames", &sheet(&rows), 4);
-    // The bar, the champions and the Gravecaller standing at it.
     let run_bar = tavern(2);
     let hall = whole(&run_bar);
     save_img("hero-size-03-bar-hall", &hall, 2);
     let (bx, by) = super::at(10.0 * 2.0, 4.0 * 2.0);
     let (ex, ey) = super::at(29.0 * 2.0, 15.5 * 2.0);
     save_img("hero-size-04-bar-close", &Img::from_view(&hall, bx, by, ex - bx, ey - by), 4);
-    // Their busts as a seat's frame crops them, and as the intro shows them.
     let mut busts = Vec::new();
     for kit in ["hammerer", "butcher", "alchemist", GRAVECALLER] {
         let r = fight(kit);
@@ -444,7 +416,6 @@ fn write_hero_size_shots() {
     busts.push(super::party::bust(&knights::portrait(&plain, 1)));
     busts.push(knights::portrait(&plain, 1));
     save_img("hero-size-05-busts", &sheet(&[busts]), 5);
-    // Casting in the fight, the flare on the staff's head.
     let (w, h) = seat();
     let field = fight(GRAVECALLER);
     for (name, (ax, ay)) in [("down", (0.0, 1.0)), ("side", (1.0, 0.0)), ("up", (0.0, -1.0))] {

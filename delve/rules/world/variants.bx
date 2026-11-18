@@ -1,6 +1,3 @@
-# crates/delve/src/rules/layout.rs — the floors the wheel's modes lay, the
-# identity start's floors, and the home floor (the Undercroft and its wings).
-
 def layout.party_arg(+party: U32) -> U32:
   party
 
@@ -10,12 +7,9 @@ def layout.first_kind_of(+depth: U32) -> String:
 def layout.doors4(+n: Bool, +e: Bool, +s: Bool, +w: Bool) -> J.Val:
   J.JA{[J.JBool{n}, J.JBool{e}, J.JBool{s}, J.JBool{w}]}
 
-# A room with its roster cleared and marked cleared.
 def layout.room_cleared(+room: J.Val) -> J.Val:
   J.set(J.set(room, "roster", J.JA{Nil{}}), "cleared", J.JBool{True{}})
 
-# Hold the Stair: a landing, and north of it one great hall with the stairs in
-# its middle (the lair, on the last floor). The hall's waves are the floor.
 def layout.horde(+depth: U32, +pack: String, +rng: W.W) -> J.Val & W.W:
   (start0: J.Val, rng1: W.W) = layout.room(LayCell{2, 3}, layout.first_kind_of(depth), layout.doors4(True{}, False{}, False{}, False{}), depth, pack, 1, rng)
   start: J.Val = layout.room_cleared(start0)
@@ -27,24 +21,18 @@ def layout.horde(+depth: U32, +pack: String, +rng: W.W) -> J.Val & W.W:
     hall: J.Val = J.set(J.set(hall0, "kind", J.JS{"fight"}), "roster", J.JA{List.take(&2, J.Val, J.items(J.get(hall0, "roster")), 3n)})
     (layout.floor_new(depth, pack, [start, hall]), rng2)
 
-# Gauntlet of Guardians: the entrance, one passage, then the guardian's stairs
-# (the dragon's lair on the last floor), straight north.
 def layout.gauntlet(+depth: U32, +pack: String, +rng: W.W) -> J.Val & W.W:
   (start0: J.Val, rng1: W.W) = layout.room(LayCell{2, 3}, layout.first_kind_of(depth), layout.doors4(True{}, False{}, False{}, False{}), depth, pack, 1, rng)
   (hall: J.Val, rng2: W.W) = layout.room(LayCell{2, 2}, "hall", layout.doors4(True{}, False{}, True{}, False{}), depth, pack, 1, rng1)
   (guardian: J.Val, rng3: W.W) = layout.room(LayCell{2, 1}, Bool.pick(String, U32.is_ge(depth, 3), "lair", "stairs"), layout.doors4(False{}, False{}, True{}, False{}), depth, pack, 1, rng2)
   (layout.floor_new(depth, pack, [layout.room_cleared(start0), hall, guardian]), rng3)
 
-# The identity start's first floor: character creation in three rooms straight
-# north, a wish each as the party first walks in.
 def layout.identity_floor(+pack: String, +party: U32, +rng: W.W) -> J.Val & W.W:
   (body0: J.Val, rng1: W.W) = layout.room(LayCell{2, 3}, "start", layout.doors4(True{}, False{}, False{}, False{}), 1, pack, party, rng)
   (weapon: J.Val, rng2: W.W) = layout.room(LayCell{2, 2}, "fight", layout.doors4(True{}, False{}, True{}, False{}), 1, pack, party, rng1)
   (ultimate: J.Val, rng3: W.W) = layout.room(LayCell{2, 1}, "stairs", layout.doors4(False{}, False{}, True{}, False{}), 1, pack, party, rng2)
   (layout.floor_new(1, pack, [layout.room_cleared(body0), weapon, ultimate]), rng3)
 
-# The streamlined first floor: one plain room with the stairs, nothing in it
-# to fight, its foot wall two rows short of a room's.
 def layout.identity_room(+pack: String, +party: U32, +rng: W.W) -> J.Val & W.W:
   (only0: J.Val, rng1: W.W) = layout.room(LayCell{2, 2}, "stairs", layout.doors4(False{}, False{}, False{}, False{}), 1, pack, party, rng)
   g: LayGrid = layout.set_all(layout.grid.walled(24, 12), [LayCell{11, 1}, LayCell{12, 1}, LayCell{11, 2}, LayCell{12, 2}], TileStairs{})
@@ -52,8 +40,6 @@ def layout.identity_room(+pack: String, +party: U32, +rng: W.W) -> J.Val & W.W:
   o2: J.Val = J.del(J.set(J.set(J.set(o1, "cleared", J.JBool{True{}}), "cols", J.JU{24}), "rows", J.JU{12}), "laid")
   (layout.floor_new(1, pack, [layout.grid.put(o2, g)]), rng1)
 
-# Floor `depth` as the wheel's mode lays it out: a horde's great hall, a
-# gauntlet of guardians, or the delve as it always was.
 def layout.floor_for_party(+mode: String, +depth: U32, +pack: String, +party: U32, +rng: W.W) -> J.Val & W.W:
   if Bool.and(Bool.or(String.eq(mode, "hold_the_stair"), String.eq(mode, "gauntlet")), String.eq(pack, "swamp")):
     layout.floor_party(depth, pack, party, rng)
@@ -73,8 +59,6 @@ def layout.floor_for_party(+mode: String, +depth: U32, +pack: String, +party: U3
 def layout.floor_for(+mode: String, +depth: U32, +pack: String, +rng: W.W) -> J.Val & W.W:
   layout.floor_for_party(mode, depth, pack, 1, rng)
 
-# The wheel's promise is a vault: a floor with no fight room free to hide one
-# is grown again.
 def layout.hollow(+depth: U32, +pack: String, +party: U32, +hollow: J.Val, +rng: W.W, +left: U32) -> J.Val & W.W:
   if Bool.or(U32.is_eq(left, 0), Bool.or(Bool.not(J.is_null(J.get(hollow, "secret"))), U32.is_ge(depth, 6))):
     (hollow, rng)
@@ -82,19 +66,13 @@ def layout.hollow(+depth: U32, +pack: String, +party: U32, +hollow: J.Val, +rng:
     (again: J.Val, rng1: W.W) = layout.floor_party(depth, pack, party, rng)
     layout.hollow(depth, pack, party, layout.force_secret(again), rng1, (left - 1 : U32))
 
-# The Undercroft
-# --------------
-
 def layout.cellar.walled(+cell: LayCell, +kind: String) -> J.Val:
   layout.room_blank(cell, kind, 24, 14, True{}, True{}, Nil{})
 
-# A room with the same hall as `room` but a new kind, cell and ground.
 def layout.cellar.next(+prev: J.Val, +cell: LayCell, +kind: String) -> J.Val:
   LayCell{x: U32, y: U32} of LayCell = cell
   J.set(J.set(J.set(J.set(prev, "cell", J.JA{[J.of_i32(x), J.of_i32(y)]}), "kind", J.JS{kind}), "doors", layout.doors4(False{}, False{}, False{}, False{})), "tiles", J.JS{layout.grid.rle(layout.grid.walled(24, 14))})
 
-# One screen of cellar, the Winding Stair in its middle behind a parapet open
-# to the south, the stations' furniture along its walls. Depth 0.
 def layout.undercroft(+pack: String) -> J.Val:
   g0: LayGrid = layout.grid.walled(24, 14)
   g1: LayGrid = layout.fill_rects(g0, layout.SPOTS(), TileBlock{})
@@ -118,9 +96,6 @@ def layout.undercroft(+pack: String) -> J.Val:
 def layout.last_room(+floor: J.Val) -> J.Val:
   layout.Floor.room(floor, (layout.Floor.len(floor) - 1 : U32))
 
-# Dig only the paid tavern footprint: the Trophy Hall's west wall opens on
-# Maud's tavern. False if there is no Trophy Hall here, or the tavern is
-# already dug.
 def layout.dig_tavern_reserved(+floor: J.Val) -> J.Val & Bool:
   if Bool.or(U32.is_ne(J.u32(J.get(floor, "depth")), 0), U32.is_ne(layout.kinds_first(floor, "tavern"), 4294967295)):
     (floor, False{})
@@ -140,8 +115,6 @@ def layout.dig_tavern_reserved(+floor: J.Val) -> J.Val & Bool:
 def layout.kinds_first(+floor: J.Val, +kind: String) -> U32:
   layout.Floor.first_kind(J.items(layout.Floor.rooms(floor)), 0, [kind])
 
-# Tobbin's crew digs out the west wing: the tavern, the bellwright's loft and
-# the muster beyond it.
 def layout.dig_tavern(+floor: J.Val) -> J.Val & Bool:
   (dug: J.Val, ok: Bool) = layout.dig_tavern_reserved(floor)
   if ok:

@@ -23,12 +23,10 @@ def summary(path):
     calls = []
     for message in body.get("messages", []):
         calls += [call.get("function", {}) for call in message.get("tool_calls") or []]
-    # Messages API: each call is a `tool_use` block in an assistant message.
     for message in body.get("messages", []):
         for block in message.get("content") if isinstance(message.get("content"), list) else []:
             if isinstance(block, dict) and block.get("type") == "tool_use":
                 calls.append({"name": block.get("name"), "arguments": json.dumps(block.get("input"))})
-    # Responses API: the history is `input`, each call a `function_call` item.
     calls += [item for item in body.get("input", []) if isinstance(item, dict)
               and item.get("type") == "function_call"]
     for fn in calls:

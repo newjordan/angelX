@@ -42,8 +42,6 @@ def main():
                 draw.text((798,y-20),'ACTUAL 96x28 HALF-BLOCK / BRAILLE CELLS',fill='wheat')
                 sheet.paste(Image.open(str(stem)+'-rgb.png'),(10,y))
                 sheet.paste(cells(Path(str(stem)+'-cells.json')),(798,y))
-                # Eight images per sheet. Floors are shown separately so the
-                # reviewer can check that the sample uses the same room/grade.
                 draw.text((10,y+452),'PAIRED GRADED FLOOR (DOWNSIZED RGB / CELLS)',fill='wheat')
                 for x,im in [(10,Image.open(str(stem)+'-floor-rgb.png')),
                              (222,cells(Path(str(stem)+'-floor-cells.json')))]:

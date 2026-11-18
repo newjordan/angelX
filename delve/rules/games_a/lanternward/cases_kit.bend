@@ -1,6 +1,3 @@
-# Case wrappers for lanternward/kit.rs private steps: {s, k, r, a} in,
-# {s, k, ev, ret} out (see cases.bend).
-
 def case.lanternward.kit.buttons(+input: J.Val) -> J.Val:
   J.JU{lanternward.kit.buttons(J.get(input, "i"))}
 
@@ -127,7 +124,6 @@ def case.lanternward.kit.Session.begin_lunge(+input: J.Val) -> J.Val:
 def case.lanternward.kit.Session.begin_spin(+input: J.Val) -> J.Val:
   lanternward.case.outk(lanternward.kit.Session.begin_spin(lanternward.case.sk(input)), J.JNull{})
 
-# sweep / lunge_hit leave whether they landed in `$ret`.
 def lanternward.case.landed(+s: J.Val) -> J.Val:
   lanternward.case.outk(s, J.JBool{ga.b(s, "$ret")})
 

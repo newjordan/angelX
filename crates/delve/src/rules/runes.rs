@@ -13,21 +13,13 @@ use crate::realm::Spoil;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RuneKind {
-    /// Run faster.
     Haste,
-    /// Hit twice as hard.
     DoubleDamage,
-    /// Mend quickly, until full or hit.
     Regeneration,
-    /// The ultimate charges, spells and the roll come back quicker.
     Arcane,
-    /// Monsters cannot see the knight.
     Invisibility,
-    /// Two images of the knight, at once.
     Illusion,
-    /// Gold for every knight standing, at once.
     Bounty,
-    /// Experience for the whole party, at once.
     Wisdom,
 }
 
@@ -56,7 +48,6 @@ impl RuneKind {
         }
     }
 
-    /// The word in a cue: `rune:double_damage`.
     pub fn word(self) -> &'static str {
         match self {
             RuneKind::Haste => "haste",
@@ -70,7 +61,6 @@ impl RuneKind {
         }
     }
 
-    /// How long it stays with a knight; nothing for a rune spent at once.
     pub fn lasts(self) -> u32 {
         match self {
             RuneKind::Haste => 12 * HZ,
@@ -81,7 +71,6 @@ impl RuneKind {
     }
 }
 
-/// A rune in the room: what, where, and the tick it wells up.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Rune {
     pub kind: RuneKind,
@@ -90,41 +79,30 @@ pub struct Rune {
     pub at: u64,
 }
 
-/// A rune a knight carries, and the ticks it has left.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Held {
     pub kind: RuneKind,
     pub left: u32,
 }
 
-/// How far into a fight a rune wells up, and the chance a fight has one.
 pub const RUNE_AFTER: u32 = 4 * HZ;
 const RUNE_CHANCE: u64 = 35;
-/// Rune Rush: a fresh rune this often while a fight lasts.
 const RUNE_AGAIN: u32 = 10 * HZ;
-/// A knight this close takes it.
 pub const RUNE_REACH: f32 = 1.8;
-/// Haste's pace.
 pub const HASTE: f32 = 1.5;
-/// Regeneration mends a point every this many ticks (ten a second).
 const MEND_EVERY: u64 = 3;
-/// Bounty's gold, at the top and for each floor down; Wisdom's experience.
 const BOUNTY_GOLD: u32 = 15;
 const BOUNTY_PER_FLOOR: u32 = 10;
 const WISDOM_XP: u32 = 60;
 const WISDOM_PER_FLOOR: u32 = 20;
-/// Runes in one delve for Rune Runner.
 const RUNNER: u32 = 4;
 
 impl Hero {
-    /// This knight carries a rune of `kind`.
     pub fn has_rune(&self, kind: RuneKind) -> bool {
         self.rune.is_some_and(|r| r.kind == kind && r.left > 0)
     }
 }
 
-/// Where a rune wells up: one of a few open spots in the room, clear of
-/// pillars, water and pits on every side.
 fn rune_spot(room: &Room, roll: u64) -> Option<(f32, f32)> {
     const SPOTS: [(f32, f32); 7] = [
         (0.5, 0.5),
@@ -149,14 +127,11 @@ fn rune_spot(room: &Room, roll: u64) -> Option<(f32, f32)> {
 }
 
 impl Run {
-    /// A fight begins: perhaps a rune, a few seconds in (always, in Rune
-    /// Rush).
     pub(super) fn place_rune(&mut self) {
         self.rune = None;
         self.well_up(0);
     }
 
-    /// A rune for this fight, rolled from the room and `salt`.
     fn well_up(&mut self, salt: u64) {
         if self.phase != Phase::Fighting || self.dungeon.depth == 0 {
             return;
@@ -186,10 +161,7 @@ impl Run {
         });
     }
 
-    /// Each tick: a rune wells up and is taken; the knights' runes run down.
     pub(super) fn tick_runes(&mut self) {
-        // Rune Rush: while the fight lasts, a fresh rune wells up a while
-        // after the last is taken.
         if self.mode == fortune::Mode::RuneRush
             && self.rune.is_none()
             && self.phase == Phase::Fighting
@@ -232,7 +204,6 @@ impl Run {
                     if tick.is_multiple_of(MEND_EVERY) {
                         hero.mend(1, super::stakes::Mend::Passive);
                     }
-                    // Whole again: the rune has done its work.
                     spent = hero.hp >= hero.max_hp;
                 }
                 RuneKind::Arcane if hero.hp > 0 => {
@@ -255,7 +226,6 @@ impl Run {
         }
     }
 
-    /// Knight `id` reached the rune first.
     fn take_rune(&mut self, id: u32, kind: RuneKind) {
         let depth = self.dungeon.depth;
         match kind {

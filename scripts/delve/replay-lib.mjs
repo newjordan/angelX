@@ -1,10 +1,3 @@
-// The pieces of the Delve replay gate that a worker, a shim and a test share:
-// a JSON reader that keeps integers and floats apart, the BJ1 number codec,
-// the state-delta ops, and the semantic comparison.
-//
-// A parsed state is plain JS: objects (null-prototype), arrays, strings,
-// booleans, null; integers as numbers (BigInt beyond 2^53); floats as `Fl`.
-
 import { spawn } from 'node:child_process';
 
 export const API = 1;
@@ -17,7 +10,6 @@ export class Fl {
 
 const SAFE = BigInt(Number.MAX_SAFE_INTEGER);
 
-/** Read JSON text into a tree that keeps integer and float tokens apart. */
 export function parse(text) {
   let i = 0;
   const n = text.length;
@@ -32,7 +24,6 @@ export function parse(text) {
     }
   };
   const str = () => {
-    // text[i] is the opening quote
     let j = i + 1;
     let plain = true;
     for (;;) {
@@ -97,7 +88,6 @@ export function parse(text) {
     if (c === 116 && text.startsWith('true', i)) return ((i += 4), true);
     if (c === 102 && text.startsWith('false', i)) return ((i += 5), false);
     if (c === 110 && text.startsWith('null', i)) return ((i += 4), null);
-    // a number
     let j = i;
     let float = false;
     for (; j < n; j++) {
@@ -129,7 +119,6 @@ const u32 = new Uint32Array(f32.buffer);
 const f64 = new Float64Array(1);
 const u64 = new BigUint64Array(f64.buffer);
 
-/** The IEEE-754 binary32 bits of a number (rounded to f32 first). */
 export function f32bits(v) {
   f32[0] = v;
   return u32[0];
@@ -144,7 +133,6 @@ export function f64bits(v) {
 }
 export const isF32 = (v) => Object.is(Math.fround(v), v);
 
-/** JSON text for a float that reads back as a float with the same value. */
 export function floatText(v) {
   if (Object.is(v, -0)) return '-0.0';
   if (Number.isInteger(v) && Math.abs(v) < 1e21) return `${v}.0`;
@@ -152,7 +140,6 @@ export function floatText(v) {
   return /[.eE]/.test(t) ? t : `${t}.0`;
 }
 
-/** JSON text of a tree. */
 export function show(v) {
   if (v === null) return 'null';
   switch (typeof v) {
@@ -171,13 +158,10 @@ export function show(v) {
     .join(',')}}`;
 }
 
-// ---- BJ1: JSON text whose number tokens Bend can read -----------------------
-
 const LEX = /"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|f[0-9a-f]{8}(?![0-9a-zA-Z])|w[0-9a-f]{16}(?![0-9a-zA-Z])/g;
 const TWO32 = 4294967296n;
 const TWO64 = 18446744073709551616n;
 
-/** JSON text -> BJ1 text (floats `f`+8 hex, integers of 2^32 and up `w`+16 hex). */
 export function toBj1(text) {
   return text.replace(LEX, (tok) => {
     const c = tok.charCodeAt(0);
@@ -195,7 +179,6 @@ export function toBj1(text) {
   });
 }
 
-/** BJ1 text -> JSON text. */
 export function fromBj1(text) {
   return text.replace(LEX, (tok) => {
     const c = tok.charCodeAt(0);
@@ -205,9 +188,6 @@ export function fromBj1(text) {
   });
 }
 
-// ---- the byte spans of an object's fields, without parsing the values --------
-
-/** Index just past the JSON value that starts at `i` (after spaces). */
 export function skip(text, i) {
   while (text.charCodeAt(i) <= 32) i++;
   const c = text.charCodeAt(i);
@@ -235,7 +215,6 @@ export function skip(text, i) {
   return i;
 }
 
-/** The text of fields `want` of the object `text`: {key: valueText}. */
 export function fields(text, want) {
   const out = {};
   let left = want.length;
@@ -260,8 +239,6 @@ export function fields(text, want) {
   }
 }
 
-// ---- deltas: ["s", path, v], ["d", path], ["t", path, n] ---------------------
-
 const same = (a, b) => {
   if (a === b) return true;
   if (a instanceof Fl && b instanceof Fl) return f64bits(a.v) === f64bits(b.v);
@@ -269,7 +246,6 @@ const same = (a, b) => {
 };
 const isObj = (v) => v !== null && typeof v === 'object' && !(v instanceof Fl) && !Array.isArray(v);
 
-/** The ops that turn tree `a` into tree `b`. */
 export function diff(a, b) {
   const ops = [];
   const walk = (x, y, path) => {
@@ -291,7 +267,6 @@ export function diff(a, b) {
   return ops;
 }
 
-/** Apply ops to `root` in place; returns the new root. Throws on a bad op. */
 export function applyOps(root, ops) {
   if (!Array.isArray(ops)) throw new Error('delta is not a list of ops');
   for (const op of ops) {
@@ -325,8 +300,6 @@ export function applyOps(root, ops) {
   return root;
 }
 
-// ---- semantic comparison ------------------------------------------------------
-
 const kindOf = (v) =>
   v === null
     ? 'null'
@@ -340,7 +313,6 @@ const kindOf = (v) =>
 
 const clip = (s, n = 90) => (s.length > n ? `${s.slice(0, n)}...(${s.length})` : s);
 
-/** How a leaf reads in a report. */
 export function describe(v) {
   if (v === undefined) return '(absent)';
   if (v instanceof Fl) {
@@ -349,17 +321,10 @@ export function describe(v) {
   return clip(show(v));
 }
 
-/** The path as `run.players.1.hp` / `run.enemies[3].x`. */
 export function pathText(path) {
   return path.map((p, i) => (typeof p === 'number' ? `[${p}]` : i ? `.${p}` : p)).join('') || '(root)';
 }
 
-/**
- * Compare expected to got. Object key order is ignored; floats compare as f32
- * bits (so -0 and 0 differ), floats the f32 cannot hold as f64 bits; integers
- * exactly; a missing key and a null differ. Returns up to `limit` differences
- * {path, expected, got, why}.
- */
 export function compare(want, got, limit = 1) {
   const out = [];
   const add = (path, why, e, g) => {
@@ -398,9 +363,7 @@ export function compare(want, got, limit = 1) {
   return out;
 }
 
-// ---- a worker process and its framed protocol ----------------------------------
-
-export /** A worker process and its framed protocol. */
+export
 class Worker {
   constructor(binary, args, timeout) {
     this.timeout = timeout;
@@ -427,7 +390,6 @@ class Worker {
     this.child.stdin.on('error', () => {});
   }
 
-  /** Hand the waiting request its frame, or its worker's death. */
   pump() {
     if (!this.waiting) return;
     if (this.have >= 4) {
@@ -451,7 +413,6 @@ class Worker {
     }
   }
 
-  /** One request: body is JSON text. Resolves the `result` text, rejects on Err. */
   async call(method, bodyText) {
     const request = ++this.serial;
     let text = `{"api":${API},"generation":"replay","request":${request},"method":${JSON.stringify(method)},"body":${bodyText}}`;

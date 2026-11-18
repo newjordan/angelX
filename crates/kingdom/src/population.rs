@@ -4,7 +4,6 @@ use crate::Stock;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// The trades a person can hold, in the order Site refers to them.
 pub const TRADES: [&str; 23] = [
     "labourer",
     "quarryman",
@@ -34,8 +33,6 @@ pub fn trade_index(id: &str) -> Option<u8> {
     TRADES.iter().position(|t| *t == id).map(|i| i as u8)
 }
 
-/// How the village lives: legacy valleys eat one `food` and hold no trades;
-/// the hillside reads the catalogue's diet, trades and wages.
 #[derive(Clone, Copy)]
 pub struct Rules<'a> {
     pub catalog: Option<&'a crate::Catalog>,
@@ -53,7 +50,6 @@ impl<'a> Rules<'a> {
             .filter(|s| !s.is_empty())
             .unwrap_or("food")
     }
-    /// XP thresholds for apprentice, journeyman and master.
     fn xp(&self) -> [u32; 3] {
         self.catalog.map_or([300, 1800, 5400], |c| [c.works.apprentice_xp, c.works.journeyman_xp, c.works.master_xp])
     }
@@ -67,13 +63,9 @@ impl<'a> Rules<'a> {
             n => self.xp()[usize::from(n.min(3)) - 1],
         }
     }
-    /// Seconds of welcome before a newcomer arrives.
     fn arrival(&self) -> u16 {
         self.catalog.map_or(ARRIVAL_SECONDS, |c| c.works.arrival_seconds)
     }
-    /// Meals of bread a newcomer's welcome needs in the camp for every person already
-    /// there, the new one included: the camp must be able to feed the settlement a
-    /// day, not merely be eating this minute.
     fn welcome_meals(&self) -> u32 {
         self.catalog.map_or(2, |c| u32::from(c.works.welcome_meals.max(1)))
     }
@@ -127,8 +119,6 @@ impl Role {
     }
 }
 
-/// A read-only projection of one building. Offline sites cannot hold homes or
-/// jobs. Construction sites may expose one Builder job and no beds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Site {
     pub id: u32,
@@ -138,12 +128,7 @@ pub struct Site {
     pub beds: u16,
     pub online: bool,
     pub priority: u8,
-    /// The trade (an index into `TRADES`) and the level of the person who
-    /// must supervise the work here.
     pub trade: Option<(u8, u8)>,
-    /// How many of the people who last worked here stand idle at the post while
-    /// it has no work this minute (it has no jobs): they are free for any post
-    /// that can use them, and wait here otherwise, not at home.
     pub held: u16,
 }
 
@@ -153,21 +138,14 @@ pub struct Citizen {
     pub home: Option<u32>,
     pub job: Option<u32>,
     pub role: Role,
-    /// Zero means fed; one hundred means very hungry.
     pub hunger: u8,
-    /// Rest and morale are full at one hundred.
     pub rest: u8,
     pub morale: u8,
     pub arrived: u64,
-    /// Seconds of work at each trade; the level follows from the rules.
     #[serde(default)]
     pub trades: BTreeMap<String, u32>,
-    /// Seconds the coat of livery they were issued still has to run.
     #[serde(default)]
     pub livery: u32,
-    /// The post they stand idle at while it waits on goods and no running post
-    /// wants them (`Site::held`). They have no job there: they count as idle
-    /// for every other purpose, and are free for any post that needs them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub waiting: Option<u32>,
 }
@@ -175,11 +153,9 @@ impl Citizen {
     pub fn skill(&self, trade: &str, rules: &Rules) -> u8 {
         self.trades.get(trade).map_or(0, |&xp| rules.skill(xp))
     }
-    /// Every level they hold, added: how much of a tradesman they are.
     pub fn skill_total(&self, rules: &Rules) -> u32 {
         self.trades.values().map(|&xp| u32::from(rules.skill(xp))).sum()
     }
-    /// The best skill they have in anything.
     pub fn best(&self, rules: &Rules) -> (Option<&str>, u8) {
         self.trades
             .iter()
@@ -187,15 +163,10 @@ impl Citizen {
             .max_by_key(|&(t, l)| (l, std::cmp::Reverse(t.len())))
             .map_or((None, 0), |(t, l)| (Some(t), l))
     }
-    /// Whether they can supervise work needing `trade` at `level`: skilled in
-    /// it, or one level higher in a kindred trade.
     pub fn supervises(&self, trade: &str, level: u8, rules: &Rules) -> bool {
         self.skill(trade, rules) >= level
             || rules.kin(trade).iter().any(|k| self.skill(k, rules) > level)
     }
-    /// Even an exhausted, hungry settler can grow food and build shelter.
-    /// The whole workplace receives the average, avoiding alternating workers
-    /// that could leave a two-person job permanently unable to complete.
     pub fn efficiency(&self) -> u16 {
         (100u16
             .saturating_sub(u16::from(self.hunger) / 2)
@@ -253,15 +224,12 @@ pub struct CitizenView {
     pub activity: Activity,
     pub home: Option<u32>,
     pub job: Option<u32>,
-    /// The post they stand idle at, waiting on goods.
     pub waiting: Option<u32>,
     pub target: (i16, i16),
     pub efficiency: u16,
     pub hunger: u8,
     pub rest: u8,
     pub morale: u8,
-    /// Every trade they have any time at, with the level it has reached
-    /// (0 none yet, 1 apprentice, 2 journeyman, 3 master), best first.
     pub trades: Vec<(String, u8)>,
 }
 
@@ -276,11 +244,8 @@ pub struct PopulationReport {
     pub food_per_meal: u16,
     pub food_eaten: u16,
     pub assigned: BTreeMap<u32, u16>,
-    /// People standing idle at a post that waits on goods, by post.
     pub waiting: BTreeMap<u32, u16>,
-    /// Percent work credit for each online site; zero when understaffed.
     pub efficiency: BTreeMap<u32, u16>,
-    /// IDs that arrived during this mutation, empty in a read-only report.
     pub arrivals: Vec<u32>,
     pub citizens: Vec<CitizenView>,
 }
@@ -325,11 +290,9 @@ fn name(id: u32) -> String {
 }
 
 impl Population {
-    /// Explicit new-world initialization. New cottages create beds, not people.
     pub fn founders() -> Self {
         Self::founders_of(FOUNDERS)
     }
-    /// A wagon train of `n` people.
     pub fn founders_of(n: usize) -> Self {
         let mut population = Self {
             schema: 1,
@@ -342,7 +305,6 @@ impl Population {
         population
     }
 
-    /// New settlers arrive without waiting for the clock, for tests.
     #[cfg(test)]
     pub(crate) fn add_people(&mut self, n: usize) {
         for _ in 0..n {
@@ -350,8 +312,6 @@ impl Population {
         }
     }
 
-    /// A person takes up a trade at `level`: a founder's craft, a knight's, or
-    /// what a teacher gave them. Never lowers a skill.
     pub fn grant(&mut self, id: u32, trade: &str, level: u8, rules: &Rules) -> bool {
         let xp = rules.xp_for(level.min(3));
         match self.citizens.get_mut(&id) {
@@ -430,9 +390,6 @@ impl Population {
         if self.schema != 0 {
             return;
         }
-        // Existing settlements previously received labour directly from beds.
-        // Preserve enough housed workers for their current jobs, with six
-        // founders minimum. Migration grants no food or other resources.
         let beds: usize = sites
             .values()
             .filter(|s| s.online)
@@ -471,7 +428,6 @@ impl Population {
                 *left -= 1;
             }
         }
-        // Where each stood last: at work, or idle at a post waiting on goods.
         let previous: BTreeMap<_, _> = self.citizens.iter().map(|(&id, c)| (id, c.job.or(c.waiting))).collect();
         let mut free: BTreeSet<_> = self.citizens.keys().copied().collect();
         let mut work: Vec<_> = sites.values().filter(|s| s.online && s.jobs > 0).collect();
@@ -480,13 +436,9 @@ impl Population {
             citizen.job = None;
             citizen.waiting = None;
         }
-        // Qualified people at work and posts running, by trade: one supervisor
-        // can stand over only so many posts of their trade.
         let mut posts: BTreeMap<u8, usize> = BTreeMap::new();
         let mut supervisors: BTreeMap<u8, usize> = BTreeMap::new();
         for site in work {
-            // A partial crew cannot produce. Leave those people available for
-            // smaller workplaces, especially a farm that can feed the village.
             if free.len() < usize::from(site.jobs) {
                 continue;
             }
@@ -504,7 +456,6 @@ impl Population {
                 let name = TRADES[usize::from(t)];
                 let running = posts.get(&t).copied().unwrap_or(0);
                 let have = supervisors.get(&t).copied().unwrap_or(0);
-                // Every `per_supervisor` posts need one more qualified person.
                 if have < (running + 1).div_ceil(rules.per_supervisor()) {
                     let mut able: Vec<u32> = free
                         .iter()
@@ -517,8 +468,6 @@ impl Population {
                         None => continue,
                     }
                 }
-                // The rest of the crew learns beside them: those with some
-                // time at the trade first.
                 let mut rest: Vec<u32> = free.iter().copied().filter(|id| !crew.contains(id)).collect();
                 rest.sort_by_key(|id| {
                     (
@@ -537,8 +486,6 @@ impl Population {
                 *supervisors.entry(t).or_default() +=
                     crew.iter().filter(|id| self.citizens[id].supervises(name, level, rules)).count().min(1);
             } else {
-                // Plain work goes to the unskilled first, so a trade's people
-                // are still free when its posts come up.
                 let mut candidates: Vec<u32> = free.iter().copied().collect();
                 candidates.sort_by_key(|id| (rank(id), self.citizens[id].skill_total(rules), *id));
                 crew.extend(candidates.into_iter().take(usize::from(site.jobs)));
@@ -550,9 +497,6 @@ impl Population {
                 citizen.role = site.role;
             }
         }
-        // Whoever no running post wanted goes back to the post they were at, if it
-        // is only waiting on goods: they stand idle there (the post is theirs, in
-        // sight), and are free for any post that needs them at the next count.
         for site in sites.values().filter(|s| s.online && s.jobs == 0 && s.held > 0) {
             let mut room = site.held;
             let back: Vec<u32> = free.iter().copied().filter(|id| previous[id] == Some(site.id)).collect();
@@ -567,8 +511,6 @@ impl Population {
         }
     }
 
-    /// Reconcile on successful building/road/priority commands. Failures are
-    /// atomic; no malformed site can rewrite a person's name or assignment.
     pub fn reconcile(&mut self, sites: &[Site]) -> Result<PopulationReport, String> {
         self.reconcile_with(sites, &Rules::legacy())
     }
@@ -582,8 +524,6 @@ impl Population {
         Ok(self.describe(&sites, rules))
     }
 
-    /// A read-only report also previews migration and reassignment, so loading
-    /// an older save never displays zero workers before its first actual tick.
     pub fn report(&self, sites: &[Site]) -> PopulationReport {
         self.report_with(sites, &Rules::legacy())
     }
@@ -614,8 +554,6 @@ impl Population {
         self.seconds += 1;
         self.meal_seconds += 1;
         let mut eaten = 0;
-        // Time at a trade is how a trade is learned: a post that is running
-        // with its crew teaches everyone on it.
         if rules.catalog.is_some() {
             for c in self.citizens.values_mut() {
                 let Some(site) = c.job.and_then(|j| sites.get(&j)) else { continue };
@@ -628,7 +566,6 @@ impl Population {
         let wages = rules.catalog.is_some_and(|c| c.works.wage_seconds > 0 && self.seconds % u64::from(c.works.wage_seconds) == 0);
         if self.meal_seconds >= MEAL_SECONDS {
             self.meal_seconds = 0;
-            // Rotate scarce meals rather than always feeding the oldest IDs.
             let mut people: Vec<_> = self.citizens.keys().copied().collect();
             if !people.is_empty() {
                 let rotation =
@@ -638,7 +575,6 @@ impl Population {
             for id in people {
                 let citizen = self.citizens.get_mut(&id).unwrap();
                 let (_, level) = citizen.best(rules);
-                // A meal: the staple, then the extras a skilled person expects.
                 let (staple, extras): (String, Vec<String>) = match rules.catalog {
                     Some(c) if !c.diet.labourer.is_empty() => {
                         let tier = match level {
@@ -670,7 +606,6 @@ impl Population {
                     citizen.hunger = citizen.hunger.saturating_add(20).min(100);
                 }
                 let missing = extras.iter().filter(|e| !eat(e)).count() as u8;
-                // A coat of livery, issued when the last has worn out.
                 citizen.livery = citizen.livery.saturating_sub(u32::from(MEAL_SECONDS));
                 if citizen.livery == 0 {
                     if let Some(c) = rules.catalog {
@@ -701,8 +636,6 @@ impl Population {
                 };
             }
         }
-        // Wages: the Delve's gold pays journeymen and masters. A pay day
-        // missed is felt in the morale of everyone owed.
         if wages {
             let c = rules.catalog.unwrap();
             for citizen in self.citizens.values_mut() {
@@ -734,8 +667,6 @@ impl Population {
             && self.citizens.len() < MAX_CITIZENS
             && self.next < u32::MAX - 1
             && stock.get(rules.staple()).copied().unwrap_or(0) >= (self.citizens.len() as u32 + 1) * rules.welcome_meals()
-            // A settlement is welcoming while hardly anyone in it is going hungry or worn out:
-            // up to one person in eight may be (none, below eight people).
             && self
                 .citizens
                 .values()
@@ -786,8 +717,6 @@ impl Population {
             }
             if let Some(job) = citizen.job {
                 *report.assigned.entry(job).or_default() += 1;
-                // At a trade, skill is the speed of the hand: a beginner is
-                // slow, a master quick.
                 let skill = sites.get(&job).and_then(|s| s.trade).map(|(t, _)| citizen.skill(TRADES[usize::from(t)], rules));
                 let factor = match skill {
                     None => 100,
@@ -1101,8 +1030,6 @@ mod tests {
         assert_eq!(report.efficiency[&2], 100);
         assert_eq!(report.idle, 5);
 
-        // A now-affordable crew honours its higher priority, while the farm
-        // keeps the final worker. Repeated reports do not shuffle those IDs.
         sites[2].jobs = 5;
         let staffed = people.reconcile(&sites).unwrap();
         assert_eq!(staffed.assigned[&3], 5);
@@ -1127,8 +1054,6 @@ mod tests {
         assert_eq!(report.efficiency[&2], 100);
         assert_eq!(report.assigned[&3], 5);
 
-        // Completing a large construction phase releases its crew. A smaller
-        // ready workshop and new extraction site get real individual workers.
         sites[2].jobs = 2;
         sites.push(Site {
             id: 4,
@@ -1160,8 +1085,6 @@ mod tests {
         assert_eq!(people.report(&sites).hungry, 6);
         sites[0].online = true;
         let (mut credit, mut shifts, mut grown, mut eaten) = (0u16, 0, 0, 0);
-        // Use the real farm cadence: two ten-second shifts grow four food.
-        // Work credit comes exclusively from the hungry farmer's efficiency.
         for second in 1..=3600 {
             let report = people.advance_second(&sites, &mut food).unwrap();
             eaten += u32::from(report.food_eaten);

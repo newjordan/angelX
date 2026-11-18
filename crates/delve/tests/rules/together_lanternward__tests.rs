@@ -52,7 +52,6 @@ fn a_session_is_bounded_and_repair_mends_it() {
 fn the_door_opens_at_its_tile_and_a_personal_leave_returns_to_it() {
     let mut r = Run::at_home(41, 1, None, Default::default(), Default::default());
     r.walk_kingdom(Some(ENTRY));
-    // The press that walked in is let go first, then E opens the door.
     r.step(&BTreeMap::new());
     assert!(!r.lanternward_showing());
     press_e(&mut r);
@@ -281,8 +280,6 @@ fn a_finished_runs_mark_settles_into_the_home_once() {
     );
 }
 
-// ----- the verbs, in the Stair with one snuffer -----------------------------
-
 fn session(r: &mut Run) -> &mut Session {
     r.lanternward.as_mut().unwrap()
 }
@@ -297,8 +294,6 @@ fn lock_key() -> Input {
         ..Default::default()
     }
 }
-/// One knight in an empty Stair, a snuffer of our own `dist` pixels east,
-/// asleep.
 fn duel(dist_px: i32) -> Run {
     let mut r = Run::lanternward_for_test();
     r.step(&BTreeMap::new());
@@ -318,7 +313,6 @@ fn duel(dist_px: i32) -> Run {
 fn lock_on_picks_the_nearest_foe_in_front_and_squares_the_knight_to_it() {
     let mut r = duel(60);
     let s = session(&mut r);
-    // A nearer one behind, and a farther one in front.
     let (kx, ky) = (s.seats[&1].x, s.seats[&1].y);
     s.spawn_foe(Fk::Snuffer, kx - 30 * Q, ky, false);
     s.spawn_foe(Fk::Snuffer, kx + 85 * Q, ky + 10 * Q, false);
@@ -329,7 +323,6 @@ fn lock_on_picks_the_nearest_foe_in_front_and_squares_the_knight_to_it() {
     let k = &r.lanternward.as_ref().unwrap().seats[&1];
     assert_eq!(k.lock, Some(Lock::Foe(front)), "the nearest in front, not behind");
     assert!(k.face.0 > Q * 9 / 10, "faces it");
-    // Let go: the lock drops, the view eases back.
     hold_keys(&mut r, 1, Input::default(), 1);
     let k = &r.lanternward.as_ref().unwrap().seats[&1];
     assert!(k.lock.is_none() && k.unlock_t > 0);
@@ -349,7 +342,6 @@ fn locked_on_a_sideways_step_circles_the_foe_at_its_own_distance() {
         let k = &r.lanternward.as_ref().unwrap().seats[&1];
         (k.x, k.y)
     };
-    // Foe is east of the knight: up and down are sideways. It stays put.
     let (fx, fy) = {
         let f = &r.lanternward.as_ref().unwrap().foes[0];
         (f.x, f.y)
@@ -386,8 +378,6 @@ fn a_three_hit_combo_ends_heavier_and_a_wound_spin_goes_off_on_release() {
         swing: true,
         ..Default::default()
     };
-    // Tap the sword now and then and keep the foe where it was, so the chain
-    // is what is tried.
     let mut hits = Vec::new();
     let mut last = 100;
     for tick in 0..60 {
@@ -401,7 +391,6 @@ fn a_three_hit_combo_ends_heavier_and_a_wound_spin_goes_off_on_release() {
         }
     }
     assert!(hits.starts_with(&[2, 2, 4]), "two light cuts and a heavy one: {hits:?}");
-    // A wound spin: hold, then let go.
     let mut r = duel(20);
     session(&mut r).foes[0].hp = 100;
     session(&mut r).foes[0].full = 100;
@@ -418,7 +407,6 @@ fn locked_on_the_hop_follows_the_stick_and_clears_the_ground() {
     let mut r = duel(60);
     hold_keys(&mut r, 1, lock_key(), 2);
     let e = |i: Input| Input { interact: true, ult: true, ..i };
-    // Side hop: stick up with the foe east.
     hold_keys(&mut r, 1, e(Input { move_y: -1, ..Default::default() }), 1);
     let k = &r.lanternward.as_ref().unwrap().seats[&1];
     assert_eq!((k.act, k.n), (Act::Hop, 0));
@@ -428,7 +416,6 @@ fn locked_on_the_hop_follows_the_stick_and_clears_the_ground() {
     hold_keys(&mut r, 1, lock_key(), 12);
     let k = &r.lanternward.as_ref().unwrap().seats[&1];
     assert_eq!((k.act, k.z), (Act::Free, 0));
-    // Back and nothing: a backflip, away from the foe.
     let (x0, _) = (k.x, k.y);
     hold_keys(&mut r, 1, e(Input::default()), 1);
     assert_eq!(r.lanternward.as_ref().unwrap().seats[&1].n, 1);
@@ -441,7 +428,6 @@ fn a_shield_raised_just_in_time_parries_a_lunge_and_leaves_the_snuffer_open() {
     let mut r = duel(60);
     let seats = 1;
     let _ = seats;
-    // Wake it and let it come; raise the shield at the last moment.
     session(&mut r).foes[0].st = Fs::Drift;
     session(&mut r).foes[0].t = 1;
     hold_keys(&mut r, 1, lock_key(), 1);
@@ -454,8 +440,6 @@ fn a_shield_raised_just_in_time_parries_a_lunge_and_leaves_the_snuffer_open() {
     for _ in 0..200 {
         let s = r.lanternward.as_ref().unwrap();
         let f = &s.foes[0];
-        // Strike lands after the tell and a few ticks of lunge: raise at the
-        // end of the tell.
         let raise = f.st == Fs::Tell && f.t <= 6 || f.st == Fs::Strike;
         let i = if raise { guard } else { lock_key() };
         r.step(&BTreeMap::from([(1, i)]));
@@ -482,7 +466,6 @@ fn a_late_shield_blocks_but_does_not_parry_and_nothing_gets_past_from_behind() {
         dash: true,
         ..Default::default()
     };
-    // Shield up long before the blow: a block, with the push, no stagger.
     let mut blocked = false;
     for _ in 0..200 {
         r.step(&BTreeMap::from([(1, guard)]));
@@ -498,8 +481,6 @@ fn a_late_shield_blocks_but_does_not_parry_and_nothing_gets_past_from_behind() {
     assert!(!s.foes[0].open);
 }
 
-/// Four bots (or one, or six) play from the door; the tick the Beacon burns,
-/// and the room and stage on the way. `limit` ticks at most.
 fn bots_play(seats: u32, limit: u32, trace: bool) -> (Run, Option<u32>) {
     let mut r = table(seats);
     let mut last = (255u8, 255u8);
@@ -521,7 +502,6 @@ fn bots_play(seats: u32, limit: u32, trace: bool) -> (Run, Option<u32>) {
 
 #[test]
 fn bots_clear_the_adventure_at_one_two_four_and_six_seats() {
-    // The ticks each table took, as the tuning record keeps them.
     for (seats, limit) in [(1, 7000), (2, 7500), (4, 8000), (6, 9000)] {
         let (r, done) = bots_play(seats, limit, false);
         let s = r.lanternward.as_ref().unwrap();
@@ -538,9 +518,6 @@ fn bots_clear_the_adventure_at_one_two_four_and_six_seats() {
     }
 }
 
-// ----- the adventure as a whole -----------------------------------------------
-
-/// The party of `seats` in the room at the named moment of the review.
 fn at(moment: &str, seats: u32) -> Run {
     Run::lanternward_review_for_test(moment, seats)
 }
@@ -555,8 +532,6 @@ fn sess(r: &Run) -> &Session {
 
 #[test]
 fn the_view_keeps_the_awake_warden_in_the_frame() {
-    // Knights stand off the Warden at ninety pixels; the view
-    // leans so its whole body is on the screen, not cut by the top edge.
     let mut r = at("warden-open", 2);
     let (wx, wy) = {
         let w = sess(&r).boss.as_ref().unwrap();
@@ -575,7 +550,6 @@ fn the_view_keeps_the_awake_warden_in_the_frame() {
     assert!(top >= 0, "the Warden's head is {} px over the top edge", -top / Q);
     let side = (wx - cx).abs();
     assert!(side < (VIEW_W / 2 - 24) * Q, "and it is not at the side either");
-    // Where it is asleep the view stays on the knight.
     let mut r = at("stair", 1);
     step_n(&mut r, 30);
     let k = &sess(&r).seats[&1];
@@ -628,7 +602,6 @@ fn the_first_clear_marks_the_campaign_and_pays_each_seat_once() {
         assert!(*got <= PURSE_FIRST + PURSE_GEMS, "the purse is capped");
         assert!(r.players[&(n as u32 + 1)].laurel, "a gold crown for each");
     }
-    // The finish is not paid again however it is asked for.
     let mut s = r.lanternward.take().unwrap();
     r.finish_lanternward(&mut s);
     r.lanternward = Some(s);
@@ -657,7 +630,6 @@ fn a_wipe_puts_the_party_back_at_the_rooms_start_in_under_a_second_with_its_prog
     assert!(sess(&r).stage == 2 && sess(&r).inv.lantern);
     let gate_open = sess(&r).props.iter().any(|p| p.kind == Pk::Gate && p.id == 1 && p.on == 1);
     assert!(gate_open);
-    // The whole table falls.
     for k in session(&mut r).seats.values_mut() {
         k.hp = 0;
         k.act = Act::Down;
@@ -689,7 +661,6 @@ fn a_friend_holding_e_lifts_the_fallen_and_otherwise_the_brazier_does() {
     }
     let k = &sess(&r).seats[&1];
     assert!(k.up() && k.hp == REVIVE_HP, "up with three hearts: {:?} {}", k.act, k.hp);
-    // Left alone, the knight is carried to the room's brazier in the end.
     let mut r = at("stair", 2);
     {
         let s = session(&mut r);
@@ -708,7 +679,6 @@ fn a_friend_holding_e_lifts_the_fallen_and_otherwise_the_brazier_does() {
 
 #[test]
 fn two_knights_both_matter_at_the_plates_and_at_the_lamp_heart() {
-    // The Gallery: the block on the first plate is not enough for two.
     let mut r = at("gallery", 2);
     {
         let s = session(&mut r);
@@ -734,7 +704,6 @@ fn two_knights_both_matter_at_the_plates_and_at_the_lamp_heart() {
     }
     step_n(&mut r, 3);
     assert!(gate(&r), "the second knight holds it");
-    // Alone, the block is enough.
     let mut solo = at("gallery", 1);
     {
         let s = session(&mut solo);
@@ -747,7 +716,6 @@ fn two_knights_both_matter_at_the_plates_and_at_the_lamp_heart() {
     }
     step_n(&mut solo, 3);
     assert!(gate(&solo));
-    // The Warden: from its second third, one knight's light is not enough.
     let mut r = at("warden", 2);
     {
         let w = session(&mut r).boss.as_mut().unwrap();
@@ -758,7 +726,6 @@ fn two_knights_both_matter_at_the_plates_and_at_the_lamp_heart() {
     assert!(!sess(&r).boss_exposed(), "one light leaves the heart shut");
     session(&mut r).boss.as_mut().unwrap().lit[1] = now;
     assert!(sess(&r).boss_exposed(), "two keep it open");
-    // Alone one light does (there is no second knight to ask for).
     let mut solo = at("warden", 1);
     session(&mut solo).boss.as_mut().unwrap().phase = 2;
     let now = sess(&solo).elapsed;
@@ -794,7 +761,6 @@ fn more_seats_mean_more_foes_more_health_and_tighter_tells_never_less() {
     let tells: Vec<u32> = seats.iter().map(|&n| rules.tell_for(n)).collect();
     assert!(tells.windows(2).all(|w| w[0] >= w[1]) && tells[5] < tells[0], "{tells:?}");
     assert!(tells.iter().all(|&t| t >= 40), "never under forty: {tells:?}");
-    // Even at the knob's lowest the floor holds.
     let tight = Rules { tell: 1, ..rules };
     assert!((1..=6).all(|n| tight.tell_for(n) >= 40));
 }
@@ -811,7 +777,6 @@ fn a_late_knight_sits_at_the_start_and_scales_the_fight_once_keeping_its_share()
     assert_eq!((w.full, w.hp, w.prov), (2 * WARDEN_HP, WARDEN_HP, 2), "half left stays half");
     assert!(s.seats[&2].joined > 0);
     assert_eq!((s.seats[&2].x, s.seats[&2].y), s.start_of(2), "at the room's start");
-    // The same seat standing up and sitting again scales nothing twice.
     assert!(r.leave_activity(2));
     step_n(&mut r, 3);
     assert_eq!(sess(&r).seats.len(), 1);
@@ -856,11 +821,8 @@ fn the_same_inputs_leave_the_same_bytes_over_half_a_minute_of_bots() {
     assert!(sess(&a).valid() && crate::wire::drawable(&a));
 }
 
-// ----- the quality bar ----------------------------------------------------------
-
 #[test]
 fn locking_on_snaps_the_view_and_ticks_and_letting_go_eases_it_back() {
-    // The foe is south of the knight: the Stair's view is free to move that way.
     let mut r = Run::lanternward_duel_for_test(70);
     {
         let s = session(&mut r);
@@ -880,7 +842,6 @@ fn locking_on_snaps_the_view_and_ticks_and_letting_go_eases_it_back() {
     assert!(r.sounds.contains(&"card_pickup"), "a crisp tick as it takes");
     let k = &sess(&r).seats[&1];
     assert!(k.face.1 > Q * 99 / 100, "square to the foe on the very tick");
-    // The view swings toward the foe, most of the way inside the snap.
     hold_keys(&mut r, 1, lock_key(), SNAP_TICKS);
     let (kx, ky) = (sess(&r).seats[&1].x, sess(&r).seats[&1].y);
     let aim = (kx + (fx - kx) * LOCK_LEAN / 100, ky + (fy - ky) * LOCK_LEAN / 100);
@@ -888,7 +849,6 @@ fn locking_on_snaps_the_view_and_ticks_and_letting_go_eases_it_back() {
     let left = (aim.1 - k.cam.1).abs();
     let started = (aim.1 - cam0.1).abs();
     assert!(left * 4 < started, "{left} of {started} still to go after the snap");
-    // Let go: the view is slower coming back than it went (it eases).
     hold_keys(&mut r, 1, Input::default(), 3);
     let k = &sess(&r).seats[&1];
     assert!(k.lock.is_none());
@@ -914,7 +874,6 @@ fn every_blade_that_lands_asks_the_engine_for_its_hit_stop_and_a_kill_for_more()
         }
     }
     assert!(stopped, "a slash that lands holds the room a moment");
-    // A parry asks for the longer one.
     let mut r = Run::lanternward_duel_for_test(60);
     session(&mut r).foes[0].st = Fs::Drift;
     session(&mut r).foes[0].t = 1;
@@ -954,7 +913,6 @@ fn a_parry_staggers_a_full_second_and_the_next_blow_is_double() {
     let f = &sess(&r).foes[0];
     assert_eq!((f.st, f.t), (Fs::Stagger, STAGGER_TICKS), "a full second: {STAGGER_TICKS} ticks is 1 s");
     assert_eq!(STAGGER_TICKS as u32, HZ);
-    // Walk up to it and strike once: double.
     let (fx, fy) = (f.x, f.y);
     {
         let k = session(&mut r).seats.get_mut(&1).unwrap();
@@ -992,7 +950,6 @@ fn a_blade_passes_through_a_hooded_snuffer_until_light_burns_the_hood_off() {
         hold_keys(&mut r, 1, sword, 1);
     }
     assert_eq!(sess(&r).foes[0].hp, 40, "the blade passes through the hood");
-    // Flare: the hood comes off for a while, and then the blade counts.
     for _ in 0..12 {
         hold_keys(&mut r, 1, Input { fire: true, ..Default::default() }, 1);
     }
@@ -1020,17 +977,14 @@ fn the_lantern_throws_a_bolt_for_a_fifth_of_its_tank_and_a_flare_drains_and_refi
     let s = sess(&r);
     assert_eq!(s.bolts.iter().filter(|b| b.kind == Bk::Light).count(), 1, "one bolt of light on the release");
     assert!(s.seats[&1].flame <= 150 - 30 + 2, "a fifth of the tank");
-    // Hold: a flare, one flame a tick.
     let before = sess(&r).seats[&1].flame;
     hold_keys(&mut r, 1, tap, FLARE_AFTER + 20);
     let k = &sess(&r).seats[&1];
     assert!(k.flaring());
     assert!(before - k.flame >= 14, "{before} to {}", k.flame);
-    // Let go and it comes back, slowly.
     let low = k.flame;
     hold_keys(&mut r, 1, Input::default(), 60);
     assert!(sess(&r).seats[&1].flame > low + 20);
-    // Run it dry: it sputters and cannot flare again at once.
     session(&mut r).seats.get_mut(&1).unwrap().flame = 3;
     hold_keys(&mut r, 1, tap, 30);
     let k = &sess(&r).seats[&1];
@@ -1039,7 +993,6 @@ fn the_lantern_throws_a_bolt_for_a_fifth_of_its_tank_and_a_flare_drains_and_refi
 
 #[test]
 fn a_roll_and_a_hop_cross_a_pit_and_a_walk_into_it_costs_a_half_heart() {
-    // Walk in.
     let mut r = Run::lanternward_duel_for_test(0);
     {
         let k = session(&mut r).seats.get_mut(&1).unwrap();
@@ -1051,7 +1004,6 @@ fn a_roll_and_a_hop_cross_a_pit_and_a_walk_into_it_costs_a_half_heart() {
     let k = &sess(&r).seats[&1];
     assert_eq!(k.hp, START_HP - FALL_DAMAGE, "a fall");
     assert!(k.x < 15 * TILE * Q, "put back on the near side");
-    // Roll across (the pit is two tiles wide).
     let mut r = Run::lanternward_duel_for_test(0);
     {
         let k = session(&mut r).seats.get_mut(&1).unwrap();
@@ -1082,7 +1034,6 @@ fn the_jump_attack_comes_down_hard_on_what_is_below() {
         let f = &mut session(&mut r).foes[0];
         (f.x, f.y) = (fx, fy);
         let k = session(&mut r).seats.get_mut(&1).unwrap();
-        // The strike comes down where the hop landed, close to it.
         if k.act == Act::Plunge {
             k.x = fx - 8 * Q;
             k.y = fy;
@@ -1096,7 +1047,6 @@ fn a_bomb_opens_a_cracked_wall_and_a_bomb_pot_always_holds_bombs() {
     let r = at("bomb-open", 1);
     assert!(sess(&r).secret_open(), "the closet is open");
     assert!(r.sounds.contains(&"bomb") || sess(&r).fuses.is_empty());
-    // A bomb pot, cut with the sword, drops three bombs, every time.
     let mut r = Run::lanternward_duel_for_test(0);
     {
         let s = session(&mut r);
@@ -1142,7 +1092,6 @@ fn a_chest_holds_its_item_up_and_a_solved_door_cues_every_camera() {
     assert!(s.inv.map, "the map in the Stair's nook");
     let k = &s.seats[&1];
     assert!(k.act == Act::Item && k.item == Some(Item::Map) || s.banner.is_some() || s.inv.map);
-    // The Lamp Hall's three braziers light the niche: a chime and the cue.
     let mut r = at("lamp-lit", 1);
     step_n(&mut r, 2);
     r.sounds.clear();
@@ -1201,7 +1150,6 @@ fn every_big_foe_shows_its_whole_footprint_for_at_least_forty_ticks_and_never_mo
         assert!(tells.len() >= 3, "{seats} seats: it attacked {} times", tells.len());
         assert!(tells.iter().all(|&n| n >= 40), "{seats} seats: tells {tells:?}");
     }
-    // The turret's tell too.
     let mut r = at("gallery", 1);
     let mut longest = 0;
     let mut now = 0;
@@ -1226,7 +1174,6 @@ fn every_big_foe_shows_its_whole_footprint_for_at_least_forty_ticks_and_never_mo
 
 #[test]
 fn the_five_numbers_change_the_feel_where_they_say() {
-    // Lock reach: a foe at 100 px is held at 128 and not at 80.
     let mut near = Run::lanternward_duel_for_test(100);
     near.tune.set("lanternward_lock", 80.0);
     hold_keys(&mut near, 1, lock_key(), 3);
@@ -1235,7 +1182,6 @@ fn the_five_numbers_change_the_feel_where_they_say() {
     far.tune.set("lanternward_lock", 128.0);
     hold_keys(&mut far, 1, lock_key(), 3);
     assert!(sess(&far).seats[&1].lock.is_some());
-    // Combo window: a late second press chains only with the wider one.
     let late = |window: f64| {
         let mut r = Run::lanternward_duel_for_test(18);
         r.tune.set("lanternward_combo", window);
@@ -1249,22 +1195,17 @@ fn the_five_numbers_change_the_feel_where_they_say() {
             let f = &mut session(&mut r).foes[0];
             (f.x, f.y) = (fx, fy);
         }
-        // Eighteen ticks after the slash ended; is the chain still alive?
         sess(&r).seats[&1].chain > 0
     };
     assert!(!late(6.0) && late(24.0), "6 ticks lets the chain go, 24 holds it");
-    // Flame: the tank is the number.
     let mut r = Run::lanternward_duel_for_test(0);
     r.tune.set("lanternward_flame", 60.0);
     session(&mut r).inv.lantern = true;
     hold_keys(&mut r, 1, Input::default(), 400);
     assert!(sess(&r).seats[&1].flame <= 60);
-    // Telegraph: the floor holds at forty however the knob is moved.
     let mut t = Run::lanternward_duel_for_test(0);
     t.tune.set("lanternward_tell", 10.0);
     assert!(Rules::of(&t.tune).tell_for(1) >= 40);
-    // Parry window: a block 10 ticks after the shield goes up is a parry
-    // with a window of 12 and only a block with 8.
     for (window, want) in [(8.0, Fs::Recover), (12.0, Fs::Stagger)] {
         let mut r = Run::lanternward_duel_for_test(26);
         r.tune.set("lanternward_parry", window);
@@ -1275,7 +1216,6 @@ fn the_five_numbers_change_the_feel_where_they_say() {
         let mut result = None;
         for _ in 0..200 {
             let f = &sess(&r).foes[0];
-            // Up ten ticks before the lunge's first blow.
             let raise = f.st == Fs::Tell && f.t <= 9 || f.st == Fs::Strike;
             hold_keys(&mut r, 1, if raise { guard } else { lock_key() }, 1);
             let st = sess(&r).foes[0].st;
@@ -1288,8 +1228,6 @@ fn the_five_numbers_change_the_feel_where_they_say() {
     }
 }
 
-/// `cargo test -p angel-delve --lib print_the_bot_record -- --ignored --nocapture`:
-/// the ticks four bots (or one, or six) take from the door to the Beacon.
 #[test]
 #[ignore = "prints the tuning record"]
 fn print_the_bot_record() {
@@ -1305,8 +1243,6 @@ fn print_the_bot_record() {
     }
 }
 
-/// The Warden alone, from the door, with bots at `seats` and some knobs moved:
-/// ticks to its fall (None: not in `limit`), quarter hearts lost, and retries.
 fn warden_round(seats: u32, knobs: &[(&str, f64)], limit: u32) -> (Option<u32>, u32, u32) {
     let mut r = at("warden", seats);
     for &(name, value) in knobs {
@@ -1329,7 +1265,6 @@ fn warden_round(seats: u32, knobs: &[(&str, f64)], limit: u32) -> (Option<u32>, 
     (None, lost, sess(&r).tries)
 }
 
-/// The whole adventure with bots and some knobs moved: tick of the Beacon.
 fn full_round(seats: u32, knobs: &[(&str, f64)], limit: u32) -> (Option<u32>, u32) {
     let mut r = table(seats);
     for &(name, value) in knobs {
@@ -1345,8 +1280,6 @@ fn full_round(seats: u32, knobs: &[(&str, f64)], limit: u32) -> (Option<u32>, u3
     (None, sess(&r).tries)
 }
 
-/// A shield raised `lead` ticks before a lunge lands, under a parry window of
-/// `window`: what became of it.
 fn parry_outcome(window: f64, lead: i32) -> &'static str {
     let mut r = Run::lanternward_duel_for_test(26);
     r.tune.set("lanternward_parry", window);
@@ -1357,8 +1290,6 @@ fn parry_outcome(window: f64, lead: i32) -> &'static str {
     let guard = Input { ult: true, dash: true, ..Default::default() };
     for _ in 0..200 {
         let f = &sess(&r).foes[0];
-        // The lunge's first blow lands the tick after the tell ends; the
-        // shield goes up `lead` ticks before that and stays up.
         let raise = f.st == Fs::Tell && i32::from(f.t) < lead || f.st == Fs::Strike && lead > 0 || f.st == Fs::Strike && lead == 0;
         hold_keys(&mut r, 1, if raise { guard } else { lock_key() }, 1);
         let s = sess(&r);
@@ -1374,7 +1305,6 @@ fn parry_outcome(window: f64, lead: i32) -> &'static str {
     "none"
 }
 
-/// `cargo test -p angel-delve --lib print_the_tuning_tables -- --ignored --nocapture`
 #[test]
 #[ignore = "plays the tuning rounds"]
 fn print_the_tuning_tables() {
@@ -1443,7 +1373,6 @@ fn a_block_slides_a_tile_at_a_time_and_never_onto_a_tile_against_a_wall() {
         let b = sess(&r).props.iter().find(|p| p.kind == Pk::Block).unwrap();
         (b.x, b.y)
     };
-    // Behind it, pushing east: it moves a tile after a moment's lean.
     {
         let k = session(&mut r).seats.get_mut(&1).unwrap();
         k.x = bx - 14 * Q;
@@ -1452,8 +1381,6 @@ fn a_block_slides_a_tile_at_a_time_and_never_onto_a_tile_against_a_wall() {
     hold_keys(&mut r, 1, Input { move_x: 1, ..Default::default() }, 40);
     let b = sess(&r).props.iter().find(|p| p.kind == Pk::Block).unwrap();
     assert!(b.x >= bx + TILE * Q || b.on == 1, "a tile on: {} from {}", b.x / Q, bx / Q);
-    // Push it north from below until it would meet the wall: it stops a tile
-    // short, where it can still be pushed back.
     {
         let s = session(&mut r);
         let b = s.props.iter_mut().find(|p| p.kind == Pk::Block).unwrap();
@@ -1498,7 +1425,6 @@ fn scratch_damage_sources() {
 #[test]
 fn a_retry_puts_the_warden_back_at_the_start_of_its_phase_at_the_tables_full_share() {
     let mut r = at("warden", 1);
-    // Into its second third alone, then a friend sits down.
     {
         let w = session(&mut r).boss.as_mut().unwrap();
         w.phase = 1;
@@ -1514,8 +1440,6 @@ fn a_retry_puts_the_warden_back_at_the_start_of_its_phase_at_the_tables_full_sha
     };
     assert_eq!(full, 2 * WARDEN_HP, "scaled for two");
     assert_eq!(start, full * 2 / 3 + 0, "the phase's start is scaled with it: {start}");
-    // The Warden is hurt a little, the table falls, and the retry puts it back
-    // where the phase began: not weaker than its share.
     session(&mut r).boss.as_mut().unwrap().hp = start - 20;
     for k in session(&mut r).seats.values_mut() {
         k.hp = 0;
@@ -1546,9 +1470,6 @@ fn a_knight_who_stands_up_and_sits_down_again_keeps_their_gems_but_is_not_paid_f
     assert!(sess(&r).valid());
 }
 
-/// A party can stay in one room as long as it likes: the room's own clock
-/// must not count the session out, for a host that stops being valid is one
-/// every other screen refuses to draw.
 #[test]
 fn a_party_staying_in_one_room_past_the_limit_stays_valid() {
     let mut r = table(2);
@@ -1563,8 +1484,6 @@ fn a_party_staying_in_one_room_past_the_limit_stays_valid() {
     }
 }
 
-/// The Warden's attack counter picks its pattern and wraps by design; no
-/// value of it may be one the session refuses.
 #[test]
 fn every_value_of_the_wardens_attack_counter_is_valid() {
     let mut w = super::boss::Warden::new(10 * Q, 10 * Q, 2);
@@ -1575,7 +1494,6 @@ fn every_value_of_the_wardens_attack_counter_is_valid() {
     }
 }
 
-/// The same of a bolt: the smallest number is not a speed.
 #[test]
 fn the_smallest_bolt_speed_is_not_a_valid_one() {
     let mut r = table(1);

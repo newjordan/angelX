@@ -16,7 +16,6 @@ fn sortie_json(s: &Sortie) -> Value {
     json!({"side": s.side, "barred": s.barred, "depth": s.depth, "shots": to(&s.shots), "stood": stood})
 }
 
-/// The Run cut to what the foes' turn reads, its rooms to the one in play.
 fn pruned(run: &Run) -> Value {
     let mut v = keep(
         &state(run),
@@ -74,8 +73,6 @@ fn fight(seed: u64, party: usize, pack: Pack, depth: u32, kinds: &[EnemyKind], m
     run
 }
 
-/// `Run::foes_turn` as `hunt.rs` writes it, on a clone, with the leaves it
-/// calls recorded as they are reached.
 fn replicate(run: &mut Run, sortie: &mut Sortie, rec: &mut Rec) {
     let grid = Grid { room: &run.dungeon.rooms[run.at], barred: sortie.barred };
     let (side, depth) = (sortie.side, sortie.depth);
@@ -167,7 +164,6 @@ fn replicate(run: &mut Run, sortie: &mut Sortie, rec: &mut Rec) {
             json!({"enemy": to(e), "heroes": pairs(&living), "room": room_json, "barred": sortie.barred,
                    "seed": run.seed, "bosses": to(&run.bosses), "shots": to(shots)})
         };
-        // the act and each company's leaf, on clones with fresh deeds
         {
             let mut e = enemy.clone();
             let mut s = sortie.shots.clone();
@@ -273,7 +269,6 @@ fn sample_run(mut run: Run, samples: &[u32], rec: &mut Rec) {
             let mut sortie = r.knights_turn(&BTreeMap::new());
             let before_run = pruned(&r);
             let before_sortie = sortie_json(&sortie);
-            // the leaves on a clone, then the real call on the original
             let mut leaf_run = r.clone();
             let mut leaf_sortie = leaf_run.knights_turn(&BTreeMap::new());
             replicate(&mut leaf_run, &mut leaf_sortie, rec);
@@ -314,13 +309,11 @@ fn record_hunt() {
         for _ in 0..(3 + mix.below(5)) {
             kinds.push(pool[mix.below(pool.len() as u64) as usize]);
         }
-        // every kind meets the knights at least once over the rounds
         kinds.push(pool[(round as usize) % pool.len()]);
         kinds.push(pool[(round as usize * 7 + 3) % pool.len()]);
         let run = fight(round * 31 + 5, party, pack, depth, &kinds, &mut mix);
         sample_run(run, &samples, &mut rec);
     }
-    // the guardians of each floor's pack, alone with a knight or two
     let boss_samples: Vec<u32> = (34..=430).step_by(13).collect();
     for round in 0..8u64 {
         let pack = PACKS[(round % 6) as usize];

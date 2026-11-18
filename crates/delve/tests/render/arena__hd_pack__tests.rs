@@ -11,7 +11,6 @@ use angel_stage::{LayerKind, Placement};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-/// A folder of its own under the temporary directory.
 fn scratch(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("angel-hd-pack-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -19,7 +18,6 @@ fn scratch(name: &str) -> PathBuf {
     dir
 }
 
-/// A `w` by `h` PNG at `path`, its left half `left` and its right `right`.
 fn write_png(path: &std::path::Path, (w, h): (u32, u32), left: [u8; 4], right: [u8; 4]) {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     let rgba: Vec<u8> = (0..w * h).flat_map(|i| if i % w < w / 2 { left } else { right }).collect();
@@ -90,11 +88,8 @@ fn a_drawer_is_sent_each_drawing_once_and_again_after_it_forgets() {
     let id = art.picture_from(&pack, &body(7, (2, 3)), &mut again).unwrap().id;
     let ids: Vec<u32> = again.iter().map(|p| p.id).collect();
     assert_eq!(ids, [angel_stage::normals::picture_of(id), id], "its normal map with it, made at its grain");
-    // Another pack: the pictures are made again.
     let other = Pack::of(4, []);
     assert_eq!(art.picture_from(&other, &body(7, (2, 3)), &mut again), None);
-    // A signal ink (a knight's mark) goes up a step under opaque, which a
-    // lit look leaves as drawn, as a sprite's own card has it.
     let mark = crate::render::overworld::ink::ink('2').unwrap();
     let mut rgba = vec![255; 8 * 12 * 4];
     rgba[..3].copy_from_slice(&mark);
@@ -137,7 +132,6 @@ fn a_named_figure_is_drawn_by_name_first_on_the_finest_its_rung_allows() {
             (KEY.to_string(), drawn(104, 128, 8, [52, 127], None)),
         ]);
     let mut b = body(7, (2, 3));
-    // Its feet in the 1x picture at (1, 2): the drawing's feet land there.
     let at = |px: u32, b: &mut Body| {
         b.named = Some(named(KEY, "bow+shield-across", [1, 2], px));
     };
@@ -150,23 +144,17 @@ fn a_named_figure_is_drawn_by_name_first_on_the_finest_its_rung_allows() {
         let s = px as f32 / 16.0;
         let [x, y, w, h] = placed.rect;
         assert_eq!((w, h), (size.0 as f32 / s, size.1 as f32 / s), "its own size, at its scale");
-        // Its feet's pixel's middle on the 1x feet pixel's middle, its
-        // bottom edge on theirs.
         let (fx, fy) = (b.x as f32 + 1.5, b.y as f32 + 3.0);
         assert!((x + (size.0 as f32 / 2.0 + 0.5) / s - fx).abs() < 1e-4 && (y + h - fy).abs() < 1e-4, "{px}: {:?}", placed.rect);
     }
-    // At sixteen, by its look.
     at(16, &mut b);
     let placed = HdArt::default().picture_from(&pack, &b, &mut Vec::new()).expect("by look");
     assert_eq!(placed.rect, [10.0, 20.0, 2.0, 3.0]);
-    // A page shown at four of its pixels to the game's takes no finer than
-    // the 64 rung's.
     at(128, &mut b);
     let mut capped = HdArt { max_scale: Some(4), ..Default::default() };
     let mut sent = Vec::new();
     capped.picture_from(&pack, &b, &mut sent).unwrap();
     assert_eq!(sent[0].width, 52);
-    // A name it has no drawing of: by look, as ever.
     b.named = Some(named("knight/realm/walk/2/seat2/r", "bare", [1, 2], 64));
     assert_eq!(HdArt::default().picture_from(&pack, &b, &mut Vec::new()).map(|p| p.rect), Some([10.0, 20.0, 2.0, 3.0]));
 }
@@ -200,7 +188,6 @@ fn a_body_alone_comes_after_its_own_dress_and_before_any_and_needs_the_bare_body
     assert_eq!(pack.named_for(KEY, "sword+shield-across", 8, false).unwrap().drawing.width, 104, "no bare body: the whole one of any dress");
     let mut b = body(7, (2, 3));
     b.named = Some(named(KEY, "sword", [1, 2], 128));
-    // No bare body to stand in for: the whole one of any dress.
     let placed = HdArt::default().picture_from(&pack, &b, &mut Vec::new()).unwrap();
     assert!(!placed.body);
     b.named.as_mut().unwrap().bare = Some(Arc::new(Img::new(2, 3)));
@@ -276,14 +263,11 @@ fn a_pages_pack_asks_for_each_file_once_and_draws_it_when_it_comes() {
     assert_eq!(placed.rect[2], 13.0);
     let left = pack.named_for("knight/realm/idle/0/seat1/l", "bare", 4, true).unwrap();
     assert_eq!((left.pivot, &left.drawing.rgba[..4]), ([31, 63], &BLUE[..]), "the mirror, its feet turned");
-    // One that cannot be had is left out.
     pack.file_failed("knight/a@32.png");
     assert!(pack.named_for("knight/realm/idle/0/seat1/r", "bare", 2, true).is_none());
     assert!(!pack.put_file("knight/none.png", (1, 1), &[0; 4]));
 }
 
-/// The Crypt's first fight room on floor one (seed 3, as the rungs' proof
-/// has it, `delve_tiers --case crypt-fight`), its two knights in it.
 fn crypt_fight() -> Run {
     for seed in 3..11u64 {
         let floor = layout::floor_party(1, Kit::Crypt, 2, &mut Rng::new(seed));
@@ -298,7 +282,6 @@ fn crypt_fight() -> Run {
     panic!("no fight room on the Crypt's first floor");
 }
 
-/// Every tile of the run's kit, by its look: its kind, its name, itself.
 fn kit_looks(run: &Run) -> std::collections::HashMap<u64, (&'static str, &'static str, Img)> {
     super::super::dungeon_art::kit_tiles(run).into_iter().map(|(kind, name, img)| (look_key(&img), (kind, name, img))).collect()
 }
@@ -310,8 +293,6 @@ fn a_kits_tiles_drawn_finer_make_the_rooms_still_art_finer_in_its_own_rect() {
     let plain = scene_for(&run, NATIVE_W, NATIVE_H, Some(1));
     assert!(plain.fine.is_none(), "no pack, no finer art");
     let ground = plain.ground.clone().expect("still art");
-    // A pack with one drawing: the floor tile the room is laid with most,
-    // magenta at three times its size.
     let drawn = super::super::dungeon_art::tiles_drawn(&run);
     let (_, _, floor) = drawn.iter().find(|(kind, name, _)| *kind == "floor" && *name == "plain").expect("plain floor");
     let s = 3u32;
@@ -333,7 +314,6 @@ fn a_kits_tiles_drawn_finer_make_the_rooms_still_art_finer_in_its_own_rect() {
     let magentaish = |c: [u8; 3]| c[0] > c[1] && c[2] > c[1] && c[0].abs_diff(c[2]) < 40;
     let lit = (0..fine.img.h).flat_map(|y| (0..fine.img.w).map(move |x| (x, y))).filter(|&(x, y)| fine.img.get(x, y).is_some_and(magentaish)).count();
     assert!(lit > 1000, "the drawing is laid on the floor ({lit} px)");
-    // The stage sends the finer picture and lays it in the 1x art's rect.
     let frame = StageMaker::default().make(&scene, |_| None);
     let picture = frame.pictures.iter().find(|p| p.id == GROUND).expect("the still art");
     assert_eq!((picture.width, picture.height), (fine.img.w as u32, fine.img.h as u32));
@@ -349,7 +329,6 @@ fn a_block_standing_among_the_crowd_is_a_body_of_its_tiles_look() {
     let tiles = kit_looks(&run);
     let bodies: Vec<&Body> = scene.figures.iter().flat_map(|f| &f.bodies).collect();
     assert!(!bodies.is_empty());
-    // Whatever a body of a tile's look is, it is a block.
     assert!(bodies.iter().filter_map(|b| tiles.get(&b.key)).all(|(kind, _, _)| *kind == "block"));
     let scenery = super::super::dungeon_art::scene(&run);
     assert!(!scenery.objects.is_empty(), "the fight room has blocks");
@@ -359,24 +338,12 @@ fn a_block_standing_among_the_crowd_is_a_body_of_its_tiles_look() {
     );
 }
 
-// ------------------------------------------------------- the art request ----
-
-/// What the art request lists: a look at the game's grain and its name.
 struct Asked {
     name: String,
     img: Img,
-    /// The look it is the mirror of (a knight facing left is the one facing
-    /// right, turned over): drawn once, read twice.
     mirror_of: Option<String>,
 }
 
-/// Each look the first seat's knight shows in the Crypt's fight room, by a
-/// name for it: whole, bare-headed and in smallclothes (as its health
-/// leaves it); facing down, right, left and up; standing, each drawing of
-/// its walk, the bow drawn, the sword's swing, the shield up, and each
-/// frame of a hit's flinch, light and heavy. A look two of these share is
-/// listed once, by the first; one facing left that is one facing right
-/// turned over says so.
 fn knight_looks(run: &Run) -> Vec<Asked> {
     use crate::rules::spectacle::STRUCK;
     let mut run = run.clone();
@@ -424,15 +391,6 @@ fn knight_looks(run: &Run) -> Vec<Asked> {
     out
 }
 
-/// The pilot's art request (docs/WORLD-TIERS.md, "HD art packs"): every
-/// look the first seat's knight shows, and the kit tiles the Crypt's fight
-/// room is laid with (the room the rungs' proof shoots), each as a 1x PNG
-/// named for what it is, listed in `pack.json` as a pack has it and in
-/// `request.txt` with the size to draw it at; and the room's still art as
-/// the game composes it, for reference. Redraw each PNG in its place at
-/// four times its size and the folder is the pack.
-///
-/// `ANGEL_HD_REQUEST=<dir> cargo test -p angel-delve write_hd_request -- --ignored`
 #[test]
 #[ignore]
 fn write_hd_request() {
@@ -486,8 +444,6 @@ fn write_hd_request() {
         entries.push(serde_json::json!({ "look": format!("{:016x}", look_key(img)), "name": name, "w": w, "h": h }));
         save(&name, img);
     }
-    // The room as the game composes it from those tiles, its fires and
-    // fixtures, at the game's grain: for reference, not a pack entry.
     let room = scene_for(&run, NATIVE_W, NATIVE_H, Some(1)).ground.expect("still art");
     save("reference/crypt-fight-room", &room);
     lines.push(String::new());
@@ -498,15 +454,12 @@ fn write_hd_request() {
     println!("{} knight looks and {} tiles to {}", knights.len(), tiles.len(), dir.display());
 }
 
-// ------------------------------------------------ up and down, hurt, die ----
-
 #[test]
 fn a_figure_facing_up_or_down_is_drawn_by_its_facing_when_the_pack_has_one_else_by_its_side() {
     const SIDE: &str = "knight/realm/idle/0/seat1/l";
     const UP: &str = "knight/realm/idle/0/seat1/u";
     let sides = Pack::of(4, []).with_named([(SIDE.to_string(), drawn(52, 64, 4, [26, 63], None))]);
     let with_up = Pack::of(4, []).with_named([(SIDE.to_string(), drawn(52, 64, 4, [26, 63], None)), (UP.to_string(), drawn(48, 64, 4, [24, 63], None))]);
-    // Facing up, its aim leaning left: the rig's side is `l`, its facing `u`.
     let mut up = named(SIDE, "bare", [1, 2], 64);
     up.vertical = Some('u');
     assert_eq!(up.faced_key().as_deref(), Some(UP));
@@ -518,24 +471,17 @@ fn a_figure_facing_up_or_down_is_drawn_by_its_facing_when_the_pack_has_one_else_
         let mut sent = Vec::new();
         HdArt::default().picture_from(pack, &b, &mut sent).map(|_| sent[0].width)
     };
-    // A pack of sides draws it as it always did: by its side.
     assert_eq!(width(&sides, &up), Some(52));
-    // A pack with the facing draws that.
     assert_eq!(width(&with_up, &up), Some(48));
-    // Turned over (the other hand, as the game turns a knight whose aim leans
-    // left): the same drawing, not its mirror.
     let right = named("knight/realm/idle/0/seat1/r", "bare", [1, 2], 64);
     let turned = crate::render::overworld::arena::figure_keys::Named { vertical: Some('u'), ..right.clone() };
     assert_eq!(width(&with_up, &turned), Some(48));
     assert_eq!(width(&with_up, &turned.mirrored(3)), Some(48));
-    // At the sides and facing down, where the pack has no `d`: by its side.
     assert_eq!(width(&with_up, &named(SIDE, "bare", [1, 2], 64)), Some(52));
     let down = crate::render::overworld::arena::figure_keys::Named { vertical: Some('d'), ..up.clone() };
     assert_eq!((&*with_up.key_for(&down, 4), width(&with_up, &down)), (SIDE, Some(52)));
-    // Its rung still rules: a pack's `u` too fine for it is not drawn.
     assert_eq!(&*with_up.key_for(&up, 2), SIDE);
     assert!(!with_up.draws(&up, 2), "nothing of its side either at the 32 rung");
-    // A drawer asks once for the file it draws by.
     let mut art = HdArt::default();
     let mut sent = Vec::new();
     let mut b = body(7, (2, 3));
@@ -546,7 +492,6 @@ fn a_figure_facing_up_or_down_is_drawn_by_its_facing_when_the_pack_has_one_else_
     assert_eq!(sent.len(), 1, "sent once");
 }
 
-/// Rung 64 for the run's knights, and none installed when the test is over.
 struct Ladder;
 impl Ladder {
     fn at_64() -> Self {
@@ -562,13 +507,11 @@ impl Drop for Ladder {
     }
 }
 
-/// The named bodies of seat 1's knight in a frame.
 fn seat1(run: &Run) -> Vec<(Body, crate::render::overworld::arena::figure_keys::Named)> {
     let scene = scene_for(run, NATIVE_W, NATIVE_H, Some(1));
     scene.figures.iter().flat_map(|f| f.bodies.iter()).filter_map(|b| Some((b.clone(), b.named.clone()?))).filter(|(_, n)| n.key.contains("/seat1/")).collect()
 }
 
-/// A pack with a drawing of every frame of `clip` (`frames` of them) of seat 1's knight, both sides.
 fn clip_pack(clip: &str, frames: usize) -> Pack {
     let design = crate::render::overworld::arena::figure_keys::design_of(crate::render::overworld::arena::quick_rig::seat_knight(1).unwrap()).unwrap();
     Pack::of(4, []).with_named(
@@ -591,7 +534,6 @@ fn a_struck_knight_is_named_for_its_hurt_frame_on_its_feet_and_without_a_drawing
     };
     let (standing, idle, _) = feet(&run);
     assert!(idle.key.contains("/idle/"));
-    // Hit, no blow along x to bend it: nothing in the picture moves, the feet are where they stood.
     {
         let hero = run.players.get_mut(&1).unwrap();
         (hero.struck, hero.struck_dir) = (12, (0, 0));
@@ -601,17 +543,14 @@ fn a_struck_knight_is_named_for_its_hurt_frame_on_its_feet_and_without_a_drawing
     assert_eq!((p[2], p[4]), ("hurt", "seat1"), "{}", hurt0.key);
     assert!(p[3].parse::<usize>().unwrap() < 4, "one of the rig's four hurt frames: {}", hurt0.key);
     assert!((feet0 - standing).abs() <= 1, "{standing} then {feet0}");
-    // Thrown back along its x: the flinch is the game's (bent over, a step back), the drawing the rig's own hurt frame, on the feet the blow leaves it.
     run.players.get_mut(&1).unwrap().struck_dir = (1, 0);
     let (thrown, hurt, bent_w) = feet(&run);
     assert_eq!(hurt.key, hurt0.key);
     assert!(hurt.bare.is_none(), "the bent picture is not the upright one's bare body");
     assert!(bent_w > upright_w, "bent over by the blow ({bent_w} against {upright_w})");
     assert!((1..=3).contains(&(thrown - feet0)), "its feet only as far as the blow throws them: {feet0} to {thrown}");
-    // The first ticks of a hit are the white silhouette; it is named, too.
     run.players.get_mut(&1).unwrap().struck = crate::rules::spectacle::STRUCK;
     assert!(feet(&run).1.key.contains("/hurt/"));
-    // A pack drawing the hurt clip draws it where the flinch is; one without leaves the flinch's inks.
     {
         let hero = run.players.get_mut(&1).unwrap();
         (hero.struck, hero.struck_dir) = (12, (1, 0));
@@ -625,7 +564,6 @@ fn a_struck_knight_is_named_for_its_hurt_frame_on_its_feet_and_without_a_drawing
     assert_eq!((sent[0].width, placed.body), (52, false));
     assert!(HdArt::default().picture_from(&idle_pack, b, &mut Vec::new()).is_none(), "no hurt drawing: its inks, as today");
     assert!(hurt_pack.draws(n, 4) && !idle_pack.draws(n, 4));
-    // The pictures are not touched by the name: the parts compose to the flat frame, as before.
     let flat = crate::render::overworld::arena::frame_for(&run, NATIVE_W, NATIVE_H, Some(1));
     assert!(scene_for(&run, NATIVE_W, NATIVE_H, Some(1)).compose() == flat, "a name changes no pixel of the 1x frame");
 }
@@ -646,16 +584,13 @@ fn a_fallen_knight_falls_through_the_rigs_die_clip_in_a_pack_and_then_comes_apar
     let die = Arc::new(clip_pack("die", 8));
     let frame = |run: &Run| crate::render::overworld::arena::frame_for(run, NATIVE_W, NATIVE_H, Some(1));
     let parts_of = |run: &Run| scene_for(run, NATIVE_W, NATIVE_H, Some(1)).compose();
-    // The rig's die clip is 75 ticks: frames of 6, 9, 6, 6, 6, 6, 6 and 30.
     assert_eq!(crate::render::overworld::arena::knights::die_ticks(1), Some(75));
 
-    // No pack at all: bones at once, as ever, in the parts and in the flat frame.
     fall(&mut run, 10);
     assert!(seat1(&run).is_empty(), "bones have no name");
     let bones_now = parts_of(&run);
     assert!(bones_now == frame(&run));
 
-    // A pack with the clip: the knight falls through it, frame by frame, in place of the bones.
     install(Some(die.clone()));
     for (age, frame_no) in [(0, 0), (5, 0), (6, 1), (14, 1), (15, 2), (44, 6), (45, 7), (74, 7)] {
         fall(&mut run, age);
@@ -667,13 +602,11 @@ fn a_fallen_knight_falls_through_the_rigs_die_clip_in_a_pack_and_then_comes_apar
         assert!(HdArt::default().picture_from(&die, b, &mut Vec::new()).is_some(), "age {age}: the pack draws it");
         assert!(parts_of(&run) != bones_now, "the bones wait while it falls");
     }
-    // A knight facing left falls on its other hand, by its own key.
     run.players.get_mut(&1).unwrap().aim_x = -1.0;
     fall(&mut run, 20);
     assert!(seat1(&run)[0].1.key.ends_with("/l"));
     run.players.get_mut(&1).unwrap().aim_x = 1.0;
 
-    // The clip over, the game's bones, as it draws them for any fallen knight: not a pixel different from the pack-less game's.
     for age in [75, 80, 100, 400] {
         fall(&mut run, age);
         assert!(seat1(&run).is_empty(), "age {age}: the clip is over");
@@ -683,7 +616,6 @@ fn a_fallen_knight_falls_through_the_rigs_die_clip_in_a_pack_and_then_comes_apar
         install(Some(die.clone()));
     }
 
-    // A pack without the clip, a terminal, a wiped party and a skull taken off: bones at once.
     install(Some(Arc::new(clip_pack("idle", 6))));
     fall(&mut run, 10);
     assert!(seat1(&run).is_empty(), "no drawing of dying");
@@ -698,7 +630,6 @@ fn a_fallen_knight_falls_through_the_rigs_die_clip_in_a_pack_and_then_comes_apar
     assert!(seat1(&run).is_empty(), "its skull is off, the knight has come apart");
     run.players.get_mut(&1).unwrap().skull_at = None;
     assert_eq!(seat1(&run).len(), 1, "and with the skull on, it falls");
-    // At the 16 rung a knight is never drawn by name: its bones.
     crate::rules::resolution::set_rule(Some(crate::rules::resolution::Rule::Fixed(crate::rules::resolution::Rung::of(16).unwrap())));
     assert!(seat1(&run).is_empty());
 }

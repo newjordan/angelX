@@ -95,7 +95,6 @@ fn the_stairs_are_guarded_until_the_boss_falls_and_it_scatters_spoils() {
     assert!(run.found_line().is_some_and(|l| l.ends_with("falls")));
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_boss_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_boss_shots() {
@@ -152,7 +151,6 @@ fn a_delve_meets_one_of_its_packs_guardians_and_keeps_to_it() {
             .find_map(|e| e.boss)
             .map(|i| run.bosses[usize::from(i)].id.clone())
             .expect("a guardian in the stairs room");
-        // The same delve meets the same one again.
         let mut again = run.clone();
         again.enter_for_test(stairs);
         let twice = again
@@ -169,10 +167,6 @@ fn a_delve_meets_one_of_its_packs_guardians_and_keeps_to_it() {
     );
 }
 
-/// Every boss of every pack, fought to the end by one strong knight in a
-/// guarded stairs room: it takes damage, stays inside its room at a finite
-/// spot, falls inside a minute, and the room opens after.
-/// `cargo test every_boss_can_be_fought -- --nocapture` prints each fight.
 #[test]
 fn every_boss_can_be_fought_to_the_end_and_the_room_opens() {
     use crate::rules::layout::Pack;
@@ -220,8 +214,6 @@ fn every_boss_can_be_fought_to_the_end_and_the_room_opens() {
                 if std::env::var_os("BOSS_TRACE").is_some() && t % (5 * HZ) == 0 {
                     println!("  {name} t={t} hp={} at ({:.1},{:.1}) knight ({hx:.1},{hy:.1}) frozen={} stage={}", boss.hp, boss.x, boss.y, boss.frozen, boss.stage);
                 }
-                // Line up with the boss as a player would, then shoot
-                // straight along the long axis (aim is eight ways).
                 let sign = |d: f32| if d > 0.5 { 1 } else if d < -0.5 { -1 } else { 0 };
                 let (dx, dy) = (boss.x - hx, boss.y - hy);
                 let along_x = dx.abs() >= dy.abs();
@@ -253,17 +245,12 @@ fn every_boss_can_be_fought_to_the_end_and_the_room_opens() {
     assert!(problems.is_empty(), "bosses that cannot be fought out:\n{}", problems.join("\n"));
 }
 
-/// One stretch of a guardian's fight, its health held at one share: the
-/// hostile shots loosed, over how many ticks, the most in the room at once,
-/// the most loosed on one tick, and the room at its densest.
 struct Window {
     fired: u64,
     ticks: u32,
     peak: usize,
     volley: u64,
     densest: Option<Run>,
-    /// Charge-ups begun (wind-ups, or the unruly ones' breaths and rail
-    /// warnings), and the room halfway through the first.
     charges: u32,
     winding: Option<Run>,
 }
@@ -274,7 +261,6 @@ impl Window {
     }
 }
 
-/// Every guardian of every pack, as (pack, its place in the pack's list).
 fn every_guardian() -> Vec<(Pack, usize)> {
     let mut all = Vec::new();
     for pack in [Pack::Crypt, Pack::Cavern, Pack::Hellforge, Pack::Archive, Pack::Fungal, Pack::Unknown] {
@@ -286,9 +272,6 @@ fn every_guardian() -> Vec<(Pack, usize)> {
     all
 }
 
-/// A stairs room with guardian `k` of `pack` alone in it, where a guardian
-/// stands (the top of the room's middle), and a knight who cannot fall
-/// standing below and to its left, in the same view, not firing.
 fn guardian_room(pack: Pack, k: usize) -> Option<(Run, usize)> {
     guardian_room_for(pack, k, 1)
 }
@@ -303,7 +286,6 @@ fn guardian_room_for(pack: Pack, k: usize, knights: u8) -> Option<(Run, usize)> 
     let index = *run.pack_bosses_for_test(pack).get(k)?;
     run.enemies.clear();
     run.projectiles.clear();
-    // The guardian alone: no traps or waves of the room's own.
     run.calm_for_test();
     let (w, h) = (run.room().width(), run.room().height());
     run.spawn_boss_at_for_test(index, w / 2.0, 7.0);
@@ -314,8 +296,6 @@ fn guardian_room_for(pack: Pack, k: usize, knights: u8) -> Option<(Run, usize)> 
     Some((run, index))
 }
 
-/// Guardian `k` of `pack` fought for `ticks` with its health held at
-/// `share`, after `warm` ticks at that share uncounted.
 fn fight_window(pack: Pack, k: usize, knights: u8, share: f32, warm: u32, ticks: u32, keep: bool) -> (String, Window) {
     let (mut run, index) = guardian_room_for(pack, k, knights).expect("a guardian");
     let name = run.bosses[index].name.clone();
@@ -336,15 +316,12 @@ fn fight_window(pack: Pack, k: usize, knights: u8, share: f32, warm: u32, ticks:
             hero.hp = hero.max_hp;
         }
         let before = run.hostile_shots;
-        // Simulation ticks: an impact's hold (`hitstop`) stops the clock, not
-        // the fight.
         run.step_sim_for_test(&BTreeMap::new());
         let now = winding(&run);
         if t < warm {
             was = now;
             continue;
         }
-        // A wind-up begun: a new wind stage (a breath to its rip is one).
         if let (Some((s0, w0, _)), Some((s1, true, _))) = (was, now)
             && (!w0 || (s0 != s1 && s1 != crate::rules::signatures::TELL))
         {
@@ -369,9 +346,6 @@ fn fight_window(pack: Pack, k: usize, knights: u8, share: f32, warm: u32, ticks:
     (name, window)
 }
 
-/// The three stretches the census and the caps look at: the opening's
-/// first ten seconds at full health, ten seconds of the middle, and ten
-/// seconds deep in rage.
 const OPENING: (f32, u32) = (1.0, 0);
 const MIDDLE: (f32, u32) = (0.6, 2 * crate::rules::HZ);
 const RAGING: (f32, u32) = (0.12, 2 * crate::rules::HZ);
@@ -384,10 +358,6 @@ fn save_png(run: &Run, path: &std::path::Path) {
     std::fs::write(path, out).unwrap();
 }
 
-/// Every guardian's pressure, opening, middle and rage: shots a second,
-/// the most in the room at once, and the biggest single volley. With
-/// `BOSS_CENSUS_FRAMES=<dir>` it also writes each one's densest frames.
-/// `cargo test boss_pressure_census -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn boss_pressure_census() {
@@ -420,11 +390,6 @@ fn boss_pressure_census() {
     }
 }
 
-
-/// Every guardian keeps to its stage's caps, alone or with a friend: no
-/// more shots a second than its stage allows (one banked volley of slack
-/// over the stretch), no more in the room at once than its stage allows
-/// per knight, and no volley over `VOLLEY_MOST`.
 #[test]
 fn every_guardian_keeps_to_its_stage_caps() {
     use crate::rules::HZ;
@@ -436,14 +401,6 @@ fn every_guardian_keeps_to_its_stage_caps() {
                 let (per_second, on_screen) = stage.caps();
                 let most = u64::from(per_second * STRETCH / HZ + VOLLEY_MOST);
                 let room = on_screen as usize * usize::from(knights);
-                // A charge-up's burst is telegraphed by its wind-up and paid
-                // from its own reserve (`signatures::hold`): the tick it
-                // lands may carry that many shots over the volley cap, and
-                // nothing else. Re-pinned 2026-11-02 for the raised stage
-                // caps (`MIDDLE_ON_SCREEN` 18): the room now holds an
-                // ordinary volley beside a burst, so both can land on one
-                // tick (Mother of Spores: her 8-spore inhale and her 5-shot
-                // fan), each still inside its own cap.
                 let tell = guardian_room(pack, k).map(|(run, i)| run.bosses[i].windups.iter().map(|u| u.burst()).max().unwrap_or(0)).unwrap_or(0) as u64;
                 if w.fired > most || w.peak > room || w.volley > VOLLEY_MOST as u64 + tell {
                     over.push(format!(
@@ -457,7 +414,6 @@ fn every_guardian_keeps_to_its_stage_caps() {
     assert!(over.is_empty(), "over their caps:\n{}", over.join("\n"));
 }
 
-/// The stretches the caps are measured in are the stages they name.
 #[test]
 fn the_census_stretches_fall_in_their_stages() {
     for (pack, k) in every_guardian() {
@@ -469,8 +425,6 @@ fn the_census_stretches_fall_in_their_stages() {
     }
 }
 
-/// Every guardian has at least one charge-up, every file's winds up for at
-/// least `WIND_LEAST`, and from the middle of the fight on unless it says.
 #[test]
 fn every_guardian_has_a_charge_up() {
     let mut seen = std::collections::BTreeSet::new();
@@ -485,25 +439,17 @@ fn every_guardian_has_a_charge_up() {
         }
         seen.extend(ups.iter().map(|u| u.name()));
     }
-    // The whole vocabulary is in use.
     assert_eq!(seen.len(), Windup::ALL.len(), "{seen:?}");
 }
 
-/// A charge-up's wind-up begun from standing (a file's, the Ripper's
-/// breath, Grinwick's rail warning).
 fn winds(stage: u8) -> bool {
     use crate::rules::signatures::{INHALE, TELL, WIND};
     matches!(stage, WIND | INHALE | TELL)
 }
 
-/// Every charge-up of every guardian, raging (so every one takes its
-/// turn), winds up for at least 0.75 s before anything of it can harm: no
-/// knight is hurt, no shot flies, no beam burns and no shockwave bursts
-/// until then. Each is wound up at least once, and the blows do land.
 #[test]
 fn every_charge_up_winds_up_for_three_quarters_of_a_second_first() {
     use crate::rules::HZ;
-    /// 0.75 s, in ticks, rounded up.
     const LEAST: u32 = (HZ * 3).div_ceil(4);
     let mut early = Vec::new();
     for (pack, k) in every_guardian() {
@@ -524,7 +470,6 @@ fn every_charge_up_winds_up_for_three_quarters_of_a_second_first() {
             boss.hp = boss.max_hp / 10;
             let stage = boss.stage;
             if was == 0 && winds(stage) {
-                // A wind-up begins: only its own harm counts from here.
                 let kind = match def.windups.get(usize::from(boss.signature.windup)) {
                     Some(up) if !crate::rules::signatures::special(&def) => up.kind.name().to_string(),
                     _ => format!("native {stage}"),
@@ -534,17 +479,12 @@ fn every_charge_up_winds_up_for_three_quarters_of_a_second_first() {
                 run.projectiles.clear();
                 run.ravages.clear();
                 run.works.clouds.clear();
-                // A molten guardian's burning wake is ground, not the blow.
                 run.works.blazes.retain(|b| !b.hostile());
             }
             was = stage;
             let hp: Vec<u32> = run.players.values().map(|h| h.hp).collect();
             run.step(&BTreeMap::new());
             let hurt = run.players.values().zip(&hp).any(|(h, &before)| h.hp < before);
-            // A charge-up's own tell is its blow-tagged shot, beam or ring;
-            // a guardian that keeps moving now fires its ordinary attacks
-            // from wherever its wind-up stood, and those (blow 0) were
-            // never the wind-up's harm. Re-pinned 2026-11-02.
             let flying = run.projectiles.iter().any(|p| {
                 p.hostile
                     && p.traits.blow != 0
@@ -580,8 +520,6 @@ fn every_charge_up_winds_up_for_three_quarters_of_a_second_first() {
     assert!(early.is_empty(), "{}", early.join("\n"));
 }
 
-/// Every guardian opens gentler than it rages: fewer shots a second, fewer
-/// in the room at once, and no more charge-ups.
 #[test]
 fn every_guardian_opens_gentler_than_it_rages() {
     let mut harsh = Vec::new();
@@ -603,8 +541,6 @@ fn every_guardian_opens_gentler_than_it_rages() {
     assert!(harsh.is_empty(), "{}", harsh.join("\n"));
 }
 
-/// Replay a saved run (`REPLAY_RUN=<run.json>`) for thirty seconds with
-/// every knight walking up, and print what befalls the party each second.
 #[test]
 #[ignore]
 fn replay_a_saved_run() {
@@ -643,8 +579,6 @@ fn replay_a_saved_run() {
     }
 }
 
-/// Enter every room of a saved run's floor (`REPLAY_RUN=<run.json>`) and
-/// stand ten seconds: print the rooms that hurt or end the party.
 #[test]
 #[ignore]
 fn replay_every_room_of_a_saved_floor() {
@@ -682,17 +616,12 @@ fn replay_every_room_of_a_saved_floor() {
     }
 }
 
-/// The knights' most health in the charge-up census: a knight a little
-/// under the cap (`Hero::hp_cap`).
 const KNIGHT_HP: u32 = 150;
 
-/// Where knights stand for the census: in the guardian's path (below it,
-/// the nearest), beside it, beside it on the other side, across the room.
 fn census_spots(run: &Run) -> [(f32, f32); 4] {
     let (w, h) = (run.room().width(), run.room().height());
     let (bx, by) = (w / 2.0, 7.0);
     let grid = crate::rules::Grid { room: run.room(), barred: true };
-    // Each on open floor: the nearest clear spot to where it is meant.
     let floor = |(x, y): (f32, f32)| {
         (0..12)
             .flat_map(|r| (0..16).map(move |a| (r as f32 * 0.5, a as f32 * std::f32::consts::TAU / 16.0)))
@@ -703,10 +632,6 @@ fn census_spots(run: &Run) -> [(f32, f32); 4] {
     [(bx, by + 5.0), (bx + 4.5, by), (bx - 4.5, by + 1.0), (bx - 10.0, (h - 4.0).max(by + 8.0))].map(floor)
 }
 
-/// Guardian `k` of `pack` on floor `depth` with only its charge-ups (its
-/// other attacks gone, anchored where it was put), and naked knights of
-/// `KNIGHT_HP` standing at `at` (`None`: the census spots, as many as
-/// `knights`). `None` for the two unruly ones, whose machines are their own.
 fn charge_up_room(pack: Pack, k: usize, depth: u32, knights: u8, at: Option<&[(f32, f32)]>) -> Option<(Run, usize)> {
     let (mut run, index) = guardian_room_for(pack, k, knights)?;
     if run.bosses[index].windups.is_empty() || crate::rules::signatures::special(&run.bosses[index]) {
@@ -730,8 +655,6 @@ fn charge_up_room(pack: Pack, k: usize, depth: u32, knights: u8, at: Option<&[(f
     Some((run, index))
 }
 
-/// One charge-up seen through: what each knight lost to it, how many
-/// times each was struck, and the farthest any knight was moved in a tick.
 #[derive(Debug, Default)]
 struct Blow {
     lost: Vec<u32>,
@@ -739,16 +662,11 @@ struct Blow {
     moved: f32,
 }
 
-/// Charge-up `which` of guardian `k` of `pack`, raging, wound up at once
-/// and seen through to its last shot, the knights standing still at `at`.
 fn one_charge_up(pack: Pack, k: usize, which: usize, depth: u32, knights: u8, at: Option<&[(f32, f32)]>) -> Option<Blow> {
     let (run, index) = charge_up_room(pack, k, depth, knights, at)?;
     charge_blow(run, index, which, depth, knights)
 }
 
-/// `one_charge_up` once the guardian is already in the room. Depth is set
-/// here: `charge_up_room` only writes it after the room is built, so a
-/// cloned room of another floor is the same fight.
 fn charge_blow(mut run: Run, index: usize, which: usize, depth: u32, knights: u8) -> Option<Blow> {
     use crate::rules::HZ;
     run.dungeon.depth = depth;
@@ -768,7 +686,6 @@ fn charge_blow(mut run: Run, index: usize, which: usize, depth: u32, knights: u8
         if boss.stage != 0 {
             started = true;
         } else if started {
-            // Done with it: held still while what it threw flies out.
             boss.frozen = 1_000_000;
             if !run.projectiles.iter().any(|p| p.hostile) && run.ravages.is_empty() {
                 break;
@@ -795,20 +712,11 @@ fn charge_blow(mut run: Run, index: usize, which: usize, depth: u32, knights: u8
     started.then_some(blow)
 }
 
-/// Guardian `k` of `pack` raging for `ticks` with only its charge-ups,
-/// the knights standing at the census spots: what each lost in all, how
-/// many charge-ups it began, and how many began while the last one's
-/// shots, beam or rings were still about.
 fn rage_stretch(pack: Pack, k: usize, depth: u32, knights: u8, ticks: u32) -> Option<(Vec<u32>, u32, u32)> {
     let (mut run, _) = charge_up_room(pack, k, depth, knights, None)?;
     let mut lost = vec![0; usize::from(knights)];
     let (mut began, mut stacked, mut was) = (0, 0, 0u8);
     for _ in 0..ticks {
-        // "Anything of the last" charge-up: its blow-tagged shots and rings
-        // (`signatures::due` gates on these). Clearing its attacks does not
-        // silence a guardian: one with no phase chain keeps its rotating
-        // pressure pattern (`patterns::volley`, blow 0), and those shots were
-        // never part of the last charge-up.
         let lingering = run.projectiles.iter().any(|p| p.hostile && p.traits.blow != 0)
             || run.ravages.iter().any(|r| r.blow != 0);
         let boss = run.enemies.iter_mut().find(|e| e.kind == EnemyKind::Boss)?;
@@ -837,11 +745,6 @@ fn rage_stretch(pack: Pack, k: usize, depth: u32, knights: u8, ticks: u32) -> Op
     Some((lost, began, stacked))
 }
 
-/// The charge-up census: for every guardian's charge-up, on floors 1–6,
-/// with 1 knight (in its path, beside it, across the room), 2 and 4
-/// knights, the most one charge-up takes from a standing knight, in
-/// percent of its health, and the most twenty seconds of rage take.
-/// `cargo test -p angel-delve charge_up_census -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn charge_up_census() {
@@ -884,18 +787,12 @@ fn charge_up_census() {
     }
 }
 
-
-/// Every guardian's charge-ups, each on floors 1–6, with one knight in its
-/// path, one across the room (by the wall) and four at the census spots,
-/// all naked: what each one took.
 fn every_blow() -> Vec<(String, u32, u8, Blow)> {
     let mut all = Vec::new();
     for (pack, k) in every_guardian() {
         let Some((run, index)) = charge_up_room(pack, k, 1, 1, None) else { continue };
         let def = run.bosses[index].clone();
         let spots = census_spots(&run);
-        // The room does not depend on depth. Build each knight layout once
-        // and clone it per floor; the fight still runs on every floor.
         let layouts = [
             charge_up_room(pack, k, 1, 1, Some(&spots[0..1])),
             charge_up_room(pack, k, 1, 1, Some(&spots[3..4])),
@@ -915,8 +812,6 @@ fn every_blow() -> Vec<(String, u32, u8, Blow)> {
     all
 }
 
-/// One undodged charge-up takes at most `BLOW_MOST` of a standing naked
-/// knight's health, on every floor, alone or four strong.
 #[test]
 fn no_charge_up_takes_more_than_its_share_of_a_knight() {
     use crate::rules::hero::BLOW_MOST;
@@ -935,8 +830,6 @@ fn no_charge_up_takes_more_than_its_share_of_a_knight() {
     assert!(over.is_empty(), "{}", over.join("\n"));
 }
 
-/// A charge-up strikes a knight at most once: its dash's every tick, a
-/// slam's rings, a breath's or a landing's burst and its beam together.
 #[test]
 fn a_charge_up_strikes_a_knight_at_most_once() {
     let mut twice = Vec::new();
@@ -950,8 +843,6 @@ fn a_charge_up_strikes_a_knight_at_most_once() {
     assert!(twice.is_empty(), "{}", twice.join("\n"));
 }
 
-/// No charge-up begins while anything of the last is still about: twenty
-/// seconds of every guardian's rage, four knights standing.
 #[test]
 fn charge_ups_never_overlap() {
     use crate::rules::HZ;
@@ -968,8 +859,6 @@ fn charge_ups_never_overlap() {
     assert!(stacked.is_empty(), "{}", stacked.join("\n"));
 }
 
-/// A knight walking straight away from a breath gets farther every tick
-/// of it: the pull is weaker than a walk.
 #[test]
 fn a_knight_walking_away_escapes_the_inhale() {
     use crate::rules::Input;
@@ -986,7 +875,6 @@ fn a_knight_walking_away_escapes_the_inhale() {
             boss.signature.cycle = which as u32;
             boss.timer = 10_000;
             let id = *run.players.keys().next().unwrap();
-            // Below it, walking on down the room.
             run.players.get_mut(&id).unwrap().x = bx;
             run.players.get_mut(&id).unwrap().y = by + 4.0;
             let away = Input { move_y: 1, ..Input::default() };
@@ -1016,9 +904,6 @@ fn a_knight_walking_away_escapes_the_inhale() {
     assert!(caught.is_empty(), "{}", caught.join("\n"));
 }
 
-/// A frame from the middle of a charge's, a slam's and a breath's wind-up,
-/// and of a beam's sweep: `ANGEL_ARENA_SHOTS=<dir> cargo test -p
-/// angel-delve write_charge_up_shots -- --ignored`.
 #[test]
 #[ignore]
 fn write_charge_up_shots() {
@@ -1052,8 +937,6 @@ fn write_charge_up_shots() {
     }
 }
 
-/// Load a saved run (`REPLAY_RUN=<run.json>`) the way a restore does and say
-/// why it is refused, if it is.
 #[test]
 #[ignore]
 fn why_a_saved_run_is_refused() {
@@ -1072,7 +955,6 @@ fn why_a_saved_run_is_refused() {
 
 #[test]
 fn a_save_from_a_build_with_fewer_seats_still_reads() {
-    // A four-seat build's merchant kept four approaches; this build has more.
     let four = r#"{"approaches":[{"offer":null,"ticks":0,"spent":false,"x":0.0,"y":0.0},{"offer":null,"ticks":0,"spent":false,"x":0.0,"y":0.0},{"offer":null,"ticks":0,"spent":false,"x":0.0,"y":0.0},{"offer":null,"ticks":0,"spent":true,"x":1.0,"y":2.0}]}"#;
     let state: crate::rules::merchant::State = serde_json::from_str(four).unwrap();
     assert!(state.approaches[3].spent);

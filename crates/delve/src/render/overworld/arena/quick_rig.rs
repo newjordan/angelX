@@ -51,7 +51,6 @@ pub mod smart;
 use super::super::ink::{self, Img};
 use crate::rules::looks::{Body, Sprite};
 
-/// The names accepted by the version-1 exporter and runtime.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Clip {
@@ -136,8 +135,6 @@ struct Export {
     clips: BTreeMap<Clip, Vec<Frame>>,
 }
 
-// serde's default BTreeMap visitor keeps the last duplicate. Export mistakes
-// must fail atomically, rather than silently throwing away an authored clip.
 fn unique_clips<'de, D>(deserializer: D) -> Result<BTreeMap<Clip, Vec<Frame>>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -190,7 +187,6 @@ struct Animation {
     ticks: u64,
 }
 
-/// Validated, immutable render data. Construct only through [`Rig::parse`].
 #[derive(Debug)]
 pub struct Rig {
     canvas: [i32; 2],
@@ -214,8 +210,6 @@ pub enum Playback {
     Once,
 }
 
-/// A frame and its canvas-space transform. Images, sockets and fit are sampled
-/// together so an attachment can never be one frame ahead of its body.
 pub struct Sample<'a> {
     pub clip: Clip,
     pub index: usize,
@@ -225,8 +219,6 @@ pub struct Sample<'a> {
 }
 
 impl Rig {
-    /// Version 1 limits: 128x128 canvas, 128 frames/clip, 1024 total frames,
-    /// 1..=3600 ticks/frame, 8 MiB JSON. Unknown fields/clip names are errors.
     pub fn parse(json: &str) -> Result<Self, Error> {
         let fail = |s: &str| Error(s.to_owned());
         if json.len() > 8 * 1024 * 1024 {
@@ -344,10 +336,6 @@ impl Rig {
         unreachable!("validated positive duration")
     }
 
-    /// Fit an authored one-shot into a gameplay action's countdown. This keeps
-    /// a 10-tick roll or an 8-tick swing from looping a longer export midway.
-    /// Scale the full period before sampling: do not cap elapsed ticks at a
-    /// fixed attack length (heavy-arm cooldowns can outlast that length).
     pub fn action(&self, clip: Clip, remaining: u32, duration: u32, mirrored: bool) -> Sample<'_> {
         let duration = duration.max(1);
         let elapsed = duration.saturating_sub(remaining.min(duration));
@@ -392,8 +380,6 @@ impl Sample<'_> {
         if self.mirrored { im.flip_h() } else { im }
     }
 
-    /// Existing wish slots: right=grip, left=off_hand, head/back/feet as named.
-    /// Preserve handedness on a mirrored sample; never swap grip/off_hand.
     pub fn body(&self) -> Body {
         let [x, y, w, h] = self.rig.bounds;
         let mut body = Body::human((x, y), (w, h));
@@ -444,26 +430,11 @@ impl Sample<'_> {
         body
     }
 
-    /// Pin an attachment's local contact pixel to a socket (before mirroring).
     pub fn attach(&self, canvas: &mut Img, art: &Img, contact: Point, socket: Point) {
         canvas.stamp(art, socket[0] - contact[0], socket[1] - contact[1]);
     }
 }
 
-/// Rig-only right-weapon geometry, reusable by preview renderers. Coordinates
-/// are pixel indices: `contact` is the *existing* fitted Part contact (not an
-/// inferred hilt). Source art points up; `grip -> tip` supplies direction, not
-/// length. No Sprite/save field or native attachment convention is changed.
-/// Horizontal, diagonal, or downward-authored weapons need to be authored up
-/// for this convention; a silhouette cannot reliably identify a hilt.
-///
-/// Preview recipe (also for Python's anchor overlay): `angle = atan2(tip.x -
-/// grip.x, grip.y - tip.y)`, or zero for coincident anchors. Rotate pixel indices
-/// by [`Self::point`]; for PNG edge coordinates subtract 0.5 before rotating,
-/// then add 0.5. Mirror the final canvas with `width - 1 - x`. A preview which
-/// only draws the tip vector still needs to supply fitted gear and its Part
-/// contact; the rig JSON intentionally contains neither equipped art nor hilt
-/// metadata. Painting pivots remain motion pivots, not hand contacts.
 #[derive(Clone, Copy, Debug)]
 pub struct WeaponOrientation {
     pub contact: Point,
@@ -478,7 +449,6 @@ impl WeaponOrientation {
         Self {
             contact,
             grip,
-            // A degenerate export keeps the source orientation, never NaN.
             angle: if dx == 0.0 && dy == 0.0 {
                 0.0
             } else {
@@ -488,14 +458,11 @@ impl WeaponOrientation {
     }
 
     fn sin_cos(&self) -> (f32, f32) {
-        // Cardinal directions must not grow a spurious row/column because
-        // cos(pi/2) is a tiny nonzero float.
         let snap = |v: f32| if v.abs() < 1e-6 { 0.0 } else { v };
         let (sin, cos) = self.angle.sin_cos();
         (snap(sin), snap(cos))
     }
 
-    /// Turn a source pixel index about the exact contact pixel.
     pub fn point(&self, [x, y]: [f32; 2]) -> [f32; 2] {
         let (sin, cos) = self.sin_cos();
         let (x, y) = (x - self.contact[0] as f32, y - self.contact[1] as f32);
@@ -505,8 +472,6 @@ impl WeaponOrientation {
         ]
     }
 
-    /// Inverse-nearest hard ink rotation. Return the full rectangle and its
-    /// top-left in body pixels, including negative and below-floor extents.
     pub fn stamp(&self, source: &Img) -> (Img, Point) {
         if source.w <= 0 || source.h <= 0 {
             return (
@@ -555,25 +520,15 @@ impl WeaponOrientation {
     }
 }
 
-/// The same clockwise pixel-index transform as `sprites::quarter_turn`.
-/// Apply before swapping canvas dimensions, including to authored pivots.
 pub(super) fn quarter_turn_point([x, y]: Point, height: i32) -> Point {
     [height - 1 - y, x]
 }
 
-/// The company's four knights, one to a seat: each its own rig
-/// (`assets/quick-rig/knight-<name>.json`), every one on the same 46x46
-/// canvas, pivot and clip set as `knight.json`, so whichever seat's body is
-/// drawn, staging, rolls and pivots measure the same.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Design {
-    /// The flat-topped great helm in a surcoat with a cross (seat one).
     GreatHelm,
-    /// The pointed sugarloaf in a white surcoat, the cross in the seat's colour.
     SugarloafCrusader,
-    /// The bucket helm with its swept plume and tabard.
     PlumedBucket,
-    /// The broad-brimmed kettle hat over mail and a tunic.
     KettleHat,
 }
 
@@ -594,9 +549,6 @@ impl Design {
         }
     }
 
-    /// The knight a seat plays. The first four seats have one each; the fifth
-    /// (sea-green) and sixth (ivory) wear the great helm and the plumed bucket
-    /// again: the crusader's cross would vanish into an ivory seat's white.
     pub fn of_seat(seat: u32) -> Self {
         match seat {
             2 => Self::SugarloafCrusader,
@@ -620,8 +572,6 @@ impl Design {
     }
 }
 
-/// A design's rig, parsed once. A malformed one falls back to the realm's
-/// old quick-rig knight (and that, failing, to the legacy art): never fatal.
 pub fn design(design: Design) -> Option<&'static Rig> {
     #[cfg(test)]
     if LEGACY.with(std::cell::Cell::get) {
@@ -640,13 +590,10 @@ pub fn design(design: Design) -> Option<&'static Rig> {
         .or_else(knight)
 }
 
-/// The rig a seat's plain knight is drawn with.
 pub fn seat_knight(seat: u32) -> Option<&'static Rig> {
     design(Design::of_seat(seat))
 }
 
-/// The old realm knight (`knight.json`): every design's fallback.
-/// A malformed replacement is deliberately not fatal to game startup.
 pub fn knight() -> Option<&'static Rig> {
     #[cfg(test)]
     if LEGACY.with(std::cell::Cell::get) {
@@ -669,9 +616,6 @@ thread_local! {
     static SPRITES: std::cell::RefCell<Vec<(Vec<Vec<String>>, Arc<Rig>)>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
-/// Associate a wished whole-body sheet with a rig during rendering, including
-/// its Body fit and roll bypass. Nested scopes restore even during unwinding.
-/// The legacy checked rows remain the portable fallback on other clients.
 pub fn with_sprite_rig<T>(sprite: &Sprite, rig: Arc<Rig>, draw: impl FnOnce() -> T) -> T {
     struct Restore;
     impl Drop for Restore {
@@ -697,8 +641,6 @@ pub(super) fn sprite_rig(sprite: &Sprite) -> Option<Arc<Rig>> {
     .or_else(|| super::factory::sprite_rig(sprite))
 }
 
-// Frozen seat-frame hashes and the mini-viz equivalence proof predate rigs.
-// Keep proving that fallback byte-for-byte, without making new art a rebaseline.
 #[cfg(test)]
 thread_local! { static LEGACY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
 #[cfg(test)]

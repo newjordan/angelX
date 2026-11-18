@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""Build the cockpit's existing host-native reload modules, without Cargo.
-
-Opt in at launch with ANGEL_NATIVE_MODULES=1; publish with angelX build --modules.
-Each library is replaced atomically, never overwritten under a running dlopen.
-"""
 import fcntl
 import hashlib
 import json
@@ -31,8 +26,6 @@ def build_jobs():
             raise ValueError('ANGEL_NATIVE_BUILD_JOBS must be a positive integer')
     else:
         jobs = getattr(os, 'process_cpu_count', os.cpu_count)() or 1
-    # This standalone launcher does not borrow jobserver tokens. Under a parent
-    # make/Cargo jobserver, keep its implicit single slot instead of oversubscribing.
     if any('jobserver' in os.environ.get(key, '') for key in ('CARGO_MAKEFLAGS', 'MAKEFLAGS', 'MFLAGS')):
         return 1
     return min(jobs, len(MODULES))
@@ -47,7 +40,6 @@ def compiler_command():
     command = [setting] if Path(setting).is_file() else shlex.split(setting)
     if not command:
         raise ValueError('CC must name a host C compiler')
-    # Include executable identities, including a compiler behind a wrapper.
     identities = []
     for word in command:
         resolved = shutil.which(word)
@@ -66,8 +58,6 @@ def build(root):
     jobs = build_jobs()
     out = root / 'cockpit/target/native'
     out.mkdir(parents=True, exist_ok=True)
-    # flock releases on failure/crash; simultaneous builders cannot publish stale
-    # cache entries over one another or mutate the same output image.
     with (out / '.build.lock').open('a') as lease:
         fcntl.flock(lease, fcntl.LOCK_EX)
         compiler, identities = compiler_command()
@@ -99,11 +89,7 @@ def build(root):
                 subprocess.run([*compiler, *flags, str(source), '-o', str(temporary), '-lm'], check=True)
                 return {'input': key, 'output': digest(temporary.read_bytes())}
 
-            # The executor joins all workers, including after a compiler fails.
-            # No library is published until every compilation and input check
-            # succeeds. A live dlopen generation is never modified in place.
             if pending:
-                # Keep pool/thread imports off the common all-unchanged path.
                 from concurrent.futures import ThreadPoolExecutor
 
                 with ThreadPoolExecutor(max_workers=min(jobs, len(pending))) as pool:
@@ -112,9 +98,6 @@ def build(root):
                     if source.read_bytes() != original:
                         raise ValueError(f'{source} changed during compilation; retry')
                 for (_, temporary, image, stamp, _), record in zip(pending, records):
-                    # Image first: interruption can cost a compile, not a false
-                    # cache hit. Per-image publication remains atomic, not a
-                    # multi-file transaction on disk or across running loaders.
                     os.replace(temporary, image)
                     temporary.write_text(json.dumps(record))
                     os.replace(temporary, stamp)

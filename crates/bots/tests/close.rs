@@ -43,8 +43,6 @@ fn a_bot_leaves_when_the_server_streams_non_close_frames_past_the_deadline() {
         if stream.write_all(response.as_bytes()).is_err() {
             return;
         }
-        // Binary frames forever, never Close: the bot's close wait must
-        // still end at its deadline.
         let mut frame = Vec::new();
         ws::frame(&mut frame, BINARY, b"x", None);
         loop {

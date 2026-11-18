@@ -34,7 +34,6 @@ impl V3 {
         self.dot(self).sqrt()
     }
 
-    /// Zero-safe: degenerate vectors normalize to ZERO instead of NaN.
     pub fn normalize(self) -> V3 {
         let len = self.length();
         if len <= 1e-12 { V3::ZERO } else { self / len }

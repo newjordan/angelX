@@ -5,8 +5,6 @@ fn k5c_absent_control_files_have_no_pin_entries() {
     let root = std::env::temp_dir().join(format!("angel-k5c-controls-{}", std::process::id()));
     std::fs::create_dir_all(&root).unwrap();
     let controls = CargoControls::capture(&root, &root).unwrap();
-    // Ancestor controls belong to the host fixture; absent local candidates
-    // must never acquire entries, even when the parent has a toolchain pin.
     assert!(
         controls
             .files

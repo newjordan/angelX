@@ -1,11 +1,7 @@
 //! GPU-resident picture producers. Hosts own policy; the compositor owns targets.
 use crate::Core;
 
-/// Draw premultiplied RGBA into the supplied target on the compositor's device.
-/// Implementations are created lazily and may keep GPU resources between frames.
-/// Sizes are bounded by the compositor; no window/surface access is exposed.
 pub trait PictureProducer: Send {
-    /// Optional dynamic pixel size, clamped by the compositor.
     fn size(&self) -> Option<(u32,u32)> { None }
     fn draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue,
         view: &wgpu::TextureView, format: wgpu::TextureFormat, size: (u32,u32));

@@ -25,7 +25,6 @@ struct Gpu {
     errors: Arc<Mutex<Vec<String>>>,
 }
 
-/// Run a future that a native wgpu answers at once.
 fn block_on<F: std::future::Future>(future: F) -> F::Output {
     let mut future = std::pin::pin!(future);
     let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
@@ -37,7 +36,6 @@ fn block_on<F: std::future::Future>(future: F) -> F::Output {
     }
 }
 
-/// A device, a core on it and a target; `None` without an adapter.
 fn gpu() -> Option<Gpu> {
     let instance = wgpu::Instance::default();
     let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -86,7 +84,6 @@ fn gpu() -> Option<Gpu> {
 }
 
 impl Gpu {
-    /// Upload every stage's meshes and the ring, as the panel's thread does.
     fn upload(&mut self, cloud: &Cloud) -> Vec<heart::Built> {
         self.core
             .upload_mesh(heart::RING_MESH, &heart::ring_mesh())
@@ -124,7 +121,6 @@ fn at(pixels: &[u8], [x, y]: [u32; 2]) -> [u8; 4] {
     [pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]]
 }
 
-/// The pixel world point `p` lands on.
 fn pixel_of(p: [f32; 3]) -> [u32; 2] {
     let f = heart::project(p, SIZE).expect("in front of the eye");
     [
@@ -137,8 +133,6 @@ fn pixel_of(p: [f32; 3]) -> [u32; 2] {
     ]
 }
 
-/// A time at which the heart has turned whole turns and its one stage is
-/// built and held: the cells are where the cloud put them.
 fn unturned() -> f32 {
     std::f32::consts::TAU / heart::SPIN * 4.0
 }
@@ -154,10 +148,6 @@ fn the_nearer_cell_covers_the_farther_whichever_comes_first() {
         println!("no GPU adapter: skipped");
         return;
     };
-    // Myocardium (red) near the eye, endocardium (cyan) behind it on the
-    // same line of sight (the line from the eye through the heart's middle,
-    // which the beat's swell, a scaling about that middle, keeps), listed
-    // both ways round.
     let eye = heart::camera().transform.translation;
     let on_sight = |k: f32| [eye[0] * k, eye[1] * k, eye[2] * k];
     let (near_at, far_at) = (on_sight(0.07), on_sight(-0.07));
@@ -184,7 +174,6 @@ fn the_nearer_cell_covers_the_farther_whichever_comes_first() {
         assert_eq!(px[3], 255, "a core is opaque");
         seen.push(px);
     }
-    // Depth, not the listing order, decided.
     assert!(
         seen[0]
             .iter()
@@ -192,7 +181,6 @@ fn the_nearer_cell_covers_the_farther_whichever_comes_first() {
             .all(|(a, b)| a.abs_diff(*b) <= 2),
         "{seen:?}"
     );
-    // The far cell alone shows cyan there: the red one really covered it.
     let cloud = stage(vec![far]);
     let built = gpu.upload(&cloud);
     let pixels = gpu.render(&heart::scene(&built, Pose { t, flare: 0.0 }));
@@ -209,7 +197,6 @@ fn cardiac_cells_shine_in_their_colour_and_the_rest_are_dim() {
         return;
     };
     let t = unturned();
-    // Epicardium (gold) on the left, neural (a context cell) on the right.
     let cloud = stage(vec![([-0.5, 0.2, 0.0], 2), ([0.5, 0.2, 0.0], 4)]);
     let built = gpu.upload(&cloud);
     let pixels = gpu.render(&heart::scene(&built, Pose { t, flare: 0.0 }));
@@ -225,7 +212,6 @@ fn cardiac_cells_shine_in_their_colour_and_the_rest_are_dim() {
         brightest > 15 && brightest < 120,
         "a context cell is there but dim: {dim:?}"
     );
-    // A cardiac cell glows: its shell lights the pixels beside its core.
     let [x, y] = pixel_of([-0.5, 0.2, 0.0]);
     let beside = at(&pixels, [x + 4, y]);
     println!("beside the gold core: {beside:?}");
@@ -233,7 +219,6 @@ fn cardiac_cells_shine_in_their_colour_and_the_rest_are_dim() {
         beside[3] > 0 && beside[3] < 255 && beside[0] > beside[2],
         "a soft gold glow: {beside:?}"
     );
-    // Nothing else is drawn: the corners are clear.
     for corner in [
         [0, 0],
         [SIZE.0 - 1, 0],
@@ -285,7 +270,6 @@ fn a_whole_synthetic_heart_draws_held_and_mid_scan() {
     );
     assert!(covered(&held) > 4000 && reddish(&held) > 30);
     assert!(covered(&mid) > 2000);
-    // The idle ring alone: thin, blended, under where the heart stands.
     assert!(covered(&idle) > 300 && covered(&idle) < covered(&held));
     let front = heart::project([0.0, heart::RING_Y, heart::RING_SCALE], SIZE).unwrap();
     assert!(

@@ -11,8 +11,6 @@ use serde::ser::{self, Serialize};
 use std::borrow::Cow;
 use std::fmt;
 
-/// A field or variant name: borrowed from the type on the host, owned once
-/// it has crossed the wire.
 pub type Name = Cow<'static, str>;
 
 #[derive(Clone, Debug)]
@@ -25,29 +23,17 @@ pub enum Value {
     F64(f64),
     Char(char),
     Str(Box<str>),
-    /// Shared: a big blob (a plate's PNG) is cloned and compared for nothing
-    /// when it is the same blob.
     Bytes(std::sync::Arc<[u8]>),
     None,
     Some(Box<Value>),
-    /// Sequences, tuples and tuple structs.
     Seq(Vec<Value>),
     Map(Vec<(Value, Value)>),
-    /// A struct's fields by name (a skipped field is simply absent).
     Struct(Vec<(Name, Value)>),
-    /// An enum variant by name, and its payload (`Unit` for a unit variant).
     Variant(Name, Box<Value>),
-    /// A subtree a host's trees share: the tick's and the one each client
-    /// was last sent hold the same subtree, so it is cloned and compared for
-    /// nothing while it stands (`delta::diff` passes it by). It reads,
-    /// compares and goes on the wire as the value it holds: a tree read off
-    /// the wire never has one.
     Shared(std::sync::Arc<Value>),
 }
 
 impl PartialEq for Value {
-    /// Floats compare by their bits: a NaN equals itself, so an unchanged
-    /// field is never sent again.
     fn eq(&self, other: &Value) -> bool {
         use Value::*;
         if let (Shared(a), Shared(b)) = (self, other)
@@ -76,7 +62,6 @@ impl PartialEq for Value {
 }
 
 impl Value {
-    /// `value`, to be shared between trees (`Shared`).
     pub fn shared(value: Value) -> Value {
         match value {
             shared @ Value::Shared(_) => shared,
@@ -84,7 +69,6 @@ impl Value {
         }
     }
 
-    /// The value itself: what a `Shared` holds, any other as it is.
     pub fn get(&self) -> &Value {
         let mut value = self;
         while let Value::Shared(inner) = value {
@@ -93,8 +77,6 @@ impl Value {
         value
     }
 
-    /// The value itself to change: a `Shared` one is copied first when
-    /// another tree holds it too.
     pub fn get_mut(&mut self) -> &mut Value {
         match self {
             Value::Shared(inner) => std::sync::Arc::make_mut(inner).get_mut(),
@@ -102,7 +84,6 @@ impl Value {
         }
     }
 
-    /// A struct's field, by name: the value itself (`get`).
     pub fn field(&self, name: &str) -> Option<&Value> {
         match self.get() {
             Value::Struct(fields) => fields.iter().find(|(n, _)| n == name).map(|(_, v)| v.get()),
@@ -110,13 +91,10 @@ impl Value {
         }
     }
 
-    /// A struct's field to change, by name: the value itself (`get_mut`).
     pub fn field_mut(&mut self, name: &str) -> Option<&mut Value> {
         self.slot_mut(name).map(Value::get_mut)
     }
 
-    /// A struct's field as it stands in the struct, to put another value
-    /// in its place: a shared one is not copied first.
     pub fn slot_mut(&mut self, name: &str) -> Option<&mut Value> {
         match self.get_mut() {
             Value::Struct(fields) => fields
@@ -127,7 +105,6 @@ impl Value {
         }
     }
 
-    /// The value as an id, when it is one (an unsigned or signed integer).
     pub fn as_id(&self) -> Option<u64> {
         match *self.get() {
             Value::U(n) => Some(n),
@@ -160,19 +137,14 @@ impl de::Error for Error {
     }
 }
 
-/// `value` as a tree.
 pub fn to_value<T: Serialize + ?Sized>(value: &T) -> Result<Value, Error> {
     value.serialize(Builder)
 }
 
-/// A tree read back as a `T`.
 pub fn from_value<T: de::DeserializeOwned>(value: &Value) -> Result<T, Error> {
     T::deserialize(Reader(value))
 }
 
-/// A struct's tree read back as a `T`, with the fields `over` names read
-/// from the values beside them instead: a client's own reading of a few
-/// fields, with no copy of the rest of the tree.
 pub fn from_value_over<T: de::DeserializeOwned>(value: &Value, over: &[(&str, &Value)]) -> Result<T, Error> {
     match value.get() {
         Value::Struct(fields) => T::deserialize(Over { fields, over }),
@@ -198,8 +170,6 @@ impl<'de> de::Deserializer<'de> for Over<'_> {
         tuple_struct map struct enum identifier ignored_any
     }
 }
-
-// ─── building a tree ─────────────────────────────────────────────────────────
 
 struct Builder;
 
@@ -434,9 +404,6 @@ impl ser::SerializeStructVariant for VariantStructBuilder {
     }
 }
 
-// ─── reading a tree back ─────────────────────────────────────────────────────
-
-/// Reads a borrowed tree: nothing is copied but the strings a type keeps.
 #[derive(Clone, Copy)]
 struct Reader<'a>(&'a Value);
 
@@ -466,8 +433,6 @@ impl<'de> de::Deserializer<'de> for Reader<'_> {
                 value: Option::None,
                 over: &[],
             }),
-            // As JSON would hold it: a unit variant is its name, any other
-            // a one-entry map from its name to its payload.
             Value::Variant(name, payload) => match payload.get() {
                 Value::Unit => visitor.visit_str(name),
                 _ => visitor.visit_map(VariantMap {
@@ -524,11 +489,6 @@ impl<'de> de::Deserializer<'de> for Reader<'_> {
         visitor.visit_unit()
     }
 
-    // A type that asks for a struct, a map or a list is read as just that:
-    // its visitor is then made for one way in, not for every kind of value
-    // `deserialize_any` could meet. In a game's wasm client that is most of
-    // its serde code (the Delve's: 2.3 MB of 6.8 MB, then 1.3 MB). A tree
-    // holds a struct as `Struct` and a map as `Map` (`to_value`).
     fn deserialize_struct<V: Visitor<'de>>(
         self,
         _name: &'static str,
@@ -627,7 +587,6 @@ impl<'de> de::MapAccess<'de> for MapReader<'_> {
     }
 }
 
-/// A map key as JSON keeps one: a number key also reads from its digits.
 struct MapKey<'a>(&'a Value);
 
 impl<'de> de::Deserializer<'de> for MapKey<'_> {
@@ -675,7 +634,6 @@ impl<'de> de::Deserializer<'de> for MapKey<'_> {
 struct StructReader<'a> {
     fields: std::slice::Iter<'a, (Name, Value)>,
     value: Option<&'a Value>,
-    /// Fields read from these instead (`from_value_over`).
     over: &'a [(&'a str, &'a Value)],
 }
 
@@ -706,7 +664,6 @@ impl<'de> de::MapAccess<'de> for StructReader<'_> {
     }
 }
 
-/// A variant read where any value was asked for: `{name: payload}`.
 struct VariantMap<'a> {
     name: Option<&'a Name>,
     payload: &'a Value,
@@ -765,34 +722,20 @@ impl<'de> de::VariantAccess<'de> for Reader<'_> {
     }
 }
 
-// ─── a value's fingerprint ───────────────────────────────────────────────────
-
-/// `value` written into `out` as bytes that are the same exactly when two
-/// values of its type are: its fields' names and its variants' (by where the
-/// program keeps a name, a unit variant by its place in its type), every
-/// number's bits, every length. Nothing is built and nothing allocated but `out`'s
-/// room, so a host can tell what of its state changed since the last tick
-/// for a fraction of what building its tree costs (`to_value`), and build
-/// only that. The bytes are no format to send or read.
 pub fn fingerprint<T: Serialize + ?Sized>(value: &T, out: &mut Vec<u8>) -> Result<(), Error> {
     value.serialize(Print(out, None))
 }
 
-/// `fingerprint`, leaving out the struct fields `mask` names: what a host
-/// sends in another form, or works out for itself.
 pub fn fingerprint_except<T: Serialize + ?Sized>(value: &T, out: &mut Vec<u8>, mask: &'static Mask) -> Result<(), Error> {
     value.serialize(Print(out, Some(mask)))
 }
 
-/// Fields `fingerprint_except` leaves out of a struct (`skip`), and the
-/// masks of the structs in its fields (`inside`).
 #[derive(Debug)]
 pub struct Mask {
     pub skip: &'static [&'static str],
     pub inside: &'static [(&'static str, Mask)],
 }
 
-/// The writer of `fingerprint`, and the mask of the struct it is in.
 pub struct Print<'a>(&'a mut Vec<u8>, Option<&'static Mask>);
 
 impl Print<'_> {
@@ -809,9 +752,6 @@ impl Print<'_> {
         self.len(text.len());
         self.0.extend_from_slice(text.as_bytes());
     }
-    /// A name the type gives (a field's, a variant's): the same name
-    /// is the same text in the program, so where it is and how long
-    /// tell it from any other, for less than its letters.
     #[inline]
     fn name(&mut self, name: &'static str) {
         self.0.extend_from_slice(&(name.as_ptr() as usize as u64).to_le_bytes());
@@ -935,8 +875,6 @@ impl<'a> ser::Serializer for Print<'a> {
     }
     #[inline]
     fn serialize_unit_variant(mut self, _name: &'static str, index: u32, _variant: &'static str) -> Result<(), Error> {
-        // A type's variants are told apart by their place in it (a map
-        // of tiles is most of a run).
         match u8::try_from(index) {
             Ok(index) => {
                 self.tag(25);
@@ -965,9 +903,6 @@ impl<'a> ser::Serializer for Print<'a> {
         self.name(variant);
         value.serialize(Print(self.0, None))
     }
-    // A container's items are counted at its end (a map's or a list's
-    // length may be unknown at its start), so two lists of different
-    // lengths whose items run on alike still differ.
     #[inline]
     fn serialize_seq(mut self, _len: Option<usize>) -> Result<PrintSeq<'a>, Error> {
         self.tag(12);
@@ -1019,8 +954,6 @@ impl<'a> ser::Serializer for Print<'a> {
     }
 }
 
-/// A container being fingerprinted, how many items it has had, and the
-/// mask of its fields when it is a struct.
 pub struct PrintSeq<'a>(&'a mut Vec<u8>, usize, Option<&'static Mask>);
 
 impl PrintSeq<'_> {
@@ -1112,7 +1045,6 @@ impl ser::SerializeStruct for PrintSeq<'_> {
         self.field(name, value)
     }
     fn skip_field(&mut self, name: &'static str) -> Result<(), Error> {
-        // A field left out is not the field with any value.
         Print(self.0, None).tag(17);
         Print(self.0, None).name(name);
         Ok(())

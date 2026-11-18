@@ -156,8 +156,6 @@ def main():
         (work / 'src').mkdir()
         original = 'fn main() { println!("original"); }\n'
         if args.build_script:
-            # Unlike the full host this needs no nested Cargo, native tools or
-            # external crates. Isolate the wrapper's script/fallback surface.
             (work / 'build.rs').write_text(r'''fn main() {
     let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
     std::fs::write(out.join("suffix.rs"), "const SUFFIX: &str = \"script\";").unwrap();
@@ -169,9 +167,6 @@ def main():
         source = work / 'src/main.rs'
         source.write_text(original)
         if args.native_dependency:
-            # Rust source and build scripts remain unchanged after prime: only
-            # a C input changes. Exercise Cargo link metadata across a real path
-            # dependency, rather than including generated Rust in the host.
             native = work / 'native'
             native.mkdir()
             (native / 'Cargo.toml').write_text('[package]\nname="native-probe"\nversion="0.1.0"\nedition="2021"\nlinks="native_probe"\n[lib]\npath="lib.rs"\n')
@@ -195,8 +190,6 @@ fn main() {
             original = 'int native_value(void) { return 1; }\n'
             source.write_text(original)
         if args.embedded_dependency:
-            # Match the web bundle's generated include_bytes path dependency
-            # without nested Cargo, zlib, network, V8 or third-party crates.
             embedded = work / 'embedded'
             embedded.mkdir()
             (embedded / 'Cargo.toml').write_text('[package]\nname="embedded-probe"\nversion="0.1.0"\nedition="2021"\n[lib]\npath="lib.rs"\n')
@@ -218,8 +211,6 @@ fn main() {
             original = 'a' * (1 << 20)
             source.write_text(original)
         if args.feature_dependency:
-            # Only the dependency manifest selection changes; Rust and API stay
-            # fixed. Cache identity must still include the cfg/feature graph.
             dependency = work / 'features'
             dependency.mkdir()
             (dependency / 'Cargo.toml').write_text('[package]\nname="feature-probe"\nversion="0.1.0"\nedition="2021"\n'
@@ -233,8 +224,6 @@ fn main() {
                 '[dependencies]\nfeature-probe={path="features",default-features=false,features=["playback"]}\n')
             source.write_text(original)
         if args.callback_dependency:
-            # Reduce the V8 extraction's callback/Result/worker shape without
-            # V8 or scripts. Edit the implementation, not the public API.
             dependency = work / 'callbacks'
             dependency.mkdir()
             (dependency / 'Cargo.toml').write_text('[package]\nname="callback-probe"\nversion="0.1.0"\nedition="2021"\n[lib]\npath="lib.rs"\n')
@@ -276,7 +265,6 @@ fn main() {
                     ('unchanged', original, baseline_output),
                     ('edit', edited, edited_output),
                     ('restore', original, baseline_output)]:
-                # A true unchanged control must not rewrite/touch source.
                 if source.read_text() != text:
                     source.write_text(text)
                 code, log, seconds = run(command, work, env)
@@ -301,7 +289,6 @@ fn main() {
                 report['stale_artifact_observed'] |= not row['fresh']
                 save()
                 print(step, row['fresh'], round(seconds, 3), flush=True)
-                # Allow the async wrapper settler to finish before the next edit.
                 deadline = time.monotonic() + 20
                 settling = work / 'daemon/settling'
                 while settling.exists() and any(settling.iterdir()) and time.monotonic() < deadline:

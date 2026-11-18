@@ -5,7 +5,6 @@ use super::*;
 use crate::ghosts::{self, Laid, Leg};
 use crate::works_tests::{build, cart, finish, hill, rich, run};
 
-/// A free tile of ground for a plan near `near`.
 fn ground(k: &Kingdom, plan: &str, near: Tile) -> Tile {
     first_chain::ground_for(catalog(), k, plan, near).unwrap_or_else(|| panic!("no ground for {plan}"))
 }
@@ -30,7 +29,6 @@ fn a_plan_can_be_laid_that_the_camp_cannot_pay_for_and_says_what_it_waits_on() {
     run(&mut k, 60);
     assert!(k.at(k.plans.ghosts[&id].tile).is_none(), "nothing is raised from nothing");
     assert!(k.plans.crews.iter().all(|w| w.leg == Leg::Idle), "the hands wait");
-    // The camp gets the goods: the hands walk out with them and raise it.
     k.stock.insert("timber".into(), 100);
     k.stock.insert("plank".into(), 100);
     k.stock.insert("stone".into(), 100);
@@ -62,7 +60,6 @@ fn the_hands_take_the_most_urgent_first_and_the_nearest_of_those() {
     let low = plan(&mut k, "well", (146, 99), 0);
     run(&mut k, 1);
     assert_eq!(k.plans.crews[0].ghost, urgent, "urgent beats near");
-    // One crew, so the rest wait their turn: after the urgent, the near usual one, the far one, the low one.
     let mut order = Vec::new();
     for _ in 0..600 {
         run(&mut k, 1);
@@ -137,12 +134,10 @@ fn the_ground_is_the_plans_to_keep_and_what_a_plan_may_not_overlap_is_said() {
     assert!(e.contains("a plan is laid there"), "{e}");
     let e = k.apply(c, Command::Plan { plan: "well".into(), tile: k.camp(), priority: 1, by: 2 }).unwrap_err();
     assert!(!e.is_empty());
-    // A plan is the party's: every seat sees it, and anyone's can be cancelled or reranked.
     let id = k.plans.next;
     k.apply(c, Command::Rank { ghost: id, priority: 2 }).unwrap();
     assert_eq!(k.plans.ghosts[&id].priority, 2);
     assert_eq!(k.plans.ghosts[&id].by, 1);
-    // It saves and reads back whole.
     let back: Kingdom = serde_json::from_str(&serde_json::to_string(&k).unwrap()).unwrap();
     assert_eq!(back.plans, k.plans);
     assert!(back.valid(c));
@@ -166,7 +161,6 @@ fn a_road_and_a_stamped_pattern_can_be_planned_and_are_raised_whole() {
     run(&mut k, 3000);
     assert!(k.plans.ghosts.is_empty(), "{:?}", k.plans.ghosts.values().map(|g| (&g.plan, g.tile)).collect::<Vec<_>>());
     assert_eq!(k.buildings.values().filter(|b| b.plan == "cottage").count(), 4);
-    // And all or nothing: a stamp that cannot be fully planned plans none of it.
     let n = k.plans.ghosts.len();
     assert!(k.plan_stamp(c, "hamlet", k.camp(), 0, 1, 1).is_err());
     assert_eq!(k.plans.ghosts.len(), n);
@@ -185,12 +179,10 @@ fn taking_back_what_was_just_laid_gives_the_whole_price_and_a_worked_thing_half(
     for (r, n) in &c.plans["sawpit"].cost {
         assert_eq!(k.amount(r), stock[r], "{r}: all {n} back");
     }
-    // A road, too.
     k.apply(c, Command::Road((t.0, t.1 + 5))).unwrap();
     assert_eq!(k.amount("timber"), stock["timber"] - 1);
     k.apply(c, Command::Retract(vec![Laid::Road((t.0, t.1 + 5))])).unwrap();
     assert_eq!(k.amount("timber"), stock["timber"]);
-    // A works that has done its work comes down as a demolition does, for half.
     let t2 = ground(&k, "sawpit", (160, 112));
     let id2 = build(&mut k, "sawpit", t2);
     k.buildings.get_mut(&id2).unwrap().stats.worked = 30;
@@ -198,7 +190,6 @@ fn taking_back_what_was_just_laid_gives_the_whole_price_and_a_worked_thing_half(
     k.apply(c, Command::Retract(vec![Laid::Building(id2)])).unwrap();
     let cost = c.plans["sawpit"].cost["timber"];
     assert_eq!(k.amount("timber"), before + cost / 2);
-    // Nothing left to take back is said.
     assert!(k.apply(c, Command::Retract(vec![Laid::Building(id2)])).is_err());
 }
 
@@ -221,17 +212,14 @@ fn a_group_of_works_is_copied_into_a_pattern_kept_with_the_realm_and_stamped_ane
     let p = &k.copies["copy-a"];
     assert_eq!(p.builds.len(), 2);
     assert!(p.builds.iter().all(|b| b.at.0 >= 0 && b.at.1 >= 0), "offsets from the patch's top left");
-    // Kept with the realm: it saves, reads back, and is valid.
     let back: Kingdom = serde_json::from_str(&serde_json::to_string(&k).unwrap()).unwrap();
     assert_eq!(back.copies, k.copies);
     assert!(back.valid(c));
-    // Stamped elsewhere, turned.
     let before = k.buildings.len();
     let at = ground(&k, "sawpit", (190, 118));
     k.apply(c, Command::Stamp { pattern: "copy-a".into(), origin: at, turns: 0 }).expect("stamped");
     assert_eq!(k.buildings.len(), before + 2);
     assert!(k.stamp_cost(c, "copy-a", ground(&k, "sawpit", (200, 130)), 1).is_ok());
-    // Nothing standing there: said.
     assert!(k.clip(c, "copy-b", (230, 160), (235, 165)).is_err());
     assert!(k.clip(c, "no-such-name", (a.0, a.1), (a.0 + 3, a.1 + 3)).is_err());
     let _ = (saw, well);
@@ -264,10 +252,8 @@ fn the_books_count_what_was_made_used_and_held_a_minute_at_a_time() {
         assert_eq!(g.made.len(), usize::from(prod.minutes));
         assert!(g.made_hour + g.used_hour > 0);
     }
-    // The well makes water; it is in the books, and so is what the camp ate.
     assert!(prod.goods.iter().any(|g| g.made_hour > 0), "{prod:?}");
     assert!(prod.goods.iter().any(|g| g.used_hour > 0), "{prod:?}");
-    // Never saved nor sent with the kingdom.
     let s = serde_json::to_string(&k).unwrap();
     assert!(!s.contains("\"books\""));
     let back: Kingdom = serde_json::from_str(&s).unwrap();
@@ -282,7 +268,6 @@ fn a_hover_card_says_what_a_works_makes_in_and_out_a_minute_stock_crew_and_what_
         k.stock.insert(r.clone(), 200);
     }
     k.stock.insert("fodder".into(), 100_000);
-    // A banker with no rock to dress: starved, and says so.
     let t = ground(&k, "banker", (150, 100));
     let banker = build(&mut k, "banker", t);
     finish(&mut k);
@@ -298,7 +283,6 @@ fn a_hover_card_says_what_a_works_makes_in_and_out_a_minute_stock_crew_and_what_
     let row = |l: &str| card.rows.iter().find(|r| r.label == l).unwrap();
     assert_eq!(row("STATE").tone, Tone::Warn);
     assert!(row("WAITING").text.to_lowercase().contains("limestone") || row("WAITING").text.to_lowercase().contains("nothing"), "{}", row("WAITING").text);
-    // A line and a store get cards too, a plan its own.
     let camp = k.camp();
     assert_eq!(k.card(c, camp).unwrap().kind, "STORE");
     let g = plan(&mut k, "well", (170, 108), 2);
@@ -317,7 +301,6 @@ fn the_bottleneck_list_ranks_what_starves_the_works_and_each_has_a_place() {
         k.stock.insert(r.clone(), 100);
     }
     k.stock.insert("fodder".into(), 100_000);
-    // A mortar mill with no lime anywhere upstream.
     let t = ground(&k, "mortar-mill", (150, 100));
     let mill = build(&mut k, "mortar-mill", t);
     let t2 = ground(&k, "banker", (154, 106));
@@ -351,18 +334,15 @@ fn there_is_always_one_next_goal_and_the_tree_says_what_each_charter_and_stage_o
     let next = g.next().expect("a first goal");
     assert_eq!(next.id, "seam", "the first minute: win a seam");
     assert!(!next.how.is_empty() && !next.why.is_empty() && !next.unlocks.is_empty());
-    // The charters are in it with what they unlock.
     let masonry = g.nodes.iter().find(|n| n.id == "charter:masonry").expect("masonry");
     assert!(masonry.unlocks.iter().any(|u| u.contains("BANKER")), "{:?}", masonry.unlocks);
     assert!(g.nodes.iter().any(|n| n.kind == goals::Kind::Stage), "the Keep's stages are in the tree before the Keep is staked");
-    // Parents come before children and depth grows along the tree.
     let at = |id: &str| g.nodes.iter().position(|n| n.id == id).unwrap();
     for n in &g.nodes {
         for a in &n.after {
             assert!(at(a) < at(&n.id), "{a} before {}", n.id);
         }
     }
-    // Win the seam; the goal moves to the charter that opens the quarry.
     k.discover(c, "mines-3".into(), Claim { resource: "limestone".into(), name: "Face".into(), source: "Mines".into(), secured: false, rate: 4, yields: Default::default(), surface: false });
     k.secure("mines-3");
     assert_eq!(k.goals(c).next().unwrap().id, "charter:masonry");
@@ -370,7 +350,6 @@ fn there_is_always_one_next_goal_and_the_tree_says_what_each_charter_and_stage_o
     k.stock.insert("stone".into(), 60);
     k.apply(c, Command::Research("masonry".into())).unwrap();
     assert_eq!(k.goals(c).next().unwrap().id, "charter:charter", "the charter is on the way to the quarry");
-    // A charter nobody waits on is a branch, not a goal.
     let g = k.goals(c);
     assert!(g.nodes.iter().find(|n| n.id == "charter:husbandry").is_some_and(|n| !n.done));
     assert_ne!(g.next().unwrap().id, "charter:husbandry");
@@ -385,13 +364,11 @@ fn the_hillside_charters_page_can_fund_every_charter_the_works_stand_on() {
     for want in ["masonry", "charter", "limeburning", "joinery"] {
         assert!(ids.contains(&want), "{want} in {ids:?}");
     }
-    // Every charter's own requirements come before it.
     for (i, (_, t)) in list.iter().enumerate() {
         for r in &t.requires {
             assert!(ids[..i].contains(&r.as_str()), "{r} before {:?}", ids[i]);
         }
     }
-    // Every hillside work's charter can be funded from it.
     for p in c.plans.values().filter(|p| p.hillside && !p.requires.is_empty()) {
         for r in &p.requires {
             assert!(ids.contains(&r.as_str()) || c.tech(r).is_none(), "{} needs {r}", p.name);
@@ -409,7 +386,6 @@ fn the_works_an_old_village_leaves_behind_are_paid_back() {
     old.stock.insert("stone".into(), 120);
     old.apply(c, Command::Build { plan: "forester".into(), tile: (8, 8) }).unwrap();
     old.apply(c, Command::Build { plan: "farm".into(), tile: (10, 8) }).unwrap();
-    // A work of the valley the hillside builds no such thing as.
     let valley_only = c.plans.iter().find(|(_, p)| p.valley && !p.hillside && p.connector.is_none() && p.cost.values().sum::<u32>() > 0 && p.requires.is_empty()).map(|(k, _)| k.clone());
     let Some(plan) = valley_only else { return };
     let tile = (12, 8);

@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# One live bench run, inside an isolated private bus (session-isolated.conf):
-# a11y bus + registry + shim, the task's app on the nested seat, a headless
-# angel turn (explicitly selected brain, Mage hands via `ground`, sealed sandbox),
-# then an independent verifier. Writes $R/verdict.json.
-#   live_task.sh <task> <run-dir> <seat-socket> <seat-signature>
 set -uo pipefail
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 . "$HERE/preflight.sh"
@@ -25,7 +20,6 @@ fi
 mage_brain_env || exit 1
 APP=""; SHIM=""; REG=""; BUS=""
 cleanup() {
-  # Only processes launched by this run; no broad pgrep of other benchmark runs.
   if [[ -n $APP ]]; then pkill -P "$APP" 2>/dev/null || true; kill "$APP" 2>/dev/null || true; fi
   for p in "$SHIM" "$REG" "$BUS"; do [[ -z $p ]] || kill "$p" 2>/dev/null || true; done
 }
@@ -100,7 +94,6 @@ T1=$(date +%s.%N)
 mage_check_seat "$SOCK" "$SIG" || exit 1
 WAYLAND_DISPLAY=$SOCK grim "$R/after.png" || exit 1
 
-# Independent verifier.
 OBS=""; PASS=false
 case "$TASK" in
   calc-*)

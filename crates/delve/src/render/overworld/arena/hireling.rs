@@ -38,8 +38,6 @@ const RANGER: [&str; 12] = ["...EEEE...", "..EEEEE...", "..EOOOOE..", "..EOKKOE.
 const SHIELDBEARER: [&str; 12] = ["...SSSS...", "..SSSSSS..", "..SOOOOS..", "..SKOOKS..", "...OOOO...", ".VVSSSSS..", ".VhVSSSSO.", ".VhVSSSSO.", "..VVSSSS..", "...SS.SS..", "...SS.SS..", "..nn..nn.."];
 const ALCHEMIST: [&str; 12] = ["...pppp...", "..pOOOO...", "..pOKKO...", "...OOOO...", "..pppppp..", ".OppppppO.", ".O.ppUpp0.", "...ppUpp3.", "...ppppp..", "...pp.pp..", "...pp.pp..", "..nn..nn.."];
 
-/// A hearth brownie: a small shaggy hearth spirit in brown and ochre,
-/// bare-footed, no knife. It catches a shot instead.
 pub(super) const BROWNIE: [&str; 12] = [
     "...pBBBp...",
     "..pBRrRBp..",
@@ -55,8 +53,6 @@ pub(super) const BROWNIE: [&str; 12] = [
     "..oo...oo..",
 ];
 
-/// A rime moth, from above: frost-pale wings with blue eye-spots on a
-/// slate body. Still, so an idle moth does not repaint the room.
 pub(super) const MOTH: [&str; 10] = [
     "...u.....u...",
     "....u...u....",
@@ -70,8 +66,6 @@ pub(super) const MOTH: [&str; 10] = [
     "..v.......v..",
 ];
 
-/// A salt wisp: a pale drifting curl with two dim eyes, its tail
-/// trailing off in grains.
 pub(super) const WISP: [&str; 12] = [
     "....hh.....",
     "...hii.....",
@@ -87,7 +81,6 @@ pub(super) const WISP: [&str; 12] = [
     ".....hhh...",
 ];
 
-/// A glass mite, from above: a faceted cyan body on six thin legs.
 pub(super) const MITE: [&str; 10] = [
     "...J.....J...",
     "....J.0.J....",
@@ -101,8 +94,6 @@ pub(super) const MITE: [&str; 10] = [
     ".............",
 ];
 
-/// An ash sprite: a sooty puff of charcoal with ember eyes, ember
-/// cracks, and a thread of smoke going up.
 pub(super) const ASH_SPRITE: [&str; 12] = [
     ".....j.....",
     "....j.g....",
@@ -118,8 +109,6 @@ pub(super) const ASH_SPRITE: [&str; 12] = [
     "...gg.gg...",
 ];
 
-/// A lantern mote: a warm spark with a soft ring of light. Still, so
-/// an idle mote does not repaint the room.
 pub(super) const MOTE: [&str; 9] = [
     "....a....",
     "..a.o.a..",
@@ -132,8 +121,6 @@ pub(super) const MOTE: [&str; 9] = [
     "....a....",
 ];
 
-/// A reed newt, from above: moss-green, a pale stripe down its back,
-/// four splayed feet and a long tail.
 pub(super) const NEWT: [&str; 9] = [
     "...E.......E....",
     "...EE.....EE....",
@@ -146,8 +133,6 @@ pub(super) const NEWT: [&str; 9] = [
     "...E.......E....",
 ];
 
-/// A linnet: a small warm-brown bird with a red breast and crown, a
-/// short dark beak.
 pub(super) const LINNET: [&str; 9] = [
     "......BB7B..",
     ".....BRR77B.",
@@ -160,8 +145,6 @@ pub(super) const LINNET: [&str; 9] = [
     ".....nn.nn..",
 ];
 
-/// A tavern brawler from a held floor's taproom: a big bald barman,
-/// sleeves rolled, a grey apron, fists up.
 pub(super) const BRAWLER: [&str; 15] = [
     "....cccc......",
     "...cccccc.....",
@@ -180,8 +163,6 @@ pub(super) const BRAWLER: [&str; 15] = [
     "..nnn..nnn....",
 ];
 
-/// A kennel hound from a held floor's kennels: a rangy brown hunting dog
-/// with a dark ear and a darker muzzle, in profile.
 pub(super) const HOUND: [&str; 10] = [
     "............II..",
     "...........IrrI.",
@@ -195,8 +176,6 @@ pub(super) const HOUND: [&str; 10] = [
     ".nn.nn...nn.nn..",
 ];
 
-/// A leech, from above: fat and dark red, ridged in segments, a wet
-/// sheen along its back and its sucker at the front.
 pub(super) const LEECH: [&str; 6] = [
     "...8888888....",
     ".88p7p7p7pp8..",
@@ -206,8 +185,6 @@ pub(super) const LEECH: [&str; 6] = [
     "...8888888....",
 ];
 
-/// Beaumains by the west table (until he's hired: then he's waiting at the
-/// stair), and his plate lit under a knight.
 pub(super) fn tavern(cv: &mut Img, run: &Run) {
     if run.home.hire.is_none() {
         let (x, y) = at(BEAUMAINS_AT.0 * 2.0, BEAUMAINS_AT.1 * 2.0);
@@ -218,7 +195,6 @@ pub(super) fn tavern(cv: &mut Img, run: &Run) {
     }
 }
 
-/// To a knight on his plate: his terms, and the hold.
 pub(super) fn board(cv: &mut Img, run: &Run) {
     let Some(hero) = run.players.values().find(|h| h.hp > 0 && hire_at(h.x, h.y)) else {
         return;
@@ -246,7 +222,6 @@ pub(super) fn board(cv: &mut Img, run: &Run) {
     cv.stamp(&board, bx, ((r + h) * TILE + 4).min(cv.h - board.h - 2));
 }
 
-/// Hired, Beaumains waits by the Winding Stair with his knife.
 pub(super) fn at_the_stair(cv: &mut Img, run: &Run) {
     if run.home.hire.is_none() {
         return;
@@ -255,13 +230,10 @@ pub(super) fn at_the_stair(cv: &mut Img, run: &Run) {
     stand(cv, &Img::from_rows(&BEAUMAINS), cx - 44, cy + 30);
 }
 
-/// His plate before the west table, unlit.
 pub(super) fn plate(cv: &mut Img) {
     home::plate(cv, HIRE_PLATE, false, Station::Hire);
 }
 
-/// Beaumains in a delve: facing what he fights, blinking through a hit's
-/// grace, or lying where he fell.
 pub(super) fn delve(cv: &mut Img, run: &Run) {
     super::academy_squires::delve(cv, run);
     if let Some(hire) = &run.hireling {
@@ -269,7 +241,6 @@ pub(super) fn delve(cv: &mut Img, run: &Run) {
     }
 }
 
-/// What an ally of `kind` is drawn from.
 fn rows_of(kind: AllyKind) -> &'static [&'static str] {
     use super::minions::{GHOUL, TOTEM, WARDEN, ZOMBIE};
     match kind {
@@ -300,10 +271,6 @@ fn rows_of(kind: AllyKind) -> &'static [&'static str] {
     }
 }
 
-/// One ally in a delve, Beaumains or a minion: climbing out of the ground
-/// when just raised, facing what it fights, blinking through a hit's
-/// grace, or lying where it fell. One of a summoner's dead wears what his
-/// wishes for them put on it (`minions::dressed`).
 pub(super) fn ally(cv: &mut Img, run: &Run, hire: &Hireling) {
     let (x, y) = at(hire.x, hire.y);
     let made = hire
@@ -312,7 +279,6 @@ pub(super) fn ally(cv: &mut Img, run: &Run, hire: &Hireling) {
         .and_then(|t| run.home.rites.kept.get(t.rite as usize))
         .and_then(|r| r.creature());
     let body = if let Some(c) = made {
-        // A friend a knight made in the Creator: its own baked figure.
         crate::render::creation::world_creature(c, true, true, run.tick, 22)
     } else if let Some(kind) = hire.kind.squire() {
         super::academy_squires::sprite(kind, hire.summoner.unwrap_or(1))
@@ -333,12 +299,10 @@ pub(super) fn ally(cv: &mut Img, run: &Run, hire: &Hireling) {
     }
     let blink = hire.invulnerable > 0 && (run.tick / 2).is_multiple_of(2);
     if !blink {
-        // What it wears stands with it, painted where a window can.
         super::paintings::wearing((im.w, im.h), worn);
         stand(cv, &im, x, y);
         super::paintings::unworn();
         if let Some(tag) = hire.made.as_ref().filter(|_| !hire.down()) {
-            // Whose it is, over its head.
             let name = super::rite_wall::tag_name(&tag.by);
             let w = super::super::ink::text_width(&name);
             cv.rect(x - w / 2 - 1, y - im.h - 9, w + 2, 8, 'K');

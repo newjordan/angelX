@@ -6,8 +6,6 @@ fn main() {
     println!("cargo:rerun-if-changed={cells_path}");
     let painter = std::fs::read_to_string(cells_path).unwrap();
     let painter = painter.trim_start_matches("//! Shared half-block and braille painter for the cockpit and art exporters.\n");
-    // Extract the function by balanced braces, retaining the actual cockpit
-    // implementation without linking unrelated services into this reviewer.
     let mut panels = String::new();
     for game in [
         "cinder",

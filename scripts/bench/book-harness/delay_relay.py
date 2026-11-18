@@ -1,16 +1,4 @@
 #!/usr/bin/env python3
-"""A TCP relay that delays every byte by a fixed one-way time, both ways.
-
-Put it between a harness and the stub model (served over TLS) to give the
-loopback link a provider-like round trip: a TLS handshake then costs one
-round trip, as on a WAN, and a connection the harness reuses skips it. The
-loopback TCP handshake itself stays instant, so the relay understates what a
-fresh connection costs on a real link by one round trip (and any DNS lookup).
-
-RELAY_LISTEN_READY=<file> receives the bound port; RELAY_UPSTREAM=host:port;
-RELAY_DELAY_MS one-way delay; RELAY_LOG appends one line per accepted
-connection.
-"""
 import asyncio
 import os
 import time
@@ -22,7 +10,6 @@ LOG = os.environ.get("RELAY_LOG")
 
 
 async def pump(reader, writer):
-    """Forward bytes, each released DELAY after it arrived, in order."""
     queue = asyncio.Queue()
 
     async def receive():

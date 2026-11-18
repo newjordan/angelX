@@ -88,7 +88,6 @@ pub fn knobs() -> Knobs {
     }
 }
 
-/// A knob set a playtester might move to: the same game, other numbers.
 pub fn knobs_alt(n: usize) -> Knobs {
     let k = knobs();
     match n % 4 {
@@ -119,7 +118,6 @@ thread_local! {
     static CLASSES: RefCell<Map<(String, String), usize>> = const { RefCell::new(Map::new()) };
 }
 
-/// Whether a case of this class is still wanted (and if so, reserve its place).
 pub fn want(name: &str, class: &str, per_class: usize, total: usize) -> bool {
     if cases::count(name) >= total {
         return false;
@@ -137,14 +135,12 @@ pub fn want(name: &str, class: &str, per_class: usize, total: usize) -> bool {
     })
 }
 
-/// Record a case unless `per_class` of its class (or `total` of its name) are written.
 pub fn classed(name: &str, class: &str, per_class: usize, total: usize, input: Value, out: Value) {
     if want(name, class, per_class, total) {
         cases::rec(name, &input, &out);
     }
 }
 
-/// One tick's sample: the session before the step, the keys and the table.
 pub struct Sample<'a> {
     pub s: &'a Session,
     pub inputs: &'a Map<u32, Input>,
@@ -197,7 +193,6 @@ impl Table {
     }
 }
 
-/// A table of bots at the start of a stage: banners and sparks earned, at its gate.
 pub fn stage(seats: u32, banners: u8, sparks: u8, gate: usize) -> Table {
     let mut t = Table::new(seats);
     t.s.banners = banners;
@@ -216,7 +211,6 @@ pub fn stage(seats: u32, banners: u8, sparks: u8, gate: usize) -> Table {
     t
 }
 
-/// What a stage has behind it: banners, sparks (as the play tests stage them).
 pub const STAGES: [(u8, u8); 8] = [
     (0, 0),
     (0b11, 0),
@@ -262,7 +256,6 @@ fn fuzz_inputs(t: &Table, g: &mut Lcg, held: &mut Map<u32, Input>) -> Map<u32, I
     out
 }
 
-/// Run a table `ticks` ticks under a policy; `probe` sees every tick before it steps.
 pub fn run(
     t: &mut Table,
     ticks: usize,
@@ -304,7 +297,6 @@ pub fn run(
     }
 }
 
-/// Every probe of one sample.
 pub fn probe_all(sm: &Sample) {
     super::body::bend_cases_body::probe(sm);
     super::foes::bend_cases_foes::probe(sm);
@@ -313,7 +305,6 @@ pub fn probe_all(sm: &Sample) {
     probe_top(sm);
 }
 
-/// Session::step as a whole, the knight's small methods, the boss on the live state.
 fn probe_top(sm: &Sample) {
     let s = sm.s;
     let mut s2 = s.clone();
@@ -327,7 +318,6 @@ fn probe_top(sm: &Sample) {
         json!({"session": j(s), "inputs": j(sm.inputs), "heroes": heroes_j(sm.heroes), "knobs": knobs_j(&sm.knobs)}),
         json!({"session": j(&s2), "say": say_j(&say)}),
     );
-    // Session::new from the table's heroes
     if sm.tick == 0 {
         cases::rec(
             "bannerpeak.session.Session.new",
@@ -383,7 +373,6 @@ fn probe_top(sm: &Sample) {
             60,
         );
     }
-    // the boss on the live state
     let feet: Vec<(i32, i32)> = s.seats.values().filter(|k| k.alive()).map(|k| k.body.foot()).collect();
     let seats = s.seats.len().max(1) as u8;
     let mut bo = s.boss.clone();
@@ -445,7 +434,6 @@ fn boss_in(g: &mut Lcg, seats: u8) -> Boss {
 #[test]
 #[ignore]
 fn record_bannerpeak() {
-    // ------------------------------------------------ pure layout / world
     let mut g = Lcg(0xBA77_E12B_EAC1);
     for i in 0..200i32 {
         let deg = match i % 4 {
@@ -475,7 +463,6 @@ fn record_bannerpeak() {
             &json!({"centre": [layout::cell_centre((cx, cy)).0, layout::cell_centre((cx, cy)).1],
                     "feet": [layout::cell_feet((cx, cy)).0, layout::cell_feet((cx, cy)).1]}),
         );
-        // hatches: both real ones and arbitrary tiles
         let tile = if i % 7 == 0 {
             layout::MARSH.at(44, 12)
         } else if i % 7 == 1 {
@@ -489,7 +476,6 @@ fn record_bannerpeak() {
             &json!({"tx": tile.0, "ty": tile.1}),
             &json!({"some": to.is_some(), "x": to.map_or(0, |t| t.0), "y": to.map_or(0, |t| t.1)}),
         );
-        // tiles
         let w = layout::world();
         let (tx, ty) = (g.range(-6, 440) as i32, g.range(-6, 70) as i32);
         cases::rec(
@@ -513,7 +499,6 @@ fn record_bannerpeak() {
             );
         }
     }
-    // the whole composed world and the lists info() reads
     let w = layout::world();
     let rows: Vec<Vec<u8>> = (0..64).map(|y| (0..434).map(|x| w.at(x, y).code()).collect()).collect();
     cases::rec("bannerpeak.layout.world", &json!({}), &j(&rows));
@@ -539,7 +524,6 @@ fn record_bannerpeak() {
         }),
     );
 
-    // ------------------------------------------------ boss, synthetic states
     let mut g = Lcg(0xC1_4DE2);
     for n in 0..320usize {
         let seats = 1 + (n % 6) as u8;
@@ -555,7 +539,6 @@ fn record_bannerpeak() {
             })
             .collect();
         let elapsed = g.range(0, 9000) as u32;
-        // a few ticks in a row from the same start: the beats turn over
         for _ in 0..6 {
             let before = b.clone();
             super::oracle::step(&mut b, &feet, seats, elapsed);
@@ -641,14 +624,11 @@ fn record_bannerpeak() {
         );
     }
 
-    // ------------------------------------------------ the games, sampled
     let mut probe = |sm: &Sample| probe_all(sm);
-    // whole runs by the bots at several table sizes
     for (seats, seed) in [(1u32, 1u64), (2, 2), (3, 3), (6, 6), (4, 4)] {
         let mut t = Table::new(seats);
         run(&mut t, 14000, seed, Policy::Bots, if seats == 1 { 23 } else { 41 }, &mut probe);
     }
-    // each stage: bots from its gate
     for gate in 0..8usize {
         for (seats, seed) in [(1u32, 10 + gate as u64), (4, 40 + gate as u64)] {
             let (banners, sparks) = STAGES[gate];
@@ -656,7 +636,6 @@ fn record_bannerpeak() {
             run(&mut t, 1800, seed, Policy::Bots, 37, &mut probe);
         }
     }
-    // random keys, with the bots lending a hand
     for gate in 0..8usize {
         for (seats, seed, policy) in [
             (1u32, 100 + gate as u64, Policy::Fuzz),
@@ -668,7 +647,6 @@ fn record_bannerpeak() {
             run(&mut t, 900, seed, policy, 13, &mut probe);
         }
     }
-    // a late knight sits down, one steps away
     let mut t = stage(2, 0b11, 0, 1);
     run(&mut t, 200, 77, Policy::Bots, 19, &mut probe);
     let hero = t.heroes[&2].clone();
@@ -680,7 +658,6 @@ fn record_bannerpeak() {
     t.heroes.get_mut(&2).unwrap().stone = true;
     run(&mut t, 100, 80, Policy::Fuzz, 7, &mut probe);
 
-    // ------------------------------------------------ the Run's hooks
     record_hooks();
 }
 
@@ -696,7 +673,6 @@ fn record_hooks() {
         }
         r.step(&Map::new());
         for round in 0..5usize {
-            // showing / valid / seated / bot / knobs
             cases::rec_cap(
                 "bannerpeak.Run.bannerpeak_showing",
                 &json!({"run": run_json(&r)}),
@@ -729,7 +705,6 @@ fn record_hooks() {
                 &knobs_j(&r.bannerpeak_knobs()),
                 10,
             );
-            // tick_bannerpeak under the bots' keys, then a mid-run state each round
             let inputs = r.roundtable_inputs();
             let before = run_json(&r);
             let mut r2 = r.clone();
@@ -754,7 +729,6 @@ fn record_hooks() {
                 r.step(&inputs);
             }
         }
-        // start: clear the session, start again
         let mut r = Run::bannerpeak_for_test();
         for id in 2..=seats {
             r.join_seat(id, &format!("Knight {id}"));
@@ -767,7 +741,6 @@ fn record_hooks() {
             &json!({"run": before}),
             &run_json(&r),
         );
-        // clear and end
         let before = run_json(&r);
         let mut r4 = r.clone();
         (ADVENTURE.clear)(&mut r4);
@@ -775,7 +748,6 @@ fn record_hooks() {
         let mut r5 = r.clone();
         (ACTIVITY.end)(&mut r5);
         cases::rec("bannerpeak.ACTIVITY.end", &json!({"run": before}), &run_json(&r5));
-        // the pay at the finale, first and later times
         for (n, first) in [true, false].into_iter().enumerate() {
             let mut r = Run::bannerpeak_for_test();
             for id in 2..=seats {
@@ -796,7 +768,6 @@ fn record_hooks() {
                 &run_json(&r6),
             );
         }
-        // a finished table: E takes the knights back (needs the exits group)
         let mut r = Run::bannerpeak_for_test();
         for id in 2..=seats {
             r.join_seat(id, &format!("Knight {id}"));

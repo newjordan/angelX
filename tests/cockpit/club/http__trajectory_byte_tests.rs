@@ -79,8 +79,6 @@ fn trajectory_c03d_usage_missing_retry_is_unreported_and_not_a_partial_sum() {
     );
     let report = crate::agent::harness::task_usage_delta(before, club.usage_accounting()).unwrap();
     assert!(!report.core_complete);
-    // The shared UI report intentionally retains observed subtotals;
-    // only the durable ledger requires complete measurement coverage.
     assert_eq!(report.total_prompt, Some(100));
     let ledger_usage = crate::agent::harness::complete_ledger_usage(&report);
     for field in [

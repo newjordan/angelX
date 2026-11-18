@@ -1,8 +1,3 @@
-// Thin adapter for the deep-cut episode reducer's Bend leg. Plain JSON in, the
-// compiled leg's decision out: the append-only chain, the state arm, the
-// sequence increment and the permits live in episode-reducer.bend. Rust owns
-// the ids, the canonical hashes, the stored bodies, the durability authority and
-// every error string, and translates the fault enum back to that string.
 const bend = require('./episode-reducer.compiled.js')
 
 const flag = value => value === true

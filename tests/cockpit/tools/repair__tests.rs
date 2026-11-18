@@ -96,8 +96,6 @@ fn normalizes_empty_tool_to_auto() {
 
 #[test]
 fn default_call_is_diagnose_only() {
-    // No repair arg → diagnose only: the generic report says repairs were
-    // skipped, and no mutation branch runs.
     let tool = ToolRepairTool::new(std::env::temp_dir());
     let out = tool
         .call(&serde_json::json!({ "tool": "gh" }))
@@ -110,11 +108,8 @@ fn default_call_is_diagnose_only() {
 
 #[test]
 fn session_budget_stops_repeated_calls() {
-    // Default limit is 2: calls 1 and 2 run, the 3rd is refused. Set the env
-    // explicitly (save/restore) so an external value can't skew the count.
     let _guard = crate::tests::env_lock();
     let prev = std::env::var_os("ANGEL_TOOL_REPAIR_LIMIT");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TOOL_REPAIR_LIMIT", "2") };
     let tool = ToolRepairTool::new(std::env::temp_dir());
     let args = serde_json::json!({ "tool": "gh" });
@@ -122,9 +117,7 @@ fn session_budget_stops_repeated_calls() {
     assert!(tool.call(&args).is_ok(), "call 2 within budget");
     let third = tool.call(&args);
     match prev {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_TOOL_REPAIR_LIMIT", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_TOOL_REPAIR_LIMIT") },
     }
     let err = third.expect_err("call 3 exhausts the session budget");

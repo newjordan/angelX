@@ -1,4 +1,3 @@
-// Isolated read-only Cut projection. Never writes a manifest or graph.
 import { openSync, fstatSync, readSync, writeSync, closeSync, readdirSync, existsSync, constants } from 'node:fs'
 import { join } from 'node:path'
 import { CutReport } from '../../lib/cut/report.mjs'
@@ -26,12 +25,7 @@ function validUnicode(text) {
   }
   return true
 }
-// JSON.parse rounds large integers. Preserve each numeric literal before parsing,
-// without requiring the newer reviver context.source API. The marker is chosen
-// against *decoded* object keys, so user JSON cannot impersonate a token.
 function parseRow(text) {
-  // serde_json rejects 128 nested containers; reject them before asking V8's
-  // recursive reviver to walk the input.
   let depth = 0, quoted = false, escaped = false
   for (const char of text) {
     if (quoted) {
@@ -62,8 +56,6 @@ function parseRow(text) {
         if (text[i++] === '"') break
       }
       const literal = text.slice(start, i)
-      // JSON.parse's reviver sees only the last duplicate key. Validate each
-      // source string before duplicate properties can hide invalid Unicode.
       if (!validUnicode(JSON.parse(literal))) throw new Error('invalid Unicode')
       pieces.push(literal)
     } else if (text[i] === '-' || (text[i] >= '0' && text[i] <= '9')) {
@@ -88,7 +80,7 @@ function parseRow(text) {
 }
 function main(dir, workspace) {
   let shards = []
-  try { shards = readdirSync(dir).filter(n => n.length === 23 && /^authored-[0-9]{8}\.jsonl$/.test(n)).sort() } catch { /* missing/unreadable is empty */ }
+  try { shards = readdirSync(dir).filter(n => n.length === 23 && /^authored-[0-9]{8}\.jsonl$/.test(n)).sort() } catch { }
   const report = new CutReport(dir, workspace, !existsSync(dir) ? 'missing' : shards.length ? 'present' : 'empty')
   let huge = 0, total = 0
   for (const shard of shards) {
@@ -101,12 +93,11 @@ function main(dir, workspace) {
       let parts = [], length = 0, over = false, read = 0
       const data = Buffer.allocUnsafe(64 * 1024)
       const finish = () => {
-        // BufRead::lines removes a final CR as well as the newline.
         if (length && parts.at(-1)?.at(-1) === 13) {
           const last = parts.pop(); parts.push(last.subarray(0, last.length - 1)); length--
         }
         if (!over && length <= LINE_LIMIT && length) {
-          try { report.row(parseRow(decoder.decode(Buffer.concat(parts, length)))) } catch { /* torn/invalid row */ }
+          try { report.row(parseRow(decoder.decode(Buffer.concat(parts, length)))) } catch { }
         }
         parts = []; length = 0; over = false
       }
@@ -130,7 +121,6 @@ function main(dir, workspace) {
       finish()
     } catch (error) {
       if (error.message === 'report input exceeded its limit') throw error
-      // Unreadable shard: same best-effort treatment as the native reader.
     } finally { if (fd !== undefined) closeSync(fd) }
   }
   const result = Buffer.from(report.render(huge))

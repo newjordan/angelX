@@ -12,16 +12,11 @@ fn seatbelt_profile_mirrors_the_landlock_posture() {
     };
     let profile = seatbelt_profile(&policy);
     let lines: Vec<&str> = profile.lines().collect();
-    // Order carries the semantics: SBPL is last-match-wins, so the broad
-    // read-everything / deny-writes pair must precede every allowance, and
-    // the network deny must come last.
     assert_eq!(lines[0], "(version 1)");
     assert_eq!(lines[1], "(allow default)");
     assert_eq!(lines[2], "(deny file-write*)");
     assert_eq!(lines.last(), Some(&"(deny network*)"));
     assert!(profile.contains(r#"(allow file-write* (literal "/dev/null"))"#));
-    // A nonexistent root passes through verbatim (canonicalize fallback)
-    // with SBPL string escaping applied to the embedded quote.
     assert!(
         profile
             .contains(r#"(allow file-write* (subpath "/angel-nonexistent-root/work \"space\""))"#),
@@ -42,16 +37,11 @@ fn seatbelt_profile_mirrors_the_landlock_posture() {
     );
 }
 
-/// A command started through the helper must not reach the caller's terminal.
-/// In the cockpit that terminal is the TUI: a password, host-key or credential
-/// prompt would draw over it through /dev/tty and then stop on SIGTTIN until
-/// the tool timeout. Linux gets the same from the helper's setsid.
 #[cfg(target_os = "macos")]
 #[test]
 fn helper_command_cannot_open_the_callers_terminal() {
     use std::os::unix::process::CommandExt as _;
     let (mut master, mut slave) = (-1, -1);
-    // SAFETY: two local out-pointers; no name, termios or window size.
     let opened = unsafe {
         libc::openpty(
             &mut master,
@@ -62,9 +52,6 @@ fn helper_command_cannot_open_the_callers_terminal() {
         )
     };
     assert_eq!(opened, 0, "openpty: {}", std::io::Error::last_os_error());
-    // A session leader that holds the pty as its controlling terminal runs the
-    // helper as an ordinary member of its session, as the cockpit does. The
-    // trailing exit keeps sh from exec'ing the helper as the leader itself.
     let mut session = Command::new("/bin/sh");
     session
         .arg("-c")
@@ -88,7 +75,6 @@ exit $?"#,
         },
     )
     .unwrap();
-    // SAFETY: setsid and ioctl are async-signal-safe and touch only the child.
     unsafe {
         session.pre_exec(move || {
             if libc::setsid() < 0 || libc::ioctl(slave, libc::TIOCSCTTY as libc::c_ulong, 0) < 0 {
@@ -98,7 +84,6 @@ exit $?"#,
         });
     }
     let output = session.output().unwrap();
-    // SAFETY: both descriptors came from openpty above and are closed once.
     unsafe {
         libc::close(master);
         libc::close(slave);

@@ -45,7 +45,6 @@ def source(entries, output, tag):
             im = im.resize((im.width * scale, im.height * scale), Image.Resampling.NEAREST)
             sheet.paste(im, (x, y + 46), im)
     sheet.save(output / f'qa-source-{tag}.png')
-    # Six nearest candidates, each shown at source size and 3x: 12 views.
     sheet = Image.new('RGB', (1560, 460), '#080b0e'); draw = ImageDraw.Draw(sheet)
     for i, entry in enumerate(entries):
         name = Path(entry['boss']).stem
@@ -60,7 +59,6 @@ def source(entries, output, tag):
     sheet.save(output / 'qa-nearest.png')
     for entry in entries:
         name = Path(entry['boss']).stem
-        # Eleven separate frames per sheet, no labels colliding with art.
         sheet = Image.new('RGB', (1560, 450), '#080b0e'); draw = ImageDraw.Draw(sheet)
         index = 0
         for role in ('projectile', 'tell', 'impact'):
@@ -93,7 +91,6 @@ def review(entries, output):
                                       (800, 'actual cells 2x - judge first', cell.resize((cell.width * 2, cell.height * 2), Image.Resampling.NEAREST))]:
                     label(draw, x, y + 22, title); sheet.paste(im, (x, y + 48))
             sheet.save(target / f'{name}-v{kit}.png')
-            # Six actual-cell views per sheet, including every warning stage.
             row_height = max(180, g['tell'][3] - g['tell'][1] + 64)
             sheet = Image.new('RGB', (1560, 4 * row_height + 20), '#080b0e'); draw = ImageDraw.Draw(sheet)
             for stage in range(4):
@@ -133,7 +130,6 @@ def review(entries, output):
                     cell = cells(path, g['tell']); x, y = 12 + index % 3 * 516, 12 + index // 3 * 460
                     label(draw, x, y, f'V{kit} Ravage / true age {age}'); sheet.paste(cell, (x, y + 28))
                 sheet.save(target / f'{name}-v{kit}-ravage-beats.png')
-    # Busy rooms show the overlaps with actors, names and HUD in both paths.
     for kit in (1, 2):
         sheet = Image.new('RGB', (1560, 1450), '#080b0e'); draw = ImageDraw.Draw(sheet)
         for row, entry in enumerate(entries):

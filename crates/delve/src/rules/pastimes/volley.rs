@@ -16,35 +16,25 @@ pub const COURT_TOP: i32 = 4 * 256;
 pub const PADDLE_Y: i32 = 10 * 256;
 pub const PADDLE_REACH: i32 = 384;
 pub const BELL_X: [i32; 4] = [1920, 2688, 3456, 4224];
-/// Ticks a bell's ring animation lasts.
 pub const RING_TICKS: u8 = 12;
-/// How many ball positions the trail remembers.
 pub const TRAIL_LEN: usize = 10;
-/// Ticks a miss-flash screen effect lasts.
 pub const MISS_FLASH_TICKS: u8 = 8;
-/// Ticks a single target-bell shimmer cycle lasts.
 pub const SHIMMER_TICKS: u8 = 8;
-/// A swing lives this long. The first three ticks are the perfect window.
 pub const SWING_TICKS: u8 = 8;
 pub const PERFECT_TICKS: u8 = 3;
 pub const BAT_FLASH_TICKS: u8 = 14;
 pub const PERFECT_FLASH_TICKS: u8 = 14;
-/// A short breath after a miss, not a trip back to a menu.
 pub const SERVE_WAIT: u8 = 18;
 pub const SERVE_SPEED: i32 = 64;
 pub const BASE_SPEED: i32 = 72;
 pub const MAX_SPEED: i32 = 104;
 
-/// What happened in one tick. Presentation and score consume this; the
-/// physics does not reach back into the run or allocate events.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct VolleyBeat {
     pub served: bool,
     pub returned: bool,
     pub perfect: bool,
-    /// A bell physically struck, including an already-won or out-of-order one.
     pub bell: Option<usize>,
-    /// This strike won the next bell in the sequence.
     pub scored: bool,
     pub missed: bool,
 }
@@ -55,7 +45,6 @@ pub struct Ball {
     pub y: i32,
     pub dx: i32,
     pub dy: i32,
-    /// A neutral feed must be returned before it can win a bell.
     #[serde(default)]
     pub served: bool,
 }
@@ -67,36 +56,26 @@ pub struct Volley {
     pub ball: Option<Ball>,
     pub bells: u8,
     pub lives: u8,
-    /// Ticks remaining on each bell's ring animation (0 = silent).
     #[serde(default)]
     pub bell_ring: [u8; 4],
-    /// Last N ball positions for the motion trail.
     #[serde(default)]
     pub ball_trail: Vec<(i32, i32)>,
-    /// Ticks remaining on the paddle-hit flash.
     #[serde(default)]
     pub paddle_flash: u8,
-    /// Ticks remaining on the life-lost screen flash.
     #[serde(default)]
     pub miss_flash: u8,
-    /// Ball x position where the miss occurred (for splash placement).
     #[serde(default)]
     pub miss_x: i32,
-    /// Shimmer timer for the next bell. Other bells stay visually quiet.
     #[serde(default)]
     pub bell_shimmer: [u8; 4],
-    /// Fresh-press swing window; held F never refreshes it.
     #[serde(default)]
     pub swing: u8,
-    /// The bright, short afterglow of a perfectly timed return.
     #[serde(default)]
     pub perfect_flash: u8,
-    /// Current and best return streak. A miss resets only the current streak.
     #[serde(default)]
     pub combo: u8,
     #[serde(default)]
     pub best_combo: u8,
-    /// Recovery before the next serve; bells and best streak are retained.
     #[serde(default)]
     pub serve_wait: u8,
 }
@@ -123,8 +102,6 @@ impl Volley {
         }
     }
 
-    /// The next bell is always explicit: ordered progress gives a rally a
-    /// beginning, escalation and a final chime instead of four arbitrary hits.
     pub fn next_bell(&self) -> Option<usize> {
         (0..4).find(|&i| self.bells & (1 << i) == 0)
     }
@@ -133,9 +110,6 @@ impl Volley {
         (BASE_SPEED + 4 * bells.count_ones() as i32 + 2 * i32::from(combo.min(8))).min(MAX_SPEED)
     }
 
-    /// Contact position supplies the broad angle; aim adds a little english.
-    /// This is public within the crate so bots and tests use the real rule,
-    /// rather than a second, subtly different model of the paddle.
     pub(crate) fn return_dx(ball_x: i32, paddle: i32, aim: i8, old_dx: i32) -> i32 {
         let offset = ball_x - paddle;
         let raw = offset / 3 + 24 * i32::from(aim.signum());
@@ -201,9 +175,6 @@ impl Volley {
             }
         }
 
-        // WASD/the left stick moves; arrows/the right stick only aim. This
-        // separation is what lets a knight hold a catch position and shape a
-        // return instead of being dragged off it by the aim keys.
         self.paddle =
             (self.paddle + i32::from(input.move_x.signum()) * 40).clamp(COURT_LEFT, COURT_RIGHT);
 
@@ -254,7 +225,6 @@ impl Volley {
         }
 
         if ball.y <= COURT_TOP && ball.dy < 0 {
-            // Judge the bell at the ceiling crossing, not beyond it.
             let at_top = old_x + (old_y - COURT_TOP) * ball.dx / -ball.dy;
             ball.y = 2 * COURT_TOP - ball.y;
             ball.dy = ball.dy.abs();

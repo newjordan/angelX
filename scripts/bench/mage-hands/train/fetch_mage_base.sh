@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Fetch the Mage base weights with resumable curl.
-# huggingface_hub stalled on Xet at 268 MB while raw HTTPS sustains ~28 MB/s.
 set -uo pipefail
 repo="microsoft/Mage-VL-Cowork"
 dest="${1:?destination dir required}"

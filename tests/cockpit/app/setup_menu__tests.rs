@@ -26,7 +26,6 @@ fn labels(menu: &Menu) -> Vec<String> {
         .collect()
 }
 
-/// Move the cursor onto the row with this label and press Enter.
 fn choose(menu: &mut Menu, label: &str) -> Effect {
     let index = labels(menu)
         .iter()
@@ -91,7 +90,6 @@ fn home_lists_what_this_computer_has_first_and_a_number_picks_it() {
     assert_eq!(rows[0], "Use Ollama on this computer");
     assert_eq!(rows[1], "Use my ChatGPT plan");
     assert_eq!(rows[2], "Use my DeepSeek key");
-    // Signed in already: no second ChatGPT sign-in row; Grok still offered.
     assert!(!rows.contains(&"Sign in with ChatGPT".to_string()));
     assert!(rows.contains(&"Sign in with Grok".to_string()));
     assert_eq!(rows.last().unwrap(), "Not now");
@@ -129,7 +127,6 @@ fn a_pasted_key_is_checked_then_saved() {
     assert_eq!(title(&menu), "Paste your DeepSeek key");
     assert_eq!(ctrl(&mut menu, 'o'), Effect::Open(PROVIDERS[0].site.into()));
 
-    // Enter on nothing asks for the key; a paste keeps no whitespace.
     assert_eq!(press(&mut menu, KeyCode::Enter), Effect::Stay);
     assert_eq!(
         menu.page(Instant::now()).note.as_deref(),
@@ -153,7 +150,6 @@ fn a_pasted_key_is_checked_then_saved() {
         "{:?}",
         page.pose
     );
-    // Keys wait while the check runs.
     assert_eq!(press(&mut menu, KeyCode::Char('x')), Effect::Stay);
 
     let saving = saved(menu.finish(serial, answer(200, &[], PROVIDERS[0].url), Instant::now()));
@@ -230,7 +226,6 @@ fn a_provider_without_a_default_model_asks_for_one_and_typing_filters() {
     );
     assert_eq!(title(&menu), "Pick a model");
     assert_eq!(labels(&menu), ["a/one:free", "b/two", "c/three"]);
-    // Digits type into the search box here; they do not pick.
     press(&mut menu, KeyCode::Char('t'));
     press(&mut menu, KeyCode::Char('w'));
     assert_eq!(labels(&menu), ["b/two"]);
@@ -285,7 +280,6 @@ fn esc_walks_back_and_then_closes() {
     choose(&mut menu, "OpenAI");
     assert_eq!(press(&mut menu, KeyCode::Esc), Effect::Stay);
     assert_eq!(title(&menu), "Which company is your key from?");
-    // The cursor comes back to where it was.
     assert_eq!(menu.page(Instant::now()).cursor, 1);
     assert_eq!(press(&mut menu, KeyCode::Esc), Effect::Stay);
     assert_eq!(title(&menu), "Connect angelX to an AI model");
@@ -325,7 +319,6 @@ fn a_server_that_wants_a_key_asks_for_it() {
             ("ANGEL_DRIVER", "local"),
         ]
     );
-    // Back from the model list is the address, not the key screen.
     let mut menu2 = Menu::new(Found::default(), Tools::default(), Instant::now());
     choose(&mut menu2, "Use a free model on this computer");
     choose(&mut menu2, "It's on another computer");
@@ -384,7 +377,6 @@ fn signing_in_runs_the_plan_cli_and_saves_when_it_succeeds() {
     };
     assert_eq!(plan, Plan::ChatGpt);
     assert_eq!(tool, PathBuf::from("/usr/bin/codex"));
-    // The link the CLI prints is shown and Ctrl+O opens it.
     login.log.lock().unwrap().push_str(
         "Starting local login server. If your browser did not open, navigate to this URL to authenticate:\n\nhttps://auth.openai.com/oauth/authorize?x=1.\n",
     );
@@ -541,7 +533,6 @@ fn settings_replace_only_their_names_and_source_back_in_bash() {
     let dir = std::env::temp_dir().join(format!("angel-setup-test-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let path = dir.join("angel.env");
-    // A new file gets its header.
     write_settings(&path, &[("ANGEL_SETUP_SKIPPED", "1".into())]).unwrap();
     assert!(
         std::fs::read_to_string(&path)
@@ -571,7 +562,6 @@ fn settings_replace_only_their_names_and_source_back_in_bash() {
         std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
         0o600
     );
-    // bin/angelX sources the file with set -a; the value must come back exact.
     let out = std::process::Command::new("bash")
         .arg("-c")
         .arg("set -a; . \"$1\"; set +a; printf '%s|%s' \"$DEEPSEEK_API_KEY\" \"$ANGEL_DRIVER\"")
@@ -592,7 +582,6 @@ fn slash_setup_opens_the_menu_and_esc_closes_it() {
     assert!(app.setup.wants_tick());
     let menu = app.setup.menu.as_ref().unwrap();
     assert_eq!(menu.current, None, "practice is no model");
-    // Keys and pastes go to the menu, not the composer.
     app.on_key(KeyEvent::new(KeyCode::Char('3'), KeyModifiers::NONE));
     assert!(app.input.is_empty());
     app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));

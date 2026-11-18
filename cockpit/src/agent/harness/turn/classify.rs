@@ -1,37 +1,23 @@
 use super::*;
 use crate::agent::harness::live_policy;
 
-/// The live leg that classifies one tool result or provider reply
-/// (`cockpit/live/result-classify`). The host reduces the text to the flags
-/// below; the leg only combines them.
 const RESULT_CLASSIFY_LEG: &str = "result-classify";
 
-/// The prefix every tool error result carries.
 const TOOL_ERROR_PREFIX: &str = "tool error:";
 
-/// A reply that arrived structurally intact but carried nothing usable.
 const EMPTY_REPLY_MARKER: &str = "empty reply (no text and no tool calls)";
 const CLUB_STREAM_MARKER: &str = "club stream produced no data";
 
-/// One tool result as the leg reads it: the text reduced to prefix/marker
-/// flags, the call's kind, and the exit-code class. Every scan stays here; the
-/// leg decides from numbers, enums and booleans.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct ResultFeatures {
-    /// The result text starts with [`TOOL_ERROR_PREFIX`].
     error: bool,
-    /// The call is a verifier (test or compiler) run.
     verifier: bool,
-    /// The first line carried a parseable `failed (exit N)` code.
     has_exit: bool,
-    /// That code, as the native i32's unsigned bit pattern.
     exit: u32,
-    /// The provider text carries one of the two no-content markers.
     empty_marker: bool,
     club_stream: bool,
 }
 
-/// What the leg decided about those features.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
 pub(crate) struct ResultVerdict {
     error: bool,
@@ -41,7 +27,6 @@ pub(crate) struct ResultVerdict {
 }
 
 impl ResultFeatures {
-    /// The result text alone, for a caller with no tool call in hand.
     fn of_result(result: &str) -> Self {
         Self {
             error: carries_error_prefix(result),
@@ -49,7 +34,6 @@ impl ResultFeatures {
         }
     }
 
-    /// A tool result and the call that produced it.
     fn of_call(call: &ToolCall, result: &str) -> Self {
         let (has_exit, exit) = exit_code_class(result);
         Self {
@@ -61,7 +45,6 @@ impl ResultFeatures {
         }
     }
 
-    /// Provider error text, for the two no-content markers.
     fn of_error_text(error: &str) -> Self {
         Self {
             empty_marker: error.contains(EMPTY_REPLY_MARKER),
@@ -83,8 +66,6 @@ impl ResultFeatures {
 }
 
 impl ResultVerdict {
-    /// The leg contract: a verdict may only claim what the features carry, and
-    /// an error result is a red run or a dispatch failure, never both.
     fn check(&self, features: &ResultFeatures) -> Result<(), String> {
         if self.red_verifier && !self.error {
             return Err("a red verifier run must be an error result".into());
@@ -102,9 +83,6 @@ impl ResultVerdict {
     }
 }
 
-/// The exit-code class: `(has_exit, code)`. The native parser reads an i32; the
-/// leg compares the unsigned bit pattern, which keeps 126 and 127 distinct from
-/// every negative code exactly as the native comparison does.
 fn exit_code_class(result: &str) -> (bool, u32) {
     result
         .lines()
@@ -115,15 +93,10 @@ fn exit_code_class(result: &str) -> (bool, u32) {
         .map_or((false, 0), |code| (true, code as u32))
 }
 
-/// The lexical scan the error flag rests on: an error result is the tool
-/// reporting a failure behind [`TOOL_ERROR_PREFIX`].
-fn carries_error_prefix(result: &str) -> bool {
+pub(crate) fn carries_error_prefix(result: &str) -> bool {
     result.starts_with(TOOL_ERROR_PREFIX)
 }
 
-/// One decision from the `result-classify` leg: the newest live generation when
-/// it answers within the contract, else the generation shipped in this binary.
-/// A bad hot edit never blocks a turn or changes what the model is told.
 fn decide(features: &ResultFeatures) -> ResultVerdict {
     let input = features.input();
     live_policy::decide_shipped(RESULT_CLASSIFY_LEG, &input, |verdict: &ResultVerdict| {
@@ -132,37 +105,44 @@ fn decide(features: &ResultFeatures) -> ResultVerdict {
     .0
 }
 
-/// A tool error: the tool itself failed (bad path, missing arg, spawn failure,
-/// panic), or a command it ran exited non-zero. The shell and test runners
-/// report a red run this way too, so the model cannot read it as success;
-/// [`is_red_verifier_run`] separates the two where that matters.
 pub(crate) fn is_error_result(s: &str) -> bool {
     let features = ResultFeatures::of_result(s);
     decide(&features).error
 }
 
-/// A verifier that ran and came back red: the tests or the compiler reported,
-/// and the process exited with a status (`<runner> failed (exit N)`). That is
-/// evidence about the code, not a call that failed to run. Exit 126/127 (not
-/// executable, not found) and deaths by signal never reached a verdict.
 pub(crate) fn is_red_verifier_run(call: &ToolCall, result: &str) -> bool {
     let features = ResultFeatures::of_call(call, result);
     decide(&features).red_verifier
 }
 
-/// A call that gave the model nothing to act on: a tool error that is not a
-/// red verifier verdict. The consecutive-error breaker counts these. Counting
-/// red test runs as well stopped polyglot-v1 rust-decimal (DeepSeek V4.1
-/// Flash) at 67 s of 600 s, telling it to fix a path while its tests were
-/// simply failing.
 pub(crate) fn is_dispatch_failure(call: &ToolCall, result: &str) -> bool {
     let features = ResultFeatures::of_call(call, result);
     decide(&features).dispatch_failure
 }
 
-/// Provider errors that mean retrying the exact same serialized request cannot
-/// succeed. These get one bounded compact-and-rebuild opportunity before the
-/// ordinary transport retry policy is considered.
+/// A shell command that ran a test program and came back red, whatever it was wrapped in.
+///
+/// The strict classifier sees a bare `cargo test` but not `timeout 600 cargo test`, a
+/// subshell, a loop or an environment prefix, so a debugging agent's red tests counted as
+/// failed calls. Three in a row raised "Every tool call in your last several turns failed",
+/// and in a recorded run the agent's next call dropped a design whose values were already
+/// right. A red test is a measurement; this keeps it out of the failed-call streak.
+pub(crate) fn is_red_test_shell_run(call: &ToolCall, result: &str) -> bool {
+    if call.name != "shell" || !carries_error_prefix(result) {
+        return false;
+    }
+    let ran = result
+        .lines()
+        .next()
+        .and_then(|header| header.split_once(" failed (exit "))
+        .and_then(|(_, rest)| rest.split_once(')'))
+        .and_then(|(code, _)| code.parse::<i32>().ok())
+        .is_some_and(|code| code != 126 && code != 127);
+    ran && super::verify::mentions_test_run(
+        crate::agent::tools::shell::shell_command_arg(&call.args).unwrap_or(""),
+    )
+}
+
 pub(crate) fn is_context_overflow_error(error: &str) -> bool {
     let error = error.to_ascii_lowercase();
     error.contains("http 413")
@@ -178,25 +158,12 @@ pub(crate) fn is_context_overflow_error(error: &str) -> bool {
             && (error.contains("exceed") || error.contains("too large")))
 }
 
-/// Provider replies that arrived structurally intact but carried no usable
-/// content (HTTP 200, no text, no tool calls). Unlike transport failures these
-/// can repeat deterministically on identical bytes from a greedy local backend,
-/// so the retry path re-prompts once instead of only replaying the request.
 pub(crate) fn is_empty_reply_error(error: &str) -> bool {
     let features = ResultFeatures::of_error_text(error);
     decide(&features).empty_reply
 }
 
-/// Provider failures for which replaying the same request cannot help. The
-/// HTTP client already classifies/retries transient statuses; this turn-level
-/// fallback must not add two more paid calls for auth, invalid request/model,
-/// or exhausted long-window quota failures. Request timeout (408), Too Early
-/// (425), and ordinary rate limiting (429) remain transient; auth/quota
-/// detectors above can still make a specific 429 permanent.
 pub(crate) fn is_permanent_provider_error(error: &str) -> bool {
-    // The provider itself vetoed a retry of this request, or this process's
-    // trust store rejected the provider's certificate (the same chain fails
-    // the same way on every attempt).
     if carries_provider_veto(error)
         || carries_permanent_transport_configuration(error)
         || crate::agent::club::error_indicates_certificate_rejected(error)
@@ -212,8 +179,6 @@ pub(crate) fn is_permanent_provider_error(error: &str) -> bool {
     rejected_request_text(&lower) || provider_error_status(&lower).is_some_and(is_client_fault)
 }
 
-/// A quoted veto in a transient response body is not a response header.
-/// HttpClub emits the trusted header as `HTTP <status> <veto>: <detail>`.
 pub(crate) fn carries_provider_veto(error: &str) -> bool {
     error
         .strip_prefix("HTTP ")
@@ -227,8 +192,6 @@ pub(crate) fn carries_provider_veto(error: &str) -> bool {
         })
 }
 
-/// Only trust the locally generated envelope, not a marker quoted in a
-/// transient provider response body or arbitrary diagnostic context.
 pub(crate) fn carries_permanent_transport_configuration(error: &str) -> bool {
     error
         .strip_prefix("transport error after ")
@@ -240,7 +203,6 @@ pub(crate) fn carries_permanent_transport_configuration(error: &str) -> bool {
         })
 }
 
-/// Lower-cased provider text that names a rejected credential or model.
 pub(crate) fn rejected_request_text(lower: &str) -> bool {
     lower.contains("invalid api key")
         || lower.contains("invalid_api_key")
@@ -249,7 +211,6 @@ pub(crate) fn rejected_request_text(lower: &str) -> bool {
         || lower.contains("does not exist or you do not have access")
 }
 
-/// The first `http <status>` in lower-cased provider text.
 pub(crate) fn provider_error_status(lower: &str) -> Option<u16> {
     lower
         .split_once("http ")
@@ -257,44 +218,24 @@ pub(crate) fn provider_error_status(lower: &str) -> Option<u16> {
         .and_then(|digits| digits.parse::<u16>().ok())
 }
 
-/// A 4xx other than the timeout, too-early and rate-limit statuses.
 pub(crate) fn is_client_fault(status: u16) -> bool {
     (400..=499).contains(&status) && !matches!(status, 408 | 425 | 429)
 }
 
-/// A stream that died without a terminal event: the connection broke or the
-/// body ended early. Nothing was committed — no tool call ran and any streamed text is speculative — so
-/// the same bytes may be replayed after retracting the display. One predicate
-/// covers the turn loop and the agent-graph seat so neither can call the same
-/// physical fault fatal from one branch and recoverable from another.
 pub(crate) fn is_recoverable_stream_error(error: &str) -> bool {
     error.starts_with(crate::agent::club::INCOMPLETE_STREAM_ERR)
 }
 
-/// Per-hop provider retry budget. An absent or unparsable
-/// `ANGEL_PROVIDER_RETRIES` means unbounded (L01 unattended policy): a routine
-/// transient outage must not end a productive turn because an implicit count
-/// ran out. An explicit integer keeps the bounded policy, `0` included (one
-/// attempt, no retry). Permanent account/config failures never reach the retry
-/// loop regardless of this budget.
 pub(crate) fn provider_retry_budget() -> Option<usize> {
     std::env::var("ANGEL_PROVIDER_RETRIES")
         .ok()
         .and_then(|value| value.trim().parse::<usize>().ok())
 }
 
-/// Whether one more provider attempt fits inside `budget` (`None` = unbounded).
 pub(crate) fn retry_budget_allows(budget: Option<usize>, attempt: usize) -> bool {
     budget.is_none_or(|limit| attempt < limit)
 }
 
-/// Whether an in-hand provider failure may replay the same hop. A permanent
-/// account/configuration failure always outranks the stream classification: an
-/// error that carries both a rejected credential and incomplete-stream context
-/// is actionable, never a retry loop, and the recoverable spelling must not
-/// launder it. Text already streamed is only
-/// recoverable inside the incomplete-stream class, where the display is
-/// retracted before the replay.
 pub(crate) fn retryable_provider_failure(
     error: &str,
     emitted_answer: bool,
@@ -306,10 +247,6 @@ pub(crate) fn retryable_provider_failure(
     !emitted_answer || incomplete_stream
 }
 
-/// Source-changing calls for the bounded verify-before-done policy. Shell is
-/// deliberately absent: a shell command is opaque, while direct mutation tools
-/// have an honest contract. Code mode and integration are conservative because
-/// either may write through nested tools or Git.
 pub(crate) fn is_mutation_call(call: &ToolCall) -> bool {
     match call.name.as_str() {
         "write_file" | "str_replace" | "multi_edit" | "apply_patch" | "integrate" => true,
@@ -323,8 +260,6 @@ pub(crate) fn is_mutation_call(call: &ToolCall) -> bool {
     }
 }
 
-/// Dependency-install / version-bump shells that should disarm first-write
-/// starvation (Roll 09 Hugo gold was a minify version bump, not a source edit).
 pub(crate) fn is_dependency_mutation_call(call: &ToolCall) -> bool {
     if call.name != "shell" {
         return false;
@@ -333,8 +268,6 @@ pub(crate) fn is_dependency_mutation_call(call: &ToolCall) -> bool {
     dependency_mutation_command(command)
 }
 
-/// Package-manager argv that mutates the tree. Scans ASCII in place so
-/// ordinary shell hops do not copy the command to hunt `npm`/`cargo add`.
 pub(crate) fn dependency_mutation_command(command: &str) -> bool {
     const MARKERS: &[&str] = &[
         "go get ",
@@ -366,7 +299,6 @@ pub(crate) fn dependency_mutation_command(command: &str) -> bool {
     {
         return true;
     }
-    // bare `npm install` / `yarn` at end of pipeline still mutates node_modules
     command.split(['|', ';', '&', '\n']).any(|seg| {
         let seg = seg.trim();
         seg.eq_ignore_ascii_case("npm install")
@@ -378,10 +310,6 @@ pub(crate) fn dependency_mutation_command(command: &str) -> bool {
     })
 }
 
-/// A product mutation: a direct edit of the work, or a dependency shell. Meta
-/// notes / living-handoff edits do **not** count — they are board bookkeeping,
-/// not a candidate change (competition agents "progressed" by rewriting
-/// LIVING_HANDOFF while the slot still forbade a real edit).
 pub(crate) fn is_product_mutation_call(call: &ToolCall) -> bool {
     if is_dependency_mutation_call(call) {
         return true;
@@ -392,7 +320,6 @@ pub(crate) fn is_product_mutation_call(call: &ToolCall) -> bool {
     mutation_call_has_product_path(call)
 }
 
-/// Borrowed mutation path. Classify hops must not copy this.
 pub(crate) fn mutation_arg_path(args: &Value) -> Option<&str> {
     args.get("path")
         .or_else(|| args.get("file_path"))
@@ -402,9 +329,6 @@ pub(crate) fn mutation_arg_path(args: &Value) -> Option<&str> {
         .filter(|s| !s.is_empty())
 }
 
-/// First-write progress without allocating `mutation_call_paths`.
-/// Unknown / pathless mutation shapes stay historical yes; meta-only paths
-/// stay board bookkeeping.
 pub(crate) fn mutation_call_has_product_path(call: &ToolCall) -> bool {
     match call.name.as_str() {
         "write_file" | "str_replace" => match mutation_arg_path(&call.args) {
@@ -460,15 +384,11 @@ pub(crate) fn mutation_call_has_product_path(call: &ToolCall) -> bool {
     }
 }
 
-/// Paths a mutation tool intends to touch (best-effort for thrash + progress).
 #[cfg(test)]
 pub(crate) fn mutation_call_paths(call: &ToolCall) -> Vec<String> {
     let path_of = |args: &Value| mutation_arg_path(args).map(str::to_string);
     match call.name.as_str() {
         "write_file" | "str_replace" => path_of(&call.args).into_iter().collect(),
-        // apply_patch rarely carries a top-level path — extract targets from the
-        // diff/freeform body so meta-only patches (living handoff / board notes)
-        // do not count as first-write progress (A4).
         "apply_patch" => {
             let mut out: Vec<String> = path_of(&call.args).into_iter().collect();
             for p in crate::knowledge::cut::mutation_targets(&call.name, &call.args) {
@@ -503,14 +423,10 @@ pub(crate) fn short_payload_hash(s: &str) -> String {
     format!("{:016x}", hasher.finish())
 }
 
-/// True when an object must sort keys for a stable fingerprint.
-/// 0-1 key maps (the default hop) skip that Vec.
 pub(crate) fn payload_object_needs_key_sort(len: usize) -> bool {
     len > 1
 }
 
-/// Fingerprint a mutation payload without `Value::to_string()`.
-/// String bodies hash in place; other JSON shapes walk without Display.
 pub(crate) fn payload_fingerprint(value: &Value) -> String {
     match value {
         Value::String(s) => short_payload_hash(s),
@@ -564,8 +480,6 @@ pub(crate) fn feed_payload_value(hasher: &mut DefaultHasher, value: &Value) {
                     feed_payload_value(hasher, &map[key]);
                 }
             } else {
-                // 0-1 keys have a unique order — skip the sort Vec on the
-                // common read_file / list_dir hop.
                 for (key, val) in map {
                     key.hash(hasher);
                     feed_payload_value(hasher, val);
@@ -575,8 +489,6 @@ pub(crate) fn feed_payload_value(hasher: &mut DefaultHasher, value: &Value) {
     }
 }
 
-/// Stable per-edit identities for thrash detection. Short snippets that only
-/// differ by multi_edit batch packing still collide when old/new match.
 pub(crate) fn mutation_edit_signatures(call: &ToolCall) -> Vec<String> {
     if !is_mutation_call(call) {
         return Vec::new();
@@ -667,9 +579,6 @@ pub(crate) fn mutation_edit_signatures(call: &ToolCall) -> Vec<String> {
     }
 }
 
-/// Paths that usually hold generated fixtures rather than the implementing code.
-/// Matches ASCII case and `/`/`\` in place so mutation hops do not copy
-/// every path to hunt `/docs/` / `testdata/`.
 pub(crate) fn is_peripheral_mutation_path(path: &str) -> bool {
     const HEAD: &[&str] = &["docs", "testdata", "examples"];
     const MID: &[&str] = &[
@@ -689,19 +598,10 @@ pub(crate) fn is_peripheral_mutation_path(path: &str) -> bool {
         || is_meta_note_mutation_path(path)
 }
 
-/// True when `marker` appears in `hay` as its own path/token, not as a prefix of
-/// a longer identifier (`living_handoff` must not match `living_handoff_parser.rs`).
-/// Neighbors may be path separators, extensions (`.md`), or string edges — not
-/// ASCII alphanumerics / `_` / `-` that glue compound product paths (A4/A8).
-///
-/// Absolute path prefixes (`/tmp/living…`) keep substring match so
-/// `/tmp/living-handoff.md` still counts while product identifiers do not.
-/// ASCII case and `/`/`\` are compared in place — no lowercase copy.
 pub(super) fn board_marker_as_token(hay: &str, marker: &str) -> bool {
     if marker.is_empty() || hay.len() < marker.len() {
         return false;
     }
-    // Path-prefix markers intentionally cover a directory tree of board digests.
     if marker.starts_with('/') {
         return path_contains_slash_ignore_case(hay, marker);
     }
@@ -726,27 +626,7 @@ pub(super) fn board_marker_as_token(hay: &str, marker: &str) -> bool {
     false
 }
 
-/// Handoff / notes / living-board files and nested worktree scratch artifacts.
-/// Editing them is bookkeeping, not candidate progress — counting them as
-/// first-write progress made competition agents "mutate" a note or placeholder
-/// then keep inspecting while the real slot remained unchanged.
-///
-/// A4: basename bookkeeping files match **exactly** (not `contains`) so product
-/// paths like `footnotes.md`, `keynote.md`, or `host-slot.json` still count as
-/// real mutations. Angel notes/handoff stores match relative *and* absolute
-/// prefixes (`.angel/notes/…` used to under-match without a leading `/`).
-///
-/// A8: living-board tokens use path-token boundaries so `living_handoff_parser.rs`
-/// is a product path, not bookkeeping.
-///
-/// Matches ASCII case and `/`/`\` in place so mutation hops do not copy
-/// every path to hunt `LIVING_HANDOFF` / `.angel/notes`.
 pub(crate) fn is_meta_note_mutation_path(path: &str) -> bool {
-    // Competition worktrees commonly live below one owner-controlled `.scratch`
-    // directory. A second `.scratch` component is the candidate's private dump /
-    // probe area, not a product path. Keep the single outer component legal so
-    // real edits in `.scratch/worktrees/crown/src/...` (and Mini-style source
-    // worktrees directly below `.scratch`) still satisfy first-write.
     if path
         .split(['/', '\\'])
         .filter(|component| component.eq_ignore_ascii_case(".scratch"))
@@ -755,7 +635,6 @@ pub(crate) fn is_meta_note_mutation_path(path: &str) -> bool {
     {
         return true;
     }
-    // Distinctive living-board tokens as whole path segments / file stems.
     const PATH_MARKERS: &[&str] = &[
         "living_handoff",
         "living-handoff",
@@ -767,8 +646,6 @@ pub(crate) fn is_meta_note_mutation_path(path: &str) -> bool {
     if PATH_MARKERS.iter().any(|m| board_marker_as_token(path, m)) {
         return true;
     }
-    // Exact basenames only — `contains("notes.md")` falsely hit footnotes.md /
-    // keynote.md; `contains("slot.json")` hit host-slot.json / dataslot.json.
     let base = path.rsplit(['/', '\\']).next().unwrap_or(path);
     const BASE_MARKERS: &[&str] = &[
         "handoff.md",
@@ -788,7 +665,6 @@ pub(crate) fn is_meta_note_mutation_path(path: &str) -> bool {
     {
         return true;
     }
-    // Angel notes / handoff store (relative or absolute; with or without slash).
     path_contains_slash_ignore_case(path, "/.angelX/notes/")
         || path_contains_slash_ignore_case(path, "/.angelX/handoff/")
         || path_starts_with_slash_ignore_case(path, ".angelX/notes/")
@@ -801,9 +677,6 @@ pub(crate) fn is_meta_note_mutation_path(path: &str) -> bool {
         || path.eq_ignore_ascii_case("notes")
 }
 
-/// Paths that typically own product behavior.
-/// Matches ASCII case and `/`/`\` in place so mutation hops do not copy
-/// every path to hunt `/src/` / `pkg/`.
 #[cfg(test)]
 pub(crate) fn is_core_mutation_path(path: &str) -> bool {
     if path.trim().is_empty() || is_peripheral_mutation_path(path) {
@@ -827,7 +700,6 @@ pub(crate) fn is_core_mutation_path(path: &str) -> bool {
         || MID.iter().any(|dir| path_has_dir_ignore_case(path, dir))
 }
 
-/// True when `path` begins with `component/` or `component\`.
 fn path_starts_with_dir_ignore_case(path: &str, component: &str) -> bool {
     let hay = path.as_bytes();
     let needle = component.as_bytes();
@@ -838,8 +710,6 @@ fn path_starts_with_dir_ignore_case(path: &str, component: &str) -> bool {
         && (hay[needle.len()] == b'/' || hay[needle.len()] == b'\\')
 }
 
-/// True when `component` sits between `/` or `\` separators (`/test/`,
-/// `\tests\`). Scans in place so mutation hops do not copy the path.
 fn path_has_dir_ignore_case(path: &str, component: &str) -> bool {
     let hay = path.as_bytes();
     let needle = component.as_bytes();
@@ -854,7 +724,6 @@ fn path_has_dir_ignore_case(path: &str, component: &str) -> bool {
     })
 }
 
-/// Compare two path slices treating `\` as `/` and ignoring ASCII case.
 fn path_slash_eq_ignore_case(a: &[u8], b: &[u8]) -> bool {
     a.len() == b.len()
         && a.iter().zip(b.iter()).all(|(&x, &y)| {
@@ -890,9 +759,6 @@ fn path_contains_slash_ignore_case(path: &str, needle: &str) -> bool {
             .any(|window| path_slash_eq_ignore_case(window, needle))
 }
 
-/// Whether a mutated path looks like a test the agent may have invented.
-/// Matches ASCII case and `/`/`\` in place so mutation hops do not copy
-/// every path to hunt `_test.go` / `/tests/`.
 pub(crate) fn looks_like_test_source_path(path: &str) -> bool {
     let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
     const SUFFIXES: &[&str] = &[
@@ -917,7 +783,6 @@ pub(crate) fn looks_like_test_source_path(path: &str) -> bool {
         || path_has_dir_ignore_case(path, "__tests__")
 }
 
-/// True when a green verifier command only names basenames the agent authored.
 fn json_strings_contain_ignore_case(value: &Value, needle: &str) -> bool {
     match value {
         Value::String(text) => ascii_contains_ignore_case(text, needle),
@@ -932,9 +797,6 @@ fn json_strings_contain_ignore_case(value: &Value, needle: &str) -> bool {
     }
 }
 
-/// True when a verifier only names files this turn authored.
-/// Scans tool name + arg strings in place so a green `cargo test` hop does
-/// not Display-serialize or lowercase the whole argv object.
 pub(crate) fn verification_targets_self_authored(
     call: &ToolCall,
     self_authored_basenames: &std::collections::HashSet<String>,
@@ -946,7 +808,6 @@ pub(crate) fn verification_targets_self_authored(
         ascii_contains_ignore_case(&call.name, needle)
             || json_strings_contain_ignore_case(&call.args, needle)
     };
-    // Generic full-suite commands are not "only self-authored".
     const SUITE_MARKERS: &[&str] = &[
         "cargo test",
         "go test ./",
@@ -980,7 +841,6 @@ const NON_CODE_VERIFY_FILENAMES: &[&str] = &[
     "readme",
 ];
 
-/// True when a mutation target is known prose/data. Matches ASCII case
 /// in place so mutation hops do not copy every path to hunt `.MD` / `LICENSE`.
 pub(crate) fn is_prose_only_path(raw: &str) -> bool {
     let path = Path::new(raw.trim());
@@ -1009,13 +869,6 @@ pub(crate) fn is_prose_only_path(raw: &str) -> bool {
             })
 }
 
-// --- the parity oracle: the classifiers this leg replaced, kept verbatim ---
-//
-// Test builds only. The parity tests compare the shipped leg against these, so
-// the product binary carries no second implementation of the decision.
-
-/// The native classification of one result text, for a call kind we were not
-/// given: not a verifier, so an error can only be a dispatch failure.
 #[cfg(test)]
 fn native_of_result(result: &str) -> ResultVerdict {
     let error = is_error_result_native(result);
@@ -1027,7 +880,6 @@ fn native_of_result(result: &str) -> ResultVerdict {
     }
 }
 
-/// The native classification of one tool result and its call.
 #[cfg(test)]
 fn native_of_call(call: &ToolCall, result: &str) -> ResultVerdict {
     ResultVerdict {
@@ -1038,7 +890,6 @@ fn native_of_call(call: &ToolCall, result: &str) -> ResultVerdict {
     }
 }
 
-/// The native classification of one provider error text.
 #[cfg(test)]
 fn native_of_error_text(error: &str) -> ResultVerdict {
     ResultVerdict {
@@ -1049,13 +900,11 @@ fn native_of_error_text(error: &str) -> ResultVerdict {
     }
 }
 
-/// Parity oracle for [`is_error_result`].
 #[cfg(test)]
 fn is_error_result_native(s: &str) -> bool {
     s.starts_with(TOOL_ERROR_PREFIX)
 }
 
-/// Parity oracle for [`is_red_verifier_run`].
 #[cfg(test)]
 fn is_red_verifier_run_native(call: &ToolCall, result: &str) -> bool {
     if !is_error_result_native(result) || !is_verification_call(call) {
@@ -1070,13 +919,11 @@ fn is_red_verifier_run_native(call: &ToolCall, result: &str) -> bool {
         .is_some_and(|code| code != 126 && code != 127)
 }
 
-/// Parity oracle for [`is_dispatch_failure`].
 #[cfg(test)]
 fn is_dispatch_failure_native(call: &ToolCall, result: &str) -> bool {
     is_error_result_native(result) && !is_red_verifier_run_native(call, result)
 }
 
-/// Parity oracle for [`is_empty_reply_error`].
 #[cfg(test)]
 fn is_empty_reply_error_native(error: &str) -> bool {
     error.contains(EMPTY_REPLY_MARKER) || error.contains(CLUB_STREAM_MARKER)

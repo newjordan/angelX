@@ -1,10 +1,3 @@
-"""Deterministic helpers for isolated element-dropout positive augmentation.
-
-This module is deliberately side-effect free.  It never calls a model, a
-network service, a GPU job, or the frozen source dataset for writes.  Build,
-verify and focused regression code share these exact rules so the audit and the
-builder cannot silently diverge.
-"""
 from __future__ import annotations
 
 import hashlib
@@ -20,9 +13,6 @@ SEED = 20261101
 MAX_PARENTS = 512
 MAX_VARIANTS_PER_PARENT = 2
 
-# The fill guard keeps generated infill a few pixels clear of the exact target
-# box.  It is intentionally small: adjacent, unrelated controls are useful
-# distractors and may be dropped.
 FILL_GUARD_PX = 4
 CONTEXT_GUARD_PX = 2
 MIN_CANDIDATE_AREA_PX = 64
@@ -32,8 +22,6 @@ MAX_ELEMENT_WIDTH_FRAC = 0.50
 MAX_ELEMENT_HEIGHT_FRAC = 0.50
 MIN_REMAINING_DISTRACTORS = 2
 
-# Role words are not identifying context.  They are removed before matching an
-# element's visible name/text against the target phrase.
 STOPWORDS = {
     "a", "an", "and", "at", "button", "cell", "close", "current", "dialog",
     "field", "for", "from", "icon", "in", "item", "link", "menu", "of", "on",
@@ -105,13 +93,6 @@ def finite_number(value) -> bool:
 
 
 def pixel_box(box, width: int, height: int, *, tolerance: float = 1.0):
-    """Return a clipped integer ``(x0, y0, x1, y1)`` or ``None``.
-
-    Source element boxes are sometimes fractional.  Fill boxes use floor/ceil
-    so an element is fully covered.  A small tolerance admits boxes that touch
-    the screen edge after browser/AT-SPI rounding; materially out-of-bounds
-    boxes are rejected rather than clipped silently.
-    """
     if not isinstance(box, (list, tuple)) or len(box) != 4:
         return None
     if not all(finite_number(v) for v in box):
@@ -174,13 +155,6 @@ def element_tag(element: dict) -> str:
 
 
 def element_context_text(element: dict) -> str:
-    """Visible/accessible text used for target-context token protection.
-
-    Native AT-SPI elements expose the short accessible ``name`` (the actual
-    button label) plus a longer ``target`` sentence that includes the app name.
-    Using ``name`` first prevents every calculator control from matching the
-    app name in the target phrase.
-    """
     for key in ("name", "text", "label", "target"):
         value = normalize_text(element.get(key))
         if value:
@@ -201,7 +175,6 @@ def meaningful_role(element: dict) -> bool:
 
 
 def find_target_element(elements: list[dict], target_box, width: int, height: int):
-    """Return ``(index, element, iou)`` for a unique confident target match."""
     target_px = pixel_box(target_box, width, height, tolerance=0.0)
     if target_px is None:
         return None
@@ -224,15 +197,6 @@ def find_target_element(elements: list[dict], target_box, width: int, height: in
 
 def protected_regions(elements: list[dict], target_index: int, target_box,
                       target_text: str, width: int, height: int) -> list[dict]:
-    """Protected pixel regions that must remain byte-identical.
-
-    The target's exact box and a 4 px fill-clearance guard are always
-    protected.  Visible/accessible text that shares a non-role token with the
-    target phrase, an element overlapping the target box, or a text-bearing
-    element touching the target box is also protected so identifying labels
-    are not used as dropout distractors.  The proximity check is deliberately
-    tight (4 px) so adjacent unrelated controls remain usable distractors.
-    """
     target_px = pixel_box(target_box, width, height, tolerance=0.0)
     if target_px is None:
         raise ValueError("target box is not a valid in-bounds box")
@@ -244,8 +208,6 @@ def protected_regions(elements: list[dict], target_index: int, target_box,
         source_px = pixel_box(element.get("box"), width, height, tolerance=2.0)
         if source_px is None:
             continue
-        # Do not protect an entire window/panel merely because a token appears
-        # somewhere inside it; the target guard already covers the target.
         if box_area(source_px) > MAX_ELEMENT_AREA_FRAC * width * height:
             continue
         context_text = element_context_text(element)
@@ -260,14 +222,12 @@ def protected_regions(elements: list[dict], target_index: int, target_box,
                 "box": list(context_px),
                 "element_index": index,
             })
-    # Stable order is part of the generated-row contract.
     regions.sort(key=lambda r: (r["reason"], tuple(r["box"]), -1 if r["element_index"] is None else r["element_index"]))
     return regions
 
 
 def candidate_elements(elements: list[dict], target_index: int, target_box,
                        target_text: str, width: int, height: int):
-    """Return genuine source-element dropout candidates, deterministically ordered."""
     protected = protected_regions(elements, target_index, target_box, target_text, width, height)
     protected_boxes = [tuple(region["box"]) for region in protected]
     target_px = pixel_box(target_box, width, height, tolerance=0.0)
@@ -309,13 +269,6 @@ def candidate_elements(elements: list[dict], target_index: int, target_box,
 
 def choose_drop_sets(candidates: list[dict], width: int, height: int,
                      element_count: int) -> list[dict]:
-    """Choose 1 or 2 deterministic, disjoint-element dropout subsets.
-
-    ``compact`` drops one or two source elements.  ``context_group`` drops a
-    small spatial cluster (up to five) while always leaving at least two other
-    source elements visible.  Both are genuine source-element dropout; no
-    background-region infill is invented here.
-    """
     if not candidates:
         return []
     max_drops = max(0, element_count - 1 - MIN_REMAINING_DISTRACTORS)
@@ -336,9 +289,6 @@ def choose_drop_sets(candidates: list[dict], width: int, height: int,
             selected.append(candidate)
         return selected
 
-    # Prefer a spatial cluster for the context variant.  Coarse 3x3 cells are
-    # enough to make "drop a toolbar/sidebar area" distinct from "drop one or
-    # two controls".
     cells: dict[tuple[int, int], list[dict]] = {}
     for candidate in candidates:
         box = candidate["box"]
@@ -364,8 +314,6 @@ def choose_drop_sets(candidates: list[dict], width: int, height: int,
     compact_pool = [c for c in candidates if c["element_index"] not in context_ids]
     compact = greedy(compact_pool, min(2, max_drops))
     if not compact:
-        # Only one region has candidates: make the compact variant a strict
-        # subset, never an identical image.
         compact = context[:1]
     compact_ids = {c["element_index"] for c in compact}
     if compact_ids == context_ids:
@@ -402,7 +350,6 @@ def parse_click(answer: str) -> dict:
 
 
 def projected_click(row: dict) -> tuple[float, float]:
-    """Project a row's normalized click into original full-frame coordinates."""
     call = _parse_click(row["answer"])
     point = call["arguments"]["coordinate"]
     width, height = int(row["width"]), int(row["height"])

@@ -1,6 +1,3 @@
-# The worker's entry points into the rules, refusing until their groups land
-# them (delve/GROUPS.md: core owns rules.Run.step, home the compute contracts).
-
 def rules.Run.step(+run: J.Val, +inputs: J.Val) -> J.Val:
   J.set(run, "$refused", J.JS{"the Bend rules do not step a Run yet"})
 

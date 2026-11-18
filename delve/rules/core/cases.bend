@@ -1,7 +1,3 @@
-# Case wrappers for the core group's recorded Rust cases
-# (crates/delve/tests/rules/core_bend_cases__tests.rs): each unpacks `in`,
-# calls the port and packs the answer in the shape of `out`.
-
 def case.rules.Input.valid(+input: J.Val) -> J.Val:
   J.JBool{rules.Input.valid(input)}
 
@@ -41,8 +37,6 @@ def case.rules.Run.scaled(+input: J.Val) -> J.Val:
 def case.rules.Run.away(+input: J.Val) -> J.Val:
   J.JBool{rules.Run.away(J.get(input, "run"), core.u(input, "id"))}
 
-# --- hero ---------------------------------------------------------------------
-
 def case.hero.Hero.hurt(+input: J.Val) -> J.Val:
   hero.Hero.hurt(J.get(input, "h"), core.u(input, "damage"))
 
@@ -56,9 +50,6 @@ def cc.hero.Hero.blow.go(r: J.Val & Bool) -> J.Val:
 def case.hero.Hero.blow(+input: J.Val) -> J.Val:
   cc.hero.Hero.blow.go(hero.Hero.blow(J.get(input, "h"), core.u(input, "damage"), core.u(input, "tag")))
 
-# --- hitstop ------------------------------------------------------------------
-
-# A run holding just the fields the hold reads: its state, its tune, its seats.
 def cc.hitstop.run(+input: J.Val) -> J.Val:
   +r0 = J.set(J.obj(), "players", cc.hitstop.seats(J.items(J.get(input, "ids")), J.obj()))
   +r1 = cc.hitstop.opt(r0, J.get(input, "run"), "hitstop")
@@ -100,8 +91,6 @@ def case.hitstop.State.inputs(+input: J.Val) -> J.Val:
 def case.hitstop.Run.finish_hitstop(+input: J.Val) -> J.Val:
   +out = hitstop.Run.finish_hitstop(input)
   cc.hitstop.opt(core.set_u(J.obj(), "shake", core.u(out, "shake")), out, "hitstop")
-
-# --- the step's small phases --------------------------------------------------
 
 def case.rules.Run.count_idle(+input: J.Val) -> J.Val:
   +out = rules.Run.count_idle(J.get(input, "run"), J.get(input, "inputs"))

@@ -11,8 +11,6 @@ use serde_json::{Value, json};
 use std::sync::mpsc::{self, SyncSender, TrySendError};
 
 pub(super) fn scope(workspace: &Path, task: &str, verify: Option<&str>) -> PathBuf {
-    // Deliberately model-independent context. The route stays on every receipt;
-    // the existing route-specific fitness learner retains its own statistics.
     workspace_run_root(workspace)
         .join("research/relationships")
         .join(crate::knowledge::cut::sha256_hex(
@@ -55,8 +53,6 @@ impl Output {
     }
 }
 
-/// Owned by one turn. A single worker drains bursts into one local transform;
-/// Python, disk locks, and fsync never block the model/tool execution thread.
 pub(crate) struct LiveResearch {
     root: PathBuf,
     enabled: bool,
@@ -81,8 +77,6 @@ impl LiveResearch {
         events: mpsc::Sender<crate::agent::harness::TurnEvent>,
     ) -> Self {
         let enabled = !task.trim().is_empty()
-            // Synthetic unit turns opt in explicitly; they must not write
-            // invented verifier evidence into an operator's real learner.
             && crate::agent::harness::env_flag("ANGEL_SLOPTOMIZER_LIVE", !cfg!(test));
         let mut live = Self {
             root: scope(workspace, task, verify),
@@ -133,7 +127,6 @@ impl LiveResearch {
                     ));
                 }
                 while let Ok(mut events) = receive.recv() {
-                    // Coalesce only what is already waiting; never wait for a batch.
                     for extra in receive.try_iter().take(31) {
                         events.extend(extra);
                     }
@@ -173,9 +166,6 @@ impl LiveResearch {
         let hash = crate::knowledge::cut::sha256_hex;
         self.sequence += 1;
         let mut event = json!({
-            // Some providers reuse call IDs after their old history compacts.
-            // Each actual execution is distinct; retrying its queued event is
-            // still idempotent at the durable store.
             "id": hash(format!("{}:{}:{}", self.nonce, self.sequence, call.id).as_bytes()),
             "check": hash(json!([call.name, call.args]).to_string().as_bytes()),
             "receipt": hash(result.as_bytes()), "tool": call.name,
@@ -219,9 +209,6 @@ impl LiveResearch {
         }
     }
 
-    /// Returns changed scalar telemetry, and at most one compact advice turn.
-    /// A context splice/model change recalls the current frontier. Ordinary
-    /// progress stays silent; repeated evidence and contrasts speak on events.
     pub(crate) fn poll(&mut self, workspace: &Path, history: &mut Vec<ChatMsg>, handoff: bool) {
         let mut out = self.output.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(error) = &out.error
@@ -251,8 +238,6 @@ impl LiveResearch {
                 message.role == ChatRole::Harness && message.content.as_ref() == text
             })
         });
-        // A later quiet update cannot swallow a contrast/repetition signal
-        // before the model has had its next request boundary.
         let notice = out.pending_notice.take();
         let warns = notice.is_some();
         if handoff || missing || warns {
@@ -271,7 +256,6 @@ impl LiveResearch {
                 })
                 .flatten();
             if let Some(existing) = existing {
-                // A new turn can reuse an unchanged card still in history.
                 self.capsule = Some(existing.content.to_string());
             } else {
                 history.push(ChatMsg::harness(turn.clone()));
@@ -285,8 +269,6 @@ impl LiveResearch {
 impl Drop for LiveResearch {
     fn drop(&mut self) {
         self.flush();
-        // The worker never owns the turn's event sender. A slow optional
-        // learner therefore cannot hold headless event draining/turn exit open.
         if let Ok(out) = self.output.try_lock()
             && out.advice["relation_count"].as_u64().unwrap_or(0) > 0
         {
@@ -308,8 +290,6 @@ fn excerpt(text: &str, tail: bool) -> String {
     }
 }
 
-/// Optional parsing of the existing public caveman line. No private reasoning,
-/// extra model request, format rejection, or invented hypothesis is involved.
 fn caveman_frame(text: &str) -> Option<[String; 4]> {
     text.lines().find_map(|line| {
         let parts = line.split('→').map(str::trim).collect::<Vec<_>>();

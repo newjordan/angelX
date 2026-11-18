@@ -3,25 +3,6 @@ import ./answer.bend as Ans
 import ./map.bend as Map
 import ./nums.bend as N
 
-# King Cinder on the summit. He cannot be hit head on. He stomps, sweeps and
-# rains embers by a pattern that tells before it strikes; after a few of them he
-# kneels, and the crown that sits on his head comes within reach. A ground pound
-# onto the crown (any knight's) knocks a plate off it. Three crowns, each
-# heavier than the last, each a harder pattern; a plate for every seat at the
-# table, never fewer.
-#
-# One call a tick: the tick number, how many sit, the feet of the knights
-# standing, his state and his hazards in; his state and hazards after the tick
-# out. Everything is integer pixels and ticks, so the same feet on the same tick
-# replay the same fight.
-#
-# The feet arrive in six fixed slots and his hazards as a list. A list is a
-# `Type` in Bend: a walk consumes it, so the tick filters his hazards once and
-# builds the new ones from nothing — the order the session has always used.
-#
-# A beat and an attack travel as indices, never as text: 0 Dormant, 1 Rest,
-# 2 Tell, 3 Strike, 4 Wince, 5 Rage, 6 Down; and 0 Stomp, 1 Sweep, 2 Embers.
-
 def tile() -> U32:
   16
 
@@ -46,7 +27,6 @@ def summit_ox() -> U32:
 def summit_oy() -> U32:
   10
 
-# The floor of the arena, pixel row: (SUMMIT.oy + 12) * TILE.
 def floor() -> U32:
   352
 
@@ -55,12 +35,9 @@ def mark_home(+p: Map.P) -> U32:
     case Map.P{+x, +y}:
       N.add(N.mul(x, tile()), U32.div(tile(), 2))
 
-# Where he stands to begin with, pixels: the map's cinder mark, centre of its
-# cell.
 def home() -> U32:
   mark_home(Map.cinder())
 
-# The arena a knight has to stand in for him to wake: the summit's own columns.
 def arena(+x: U32, +y: U32) -> Bool:
   Bool.and(
     Bool.and(
@@ -70,8 +47,6 @@ def arena(+x: U32, +y: U32) -> Bool:
     N.gt(y, N.mul(summit_oy(), tile()))
   )
 
-# ------------------------------------------------------------------ the lists
-
 def rev_hazard(xs: List<Ans.Hazard>, acc: List<Ans.Hazard>) -> List<Ans.Hazard>:
   match xs:
     case Nil{}:
@@ -79,7 +54,6 @@ def rev_hazard(xs: List<Ans.Hazard>, acc: List<Ans.Hazard>) -> List<Ans.Hazard>:
     case Con{h, t}:
       rev_hazard(t, Con{h, acc})
 
-# The keep-or-drop of a filter, as a match, so the list it keeps is used once.
 def kept(+keep: Bool, +h: Ans.Hazard, acc: List<Ans.Hazard>) -> List<Ans.Hazard>:
   match keep:
     case True{}:
@@ -87,7 +61,6 @@ def kept(+keep: Bool, +h: Ans.Hazard, acc: List<Ans.Hazard>) -> List<Ans.Hazard>
     case False{}:
       acc
 
-# One hazard on the end of a list, keeping the order they were raised in.
 def push(+h: Ans.Hazard, xs: List<Ans.Hazard>) -> List<Ans.Hazard>:
   match xs:
     case Nil{}:
@@ -102,9 +75,6 @@ def push_all(hs: List<Ans.Hazard>, xs: List<Ans.Hazard>) -> List<Ans.Hazard>:
     case Con{h, t}:
       push_all(t, push(h, xs))
 
-# ---------------------------------------------------------------- the hazards
-
-# One tick of a hazard: its warning counts down, then it moves and its life does.
 def hazard_one(+h: Ans.Hazard) -> Ans.Hazard:
   match h:
     case Ans.Hazard{+x, +y, +w, +ht, +vx, +tell, +live}:
@@ -125,7 +95,6 @@ def hazard_live(+h: Ans.Hazard) -> U32:
     case Ans.Hazard{+x, +y, +w, +ht, +vx, +tell, +live}:
       live
 
-# Whether a hazard is still doing something: warning, or hurting.
 def hazard_keep(+h: Ans.Hazard) -> Bool:
   Bool.or(N.gt(hazard_live(h), 0), N.gt(hazard_tell(h), 0))
 
@@ -137,9 +106,6 @@ def hazard_tick(hs: List<Ans.Hazard>, acc: List<Ans.Hazard>) -> List<Ans.Hazard>
       +one = hazard_one(h)
       hazard_tick(t, kept(hazard_keep(one), one, acc))
 
-# ---------------------------------------------------------------- the feet
-
-# How many knights stand in the arena.
 def arena_count(+at: Ans.Feet) -> U32:
   match at:
     case Ans.Feet{+n, +ax, +ay, +bx, +by, +cx, +cy, +dx, +dy, +ex, +ey, +fx, +fy}:
@@ -150,7 +116,6 @@ def arena_count(+at: Ans.Feet) -> U32:
       +c4 = Bool.pick(U32, Bool.and(N.gt(n, 4), arena(ex, ey)), N.add(c3, 1), c3)
       Bool.pick(U32, Bool.and(N.gt(n, 5), arena(fx, fy)), N.add(c4, 1), c4)
 
-# The knight nearest `x`, the first one in seat order when two are as near.
 def closer(+best: Ans.Pick, +use: Bool, +v: U32, +x: U32) -> Ans.Pick:
   match best:
     case Ans.Pick{+any, +pick}:
@@ -182,8 +147,6 @@ def nearest(+at: Ans.Feet, +x: U32) -> Ans.Pick:
       +b5 = closer(b4, Bool.and(N.gt(n, 4), arena(ex, ey)), ex, x)
       closer(b5, Bool.and(N.gt(n, 5), arena(fx, fy)), fx, x)
 
-# How many knights stand left of `v`, and left of or on it: the multiset's
-# `k`-th value without sorting one.
 def count_lt(+at: Ans.Feet, +v: U32) -> U32:
   match at:
     case Ans.Feet{+n, +ax, +ay, +bx, +by, +cx, +cy, +dx, +dy, +ex, +ey, +fx, +fy}:
@@ -207,7 +170,6 @@ def count_le(+at: Ans.Feet, +v: U32) -> U32:
 def holds(+at: Ans.Feet, +k: U32, +v: U32) -> Bool:
   Bool.and(N.le(count_lt(at, v), k), N.lt(k, count_le(at, v)))
 
-# The value `k` places into the sorted arena x's.
 def kth(+at: Ans.Feet, +k: U32) -> U32:
   match at:
     case Ans.Feet{+n, +ax, +ay, +bx, +by, +cx, +cy, +dx, +dy, +ex, +ey, +fx, +fy}:
@@ -238,9 +200,6 @@ def kth(+at: Ans.Feet, +k: U32) -> U32:
         )
       )
 
-# ------------------------------------------------------------------ the pattern
-
-# The attacks of a crown, before he kneels: two, three, then four of them.
 def pattern_len(+phase: U32) -> U32:
   Bool.pick(U32, U32.is_zero(phase), 2, Bool.pick(U32, U32.is_eq(phase, 1), 3, 4))
 
@@ -268,9 +227,6 @@ def attack_time(+kind: U32) -> U32:
 def strike_time(+kind: U32) -> U32:
   Bool.pick(U32, U32.is_zero(kind), 22, Bool.pick(U32, U32.is_eq(kind, 1), 14, 12))
 
-# ---------------------------------------------------------------- the warning
-
-# An arm sweeps the floor in front of him, the way the nearest knight stands.
 def sweep_hazard(+x: U32, +toward: Ans.Pick, +tell: U32) -> Ans.Hazard:
   match toward:
     case Ans.Pick{+any, +tx}:
@@ -308,8 +264,6 @@ def embers_loop(fuel: Nat, +c: U32, +at: Ans.Feet, +elapsed: U32, +tell: U32, ac
         Con{Ans.Hazard{N.sub(px, 10), top, 20, N.sub(floor(), top), 0, tell, 12}, acc}
       )
 
-# Columns of embers fall where the knights stand: more of them for more seats
-# and later crowns, each a stride apart.
 def embers(+at: Ans.Feet, +seats: U32, +elapsed: U32, +tell: U32, +phase: U32) -> List<Ans.Hazard>:
   +columns = N.add(N.add(1, phase), N.div(N.sat_sub(seats, 1), 2))
   embers_loop(U32.to_nat(columns), 0, at, elapsed, tell, Nil{})
@@ -329,8 +283,6 @@ def warn(+st: Ans.State, +at: Ans.Feet, +seats: U32, +elapsed: U32) -> List<Ans.
         )
       )
 
-# ---------------------------------------------------------------- the blow
-
 def wave(+x: U32, +dir: U32, +k: U32) -> Ans.Hazard:
   Ans.Hazard{
     N.add(N.sub(x, 8), N.mul(N.mul(dir, k), 40)),
@@ -342,7 +294,6 @@ def wave(+x: U32, +dir: U32, +k: U32) -> Ans.Hazard:
     70
   }
 
-# The blow lands: a stomp sends waves along the floor, each following the last.
 def strike_hazards(+st: Ans.State) -> List<Ans.Hazard>:
   match st:
     case Ans.State{+x, +b, +kind, +t, +phase, +plates, +count, +head, +head_before, +x_before, +flinch}:
@@ -361,9 +312,6 @@ def strike_hazards(+st: Ans.State) -> List<Ans.Hazard>:
         )
       )
 
-# ---------------------------------------------------------------- the beats
-
-# Asleep until a knight walks in.
 def dormant(+st: Ans.State, +at: Ans.Feet) -> Ans.Branch:
   match st:
     case Ans.State{+x, +b, +kind, +t, +phase, +plates, +count, +head, +head_before, +x_before, +flinch}:
@@ -374,7 +322,6 @@ def dormant(+st: Ans.State, +at: Ans.Feet) -> Ans.Branch:
         Ans.Branch{Ans.State{x, b, kind, t, phase, plates, count, head, head, x, flinch}, Nil{}}
       )
 
-# Between crowns: he sinks a little.
 def down(+st: Ans.State) -> Ans.Branch:
   match st:
     case Ans.State{+x, +b, +kind, +t, +phase, +plates, +count, +head, +head_before, +x_before, +flinch}:
@@ -395,7 +342,6 @@ def down(+st: Ans.State) -> Ans.Branch:
         Nil{}
       }
 
-# The wait after a crown falls: the crown is mended for the seats at the table.
 def raging(+st: Ans.State, +seats: U32) -> Ans.Branch:
   match st:
     case Ans.State{+x, +b, +kind, +t, +phase, +plates, +count, +head, +head_before, +x_before, +flinch}:
@@ -448,7 +394,6 @@ def rest_tell(+moved: U32, +x0: U32, +up: U32, +phase: U32, +count: U32, +plates
   }
   Ans.Branch{st, warn(st, at, seats, elapsed)}
 
-# The moment of choice: kneel, or tell the next attack.
 def rest_act(+moved: U32, +x0: U32, +up: U32, +kind: U32, +phase: U32, +count: U32, +plates: U32, +head: U32, +flinch: U32, +at: Ans.Feet, +elapsed: U32, +seats: U32) -> Ans.Branch:
   Bool.pick(
     Ans.Branch,
@@ -472,7 +417,6 @@ def rest_act(+moved: U32, +x0: U32, +up: U32, +kind: U32, +phase: U32, +count: U
     rest_tell(moved, x0, up, phase, count, plates, head, flinch, at, elapsed, seats, pattern_at(phase, count))
   )
 
-# Standing: he steps toward the nearest knight, slowly, and then attacks.
 def rest(+st: Ans.State, +at: Ans.Feet, +elapsed: U32, +seats: U32) -> Ans.Branch:
   match st:
     case Ans.State{+x, +b, +kind, +t, +phase, +plates, +count, +head, +head_before, +x_before, +flinch}:
@@ -486,7 +430,6 @@ def rest(+st: Ans.State, +at: Ans.Feet, +elapsed: U32, +seats: U32) -> Ans.Branc
         Ans.Branch{Ans.State{moved, b, kind, left, phase, plates, count, up, head, x, flinch}, Nil{}}
       )
 
-# The warning is out; when it runs out the blow lands.
 def tell(+st: Ans.State) -> Ans.Branch:
   match st:
     case Ans.State{+x, +b, +kind, +t, +phase, +plates, +count, +head, +head_before, +x_before, +flinch}:
@@ -528,7 +471,6 @@ def striking(+st: Ans.State, +seats: U32) -> Ans.Branch:
         Ans.Branch{Ans.State{x, b, kind, left, phase, plates, count, head, head, x, flinch}, Nil{}}
       )
 
-# Kneeling: the crown is low, and a slam can take a plate off it.
 def kneeling(+st: Ans.State) -> Ans.Branch:
   match st:
     case Ans.State{+x, +b, +kind, +t, +phase, +plates, +count, +head, +head_before, +x_before, +flinch}:
@@ -541,13 +483,9 @@ def kneeling(+st: Ans.State) -> Ans.Branch:
         Ans.Branch{Ans.State{x, b, kind, left, phase, plates, count, low, head, x, flinch}, Nil{}}
       )
 
-# ---------------------------------------------------------------- the tick
-
-# The beat he is on, one tick on, and any hazards that tick raised.
 def beat(+st: Ans.State, +elapsed: U32, +seats: U32, +at: Ans.Feet) -> Ans.Branch:
   match st:
     case Ans.State{+x, +b, +kind, +t, +phase, +plates, +count, +head, +head_before, +x_before, +flinch}:
-      # The flinch counts down before the beat is read, as it always has.
       +calm = {
         Ans.State{x, b, kind, t, phase, plates, count, head, head_before, x_before, N.sat_sub(flinch, 1)} : Ans.State
       }
@@ -586,8 +524,6 @@ def assemble(b: Ans.Branch, hazards: List<Ans.Hazard>) -> Ans.BossOut:
 def step(+elapsed: U32, +seats: U32, +at: Ans.Feet, +st: Ans.State, hazards: List<Ans.Hazard>) -> Ans.BossOut:
   assemble(beat(st, elapsed, seats, at), hazards)
 
-# ---------------------------------------------------------------- the slam
-
 def slam_hit(+go: Bool, +st: Ans.State, hazards: List<Ans.Hazard>) -> Ans.SlamOut:
   match go:
     case False{}:
@@ -620,9 +556,6 @@ def slam_hit(+go: Bool, +st: Ans.State, hazards: List<Ans.Hazard>) -> Ans.SlamOu
             }
           )
 
-# A slam landed with its feet at `(x, y)` pixels: whether a plate fell, and the
-# state after it. A crown that loses its last plate falls: the next crown, or the
-# last of them, and its hazards go with it.
 def slam(+st: Ans.State, +x: U32, +y: U32, hazards: List<Ans.Hazard>) -> Ans.SlamOut:
   match st:
     case Ans.State{+sx, +b, +kind, +t, +phase, +plates, +count, +head, +head_before, +x_before, +flinch}:

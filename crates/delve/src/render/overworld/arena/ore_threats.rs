@@ -64,8 +64,6 @@ fn art() -> &'static [Img; 8] {
         })
     })
 }
-/// A forecast portrait at the requested top-left corner, preserving the
-/// same silhouette and colours the knight will meet in combat.
 pub(super) fn portrait(im: &mut Img, kind: OreKind, x: i32, y: i32, size: i32) {
     if size <= 0 {
         return;

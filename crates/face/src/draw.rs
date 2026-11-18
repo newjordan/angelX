@@ -24,68 +24,47 @@ use crate::model::{
     EYE_IRIS, EYE_PUPIL, EYE_WHITE, Goddess, PartKind, SKIN_FADE, SKIN_LIPS, SKIN_SOLID,
 };
 
-/// Her layer group ("FACE").
 pub const GROUP: u32 = 0x4641_4345;
-/// The picture her scene is drawn into, and the halo disc's.
 pub const PICTURE_BASE: u32 = LAYER_PICTURES + 0x4641_0000;
 pub const SCENE_PICTURE: u32 = PICTURE_BASE;
 pub const HALO_PICTURE: u32 = PICTURE_BASE + 1;
-/// The picture a pointing limb is drawn into.
 pub const LIMB_PICTURE: u32 = PICTURE_BASE + 3;
-/// Her meshes: a part each, then the rings.
 pub const MESH_BASE: u32 = 0x4641_0000;
 const RING_MESHES: u32 = MESH_BASE + 0x10;
 const SHEATH_MESHES: u32 = MESH_BASE + 0x20;
 const LIMB_MESH: u32 = MESH_BASE + 0x40;
 const LIMB_ID: u64 = 0x4641_0003_0000;
 
-/// Her silver, her lips' rose gold, her eyes' light.
 const SILVER: [f32; 3] = [0.92, 0.92, 0.94];
 const ROSE_GOLD: [f32; 3] = [1.0, 0.56, 0.48];
 const EYE_LIGHT: [f32; 3] = [0.82, 0.95, 1.0];
-/// Her eyes as they burn.
 const EYE_FIRE: [f32; 3] = [1.0, 0.10, 0.04];
 
-/// The cube in her forehead: its side (meters), how far it drifts in and
-/// out of her skull about the skin (meters), how long one drift takes, how
-/// fast it turns, and how slowly its colours go round (hue turns a second).
 const CUBE_SIDE: f32 = 0.05;
 const CUBE_DRIFT: f32 = 0.028;
 const CUBE_DRIFT_SECONDS: f32 = 23.0;
 const CUBE_TURN: [f32; 3] = [0.13, 0.21, 0.08];
 const CUBE_HUE_RATE: f32 = 0.018;
 
-/// Where the jewel on her brow is found: the plane of a circlet about her
-/// head (its middle up and back from her eyes, its front tipped down
-/// toward them, radians), fitted to her skin, the jewel at its front.
 const CIRCLET_UP: f32 = 0.06;
 const CIRCLET_BACK: f32 = 0.10;
 const CIRCLET_TIP: f32 = 0.30;
 const CIRCLET_STANDOFF: f32 = 0.0025;
 const CIRCLET_STEPS: usize = 144;
 
-/// Scene node ids: her joints (by the file's node index), her parts, her
-/// regalia.
 const JOINT_IDS: u64 = 0x4641_0000_0000;
 const PART_IDS: u64 = 0x4641_0001_0000;
 const CROWN_ID: u64 = 0x4641_0002_0000;
 
-/// The halo disc's picture size.
 const HALO_SIZE: u32 = 512;
 
-/// Her camera: how wide it sees (her picture is square), how far back it
-/// stands, and where it looks, from the middle of her eyes. Her head and
-/// neck alone; with her regalia, wide enough for the halo and rings whole.
 const FOV_Y: f32 = 0.215;
 const FOV_Y_REGALIA: f32 = 0.335;
 const DISTANCE: f32 = 1.85;
 const LOOK_AT: [f32; 3] = [0.0, -0.045, -0.07];
 const LOOK_AT_REGALIA: [f32; 3] = [0.0, -0.02, -0.07];
-/// The camera a little below her eyes: she is looked up to.
 const CAMERA_DROP: f32 = 0.07;
 
-/// The rings: radius, tube, tilt about X, tilt about Z, turn speed
-/// (radians a second), colour.
 const RINGS: [(f32, f32, f32, f32, f32, [f32; 3]); 3] = [
     (0.205, 0.0016, 1.32, 0.10, 0.22, [1.0, 0.80, 0.42]),
     (0.235, 0.0011, 0.32, -0.18, -0.13, [0.55, 0.88, 1.0]),
@@ -93,15 +72,10 @@ const RINGS: [(f32, f32, f32, f32, f32, [f32; 3]); 3] = [
 ];
 const GEMS: usize = 7;
 
-/// What draws her, with what it has sent.
 pub struct Drawing {
     pub goddess: Arc<Goddess>,
-    /// Draw her regalia (rings, halo disc, gems, the jewel on her brow, and
-    /// the aura and motes about her picture). Off: just her head.
     pub regalia: bool,
-    /// The jewel on her brow, in the head joint's space (fitted once).
     jewel: [f32; 3],
-    /// Each part's mesh as last sent (its weights' signature).
     sent: Vec<Option<u64>>,
     rings_sent: bool,
 }
@@ -120,13 +94,11 @@ impl Drawing {
         d
     }
 
-    /// Forget what was sent: everything goes again (a new window).
     pub fn reset(&mut self) {
         self.sent.iter_mut().for_each(|s| *s = None);
         self.rings_sent = false;
     }
 
-    /// Where the camera stands and what it looks at.
     pub fn camera_at(&self) -> ([f32; 3], [f32; 3]) {
         let e = self.goddess.eyes_at;
         let at = if self.regalia {
@@ -139,14 +111,11 @@ impl Drawing {
         (eye, target)
     }
 
-    /// How many meters her picture spans top to bottom (her camera's view
-    /// at her face): what turns pixels into meters for her limbs.
     pub fn meters_across(&self) -> f32 {
         let fov = if self.regalia { FOV_Y_REGALIA } else { FOV_Y };
         2.0 * DISTANCE * (fov * 0.5).tan()
     }
 
-    /// Where you are from her eyes: yaw toward her left, pitch down.
     pub fn viewer(&self) -> [f32; 2] {
         let (cam, _) = self.camera_at();
         let e = self.goddess.eyes_at;
@@ -154,8 +123,6 @@ impl Drawing {
         [dx.atan2(dz), (-dy).atan2((dx * dx + dz * dz).sqrt())]
     }
 
-    /// The meshes to send before drawing `moment`: the parts whose shapes
-    /// moved since they were last sent, and the rings the first time.
     pub fn meshes(&mut self, moment: &Moment) -> Vec<(u32, MeshData)> {
         let mut out = Vec::new();
         for (i, part) in self.goddess.parts.iter().enumerate() {
@@ -178,8 +145,6 @@ impl Drawing {
         out
     }
 
-    /// The pictures her scene names, straight RGBA, by id (with her
-    /// regalia, the halo disc's). Sent once.
     pub fn pictures(&self) -> Vec<(u32, u32, u32, Vec<u8>)> {
         if !self.regalia {
             return Vec::new();
@@ -188,8 +153,6 @@ impl Drawing {
         vec![(HALO_PICTURE, w, h, rgba)]
     }
 
-    /// The circlet's plane: its middle, the way to her left, the way to
-    /// its front (tipped down), and its normal.
     fn circlet_frame(&self) -> ([f32; 3], [f32; 3], [f32; 3], [f32; 3]) {
         let e = self.goddess.eyes_at;
         let c = [e[0], e[1] + CIRCLET_UP, e[2] - CIRCLET_BACK];
@@ -197,9 +160,6 @@ impl Drawing {
         (c, [1.0, 0.0, 0.0], [0.0, -s, k], [0.0, -k, -s])
     }
 
-    /// How far her skin reaches from the circlet's middle, in its plane,
-    /// at each of `CIRCLET_STEPS` angles (0 her front, turning to her
-    /// left): the band hugs her head at that, plus its standoff.
     fn circlet_reach(&self) -> Vec<f32> {
         let (c, u, v, w) = self.circlet_frame();
         let dot = |a: [f32; 3], b: [f32; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -217,7 +177,6 @@ impl Drawing {
                 reach[i] = reach[i].max((x * x + z * z).sqrt());
             }
         }
-        // Fill angles no vertex fell in from their neighbours, then smooth.
         let known: Vec<usize> = (0..CIRCLET_STEPS).filter(|&i| reach[i] > 0.0).collect();
         if known.is_empty() {
             return vec![0.09; CIRCLET_STEPS];
@@ -245,7 +204,6 @@ impl Drawing {
             .collect()
     }
 
-    /// Where the circlet's jewel sits on her brow, in the head joint's space.
     fn jewel_at(&self) -> [f32; 3] {
         let (c, _, v, _) = self.circlet_frame();
         let r = self.circlet_reach()[0] + 0.003;
@@ -255,7 +213,6 @@ impl Drawing {
         )
     }
 
-    /// Her scene at `moment`, `t` seconds on her clock.
     pub fn scene(&self, moment: &Moment, t: f64) -> Scene {
         let g = &self.goddess;
         let (eye, target) = self.camera_at();
@@ -272,7 +229,6 @@ impl Drawing {
             },
             clear: Some([0.0; 4]),
         });
-        // The rig, posed.
         let posed = g.posed(&moment.head);
         for (i, joint) in g.joints.iter().enumerate() {
             let (Some(joint), Some(transform)) = (joint, posed[i]) else {
@@ -352,8 +308,6 @@ impl Drawing {
             }
             scene.nodes.push(node);
         }
-        // The cube in her forehead: turning, drifting in and out of her skull,
-        // its faces going round the colours a little apart from each other.
         let drift = (t as f32 / CUBE_DRIFT_SECONDS * std::f32::consts::TAU).sin();
         let f = g.forehead;
         let o = g.forehead_out;
@@ -392,7 +346,6 @@ impl Drawing {
         if !self.regalia {
             return scene;
         }
-        // A jewel on her brow, where a circlet would hold it: it rides her head.
         let mut jewel = Node::new(
             CROWN_ID + 41,
             MeshRef::Gem,
@@ -410,7 +363,6 @@ impl Drawing {
             ..Transform::IDENTITY
         };
         scene.nodes.push(jewel);
-        // Her regalia: a crown point at her head, not turning with it.
         let crown_at = [g.head_at[0], g.eyes_at[1] + 0.03, g.head_at[2] - 0.01];
         let grow = 0.6 + 0.4 * p;
         let mut crown = Node::empty(CROWN_ID);
@@ -422,7 +374,6 @@ impl Drawing {
         scene.nodes.push(crown);
         let t32 = t as f32;
         let spin = moment.spin;
-        // The halo disc, behind her head, facing you.
         let mut disc = Node::new(
             CROWN_ID + 1,
             MeshRef::Quad,
@@ -471,7 +422,6 @@ impl Drawing {
                 ..Transform::IDENTITY
             };
             scene.nodes.push(ring);
-            // Its light: a wider, faint sheath about it.
             let mut sheath = Node::new(
                 CROWN_ID + 8 + k as u64,
                 MeshRef::Uploaded(SHEATH_MESHES + k as u32),
@@ -488,7 +438,6 @@ impl Drawing {
             sheath.parent = Some(CROWN_ID + 2 + k as u64);
             scene.nodes.push(sheath);
             if k == 0 {
-                // Gems riding the first ring.
                 for n in 0..GEMS {
                     let a = n as f32 / GEMS as f32 * std::f32::consts::TAU;
                     let mut gem = Node::new(
@@ -514,9 +463,6 @@ impl Drawing {
     }
 }
 
-/// Where her eyes and mouth are on her picture, in its pixels (`size`
-/// square, y down), and the way her mouth pours on it (a unit vector), for
-/// what she shoots and spills. `None` if her head cannot be placed.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Anchors {
     pub eyes: [[f32; 2]; 2],
@@ -525,7 +471,6 @@ pub struct Anchors {
 }
 
 impl Drawing {
-    /// Her eyes and mouth on the picture `scene` draws at `size`.
     pub fn anchors(&self, scene: &Scene, size: (u32, u32)) -> Option<Anchors> {
         let g = &self.goddess;
         let head_id = JOINT_IDS + g.head as u64;
@@ -566,8 +511,6 @@ impl Drawing {
 }
 
 impl Drawing {
-    /// Her `kind` of limb stretched so its tip lies `length` meters from
-    /// its root, as the mesh to send (once a gesture).
     pub fn limb_mesh(&self, kind: crate::limb::LimbKind, length: f32) -> Option<(u32, MeshData)> {
         let limb = self.limb(kind)?;
         Some((LIMB_MESH, limb.stretched(length)))
@@ -580,16 +523,10 @@ impl Drawing {
         }
     }
 
-    /// How far across a limb reaches (meters): the strip it needs is twice
-    /// this, with a little room.
     pub fn limb_radius(&self, kind: crate::limb::LimbKind) -> Option<f32> {
         self.limb(kind).map(|l| l.radius)
     }
 
-    /// The scene of a limb stretched to `length` (its mesh sent with
-    /// [`Drawing::limb_mesh`]), lying along the picture, seen side on and
-    /// flat (orthographic) at `ppm` pixels a meter, its tip `tip_room`
-    /// pixels in from the right edge of a picture `size` pixels.
     pub fn limb_scene(
         &self,
         kind: crate::limb::LimbKind,
@@ -629,7 +566,6 @@ impl Drawing {
     }
 }
 
-/// Hue, saturation, value (each 0..1) as linear RGB.
 fn hsv(h: f32, s: f32, v: f32) -> [f32; 3] {
     let k = |n: f32| {
         let k = (n + h * 6.0) % 6.0;
@@ -638,7 +574,6 @@ fn hsv(h: f32, s: f32, v: f32) -> [f32; 3] {
     [k(5.0), k(3.0), k(1.0)]
 }
 
-/// The rainbow's bands, outside in.
 const RAINBOW: [[f32; 3]; 7] = [
     [1.0, 0.16, 0.16],
     [1.0, 0.55, 0.10],
@@ -649,11 +584,6 @@ const RAINBOW: [[f32; 3]; 7] = [
     [0.72, 0.30, 1.0],
 ];
 
-/// Where a limb's picture (`size` pixels, its tip `tip_room` pixels in from
-/// its right end) lies so its tip reaches `target`, bursting in from
-/// `entry`: its rectangle (in the same pixels, before its turn) and its
-/// turn (radians, clockwise on screen). `along` slides it back toward
-/// where it came from (negative) or on past the target (positive), pixels.
 pub fn limb_rect(entry: [f32; 2], target: [f32; 2], size: (u32, u32), tip_room: f32, along: f32) -> ([f32; 4], f32) {
     let (dx, dy) = (target[0] - entry[0], target[1] - entry[1]);
     let l = (dx * dx + dy * dy).sqrt().max(1.0);
@@ -666,9 +596,6 @@ pub fn limb_rect(entry: [f32; 2], target: [f32; 2], size: (u32, u32), tip_room: 
     ([centre[0] - w / 2.0, centre[1] - h / 2.0, w, h], dir[1].atan2(dir[0]))
 }
 
-/// The way her rainbow is thrown, on screen: from the corner she leans out
-/// of toward the window's middle, a little upward, so it arcs out over the
-/// terminal before it falls.
 pub fn pour_toward(corner: [f32; 2], middle: [f32; 2]) -> [f32; 2] {
     let d = [
         middle[0] - corner[0],
@@ -678,7 +605,6 @@ pub fn pour_toward(corner: [f32; 2], middle: [f32; 2]) -> [f32; 2] {
     [d[0] / l, d[1] / l]
 }
 
-/// A glowing line from `a` to `b` (window pixels) as a stroke layer.
 fn beam(
     id: u64,
     z: i32,
@@ -712,13 +638,6 @@ fn beam(
     layer
 }
 
-/// Her spectacle's layers, in window pixels at `z`: as her eyes heat, a red
-/// light gathers in them; as they fire, two beams from `eyes` to `target`,
-/// white at their heart, and sparks thrown where they strike; as she
-/// pours, a rainbow ribbon thrown out of `mouth` along `pours` (a unit
-/// vector on screen: out into the window) and falling in an arc, its end
-/// thrown into droplets. `scale` is her picture's size over 400 pixels;
-/// `t` her clock.
 pub fn spectacle_layers(
     moment: &Moment,
     eyes: [[f32; 2]; 2],
@@ -739,7 +658,6 @@ pub fn spectacle_layers(
         id
     };
     let tt = t as f32;
-    // Gathering light in her eyes.
     if moment.heat > 0.01 {
         for e in eyes {
             let r = (8.0 + 30.0 * moment.heat + 10.0 * moment.laser) * scale;
@@ -754,7 +672,6 @@ pub fn spectacle_layers(
             out.push(glow);
         }
     }
-    // The beams, and where they strike.
     if moment.laser > 0.01 {
         let pulse = 0.75 + 0.25 * (tt * 47.0).sin().abs();
         for (k, e) in eyes.iter().enumerate() {
@@ -818,11 +735,8 @@ pub fn spectacle_layers(
             out.push(sparks);
         }
     }
-    // The rainbow.
     if moment.pour > 0.01 {
         let poured = (s - crate::mind::POUR_AT as f32).max(0.0);
-        // How long a stretch of falling the ribbon shows: it grows as she
-        // pours, then its head lets go and falls away.
         let reach = (poured / 0.7).min(1.0) * 1.15;
         let speed = 560.0 * scale;
         let gravity = 780.0 * scale;
@@ -855,7 +769,6 @@ pub fn spectacle_layers(
                 ));
             }
         }
-        // Droplets off its end.
         let end = point(reach, 0.0);
         for (k, colour) in RAINBOW.iter().enumerate() {
             let age = (poured + k as f32 * 0.07) % 0.7;
@@ -881,7 +794,6 @@ pub fn spectacle_layers(
     out
 }
 
-/// A chrome surface tinted `tint`, `liquid` molten.
 fn chrome(tint: [f32; 3], liquid: f32) -> Material {
     Material {
         chrome: 1.0,
@@ -890,8 +802,6 @@ fn chrome(tint: [f32; 3], liquid: f32) -> Material {
     }
 }
 
-/// The rotation that turns a camera at `eye` (looking down its -Z) to look
-/// at `target`, its up kept up.
 pub fn look_at(eye: [f32; 3], target: [f32; 3]) -> [f32; 4] {
     let f = [target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]];
     let l = (f[0] * f[0] + f[1] * f[1] + f[2] * f[2]).sqrt().max(1e-9);
@@ -904,8 +814,6 @@ pub fn look_at(eye: [f32; 3], target: [f32; 3]) -> [f32; 4] {
     ))
 }
 
-/// A torus about the Z axis (the ring in the XY plane), `radius` to its
-/// tube's middle, `tube` thick.
 pub fn torus(radius: f32, tube: f32, around: u32, across: u32) -> MeshData {
     let mut m = MeshData::default();
     for i in 0..=around {
@@ -939,9 +847,6 @@ pub fn torus(radius: f32, tube: f32, around: u32, across: u32) -> MeshData {
     m
 }
 
-/// The halo disc's picture: straight RGBA, `HALO_SIZE` square. A warm
-/// light behind her head, rings, a dashed ring, a band of braille cells,
-/// and faint rays: drawn once.
 pub fn halo_picture() -> (u32, u32, Vec<u8>) {
     let n = HALO_SIZE as usize;
     let mut rgba = vec![0u8; n * n * 4];
@@ -968,20 +873,16 @@ pub fn halo_picture() -> (u32, u32, Vec<u8>) {
                     alpha += k;
                 }
             };
-            // The light behind her head.
             add([1.0, 0.93, 0.8], 0.42 * (-((r / 0.42).powi(2))).exp());
-            // Rays.
             let ray = (a * 18.0).cos().max(0.0).powf(40.0)
                 * smooth((r - 0.32) / 0.1)
                 * (1.0 - smooth((r - 0.7) / 0.25));
             add(gold, 0.18 * ray);
-            // Rings.
             add(gold, 0.95 * line(r, 0.62, 0.006));
             add(gold, 0.35 * line(r, 0.655, 0.003));
             let dash = ((a / std::f32::consts::TAU * 72.0).fract() < 0.55) as u8 as f32;
             add(gold, 0.6 * dash * line(r, 0.76, 0.012));
             add(cyan, 0.4 * line(r, 0.965, 0.003));
-            // A band of braille, 48 cells of 2 x 4 dots.
             let cells = 48.0;
             let u = (a / std::f32::consts::TAU + 0.5) * cells;
             let cell = u.floor() as u32;
@@ -1026,10 +927,6 @@ fn hash(mut x: u32) -> u32 {
     x ^ (x >> 16)
 }
 
-/// Her glass layers for a picture of her placed at `place` (window pixels
-/// or cells), turned by `angle` radians about its middle (clockwise on
-/// screen): the picture, at `z`. With her regalia, an aura one under it and
-/// motes rising one over, placed in the same units.
 pub fn layers(place: Placement, z: i32, moment: &Moment, regalia: bool, angle: f32) -> Vec<Layer> {
     let p = moment.presence;
     if p <= 0.001 {
@@ -1085,5 +982,4 @@ pub fn layers(place: Placement, z: i32, moment: &Moment, regalia: bool, angle: f
     out
 }
 
-/// The world matrix type, for hosts that place things by her.
 pub type World = Mat4;

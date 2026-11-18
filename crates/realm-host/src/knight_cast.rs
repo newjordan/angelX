@@ -101,8 +101,6 @@ fn frames() -> Option<&'static [RgbaImage; 14]> {
             Some(std::array::from_fn(|index| {
                 let blue = index >= 7;
                 let pose = index % 7;
-                // Hand-reviewed crop bounds, not an assumed uniform atlas grid.
-                // Mounted rows share the exact hoof baseline and pixel scale.
                 let (col, y, height, dest_y) = if pose < 3 {
                     (pose, if blue { 630 } else { 20 }, 320, 25)
                 } else {
@@ -119,12 +117,8 @@ fn frames() -> Option<&'static [RgbaImage; 14]> {
                 for sy in 0..height {
                     for sx in 0..width {
                         let pixel = source.get_pixel(x + sx, y + sy);
-                        // Generated antialias fringe is sub-visible dust at this scale.
-                        // Preserve opaque black ink inside armor and horse silhouettes.
                         if pixel[3] >= 96 && dest_y + sy < FRAME_H {
                             let mut ink = *pixel;
-                            // Preserve black ink while letting the two heraldic colors
-                            // survive the world tone curve at a 25-dot sprite height.
                             if blue
                                 && u16::from(ink[2]) * 10 > u16::from(ink[0]) * 13
                                 && ink[2] > ink[1]
@@ -159,8 +153,6 @@ pub fn sprite(side: Side, pose: Pose) -> Option<&'static RgbaImage> {
     frames().map(|frames| &frames[index + if side == Side::BlueRight { 7 } else { 0 }])
 }
 
-/// Fit both axes by the same scale. Side identity is fixed in screen space;
-/// the center of the road remains clear even in narrow panes.
 pub fn composite(frame: &mut RgbaImage, key: FrameKey) {
     let (w, h) = frame.dimensions();
     if w < 24 || h < 16 {

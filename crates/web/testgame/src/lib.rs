@@ -15,17 +15,14 @@ use std::collections::VecDeque;
 pub const W: u32 = 320;
 pub const H: u32 = 180;
 pub const TICK_HZ: u32 = 30;
-/// Your own dot: the probe finds it by this colour.
 pub const OWN: u32 = 0xffff_d23f;
 const OTHER: u32 = 0xff6c_8aa8;
 const GROUND: u32 = 0xff10_1418;
 const GRID: u32 = 0xff1c_232b;
-/// Positions are in sixteenths of a pixel; a full stick walks 3 px a tick.
 const SUB: i32 = 16;
 const SPEED: i32 = 3 * SUB;
 const RING: usize = 24;
 
-/// One tick of one seat's hands.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Step {
     pub held: u32,
@@ -67,14 +64,12 @@ impl Step {
     }
 }
 
-/// The one movement rule: the server steps it and the client predicts with it.
 pub fn walk(pos: (i32, i32), step: &Step) -> (i32, i32) {
     let x = pos.0 + i32::from(step.x) * SPEED / 127;
     let y = pos.1 + i32::from(step.y) * SPEED / 127;
     (x.clamp(0, (W as i32 - 1) * SUB), y.clamp(0, (H as i32 - 1) * SUB))
 }
 
-/// Where the ring's dot `i` is on `tick` (server side).
 fn ring(i: usize, tick: u32) -> (i32, i32) {
     let a = tick as f32 * 0.04 + i as f32 * std::f32::consts::TAU / RING as f32;
     let r = 64.0 + (i % 3) as f32 * 8.0;
@@ -83,9 +78,7 @@ fn ring(i: usize, tick: u32) -> (i32, i32) {
 }
 
 pub struct TestGame {
-    /// Your dot as the server last said.
     own: (i32, i32),
-    /// The ring, by tick, newest last: drawn between two of these.
     ring: VecDeque<(u32, Vec<(i32, i32)>)>,
     ticks: Vec<u32>,
 }
@@ -138,7 +131,6 @@ impl GameClient for TestGame {
                 *px = if x % 16 == 0 || y % 16 == 0 { GRID } else { GROUND };
             }
         }
-        // Everyone else, between the two snapshots around the render tick.
         self.ticks.clear();
         self.ticks.extend(self.ring.iter().map(|(t, _)| *t));
         if let Some((a, b, t)) = bracket(&self.ticks, view.render_tick) {
@@ -149,8 +141,6 @@ impl GameClient for TestGame {
                 square(frame, x / SUB as f32, y / SUB as f32, 2, OTHER);
             }
         }
-        // Your own: the server's word, the commands it has not taken, and
-        // the part of a tick the keys held now have walked.
         let mut own = self.own;
         for (_, step) in view.pending {
             own = walk(own, step);
@@ -175,7 +165,6 @@ fn square(frame: &mut Frame, cx: f32, cy: f32, r: i32, colour: u32) {
     }
 }
 
-/// The loopback server: one seat, the ring, a fixed one-way delay each way.
 pub struct Loopback {
     delay_ms: f64,
     to_server: VecDeque<(f64, Vec<u8>)>,
@@ -209,11 +198,7 @@ impl Loopback {
         self.to_server.push_back((now_ms + self.delay_ms, msg.to_vec()));
     }
 
-    /// Run the server to `now_ms`; the messages that reach the client by
-    /// then, packed `[u32 len LE][bytes]`.
     pub fn take(&mut self, now_ms: f64) -> &[u8] {
-        // Tick by tick, taking each message at the tick it arrived by, as a
-        // server on its own clock would, however late the page calls this.
         let step_ms = 1000.0 / f64::from(TICK_HZ);
         let mut next = *self.next_ms.get_or_insert(now_ms);
         while next <= now_ms {
@@ -313,8 +298,6 @@ mod loopback_exports {
         LOOP.with(|l| *l.borrow_mut() = Loopback::new(delay_ms));
     }
 
-    /// # Safety
-    /// `ptr` and `len` are a buffer from `angel_alloc`.
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn loopback_send(ptr: *const u8, len: usize, now_ms: f64) {
         let msg = unsafe { angel_web::bytes(ptr, len) };
@@ -351,7 +334,6 @@ mod tests {
         frame.px.iter().position(|&p| p == OWN).map(|i| i % W as usize)
     }
 
-    /// Frames at 60 Hz through the loopback with an 80 ms trip each way.
     #[test]
     fn your_dot_moves_on_the_next_frame_and_the_server_agrees() {
         let mut rt = Runtime::<TestGame>::new();
@@ -381,7 +363,6 @@ mod tests {
         assert!(walking.windows(2).all(|w| w[1] >= w[0]), "never steps back: {walking:?}");
         rt.hands().up(button::RIGHT);
         let after = run(&mut rt, &mut server, 30);
-        // The server walked as far as the prediction did: no correction.
         assert_eq!(after.first(), after.last());
         assert_eq!(rt.status(), &angel_net::client::Status::Playing);
     }

@@ -1,7 +1,6 @@
 use super::*;
 use crate::rules::Run;
 
-/// A run at home with the yard given, its first knight standing.
 fn home_run(yard: Salvage) -> Run {
     let mut run = Run::new(7, 1, None);
     run.home.salvage = yard;
@@ -14,7 +13,6 @@ fn knight(run: &Run) -> (u32, String) {
     (id, crate::rules::talents::knight_key(hero))
 }
 
-/// A yard holding one wished piece of every place, at `grade`.
 fn full_yard(grade: Grade, by: &str) -> Salvage {
     let mut yard = Salvage::default();
     for place in Place::ALL {
@@ -99,7 +97,6 @@ fn the_finder_wishes_the_piece_into_whatever_they_want_without_spending_a_wish()
     assert!(run.piece_awaiting(id).is_none());
     assert_eq!(run.players[&id].wishes, wishes, "no held wish is spent");
     assert!(run.wish_on_piece(id, "more").is_err(), "one wish a piece");
-    // The shallow floors give up nothing.
     run.dungeon.pack = Pack::Crypt;
     let heard = run.cues.len();
     run.cues.push("boss_fall:bone-king".into());
@@ -155,7 +152,6 @@ fn the_fallback_always_makes_a_vessel_the_checker_takes() {
     assert_eq!(leanings(&yard.plan().unwrap().pieces)[0], "holy", "her temper is what they wished");
 }
 
-/// A design written back as the answer format, for the checker.
 fn render(d: &Design) -> String {
     let mut s = format!("vessel {}\nsays {}\ntraits {}\nquirks {}\n", d.name, d.says, d.traits.join(", "), d.quirks.join(", "));
     for (m, l) in &d.voice {
@@ -178,8 +174,6 @@ fn a_build_takes_its_pieces_and_the_next_one_must_be_bigger() {
     assert_eq!(yard.pieces.len(), Place::ALL.len() - 4, "her pieces left the yard");
     assert_eq!(yard.flagship().unwrap().size(), 4 * Grade::Sound.worth());
     assert!(run.build_vessel(1, &ids, design, true).is_err(), "built once");
-    // Build two needs six pieces; the yard has six left (no prow among
-    // them), so it waits for a prow.
     assert_eq!(run.home.salvage.plan(), None);
     run.home.salvage.add(Place::Prow, Grade::Fine, "You", Pack::Unknown);
     run.home.salvage.add(Place::Hull, Grade::Fine, "You", Pack::Unknown);
@@ -187,10 +181,8 @@ fn a_build_takes_its_pieces_and_the_next_one_must_be_bigger() {
     run.home.salvage.add(Place::Treads, Grade::Fine, "You", Pack::Unknown);
     let plan = run.home.salvage.plan().expect("the second build");
     assert_eq!((plan.n, plan.pieces.len()), (2, 6));
-    // Away from home nothing is made.
     run.dungeon.depth = 3;
     assert_eq!(run.salvage_plan(), None);
-    // The reveal comes once.
     assert!(run.reveal_vessel().is_some());
     assert!(run.cues.iter().any(|c| c == "vessel_reveal:1"));
     assert!(run.reveal_vessel().is_none());
@@ -209,7 +201,6 @@ fn the_newer_yard_survives_the_host_rebuilding_home() {
     newer.salvage.rev += 5;
     run.rebuild_home(newer, treasury);
     assert_eq!(run.home.salvage.pieces.len(), 2, "the host's newer yard stands");
-    // Saved and read back; a bad yard costs the realm nothing else.
     let json = serde_json::to_string(&run.home).unwrap();
     let back: crate::rules::home::Home = serde_json::from_str(&json).unwrap();
     assert_eq!(back.salvage, run.home.salvage);

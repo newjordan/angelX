@@ -18,46 +18,23 @@ use crate::scene::DepthUse;
 use crate::frame::{Draw, Frame, Instance, PICTURE};
 use crate::picture::GpuPicture;
 
-/// A scene in its own pixels, drawn into picture `id`'s cells.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Stage {
-    /// The picture id its cells name.
     pub id: u32,
-    /// The canvas, in the stage's own pixels (a game's native picture).
     pub size: (u32, u32),
-    /// The placement box, in cells.
     pub cols: u16,
     pub rows: u16,
-    /// Back to front, placed in the stage's pixels.
     pub layers: Vec<Layer>,
-    /// Which scene this is (a room). When it changes, the new one slides in
-    /// over the last from `enter`: `[1, 0]` from the right, `[0, -1]` from
-    /// above; with no `enter` it simply replaces it.
     pub scene: u64,
     pub enter: Option<[f32; 2]>,
-    /// How far the floor tips away from the camera (`angel_stage::Frame::tilt`).
     pub tilt: f32,
-    /// 3D things between the layers (`angel_stage::scene::Props`): seen by
-    /// the camera the tilt gives, drawn into a picture of their own at the
-    /// props' grain and laid over `props.at` layers.
     pub props: Option<Props>,
-    /// How hard the world was just hit, 0 to 1 (`angel_stage::Frame::
-    /// impact`): the post pass splits its colours and lifts its light by it.
     pub impact: f32,
 }
 
-/// The longest side a stage texture may take: the smallest
-/// `max_texture_dimension_2d` any wgpu backend guarantees (WebGPU's
-/// floor), so a stage sized here is valid everywhere the compositor runs.
 pub const MAX_TARGET_PX: u32 = 8192;
 
-/// The texture a stage takes in its box: the canvas fit inside with its
-/// aspect kept, in whole window pixels, as a picture of that size would be
-/// placed (`graphics::cell_slice`), so the cells show it one to one. An
-/// empty canvas, box or cell has no texture at all: `(0, 0)`, and the
-/// caller draws nothing. The result never exceeds [`MAX_TARGET_PX`] on a
-/// side, however large a box a producer names.
 pub fn target_size(stage: &Stage, cell: (u32, u32)) -> (u32, u32) {
     if stage.size.0 == 0
         || stage.size.1 == 0
@@ -85,8 +62,6 @@ pub fn target_size(stage: &Stage, cell: (u32, u32)) -> (u32, u32) {
     (w, h)
 }
 
-/// The stage's layers in texture pixels: every placement, height and breath
-/// scaled from the stage's pixels to the texture's.
 pub fn scaled_layers(stage: &Stage, target: (u32, u32)) -> Vec<Layer> {
     let sx = target.0 as f32 / stage.size.0.max(1) as f32;
     let sy = target.1 as f32 / stage.size.1.max(1) as f32;
@@ -114,19 +89,13 @@ pub fn scaled_layers(stage: &Stage, target: (u32, u32)) -> Vec<Layer> {
         .collect()
 }
 
-/// A stage's own textures beside its picture: the last scene, kept while
-/// the next slides in, and the next one drawn on its own.
 const STAGE_PREVIOUS: u32 = 0x4000_0000;
 const STAGE_NEXT: u32 = 0x2000_0000;
-/// And the picture its props are drawn into.
 const STAGE_PROPS: u32 = 0x1000_0000;
-/// And a world's (`Props::world`): its floor and blocks, and its figures.
 const STAGE_WORLD: u32 = 0x0800_0000;
 const STAGE_FIGURES: u32 = 0x0400_0000;
-/// And a lit world's plain drawing, made only for its depth.
 const STAGE_WORLD_DEPTH: u32 = 0x0200_0000;
 
-/// How long a new scene takes to slide in.
 const SLIDE_SECONDS: f32 = 0.42;
 
 fn ease_in_out(k: f32) -> f32 {
@@ -139,7 +108,6 @@ fn ease_in_out(k: f32) -> f32 {
 }
 
 impl Core {
-    /// Show a stage in the cells naming `id` (`None` takes it down).
     pub fn set_stage(&mut self, id: u32, stage: Option<Stage>) {
         match stage {
             Some(stage) => {
@@ -147,7 +115,6 @@ impl Core {
             }
             None => {
                 self.stages.remove(&id);
-                // The last stage gone, the post pass's textures go with it.
                 if self.stages.is_empty() && let Some(post) = self.post.as_mut() {
                     post.release();
                 }
@@ -162,16 +129,10 @@ impl Core {
         }
     }
 
-    /// The texture stage `id` draws into, `size` pixels, made when missing
-    /// or when the size changed.
     fn stage_target(&mut self, id: u32, size: (u32, u32), cols: u16, rows: u16) {
         self.target_texture(id, size, cols, rows, false);
     }
 
-    /// The texture a renderer draws into for picture `id` (a stage's, or a
-    /// scene's), `size` pixels, made when missing or when the size changed.
-    /// `premultiplied` says how a layer must read it: a stage is opaque, a
-    /// scene may not be.
     pub(crate) fn target_texture(
         &mut self,
         id: u32,
@@ -229,17 +190,11 @@ impl Core {
         }
     }
 
-    /// Draw every stage into its texture, each in its own submission (the
-    /// globals hold its size), before the frame that shows them. `cell` is
-    /// the host's cell size in pixels, which a stage's box is measured in;
-    /// `now` is the host's clock in seconds (`Core::layer_parts`).
     pub fn render_stages(&mut self, cell: (u32, u32), now: f64) {
         if self.stages.is_empty() {
             return;
         }
         let mut pool = std::mem::take(&mut self.spare_vecs);
-        // Ids first, then each stage borrowed just long enough to scale
-        // its layers out: no stage (and none of its layers) is cloned.
         let ids: Vec<u32> = self.stages.keys().copied().collect();
         for id in ids {
             let Some(stage) = self.stages.get(&id) else {
@@ -260,13 +215,7 @@ impl Core {
             let own = |l: &&Layer| {
                 !matches!(l.kind, LayerKind::Picture(p) | LayerKind::PicturePart(p, _) if p == id)
             };
-            // The props (and a world, if there is one), drawn into pictures
-            // of their own, which then lie among the layers like any picture
-            // does.
             let laid = self.draw_props(id, stage_size, stage_tilt, size);
-            // Post-processed, the screen's own marks (the trailing layers
-            // that stand on the screen: the HUD, the bands) go over the
-            // world after the post pass, untouched by it.
             let post = self.post_on;
             let split = if post {
                 layers.len() - layers.iter().rev().take_while(|l| matches!(l.stand, Stand::Screen)).count()
@@ -292,7 +241,6 @@ impl Core {
             screen.assemble_into(&mut screen_parts, &mut pool);
             let impact = self.stages.get(&id).map_or(0.0, |s| s.impact);
             let grid = size.0 as f32 / stage_size.0.max(1) as f32;
-            // A new scene arriving from a side slides in over the last one.
             let (prev_id, next_id) = (id ^ STAGE_PREVIOUS, id ^ STAGE_NEXT);
             let last = self.stage_scenes.insert(id, scene);
             if let Some(enter) = enter
@@ -316,8 +264,6 @@ impl Core {
                 self.spare_screen = screen;
                 continue;
             };
-            // The new scene into its own texture, then both into the stage's:
-            // the old one leaving, the new one arriving behind it.
             self.stage_target(next_id, size, 0, 0);
             self.draw_stage_frame(next_id, size, &frame, post.then_some((&screen, grid, impact)));
             self.spare_screen = screen;
@@ -348,18 +294,6 @@ impl Core {
         self.spare_vecs = pool;
     }
 
-    /// Draw stage `id`'s props, if it has some, into their own picture, and
-    /// say where it goes: the number of layers under it, and the layer that
-    /// shows the picture over the stage's texture (`size`, in its own
-    /// pixels). The stage keeps its nodes. A stage with none has no props
-    /// picture either. Every picture laid comes back so, in order of where.
-    ///
-    /// With a world (`Props::world`), the world is drawn too, all at the
-    /// texture's own size and sharing one depth buffer: its floor, then its
-    /// blocks over it (kept in the depth), into one picture; its figures,
-    /// tested against the blocks, into another; and the props, tested
-    /// against the blocks, into the props' picture. Each is laid where it
-    /// says, in order of where.
     fn draw_props(&mut self, id: u32, stage_size: (u32, u32), tilt: f32, size: (u32, u32)) -> Vec<(usize, Layer)> {
         let Some(props) = self.stages.get_mut(&id).and_then(|s| s.props.as_mut()) else {
             self.drop_targets(&[id ^ STAGE_PROPS, id ^ STAGE_WORLD, id ^ STAGE_FIGURES, id ^ STAGE_WORLD_DEPTH]);
@@ -382,35 +316,20 @@ impl Core {
                 nodes
             }
             Some(mut world) => {
-                // Its sets' grounds, uploaded the first time they are named.
                 for (mesh_id, mesh) in &world.meshes {
                     if !self.has_mesh(*mesh_id) {
                         let _ = self.upload_mesh(*mesh_id, mesh);
                     }
                 }
-                // The floor, then the blocks over it, their depth kept for
-                // what stands among them.
                 let picture = id ^ STAGE_WORLD;
                 let depth = self.depth_view(size);
                 let standing = !world.blocks.is_empty() || !world.extra.is_empty();
                 let lit = world.look.as_ref().filter(|l| l.lights()).cloned();
-                // Its figures lit by its look as cards, where it says so
-                // (`Look::cards`, docs/WORLD-TIERS.md "Lit cards").
                 let cards = lit.as_ref().filter(|l| l.cards.is_some()).cloned();
-                // Through its look (docs/REALM-MONOLITH.md): the floor and
-                // blocks lit and put on their places' ramps at the stage's
-                // own pixel grain, enlarged into the picture; their depth
-                // at the picture's size, what the look's reveal opens
-                // left out, for what stands among them.
                 let has_reveal = lit.as_ref().is_some_and(|l| l.reveal.is_some() || !l.reveals.is_empty());
                 if world.floor.is_empty() && !standing {
                     self.drop_targets(&[picture, id ^ STAGE_WORLD_DEPTH]);
                 } else if let Some(mut look) = lit {
-                    // Through its look (docs/REALM-MONOLITH.md): the floor and
-                    // blocks lit and put on their places' ramps at the stage's
-                    // own pixel grain, enlarged into the picture; their depth
-                    // at the picture's size, what the look's reveal opens
-                    // left out, for what stands among them.
                     look.pixel_rows = stage_size.1.max(16);
                     self.drop_targets(&[id ^ STAGE_WORLD_DEPTH]);
                     self.target_texture(picture, size, 0, 0, true);
@@ -434,7 +353,6 @@ impl Core {
                         let floor = Scene { camera, nodes: std::mem::take(&mut world.floor), look: None };
                         self.draw_scene_with_depth(&view, size, &floor, "glass-world-floor", Some(picture), DepthUse::Fresh, None);
                         world.floor = floor.nodes;
-                        // The set's blocks, and those it has not with them.
                         let mut nodes = std::mem::take(&mut world.blocks);
                         let set_blocks = nodes.len();
                         nodes.append(&mut world.extra);
@@ -445,10 +363,6 @@ impl Core {
                     }
                     laid.push((world.at, screen_layer(picture, size)));
                 }
-                // An empty depth for what stands when there is nothing to
-                // stand behind. With a lit world whose look has a reveal, the
-                // figures' depth leaves the reveal's openings out, so they
-                // show through what the reveal opens (ENGINE-ASKS.md #2).
                 let stand = if standing {
                     if has_reveal {
                         DepthUse::Revealed(&depth)
@@ -473,16 +387,10 @@ impl Core {
         if let Some(props) = self.stages.get_mut(&id).and_then(|s| s.props.as_mut()) {
             props.nodes = nodes;
         }
-        // In order of where they go; one at the same place as another after it.
         laid.sort_by_key(|(at, _)| *at);
         laid
     }
 
-    /// `nodes` drawn into picture `picture`, `fine` pixels, through `camera`
-    /// cleared to nothing, with depth as `depth` says, lit as cards by
-    /// `cards`' lights when there is one; and the layer that shows it over
-    /// the stage's texture (`size`). The nodes come back. No nodes, no
-    /// picture.
     #[allow(clippy::too_many_arguments)]
     fn props_picture(
         &mut self,
@@ -506,7 +414,6 @@ impl Core {
         (scene.nodes, Some(screen_layer(picture, size)))
     }
 
-    /// Take down pictures a stage drew into and no longer does.
     fn drop_targets(&mut self, pictures: &[u32]) {
         for picture in pictures {
             if self.pictures.get(picture).is_some_and(|p| p.target) {
@@ -515,11 +422,6 @@ impl Core {
         }
     }
 
-    /// Draw a stage's frame into picture `id`'s texture, `size` pixels:
-    /// straight (`draw_into`), or with the post pass, when it says so, its
-    /// world and its lights into the pass's own textures, the pass into
-    /// `id`'s (`grid` of its pixels to a stage pixel) at `impact`, and the
-    /// screen's marks over that.
     fn draw_stage_frame(&mut self, id: u32, size: (u32, u32), frame: &Frame, post: Option<(&Frame, f32, f32)>) {
         let Some((screen, grid, impact)) = post else {
             self.draw_into(id, size, frame);
@@ -531,24 +433,15 @@ impl Core {
         self.draw_post(&view, size, frame, screen, grid, impact);
     }
 
-    /// Draw `frame` into picture `id`'s texture (a stage's), `size`
-    /// pixels, on transparency — a stage composites over whatever
-    /// shows it, and a producer that wants paper paints it (the
-    /// cockpit blacks the Delve's cells) — in a submission of its own
-    /// (the globals hold its size).
     fn draw_into(&mut self, id: u32, size: (u32, u32), frame: &Frame) {
         let Some(target) = self.pictures.get(&id) else {
             return;
         };
         let view = target.view.clone();
-        // Transparency under everything: the stage's own layers decide
-        // what is opaque.
         self.draw(&view, size, wgpu::Color::TRANSPARENT, frame, "glass-stage");
     }
 }
 
-/// Picture `picture` over a whole stage texture of `size`, untouched by the
-/// tilt (the camera it was drawn through has done it).
 fn screen_layer(picture: u32, size: (u32, u32)) -> Layer {
     let mut layer = Layer::new(
         u64::from(picture),
@@ -586,9 +479,7 @@ mod tests {
 
     #[test]
     fn the_texture_fills_its_box_keeping_the_aspect() {
-        // 120 × 35 cells of 12 × 25: 1440 × 875, so the width binds.
         assert_eq!(target_size(&stage(120, 35), (12, 25)), (1440, 840));
-        // A tall box: the height binds.
         assert_eq!(target_size(&stage(120, 20), (12, 25)), (857, 500));
     }
 
@@ -606,7 +497,6 @@ mod tests {
     fn a_huge_box_stays_inside_the_texture_limit() {
         let (w, h) = target_size(&stage(u16::MAX, u16::MAX), (12, 25));
         assert!(w <= MAX_TARGET_PX && h <= MAX_TARGET_PX, "{w}x{h}");
-        // The aspect survives the clamp (384:224, within a pixel's rounding).
         assert!((w as f32 / h as f32 - 384.0 / 224.0).abs() < 0.01);
     }
 
@@ -617,7 +507,6 @@ mod tests {
         let Placement::Pixels([x, y, w, h]) = layers[0].placement else {
             panic!("pixels");
         };
-        // 3.75 texture pixels to a stage pixel, the camera's fraction kept.
         assert!((x + 39.375).abs() < 1e-3 && y == 0.0);
         assert!((w - 2880.0).abs() < 1e-3 && (h - 1680.0).abs() < 1e-3);
     }

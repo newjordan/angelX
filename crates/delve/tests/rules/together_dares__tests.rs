@@ -1,6 +1,5 @@
 use super::*;
 
-/// Floor one's entrance, quiet, with Fortune's `kind` dare just called.
 fn dared(kind: DareKind) -> Run {
     let mut run = Run::new(9, 1, None);
     run.enter_for_test(0);
@@ -18,7 +17,6 @@ fn dared(kind: DareKind) -> Run {
     run
 }
 
-/// The moment `cue` is called this tick, and the dare watches.
 fn call(run: &mut Run, cue: &str) {
     let (heard, sounded) = (run.cues.len(), run.sounds.len());
     run.cues.push(cue.into());
@@ -41,7 +39,6 @@ fn every_floor_down_brings_a_dare_the_floor_allows() {
             run.descend_for_test();
             assert!(run.dare.is_some(), "floor {}", run.dungeon.depth);
         }
-        // The Unknown has no stairs and no guardian.
         let kind = run.dare.as_ref().unwrap().kind;
         assert!(
             !matches!(
@@ -69,7 +66,6 @@ fn two_flawless_rooms_keep_not_a_scratch_and_open_fortunes_purse() {
     assert_eq!(run.players[&1].carried.get(Spoil::Gem), 1);
     assert!(run.feats.contains(&"daredevil"));
     assert!(run.cues.iter().any(|c| c == "dare_kept"));
-    // Kept is kept: more moments pay nothing more.
     call(&mut run, "flawless");
     assert_eq!(run.dares_kept, 1);
 }

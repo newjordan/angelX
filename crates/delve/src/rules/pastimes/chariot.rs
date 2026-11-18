@@ -34,7 +34,6 @@ impl Chariot {
             && self.bog <= 45 && self.cabbages <= 3 && self.reload <= HZ as u8
             && round.progress == (self.distance / LAP) as u8
     }
-    /// +1 = won, -1 = rival won, 0 = racing. Only the owner supplies controls.
     pub fn step(&mut self, input: Input, tapped: bool) -> i8 {
         let steer = if input.aim_x != 0 { input.aim_x } else { input.move_x }.signum();
         self.lane = (i32::from(self.lane) + i32::from(steer) * 20).clamp(0, 512) as u16;
@@ -42,7 +41,6 @@ impl Chariot {
         if tapped && self.reload == 0 && self.cabbages > 0 {
             self.cabbages -= 1;
             self.reload = HZ as u8;
-            // A cabbage hits the nearest opponent ahead, only in its lane.
             if let Some(i) = (0..3).filter(|&i| {
                 self.rivals[i] >= self.distance
                     && self.rivals[i] - self.distance < 640
@@ -68,7 +66,6 @@ impl Chariot {
         if self.distance / LAP > before / LAP {
             self.cabbages = 3;
         }
-        // Equal-tick finishes favour the player; outcomes are deterministic.
         if self.distance == FINISH { return 1; }
         for i in 0..3 {
             if self.stuns[i] > 0 {

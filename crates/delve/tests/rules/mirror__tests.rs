@@ -169,3 +169,20 @@ fn mirror_same_named_knights_keep_independent_looks() {
     assert_eq!(r.players[&1].look.body, 1);
     assert_eq!(r.players[&2].look.body, 2);
 }
+
+#[test]
+fn the_tavern_remembers_a_seen_knight_without_copying_the_name() {
+    let mut r = room();
+    let none = BTreeMap::new();
+    let _ = r.creator_inputs(&none);
+    let (_, _, before) = crate::test_alloc::now();
+    for _ in 0..100 {
+        let _ = r.creator_inputs(&none);
+    }
+    let (_, _, after) = crate::test_alloc::now();
+    assert!(
+        after - before <= 100,
+        "{} allocations in 100 tavern ticks; only the id list may allocate, once a tick",
+        after - before
+    );
+}

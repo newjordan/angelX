@@ -25,38 +25,22 @@ use super::super::ink::Img;
 use crate::rules::HZ;
 use crate::rules::looks::{Move, Sprite};
 
-/// A painting drawn in a sprite's place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Painting {
-    /// The picture's sha256 in the host's paint store (`looks::paint_name`).
     pub sha: String,
-    /// Its normal map's, when it names one (`draw <slot> normal=`).
     pub normal: Option<String>,
-    /// Pixel art (`pixel`): cut by [`cut_pixels`], never smoothed.
     pub pixel: bool,
-    /// Clothing fills its part independently of the PNG subject aspect.
     pub subject: bool,
-    /// The frame showing, of `frames`.
     pub frame: usize,
     pub frames: usize,
-    /// Mirrored, as the inks are (a shot flying left, a knight facing left).
     pub flip: bool,
-    /// The square the inks fill, unmoved, `[x, y, w, h]`: in the room's
-    /// pixels, but for a shot's, which is from the shot's own point.
     pub rect: [f32; 4],
-    /// Drawn under the figure it is part of (an aura on the ground), not
-    /// over it.
     pub under: bool,
-    /// How it is moving now.
     pub pose: Pose,
-    /// The inks it takes the place of, as they were painted (moved), with
-    /// their top-left in the same pixels as `rect`, or a shot's mark's.
     pub inks: Img,
     pub at: (i32, i32),
 }
 
-/// The square `sprite`'s painting fills (`Sprite::ink_square`), `[x, y, w,
-/// h]` in its frame's pixels drawn `scale` times their size, flipped or not.
 pub fn square(sprite: &Sprite, flip: bool, scale: f32) -> Option<[f32; 4]> {
     let (x, y, side) = sprite.ink_square()?;
     let width = sprite
@@ -66,14 +50,11 @@ pub fn square(sprite: &Sprite, flip: bool, scale: f32) -> Option<[f32; 4]> {
         .map(|r| r.chars().count())
         .max()
         .unwrap_or(0) as i32;
-    // A flipped frame is mirrored across its own width.
     let x = if flip { width - x - side } else { x };
     let side = side as f32 * scale;
     Some([x as f32 * scale, y as f32 * scale, side, side])
 }
 
-/// Where `sprite` turns and stretches about in its frame drawn `scale`
-/// times its size: its square's middle, or the middle of `size`.
 pub fn pivot(sprite: &Sprite, flip: bool, scale: f32, size: (i32, i32)) -> (f32, f32) {
     square(sprite, flip, scale).map_or(
         (size.0 as f32 / 2.0, size.1 as f32 / 2.0),
@@ -81,14 +62,8 @@ pub fn pivot(sprite: &Sprite, flip: bool, scale: f32, size: (i32, i32)) -> (f32,
     )
 }
 
-// ─── deep enough down, a wish's painting at every grant past its first ─────
-
-/// The floor from which a window shows a wish's painting at a grant short
-/// of its top (`Sprite::hd`) in its downgraded inks' place: the first two
-/// floors climb in pixels, the third on is high definition.
 pub const HD_FLOOR: u32 = 3;
 
-/// Whether a window on floor `floor` shows `hd=` paintings.
 pub fn hd_floor(floor: u32) -> bool {
     floor >= HD_FLOOR
 }
@@ -97,8 +72,6 @@ std::thread_local! {
     static HD_HERE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
-/// Run `paint` with the deep-floor paintings shown (`on`) or not, as they
-/// were after.
 pub fn with_hd<T>(on: bool, paint: impl FnOnce() -> T) -> T {
     let before = HD_HERE.with(|h| h.replace(on));
     let out = paint();
@@ -106,8 +79,6 @@ pub fn with_hd<T>(on: bool, paint: impl FnOnce() -> T) -> T {
     out
 }
 
-/// The painting `sprite` shows here, and whether it is its whole gift's
-/// (`paint=`, its normal map with it) or its deep-floor one (`hd=`).
 pub fn shown(sprite: &Sprite) -> Option<(&String, bool)> {
     if let Some(sha) = &sprite.paint {
         return Some((sha, true));
@@ -120,10 +91,6 @@ pub fn shown(sprite: &Sprite) -> Option<(&String, bool)> {
 }
 
 impl Painting {
-    /// The painting of `sprite` showing at `tick`, flipped or not, if it
-    /// has one: its square placed with its frame at `origin` (the frame's
-    /// top-left where it is drawn, unmoved), drawn at `scale` times its
-    /// frame's size. The inks are left for the caller to fill.
     pub fn of(
         sprite: &Sprite,
         tick: u64,
@@ -150,7 +117,6 @@ impl Painting {
         })
     }
 
-    /// Moved by `(dx, dy)`.
     pub fn shifted(mut self, (dx, dy): (i32, i32)) -> Painting {
         self.rect[0] += dx as f32;
         self.rect[1] += dy as f32;
@@ -158,7 +124,6 @@ impl Painting {
         self
     }
 
-    /// Mirrored across a picture `width` wide, as the picture it is in is.
     pub fn mirrored(mut self, width: i32) -> Painting {
         self.rect[0] = width as f32 - self.rect[0] - self.rect[2];
         self.at.0 = width - self.at.0 - self.inks.w;
@@ -170,14 +135,12 @@ impl Painting {
             if wave.across {
                 wave.head_far = !wave.head_far;
             } else {
-                // A swing the other way.
                 wave.at += std::f32::consts::PI;
             }
         }
         self
     }
 
-    /// The square's middle, which the pose turns and stretches about.
     pub fn middle(&self) -> (f32, f32) {
         (
             self.rect[0] + self.rect[2] / 2.0,
@@ -185,17 +148,11 @@ impl Painting {
         )
     }
 
-    /// Where its layer goes, moved, and its turn.
     pub fn placed(&self) -> ([f32; 4], f32) {
         self.pose.place(self.rect)
     }
 }
 
-/// Stamp `im`, a frame of `sprite` showing at `tick` (flipped or not), on
-/// `cv` with its top-left at `at`, moving by the sprite's words (`phase`
-/// and `heading` as `Pose::of`); and note its painting, if it has one and a
-/// frame is noting them, in `cv`'s pixels. `under`: the painting lies under
-/// the figure it is part of.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn stamp(
     cv: &mut Img,
@@ -210,9 +167,6 @@ pub(super) fn stamp(
     stamp_scaled(cv, im, sprite, tick, flip, at, moving, under, 1.0);
 }
 
-/// As `stamp`, for a frame drawn `scale` times its size (`im` already is
-/// that size): a worn piece fitted to a smaller or larger body than a
-/// knight's (`minions`).
 #[allow(clippy::too_many_arguments)]
 pub(super) fn stamp_scaled(
     cv: &mut Img,
@@ -240,8 +194,6 @@ pub(super) fn stamp_scaled(
     }
 }
 
-/// A fitted hand-slot weapon supplies its aim pose explicitly. Inks and
-/// the high-resolution painting must use exactly the same rotation.
 pub(super) fn stamp_posed(cv: &mut Img, im: &Img, sprite: &Sprite, tick: u64, at: (i32, i32), pose: Pose, under: bool) {
     let (moved, (ox, oy)) = pose.apply(im, pivot(sprite, false, 1.0, (im.w, im.h)));
     let to = (at.0 + ox, at.1 + oy);
@@ -256,22 +208,16 @@ pub(super) fn stamp_posed(cv: &mut Img, im: &Img, sprite: &Sprite, tick: u64, at
     }
 }
 
-// ─── a knight's worn paintings, waiting for the knight to stand ─────────────
-
 std::thread_local! {
     static WORN: RefCell<Option<((i32, i32), Vec<Painting>)>> = const { RefCell::new(None) };
 }
 
-/// The paintings of what a knight wears, in the pixels of their picture
-/// `size` big, noted when that picture is stood (`stood`).
 pub(super) fn wearing(size: (i32, i32), paints: Vec<Painting>) {
     if !paints.is_empty() && noting_now() {
         WORN.with(|w| *w.borrow_mut() = Some((size, paints)));
     }
 }
 
-/// A picture `size` big stood with its top-left at `at`: what it wears
-/// is noted where it stands, if it is the picture they were worn on.
 pub(super) fn stood(size: (i32, i32), at: (i32, i32)) {
     let Some((worn, paints)) = WORN.with(|w| w.borrow_mut().take()) else {
         return;
@@ -283,20 +229,14 @@ pub(super) fn stood(size: (i32, i32), at: (i32, i32)) {
     }
 }
 
-/// What a knight wears is not standing after all (the knight's picture
-/// was changed past it).
 pub(super) fn unworn() {
     WORN.with(|w| w.borrow_mut().take());
 }
-
-// ─── noting them while a frame is taken apart ───────────────────────────────
 
 std::thread_local! {
     static NOTED: RefCell<Option<Vec<Painting>>> = const { RefCell::new(None) };
 }
 
-/// Note the paintings drawn while `paint` runs: what it returned, and the
-/// paintings noted and not taken (`take`) on the way.
 pub(super) fn noting<T>(paint: impl FnOnce() -> T) -> (T, Vec<Painting>) {
     let before = NOTED.with(|n| n.borrow_mut().replace(Vec::new()));
     let out = paint();
@@ -306,12 +246,10 @@ pub(super) fn noting<T>(paint: impl FnOnce() -> T) -> (T, Vec<Painting>) {
     (out, noted)
 }
 
-/// Whether a frame is noting its paintings.
 pub(super) fn noting_now() -> bool {
     NOTED.with(|n| n.borrow().is_some())
 }
 
-/// A painting drawn, when a frame is noting them.
 pub(super) fn note(painting: Painting) {
     NOTED.with(|n| {
         if let Some(noted) = n.borrow_mut().as_mut() {
@@ -320,7 +258,6 @@ pub(super) fn note(painting: Painting) {
     });
 }
 
-/// The paintings noted so far, taken (a figure's, once it is painted).
 pub(super) fn take() -> Vec<Painting> {
     NOTED.with(|n| {
         n.borrow_mut()
@@ -330,24 +267,14 @@ pub(super) fn take() -> Vec<Painting> {
     })
 }
 
-// ─── motion ─────────────────────────────────────────────────────────────────
-
-/// How far a shot stretches along its flight, as a part of its length.
 pub const STRETCH: f32 = 0.15;
-/// How far a sprite bobs, as a part of its height.
 pub const BOB: f32 = 0.06;
-/// How far a sprite rocks either way, in radians.
 pub const WOBBLE: f32 = 0.16;
-/// How far a jiggle squashes, as a part of its size.
 pub const JIGGLE: f32 = 0.10;
-/// How far the trailing end of a wiggle swings, as a part of its length.
 pub const WIGGLE: f32 = 0.12;
-/// How far a pulse swells, as a part of its size.
 pub const PULSE: f32 = 0.08;
-/// How far a shake throws it, as a part of its size.
 pub const SHAKE: f32 = 0.04;
 
-/// Each motion's period, in seconds (a spin's, one whole turn).
 const STRETCH_SECONDS: f32 = 0.45;
 const BOB_SECONDS: f32 = 1.0;
 const WOBBLE_SECONDS: f32 = 0.8;
@@ -356,9 +283,6 @@ const JIGGLE_SECONDS: f32 = 0.6;
 const WIGGLE_SECONDS: f32 = 0.7;
 const PULSE_SECONDS: f32 = 1.0;
 
-/// Where a sprite's motion words have it at a moment: moved (in parts of
-/// its side), stretched across and down, turned about its middle, and a
-/// wave down its length.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pose {
     pub dx: f32,
@@ -369,14 +293,10 @@ pub struct Pose {
     pub wave: Option<Wave>,
 }
 
-/// A wiggle's wave down a sprite: where it is in its swing (radians), and
-/// which way its length runs. The head stays put, the tail swings most.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Wave {
     pub at: f32,
-    /// Its length runs across (a shot flying sideways), else down.
     pub across: bool,
-    /// The head is at the far end (right, or the foot), else the near.
     pub head_far: bool,
 }
 
@@ -390,9 +310,6 @@ impl Pose {
         wave: None,
     };
 
-    /// Where `moves` have a sprite at `tick`. `phase` keeps one sprite out
-    /// of step with its fellows (a volley's shots, two knights' pieces);
-    /// `heading` is which way it flies (a shot's speed), zero for none.
     pub fn of(moves: &[Move], tick: u64, phase: u32, heading: (f32, f32)) -> Pose {
         let mut pose = Pose::STILL;
         if moves.is_empty() {
@@ -407,7 +324,6 @@ impl Pose {
         for m in moves {
             match m {
                 Move::Stretch => {
-                    // Longer along the flight, thinner across it.
                     let s = STRETCH * wave(STRETCH_SECONDS);
                     if across {
                         pose.sx *= 1.0 + s;
@@ -421,7 +337,6 @@ impl Pose {
                 Move::Wobble => pose.angle += WOBBLE * wave(WOBBLE_SECONDS),
                 Move::Spin => pose.angle += ((t / SPIN_SECONDS + p / TAU) % 1.0) * TAU,
                 Move::Jiggle => {
-                    // Wide then tall, twice a bounce.
                     let s = JIGGLE * wave(JIGGLE_SECONDS / 2.0);
                     pose.sx *= 1.0 + s;
                     pose.sy *= 1.0 - s;
@@ -430,8 +345,6 @@ impl Pose {
                     pose.wave = Some(Wave {
                         at: t / WIGGLE_SECONDS * TAU + p,
                         across,
-                        // A shot's head is where it flies; a worn tail hangs
-                        // from the top.
                         head_far: if across { hx > 0.0 } else { flying && hy > 0.0 },
                     });
                 }
@@ -441,7 +354,6 @@ impl Pose {
                     pose.sy *= s;
                 }
                 Move::Shake => {
-                    // A new throw every tick, the same on every machine.
                     let h = (tick as u32 ^ phase.rotate_left(13)).wrapping_mul(0x9E37_79B1);
                     pose.dx += SHAKE * (((h >> 8) % 3) as f32 - 1.0);
                     pose.dy += SHAKE * (((h >> 20) % 3) as f32 - 1.0);
@@ -455,14 +367,10 @@ impl Pose {
         *self == Pose::STILL
     }
 
-    /// How far the wave throws a point `u` of the way from head to tail,
-    /// as a part of the length, across the length.
     fn swing(wave: &Wave, u: f32) -> f32 {
         WIGGLE * u * (wave.at - u * TAU * 0.5).sin()
     }
 
-    /// The share of the way from head to tail of the point `(x, y)` in a
-    /// box `size` big.
     fn along(wave: &Wave, (x, y): (f32, f32), (w, h): (f32, f32)) -> f32 {
         let u = if wave.across {
             x / w.max(1.0)
@@ -472,9 +380,6 @@ impl Pose {
         if wave.head_far { 1.0 - u } else { u }.clamp(0.0, 1.0)
     }
 
-    /// `img` moved so, its pixels' own way (nearest), about `pivot` in its
-    /// pixels: the moved picture and where its top-left lands from the
-    /// unmoved one's.
     pub fn apply(&self, img: &Img, pivot: (f32, f32)) -> (Img, (i32, i32)) {
         if self.is_still() || img.w <= 0 || img.h <= 0 {
             return (img.clone(), (0, 0));
@@ -491,7 +396,6 @@ impl Pose {
                 pivot.1 + dy + ux * sin + uy * cos,
             )
         };
-        // The moved box, room for the wave's swing round it.
         let reach = if self.wave.is_some() {
             WIGGLE * side + 1.0
         } else {
@@ -507,7 +411,6 @@ impl Pose {
         let mut out = vec![0u32; (w.max(0) * h.max(0)) as usize];
         for oy in 0..h {
             for ox in 0..w {
-                // Back from where it lands to where it came from.
                 let (qx, qy) = (
                     (x0 + ox) as f32 + 0.5 - pivot.0 - dx,
                     (y0 + oy) as f32 + 0.5 - pivot.1 - dy,
@@ -531,10 +434,6 @@ impl Pose {
         (Img::from_words(w, h, out), (x0, y0))
     }
 
-    /// A painting's layer moved so: its square `rect` stretched and turned
-    /// about its middle and moved, and the turn. A wave down its length is
-    /// the one thing a layer cannot bend: it swings the whole picture
-    /// about its head instead, as far as the wave throws its tail.
     pub fn place(&self, rect: [f32; 4]) -> ([f32; 4], f32) {
         let [x, y, w, h] = rect;
         let side = w.max(h);
@@ -542,7 +441,6 @@ impl Pose {
         let (mut cx, mut cy) = (x + w / 2.0 + self.dx * side, y + h / 2.0 + self.dy * side);
         let mut angle = self.angle;
         if let Some(wave) = &self.wave {
-            // The tail's throw as a turn about the head.
             let turn = Pose::swing(wave, 1.0).atan() * if wave.head_far { -1.0 } else { 1.0 };
             let turn = if wave.across { turn } else { -turn };
             let head = match (wave.across, wave.head_far) {
@@ -562,7 +460,6 @@ impl Pose {
     }
 }
 
-/// A phase from a few numbers, for `Pose::of`.
 pub fn phase_of(parts: &[u64]) -> u32 {
     let mut h = 0xcbf2_9ce4_8422_2325u64;
     for &part in parts {
@@ -572,37 +469,20 @@ pub fn phase_of(parts: &[u64]) -> u32 {
     (h ^ (h >> 29)) as u32
 }
 
-// ─── the pictures ───────────────────────────────────────────────────────────
-
-/// Window pictures for paintings start here, eight a painting (each of up
-/// to four frames, flipped or not): clear of the stage's own and of an HD
-/// pack's (`LAYER_PICTURES + 0x0010_0000` up).
 pub const PAINT_PICTURES: u32 = angel_stage::LAYER_PICTURES + 0x0060_0000;
-/// The most paintings a drawer keeps pictures for.
 pub const MAX_PAINTINGS: u32 = 0x8000;
 
-/// The picture of frame `frame` of the painting a drawer keeps in place
-/// `slot`, flipped or not.
 pub fn picture(slot: u32, frame: usize, flip: bool) -> u32 {
     PAINT_PICTURES + (slot % MAX_PAINTINGS) * 8 + (frame.min(3) as u32) * 2 + u32::from(flip)
 }
 
-/// The smallest and largest a painting's frame is cut to, in pixels.
 pub const MIN_SIDE: u32 = 16;
 pub const MAX_SIDE: u32 = 1024;
 
-/// How big to cut a painting shown `shown` window pixels across: twice
-/// that (a picture has no smaller copies of itself to draw from), within
-/// the bounds.
 pub fn side_for(shown: f32) -> u32 {
     ((shown * 2.0).ceil() as u32).clamp(MIN_SIDE, MAX_SIDE)
 }
 
-/// A painting's frames cut as a window draws them, `side` pixels square
-/// (no more than the painting has), straight RGBA: frame `f` is its square
-/// of the strip (`looks::crop`), averaged down. `rgba` is the strip,
-/// `width` by `height`, straight. None when nothing in it is drawn or the
-/// frames do not divide it.
 pub fn cut(
     rgba: &[u8],
     (width, height): (u32, u32),
@@ -620,7 +500,6 @@ pub fn cut(
         let mut px = vec![0u8; side as usize * side as usize * 4];
         for ty in 0..side {
             for tx in 0..side {
-                // The strip's box this pixel covers, in the frame's cell.
                 let x0 = crop.x + i64::from(tx * crop.span / side);
                 let x1 = (crop.x + i64::from(((tx + 1) * crop.span).div_ceil(side))).max(x0 + 1);
                 let y0 = crop.y + i64::from(ty * crop.span / side);
@@ -657,13 +536,6 @@ pub fn cut(
     Some((side, out))
 }
 
-/// A pixel-art painting's frames cut as a window draws them: each frame's
-/// square (`looks::crop`, as `cut` crops) blown up a whole number of times,
-/// every pixel a hard block, to at least `side` (at most [`MAX_SIDE`], and
-/// never below the painting's own pixels). Drawn at the size it shows, the
-/// window then only shrinks hard blocks, so the pixels stay crisp at any
-/// size, where averaging (`cut`) would blur them. The side and the frames,
-/// or None as for `cut`.
 pub fn cut_pixels(
     rgba: &[u8],
     (width, height): (u32, u32),
@@ -706,8 +578,6 @@ pub fn cut_pixels(
     Some((out_side, out))
 }
 
-/// A painting's frames cut as a window draws them: pixel art by
-/// [`cut_pixels`], anything else by [`cut`].
 pub fn cut_as(
     pixel: bool,
     rgba: &[u8],
@@ -722,10 +592,6 @@ pub fn cut_as(
     }
 }
 
-/// Worn clothing's common alpha subject, normalized to a square texture.
-/// Placement supplies the destination rectangle, so the PNG's transparent
-/// square margins and aspect can never shrink or displace torso armour.
-/// All frames share one crop, preserving animation without breathing scale.
 pub fn cut_subject(
     rgba: &[u8],
     (width, height): (u32, u32),
@@ -775,11 +641,6 @@ pub fn cut_subject(
     Some((side, cut))
 }
 
-/// A painting's frames' normal maps (docs/WORLD-TIERS.md, "Normal maps"),
-/// each `side` square as `cut` cut its frames: from its own normal map
-/// (`normal`, straight RGBA the painting's `size`, green up), each normal
-/// under the painting's alpha so its frames crop and average as the
-/// painting's do, made unit and opaque. None when it does not cut so.
 pub fn cut_normals(
     painting: &[u8],
     normal: &[u8],
@@ -800,9 +661,6 @@ pub fn cut_normals(
     Some(cut)
 }
 
-/// Normal maps made from a painting's frames as `cut` cut them, `side`
-/// square, drawn over a square `art` pixels of the room across (the art's
-/// grain, so it rounds as the figure it stands for).
 pub fn made_normals(frames: &[Vec<u8>], side: u32, art: f32) -> Vec<Vec<u8>> {
     let grain = side as f32 / art.max(1.0);
     frames
@@ -811,15 +669,8 @@ pub fn made_normals(frames: &[Vec<u8>], side: u32, art: f32) -> Vec<Vec<u8>> {
         .collect()
 }
 
-/// How many of a page's pixels a room pixel is drawn at, about, for the
-/// size a page's paintings are cut to: a page fits the view to its canvas,
-/// which it does not say.
 pub const PAGE_SCALE: f32 = 6.0;
 
-/// A page's paintings, across a wire (a browser): those it is to fetch
-/// (`wanted`), each one's frames once it has decoded it (`put`), and the
-/// pictures it was sent, each once, with the stage frame that first names
-/// it.
 #[derive(Default)]
 pub struct PagePaintings {
     known: std::collections::BTreeMap<(String, bool), PagePainting>,
@@ -828,8 +679,6 @@ pub struct PagePaintings {
     next: u32,
 }
 
-/// A painting as a page has it: to be fetched, asked for, cut, or not to
-/// be had.
 enum PagePainting {
     Wanted {
         slot: u32,
@@ -852,10 +701,6 @@ enum PagePainting {
 }
 
 impl PagePaintings {
-    /// The picture of `p`'s frame, flipped or not, once the page has the
-    /// painting; its pixels go in `pictures` the first time. A painting not
-    /// yet had is wanted (`wanted`), cut to twice the size it shows at
-    /// `scale` page pixels to a room pixel.
     pub fn picture(
         &mut self,
         p: &Painting,
@@ -910,9 +755,6 @@ impl PagePaintings {
         }
     }
 
-    /// The next painting the page is to fetch (`/paint/<sha256>.png`), by
-    /// its hash; it hands back its pixels (`put`), or says it could not
-    /// (`failed`).
     pub fn wanted(&mut self) -> Option<String> {
         let sha = self.wanted.pop_front()?;
         if let Some(&PagePainting::Wanted {
@@ -935,9 +777,6 @@ impl PagePaintings {
         Some(sha.0)
     }
 
-    /// The page decoded painting `sha`, `width` by `height` straight RGBA:
-    /// cut into its frames. False when it was not asked for or does not
-    /// cut (its frames do not divide it, nothing is drawn on it).
     pub fn put(&mut self, sha: &str, (width, height): (u32, u32), rgba: &[u8]) -> bool {
         let mut accepted = false;
         for subject in [false, true] {
@@ -968,7 +807,6 @@ impl PagePaintings {
         accepted
     }
 
-    /// The page could not fetch or decode painting `sha`: its inks stand.
     pub fn failed(&mut self, sha: &str) {
         for subject in [false, true] {
             if let Some(state) = self.known.get_mut(&(sha.to_string(), subject)) {
@@ -977,13 +815,11 @@ impl PagePaintings {
         }
     }
 
-    /// The page lost its pictures: each goes again when next named.
     pub fn forget(&mut self) {
         self.sent.clear();
     }
 }
 
-/// A frame cut by `cut`, mirrored.
 pub fn flipped(rgba: &[u8], side: u32) -> Vec<u8> {
     let side = side as usize;
     let mut out = vec![0u8; rgba.len()];

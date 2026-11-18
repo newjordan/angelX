@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Render exported real terminal glyphs beside native Forest Road captures."""
 from pathlib import Path
 import json,sys
 from PIL import Image,ImageDraw,ImageFont

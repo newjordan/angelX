@@ -14,13 +14,10 @@ use std::io;
 use std::sync::{Arc, Mutex, mpsc};
 use std::time::{Duration, Instant};
 
-/// Admission capacity is process-wide, so one scenario at a time.
 static SERIAL: Mutex<()> = Mutex::new(());
 
 const WASM_BYTES: usize = 40 * 1024 * 1024;
 
-/// Deterministic filler. `alphabet` is a power of two: 256 is incompressible
-/// (images, sound), 16 shrinks about as slowly as a real wasm does.
 fn filler(len: usize, seed: u64, alphabet: u64) -> Vec<u8> {
     let mut x = seed | 1;
     let mut out = Vec::with_capacity(len);
@@ -33,9 +30,7 @@ fn filler(len: usize, seed: u64, alphabet: u64) -> Vec<u8> {
     out
 }
 
-/// The Delve's shape: its wasm first, then about a thousand small files.
 fn large_bundle() -> Arc<ClientBundle> {
-    // The measurement can use the real Delve wasm (`ANGEL_CANCEL_BENCH_WASM`).
     let wasm = std::env::var_os("ANGEL_CANCEL_BENCH_WASM")
         .map(|path| std::fs::read(path).unwrap())
         .unwrap_or_else(|| filler(WASM_BYTES, 1, 16));
@@ -60,9 +55,6 @@ fn placeholder() -> io::Result<ClientBundle> {
     Ok(ClientBundle::placeholder())
 }
 
-/// Admit a generation of the large bundle beside one already-resident
-/// generation (capacity is two), drop its owner once its worker is inside
-/// preparation, and return the time until a new generation is admitted.
 fn release_after_owner_drop(bundle: &Arc<ClientBundle>) -> Duration {
     let _one = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let resident = PreparedAssets::start(|_| placeholder()).unwrap();
@@ -80,7 +72,6 @@ fn release_after_owner_drop(bundle: &Arc<ClientBundle>) -> Duration {
         "capacity is two generations"
     );
     in_preparation.recv().unwrap();
-    // The worker has its bytes and is hashing the wasm.
     std::thread::sleep(Duration::from_millis(40));
     let dropped = Instant::now();
     drop(victim);
@@ -99,7 +90,6 @@ fn release_after_owner_drop(bundle: &Arc<ClientBundle>) -> Duration {
         }
     };
     drop(resident);
-    // Both slots are free again once the retained placeholders retire.
     let until = Instant::now() + Duration::from_secs(5);
     loop {
         let a = PreparedAssets::start(|_| placeholder());
@@ -121,8 +111,6 @@ fn cancelled_generation_gives_back_its_capacity_promptly() {
     let full = started.elapsed();
     let released = release_after_owner_drop(&bundle);
     eprintln!("full preparation {full:?}; release after owner drop {released:?}");
-    // Not an absolute bound (a loaded box schedules late): the cancelled
-    // generation must stop far short of finishing its work.
     assert!(
         released * 4 < full,
         "released after {released:?}, while the whole preparation takes {full:?}"
@@ -133,10 +121,6 @@ fn percentile(sorted: &[f64], p: f64) -> f64 {
     sorted[((sorted.len() - 1) as f64 * p).round() as usize]
 }
 
-/// `ANGEL_CANCEL_BENCH_OUT=/path/out.json ANGEL_CANCEL_BENCH_LABEL=before \
-///  ANGEL_CANCEL_BENCH_WASM=/path/to/delve.wasm \
-///  cargo test --profile fast -p angel-serve --test preparation_cancel \
-///  bench_cancelled_generation_release -- --ignored --nocapture`
 #[test]
 #[ignore = "a measurement, not a check"]
 fn bench_cancelled_generation_release() {

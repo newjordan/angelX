@@ -64,8 +64,6 @@ fn fleet_overwatch_complete_output_fixture() {
     command.args(["-c", "printf 'FLEET GPU 58.5%% CPU 51.0%%\\n'; exit 17"]);
     assert!(fleet_overwatch_from_command(command, Duration::from_secs(1)).is_none());
 
-    // A valid-looking terminal measurement after a capped output still cannot
-    // become a complete sample; keep the existing byte-cap behavior.
     let mut command = Command::new("/usr/bin/python3");
     command.args(["-c", "import sys; sys.stdout.write('x' * (2 * 1024 * 1024)); print('\\nFLEET GPU 58.5% CPU 51.0%')"]);
     assert!(fleet_overwatch_from_command(command, Duration::from_secs(2)).is_none());
@@ -125,7 +123,6 @@ fn bare_overwatch_command_is_found_on_path_without_a_cwd_relative_file() {
 #[test]
 fn gpu_polling_is_opt_in_for_fast_terminal_refresh() {
     let _guard = crate::tests::env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_OVERWATCH_GPU") };
     assert_eq!(read_gpu_pct(), None);
 }
@@ -133,7 +130,6 @@ fn gpu_polling_is_opt_in_for_fast_terminal_refresh() {
 #[test]
 fn periodic_refresh_stays_under_50ms_without_gpu_poll() {
     let _guard = crate::tests::env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_OVERWATCH_GPU") };
     let mut overwatch = Overwatch::new();
     overwatch.last_sample = Instant::now() - OVERWATCH_INTERVAL - Duration::from_millis(1);

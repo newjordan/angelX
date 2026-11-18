@@ -1,6 +1,3 @@
-# crates/delve/src/rules.rs — the Run's orbits, sparks and the other small rules.
-
-# The shared orbit layout: where `id`'s morningstars are at `tick` about the knight.
 def rules.orbit_points(h: J.Val, id: U32, tick: W.W) -> [J.Val]:
     n: U32 = U32.min(core.u(J.get(h, "bonus"), "orbit"), cards.cap("orbit"))
     out: [J.Val] = []
@@ -14,7 +11,6 @@ def rules.orbit_points(h: J.Val, id: U32, tick: W.W) -> [J.Val]:
         k = (k + 1 : U32)
     return out
 
-# Where knight `id`'s morningstars were (or are) at `tick`, about where the knight stands now.
 def rules.Run.orbits_at(run: J.Val, id: U32, tick: W.W) -> [J.Val]:
     h: J.Val = core.hero(run, id)
     if Bool.or(J.is_null(h), Bool.or(U32.is_zero(core.u(h, "hp")), core.b(h, "stone"))):
@@ -24,8 +20,6 @@ def rules.Run.orbits_at(run: J.Val, id: U32, tick: W.W) -> [J.Val]:
 def rules.Run.orbits(run: J.Val, id: U32) -> [J.Val]:
     return rules.Run.orbits_at(run, id, W.of_j(J.get(run, "tick")))
 
-# Chain hits spark on: each to the nearest monsters within reach that it has not
-# touched, for half its damage. A chain is [first, x, y, damage, links, owner].
 def rules.Run.spark(run: J.Val, chains: J.Val) -> J.Val:
     for c: J.Val in J.items(chains):
         touched: [U32] = [J.u32(J.nth(c, 0))]
@@ -36,7 +30,6 @@ def rules.Run.spark(run: J.Val, chains: J.Val) -> J.Val:
         owner: U32 = J.u32(J.nth(c, 5))
         l: U32 = 0
         while U32.is_lt(l, links):
-            # the nearest monster it has not touched, within reach (the first of equals)
             best: U32 = 4294967295
             best_d: F32 = 0.0
             i: U32 = 0
@@ -66,7 +59,6 @@ def rules.Run.spark(run: J.Val, chains: J.Val) -> J.Val:
             l = (l + 1 : U32)
     return run
 
-# The mask of monsters any of `balls` touches: within radius + 0.8 of one.
 def rules.orbit_mask(enemies: J.Val, balls: [J.Val]) -> [Bool]:
     mask: [Bool] = []
     for e: J.Val in J.items(enemies):
@@ -77,9 +69,6 @@ def rules.orbit_mask(enemies: J.Val, balls: [J.Val]) -> [Bool]:
         mask = List.append(&2, Bool, mask, [hit])
     return mask
 
-# Morningstars knock monsters' shots out of the air on every tick, and strike on
-# the beat: each monster they touched since the last beat, once, as one stroke
-# from the knight.
 def rules.Run.swing_orbits(run: J.Val) -> J.Val:
     tick: W.W = W.of_j(J.get(run, "tick"))
     beat: Bool = U32.is_zero(W.rem_u32(tick, rules.ORBIT_EVERY()))

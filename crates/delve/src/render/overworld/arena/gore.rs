@@ -23,14 +23,10 @@ use std::cell::RefCell;
 use std::f32::consts::{FRAC_PI_2, PI};
 use std::rc::Rc;
 
-/// The most motes one pass spends, all the finishers together.
 const MOTES: u32 = 420;
-/// Ticks of fade at the end of a body's, and a stain's, life.
 const FADE: u64 = 36;
 
 std::thread_local! {
-    /// A kind's standing picture, at the size it stands (by tenths of the
-    /// kind's own radius), made once.
     static BODIES: RefCell<Vec<(EnemyKind, u8, Rc<Img>)>> = const { RefCell::new(Vec::new()) };
 }
 
@@ -42,7 +38,6 @@ fn sprite(kind: EnemyKind, r: f32) -> Rc<Img> {
     }
     let base = sprites::enemy(kind, 0);
     let im = if kind == EnemyKind::Slime {
-        // A slime is drawn as big as it is.
         stature::monster(kind, base, r / sprites::SLIME_REACH)
     } else {
         stature::monster(kind, base, k)
@@ -52,7 +47,6 @@ fn sprite(kind: EnemyKind, r: f32) -> Rc<Img> {
     im
 }
 
-/// The mote budget of a pass.
 struct Pen<'a> {
     cv: &'a mut Img,
     left: u32,
@@ -76,15 +70,12 @@ fn rgb(ch: char) -> Rgb {
     ink(ch).unwrap_or([0, 0, 0])
 }
 
-/// What the blood, or what stands for it, looks like: wet and bright, wet,
-/// dry, and the darkest of a pool's heart.
 #[derive(Clone, Copy)]
 struct Pal {
     fresh: Rgb,
     wet: Rgb,
     dry: Rgb,
     dark: Rgb,
-    /// Dust and bone, not a wet thing: less of it, and no pool.
     dust: bool,
 }
 
@@ -99,8 +90,6 @@ fn pal(kind: EnemyKind, stuff: Body) -> Pal {
             Pal { fresh: c[0], wet: c[1], dry: shade(c[1], 0.7), dark: shade(c[2], 0.6), dust: false }
         }
         Body::Ichor => {
-            // A slime comes apart in its own colours; the rest in a
-            // sickly green.
             if matches!(kind, EnemyKind::Slime | EnemyKind::Spitter) {
                 let c = vfx::colours_of(kind);
                 Pal { fresh: c[0], wet: c[1], dry: shade(c[1], 0.65), dark: shade(c[2], 0.55), dust: false }
@@ -112,7 +101,6 @@ fn pal(kind: EnemyKind, stuff: Body) -> Pal {
 }
 
 impl Pal {
-    /// The colour of a drop `age` ticks after it landed.
     fn at(&self, age: f32) -> Rgb {
         if age < 8.0 {
             self.wet
@@ -130,15 +118,11 @@ fn h01(a: i32, b: i32, s: u32) -> f32 {
 
 use crate::motion::ease::{in_quad as ease_in, out_quad as ease_out};
 
-/// How a stain thins in its last ticks: a dither threshold, 0 whole to 1
-/// gone.
 fn thin(age: u64, life: u64) -> f32 {
     let start = life.saturating_sub(FADE);
     if age <= start { 0.0 } else { ((age - start) as f32 / FADE as f32).min(1.0) }
 }
 
-/// A height over the floor: `vz` up, `g` pulling down, one bounce at a
-/// third of the speed. `(height, rested)`.
 fn arc(vz: f32, g: f32, tau: f32) -> (f32, bool) {
     if tau <= 0.0 {
         return (0.0, false);
@@ -156,16 +140,10 @@ fn arc(vz: f32, g: f32, tau: f32) -> (f32, bool) {
     (0.0, true)
 }
 
-/// The room-pixel point of a body's feet.
 fn feet(g: &Gore) -> (f32, f32) {
     (g.x * UNIT, g.y * UNIT)
 }
 
-/// A drawn body: `pivot` (a point of the sprite, in its pixels) lands at
-/// `at` in the room, the sprite turned `angle` about it, `dim` of its light,
-/// only the pixels `keep` picks (in the sprite's own pixels, `(x, y)` from
-/// its top-left), a cut face coloured where `face` says so, `thin` of it
-/// dithered away as it fades.
 struct Pose<'a> {
     at: (f32, f32),
     pivot: (f32, f32),
@@ -173,7 +151,6 @@ struct Pose<'a> {
     dim: f32,
     keep: &'a dyn Fn(i32, i32) -> bool,
     face: &'a dyn Fn(i32, i32) -> Option<Rgb>,
-    /// How squashed (1 whole), and wider by.
     squash: f32,
     wide: f32,
     thin: f32,
@@ -186,7 +163,6 @@ fn bare(_: i32, _: i32) -> Option<Rgb> {
     None
 }
 
-/// The sprite standing with its feet at `feet`, turning about its middle.
 fn upright<'a>(im: &Img, feet: (f32, f32)) -> Pose<'a> {
     let (w, h) = (im.w as f32, im.h as f32);
     Pose {
@@ -202,13 +178,10 @@ fn upright<'a>(im: &Img, feet: (f32, f32)) -> Pose<'a> {
     }
 }
 
-/// The sprite with its feet at `feet`, turning about them (a body tipping
-/// over).
 fn tipping<'a>(im: &Img, feet: (f32, f32)) -> Pose<'a> {
     Pose { at: feet, pivot: (im.w as f32 / 2.0, im.h as f32 - 1.0), ..upright(im, feet) }
 }
 
-/// `upright`, lifted and turned and dimmed.
 fn posed<'a>(im: &Img, feet: (f32, f32), lift: f32, angle: f32, dim: f32) -> Pose<'a> {
     let mut pose = upright(im, feet);
     pose.at.1 -= lift;
@@ -217,8 +190,6 @@ fn posed<'a>(im: &Img, feet: (f32, f32), lift: f32, angle: f32, dim: f32) -> Pos
     pose
 }
 
-/// Draw `im` as `pose` says: each pixel of the result looks back into the
-/// sprite, so a turned body has no holes.
 fn blit(cv: &mut Img, im: &Img, pose: &Pose) {
     let (w, h) = (im.w as f32, im.h as f32);
     let reach = (w.hypot(h) * pose.wide.max(1.0)).ceil() as i32 + 2;
@@ -227,7 +198,6 @@ fn blit(cv: &mut Img, im: &Img, pose: &Pose) {
     for dy in -reach..=reach {
         for dx in -reach..=reach {
             let (rx, ry) = (dx as f32, dy as f32);
-            // Back into the sprite: undo the turn, then the squash.
             let (ux, uy) = (rx * c + ry * s, -rx * s + ry * c);
             let (sx, sy) = (ux / pose.wide + pose.pivot.0, uy / pose.squash + pose.pivot.1);
             let (ix, iy) = (sx.floor() as i32, sy.floor() as i32);
@@ -248,7 +218,6 @@ fn blit(cv: &mut Img, im: &Img, pose: &Pose) {
     }
 }
 
-/// The ground under a body: a soft dark ellipse, as the figures have.
 fn shadow(cv: &mut Img, x: f32, y: f32, w: f32, thin: f32) {
     let rx = (w * 0.42).max(3.0);
     let ry = (rx * 0.38).max(1.5);
@@ -266,11 +235,6 @@ fn shadow(cv: &mut Img, x: f32, y: f32, w: f32, thin: f32) {
     }
 }
 
-/// A spray of drops thrown from `o` (room pixels, at `height` over the
-/// floor), `t` ticks ago: each its own speed, angle and lift from the seed,
-/// in the air as a bright mote with a trail while fast, then lying where it
-/// came down as a stain that dries. `dir` is the way it is thrown and
-/// `spread` how wide, in radians.
 #[allow(clippy::too_many_arguments)]
 fn spray(
     pen: &mut Pen,
@@ -291,7 +255,6 @@ fn spray(
         return;
     }
     let base = dir.1.atan2(dir.0);
-    // Chunky: more drops, thrown harder, than the call asks.
     let count = if pal.dust { count * 4 / 5 } else { count * 8 / 5 };
     for j in 0..count {
         let r = |s: u32| h01(j, seed, salt.wrapping_add(s));
@@ -304,14 +267,10 @@ fn spray(
             continue;
         }
         let g = 0.5;
-        // Height over the floor: thrown from `height`, it lands when it
-        // comes down to the floor.
         let fall = (vz + (vz * vz + 2.0 * g * height).sqrt()) / g;
         let air = tau.min(fall);
-        // Out along the ground, slowing as the air drags it.
         let run = sp * (air - 0.03 * air * air).max(0.0);
         let (gx, gy) = (o.0 + a.cos() * run, o.1 + a.sin() * run * 0.7);
-        // A big drop is two pixels square, as the game's chunks are.
         let big = r(5) < 0.5;
         if tau < fall {
             if stain_until > 0.0 {
@@ -325,13 +284,11 @@ fn spray(
                 pen.set(px, py + 1, pal.wet);
                 pen.set(px + 1, py + 1, pal.dry);
             }
-            // A fast one leaves a pixel of trail.
             if sp > 1.6 && tau < 5.0 {
                 let back = 1.0;
                 pen.set((px as f32 - a.cos() * back).round() as i32, (py as f32 - a.sin() * back).round() as i32, pal.wet);
             }
         } else if stain_until > 0.0 {
-            // Landed: a stain, a splash of pixels if it was a big drop.
             let age = tau - fall;
             let (px, py) = (gx.round() as i32, gy.round() as i32);
             let c = pal.at(age);
@@ -347,8 +304,6 @@ fn spray(
     }
 }
 
-/// A pool where it fell: a ragged blot growing for a few ticks, dithered at
-/// its edge, darker at its heart.
 fn pool(pen: &mut Pen, seed: i32, centre: (f32, f32), radius: f32, t: f32, pal: &Pal, thin_by: f32, flat: f32) {
     let radius = if pal.dust { radius * 0.35 } else { radius };
     if t < 0.0 || radius < 1.0 {
@@ -360,7 +315,6 @@ fn pool(pen: &mut Pen, seed: i32, centre: (f32, f32), radius: f32, t: f32, pal: 
     let rr = rad.ceil() as i32 + 1;
     for dy in -rr..=rr {
         for dx in -rr..=rr {
-            // Ragged: the edge wobbles with the angle.
             let ang = (dy as f32).atan2(dx as f32);
             let wob = 1.0 + 0.28 * (h01((ang * 3.0).floor() as i32, seed, 11) - 0.5) * 2.0;
             let d = ((dx as f32).powi(2) + (dy as f32 / flat).powi(2)).sqrt() / (rad * wob);
@@ -380,7 +334,6 @@ fn pool(pen: &mut Pen, seed: i32, centre: (f32, f32), radius: f32, t: f32, pal: 
     }
 }
 
-/// A bone, three pixels long, lying at an angle.
 fn bone(pen: &mut Pen, x: i32, y: i32, a: f32, c: Rgb) {
     let (dx, dy) = (a.cos().round() as i32, a.sin().round() as i32);
     pen.set(x, y, c);
@@ -388,8 +341,6 @@ fn bone(pen: &mut Pen, x: i32, y: i32, a: f32, c: Rgb) {
     pen.set(x - dx, y - dy, shade(c, 0.8));
 }
 
-/// Sources of the pieces a body flies apart in: sampled from its own sprite
-/// at seeded spots (opaque ones, tried a few times).
 fn pixel_of(im: &Img, seed: i32, j: i32) -> Rgb {
     for k in 0..8 {
         let x = (h01(j, seed, 31 + k) * im.w as f32) as i32;
@@ -401,22 +352,18 @@ fn pixel_of(im: &Img, seed: i32, j: i32) -> Rgb {
     rgb('G')
 }
 
-/// One finisher's whole picture for the two passes.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Pass {
     Under,
     Over,
 }
 
-/// Which way the body tumbles: with the blow, to the right or the left.
 fn lean(g: &Gore) -> f32 {
     if g.dx >= 0.0 { 1.0 } else { -1.0 }
 }
 
-/// Every finisher of the run in the pass: the oldest first.
 fn paint(cv: &mut Img, run: &Run, pass: Pass) {
     let mut pen = Pen { cv, left: MOTES };
-    // Newest first, so a frame that runs out of motes loses the old stains.
     for g in run.gore.iter().rev() {
         if body(g.kind).is_none() {
             continue;
@@ -426,22 +373,18 @@ fn paint(cv: &mut Img, run: &Run, pass: Pass) {
     }
 }
 
-/// What lies on the floor and hangs on the wall, under the figures.
 pub(super) fn under(cv: &mut Img, run: &Run) {
     if !run.gore.is_empty() {
         paint(cv, run, Pass::Under);
     }
 }
 
-/// What is in the air, over the figures.
 pub(super) fn over(cv: &mut Img, run: &Run) {
     if !run.gore.is_empty() {
         paint(cv, run, Pass::Over);
     }
 }
 
-/// Whether the death at `(x, y)` is a finisher's, so the ordinary death
-/// (a flash, then pieces) stands down.
 pub(super) fn owns(run: &Run, x: f32, y: f32) -> bool {
     run.gore.iter().any(|g| g.cut != Cut::Pop && body(g.kind).is_some() && g.marks(x, y))
 }
@@ -455,11 +398,9 @@ fn draw(pen: &mut Pen, g: &Gore, age: u64, pass: Pass, run: &Run) {
     let o = feet(g);
     let d = (g.dx, g.dy);
     let thin_stain = thin(age, LIFE);
-    // A body that lies or hangs only so long.
     let body_thin = if age < BODY { 0.0 } else { thin(age, BODY + FADE) };
     let body_gone = age >= BODY + FADE;
     let torso = (o.0, o.1 - im.h as f32 * 0.5);
-    // The held frame: the monster as it stood, with the blow's flash.
     if age < HOLD {
         if pass == Pass::Over {
             blit(pen.cv, &im, &upright(&im, o));
@@ -486,8 +427,6 @@ fn draw(pen: &mut Pen, g: &Gore, age: u64, pass: Pass, run: &Run) {
     }
 }
 
-/// The blow's flash on the held frame: a star where it struck, a ring and,
-/// for a blade, the slash across: in the signal inks' cream, never white.
 fn flash(pen: &mut Pen, g: &Gore, at: (f32, f32), d: (f32, f32), age: u64) {
     let k = 3 - age.min(3) as i32;
     let (cx, cy) = ((at.0 - d.0 * g.r * UNIT * 0.5).round() as i32, (at.1 - d.1 * g.r * UNIT * 0.4).round() as i32);
@@ -503,15 +442,12 @@ fn flash(pen: &mut Pen, g: &Gore, at: (f32, f32), d: (f32, f32), age: u64) {
             pen.put(cx + sx * i, cy + sy * i, if i == 1 { 'c' } else { '$' });
         }
     }
-    // A ring of sparks opening out of it.
     let rr = 3.0 + (3 - k) as f32 * 3.0;
     for i in 0..10 {
         let a = i as f32 / 10.0 * std::f32::consts::TAU;
         pen.put((cx as f32 + a.cos() * rr).round() as i32, (cy as f32 + a.sin() * rr * 0.8).round() as i32, '@');
     }
     if let (Cut::Halve, Some(slant)) = (g.cut, g.slant) {
-        // The blade's line itself, along the cut it leaves: long, bright
-        // at its heart, and gone with the held frame.
         let a = f32::from(slant).to_radians();
         let (lx, ly) = (a.cos(), a.sin());
         let (mx, my) = (at.0, at.1 + g.r * UNIT * 0.1);
@@ -522,7 +458,6 @@ fn flash(pen: &mut Pen, g: &Gore, at: (f32, f32), d: (f32, f32), age: u64) {
             pen.put((mx + lx * f).round() as i32, (my + ly * f).round() as i32, ink);
         }
     } else if matches!(g.cut, Cut::Behead | Cut::Halve) {
-        // The blade's slash, across the blow.
         let (px, py) = (-d.1, d.0);
         let tilt = (f32::from(g.var) - 1.0) * 0.5;
         let (c, sn) = (tilt.cos(), tilt.sin());
@@ -535,8 +470,6 @@ fn flash(pen: &mut Pen, g: &Gore, at: (f32, f32), d: (f32, f32), age: u64) {
     }
 }
 
-/// A fresh arrow, bolt or blade standing out of a body at `at`, its tail
-/// toward `tail` (a unit vector), `len` pixels long.
 fn shaft(pen: &mut Pen, kind: Shot, at: (f32, f32), tail: (f32, f32), len: i32) {
     let inks: &[char] = match kind {
         Shot::Bolt => &['V', 'R', 'R', 'R', 'b', 'b', 'b', 'b'],
@@ -549,11 +482,8 @@ fn shaft(pen: &mut Pen, kind: Shot, at: (f32, f32), tail: (f32, f32), len: i32) 
     }
 }
 
-/// The knight's boot swinging through to a monster's ribs at `at`, along
-/// `d`, `t` ticks after it landed: the boot itself, and the arc it swept.
 fn boot(pen: &mut Pen, at: (f32, f32), d: (f32, f32), t: f32) {
     let base = d.1.atan2(d.0);
-    // The arc: a crescent behind the foot, thinning.
     for i in -6i32..=6 {
         let a = base + i as f32 * 0.16;
         let r = 8.0 - t * 1.2;
@@ -563,7 +493,6 @@ fn boot(pen: &mut Pen, at: (f32, f32), d: (f32, f32), t: f32) {
             pen.put(x.round() as i32, y.round() as i32, ink);
         }
     }
-    // The boot: a dark toe-cap and heel, a lighter sole, driving in.
     let reach = 5.0 - t * 1.4;
     let (bx, by) = (at.0 - d.0 * reach, at.1 - d.1 * reach * 0.5);
     for (dx, dy, ink) in [(0, 0, 'h'), (1, 0, 'h'), (0, 1, 'G'), (1, 1, 'J'), (-1, 0, 'J'), (-1, 1, 'G'), (2, 0, 'i'), (2, 1, 'J')] {
@@ -571,7 +500,6 @@ fn boot(pen: &mut Pen, at: (f32, f32), d: (f32, f32), t: f32) {
     }
 }
 
-/// The streak of the killshot, from the knight to where it strikes.
 fn streak(pen: &mut Pen, from: (f32, f32), to: (f32, f32), head: f32, kind: Shot) {
     let len = (to.0 - from.0).hypot(to.1 - from.1).max(1.0);
     let (ux, uy) = ((to.0 - from.0) / len, (to.1 - from.1) / len);
@@ -592,7 +520,6 @@ fn streak(pen: &mut Pen, from: (f32, f32), to: (f32, f32), head: f32, kind: Shot
     }
 }
 
-/// Stone chips and sparks where a pinned body hit the wall.
 fn thunk(pen: &mut Pen, at: (f32, f32), d: (f32, f32), seed: i32, t: f32) {
     if !(0.0..7.0).contains(&t) {
         return;
@@ -638,11 +565,9 @@ fn kick(
     let travel = (to.0 - o.0).hypot(to.1 - o.1);
     let h = im.h as f32;
     let flying = t < span;
-    // The knight's own feet.
     let from = (g.from_x * UNIT, g.from_y * UNIT - 6.0);
     if flying {
         if pass == Pass::Under {
-            // What it spilled on the way, along the floor under its flight.
             let n = 10;
             for j in 0..n {
                 let f = (j as f32 + 0.5) / n as f32;
@@ -665,9 +590,7 @@ fn kick(
             Pin::Wall => sgn * (PI * u).sin() * (0.9 + 0.3 * f32::from(g.var)),
             _ => sgn * s * (FRAC_PI_2 + 0.35 * f32::from(g.var)),
         };
-        // Its shadow stays on the ground it flies over.
         shadow(pen.cv, at.0, at.1, im.w as f32 * 0.8, 0.0);
-        // Afterimages along the flight: it is going fast.
         for (gi, (back, thin_by, dim)) in [(3.4f32, 0.72f32, 0.4f32), (1.7, 0.5, 0.6)].into_iter().enumerate() {
             let tt = t - back;
             if tt <= 0.0 {
@@ -684,7 +607,6 @@ fn kick(
             blit(pen.cv, im, &Pose { thin: thin_by, ..posed(im, gat, glift, gangle, dim) });
         }
         blit(pen.cv, im, &posed(im, at, lift, angle, 0.92));
-        // The boot: a swing through, dust and a star where it struck.
         if t < 4.0 {
             boot(pen, (o.0 - d.0 * g.r * UNIT * 0.9, o.1 - h * 0.35), d, t);
         }
@@ -696,7 +618,6 @@ fn kick(
                 pen.put((c.0 + a.cos() * r).round() as i32, (c.1 + a.sin() * r * 0.8).round() as i32, ['G', 'j', 'J'][(j % 3) as usize]);
             }
         }
-        // The killshot: it takes the body in the air, a third of the way.
         let hit_at = 0.34;
         let chest = (at.0, at.1 - lift - h * if g.var == 2 { 0.7 } else { 0.45 });
         if u < hit_at + 0.06 && u > 0.0 {
@@ -704,26 +625,20 @@ fn kick(
             streak(pen, from, chest, head, g.shaft);
         }
         if u >= hit_at {
-            // The shaft rides in the body, tail toward the knight.
             shaft(pen, g.shaft, chest, (-d.0, -d.1), 7);
-            // What the shot opened flies along behind it.
             let since = (u - hit_at) * span;
             spray(pen, seed, 41, chest, 2.0, (-d.0, -d.1), 1.8, 10, (0.7, 2.0), (0.4, 1.6), since, p, 0.0);
         }
-        // The wound's first burst, at the kick.
         spray(pen, seed, 43, (o.0, o.1 - h * 0.4), 3.0, d, 2.0, 7, (1.0, 2.6), (0.8, 2.2), t, p, 0.0);
         return;
     }
-    // Landed.
     let land = t - span;
     let chest_h = h * if g.var == 2 { 0.7 } else { 0.45 };
     match g.pin {
         Pin::Wall => {
             if pass == Pass::Under {
-                // Stains thrown at the stone, running down it as it hangs.
                 let wallp = (to.0 + d.0 * g.r * UNIT * 0.55, to.1 + d.1 * g.r * UNIT * 0.55);
                 spray(pen, seed, 47, (to.0, to.1 - chest_h), 4.0, (-d.0, -d.1), 3.6, 14, (0.6, 2.4), (0.5, 2.2), land + 6.0, p, f32::MAX);
-                // A splat on the stone around the shaft.
                 for j in 0..12 {
                     let a = h01(j, seed, 311) * 2.0 * PI;
                     let r = 2.0 + 5.0 * h01(j, seed, 312);
@@ -732,7 +647,6 @@ fn kick(
                         pen.set(x.round() as i32, y.round() as i32, if land < 6.0 { p.wet } else { p.dry });
                     }
                 }
-                // Drips run down the stone and gather at its foot.
                 let run = (land * 0.5).min(h * 0.55);
                 for j in 0..3 {
                     let x = (to.0 + (j as f32 - 1.0) * 3.0).round() as i32;
@@ -743,8 +657,6 @@ fn kick(
                 pool(pen, seed, (to.0, to.1 + 1.0), g.r * UNIT * 0.9, land + 4.0, p, thin_stain.max(body_thin * 0.0), 0.4);
             }
             if pass == Pass::Under && !body_gone {
-                // It hangs: lifted off the floor, slumping a little more as
-                // the seconds go.
                 let slump = (land / 60.0).min(1.0);
                 let tilt = sgn * (0.06 + 0.12 * slump);
                 shadow(pen.cv, to.0, to.1 + 1.0, im.w as f32 * 0.7, 0.2);
@@ -766,7 +678,6 @@ fn kick(
                 spray(pen, seed, 53, (to.0, to.1 - 3.0), 5.0, d, 3.0, 10, (0.5, 2.0), (0.5, 2.0), land + 6.0, p, 0.0);
                 return;
             }
-            // Pinned to the floor: lying, the shaft standing up out of it.
             let lie = (to.0, to.1);
             pool(pen, seed, (lie.0, lie.1 + 1.0), g.r * UNIT * 0.95, land + 3.0, p, thin_stain, 0.5);
             spray(pen, seed, 53, (lie.0, lie.1 - 3.0), 5.0, d, 3.0, 10, (0.5, 2.0), (0.5, 2.0), land + 6.0, p, f32::MAX);
@@ -775,7 +686,6 @@ fn kick(
                 let angle = sgn * (FRAC_PI_2 + 0.35 * f32::from(g.var));
                 blit(pen.cv, im, &Pose { thin: body_thin, ..posed(im, (lie.0, lie.1 + 2.0), 0.0, angle, 0.8) });
                 if body_thin == 0.0 || bayer(lie.0 as i32, lie.1 as i32) >= body_thin {
-                    // Standing in it, upright, with a flicker as it settles.
                     let wob = if land < 4.0 { ((land * 3.0).sin() * 1.0).round() } else { 0.0 };
                     shaft(pen, g.shaft, (lie.0 + wob, lie.1 - 1.0), (0.0, -1.0), 8);
                 }
@@ -809,14 +719,11 @@ fn punch(
     let s = ease_out(u);
     let h = im.h as f32;
     let at = (o.0 + (to.0 - o.0) * s, o.1 + (to.1 - o.1) * s);
-    // The turn: upright to lying as it skids; a variant hops.
     let hop = if g.var == 2 { (PI * u).sin() * 4.0 } else { (PI * u).sin() * 1.5 };
     let angle = sgn * ease_in(u * 1.1).min(1.0) * (FRAC_PI_2 + 0.15 * f32::from(g.var));
     let flying = t < span;
-    // The shot's spray, thrown on along its line.
     let wound = (o.0 - d.0 * g.r * UNIT * 0.4, o.1 - h * 0.45);
     if pass == Pass::Under {
-        // The skid's smear along the floor.
         let n = (travel_of(o, at) * 0.8) as i32;
         for k in 0..n {
             let f = k as f32 / n.max(1) as f32;
@@ -832,8 +739,6 @@ fn punch(
         pool(pen, seed, (at.0, at.1 - 1.0), g.r * UNIT * 0.65, t - span * 0.6, p, thin_stain, 0.5);
     }
     let out = if matches!(stuff, Body::Bone) { 0.0 } else { 1.0 };
-    // The shot's spray, thrown on along its line, and what it took out of
-    // the far side.
     let exit = (o.0 + d.0 * g.r * UNIT * 0.5, o.1 - h * 0.45);
     let stain = if pass == Pass::Over { 0.0 } else { f32::MAX };
     spray(pen, seed, 61, wound, 3.0, d, 1.5, (9.0 + 4.0 * out) as i32, (2.2, 4.6), (0.4, 2.2), t, p, stain);
@@ -842,7 +747,6 @@ fn punch(
         scatter_bones(pen, g, seed, t, at, p, false);
     }
     if flying && pass == Pass::Over {
-        // Afterimages: it is going fast.
         for (back, thin_by, dim) in [(3.0f32, 0.72f32, 0.4f32), (1.5, 0.5, 0.6)] {
             let tt = t - back;
             if tt <= 0.0 {
@@ -869,8 +773,6 @@ fn travel_of(a: (f32, f32), b: (f32, f32)) -> f32 {
     (b.0 - a.0).hypot(b.1 - a.1)
 }
 
-/// Bones thrown out of a skeleton and settling: a skull and a few long
-/// bones and ribs, with a puff of dust where it came apart.
 fn scatter_bones(pen: &mut Pen, g: &Gore, seed: i32, t: f32, at: (f32, f32), p: &Pal, lying: bool) {
     let n = 9;
     for j in 0..n {
@@ -888,7 +790,6 @@ fn scatter_bones(pen: &mut Pen, g: &Gore, seed: i32, t: f32, at: (f32, f32), p: 
         let c = if rest || lying { shade(p.fresh, 0.8) } else { p.fresh };
         bone(pen, x.round() as i32, y.round() as i32, a + tau * 0.4 * if rest { 0.0 } else { 1.0 }, c);
     }
-    // The dust.
     if t < 9.0 {
         for j in 0..12 {
             let a = h01(j, seed, 451) * 2.0 * PI;
@@ -930,23 +831,19 @@ fn behead(
     let head_keep = inside;
     let trunk_keep = move |x: i32, y: i32| !inside(x, y);
     let fresh = p.fresh;
-    // The trunk's cut: the pixels touching where the head was.
     let neck_face = move |x: i32, y: i32| {
         let near = x >= bx0 - 1 && x <= bx1 && y >= by0 - 1 && y <= by1;
         (near && !inside(x, y)).then_some(fresh)
     };
     let head_mid = ((bx0 + bx1) as f32 / 2.0, (by0 + by1) as f32 / 2.0);
     let neck_top = (o.0 + (head_mid.0 - im.w as f32 / 2.0), o.1 - h + by1 as f32);
-    // The trunk stands a moment, wobbling, then falls along the blow.
     let fall_start = if g.var == 2 { 9.0 } else { 6.0 };
     let fall_u = ((t - fall_start) / (span - fall_start).max(1.0)).clamp(0.0, 1.0);
     let fallen_to = if g.var == 2 { -sgn } else { sgn } * (FRAC_PI_2 + 0.12);
     let trunk_angle = if t < fall_start { (t * 2.4).sin() * 0.05 } else { ease_in(fall_u) * fallen_to };
     let down = fall_u >= 1.0;
-    // The head: out along the blow in an arc, a bounce, then at rest.
     let hu = (t / span).clamp(0.0, 1.0);
     let hs = ease_out(hu * 1.1);
-    // The head pops high off the neck; a finisher's flies the highest.
     let apex = 10.0 + 4.0 * f32::from(g.var) + if g.span >= 18 { 4.0 } else { 0.0 };
     let hz = if hu < 1.0 { 4.0 * apex * hu * (1.0 - hu) } else { 0.0 };
     let start = (o.0 + (head_mid.0 - im.w as f32 / 2.0), o.1 - h + head_mid.1);
@@ -966,7 +863,6 @@ fn behead(
         ..upright(im, o)
     };
     if pass == Pass::Over {
-        // The neck's pulses, up and a little along the blow.
         for pulse in 0..4 {
             let since = t - pulse as f32 * 5.0;
             if (0.0..14.0).contains(&since) {
@@ -978,7 +874,6 @@ fn behead(
         }
         if !head_rest {
             blit(pen.cv, im, &head_pose(centre, spin, 0.95, 0.0));
-            // Drops flung off it as it spins.
             spray(pen, seed, 91, centre, 0.0, (d.0, 0.0), 2.6, 4, (0.4, 1.4), (0.3, 1.2), t, p, 0.0);
         }
         if !down && !body_gone {
@@ -988,7 +883,6 @@ fn behead(
             scatter_bones(pen, g, seed, t - fall_start, (o.0, o.1 - 4.0), p, false);
         }
     } else {
-        // Stains from the spray; the pool under the neck grows.
         for pulse in 0..4 {
             let since = t - pulse as f32 * 5.0;
             if since >= 0.0 {
@@ -1018,9 +912,6 @@ fn behead(
     }
 }
 
-/// The box of a monster's head in its sprite, `(x0, y0, x1, y1)`, the far
-/// corner not in it: read off the art (`print_sprites`). A body not listed
-/// has its head in its top two fifths.
 fn head_box(kind: EnemyKind, w: i32, h: i32) -> (i32, i32, i32, i32) {
     use EnemyKind as K;
     match kind {
@@ -1032,7 +923,6 @@ fn head_box(kind: EnemyKind, w: i32, h: i32) -> (i32, i32, i32, i32) {
     }
 }
 
-/// `tipping`, turned and dimmed.
 fn posed_tip<'a>(im: &Img, feet: (f32, f32), angle: f32, dim: f32) -> Pose<'a> {
     Pose { angle, dim, ..tipping(im, feet) }
 }
@@ -1059,13 +949,9 @@ fn halve(
     let (w, h) = (im.w as f32, im.h as f32);
     let u = (t / span).clamp(0.0, 1.0);
     let s = ease_out(u);
-    // The cut runs across the blow, tilted by the variant; the halves fall
-    // apart along the blow.
     let tilt = (f32::from(g.var) - 1.0) * 0.6;
     let (c, sn) = (tilt.cos(), tilt.sin());
     let (nx, ny) = (d.0 * c - d.1 * sn, d.0 * sn + d.1 * c);
-    // Seen from above, a blow straight up or down parts the halves left and
-    // right.
     let (nx, ny) = if nx.abs() < 0.3 { (sgn * 0.9, ny * 0.5) } else { (nx, ny * 0.7) };
     let nl = nx.hypot(ny).max(0.01);
     let (nx, ny) = (nx / nl, ny / nl);
@@ -1093,7 +979,6 @@ fn halve(
         pose
     };
     if pass == Pass::Over && !down {
-        // The spray along the cut, both ways, and a gout from the middle.
         for (k, dir) in [(0u32, (nx, ny)), (1u32, (-nx, -ny))] {
             spray(pen, seed, 111 + k * 9, (o.0, o.1 - h * 0.5), 2.0, dir, 1.7, 8, (1.0, 2.8), (0.8, 2.8), t, p, 0.0);
         }
@@ -1121,10 +1006,6 @@ fn halve(
     }
 }
 
-/// A body a knight's blade went through on a slope (`Gore::slant`): the
-/// cut shows, the upper piece slides off down it and tumbles to the floor
-/// beside, and the lower stands a moment, gouting, before it folds the other
-/// way. Both lie in a spreading pool until they fade.
 #[allow(clippy::too_many_arguments)]
 fn sever(
     pen: &mut Pen,
@@ -1142,11 +1023,9 @@ fn sever(
     let o = feet(g);
     let (w, h) = (im.w as f32, im.h as f32);
     let slant = f32::from(g.slant.unwrap_or(0)).to_radians();
-    // Down the cut, and the side of it that is up: the upper piece's.
     let (lx, ly) = if slant.sin() < 0.0 { (-slant.cos(), -slant.sin()) } else { (slant.cos(), slant.sin()) };
     let (nx, ny) = if lx >= 0.0 { (ly, -lx) } else { (-ly, lx) };
     let fall = if lx >= 0.0 { 1.0 } else { -1.0 };
-    // A level cut goes through the waist; a steep one down the middle.
     let mid = (w / 2.0, h * if slant.abs() > 0.8 { 0.5 } else { 0.48 });
     let off = move |x: i32, y: i32| (x as f32 + 0.5 - mid.0) * nx + (y as f32 + 0.5 - mid.1) * ny;
     let upper = move |x: i32, y: i32| off(x, y) > 0.0;
@@ -1157,18 +1036,12 @@ fn sever(
         let d = off(x, y).abs();
         if d < 0.8 { Some(fresh) } else if d < 1.6 { Some(wet) } else { None }
     };
-    // Where the upper piece's middle sits in the sprite: on the cut, a
-    // third of the way into its side.
     let depth = if slant.abs() > 0.8 { w * 0.28 } else { h * 0.26 };
     let centre = (mid.0 + nx * depth, mid.1 + ny * depth);
     let span = f32::from(g.span.max(8));
-    // The slide: a pixel or two while the cut shows, then away down it,
-    // turning over, to the floor beside the legs.
     let start = (o.0 + centre.0 - w / 2.0, o.1 - h + centre.1);
     let rest = (o.0 + lx * (w * 0.55 + 4.0) + fall * 2.0, o.1 - 2.5);
     let shown = 4.0;
-    // The blade throws the piece up off the cut a pixel as it slides, so a
-    // line of dark shows between the two at once.
     let (at, angle, down) = if t < shown {
         let k = ease_out(t / shown) * 3.0;
         ((start.0 + lx * k + nx, start.1 + ly * k + ny), 0.0, false)
@@ -1180,7 +1053,6 @@ fn sever(
         let at = (along.0 + (rest.0 - along.0) * k, along.1 + (rest.1 - along.1) * k * k);
         (at, fall * (FRAC_PI_2 + 0.15) * k, u >= 1.0)
     };
-    // A small bounce where it lands.
     let after = t - span;
     let bounce = if (0.0..5.0).contains(&after) { (PI * after / 5.0).sin() * 1.6 } else { 0.0 };
     let piece = |at: (f32, f32), angle: f32, dim: f32, thin: f32| Pose {
@@ -1193,7 +1065,6 @@ fn sever(
         thin,
         ..upright(im, o)
     };
-    // The legs stand while it slides, sag, then fold back the other way.
     let fold_at = shown + 6.0;
     let fold_u = ((t - fold_at) / 9.0).clamp(0.0, 1.0);
     let legs_angle = if t < fold_at { (t * 2.0).sin() * 0.04 } else { -fall * ease_in(fold_u) * (FRAC_PI_2 + 0.1) };
@@ -1205,11 +1076,8 @@ fn sever(
         thin,
         ..posed_tip(im, (o.0, o.1 + drop), angle, dim)
     };
-    // Where the cut on the standing legs is, in the room.
     let wound = (o.0 + mid.0 - w / 2.0, o.1 - h + mid.1 + sag);
     if pass == Pass::Over {
-        // The cut opening: a spray both ways along it, then a gout up out
-        // of the legs in pulses while they stand.
         if t < 6.0 {
             for (k, dir) in [(0u32, (lx, ly)), (1u32, (-lx, -ly))] {
                 spray(pen, seed, 141 + k * 9, wound, 1.0, dir, 1.2, 7, (1.0, 2.6), (0.8, 2.4), t, p, 0.0);
@@ -1226,7 +1094,6 @@ fn sever(
         }
         if !down && !body_gone {
             blit(pen.cv, im, &piece(at, angle, 0.95, 0.0));
-            // Drops shaken off the piece as it goes.
             if t >= shown {
                 spray(pen, seed, 181, at, 0.0, (lx, ly), 1.4, 3, (0.3, 1.0), (0.2, 1.0), t - shown, p, 0.0);
             }
@@ -1280,7 +1147,6 @@ fn burst(
     let h = im.h as f32;
     let c = (o.0, o.1 - h * 0.45);
     let r = g.r * UNIT;
-    // The mist: a ring of dark opening out of it, a few ticks.
     if pass == Pass::Over && t < 8.0 {
         let rr = r * 0.6 + t * 2.2;
         let n = (rr * 2.5) as i32;
@@ -1299,11 +1165,9 @@ fn burst(
             }
         }
     }
-    // The chunks: its own pixels, thrown out, bounced once, at rest.
     let chunks = 9 + (r / 3.0) as i32;
     for j in 0..chunks {
         let rj = |s: u32| h01(j, seed, 501 + s);
-        // Mostly the way the blow went.
         let cone = if g.var == 1 { 1.5 } else { 3.4 };
         let a = d.1.atan2(d.0) + (rj(1) - 0.5) * cone * if j % 3 == 0 { 1.9 } else { 1.0 };
         let sp = (1.4 + 3.0 * rj(2)) * if g.var == 2 { 0.7 } else { 1.0 };
@@ -1350,7 +1214,6 @@ fn burst(
         }
         let pool_k = if matches!(stuff, Body::Shard | Body::Bone) { 0.0 } else { 1.0 };
         pool(pen, seed, (o.0, o.1 - 1.0), r * 1.05 * pool_k, t - 2.0, p, thin_stain, 0.5);
-        // Scorched ground where something burned.
         if matches!(stuff, Body::Ash) {
             pool(pen, seed, (o.0, o.1 - 1.0), r * 0.9, t - 1.0, p, thin_stain, 0.5);
         }
@@ -1366,7 +1229,6 @@ fn splat(pen: &mut Pen, g: &Gore, im: &Img, p: &Pal, seed: i32, t: f32, _age: u6
     let h = im.h as f32;
     let r = g.r * UNIT;
     let u = (t / 4.0).clamp(0.0, 1.0);
-    // It squashes flat and wide, then it is a puddle.
     if pass == Pass::Over && t < 5.0 {
         let mut pose = tipping(im, o);
         pose.squash = 1.0 - 0.7 * ease_out(u);
@@ -1376,13 +1238,11 @@ fn splat(pen: &mut Pen, g: &Gore, im: &Img, p: &Pal, seed: i32, t: f32, _age: u6
         blit(pen.cv, im, &pose);
     }
     let stain = if pass == Pass::Under { f32::MAX } else { 0.0 };
-    // A ring of drops thrown out low and fast, and a few high.
     spray(pen, seed, 151, (o.0, o.1 - h * 0.3), 2.0, d, 6.28, if g.var == 2 { 20 } else { 14 }, (1.0, 3.2), (0.4, 2.8), t, p, stain);
     if pass == Pass::Under {
         let flat = if g.var == 1 { 0.32 } else { 0.55 };
         let big = if g.var == 1 { 1.6 } else { 1.25 };
         pool(pen, seed, (o.0, o.1), r * big, t - 1.0, p, thin_stain, flat);
-        // Bubbles and a lit rim on the fresh puddle.
         if t < 90.0 {
             for j in 0..5 {
                 let a = h01(j, seed, 161) * 2.0 * PI;

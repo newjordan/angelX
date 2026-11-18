@@ -27,23 +27,14 @@ use super::realm_mono::Mono;
 use super::realm_place::Stood;
 use crate::world::houses;
 
-/// What crowns a castle's towers and walls.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Crown {
-    /// Merlons along the tops.
     Merlons,
-    /// A stepped crown, inset tier on tier.
     Stepped,
-    /// Square caps on the towers, of this kind.
     Caps(Kind),
-    /// Broken: towers of ragged heights, no crown.
     Broken,
 }
 
-/// A castle to build: its footprint (tiles), the middle of its gate (the
-/// kingdom's pixels, on the face it opens in), the way its gate faces, the
-/// other doors in its face (their middles), its stone, its crown, how many
-/// towers, how tall.
 #[derive(Clone, Debug)]
 pub struct Site {
     pub name: String,
@@ -55,18 +46,11 @@ pub struct Site {
     pub crown: Crown,
     pub towers: u8,
     pub seed: u32,
-    /// How tall the curtain (or a small castle's body) is, kingdom pixels.
     pub height: f32,
 }
 
-/// The kingdom's castles as the map holds them (`world::castles`): the
-/// houses' great walls on the March, the King's Keep across the north of
-/// Castle Town (the Rookery's and the Chapel's doors in its face), the
-/// Dragon Keep on the crater's rim.
 pub fn sites(_land: &Land) -> Vec<Site> {
     use crate::world::castles::{CastleKind, Facing};
-    // The blank-slate plan stands no walled castle: the Keep begun and the
-    // camps are `realm_camp`'s (`world::plan`).
     crate::world::castles()
         .iter()
         .filter(|_| crate::world::plan::full())
@@ -108,8 +92,6 @@ pub fn sites(_land: &Land) -> Vec<Site> {
         .collect()
 }
 
-/// Whether build kit `kit` is a castle's (stood by [`castle`], not by
-/// `realm_place`).
 pub fn is_castle(kit: super::kit::Kit) -> bool {
     use super::kit::Kit;
     matches!(kit, Kit::Castle(_) | Kit::Keep | Kit::Turret | Kit::DragonKeep)
@@ -123,13 +105,11 @@ fn unit(seed: u32, salt: u32) -> f32 {
     (h & 0xffff) as f32 / 65535.0
 }
 
-/// The castle `site` as it stands.
 pub fn castle(site: &Site, terrain: &Terrain) -> Stood {
     let foot = px(site.foot);
     let mut m = Mono::on(foot, site.face, site.seed);
     let y0 = terrain.lowest(foot).min(0.0) - 3.0;
     let centre = [(foot[0] + foot[2]) / 2.0, (foot[1] + foot[3]) / 2.0];
-    // A point's place along the front, in the castle's own frame.
     let along = |p: [f32; 2]| match site.face {
         Face::South => p[0] - centre[0],
         Face::North => centre[0] - p[0],
@@ -148,7 +128,6 @@ pub fn castle(site: &Site, terrain: &Terrain) -> Stood {
     s
 }
 
-/// A small footprint: one great keep filling it.
 fn keep(m: &mut Mono, site: &Site, along: f32, y0: f32, s: &mut Stood) {
     let kind = site.walls;
     let (hx, hz) = (m.w / 2.0 - 0.5, m.d / 2.0 - 0.5);
@@ -157,7 +136,6 @@ fn keep(m: &mut Mono, site: &Site, along: f32, y0: f32, s: &mut Stood) {
     let gw = (m.w * 0.16).clamp(8.0, 14.0);
     let gx = along.clamp(-hx + gw / 2.0 + 6.0, hx - gw / 2.0 - 6.0);
     let gap = (gx - gw / 2.0 - 3.0, gx + gw / 2.0 + 3.0);
-    // The stepped plinth, parted at the gate on the front.
     let tiers = [(8.0, 0.0), (7.0, 3.0), (7.0, 5.5)];
     let body = 7.5;
     let front = hz - body;
@@ -176,7 +154,6 @@ fn keep(m: &mut Mono, site: &Site, along: f32, y0: f32, s: &mut Stood) {
     }
     m.course(kind, bx, bz, h * 0.42);
     m.course(kind, bx, bz, h * 0.64);
-    // Towers at the corners, rising past the body.
     let tw = (m.w.min(m.d) * 0.3).clamp(12.0, 30.0);
     let mut corners = vec![(-hx + 1.0, hz - 1.0 - tw), (hx - 1.0 - tw, hz - 1.0 - tw)];
     if site.towers >= 3 {
@@ -190,7 +167,6 @@ fn keep(m: &mut Mono, site: &Site, along: f32, y0: f32, s: &mut Stood) {
         if !broken {
             m.block(kind, [x - 1.0, x + tw + 1.0], [th - 7.0, th + 1.0], [z - 1.0, z + tw + 1.0]);
         }
-        // A deep slot up its front, a lit window or two in it.
         let fx = x + tw / 2.0;
         let fz = z + tw;
         m.block(Kind::Door, [fx - 1.2, fx + 1.2], [30.0, th - 12.0], [fz - 0.2, fz + 0.25]);
@@ -217,7 +193,6 @@ fn keep(m: &mut Mono, site: &Site, along: f32, y0: f32, s: &mut Stood) {
         }
         tower_spans.push((x, x + tw));
     }
-    // Fins up the front between the towers, and the slits high in it.
     let (fa, fb) = (-hx + 1.0 + tw + 2.0, hx - 1.0 - tw - 2.0);
     if fb > fa + 8.0 {
         m.fins(kind, [fa, gap.0 - 1.0], bz[1], [y + 2.0, h - 4.0], 8.0, 1.6);
@@ -233,8 +208,6 @@ fn keep(m: &mut Mono, site: &Site, along: f32, y0: f32, s: &mut Stood) {
     } else if site.crown == Crown::Stepped || matches!(site.crown, Crown::Caps(_)) {
         m.block(kind, [bx[0] + 4.0, bx[1] - 4.0], [h + 1.0, h + 7.0], [bz[0] + 4.0, bz[1] - 4.0]);
     }
-    // The gate: a deep slot under a heavy lintel, its doors at the back;
-    // braziers either side on the plinth; a lamp hung in it.
     let gh = (h * 0.24).clamp(26.0, 44.0);
     m.block(Kind::Door, [gx - gw / 2.0, gx + gw / 2.0], [y0, gh], [bz[1] - 0.6, bz[1] + 0.3]);
     for side in [-1.0f32, 1.0] {
@@ -253,8 +226,6 @@ fn keep(m: &mut Mono, site: &Site, along: f32, y0: f32, s: &mut Stood) {
     }
 }
 
-
-/// The spans of `[a, b]` left when `holes` are taken out of it.
 fn spans([a, b]: [f32; 2], holes: &[(f32, f32)]) -> Vec<[f32; 2]> {
     let mut out = vec![[a, b]];
     for &(h0, h1) in holes {
@@ -272,11 +243,6 @@ fn spans([a, b]: [f32; 2], holes: &[(f32, f32)]) -> Vec<[f32; 2]> {
     out
 }
 
-/// A great footprint: curtain walls round it on a stepped plinth, square
-/// towers at its corners, two gate towers and the gate's deep slot between
-/// them, the other doors as slots in the face, a keep as a monolith in the
-/// ward (a footprint too shallow for a ward is one great mass inside its
-/// walls).
 fn great(m: &mut Mono, site: &Site, gate: f32, doors: &[f32], y0: f32, s: &mut Stood) {
     let kind = site.walls;
     let (hx, hz) = (m.w / 2.0 - 0.5, m.d / 2.0 - 0.5);
@@ -294,7 +260,6 @@ fn great(m: &mut Mono, site: &Site, gate: f32, doors: &[f32], y0: f32, s: &mut S
     let doors: Vec<f32> = doors.iter().copied().filter(|d| (d - gx).abs() > gw / 2.0 + gtw + 8.0 && d.abs() < ox - tower - 8.0).collect();
     let mut openings = vec![(gx - gw / 2.0 - gtw, gx + gw / 2.0 + gtw)];
     openings.extend(doors.iter().map(|&d| (d - 7.0, d + 7.0)));
-    // The plinth round the outside: two tiers, parted at the gate and the doors.
     for (ya, yb, out) in [(y0, 8.0, po), (8.0, 15.0, po * 0.5)] {
         let (ax, az) = (ox + out, oz + out);
         m.block(kind, [-ax, ax], [ya, yb], [-az, -oz + t]);
@@ -304,7 +269,6 @@ fn great(m: &mut Mono, site: &Site, gate: f32, doors: &[f32], y0: f32, s: &mut S
             m.block(kind, [a, b], [ya, yb], [oz - t, az]);
         }
     }
-    // The curtain: back, sides, the front parted at the gate.
     m.block(kind, [-ox, ox], [y0, h], [-oz, -oz + t]);
     m.block(kind, [-ox, -ox + t], [y0, h], [-oz + t, oz - t]);
     m.block(kind, [ox - t, ox], [y0, h], [-oz + t, oz - t]);
@@ -313,8 +277,6 @@ fn great(m: &mut Mono, site: &Site, gate: f32, doors: &[f32], y0: f32, s: &mut S
         m.block(kind, [a, b], [y0, h], [oz - t, oz]);
     }
     if solid {
-        // Too shallow for a ward: one great mass between the walls, its
-        // roof a step under their tops.
         m.block(kind, [-ox + t, ox - t], [y0, h - 8.0], [-oz + t, oz - t]);
     }
     if !broken {
@@ -325,7 +287,6 @@ fn great(m: &mut Mono, site: &Site, gate: f32, doors: &[f32], y0: f32, s: &mut S
         m.cornice(kind, [-ox, -ox + t], [-oz + t, oz - t], h, 2.0);
         m.cornice(kind, [ox - t, ox], [-oz + t, oz - t], h, 2.0);
     }
-    // The front: courses, fins, slits high in it, the doors as deep slots.
     let (fa, fb) = (-ox + tower, ox - tower);
     for [a, b] in spans([fa, fb], &openings) {
         m.course(kind, [a, b], [oz - t, oz], h * 0.4);
@@ -336,9 +297,7 @@ fn great(m: &mut Mono, site: &Site, gate: f32, doors: &[f32], y0: f32, s: &mut S
     for &d in &doors {
         m.door(kind, d, oz, 0.0, [9.0, 28.0], 4.0);
     }
-    // The back wall's inner face shows over the front: fins on it too.
     m.fins(kind, [-ox + t + 4.0, ox - t - 4.0], -oz + t, [h * 0.35, h - 5.0], 20.0, 2.0);
-    // Corner towers, from the footprint's edge, rising past the curtain.
     let mut corners = vec![(-hx + 1.0, hz - 1.0 - tower), (hx - 1.0 - tower, hz - 1.0 - tower), (-hx + 1.0, -hz + 1.0), (hx - 1.0 - tower, -hz + 1.0)];
     if site.towers < 3 {
         corners.truncate(2);
@@ -360,7 +319,6 @@ fn great(m: &mut Mono, site: &Site, gate: f32, doors: &[f32], y0: f32, s: &mut S
         m.block(kind, [x + tower * 0.32 + 2.5, x + tower * 0.68 - 2.5], [30.0, top - 14.0], [fz, fz + 1.4]);
         crown(m, site.crown, kind, [x, x + tower], [z, z + tower], top);
     }
-    // The gate towers, standing out to the footprint's edge, and the slot.
     let gh = (h * 0.32).clamp(44.0, 64.0);
     for side in [-1.0f32, 1.0] {
         let x = if side < 0.0 { gx - gw / 2.0 - gtw } else { gx + gw / 2.0 };
@@ -373,18 +331,15 @@ fn great(m: &mut Mono, site: &Site, gate: f32, doors: &[f32], y0: f32, s: &mut S
         m.block(Kind::Door, [mx - 1.2, mx + 1.2], [gh + 12.0, top - 12.0], [hz - 1.2, hz - 0.8]);
         crown(m, site.crown, kind, [x, x + gtw], [oz - t - 10.0, hz - 1.0], top);
     }
-    // The way through: dark doors deep in, a heavy lintel over it.
     m.block(Kind::Door, [gx - gw / 2.0, gx + gw / 2.0], [y0, gh], [oz - t - 8.0, oz - t - 6.0]);
     m.block(kind, [gx - gw / 2.0, gx + gw / 2.0], [gh, h + 18.0], [oz - t - 10.0, hz - 3.0]);
     m.block(Kind::Sand, [gx - gw / 2.0, gx + gw / 2.0], [y0, 0.4], [oz - t - 6.0, hz]);
-    // A lamp hung in the slot, braziers at its mouth.
     m.block(Kind::Metal, [gx - 0.4, gx + 0.4], [gh * 0.62, gh], [hz - 8.4, hz - 7.6]);
     m.block(Kind::Fire, [gx - 1.8, gx + 1.8], [gh * 0.52, gh * 0.62], [hz - 9.8, hz - 6.2]);
     s.lamps.push((4.0, SetLamp { at: m.point([gx, gh * 0.56, hz - 4.0]), reach: 96.0, strength: if broken { 1.15 } else { 1.0 } }));
     for side in [-1.0f32, 1.0] {
         m.brazier(gx + side * (gw / 2.0 - 3.0), hz - 3.5, 0.0);
     }
-    // The keep in the ward.
     if !solid {
         let (wz0, wz1) = (-oz + t, oz - t);
         let kx = (ox - t - 28.0).min(70.0);
@@ -403,7 +358,6 @@ fn great(m: &mut Mono, site: &Site, gate: f32, doors: &[f32], y0: f32, s: &mut S
     }
 }
 
-/// A tower's crown over `x` by `z` at `top`.
 fn crown(m: &mut Mono, crown: Crown, kind: Kind, [x0, x1]: [f32; 2], [z0, z1]: [f32; 2], top: f32) {
     let (w, d) = (x1 - x0, z1 - z0);
     match crown {

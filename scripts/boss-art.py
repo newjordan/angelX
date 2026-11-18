@@ -121,9 +121,6 @@ def gate(rows, inks, keep=()):
                           if 0 <= ny < len(rows) and 0 <= nx < len(row)]
             assert (x,y) in allowed or any(rows[ny][nx] == k for nx,ny in neighbours), f'unreviewed singleton {k} at {x},{y}'
 
-
-
-# Two ramp steps: 7.5 CIE L* per step, measured before any zoom.
 RAMP_STEP = 7.5
 SEPARATION = 2 * RAMP_STEP
 
@@ -173,7 +170,6 @@ def linear_pixels(features, rows):
         assert max(max(xs)-min(xs),max(ys)-min(ys)) >= 5, 'loose patches cannot claim a LINEAR exemption'
         if 'underlay' in feature:
             assert {tuple(p[:2]) for p in feature['underlay']} == points, feature['name']
-        # The saved pixels can be clipped by later authored layers, never expanded.
         assert all(rows[y][x] == feature['ink'] for x,y in points-covered), feature['name']
         allowed.update(points)
         covered.update(points)
@@ -188,7 +184,6 @@ def region_errors(rows, ramps, min_side=4, linear_features=()):
     Untagged 2–3px patches and flecks still need an actual solid square.
     """
     allowed = linear_pixels(linear_features, rows)
-    # Reconstruct broad masses below the explicitly named narrow overlays.
     cells = list(map(list, rows))
     for feature in reversed(linear_features):
         for x,y,k in feature.get('underlay', []):
@@ -231,8 +226,6 @@ def signature_gate(spec, colours):
     for light in spec['signature_lights']:
         name = light['name']
         points = {(x,y) for x,y,_ in light['pixels']}
-        # Check both the whole form and each ink cluster: a rounded outer
-        # sticker cannot hide a rectangular bright screen inside it.
         shapes = [(True, part) for part in components(points)]
         for k in {k for _,_,k in light['pixels']}:
             shapes += [(False, part) for part in components({(x,y) for x,y,ink in light['pixels'] if ink == k})]
@@ -387,8 +380,6 @@ def presence(values, floor):
 
 
 def presence_regressions(old, new):
-    # No percentage allowance: even one lost body pixel fails. The epsilon
-    # only accommodates arithmetic equality in the CIE conversion.
     return [label for label, a, b in zip(('median L*', 'presence pixels'), old, new)
             if b + 1e-6 < a]
 
@@ -406,8 +397,6 @@ def original_gates(entries, captures, output=None, contrast=None):
     registry = {boss: policy for boss, policy in registry.items() if policy.get('active', True)}
     library = [entry for entry in entries if Path(entry['boss']).stem in registry]
     if library:
-        # Library bodies use local graded guardian-floor contrast. Other IDs
-        # retain their exact original-value and area comparison below.
         gate = runpy.run_path(str(ROOT/'scripts/check-boss-library.py'))
         selected = {Path(entry['boss']).stem: registry[Path(entry['boss']).stem] for entry in library}
         errors.extend(gate['floor_contrast_gates'](selected, contrast or captures)[0])
@@ -434,15 +423,12 @@ def original_gates(entries, captures, output=None, contrast=None):
                 points = body_points(rows, size, origin)
                 floor = rgb.getpixel(tuple(v//divisor for v in ev['floor_sample']))
                 room = presence([lightness(rgb.getpixel(p)) for p in points], floor)
-                # The body fixture sits over the same unobstructed floor in
-                # both paths; sample that floor through the emitted glyph too.
                 fx, fy = [v//divisor for v in ev['floor_sample']]
                 cell_floor = terminal_colour(raw[fy//ch*96+fx//cw], fx%cw*2//cw, fy%ch*4//ch)
                 cells = presence([lightness(terminal_colour(raw[y//ch*96+x//cw], x%cw*2//cw, y%ch*4//ch))
                                   for x,y in points], cell_floor)
                 results.append((room, cells))
                 if sheet:
-                    # 12 views: before/after x two kits x (4x crop, 1x, cells).
                     bx,by = origin; w,h = size
                     box = (bx-4,by-4,bx+w+4,by+h+4)
                     crop = rgb.crop(box)
@@ -509,8 +495,6 @@ def player_review(entries, captures, output):
         d = ImageDraw.Draw(sheet)
         d.text((12,y),label,fill='#c2b494')
         if native.width > 256:
-            # A full committed area stays intact. Enlarging a whole room 3x
-            # would crop away both the far boundary and the actual cell view.
             d.text((12,y+20),'1x native room / full area',fill='#96a5a9')
             sheet.paste(native,(12,y+40))
             d.text((580,y+20),'actual cells / full area',fill='#96a5a9')
@@ -544,14 +528,10 @@ def player_review(entries, captures, output):
             d.text((790,y),'ACTUAL HALF-BLOCK / BRAILLE CELLS',fill='#c2b494')
             sheet.paste(room,(10,y+20));sheet.paste(cell_image(cells,(0,0,96,28)),(790,y+20))
 
-        # Unlit floor in this room is black. Measure the actual silhouette at
-        # its displayed size, using alpha from its nearest-scaled native grid.
         spec=entry['frames']['v2'][0]
         ev=spec['separation']
         bw,bh=ev['room_size'];bx,by=ev['room_origin']
         source=render(signature_rows(spec),frame_inks(spec,palette())).getchannel('A')
-        # Match the runtime's integer floor sampler, not Pillow's pixel-centre
-        # nearest mapping (they differ when the stature enlarges a boss).
         alpha=Image.new('L',(bw,bh))
         alpha.putdata([source.getpixel((x*source.width//bw,y*source.height//bh))
                        for y in range(bh) for x in range(bw)])
@@ -589,8 +569,6 @@ def player_review(entries, captures, output):
             crop=rgb.crop(tellbox);cell=cell_crop(raw,tellbox)
             measured=crop.copy()
             if ring:
-                # Boss hurt/rage exposure must not pass a frozen ring. The
-                # fixture records the true central body and health-bar box.
                 draw=ImageDraw.Draw(measured)
                 for x0,y0,x1,y1 in geometry['tell_ignore']:
                     draw.rectangle((x0-tellbox[0],y0-tellbox[1],x1-tellbox[0]-1,y1-tellbox[1]-1),fill=(0,0,0))
@@ -599,9 +577,6 @@ def player_review(entries, captures, output):
                     a//8 <= x0+i%(x1-x0) < math.ceil(c_/8) and b//16 <= y0+i//(x1-x0) < math.ceil(d/16)
                     for a,b,c_,d in geometry['tell_ignore'])]
             if name=='the-index':
-                # Ignore the separately advancing horizontal lane at the
-                # crossing and the legacy fixture's moving projectile.
-                # Neither may pass a frozen vertical warning-stage gate.
                 draw=ImageDraw.Draw(measured)
                 for y0,y1 in [(224,256),(336,368)]:
                     draw.rectangle((0,y0-160,15,y1-161),fill=(0,0,0))
@@ -626,8 +601,6 @@ def player_review(entries, captures, output):
             else:
                 row(tells,10+stage*row_height,label,crop,cell_image(raw,cell_box(tellbox)))
         tells.save(output/(name+'-tell-player.png'))
-        # Six projectile views, five impact enlargements and one labelled
-        # impact cell row: exactly twelve images per sheet.
         shot_row = max(145, 50 + (projectile_box[3]-projectile_box[1])*3)
         impact_y = 20 + shot_row*2
         cell_y = impact_y + 25 + (impact_box[3]-impact_box[1])*3 + 32
@@ -682,7 +655,6 @@ def native_recipe(entries):
     errors = numeric_gates(entries)
     assert not errors, '\n'.join(errors)
     all_inks = palette()
-    # Validate the whole batch before touching any accepted asset.
     for entry in entries:
         inks = {k:all_inks[k] for k in entry['inks']}
         assert len(inks) <= 10
@@ -717,8 +689,6 @@ def native_recipe(entries):
                 write_changed(output/(name+'.png'),png.getvalue())
                 write_changed(output/(name+'.art'),('\n'.join(rows)+'\n').encode())
                 if role == 'v2':
-                    # A separate emissive layer exposes only reviewed lights
-                    # in terminal cells, after room lighting reduces the body.
                     lights = [['.'] * len(rows[0]) for _ in rows]
                     for light in spec['signature_lights']:
                         for x, y, k in light['pixels']:
@@ -752,8 +722,6 @@ def extract(im, background, tolerance):
         r, g, b, _ = px[x, y]
         if background == 'black':
             return max(r, g, b) <= tolerance
-        # Neutral backgrounds may have a small lighting gradient. Colourful
-        # slate contours stay attached even when their luminance matches it.
         return max(r, g, b)-min(r, g, b) < 12 and max(abs(c-k) for c, k in zip((r,g,b), key)) <= tolerance
     todo = deque((x, y) for x in range(w) for y in (0, h-1))
     todo.extend((x, y) for y in range(h) for x in (0, w-1))
@@ -767,7 +735,6 @@ def extract(im, background, tolerance):
         for nx, ny in ((x-1,y),(x+1,y),(x,y-1),(x,y+1)):
             if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in seen:
                 todo.append((nx, ny))
-    # Black effect paper can be enclosed inside a curl; it is still paper.
     if background == 'black':
         for y in range(h):
             for x in range(w):
@@ -921,7 +888,6 @@ def main():
         study_rows = snap(fit(im,(size[0]*2,size[1]*2)),inks)[1]
         study_rows = despeckle(contour(despeckle(study_rows,keep),a.ramps),keep)
         study_rows, study = finish(study_rows,'v2')
-        # Both kits must pass before either accepted asset is changed.
         a.boss.write_text(header+'\nart\n'+'\n'.join(body_rows)+'\n')
         small.save(a.output/'v1.png')
         study.save(a.output/'v2.png')

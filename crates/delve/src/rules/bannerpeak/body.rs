@@ -15,21 +15,14 @@ use crate::rules::rafterwake::{Plank, landing};
 use serde::{Deserialize, Serialize};
 
 pub const Q: i32 = 256;
-/// A tile in fixed units.
 pub const TQ: i32 = TILE * Q;
 
-/// The five numbers a playtester moves (the F2 knobs), as the body reads them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Knobs {
-    /// Top run speed, 1/256 px a tick.
     pub run: i32,
-    /// Ticks after a landing in which the next hop of a triple jump may start.
     pub hop: u32,
-    /// Jump buffer in ticks; the coyote time is two more.
     pub grace: u32,
-    /// The slam's shock radius in pixels.
     pub slam: i32,
-    /// The upward speed a raised shield springs a friend with.
     pub ledge: i32,
 }
 
@@ -38,7 +31,6 @@ pub const AIR_ACCEL: i32 = 44;
 pub const AIR_DRAG: i32 = 10;
 pub const FRICTION: i32 = 84;
 pub const SKID_BRAKE: i32 = 184;
-/// Below this speed turning round is not a skid.
 pub const SKID_MIN: i32 = 520;
 pub const SLIDE_FRICTION: i32 = 14;
 pub const SLIDE_MIN: i32 = 420;
@@ -49,14 +41,10 @@ pub const GRAV_DOWN: i32 = 210;
 pub const GRAV_LONG: i32 = 90;
 pub const FALL_MAX: i32 = 3584;
 pub const JUMP_V: i32 = 2200;
-/// A run adds this fraction of its speed to the jump.
 pub const JUMP_FROM_SPEED: i32 = 5;
-/// A released jump rises no faster than this.
 pub const CUT_V: i32 = 820;
-/// The hops of a triple jump are this much (percent) of a plain one.
 pub const HOP2_PERCENT: i32 = 111;
 pub const HOP3_PERCENT: i32 = 133;
-/// Slower than this the hops do not chain.
 pub const HOP_MIN_SPEED: i32 = 560;
 pub const LONG_MIN_SPEED: i32 = 760;
 pub const LONG_V: i32 = 1560;
@@ -70,7 +58,6 @@ pub const WALL_SLIDE: i32 = 560;
 pub const WIND: u32 = 6;
 pub const SLAM_V: i32 = 3200;
 pub const RECOVER: u32 = 9;
-/// A jump pressed this soon after a slam lands springs high.
 pub const SLAM_JUMP_WINDOW: u32 = 5;
 pub const SLAM_JUMP_V: i32 = 2700;
 pub const DIVE_VX: i32 = 1800;
@@ -80,34 +67,24 @@ pub const BELLY_FRICTION: i32 = 30;
 pub const BOUNCE_V: i32 = 1500;
 pub const BOUNCE_HELD_V: i32 = 2350;
 pub const HURT_TICKS: u32 = 14;
-/// A shield needs this long raised before a friend may stand on it.
 pub const BRACE_TICKS: u32 = 5;
-/// How far into a ledge's top a knight still lands on it, pixels.
 pub const LEDGE_LIP: i32 = 6;
-/// Movers with an id from here up are raised shields (a seat's id is added).
 pub const SHIELD_ID: u16 = 1000;
 
-/// What the body is doing, apart from its pose.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Move {
     Ground,
     Air,
     Wall,
-    /// The slam's hover before the drop.
     Wind,
-    /// The slam falling.
     Pound,
-    /// Stunned after a slam lands.
     Recover,
     Dive,
-    /// Sliding on the belly after a dive.
     Belly,
     Hurt,
-    /// Standing with the shield raised.
     Brace,
 }
 
-/// Which jump left the ground.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Jump {
     None,
@@ -121,7 +98,6 @@ pub enum Jump {
     Spring,
 }
 
-/// What a picture shows (the art slots follow these).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Pose {
     Idle,
@@ -149,7 +125,6 @@ pub enum Pose {
     Bubble,
 }
 
-/// A knight's keys for one tick, after the edges are found.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Cmd {
     pub x: i8,
@@ -161,23 +136,17 @@ pub struct Cmd {
     pub brace: bool,
 }
 
-/// What the body reports to the world.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Ev {
     Jump(Jump),
     Land { fell: i32 },
-    /// The head struck the tile `(x, y)`.
     Bump { x: i32, y: i32 },
-    /// A slam landed with its feet at `(x, y)` pixels.
     Slam { x: i32, y: i32 },
     Skid,
-    /// The shield sprung this body off a friend's shield.
     Spring,
-    /// Crouched on a hatch.
     Hatch,
 }
 
-/// A moving thing that can be stood on: a log, a wheel bucket, a shield.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Mover {
     pub id: u16,
@@ -195,17 +164,13 @@ pub struct Body {
     pub jump: Jump,
     pub big: bool,
     pub ground: bool,
-    /// The mover this body stands on.
     pub plank: Option<u16>,
     pub coyote: u32,
     pub buffer: u32,
-    /// The hop the next ground jump would be (2 or 3), and its window.
     pub hop_next: u8,
     pub hop_t: u32,
-    /// The hop level of the jump in the air (1 to 3, 0 for others).
     pub hop: u8,
     pub crouch: bool,
-    /// The side of the wall slid on or kicked off (-1 left, 1 right).
     pub wall: i8,
     pub wall_t: u32,
     pub t: u32,
@@ -267,7 +232,6 @@ impl Body {
             && self.squash <= 8
             && self.run_t < 1 << 24
     }
-    /// Width and height in pixels.
     pub fn dims(&self) -> (i32, i32) {
         let low = self.crouch || matches!(self.mode, Move::Dive | Move::Belly | Move::Recover);
         match (self.big, low) {
@@ -277,11 +241,9 @@ impl Body {
             (true, true) => (14, 18),
         }
     }
-    /// The standing height, whatever the crouch.
     pub fn stand_height(&self) -> i32 {
         if self.big { 30 } else { 20 }
     }
-    /// The box in fixed units: left, top, right, bottom.
     pub fn rect(&self) -> (i32, i32, i32, i32) {
         let (w, h) = self.dims();
         (
@@ -291,15 +253,12 @@ impl Body {
             self.y,
         )
     }
-    /// The feet in pixels.
     pub fn foot(&self) -> (i32, i32) {
         (self.x.div_euclid(Q), self.y.div_euclid(Q))
     }
-    /// Whether a slam is under way: the body falling on whatever is below.
     pub fn slamming(&self) -> bool {
         matches!(self.mode, Move::Pound)
     }
-    /// The shield, raised: a friend may stand on it.
     pub fn shield(&self, id: u16) -> Option<Mover> {
         (self.mode == Move::Brace && self.t >= BRACE_TICKS && self.ground).then(|| {
             let (_, h) = self.dims();
@@ -314,7 +273,6 @@ impl Body {
             }
         })
     }
-    /// A hit: thrown back and stunned for a moment.
     pub fn hurt(&mut self, from: i8) {
         self.mode = Move::Hurt;
         self.t = 0;
@@ -325,7 +283,6 @@ impl Body {
         self.crouch = false;
         self.jump = Jump::None;
     }
-    /// Bounced off a foe's head.
     pub fn bounce(&mut self, held: bool) {
         self.vy = -if held { BOUNCE_HELD_V } else { BOUNCE_V };
         self.mode = Move::Air;
@@ -336,7 +293,6 @@ impl Body {
         self.hop_t = 0;
         self.cut = true;
     }
-    /// Put somewhere, still.
     pub fn place(&mut self, x_px: i32, y_px: i32) {
         self.x = x_px * Q;
         self.y = y_px * Q;
@@ -358,7 +314,6 @@ impl Body {
     fn solid_at(g: &dyn Grid, tx: i32, ty: i32) -> bool {
         g.tile(tx, ty).solid()
     }
-    /// Whether any solid tile overlaps the fixed-unit box.
     fn blocked(g: &dyn Grid, l: i32, t: i32, r: i32, b: i32) -> bool {
         if r <= l || b <= t {
             return false;
@@ -372,7 +327,6 @@ impl Body {
         }
         false
     }
-    /// After a size change: a body that grew under a low roof stays crouched.
     pub fn regrow(&mut self, g: &dyn Grid) {
         if !self.can_stand(g) {
             self.crouch = true;
@@ -383,7 +337,6 @@ impl Body {
         let top = self.y - self.stand_height() * Q;
         !Self::blocked(g, self.x - w * Q / 2, top, self.x + w * Q / 2, self.y - h * Q)
     }
-    /// The side (-1 or 1) a solid wall touches the body on, 0 for none.
     pub fn wall_side(&self, g: &dyn Grid, toward: i8) -> i8 {
         let (w, h) = self.dims();
         let (t, b) = (self.y - h * Q + 2 * Q, self.y - 2 * Q);
@@ -406,7 +359,6 @@ impl Body {
         g.tile(self.x.div_euclid(TQ), self.y.div_euclid(TQ))
     }
 
-    /// One tick of this body.
     pub fn step(
         &mut self,
         c: Cmd,
@@ -417,7 +369,6 @@ impl Body {
         out: &mut Vec<Ev>,
     ) {
         if c.jump_edge {
-            // The tick of the press counts as the first of the grace.
             self.buffer = k.grace + 1;
         }
         self.hop_t = self.hop_t.saturating_sub(1);
@@ -427,7 +378,6 @@ impl Body {
             self.buffer = self.buffer.saturating_sub(1);
             return;
         }
-        // Carried by what it stands on.
         if let Some(id) = self.plank {
             let a = now.iter().find(|m| m.id == id);
             let b = before.iter().find(|m| m.id == id);
@@ -516,8 +466,6 @@ impl Body {
                 self.gravity(c);
             }
             Move::Brace => {
-                // Held as long as a friend needs it; the stance only reads
-                // `t >= BRACE_TICKS`, so the count stops there.
                 self.t = (self.t + 1).min(BRACE_TICKS);
                 self.vx = approach(self.vx, 0, FRICTION);
                 self.gravity(c);
@@ -527,7 +475,6 @@ impl Body {
             }
         }
         self.buffer = self.buffer.saturating_sub(1);
-        // Move: along, then up or down.
         let (dx, dy) = (self.vx, self.vy);
         let blocked_x = self.move_x(g, dx);
         if blocked_x && self.mode == Move::Dive {
@@ -541,7 +488,6 @@ impl Body {
         if !self.ground && self.mode == Move::Ground {
             self.mode = Move::Air;
         }
-        // Landing.
         if self.ground && !was_ground {
             self.landed(k, out);
         }
@@ -559,7 +505,6 @@ impl Body {
         self.tile_below(g)
     }
 
-    /// Gravity for the modes that fall without steering.
     fn gravity(&mut self, c: Cmd) {
         let g = match self.mode {
             Move::Dive | Move::Hurt => GRAV_DOWN,
@@ -583,10 +528,8 @@ impl Body {
         matches!(self.jump, Jump::Plain | Jump::Second)
     }
 
-    /// The ordinary modes: run, jump, crouch, slide, kick, slam, dive, shield.
     fn free(&mut self, c: Cmd, k: &Knobs, g: &dyn Grid, out: &mut Vec<Ev>) {
         let top = k.run;
-        // Snow: slow to get going and slower to stop.
         let (slip_up, slip_down) = if self.ground && self.tile_below(g).slippery() {
             (2, 4)
         } else {
@@ -594,7 +537,6 @@ impl Body {
         };
         let dir = i32::from(c.x);
         if self.ground {
-            // Crouch, and stand again only where there is room.
             if c.down && !self.crouch {
                 self.crouch = true;
             } else if !c.down && self.crouch && self.can_stand(g) {
@@ -637,7 +579,6 @@ impl Body {
                 self.face = c.x;
                 let aligned = self.vx.signum() == dir.signum();
                 if !aligned || self.vx.abs() <= top {
-                    // Never slower to turn in the air than on the ground.
                     let target = dir * top;
                     self.vx = approach(self.vx, target, AIR_ACCEL);
                 }
@@ -645,7 +586,6 @@ impl Body {
                 self.vx = approach(self.vx, 0, AIR_DRAG);
             }
         }
-        // A jump: the same tick as the press, or the next landing's.
         let mut leave = None;
         if self.buffer > 0 {
             if self.mode == Move::Wall && !self.ground {
@@ -678,7 +618,6 @@ impl Body {
                 return;
             }
         }
-        // Rising: let go to cut the jump short.
         if self.vy < 0 && !c.jump && !self.cut && self.cuttable() {
             self.vy = self.vy.max(-CUT_V);
             self.cut = true;
@@ -689,7 +628,6 @@ impl Body {
         }
     }
 
-    /// Which jump a press would make from here.
     fn pick_jump(&self, _k: &Knobs) -> Jump {
         let speed = self.vx.abs();
         if self.plank.is_some_and(|id| id >= SHIELD_ID) {
@@ -776,7 +714,6 @@ impl Body {
         self.coyote = k.grace + 2;
         self.cut = false;
         let speed = self.vx.abs();
-        // The hops chain only from a plain run of jumps.
         if self.jump == Jump::Plain || self.jump == Jump::Second {
             if self.hop >= 1 && self.hop <= 2 && speed >= HOP_MIN_SPEED {
                 self.hop_next = self.hop + 1;
@@ -820,7 +757,6 @@ impl Body {
         out.push(Ev::Land { fell });
     }
 
-    /// Out of a tile that has closed round it, upward.
     fn unstick(&mut self, g: &dyn Grid) {
         for _ in 0..16 {
             let (l, t, r, b) = self.rect();
@@ -873,13 +809,11 @@ impl Body {
         let old = self.y;
         let new = old + dy;
         if dy >= 0 {
-            // Falling or standing: land on the first tile top, or plank, crossed.
             let (c0, c1) = (
                 (self.x - half).div_euclid(TQ),
                 (self.x + half - 1).div_euclid(TQ),
             );
             let mut stop: Option<i32> = None;
-            // A ledge keeps a knight whose feet sank a few pixels into it.
             let first = (old - LEDGE_LIP * Q + TQ - 1).div_euclid(TQ);
             let last = new.div_euclid(TQ);
             'rows: for row in first..=last {
@@ -917,7 +851,6 @@ impl Body {
             self.plank = None;
             self.wall_check(g, k, toward);
         } else {
-            // Rising: the head meets the first tile above.
             let head = old - h * Q;
             let new_head = head + dy;
             let (c0, c1) = (
@@ -929,7 +862,6 @@ impl Body {
             for row in (new_head.div_euclid(TQ)..=(head - 1).div_euclid(TQ)).rev() {
                 let hit = (c0..=c1).any(|col| Self::solid_at(g, col, row));
                 if hit {
-                    // A rim clipped by a few pixels is slipped past, not struck.
                     let l_col = Self::solid_at(g, c0, row);
                     let r_col = Self::solid_at(g, c1, row);
                     if c0 != c1 && l_col != r_col {
@@ -971,7 +903,6 @@ impl Body {
         }
     }
 
-    /// Falling against a wall with the stick toward it: slide down it.
     fn wall_check(&mut self, g: &dyn Grid, k: &Knobs, toward: i8) {
         if self.vy < 0 || matches!(self.mode, Move::Wind | Move::Pound | Move::Dive | Move::Hurt) {
             if self.mode == Move::Wall {
@@ -1039,7 +970,6 @@ impl Body {
     }
 }
 
-/// `v` moved toward `to` by at most `by`.
 pub fn approach(v: i32, to: i32, by: i32) -> i32 {
     if v < to {
         (v + by).min(to)

@@ -33,14 +33,10 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const SCHEMA: &str = "angel-exe-digest/v1";
-/// An image younger than this when it is hashed may still be rewritten within
-/// one clock tick of its recorded times, so its digest is not kept.
 const SETTLE: Duration = Duration::from_secs(2);
-/// Entries kept per user; images from older builds are dropped oldest first.
 const KEEP: usize = 16;
 const MAX_ENTRY_BYTES: u64 = 512;
 
-/// What the kernel reports about one open file.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Identity {
     dev: u64,
@@ -75,7 +71,6 @@ impl Identity {
         )
     }
 
-    /// Quiet for [`SETTLE`] at `now`, and still linked into the filesystem.
     fn settled(&self, now: SystemTime) -> bool {
         let newest = self
             .mtime
@@ -91,7 +86,6 @@ impl Identity {
     }
 }
 
-/// Where the memo lives for this process, or `None` when it is off.
 pub(crate) fn default_dir() -> Option<PathBuf> {
     if !crate::agent::harness::env_flag("ANGEL_EXE_DIGEST_CACHE", true) {
         return None;
@@ -100,8 +94,6 @@ pub(crate) fn default_dir() -> Option<PathBuf> {
         let dir = PathBuf::from(dir);
         return dir.is_absolute().then_some(dir);
     }
-    // Unit-test binaries are rebuilt constantly and must not write a user's
-    // home; the tests that exercise the memo name a directory explicitly.
     if cfg!(test) {
         return None;
     }
@@ -110,8 +102,6 @@ pub(crate) fn default_dir() -> Option<PathBuf> {
         .map(|home| PathBuf::from(home).join(".angelX/cache/exe-digest"))
 }
 
-/// The digest of `file`: from the memo in `dir` when the image is the one a
-/// previous run hashed, else `hash(file)`, which is then remembered.
 pub(crate) fn digest_with(
     dir: Option<&Path>,
     file: &mut File,
@@ -120,7 +110,6 @@ pub(crate) fn digest_with(
     digest_at(dir, file, SystemTime::now(), hash)
 }
 
-/// [`digest_with`] with the clock named, so the quiet-period rule is testable.
 fn digest_at(
     dir: Option<&Path>,
     file: &mut File,
@@ -144,11 +133,9 @@ fn digest_at(
 }
 
 fn effective_uid() -> u32 {
-    // SAFETY: geteuid has no preconditions and cannot fail.
     unsafe { libc::geteuid() }
 }
 
-/// A plain directory, ours, closed to everyone else.
 fn private_directory(dir: &Path) -> bool {
     std::fs::symlink_metadata(dir).is_ok_and(|meta| {
         meta.is_dir() && meta.uid() == effective_uid() && meta.mode() & 0o077 == 0
@@ -227,7 +214,6 @@ fn try_store(dir: &Path, identity: &Identity, digest: &str) -> std::io::Result<(
     Ok(())
 }
 
-/// Keep the newest [`KEEP`] entries. Best effort: a failure leaves extras.
 fn prune(dir: &Path) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;

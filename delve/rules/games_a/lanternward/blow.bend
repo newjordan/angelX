@@ -1,8 +1,3 @@
-# crates/delve/src/rules/lanternward/blow.rs — what blows do, and every bolt's
-# flight. `Hit` is "Melee" | "Bolt" | "Beam" | "Low"; `Blow` is the string
-# "Hit" | "Blocked" | "Parried" | "Dodged", left in `$ret` by `blow`.
-
-# A blow lands on knight `id`, from (fx, fy), for `dmg` quarter hearts.
 def lanternward.blow.Session.blow(+s: J.Val, +id: U32, +dmg: U32, +fx: U32, +fy: U32, +kind: String) -> J.Val:
   lanternward.blow.Session.blow.look(ga.has_key(J.get(s, "seats"), id), s, id, dmg, fx, fy, kind)
 
@@ -48,8 +43,6 @@ def lanternward.blow.Session.blow.guard(guarded: Bool, +tx: U32, +ty: U32, +k: J
 def lanternward.blow.put_seat(+s: J.Val, +id: U32, k: J.Val) -> J.Val:
   ga.sv(s, "seats", ga.put_at(J.get(s, "seats"), id, k))
 
-# The shield met it: a parry freezes the knight and flashes; a late block
-# pushes the knight back.
 def lanternward.blow.Session.blow.guarded(parried: Bool, +tx: U32, +ty: U32, +k: J.Val, +s: J.Val, +id: U32) -> J.Val:
   match parried:
     case True{}:
@@ -84,7 +77,6 @@ def lanternward.blow.block(+tx: U32, +ty: U32, +k: J.Val, +s: J.Val, +id: U32) -
       "shield_block"),
     "$ret", "Blocked")
 
-# The blow lands.
 def lanternward.blow.Session.blow.hit(+k: J.Val, +s: J.Val, +id: U32, +dmg: U32, +fx: U32, +fy: U32) -> J.Val:
   lanternward.blow.hit.away(
     lanternward.world.unit((ga.u(k, "x") - fx : U32), (ga.u(k, "y") - fy : U32)), k, s, id, dmg)
@@ -129,7 +121,6 @@ def lanternward.blow.hit.fall(down: Bool, +s: J.Val) -> J.Val:
     case False{}:
       s
 
-# A blade, a bolt or a blast on foe `i`. `$ret` is true when it hurt.
 def lanternward.blow.Session.hurt_foe(+s: J.Val, +i: U32, +dmg: U32, +fx: U32, +fy: U32) -> J.Val:
   lanternward.blow.hurt_foe.alive(lanternward.foes.Foe.alive(lanternward.el(s, "foes", i)), s, i, dmg, fx, fy)
 
@@ -202,8 +193,6 @@ def lanternward.blow.hurt_foe.fin(dead: Bool, +f: J.Val, +s: J.Val, +i: U32) -> 
           "hit_blade"),
         "$ret", True{})
 
-# Light on foe `i`: a snuffer's hood burns off for a while, and it takes a
-# little.
 def lanternward.blow.Session.light_foe(+s: J.Val, +i: U32) -> J.Val:
   lanternward.blow.light_foe.go(
     Bool.and(lanternward.eis(s, "foes", i, "kind", "Snuffer"), lanternward.foes.Foe.alive(lanternward.el(s, "foes", i))),
@@ -229,9 +218,6 @@ def lanternward.blow.light_foe.wake(dormant: Bool, +s: J.Val, +i: U32) -> J.Val:
     case False{}:
       s
 
-# ---- bolts ----
-
-# Fly every bolt one tick.
 def lanternward.blow.Session.step_bolts(+s: J.Val) -> J.Val:
   lanternward.blow.step_bolts.retain(lanternward.blow.step_bolts.loop(s, 0))
 
@@ -254,7 +240,6 @@ def lanternward.blow.step_bolts.one(skip: Bool, +s: J.Val, +i: U32) -> J.Val:
         lanternward.blow.step_bolts.half(lanternward.blow.step_bolts.half(s, i), i),
         "bolts", i, "ttl", RS.u_sat_sub(lanternward.eu(s, "bolts", i, "ttl"), 1))
 
-# Fast bolts go in two half steps so none skips a body.
 def lanternward.blow.step_bolts.half(+s: J.Val, +i: U32) -> J.Val:
   lanternward.blow.step_bolts.half.go(U32.is_eq(lanternward.eu(s, "bolts", i, "ttl"), 0), s, i)
 
@@ -281,7 +266,6 @@ def lanternward.blow.step_bolts.retain.go(+xs: List<&2, J.Val>) -> List<&2, J.Va
 def lanternward.blow.step_bolts.retain(+s: J.Val) -> J.Val:
   ga.sv(s, "bolts", J.JA{lanternward.blow.step_bolts.retain.go(ga.items(s, "bolts"))})
 
-# A bolt is done: a pot breaks, light flickers, iron goes out.
 def lanternward.blow.Session.bolt_ends(+s: J.Val, +i: U32) -> J.Val:
   lanternward.blow.bolt_ends.kind(
     ga.s(lanternward.el(s, "bolts", i), "kind"), lanternward.es(s, "bolts", i, "ttl", 0),
@@ -295,8 +279,6 @@ def lanternward.blow.bolt_ends.kind(+kind: String, +s: J.Val, +x: U32, +y: U32) 
       lanternward.props.Session.fx(s, "Spark", x, y, 0),
       lanternward.props.Session.fx(s, "Dust", x, y, 0)))
 
-# A shield turns an iron bolt: back where the knight's lock holds, else where
-# the shield faces.
 def lanternward.blow.Session.turn_bolt(+s: J.Val, +i: U32, +id: U32, +parried: Bool) -> J.Val:
   lanternward.blow.turn_bolt.has(ga.has_key(J.get(s, "seats"), id), s, i, id, parried)
 
@@ -346,7 +328,6 @@ def lanternward.blow.turn_bolt.fin(+ax: U32, +ay: U32, +s: J.Val, +i: U32, +id: 
         "ttl", Bool.pick(U32, parried, 160, 24)),
       "owner", U32.and(id, 255)))
 
-# One bolt against what it meets this half step.
 def lanternward.blow.Session.bolt_meets(+s: J.Val, +i: U32) -> J.Val:
   +c = lanternward.world.Plan.at(ga.u(s, "room"),
     lanternward.world.tile_of(lanternward.eu(s, "bolts", i, "x")), lanternward.world.tile_of(lanternward.eu(s, "bolts", i, "y")))
@@ -359,7 +340,6 @@ def lanternward.blow.bolt_meets.wall(hit: Bool, +s: J.Val, +i: U32) -> J.Val:
     case False{}:
       lanternward.blow.bolt_meets.props(s, i, 0)
 
-# Things that stand in the way.
 def lanternward.blow.bolt_meets.props(+s: J.Val, +i: U32, +j: U32) -> J.Val:
   lanternward.blow.bolt_meets.props.go(U32.is_lt(j, lanternward.len(s, "props")), s, i, j)
 
@@ -385,7 +365,6 @@ def lanternward.blow.bolt_meets.prop(stops: Bool, +s: J.Val, +i: U32, +j: U32) -
           lanternward.foes.Bolt.light(lanternward.el(s, "bolts", i)), s, j),
         i)
 
-# The thing a bolt of light wakes: a crystal, a brazier, the great brazier.
 def lanternward.blow.bolt_meets.stop(+kind: String, +light: Bool, +s: J.Val, +j: U32) -> J.Val:
   Bool.pick(J.Val, Bool.and(light, Bool.and(String.eq(kind, "Crystal"), U32.is_eq(lanternward.eu(s, "props", j, "on"), 0))),
     lanternward.ctx.Session.light_crystal(s, j),
@@ -402,7 +381,6 @@ def lanternward.blow.bolt_meets.kind(+kind: String, +s: J.Val, +i: U32) -> J.Val
     lanternward.blow.bolt_meets.iron(ga.ids(J.get(s, "seats")), s, i),
     lanternward.blow.bolt_meets.foes(s, i, 0))
 
-# Iron: the first knight it touches takes it (or turns it).
 def lanternward.blow.bolt_meets.iron(+ids: List<&2, U32>, +s: J.Val, +i: U32) -> J.Val:
   match ids:
     case Nil{}:
@@ -436,7 +414,6 @@ def lanternward.blow.bolt_meets.iron.res(+out: String, +s: J.Val, +id: U32, +t: 
     Bool.pick(J.Val, String.eq(out, "Hit"), lanternward.es(s, "bolts", i, "ttl", 0),
       lanternward.blow.Session.turn_bolt(s, i, id, String.eq(out, "Parried"))))
 
-# Light, pot or a turned bolt: the first foe it touches, then the Warden.
 def lanternward.blow.bolt_meets.foes(+s: J.Val, +i: U32, +j: U32) -> J.Val:
   lanternward.blow.bolt_meets.foes.go(U32.is_lt(j, lanternward.len(s, "foes")), s, i, j)
 
@@ -490,7 +467,6 @@ def lanternward.blow.bolt_meets.foe.bright(turret: Bool, +s: J.Val, +j: U32, +fx
     case False{}:
       lanternward.blow.Session.hurt_foe(s, j, 4, fx, fy)
 
-# The Warden: its heart, or its body, meets the bolt.
 def lanternward.blow.bolt_meets.boss(+s: J.Val, +i: U32) -> J.Val:
   lanternward.blow.bolt_meets.boss.go(
     Bool.and(Bool.not(J.is_null(J.get(s, "boss"))), U32.is_gt(ga.u(J.get(s, "boss"), "hp"), 0)), s, i)
@@ -534,10 +510,6 @@ def lanternward.blow.bolt_meets.boss.hit(+kind: String, heart: Bool, +s: J.Val, 
       lanternward.boss.Session.hurt_boss(s, 2, fx, fy, owner),
       s))
 
-# ---- bombs ----
-
-# Bombs: tick the fuses; a burst opens cracked walls, breaks pots and grass
-# and hurts the Gloam, never the knights.
 def lanternward.blow.fuses_tick(+xs: List<&2, J.Val>) -> List<&2, J.Val>:
   match xs:
     case Nil{}:

@@ -125,10 +125,6 @@ fn failure_detail_unknown_format_uses_bounded_tail_and_short_output_stays_intact
     );
 }
 
-/// Hand-off is armed for the shell tool's own call only. A build capture made
-/// while that window is open still waits for its own process and reports that
-/// process's real exit: the placeholder status a hand-off carries can never
-/// reach it.
 #[test]
 fn a_build_capture_inside_an_open_handoff_window_reports_its_real_exit() {
     let _env = crate::tests::env_lock();

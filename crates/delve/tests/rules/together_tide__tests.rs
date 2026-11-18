@@ -1,7 +1,5 @@
 use super::*;
 
-/// An open first-floor room of the Crypt, emptied and calmed, with knight
-/// one (and two, if `pair`) standing on the left.
 fn quiet_room(pair: bool) -> Run {
     let mut run = Run::new(4, 1, pair.then_some("Friend"));
     run.begin_in(Pack::Crypt);
@@ -15,15 +13,10 @@ fn quiet_room(pair: bool) -> Run {
     run.calm_for_test();
     run.enemies.clear();
     run.rune = None;
-    // A bat frozen in the far corner keeps the fight on (a won room clears
-    // every Ravage).
     run.spawn_at_for_test(EnemyKind::Bat, 44.0, 3.0);
     if let Some(bat) = run.enemies.last_mut() {
         bat.frozen = u32::MAX / 2;
     }
-    // Re-pinned 2026-11-02: the Crypt's art-pack scenery grows pillars where
-    // the old fixtures stood; stand each knight on clear floor near the
-    // room's left, or the rings cannot throw them anywhere.
     let mut spots = [None, None];
     for gy in 3..20 {
         for gx in 2..8 {
@@ -48,7 +41,6 @@ fn quiet_room(pair: bool) -> Run {
     run
 }
 
-/// A Ravage centred `d` east of knight one, its lane on `lane`.
 fn ravage_by(run: &mut Run, d: f32, lane: f32) -> Ravage {
     let hero = &run.players[&1];
     let ravage = Ravage {
@@ -87,10 +79,6 @@ fn the_rings_burst_outward_each_on_its_beat_and_throw_the_knight() {
     let hero = &run.players[&1];
     assert!(hero.hp < hp, "the second ring bursts under the knight");
     assert_eq!(hero.tossed, TOSSED);
-    // Re-pinned 2026-11-02: the Crypt's art-pack pillars now stand where
-    // the old fixture's throw landed, so a knight hurled west stops against
-    // the stone. What the rule owes is the toss and the hurt; never a drift
-    // toward the middle.
     assert!(
         hero.x <= x + 0.01,
         "never thrown toward the middle: {} -> {}",
@@ -98,7 +86,6 @@ fn the_rings_burst_outward_each_on_its_beat_and_throw_the_knight() {
         hero.x
     );
     assert!(run.cues.iter().any(|c| c == "ravaged"));
-    // Every ring has burst, and the tentacles have gone back down.
     for _ in 0..3 * 8 + UP + 2 {
         run.step(&BTreeMap::new());
     }
@@ -109,7 +96,6 @@ fn the_rings_burst_outward_each_on_its_beat_and_throw_the_knight() {
 fn the_still_lane_and_a_roll_both_spare_a_knight() {
     let struck = |lane: f32, rolling: bool| {
         let mut run = quiet_room(false);
-        // The knight stands west of the middle, on the first ring.
         ravage_by(&mut run, RING_GAP, lane);
         let hp = run.players[&1].hp;
         for _ in 0..WARN + 3 {
@@ -183,7 +169,6 @@ fn the_leviathan_keeps_the_archive_and_ravages_at_a_knight() {
             .any(|a| a.pattern == bosses::Pattern::Ravage)
     );
     run.spawn_boss(index);
-    // Its ravage joins in the middle of the fight (`from=middle`).
     for _ in 0..12 * HZ {
         for hero in run.players.values_mut() {
             hero.hp = hero.max_hp;

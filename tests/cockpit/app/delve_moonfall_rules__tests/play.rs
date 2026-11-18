@@ -24,7 +24,6 @@ use std::collections::BTreeMap;
 
 pub(super) type Held = BTreeMap<u32, Input>;
 
-/// The Delve's heroes at a table of `n`.
 pub(super) fn heroes(n: u32) -> BTreeMap<u32, Hero> {
     install_scripted_rules();
     let mut r = Run::moonfall_for_test();
@@ -57,14 +56,12 @@ pub(super) fn hours(day: u32, h: u32) -> u32 {
     clock::ticks(day, h * 2)
 }
 
-/// Put knight `id` on a tile.
 pub(super) fn stand(s: &mut Session, id: u32, tile: (i32, i32)) {
     let k = &mut s.seats.get_mut(&id).unwrap().knight;
     k.x = (tile.0 * town::TILE + 8) * town::Q;
     k.y = (tile.1 * town::TILE + 8) * town::Q;
 }
 
-/// Put knight `id` beside a villager, wherever they are now.
 pub(super) fn beside(s: &mut Session, id: u32, who: Folk) {
     let f = figure(who, s.clock, s.nums.day, s.world.shod);
     let k = &mut s.seats.get_mut(&id).unwrap().knight;
@@ -76,7 +73,6 @@ pub(super) fn tap_e() -> Input {
     Input { interact: true, ..Default::default() }
 }
 
-/// A key pressed for one tick, then let go.
 pub(super) fn tapped(s: &mut Session, h: &BTreeMap<u32, Hero>, id: u32, i: Input) {
     s.step(&press(id, i), h);
     s.step(&Held::new(), h);
@@ -93,7 +89,6 @@ fn the_clock_runs_three_days_of_the_numbers_length_and_ends_at_the_fall() {
     assert_eq!(clock::end(s.nums.day), 5400);
     s.clock = clock::end(3000) - 1;
     s.nums.day = 3000;
-    // The moon falls: the ritual starts at once, no menu.
     let cues = tick(&mut s, &h, &Held::new());
     assert!(matches!(s.phase, Phase::Rewind { fell: true, .. }), "{:?}", s.phase);
     assert!(cues.contains(&"circle_toll"));
@@ -109,7 +104,6 @@ fn the_rewind_takes_under_a_second_to_hand_back_control_and_keeps_what_was_learn
     s.world.set(NORTH_OPEN);
     s.seats.get_mut(&1).unwrap().knight.held = Item::Ink;
     s.seats.get_mut(&1).unwrap().knight.mask = Mask::Swift;
-    // R opens the bell, E rings the first line: back to the first dawn.
     tapped(&mut s, &h, 1, Input { ult: true, ..Default::default() });
     assert_eq!(s.seats[&1].knight.panel, Panel::Bell(0));
     s.step(&press(1, tap_e()), &h);
@@ -123,7 +117,6 @@ fn the_rewind_takes_under_a_second_to_hand_back_control_and_keeps_what_was_learn
     }
     let free = free_at.expect("control returns");
     assert!(free <= 30, "the ritual hands control back inside a second: {free}");
-    // The town is at the first dawn, the notebook and the mask remain.
     assert!(s.clock < 40 && s.memory.loops == 1);
     assert!(s.memory.knows(Fact::OrinLost) && s.memory.witnessed(Folk::Mira, 1));
     assert!(s.memory.has_mask(ledger::SWIFT));
@@ -158,7 +151,6 @@ fn the_rewind_ritual_spins_the_shown_clock_backward_to_dawn() {
 #[test]
 fn the_bell_can_skip_to_the_next_dusk_or_dawn_and_not_past_the_third_midnight() {
     let (mut s, h) = session(1);
-    // Down once and ring: wait for dusk.
     tapped(&mut s, &h, 1, Input { ult: true, ..Default::default() });
     tapped(&mut s, &h, 1, Input { move_y: 1, ..Default::default() });
     s.step(&press(1, tap_e()), &h);
@@ -166,15 +158,12 @@ fn the_bell_can_skip_to_the_next_dusk_or_dawn_and_not_past_the_third_midnight() 
     idle(&mut s, &h, SKIP_LEN);
     assert_eq!(s.clock, s.nums.day / 2, "dusk of the first day");
     assert!(clock::night(s.clock, s.nums.day));
-    // The next dawn.
     tapped(&mut s, &h, 1, Input { ult: true, ..Default::default() });
     tapped(&mut s, &h, 1, Input { move_y: 1, ..Default::default() });
     tapped(&mut s, &h, 1, Input { move_y: 1, ..Default::default() });
     s.step(&press(1, tap_e()), &h);
     idle(&mut s, &h, SKIP_LEN);
     assert_eq!(s.clock, s.nums.day);
-    // On the third evening neither skip is on offer: the Third Midnight is
-    // for the knights to meet.
     s.clock = s.nums.day * 2 + s.nums.day / 2 + 10;
     assert!(!s.ring_ok(Ring::Dawn));
     assert!(s.ring_ok(Ring::Rewind));
@@ -194,10 +183,8 @@ fn at_a_table_the_bell_needs_more_than_half_the_hands_and_a_lapsed_call_does_not
     s.step(&press(1, tap_e()), &h);
     assert!(s.call.is_some() && s.phase == Phase::Play, "one hand is not a table");
     assert_eq!(s.bell_need(), 2);
-    // A second knight puts a hand on the rope with R.
     tapped(&mut s, &h, 2, Input { ult: true, ..Default::default() });
     assert!(matches!(s.phase, Phase::Rewind { .. }), "two of three rings it");
-    // A call nobody joins lapses.
     let (mut s, h) = session(3);
     tapped(&mut s, &h, 1, Input { ult: true, ..Default::default() });
     s.step(&press(1, tap_e()), &h);
@@ -209,7 +196,6 @@ fn at_a_table_the_bell_needs_more_than_half_the_hands_and_a_lapsed_call_does_not
 #[test]
 fn the_ledger_writes_what_any_knight_sees_for_every_knight_and_only_once() {
     let (mut s, h) = session(2);
-    // Mira on her porch at a quarter to seven; knight 2 beside her, knight 1 far away.
     s.clock = hours(s.nums.day, 1) + s.nums.day / 24 * 3 / 4;
     stand(&mut s, 1, (30, 19));
     beside(&mut s, 2, Folk::Mira);
@@ -223,7 +209,6 @@ fn the_ledger_writes_what_any_knight_sees_for_every_knight_and_only_once() {
     idle(&mut s, &h, 12);
     assert_eq!(s.memory.routines[Folk::Mira.index()].count_ones(), 1);
     assert!(s.news.len() <= news, "written once");
-    // Out of notice range, nothing is seen.
     let (mut far, h) = session(1);
     far.clock = hours(far.nums.day, 1) + far.nums.day / 24;
     stand(&mut far, 1, (30, 19));
@@ -250,13 +235,11 @@ fn the_bridge_goes_up_at_eight_and_only_the_swift_mask_crosses_the_planks() {
     let (mut s, h) = session(1);
     s.clock = hours(s.nums.day, 15);
     assert!(clock::bridge_up(s.clock, s.nums.day));
-    // At the bridge's south end walking north: the water stops a bare knight.
     stand(&mut s, 1, (18, 11));
     for _ in 0..90 {
         s.step(&press(1, Input { move_y: -1, ..Default::default() }), &h);
     }
     assert!(s.seats[&1].knight.px().1 > 10 * town::TILE, "stopped at the water");
-    // Swift, at the planks, crosses.
     stand(&mut s, 1, (4, 11));
     s.seats.get_mut(&1).unwrap().knight.mask = Mask::Swift;
     for _ in 0..120 {
@@ -276,16 +259,13 @@ fn the_clocks_numbers_are_the_knobs_and_a_session_tracks_them() {
     let _ = (MAX_PLAYERS, Memory::default(), CAST, Spot::Plaza);
 }
 
-/// Put the clock at `day` (1 to 3), label `hh:mm`.
 pub(super) fn at_time(s: &mut Session, day: u32, hh: u32, mm: u32) {
     let since = if hh < 6 { hh + 24 - 6 } else { hh - 6 };
     s.clock = ((((day - 1) * 24 + since) * 60 + mm) as u64 * u64::from(s.nums.day) / 1440) as u32;
 }
 
-/// Knight 1 talks to `who` (beside them) and reads the first page.
 pub(super) fn talk(s: &mut Session, h: &BTreeMap<u32, Hero>, who: Folk) -> Topic {
     beside(s, 1, who);
-    // Let the room settle a tick so the press is an edge.
     s.step(&Held::new(), h);
     beside(s, 1, who);
     s.step(&press(1, tap_e()), h);
@@ -323,7 +303,6 @@ fn every_person_tells_the_ledger_what_they_ask_the_first_time_you_speak() {
             "and the whole table is told"
         );
     }
-    // The Ledger page of each now carries what they ask.
     let p = ledger::page(&s.memory, Folk::Orin, s.clock, s.nums.day);
     assert_eq!(p.asks.len(), 1);
 }
@@ -333,29 +312,24 @@ fn the_scroll_is_handed_over_at_seven_the_first_morning_and_read_at_the_evening_
     let (mut s, h) = session(1);
     s.memory.learn(Fact::PellaScroll);
     s.memory.learn(Fact::MiraSeal);
-    // The first morning, at seven: Pella has the post.
     at_time(&mut s, 1, 7, 15);
     assert_eq!(talk(&mut s, &h, Folk::Pella), Topic::Give);
     assert_eq!(hand(&s), Item::Scroll);
     close_talk(&mut s);
-    // Mira will not take it at her porch by day.
     at_time(&mut s, 1, 12, 0);
     idle(&mut s, &h, 2);
     assert_eq!(talk(&mut s, &h, Folk::Mira), Topic::Nag(2), "not yet: she reads at the well at nine");
     assert_eq!(hand(&s), Item::Scroll);
     close_talk(&mut s);
-    // Nor on the first evening.
     at_time(&mut s, 1, 21, 10);
     s.step(&Held::new(), &h);
     assert_eq!(talk(&mut s, &h, Folk::Mira), Topic::Nag(2));
     close_talk(&mut s);
-    // The second evening, at the well: the Swift mask, kept, and Pella's tick.
     at_time(&mut s, 2, 21, 10);
     s.step(&Held::new(), &h);
     assert_eq!(talk(&mut s, &h, Folk::Mira), Topic::Thanks);
     assert_eq!(hand(&s), Item::Empty);
     assert!(s.memory.has_mask(ledger::SWIFT) && s.memory.ticked(Folk::Pella));
-    // Pella will not have it handed out twice, nor late.
     close_talk(&mut s);
     let (mut late, h2) = session(1);
     late.memory.learn(Fact::PellaScroll);
@@ -368,33 +342,28 @@ fn the_scroll_is_handed_over_at_seven_the_first_morning_and_read_at_the_evening_
 fn dry_reeds_take_twelve_hours_in_the_hand_and_the_oven_wants_them_on_the_second_morning() {
     let (mut s, h) = session(1);
     s.memory.learn(Fact::NessaCold);
-    // The first evening at the stack: a bundle, green.
     at_time(&mut s, 1, 19, 0);
     stand(&mut s, 1, (13, 5));
     s.step(&Held::new(), &h);
     s.step(&press(1, tap_e()), &h);
     assert_eq!(hand(&s), Item::Reeds);
     close_talk(&mut s);
-    // Eleven hours in the hand: still green.
     let held_at = s.seats[&1].knight.held_at;
     at_time(&mut s, 2, 8, 40);
     s.seats.get_mut(&1).unwrap().knight.held_at = s.clock - 11 * s.nums.day / 24;
     s.step(&Held::new(), &h);
     assert_eq!(talk(&mut s, &h, Folk::Nessa), Topic::Nag(2), "green");
     close_talk(&mut s);
-    // Dry, but after the oven's hour: too late.
     at_time(&mut s, 2, 11, 0);
     s.seats.get_mut(&1).unwrap().knight.held_at = held_at;
     s.step(&Held::new(), &h);
     assert_eq!(talk(&mut s, &h, Folk::Nessa), Topic::Nag(3), "the oven's hour has gone");
     close_talk(&mut s);
-    // In the window, dry.
     s.seats.get_mut(&1).unwrap().knight.held_at = held_at;
     at_time(&mut s, 2, 8, 45);
     s.step(&Held::new(), &h);
     assert_eq!(talk(&mut s, &h, Folk::Nessa), Topic::Thanks);
     assert!(s.memory.has_mask(ledger::STOUT) && s.memory.ticked(Folk::Nessa));
-    // Reeds taken this morning are green: not twelve hours.
     close_talk(&mut s);
     s.seats.get_mut(&1).unwrap().knight.held = Item::Reeds;
     s.seats.get_mut(&1).unwrap().knight.held_at = s.clock - 100;
@@ -407,7 +376,6 @@ fn the_pass_takes_five_hours_to_write_and_two_to_smudge_and_the_key_is_kept_for_
     let (mut s, h) = session(1);
     s.memory.learn(Fact::OrinLost);
     s.memory.learn(Fact::TovinPass);
-    // The first morning: the pot from the bank, to Orin while he searches.
     at_time(&mut s, 1, 7, 30);
     stand(&mut s, 1, (11, 3));
     s.step(&Held::new(), &h);
@@ -418,30 +386,25 @@ fn the_pass_takes_five_hours_to_write_and_two_to_smudge_and_the_key_is_kept_for_
     assert_eq!(talk(&mut s, &h, Folk::Orin), Topic::Thanks);
     close_talk(&mut s);
     let given = s.world.ink_given.expect("written for");
-    // Too soon: still writing.
     s.clock = given + 2 * s.nums.day / 24;
     s.step(&Held::new(), &h);
     assert_eq!(talk(&mut s, &h, Folk::Orin), Topic::Nag(0));
     close_talk(&mut s);
-    // Five hours on: the pass, and Orin's tick.
     s.clock = given + 5 * s.nums.day / 24 + 3;
     s.step(&Held::new(), &h);
     assert_eq!(talk(&mut s, &h, Folk::Orin), Topic::Give);
     assert_eq!(hand(&s), Item::Pass);
     assert!(s.memory.ticked(Folk::Orin));
     close_talk(&mut s);
-    // Tovin does not air the keys on the first day.
     at_time(&mut s, 1, 18, 0);
     s.step(&Held::new(), &h);
     assert_eq!(talk(&mut s, &h, Folk::Tovin), Topic::Nag(1));
     close_talk(&mut s);
-    // The second evening he does: the key is the party's, and the hand is free.
     at_time(&mut s, 2, 17, 20);
     s.step(&Held::new(), &h);
     assert_eq!(talk(&mut s, &h, Folk::Tovin), Topic::Thanks);
     assert!(s.memory.has_keep(ledger::NORTH_KEY) && s.memory.ticked(Folk::Tovin));
     assert_eq!(hand(&s), Item::Empty);
-    // A pass left to wait smudges.
     let (mut late, h2) = session(1);
     late.memory.learn(Fact::OrinLost);
     late.world.ink_given = Some(0);
@@ -456,23 +419,19 @@ fn the_pass_takes_five_hours_to_write_and_two_to_smudge_and_the_key_is_kept_for_
 #[test]
 fn only_a_knight_who_has_seen_the_rider_gets_the_shoe_and_only_at_the_dawn_cart() {
     let (mut s, h) = session(1);
-    // Before the second dawn: no iron.
     at_time(&mut s, 1, 10, 0);
     s.memory.learn(Fact::NessaCold);
     assert_ne!(talk(&mut s, &h, Folk::Nessa), Topic::Give);
     close_talk(&mut s);
-    // At the cart, not knowing the rider: who for?
     at_time(&mut s, 2, 7, 0);
     s.step(&Held::new(), &h);
     assert_eq!(talk(&mut s, &h, Folk::Nessa), Topic::Nag(0));
     assert_eq!(hand(&s), Item::Empty);
     close_talk(&mut s);
-    // Having seen him arrive lame: the shoe.
     s.memory.learn(Fact::AsterLame);
     assert_eq!(talk(&mut s, &h, Folk::Nessa), Topic::Give);
     assert_eq!(hand(&s), Item::Shoe);
     close_talk(&mut s);
-    // After eight the cart has gone.
     let (mut gone, h2) = session(1);
     gone.memory.learn(Fact::NessaCold);
     gone.memory.learn(Fact::AsterLame);
@@ -492,13 +451,11 @@ fn aster_rides_in_lame_is_shod_rides_to_the_well_and_the_oil_is_kept() {
     let shod = s.world.shod.expect("shod");
     assert_eq!(hand(&s), Item::Empty);
     close_talk(&mut s);
-    // He is on the road to the well; by the time he gets there, the oil is kept.
     s.clock = folk::aster_at_well(shod) - 2;
     assert!(!s.memory.has_keep(ledger::OIL));
     idle(&mut s, &h, 6);
     assert!(s.memory.has_keep(ledger::OIL) && s.memory.ticked(Folk::Aster));
     assert!(s.news.iter().any(|&(n, _)| n == Note::Ticked(Folk::Aster)));
-    // Unshod, he stays at the gate and never comes.
     let (mut sad, h2) = session(1);
     sad.clock = clock::ticks(sad.nums.day, 24 * 2 + 20 * 2);
     idle(&mut sad, &h2, 20);
@@ -531,13 +488,11 @@ fn the_south_tower_needs_the_seal_and_a_stout_knight_to_fill_the_ditch_first() {
     s.memory.masks = ledger::SWIFT | ledger::STOUT;
     s.memory.keeps = ledger::SOUTH_SEAL;
     at_time(&mut s, 3, 10, 0);
-    // The door opens to the seal... if you can reach it. Bare, the crate stops you.
     stand(&mut s, 1, (17, 19));
     for _ in 0..120 {
         s.step(&press(1, Input { move_y: 1, ..Default::default() }), &h);
     }
     assert!(s.seats[&1].knight.px().1 < 21 * town::TILE, "stopped behind the crate");
-    // Stout: push it down the causeway and into the ditch, then the door.
     s.seats.get_mut(&1).unwrap().knight.mask = Mask::Stout;
     stand(&mut s, 1, (17, 19));
     for _ in 0..360 {
@@ -548,7 +503,6 @@ fn the_south_tower_needs_the_seal_and_a_stout_knight_to_fill_the_ditch_first() {
     s.step(&Held::new(), &h);
     s.step(&press(1, tap_e()), &h);
     assert!(s.world.has(SOUTH_OPEN));
-    // Without the seal the door stays shut.
     let (mut no, h2) = session(1);
     stand(&mut no, 1, (17, 24));
     no.step(&Held::new(), &h2);
@@ -592,7 +546,6 @@ fn the_keepsakes_the_masks_and_the_ledger_survive_the_bell_and_the_doors_do_not(
     assert_eq!(s.world.crates, vec![town::CRATE_START], "and the crate is back above the ditch");
 }
 
-/// A night, a lit lantern, and a wisp on its way to it.
 fn night_with_a_wisp(seats: u32) -> (Session, BTreeMap<u32, Hero>) {
     let (mut s, h) = session(seats);
     at_time(&mut s, 1, 21, 30);
@@ -626,7 +579,6 @@ fn a_wisp_puts_out_the_lantern_it_reaches_if_nobody_stands_by_it() {
 #[test]
 fn a_knight_beside_a_lantern_keeps_it_lit_and_the_wisp_gives_way() {
     let (mut s, h) = night_with_a_wisp(1);
-    // The Gloam is thin tonight: only this wisp.
     s.nums.wisps = 1;
     s.world.wisps[0].born = 0;
     let (tx, ty) = town::LAMPS[2];
@@ -656,7 +608,6 @@ fn a_touch_costs_a_candle_three_snuff_a_knight_who_is_carried_to_the_well_and_lo
     assert!(k.down > 0, "snuffed out");
     assert_eq!(k.held, Item::Empty);
     assert!(!s.world.has(INK_TAKEN), "the pot lies in the reeds again");
-    // After a few seconds the well carries them back, with one candle and a ward.
     s.world.wisps.clear();
     for _ in 0..DOWN + 2 {
         s.step(&Held::new(), &h);
@@ -699,7 +650,6 @@ fn the_gloam_only_comes_after_dusk_and_grows_with_every_seat_and_the_last_hours_
         at_time(&mut t, 3, 2, 0);
         assert_eq!(t.wisp_want(), want + 1, "and one more in the Final Hours");
     }
-    // A knight who leaves does not ease it: the table was this size.
     let (mut s, h) = session(3);
     at_time(&mut s, 1, 20, 0);
     let three = s.wisp_want();
@@ -708,7 +658,6 @@ fn the_gloam_only_comes_after_dusk_and_grows_with_every_seat_and_the_last_hours_
     s.step(&Held::new(), &gone);
     assert_eq!(s.seats.len(), 2);
     assert_eq!(s.wisp_want(), three, "the scaling stays");
-    // And the flames burn shorter with more seats.
     let (one, _) = session(1);
     let (six, _) = session(6);
     assert!(six.burn() < one.burn());
@@ -794,7 +743,6 @@ fn the_three_lights_held_together_turn_the_moon_back_and_the_purse_is_paid_once(
     assert_ne!(r.home.roundtable[SLOT] & BEGUN, 0);
     let score = &r.home.countryside.games.roundtable[SLOT];
     assert_eq!((score.wins, score.best), (1, 850), "one win, a second loop: 1000 - 150");
-    // The purse: gold and wax for three at the table, once.
     let mut home = angel_delve::rules::home::Home::default();
     let mut treasury = Spoils::default();
     let reclaimed = BTreeMap::new();
@@ -805,7 +753,6 @@ fn the_three_lights_held_together_turn_the_moon_back_and_the_purse_is_paid_once(
     assert_eq!(realm.treasury.get(Spoil::Wax), WAX_PER_SEAT * 3);
     assert!(!activity::settle_all(&mut realm, &r.marks).changed);
     assert_eq!(realm.treasury.get(Spoil::Gold), GOLD_PER_SEAT * 3, "paid once");
-    // E with nothing near returns the knight to the kingdom's tile.
     {
         let s = r.moonfall.as_mut().unwrap();
         stand(s, 1, (30, 20));
@@ -852,7 +799,6 @@ fn a_run_replays_byte_for_byte_from_the_same_keys() {
 
 #[test]
 fn a_blind_single_pass_cannot_finish_however_many_knights_play_it() {
-    // The proof by play: bots with an empty Ledger, one loop, every table size.
     for n in [1, 2, 4, 6] {
         let (mut s, h) = session(n);
         while s.memory.loops == 0 && s.completed.is_none() {
@@ -862,8 +808,6 @@ fn a_blind_single_pass_cannot_finish_however_many_knights_play_it() {
         assert!(s.completed.is_none(), "{n} seats won blind");
         assert!(s.memory.loops >= 1, "the moon fell");
     }
-    // The proof by the schedule: the oil needs a shoe, the shoe needs the Ledger to
-    // say the rider has come, and the rider first comes after the iron cart has gone.
     let day = 3000;
     let table = folk::timetable(day);
     let rider_seen = table.seen[Folk::Aster.index()][0].0;
@@ -873,22 +817,13 @@ fn a_blind_single_pass_cannot_finish_however_many_knights_play_it() {
 
 #[test]
 fn one_hand_cannot_do_two_of_the_four_favours_in_a_loop_so_a_lone_knight_needs_four() {
-    // The four things a hand must carry for the towers. Each must be held from the
-    // latest moment it can be taken to the earliest it can be given, in minutes
-    // since the first dawn, read off the same windows the rules use.
     let day = |d: u32, half: u32| (d * 48 + half) * 30;
-    // The scroll: taken by the end of the post hour on the first morning, read by
-    // Mira at her nine o'clock watch on the second evening at the soonest.
     let scroll = (day(0, story::POST.1), day(1, 30));
-    // The pass: the pot reaches Orin by the end of the same hour, five hours'
-    // writing and two to smudge; Tovin airs the keys from the second 17:00.
     let pass = (
         day(0, story::POST.1) + (story::PASS_HOURS + story::PASS_FRESH) * 60,
         day(1, story::KEYS.0),
     );
-    // The reeds: twelve hours in the hand before the oven's hour on the second morning.
     let reeds = (day(1, story::OVEN.0) - story::DRY_HOURS * 60, day(1, story::OVEN.0));
-    // The shoe: from the iron cart's last half hour to the rider's arrival.
     let shoe = (day(1, story::IRON.1), day(1, 21));
     let held = [("scroll", scroll), ("pass", pass), ("reeds", reeds), ("shoe", shoe)];
     for (i, (a, x)) in held.iter().enumerate() {
@@ -896,16 +831,11 @@ fn one_hand_cannot_do_two_of_the_four_favours_in_a_loop_so_a_lone_knight_needs_f
             assert!(x.0 < y.1 && y.0 < x.1, "{a} {x:?} and {b} {y:?} are held at the same time");
         }
     }
-    // And all four are needed: the scroll and the reeds for the seal, the pass for the
-    // north key, the shoe for the oil.
     assert_eq!(held.len(), 4);
 }
 
 #[test]
 fn bots_clear_it_at_one_two_four_and_six_seats_and_the_loops_and_ticks_are_the_record() {
-    // The record of the Ledger-reading bots from a blank Ledger. A lone knight
-    // needs four loops, at the least (see the hand check above), and a table of
-    // four or six does it in two: one to learn the town and one to light it.
     let mut record = Vec::new();
     for (n, loops) in [(1u32, 4u32..=6), (2, 2..=3), (4, 2..=2), (6, 2..=2)] {
         let (s, out) = play(n, 120_000, |_| {});
@@ -933,7 +863,6 @@ fn a_knight_who_steps_away_keeps_what_they_carry_and_is_back_where_they_stood() 
     assert_eq!(talk(&mut s, &h, Folk::Pella), Topic::Give);
     close_talk(&mut s);
     let at = s.seats[&1].knight.px();
-    // Knight 1's tab is hidden: they stand up, but are kept.
     h.get_mut(&1).unwrap().away = true;
     idle(&mut s, &h, 30);
     assert!(!s.seats.contains_key(&1) && s.parked.contains_key(&1));
@@ -943,12 +872,10 @@ fn a_knight_who_steps_away_keeps_what_they_carry_and_is_back_where_they_stood() 
     let k = &s.seats[&1].knight;
     assert_eq!((k.held, k.px()), (Item::Scroll, at), "the scroll is still in their hand");
     assert!(!s.parked.contains_key(&1));
-    // A knight who left the party altogether is forgotten.
     let mut gone = h.clone();
     gone.remove(&2);
     idle(&mut s, &gone, 2);
     assert!(!s.seats.contains_key(&2) && !s.parked.contains_key(&2));
-    // The bell wins parked knights back to the first dawn too.
     h.get_mut(&1).unwrap().away = true;
     idle(&mut s, &h, 2);
     s.seats.clear();
@@ -1007,7 +934,6 @@ fn e_at_the_bell_post_opens_the_bell_menu_as_r_does() {
     assert_eq!(s.seats[&1].knight.panel, Panel::Bell(0));
 }
 
-/// A small deterministic stream of numbers for the shake-it-about tests.
 struct Noise(u64);
 
 impl Noise {
@@ -1042,7 +968,6 @@ impl Noise {
 fn whatever_the_keys_do_the_session_stays_valid_replays_and_survives_the_wire() {
     for seats in [1u32, 3, 6] {
         let (mut s, h) = session(seats);
-        // A short day, so a few thousand ticks cross dusk, the Final Hours, a fall and a bell.
         s.nums.day = 1800;
         for f in ledger::FACTS {
             s.memory.learn(f);
@@ -1112,7 +1037,6 @@ fn a_damaged_session_is_mended_by_repair_and_a_knob_moved_mid_loop_never_breaks_
     );
     s.step(&Held::new(), &h);
     assert!(s.valid());
-    // The day knob dragged shorter than the clock: the moon falls, the table is handed back.
     let (mut t, h) = session(2);
     t.clock = 7000;
     t.nums.day = 1800;
@@ -1133,13 +1057,11 @@ fn the_ledger_key_says_new_until_a_knight_has_read_what_was_written() {
     assert_eq!(s.seats[&1].knight.panel, Panel::Ledger(0));
     assert_eq!(s.seats[&1].knight.read, s.memory.written(), "knight 1 has read it");
     assert_eq!(s.seats[&2].knight.read, 0, "knight 2 has not");
-    // More is written while it is open: still read, as it is on the page.
     s.memory.witness(Folk::Mira, 4);
     s.step(&Held::new(), &h);
     assert_eq!(s.seats[&1].knight.read, s.memory.written());
 }
 
-/// What the table's bots press this tick.
 pub(super) fn bots(s: &Session, h: &BTreeMap<u32, Hero>) -> Held {
     h.iter().filter(|(id, _)| s.seats.contains_key(id)).map(|(&id, _)| (id, plan::bot(s, id))).collect()
 }
@@ -1151,12 +1073,10 @@ pub(super) struct Outcome {
     pub won: bool,
 }
 
-/// Play `n` bots until the moon turns back or `limit` ticks pass.
 pub(super) fn play(n: u32, limit: u32, watch: impl FnMut(&Session)) -> (Session, Outcome) {
     play_from(session(n), limit, watch)
 }
 
-/// Every fact the Ledger can learn, written (a party that has read it all).
 pub(super) fn informed(n: u32) -> (Session, BTreeMap<u32, Hero>) {
     let (mut s, h) = session(n);
     for f in ledger::FACTS {
@@ -1190,7 +1110,6 @@ pub(super) fn play_from(
     (s, out)
 }
 
-/// Play the bots from a blank Ledger with some of the five numbers moved.
 fn tried(seats: u32, day: u32, walk: u32, wisps: u32, notice: u32) -> Outcome {
     let (mut s, h) = session(seats);
     s.nums.day = day;

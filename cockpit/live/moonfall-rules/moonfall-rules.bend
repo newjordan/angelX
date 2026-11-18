@@ -2,15 +2,6 @@ import Base
 import ./model.bend as M
 import ./town.bend as D
 
-# Moonfall, the fen town's three days, as one rules module (crates/delve/src/rules/
-# moonfall.rs and its folder held these rules in Rust). Rust keeps the session and
-# its saves; the module takes the whole session each tick and answers the next one.
-# Positions are pixels times 256, signed quantities are two's complement words,
-# and every enum is a small number (the Rust adapter and index.js name them).
-
-# --- the small helpers -----------------------------------------------------------
-# Bend has no `if`: a fork is a call to `ite` with two thunks, or Bool.pick when
-# both arms are cheap values.
 def ite(-A: Type, c: Bool, t: Unit -> A, e: Unit -> A) -> A:
   match c:
     case True{}:
@@ -42,23 +33,19 @@ def neg(+a: U32) -> U32:
 def sq(+a: U32) -> U32:
   (a * a : U32)
 
-# The squared distance of two pixel points (any sign, small).
 def dist2(+ax: U32, +ay: U32, +bx: U32, +by: U32) -> U32:
   (sq((ax - bx : U32)) + sq((ay - by : U32)) : U32)
 
-# The sign of a word as -1, 0 or 1 (two's complement).
 def sgn(+a: U32) -> U32:
   Bool.pick(U32, isneg(a), 4294967295, bu(U32.is_gt(a, 0)))
 
 def sabs(+a: U32) -> U32:
   Bool.pick(U32, isneg(a), neg(a), a)
 
-# a / b truncated toward zero, b positive.
 def sdiv(+a: U32, +b: U32) -> U32:
   +q = (sabs(a) / b : U32)
   Bool.pick(U32, isneg(a), neg(q), q)
 
-# The number of set bits.
 def pop_go(n: Nat, +a: U32, +acc: U32) -> U32:
   match n:
     case 0n:
@@ -69,7 +56,6 @@ def pop_go(n: Nat, +a: U32, +acc: U32) -> U32:
 def pop(+a: U32) -> U32:
   pop_go(32n, a, 0)
 
-# --- the cues (the Rust adapter holds their names) --------------------------------
 def q_toll() -> U32:
   0
 
@@ -106,7 +92,6 @@ def q_fall() -> U32:
 def q_hurt() -> U32:
   11
 
-# --- the three-day clock (clock.rs) -------------------------------------------------
 def c_end(+day: U32) -> U32:
   (day * 3 : U32)
 
@@ -133,7 +118,6 @@ def c_bridge_up(+clock: U32, +day: U32) -> Bool:
   +h = c_hour(clock, day)
   Bool.not(Bool.and(U32.is_ge(h, 6), U32.is_lt(h, 20)))
 
-# The next tick at hour `phase` (mod 24, from dawn) strictly after `clock`.
 def c_mark(+clock: U32, +day: U32, +phase: U32) -> U32:
   +t0 = c_ticks(day, (phase * 2 : U32))
   +t1 = c_ticks(day, ((phase + 24) * 2 : U32))
@@ -148,8 +132,6 @@ def c_next_dusk(+clock: U32, +day: U32) -> U32:
 def c_next_dawn(+clock: U32, +day: U32) -> U32:
   c_mark(clock, day, 24)
 
-# --- the town's ground (town.rs) ---------------------------------------------------
-# The ground bits: 1 the bridge is up, 2 a swift knight, 4 the ditch is filled.
 def g_open(+gb: U32, +c: U32) -> Bool:
   Bool.or(Bool.or(Bool.or(eq(c, 0), eq(c, 1)), Bool.or(eq(c, 5), eq(c, 8))), Bool.or(Bool.and(eq(c, 3), Bool.not(bit(gb, 1))), Bool.or(Bool.and(eq(c, 4), bit(gb, 2)), Bool.and(eq(c, 7), bit(gb, 4)))))
 
@@ -162,7 +144,6 @@ def g_cell_in(+ok: Bool, +gb: U32, +ax: U32, +ay: U32, +con: U32, +cx: U32, +cy:
     case False{}:
       False{}
 
-# One corner of a knight's feet: the pixel (ax, ay) may be off the map's west or north.
 def g_cell(+gb: U32, +ax: U32, +ay: U32, +con: U32, +cx: U32, +cy: U32) -> Bool:
   g_cell_in(Bool.not(Bool.or(isneg(ax), isneg(ay))), gb, ax, ay, con, cx, cy)
 
@@ -175,8 +156,6 @@ def g_clear_in(+ok: Bool, +gb: U32, +x: U32, +y: U32, +con: U32, +cx: U32, +cy: 
     case False{}:
       False{}
 
-# Whether a knight's feet (an 8 by 6 box at x, y) stand clear of every solid tile
-# and of the crate (`con`: there is one, at tile cx, cy).
 def g_clear(+gb: U32, +x: U32, +y: U32, +con: U32, +cx: U32, +cy: U32) -> Bool:
   g_clear_in(Bool.not(Bool.or(isneg(x), isneg(y))), gb, x, y, con, cx, cy)
 
@@ -196,13 +175,6 @@ def rt_code(+r: D.Rt, +j: U32) -> U32:
     case D.Rt{_, +w0, +w1}:
       U32.and(U32.shrn(Bool.pick(U32, U32.is_lt(j, 16), w0, w1), Nat.mul(U32.to_nat((j % 16 : U32)), 2n)), 3)
 
-# --- the folk (folk.rs) --------------------------------------------------------------
-# Folk: 0 Mira, 1 Tovin, 2 Nessa, 3 Orin, 4 Pella, 5 Aster. Spots, in the native order:
-# 0 ArchDoor 1 ArchPorch 2 BakeryDoor 3 BakeryAt 4 ForgeAt 5 HeraldDoor 6 HeraldAt
-# 7 Podium 8 WellSide 9 WellEast 10 ScriptDoor 11 ScriptDesk 12 ReedBank 13 HutDoor
-# 14 BridgePost 15 EastGate 16 EastOut 17..22 Lamp1..Lamp6 23 NorthYard 24 SouthYard 25 Plaza.
-# An entry is: half-hours after the first dawn, spot, behind the door, the lamp lit
-# (255: none), and whether the Ledger keeps a line for it.
 def f_mira() -> List<&2, M.St>:
   [M.St{0, 0, 1, 255, 1}, M.St{1, 1, 0, 255, 1}, M.St{13, 3, 0, 255, 1}, M.St{16, 1, 0, 255, 1}, M.St{22, 17, 0, 0, 1}, M.St{23, 18, 0, 1, 0}, M.St{24, 19, 0, 2, 0}, M.St{25, 20, 0, 3, 0}, M.St{26, 21, 0, 4, 0}, M.St{27, 22, 0, 5, 0}, M.St{30, 8, 0, 255, 1}, M.St{33, 0, 1, 255, 1}]
 
@@ -221,9 +193,6 @@ def f_tovin() -> List<&2, M.St>:
 def f_day_of(+folk: U32) -> List<&2, M.St>:
   ite(List<&2, M.St>, eq(folk, 0), u => f_mira(), u => ite(List<&2, M.St>, eq(folk, 1), u => f_tovin(), u => ite(List<&2, M.St>, eq(folk, 2), u => f_nessa(), u => ite(List<&2, M.St>, eq(folk, 3), u => f_orin(), u => ite(List<&2, M.St>, eq(folk, 4), u => f_pella(), u => Nil{})))))
 
-# A stop of day `d` (0 to 2) for the entry `i` of a villager's routine. The iron
-# cart brings Nessa to the forge at dawn on the second day; on the third evening
-# everyone who sleeps indoors hurries home before the Third Midnight.
 def f_stop(+folk: U32, +d: U32, +i: U32, +e: M.St) -> M.Stop:
   M.Stop{(M.st_at(e) + d * 48 : U32), Bool.pick(U32, Bool.and(eq(folk, 2), Bool.and(eq(d, 1), eq(i, 1))), 4, M.st_spot(e)), M.st_inside(e), bu(Bool.and(eq(d, 2), Bool.and(eq(M.st_inside(e), 1), U32.is_ge(M.st_at(e), 26)))), Bool.pick(U32, eq(M.st_noted(e), 1), i, 255), M.st_lamp(e)}
 
@@ -234,7 +203,6 @@ def f_day_stops(+es: List<&2, M.St>, +folk: U32, +d: U32, +i: U32) -> List<&2, M
     case Con{+e, +rest}:
       Con{f_stop(folk, d, i, e), f_day_stops(rest, folk, d, (i + 1 : U32))}
 
-# Aster rides in on the second evening and out again: his program is his own.
 def f_aster() -> List<&2, M.Stop>:
   [M.Stop{0, 16, 0, 0, 255, 255}, M.Stop{69, 15, 0, 0, 0, 255}, M.Stop{83, 16, 0, 0, 255, 255}]
 
@@ -242,8 +210,6 @@ def f_program(+folk: U32) -> List<&2, M.Stop>:
   +es = f_day_of(folk)
   ite(List<&2, M.Stop>, eq(folk, 5), u => f_aster(), u => List.append(&2, M.Stop, f_day_stops(es, folk, 0, 0), List.append(&2, M.Stop, f_day_stops(es, folk, 1, 0), f_day_stops(es, folk, 2, 0))))
 
-# One leg of a day: set out so as to arrive at the stop's hour, never before the
-# last leg is done. Villagers walk 1.5 pixels a tick, a hurrying one 2.4.
 def f_leg(+prev: U32, +free: U32, +idx: U32, +day: U32, +s: M.Stop) -> M.Leg:
   +pace = Bool.pick(U32, eq(M.sp_fast(s), 1), 614, 384)
   +travel = ((rt_n(D.route((prev * 32 + M.sp_spot(s) : U32))) * 4096) / pace : U32)
@@ -287,7 +253,6 @@ def lg_nth(+ls: List<&2, M.Leg>, n: Nat) -> M.Leg:
         case 1n+p:
           lg_nth(rest, p)
 
-# The last leg that has set out by `clock` (legs set out in order).
 def f_pick(+ls: List<&2, M.Leg>, +clock: U32, +best: M.Leg) -> M.Leg:
   match ls:
     case Nil{}:
@@ -295,7 +260,6 @@ def f_pick(+ls: List<&2, M.Leg>, +clock: U32, +best: M.Leg) -> M.Leg:
     case Con{+l, +rest}:
       f_pick(rest, clock, Bool.pick(M.Leg, U32.is_le(M.lg_depart(l), clock), l, best))
 
-# --- walking a route ---------------------------------------------------------------
 def f_dx(+code: U32) -> U32:
   Bool.pick(U32, eq(code, 2), 4294967295, bu(eq(code, 3)))
 
@@ -327,7 +291,6 @@ def f_along_n(+empty: Bool, +rt: D.Rt, +sx: U32, +sy: U32, +travelled: U32) -> M
       +code = rt_code(rt, ie)
       M.Al{(sx + M.pt_x(p) * 16 + f_dx(code) * off : U32), (sy + M.pt_y(p) * 16 + f_dy(code) * off : U32), f_face_of(code)}
 
-# Where along `rt` (from the spot `from`) a walker is after `travelled` Q-pixels.
 def f_along(+from: U32, +to: U32, +travelled: U32) -> M.Al:
   +rt = D.route((from * 32 + to : U32))
   f_along_n(eq(rt_n(rt), 0), rt, spot_px_x(from), spot_px_y(from), travelled)
@@ -335,8 +298,6 @@ def f_along(+from: U32, +to: U32, +travelled: U32) -> M.Al:
 def f_travel(+from: U32, +to: U32) -> U32:
   ((rt_n(D.route((from * 32 + to : U32))) * 4096) / 384 : U32)
 
-# Aster after his horse is shod at `t`: from the gate to the well's east side,
-# there until 22:00, then out of the east gate again.
 def f_aster_after(+clock: U32, +day: U32, +t: U32) -> M.Fg:
   +travel = f_travel(15, 9)
   +leave = U32.max(c_ticks(day, 80), (t + travel + 1 : U32))
@@ -355,15 +316,12 @@ def f_figure_legs(+folk: U32, +clock: U32, +legs: List<&2, M.Leg>) -> M.Fg:
   +stage = Bool.or(Bool.not(eq(folk, 5)), Bool.and(U32.is_le(M.lg_depart(lg_nth(legs, 1n)), clock), U32.is_lt(clock, M.lg_arrive(lg_nth(legs, 2n)))))
   M.Fg{Bool.pick(U32, moving, M.al_x(al), spot_px_x(M.lg_spot(best))), Bool.pick(U32, moving, M.al_y(al), spot_px_y(M.lg_spot(best))), bu(Bool.and(stage, Bool.or(moving, eq(M.lg_inside(best), 0)))), bu(moving), Bool.pick(U32, moving, M.al_face(al), (bu(eq(M.lg_spot(best), 15)) * 3 : U32)), M.lg_idx(best), bu(Bool.and(Bool.not(moving), stage)), Bool.pick(U32, moving, 255, M.lg_routine(best))}
 
-# Where `folk` is at `clock`. Aster, once shod at `shod`, takes his own way.
 def f_figure(+folk: U32, +clock: U32, +day: U32, +shod_on: U32, +shod: U32) -> M.Fg:
   ite(M.Fg, Bool.and(eq(folk, 5), Bool.and(eq(shod_on, 1), U32.is_ge(clock, shod))), u => f_aster_after(clock, day, shod), u => f_figure_legs(folk, clock, f_legs(folk, day)))
 
-# The tick Aster stands at the well once he has been shod at `shod`.
 def f_aster_at_well(+shod: U32) -> U32:
   (shod + f_travel(15, 9) : U32)
 
-# The tick the lamplighter reaches lantern `n`, in the day's own ticks.
 def f_lamp_go(+ls: List<&2, M.Leg>, +n: U32, +day: U32) -> U32:
   match ls:
     case Nil{}:
@@ -374,7 +332,6 @@ def f_lamp_go(+ls: List<&2, M.Leg>, +n: U32, +day: U32) -> U32:
 def f_lamp_at(+n: U32, +day: U32) -> U32:
   f_lamp_go(f_legs(0, day), n, day)
 
-# --- lists of words and of knights --------------------------------------------------
 def lu_get(+l: List<&2, U32>, +i: U32) -> U32:
   match l:
     case Nil{}:
@@ -399,7 +356,6 @@ def lu_sum(+l: List<&2, U32>, +acc: U32) -> U32:
     case Con{+h, +t}:
       lu_sum(t, (acc + h : U32))
 
-# Where the knights stand at each dawn, around the Moonwell: the tile for seat `id`.
 def sp_tx(+id: U32) -> U32:
   +i = ((id + 5) % 6 : U32)
   Bool.pick(U32, eq(i, 0), 16, Bool.pick(U32, eq(i, 1), 19, Bool.pick(U32, eq(i, 2), 15, Bool.pick(U32, eq(i, 3), 20, Bool.pick(U32, eq(i, 4), 16, 19)))))
@@ -407,7 +363,6 @@ def sp_tx(+id: U32) -> U32:
 def sp_ty(+id: U32) -> U32:
   (15 + ((((id + 5) % 6) / 2) * 2) : U32)
 
-# A knight on their feet at the dawn spawn, wearing `mask`.
 def kn_new(+id: U32, +joined: U32, +mask: U32) -> M.Kn:
   M.k_set_candles(M.k_set_mask(M.k_set_y(M.k_set_x(M.k_set_joined(M.k_set_id(M.Kn{M.v_zero()}, id), joined), ((sp_tx(id) * 16 + 8) * 256 : U32)), ((sp_ty(id) * 16 + 8) * 256 : U32)), mask), 3)
 
@@ -453,7 +408,6 @@ def sl_len(+l: List<&2, M.Kn>) -> U32:
     case Con{_, +t}:
       (sl_len(t) + 1 : U32)
 
-# --- the session's small verbs --------------------------------------------------------
 def get_k(+s: M.Sess, +id: U32) -> M.Kn:
   sl_get(M.s_seats(s), id)
 
@@ -466,7 +420,6 @@ def edit(+s: M.Sess, +id: U32, f: M.Kn -> M.Kn) -> M.Sess:
 def cue(+s: M.Sess, +c: U32) -> M.Sess:
   M.s_set_cues(s, lu_push(M.s_cues(s), c))
 
-# Sounds the Ledger and the town owe, handed out after the tick's own.
 def defer(+s: M.Sess, +c: U32) -> M.Sess:
   M.s_set_pending(s, lu_push(M.s_pending(s), c))
 
@@ -484,12 +437,9 @@ def nw_tail(+l: List<&2, M.Nw>) -> List<&2, M.Nw>:
     case Con{_, +t}:
       t
 
-# Notes: 0 Wrote(folk, routine), 1 Learned(fact), 2 Ticked(folk), 3 Remind(folk, id),
-# 4 Sign(sign), 5 Got(item), 6 Mask(mask), 7 Candle(n), 8 Snuffed, 9 Lit(i), 10 Out, 11 Ring(id).
 def announce_cue(+s: M.Sess, +kind: U32) -> M.Sess:
   ite(M.Sess, U32.is_le(kind, 1), u => defer(s, q_pickup()), u => ite(M.Sess, eq(kind, 2), u => defer(s, q_wish()), u => ite(M.Sess, eq(kind, 3), u => defer(s, q_card()), u => s)))
 
-# Everyone's: the Ledger wrote, or an hour is near.
 def announce(+s: M.Sess, +kind: U32, +a: U32, +b: U32) -> M.Sess:
   +t = announce_cue(s, kind)
   +l = List.append(&2, M.Nw, M.s_news(t), Con{M.Nw{kind, a, b, 120}, Nil{}})
@@ -498,7 +448,6 @@ def announce(+s: M.Sess, +kind: U32, +a: U32, +b: U32) -> M.Sess:
 def kn_note(+k: M.Kn, +kind: U32, +a: U32, +b: U32, +left: U32) -> M.Kn:
   M.k_set_note_left(M.k_set_note_b(M.k_set_note_a(M.k_set_note_kind(M.k_set_note_on(k, 1), kind), a), b), left)
 
-# A short word for one knight.
 def note(+s: M.Sess, +who: U32, +kind: U32, +a: U32, +b: U32) -> M.Sess:
   edit(s, who, k => kn_note(k, kind, a, b, 90))
 
@@ -508,9 +457,6 @@ def sign(+s: M.Sess, +who: U32, +which: U32) -> M.Sess:
 def pw(+n: U32) -> U32:
   U32.shln(1, U32.to_nat(n))
 
-# --- the Ledger (ledger.rs) -----------------------------------------------------------
-# Facts: 0 OrinLost 1 NessaCold 2 PellaScroll 3 TovinPass 4 MiraSeal 5 AsterComing 6 AsterLame 7 Verse.
-# Masks: 1 swift, 2 stout. Keeps: 1 north key, 2 south seal, 4 oil.
 def m_knows(+s: M.Sess, +f: U32) -> Bool:
   bit(M.s_facts(s), pw(f))
 
@@ -536,19 +482,15 @@ def rt_pop(+l: List<&2, U32>, +acc: U32) -> U32:
     case Con{+h, +t}:
       rt_pop(t, (acc + pop(h) : U32))
 
-# How much the Ledger holds: a count that only grows.
 def m_written(+s: M.Sess) -> U32:
   (pop(M.s_facts(s)) + rt_pop(M.s_rt(s), 0) + pop(M.s_ticks(s)) + pop(M.s_masks(s)) + pop(M.s_keeps(s)) : U32)
 
-# A fact learned, written once, told to the table.
 def learn(+s: M.Sess, +f: U32) -> M.Sess:
   ite(M.Sess, m_knows(s, f), u => s, u => announce(M.s_set_facts(s, U32.or(M.s_facts(s), pw(f))), 1, f, 0))
 
-# A favour ticked: the first time it is, the table is told.
 def tick_folk(+s: M.Sess, +folk: U32) -> M.Sess:
   ite(M.Sess, m_ticked(s, folk), u => s, u => announce(M.s_set_ticks(s, U32.or(M.s_ticks(s), pw(folk))), 2, folk, 0))
 
-# The appointments the Ledger reminds the table of, an hour ahead (folk, routine, only day or 255).
 def rem_go(+ss: List<&2, M.Stop>, +s: M.Sess, +who: U32, +id: U32, +only: U32, +clock: U32, +day: U32) -> M.Sess:
   match ss:
     case Nil{}:
@@ -569,8 +511,6 @@ def reminders(+s: M.Sess, +clock: U32, +day: U32) -> M.Sess:
   +e = rem_one(d, 1, 4, 255, clock, day)
   rem_one(e, 5, 0, 1, clock, day)
 
-# --- a knight on foot (walk.rs) ---------------------------------------------------------
-# The key bits a tick's input is read as.
 def key_use() -> U32:
   1
 
@@ -617,12 +557,10 @@ def keys_of(+i: M.In) -> U32:
 def pressed(+now: U32, +before: U32, +b: U32) -> Bool:
   Bool.and(bit(now, b), Bool.not(bit(before, b)))
 
-# Q-pixels a tick a knight walks at: the folk's pace times the number, by mask.
 def speed(+walk: U32, +mask: U32) -> U32:
   +base = ((384 * walk) / 100 : U32)
   Bool.pick(U32, eq(mask, 0), base, Bool.pick(U32, eq(mask, 1), ((base * 16) / 10 : U32), ((base * 7) / 10 : U32)))
 
-# A facing as a step (two's complement).
 def facing_x(+face: U32) -> U32:
   Bool.pick(U32, eq(face, 2), 4294967295, bu(eq(face, 3)))
 
@@ -632,13 +570,11 @@ def facing_y(+face: U32) -> U32:
 def crate_corner(+cx: U32, +cy: U32, +ax: U32, +ay: U32) -> Bool:
   Bool.and(Bool.and(Bool.not(isneg(ax)), Bool.not(isneg(ay))), Bool.and(eq((ax / 16 : U32), cx), eq((ay / 16 : U32), cy)))
 
-# Whether the knight's feet at (nx, ny) overlap the crate's tile.
 def crate_hit(+con: U32, +cx: U32, +cy: U32, +nx: U32, +ny: U32) -> Bool:
   +px = (nx / 256 : U32)
   +py = (ny / 256 : U32)
   Bool.and(eq(con, 1), Bool.or(Bool.or(crate_corner(cx, cy, (px - 4 : U32), (py - 3 : U32)), crate_corner(cx, cy, (px + 3 : U32), (py - 3 : U32))), Bool.or(crate_corner(cx, cy, (px - 4 : U32), (py + 2 : U32)), crate_corner(cx, cy, (px + 3 : U32), (py + 2 : U32)))))
 
-# A stout knight leans on the crate; ten ticks on, it moves a tile or falls into the ditch.
 def lean_done(+w: M.Wk, +k: M.Kn, +ax: U32, +ay: U32, +gb: U32) -> M.Wk:
   +tx = (M.wk_cx(w) + sgn(ax) : U32)
   +ty = (M.wk_cy(w) + sgn(ay) : U32)
@@ -652,7 +588,6 @@ def lean(+w: M.Wk, +ax: U32, +ay: U32, +gb: U32) -> M.Wk:
   +w1 = M.wk_set_leaning(M.wk_set_k(w, k), 1)
   ite(M.Wk, U32.is_ge(M.k_push(k), 10), u => lean_done(w1, k, ax, ay, gb), u => w1)
 
-# One axis of a step: blocked ground stops it, a crate is leant on or too heavy.
 def walk_axis_go(+w: M.Wk, +ax: U32, +ay: U32, +each: U32, +gb: U32) -> M.Wk:
   +k = M.wk_k(w)
   +nx = (M.k_x(k) + ax * each : U32)
@@ -662,7 +597,6 @@ def walk_axis_go(+w: M.Wk, +ax: U32, +ay: U32, +each: U32, +gb: U32) -> M.Wk:
 def walk_axis(+w: M.Wk, +ax: U32, +ay: U32, +each: U32, +gb: U32) -> M.Wk:
   ite(M.Wk, Bool.and(eq(ax, 0), eq(ay, 0)), u => w, u => walk_axis_go(w, ax, ay, each, gb))
 
-# The face after a step: sideways wins while facing north or south, else up and down.
 def face_after(+face: U32, +dx: U32, +dy: U32) -> U32:
   Bool.pick(U32, Bool.and(ne(dx, 0), Bool.or(eq(dy, 0), U32.is_lt(face, 2))), Bool.pick(U32, isneg(dx), 2, 3), Bool.pick(U32, ne(dy, 0), Bool.pick(U32, isneg(dy), 1, 0), face))
 
@@ -676,8 +610,6 @@ def walk_moving(+k: M.Kn, +dx: U32, +dy: U32, +rolling: Bool, +pace: U32, +gb: U
   +k2 = M.wk_k(w2)
   M.wk_set_k(w2, M.k_set_face(M.k_set_push(k2, Bool.pick(U32, eq(M.wk_leaning(w2), 1), M.k_push(k2), 0)), face_after(M.k_face(k2), dx, dy)))
 
-# One tick of walking for a knight who is free to move: the sidestep, then up to
-# two axes of stride. `rolled` is the sidestep key's press.
 def walk_step(+k: M.Kn, +mx: U32, +my: U32, +pace: U32, +gb: U32, +rolled: Bool, +con: U32, +cx: U32, +cy: U32) -> M.Wk:
   +rolling0 = U32.is_gt(M.k_roll(k), 0)
   +begin = Bool.and(Bool.and(rolled, eq(M.k_roll_rest(k), 0)), Bool.and(eq(M.k_down(k), 0), Bool.not(rolling0)))
@@ -691,8 +623,6 @@ def walk_step(+k: M.Kn, +mx: U32, +my: U32, +pace: U32, +gb: U32, +rolled: Bool,
   +k2 = M.k_set_roll(M.k_set_roll_rest(k1, sat(M.k_roll_rest(k1), 1)), sat(M.k_roll(k1), 1))
   ite(M.Wk, Bool.and(eq(dx, 0), eq(dy, 0)), u => M.Wk{M.k_set_push(M.k_set_stride(k2, 0), 0), con, cx, cy, 0, 0, 0, 0}, u => walk_moving(k2, dx, dy, rolling, pace, gb, con, cx, cy))
 
-# --- the favours (story.rs) ----------------------------------------------------------
-# Flags of the loop: 1 north open, 2 south open, 4 ink taken, 8 ditch filled.
 def final_hours(+s: M.Sess) -> Bool:
   U32.is_ge(M.s_clock(s), c_final(M.s_n_day(s)))
 
@@ -702,7 +632,6 @@ def day_index(+s: M.Sess) -> U32:
 def peak1(+s: M.Sess) -> U32:
   U32.max(M.s_peak(s), 1)
 
-# Ticks a flame burns once lit: tighter with every extra seat.
 def burn(+s: M.Sess) -> U32:
   +hour = (M.s_n_day(s) / 24 : U32)
   U32.max(sat(((hour * 9) / 2 : U32), ((hour * (peak1(s) - 1 : U32)) / 4 : U32)), ((hour * 5) / 2 : U32))
@@ -713,7 +642,6 @@ def lit_get(+s: M.Sess, +i: U32) -> U32:
 def lit_set(+s: M.Sess, +i: U32, +v: U32) -> M.Sess:
   ite(M.Sess, eq(i, 0), u => M.s_set_lit0(s, v), u => ite(M.Sess, eq(i, 1), u => M.s_set_lit1(s, v), u => M.s_set_lit2(s, v)))
 
-# A flame of the three towers: 0 north, 1 south, 2 the well.
 def flame(+s: M.Sess, +i: U32) -> Bool:
   U32.is_gt(lit_get(s, i), M.s_clock(s))
 
@@ -726,14 +654,12 @@ def set_flag(+s: M.Sess, +f: U32) -> M.Sess:
 def clear_flag(+s: M.Sess, +f: U32) -> M.Sess:
   M.s_set_flags(s, U32.and(M.s_flags(s), U32.xor(f, 15)))
 
-# The ground bits for a knight with or without the swift mask.
 def ground(+s: M.Sess, +swift: Bool) -> U32:
   (bu(c_bridge_up(M.s_clock(s), M.s_n_day(s))) + bu(swift) * 2 + bu(has_flag(s, 8)) * 4 : U32)
 
 def tower_ready(+s: M.Sess, +i: U32) -> Bool:
   Bool.and(Bool.and(m_knows(s, 7), final_hours(s)), Bool.pick(Bool, eq(i, 0), has_flag(s, 1), Bool.pick(Bool, eq(i, 1), has_flag(s, 2), m_has_keep(s, 4))))
 
-# Whether it is day `d` (255: any) and within the half-hours [lo, hi) of its dawn.
 def within(+s: M.Sess, +d: U32, +lo: U32, +hi: U32) -> Bool:
   +h = c_half(M.s_clock(s), M.s_n_day(s))
   Bool.and(Bool.or(eq(d, 255), eq((h / 48 : U32), d)), Bool.and(U32.is_ge((h % 48 : U32), lo), U32.is_lt((h % 48 : U32), hi)))
@@ -744,8 +670,6 @@ def figure_of(+s: M.Sess, +folk: U32) -> M.Fg:
 def lamp_tx(+n: U32) -> U32:
   Bool.pick(U32, eq(n, 0), 9, Bool.pick(U32, eq(n, 1), 13, Bool.pick(U32, eq(n, 2), 16, Bool.pick(U32, eq(n, 3), 20, Bool.pick(U32, eq(n, 4), 24, 28)))))
 
-# The lantern lights by the lamplighter's round (`ls`: the lamplighter's legs), and stays lit
-# unless the Gloam or the moon's shadow put it out.
 def lantern_scheduled_l(+s: M.Sess, +ls: List<&2, M.Leg>, +n: U32) -> Bool:
   U32.is_ge((M.s_clock(s) % U32.max(M.s_n_day(s), 1) : U32), f_lamp_go(ls, n, M.s_n_day(s)))
 
@@ -755,9 +679,6 @@ def lantern_scheduled(+s: M.Sess, +n: U32) -> Bool:
 def lantern_lit_l(+s: M.Sess, +ls: List<&2, M.Leg>, +n: U32) -> Bool:
   Bool.and(Bool.and(lantern_scheduled_l(s, ls, n), Bool.not(bit(M.s_snuffed(s), pw(n)))), eq(M.s_done_on(s), 0))
 
-# --- what E may mean where a knight stands -------------------------------------------
-# 0 nothing, 1 to 6 a villager, 7 the ink pot, 8 the reeds, 9 the north door, 10 the
-# south door, 11 the well, 12 the bell post, 13 to 18 a lantern.
 def offer(+b: M.Bs, +d2: U32, +reach: U32, +u: U32) -> M.Bs:
   Bool.pick(M.Bs, Bool.and(U32.is_le(d2, (reach * reach : U32)), Bool.or(eq(M.bs_u(b), 0), U32.is_lt(d2, M.bs_d(b)))), {M.Bs{d2, u} : M.Bs}, b)
 
@@ -797,14 +718,12 @@ def nearest_use(+s: M.Sess, +who: U32) -> U32:
 def held_of(+s: M.Sess, +who: U32) -> U32:
   M.k_held(get_k(s, who))
 
-# What is taken is in hand, from this tick of the loop.
 def take(+s: M.Sess, +who: U32, +item: U32) -> M.Sess:
   note(edit(s, who, k => M.k_set_held_at(M.k_set_held(k, item), M.s_clock(s))), who, 5, item, 0)
 
 def give_away(+s: M.Sess, +who: U32) -> M.Sess:
   edit(s, who, k => M.k_set_held(k, 0))
 
-# A mask is earned and kept, and the person's tick goes in the Ledger.
 def keep_mask(+s: M.Sess, +who: U32, +bit_: U32, +mask: U32, +ticked: U32) -> M.Sess:
   note(tick_folk(M.s_set_masks(s, U32.or(M.s_masks(s), bit_)), ticked), who, 6, mask, 0)
 
@@ -814,7 +733,6 @@ def use_ink(+s: M.Sess, +who: U32) -> M.Sess:
 def use_reeds(+s: M.Sess, +who: U32) -> M.Sess:
   ite(M.Sess, ne(held_of(s, who), 0), u => sign(s, who, 3), u => ite(M.Sess, Bool.not(m_knows(s, 1)), u => sign(s, who, 0), u => take(s, who, 2)))
 
-# The tower doors open to the key and the seal the party keeps.
 def door(+s: M.Sess, +who: U32, +north: Bool) -> M.Sess:
   +flag = Bool.pick(U32, north, 1, 2)
   ite(M.Sess, has_flag(s, flag), u => ite(M.Sess, final_hours(s), u => ite(M.Sess, Bool.not(m_knows(s, 7)), u => sign(s, who, 12), u => s), u => sign(s, who, 11)), u => ite(M.Sess, m_has_keep(s, flag), u => sign(set_flag(s, flag), who, Bool.pick(U32, north, 5, 7)), u => sign(s, who, Bool.pick(U32, north, 4, 6))))
@@ -822,14 +740,12 @@ def door(+s: M.Sess, +who: U32, +north: Bool) -> M.Sess:
 def use_well(+s: M.Sess, +who: U32) -> M.Sess:
   sign(s, who, Bool.pick(U32, Bool.not(m_has_keep(s, 4)), 9, Bool.pick(U32, Bool.and(final_hours(s), Bool.not(m_knows(s, 7))), 12, 10)))
 
-# E at the post is the bell's own menu, as R is.
 def use_bell(+s: M.Sess, +who: U32) -> M.Sess:
   ite(M.Sess, Bool.and(eq(M.s_done_on(s), 0), eq(M.s_call_on(s), 0)), u => edit(s, who, k => M.k_set_say_on(M.k_set_parg(M.k_set_panel(k, 2), 0), 0)), u => s)
 
 def relight(+s: M.Sess, +who: U32, +n: U32) -> M.Sess:
   ite(M.Sess, Bool.and(lantern_scheduled(s, n), bit(M.s_snuffed(s), pw(n))), u => sign(defer(M.s_set_snuffed(s, U32.and(M.s_snuffed(s), U32.xor(pw(n), 63))), q_spoil()), who, 15), u => s)
 
-# E held: at a tower that is ready, light it when the hold is full.
 def hold0(+s: M.Sess, +who: U32) -> M.Sess:
   edit(s, who, k => M.k_set_hold(k, 0))
 
@@ -851,12 +767,9 @@ def hold_use(+s: M.Sess, +who: U32) -> M.Sess:
   +i = Bool.pick(U32, eq(u, 9), 0, Bool.pick(U32, eq(u, 10), 1, Bool.pick(U32, eq(u, 11), 2, 255)))
   ite(M.Sess, Bool.or(eq(i, 255), Bool.not(tower_ready(s, i))), u2 => hold0(s, who), u2 => hold_tower(s, who, i))
 
-# --- a conversation: choose what is said, and do what it means ------------------------
-# Topics: 0 Hello(band), 1 Request, 2 Give, 3 Thanks, 4 Done, 5 Nag(n), 6 Cry(n).
 def says(+s: M.Sess, +tk: U32, +ta: U32) -> M.Ts:
   M.Ts{s, tk, ta}
 
-# The part of the day by the clock, for small talk.
 def band(+hour: U32) -> U32:
   Bool.pick(U32, Bool.and(U32.is_ge(hour, 6), U32.is_le(hour, 11)), 0, Bool.pick(U32, Bool.and(U32.is_ge(hour, 12), U32.is_le(hour, 16)), 1, Bool.pick(U32, Bool.and(U32.is_ge(hour, 17), U32.is_le(hour, 21)), 2, 3)))
 
@@ -866,11 +779,9 @@ def cry_active(+s: M.Sess, +who: U32) -> Bool:
 def cry_number(+s: M.Sess) -> U32:
   Bool.pick(U32, eq(M.s_cry_tk(s), 6), M.s_cry_ta(s), 0)
 
-# Whether the reeds in a knight's hand are dry: twelve hours in the hand.
 def dry(+s: M.Sess, +k: M.Kn) -> Bool:
   Bool.and(eq(M.k_held(k), 2), U32.is_ge(M.s_clock(s), (M.k_held_at(k) + 12 * M.s_n_day(s) / 24 : U32)))
 
-# The second day's iron cart: Nessa's rack of shoes is out.
 def shoe_day(+s: M.Sess) -> Bool:
   Bool.and(within(s, 1, 1, 4), eq(M.fg_arrived(figure_of(s, 2)), 1))
 
@@ -986,7 +897,6 @@ def talk_aster(+s: M.Sess, +who: U32, +held: U32, +band_: U32) -> M.Ts:
         u => says(s, 2, 0),
         u => says(learn(s, 6), 1, 0))))
 
-# Start a conversation: the words chosen and what they mean done, then the talk opens.
 def talk(+s: M.Sess, +who: U32, +to: U32) -> M.Sess:
   +held = held_of(s, who)
   +hour = c_hour(M.s_clock(s), M.s_n_day(s))
@@ -1005,7 +915,6 @@ def talk(+s: M.Sess, +who: U32, +to: U32) -> M.Sess:
             u => talk_aster(s, who, held, band_))))))
   edit(M.ts_s(r), who, k => M.k_set_say_age(M.k_set_say_page(M.k_set_say_ta(M.k_set_say_tk(M.k_set_say_folk(M.k_set_say_on(k, 1), to), M.ts_tk(r)), M.ts_ta(r)), 0), 0))
 
-# E pressed: do the one thing it means here.
 def press_use_u(+s: M.Sess, +who: U32, +u: U32) -> M.Sess:
   ite(M.Sess, Bool.and(U32.is_ge(u, 1), U32.is_le(u, 6)),
     u2 => talk(s, who, (u - 1 : U32)),
@@ -1028,9 +937,6 @@ def press_use_u(+s: M.Sess, +who: U32, +u: U32) -> M.Sess:
 def press_use(+s: M.Sess, +who: U32) -> M.Sess:
   press_use_u(s, who, nearest_use(s, who))
 
-# --- the Gloam's wisps (wisps.rs) -------------------------------------------------------
-# Wisp modes: 0 hunting, 1 putting a light out (ticks left), 2 driven off (ticks left).
-# The length of (dx, dy) in integers, the same answer on every machine.
 def isqrt_go(it: Nat, +lo: Nat, +hi: Nat, +n: Nat) -> Nat:
   match it:
     case 0n:
@@ -1045,7 +951,6 @@ def isqrt(+dx: U32, +dy: U32) -> U32:
   +ay = U32.to_nat(sabs(dy))
   U32.from_nat(isqrt_go(24n, 0n, 1048576n, Nat.add(Nat.mul(ax, ax), Nat.mul(ay, ay))))
 
-# Wisps come in from around the edge of the town, in pixels.
 def coming_x(+i: U32) -> U32:
   Bool.pick(U32, eq(i, 0), 4294967276, Bool.pick(U32, eq(i, 1), 150, Bool.pick(U32, eq(i, 2), 300, Bool.pick(U32, eq(i, 3), 470, Bool.pick(U32, eq(i, 4), 630, Bool.pick(U32, eq(i, 5), 630, Bool.pick(U32, eq(i, 6), 330, 4294967276)))))))
 
@@ -1059,14 +964,11 @@ def wl_len(+l: List<&2, M.Wp>) -> U32:
     case Con{_, +t}:
       (wl_len(t) + 1 : U32)
 
-# How many wisps the night holds for the table: the number, two more for every
-# knight beyond the first, and one more in the Final Hours.
 def wisp_want(+s: M.Sess) -> U32:
   ite(U32, Bool.or(Bool.not(c_night(M.s_clock(s), M.s_n_day(s))), eq(M.s_done_on(s), 1)),
     u => 0,
     u => U32.min((M.s_n_wisps(s) + 2 * (peak1(s) - 1 : U32) + bu(final_hours(s)) : U32), 24))
 
-# The lit lights, by id and place, in pixels: lanterns 0 to 5, then the three towers.
 def lt_if(+c: Bool, +l: M.Lt) -> List<&2, M.Lt>:
   Bool.pick(List<&2, M.Lt>, c, Con{l, Nil{}}, Nil{})
 
@@ -1079,7 +981,6 @@ def flame_light(+s: M.Sess, +i: U32, +x: U32, +y: U32) -> List<&2, M.Lt>:
 def lights(+s: M.Sess, +ls: List<&2, M.Leg>) -> List<&2, M.Lt>:
   List.append(&2, M.Lt, lamp_light(s, ls, 0), List.append(&2, M.Lt, lamp_light(s, ls, 1), List.append(&2, M.Lt, lamp_light(s, ls, 2), List.append(&2, M.Lt, lamp_light(s, ls, 3), List.append(&2, M.Lt, lamp_light(s, ls, 4), List.append(&2, M.Lt, lamp_light(s, ls, 5), List.append(&2, M.Lt, flame_light(s, 0, 296, 72), List.append(&2, M.Lt, flame_light(s, 1, 280, 392), flame_light(s, 2, 288, 208)))))))))
 
-# The seats on their feet, as pixel points.
 def up_points(+l: List<&2, M.Kn>) -> List<&2, M.P>:
   match l:
     case Nil{}:
@@ -1087,7 +988,6 @@ def up_points(+l: List<&2, M.Kn>) -> List<&2, M.P>:
     case Con{+k, +t}:
       Bool.pick(List<&2, M.P>, eq(M.k_down(k), 0), Con{M.P{(M.k_x(k) / 256 : U32), (M.k_y(k) / 256 : U32)}, up_points(t)}, up_points(t))
 
-# Whether a knight stands close enough to a light to keep wisps off it (40 pixels).
 def guarded(+ks: List<&2, M.P>, +x: U32, +y: U32) -> Bool:
   match ks:
     case Nil{}:
@@ -1105,7 +1005,6 @@ def lt_ins(+l: M.Lt, +sorted: List<&2, M.Lt>) -> List<&2, M.Lt>:
     case Con{+h, +t}:
       Bool.pick(List<&2, M.Lt>, lt_before(l, h), Con{l, Con{h, t}}, Con{h, lt_ins(l, t)})
 
-# The lights ordered by distance from (hx, hy), then by id.
 def lt_sort(+l: List<&2, M.Lt>, +hx: U32, +hy: U32, +acc: List<&2, M.Lt>) -> List<&2, M.Lt>:
   match l:
     case Nil{}:
@@ -1124,7 +1023,6 @@ def lt_nth(+l: List<&2, M.Lt>, n: Nat) -> M.Lt:
         case 1n+p:
           lt_nth(t, p)
 
-# The light with id `id` (id 255 when it is not lit).
 def lt_find(+l: List<&2, M.Lt>, +id: U32) -> M.Lt:
   match l:
     case Nil{}:
@@ -1165,7 +1063,6 @@ def wisp_snuff(+w: M.Wp, +ls: List<&2, M.Lt>, +ks: List<&2, M.P>) -> M.Wr:
         u => M.Wr{M.w_set_t(M.w_set_mode(w, 0), 0), M.w_aim(w)},
         u => M.Wr{M.w_set_t(w, (M.w_t(w) - 1 : U32)), 255})))
 
-# The nearest knight (first on a tie), as a light record with id 1, or id 0 for none.
 def near_knight(+ks: List<&2, M.P>, +hx: U32, +hy: U32, +best: M.Lt) -> M.Lt:
   match ks:
     case Nil{}:
@@ -1211,8 +1108,6 @@ def lu_has(+l: List<&2, U32>, +v: U32) -> Bool:
     case Con{+h, +t}:
       Bool.or(eq(h, v), lu_has(t, v))
 
-# The knights a wisp at (hx, hy) touches: on their feet, unwarded, not mid-sidestep,
-# no menu open, within nine pixels. Each is listed once.
 def touch_seats(+seats: List<&2, M.Kn>, +hx: U32, +hy: U32, +h: List<&2, U32>) -> List<&2, U32>:
   match seats:
     case Nil{}:
@@ -1228,7 +1123,6 @@ def touches(+ws: List<&2, M.Wp>, +seats: List<&2, M.Kn>, +h: List<&2, U32>) -> L
     case Con{+w, +rest}:
       touches(rest, seats, touch_seats(seats, sdiv(M.w_x(w), 256), sdiv(M.w_y(w), 256), h))
 
-# A light goes out: a lantern's bit, or a tower's flame.
 def put_out(+s: M.Sess, +aim: U32) -> M.Sess:
   announce(defer(ite(M.Sess, U32.is_lt(aim, 6),
     u => M.s_set_snuffed(s, U32.or(M.s_snuffed(s), pw(aim))),
@@ -1241,7 +1135,6 @@ def put_outs(+l: List<&2, U32>, +s: M.Sess) -> M.Sess:
     case Con{+a, +t}:
       put_outs(t, put_out(s, a))
 
-# The wisp nearest a point (first on a tie), as a light record with id 1, or id 0 for none.
 def near_wisp(+ws: List<&2, M.Wp>, +mx: U32, +my: U32, +best: M.Lt) -> M.Lt:
   match ws:
     case Nil{}:
@@ -1252,7 +1145,6 @@ def near_wisp(+ws: List<&2, M.Wp>, +mx: U32, +my: U32, +best: M.Lt) -> M.Lt:
       +d = dist2(mx, my, wx, wy)
       near_wisp(t, mx, my, Bool.pick(M.Lt, Bool.or(eq(M.lt_id(best), 0), U32.is_lt(d, M.lt_d2(best))), M.Lt{1, wx, wy, d}, best))
 
-# A touch costs a candle; the knight is pushed away from the nearest wisp.
 def hurt_one(+s: M.Sess, +id: U32) -> M.Sess:
   +k = get_k(s, id)
   +mx = (M.k_x(k) / 256 : U32)
@@ -1300,14 +1192,10 @@ def wisp_live(+s: M.Sess, +want: U32, +mira: List<&2, M.Leg>) -> M.Sess:
   +hurts = touches(M.wl_ws(r), M.s_seats(s1), Nil{})
   hurt_all(hurts, put_outs(M.wl_outs(r), M.s_set_wisps(s1, M.wl_ws(r))))
 
-# One tick of the Gloam (`mira`: the lamplighter's legs).
 def tick_wisps(+s: M.Sess, +mira: List<&2, M.Leg>) -> M.Sess:
   +want = wisp_want(s)
   ite(M.Sess, eq(want, 0), u => M.s_set_wisps(s, Nil{}), u => wisp_live(s, want, mira))
 
-# --- the bell and the phases (moonfall.rs) -----------------------------------------------
-# Rings: 0 back to the first dawn, 1 forward to the next dusk, 2 forward to the next dawn.
-# Phases: 0 play, 1 the rewind ritual, 2 time skipped, 3 the moon turns back.
 def in_zero() -> M.In:
   M.In{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
@@ -1318,7 +1206,6 @@ def in_find(+l: List<&2, M.In>, +id: U32) -> M.In:
     case Con{+i, +t}:
       Bool.pick(M.In, eq(M.i_id(i), id), i, in_find(t, id))
 
-# The keys a seat holds this tick: none unless their input is one the game may read.
 def in_eff(+s: M.Sess, +id: U32) -> M.In:
   +i = in_find(M.s_inputs(s), id)
   Bool.pick(M.In, eq(M.i_valid(i), 1), i, in_zero())
@@ -1337,7 +1224,6 @@ def he_find(+l: List<&2, M.He>, +id: U32) -> U32:
     case Con{+h, +t}:
       Bool.pick(U32, eq(M.h_id(h), id), M.h_awake(h), he_find(t, id))
 
-# Whether a knight is awake in the Delve (the hero exists, is not away or stone).
 def awake(+s: M.Sess, +id: U32) -> Bool:
   eq(he_find(M.s_heroes(s), id), 1)
 
@@ -1350,7 +1236,6 @@ def bell_need(+s: M.Sess) -> U32:
 def ring_ok(+s: M.Sess, +ring: U32) -> Bool:
   Bool.or(eq(ring, 0), Bool.pick(Bool, eq(ring, 1), U32.is_le(c_next_dusk(M.s_clock(s), M.s_n_day(s)), c_final(M.s_n_day(s))), U32.is_le(c_next_dawn(M.s_clock(s), M.s_n_day(s)), c_final(M.s_n_day(s)))))
 
-# Menus shut and talk ended, for a change of time.
 def calm_seats(+l: List<&2, M.Kn>) -> List<&2, M.Kn>:
   match l:
     case Nil{}:
@@ -1365,7 +1250,6 @@ def begin_rewind(+s: M.Sess, +fell: Bool) -> M.Sess:
   +s1 = M.s_set_p_fell(M.s_set_p_from(M.s_set_p_t(M.s_set_phase(s, 1), 0), U32.min(M.s_clock(s), c_end(M.s_n_day(s)))), bu(fell))
   ite(M.Sess, fell, u => cue(cue(calm(s1), q_toll()), q_roar()), u => cue(calm(s1), q_toll()))
 
-# Strike the bell: the ritual, or time run on.
 def ring_it(+s: M.Sess, +ring: U32) -> M.Sess:
   ite(M.Sess, eq(ring, 0),
     u => begin_rewind(s, False{}),
@@ -1402,13 +1286,11 @@ def bell_count(+s: M.Sess, +ayes: U32, +left: U32) -> M.Sess:
     u => ring_it(M.s_set_call_on(s1, 0), M.s_call_ring(s)),
     u => ite(M.Sess, Bool.or(eq(left, 0), eq(ayes, 0)), u => M.s_set_call_on(s1, 0), u => s1))
 
-# A knight who left takes their hand off the rope; a lapsed call does nothing.
 def bell_tick(+s: M.Sess) -> M.Sess:
   ite(M.Sess, eq(M.s_call_on(s), 0),
     u => s,
     u => bell_count(s, U32.and(M.s_call_ayes(s), seated_mask(M.s_seats(s), 0)), sat(M.s_call_left(s), 1)))
 
-# The next mask the Ledger lets a knight wear.
 def owned_mask(+s: M.Sess, +m: U32) -> Bool:
   Bool.or(eq(m, 0), Bool.or(Bool.and(eq(m, 1), m_has_mask(s, 1)), Bool.and(eq(m, 2), m_has_mask(s, 2))))
 
@@ -1418,7 +1300,6 @@ def cycle_mask(+s: M.Sess, +id: U32) -> M.Sess:
   +a2 = ((now + 2) % 3 : U32)
   edit(s, id, k => M.k_set_mask(k, Bool.pick(U32, owned_mask(s, a1), a1, Bool.pick(U32, owned_mask(s, a2), a2, Bool.pick(U32, owned_mask(s, now), now, 0)))))
 
-# --- one knight's tick -------------------------------------------------------------------
 def act_down(+s: M.Sess, +k1: M.Kn) -> M.Sess:
   +d = (M.k_down(k1) - 1 : U32)
   +k2 = M.k_set_down(k1, d)
@@ -1449,14 +1330,12 @@ def act_bell(+s: M.Sess, +id: U32, +keys: U32, +before: U32) -> M.Sess:
           u => ask_bell(put_k(s, M.k_set_panel(k, 0)), id, line),
           u => s))))
 
-# E: the next page of a talk.
 def talk_page(+s: M.Sess, +id: U32) -> M.Sess:
   +k = get_k(s, id)
   ite(M.Sess, U32.is_ge((M.k_say_page(k) + 1 : U32), pg_find(M.s_pages(s), id)),
     u => put_k(s, M.k_set_say_on(k, 0)),
     u => put_k(s, M.k_set_say_page(k, (M.k_say_page(k) + 1 : U32))))
 
-# E: the next page of a talk, or what E means here; held, E lights a tower.
 def act_use(+s: M.Sess, +id: U32, +keys: U32, +before: U32) -> M.Sess:
   +talking = eq(M.k_say_on(get_k(s, id)), 1)
   ite(M.Sess, pressed(keys, before, key_use()),
@@ -1471,7 +1350,6 @@ def act_drop(+s: M.Sess, +id: U32) -> M.Sess:
     u => edit(ite(M.Sess, eq(held, 1), u => clear_flag(s, 4), u => s), id, k => kn_note(M.k_set_held(k, 0), 4, 16, 0, 60)),
     u => s)
 
-# Walking. Moving away from someone ends the talk.
 def act_walk(+s: M.Sess, +id: U32, +inp: M.In, +keys: U32, +before: U32) -> M.Sess:
   +k = get_k(s, id)
   +gb = ground(s, eq(M.k_mask(k), 1))
@@ -1507,7 +1385,6 @@ def act_panel(+s: M.Sess, +id: U32, +inp: M.In, +keys: U32, +before: U32) -> M.S
       u => act_bell(s, id, keys, before),
       u => act_shut(s, id, inp, keys, before)))
 
-# One knight's tick.
 def act_in(+s: M.Sess, +id: U32, +inp: M.In, +keys: U32, +k0: M.Kn) -> M.Sess:
   +k1 = M.k_set_hurt(M.k_set_keys(k0, keys), sat(M.k_hurt(k0), 1))
   ite(M.Sess, U32.is_gt(M.k_down(k1), 0),
@@ -1519,9 +1396,6 @@ def act(+s: M.Sess, +id: U32, +inp: M.In) -> M.Sess:
     u => act_in(s, id, inp, keys_of(inp), get_k(s, id)),
     u => s)
 
-# --- the loop's turns --------------------------------------------------------------------
-# The town returns to the first dawn. The Ledger and the masks stay; everything else,
-# carried items and opened doors and the rest, is wound back.
 def reset_seats(+l: List<&2, M.Kn>) -> List<&2, M.Kn>:
   match l:
     case Nil{}:
@@ -1556,8 +1430,6 @@ def winning(+s: M.Sess, +t0: U32) -> M.Sess:
     u => cue(M.s_set_phase(M.s_set_wisps(M.s_set_lit2(M.s_set_lit1(M.s_set_lit0(M.s_set_clock(M.s_set_done_at(M.s_set_done_on(s, 1), M.s_elapsed(s)), c_end(M.s_n_day(s))), (c_end(M.s_n_day(s)) * 2 : U32)), (c_end(M.s_n_day(s)) * 2 : U32)), (c_end(M.s_n_day(s)) * 2 : U32)), Nil{}), 0), q_wish()),
     u => M.s_set_p_t(s, t))
 
-# --- the town's own tick -------------------------------------------------------------------
-# Pella cries the hours and Mira says her verse when they reach their places.
 def cry_set(+s: M.Sess, +who: U32, +ta: U32) -> M.Sess:
   M.s_set_cry_age(M.s_set_cry_ta(M.s_set_cry_tk(M.s_set_cry_folk(M.s_set_cry_on(s, 1), who), 6), ta), 0)
 
@@ -1574,7 +1446,6 @@ def cries(+s: M.Sess, +pella: List<&2, M.Leg>, +mira: List<&2, M.Leg>) -> M.Sess
   +b = cry_scan(pella, a, 4, 4, (d + 1 : U32), True{})
   cry_scan(mira, b, 0, 10, 0, eq(d, 2))
 
-# Whether any knight on their feet is within `notice` pixels of (x, y).
 def any_near(+ks: List<&2, M.P>, +x: U32, +y: U32, +r2: U32) -> Bool:
   match ks:
     case Nil{}:
@@ -1601,7 +1472,6 @@ def witness_one(+s: M.Sess, +who: U32, +ks: List<&2, M.P>) -> M.Sess:
       u => s), who, M.fg_routine(fig)),
     u => s)
 
-# The Ledger writes what a knight is near enough to see.
 def witness(+s: M.Sess) -> M.Sess:
   +ks = up_points(M.s_seats(s))
   +a = witness_one(s, 0, ks)
@@ -1611,7 +1481,6 @@ def witness(+s: M.Sess) -> M.Sess:
   +e = witness_one(d, 4, ks)
   witness_one(e, 5, ks)
 
-# The moon's shadow puts a street lantern out: lantern `n` goes at fin + n hours / 2.
 def snuff_one(+s: M.Sess, +n: U32, +fin: U32, +hour: U32) -> M.Sess:
   ite(M.Sess, Bool.and(eq(M.s_clock(s), (fin + n * hour / 2 : U32)), Bool.not(bit(M.s_snuffed(s), pw(n)))),
     u => announce(M.s_set_snuffed(s, U32.or(M.s_snuffed(s), pw(n))), 10, 0, 0),
@@ -1620,7 +1489,6 @@ def snuff_one(+s: M.Sess, +n: U32, +fin: U32, +hour: U32) -> M.Sess:
 def snuff_lamps(+s: M.Sess, +fin: U32, +hour: U32) -> M.Sess:
   snuff_one(snuff_one(snuff_one(snuff_one(snuff_one(snuff_one(s, 0, fin, hour), 1, fin, hour), 2, fin, hour), 3, fin, hour), 4, fin, hour), 5, fin, hour)
 
-# Aster's oil reaches the well.
 def oil_arrives(+s: M.Sess) -> M.Sess:
   ite(M.Sess, Bool.and(eq(M.s_shod_on(s), 1), Bool.and(Bool.not(m_has_keep(s, 4)), U32.is_ge(M.s_clock(s), f_aster_at_well(M.s_shod(s))))),
     u => cue(tick_folk(M.s_set_keeps(s, U32.or(M.s_keeps(s), 4)), 5), q_wish()),
@@ -1662,8 +1530,6 @@ def play(+s: M.Sess) -> M.Sess:
   +s1 = bell_tick(play_go(M.s_seats(s), s))
   ite(M.Sess, eq(M.s_done_on(s1), 1), u => s1, u => play_after(s1))
 
-# --- the session's tick (Session::step) ---------------------------------------------------
-# The timers that only run down.
 def news_age(+l: List<&2, M.Nw>) -> List<&2, M.Nw>:
   match l:
     case Nil{}:
@@ -1687,7 +1553,6 @@ def age(+s: M.Sess) -> M.Sess:
     u => ite(M.Sess, U32.is_gt(cry_age, 150), u => M.s_set_cry_age(M.s_set_cry_on(s1, 0), cry_age), u => M.s_set_cry_age(s1, cry_age)),
     u => s1)
 
-# A knight who stepped away stands up; one who is still in the party is parked for later.
 def drop_gone(+l: List<&2, M.Kn>, +s: M.Sess) -> M.Sess:
   match l:
     case Nil{}:
@@ -1706,7 +1571,6 @@ def keep_parked(+l: List<&2, M.Kn>, +s: M.Sess) -> List<&2, M.Kn>:
     case Con{+k, +t}:
       Bool.pick(List<&2, M.Kn>, hero_here(s, M.k_id(k)), Con{k, keep_parked(t, s)}, keep_parked(t, s))
 
-# A knight who joins late sits down at the well (or where they stood, if parked).
 def sit(+s: M.Sess, +id: U32) -> M.Sess:
   +k = Bool.pick(M.Kn, sl_has(M.s_parked(s), id), sl_get(M.s_parked(s), id), kn_new(id, M.s_elapsed(s), 0))
   +s1 = M.s_set_parked(M.s_set_seats(s, sl_ins(M.s_seats(s), k)), sl_del(M.s_parked(s), id))
@@ -1722,7 +1586,6 @@ def late_go(+hs: List<&2, M.He>, +s: M.Sess) -> M.Sess:
 def keep_parked_s(+s: M.Sess) -> M.Sess:
   M.s_set_parked(s, keep_parked(M.s_parked(s), s))
 
-# One tick: the seats are whoever is here and awake.
 def step_core(+s: M.Sess) -> M.Sess:
   +s1 = M.s_set_elapsed(s, U32.min((M.s_elapsed(s) + 1 : U32), 108000))
   +s2 = keep_parked_s(drop_gone(M.s_seats(s1), s1))
@@ -1736,9 +1599,6 @@ def step_core(+s: M.Sess) -> M.Sess:
       u => ite(M.Sess, eq(phase, 2), u => skipping(s4, M.s_p_t(s4)), u => winning(s4, M.s_p_t(s4)))))
   M.s_set_pending(M.s_set_cues(s5, List.append(&2, U32, M.s_cues(s5), M.s_pending(s5))), Nil{})
 
-
-# The knights who walk out of the town after the moon has turned back: E pressed with
-# nothing to mean anything to (any key row, whether or not the seat is at the table).
 def leave_go(+l: List<&2, M.In>, +s: M.Sess, +acc: List<&2, U32>) -> List<&2, U32>:
   match l:
     case Nil{}:
@@ -1752,27 +1612,16 @@ def main_step(+s: M.Sess) -> M.Out:
   +freed = Bool.and(eq(M.s_done_on(s1), 1), eq(M.s_phase(s1), 0))
   M.Out{s1, ite(List<&2, U32>, freed, u => leave_go(M.s_inputs(s1), s1, Nil{}), u => Nil{}), Bool.pick(U32, fresh, U32.clamp(sl_len(M.s_seats(s1)), 1, 6), 0), U32.clamp(sat(1000, (150 * M.s_loops(s1) : U32)), 100, 1000)}
 
-# --- what a bot presses (plan.rs) ----------------------------------------------------------
-# A bot is a stand-in for a player who has read the Ledger. It is stateless: each tick it
-# works out the table's tasks from the session, gives each task to the knight best placed
-# for it (the same answer for every bot at the table), and does its own.
-
-# The tile to stand on for each of the places E means something.
-# Tasks: light 1 if a tower's flame; hand 0 free, 1 holds the item, 2 any; aim 0 a villager
-# (the folk number), 1 a tile; act 0 tap, 1 hold, 2 stand, 3 the south route.
-
 def cat_tk(+a: List<&2, M.Tk>, +b: List<&2, M.Tk>) -> List<&2, M.Tk>:
   List.append(&2, M.Tk, a, b)
 
 def tk_if(+c: Bool, +t: M.Tk) -> List<&2, M.Tk>:
   Bool.pick(List<&2, M.Tk>, c, Con{t, Nil{}}, Nil{})
 
-# A tick on a day (0 to 2) at a label hour and minute.
 def at_(+day: U32, +d: U32, +hh: U32, +mm: U32) -> U32:
   +since = Bool.pick(U32, U32.is_lt(hh, 6), (hh + 18 : U32), (hh - 6 : U32))
   ((((d * 24 + since) * 60 + mm) * day) / 1440 : U32)
 
-# The last of the intervals a villager can be seen.
 def iv_merge(+out: List<&2, M.Iv>, +folk: U32, +a: U32, +b: U32) -> List<&2, M.Iv>:
   match out:
     case Nil{}:
@@ -1799,7 +1648,6 @@ def seen_go(+ls: List<&2, M.Leg>, +folk: U32, +end: U32, +i: U32, +acc: List<&2,
       +a2 = Bool.pick(List<&2, M.Iv>, eq(M.lg_inside(l), 0), iv_add(a1, folk, M.lg_arrive(l), next_depart(rest, end)), a1)
       seen_go(rest, folk, end, (i + 1 : U32), a2)
 
-# When a villager can be seen: Aster only between riding in and riding out.
 def seen_of(+folk: U32, +ls: List<&2, M.Leg>, +end: U32) -> List<&2, M.Iv>:
   List.reverse(&2, M.Iv, ite(List<&2, M.Iv>, eq(folk, 5),
     u => iv_add(Nil{}, 5, M.lg_depart(lg_nth(ls, 1n)), M.lg_arrive(lg_nth(ls, 2n))),
@@ -1810,7 +1658,6 @@ def fig_core(+s: M.Sess, +folk: U32, +legs: List<&2, M.Leg>, +clock: U32, +shod_
     u => f_aster_after(clock, M.s_n_day(s), shod),
     u => f_figure_legs(folk, clock, legs))
 
-# The legs of every villager, when each can be seen, and where each stands now.
 def cx_new(+s: M.Sess) -> M.Cx:
   +day = M.s_n_day(s)
   +end = c_end(day)
@@ -1834,7 +1681,6 @@ def fig_at(+s: M.Sess, +cx: M.Cx, +folk: U32, +clock: U32, +shod_on: U32, +shod:
 def fig_now(+s: M.Sess, +cx: M.Cx, +folk: U32) -> M.Fg:
   Bool.pick(M.Fg, eq(folk, 0), M.cx_g0(cx), Bool.pick(M.Fg, eq(folk, 1), M.cx_g1(cx), Bool.pick(M.Fg, eq(folk, 2), M.cx_g2(cx), Bool.pick(M.Fg, eq(folk, 3), M.cx_g3(cx), Bool.pick(M.Fg, eq(folk, 4), M.cx_g4(cx), M.cx_g5(cx))))))
 
-# The next tick at or after `clock` that `folk` can be seen (the schedule only).
 def ns_go(+sn: List<&2, M.Iv>, +folk: U32, +clock: U32) -> M.Pf:
   match sn:
     case Nil{}:
@@ -1847,7 +1693,6 @@ def aim_folk_later(+s: M.Sess, +cx: M.Cx, +folk: U32, +ns: M.Pf) -> M.Pf:
     u => M.Pf{0, 0, 0},
     u => M.Pf{1, M.fg_x(fig_at(s, cx, folk, (M.pf_x(ns) + 2 : U32), M.s_shod_on(s), M.s_shod(s))), M.fg_y(fig_at(s, cx, folk, (M.pf_x(ns) + 2 : U32), M.s_shod_on(s), M.s_shod(s)))})
 
-# Where a task is done, as pixels (ok 0: nowhere to be had).
 def aim_px(+s: M.Sess, +cx: M.Cx, +ak: U32, +aa: U32, +ab: U32, +when: U32) -> M.Pf:
   ite(M.Pf, eq(ak, 1),
     u => M.Pf{1, (aa * 16 + 8 : U32), (ab * 16 + 8 : U32)},
@@ -1858,7 +1703,6 @@ def aim_px(+s: M.Sess, +cx: M.Cx, +ak: U32, +aa: U32, +ab: U32, +when: U32) -> M
 def doable(+s: M.Sess, +cx: M.Cx, +t: M.Tk) -> Bool:
   Bool.and(Bool.and(U32.is_ge(M.s_clock(s), M.tk_opens(t)), U32.is_lt(M.s_clock(s), M.tk_closes(t))), Bool.or(eq(M.tk_ak(t), 1), eq(M.fg_visible(fig_now(s, cx, M.tk_aa(t))), 1)))
 
-# When a task will next be doable, if it still can be this loop.
 def when_ok(+s: M.Sess, +cx: M.Cx, +t: M.Tk) -> M.Pf:
   +opens = U32.max(M.tk_opens(t), M.s_clock(s))
   +ns = ns_go(M.cx_sn(cx), M.tk_aa(t), opens)
@@ -1885,7 +1729,6 @@ def up_ids(+l: List<&2, M.Kn>) -> List<&2, U32>:
 def manhattan(+ax: U32, +ay: U32, +bx: U32, +by: U32) -> U32:
   (sabs((ax - bx : U32)) + sabs((ay - by : U32)) : U32)
 
-# The asks, nearest the first up knight first (then by who): (distance, folk).
 def ask_ins(+d: U32, +who: U32, +sorted: List<&2, M.Lt>) -> List<&2, M.Lt>:
   match sorted:
     case Nil{}:
@@ -1930,7 +1773,6 @@ def guard_task(+s: M.Sess, +i: U32, +tx: U32, +ty: U32, +end: U32) -> List<&2, M
 def relight_task(+s: M.Sess, +cx: M.Cx, +n: U32, +end: U32) -> List<&2, M.Tk>:
   tk_if(Bool.and(lantern_scheduled_l(s, cx_legs(cx, 0), n), bit(M.s_snuffed(s), pw(n))), M.Tk{0, 0, 0, 1, lamp_tx(n), 18, 0, 0, end})
 
-# The table's tasks in the order they matter, whether they can be done yet or not.
 def tasks(+s: M.Sess, +cx: M.Cx) -> List<&2, M.Tk>:
   +day = M.s_n_day(s)
   +end = c_end(day)
@@ -1960,7 +1802,6 @@ def tasks(+s: M.Sess, +cx: M.Cx) -> List<&2, M.Tk>:
   +lamps = Bool.pick(List<&2, M.Tk>, Bool.and(c_night(now, day), Bool.or(U32.is_lt((now + 2 * hour : U32), fin), U32.is_ge(now, fin))), cat_tk(relight_task(s, cx, 0, end), cat_tk(relight_task(s, cx, 1, end), cat_tk(relight_task(s, cx, 2, end), cat_tk(relight_task(s, cx, 3, end), cat_tk(relight_task(s, cx, 4, end), relight_task(s, cx, 5, end)))))), Nil{})
   cat_tk(lights, cat_tk(guards, cat_tk(carry, cat_tk(witness, cat_tk(seal, cat_tk(shoe, cat_tk(pass, cat_tk(favours, cat_tk(ask_tasks(asks4, end), cat_tk(doors, lamps))))))))))
 
-# --- who does what ------------------------------------------------------------------------
 def hand_ok(+held: U32, +hk: U32, +hi: U32) -> Bool:
   Bool.or(eq(hk, 2), Bool.or(Bool.and(eq(hk, 0), eq(held, 0)), Bool.and(eq(hk, 1), eq(held, hi))))
 
@@ -1971,7 +1812,6 @@ def lu_without(+l: List<&2, U32>, +v: U32) -> List<&2, U32>:
     case Con{+h, +t}:
       Bool.pick(List<&2, U32>, eq(h, v), t, Con{h, lu_without(t, v)})
 
-# The knight nearest a target who can do the task (smallest distance, then smallest id).
 def nearest_free(+free: List<&2, U32>, +seats: List<&2, M.Kn>, +hk: U32, +hi: U32, +tx: U32, +ty: U32, +best: M.Lt) -> M.Lt:
   match free:
     case Nil{}:
@@ -1999,14 +1839,12 @@ def lu_len(+l: List<&2, U32>) -> U32:
     case Con{_, +t}:
       (lu_len(t) + 1 : U32)
 
-# Each flame has its knight, by seat order, however they have wandered.
 def light_role(+t: M.Tk) -> U32:
   Bool.pick(U32, Bool.and(eq(M.tk_aa(t), 18), eq(M.tk_ab(t), 4)), 0, Bool.pick(U32, Bool.and(eq(M.tk_aa(t), 17), eq(M.tk_ab(t), 14)), 1, 2))
 
 def pick_role(+free: List<&2, U32>, +id: U32) -> M.Lt:
   Bool.pick(M.Lt, lu_has(free, id), M.Lt{1, id, 0, 0}, M.Lt{0, 0, 0, 0})
 
-# The knight a task goes to, as a light record (id 1 found, x the knight).
 def pick_knight(+s: M.Sess, +ids: List<&2, U32>, +free: List<&2, U32>, +t: M.Tk, +tx: U32, +ty: U32) -> M.Lt:
   ite(M.Lt, eq(M.tk_light(t), 1),
     u => pick_role(free, lu_nth(ids, U32.to_nat((light_role(t) % U32.max(lu_len(ids), 1) : U32)))),
@@ -2035,7 +1873,6 @@ def doable_tasks(+all: List<&2, M.Tk>, +s: M.Sess, +cx: M.Cx) -> List<&2, M.Tk>:
     case Con{+t, +rest}:
       Bool.pick(List<&2, M.Tk>, doable(s, cx, t), Con{t, doable_tasks(rest, s, cx)}, doable_tasks(rest, s, cx))
 
-# Tasks not doable yet that will be, as (when, task) in the order they open (ties in task order).
 def later_ins(+w: U32, +t: M.Tk, +sorted: List<&2, M.Ly>) -> List<&2, M.Ly>:
   match sorted:
     case Nil{}:
@@ -2068,16 +1905,12 @@ def idle_rows(+free: List<&2, U32>) -> List<&2, M.As>:
 def assign_end(+st: M.Ar) -> List<&2, M.As>:
   List.append(&2, M.As, M.ar_given(st), idle_rows(M.ar_free(st)))
 
-# Each task, in order of importance, to the knight nearest it who can do it.
 def assign(+s: M.Sess, +cx: M.Cx, +all: List<&2, M.Tk>) -> List<&2, M.As>:
   +ids = up_ids(M.s_seats(s))
   ite(List<&2, M.As>, eq(lu_len(ids), 0),
     u => Nil{},
     u => assign_end(assign_go(List.append(&2, M.Tk, doable_tasks(all, s, cx), pt_tasks(later_go(all, s, cx, Nil{}))), s, cx, ids, M.Ar{ids, Nil{}})))
 
-# --- walking to a tile: a flood of distances from the goal ---------------------------------------
-# The walking distance from every open tile to the goal (65535: not reachable), over the
-# ground the knight stands on. The array holds a distance per tile (tile index = row * 38 + column).
 type BR is Type:
   BR{a: Array<U32>, next: List<&2, U32>}
 
@@ -2177,7 +2010,6 @@ def in_map(+tx: U32, +ty: U32) -> Bool:
 def mapv(+ok: Bool, +v: U32) -> U32:
   Bool.pick(U32, ok, v, 65535)
 
-# The step toward a tile, one tile at a time, centred in each so the feet never catch a corner.
 def step_pick(+best: U32, +dxy: M.P, +v: U32, +dx: U32, +dy: U32) -> M.P:
   Bool.pick(M.P, U32.is_lt(v, best), M.P{dx, dy}, dxy)
 
@@ -2206,7 +2038,6 @@ def walk_to_go(+v: M.V5, +hx: U32, +hy: U32, +px: U32, +py: U32, +gx: U32, +gy: 
         u => Bool.pick(M.P, U32.is_gt(sabs(offy), 3), M.P{0, sgn(offy)}, dir),
         u => Bool.pick(M.P, U32.is_gt(sabs(offx), 3), M.P{sgn(offx), 0}, dir))))
 
-# What a bot at (px, py) presses to reach tile (gx, gy).
 def walk_to(+s: M.Sess, +k: M.Kn, +gx: U32, +gy: U32, +con: U32, +cx: U32, +cy: U32) -> M.P:
   +gb = ground(s, eq(M.k_mask(k), 1))
   +px = (M.k_x(k) / 256 : U32)
@@ -2215,11 +2046,9 @@ def walk_to(+s: M.Sess, +k: M.Kn, +gx: U32, +gy: U32, +con: U32, +cx: U32, +cy: 
   +hy = (py / 16 : U32)
   walk_to_go(read5(flood(gx, gy, gb, con, cx, cy), ix(in_map(hx, hy), hx, hy), ix(in_map(hx, (hy - 1 : U32)), hx, (hy - 1 : U32)), ix(in_map(hx, (hy + 1 : U32)), hx, (hy + 1 : U32)), ix(in_map((hx - 1 : U32), hy), (hx - 1 : U32), hy), ix(in_map((hx + 1 : U32), hy), (hx + 1 : U32), hy)), hx, hy, px, py, gx, gy)
 
-# --- the bot's hands ------------------------------------------------------------------------------
 def ip_zero() -> M.Ip:
   M.Ip{0, 0, 0, 0, 0, 0, 0, 0}
 
-# Alternating presses: a key is down on one tick and up on the next.
 def tap(+k: M.Kn, +b: U32) -> Bool:
   Bool.not(bit(M.k_keys(k), b))
 
@@ -2256,7 +2085,6 @@ def go(+s: M.Sess, +k: M.Kn, +gx: U32, +gy: U32, +con: U32, +cx: U32, +cy: U32, 
     u => ip_zero(),
     u => go_walk(walk_to(s, k, gx, gy, con, cx, cy)))
 
-# A knight with nothing to do waits near the next thing to happen.
 def idle(+s: M.Sess, +cx: M.Cx, +all: List<&2, M.Tk>, +k: M.Kn, +id: U32) -> M.Ip:
   +later = later_go(all, s, cx, Nil{})
   +ids = up_ids(M.s_seats(s))
@@ -2268,7 +2096,6 @@ def idle(+s: M.Sess, +cx: M.Cx, +all: List<&2, M.Tk>, +k: M.Kn, +id: U32) -> M.I
   +sy = Bool.pick(U32, eq(M.pf_ok(pf), 1), M.pf_y(pf), 248)
   go(s, k, (sx / 16 : U32), (sy / 16 : U32), 0, 0, 0, 8)
 
-# The south route: the crate into the ditch, then the seal to the door.
 def south_lean(+k: M.Kn, +centre: U32, +px: U32) -> M.Ip:
   ite(M.Ip, U32.is_gt(sabs((px - centre : U32)), 2),
     u => M.Ip{sgn((centre - px : U32)), 0, 0, 0, 0, 0, 0, 0},
@@ -2324,7 +2151,6 @@ def do_task(+s: M.Sess, +cx: M.Cx, +all: List<&2, M.Tk>, +k: M.Kn, +t: M.Tk) -> 
     u => idle(s, cx, all, k, 0),
     u => do_task_at(s, cx, all, k, t, tgt))
 
-# A wisp close enough to touch: sidestep through it, or step away.
 def near_wisp_m(+ws: List<&2, M.Wp>, +mx: U32, +my: U32, +best: M.Lt) -> M.Lt:
   match ws:
     case Nil{}:
@@ -2341,7 +2167,6 @@ def danger(+s: M.Sess, +k: M.Kn) -> M.Dg:
   +nw = near_wisp_m(M.s_wisps(s), mx, my, M.Lt{0, 0, 0, 0})
   Bool.pick(M.Dg, Bool.and(Bool.and(Bool.and(eq(M.k_hurt(k), 0), eq(M.k_roll(k), 0)), Bool.and(eq(M.k_panel(k), 0), eq(M.k_down(k), 0))), eq(M.lt_id(nw), 1)), M.Dg{1, (mx - M.lt_x(nw) : U32), (my - M.lt_y(nw) : U32), bu(eq(M.k_roll_rest(k), 0))}, M.Dg{0, 0, 0, 0})
 
-# Something is about to touch us: roll, in the way we were going or away.
 def dodge(+i: M.Ip, +d: M.Dg) -> M.Ip:
   +moving = Bool.not(Bool.and(eq(M.ip_mx(i), 0), eq(M.ip_my(i), 0)))
   +horiz = U32.is_ge(sabs(M.dg_dx(d)), sabs(M.dg_dy(d)))
@@ -2389,7 +2214,6 @@ def bot_busy(+s: M.Sess, +cx: M.Cx, +all: List<&2, M.Tk>, +k: M.Kn, +id: U32, +m
         u => M.Ip{0, 0, 0, 0, 0, 0, bu(tap(k, key_drop())), 0},
         u => dodge(ite(M.Ip, eq(M.as_has(mine), 1), u => do_task(s, cx, all, k, M.as_t(mine)), u => idle(s, cx, all, k, id)), danger(s, k)))))
 
-# Nothing left that anyone can do this loop: ring the bell, together.
 def bot_ring(+s: M.Sess, +k: M.Kn, +id: U32) -> M.Ip:
   ite(M.Ip, Bool.and(eq(M.s_call_on(s), 1), Bool.not(bit(M.s_call_ayes(s), pw((id - 1 : U32))))),
     u => M.Ip{0, 0, 0, bu(tap(k, key_bell())), 0, 0, 0, 0},
@@ -2411,7 +2235,6 @@ def bot_panel(+s: M.Sess, +k: M.Kn, +id: U32) -> M.Ip:
       u => Bool.pick(M.Ip, U32.is_gt(M.k_parg(k), 0), M.Ip{0, Bool.pick(U32, tap(k, key_up()), 4294967295, 0), 0, 0, 0, 0, 0, 0}, M.Ip{0, 0, bu(tap(k, key_use())), 0, 0, 0, 0, 0}),
       u => ite(M.Ip, eq(M.s_done_on(s), 1), u => ip_zero(), u => bot_plan(s, k, id))))
 
-# What `id` presses this tick.
 def main_bot(+s: M.Sess, +id: U32) -> M.Ip:
   ite(M.Ip, Bool.or(Bool.not(sl_has(M.s_seats(s), id)), Bool.or(ne(M.s_phase(s), 0), ne(M.k_down(get_k(s, id)), 0))),
     u => ip_zero(),

@@ -16,7 +16,6 @@ use crate::rules::{Run, Tile};
 
 const T: i32 = TILE;
 
-/// The market at rest.
 pub(super) fn scenery(run: &Run) -> Img {
     let room = run.room();
     let (pw, ph) = (room.cols as i32 * T, room.rows as i32 * T);
@@ -49,8 +48,6 @@ pub(super) fn scenery(run: &Run) -> Img {
     cv
 }
 
-/// Flagstones, each its own grey, a few of them cracked, with plank
-/// walkways under the stalls.
 fn flags(cv: &mut Img, run: &Run) {
     let room = run.room();
     for y in 0..cv.h {
@@ -97,7 +94,6 @@ fn back_wall(cv: &mut Img, lights: &mut Vec<Light>) {
         }
     }
     cv.line(x0, y1 - 1, x1 - 1, y1 - 1, 'k');
-    // Bunting along the wall, one pennant to a tile.
     let cols = ['R', 'O', 'z', 'E', 'T', 'R'];
     for k in 0..(x1 - x0) / 8 {
         let px = x0 + k * 8;
@@ -114,23 +110,18 @@ fn back_wall(cv: &mut Img, lights: &mut Vec<Light>) {
     }
 }
 
-/// A stall: planks under it, the counter with its cloth hung in front, the
-/// awning over the vendor, and the posts that hold it all up.
 fn stall(cv: &mut Img, s: &Stall, n: i32, lights: &mut Vec<Light>) {
     let (c, r, w, h) = s.counter;
     let (x, y, sw, sh) = (c * T, r * T, w * T, h * T);
-    // The planks the vendor stands on.
     cv.rect(x - 4, y - 14, sw + 8, 14, 'I');
     for px in (x - 4..x + sw + 4).step_by(8) {
         cv.line(px, y - 14, px, y - 1, 'b');
     }
-    // The counter.
     cv.rect(x, y, sw, sh, 'P');
     cv.rect(x, y, sw, 8, 'r');
     cv.line(x, y, x + sw - 1, y, 'T');
     cv.line(x, y + 1, x + sw - 1, y + 1, 'O');
     cv.line(x, y + 7, x + sw - 1, y + 7, 'n');
-    // The cloth hung over the front, in the awning's two colours.
     for px in x + 2..x + sw - 2 {
         let stripe = ((px - x) / 6) % 2 == 0;
         let ink = if stripe { s.awning.0 } else { s.awning.1 };
@@ -140,7 +131,6 @@ fn stall(cv: &mut Img, s: &Stall, n: i32, lights: &mut Vec<Light>) {
         }
     }
     cv.line(x + 2, y + sh - 1, x + sw - 3, y + sh - 1, 'n');
-    // Posts and the awning over the vendor.
     let top = y - 14 - 22 + (n % 2) * 2;
     for px in [x - 2, x + sw - 1] {
         cv.rect(px, top, 3, y - top, 'B');
@@ -171,7 +161,6 @@ fn well(cv: &mut Img, lights: &mut Vec<Light>) {
     cv.ellipse((x + ww / 2) as f32, (y + 17) as f32, ww as f32 / 2.0 - 5.0, 9.0, 'k');
     cv.ellipse((x + ww / 2) as f32, (y + 17) as f32, ww as f32 / 2.0 - 8.0, 7.0, 'q');
     cv.ellipse((x + ww / 2 - 6) as f32, (y + 15) as f32, 5.0, 2.0, 'z');
-    // A beam and a bucket on a rope, and the coins at the bottom.
     cv.rect(x + 4, y - 14, 3, 20, 'B');
     cv.rect(x + ww - 7, y - 14, 3, 20, 'B');
     cv.rect(x + 4, y - 15, ww - 8, 3, 'r');
@@ -181,7 +170,6 @@ fn well(cv: &mut Img, lights: &mut Vec<Light>) {
     for (cx, cy) in [(-8, 20), (6, 22), (1, 18), (10, 17)] {
         cv.put(x + ww / 2 + cx, y + cy, 't');
     }
-    // The sign.
     cv.text(x + 4, y + wh + 3, "NO WISHES", 'o');
     lights.push(fire(x + ww / 2, y + 10, 46.0, 0.22));
 }
@@ -194,7 +182,6 @@ fn complaints(cv: &mut Img) {
     cv.rect(x + 4, y + 9, bw - 8, 2, 'k');
     cv.rect(x + 4, y + 2, bw - 8, 3, 'r');
     cv.text(x + 1, y - 7, "COMPLAINTS", 'o');
-    // Papers sticking out of it.
     cv.rect(x + 5, y + 6, 4, 3, 'T');
     cv.put(x + 6, y + 5, 'i');
 }
@@ -215,9 +202,7 @@ fn fishbowl(cv: &mut Img, lights: &mut Vec<Light>) {
     lights.push(fire(x + bw / 2, y + 12, 34.0, 0.18));
 }
 
-/// West to the tavern, south to the kingdom.
 fn doors(cv: &mut Img, lights: &mut Vec<Light>) {
-    // West: an arch in the wall, warm light beyond it.
     let (x, y, dw, dh) = (2, 8 * T - 2, 14, 3 * T + 4);
     cv.rect(x, y, dw, dh, 'k');
     cv.rect(x + 2, y + 2, dw - 2, dh - 4, 'b');
@@ -225,7 +210,6 @@ fn doors(cv: &mut Img, lights: &mut Vec<Light>) {
     cv.rect(x, y - 6, dw + 1, 5, 'P');
     cv.text(x - 1, y - 14, "TAVERN", 'O');
     lights.push(fire(x + dw, y + dh / 2, 56.0, 0.46));
-    // South: the gate, night beyond.
     let (gx, gy, gw, gh) = (15 * T - 4, 17 * T - 4, 2 * T + 8, T + 4);
     cv.rect(gx, gy, gw, gh, 'k');
     cv.rect(gx + 3, gy + 2, gw - 6, gh - 2, 'x');
@@ -239,8 +223,6 @@ fn doors(cv: &mut Img, lights: &mut Vec<Light>) {
     cv.stamp(&lamp, gx - 5, gy - 6);
     lights.push(fire(gx - 2, gy - 3, 50.0, 0.4));
 }
-
-// ---- the vendors ---------------------------------------------------------
 
 const GNOME: [&str; 17] = [
     "....7.......",
@@ -369,8 +351,6 @@ const MOLE: [&str; 15] = [
 
 const VENDORS: [&[&str]; STALLS] = [&GNOME, &GOAT, &BARREL, &PILGRIM, &CHILDREN, &MOLE];
 
-// ---- the wares' little pictures ------------------------------------------
-
 fn icon_rows(icon: Icon) -> &'static [&'static str] {
     match icon {
         Icon::Boot => &[
@@ -464,7 +444,6 @@ fn icon_rows(icon: Icon) -> &'static [&'static str] {
     }
 }
 
-/// The two inks a curio is drawn in, by its name: main, dark, light.
 fn inks(id: &str) -> (char, char, char) {
     const PAIRS: [(char, char, char); 7] = [
         ('Q', 'q', 'z'),
@@ -479,14 +458,11 @@ fn inks(id: &str) -> (char, char, char) {
     PAIRS[(h % PAIRS.len() as u32) as usize]
 }
 
-/// A curio's little picture.
 pub(super) fn icon_of(curio: &crate::rules::curios::Curio) -> Img {
     let (m, d, l) = inks(curio.id);
     Img::from_rows(icon_rows(curio.icon)).recolor(&[('M', m), ('D', d), ('L', l)])
 }
 
-/// The vendors behind their counters, each ware on its cloth with its
-/// price beneath, and the market's small life.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     let stock = run.bazaar_stock();
@@ -503,7 +479,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             let icon = icon_of(curio);
             let (sx, _) = at(s.stands[ware].0 * 2.0, 0.0);
             let ix = sx - icon.w / 2;
-            // Set on the counter's top, with a price on the cloth below.
             cv.stamp(&icon, ix, r * T - 2 - icon.h + 8);
             let price = offer.price.to_string();
             let px = sx - text_width(&price) / 2;
@@ -511,11 +486,9 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             cv.text(px, r * T + 13, &price, 'T');
         }
     }
-    // The well's water glints; a coin, now and then, lands in it.
     let (wc, wr, ww, _) = WELL;
     let glint = (tick / 14) % 5;
     cv.put(wc * T + ww * T / 2 - 8 + glint as i32 * 3, wr * T + 16, 'V');
-    // The fish, circling.
     let (fc, fr, fw, _) = FISHBOWL;
     let swim = ((tick / 10) % 8) as i32;
     cv.put(fc * T + fw * T / 2 - 6 + swim, fr * T + 12, 'R');

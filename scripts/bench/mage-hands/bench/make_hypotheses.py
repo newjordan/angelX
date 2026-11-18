@@ -1,7 +1,3 @@
-"""Pre-registered hypotheses, their predictions (fixed before the runs), and
-what the bench observed, computed from results.jsonl + analysis + live_analysis.
-  python3 -I make_hypotheses.py <bench-dir>
-"""
 import json, math, sys
 
 root = sys.argv[1]

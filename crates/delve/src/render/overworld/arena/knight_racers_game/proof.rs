@@ -8,15 +8,12 @@ use crate::rules::Run;
 use std::collections::BTreeMap;
 use std::time::Instant;
 
-/// A six-seat race that every seat drives with the CPU's hands, the focus
-/// seat boosting whenever its engine allows.
 struct Reel {
     run: Run,
     race: rules::Session,
 }
 
 impl Reel {
-    /// A race on `ANGEL_REEL_COURSE` (a course's id, any case), else the cup's first.
     fn new() -> Reel {
         let want = std::env::var("ANGEL_REEL_COURSE").unwrap_or_default().to_lowercase();
         let id = rules::courses().iter().copied().find(|id| format!("{id:?}").to_lowercase() == want).unwrap_or(rules::cup()[0]);
@@ -43,7 +40,6 @@ impl Reel {
         let input = self.inputs(seat, hold_boost);
         self.race.step_drive(&input);
         assert!(self.race.valid());
-        // A seat watching the whole race sees its laps go by: keep the lap clocks.
         state::observe(&self.race);
     }
 
@@ -57,7 +53,6 @@ fn save(im: &Img, path: &std::path::Path) {
     image::save_buffer(path, &im.rgba_bytes(), 384, 224, image::ColorType::Rgba8).unwrap();
 }
 
-/// The cost of a frame of today's race, over a spread of places on the lap.
 #[test]
 fn podracer_time() {
     if std::env::var_os("ANGEL_PODRACER_TIME").is_none() { return; }
@@ -70,7 +65,6 @@ fn podracer_time() {
             let car = reel.race.cars.get_mut(&seat).unwrap();
             car.d = d; car.y = 0.; car.v = 40.;
             reel.race.ticks = 200;
-            // warm up the mesh caches once, then time three frames
             let _ = reel.frame(seat);
             for _ in 0..3 {
                 let t = Instant::now();
@@ -84,7 +78,6 @@ fn podracer_time() {
     println!("podracer frame ms: n {} p50 {:.2} p95 {:.2} max {:.2} mean {:.2}", ms.len(), ms[ms.len() / 2], ms[ms.len() * 95 / 100], ms[ms.len() - 1], mean);
 }
 
-/// Every pod in every livery under the chase lens and from the side, on a flat road.
 #[test]
 fn podracer_roster() {
     let Some(out) = std::env::var_os("ANGEL_PODRACER_PROOF").map(std::path::PathBuf::from) else { return };
@@ -114,7 +107,6 @@ fn podracer_roster() {
     sheet.save(out.join("roster.png")).unwrap();
 }
 
-/// What each livery cloth comes out as, before and after the palette snap.
 #[test]
 fn podracer_swatches() {
     if std::env::var_os("ANGEL_PODRACER_PROOF").is_none() { return; }
@@ -135,7 +127,6 @@ impl Reel {
         while self.race.ticks < tick && !self.race.finished { self.step(seat, hold); }
     }
 
-    /// The tick at which `want` first holds (stepping from here), or the cap.
     fn find(&mut self, seat: u32, hold: bool, cap: u32, want: impl Fn(&rules::Session, &rules::Session) -> bool) -> u32 {
         loop {
             let before = self.race.clone();
@@ -144,7 +135,6 @@ impl Reel {
         }
     }
 
-    /// Frames `from..=to`, one per tick or every `every`.
     fn capture(&mut self, dir: &std::path::Path, from: u32, to: u32, every: u32, seat: u32, hold: bool) {
         std::fs::create_dir_all(dir).unwrap();
         self.run_to(from, seat, hold);
@@ -155,7 +145,6 @@ impl Reel {
                 n += 1;
             }
             if self.race.finished && self.race.ticks > from + 2 {
-                // The sim's clock stops at the flag: hold the board on the screen.
                 for _ in 0..80 { save(&self.frame(seat), &dir.join(format!("{n:04}.png"))); n += 1; }
                 break;
             }
@@ -170,25 +159,19 @@ fn place_of(race: &rules::Session, seat: u32) -> usize {
     state::place_of(&order, seat)
 }
 
-/// The reels the review GIFs are cut from. `ANGEL_PODRACER_REEL=name` for one.
 #[test]
 fn podracer_reels() {
     let Some(out) = std::env::var_os("ANGEL_PODRACER_PROOF").map(std::path::PathBuf::from) else { return };
     let only = std::env::var("ANGEL_PODRACER_REEL").ok();
     let want = |n: &str| only.as_deref().is_none_or(|o| o == n);
-    // Grid to go: every pod on the grid, the lights, the swoop in, the flag.
     if want("countdown") {
         let mut reel = Reel::new();
         reel.capture(&out.join("countdown"), 0, 140, 1, 4, false);
     }
-    // A boost down a straight: the engines run hot and the lens must not fill.
     if want("boost") {
         let mut reel = Reel::new();
         reel.capture(&out.join("boost"), 112, 232, 1, 1, true);
     }
-    // The back-marker boosts past a rival on the open straight. The field is set
-    // out on the road by hand (the sim and its pilots run as they always do), so
-    // the pass has clear road around it and is not lost in the start-line pack.
     if want("pass") {
         let mut reel = Reel::new();
         reel.run_to(130, 6, true);
@@ -197,14 +180,12 @@ fn podracer_reels() {
             let c = reel.race.cars.get_mut(&id).unwrap();
             c.d = d; c.y = y; c.v = 44.;
         }
-        // The one being passed has spent its boost and is still picking up speed.
         let slow = reel.race.cars.get_mut(&2).unwrap();
         slow.v = 30.; slow.boost = 0.; slow.boost_locked = true;
         let fast = reel.race.cars.get_mut(&6).unwrap();
         fast.v = 52.; fast.boost = 1.;
         reel.capture(&out.join("pass"), 130, 130 + 130, 1, 6, true);
     }
-    // The first sight of the last lap.
     if want("finallap") {
         let mut reel = Reel::new();
         let len = state::lap_len(&reel.race);
@@ -213,7 +194,6 @@ fn podracer_reels() {
         let mut reel = Reel::new();
         reel.capture(&out.join("finallap"), at.saturating_sub(24), at + 96, 1, 2, true);
     }
-    // The flag, and the board.
     if want("results") {
         let seat = 4;
         let at = Reel::new().find(seat, true, 24000, |_, b| b.cars[&seat].finish.is_some());
@@ -223,8 +203,6 @@ fn podracer_reels() {
     }
 }
 
-/// A few frames at chosen ticks, for framing a shot.
-/// `ANGEL_PODRACER_SNAP=dir ANGEL_SNAP_TICKS=0,60,100 ANGEL_SNAP_SEAT=4 ANGEL_SNAP_HOLD=1`
 #[test]
 fn podracer_snap() {
     let Some(out) = std::env::var_os("ANGEL_PODRACER_SNAP").map(std::path::PathBuf::from) else { return };
@@ -235,7 +213,6 @@ fn podracer_snap() {
     let mut reel = Reel::new();
     for t in ticks {
         reel.run_to(t, seat, hold);
-        // A staged field for a clean composition: ANGEL_SNAP_D is the viewer's distance run.
         if let Some(d) = std::env::var("ANGEL_SNAP_D").ok().and_then(|v| v.parse::<f32>().ok()) {
             let offs = [(34., -4.), (70., 5.), (-22., 3.), (-48., -5.), (110., 0.), (-80., 4.)];
             let mut k = 0;
@@ -247,9 +224,6 @@ fn podracer_snap() {
     }
 }
 
-/// How often a rival stands in the chase view over a whole bot race: the
-/// share of sampled moments with at least one rival in frame, and the
-/// longest unbroken stretch without one.
 #[test]
 fn podracer_rivals_in_view() {
     let mut reel = Reel::new();
@@ -267,8 +241,6 @@ fn podracer_rivals_in_view() {
     println!("rivals in view: {seen} of {total} samples ({:.0}%), longest gap {longest_dry} samples", seen as f32 / total as f32 * 100.);
 }
 
-/// One instrument frame over a staged mid-race field: every seat's colour is on
-/// the minimap, the ladder reads in running order, and nothing is drawn off its plate.
 #[test]
 fn hud_agrees_with_the_running_order() {
     let mut reel = Reel::new();
@@ -277,17 +249,14 @@ fn hud_agrees_with_the_running_order() {
     let order = state::standings(&race);
     assert_eq!(order.iter().map(|(id, _)| *id).collect::<Vec<_>>(), race.order());
     let im = reel.frame(3);
-    // The ladder's chips, top to bottom, are the seats in running order.
     for (n, &(id, _)) in order.iter().enumerate() {
         let ink = crate::ink::ink(pods::livery(id).ink).unwrap();
         let y = 76 + 3 + n as i32 * 9 + 3;
         assert_eq!(im.get(346 + 11 + 1, y), Some(ink), "ladder row {n} is not seat {id}");
     }
-    // The viewer's place digit is the ladder's row for the viewer.
     assert_eq!(state::place_of(&order, 3), order.iter().position(|(id, _)| *id == 3).unwrap() + 1);
 }
 
-/// The courses at a glance, for the docs.
 #[test]
 fn podracer_courses() {
     if std::env::var_os("ANGEL_PODRACER_PROOF").is_none() { return; }
@@ -297,12 +266,10 @@ fn podracer_courses() {
     }
 }
 
-/// The chevron over the viewer's own pod lands on that pod, in the lower middle of the picture.
 #[test]
 fn the_viewers_own_pod_is_where_the_chase_camera_puts_it() {
     let mut reel = Reel::new();
     reel.run_to(260, 4, true);
-    // The lane the pilot is in at that moment is the road's business, not the lens's: put the pod on the centre line.
     let mut car = reel.race.cars[&4].clone();
     car.y = 0.;
     let view = camera::view(&reel.race, &car);

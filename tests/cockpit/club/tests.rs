@@ -1,8 +1,6 @@
 //! Tests for the club module (moved verbatim from club.rs).
 use super::*;
 
-/// Delegates to the crate-wide test env lock (process env is global — a
-/// module-local lock can't serialize against other modules' env tests).
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     crate::tests::env_lock()
 }
@@ -15,14 +13,12 @@ struct ScopedEnv {
 impl ScopedEnv {
     fn set(key: &'static str, value: &str) -> Self {
         let previous = std::env::var_os(key);
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var(key, value) };
         Self { key, previous }
     }
 
     fn unset(key: &'static str) -> Self {
         let previous = std::env::var_os(key);
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
         Self { key, previous }
     }
@@ -31,9 +27,7 @@ impl ScopedEnv {
 impl Drop for ScopedEnv {
     fn drop(&mut self) {
         match self.previous.take() {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             Some(value) => unsafe { std::env::set_var(self.key, value) },
-            // TODO: Audit that the environment access only happens in single-threaded code.
             None => unsafe { std::env::remove_var(self.key) },
         }
         if self.key.ends_with("REASONING_EFFORT") || self.key.ends_with("REASONING_DIALECT") {
@@ -51,11 +45,6 @@ impl Drop for ScopedEnv {
     }
 }
 
-/// Every `ANGEL_SOTA_MOA_*` knob the roster/role code reads. Tests that assert
-/// DEFAULT routing must scope all of them out — a wrapper that sources the
-/// operator's live `.angel.env` (the dogfood runner, an interactive shell)
-/// otherwise leaks profile pins into the verdict, and a partial per-test scrub
-/// rots silently as knobs are added.
 const SOTA_MOA_ENV_KEYS: &[&str] = &[
     "ANGEL_MOA_PREFERENCES",
     "ANGEL_SOTA_MOA_AGG_CLUB",
@@ -96,8 +85,6 @@ const SOTA_MOA_ENV_KEYS: &[&str] = &[
     "ANGEL_SOTA_MOA_WIDTH",
 ];
 
-/// Scope out the entire SOTA-MoA env surface (restored on drop, newest-last).
-/// Callers must hold `env_lock()` first; set test-specific values AFTER this.
 fn scrub_sota_moa_env() -> Vec<ScopedEnv> {
     SOTA_MOA_ENV_KEYS
         .iter()
@@ -111,32 +98,26 @@ fn repair_tool_args_salvages_malformed_calls() {
         ToolArgsParse::Exact { value, .. } | ToolArgsParse::Repaired { value, .. } => value,
         ToolArgsParse::Unrecoverable { .. } => panic!("expected usable arguments"),
     };
-    // Valid passes through untouched.
     assert_eq!(
         value(repair_tool_args(r#"{"cmd":"ls"}"#)),
         serde_json::json!({"cmd":"ls"})
     );
-    // Truncated mid-string (stream cut off) → string + object closed.
     assert_eq!(
         value(repair_tool_args(r#"{"cmd":"ls -la"#)),
         serde_json::json!({"cmd":"ls -la"})
     );
-    // Truncated nested array.
     assert_eq!(
         value(repair_tool_args(r#"{"path":"src","lines":[1,2"#)),
         serde_json::json!({"path":"src","lines":[1,2]})
     );
-    // Trailing comma.
     assert_eq!(
         value(repair_tool_args(r#"{"a":1,}"#)),
         serde_json::json!({"a":1})
     );
-    // ```json fenced.
     assert_eq!(
         value(repair_tool_args("```json\n{\"a\":1}\n```")),
         serde_json::json!({"a":1})
     );
-    // Genuinely empty arguments are exact; malformed prose is never `{}`.
     assert!(matches!(
         repair_tool_args(""),
         ToolArgsParse::Exact { value, .. } if value == serde_json::json!({})
@@ -145,7 +126,6 @@ fn repair_tool_args_salvages_malformed_calls() {
         repair_tool_args("not json at all"),
         ToolArgsParse::Unrecoverable { length: 15, .. }
     ));
-    // A brace inside a string must not be mistaken for structure.
     assert_eq!(
         value(repair_tool_args(r#"{"msg":"a } b"#)),
         serde_json::json!({"msg":"a } b"})
@@ -154,7 +134,6 @@ fn repair_tool_args_salvages_malformed_calls() {
 
 #[test]
 fn extract_prose_tool_calls_recovers_only_explicit_wrappers() {
-    // <tool_call> with inline-object arguments.
     let c = extract_prose_tool_calls(
         r#"sure: <tool_call>{"name":"grep","arguments":{"pattern":"x"}}</tool_call>"#,
     );
@@ -162,13 +141,11 @@ fn extract_prose_tool_calls_recovers_only_explicit_wrappers() {
     assert_eq!(c[0].name, "grep");
     assert_eq!(c[0].args, serde_json::json!({"pattern":"x"}));
 
-    // arguments as a JSON string (repaired) + truncated/unterminated wrapper.
     let c = extract_prose_tool_calls(r#"<tool_call>{"name":"shell","arguments":{"cmd":"ls"#);
     assert_eq!(c.len(), 1);
     assert_eq!(c[0].name, "shell");
     assert_eq!(c[0].args, serde_json::json!({"cmd":"ls"}));
 
-    // XML-ish name/args wrapper emitted as content by some providers.
     let c = extract_prose_tool_calls(
         r#"<tool_call>
 <name>shell</name>
@@ -182,8 +159,6 @@ fn extract_prose_tool_calls_recovers_only_explicit_wrappers() {
         "cat /workspace/fixture-repo/README.md 2>/dev/null || echo NO_README_FOUND"
     );
 
-    // Name carried as an attribute on the open tag, bare args object as the
-    // body, prose around the wrapper (dialect seen live from a SOTA model).
     let c = extract_prose_tool_calls(
         "On it.\n<tool_call name=\"shell\">\n{\"command\": \"pwd && ls -lah\", \"with_approval\": false}\n</tool_call>\nRunning now.",
     );
@@ -192,24 +167,18 @@ fn extract_prose_tool_calls_recovers_only_explicit_wrappers() {
     assert_eq!(c[0].args["command"], "pwd && ls -lah");
     assert_eq!(c[0].args["with_approval"], false);
 
-    // Single-quoted attribute + truncated body (stream cut mid-args).
     let c = extract_prose_tool_calls(r#"<tool_call name='shell'>{"cmd":"ls"#);
     assert_eq!(c.len(), 1);
     assert_eq!(c[0].name, "shell");
     assert_eq!(c[0].args, serde_json::json!({"cmd":"ls"}));
 
-    // Longer tag names must not open a wrapper, and an attribute form with
-    // an empty name (and no name in the body) stays inert.
     assert!(extract_prose_tool_calls("the <tool_calls> field was empty").is_empty());
     assert!(extract_prose_tool_calls(r#"<tool_call name="">{"cmd":"ls"}</tool_call>"#).is_empty());
 
-    // [TOOL_CALLS] array form.
     let c = extract_prose_tool_calls(r#"[TOOL_CALLS][{"name":"todo","arguments":{}}]"#);
     assert_eq!(c.len(), 1);
     assert_eq!(c[0].name, "todo");
 
-    // Shouted-tag dialect, verbatim from a live session: no closing tag,
-    // hallucinated prose right after the args object.
     let c = extract_prose_tool_calls(
         r#"<SHELL>{"cmd": "pwd && ls -la | sed -n '1,80p' && (git status --short 2>/dev/null || true)", "timeout": 10000}Status report:
 
@@ -225,7 +194,6 @@ fn extract_prose_tool_calls_recovers_only_explicit_wrappers() {
             .starts_with("pwd && ls -la")
     );
 
-    // Several shouted tags in one message; truncated last one repairs.
     let c = extract_prose_tool_calls(
         r#"<SHELL>{"cmd":"a"}</SHELL> then <DELEGATE>{"club":"coder","task":"x"#,
     );
@@ -234,13 +202,11 @@ fn extract_prose_tool_calls_recovers_only_explicit_wrappers() {
     assert_eq!(c[1].name, "delegate");
     assert_eq!(c[1].args["club"], "coder");
 
-    // TitleCase / short / brace-less tags are genuine markup, not calls.
     assert!(extract_prose_tool_calls(r#"<Body>{"a":1}</Body>"#).is_empty());
     assert!(extract_prose_tool_calls(r#"<B>{"a":1}</B>"#).is_empty());
     assert!(extract_prose_tool_calls("replace <TOKEN> with your key").is_empty());
     assert!(extract_prose_tool_calls("use Vec<STRING> where a < b").is_empty());
 
-    // A genuine prose answer must NOT be hijacked (no wrapper → nothing).
     assert!(
         extract_prose_tool_calls(
             "Here's the plan: I'll call grep with arguments to find the name."
@@ -265,7 +231,6 @@ fn scavenge_tools() -> Vec<ToolDef> {
 fn scavenge_recovers_a_wrapperless_call_that_names_an_offered_tool() {
     let tools = scavenge_tools();
 
-    // The bare failure mode: prose around a fully-formed call object.
     let c = scavenge_stranded_tool_calls(
         "I'll check the tree.\n{\"name\": \"shell\", \"arguments\": {\"cmd\": \"ls -la\"}}\nThen I'll read the manifest.",
         &tools,
@@ -274,7 +239,6 @@ fn scavenge_recovers_a_wrapperless_call_that_names_an_offered_tool() {
     assert_eq!(c[0].name, "shell");
     assert_eq!(c[0].args, serde_json::json!({"cmd":"ls -la"}));
 
-    // Fenced, `tool`/`parameters` keyed, and stringified arguments (the wire shape).
     let c = scavenge_stranded_tool_calls(
         "```json\n{\"tool\": \"read_file\", \"parameters\": \"{\\\"path\\\":\\\"Cargo.toml\\\"}\"}\n```",
         &tools,
@@ -283,7 +247,6 @@ fn scavenge_recovers_a_wrapperless_call_that_names_an_offered_tool() {
     assert_eq!(c[0].name, "read_file");
     assert_eq!(c[0].args, serde_json::json!({"path":"Cargo.toml"}));
 
-    // A call nested inside an envelope object is still reachable.
     let c = scavenge_stranded_tool_calls(
         r#"{"tool_call":{"name":"shell","arguments":{"cmd":"pwd"}}}"#,
         &tools,
@@ -296,8 +259,6 @@ fn scavenge_recovers_a_wrapperless_call_that_names_an_offered_tool() {
 fn scavenge_refuses_anything_that_is_not_an_exact_call_shape() {
     let tools = scavenge_tools();
 
-    // Malformed JSON, an unoffered name, non-object arguments, and a missing
-    // arguments key are all prose.
     for text in [
         r#"{"name":"shell","arguments":{"cmd":"ls""#,
         r#"{"name":"rm_rf","arguments":{"path":"/"}}"#,
@@ -314,7 +275,6 @@ fn scavenge_refuses_anything_that_is_not_an_exact_call_shape() {
         );
     }
 
-    // No tools offered → nothing the text "calls" could ever execute.
     assert!(
         scavenge_stranded_tool_calls(r#"{"name":"shell","arguments":{"cmd":"ls"}}"#, &[])
             .is_empty()
@@ -402,25 +362,16 @@ fn wrapper_labels_match_without_a_lowercase_copy() {
     );
 }
 
-/// Mirrors the OpenRouter seat in `bag.rs`. `tencent/hy3:free` was retired in
-/// July 2026 (the slug 404s); the default breadth route is Ox Alpha.
-/// Paid `tencent/hy3` remains a valid explicit pin.
 #[test]
 fn openrouter_sota_link_defaults_to_breadth_route() {
     const ROUTE: &str = "stealth/union-alpha";
     let _g = env_lock();
     let _enabled = ScopedEnv::set("ANGEL_API_CLUBS", "openrouter");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_OPENROUTER_URL") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("OPENROUTER_BASE_URL") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_OPENROUTER_MODEL") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("OPENROUTER_MODEL") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_OPENROUTER_KEY") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("OPENROUTER_API_KEY") };
 
     assert!(
@@ -436,7 +387,6 @@ fn openrouter_sota_link_defaults_to_breadth_route() {
         .is_none()
     );
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("OPENROUTER_API_KEY", "test-key") };
     let (_, club, _) = optional_sota_http_club(
         "openrouter",
@@ -449,8 +399,6 @@ fn openrouter_sota_link_defaults_to_breadth_route() {
     )
     .expect("key plus default model builds OpenRouter club");
     assert_eq!(club.label(), ROUTE);
-    // A model-id label must still read as remote, or local-only fallback would
-    // adopt the cloud seat.
     assert!(is_sota_label(ROUTE));
     assert_eq!(static_model_window(ROUTE), Some((262_144, false)));
     assert_eq!(resolve_openrouter_model_alias("tencent/hy3:free"), ROUTE);
@@ -490,7 +438,6 @@ fn openrouter_sota_link_defaults_to_breadth_route() {
     .expect("OpenRouter default request body builds");
     assert_eq!(body.get("model").and_then(|v| v.as_str()), Some(ROUTE));
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("OPENROUTER_API_KEY") };
 }
 
@@ -584,8 +531,6 @@ fn openai_api_route_is_separate_and_builds_chat_completions_request() {
     assert_eq!(body["messages"][0]["role"], "user");
 }
 
-/// The Muse seat: Meta Model API, `muse-spark-1.3` unless pinned, keyed by
-/// `ANGEL_META_KEY` or `META_API_KEY`, and off when the allowlist omits `meta`.
 #[test]
 fn meta_route_serves_muse_spark_from_the_meta_model_api() {
     let _guard = env_lock();
@@ -618,8 +563,84 @@ fn meta_route_serves_muse_spark_from_the_meta_model_api() {
     );
 }
 
-/// Muse Wonder 1.0 is its own club beside the configured `meta` seat, by its
-/// model id, and is not duplicated when the `meta` seat is pinned to it.
+#[test]
+fn carbon_seats_gemini_4_carbon_from_the_gemini_key() {
+    let _guard = env_lock();
+    let _scope = ScopedEnv::set("ANGEL_API_CLUBS", "carbon");
+    let _angel_key = ScopedEnv::unset("ANGEL_CARBON_KEY");
+    let _key = ScopedEnv::set("GEMINI_API_KEY", "test-key");
+    let _model = ScopedEnv::unset("ANGEL_CARBON_MODEL");
+    let _url = ScopedEnv::unset("ANGEL_CARBON_URL");
+    let (alias, club, _) = optional_carbon_http_club().expect("carbon seated");
+    assert_eq!(alias, "carbon");
+    assert_eq!(club.model_identity().as_deref(), Some("gemini-4-carbon"));
+    assert!(is_sota_label("carbon"));
+    assert!(is_sota_label("gemini-4-carbon"));
+    assert!(!is_sota_label("gemma-4-31b-it"));
+
+    let _pinned = ScopedEnv::set("ANGEL_CARBON_MODEL", "gemini-4-argon");
+    let (_, club, _) = optional_carbon_http_club().expect("pinned seat");
+    assert_eq!(club.model_identity().as_deref(), Some("gemini-4-argon"));
+
+    let _other = ScopedEnv::set("ANGEL_API_CLUBS", "deepseek");
+    assert!(optional_carbon_http_club().is_none(), "allowlist excludes carbon");
+    let _scope = ScopedEnv::set("ANGEL_API_CLUBS", "carbon");
+    let _nokey = ScopedEnv::unset("GEMINI_API_KEY");
+    assert!(optional_carbon_http_club().is_none(), "no key, no seat");
+}
+
+#[test]
+fn stream_keeps_a_tool_calls_extra_content() {
+    let mut acc = StreamAccumulator::default();
+    let sig = serde_json::json!({ "google": { "thought_signature": "c2ln" } });
+    let _ = acc.apply_chunk(&serde_json::json!({
+        "choices": [{ "delta": { "tool_calls": [{
+            "index": 0, "id": "call_1", "type": "function",
+            "function": { "name": "echo", "arguments": "{\"text\":\"hi\"}" },
+            "extra_content": sig.clone()
+        }] } }]
+    }));
+    let _ = acc.apply_chunk(&serde_json::json!({
+        "choices": [{ "delta": { "tool_calls": [{ "index": 0 }] } }]
+    }));
+    assert_eq!(acc.tool_call_extras(), vec![("call_1".to_string(), sig)]);
+}
+
+#[test]
+fn carbon_replays_gemini_thought_signatures_on_tool_calls() {
+    let club = HttpClub::new("carbon", "http://127.0.0.1:9/v1", "gemini-4-carbon", None)
+        .with_gemini_thought_signatures();
+    let sig = serde_json::json!({ "google": { "thought_signature": "c2ln" } });
+    club.remember_gemini_signatures(vec![("call_seen".to_string(), sig.clone())]);
+    let call = |id: &str| ToolCall {
+        id: id.to_string(),
+        name: "echo".to_string(),
+        args: serde_json::json!({ "text": "hi" }),
+    };
+    let messages = vec![
+        ChatMsg::user("echo hi twice"),
+        ChatMsg::assistant_calls(vec![call("call_seen"), call("call_resumed")]),
+        ChatMsg::tool("call_seen", "hi"),
+        ChatMsg::tool("call_resumed", "hi"),
+    ];
+    let body = club.build_body_with_effort(&messages, &[], false, None).unwrap();
+    let calls = body["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find_map(|m| m["tool_calls"].as_array())
+        .expect("assistant tool calls on the wire");
+    assert_eq!(calls[0]["extra_content"], sig);
+    assert_eq!(
+        calls[1]["extra_content"]["google"]["thought_signature"],
+        GEMINI_SKIP_SIGNATURE
+    );
+
+    let generic = HttpClub::new("generic", "http://127.0.0.1:9/v1", "some-model", None);
+    let body = generic.build_body_with_effort(&messages, &[], false, None).unwrap();
+    assert!(!body.to_string().contains("extra_content"));
+}
+
 #[test]
 fn meta_clubs_seat_muse_wonder_beside_the_configured_seat() {
     let _guard = env_lock();
@@ -650,9 +671,6 @@ fn meta_clubs_seat_muse_wonder_beside_the_configured_seat() {
     assert_eq!(optional_meta_http_clubs().len(), 2, "chat route seats both");
 }
 
-/// The Muse seat speaks the Responses API (reasoning summaries reach the
-/// thinking panel) at `ANGEL_META_REASONING_EFFORT`, else its calibrated effort;
-/// Muse rejects `none`, so that value is ignored. `ANGEL_META_API=chat` keeps the Chat Completions seat.
 #[test]
 fn meta_route_takes_its_effort_and_can_fall_back_to_chat_completions() {
     let _guard = env_lock();
@@ -758,7 +776,6 @@ fn kimi_sota_link_defaults_to_moonshot_k3() {
         "KIMI_MODEL",
         "MOONSHOT_MODEL",
     ] {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
     }
     assert!(
@@ -774,7 +791,6 @@ fn kimi_sota_link_defaults_to_moonshot_k3() {
         .is_none()
     );
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("MOONSHOT_API_KEY", "test-key") };
     let (alias, club, _) = optional_sota_http_club(
         "kimi",
@@ -789,8 +805,6 @@ fn kimi_sota_link_defaults_to_moonshot_k3() {
     assert_eq!(alias, "kimi");
     assert_eq!(club.label(), "kimi-k3");
     assert_eq!(static_model_window("kimi-k3"), Some((1_048_576, true)));
-    // The Kimi Code plan endpoint names the same model `k3` and its K2.7
-    // coding routes `kimi-for-coding*`; both must size correctly.
     assert_eq!(static_model_window("k3"), Some((1_048_576, true)));
     assert_eq!(static_model_window("k3-256k"), Some((262_144, true)));
     assert_eq!(
@@ -807,7 +821,6 @@ fn kimi_sota_link_defaults_to_moonshot_k3() {
         Some((1_000_000, true))
     );
     assert_eq!(static_model_window("qwen3.8-27b"), Some((262_144, true)));
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("MOONSHOT_API_KEY") };
 }
 
@@ -829,8 +842,6 @@ fn deepseek_v4_catalog_migrates_retired_ids_before_the_wire() {
         resolve_deepseek_model_alias("deepseek-flash"),
         "deepseek-flash"
     );
-    // Retired ids: the two legacy chat endpoints plus the superseded V4 Flash
-    // ids. All of them alias the live V4.1 Flash on the wire.
     for retired in [
         "deepseek-chat",
         "deepseek-reasoner",
@@ -854,7 +865,6 @@ fn deepseek_v4_catalog_migrates_retired_ids_before_the_wire() {
         "private/deepseek-next",
         "unknown explicit gateway ids remain forward-compatible"
     );
-    // 1M context + always-on cache for both V4 seats, current id and aliases.
     for model in [
         "deepseek-v4-pro",
         "deepseek-flash",
@@ -868,7 +878,6 @@ fn deepseek_v4_catalog_migrates_retired_ids_before_the_wire() {
         );
     }
     assert_eq!(static_model_window("deepseek-v4-flash-local"), None);
-    // Id-scoped capability facts; the *route* decides whether it may claim them.
     assert_eq!(
         static_model_input_modalities("deepseek-flash"),
         Some(&["text", "image"][..])
@@ -897,14 +906,9 @@ fn deepseek_v4_catalog_migrates_retired_ids_before_the_wire() {
         .expect("DeepSeek V4 max-effort request body");
     assert_eq!(body["reasoning_effort"], serde_json::json!("max"));
     assert_eq!(body["thinking"]["type"], "enabled");
-    // Left unset, DeepSeek caps thinking-mode output at 64K; the seat sends
-    // the model card's floor instead, never a lower cap.
     assert_eq!(body["max_tokens"], serde_json::json!(256_000));
 }
 
-/// The THINK control on the current provider contract: `none` is the documented
-/// disable toggle, low/high/max are depth rungs, and an unpinned control leaves
-/// the provider's own default (thinking on at `high`) untouched.
 #[test]
 fn deepseek_thinking_control_encodes_the_live_provider_surface() {
     let _guard = env_lock();
@@ -949,8 +953,6 @@ fn deepseek_thinking_control_encodes_the_live_provider_surface() {
         "`none` is a thinking toggle, not a reasoning_effort rung"
     );
     assert_eq!(off["max_tokens"], serde_json::json!(256_000));
-    // Unpinned: neither control field is sent, so the provider's own effort
-    // default stands; the output cap is the model card's, as on every rung.
     let plain = HttpClub::new(
         "deepseek-flash",
         "https://api.deepseek.com/v1",
@@ -965,8 +967,6 @@ fn deepseek_thinking_control_encodes_the_live_provider_surface() {
     assert_eq!(unpinned["max_tokens"], serde_json::json!(256_000));
 }
 
-/// `ANGEL_DEEPSEEK_REASONING_EFFORT` (documented) reaches both DeepSeek seats,
-/// between each seat's own knob and the global one.
 #[test]
 fn the_provider_wide_deepseek_effort_knob_reaches_the_seat() {
     let _guard = env_lock();
@@ -1001,14 +1001,8 @@ fn the_provider_wide_deepseek_effort_knob_reaches_the_seat() {
     resync_reasoning_effort_env_from_env();
 }
 
-/// The seat root benchmarks with: the operator's configured DeepSeek route,
-/// pointed at a loopback observer/forwarder that relays solely to the official
-/// API. The provider contract must survive that URL, so opaque continuation
-/// state still reaches the real model instead of a stripped adapter path.
 #[test]
 fn configured_deepseek_seat_keeps_its_provider_contract_behind_a_forwarder() {
-    // Locate the tool-call turn by role: a SOTA-tuned body may splice a brevity
-    // system message in front, so indices are not stable.
     fn reasoning_on_wire(body: &serde_json::Value) -> Option<String> {
         body["messages"]
             .as_array()?
@@ -1057,9 +1051,6 @@ fn configured_deepseek_seat_keeps_its_provider_contract_behind_a_forwarder() {
         assistant,
         ChatMsg::tool(&calls[0].id, "source"),
     ];
-    // Body-level replay needs the concrete club; the seat constructor applies
-    // exactly this contract (the seat's own declared `text+image` above proves
-    // it, since a loopback URL with no contract declares nothing).
     let body_club = HttpClub::new(
         "deepseek-flash",
         "http://127.0.0.1:8799/v4",
@@ -1075,8 +1066,6 @@ fn configured_deepseek_seat_keeps_its_provider_contract_behind_a_forwarder() {
         Some("tool-round-private-reasoning"),
         "the configured DeepSeek route replays its own opaque state"
     );
-    // Provider/model boundary: the same history on a foreign endpoint, and on a
-    // non-DeepSeek model, must never carry it.
     let foreign = HttpClub::new(
         "deepseek-flash",
         "https://gateway.example/v1",
@@ -1103,10 +1092,6 @@ fn configured_deepseek_seat_keeps_its_provider_contract_behind_a_forwarder() {
     );
 }
 
-/// A local or fleet serve reusing a provider id is a different checkpoint: it
-/// declares nothing (so the vision gate keeps its own text-only identity), never
-/// replays provider-private reasoning, and is never sent the provider's
-/// `thinking` toggle.
 #[test]
 fn local_deepseek_serve_reusing_a_provider_id_is_not_the_provider() {
     let _guard = env_lock();
@@ -1198,8 +1183,6 @@ fn grok_46_http_metadata_and_xhigh_are_model_scoped() {
     assert!(older.set_reasoning_effort("xhigh").is_none());
 }
 
-/// Mirrors the Qwen seat in `bag.rs`: Alibaba's coding-plan endpoint, absent
-/// until a plan key is present.
 #[test]
 fn qwen_sota_link_defaults_to_the_coding_plan_endpoint() {
     let _guard = env_lock();
@@ -1215,7 +1198,6 @@ fn qwen_sota_link_defaults_to_the_coding_plan_endpoint() {
         "QWEN_MODEL",
         "DASHSCOPE_MODEL",
     ] {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
     }
     let build = || {
@@ -1231,17 +1213,13 @@ fn qwen_sota_link_defaults_to_the_coding_plan_endpoint() {
     };
     assert!(build().is_none(), "no key means no seat");
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_QWEN_KEY", "sk-sp-test") };
     let (alias, club, _) = build().expect("a plan key configures the Qwen link");
     assert_eq!(alias, "qwen");
     assert_eq!(club.label(), "qwen3.7-plus");
-    // Remote seat: local-only fallback must not adopt it. Local Qwen
-    // checkpoints keep the opposite answer.
     assert!(is_sota_label("qwen3.7-plus"));
     assert!(is_sota_label("qwen"));
     assert!(!is_sota_label("qwen3.6-27b-mtp-pi-tune"));
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_QWEN_KEY") };
 }
 
@@ -1310,10 +1288,6 @@ fn http_club_records_openai_compatible_usage() {
     );
 }
 
-/// DeepSeek's native API reports its prefix-cache split at the top level rather
-/// than in an OpenAI `prompt_tokens_details` block. The hit half is a cache read
-/// in the meter's accounting (it is already inside `prompt_tokens`), so a
-/// DeepSeek turn shows a real hit rate instead of "n/a".
 #[test]
 fn http_club_records_deepseek_native_prompt_cache_usage() {
     let club = HttpClub::new("deepseek", "https://api.deepseek.com/v1", "model", None);
@@ -1330,8 +1304,6 @@ fn http_club_records_deepseek_native_prompt_cache_usage() {
         CacheUsage {
             control_requests: 0,
             read_input_tokens: 75,
-            // DeepSeek bills no cache write; its miss field makes that a
-            // reported zero rather than an unknown.
             write_input_tokens: 0,
             read_accounting_responses: 1,
             write_accounting_responses: 1,
@@ -1402,8 +1374,6 @@ fn tailnet_label_takes_first_dns_segment_lowercased() {
 
 #[test]
 fn parse_tailnet_disambiguates_by_dns_name() {
-    // Two boxes both report HostName "Gpubox"; the DNSName label is what's
-    // unique (gpubox vs gpubox-1). Online is honored; Self defaults to online.
     let v = serde_json::json!({
         "Self": {
             "HostName": "Workstation",
@@ -1436,7 +1406,6 @@ fn parse_tailnet_disambiguates_by_dns_name() {
     assert_eq!(m.get("gpubox").map(|h| h.ip.as_str()), Some("192.0.2.5"));
     assert!(m["gpubox-1"].online && !m["gpubox"].online);
     assert!(m["workstation"].online, "Self defaults to online");
-    // IPv4 picked, not the IPv6 that follows it.
     assert_eq!(m["compute-a"].ip, "192.0.2.3");
 }
 
@@ -1454,7 +1423,6 @@ fn url_from_uses_tailnet_then_fallback() {
         url_from("compute-a", 8000, "9.9.9.9", &m),
         "http://192.0.2.3:8000/v1"
     );
-    // Unknown host uses the caller-provided fallback.
     assert_eq!(
         url_from("ghost", 8080, "9.9.9.9", &m),
         "http://9.9.9.9:8080/v1"
@@ -1463,8 +1431,6 @@ fn url_from_uses_tailnet_then_fallback() {
 
 #[test]
 fn every_discovered_host_folds_into_the_local_box() {
-    // No machine is a box of its own: whatever peer serves a model, the model
-    // is another mode of `local`.
     for host in ["spark", "gpu-host", "workstation", "Some-Peer", ""] {
         assert_eq!(canonical_fleet_box(host), "local", "{host:?}");
     }
@@ -1476,7 +1442,6 @@ fn every_discovered_host_folds_into_the_local_box() {
             online: true,
         },
     );
-    // A tailnet label still resolves case-insensitively to its address.
     assert_eq!(
         url_from(" Compute-A ", 8001, "127.0.0.1", &m),
         "http://192.0.2.9:8001/v1"
@@ -1504,7 +1469,6 @@ fn resolve_club_url_local_env_pin_wins_over_tailnet() {
         resolve_club_url("LOCAL", "compute-a", 8000, "127.0.0.1", &m),
         "http://127.0.0.1:8000/v1"
     );
-    // Without the pin, the slot resolves through the tailnet host.
     let _clear = ScopedEnv::unset("ANGEL_LOCAL_URL");
     assert_eq!(
         resolve_club_url("LOCAL", "compute-a", 8000, "127.0.0.1", &m),
@@ -1574,7 +1538,6 @@ fn host_online_semantics() {
         !host_online("absent", &m),
         "absent-from-tailnet → not selectable"
     );
-    // Empty map = tailscale unavailable → assume usable (fallback/env path).
     let empty = std::collections::HashMap::new();
     assert!(host_online("anything", &empty));
 }
@@ -1915,7 +1878,6 @@ fn cloned_messages_share_immutable_media_and_tool_call_payloads() {
         &text_clone.content
     ));
 
-    // The shared representation remains transparent on the persisted wire.
     let encoded = serde_json::to_string(&call_clone).unwrap();
     let decoded: ChatMsg = serde_json::from_str(&encoded).unwrap();
     assert_eq!(decoded.tool_calls.len(), 1);
@@ -1927,9 +1889,6 @@ fn cloned_messages_share_immutable_media_and_tool_call_payloads() {
     );
 }
 
-/// End-to-end round-trip against a mock serve-mode helper: two transforms ride
-/// ONE node process (same pid, incrementing request counter) — the persistent
-/// daemon path. Ignored by default (spawns node); run with `--ignored`.
 #[test]
 #[ignore = "spawns a node mock helper; run with --ignored"]
 fn pxpipe_persistent_daemon_reuses_one_helper_process() {
@@ -1960,7 +1919,6 @@ for await (const chunk of process.stdin) {
     let path = std::env::temp_dir().join(format!("angel_pxmock_{}.mjs", std::process::id()));
     std::fs::write(&path, script).unwrap();
     let saved = std::env::var_os("ANGEL_PXPIPE_HELPER");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_PXPIPE_HELPER", &path) };
 
     let a = run_pxpipe_helper(PxpipeApi::ChatCompletions, "openai", "gpt-5.5", b"hello")
@@ -1976,9 +1934,7 @@ for await (const chunk of process.stdin) {
     assert_eq!(pid_a, pid_b, "both requests must ride one helper process");
 
     match saved {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_PXPIPE_HELPER", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_PXPIPE_HELPER") },
     }
     let _ = std::fs::remove_file(&path);
@@ -1986,8 +1942,6 @@ for await (const chunk of process.stdin) {
 
 #[test]
 fn pxpipe_default_scope_is_openai_image_capable_family_only() {
-    // Reads the ANGEL_PXPIPE_MODELS default — serialize against the tests
-    // that set it, or their set_var lands mid-assert (the old flake).
     let _guard = env_lock();
     assert!(pxpipe_model_allowed("openai", "gpt-5.5", None));
     assert!(pxpipe_model_allowed("gpt-5.5", "gpt-5.5", None));
@@ -2028,18 +1982,14 @@ fn pxpipe_transform_missing_helper_fails_open_unless_required() {
     let saved_models = std::env::var_os("ANGEL_PXPIPE_MODELS");
     let saved_required = std::env::var_os("ANGEL_PXPIPE_REQUIRED");
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_PXPIPE", "1") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe {
         std::env::set_var(
             "ANGEL_PXPIPE_HELPER",
             "/definitely/not/pxpipe-transform.mjs",
         )
     };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_PXPIPE_MODELS", "openai") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_PXPIPE_REQUIRED") };
 
     let body = br#"{"model":"gpt-5.5","messages":[]}"#.to_vec();
@@ -2052,7 +2002,6 @@ fn pxpipe_transform_missing_helper_fails_open_unless_required() {
     .expect("fail-open returns the original body");
     assert_eq!(transformed, body);
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_PXPIPE_REQUIRED", "1") };
     let err = maybe_pxpipe_transform(
         PxpipeApi::ChatCompletions,
@@ -2064,27 +2013,19 @@ fn pxpipe_transform_missing_helper_fails_open_unless_required() {
     assert!(err.contains("pxpipe transform failed"), "{err}");
 
     match saved_pxpipe {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_PXPIPE", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_PXPIPE") },
     }
     match saved_helper {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_PXPIPE_HELPER", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_PXPIPE_HELPER") },
     }
     match saved_models {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_PXPIPE_MODELS", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_PXPIPE_MODELS") },
     }
     match saved_required {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_PXPIPE_REQUIRED", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_PXPIPE_REQUIRED") },
     }
 }
@@ -2126,7 +2067,6 @@ fn pxpipe_oneshot_hung_helper_is_killed_at_the_request_deadline() {
 fn sota_tuned_http_body_keeps_native_output_shape_by_default() {
     let _guard = env_lock();
     let saved = std::env::var_os("ANGEL_SOTA_CAVEMAN");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_SOTA_CAVEMAN") };
 
     let club =
@@ -2140,9 +2080,7 @@ fn sota_tuned_http_body_keeps_native_output_shape_by_default() {
     assert_eq!(messages[0]["content"], "answer this");
 
     match saved {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_SOTA_CAVEMAN", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_SOTA_CAVEMAN") },
     }
 }
@@ -2177,7 +2115,6 @@ fn caveman_is_on_by_default_for_a_self_hosted_link_and_its_reasoning() {
 fn sota_caveman_can_be_enabled_for_http_body() {
     let _guard = env_lock();
     let saved = std::env::var_os("ANGEL_SOTA_CAVEMAN");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SOTA_CAVEMAN", "1") };
 
     let club = HttpClub::new("sota-caveman-probe", "http://127.0.0.1:9/v1", "m", None).sota_tuned();
@@ -2196,9 +2133,7 @@ fn sota_caveman_can_be_enabled_for_http_body() {
     assert_eq!(messages[1]["content"], "answer this");
 
     match saved {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_SOTA_CAVEMAN", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_SOTA_CAVEMAN") },
     }
 }
@@ -2238,7 +2173,6 @@ fn reported_model_id_accepts_common_models_shapes() {
     assert_eq!(HttpClub::reported_model_id(&serde_json::json!({})), None);
 }
 
-/// Tiny multi-request JSON server used to prove cold-cache probes single-flight.
 fn serve_counted_json(
     body: &'static str,
 ) -> (
@@ -2335,9 +2269,6 @@ fn concurrent_metadata_resolution_is_single_flight() {
     );
 }
 
-/// `/props` is llama.cpp's: a cloud seat (here DeepSeek's contract behind a
-/// local forwarder) reads its window from `/models` without paying a round
-/// trip for each dead `/props` probe before its first request.
 #[test]
 fn a_cloud_seat_skips_the_llama_cpp_props_probes() {
     let (base, hits, stop, server) = serve_counted_json(r#"{"data":[{"id":"deepseek-flash"}]}"#);
@@ -2358,9 +2289,6 @@ fn a_cloud_seat_skips_the_llama_cpp_props_probes() {
     );
 }
 
-/// LIVE: Bag::standard assembles the fleet and puts the smartest *available*
-/// real box in hand (never the practice floor) when any model is up. Skips
-/// when the fleet is down.
 #[test]
 fn live_bag_picks_driver_when_up() {
     let _guard = env_lock();
@@ -2378,10 +2306,6 @@ fn live_bag_picks_driver_when_up() {
     }
     let bag = Bag::standard();
     eprintln!("live bag in_hand = {}", bag.in_hand_label());
-    // Pessimistic loading: the brain never STARTS on an unconfirmed/broken box.
-    // It's either the always-available practice floor (pending an upgrade once a
-    // model confirms) or a model already verified reachable — never a corpse.
-    // (The upgrade-off-the-floor path is covered by live_brain_settles_off_a_dead_default.)
     assert!(
         bag.agents[bag.in_hand].available(),
         "the in-hand box must be reachable (never a broken endpoint), got {}",
@@ -2389,18 +2313,10 @@ fn live_bag_picks_driver_when_up() {
     );
 }
 
-/// LIVE regression for the "hello → Connection refused" bug: a launch landed
-/// (optimistically) on a high-scored but DEAD box and hard-failed the first
-/// message. After the seed-correction prober + per-tick settle, the brain must
-/// drift to a box that's actually reachable, and a real turn through it must NOT
-/// return a transport error. Skips unless a local model is up.
 #[test]
 fn live_brain_settles_off_a_dead_default() {
-    // Serialized: this test mutates process-global environment that other
-    // tests also read or write. Without the lock they interleave and each
-    // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
-    let _driver = ScopedEnv::unset("ANGEL_DRIVER"); // exercise the heuristic, not an override
+    let _driver = ScopedEnv::unset("ANGEL_DRIVER");
     let Some(url) = std::env::var("ANGEL_TURBO_URL")
         .ok()
         .filter(|url| !url.trim().is_empty())
@@ -2418,9 +2334,6 @@ fn live_brain_settles_off_a_dead_default() {
         "initial in_hand = {} (pessimistic: floor until a model loads)",
         bag.in_hand_label()
     );
-    // Mirror the run loop: each tick elects the smartest reachable model as the
-    // prober confirms boxes up (a broken endpoint never confirms, so it's never
-    // picked).
     let deadline = Instant::now() + Duration::from_secs(20);
     let mut settled = None;
     while Instant::now() < deadline {
@@ -2439,18 +2352,12 @@ fn live_brain_settles_off_a_dead_default() {
         )
     });
     eprintln!("brain settled on reachable box: {label}");
-    // The real proof: a turn through the settled brain reaches a live backend —
-    // no "Connection refused" transport error like the one the user hit.
     match bag.in_hand().respond("Reply with the single word: ok") {
         Ok(reply) => eprintln!("settled brain replied ok ({} chars)", reply.len()),
         Err(e) => panic!("settled brain still errored: {e}"),
     }
 }
 
-/// LIVE: turbo chats through the canonical local serving surface.
-/// Kept out of the hermetic inventory: a readiness probe can pass immediately
-/// before the serving process disappears, and provider retries would then turn
-/// ordinary CI into a minute-long tailnet-dependent failure.
 #[test]
 #[ignore = "requires an explicitly provisioned live Turbo endpoint"]
 fn live_turbo_chat_canonical_surface() {
@@ -2470,8 +2377,6 @@ fn live_turbo_chat_canonical_surface() {
     eprintln!("turbo reply: {reply}");
     assert!(!reply.trim().is_empty(), "turbo should reply");
 }
-
-// --- agent/box bag helpers (no network) ----------------------------------
 
 struct LabelClub(&'static str);
 
@@ -2512,15 +2417,12 @@ fn slot(label: &str, available: bool) -> Slot {
     }
 }
 
-/// A follow-backend HttpClub that has already learned a live checkpoint id —
-/// fed the `/models` JSON shape directly, no network.
 fn learned_club(label: &str, model_id: &str) -> HttpClub {
     let club = HttpClub::new(label, "http://127.0.0.1:1", "", None).follow_backend();
     club.remember_reported_model(&serde_json::json!({"data": [{"id": model_id}]}));
     club
 }
 
-/// A single-mode box (a box whose only model has the given availability).
 fn solo(name: &str, available: bool) -> Agent {
     Agent {
         name: name.to_string(),
@@ -2529,7 +2431,6 @@ fn solo(name: &str, available: bool) -> Agent {
     }
 }
 
-/// Build a bag from explicit agents, in hand on the first.
 fn bag_of(agents: Vec<Agent>) -> Bag {
     Bag {
         codex_startup: None,
@@ -2546,7 +2447,6 @@ fn bag_of(agents: Vec<Agent>) -> Bag {
     }
 }
 
-/// Convenience: a bag of single-mode boxes with the given availabilities.
 fn boxes(avail: &[bool]) -> Bag {
     bag_of(
         avail
@@ -2562,8 +2462,6 @@ fn route_choices_reuse_one_snapshot_across_idle_maintenance() {
     let mut bag = Bag::for_reasoning_render_test();
     let first = bag.route_choices();
 
-    // This is the ordinary idle-loop sequence. It must remain allocation-free
-    // while discovery, selection, availability, and route state are unchanged.
     for _ in 0..32 {
         bag.drain_discovered();
         bag.settle_brain();
@@ -2626,7 +2524,6 @@ fn tab_cycles_boxes() {
 
 #[test]
 fn tab_skips_offline_boxes() {
-    // Middle box is fully offline: Tab must hop straight over it.
     let mut bag = boxes(&[true, false, true]);
     bag.cycle();
     assert_eq!(bag.in_hand, 2, "Tab should skip the offline middle box");
@@ -2643,8 +2540,6 @@ fn tab_with_no_other_reachable_box_stays_put() {
 
 #[test]
 fn tabs_hide_offline_boxes_but_keep_in_hand() {
-    // box0 (in_hand) offline, box1 up, box2 offline. Strip shows the in-hand
-    // (flagged down) and the one live box — never the other dead one.
     let bag = boxes(&[false, true, false]);
     let tabs = bag.tabs();
     let seen: Vec<(bool, bool)> = tabs.iter().map(|t| (t.in_hand, t.available)).collect();
@@ -2677,13 +2572,12 @@ fn settle_moves_off_a_fully_offline_box() {
     let mut bag = boxes(&[false, true]);
     bag.settle_in_hand();
     assert_eq!(bag.in_hand, 1);
-    bag.settle_in_hand(); // now up → no-op
+    bag.settle_in_hand();
     assert_eq!(bag.in_hand, 1);
 }
 
 #[test]
 fn subcontrol_cycles_modes_skipping_offline_and_reports_mode() {
-    // One box (alpha) with modes: swarm(up), gemma(up), coder(down).
     let alpha = Agent {
         name: "alpha".to_string(),
         slots: vec![
@@ -2714,7 +2608,6 @@ fn subcontrol_cycles_modes_skipping_offline_and_reports_mode() {
         Some("gemma"),
         "← moves back, still skipping coder"
     );
-    // A single-mode box reports no mode and ignores the subcontrol.
     bag.cycle();
     assert_eq!(bag.in_hand_label(), "gpubox");
     assert_eq!(bag.in_hand_mode().as_deref(), None);
@@ -2724,8 +2617,6 @@ fn subcontrol_cycles_modes_skipping_offline_and_reports_mode() {
 
 #[test]
 fn settle_keeps_the_box_and_switches_to_a_live_mode() {
-    // Active mode (swarm) dies but gemma on the same box is up → stay on the
-    // box, just move the active mode. Don't jump to another box needlessly.
     let alpha = Agent {
         name: "alpha".to_string(),
         slots: vec![slot("swarm", false), slot("gemma", true)],
@@ -2747,8 +2638,6 @@ fn settle_keeps_the_box_and_switches_to_a_live_mode() {
 
 #[test]
 fn tab_landing_settles_onto_a_live_mode() {
-    // box0 up; box1 has a dead default mode but a live second mode. Tab to box1
-    // must land on the live mode, not the dead default.
     let box1 = Agent {
         name: "box1".to_string(),
         slots: vec![slot("dead", false), slot("live", true)],
@@ -2764,14 +2653,11 @@ fn tab_landing_settles_onto_a_live_mode() {
 fn follow_backend_adopts_a_swapped_checkpoint() {
     let club = learned_club("beta", "nex2-mini");
     assert_eq!(club.live_model_name().as_deref(), Some("nex2-mini"));
-    // The rig swaps checkpoints → the club follows the live id.
     club.remember_reported_model(&serde_json::json!({"data": [{"id": "ornith-1.0-35b-turbo"}]}));
     assert_eq!(
         club.live_model_name().as_deref(),
         Some("ornith-1.0-35b-turbo")
     );
-    // A pinned club (configured model) keeps its identity and exposes no live
-    // name, so env pins and SOTA catalog defaults never drift.
     let pinned = HttpClub::new("sota", "http://127.0.0.1:1", "deepseek-v4-pro", None);
     pinned.remember_reported_model(&serde_json::json!({"data": [{"id": "other-model"}]}));
     assert_eq!(pinned.live_model_name(), None);
@@ -2785,7 +2671,6 @@ fn display_label_prefers_the_live_checkpoint() {
         available: Arc::new(AtomicBool::new(true)),
     };
     assert_eq!(live.display_label(), "qwen3.6-27b-mtp-pi-tune");
-    // Fixed-identity slots (practice/swarm/pinned) keep their static label.
     assert_eq!(slot("swarm", true).display_label(), "swarm");
 }
 
@@ -2803,8 +2688,6 @@ fn resolve_driver_matches_a_live_model_id() {
         }],
         active: 0,
     }];
-    // ANGEL_DRIVER can name the live checkpoint (full or short form), not just
-    // a baked-in mode hint.
     assert_eq!(
         resolve_driver(&mut agents, "Qwen3.6-27B-MTP-pi-tune-Q4_K_M.gguf"),
         Some(0)
@@ -2835,9 +2718,6 @@ fn brain_election_scores_the_live_checkpoint() {
         boxed("small", "tiny-7b", &a_up),
         boxed("big", "ornith-1.0-35b-turbo", &b_up),
     ]);
-    // Meta as recorded at assembly, before any live id was known (empty model
-    // ids — the pre-refresh state that used to pin every static slot to the
-    // unknown-size floor).
     let meta = |agent, avail: &Arc<AtomicBool>| SlotMeta {
         agent,
         slot: 0,
@@ -2871,7 +2751,6 @@ fn endpoint_host_port_parses_only_plain_http() {
         parse_endpoint_host_port("http://localhost:8080/v1/"),
         Some(("localhost".to_string(), 8080))
     );
-    // Cloud https URLs and portless endpoints are not scannable fleet targets.
     assert_eq!(
         parse_endpoint_host_port("https://api.deepseek.com/v1"),
         None
@@ -2888,18 +2767,14 @@ fn hydra_targets_take_only_chat_surfaces() {
         {"surface_id": "peer-b:8001", "host_id": "Peer-B",
          "endpoint": "http://127.0.0.1:8001/v1",
          "model_id": "qwen3.6-27b", "roles": ["chat"]},
-        // A gen surface on the same head is not a chat club.
         {"surface_id": "peer-c.trellis.3dgen", "host_id": "peer-c",
          "endpoint": "http://127.0.0.1:18080/v1",
          "model_id": "microsoft/TRELLIS.2-4B", "roles": ["asset.3d", "image-to-3d"]},
-        // Chat, but no scannable plain-http endpoint.
         {"surface_id": "cloud", "host_id": "cloud",
          "endpoint": "https://api.example.com/v1", "roles": ["chat"]},
-        // Chat, bare endpoint, blank host_id.
         {"surface_id": "x", "host_id": "",
          "endpoint": "http://198.51.100.2:8012", "roles": ["chat"]},
     ]});
-    // Every chat surface is another mode of the one `local` box.
     assert_eq!(
         parse_hydra_chat_targets(&v),
         vec![
@@ -2908,7 +2783,6 @@ fn hydra_targets_take_only_chat_surfaces() {
             ("local".to_string(), "198.51.100.2".to_string(), 8012),
         ]
     );
-    // Degenerate replies parse to nothing rather than erroring.
     assert!(parse_hydra_chat_targets(&serde_json::json!({"ok": false})).is_empty());
 }
 
@@ -2963,20 +2837,15 @@ fn private_host_detection_handles_ipv6_and_pool_sizes_for_swarm_waves() {
 
     let _guard = env_lock();
     let saved = std::env::var_os("ANGEL_HTTP_IDLE_CONNECTIONS");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_HTTP_IDLE_CONNECTIONS") };
     assert_eq!(idle_connections_per_host("http://100.64.0.3:8000/v1"), 96);
     assert_eq!(idle_connections_per_host("https://api.deepseek.com/v1"), 16);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_HTTP_IDLE_CONNECTIONS", "80") };
     assert_eq!(idle_connections_per_host("http://100.64.0.3:8000/v1"), 80);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_HTTP_IDLE_CONNECTIONS", "9999") };
     assert_eq!(idle_connections_per_host("http://100.64.0.3:8000/v1"), 512);
     match saved {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_HTTP_IDLE_CONNECTIONS", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_HTTP_IDLE_CONNECTIONS") },
     }
 }
@@ -2985,21 +2854,16 @@ fn private_host_detection_handles_ipv6_and_pool_sizes_for_swarm_waves() {
 fn fleet_scan_thread_count_is_bounded() {
     let _guard = env_lock();
     let saved = std::env::var_os("ANGEL_SCAN_CONCURRENCY");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_SCAN_CONCURRENCY") };
     assert_eq!(scan_concurrency(0), 0);
     assert_eq!(scan_concurrency(4), 4);
     assert_eq!(scan_concurrency(400), 32);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SCAN_CONCURRENCY", "80") };
     assert_eq!(scan_concurrency(400), 80);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SCAN_CONCURRENCY", "9999") };
     assert_eq!(scan_concurrency(400), 256);
     match saved {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_SCAN_CONCURRENCY", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_SCAN_CONCURRENCY") },
     }
 }
@@ -3010,7 +2874,6 @@ fn model_serving_exclusion_policy_is_explicit_and_exact() {
     let _legacy = ScopedEnv::unset("ANGEL_ATLAS_MODEL_SERVING");
     let _excluded = ScopedEnv::unset("ANGEL_MODEL_SERVING_EXCLUDE_HOSTS");
 
-    // No machine name is special by default, including Atlas-shaped names.
     assert!(model_serving_target_allowed("turbo", "192.0.2.4"));
     assert!(model_serving_target_allowed("atlas", "192.0.2.2"));
     assert!(model_serving_target_allowed("atlas-1", "192.0.2.3"));
@@ -3032,15 +2895,12 @@ fn parse_params_picks_largest_b_token() {
     assert_eq!(parse_param_billions("Qwen3.6-27B-MTP-pi-tune"), Some(27.0));
     assert_eq!(parse_param_billions("siq-1-35b-turbo"), Some(35.0));
     assert_eq!(parse_param_billions("deepseek-r1-14b"), Some(14.0));
-    // A version digit not followed by `b` is NOT a param count.
     assert_eq!(parse_param_billions("gemma4"), None);
     assert_eq!(parse_param_billions("nvfp4_model"), None);
 }
 
 #[test]
 fn smartness_ranks_bigger_and_swarm_higher() {
-    // Backend-reported params anchor the score; the swarm amplifies its inner
-    // model (26B gemma4 × 1.5 tops a raw 27B); an unsized model sits on the floor.
     let gpubox = model_smartness("Qwen3.6-27B", Some(27_320_697_856), false);
     let swarm = model_smartness("gemma4", None, true);
     let coder = model_smartness("qwopus-coder", None, false);
@@ -3184,13 +3044,10 @@ fn zai_key_defaults_glm_to_zai_coding_endpoint() {
         "ZHIPU_API_KEY",
         "BIGMODEL_API_KEY",
     ] {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
     }
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ZAI_API_KEY", "test-key") };
     assert_eq!(default_glm_url(), "https://api.z.ai/api/coding/paas/v4");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ZAI_API_KEY") };
 }
 
@@ -3533,13 +3390,10 @@ fn bigmodel_style_keys_keep_bigmodel_glm_endpoint() {
         "ZHIPU_API_KEY",
         "BIGMODEL_API_KEY",
     ] {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
     }
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("BIGMODEL_API_KEY", "test-key") };
     assert_eq!(default_glm_url(), "https://open.bigmodel.cn/api/paas/v4");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("BIGMODEL_API_KEY") };
 }
 
@@ -3579,7 +3433,6 @@ fn glm_catalog_lists_current_and_previous_models_without_duplicates() {
         ]
     );
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_GLM_MODEL", "glm-5.2") };
     let pinned = optional_glm_http_clubs();
     assert_eq!(pinned.len(), 3);
@@ -3593,7 +3446,6 @@ fn glm_catalog_lists_current_and_previous_models_without_duplicates() {
         Some("glm-5.3-flash")
     );
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_GLM_MODEL", "glm-flash") };
     let flash_pin = optional_glm_http_clubs();
     assert_eq!(flash_pin.len(), 3);
@@ -3619,7 +3471,6 @@ fn kimi_code_plan_catalog_serves_its_own_k3_1_ids() {
 
     assert!(is_kimi_code_url("https://api.kimi.com/coding/v1"));
     assert!(!is_kimi_code_url("https://api.moonshot.ai/v1"));
-    // Moonshot's `kimi-k3.1` is a 400 on the plan; nicknames land on `k3.1-pro`.
     assert_eq!(resolve_kimi_model_alias_for("k3.1", true), "k3.1-pro");
     assert_eq!(resolve_kimi_model_alias_for("kimi-k3.1", true), "k3.1-pro");
     assert_eq!(resolve_kimi_model_alias_for("kimi-k3", true), "k3");
@@ -3636,7 +3487,6 @@ fn kimi_code_plan_catalog_serves_its_own_k3_1_ids() {
             ("k3.1-pro-highspeed".to_string(), "k3.1-pro-highspeed".to_string()),
         ]
     );
-    // A K3.1 pin on the plan's own seat canonicalizes instead of 400ing.
     unsafe { std::env::set_var("ANGEL_KIMI_MODEL", "kimi-k3.1") };
     let pinned = optional_kimi_http_clubs();
     assert_eq!(pinned[0].1.model_identity().as_deref(), Some("k3.1-pro"));
@@ -3650,7 +3500,6 @@ fn kimi_catalog_lists_current_and_new_models_without_duplicates() {
     let _model = ScopedEnv::unset("ANGEL_KIMI_MODEL");
     let _kimi_model = ScopedEnv::unset("KIMI_MODEL");
     let _moonshot_model = ScopedEnv::unset("MOONSHOT_MODEL");
-    // Hermetic against an operator's own Kimi Code plan URL.
     let _url = ScopedEnv::unset("ANGEL_KIMI_URL");
     let _kimi_url = ScopedEnv::unset("KIMI_API_URL");
     let _moonshot_url = ScopedEnv::unset("MOONSHOT_API_URL");
@@ -3658,7 +3507,6 @@ fn kimi_catalog_lists_current_and_new_models_without_duplicates() {
     assert_eq!(KIMI_API_MODEL_OPTIONS, &["kimi-k3", "kimi-k3.1"]);
     assert_eq!(resolve_kimi_model_alias("k3.1"), "kimi-k3.1");
     assert_eq!(resolve_kimi_model_alias("Kimi-K3.1"), "kimi-k3.1");
-    // Provider-authored ids and the Kimi Code plan's `k3` pass through.
     assert_eq!(resolve_kimi_model_alias("k3"), "k3");
     assert_eq!(resolve_kimi_model_alias("kimi-k3"), "kimi-k3");
     assert_eq!(
@@ -3679,7 +3527,6 @@ fn kimi_catalog_lists_current_and_new_models_without_duplicates() {
         ]
     );
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_KIMI_MODEL", "kimi-k3.1") };
     let pinned = optional_kimi_http_clubs();
     assert_eq!(pinned.len(), 2);
@@ -3688,7 +3535,6 @@ fn kimi_catalog_lists_current_and_new_models_without_duplicates() {
     assert_eq!(pinned[1].0, "kimi-k3");
     assert_eq!(pinned[1].1.model_identity().as_deref(), Some("kimi-k3"));
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_KIMI_MODEL", "k3.1") };
     let nickname = optional_kimi_http_clubs();
     assert_eq!(nickname.len(), 2);
@@ -3855,13 +3701,11 @@ fn sota_moa_extra_proposers_are_opt_in() {
         "no default extras"
     );
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(key, "glm-5.3") };
     let extras = extra_sota_proposers(&breadth);
     assert_eq!(extras.len(), 1);
     assert_eq!(extras[0].0.label(), "glm-5.3");
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(key, "none") };
     assert!(extra_sota_proposers(&breadth).is_empty());
 }
@@ -3875,11 +3719,8 @@ fn cheap_moa_link_allowlist_can_hard_pin_longcat_only() {
         "ANGEL_SOTA_MOA_EXTRA_PROPOSERS",
     ];
     let _scrub = scrub_sota_moa_env();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(keys[0], "cheap") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(keys[1], "longcat") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(keys[2], "glm-5.3") };
     let links: Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> = vec![
         (
@@ -3913,7 +3754,6 @@ fn sota_moa_role_can_be_pinned_by_live_grok_model_name() {
     let _guard = env_lock();
     let key = "ANGEL_SOTA_MOA_AGG_CLUB";
     let _scrub = scrub_sota_moa_env();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(key, "grok-4.5") };
     let links: Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> = vec![
         (
@@ -3938,8 +3778,6 @@ fn sota_moa_role_can_be_pinned_by_live_grok_model_name() {
 fn sota_moa_aggregate_defaults_to_smartest_link_codex_oauth() {
     let _guard = env_lock();
     let _scrub = scrub_sota_moa_env();
-    // The AGG seat is the deep thinker (tool-capable driver + final synthesis):
-    // it must land on the smartest configured link, never a breadth-tier one.
     let links: Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> = vec![
         (
             "deepseek".to_string(),
@@ -3965,8 +3803,6 @@ fn sota_moa_aggregate_defaults_to_smartest_link_codex_oauth() {
 fn sota_moa_aggregate_degrades_to_next_smartest_without_codex() {
     let _guard = env_lock();
     let _scrub = scrub_sota_moa_env();
-    // With the frontier link absent, the seat walks DOWN the intelligence
-    // ranking (Kimi beats DeepSeek and LongCat) — never sideways to a free tier.
     let links: Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> = vec![
         (
             "longcat".to_string(),
@@ -4013,10 +3849,8 @@ fn longcat_defaults_to_openai_v1_endpoint_and_model() {
         "ANGEL_LONGCAT_MODEL",
         "LONGCAT_MODEL",
     ] {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
     }
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("LONGCAT_API_KEY", "test-key") };
     let Some((alias, club, _)) = optional_sota_http_club(
         "longcat",
@@ -4042,9 +3876,7 @@ fn longcat_defaults_to_openai_v1_endpoint_and_model() {
         "https://api.longcat.chat/openai/v1/chat/completions"
     );
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("LONGCAT_URL", "https://longcat.invalid/openai/v1") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("LONGCAT_MODEL", "longcat-test") };
     assert!(
         optional_sota_http_club(
@@ -4067,7 +3899,6 @@ fn longcat_defaults_to_openai_v1_endpoint_and_model() {
         "ANGEL_LONGCAT_MODEL",
         "LONGCAT_MODEL",
     ] {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
     }
 }
@@ -4086,13 +3917,11 @@ fn smartest_available_skips_dead_and_non_auto() {
     let dead = Arc::new(AtomicBool::new(false));
     let live = Arc::new(AtomicBool::new(true));
     let mut agents = vec![solo("big", false), solo("tiny", true)];
-    // The bigger model is down → the live smaller one wins.
     let m1 = vec![
         meta(0, "huge-70b", true, &dead),
         meta(1, "tiny-7b", true, &live),
     ];
     assert_eq!(smartest_available(&mut agents, &m1), Some(1));
-    // A bigger live model flagged non-auto (openai/practice) is ignored.
     let m2 = vec![
         meta(0, "huge-70b", false, &live),
         meta(1, "tiny-7b", true, &live),
@@ -4100,8 +3929,6 @@ fn smartest_available_skips_dead_and_non_auto() {
     assert_eq!(smartest_available(&mut agents, &m2), Some(1));
 }
 
-/// A club whose reachability is driven by an external flag — lets the live
-/// prober thread be exercised with no network.
 struct FlakyClub {
     up: Arc<AtomicBool>,
 }
@@ -4117,7 +3944,6 @@ impl Club for FlakyClub {
     }
 }
 
-/// Block until `cond` holds or the deadline passes; returns whether it held.
 fn wait_until(deadline: Duration, cond: impl Fn() -> bool) -> bool {
     let start = Instant::now();
     while start.elapsed() < deadline {
@@ -4131,9 +3957,6 @@ fn wait_until(deadline: Duration, cond: impl Fn() -> bool) -> bool {
 
 #[test]
 fn prober_drops_then_restores_a_club_off_the_ui_thread() {
-    // Drive the *real* prober thread with a fast interval and a no-network
-    // club. Proves the probe → hysteresis → flip → recover path actually
-    // runs, not just the seeded-atomic logic.
     let up = Arc::new(AtomicBool::new(true));
     let club: Arc<dyn Club> = Arc::new(FlakyClub {
         up: Arc::clone(&up),
@@ -4142,18 +3965,15 @@ fn prober_drops_then_restores_a_club_off_the_ui_thread() {
     let read = Arc::clone(&bit);
     spawn_prober(vec![(club, bit)], Duration::from_millis(20));
 
-    // While the club reports up, the bit must stay set (a few sweeps).
     std::thread::sleep(Duration::from_millis(120));
     assert!(read.load(Ordering::Relaxed), "stays available while up");
 
-    // Take it down: hysteresis (2 misses) should drop it within a few sweeps.
     up.store(false, Ordering::Relaxed);
     assert!(
         wait_until(Duration::from_secs(2), || !read.load(Ordering::Relaxed)),
         "prober drops a club that stops answering"
     );
 
-    // Bring it back: recovery is immediate on the first success.
     up.store(true, Ordering::Relaxed);
     assert!(
         wait_until(Duration::from_secs(2), || read.load(Ordering::Relaxed)),
@@ -4163,16 +3983,11 @@ fn prober_drops_then_restores_a_club_off_the_ui_thread() {
 
 #[test]
 fn unconfirmed_dead_box_drops_on_first_probe() {
-    // The startup-seed correction: a box only optimistically seeded up (never
-    // verified) must drop on its FIRST failed probe — it can't keep the brain in
-    // hand for two sweeps. This is the fix for a launch landing on a down box
-    // and hard-failing the first message. One sweep fires immediately; the next
-    // is 10s out, so this asserts the drop happened on sweep #1, not via misses.
     let up = Arc::new(AtomicBool::new(false));
     let club: Arc<dyn Club> = Arc::new(FlakyClub {
         up: Arc::clone(&up),
     });
-    let bit = Arc::new(AtomicBool::new(true)); // optimistic seed, never confirmed
+    let bit = Arc::new(AtomicBool::new(true));
     let read = Arc::clone(&bit);
     spawn_prober(vec![(club, bit)], Duration::from_secs(10));
     assert!(
@@ -4183,33 +3998,26 @@ fn unconfirmed_dead_box_drops_on_first_probe() {
 
 #[test]
 fn prober_step_corrects_unproven_seed_but_holds_confirmed() {
-    // Unproven optimistic seed (never confirmed) drops on the first failed probe.
     let v = prober_step(false, false, 0);
     assert!(!v.available && !v.confirmed, "unproven seed drops at once");
 
-    // A successful probe always publishes up and confirms (and clears misses).
     let v = prober_step(true, false, 3);
     assert!(v.available && v.confirmed && v.misses == 0);
 
-    // Anti-flap: a CONFIRMED box survives a single miss (1 < threshold of 2)…
     let v = prober_step(false, true, 0);
     assert!(
         v.available && v.misses == 1,
         "one miss must not drop a confirmed box"
     );
-    // …but drops once consecutive misses reach the threshold.
     let v = prober_step(false, true, 1);
     assert!(
         !v.available && v.misses == 2,
         "second consecutive miss drops it"
     );
 
-    // The miss counter saturates rather than overflowing the u8.
     let v = prober_step(false, true, u8::MAX);
     assert!(!v.available && v.misses == u8::MAX);
 }
-
-// --- transport hardening (pure, no network) ------------------------------
 
 #[test]
 fn retryable_statuses_are_transient_only() {
@@ -4223,23 +4031,18 @@ fn retryable_statuses_are_transient_only() {
 
 #[test]
 fn quota_exhaustion_is_distinguished_from_transient_rate_limit() {
-    // The real payload that motivated this: a weekly/monthly plan cap.
     assert!(is_quota_exhausted(
         r#"{"error":{"code":"1310","message":"Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-07-03 11:33:39"}}"#
     ));
     assert!(is_quota_exhausted(
         r#"{"error":{"message":"You have exhausted your monthly quota"}}"#
     ));
-    // A transient per-minute limit must stay retryable (must NOT match).
     assert!(!is_quota_exhausted(
         r#"{"error":{"message":"Rate limit exceeded, please try again in 3s"}}"#
     ));
     assert!(!is_quota_exhausted("Too Many Requests"));
 }
 
-/// A transient request-window 429 gets a retry ladder independent of the
-/// ordinary transport/5xx ladder. This is the production shape emitted by Z.ai
-/// when a large GLM fanout briefly outruns account concurrency.
 #[test]
 fn transient_429_uses_independent_retry_budget() {
     let _guard = env_lock();
@@ -4301,9 +4104,6 @@ fn transient_429_uses_independent_retry_budget() {
     assert_eq!(hits.load(Ordering::SeqCst), 4);
 }
 
-/// A weekly/monthly-exhaustion 429 is fatal: the client returns after a single
-/// request instead of sleeping through the retry budget on a quota that won't
-/// reset for days.
 #[test]
 fn quota_exhausted_429_fails_fast_without_retry() {
     use std::io::{Read, Write};
@@ -4343,9 +4143,6 @@ fn quota_exhausted_429_fails_fast_without_retry() {
         "must not retry a quota that won't reset for days"
     );
 
-    // The 429 armed the circuit breaker: the next call fails instantly with
-    // the cooldown message and provider detail, without touching the network,
-    // and the club reports itself unavailable/cooling for routing purposes.
     let err2 = club
         .chat(&[ChatMsg::user("hi again")], &[])
         .expect_err("a cooling-down quota gate fails the call immediately");
@@ -4363,9 +4160,6 @@ fn quota_exhausted_429_fails_fast_without_retry() {
     );
 }
 
-/// The failover trigger fires on real plan-cap payloads (raw 429 body or the
-/// gate's own cooldown message) and never on transient limits or unrelated
-/// errors — failing over on a plain 429 would double-spend on a healthy link.
 #[test]
 fn quota_error_predicate_matches_exhaustion_not_transient_429() {
     assert!(error_indicates_quota_exhausted(
@@ -4407,16 +4201,13 @@ fn backoff_doubles_then_caps_without_overflow() {
     assert_eq!(backoff_delay(base, cap, 1), Duration::from_millis(1000));
     assert_eq!(backoff_delay(base, cap, 2), Duration::from_millis(2000));
     assert_eq!(backoff_delay(base, cap, 3), Duration::from_millis(4000));
-    // 8000ms would be the next double; it pins to the 8s cap and stays there.
     assert_eq!(backoff_delay(base, cap, 4), cap);
     assert_eq!(backoff_delay(base, cap, 5), cap);
-    // A wildly large shift must not overflow — just cap.
     assert_eq!(backoff_delay(base, cap, 1000), cap);
 }
 
 #[test]
 fn jittered_zero_ratio_is_identity() {
-    // ratio 0 preserves the old deterministic backoff exactly.
     let d = Duration::from_millis(4000);
     assert_eq!(jittered(d, 0.0), d);
     assert_eq!(jittered(d, -1.0), d);
@@ -4424,9 +4215,6 @@ fn jittered_zero_ratio_is_identity() {
 
 #[test]
 fn jittered_stays_within_equal_jitter_bounds() {
-    // With ratio 0.5 the wait must land in [d/2, d] — never longer than the
-    // computed backoff (so the cap still holds) and never below the floor
-    // (so retries don't busy-spin). Sample many times to exercise the rng.
     let d = Duration::from_millis(4000);
     for _ in 0..1000 {
         let w = jittered(d, 0.5);
@@ -4435,7 +4223,6 @@ fn jittered_stays_within_equal_jitter_bounds() {
             "jittered out of [2000,4000]ms bounds: {w:?}"
         );
     }
-    // ratio 1.0 = full jitter: floor drops to 0, never exceeds d.
     for _ in 0..1000 {
         let w = jittered(d, 1.0);
         assert!(w <= d, "full jitter exceeded d: {w:?}");
@@ -4450,9 +4237,6 @@ fn jitter_fraction_is_in_unit_interval() {
     }
 }
 
-// --- FallbackClub doubles ---------------------------------------------
-/// Errors from `respond` (so the default chat/chat_streaming error *before*
-/// emitting anything — the failover-eligible case).
 struct FailClub(&'static str);
 impl Club for FailClub {
     fn respond(&self, _p: &str) -> Result<String, String> {
@@ -4462,7 +4246,6 @@ impl Club for FailClub {
         self.0
     }
 }
-/// Records whether it was ever asked to chat (to prove it was/wasn't reached).
 struct SpyClub(Arc<AtomicBool>);
 impl Club for SpyClub {
     fn respond(&self, _p: &str) -> Result<String, String> {
@@ -4473,7 +4256,6 @@ impl Club for SpyClub {
         "spy"
     }
 }
-/// Emits a token, then dies mid-stream (a reply that can't be replayed).
 struct PartialClub;
 impl Club for PartialClub {
     fn respond(&self, _p: &str) -> Result<String, String> {
@@ -4608,8 +4390,8 @@ fn parse_reset_duration_handles_bare_and_suffixed() {
     let ms = parse_reset_duration("20ms").unwrap();
     assert!(ms >= Duration::from_millis(19) && ms <= Duration::from_millis(21));
     assert_eq!(parse_reset_duration(""), None);
-    assert_eq!(parse_reset_duration("5x"), None); // unknown unit
-    assert_eq!(parse_reset_duration("5m3"), None); // trailing unitless number
+    assert_eq!(parse_reset_duration("5x"), None);
+    assert_eq!(parse_reset_duration("5m3"), None);
 }
 
 #[test]
@@ -4625,10 +4407,8 @@ fn parse_rate_limit_headers_reads_remaining_and_reset() {
         parse_rate_limit_headers(|k| h.get(k).cloned()),
         Some((0, Duration::from_secs(2)))
     );
-    // Missing remaining header → None (proactive backoff never engages).
     let empty: HashMap<String, String> = HashMap::new();
     assert_eq!(parse_rate_limit_headers(|k| empty.get(k).cloned()), None);
-    // Remaining present, reset missing → conservative 1s default.
     let mut h2 = HashMap::new();
     h2.insert(
         "x-ratelimit-remaining-requests".to_string(),
@@ -4681,10 +4461,6 @@ fn fallback_honors_cancel_without_calling_clubs() {
     );
 }
 
-// --- Reasoning-effort broadcast double --------------------------------
-/// A minimal Club that accepts a fixed set of reasoning-effort values,
-/// storing the canonical lowercase one it last accepted (Mutex so the impl
-/// stays `&self`). Rejected values leave state untouched and return None.
 struct EffortClub {
     label: &'static str,
     accepted: &'static [&'static str],
@@ -4715,8 +4491,6 @@ impl Club for EffortClub {
     }
 }
 
-/// Chat-side double: records the per-call effort each `chat_with_effort`
-/// receives, optionally failing so the chain advances to the next member.
 struct ChatEffortRecorder {
     label: &'static str,
     fail: bool,
@@ -4767,7 +4541,6 @@ fn fallback_chat_forwards_per_call_effort_to_the_answering_member() {
     ]);
     let reply = fc.chat_with_effort(&[ChatMsg::user("hi")], &[], Some("high"));
     assert!(matches!(reply, Ok(ClubReply::Text(t)) if t == "ok"));
-    // The seat's effort request rode the call through the failover.
     assert_eq!(
         primary.seen.lock().unwrap().as_slice(),
         &[Some("high".to_string())]
@@ -4846,9 +4619,7 @@ fn retry_after_parses_delta_seconds_and_clamps() {
     let cap = Duration::from_secs(8);
     assert_eq!(retry_after(Some("5"), cap), Some(Duration::from_secs(5)));
     assert_eq!(retry_after(Some("  3 "), cap), Some(Duration::from_secs(3)));
-    // Over the cap clamps down.
     assert_eq!(retry_after(Some("999"), cap), Some(cap));
-    // HTTP-date form and garbage are ignored (fall back to computed backoff).
     assert_eq!(
         retry_after(Some("Wed, 21 Oct 2026 07:28:00 GMT"), cap),
         None
@@ -4868,11 +4639,9 @@ fn extract_api_error_handles_envelope_shapes() {
     let stringy = serde_json::json!({ "error": "bad request" });
     assert_eq!(extract_api_error(&stringy).as_deref(), Some("bad request"));
 
-    // An object error with no `message` still yields *something* to surface.
     let coded = serde_json::json!({ "error": { "code": 500 } });
     assert!(extract_api_error(&coded).is_some());
 
-    // A normal, healthy response is not an error.
     let ok = serde_json::json!({ "choices": [ { "message": { "content": "hi" } } ] });
     assert_eq!(extract_api_error(&ok), None);
 }
@@ -4885,10 +4654,8 @@ fn truncate_json_caps_long_bodies() {
     let big = serde_json::json!({ "junk": "x".repeat(500) });
     let out = truncate_json(&big, 64);
     assert!(out.ends_with('…'));
-    assert_eq!(out.chars().count(), 65); // 64 chars + the ellipsis
+    assert_eq!(out.chars().count(), 65);
 }
-
-// --- SSE streaming (pure parse/accumulate, no network) -------------------
 
 #[test]
 fn sse_line_decoding() {
@@ -4897,7 +4664,6 @@ fn sse_line_decoding() {
         _ => panic!("expected a chunk"),
     }
     assert!(matches!(parse_sse_line("data: [DONE]"), SseEvent::Done));
-    // Keep-alive comment, blank separator, and garbage all ignored.
     assert!(matches!(parse_sse_line(": ping"), SseEvent::Ignore));
     assert!(matches!(parse_sse_line(""), SseEvent::Ignore));
     assert!(matches!(parse_sse_line("data: not json"), SseEvent::Ignore));
@@ -4910,7 +4676,7 @@ fn stream_accumulates_text_deltas_and_forwards_them() {
     for piece in ["Hel", "lo", " world"] {
         let chunk = serde_json::json!({ "choices": [ { "delta": { "content": piece } } ] });
         if let Some(d) = acc.apply_chunk(&chunk).content {
-            live.push_str(&d); // what the UI sink would receive, live
+            live.push_str(&d);
         }
     }
     assert_eq!(live, "Hello world");
@@ -4922,8 +4688,6 @@ fn stream_accumulates_text_deltas_and_forwards_them() {
 
 #[test]
 fn stream_separates_reasoning_from_content() {
-    // Reasoning models stream `reasoning_content` separately; it must surface
-    // on its own channel and never leak into the final answer.
     let mut acc = StreamAccumulator::default();
     let d1 = acc.apply_chunk(
         &serde_json::json!({ "choices": [ { "delta": { "reasoning_content": "let me think" } } ] }),
@@ -4943,7 +4707,6 @@ fn stream_separates_reasoning_from_content() {
 #[test]
 fn stream_assembles_tool_call_across_chunks() {
     let mut acc = StreamAccumulator::default();
-    // id + name land first; argument JSON streams as fragments.
     let chunks = [
         serde_json::json!({ "choices": [ { "delta": { "tool_calls": [
                 { "index": 0, "id": "call_1", "function": { "name": "shell", "arguments": "" } } ] } } ] }),
@@ -4962,15 +4725,182 @@ fn stream_assembles_tool_call_across_chunks() {
             assert_eq!(calls.len(), 1);
             assert_eq!(calls[0].id, "call_1");
             assert_eq!(calls[0].name, "shell");
-            assert_eq!(calls[0].args["cmd"], "ls"); // fragments parsed into JSON
+            assert_eq!(calls[0].args["cmd"], "ls");
         }
         _ => panic!("expected tool calls"),
     }
 }
 
+fn apply_arg_chunk(
+    acc: &mut StreamAccumulator,
+    index: u64,
+    id: Option<&str>,
+    name: Option<&str>,
+    arguments: serde_json::Value,
+) -> ChunkDelta {
+    let mut call = serde_json::json!({ "index": index, "function": { "arguments": arguments } });
+    if let Some(id) = id {
+        call["id"] = serde_json::json!(id);
+    }
+    if let Some(name) = name {
+        call["function"]["name"] = serde_json::json!(name);
+    }
+    acc.apply_chunk(&serde_json::json!({ "choices": [{ "delta": { "tool_calls": [call] } }] }))
+}
+
+#[test]
+fn carbon_stream_folds_cumulative_argument_snapshots() {
+    let mut acc = StreamAccumulator::default().with_cumulative_tool_args();
+    let snapshots = [
+        r#"{"path":"#,
+        r##"{"path":"MORNING.md""##,
+        r#"{"path":"MORNING.md"}"#,
+    ];
+    for (i, args) in snapshots.iter().enumerate() {
+        let activity = apply_arg_chunk(
+            &mut acc,
+            0,
+            (i == 0).then_some("call_1"),
+            (i == 0).then_some("read_file"),
+            serde_json::json!(args),
+        );
+        assert!(activity.model_activity, "a grown snapshot is new arguments");
+    }
+    let repeat = apply_arg_chunk(&mut acc, 0, None, None, serde_json::json!(snapshots[2]));
+    assert!(!repeat.model_activity);
+    match acc.into_reply(true) {
+        ClubReply::Calls(calls) => {
+            assert_eq!(calls.len(), 1);
+            assert_eq!(calls[0].id, "call_1");
+            assert_eq!(calls[0].name, "read_file");
+            assert_eq!(calls[0].args["path"], "MORNING.md");
+            assert!(calls[0].args.get("__angel_unrecoverable_tool_args").is_none());
+        }
+        other => panic!("expected the folded read, got {other:?}"),
+    }
+}
+
+#[test]
+fn carbon_stream_collapses_repeated_empty_object_snapshots() {
+    let mut acc = StreamAccumulator::default().with_cumulative_tool_args();
+    for _ in 0..2 {
+        apply_arg_chunk(
+            &mut acc,
+            0,
+            Some("call_1"),
+            Some("shell"),
+            serde_json::json!("{}"),
+        );
+    }
+    match acc.into_reply(true) {
+        ClubReply::Calls(calls) => assert_eq!(calls[0].args, serde_json::json!({})),
+        other => panic!("expected one empty object, got {other:?}"),
+    }
+}
+
+#[test]
+fn carbon_stream_replaces_a_grown_object_snapshot_that_is_not_a_prefix() {
+    let mut acc = StreamAccumulator::default().with_cumulative_tool_args();
+    apply_arg_chunk(
+        &mut acc,
+        0,
+        Some("call_1"),
+        Some("read_file"),
+        serde_json::json!({"path": "MORNING.md"}),
+    );
+    apply_arg_chunk(
+        &mut acc,
+        0,
+        None,
+        None,
+        serde_json::json!({"path": "MORNING.md", "offset": 1}),
+    );
+    apply_arg_chunk(&mut acc, 0, None, None, serde_json::json!({}));
+    match acc.into_reply(true) {
+        ClubReply::Calls(calls) => {
+            assert_eq!(calls[0].args["path"], "MORNING.md");
+            assert_eq!(calls[0].args["offset"], 1);
+        }
+        other => panic!("expected the grown object, got {other:?}"),
+    }
+}
+
+#[test]
+fn carbon_stream_folds_each_call_index_on_its_own() {
+    let mut acc = StreamAccumulator::default().with_cumulative_tool_args();
+    apply_arg_chunk(&mut acc, 0, Some("a"), Some("read_file"), serde_json::json!(r#"{"path":"#));
+    apply_arg_chunk(&mut acc, 1, Some("b"), Some("shell"), serde_json::json!("{}"));
+    apply_arg_chunk(&mut acc, 0, None, None, serde_json::json!(r#"{"path":"MORNING.md"}"#));
+    apply_arg_chunk(&mut acc, 1, None, None, serde_json::json!("{}"));
+    match acc.into_reply(true) {
+        ClubReply::Calls(calls) => {
+            assert_eq!(calls.len(), 2);
+            assert_eq!(calls[0].args["path"], "MORNING.md");
+            assert_eq!(calls[1].args, serde_json::json!({}));
+        }
+        other => panic!("expected two independent calls, got {other:?}"),
+    }
+}
+
+#[test]
+fn delta_stream_concatenates_argument_snapshots_and_prefix_fragments() {
+    let mut acc = StreamAccumulator::default();
+    let snapshots = [
+        r#"{"path":"#,
+        r##"{"path":"MORNING.md""##,
+        r#"{"path":"MORNING.md"}"#,
+    ];
+    assert_eq!(snapshots.iter().map(|s| s.len()).sum::<usize>(), 49);
+    for (i, args) in snapshots.into_iter().enumerate() {
+        apply_arg_chunk(
+            &mut acc,
+            0,
+            (i == 0).then_some("call_1"),
+            (i == 0).then_some("read_file"),
+            serde_json::json!(args),
+        );
+    }
+    match acc.into_reply(true) {
+        ClubReply::Calls(calls) => {
+            let invalid = &calls[0].args["__angel_unrecoverable_tool_args"];
+            assert_eq!(invalid["length"], 49);
+            assert_eq!(invalid["digest"], "fnv64:1fb5086e69e63312");
+        }
+        other => panic!("expected the concatenated failure, got {other:?}"),
+    }
+
+    let mut acc = StreamAccumulator::default();
+    for args in ["{}", "{}"] {
+        apply_arg_chunk(&mut acc, 0, Some("call_1"), Some("shell"), serde_json::json!(args));
+    }
+    match acc.into_reply(true) {
+        ClubReply::Calls(calls) => {
+            assert_eq!(
+                calls[0].args["__angel_unrecoverable_tool_args"]["digest"],
+                "fnv64:5d52c65b1031a925"
+            );
+        }
+        other => panic!("expected {{}}, got {other:?}"),
+    }
+
+    let mut acc = StreamAccumulator::default();
+    for args in [r##"{"echo":""##, r##"{"echo":"hi"}"##] {
+        apply_arg_chunk(&mut acc, 0, Some("call_1"), Some("shell"), serde_json::json!(args));
+    }
+    match acc.into_reply(true) {
+        ClubReply::Calls(calls) => {
+            assert!(
+                calls[0].args.get("__angel_unrecoverable_tool_args").is_some(),
+                "a delta that repeats the prefix must stay concatenated, got {}",
+                calls[0].args
+            );
+        }
+        other => panic!("expected concatenated deltas, got {other:?}"),
+    }
+}
+
 #[test]
 fn stream_prefers_tool_calls_over_preamble_text() {
-    // Preamble text then a tool call → Calls wins, matching the blocking path.
     let mut acc = StreamAccumulator::default();
     acc.apply_chunk(
         &serde_json::json!({ "choices": [ { "delta": { "content": "let me check" } } ] }),
@@ -5027,10 +4957,6 @@ fn stream_recovers_xml_function_tool_envelope() {
 
 #[test]
 fn stream_keeps_wrapper_looking_text_when_no_tools_offered() {
-    // The SOTA-MOA quorum failure seen live: a text-only swarm worker's draft
-    // *quoted* tool-call syntax, prose recovery turned the draft into Calls,
-    // and the swarm rejected it ("requested a tool (none offered)"). With no
-    // tools offered there is nothing to execute — the draft must stay Text.
     let mut acc = StreamAccumulator::default();
     acc.apply_chunk(&serde_json::json!({ "choices": [ { "delta": { "content":
             "The parser looks for <tool_call><function=shell>{\"cmd\":\"ls\"}</function></tool_call> wrappers." } } ] }));
@@ -5042,7 +4968,6 @@ fn stream_keeps_wrapper_looking_text_when_no_tools_offered() {
 
 #[test]
 fn raw_tool_markup_detector_flags_unexecuted_wrappers_only() {
-    // Bare wrappers in chat text — the model "called" a tool that never ran.
     assert!(contains_raw_tool_markup(
         r#"<tool_call name="shell">{"command":"ls"}</tool_call>"#
     ));
@@ -5064,16 +4989,13 @@ fn raw_tool_markup_detector_flags_unexecuted_wrappers_only() {
     assert!(contains_raw_tool_markup(
         r#"<PARAMETER=command>cd /tmp && pwd</parameter>"#
     ));
-    // Shouted tag counts even when its JSON is too mangled to recover.
     assert!(contains_raw_tool_markup(r#"<SHELL>{cmd: pwd}"#));
-    // Quoted syntax is exempt: fenced blocks and inline code spans.
     assert!(!contains_raw_tool_markup(
         "never print `<tool_call>` markup as chat text"
     ));
     assert!(!contains_raw_tool_markup(
         "```rust\nrest.find(\"<tool_call\");\n<SHELL>{\"cmd\":\"x\"}\n```"
     ));
-    // Ordinary prose, generics, placeholders, comparisons.
     assert!(!contains_raw_tool_markup("use Vec<STRING> where a < b"));
     assert!(!contains_raw_tool_markup("replace <TOKEN> with your key"));
     assert!(!contains_raw_tool_markup("Status report:\n- Workspace: ok"));
@@ -5081,9 +5003,6 @@ fn raw_tool_markup_detector_flags_unexecuted_wrappers_only() {
 
 #[test]
 fn stream_recovers_named_attr_tool_call_envelope() {
-    // The failure seen live: after a "forcing tool use" nudge the model
-    // streamed `<tool_call name="shell">{args}</tool_call>` as content. It
-    // must come back as Calls, not as a Text answer full of raw XML.
     let mut acc = StreamAccumulator::default();
     for piece in [
         "I'll inspect the workspace.\n<tool_call name=\"shell\">\n",
@@ -5144,8 +5063,6 @@ fn extracts_bare_invocation_sequence_only_when_all_tool_syntax() {
 
 #[test]
 fn stream_absorbs_non_streaming_message_shape() {
-    // A server that ignored `stream:true` returns the whole `message`; the
-    // accumulator still extracts the answer rather than reporting it empty.
     let mut acc = StreamAccumulator::default();
     let full = serde_json::json!({
         "choices": [ { "message": { "content": "complete answer" }, "finish_reason": "stop" } ]
@@ -5160,10 +5077,6 @@ fn stream_absorbs_non_streaming_message_shape() {
     }
 }
 
-/// End-to-end streaming over a real localhost socket: exercises the whole
-/// `chat_streaming` HTTP path (send → `into_reader` → line reads → SSE parse →
-/// accumulate → live delta forwarding) against a canned event-stream, with no
-/// external network. This covers the integration the pure tests above can't.
 #[test]
 fn http_club_streams_text_over_a_real_socket() {
     use std::io::Write;
@@ -5174,7 +5087,6 @@ fn http_club_streams_text_over_a_real_socket() {
 
     let server = std::thread::spawn(move || {
         let (mut sock, _) = listener.accept().unwrap();
-        // Drain the request so the client's write completes, then stream.
         let _request = read_http_request(&mut sock);
         let body = concat!(
             "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n",
@@ -5184,8 +5096,6 @@ fn http_club_streams_text_over_a_real_socket() {
             "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
             "data: [DONE]\n\n",
         );
-        // No Content-Length: `Connection: close` delimits the body by EOF, the
-        // way real event-streams keep the socket open then end it.
         let resp = format!(
             "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n{body}"
         );
@@ -5204,11 +5114,85 @@ fn http_club_streams_text_over_a_real_socket() {
     server.join().unwrap();
     let reply = reply.unwrap();
 
-    // Deltas were forwarded live, in order (the keep-alive comment skipped).
     assert_eq!(deltas, vec!["Hello".to_string(), ", world".to_string()]);
     match reply {
         ClubReply::Text(t) => assert_eq!(t, "Hello, world"),
         other => panic!("expected text reply, got {other:?}"),
+    }
+}
+
+fn cumulative_argument_sse() -> String {
+    let snapshots = [
+        r#"{"path":"#,
+        r##"{"path":"MORNING.md""##,
+        r#"{"path":"MORNING.md"}"#,
+    ];
+    let mut body = String::new();
+    for (i, args) in snapshots.iter().enumerate() {
+        let mut call = serde_json::json!({
+            "index": 0,
+            "function": { "arguments": args }
+        });
+        if i == 0 {
+            call["id"] = serde_json::json!("call_1");
+            call["type"] = serde_json::json!("function");
+            call["function"]["name"] = serde_json::json!("read_file");
+        }
+        let chunk = serde_json::json!({ "choices": [{ "delta": { "tool_calls": [call] } }] });
+        body.push_str("data: ");
+        body.push_str(&chunk.to_string());
+        body.push_str("\n\n");
+    }
+    body.push_str("data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n");
+    body.push_str("data: [DONE]\n\n");
+    body
+}
+
+fn serve_sse(body: String) -> (String, std::thread::JoinHandle<()>) {
+    use std::io::Write;
+    use std::net::TcpListener;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let handle = std::thread::spawn(move || {
+        let (mut sock, _) = listener.accept().unwrap();
+        let _request = read_http_request(&mut sock);
+        let resp = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n{body}"
+        );
+        sock.write_all(resp.as_bytes()).unwrap();
+    });
+    (format!("http://{addr}"), handle)
+}
+
+#[test]
+fn carbon_http_stream_folds_cumulative_tool_arguments() {
+    let (base, server) = serve_sse(cumulative_argument_sse());
+    let club = HttpClub::new("carbon", base, "gemini-4-carbon", None).with_gemini_thought_signatures();
+    let reply = club
+        .chat_streaming(&[ChatMsg::user("read the note")], &[], &AtomicBool::new(false), &mut |_| {})
+        .expect("carbon stream completes");
+    server.join().unwrap();
+    match reply {
+        ClubReply::Calls(calls) => {
+            assert_eq!(calls[0].name, "read_file");
+            assert_eq!(calls[0].args["path"], "MORNING.md");
+        }
+        other => panic!("expected a folded tool call, got {other:?}"),
+    }
+
+    let (base, server) = serve_sse(cumulative_argument_sse());
+    let club = HttpClub::new("generic", base, "m", None);
+    let reply = club
+        .chat_streaming(&[ChatMsg::user("read the note")], &[], &AtomicBool::new(false), &mut |_| {})
+        .expect("generic stream completes");
+    server.join().unwrap();
+    match reply {
+        ClubReply::Calls(calls) => {
+            let invalid = &calls[0].args["__angel_unrecoverable_tool_args"];
+            assert_eq!(invalid["length"], 49);
+            assert_eq!(invalid["digest"], "fnv64:1fb5086e69e63312");
+        }
+        other => panic!("expected concatenated arguments, got {other:?}"),
     }
 }
 
@@ -5323,8 +5307,6 @@ fn interrupted_stream_marker_is_visible_and_normalizes_trailing_space() {
 
 #[test]
 fn http_club_rejects_stream_cutoff_finish_reason_length() {
-    // This assertion describes a native provider limit, not an operator cap.
-    // Serialize with cap-mutating tests and scrub both cached input sources.
     let _guard = env_lock();
     let _global = ScopedEnv::unset("ANGEL_CLUB_MAX_TOKENS");
     let _per_club = ScopedEnv::unset("ANGEL_TEST_MAX_TOKENS");
@@ -5363,10 +5345,6 @@ fn http_club_rejects_stream_cutoff_finish_reason_length() {
     );
 }
 
-/// Serve one canned raw HTTP response over localhost, returning the base URL
-/// and the server handle. Drains the request first, then — after writing —
-/// blocks on a final read until the client closes, so a buffered `into_json`
-/// finishes reading the body before the socket goes away (no spurious RST).
 fn serve_once(response: String) -> (String, std::thread::JoinHandle<()>) {
     use std::io::{Read, Write};
     use std::net::TcpListener;
@@ -5378,14 +5356,11 @@ fn serve_once(response: String) -> (String, std::thread::JoinHandle<()>) {
         let _ = sock.read(&mut buf);
         let _ = sock.write_all(response.as_bytes());
         let _ = sock.flush();
-        // Wait for the client to finish reading and hang up (read → 0).
         let _ = sock.read(&mut buf);
     });
     (format!("http://{addr}"), handle)
 }
 
-/// A `200 application/json` fixture with a correct `Content-Length`, so the
-/// buffered path reads an exact body rather than depending on EOF timing.
 fn json_response(body: &str) -> String {
     format!(
         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\
@@ -5394,7 +5369,6 @@ fn json_response(body: &str) -> String {
     )
 }
 
-/// An HTTP error response with a JSON body, for teaching-from-rejection tests.
 fn http_response(status: &str, body: &str) -> String {
     format!(
         "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\
@@ -5403,9 +5377,6 @@ fn http_response(status: &str, body: &str) -> String {
     )
 }
 
-/// A SOTA-tuned link keeps a reply cut off at the token cap as usable material
-/// (marked) rather than discarding it — the buffered path a MoA proposer uses.
-/// This is the direct fix for the MoA "cutting out" on a long instruction.
 #[test]
 fn buffered_sota_link_keeps_truncated_prose() {
     let _guard = env_lock();
@@ -5435,8 +5406,6 @@ fn buffered_sota_link_keeps_truncated_prose() {
     assert_eq!(club.truncation_usage().retained_partials, 1);
 }
 
-/// The default (main tool-loop) club still fails closed on a cut-off reply, so
-/// a truncated answer never silently reaches the user or a tool-calling turn.
 #[test]
 fn buffered_untuned_club_rejects_truncated_prose() {
     let _guard = env_lock();
@@ -5458,8 +5427,6 @@ fn buffered_untuned_club_rejects_truncated_prose() {
     );
 }
 
-/// A truncated *tool call* has half-written args, so even a tuned link must
-/// fail closed rather than keep it — the safety invariant the fix preserves.
 #[test]
 fn truncated_tool_call_fails_closed_even_on_sota_link() {
     let _guard = env_lock();
@@ -5481,8 +5448,6 @@ fn truncated_tool_call_fails_closed_even_on_sota_link() {
     );
 }
 
-/// Streaming variant: the tuned link keeps the prose it already streamed when
-/// the stream ends on `finish_reason=length`.
 #[test]
 fn stream_sota_link_keeps_truncated_prose() {
     let _guard = env_lock();
@@ -5517,8 +5482,6 @@ fn stream_sota_link_keeps_truncated_prose() {
     assert_eq!(club.truncation_usage().retained_partials, 1);
 }
 
-/// SOTA and local links both leave output length provider-native by default;
-/// an explicit operator override still wins.
 #[test]
 fn sota_link_omits_product_side_max_tokens_default() {
     let _guard = env_lock();
@@ -5556,8 +5519,6 @@ fn sota_link_omits_product_side_max_tokens_default() {
 
 #[test]
 fn max_tokens_env_override_beats_sota_default() {
-    // A per-club name nothing else touches, so setting its env key can't race
-    // another test's body assertion.
     let key = "ANGEL_MOA_OVERRIDE_PROBE_MAX_TOKENS";
     let _guard = env_lock();
     let _global = ScopedEnv::set("ANGEL_CLUB_MAX_TOKENS", "4096");
@@ -5584,9 +5545,6 @@ fn max_tokens_env_override_beats_sota_default() {
     );
 }
 
-/// GLM-5.3 on z.ai/BigModel sends the API's own output ceiling when no
-/// operator cap is set; a self-hosted GLM stays provider-native and the
-/// per-club knob still wins.
 #[test]
 fn glm_official_route_sends_model_card_output_budget() {
     let _guard = env_lock();
@@ -5686,7 +5644,6 @@ fn openrouter_provider_prefix_can_disable_reasoning_for_model_id_labels() {
     let _guard = env_lock();
     let key = "ANGEL_OPENROUTER_REASONING_EFFORT";
     let previous = std::env::var_os(key);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(key, "none") };
     resync_reasoning_effort_env_from_env();
     let club = HttpClub::new(
@@ -5700,9 +5657,7 @@ fn openrouter_provider_prefix_can_disable_reasoning_for_model_id_labels() {
         .build_body(&[ChatMsg::user("verify this")], &[], false)
         .expect("build OpenRouter body");
     match previous {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(value) => unsafe { std::env::set_var(key, value) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var(key) },
     }
     resync_reasoning_effort_env_from_env();
@@ -5727,7 +5682,6 @@ fn http_set_reasoning_effort_rejects_unknown_value() {
     let _global = ScopedEnv::unset("ANGEL_REASONING_EFFORT");
     resync_reasoning_effort_env_from_env();
     let club = HttpClub::new("deepseek-v4-pro", "http://127.0.0.1:9/v1", "m", None);
-    // Establish a known override, then confirm an invented value leaves it intact.
     assert_eq!(
         club.set_reasoning_effort("medium").as_deref(),
         Some("medium")
@@ -5747,7 +5701,6 @@ fn http_override_beats_env_in_build_body() {
     let body = club
         .build_body(&[ChatMsg::user("hi")], &[], false)
         .expect("build body");
-    // Override wins over the env effort.
     assert_eq!(body["reasoning_effort"], serde_json::json!("high"));
 }
 
@@ -5762,12 +5715,10 @@ fn http_per_call_effort_beats_stored_override_and_env() {
         club.set_reasoning_effort("medium").as_deref(),
         Some("medium")
     );
-    // A seat's per-call request outranks the THINK-deck override and env…
     let body = club
         .build_body_with_effort(&[ChatMsg::user("hi")], &[], false, Some("high"))
         .expect("build body");
     assert_eq!(body["reasoning_effort"], serde_json::json!("high"));
-    // …without writing anything into the club's own state.
     assert_eq!(club.reasoning_effort().as_deref(), Some("medium"));
     let body = club
         .build_body(&[ChatMsg::user("hi")], &[], false)
@@ -5782,8 +5733,6 @@ fn http_env_only_build_body_is_unchanged() {
     let _global = ScopedEnv::unset("ANGEL_REASONING_EFFORT");
     resync_reasoning_effort_env_from_env();
     let club = HttpClub::new("deepseek-v4-pro", "http://127.0.0.1:9/v1", "m", None);
-    // No override: the env effort is sent exactly (byte-identical to the
-    // pre-override env-only behavior).
     let body = club
         .build_body(&[ChatMsg::user("hi")], &[], false)
         .expect("build body");
@@ -5797,8 +5746,6 @@ fn http_non_reasoning_metadata_suppresses_effort() {
     let _global = ScopedEnv::set("ANGEL_REASONING_EFFORT", "high");
     resync_reasoning_effort_env_from_env();
     let club = HttpClub::new("deepseek-v4-pro", "http://127.0.0.1:9/v1", "m", None);
-    // Cache a *declared* "no" (a catalog's supported_parameters said so) —
-    // cached read only, no probe. Only declared truth may gate.
     club.inject_metadata_for_tests(Metadata {
         supports_reasoning: Some(false),
         ..Default::default()
@@ -5809,8 +5756,6 @@ fn http_non_reasoning_metadata_suppresses_effort() {
         .build_body(&[ChatMsg::user("hi")], &[], false)
         .expect("build body");
     assert!(body.get("reasoning_effort").is_none());
-    // Gates must speak: the env-requested effort was withheld and the gate
-    // recorded why, instead of stripping silently.
     let gate = club.effort_gate_usage();
     assert_eq!(gate.withheld, 1);
     let last = gate.last.expect("a withheld effort records its reason");
@@ -5818,15 +5763,11 @@ fn http_non_reasoning_metadata_suppresses_effort() {
         last.contains("withheld") && last.contains("catalog"),
         "{last}"
     );
-    // A per-seat MoA effort hits the same declared gate and is counted as its
-    // own new fact.
     let body = club
         .build_body_with_effort(&[ChatMsg::user("hi")], &[], false, Some("low"))
         .expect("build body");
     assert!(body.get("reasoning_effort").is_none());
     assert_eq!(club.effort_gate_usage().withheld, 2);
-    // The same standing env effort on a later hop is not a new fact — no
-    // re-count, so the turn loop notices once instead of every turn.
     let _ = club
         .build_body(&[ChatMsg::user("hi")], &[], false)
         .expect("build body");
@@ -5841,8 +5782,6 @@ fn http_non_reasoning_metadata_suppresses_effort() {
 fn folklore_names_promote_but_never_declare_no() {
     assert_eq!(folklore_reasoning("deepseek-r1-distill-32b"), Some(true));
     assert_eq!(folklore_reasoning("o3-mini"), Some(true));
-    // An unrecognized name is *unknown*, not a declared "no" — the old boolean
-    // form silently stripped operator effort for every model on this line.
     assert_eq!(folklore_reasoning("tencent/hy3:free"), None);
     assert_eq!(folklore_reasoning("gemma-4-27b-it"), None);
 }
@@ -5870,8 +5809,6 @@ fn catalog_capabilities_reads_by_id_declarations() {
         catalog_capabilities(&catalog, "missing/model"),
         (None, None)
     );
-    // Single-model servers (vLLM) keep the data[0] window and stay unknown on
-    // reasoning — no supported_parameters, no invented declaration.
     let vllm = serde_json::json!({ "data": [ { "id": "m", "max_model_len": 8_192 } ] });
     assert_eq!(catalog_capabilities(&vllm, "m"), (Some(8_192), None));
 }
@@ -5891,7 +5828,6 @@ fn reasoning_rejection_detection_is_conservative() {
         "HTTP 422: chat_template_kwargs is not supported",
         QwenEnableThinking
     ));
-    // Server errors, quota, transport: never a capability lesson.
     assert!(!is_reasoning_field_rejection(
         "HTTP 500: reasoning_effort broke",
         OpenAiEffort
@@ -5900,15 +5836,44 @@ fn reasoning_rejection_detection_is_conservative() {
         "HTTP 429: slow down",
         OpenAiEffort
     ));
-    // A 400 about something else entirely teaches nothing.
     assert!(!is_reasoning_field_rejection(
         "HTTP 400: messages required",
         OpenAiEffort
     ));
-    // Naming another dialect's field is not this dialect's lesson.
     assert!(!is_reasoning_field_rejection(
         "HTTP 400: bad thinking",
         OpenAiEffort
+    ));
+}
+
+#[test]
+fn image_part_rejection_learns_zai_text_only_content_type() {
+    let zai = "HTTP 400: {\"error\":{\"code\":\"1210\",\"message\":\"messages.content.type is invalid, allowed values: ['text']\"}}";
+    assert!(is_image_part_rejection(zai));
+    assert!(is_image_part_rejection(
+        "HTTP 422: messages.content_type is invalid, allowed values: [\"text\"]"
+    ));
+    assert!(is_image_part_rejection(
+        "api error: content.type is not allowed; allowed values: ['text']"
+    ));
+    assert!(is_image_part_rejection(
+        "HTTP 400: image_url is not supported"
+    ));
+    assert!(is_image_part_rejection(
+        "HTTP 400: messages.content.type is invalid, allowed values: ['text', 'image_url']"
+    ));
+    assert!(!is_image_part_rejection(
+        "HTTP 400: messages.content.type is invalid, allowed values: ['text', 'input_audio']"
+    ));
+    assert!(!is_image_part_rejection(
+        "HTTP 400: messages.content.type is invalid, allowed values: ['text', 'video']"
+    ));
+    assert!(!is_image_part_rejection(
+        "HTTP 500: messages.content.type is invalid, allowed values: ['text']"
+    ));
+    assert!(!is_image_part_rejection("HTTP 400: messages required"));
+    assert!(!is_image_part_rejection(
+        "HTTP 400: messages.content.type is invalid"
     ));
 }
 
@@ -5923,9 +5888,6 @@ fn unknown_capability_lights_the_think_deck() {
         "friendly-chat",
         None,
     );
-    // No cached metadata at all: capability is unknown, and unknown never
-    // gates — the deck offers the ladder and the wire carries the choice; a
-    // strict server corrects a wrong guess via the rejection lesson.
     assert_eq!(
         club.reasoning_levels(),
         vec!["none", "low", "medium", "high"]
@@ -5967,7 +5929,6 @@ fn backend_rejection_teaches_strips_and_retries() {
     );
     drop(sent);
     handle.join().unwrap();
-    // The lesson sticks: counted, voiced, and the deck goes dark for this club.
     let gate = club.effort_gate_usage();
     assert_eq!(gate.rejections, 1);
     assert!(gate.last.expect("rejection recorded").contains("rejected"));
@@ -5976,9 +5937,6 @@ fn backend_rejection_teaches_strips_and_retries() {
     assert!(club.reasoning_effort().is_none());
 }
 
-/// Read one full HTTP request (headers + `Content-Length` body) off a socket and
-/// return it as a string, so a test can assert on what actually went over the
-/// wire (the truncation-retry escalation, notably).
 fn read_http_request(sock: &mut std::net::TcpStream) -> String {
     use std::io::Read;
     let mut req = Vec::new();
@@ -6003,10 +5961,6 @@ fn read_http_request(sock: &mut std::net::TcpStream) -> String {
     String::from_utf8_lossy(&req).into_owned()
 }
 
-/// Serve a fixed sequence of canned HTTP responses (one connection each) and
-/// capture the raw request that preceded each — the multi-round sibling of
-/// [`serve_once`]. Once the sequence is exhausted the listener drops, so any
-/// extra connection is refused (a retry loop that over-asks fails visibly).
 fn serve_seq(
     responses: Vec<String>,
 ) -> (String, Arc<Mutex<Vec<String>>>, std::thread::JoinHandle<()>) {
@@ -6042,7 +5996,6 @@ fn serve_seq(
             captured.lock().unwrap().push(req);
             let _ = sock.write_all(response.as_bytes());
             let _ = sock.flush();
-            // Wait for the client to finish reading and hang up (read → 0).
             let mut buf = [0u8; 512];
             let _ = sock.read(&mut buf);
         }
@@ -6050,16 +6003,12 @@ fn serve_seq(
     (format!("http://{addr}"), requests, handle)
 }
 
-/// A tool-call reply cut at the token cap — unusable (half-written args), so the
-/// club fails closed and the truncation retry has something to recover from.
 fn truncated_tool_call_response() -> String {
     json_response(
         r#"{"choices":[{"message":{"tool_calls":[{"id":"c1","function":{"name":"shell","arguments":"{\"cmd\":\"l"}}]},"finish_reason":"length"}]}"#,
     )
 }
 
-/// The pure escalation decision follows the current bounded Hermes ladder:
-/// exponential 2×/4×/8×/16× asks, omitting duplicate ceiling values.
 #[test]
 fn truncation_retry_escalation_decision() {
     assert_eq!(
@@ -6081,18 +6030,12 @@ fn truncation_retry_escalation_decision() {
         vec![16384],
         "one retry remains an exact legacy ablation"
     );
-    // No cap on the wire (local fleet body) → never retry: the cut was the
-    // backend's own completion limit and a bigger ask can't help.
     assert!(truncation_retry_schedule(None, true, 65536, 4).is_empty());
-    // Disabled by the knob.
     assert!(truncation_retry_schedule(Some(8192), false, 65536, 4).is_empty());
-    // Already at/above the ceiling — nothing left to escalate.
     assert!(truncation_retry_schedule(Some(65536), true, 65536, 4).is_empty());
     assert!(truncation_retry_schedule(Some(70000), true, 65536, 4).is_empty());
 }
 
-/// Serve `requests` SSE responses in turn; each pings for `ping_ms` before the
-/// model's first token, then answers "ok" and ends the stream.
 fn serve_pings_then_answer(ping_ms: u64, requests: usize) -> std::net::SocketAddr {
     use std::io::Write;
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -6127,10 +6070,6 @@ fn serve_pings_then_answer(ping_ms: u64, requests: usize) -> std::net::SocketAdd
     addr
 }
 
-/// A model that is still thinking before its first token (reasoning that is not
-/// streamed, or a queued request) is never cut. Observed live: grok-4.7 through
-/// a buffering proxy sent only keep-alives for over 45 s, and the old stall
-/// bound cut and re-sent the same request until the task's wall clock ran out.
 #[test]
 fn keep_alives_before_the_first_token_never_cut_the_call() {
     let _guard = env_lock();
@@ -6155,8 +6094,6 @@ fn keep_alives_before_the_first_token_never_cut_the_call() {
     resync_stream_knobs_from_env();
 }
 
-/// Multiple unusable tool-call truncations progressively get more output room;
-/// recovery is returned as one ordinary tool call without exposing retries.
 #[test]
 fn truncated_tool_call_recovers_on_the_progressive_retry_ladder() {
     let _guard = env_lock();
@@ -6234,8 +6171,6 @@ fn structured_tool_call_with_object_arguments_parses_successfully() {
     }
 }
 
-/// Exhausting all three retries surfaces the original deterministic error and
-/// stops after exactly four total requests.
 #[test]
 fn truncation_retry_ladder_is_hard_bounded_and_keeps_the_original_error() {
     let _guard = env_lock();
@@ -6274,22 +6209,17 @@ fn truncation_retry_ladder_is_hard_bounded_and_keeps_the_original_error() {
     );
 }
 
-/// `ANGEL_TRUNCATION_RETRY=0` restores the old single-shot behavior: the first
-/// truncation surfaces immediately and nothing is re-sent.
 #[test]
 fn truncation_retry_disabled_by_env() {
     let _guard = env_lock();
     let key = "ANGEL_TRUNCATION_RETRY";
     let prev = std::env::var_os(key);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(key, "0") };
     let (base, requests, handle) = serve_seq(vec![truncated_tool_call_response()]);
     let club = HttpClub::new("truncation-retry-off-probe", base, "m", None).sota_tuned();
     let result = club.chat(&[ChatMsg::user("hi")], &[]);
     match prev {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var(key, v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var(key) },
     }
     handle.join().unwrap();
@@ -6309,7 +6239,6 @@ fn truncation_retry_count_env_restores_the_one_retry_control() {
     resync_max_tokens_env_from_env();
     let key = "ANGEL_TRUNCATION_RETRIES";
     let prev = std::env::var_os(key);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(key, "1") };
     let (base, requests, handle) = serve_seq(vec![
         truncated_tool_call_response(),
@@ -6319,9 +6248,7 @@ fn truncation_retry_count_env_restores_the_one_retry_control() {
     club.stage_inferred_output_budget_for_test(8192);
     let result = club.chat(&[ChatMsg::user("hi")], &[]);
     match prev {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(value) => unsafe { std::env::set_var(key, value) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var(key) },
     }
     handle.join().unwrap();
@@ -6345,10 +6272,6 @@ fn truncation_retry_count_env_restores_the_one_retry_control() {
     assert!(requests[1].contains("\"max_tokens\":16384"));
 }
 
-/// The streaming path retries a truncated reply only when nothing has streamed
-/// to the caller yet — an emitted stream can't be replayed without duplicating
-/// output. Here the first stream dies at the cap before any content, so the
-/// retry ladder runs and the caller sees exactly one clean stream.
 #[test]
 fn stream_truncation_retries_when_nothing_streamed() {
     let _guard = env_lock();
@@ -6455,23 +6378,16 @@ fn stream_truncation_never_replays_after_visible_preamble() {
     );
 }
 
-/// `ANGEL_<CLUB>_PROMPT_CACHE` pins the per-club cache key on or off ahead of
-/// capability detection; unset keeps the global gate's behavior byte-identical,
-/// and the explicit global key still always wins.
 #[test]
 fn per_club_prompt_cache_pin_overrides_detection() {
     let _guard = env_lock();
     let key = "ANGEL_CACHE_PIN_PROBE_PROMPT_CACHE";
     let prev = std::env::var_os(key);
     let prev_explicit = std::env::var_os("ANGEL_PROMPT_CACHE_KEY");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_PROMPT_CACHE_KEY") };
     resync_prompt_cache_from_env();
     let club = HttpClub::new("cache-pin-probe", "http://127.0.0.1:9/v1", "m", None);
 
-    // Pinned on: the stable per-club key goes out even though the backend never
-    // proved cache support (no metadata was ever probed).
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(key, "1") };
     resync_prompt_cache_from_env();
     let body = club
@@ -6496,8 +6412,6 @@ fn per_club_prompt_cache_pin_overrides_detection() {
         "concurrent conversations must not share a cache-routing identity"
     );
 
-    // Pinned off: the key is never sent for this club.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(key, "0") };
     resync_prompt_cache_from_env();
     let body = club
@@ -6505,12 +6419,9 @@ fn per_club_prompt_cache_pin_overrides_detection() {
         .expect("build pinned-off body");
     assert!(body.get("prompt_cache_key").is_none(), "{body}");
 
-    // …but the explicit global key still always wins, even over a pin-off.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_PROMPT_CACHE_KEY", "explicit-key") };
     resync_prompt_cache_from_env();
     let body = club.build_body(&[ChatMsg::user("hi")], &[], false);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_PROMPT_CACHE_KEY") };
     resync_prompt_cache_from_env();
     assert_eq!(
@@ -6518,9 +6429,6 @@ fn per_club_prompt_cache_pin_overrides_detection() {
         serde_json::json!("explicit-key")
     );
 
-    // Unset: the global capability-gated default (unknown backend → no key),
-    // byte-identical to before the pin existed.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var(key) };
     resync_prompt_cache_from_env();
     let body = club
@@ -6529,28 +6437,16 @@ fn per_club_prompt_cache_pin_overrides_detection() {
     assert!(body.get("prompt_cache_key").is_none(), "{body}");
 
     match prev {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var(key, v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var(key) },
     }
     match prev_explicit {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_PROMPT_CACHE_KEY", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_PROMPT_CACHE_KEY") },
     }
     resync_prompt_cache_from_env();
 }
 
-/// Measured 2026-08-10: the GLM coding plan (z.ai) and the Kimi Code plan both
-/// run automatic prefix caches with OpenAI-dialect `cached_tokens` accounting
-/// (paired-probe hits of 1920/1946 and 2030/2030 respectively), so both count
-/// as cache-capable and inherit the cache-first defaults alongside DeepSeek.
-/// Grok 4.7 (probed 2026-09-22) reports `cached_tokens` and reasoning tokens
-/// on the same dialect once `include_usage` is requested. An unmeasured
-/// backend stays conservative. The loopback row is the polyglot proxy path:
-/// base_url is not x.ai, the model id still is.
 #[test]
 fn prompt_cache_capability_covers_measured_glm_kimi_and_deepseek_families() {
     let capable = [
@@ -6585,33 +6481,22 @@ fn prompt_cache_capability_covers_measured_glm_kimi_and_deepseek_families() {
     );
 }
 
-/// `ANGEL_STREAM_USAGE` asks streaming bodies to carry
-/// `stream_options.include_usage` so providers that stay silent unless asked
-/// (OpenAI and most gateways) attach cached-token counts to the final SSE
-/// chunk. The per-club pin is read first, a buffered request never carries the
-/// field, and the unset default keeps the body byte-identical.
 #[test]
 fn stream_usage_gate_sends_include_usage_only_when_armed() {
     let _guard = env_lock();
     let global = "ANGEL_STREAM_USAGE";
     let pin = "ANGEL_STREAM_USAGE_PROBE_STREAM_USAGE";
     let prev = [std::env::var_os(global), std::env::var_os(pin)];
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var(global) };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var(pin) };
     resync_stream_usage_pins_from_env();
     let club = HttpClub::new("stream-usage-probe", "http://127.0.0.1:9/v1", "m", None);
 
-    // Unset + unknown backend: byte-identical default body.
     let body = club
         .build_body(&[ChatMsg::user("hi")], &[], true)
         .expect("build default streaming body");
     assert!(body.get("stream_options").is_none(), "{body}");
 
-    // Unset + detected cache-capable backend: the usage frame is requested by
-    // default — a backend with a known prefix cache demonstrably speaks this
-    // dialect, and without the frame the cache meter stays blind.
     let capable = HttpClub::new(
         "stream-usage-probe",
         "http://127.0.0.1:9/v1",
@@ -6625,20 +6510,15 @@ fn stream_usage_gate_sends_include_usage_only_when_armed() {
         body["stream_options"],
         serde_json::json!({ "include_usage": true })
     );
-    // …and the explicit global off overrides detection.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(global, "0") };
     resync_stream_usage_pins_from_env();
     let body = capable
         .build_body(&[ChatMsg::user("hi")], &[], true)
         .expect("build detection-overridden body");
     assert!(body.get("stream_options").is_none(), "{body}");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var(global) };
     resync_stream_usage_pins_from_env();
 
-    // Global on: the streaming body asks for the usage frame…
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(global, "1") };
     resync_stream_usage_pins_from_env();
     let body = club
@@ -6648,14 +6528,11 @@ fn stream_usage_gate_sends_include_usage_only_when_armed() {
         body["stream_options"],
         serde_json::json!({ "include_usage": true })
     );
-    // …but a buffered request never carries it.
     let body = club
         .build_body(&[ChatMsg::user("hi")], &[], false)
         .expect("build armed buffered body");
     assert!(body.get("stream_options").is_none(), "{body}");
 
-    // Per-club off beats the global on.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(pin, "0") };
     resync_stream_usage_pins_from_env();
     let body = club
@@ -6663,10 +6540,7 @@ fn stream_usage_gate_sends_include_usage_only_when_armed() {
         .expect("build pinned-off body");
     assert!(body.get("stream_options").is_none(), "{body}");
 
-    // Per-club on beats the global off.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(global, "0") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(pin, "on") };
     resync_stream_usage_pins_from_env();
     let body = club
@@ -6679,9 +6553,7 @@ fn stream_usage_gate_sends_include_usage_only_when_armed() {
 
     for (key, value) in [global, pin].into_iter().zip(prev) {
         match value {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             Some(v) => unsafe { std::env::set_var(key, v) },
-            // TODO: Audit that the environment access only happens in single-threaded code.
             None => unsafe { std::env::remove_var(key) },
         }
     }
@@ -6698,7 +6570,6 @@ fn openrouter_claude_marks_only_large_supported_system_prefixes_cacheable() {
     ];
     let previous = keys.map(std::env::var_os);
     for key in keys {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
     }
     resync_openrouter_anthropic_cache_from_env();
@@ -6729,7 +6600,6 @@ fn openrouter_claude_marks_only_large_supported_system_prefixes_cacheable() {
     );
     assert_eq!(openrouter.cache_usage().control_requests, 1);
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_ANTHROPIC_CACHE_TTL", "1h") };
     resync_openrouter_anthropic_cache_from_env();
     let one_hour = openrouter
@@ -6741,7 +6611,6 @@ fn openrouter_claude_marks_only_large_supported_system_prefixes_cacheable() {
     );
     assert_eq!(openrouter.cache_usage().control_requests, 2);
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_OPENROUTER_ANTHROPIC_CACHE", "0") };
     resync_openrouter_anthropic_cache_from_env();
     let disabled = openrouter
@@ -6749,7 +6618,6 @@ fn openrouter_claude_marks_only_large_supported_system_prefixes_cacheable() {
         .unwrap();
     assert!(disabled["messages"][0]["content"].is_string());
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_OPENROUTER_ANTHROPIC_CACHE") };
     resync_openrouter_anthropic_cache_from_env();
     let short = openrouter
@@ -6768,8 +6636,6 @@ fn openrouter_claude_marks_only_large_supported_system_prefixes_cacheable() {
         .unwrap();
     assert!(local_body["messages"][0]["content"].is_string());
 
-    // A local gateway in front of OpenRouter keeps the vendor slug, and the
-    // markers pass through it.
     let gateway = HttpClub::new(
         "anthropic/claude-haiku-5.5",
         "http://127.0.0.1:9/v1",
@@ -6797,21 +6663,13 @@ fn openrouter_claude_marks_only_large_supported_system_prefixes_cacheable() {
 
     for (key, value) in keys.into_iter().zip(previous) {
         match value {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             Some(value) => unsafe { std::env::set_var(key, value) },
-            // TODO: Audit that the environment access only happens in single-threaded code.
             None => unsafe { std::env::remove_var(key) },
         }
     }
     resync_openrouter_anthropic_cache_from_env();
 }
 
-/// The OpenRouter Claude path also advances a moving breakpoint on the last
-/// plain-text message so the growing conversation body caches — with only the
-/// system marker, everything after the preamble was re-billed at full price on
-/// every call. Tool-role tails are skipped (their tool_result translation is
-/// the gateway's business) and the total-size floor keeps tiny one-shot bodies
-/// unmarked and byte-identical.
 #[test]
 fn openrouter_claude_moving_tail_breakpoint_caches_the_conversation_body() {
     let _guard = env_lock();
@@ -6822,7 +6680,6 @@ fn openrouter_claude_moving_tail_breakpoint_caches_the_conversation_body() {
     ];
     let previous = keys.map(std::env::var_os);
     for key in keys {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
     }
     resync_openrouter_anthropic_cache_from_env();
@@ -6835,9 +6692,6 @@ fn openrouter_claude_moving_tail_breakpoint_caches_the_conversation_body() {
     );
     let large = "stable system prefix ".repeat(300);
 
-    // The last plain-text message carries the moving marker; intermediate
-    // conversation messages stay plain strings; one control-request count per
-    // request regardless of how many breakpoints were placed.
     let body = openrouter
         .build_body(
             &[
@@ -6861,8 +6715,6 @@ fn openrouter_claude_moving_tail_breakpoint_caches_the_conversation_body() {
     assert!(body["messages"][2]["content"].is_string());
     assert_eq!(openrouter.cache_usage().control_requests, 1);
 
-    // A tool-role tail is never marked; the marker falls back to the last
-    // plain-text message before it.
     let body = openrouter
         .build_body(
             &[
@@ -6889,7 +6741,6 @@ fn openrouter_claude_moving_tail_breakpoint_caches_the_conversation_body() {
         "ephemeral"
     );
 
-    // A tiny one-shot body stays unmarked end to end.
     let short = openrouter
         .build_body(&[ChatMsg::system("short"), ChatMsg::user("hi")], &[], false)
         .unwrap();
@@ -6898,9 +6749,7 @@ fn openrouter_claude_moving_tail_breakpoint_caches_the_conversation_body() {
 
     for (key, value) in keys.into_iter().zip(previous) {
         match value {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             Some(value) => unsafe { std::env::set_var(key, value) },
-            // TODO: Audit that the environment access only happens in single-threaded code.
             None => unsafe { std::env::remove_var(key) },
         }
     }
@@ -6930,8 +6779,6 @@ fn glm_dialect_emits_thinking_block_not_reasoning_effort() {
         .build_body_with_effort(&[ChatMsg::user("hi")], &[], false, Some("NONE"))
         .expect("build body");
     assert_eq!(body["thinking"], serde_json::json!({ "type": "disabled" }));
-    // No effort requested → explicitly disabled (action default). Omitting the
-    // field used to leave Z.ai thinking open and burn multi-hour empty hops.
     let body = club
         .build_body(&[ChatMsg::user("hi")], &[], false)
         .expect("build body");
@@ -6985,8 +6832,6 @@ fn glm_53_flash_keeps_thinking_enabled_and_pins_effort() {
     {
         let _pin = ScopedEnv::set("ANGEL_REASONING_EFFORT", "high");
         resync_reasoning_effort_env_from_env();
-        // These are launch defaults; a fresh club avoids the previous club's
-        // intentional short-lived draw/request effort snapshot.
         let pinned = HttpClub::new(
             "glm-5.3-flash",
             "https://api.z.ai/api/coding/paas/v4",
@@ -7046,7 +6891,6 @@ fn glm_53_locked_ladder_keeps_max_after_a_glm_52_query() {
         "glm-5.3-flash",
         None,
     );
-    // Query the older binary seat first so a shared cache cannot steal `max`.
     assert_eq!(glm52.reasoning_levels(), vec!["none", "high"]);
     assert!(glm52.set_reasoning_effort("max").is_none());
     assert_eq!(glm53.reasoning_levels(), vec!["low", "high", "max"]);
@@ -7141,8 +6985,6 @@ fn glm_dialect_is_capability_truth_over_name_substring_metadata() {
         "glm-5.2",
         None,
     );
-    // Even a *declared* "no" (a catalog claim) yields to a resolved GLM
-    // dialect: the dialect is stronger capability truth for these backends.
     club.inject_metadata_for_tests(Metadata {
         supports_reasoning: Some(false),
         ..Default::default()
@@ -7159,13 +7001,6 @@ fn glm_dialect_is_capability_truth_over_name_substring_metadata() {
     assert_eq!(body["thinking"], serde_json::json!({ "type": "enabled" }));
 }
 
-// ---------------------------------------------------------------------------
-// Outbound provisioning (economizer + optimizer, `provision.rs`)
-// ---------------------------------------------------------------------------
-
-/// An extraction-shaped ask on a metered link earns a tail-side semantic
-/// contract without inventing a numeric output cap; the identical ask on a
-/// local fleet link leaves the body byte-identical.
 #[test]
 fn econ_contract_keeps_extraction_provider_native_by_default() {
     let _guard = env_lock();
@@ -7225,9 +7060,6 @@ fn econ_extraction_cap_requires_an_explicit_operator_value() {
     assert_eq!(body["max_tokens"], serde_json::json!(4096), "{body}");
 }
 
-/// A prose ask on a metered link keeps the provider-native output invariant:
-/// no contract, no cap — a bounded budget is only ever paired with a bounded
-/// ask.
 #[test]
 fn econ_leaves_prose_asks_provider_native() {
     let _guard = env_lock();
@@ -7259,8 +7091,6 @@ fn econ_leaves_prose_asks_provider_native() {
     );
 }
 
-/// Operator stop sequences ride the request; the per-club spelling wins and
-/// `\n` escapes are honored.
 #[test]
 fn stop_seqs_env_applies_per_club() {
     let _guard = env_lock();
@@ -7273,9 +7103,6 @@ fn stop_seqs_env_applies_per_club() {
     assert_eq!(body["stop"], serde_json::json!(["###", "\n\n"]), "{body}");
 }
 
-/// Duplication fires only where it is an *optimizer*: a free link whose
-/// backend declared it cannot reason, on a tool-less turn. Metered links and
-/// undeclared capability never duplicate by default.
 #[test]
 fn optimizer_dup_scopes_to_free_declared_nonreasoning() {
     let _guard = env_lock();
@@ -7331,8 +7158,6 @@ fn optimizer_dup_scopes_to_free_declared_nonreasoning() {
     );
 }
 
-/// The judge's JSON verdict maps onto a directive; a reasoning verdict
-/// deliberately provisions nothing (never squeeze a thinking model).
 #[test]
 fn judge_json_parses_and_reasoning_provisions_nothing() {
     let d = parse_judge_json(
@@ -7352,8 +7177,6 @@ fn judge_json_parses_and_reasoning_provisions_nothing() {
     assert!(parse_judge_json("no json here").is_none());
 }
 
-/// Whitespace squeezing collapses padded blank runs, is a no-op on already
-/// tight text, and refuses to touch anything carrying a code fence.
 #[test]
 fn econ_squeeze_ws_collapses_padding_but_never_code() {
     assert_eq!(
@@ -7420,9 +7243,6 @@ fn effort_scoped_club_cannot_be_overridden_by_a_nested_per_call_request() {
     );
 }
 
-/// A reasoning-only streaming reply (raw ` ` with no answer) earns exactly
-/// one direct-answer retry; the reminder rides in the request body without
-/// touching history, and the recovered answer is returned as plain text.
 #[test]
 fn reasoning_only_stream_retries_with_the_empty_reply_cue() {
     let _guard = env_lock();
@@ -7487,9 +7307,6 @@ fn reasoning_only_stream_retries_with_the_empty_reply_cue() {
     let (first, retry) = (body(&reqs[0]), body(&reqs[1]));
     let first_messages = first["messages"].as_array().expect("first messages");
     let retry_messages = retry["messages"].as_array().expect("retry messages");
-    // The retry is the same request plus its `⠭⠛` cue (answer directly: no
-    // tools were offered) as a trailing user line: no prose, and the prefix is
-    // byte-identical for caching servers.
     assert_eq!(retry_messages.len(), first_messages.len() + 1);
     assert_eq!(
         &retry_messages[..first_messages.len()],
@@ -7500,8 +7317,6 @@ fn reasoning_only_stream_retries_with_the_empty_reply_cue() {
     assert_eq!(cue["content"], "⠭⠛");
 }
 
-/// Two reasoning-only buffered replies in a row: the single retry fires, then
-/// the club fails closed with the original reasoning-only error — no loop.
 #[test]
 fn reasoning_only_buffered_reply_retries_once_then_fails_closed() {
     let _guard = env_lock();
@@ -7530,7 +7345,6 @@ fn reasoning_only_buffered_reply_retries_once_then_fails_closed() {
     );
 }
 
-/// The renamed vLLM field must retain the same bounded empty-answer recovery.
 #[test]
 fn vllm_reasoning_only_buffered_reply_retries_once_then_fails_closed() {
     let _guard = env_lock();
@@ -7563,7 +7377,6 @@ fn vllm_reasoning_buffered_answer_preserves_literal_tags() {
     assert_eq!(requests.lock().unwrap().len(), 1);
 }
 
-/// `ANGEL_REASONING_ONLY_RETRY=0` disables the recovery: one request, original error.
 #[test]
 fn reasoning_only_retry_disabled_by_env() {
     let _guard = env_lock();
@@ -7936,7 +7749,6 @@ fn output_budget_extraction_limit_outranks_judge_and_learned_defaults() {
     );
 }
 
-// Bounded actual-socket recovery controls. No real provider or host tool effects.
 fn provider_recovery_server(
     responses: Vec<(String, bool)>,
 ) -> (
@@ -8243,7 +8055,6 @@ fn auth_matrix_http_bearer_and_redacted_errors() {
         assert!(identity.contains("insecure-local"), "{label}: {identity}");
         rows.push(format!("http|{label}|pass|{identity}"));
     }
-    // https URL against plain HTTP must fail TLS/handshake without leaking secret
     let (base, _requests, handle) = serve_seq(vec![json_response("{}")]);
     let https = base.replacen("http://", "https://", 1);
     let club = HttpClub::new("auth-matrix-tls", &https, "m", Some(secret.to_string()));
@@ -8648,18 +8459,15 @@ fn openai_api_responses_settles_failed_cancelled_and_incomplete_attempts() {
 fn econ_contract_rides_as_its_route_when_the_request_offers_tools() {
     let ask = [ChatMsg::user("Return only the JSON, nothing else")];
     let route = crate::agent::harness::book::ing_drivers::OUTPUT_CONTRACT.cells();
-    // A request offering tools offers the ledger reader: the route rides.
     assert_eq!(
         crate::agent::club::provision::econ_contract(&ask, true).as_deref(),
         Some(route.as_str())
     );
-    // A tool-less request cannot reach the ledger: the prose stays.
     assert!(
         crate::agent::club::provision::econ_contract(&ask, false)
             .unwrap()
             .contains("angelX output contract")
     );
-    // Either form counts as already spliced.
     let spliced = [ChatMsg::system(route.as_str()), ask[0].clone()];
     assert!(crate::agent::club::provision::econ_contract(&spliced, true).is_none());
 }

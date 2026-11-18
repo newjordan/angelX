@@ -1,4 +1,3 @@
-"""What a knight carries over their head: five small things (12 by 12)."""
 from engine import *
 
 W, H = 12, 12
@@ -10,7 +9,6 @@ def ink():
     sp.fill(rect(4, 3, 4, 2), "q")
     sp.put(5, 3, "z")
     sp.fill(rect(5, 2, 2, 2), "o")
-    # a quill standing in it
     for i in range(5):
         sp.put(8 + i // 3, 5 - i, "W" if i > 1 else "V")
     return sp.finish()

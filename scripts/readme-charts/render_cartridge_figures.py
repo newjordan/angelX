@@ -1,17 +1,4 @@
 #!/usr/bin/env python3
-"""Render the cartridge figures for docs/CARTRIDGES.md in the benchmark charts'
-panel style (dot-matrix marks, the title set into the frame), as Retina PNGs in
-GitHub light and dark palettes.
-
-  docs/images/cartridges/{slot,turn,lines}-{dark,light}.png
-
-The figures read docs/images/cartridges/cartridges.json. `--measure DIR` first
-recounts that file's line totals from this checkout and the private cartridge at
-DIR (the Yukon cartridge never ships, so its numbers are committed as data).
-
-Usage:
-  python3 scripts/readme-charts/render_cartridge_figures.py [--measure ~/.angelX/cartridges/yukon]
-"""
 from __future__ import annotations
 
 import html
@@ -46,14 +33,11 @@ def rule(x0: float, x1: float, y: float, step: float = 3) -> str:
 
 
 def text(x, y, body, size=12.5, fill="INK", anchor="start", cls="vt"):
-    # Inline style: bench.css paints `.vt` text in currentColor.
     return (f'<text x="{x}" y="{y}" class="{cls}" font-size="{size}" style="fill:{{{fill}}}" '
             f'text-anchor="{anchor}">{html.escape(body)}</text>')
 
 
 def mark(x: float, y: float, kind: str) -> str:
-    """A 3x3 dot block: filled for Rust hooks, a dotted ring for the toml, an
-    outline for an unused plug."""
     out = ""
     for r in range(3):
         for c in range(3):
@@ -69,7 +53,6 @@ def mark(x: float, y: float, kind: str) -> str:
 
 
 def slot_svg(data: dict) -> str:
-    """Rows: the engine's plug points. Columns: each cartridge's mark."""
     cols = data["cartridges"]
     rows = data["plug_points"]
     top, pitch = 30, 22
@@ -88,7 +71,6 @@ def slot_svg(data: dict) -> str:
 
 
 def turn_svg(data: dict) -> str:
-    """Rows: a competition turn in order. Columns: what each cartridge does."""
     steps = data["turn"]
     top, pitch = 34, 34
     body = [text(170, 16, data["cartridges"][0]["id"], 12, "DIM"),
@@ -114,7 +96,6 @@ def turn_svg(data: dict) -> str:
 
 
 def lines_svg(data: dict) -> str:
-    """Dot-matrix bars: lines of code that ship, and lines that stay yours."""
     unit = data["lines"]["unit"]
     groups = data["lines"]["groups"]
     body, y = [], 14
@@ -189,8 +170,6 @@ def count(path: Path) -> int:
 
 
 def measure(cartridge: Path) -> None:
-    """Recount every row whose `files` name paths in this checkout (`repo:`) or
-    in the private cartridge (`cartridge:`)."""
     data = json.loads(DATA.read_text())
     for group in data["lines"]["groups"]:
         for row in group["rows"]:

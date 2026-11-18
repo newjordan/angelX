@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Prototype of an exact literal-only Rust book page converter."""
 from pathlib import Path
 import re
 DIGITS='⠁⠃⠉⠙⠑⠋⠛⠓⠊⠚'
@@ -84,7 +83,6 @@ def pages(body):
 
 def decode(catalog):
     result=[]; digit=None; chunks=[]
-    # Split only LF, not Unicode separators: all other bytes belong to pages.
     lines=catalog.split('\n')
     if lines[-1]!='': raise Unsupported('missing record separator')
     for line in lines[:-1]:
@@ -102,8 +100,6 @@ def decode(catalog):
 def convert(source,chapter):
     if chapter=='d3456_advisories': raise Unsupported('protected chapter')
     if not re.fullmatch('[a-z0-9_]+',chapter): raise Unsupported('invalid chapter')
-    # A chapter may already use CATALOG as a Route constant (u_skills does).
-    # Pick a distinct source identifier without changing that public symbol.
     source_ident = 'CATALOG'
     if re.search(r'\b(?:const|static)\s+CATALOG\b', source):
         source_ident = 'BOOK_PAGES_CATALOG'
@@ -136,10 +132,6 @@ def convert(source,chapter):
     if decode(catalog)!=records: raise AssertionError('catalog failed roundtrip')
     return output,catalog,records
 
-# The vendor profile is one Rust source with four independent book cells. Each
-# shelf needs its own asset and manifest identity because page digits restart
-# at each cell. The mapping is explicit so an unrelated multi-cell chapter is
-# never guessed into this publication format.
 CODEX_SHELVES = {
     'CELL': ('PRIMARY', 'codex_sol_primary.book'),
     'SHELF_II_CELL': ('SHELF_II', 'codex_sol_shelf_ii.book'),

@@ -7,9 +7,7 @@ use super::super::pfx::{self, Pen, Ramp, Shape, Spray, ramps};
 use crate::rules::chariot::{Track, pos_on};
 use crate::rules::juice::Weight;
 
-/// Wood and iron thrown off a broken car.
 const TIMBER: Ramp = Ramp(['O', 'o', 'R', 'P', 'B', 'b']);
-/// Dry dust, lit from above.
 const DUST: Ramp = Ramp(['T', 't', 'O', 'o', 'P', 'r']);
 
 fn to_px(course: &Track, d: f32, lane: f32, cam: (i32, i32)) -> (f32, f32) {
@@ -17,9 +15,6 @@ fn to_px(course: &Track, d: f32, lane: f32, cam: (i32, i32)) -> (f32, f32) {
     (x * super::super::TILE as f32 - cam.0 as f32, y * super::super::TILE as f32 - cam.1 as f32)
 }
 
-/// The dust a team drags: puffs where it was a few strides ago, each risen, widened and thinned
-/// by the ordered dither, so the cloud bends with the road. `pace` is the speed in paces a tick,
-/// `lash` 0 to 1 how hard the whip is on.
 pub(super) fn plume(layer: &mut Img, course: &Track, cam: (i32, i32), dist: f32, lane: f32, pace: f32, lash: f32, seed: u32, now: u32) {
     if pace < 1.5 {
         return;
@@ -45,7 +40,6 @@ pub(super) fn plume(layer: &mut Img, course: &Track, cam: (i32, i32), dist: f32,
                     continue;
                 }
                 let (px, py) = (x as i32 + dx, y as i32 + dy);
-                // Lit from above and left: the top edge of a puff is the light one.
                 let lit = usize::from(d2 > r * r * 0.4 && dy + dx > 1);
                 if bayer(px + k, py) < thin * 0.92 {
                     layer.put(px, py, DUST.step((step + 1 + lit).min(5).saturating_sub(1)));
@@ -55,7 +49,6 @@ pub(super) fn plume(layer: &mut Img, course: &Track, cam: (i32, i32), dist: f32,
     }
 }
 
-/// Sparks thrown back off the wheel: `power` of them a tick for the last few ticks, hot to dark.
 pub(super) fn sparks(layer: &mut Img, at: (f32, f32), back: (f32, f32), power: u32, seed: u32, now: u32) {
     let mut pen = Pen::new(layer, 160);
     let angle = back.1.atan2(back.0);
@@ -82,9 +75,6 @@ pub(super) fn sparks(layer: &mut Img, at: (f32, f32), back: (f32, f32), power: u
     }
 }
 
-/// The crack of a whip `age` ticks old, from the driver at `from` to the horses' heads at `to`: a
-/// jagged line of light that snaps out and is gone in four ticks, a ring where it bit, and a few
-/// motes of dust shaken loose off the team's back.
 pub(super) fn crack(layer: &mut Img, from: (f32, f32), to: (f32, f32), age: u32, seed: u32, now: u32) {
     if age > 12 {
         return;
@@ -100,7 +90,6 @@ pub(super) fn crack(layer: &mut Img, from: (f32, f32), to: (f32, f32), age: u32,
     shaken.each(age as f32, |m| pfx::mote(&mut pen, &m, Shape::Dot, DUST, 1, u64::from(now)));
 }
 
-/// A barge: the spark and shock of the contact, shards of wood, and the dust it kicks up.
 pub(super) fn barge(layer: &mut Img, at: (f32, f32), age: u32, seed: u32, weight: Weight, now: u32) {
     juice::impact_burst(layer, at, age, seed, weight, u64::from(now));
     let mut pen = Pen::new(layer, 300);
@@ -113,7 +102,6 @@ pub(super) fn barge(layer: &mut Img, at: (f32, f32), age: u32, seed: u32, weight
     }
 }
 
-/// A wreck: a car in pieces. Timber and a wheel's spokes, iron, a cloud that boils up, a dark ring.
 pub(super) fn wreck(layer: &mut Img, at: (f32, f32), age: u32, seed: u32, weight: Weight, now: u32) {
     juice::impact_burst(layer, at, age, seed, weight, u64::from(now));
     let mut pen = Pen::new(layer, 700);
@@ -132,8 +120,6 @@ pub(super) fn wreck(layer: &mut Img, at: (f32, f32), age: u32, seed: u32, weight
     }
 }
 
-/// Wind: streaks in the direction the viewer is not going, longer and more of them the faster
-/// they ride; `pace` is 0 to 1 of the top pace, `surge` extra at the off.
 pub(super) fn wind(layer: &mut Img, dir: (f32, f32), pace: f32, surge: f32, now: u32) {
     let load = (pace - 0.35).max(0.0) / 0.65 + surge;
     if load <= 0.02 {
@@ -148,7 +134,6 @@ pub(super) fn wind(layer: &mut Img, dir: (f32, f32), pace: f32, surge: f32, now:
         let v = (hash(i as i32, 5, 0x62) % 1000) as f32 / 1000.0;
         let speed = 18.0 + load * 14.0 + (hash(i as i32, 7, 0x63) % 9) as f32;
         let along = ((now as f32 * speed + u * span) % span) - span * 0.25;
-        // Streaks run along `dir`, from far ahead to far behind, across a band.
         let (px, py) = (-dir.1, dir.0);
         let across = (v - 0.5) * span * 0.7;
         let x = w as f32 * 0.5 + dir.0 * (span * 0.4 - along) + px * across;

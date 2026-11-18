@@ -18,34 +18,25 @@ use serde::Serialize;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-/// The host's run standing still for this long reads as paused.
 const PAUSED_AFTER: Duration = Duration::from_millis(600);
 
-/// What arrived since the last look: notices for this knight, sounds, the
-/// chorus's lines.
 #[derive(Default)]
 pub struct News {
     pub replies: Vec<String>,
     pub sounds: Vec<String>,
     pub voices: Vec<serde_json::Value>,
-    /// This knight rubbed the wish altar's lamp: open its wish line.
     pub ask: bool,
-    /// The hub row the next ask opens: 0 power, 1 reforge, 2 look.
     pub wish_row: Option<u8>,
 }
 
 pub struct Joined {
-    /// Where the host is, for the cockpit to name.
     pub host: String,
     pub seat: Seat,
-    /// The newest run this seat's client holds, read once a frame.
     run: Option<Arc<Run>>,
     state: Option<serde_json::Value>,
-    /// The run's tick, and when it last moved.
     moved: Option<(u64, Instant)>,
 }
 
-/// One knight as the joined screen reads it.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 struct Knight {
     id: u32,
@@ -63,13 +54,10 @@ struct Knight {
     can_hold_leave: bool,
     can_reforge: bool,
     can_wish: bool,
-    /// The wish scroll's choices are open on this knight's view (`genie`).
     wish_offer: bool,
-    /// The HUD, as the host's own screen draws it.
     hud: Option<super::together_shooter::hud::Hud>,
 }
 
-/// The party and the room's words, for the joined screen.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 struct Hud {
     actor: u32,
@@ -105,7 +93,6 @@ impl Hud {
                 .iter()
                 .map(|(&id, hero)| Knight {
                     id,
-                    // The host's knight is "You" only on the host's screen.
                     name: if id == 1 && hero.name == "You" {
                         "Host".into()
                     } else {
@@ -147,8 +134,6 @@ impl Hud {
 }
 
 impl Joined {
-    /// Open the host's share link and take a seat as `name`. The dial goes
-    /// on in the background; the terminal never waits on the network.
     pub fn connect(link: &str, name: &str) -> Result<Joined, String> {
         let link = link.trim().trim_start_matches("/dungeon join").trim();
         let (url, _) = angel_serve::client::share_link(link)?;
@@ -167,7 +152,6 @@ impl Joined {
         })
     }
 
-    /// Take the seat's newest run, once a frame.
     pub fn refresh(&mut self, now: Instant) {
         let Some(run) = self.seat.run_arc() else {
             return;
@@ -196,51 +180,40 @@ impl Joined {
         }
     }
 
-    /// The host's delve as this seat holds it, newest tick.
     pub fn with_latest<T>(&self, f: impl FnOnce(&Run) -> T) -> Option<T> {
         self.run.as_deref().map(f)
     }
 
-    /// The party and the room's words.
     pub fn state(&self) -> Option<serde_json::Value> {
         self.state.clone()
     }
 
-    /// The newest run this seat's client holds.
     pub fn run(&self) -> Option<Arc<Run>> {
         self.run.clone()
     }
 
-    /// The host's book of cards.
     pub fn book(&self) -> Option<Arc<Book>> {
         self.run.as_ref().map(|run| Arc::new(run.book.clone()))
     }
 
-    /// This seat's knight.
     pub fn actor(&self) -> u32 {
         self.seat.knight().unwrap_or(2)
     }
 
-    /// A move on the playtest's ballot: the key the Delve's client takes
-    /// for it, which sends the move in order until the host's run has it.
     pub fn vote(&self, command: super::together_shooter::votes::Command) {
         self.seat
             .tap(super::together_seat::ballot_bits(command.action));
     }
 
-    /// Leave the activity this knight is in: the client asks until it has.
-    /// A menu opened for it and not yet sent never goes.
     pub fn leave_activity(&self) {
         self.seat.untap(angel_net::input::button::MENU);
         self.seat.tap(angel_net::input::button::OK);
     }
 
-    /// The activity menu, up or down: the client holds the knight while it is up.
     pub fn menu(&self) {
         self.seat.tap(angel_net::input::button::MENU);
     }
 
-    /// Skip the floor's plate this knight is shown, if one is: any key does.
     pub fn skip_floor_plate(&self) -> bool {
         let me = self.actor();
         if self.with_latest(|run| run.floor_plate(Some(me)).is_some()) == Some(true) {
@@ -250,12 +223,10 @@ impl Joined {
         false
     }
 
-    /// Something for the host (`together_gear`): a wish, a reforged card.
     pub fn send(&self, kind: u32, body: &[u8]) {
         self.seat.action(kind, body);
     }
 
-    /// Why the host can't be reached, while it can't.
     pub fn error(&self) -> Option<String> {
         match self.seat.status() {
             LinkStatus::Connecting | LinkStatus::Playing => None,
@@ -266,8 +237,6 @@ impl Joined {
         }
     }
 
-    /// What the seat heard since the last look: its sounds, the chorus's
-    /// lines, and notices for this knight.
     pub fn news(&self) -> News {
         let mut news = News::default();
         for line in self.seat.take_lines() {
@@ -288,7 +257,6 @@ impl Joined {
         news
     }
 
-    /// The track this seat's own view wants.
     pub fn music(&self) -> Option<&'static str> {
         let me = self.actor();
         self.with_latest(|run| run.view_for_seat(me).as_ref().unwrap_or(run).music())

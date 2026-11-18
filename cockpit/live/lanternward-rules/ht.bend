@@ -1,9 +1,3 @@
-# What blows do: a foe's on a knight (the shield blocks, the shield in the first
-# few ticks parries), a knight's on a foe or on the Warden, and the flight of
-# every bolt: iron turned back by a shield, light thrown from a lantern; and the
-# bombs. crates/delve/src/rules/lanternward/blow.rs, and the Warden's hurts from
-# boss.rs. A knight is hurt by taking it from the table into `cur`, changing it
-# there and sitting it down again.
 import Base
 import ./r.bend as R
 import ./c.bend as C
@@ -25,9 +19,6 @@ import ./q.bend as Q
 
 def S() -> Data: R.W
 
-# ----- the table ----------------------------------------------------------------
-
-# The seat with this id, zeros when it is not at the table.
 def seat_get(+ks: List<&2, R.T8>, +id: U32) -> R.T8:
   match ks:
     case Nil{}:
@@ -49,7 +40,6 @@ def seat_drop(+ks: List<&2, R.T8>, +id: U32) -> List<&2, R.T8>:
     case Con{k, t}:
       Bool.pick(List<&2, R.T8>, U32.is_eq(Seat.id(k), id), t, Con{k, seat_drop(t, id)})
 
-# Seat `k` sits down in its place, by id.
 def seat_insert(+ks: List<&2, R.T8>, +k: R.T8) -> List<&2, R.T8>:
   match ks:
     case Nil{}:
@@ -57,18 +47,12 @@ def seat_insert(+ks: List<&2, R.T8>, +k: R.T8) -> List<&2, R.T8>:
     case Con{h, t}:
       Bool.pick(List<&2, R.T8>, U32.is_lt(Seat.id(k), Seat.id(h)), Con{k, Con{h, t}}, Con{h, seat_insert(t, k)})
 
-# Take seat `id` from the table into `cur`: `ret` says whether it was there.
 def take(+w: S, +id: U32) -> S:
   +here = seat_has(W.seats(w), id)
   Bool.pick(S, here, W.set_ret(W.set_cur(W.set_seats(w, seat_drop(W.seats(w), id)), seat_get(W.seats(w), id)), 1), W.set_ret(w, 0))
 
-# `cur` sits back down.
 def put(+w: S) -> S: W.set_seats(w, seat_insert(W.seats(w), W.cur(w)))
 
-# ----- a blow on a knight ---------------------------------------------------------
-
-# The last quarter heart: the lock lets go, the revive starts over, a carried pot
-# is dropped, and the fall is heard.
 def hurt_down(+down: Bool, +w: S) -> S:
   match down:
     case False{}:
@@ -77,8 +61,6 @@ def hurt_down(+down: Bool, +w: S) -> S:
       +w1 = K.set_lock_i(K.set_lock_k(K.set_rev(w, 0), 0), 0)
       Q.sound(K.set_carry(w1, Bool.pick(U32, U32.is_eq(K.carry(w1), 1), 0, K.carry(w1))), 22)
 
-# The knight is hurt: quarter hearts gone, a blink of safety, a shove away, and
-# if that was the last, down.
 def hurt_knight(+w: S, +dmg: U32, +fromx: U32, +fromy: U32) -> S:
   +kx = K.x(w)
   +ky = K.y(w)
@@ -97,7 +79,6 @@ def hurt_knight(+w: S, +dmg: U32, +fromx: U32, +fromy: U32) -> S:
   +w10 = Q.sound(w9, Bool.pick(U32, U32.is_ge(dmg, 4), 24, 23))
   hurt_down(down, w10)
 
-# A shield up and square to the blow parries it in its first ticks, else blocks.
 def guard_parry(+w: S, +kx: U32, +ky: U32) -> S:
   +atx = U32.add(kx, U32.mul(K.fx(w), 9))
   +aty = U32.add(ky, U32.mul(K.fy(w), 9))
@@ -146,13 +127,9 @@ def blow_there(+found: Bool, +w: S, +dmg: U32, +fromx: U32, +fromy: U32, +kind: 
       +dodged = Bool.not(Q.up(k)) || U32.is_ne(Seat.inv(k), 0) || U32.is_eq(Seat.act(k), C.a_item()) || U32.is_eq(Seat.act(k), C.a_fall()) || (U32.is_eq(kind, C.h_low()) && N.sge(Seat.z(k), U32.mul(C.low_clear(), 256)))
       blow_live(dodged, w, dmg, fromx, fromy)
 
-# A blow lands on knight `id`, from a point, for so many quarter hearts. `ret` is
-# what came of it for the knight.
 def blow(+w: S, +id: U32, +dmg: U32, +fromx: U32, +fromy: U32, +kind: U32) -> S:
   +w1 = take(w, id)
   blow_there(U32.is_ne(W.ret(w1), 0), w1, dmg, fromx, fromy, kind)
-
-# ----- a blow on a foe ------------------------------------------------------------
 
 def foe_hit_end(+dead: Bool, +w: S, +x: U32, +y: U32) -> S:
   match dead:
@@ -161,9 +138,6 @@ def foe_hit_end(+dead: Bool, +w: S, +x: U32, +y: U32) -> S:
     case False{}:
       Q.sound(Q.fx(w, C.fxk_spark(), x, y, 0), 18)
 
-# The blow lands: a second blow doubles on a foe that was left open, it flinches
-# and is held a moment, is pushed away, wakes if it slept, and falls if that was
-# the last of it.
 def foe_hit(+w: S, +i: U32, +f: R.T8, +dmg: U32, +fromx: U32, +fromy: U32) -> S:
   +x = Foe.x(f)
   +y = Foe.y(f)
@@ -204,8 +178,6 @@ def hurt_foe1(+alive: Bool, +w: S, +i: U32, +f: R.T8, +dmg: U32, +fromx: U32, +f
     case True{}:
       hurt_foe2(U32.is_eq(Foe.kind(f), C.fk_turret()), w, i, f, dmg, fromx, fromy)
 
-# A blade, a bolt or a blast on foe `i`. `ret` is 1 when it hurt (a blade passes
-# through a hooded snuffer; nothing hurts the turret).
 def hurt_foe(+w: S, +i: U32, +dmg: U32, +fromx: U32, +fromy: U32) -> S:
   +f = L.get64(W.foes(w), U32.to_nat(i))
   hurt_foe1(Q.foe_alive(f), w, i, f, dmg, fromx, fromy)
@@ -223,25 +195,19 @@ def light_foe_if(+go: Bool, +w: S, +i: U32, +f: R.T8) -> S:
     case False{}:
       w
 
-# Light on foe `i`: a snuffer's hood burns off for a while, and it takes a little.
 def light_foe(+w: S, +i: U32) -> S:
   +f = L.get64(W.foes(w), U32.to_nat(i))
   light_foe_if(U32.is_eq(Foe.kind(f), C.fk_snuffer()) && Q.foe_alive(f), w, i, f)
 
-# ----- the Warden's hurts -----------------------------------------------------------
-
 def lit_in(+l: U32, +now: U32) -> U32: Bool.to_u32(U32.is_ne(l, 0) && U32.is_gt(U32.add(l, C.expose_ticks()), now))
 
-# How many knights' light the shutter wants.
 def need(+w: S) -> U32: Bool.pick(U32, U32.is_ge(B.phase(w), 1), U32.min(L.len64(W.seats(w)), 2), 1)
 
-# Whether the shutter is open.
 def exposed(+w: S) -> Bool:
   +now = W.elapsed(w)
   +n = U32.add(U32.add(U32.add(lit_in(B.l0(w), now), lit_in(B.l1(w), now)), U32.add(lit_in(B.l2(w), now), lit_in(B.l3(w), now))), U32.add(lit_in(B.l4(w), now), lit_in(B.l5(w), now)))
   U32.is_ne(W.boss_on(w), 0) && (U32.is_eq(B.st(w), C.ws_stagger()) || U32.is_ge(n, need(w)))
 
-# Light fell on the lamp-heart from seat `owner`.
 def light_heart(+w: S, +owner: U32) -> S:
   +now = W.elapsed(w)
   Bool.pick(S, U32.is_ne(W.boss_on(w), 0) && U32.is_ge(owner, 1) && U32.is_le(owner, C.max_players()),
@@ -252,7 +218,6 @@ def light_heart(+w: S, +owner: U32) -> S:
     Bool.pick(S, U32.is_eq(owner, 5), B.set_l4(w, now), B.set_l5(w, now)))))),
     w)
 
-# Its summons go out with it.
 def foes_out(+fs: List<&2, R.T8>) -> List<&2, R.T8>:
   match fs:
     case Nil{}:
@@ -260,7 +225,6 @@ def foes_out(+fs: List<&2, R.T8>) -> List<&2, R.T8>:
     case Con{f, t}:
       Con{Bool.pick(R.T8, Q.foe_alive(f), Foe.set_dead(Foe.set_st(Foe.set_hp(f, 0), C.fs_dying()), 0), f), foes_out(t)}
 
-# The Gloam falls: every lamp in the arena is snuffed.
 def lamps_out(+ps: List<&2, R.W8>) -> List<&2, R.W8>:
   match ps:
     case Nil{}:
@@ -289,7 +253,6 @@ def boss_wound(+more: Bool, +w: S, +phase: U32) -> S:
     case False{}:
       Q.sound(w, 17)
 
-# What a hurt that did not end it leaves: a spark at the heart.
 def boss_hurt_end(+w: S) -> S: W.set_ret(Q.fx(w, C.fxk_spark(), Q.heart_x(w), Q.heart_y(w), 0), 1)
 
 def boss_hit(+dead: Bool, +w: S, +phase: U32, +before: U32) -> S:
@@ -314,7 +277,6 @@ def boss_alive(+alive: Bool, +w: S, +dmg: U32) -> S:
     case False{}:
       W.set_ret(w, 0)
 
-# The shutter is shut: the blow rings off.
 def boss_shut(+w: S, +fromx: U32, +fromy: U32) -> S:
   +bx = B.x(w)
   +by = B.y(w)
@@ -327,8 +289,6 @@ def boss_open_to(+open: Bool, +w: S, +dmg: U32, +fromx: U32, +fromy: U32) -> S:
     case False{}:
       boss_shut(w, fromx, fromy)
 
-# A blade or a pot on the Warden. Only the open heart can be hurt. `ret` is 1
-# when it hurt.
 def hurt_boss(+w: S, +dmg: U32, +fromx: U32, +fromy: U32) -> S: boss_open_to(exposed(w), w, dmg, fromx, fromy)
 
 def blast_if(+near: Bool, +w: S, +fromx: U32, +fromy: U32) -> S:
@@ -338,13 +298,9 @@ def blast_if(+near: Bool, +w: S, +fromx: U32, +fromy: U32) -> S:
     case False{}:
       w
 
-# A bomb's blast near the Warden: it counts only on an open heart.
 def blast_boss(+w: S, +fromx: U32, +fromy: U32) -> S:
   blast_if(U32.is_ne(W.boss_on(w), 0) && U32.is_le(G.dist(U32.sub(B.x(w), fromx), U32.sub(B.y(w), fromy)), U32.add(U32.mul(C.blast_r(), 256), U32.mul(C.warden_r(), 256))), w, fromx, fromy)
 
-# ----- bolts ------------------------------------------------------------------------
-
-# A bolt is done: a pot breaks, light flickers, iron goes out.
 def bolt_end_with(+w: S, +kind: U32, +x: U32, +y: U32) -> S:
   Z.lz(U32.is_eq(kind, C.bk_pot()),
     u => Q.sound(Q.scatter(Q.fx(w, C.fxk_dust(), x, y, 0), C.pk_pot(), x, y), 28),
@@ -354,9 +310,6 @@ def bolt_ends(+w: S, +i: U32) -> S:
   +b = L.get8(W.bolts(w), U32.to_nat(i))
   bolt_end_with(W.set_bolts(w, L.set8(W.bolts(w), U32.to_nat(i), Bo.set_ttl(b, 0))), Bo.kind(b), Bo.x(b), Bo.y(b))
 
-# A shield turns an iron bolt: back where the knight's lock holds, else where the
-# shield faces. A parry sends it bright and quick; a late block sends it back dim
-# and short.
 def turn_bolt(+w: S, +i: U32, +id: U32, +parried: Bool) -> S:
   +k = seat_get(W.seats(w), id)
   +kx = Seat.x(k)
@@ -372,8 +325,6 @@ def turn_bolt(+w: S, +i: U32, +id: U32, +parried: Bool) -> S:
   +b2 = Bo.set_ttl(Bo.set_vy(Bo.set_vx(b1, N.sdiv(U32.mul(ax, speed), 256)), N.sdiv(U32.mul(ay, speed), 256)), Bool.pick(U32, parried, C.bolt_life(), C.dim_life()))
   W.set_bolts(w, L.set8(W.bolts(w), U32.to_nat(i), b2))
 
-# What knight `id` makes of an iron bolt at (px, py): `ret` is the blow's result,
-# or dodged when the knight is not there for it.
 def iron_blow(+near: Bool, +w: S, +id: U32, +px: U32, +py: U32, +vx: U32, +vy: U32) -> S:
   match near:
     case True{}:
@@ -388,7 +339,6 @@ def iron_act(+w: S, +i: U32, +id: U32) -> S:
       u => W.set_bolts(w, L.set8(W.bolts(w), U32.to_nat(i), Bo.set_ttl(L.get8(W.bolts(w), U32.to_nat(i)), 0))),
       u => turn_bolt(w, i, id, U32.is_eq(res, C.r_parried()))))
 
-# Each knight at the table in turn, until one is struck or turns the bolt.
 def iron_go(+ids: List<&2, U32>, +w: S, +i: U32, +px: U32, +py: U32, +vx: U32, +vy: U32, +done: Bool) -> S:
   match ids:
     case Nil{}:
@@ -410,7 +360,6 @@ def seat_ids(+ks: List<&2, R.T8>) -> List<&2, U32>:
     case Con{k, t}:
       Con{Seat.id(k), seat_ids(t)}
 
-# The first foe a bolt of light or a pot has met: its index.
 def foe_near(+fs: List<&2, R.T8>, +px: U32, +py: U32, +j: U32, +found: U32, +done: Bool) -> U32:
   match fs:
     case Nil{}:
@@ -423,7 +372,6 @@ def foe_near(+fs: List<&2, R.T8>, +px: U32, +py: U32, +j: U32, +found: U32, +don
           +hit = Q.foe_alive(f) && U32.is_le(G.dist(U32.sub(Foe.x(f), px), U32.sub(Foe.y(f), py)), U32.add(Bool.pick(U32, U32.is_eq(Foe.kind(f), C.fk_turret()), 2048, 1536), 512))
           foe_near(t, px, py, U32.add(j, 1), Bool.pick(U32, hit, j, found), hit)
 
-# A bright bolt stuns a turret open; on anything else it burns.
 def bright_foe(+w: S, +j: U32, +fromx: U32, +fromy: U32) -> S:
   +f = L.get64(W.foes(w), U32.to_nat(j))
   Z.lz(U32.is_eq(Foe.kind(f), C.fk_turret()),
@@ -435,7 +383,6 @@ def bolt_foe(+w: S, +i: U32, +j: U32, +kind: U32, +fromx: U32, +fromy: U32) -> S
     u => Z.lz(U32.is_eq(kind, C.bk_bright()), u => bright_foe(w, j, fromx, fromy),
     u => Z.lz(U32.is_eq(kind, C.bk_dim()), u => hurt_foe(w, j, C.dim_damage(), fromx, fromy), u => hurt_foe(w, j, C.pot_damage(), fromx, fromy)))), i)
 
-# A bolt that found the Warden: light on the heart lights it, a pot hurts it.
 def bolt_boss(+near_heart: Bool, +w: S, +i: U32, +kind: U32, +owner: U32, +fromx: U32, +fromy: U32) -> S:
   bolt_ends(Z.lz((U32.is_eq(kind, C.bk_light()) || U32.is_eq(kind, C.bk_bright())) && near_heart, u => light_heart(w, owner),
     u => Z.lw(U32.is_eq(kind, C.bk_pot()), u => hurt_boss(w, C.pot_damage(), fromx, fromy), w)), i)
@@ -459,7 +406,6 @@ def bolt_lights1(+up: Bool, +w: S, +i: U32, +px: U32, +py: U32, +kind: U32, +own
 def bolt_lights(+found: U32, +w: S, +i: U32, +px: U32, +py: U32, +kind: U32, +owner: U32, +fromx: U32, +fromy: U32) -> S:
   Z.lz(U32.is_ne(found, C.none()), u => bolt_foe(w, i, found, kind, fromx, fromy), u => bolt_lights1(Q.boss_up(w), w, i, px, py, kind, owner, fromx, fromy))
 
-# What a thing in the bolt's way does to it.
 def bolt_prop(+w: S, +i: U32, +j: U32, +kind: U32) -> S:
   +q = L.get8(W.props(w), U32.to_nat(j))
   +kq = Pr.kind(q)
@@ -469,7 +415,6 @@ def bolt_prop(+w: S, +i: U32, +j: U32, +kind: U32) -> S:
     u => Z.lz(lightish && U32.is_eq(kq, C.pk_brazier()) && Bool.not(Q.lit(q)), u => Q.sound(Q.fx(woken, C.fxk_light(), Pr.x(q), Pr.y(q), 0), 36),
     u => Z.lw(lightish && U32.is_eq(kq, C.pk_great()) && U32.is_eq(Pr.on(q), 0), u => Q.solved(woken, Pr.x(q), Pr.y(q)), w))), i)
 
-# The index of the first thing that stops a bolt at the point.
 def first_stop(+ps: List<&2, R.W8>, +x: U32, +y: U32, +tx: U32, +ty: U32, +j: U32, +found: U32, +done: Bool) -> U32:
   match ps:
     case Nil{}:
@@ -502,12 +447,10 @@ def bolt_free(+wall: Bool, +w: S, +i: U32, +px: U32, +py: U32, +kind: U32, +owne
       +j = first_stop(W.props(w), px, py, G.tile_of(px), G.tile_of(py), 0, C.none(), False{})
       bolt_clear(U32.is_ne(j, C.none()), j, w, i, px, py, kind, owner, vx, vy)
 
-# One half step's meeting of bolt `i` with whatever is where it is now.
 def bolt_meets(+w: S, +i: U32) -> S:
   +b = L.get8(W.bolts(w), U32.to_nat(i))
   bolt_free(U32.is_eq(Q.cls(w, G.tile_of(Bo.x(b)), G.tile_of(Bo.y(b))), 1), w, i, Bo.x(b), Bo.y(b), Bo.kind(b), Bo.owner(b), Bo.vx(b), Bo.vy(b))
 
-# Fast bolts go in two half steps so none skips a body.
 def bolt_half(+w: S, +i: U32) -> S:
   +b = L.get8(W.bolts(w), U32.to_nat(i))
   Z.lz(U32.is_eq(Bo.ttl(b), 0), u => w,
@@ -529,14 +472,10 @@ def bolts_go(+n: Nat, +w: S, +i: U32) -> S:
     case 1n+p:
       bolts_go(p, bolt_one(U32.is_ne(Bo.ttl(L.get8(W.bolts(w), U32.to_nat(i))), 0), w, i), U32.add(i, 1))
 
-# Fly every bolt one tick.
 def step_bolts(+w: S) -> S:
   +w1 = bolts_go(U32.to_nat(L.len8(W.bolts(w))), w, 0)
   W.set_bolts(w1, L.keep8(~(b => U32.is_ne(Bo.ttl(b), 0)), W.bolts(w1)))
 
-# ----- bombs ------------------------------------------------------------------------
-
-# A blast on foe `j`: a turret is stunned, anything else is lit and hurt.
 def blast_foe(+w: S, +j: U32, +bx: U32, +by: U32) -> S:
   +f = L.get64(W.foes(w), U32.to_nat(j))
   +near = Q.foe_alive(f) && U32.is_le(G.dist(U32.sub(Foe.x(f), bx), U32.sub(Foe.y(f), by)), U32.mul(C.blast_r(), 256))
@@ -569,7 +508,6 @@ def blast_props(+n: Nat, +w: S, +j: U32, +bx: U32, +by: U32) -> S:
     case 1n+p:
       blast_props(p, blast_prop(w, j, bx, by), U32.add(j, 1), bx, by)
 
-# One bomb goes off: the blast, the shake, and what it opens, breaks and hurts.
 def burst(+w: S, +bx: U32, +by: U32) -> S:
   +w1 = Q.stop(Q.sound(W.set_shake(Q.fx(w, C.fxk_blast(), bx, by, 0), U32.max(W.shake(w), C.shake_heavy())), 1), C.stop_heavy())
   +w2 = blast_foes(U32.to_nat(L.len64(W.foes(w1))), w1, 0, bx, by)
@@ -590,8 +528,6 @@ def fuses_tick(+fs: List<&2, R.W8>) -> List<&2, R.W8>:
     case Con{f, t}:
       Con{Fu.set_t(f, M.dec(Fu.t(f))), fuses_tick(t)}
 
-# Bombs: tick the fuses; a burst opens cracked walls, breaks pots and grass and
-# hurts the Gloam, never the knights.
 def step_fuses(+w: S) -> S:
   +ticked = fuses_tick(W.fuses(w))
   +w1 = W.set_fuses(w, L.keep8(~(f => U32.is_ne(Fu.t(f), 0)), ticked))

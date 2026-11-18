@@ -33,11 +33,9 @@ fn requests() -> &'static Mutex<HashMap<usize, Request>> {
 }
 
 thread_local! {
-    // Trusted execution metadata: set by the wait that honoured a release.
     static RELEASED: std::cell::Cell<Option<Release>> = const { std::cell::Cell::new(None) };
 }
 
-/// Ask the call the turn rooted at `owner` is blocked on to let go.
 pub(crate) fn request_release(owner: usize, release: Release) {
     requests().lock().unwrap_or_else(|e| e.into_inner()).insert(
         owner,
@@ -48,7 +46,6 @@ pub(crate) fn request_release(owner: usize, release: Release) {
     );
 }
 
-/// Withdraw any release still waiting for the turn rooted at `owner`.
 pub(crate) fn clear_release(owner: usize) {
     requests()
         .lock()
@@ -56,7 +53,6 @@ pub(crate) fn clear_release(owner: usize) {
         .remove(&owner);
 }
 
-/// Whether a release is still waiting for the turn rooted at `owner`.
 pub(crate) fn release_pending(owner: usize) -> bool {
     requests()
         .lock()
@@ -64,9 +60,6 @@ pub(crate) fn release_pending(owner: usize) -> bool {
         .contains_key(&owner)
 }
 
-/// The release for a call (owned by `owner`, a root or linked owner) that
-/// started at `call_started`, consumed. A request made before the call
-/// started is left alone.
 pub(super) fn take_release(owner: usize, call_started: Instant) -> Option<Release> {
     let root = super::activity::root_owner(owner);
     let mut requests = requests().lock().unwrap_or_else(|e| e.into_inner());
@@ -82,7 +75,6 @@ pub(super) fn note_released(release: Release) {
     RELEASED.with(|cell| cell.set(Some(release)));
 }
 
-/// What the watchdog released on this thread's last call, consumed.
 pub(crate) fn take_watchdog_release() -> Option<Release> {
     RELEASED.with(|cell| cell.take())
 }

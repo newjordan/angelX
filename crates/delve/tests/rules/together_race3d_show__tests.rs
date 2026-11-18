@@ -51,7 +51,6 @@ fn a_wreck_is_written_with_its_weight() {
     let f = show.fx.iter().find(|f| f.kind == Kind::Wreck).expect("the wreck is written down");
     assert_eq!((f.seat, f.wreck, f.weight), (1, Wreck::Timber, Weight::Crushing));
     assert_eq!(show.held(new.t), Some(Weight::Crushing), "a hard wreck asks the room to hold");
-    // A slow one does not, and a fall is no blow at all.
     let mut slow = old.clone();
     slow.riders.get_mut(&1).unwrap().vs = 3.0;
     let mut show = Show::default();
@@ -67,23 +66,19 @@ fn a_pass_is_called_only_when_it_is_clear_and_the_lead_is_its_own_call() {
         a.riders.get_mut(&id).unwrap().s = s;
     }
     let mut show = Show::default();
-    // The first sight of the field is silent: they are only lined up.
     show.observe(&a, &a);
     assert!(show.fx.is_empty());
-    // Knight one draws level with two: not clear, nothing is called.
     let mut b = a.clone();
     b.t += 1;
     b.riders.get_mut(&1).unwrap().s = 12.4;
     show.observe(&a, &b);
     assert!(show.fx.is_empty(), "wheel to wheel is not a pass");
-    // Clear of two: a pass, into second.
     let mut c = b.clone();
     c.t += 1;
     c.riders.get_mut(&1).unwrap().s = 13.4;
     show.observe(&b, &c);
     let pass = show.fx.iter().find(|f| f.kind == Kind::Pass).expect("a pass");
     assert_eq!((pass.seat, pass.other, pass.n), (1, 2, 2));
-    // Past three too: the lead.
     let mut d = c.clone();
     d.t += 1;
     d.riders.get_mut(&1).unwrap().s = 15.2;
@@ -104,14 +99,12 @@ fn the_first_home_is_the_finale_and_a_close_second_is_a_photo_finish() {
     let first = show.fx.iter().find(|f| f.kind == Kind::Finish).unwrap();
     assert_eq!((first.seat, first.n, first.weight), (1, 1, Weight::Finale));
     assert!(show.fx.iter().all(|f| f.kind != Kind::Photo));
-    // The second home eight ticks later: a photograph.
     let mut late = mid.clone();
     late.t += 8;
     late.riders.get_mut(&2).unwrap().finish = Some(late.t);
     show.observe(&mid, &late);
     let photo = show.fx.iter().find(|f| f.kind == Kind::Photo).expect("a photo finish");
     assert_eq!((photo.seat, photo.other, photo.n), (2, 1, 8));
-    // A third, a long way behind, is not.
     let mut last = late.clone();
     last.t += 60;
     last.riders.get_mut(&3).unwrap().finish = Some(last.t);

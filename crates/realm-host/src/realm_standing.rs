@@ -13,12 +13,10 @@ fn standing() -> &'static RwLock<Arc<Vec<Wish>>> {
     STANDING.get_or_init(Default::default)
 }
 
-/// The wishes standing in the realm, as last loaded or saved.
 pub fn standing_wishes() -> Arc<Vec<Wish>> {
     standing().read().map(|w| w.clone()).unwrap_or_default()
 }
 
-/// Replace the standing wishes.
 pub fn publish(built: Arc<Vec<Wish>>) {
     if let Ok(mut slot) = standing().write() {
         *slot = built;

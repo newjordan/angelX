@@ -18,32 +18,17 @@ use super::*;
 
 pub const TEXT: &str = include_str!("../../../../cockpit/assets/dungeon/phrasebook.txt");
 
-/// One known wish: its id and name, the ways players put it, its tiers
-/// (effect lines and what the scroll says).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Wish {
     pub id: String,
     pub name: String,
-    /// The checked card capability granted by every tier (hold by default).
     pub kind: String,
     pub says: Vec<Vec<String>>,
     pub tiers: Vec<(Vec<String>, String)>,
-    /// Its own card art, when the entry carries an `art` block.
     pub art: Vec<String>,
-    /// Its cards' looks on the field: from which tier (0 for every one),
-    /// the slot, the card lines that draw it (`draw <slot>` and its rows,
-    /// or `look <colour> <shape>`), and whether it names its tier
-    /// (`draw <slot> <tier>`): a look drawn for a tier of its own is shown
-    /// as drawn there, never coarsened by the level (`fidelity`).
     pub looks: Vec<(usize, String, String, bool)>,
-    /// Learned in this workspace (`.angel/dungeon/phrasebook.txt`), not one
-    /// of the delve's own: a tie goes to it.
     pub learned: bool,
-    /// How many of `tiers`, at its end, the book climbed on to past what
-    /// its source wrote (`climb_on`): a learned ladder written to three or
-    /// four climbs on to the fifth. Never written back (`definition_file`);
-    /// none, and left out, for a ladder written whole.
     #[serde(default, skip_serializing_if = "none_derived")]
     pub derived: usize,
 }
@@ -52,25 +37,16 @@ fn none_derived(n: &usize) -> bool {
     *n == 0
 }
 
-/// The line that marks where the workspace's own wishes begin.
 pub const LEARNED: &str = "## learned in this workspace";
-// Leave room for `wish-`, a dash and the tier in the card's 32-char id.
 pub const MAX_ID: usize = 24;
 pub const MAX_TIERS: usize = 5;
 
-/// The phrasebook in play: the delve's own, then the workspace's
-/// (`.angel/dungeon/phrasebook.txt`, which players and agents grow), as
-/// last read by the host.
 struct Live {
     text: String,
     book: std::sync::Arc<Vec<Wish>>,
-    /// Why the workspace's entries (or their sheets) were turned away, as
-    /// last read: what a lesson that taught nothing is told.
     errors: Vec<String>,
 }
 
-/// A parsed phrasebook plus the exact source and host-reported diagnostics
-/// carried by one immutable rules context.
 pub struct ScopedBook {
     text: String,
     book: std::sync::Arc<Vec<Wish>>,
@@ -106,8 +82,6 @@ thread_local! {
     static PREPARATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
-/// A thread-bound temporary phrasebook context. Dropping a nested scope
-/// restores the prior context, including during unwinding.
 pub struct Scope {
     token: u64,
     _thread_bound: std::marker::PhantomData<std::rc::Rc<()>>,
@@ -132,8 +106,6 @@ fn live() -> &'static std::sync::RwLock<Live> {
     })
 }
 
-/// Parse a source snapshot once and preserve its exact source and diagnostics
-/// for cheap, nested thread-local scopes.
 pub fn prepare_scoped(text: String, errors: Vec<String>) -> std::sync::Arc<ScopedBook> {
     #[cfg(test)]
     PREPARATIONS.with(|count| count.set(count.get() + 1));
@@ -142,7 +114,6 @@ pub fn prepare_scoped(text: String, errors: Vec<String>) -> std::sync::Arc<Scope
     std::sync::Arc::new(ScopedBook { text, book, errors })
 }
 
-/// Temporarily install an already parsed phrasebook on this thread.
 pub fn scoped(book: std::sync::Arc<ScopedBook>) -> Scope {
     SCOPED.with(|state| {
         let mut state = state.borrow_mut();
@@ -152,7 +123,6 @@ pub fn scoped(book: std::sync::Arc<ScopedBook>) -> Scope {
     })
 }
 
-/// The phrasebook in play.
 pub fn book() -> std::sync::Arc<Vec<Wish>> {
     if let Some(book) = SCOPED.with(|state| {
         state.borrow().stack.last().map(|(_, context)| context.book.clone())
@@ -164,7 +134,6 @@ pub fn book() -> std::sync::Arc<Vec<Wish>> {
         .map_or_else(|_| std::sync::Arc::new(read(TEXT)), |l| l.book.clone())
 }
 
-/// A coherent host context for a rules worker. Kept out of ordinary Run saves.
 pub fn snapshot() -> (String, Vec<String>) {
     if let Some(snapshot) = SCOPED.with(|state| {
         state.borrow().stack.last().map(|(_, context)| (context.text.clone(), context.errors.clone()))
@@ -177,7 +146,6 @@ pub fn snapshot() -> (String, Vec<String>) {
     )
 }
 
-/// Why the workspace's entries were turned away, as last read.
 pub fn errors() -> Vec<String> {
     if let Some(errors) = SCOPED.with(|state| {
         state.borrow().stack.last().map(|(_, context)| context.errors.clone())
@@ -236,7 +204,6 @@ mod scoped_context_tests {
         let outer_scope = scoped(outer);
         let inner = prepared("scope-token-inner", "inner diagnostic");
         let inner_scope = scoped(inner.clone());
-        // Revisit all live tokens across wraparound and ensure allocation skips them.
         SCOPED.with(|state| state.borrow_mut().next_token = u64::MAX);
         let newer = prepared("scope-token-newer", "newer diagnostic");
         let newer_scope = scoped(newer.clone());
@@ -296,10 +263,6 @@ mod scoped_context_tests {
     }
 }
 
-/// Take the phrasebook the host read from disk (the delve's own, then the
-/// workspace's below [`LEARNED`], its pictures cut into rows), with why the
-/// workspace's entries were turned away. True when the book changed;
-/// `None` when the book in play could not be reached.
 pub fn install(text: String, mut errors: Vec<String>) -> Option<bool> {
     let (book, rejected) = read_checked(&text);
     errors.extend(rejected);
@@ -315,8 +278,6 @@ pub fn install(text: String, mut errors: Vec<String>) -> Option<bool> {
     Some(true)
 }
 
-/// Words as the matcher sees them: lower case, letters and digits, a
-/// plural's `s` dropped, small words gone.
 fn words(text: &str) -> Vec<String> {
     const SMALL: &[&str] = &[
         "a", "an", "the", "my", "me", "i", "to", "of", "and", "when", "them", "it", "please",
@@ -341,20 +302,12 @@ pub fn read(text: &str) -> Vec<Wish> {
     read_checked(text).0
 }
 
-/// Read a phrasebook: the wishes whose every tier checks, and why each of
-/// the others was turned away.
 pub fn read_checked(text: &str) -> (Vec<Wish>, Vec<String>) {
     let mut book: Vec<Wish> = Vec::new();
     let mut learned = false;
-    // Inside an `art` or `draw` block: rows until a blank line or a
-    // keyword.
     let mut drawing = false;
     let mut sprite: Option<(usize, String, String, bool)> = None;
     let mut bad_lines: Vec<(usize, String)> = Vec::new();
-    // `vfx` lines said for the whole wish, not inside a tier: each tier that
-    // says none of its own takes them (the brief offers `vfx` lines, and the
-    // learner writes them on their own; 2026-11-05, six of ten first answers
-    // were turned away for it).
     let mut wish_vfx: Vec<(usize, String)> = Vec::new();
     let keyword = |line: &str| {
         line.split_whitespace().next().is_some_and(|w| {
@@ -382,8 +335,6 @@ pub fn read_checked(text: &str) -> (Vec<Wish>, Vec<String>) {
                 drawing = false;
             } else {
                 if let Some(wish) = book.last_mut() {
-                    // Every row is kept: the card checker says when the
-                    // art is too big, rather than the reader cutting it.
                     wish.art.push(line.to_string());
                 }
                 continue;
@@ -437,7 +388,6 @@ pub fn read_checked(text: &str) -> (Vec<Wish>, Vec<String>) {
                     ));
                 }
             }
-            // `draw <slot> [from tier]`, rows to follow.
             "draw" => {
                 let mut parts = rest.split_whitespace();
                 let word = parts.next().unwrap_or("").to_ascii_lowercase();
@@ -502,8 +452,6 @@ pub fn read_checked(text: &str) -> (Vec<Wish>, Vec<String>) {
             }
         }
     }
-    // Publish only complete checked ladders. A broken workspace override
-    // must not hide a valid earlier wish or partially grant its first tier.
     let mut errors = Vec::new();
     let mut index = 0;
     book.retain_mut(|w| {
@@ -537,8 +485,6 @@ pub fn read_checked(text: &str) -> (Vec<Wish>, Vec<String>) {
             errors.push(format!("wish {}: no `say` phrases", w.id));
             return false;
         }
-        // Its id, name, ways of saying it and what each tier says, all of it
-        // safe for work (the cards of its tiers are checked the same way).
         let rude = [&w.id, &w.name]
             .into_iter()
             .chain(w.says.iter().flatten())
@@ -561,8 +507,6 @@ pub fn read_checked(text: &str) -> (Vec<Wish>, Vec<String>) {
             errors.push(format!("wish {} {why}", w.id));
             return false;
         }
-        // A learned ladder written short climbs on before its looks are
-        // counted: the painter paints the climbed tiers too (`draw worn 5`).
         w.climb_on();
         if w.looks.iter().any(|(from, _, _, _)| *from >= w.tiers.len()) {
             errors.push(format!(
@@ -573,7 +517,6 @@ pub fn read_checked(text: &str) -> (Vec<Wish>, Vec<String>) {
         }
         true
     });
-    // A later wish of the same id (the workspace's) replaces the earlier.
     let mut kept: Vec<Wish> = Vec::new();
     for wish in book {
         match kept.iter().position(|k| k.id == wish.id) {
@@ -584,27 +527,15 @@ pub fn read_checked(text: &str) -> (Vec<Wish>, Vec<String>) {
     (kept, errors)
 }
 
-/// The known wish a player's words mean, if any (see `find_for`).
 #[cfg(any(test, feature = "testing"))]
 pub fn find(said: &str) -> Option<Wish> {
     find_for(said, &[])
 }
 
-/// The known wish a player's words mean, for a knight holding `deck`, if
-/// any. A phrase counts when all its words are there; an entry matches
-/// when its phrases cover all the words (or, of four or more, all but
-/// one), so a wish with words no stock phrase has ("golden spiky armor that
-/// explodes", "a bigger spiked shield") is a new thing to learn, not the
-/// nearest stock card. The entry covering the most words wins, so "fire
-/// faster" is Quick Hands and not Fleet Foot; a tie goes to a learned entry,
-/// then to the later. A ladder the knight holds in full is passed over.
-/// Words asking to upgrade a wish the knight holds find that wish first
-/// (`upgrade_of`), so its next tier is granted.
 pub fn find_for(said: &str, deck: &[String]) -> Option<Wish> {
     find_in(&book(), said, deck)
 }
 
-/// `find_for` in a given book.
 pub fn find_in(book: &[Wish], said: &str, deck: &[String]) -> Option<Wish> {
     let mut said = words(said);
     said.sort();
@@ -620,8 +551,6 @@ pub fn find_in(book: &[Wish], said: &str, deck: &[String]) -> Option<Wish> {
         if wish.next_tier(deck).is_none() {
             continue;
         }
-        // Its name is one of its phrases: a knight who wishes "Permanent
-        // Mirrors" means the Permanent Mirrors the book has, not a new one.
         let name = words(&wish.name);
         let named = !name.is_empty() && name.iter().all(|w| said.contains(w));
         let mut covered: Vec<&str> = wish
@@ -649,27 +578,16 @@ pub fn find_in(book: &[Wish], said: &str, deck: &[String]) -> Option<Wish> {
     best.map(|(_, wish)| wish.clone())
 }
 
-/// Words that ask for more of a wish already held, as the matcher sees
-/// them: "upgrade my pasta armor", "increase meatball size".
 const UPGRADE: &[&str] = &[
     "upgrade", "upgraded", "improve", "improved", "increase", "increased", "enhance",
     "enhanced", "boost", "boosted", "buff", "buffed", "strengthen", "stronger", "bigger",
     "larger", "better", "more", "level", "tier", "next", "size", "power", "again", "up", "even",
 ];
 
-/// The wish a knight holding `deck` asks to upgrade, if their words do:
-/// upgrade words, and the rest all words of one wish they hold, its name
-/// or a whole `say` phrase among them. That wish's next tier is what they
-/// get, not a new wish to learn: in the last game "upgrade pasta armor"
-/// was learned as a new Upgraded Pasta beside the Pasta Armor its knight
-/// held (2026-10-19). Of two held wishes, the one whose name the words
-/// say most wins, then a learned one, then the later; a ladder held in
-/// full is passed over.
 fn upgrade_of<'a>(book: &'a [Wish], said: &[String], deck: &[String]) -> Option<&'a Wish> {
     if !said.iter().any(|w| UPGRADE.contains(&w.as_str())) {
         return None;
     }
-    // A tier said back ("upgrade my mirrors 1", "...ii") names no thing.
     let tier = |w: &str| w.chars().all(|c| c.is_ascii_digit()) || matches!(w, "ii" | "iii" | "iv" | "v");
     let rest: Vec<&String> = said.iter().filter(|w| !UPGRADE.contains(&w.as_str()) && !tier(w)).collect();
     if rest.is_empty() {
@@ -701,8 +619,6 @@ fn upgrade_of<'a>(book: &'a [Wish], said: &[String], deck: &[String]) -> Option<
     best.map(|(_, wish)| wish)
 }
 
-/// The delve's own wishes' card art (`wish-art/<id>.art`, ink rows), built
-/// into the game so a shipped copy draws them too.
 const WISH_ART: &[(&str, &str)] = &[
     (
         "plain-frame",
@@ -849,7 +765,6 @@ const WISH_ART: &[(&str, &str)] = &[
     ),
 ];
 
-/// A wish's own card art, as a card's `art` block, when one has been drawn.
 fn art_for(id: &str) -> Option<String> {
     let (_, rows) = WISH_ART.iter().find(|(art, _)| *art == id)?;
     let rows: Vec<&str> = rows
@@ -861,14 +776,11 @@ fn art_for(id: &str) -> Option<String> {
     (!rows.is_empty()).then(|| format!("art\n{}", rows.join("\n")))
 }
 
-/// The wish named by id.
 pub fn get(id: &str) -> Option<Wish> {
     book().iter().find(|w| w.id == id).cloned()
 }
 
 impl Wish {
-    /// Complete resolved source, including executable tiers and captured art.
-    /// No sheet IO is needed to restore or publish an accepted definition.
     pub fn definition_file(&self) -> String {
         let mut text = String::new();
         if self.learned {
@@ -882,8 +794,6 @@ impl Wish {
         for say in &self.says {
             text.push_str(&format!("say {}\n", say.join(" ")));
         }
-        // What its source wrote: the tiers climbed on to are the book's,
-        // and climb the same way from these when read again.
         for (lines, says) in &self.tiers[..self.tiers.len().saturating_sub(self.derived)] {
             text.push_str(&format!("tier {} :: {says}\n", lines.join("; ")));
         }
@@ -906,13 +816,10 @@ impl Wish {
         text
     }
 
-    /// A tier's card id.
     pub fn card_id(&self, tier: usize) -> String {
         format!("wish-{}-{}", self.id, tier + 1)
     }
 
-    /// The tier a knight holding `deck` would be granted next, if the ladder
-    /// has one left.
     pub fn next_tier(&self, deck: &[String]) -> Option<usize> {
         let held = (0..self.tiers.len())
             .rev()
@@ -921,9 +828,6 @@ impl Wish {
         (next < self.tiers.len()).then_some(next)
     }
 
-    /// How well a learned wish is drawn (`artistry`): its card art and the
-    /// first frame of each look, graded, with the score. The delve's own
-    /// wishes are drawn as they are meant: `None`, and given whole.
     pub fn grade(&self) -> Option<(artistry::Grade, u32)> {
         if !self.learned {
             return None;
@@ -932,10 +836,6 @@ impl Wish {
         Some(artistry::grade(pictures.iter().map(|(_, p)| p.as_slice())))
     }
 
-    /// What its source drew, as `grade` reads it: its card art, and the
-    /// first frame of each look drawn in rows (a painted look's rows are
-    /// the painter's cut, not the learner's drawing: they never move the
-    /// wish's numbers). Each with what it is.
     fn drawn(&self) -> Vec<(String, Vec<String>)> {
         let mut pictures: Vec<(String, Vec<String>)> = Vec::new();
         if !self.art.is_empty() {
@@ -953,17 +853,12 @@ impl Wish {
                 .collect();
             if !frame.is_empty() {
                 let what = if *from > 0 { format!("its {slot} look from tier {}", from + 1) } else { format!("its {slot} look") };
-                // Its own inks are marked as the realm inks nearest them.
                 pictures.push((what, super::looks::realm_rows(&frame, &super::looks::header_pal(head))));
             }
         }
         pictures
     }
 
-    /// Every picture it shows, delve's own or learned: what `grade` reads,
-    /// and for a wish with no art of its own the card art the delve drew
-    /// for it (`wish-art/`). What the content checker grades
-    /// (`content`).
     pub fn pictures(&self) -> Vec<(String, Vec<String>)> {
         let mut pictures = self.drawn();
         if self.art.is_empty()
@@ -975,13 +870,10 @@ impl Wish {
         pictures
     }
 
-    /// The card a tier grants, as the card file a player could write: a
-    /// learned wish's numbers given at its grade.
     pub fn card_text(&self, tier: usize) -> String {
         self.text_at(tier, self.grade().map(|(grade, _)| grade))
     }
 
-    /// A tier's card file with its numbers given at `grade`, or as written.
     fn text_at(&self, tier: usize, grade: Option<artistry::Grade>) -> String {
         let (effects, says) = &self.tiers[tier];
         let graded: Vec<String> = match grade {
@@ -994,8 +886,6 @@ impl Wish {
             .get(tier)
             .copied()
             .unwrap_or("+");
-        // Drawn once, as the full gift: coarse at the first grant, crisper
-        // each grant after (`fidelity`).
         let step = fidelity::Step::of(tier, self.tiers.len());
         let art = if self.art.is_empty() {
             art_for(&self.id).unwrap_or_default()
@@ -1003,8 +893,6 @@ impl Wish {
             format!("art\n{}", self.art.join("\n"))
         };
         let art = fidelity::block(&art, step);
-        // For each slot, the look drawn for the highest tier at or below
-        // this one (of one tier, the last).
         let mut looks: Vec<(&str, usize, &str, bool)> = Vec::new();
         for (from, slot, block, own) in &self.looks {
             if *from > tier {
@@ -1016,11 +904,6 @@ impl Wish {
                 None => looks.push((slot, *from, block, *own)),
             }
         }
-        // A slot painted for a later tier (the wish painter's, at the top)
-        // is that painting at this one too, downgraded: one picture, crisper
-        // each grant (`fidelity`), its painting kept for a window deep
-        // enough down (`hd=`). A slot painted here already (a level of the
-        // painter's own) keeps its painting.
         let painted = |block: &str| block.lines().next().is_some_and(|h| h.split_whitespace().any(|w| w.starts_with("paint=")));
         let later = |slot: &str| {
             self.looks
@@ -1035,7 +918,6 @@ impl Wish {
                 None => (slot, from, block, own, false),
             })
             .collect();
-        // A slot only painted later (a card that drew none) shows it too.
         for (_, slot, _, _) in &self.looks {
             if !looks.iter().any(|(s, ..)| s == slot)
                 && let Some((from, _, b, _)) = later(slot)
@@ -1043,8 +925,6 @@ impl Wish {
                 looks.push((slot, *from, b, false, true));
             }
         }
-        // A look drawn for a tier of its own (a later tier, or one named)
-        // is shown as drawn; a later one borrowed here is downgraded.
         let looks: String = looks
             .iter()
             .map(|(_, from, block, own, borrowed)| {
@@ -1060,9 +940,6 @@ impl Wish {
         )
     }
 
-    /// The checked card for a tier.
-    /// As `card`, its numbers given at `grade` whatever its art (a fairy
-    /// wish's, Legendary).
     pub fn card_graded(&self, tier: usize, grade: artistry::Grade) -> Result<Card, String> {
         if tier >= self.tiers.len() {
             return Err("no such wish tier".into());
@@ -1085,10 +962,6 @@ impl Wish {
     }
 }
 
-/// What a card gives, a value for each thing it does, higher better: a
-/// held word no more than wishes can give it (`cards::wish_most`), a
-/// spell's recharge as checked (a summons' raised for its count), a guard
-/// or a weapon as what it is.
 fn worth(card: &Card) -> Vec<(String, u32)> {
     use cards::Effect;
     let mut worth: Vec<(String, u32)> = card
@@ -1096,10 +969,8 @@ fn worth(card: &Card) -> Vec<(String, u32)> {
         .iter()
         .map(|e| match *e {
             Effect::Cast(shape) => (format!("cast {}", shape.word()), 1),
-            // A bigger area is worth more: a tier may climb by size.
             Effect::Area(area) => (format!("cast {} {}", area.form.word(), area.element.word()), u32::from(area.size)),
             Effect::Summon(n, behaviour) => (format!("summon {}", behaviour.word()), n),
-            // Every Nth shot: the fewer, the better.
             Effect::Volley(n) => ("volley".into(), 100u32.saturating_sub(n)),
             _ => {
                 let (word, v) = e.parts();
@@ -1114,7 +985,6 @@ fn worth(card: &Card) -> Vec<(String, u32)> {
         Some(cards::Guard::Wall(wall)) => worth.extend([
             ("wall width".into(), wall.width),
             ("wall empower".into(), wall.empower),
-            // Mana a second: the less, the better.
             ("wall drain".into(), cards::Wall::DRAIN.1 + 1 - wall.drain),
         ]),
         Some(guard) => worth.push((format!("guard {guard:?}"), 1)),
@@ -1130,14 +1000,6 @@ fn worth(card: &Card) -> Vec<(String, u32)> {
 }
 
 impl Wish {
-    /// Why this wish's ladder does not climb, if it does not: a tier that
-    /// asks more of a word than wishes ever give (`cards::wish_most`), or
-    /// one that gives nothing more than the tier below once the game's own
-    /// limits apply (a summons' cooldown raised for its count, the wish
-    /// caps). Read as written, before a learned wish's grade. Twin Fletch
-    /// III promised three arrows where wishes give one more at most, and
-    /// Mirror Copies' "they answer you sooner" was raised to the cooldown
-    /// of the tier below (the last game, 2026-10-19).
     fn ladder_fault(&self) -> Option<String> {
         let mut below: Option<Vec<(String, u32)>> = None;
         for tier in 0..self.tiers.len() {
@@ -1149,9 +1011,6 @@ impl Wish {
         None
     }
 
-    /// Tier `tier` read as written, over the tier below worth `below`:
-    /// what it gives (`worth`), or why it does not climb. `Err(None)` for a
-    /// tier that does not check at all: its card says why.
     fn step(&self, tier: usize, below: Option<&[(String, u32)]>) -> Result<Vec<(String, u32)>, Option<String>> {
         let checked = cards::check(&self.card_id(tier), &self.text_at(tier, None)).map_err(|_| None)?;
         let card = &checked.card;
@@ -1188,7 +1047,6 @@ impl Wish {
         Ok(worth)
     }
 
-    /// This wish as its source wrote it: the tiers it climbed on to let go.
     pub fn written(&self) -> Wish {
         let mut wish = self.clone();
         wish.tiers.truncate(self.tiers.len().saturating_sub(self.derived));
@@ -1196,15 +1054,6 @@ impl Wish {
         wish
     }
 
-    /// A learned ladder written to three or four tiers climbs on to the
-    /// fifth, as the delve's own do (the operator, 2026-10-28: "we want to
-    /// expand to level 5 on the items"; the scroll's learner was asked for
-    /// three tiers until then). Each tier past its top is the tier below a
-    /// step further (`climbs`), the first way that checks and gives more
-    /// than the tier below; where no way does, the ladder stops there. A
-    /// ladder of one or two is as it was written: an ultimate, a weapon.
-    /// Nothing is written back, and nothing but the text decides it, so
-    /// every host climbs the same ladder from the same words.
     fn climb_on(&mut self) {
         if !self.learned || self.derived > 0 || !(3..MAX_TIERS).contains(&self.tiers.len()) {
             return;
@@ -1235,10 +1084,6 @@ impl Wish {
     }
 }
 
-/// A tier's rarity on its card: the first grant common, the last of any
-/// ladder and the fourth and fifth of a long one relic, those between rare.
-/// The card checker knows these three and no more; a high tier's own mark
-/// is on its picture (`render::overworld::arena::card_art`).
 fn rarity_of(tier: usize, tiers: usize) -> &'static str {
     match tier {
         0 => "common",
@@ -1247,25 +1092,14 @@ fn rarity_of(tier: usize, tiers: usize) -> &'static str {
     }
 }
 
-/// What a climbed tier's line on the scroll starts with: the fourth, then
-/// the fifth (as the learner is asked for them: strong, mighty, the full
-/// gift).
 const CLIMBED: [&str; MAX_TIERS - 3] = ["Mighty", "The full gift"];
 
-/// The small extras a climbed held tier may add when none of its own lines
-/// can climb, as the fourth and fifth of the delve's own wishes add one:
-/// the word, its first number, and what the scroll says it adds. None of
-/// them names a family (`combos`).
 const EXTRAS: [(&str, u32, &str); 3] = [
     ("damage", 8, "it hits harder"),
     ("velocity", 20, "the shots strike sooner"),
     ("max_hp", 10, "more health"),
 ];
 
-/// The ways tier `below` (its card lines) of a `kind` wish climbs one step,
-/// the most wanted first: each of its lines raised in turn (`step_up`),
-/// then, on a held card, an extra it does not have (`EXTRAS`). With what
-/// each adds, for the scroll.
 fn climbs(kind: &str, below: &[String]) -> Vec<(Vec<String>, &'static str)> {
     let mut out = Vec::new();
     for (i, line) in below.iter().enumerate() {
@@ -1274,8 +1108,6 @@ fn climbs(kind: &str, below: &[String]) -> Vec<(Vec<String>, &'static str)> {
         };
         let mut lines = below.to_vec();
         lines[i] = raised;
-        // A summons raised waits as long as its creatures take to call
-        // (`cards::check`), and says so.
         if let ["summon", n, behaviour, ..] = lines[i].split_whitespace().collect::<Vec<_>>().as_slice()
             && let (Ok(n), Some(behaviour)) = (n.parse::<u32>(), imps::Behaviour::parse(behaviour))
         {
@@ -1300,12 +1132,6 @@ fn climbs(kind: &str, below: &[String]) -> Vec<(Vec<String>, &'static str)> {
     out
 }
 
-/// One card line a step further, if it can climb, and what that adds: a
-/// held word's number by a fifth of the most wishes give of it (a whole
-/// word by one), to that most; a spell's number by a fifth of its range;
-/// a volley one shot tighter; a recharge a sixth sooner; one more of a
-/// summons; a wall a step wider, then kinder; a weapon's runes a seventh
-/// harder. Lines with no number to raise (a cast, an arm, a look) stay.
 fn step_up(kind: &str, line: &str) -> Option<(String, &'static str)> {
     let parts: Vec<&str> = line.split_whitespace().collect();
     match parts.as_slice() {
@@ -1392,10 +1218,6 @@ fn step_up(kind: &str, line: &str) -> Option<(String, &'static str)> {
     }
 }
 
-/// One card line of a learned wish given at `grade`: a held word's number
-/// and a summons' count by its share (`artistry::graded`, kept in the
-/// word's range), a spell's cooldown longer for a crude one and shorter for
-/// a legend; any other line as written.
 fn graded_line(line: &str, grade: artistry::Grade) -> String {
     let parts: Vec<&str> = line.split_whitespace().collect();
     match parts.as_slice() {

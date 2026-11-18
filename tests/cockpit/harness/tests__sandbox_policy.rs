@@ -6,8 +6,6 @@
 
 use super::*;
 
-// --- sandbox policy / landlock suite ----------------------------------------
-
 #[test]
 fn shell_tool_runs_under_sandbox() {
     let _lock = crate::tests::env_lock();
@@ -15,8 +13,6 @@ fn shell_tool_runs_under_sandbox() {
         eprintln!("landlock unavailable; skipping shell sandbox test");
         return;
     }
-    // Arm enforcement explicitly — permissive() follows ANGEL_SANDBOX,
-    // which defaults to off; this test is about the armed path.
     let mut policy = SandboxPolicy::permissive();
     policy.enforce = true;
     let out = run_sandboxed("sh", &["-c", "echo hello-sandbox"], None, &policy).unwrap();
@@ -27,8 +23,6 @@ fn shell_tool_runs_under_sandbox() {
     assert!(out.contains("hello-sandbox"), "got: {out}");
 }
 
-/// An exported shared cargo build directory is writable build output, like the
-/// caches; `/`, the home directory and relative paths are never granted.
 #[test]
 fn permissive_sandbox_grants_an_exported_cargo_target_dir() {
     let _guard = crate::tests::env_lock();
@@ -49,9 +43,6 @@ fn permissive_sandbox_grants_an_exported_cargo_target_dir() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A headless task swaps the shared `~/.cache` (whose hard-linked tool caches
-/// force the slow Bubblewrap alias path on every launch) for a private, empty
-/// cache root; an operator cache elsewhere and the opt-out are kept.
 #[test]
 fn headless_task_gets_a_private_cache_instead_of_the_shared_one() {
     let _guard = crate::tests::env_lock();
@@ -170,8 +161,6 @@ fn sandbox_armed_by_default_and_read_only_always_enforced() {
             "process cwd is not the active workspace after /cd"
         );
     }
-    // An unenforced policy applies as a no-op even where landlock would
-    // reject the caller (e.g. bogus roots / already-restricted threads).
     let unconfined = SandboxPolicy {
         writable_roots: vec![PathBuf::from("/definitely/not/a/real/root")],
         allow_network: true,
@@ -193,21 +182,16 @@ fn yolo_disables_external_command_deadlines() {
 
 #[test]
 fn disarmed_sandbox_spawns_unrestricted_children() {
-    // enforce=false must mean a plain child: writes land outside the
-    // policy's roots and no_new_privs is NOT set (setuid tools keep
-    // working). NoNewPrivs=1 here would break `sudo` for the agent.
     let dir = std::env::temp_dir().join(format!("angel_nosbx_{}", std::process::id()));
     let _ = std::fs::create_dir_all(&dir);
     let policy = SandboxPolicy {
-        writable_roots: Vec::new(), // would deny everything if enforced
+        writable_roots: Vec::new(),
         allow_network: true,
         enforce: false,
         mandatory: false,
         sealed_reads: Vec::new(),
         deny_reads: Vec::new(),
     };
-    // The NoNewPrivs probe is Linux-only (/proc); macOS covers the same
-    // disarmed guarantee with the free write alone.
     #[cfg(target_os = "linux")]
     let cmd = format!(
         "echo free > {}/free.txt && grep NoNewPrivs /proc/self/status",
@@ -230,7 +214,6 @@ fn disarmed_sandbox_spawns_unrestricted_children() {
 
 #[test]
 fn landlock_confines_writes_to_allowed_roots() {
-    // Serialize against YOLO suite — unrestricted posture can weaken confinement claims.
     let _lock = crate::tests::env_lock();
     let _yolo_off = EnvGuard::set("ANGEL_YOLO", "0");
     if !sandbox::available() {

@@ -1,17 +1,9 @@
 import Base
 import ./j.bend as J
 
-# BJ1, the worker's wire (docs/architecture/delve-in-bend.md): JSON whose
-# floats are `f` and the 8 hex digits of their bits, and whose integers past
-# 2^32 are `w` and 16 hex digits. Reading answers the value and the text after
-# it; showing prepends a value's text onto the text that follows.
-
 type Read is Data:
   Got{v: J.Val, rest: String}
   Bad{at: String}
-
-# Reading
-# -------
 
 def ws?(s: String) -> String:
   match s:
@@ -36,7 +28,6 @@ def hex.digit.pick(lt: Bool, +c: U32) -> U32:
 def hex.digit.at(+c: U32) -> U32:
   hex.digit.pick(U32.is_lt(c, 58), c)
 
-# `n` hex digits as a word, and the text after them.
 def hex.go(n: Nat, s: String, +acc: U32) -> U32 & String:
   match n s:
     case 0n s:
@@ -52,7 +43,6 @@ def hex(n: Nat, s: String) -> U32 & String:
 def is_digit(+c: Char) -> Bool:
   Char.is_digit(c)
 
-# Decimal digits onto `acc`.
 def dec?(s: String, +acc: U32) -> U32 & String:
   match s:
     case SCon{Chr{+c}, t}:
@@ -92,7 +82,6 @@ def got.w(r: U32 & String) -> Read:
   (hi, rest) = r
   got.w.lo(hi, hex(8n, rest))
 
-# A string's characters after its opening quote, reversed onto `acc`.
 def str.go?(s: String, acc: String) -> Read:
   match s:
     case SCon{'"', t}:
@@ -116,7 +105,6 @@ def str.go?(s: String, acc: String) -> Read:
     case SNil{}:
       Bad{SNil{}}
 
-# \uXXXX, and its low surrogate when it is a high one.
 def str.u?(r: U32 & String, acc: String) -> Read:
   (+hi, rest) = r
   str.u.if(Bool.and(U32.is_ge(hi, 55296), U32.is_lt(hi, 56320)), hi, rest, acc)
@@ -248,17 +236,12 @@ def obj.next?(s: String, m: Map<&2, J.Val>) -> Read:
     case s:
       Bad{s}
 
-# The whole text as one value.
 def read(s: String) -> Read:
   value(s)
-
-# Showing
-# -------
 
 def hex.char(+d: U32) -> Char:
   Chr{Bool.pick(U32, U32.is_lt(d, 10), (d + 48 : U32), (d + 87 : U32))}
 
-# The low `n` hex digits of `w`, most significant first, before `rest`.
 def hex.show(n: Nat, +w: U32, rest: String) -> String:
   match n:
     case 0n:
@@ -340,7 +323,6 @@ def show.fields?(+xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, rest: String)
 def text(+v: J.Val) -> String:
   show(v, SNil{})
 
-# UTF-8 bytes in a text, for a frame's length.
 def utf8.width(+c: U32) -> U32:
   Bool.pick(U32, U32.is_lt(c, 128), 1,
     Bool.pick(U32, U32.is_lt(c, 2048), 2, Bool.pick(U32, U32.is_lt(c, 65536), 3, 4)))

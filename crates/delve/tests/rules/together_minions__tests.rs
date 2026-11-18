@@ -9,8 +9,6 @@ use super::*;
 use crate::rules::hireling::testing::{fight_with, foe_at};
 use crate::rules::ults::Ult;
 
-/// The Gravecaller in an open first-floor fight room, at (12, 12), aiming
-/// east, every spell ready.
 fn gravecaller() -> Run {
     let mut run = fight_with(false, &[]);
     assert!(run.take_up(1, GRAVECALLER));
@@ -20,8 +18,6 @@ fn gravecaller() -> Run {
     run
 }
 
-/// A foe that holds still and will not die of a few blows; the room
-/// fights while it stands.
 fn post(run: &mut Run, kind: EnemyKind, at: (f32, f32)) -> u32 {
     let id = foe_at(run, kind, at, u32::MAX / 2);
     let foe = run.enemies.last_mut().unwrap();
@@ -39,7 +35,6 @@ fn cast(run: &mut Run, slot: u8) {
     run.step(&BTreeMap::from([(1, Input { cast: slot, aim_x: 1, ..Default::default() })]));
 }
 
-/// Steps with nothing pressed, the knight kept whole.
 fn wait(run: &mut Run, ticks: u32) {
     for _ in 0..ticks {
         let hero = run.players.get_mut(&1).unwrap();
@@ -66,7 +61,6 @@ fn the_gravecaller_carries_his_staff_his_four_spells_and_the_tombstone() {
         let card = run.book.get(id).unwrap_or_else(|| panic!("{id} is in the book"));
         assert_eq!((card.drop, card.chest), (0, 0), "{id} is his alone, never loot");
     }
-    // Another kit at the table gives his spells back.
     let mut run = run;
     assert!(run.take_up(1, "percival"));
     assert!(run.players[&1].spells.iter().all(Option::is_none));
@@ -83,7 +77,6 @@ fn each_spell_raises_its_own_kind_three_at_most_and_the_oldest_goes() {
     assert!(run.minions.raised.iter().all(|m| m.summoner == Some(1)));
     assert!(run.hireling.is_none(), "none of them takes the party's place");
     assert!(run.minions.raised.iter().all(|m| m.rising > 0), "each climbs out of the ground");
-    // The totem is planted along the aim, the others come up beside him.
     let totem = &run.minions.raised[2];
     assert!(totem.x > 14.0, "planted ahead: {}", totem.x);
     let hp: Vec<u32> = run.minions.raised.iter().map(|m| m.max_hp).collect();
@@ -111,7 +104,6 @@ fn beaumains_keeps_the_partys_place_beside_a_summoners_own() {
 #[test]
 fn the_tombstone_raises_a_zombie_a_second_up_to_five_at_once() {
     let mut run = gravecaller();
-    // Far off and frozen, so the zombies shamble at it and nothing dies.
     post(&mut run, EnemyKind::Skeleton, (44.0, 24.0));
     run.plant_tombstone(1);
     let stone = run.minions.stones[0].clone();
@@ -141,7 +133,6 @@ fn its_zombies_crumble_when_the_stone_is_broken_or_its_time_runs_out() {
     wait(&mut run, 3 * HZ);
     assert!(kinds(&run).contains(&AllyKind::Zombie));
     run.minions.stones[0].hp = 1;
-    // A foe's shot finds the grave.
     let (x, y) = (run.minions.stones[0].x, run.minions.stones[0].y);
     run.projectiles.push(Projectile {
         x: x - 0.5,
@@ -162,7 +153,6 @@ fn its_zombies_crumble_when_the_stone_is_broken_or_its_time_runs_out() {
     assert!(run.minions.stones.is_empty(), "broken");
     assert!(!kinds(&run).contains(&AllyKind::Zombie), "its zombies with it");
     assert!(run.cues.iter().any(|c| c == "tombstone_broken"));
-    // A second grave, left to stand its time.
     run.plant_tombstone(1);
     wait(&mut run, 3 * HZ);
     assert!(kinds(&run).contains(&AllyKind::Zombie));
@@ -189,16 +179,13 @@ fn the_dead_go_for_what_their_caller_marks_before_anything_nearer() {
     let mut run = gravecaller();
     cast(&mut run, 1);
     wait(&mut run, RISE + 1);
-    // Both outside the aura: only the ghoul can hurt the nearer one.
     let near = post(&mut run, EnemyKind::Skeleton, (7.0, 18.0));
     let far = post(&mut run, EnemyKind::Skeleton, (22.0, 12.0));
-    // He fires along his aim, east: the far one is marked.
     run.step(&BTreeMap::from([(1, Input { fire: true, aim_x: 1, ..Default::default() })]));
     assert_eq!(run.minions.quarry.get(&1), Some(&far));
     wait(&mut run, 3 * HZ);
     assert!(foe(&run, far).hp < 10_000, "the ghoul went for the mark");
     assert_eq!(foe(&run, near).hp, 10_000, "and left the nearer one be");
-    // The mark fallen, it is forgotten.
     run.enemies.retain(|e| e.id != far);
     wait(&mut run, 1);
     assert!(run.minions.quarry.get(&1).is_none());
@@ -239,11 +226,9 @@ fn a_warden_takes_the_shots_meant_for_his_caller_and_roars_foes_onto_himself() {
     let hero = &run.players[&1];
     assert!(warden.x > hero.x, "out before him, toward what comes");
     assert!(warden.taunt > 0, "he roared at the foe near him");
-    // The foe sees only him.
     let mut seen = vec![(hero.x, hero.y)];
     run.minions.roared(foe(&run, skeleton), &mut seen);
     assert_eq!(seen, [(warden.x, warden.y)]);
-    // A volley at the knight from the east: his shield takes it.
     let hp = run.players[&1].hp;
     let (wx, wy) = (warden.x, warden.y);
     for k in 0..3 {
@@ -342,15 +327,12 @@ fn a_save_and_a_guests_copy_carry_the_dead_and_a_run_without_them_is_as_it_was()
     run.minions.orders.insert(1, Order::Heel);
     wait(&mut run, 2 * HZ);
     assert!(!run.minions.raised.is_empty() && !run.minions.stones.is_empty());
-    // A save.
     let back: Run = serde_json::from_str(&serde_json::to_string(&run).unwrap()).unwrap();
     assert_eq!(back.minions, run.minions);
-    // An older save, from before the dead: no field at all.
     let mut old: serde_json::Value = serde_json::from_str(&plain).unwrap();
     old.as_object_mut().unwrap().remove("minions");
     let old: Run = serde_json::from_value(old).unwrap();
     assert!(old.minions.is_empty());
-    // A guest's copy over the wire reads back the same dead, and draws them.
     let tree = crate::wire::publish(&run).unwrap();
     let guest = crate::wire::read(&tree).unwrap();
     assert_eq!(guest.minions, run.minions);
@@ -371,8 +353,6 @@ fn a_hand_written_card_may_call_his_kinds_and_a_spell_may_rip() {
 
 #[test]
 fn a_spell_wished_takes_the_soul_rips_slot_and_a_second_is_refused() {
-    // His kit fills all four slots: every spell he wished used to bounce
-    // ("all four spell slots are full") and come back as a refund.
     let mut run = gravecaller();
     run.players.get_mut(&1).unwrap().spell_cooldowns[3] = 40;
     let firebolt = phrasebook::get("firebolt").unwrap();
@@ -382,10 +362,8 @@ fn a_spell_wished_takes_the_soul_rips_slot_and_a_second_is_refused() {
     assert_eq!(hero.spells[..3], [Some("raise-ghoul".into()), Some("barrow-warden".into()), Some("bone-totem".into())]);
     assert!(hero.spells[3].as_deref().is_some_and(|c| c.starts_with("wish-firebolt-")), "{name}: {:?}", hero.spells);
     assert_eq!(hero.spell_cooldowns[3], 0, "the slot comes ready, not on the soul rip's recharge");
-    // The same wish again climbs its ladder in that slot.
     run.grant(1, &firebolt).expect("its next tier");
     assert!(run.players[&1].spells[3].as_deref().is_some_and(|c| c.starts_with("wish-firebolt-")));
-    // A second spell finds his slots full, as a champion's would be.
     let ring = phrasebook::get("spark-ring").unwrap();
     assert!(run.grant(1, &ring).is_err());
     assert_eq!(run.players[&1].spells[2].as_deref(), Some("bone-totem"));

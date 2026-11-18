@@ -38,13 +38,10 @@ pub(crate) struct CampaignSpec {
     pub id: String,
     pub task: String,
     pub doors: Vec<CampaignDoor>,
-    /// Exact files supplied to literature/attack/writer roles. No implicit repo copy.
     #[serde(default)]
     pub inputs: Vec<String>,
-    /// Definitions and raw data for the fresh referee, without author code.
     pub referee_inputs: Vec<String>,
     pub canonical_documents: Vec<String>,
-    /// Coordinator-owned checks, copied from the user's configuration, never a draft.
     pub checks: Vec<CheckCommand>,
     pub spot_checks: Vec<CheckCommand>,
     #[serde(default)]
@@ -61,7 +58,6 @@ pub(crate) struct CampaignSpec {
     pub role_timeout_secs: u64,
     #[serde(default = "default_campaign_secs")]
     pub campaign_timeout_secs: u64,
-    /// One initial attack plus at most the nine saturation rungs.
     #[serde(default = "default_rounds")]
     pub max_rounds: usize,
     #[serde(default = "default_retries")]
@@ -96,7 +92,6 @@ pub(crate) struct CampaignDoor {
     pub id: String,
     pub statement: String,
     pub missing: String,
-    /// At least five concrete attack plans, not five decorative labels.
     pub perspectives: Vec<String>,
 }
 
@@ -139,7 +134,6 @@ pub(crate) struct RoleEvidence {
     pub report_sha256: String,
     pub result_path: String,
     pub result_sha256: String,
-    /// Immutable source copy; the adjacent source-manifest.json binds the check.
     pub workspace_path: String,
     pub artifacts: Vec<ArtifactDigest>,
 }
@@ -182,8 +176,6 @@ impl CorrectionField {
     }
 }
 
-/// Legacy reports omit the field. Accept them only when their exact OLD anchor
-/// identifies one occurrence across the three permitted claim text fields.
 pub(crate) fn apply_claim_correction(claim: &mut Value, fix: &Correction) -> Result<(), String> {
     if !bounded_text(&fix.old, 16_000) || !bounded_text(&fix.new, 16_000) {
         return Err("correction requires bounded OLD and NEW text".into());
@@ -247,7 +239,6 @@ pub(crate) struct CheckReceipt {
     pub code_after_sha256: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub output_artifacts: Vec<ArtifactDigest>,
-    /// Set by this coordinator after a new execution, never parsed from model text.
     pub fresh: bool,
 }
 
@@ -280,20 +271,15 @@ pub(crate) struct IntegrationBundle {
 }
 
 pub(crate) trait CampaignIntegrator: Send + Sync {
-    /// Trusted canonical-owner merge preview, materialized in isolated copies
-    /// before any post-edit check. Models cannot provide these bytes.
     fn preview(&self, _workspace: &Path, _bundle: &IntegrationBundle) -> Result<Value, String> {
         Ok(json!({"files":[]}))
     }
-    /// The canonical owner must independently check hashes, exact replacements,
-    /// map consistency and tier evidence before publishing the transaction.
     fn integrate(
         &self,
         workspace: &Path,
         bundle: &IntegrationBundle,
         cancel: &AtomicBool,
     ) -> Result<Value, String>;
-    /// Append-only progress hook; a role message never carries authority.
     fn event(&self, _workspace: &Path, _event: &Value) -> Result<(), String> {
         Ok(())
     }
@@ -308,11 +294,7 @@ pub(crate) struct CampaignRuntime {
     pub integrator: Arc<dyn CampaignIntegrator>,
 }
 
-// Campaign state has three tiers, each persisted in the state file and read by
-// models in `status` results as the exact word beside the variant. Each
-// `allows` table lists every move the coordinator makes; `step` refuses the rest.
 wire_status! {
-    /// Where one role (literature, attack, referee or writer) stands.
     enum RoleStatus {
         Pending = "pending",
         Running = "running",
@@ -325,21 +307,15 @@ impl RoleStatus {
         use RoleStatus::*;
         matches!(
             (self, next),
-            // launched, or its launch failed
             (Pending, Running | Failed)
-                // landed with an answer or an error; or a restart found it
-                // interrupted and replaced it with a fresh attempt
                 | (Running, Finished | Failed | Pending)
-                // its retained answer failed the coordinator's own check
                 | (Finished, Failed)
-                // `recheck` re-ran the check of a retained referee answer
                 | (Failed, Finished)
         )
     }
 }
 
 wire_status! {
-    /// Where one door stands in the current round.
     enum DoorStatus {
         Pending = "pending",
         Refereed = "refereed",
@@ -354,15 +330,12 @@ impl DoorStatus {
             (self, next),
             (Pending, Refereed | Blocked)
                 | (Refereed, Integrated | Blocked)
-                // `recheck` reopens a blocked door whose retained answer failed
-                // only an operational check
                 | (Blocked, Pending | Refereed)
         )
     }
 }
 
 wire_status! {
-    /// Where the whole campaign stands.
     pub(crate) enum RunStatus {
         Ready = "ready",
         Running = "running",
@@ -379,19 +352,12 @@ impl RunStatus {
         use RunStatus::*;
         matches!(
             (self, next),
-            // `run` starts again from anything unsettled: a first run, a
-            // coordinator that crashed, was cancelled or timed out, or a
-            // capacity block; the block can also be hit once running
             (Ready | Running | Cancelled | Deadline | ExecutionBlocked, Running | ExecutionBlocked)
-                // the live coordinator ends its run
                 | (Running, Completed | Saturated | BudgetExhausted | Cancelled | Deadline)
-                // `recheck` reopens a blocked campaign for its retained answers
                 | (BudgetExhausted, Ready)
         )
     }
 
-    /// `run` has nothing to do: it returns the state as saved. Only `recheck`
-    /// reopens a budget-exhausted campaign.
     fn is_settled(&self) -> bool {
         matches!(
             self,
@@ -399,8 +365,6 @@ impl RunStatus {
         )
     }
 
-    /// A run that stopped without finishing its work; the command line exits
-    /// nonzero. A saturated campaign climbed every rung and exits cleanly.
     pub(crate) fn left_unfinished(&self) -> bool {
         matches!(
             self,
@@ -457,14 +421,11 @@ struct CampaignState {
     integrations: Vec<Value>,
     escalations: Vec<String>,
     last_error: Option<String>,
-    /// Committed with the state before its separately indexed event is exposed.
     #[serde(default)]
     last_event: Value,
 }
 
 impl DoorState {
-    /// The one way a door's state changes. A door is integrated only from a
-    /// finished writer.
     fn advance(&mut self, next: DoorStatus) -> Result<(), String> {
         if next == DoorStatus::Integrated && self.writer.state != RoleStatus::Finished {
             return Err("a door is integrated only from a finished writer".into());
@@ -472,9 +433,6 @@ impl DoorState {
         self.state.step(next)
     }
 
-    /// Reopen a blocked door so `recheck` can re-run only the trusted checks of
-    /// a retained answer: its writer's when that finished, else its referee's.
-    /// Returns the failure it forgives, for the event.
     fn reopen_for_recheck(&mut self) -> Result<Value, String> {
         let integration = self.writer.state == RoleStatus::Finished;
         let failure = json!({"door_id":self.door_id,"role_id":if integration {&self.writer.id} else {&self.referee.id},
@@ -711,8 +669,6 @@ fn journal_sequence(root: &Path, id: &str, directory: &str) -> Result<usize, Str
         .unwrap_or(0))
 }
 fn save(root: &Path, state: &mut CampaignState, event: Value) -> Result<(), String> {
-    // Older coordinators exposed an event before its corresponding state. Skip
-    // such orphan indices without deleting or rewriting append-only history.
     state.sequence = state
         .sequence
         .max(journal_sequence(root, &state.id, "events")?)
@@ -766,8 +722,6 @@ fn load_state(root: &Path, id: &str) -> Result<(CampaignSpec, CampaignState), St
         if state.last_event["sequence"] != state.sequence || state.last_event["campaign"] != id {
             return Err("campaign committed event/state identity mismatch".into());
         }
-        // A crash after state publication is repaired from the exact committed
-        // event, including its original timestamp, rather than inventing one.
         publish_json(
             root,
             &base(id).join(format!("events/{:06}.json", state.sequence)),
@@ -791,7 +745,6 @@ pub(crate) fn start(workspace: &Path, spec: CampaignSpec) -> Result<Value, Strin
             return status(workspace, Some(&spec.id));
         }
     }
-    // Validate/capture the briefing files before admitting any model calls.
     let mut names: BTreeSet<String> = spec
         .inputs
         .iter()
@@ -897,7 +850,6 @@ fn runner_lock(root: &Path, id: &str) -> Result<RunnerLock, String> {
     #[cfg(unix)]
     {
         use std::os::fd::AsRawFd;
-        // Advisory lock ownership is released by the kernel after a crash.
         if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
             return Err("this campaign already has an active coordinator".into());
         }
@@ -1030,7 +982,6 @@ fn list_files(
             continue;
         }
         let path = rel.join(name);
-        // The metadata check rejects aliases even before the confined open.
         let meta = std::fs::symlink_metadata(root.join(&path)).map_err(|e| e.to_string())?;
         if meta.file_type().is_symlink() {
             return Err(format!("role symlink is not admitted: {}", path.display()));
@@ -1049,8 +1000,6 @@ fn list_files(
     Ok(())
 }
 fn source_manifest(root: &Path) -> Result<(String, Vec<(String, String)>), String> {
-    // Freeze the supplied input names once. Build products do not become new
-    // trusted inputs merely because a checker created them in its private copy.
     let mut paths: Vec<PathBuf> = if root.join(SOURCE_INDEX).exists() {
         let names: Vec<String> =
             serde_json::from_slice(&read(root, Path::new(SOURCE_INDEX), REPORT_BYTES)?)
@@ -1105,7 +1054,6 @@ fn prepare_role(root: &Path, spec: &CampaignSpec, role: &RoleState) -> Result<Pa
             .cloned()
             .collect()
     };
-    // A new marker makes even an empty referee definition set an owned directory.
     publish(root, &rel.join("artifacts/.owner"), role.id.as_bytes())?;
     for name in names {
         let bytes = if matches!(role.role.as_str(), "writer" | "coordinator")
@@ -1157,8 +1105,6 @@ fn prepare_role(root: &Path, spec: &CampaignSpec, role: &RoleState) -> Result<Pa
     Ok(root.join(rel))
 }
 
-/// Strict role-local file capability. Writing a canonical input is impossible
-/// through this tool; drafts, own-code and data are confined to artifacts/.
 struct RoleFiles {
     root: PathBuf,
 }
@@ -1182,8 +1128,6 @@ impl Tool for RoleFiles {
                 if text.len() > REPORT_BYTES {
                     return Err("role write byte budget exceeded".into());
                 }
-                // New files use strict publication. Existing owned artifacts may
-                // be rewritten, after rejecting every alias component by a read.
                 if self.root.join(&rel).exists() {
                     read(&self.root, &rel, FILE_BYTES)?;
                     confined_write(&self.root, &rel, text.as_bytes())?;
@@ -1332,8 +1276,6 @@ fn campaign_subprocess<T>(
     with_call_budget(Some(remaining), execute)
 }
 fn role_policy(root: &Path, check: bool) -> Result<SandboxPolicy, String> {
-    // Per-role S02: host secrets and sibling author/referee work have no read
-    // grant. A parent/global sealed profile would still expose the parent repo.
     let canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     let mut policy = crate::agent::sandbox::sealed::build(&canonical, None).policy;
     let project = canonical
@@ -1365,16 +1307,10 @@ fn role_policy(root: &Path, check: bool) -> Result<SandboxPolicy, String> {
                 outputs.insert(parent.join("target"));
             }
         }
-        // Cache markers beside arbitrary inputs change exact candidate-tree
-        // membership before its checker runs. Python imports can run without
-        // bytecode caches; owned artifacts and derived build outputs remain
-        // writable without adding files under copied source directories.
         for output in outputs {
             if sources.iter().any(|source| source.starts_with(&output)) {
                 continue;
             }
-            // Strict native creation rejects aliases. Inputs remain read-only
-            // for the entire process, including transient rewrite-and-restore.
             publish(
                 root,
                 &output.join(".campaign-owner"),
@@ -1391,9 +1327,6 @@ fn role_policy(root: &Path, check: bool) -> Result<SandboxPolicy, String> {
     Ok(policy)
 }
 
-/// A nominal argument match is insufficient: `true code.py` never executes
-/// code.py. Referee checks must directly run their retained program or pass it
-/// as the interpreter's first actual script argument, without eval wrappers.
 pub(crate) fn validate_independent_command(argv: &[String], code: &str) -> Result<(), String> {
     artifact_path(code)?;
     if argv.is_empty() {
@@ -1475,8 +1408,6 @@ pub(crate) fn validate_independent_command(argv: &[String], code: &str) -> Resul
 }
 
 type Leads = Arc<Mutex<Vec<Value>>>;
-/// The existing GET-only connector, with immutable role-local provenance.
-/// Recording retrieval never upgrades the truth of a research claim.
 struct RetainedRead {
     inner: Box<dyn Tool>,
     canonical: PathBuf,
@@ -1555,8 +1486,6 @@ impl Tool for RetainedRead {
         let receipt = json!({"schema":1,"tool":self.name(),"request_path":request_path,"request_sha256":sha256_hex(&request),"response_path":response_path,"response_sha256":sha256_hex(response.as_bytes()),"succeeded":succeeded,"http_status":http_status,"source_checked":source_checked,"claim_verified":false});
         let bytes = serde_json::to_vec_pretty(&receipt).map_err(|e| e.to_string())?;
         publish(&self.canonical, &receipt_path, &bytes)?;
-        // Reopening a fetched source uses this actor's own file capability;
-        // authority remains bound to the immutable canonical receipt above.
         let local = Path::new("artifacts/retrievals").join(format!("{}-{index:03}", self.name()));
         for (name, content) in [
             ("request.json", request.as_slice()),
@@ -1686,8 +1615,6 @@ fn validate_lead(lead: &Value) -> Result<(), String> {
     Ok(())
 }
 
-/// Literature arrives between model hops without inheriting author reasoning
-/// into the referee. Streaming/effort/cancellation remain the inner Club's.
 struct LeadClub {
     inner: Arc<dyn Club>,
     mailbox: Leads,
@@ -2146,8 +2073,6 @@ fn launch(
         let _book_catalog=book::catalog::enter(book_catalog);
         let _permit=permit;let _budget=DescendantBudgetScope::inherit(budget);let _depth=SubcallDepthGuard::enter();
         let started=Instant::now();let (events,event_rx)=mpsc::channel();
-        // Drain streamed tokens while the worker is alive. Retained tool
-        // receipts live in the outcome, not an unbounded telemetry backlog.
         let _drain=std::thread::spawn(move||{for _ in event_rx{}});
         let result=std::panic::catch_unwind(std::panic::AssertUnwindSafe(||{
         let mut history=vec![ChatMsg::system(book::sign_lines(&[chapter::ROOT,chapter::CAMPAIGN])),ChatMsg::user(prompt)];
@@ -2459,8 +2384,6 @@ fn run_check(
         },
     )?;
     let (source_after_sha256, _) = source_manifest(work)?;
-    // Preserve the model's precheck artifacts and freeze each replay's outputs
-    // separately. Timings/counters may differ across genuinely fresh runs.
     let code_after_sha256 = code
         .map(|name| read(work, Path::new(name), FILE_BYTES).map(|bytes| sha256_hex(&bytes)))
         .transpose()?;
@@ -2588,8 +2511,6 @@ fn check_referee(
         Some(code),
         cancel,
     )?;
-    // Coordinator-generated raw outputs join the retained artifact inventory;
-    // original model report/result/source identities remain immutable.
     let referee = door.referee.outcome.as_mut().unwrap();
     for item in &receipt.output_artifacts {
         if !referee
@@ -2695,7 +2616,6 @@ fn checked_edits(
             );
         }
     }
-    // A check cannot quietly validate against a newer canonical source.
     for (path, bytes) in originals {
         if read(root, Path::new(&path), FILE_BYTES)? != bytes {
             return Err(format!("canonical source changed during campaign: {path}"));
@@ -2985,8 +2905,6 @@ fn integrate_writer(
     publish_json(root, &draft_path, &bundle)?;
     let preview = runtime.integrator.preview(root, &bundle)?;
     materialize_preview(&work, &preview)?;
-    // Writer input copy is archived after exact coordinator-applied edits; the
-    // model's original report and result already remain immutable separately.
     let checked_role = RoleState {
         id: checked_id.clone(),
         ..door.writer.clone()
@@ -3066,8 +2984,6 @@ fn integrate_writer(
             cancel,
         )?);
     }
-    // Re-read canonical preimages after all tests and before crossing the sole
-    // canonical-write boundary; the integrator repeats this inside its lock.
     let mut first = BTreeSet::new();
     for edit in &edits {
         if first.insert(&edit.path)
@@ -3127,7 +3043,6 @@ fn recover_role(root: &Path, spec: &CampaignSpec, role: &mut RoleState) -> Resul
             return Ok(());
         }
     }
-    // A saved 'running' is not evidence of live work after a process restart.
     role.attempt += 1;
     let prefix = role
         .id
@@ -3204,9 +3119,6 @@ fn verify_retained_role(root: &Path, spec: &CampaignSpec, role: &RoleState) -> R
     Ok(())
 }
 
-/// Re-run trusted checks of a complete, immutable referee answer after an
-/// operational/protocol failure. This does not synthesize or rewrite a model
-/// result, repeat completed model roles, or clear the recorded closed route.
 pub(crate) fn recheck(workspace: &Path, id: &str) -> Result<Value, String> {
     let _lock = runner_lock(workspace, id)?;
     let (spec, mut state) = load_state(workspace, id)?;
@@ -3275,8 +3187,6 @@ pub(crate) fn run(
     if state.status.is_settled() {
         return serde_json::to_value(state).map_err(|e| e.to_string());
     }
-    // Direct UI campaigns have no parent turn. Select a single published
-    // generation for the coordinator and all roles before starting work.
     let book_catalog = match book::catalog::current() {
         Some(catalog) => catalog,
         None => Arc::new(
@@ -3612,8 +3522,6 @@ pub(crate) fn run(
                     )?;
                 }
             }
-            // Referees begin as soon as an attack lands; writers never run before
-            // their independent check. Literature and attacks share this same cap.
             let mut ready = Vec::<(Option<usize>, String)>::new();
             if state.literature.state == RoleStatus::Pending {
                 ready.push((None, "literature".into()));

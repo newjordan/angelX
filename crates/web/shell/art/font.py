@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-"""The page's own hand: a pixel font, built to knight.ttf beside the shell.
-
-    python3 crates/web/shell/art/font.py      (needs fontTools)
-
-The capitals, figures and marks are the Delve's own 5x7 hand
-(crates/delve/src/render/overworld/ink.rs, `glyph`), so the page's words
-and the picture's are one hand; the small letters, with their ascenders
-and descenders, are drawn here to go with them. Each glyph is set as wide
-as its ink and one pixel apart, a space three.
-
-A pixel is 100 units and the em ten pixels (seven above the line, a
-headroom pixel, two below), so at 20px a pixel is two of the page's and at
-30px three: the shell sets it at whole multiples and on line heights that
-keep the baseline on a whole pixel.
-"""
 
 import os
 from fontTools.fontBuilder import FontBuilder
@@ -23,7 +8,6 @@ PX = 100
 ASCENT = 8 * PX
 DESCENT = 2 * PX
 
-# The Delve's capitals, figures and marks: seven rows, five bits a row.
 INK = {
     'A': [0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
     'B': [0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e],
@@ -87,9 +71,6 @@ INK = {
     '`': [0x08, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00],
 }
 
-# Drawn here: the small letters (x-height five, ascenders to the capitals'
-# height, descenders two below the line) and the marks the Delve's hand
-# lacks. Rows from the capitals' top; '#' ink, '.' none.
 DRAWN = {
     'a': ['', '', '.###.', '....#', '.####', '#...#', '.####'],
     'b': ['#....', '#....', '####.', '#...#', '#...#', '#...#', '####.'],
@@ -148,21 +129,18 @@ DRAWN = {
 
 
 def rows_of(ch):
-    """A glyph's rows as strings of '#' and '.', and its width."""
     if ch in DRAWN:
         rows = DRAWN[ch]
         w = max((len(r) for r in rows), default=0)
         return [r.ljust(w, '.') for r in rows], w
     bits = INK[ch]
     rows = [''.join('#' if b & (1 << (4 - x)) else '.' for x in range(5)) for b in bits]
-    # Trim the empty columns either side, so the hand sets proportionally.
     used = [x for x in range(5) if any(r[x] == '#' for r in rows)]
     lo, hi = (used[0], used[-1]) if used else (0, 0)
     return [r[lo:hi + 1] for r in rows], hi - lo + 1
 
 
 def draw(rows, pen):
-    """Each row's runs of ink as one rectangle; row 0 is the capitals' top."""
     for y, row in enumerate(rows):
         top = (7 - y) * PX
         x = 0

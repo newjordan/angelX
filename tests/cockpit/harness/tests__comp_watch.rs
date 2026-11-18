@@ -16,8 +16,6 @@ fn shell(cmd: &str) -> ToolCall {
     call("shell", serde_json::json!({"command": cmd}))
 }
 
-
-// Test vectors are read at runtime so new classification cases need no rebuild.
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CompPathCase {
@@ -175,7 +173,6 @@ fn slot_with(status: &str) -> SlotSnapshot {
     }
 }
 
-/// Every status word the slot watcher settles on, and what the HUD reads it as.
 const SETTLED_WORDS: [(&str, SubmissionSlotPhase); 11] = [
     ("accepted", SubmissionSlotPhase::Accepted),
     ("promoted", SubmissionSlotPhase::Accepted),
@@ -190,10 +187,6 @@ const SETTLED_WORDS: [(&str, SubmissionSlotPhase); 11] = [
     ("timed-out", SubmissionSlotPhase::TimedOut),
 ];
 
-/// Words the slot watcher keeps observing through. `complete`, `completed`
-/// and `promotion failed` are settled for the fleet row and are not here on
-/// purpose: a status the watcher does not recognise is not evidence of
-/// acceptance.
 const IN_FLIGHT_WORDS: [&str; 17] = [
     "queued",
     "pending",
@@ -399,34 +392,24 @@ fn snapshot_and_extract_do_not_bleed_opponent_submissions_on_board() {
         33333333-4444-5555-6666-777777777777  accepted  score: 99.5
     "#;
 
-    // Must not blindly adopt opponent's UUID from board tables without receipt keywords
     assert_eq!(extract_submission_id(board_table), None);
 
-    // Extract when it is an explicit submission receipt
     let receipt = "Submission queued: 22222222-3333-4444-5555-666666666666 in flight as active";
     assert_eq!(
         extract_submission_id(receipt),
         Some("22222222-3333-4444-5555-666666666666".to_string())
     );
 
-    // Harness-history lines are NOT receipts: "Validate"/"Accept submission"
-    // commits from `git log` carry "id" only inside "Val-id-ate". Adopting one
-    // hands the watcher a phantom in-flight slot (2026-09-01, a GPU host: the loop
-    // believed repo-log uuid 0e31d3e6 was its own submission, "watched" it to a
-    // rejected terminal, and pinned a stale frontier around it — without ever
-    // submitting anything).
     let repo_log = "1403bb6 Validate submission 0e31d3e6-4dac-41a4-a4b8-ccefb84fbd52\n\
                     de2469b Accept submission dc6fcf57-2a03-4785-b9a4-929f4ba8fbf0\n\
                     148605a Reject submission 92983207-f6fe-4f8a-ae53-a8f8b246368a";
     assert_eq!(extract_submission_id(repo_log), None);
 
-    // Standalone "id"/"uuid" tokens still read as receipts.
     assert_eq!(
         extract_submission_id("submission id 44444444-5555-4666-8777-888888888888 recorded"),
         Some("44444444-5555-4666-8777-888888888888".to_string())
     );
 
-    // Our slot is validating — must not see opponent 1111's "rejected" or opponent 3333's "accepted"
     let our_id = "22222222-3333-4444-5555-666666666666";
     let mut watcher = SubmissionWatcher::new();
     watcher.adopt(our_id);
@@ -435,10 +418,6 @@ fn snapshot_and_extract_do_not_bleed_opponent_submissions_on_board() {
     assert!(watcher.pending_notify().is_none());
 }
 
-/// Submit-next after a terminal notify must retarget the same watcher.
-/// Unit coverage for explicit operator configuration: slot B is adopted
-/// after A, then B's fixture is polled to terminal — the injection must
-/// name B, not stay latched on A.
 #[test]
 fn configured_watcher_can_be_explicitly_retargeted_after_terminal() {
     const SLOT_A: &str = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
@@ -661,8 +640,6 @@ fn pathless_defs_is_recon_not_preflight() {
     assert!(is_free_form_recon(&symbol));
 }
 
-/// Native grep of a product file is candidate inspect (same class as
-/// read_file/outline). Workspace grep and board-path grep stay recon.
 #[test]
 fn path_scoped_product_grep_is_preflight() {
     let product = call(
@@ -688,8 +665,6 @@ fn path_scoped_product_grep_is_preflight() {
     );
 }
 
-/// Path-scoped list_dir of a product directory is candidate inspect.
-/// Workspace-root list_dir and board-path list_dir stay recon.
 #[test]
 fn path_scoped_list_dir_is_preflight() {
     let product = call("list_dir", serde_json::json!({"path": "src"}));
@@ -709,8 +684,6 @@ fn path_scoped_list_dir_is_preflight() {
     );
 }
 
-/// Path-scoped find_files of a product tree is candidate inspect.
-/// Workspace inventory globs and board-name globs stay recon.
 #[test]
 fn path_scoped_find_files_is_preflight() {
     assert!(find_files_pattern_is_path_scoped("src/**/*.cu"));
@@ -752,8 +725,6 @@ fn path_scoped_find_files_is_preflight() {
     );
 }
 
-/// Path-scoped file_search of a product fragment is candidate inspect.
-/// Workspace name fragments and board-name queries stay recon.
 #[test]
 fn path_scoped_file_search_is_preflight() {
     assert!(file_search_query_is_path_scoped("src/kernel"));
@@ -781,96 +752,66 @@ fn path_scoped_file_search_is_preflight() {
     );
 }
 
-/// `cat`/`head` of a product path is candidate inspect (submit then review
-/// the tree). Workspace basenames and board files stay recon.
 #[test]
 fn path_scoped_shell_cat_is_preflight() {
     assert_comp_path_cases("path_scoped_shell_cat_is_preflight", 12);
 }
 
-/// `sed -n 1,80p src/kernel.cu` is the same class as path-scoped cat/head.
-/// In-place `-i`, pathless dumps, and board sed stay recon / poll.
 #[test]
 fn path_scoped_shell_sed_is_preflight() {
     assert_comp_path_cases("path_scoped_shell_sed_is_preflight", 14);
 }
 
-/// `stat`/`file` of a product path is the same class as path-scoped cat.
-/// Workspace basenames and board files stay recon / poll.
 #[test]
 fn path_scoped_shell_stat_is_preflight() {
     assert_comp_path_cases("path_scoped_shell_stat_is_preflight", 12);
 }
 
-/// `xxd`/`od`/`hexdump`/`md5sum` of a product path is the same class as
-/// path-scoped cat. Workspace basenames and board files stay recon / poll.
 #[test]
 fn path_scoped_shell_xxd_is_preflight() {
     assert_comp_path_cases("path_scoped_shell_xxd_is_preflight", 14);
 }
 
-/// `nm`/`objdump`/`readelf`/`size`/`base64` of a product path is the same
-/// class as path-scoped xxd. Workspace basenames and board files stay recon /
-/// poll.
 #[test]
 fn path_scoped_shell_objdump_is_preflight() {
     assert_comp_path_cases("path_scoped_shell_objdump_is_preflight", 14);
 }
 
-/// `llvm-objdump`/`llvm-nm`/`llvm-readelf`/`llvm-size` of a product path is
-/// the same class as GNU objdump/nm. Workspace basenames and board files stay
-/// recon / poll.
 #[test]
 fn path_scoped_shell_llvm_objdump_is_preflight() {
     assert_comp_path_cases("path_scoped_shell_llvm_objdump_is_preflight", 13);
 }
 
-/// `addr2line`/`eu-nm`/`eu-readelf`/`eu-objdump`/`llvm-dwarfdump` of a
-/// product path is the same class as GNU/LLVM objdump. Workspace basenames
-/// and board files stay recon / poll.
 #[test]
 fn path_scoped_shell_addr2line_is_preflight() {
     assert_comp_path_cases("path_scoped_shell_addr2line_is_preflight", 15);
 }
 
-/// `llvm-addr2line`/`eu-addr2line`/`dwarfdump`/`rust-objdump` of a product
-/// path is the same class as GNU addr2line. Workspace basenames and board
-/// files stay recon / poll.
 #[test]
 fn path_scoped_shell_llvm_addr2line_is_preflight() {
     assert_comp_path_cases("path_scoped_shell_llvm_addr2line_is_preflight", 16);
 }
 
-/// `llvm-symbolizer --obj=src/kernel.o` is the same class as addr2line.
-/// `--obj=` / `--exe=` glue is a product path, not a skippable flag.
 #[test]
 fn path_scoped_shell_llvm_symbolizer_is_preflight() {
     assert_comp_path_cases("path_scoped_shell_llvm_symbolizer_is_preflight", 17);
 }
 
-/// `diff`/`cmp`/`strings` of a product path is the same class as path-scoped
-/// cat. Workspace basenames and board files stay recon / poll.
 #[test]
 fn path_scoped_shell_diff_is_preflight() {
     assert_comp_path_cases("path_scoped_shell_diff_is_preflight", 12);
 }
 
-/// `ls src` is the same class as path-scoped list_dir. Bare `ls` stays
-/// recon; board listings stay poll and cannot arm submit.
 #[test]
 fn path_scoped_shell_ls_is_preflight() {
     assert_comp_path_cases("path_scoped_shell_ls_is_preflight", 14);
 }
 
-/// `grep stream src/kernel.cu` is the same class as path-scoped grep.
-/// Pathless `grep TODO` and board greps stay recon and cannot arm submit.
 #[test]
 fn path_scoped_shell_grep_is_preflight() {
     assert_comp_path_cases("path_scoped_shell_grep_is_preflight", 12);
 }
 
-/// Working-tree git_diff is candidate inspect (submit then review the patch).
-/// A board-path diff stays recon and cannot arm submit.
 #[test]
 fn git_diff_is_local_preflight_while_inflight() {
     let tree = call("git_diff", serde_json::json!({}));
@@ -890,8 +831,6 @@ fn git_diff_is_local_preflight_while_inflight() {
     );
 }
 
-/// Working-tree git_status is candidate inspect (submit then review the tree).
-/// A stuffed board path stays recon and cannot arm submit.
 #[test]
 fn git_status_is_local_preflight_while_inflight() {
     let tree = call("git_status", serde_json::json!({}));
@@ -914,8 +853,6 @@ fn git_status_is_local_preflight_while_inflight() {
     );
 }
 
-/// Shell `git diff` is the same world-card inspect as native git_diff.
-/// Board-path and `git difftool` must not launder as preflight.
 #[test]
 fn shell_git_diff_is_local_preflight_while_inflight() {
     assert!(shell_hay_is_git_diff("git diff"));
@@ -948,8 +885,6 @@ fn shell_git_diff_is_local_preflight_while_inflight() {
     );
 }
 
-/// Shell `git status` is the same world-card inspect as native git_status.
-/// Board-path status must not launder as preflight.
 #[test]
 fn shell_git_status_is_local_preflight_while_inflight() {
     assert!(shell_hay_is_git_status("git status"));
@@ -984,9 +919,6 @@ fn shell_git_status_is_local_preflight_while_inflight() {
     );
 }
 
-/// Path-scoped `git_log` / `git log` / `git blame` is candidate inspect
-/// (submit then review history of the file). Pathless dumps and board
-/// history stay recon and cannot arm submit.
 #[test]
 fn path_scoped_git_log_is_preflight_while_inflight() {
     assert!(shell_hay_is_product_git_history("git log -- src/kernel.cu"));
@@ -1047,8 +979,6 @@ fn path_scoped_git_log_is_preflight_while_inflight() {
     );
 }
 
-/// `git ls-files -- src/kernel.cu` is candidate inspect (submit then check
-/// whether the file is tracked). Pathless dumps and board names stay recon.
 #[test]
 fn path_scoped_git_ls_files_is_preflight_while_inflight() {
     assert!(shell_hay_is_product_git_history(
@@ -1086,8 +1016,6 @@ fn path_scoped_git_ls_files_is_preflight_while_inflight() {
     );
 }
 
-/// `git ls-tree HEAD src/kernel.cu` is candidate inspect (submit then list
-/// the blob). Pathless dumps and board names stay recon.
 #[test]
 fn path_scoped_git_ls_tree_is_preflight_while_inflight() {
     assert!(shell_hay_is_product_git_history(
@@ -1125,9 +1053,6 @@ fn path_scoped_git_ls_tree_is_preflight_while_inflight() {
     );
 }
 
-/// `git rev-list HEAD -- src/kernel.cu` / `git shortlog -- src/kernel.cu` is
-/// candidate inspect (submit then walk that file). Pathless dumps and board
-/// names stay recon.
 #[test]
 fn path_scoped_git_rev_list_is_preflight_while_inflight() {
     assert!(shell_hay_is_product_git_history(
@@ -1178,9 +1103,6 @@ fn path_scoped_git_rev_list_is_preflight_while_inflight() {
     );
 }
 
-/// `git hash-object src/kernel.cu` / `git rev-parse HEAD:src/kernel.cu` is
-/// candidate inspect (submit then hash/resolve the blob). Pathless dumps and
-/// board names stay recon.
 #[test]
 fn path_scoped_git_hash_object_is_preflight_while_inflight() {
     assert!(shell_hay_is_product_git_history(
@@ -1243,9 +1165,6 @@ fn path_scoped_git_hash_object_is_preflight_while_inflight() {
     );
 }
 
-/// `git annotate src/kernel.cu` / `git diff-index HEAD -- src/kernel.cu` /
-/// `git diff-files -- src/kernel.cu` is candidate inspect (submit then
-/// blame/diff the file). Pathless dumps and board names stay recon.
 #[test]
 fn path_scoped_git_annotate_is_preflight_while_inflight() {
     assert!(shell_hay_is_product_git_history(
@@ -1301,8 +1220,6 @@ fn path_scoped_git_annotate_is_preflight_while_inflight() {
     );
 }
 
-/// `git name-rev HEAD -- src/kernel.cu` / `git check-ignore src/kernel.cu`
-/// is candidate inspect. Pathless dumps and board names stay recon.
 #[test]
 fn path_scoped_git_name_rev_is_preflight_while_inflight() {
     assert!(shell_hay_is_product_git_history(
@@ -1352,8 +1269,6 @@ fn path_scoped_git_name_rev_is_preflight_while_inflight() {
     );
 }
 
-/// `git grep stream -- src/kernel.cu` is candidate inspect (submit then search
-/// the file). Pathless dumps and board names stay recon.
 #[test]
 fn path_scoped_git_grep_is_preflight_while_inflight() {
     assert!(shell_hay_is_product_git_grep(
@@ -1402,8 +1317,6 @@ fn path_scoped_git_grep_is_preflight_while_inflight() {
     );
 }
 
-/// `git show HEAD:src/kernel.cu` is candidate inspect (submit then review the
-/// blob). Pathless / inventory show stays recon; board blobs stay wait/poll.
 #[test]
 fn path_scoped_git_show_is_preflight_while_inflight() {
     assert!(shell_hay_is_product_git_show("git show HEAD:src/kernel.cu"));
@@ -1451,8 +1364,6 @@ fn path_scoped_git_show_is_preflight_while_inflight() {
     );
 }
 
-/// `git cat-file -p HEAD:src/kernel.cu` is the same class as git show blob
-/// inspect. Pathless / --batch dumps stay recon; board blobs stay wait/poll.
 #[test]
 fn path_scoped_git_cat_file_is_preflight_while_inflight() {
     assert!(shell_hay_is_product_git_show(
@@ -1581,7 +1492,6 @@ fn native_verifier_is_local_benchmark_not_recon_while_inflight() {
 
 #[test]
 fn status_poll_does_not_burn_first_write_budget() {
-    // Wait/poll still does not burn first-write budget (optional receipt).
     let status = poll_status();
     assert!(is_competition_wait_or_progress_call(&status));
     assert!(!is_free_form_recon(&status));
@@ -1601,8 +1511,6 @@ fn ordinary_tool_log_is_not_a_slot_receipt() {
     assert!(!text_may_carry_slot("cargo test --lib"));
 }
 
-/// Ordinary hops sniff the first 8 KiB in place — no lowercase copy.
-/// Mixed-case receipts still arm; a UTF-8 split at the cap must not panic.
 #[test]
 fn slot_receipt_sniff_scans_in_place() {
     assert!(ascii_contains_ignore_case(
@@ -1666,7 +1574,6 @@ fn configured_inflight_watcher_allows_reads_polls_and_dispatch_without_cadence_j
     let _guard = crate::tests::env_lock();
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
     let _competition = EnvGuard::set("ANGEL_COMPETITION_MODE", "1");
-    // The fixture board's configured watch never answers: no live requests.
     let _submission = EnvGuard::set("ANGEL_WATCH_BOARD_SUBMISSION", GOLD_ID);
     let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
     let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");

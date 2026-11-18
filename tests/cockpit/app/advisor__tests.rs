@@ -16,11 +16,9 @@ fn parses_block_note_and_clear() {
     );
     assert!(parse_verdict("CLEAR").is_clear());
     assert!(parse_verdict("looks good to me").is_clear());
-    // Empty message after the marker is treated as clear, not a blank block.
     assert!(parse_verdict("BLOCK:").is_clear());
     assert!(parse_verdict("NOTE:").is_clear());
     assert!(parse_verdict("NOTE:\nBLOCK:").is_clear());
-    // Mixed case and empty BLOCK: fall through to a later NOTE.
     assert_eq!(
         parse_verdict("BlOcK:\n  NoTe: recovered").note.as_deref(),
         Some("recovered")
@@ -45,7 +43,6 @@ fn annotate_marks_blocker_and_note_distinctly() {
     assert_eq!(note, "\n\n> 💡 advisor: y");
     assert!(annotate(&parse_verdict("CLEAR")).is_none());
     assert!(annotate(&parse_verdict("BLOCK:")).is_none());
-    // Repeated annotation detection stays on the exact answer bytes.
     let twice = format!("done{block}{block}");
     assert!(already_annotated(&twice));
     assert!(already_annotated(&format!("done{note}")));
@@ -66,7 +63,6 @@ fn mode_from_env_tokens() {
     let _g = crate::tests::TestEnvGuard::set("ANGEL_ADVISOR", "1");
     assert_eq!(AdvisorMode::from_env(), AdvisorMode::Final);
     assert!(final_enabled());
-    // The old per-hop mode token now reviews finals only.
     let _g = crate::tests::TestEnvGuard::set("ANGEL_ADVISOR", "hops");
     assert_eq!(AdvisorMode::from_env(), AdvisorMode::Final);
     let _g = crate::tests::TestEnvGuard::set("ANGEL_ADVISOR", "off");

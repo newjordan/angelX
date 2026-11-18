@@ -7,28 +7,21 @@
 //! A full hand gets six extra gold instead; every scoop still pays its coin.
 use super::*;
 
-/// The pot (tiles), and where Grubb stands behind it.
 pub const POT: (i32, i32, i32, i32) = (11, 3, 2, 2);
 pub const STOVE: (f32, f32) = (12.0, 2.5);
-/// The pot's middle, for reach.
 const POT_MIDDLE: (f32, f32) = (12.0, 4.0);
 const POT_REACH: f32 = 4.4;
 pub const BLOCKS: [(i32, i32, i32, i32); 5] = [POT, (2, 1, 5, 2), (18, 1, 4, 2), (4, 9, 5, 1), (15, 9, 5, 1)];
-/// Scoops in the pot, and the coin in each.
 pub const SCOOPS: u8 = 12;
 pub const SCOOP_GOLD: u32 = 3;
-/// The cook's beats: how long he stirs each time round (ticks), how long
-/// he warns before he turns, how long he looks.
 pub const BEATS: [u32; 6] = [75, 50, 95, 40, 60, 85];
 pub const WARN: u32 = 15;
 pub const LOOK: u32 = 40;
-/// The ladle's blow, and how far it sends a knight.
 pub const LADLE: u32 = 10;
 const SHOVE: f32 = 3.0;
 const PRIZE: &str = "dragonfruit-kebab";
 const PRIZE_GOLD: u32 = 6;
 
-/// Keep the announced prize and the inventory-capacity decision together.
 fn kitchen_prize(full: bool, beat: u8) -> (Option<&'static str>, u32, &'static str) {
     if full {
         (None, PRIZE_GOLD, "PACK FULL. GRUBB PAYS SIX EXTRA GOLD!")
@@ -44,11 +37,9 @@ fn kitchen_prize(full: bool, beat: u8) -> (Option<&'static str>, u32, &'static s
     }
 }
 
-/// What the cook is doing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Cook {
     Stirring,
-    /// About to turn: his ears twitch.
     Turning,
     Looking,
 }

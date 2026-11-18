@@ -127,14 +127,12 @@ class Table:
                 raise ValueError("join your seat first")
             now = time.time()
             db.execute("UPDATE agents SET seen=? WHERE id=?", (now, agent))
-            # Return an existing lease as well: a lost CLI result never loses a turn.
             task = db.execute("""SELECT t.*,r.question,r.passes FROM tasks t JOIN rounds r ON r.id=t.round_id
                 WHERE t.agent=? AND r.state='active' AND t.state IN ('queued','leased')
                 ORDER BY t.id LIMIT 1""", (agent,)).fetchone()
             if task is None:
                 return None
             db.execute("UPDATE tasks SET state='leased',lease=? WHERE id=?", (now + LEASE_SECONDS, task["id"]))
-            # Recent room context plus the full current question; nothing is silently invented.
             rows = db.execute("SELECT * FROM messages ORDER BY id DESC LIMIT 80").fetchall()[::-1]
             transcript = [dict(row) for row in rows]
             budget = 60000

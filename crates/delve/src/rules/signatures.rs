@@ -20,36 +20,21 @@ pub const BREATH: u32 = 24;
 pub const RIP_TELL: u32 = 21;
 pub const RAIL_TELL: u32 = 30;
 pub const RIP_SPEED: f32 = 40.0;
-/// How fast a breath draws a knight in, units a second: a seventh of a
-/// knight's walk, so walking away always gets clear.
 pub const PULL_SPEED: f32 = 1.8;
 const _: () = assert!(PULL_SPEED * 7.0 <= HERO_SPEED);
-/// The nearest a guardian's breath draws a knight, past the edge of its
-/// body, in units: clear of its touch (`hurts_by_touch`'s half unit).
 pub const PULL_KEEP: f32 = 1.0;
 pub const PULL_REACH: f32 = 11.0;
 pub const WALL_AREA: f32 = 160.0;
 pub const WALL_MAX: usize = 32;
 pub const TENDER: u8 = 9;
-/// A guardian winding up one of its file's charge-ups.
 pub const WIND: u8 = 6;
-/// Ticks a guardian stands spent after a charge-up: the knights' turn.
 pub const RECOVER: u32 = 30;
-/// Ticks a leap is in the air.
 pub const FLIGHT: u32 = 15;
-/// How far round where it lands a leap strikes.
 pub const LANDING: f32 = 2.4;
-/// The longest charge a lane is shown for, and the shortest worth turning
-/// aside from the knight's line to find.
 pub const LANE_MOST: f32 = 30.0;
 pub const LANE_LEAST: f32 = 10.0;
-/// Shot-ticks of allowance a guardian may bank: one full volley.
 pub const BANK: u32 = bosses::VOLLEY_MOST * HZ;
-/// How fast a charged beam sweeps its arc, in degrees a second: a knight
-/// walking across its line outpaces it out to eighteen units away.
 pub const BEAM_TURN: f32 = 40.0;
-/// The least width of a slam's clear lane at its first ring, in units:
-/// three knights abreast and room to spare.
 pub const SLAM_GAP: f32 = 3.0;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -67,22 +52,14 @@ pub struct State {
     pub rail: u8,
     pub jump_from: (f32, f32),
     pub babies: bool,
-    /// Which of its file's charge-ups a guardian is winding up.
     #[serde(default)]
     pub windup: u8,
-    /// Where a leap will land.
     #[serde(default)]
     pub mark: (f32, f32),
-    /// Shot-ticks of its allowance spent (`hold`): each tick gives back its
-    /// stage's shots a second.
     #[serde(default)]
     pub spent: u32,
-    /// Its latest charge-up's tag (`tag`), carried by everything that
-    /// charge-up strikes with.
     #[serde(default, skip_serializing_if = "zero")]
     pub blow: u32,
-    /// Something of its latest charge-up is still about — a shot, its
-    /// beam, a ring — so it winds up no other (`Run`, each tick).
     #[serde(
         default,
         skip_serializing_if = "crate::rules::runtime_state::omit",
@@ -114,8 +91,6 @@ impl State {
 pub fn special(boss: &Boss) -> bool {
     matches!(boss.id.as_str(), RIPPER | ENGINE)
 }
-/// It may shoot this tick: not mid-signature, nor winding up or spent
-/// after a charge-up (an outlaw keeps its own stages).
 pub fn shooting(enemy: &Enemy, boss: &Boss, wanted: bool) -> bool {
     if special(boss) {
         enemy.stage == 0
@@ -123,9 +98,6 @@ pub fn shooting(enemy: &Enemy, boss: &Boss, wanted: bool) -> bool {
         wanted || boss.windups.is_empty() || enemy.stage == 0
     }
 }
-/// The charge-ups a guardian fights with: its file's, or the two unruly
-/// ones' own (the Ripper breathes in, then rips; Grinwick charges its
-/// rails).
 pub fn charge_ups(boss: &Boss) -> Vec<Windup> {
     match boss.id.as_str() {
         RIPPER => vec![Windup::Inhale, Windup::Charge],
@@ -133,9 +105,6 @@ pub fn charge_ups(boss: &Boss) -> Vec<Windup> {
         _ => boss.windups.iter().map(|w| w.kind).collect(),
     }
 }
-/// The charge-up it will wind up next, if one is due in `stage`: its file's
-/// lines from their stage on, taken in turn, each `every` ticks after the
-/// last one ended (two thirds of that in its rage).
 pub fn due(enemy: &Enemy, boss: &Boss, stage: Stage) -> Option<usize> {
     if special(boss) || enemy.stage != 0 || enemy.signature.lingering {
         return None;
@@ -148,18 +117,12 @@ pub fn due(enemy: &Enemy, boss: &Boss, stage: Stage) -> Option<usize> {
     let every = if stage == Stage::Rage { every * 2 / 3 } else { every };
     (enemy.timer >= every).then_some(k)
 }
-/// What a shot weighs against the caps: itself, and the ring it bursts into.
 pub fn weight(shot: &Projectile) -> u32 {
     match shot.traits.path.then {
         patterns::Then::Burst(n, _) => 1 + u32::from(n),
         _ => 1,
     }
 }
-/// Hold a guardian to its stage's caps (`bosses::Stage::caps`) for one
-/// tick: its volleys this tick (`shots[from..]`) fly whole or not at all,
-/// keeping back what a due charge-up will need; its charge-up's burst,
-/// paid for as it began, is trimmed to the room left. `standing` is what
-/// the room's hostile shots already weigh, `heads` the knights standing.
 pub(super) fn hold(
     enemy: &mut Enemy,
     boss: &Boss,
@@ -207,8 +170,6 @@ pub fn swell(enemy: &Enemy) -> f32 {
         _ => 1.0,
     }
 }
-/// A seeded candidate with the longest clear launch corridor. Sampling all
-/// quadrants favours open room without turning the rip into aimed pursuit.
 pub(super) fn rip_direction(enemy: &Enemy, grid: &Grid, seed: u64) -> (f32, f32) {
     let salt = mix(seed ^ u64::from(enemy.id) << 32 ^ u64::from(enemy.signature.cycle));
     let start = (salt % 65536) as f32 / 65536.0 * std::f32::consts::TAU;
@@ -232,25 +193,17 @@ pub(super) fn rip_direction(enemy: &Enemy, grid: &Grid, seed: u64) -> (f32, f32)
         .map(|(_, d)| d)
         .unwrap_or((1.0, 0.0))
 }
-/// What a guardian's charge-up strikes with carries this, for this
-/// guardian and this charge-up: a knight it has struck carries it too
-/// (`Hero::blow`), and is struck by nothing more of it.
 fn tag(enemy: &Enemy) -> u32 {
     (enemy.id.rotate_left(16) ^ enemy.signature.cycle).max(1)
 }
-/// Ticks a charged beam burns sweeping its arc at `BEAM_TURN`.
 pub fn beam_burn(up: &ChargeUp) -> u8 {
     (up.arc.abs() / BEAM_TURN * HZ as f32)
         .ceil()
         .clamp(f32::from(patterns::SWEEP_BURN), 255.0) as u8
 }
-/// A slam's clear lane, in degrees: its file's, or `SLAM_GAP` wide at the
-/// first ring if that is wider.
 pub fn slam_lane(up: &ChargeUp) -> f32 {
     up.arc.max((SLAM_GAP / tide::RING_GAP).to_degrees())
 }
-/// Ticks a guardian stands spent after the blow: its blow's own length (a
-/// slam's later rings, a beam's sweep), then `RECOVER`.
 pub fn spent_for(up: &ChargeUp) -> u32 {
     let blow = match up.kind {
         Windup::Slam => (up.shots.clamp(1, 8) - 1) * tide::step_for(up.speed) + 1,
@@ -282,7 +235,6 @@ fn dash_for(
     deeds: &mut Deeds,
 ) -> bool {
     let from = (enemy.x, enemy.y);
-    // Small collision steps leave a continuous trail and cannot tunnel stone.
     let stride = speed * DT / 4.0;
     let mut stopped = false;
     for _ in 0..4 {
@@ -336,7 +288,6 @@ pub(super) fn act(
     if boss.id == RIPPER {
         let raging = (enemy.hp as f32) < enemy.max_hp as f32 * 0.4;
         let radius = boss.radius * swell(enemy);
-        // Each breath pushes his growing belly clear of nearby stone.
         if (radius > enemy.radius() || enemy.stage == TELL)
             && !grid.clear(enemy.x, enemy.y, radius, Mover::Walker)
         {
@@ -418,7 +369,6 @@ pub(super) fn act(
     }
     true
 }
-/// The nearest of `heroes` to the guardian.
 fn nearest(enemy: &Enemy, heroes: &[(f32, f32)]) -> Option<(f32, f32)> {
     heroes.iter().copied().min_by(|a, b| {
         (a.0 - enemy.x)
@@ -426,7 +376,6 @@ fn nearest(enemy: &Enemy, heroes: &[(f32, f32)]) -> Option<(f32, f32)> {
             .total_cmp(&(b.0 - enemy.x).hypot(b.1 - enemy.y))
     })
 }
-/// The clear spot nearest `to` where the guardian fits, if any near.
 fn clear_near(enemy: &Enemy, grid: &Grid, to: (f32, f32)) -> Option<(f32, f32)> {
     let mut best = None;
     for dy in -8..=8 {
@@ -442,16 +391,11 @@ fn clear_near(enemy: &Enemy, grid: &Grid, to: (f32, f32)) -> Option<(f32, f32)> 
     }
     best.map(|(_, spot)| spot)
 }
-/// The charge-up it is winding up or striking with.
 pub fn winding<'a>(enemy: &Enemy, boss: &'a Boss) -> Option<&'a ChargeUp> {
     (!special(boss) && matches!(enemy.stage, WIND | DASH | JUMP | DAZED))
         .then(|| boss.windups.get(usize::from(enemy.signature.windup)))
         .flatten()
 }
-/// A guardian's charge-ups from its file, one tick: when one is due (and
-/// its burst is in its allowance) it stands and winds up where everyone can
-/// see, then strikes, then stands spent. True while it is busy at one, so
-/// it neither walks nor shoots.
 pub(super) fn wind(
     enemy: &mut Enemy,
     boss: &Boss,
@@ -475,12 +419,9 @@ pub(super) fn wind(
             return false;
         };
         if enemy.signature.spent + cost > BANK {
-            // It gathers itself: what it will throw comes out of its
-            // allowance first (`hold` keeps its volleys back meanwhile).
             return false;
         }
         enemy.signature.spent += cost;
-        // Busy at a charge-up, its body does not strike (`hurts_by_touch`).
         enemy.signature.active = true;
         enemy.signature.windup = k as u8;
         enemy.signature.cycle = enemy.signature.cycle.wrapping_add(1);
@@ -505,7 +446,6 @@ pub(super) fn wind(
         DASH => {
             let stopped = dash_for(enemy, grid, up.speed, false, up.damage, enemy.signature.blow, deeds);
             if stopped && up.breaks {
-                // Into the stone that stopped it, as wide as it is.
                 let front = (enemy.x + enemy.dir.0 * enemy.radius(), enemy.y + enemy.dir.1 * enemy.radius());
                 deeds.shatters.push((front, enemy.radius() + rubble::SHATTER_PAST / 2.0));
             }
@@ -525,8 +465,6 @@ pub(super) fn wind(
             enemy.y = a.1 + (b.1 - a.1) * t;
             if enemy.timer >= FLIGHT {
                 (enemy.x, enemy.y) = b;
-                // Its heading back the way it came: open floor, for the
-                // knights it lands on to be thrown to (`signature_deeds`).
                 let back = unit(a.0 - b.0, a.1 - b.1);
                 deeds.sweeps.push((b, b, LANDING + HERO_RADIUS, up.damage, back, enemy.signature.blow));
                 ring(enemy, boss, up, deeds);
@@ -551,7 +489,6 @@ pub(super) fn wind(
     }
     true
 }
-/// The wind-up's start: what it shows, and what is already on its way.
 fn begin(
     enemy: &mut Enemy,
     boss: &Boss,
@@ -566,9 +503,6 @@ fn begin(
     deeds.sounds.push("boss_roar");
     match up.kind {
         Windup::Charge => {
-            // The lane runs at the knight to the first stone, or a little
-            // to one side where stone stands close; it is shown for the
-            // whole wind-up.
             let aim = enemy.dir.1.atan2(enemy.dir.0);
             let lane = |angle: f32| {
                 let dir = (angle.cos(), angle.sin());
@@ -587,7 +521,6 @@ fn begin(
                 .map(|turn| lane(aim + turn))
                 .enumerate()
                 .max_by(|(i, x), (j, y)| {
-                    // The straight line wins unless stone cuts it short.
                     let score = |k: usize, reach: f32| reach.min(LANE_LEAST) * 10.0 - k as f32;
                     score(*i, x.2).total_cmp(&score(*j, y.2))
                 })
@@ -597,7 +530,6 @@ fn begin(
             enemy.signature.rails = vec![Rail { a: from, b }];
         }
         Windup::Slam => {
-            // The floor ripples now; its rings burst as the wind-up ends.
             let mut slam = tide::Ravage::cast(
                 from,
                 up.shots,
@@ -638,7 +570,6 @@ fn begin(
         Windup::Inhale => {}
     }
 }
-/// The wind-up is over: the blow.
 fn strike(enemy: &mut Enemy, boss: &Boss, up: &ChargeUp, deeds: &mut Deeds) {
     match up.kind {
         Windup::Charge => {
@@ -670,9 +601,6 @@ fn strike(enemy: &mut Enemy, boss: &Boss, up: &ChargeUp, deeds: &mut Deeds) {
         }
     }
 }
-/// A burst of the charge-up's shots round the guardian, evenly spaced and
-/// turned half a step off the way it faced, so the knight it was for
-/// stands in a gap.
 fn ring(enemy: &Enemy, boss: &Boss, up: &ChargeUp, deeds: &mut Deeds) {
     let n = up.shots;
     if n == 0 {
@@ -714,7 +642,6 @@ fn lay_rails(enemy: &mut Enemy, heroes: &[(f32, f32)], grid: &Grid, seed: u64) {
         let a = (enemy.x, enemy.y);
         let angle = aim + jitter + (k as f32 - 1.0) * 0.72;
         let dir = (angle.cos(), angle.sin());
-        // Rails follow traversable floor, ending before a wall or pillar.
         let mut b = a;
         for n in 1..=120 {
             let p = (a.0 + dir.0 * n as f32 * 0.5, a.1 + dir.1 * n as f32 * 0.5);
@@ -725,8 +652,6 @@ fn lay_rails(enemy: &mut Enemy, heroes: &[(f32, f32)], grid: &Grid, seed: u64) {
         }
         enemy.signature.rails.push(Rail { a, b });
     }
-    // A larger engine can leave a side branch very short beside a wall.
-    // Start on the longest clear corridor; each later branch is still warned.
     let reach = |r: &Rail| (r.b.0 - r.a.0).hypot(r.b.1 - r.a.1);
     enemy
         .signature
@@ -820,20 +745,15 @@ fn engine(
         _ => {}
     }
 }
-/// A guardian's rule taught on first meeting: the first `HINTS` times the
-/// rule bites, a hint word beside it for `HINT_SHOW` ticks, each at least
-/// `HINT_EVERY` after the last (`Enemy::hint`).
 pub const HINTS: u32 = 3;
 pub const HINT_SHOW: u32 = 3 * HZ / 2;
 pub const HINT_EVERY: u32 = 6 * HZ;
-/// The rule bit it this tick: show its word, if it is still to be taught.
 pub(super) fn teach(enemy: &mut Enemy) {
     if enemy.hint == 0 && enemy.hints < HINTS {
         enemy.hint = HINT_EVERY;
         enemy.hints += 1;
     }
 }
-/// Its hint word is up.
 pub fn hinting(enemy: &Enemy) -> bool {
     enemy.hint > HINT_EVERY - HINT_SHOW
 }
@@ -853,8 +773,6 @@ pub fn rear_bonus(enemy: &Enemy, bosses: &[Boss], from: (f32, f32), damage: u32)
         0
     }
 }
-/// Gas trail area is bounded by the sum of whole segment disks, so overlaps
-/// can only reduce coverage. Oldest walls yield first; player gas stays put.
 pub fn add_wall(clouds: &mut Vec<skills::Cloud>, cloud: skills::Cloud) {
     let area = |c: &skills::Cloud| std::f32::consts::PI * c.wall_radius().powi(2);
     while clouds.iter().filter(|c| c.wall()).count() >= WALL_MAX
@@ -912,17 +830,12 @@ impl Run {
             if blow == 0 || a != b {
                 continue;
             }
-            // A charge-up's landing throws the knights under it clear of
-            // its body, as a slam's ring does, struck or not: straight out,
-            // or, against stone, back the way the guardian came.
             for h in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
                 let d = (h.x - b.0).hypot(h.y - b.1);
                 if d >= r {
                     continue;
                 }
                 let throw = |from: (f32, f32), (ux, uy): (f32, f32), far: f32| {
-                    // Short steps, so a barred door or a wall stops the toss
-                    // the way walking does, instead of one long hop jumping it.
                     let steps = (far / 0.35).ceil().max(8.0) as i32;
                     let hop = far / steps as f32;
                     (0..steps).fold(from, |at, _| {
@@ -947,7 +860,6 @@ impl Run {
                 if !hit_segment(a.0, a.1, b.0, b.1, h.x, h.y, r) {
                     continue;
                 }
-                // A charge-up's dash or landing strikes each knight once.
                 if blow != 0 {
                     if h.blow(damage, blow) {
                         self.sounds.push("hero_hurt");

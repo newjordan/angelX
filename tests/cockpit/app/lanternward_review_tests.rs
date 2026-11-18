@@ -12,7 +12,6 @@ use std::collections::BTreeMap;
 
 const FILE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../crates/delve/tests/fixtures/lanternward_moments.json");
 
-/// Every moment the review sets up, with how many knights.
 pub const MOMENTS: &[(&str, u32)] = &[
     ("stair", 1), ("lock", 1), ("circle", 1), ("slash", 1), ("slash3", 1), ("spin", 1), ("lunge", 1),
     ("shield", 1), ("block", 1), ("parry", 1), ("hop", 1), ("flip", 1), ("plunge", 1), ("roll", 1),
@@ -24,8 +23,6 @@ pub const MOMENTS: &[(&str, u32)] = &[
     ("warden-dead", 1), ("beacon", 1), ("finale", 2),
 ];
 
-/// The moments the picture tests ask for: each at its own table, alone, and
-/// the few they size up (a full table, the four-knight Warden).
 fn wanted() -> Vec<(&'static str, u32)> {
     let mut out: Vec<(&str, u32)> = MOMENTS.to_vec();
     out.extend(MOMENTS.iter().map(|&(m, _)| (m, 1)));
@@ -36,7 +33,6 @@ fn wanted() -> Vec<(&'static str, u32)> {
     out
 }
 
-/// Every wanted moment as the rules play it now, and the fresh table.
 fn played() -> BTreeMap<String, Value> {
     let mut out = BTreeMap::new();
     for (moment, seats) in wanted() {
@@ -68,8 +64,6 @@ fn write_lanternward_moments() {
     std::fs::write(FILE, serde_json::to_string(&played()).unwrap()).unwrap();
 }
 
-/// A knight's verb frame by frame: the 56 by 44 pixels about them, three
-/// times over, a tick apiece, side by side.
 fn film(name: &str, mut r: Run, script: &[(u32, Input)], dir: &std::path::Path) {
     use angel_delve::rules::lanternward::world::Q;
     let mut frames = Vec::new();

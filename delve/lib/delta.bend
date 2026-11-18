@@ -1,14 +1,6 @@
 import Base
 import ./j.bend as J
 
-# Deltas between two states (docs/architecture/delve-in-bend.md): an op is
-# ["s", path, value], ["d", path] or ["t", path, n]; a path is object keys and
-# array indices, root first. `patch` applies ops in order; `diff` answers the
-# ops that turn one state into another.
-
-# Patching
-# --------
-
 def set.at?(+v: J.Val, path: List<&2, J.Val>, x: J.Val) -> J.Val:
   match path:
     case Nil{}:
@@ -73,9 +65,6 @@ def patch.go?(ops: List<&2, J.Val>, +v: J.Val) -> J.Val:
 def patch(+v: J.Val, +ops: J.Val) -> J.Val:
   patch.go(J.items(ops), v)
 
-# Diffing
-# -------
-
 def path(+rp: List<&2, J.Val>) -> J.Val:
   J.JA{List.reverse(&2, J.Val, rp)}
 
@@ -95,8 +84,6 @@ def leaf(same: Bool, +rp: List<&2, J.Val>, +x: J.Val, acc: List<&2, J.Val>) -> L
     case False{}:
       op.set(rp, x) <> acc
 
-# Ops that turn `a` into `b` at the reversed path `rp`, prepended onto `acc`
-# newest first.
 def go?(+a: J.Val, +b: J.Val, +rp: List<&2, J.Val>, acc: List<&2, J.Val>) -> List<&2, J.Val>:
   match a b:
     case J.JO{+am} J.JO{+bm}:

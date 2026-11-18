@@ -13,8 +13,6 @@ use crate::telemetry::SlotOutcome;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-/// Shipped built-in fixture: in-flight → still-running → terminal with score.
-/// Redacted gold id; not a live competition identifier.
 pub const BUILTIN_WATCH_FIXTURE_JSON: &str = r#"{
   "id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
   "snapshots": [
@@ -24,10 +22,8 @@ pub const BUILTIN_WATCH_FIXTURE_JSON: &str = r#"{
   ]
 }"#;
 
-/// Injected when the watcher observes a terminal slot result.
 pub const WATCHER_NOTIFY_MARK: &str = "[harness-telemetry] WATCHER NOTIFY";
 
-/// Phase of the watched slot, independent of the model's tool choices.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SlotPhase {
     Empty,
@@ -35,7 +31,6 @@ pub(crate) enum SlotPhase {
     Terminal,
 }
 
-/// One typed status snapshot from a configured status source.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SlotSnapshot {
     pub id: String,
@@ -45,8 +40,6 @@ pub(crate) struct SlotSnapshot {
     pub receipt: Option<SubmissionReceipt>,
 }
 
-/// Typed exact-ID fields returned by an authenticated competition status API.
-/// Prose notes are supplementary; queued state is not a terminal receipt.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SubmissionReceipt {
     pub benchmark_id: String,
@@ -59,8 +52,6 @@ pub(crate) struct SubmissionReceipt {
 }
 
 impl SlotSnapshot {
-    /// How the watcher reads this status word. The one place that decides;
-    /// `is_terminal` and the HUD telemetry both ask it.
     pub(crate) fn outcome(&self) -> SlotOutcome {
         SlotOutcome::from_status(&self.status)
     }
@@ -71,13 +62,10 @@ impl SlotSnapshot {
     }
 
     pub(crate) fn is_terminal(&self) -> bool {
-        // A new provider status is not evidence of acceptance. Keep observing
-        // until the provider reports an explicitly recognized terminal result.
         self.outcome().is_settled()
     }
 }
 
-/// Model-visible terminal injection produced by the watcher.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct WatchNotify {
     pub id: String,
@@ -100,8 +88,6 @@ impl WatchNotify {
         }
     }
 
-    /// Text injected into the model's next turn. Always carries id + status
-    /// and either a score or a rejection reason.
     pub(crate) fn injection_text(&self) -> String {
         let mut out = format!(
             "{WATCHER_NOTIFY_MARK} — submission {} status={}",
@@ -134,7 +120,6 @@ impl WatchNotify {
     }
 }
 
-/// Status I/O is separate from proof authority and tool-result prose.
 pub(crate) trait StatusSource {
     fn probe(&mut self, id: &str) -> Result<SlotSnapshot, String>;
     fn receipt_note(&self) -> Option<String> {
@@ -145,7 +130,6 @@ pub(crate) trait StatusSource {
     }
 }
 
-/// Sequential fixture source: each [`probe`] advances one snapshot.
 #[derive(Clone, Debug)]
 pub(crate) struct FixtureStatusSource {
     pub id: String,
@@ -217,7 +201,6 @@ impl StatusSource for FixtureStatusSource {
     }
 }
 
-/// Workspace file probe: `{dir}/{id}.json`. Missing file means still in-flight.
 pub(crate) struct FileStatusSource {
     dir: PathBuf,
 }
@@ -249,8 +232,6 @@ impl StatusSource for FileStatusSource {
 }
 
 fn parse_snapshot(id: &str, value: &serde_json::Value) -> Result<SlotSnapshot, String> {
-    // A source may omit an ID when it is already bound by a fixture/file name,
-    // but an explicit identity must never be silently relabeled as our slot.
     if let Some(observed) = value.get("id")
         && observed.as_str() != Some(id)
     {
@@ -292,7 +273,6 @@ fn json_to_opt_string(value: &serde_json::Value) -> Option<String> {
     }
 }
 
-/// Independent slot tracker. The model does not poll this; the harness does.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct SubmissionWatcher {
     slot_id: Option<String>,
@@ -359,13 +339,10 @@ impl SubmissionWatcher {
         }
     }
 
-    /// True when status observation and slot telemetry apply to this hop.
     pub(crate) fn hop_path_active(&self, competition: bool) -> bool {
         competition || self.slot_id.is_some()
     }
 
-    /// Probe the status source once. Returns a notify the first time the slot
-    /// becomes terminal.
     pub(crate) fn poll<S: StatusSource + ?Sized>(
         &mut self,
         source: Option<&mut S>,
@@ -377,8 +354,6 @@ impl SubmissionWatcher {
         let src = source?;
         match src.probe(&id) {
             Ok(snap) => {
-                // StatusSource is an I/O boundary, not authority to retarget the
-                // current slot. A stale/cache-mixed response must stay silent.
                 if snap.id != id {
                     return None;
                 }
@@ -416,8 +391,6 @@ impl SubmissionWatcher {
         })
     }
 
-    /// Compact typed state for the operator HUD. Only recognized terminal
-    /// statuses settle the slot; unknown statuses never imply acceptance.
     pub(crate) fn telemetry(&self, competition: bool) -> SubmissionSlotTelemetry {
         if !competition && self.slot_id.is_none() {
             return SubmissionSlotTelemetry::default();
@@ -428,10 +401,6 @@ impl SubmissionWatcher {
             SlotPhase::Terminal => match self.last.as_ref().map(SlotSnapshot::outcome) {
                 Some(SlotOutcome::TimedOut) => SubmissionSlotPhase::TimedOut,
                 Some(SlotOutcome::Rejected) => SubmissionSlotPhase::Rejected,
-                // A terminal phase follows a settled snapshot and `poll` takes
-                // no more after that, so `last` reads as accepted here. Only
-                // the test-only `observe_snapshot` can leave an in-flight one
-                // behind; that has always read as accepted and is kept.
                 Some(SlotOutcome::Accepted | SlotOutcome::InFlight) | None => {
                     SubmissionSlotPhase::Accepted
                 }
@@ -448,8 +417,6 @@ impl SubmissionWatcher {
     }
 }
 
-/// Poll an already-adopted watcher against a fixture until the first terminal
-/// notify. Shared by the launchable entry and submit-next retarget.
 pub(crate) fn poll_fixture_until_terminal(
     watcher: &mut SubmissionWatcher,
     source: &mut FixtureStatusSource,
@@ -469,8 +436,6 @@ pub(crate) fn poll_fixture_until_terminal(
     ))
 }
 
-/// Drive a fixture source to its terminal snapshot and return the injection.
-/// This is the crate's shipped watcher entry (also used by `angel --watch-fixture`).
 pub(crate) fn run_fixture_watch(source: &mut FixtureStatusSource) -> Result<WatchNotify, String> {
     let id = source.id.clone();
     let mut watcher = SubmissionWatcher::new();
@@ -478,7 +443,6 @@ pub(crate) fn run_fixture_watch(source: &mut FixtureStatusSource) -> Result<Watc
     poll_fixture_until_terminal(&mut watcher, source)
 }
 
-/// Launchable CLI entry: print the model-visible injection and exit via caller.
 pub(crate) fn run_watch_fixture_cli(path: Option<&Path>) -> io::Result<WatchNotify> {
     let mut source = match path {
         Some(p) => FixtureStatusSource::from_path(p)
@@ -503,12 +467,9 @@ pub(crate) fn run_watch_fixture_cli(path: Option<&Path>) -> io::Result<WatchNoti
     Ok(notify)
 }
 
-/// Concrete status source for a live turn. An enum (not a trait object) so the
-/// hop loop can probe without holding a dyn borrow across iterations.
 pub(crate) enum ConfiguredWatchSource {
     Fixture(FixtureStatusSource),
     File(FileStatusSource),
-    /// The active cartridge's own status source.
     Cartridge(Box<dyn StatusSource + Send>),
 }
 
@@ -536,8 +497,6 @@ impl StatusSource for ConfiguredWatchSource {
     }
 }
 
-/// Open the configured status source for a live turn. Fixture env wins;
-/// otherwise a workspace file probe. Never a live competition API.
 pub(crate) fn open_configured_status_source(workspace: &Path) -> Option<ConfiguredWatchSource> {
     if let Ok(path) = std::env::var("ANGEL_WATCH_FIXTURE") {
         let path = path.trim();
@@ -551,14 +510,8 @@ pub(crate) fn open_configured_status_source(workspace: &Path) -> Option<Configur
     Some(ConfiguredWatchSource::File(FileStatusSource::new(dir)))
 }
 
-/// Pull a submission UUID out of a submit receipt or keeper line.
-/// Prefers lines that mention queued / in-flight / submission; skips bare
-/// hex that is not UUID-shaped.
-/// Cheap receipt sniff: only the first 8 KiB, so megabyte `cargo test`
-/// tails never enter UUID extraction on the ordinary hop path.
 pub(crate) const SLOT_HINT_SCAN: usize = 8192;
 
-/// First `SLOT_HINT_SCAN` bytes, backed up to a char boundary. No copy.
 pub(crate) fn slot_hint_head(text: &str) -> &str {
     if text.len() <= SLOT_HINT_SCAN {
         return text;
@@ -570,8 +523,6 @@ pub(crate) fn slot_hint_head(text: &str) -> &str {
     &text[..end]
 }
 
-/// ASCII needle search with no lowercase heap copy. Needles are ASCII, so a
-/// hit is always a char boundary (UTF-8 continuation bytes are never ASCII).
 pub(crate) fn ascii_find_ignore_case(hay: &str, needle: &str) -> Option<usize> {
     let hay = hay.as_bytes();
     let needle = needle.as_bytes();
@@ -589,8 +540,6 @@ pub(crate) fn ascii_contains_ignore_case(hay: &str, needle: &str) -> bool {
     ascii_find_ignore_case(hay, needle).is_some()
 }
 
-/// True when the first 8 KiB looks like a submit receipt. Ordinary compile
-/// and test logs stay false — no 8 KiB lowercase allocation on that path.
 pub(crate) fn text_may_carry_slot(text: &str) -> bool {
     let head = slot_hint_head(text);
     ascii_contains_ignore_case(head, "submission queued")
@@ -599,9 +548,6 @@ pub(crate) fn text_may_carry_slot(text: &str) -> bool {
 }
 
 pub(crate) fn extract_submission_id(text: &str) -> Option<String> {
-    // Receipt stanzas print the benchmark uuid first, then "Submission queued"
-    // and the submission uuid (slot-keeper excludes the bench id the same way).
-    // Scan in place so a live slot does not lowercase megabyte tool tails.
     for marker in [
         "submission queued",
         "in flight as",
@@ -619,12 +565,6 @@ pub(crate) fn extract_submission_id(text: &str) -> Option<String> {
         }
     }
     for line in text.lines() {
-        // "id"/"uuid" must be standalone tokens: harness-history lines such as
-        // `git log`'s "Validate submission <uuid>" carry "id" inside
-        // "Val-id-ate", and adopting one hands the watcher a phantom slot it
-        // then "notifies" terminal from board text (2026-09-01: the
-        // morning run believed a repo-log uuid was its own in-flight
-        // submission and reported it rejected without ever submitting).
         let hot = ascii_contains_ignore_case(line, "in flight")
             || ascii_contains_ignore_case(line, "in-flight")
             || (ascii_contains_ignore_case(line, "submission")
@@ -640,9 +580,6 @@ pub(crate) fn extract_submission_id(text: &str) -> Option<String> {
     None
 }
 
-/// True when `word` appears bounded by non-alphanumerics (a token, not a
-/// fragment of a longer word). Byte-level so multi-byte text cannot panic a
-/// boundary slice.
 fn ascii_contains_word_ignore_case(hay: &str, word: &str) -> bool {
     let hay = hay.as_bytes();
     let word = word.as_bytes();
@@ -692,7 +629,6 @@ fn is_uuid_at(bytes: &[u8], i: usize) -> bool {
     true
 }
 
-// Tool activity classification is shared with the live loop accounting.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ToolLane {
     SimpleLocal,
@@ -703,7 +639,6 @@ fn call_hay(call: &ToolCall) -> (&str, std::borrow::Cow<'_, str>, bool) {
     competition_call_text(call)
 }
 
-/// `git diff` / `git diff --stat`, not `git difftool` or `git status`.
 pub(crate) fn shell_hay_is_git_diff(hay: &str) -> bool {
     hay.contains("git diff ")
         || hay.contains("git diff\t")
@@ -711,8 +646,6 @@ pub(crate) fn shell_hay_is_git_diff(hay: &str) -> bool {
         || hay.contains("git-diff ")
 }
 
-/// `git status` / `git status --porcelain`, not `git status` as a path token
-/// inside an unrelated command. `git stash` / `git submodule` stay recon.
 pub(crate) fn shell_hay_is_git_status(hay: &str) -> bool {
     hay.contains("git status ")
         || hay.contains("git status\t")
@@ -758,8 +691,6 @@ const PREFLIGHT_MARKERS: &[&str] = &[
     "-xptxas",
 ];
 
-/// World-card local-benchmark shells. Distinct from remote `--mode benchmark`
-/// (a runner). Winning traces time the next candidate while a slot is in flight.
 const LOCAL_BENCHMARK_MARKERS: &[&str] = &[
     "ncu ",
     "ncu\t",
@@ -782,9 +713,6 @@ pub(crate) fn classify_tool_lane(call: &ToolCall) -> ToolLane {
     }
 }
 
-/// Model-owned status snapshots. Runner dispatch is deliberately excluded:
-/// `<board> submit` advances the board, while `<board> submissions`, board reads,
-/// and `proc_status` only observe work already in flight.
 pub(crate) fn is_passive_status_call(call: &ToolCall) -> bool {
     matches!(call.name.as_str(), "proc_status" | "proc_wait")
         || is_progress_artifact_snapshot_call(call)
@@ -792,10 +720,6 @@ pub(crate) fn is_passive_status_call(call: &ToolCall) -> bool {
             && is_competition_wait_or_progress_call(call))
 }
 
-/// Read-only snapshots of background progress artifacts. These are useful
-/// once, but repeated `tail /tmp/*progress*`, log, and status-file checks are
-/// polling just as surely as `proc_status`. Keep the match path-oriented so a
-/// source grep for the word "progress" is still normal candidate inspection.
 pub(crate) fn is_progress_artifact_snapshot_call(call: &ToolCall) -> bool {
     let path_marks_progress = |path: &str| {
         let path = path.to_ascii_lowercase();
@@ -822,8 +746,6 @@ pub(crate) fn is_progress_artifact_snapshot_call(call: &ToolCall) -> bool {
     snapshot_program && path_marks_progress(command)
 }
 
-/// Cheap local timing of the candidate (`ncu`, `nsys`, `python bench.py`).
-/// Remote popcorn `--mode benchmark` is a runner, not this.
 pub(crate) fn is_local_benchmark_call(call: &ToolCall) -> bool {
     if classify_tool_lane(call) == ToolLane::RunnerDispatch {
         return false;
@@ -839,16 +761,9 @@ pub(crate) fn is_local_preflight_call(call: &ToolCall) -> bool {
     if classify_tool_lane(call) == ToolLane::RunnerDispatch {
         return false;
     }
-    // Board wait/poll is not candidate preflight. First-write already
-    // exempts these calls from the inspection budget; the in-flight
-    // watcher must still fail them as PollStatus (and they must not
-    // launder runner escalation).
     if is_passive_status_call(call) {
         return false;
     }
-    // Native check/run_tests/lint are the world-card local-benchmark —
-    // they must not FailReconThrash while a slot is in flight, and they
-    // may arm runner escalation. Board wait already returned above.
     if is_verification_call(call) {
         return true;
     }
@@ -867,14 +782,9 @@ pub(crate) fn is_local_preflight_call(call: &ToolCall) -> bool {
         let query = call.args.get("query").and_then(Value::as_str).unwrap_or("");
         return file_search_query_is_path_scoped(query);
     }
-    // Working-tree `git_diff` / `git_status` / `git diff` / `git status` is
-    // the world-card inspect of the candidate (submit then review the tree).
-    // A board-path inspect is recon and must not arm submit.
     if matches!(call.name.as_str(), "git_diff" | "git_status") {
         return !inspect_path_is_board_meta(call);
     }
-    // Path-scoped `git_log` is candidate history (submit then blame/log the
-    // file). Pathless history dump and board-path log stay recon.
     if call.name == "git_log" {
         return inspect_call_path(call).is_some_and(shell_inspect_path_is_product);
     }
@@ -882,37 +792,25 @@ pub(crate) fn is_local_preflight_call(call: &ToolCall) -> bool {
     if is_shell && (shell_hay_is_git_diff(&hay) || shell_hay_is_git_status(&hay)) {
         return !hay_names_board_meta(&hay);
     }
-    // Git history, blob inspection and scoped grep share one parse.
     if is_shell && activity_native::classify(&hay, -1) {
         return true;
     }
-    // `cat`/`head` of a product path is the same class as path-scoped read_file.
     if is_shell && shell_hay_is_product_inspect(&hay) {
         return true;
     }
-    // `ls src` is the same class as path-scoped list_dir. Bare `ls` and
-    // recursive listings stay recon and cannot arm submit.
     if is_shell && shell_hay_is_product_ls(&hay) {
         return true;
     }
-    // `grep stream src/kernel.cu` is the same class as path-scoped grep.
-    // Pathless `grep TODO` and recursive `-r` stay recon.
     if is_shell && shell_hay_is_path_scoped_grep(&hay) {
         return true;
     }
     if is_shell && PREFLIGHT_MARKERS.iter().any(|m| hay.contains(m)) {
         return true;
     }
-    // Cheap local inspect of a candidate counts as preflight, not recon thrash.
-    // Board / living-handoff paths are not the candidate — outline/defs/grep
-    // /list_dir of those files must not launder runner escalation.
     if matches!(name, "read_file" | "outline" | "defs" | "grep" | "list_dir") {
         if inspect_path_is_board_meta(call) {
             return false;
         }
-        // Path-less outline/defs/grep/list_dir is workspace search, not a
-        // candidate inspect — it must not Accept as LocalPreflight or
-        // arm runner escalation (A9: defs(symbol=board_tip) / grep TODO).
         if name != "read_file" && inspect_call_path(call).is_none() {
             return false;
         }
@@ -921,18 +819,10 @@ pub(crate) fn is_local_preflight_call(call: &ToolCall) -> bool {
     false
 }
 
-/// Path-scoped `file_search` query (`src/kernel`). Workspace name fragments
-/// (`kernel`) and board-name queries stay recon.
 pub(crate) fn file_search_query_is_path_scoped(query: &str) -> bool {
     find_files_pattern_is_path_scoped(query)
 }
 
-/// First argv basename is a read-only file dump (`cat`/`head`/`tail`/`wc`/`nl`),
-/// a quiet `sed` pager (`sed -n`), a metadata probe (`stat`/`file`), a hex
-/// dump (`od`/`hexdump`/`xxd`), a checksum (`md5sum`/`sha256sum`/`sha1sum`/`cksum`),
-/// a compare (`diff`/`cmp`), a printable-string dump (`strings`), a binary
-/// inspect (`nm`/`objdump`/`readelf`/`size` and the LLVM/eu/rust twins,
-/// plus `addr2line`/`dwarfdump`/`llvm-symbolizer`), or a text encode (`base64`).
 fn shell_inspect_program(first: &str) -> bool {
     let base = first.rsplit('/').next().unwrap_or(first);
     matches!(
@@ -986,7 +876,6 @@ fn shell_inspect_basename(first: &str) -> &str {
     first.rsplit('/').next().unwrap_or(first)
 }
 
-/// `sed -i` / `--in-place` writes the tree. Must not launder as preflight.
 pub(crate) fn shell_sed_is_inplace(hay: &str) -> bool {
     hay.split_whitespace().any(|token| {
         let token = token.trim_matches(|c| matches!(c, '"' | '\'' | '`'));
@@ -996,7 +885,6 @@ pub(crate) fn shell_sed_is_inplace(hay: &str) -> bool {
     })
 }
 
-/// Quiet print-only `sed` (`-n` / `--quiet` / `--silent`, including `-ne`).
 pub(crate) fn shell_sed_is_quiet_print(hay: &str) -> bool {
     hay.split_whitespace().any(|token| {
         let token = token.trim_matches(|c| matches!(c, '"' | '\'' | '`'));
@@ -1010,8 +898,6 @@ pub(crate) fn shell_sed_is_quiet_print(hay: &str) -> bool {
     })
 }
 
-/// Token looks like a repo-relative product path (`src/kernel.cu`).
-/// Absolute paths, redirects, and board names stay recon.
 fn shell_inspect_path_is_product(token: &str) -> bool {
     let token = token.trim_matches(|c| matches!(c, '"' | '\'' | '`'));
     if token.is_empty()
@@ -1033,8 +919,6 @@ fn shell_inspect_path_is_product(token: &str) -> bool {
     find_files_pattern_is_path_scoped(rest)
 }
 
-/// Path glued to an inspect flag (`--obj=src/kernel.o`, `--exe=src/kernel.o`).
-/// Flag-only tokens (`--obj`, `-e`) stay flags.
 pub(crate) fn shell_inspect_flag_path(token: &str) -> Option<&str> {
     const PREFIXES: &[&str] = &["--obj=", "--exe=", "-e="];
     for prefix in PREFIXES {
@@ -1048,18 +932,6 @@ pub(crate) fn shell_inspect_flag_path(token: &str) -> Option<&str> {
     None
 }
 
-/// `cat src/kernel.cu` / `head -n 80 src/kernel.cu` / `sed -n 1,80p src/kernel.cu`
-/// / `stat src/kernel.cu` / `file src/kernel.cu` / `xxd src/kernel.cu` /
-/// `md5sum src/kernel.cu` / `diff -u src/kernel.cu src/ref.cu` /
-/// `strings src/kernel.cu` / `nm src/kernel.o` / `objdump -d src/kernel.o` /
-/// `llvm-objdump -d src/kernel.o` / `llvm-nm src/kernel.o` /
-/// `addr2line -e src/kernel.o` / `llvm-addr2line -e src/kernel.o` /
-/// `llvm-symbolizer --obj=src/kernel.o` / `eu-addr2line -e src/kernel.o` /
-/// `dwarfdump src/kernel.o` / `rust-objdump -d src/kernel.o` /
-/// `eu-readelf -h src/kernel.o` /
-/// `readelf -h src/kernel.o` / `base64 src/kernel.cu` is candidate inspect.
-/// Workspace basenames (`cat kernel.cu`), board files, compounds, in-place
-/// `sed -i`, and absolute dumps stay recon and cannot arm submit.
 pub(crate) fn shell_hay_is_product_inspect(hay: &str) -> bool {
     let hay = hay.trim();
     if hay.is_empty() || hay_names_board_meta(hay) {
@@ -1110,13 +982,10 @@ pub(crate) fn shell_hay_is_product_inspect(hay: &str) -> bool {
     saw_product
 }
 
-/// First argv basename is a non-recursive directory listing.
 fn shell_ls_program(first: &str) -> bool {
     first.rsplit('/').next().unwrap_or(first) == "ls"
 }
 
-/// Token looks like a list_dir target (`src`, `src/kernel`). Absolute paths,
-/// `.` / `..`, globs, and board names stay recon.
 fn shell_ls_path_is_product(token: &str) -> bool {
     let token = token.trim_matches(|c| matches!(c, '"' | '\'' | '`'));
     if token.is_empty()
@@ -1145,8 +1014,6 @@ fn shell_ls_path_is_product(token: &str) -> bool {
     true
 }
 
-/// `ls src` / `ls src/kernel` is candidate inspect (same class as list_dir).
-/// Bare `ls`, recursive `-R`, compounds, and board listings stay recon.
 pub(crate) fn shell_hay_is_product_ls(hay: &str) -> bool {
     let hay = hay.trim();
     if hay.is_empty() || hay_names_board_meta(hay) {
@@ -1187,7 +1054,6 @@ pub(crate) fn shell_hay_is_product_ls(hay: &str) -> bool {
     saw_product
 }
 
-/// First argv basename is a content search (`grep`/`rg`), not `git grep`.
 fn shell_grep_program(first: &str) -> bool {
     matches!(
         first.rsplit('/').next().unwrap_or(first),
@@ -1195,8 +1061,6 @@ fn shell_grep_program(first: &str) -> bool {
     )
 }
 
-/// `grep stream src/kernel.cu` / `rg stream src/` is candidate inspect.
-/// Pathless `grep TODO`, recursive `-r`, compounds, and board paths stay recon.
 pub(crate) fn shell_hay_is_path_scoped_grep(hay: &str) -> bool {
     let hay = hay.trim();
     if hay.is_empty() || hay_names_board_meta(hay) {
@@ -1247,8 +1111,6 @@ pub(crate) fn shell_hay_is_path_scoped_grep(hay: &str) -> bool {
     saw_product
 }
 
-/// Path-scoped `find_files` glob (`src/**/*.cu`) is candidate inspect.
-/// Workspace inventory (`**/*.cu`, `*.rs`) and board-name globs stay recon.
 pub(crate) fn find_files_pattern_is_path_scoped(pattern: &str) -> bool {
     let pattern = pattern.trim();
     if pattern.is_empty() {
@@ -1257,7 +1119,6 @@ pub(crate) fn find_files_pattern_is_path_scoped(pattern: &str) -> bool {
     if hay_names_board_meta(pattern) || is_meta_note_mutation_path(pattern) {
         return false;
     }
-    // Treat `\` as `/` in place so classify hops do not copy every path.
     if pattern.starts_with("**") || pattern.starts_with("*.") || pattern == "*" {
         return false;
     }

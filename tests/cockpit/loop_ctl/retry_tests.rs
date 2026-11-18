@@ -151,7 +151,7 @@ fn expired_retry_arms_one_offline_turn_and_success_restores_zero_interval() {
             "HTTP 503: unavailable".into(),
             ToolStripSnapshot::default(),
         );
-        app.loop_ctl.wake_at = Some(Instant::now()); // advance virtual deadline, never sleep a minute
+        app.loop_ctl.wake_at = Some(Instant::now());
         app.loop_arm();
         assert!(app.thinking.is_some());
         let tokens = app.loop_ctl.tokens_spent;
@@ -176,7 +176,6 @@ fn expired_retry_arms_one_offline_turn_and_success_restores_zero_interval() {
         );
         assert_eq!(app.loop_ctl.status, LoopStatus::Running);
         assert!(app.loop_ctl.wake_at.unwrap() <= Instant::now());
-        // The transcript retains the failure; successful recovery clears its active diagnostic.
         assert!(app.loop_ctl.last_error.is_none());
         let loaded = load_from_path(root.join("loop.json")).unwrap();
         assert!(loaded.wake_at.unwrap() <= Instant::now());

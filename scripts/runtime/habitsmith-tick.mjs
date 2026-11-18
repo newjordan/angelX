@@ -1,25 +1,5 @@
 import { runGraphCli, tickLockHolder, tickLockOwner } from './worker-lock.mjs'
 import { workerPaths } from './worker-paths.mjs'
-// habitsmith-tick — the idle-time habit loop closer (H5 of
-// docs/WORKERS.md), sibling of dossier-tick (D4) and reflex-tick (M5):
-// same gate stack (kill switch, idle, lockfile, heartbeat), pointed at the
-// user's observed workflows.
-//
-// One headless, cron-driven tick:
-//   1. fold the /habits verdict spool (~/.angelX/habitsmith/verdicts.jsonl,
-//      written Rust-side) into SUPPORTS/CONTRADICTS 0.9 edges — the graph is
-//      Node-owned, so the cockpit never touches it directly;
-//   2. re-mine workflow facts from the live ledger (observational refresh —
-//      belief keeps tracking whether the habit's steps still pass);
-//   3. attach skill-usage telemetry (event:"skill" rows) to the facts that
-//      spawned installed skills, via their `fact:` frontmatter;
-//   4. compile ~/.angelX/habitsmith/status.json — beliefs + drift flags, the
-//      artifact /habits renders alongside the drafts;
-//   5. run the propose pass (same daily budget + dedupe as the CLI), so new
-//      habits surface as drafts while the box is idle and greet the user via
-//      the startup notice.
-//
-// Kill switch family: ANGEL_HABITS=0 disables the whole loop.
 
 import {
   mineWorkflows,
@@ -34,15 +14,10 @@ import { isIdle, makeHeartbeat, angelTtyRunning } from './idle.mjs'
 import { existsSync, realpathSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
-/** Kill switch: ANGEL_HABITS=0 disables the whole loop. */
 export function killed(env = {}) {
   return String(env.ANGEL_HABITS ?? '').trim() === '0'
 }
 
-/**
- * The name→factId map for installed habitsmith skills: every SKILL.md in the
- * live dir carrying `fact:` frontmatter. Pure over the supplied reader.
- */
 export function factMapFrom(entries) {
   const map = {}
   for (const { name, text } of entries || []) {
@@ -59,9 +34,7 @@ export function factMapFrom(entries) {
   return map
 }
 
-// ─── CLI — the one tick ──────────────────────────────────────────────────────
-
-async function cli(argv) {
+async function cli(argv, selectedGraph) {
   const fs = await import('./private-store-fs.mjs')
   const { execFileSync } = await import('node:child_process')
   const { fileURLToPath } = await import('node:url')
@@ -79,13 +52,13 @@ async function cli(argv) {
   const stateDir = flag('--state-dir', workerPaths().habits)
   const proposedDir = flag('--proposed-dir')
   const liveSkillsDir = flag('--skills-dir', process.env.ANGEL_SKILLS_DIR || workerPaths().skills)
-  const graphPath = flag('--graph', workerPaths().graph)
+  const graphPath = selectedGraph ?? flag('--graph', workerPaths().graph)
   const ledgerPath = flag('--ledger', process.env.ANGEL_EXPERIENCE_LOG) || workerPaths().ledger
   const idleMs = Number(flag('--idle-min', '15')) * 60_000
 
   const now = Date.now()
   const nowIso = new Date(now).toISOString()
-  fs.mkdirSync(stateDir, { recursive: true })
+  if (!dryRun) fs.mkdirSync(stateDir, { recursive: true })
   const heartbeatPath = join(stateDir, 'heartbeat.json')
   const lockPath = join(stateDir, 'lock')
   const spoolPath = join(stateDir, 'verdicts.jsonl')
@@ -98,14 +71,12 @@ async function cli(argv) {
   }
   const writeHeartbeat = (hb) => fs.writeFileSync(heartbeatPath, JSON.stringify(hb, null, 2))
 
-  // ── gates ──
   const isKilled = killed(process.env)
   const angelTty = angelTtyRunning(execFileSync)
   let newestLedgerMs = null
   try {
     newestLedgerMs = fs.statSync(ledgerPath).mtimeMs
   } catch {
-    /* no ledger yet */
   }
   const idle = force || isIdle({ angelTty, newestLedgerMs, now, idleMs })
   const decision = isKilled
@@ -127,7 +98,6 @@ async function cli(argv) {
     return 0
   }
 
-  // ── lockfile (this state dir's heartbeat and verdict spool; the graph has its own lease) ──
   const holder = dryRun ? null : tickLockHolder(readJson(lockPath, null), now)
   if (holder) {
     writeHeartbeat(
@@ -162,7 +132,6 @@ async function cli(argv) {
           .filter(Boolean)
       : []
 
-    // 1. Fold the /habits verdict spool.
     const verdicts = fs.existsSync(spoolPath)
       ? fs
           .readFileSync(spoolPath, 'utf8')
@@ -182,7 +151,6 @@ async function cli(argv) {
       : foldVerdicts(graph, verdicts, { now: nowIso })
     if (dryRun && verdicts.length) console.log(`  would fold ${verdicts.length} verdict(s)`)
 
-    // 2. Observational refresh from the live ledger.
     const mined = mineWorkflows(rows)
     if (!dryRun)
       for (const [key, rec] of Object.entries(mined)) {
@@ -190,7 +158,6 @@ async function cli(argv) {
         ingestWorkflows(graph, key, rec, { now: nowIso })
       }
 
-    // 3. Skill-usage telemetry onto the spawning facts.
     const entries = []
     try {
       for (const name of fs.readdirSync(liveSkillsDir)) {
@@ -200,11 +167,9 @@ async function cli(argv) {
             text: fs.readFileSync(join(liveSkillsDir, name, 'SKILL.md'), 'utf8'),
           })
         } catch {
-          /* flat file or not a skill folder */
         }
       }
     } catch {
-      /* no live skills dir */
     }
     const usage = mineSkillUsage(rows)
     const attached = dryRun ? 0 : attachSkillUsage(graph, usage, factMapFrom(entries))
@@ -216,12 +181,9 @@ async function cli(argv) {
       return 0
     }
 
-    // 4. Status artifact for /habits (drift flags live here).
     const status = compileHabitsStatus(graph, { now: nowIso })
     fs.writeFileSync(join(stateDir, 'status.json'), JSON.stringify(status, null, 2))
 
-    // 5. Propose pass (its own daily budget file caps the spam). The live
-    // skills dir rides along so an approved skill dedupes against itself.
     const { proposals } = await proposeToDisk(graph, {
       repoKey: onlyRepo,
       proposedDir,
@@ -230,7 +192,6 @@ async function cli(argv) {
       root: ROOT,
     })
 
-    // 6. Persist the graph, clear the folded spool, settle the books.
     fs.writeFileSync(graphPath, JSON.stringify(graph.serialize(), null, 2))
     if (verdicts.length) fs.writeFileSync(spoolPath, '')
     const drifting = status.facts.filter((f) => f.drifting).length

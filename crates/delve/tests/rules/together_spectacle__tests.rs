@@ -23,7 +23,6 @@ fn fight(run: &mut Run) {
     run.enter_for_test(room);
 }
 
-/// A calm, empty room with the knight at its middle.
 fn quiet() -> Run {
     let mut run = Run::new(4, 1, None);
     fight(&mut run);
@@ -35,7 +34,6 @@ fn quiet() -> Run {
     run
 }
 
-/// Hurt knight 1 the way a monster does, inside a tick the watcher sees.
 fn hurt(run: &mut Run, damage: u32) {
     run.hurt_for_test(1, damage);
 }
@@ -49,12 +47,10 @@ fn idle(run: &mut Run, ticks: u32) {
 fn frame(run: &Run) -> Img {
     let mut run = run.clone();
     run.window = None;
-    // The room itself, not a fallen run's results over it (`floor_stats`).
     run.floor_results = None;
     crate::render::overworld::arena::frame(&run, 384, 224)
 }
 
-/// A guardian standing in the room, struck dead on the next step.
 fn slay_guardian(run: &mut Run) {
     run.spawn_boss(0);
     run.players.get_mut(&1).unwrap().invulnerable = 100_000;
@@ -74,7 +70,6 @@ fn a_fallen_guardian_is_claimed_a_few_seconds_after_its_loot_drops() {
     assert_eq!(run.spectacle.corpses.len(), 1, "its body is left behind");
     assert_eq!(run.spectacle.corpses[0].beat(run.tick), Beat::Lying);
     assert!(run.sounds.contains(&"boss_death"));
-    // The loot lies about it for LOOT_WAIT ticks, nothing cracking yet.
     let mut heard: Vec<(u64, &'static str)> = Vec::new();
     let mut shook = 0;
     while run.tick < fell + u64::from(CLAIM) + 5 {
@@ -144,14 +139,12 @@ fn a_hit_knight_flinches_flashes_warm_and_a_heavy_hit_shakes_the_view() {
     run.players.get_mut(&1).unwrap().invulnerable = 0;
     run.spawn_at_for_test(EnemyKind::Skeleton, 22.5, 14.0);
     let before = frame(&run);
-    // A heavy blow.
     {
         let hero = run.players.get_mut(&1).unwrap();
         hero.hp = 100;
         hero.max_hp = 100;
     }
     hurt(&mut run, 40);
-    // The tick's shake reaches the picture when the tick is presented.
     run.present();
     let hero = &run.players[&1];
     assert_eq!(hero.struck, STRUCK, "the flinch starts");
@@ -162,8 +155,6 @@ fn a_hit_knight_flinches_flashes_warm_and_a_heavy_hit_shakes_the_view() {
     );
     assert!(run.shake > 0, "a heavy hit shakes the view");
     assert!(run.sounds.contains(&"knight_hit_big"));
-    // The flash retains the knight's volume; its warm highlights and the
-    // chest's tiny bright sparks read the hit without a solid white figure.
     let hit = frame(&run);
     assert_ne!(before, hit);
     let count = |img: &Img, colour| img.pixels().filter(|&c|c==colour).count();
@@ -210,7 +201,6 @@ fn a_fallen_knight_is_bones_that_scatter_and_stay_until_revived() {
     assert_ne!(alive, early);
     assert_ne!(early, settled, "the bones are still falling apart");
     assert_eq!(settled, later, "then they lie where they fell");
-    // The bones clatter once they land.
     let mut run2 = Run::new(4, 1, Some("Matt"));
     fight(&mut run2);
     run2.calm_for_test();
@@ -224,7 +214,6 @@ fn a_fallen_knight_is_bones_that_scatter_and_stay_until_revived() {
         heard |= run2.sounds.contains(&"bones_clatter");
     }
     assert!(heard);
-    // Revival (the stairs) puts the knight back on their feet, no bones.
     assert_eq!(run2.players[&1].hp, 0);
     run2.descend_for_test();
     idle(&mut run2, 1);
@@ -263,12 +252,10 @@ fn the_dragons_death_raises_a_hell_gate_that_opens_the_first_circle() {
     assert!(run.light.is_some(), "the way home is still there");
     let gate = run.spectacle.gate.expect("a fiery gate rises");
     assert!(run.sounds.contains(&"hell_gate_rise"));
-    // It takes a moment to rise; stepping in before then does nothing.
     stand_at_gate(&mut run);
     run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.circle(), 0);
     assert_eq!(run.dungeon.depth, FLOORS);
-    // Step away and wait for it to stand.
     run.players.get_mut(&1).unwrap().x = 10.0;
     idle(&mut run, GATE_RISE);
     assert!(gate.risen(run.tick) >= 1.0);
@@ -293,7 +280,6 @@ fn a_new_circle_brings_new_privies_and_their_toll() {
     let mut run = Run::new(4, 1, None);
     run.lair_for_test();
     run.calm_for_test();
-    // Relieved on the first floor's privy, the first time down.
     {
         let hero = run.players.get_mut(&1).unwrap();
         hero.relieved = Some((1, 0));
@@ -354,7 +340,6 @@ fn each_circle_is_a_little_harder() {
     idle(&mut below, 1);
     let hard: u32 = below.enemies.iter().map(|e| e.max_hp).sum();
     assert!(hard > plain, "{hard} against {plain}");
-    // Their hit points are scaled once, not on every tick.
     idle(&mut below, 5);
     assert_eq!(hard, below.enemies.iter().map(|e| e.max_hp).sum::<u32>());
 }
@@ -366,9 +351,6 @@ fn the_tray_shows_icons_for_the_weapon_guard_bombs_and_cards() {
     let tray = run.tray(1, &hud::Keys::FIRST);
     let slots: Vec<_> = tray.iter().map(|i| i.slot).collect();
     use tray::Slot;
-    // Weapon, guard, the spells on their keys, the ultimate, then the bombs
-    // and the hand, the first card on the quaff key, the second on the
-    // next-card key.
     assert_eq!(slots[0], Slot::Weapon);
     assert_eq!(slots[1], Slot::Guard);
     assert_eq!(slots[2], Slot::Ult);
@@ -388,7 +370,6 @@ fn the_tray_shows_icons_for_the_weapon_guard_bombs_and_cards() {
         );
     }
     assert_eq!(tray[3].count, 2, "two bombs");
-    // A card too big for a plate is shrunk, not cut.
     let big: Vec<String> = (0..16).map(|_| "7".repeat(16)).collect();
     let fitted = tray::fit(&big.iter().map(String::as_str).collect::<Vec<_>>());
     assert_eq!(fitted.split('/').count(), tray::SIZE);
@@ -400,7 +381,6 @@ fn the_tray_is_in_the_bottom_corner_of_the_picture_and_not_when_fallen() {
     let with = frame(&run);
     run.players.get_mut(&1).unwrap().hp = 0;
     let without = frame(&run);
-    // Something differs in the bottom-right corner, where the tray sits.
     let mut changed = 0;
     for y in 150..224 {
         for x in 200..384 {
@@ -426,12 +406,10 @@ fn walking_and_gear_and_landed_hits_make_their_sounds() {
         run.step(&BTreeMap::from([(1, go)]));
         steps += run.sounds.iter().filter(|s| s.starts_with("step_")).count();
     }
-    // Footsteps are off: they drowned out the shots.
     assert_eq!(steps, 0, "{steps}");
     assert!(
         run.sounds.iter().all(|s| !s.starts_with("step_stone")) || run.dungeon.pack == Pack::Crypt
     );
-    // A shot landing on a monster sounds as its weapon.
     let mut run = quiet();
     run.spawn_at_for_test(EnemyKind::Skeleton, 28.0, 14.0);
     let e = run.enemies.last_mut().unwrap();
@@ -440,21 +418,18 @@ fn walking_and_gear_and_landed_hits_make_their_sounds() {
     e.age = 100;
     run.sounds.clear();
     let id = run.enemies[0].id;
-    // Strike it the way a shot does, between two steps.
     let before = run.seen();
     run.enemies.iter_mut().find(|e| e.id == id).unwrap().hp -= 30;
     run.watch(before);
     assert!(run.sounds.contains(&"hit_arrow"), "{:?}", run.sounds);
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_spectacle_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_spectacle_shots() {
     let Some(dir) = shots_dir() else {
         return;
     };
-    // The player hit: white, thrown back, sparks; a light hit and a heavy one.
     for (name, damage, kit) in [
         ("hit_light", 8, "percival"),
         ("hit_heavy", 40, "percival"),
@@ -470,7 +445,6 @@ fn write_spectacle_shots() {
             hero.max_hp = 100;
         }
         hurt(&mut run, damage);
-        // The blow's shake reaches the picture as the tick is presented.
         run.present();
         save(&frame(&run), &dir, &format!("{name}_00"));
         for n in 1..STRUCK {
@@ -482,7 +456,6 @@ fn write_spectacle_shots() {
         }
     }
 
-    // Death: the skeleton comes apart (a friend stands by, so the party goes on).
     for (kit, name) in [("percival", "bones_knight"), ("ironbraid", "bones_dwarf")] {
         let mut run = Run::new(4, 1, Some("Matt"));
         fight(&mut run);
@@ -509,7 +482,6 @@ fn write_spectacle_shots() {
             run.step(&BTreeMap::new());
         }
     }
-    // The demon hand.
     let mut run = quiet();
     run.spawn_boss(0);
     run.players.get_mut(&1).unwrap().invulnerable = 100_000;
@@ -542,7 +514,6 @@ fn write_spectacle_shots() {
         }
     }
 
-    // The hell gate rising, standing, and the title card.
     let mut run = Run::new(4, 1, None);
     run.lair_for_test();
     run.calm_for_test();
@@ -579,7 +550,6 @@ fn write_spectacle_shots() {
     run.spectacle.card = Some((run.tick, 2));
     save(&frame(&run), &dir, "circle_card_second");
 
-    // The tray, with a hand and a spell and a cooldown part-run.
     let mut run = quiet();
     let spell =
         "name Ember Ring\nkind spell\nrarity rare\ncooldown 4\ncast ring\nward 1\ntext Fire.\n";
@@ -607,9 +577,6 @@ fn write_spectacle_shots() {
     save(&sheet, &dir, "tray_only");
 }
 
-/// Every third tick of a guardian's claim, from the crack to the shut
-/// ground, for looking at the hand frame by frame:
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_demon_hand_frames -- --ignored`
 #[test]
 #[ignore]
 fn write_demon_hand_frames() {

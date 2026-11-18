@@ -18,38 +18,18 @@ mod loop_campaign_tests;
 #[path = "rl_ctl__campaign_tests__research_tests.rs"]
 mod research_tests;
 
-/// The note a promoted policy carries in these fixtures.
 const NOTE: &str = "ALWAYS-WRITE-THE-ARTIFACT-BEFORE-ANSWERING";
-/// A deliberately worse proposal, used to prove the gate rejects regressions.
 const WORSE: &str = "NEVER-TOUCH-THE-FILESYSTEM";
 
-/// The verifier every fixture objective uses. It is the case's own script, in
-/// the operator-declared verifier scope, checking a real tool effect: it runs
-/// `tests/check.sh`, which requires `result.txt` to carry "done".
 const VERIFY: &str = "sh tests/check.sh";
-/// Verifier-owned inputs declared for every fixture case.
 const SCOPE: &str = "tests";
 
-/// Scripted club used both as the campaign's selected route and as the
-/// reflector's backend (the reflector is [`crate::drive::reinforce::ClubReflector`],
-/// which calls `respond`).
-///
-/// Attempt behavior:
-/// * system prompt carries [`WORSE`] -> no work (red);
-/// * system prompt carries [`NOTE`] -> always writes the artifact (green);
-/// * otherwise -> alternates green/red, which is what gives a real training
-///   batch an advantage spread to reflect on.
 struct ObjectiveFixtureClub {
     proposal: &'static str,
     attempts: AtomicUsize,
     applied_notes: Mutex<Vec<String>>,
-    /// Every reflection prompt the club was asked, so a test can see what the
-    /// reflector actually received.
     reflection_prompts: Mutex<Vec<String>>,
-    /// When set, the attempt rewrites the verifier's own script instead of
-    /// doing the work.
     tamper_verifier: bool,
-    /// When set, a reflection call blocks until the campaign is cancelled.
     block_reflection: bool,
 }
 
@@ -131,9 +111,6 @@ impl Club for ObjectiveFixtureClub {
             .map(|message| message.content.clone())
             .unwrap_or_default();
         if !system.contains("⠜⠛") {
-            // Reflection: record the prompt (including the evidence the
-            // reflector was given), then answer. A blocking fixture holds the
-            // request open until the campaign is cancelled.
             let prompt = messages
                 .iter()
                 .map(|message| message.content.to_string())
@@ -153,8 +130,6 @@ impl Club for ObjectiveFixtureClub {
             }
             return Ok(ClubReply::Text(self.proposal.to_string()));
         }
-        // The first hop of an attempt carries exactly the system prompt and the
-        // task: decide there whether this attempt does the work, then answer.
         if messages.len() != 2 {
             return Ok(ClubReply::Text("finished".to_string()));
         }
@@ -188,8 +163,6 @@ impl Club for ObjectiveFixtureClub {
     }
 }
 
-/// A club that never performs the work: the objective stays red for every
-/// policy, so no training batch can produce an advantage spread.
 struct RedFixtureClub;
 
 impl Club for RedFixtureClub {
@@ -210,8 +183,6 @@ impl Club for RedFixtureClub {
     }
 }
 
-/// A club that blocks inside its first attempt until the campaign is cancelled,
-/// so `/rl stop` has real in-flight work to stop.
 struct BlockingFixtureClub {
     entered: Mutex<Option<mpsc::Sender<()>>>,
 }
@@ -241,9 +212,6 @@ impl Club for BlockingFixtureClub {
     }
 }
 
-/// A club that, once cancelled, keeps its attempt in flight until the test
-/// releases it, so a campaign can be held in the stop-requested, not-yet-settled
-/// window.
 struct LingeringFixtureClub {
     entered: Mutex<Option<mpsc::Sender<()>>>,
     release: Arc<AtomicBool>,
@@ -276,8 +244,6 @@ impl Club for LingeringFixtureClub {
     }
 }
 
-/// The real connected reflector asks for a book page, then records exactly
-/// what the ledger supplied before returning a policy proposal.
 struct CatalogReflectionClub {
     observed: Mutex<Option<String>>,
 }
@@ -329,8 +295,6 @@ fn campaign_and_research_workers_carry_parent_book_into_connected_reflector() {
         let parent = catalog::enter(Arc::new(edited));
         let book = campaign_book().unwrap();
         drop(parent);
-        // The caller may now be in another generation. The launched worker
-        // must continue using the snapshot captured at launch.
         let _other = catalog::enter(Arc::new(catalog::Catalog::baseline()));
         let fixture = Arc::new(CatalogReflectionClub {
             observed: Mutex::new(None),
@@ -392,8 +356,6 @@ struct FixtureEnv {
     _rl_dir: TestEnvGuard,
     _authority_dir: TestEnvGuard,
     root: PathBuf,
-    // Struct fields drop in declaration order: restore the environment before
-    // releasing the shared lock to another test.
     _lock: std::sync::MutexGuard<'static, ()>,
 }
 
@@ -438,8 +400,6 @@ impl FixtureEnv {
     }
 }
 
-/// Seed a workspace with an operator-owned verifier script in the declared
-/// scope plus a source file the candidate is free to edit.
 fn seed_workspace(workspace: &TestGitWorkspace, source: &str, body: &str) {
     let root = workspace.path();
     std::fs::create_dir_all(root.join("tests")).expect("create verifier scope");
@@ -464,11 +424,6 @@ fn seed_workspace(workspace: &TestGitWorkspace, source: &str, body: &str) {
     }
 }
 
-/// An independently authored audit objective over its own source scope. The
-/// verifier differs from the selection verifier on purpose: the release gate
-/// refuses an audit that shares a manifest, fixture, verifier or inventory
-/// identity with the selection cohort, so a relabelled repeat of the same
-/// objective can never be presented as independent generalization.
 fn audit_args(audit_source: &Path) -> Vec<String> {
     vec![
         "--audit".to_string(),
@@ -506,8 +461,6 @@ fn args(extra: &[&str]) -> Vec<String> {
         "1".into(),
         "--group".into(),
         "4".into(),
-        // Two samples can never clear the confidence bound on a half-red
-        // incumbent; the operator's sample count is what makes the gate decisive.
         "--samples".into(),
         "4".into(),
         "--task".into(),
@@ -567,16 +520,12 @@ fn audited_campaign_releases_a_measured_note_that_later_work_consumes() {
         .clone()
         .expect("the release is recorded as a refinement event");
 
-    // The candidate attempts really ran with the note applied: only those
-    // attempts write the artifact the verifier reads.
     let notes = club.applied_notes();
     assert!(
         notes.iter().any(|note| note.contains(NOTE)),
         "the policy note must reach the attempt's system prompt: {notes:?}"
     );
 
-    // Durable, workspace-scoped consumption: the same block ordinary
-    // interactive and headless turns inject now carries the learned note.
     let block = crate::drive::continual_harness::context_block(workspace.path());
     assert!(
         block.contains(NOTE),
@@ -584,7 +533,6 @@ fn audited_campaign_releases_a_measured_note_that_later_work_consumes() {
     );
     assert_eq!(current_policy_note(workspace.path()).as_deref(), Some(NOTE));
 
-    // Real work and its artifacts survive in the run record.
     let run_dir = state.run_dir().expect("run dir").to_path_buf();
     assert!(run_dir.join("report.json").is_file());
     let attempts = std::fs::read_dir(run_dir.join("attempts"))
@@ -594,7 +542,6 @@ fn audited_campaign_releases_a_measured_note_that_later_work_consumes() {
         .count();
     assert!(attempts >= 4, "each attempt left real work: {attempts}");
 
-    // Rollback through the established continual-harness API.
     crate::drive::continual_harness::rollback(workspace.path(), Scope::Project, &event)
         .expect("the release event rolls back");
     assert!(current_policy_note(workspace.path()).is_none());
@@ -742,8 +689,6 @@ fn running_again_while_a_stop_is_still_settling_says_it_is_stopping() {
         "the worker has not settled: the campaign still holds its slot"
     );
 
-    // `/rl run` now: the operator already asked for the stop, so the reply
-    // must not tell them to stop first.
     let refused = state
         .start_campaign(workspace.path(), Arc::clone(&club), &args(&[]))
         .expect_err("one campaign at a time");
@@ -753,7 +698,6 @@ fn running_again_while_a_stop_is_still_settling_says_it_is_stopping() {
     );
     assert!(refused.contains("stopping"), "{refused}");
 
-    // The model-visible status keeps its two fields and its three words.
     let status: serde_json::Value = serde_json::from_str(
         &state
             .tool_call(workspace.path(), &json!({"action": "status"}))
@@ -800,16 +744,10 @@ fn reflection_receives_the_attempt_work_and_the_physical_verdict() {
     let reflections = club.reflections();
     assert_eq!(reflections.len(), 1, "one reflection ran: {reflections:?}");
     let prompt = &reflections[0];
-    // The reflector sees what the attempts did, not just where they live.
     assert!(prompt.contains("patch ·"), "{prompt}");
     assert!(prompt.contains("patch excerpt"), "{prompt}");
     assert!(prompt.contains("tools ·"), "{prompt}");
     assert!(prompt.contains("work · stop answer"), "{prompt}");
-    // And the physical verdict the evaluator measured for each arm, so the
-    // successful and failed work are distinguishable by evidence rather than by
-    // the receipt alone.
-    // `⠠⠉`: the optimizer's words are the ledger pages, its labels page
-    // addresses (`⠠⠉⠓` physical verifier, `⠠⠉⠙` / `⠠⠉⠑` HIGH / LOW).
     assert!(prompt.contains("⠠⠉⠓ verifier exit 0"), "{prompt}");
     assert!(
         prompt.contains("⠠⠉⠓ verifier exit 1"),
@@ -877,8 +815,6 @@ fn stopping_during_reflection_cancels_the_in_flight_request() {
 fn stopping_during_the_verifier_kills_the_running_process() {
     let env = FixtureEnv::new("stop-verifier");
     let workspace = env.workspace();
-    // A verifier that announces itself and then hangs: the campaign must be able
-    // to stop it rather than wait out a hidden deadline.
     std::fs::write(
         workspace.path().join("tests/check.sh"),
         "#!/bin/sh\ntouch verifier-entered\nsleep 120\n",
@@ -936,18 +872,10 @@ fn stopping_during_the_verifier_kills_the_running_process() {
     let _ = std::fs::remove_dir_all(&env.root);
 }
 
-/// The advertised command line must survive the real entry point: this drives
-/// `App::submit` with the exact quoted `/rl run …` string an operator types and
-/// checks the launched campaign carries the objective, verifier command, audit
-/// case and scope verbatim. The club is an in-process fixture, the workspace is
-/// a private temp tree, and no provider request is made.
 #[test]
 fn app_entry_launches_the_advertised_quoted_command_intact() {
     let env = FixtureEnv::new("ui-entry");
     let workspace = env.workspace();
-    // A real (private, disposable) Git source whose path contains spaces: the
-    // frozen-source walker needs a repository, and quoting must preserve the
-    // spaces all the way to the audit case.
     let audit_source = TestGitWorkspace::new("audit source with spaces");
 
     let club = ObjectiveFixtureClub::new(NOTE);
@@ -960,13 +888,8 @@ fn app_entry_launches_the_advertised_quoted_command_intact() {
         crate::agent::club::Bag::for_render_test(&[("fixture", &[("objective-fixture", true)])]);
     app.bag.replace_in_hand_club_for_test(club.clone());
 
-    // The task carries nested quotes and shell metacharacters; the verifier and
-    // the audit source are multiword too. Nothing here may be rewritten,
-    // expanded or split.
     let task = "keep \"nested\" quotes, $HOME, ; | > # literal";
     let quoted_task = task.replace('\\', "\\\\").replace('"', "\\\"");
-    // A multiword verifier that announces itself and waits: it proves quoting is
-    // preserved and keeps the campaign live until the operator stops it.
     let verify = "sh -c 'touch verifier-entered; sleep 120'";
     let audit_verify = "python -m unittest discover";
     app.input = format!(
@@ -1004,8 +927,6 @@ fn app_entry_launches_the_advertised_quoted_command_intact() {
         "the campaign is live after submit"
     );
 
-    // Wait for a verifier to actually start, then stop: the message must claim
-    // only what stop did, not what the campaign will conclude.
     let run_dir = app.tools.rl().run_dir().expect("run dir").to_path_buf();
     assert!(
         wait_until(
@@ -1043,7 +964,6 @@ fn app_entry_launches_the_advertised_quoted_command_intact() {
         "the stopped campaign settles"
     );
 
-    // A malformed quote is actionable and launches nothing.
     let settled_objective = app.tools.rl().progress_snapshot().objective.clone();
     app.input = "/rl run --task \"unterminated objective".to_string();
     app.cursor = app.input.chars().count();

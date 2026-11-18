@@ -15,17 +15,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 static ON: AtomicBool = AtomicBool::new(false);
 
-/// Turn the guide layer on or off (for the shots).
 pub fn set(on: bool) {
     ON.store(on, Ordering::Relaxed);
 }
 
-/// Whether the guide layer is drawn.
 pub(super) fn on() -> bool {
     ON.load(Ordering::Relaxed)
 }
 
-/// A dotted line along `pts` (screen dots), with a bigger dot at each end.
 pub(super) fn dotted(im: &mut Img, pts: &[(f32, f32)], ink: char) {
     for w in pts.windows(2) {
         let (a, b) = (w[0], w[1]);
@@ -45,7 +42,6 @@ pub(super) fn dotted(im: &mut Img, pts: &[(f32, f32)], ink: char) {
     }
 }
 
-/// The guides of the Wyrm, over `im`, as `cam` sees them.
 pub(super) fn paint(im: &mut Img, cam: &Cam, s: &super::Session) {
     for g in super::wyrm::guides(s) {
         let pts: Vec<(f32, f32)> = g

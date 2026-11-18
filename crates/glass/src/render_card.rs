@@ -1,62 +1,38 @@
-// Included by render.rs: the card (`card.rs`) over everything the cockpit
-// drew and under the showcase. Its motion is the window's: a function of
-// when the card came, when its page changed and when it went.
-
 use crate::card::{self, Card, Entrance, Film, Knight, TITLE_ROWS};
 use crate::layer::{LayerKind, Placement};
 use crate::squire;
 
 const CARD_FRAME: u32 = crate::layer::LAYER_PICTURES + 0xC0;
-/// Two title pictures, so a page's title crosses over the last one's.
 const CARD_TITLES: [u32; 2] = [crate::layer::LAYER_PICTURES + 0xC1, crate::layer::LAYER_PICTURES + 0xC2];
 const CARD_NAME: u32 = crate::layer::LAYER_PICTURES + 0xC3;
 pub(crate) const CARD_SQUIRE: u32 = crate::layer::LAYER_PICTURES + 0xC4;
 
-/// The glass: the showcase's dim and hairline, a touch rounder.
 const CARD_PANEL: [u8; 3] = [12, 14, 18];
 const CARD_GLASS: f32 = 0.9;
 const CARD_EDGE: f32 = 0.2;
-/// The veil over the rest of the window while the card is up.
 const CARD_VEIL: f32 = 0.45;
-/// Ink: the title and the name, tonal, never white.
 const CARD_INK: [u8; 3] = [208, 211, 218];
-/// The one warm accent: the pill's edge, the travelling light.
 const CARD_ACCENT: [u8; 3] = [196, 134, 92];
-/// The frame picture's stretched middle.
 const CARD_MIDDLE: u32 = 4;
-/// How long the last page's words take to leave.
 const LEAVE: f32 = 0.12;
-/// How long a film takes to come up once its sheet is there.
 const FILM_IN: f32 = 0.35;
 
-/// The card as it is shown: what it says, and the times its motion runs on.
 pub(crate) struct CardShow {
     card: Arc<Card>,
     came: Instant,
-    /// When the page last changed, and when its words come in.
     changed: Instant,
     page_at: Instant,
-    /// The page before, leaving.
     last: Option<(Arc<Card>, Instant)>,
     went: Option<Instant>,
-    /// The pill: its top in pixels below the card's top, its left from the
-    /// card's left and its width, each with its speed.
     pill: Option<[(f32, f32); 3]>,
-    /// When each film's sheet first showed, by picture id: a film runs
-    /// from there.
     films: Vec<(u32, Instant)>,
     stepped: Instant,
-    /// Where the card lies, in cells (x, y, width, height): from, to,
-    /// since. A page of another size moves it there smoothly.
     place: ([f32; 4], [f32; 4], Instant),
-    /// The titles shown, newest first: which picture, its size, since.
     titles: Vec<(u32, (u32, u32), Instant)>,
     title: String,
     knight: (Knight, Instant),
 }
 
-/// What the card's pictures were made at, kept to make them again when
-/// the scale changes or the picture budget lets one go.
 #[derive(Default)]
 pub(crate) struct CardArt {
     scale: f32,
@@ -66,13 +42,10 @@ pub(crate) struct CardArt {
     titles: [Option<graphics::Picture>; 2],
     pager: Option<(u32, crate::page::Pager)>,
     name_pager: Option<(u32, crate::page::Pager)>,
-    /// The films' sheets as last handed to the GPU, by picture id.
     films: Vec<Arc<graphics::Picture>>,
 }
 
 impl Renderer {
-    /// Keep card art on the same prepared resource as the open showcase.
-    /// A card's pose clock remains its own; only the indexed sheet is replaced.
     pub(crate) fn set_card_squire_clip(
         &mut self,
         resource: Option<&(
@@ -94,19 +67,15 @@ impl Renderer {
         }
     }
 
-    /// Take this frame's card: start, change or end its showing. True
-    /// while it moves, so the window keeps the frames coming.
     fn card_update(&mut self, incoming: Option<&Arc<Card>>, now: Instant) {
         match (incoming, self.card_show.as_mut()) {
             (Some(card), Some(show)) => {
-                // Back before it was gone: no second entrance.
                 show.went = None;
                 if Arc::ptr_eq(card, &show.card) {
                     return;
                 }
                 let t = now.saturating_duration_since(show.came).as_secs_f32();
                 if card.serial != show.card.serial {
-                    // A key during the title cuts it short.
                     if show.card.entrance == Entrance::Title && t < card::entrance_end(Entrance::Title) {
                         show.came = now.checked_sub(std::time::Duration::from_secs_f32(card::entrance_end(Entrance::Title))).unwrap_or(show.came);
                     }
@@ -150,8 +119,6 @@ impl Renderer {
         }
     }
 
-    /// A card that came while the window was still assembling itself
-    /// waits for it: its entrance starts when the window is whole.
     fn card_wait_for_window(&mut self, now: Instant) {
         let assembling = self.transition.is_some_and(|t| !t.finished(now));
         if let Some(show) = self.card_show.as_mut()
@@ -169,8 +136,6 @@ impl Renderer {
         self.card_show.is_some()
     }
 
-    /// The card's pictures, made at the window's scale: the frame and the
-    /// squire once, the title when it changes, the name for a first launch.
     fn card_art(&mut self) {
         let Some(show) = self.card_show.as_mut() else {
             return;
@@ -225,8 +190,6 @@ impl Renderer {
                 self.core.upload(name);
             }
         }
-        // The films' sheets: up when new or changed, and again when the
-        // picture budget let one go.
         for film in &show.card.films {
             let id = film.sheet.id;
             let held = art.films.iter().position(|p| p.id == id);
@@ -240,7 +203,6 @@ impl Renderer {
             }
         }
         art.films.retain(|p| show.card.films.iter().any(|f| f.sheet.id == p.id) || show.last.as_ref().is_some_and(|(l, _)| l.films.iter().any(|f| f.sheet.id == p.id)));
-        // The picture budget may have let one go: hand it over again.
         let art = &self.card_art;
         let kept: Vec<graphics::Picture> = [art.frame.as_ref(), art.squire.as_ref(), art.name.as_ref(), art.titles[0].as_ref(), art.titles[1].as_ref()]
             .into_iter()
@@ -253,7 +215,6 @@ impl Renderer {
         }
     }
 
-    /// The card's parts for this frame, in window pixels.
     fn card_parts(&mut self, origin: (f32, f32), time: f64) -> Vec<(Draw, Vec<Instance>)> {
         let now = Instant::now();
         self.card_art();
@@ -275,8 +236,6 @@ impl Renderer {
         let at = card_place(show, now);
         let rect = [origin.0 + at[0] * cw, origin.1 + at[1] * ch, at[2] * cw, at[3] * ch];
         let entrance = card.entrance;
-        // How the card stands this frame: its scale about a pivot, its
-        // strength, how much of it has unfolded, a shake from the kick.
         let (scale, k, unfold, dx, pivot) = match (entrance, gone) {
             (_, Some(g)) => {
                 let u = card::ease_out(g / card::CLOSE);
@@ -309,8 +268,6 @@ impl Renderer {
             None => card::ease_out(t / 0.35),
         };
         let mut parts: Vec<(Draw, Vec<Instance>)> = Vec::new();
-        // The title is a moment of its own: the window goes darker under
-        // the name, and lifts back to the card's veil as the card unfolds.
         let deep = if entrance == Entrance::Title && gone.is_none() {
             0.42 * card::ease_out(t / 0.5) * (1.0 - card::ease_in_out(card::span(t, card::UNFOLD)))
         } else {
@@ -318,7 +275,6 @@ impl Renderer {
         };
         let mut under = vec![Instance::solid(0.0, 0.0, window.0, window.1, [0.0, 0.0, 0.0, CARD_VEIL * veil + deep])];
 
-        // The title sequence: the name, and the line the squire walks.
         let mut layers: Vec<Layer> = Vec::new();
         let line_y = rect[1];
         if entrance == Entrance::Title && gone.is_none() && t < card::UNFOLD.1 {
@@ -340,7 +296,6 @@ impl Renderer {
         }
         parts.push((Draw::Atlas, under));
 
-        // The frame: nine slices of one picture.
         if placed[3] > 1.0 && k > 0.0 {
             let (corner, _) = card_tile(s);
             let c = corner as f32;
@@ -360,7 +315,6 @@ impl Renderer {
                 }
             }
         }
-        // The films, over their cells, coming up with their rows' words.
         let words_t = signed(now, words_start(show));
         let visible = placed[1] + placed[3];
         show.films.retain(|(id, _)| card.films.iter().any(|f| f.sheet.id == *id));
@@ -380,8 +334,6 @@ impl Renderer {
         parts.extend(self.core.layer_parts(layers.iter(), origin, cw, ch, None, time));
         layers.clear();
 
-        // The words: a page's rows come up into place one after another;
-        // the last page's lift away.
         let mut text = Vec::new();
         let mut glass = Vec::new();
         if let Some((last, at)) = show.last.as_ref() {
@@ -399,7 +351,6 @@ impl Renderer {
             (p * k, (1.0 - p) * card::ROW_RISE * ch)
         }, visible, &mut text);
 
-        // The pill under the chosen row, gliding to it.
         if let Some(row) = card.cursor.filter(|r| *r < card.area.height) {
             let inset = 2.0 * cw;
             let (left, width) = match card.cursor_cols {
@@ -428,7 +379,6 @@ impl Renderer {
         }
         show.stepped = now;
 
-        // A field: a hairline under it.
         if let Some(row) = card.field.filter(|r| *r < card.area.height) {
             let a = arrival(row) * k;
             let y = rect[1] + (f32::from(row) + 1.15) * ch;
@@ -437,7 +387,6 @@ impl Renderer {
             }
         }
 
-        // Something running: a light along the lower edge.
         if card.busy && gone.is_none() {
             let span = placed[2] * 0.22;
             let travel = placed[2] - 2.0 * card_tile(s).0 as f32;
@@ -457,12 +406,9 @@ impl Renderer {
         parts.push((Draw::Atlas, glass));
         parts.push((Draw::Atlas, text));
 
-        // The title, set large; a new one comes in from the right as the
-        // last one fades.
         for (i, (id, (w, h), since)) in show.titles.iter().enumerate() {
             let (w, h) = (*w as f32, *h as f32);
             let u = card::ease_out(now.saturating_duration_since(*since).as_secs_f32() / 0.34);
-            // A page with no title lets the last one go.
             let leaving = i > 0 || show.title.trim().is_empty();
             let (a, slide) = if leaving {
                 (1.0 - card::ease_out(now.saturating_duration_since(show.changed).as_secs_f32() / LEAVE), 0.0)
@@ -483,7 +429,6 @@ impl Renderer {
             layers.push(layer);
         }
 
-        // The squire.
         let px = squire::pixel(s);
         let [sw, sh] = squire::size(px);
         let seat_x = (rect[2] - sw - 5.0 * cw).max(0.0);
@@ -523,8 +468,6 @@ impl Renderer {
         parts
     }
 
-    /// One card's cells as native glyphs, each row placed by `place`:
-    /// its strength and how far below its place it is.
     fn card_cells(
         &mut self,
         card: &Card,
@@ -624,13 +567,8 @@ mod squire_clip_tests {
     }
 }
 
-/// A film's frame for this moment as a layer over its cells: `p` how far
-/// its row has come in, `k` the card's strength, `t` seconds it has run.
-/// What the card has not yet unfolded down to (`visible`) is cut off.
 #[allow(clippy::too_many_arguments)]
 fn film_layer(film: &Film, id: u64, rect: [f32; 4], (cw, ch): (f32, f32), p: f32, k: f32, visible: f32, t: f32) -> Option<Layer> {
-    // A loop made after its card came fades up rather than cutting in; a
-    // film that plays once is an event, and starts at once.
     let a = p * k * if film.once { 1.0 } else { card::ease_out(t / FILM_IN) };
     if a <= 0.002 {
         return None;
@@ -650,12 +588,10 @@ fn film_layer(film: &Film, id: u64, rect: [f32; 4], (cw, ch): (f32, f32), p: f32
     Some(layer)
 }
 
-/// Seconds from `at` to `now`, negative while `at` is still to come.
 fn signed(now: Instant, at: Instant) -> f32 {
     now.saturating_duration_since(at).as_secs_f32() - at.saturating_duration_since(now).as_secs_f32()
 }
 
-/// When the page's words start: after the entrance, after a change.
 fn words_start(show: &CardShow) -> Instant {
     let entered = show.came + std::time::Duration::from_secs_f32(card::words_from(show.card.entrance));
     entered.max(show.page_at)
@@ -665,14 +601,12 @@ fn cells(area: ratatui_core::layout::Rect) -> [f32; 4] {
     [f32::from(area.x), f32::from(area.y), f32::from(area.width), f32::from(area.height)]
 }
 
-/// Where the card lies now, between the last page's place and this one's.
 fn card_place(show: &CardShow, now: Instant) -> [f32; 4] {
     let (from, to, at) = show.place;
     let u = card::ease_in_out(now.saturating_duration_since(at).as_secs_f32() / card::RESIZE);
     std::array::from_fn(|i| from[i] + (to[i] - from[i]) * u)
 }
 
-/// The squire on the settled card, doing what the card asks of him.
 fn card_knight(
     knight: (Knight, Instant),
     now: Instant,
@@ -710,8 +644,6 @@ fn card_knight(
             left: sample.left,
         };
     }
-    // Legacy clips have only idle/wave policy; use that authored content,
-    // rather than keeping a second card choreography in the renderer.
     squire::Pose {
         at: squire::seat(rect, seat_x, px),
         frame: clip_frame(clip, mood == Knight::Wave, t),
@@ -726,7 +658,6 @@ fn clip_frame(clip: Option<&crate::ShowcaseSquireClip>, waving: bool, elapsed: f
     squire::Frame::from_index(frame)
 }
 
-/// The frame picture's corner tile and its whole side.
 fn card_tile(s: f32) -> (u32, u32) {
     let radius = (14.0 * s).round();
     let shadow = (2.0 * s).round().max(2.0);
@@ -734,8 +665,6 @@ fn card_tile(s: f32) -> (u32, u32) {
     (corner, 2 * corner + CARD_MIDDLE)
 }
 
-/// Clear glass: a faint dim the terminal shows through, a hairline just
-/// inside the rounded edge. No shadow.
 fn card_frame_picture(s: f32) -> graphics::Picture {
     let radius = (14.0 * s).round();
     let shadow = (2.0 * s).round().max(2.0);

@@ -22,8 +22,6 @@ impl Session<'_> {
                 let host = joined.host.clone();
                 self.dungeon.joined_ballot_open = false;
                 self.dungeon.joined = Some(joined);
-                // The Delve's menu can only begin a game of one's own, and
-                // takes the keys before the friend's delve does.
                 self.dungeon.intro = None;
                 self.expand_dungeon();
                 format!(
@@ -44,13 +42,11 @@ impl Session<'_> {
         "You left your friend's delve.".into()
     }
 
-    /// Keys while playing in a friend's delve.
     pub(super) fn joined_key(&mut self, key: event::KeyEvent) -> bool {
         let code = match key.code {
             KeyCode::Char(c) => KeyCode::Char(c.to_ascii_lowercase()),
             code => code,
         };
-        // C, with or without Shift, is the ride key (`rules::shoulders`); Tab is the cards.
         let code = if code == KeyCode::Char('c') {
             KeyCode::Char('C')
         } else {
@@ -97,7 +93,6 @@ impl Session<'_> {
         if self.ballot_key(key) {
             return true;
         }
-        // A key held through a map door needs a fresh press here.
         if key.kind == event::KeyEventKind::Repeat && !self.dungeon.held.contains_key(&code) {
             return self.dungeon_view_active();
         }
@@ -109,7 +104,6 @@ impl Session<'_> {
             return false;
         }
         if self.dungeon.cards_open {
-            // The card screen: your cards, then the host's book.
             let pages = self.dungeon.joined_card_pages();
             match code {
                 KeyCode::Esc | KeyCode::Tab => self.dungeon.cards_open = false,
@@ -156,7 +150,6 @@ impl Session<'_> {
             }
             _ => {}
         }
-        // The same knight's keys as the host's first knight.
         if matches!(
             code,
             KeyCode::Char(
@@ -198,7 +191,6 @@ impl Session<'_> {
         true
     }
 
-    /// T, or E at the wish altar's lamp: this knight's wish line opens.
     fn open_joined_wish(&mut self) {
         let me = self.dungeon.joined_actor();
         let knight = self.dungeon.joined_knight();
@@ -220,8 +212,6 @@ impl Session<'_> {
         }
     }
 
-    /// Every frame: this knight's keys to its seat, the seat's newest run
-    /// read, and what the host's delve made played.
     pub fn advance_joined(&mut self) {
         self.dungeon.audio.pump_live(Instant::now());
         if self.dungeon.joined.is_none() {
@@ -249,9 +239,6 @@ impl Session<'_> {
         let news = {
             let away = !self.dungeon_view_active();
             let joined = self.dungeon.joined.as_mut().expect("checked");
-            // Off the game's screen (the composer, another view), the seat
-            // sends no commands: the host's server counts this knight away
-            // and keeps it out of harm's way until the friend comes back.
             if away {
                 joined.seat.idle(now);
             } else {
@@ -260,8 +247,6 @@ impl Session<'_> {
             joined.refresh(now);
             joined.news()
         };
-        // The ballot as the seat's client shows it, once it has taken the
-        // keys tapped for it.
         if let Some(open) = self
             .dungeon
             .joined
@@ -270,8 +255,6 @@ impl Session<'_> {
         {
             self.dungeon.joined_ballot_open = open;
         }
-        // A room change can arrive between the cockpit's mirror and the
-        // key's sampling. The client's decision owns this seat's menu.
         if let Some(open) = self.dungeon.joined.as_ref().and_then(|j| j.seat.menu_open()) {
             self.dungeon.activity_menu = open.then(|| self.dungeon.joined_actor());
         }
@@ -311,8 +294,5 @@ impl Session<'_> {
             self.dungeon.notice = reply.clone();
             self.cx.say(reply.into());
         }
-        // No `redraw_requested` here: that clears the whole terminal, and
-        // the fast tick already paints every frame. Clearing each tick made
-        // a friend's screen flash and lose its picture between frames.
     }
 }

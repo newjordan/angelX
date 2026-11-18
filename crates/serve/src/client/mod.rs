@@ -20,26 +20,15 @@ use std::io::{self, ErrorKind, Read, Write};
 use std::net::{Shutdown, TcpStream};
 use std::time::{Duration, Instant};
 
-/// A server message is at most this (`angel_net::proto::MAX_SERVER_MESSAGE`).
 const MAX_MESSAGE: usize = angel_net::proto::MAX_SERVER_MESSAGE;
-/// The upgrade's answer is at most this long.
 const MAX_HEAD: usize = 4096;
-/// The shortest read timeout: the OS refuses a zero one.
 const MIN_WAIT: Duration = Duration::from_micros(100);
-/// Bytes read off the socket at a time.
 const CHUNK: usize = 16 * 1024;
 
-/// What a `wss://` link's certificate must chain to. It is always
-/// verified, and its name checked against the link's host; this says only
-/// against which roots.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum Trust {
-    /// Mozilla's root certificates (`webpki-roots`), compiled in: what
-    /// browsers trust, so Funnel's and a relay's certificates verify, and
-    /// the same on Linux, macOS and Windows with nothing to configure.
     #[default]
     Public,
-    /// Only these roots (DER): a test's own certificate, or a private relay's.
     Only(Vec<Vec<u8>>),
 }
 
@@ -51,17 +40,6 @@ fn timed_out(e: &io::Error) -> bool {
     matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut)
 }
 
-/// A host's share link, read the way the page reads it: the socket is
-/// `/ws` on the link's own host, `wss://` for an `https://` link, and the
-/// join key is the fragment.
-///
-/// - `https://castle.ts.net/#KEY` is `wss://castle.ts.net/ws` and `KEY`;
-/// - `http://192.168.1.5:8790/#KEY` is `ws://192.168.1.5:8790/ws`;
-/// - a path or query on the link is the page's, not the socket's, and is
-///   left out, as the page leaves it;
-/// - a `ws://` or `wss://` URL with a key is taken as the socket itself.
-///
-/// The link may be upper case, as its QR code is.
 pub fn share_link(link: &str) -> Result<(String, String), String> {
     let link = link.trim();
     let (base, key) = link.split_once('#').ok_or("the link has no join key (the part after #)")?;
@@ -88,8 +66,6 @@ pub fn share_link(link: &str) -> Result<(String, String), String> {
     Ok((format!("{socket}://{authority}{path}"), key.to_string()))
 }
 
-/// `host`, `host:port`, `[v6]` or `[v6]:port`: the host (without brackets)
-/// and the port, if given.
 fn host_port(authority: &str) -> Option<(&str, Option<u16>)> {
     if let Some(rest) = authority.strip_prefix('[') {
         let (host, after) = rest.split_once(']')?;
@@ -107,12 +83,9 @@ fn host_port(authority: &str) -> Option<(&str, Option<u16>)> {
     }
 }
 
-/// Where a `ws://` or `wss://` URL points.
 struct Target<'a> {
     secure: bool,
-    /// As written, for the `Host` header.
     authority: &'a str,
-    /// For the name lookup and TLS's server name: an IPv6 host without its brackets.
     host: &'a str,
     port: u16,
     path: &'a str,
@@ -135,9 +108,6 @@ fn target(url: &str) -> io::Result<Target<'_>> {
     Ok(Target { secure, authority, host, port, path })
 }
 
-/// TCP to the first of the host's addresses that answers before `deadline`
-/// (a name with an IPv6 address on a network that drops IPv6 still joins
-/// on its IPv4 one).
 mod resolver;
 fn dial(t: &Target, deadline: Instant) -> io::Result<TcpStream> {
     let addrs = resolver::resolve(t.host,t.port,deadline)?;
@@ -155,7 +125,6 @@ fn dial(t: &Target, deadline: Instant) -> io::Result<TcpStream> {
     Err(last)
 }
 
-/// The bytes under the WebSocket, as read: plain, or TLS's plaintext.
 enum ReadWire {
     Plain(TcpStream, Vec<u8>),
     #[cfg(feature = "tls")]
@@ -163,9 +132,6 @@ enum ReadWire {
 }
 
 impl ReadWire {
-    /// Wait up to `wait` for the socket, read at most `max` bytes off it,
-    /// and hand what they carry to `sink`. The bytes handed, 0 when nothing
-    /// came; an error once the socket is closed.
     fn fill(&mut self, max: usize, wait: Duration, sink: &mut dyn FnMut(&[u8])) -> io::Result<usize> {
         match self {
             ReadWire::Plain(stream, chunk) => {
@@ -195,7 +161,6 @@ impl ReadWire {
     }
 }
 
-/// The bytes under the WebSocket, as written.
 enum WriteWire {
     Plain(TcpStream),
     #[cfg(feature = "tls")]
@@ -211,7 +176,6 @@ impl WriteWire {
         }
     }
 
-    /// Nothing more will be written.
     fn shutdown(&mut self) {
         match self {
             WriteWire::Plain(stream) => {
@@ -223,25 +187,21 @@ impl WriteWire {
     }
 }
 
-/// A WebSocket's reading half: messages out of the socket's bytes.
 pub(crate) struct WsReader {
     wire: ReadWire,
     parser: Parser,
 }
 
 impl WsReader {
-    /// The next message already read, pings included, without touching the socket.
     pub(crate) fn message(&mut self) -> io::Result<Option<Message>> {
         self.parser.message().map_err(|v| bad(&format!("the server broke the protocol: {v:?}")))
     }
 
-    /// Read at most `max` bytes, waiting up to `wait`: the bytes read.
     fn fill(&mut self, max: usize, wait: Duration) -> io::Result<usize> {
         let parser = &mut self.parser;
         self.wire.fill(max, wait, &mut |bytes| parser.feed(bytes))
     }
 
-    /// The next message, waiting up to `wait` for bytes.
     pub(crate) fn next(&mut self, wait: Duration) -> io::Result<Option<Message>> {
         if let Some(m) = self.message()? {
             return Ok(Some(m));
@@ -250,13 +210,11 @@ impl WsReader {
         self.message()
     }
 
-    /// The TCP socket under it (and under TLS, if any).
     pub(crate) fn socket(&self) -> &TcpStream {
         self.wire.socket()
     }
 }
 
-/// A WebSocket's writing half: each message one masked frame.
 pub(crate) struct WsWriter {
     wire: WriteWire,
     rng: u64,
@@ -278,7 +236,6 @@ impl WsWriter {
         self.wire.write_all(&self.frame)
     }
 
-    /// The close frame, then nothing more.
     pub(crate) fn close(&mut self, code: u16) {
         let _ = self.send_frame(CLOSE, &close_payload(code));
         self.wire.shutdown();
@@ -288,18 +245,14 @@ impl WsWriter {
 pub struct WsClient {
     reader: WsReader,
     writer: WsWriter,
-    /// Bytes read from the socket, frames and all (TLS's plaintext, under TLS).
     pub read_bytes: u64,
 }
 
 impl WsClient {
-    /// Connect to `ws://host[:port]/path`, or `wss://` (with the `tls`
-    /// feature, trusting the public roots), and complete the handshake.
     pub fn connect(url: &str, timeout: Duration) -> io::Result<WsClient> {
         WsClient::connect_trusting(url, timeout, &Trust::Public)
     }
 
-    /// The same, with a `wss://` link's certificate verified against `trust`.
     pub fn connect_trusting(url: &str, timeout: Duration, trust: &Trust) -> io::Result<WsClient> {
         let t = target(url)?;
         let deadline = Instant::now() + timeout;
@@ -323,8 +276,6 @@ impl WsClient {
              Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n"
         );
         writer.wire.write_all(request.as_bytes())?;
-        // The answer's head, and whatever came after it (the server's first
-        // frames) for the parser.
         let mut head = Vec::new();
         let end = loop {
             if let Some(at) = head.windows(4).position(|w| w == b"\r\n\r\n") {
@@ -355,13 +306,10 @@ impl WsClient {
         self.writer.send_frame(opcode, payload)
     }
 
-    /// One binary message.
     pub fn send(&mut self, payload: &[u8]) -> io::Result<()> {
         self.send_frame(BINARY, payload)
     }
 
-    /// The next message already read, without touching the socket. Pings
-    /// are answered and not returned.
     pub fn message(&mut self) -> io::Result<Option<Message>> {
         loop {
             match self.reader.message()? {
@@ -371,15 +319,12 @@ impl WsClient {
         }
     }
 
-    /// Read at most `max` bytes from the socket, waiting up to `wait`.
-    /// False when nothing came; an error once the socket is closed.
     pub fn fill(&mut self, max: usize, wait: Duration) -> io::Result<bool> {
         let n = self.reader.fill(max, wait)?;
         self.read_bytes += n as u64;
         Ok(n > 0)
     }
 
-    /// The next message, waiting up to `wait` for it.
     pub fn recv(&mut self, wait: Duration) -> io::Result<Option<Message>> {
         let until = Instant::now() + wait;
         loop {
@@ -394,26 +339,19 @@ impl WsClient {
         }
     }
 
-    /// Say goodbye at the socket level and close.
     pub fn close(&mut self, code: u16) {
         self.writer.close(code);
     }
 
-    /// The TCP socket (under TLS, if any).
     pub fn stream(&self) -> &TcpStream {
         self.reader.socket()
     }
 
-    /// Two halves, for a thread that reads and another that writes.
     pub(crate) fn into_halves(self) -> (WsReader, WsWriter) {
         (self.reader, self.writer)
     }
 }
 
-/// GET `path` from the host a socket `url` (`ws://` or `wss://`) is on, as
-/// the socket would reach it (plain, or TLS verified against `trust`): the
-/// body of a `200`, at most `max` bytes. For what a host serves beside its
-/// socket, its paintings (`/paint/<sha256>.png`).
 pub fn http_get(url: &str, path: &str, trust: &Trust, timeout: Duration, max: usize) -> io::Result<Vec<u8>> {
     let t = target(url)?;
     if !path.starts_with('/') || path.bytes().any(|b| b <= b' ' || b == 0x7f) {

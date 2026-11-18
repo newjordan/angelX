@@ -1,4 +1,3 @@
-// Uses the established blocked-realm / private-checkpoint regression entry point.
 fn hippodrome_save_retry(app:&mut App, fixture:&RealmSaveFixture) {
     use crate::delve::together_realm::{Spoil,Realm};
     use crate::delve::together_shooter::{Input,Run,RoomKind,world,countryside as c,hippodrome as h,race_wagers as w,pastimes::Game};
@@ -26,7 +25,6 @@ fn hippodrome_save_retry(app:&mut App, fixture:&RealmSaveFixture) {
         assert_eq!(r.marks.get(h::WAGER_MARKS[0]),Some(&2));
         for _ in 0..w::HEAT_TICKS {r.step(&empty);}
         assert!(r.marks.contains_key(h::WAGER_MARKS[3]));assert!(r.valid_snapshot());
-        // Old surface topology forces normal authored migration on load.
         go(r,RoomKind::Gate,(12.0,9.5));r.dungeon.rooms.retain(|room|!h::PLACES.contains(&room.kind));
     }
     std::fs::rename(fixture.home.join(".angelX"),fixture.home.join(".angelX-race-backup")).unwrap();std::fs::write(fixture.home.join(".angelX"),b"not a directory").unwrap();
@@ -54,7 +52,6 @@ fn hippodrome_save_retry(app:&mut App, fixture:&RealmSaveFixture) {
     assert_eq!(country.games.chariot.wins,1);
     let paid=loaded.economy().treasury.clone();assert!(loaded.settle_home());assert_eq!(loaded.economy().treasury,paid);
     let realm=Realm::beside(loaded.world.rewards_path());assert_eq!(realm.home.countryside,country);assert_eq!(realm.treasury,paid);
-    // A paid, unfinished ticket is persisted separately from its animation.
     {
         let r=loaded.realm.dungeon.shooter.edit().unwrap();go(r,RoomKind::Hippodrome,h::BOOTH);r.step(&empty);r.step(&meet(-1,0));
     }
@@ -70,8 +67,5 @@ fn hippodrome_save_retry(app:&mut App, fixture:&RealmSaveFixture) {
     assert!(restarted.settle_home());assert_eq!(restarted.economy().home.countryside.wager_mask,3);
     assert_eq!(restarted.economy().treasury.get(Spoil::Gold),paid.get(Spoil::Gold)-10,"paid losing ticket cannot be charged twice");
     let final_treasury=restarted.economy().treasury.clone();assert!(restarted.settle_home());assert_eq!(restarted.economy().treasury,final_treasury);
-    // The ordinary realm remains valid; no custom rewards or save endpoint.
-    // The restored apps committed the latest balances. Hand ownership back
-    // through a reload, rather than letting the original stale copy overwrite it.
     app.realm.dungeon.realm = None;
 }

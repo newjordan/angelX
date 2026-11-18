@@ -8,7 +8,6 @@ fn build(k: &mut Kingdom, plan: &str, tile: Tile) -> u32 {
     k.at(tile).unwrap()
 }
 
-/// The village of the valley, the way a save from before the hillside has it.
 fn village() -> Kingdom {
     let c = catalog();
     let mut k = Kingdom::default();
@@ -35,12 +34,10 @@ fn a_valley_village_is_brought_onto_the_hillside_with_what_it_owns() {
     let moved = k.migrate_to_hillside(c, 7).expect("it moves");
     assert!(k.world.is_hillside() && !k.is_valley_village());
     assert!(k.valid(c), "{:?}", moved.left);
-    // Everything it held is still held (more besides: the hillside's founding stock).
     for (r, n) in &stock {
         assert!(k.amount(r) >= *n, "{r}: {} of {n}", k.amount(r));
     }
     assert!(k.population.citizens.len() >= people, "the people came");
-    // Each work that has a place on the hillside stands on it, near where it stood to the camp.
     assert!(!moved.placed.is_empty());
     assert!(moved.placed.len() + moved.left.len() == buildings - 1, "{} placed, {:?} left, {buildings} had", moved.placed.len(), moved.left);
     for (from, to) in &moved.placed {
@@ -49,19 +46,15 @@ fn a_valley_village_is_brought_onto_the_hillside_with_what_it_owns() {
         assert!(k.at(*to).is_some());
         assert!(!crate::hillside::in_rect(*to, crate::hillside::keep_rect()), "not on the Keep's ground: {to:?}");
     }
-    // And joined to the camp's roads.
     let joined = k.connected();
     for (id, b) in &k.buildings {
         assert!(joined.contains(id), "{} at {:?} is joined to the camp", b.plan, b.tile);
     }
-    // It runs: a minute on, nothing breaks and the village still counts its people.
     for _ in 0..60 {
         k.advance_second(c);
     }
     assert!(k.valid(c));
-    // A second migration is no migration.
     assert!(k.migrate_to_hillside(c, 7).is_err());
-    // It saves and reads back whole.
     let again: Kingdom = serde_json::from_str(&serde_json::to_string(&k).unwrap()).unwrap();
     assert!(again.valid(c));
 }
@@ -85,7 +78,6 @@ fn a_mine_keeps_its_claim_across_the_move_and_a_work_the_hillside_has_no_place_f
     let mut k = old.clone();
     let moved = k.migrate_to_hillside(c, 7).expect("it moves");
     let linked = k.buildings.values().filter(|b| b.claim.as_deref() == Some("seam")).count();
-    // The valley's mine is a work of the valley's; if the hillside builds it, it keeps its seam.
     let mine_placed = moved.placed.iter().any(|(from, _)| *from == (14, 10));
     assert_eq!(linked, usize::from(mine_placed), "{moved:?}");
     assert!(k.claims.contains_key("seam"), "the claim stays the village's");

@@ -1,27 +1,18 @@
-# crates/delve/src/rules/griffinwing/things.rs — the things that stand on the
-# rail: bonus gates and hearth rings to fly through, an arch to thread, a ridge
-# to clear, shutters that close on a clock.
-
-# A shutter's cycle, in ticks, and the narrowest its gap closes to (half).
 def griffinwing.things.SHUTTER_PERIOD() -> U32:
   150
 
 def griffinwing.things.SHUTTER_MIN() -> U32:
   griffinwing.types.dm(5)
 
-# What a scrape of rock takes off a shield, and what a hearth ring mends.
 def griffinwing.things.SCRAPE() -> U32:
   15
 
 def griffinwing.things.MEND() -> U32:
   50
 
-# A bonus gate's points, doubled for a gate flown on the spur.
 def griffinwing.things.GATE() -> U32:
   100
 
-# A shutter's half gap at tick `t`: open and closing and opening again over its
-# cycle, the way it shows from the far end of the rail.
 def griffinwing.things.shutter_gap(+p: J.Val, +t: U32, +wx: U32) -> U32:
   griffinwing.things.shutter_gap.k(p, wx,
     (griffinwing.types.tri((t + ga.u(p, "phase") : U32), griffinwing.things.SHUTTER_PERIOD(), 1000) + 1000 : U32))
@@ -29,7 +20,6 @@ def griffinwing.things.shutter_gap(+p: J.Val, +t: U32, +wx: U32) -> U32:
 def griffinwing.things.shutter_gap.k(+p: J.Val, +wx: U32, +k: U32) -> U32:
   (griffinwing.things.SHUTTER_MIN() + gw.div(((wx + griffinwing.types.dm(10) - griffinwing.things.SHUTTER_MIN() : U32) * k : U32), 2000) : U32)
 
-# Props and the knights who cross them.
 def griffinwing.things.Session.step_props(+s: J.Val, +n: J.Val) -> J.Val:
   griffinwing.things.Session.step_props.retain(
     griffinwing.things.Session.step_props.ids(s, ga.ids(J.get(s, "seats")), griffinwing.Session.anchor(s), ga.u(s, "t"), griffinwing.Nums.wx(n)),
@@ -56,7 +46,6 @@ def griffinwing.things.Session.step_props.ids(+s: J.Val, +ids: List<&2, U32>, +a
         griffinwing.things.Session.step_props.seat(s, id, t, wx, gw.craft_of(s, id)),
         rest, anchor, t, wx)
 
-# One knight: if flying, every prop in turn against where it crossed this tick.
 def griffinwing.things.Session.step_props.seat(+s: J.Val, +id: U32, +t: U32, +wx: U32, +c: J.Val) -> J.Val:
   gw.ifj(Bool.not(griffinwing.types.Craft.flying(c)),
     _ => s,
@@ -98,7 +87,6 @@ def griffinwing.things.Session.step_props.thing(+s: J.Val, +id: U32, +pi: U32, +
           _ => griffinwing.things.Session.scrape(s, id, s1, x, z),
           _ => s))))
 
-# A gate or a ring flown through.
 def griffinwing.things.Session.take(+s: J.Val, +id: U32, +p: J.Val, +boosting: Bool) -> J.Val:
   griffinwing.Session.spark(
     gw.ifj(gw.isn(p, "thing", "Gate"),
@@ -108,7 +96,6 @@ def griffinwing.things.Session.take(+s: J.Val, +id: U32, +p: J.Val, +boosting: B
         "shield_up")),
     "Gate", ga.u(p, "s"), ga.u(p, "x"), ga.u(p, "z"), U32.and(id, 255))
 
-# A victory gate (`phase` 1) is a welcome, not a score.
 def griffinwing.things.Session.take.gate(+s: J.Val, +id: U32, +p: J.Val, +boosting: Bool) -> J.Val:
   griffinwing.Session.sound(
     gw.ifj(U32.is_zero(ga.u(p, "phase")),
@@ -126,7 +113,6 @@ def griffinwing.things.Session.take.score(+s: J.Val, +id: U32, +pts: U32) -> J.V
       gw.addu(gw.addu(J.get(s, "beat"), "pts", U32.min(pts, griffinwing.things.GATE())), "base", griffinwing.things.GATE()),
       "gates", RS.as_u16((ga.u(J.get(s, "beat"), "gates") + 1 : U32))))
 
-# Rock met: a blow, and the craft is spared a moment.
 def griffinwing.things.Session.scrape(+s: J.Val, +id: U32, +at: U32, +x: U32, +z: U32) -> J.Val:
   griffinwing.things.Session.scrape.hit(griffinwing.combat.Session.hurt_craft(s, id, griffinwing.things.SCRAPE()), id, at, x, z)
 

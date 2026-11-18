@@ -35,7 +35,6 @@ pub use ctx::{Banner, Hold, Party};
 pub use foes::{Bk, Bolt, Danger, Fk, Foe, Fs};
 pub use kit::{Act, Carry, Ctx, Lock, Seat};
 pub use props::{Dk, Drop, Fuse, Fx, Fxk, Item, Pk, Prop};
-// Named, so they win over the glob of the Delve's own `unit` and friends.
 #[allow(unused_imports)]
 use world::{
     PLANS, Plan, Q, ROOMS, TILE, TILE_SHIFT, angle_of, cos_q, dir, dist, dot, isqrt, middle, plan, sin_q, tile_of,
@@ -43,22 +42,12 @@ use world::{
 };
 
 pub const NAME: &str = "Lanternward";
-/// The kingdom tile its door stands on: walk up and press E.
 pub const ENTRY: (i32, i32) = (104, 23);
-/// Its place in `roundtable::ADVENTURES` and in `Tune::roundtable`.
 pub const SLOT: usize = 0;
-/// What a finished run saves to the Home, as the Forest Road's
-/// `CAMPAIGN_MARK` does. Marks are settled at the save (`settle`).
 pub const CAMPAIGN_MARK: &str = "lanternward:campaign-begun";
-/// Every mark this adventure may write: the crash-safe intent journal keeps
-/// exactly these (`roundtable::intent_key`).
 pub const MARKS: &[&str] = &[CAMPAIGN_MARK];
 
-/// The five numbers, picked from play (assets/lanternward/BRIEF.md has the
-/// table of what was tried). `Tune::roundtable[SLOT]` holds them.
 pub const NUMBERS: [Number; 5] = [
-    // How far a lock reaches, in pixels. Longer, and a lock grabs things the
-    // knight has not seen; shorter, and the foe must be close to be held.
     Number {
         name: "lanternward_lock",
         label: "Lock-on reach (px)",
@@ -67,8 +56,6 @@ pub const NUMBERS: [Number; 5] = [
         max: 200,
         start: 112,
     },
-    // The ticks after the shield goes up that a blow counts as a parry. Wider
-    // forgives, narrower rewards the read.
     Number {
         name: "lanternward_parry",
         label: "Parry window (ticks)",
@@ -77,8 +64,6 @@ pub const NUMBERS: [Number; 5] = [
         max: 14,
         start: 8,
     },
-    // The ticks after a slash to start the next in the chain. Wider and the
-    // combo is easy to keep; narrower, and it must be timed.
     Number {
         name: "lanternward_combo",
         label: "Combo chain window (ticks)",
@@ -87,8 +72,6 @@ pub const NUMBERS: [Number; 5] = [
         max: 24,
         start: 14,
     },
-    // The lantern's tank, in ticks of flare; a bolt costs a fifth of it, and
-    // it fills at half the rate it drains (three times at a resting brazier).
     Number {
         name: "lanternward_flame",
         label: "Lantern flame (ticks)",
@@ -97,8 +80,6 @@ pub const NUMBERS: [Number; 5] = [
         max: 300,
         start: 150,
     },
-    // How long a big foe shows where its blow will land before it does, for
-    // one knight; each extra knight takes `TELL_STEP` off, never below 40.
     Number {
         name: "lanternward_tell",
         label: "Telegraph (ticks)",
@@ -109,10 +90,8 @@ pub const NUMBERS: [Number; 5] = [
     },
 ];
 
-/// The five numbers as the rules read them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct Rules {
-    /// Lock-on reach in `Q` pixels.
     pub lock: i32,
     pub parry: u32,
     pub combo: u32,
@@ -144,8 +123,6 @@ impl Rules {
         }
     }
 
-    /// A big foe's tell for a table of `seats`: tighter the more knights,
-    /// never under the floor.
     pub fn tell_for(&self, seats: u32) -> u32 {
         self.tell
             .saturating_sub(TELL_STEP * seats.saturating_sub(1))
@@ -153,11 +130,7 @@ impl Rules {
     }
 }
 
-// ----- the fixed numbers (pixels unless said; ticks are 1/30 s) -----------
-
-/// A run never runs past an hour; a longer one is not a run to play.
 pub const LIMIT: u32 = 60 * 60 * HZ;
-/// Quarter hearts: five hearts to start, one more per container.
 pub const HEART: u32 = 4;
 pub const START_HP: u32 = 5 * HEART;
 pub const LOW_HP: u32 = 2 * HEART;
@@ -174,31 +147,24 @@ pub const FUSE_CAP: usize = 8;
 pub const PROP_CAP: usize = 160;
 pub const BOMB_CAP: u32 = 10;
 
-// the lock
 pub const SNAP_TICKS: u32 = 6;
-/// How far the view leans from the knight toward a locked foe, percent.
 pub const LOCK_LEAN: i32 = 38;
 
-// walking, in `Q` pixels a tick
 pub const WALK: i32 = 440;
 
-// the sword
 pub const CHARGE_TICKS: u32 = 22;
 pub const LUNGE_WIND: u32 = 3;
 pub const LUNGE_ACTIVE: u32 = 6;
 pub const SPIN_TICKS: u32 = 14;
 pub const PLUNGE_DAMAGE: u32 = 4;
 
-// the dodges
 pub const ROLL_SPEED: i32 = 1100;
 pub const ROLL_TICKS: u32 = 15;
 pub const HOP_TICKS: u32 = 18;
 pub const HOP_HEIGHT: i32 = 14;
 
-// the shield
 pub const SHIELD_REACH: i32 = 9;
 
-// the lantern
 pub const FLARE_AFTER: u32 = 8;
 pub const BOLT_COST_PARTS: u32 = 5;
 pub const FLARE_R: i32 = 78;
@@ -208,13 +174,11 @@ pub const TAPER: u32 = 420;
 pub const BURN: u16 = 600;
 pub const SIGIL_TICKS: u16 = 24;
 
-// being hurt
 pub const HURT_TICKS: u32 = 10;
 pub const HURT_INV: u32 = 36;
 pub const FALL_TICKS: u32 = 18;
 pub const FALL_DAMAGE: u32 = 2;
 
-// the party
 pub const ITEM_TICKS: u32 = 60;
 pub const READ_TICKS: u32 = 120;
 pub const REVIVE_HOLD: u32 = 45;
@@ -225,12 +189,9 @@ pub const DROP_LIFE: u16 = 900;
 pub const FUSE_TICKS: u8 = 75;
 pub const TELL_STEP: u32 = 3;
 pub const TELL_FLOOR: u32 = 40;
-/// Ticks after the Beacon's light before E leaves.
 pub const FINALE_TICKS: u32 = 120;
-/// How long the cameras look at a door or switch that came right.
 pub const CUE_TICKS: u32 = 44;
 
-// the small foes
 pub const SNUFFER_HP: u32 = 6;
 pub const TURRET_HP: u32 = 8;
 pub const LUNGE_SPEED: i32 = 1400;
@@ -244,7 +205,6 @@ pub const DEATH_TICKS: u8 = 14;
 pub const STAGGER_TICKS: u16 = 30;
 pub const FLINCH_TICKS: u8 = 8;
 
-// the Warden
 pub const WARDEN_HP: u32 = 90;
 pub const WARDEN_R: i32 = 18;
 pub const EXPOSE_TICKS: u32 = 90;
@@ -257,28 +217,21 @@ pub const SLAM_REACH: i32 = 132;
 pub const SLAM_DAMAGE: u32 = 4;
 pub const BEACON_TICKS: u16 = 90;
 
-/// What a tick did that the rest of the Delve must hear about.
 #[derive(Default, Debug)]
 pub struct Events {
     pub sounds: Vec<&'static str>,
     pub stop: Option<Stop>,
-    /// The Beacon was relit this tick.
     pub won: bool,
 }
 
-/// A weight of impact, for the engine's own hit-stop (`hitstop`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stop {
-    /// A blade landed: the engine's short hold, rate-limited by its cooldown.
     Heavy,
-    /// A foe fell.
     Kill,
     Phase,
     Boss,
 }
 
-/// How its run is registered with the shared shell. Fixed after the prep
-/// commit: the shell never needs a line changed for it.
 pub const ADVENTURE: Adventure = Adventure {
     slug: "lanternward",
     name: NAME,
@@ -300,8 +253,6 @@ pub const ADVENTURE: Adventure = Adventure {
         _ => Input::default(),
     },
 };
-/// Its game in the rides (`activity::RIDES`): it plays, takes the seated
-/// knights' keys, and ends when a view leaves the room.
 pub const ACTIVITY: Activity = Activity {
     name: NAME,
     on: Run::lanternward_showing,
@@ -315,10 +266,7 @@ pub const ACTIVITY: Activity = Activity {
     settle: Some(settle),
     fields: &["lanternward"],
 };
-/// A finished run's mark has been settled into `Home::roundtable[SLOT]`.
 pub const BEGUN: u32 = 1;
-/// What a finished run pays into the realm at the save, once: the mark
-/// becomes a flag in the Home, and the kingdom door's lantern burns.
 fn settle(realm: &mut Realm<'_>, marks: &BTreeMap<String, u32>) -> Settled {
     let changed = marks.contains_key(CAMPAIGN_MARK) && realm.home.roundtable[SLOT] & BEGUN == 0;
     if changed {
@@ -356,24 +304,16 @@ pub struct Session {
     pub exiting: u32,
     pub wipe: u32,
     pub tries: u32,
-    /// Where every camera is looking for a moment: a door or switch that
-    /// came right, and the ticks left.
     pub cue: Option<(i32, i32, u32)>,
     pub next_foe: u8,
-    /// The tick the Beacon was relit, once it has been.
     pub done: Option<u32>,
-    /// Seats that have been paid their purse, one bit each (seat 1 is bit 1).
     pub paid: u8,
-    /// What a seat that stood up carried (gems, bombs), for when it sits down
-    /// again.
     #[serde(default)]
     pub kept: BTreeMap<u32, (u32, u32)>,
 }
 
-/// The module that runs the adventure's rules.
 const MODULE: &str = "lanternward-rules";
 
-/// The sounds the rules name by number, as the module numbers them.
 const SOUNDS: [&str; 46] = [
     "axe_spin", "bomb", "bomb_toss", "boss_death", "boss_fall", "boss_rage", "boss_roar", "card_pickup", "chest_open",
     "circle_toll", "clang", "crack_open", "descend", "door_open", "door_pass", "door_seal", "gold", "hit_axe",
@@ -392,7 +332,6 @@ struct Answer {
     won: bool,
 }
 
-/// The seven buttons the adventure reads, as one number.
 fn buttons(i: &Input) -> i32 {
     [i.ult, i.dash, i.swing, i.interact, i.fire, i.bomb]
         .into_iter()
@@ -400,10 +339,6 @@ fn buttons(i: &Input) -> i32 {
         .fold(0, |mask, (bit, held)| mask | i32::from(held) << bit)
 }
 
-/// One ask of the module: the session (a script reads JSON numbers as doubles,
-/// so the 64-bit seed crosses as its two words), a row per knight at the table
-/// (seat, walk, aim, buttons) and the five numbers; and its answer, checked
-/// whole before anything is taken from it.
 fn ask(op: &str, session: Option<&Session>, here: Vec<[i32; 6]>, rules: &Rules) -> Result<(Session, Events), String> {
     let mut ask = serde_json::json!({"op": op, "here": here, "rules": rules});
     if let Some(s) = session {
@@ -427,16 +362,11 @@ fn ask(op: &str, session: Option<&Session>, here: Vec<[i32; 6]>, rules: &Rules) 
 }
 
 impl Session {
-    /// The adventure at the first room's start, for the knights at the table.
     pub fn new(players: &BTreeMap<u32, Hero>) -> Result<Self, String> {
         let here = players.iter().filter(|(_, h)| !h.away && !h.stone);
         ask("new", None, here.map(|(&id, _)| [id as i32, 0, 0, 0, 0, 0]).collect(), &Rules::default()).map(|(s, _)| s)
     }
 
-    /// One tick: whoever is here and awake sits at the table (a knight who
-    /// leaves stands up, one who joins late sits down at the room's start and
-    /// scales what is standing), then every body acts in its order. A refused
-    /// answer changes nothing.
     pub fn step(&mut self, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32, Hero>, r: &Rules) -> Events {
         let here = heroes.iter().filter(|(_, h)| !h.away && !h.stone).map(|(&id, _)| {
             let i = inputs.get(&id).copied().filter(|i| i.valid()).unwrap_or_default();
@@ -454,7 +384,6 @@ impl Session {
         }
     }
 
-    /// Whether the finale is on: the Beacon is lit and the party may leave.
     pub fn finale(&self) -> bool {
         self.done.is_some_and(|t| self.elapsed >= t + FINALE_TICKS)
     }
@@ -463,8 +392,6 @@ impl Session {
         self.problem().is_none()
     }
 
-    /// What is wrong with the session, if anything: the first bound it
-    /// breaks, by name.
     pub fn problem(&self) -> Option<&'static str> {
         let p = plan(usize::from(self.room.min(4)));
         let (w, h) = (p.w() * TILE * Q, p.h() * TILE * Q);
@@ -603,8 +530,6 @@ impl Run {
         }
     }
 
-    /// The Beacon burns: the campaign is marked, each knight at the table is
-    /// paid once, and a gold crown goes to every one of them.
     fn finish_lanternward(&mut self, s: &mut Session) {
         let first = self.home.roundtable[SLOT] & BEGUN == 0 && !self.marks.contains_key(CAMPAIGN_MARK);
         self.marks.insert(CAMPAIGN_MARK.into(), 1);
@@ -628,15 +553,11 @@ impl Run {
         self.sounds.push("spoil_pickup");
     }
 
-    /// The party at the door, let in.
     #[cfg(any(test, feature = "testing"))]
     pub fn lanternward_for_test() -> Self {
         roundtable::fixture(&ADVENTURE)
     }
 
-    /// The adventure at a named moment, for `seats` knights, from the moments
-    /// the cockpit's tests play with the engine and write down
-    /// (`tests/cockpit/app/lanternward_review_tests.rs`).
     #[cfg(any(test, feature = "testing"))]
     pub fn lanternward_at_for_test(moment: &str, seats: u32) -> Self {
         let session = moments()
@@ -652,8 +573,6 @@ impl Run {
     }
 }
 
-/// A recorded moment of the adventure, as the cockpit's engine played it, for the
-/// encounter reel (`encounter_reel__tests.rs`).
 #[cfg(test)]
 pub(super) fn moment_session(moment: &str, seats: u32) -> Option<Session> {
     moments().get(&format!("{moment}/{seats}")).cloned()
@@ -667,10 +586,6 @@ fn moments() -> &'static BTreeMap<String, Session> {
     })
 }
 
-/// The engine this crate's own tests have, for the shell around the game (the
-/// door, the seats, leaving): the fresh table that was written down, a seat
-/// for each knight who is here, and every tick otherwise as it found it. The
-/// game itself is played in the cockpit's tests, on the shipped rules.
 #[cfg(test)]
 fn stub(_: &str, ask: &serde_json::Value) -> Result<serde_json::Value, String> {
     let mut session = match ask.get("session") {
@@ -694,8 +609,6 @@ fn stub(_: &str, ask: &serde_json::Value) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({"session": session, "sounds": [], "stop": 0, "won": false}))
 }
 
-/// What one knight is paid at the Beacon: a fixed sum, more for the first
-/// time the Underkeep is lit, plus the gems carried, up to a cap.
 pub fn purse(first: bool, gems: u32) -> u32 {
     (if first { PURSE_FIRST } else { PURSE_AGAIN }) + gems.min(PURSE_GEMS)
 }

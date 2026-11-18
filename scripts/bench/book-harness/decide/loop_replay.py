@@ -1,30 +1,4 @@
 #!/usr/bin/env python3
-"""loop_replay.py <traces.jsonl> <out.jsonl> [n] [task...] — the cheapest cue that
-breaks a live loop. For each task whose trace repeats one call, take the request
-just after the LOOP_AT-th identical result, vary only that last result's cue, and
-replay it to DeepSeek on the bench's own terms (temperature 0, thinking off,
-8192 max tokens). A reply breaks the loop when its next call is not the repeated
-one (digits masked, key order ignored) or when it answers.
-
-Cues, cheapest first (C = the raw repeated output):
-  raw        C                                     no cue: the baseline
-  bare       C + ⠇⠁                                the book's stamp alone
-  warn       ⛔⠇⠁ ×k + C                           warning sign on the stamp
-  warn_tail  ⛔⠇⠁ ×k + … + C's last 5 lines        the r4 build
-  warn_act   ⛔⠇⠁ ×k → the route's action + C      sign, stamp and its action
-  english    C + ⠇⠁ signal → action               the legend at every sighting
-  perturb    C, then the 0.1.6 perturbation turn   the pre-book English
-Position arms (the cue as its own message after the result, not inside it):
-  user_stamp ⛔⠇⠁ as a user turn                    sign and stamp alone
-  user_act   ⛔⠇⠁ → action as a user turn
-  sys_act    ⛔⠇⠁ → action as a system message
-  user_dont  ⛔ Do not repeat the previous call.   a short English order
-  tool_perturb C + the perturbation text           its content in the result
-  user_intro ⛔⠇⠁ + its English as a user turn      the loop turn at first sight
-  user_page  ⛔⠇⠓⠁ + a page carrying the perturbation's force, first sight
-CUES picks distinct known arms (comma list); LOOP_AT and n must be positive.
-The output must not alias the input trace file.
-One JSON row per call; the prompt-token delta against raw is each cue's cost."""
 import importlib.util
 import json, os, re, subprocess, sys, urllib.error, urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -75,7 +49,6 @@ def calls_of(message):
 
 
 def wire(message):
-    """A trace node's message as a Chat Completions message."""
     out = {"role": message["role"], "content": message.get("content")}
     if message.get("tool_calls"):
         out["tool_calls"] = [{"id": c["id"], "type": "function",
@@ -87,7 +60,6 @@ def wire(message):
 
 
 def unstamped(content):
-    """The raw output: trailing warpath lines and their introductions removed."""
     lines = content.split("\n")
     while lines and (not lines[-1].strip() or re.match(r"^[⠀-⣿]", lines[-1])):
         lines.pop()
@@ -95,7 +67,6 @@ def unstamped(content):
 
 
 def decision(trace):
-    """(messages up to the decision, the repeated signature, repeats so far) or None."""
     nodes = [n["message"] for n in trace["nodes"]]
     run, last = 0, None
     for i, message in enumerate(nodes):
@@ -104,7 +75,7 @@ def decision(trace):
         sig = calls_of(message)
         run = run + 1 if sig == last else 1
         last = sig
-        if run == LOOP_AT + 1:  # the model is about to repeat for the (LOOP_AT+1)th time
+        if run == LOOP_AT + 1:
             return nodes[:i], sig, LOOP_AT
     return None
 
@@ -162,7 +133,7 @@ def one(job, api_key):
            "prompt_tokens": None, "completion_tokens": None}
     try:
         reply = call(api_key, messages, tools)
-    except Exception as error:  # Control signals retain their existing behavior.
+    except Exception as error:
         row.update(error=type(error).__name__, error_class=type(error).__name__, call_error=True)
         return row
     usage = reply.get("usage") if isinstance(reply, dict) else None
@@ -185,8 +156,6 @@ def main():
     path, out = sys.argv[1], sys.argv[2]
     n = int(sys.argv[3]) if len(sys.argv) > 3 else 1
     only = set(sys.argv[4:])
-    # Validate the experiment before reading credentials or making any call.
-    # Unknown arms otherwise fall through to raw while retaining a false label.
     if n <= 0 or LOOP_AT <= 0:
         sys.exit("sample count and LOOP_AT must be positive")
     if not CUES or any(cue not in ALL_CUES for cue in CUES) or len(set(CUES)) != len(CUES):

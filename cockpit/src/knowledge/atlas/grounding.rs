@@ -74,9 +74,6 @@ impl AtlasService {
         Ok(())
     }
 
-    /// Observe one exact file through the native confinement path. The digest
-    /// binds the whole file; optional symbol text only selects the displayed
-    /// declaration hints. Existing claims never become verified as a side effect.
     pub(crate) fn observe_code(
         &self,
         path: &str,
@@ -130,8 +127,6 @@ impl AtlasService {
         }) {
             return Ok(item.clone());
         }
-        // Persist invalidation of the previous file revision and its derived
-        // claims before publishing the new observation.
         let ids = snapshot
             .items
             .iter()
@@ -163,8 +158,6 @@ impl AtlasService {
         )
     }
 
-    /// Operator review of a relation. The model can only propose relations as
-    /// part of an inactive item through `propose_linked`.
     pub(crate) fn link_operator(&self, id: &str, link: AtlasLink) -> Result<(), String> {
         self.reload_project()?;
         self.check_grounding(&[id.to_string(), link.target_id.clone()])?;
@@ -194,8 +187,6 @@ impl AtlasService {
         })
     }
 
-    /// Reload for cross-session corrections. Display-only cache reads remain
-    /// cheap; every actual retrieval rechecks the canonical project identity.
     pub(super) fn reload_project(&self) -> Result<(), String> {
         self.ensure_enabled()?;
         if !crate::platform::workspace_store::matches_project(
@@ -224,9 +215,6 @@ impl AtlasService {
         }
     }
 
-    /// Recheck only selected items and their evidence dependencies. More than
-    /// 64 dependency nodes fails closed rather than performing unbounded I/O.
-    /// Related links aid navigation; only derived_from asserts dependence.
     pub(super) fn check_grounding(&self, ids: &[String]) -> Result<(), String> {
         let (snapshot, _) = self.snapshots().ok_or("Atlas snapshot unavailable")?;
         let by_id = snapshot
@@ -293,8 +281,6 @@ impl AtlasService {
                 }
             }
         }
-        // Invalidate the reverse evidence closure, including items outside the
-        // current query, so a later session cannot revive an indirectly stale claim.
         loop {
             let before = invalid.len();
             for item in &snapshot.items {
@@ -388,8 +374,6 @@ fn neighborhood(items: &[AtlasItem], root: &str, depth: usize, cap: usize) -> (V
     (ids, truncated)
 }
 
-/// Give each lexical seed its linked evidence before adding the next seed.
-/// A concept can therefore retrieve implementation code with no word overlap.
 pub(super) fn linked_selection<'a>(
     ranked: Vec<RankedItem<'a>>,
     items: &[&'a AtlasItem],

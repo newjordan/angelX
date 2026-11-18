@@ -1,8 +1,6 @@
-"""Bones, grid-triangulated meshes per part and smooth LBS weights."""
 import numpy as np
 from .segment import PARTS
 
-# bone: (name, parent, joint/pivot key)
 BONES = [
     ("root", None, "root"), ("torso", "root", "root"), ("head", "torso", "neck"),
     ("upper_arm_b", "torso", "shoulder_b"), ("lower_arm_b", "upper_arm_b", "elbow_b"),
@@ -11,7 +9,6 @@ BONES = [
     ("upper_leg_f", "root", "hip_f"), ("lower_leg_f", "upper_leg_f", "knee_f"),
 ]
 BONE_IDX = {b[0]: i for i, b in enumerate(BONES)}
-# back-to-front draw order
 DRAW_ORDER = ["upper_arm_b", "lower_arm_b", "upper_leg_b", "lower_leg_b", "upper_leg_f",
               "lower_leg_f", "torso", "head", "upper_arm_f", "lower_arm_f"]
 
@@ -21,14 +18,12 @@ class Part:
 
 
 def _grid_mesh(mask, cell):
-    """Regular grid triangulation covering mask pixels (no Delaunay needed)."""
     H, W = mask.shape
     gh, gw = -(-H // cell), -(-W // cell)
     pad = np.zeros((gh * cell, gw * cell), bool)
     pad[:H, :W] = mask
     occ = pad.reshape(gh, cell, gw, cell).any((1, 3))
     cy, cx = np.nonzero(occ)
-    # vertex ids on (gh+1)x(gw+1) lattice
     vid = lambda y, x: y * (gw + 1) + x
     quads = np.stack([vid(cy, cx), vid(cy, cx + 1), vid(cy + 1, cx + 1), vid(cy + 1, cx)], 1)
     tris = np.concatenate([quads[:, [0, 1, 2]], quads[:, [0, 2, 3]]])
@@ -49,7 +44,6 @@ def _dilate(m, r=1):
 
 
 def _blur(x, r):
-    """Separable box blur (edge-clamped), radius r."""
     for ax in (0, 1):
         p = np.pad(x, [(r, r) if i == ax else (0, 0) for i in range(x.ndim)], mode="edge")
         c = np.cumsum(p, axis=ax, dtype=np.float64)
@@ -60,11 +54,6 @@ def _blur(x, r):
 
 
 def _diffuse_fill(rgba, known, want, radius=None):
-    """Paint `want & ~known` pixels with a smooth local average of the body colour.
-
-    Normalised convolution over the known pixels, skipping near-black outline pixels so
-    the fill reads as cloth rather than streaks of ink; three widening passes guarantee
-    every hole gets a colour. Darkened slightly, as cloth in the limb's shadow."""
     h, w = known.shape
     rgb = rgba[..., :3].astype(np.float32)
     src = known & (rgb.max(-1) > 45)
@@ -89,7 +78,6 @@ def _diffuse_fill(rgba, known, want, radius=None):
 
 
 def _row_span(mask):
-    """Pixels between the leftmost and rightmost mask pixel of each row."""
     H, W = mask.shape
     any_ = mask.any(1)
     l = np.where(any_, mask.argmax(1), W)
@@ -100,9 +88,6 @@ def _row_span(mask):
 
 def build_rig(rgba, labels, joints, cell=6, blend=None, side_f="r", facing="right",
               amp=None, backfill=True, seam=2):
-    """side_f: which image side ('r'/'l') holds the front (drawn-on-top) limbs.
-    facing: 'right' or 'left' - motions are authored facing right and mirrored if left.
-    amp: {bone: multiplier} scales animation angles per bone (e.g. stiff robe legs)."""
     H = labels.shape[0]
     blend = blend or max(4.0, H * 0.05)
     alpha = rgba[..., 3] > 0
@@ -110,12 +95,10 @@ def build_rig(rgba, labels, joints, cell=6, blend=None, side_f="r", facing="righ
     tor = labels == PARTS.index("torso")
     hole = np.zeros_like(tor)
     if backfill and tor.any():
-        # pixels of the front arm that sit over the torso: give the torso a plausible
-        # painted-in colour there so moving the arm doesn't punch a hole.
         front = np.isin(labels, [PARTS.index("upper_arm_f"), PARTS.index("lower_arm_f")])
         rows = tor.any(1)[:, None]
         hole = front & rows
-        if isinstance(backfill, (list, tuple)):      # [x0, y0, x1, y1]: limit the paint-in
+        if isinstance(backfill, (list, tuple)):
             x0, y0, x1, y1 = backfill
             box = np.zeros_like(hole)
             box[y0:y1, x0:x1] = True
@@ -132,7 +115,6 @@ def build_rig(rgba, labels, joints, cell=6, blend=None, side_f="r", facing="righ
         if name == "torso" and hole.any():
             mask = mask | hole; src = torso_tex
         elif name != "torso" and seam:
-            # overlap into neighbouring opaque pixels so joints never open a crack
             mask = mask | (_dilate(mask, seam) & alpha & (labels != PARTS.index("head")))
         tex = src.copy()
         tex[..., 3] = np.where(mask, src[..., 3], 0)
@@ -143,7 +125,7 @@ def build_rig(rgba, labels, joints, cell=6, blend=None, side_f="r", facing="righ
         jx, jy = joints[BONES[b][2]]
         d = np.hypot(p.verts[:, 0] - jx, p.verts[:, 1] - jy)
         s = np.clip(d / blend, 0, 1)
-        s = s * s * (3 - 2 * s)  # smoothstep: near the joint follow parent half-way
+        s = s * s * (3 - 2 * s)
         w = np.zeros((len(p.verts), len(BONES)))
         w[:, b] = 0.5 + 0.5 * s
         w[:, BONE_IDX[par]] += 0.5 - 0.5 * s
@@ -154,9 +136,6 @@ def build_rig(rgba, labels, joints, cell=6, blend=None, side_f="r", facing="righ
 
 
 def make_pose_mapper(side_f="r", facing="right", amp=None):
-    """Motions use image-side keys (upper_arm_r / upper_arm_l, ...) authored for a
-    right-facing character. Map them onto the rig's back/front bones, mirror for
-    left-facing sprites and apply per-bone amplitude multipliers."""
     amp = amp or {}
     mirror = facing == "left"
     sm = {"r": "f", "l": "b"} if side_f == "r" else {"r": "b", "l": "f"}
@@ -179,7 +158,6 @@ def make_pose_mapper(side_f="r", facing="right", amp=None):
 
 
 def bone_matrices(joints, pose):
-    """pose: dict bone -> angle (rad); 'root_off': (dx,dy). Returns (B,2,3) world affines."""
     M = np.zeros((len(BONES), 3, 3))
     for i, (n, par, j) in enumerate(BONES):
         jx, jy = joints[j]
@@ -196,7 +174,6 @@ def bone_matrices(joints, pose):
 
 
 def skin(part, M):
-    """Linear blend skinning, vectorized."""
-    vh = np.concatenate([part.verts, np.ones((len(part.verts), 1))], 1)  # V,3
-    per = np.einsum("bij,vj->vbi", M, vh)  # V,B,2
+    vh = np.concatenate([part.verts, np.ones((len(part.verts), 1))], 1)
+    per = np.einsum("bij,vj->vbi", M, vh)
     return np.einsum("vb,vbi->vi", part.weights, per)

@@ -22,9 +22,7 @@ use angel_delve::rules::{Pack, Rng, Room, RoomKind, Run, Tile, layout};
 use angel_delve::world3d::{self, room, rooms_lit};
 use angel_gpu::{Core, Draw, Frame, Instance, Picture, Stage};
 
-/// The stage's picture id, as the cockpit names the Delve's.
 const STAGE: u32 = 0x00FA_57A4;
-/// A tile, in the room's pixels.
 const TILE: f32 = 16.0;
 
 fn main() -> ExitCode {
@@ -37,15 +35,11 @@ fn main() -> ExitCode {
     }
 }
 
-/// A shot: its name and the run as it stands.
 struct Case {
     name: String,
     run: Run,
 }
 
-/// The places, interiors and chambers shot from their items' proof rooms
-/// (`room::proof`: the item's room as a run stands in it, a knight half
-/// behind its tallest block and one in front of one).
 const PROOFS: [&str; 15] = [
     "village",
     "kings-hall",
@@ -64,10 +58,6 @@ const PROOFS: [&str; 15] = [
     "wizard-study",
 ];
 
-/// Where a knight stands in room `room` (on a floor of `pack`): on open floor
-/// just behind (north of) the tallest thing its lit blockout stands near
-/// `near`, so it hides the knight's legs; the open floor nearest `near` when
-/// nothing stands. Its feet, in the room's pixels.
 fn spot(room: &Room, pack: Pack, near: (f32, f32), reach: i32) -> (f32, f32) {
     let walk = |c: i32, r: i32| {
         (0..room.cols as i32).contains(&c) && (0..room.rows as i32).contains(&r) && matches!(room.tile(c, r), Tile::Floor | Tile::Door)
@@ -114,8 +104,6 @@ fn spot(room: &Room, pack: Pack, near: (f32, f32), reach: i32) -> (f32, f32) {
     open.unwrap_or(near)
 }
 
-/// Stand the run's knights at `feet` and beside it (the room's pixels), the
-/// view on the first.
 fn stand(run: &mut Run, feet: (f32, f32)) {
     for (k, hero) in run.players.values_mut().enumerate() {
         let dx = k as f32 * 22.0;
@@ -124,11 +112,7 @@ fn stand(run: &mut Run, feet: (f32, f32)) {
     }
 }
 
-/// A run on floor `depth` of `pack` (seed `seed`) standing in its first room
-/// of kind `kind`, two knights in it.
 fn seeded(pack: Pack, depth: u32, seed: u64, kind: RoomKind) -> Option<Run> {
-    // The first such room the window stands up (a room it draws as one
-    // picture, the Swamp's fog, is passed over), on this seed or the next.
     for seed in seed..seed + 8 {
         let floor = layout::floor_party(depth, pack, 2, &mut Rng::new(seed));
         for at in (0..floor.rooms.len()).filter(|&i| floor.rooms[i].kind == kind) {
@@ -148,7 +132,6 @@ fn seeded(pack: Pack, depth: u32, seed: u64, kind: RoomKind) -> Option<Run> {
     None
 }
 
-/// Whether the window stands run `run`'s room up in 3D.
 fn stood(run: &Run) -> bool {
     let (w, h) = arena::seat_size();
     world3d::set_enabled(true);
@@ -185,14 +168,12 @@ fn cases(only: &[String]) -> Vec<Case> {
             None => eprintln!("{name}: no {kind:?} room on {pack:?} floor {depth}"),
         }
     }
-    // The crypt's fight room once it is won: its braziers sink to embers.
     if let Some(mut run) = seeded(Pack::Crypt, 1, 3, RoomKind::Fight) {
         run.enemies.clear();
         let at = run.at;
         run.dungeon.rooms[at].cleared = true;
         out.push(Case { name: "crypt-fight-cleared".into(), run });
     }
-    // An open floor: the map round the arrival.
     let mut run = Run::new(24, 23, Some("Friend"));
     run.first = Pack::Crypt;
     run.open_floor_for_test(1);
@@ -228,8 +209,6 @@ fn run() -> Result<(), String> {
     let (w, h) = arena::seat_size();
     for case in cases(&only) {
         let id = &case.name;
-        // Another room between frames: a room's kept still art is keyed by
-        // the room and its torch step, not by the switch.
         let mut elsewhere = case.run.clone();
         if let Some(other) = (0..case.run.dungeon.rooms.len()).find(|&i| i != case.run.at && case.run.dungeon.rooms[i].kind != RoomKind::Depths) {
             elsewhere.enter_for_test(other);
@@ -259,7 +238,6 @@ fn run() -> Result<(), String> {
             let name = if on { format!("{id}.png") } else { format!("{id}-flat.png") };
             write_png(&out.join(&name), size, &pixels)?;
             if on {
-                // A terminal's frame: no scenes, the room lit from above.
                 arena::props_meshes(false);
                 let _ = arena::frame_for(&elsewhere, arena::NATIVE_W, arena::NATIVE_H, Some(1));
                 let img = arena::frame_for(&case.run, arena::NATIVE_W, arena::NATIVE_H, Some(1));
@@ -298,8 +276,6 @@ impl Gpu {
         Ok(Self { core, device })
     }
 
-    /// A Delve frame as a stage, drawn into a texture `size` pixels as the
-    /// window draws a stage in its cells, on black, and read back.
     fn stage(&mut self, frame: angel_stage::Frame, size: (u32, u32)) -> Vec<u8> {
         for p in frame.pictures {
             self.core.upload(Picture { id: p.id, width: p.width, height: p.height, rgba: p.rgba, cols: 0, rows: 0 });

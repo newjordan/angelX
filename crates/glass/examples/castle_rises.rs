@@ -20,7 +20,6 @@ use angel_delve::render::overworld::arena::{self, stage_frame::StageMaker};
 use angel_delve::world3d::{self, kingdom};
 use angel_gpu::{Core, Draw, Frame, Instance, Picture, Stage};
 
-/// The stage's picture id, as the cockpit names the Delve's.
 const STAGE: u32 = 0x00FA_57A4;
 
 fn main() -> ExitCode {
@@ -33,38 +32,25 @@ fn main() -> ExitCode {
     }
 }
 
-/// A view: where a knight stands, in realm tiles (the camera follows it).
 fn view(name: &str) -> Option<(f32, f32)> {
     Some(match name {
-        // In the bailey before the keep's south face, the gate behind.
         "bailey" => (133.0, 87.0),
-        // The spawn in the lee of the gate.
         "spawn" => (133.0, 89.4),
-        // Outside the ditch, the gate before the knight.
         "gate" => (133.0, 99.0),
-        // The east flank, by the Delve's gate.
         "delve" => (140.0, 88.0),
-        // North of the keep.
         "north" => (133.0, 66.0),
-        // The west side of the bailey.
         "west" => (123.0, 80.0),
-        // Close at the working face: the keep's west flank.
         "work" => (123.0, 84.0),
-        // At the crane's foot, the yard and the benches south of it.
         "crane" => (127.0, 80.5),
         _ => return None,
     })
 }
 
-/// The tour's camera at `t` (0 to 1): from outside the gate, in across the
-/// bailey, round the keep's west flank to its north and east, and back to the
-/// bailey before the keep.
 fn tour_at(t: f32) -> (f32, f32) {
     const WAY: [(f32, f32); 7] = [(133.0, 99.0), (133.0, 88.0), (124.0, 82.0), (126.0, 70.0), (140.0, 70.0), (141.0, 82.0), (134.0, 88.0)];
     let at = t.clamp(0.0, 1.0) * (WAY.len() - 1) as f32;
     let (i, f) = (at.floor() as usize, at.fract());
     let (a, b) = (WAY[i], WAY[(i + 1).min(WAY.len() - 1)]);
-    // Eased between the waypoints: a camera that arrives, not one that glides.
     let e = f * f * (3.0 - 2.0 * f);
     (a.0 + (b.0 - a.0) * e, a.1 + (b.1 - a.1) * e)
 }
@@ -73,7 +59,6 @@ fn feet(tile: (f32, f32)) -> [f32; 2] {
     [tile.0 * 16.0, tile.1 * 16.0 + 6.0]
 }
 
-/// The run: a knight at `tile`, the Keep `laid` stones up, settled.
 fn site_run(tile: (f32, f32), laid: u32) -> angel_delve::rules::Run {
     let mut run = kingdom::proof_run(&[feet(tile)]);
     run.lay_to("great-tower", laid);
@@ -106,7 +91,6 @@ fn run() -> Result<(), String> {
     match rest.first().map(String::as_str) {
         Some("shots") => {
             let stages: Vec<u32> = castle.stages.iter().filter(|s| s.count > 0).map(|s| s.first + s.count).collect();
-            // From where it starts, a few lifts up, the roofs, the curtain, done.
             let at = [1_500, 3_000, 5_000, stages[7], stages[10], 9_500, total];
             for name in ["bailey", "crane", "gate", "delve", "north", "work"] {
                 let tile = view(name).ok_or("a view")?;
@@ -118,7 +102,6 @@ fn run() -> Result<(), String> {
         }
         Some("rise") => {
             let name = rest.get(1).ok_or_else(usage)?;
-            // `tour` walks the camera round the site as it rises.
             let tour = name == "tour";
             let tile = if tour { (133.0, 99.0) } else { view(name).ok_or_else(|| format!("no view {name}"))? };
             let frames: u32 = rest.get(2).and_then(|v| v.parse().ok()).ok_or_else(usage)?;
@@ -133,7 +116,6 @@ fn run() -> Result<(), String> {
             Ok(())
         }
         Some("riseback") => {
-            // The whole castle rising, stood back, from where it starts to done.
             let frames: u32 = rest.get(1).and_then(|v| v.parse().ok()).ok_or_else(usage)?;
             let tile = view("bailey").ok_or("a view")?;
             for f in 0..frames {
@@ -149,7 +131,6 @@ fn run() -> Result<(), String> {
         }
         Some("bands") => bands(&mut gpu, &out, scale),
         Some("back") => {
-            // The stand-back camera, the map key held at the site, at a few stages.
             let name = rest.get(1).ok_or_else(usage)?;
             let tile = view(name).ok_or_else(|| format!("no view {name}"))?;
             for laid in [1_500, 5_000, 8_304, total] {
@@ -161,7 +142,6 @@ fn run() -> Result<(), String> {
             Ok(())
         }
         Some("walk") => {
-            // A knight walks in at the gate and across the bailey to the Delve's stair.
             let laid: u32 = rest.get(1).and_then(|v| v.parse().ok()).ok_or_else(usage)?;
             let every: usize = rest.get(2).and_then(|v| v.parse().ok()).unwrap_or(4);
             walk(&mut gpu, &out, laid, every, scale)
@@ -182,7 +162,6 @@ fn run() -> Result<(), String> {
     }
 }
 
-/// The stand-back camera, the keep banded as the delves paid, rising.
 fn bands(gpu: &mut Gpu, out: &Path, scale: u32) -> Result<(), String> {
     let tile = view("bailey").ok_or_else(|| "no bailey".to_string())?;
     let total = 4_655u32;
@@ -205,7 +184,6 @@ fn bands(gpu: &mut Gpu, out: &Path, scale: u32) -> Result<(), String> {
     Ok(())
 }
 
-/// One stage of the build at one view, flat and in 3D.
 fn shoot(gpu: &mut Gpu, out: &Path, name: &str, laid: u32, tile: (f32, f32), scale: u32, both: bool) -> Result<(), String> {
     let run = site_run(tile, laid);
     let (w, h) = arena::seat_size();
@@ -248,7 +226,6 @@ fn shoot_frame(gpu: &mut Gpu, out: &Path, name: &str, n: u32, laid: u32, tile: (
     Ok(())
 }
 
-/// A frame of `run` at the stage's size, flat (`on` false) or in 3D, to `<name>.png`.
 fn frame_png(gpu: &mut Gpu, out: &Path, name: &str, run: &angel_delve::rules::Run, on: bool, scale: u32, held: bool) -> Result<(), String> {
     let (w, h) = arena::seat_size();
     world3d::set_enabled(on);
@@ -266,9 +243,6 @@ fn frame_png(gpu: &mut Gpu, out: &Path, name: &str, run: &angel_delve::rules::Ru
     Ok(())
 }
 
-/// A knight walking through the site: in at the gate, across the bailey to
-/// the Delve's stair, the world stepping as it walks (the crane turns, the
-/// crew works), a frame every `every` ticks, flat and in 3D.
 fn walk(gpu: &mut Gpu, out: &Path, laid: u32, every: usize, scale: u32) -> Result<(), String> {
     use angel_delve::rules::Input;
     use std::collections::BTreeMap;
@@ -302,7 +276,6 @@ fn walk(gpu: &mut Gpu, out: &Path, laid: u32, every: usize, scale: u32) -> Resul
     }
     let (hx, hy) = (run.players[&1].x / 2.0, run.players[&1].y / 2.0);
     println!("walk: {n} frames, ended at tile ({hx:.1}, {hy:.1}), {} stones laid", run.sites.keep().map_or(0, |s| s.laid));
-    // A knight that did not get through is a wall that should not be there.
     let (gx, gy) = (waypoints[waypoints.len() - 1].0 + 0.5, waypoints[waypoints.len() - 1].1 + 0.7);
     if (hx - gx).hypot(hy - gy) > 1.0 {
         return Err(format!("the knight stopped at ({hx:.1}, {hy:.1}), short of ({gx}, {gy})"));
@@ -310,8 +283,6 @@ fn walk(gpu: &mut Gpu, out: &Path, laid: u32, every: usize, scale: u32) -> Resul
     Ok(())
 }
 
-/// The Chronicle: the whole build replayed bare hillside to today in thirty
-/// seconds, a frame every `every` ticks, flat and in 3D.
 fn chronicle(gpu: &mut Gpu, out: &Path, name: &str, tile: (f32, f32), every: u64, scale: u32) -> Result<(), String> {
     use std::collections::BTreeMap;
     let mut run = site_run(tile, 11_266);
@@ -333,9 +304,6 @@ fn chronicle(gpu: &mut Gpu, out: &Path, name: &str, tile: (f32, f32), every: u64
     Ok(())
 }
 
-/// What a frame costs at a view: the scene and the stage made (CPU), and
-/// that with the GPU drawn and waited for, flat and in 3D, the first frame
-/// and the steady ones.
 fn bench(gpu: &mut Gpu, name: &str, tile: (f32, f32), laid: u32, scale: u32) -> Result<(), String> {
     let (w, h) = arena::seat_size();
     for (label, laid) in [("without the works", None), ("the site", Some(laid))] {
@@ -416,9 +384,6 @@ impl Gpu {
         }
     }
 
-    /// A Delve frame as a stage, drawn into a texture `size` pixels as the
-    /// window draws a stage in its cells, on black, and (when `read`) read
-    /// back; else waited for.
     fn stage(&mut self, mut frame: angel_stage::Frame, size: (u32, u32), read: bool) -> Vec<u8> {
         self.upload(std::mem::take(&mut frame.pictures));
         self.core.set_stage(

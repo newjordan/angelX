@@ -5,27 +5,18 @@
 use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 
-/// Frames a second unless a recipe says otherwise.
 pub const FPS: u32 = 12;
 
-/// An easing curve over `0..=1`. Each takes any number and clamps it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Ease {
-    /// Even all the way.
     Linear,
-    /// Slow away, fast in: what is drawn in toward a point.
     In,
-    /// Fast away, gentle to rest: the shape of most releases.
     #[default]
     Out,
-    /// Slow at both ends.
     Both,
-    /// Past the mark and back: an opening that overshoots and settles.
     Back,
-    /// A snap that rings once and stills.
     Spring,
-    /// A fall that bounces to rest.
     Bounce,
 }
 
@@ -69,20 +60,15 @@ impl Ease {
         }
     }
 
-    /// Whether it goes past its mark: a clock run through it overshoots.
     pub fn overshoots(self) -> bool {
         matches!(self, Ease::Back | Ease::Spring | Ease::Bounce)
     }
 }
 
-/// Up and down again: zero at both ends, one in the middle.
 pub fn bump(t: f32) -> f32 {
     (t.clamp(0.0, 1.0) * PI).sin()
 }
 
-/// An effect's beat sheet, in frames: the anticipation that gathers, the
-/// action that throws, the follow-through that carries on past it, and the
-/// settle as it comes to rest. Layers start and end at the beats by name.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Beats {
@@ -101,7 +87,6 @@ impl Beats {
         self.anticipation + self.action + self.follow + self.settle
     }
 
-    /// The frame a beat begins at; `end` is the last beat's end.
     pub fn mark(&self, name: &str) -> Option<f32> {
         Some(match name {
             "anticipation" | "start" => 0.0,
@@ -114,8 +99,6 @@ impl Beats {
     }
 }
 
-/// A moment: a frame, or a beat's mark with frames added or taken
-/// (`"action"`, `"follow+2"`, `"end-1"`).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Time {
@@ -124,8 +107,6 @@ pub enum Time {
 }
 
 impl Time {
-    /// The frame it names. `end` is the effect's last frame plus one when no
-    /// beats are given.
     pub fn resolve(&self, beats: &Beats, end: f32) -> Result<f32, String> {
         match self {
             Time::Frame(f) => Ok(*f),

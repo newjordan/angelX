@@ -1,12 +1,4 @@
 #!/usr/bin/env python3
-"""Turn the audit frame folders into looping GIFs, 1x and 2x.
-
-usage: audit_gifs.py <frames-dir> <out-dir> [game ...]
-
-Each <frames-dir>/<game>/f0000.png ... (15 fps) becomes <out-dir>/<game>.gif
-(1x) and <out-dir>/<game>-2x.gif (2x, nearest neighbour). Frames are flattened
-on black; one palette per GIF; loops forever.
-"""
 import subprocess
 import sys
 from pathlib import Path

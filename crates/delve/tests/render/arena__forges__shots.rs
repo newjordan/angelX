@@ -33,7 +33,6 @@ fn purse() -> Spoils {
     t
 }
 
-/// A sworn barony whose named forges are built and burning.
 fn realm(lit: &[&str]) -> Home {
     let mut home = Home {
         deepest: 6,
@@ -94,7 +93,6 @@ fn yard(home: Home, kind: RoomKind, at: (f32, f32), tick: u64) -> Run {
     run
 }
 
-/// The whole room at once, the HUD and the camera's crop taken off.
 fn whole(run: &Run) -> Img {
     let mut cv = (*scenery_cached(run)).clone();
     cv.stamp(&room_layer(run, None, true), 0, 0);
@@ -108,7 +106,6 @@ fn glow(img: &Img) -> u64 {
         .sum()
 }
 
-/// A forge-hall at the middle of a working shift, and the same one starved.
 fn pair(id: &str, pack: Pack) -> (Run, Run) {
     let mut working = realm(&[id]);
     stock(&mut working, &[(Good::Ingot, 6)]);
@@ -196,7 +193,6 @@ fn a_cart_runs_the_track_while_the_mine_digs_and_stands_when_it_is_full() {
         "a full pile's cart stands"
     );
     assert_ne!(carts(&full, 20), carts(&digging, 20));
-    // Before the workings are his there is no track traffic at all.
     let mut none = Img::new(384, 224);
     super::goods::ore_carts(
         &mut none,
@@ -229,7 +225,6 @@ fn goods_board(run: &Run) -> Img {
     super::goods::forge_board(run, f, 0)
 }
 
-/// Offline renders for review.
 #[test]
 #[ignore]
 fn write_forge_shots() {
@@ -245,7 +240,6 @@ fn write_forge_shots() {
             .save(dir.join(name))
             .unwrap();
     };
-    // The mine-head: the cart on the track, the heap in the yard.
     let mut mine = realm(&["ore-forge"]);
     stock(&mut mine, &[(Good::Ore, 14), (Good::Ingot, 6)]);
     flow(
@@ -277,7 +271,6 @@ fn write_forge_shots() {
         "minehead-sparse.png",
         &whole(&yard(sparse, RoomKind::MineHead, (12.0, 10.6), 90)),
     );
-    // Every forge-hall working, the same starved, and waiting.
     for (id, pack) in FORGES {
         let mut home = realm(&[id]);
         stock(
@@ -311,12 +304,10 @@ fn write_forge_shots() {
             &whole(&hall(waiting, pack, (12.0, 11.5), 47)),
         );
     }
-    // Found in ruin, the bins split and bare.
     save(
         "hall-bell-forge-ruin.png",
         &whole(&hall(realm(&[]), Pack::Crypt, (12.0, 11.5), 47)),
     );
-    // A knight at the plate: the board.
     let mut home = realm(&["ore-forge", "bell-forge"]);
     stock(&mut home, &[(Good::Ingot, 0), (Good::Bell, 2)]);
     home.holdings.bells = 4;
@@ -336,7 +327,6 @@ fn write_forge_shots() {
     );
     run.players.get_mut(&1).unwrap().buying = 9;
     save("board-bell-forge-starved.png", &whole(&run));
-    // The war table with the chain on it.
     let mut table = realm(&ALL_FIVE);
     stock(&mut table, &[(Good::Ore, 14), (Good::Ingot, 3)]);
     flow(
@@ -359,7 +349,6 @@ fn write_forge_shots() {
             61,
         )),
     );
-    // Wren's board with the Type-Foundry's notices.
     let mut board = realm(&ALL_FIVE);
     stock(&mut board, &[(Good::Type, 9)]);
     board.pin_bounties();

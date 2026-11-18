@@ -4,7 +4,6 @@ use super::*;
 
 impl Session<'_> {
     pub(super) fn discover_reforges(&mut self) {
-        // New reforges admitted by a save off the frame are persisted now.
         match super::dungeon_settle::admitted(&mut self.dungeon.forge.reforge_admitting) {
             Some(Ok(covered)) => {
                 for forging in &mut self.dungeon.forge.reforges {
@@ -29,7 +28,6 @@ impl Session<'_> {
             .and_then(|f| f.claim.as_ref())
             .is_some_and(|c| !sim.owns_reforge(c))
         {
-            // Do not interrupt the model. Its session-scoped file cannot enter a new game.
             self.dungeon.forge.forging = None;
         }
         let discovered = (|| -> Result<(), String> {
@@ -106,7 +104,6 @@ impl Session<'_> {
             return;
         }
         let idle = !self.facts().busy();
-        // Terminal answers may drain while unrelated model work is running.
         let index = self.dungeon.forge.reforges.iter().position(|f| {
             f.persisted
                 && (idle || f.answer.is_some() || f.completed.is_some() || f.cancellation.is_some())
@@ -211,9 +208,6 @@ impl Session<'_> {
         let done = forging.completed.as_ref().expect("terminal reforge");
         let source = self.reforged_dir().join(format!("{}.card", forging.id));
         let persist = if let Some(link) = self.dungeon.shooter.link() {
-            // Off the frame: the saves and the card's publication run on a
-            // thread of their own; the reforge lands on the frame that finds
-            // them done.
             match forging.saving.as_ref().map(super::Saving::done) {
                 Some(None) => {
                     self.dungeon.forge.forging = Some(forging);
@@ -249,8 +243,6 @@ impl Session<'_> {
         } else { (|| -> Result<(), String> {
             self.dungeon.checkpoint(Instant::now(), true)?;
             if !forging.acknowledged {
-                // Painters reload this file later. Publish the accepted behavior,
-                // not the model's earlier draft, before retiring its exact receipt.
                 if done.result.is_ok()
                     && let Some(card) = &done.accepted
                 {

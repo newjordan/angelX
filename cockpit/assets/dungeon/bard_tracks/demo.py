@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""Bard tracks, step 5: lay the game's own sound schedule on a timeline, and check it.
-
-The schedule is what the sim's `Run::seat_sounds` held for the Bard, tick by
-tick (`write_bard_demo_schedule` in the Bard's tests): `[[tick, "bard_a_000"], ...]`
-at 30 ticks a second. Every named slice is decoded (as the player does) and
-placed at its tick's time; the result is written as an mp3 with a spectrogram,
-and measured for loudness, slice-edge clicks and sync drift. The schedule may also be
-`{"events": [...], "holds": [[from_tick, to_tick, "label"], ...]}`; the holds are drawn on the spectrogram.
-
-    python3 demo.py SFX_DIR SCHEDULE.json OUT_DIR NAME DRUMS_REF.wav
-"""
 import json
 import os
 import pathlib
@@ -60,8 +49,6 @@ def lufs(x, tmp):
 
 
 def click_report(out, placed, cache):
-    """At every slice boundary: the jump between consecutive samples next to it, against the
-    typical jump nearby (a click is a jump far above its neighbourhood)."""
     mono = out.mean(axis=1)
     d = np.abs(np.diff(mono))
     ratios = []
@@ -76,10 +63,6 @@ def click_report(out, placed, cache):
 
 
 def sync_report(out, holds, ref):
-    """Sync against the schedule. The drums alone, as the build stretched them onto the 0.4 s grid
-    (`drums_ref.wav`), are laid where the ticks say each bar of a hold begins; the lag at which the
-    demo's own audio lines up with them, bar by bar from the drop on (the bars with the drums in),
-    is how far the music is from the volleys: a flat line near 0 is sync, a slope is drift."""
     ref, rsr = sf.read(ref, dtype="float64")
     assert rsr == SR
     mono = out.mean(axis=1)
@@ -87,7 +70,7 @@ def sync_report(out, holds, ref):
     for from_tick, to_tick, label in holds:
         if not label.startswith("hold"):
             continue
-        first_bar = 3  # bars 1-3 are the lead and the bass: the drums are in from bar 4
+        first_bar = 3
         n = 0
         while True:
             beat = (first_bar + n) * 4
@@ -139,7 +122,6 @@ def main(sfx, schedule, out_dir, name, ref):
     out_dir = pathlib.Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     wav = out_dir / f"{name}.wav"
-    # headroom: slices are at the effects' level; the demo is the sum of what the game plays
     sf.write(wav, out, SR, subtype="PCM_16")
     subprocess.run(["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(wav), "-c:a", "libmp3lame", "-b:a", "192k", str(out_dir / f"{name}.mp3")], check=True)
     wav.unlink()

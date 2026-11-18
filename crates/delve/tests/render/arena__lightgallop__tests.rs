@@ -31,7 +31,6 @@ use super::super::frame_for;
 use crate::rules::lightgallop::legacy::{RiderOracle, SessionOracle};
 use crate::rules::lightgallop::{oracle::Route, rider::Numbers};
 
-/// Step the table with bots until `done`, at most `limit` ticks.
 fn ride_until(r: &mut Run, route: Route, limit: u32, done: impl Fn(&Run) -> bool) {
     for _ in 0..limit {
         if done(r) {
@@ -49,24 +48,18 @@ fn x_of(r: &Run, id: u32) -> i32 {
     r.lightgallop.as_ref().unwrap().seats[&id].rider.x / 256
 }
 
-// ---- the words ----------------------------------------------------------------
-
-/// The frame, as a rectangle.
 const FRAME: (i32, i32, i32, i32) = (0, 0, 384, 224);
 
 fn inside(r: (i32, i32, i32, i32), frame: (i32, i32, i32, i32)) -> bool {
     r.0 >= frame.0 && r.1 >= frame.1 && r.0 + r.2 <= frame.0 + frame.2 && r.1 + r.3 <= frame.1 + frame.3
 }
 
-/// A table of `seats` bots ridden for `ticks` ticks.
 fn ridden(seats: u32, ticks: u32) -> Run {
     let mut r = party(seats);
     ride_until(&mut r, Route::Upper, ticks, |_| false);
     r
 }
 
-/// Put `id` on the road at column `x` at pace `gsp`, its camera on it, and the
-/// Dimming far behind.
 fn put_on_road(r: &mut Run, id: u32, x: i32, gsp: i32) {
     let lvl = crate::rules::lightgallop::level::level();
     let s = r.lightgallop.as_mut().unwrap();
@@ -79,7 +72,6 @@ fn put_on_road(r: &mut Run, id: u32, x: i32, gsp: i32) {
     s.dim = -4000 * 256;
 }
 
-/// The pack's tally, `ticks` ticks after the bell.
 fn tallied(seats: u32, ticks: u32) -> Run {
     let mut r = party(seats);
     ride_until(&mut r, Route::Upper, 6000, |r| r.lightgallop.as_ref().unwrap().tally.is_some());
@@ -90,7 +82,6 @@ fn tallied(seats: u32, ticks: u32) -> Run {
     r
 }
 
-/// Where the viewer's picture puts seat `id`'s body, as a box.
 fn body_box(r: &Run, viewer: u32, id: u32) -> (i32, i32, i32, i32) {
     let s = r.lightgallop.as_ref().unwrap();
     let me = &s.seats[&viewer].rider;
@@ -100,7 +91,6 @@ fn body_box(r: &Run, viewer: u32, id: u32) -> (i32, i32, i32, i32) {
     (sx - 24, sy - 24, 48, 40)
 }
 
-/// Every pair of words in `words` that touch, as a message.
 fn collisions(words: &[Word]) -> Vec<String> {
     let mut out = Vec::new();
     for (i, a) in words.iter().enumerate() {
@@ -113,8 +103,6 @@ fn collisions(words: &[Word]) -> Vec<String> {
     out
 }
 
-/// The moments the words are checked at, for a table of `seats`: the title
-/// card, the keys, a long ride, a fall, the bell and the tally ticking up.
 fn word_moments(seats: u32) -> Vec<(String, Run)> {
     let mut out = vec![];
     for ticks in [1, 12, 40, 70, 400] {
@@ -170,8 +158,6 @@ fn no_two_words_run_into_each_other_at_any_seat_count() {
 #[test]
 fn a_pack_on_one_spot_keeps_its_tags_apart_and_clear_of_the_prompts() {
     for seats in [2, 3, 4, 5, MAX_PLAYERS] {
-        // Everyone at the gate, in the first seconds (the title card up), one of
-        // them fallen and the bell already rung: every prompt at once.
         let mut r = party(seats);
         for id in 1..=seats {
             put_on_road(&mut r, id, 300 + id as i32, 0);
@@ -193,7 +179,6 @@ fn a_pack_on_one_spot_keeps_its_tags_apart_and_clear_of_the_prompts() {
 
 #[test]
 fn the_title_and_the_prompts_stand_clear_of_every_rider() {
-    // The title and the fall are banners now (the kit's), set by size; the bell's prompt is a word.
     let prompts = ["RING THE BELL"];
     for seats in [1, 2, 4, MAX_PLAYERS] {
         let mut r = party(seats);
@@ -231,7 +216,6 @@ fn the_finish_words_read_plain_over_the_stage_and_count_up() {
             }
             let words = said(&r, Some(1));
             let (base, _) = layers(&r, Some(1));
-            // The words under the bar stand on their own plates, so paper and fireworks never touch a letter.
             for w in words.iter().filter(|w| w.rect().1 > 30) {
                 let rect = w.rect();
                 let want = ink(w.ink).unwrap();
@@ -266,7 +250,6 @@ fn the_best_rider_takes_the_top_step_and_the_podium_holds_three() {
         assert_eq!(ranked.len(), y.scores.len());
         assert_eq!(ranked[0].0, y.best, "{seats} seats: the laurel and the top step are the same knight");
         assert!(ranked.windows(2).all(|w| w[0].1 >= w[1].1), "best first");
-        // The crown of light stands over the winner: warm pixels on the top step's head.
         let (base, _) = layers(&r, Some(1));
         let warm = (30..110).flat_map(|y| (150..234).map(move |x| (x, y))).filter(|&(x, y)| base.get(x, y).is_some_and(|p| p == crate::render::overworld::ink::ink('6').unwrap())).count();
         assert!(warm >= 6, "{seats} seats: a crown of light over the winner ({warm})");
@@ -286,7 +269,6 @@ fn the_top_bars_words_keep_a_gap_between_them() {
         let (chain_w, spur, gloam) = (find("CHAIN"), find("SPUR"), find("GLOAM"));
         let gap = spur.0 - (chain_w.0 + chain_w.2);
         assert!(gap >= 8, "CHAIN {chain} and the gauge are {gap} px apart");
-        // The lantern pips run up to the word GLOAM.
         let (base, _) = layers(&r, Some(1));
         let last = (0..gloam.0).rev().find(|&x| (3..13).any(|y| base.get(x, y).unwrap() != bar)).unwrap();
         assert!(gloam.0 - last - 1 >= 8, "the lantern pips end {} px from GLOAM", gloam.0 - last - 1);
@@ -301,7 +283,6 @@ fn a_blocks_name_stays_plain_when_the_camera_draws_back() {
         world::{FoeKind, foe_at},
     };
     let lvl = level();
-    // (A painted creature has no block to carry a name.)
     for (kind, name) in [(FoeKind::Snuffer, "SNUF"), (FoeKind::Floater, "WISP"), (FoeKind::Bramble, "BRAM"), (FoeKind::Warden, "WARDEN")]
         .into_iter()
         .filter(|&(kind, _)| {
@@ -320,7 +301,6 @@ fn a_blocks_name_stays_plain_when_the_camera_draws_back() {
         let s = r.lightgallop.as_mut().unwrap();
         s.elapsed = 600;
         let (fx, fy, _) = foe_at(lvl, spot, s.elapsed);
-        // The camera drawn back to three quarters, the block at its middle.
         let rider = &mut s.seats.get_mut(&1).unwrap().rider;
         rider.zoom = 192;
         rider.cam_x = fx - 253;
@@ -330,7 +310,6 @@ fn a_blocks_name_stays_plain_when_the_camera_draws_back() {
             .iter()
             .find(|w| w.text == name)
             .unwrap_or_else(|| panic!("{name} is set over its block at three quarters: {names:?}"));
-        // Every letter is the font's own, a pixel for a pixel, on its plate.
         let mut font = Img::new(text_width(name), 7);
         font.text(0, 0, name, 'T');
         let (base, _) = layers(&r, Some(1));
@@ -344,10 +323,6 @@ fn a_blocks_name_stays_plain_when_the_camera_draws_back() {
     }
 }
 
-// ---- the painted slots ------------------------------------------------------
-
-/// A slot is painted whole or not at all: every state of it is the art or
-/// every state is the block.
 #[test]
 fn a_slot_is_painted_whole_or_not_at_all() {
     let slots: Vec<Slot> = serde_json::from_str(include_str!("../../assets/lightgallop/slots.json")).unwrap();
@@ -355,7 +330,6 @@ fn a_slot_is_painted_whole_or_not_at_all() {
         let anims: Vec<bool> = s.states.keys().map(|state| bank()[&(s.id.clone(), state.clone())].painted).collect();
         assert!(anims.iter().all(|&p| p == anims[0]), "{}: {anims:?}", s.id);
         assert_eq!(painted(&s.id), anims[0], "{}", s.id);
-        // Every frame is the slot's size, painted or block.
         for (state, ticks) in &s.states {
             let anim = &bank()[&(s.id.clone(), state.clone())];
             assert_eq!(anim.frames.len(), ticks.len(), "{} {state}", s.id);
@@ -364,8 +338,6 @@ fn a_slot_is_painted_whole_or_not_at_all() {
     }
 }
 
-/// The three land strips are 192 by 96, repeat along the road, and the step
-/// across the join is no larger than the steps inside the strip.
 #[test]
 fn the_painted_land_repeats_without_a_seam() {
     let strips = strips().expect("the three layers are painted");
@@ -377,7 +349,6 @@ fn the_painted_land_repeats_without_a_seam() {
             for y in 0..img.h {
                 match (img.get(a, y), img.get(b, y)) {
                     (None, None) => {}
-                    // A silhouette's edge is a full step.
                     (Some(_), None) | (None, Some(_)) => {
                         sum += 255;
                         n += 1;
@@ -398,8 +369,6 @@ fn the_painted_land_repeats_without_a_seam() {
     }
 }
 
-/// Wherever the camera is, the land fills the whole picture: no hole above the
-/// far strip, none below the strips, none between them.
 #[test]
 fn the_painted_land_covers_the_whole_picture_at_every_height() {
     for cy in [-200, 0, 300, 520, 700, 1200] {
@@ -412,8 +381,6 @@ fn the_painted_land_covers_the_whole_picture_at_every_height() {
     }
 }
 
-/// The near strip is the painted one at 60 percent: every pixel it has is a
-/// pixel the art has (alpha untouched), none brighter.
 #[test]
 fn the_near_strip_is_the_painted_one_dimmed() {
     let strips = strips().unwrap();
@@ -434,20 +401,16 @@ fn the_near_strip_is_the_painted_one_dimmed() {
         }
     }
     assert!(dimmer > 1000, "most of the fence and grass is dimmed ({dimmer})");
-    // The other two strips are as painted.
     for (strip, id) in [(0, "lightgallop.layer-far"), (1, "lightgallop.layer-mid")] {
         assert!(strips[strip].img == *frame_of(id, "idle", 0), "{id} is not dimmed");
     }
 }
 
-/// The painted road stands on the very curve the rules ride: its lip is on the
-/// surface row, whichever column, and it is the tile's own column.
 #[test]
 fn the_painted_road_stands_on_the_curve() {
     let lvl = crate::rules::lightgallop::level::level();
     let road = road().expect("the road is painted");
     let p = &lvl.terrain.paths[lvl.main];
-    // The first hill: the slope, the flat, the climb.
     for (cx, cy) in [(60, 520), (500, 560), (1700, 700)] {
         let v = View { cx, cy, zoom: 256, w: 384, h: 224 };
         let mut im = Img::new(384, 224);
@@ -486,12 +449,10 @@ fn write_lightgallop_review() {
             .unwrap();
     };
     save("blocks", &block_sheet(3));
-    // The whole road, an act to a strip.
     let r = party(1);
     for (k, from) in [-40, 4260, 11260, 15660].into_iter().enumerate() {
         save(&format!("road-act{}", k + 1), &overview(&r, from, 1760, 128));
     }
-    // Moments on the road, a solo bot's ride.
     let moments: [(&str, i32, Route); 14] = [
         ("start", 120, Route::Upper),
         ("downhill", 640, Route::Upper),
@@ -516,8 +477,6 @@ fn write_lightgallop_review() {
             save(&format!("{name}-3x"), &frame_for(&r, 1152, 672, Some(1)));
         }
     }
-    // The loop, frame by frame: the lean through a full turn, 3x crops
-    // round the rider, ridden upright (no roll) at a gallop.
     let mut r = party(1);
     {
         let lvl = crate::rules::lightgallop::level::level();
@@ -547,7 +506,6 @@ fn write_lightgallop_review() {
         r.step(&inputs);
     }
     save("loop-turn", &sheet);
-    // The first ten seconds, a frame a second and a half, half size.
     {
         let mut r = party(1);
         let mut strip = Img::black(3 * 192, 4 * 112);
@@ -585,7 +543,6 @@ fn write_lightgallop_review() {
             }
         }
     }
-    // Moves, mid-flight: the spur, a hit, a fall, a lock, the warden, a wake.
     let lvl = crate::rules::lightgallop::level::level();
     let place = |r: &mut Run, id: u32, x: i32, gsp: i32| {
         let s = r.lightgallop.as_mut().unwrap();
@@ -684,7 +641,6 @@ fn write_lightgallop_review() {
         }
         save("move-wake-3x", &frame_for(&r, 1152, 672, Some(3)));
     }
-    // The tally, and a full table.
     let mut r = party(1);
     ride_until(&mut r, Route::Upper, 6000, |r| r.lightgallop.as_ref().unwrap().tally.is_some());
     for _ in 0..140 {
@@ -699,9 +655,6 @@ fn write_lightgallop_review() {
         let (base, _) = super::super::terminal_layers(&r, Some(1)).unwrap();
         save(&format!("seats{seats}-terminal-layers"), &base);
     }
-    // The words: the title card and the keys, a fall, the bell, and the tally
-    // as it ticks up, at every seat count (the viewer is the first seat and the
-    // last, since the other knights carry number tags).
     for seats in [1, 2, 4, MAX_PLAYERS] {
         for (name, ticks) in [("title", 12), ("title-late", 60), ("hud", 400)] {
             let mut r = party(seats);
@@ -734,10 +687,6 @@ fn write_lightgallop_review() {
     }
 }
 
-/// The painted props close up, for the reviewer: `ANGEL_ARENA_SHOTS=<dir>
-/// cargo test -p angel-delve --lib write_lightgallop_art_review -- --ignored`.
-/// Each picture is the whole 384 by 224 frame with the prop in the middle and
-/// a rider near it; `art-*` names.
 #[test]
 #[ignore = "writes Lightgallop's art review pictures"]
 fn write_lightgallop_art_review() {
@@ -754,8 +703,6 @@ fn write_lightgallop_art_review() {
             .unwrap();
     };
     let lvl = crate::rules::lightgallop::level::level();
-    // A rider `back` pixels before column `x`, everything stopped, the camera
-    // on the prop: its foot (at height `foot`) at column 192 and row 150.
     let at_foot = |x: i32, foot: i32, back: i32| {
         let mut r = party(1);
         put_on_road(&mut r, 1, x - back, 0);
@@ -766,7 +713,6 @@ fn write_lightgallop_art_review() {
     };
     let at = |x: i32, back: i32| at_foot(x, lvl.terrain.paths[lvl.main].y_at_x(x) / Q, back);
     let shot = |r: &Run| frame_for(r, 384, 224, Some(1));
-    // The hay: at rest, then the ticks it is sprung.
     let hay = lvl.springs.iter().position(|sp| sp.kind == crate::rules::lightgallop::world::SpringKind::Up).unwrap();
     for age in [None, Some(0), Some(3), Some(6)] {
         let mut r = at(lvl.springs[hay].x, 90);
@@ -776,7 +722,6 @@ fn write_lightgallop_art_review() {
         }
         save(&format!("hay-{}", age.map_or("rest".to_owned(), |a| format!("sprung{a}"))), &shot(&r));
     }
-    // The post: dark, then lit and catching (the ring closing in), then lit.
     for (name, lit, spin) in [("dark", false, 0), ("catch0", true, 0), ("catch15", true, 15), ("lit", true, 60)] {
         let mut r = at(lvl.posts[0].x, 90);
         let s = r.lightgallop.as_mut().unwrap();
@@ -786,15 +731,12 @@ fn write_lightgallop_art_review() {
         }
         save(&format!("post-{name}"), &shot(&r));
     }
-    // The crates, one of each kind.
     for kind in [CrateKind::Shield, CrateKind::Sparks, CrateKind::Spur] {
         let c = lvl.crates.iter().find(|c| c.kind == kind).unwrap();
         save(&format!("crate-{kind:?}").to_lowercase(), &shot(&at_foot(c.x, c.y, 90)));
     }
-    // The bramble.
     let b = lvl.foes.iter().find(|f| f.kind == FoeKind::Bramble && f.min_seats == 0).unwrap();
     save("bramble", &shot(&at(b.x, 90)));
-    // The bell: at rest, and each beat of its ring.
     for (name, rung, tick) in [("rest", false, 600), ("ring0", true, 600), ("ring1", true, 604), ("ring2", true, 608), ("ring3", true, 612), ("ring4", true, 616), ("ring5", true, 620)] {
         let mut r = at(lvl.bell.0, 110);
         let s = r.lightgallop.as_mut().unwrap();

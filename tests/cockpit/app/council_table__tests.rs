@@ -18,8 +18,6 @@ fn the_station_plate_is_the_picture() {
     assert_eq!((plate.width(), plate.height()), (144, 144), "plate decodes");
     let table = compose(&[], Deed::Council);
     assert_eq!((table.width(), table.height()), (WIDTH, HEIGHT));
-    // Every opaque pixel of the plate inside the crop is painted, and the
-    // air around the table stays clear for the panel behind it.
     for y in 0..HEIGHT {
         for x in 0..WIDTH {
             let src = plate.get_pixel(x + CROP.0, y + CROP.1)[3];
@@ -41,8 +39,6 @@ fn sitting_seats_light_their_thrones_and_answers_lie_on_the_table() {
         &[SeatState::Running, SeatState::Returned, SeatState::Failed],
         Deed::Council,
     );
-    // Three seats spread over the thrones: the head, the right, the
-    // lower left.
     let places = seat_places(3);
     assert_eq!(
         places,
@@ -53,27 +49,23 @@ fn sitting_seats_light_their_thrones_and_answers_lie_on_the_table() {
         brightness(&council, head) > brightness(&empty, head) * 3 / 2,
         "a sitting seat's throne is lit"
     );
-    // The running seat's candle burns at its place.
     let flame = council.get_pixel(
         (head_place.0 - CROP.0 as i32) as u32,
         (head_place.1 - 3 - CROP.1 as i32) as u32,
     );
     assert_eq!(flame.0[..3], INK_FLAME_CORE, "candle flame at the head");
-    // The answered seat's parchment is laid out.
     let (_, right_place) = CHAIRS[2];
     let sheet = council.get_pixel(
         (right_place.0 - 2 - CROP.0 as i32) as u32,
         (right_place.1 - 2 - CROP.1 as i32) as u32,
     );
     assert_eq!(sheet.0[..3], INK_C, "parchment before the answered seat");
-    // The failed seat's lies there in red.
     let (_, failed_place) = CHAIRS[5];
     let red = council.get_pixel(
         (failed_place.0 - 2 - CROP.0 as i32) as u32,
         (failed_place.1 - 2 - CROP.1 as i32) as u32,
     );
     assert_eq!(red.0[..3], INK_WAX_LIGHT, "failed answer in red");
-    // An empty throne stays in the dark.
     let (vacant, _) = CHAIRS[1];
     assert!(brightness(&council, vacant) < brightness(&council, head) / 2);
 }
@@ -129,8 +121,6 @@ fn fit_keeps_the_shape_and_hard_pixels() {
     );
 }
 
-/// `ANGEL_COUNCIL_SHOTS=<dir>`: the composed tables, native and at panel
-/// sizes, for looking at.
 #[test]
 fn write_council_table_shots() {
     let Some(dir) = std::env::var_os("ANGEL_COUNCIL_SHOTS") else {

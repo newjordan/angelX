@@ -176,8 +176,6 @@ fn live_delvecase_handoff_preserves_current_checkpoint_context_seat_and_journal_
     let mut client = start(&mut host, &initial);
     assert_eq!(pending_brews(&mut host, &client).len(), 1);
 
-    // The handoff source is an active checkpoint after a real accepted event,
-    // rather than the original startup image.
     send_tick(&mut host, &mut client);
     let before = host.checkpoint_now(&mut client).unwrap();
     let before_checkpoint: session::checkpoint::SessionCheckpoint =
@@ -189,7 +187,6 @@ fn live_delvecase_handoff_preserves_current_checkpoint_context_seat_and_journal_
     assert_eq!(before_restored.run.players[&4].name, "Remote Knight");
     assert_eq!(
         before_restored.run.book.cards.len(),
-        // Authored cards, recipe stand-in, and its per-claim retained binding.
         Run::new(0, 0, None).book.cards.len() + 302
     );
     assert_eq!(before_restored.journal.pending_brews().unwrap().len(), 1);
@@ -519,8 +516,6 @@ fn real_worker_open_frame_handoff_then_accepted_batch_death_recovers_exact_finis
     let batch_envelope = client
         .envelope(Event::Ability(abilities::Event::Batch(batch)))
         .unwrap();
-    // Independent semantic witness starts at the real open-frame checkpoint.
-    // Neither Batch nor Finish calls the alternate step policy again.
     let mut expected = session::Session::restore(open_checkpoint).unwrap();
     let expected_batch = expected
         .replay(batch_envelope.clone(), &mut session::DefaultPolicies)
@@ -530,8 +525,6 @@ fn real_worker_open_frame_handoff_then_accepted_batch_death_recovers_exact_finis
     assert_eq!(client.take_reply(), Some(expected_batch.reply));
     let accepted_view = client.view().clone();
     let accepted_seq = client.event_seq();
-    // Do NOT checkpoint here: accepted Batch must remain in OwnedSystem's
-    // replay tail after the open-frame checkpoint/handoff above.
     let dead_pid = host.status().worker_pid.unwrap();
     assert!(
         Command::new("kill")

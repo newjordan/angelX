@@ -13,16 +13,8 @@ pub(crate) enum FormationId {
     Duel,
     Council,
     AllIn,
-    /// Grok-managed frontier trio: GLM 5.2 + DeepSeek v4-pro + OpenAI Sol@max.
     GrokWar,
-    /// Two operator-picked models share one workload; no council, judge or
-    /// verifier seats.
     TagTeam,
-    /// The standing bag mixture, expressed as a formation so the auto sota-moa
-    /// and the roster deck are two doors to one engine. Its seats are NOT
-    /// hand-pinned: they resolve to the live intelligence order over whatever
-    /// SOTA links are configured and reachable right now — the exact behavior
-    /// the bag's implicit `sota_moa_club` path has always had.
     AutoMoa,
 }
 
@@ -90,8 +82,6 @@ impl FormationRole {
 pub(crate) struct FormationSlot {
     pub(crate) role: FormationRole,
     pub(crate) ordinal: usize,
-    /// Adaptive proposer capacity beyond the first wave. It still needs a model
-    /// before engagement because the pipeline may activate it on a hard turn.
     pub(crate) reserve: bool,
 }
 
@@ -109,9 +99,6 @@ impl FormationSlot {
     }
 }
 
-/// Stable-enough reference to one concrete Bag route for the lifetime of the
-/// cockpit. Agent/slot indices are append-only during fleet discovery; the
-/// labels are retained for receipts and for a useful stale-route error.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct MoaModelRef {
     pub(crate) agent_index: usize,
@@ -151,13 +138,9 @@ impl MoaModelRef {
 pub(crate) struct MoaModelChoice {
     pub(crate) route: MoaModelRef,
     pub(crate) available: bool,
-    /// The model the operator has in hand: with self seats it fills them all.
     pub(crate) in_hand: bool,
 }
 
-/// Self seats: every formation seat starts as the model in hand, so a mixture
-/// never reaches a provider the operator didn't pick. `ANGEL_MOA_SEATS=mixed`
-/// restores the intelligence-order picks. Seats stay reassignable in the deck.
 pub(crate) fn self_seats() -> bool {
     !std::env::var("ANGEL_MOA_SEATS").is_ok_and(|v| v.trim().eq_ignore_ascii_case("mixed"))
 }
@@ -166,9 +149,6 @@ pub(crate) fn self_seats() -> bool {
 pub(crate) struct FormationRoster {
     formation: FormationId,
     assignments: Vec<Option<MoaModelRef>>,
-    /// Per-role reasoning-effort overrides staged in the deck (the roster
-    /// card's THINK column). A staged role wins its seat at engagement;
-    /// unset roles keep the env-derived seat policy.
     role_efforts: HashMap<FormationRole, String>,
 }
 
@@ -200,8 +180,6 @@ impl FormationRoster {
         self.role_efforts.get(&role).map(String::as_str)
     }
 
-    /// Stage (or clear, with `None`) one role's effort override. Values are
-    /// requests — the engaged seat's club validates its own dialect.
     pub(crate) fn set_role_effort(&mut self, role: FormationRole, effort: Option<&str>) {
         match effort.map(str::trim).filter(|effort| !effort.is_empty()) {
             Some(effort) => {
@@ -213,11 +191,6 @@ impl FormationRoster {
         }
     }
 
-    /// The staged THINK column as the swarm's per-seat effort overrides — the
-    /// one roster → [`crate::agent::swarm::SeatEfforts`] mapping, consumed at arming
-    /// (the receipt names each staged seat) and mirrored by Bag activation.
-    /// Scout has no seat here: the swarm carries no scout effort policy, so
-    /// the picker refuses that seat aloud rather than dropping a value silently.
     pub(crate) fn seat_efforts(&self) -> crate::agent::swarm::SeatEfforts {
         crate::agent::swarm::SeatEfforts {
             propose: self.role_effort(FormationRole::Propose).map(str::to_string),
@@ -303,7 +276,6 @@ impl MoaEngagement {
         })
     }
 
-    /// Roster-less engagement for tests that only need a formation identity.
     #[cfg(test)]
     pub(crate) fn unassigned(formation: FormationId) -> Self {
         Self {
@@ -432,7 +404,6 @@ const BUILT_INS: &[Formation] = &[
         verify: 0,
         verify_guard: false,
         reflect: false,
-        // Grok research scout + grok_research tool; aggregate/judge seats also Grok.
         scout: true,
         est_cost_x: 12.0,
         asset_rel: "assets/moa-cards/council.png",
@@ -458,7 +429,6 @@ const BUILT_INS: &[Formation] = &[
         id: FormationId::AutoMoa,
         name: "Auto MoA",
         flavor: "The standing club mixture: every configured SOTA link in intelligence order — propose, judge, verify, synthesize — re-resolved from whatever is reachable each engagement.",
-        // Width mirrors the historical auto path: it forms whatever it has.
         width: 3,
         max_width: 4,
         layers: 1,
@@ -485,10 +455,6 @@ pub(crate) fn formation(id: FormationId) -> &'static Formation {
         .expect("formation id is in built-in deck")
 }
 
-/// Resolve an operator/command alias to a formation id. This is the single
-/// routing table used by `/moa <formation>` and by `moa-<formation>` visual
-/// scenes, so the canonical slugs (for example `tag-team`) and their spoken
-/// aliases cannot drift apart between the command parser and the deck opener.
 pub(crate) fn formation_alias(raw: &str) -> Option<FormationId> {
     let alias = raw.trim().to_ascii_lowercase().replace(['_', '-'], " ");
     let alias = alias.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -550,9 +516,6 @@ impl Formation {
         stages.join(" -> ")
     }
 
-    /// Concrete operator-selectable execution seats. `max_width` is used for
-    /// proposer seats so adaptive fan-out cannot introduce an unrostered model;
-    /// synthesis samples receive independent seats for the same reason.
     pub(crate) fn slots(self) -> Vec<FormationSlot> {
         if self.is_resting() {
             return Vec::new();
@@ -582,8 +545,6 @@ impl Formation {
             ordinal,
             reserve: false,
         }));
-        // Tag Team is exactly two operator-picked models. Every other
-        // formation keeps a synthesis seat even when samples is 0.
         if self.id != FormationId::TagTeam {
             slots.extend((0..self.samples.max(1)).map(|ordinal| FormationSlot {
                 role: FormationRole::Aggregate,
@@ -594,13 +555,8 @@ impl Formation {
         slots
     }
 
-    /// Engage this formation's env: first hand back whatever the previous
-    /// engagement wrote (see [`put`]), then write this formation's knobs.
     pub(crate) fn apply_sota_env(self) {
         hand_back_written_env();
-        // The formation's own name, so the MoA ledgers can attribute per-turn
-        // economics to the exact formation that spent them. The resting stance
-        // owns no turns, so disengaging clears the marker.
         if self.is_resting() {
             clear("ANGEL_SOTA_MOA_FORMATION");
         } else {
@@ -612,11 +568,6 @@ impl Formation {
         put("ANGEL_SOTA_MOA_WIDTH", self.width.to_string());
         put("ANGEL_SOTA_MOA_MAX_WIDTH", self.max_width.to_string());
         put("ANGEL_SOTA_MOA_LAYERS", self.layers.to_string());
-        // Refinement layers fan out at the formation's own width, not the
-        // generic 6-seat default: layers=2 with width=3 must spend 3 aggregator
-        // calls per layer, each carrying the full history plus every draft.
-        // Formations with a single layer never refine, so the knob is cleared
-        // (the disengage path lands here too — SoloStrike layers=1).
         if self.layers > 1 {
             put("ANGEL_SWARM_REFINE_WIDTH", self.width.to_string());
         } else {
@@ -629,8 +580,6 @@ impl Formation {
         set_flag("ANGEL_SOTA_MOA_VERIFY_GUARD", self.verify_guard);
         set_flag("ANGEL_SOTA_MOA_REFLECT", self.reflect);
         set_flag("ANGEL_SOTA_MOA_GROK_RESEARCH", self.scout);
-        // The deck's scout is the configured Grok-style SOTA scout. SearXNG
-        // search stays off unless a future user deck explicitly asks for it.
         set_flag("ANGEL_SOTA_MOA_RESEARCH", false);
         self.apply_specialized_env();
         crate::agent::club::resync_reasoning_effort_env_from_env();
@@ -638,34 +587,24 @@ impl Formation {
 
     fn apply_specialized_env(self) {
         if self.id == FormationId::TagTeam {
-            // Two operator-picked models. The dissent gate must stay off:
-            // escalation turns judge on and adds verify passes, which is the
-            // 5-seat council arriving through the side door. Do not pin Sol.
             clear("ANGEL_SOTA_MOA_DISSENT_GATE");
-            // If one corner doesn't answer, the other's draft carries the turn.
             put("ANGEL_SOTA_MOA_ALLOW_DEGRADED", "1");
             clear("ANGEL_OPENAI_MODEL");
             clear_grok_war_role_pins();
         } else if self.id == FormationId::GrokWar {
-            // Frontier war posture: leave the cheap LongCat profile so the
-            // GLM / DeepSeek / OpenAI / Grok seats can actually fire.
             clear("ANGEL_SOTA_MOA_COST_PROFILE");
             put("ANGEL_SOTA_MOA_PROPOSE_CLUB", "glm");
             put("ANGEL_SOTA_MOA_EXTRA_PROPOSERS", "deepseek,openai");
             put("ANGEL_SOTA_MOA_JUDGE_CLUB", "grok");
             put("ANGEL_SOTA_MOA_AGG_CLUB", "grok");
             put("ANGEL_SOTA_MOA_VERIFY_CLUB", "none");
-            // Grok is the manager: research tool + high effort synthesis.
             put("ANGEL_GROK_TOOL", "1");
             put("ANGEL_SOTA_MOA_GROK_RESEARCH", "1");
             if std::env::var_os("ANGEL_GROK_REASONING_EFFORT").is_none() {
                 put("ANGEL_GROK_REASONING_EFFORT", "high");
             }
-            // OpenAI Sol seat rides at MAX reasoning for the war window.
             put("ANGEL_OPENAI_MODEL", "gpt-5.6-sol");
             put("ANGEL_OPENAI_REASONING_EFFORT", "max");
-            // Kernel competition still wants Treebeard when the operator did
-            // not pin a different lane.
             if std::env::var_os("ANGEL_LANE").is_none()
                 && std::env::var_os("ANGEL_TASK_TREEBEARD").is_none()
             {
@@ -682,21 +621,9 @@ impl Formation {
     }
 }
 
-/// A formation is an overlay on the process environment: its knobs travel as env
-/// vars (the swarm pipeline and the seat builders read them back), so engaging
-/// one overwrites or removes settings the operator may have launched with.
-///
-/// Every write goes through [`put`] / [`clear`], which remember what the process
-/// held before the first write. The next `apply_sota_env` hands those values
-/// back before it writes its own, so a formation lasts as long as its
-/// engagement: leaving it neither costs the operator a setting nor leaves a pin
-/// the formation added. A knob someone else changed since (it no longer holds the
-/// value written here) is left alone.
 struct Written {
     key: &'static str,
-    /// What the process held before this module's first write.
     prior: Option<OsString>,
-    /// What this module last left there; `None` = it removed the key.
     left: Option<OsString>,
 }
 
@@ -709,13 +636,11 @@ fn written() -> MutexGuard<'static, Vec<Written>> {
 fn put(key: &'static str, value: impl AsRef<OsStr>) {
     let value = value.as_ref();
     note_write(key, Some(value.to_owned()));
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var(key, value) };
 }
 
 fn clear(key: &'static str) {
     note_write(key, None);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var(key) };
 }
 
@@ -731,42 +656,29 @@ fn note_write(key: &'static str, left: Option<OsString>) {
     }
 }
 
-/// Undo [`put`] / [`clear`] for every knob still holding what this module left.
 fn hand_back_written_env() {
     for entry in written().drain(..) {
         if std::env::var_os(entry.key) != entry.left {
             continue;
         }
         match entry.prior {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             Some(value) => unsafe { std::env::set_var(entry.key, value) },
-            // TODO: Audit that the environment access only happens in single-threaded code.
             None => unsafe { std::env::remove_var(entry.key) },
         }
     }
 }
 
-/// Tests that engage a formation start and end with an empty overlay, so one
-/// test's engagement cannot hand values back into another's environment.
 #[cfg(test)]
 pub(crate) fn forget_written_env() {
     written().clear();
 }
 
-/// Tag Team owns two knobs: the dissent gate that keeps its metered advice seat
-/// conditional, and the degraded-quorum allowance that lets one live corner
-/// carry a turn. Leaving the formation drops both, so another formation (or the
-/// operator's `.angel.env` on the next launch) decides those policies — a
-/// frontier formation must keep its strict quorum. The Sol model/effort pins are
-/// deliberately left alone: an operator who set them outside engagement keeps them.
 fn clear_tag_team_pins() {
     clear("ANGEL_SOTA_MOA_DISSENT_GATE");
     clear("ANGEL_SOTA_MOA_ALLOW_DEGRADED");
 }
 
 fn clear_grok_war_role_pins() {
-    // Only clear pins this formation owns. Leave operator-pinned OpenAI model /
-    // Grok effort alone when they were set outside engagement.
     for key in [
         "ANGEL_SOTA_MOA_PROPOSE_CLUB",
         "ANGEL_SOTA_MOA_EXTRA_PROPOSERS",
@@ -791,9 +703,6 @@ fn recommended_model(
             .map(|choice| choice.route.clone())
     };
 
-    // Tag Team: two models share one workload, and the operator picks both.
-    // No seat is pre-filled — falling through to the intelligence order would
-    // quietly bill a frontier model the operator never chose.
     if formation == FormationId::TagTeam {
         return None;
     }
@@ -807,14 +716,6 @@ fn recommended_model(
     }
 
     if formation == FormationId::AutoMoa {
-        // The standing mixture: no seat pinning. Every seat resolves from the
-        // intelligence order over the live model list — the same ordering the
-        // bag's implicit `sota_moa_club` wrapper has always used —
-        // so the deck shows what the auto path would actually run: smartest
-        // available first, nth-distinct model per seat. A single configured
-        // provider legitimately fills every seat (the swarm pipeline tolerates
-        // a homogeneous roster; the bag's ANGEL_SOTA_MOA_ALLOW_SINGLE path
-        // already does this today).
         let seat = |ordinal: usize| -> Option<MoaModelRef> {
             preferences
                 .standard
@@ -838,8 +739,6 @@ fn recommended_model(
     }
 
     let specialist = match (formation, slot.role) {
-        // Grok War: fixed trio under Grok command. Ordinals are stable seats —
-        // P1 GLM, P2 DeepSeek, P3 OpenAI Sol; Grok owns scout/judge/aggregate.
         (FormationId::GrokWar, FormationRole::Propose) => match slot.ordinal {
             0 => Some("glm"),
             1 => Some("deepseek"),
@@ -877,9 +776,6 @@ pub(crate) struct MoaDeckState {
     focus: MoaDeckFocus,
     selected_slot: usize,
     selected_model: usize,
-    /// THINK picker cursor plus the ladder captured when it opened (the focused
-    /// seat's route-declared reasoning levels; the trailing virtual row is the
-    /// env-default clear action).
     selected_effort: usize,
     efforts: Vec<String>,
     models: Vec<MoaModelChoice>,
@@ -891,8 +787,6 @@ pub(crate) enum MoaDeckFocus {
     Formations,
     Slots,
     Models,
-    /// The THINK picker: staging one role's reasoning effort over the focused
-    /// seat's route-declared ladder.
     Efforts,
 }
 
@@ -1125,10 +1019,6 @@ impl MoaDeckState {
             .map(|slot| slot.role)
     }
 
-    /// Open the THINK picker for the focused seat over `levels` — the assigned
-    /// route's own declared reasoning ladder. An empty ladder still opens (the
-    /// picker shows the n/a line and offers only the env-default row); a Scout
-    /// seat refuses, because the swarm carries no scout effort policy.
     pub(crate) fn open_effort_picker(&mut self, levels: Vec<String>) -> bool {
         let Some(role) = self.selected_slot_role() else {
             return false;
@@ -1141,8 +1031,6 @@ impl MoaDeckState {
                 .iter()
                 .position(|level| level.eq_ignore_ascii_case(staged))
         });
-        // Nothing staged (or a value the ladder no longer lists) rests the
-        // cursor on the env-default row.
         self.selected_effort = staged_position.unwrap_or(levels.len());
         self.efforts = levels;
         self.focus = MoaDeckFocus::Efforts;
@@ -1159,21 +1047,16 @@ impl MoaDeckState {
         &self.efforts
     }
 
-    /// Picker cursor over `efforts` plus the trailing env-default row.
     pub(crate) fn selected_effort_index(&self) -> usize {
         self.selected_effort.min(self.efforts.len())
     }
 
     pub(crate) fn move_effort(&mut self, delta: isize) {
-        let len = self.efforts.len() + 1; // ladder rows + the env-default row
+        let len = self.efforts.len() + 1;
         self.selected_effort =
             (self.selected_effort_index() as isize + delta).rem_euclid(len as isize) as usize;
     }
 
-    /// Commit picker row `option_index` onto the focused seat's role: a ladder
-    /// row stages that level, the trailing row clears back to the env seat
-    /// policy. Returns the role and the canonically staged value (`None` =
-    /// cleared) so the caller can voice the result.
     pub(crate) fn stage_effort(
         &mut self,
         option_index: usize,

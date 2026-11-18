@@ -82,11 +82,6 @@ fn a_missing_picture_rejects_only_its_entry_and_a_later_picture_can_load() {
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// Wish plates: `ANGEL_ARENA_SHOTS=<dir> cargo test write_wish_look_shots -- --ignored`.
-/// A knight in a big spiked pavise beside one in Iron Skin's spiked
-/// pauldrons; flaming skulls for morningstars; venom comets for arrows; a
-/// swarm of golden devils cut from the fixture sheet. Each as the arena
-/// draws it, and a close-up.
 #[test]
 #[ignore]
 fn write_wish_look_shots() {
@@ -98,7 +93,6 @@ fn write_wish_look_shots() {
     };
     std::fs::create_dir_all(&dir).unwrap();
     let save = |run: &mut Run, name: &str, around: &[u32]| {
-        // No wish window's sign over the knights.
         run.window = None;
         for hero in run.players.values_mut() {
             hero.invulnerable = 0;
@@ -115,7 +109,6 @@ fn write_wish_look_shots() {
             out.save(dir.join(file)).unwrap();
         };
         write(&img, 2, format!("{name}.png"));
-        // A close-up round the knights named.
         let mut heroes: Vec<(i32, i32)> = around
             .iter()
             .map(|id| {
@@ -171,7 +164,6 @@ fn write_wish_look_shots() {
         hero.rebonus(&book);
     };
 
-    // Worn: the pavise, and Iron Skin III's spiked pauldrons.
     let mut run = Run::new(9, 1, None);
     run.join("Friend");
     room(&mut run);
@@ -194,7 +186,6 @@ fn write_wish_look_shots() {
     }
     save(&mut run, "worn", &[1, 2]);
 
-    // Orbit: flaming skulls.
     let mut run = Run::new(9, 1, None);
     room(&mut run);
     let skulls = check(
@@ -211,7 +202,6 @@ fn write_wish_look_shots() {
     }
     save(&mut run, "orbit", &[1]);
 
-    // Shots: venom comets from a plain bow.
     let mut run = Run::new(9, 1, None);
     room(&mut run);
     let comets = check(
@@ -240,7 +230,6 @@ fn write_wish_look_shots() {
     );
     save(&mut run, "shot", &[1]);
 
-    // Summons: golden devils, cut from the fixture sheet.
     let ws = std::env::temp_dir().join(format!("delve-devils-{}", std::process::id()));
     std::fs::create_dir_all(ws.join(".angel/dungeon/sheets")).unwrap();
     std::fs::create_dir_all(ws.join(".angel/dungeon/cards")).unwrap();
@@ -289,7 +278,6 @@ fn write_wish_look_shots() {
     let _ = std::fs::remove_dir_all(&ws);
 }
 
-/// A flaming skull that spins round the knight in place of a morningstar.
 const SKULL: &str = "\
 ..7.@.7..|.7..@..7.
 .7@6@6@7.|..7@6@7..
@@ -301,7 +289,6 @@ const SKULL: &str = "\
 ..HiHiH..|..HiHiH..
 ...iii...|...iii...";
 
-/// A venom comet, facing the way it flies.
 const COMET: &str = "\
 ....yY.|...yY..
 .myYCYy|m.yYCYy
@@ -309,12 +296,10 @@ mLyCwCY|.LyCwCY
 .myYCYy|m.yYCYy
 ....yY.|...yY..";
 
-/// A board as the `vec` cartridge writes it, `quest` given.
 fn vec_board(quest: &str) -> String {
     format!(r#"{{"schema":"vec.board/1","updated":"2026-10-20T21:05:00Z","boards":[],"quest":{quest},"events":[]}}"#)
 }
 
-/// A fresh folder of the test's own for a campaign's board.
 fn board_dir(name: &str) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!("angel-vec-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -322,7 +307,6 @@ fn board_dir(name: &str) -> std::path::PathBuf {
     dir
 }
 
-/// The cartridge's way: a new file renamed into place.
 fn write_board(path: &std::path::Path, raw: &str) {
     let tmp = path.with_extension("tmp");
     std::fs::write(&tmp, raw).unwrap();
@@ -333,24 +317,18 @@ fn write_board(path: &std::path::Path, raw: &str) {
 fn the_campaign_board_is_read_bounded_and_anything_wrong_is_zeros() {
     let dir = board_dir("read");
     let board = dir.join("board.json");
-    // Missing.
     assert!(read_campaign(&board).is_empty());
-    // A good board.
     write_board(&board, &vec_board(r#"{"vec_data_staged":1,"vec_heart_proxy_runs":4}"#));
     let c = read_campaign(&board);
     assert_eq!((c.count("vec_data_staged"), c.count("vec_heart_proxy_runs")), (1, 4));
-    // Too heavy to read, though it would parse.
     let mut heavy = vec_board(r#"{"vec_data_staged":1}"#);
     heavy.push_str(&" ".repeat(campaign::MAX_BYTES));
     write_board(&board, &heavy);
     assert!(read_campaign(&board).is_empty());
-    // Malformed, hostile, empty.
     for bad in ["", "{", "[[[[", &vec_board(r#"{"vec_data_staged":-1}"#), &vec_board(r#"{"vec_data_staged":"1"}"#)] {
         write_board(&board, bad);
         assert!(read_campaign(&board).is_empty(), "{bad}");
     }
-    // Not a plain file: a folder, and (where there are pipes) a pipe that
-    // nobody writes, which must not hang the reader.
     std::fs::remove_file(&board).unwrap();
     std::fs::create_dir(&board).unwrap();
     assert!(read_campaign(&board).is_empty());
@@ -371,19 +349,15 @@ fn the_campaign_board_is_looked_at_once_a_second_and_read_when_it_changes() {
     let mut watch = CampaignWatch::default();
     let start = std::time::Instant::now();
     let at = |ms: u64| start + std::time::Duration::from_millis(ms);
-    // No board yet: zeros, and no second look within the second.
     assert_eq!(watch.poll(Some(&board), at(0)), Some(campaign::Campaign::default()));
     write_board(&board, &vec_board(r#"{"vec_data_staged":1}"#));
     assert_eq!(watch.poll(Some(&board), at(500)), None);
     let c = watch.poll(Some(&board), at(1000)).unwrap();
     assert_eq!(c.count("vec_data_staged"), 1);
-    // Rewritten: the next look reads it.
     write_board(&board, &vec_board(r#"{"vec_data_staged":1,"vec_heart_proxy_runs":3}"#));
     assert_eq!(watch.poll(Some(&board), at(2000)).unwrap().count("vec_heart_proxy_runs"), 3);
-    // Gone: zeros.
     std::fs::remove_file(&board).unwrap();
     assert!(watch.poll(Some(&board), at(3000)).unwrap().is_empty());
-    // No board named (a test build, a friend's delve): zeros.
     assert!(watch.poll(None, at(4000)).unwrap().is_empty());
     assert_eq!(campaign_board(), None, "a test build reads no operator's board");
     let _ = std::fs::remove_dir_all(&dir);

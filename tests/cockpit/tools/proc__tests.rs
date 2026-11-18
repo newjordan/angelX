@@ -27,7 +27,6 @@ impl Drop for TemporaryLogStore {
     }
 }
 
-/// Lifecycle tests must never inherit the user's private process store.
 struct TestProcStore {
     root: TemporaryLogStore,
     saved: Vec<(&'static str, Option<OsString>)>,
@@ -42,7 +41,6 @@ impl TestProcStore {
             .into_iter()
             .map(|key| (key, std::env::var_os(key)))
             .collect();
-        // SAFETY: process-global test environment changes hold env_lock.
         unsafe {
             std::env::set_var("ANGEL_PROC_DIR", root.0.join("process-store"));
             std::env::set_var("ANGEL_PROC_RECEIPTS", "1");
@@ -61,8 +59,6 @@ impl TestProcStore {
 
 impl Drop for TestProcStore {
     fn drop(&mut self) {
-        // Reap only children belonging to this temporary project, including
-        // failures before the test reached its explicit proc_stop call.
         if let Ok(mut procs) = table().lock() {
             let ids: Vec<_> = procs
                 .iter()
@@ -73,7 +69,6 @@ impl Drop for TestProcStore {
                 if let Some(mut entry) = procs.remove(&id)
                     && matches!(entry.child.try_wait(), Ok(None))
                 {
-                    // SAFETY: this live Child still owns its private process group.
                     unsafe { libc::killpg(entry.pid as libc::pid_t, libc::SIGKILL) };
                     let _ = entry.child.kill();
                     let _ = entry.child.wait();
@@ -82,7 +77,6 @@ impl Drop for TestProcStore {
         }
         for receipt in load_receipts() {
             if receipt.project_root == self.root.0 && receipt_alive(&receipt) {
-                // SAFETY: fixture receipts pin the live child's starttime.
                 unsafe {
                     libc::killpg(receipt.pgid, libc::SIGKILL);
                     libc::waitpid(receipt.pid as libc::pid_t, std::ptr::null_mut(), 0);
@@ -93,7 +87,6 @@ impl Drop for TestProcStore {
             notices.remove(&self.root.0);
         }
         for (key, value) in &self.saved {
-            // SAFETY: the fixture still owns the global environment lock.
             unsafe {
                 match value {
                     Some(value) => std::env::set_var(key, value),
@@ -180,7 +173,7 @@ fn completed_child_reaped_without_status_and_terminal_receipt_survives_restart()
     assert_eq!(stored["status"], "Failed");
     assert_eq!(stored["verification"], "Failed");
     assert!(!receipts_dir().join(format!("{id}-{pid}.json")).exists());
-    table().lock().unwrap().remove(&id); // simulate a restarted cockpit
+    table().lock().unwrap().remove(&id);
     for _ in 0..2 {
         let status = ProcStatusTool::new(root.clone())
             .call(&serde_json::json!({"id":id}))
@@ -428,8 +421,6 @@ fn log_pump_drains_after_log_write_failure() {
     let path = dir.join("service.log");
     let log = Arc::new(Mutex::new(RotatingLog::new(path.clone(), 64).unwrap()));
 
-    // Make the first append fail deterministically. The pump must still
-    // consume every later byte rather than closing a live child's pipe.
     std::fs::remove_file(path).unwrap();
     std::fs::remove_dir(&dir).unwrap();
     let total = 3 * 16 * 1024 + 7;
@@ -739,9 +730,6 @@ time.sleep(0.8)
         eprintln!(
             "proc public setup cancel {mode}: cancel50ms after start elapsed={elapsed:?} result={result:?} pids={pids:?}"
         );
-        // Both the direct helper and a TERM-ignoring same-group pipe holder
-        // must be retired before a handle can be returned. Global isolated
-        // cleanup owns any failed setup or assertion's remaining descendants.
         for pid in pids {
             ServiceFixture::assert_reaped(pid);
         }
@@ -856,7 +844,6 @@ fn run_status_stop_roundtrip() {
         .and_then(|s| s.split(']').next())
         .and_then(|s| s.parse().ok())
         .expect("id in output");
-    // Give the shell a beat to write "ready" to the log.
     std::thread::sleep(Duration::from_millis(300));
     let foreign = std::env::temp_dir().join(format!("angel-proc-foreign-{}", std::process::id()));
     assert!(
@@ -897,7 +884,6 @@ fn proc_status_schema_does_not_advertise_host_wait() {
         "must not teach a 60s park: {}",
         def.description
     );
-    // The description is the address of its pages; they say it is ignored.
     let wait = def.params["properties"]["wait_ms"]["description"]
         .as_str()
         .expect("wait_ms description");
@@ -1065,7 +1051,6 @@ fn receipts_adopt_then_vanish_across_simulated_restart() {
         }))
         .expect("spawn");
     let (id, pid) = parse_handle(&out);
-    // Receipt written at spawn, starttime matching the live /proc value.
     let receipt_path = receipts_dir().join(format!("{id}-{pid}.json"));
     assert!(receipt_path.exists(), "receipt written at spawn: {out}");
     let receipt: Value =
@@ -1077,12 +1062,7 @@ fn receipts_adopt_then_vanish_across_simulated_restart() {
         "receipt starttime must match /proc"
     );
     assert_eq!(receipt["pgid"].as_u64().unwrap(), pid as u64);
-    // Simulate a cockpit restart for this daemon: clear its entry from the
-    // static table. (The table is process-wide and the other proc tests
-    // run in parallel against it, so clear only this entry — the effect
-    // for the entry under test is identical to a full restart wipe.)
     table().lock().unwrap().remove(&id);
-    // List mode adopts the starttime-verified survivor.
     let status = ProcStatusTool::new(workspace.clone())
         .call(&serde_json::json!({}))
         .expect("status");
@@ -1091,7 +1071,6 @@ fn receipts_adopt_then_vanish_across_simulated_restart() {
         "{status}"
     );
     assert!(status.contains(&format!("(pid {pid})")), "{status}");
-    // Single-id detail resolves through the receipt too, log tail included.
     let detail = ProcStatusTool::new(workspace.clone())
         .call(&serde_json::json!({ "id": id }))
         .expect("detail");
@@ -1100,8 +1079,6 @@ fn receipts_adopt_then_vanish_across_simulated_restart() {
         "{detail}"
     );
     assert!(detail.contains("receipt-ready"), "{detail}");
-    // Kill it out from under the receipt: the next status observing the
-    // death reports a failed, unknown exit and retains the evidence.
     unsafe {
         libc::killpg(pid as libc::pid_t, libc::SIGKILL);
         libc::waitpid(pid as libc::pid_t, std::ptr::null_mut(), 0);
@@ -1143,8 +1120,6 @@ fn proc_wait_adopted_job_waits_until_exit_without_claiming_success() {
         workspace: run.workspace.clone(),
     }
     .call(&serde_json::json!({"id": id}));
-    // The fixture still owns the child handle; the simulated restarted tool
-    // does not, so it must report an unknown exit rather than invent success.
     let _ = entry.child.wait();
     let error = result.expect_err("adopted wait must observe exit before returning");
     assert!(error.contains("vanished — exit unknown"), "{error}");
@@ -1195,7 +1170,6 @@ fn proc_stop_stops_an_adopted_daemon_by_pgid() {
     let (id, pid) = parse_handle(&out);
     let receipt_path = receipts_dir().join(format!("{id}-{pid}.json"));
     assert!(receipt_path.exists(), "receipt written at spawn: {out}");
-    // Orphan it (simulated restart), then stop it through the receipt.
     table().lock().unwrap().remove(&id);
     let stopped = ProcStopTool::new(workspace)
         .call(&serde_json::json!({ "id": id }))
@@ -1209,12 +1183,8 @@ fn proc_stop_stops_an_adopted_daemon_by_pgid() {
         "{stopped}"
     );
     assert!(!receipt_path.exists(), "receipt cleared after adopted stop");
-    // The process itself must be gone (dead, or an unreaped zombie of this
-    // test process, which /proc reports as state Z).
     let gone = proc_stat_fields(pid).is_none_or(|(state, _)| matches!(state, 'Z' | 'X' | 'x'));
     assert!(gone, "pid {pid} survived adopted proc_stop");
-    // The simulated restart dropped Child, but this test remains its real
-    // parent and must reap the stopped shell before leaving the fixture.
     unsafe { libc::waitpid(pid as libc::pid_t, std::ptr::null_mut(), 0) };
 }
 
@@ -1312,10 +1282,6 @@ fn background_submission_journal_case(separate_cwd: bool, verbose: bool, leading
     }
 }
 
-/// A foreground shell call still running past the hand-off limit becomes a
-/// background job: the call returns its receipt, the process keeps running
-/// and keeps writing into the job's log, and its exit arrives as the usual
-/// completion receipt. Nothing is stopped.
 #[cfg(target_os = "linux")]
 #[test]
 fn a_shell_call_past_the_handoff_limit_becomes_a_running_job() {
@@ -1350,7 +1316,6 @@ fn a_shell_call_past_the_handoff_limit_becomes_a_running_job() {
         assert_eq!(entry.state(), "running", "nothing was stopped");
         entry.log.clone()
     };
-    // The job runs to its own end and reports it like any background job.
     let deadline = Instant::now() + Duration::from_secs(15);
     let completion = loop {
         if let Some(notice) = take_completions(&fixture.root.0, 8)
@@ -1366,7 +1331,6 @@ fn a_shell_call_past_the_handoff_limit_becomes_a_running_job() {
         std::thread::sleep(Duration::from_millis(50));
     };
     assert_eq!(completion.exit_code, Some(0));
-    // Output kept draining into the job's log across the hand-off, in order.
     let text = std::fs::read_to_string(&log).unwrap();
     let at = |needle: &str| {
         text.find(needle)
@@ -1379,8 +1343,6 @@ fn a_shell_call_past_the_handoff_limit_becomes_a_running_job() {
     assert_eq!(text.matches("line1").count(), 1, "{text}");
 }
 
-/// `ANGEL_TOOL_HANDOFF_SECS=0` turns hand-off off: the call waits for its
-/// process exactly as before.
 #[cfg(target_os = "linux")]
 #[test]
 fn the_handoff_limit_zero_is_off() {
@@ -1405,8 +1367,6 @@ fn the_handoff_limit_zero_is_off() {
     );
 }
 
-/// A loop-watchdog hand-off moves a wedged shell call to the job table at
-/// once, long before its own hand-off limit; the process keeps running.
 #[cfg(target_os = "linux")]
 #[test]
 fn a_watchdog_handoff_moves_a_wedged_shell_call_to_the_job_table_now() {
@@ -1417,8 +1377,6 @@ fn a_watchdog_handoff_moves_a_wedged_shell_call_to_the_job_table_now() {
     let shell = crate::agent::tools::shell::ShellTool::in_dir(fixture.root.0.clone());
     let cancel = std::sync::atomic::AtomicBool::new(false);
     let owner = &cancel as *const _ as usize;
-    // The watchdog only acts on a call whose process is running (sandbox
-    // setup comes first); a request older than the process is not its.
     let requester = std::thread::spawn(move || {
         let deadline = Instant::now() + Duration::from_secs(20);
         while crate::agent::harness::owned_child_snapshot(owner)
@@ -1471,8 +1429,6 @@ fn sandbox_annotation_write_failure_is_reported() {
     let path = store.0.join("receipt.json");
     let original = br#"{"id":1}"#;
     std::fs::write(&path, original).unwrap();
-    // Atomic publication creates a sibling and renames it over the receipt:
-    // denying writes to the directory exercises that writer's failure path.
     let perms = std::fs::metadata(&store.0).unwrap().permissions();
     std::fs::set_permissions(&store.0, std::fs::Permissions::from_mode(0o500)).unwrap();
     let sandbox = serde_json::json!({"sandbox_profile": "workspace"});
@@ -1486,11 +1442,6 @@ fn sandbox_annotation_write_failure_is_reported() {
     assert_eq!(std::fs::read(&path).unwrap(), original, "a failed annotation keeps the original receipt");
 }
 
-/// File `script` as a job whose process is its own group leader and hears
-/// SIGTERM directly, so it chooses its own exit: the shape of a job on a
-/// platform whose sandbox helper execs in place (on Linux the helper
-/// supervises and re-raises SIGTERM itself). Filed the way a handed-off
-/// foreground call is; returns once the script printed `ready`.
 fn file_leader_job(store: &TestProcStore, script: &str) -> u64 {
     use std::io::BufRead;
     use std::os::unix::process::CommandExt;
@@ -1519,8 +1470,6 @@ fn file_leader_job(store: &TestProcStore, script: &str) -> u64 {
         .id
 }
 
-/// `proc_stop` the job, then read the stop text, the terminal receipt the
-/// independent reaper writes, and what `proc_status` says afterwards.
 fn stop_job_and_read_receipt(
     store: &TestProcStore,
     id: u64,
@@ -1534,7 +1483,6 @@ fn stop_job_and_read_receipt(
     (stopped, receipt, status)
 }
 
-/// The terminal receipt for job `id`, once the reaper has persisted it.
 fn completion_receipt(workspace: &Path, id: u64) -> Value {
     let deadline = Instant::now() + Duration::from_secs(10);
     let notice = loop {
@@ -1551,8 +1499,6 @@ fn completion_receipt(workspace: &Path, id: u64) -> Value {
     serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
 }
 
-/// The receipt's own fields must agree: a cancelled job is never an `ok` exit,
-/// even when its SIGTERM handler chose exit code 0.
 #[test]
 fn a_stopped_job_that_exits_zero_is_not_an_ok_receipt() {
     let store = TestProcStore::new();
@@ -1570,14 +1516,10 @@ fn a_stopped_job_that_exits_zero_is_not_an_ok_receipt() {
     assert_eq!(receipt["status"], "Cancelled");
     assert_eq!(receipt["verification"], "Inconclusive");
     assert_eq!(receipt["ok"], false, "{receipt}");
-    // Every stop reads as an error result in `proc_status`; this one is no
-    // different, and says so in its own words.
     let text = status.expect_err("a stopped job is an error result");
     assert!(text.contains("stopped (exit 0 after SIGTERM)"), "{text}");
 }
 
-/// A job that ignores SIGTERM is killed after the grace period; its labels and
-/// receipt fields are what an adopting cockpit reads back.
 #[test]
 fn a_stopped_job_that_ignores_sigterm_is_killed_after_grace() {
     let store = TestProcStore::new();
@@ -1599,9 +1541,6 @@ fn a_stopped_job_that_ignores_sigterm_is_killed_after_grace() {
     assert!(status.is_err());
 }
 
-/// On Linux the sandbox helper supervises every `proc_run` command and
-/// re-raises the SIGTERM it was stopped with, so even a handler that exits 0
-/// reads as a plain SIGTERM stop.
 #[cfg(target_os = "linux")]
 #[test]
 fn a_stopped_proc_run_job_reads_as_a_sigterm_stop_on_linux() {
@@ -1629,8 +1568,6 @@ fn a_stopped_proc_run_job_reads_as_a_sigterm_stop_on_linux() {
     assert!(status.is_err());
 }
 
-/// A process the cockpit did not stop and that dies by a signal is a failed
-/// job with an unknown-external kill receipt.
 #[test]
 fn a_job_killed_by_a_signal_is_a_failed_receipt() {
     let store = TestProcStore::new();
@@ -1649,9 +1586,6 @@ fn a_job_killed_by_a_signal_is_a_failed_receipt() {
     assert_eq!(receipt["kill"]["owner"], "unknown_external");
 }
 
-/// Terminal receipts written by earlier cockpits carry only the exit label.
-/// Whatever the cockpit now writes, those must load and read the same way:
-/// ok for `exited 0`, an error result for everything else.
 #[test]
 fn terminal_receipts_from_earlier_cockpits_read_by_their_exit_label() {
     let store = TestProcStore::new();
@@ -1692,8 +1626,6 @@ fn terminal_receipts_from_earlier_cockpits_read_by_their_exit_label() {
     }
 }
 
-/// The observation of a handed-off shell call is "no exit yet, handed to job N":
-/// never an exit status of its own.
 #[cfg(target_os = "linux")]
 #[test]
 fn a_handed_off_observation_carries_no_exit_status() {
@@ -1723,15 +1655,11 @@ fn a_handed_off_observation_carries_no_exit_status() {
     assert!(table().lock().unwrap().contains_key(&id));
 }
 
-/// The words each end renders, the exit code it carries and the receipt fields
-/// it implies. Adopting cockpits and receipt readers depend on these exactly.
 #[test]
 fn job_exit_renders_the_labels_and_receipt_fields_the_wire_depends_on() {
     use std::os::unix::process::ExitStatusExt;
     let exited = |code: i32| std::process::ExitStatus::from_raw(code << 8);
     let signaled = |signal: i32| std::process::ExitStatus::from_raw(signal);
-    // (end, label, code, reads as success, (status, ok, verification),
-    //  (status, ok, verification) once a stop was requested)
     let table = [
         (
             JobExit::observed(exited(0)),

@@ -1,5 +1,3 @@
-"""Exercise decision TUI ownership with local stub and tmux fixtures."""
-
 import os
 from pathlib import Path
 import shutil

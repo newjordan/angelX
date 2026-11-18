@@ -11,7 +11,6 @@ fn fight(run: &mut Run) {
     run.enter_for_test(room);
 }
 
-/// A calm, empty room with the knight low in the middle.
 fn quiet() -> Run {
     let mut run = Run::new(4, 1, None);
     fight(&mut run);
@@ -27,7 +26,6 @@ fn quiet() -> Run {
     run
 }
 
-/// One volley of `emitter` from `from` at `at`, into a fresh list.
 fn volley(
     run: &Run,
     emitter: Emitter,
@@ -58,7 +56,6 @@ fn volley(
     shots
 }
 
-/// Advance motion only; room collision and damage have separate run tests.
 fn fly(shots: &mut Vec<Projectile>, at: (f32, f32), ticks: u32) {
     let knights = [(1u32, at.0, at.1)];
     for _ in 0..ticks {
@@ -200,10 +197,8 @@ fn a_gap_ring_leaves_a_gap_a_knight_fits_through() {
                 widest >= 2.0 * GAP_HALF,
                 "step {step} volley {count}: {widest}"
             );
-            // Two units out the gap is already wider than a knight.
             let chord = 2.0 * 2.0 * (widest / 2.0).sin();
             assert!(chord > fits, "{chord} vs {fits}");
-            // And every other neighbour is closer than the gap.
             let rest = angles
                 .windows(2)
                 .map(|w| w[1] - w[0])
@@ -216,7 +211,6 @@ fn a_gap_ring_leaves_a_gap_a_knight_fits_through() {
 
 #[test]
 fn a_wall_leaves_one_gap_a_knight_fits_through_and_the_next_wall_moves_it() {
-    // On open floor: a wall's slots touching a prop are left out (`wall`).
     let mut run = quiet();
     let at = run.at;
     for row in 1..run.room().rows - 1 {
@@ -287,12 +281,10 @@ fn a_laser_warns_before_it_burns() {
         run.projectiles.iter().all(|p| p.traits.path.beam.is_none()),
         "and is gone"
     );
-    // Struck once, however long it burned.
     let lost = full - run.players[&1].hp;
     assert!(lost > 0 && lost < 100, "{lost}");
 }
 
-/// Keep knight 1 where it is and without its hurt grace.
 fn hero_still(run: &mut Run) {
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (24.0, 20.0);
@@ -304,7 +296,6 @@ fn a_sweep_turns_across_its_arc_while_it_burns() {
     let mut shots = volley(&run, Emitter::Sweep, (24.0, 8.0), (24.0, 20.0), 0, 0);
     let first = shots[0].traits.path.beam.unwrap();
     let start = first.angle;
-    // A sweep tells longer than a plain beam, and burns across a narrow arc.
     assert_eq!(first.warn, SWEEP_WARN);
     assert_eq!((SWEEP_WARN, SWEEP_BURN, SWEEP_ARC), (30, 18, 1.1));
     assert!(SWEEP_WARN > BEAM_WARN);
@@ -335,7 +326,6 @@ fn a_sweep_turns_across_its_arc_while_it_burns() {
         ((end - start).abs() - SWEEP_ARC).abs() < 1e-3,
         "{start} -> {end} spans {SWEEP_ARC}"
     );
-    // A plain beam keeps its shorter tell.
     let laser = volley(&run, Emitter::Laser, (24.0, 8.0), (24.0, 20.0), 0, 0);
     assert_eq!(laser[0].traits.path.beam.unwrap().warn, BEAM_WARN);
 }
@@ -383,7 +373,6 @@ fn rain_and_crossfire_are_marked_before_they_fly() {
             assert!(!run.room().width().is_nan());
         }
     }
-    // A waiting shot strikes nobody, however close.
     let mut run = quiet();
     run.step(&BTreeMap::new());
     run.players.get_mut(&1).unwrap().invulnerable = 0;
@@ -532,11 +521,9 @@ fn every_floor_throws_its_own_shapes() {
         assert!(here.len() >= 3, "{pack:?}: {here:?}");
         seen.extend(here);
     }
-    // Between them, the floors use the whole vocabulary.
     for emitter in Emitter::ALL {
         assert!(seen.contains(emitter.name()), "{emitter:?} unused");
     }
-    // The crypt's skeleton and the mines' differ.
     let crypt = signature(Skeleton, Pack::Crypt, false).unwrap().chain[0].0;
     let mines = signature(Skeleton, Pack::Cavern, false).unwrap().chain[0].0;
     assert_ne!(crypt, mines);
@@ -553,7 +540,6 @@ fn monsters_fire_their_signatures_in_a_room() {
     ] {
         let mut run = quiet();
         run.dungeon.pack = pack;
-        // Past the starter floors, where volleys keep their own pace.
         run.dungeon.depth = 3;
         run.spawn_at_for_test(kind, 24.0, 8.0);
         let mut fired = false;
@@ -569,8 +555,6 @@ fn monsters_fire_their_signatures_in_a_room() {
 fn lead_patterns_follow_spread_aggro_and_the_chosen_knights_pace() {
     let mut run = quiet();
     run.join_seat(2, "Moving");
-    // An imp outside the Mines and the Keep leads its shots (the Mines'
-    // lobs ore, the Keep's quickens a ring).
     run.dungeon.pack = Pack::Crypt;
     let at = run.at;
     for row in 1..run.room().rows - 1 {
@@ -586,7 +570,6 @@ fn lead_patterns_follow_spread_aggro_and_the_chosen_knights_pace() {
     run.spawn_at_for_test(EnemyKind::Imp, 20.0, 14.0);
     let enemy = run.enemies.last_mut().unwrap();
     enemy.wits.foe = 2;
-    // Floor one's pace (`STARTER_PACE`) stretches the wait between volleys.
     let every = signature(enemy.kind, Pack::Crypt, false).unwrap().every * STARTER_PACE[0] / 100;
     enemy.age = every * 2 - enemy.id * 13 % every - 1;
     run.step(&BTreeMap::from([(
@@ -683,7 +666,6 @@ fn a_boss_file_names_patterns_and_chains_phases() {
         let raw = format!("name Test\nwhere crypt\nattack ring\n{bad}\n{art}");
         assert!(bosses::check("test", &raw).is_err(), "{bad}");
     }
-    // The rules name every pattern.
     let rules = bosses::rules();
     for emitter in Emitter::ALL {
         assert!(rules.contains(emitter.name()), "{emitter:?}");
@@ -706,7 +688,6 @@ fn a_boss_walks_its_phases_in_turn() {
     for _ in 0..200 {
         run.step(&BTreeMap::new());
         let shots = &run.projectiles;
-        // A guardian's gap ring is a guardian's size (`guardian_count`).
         rings |= shots
             .iter()
             .filter(|p| p.kind == Shot::Wisp && p.traits.path.beam.is_none())
@@ -811,7 +792,6 @@ fn a_beam_burns_for_exactly_its_duration_and_strikes_each_knight_once() {
             assert!(shot.traits.path.beam.unwrap().burning(shot.traits.path.age));
         }
         assert_eq!(sounds.iter().filter(|&&s| s == "hero_hurt").count(), 1);
-        // A fresh knight on the line after the burn takes nothing.
         let mut fresh = players[&1].clone();
         fresh.invulnerable = 0;
         let fresh_hp = fresh.hp;
@@ -837,7 +817,6 @@ fn ore_bounces_once_off_room_stone() {
             .iter()
             .all(|p| p.vx < 0.0 && p.traits.bounce == 0)
     );
-    // Send them back into the same wall; the spent bounce does not renew.
     for shot in &mut run.projectiles {
         shot.vx = shot.vx.abs();
     }
@@ -959,8 +938,6 @@ fn old_shots_deserialize_with_an_empty_path() {
     assert_eq!(restored.traits.path, Path::default());
 }
 
-/// `quiet`, its floor open but for one tomb (a `Tile::Block`) at tile
-/// (12, 5): x 24 to 26, y 10 to 12. The knight stands well away.
 fn tomb_room() -> Run {
     let mut run = open_room();
     let at = run.at;
@@ -970,7 +947,6 @@ fn tomb_room() -> Run {
     run
 }
 
-/// `quiet` with nothing on its floor, settled.
 fn open_room() -> Run {
     let mut run = quiet();
     let at = run.at;
@@ -983,8 +959,6 @@ fn open_room() -> Run {
     run
 }
 
-/// A few empty ticks, so the knight's health and the room's phase are what
-/// a fight keeps (`quiet`'s great health is cut to the knight's own).
 fn settle(run: &mut Run) {
     for _ in 0..3 {
         run.step(&BTreeMap::new());
@@ -995,8 +969,6 @@ fn settle(run: &mut Run) {
     }
 }
 
-/// A plain shot flying east from `(x, y)` at `speed`, a monster's or a
-/// knight's arrow.
 fn east(x: f32, y: f32, speed: f32, hostile: bool) -> Projectile {
     Projectile {
         x,
@@ -1024,12 +996,9 @@ fn darts_are_the_fastest_and_thinnest_shot() {
         assert_eq!(d.traits.path.form, Form::Dart);
         assert_eq!(family(d), Family::Dart);
         assert!((d.vx.hypot(d.vy) - SHOT_TOP).abs() < 1e-4);
-        // One after another down the line.
         assert_eq!(u32::from(d.traits.path.wait), i as u32 * u32::from(DART_GAP));
     }
     assert!(girth(&darts[0]) < STRIKE);
-    // Past a knight by a body and a plain shot's strike: a plain shot hits,
-    // a dart goes by.
     let mut run = open_room();
     let (hx, hy) = (run.players[&1].x, run.players[&1].y);
     let by = hy - (HERO_RADIUS + STRIKE - 0.02);
@@ -1059,8 +1028,6 @@ fn heavy_orbs_are_slow_and_wide_and_can_be_walked_round() {
         assert!(o.vx.hypot(o.vy) < 3.0, "a stroll, slower than any other shot");
         assert!(girth(o) > STRIKE && body(o) > BODY);
     }
-    // It strikes wider than a plain shot, and a knight a step aside is
-    // clear of it.
     let mut run = open_room();
     let (hx, hy) = (run.players[&1].x, run.players[&1].y);
     let mut near = east(hx - 4.0, hy - (HERO_RADIUS + ORB_STRIKE - 0.05), ORBS.2, true);
@@ -1082,8 +1049,6 @@ fn heavy_orbs_are_slow_and_wide_and_can_be_walked_round() {
 fn a_lob_flies_over_everything_and_lands_on_its_mark() {
     let mut run = tomb_room();
     run.join_seat(2, "Under");
-    // The thrower west of the tomb, the knight east of it; a friend stands
-    // under the arc.
     let from = (22.5, 11.0);
     let target = (34.0, 11.0);
     let hero = run.players.get_mut(&1).unwrap();
@@ -1113,7 +1078,6 @@ fn a_lob_flies_over_everything_and_lands_on_its_mark() {
     assert_eq!(shots.len(), 1);
     let lob = shots[0].clone();
     assert_eq!(family(&lob), Family::Lob);
-    // Its mark is the knight's spot from the first tick, and it rises.
     let ((lx, ly), rise) = lob_flight(&lob).unwrap();
     assert!((lx - target.0).abs() < 1e-3 && (ly - target.1).abs() < 1e-3);
     assert_eq!(rise, 0.0);
@@ -1126,7 +1090,6 @@ fn a_lob_flies_over_everything_and_lands_on_its_mark() {
         if let Some(p) = run.projectiles.first() {
             high = high.max(lob_flight(p).unwrap().1);
         }
-        // Over the tomb, the friend and all: nothing until it lands.
         run.step(&BTreeMap::new());
         if t < u32::from(LOB_FLIGHT) {
             assert_eq!(run.players[&1].hp, hp, "tick {t}");
@@ -1164,7 +1127,6 @@ fn drift_slows_in_flight_and_surge_quickens() {
 #[test]
 fn a_tomb_stops_a_monsters_shot_and_a_knights_where_their_bodies_touch_it() {
     for hostile in [true, false] {
-        // Grazing the tomb's south face: its middle passes, its body does not.
         let mut run = tomb_room();
         run.projectiles = vec![east(18.0, 12.15, 8.0, hostile)];
         for _ in 0..HZ {
@@ -1178,7 +1140,6 @@ fn a_tomb_stops_a_monsters_shot_and_a_knights_where_their_bodies_touch_it() {
         let stuck = run.feel.stuck.iter().find(|s| (s.y - 12.15).abs() < 0.1);
         let at = spark.map(|i| i.x).or(stuck.map(|s| s.x)).expect("a spark or a stuck arrow");
         assert!((23.0..24.5).contains(&at), "hostile {hostile}: stops at the tomb's face, {at}");
-        // Half a unit clear of it, the same shot flies on by.
         let mut run = tomb_room();
         run.projectiles = vec![east(18.0, 12.6, 8.0, hostile)];
         for _ in 0..2 * HZ {
@@ -1186,7 +1147,6 @@ fn a_tomb_stops_a_monsters_shot_and_a_knights_where_their_bodies_touch_it() {
         }
         assert!(run.projectiles.iter().any(|p| p.x > 27.0), "hostile {hostile}: by");
     }
-    // Water and pits stay shot-through.
     let mut run = tomb_room();
     let at = run.at;
     run.dungeon.rooms[at].set_for_test(12, 5, Tile::Hazard);
@@ -1234,8 +1194,6 @@ fn a_knights_predicted_shot_stops_at_the_same_tomb_as_the_servers() {
     }
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_pattern_shots -- --ignored`:
-/// one picture of each pattern mid-volley, and a boss walking its phases.
 #[test]
 #[ignore]
 fn write_pattern_shots() {
@@ -1246,7 +1204,6 @@ fn write_pattern_shots() {
     let gallery = || {
         let mut run = quiet();
         let room = &mut run.dungeon.rooms[run.at];
-        // An open exhibition floor keeps each whole shape visible.
         for row in 1..room.rows - 1 {
             for col in 1..room.cols - 1 {
                 room.set_for_test(col, row, Tile::Floor);
@@ -1263,8 +1220,6 @@ fn write_pattern_shots() {
         let pic = image::RgbImage::from_raw(img.w as u32, img.h as u32, img.rgb_bytes()).unwrap();
         pic.save(dir.join(format!("{name}.png"))).unwrap();
     };
-    // Who throws it, on which floor, in which look, and how many ticks in
-    // the picture is taken.
     let cases: [(Emitter, EnemyKind, Pack, Shot, u32); 18] = [
         (
             Emitter::Burst,
@@ -1398,7 +1353,6 @@ fn write_pattern_shots() {
         };
         run.spawn_at_for_test(kind, from.0, from.1);
         {
-            // Only the exhibited volley moves; the caster poses for it.
             let e = run.enemies.last_mut().unwrap();
             e.hp = 100_000;
             e.max_hp = 100_000;
@@ -1432,7 +1386,6 @@ fn write_pattern_shots() {
         let name = emitter.name();
         for t in 0..ticks {
             run.step(&BTreeMap::new());
-            // The knight runs right, so a lead can be seen to lead.
             let hero = run.players.get_mut(&1).unwrap();
             (hero.x, hero.y) = (24.0 + t as f32 * 0.1, 20.0);
             if emitter == Emitter::Reaim && t == 32 {
@@ -1448,8 +1401,6 @@ fn write_pattern_shots() {
         }
         save(&run, name);
     }
-    // A boss walking four phases: a ring with a gap, a sweep, rain, twin
-    // spirals.
     let raw = "name THE PHASE KEEPER\nwhere hellforge\nhp 900\nsize 1.6\nmove anchor\nattack seeker every=240\nphases gap_ring sweep rain twin_spiral every=45 volleys=1\nart\n..7777..\n.777777.\n77677677\n77777777\n.777777.\n..7..7..\n";
     let (boss, _) = bosses::check("phase-keeper", raw).unwrap();
     let mut run = gallery();
@@ -1458,7 +1409,6 @@ fn write_pattern_shots() {
     let index = run.bosses.len() - 1;
     run.spawn_boss_at_for_test(index, 24.0, 7.0);
     run.players.get_mut(&1).unwrap().invulnerable = 100_000;
-    // Each phase's picture, part way into its volley.
     let every = run.bosses[index].phases.as_ref().unwrap().every;
     let chain = run.bosses[index].phases.as_ref().unwrap().chain.clone();
     let mut fired: Vec<(u32, Emitter)> = Vec::new();
@@ -1481,11 +1431,6 @@ fn write_pattern_shots() {
     }
 }
 
-
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_mixed_fight_shots -- --ignored`:
-/// a crypt fight's shots side by side, a few ticks apart: a skeleton's
-/// darts, a necromancer's heavy orb, an imp's lob over a tomb with its
-/// shadow and landing ring, drift slowing, and a wisp breaking on a tomb.
 #[test]
 #[ignore]
 fn write_mixed_fight_shots() {
@@ -1545,7 +1490,6 @@ fn write_mixed_fight_shots() {
     shots.extend(throw(&run, Emitter::Orbs, Shot::Wisp, (40.0, 5.0), knight));
     shots.extend(throw(&run, Emitter::Lob, Shot::Ember, (21.0, 9.0), knight));
     shots.extend(throw(&run, Emitter::Drift, Shot::Ember, (10.0, 6.0), knight));
-    // A wisp flying at the tomb's west face.
     shots.push(east(19.0, 11.0, 6.0, true));
     run.projectiles = shots;
     for t in 1..=24u32 {
@@ -1565,9 +1509,6 @@ fn write_mixed_fight_shots() {
 
 #[test]
 fn a_greater_demon_on_the_third_floor_fires_thin_slow_volleys_for_a_full_party() {
-    // Three knights on the third floor: every other monster's volleys
-    // thicken three steps; a demon's one (`DEMON_STEP`), every three
-    // seconds, twelve a shot (the operator: "the demons in lvl 3 are bad").
     let mut run = quiet();
     for id in 2..=3 {
         run.join_seat(id, &format!("Knight {id}"));
@@ -1575,8 +1516,6 @@ fn a_greater_demon_on_the_third_floor_fires_thin_slow_volleys_for_a_full_party()
         (hero.x, hero.y, hero.hp, hero.max_hp) = (20.0 + id as f32 * 3.0, 20.0, 100_000, 100_000);
     }
     run.dungeon.depth = 3;
-    // The floor is a new one: its seam is another claim than the one the
-    // room's fixture took.
     run.settle_seams_for_test();
     run.spawn_at_for_test(EnemyKind::Demon, 24.0, 8.0);
     let demon = run.enemies.last_mut().unwrap();
@@ -1598,7 +1537,6 @@ fn a_greater_demon_on_the_third_floor_fires_thin_slow_volleys_for_a_full_party()
     assert!(most <= 32, "a twin spiral of 32 at most: {most}");
 }
 
-/// A quiet run on open floor: every tile of the room floor.
 fn open_floor() -> Run {
     let mut run = quiet();
     let at = run.at;
@@ -1610,9 +1548,6 @@ fn open_floor() -> Run {
     run
 }
 
-/// A gap wall from (24, 8) at a knight at (24, 20), `step` thicker,
-/// fired by the shield line or not: its first wall's spots across and
-/// its second's, each in order.
 fn walls(run: &Run, step: u8, shield_line: bool) -> (Vec<f32>, Vec<f32>) {
     let grid = Grid {
         room: &run.dungeon.rooms[run.at],
@@ -1655,18 +1590,14 @@ fn the_shield_lines_second_wall_carries_a_quarter_fewer_shots_and_can_still_be_s
         let (lean_first, lean_second) = walls(&run, step, true);
         assert_eq!(lean_first, first, "step {step}: the first wall as it was");
         assert_eq!(second.len(), n - 2, "step {step}");
-        // A quarter fewer, to the nearest shot: eleven become eight.
         let kept = ((n - 2) as f32 * 0.75).round() as usize;
         assert_eq!(lean_second.len(), kept, "step {step}");
         assert_eq!(lean_second.len(), n - 2 - thinned(n));
         if step == 0 {
             assert_eq!((second.len(), lean_second.len()), (11, 8));
         }
-        // Every spot it keeps is one the plain wall had, and the ends stay.
         assert!(lean_second.iter().all(|x| second.iter().any(|y| (x - y).abs() < 1e-4)));
         assert_eq!((lean_second[0], lean_second[kept - 1]), (second[0], second[n - 3]));
-        // Its gap where the plain one is, still the widest way through; the
-        // rest a slot apart, or a chink a slot wide a knight fits through.
         let gaps: Vec<(f32, f32)> = lean_second.windows(2).map(|w| (w[1] - w[0], w[0])).collect();
         let widest = gaps.iter().copied().max_by(|a, b| a.0.total_cmp(&b.0)).unwrap();
         let plain = second.windows(2).map(|w| (w[1] - w[0], w[0])).max_by(|a, b| a.0.total_cmp(&b.0)).unwrap();
@@ -1675,13 +1606,10 @@ fn the_shield_lines_second_wall_carries_a_quarter_fewer_shots_and_can_still_be_s
         assert_eq!(chinks, thinned(n), "step {step}: {gaps:?}");
         assert!(2.0 > fits, "a knight fits a chink");
         assert!(gaps.iter().all(|g| [1.0, 2.0, 3.0].iter().any(|w| (g.0 - w).abs() < 1e-3)), "{gaps:?}");
-        // What a boss's budget counts still holds it.
         assert!((first.len() + lean_second.len()) as u32 <= Emitter::GapWall.shots() + 4 * u32::from(step));
     }
 }
 
-/// The first gap wall a monster of `kind` sends from (24, 8) at a knight
-/// at (24, 20): how many shots in its first wall and in its second.
 fn walls_of(kind: EnemyKind) -> (usize, usize) {
     let mut run = open_floor();
     run.spawn_at_for_test(kind, 24.0, 8.0);
@@ -1699,7 +1627,6 @@ fn walls_of(kind: EnemyKind) -> (usize, usize) {
         heads: 1,
     };
     for age in 0..2_000 {
-        // The Pit Tyrant's wall is the second of its chain.
         (enemy.age, enemy.stage) = (age, 0);
         enemy.pattern_volleys = u32::from(kind == EnemyKind::PitTyrant);
         let mut shots = Vec::new();
@@ -1718,8 +1645,6 @@ fn only_a_pavise_sends_the_thinner_second_wall() {
     assert_eq!(walls_of(EnemyKind::PitTyrant), (11, 11), "the Pit Tyrant's walls as they were");
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_pavise_wall_shots -- --ignored`:
-/// a pavise's two walls in flight, as they were and thinned.
 #[test]
 #[ignore]
 fn write_pavise_wall_shots() {

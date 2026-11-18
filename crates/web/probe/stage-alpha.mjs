@@ -1,12 +1,3 @@
-// The browser seat's transparency contract, checked with a recording
-// GL stub (the stage-fuzz pattern): the stage's own targets clear
-// TRANSPARENT and hold premultiplied colour, exactly like the glass
-// window's stage targets, and the blit onto the page must not
-// premultiply a second time. The presenter must ask for an alpha,
-// premultiplied canvas so the page can show through; the finished-
-// frame path stays opaque by forcing alpha in its shader.
-//
-//   node crates/web/probe/stage-alpha.mjs
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -21,7 +12,6 @@ const check = (name, ok) => {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}`);
 };
 
-// A GL stub that records the calls the alpha contract is about.
 function recordingGl() {
   const calls = { clearColor: [], shaderSource: [], bufferData: [] };
   let next = 1;
@@ -39,12 +29,10 @@ function recordingGl() {
   return { gl, calls };
 }
 
-// --- the stage -------------------------------------------------------------
 const { gl, calls } = recordingGl();
 const makeStage = eval(stageSrc + '\nmakeStage;');
 const stage = makeStage(gl, (w, h) => [0, 0, w, h], { w: 800, h: 600 });
 
-// One valid frame: one 1x1 picture, one textured quad (as stage-fuzz).
 const bytes = [];
 const u32 = (v) => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, v, true); bytes.push(...b); };
 const f32 = (v) => { const b = new Uint8Array(4); new DataView(b.buffer).setFloat32(0, v, true); bytes.push(...b); };
@@ -57,19 +45,15 @@ f32(0); f32(2); f32(0); f32(0); u32(5); u32(0);
 const frame = new Uint8Array(bytes);
 check('valid frame draws', stage.draw(frame, 0, frame.length, 0) === true);
 
-// The stage target and the page both clear transparent during a draw.
 check('a transparent clear happens in draw',
   calls.clearColor.some(([r, g, b, a]) => r === 0 && g === 0 && b === 0 && a === 0));
 
-// The blit is the last single-instance bufferData: its quad must take
-// the passthrough path (info.x == 2), never the premultiplying one.
 const single = calls.bufferData.filter((d) => d && d.length === 18);
 check('blit quad uses the passthrough kind (info.x == 2)',
   single.length > 0 && single[single.length - 1][12] === 2);
 check('fragment shader has a passthrough branch',
   calls.shaderSource.some((s) => s.includes('kind.x>1.5')));
 
-// --- the presenter ---------------------------------------------------------
 globalThis.ResizeObserver = class { observe() {} };
 const contexts = [];
 const canvas = {

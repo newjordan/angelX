@@ -1,13 +1,9 @@
 use super::*;
 use std::collections::HashSet;
 
-/// Grid geometry of `court_terrain`: 56 × 56 tiles at target cell 2.9,
-/// clamped by `terrain_patch_with` to 19 cells a side (722 triangles).
 const CELLS: usize = 19;
 
 fn path_cell_centres(m: &Mesh) -> HashSet<(i32, i32)> {
-    // Cell identity is the integer mesh order, not rounded half-cell
-    // floating point coordinates (which created holes in the test graph).
     m.tris
         .chunks_exact(2)
         .enumerate()
@@ -39,13 +35,11 @@ fn deterministic_and_geometry_unchanged() {
 
 #[test]
 fn roads_form_one_connected_network() {
-    // Painting is seed-independent (the grid is), so one seed suffices.
     let cells = path_cell_centres(&terrain(7));
     assert!(
         cells.contains(&(9, 6)),
         "courtyard junction (0,-8) is paved"
     );
-    // Flood fill from the junction over 4-neighbours.
     let mut seen = HashSet::from([(9, 6)]);
     let mut stack = vec![(9, 6)];
     while let Some((ix, iy)) = stack.pop() {
@@ -55,7 +49,6 @@ fn roads_form_one_connected_network() {
             }
         }
     }
-    // Every waypoint of every leg paves a nearby cell on that component.
     let cell = COURT_EXTENT * 2.0 / CELLS as f32;
     for (name, pts) in ROADS {
         for &(x, y) in *pts {

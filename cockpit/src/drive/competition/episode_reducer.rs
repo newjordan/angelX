@@ -8,7 +8,6 @@ use super::schema::ActionPhaseV1;
 use crate::agent::harness::live_policy;
 use serde::Deserialize;
 
-/// The hot-loaded leg that makes this state machine's decisions.
 const LEG: &str = "episode-reducer";
 
 #[derive(Clone)]
@@ -24,7 +23,6 @@ pub(crate) struct EpisodeEvidencePermitV1 {
     post_terminal: bool,
 }
 
-/// Opaque proof returned only after a durability authority has synced an event.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct DurableEpisodeAppendReceiptV1 {
     episode_id: String,
@@ -51,9 +49,6 @@ pub(crate) struct EpisodeStateV1 {
     terminal: Option<EpisodeTerminalV1>,
 }
 
-/// Every refusal the reducer can return, as the leg names it. Rust keeps the
-/// wording: `fixed_message` is the constant half and the two body faults reuse
-/// the message the native validation already produced.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum EpisodeLegFaultV1 {
@@ -91,7 +86,6 @@ impl EpisodeLegFaultV1 {
     }
 }
 
-/// The phase an accepted event moves the episode to; `None` leaves it alone.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum EpisodeLegPhaseV1 {
@@ -101,7 +95,6 @@ pub(super) enum EpisodeLegPhaseV1 {
     Completed,
 }
 
-/// The leg's answer, deserialized from the compiled decision.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 pub(super) struct EpisodeLegDecisionV1 {
     accept: bool,
@@ -112,8 +105,6 @@ pub(super) struct EpisodeLegDecisionV1 {
     post_terminal: bool,
 }
 
-/// The same answer in the shape the native arms produce, so one value can be
-/// checked against the other.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct EpisodeVerdictV1 {
     fault: Option<EpisodeLegFaultV1>,
@@ -167,9 +158,6 @@ impl EpisodeLegDecisionV1 {
 }
 
 impl EpisodeVerdictV1 {
-    /// Everything a leg decision must satisfy to be believed: an accepted event
-    /// names the phase the state machine defines, carries no fault, and stores
-    /// the next sequence and the permit's terminal flag.
     fn check(&self, decision: &EpisodeLegDecisionV1) -> Result<(), String> {
         if decision.accept != self.fault.is_none() {
             return Err("episode-reducer leg disagreed about acceptance".into());
@@ -198,7 +186,6 @@ impl EpisodeVerdictV1 {
     }
 }
 
-/// Which event body the state machine is looking at.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum EpisodeEventTagV1 {
     Start,
@@ -216,8 +203,6 @@ impl EpisodeEventTagV1 {
     }
 }
 
-/// One decision's whole input: the reduced state, the event's own facts and the
-/// chain equalities Rust already compared. Bodies, ids and hashes stay here.
 #[derive(Clone, Debug)]
 pub(super) struct EpisodeFactsV1 {
     has_episode: bool,
@@ -292,8 +277,6 @@ impl EpisodeFactsV1 {
         Ok(facts)
     }
 
-    /// The permit's own guarantees, restated as facts: a durable start, its
-    /// sequence and head, and whether the episode is already closed.
     fn of_permit(cursor: &EpisodeAppendCursorV1, post_terminal: bool) -> Self {
         let mut facts = Self::of_state(&EpisodeStateV1::default());
         facts.has_episode = true;
@@ -302,7 +285,6 @@ impl EpisodeFactsV1 {
         facts
     }
 
-    /// The message the native reducer would have returned for `fault`.
     fn message(&self, fault: EpisodeLegFaultV1) -> String {
         match fault {
             EpisodeLegFaultV1::StartInvalid => self
@@ -342,9 +324,6 @@ impl EpisodeFactsV1 {
         })
     }
 
-    /// The request for one decision. Only the append-only chain and the
-    /// terminal range read numbers, so those two carry the u64 halves and the
-    /// rest stay boolean; the leg never marshals a word it does not compare.
     fn request(&self, op: &str) -> serde_json::Value {
         let mut value = self.json();
         if matches!(op, "validate" | "durable") {
@@ -401,8 +380,6 @@ impl EpisodeFactsV1 {
         }
     }
 
-    /// `append_durable`: the same acceptance, then the checked sequence
-    /// increment that a durable append stores.
     fn advance_verdict(&self) -> EpisodeVerdictV1 {
         let verdict = self.validate_verdict();
         if verdict.fault.is_some() {
@@ -414,8 +391,6 @@ impl EpisodeFactsV1 {
         }
     }
 
-    /// `EpisodeEventV1::append` behind an effect permit: the permit already
-    /// proved a durable start and an open episode, so only the body is asked.
     fn append_verdict(&self) -> EpisodeVerdictV1 {
         match self.tag {
             EpisodeEventTagV1::Start => EpisodeVerdictV1::deny(EpisodeLegFaultV1::DuplicateStart),
@@ -430,7 +405,6 @@ impl EpisodeFactsV1 {
         }
     }
 
-    /// `link_evidence`: an already closed episode accepts official evidence only.
     fn link_verdict(&self) -> EpisodeVerdictV1 {
         if self.has_terminal && !self.link_post_terminal {
             return EpisodeVerdictV1::deny(EpisodeLegFaultV1::NotOfficial);
@@ -441,8 +415,6 @@ impl EpisodeFactsV1 {
         }
     }
 
-    /// `effect_permit`: a closed episode grants none, and an episode without a
-    /// durable start has no cursor to offer.
     fn effect_verdict(&self) -> EpisodeVerdictV1 {
         if self.has_terminal {
             EpisodeVerdictV1::deny(EpisodeLegFaultV1::EpisodeClosed)
@@ -453,8 +425,6 @@ impl EpisodeFactsV1 {
         }
     }
 
-    /// `evidence_permit`: official evidence is the one thing a closed episode
-    /// still takes, so the permit reports whether it is already terminal.
     fn evidence_verdict(&self) -> EpisodeVerdictV1 {
         if self.has_episode {
             EpisodeVerdictV1::accept(EpisodeLegPhaseV1::None, 0, self.has_terminal)
@@ -464,7 +434,6 @@ impl EpisodeFactsV1 {
     }
 }
 
-/// A durable start receipt and the start it claims to complete.
 #[derive(Clone, Debug)]
 pub(super) struct EpisodeReceiptFactsV1 {
     episode_equal: bool,
@@ -522,9 +491,6 @@ impl EpisodeReceiptFactsV1 {
     }
 }
 
-/// One leg evaluation. A pinned generation decides when it is offered and its
-/// answer is in contract; otherwise the native arms answer and the source says
-/// so.
 fn decide(
     leg: Option<angel_live::Program>,
     request: &serde_json::Value,
@@ -564,8 +530,6 @@ impl EpisodeStateV1 {
         })
     }
 
-    /// Whether this event can be appended, and the sequence that append would
-    /// store. `validate_next` plus the checked increment, decided by the leg.
     pub(super) fn append_with(
         &self,
         leg: Option<angel_live::Program>,
@@ -585,7 +549,6 @@ impl EpisodeStateV1 {
         (result, source)
     }
 
-    /// The native arms alone, with no leg in reach: the parity oracle.
     #[cfg(test)]
     pub(super) fn append_native(&self, event: &EpisodeEventV1) -> Result<u64, String> {
         let facts = EpisodeFactsV1::of_event(self, event)?;
@@ -640,7 +603,6 @@ impl EpisodeStateV1 {
         (result, source)
     }
 
-    /// The native arms alone, with no leg in reach: the parity oracle.
     #[cfg(test)]
     pub(super) fn validate_next_native(&self, event: &EpisodeEventV1) -> Result<(), String> {
         let facts = EpisodeFactsV1::of_event(self, event)?;
@@ -696,7 +658,6 @@ impl EpisodeStateV1 {
         (result, source)
     }
 
-    /// The native arms alone, with no leg in reach: the parity oracle.
     #[cfg(test)]
     pub(super) fn effect_permit_native(&self) -> Result<EpisodeEffectPermitV1, String> {
         let facts = EpisodeFactsV1::of_state(self);
@@ -706,7 +667,6 @@ impl EpisodeStateV1 {
         }
     }
 
-    /// The native arms alone, with no leg in reach: the parity oracle.
     #[cfg(test)]
     pub(super) fn evidence_permit_native(&self) -> Result<EpisodeEvidencePermitV1, String> {
         let facts = EpisodeFactsV1::of_state(self);
@@ -779,7 +739,6 @@ impl EpisodeEventV1 {
         (result, source)
     }
 
-    /// The native arms alone, with no leg in reach: the parity oracle.
     #[cfg(test)]
     pub(super) fn append_native(
         permit: &EpisodeEffectPermitV1,
@@ -792,7 +751,6 @@ impl EpisodeEventV1 {
         }
     }
 
-    /// The native arms alone, with no leg in reach: the parity oracle.
     #[cfg(test)]
     pub(super) fn link_evidence_native(
         permit: &EpisodeEvidencePermitV1,
@@ -820,8 +778,6 @@ impl EpisodeEventV1 {
     }
 }
 
-/// A state parked at a chosen next sequence, so the u64 exhaustion branch is
-/// reachable in a test.
 #[cfg(test)]
 impl EpisodeStateV1 {
     pub(super) fn at_sequence_for_test(mut self, sequence: u64) -> Self {
@@ -831,8 +787,6 @@ impl EpisodeStateV1 {
 }
 
 impl DurableEpisodeAppendReceiptV1 {
-    /// The receipt's own facts. The start's canonical digest is the only part
-    /// that can fail, and it fails before the leg is asked.
     fn completion_facts(
         &self,
         start: &EpisodeStartedV1,
@@ -875,7 +829,6 @@ impl DurableEpisodeAppendReceiptV1 {
             .0
     }
 
-    /// The native arms alone, with no leg in reach: the parity oracle.
     #[cfg(test)]
     pub(super) fn start_action_completion_native(
         &self,

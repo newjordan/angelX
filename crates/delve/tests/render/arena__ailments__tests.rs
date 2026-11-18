@@ -1,8 +1,6 @@
 use super::*;
 use crate::render::overworld::ink::Img;
 
-/// Every ailment stays near its figure: what it paints lies in a box a
-/// little bigger than the figure, whatever the tick.
 #[test]
 fn each_mark_keeps_to_its_figure() {
     for &a in Ail::ALL.iter() {
@@ -22,7 +20,6 @@ fn each_mark_keeps_to_its_figure() {
     }
 }
 
-/// The same figure, the same tick, the same pixels.
 #[test]
 fn a_mark_is_the_same_on_every_seat() {
     for &a in Ail::ALL.iter() {

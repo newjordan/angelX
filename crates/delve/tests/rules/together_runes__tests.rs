@@ -1,7 +1,5 @@
 use super::*;
 
-/// Floor one of the Cavern, in its first fight room, the monsters calmed so
-/// nothing interrupts, and a rune of `kind` on the floor beside knight one.
 fn by_a_rune(kind: RuneKind) -> Run {
     let mut run = Run::new(4, 1, None);
     run.begin_in(Pack::Cavern);
@@ -24,7 +22,6 @@ fn by_a_rune(kind: RuneKind) -> Run {
     run
 }
 
-/// Knight one walks onto the rune.
 fn take(run: &mut Run) {
     let rune = run.rune.unwrap();
     let hero = run.players.get_mut(&1).unwrap();
@@ -82,7 +79,6 @@ fn a_rune_wells_up_on_its_tick_and_the_herald_says_so() {
     let mut rune = run.rune.unwrap();
     rune.at = run.tick + 3;
     run.rune = Some(rune);
-    // Standing on it before it is there takes nothing.
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (rune.x, rune.y);
     run.step(&BTreeMap::new());
@@ -148,12 +144,10 @@ fn regeneration_mends_until_whole_or_hit() {
     }
     let hp = run.players[&1].hp;
     assert!((47..=53).contains(&hp), "about ten a second: {hp}");
-    // A hit ends it.
     let hero = run.players.get_mut(&1).unwrap();
     hero.invulnerable = 0;
     hero.hurt(10);
     assert!(hero.rune.is_none(), "a hit breaks the mending");
-    // Whole ends it too.
     let mut run = by_a_rune(RuneKind::Regeneration);
     let max = run.players[&1].max_hp;
     run.players.get_mut(&1).unwrap().hp = max - 2;
@@ -189,8 +183,6 @@ fn arcane_hurries_the_ultimate() {
 
 #[test]
 fn monsters_cannot_see_an_invisible_knight() {
-    // A skeleton across the room looses at a knight it can see, and not at
-    // one it can't.
     let shots = |hidden: bool| {
         let mut run = by_a_rune(RuneKind::Invisibility);
         run.rune = None;
@@ -242,7 +234,6 @@ fn bounty_pays_every_knight_standing_and_wisdom_teaches_the_party() {
 fn runes_run_out() {
     let mut run = by_a_rune(RuneKind::Haste);
     take(&mut run);
-    // The room's company would see the knight down before it ran out.
     run.enemies.clear();
     for _ in 0..RuneKind::Haste.lasts() {
         run.step(&BTreeMap::new());

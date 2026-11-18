@@ -80,8 +80,6 @@ fn s05_secret_redaction_preserves_single_row_jsonl_during_lifecycle_refresh() {
         "HOSTILE_RECIPE sk-ABCDEFGHIJKLMNOPQRSTUV2345",
         now_ms(),
     );
-    // Reproduce the Python proof's legacy row and the state observation that
-    // republishes it. Redaction must not turn this JSONL record into pretty JSON.
     std::fs::write(
         &path,
         format!("{}\n", serde_json::to_string(&hostile).unwrap()),

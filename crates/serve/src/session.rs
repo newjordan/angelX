@@ -5,44 +5,32 @@ use crate::link::{normalize_key, same_key};
 use angel_net::proto::{MAX_NAME, Reject};
 use std::time::{Duration, Instant};
 
-/// A dropped connection's seat waits this long for its token to come back.
 pub const RESUME_WINDOW: Duration = Duration::from_secs(120);
-/// Seats at most, whatever the game asks for.
 pub const MAX_PLAYERS: u32 = 256;
-/// Watchers beyond the seats.
 pub const MAX_SPECTATORS: u32 = 32;
-/// Tokens of kicked players remembered, so a reload does not walk back in.
 const KICKED_KEPT: usize = 256;
-/// Characters of a name kept.
 const NAME_CHARS: usize = 24;
 
-/// A taken seat.
 #[derive(Clone, Debug)]
 struct Taken {
     token: String,
     name: String,
-    /// The connection playing it, or `None` while it waits for a resume.
     conn: Option<u64>,
     dropped_at: Option<Instant>,
 }
 
-/// What a hello was let in as.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Admit {
     Seat {
         seat: u32,
         token: String,
         name: String,
-        /// The seat was this client's before: same knight, same everything.
         resumed: bool,
-        /// A connection still holding the seat (a reload before the old
-        /// socket died): it is closed.
         displaced: Option<u64>,
     },
     Watch,
 }
 
-/// A seat as the host sees it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Player {
     pub seat: u32,
@@ -56,7 +44,6 @@ pub struct Sessions {
     seats: Vec<Option<Taken>>,
     watchers: u32,
     kicked: Vec<String>,
-    /// Seats kept for their players by name ([`Sessions::keep`]).
     kept: Vec<Option<String>>,
 }
 
@@ -72,11 +59,6 @@ impl Sessions {
         }
     }
 
-    /// Seats kept for the players named: a restored run's knights, whose
-    /// tokens went with the old server. A player who joins by that name
-    /// takes their own seat back (so their own knight), and newcomers take
-    /// the seats nobody keeps first (the operator, 2026-10-18: a restart
-    /// and a reload swapped two friends' knights).
     pub fn keep(&mut self, names: &[(u32, String)]) {
         for (seat, name) in names {
             if let Some(kept) = self.kept.get_mut(*seat as usize) {
@@ -89,8 +71,6 @@ impl Sessions {
         &self.key
     }
 
-    /// A new join key: the old link stops letting newcomers in. Seated
-    /// players keep their seats and their tokens.
     pub fn set_key(&mut self, key: &str) {
         self.key = normalize_key(key);
     }
@@ -103,12 +83,6 @@ impl Sessions {
         self.locked
     }
 
-    /// A client's hello. A live seat token takes its seat back (even when
-    /// locked, even after a new key); otherwise the join key lets it in, to
-    /// a free seat or, past capacity or when it only watches, as a watcher.
-    /// The `host`'s own connections (in process) need no key and are let in
-    /// while locked: the server made their pipe itself, so whoever holds it
-    /// is the host.
     #[allow(clippy::too_many_arguments)]
     pub fn hello(
         &mut self,
@@ -176,8 +150,6 @@ impl Sessions {
         }
     }
 
-    /// A seated connection ended without a goodbye: the seat waits for its
-    /// token. A connection that was displaced by a resume changes nothing.
     pub fn dropped(&mut self, conn: u64, seat: u32, now: Instant) {
         if let Some(Some(t)) = self.seats.get_mut(seat as usize)
             && t.conn == Some(conn)
@@ -187,8 +159,6 @@ impl Sessions {
         }
     }
 
-    /// A seated player said goodbye: the seat is free now. Returns whether
-    /// it was this connection's to free.
     pub fn bye(&mut self, conn: u64, seat: u32) -> bool {
         match self.seats.get_mut(seat as usize) {
             Some(slot) if slot.as_ref().is_some_and(|t| t.conn == Some(conn)) => {
@@ -199,12 +169,10 @@ impl Sessions {
         }
     }
 
-    /// A watcher's connection ended.
     pub fn watcher_left(&mut self) {
         self.watchers = self.watchers.saturating_sub(1);
     }
 
-    /// Seats whose resume window ran out, freed.
     pub fn expire(&mut self, now: Instant) -> Vec<u32> {
         let mut freed = Vec::new();
         for (seat, slot) in self.seats.iter_mut().enumerate() {
@@ -216,8 +184,6 @@ impl Sessions {
         freed
     }
 
-    /// The host removes a player: the seat is freed, its token stops
-    /// working, and the connection playing it (if any) is returned to close.
     pub fn kick(&mut self, seat: u32) -> Option<Option<u64>> {
         let taken = self.seats.get_mut(seat as usize)?.take()?;
         if self.kicked.len() == KICKED_KEPT {
@@ -237,7 +203,6 @@ impl Sessions {
             .collect()
     }
 
-    /// Seats taken, played or waiting for a resume.
     pub fn seated(&self) -> u32 {
         self.seats.iter().filter(|s| s.is_some()).count() as u32
     }
@@ -247,8 +212,6 @@ impl Sessions {
     }
 }
 
-/// A name as shown: no control characters, trimmed, at most `NAME_CHARS`;
-/// a seat's number when nothing is left.
 fn clean_name(name: &str, seat: u32) -> String {
     let name: String = name.chars().filter(|c| !c.is_control()).take(NAME_CHARS).collect();
     let name = name.trim();
@@ -271,11 +234,9 @@ mod tests {
             Admit::Seat { seat, .. } => seat,
             Admit::Watch => panic!("seated"),
         };
-        // The host first, then the friends in the other order, with stale tokens.
         assert_eq!(seat(s.hello(1, "", "", "host", false, true, now, || "t1".into()).unwrap()), 0);
         assert_eq!(seat(s.hello(2, KEY, "old-2", "jordan", false, false, now, || "t2".into()).unwrap()), 2);
         assert_eq!(seat(s.hello(3, KEY, "", "Frank ", false, false, now, || "t3".into()).unwrap()), 1);
-        // A newcomer takes a seat nobody keeps.
         assert_eq!(seat(s.hello(4, KEY, "", "Ada", false, false, now, || "t4".into()).unwrap()), 3);
     }
 
@@ -313,7 +274,6 @@ mod tests {
             join(&mut s, 1, now, &mut t),
             Ok(Admit::Seat { seat: 0, token: "TOKEN1".into(), name: "Gwen".into(), resumed: false, displaced: None })
         );
-        // Any case.
         assert!(matches!(s.hello(2, &KEY.to_lowercase(), "", "x", false, false, now, &mut t), Ok(Admit::Seat { seat: 1, .. })));
         assert_eq!(s.hello(3, "WRONG", "", "x", false, false, now, &mut t), Err(Reject::Key));
         assert_eq!(s.seated(), 2);
@@ -325,7 +285,6 @@ mod tests {
         let now = Instant::now();
         let mut t = tokens();
         join(&mut s, 1, now, &mut t).unwrap();
-        // A watcher asking for no seat, then the overflow.
         assert_eq!(s.hello(2, KEY, "", "eye", true, false, now, &mut t), Ok(Admit::Watch));
         for conn in 3..(2 + MAX_SPECTATORS as u64) {
             assert_eq!(join(&mut s, conn, now, &mut t), Ok(Admit::Watch));
@@ -345,7 +304,6 @@ mod tests {
         assert_eq!(s.players(), vec![Player { seat, name: "Gwen".into(), connected: false }]);
         let later = now + RESUME_WINDOW - Duration::from_secs(1);
         assert_eq!(s.expire(later), Vec::<u32>::new());
-        // The token works without the key (it may have changed) and while locked.
         s.set_key("NEWKEY");
         s.lock(true);
         assert_eq!(
@@ -361,7 +319,6 @@ mod tests {
         let mut t = tokens();
         let Ok(Admit::Seat { seat, token, .. }) = join(&mut s, 1, now, &mut t) else { panic!() };
         s.dropped(1, seat, now);
-        // Someone else sits down meanwhile.
         join(&mut s, 2, now, &mut t).unwrap();
         let late = now + RESUME_WINDOW + Duration::from_secs(1);
         assert_eq!(s.expire(late), vec![seat]);
@@ -369,7 +326,6 @@ mod tests {
         assert!(matches!(again, Admit::Seat { resumed: false, .. }));
         let Admit::Seat { token: new_token, .. } = again else { panic!() };
         assert_ne!(new_token, token);
-        // Even unexpired-but-late tokens (expire not yet run) are not taken back.
         let mut s = Sessions::new(KEY, 4);
         let Ok(Admit::Seat { seat, token, .. }) = join(&mut s, 1, now, &mut t) else { panic!() };
         s.dropped(1, seat, now);
@@ -384,7 +340,6 @@ mod tests {
         let Ok(Admit::Seat { seat, token, .. }) = join(&mut s, 1, now, &mut t) else { panic!() };
         let again = s.hello(2, KEY, &token, "", false, false, now, &mut t).unwrap();
         assert!(matches!(again, Admit::Seat { resumed: true, displaced: Some(1), .. }));
-        // The old connection ending later does not drop the seat.
         s.dropped(1, seat, now);
         assert!(s.players()[0].connected);
         assert!(!s.bye(1, seat));
@@ -411,7 +366,6 @@ mod tests {
         s.lock(true);
         s.set_key("NEWKEY");
         assert!(matches!(s.hello(1, "", "", "Host", false, true, now, &mut t), Ok(Admit::Seat { seat: 0, .. })));
-        // Past the seats, the host's next connection watches; a kicked token stays kicked.
         assert_eq!(s.hello(2, "", "", "Couch", false, true, now, &mut t), Ok(Admit::Watch));
         s.kick(0);
         assert_eq!(s.hello(3, "", "TOKEN1", "Host", false, true, now, &mut t), Err(Reject::Kicked));
@@ -427,7 +381,6 @@ mod tests {
         assert_eq!(s.kick(seat), None);
         assert_eq!(s.seated(), 0);
         assert_eq!(s.hello(8, KEY, &token, "", false, false, now, &mut t), Err(Reject::Kicked));
-        // A new key keeps the old link out.
         s.set_key("FRESH");
         assert_eq!(join(&mut s, 9, now, &mut t), Err(Reject::Key));
     }

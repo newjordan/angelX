@@ -1,5 +1,3 @@
-# Names the core group calls that other groups own, until they land them.
-
 def cards.HAND() -> U32:
   4
 
@@ -11,8 +9,6 @@ def votes.Command.valid(+c: J.Val) -> Bool:
 
 def monsters.Enemy.radius(+e: J.Val) -> F32:
   0.5
-
-# --- Run::step's phases that other groups own ------------------------------
 
 def crossroads.Run.tick_crossroads(+run: J.Val, +inputs: J.Val) -> J.Val:
   run
@@ -95,11 +91,9 @@ def minions.Run.tick_gravecallers(+run: J.Val, +inputs: J.Val) -> J.Val:
 def minions.Run.skeletons_block(+run: J.Val) -> J.Val:
   run
 
-# hunt.rs: `foes_turn(&mut self, sortie: &mut Sortie) -> Deeds`: (run, (sortie, deeds)).
 def hunt.Run.foes_turn(+run: J.Val, +sortie: J.Val) -> J.Val & (J.Val & J.Val):
   (run, (sortie, J.JNull{}))
 
-# flight.rs: `shots_fly(&mut self, sortie: &mut Sortie) -> Struck`: (run, (sortie, struck)).
 def flight.Run.shots_fly(+run: J.Val, +sortie: J.Val) -> J.Val & (J.Val & J.Val):
   (run, (sortie, J.JNull{}))
 
@@ -120,8 +114,6 @@ def monsters.Enemy.base_hp(+e: J.Val) -> U32:
 
 def home.Run.at_home_now(+run: J.Val) -> Bool:
   False{}
-
-# --- the core group's own, until their modules land --------------------------
 
 def fortune.Run.turbo(+run: J.Val) -> Bool:
   False{}
@@ -147,23 +139,18 @@ def rules.Run.play(+run: J.Val, +inputs: J.Val) -> J.Val:
 def stakes.party_fury(+n: U32) -> U32:
   0
 
-# --- the Hero's neighbours ----------------------------------------------------
-
-# curios.rs: `curio_turns(&mut self, damage) -> Option<u32>`: a bucket turns the blow aside whole.
 def curios.Hero.curio_turns(+h: J.Val, +damage: U32) -> J.Val & Maybe<&2, U32>:
   (h, Some{damage})
 
 def curios.Hero.curio_biscuit(+h: J.Val) -> J.Val:
   h
 
-# runes.rs: `has_rune(kind)`: kind spelled as the serde snake_case name.
 def runes.Hero.has_rune(+h: J.Val, +kind: String) -> Bool:
   False{}
 
 def classes.Hero.peasant(+h: J.Val) -> Bool:
   False{}
 
-# rules.rs: `ShotTraits::default()` as serde writes it.
 def projectile.ShotTraits.default() -> J.Val:
   J.set(J.set(J.set(J.set(J.set(J.set(J.set(J.set(J.set(J.set(J.obj(), "bounce", J.JU{0}), "homing", J.JU{0}), "chain", J.JU{0}), "mend", J.JU{0}), "back", J.JU{0}), "owner", J.JU{0}), "out", J.JU{0}), "burst", J.JU{0}), "struck", J.JU{0}), "stun", J.JU{0})
 
@@ -453,14 +440,12 @@ def ults.Run.cast_ults(+run: J.Val, +casts: J.Val) -> J.Val:
 def ults.Run.tick_ults(+run: J.Val) -> J.Val:
   run
 
-# secrets.rs: `blast_wall_open(&mut self, at: (f32, f32))` and `blast_wall(&mut self, at: Option<(f32, f32)>)`.
 def secrets.Run.blast_wall_open(+run: J.Val, +x: F32, +y: F32) -> J.Val:
   run
 
 def secrets.Run.blast_wall(+run: J.Val, +at: J.Val) -> J.Val:
   run
 
-# feel.rs: `Feel::blow(&mut self, enemy, owner, blow)`; gore.rs `Blow::Blast { at }` as its serde object.
 def feel.Feel.blow(+feel: J.Val, +enemy: U32, +owner: U32, +blow: J.Val) -> J.Val:
   feel
 
@@ -494,7 +479,6 @@ def cat.Run.tick_tallow(+run: J.Val) -> J.Val:
 def hunters.Run.tick_hunters(+run: J.Val) -> J.Val:
   run
 
-# feats.rs: `notice(&mut self, id)`: an achievement noticed, once (the real one is the combat group's).
 def feats.Run.notice(+run: J.Val, +id: String) -> J.Val:
   run
 
@@ -507,7 +491,6 @@ def joust.Hit.flash(+self: J.Val, +aim: J.Val) -> String:
 def skills.Run.flash(+run: J.Val, +cloud: J.Val) -> J.Val:
   run
 
-# skills.rs: `afflict(banes: &mut Vec<Bane>, foe, kind, power, owner)`: the banes after.
 def skills.afflict(+banes: J.Val, +foe: U32, +kind: String, +power: U32, +owner: U32) -> J.Val:
   banes
 
@@ -529,18 +512,15 @@ def monsters.EnemyKind.radius(+self: J.Val) -> F32:
 def skills.Cloud.radius(+self: J.Val) -> F32:
   0.0
 
-# realm/mod.rs: `Spoils::add(&mut self, spoil, n)`: the purse after (a zero adds nothing).
 def realm.Spoils.add(+sp: J.Val, +spoil: String, +n: U32) -> J.Val:
   Bool.pick(J.Val, U32.is_zero(n), sp, J.set(sp, spoil, J.JU{core.uadd(J.u32(J.get(sp, spoil)), n)}))
 
-# layout.rs: `DIRS`: north, east, south, west as (dx, dy), each axis as an i32 word.
 def layout.DIRS_X(+i: U32) -> U32:
   Bool.pick(U32, U32.is_eq(i, 1), 1, Bool.pick(U32, U32.is_eq(i, 3), 4294967295, 0))
 
 def layout.DIRS_Y(+i: U32) -> U32:
   Bool.pick(U32, U32.is_eq(i, 0), 4294967295, Bool.pick(U32, U32.is_eq(i, 2), 1, 0))
 
-# shield.rs: `Wear::rest(&mut self, max_hp)`.
 def shield.Wear.rest(+wear: J.Val, +max_hp: U32) -> J.Val:
   wear
 
@@ -559,16 +539,12 @@ def looks.Hero.shot_look(+self: J.Val, +book: J.Val) -> Maybe<&2, String & Strin
 def spells.Hero.equip_spell(+self: J.Val, +card: J.Val) -> J.Val & Bool:
   (self, False{})
 
-# signatures.rs: `rear_bonus(enemy, bosses, at, dealt)`: extra damage for a blow from behind.
 def signatures.rear_bonus(+enemy: J.Val, +bosses: J.Val, +x: F32, +y: F32, +dealt: U32) -> U32:
   0
 
-# gore.rs: `Blow::Swing { dir, forged, fists }` as its serde object.
 def gore.Blow.swing(+dx: F32, +dy: F32, +forged: Bool, +fists: Bool) -> J.Val:
   J.set(J.obj(), "Swing", J.set(J.set(J.set(J.obj(), "dir", J.JA{[J.JF{dx}, J.JF{dy}]}), "forged", J.JBool{forged}), "fists", J.JBool{fists}))
 
-# bodies.rs: `loose(hero, id, pack, grid, enemies, salt, shots) -> Option<Loosed>`:
-# (hero, (enemies, (shots, loosed))) with loosed {"Bite": [[i, dealt]..]} | {"Volley": n} | null.
 def bodies.loose(+hero: J.Val, +id: U32, +pack: String, +room: J.Val, +barred: Bool, +enemies: J.Val, +salt: W.W, +shots: J.Val) -> J.Val & (J.Val & (J.Val & J.Val)):
   (hero, (enemies, (shots, J.JNull{})))
 
@@ -620,11 +596,9 @@ def cards.Looks.dresses_shots(+looks: J.Val) -> Bool:
 def curios.Hero.curio_veer(+h: J.Val, +loosed: U32) -> F32:
   0.0
 
-# cards.rs: `Effect::spoil`: the effect names that carry a spoil.
 def cards.Effect.is_spoil(+k: String) -> Bool:
   Bool.or(Bool.or(Bool.or(String.eq(k, "gold"), String.eq(k, "bone")), Bool.or(String.eq(k, "wax"), String.eq(k, "ore"))), Bool.or(String.eq(k, "gem"), Bool.or(String.eq(k, "ember"), String.eq(k, "scale"))))
 
-# spell_upgrades.rs: a knight's own spell damage and power at their tiers.
 def spell_upgrades.Hero.spell_damage(+h: J.Val, +spell: String, +damage: U32) -> U32:
   damage
 
@@ -691,7 +665,6 @@ def minions.Run.order_key(+run: J.Val, +id: U32) -> J.Val:
 def presence.wake_on_first_move(+h: J.Val, +input: J.Val) -> J.Val:
   h
 
-# pitstop.rs: `step(hero, input, admitted, &mut events)`: (hero, events).
 def pitstop.step(+h: J.Val, +input: J.Val, +admitted: Bool, +run: J.Val) -> J.Val & J.Val:
   (h, J.JA{[]})
 
@@ -746,7 +719,6 @@ def hunters.Run.webbed(+webs: J.Val, +x: F32, +y: F32) -> Bool:
 def kingdom.Run.on_road_at(+run: J.Val, +x: F32, +y: F32) -> Bool:
   False{}
 
-# pastimes.rs: a festival round is playing in this room (`round.game.room() == room.kind`).
 def pastimes.Run.round_in_room(+run: J.Val) -> Bool:
   False{}
 
@@ -756,7 +728,6 @@ def depths.OPEN_BLAST() -> F32:
 def pitstop.Run.pit_admissions(+run: J.Val) -> J.Val:
   J.JA{[]}
 
-# shoulders.rs, the active path: towers, flights and ride keys are not ported; the ledger is empty.
 def shoulders.Run.shoulders_begin_active(+run: J.Val, +inputs: J.Val) -> J.Val & (Maybe<&2, J.Val> & J.Val):
   (run, (None{}, J.JA{[]}))
 
@@ -768,8 +739,6 @@ def fortune.Run.tick_fortune(+run: J.Val, +inputs: J.Val) -> J.Val:
 
 def trophies.Run.tick_trophies(+run: J.Val) -> J.Val:
   run
-
-# The Round Table adventures' registry rows (their `ACTIVITY` statics): whether on, the ride, how it ends.
 
 def lanternward.ACTIVITY.on(+run: J.Val) -> Bool:
   False{}
@@ -849,6 +818,5 @@ def alehouse.is_room(+kind: String) -> Bool:
 def forest.Run.tick_forest(+run: J.Val) -> J.Val:
   run
 
-# altar.rs: `wish_altar() -> Option<(f32, f32)>`: where the altar stands, as [x, y], or null.
 def altar.Run.wish_altar(+run: J.Val) -> J.Val:
   J.JNull{}

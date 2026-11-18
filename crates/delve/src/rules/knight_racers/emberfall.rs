@@ -5,10 +5,6 @@ use super::author::*;
 use super::course::*;
 
 pub fn build(id: CourseId) -> Course {
-    // Plan: a serpentine up the Forge, then home down the west side. East-bound
-    // start straight; north up the east edge; west through the foundry; east over
-    // the lake; west up the mountain; south down the long descent. Tagged points
-    // are the section starts and the places the extras hang from.
     let plan: Vec<(f32, f32, &str)> = vec![
         (0., 0., "gate"), (300., 0., ""), (620., 0., ""),
         (900., 40., "sweep"), (1140., 160., ""), (1330., 330., ""), (1440., 540., "esses"),
@@ -29,8 +25,6 @@ pub fn build(id: CourseId) -> Course {
     let at = |u: f32| geo.knot(u);
     let t = |name: &str, f: f32| at(tag(name) + f);
 
-    // Height: out of the moor, up the canyons, into the foundry basin, up the
-    // mountain to the leap, then the long road home.
     let mut keys: Vec<(f32, f32)> = vec![
         (t("gate", 0.), 0.), (t("gate", 2.), 3.), (t("sweep", 1.5), 12.), (t("esses", 0.), 24.), (t("weave", 0.), 30.), (t("esses", 3.5), 34.),
         (t("works", 0.), 37.), (t("kink", 3.), 29.), (t("hammer", -1.), 10.), (t("hammer", 1.5), -8.),
@@ -90,7 +84,6 @@ pub fn build(id: CourseId) -> Course {
         slag("descent", 0.6, -7.), slag("descent", 1.6, 7.), slick("descent", 2.2, 0.),
         slag("return", 2.2, -8.), slag("return", 3.4, 8.),
     ];
-    // Boost strips on the straights and on the run to the lip.
     let strips = vec![
         Strip { s0: t("gate", 0.6), s1: t("gate", 0.6) + 90., half_w: 3.1, y: 0. },
         Strip { s0: t("gate", 1.7), s1: t("gate", 1.7) + 70., half_w: 2.8, y: -3. },
@@ -100,7 +93,6 @@ pub fn build(id: CourseId) -> Course {
         Strip { s0: t("return", 2.5), s1: t("return", 2.5) + 80., half_w: 3.2, y: 0. },
     ];
 
-    // The crucible cut: a narrow chord across the inside of the Ember Hairpin, through the old pour.
     let (f0, f1) = (t("hairpin", -0.3), t("hairpin", 3.1));
     let (a, b) = (line.at(f0), line.at(f1));
     let _ = (a, b);
@@ -114,7 +106,7 @@ pub fn build(id: CourseId) -> Course {
 
     let p = |kind, a: f32, b: f32, side: f32, seed: u32| Piece { kind, s0: a, s1: b, side, seed };
     let pieces = vec![
-        p(PieceKind::Grandstand, 30., 150., -1., 1), p(PieceKind::Statues, t("gate", 1.), t("gate", 1.) + 160., 1., 2),
+        p(PieceKind::Grandstand, 30., 150., -1., 1), p(PieceKind::PitLane, 190., 410., -1., 40), p(PieceKind::Statues, t("gate", 1.), t("gate", 1.) + 160., 1., 2),
         p(PieceKind::Arch, t("sweep", 0.), t("sweep", 0.) + 5., 0., 3),
         p(PieceKind::LavaFall, t("esses", 0.5), t("esses", 0.5) + 90., -1., 4), p(PieceKind::Spires, t("weave", -0.5), t("weave", 1.5), 1., 5),
         p(PieceKind::Gantry, t("esses", 3.), t("esses", 3.) + 6., 0., 6),
@@ -131,6 +123,6 @@ pub fn build(id: CourseId) -> Course {
         id, name: "EMBERFALL FOUNDRY RUN",
         blurb: "Forge canyons, the Slagworks, a lava lake on chain bridges and a molten leap.",
         laps: 2, line, zones, hazards, strips, pieces, forks: vec![slide],
-        gaps: vec![Gap { s0: leap0, s1: leap1, ramp: 0.12 }], landmarks,
+        gaps: vec![Gap { s0: leap0, s1: leap1, ramp: 0.12 }], crests: Vec::new(), landmarks,
     })
 }

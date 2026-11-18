@@ -167,7 +167,6 @@ def check_source_manifest(source: Path, artifact: Path, manifest: dict, src: dic
     require(manifest["source"]["manifest_sha256_after"] == expected, "manifest after SHA mismatch")
     require(manifest["source"]["system_sha256"] == common.sha256_file(source / "system.txt"),
             "source system.txt digest mismatch")
-    # Check the source manifest's own file table for the records this build used.
     source_manifest = src["manifest"]
     for relative in ("train.jsonl", "labels.jsonl", "frames.json", "provenance.json", "system.txt"):
         declared = source_manifest.get("files", {}).get(relative)
@@ -431,12 +430,9 @@ def check_variant(label_id: str, row: dict, parent_row: dict, label_record: dict
     require(changed_count / (width * height) <= 0.35, "generated image changed too much")
     require(ImageStat.Stat(generated.convert("L")).stddev[0] >= 1.0, "generated image is blank/flat")
 
-    # Exact target and protected-context pixels must be unchanged.
     for name, box in [("target", target_px)] + [("protected", b) for b in protected_boxes]:
         if ImageChops.difference(parent_image.crop(box), generated.crop(box)).getbbox() is not None:
             raise AuditFailure(f"generated image changed {name} pixels at {box}")
-    # Redundant explicit mask intersection: changed pixels must not touch any
-    # protected region, including sub-pixel rounding guards.
     protected_mask = Image.new("L", generated.size, 0)
     draw = ImageDraw.Draw(protected_mask)
     for box in [target_px] + protected_boxes:

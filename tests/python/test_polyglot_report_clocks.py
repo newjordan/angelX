@@ -1,5 +1,3 @@
-"""Report cohorts require observed clocks and unambiguous E2 count identities."""
-
 import copy
 import importlib.util
 import json

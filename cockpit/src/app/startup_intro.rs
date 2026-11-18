@@ -24,50 +24,21 @@ use std::time::{Duration, Instant};
 const ATLAS: &[u8] = include_bytes!("../../assets/excalibur/rise.png");
 const FRAME_W: u32 = 680;
 const FRAME_H: u32 = 384;
-/// The clip's fixed framing, and the aspect every intro band is measured
-/// against: empty side wings trimmed, the whole blade, hand and water retained.
 const CROP_X: u32 = 140;
 const CROP_W: u32 = FRAME_W - CROP_X * 2;
-/// No frame of the clip lights a pixel below row 369: the last 14 rows are
-/// black in every one of the 60 frames (measured on the atlas alpha plane).
-/// Cropping them off makes the water's own bottom the frame's bottom, so the
-/// floor-pinned fit in `prepare` puts the last ripple on the floor of the pane
-/// instead of a dead strip.
 const CROP_H: u32 = 370;
-/// Widest intro band we will compose, in terminal columns. The crop is nearly
-/// square (`CROP_W` × `CROP_H`), so the blade is always height-limited: past
-/// this many columns a wider pane buys no extra art, only a wider dithered
-/// canvas, a wider fine-dot raster and a wider Braille grid carrying the same
-/// blade — which is what read as the width pixelating the clip. Bounding the
-/// band, centring it and standing it on the floor of the pane keeps the art the
-/// same size it already was while making the composed surface width-invariant.
 const INTRO_MAX_COLUMNS: u16 = 96;
 const FRAMES: u8 = 60;
 const FPS: u128 = 12;
-/// The blade settles here; afterwards only the water keeps moving.
 const HOLD: u8 = 49;
-/// The plot reaches its summit as the blade locks; then the wizard walks in
-/// from the right and settles on the summit shelf.
 const WIZARD_WALK_TICKS: u8 = 24;
 const WIZARD_SETTLE: u8 = HOLD + WIZARD_WALK_TICKS;
 const WIZARD_IDLE_FRAMES: u8 = 8;
-/// Late-clip frames whose water band still shimmers. Cycled forever under the
-/// settled sword, so the rise plays once and the flow becomes ambient; the hold
-/// itself supplies frame 0 of the cycle.
 const RIPPLE: &[u8] = &[50, 51, 52, 53, 54, 55, 56, 57, 58, 59];
-/// Ticks spent dissolving the last late-clip frame back into the first. A hard wrap
-/// steps 6.3 levels in the water band, three times a neighbouring frame's 2.1, which
-/// reads as a lurch once a cycle; spread over four ticks the worst step in the cycle
-/// drops back under the natural one and the flow keeps its direction.
 const SEAM: u8 = 4;
 const FADE: Duration = Duration::from_millis(600);
-/// The empty Braille cell: a canvas cell with no dots is never painted, so it
-/// leaves the pane's own pixels rather than blanking them.
 const NO_DOTS: char = '\u{2800}';
 
-/// One tick of the ambient loop: which late-clip frame the water shows, and how much
-/// of the next frame has been dissolved into it (0 = none). The dissolve closes the
-/// cycle, so it is part of the tick's identity.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Flow {
     frame: u8,
@@ -76,8 +47,6 @@ struct Flow {
 }
 
 impl Flow {
-    /// The cycle in order: every late-clip frame at 12 fps, then `SEAM` ticks
-    /// dissolving the last one back into the first.
     fn at(tick: u128) -> Self {
         let frames = RIPPLE.len() as u128;
         let step = tick % (frames + u128::from(SEAM));
@@ -92,26 +61,12 @@ impl Flow {
             Self {
                 frame: RIPPLE[RIPPLE.len() - 1],
                 next: RIPPLE[0],
-                // Never reaches 255: the next tick is the first frame outright.
                 melt: ((step - frames + 1) * 255 / (u128::from(SEAM) + 1)) as u8,
             }
         }
     }
 }
 
-/// The presented intro band for one pane: width-clamped, horizontally centred,
-/// and stood on the floor of the pane.
-///
-/// The two bounds are one rule. The clip is nearly square, so the art it can
-/// actually fill at `rows` Braille rows is `rows * 4` dot rows tall and — at the
-/// crop's aspect — `rows * 4 * CROP_W / CROP_H` dot columns wide, which is
-/// `rows * 2 * CROP_W / CROP_H` terminal columns. Clamping to that means the
-/// composed surface is never wider than the dots that can carry it; clamping to
-/// `INTRO_MAX_COLUMNS` keeps a very tall pane from ballooning the band. Either
-/// way the canvas, the fine-dot raster and the Braille grid all shrink to the
-/// art, and the leftover width becomes margin on both sides instead of stretch
-/// or a dead letterbox band. Height is untouched, so the waterline stays on the
-/// floor of the pane. Idempotent: re-banding a band returns it.
 pub(crate) fn intro_band(area: Rect) -> Rect {
     if area.width == 0 || area.height == 0 {
         return area;
@@ -141,10 +96,7 @@ enum Scene {
 struct Key {
     scene: Scene,
     frame: u8,
-    /// Ambient water under the settled blade; `None` while the blade is still rising
-    /// and wherever the flow is suppressed.
     flow: Option<Flow>,
-    /// 0 = water as filmed; 255 = water dots fully faded / replaced by flow.
     water: u8,
     opacity: u8,
     size: Size,
@@ -179,8 +131,6 @@ pub(crate) struct StartupIntro {
 }
 
 impl StartupIntro {
-    /// Called even when the transcript is hidden, so restoring/clearing a
-    /// conversation cannot bring the sword back, and hidden art cannot tick.
     pub(crate) fn begin_frame(&mut self, occupied: bool, draft: bool, motion: MotionMode) {
         self.visible = false;
         if occupied {
@@ -190,8 +140,6 @@ impl StartupIntro {
         }
     }
 
-    /// The session has started: a draft or a conversation dismissed the
-    /// ceremony (or it never ran). Once true it stays true for the launch.
     pub(crate) fn dismissed(&self) -> bool {
         self.finished || self.fading.is_some()
     }
@@ -247,16 +195,11 @@ impl StartupIntro {
             return None;
         }
         let tick = self.elapsed_tick(now)?;
-        // Water handoff starts once the blade settles: the flow fades in over
-        // the settled frame's water, and under reduced motion the water dots
-        // fade to black instead (a static image keeps no shimmering dots).
-        const WATER_FADE_TICKS: u128 = 16; // ~1.3 s at 12 fps
+        const WATER_FADE_TICKS: u128 = 16;
         let (frame, flow) = if motion == MotionMode::Full {
             if tick < u128::from(HOLD) {
                 (tick as u8, None)
             } else {
-                // The sword holds still; the water band cycles the late-clip
-                // shimmer forever, so the flow stays ambient under it.
                 (HOLD, Some(Flow::at(tick - u128::from(HOLD))))
             }
         } else {
@@ -268,7 +211,6 @@ impl StartupIntro {
             255
         } else {
             let t = (tick - u128::from(HOLD)).min(WATER_FADE_TICKS) * 255 / WATER_FADE_TICKS;
-            // Smoothstep: no visible snap where the ramp meets the rise.
             ((t as f32 / 255.0).powi(2) * (3.0 - 2.0 * (t as f32 / 255.0)) * 255.0).round() as u8
         };
         let opacity = if let Some(fading) = self.fading {
@@ -281,7 +223,6 @@ impl StartupIntro {
             if t >= 1.0 {
                 return None;
             }
-            // Smoothstep fades brightness without moving the dithering pattern.
             ((1.0 - t * t * (3.0 - 2.0 * t)) * 255.0).round() as u8
         } else {
             255
@@ -294,7 +235,6 @@ impl StartupIntro {
             && !self.finished
             && (self.surfaces.iter().any(|surface| surface.pending)
                 || self.fading.is_some()
-                // Full motion keeps the ambient water flowing while visible.
                 || (motion == MotionMode::Full && self.started.is_some()))
     }
 
@@ -336,7 +276,6 @@ impl StartupIntro {
             self.cancel();
             return;
         };
-        // If typing beat the first prepared frame, never flash late artwork.
         if self.fading.is_some()
             && self
                 .surfaces
@@ -355,8 +294,6 @@ impl StartupIntro {
                     tick: self.landscape_tick(now, motion).unwrap_or(WIZARD_SETTLE),
                 }
             },
-            // Mountain frames normalize sword-only state; the sprite has its own
-            // slower four-frame-per-second idle cadence.
             frame: if surface == 0 { index } else { 0 },
             flow: (surface == 0).then_some(flow).flatten(),
             water: if surface == 0 { water } else { 0 },
@@ -365,8 +302,6 @@ impl StartupIntro {
             geometry,
         };
         if self.worker.is_none() {
-            // World owns ..10/..11; shell owns ..000/..001 and mini-viz
-            // ..100/..101. All three surfaces retain separate frame pairs.
             let base =
                 ((RandomState::new().hash_one(std::process::id()) as u32) & 0x00ff_fff8).max(8);
             self.surfaces[0].next_id = base;
@@ -413,9 +348,6 @@ impl StartupIntro {
             surface.next_id ^= 1;
             surface.pending = true;
         }
-        // Only the dots themselves are drawn, and nothing clears the area first:
-        // the glyph grid stays see-through, exactly like the transparent
-        // background of the transported fine-dot frame.
         if let Some((_, ready)) = &surface.current {
             if let Some(protocol) = &ready.protocol {
                 protocol.render(area, frame.buffer_mut());
@@ -438,7 +370,6 @@ impl StartupIntro {
         }
     }
 
-    /// After overlays, just like world dots; no raw source image is uploaded.
     pub(crate) fn flush_upload(&mut self, frame: &mut Frame) {
         for surface in &mut self.surfaces {
             let upload = surface
@@ -456,12 +387,6 @@ impl StartupIntro {
     }
 }
 
-/// Read the shipped atlas into the level image the canvas pipeline works in.
-///
-/// `rise.png` is a white-ink alpha mask: the ink plane is uniformly white and the
-/// alpha plane carries the frame luminance, so the saved source shows the same
-/// white-on-transparent animation the terminal does. Alpha is the level; a plain
-/// luminance atlas still decodes by luminance.
 fn decode_atlas(bytes: &[u8]) -> Result<GrayImage, String> {
     let decoded = image::load_from_memory(bytes).map_err(|error| error.to_string())?;
     if !decoded.color().has_alpha() {
@@ -490,8 +415,6 @@ fn spawn_worker() -> Option<Worker> {
         .name("excalibur-dots".into())
         .spawn(move || {
             let atlas = decode_atlas(ATLAS);
-            // Ambient ticks re-read the prepared canvases, so the flow costs a copy
-            // and a band blend instead of two Lanczos resamples of the atlas.
             let mut cache = Cache::default();
             while let Ok((slot, key, id)) = jobs.recv() {
                 let prepared = atlas.as_ref().map_err(Clone::clone).and_then(|atlas| {
@@ -500,13 +423,9 @@ fn spawn_worker() -> Option<Worker> {
                         |g| (g.grid_width, g.grid_height),
                     );
                     let dots = compose(atlas, &mut cache, &key, w, h)?;
-                    // The transported frame is the animation: dots on a
-                    // transparent background, never an opaque plate around them.
                     let protocol = key.geometry.and_then(|g| {
                         DotProtocol::encode_on(g, &dots, key.size, id, Some(TRANSPARENT)).ok()
                     });
-                    // An unsupported/oversized fine transport falls back to actual
-                    // terminal-cell dimensions, never a cropped fine-dot grid.
                     let dots = if key.geometry.is_some() && protocol.is_none() {
                         compose(
                             atlas,
@@ -529,9 +448,6 @@ fn spawn_worker() -> Option<Worker> {
     Some(Worker { tx, rx })
 }
 
-/// The ambient canvases for one dot geometry, prepared once and re-used. Two slots,
-/// because a terminal that rejects fine dots composes the same tick twice: once at
-/// grid and once at terminal-cell dimensions.
 #[derive(Default)]
 struct Cache {
     slots: Vec<Slot>,
@@ -540,13 +456,8 @@ struct Cache {
 struct Slot {
     columns: usize,
     rows: usize,
-    /// The settled frame (`HOLD`), cropped, scaled and levelled: the canvas the flow
-    /// blends into.
     settled: GrayImage,
-    /// The late-clip frames, in `RIPPLE` order, prepared the same way.
     ripple: Vec<GrayImage>,
-    /// Working canvas: the settled frame is copied here each tick and the band blend
-    /// runs in place, so an ambient tick allocates nothing.
     scratch: GrayImage,
 }
 
@@ -582,13 +493,7 @@ impl Cache {
     }
 }
 
-/// Crop the clip's fixed side wings, fit the whole blade, hand and waterline into the
-/// dot canvas, and lift steel midtones. The level curve runs once per prepared frame
-/// rather than once per tick, which is what lets the ambient loop blend cached
-/// canvases instead of resampling the atlas.
 fn prepare(atlas: &GrayImage, index: u8, columns: usize, rows: usize) -> GrayImage {
-    // Fixed framing throughout the clip: trim empty side wings, retain the whole
-    // blade, hand and water. Narrow mini-viz can then use its height.
     let source = imageops::crop_imm(
         atlas,
         u32::from(index % 10) * FRAME_W + CROP_X,
@@ -607,21 +512,12 @@ fn prepare(atlas: &GrayImage, index: u8, columns: usize, rows: usize) -> GrayIma
         imageops::FilterType::Lanczos3,
     );
     let mut canvas = GrayImage::new(width, height);
-    // X stays centered; Y is pinned to the floor. In a wide pane the fit is
-    // height-limited and the two agree, but in a narrow pane (the mini-viz, a
-    // tall bay) the fit is width-limited, and a centered Y floated the whole
-    // blade — waterline, hand and all — into the middle of the pane with a dead
-    // strip underneath: the water read as a hard cut mid-frame instead of a
-    // surface sitting on the floor. The slack belongs above the blade. Uses
-    // saturating_sub because the rounded fit can land a pixel past the canvas.
     imageops::overlay(
         &mut canvas,
         &fitted,
         i64::from((width - fitted.width()) / 2),
         i64::from(height.saturating_sub(fitted.height())),
     );
-    // A fixed toe removes compression haze; lift steel midtones before spatial
-    // dithering. Never normalize per frame (which would pump/flicker).
     let curve: [u8; 256] = std::array::from_fn(|value| {
         let linear = ((value as f32 - 10.0) / 220.0).clamp(0.0, 1.0);
         (linear.powf(0.68) * 255.0).round() as u8
@@ -662,9 +558,6 @@ fn compose(
         scratch,
         ..
     } = cache.slot(atlas, columns, rows);
-    // The flow only ever plays under the settled blade, so that is the frame the
-    // cache holds. The rise, and the still frame where motion is suppressed, is
-    // prepared on the spot: once per launch, not once per ambient tick.
     match key.flow.filter(|_| key.frame == HOLD) {
         Some(flow) => {
             scratch.as_mut().copy_from_slice(settled.as_raw());
@@ -673,8 +566,6 @@ fn compose(
         None => {
             *scratch = prepare(atlas, key.frame, columns, rows);
             if key.water > 0 {
-                // With the flow suppressed the water dissolves to black rather than
-                // sitting frozen on the settled frame.
                 damp_water(scratch, key.water);
             }
         }
@@ -682,8 +573,6 @@ fn compose(
     render_cells(scratch, columns, rows, key.opacity)
 }
 
-/// The water band the flow may touch, and how it feathers in from the settled steel
-/// above the waterline.
 fn water_band(height: u32) -> (u32, u32) {
     (height * 2 / 3, (height / 12).max(1))
 }
@@ -693,11 +582,9 @@ fn band_weight(y: u32, band_top: u32, feather: u32) -> u32 {
     (t * t * (3.0 - 2.0 * t) * 255.0).round() as u32
 }
 
-/// 255 where the settled frame shows free water, 0 where it shows steel: the loop's
-/// permission slip, in the same levelled scale the dithering uses.
 fn openness(level: u32) -> u32 {
-    const WATER: u32 = 64; // at or below: free water
-    const STEEL: u32 = 128; // at or above: blade, hand, hilt — never handed to the loop
+    const WATER: u32 = 64;
+    const STEEL: u32 = 128;
     if level >= STEEL {
         0
     } else if level <= WATER {
@@ -707,12 +594,6 @@ fn openness(level: u32) -> u32 {
     }
 }
 
-/// Ambient water. Only the pixels the settled frame already shows as water accept the
-/// loop: whatever it carries above the water tone — the blade, the hand, the hilt and
-/// the solid core of their reflection — is left exactly as it settled, so the flow can
-/// never jitter the hand or the hilt. Dark water is crossfaded into the flow, which
-/// keeps both the waterline (the band's feather) and the object edges (the openness
-/// ramp) continuous.
 fn flow_water(canvas: &mut GrayImage, ripple: &[GrayImage], flow: Flow, water: u8) {
     let (band_top, feather) = water_band(canvas.height());
     let first = &ripple[(flow.frame - RIPPLE[0]) as usize];
@@ -731,8 +612,6 @@ fn flow_water(canvas: &mut GrayImage, ripple: &[GrayImage], flow: Flow, water: u
             if blend == 0 {
                 continue;
             }
-            // The seam dissolves one late-clip frame into the next; every other tick
-            // reads a single frame outright (melt 0).
             let a = u32::from(first.get_pixel(x, y)[0]);
             let b = u32::from(second.get_pixel(x, y)[0]);
             let shimmer = (a * (255 - melt) + b * melt) / 255;
@@ -741,9 +620,6 @@ fn flow_water(canvas: &mut GrayImage, ripple: &[GrayImage], flow: Flow, water: u
     }
 }
 
-/// Reduced motion: dissolve the settled water's own speckle toward black as the
-/// handoff completes. Scaled by darkness and by the openness ramp, so bright steel
-/// keeps its level and the waterline edge never shows a hard cut.
 fn damp_water(canvas: &mut GrayImage, water: u8) {
     let (band_top, feather) = water_band(canvas.height());
     for y in band_top..canvas.height() {
@@ -758,11 +634,6 @@ fn damp_water(canvas: &mut GrayImage, water: u8) {
     }
 }
 
-/// Dither a prepared canvas into braille cells with plain white ink: one SGR for
-/// the whole frame on the fallback path, one uniform color on the dot-protocol
-/// path, and no background underneath, so the terminal shows only the dots. The
-/// fade is carried by the Bayer threshold (fewer dots, same white) rather than
-/// dimmed grey ink, and black negative space stays empty either way.
 fn render_cells(
     canvas: &GrayImage,
     columns: usize,
@@ -777,14 +648,9 @@ fn render_cells(
         };
         columns * rows
     ];
-    // The opacity fade gates which dots exist rather than dimming ink: full
-    // opacity lights every dithered dot, lower opacity drops dimmer dots until the
-    // frame empties out entirely. Ink stays pure white throughout.
     let floor = u32::from(255u8.saturating_sub(opacity));
     for y in 0..canvas.height() as usize {
         for x in 0..canvas.width() as usize {
-            // Dotmax's threshold bias can light the zero Bayer entry even on
-            // black. Keep the source's black negative space truly empty.
             let level = canvas.get_pixel(x as u32, y as u32)[0];
             if u32::from(level) > floor && binary.get_pixel(x as u32, y as u32) == Some(true) {
                 let cell = &mut cells[(y / 4) * columns + x / 2];
@@ -802,8 +668,6 @@ fn render_cells(
     })
 }
 
-// A single rising contour: no mesh, hidden edges, axes or terrain underneath.
-// Coordinates are pane-relative so the low base and summit headroom survive resize.
 pub(crate) const INTRO_INK: [u8; 3] = [255; 3];
 const WIZARD_INK: [u8; 3] = INTRO_INK;
 const ASCENT: [(f32, f32); 9] = [
@@ -879,8 +743,6 @@ fn clip_dot_line(
     let mut enter = 0.0f32;
     let mut leave = 1.0f32;
 
-    // Liang-Barsky clipping keeps Bresenham bounded to the actual dot canvas.
-    // This matters while the camera reveal places most of the world offscreen.
     for (p, q) in [(-dx, x0), (dx, max_x - x0), (-dy, y0), (dy, max_y - y0)] {
         if p.abs() < f32::EPSILON {
             if q < 0.0 {
@@ -959,7 +821,6 @@ pub(crate) fn draw_wizard(
     );
 }
 
-/// The wizard `height` dots tall (hat tip to feet).
 pub(crate) fn draw_wizard_sized(
     image: &mut ColoredBrailleImage,
     centre_x: i32,
@@ -969,8 +830,6 @@ pub(crate) fn draw_wizard_sized(
     settled: bool,
     opacity: u8,
 ) {
-    // Continuous contours sample directly onto Dotmax's dot grid: the hat and
-    // cloak stay fine-edged instead of enlarging a chunky bitmap in integer steps.
     let scale = height / 100.0;
     let point = |x: f32, y: f32| {
         (
@@ -978,8 +837,6 @@ pub(crate) fn draw_wizard_sized(
             ground_y + (y * scale).round() as i32,
         )
     };
-    // Left-facing profile: hooked hat, wide brim, brow/nose, long tapered beard,
-    // a bent sleeve, and a wind-caught travelling cloak with an uneven hem.
     const OUTLINE: &[(f32, f32)] = &[
         (-19.0, -96.0),
         (-7.0, -100.0),
@@ -1021,7 +878,6 @@ pub(crate) fn draw_wizard_sized(
         (-9.0, -94.0),
     ];
     let wind = [0.0, 0.7, 1.0, 0.7, 0.0, -0.7, -1.0, -0.7][walk_pose as usize % 8];
-    // Negative space separates beard from shoulder and opens a long robe fold.
     const BEARD_GAP: &[(f32, f32)] = &[(-9.0, -66.0), (-5.0, -62.0), (-7.0, -53.0), (-15.0, -44.0)];
     const BRIM_SHADOW: &[(f32, f32)] =
         &[(-14.0, -71.0), (6.0, -71.0), (1.0, -67.0), (-10.0, -68.0)];
@@ -1051,8 +907,6 @@ pub(crate) fn draw_wizard_sized(
     for y in top.max(0)..=bottom.min(image.height as i32 * 4 - 1) {
         for x in left.max(0)..=right.min(image.width as i32 * 2 - 1) {
             let local_y = (y - ground_y) as f32 / scale;
-            // Warp the silhouette and its shadow cuts together. The planted
-            // feet/staff stay still while cloth and the hat tip catch the wind.
             let cloth = ((local_y + 48.0) / 48.0).clamp(0.0, 1.0);
             let hat = ((-local_y - 80.0) / 20.0).clamp(0.0, 1.0);
             let local_x = (x - centre_x) as f32 / scale - wind * (cloth * 5.0 + hat * 4.0);
@@ -1062,16 +916,11 @@ pub(crate) fn draw_wizard_sized(
                 && !inside(local_x, local_y, BRIM_SHADOW)
                 && !inside(local_x, local_y, CLOAK_SHADOW)
             {
-                // Ordered stippling models cloth turning away from the light.
-                // Anchor the pattern to the sprite, never the frame clock, so
-                // walking does not turn the shading into random sparkling.
                 const BAYER: [[u8; 2]; 2] = [[0, 2], [3, 1]];
                 let cloth_or_hat = !(-79.0..=-58.0).contains(&local_y);
                 let shade = if local_x > 5.0 { 2 } else { 3 };
                 let stipple = BAYER[(y - ground_y).rem_euclid(2) as usize]
                     [(x - centre_x).rem_euclid(2) as usize];
-                // Keep the light-facing contour, facial profile and narrow tip
-                // intact: a half-size sprite has very few dots to describe them.
                 let lit_edge = !inside(local_x - 1.0 / scale, local_y, OUTLINE);
                 if !cloth_or_hat || lit_edge || local_y < -92.0 || stipple < shade {
                     paint_dot(image, x, y, WIZARD_INK, opacity);
@@ -1079,7 +928,6 @@ pub(crate) fn draw_wizard_sized(
             }
         }
     }
-    // Open crook, separated from the face, reads as an ancient wooden staff.
     let staff = [
         (-30.0, 0.0),
         (-29.0, -36.0),
@@ -1144,8 +992,6 @@ fn compose_mountain(
     };
     let dot_w = columns * 2;
     let dot_h = rows * 4;
-    // Trace the chart from its low left origin. Length-based reveal keeps the pen
-    // moving evenly over both steep gains and quieter connecting segments.
     let lengths: Vec<f32> = ASCENT
         .windows(2)
         .map(|pair| {

@@ -68,9 +68,6 @@ pub(crate) struct SourceAccessObservationV1 {
     pub(crate) raw_sha256: String,
 }
 
-/// Synchronous because the director invokes adapters from independent workers.
-/// Submission/result capabilities extend this boundary in F3 without changing
-/// board reduction semantics.
 pub(crate) trait CompetitionAdapterV1: Send {
     fn identity(&self) -> &AdapterIdentityV1;
 
@@ -95,7 +92,6 @@ pub(crate) trait CompetitionAdapterV1: Send {
         Err(AdapterFailureV1::unsupported("source_access"))
     }
 
-    /// Returned ordering is candidate-oriented: Greater always means better.
     fn compare_scores(
         &self,
         comparator: &ObjectiveComparatorV1,

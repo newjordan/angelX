@@ -18,15 +18,12 @@
 //! Networked calls and metadata admission live behind `search`; the ranking
 //! and briefing policy runs in a bounded, disposable JavaScript worker.
 
-#![allow(dead_code)] // wired incrementally: the parse/fold core lands with the tool/command surface.
+#![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::time::Duration;
 
-/// GitHub search returns metadata for at most `per_page` (≤100) records; a page
-/// of repositories fits comfortably under this ceiling, while a broken or
-/// hostile endpoint cannot consume arbitrary RAM.
 const REPO_RESPONSE_MAX_BYTES: usize = 4 * 1024 * 1024;
 const MAX_DESC_CHARS: usize = 300;
 const MAX_NAME_CHARS: usize = 160;
@@ -34,16 +31,9 @@ const MAX_TOPIC_CHARS: usize = 40;
 const MAX_TOPICS: usize = 6;
 pub(crate) const MAX_QUERY_CHARS: usize = 256;
 
-/// How the shortlist is ordered. Both re-rank locally after the fetch so the
-/// combined signal (stars + recency) is deterministic regardless of which
-/// server-side sort GitHub applied.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum Mode {
-    /// Reputation-first: most-starred, with a recency nudge. The default a
-    /// report wants when citing "the" library for a topic.
     Best,
-    /// Recency-first: most-recently-pushed, with a reputation nudge. What a
-    /// report wants when the topic is moving and freshness beats stars.
     Latest,
 }
 
@@ -56,8 +46,6 @@ impl Mode {
         }
     }
 
-    /// The GitHub `sort=` value that gets the right records into the page before
-    /// the local re-rank refines the order.
     fn github_sort(self) -> &'static str {
         match self {
             Self::Best => "stars",
@@ -73,28 +61,20 @@ impl Mode {
     }
 }
 
-/// One repository, normalized so the folder can dedupe and rank.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Repo {
-    /// `owner/name`, the dedupe key (lowercased when compared).
     pub(crate) full_name: String,
     pub(crate) description: String,
     pub(crate) language: Option<String>,
     pub(crate) stars: u64,
     pub(crate) forks: u64,
     pub(crate) open_issues: u64,
-    /// ISO-8601 timestamp of the last push, verbatim from GitHub. ISO-8601 sorts
-    /// lexicographically = chronologically, so it is compared as a string.
     pub(crate) pushed_at: Option<String>,
     pub(crate) topics: Vec<String>,
     pub(crate) archived: bool,
-    /// Validated `https://github.com/owner/name` locator, or `None` when the
-    /// upstream `html_url` did not match that exact shape.
     pub(crate) url: Option<String>,
 }
 
-/// The folded result of a fan-out: the ranked shortlist plus any notes about a
-/// degraded fetch, ready to render or hand to the model.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct RepoSet {
     pub(crate) query: String,
@@ -103,8 +83,6 @@ pub(crate) struct RepoSet {
 }
 
 impl RepoSet {
-    /// Render through the replaceable shortlist policy. Native code sanitizes
-    /// source metadata and validates citations before handing it to the worker.
     pub(crate) fn brief(&self, mode: Mode, limit: usize) -> Result<String, String> {
         let repos: Vec<_> = self.repos.iter().map(|r| {
             let name = crate::drive::science::sanitize_metadata(&r.full_name, MAX_NAME_CHARS);
@@ -145,7 +123,6 @@ impl RepoSet {
     }
 }
 
-/// Pin the complete repository-policy dependency set for one request.
 fn repo_snapshot() -> Result<crate::platform::worker_snapshot::Snapshot, String> {
     crate::platform::worker_snapshot::Snapshot::capture(
         &crate::platform::runtime_paths::root(),
@@ -157,8 +134,6 @@ fn repo_snapshot() -> Result<crate::platform::worker_snapshot::Snapshot, String>
     )
 }
 
-/// One disposable policy generation per call: no token or workspace authority
-/// is sent in the request, and the host retains the network and cache.
 fn repo_policy(request: &serde_json::Value) -> Result<serde_json::Value, String> {
     let input = serde_json::to_vec(request).map_err(|_| "invalid policy request".to_string())?;
     let node = crate::agent::tools::runtime_missing::resolve("node")
@@ -170,7 +145,6 @@ fn repo_policy(request: &serde_json::Value) -> Result<serde_json::Value, String>
     let snapshot = repo_snapshot()?;
     let mut command = std::process::Command::new(node);
     command.arg(snapshot.dir.join("scripts/runtime/repo-search.mjs"));
-    // This policy needs no inherited credentials, Node flags, or workspace env.
     command.env_clear();
     let output = crate::platform::worker::run_cancellable(
         command,
@@ -188,13 +162,8 @@ fn repo_policy(request: &serde_json::Value) -> Result<serde_json::Value, String>
     Ok(value)
 }
 
-/// The shared blocking agent — short timeouts so a slow GitHub can never wedge
-/// the caller. `timeout` is the hard cap on the WHOLE request; a report writer
-/// gets a fast degrade rather than a hang.
 fn agent() -> ureq::Agent {
     ureq::AgentBuilder::new()
-        // The request may carry the operator's GitHub bearer token. Keep it
-        // pinned to the configured API origin.
         .redirects(0)
         .timeout_connect(Duration::from_secs(5))
         .timeout_read(Duration::from_secs(10))
@@ -203,8 +172,6 @@ fn agent() -> ureq::Agent {
         .build()
 }
 
-/// An optional token from the environment. Absent → key-less (10 req/min);
-/// present → authenticated (30 req/min for search). Never required.
 fn github_token() -> Option<String> {
     ["ANGEL_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"]
         .iter()
@@ -213,14 +180,10 @@ fn github_token() -> Option<String> {
         .filter(|t| !t.is_empty())
 }
 
-/// Fan `query` at GitHub repository search, fold into a ranked, deduplicated
-/// shortlist. A rate-limited or unreachable API is noted and skipped — it
-/// degrades the result, it never fails the call.
 pub(crate) fn surface(query: &str, mode: Mode, limit: usize) -> RepoSet {
     surface_with(query, mode, limit, &search)
 }
 
-/// Injected fan-out core so the tests drive folding without the wire.
 fn surface_with<F>(query: &str, mode: Mode, limit: usize, searcher: &F) -> RepoSet
 where
     F: Fn(&str, Mode, usize) -> Result<Vec<Repo>, String>,
@@ -236,7 +199,6 @@ where
     }
 }
 
-/// Check the worker's indices before accepting its projection.
 fn validate_indices(value: &serde_json::Value, repos: &[Repo]) -> Result<Vec<usize>, String> {
     let indices = value
         .get("indices")
@@ -292,8 +254,6 @@ fn fold(repos: Vec<Repo>, mode: Mode) -> Result<Vec<Repo>, String> {
         .map(|indices| indices.into_iter().map(|i| repos[i].clone()).collect())
 }
 
-/// Query GitHub repository search. Networked; the pure `parse_github` folder
-/// below carries the logic the tests exercise.
 pub(crate) fn search(query: &str, mode: Mode, limit: usize) -> Result<Vec<Repo>, String> {
     let per_page = limit.clamp(1, 100);
     let url = format!(
@@ -310,9 +270,6 @@ pub(crate) fn search(query: &str, mode: Mode, limit: usize) -> Result<Vec<Repo>,
     }
     let response = match req.call() {
         Ok(r) => r,
-        // A 403 with an exhausted rate limit is the common key-less failure; turn
-        // it into an actionable note rather than a bare transport error. The
-        // rate-limit headers are read before the (owned) body is consumed.
         Err(ureq::Error::Status(403, r)) => {
             let exhausted = r.header("x-ratelimit-remaining") == Some("0");
             if exhausted {
@@ -324,7 +281,6 @@ pub(crate) fn search(query: &str, mode: Mode, limit: usize) -> Result<Vec<Repo>,
             }
             return Err(format!("GitHub search refused (403): {}", status_reason(r)));
         }
-        // A 422 is a malformed query (GitHub's search grammar) — surface why.
         Err(ureq::Error::Status(422, r)) => {
             return Err(format!(
                 "GitHub rejected the query (422): {}",
@@ -340,8 +296,6 @@ pub(crate) fn search(query: &str, mode: Mode, limit: usize) -> Result<Vec<Repo>,
     Ok(parse_github(&body))
 }
 
-/// Pull GitHub's own `message` out of a non-2xx JSON body so the note is
-/// actionable, bounded so a hostile error page can't flood the result.
 fn status_reason(resp: ureq::Response) -> String {
     let raw = resp
         .into_string()
@@ -357,8 +311,6 @@ fn status_reason(resp: ureq::Response) -> String {
     crate::drive::science::sanitize_metadata(&message, 200)
 }
 
-/// GitHub `search/repositories` → [`Repo`]s. Tolerant: any missing field is
-/// skipped or defaulted, never fatal, so an upstream schema drift degrades.
 fn parse_github(v: &serde_json::Value) -> Vec<Repo> {
     let mut out = Vec::new();
     let Some(items) = v.get("items").and_then(|i| i.as_array()) else {
@@ -428,9 +380,6 @@ fn parse_github(v: &serde_json::Value) -> Vec<Repo> {
     out
 }
 
-/// Admit only the exact `https://github.com/owner/name` record shape. Query
-/// strings, fragments, credentials, ports, and deeper paths are not clean
-/// citations and are rejected rather than echoed into a tool result.
 fn trusted_repo_url(raw: &str) -> Option<String> {
     let parsed = url::Url::parse(raw.trim()).ok()?;
     if parsed.scheme() != "https"
@@ -462,8 +411,6 @@ fn valid_path_component(value: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
 }
 
-/// Days from the civil epoch for the `YYYY-MM-DD` prefix of an ISO-8601 stamp,
-/// or `None` when malformed. Howard Hinnant's `days_from_civil`; pure, no clock.
 fn pushed_ordinal(s: &str) -> Option<i64> {
     let s = s.trim();
     if s.len() < 10 {
@@ -486,7 +433,6 @@ fn pushed_ordinal(s: &str) -> Option<i64> {
     Some(era * 146097 + doe - 719468)
 }
 
-/// The `YYYY-MM-DD` portion of an ISO-8601 push stamp for display.
 fn pushed_date(s: &str) -> String {
     s.get(0..10).unwrap_or(s).to_string()
 }
@@ -505,8 +451,6 @@ fn read_bounded_json(reader: impl Read, max_bytes: usize) -> Result<serde_json::
     serde_json::from_slice(&bytes).map_err(|e| format!("invalid JSON response: {e}"))
 }
 
-/// Minimal percent-encoding for the query string — spaces → `+`, anything
-/// non-unreserved → `%XX`. Enough for the search URL without a URL crate.
 fn urlencode(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
@@ -521,17 +465,10 @@ fn urlencode(s: &str) -> String {
     out
 }
 
-// ─── persistence: a short TTL cache so repeat queries are instant ────────────
-
-/// Where shortlists memoize (`~/.angelX/repos/<hash>.json`). `None` outside a
-/// HOME, so unit-test worlds never touch the disk.
 fn cache_dir() -> Option<std::path::PathBuf> {
     std::env::var_os("HOME").map(|h| std::path::Path::new(&h).join(".angelX").join("repos"))
 }
 
-/// Surface with a disk cache: a fresh hit (younger than `ttl_secs`) returns
-/// without the network. A total whiff (rate-limited/unreachable → zero repos)
-/// is never memoized, so a transient outage can't stick.
 pub(crate) fn surface_cached(query: &str, mode: Mode, limit: usize, ttl_secs: u64) -> RepoSet {
     let key = format!(
         "{:016x}",
@@ -541,9 +478,6 @@ pub(crate) fn surface_cached(query: &str, mode: Mode, limit: usize, ttl_secs: u6
     surface_cached_in(path.as_deref(), query, mode, limit, ttl_secs, &search)
 }
 
-/// The cache stores admitted source records, not a policy generation's result.
-/// Rendering applies the current policy, even while a network result is fresh.
-/// Older ranked entries remain readable until their TTL expires.
 fn surface_cached_in<F>(
     path: Option<&std::path::Path>,
     query: &str,
@@ -608,8 +542,6 @@ fn write_cache(path: &std::path::Path, set: &RepoSet) {
     }
 }
 
-/// FNV-1a over the query → a stable cache filename. Not cryptographic; only
-/// needs to spread queries across distinct files.
 fn fnv1a_str(s: &str) -> u64 {
     let mut hash = 0xcbf2_9ce4_8422_2325u64;
     for b in s.bytes() {
@@ -619,8 +551,6 @@ fn fnv1a_str(s: &str) -> u64 {
     hash
 }
 
-/// The `/repos <query>` command body: surface (cached, 30-min TTL) and return a
-/// briefing. No query → usage. Mirrors [`crate::drive::science::run`].
 pub(crate) fn run(arg: Option<&str>) -> String {
     let Some(raw) = arg.map(str::trim).filter(|q| !q.is_empty()) else {
         return "usage: /repos [best|latest] <query>\n  fans the query at GitHub repository \
@@ -629,7 +559,6 @@ pub(crate) fn run(arg: Option<&str>) -> String {
                 for reputation-first."
             .to_string();
     };
-    // An optional leading mode word: "/repos latest rust http client".
     let (mode, query) = match raw.split_once(char::is_whitespace) {
         Some((head, rest)) if Mode::parse(head).is_some() && !rest.trim().is_empty() => {
             (Mode::parse(head).unwrap(), rest.trim())

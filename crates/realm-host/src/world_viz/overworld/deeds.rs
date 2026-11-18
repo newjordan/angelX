@@ -32,28 +32,17 @@ use super::map::{Place, TILE, place_px, place_tile};
 use crate::telemetry::ToolEventId;
 use angel_delve::world::kingdom::step_cost;
 
-// What the deeds put on the map is the scene's; their life is the
-// cockpit's.
 pub use angel_delve::render::overworld::deeds::{
     Errand, PENNANTS, ROOST, Record, SPARKS, Wayfarer,
 };
 
-/// World ticks (40 Hz) a wagon stands showing its verdict before it turns
-/// for home.
 const VERDICT_HOLD: u64 = 100;
-/// A raven is aloft at least this long, so a quick commit is still seen.
 const FLIGHT: u64 = 120;
-/// The least time a field hand or a monk is seen at work, however quick
-/// the call.
 const WORK: u64 = 80;
-/// Messengers or owls on the road at once; more findings share their loads.
 const ON_THE_ROAD: usize = 4;
-/// World ticks a villager spends inside the granary delivering its sack.
 const DELIVER: u64 = 30;
-/// World ticks a villager spends indoors before going out on the next errand.
 const HOME_BEAT: u64 = 16;
 
-/// How each errand goes about its deed.
 trait Errands: Sized {
     fn of(deed: Deed) -> Option<Self>;
     fn crew(self) -> usize;
@@ -73,7 +62,6 @@ impl Errands for Errand {
         }
     }
 
-    /// How many can be out at once; later calls join the least busy.
     fn crew(self) -> usize {
         match self {
             Errand::Hand => 3,
@@ -82,7 +70,6 @@ impl Errands for Errand {
         }
     }
 
-    /// World pixels per world tick.
     fn pace(self) -> f32 {
         match self {
             Errand::Wagon => 1.0,
@@ -105,19 +92,12 @@ struct Call {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Leg {
-    /// Heading out, or at the work and waiting on it.
     Out,
-    /// Every call is back; the wagon shows its verdict until `until`.
     Verdict { passed: bool, until: u64 },
-    /// Going home — or, for a messenger or owl, to the Scriptorium —
-    /// carrying the verdict if there is one; gone on arrival.
     Home { verdict: Option<bool> },
-    /// Indoors until `until` — delivering at the granary, or a beat at home
-    /// before the next errand — then on to `next`.
     Inside { until: u64, next: After },
 }
 
-/// Where a villager goes when it comes back out.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum After {
     Home(Option<bool>),
@@ -127,10 +107,8 @@ enum After {
 #[derive(Clone, Debug)]
 struct Party {
     errand: Errand,
-    /// Which of a crew's rows or cottages this one works from.
     slot: usize,
     calls: BTreeSet<ToolEventId>,
-    /// Set once every call is back: whether all of them passed.
     settled: Option<bool>,
     failed: bool,
     x: f32,
@@ -139,18 +117,12 @@ struct Party {
     leg: Leg,
     facing_left: bool,
     since: u64,
-    /// Steps taken on a working round (a crop row, the chapel yard).
     round: usize,
-    /// Errands that came in while this villager was on its way home: it
-    /// finishes the walk, goes in, and comes back out with them.
     again: BTreeSet<ToolEventId>,
-    /// Owed another trip, and whether its errands have all passed so far.
     owes: Option<bool>,
-    /// Errands done and not yet delivered: sacks bound for the granary.
     load: u32,
 }
 
-/// Every deed in flight and the record of those finished.
 #[derive(Clone, Debug, Default)]
 pub struct Deeds {
     calls: BTreeMap<ToolEventId, Call>,
@@ -160,8 +132,6 @@ pub struct Deeds {
     studied: BTreeSet<String>,
     struck: Option<u64>,
 }
-
-// ─── the realm's places of work ─────────────────────────────────────────────
 
 fn feet((tx, ty): (i32, i32)) -> (f32, f32) {
     ((tx * TILE + TILE / 2) as f32, ((ty + 1) * TILE - 2) as f32)
@@ -182,26 +152,22 @@ fn stand(place: Place) -> (i32, i32) {
     place.stand_world()
 }
 
-/// Where the `n`th raven sits on the roost (realm pixels, feet).
 pub fn raven_perch(n: u32) -> (f32, f32) {
     let (x, base) = ROOST;
     let (x, y) = place_px(x + 4 + (n % 5) as i32 * 5, base - 9);
     (x as f32, y as f32)
 }
 
-/// The Rookery door, where a raven goes in when it has nothing to seal.
 fn rookery_door() -> (f32, f32) {
     feet(stand(Place::Rookery))
 }
 
-/// Where the raven wheels while its commit is sealed.
 fn wheel(since: u64, tick: u64) -> (f32, f32) {
     let (px, py) = raven_perch(0);
     let a = (tick.saturating_sub(since)) as f32 * 0.06;
     (px + 26.0 * a.cos(), py - 22.0 + 12.0 * a.sin())
 }
 
-/// Where the wagon draws up at the Lists: beside the knight's stand, not on it.
 fn wagon_bay() -> (i32, i32) {
     let (sx, sy) = stand(Place::Lists);
     [(sx - 2, sy), (sx - 1, sy + 1), (sx, sy + 1)]
@@ -210,19 +176,16 @@ fn wagon_bay() -> (i32, i32) {
         .unwrap_or((sx, sy))
 }
 
-/// The lane the courier takes off the map, and the point past its edge.
 fn gate_edge() -> ((i32, i32), (f32, f32)) {
     let (_, gy) = stand(Place::Gatehouse);
     let (_, y) = feet((0, gy));
     ((0, gy), (-2.0 * TILE as f32, y))
 }
 
-/// The crossroads in the south-east fields, where the hands come and go.
 fn field_gate() -> (i32, i32) {
     place_tile(39, 27)
 }
 
-/// The crop rows the field hands work, one to a hand: its two ends.
 const ROWS: [((i32, i32), (i32, i32)); 3] = [
     ((34, 25), (37, 25)),
     ((41, 24), (45, 24)),
@@ -235,19 +198,16 @@ fn row(slot: usize, end: usize) -> (i32, i32) {
     place_tile(tx, ty)
 }
 
-/// The cottage doors the villagers come from, one to a villager.
 fn cottage_door(slot: usize) -> (i32, i32) {
     const DOORS: [(i32, i32); 4] = [(19, 26), (26, 26), (22, 26), (29, 26)];
     let (tx, ty) = DOORS[slot % DOORS.len()];
     place_tile(tx, ty)
 }
 
-/// The granary door, where every errand's sack is delivered.
 fn granary_door() -> (i32, i32) {
     place_tile(28, 31)
 }
 
-/// The chapel yard: open ground about the Chapel door that the monk walks.
 fn chapel_yard() -> &'static [(i32, i32)] {
     static YARD: OnceLock<Vec<(i32, i32)>> = OnceLock::new();
     YARD.get_or_init(|| {
@@ -261,19 +221,15 @@ fn chapel_yard() -> &'static [(i32, i32)] {
     })
 }
 
-/// The Observatory dome, where the glass looks out and the owls leave from.
 pub fn dome() -> (f32, f32) {
     let (tx, ty, tw, _) = Place::Observatory.footprint();
     let (x, y) = place_px(tx * TILE + tw * TILE / 2, ty * TILE + 4);
     (x as f32, y as f32)
 }
 
-/// Where findings are brought: the Scriptorium door.
 fn scriptorium() -> (i32, i32) {
     stand(Place::Scriptorium)
 }
-
-// ─── one party on the road ───────────────────────────────────────────────────
 
 impl Party {
     fn new(errand: Errand, slot: usize, tick: u64) -> Party {
@@ -308,8 +264,6 @@ impl Party {
         party
     }
 
-    /// A finding on its way to the Scriptorium: from a harvest in the
-    /// fields by road, from the Observatory by air.
     fn bearer(errand: Errand, from: (f32, f32), tick: u64) -> Party {
         let mut party = Party::new(errand, 0, tick);
         (party.x, party.y) = from;
@@ -345,7 +299,6 @@ impl Party {
         };
     }
 
-    /// Turn for home. A raven with a sealed commit flies to `perch`.
     fn head_home(&mut self, verdict: Option<bool>, perch: (f32, f32)) {
         self.leg = Leg::Home { verdict };
         self.path = match self.errand {
@@ -368,19 +321,15 @@ impl Party {
         };
     }
 
-    /// Whether a settled party may act on its verdict yet.
     fn ready(&self, tick: u64) -> bool {
         match self.errand {
             Errand::Raven => tick >= self.since + FLIGHT,
             Errand::Hand | Errand::Monk => tick >= self.since + WORK,
-            // A villager delivers at the granary before turning home.
             Errand::Villager => self.path.is_empty(),
             _ => true,
         }
     }
 
-    /// One world tick. Returns whether the party is still out, and how many
-    /// sacks it delivered to the granary this tick.
     fn step(&mut self, tick: u64, perch: (f32, f32)) -> (bool, u32) {
         let mut delivered = 0;
         if self.leg == Leg::Out
@@ -389,8 +338,6 @@ impl Party {
         {
             match self.errand {
                 Errand::Villager if self.load > 0 => {
-                    // It goes in with the sacks; a failed errand's sack comes
-                    // back out with it.
                     delivered = std::mem::take(&mut self.load);
                     self.leg = Leg::Inside {
                         until: tick + DELIVER,
@@ -443,7 +390,6 @@ impl Party {
             if self.owes.is_none() {
                 return (false, delivered);
             }
-            // Home, but owed another errand: a beat indoors, then out again.
             self.leg = Leg::Inside {
                 until: tick + HOME_BEAT,
                 next: After::Out,
@@ -452,7 +398,6 @@ impl Party {
         (true, delivered)
     }
 
-    /// Out of the door again with the errands that came in on the way home.
     fn come_back_out(&mut self, tick: u64) {
         let all_passed = self.owes.take().unwrap_or(true);
         self.since = tick;
@@ -488,8 +433,6 @@ impl Party {
     }
 
     fn shown(&self) -> Option<Wayfarer> {
-        // A courier past the edge is out in the world, not on the map.
-        // Whoever is indoors is out of sight too.
         if self.x < 0.0 || matches!(self.leg, Leg::Inside { .. }) {
             return None;
         }
@@ -516,12 +459,7 @@ impl Party {
     }
 }
 
-// ─── the ledger of deeds ─────────────────────────────────────────────────────
-
 impl Deeds {
-    /// The district that owns a receipt. Use the same classified deed as
-    /// its journey so a test verdict stays at the Lists, a harvest in the
-    /// fields, and a shell errand with the working village.
     pub fn destination(&self, id: &ToolEventId) -> Option<Place> {
         Some(match self.calls.get(id)?.deed {
             Deed::Study => Place::Scriptorium,
@@ -537,7 +475,6 @@ impl Deeds {
         })
     }
 
-    /// A tool call starts: note what it is and send someone out for it.
     pub fn begin(&mut self, id: &ToolEventId, name: &str, args: &str, tick: u64) {
         let told = herald(name, args);
         if told.deed == Deed::Forge {
@@ -565,9 +502,6 @@ impl Deeds {
             self.out.push(party);
             return;
         }
-        // The crew is all out: the least busy one still at work takes it.
-        // A field hand heading home turns back to the rows; a villager
-        // finishes the walk home, goes in, and comes back out for it.
         let Some(pick) = crew.iter().copied().min_by_key(|&i| {
             let party = &self.out[i];
             (
@@ -597,8 +531,6 @@ impl Deeds {
         party.calls.insert(id.clone());
     }
 
-    /// A call's result lands: record what it earned and call its party home
-    /// once nothing else keeps it out.
     pub fn settle(&mut self, id: &ToolEventId, passed: bool, tick: u64) {
         let Some(call) = self.calls.remove(id) else {
             return;
@@ -620,7 +552,6 @@ impl Deeds {
             }
             Deed::Seek if passed => {
                 record.stooks += 1;
-                // The harvest goes up the road from whoever worked it.
                 let from = self
                     .out
                     .iter()
@@ -628,7 +559,6 @@ impl Deeds {
                     .map_or_else(|| feet(field_gate()), Party::at);
                 self.send(Party::bearer(Errand::Messenger, from, tick));
             }
-            // A sack counts once it reaches the granary (see `step`).
             Deed::Errand if passed => match self
                 .out
                 .iter_mut()
@@ -658,14 +588,10 @@ impl Deeds {
         }
     }
 
-    /// The turn is over: calls still out will never report, so everyone at
-    /// work comes home empty-handed and nothing is recorded for them.
-    /// Findings already on the road still arrive.
     pub fn abandon(&mut self) {
         self.calls.clear();
         let perch = raven_perch(self.record.ravens);
         for party in &mut self.out {
-            // Errands that finished still count, delivered or not.
             self.record.sacks += std::mem::take(&mut party.load);
             party.again.clear();
             party.owes = None;
@@ -677,7 +603,6 @@ impl Deeds {
         }
     }
 
-    /// Put a finding on the road, unless the road already carries its fill.
     fn send(&mut self, bearer: Party) {
         let on_road = self
             .out
@@ -689,7 +614,6 @@ impl Deeds {
         }
     }
 
-    /// Advance everyone out one world tick.
     pub fn step(&mut self, tick: u64) {
         let perch = raven_perch(self.record.ravens);
         let mut perched = 0;
@@ -712,14 +636,12 @@ impl Deeds {
         self.record.sacks += delivered;
     }
 
-    /// A trial is underway: the wagon is out and nothing has come back yet.
     pub fn trial_underway(&self) -> bool {
         self.out
             .iter()
             .any(|party| party.errand == Errand::Wagon && party.leg == Leg::Out)
     }
 
-    /// Research is out: the Observatory's glass sweeps the sky.
     pub fn stargazing(&self) -> bool {
         self.calls.values().any(|call| call.deed == Deed::Research)
     }
@@ -732,7 +654,6 @@ impl Deeds {
         &self.record
     }
 
-    /// Ticks since the anvil was struck, while its sparks still fly.
     pub fn sparks(&self, tick: u64) -> Option<u32> {
         let since = tick.checked_sub(self.struck?)?;
         (since < SPARKS).then_some(since as u32)

@@ -3,7 +3,11 @@
 # cockpit binary as ANGEL_BUILD_SOURCE_SHA256 and read back by
 # `angel --build-info --json` as "cockpit_source_sha256".
 #
-# Current scheme: angel-source-v7, v6's inventory plus the shared native loader.
+# Source identity inventory: angel-source-v8
+# Current scheme: angel-source-v8, v7's inventory plus the kingdom catalogue.
+# A revision opts into v8 through the marker above in its committed helper;
+# catalogue presence alone cannot change an older revision's recorded digest.
+# Scheme v7 includes v6's inventory plus the shared native loader.
 # Scheme v4 includes v3's inventory plus runtime resources
 # embedded from outside cockpit/. Older revisions retain their original scheme.
 # Scheme v3 includes crates/, the engine's path dependencies. Scheme v2 covers
@@ -58,7 +62,9 @@ V5_RUNTIME_INPUTS=("${V4_RUNTIME_INPUTS[@]}" lib/control/slash-help.json)
 V5_BUILD_INPUTS=("${V3_BUILD_INPUTS[@]}" "${V5_RUNTIME_INPUTS[@]}")
 V6_RUNTIME_INPUTS=("${V5_RUNTIME_INPUTS[@]}" lib/knowledge/lesson-routing.json)
 V6_BUILD_INPUTS=("${V3_BUILD_INPUTS[@]}" "${V6_RUNTIME_INPUTS[@]}")
-EMBEDDED_RUNTIME_INPUTS=("${V6_RUNTIME_INPUTS[@]}" lib/native/native_module.rs)
+V7_RUNTIME_INPUTS=("${V6_RUNTIME_INPUTS[@]}" lib/native/native_module.rs)
+V7_BUILD_INPUTS=("${V3_BUILD_INPUTS[@]}" "${V7_RUNTIME_INPUTS[@]}")
+EMBEDDED_RUNTIME_INPUTS=("${V7_RUNTIME_INPUTS[@]}" delve/kingdom/frontier.json)
 BUILD_INPUTS=("${V3_BUILD_INPUTS[@]}" "${EMBEDDED_RUNTIME_INPUTS[@]}")
 
 # Git status omits ignored untracked files, but rustc can still embed them.
@@ -74,37 +80,51 @@ ignored_untracked_runtime_inputs() {
   done
 }
 
-# Select by the files present in the revision, preserving old receipt digests.
+# An explicit inventory declaration takes precedence; older revisions keep
+# their presence-based selection and recorded receipt digests.
 scheme_of() {
-  local input
-  for input in "${V4_RUNTIME_INPUTS[@]}"; do
-    if ! git -C "$root" rev-parse -q --verify "$1:$input" >/dev/null; then
-      if git -C "$root" rev-parse -q --verify "$1:crates" >/dev/null; then
-        echo angel-source-v3
-      else
-        echo angel-source-v2
-      fi
-      return
+  local input object index=0 runtime=1 crates=0 help=0 lessons=0 native=0
+  local objects
+  # The catalogue already existed in v7 revisions. Read the committed helper,
+  # not catalogue presence or working-tree contents. Missing v8 inputs must
+  # fail during object resolution, never downgrade to an older inventory.
+  if git -C "$root" show "$1:scripts/check/cockpit-source-digest.sh" 2>/dev/null |
+    grep -Fx '# Source identity inventory: angel-source-v8' >/dev/null; then
+    echo angel-source-v8
+    return
+  fi
+  # Probe the inventory in one Git process. Missing objects are reported as
+  # "<revision>:<path> missing"; existing objects produce only their object ID.
+  objects=$(
+    for input in "${V4_RUNTIME_INPUTS[@]}" crates lib/control/slash-help.json \
+      lib/knowledge/lesson-routing.json lib/native/native_module.rs; do
+      printf '%s\n' "$1:$input"
+    done | git -C "$root" cat-file --batch-check='%(objectname)'
+  ) || return
+  while IFS= read -r object; do
+    if [[ "$object" == *' missing' ]]; then
+      if ((index < ${#V4_RUNTIME_INPUTS[@]})); then runtime=0; fi
+    elif ((index == ${#V4_RUNTIME_INPUTS[@]})); then crates=1
+    elif ((index == ${#V4_RUNTIME_INPUTS[@]} + 1)); then help=1
+    elif ((index == ${#V4_RUNTIME_INPUTS[@]} + 2)); then lessons=1
+    elif ((index == ${#V4_RUNTIME_INPUTS[@]} + 3)); then native=1
     fi
-  done
-  if git -C "$root" rev-parse -q --verify "$1:crates" >/dev/null; then
-    if git -C "$root" rev-parse -q --verify "$1:lib/control/slash-help.json" >/dev/null; then
-      if git -C "$root" rev-parse -q --verify "$1:lib/knowledge/lesson-routing.json" >/dev/null; then
-        if git -C "$root" rev-parse -q --verify "$1:lib/native/native_module.rs" >/dev/null; then
-          echo angel-source-v7
-        else
-          echo angel-source-v6
-        fi
-      else
-        echo angel-source-v5
-      fi
-    else
-      echo angel-source-v4
-    fi
-  else
+    index=$((index + 1))
+  done <<< "$objects"
+  if (( ! crates )); then
     # An unusual older revision may contain runtime files without crates/.
     # Its build inputs are still the historical v2 inventory.
     echo angel-source-v2
+  elif (( ! runtime )); then
+    echo angel-source-v3
+  elif (( ! help )); then
+    echo angel-source-v4
+  elif (( ! lessons )); then
+    echo angel-source-v5
+  elif (( ! native )); then
+    echo angel-source-v6
+  else
+    echo angel-source-v7
   fi
 }
 
@@ -120,6 +140,7 @@ source_digest() {
     angel-source-v4) inputs=("${V4_BUILD_INPUTS[@]}") ;;
     angel-source-v5) inputs=("${V5_BUILD_INPUTS[@]}") ;;
     angel-source-v6) inputs=("${V6_BUILD_INPUTS[@]}") ;;
+    angel-source-v7) inputs=("${V7_BUILD_INPUTS[@]}") ;;
   esac
   for input in "${inputs[@]}"; do revs+=("$revision:$input"); done
   object_ids=$(git -C "$root" rev-parse "${revs[@]}") || return

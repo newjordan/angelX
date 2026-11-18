@@ -1,8 +1,6 @@
 use super::*;
 #[test]
 fn embedded_catalog_matches_compiled_original_baseline() {
-    // Captured after comparing every name, description and schema with the
-    // independently compiled original definitions.
     assert_eq!(
         crate::knowledge::cut::sha256_hex(EMBEDDED.as_bytes()),
         "327bbe6700ef68cd2c9606f750517c8716adf188ca863b2ec36845c753410947"
@@ -268,7 +266,7 @@ fn concurrent_turns_and_late_nested_seats_keep_distinct_generations() {
             child.tool_generation.as_ref().cloned().unwrap()
         });
         ready_rx.recv().unwrap();
-        drop(parent); // Parent returned or was cancelled; the late seat still owns its Arc.
+        drop(parent);
         go_tx.send(()).unwrap();
         assert!(Arc::ptr_eq(&worker.join().unwrap(), &late_generation));
     });

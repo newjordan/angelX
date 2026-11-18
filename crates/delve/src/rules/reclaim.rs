@@ -30,27 +30,17 @@ pub mod rooms;
 pub use play::{HallPlay, Play, Talk, TalkView, Who};
 pub use rooms::{add_lost_hall, lost_hall_room};
 
-/// A lost hall of Caer Dwfn.
 pub struct Hall {
     pub id: &'static str,
     pub name: &'static str,
-    /// The delve whose floors it hangs off.
     pub pack: Pack,
-    /// Who holds it, and how they are called on the party's screen.
     pub keeper: &'static str,
-    /// The King's ask, in his words.
     pub asks: &'static str,
-    /// What he tells of the hall when he is asked.
     pub lore: &'static str,
-    /// His thanks, paid once when the hall is won.
     pub thanks: &'static [(Spoil, u32)],
-    /// Its rent, for every floor the party clears.
     pub rent: &'static [(Spoil, u32)],
-    /// Extra rent when the hall was won the second way (a bargain).
     pub rent_bargain: &'static [(Spoil, u32)],
-    /// Dwarves who come home with it, to his crew.
     pub crew: u32,
-    /// How it can be won.
     pub ways: &'static [&'static str],
 }
 
@@ -100,13 +90,10 @@ pub fn hall(id: &str) -> Option<&'static Hall> {
     HALLS.iter().find(|h| h.id == id)
 }
 
-/// The hall that hangs off the floors of `pack`, if there is one.
 pub fn hall_of(pack: Pack) -> Option<(usize, &'static Hall)> {
     HALLS.iter().enumerate().find(|(_, h)| h.pack == pack)
 }
 
-/// Chief Nubbin's toll, in gold: his clan leave the gallery for it and
-/// stay on as the King's tenants, digging ore at the face.
 pub const TOLL: u32 = 300;
 
 fn spoils(list: &[(Spoil, u32)]) -> Spoils {
@@ -123,22 +110,16 @@ impl Hall {
     }
 }
 
-/// A hall won: which, and the way it was won.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Won {
     pub id: String,
     pub how: String,
 }
 
-/// The halls of Caer Dwfn the realm has taken back, kept inside the
-/// barony. Every field defaults, so an older realm loads as one that has
-/// taken none.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Halls {
-    /// The hall the King has sent the party to now, by place in `HALLS`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asked: Option<u8>,
-    /// Halls won, in the order they fell.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub won: Vec<Won>,
 }
@@ -156,13 +137,10 @@ impl Halls {
         self.won.iter().find(|w| w.id == id).map(|w| w.how.as_str())
     }
 
-    /// How many halls are the King's.
     pub fn count(&self) -> usize {
         self.won.len()
     }
 
-    /// The hall he can send the party to next, if he can: he has been met,
-    /// none is asked now, and every hall before it is his.
     pub fn offer(&self, b: &Barony) -> Option<(usize, &'static Hall)> {
         if b.court < Court::Met || self.asked.is_some() {
             return None;
@@ -170,18 +148,15 @@ impl Halls {
         HALLS.iter().enumerate().find(|(_, h)| !self.is_held(h.id))
     }
 
-    /// The hall he has sent the party to, if any.
     pub fn asked_hall(&self) -> Option<(usize, &'static Hall)> {
         let i = usize::from(self.asked?);
         HALLS.get(i).map(|h| (i, h))
     }
 
-    /// Dwarves home from the halls the party has won.
     pub fn crew(&self) -> u32 {
         self.won.iter().filter_map(|w| hall(&w.id)).map(|h| h.crew).sum()
     }
 
-    /// What the halls pay in, for every floor the party clears.
     pub fn rent(&self) -> Spoils {
         let mut t = Spoils::default();
         for w in &self.won {
@@ -195,22 +170,18 @@ impl Halls {
     }
 }
 
-/// The mark a knight leaves at the King's word that they will take a hall.
 pub fn ask_mark(i: usize) -> String {
     format!("reclaim:ask:{i}")
 }
 
-/// The mark of Nubbin's toll, paid.
 pub fn toll_mark(i: usize) -> String {
     format!("reclaim:toll:{i}")
 }
 
-/// The mark of a hall played out, and how.
 pub fn won_mark(i: usize, how: &str) -> String {
     format!("reclaim:won:{i}:{how}")
 }
 
-/// The cockpit's half: the King's word taken, a toll paid, a hall won.
 pub fn settle(realm: &mut Realm<'_>, marks: &BTreeMap<String, u32>) -> Settled {
     let mut out = Settled::default();
     let b = &mut realm.home.barony;
@@ -264,7 +235,6 @@ pub fn settle(realm: &mut Realm<'_>, marks: &BTreeMap<String, u32>) -> Settled {
     out
 }
 
-/// A hall is the King's: his thanks, his crew, the ledger and the word.
 fn win(b: &mut Barony, treasury: &mut Spoils, i: usize, how: &str, out: &mut Settled) {
     let hall = &HALLS[i];
     b.halls.asked = None;

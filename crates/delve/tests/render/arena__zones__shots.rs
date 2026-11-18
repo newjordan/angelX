@@ -15,7 +15,6 @@ use std::collections::BTreeMap;
 const W: i32 = 384;
 const H: i32 = 224;
 
-/// What a wish that painted its own look adds to a card: a flame-horn, `draw shot`.
 const PAINTED: &str = "draw shot\n\
 .....9.....\n\
 ....969....\n\
@@ -29,7 +28,6 @@ const PAINTED: &str = "draw shot\n\
 .@@66666@@.\n\
 ..@@@@@@@..\n\n";
 
-/// A fight room with the knight at (12, 14) facing east and a wished card in slot one.
 fn room(spell: &str, crowd: &[(EnemyKind, f32, f32)]) -> Run {
     let mut run = Run::new(21, 1, None);
     let fight = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
@@ -51,7 +49,6 @@ fn room(spell: &str, crowd: &[(EnemyKind, f32, f32)]) -> Run {
     run
 }
 
-/// Twelve to fourteen foes of a few kinds in loose ranks east of the knight.
 fn crowd() -> Vec<(EnemyKind, f32, f32)> {
     let kinds = [EnemyKind::Skeleton, EnemyKind::Goblin, EnemyKind::Hob, EnemyKind::Imp, EnemyKind::Skeleton];
     (0..14)
@@ -64,8 +61,6 @@ fn crowd() -> Vec<(EnemyKind, f32, f32)> {
         .collect()
 }
 
-/// The same crowd of foes too sturdy to die in a bench window, so a spell that kills draws no more
-/// finishers than a plain cast that does not.
 fn sturdy() -> Vec<(EnemyKind, f32, f32)> {
     crowd().into_iter().map(|(_, x, y)| (EnemyKind::Demon, x, y)).collect()
 }
@@ -86,7 +81,6 @@ struct Scene {
     name: &'static str,
     spell: &'static str,
     ticks: usize,
-    /// The knight holds fire (aimed east) from this tick: a frozen foe killed by an ordinary shot shatters.
     fire_from: Option<usize>,
     crop: (i32, i32, i32, i32),
     guides: bool,
@@ -123,7 +117,6 @@ fn write_zone_shots() {
         std::fs::create_dir_all(&dir).unwrap();
         super::guides(scene.guides);
         let mut run = room(scene.spell, &crowd());
-        // A beat of the room as it stood before the cast.
         let mut n = 0;
         for _ in 0..6 {
             save(&dir, n, &run, scene.crop);
@@ -150,7 +143,6 @@ fn write_zone_shots() {
     }
 }
 
-/// Frame time with an area cast live against the same room with a plain cast live.
 #[test]
 #[ignore]
 fn zone_frame_time() {
@@ -172,10 +164,6 @@ fn zone_frame_time() {
         times.sort_by(f64::total_cmp);
         times.iter().sum::<f64>() / times.len() as f64
     };
-    // Each spell against a plain ring cast, measured back to back nine times over (the box is shared, so
-    // a ratio of two runs side by side is steadier than two runs apart): the median ratio, the best, and
-    // the frame in milliseconds. First with the proof crowd (what the spell kills draws its finishers),
-    // then with foes too sturdy to die.
     for (label, foes) in [("proof crowd", crowd()), ("sturdy crowd", sturdy())] {
         let plain: Vec<f64> = (0..3).map(|_| measure("cast ring", 2, 60, &foes)).collect();
         eprintln!("{label}: plain ring {:.2} ms a frame", plain.iter().sum::<f64>() / 3.0);
@@ -199,8 +187,6 @@ fn zone_frame_time() {
     }
 }
 
-/// A frame with the zones' own passes left out, as the same room is drawn with its stunned, burning and
-/// chilled foes: what the rest of the game's picture costs while the spell is on.
 #[test]
 #[ignore]
 fn zone_frame_time_without_the_passes() {
@@ -246,7 +232,6 @@ fn zone_frame_time_without_the_passes() {
     }
 }
 
-/// What each pass of the zones costs alone, by scene and age: where a frame's time goes.
 #[test]
 #[ignore]
 fn zone_pass_time() {
@@ -285,7 +270,6 @@ fn zone_pass_time() {
     }
 }
 
-/// Where the storm field's picture spends: each part left out in turn.
 #[test]
 #[ignore]
 fn zone_storm_parts() {

@@ -4,8 +4,6 @@
 
 use super::*;
 
-/// Old saves start with the first belt; the tick restores their floor's
-/// allowance before a card or town shop can grant a charge.
 pub fn old_belt() -> u32 {
     5
 }
@@ -13,14 +11,10 @@ pub fn old_belt() -> u32 {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Provision {
     pub damage: u32,
-    /// Simulation units; the same reach for foes and hostile shots.
     pub radius: f32,
     pub cap: u32,
-    /// Extra chance per real slain foe, alongside the ordinary loot draw.
     pub drop_percent: u32,
-    /// Charges in each knight's share of a dropped bomb card.
     pub drop_charges: u32,
-    /// Charges added once on descending, never on entering a room.
     pub restock: u32,
 }
 
@@ -75,19 +69,15 @@ pub const FLOORS: [Provision; 6] = [
     },
 ];
 
-/// Town uses the first belt; endless floors keep the last provision.
 pub fn at(depth: u32) -> Provision {
     FLOORS[depth.saturating_sub(1).min(5) as usize]
 }
 
 impl Hero {
-    /// Current floor allowance, bounded even for a malformed saved belt.
     pub fn bomb_limit(&self) -> u32 {
         self.bomb_capacity.clamp(old_belt(), MAX_BOMBS)
     }
 
-    /// A shallower belt never confiscates charges already earned. Full
-    /// belts refuse a pickup rather than spending the card for no gain.
     pub(super) fn give_bombs(&mut self, charges: u32) {
         self.bombs = if self.bombs < self.bomb_limit() {
             self.bombs.saturating_add(charges).min(self.bomb_limit())
@@ -109,7 +99,6 @@ impl Run {
         }
     }
 
-    /// A separate, depth-owned draw keeps ordinary card weights intact.
     pub(super) fn drop_bombs(&mut self, kind: EnemyKind, x: f32, y: f32) {
         if !matches!(kind, EnemyKind::Dummy | EnemyKind::Ward)
             && self.book.get("bomb").is_some()

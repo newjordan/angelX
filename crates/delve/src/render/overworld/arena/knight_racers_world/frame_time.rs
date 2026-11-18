@@ -4,7 +4,6 @@ use super::super::*;
 use crate::rules::Input;
 use std::time::Instant;
 
-/// Median, min and max of `n` renders of `layers(&run, Some(1))`, in ms.
 fn time_frames(run: &Run, n: usize) -> (f64, f64, f64) {
     let _ = layers(run, Some(1));
     let mut ms: Vec<f64> = (0..n).map(|_| {
@@ -20,7 +19,7 @@ fn time_frames(run: &Run, n: usize) -> (f64, f64, f64) {
 fn frame_time_around_the_lap() {
     if std::env::var_os("ANGEL_PODRACER_TIMES").is_none() { return; }
     let mut run = Run::roundtable_for_test("knight_racers").unwrap();
-    let id = match std::env::var("ANGEL_PODRACER_COURSE").ok().as_deref() { Some("1") => rules::CourseId::Emberfall, Some("2") => rules::CourseId::Glassway, Some("3") => rules::CourseId::Moatwalk, _ => rules::CourseId::Proving };
+    let id = match std::env::var("ANGEL_PODRACER_COURSE").ok().as_deref() { Some("1") => rules::CourseId::Emberfall, Some("2") => rules::CourseId::Glassway, Some("3") => rules::CourseId::Moatwalk, Some("4") => rules::CourseId::Moonward, Some("5") => rules::CourseId::Sunfall, _ => rules::CourseId::Proving };
     let mut race = rules::Session::blank_on(id);
     race.join_ids(1..=6);
     let _ = Input::default();
@@ -51,12 +50,9 @@ fn frame_time_around_the_lap() {
 }
 
 fn course_by_digit(c: &str) -> rules::CourseId {
-    match c { "1" => rules::CourseId::Emberfall, "2" => rules::CourseId::Glassway, "3" => rules::CourseId::Moatwalk, _ => rules::CourseId::Proving }
+    match c { "1" => rules::CourseId::Emberfall, "2" => rules::CourseId::Glassway, "3" => rules::CourseId::Moatwalk, "4" => rules::CourseId::Moonward, "5" => rules::CourseId::Sunfall, _ => rules::CourseId::Proving }
 }
 
-/// Courses timed against each other: `ANGEL_PODRACER_COMPARE=0,2` runs every point of both
-/// laps in turn, round after round, so a busy machine slows them alike. Prints each course's
-/// mean of per-point medians and its ratio to the first.
 #[test]
 fn frame_time_compared() {
     let Some(list) = std::env::var("ANGEL_PODRACER_COMPARE").ok() else { return };
@@ -65,7 +61,6 @@ fn frame_time_compared() {
     let mut run = Run::roundtable_for_test("knight_racers").unwrap();
     let mut races: Vec<rules::Session> = ids.iter().map(|&id| { let mut r = rules::Session::blank_on(id); r.join_ids(1..=6); r }).collect();
     let points = 8;
-    // times[course][point] = every sample, ms
     let mut times: Vec<Vec<Vec<f64>>> = vec![vec![Vec::new(); points]; ids.len()];
     for k in 0..points {
         for round in 0..rounds {

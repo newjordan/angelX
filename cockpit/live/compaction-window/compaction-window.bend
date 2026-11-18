@@ -1,15 +1,5 @@
 import Base
 
-# Which span of history gets compacted, given a recent-message tail and a
-# recent-token tail. Rust owns every textual question — which leading messages
-# are the pinned preamble, which messages carry a Tool role, and what a message
-# costs in estimated tokens — and hands this module one record per message. The
-# choice of `[start, end)` is the whole of this module, mirroring
-# `select_window_with_token_tail` in cockpit/src/agent/compaction.rs.
-#
-# Bend only matches parameters and record fields, so every boundary test below
-# is computed by a small def and passed into the def that branches on it.
-
 type Msg is Data:
   Say{pinned: Bool, tool: Bool, weight: U32}
 
@@ -24,7 +14,6 @@ def messages(+xs: List<&2, Msg>) -> U32:
     case Con{head, rest}:
       (messages(rest) + 1 : U32)
 
-# The pinned preamble is never compacted, so the window starts after it.
 def preamble(+xs: List<&2, Msg>) -> U32:
   match xs:
     case Nil{}:
@@ -38,7 +27,6 @@ def preamble(+xs: List<&2, Msg>) -> U32:
             case False{}:
               0
 
-# Reverse the history so the tail can be walked newest-first.
 def backwards(+xs: List<&2, Msg>, +acc: List<&2, Msg>) -> List<&2, Msg>:
   match xs:
     case Nil{}:
@@ -46,8 +34,6 @@ def backwards(+xs: List<&2, Msg>, +acc: List<&2, Msg>) -> List<&2, Msg>:
     case Con{head, rest}:
       backwards(rest, Con{head, acc})
 
-# `inside` says the walk has not yet reached the preamble; `short` says the
-# retained tail still owes tokens or its two-message floor.
 def walk(
   +newest: List<&2, Msg>,
   +inside: Bool,
@@ -82,8 +68,6 @@ def walk(
                     U32.inc(k),
                     U32.add(spent, weight))
 
-# The first index of the retained tail. `k` retained messages always satisfy the
-# two-message floor's first step, so the walk starts with `short` true.
 def retained(+newest: List<&2, Msg>, +len: U32, +sys_end: U32, +keep: U32) -> U32:
   walk(newest, U32.is_gt(len, sys_end), True{}, len, sys_end, keep, 0, 0)
 
@@ -101,8 +85,6 @@ def dropped(+xs: List<&2, Msg>, +at_zero: Bool, +n: U32) -> List<&2, Msg>:
 def drop_at(+xs: List<&2, Msg>, +n: U32) -> List<&2, Msg>:
   dropped(xs, U32.is_eq(n, 0), n)
 
-# The kept suffix must not begin on a tool result orphaned from its call, so the
-# window end advances past every leading Tool message of that suffix.
 def advance(+xs: List<&2, Msg>, +at: U32) -> U32:
   match xs:
     case Nil{}:
@@ -116,7 +98,6 @@ def advance(+xs: List<&2, Msg>, +at: U32) -> U32:
             case False{}:
               at
 
-# Nothing worth a summarizer round-trip: no live tail, or a sliver.
 def settle(+late: Bool, +sliver: Bool, +sys_end: U32, +last: U32) -> Decision:
   match late:
     case True{}:

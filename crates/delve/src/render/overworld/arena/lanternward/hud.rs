@@ -11,13 +11,10 @@ use crate::rules::lanternward::{
 };
 
 thread_local! {
-    /// Every box of words drawn this frame (tests only): no two may meet and
-    /// none may leave the picture.
     #[cfg(test)]
     pub(super) static CLAIMS: std::cell::RefCell<Vec<(&'static str, (i32, i32, i32, i32))>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
-/// Note a box of words on this frame, for the tests that look for words meeting.
 pub(super) fn claim(what: &'static str, rect: (i32, i32, i32, i32)) {
     #[cfg(test)]
     CLAIMS.with(|c| c.borrow_mut().push((what, rect)));
@@ -36,12 +33,10 @@ fn centred(im: &mut Img, cx: i32, y: i32, s: &str, ink: char) {
     label(im, cx - text_width(s) / 2, y, s, ink);
 }
 
-/// Words on a dark plate, centred on `cx`.
 pub(super) fn plate_text(im: &mut Img, cx: i32, y: i32, s: &str, ink: char) {
     centred(im, cx, y, s, ink);
 }
 
-/// A heart with `q` quarters filled.
 fn heart(im: &mut Img, x: i32, y: i32, q: u32, pulse: bool) {
     const SHAPE: [&str; 6] = [".XX.XX.", "XXXXXXX", "XXXXXXX", ".XXXXX.", "..XXX..", "...X..."];
     let full = if pulse { 'w' } else { '7' };
@@ -50,7 +45,6 @@ fn heart(im: &mut Img, x: i32, y: i32, q: u32, pulse: bool) {
             if b != b'X' {
                 continue;
             }
-            // Fill from the bottom up, a quarter of the rows each.
             let from_bottom = 5 - r as u32;
             let on = from_bottom * 4 < q * 6;
             im.put(x + c as i32, y + r as i32, if on { full } else { 'X' });
@@ -74,7 +68,6 @@ fn small_key(im: &mut Img, x: i32, y: i32, ink: char) {
     im.put(x + 5, y + 2, ink);
 }
 
-/// The mini map: five rooms in a row, this one lit, the done ones filled.
 fn minimap(im: &mut Img, s: &Session, x: i32, y: i32) {
     for r in 0..5 {
         let bx = x + r * 9;
@@ -98,12 +91,8 @@ pub(super) fn draw(im: &mut Img, v: &View) {
     leave_bar(im, v);
 }
 
-/// The top of the screen, in the first 32 pixels (the terminal's text rows
-/// cover exactly these): hearts, then gems, keys and the lantern's flame; the
-/// table's other knights in the middle; the map in the corner.
 fn top_bar(im: &mut Img, v: &View, k: &Seat) {
     let s = v.s;
-    // Hearts.
     let hearts = k.max_hp.div_ceil(lw::HEART);
     im.rect(2, 2, (hearts.min(10) as i32) * 9 + 3, 12, 'k');
     for h in 0..hearts.min(10) {
@@ -112,7 +101,6 @@ fn top_bar(im: &mut Img, v: &View, k: &Seat) {
         let low = k.hp <= lw::LOW_HP && k.hp > 0 && (v.tick / 8).is_multiple_of(2) && q > 0;
         heart(im, 4 + col * 9, 4, q, low);
     }
-    // Gems, bombs, keys, then the flame (and the ember's taper under it).
     let y = 16;
     im.rect(2, y - 1, 118, 9, 'k');
     gem(im, 4, y);
@@ -148,7 +136,6 @@ fn top_bar(im: &mut Img, v: &View, k: &Seat) {
         im.rect(2, y + 9, 30, 6, 'k');
         im.rect(4, y + 11, w, 2, 'O');
     }
-    // The table's other knights, in a row along the top.
     let mut rx = 132;
     for (&id, o) in &s.seats {
         if id == v.id {
@@ -165,15 +152,12 @@ fn top_bar(im: &mut Img, v: &View, k: &Seat) {
         }
         rx += 32;
     }
-    // The map in the corner.
     if s.inv.map {
         im.rect(331, 2, 51, 9, 'k');
         minimap(im, s, 333, 4);
     }
 }
 
-/// The wick-wisp: a small light that floats by the knight and tells them
-/// the one thing to try.
 fn wisp(im: &mut Img, v: &View, k: &Seat) {
     let (x, y) = (v.x(k.x) + 16, v.y(k.y) - 26);
     let bob = [0, -1, -2, -1][(v.tick / 4 % 4) as usize];
@@ -182,14 +166,11 @@ fn wisp(im: &mut Img, v: &View, k: &Seat) {
 
 fn bottom(im: &mut Img, v: &View, k: &Seat) {
     let s = v.s;
-    // What E would do.
     let text = lw::hint::context(k);
     let ink = if k.ctx == Ctx::None { 'u' } else { '6' };
     if k.act == Act::Free || k.act == Act::Item {
         label(im, 380 - text_width(&text), 215, &text, ink);
     }
-    // A sign or a kingsman being read, else a locked switch's hint, else
-    // the wisp's line.
     if k.read.is_some() {
         if let Some(words) = lw::hint::line(s, k, &lw::Rules::of(&v.run.tune)) {
             centred(im, 192, 205, &words, 'H');
@@ -209,7 +190,6 @@ fn boss_bar(im: &mut Img, v: &View) {
     let (x, y, width) = (126, 197, 200);
     let open = v.s.boss_open();
     let stunned = w.st == Ws::Stagger;
-    // A frame that lights when the heart is open and flashes when it is stunned.
     let rim = if stunned && (v.tick / 3).is_multiple_of(2) { 'w' } else if open { '6' } else { 'g' };
     im.rect(x - 2, y - 11, width + 4, 18, 'k');
     im.frame(x - 2, y - 11, width + 4, 18, rim);
@@ -230,11 +210,9 @@ fn boss_bar(im: &mut Img, v: &View) {
     let fill = (u64::from(w.hp) * width as u64 / u64::from(w.full.max(1))) as i32;
     im.rect(x, y, fill, 4, if open { '6' } else { 'R' });
     im.rect(x, y, fill, 1, if open { 'w' } else { '7' });
-    // A bright bead on the edge of what is left, shining while it is struck.
     if w.flinch > 0 {
         im.rect((x + fill - 2).max(x), y - 1, 3, 6, 'w');
     }
-    // The thirds, and a pip for each phase it has been driven through.
     for t in [1, 2] {
         im.rect(x + width * t / 3, y - 1, 1, 6, 'k');
     }

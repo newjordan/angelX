@@ -26,8 +26,6 @@ fn new_posterns_are_clear_at_walking_height_and_the_yard_has_no_tree_trunk() {
             !(center.0 > 17.0 && center.1 > 20.0),
             "tree grew inside stable yard"
         );
-        // Check the rendered road cells, not the exclusion predicate that
-        // chose the trees. A small setback keeps the walking strip open.
         for path in scene.tris.iter().filter(|t| t.mat == mat::PATH) {
             let min_x = path.v.iter().map(|v| v.x).fold(f32::INFINITY, f32::min);
             let max_x = path.v.iter().map(|v| v.x).fold(f32::NEG_INFINITY, f32::max);

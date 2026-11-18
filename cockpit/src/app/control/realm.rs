@@ -20,17 +20,8 @@ pub(crate) type GameHost = crate::delve::cart::Delve;
 #[cfg(not(feature = "delve"))]
 pub(crate) type GameHost = crate::console::Shelf;
 
-/// A club as the realm's oracle: one buffered reply, allowed at least the
-/// asked-for time (a longer bound the operator set stands), at the realm's
-/// own reasoning effort (`realm_effort`).
 struct ClubOracle(Arc<dyn crate::agent::club::Club>);
 
-/// What a realm ask (a wish's entry, its mend, a salvage design) reasons at
-/// when its club has an effort to choose: `ANGEL_WISH_EFFORT`, `medium`
-/// unless set, `inherit` for the club's own. The club in hand reasons at the
-/// cockpit's effort, and on 2026-11-04 that was xhigh: six wishes at once
-/// took 83-172 s a call and two of six were handed back, where at medium
-/// they took 9-31 s and five of six landed (`stress_real_model_wishes`).
 const REALM_EFFORT: &str = "medium";
 
 fn realm_effort() -> Option<String> {
@@ -49,8 +40,6 @@ pub(crate) fn club_oracle(club: Arc<dyn crate::agent::club::Club>) -> Arc<dyn Or
 impl Oracle for ClubOracle {
     fn respond(&self, prompt: &str, at_least: std::time::Duration) -> Result<String, String> {
         crate::agent::club::with_read_timeout_at_least(at_least, || {
-            // Only a route with an effort to choose, and only a level it has;
-            // any other club is asked as it always was.
             let effort = realm_effort()
                 .filter(|_| self.0.reasoning_effort().is_some())
                 .and_then(|wanted| self.0.checked_launch_effort(&wanted).ok());
@@ -76,7 +65,6 @@ impl Oracle for ClubOracle {
     }
 }
 
-/// The cockpit's state as the game sees it for one call.
 pub(crate) struct AppCx<'a> {
     facts: Facts,
     tools: &'a crate::agent::harness::ToolRegistry,
@@ -128,7 +116,6 @@ impl HostCx for AppCx<'_> {
 }
 
 impl App {
-    /// What the game reads of the cockpit's state.
     pub(crate) fn realm_facts(&self) -> Facts {
         Facts {
             composer_empty: self.input.is_empty(),
@@ -153,8 +140,6 @@ impl App {
         }
     }
 
-    /// Run `f` on the game with the cockpit's context, then make the moves it
-    /// asked for.
     pub(crate) fn with_realm<R>(
         &mut self,
         f: impl FnOnce(&mut GameHost, &mut AppCx<'_>) -> R,
@@ -221,7 +206,6 @@ impl App {
         Some(result)
     }
 
-    /// The larger moves the game asked for, in the order asked.
     fn make_moves(&mut self, moves: Vec<Move>) {
         for ask in moves {
             match ask {
@@ -272,8 +256,6 @@ impl App {
         }
     }
 
-    // ---- the keyboard and the pointer
-
     pub(crate) fn dungeon_key(&mut self, key: event::KeyEvent) -> bool {
         if let Some(index) = self.cart_on_screen() {
             return self.cart_key(index, key);
@@ -311,8 +293,6 @@ impl App {
         self.with_realm(|realm, cx| RealmHost::collapse(realm, cx));
     }
 
-    // ---- the commands
-
     pub(crate) fn dungeon_command(&mut self, argument: Option<&str>) -> String {
         self.realm.loop_snapshot(&|| self.loop_ctl.feed_facts());
         self.with_realm(|realm, cx| RealmHost::command(realm, cx, argument))
@@ -322,9 +302,6 @@ impl App {
         self.with_realm(|realm, cx| RealmHost::walk_from_command(realm, cx))
     }
 
-    // ---- the cadence
-
-    /// The event loop's step for the game.
     pub(crate) fn tick_realm(&mut self) {
         self.with_realm(|realm, cx| RealmHost::tick(realm, cx));
         self.tick_carts();
@@ -337,8 +314,6 @@ impl App {
     pub(crate) fn settle_walk(&mut self) {
         self.with_realm(|realm, cx| RealmHost::settle_walk(realm, cx));
     }
-
-    // ---- the questions
 
     pub(crate) fn dungeon_view_active(&self) -> bool {
         self.cart_on_screen().is_some() || RealmHost::view_active(&self.realm, &self.realm_facts())
@@ -357,7 +332,6 @@ impl App {
             || RealmHost::keyboard_active(&self.realm, &self.realm_facts())
     }
 
-    /// The game wants the fast cadence: the delve plays, or he walks.
     pub(crate) fn realm_wants_fast_tick(&self) -> bool {
         self.cart_on_screen().is_some()
             || RealmHost::wants_fast_tick(&self.realm, &self.realm_facts())
@@ -370,8 +344,6 @@ impl App {
     pub(crate) fn dungeon_step_due(&self) -> Option<std::time::Instant> {
         RealmHost::step_due(&self.realm, &self.realm_facts())
     }
-
-    // ---- the harness's work, counted in the holdings
 
     pub(crate) fn note_ops_call(&mut self, id: &str, name: &str, args: &str) {
         RealmHost::note_call(&mut self.realm, id, name, args);
@@ -400,7 +372,6 @@ impl App {
         }
     }
 
-    /// The harness line under the game: what the turn is doing.
     pub(crate) fn dungeon_harness_status(&self) -> String {
         if self.pending_approval.is_some() {
             "Harness · needs you · Esc to review".into()

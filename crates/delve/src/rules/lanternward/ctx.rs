@@ -3,16 +3,11 @@
 //! knight faces. With nothing to do it is the roll, or, locked on, the hop.
 use super::*;
 
-/// Where the party stands on keys: shared, like the Delve's own.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Hold {
-    /// Not found yet.
     Unfound,
-    /// Carried by a seat, last seen here.
     Carried(u8, i32, i32),
-    /// Put down where its carrier fell.
     Lying(i32, i32),
-    /// Spent on the door.
     Spent,
 }
 
@@ -22,7 +17,6 @@ pub struct Party {
     pub lantern: bool,
     pub small_keys: u8,
     pub boss: Hold,
-    /// Heart containers found.
     pub containers: u8,
 }
 
@@ -32,7 +26,6 @@ impl Default for Party {
     }
 }
 
-/// The item held up for all to see, whose it is and for how long.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Banner {
     pub item: Item,

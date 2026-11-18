@@ -1,9 +1,3 @@
-// Thin adapter for the `layout` rules' Bend leg. Plain JSON in, the compiled
-// leg's rooms out: where each authored room stands, what it is built of and
-// which doorways it opens live in layout-rules.bend. Rust owns the records
-// (`Room`, `Floor`, `Secret`), the tile enum, the room-kind names, the door
-// lanes on a native room, the doors a floor already has, and every rendering
-// question. This file only marshals lists and ids.
 const bend = require('./layout-rules.compiled.js')
 
 const nil = { $: 'Nil' }

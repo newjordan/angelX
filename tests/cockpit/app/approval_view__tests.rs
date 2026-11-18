@@ -60,10 +60,8 @@ fn prompt_wraps_by_words_and_bullets_hang() {
     for row in &text {
         assert!(row.width() <= 30, "{row:?}");
     }
-    // Words move whole to the next line while they fit on one.
     assert!(text.contains(&"• write the approval view and"), "{text:?}");
     assert!(text.contains(&"  its tests today"), "{text:?}");
-    // A bullet's later lines start under its words, not its mark.
     let bullet = text.iter().position(|row| row.starts_with("• write")).unwrap();
     assert!(text[bullet + 1].starts_with("  ") && !text[bullet + 1].starts_with("   "), "{text:?}");
 }
@@ -73,7 +71,6 @@ fn display_width_counts_cells_not_chars() {
     for row in wrap("run 日本語 日本語 日本語 日本語 🧪🧪🧪 now", 9) {
         assert!(row.width() <= 9, "{row:?}");
     }
-    // A word wider than the line breaks by cells.
     let rows = wrap(&"x".repeat(25), 10);
     assert_eq!(rows.len(), 3);
 }
@@ -147,13 +144,11 @@ fn a_scope_cut_to_fit_ends_with_an_ellipsis() {
     let tall = compose("approve?", Some(scope), 0, 34, 40, 3, false);
     let tall_rows = shown(&tall.buffer).lines().filter(|line| line.contains("rows") || line.contains("scope")).count();
     assert!(tall_rows >= 3, "the scope needs several rows at this width\n{}", shown(&tall.buffer));
-    // Room for the headline, the answers and two scope rows only.
     let short = compose("approve?", Some(scope), 0, 34, 12, 3, false);
     let screen = shown(&short.buffer);
     assert!(screen.contains("SCOPE"), "{screen}");
     assert!(screen.lines().any(|line| line.contains("SCOPE") || line.contains('…')) && screen.contains('…'), "{screen}");
     assert!(screen.contains("y  Approve") && screen.contains("n  Deny"), "{screen}");
-    // With one spare row the scope goes whole, not as a lone label.
     let none = compose("approve?", Some(scope), 0, 34, 10, 3, false);
     assert!(!shown(&none.buffer).contains("SCOPE"), "{}", shown(&none.buffer));
 }
@@ -259,12 +254,10 @@ fn the_approval_card_pops_in_with_three_clickable_answers() {
     assert!(screen.contains("run cargo test") && screen.contains("in ~/angelX"), "{screen}");
     assert!(screen.contains("SCOPE  action batch · tests"));
     assert!(screen.contains("y  Approve") && screen.contains("n  Deny"));
-    // Moving the choice moves the pill, not the card.
     let (moved, moved_hits) = card(root, "run cargo test\nin ~/angelX", Some("action batch · tests"), 2).unwrap();
     assert_eq!(moved.area, ask.area);
     assert_eq!(moved.serial, ask.serial, "the same ask keeps its page");
     assert_eq!(moved.cursor_cols.unwrap().0, moved_hits[2].0.x - moved.area.x);
-    // A huge prompt stays on the screen.
     let long = "x\n".repeat(200);
     let (big, _) = card(root, &long, None, 0).unwrap();
     assert!(big.area.bottom() <= root.bottom());

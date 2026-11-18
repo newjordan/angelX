@@ -16,29 +16,24 @@
 
 use crate::knowledge::graph_crop::{Chart, ChartKind};
 
-/// One chart, however it was found.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Plot {
     pub(crate) title: String,
     pub(crate) kind: ChartKind,
     pub(crate) x_label: String,
     pub(crate) y_label: String,
-    /// One label per point (bars name their bars with it).
     pub(crate) labels: Vec<String>,
     pub(crate) xs: Vec<f64>,
-    /// Each series' name and values, one per x.
     pub(crate) series: Vec<(String, Vec<f64>)>,
     pub(crate) x_domain: (f64, f64),
     pub(crate) y_domain: (f64, f64),
 }
 
-/// The most points a smart graph draws, and the most bars and series.
 const MOST_POINTS: usize = 4000;
 const MOST_BARS: usize = 60;
 const MOST_SERIES: usize = 4;
 
 impl Plot {
-    /// The `graph` tool's chart, as planted.
     pub(crate) fn from_chart(chart: &Chart) -> Self {
         let spec = &chart.spec;
         let points: Vec<_> = chart.points.values().collect();
@@ -55,9 +50,6 @@ impl Plot {
         }
     }
 
-    /// A chart read out of a data file's text, when it holds one: CSV
-    /// (with a header row) or JSON (numbers, `[[x, y], ...]`, or rows of
-    /// objects). `None` for anything that is not mostly numbers.
     pub(crate) fn from_data(title: &str, text: &str) -> Option<Self> {
         let trimmed = text.trim_start();
         let table = if trimmed.starts_with('[') || trimmed.starts_with('{') {
@@ -85,17 +77,14 @@ impl Plot {
         let first_is_value = value_cols.first() == Some(&0);
         let rows = &rows[..rows.len().min(MOST_POINTS)];
         let (kind, x_col, labels, xs) = if !first_is_value && header.len() > 1 {
-            // Labels, then values: bars, one per label.
             let rows = &rows[..rows.len().min(MOST_BARS)];
             let labels: Vec<String> = rows.iter().map(|r| r.first().cloned().unwrap_or_default()).collect();
             let xs = (0..rows.len()).map(|i| i as f64).collect();
             (ChartKind::Bar, None, labels, xs)
         } else if value_cols.len() >= 2 {
-            // Numbers against numbers: lines over the first column.
             let xs: Vec<f64> = rows.iter().map(|r| r.first().and_then(|c| number(c)).unwrap_or(f64::NAN)).collect();
             (ChartKind::Line, Some(0), xs.iter().map(|x| short(*x)).collect(), xs)
         } else {
-            // One column of numbers: a line over their order.
             let xs: Vec<f64> = (0..rows.len()).map(|i| i as f64 + 1.0).collect();
             (ChartKind::Line, None, xs.iter().map(|x| short(*x)).collect(), xs)
         };
@@ -153,8 +142,6 @@ impl Plot {
 }
 
 impl Plot {
-    /// The chart's data as CSV: the x (or the bar's name), then each
-    /// series, a header row first.
     pub(crate) fn csv(&self) -> String {
         let field = |text: &str| {
             if text.contains([',', '"', '\n']) { format!("\"{}\"", text.replace('"', "\"\"")) } else { text.to_string() }
@@ -187,8 +174,6 @@ struct Table {
     rows: Vec<Vec<String>>,
 }
 
-/// Comma, tab or semicolon separated, the first row the header. Quotes
-/// around a field are dropped (no embedded separators: data, not prose).
 fn csv_table(text: &str) -> Option<Table> {
     let mut lines = text.lines().filter(|l| !l.trim().is_empty());
     let head = lines.next()?;
@@ -206,9 +191,6 @@ fn csv_table(text: &str) -> Option<Table> {
     Some(Table { header, rows })
 }
 
-/// JSON shapes a chart can come from: `[n, ...]`, `[[x, y], ...]`,
-/// `[{"k": v, ...}, ...]` (object keys are the columns), or one object of
-/// equal-length arrays.
 fn json_table(text: &str) -> Option<Table> {
     let value: serde_json::Value = serde_json::from_str(text).ok()?;
     let cell = |v: &serde_json::Value| match v {
@@ -261,7 +243,6 @@ fn number(text: &str) -> Option<f64> {
     t.parse::<f64>().ok().filter(|v| v.is_finite())
 }
 
-/// A domain padded out to round ticks.
 fn nice_domain(lo: f64, hi: f64) -> (f64, f64) {
     let (lo, hi) = if hi > lo { (lo, hi) } else { (lo - 1.0, hi + 1.0) };
     let step = nice_step((hi - lo) / 5.0);
@@ -276,7 +257,6 @@ fn nice_step(raw: f64) -> f64 {
     nice * mag
 }
 
-/// A number as a tick reads: short, no trailing zeros.
 fn short(v: f64) -> String {
     if !v.is_finite() {
         return String::new();
@@ -302,19 +282,13 @@ fn short(v: f64) -> String {
     }
 }
 
-// ------------------------------------------------------------- drawing ----
-
-/// The hollow of a line's points: the glass's own dark.
 const PAPER: [u8; 3] = [12, 14, 18];
 const GRID: [u8; 4] = [255, 255, 255, 14];
 const AXIS: [u8; 4] = [255, 255, 255, 40];
 const INK: [u8; 3] = [150, 156, 166];
-/// The data: the warm accent first, then the cool greys of the realm.
 const SERIES: [[u8; 3]; 4] = [[196, 134, 92], [143, 163, 168], [128, 140, 196], [176, 170, 150]];
 const BAR: [u8; 3] = [66, 80, 132];
 
-/// A straight-RGBA drawing surface with anti-aliased marks (shared with
-/// the Heartglass's plate, `ui::heartglass::hud`).
 pub(crate) struct Canvas {
     pub(crate) w: usize,
     pub(crate) h: usize,
@@ -322,12 +296,10 @@ pub(crate) struct Canvas {
 }
 
 impl Canvas {
-    /// Clear: the chart is drawn on the showcase's glass, not on paper.
     pub(crate) fn new(w: usize, h: usize) -> Self {
         Self { w, h, rgba: vec![0; w * h * 4] }
     }
 
-    /// `[r, g, b]` at coverage `a` over what is there, straight alpha.
     pub(crate) fn blend(&mut self, x: i64, y: i64, [r, g, b]: [u8; 3], a: f32) {
         if a <= 0.0 || x < 0 || y < 0 || x >= self.w as i64 || y >= self.h as i64 {
             return;
@@ -358,7 +330,6 @@ impl Canvas {
         }
     }
 
-    /// A round-capped stroke from `p` to `q`, `width` across.
     pub(crate) fn line(&mut self, p: [f32; 2], q: [f32; 2], width: f32, color: [u8; 3], a: f32) {
         let r = width / 2.0;
         let (x0, x1) = ((p[0].min(q[0]) - r - 1.0).floor() as i64, (p[0].max(q[0]) + r + 1.0).ceil() as i64);
@@ -387,7 +358,6 @@ impl Canvas {
         }
     }
 
-    /// Straight-RGBA text pixels at `(x, y)`.
     pub(crate) fn text(&mut self, (w, h, rgba): &(u32, u32, Vec<u8>), x: f32, y: f32) {
         let (x, y) = (x.round() as i64, y.round() as i64);
         for ty in 0..*h as usize {
@@ -400,7 +370,6 @@ impl Canvas {
     }
 }
 
-/// Text rendered once in the window's font: `(width, height, rgba)`.
 fn words(text: &str, ink: [u8; 3], cell_height: u16) -> Option<(u32, u32, Vec<u8>)> {
     let line: String = text.chars().filter(|c| !c.is_control()).take(80).collect();
     if line.trim().is_empty() {
@@ -412,8 +381,6 @@ fn words(text: &str, ink: [u8; 3], cell_height: u16) -> Option<(u32, u32, Vec<u8
     .flatten()
 }
 
-/// A bar or point as the pointer finds it: where it answers and where it
-/// is, in the chart's pixels, and what its tip says.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ChartMark {
     pub(crate) rect: [f32; 4],
@@ -421,8 +388,6 @@ pub(crate) struct ChartMark {
     pub(crate) text: Vec<String>,
 }
 
-/// The plot drawn at `size`, with text one window cell tall: straight
-/// RGBA, and the marks its bars and points leave for the pointer.
 pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<(Vec<u8>, Vec<ChartMark>)> {
     let mut marks = Vec::new();
     let (w, h) = (size.0 as usize, size.1 as usize);
@@ -432,16 +397,12 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
     let mut canvas = Canvas::new(w, h);
     let s = h as f32 / 600.0;
     let ch = f32::from(cell_height);
-    // The frame of the plot: room for the title above, ticks to the left
-    // and labels below.
     let tick_w = plot_ticks(plot)
         .iter()
         .filter_map(|(_, label)| words(label, INK, cell_height).map(|t| t.0))
         .max()
         .unwrap_or(0) as f32;
     let left = (tick_w + 22.0 * s).max(48.0 * s);
-    // The panel's own bar carries the title; the top holds the legend
-    // and the y axis's name.
     let top = ch * 2.2;
     let bottom = ch * 2.8;
     let right = 28.0 * s;
@@ -461,11 +422,9 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
             area[0] + area[2] * ((v - x0) / (x1 - x0)) as f32
         }
     };
-    // The y axis's name over its ticks.
     if let Some(t) = words(&plot.y_label, INK, cell_height) {
         canvas.text(&t, (left - tick_w - 10.0 * s).max(4.0), top - ch * 1.75);
     }
-    // The grid and its ticks.
     for (v, label) in plot_ticks(plot) {
         let y = ys(v).round() + 0.5;
         let zero = v == 0.0 && y0 < 0.0;
@@ -488,7 +447,6 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
                 }
                 let cx = xs(i, 0.0);
                 let top_y = ys(*v);
-                // A cool bar, a little lighter toward its end, capped warm.
                 let (ya, yb) = (top_y.min(base), top_y.max(base));
                 let steps = ((yb - ya) as usize).max(1);
                 for k in 0..steps {
@@ -519,7 +477,6 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
                     canvas.text(&t, cx - t.0 as f32 / 2.0, ty);
                 }
             }
-            // Bar names under the axis, as many as fit.
             let every = label_stride(plot, slot, cell_height);
             for (i, label) in plot.labels.iter().enumerate().step_by(every) {
                 if let Some(t) = words(label, INK, cell_height) {
@@ -538,8 +495,6 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
                     .filter(|(_, (x, y))| x.is_finite() && y.is_finite())
                     .map(|(i, (x, y))| [xs(i, *x), ys(*y)])
                     .collect();
-                // Each point answers the pointer across its share of the
-                // width (sparse points; a dense line keeps every one).
                 let reach = (area[2] / pts.len().max(1) as f32).clamp(6.0 * s, 40.0 * s);
                 let name = &plot.series[si].0;
                 for ((x, y), p) in plot.xs.iter().zip(values).filter(|(x, y)| x.is_finite() && y.is_finite()).zip(&pts) {
@@ -551,11 +506,9 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
                     });
                 }
                 if plot.kind == ChartKind::Line {
-                    // A faint fall of colour under the first series.
                     if si == 0 && pts.len() > 1 {
                         for pair in pts.windows(2) {
                             let [a, b] = [pair[0], pair[1]];
-                            // Each column once: a seam drawn twice shows.
                             for x in a[0].round() as i64..b[0].round() as i64 {
                                 let t = ((x as f32 + 0.5 - a[0]) / (b[0] - a[0]).max(1e-3)).clamp(0.0, 1.0);
                                 let y = a[1] + (b[1] - a[1]) * t;
@@ -584,7 +537,6 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
                     }
                 }
             }
-            // X ticks along the bottom.
             let step = nice_step((x1 - x0) / 6.0);
             let mut v = (x0 / step).ceil() * step;
             while v <= x1 + step * 1e-6 {
@@ -593,7 +545,6 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
                 }
                 v += step;
             }
-            // A legend when there is more than one series.
             if plot.series.len() > 1 {
                 let mut x = area[0] + area[2];
                 for (si, (name, _)) in plot.series.iter().enumerate().rev() {
@@ -614,7 +565,6 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
     Some((canvas.rgba, marks))
 }
 
-/// Every how-many bar names fit side by side.
 fn label_stride(plot: &Plot, slot: f32, cell_height: u16) -> usize {
     let widest = plot
         .labels
@@ -690,7 +640,6 @@ mod tests {
     #[test]
     fn a_plot_draws_to_its_size() {
         let plot = Plot::from_data("t", "x,y\n1,2\n2,3\n3,1\n").unwrap();
-        // No font in a bare test is fine: the shapes still draw.
         let (rgba, marks) = render(&plot, (640, 360), 16).unwrap();
         assert_eq!(rgba.len(), 640 * 360 * 4);
         assert_eq!(marks.len(), 3, "one mark per point");

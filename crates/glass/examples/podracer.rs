@@ -63,7 +63,6 @@ fn main() {
     let pick_pod = want.get("pod").map(|n| find(n, &pods_named).unwrap_or_else(|| panic!("no pod {n}")));
     let pick_mode = want.get("mode").map(|n| find(n, &modes_named).unwrap_or_else(|| panic!("no mode {n}")));
     let pick_class = want.get("class").map(|n| find(n, &classes_named).unwrap_or_else(|| panic!("no class {n}")));
-    // Naming a course, pod, mode or class on the command line, or a demo, skips the menus.
     let skip_menus = demo || !want.is_empty();
     let options = Options { title: "Knight Racers — Podracer / Glass".into(), columns: 100, rows: 32, background_image: None, ..Options::default() };
     let result = angel_glass::run(options, move |host| -> Result<(), String> {
@@ -75,7 +74,6 @@ fn main() {
         if let Some(e) = &bank.error { eprintln!("podracer: the save was not read ({e}); starting a new one"); }
         let mut run = Run::roundtable_for_test("knight_racers").ok_or("missing race fixture")?;
         let mut race = Session::gate_of([1]);
-        // One tick at the gate so the bank can sit the knight down with what the ledger holds.
         flow::tick(&mut race, &who, &BTreeMap::new());
         bank.pump(&mut race);
         if skip_menus {
@@ -103,8 +101,6 @@ fn main() {
                 }
             }
             let now = Instant::now();
-            // Fixed 30Hz simulation; never speed the race up with redraw rate.
-            // Bound catch-up after a suspended/minimized window.
             let mut steps = 0;
             while next_tick <= now && steps < 5 {
                 let down = |k: KeyCode| held.contains(&k) || tapped.contains(&k);
@@ -121,7 +117,6 @@ fn main() {
                 tapped.clear();
                 let racing = race.flow.stage == Stage::Race && !race.finished;
                 if demo {
-                    // The demo drives the race itself, holds each board for six seconds, then goes on.
                     pad.auto = true;
                     if race.finished || race.flow.stage == Stage::Podium {
                         board_frames += 1;
@@ -132,7 +127,6 @@ fn main() {
                         flow::quick(&mut race, &who, Mode::Cup, pick_class.unwrap_or(Class::Squire), None, pick_pod.unwrap_or(pod));
                     }
                 }
-                // Skipping ahead: the CPU pilot drives the viewer's seat too, 30 ticks a frame.
                 let burst = if skip > 0 && racing { skip = skip.saturating_sub(30); 30 } else { 1 };
                 for _ in 0..burst {
                     if burst > 1 { pad.auto = true; }
@@ -152,7 +146,6 @@ fn main() {
             let grid = host.grid_size();
             let scale = (grid.width_px as f32 / 384.).min(grid.height_px as f32 / 224.);
             let (w, h) = (384. * scale, 224. * scale);
-            // Opaque, aspect-correct, pixel-faithful game layer above the terminal.
             let mut rgba = image.rgba_bytes();
             for pixel in rgba.chunks_exact_mut(4) { pixel[3] = 255; }
             host.upload_picture(Picture { id: angel_glass::LAYER_PICTURES + 91, width: 384, height: 224, rgba, cols: 0, rows: 0 });
@@ -168,7 +161,6 @@ fn main() {
             }
             if seconds.is_some_and(|s| begin.elapsed().as_secs_f32() >= s) {
                 if let Some(path) = &capture {
-                    // Capture completes on the compositor thread, not when requested.
                     let until = Instant::now() + Duration::from_secs(5);
                     while !path.is_file() && Instant::now() < until { std::thread::sleep(Duration::from_millis(10)); }
                     if !path.is_file() { return Err(format!("Glass capture did not complete: {}", path.display())); }

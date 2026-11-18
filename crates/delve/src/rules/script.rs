@@ -4,16 +4,10 @@
 //! in realm inks, and `draw <slot>` blocks: rows of inks with the frames
 //! side by side, `|` between (`looks`).
 
-/// Every ink the realm palette names (`overworld/ink.rs`), its five banks
-/// and then the two dyes (violet `d()[]^`, pink `!?;%+`); `.` is black
-/// paper.
 pub const INKS: &str = "kKZXgjGJhiHfDFEelNmLAMyCYnbIBpPrRoOtTsxSuUvVWqQz0123wa4@56$c987d()[]^!?;%+";
 
-/// The inks a sprite may colour itself (`draw <slot> pal=`): any hue a
-/// player likes, sixteen at most, as a 16-bit sprite carried its own.
 pub const PAL_INKS: &str = "d%&*+~^!?;<>()[]";
 
-/// One `word value` line: its number, the word (lowercase), and the value.
 pub struct Line<'a> {
     pub n: usize,
     pub word: String,
@@ -22,23 +16,16 @@ pub struct Line<'a> {
 
 pub struct Script<'a> {
     pub lines: Vec<Line<'a>>,
-    /// The art rows, in order.
     pub art: Vec<String>,
-    /// How many `art` blocks the file opened (one is allowed).
     pub art_blocks: usize,
-    /// `draw <slot>` blocks: the line it opened on, the slot word, rows.
     pub sprites: Vec<(usize, String, Vec<String>)>,
-    /// Bytes outside the sprite blocks: the card's own text.
     pub text_bytes: usize,
 }
 
-/// A row of art: realm inks and black paper only.
 pub fn art_row(line: &str) -> bool {
     !line.is_empty() && line.chars().all(|c| c == '.' || INKS.contains(c))
 }
 
-/// A row of a sprite block: inks (the realm's and its own), black paper
-/// and `|` between frames.
 pub fn sprite_row(line: &str) -> bool {
     !line.is_empty()
         && line
@@ -46,7 +33,6 @@ pub fn sprite_row(line: &str) -> bool {
             .all(|c| c == '.' || c == '|' || INKS.contains(c) || PAL_INKS.contains(c))
 }
 
-/// Text a player wrote, without control characters, at most `max` long.
 pub fn clean(text: &str, max: usize) -> String {
     text.chars().filter(|c| !c.is_control()).take(max).collect()
 }
@@ -64,8 +50,6 @@ pub fn read(raw: &str) -> Script<'_> {
     for (index, line) in raw.lines().enumerate() {
         let line = line.trim();
         if in_sprite {
-            // `art` and `draw` are spelt in inks (`d` is one), and open
-            // the next block rather than run on in this one.
             if line != "art" && line != "draw" && sprite_row(line) {
                 if let Some((_, _, rows)) = script.sprites.last_mut() {
                     rows.push(line.to_string());

@@ -106,7 +106,6 @@ fn record_patterns() {
                 let mut after = shots;
                 emit(emitter, &base, &mut after);
                 emit_case(&mut emit_c, emitter, &base, before, &after);
-                // the first few shots of the volley, stepped through their flight
                 let knights = [(1u32, at.0, at.1), (2u32, from.0 + 3.0, from.1 - 2.0)];
                 let kjson: Vec<Value> = knights.iter().map(|k| json!([k.0, k.1, k.2])).collect();
                 for shot in after.iter().take(3) {

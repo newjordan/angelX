@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Source fidelity must reject silhouette damage and painted-over identity."""
 import importlib.util
 import unittest
 import runpy
@@ -36,7 +35,6 @@ class Fidelity(unittest.TestCase):
         self.assertGreater(result['median_delta'], 15)
         self.assertEqual(result['visible_fraction'], .8)
         self.assertEqual(result['edge_fraction'], 0)
-        # A remote black floor swatch would falsely approve this bright floor.
         same = gate['contrast_metrics'](body, body, points, edge)
         self.assertEqual(same['visible_fraction'], 0)
 
@@ -70,8 +68,6 @@ class Fidelity(unittest.TestCase):
         native.putdata([(25,29,34,255) if c[3] else c for c in native.get_flattened_data()])
         scores = A.fidelity(src,native)
         self.assertLess(scores['key_colour_agreement'], A.LIMITS['key_colour_agreement'])
-        # A dark fill naturally agrees with many source contour samples.
-        # Destroy the contour separately to exercise its own rejection gate.
         native.putdata([(200,180,120,255) if c[3] else c for c in native.get_flattened_data()])
         scores = A.fidelity(src,native)
         self.assertLess(scores['edge_agreement'], A.LIMITS['edge_agreement'])

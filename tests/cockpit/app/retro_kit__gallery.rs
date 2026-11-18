@@ -22,7 +22,6 @@ pub(crate) fn rasterize(text: &Text<'_>, path: &std::path::Path) {
         })
         .max()
         .unwrap_or(0) as u32;
-    // Cell = 10×20 px (terminal ~1:2); braille dot = 5×5 px block.
     let mut img = image::RgbImage::from_pixel(cols * 10, rows * 20, image::Rgb([10, 10, 14]));
     for (row, line) in text.lines.iter().enumerate() {
         let mut col = 0usize;
@@ -54,7 +53,6 @@ pub(crate) fn rasterize(text: &Text<'_>, path: &std::path::Path) {
                         }
                     }
                 } else if ch != ' ' {
-                    // Glyph overlays: a solid block so signs read in review.
                     for py in 2..18 {
                         for px in 1..9 {
                             img.put_pixel(x0 + px, y0 + py, ink);

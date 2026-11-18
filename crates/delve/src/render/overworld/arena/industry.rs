@@ -1,14 +1,10 @@
 //! The frontier's build desk and the resource veins below it.
 use super::*;
 use crate::kingdom::catalog;
-// The rock faces (declared here, not in `arena`, whose source the arcade
-// cell gate fingerprints).
 #[path = "seams.rs"]
 pub(super) mod seams;
 
 pub(super) fn showing(run: &Run, focus: Option<u32>) -> bool {
-    // On the hillside the builder and the ledger are over the world, not a desk
-    // instead of it (`hillside_art`).
     run.dungeon.depth == 0
         && !run.sim_hillside()
         && run.room().kind == RoomKind::Kingdom
@@ -670,8 +666,6 @@ fn claims(im: &mut Img, run: &Run, selection: usize, focus: Option<u32>) {
         }
     }
 }
-/// `text` in the small hand, broken at spaces into at most `lines` lines of
-/// `width` letters, nine pixels apart. Returns the row below the last.
 fn small_words(im: &mut Img, x: i32, y: i32, text: &str, width: usize, lines: usize, ink: char) -> i32 {
     let mut rows: Vec<String> = Vec::new();
     for word in text.split_whitespace() {
@@ -909,7 +903,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
 pub(super) fn landscape(run: &Run, focus: Option<u32>) -> (Img, Img) {
     layers(run, focus)
 }
-/// A seam's own seed: the same face every time it is drawn.
 fn seam_seed(id: &str) -> u32 {
     id.bytes().fold(0x9e37_79b9u32, |h, b| h.rotate_left(5) ^ u32::from(b)).wrapping_mul(0x85eb_ca6b)
 }
@@ -946,16 +939,10 @@ pub(super) fn deposits(im: &mut Img, run: &Run, focus: Option<u32>) {
         seams::paint(im, d.seam.face(), d.seam.grade(), seam_seed(&d.id), x, y + 4, st);
     }
 }
-/// Where a seam's plate stands: `w` wide and `h` tall of words, over the face
-/// at `(x, y)` in a view `view_w` wide, as far from its edges as the plate's
-/// own margin. Returns its top left.
 pub(super) fn plate_place(x: i32, y: i32, w: i32, h: i32, view_w: i32) -> (i32, i32) {
     ((x - w / 2).clamp(2, (view_w - w - 2).max(2)), (y - 30 - h).max(2))
 }
 
-/// What each seam says of itself to a knight who stands by it, over the
-/// figures so nothing stands on the words: what the stone is, what it is
-/// good for, and what to do about it.
 pub(super) fn plates(im: &mut Img, run: &Run, focus: Option<u32>) {
     let Some(hero) = run.players.get(&focus.unwrap_or(1)) else {
         return;
@@ -1005,11 +992,7 @@ pub(super) fn plates(im: &mut Img, run: &Run, focus: Option<u32>) {
             ]
         };
         let w = lines.iter().map(|l| l.len()).max().unwrap_or(0) as i32 * 6 + 8;
-        // Over the face, never on it, and never past the room's edge: a seam
-        // by the right wall slides its plate left, as one by the top does down.
         let (left, top) = plate_place(x, y, w, 9 * lines.len() as i32, im.w);
-        // A room's pixels are the palette's: a dark stone plate, gold for
-        // the name, tan for the use, green for what to do.
         im.rect(left, top, w, 9 * lines.len() as i32 + 2, 's');
         for (i, l) in lines.iter().enumerate() {
             let ink = if i == 0 {
@@ -1030,8 +1013,6 @@ mod plate_tests {
     use crate::rules::layout;
     use crate::rules::industry::SEAM_EVERY;
 
-    /// The longest a seam's plate is, in letters: the words each state of a
-    /// seam can put on it.
     fn widest(d: &crate::rules::industry::Deposit) -> usize {
         [
             d.name.to_uppercase(),

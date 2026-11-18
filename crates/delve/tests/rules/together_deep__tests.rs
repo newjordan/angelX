@@ -1,7 +1,6 @@
 use super::*;
 use crate::realm::Spoil;
 
-/// Kill everything in the room and every wave still to come.
 fn clear_all(run: &mut Run) {
     run.calm_for_test();
     for _ in 0..12 {
@@ -50,7 +49,6 @@ fn the_light_takes_the_party_home_with_everything() {
     hero.carried.add(Spoil::Gold, 40);
     (hero.x, hero.y) = (lx, ly);
     run.step_sim_for_test(&BTreeMap::new());
-    // 2026-10-24: the party-wide light (639972239) waits for the friend.
     assert_eq!(run.phase, Phase::Exploring);
     let friend = run.players.get_mut(&2).unwrap();
     (friend.x, friend.y) = (lx, ly);
@@ -66,12 +64,10 @@ fn the_light_takes_the_party_home_with_everything() {
 #[test]
 fn the_stairs_go_down_into_the_archive_the_fungal_deep_and_the_unknown() {
     let mut run = slay_the_dragon();
-    // Off the stairs first (a dragon falling at your feet drops no one).
     for hero in run.players.values_mut() {
         (hero.x, hero.y) = (6.0, 6.0);
     }
     run.step_sim_for_test(&BTreeMap::new());
-    // The stairs take the whole party, so every knight steps onto them.
     let (w, h) = (run.room().width(), run.room().height());
     for hero in run.players.values_mut() {
         (hero.x, hero.y) = (w / 2.0, h / 2.0 + 3.0);
@@ -88,7 +84,6 @@ fn the_stairs_go_down_into_the_archive_the_fungal_deep_and_the_unknown() {
     assert_eq!((run.floor(), run.dungeon.pack), (6, Pack::Unknown));
     assert!(run.dungeon.rooms.iter().any(|r| r.kind == RoomKind::Threshold));
     assert!(run.valid_snapshot());
-    // There is nothing below the Unknown.
     run.descend_for_test();
     assert_eq!(run.floor(), 6);
 }
@@ -138,7 +133,6 @@ fn the_unknown_is_a_trial_then_the_grail() {
     run.enter_for_test(threshold);
     assert_eq!(run.phase, Phase::Fighting);
     assert_eq!(run.waves.total, 4, "everything it has met, sent up to meet you");
-    // Fight through the waves (they keep coming until the last is down).
     for _ in 0..30 {
         if run.phase != Phase::Fighting {
             break;

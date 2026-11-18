@@ -1,7 +1,5 @@
 import Base
 
-# Authored ability policy. The adapter supplies cast identity and room context;
-# this module owns placement, timing, expiry and area-status requests.
 type Parameters is Data:
   Params{radius: F32, duration: U32, hold: U32, pulse: U32}
 

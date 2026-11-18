@@ -12,7 +12,6 @@ impl Kingdom {
                 .any(|q| q.secured && q.gives(resource))
     }
 
-    /// The union admits old saves without requiring an eager migration.
     pub fn secured_evidence(&self) -> BTreeSet<String> {
         self.secured_resources
             .iter()

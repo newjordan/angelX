@@ -1,8 +1,3 @@
-// Thin adapter for the Bend frontier selection. Plain JSON in, the compiled
-// leg's picked indices out: the comparison order, the tie key and the scope
-// rules live in frontier.bend. Rust prices the scores under the objective
-// comparator, splits the tie rank into two U32 halves, prices the entry ids by
-// their sorted position and owns the board rows themselves.
 const { choose } = require('./frontier.compiled')
 
 const nil = { $: 'Nil' }

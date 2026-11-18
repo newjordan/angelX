@@ -7,13 +7,10 @@ fn each_mount_rides_differently_at_the_lists() {
         Mount::Cinder.steed(),
         Mount::Mist.steed(),
     );
-    // Bramble: the most balance and the widest brace.
     assert!(b.balance > c.balance && b.balance > m.balance);
     assert!(b.brace > c.brace && b.brace > m.brace);
-    // Cinder: the soonest meeting and the heaviest hit.
     assert!(c.charge < b.charge && c.charge < m.charge);
     assert!(c.weight > b.weight && c.weight > m.weight);
-    // Mist: the widest strike and the earliest read of the rival's guard.
     assert!(m.strike > b.strike && m.strike > c.strike);
     assert!(m.tell > b.tell && m.tell > c.tell);
     for mount in Mount::ALL {
@@ -64,11 +61,9 @@ fn horses_are_bought_sold_and_bred_at_their_records_value() {
         stable.buy(market[1].clone(), 10_000),
         Some(market[1].value(&stable))
     );
-    // A winner is worth more than the green horse it was.
     stable.herd[0].wins = 3;
     stable.herd[0].starts = 5;
     assert!(stable.herd[0].value(&stable) > price);
-    // Breeding: the foal knows its parents, and the yard will not overfill.
     let foal = stable.breed(0, 1, 42).expect("a foal").clone();
     assert_eq!(foal.sire, stable.herd[0].name);
     assert_eq!(foal.dam, stable.herd[1].name);
@@ -77,7 +72,6 @@ fn horses_are_bought_sold_and_bred_at_their_records_value() {
         stable.breed(0, 0, 1).is_none(),
         "no horse breeds with itself"
     );
-    // Selling pays seven-tenths, and the horse leaves the yard.
     let paid = stable.sell(2).unwrap();
     assert!(paid <= foal.value(&stable));
     assert_eq!(stable.herd.len(), 2);

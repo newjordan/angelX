@@ -89,6 +89,25 @@ Regular-file metadata is normalized from Git rather than copied from the host
 checkout: non-executable files are `0644`, executables are `0755`, uid/gid and
 mtime are zero, and only regular USTAR entries are permitted.
 
+### Embedded resource inventories
+
+`REQUIRED_COCKPIT_EMBEDDED_FILES` in `release-evidence.mjs` must cover literal
+`include_str!` and `include_bytes!` targets outside the packaged Rust source
+trees. Each entry is release-required and its bytes participate in the archive's
+cockpit source identity. This includes the kingdom catalogue at
+`delve/kingdom/frontier.json`, not the whole `delve/` directory. Listing a path
+does not admit an untracked file: every required resource must be committed
+before release preparation can succeed.
+
+The developer helper `scripts/check/cockpit-source-digest.sh` uses a separate
+Git-object-based inventory. Its `angel-source-v8` scheme includes the kingdom
+catalogue, rejects dirty or ignored-untracked catalogue changes, and refuses
+to bind a revision missing a required v8 input. The committed helper's explicit
+v8 marker selects this scheme; old revisions retain their v2–v7 digests even
+when they already contained the catalogue. Adding another external embedded
+input requires checking both inventories; a green include-coverage test alone
+does not prove native source binding or a successful release build.
+
 ## Verification commands
 
 Each verifier prints its own usage string when called without arguments:
@@ -186,6 +205,14 @@ transaction, injects one interrupted replacement, and proves the checksummed
 prior binary and operator-state sentinel are restored. It is a same-artifact
 replacement and isolated recovery proof, not cross-version migration,
 package-manager integration, or a physically clean host.
+
+Recovery retains both rollback sources until the restored binary and exact
+metadata bytes validate and the journal is retired. A process interrupted during
+recovery can therefore retry; journal-free rollback staging is removed only after
+the installed pair validates. Local tests stop recovery before and after its
+rename/journal boundaries. This is process-interruption coverage, not a guarantee
+of power-loss durability, concurrent-installer safety, or repair of rollback
+sources already consumed by an older recovery implementation.
 
 ### Dependency advisories (`release:verify:advisories`)
 

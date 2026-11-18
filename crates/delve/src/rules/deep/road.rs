@@ -29,24 +29,16 @@ use super::missions::{hosts, spot};
 use super::*;
 use crate::realm::{Spoil, Spoils};
 
-/// How near (arena units) a knight stands to speak to a meeting.
 pub const REACH: f32 = 4.4;
-/// How near (arena units) a knight comes before captors rise.
 pub const RISE_REACH: f32 = 16.0;
-/// The most parcels the party carries, foes a meeting raises and stir the
-/// dread takes.
 pub const MOST_CARGO: usize = 4;
 pub const MOST_FOES: usize = 12;
 pub const MOST_STIR: u8 = 3;
-/// A people's regard runs from `-FAVOUR_MOST` to `FAVOUR_MOST`; at `FRIEND`
-/// they are friends, at `WARY` wary.
 pub const FAVOUR_MOST: i8 = 9;
 pub const FRIEND: i8 = 3;
 pub const WARY: i8 = -3;
-/// What a village of friends pays on top of an errand's purse, each.
 pub const FRIEND_PURSE: u32 = 25;
 
-/// The prices and prizes of the road's choices, in gold unless said.
 pub const OIL: u32 = 50;
 pub const GIFT: u32 = 60;
 pub const DRAUGHT: u32 = 40;
@@ -56,22 +48,15 @@ pub const HOARD_GEMS: u32 = 2;
 pub const TAKEN_GEMS: u32 = 2;
 pub const BOUNTY: u32 = 100;
 pub const RIDDLE_GEMS: u32 = 2;
-/// How much of their health a mend gives each knight, in percent.
 pub const MEND_PERCENT: u32 = 50;
-/// Foes raised, however many knights: the patrol's pursuers, the captors,
-/// what comes up the shore at the bell, the dark that answers a wrong
-/// answer. Each comes as strong as the floor and the party make it.
 pub const PURSUERS: usize = 3;
 pub const CAPTORS: usize = 4;
 pub const SHORE: usize = 4;
 pub const AMBUSH: usize = 3;
 
-/// How long after it was settled an envoy sent home, and captives let out
-/// of their cage, are gone from the room.
 pub const ENVOY_LEAVES: u64 = 90;
 pub const CAPTIVES_LEAVE: u64 = 80;
 
-/// What stands on the road.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Kind {
@@ -86,7 +71,6 @@ pub enum Kind {
 impl Kind {
     pub const ALL: [Kind; 6] = [Kind::Patrol, Kind::Caravan, Kind::Hermit, Kind::Captives, Kind::Shrine, Kind::Envoy];
 
-    /// How the tracker names it.
     pub fn name(self) -> &'static str {
         match self {
             Kind::Patrol => "A LOST PATROL",
@@ -99,54 +83,39 @@ impl Kind {
     }
 }
 
-/// Where a meeting stands.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Stage {
-    /// Captives in their cage, the captors not yet risen.
     Waiting,
-    /// Foes up: the captors, the pursuers, what comes up the shore.
     Fighting,
-    /// Ready to talk.
     Open,
-    /// Done: what is left is what it says.
     Settled,
 }
 
-/// A knight's talk with a meeting: 0 their greeting, 1 what they ask.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Talk {
     pub page: u8,
     pub opened: u64,
 }
 
-/// One meeting on a floor of the road.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Meeting {
     pub kind: Kind,
     pub room: usize,
-    /// Its tile in that room.
     pub col: u8,
     pub row: u8,
-    /// Whose it is: the patrol's, the captives', the envoy's, the trader's
-    /// and the shrine's people.
     pub people: Culture,
-    /// The hermit's riddle, and where its right answer stands (0 to 2).
     pub riddle: u8,
     pub key: u8,
     pub stage: Stage,
-    /// The answer taken, once there is one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub choice: Option<u8>,
-    /// The caravan's wares sold, a bit each.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub sold: u8,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub talks: BTreeMap<u32, Talk>,
-    /// The foes it raised.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub foes: Vec<u32>,
-    /// The tick it was settled, for its flare.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub at: Option<u64>,
 }
@@ -163,12 +132,10 @@ impl Meeting {
             && self.choice.is_none_or(|c| (1..=3).contains(&c))
     }
 
-    /// Its tile point: the middle of its tile.
     pub fn tile_point(&self) -> (f32, f32) {
         (f32::from(self.col) + 0.5, f32::from(self.row) + 0.5)
     }
 
-    /// Its point in arena units.
     pub fn point(&self) -> (f32, f32) {
         let (x, y) = self.tile_point();
         (x * TILE_UNITS, y * TILE_UNITS)
@@ -178,8 +145,6 @@ impl Meeting {
         self.stage == Stage::Settled
     }
 
-    /// Whether they have left the room by tick `tick`: an envoy sent home,
-    /// captives let out. Nobody is there to speak to.
     pub fn gone(&self, tick: u64) -> bool {
         let since = self.at.map_or(0, |at| tick.saturating_sub(at));
         match self.kind {
@@ -190,28 +155,21 @@ impl Meeting {
     }
 }
 
-/// What a party carries down the road to the next village.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Parcel {
-    /// Goods bought for the village.
     Gift,
-    /// Word from freed captives.
     Word,
-    /// An envoy's letter of peace.
     Peace,
-    /// An envoy's challenge.
     Challenge,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Cargo {
     pub parcel: Parcel,
-    /// The people who sent it.
     pub from: Culture,
 }
 
-/// How a people stand with the realm.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Tier {
     Wary,
@@ -219,8 +177,6 @@ pub enum Tier {
     Friend,
 }
 
-/// Each people's regard for the realm: one place on the wheel each, kept
-/// on `Home::deep` and left out of a save while it is all even.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Ledger {
@@ -244,7 +200,6 @@ impl Ledger {
         self.favour[slot(culture)]
     }
 
-    /// `culture`'s regard moved by `by`, held to its bounds.
     pub fn shift(&mut self, culture: Culture, by: i8) {
         let f = &mut self.favour[slot(culture)];
         *f = (*f + by).clamp(-FAVOUR_MOST, FAVOUR_MOST);
@@ -259,8 +214,6 @@ impl Ledger {
     }
 }
 
-/// Where floor `floor` stands on its stretch of road, counting from 0 at
-/// the stretch's first floor; none for a village or a floor above the Deep.
 pub fn stretch(floor: u32) -> Option<u32> {
     if floor < ROAD || is_village(floor) {
         return None;
@@ -269,20 +222,14 @@ pub fn stretch(floor: u32) -> Option<u32> {
     Some(floor - first)
 }
 
-/// Whether floor `floor` of the Deep holds a meeting: every other floor
-/// of its stretch, the first included.
 pub fn meets(floor: u32) -> bool {
     stretch(floor).is_some_and(|n| n.is_multiple_of(2))
 }
 
-/// The village at the end of floor `floor`'s stretch.
 pub fn ahead(floor: u32) -> u32 {
     (chapter(floor) + 1) * CHAPTER
 }
 
-/// The kind a stretch lays as its `m`th meeting: the six turn in an order
-/// of the delve's own, a shrine never on the floor of the dread it would
-/// stir.
 pub fn kind_for(seed: u64, c: u32, m: u32, guard: bool) -> Kind {
     let mut order = Kind::ALL;
     order.sort_by_key(|k| mix(seed ^ (*k as u64 + 1).wrapping_mul(0x9e37_79b9_7f4a_7c15)));
@@ -293,7 +240,6 @@ pub fn kind_for(seed: u64, c: u32, m: u32, guard: bool) -> Kind {
     order[i]
 }
 
-/// The riddles: a question, its right answer and two wrong ones.
 pub const RIDDLES: [(&str, &str, [&str; 2]); 6] = [
     (
         "I AM LIT BY ONE HAND AND SEEN BY A HUNDRED. I GROW WHEN I AM GIVEN AWAY. WHAT AM I?",
@@ -328,7 +274,6 @@ pub const RIDDLES: [(&str, &str, [&str; 2]); 6] = [
 ];
 
 impl Culture {
-    /// The captain of the people's watch, who leads a lost patrol.
     pub fn watch(self) -> &'static str {
         match self {
             Culture::Capfolk => "SERGEANT BUTTON",
@@ -342,7 +287,6 @@ impl Culture {
         }
     }
 
-    /// The people's envoy.
     pub fn envoy(self) -> &'static str {
         match self {
             Culture::Capfolk => "ENVOY PUFFBALL",
@@ -356,7 +300,6 @@ impl Culture {
         }
     }
 
-    /// The people's trader.
     pub fn trader(self) -> &'static str {
         match self {
             Culture::Capfolk => "TRADER TUFTED",
@@ -371,7 +314,6 @@ impl Culture {
     }
 }
 
-/// A figure on the talk board: whose portrait to draw.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Face {
     Folk(Culture, usize),
@@ -379,7 +321,6 @@ pub enum Face {
     Shrine,
 }
 
-/// What knight `id`'s talk shows.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct View {
     pub name: String,
@@ -389,11 +330,8 @@ pub struct View {
     pub answers: Vec<String>,
 }
 
-/// One answer: what it says, what it costs, and why it cannot be taken if
-/// it cannot.
 struct Opt {
     label: String,
-    /// Gold it costs the knight who answers, or pays each knight.
     cost: Option<u32>,
     gain: Option<u32>,
     lack: Option<String>,
@@ -413,7 +351,6 @@ impl Opt {
         Opt { label: label.into(), cost: None, gain: Some(gold), lack: None }
     }
 
-    /// As the board shows it.
     fn shown(&self) -> String {
         match (&self.lack, self.cost, self.gain) {
             (Some(lack), _, _) => format!("{} ({lack})", self.label),
@@ -424,7 +361,6 @@ impl Opt {
     }
 }
 
-/// Everything a meeting says, for the knight `id` looking at it.
 struct Script {
     name: String,
     face: Face,
@@ -438,27 +374,21 @@ fn gold(run: &Run, id: u32) -> u32 {
     run.players.get(&id).map_or(0, |h| h.carried.get(Spoil::Gold))
 }
 
-/// The dread ahead stirred by `by`, or settled by a negative.
 fn stir(deep: &mut Descent, by: i8) {
     deep.stir = (i16::from(deep.stir) + i16::from(by)).clamp(0, i16::from(MOST_STIR)) as u8;
 }
 
 impl Run {
-    /// The village a stretch leads to: its people, as the realm will meet
-    /// them.
     fn town_ahead(&self, floor: u32) -> (Culture, &'static str) {
         let v = ahead(floor);
         let culture = self.home.deep.culture_at(v);
         (culture, culture.town(chapter(v)))
     }
 
-    /// An open errand of the chapter below the village behind that a lamp
-    /// lit or a relic found would count on: its index, its kind.
     fn helped_errand(&self, floor: u32, want: Errand) -> Option<usize> {
         self.home.deep.open_on(floor).find(|(_, m)| m.errand == want).map(|(i, _)| i)
     }
 
-    /// Lay floor `floor`'s meeting, if its place on the stretch has one.
     pub(super) fn lay_meeting(&mut self, floor: u32) {
         if let Some(d) = &mut self.deep {
             d.meeting = None;
@@ -475,8 +405,6 @@ impl Run {
         let signs: Vec<(usize, (f32, f32))> =
             self.deep.as_ref().map_or_else(Vec::new, |d| d.signs.iter().map(|s| (s.room, s.point())).collect());
         let mut placed = None;
-        // Not a hall that hosts a game of its own (a folly, a gantry, a race
-        // hall), nor the room with a cage in it.
         let caged = self.captive.as_ref().map(|c| c.room);
         for (i, (room, near)) in hosts(&self.dungeon, salt).into_iter().enumerate() {
             if self.hosts_game(room) || caged == Some(room) {
@@ -523,26 +451,20 @@ impl Run {
         }
     }
 
-    /// Which chamber of an open map holds tile point `at`.
     fn chamber_at(&self, at: (f32, f32)) -> Option<u8> {
         let open = self.dungeon.open.as_ref()?;
         open.chambers.iter().position(|c| c.holds(at.0 * TILE_UNITS, at.1 * TILE_UNITS, 0.0)).map(|i| i as u8)
     }
 
-    /// Whether the meeting's room is an open floor's map.
     fn on_map(&self, room: usize) -> bool {
         self.dungeon.open.as_ref().is_some_and(|o| o.map == room)
     }
 
-    /// One tick of the road: the party's talk with a meeting, its captors
-    /// rising and falling.
     pub(super) fn tick_road(&mut self, deep: &mut Descent, pressed: u8) {
         let Some(mut m) = deep.meeting.take() else {
             return;
         };
         if m.room != self.at {
-            // Away from it: nobody talks, and what rose in a room that was
-            // left fell back with the room.
             m.talks.clear();
             if m.stage == Stage::Fighting && !self.on_map(m.room) {
                 m.foes.clear();
@@ -557,7 +479,6 @@ impl Run {
 
     fn tick_meeting(&mut self, deep: &mut Descent, m: &mut Meeting, pressed: u8) {
         let tp = m.tile_point();
-        // Whoever has walked off has ended their talk.
         let gone: Vec<u32> = m.talks.keys().copied().filter(|&id| !self.nook_near(id, tp, REACH)).collect();
         for id in gone {
             m.talks.remove(&id);
@@ -593,7 +514,6 @@ impl Run {
                 continue;
             }
             if let Some(talk) = m.talks.get(&id).copied() {
-                // E on an open talk: on to what they ask, then away.
                 if talk.page == 0 && m.stage == Stage::Open {
                     m.talks.insert(id, Talk { page: 1, ..talk });
                 } else {
@@ -613,8 +533,6 @@ impl Run {
         }
     }
 
-    /// Raise `n` foes round tile point `tp`, out of the floor's own
-    /// company, on clear ground away from the knights.
     fn raise_foes(&mut self, tp: (f32, f32), n: usize) -> Vec<u32> {
         let roster = self.dungeon.pack.roster_at(self.dungeon.depth);
         let mut pool: Vec<EnemyKind> = roster
@@ -655,8 +573,6 @@ impl Run {
         ids
     }
 
-    /// The words, the answers and the portrait of meeting `m`, as knight
-    /// `id` sees them.
     fn script(&self, deep: &Descent, m: &Meeting, id: u32) -> Script {
         let floor = deep.floor;
         let (ahead_people, town) = self.town_ahead(floor);
@@ -788,7 +704,6 @@ impl Run {
         }
     }
 
-    /// What knight `id`'s open talk with the road's meeting shows.
     pub fn road_view(&self, id: u32) -> Option<View> {
         let deep = self.deep.as_ref()?;
         let m = deep.meeting.as_ref().filter(|m| m.room == self.at && !m.gone(self.tick))?;
@@ -813,7 +728,6 @@ impl Run {
         Some(View { name: s.name, people, face: s.face, words, answers })
     }
 
-    /// The knights with a talk open on the road.
     pub(super) fn road_talking(&self) -> Vec<u32> {
         self.deep
             .as_ref()
@@ -823,7 +737,6 @@ impl Run {
             .unwrap_or_default()
     }
 
-    /// Knight `id` answers a meeting with key `pick` (1 to 3).
     pub(super) fn answer_road(&mut self, id: u32, pick: u8) {
         let Some(mut deep) = self.deep.take() else {
             return;
@@ -861,7 +774,6 @@ impl Run {
         self.sounds.push("gold");
     }
 
-    /// Every standing knight gains `n` of `spoil`.
     fn each(&mut self, spoil: Spoil, n: u32) {
         for h in self.players.values_mut().filter(|h| h.hp > 0) {
             h.carried.add(spoil, n);
@@ -875,15 +787,12 @@ impl Run {
         self.sounds.push("potion");
     }
 
-    /// Count `n` on an open errand of `want`, and say so if it finished.
     fn help_errand(&mut self, floor: u32, want: Errand, n: u16) -> Option<usize> {
         let i = self.helped_errand(floor, want)?;
         self.count_errand(i, n, floor);
         Some(i)
     }
 
-    /// The answer taken: its cost paid, its consequence done, the meeting
-    /// settled or its fight begun.
     fn settle(&mut self, deep: &mut Descent, m: &mut Meeting, id: u32, pick: u8) {
         let floor = deep.floor;
         let (ahead_people, town) = self.town_ahead(floor);
@@ -953,7 +862,6 @@ impl Run {
                     self.mend_all();
                     self.each(Spoil::Gem, RIDDLE_GEMS);
                     self.home.deep.road.shift(ahead_people, 1);
-                    // The dread at this floor's own stair is already risen.
                     let calmed = deep.stir > 0 && dread::guards(floor).is_none();
                     if calmed {
                         stir(deep, -1);
@@ -1040,8 +948,6 @@ impl Run {
                 say = format!("THE ENVOY GOES BACK THE WAY THEY CAME. FAVOUR WITH {people} -1.");
             }
         }
-        // A caravan stays open until its wares are gone; everything else is
-        // settled, or on to its fight.
         m.choice = Some(pick);
         if m.kind == Kind::Caravan {
             m.choice = None;
@@ -1059,7 +965,6 @@ impl Run {
             m.at = Some(self.tick);
             m.talks.clear();
         }
-        // An errand that finished says so too.
         let finished = self.found.as_ref().filter(|f| f.0 == self.tick && f.2.starts_with("ERRAND DONE")).map(|f| f.2.clone());
         if let Some(done) = finished {
             say = format!("{say} {done}");
@@ -1068,7 +973,6 @@ impl Run {
         self.cues.push("deep_road".into());
     }
 
-    /// A fight a choice began is won: what it promised is paid.
     fn prize(&mut self, deep: &mut Descent, m: &mut Meeting, pick: u8) {
         let floor = deep.floor;
         let p = m.people;
@@ -1099,11 +1003,6 @@ impl Run {
         self.found = Some((self.tick, 0, say));
     }
 
-    /// The party comes down into the village on floor `floor`: what it
-    /// carried is delivered, its people's regard read, the stir the road
-    /// gave the dread spent. Returns the steps of hope the star brings
-    /// beyond its own, whether the star's own light is held back, and what
-    /// the village says.
     pub(super) fn road_news(&mut self, floor: u32, culture: Culture, lit: bool) -> (u8, bool, String) {
         let Some(mut deep) = self.deep.take() else {
             return (0, false, String::new());
@@ -1158,8 +1057,6 @@ impl Run {
         (boon.min(3), cold && !lit, news)
     }
 
-    /// What a village's elder says first of the party, if its people have
-    /// made up their minds about it on the road.
     pub fn road_greeting(&self, culture: Culture) -> &'static str {
         match self.home.deep.road.tier(culture) {
             Tier::Friend => "WE KNOW YOU FROM THE ROAD, STAR-KNIGHT. ",
@@ -1168,7 +1065,6 @@ impl Run {
         }
     }
 
-    /// What the tracker says of the road on this floor, a line each.
     pub fn road_notes(&self) -> Vec<String> {
         let Some(d) = self.deep.as_ref().filter(|d| d.village.is_none()) else {
             return Vec::new();

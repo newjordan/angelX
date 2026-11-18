@@ -74,8 +74,6 @@ fn paintings() -> &'static Vec<Img> {
                         im.set(n as i32 % 48, n as i32 / 48, [pixel[0], pixel[1], pixel[2]]);
                     }
                 }
-                // Inventory paintings are diagonal. Stand the tool upright before the
-                // existing rig rotates it through its swing/aim; keep the alpha intact.
                 let pose = super::paintings::Pose {
                     angle: degrees.to_radians(),
                     ..super::paintings::Pose::STILL
@@ -88,8 +86,6 @@ fn paintings() -> &'static Vec<Img> {
 
 pub(super) fn image(original: &Sprite, part: Part) -> Option<Img> {
     let source = &paintings()[registered(original)?];
-    // Ink fallbacks deliberately use few pixels. The generated painting uses
-    // the actual socket's space instead of shrinking to that tiny ink sketch.
     let (width, height) = part.size;
     if width <= 0 || height <= 0 {
         return None;
@@ -115,8 +111,6 @@ pub(super) fn origin(original: &Sprite, image: &Img, part: Part) -> Option<(i32,
     if gear::item(id)?.slot != gear::Slot::Arm {
         return None;
     }
-    // Hold the haft/hilt, not the blade's centre. The grip remains the rig's
-    // pivot as it animates, so equipment does not float beside the knight.
     Some((part.anchor.0 - image.w / 2, part.anchor.1 - image.h * 4 / 5))
 }
 
@@ -131,8 +125,6 @@ pub(super) fn carry_tip(
         && matches!(clip, Clip::Idle | Clip::Walk | Clip::Run)
         && tip[1] > anchor.1
     {
-        // Match the ordinary sword's carry: up and forward at rest. The
-        // authored attack tip still owns every actual swing and thrust.
         [anchor.0 + 8, anchor.1 - 12]
     } else {
         tip

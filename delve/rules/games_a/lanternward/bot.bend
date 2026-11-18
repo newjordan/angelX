@@ -1,14 +1,6 @@
-# crates/delve/src/rules/lanternward/bot.rs — the scripted bot: what a knight
-# presses when nobody is at the keys. It reads only the session. The keys are
-# an Input J object: `rules.Input.default()` with the fields set; `ult` and
-# `interact` are written only when true (serde skips them otherwise), which
-# `lanternward.bot.norm` makes so at the end.
-
-# How near a foe must be for the bot to take it on: 150 px.
 def lanternward.bot.ENGAGE() -> U32:
   38400
 
-# `sign(v, dead)` as an i8 held in a U32: 1, 0 or -1.
 def lanternward.bot.sign(+v: U32, +dead: U32) -> U32:
   Bool.pick(U32, RS.i_gt(v, dead), 1, Bool.pick(U32, RS.i_lt(v, RS.i_neg(dead)), 4294967295, 0))
 
@@ -18,14 +10,12 @@ def lanternward.bot.i_move(+i: J.Val, +mx: U32, +my: U32) -> J.Val:
 def lanternward.bot.i_aim(+i: J.Val, +ax: U32, +ay: U32) -> J.Val:
   ga.si(ga.si(i, "aim_x", ax), "aim_y", ay)
 
-# Whole-key set: drop `ult` / `interact` when false (serde's skip).
 def lanternward.bot.norm(+i: J.Val) -> J.Val:
   ga.sb_skip(ga.sb_skip(i, "interact", ga.b(i, "interact")), "ult", ga.b(i, "ult"))
 
 def lanternward.bot.idle() -> J.Val:
   rules.Input.default()
 
-# The foe nearest the knight among living snuffers: null, or the foe.
 def lanternward.bot.nearest_snuffer.go(+fs: List<&2, J.Val>, +me: J.Val, +best: J.Val, +bd: U32) -> J.Val:
   match fs:
     case Nil{}:
@@ -44,7 +34,6 @@ def lanternward.bot.nearest_snuffer.take(+ok: Bool, +d: U32, +f: J.Val, +t: List
 def lanternward.bot.nearest_snuffer(+s: J.Val, +me: J.Val, +alive_only: Bool) -> J.Val:
   lanternward.bot.nearest_snuffer.go(ga.items(s, "foes"), me, J.JNull{}, 0)
 
-# The living foe of any kind nearest the knight (room 0 and the dark).
 def lanternward.bot.nearest_foe.go(+fs: List<&2, J.Val>, +me: J.Val, +best: J.Val, +bd: U32) -> J.Val:
   match fs:
     case Nil{}:
@@ -60,7 +49,6 @@ def lanternward.bot.nearest_foe.take(+ok: Bool, +d: U32, +f: J.Val, +t: List<&2,
     Bool.pick(J.Val, Bool.and(ok, Bool.or(J.is_null(best), RS.i_lt(d, bd))), f, best),
     Bool.pick(U32, Bool.and(ok, Bool.or(J.is_null(best), RS.i_lt(d, bd))), d, bd))
 
-# What bot `id` presses this tick.
 def lanternward.bot.Session.bot_input(+s: J.Val, +id: U32, +r: J.Val) -> J.Val:
   lanternward.bot.bot_input.me(ga.has_key(J.get(s, "seats"), id), s, id, r)
 
@@ -117,7 +105,6 @@ def lanternward.bot.bot_input.engage(near: Bool, +foe: J.Val, +me: J.Val, +s: J.
     case False{}:
       lanternward.bot.bot_goto(s, me, ga.u(foe, "x"), ga.u(foe, "y"), 30, False{})
 
-# The first other seat on the ground: null, or its seat object.
 def lanternward.bot.first_down(+ids: List<&2, U32>, +seats: J.Val, +me_id: U32) -> J.Val:
   match ids:
     case Nil{}:
@@ -134,7 +121,6 @@ def lanternward.bot.first_down.hit(hit: Bool, +o: J.Val, +t: List<&2, U32>, +sea
     case False{}:
       lanternward.bot.first_down(t, seats, me_id)
 
-# A friend on the ground, and nothing about: lift them.
 def lanternward.bot.bot_input.friend(+o: J.Val, +me: J.Val, +s: J.Val, +id: U32, +r: J.Val) -> J.Val:
   match o:
     case J.JNull{}:
@@ -147,11 +133,6 @@ def lanternward.bot.bot_input.friend(+o: J.Val, +me: J.Val, +s: J.Val, +id: U32,
 def lanternward.bot.bot_input.lift(+i: J.Val, close: Bool) -> J.Val:
   lanternward.bot.norm(Bool.pick(J.Val, close, ga.sb(i, "interact", True{}), i))
 
-# ---- walking ----
-
-# Tiles a prop blocks (the Rust asks every prop of each tile's middle): the
-# five-by-five tiles around each prop, `blocks` asked of each, as a set keyed
-# by tile index.
 def lanternward.bot.blocked_set.tile(+p: J.Val, +bs: J.Val, +x: U32, +y: U32, +w: U32, +h: U32) -> J.Val:
   Bool.pick(J.Val,
     Bool.and(
@@ -182,8 +163,6 @@ def lanternward.bot.blocked_set(+ps: List<&2, J.Val>, +bs: J.Val, +w: U32, +h: U
     case Con{+p, +t}:
       lanternward.bot.blocked_set(t, lanternward.bot.blocked_set.around(p, bs, 0, w, h), w, h)
 
-# Whether a body can enter tile (x, y): inside the room, the goal itself, or
-# open ground no prop stops.
 def lanternward.bot.open(+env: J.Val, +x: U32, +y: U32) -> Bool:
   Bool.and(
     Bool.and(RS.i_ge(x, 0), RS.i_lt(x, ga.u(env, "w"))),
@@ -201,8 +180,6 @@ def lanternward.bot.open.floor(+c: U32, +env: J.Val, +x: U32, +y: U32) -> Bool:
     Bool.and(Bool.not(lanternward.world.wall(c)), U32.is_ne(c, 61)),
     Bool.not(J.bool(J.get(ga.v(env, "blocked"), U32.show((y * ga.u(env, "w") + x : U32))))))
 
-# Visit neighbour (nx, ny) of tile `cur`: if unseen and open, remember where
-# we came from and queue it.
 def lanternward.bot.nb(+st: J.Val, +cur: U32, +nx: U32, +ny: U32, +env: J.Val) -> J.Val:
   lanternward.bot.nb.go(
     Bool.and(
@@ -232,7 +209,6 @@ def lanternward.bot.nb.push(open: Bool, +st: J.Val, +cur: U32, +n: U32) -> J.Val
     case True{}:
       ga.sv(ga.sv(st, "came", ga.su(ga.v(st, "came"), U32.show(n), cur)), "back", J.JA{Con{J.JU{n}, ga.items(st, "back")}})
 
-# Breadth-first from the queue's front; `came` maps a tile to the one before.
 def lanternward.bot.bfs(+k: Nat, +front: List<&2, J.Val>, +st: J.Val, +env: J.Val) -> J.Val:
   match k:
     case 0n:
@@ -272,7 +248,6 @@ def lanternward.bot.bfs.next(done: Bool, +cur: U32, +t: List<&2, J.Val>, +st: J.
           cur, U32.mod(cur, ga.u(env, "w")), (U32.div(cur, ga.u(env, "w")) - 1 : U32), env),
         env)
 
-# Back from the goal to the tile after ours.
 def lanternward.bot.back_path(+came: J.Val, +at: U32, +from: U32, +k: Nat) -> U32:
   match k:
     case 0n:
@@ -297,7 +272,6 @@ def lanternward.bot.back_path.cont(stop: Bool, +prev: U32, +came: J.Val, +at: U3
     case False{}:
       lanternward.bot.back_path(came, prev, from, p)
 
-# The way to walk now to get to tile `to` from where the knight is: [mx, my].
 def lanternward.bot.bot_step(+s: J.Val, +me: J.Val, +tx: U32, +ty: U32) -> J.Val:
   lanternward.bot.bot_step.go(
     lanternward.world.Plan.w(ga.u(s, "room")), lanternward.world.Plan.h(ga.u(s, "room")),
@@ -351,7 +325,6 @@ def lanternward.bot.bot_step.aim(+at: U32, +w: U32, +me: J.Val) -> J.Val:
     lanternward.bot.sign((lanternward.world.middle(U32.mod(at, w)) - ga.u(me, "x") : U32), 256),
     lanternward.bot.sign((lanternward.world.middle(U32.div(at, w)) - ga.u(me, "y") : U32), 256))
 
-# Walk to a point; press E there when `press`.
 def lanternward.bot.bot_goto(+s: J.Val, +me: J.Val, +px: U32, +py: U32, +reach_px: U32, +press: Bool) -> J.Val:
   lanternward.bot.bot_goto.far(
     lanternward.world.dist((px - ga.u(me, "x") : U32), (py - ga.u(me, "y") : U32)),
@@ -378,7 +351,6 @@ def lanternward.bot.bot_goto.moved(+mv: J.Val, +d: U32, +s: J.Val, +me: J.Val, +
       lanternward.bot.i_move(rules.Input.default(), ga.nu(mv, 0), ga.nu(mv, 1))),
     d, s, me, px, py, reach_px, press)
 
-# Face it with the arrows, and press E every other tick (a press is an edge).
 def lanternward.bot.bot_goto.face(+i: J.Val, +d: U32, +s: J.Val, +me: J.Val, +px: U32, +py: U32, +reach_px: U32, +press: Bool) -> J.Val:
   lanternward.bot.norm(
     lanternward.bot.bot_goto.press(
@@ -393,8 +365,6 @@ def lanternward.bot.bot_goto.press(go: Bool, +i: J.Val, +s: J.Val) -> J.Val:
     case False{}:
       i
 
-# ---- fighting a snuffer ----
-
 def lanternward.bot.bot_fight(+s: J.Val, +id: U32, +me: J.Val, +f: J.Val, +r: J.Val) -> J.Val:
   lanternward.bot.bot_fight.go(
     lanternward.world.dist((ga.u(f, "x") - ga.u(me, "x") : U32), (ga.u(f, "y") - ga.u(me, "y") : U32)),
@@ -407,7 +377,6 @@ def lanternward.bot.bot_fight.go(+d: U32, toward: U32 & U32, +s: J.Val, +id: U32
     d, tx, ty, s, id, me, f, r,
     ga.sb(rules.Input.default(), "ult", RS.i_lt(d, ga.u(r, "lock"))))
 
-# The hood: light first, then the blade.
 def lanternward.bot.bot_fight.light(+d: U32, +tx: U32, +ty: U32, +s: J.Val, +id: U32, +me: J.Val, +f: J.Val, +r: J.Val, +i: J.Val) -> J.Val:
   lanternward.bot.bot_fight.line(
     Bool.and(
@@ -429,7 +398,6 @@ def lanternward.bot.bot_fight.state(+in_line: Bool, +d: U32, +tx: U32, +ty: U32,
       lanternward.bot.bot_fight.close(d, tx, ty, s, id, f, i)),
     s, me, f)
 
-# In the blow's line: raise the shield late, else step out sideways.
 def lanternward.bot.bot_fight.dodge(+shield: Bool, +tx: U32, +ty: U32, +id: U32, +i: J.Val) -> J.Val:
   +sg = Bool.pick(U32, U32.is_eq(U32.mod(id, 2), 0), 1, 4294967295)
   Bool.pick(J.Val, shield, ga.sb(i, "dash", True{}),
@@ -444,20 +412,16 @@ def lanternward.bot.bot_fight.close(+d: U32, +tx: U32, +ty: U32, +s: J.Val, +id:
         lanternward.bot.bot_fight.swing(lanternward.is(f, "st", "Drift"), tx, ty, s, id, ga.sb(i, "swing", U32.is_eq(U32.mod(ga.u(s, "elapsed"), 2), 0))),
         i)))
 
-# A little circling keeps it from lunging into the face.
 def lanternward.bot.bot_fight.swing(+drift: Bool, +tx: U32, +ty: U32, +s: J.Val, +id: U32, +i: J.Val) -> J.Val:
   +sg = Bool.pick(U32, U32.is_eq(U32.mod(id, 2), 0), 1, 4294967295)
   Bool.pick(J.Val, drift,
     lanternward.bot.i_move(i, lanternward.bot.sign((RS.i_neg(ty) * sg : U32), 128), lanternward.bot.sign((tx * sg : U32), 128)),
     i)
 
-# Whatever is not walking faces its foe.
 def lanternward.bot.bot_fight.aim(+i: J.Val, +s: J.Val, +me: J.Val, +f: J.Val) -> J.Val:
   lanternward.bot.norm(
     lanternward.bot.i_aim(i,
       lanternward.bot.sign((ga.u(f, "x") - ga.u(me, "x") : U32), 1024), lanternward.bot.sign((ga.u(f, "y") - ga.u(me, "y") : U32), 1024)))
-
-# ---- after the Beacon: hold E and leave ----
 
 def lanternward.bot.bot_finale(+s: J.Val) -> J.Val:
   lanternward.bot.norm(
@@ -465,9 +429,6 @@ def lanternward.bot.bot_finale(+s: J.Val) -> J.Val:
       ga.sb(rules.Input.default(), "interact", U32.is_eq(U32.mod(ga.u(s, "elapsed"), 2), 0)),
       rules.Input.default()))
 
-# ---- the rooms ----
-
-# The nearest of `tiles` (packed x + 65536 y) to the knight: packed, or null.
 def lanternward.bot.nearest_tile.go(+ts: List<&2, U32>, +me: J.Val, +best: J.Val, +bd: U32) -> J.Val:
   match ts:
     case Nil{}:
@@ -495,9 +456,6 @@ def lanternward.bot.bot_exit.go(+t: J.Val, +s: J.Val, +me: J.Val) -> J.Val:
       lanternward.bot.bot_goto(s, me,
         lanternward.world.middle(lanternward.world.packed_x(J.u32(t))), lanternward.world.middle(lanternward.world.packed_y(J.u32(t))), 3, False{})
 
-# ---- the Warden ----
-
-# The seat's place among the seated ids (0 when absent).
 def lanternward.bot.rank.go(+ids: List<&2, U32>, +id: U32, +i: U32) -> J.Val:
   match ids:
     case Nil{}:
@@ -508,7 +466,6 @@ def lanternward.bot.rank.go(+ids: List<&2, U32>, +id: U32, +i: U32) -> J.Val:
 def lanternward.bot.rank(+s: J.Val, +id: U32) -> U32:
   J.u32(lanternward.bot.rank.go(ga.ids(J.get(s, "seats")), id, 0))
 
-# The foe within `reach` of the knight nearest it (living snuffers), or null.
 def lanternward.bot.snuffer_within(+s: J.Val, +me: J.Val, +reach: U32) -> J.Val:
   lanternward.bot.snuffer_within.go(lanternward.bot.nearest_snuffer(s, me, True{}), me, reach)
 
@@ -526,7 +483,6 @@ def lanternward.bot.bot_boss(+s: J.Val, +id: U32, +me: J.Val, +w: J.Val, +r: J.V
     Bool.not(lanternward.boss.Session.boss_exposed(s)),
     lanternward.bot.snuffer_within(s, me, 11520), s, id, me, w, r)
 
-# A snuffer on top of us comes first, unless the heart is open.
 def lanternward.bot.bot_boss.fight(+dark: Bool, +f: J.Val, +s: J.Val, +id: U32, +me: J.Val, +w: J.Val, +r: J.Val) -> J.Val:
   lanternward.bot.bot_boss.fight.go(Bool.and(dark, Bool.not(J.is_null(f))), f, s, id, me, w, r)
 
@@ -581,7 +537,6 @@ def lanternward.bot.bot_boss.keys(+i: J.Val, +d: U32, +strike: Bool, +lighter: B
       lanternward.bot.sign((hx - ga.u(me, "x") : U32), 1024), lanternward.bot.sign((hy - ga.u(me, "y") : U32), 1024)),
     d, strike, lighter, exposed, open_for, rank, s, id, me, w, r, hx, hy)
 
-# Light the heart: a tap of the lantern, every so often.
 def lanternward.bot.bot_boss.light(+i: J.Val, +d: U32, +strike: Bool, +lighter: Bool, +exposed: Bool, +open_for: U32, +rank: U32, +s: J.Val, +id: U32, +me: J.Val, +w: J.Val, +r: J.Val, +hx: U32, +hy: U32) -> J.Val:
   lanternward.bot.bot_boss.swing(
     Bool.pick(J.Val,
@@ -602,7 +557,6 @@ def lanternward.bot.bot_boss.swing(+i: J.Val, +d: U32, +strike: Bool, +rank: U32
     Bool.pick(J.Val, Bool.and(strike, RS.i_le(d, 11264)), ga.sb(i, "swing", U32.is_eq(U32.mod(ga.u(s, "elapsed"), 2), 0)), i),
     rank, s, id, me, w, r)
 
-# Its blows: up and over a ring; out of a beam's wedge; shield for a sweep.
 def lanternward.bot.bot_boss.blows(+i: J.Val, +rank: U32, +s: J.Val, +id: U32, +me: J.Val, +w: J.Val, +r: J.Val) -> J.Val:
   lanternward.bot.norm(
     lanternward.bot.bot_boss.blow(
@@ -640,7 +594,6 @@ def lanternward.bot.bot_boss.wedge.off(+off: U32, +dm: U32, +i: J.Val, +me: J.Va
       (ga.u(w, "aim") + Bool.pick(U32, RS.i_ge(off, 0), 74, 4294967222) : U32), i, me, w),
     i)
 
-# Out of it by the nearer edge, round the Warden.
 def lanternward.bot.bot_boss.wedge.out(+a: U32, +i: J.Val, +me: J.Val, +w: J.Val) -> J.Val:
   ga.sb(ga.sb(
     lanternward.bot.i_move(i,
@@ -665,9 +618,6 @@ def lanternward.bot.bot_boss.sweep(+dm: U32, +i: J.Val, +me: J.Val, +w: J.Val) -
     lanternward.bot.i_move(ga.sb(ga.sb(ga.sb(i, "dash", True{}), "swing", False{}), "fire", False{}), 0, 0),
     i)
 
-# ---- the rooms' errands ----
-
-# `(a, b)` of a prop's place, or null: prop_pos(kind, id).
 def lanternward.bot.prop_pos(+s: J.Val, +kind: String, +id: U32) -> J.Val:
   lanternward.stage.prop_pos.opt(lanternward.stage.Session.prop_of(s, kind, id), s)
 
@@ -678,7 +628,6 @@ def lanternward.stage.prop_pos.opt(+i: J.Val, +s: J.Val) -> J.Val:
     case _:
       ga.pair_i(lanternward.eu(s, "props", J.u32(i), "x"), lanternward.eu(s, "props", J.u32(i), "y"))
 
-# Walk to a point `(px, py)`, then at the spot face `(ax, ay)` and press E.
 def lanternward.bot.at_spot(+s: J.Val, +me: J.Val, +px: U32, +py: U32, +reach: U32, +near: U32, +ax: U32, +ay: U32, +press: Bool) -> J.Val:
   lanternward.bot.at_spot.go(lanternward.bot.bot_goto(s, me, px, py, reach, False{}), RS.i_lt(lanternward.world.dist((px - ga.u(me, "x") : U32), (py - ga.u(me, "y") : U32)), near), s, ax, ay, press)
 
@@ -728,7 +677,6 @@ def lanternward.bot.objective.go(+code: U32, +s: J.Val, +id: U32, +me: J.Val, +r
     case _:
       lanternward.bot.objective.rest(code, s, id, me)
 
-# Stages that just head for the way out, or to the gallery, or nowhere.
 def lanternward.bot.objective.rest(+code: U32, +s: J.Val, +id: U32, +me: J.Val) -> J.Val:
   lanternward.bot.objective.rest.go(
     Bool.or(
@@ -748,7 +696,6 @@ def lanternward.bot.objective.foe(+f: J.Val, +reach: U32, +s: J.Val, +me: J.Val)
     case _:
       lanternward.bot.bot_goto(s, me, ga.u(f, "x"), ga.u(f, "y"), reach, False{})
 
-# The first of the party takes the chest; the rest wait south of it.
 def lanternward.bot.objective.chest(+c: J.Val, +s: J.Val, +me: J.Val, +first: Bool) -> J.Val:
   match c:
     case J.JNull{}:
@@ -758,7 +705,6 @@ def lanternward.bot.objective.chest(+c: J.Val, +s: J.Val, +me: J.Val, +first: Bo
         lanternward.bot.bot_goto(s, me, ga.nu(c, 0), ga.nu(c, 1), 14, True{}),
         lanternward.bot.bot_goto(s, me, ga.nu(c, 0), (ga.nu(c, 1) + 12288 : U32), 8, False{}))
 
-# The unlit braziers' indices.
 def lanternward.bot.unlit.go(+ps: List<&2, J.Val>, +i: U32) -> List<&2, U32>:
   match ps:
     case Nil{}:
@@ -776,7 +722,6 @@ def lanternward.bot.nth_u32(+xs: List<&2, U32>, n: Nat) -> U32:
     case Con{+h, +t} 1n+p:
       lanternward.bot.nth_u32(t, p)
 
-# Three braziers, one ember: each fetches a flame, lights one.
 def lanternward.bot.objective.braziers(+s: J.Val, +id: U32, +me: J.Val, +rank: U32) -> J.Val:
   lanternward.bot.objective.braziers.go(lanternward.bot.unlit.go(ga.items(s, "props"), 0), s, me, rank)
 
@@ -799,7 +744,6 @@ def lanternward.bot.objective.ember(+p: J.Val, +s: J.Val, +me: J.Val) -> J.Val:
     case _:
       lanternward.bot.bot_goto(s, me, ga.u(p, "x"), ga.u(p, "y"), 12, True{})
 
-# South of the cage, the lantern thrown north through the bars.
 def lanternward.bot.objective.lantern(+s: J.Val, +me: J.Val, +r: J.Val) -> J.Val:
   lanternward.bot.objective.lantern.go(
     lanternward.bot.i_aim(lanternward.bot.bot_goto(s, me, lanternward.world.middle(24), lanternward.world.middle(7), 4, False{}), 0, 4294967295),
@@ -812,7 +756,6 @@ def lanternward.bot.objective.lantern.go(+i: J.Val, +near: Bool, +s: J.Val, +me:
       Bool.and(Bool.and(near, U32.is_ge(ga.u(me, "flame"), U32.div(ga.u(r, "flame"), 5))), U32.is_eq(ga.u(me, "lamp_cd"), 0)),
       ga.sb(i, "fire", U32.is_lt(U32.mod(ga.u(s, "elapsed"), 8), 3)), i))
 
-# The Gallery's first zone: the block onto the plate, the second plate held.
 def lanternward.bot.first_of(+s: J.Val, +kind: String) -> J.Val:
   lanternward.find_prop(s, kind, 4294967295)
 
@@ -826,7 +769,6 @@ def lanternward.bot.objective.plates.gate(open: Bool, +s: J.Val, +id: U32, +me: 
     case False{}:
       lanternward.bot.objective.plates.second(U32.is_eq(rank, 1), s, me, first)
 
-# The second knight holds the second plate for the rest.
 def lanternward.bot.objective.plates.second(second: Bool, +s: J.Val, +me: J.Val, +first: Bool) -> J.Val:
   match second:
     case True{}:
@@ -851,7 +793,6 @@ def lanternward.bot.objective.plates.push(+b: J.Val, +p: J.Val, +s: J.Val, +me: 
         lanternward.bot.objective.behind(b, s, me),
         lanternward.bot.bot_goto(s, me, (ga.u(p, "x") + 4096 : U32), (ga.u(p, "y") + 8192 : U32), 10, False{}))
 
-# Behind the block, then east into it.
 def lanternward.bot.objective.behind(+b: J.Val, +s: J.Val, +me: J.Val) -> J.Val:
   lanternward.bot.norm(
     Bool.pick(J.Val,
@@ -861,7 +802,6 @@ def lanternward.bot.objective.behind(+b: J.Val, +s: J.Val, +me: J.Val) -> J.Val:
       lanternward.bot.bot_goto(s, me, (ga.u(b, "x") - 4096 : U32), ga.u(b, "y"), 3, False{}),
       lanternward.bot.i_aim(lanternward.bot.i_move(rules.Input.default(), 1, 0), 1, 0)))
 
-# The dark: head for the nearest snuffer's glow.
 def lanternward.bot.objective.dark(+f: J.Val, +s: J.Val, +me: J.Val, +r: J.Val) -> J.Val:
   match f:
     case J.JNull{}:
@@ -871,7 +811,6 @@ def lanternward.bot.objective.dark(+f: J.Val, +s: J.Val, +me: J.Val, +r: J.Val) 
         ga.sb(lanternward.bot.bot_goto(s, me, ga.u(f, "x"), ga.u(f, "y"), 30, False{}), "ult",
           RS.i_lt(lanternward.world.dist((ga.u(f, "x") - ga.u(me, "x") : U32), (ga.u(f, "y") - ga.u(me, "y") : U32)), ga.u(r, "lock"))))
 
-# The first knight goes to (middle(14), middle(4)) and presses E facing north.
 def lanternward.bot.objective.lock_door(+first: Bool, +s: J.Val, +me: J.Val) -> J.Val:
   Bool.pick(J.Val, first,
     lanternward.bot.at_spot(s, me, lanternward.world.middle(14), lanternward.world.middle(4), 3, 1536, 0, 4294967295, True{}),
@@ -886,7 +825,6 @@ def lanternward.bot.objective.key_chest(+c: J.Val, +s: J.Val, +me: J.Val, +first
         lanternward.bot.at_spot(s, me, ga.nu(c, 0), (ga.nu(c, 1) + 4096 : U32), 5, 2048, 0, 4294967295, True{}),
         lanternward.bot.bot_goto(s, me, lanternward.world.middle(14), lanternward.world.middle(8), 10, False{}))
 
-# The carrier opens the Boss Key door; the rest wait.
 def lanternward.bot.objective.boss_door(+s: J.Val, +id: U32, +me: J.Val) -> J.Val:
   lanternward.bot.objective.boss_door.go(
     lanternward.bot.door_tile(lanternward.world.Plan.find(3, 77)),
@@ -931,8 +869,6 @@ def lanternward.bot.objective.beacon(+p: J.Val, +s: J.Val, +me: J.Val) -> J.Val:
     case _:
       lanternward.bot.at_spot(s, me, ga.u(p, "x"), (ga.u(p, "y") + 4096 : U32), 8, 3584, 0, 4294967295, False{})
 
-# The Gallery's zone two: one knight stands where the turret's bolt, met with
-# a shield in its first ticks, goes to the crystal; the rest keep back.
 def lanternward.bot.bot_gallery(+s: J.Val, +id: U32, +me: J.Val) -> J.Val:
   lanternward.bot.gallery.second(
     Bool.and(U32.is_eq(lanternward.bot.rank(s, id), 1), U32.is_eq(ga.u(s, "stage"), 0)),
@@ -965,8 +901,6 @@ def lanternward.bot.gallery.aim(+cx: U32, +cy: U32, +s: J.Val, +me: J.Val) -> J.
     RS.i_lt(lanternward.world.dist((lanternward.world.middle(29) - ga.u(me, "x") : U32), (lanternward.world.middle(5) - ga.u(me, "y") : U32)), 2304),
     s, me)
 
-# At the spot: stand, lock the crystal (a tap of the arrow moves the lock off
-# the turret), and meet the bolt with the shield.
 def lanternward.bot.gallery.at(+i: J.Val, close: Bool, +s: J.Val, +me: J.Val) -> J.Val:
   match close:
     case False{}:
@@ -994,7 +928,6 @@ def lanternward.bot.gallery.hold(+on: Bool, +i: J.Val, +s: J.Val, +me: J.Val) ->
         Bool.and(U32.is_gt(ga.u(me, "shield"), 0),
           Bool.and(Bool.not(lanternward.bot.gallery.clear(ga.items(s, "bolts"), me)), U32.is_lt(ga.u(me, "shield"), 18)))))))
 
-# A hostile bolt closing in on the knight.
 def lanternward.bot.gallery.near(+bs: List<&2, J.Val>, +me: J.Val) -> Bool:
   match bs:
     case Nil{}:
@@ -1014,7 +947,6 @@ def lanternward.bot.gallery.closing.go(v: U32 & U32, +b: J.Val, +me: J.Val) -> U
   (+vx, +vy) = v
   lanternward.world.dot_unit(vx, vy, (ga.u(me, "x") - ga.u(b, "x") : U32), (ga.u(me, "y") - ga.u(b, "y") : U32))
 
-# No hostile bolt within 40 px.
 def lanternward.bot.gallery.clear(+bs: List<&2, J.Val>, +me: J.Val) -> Bool:
   match bs:
     case Nil{}:

@@ -21,14 +21,12 @@ for kit in ['knight','fx']:
    for i,f in enumerate(frames):sheet.paste(cells(f),(100+i*128,y+20))
   sheet.save(out/f'{kit}-seat{seat+1}-cells-all.png')
   if seat==0:sheet.save(out/f'{kit}-cells-all.png')
-# Four seat strips, real buffer and exact graded native together.
 sheet=Image.new('RGB',(1200,850),'#080b0e');d=ImageDraw.Draw(sheet)
 for seat in range(4):
  frames=[f for f in data if f['kit']=='knight' and f['state']=='idle' and f['seat']==seat]
  for i,f in enumerate(frames):
   x=20+i*280;y=seat*210;d.text((x,y+5),f'seat {seat+1} idle {i}',font=font,fill='#b0b2a8');sheet.paste(native(f),(x,y+35));sheet.paste(cells(f),(x+85,y+25))
 sheet.save(out/'seats-real-cells.png')
-# Reproducible self-contained viewer: all frames, exact timing, real cell glyphs.
 manifest={kit:json.loads((root/'crates/delve/assets/arcade'/kit/'manifest.json').read_text()) for kit in ['knight','fx']}
 html='''<!doctype html><meta charset="utf-8"><title>Arcade kit review</title><style>
 body{margin:32px;background:#080b0e;color:#b0b2a8;font:14px monospace}button,select{background:#192934;color:#b0b2a8;padding:8px;border:1px solid #456070}canvas{image-rendering:pixelated;background:#000;margin:16px 28px 8px 0;vertical-align:top}p{max-width:850px;line-height:1.5}.row{display:flex;align-items:flex-start;gap:24px}h1{font-size:20px}</style>

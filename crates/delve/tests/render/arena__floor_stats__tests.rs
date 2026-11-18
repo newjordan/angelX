@@ -5,7 +5,6 @@ use super::*;
 use crate::rules::floor_stats::{End, Line, Results, Tally};
 use crate::rules::{HZ, Run};
 
-/// The pixels lit above the board's darkest greys.
 fn lit(img: &Img) -> usize {
     img.pixels().filter(|c| c.iter().any(|&v| v > 40)).count()
 }
@@ -14,8 +13,6 @@ fn on_palette(img: &Img) -> bool {
     img.pixels().all(|c| c == BLACK || super::super::super::ink::palette_index(c).is_some())
 }
 
-/// A party of `n` (Matt, Wren, Bors and friends) and a floor they played:
-/// each knight their own story, a wish that doubled Wren's pace.
 fn party(n: u32) -> Run {
     let mut run = Run::new(17, 7, None);
     for (id, name) in [(2, "Wren"), (3, "Bors"), (4, "Ysolde"), (5, "Gawain"), (6, "Lynette")].into_iter().take(n as usize - 1) {
@@ -49,7 +46,6 @@ fn played(run: &Run, depth: u32, end: End) -> Results {
     Results::of(&tally, &run.players, depth, end, 4 * 60 * hz + 12 * hz)
 }
 
-/// The steps the board is drawn at in its shots and tests.
 const AGES: [u32; 10] = [6, 16, 26, 40, 56, 72, 86, 100, 120, 190];
 
 #[test]
@@ -80,15 +76,11 @@ fn its_motion_advances_with_the_step_and_every_seat_draws_the_same_step_alike() 
     let run = party(3);
     let results = played(&run, 3, End::Cleared);
     let frames: Vec<Img> = (0..=crate::rules::floor_stats::SHOWN as u32).map(|age| frame(&run, &results, age, NATIVE_W, NATIVE_H)).collect();
-    // It builds up: more of the board is drawn as it plays.
     assert!(lit(&frames[10]) < lit(&frames[40]));
     assert!(lit(&frames[40]) < lit(&frames[150]));
-    // And moves the whole while: no long stretch stands still before the
-    // wish's counts have landed.
     let still = frames.windows(6).take(130).filter(|w| w.iter().all(|f| *f == w[0])).count();
     assert_eq!(still, 0, "a stretch of six steps without a change");
     assert_eq!(frames[77], frame(&run, &results, 77, NATIVE_W, NATIVE_H), "a step is drawn alike every time");
-    // It closes onto the floor's plate.
     assert!(lit(&frames[crate::rules::floor_stats::SHOWN as usize - 1]) < lit(&frames[150]));
 }
 
@@ -112,7 +104,6 @@ fn a_seat_sees_the_board_first_in_the_next_floors_plate_and_then_its_title() {
     assert_eq!(frame_for(&run, NATIVE_W, NATIVE_H, Some(2)), super::super::plates::frame(title, NATIVE_W, NATIVE_H));
 }
 
-/// A finished run's deeds: the game's achievements by their ids.
 const DEEDS: [&str; 4] = ["first_delve", "party_of_four", "below_the_bottom", "out_of_time"];
 
 fn finished(run: &Run, end: End) -> Results {
@@ -136,14 +127,10 @@ fn a_finished_runs_board_turns_to_its_deeds_once_its_floor_is_read() {
         assert!(on_palette(img));
     }
     assert!(lit(&deeds[4]) < lit(&deeds[60]), "the deeds come up one by one");
-    // A floor cleared, or a run with no deeds, keeps its one board.
     let cleared = Results { end: End::Cleared, ..results.clone() };
     assert_eq!(frame(&run, &cleared, at + 40, NATIVE_W, NATIVE_H), frame(&run, &Results { deeds: Vec::new(), ..cleared.clone() }, at + 40, NATIVE_W, NATIVE_H));
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_floor_stats_shots -- --ignored`:
-/// the board for a party of three through its motion, and a party of six,
-/// a knight alone and a fallen party's last floor at their ends.
 #[test]
 #[ignore]
 fn write_floor_stats_shots() {

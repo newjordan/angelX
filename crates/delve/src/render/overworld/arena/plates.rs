@@ -44,7 +44,6 @@ impl Lamp {
     }
 }
 
-// Coloured shadows and warm material highlights, all existing realm inks.
 #[derive(Clone, Copy, PartialEq)]
 struct Ramp(char, char, char);
 const STONE: Ramp = Ramp('s', 'u', '$');
@@ -55,8 +54,6 @@ const MOSS: Ramp = Ramp('s', 'e', 'C');
 const CAP: Ramp = Ramp('s', 'S', 'U');
 const PAPER: Ramp = Ramp('x', '$', 'T');
 
-// A small palette lookup is baked once. Its adjacent-colour interpolation
-// softens falloff without grey inks entering the amber or teal material ramps.
 fn nearest_material(c: [f32; 3], foliage: bool, x: i32, y: i32) -> Rgb {
     type Blend = (Rgb, Rgb, f32);
     static TABLES: OnceLock<[Vec<Blend>; 2]> = OnceLock::new();
@@ -151,9 +148,6 @@ impl Brush {
             }
         }
         if ramp == CLIFF {
-            // A quiet slate face keeps its own colour under the two lamps.
-            // Close grey/stone tones make the falloff gentle without broad
-            // amber rings or the rock helper's many overlapping facets.
             let c: [f32; 3] = std::array::from_fn(|i| {
                 [14.0, 22.0, 29.0][i]
                     + [30.0, 47.0, 54.0][i] * plane
@@ -208,8 +202,6 @@ impl Brush {
             0.0
         };
         let plane = (plane + texture).clamp(0.0, 1.0);
-        // Light multiplies the surface plane; it never paints a flat oval over
-        // beams or stone. Lit faces are amber, unlit faces stay blue-green.
         let diffuse = 0.22 + plane * 0.95;
         let ambient = 0.09 + plane * 0.40;
         let (shadow, fire, moon) = if ramp == WOOD {
@@ -303,7 +295,6 @@ impl Brush {
     }
 
     fn arch(&mut self, cx: i32, top: i32, half: i32, bottom: i32, thickness: i32, plane: f32) {
-        // Semicircular, thick stone vault with a gently shaded curved crown.
         for y in top.max(0)..bottom.min(HORIZON) {
             for x in (cx - half).max(0)..(cx + half).min(W) {
                 let dx = x - cx;
@@ -332,8 +323,6 @@ impl Brush {
                 );
             }
         }
-        // Voussoirs fan around the arch. Their joints cross its thickness;
-        // short inner bevels catch warm light instead of a drawn grey outline.
         for i in 1..12 {
             let angle = i as f32 * std::f32::consts::PI / 12.0;
             let (sn, cs) = angle.sin_cos();
@@ -423,7 +412,6 @@ impl Brush {
     }
 
     fn rock(&mut self, x: i32, y: i32, rx: i32, ry: i32, plane: f32) {
-        // Chipped silhouettes and three coherent facets, not cloud lobes.
         let a = (x - rx, y - ry / 4);
         let b = (x - rx * 2 / 3, y - ry * 4 / 5);
         let c = (x + rx / 5, y - ry);
@@ -437,7 +425,6 @@ impl Brush {
         self.poly(&[joint, d, e, f], STONE, plane * 0.43);
         self.stroke(b, c, STONE, plane + 0.42);
         self.stroke(joint, f, STONE, plane * 0.60);
-        // Short mineral strata lie on the face, parallel to its plane.
         for i in 0..(rx / 12).max(1) {
             let xx = x - rx / 2 + i * 11;
             let yy = y + ry / 4 + i * ry / 18;
@@ -628,7 +615,6 @@ fn gate() -> (Brush, Lamp) {
         Lamp::cool(249, 42, 110.0),
     ]);
     b.haze(235, 89, 128, 86, 's', 0.50);
-    // A low, rounded gatehouse among banked stones, viewed across the steps.
     b.round(114, 54, 175, 113, 20, STONE, 0.34);
     b.masonry(119, 73, 167, 86, 11, 0.35);
     b.round(105, 58, 187, 12, 5, STONE, 0.49);
@@ -665,7 +651,6 @@ fn gate() -> (Brush, Lamp) {
         b.stroke((203, y), (231, y), METAL, 0.24);
     }
     b.chain(181, 96, 142, 0.26);
-    // Moss and round rubble frame the entrance instead of a city silhouette.
     for (x, y, r) in [
         (32, 153, 27),
         (63, 153, 24),
@@ -697,8 +682,6 @@ fn churchyard() -> (Brush, Lamp) {
         Lamp::warm(104, 144, 58.0),
         Lamp::cool(186, 64, 106.0),
     ]);
-    // The church rises behind a gate and graves. Three depth planes share
-    // the same light, but nearer iron and stones have darker facing sides.
     b.floor(220, 153);
     b.round(143, 69, 144, 91, 6, STONE, 0.28);
     b.poly(
@@ -732,7 +715,6 @@ fn churchyard() -> (Brush, Lamp) {
         b.stroke((x, 91), (x, 108), METAL, 0.17);
         b.stroke((x - 4, 98), (x + 3, 98), METAL, 0.2);
     }
-    // Low stone boundary, iron finials and a partly open wrought gate.
     b.masonry(57, 139, 81, 28, 10, 0.25);
     b.masonry(270, 137, 65, 32, 10, 0.24);
     for x in [137, 269] {
@@ -788,7 +770,6 @@ fn crypt_vault() -> (Brush, Lamp) {
     b.haze(216, 103, 92, 73, 'S', 0.19);
     b.masonry(52, 57, 52, 105, 12, 0.25);
     b.masonry(307, 57, 50, 105, 12, 0.20);
-    // Three round vaults, each darker and smaller toward the sanctuary.
     for (top, half, thick, shade) in [
         (33, 139, 17, 0.45),
         (51, 95, 13, 0.40),
@@ -804,13 +785,11 @@ fn crypt_vault() -> (Brush, Lamp) {
         b.round(x + 6, y + 49, 13, 21, 5, STONE, 0.01);
         b.arch(x + 12, y + 8, 9, y + 34, 3, 0.52);
         b.arch(x + 12, y + 43, 9, y + 69, 3, 0.48);
-        // Small ivory remains sit within the ossuary recesses.
         for yy in [y + 28, y + 63] {
             b.skull(x + 11, yy - 2, 0.68);
             b.stroke((x + 5, yy + 5), (x + 18, yy + 5), PAPER, 0.4);
         }
     }
-    // A low sarcophagus, with a rounded lid and a selectively lit lip.
     b.poly(
         &[(118, 151), (168, 138), (241, 153), (198, 176), (122, 166)],
         STONE,
@@ -883,8 +862,6 @@ fn mine_head() -> (Brush, Lamp) {
         Lamp::warm(316, 143, 49.0),
     ]);
     b.haze(207, 111, 150, 74, 's', 0.20);
-    // One quiet cliff: a broad face, a lit crown and a recessed right side.
-    // Small strata describe the rock without splitting it into rubble facets.
     b.poly(
         &[
             (31, 65),
@@ -922,7 +899,6 @@ fn mine_head() -> (Brush, Lamp) {
         CLIFF,
         0.10,
     );
-    // Long, gently sloping bedding seams, interrupted around the entrance.
     for (a, z) in [
         ((130, 78), (194, 74)),
         ((141, 107), (204, 101)),
@@ -944,7 +920,6 @@ fn mine_head() -> (Brush, Lamp) {
         b.stroke((x, y), (x + 5, y - 1), CLIFF, 0.15);
         b.pixel(x + 2, y - 2, CLIFF, 0.35);
     }
-    // Timbered adit: the tunnel stays black behind thick oak posts and lintel.
     b.round(222, 104, 67, 64, 5, STONE, 0.01);
     b.oval(256, 108, 32, 29, STONE, 0.01);
     b.arch(256, 72, 45, 167, 9, 0.42);
@@ -955,8 +930,6 @@ fn mine_head() -> (Brush, Lamp) {
     b.beam((214, 104), (293, 104), 11, 0.71);
     b.beam((223, 111), (239, 121), 5, 0.45);
     b.beam((284, 111), (271, 121), 5, 0.39);
-    // A-frame winding head: two legs meet under the sheave, with a clear
-    // crossbeam, iron joints and a rope dropping into an open shaft collar.
     b.round(66, 158, 58, 10, 2, STONE, 0.09);
     b.im.rect(73, 158, 42, 7, 's');
     b.beam((90, 57), (48, 165), 10, 0.64);
@@ -966,13 +939,11 @@ fn mine_head() -> (Brush, Lamp) {
     b.beam((129, 151), (102, 121), 5, 0.30);
     b.beam((81, 66), (110, 66), 9, 0.61);
     wheel(&mut b, 95, 49, 16);
-    // A sheave has an open centre, rim and spokes; its hanging rope is hemp.
     b.stroke((111, 48), (111, 160), WOOD, 0.79);
     b.stroke((112, 49), (112, 160), WOOD, 0.34);
     b.round(109, 151, 5, 6, 1, METAL, 0.32);
     b.stroke((90, 70), (90, 82), METAL, 0.40);
     b.lantern(92, 91, 2);
-    // Rails curve toward the adit and catch its lantern at the vanishing end.
     for y in 163..HORIZON {
         let d = y - 163;
         let left = 243 - d * 4 - d * d / 35;
@@ -1018,7 +989,6 @@ fn forge() -> (Brush, Lamp) {
         Lamp::cool(179, 53, 82.0),
     ]);
     b.masonry(68, 46, 257, 113, 12, 0.28);
-    // Vaults and furnace stack lead to the cooler room behind the fire.
     b.arch(183, 31, 108, 164, 14, 0.30);
     b.arch(175, 55, 58, 158, 9, 0.20);
     b.floor(215, 150);
@@ -1026,7 +996,6 @@ fn forge() -> (Brush, Lamp) {
     b.masonry(224, 61, 62, 96, 10, 0.50);
     b.arch(248, 90, 26, 156, 9, 0.72);
     b.round(231, 112, 35, 36, 5, WOOD, 0.1);
-    // Emission is crisp, with its diffuse light already on nearby bricks.
     for (x, y, h) in [
         (236, 137, 14),
         (242, 140, 25),
@@ -1055,12 +1024,10 @@ fn forge() -> (Brush, Lamp) {
     b.round(226, 149, 47, 6, 2, METAL, 0.39);
     b.chain(190, 43, 116, 0.24);
     b.chain(307, 47, 135, 0.25);
-    // Roof braces, with visible beam ends, scarf joints and iron straps.
     b.beam((69, 57), (306, 60), 10, 0.32);
     b.beam((76, 57), (102, 140), 8, 0.27);
     b.beam((304, 60), (279, 92), 7, 0.30);
     b.lantern(96, 91, 3);
-    // A heavy anvil on its stump: bright top, charcoal front and horn.
     b.oval(173, 172, 34, 8, WOOD, 0.16);
     b.round(150, 143, 43, 28, 4, WOOD, 0.29);
     for x in [155, 164, 175, 187] {
@@ -1087,7 +1054,6 @@ fn forge() -> (Brush, Lamp) {
     b.im.line(181, 133, 203, 129, 'o');
     b.beam((185, 127), (202, 149), 3, 0.48);
     b.round(181, 123, 14, 7, 2, METAL, 0.7);
-    // Tongs, ore basket, rail offcuts and a dark nearer barrel.
     b.stroke((116, 141), (132, 163), METAL, 0.28);
     b.stroke((121, 140), (134, 160), METAL, 0.36);
     b.round(279, 151, 35, 19, 3, METAL, 0.18);
@@ -1146,7 +1112,6 @@ fn keep_blocks(b: &mut Brush, x: i32, top: i32, w: i32, bottom: i32, curved: boo
 }
 
 fn merlon(b: &mut Brush, x: i32, y: i32, w: i32) {
-    // A solid battlement with a top coping and a visible dark side face.
     b.round(x, y, w, 12, 1, STONE, 0.48);
     b.poly(
         &[
@@ -1194,8 +1159,6 @@ fn keep() -> (Brush, Lamp) {
     ]);
     b.haze(208, 85, 155, 100, 's', 0.19);
     b.oval(202, 169, 151, 35, STONE, 0.17);
-    // A taller hall behind the curtain wall, with coursed walls and slate
-    // shingles laid along the roof planes rather than a single teal wedge.
     keep_blocks(&mut b, 163, 64, 88, 145, false);
     b.poly(&[(155, 67), (205, 31), (206, 63)], CAP, 0.39);
     b.poly(&[(205, 31), (259, 66), (206, 63)], CAP, 0.19);
@@ -1223,7 +1186,6 @@ fn keep() -> (Brush, Lamp) {
     for x in [165, 246] {
         arrow_slit(&mut b, x, 105);
     }
-    // Recessed scorched arch and an iron portcullis, warm behind its bars.
     b.round(192, 132, 33, 33, 2, WOOD, 0.07);
     b.oval(208, 132, 17, 17, WOOD, 0.07);
     b.arch(208, 112, 27, 167, 8, 0.58);
@@ -1246,8 +1208,6 @@ fn keep() -> (Brush, Lamp) {
     b.floor(208, 165);
     b.round(179, 167, 60, 5, 2, STONE, 0.51);
     b.round(167, 175, 84, 5, 2, STONE, 0.40);
-    // A horned dragon skull mounted over the gate: long muzzle, hollow eyes,
-    // swept horns and small teeth, lit by the doorway below it.
     b.poly(
         &[
             (197, 104),
@@ -1282,7 +1242,6 @@ fn keep() -> (Brush, Lamp) {
     for x in [203, 207, 216] {
         b.stroke((x, 108), (x, 111), PAPER, 0.68);
     }
-    // Old claw scores break only a few blocks beside the scorched threshold.
     for dx in [0, 4, 8] {
         b.stroke((242 + dx, 133), (239 + dx, 148), STONE, 0.01);
         b.stroke((243 + dx, 134), (240 + dx, 147), STONE, 0.48);
@@ -1346,7 +1305,6 @@ fn archive() -> (Brush, Lamp) {
     shelves(&mut b, 274, 50, 55, 104, true);
     shelves(&mut b, 17, 28, 53, 126, true);
     shelves(&mut b, 339, 24, 34, 131, true);
-    // Still flood water holds quiet, grouped reflections beneath the shelves.
     b.poly(
         &[(0, 155), (198, 145), (384, 155), (384, 188), (0, 188)],
         CAP,
@@ -1366,7 +1324,6 @@ fn archive() -> (Brush, Lamp) {
     }
     b.im.line(200, 49, 200, 84, 'S');
     b.lantern(200, 96, 4);
-    // A dry stone reading island with a warmly lit open folio.
     b.oval(134, 175, 48, 10, STONE, 0.31);
     b.round(129, 151, 9, 24, 3, WOOD, 0.50);
     b.poly(
@@ -1395,8 +1352,6 @@ fn archive() -> (Brush, Lamp) {
     (b, breathing)
 }
 
-// Living light is baked into the cap itself, independently of incident light.
-// This small teal-green ramp stays on the realm palette and is only used here.
 fn fungal_glow(b: &mut Brush, x: i32, y: i32, strength: f32) {
     let Some(base) = b.im.get(x, y) else { return };
     let colours = [
@@ -1428,7 +1383,6 @@ fn mushroom(b: &mut Brush, x: i32, y: i32, r: i32, foot: i32, near: bool) {
         }
     }
     b.oval(x, y + 4, r, r / 4, CAP, if near { 0.73 } else { 0.27 });
-    // A high dome with a flattened, scalloped lip; gills lie below the crown.
     for yy in (y - r * 3 / 5).max(0)..=y + 2 {
         for xx in (x - r).max(0)..(x + r).min(W) {
             let dx = (xx - x) as f32 / r as f32;
@@ -1450,8 +1404,6 @@ fn mushroom(b: &mut Brush, x: i32, y: i32, r: i32, foot: i32, near: bool) {
             b.oval(x + dx + 1, y + dy - 1, (rx - 2).max(1), 1, CAP, 0.76);
         }
     }
-    // The underside emits a soft fan of gills. Rims are curved and broader
-    // at the front, while the crown remains a quiet, shaded material dome.
     let glow = if near { 1.20 } else { 0.45 };
     for dx in -r + 2..r - 1 {
         let arc = (1.0 - (dx as f32 / r as f32).powi(2)).sqrt();
@@ -1516,7 +1468,6 @@ fn fungal() -> (Brush, Lamp) {
             b.stroke((x, y - 3), (x + dx, y + 2), CAP, 0.35);
         }
     }
-    // Small bioluminescent fruits, gathered at the path and giant cap roots.
     for (x, y, r) in [
         (152, 160, 8),
         (175, 154, 6),
@@ -1528,12 +1479,10 @@ fn fungal() -> (Brush, Lamp) {
         b.oval(x, y, r, r / 2, CAP, 0.80);
         b.im.ellipse(x as f32, (y + 1) as f32, (r - 2) as f32, 2.0, 'U');
     }
-    // A small amber lantern contrasts with the cool living light.
     b.lantern(179, 148, 2);
     (b, breathing)
 }
 
-// Split, buttressed willows: the forked silhouettes are the swamp's skyline.
 fn swamp_tree(b: &mut Brush, x: i32, foot: i32, height: i32, lean: i32, near: bool) {
     let top = foot - height;
     let width = if near { 13 } else { 6 };
@@ -1578,7 +1527,6 @@ fn swamp_tree(b: &mut Brush, x: i32, foot: i32, height: i32, lean: i32, near: bo
         );
         b.stroke((root, y + 17), (end, y - 5), WOOD, p);
         b.stroke((end, y - 5), (end - side * 14, y - 16), WOOD, p * 0.7);
-        // Hanging beard moss is broken at the ends, never a solid curtain.
         for i in 0..3 {
             let xx = end - side * i * 6;
             let yy = y + i * 3;
@@ -1609,7 +1557,6 @@ fn swamp(depth: u32) -> (Brush, Lamp) {
         Lamp::warm(208, 81, if hall { 66.0 } else { 0.1 }),
     ]);
     b.haze(202, 90, 151, 76, 'u', 0.6);
-    // Distant drowned forest behind three low horizontal banks of mist.
     for (x, h, lean) in [
         (62, 86, 10),
         (104, 104, -8),
@@ -1633,7 +1580,6 @@ fn swamp(depth: u32) -> (Brush, Lamp) {
         CAP,
         0.13,
     );
-    // Broad floating silt islands, small ripples and cool broken reflections.
     for i in 0..36 {
         let x = 30 + (hash(i, 0, 851) % 330) as i32;
         let y = 140 + (hash(i, 1, 851) % 43) as i32;
@@ -1643,7 +1589,6 @@ fn swamp(depth: u32) -> (Brush, Lamp) {
             b.stroke((x - w / 2, y - 1), (x + w / 2, y - 1), CAP, 0.55);
         }
     }
-    // A broken, receding causeway draws the eye into the haunted clearing.
     b.poly(
         &[
             (119, 188),
@@ -1671,7 +1616,6 @@ fn swamp(depth: u32) -> (Brush, Lamp) {
         b.stroke((x, y), (x + w - 2, y - 2), STONE, 0.62);
     }
     if hall {
-        // An antler throne, with the crowned monarch's vast moss mantle.
         b.round(164, 70, 71, 78, 9, WOOD, 0.45);
         for side in [-1, 1] {
             let x = 199 + side * 30;
@@ -1789,7 +1733,6 @@ fn swamp(depth: u32) -> (Brush, Lamp) {
             WOOD,
             0.92,
         );
-        // Blanchefleur's cream face and haunches are visible through her pen.
         b.oval(290, 136, 20, 9, METAL, 0.89);
         b.poly(
             &[
@@ -1833,15 +1776,12 @@ fn swamp(depth: u32) -> (Brush, Lamp) {
         b.round(297, 137, 7, 9, 1, WOOD, 0.9);
         b.im.put(300, 141, '4');
     } else {
-        // A ruined crown-shaped gateway beyond the mire, no fungal scenery.
         b.arch(201, 55, 34, 135, 9, 0.50);
         for (x, y) in [(168, 61), (181, 43), (199, 34), (218, 43), (230, 60)] {
             b.poly(&[(x - 5, y + 14), (x, y), (x + 6, y + 14)], STONE, 0.59);
         }
         b.haze(204, 130, 91, 10, 'U', 1.2);
         if depth == 2 {
-            // A huge knuckled hand breaches the nearer pool; another life
-            // is a small cold flame between the drowned trees.
             b.oval(271, 151, 17, 8, MOSS, 0.67);
             for (x, y, h) in [
                 (257, 126, 23),
@@ -1869,7 +1809,6 @@ fn swamp(depth: u32) -> (Brush, Lamp) {
             b.im.line(123, 91, 122, 101, '2');
         }
     }
-    // Near trees frame the scene; light catches bark and copper bulrushes.
     swamp_tree(&mut b, 49, 184, 157, 20, true);
     swamp_tree(&mut b, 355, 187, 169, -19, true);
     for (x, y) in [(78, 176), (110, 183), (319, 179), (341, 174)] {
@@ -1895,7 +1834,6 @@ fn unknown() -> (Brush, Lamp) {
         Lamp::warm(78, 153, 42.0),
     ]);
     b.haze(215, 113, 130, 73, 'S', 0.22);
-    // An ancient, half-buried ring and a suspended cool stone. No sky or eyes.
     for (x, y, w) in [(116, 95, 13), (293, 89, 15), (67, 116, 12), (324, 111, 13)] {
         b.round(x, y, w, 58, 5, STONE, 0.21);
         b.oval(x + w / 2, y, w / 2 + 3, 5, STONE, 0.26);
@@ -1932,7 +1870,6 @@ fn unknown() -> (Brush, Lamp) {
     );
     b.im.line(207, 88, 204, 106, 'U');
     b.im.line(204, 106, 206, 115, 'v');
-    // A faint inlaid path offers scale and a way into the darkness.
     for (x, y, w) in [(201, 170, 14), (190, 178, 29)] {
         b.round(x, y, w, 3, 1, CAP, 0.56);
     }
@@ -1955,7 +1892,6 @@ fn unknown() -> (Brush, Lamp) {
     (b, breathing)
 }
 
-// Rounded inset cartouche; title and depth strings are the original game text.
 fn cartouche(im: &mut Img, x: i32, y: i32, w: i32, h: i32, r: i32) {
     for yy in 0..h {
         for xx in 0..w {
@@ -1969,7 +1905,6 @@ fn cartouche(im: &mut Img, x: i32, y: i32, w: i32, h: i32, r: i32) {
             if edge == 0 || curved {
                 im.put(x + xx, y + yy, if yy < h / 2 { 'S' } else { 's' });
             } else {
-                // Integer rows also serve the small live terminal title.
                 let light = (h - yy) * 3 / h + (w / 2 - (xx - w / 2).abs()) * 2 / w;
                 let c = match light {
                     0 => rgb(0x0a0c12),
@@ -2040,9 +1975,6 @@ fn build(kind: Kind, depth: u32) -> Scene {
     };
     let mut base = brush.finish();
     title(&mut base, kind, depth);
-    // Bake four surface-light states inside the small pool, then retain only
-    // pixels that differ from the base. Playback never walks the whole patch.
-    // Flame cores and inked detail are kept above the diffuse light.
     let breaths = std::array::from_fn(|phase| {
         let mut patch = Img::new(73, 73);
         let flicker = [0.86, 0.98, 1.10, 1.20][phase];
@@ -2122,7 +2054,6 @@ fn cached(kind: Kind, depth: u32) -> &'static Scene {
     SCENES[index].get_or_init(|| build(kind, depth))
 }
 
-/// Fully opened artwork; only a cached light pool and ten dust/spore dots move.
 pub fn painting(kind: Kind, depth: u32, age: u8) -> Img {
     if let Some(im) = delivered(kind, depth) {
         return im.clone();
@@ -2154,8 +2085,6 @@ pub fn painting(kind: Kind, depth: u32, age: u8) -> Img {
     im
 }
 
-/// The delivered painting, sampled from the rich source offline. The title
-/// retains its original wording, ink and position in the quiet bottom band.
 fn delivered(kind: Kind, depth: u32) -> Option<&'static Img> {
     if !super::slot_art::enabled() { return None; }
     static IMAGES: [OnceLock<Option<Img>>; DESTINATIONS.len()] =
@@ -2167,7 +2096,6 @@ fn delivered(kind: Kind, depth: u32) -> Option<&'static Img> {
             Kind::Mines => "dgn.plate.mines", Kind::Keep => "dgn.plate.keep",
             Kind::Archive => "dgn.plate.archive", Kind::Fungal => "dgn.plate.fungal",
             Kind::Unknown => "dgn.plate.unknown",
-            // The swamp's plates are painted here, never delivered.
             Kind::Swamp => return None,
         };
         super::slot_art::bytes(slot, "plate")?;
@@ -2183,8 +2111,6 @@ pub fn frame(plate: Playing, w: i32, h: i32) -> Img {
     let mut native = delivered(plate.kind, plate.depth).cloned()
         .unwrap_or_else(|| painting(plate.kind, plate.depth, plate.age));
     let (nw,nh) = (native.w,native.h);
-    // Quick horizontal iris: black -> painting in 7 ticks, close in 6.
-    // No interpolated RGB: all frames remain exactly on the master palette.
     let aperture = if plate.age < 7 {
         i32::from(plate.age) * nh / 7
     } else if plate.age > DURATION - 7 {
@@ -2207,8 +2133,6 @@ pub fn frame(plate: Playing, w: i32, h: i32) -> Img {
     if w <= 0 || h <= 0 {
         return out;
     }
-    // Fit with the arena's aspect ratio. Pure nearest-pixel enlargement and
-    // reduction keep the large silhouettes and title shapes on their inks.
     let (tw, th) = if w * H <= h * W {
         (w, w * H / W)
     } else {
@@ -2225,8 +2149,6 @@ pub fn frame(plate: Playing, w: i32, h: i32) -> Img {
             }
         }
     }
-    // Half-block terminals need an actual small font, rather than a 5×7
-    // glyph reduced below one pixel. Keep this inside the fitted picture.
     if tw < 230 && tw >= 90 && th >= 40 && (7..=DURATION - 7).contains(&plate.age) {
         for yy in oy + th - 20..oy + th {
             for xx in ox..ox + tw {

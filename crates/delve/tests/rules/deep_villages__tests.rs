@@ -36,8 +36,6 @@ fn calm(run: &mut Run, ticks: u64) {
     }
 }
 
-/// A party of `seats` standing in the village on floor `floor`, the star
-/// fallen.
 fn village_run(seats: u32, floor: u32) -> Run {
     let mut run = Run::new(41, 1, None);
     for id in 2..=seats {
@@ -56,7 +54,6 @@ fn the_village(run: &Run) -> &Village {
     run.deep.as_ref().unwrap().village.as_ref().unwrap()
 }
 
-/// Speak with speaker `who` and step through to what they ask.
 fn speak(run: &mut Run, id: u32, who: usize) {
     let (x, y) = SPEAKERS[who];
     put(run, id, (x, y + 0.6));
@@ -66,7 +63,6 @@ fn speak(run: &mut Run, id: u32, who: usize) {
 
 #[test]
 fn a_delve_of_six_floors_never_goes_below_the_unknown() {
-    // No Deep Road without having stood on the Unknown's floor.
     let mut home = Home::default();
     home.levels.insert(Station::Map, 4);
     home.deepest = DEEPEST - 1;
@@ -112,7 +108,6 @@ fn the_deep_counts_on_turns_the_packs_and_comes_to_a_village() {
     assert!(run.in_deep_village());
     assert!(run.valid_snapshot());
     assert!(packs.windows(2).all(|w| w[0] != w[1]), "the packs turn floor by floor: {packs:?}");
-    // And on below the village.
     run.descend_for_test();
     assert_eq!(run.floor(), CHAPTER + 1);
     assert!(run.deep.as_ref().unwrap().village.is_none());
@@ -153,7 +148,6 @@ fn the_star_falls_and_the_village_gathers() {
     let (x, y) = village::units(village::LANDING);
     let before = (run.players[&1].x, run.players[&1].y);
     assert!((before.0 - x).abs() < 4.0 && (before.1 - y).abs() < 1.0, "the party lands in the plaza");
-    // While the star falls nobody moves.
     run.step(&BTreeMap::from([(1, Input { move_x: 1, ..Default::default() })]));
     assert_eq!((run.players[&1].x, run.players[&1].y), before);
     assert_eq!(the_village(&run).hope, 0, "the village is dark before the star lands");
@@ -175,14 +169,12 @@ fn villagers_speak_and_the_village_lights_up_as_the_knights_help() {
     assert_eq!(run.home.deep.missions.len(), 1, "the elder's errand is taken");
     assert!(the_village(&run).hope > hope);
     assert!(run.talk_view(1).is_none(), "taking it ends the talk");
-    // Every errand, and a word with the one who only talks.
     for who in 1..=4 {
         speak(&mut run, 1, who);
         key(&mut run, 1, 1);
     }
     assert_eq!(run.home.deep.missions.len(), 4);
     assert!(run.home.deep.missions.iter().all(|m| m.village == CHAPTER && m.culture == culture));
-    // A visitor's wish brings it to the full.
     speak(&mut run, 1, cultures::WISHKEEPER);
     key(&mut run, 1, 1);
     assert!(run.city_wishing(1));
@@ -210,7 +202,6 @@ fn a_visitors_wish_spends_nothing_and_stands_once_a_knight() {
     key(&mut run, 1, 1);
     assert_eq!(run.players[&1].wishes, wishes, "none of the knight's own is spent");
     assert!(run.players[&1].offer.is_none());
-    // Once a knight; a friend has their own.
     speak(&mut run, 1, cultures::WISHKEEPER);
     assert!(run.talk_view(1).unwrap().2[0].contains("ALREADY"));
     key(&mut run, 1, 1);
@@ -221,7 +212,6 @@ fn a_visitors_wish_spends_nothing_and_stands_once_a_knight() {
     key(&mut run, 2, 1);
     let town = run.home.deep.town(CHAPTER).unwrap();
     assert_eq!(town.wishes.iter().map(|w| (w.gift, w.slot)).collect::<Vec<_>>(), vec![(Gift::Statue, 0), (Gift::Library, 1)]);
-    // Rolled up, a scroll builds nothing.
     assert!(city::read("").len() == 3);
 }
 
@@ -242,7 +232,6 @@ fn the_errands_lay_their_signs_on_the_floors_below_and_pay() {
         let room = &run.dungeon.rooms[sign.room];
         assert_eq!(room.tile(i32::from(sign.col), i32::from(sign.row)), Tile::Floor);
     }
-    // Walk over the relic: it is gathered.
     let relic = signs.iter().find(|s| s.kind == missions::SignKind::Relic).unwrap().clone();
     run.enter_for_test(relic.room);
     run.enemies.clear();
@@ -252,7 +241,6 @@ fn the_errands_lay_their_signs_on_the_floors_below_and_pay() {
     let gather = &run.home.deep.missions[usize::from(relic.mission)];
     assert_eq!(gather.have, 1);
     assert!(run.deep.as_ref().unwrap().signs.iter().any(|s| s.done));
-    // Finish it: it pays, and its village remembers.
     let gold = run.players[&1].carried.get(crate::realm::Spoil::Gold);
     run.home.deep.missions[usize::from(relic.mission)].have = 5;
     let next = run.deep.as_ref().unwrap().signs.iter().position(|s| !s.done && s.kind == missions::SignKind::Lamp).unwrap();
@@ -312,14 +300,12 @@ fn the_deep_record_is_settled_into_the_realm_and_kept_across_a_delivery() {
     .unwrap();
     assert!(result.changed);
     assert_eq!(home.deep, run.home.deep, "the realm keeps the Deep's record");
-    // A save written with no Deep in it reads; one with it reads it back.
     let json = serde_json::to_string(&home).unwrap();
     let back: Home = serde_json::from_str(&json).unwrap();
     assert_eq!(back.deep, home.deep);
     assert!(!serde_json::to_string(&Home::default()).unwrap().contains("\"deep\""), "an empty record is left out");
 }
 
-/// A village of `culture` on floor `floor`, the realm meeting it there.
 fn village_of(culture: Culture, floor: u32, seats: u32) -> Run {
     let mut run = Run::new(41, 1, None);
     for id in 2..=seats {
@@ -365,14 +351,12 @@ fn eight_peoples_turn_on_the_wheel_each_whole() {
         assert!(folk[cultures::TALKER].asks.is_none() && folk[cultures::WISHKEEPER].asks.is_none());
         assert!(!culture.music().is_empty());
         assert_ne!(culture.kin(), Pack::Swamp, "the Deep never goes to the swamp");
-        // Every speaker's words fit the conversation board.
         for f in &folk {
             assert!(f.name.len() <= 20 && f.hello.len() <= 200 && f.after.len() <= 200, "{}", f.name);
         }
         let (id, _) = culture.dread();
         assert_eq!(dread::culture_of(id), Some(culture));
     }
-    // The first four keep their places on the wheel.
     assert_eq!(&WHEEL[..4], &[Culture::Capfolk, Culture::Glimmerkin, Culture::Emberfolk, Culture::Lampwick]);
 }
 
@@ -390,7 +374,6 @@ fn the_floor_above_a_village_keeps_its_peoples_dread_at_the_stair() {
             assert_eq!(g.guardian_boss, Some(i as u8), "the dread holds the stair");
         }
         assert!(run.valid_snapshot(), "floor {floor}");
-        // In its hall, it is the guardian.
         let hall = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Stairs).unwrap();
         run.enter(hall, Some(2));
         let guardians: Vec<_> = run.enemies.iter().filter_map(|e| e.boss).collect();
@@ -399,8 +382,6 @@ fn the_floor_above_a_village_keeps_its_peoples_dread_at_the_stair() {
         }
         assert!(run.valid_snapshot(), "floor {floor} in the hall");
     }
-    // A floor that is not above a village keeps none, and the six floors
-    // never meet one.
     let mut run = Run::new(41, 1, None);
     run.home = deep_home();
     run.deep_floor_for_test(CHAPTER + 3);
@@ -448,13 +429,11 @@ fn a_felled_dread_is_heard_in_the_village_below() {
     let town = run.home.deep.town(CHAPTER).expect("the village below hears it");
     assert!(town.dread);
     assert!(run.cues.iter().any(|c| c == "deep_dread_felled") || run.found_line().is_some_and(|l| l.contains("FALLS")));
-    // The star lands on a village a step brighter.
     let mut next = Run::new(41, 1, None);
     next.home = run.home.clone();
     next.deep_floor_for_test(CHAPTER);
     calm(&mut next, village::FALL + 2);
     assert_eq!(the_village(&next).hope, 2, "its first light, and the dread's fall");
-    // And down the stair from the hall, as the party would go.
     calm(&mut run, 5);
     run.descend_for_test();
     assert_eq!(run.floor(), CHAPTER);
@@ -497,13 +476,11 @@ fn the_one_sent_home_runs_to_whoever_asked_the_next_time() {
     let wait = start + village::RUN_HOME - run.tick + 1;
     calm(&mut run, wait);
     assert!(run.found_line().is_some_and(|l| l.contains(culture.rescued().0)), "{:?}", run.found_line());
-    // The one who asked says so.
     calm(&mut run, village::REUNION);
     speak(&mut run, 1, usize::from(giver));
     let (_, words, _) = run.talk_view(1).unwrap();
     assert_eq!(words, culture.rescued().1);
     assert!(run.valid_snapshot());
-    // The next time, they are simply home.
     run.deep_floor_for_test(CHAPTER);
     assert!(the_village(&run).reunion.is_none());
 }
@@ -522,16 +499,12 @@ fn leaving_a_village_reads_as_leaving_it() {
     assert_eq!(left.town, run.home.deep.culture_at(CHAPTER).town(1));
     assert_eq!(left.errands, 2);
     assert!(left.hope >= 3);
-    // A floor below is cleared as ever.
     run.descend_for_test();
     assert!(run.floor_results.as_ref().unwrap().village.is_none());
-    // And a board with no village on it saves as before.
     let plain = serde_json::to_string(run.floor_results.as_ref().unwrap()).unwrap();
     assert!(!plain.contains("village"));
 }
 
-/// `cargo test print_dread_art -- --ignored --nocapture`: each dread's
-/// figure as `.boss` art rows, for its file (the trophy room draws them).
 #[test]
 #[ignore]
 fn print_dread_art() {
@@ -543,18 +516,10 @@ fn print_dread_art() {
     }
 }
 
-/// Whether the shots asked for (`DEEP_SHOTS`, a comma list; all if unset)
-/// include `part`.
 fn wanted(part: &str) -> bool {
     std::env::var("DEEP_SHOTS").map_or(true, |list| list.split(',').any(|p| p.trim() == part))
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_deep_village_shots -- --ignored`:
-/// each people's village dim as the party lands, then lit; the whole
-/// cavern of each; the star's fall as a run of frames; a conversation; the
-/// tracker on a floor below; a city with six wishes standing. `DEEP_SHOTS`
-/// (a comma list: villages, home, fall, fall2, talk, tracker, cities, comets,
-/// talks, dreads, rescue, reunion, leaving) draws only those.
 #[test]
 #[ignore]
 fn write_deep_village_shots() {
@@ -576,8 +541,6 @@ fn write_deep_village_shots() {
         save(&dir, &run, &format!("{tag}-b-lit"));
         save_img(&dir, &crate::render::overworld::arena::whole_room_for_test(&run), &format!("{tag}-d-whole-lit"));
     }
-    // The way in: the Winding Stair's landing on the Deep Road, and on a
-    // village lit before.
     for (landing, name) in [(ROAD, "home-a-stair-deep-road"), (CHAPTER, "home-b-stair-village")].into_iter().filter(|_| wanted("home")) {
         let mut home = deep_home();
         home.landing = landing;
@@ -588,7 +551,6 @@ fn write_deep_village_shots() {
         calm(&mut run, 3);
         save(&dir, &run, name);
     }
-    // The star's fall, a frame every other tick.
     if wanted("fall") {
         let Some(fall) = shot_dir("deep-villages/fall") else { return };
         let mut run = village_of(Culture::Capfolk, CHAPTER, 2);
@@ -600,7 +562,6 @@ fn write_deep_village_shots() {
             run.step(&BTreeMap::new());
         }
     }
-    // The star's fall into a roost, a frame every third tick.
     if wanted("fall2") {
         let Some(fall) = shot_dir("deep-villages/fall2") else { return };
         let mut run = village_of(Culture::Roostfolk, CHAPTER, 2);
@@ -612,7 +573,6 @@ fn write_deep_village_shots() {
         }
     }
     more_shots(&dir);
-    // A conversation with the elder, on to what they ask.
     if wanted("talk") {
         let mut run = village_of(Culture::Glimmerkin, CHAPTER, 1);
         calm(&mut run, village::FALL + village::GATHER + 4);
@@ -628,7 +588,6 @@ fn write_deep_village_shots() {
     city_shots(&dir);
 }
 
-/// The tracker, a floor below, by a lamp and a relic.
 fn tracker_shots(dir: &std::path::Path) {
     let dir = dir;
     let mut run = village_of(Culture::Emberfolk, CHAPTER, 1);
@@ -662,7 +621,6 @@ fn tracker_shots(dir: &std::path::Path) {
     }
 }
 
-/// A city with six wishes standing, one rising.
 fn city_shots(dir: &std::path::Path) {
     let dir = dir;
     for culture in WHEEL.into_iter().filter(|_| wanted("cities")) {
@@ -716,7 +674,6 @@ fn a_run_in_the_deep_saves_and_reads_back_whole() {
     assert!(back.valid_snapshot());
     assert_eq!(back.deep, run.deep);
     assert_eq!(back.home.deep, run.home.deep);
-    // A run that never went down saves no Deep at all.
     let plain = serde_json::to_string(&Run::new(41, 1, None)).unwrap();
     assert!(!plain.contains("\"deep\""));
 }
@@ -745,10 +702,6 @@ fn a_village_is_drawn_whole_and_never_stood_up_in_3d() {
     assert!(stands_in_mode(Mode::Deep, ECHO, RoomKind::Fight), "the Deep's other floors stand up as the deep ones above do");
 }
 
-/// The second night's shots (`write_deep_village_shots`): each people's
-/// star coming down and a word with their elder; each dread winding up
-/// and striking, a frame every few ticks; one of the lost below, found and
-/// going home; their reunion in the village; and the board on leaving.
 fn more_shots(dir: &std::path::Path) {
     if wanted("comets") {
         for culture in WHEEL {
@@ -791,8 +744,6 @@ fn more_shots(dir: &std::path::Path) {
     }
 }
 
-/// A party on the floor above chapter `chapter`'s village of `culture`,
-/// in the guardian's hall with its dread.
 fn dread_fight(culture: Culture, chapter: u32) -> Run {
     let mut run = Run::new(41, 1, None);
     run.join_seat(2, "Seat 2");
@@ -803,7 +754,6 @@ fn dread_fight(culture: Culture, chapter: u32) -> Run {
     for hero in run.players.values_mut() {
         hero.invulnerable = 100_000;
     }
-    // Past the floor's plate and its dare.
     calm(&mut run, 30);
     run.skip_floor_plate(1);
     run.skip_floor_plate(2);
@@ -813,12 +763,10 @@ fn dread_fight(culture: Culture, chapter: u32) -> Run {
     run
 }
 
-/// The whole room round enemy `i`, close: a 224 by 144 window on it.
 fn close_on(run: &Run, i: usize) -> crate::render::overworld::Img {
     close_at(run, (run.enemies[i].x, run.enemies[i].y), (224, 144))
 }
 
-/// The whole room round arena point `(x, y)`, a `w` by `h` window on it.
 fn close_at(run: &Run, (x, y): (f32, f32), (w, h): (i32, i32)) -> crate::render::overworld::Img {
     let whole = crate::render::overworld::arena::whole_room_for_test(run);
     let (x, y) = ((x * 8.0) as i32, (y * 8.0) as i32);
@@ -826,20 +774,16 @@ fn close_at(run: &Run, (x, y): (f32, f32), (w, h): (i32, i32)) -> crate::render:
     crate::render::overworld::Img::from_view(&whole, ox, oy, w, h)
 }
 
-/// The dread in `run`, if it stands.
 fn the_dread(run: &Run) -> Option<usize> {
     run.enemies.iter().position(|e| e.boss.is_some_and(|b| dread::is(&run.bosses[usize::from(b)])))
 }
 
-/// Each dread winding up its signature and striking with it, a frame
-/// every three ticks, the knights stood off from it.
 fn dread_shots(dir: &std::path::Path) {
     let Some(sub) = shot_dir("deep-villages/dreads") else { return };
     for culture in WHEEL {
         let tag = format!("{culture:?}").to_lowercase();
         let mut run = dread_fight(culture, 1);
         let Some(i) = the_dread(&run) else { continue };
-        // Down from the wall into the middle of its hall, to be seen whole.
         let (bx, by) = (run.room().width() / 2.0, run.room().height() / 2.0 - 2.0);
         let e = &mut run.enemies[i];
         (e.x, e.y, e.origin_x, e.origin_y) = (bx, by, bx, by);
@@ -890,9 +834,6 @@ fn dread_shots(dir: &std::path::Path) {
     }
 }
 
-/// Each dread's two charge-ups at its third chapter, one after the other,
-/// a PNG a tick from the wind-up to standing again, the knights stood off:
-/// `deep-villages/windups/<people>-<charge-up>/`.
 fn dread_windup_shots() {
     let Some(sub) = shot_dir("deep-villages/windups") else { return };
     for culture in WHEEL {
@@ -941,8 +882,6 @@ fn dread_windup_shots() {
     }
 }
 
-/// One of the lost below: huddled with nobody near, up and waving as a
-/// knight comes, found, glad and going home.
 fn rescue_shots(dir: &std::path::Path) {
     for culture in WHEEL {
         let tag = format!("{culture:?}").to_lowercase();
@@ -979,8 +918,6 @@ fn rescue_shots(dir: &std::path::Path) {
     }
 }
 
-/// The one sent home, back at their village the next time: out of the
-/// hall's door, running to whoever asked, holding on.
 fn reunion_shots(dir: &std::path::Path) {
     let Some(sub) = shot_dir("deep-villages/reunion") else { return };
     for culture in WHEEL {
@@ -1013,7 +950,6 @@ fn reunion_shots(dir: &std::path::Path) {
     }
 }
 
-/// The board on leaving a village down the stair, and home by its light.
 fn leaving_shots(dir: &std::path::Path) {
     let mut run = village_of(Culture::Roostfolk, CHAPTER, 2);
     calm(&mut run, village::FALL + village::GATHER + 4);
@@ -1028,7 +964,6 @@ fn leaving_shots(dir: &std::path::Path) {
     calm(&mut run, 10);
     let mut down = run.clone();
     down.descend_for_test();
-    // The floor's plate, which the helper puts away, and its board first.
     down.begin_floor_plate(crate::rules::floor_plates::Kind::of(down.dungeon.pack));
     for plate in down.floor_plates.values_mut() {
         plate.results = crate::rules::floor_stats::SHOWN;

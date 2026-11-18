@@ -96,8 +96,6 @@ def extract_row(record, trace, run):
     calls = trace.get("calls") or []
     proxy = bool(calls)
     fields, usage_subtotals, usage_coverage = usage_fields(calls, usage)
-    # Prefer per-call evaluator accounting for proxied peers. Direct Codex calls
-    # bypass that proxy; use Angel's reporting counters instead of placeholder 0.
     model_s = number((clock.get("model") or {}).get("duration")) if proxy else milliseconds(timing.get("model_ms"))
     wall = elapsed(clock)
     score = number(((trace.get("rewards") or {}).get("technical_outcome") or {}).get("score"))
@@ -330,8 +328,6 @@ def main():
     if any(not name or len(Path(name).parts) != 1 or name in (".", "..") for name in primary_roots):
         parser.error("--primary-root must be a single directory name")
     cells = [read_run(root, path) for path in discover_traces(root)]
-    # Qwen's rotation ran disjoint chunks, one attempt per task/harness. Combine
-    # only matching settings and reject overlaps rather than selecting successes.
     for harness in ("angelx", "opencode", "omp"):
         parts = [cell for cell in cells if is_seed_run(cell, ("runs-qwen",))
                  and cell["model_family"] == "qwen" and cell["harness"] == harness]

@@ -5,7 +5,6 @@ use serde_json::json;
 
 const PACKS: [Pack; 7] = [Pack::Crypt, Pack::Cavern, Pack::Hellforge, Pack::Archive, Pack::Fungal, Pack::Unknown, Pack::Swamp];
 
-/// Floors across depths, packs and party sizes, laid from many seeds.
 pub(crate) fn floors(count: usize, seed: u64) -> Vec<Floor> {
     let mut mix = Mix(seed);
     let mut out = Vec::new();
@@ -71,7 +70,6 @@ fn record_rooms() {
             let mut after = room.clone();
             after.regrow(cols, rows);
             regrow.add(json!({"room": r, "cols": cols, "rows": rows}), to(&after));
-            // The run string itself, both ways.
             let text = to(room)["tiles"].as_str().unwrap().to_string();
             let back = tiles_from_rle(&text).unwrap();
             rle.add(json!({"text": text}), json!({"tiles": back.iter().map(|&t| tile_name_of(t)).collect::<Vec<_>>().join(","), "again": tiles_rle(&back)}));
@@ -150,7 +148,6 @@ fn record_rooms_generation() {
         let cells = crate::world::routing::tunnel_cells(crate::world::routing::TunnelVariant::for_depth(depth), seed, width, req);
         tunnel.add(json!({"depth": depth, "seed": seed, "width": width, "requested": req}), json!(cells));
     }
-    // The swamp's mire over quadrants.
     for _ in 0..120 {
         let depth = 1 + mix.below(4) as u32;
         let cell = (mix.below(7) as i32 - 1, mix.below(7) as i32 - 1);
@@ -214,7 +211,6 @@ fn record_floors() {
         let mut forced = floor.clone();
         force_secret(&mut forced);
         force.add(json!({"floor": f}), to(&forced));
-        // The wheel's modes.
         let mode: crate::rules::fortune::Mode = serde_json::from_value(json!(["long_way_down", "hold_the_stair", "gauntlet", "hollow_walls"][mix.below(4) as usize])).unwrap();
         let mut rng = rng_of(mix.next());
         let before = to(&rng);
@@ -247,8 +243,6 @@ fn record_floors() {
     }
 }
 
-/// The world's authored tables (rooms, trails, entrances) as JSON, for
-/// `delve/rules/world/_gen/tables.py` to write as Bend data.
 #[test]
 #[ignore]
 fn dump_world_tables() {

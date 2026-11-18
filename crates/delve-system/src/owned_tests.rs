@@ -390,7 +390,6 @@ fn delta_apply(worker: &mut TestWorker) -> Result<Value, String> {
 fn whole_apply(worker: &mut TestWorker) -> Result<Value, String> {
     worker.handle("apply", json!({"state": captured(), "event": event_body()}))
 }
-/// A compute the worker refuses on contract grounds only if the lifecycle let it in.
 fn compute(worker: &mut TestWorker) -> Result<Value, String> {
     worker.handle(
         "compute",
@@ -404,33 +403,27 @@ fn refused(result: Result<Value, String>, method: &str) -> bool {
 #[test]
 fn legacy_lifecycle_allows_each_move_only_in_its_phase() {
     let mut worker = worker();
-    // Fresh.
     assert!(refused(worker.handle("activate", Value::Null), "activate"));
     assert!(refused(whole_apply(&mut worker), "apply"));
     assert!(refused(compute(&mut worker), "compute"));
     worker.handle("dispose", Value::Null).unwrap();
 
-    // Staged: a restored candidate is not yet the running implementation.
     worker.handle("restore", captured()).unwrap();
     assert!(refused(whole_apply(&mut worker), "apply"));
     assert!(refused(compute(&mut worker), "compute"));
     worker.handle("restore", captured()).unwrap();
 
-    // Active.
     worker.handle("activate", Value::Null).unwrap();
     assert!(delta_apply(&mut worker).is_ok());
     assert_eq!(
         compute(&mut worker).unwrap_err(),
         "unsupported Delve computation contract"
     );
-    // Activating again changes nothing, and neither does re-seeding: the worker
-    // stays active and keeps its state.
     worker.handle("activate", Value::Null).unwrap();
     assert!(delta_apply(&mut worker).is_ok());
     worker.handle("restore", captured()).unwrap();
     assert!(delta_apply(&mut worker).is_ok());
 
-    // Dispose goes back to Fresh from anywhere.
     worker.handle("dispose", Value::Null).unwrap();
     assert!(refused(delta_apply(&mut worker), "apply"));
     assert!(refused(worker.handle("activate", Value::Null), "activate"));
@@ -448,16 +441,11 @@ fn an_active_worker_whose_reseed_failed_is_cold_until_the_next_restore() {
     worker.handle("activate", Value::Null).unwrap();
     assert!(delta_apply(&mut worker).is_ok());
 
-    // The host re-seeds before a delta whenever it holds no state (its own
-    // `System::step`): a body that does not restore leaves the worker active
-    // but cold, and a delta is refused rather than applied to a base the
-    // caller never sent.
     assert!(worker.handle("restore", json!({"not": "a state"})).is_err());
     assert_eq!(
         delta_apply(&mut worker).unwrap_err(),
         "missing resident state"
     );
-    // Still the running implementation: whole states apply (and stay cold).
     assert!(whole_apply(&mut worker).is_ok());
     assert_eq!(
         delta_apply(&mut worker).unwrap_err(),
@@ -467,7 +455,6 @@ fn an_active_worker_whose_reseed_failed_is_cold_until_the_next_restore() {
         compute(&mut worker).unwrap_err(),
         "unsupported Delve computation contract"
     );
-    // The next restore recovers it without a dispose or a second activate.
     worker.handle("restore", captured()).unwrap();
     assert!(delta_apply(&mut worker).is_ok());
 }
@@ -479,8 +466,6 @@ fn an_owned_session_takes_over_from_the_legacy_lifecycle_without_leaving_it() {
     worker.handle("activate", Value::Null).unwrap();
     assert!(delta_apply(&mut worker).is_ok());
 
-    // Staging an owned candidate takes the resident state and blocks the
-    // legacy re-seed, but whole states still apply.
     let seed = initial();
     worker
         .handle("owned.restore", serde_json::to_value(&seed).unwrap())
@@ -493,7 +478,6 @@ fn an_owned_session_takes_over_from_the_legacy_lifecycle_without_leaving_it() {
     );
     assert!(whole_apply(&mut worker).is_ok());
 
-    // Once the owner is active the legacy moves are refused, except compute.
     worker.handle("owned.baseline", Value::Null).unwrap();
     worker.handle("owned.activate", Value::Null).unwrap();
     assert!(refused(whole_apply(&mut worker), "apply"));

@@ -1,86 +1,14 @@
-// The browser runtime's probe: drives the real shell page in headless
-// Chromium over CDP and measures what a player gets.
-//
-//   node crates/web/probe/probe.mjs <link> [options]
-//
-//   --runs desktop,retina,laptop4x   which runs (default: all three)
-//   --seconds 8                      steady play measured per run
-//   --trials 12                      key-to-moved latency trials per run
-//   --settle 1.5                     seconds seated before measuring (to
-//                                    let a crowd join around this seat)
-//   --track color|scroll|own         how the own character is followed:
-//                                    by its colour (a fixed camera), by
-//                                    the ground scrolling (a camera that
-//                                    follows it, as the muster's does), or
-//                                    where the game says it drew it
-//                                    (`__angel.own()`, the Delve), counted
-//                                    as moved only once the pixels there
-//                                    changed too
-//   --own ffd23f                     the own character's colour, for color
-//                                    (exact RGB; the testgame's gold dot)
-//   --roll                           walk east and west with a dodge roll
-//                                    (Space) each way, and record where the
-//                                    own character was drawn on every frame
-//                                    (`__angel.own()`): frames it stood still
-//                                    or stepped back with a key held, and
-//                                    its biggest step against its usual;
-//                                    with --shots, a strip across a roll
-//   --fire                           fire trials (the Delve): standing, and
-//                                    running east or west, press an arrow
-//                                    (aim and fire) and find the first frame
-//                                    that draws an own shot (`__angel.game()`
-//                                    own_shots); report the press to it in
-//                                    ms and frames, and how far from the
-//                                    drawn knight it showed, in frame
-//                                    pixels; with --shots, the frames of
-//                                    one running trial from the press on
-//   --fire-trials 12                 how many
-//   --reconnect                      cut the network and check the seat
-//   --cuts 3,8                       how long each cut is, seconds
-//   --software                       WebGL on SwiftShader instead of the GPU
-//   --webgpu                         WebGPU on the machine's GPU through Vulkan
-//                                    (headless Chromium needs these flags; the
-//                                    page is then asked for the renderer with
-//                                    ?present=gpu, or picks it by itself)
-//   --hide                           hide the tab 3 s with a key held
-//   --shots <dir>                    save a screenshot per run
-//   --json <file>                    write every number
-//   --cdp-port 8808                  Chromium's debugging port
-//   --no-use                         steady play only walks (no E presses:
-//                                    in the Delve's kingdom E goes through
-//                                    a door)
-//
-// The muster (its camera follows the own knight), among a crowd:
-//
-//   muster-host --port 8800 --bundle crates/web/dist/muster --key <KEY> &
-//   angel-bots --url ws://127.0.0.1:8800/ws --join <KEY> --n 200 --secs 600 --stand --delay 6 &
-//   node crates/web/probe/probe.mjs 'http://127.0.0.1:8800/#<KEY>' \
-//     --track scroll --settle 10 --hide --reconnect
-//
-// The test game without a host (probe/serve.mjs on 8801):
-//
-//   node crates/web/probe/probe.mjs 'http://127.0.0.1:8801/?offline=40'
-//
-// Per run: fps, dropped frames, the module's frame ms p50/p95, present ms,
-// load time, input-to-own-character-moved in display frames, and (with
-// --reconnect) whether the same seat came back. Node built-ins only. It
-// launches its own Chromium on port 8808 with a throwaway profile.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 
 const RUNS = {
-  // A desktop browser on a 1x screen.
   desktop: { width: 1280, height: 800, dpr: 1, throttle: 1 },
-  // A Mac's retina screen.
   retina: { width: 1440, height: 900, dpr: 2, throttle: 1 },
-  // A low-end laptop: the CPU slowed 4x (phones get their own profiles
-  // when the touch layout lands).
   laptop4x: { width: 1280, height: 800, dpr: 1, throttle: 4 },
 };
 
 const args = process.argv.slice(2);
-// The link comes first.
 const link = args[0] && !args[0].startsWith('--') ? args[0] : '';
 const opt = (name, fallback) => {
   const i = args.indexOf('--' + name);
@@ -97,21 +25,12 @@ const trials = Number(opt('trials', 12));
 const settle = Number(opt('settle', 1.5));
 const cuts = opt('cuts', '3,8').split(',').map(Number);
 const own = (0xff000000 | parseInt(opt('own', 'ffd23f'), 16)) >>> 0;
-// The canvas fallback hands over the RGBA copy: the same colour reads as
-// 0xAABBGGRR there.
 const rgbaWord = ((own & 0xff000000) | ((own & 0xff) << 16) | (own & 0xff00) | ((own >>> 16) & 0xff)) >>> 0;
 const shots = opt('shots', '');
 const track = opt('track', 'color');
 const PORT = Number(opt('cdp-port', 8808));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// Page-side code that follows the own character every frame, into
-// `__seen` (frame -> [x, y]) and `__ownAt` (the newest x).
-//   color:  the centre of the pixels of the own colour (a fixed camera).
-//   scroll: the camera follows the own character, so the ground moves
-//           instead: each frame, the horizontal shift (within 8 px) that
-//           best matches the frame before, added up. Other things moving
-//           are outvoted by the ground.
 function tracker() {
   return `(() => {
     // The canvas fallback and the GPU renderer both take the RGBA copy.
@@ -181,27 +100,22 @@ function tracker() {
   })()`;
 }
 
-// Every browser this probe started, so none outlives it: a run that throws
-// before its close, or the probe itself stopped by a signal or a timeout,
-// still takes its browser and throwaway profile down with it.
 const browsers = new Set();
 function reap() {
   for (const b of browsers) {
-    try { b.proc.kill('SIGKILL'); } catch { /* already gone */ }
-    try { fs.rmSync(b.dir, { recursive: true, force: true }); } catch { /* still held */ }
+    try { b.proc.kill('SIGKILL'); } catch { }
+    try { fs.rmSync(b.dir, { recursive: true, force: true }); } catch { }
   }
   browsers.clear();
 }
 process.on('exit', reap);
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.on(sig, async () => {
-    // Kill first, then wait for the browsers to be gone (up to 2 s) so the
-    // profile directories are free to delete.
     const gone = [...browsers].map(b => b.proc.exitCode !== null || b.proc.signalCode !== null
       ? Promise.resolve()
       : new Promise(resolve => b.proc.once('exit', resolve)));
     for (const b of browsers) {
-      try { b.proc.kill('SIGKILL'); } catch { /* already gone */ }
+      try { b.proc.kill('SIGKILL'); } catch { }
     }
     await Promise.race([Promise.all(gone), sleep(2000)]);
     await sleep(200);
@@ -215,8 +129,6 @@ async function chromium(name) {
   const proc = spawn('/usr/bin/chromium', ['--headless=new', `--remote-debugging-port=${PORT}`,
     `--user-data-dir=${dir}`, '--no-first-run', '--no-default-browser-check',
     '--autoplay-policy=no-user-gesture-required', '--window-size=1600,1000',
-    // The machine's GPU through ANGLE, as a desktop browser has it; with
-    // --software, SwiftShader, as a machine whose GPU is blocklisted.
     ...(flag('software') ? ['--enable-unsafe-swiftshader']
       : flag('webgpu') ? ['--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-angle=vulkan', '--enable-gpu', '--ignore-gpu-blocklist']
       : ['--use-angle=gl', '--enable-gpu', '--ignore-gpu-blocklist']),
@@ -230,7 +142,7 @@ async function chromium(name) {
     try {
       const list = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json();
       target = list.find(t => t.type === 'page');
-    } catch { /* not up yet */ }
+    } catch { }
   }
   if (!target) {
     browsers.delete(own);
@@ -271,7 +183,6 @@ async function chromium(name) {
     proc.kill();
     setTimeout(() => fs.rmSync(dir, { recursive: true, force: true }), 500);
   };
-  // The browser itself, for opening a second tab (which hides the page).
   const browser = async (method, params = {}) => {
     const version = await (await fetch(`http://127.0.0.1:${PORT}/json/version`)).json();
     const bws = new WebSocket(version.webSocketDebuggerUrl);
@@ -328,10 +239,6 @@ async function run(name) {
     await send('Emulation.setDeviceMetricsOverride', { width: r.width, height: r.height, deviceScaleFactor: r.dpr, mobile: false });
     await send('Emulation.setCPUThrottlingRate', { rate: r.throttle });
     if (flag('webgpu')) {
-      // A browser just started may have no GPU process yet, and then its first
-      // requestAdapter answers none (or its first contexts are lost as the
-      // process settles): draw with the page's own WebGL once first, so the
-      // run measures the renderer and not the cold start.
       const warm = new URL(link);
       warm.searchParams.set('present', 'legacy');
       await send('Page.navigate', { url: warm.toString() });
@@ -347,7 +254,6 @@ async function run(name) {
       if (!gl) return 'none'; const d = gl.getExtension('WEBGL_debug_renderer_info');
       return d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })()`);
     if (ready.status === 'ready') {
-      // A real click on Play: a user gesture, as a player's is.
       await evaluate("document.getElementById('name').value = 'probe'");
       const at = await evaluate("(() => { const r = document.getElementById('play').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()");
       for (const type of ['mousePressed', 'mouseReleased']) {
@@ -358,7 +264,6 @@ async function run(name) {
     out.seat = await evaluate('__angel.seat');
     await sleep(settle * 1000);
 
-    // Steady play: walk around and use, as a player does.
     await evaluate('__angel.reset()');
     const bytesWas = await evaluate('[__angel.bytesIn, __angel.bytesOut]');
     const memoryWas = (await evaluate('__angel.stats()')).memory;
@@ -388,15 +293,9 @@ async function run(name) {
     out.kbInPerS = +((s.bytesIn - bytesWas[0]) / 1024 / took).toFixed(2);
     out.kbOutPerS = +((s.bytesOut - bytesWas[1]) / 1024 / took).toFixed(2);
     out.sounds = s.sounds;
-    // The module's memory before and after the steady play: it should not
-    // grow while nothing new is happening.
     out.memoryKB = [memoryWas / 1024, s.memory / 1024];
     if (shots) {
       fs.mkdirSync(shots, { recursive: true });
-      // Headless Chromium's screenshot leaves a WebGPU canvas out, and a
-      // WebGL one is only readable in the task of its frame: so the canvas
-      // itself is read, in a frame's own task, for the presenters that draw
-      // from the GPU renderer; the screenshot serves the rest.
       let png = null;
       if (/^gpu-/.test(out.presenter)) {
         await evaluate("window.__shot = null; __angel.onframe = () => { __shot = document.getElementById('screen').toDataURL('image/png'); __angel.onframe = null; }");
@@ -408,10 +307,6 @@ async function run(name) {
       fs.writeFileSync(`${shots}/${name}.png`, png);
     }
 
-    // Key to own character moved, in display frames. Each frame the page
-    // finds the own character (see `tracker`); a trial presses D at a
-    // different point of the command tick and counts the frames until the
-    // character is drawn somewhere else. 1 is the next display frame.
     await evaluate(tracker());
     const lat = [];
     for (let t = 0; t < trials; t++) {
@@ -438,7 +333,6 @@ async function run(name) {
     out.latencyNextFrame = lat.filter(v => v === 1).length + '/' + lat.length;
 
     if (flag('roll')) {
-      // Each frame, where the game drew its own character and when.
       await evaluate(`(() => {
         window.__trace = [];
         __angel.onframe = (heap, ptr, w, h, frame) => {
@@ -447,7 +341,6 @@ async function run(name) {
           if (o) __trace.push([performance.now(), o[0], o[1], frame]);
         };
       })()`);
-      // The far side first, so neither walk ends against a wall.
       await sleep(200);
       const start = await evaluate('[__trace.length ? __trace[__trace.length - 1][1] : 0, window.__frameW || 0]');
       const legs = start[0] > start[1] / 2 ? [['a', 'd'], ['d', 'a']] : [['d', 'a'], ['a', 'd']];
@@ -468,7 +361,6 @@ async function run(name) {
         await sleep(60);
         await key('keyUp', 'space');
         if (k === legs[0][0]) for (let i = 0; i < 8; i++) await snap();
-        // Short of the far wall: a knight against stone stands still.
         await sleep(400);
         await key('keyUp', k);
         await mark('let go ' + k);
@@ -477,14 +369,11 @@ async function run(name) {
       }
       const trace = await evaluate('__trace');
       await evaluate('__angel.onframe = null');
-      // With a key held, the frames the character stood still or stepped
-      // back (against the key), and its steps, in frame pixels.
       const held = [];
       for (let i = 0; i < marks.length; i++) {
         if (marks[i][1].startsWith('hold ')) {
           const dir = marks[i][1].endsWith(' d') ? 1 : -1;
           const end = marks.find((m, j) => j > i && m[1].startsWith('let go'));
-          // From two command ticks after the key, to the letting go.
           held.push([marks[i][0] + 80, end ? end[0] : Infinity, dir]);
         }
       }
@@ -518,9 +407,6 @@ async function run(name) {
     if (flag('fire')) out.fire = await fireTrials(b, key);
 
     if (flag('hide')) {
-      // Hold D, hide the tab behind another for 3 s, show it again. The
-      // page must stop drawing, let go of D (the knight stops where it
-      // was, not 15 ticks later) and keep its seat without a reconnect.
       await evaluate(tracker());
       await key('keyDown', 'd');
       await sleep(300);
@@ -542,17 +428,11 @@ async function run(name) {
         statusWhileHidden: hidden.status,
         sameSeat: after.seat === before.seat,
         reconnected: after.reconnects > before.reconnects,
-        // Frame pixels the own character moved from hiding to shown again:
-        // only the commands already in flight, if the key was let go.
         ownMovedAcrossHide: shownX === null || before.x === null ? null : shownX - before.x,
       };
     }
 
     if (flag('reconnect')) {
-      // Cut the network, restore it, and wait for play to flow again. A
-      // short cut may leave the socket standing (the browser stalls it
-      // rather than closing it); one longer than the page's 3 s silence
-      // rule makes the page drop it and resume the seat on a new one.
       out.reconnect = [];
       for (const cutS of cuts) {
         const before = await evaluate('({ seat: __angel.seat, reconnects: __angel.reconnects })');
@@ -581,11 +461,6 @@ async function run(name) {
   return out;
 }
 
-// Fire key to the own shot on screen. Each frame the page notes when it
-// was drawn, where the game drew its own knight, and how many own shots it
-// drew and the nearest one's offset from the knight (`__angel.game()`).
-// A trial waits for no own shot on screen, presses an arrow (aim and fire),
-// and finds the first frame after the press with one.
 async function fireTrials(b, key) {
   const { send, evaluate } = b;
   const n = Number(opt('fire-trials', 12));
@@ -607,16 +482,12 @@ async function fireTrials(b, key) {
       }
     };
   })()`);
-  // Off the bottom wall first, into the room (the Delve's fights start a
-  // knight there, under the bar of keys).
   await key('keyDown', 'w');
   await sleep(Number(opt('fire-north-ms', 900)));
   await key('keyUp', 'w');
   const trials = [];
   let strip = null, stripOwn = null;
   for (let t = 0; t < n; t++) {
-    // Standing, then running east, then west, in turn; the aim is up, so a
-    // shot left behind a running knight shows as a sideways offset.
     const kind = ['stand', 'east', 'west'][t % 3];
     const walk = kind === 'east' ? 'd' : kind === 'west' ? 'a' : null;
     const end = Date.now() + 2000;
@@ -635,8 +506,6 @@ async function fireTrials(b, key) {
     await sleep(500);
     if (walk) await key('keyUp', walk);
     const seen = await evaluate(`__fire.filter(f => f[1] > ${at[0]} && f[4] > 0)[0] || null`);
-    // Each frame from the press for half a second: [ms after the press,
-    // own shots drawn, ghosts among them, handovers so far, unmatched].
     const trace = await evaluate(`__fire.filter(f => f[1] > ${at[0]} && f[0] - ${at[1]} < 500)
       .map(f => [Math.round(f[0] - ${at[1]}), f[4], f[9], f[10], f[11]])`);
     trials.push(seen ? {
@@ -647,8 +516,6 @@ async function fireTrials(b, key) {
       gapPx: seen[5], dxPx: seen[6], dyPx: seen[7], gapUnits: seen[8],
     } : { kind, ms: null });
     if (grab) {
-      // The frames from the press on, as PNGs (the module's words are
-      // 0xAARRGGBB; the canvas fallback's are already RGBA).
       stripOwn = await evaluate('window.__grab.own');
       strip = await evaluate(`(() => {
         const G = window.__grab; window.__grab = null;
@@ -673,11 +540,8 @@ async function fireTrials(b, key) {
   if (strip) {
     fs.mkdirSync(shots, { recursive: true });
     strip.forEach((d, i) => fs.writeFileSync(`${shots}/fire-${String(i + 1).padStart(2, '0')}.png`, Buffer.from(d, 'base64')));
-    // Where the knight was drawn on each, for cropping.
     fs.writeFileSync(`${shots}/fire-own.json`, JSON.stringify(stripOwn));
   }
-  // The game's own-shot counts at the end (the Delve: ghosts handed to the
-  // server's shots, the gaps eased, ghosts it never matched).
   const counts = await evaluate('__angel.game()');
   const ok = trials.filter(t => t.ms !== null);
   const by = kind => ok.filter(t => kind === 'all' || t.kind === kind || (kind === 'run' && t.kind !== 'stand'));
@@ -698,8 +562,6 @@ async function fireTrials(b, key) {
 
 const results = [];
 for (const name of runs) {
-  // A run that fails is reported and the next one still runs (and the
-  // browser's throwaway profile is still cleaned up below).
   const r = await run(name).catch(e => ({ run: name, error: String(e.message || e) }));
   results.push(r);
   console.log(JSON.stringify(r));

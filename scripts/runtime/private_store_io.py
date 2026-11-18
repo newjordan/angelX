@@ -1,5 +1,3 @@
-"""Owner-only local store writers; shared write-time credential redaction."""
-
 from contextlib import contextmanager
 import os
 from pathlib import Path
@@ -10,13 +8,16 @@ import runpy
 _REDACTOR = None
 
 
-def redact_text(text):
-    """Apply the scanner rule; preserve clean bytes and reject sealed changes."""
+def _get_redactor():
     global _REDACTOR
     if _REDACTOR is None:
         _REDACTOR = runpy.run_path(str(Path(__file__).with_name("trajectory-redact.py")))
+    return _REDACTOR
+
+
+def redact_text(text):
+    _get_redactor()
     values = _REDACTOR["known_values"]([Path(__file__).resolve().parent.parent.parent / ".angel.env"])
-    # JSONL needs per-record inspection so integrity bindings cannot be lost.
     import json
     try:
         json.loads(text)
@@ -43,18 +44,10 @@ def _is_json(text):
 
 
 def restrict_process_creation():
-    """Set a permanent private creation mask at dedicated process startup.
-
-    Never temporarily change a shared worker process's umask around one job.
-    Call this before starting any threads; preserve a stricter inherited mask.
-    Explicit per-file checks still own existing-file migration and authority.
-    """
     import threading
 
     if threading.current_thread() is not threading.main_thread() or threading.active_count() != 1:
         raise RuntimeError("private process policy must be set before starting threads")
-    # First tighten every bit, so even a stricter inherited mask is never
-    # transiently weakened while retrieving its value. No workers exist yet.
     previous = os.umask(0o777)
     restricted = previous | 0o077
     os.umask(restricted)
@@ -63,7 +56,6 @@ def restrict_process_creation():
 
 @contextmanager
 def private_directory(path):
-    """Hold a checked directory; only missing components are created at 0700."""
     path = Path(path)
     flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
     directory = os.open("/" if path.is_absolute() else ".", flags)
@@ -90,7 +82,6 @@ def private_directory(path):
 
 @contextmanager
 def private_parent(path):
-    """Hold a nofollow parent without changing unrelated ancestor modes."""
     path = Path(path)
     if path.name in ("", ".", ".."):
         raise ValueError("private store path needs a file name")
@@ -99,7 +90,6 @@ def private_parent(path):
 
 
 def ensure_private_directory(path):
-    """Migrate only an explicitly declared private directory through its FD."""
     with private_directory(path) as directory:
         if stat.S_IMODE(os.fstat(directory).st_mode) & 0o077:
             os.fchmod(directory, 0o700)
@@ -128,8 +118,6 @@ def _checked(directory, name, flags):
         if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid()
                 or metadata.st_nlink != 1):
             raise OSError("private store entry must be a singly linked owner file")
-        # Existing owner files are migrated through the checked FD before bytes
-        # are written. Unrelated parent modes and rejected targets stay intact.
         os.fchmod(descriptor, 0o600)
         _matches(directory, name, descriptor)
         return descriptor
@@ -140,7 +128,6 @@ def _checked(directory, name, flags):
 
 @contextmanager
 def private_append(path):
-    """Retain the checked parent and append FD for caller-owned locking."""
     with private_parent(path) as (directory, name):
         descriptor = _checked(directory, name, os.O_WRONLY | os.O_APPEND | os.O_CREAT)
         try:
@@ -161,7 +148,6 @@ def append_lines(path, lines, *, sync=True):
 
 
 def read_text(path, *, max_bytes=32 * 1024 * 1024):
-    """Read a bounded private state file through a checked, nonblocking FD."""
     if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes < 0:
         raise ValueError("private read bound must be a nonnegative integer")
     with private_parent(path) as (directory, name):
@@ -174,13 +160,10 @@ def read_text(path, *, max_bytes=32 * 1024 * 1024):
 
 
 def replace_text(path, text):
-    """Publish redacted text; preserve the old file on validation/write failure."""
     _replace(path, redact_text(text))
 
 
 def replace_bytes(path, body):
-    """Preserve binary assets exactly; refuse any detected credential payload."""
-    # Initialize the canonical scanner without serializing or altering bytes.
     redact_text("")
     values = _REDACTOR["known_values"]([Path(__file__).resolve().parent.parent.parent / ".angel.env"])
     if any(_REDACTOR["scan_text"](body.decode("utf-8", errors="surrogateescape"), values)):
@@ -189,7 +172,6 @@ def replace_bytes(path, body):
 
 
 def _replace(path, text):
-    """Publish a complete 0600 file, preserving the old file on write failure."""
     with private_parent(path) as (directory, name):
         previous = temporary_fd = None
         temporary = None
@@ -235,7 +217,6 @@ def _replace(path, text):
 
 @contextmanager
 def text_writer(path, mode="w", *, encoding="utf-8", errors=None, newline=None):
-    """Serialize text before publication; exceptions never publish partial data."""
     import io
     if mode not in ("w", "a") or encoding not in (None, "utf-8", "utf8"):
         raise ValueError("private text writer requires UTF-8 append or replace")
@@ -257,19 +238,13 @@ def text_writer(path, mode="w", *, encoding="utf-8", errors=None, newline=None):
 
 
 def replace_gzip_json(path, value):
-    """Redact the decoded document before compression, never after sealing it."""
     import gzip
     import json
     clean = redact_text(json.dumps(value, ensure_ascii=False))
     _replace(path, gzip.compress(clean.encode("utf-8"), mtime=0))
 
 def redact_records(records):
-    """Per-record cache hygiene: redact secret-bearing string fields; DROP a record
-    that is integrity-bound (carries sha256-style bindings) and secret-bearing, since
-    rewriting it would break its digest authority. Returns (clean_records, dropped)."""
-    global _REDACTOR
-    if _REDACTOR is None:
-        _REDACTOR = runpy.run_path(str(Path(__file__).with_name("trajectory-redact.py")))
+    _get_redactor()
     values = _REDACTOR["known_values"]([Path(__file__).resolve().parent.parent.parent / ".angel.env"])
     clean, dropped = [], 0
     for record in records:

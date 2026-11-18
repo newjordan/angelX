@@ -10,12 +10,9 @@ publish.workspace = true
 [dependencies]
 angel-stage = { path = "../stage" }
 serde_json = "1"
-# The avatar's embedded pictures: her hair's strands, where her lips are.
 png = "0.18"
 
 [dev-dependencies]
-# `goddess_shot`: her frames drawn by the GPU core offscreen, as the window
-# draws them, to look at.
 angel-gpu = { path = "../gpu" }
 wgpu = { version = "30.0.0", default-features = false, features = ["std", "wgsl", "vulkan", "metal"] }
 pollster = "1.0.1"

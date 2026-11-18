@@ -52,8 +52,6 @@ fn every_moment_prints_its_words_over_cells_that_fill_the_screen() {
         let header = row(&terminal, 0);
         assert!(header.contains("LANTERNWARD"), "{moment}: {header:?}");
         assert!(header.contains(&format!("{seats} seated")), "{moment}: {header:?}");
-        // Hearts (full or, for a downed knight, empty) on the second row, the
-        // keys at the foot.
         let hearts = row(&terminal, 1);
         assert!(hearts.contains('\u{2665}') || hearts.contains('\u{2661}'), "{moment}: {hearts:?}");
         assert!(row(&terminal, 27).contains("Space shield"), "{moment}");

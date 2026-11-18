@@ -19,22 +19,17 @@ use crate::rules::caves::world::{
 use crate::rules::caves::{self, Seat};
 use crate::rules::Run;
 
-/// Where a seat's knight stands this tick, in world pixels: its cell, less
-/// what is left of the step it is taking.
 fn feet(seat: &Seat) -> (i32, i32) {
     let (px, py) = cave_paint::cell_px(i32::from(seat.x), i32::from(seat.y));
     let (sx, sy) = seat.stride();
     (px + sx, py + sy)
 }
 
-/// A knight's lamp hangs a little below the middle of its cell.
 fn lamp_of(seat: &Seat) -> Lamp {
     let (x, y) = feet(seat);
     Lamp { px: (x, y + 2), cell: (i32::from(seat.x), i32::from(seat.y)), small: false }
 }
 
-/// The view a seat is shown, at `w` by `h`. A frame asked for twice in one
-/// tick is drawn once.
 pub fn cave_seat_frame(run: &Run, focus: u32, w: i32, h: i32) -> Img {
     thread_local! {
         static LAST: RefCell<Option<(u64, Img)>> = const { RefCell::new(None) };
@@ -48,7 +43,6 @@ pub fn cave_seat_frame(run: &Run, focus: u32, w: i32, h: i32) -> Img {
     im
 }
 
-/// Everything a cave frame is drawn from, folded to one word.
 fn frame_key(run: &Run, focus: u32, w: i32, h: i32) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     (run.tick, focus, w, h, run.caves.seed, run.caves.fingerprint()).hash(&mut hasher);
@@ -64,8 +58,6 @@ fn frame_key(run: &Run, focus: u32, w: i32, h: i32) -> u64 {
     hasher.finish()
 }
 
-/// The native picture in a `w` by `h` frame, as a room's is: whole pixels,
-/// as many times over as fit, centred; or shrunk to fit a smaller frame.
 fn fit(im: Img, w: i32, h: i32) -> Img {
     if w == im.w && h == im.h {
         return im;
@@ -104,7 +96,6 @@ pub(crate) fn paint_seat(run: &Run, focus: u32) -> Img {
     cave_paint::apply_paint_over(&mut cave);
     let cam = cave_paint::camera(feet(own));
     let exit = caves::exit_cell(seed);
-    // The seat's own lamp first, then the party's, then the one that leads out.
     let mut lamps = vec![lamp_of(own)];
     lamps.extend(run.caves.seats.iter().filter(|(id, _)| **id != focus).map(|(_, seat)| lamp_of(seat)));
     lamps.push(Lamp { px: (exit.0 * CELL + CELL / 2, exit.1 * CELL), cell: exit, small: true });
@@ -121,14 +112,7 @@ pub(crate) fn paint_seat(run: &Run, focus: u32) -> Img {
             continue;
         }
         let (bx, by) = (i32::from(burst.x), i32::from(burst.y));
-        // A crumble's or a blast's pivot is the floor line under the wall's
-        // face. A chip flies from where the shovel lands: high on the face,
-        // beside the knight. Rock with more rock south of it shows no face,
-        // only its top: there a chip flies from the top, and a crumble starts
-        // at the frame where the standing wall has already come apart.
         let drawn = cave_paint::cell_drawn(&cave, (bx, by), cam);
-        // North chips are stamped after the knight. North rubble is stamped
-        // before him. Neither is drawn in this pass.
         if north_digger(run, (bx, by)).is_some()
             && (burst.kind == caves::BURST_CRUMBLE || burst.kind == caves::BURST_CHIP)
         {
@@ -152,16 +136,13 @@ pub(crate) fn paint_seat(run: &Run, focus: u32) -> Img {
     }
     paint_boots(run, &mut im, cam);
 
-    // The lamp and the knights, the ones farther up the screen first.
     let exit_px = (exit.0 * CELL + CELL / 2, (exit.1 + 1) * CELL);
     let mut standing: Vec<(i32, Option<(&u32, &Seat)>)> = vec![(exit_px.1, None)];
     standing.extend(run.caves.seats.iter().map(|(id, seat)| (feet(seat).1 + CELL / 2, Some((id, seat)))));
     standing.sort_by_key(|(y, who)| (*y, who.map(|(id, _)| *id)));
-    // The lamp's word goes under the knights, so it never hides one.
     if (i32::from(own.x) - exit.0).abs() + (i32::from(own.y) - exit.1).abs() <= 14 {
         label(&mut im, exit_px.0 - cam.0, exit_px.1 - cam.1 - 25, "OUT", 'h');
     }
-    // Knights are drawn over the wall exactly as when nobody is digging.
     let digs: Vec<(i32, i32)> = run
         .caves
         .seats
@@ -184,13 +165,11 @@ pub(crate) fn paint_seat(run: &Run, focus: u32) -> Img {
     cave_paint::paint_north_cracks(&mut im, &cave, cam, &digs, &inks);
     stamp_north_chips(&mut im, run, cam, tick, &plates);
     stamp_north_breaks(&mut im, run, &cave, cam, tick, &inks);
-    // A name over each other knight, once it is far enough off to want one.
     for (id, seat) in &run.caves.seats {
         let apart = (i32::from(seat.x) - i32::from(own.x)).abs() + (i32::from(seat.y) - i32::from(own.y)).abs();
         if *id != focus && apart > 3 {
             let name = run.players.get(id).map(|h| h.shown_name().to_uppercase()).unwrap_or_default();
             let (fx, fy) = feet(seat);
-            // In the seat's cloth, as on its card in the party's band.
             let cloth = super::arena::seat_colours(run, *id).iter().find(|(from, _)| *from == '7').map_or('7', |(_, to)| *to);
             label(&mut im, fx - cam.0, fy - cam.1 - 23, &name, cloth);
         }
@@ -217,8 +196,6 @@ pub(crate) fn paint_seat(run: &Run, focus: u32) -> Img {
     im
 }
 
-/// A short word over something in the cave, centred on `x`, with a dark
-/// edge so it reads over lit floor and rock alike.
 fn label(im: &mut Img, x: i32, y: i32, word: &str, ch: char) {
     let w = ink::text_width(word);
     let left = (x - w / 2).clamp(2, NATIVE_W - w - 2);
@@ -228,16 +205,12 @@ fn label(im: &mut Img, x: i32, y: i32, word: &str, ch: char) {
     im.text(left, y, word, ch);
 }
 
-/// The knight standing in the cell south of `wall`, facing north, if one is.
 fn north_digger<'a>(run: &'a Run, wall: (i32, i32)) -> Option<(u32, &'a Seat)> {
     run.caves.seats.iter().map(|(id, seat)| (*id, seat)).find(|(_, seat)| {
         seat.face == 3 && i32::from(seat.x) == wall.0 && i32::from(seat.y) == wall.1 + 1
     })
 }
 
-/// Screen pixels a knight's figure inks, plus a one-pixel rim: the same
-/// figure `stamp_knight` draws (`knight_plate`), so a crack or a cloud never
-/// lands on the knight the player sees.
 struct SeatPlate {
     id: u32,
     shown: Img,
@@ -251,7 +224,7 @@ fn seat_plates(run: &Run, tick: u32) -> Vec<SeatPlate> {
         .seats
         .iter()
         .map(|(id, seat)| {
-            let stepping = seat.stepping() && !seat.gliding();
+            let stepping = if seat.gliding() { slip_phase(tick) % 2 == 1 } else { seat.stepping() };
             let (shown, foot_x, foot_y) =
                 knight_plate(run, *id, seat.face, stepping, tool_of(run, seat, tick));
             let keep = (seat.face == 3).then(|| knight_plate(run, *id, seat.face, stepping, None));
@@ -275,15 +248,12 @@ fn knight_inks(plates: &[SeatPlate], run: &Run, cam: (i32, i32)) -> impl Fn(i32,
     move |sx, sy| sprites.iter().any(|(x, y, sprite)| sprite.get(sx - x, sy - y).is_some())
 }
 
-/// The rectangle `stamp_knight` fills for knight `id`, feet at `at` on screen.
 fn knight_sprite_rect(plates: &[SeatPlate], id: u32, at: (i32, i32)) -> Option<cave_paint::ScreenRect> {
     let plate = plates.iter().find(|plate| plate.id == id)?;
     let (keep, foot_x, foot_y) = plate.keep.as_ref()?;
     Some(cave_paint::ScreenRect { x: at.0 - foot_x, y: at.1 - foot_y, w: keep.w, h: keep.h })
 }
 
-/// Rubble from a north dig, before the knight, at the face-bottom pivot so it
-/// lands at his feet and his ink is drawn over it.
 fn stamp_north_rubble(im: &mut Img, run: &Run, cave: &Cave, cam: (i32, i32), tick: u32) {
     for burst in &run.caves.bursts {
         if tick < burst.at || burst.kind != caves::BURST_CRUMBLE {
@@ -296,8 +266,6 @@ fn stamp_north_rubble(im: &mut Img, run: &Run, cave: &Cave, cam: (i32, i32), tic
     }
 }
 
-/// Chips from a north dig, after the knight. The burst sits at his helmet and
-/// flies left and right. It does not land on the middle 8 px of his sprite.
 fn stamp_north_chips(im: &mut Img, run: &Run, cam: (i32, i32), tick: u32, plates: &[SeatPlate]) {
     for burst in &run.caves.bursts {
         if tick < burst.at || burst.kind != caves::BURST_CHIP {
@@ -307,14 +275,11 @@ fn stamp_north_chips(im: &mut Img, run: &Run, cam: (i32, i32), tick: u32, plates
         let Some((id, seat)) = north_digger(run, wall) else { continue };
         let (fx, fy) = feet(seat);
         let Some(rect) = knight_sprite_rect(plates, id, (fx - cam.0, fy - cam.1)) else { continue };
-        // The helmet is four pixels under the sprite's top.
         const HELMET: i32 = 4;
         let pivot = (rect.x + rect.w / 2, rect.y + HELMET);
         let mid0 = rect.x + (rect.w - 8) / 2;
         let mid1 = mid0 + 8;
         let region = region_of(wall.0, wall.1).0;
-        // The sheet's chips sit on its pivot. Two pivots put that cloud past
-        // each shoulder, still at helmet height, never on the middle 8 px.
         let keep = |x: i32, y: i32, _dy: i32| {
             let over_middle = x >= mid0 && x < mid1 && y >= rect.y && y < rect.y + rect.h;
             !over_middle
@@ -333,8 +298,6 @@ fn north_break_pivot(cave: &Cave, cam: (i32, i32), wall: (i32, i32)) -> Option<(
     Some((pivot, region_of(wall.0, wall.1).0))
 }
 
-/// A north dig's breaking cloud, after the knight. The pivot stays the face
-/// bottom. The cloud never covers his ink. Rubble was already drawn before him.
 fn stamp_north_breaks(
     im: &mut Img,
     run: &Run,
@@ -364,19 +327,16 @@ fn stamp_north_breaks(
     }
 }
 
-/// One knight, feet at `at`. The body is the figure the delve room draws
-/// for that hero, at the room's own pixel scale: cropped to its ink and
-/// stood on the foot point. A hero with no look of their own is the kit
-/// knight the room draws for them. A dig holds a short spade in the hand;
-/// a blast reaches one hand toward the faced cell.
 fn stamp_knight(im: &mut Img, plates: &[SeatPlate], id: u32, at: (i32, i32)) {
     let Some(plate) = plates.iter().find(|plate| plate.id == id) else { return };
     im.stamp(&Img::from_rows(SHADOW), at.0 - 7, at.1 - 1);
     im.stamp(&plate.shown, at.0 - plate.foot_x, at.1 - plate.foot_y);
 }
 
-/// What the hands are doing this tick, if the blade or the cast is still out.
 fn tool_of(run: &Run, seat: &Seat, tick: u32) -> Option<Tool> {
+    if seat.gliding() {
+        return Some(Tool::Slip(slip_phase(tick)));
+    }
     if let Some(age) = seat.swinging(tick) {
         if age < 5 {
             if seat.digging(tick).is_some() {
@@ -398,18 +358,19 @@ fn tool_of(run: &Run, seat: &Seat, tick: u32) -> Option<Tool> {
 enum Tool {
     Dig(u8),
     Cast,
-    /// Slanted over the shoulder while walking.
     Carry,
+    Slip(u8),
 }
 
-/// The figure the cave stamps, before the cave's light, and where its foot
-/// sits in that picture. `tool` is the shovel or the cast, never a rescaled body.
+fn slip_phase(tick: u32) -> u8 {
+    ((tick / 3) % 4) as u8
+}
+
 fn knight_plate(run: &Run, id: u32, face: u8, stepping: bool, tool: Option<Tool>) -> (Img, i32, i32) {
     let Some(hero) = run.players.get(&id) else {
         return kit_plate(face, stepping, tick_step(run), tool);
     };
     let mut posed = posed(hero, face, stepping);
-    // A cast is an open hand, not the room's carried blade.
     if matches!(tool, Some(Tool::Cast)) {
         posed.sword = false;
         posed.swing = 0;
@@ -435,7 +396,6 @@ fn tick_step(run: &Run) -> u32 {
     run.tick as u32
 }
 
-/// The kit knight, only when this seat has no hero of its own.
 fn kit_plate(face: u8, stepping: bool, tick: u32, tool: Option<Tool>) -> (Img, i32, i32) {
     let mut dress = Dress::WHOLE;
     dress.view = match face & 3 {
@@ -459,7 +419,6 @@ fn kit_plate(face: u8, stepping: bool, tick: u32, tool: Option<Tool>) -> (Img, i
     (sprite, foot_x, foot_y)
 }
 
-/// Aim and stride the room reads, so its figure faces and walks as this seat does.
 fn posed(hero: &crate::rules::Hero, face: u8, stepping: bool) -> crate::rules::Hero {
     let mut hero = hero.clone();
     match face & 3 {
@@ -498,8 +457,6 @@ fn opaque_box(im: &Img) -> Option<(i32, i32, i32, i32)> {
     (r >= 0).then_some((l, t, r, b))
 }
 
-/// Crop to the ink. The foot is the room's pivot when it sits in the ink,
-/// otherwise the bottom centre of the crop.
 fn crop_feet(im: &Img, pivot: Option<[i32; 2]>) -> (Img, i32, i32) {
     let Some((l, t, r, b)) = opaque_box(im) else {
         return (Img::new(1, 1), 0, 0);
@@ -519,21 +476,56 @@ fn crop_feet(im: &Img, pivot: Option<[i32; 2]>) -> (Img, i32, i32) {
     (out, fx, fy)
 }
 
-/// Timber ink `o`, grey stone `v`, and the next stone step `V` on the cutting edge.
 const WOOD: [u8; 3] = [169, 118, 57];
 const BLADE: [u8; 3] = [143, 163, 168];
 const EDGE: [u8; 3] = [179, 194, 196];
 const GLOVE: [u8; 3] = [232, 198, 164];
 
-/// A short spade, or a hand reaching forward, drawn on the figure so the
-/// grip starts at the hand and never covers the face.
 fn hold(fig: &Img, face: u8, tool: Tool) -> (Img, i32, i32) {
     let marks = match tool {
         Tool::Dig(phase) => shovel_marks(fig, face, phase),
         Tool::Carry => shovel_marks(fig, face, 3),
         Tool::Cast => cast_marks(fig, face),
+        Tool::Slip(phase) => return slip(fig, phase),
     };
     paint_marks(fig, &marks)
+}
+
+fn slip(fig: &Img, phase: u8) -> (Img, i32, i32) {
+    let Some((l, t, r, b)) = opaque_box(fig) else { return (fig.clone(), 0, 0) };
+    let h = b - t + 1;
+    let waist = t + h * 58 / 100;
+    let rock = [1, 0, -1, 0][usize::from(phase & 3)];
+    let mut body = Img::new(fig.w + 2, fig.h);
+    for y in 0..fig.h {
+        for x in 0..fig.w {
+            if let Some(c) = fig.get(x, y) {
+                body.set(x + 1 + if y < waist { rock } else { 0 }, y, c);
+            }
+        }
+    }
+    let core = (l..=r)
+        .max_by_key(|&x| (t..waist).filter(|&y| fig.get(x, y).is_some()).count())
+        .unwrap_or((l + r) / 2);
+    let shoulder = (t + h * 40 / 100..waist).find(|&y| fig.get(core, y).is_some()).unwrap_or(t + h * 40 / 100);
+    let edge = |step: i32| {
+        let mut x = core;
+        while fig.get(x + step, shoulder).is_some() && (x + step - core).abs() < 6 {
+            x += step;
+        }
+        (x, fig.get(x, shoulder).unwrap_or(GLOVE))
+    };
+    let (left, right) = [(-1, 1), (0, 0), (1, -1), (-1, -1)][usize::from(phase & 3)];
+    let mut marks = Vec::new();
+    for (out, rise) in [(-1, left), (1, right)] {
+        let (x0, ink) = edge(out);
+        for k in 1..=4 {
+            let c = if k == 4 { GLOVE } else { ink };
+            marks.push((x0 + 1 + rock + out * k, shoulder + rise * k, c));
+        }
+    }
+    let (out, ox, oy) = paint_marks(&body, &marks);
+    (out, ox + 1, oy)
 }
 
 fn paint_marks(fig: &Img, marks: &[(i32, i32, [u8; 3])]) -> (Img, i32, i32) {
@@ -553,8 +545,6 @@ fn paint_marks(fig: &Img, marks: &[(i32, i32, [u8; 3])]) -> (Img, i32, i32) {
     let (ox, oy) = (-l.min(0), -t.min(0));
     let mut out = Img::new(r.max(fig.w - 1) - l.min(0) + 1, b.max(fig.h - 1) - t.min(0) + 1);
     out.stamp(fig, ox, oy);
-    // Every mark is painted. Dropping one is what left the blade floating.
-    // The shaft is bent off the face before it arrives here.
     for &(x, y, c) in marks {
         out.set(x + ox, y + oy, c);
     }
@@ -569,7 +559,6 @@ fn face_box(fig: &Img) -> Option<(i32, i32, i32, i32)> {
 
 fn hand_of(fig: &Img, face: u8) -> (i32, i32) {
     let Some((l, t, r, b)) = opaque_box(fig) else { return (0, 0) };
-    // The arm, not the hat and not a forward foot.
     let y0 = t + (b - t + 1) * 42 / 100;
     let y1 = t + (b - t + 1) * 58 / 100;
     let aim_x = match face & 3 {
@@ -586,7 +575,6 @@ fn hand_of(fig: &Img, face: u8) -> (i32, i32) {
             }
             let near = (x - aim_x).abs() + (y - aim_y).abs();
             let solid = neighbors(fig, x, y);
-            // Prefer a solid pixel on the facing side, so the grip is a hand, not a speck.
             let score = solid * 8 - near;
             if best.map_or(true, |(_, _, s)| score > s) {
                 best = Some((x, y, score));
@@ -608,8 +596,6 @@ fn neighbors(fig: &Img, x: i32, y: i32) -> i32 {
     n
 }
 
-/// Haft: 1 px wide, 6 px long, wood ink, starting at the hand. Blade: 3 by 3,
-/// grey stone-light with a one-pixel lighter edge, set square on the end.
 fn shovel_marks(fig: &Img, face: u8, phase: u8) -> Vec<(i32, i32, [u8; 3])> {
     let (hx, hy) = hand_of(fig, face);
     let offsets = match phase {
@@ -626,9 +612,6 @@ fn shovel_marks(fig: &Img, face: u8, phase: u8) -> Vec<(i32, i32, [u8; 3])> {
     let end = haft[5];
     let prev = haft[4];
     let dir = ((end.0 - prev.0).signum(), (end.1 - prev.1).signum());
-    // A spade, not a hammer head: three across and three long from the haft,
-    // then a point, so the silhouette tapers away from the hand. The lit edge
-    // runs down one side and onto the tip.
     let base = (end.0 + dir.0, end.1 + dir.1);
     let _ = blade;
     for (along, across, lit) in spade(dir) {
@@ -637,11 +620,8 @@ fn shovel_marks(fig: &Img, face: u8, phase: u8) -> Vec<(i32, i32, [u8; 3])> {
     marks
 }
 
-/// The spade's pixels from the first one past the haft, for a haft running in
-/// `dir`: (x, y, lit edge).
 fn spade((dx, dy): (i32, i32)) -> Vec<(i32, i32, bool)> {
     if dx == 0 || dy == 0 {
-        // Straight: u along the haft, v across it.
         let (ux, uy) = (dx, dy);
         let (vx, vy) = (-uy, ux);
         let mut px = Vec::new();
@@ -653,7 +633,6 @@ fn spade((dx, dy): (i32, i32)) -> Vec<(i32, i32, bool)> {
         px.push((3 * ux, 3 * uy, true));
         px
     } else {
-        // Diagonal: a fat blade two pixels thick along the diagonal, a point at the end.
         vec![
             (0, 0, false),
             (dx, 0, false),
@@ -757,8 +736,6 @@ fn on_face(helm: Option<(i32, i32, i32, i32)>, fig: &Img, x: i32, y: i32) -> boo
 
 fn cast_marks(fig: &Img, face: u8) -> Vec<(i32, i32, [u8; 3])> {
     let (hx, hy) = hand_of(fig, face);
-    // A short forearm and a small rounded fist, toward the faced cell.
-    // Not a blade: no long edge, no metal.
     let (dx, dy) = match face & 3 {
         1 => (-1, 0),
         2 => (1, 0),
@@ -776,7 +753,6 @@ fn cast_marks(fig: &Img, face: u8) -> Vec<(i32, i32, [u8; 3])> {
     marks
 }
 
-/// Opaque pixels of the figure the cave stamps, before light and before a tool.
 fn figure_inks(run: &Run, id: u32, face: u8, stepping: bool) -> Vec<(i32, i32, [u8; 3])> {
     let (sprite, _, _) = knight_plate(run, id, face, stepping, None);
     inks_of(&sprite)
@@ -828,7 +804,6 @@ const SHADOW: &[&str] = &[
     "    nnnnnn    ",
 ];
 
-/// The lamp that leads out: a lantern on a post, its foot at `at`.
 fn stamp_way_out(im: &mut Img, at: (i32, i32)) {
     let lamp = Img::from_rows(WAY_OUT);
     im.stamp(&lamp, at.0 - lamp.w / 2, at.1 - lamp.h);
@@ -852,7 +827,6 @@ const WAY_OUT: &[&str] = &[
     " knnnnnk ",
 ];
 
-/// The cave's corner of the screen: stone carried, and magic left in blasts.
 fn draw_pack(im: &mut Img, seat: &Seat) {
     let pack = seat.pack();
     let carried = i32::from(pack.total());
@@ -875,7 +849,6 @@ fn draw_pack(im: &mut Img, seat: &Seat) {
     let y = y0 + 2;
     im.text(x, y, "STONE", 'J');
     x += stone_w + 4;
-    // A full pack turns amber: the next stone dug is left behind.
     let full = pack.full();
     for i in 0..i32::from(CARRY_LIMIT) {
         let ch = if i >= carried { 'X' } else if full { 'O' } else { 'h' };
@@ -884,7 +857,6 @@ fn draw_pack(im: &mut Img, seat: &Seat) {
     x += pips + 8;
     im.text(x, y, "MAGIC", 'J');
     x += magic_w + 4;
-    // One group a blast.
     for i in 0..i32::from(MAGIC_MAX) {
         let group = i / i32::from(BLAST_COST);
         let ch = if i < i32::from(pack.magic) { 'O' } else { 'X' };
@@ -896,8 +868,6 @@ fn draw_pack(im: &mut Img, seat: &Seat) {
     }
 }
 
-/// The delve's notices a knight in the cave is shown. The cave's corner
-/// already counts the stone, and the delve's own warnings are not about here.
 fn mine_heads(run: &Run) -> (Vec<cave_paint::MineHead>, u8) {
     let mut heads = Vec::new();
     let mut sunk = 0u8;
@@ -921,10 +891,6 @@ fn mine_heads(run: &Run) -> (Vec<cave_paint::MineHead>, u8) {
     (heads, sunk)
 }
 
-/// A knight on or beside a proven, unsunk head is offered the sink. Before
-/// the vein is proven they see how much of it has been seen.
-/// Flames and fizz sit on the floor, under the knights. Steam rises after them.
-/// `steam` selects that second pass.
 fn stamp_materials(im: &mut Img, cave: &Cave, cam: (i32, i32), tick: u32, steam: bool) {
     let x0 = cam.0.div_euclid(CELL) - 3;
     let y0 = cam.1.div_euclid(CELL) - 4;
@@ -1036,9 +1002,6 @@ fn wrap_notice(line: &str, width: i32) -> Vec<String> {
     if out.is_empty() { vec![line.to_string()] } else { out }
 }
 
-/// Draw-thread work, once a cave: while any knight stands on a mouth, draw the
-/// ground it will arrive on and read all twelve effect sheets, so the first
-/// frame in every region is an ordinary one. A simulation tick does not call this.
 pub fn warm_mouth(run: &Run, focus: Option<u32>) {
     thread_local! {
         static WARMED: Cell<u32> = const { Cell::new(0) };
@@ -1065,8 +1028,6 @@ pub fn warm_mouth(run: &Run, focus: Option<u32>) {
     let _ = hero::draw(Dress::WHOLE);
 }
 
-/// The cave mouth: a rough boulder arch over a stone stair going down, the
-/// near step's lip catching the room's warm light. 32 by 26, room inks only.
 const MOUTH: [&[u8; 32]; 26] = [
     b".........kkkkkkkkkkkkkk.........",
     b".......kkJJGGGjXJJJGGGjkk.......",
@@ -1096,9 +1057,6 @@ const MOUTH: [&[u8; 32]; 26] = [
     b"....kkkkkkkkkkkkkkkkkkkkkkkk....",
 ];
 
-/// Stamps the mouth with its top-left at (`left`, `top`), each pixel `s` by `s`.
-/// For a mouth at tile (`col`, `row`) that is `w` tiles wide, the near step sits
-/// on that tile with `left = col * 16 + (w * 16 - 32) / 2` and `top = row * 16 - 9`.
 pub fn stamp_mouth(im: &mut Img, left: i32, top: i32, s: i32) {
     let s = s.max(1);
     for (dy, row) in MOUTH.iter().enumerate() {
@@ -1112,8 +1070,6 @@ pub fn stamp_mouth(im: &mut Img, left: i32, top: i32, s: i32) {
     }
 }
 
-/// The mouth's name, for every knight standing on it or one tile off it.
-/// The arch itself is stamped with the room, whether or not anyone is near.
 pub fn mouth_line(im: &mut Img, run: &Run) {
     if run.dungeon.depth != 1 {
         return;
@@ -1140,7 +1096,6 @@ pub fn mouth_line(im: &mut Img, run: &Run) {
     let line = mouth.label;
     let tw = ink::text_width(line);
     const TILE: i32 = 16;
-    // Beside the arch, not across the opening, so the way down stays readable.
     let lx = mouth.at.0 * TILE + 34;
     let ly = mouth.at.1 * TILE - 2;
     im.rect(lx, ly, tw + 8, 12, 'k');
@@ -1161,8 +1116,6 @@ fn near_mouth(kind: crate::rules::RoomKind, col: i32, row: i32) -> bool {
     false
 }
 
-/// An untaken pair, lit by the same lamp that lights the floor under it.
-/// A taken pair is gone: no name is left in the cave.
 fn paint_boots(run: &Run, im: &mut Img, cam: (i32, i32)) {
     let seed = run.caves.seed;
     if seed == 0 {
@@ -1183,10 +1136,6 @@ fn paint_boots(run: &Run, im: &mut Img, cam: (i32, i32)) {
     }
 }
 
-/// One boot, side on, toe to the right. Grip: brown leather, a folded cuff and
-/// studs under the sole. Blades: steel-blue leather on a silver runner whose tip
-/// curls past the toe. The outline stays dark at every lamp step so the boot
-/// holds on pale frost and on black rock alike.
 const GRIP_BOOT: [&[u8; 7]; 9] = [
     b"kkkk...", b"kOrk...", b"kRrk...", b"kBrk...", b"kBIkkk.", b"kBBBrrk", b"kBBBBBk", b"knnnnnk", b"kJkJkJk",
 ];
@@ -1198,7 +1147,6 @@ fn paint_boot_pair(im: &mut Img, x: i32, y: i32, blades: bool, glint: bool) {
     let rows: &[&[u8; 7]] = if blades { &BLADE_BOOT } else { &GRIP_BOOT };
     let steps = lamp_steps(im, x, y);
     let warm_floor = floor_is_warm(im, x, y);
-    // A one-row contact shadow: the floor under the sole at half light.
     let foot = y + rows.len() as i32;
     for dx in 1..7 {
         if let Some(c) = im.get(x + dx, foot) {
@@ -1229,7 +1177,6 @@ fn paint_boot_pair(im: &mut Img, x: i32, y: i32, blades: bool, glint: bool) {
     }
 }
 
-/// How many lamp steps the floor under the pair has already taken.
 fn lamp_steps(im: &Img, x: i32, y: i32) -> usize {
     let mut best = 0u32;
     for (dx, dy) in [(0, 4), (3, 4), (6, 4), (3, 6), (1, 2)] {
@@ -1282,7 +1229,6 @@ mod knight_pixels {
     }
 
     fn wish_rows() -> Vec<Vec<String>> {
-        // A tall blue cloak and a pale hat, so the wished look is not the kit.
         let rows = [
             "..hhh..",
             ".hhhhh.",
@@ -1443,7 +1389,6 @@ mod knight_pixels {
         }
         save_png(&dir.join("looks.png"), &sheet, 1);
 
-        // Dig and blast on a real cave floor, not on black.
         run.enter_cave(false);
         let focus = *run.caves.seats.keys().next().unwrap_or(&1);
         let floor = cave_seat_frame(&run, focus, 384, 224);
@@ -1465,14 +1410,12 @@ mod knight_pixels {
         save_png(&dir.join("dig-pose.png"), &dig, 1);
         save_png(&dir.join("blast-pose.png"), &blast, 1);
 
-        // Two knights with different looks.
         if run.players.len() >= 2 {
             run.enter_one(2, false);
         }
         let entered = cave_seat_frame(&run, 1, 384, 224);
         save_png(&dir.join("enter.png"), &entered, 1);
 
-        // Walk at 1x: the cave frame while the seat steps, each its own tick.
         let mut frames = Vec::new();
         let t0 = Instant::now();
         for i in 0..12u64 {
@@ -1489,7 +1432,6 @@ mod knight_pixels {
         let walk_ms = t0.elapsed().as_secs_f64() * 1000.0 / 12.0;
         eprintln!("walk frame mean including rules: {walk_ms:.1} ms");
 
-        // Mean of 60 mid-walk frames, each its own tick, draw only.
         let t1 = Instant::now();
         for i in 0..60u64 {
             run.tick = 800 + i;

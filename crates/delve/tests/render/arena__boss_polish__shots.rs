@@ -14,7 +14,6 @@ use crate::rules::{EnemyKind, Input, Phase, RoomKind, Run, TELEGRAPH, knights, s
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-/// How much bigger a window is saved.
 const K: u32 = 3;
 
 fn wanted(scene: &str) -> bool {
@@ -26,8 +25,6 @@ fn save(img: &Img, k: u32, path: &Path) {
     image::RgbaImage::from_raw(img.w as u32 * k, img.h as u32 * k, rgba).unwrap().save(path).unwrap();
 }
 
-/// The `size` window round arena point `at`, raised `lift` pixels, as
-/// knight 1's screen shows it.
 fn window(run: &Run, at: (f32, f32), size: (i32, i32), lift: i32) -> Img {
     let img = frame_for(run, NATIVE_W, NATIVE_H, Some(1));
     let (cx, cy) = frame_px(run, NATIVE_W, NATIVE_H, Some(1), at.0, at.1);
@@ -48,11 +45,6 @@ impl Film {
     }
 }
 
-// ─── the Lawn Flamingo ───────────────────────────────────────────────────────
-
-/// Floor one's guardian hall, emptied, the Lawn Flamingo standing in its
-/// middle and knight 1 `off` from it; and the flamingo's place among the
-/// run's bosses.
 fn lawn(off: (f32, f32)) -> (Run, u8, (f32, f32)) {
     let mut run = Run::new(41, 1, None);
     let hall = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Stairs).unwrap();
@@ -74,8 +66,6 @@ fn the_flamingo(run: &Run, i: u8) -> Option<usize> {
     run.enemies.iter().position(|e| e.boss == Some(i))
 }
 
-/// The knight whole and out of harm's way; and, `pin`, the flamingo back
-/// on `mid` with no charge-up due.
 fn keep(run: &mut Run, i: u8, mid: (f32, f32), off: (f32, f32), pin: bool) {
     if let Some(h) = run.players.get_mut(&1) {
         h.hp = h.max_hp;
@@ -96,15 +86,12 @@ fn keep(run: &mut Run, i: u8, mid: (f32, f32), off: (f32, f32), pin: bool) {
 
 fn flamingo(film: &Film) {
     let size = (176, 112);
-    // Every pose, on the dark, a frame a pose.
     if wanted("fl-sheet") {
         let dir = film.dir.join("fl-sheet");
         std::fs::create_dir_all(&dir).unwrap();
         save(&super::garden::flamingo_sheet(), 4, &dir.join("sheet.png"));
     }
     let idle = BTreeMap::new();
-    // On one leg, a knight close by: its head bobs and now and then it
-    // ruffles.
     if wanted("fl-idle") {
         let off = (-3.2, 0.6);
         let (mut run, i, mid) = lawn(off);
@@ -117,7 +104,6 @@ fn flamingo(film: &Film) {
             run.step(&idle);
         }
     }
-    // Strutting after a knight across the hall.
     if wanted("fl-strut") {
         let off = (-15.0, 0.0);
         let (mut run, i, mid) = lawn(off);
@@ -134,12 +120,10 @@ fn flamingo(film: &Film) {
             run.step(&idle);
         }
     }
-    // The wing-gust: its fan, on its beat.
     if wanted("fl-gust") {
         let off = (-9.0, 0.5);
         let (mut run, i, mid) = lawn(off);
         if let Some(k) = the_flamingo(&run, i) {
-            // The fan looses when its age comes round to its beat.
             let every = run.bosses[usize::from(i)].attacks[0].every;
             let e = &mut run.enemies[k];
             e.age = (e.age / every + 2) * every - 14;
@@ -150,8 +134,6 @@ fn flamingo(film: &Film) {
             run.step(&idle);
         }
     }
-    // Its charge-ups, from the middle of its fight: the beak-stab (its
-    // first) and the honk (its second).
     for (scene, which, off) in [("fl-stab", 0u32, (-14.0f32, 0.0f32)), ("fl-honk", 1, (-6.0, 1.0))] {
         if !wanted(scene) {
             continue;
@@ -184,14 +166,12 @@ fn flamingo(film: &Film) {
                 n += 1;
             }
             if started && stage == 0 && n > 8 {
-                // A breath after, to see it settle.
                 if n > 80 {
                     break;
                 }
             }
         }
     }
-    // Its rage: the spiral, spun on one leg.
     if wanted("fl-spin") {
         let off = (-9.0, 0.5);
         let (mut run, i, mid) = lawn(off);
@@ -207,7 +187,6 @@ fn flamingo(film: &Film) {
             run.step(&idle);
         }
     }
-    // Struck, twice.
     if wanted("fl-hit") {
         let off = (-3.4, 0.6);
         let (mut run, i, mid) = lawn(off);
@@ -223,8 +202,6 @@ fn flamingo(film: &Film) {
             run.step(&idle);
         }
     }
-    // Felled: it topples into its feathers, lies there a lawn ornament,
-    // and the hand comes for it.
     if wanted("fl-death") {
         let off = (-4.0, 1.2);
         let (mut run, i, mid) = lawn(off);
@@ -252,10 +229,6 @@ fn flamingo(film: &Film) {
     }
 }
 
-// ─── the Bard ────────────────────────────────────────────────────────────────
-
-/// Floor one's first fight (seed 21): the Bard at (10, 14) facing right, a
-/// training dummy 4.5 units off, two skeletons either side of it.
 fn stage() -> Run {
     let mut r = Run::new(21, 1, None);
     let fight = r.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
@@ -284,8 +257,6 @@ fn bard(film: &Film) {
     }
     let fire = Input { fire: true, aim_x: 1, ..Default::default() };
     let mut r = stage();
-    // The riff: its first beats, the wub coming in, the overload; then a
-    // breath and the Lullaby.
     let windows = [("bard-a-riff", 8..40), ("bard-b-wub", 64..96), ("bard-c-overload", 150..200), ("bard-d-lullaby", 210..290)];
     for t in 0..290u32 {
         let input = match t {

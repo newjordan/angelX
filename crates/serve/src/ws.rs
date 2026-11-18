@@ -12,7 +12,6 @@ pub const CLOSE: u8 = 0x8;
 pub const PING: u8 = 0x9;
 pub const PONG: u8 = 0xA;
 
-/// Close codes (RFC 6455 §7.4.1).
 pub mod code {
     pub const NORMAL: u16 = 1000;
     pub const GOING_AWAY: u16 = 1001;
@@ -20,30 +19,21 @@ pub mod code {
     pub const UNSUPPORTED: u16 = 1003;
     pub const POLICY: u16 = 1008;
     pub const TOO_BIG: u16 = 1009;
-    /// The engine's own: another page took this connection's seat (a
-    /// reload, a second tab). A shell should not reconnect on it, or two
-    /// tabs would take the seat in turns.
     pub const REPLACED: u16 = 4000;
 }
 
-/// A control frame's payload is at most this (RFC 6455 §5.5).
 pub const MAX_CONTROL: usize = 125;
 
-/// The GUID every accept key is made with (RFC 6455 §1.3).
 const GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
-/// The handshake's `Sec-WebSocket-Accept` for a client's key.
 pub fn accept_key(key: &str) -> String {
     base64(&sha1(format!("{key}{GUID}").as_bytes()))
 }
 
-/// A client's `Sec-WebSocket-Key` is 16 random bytes in base64.
 pub fn valid_key(key: &str) -> bool {
     is_base64_of(key, 16)
 }
 
-/// Which end is reading: a server takes only masked frames, a client only
-/// unmasked ones.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Role {
     Server,
@@ -55,26 +45,17 @@ pub enum Message {
     Binary(Vec<u8>),
     Ping(Vec<u8>),
     Pong(Vec<u8>),
-    /// The peer is closing, with its code if it gave one.
     Close(Option<u16>),
 }
 
-/// How a peer broke the protocol; the connection closes with `code()`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Violation {
-    /// A client frame without a mask, or a server frame with one.
     Mask,
-    /// Reserved bits set, an unknown opcode, or a length's top bit set.
     Reserved,
-    /// A text frame: only binary is spoken.
     Text,
-    /// A message past the limit.
     TooBig,
-    /// A control frame fragmented or longer than 125 bytes.
     Control,
-    /// A continuation with no message started, or a new message inside one.
     Continuation,
-    /// A close frame with a one-byte payload or a code no peer may send.
     Close,
 }
 
@@ -88,18 +69,15 @@ impl Violation {
     }
 }
 
-/// Bytes in, messages out.
 pub struct Parser {
     role: Role,
     max: usize,
     buf: Vec<u8>,
     at: usize,
-    /// A binary message whose later fragments have not all come.
     partial: Option<Vec<u8>>,
 }
 
 impl Parser {
-    /// `max` bounds a whole message, fragments together.
     pub fn new(role: Role, max: usize) -> Parser {
         Parser { role, max, buf: Vec::new(), at: 0, partial: None }
     }
@@ -115,14 +93,10 @@ impl Parser {
         self.buf.extend_from_slice(bytes);
     }
 
-    /// Bytes fed but not yet read as a frame.
     pub fn buffered(&self) -> usize {
         self.buf.len() - self.at
     }
 
-    /// The next whole message, `None` until enough bytes have come. A
-    /// frame's length is checked against the limit before its payload is
-    /// waited for, so no peer can make the buffer grow past one message.
     pub fn message(&mut self) -> Result<Option<Message>, Violation> {
         loop {
             let rest = &self.buf[self.at..];
@@ -231,12 +205,10 @@ impl Parser {
     }
 }
 
-/// Close codes a peer may put on the wire (RFC 6455 §7.4).
 fn sendable(code: u16) -> bool {
     matches!(code, 1000..=1003 | 1007..=1014 | 3000..=4999)
 }
 
-/// One whole frame. A client masks with `mask`; a server passes `None`.
 pub fn frame(out: &mut Vec<u8>, opcode: u8, payload: &[u8], mask: Option<[u8; 4]>) {
     out.push(0x80 | opcode);
     let bit = if mask.is_some() { 0x80 } else { 0 };
@@ -260,7 +232,6 @@ pub fn frame(out: &mut Vec<u8>, opcode: u8, payload: &[u8], mask: Option<[u8; 4]
     }
 }
 
-/// A close frame's payload: the code, no reason.
 pub fn close_payload(code: u16) -> [u8; 2] {
     code.to_be_bytes()
 }
@@ -344,7 +315,6 @@ mod tests {
         frame(&mut out, BINARY, b"x", None);
         p.feed(&out);
         assert_eq!(p.message(), Err(Violation::Mask));
-        // And a client refuses a masked frame from a server.
         let mut c = Parser::new(Role::Client, 1024);
         c.feed(&client_frame(BINARY, true, b"x"));
         assert_eq!(c.message(), Err(Violation::Mask));
@@ -357,13 +327,11 @@ mod tests {
         p.feed(&big[..8]);
         assert_eq!(p.message(), Err(Violation::TooBig));
 
-        // Fragments past the limit together.
         let mut p = server();
         p.feed(&client_frame(BINARY, false, &[0u8; 600]));
         p.feed(&client_frame(CONTINUATION, true, &[0u8; 600]));
         assert_eq!(p.message(), Err(Violation::TooBig));
 
-        // A 64-bit length is read whole and refused, not allocated.
         let mut p = server();
         p.feed(&[0x82, 0x80 | 127, 0, 0, 0, 1, 0, 0, 0, 0, 1, 2, 3, 4]);
         assert_eq!(p.message(), Err(Violation::TooBig));
@@ -396,7 +364,6 @@ mod tests {
             p.feed(&bytes);
             assert_eq!(p.message(), Err(violation), "{bytes:?}");
         }
-        // A new message inside a fragmented one.
         let mut p = server();
         p.feed(&client_frame(BINARY, false, b"a"));
         p.feed(&client_frame(BINARY, true, b"b"));

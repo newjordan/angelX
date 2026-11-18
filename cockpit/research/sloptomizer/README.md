@@ -116,12 +116,12 @@ unchanged: experiment in a separate directory.
 Nine of these modules are copied byte-for-byte from the original Sloptomizer
 source; `micro_llm/core.py` includes the F20 unigram fallback repair.
 [UPSTREAM.json](UPSTREAM.json) records each bundled sha256, the source commit,
-and the repaired module's original upstream sha256. Where a development checkout also carries the full import
-archive, those same ten files exist there under
-`experimental/sloptomizer/upstream/`, so the same bytes appear twice. That is
-deliberate: this directory is compiled into the binary by `include_bytes!`
-(`src/rl_ctl/research_bridge.rs`) and must build without the archive, while the
-archive stays the untouched import. The pair is guarded, not free:
+and the repaired module's original upstream sha256. Where a development checkout
+also carries the full import archive, those same ten paths exist under
+`experimental/sloptomizer/upstream/`. Nine have identical bytes; the repaired
+module deliberately differs. This directory is compiled into the binary by
+`include_bytes!` (`src/drive/rl_ctl/research_bridge.rs`) and must build without the
+archive, while the archive stays the untouched import. The pair is guarded, not free:
 
 ```sh
 npm run check:research-embed   # embed matches the receipt; archive copy has not forked
@@ -129,9 +129,16 @@ npm run check:duplicates       # every other duplicate group in the tree is name
 ```
 
 `check:research-embed` fails when an embedded module stops matching its recorded
-hash, when the archive copy diverges from the embedded one, or when
-`source-receipt.json` no longer describes the archived bytes. Edit an embedded
-module only together with the receipt and the archive copy.
+`sha256`, or an archived module differs from its recorded `upstream_sha256`
+(falling back to `sha256` for unchanged modules). An explicitly present original
+hash must be a lowercase 64-digit SHA-256. A present `source-receipt.json` must
+list each archived path and match its bytes; an empty receipt is not an opt-out.
+An absent archive or import receipt is still reported as skipped, not verified.
+
+For an approved bundled repair, record the repaired `sha256` and the untouched
+original's `upstream_sha256` together. Do not overwrite the provenance archive
+with the repair. These receipts detect drift from recorded identities; they do
+not by themselves establish who approved a change.
 
 [Source provenance](UPSTREAM.json) ·
 [Integration tests](../../../tests/cockpit/app/rl_ctl__campaign_tests__research_tests.rs)

@@ -1,11 +1,6 @@
 use super::*;
 use ratatui::{Terminal, backend::TestBackend};
 
-/// A host command, asked again while a dropped host's browser generations
-/// drain. Admission is nonblocking by design (`serve::http::preparation`, two
-/// generations at once), and since the Delve's bundle grew to about a thousand
-/// files and a 44 MB wasm (2026-11-07) a cancelled preparation outlives the
-/// test that started it by seconds, so the next test is told "busy".
 macro_rules! host_when_admitted {
     ($app:expr, $args:expr) => {{
         let started = std::time::Instant::now();
@@ -94,7 +89,6 @@ fn dungeon_ballot_keys_isolate_couch_seats_and_save_votes() {
     let mut app = game();
     fixture.bind(&mut app);
     paint(&mut app, 120, 40);
-    // The host votes under their own name, not a placeholder.
     let host_name = run(&app).players[&1].name.clone();
     let muted = app.realm.dungeon.audio.voices.muted;
     press(&mut app, KeyCode::Char('v'));
@@ -179,7 +173,6 @@ fn dungeon_ballot_keys_isolate_couch_seats_and_save_votes() {
     );
 }
 
-/// The hosted delve's one link, as the host's message gives it.
 fn link_of(message: &str) -> String {
     message
         .lines()
@@ -189,7 +182,6 @@ fn link_of(message: &str) -> String {
         .to_string()
 }
 
-/// A delve begun, and the party down the Winding Stair onto floor one.
 fn game() -> App {
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
     app.input = "/dungeon start Test Guest".into();
@@ -246,8 +238,6 @@ impl RealmSaveFixture {
     }
 
     fn block_saves(&self) {
-        // Simulate an inaccessible store without deleting the authoritative
-        // balances/receipts that the next compare-and-swap must observe.
         std::fs::rename(self.home.join(".angelX"), self.home.join(".angelX-save-backup")).unwrap();
         std::fs::write(self.home.join(".angelX"), b"not a directory").unwrap();
     }
@@ -296,7 +286,6 @@ fn press(app: &mut App, code: KeyCode) {
     app.on_key(event::KeyEvent::new(code, KeyModifiers::NONE));
 }
 
-/// Wishes knight `id` holds, plain and super.
 fn held(app: &App, id: u32) -> u8 {
     let hero = &run(app).players[&id];
     hero.wishes + hero.great_wishes
@@ -354,7 +343,6 @@ fn dungeon_p_and_end_bring_each_couch_knights_next_card_up_once_a_press() {
         let hero = app.realm.dungeon.shooter.edit().unwrap().players.get_mut(&id).unwrap();
         hero.hand = vec!["potion".into(), "holy-water".into(), "thunder-scroll".into()];
     }
-    // Held, each key turns its own knight's hand once.
     press(&mut app, KeyCode::Char('p'));
     press(&mut app, KeyCode::End);
     advance(&mut app, 6);
@@ -370,7 +358,6 @@ fn dungeon_held_movement_and_aim_do_not_wait_for_another_player_or_touch_compose
     paint(&mut app, 80, 24);
     app.realm.dungeon.key_releases = true;
     let messages = app.messages.len();
-    // Knights start in their smallclothes; arm both so a held aim shoots.
     for id in [1, 2] {
         let hero = app.realm.dungeon.shooter.edit().unwrap().players.get_mut(&id).unwrap();
         hero.weapon = crate::delve::together_shooter::Weapon::Bow;
@@ -411,17 +398,14 @@ fn dungeon_n_held_lays_the_floor_over_the_first_knights_screen_and_moves_no_one(
     let plain = shot(&app);
     assert!(shot(&app) == plain, "the same moment, the same picture");
     let (x, tick) = (run(&app).players[&1].x, run(&app).tick);
-    // Held, the whole floor is on the seat's own screen...
     press(&mut app, KeyCode::Char('n'));
     assert!(app.realm.dungeon.held.contains_key(&KeyCode::Char('n')));
     let up = shot(&app);
     let changed = up.iter().zip(plain.iter()).filter(|(a, b)| a != b).count();
     assert!(changed > 20_000, "the map covers the view ({changed} pixels changed)");
-    // ...and nobody walks, aims or fires for it.
     advance(&mut app, 12);
     assert_eq!(run(&app).players[&1].x, x);
     assert!(run(&app).tick > tick && run(&app).projectiles.iter().all(|p| p.hostile));
-    // Let go, and the map is gone from it.
     app.on_key(event::KeyEvent::new_with_kind(
         KeyCode::Char('n'),
         KeyModifiers::NONE,
@@ -481,7 +465,6 @@ fn dungeon_alternate_shift_keycodes_dash_and_release_the_same_held_direction() {
     let mut app = game();
     paint(&mut app, 80, 24);
     let x = run(&app).players[&1].x;
-    // Crossterm uses the alternate uppercase glyph and removes Shift.
     press(&mut app, KeyCode::Char('D'));
     advance(&mut app, 1);
     assert!(run(&app).players[&1].x - x > 0.6, "Shift+D still rolls");
@@ -553,7 +536,7 @@ fn dungeon_escape_paste_focus_loss_and_modals_pause_and_clear_input() {
     app.input.clear();
     app.cursor = 0;
     press(&mut app, KeyCode::F(6));
-    press(&mut app, KeyCode::Enter); // the Delve's menu: continue
+    press(&mut app, KeyCode::Enter);
     paint(&mut app, 80, 24);
     let x = run(&app).players[&1].x;
     advance(&mut app, 2);
@@ -648,8 +631,6 @@ fn dungeon_legacy_forge_commands_do_not_discard_the_independent_arena() {
     }
 }
 
-/// A friend's seat on the hosted delve, by its link over a real socket: a
-/// client as a friend's angelX or browser is, seated once welcomed.
 fn friend_seat(app: &mut App) -> crate::delve::together_seat::Seat {
     let server = app.realm.dungeon.shooter.server().unwrap();
     let link = angel_serve::link::link(&format!("http://{}", server.addr()), &server.key());
@@ -664,7 +645,6 @@ fn friend_seat(app: &mut App) -> crate::delve::together_seat::Seat {
     seat
 }
 
-/// Step the host until `ready`, the friend's seat sending its keys as it goes.
 fn host_until(app: &mut App, seat: &crate::delve::together_seat::Seat, what: &str, ready: impl Fn(&App) -> bool) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(8);
     while !ready(app) {
@@ -680,11 +660,10 @@ fn host_until(app: &mut App, seat: &crate::delve::together_seat::Seat, what: &st
     }
 }
 
-/// A delve hosted on an ephemeral loopback port, its surface painted and live.
 fn hosted() -> (App, String) {
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
     let message = host_when_admitted!(app, "host Test Guest 127.0.0.1:0");
-    press(&mut app, KeyCode::Enter); // the Delve's menu: continue
+    press(&mut app, KeyCode::Enter);
     paint(&mut app, 80, 24);
     advance(&mut app, 0);
     (app, message)
@@ -703,7 +682,6 @@ fn dungeon_host_lets_a_friend_play_while_host_is_stone() {
     assert_eq!(run(&app).players[&2].name, "Test Guest");
     assert!(app.thinking.is_none() && app.pending_turn.is_none());
     assert!(paint(&mut app, 120, 40).contains("Friends play from their own angelX"));
-    // The friend opens the link: their seat plays knight 2.
     let friend = friend_seat(&mut app);
     assert_eq!(friend.knight(), Some(2));
     host_until(&mut app, &friend, "the friend never said who they are", |app| run(app).players[&2].name == "Friend");
@@ -713,11 +691,9 @@ fn dungeon_host_lets_a_friend_play_while_host_is_stone() {
     host_until(&mut app, &friend, "the friend's key never moved knight 2", |app| run(app).players[&2].x > x + 1.0);
     assert_eq!(run(&app).players[&1].x, host_x, "and only knight 2");
 
-    // The friend's own client draws their own screen.
     let picture = friend.frame(std::time::Instant::now()).expect("the friend's frame");
     assert_eq!((picture.w, picture.h), crate::delve::world_viz::overworld::arena::seat_size());
 
-    // Esc stones the host, but the friend keeps playing.
     let host_position = (run(&app).players[&1].x, run(&app).players[&1].y);
     app.collapse_dungeon();
     let tick = run(&app).tick;
@@ -729,7 +705,7 @@ fn dungeon_host_lets_a_friend_play_while_host_is_stone() {
     friend.set_held(0);
 
     press(&mut app, KeyCode::F(6));
-    press(&mut app, KeyCode::Enter); // the Delve's menu: continue
+    press(&mut app, KeyCode::Enter);
     paint(&mut app, 80, 24);
     advance(&mut app, 0);
     assert!(!run(&app).players[&1].stone);
@@ -738,7 +714,6 @@ fn dungeon_host_lets_a_friend_play_while_host_is_stone() {
         host_position
     );
 
-    // The friend stays for the next delve, as the same knight.
     let raid = run(&app).raid_id;
     app.realm.dungeon.shooter.edit().unwrap().phase = crate::delve::together_shooter::Phase::Won;
     press(&mut app, KeyCode::Char('r'));
@@ -800,7 +775,6 @@ fn dungeon_host_joins_an_open_entrance_room_or_starts_fresh_and_kick_revokes() {
         "the old link is dead"
     );
 
-    // Past the entrance, hosting starts a fresh delve with the guest.
     let shooter = app.realm.dungeon.shooter.edit().unwrap();
     shooter.descend_for_test();
     shooter.enter_for_test(1);
@@ -816,8 +790,6 @@ fn dungeon_host_joins_an_open_entrance_room_or_starts_fresh_and_kick_revokes() {
     assert!(std::net::TcpStream::connect(address).is_err());
 }
 
-/// Offline screen for review: `ANGEL_DELVE_SCREEN=<dir> cargo test ... -- --ignored`
-/// writes each cell's symbol and colours as JSON lines.
 #[test]
 #[ignore]
 fn dungeon_write_delve_screens() {
@@ -889,7 +861,6 @@ fn dungeon_write_delve_screens() {
             });
         }
         if name == "delve_sanctuary1" {
-            // The first floor's guardian has just fallen.
             let run = app.realm.dungeon.shooter.edit().unwrap();
             let stairs = run
                 .dungeon
@@ -995,7 +966,6 @@ fn dungeon_write_delve_screens() {
         )
         .unwrap();
     }
-    // A friend's angelX, joined to a host's delve over the loopback.
     let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
     let mut host = game();
     let message = host_when_admitted!(host, "host --2");
@@ -1053,7 +1023,6 @@ fn dungeon_write_delve_screens() {
         format!("{width} {height}\n{}", out.join("\n")),
     )
     .unwrap();
-    // The friend's own cards, from the host's book.
     host.dungeon
         .shooter
         .edit()
@@ -1137,9 +1106,6 @@ fn dungeon_native_miniviz_expand_and_escape_preserve_composer_draft() {
         .panes
         .rect_of(crate::ui::mouse::PaneId::Artifacts)
         .expect("the mini-viz pane");
-    // Only the gate drawn on the map is the way in, not the whole pane
-    // (here the map looks elsewhere, the gate out of its view): a click on
-    // the mini-viz leaves the draft alone, and F4 is the way back in.
     let (column, row) = (rect.x + rect.width / 2, rect.y + rect.height / 2);
     assert!(!app.delve_map_hit(column, row), "the gate is out of the map's view here");
     app.on_mouse(event::MouseEvent {
@@ -1478,8 +1444,6 @@ fn failed_home_realm_save_keeps_orders_marks_and_feats_for_retry() {
         "retry/empty settle never pays twice"
     );
     assert_eq!(app.economy().home.countryside, surface);
-    // The western survey uses the very same rollback/retry transaction. Its
-    // reward and new game record must survive a disk failure, without doubling.
     let before = app.economy().treasury.clone();
     for i in 0..3 {
         app.realm.dungeon
@@ -1557,12 +1521,6 @@ fn dungeon_drafting_ends_with_the_turn_and_says_when_no_draft_came() {
     );
 }
 
-/// A lockstep host for a playtesting agent: the real cockpit App behind a
-/// tiny local HTTP API, where game time only moves when the agent acts.
-/// `ANGEL_TESTER_PORT=8790 ANGEL_TESTER_DIR=<dir> cargo test ... dungeon_tester_host -- --ignored`
-/// - `GET /look` — the screen as text, the room as a PNG path, and facts.
-/// - `POST /act` — `{"press":["tab"], "keys":[{"key":"d"}], "ms":600, "command":"/dungeon wishes"}`.
-/// - `POST /quit`.
 #[test]
 #[ignore]
 fn dungeon_tester_host() {
@@ -1827,14 +1785,12 @@ fn dungeon_host_for_three_gives_one_link_and_each_friend_their_own_knight() {
     let _public = crate::tests::TestEnvGuard::unset("ANGEL_DUNGEON_PUBLIC_URL");
     let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
-    // What `/dungeon_host --3` runs.
     let message = host_when_admitted!(app, "host --3");
     let link = link_of(&message);
     assert_eq!(message.matches("http://").count(), 1, "one link for everyone: {message}");
     assert_eq!(run(&app).players.len(), 1, "knights join as friends arrive");
     assert!(app.dungeon_command(Some("invite")).contains(&link));
 
-    // Three friends open the one link: each takes a seat of their own.
     let friends: Vec<_> = ["Matt", "Cleo", "Bram"]
         .into_iter()
         .map(|name| crate::delve::together_seat::Seat::connect(&link, name).unwrap())
@@ -1856,7 +1812,6 @@ fn dungeon_host_for_three_gives_one_link_and_each_friend_their_own_knight() {
         assert_eq!(run(&app).players[&knight].name, name);
         assert!(run(&app).players[&knight].knight.is_some(), "a knight of the company");
     }
-    // Past the seats a fourth only watches.
     let watcher = crate::delve::together_seat::Seat::connect(&link, "Late").unwrap();
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     while watcher.status() == angel_serve::client::LinkStatus::Connecting {
@@ -1873,7 +1828,6 @@ fn dungeon_host_for_five_seats_five_friends_and_a_sixth_only_watches() {
     let _public = crate::tests::TestEnvGuard::unset("ANGEL_DUNGEON_PUBLIC_URL");
     let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
-    // What `/dungeon_host --5` runs: the host's seat and five friends'.
     let message = host_when_admitted!(app, "host --5");
     let link = link_of(&message);
     assert!(message.contains("Delve hosted for 5 friends"), "{message}");
@@ -1902,12 +1856,10 @@ fn dungeon_host_for_five_seats_five_friends_and_a_sixth_only_watches() {
         assert_eq!(run(&app).players[&knight].name, name);
         assert!(run(&app).players[&knight].knight.is_some(), "a knight of the company");
     }
-    // Every friend a different knight of the company.
     let mut company: Vec<_> = run(&app).players.iter().filter(|(id, _)| **id != 1).filter_map(|(_, h)| h.knight.clone()).collect();
     company.sort();
     company.dedup();
     assert_eq!(company.len(), 5);
-    // Past the six a seventh only watches.
     let watcher = crate::delve::together_seat::Seat::connect(&link, "Late").unwrap();
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     while watcher.status() == angel_serve::client::LinkStatus::Connecting {
@@ -1916,7 +1868,6 @@ fn dungeon_host_for_five_seats_five_friends_and_a_sixth_only_watches() {
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
     assert_eq!(watcher.knight(), None);
-    // And a friend's knight past the fifth may be kicked as any.
     assert!(app.dungeon_command(Some("kick 6")).contains("left the delve"));
     assert!(app.dungeon_command(Some("kick 7")).contains("Kick a friend's knight"));
 }
@@ -1927,15 +1878,12 @@ fn dungeon_host_with_no_knight_seats_six_friends_the_last_in_as_knight_one() {
     let _public = crate::tests::TestEnvGuard::unset("ANGEL_DUNGEON_PUBLIC_URL");
     let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
-    // What a dedicated machine's `/dungeon_host --watch --6` runs: every
-    // seat a friend's.
     let message = host_when_admitted!(app, "host --watch --6");
     let link = link_of(&message);
     assert!(message.contains("Delve hosted for 6 friends"), "{message}");
     assert_eq!(app.realm.dungeon.hosting.as_ref().map(|h| (h.friends, h.watch)), Some((6, true)));
     let host = run(&app).players[&1].name.clone();
 
-    // Five friends take the other seats first; the host's place waits.
     let names = ["Matt", "Cleo", "Bram", "Enid", "Ywain", "Gawain"];
     let mut friends: Vec<_> = names[..5]
         .iter()
@@ -1955,7 +1903,6 @@ fn dungeon_host_with_no_knight_seats_six_friends_the_last_in_as_knight_one() {
     assert_eq!(knights, vec![2, 3, 4, 5, 6]);
     assert_eq!(run(&app).players[&1].name, host, "the host's place still its own");
 
-    // The sixth takes the host's place: knight 1, in their own name.
     friends.push(crate::delve::together_seat::Seat::connect(&link, names[5]).unwrap());
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
     while friends[5].knight().is_none()
@@ -1977,7 +1924,6 @@ fn dungeon_host_with_no_knight_seats_six_friends_the_last_in_as_knight_one() {
     assert_eq!(run(&app).players.len(), 6, "no seventh knight");
     assert!(app.dungeon_friends_seated());
 
-    // Past the six a seventh only watches.
     let watcher = crate::delve::together_seat::Seat::connect(&link, "Late").unwrap();
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     while watcher.status() == angel_serve::client::LinkStatus::Connecting {
@@ -1987,7 +1933,6 @@ fn dungeon_host_with_no_knight_seats_six_friends_the_last_in_as_knight_one() {
     }
     assert_eq!(watcher.knight(), None);
 
-    // Knight 1 may be kicked as any friend's: the place stays, empty.
     assert!(app.dungeon_command(Some("kick 1")).contains("left the delve"));
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     while !run(&app).players[&1].absent {
@@ -2023,13 +1968,10 @@ fn dungeon_host_takes_up_to_five_friends_and_no_more() {
         assert_eq!(app.realm.dungeon.hosting.as_ref().map(|h| h.friends), Some(friends), "{words}");
         assert_eq!(app.realm.dungeon.hosting.as_ref().map(|h| h.watch), Some(words.contains("--watch")), "{words}");
     }
-    // The most a host may seat, and the host's own seat, are the party; a
-    // host who plays no knight seats the whole party.
     assert_eq!(1 + super::MAX_FRIENDS as u32, crate::delve::together_shooter::MAX_PLAYERS);
     assert_eq!(super::MAX_WATCHED_FRIENDS as u32, crate::delve::together_shooter::MAX_PLAYERS);
 }
 
-/// Tick a friend's seat (and the host) until the server has answered it.
 fn answered(app: &mut App, seat: &crate::delve::together_seat::Seat) -> angel_serve::client::LinkStatus {
     use angel_serve::client::LinkStatus;
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
@@ -2057,7 +1999,6 @@ fn the_host_locks_the_door_makes_a_new_link_and_kicks_one_knight() {
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
     let link = link_of(&host_when_admitted!(app, "host --3"));
 
-    // Locked, the link lets nobody new in; unlocked, it does.
     assert!(app.dungeon_command(Some("lock")).contains("closed to newcomers"));
     let late = Seat::connect(&link, "Late").unwrap();
     assert!(matches!(answered(&mut app, &late), LinkStatus::Rejected(Reject::Locked, _)));
@@ -2066,8 +2007,6 @@ fn the_host_locks_the_door_makes_a_new_link_and_kicks_one_knight() {
     assert_eq!(answered(&mut app, &matt), LinkStatus::Playing);
     assert_eq!(matt.knight(), Some(2));
 
-    // A new link: the old one lets nobody new in, the new one does, and a
-    // friend already seated keeps their knight.
     let renewed = app.dungeon_command(Some("invite new"));
     let fresh = link_of(&renewed);
     assert_ne!(fresh, link, "{renewed}");
@@ -2077,9 +2016,6 @@ fn the_host_locks_the_door_makes_a_new_link_and_kicks_one_knight() {
     assert_eq!(answered(&mut app, &cleo), LinkStatus::Playing);
     assert_eq!(cleo.knight(), Some(3));
     assert_eq!(matt.status(), LinkStatus::Playing);
-    // The welcome reaches Cleo before the sim applies Joined, so her client
-    // is Playing a step before the host's run has her. Wait for that step
-    // before kicking, or the party check races the join.
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
     while !run(&app).players.contains_key(&3) {
         assert!(std::time::Instant::now() < deadline, "Cleo never joined the host's run");
@@ -2089,7 +2025,6 @@ fn the_host_locks_the_door_makes_a_new_link_and_kicks_one_knight() {
     }
     assert_eq!(run(&app).players[&3].name, "Cleo");
 
-    // One knight kicked: Matt's leaves, his seat is told so, and Cleo plays on.
     let said = app.dungeon_command(Some("kick 2"));
     assert!(said.contains("Matt left the delve"), "{said}");
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
@@ -2146,7 +2081,6 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
     assert!(run(&host).players.contains_key(&2));
     assert_eq!(friend.joined_actor(), 2);
 
-    // The friend's angelX holds its own mirror of the host's delve.
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     let mirrored = loop {
         host.advance_shooter_at(std::time::Instant::now());
@@ -2167,9 +2101,6 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
     };
     assert!(mirrored, "the mirror keeps up with the host's ticks");
 
-    // A friend's known wish goes to the host and lands on their knight, who
-    // holds one (the Undercroft gives none; a floor gives two). Its homing
-    // waits on a creature wish (`combos`); the card is theirs at once.
     host.dungeon.shooter.edit().unwrap().give_wishes(1, 0);
     friend
         .dungeon
@@ -2177,8 +2108,6 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
         .as_ref()
         .unwrap()
         .send(crate::delve::together_gear::BOON, br#"{"wish":"seeker"}"#);
-    // The host's run opens the scroll on the friend's view; their 1 picks
-    // through their own seat's spell key.
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     while run(&host).players[&2].offer.is_none() {
         assert!(std::time::Instant::now() < deadline, "the friend's scroll never opened");
@@ -2200,9 +2129,6 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
         std::thread::sleep(std::time::Duration::from_millis(15));
     }
 
-    // On Kitty the friend's frame reaches the terminal as a PNG. (The
-    // client builds the kingdom's atlas on its first frame, as a friend's
-    // terminal has long done by the time it is looked at.)
     friend.dungeon.joined.as_ref().unwrap().seat.frame(std::time::Instant::now());
     let mut kitty = App::preview(crate::ui::viewer::Viewer::kitty_for_test());
     kitty.dungeon.joined = friend.dungeon.joined.take();
@@ -2224,7 +2150,6 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
     );
     friend.dungeon.joined = kitty.dungeon.joined.take();
 
-    // Tab opens the friend's own cards, looked up in the host's book.
     press(&mut friend, KeyCode::Tab);
     assert!(friend.dungeon.cards_open);
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
@@ -2245,7 +2170,6 @@ fn a_friends_angelx_joins_by_pasting_its_line_and_sees_the_hosts_game() {
     press(&mut friend, KeyCode::Tab);
     assert!(!friend.dungeon.cards_open);
 
-    // The friend holds a key: their knight walks in the host's game.
     let start = (run(&host).players[&2].x, run(&host).players[&2].y);
     friend.terminal_focused = true;
     friend.dungeon.key_releases = true;
@@ -2276,11 +2200,10 @@ fn hosting_alone_pauses_on_esc_and_never_wipes_a_party_of_statues() {
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
     app.terminal_focused = true;
     host_when_admitted!(app, "host --3");
-    press(&mut app, KeyCode::Enter); // the Delve's menu: continue
+    press(&mut app, KeyCode::Enter);
     paint(&mut app, 160, 48);
     advance(&mut app, 5);
     assert!(run(&app).tick > 0, "the host plays");
-    // Away before any friend arrives (sending the invitations): a pause.
     press(&mut app, KeyCode::Esc);
     let tick = run(&app).tick;
     advance(&mut app, 30);
@@ -2291,7 +2214,6 @@ fn hosting_alone_pauses_on_esc_and_never_wipes_a_party_of_statues() {
     advance(&mut app, 30);
     assert!(run(&app).active());
 
-    // A party of statues is not a fallen party.
     let mut statues = run(&app).clone();
     for hero in statues.players.values_mut() {
         hero.stone = true;
@@ -2309,7 +2231,6 @@ fn dungeon_host_opens_the_delves_menu_over_the_entrance_room() {
     app.terminal_focused = true;
     let message = host_when_admitted!(app, "host --2");
     assert!(message.contains("menu is open"), "{message}");
-    // Friends can join at once: the delve is already open behind the menu.
     let raid = run(&app).raid_id;
     let intro = app.realm.dungeon.intro.as_ref().expect("the Delve's menu");
     assert_eq!(
@@ -2321,7 +2242,6 @@ fn dungeon_host_opens_the_delves_menu_over_the_entrance_room() {
     press(&mut app, KeyCode::Enter);
     assert!(app.realm.dungeon.intro.is_none() && app.dungeon_view_active());
     assert_eq!(run(&app).raid_id, raid, "continue keeps the open delve");
-    // Hosting again shows the same link and the menu again.
     let again = host_when_admitted!(app, "host --2");
     assert!(again.contains(&link_of(&message)), "{again}");
     assert!(app.realm.dungeon.intro.is_some());
@@ -2339,7 +2259,6 @@ fn a_new_delve_while_hosting_keeps_the_seated_friends() {
     let lynette = crate::delve::together_shooter::knights::knight("lynette").unwrap();
     shooter.outfit(3, lynette);
     let raid = run(&app).raid_id;
-    // From the Delve's menu, with friends along: a fresh delve.
     app.open_intro();
     app.realm.dungeon.intro.as_mut().unwrap().party = 2;
     app.realm.dungeon
@@ -2379,10 +2298,8 @@ fn the_scroll_offers_three_ways_to_have_a_wish_and_esc_rolls_it_up() {
         "{screen}"
     );
     assert_eq!(held(&app, 1), wishes, "nothing is spent by asking");
-    // T again does not open a second scroll over it.
     app.open_reforge();
     assert!(app.realm.dungeon.forge.draft.is_none());
-    // Esc rolls it up, through the seat's menu key: nothing spent.
     press(&mut app, KeyCode::Esc);
     advance(&mut app, 2);
     assert!(run(&app).players[&1].offer.is_none(), "rolled up");
@@ -2427,14 +2344,12 @@ fn a_won_room_grants_a_known_wish_at_once_without_leaving_the_game() {
         hero.deck
     );
     assert_eq!(held(&app, 1), wishes - 1, "the wish spends one held");
-    // Typed words find a known wish too, with the wishes still held.
     app.open_reforge();
     for c in "bounce my shots".chars() {
         press(&mut app, KeyCode::Char(c));
     }
     press(&mut app, KeyCode::Enter);
     press(&mut app, KeyCode::Char('1'));
-    // Granted; the bounce itself waits on a machine wish (`combos`).
     let deck = &run(&app).players[&1].deck;
     assert!(deck.iter().any(|c| c == "wish-ricochet-1"), "{deck:?}");
 }
@@ -2464,9 +2379,7 @@ fn an_unknown_wish_is_learned_while_you_play_and_granted_when_the_book_reloads()
     shooter.descend_for_test();
     shooter.calm_for_test();
     shooter.clear_for_test();
-    // The book as the delve ships it: no other test's Starlight in it.
     crate::delve::together_files::refresh_phrasebook(&workspace);
-    // The host's model, as a grant runner asks it: a moment, then the entry.
     let club = crate::delve::together_grants::Scripted::new(&[STARLIGHT], std::time::Duration::from_millis(150));
     app.realm.dungeon.forge.grants.oracle = Some(crate::app::control::realm::club_oracle(club.clone()));
     let wishes = held(&app, 1);
@@ -2492,7 +2405,6 @@ fn an_unknown_wish_is_learned_while_you_play_and_granted_when_the_book_reloads()
     assert_eq!(held(&app, 1), wishes - 1, "a wish is spent on it");
     assert_eq!(run(&app).lamp.pending(1).count(), 1, "the lamp smokes while it is written");
     assert!(app.thinking.is_none() && app.pending_turn.is_none(), "no turn of the host's is taken");
-    // A runner writes the wish into the workspace's phrasebook...
     let start = std::time::Instant::now();
     while run(&app).players[&1].deck.iter().all(|c| c != "wish-starlight-1")
         && start.elapsed() < std::time::Duration::from_secs(10)
@@ -2503,7 +2415,6 @@ fn an_unknown_wish_is_learned_while_you_play_and_granted_when_the_book_reloads()
     let book = workspace.join(".angel/dungeon/phrasebook.txt");
     assert!(std::fs::read_to_string(&book).unwrap().contains("wish starlight |"));
     assert_eq!(club.asked.lock().unwrap().len(), 1);
-    // ...and the book reloads with it: granted, mid-game.
     assert!(
         app.realm.dungeon.notice.contains("Starlight Arrows"),
         "{}",
@@ -2519,7 +2430,6 @@ fn an_unknown_wish_is_learned_while_you_play_and_granted_when_the_book_reloads()
 
 const STARLIGHT: &str = "wish starlight | Starlight Arrows\nsay make my arrows glow like stars | starlight arrows | glowing arrows\ntier homing 1; damage 10 :: Arrows glow and seek.\ntier homing 2; damage 15 :: Arrows burn bright and seek.\ntier homing 2; damage 20 :: Arrows are stars.\n";
 
-/// Look again until every lesson is over, or ten seconds pass.
 fn until_granted(app: &mut App) {
     let start = std::time::Instant::now();
     while !app.realm.dungeon.forge.learning.is_empty() && start.elapsed() < std::time::Duration::from_secs(10) {
@@ -2528,7 +2438,6 @@ fn until_granted(app: &mut App) {
     }
 }
 
-/// Knight 1 speaks `words` on the scroll: its choices open.
 fn speak(app: &mut App, words: &str) {
     app.open_reforge();
     for c in words.chars() {
@@ -2537,13 +2446,11 @@ fn speak(app: &mut App, words: &str) {
     press(app, KeyCode::Enter);
 }
 
-/// The workspace removed, and the book read again without what it learned.
 fn forget(workspace: &std::path::Path) {
     let _ = std::fs::remove_dir_all(workspace);
     crate::delve::together_files::refresh_phrasebook(workspace);
 }
 
-/// Look again until `done`, or ten seconds pass.
 fn look_until(app: &mut App, done: impl Fn(&App) -> bool) {
     let start = std::time::Instant::now();
     while !done(app) && start.elapsed() < std::time::Duration::from_secs(10) {
@@ -2560,12 +2467,10 @@ fn spoken_words_go_to_the_model_before_the_pick_and_a_late_pick_is_granted_at_on
     let (mut app, workspace) = wishing_app("spoken");
     let club = crate::delve::together_grants::Scripted::new(&[STARLIGHT], std::time::Duration::from_millis(100));
     app.realm.dungeon.forge.grants.oracle = Some(crate::app::control::realm::club_oracle(club.clone()));
-    // A super wish: as you said is two steps.
     app.realm.dungeon.shooter.edit().unwrap().players.get_mut(&1).unwrap().great_wishes = 1;
     let wishes = held(&app, 1);
     speak(&mut app, "make my arrows glow like stars");
     assert!(run(&app).players[&1].offer.is_some(), "the scroll is open");
-    // Sent before any pick: one lesson, not chosen, its job out.
     let lesson = &app.realm.dungeon.forge.learning[..];
     assert_eq!(lesson.len(), 1, "{}", app.realm.dungeon.notice);
     assert_eq!(lesson[0].pick, Pick::Open);
@@ -2573,12 +2478,10 @@ fn spoken_words_go_to_the_model_before_the_pick_and_a_late_pick_is_granted_at_on
     assert!(app.realm.dungeon.notice.contains("starts writing"), "{}", app.realm.dungeon.notice);
     assert_eq!(held(&app, 1), wishes, "nothing is spent by speaking");
     assert_eq!(run(&app).lamp.pending(1).count(), 1, "the lamp smokes at once");
-    // Written while the knight chooses: kept, granted to no one yet.
     look_until(&mut app, |app| app.realm.dungeon.forge.learning.iter().all(|l| l.learned_id.is_some()));
     assert_eq!(app.realm.dungeon.forge.learning.len(), 1, "a landed entry waits for the pick");
     assert!(run(&app).players[&1].deck.iter().all(|c| !c.starts_with("wish-starlight")));
     assert_eq!(held(&app, 1), wishes);
-    // The pick grants it on the next look, with its steps, and no second job.
     press(&mut app, KeyCode::Char('1'));
     app.watch_learning();
     let deck = &run(&app).players[&1].deck;
@@ -2611,8 +2514,6 @@ fn a_summoners_words_for_his_dead_are_written_for_them_and_granted_to_them() {
     assert_eq!(app.realm.dungeon.forge.learning.len(), 1);
     assert_eq!(app.realm.dungeon.forge.learning[0].target, Target::Dead);
     assert!(app.realm.dungeon.forge.learning[0].brief.contains("never a summon spell"));
-    // Both is still his dead's lesson; turned to himself, his words are
-    // written again for him, and turned back the first is taken up again.
     press(&mut app, KeyCode::Char('4'));
     app.teach_asked();
     assert_eq!((target(&app), app.realm.dungeon.forge.learning.len()), (Some(Target::Both), 1));
@@ -2627,13 +2528,11 @@ fn a_summoners_words_for_his_dead_are_written_for_them_and_granted_to_them() {
     app.teach_asked();
     assert_eq!(target(&app), Some(Target::Dead));
     assert_eq!((app.realm.dungeon.forge.learning[0].pick, app.realm.dungeon.forge.learning[1].pick), (Pick::Open, Pick::Learn));
-    // Picked, it lands on his dead and not on him.
     press(&mut app, KeyCode::Char('1'));
     app.teach_asked();
     look_until(&mut app, |app| run(app).players[&1].deck.iter().any(|c| c.starts_with("wish-bright-pink")));
     let hero = &run(&app).players[&1];
     assert!(hero.dead_wishes.iter().any(|(id, t)| id.starts_with("bright-pink") && *t == Target::Dead), "{:?}", hero.dead_wishes);
-    // Its health (as its grade gives it) is theirs, none of it his.
     assert!(hero.dead_gifts.hp > 0);
     assert_eq!(hero.max_hp, max_hp);
     forget(&workspace);
@@ -2649,8 +2548,6 @@ fn a_pick_before_the_spoken_words_are_written_is_granted_when_they_land() {
     let wishes = held(&app, 1);
     speak(&mut app, "make my arrows glow like stars");
     assert_eq!(app.realm.dungeon.forge.learning.len(), 1);
-    // The genie's deal: the wish as said and a purse, none of it to his
-    // freedom.
     press(&mut app, KeyCode::Char('3'));
     app.teach_asked();
     let lesson = &app.realm.dungeon.forge.learning[..];
@@ -2687,7 +2584,6 @@ fn a_rolled_up_scroll_learns_its_words_for_next_time_and_spends_nothing() {
     assert!(run(&app).players[&1].deck.iter().all(|c| !c.starts_with("wish-starlight")), "granted to no one");
     assert_eq!(held(&app, 1), wishes, "no wish spent, none given back");
     assert!(app.realm.dungeon.notice.contains("learned"), "{}", app.realm.dungeon.notice);
-    // Next time the words are a known wish: granted at once from the book.
     app.realm.dungeon.forge.looked = None;
     app.watch_learning();
     speak(&mut app, "make my arrows glow like stars");
@@ -2710,7 +2606,6 @@ fn the_genies_whim_grants_his_wish_and_the_spoken_words_are_only_learned() {
     let deck = run(&app).players[&1].deck.clone();
     let other = crate::delve::dungeon_reforge::known_wishes(&deck, None, run(&app).dungeon.depth)[0].0.clone();
     speak(&mut app, "make my arrows glow like stars");
-    // The genie's whim in the middle: a wish he picks instead.
     {
         let mut run = app.realm.dungeon.shooter.edit().unwrap();
         let mut offer = run.players[&1].offer.clone().unwrap();
@@ -2723,8 +2618,6 @@ fn the_genies_whim_grants_his_wish_and_the_spoken_words_are_only_learned() {
             cost: String::new(),
             tip: None,
         };
-        // The fixture authors a different offered choice; capture its source
-        // just as an admitted policy result does before publishing the UI.
         offer.binding = Some(crate::delve::together_shooter::scrolls::Binding::capture(
             &run,
             1,
@@ -2761,16 +2654,13 @@ fn opening_and_rolling_up_scrolls_cannot_flood_the_runners() {
         app.teach_asked();
     }
     assert_eq!(app.realm.dungeon.forge.learning.len(), MOST_IN_FLIGHT);
-    // A fourth is not sent while the others write...
     speak(&mut app, said[MOST_IN_FLIGHT]);
     assert!(run(&app).players[&1].offer.is_some());
     assert_eq!(app.realm.dungeon.forge.learning.len(), MOST_IN_FLIGHT, "not sent");
-    // ...and spent, it is given back, as a chosen wish past the bound is.
     press(&mut app, KeyCode::Char('1'));
     app.teach_asked();
     assert_eq!(app.realm.dungeon.forge.learning.len(), MOST_IN_FLIGHT);
     assert_eq!(held(&app, 1), wishes, "spent and given back once");
-    // The first words spoken again take up their lesson, not a new one.
     speak(&mut app, said[0]);
     let open: Vec<_> = app.realm.dungeon.forge.learning.iter().filter(|l| l.pick == Pick::Open).collect();
     assert_eq!(open.len(), 1);
@@ -2816,12 +2706,6 @@ fn a_card_written_while_the_game_runs_joins_the_book() {
     let _ = std::fs::remove_dir_all(&workspace);
 }
 
-/// Film plates: `ANGEL_DELVE_FILM=<dir> cargo test write_tui_film -- --ignored`.
-/// The whole terminal, one game tick a line of `cells.jsonl` (each cell
-/// `[symbol, fg, bg, bold]`, colours as ratatui writes them): `/dungeon`
-/// typed at the prompt, the room won, the scroll opened, "triple wide fire
-/// my shots" written, ONE WISH sealed, the grant. Kitty uploads in the
-/// buffer are kept whole, so the room's own PNG rides along.
 #[test]
 #[ignore]
 fn write_tui_film() {
@@ -2940,7 +2824,6 @@ fn dungeon_spell_loaded_by_card_watcher_reaches_first_empty_host_slot_once() {
     app.input = "/dungeon start Test Guest".into();
     app.submit();
     press(&mut app, KeyCode::Esc);
-    // Prime the older watcher's file stamp before writing the new spell.
     app.realm.dungeon.forge.looked = None;
     app.watch_learning();
     let raw = "name Cha-Ching Meteor\nkind spell\nrarity relic\nby Money Knight\ncooldown 2\ncast meteor\nnova 25\n";
@@ -2977,8 +2860,6 @@ fn dungeon_spell_loaded_by_card_watcher_reaches_first_empty_host_slot_once() {
         .get_mut(&1)
         .unwrap()
         .spell_cooldowns[0] = 45;
-    // Both watchers may see an edit before the spell scan. It changes the
-    // rules, but must neither reset recharge nor learn another copy.
     std::fs::write(&path, raw.replace("cooldown 2", "cooldown 3")).unwrap();
     for scan in 1..=2 {
         app.realm.dungeon.forge.looked = None;
@@ -3027,8 +2908,6 @@ fn dungeon_spells_hot_load_while_editing_and_have_free_keys_and_visible_hud_slot
     assert_eq!(run(&app).players[&1].spells[0].as_deref(), Some("spark"));
     press(&mut app, KeyCode::F(6));
     press(&mut app, KeyCode::Enter);
-    // The spells held sit on their keys, the empty slots out of the way;
-    // the second knight's are on 5, 6, 7 and backslash.
     let text = paint(&mut app, 80, 24);
     for label in ["[1]", "Spark"] {
         assert!(text.contains(label), "{label}:\n{text}");
@@ -3087,7 +2966,6 @@ fn a_tap_without_key_releases_is_one_step_and_a_held_key_keeps_walking() {
     assert!(!app.realm.dungeon.key_releases, "a terminal with no key releases");
     let ms = std::time::Duration::from_millis;
 
-    // One tap: the knight walks about its own width, not two.
     press(&mut app, KeyCode::Char('d'));
     let at = app.realm.dungeon.held[&KeyCode::Char('d')].at;
     assert_eq!(app.realm.dungeon.local_inputs(at + ms(60))[&1].move_x, 1);
@@ -3097,7 +2975,6 @@ fn a_tap_without_key_releases_is_one_step_and_a_held_key_keeps_walking() {
         "a tap is over well inside the old 180 ms lease"
     );
 
-    // The terminal's own key repeat: the knight walks until it stops.
     app.realm.dungeon.held.clear();
     press(&mut app, KeyCode::Char('d'));
     press(&mut app, KeyCode::Char('d'));
@@ -3105,7 +2982,6 @@ fn a_tap_without_key_releases_is_one_step_and_a_held_key_keeps_walking() {
     assert_eq!(app.realm.dungeon.local_inputs(at + ms(150))[&1].move_x, 1);
     assert_eq!(app.realm.dungeon.local_inputs(at + ms(200))[&1].move_x, 0);
 
-    // Actions keep the whole lease, so a tap always reaches a friend's host.
     app.realm.dungeon.held.clear();
     press(&mut app, KeyCode::Char('f'));
     let at = app.realm.dungeon.held[&KeyCode::Char('f')].at;
@@ -3124,7 +3000,6 @@ fn playing_in_a_friends_delve_never_clears_the_whole_screen_each_tick() {
     friend.terminal_focused = true;
     friend.dungeon_command(Some(line.trim_start_matches("/dungeon ")));
     assert!(friend.dungeon_view_active());
-    // Opening the view repaints once; playing in it must not.
     assert!(friend.take_redraw_request());
     for _ in 0..3 {
         friend.advance_joined();
@@ -3174,7 +3049,6 @@ fn a_friends_angelx_takes_weapons_and_casts_spells_like_the_hosts_first_knight()
         let now = std::time::Instant::now();
         assert_eq!(friend.dungeon.local_inputs(now)[&1].cast, slot, "{key}");
     }
-    // E meets the world, X throws a bomb, Z drinks: the host's own keys.
     for (key, check) in [
         (
             'e',
@@ -3195,7 +3069,6 @@ fn a_friends_angelx_takes_weapons_and_casts_spells_like_the_hosts_first_knight()
 fn g_keeps_vigil_through_the_composer_and_g_again_wakes_the_knight() {
     let _guard = crate::tests::env_lock();
     let mut app = game();
-    // A vigil is kept between fights: the opening room stands empty.
     let shooter = app.realm.dungeon.shooter.edit().unwrap();
     shooter.enemies.clear();
     shooter.phase = crate::delve::together_shooter::Phase::Exploring;
@@ -3206,7 +3079,6 @@ fn g_keeps_vigil_through_the_composer_and_g_again_wakes_the_knight() {
     let hero = &run(&app).players[&1];
     assert!(hero.vigil && hero.stone);
     assert!(paint(&mut app, 120, 40).contains("VIGIL"));
-    // The key comes up and the knight stays warded.
     app.realm.dungeon.held.clear();
     advance(&mut app, 45);
     assert!(run(&app).players[&1].stone);
@@ -3238,7 +3110,6 @@ fn a_friends_g_reaches_the_host_and_their_knight_keeps_vigil_after_esc() {
         }
         done(host, friend)
     };
-    // The host's HUD says it knows the vigil; only then does G go out.
     assert!(until(&mut host, &mut friend, &|_, friend| {
         friend
             .joined_knight()
@@ -3251,7 +3122,6 @@ fn a_friends_g_reaches_the_host_and_their_knight_keeps_vigil_after_esc() {
         "{}",
         friend.dungeon.notice
     );
-    // Away to the composer: no keys go out, and the knight stays stone.
     press(&mut friend, KeyCode::Esc);
     assert!(until(&mut host, &mut friend, &|_, friend| {
         friend
@@ -3341,7 +3211,6 @@ fn the_undercroft_spends_the_realms_treasury_and_remembers_what_it_built() {
         "{}",
         app.realm.dungeon.notice
     );
-    // Too poor for the next rung: nothing is paid, and the ledger says why.
     app.realm.dungeon.shooter.edit().unwrap().orders.push(order);
     app.settle_home();
     assert_eq!(app.economy().home.level(Station::Forge), 1);
@@ -3351,20 +3220,17 @@ fn the_undercroft_spends_the_realms_treasury_and_remembers_what_it_built() {
         "{}",
         app.realm.dungeon.notice
     );
-    // A new delve begins in the cellar as built.
     app.realm.dungeon.shooter.edit().unwrap().phase = crate::delve::together_shooter::Phase::Wiped;
     app.dungeon_view_active();
     app.start_shooter(None);
     assert_eq!(run(&app).home.level(Station::Forge), 1);
     assert_eq!(run(&app).players[&1].bonus.damage, 8);
-    // The deepest floor reached is remembered for the ladders that need it.
     app.realm.dungeon.shooter.edit().unwrap().descend_for_test();
     app.realm.dungeon.shooter.edit().unwrap().descend_for_test();
     app.settle_home();
     assert_eq!(app.economy().home.deepest, 2);
 }
 
-/// The Undercroft's whole screen for review, beside `dungeon_write_delve_screens`.
 #[test]
 #[ignore]
 fn dungeon_write_home_screen() {
@@ -3427,7 +3293,6 @@ fn dungeon_write_home_screen() {
         }
     }
     std::fs::write(dir.join("delve_home.jsonl"), out).unwrap();
-    // Fortune's hall, the wheel just stopped.
     let run = app.realm.dungeon.shooter.edit().unwrap();
     run.enter_for_test(1);
     let hero = run.players.get_mut(&1).unwrap();
@@ -3484,11 +3349,9 @@ fn achievements_are_kept_once_and_their_boxes_open_into_the_treasury() {
         app.realm.dungeon.notice
     );
     assert!(run(&app).banner_now().is_some(), "the banner is up");
-    // Noticed again: nothing more.
     app.realm.dungeon.shooter.edit().unwrap().feats.push("roadkill");
     app.settle_home();
     assert_eq!(app.economy().home.boxes.len(), 1);
-    // Opened at the coffer: into the treasury, and the run shows it.
     app.realm.dungeon.shooter.edit().unwrap().orders.push(Order {
         knight: 1,
         station: Station::Coffer,
@@ -3719,7 +3582,6 @@ fn the_herald_counts_every_kill_into_the_bestiary() {
     assert_eq!(bestiary.get("PitTyrant"), Some(&1));
 }
 
-/// The Herald's Bestiary page of the card screen, for review.
 #[test]
 #[ignore]
 fn dungeon_write_bestiary_screen() {
@@ -3812,7 +3674,6 @@ fn maud_pours_a_round_from_the_treasury_one_at_a_time() {
         "{}",
         app.realm.dungeon.notice
     );
-    // One round at a time.
     app.realm.dungeon.shooter.edit().unwrap().orders.push(Order {
         knight: 1,
         station: Station::TapA,
@@ -3825,7 +3686,6 @@ fn maud_pours_a_round_from_the_treasury_one_at_a_time() {
         "{}",
         app.realm.dungeon.notice
     );
-    // Drunk at the top of the stair: the tab is clear.
     app.realm.dungeon.shooter.edit().unwrap().descend_for_test();
     app.settle_home();
     assert_eq!(app.economy().home.round, None);
@@ -3896,14 +3756,12 @@ fn beaumains_takes_a_wage_once_and_goes_down_with_the_party() {
         "{}",
         app.realm.dungeon.notice
     );
-    // Hired once is hired: a second wage is refused.
     app.realm.dungeon.shooter.edit().unwrap().orders.push(Order {
         knight: 1,
         station: Station::Hire,
     });
     app.settle_home();
     assert_eq!(app.economy().treasury.get(Spoil::Gold), gold - WAGE);
-    // Down the stair he goes, and the realm's tab is clear.
     app.realm.dungeon.shooter.edit().unwrap().descend_for_test();
     app.settle_home();
     assert_eq!(app.economy().home.hire, None);
@@ -3965,7 +3823,6 @@ fn the_new_card_and_interact_keys_leave_couch_skills_alone() {
     );
 }
 
-/// A Delve in a fresh workspace, the room won and a wish window open.
 fn wishing_app(name: &str) -> (App, std::path::PathBuf) {
     let workspace = std::env::temp_dir().join(format!(
         "delve-{name}-{}-{}",
@@ -3989,7 +3846,6 @@ fn wishing_app(name: &str) -> (App, std::path::PathBuf) {
     shooter.descend_for_test();
     shooter.calm_for_test();
     shooter.clear_for_test();
-    // The book as the delve ships it: no other test's workspace in it.
     crate::delve::together_files::refresh_phrasebook(&workspace);
     (app, workspace)
 }
@@ -4000,7 +3856,6 @@ fn wish(app: &mut App, words: &str) {
         press(app, KeyCode::Char(c));
     }
     press(app, KeyCode::Enter);
-    // The genie's first choice: as you said.
     press(app, KeyCode::Char('1'));
     app.teach_asked();
 }
@@ -4009,7 +3864,6 @@ fn wish(app: &mut App, words: &str) {
 fn a_creative_armor_wish_is_learned_as_a_new_look_not_granted_as_stock_iron() {
     let _guard = crate::tests::env_lock();
     let (mut app, workspace) = wishing_app("pavise");
-    // The model writes an entry in its own words: found by being its own.
     let entry = format!(
         "wish spiked-pavise | Spiked Pavise\nsay tower shield | pavise\ntier armor 1 :: A pavise.\ntier armor 2 :: Heavier.\ntier armor 2; max_hp 15 :: Whole.\ndraw worn at=left\n{}\n",
         crate::delve::together_shooter::looks::PAVISE
@@ -4019,7 +3873,6 @@ fn a_creative_armor_wish_is_learned_as_a_new_look_not_granted_as_stock_iron() {
     wish(&mut app, "a bigger spiked shield");
     assert_eq!(app.realm.dungeon.forge.learning.len(), 1, "{}", app.realm.dungeon.notice);
     assert!(run(&app).players[&1].deck.iter().all(|c| !c.starts_with("wish-iron")));
-    // The lesson's brief offers the worn look, and says gear is never an orbit.
     let brief = app.realm.dungeon.forge.learning[0].brief.clone();
     assert!(brief.contains("Teach the angelX Delve's phrasebook"), "{brief}");
     assert!(brief.contains("draw worn"), "{brief}");
@@ -4041,7 +3894,6 @@ fn a_creative_armor_wish_is_learned_as_a_new_look_not_granted_as_stock_iron() {
 fn an_entry_the_checker_turns_away_is_sent_back_once_to_be_mended() {
     let _guard = crate::tests::env_lock();
     let (mut app, workspace) = wishing_app("mend");
-    // Summons on a held card: turned away. Mended: a spell.
     let club = crate::delve::together_grants::Scripted::new(
         &[
             "wish golden-devils | Golden Devils\nsay tiny golden devils that explode\ntier summon 2 swarm :: Devils.\n",
@@ -4179,7 +4031,6 @@ fn dungeon_controls_activity_leave_preempts_overlays_and_only_releases_its_seat(
     assert!(app.realm.dungeon.local_inputs(std::time::Instant::now())[&2].bomb);
     assert!(run(&app).exits.outside.is_empty());
     app.clear_dungeon_controls();
-    // Bring the manual server up to the time used by its rendered clients.
     app.advance_shooter_at(std::time::Instant::now());
     advance(&mut app, 60);
     assert!(app.realm.dungeon.shooter.seat(1).and_then(|s| s.run()).is_some_and(|r| r.can_hold_leave(1)), "the seat received the new race before holding Menu");
@@ -4259,8 +4110,6 @@ fn dungeon_controls_joined_leave_menu_reaches_host_without_ending_other_seats() 
     r.floor_plates.clear();
     r.mount_up(2);
     spin(&mut host, &mut friend, "joust snapshot", |_, f| {
-        // The tavern can already be left. Wait for the actual mounted
-        // activity to arrive before pressing its hold-to-leave key.
         f.can_leave_dungeon_activity(2)
             && f.dungeon.joined.as_ref().is_some_and(|joined| {
                 joined.with_latest(|r| {
@@ -4296,9 +4145,6 @@ fn angelx_work_reaches_the_holdings_and_the_court_settles_at_the_save() {
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
     fixture.bind(&mut app);
     let gold = app.economy().treasury.get(Spoil::Gold);
-    // A commit that lands, a test run that fails, a subagent sent out, a
-    // turn's cache hits, three loop rounds and a failed turn, as the
-    // harness reports them.
     app.note_ops_call("c1", "shell", "command=git commit -m x");
     app.note_ops_result("c1", true);
     app.note_ops_call("t1", "shell", "command=cargo test --bin angel");
@@ -4312,15 +4158,12 @@ fn angelx_work_reaches_the_holdings_and_the_court_settles_at_the_save() {
     assert_eq!(h.feed.get("BUILDS"), Some(&1));
     assert_eq!(h.feed.get("WALLS"), None, "a failed test run mends nothing");
     assert!(app.realm.dungeon.ops.is_empty() && app.realm.dungeon.ops_calls.is_empty());
-    // Saved with the realm, and never a coin of gold.
     let again = Realm::beside(app.realm.world.rewards_path());
     assert_eq!(again.home.holdings, h);
     assert_eq!(app.economy().treasury.get(Spoil::Gold), gold);
-    // A slow turn stirs unrest too.
     app.note_ops_turn(0, 0, hd::SLOW_TURN_SECS);
     app.note_ops_end(true);
     assert_eq!(app.economy().home.holdings.unrest, 2);
-    // The Court's marks settle at the save, from the realm's purse.
     app.economy()
         .home
         .holdings
@@ -4358,7 +4201,6 @@ fn dungeon_tune_lists_the_knobs_and_sets_one_for_everyone() {
     assert!(set.starts_with("hero_speed = 20 for everyone"), "{set}");
     assert!(app.dungeon_command(Some("tune hero_speed fast")).contains("is not a number"));
     assert!(app.dungeon_command(Some("tune nope 1")).contains("no knob nope"));
-    // Taken between the next two ticks.
     let now = std::time::Instant::now();
     app.realm.dungeon.shooter.pump(now);
     app.realm.dungeon.shooter.pump(now + crate::delve::together_sim::STEP * 2);
@@ -4366,7 +4208,6 @@ fn dungeon_tune_lists_the_knobs_and_sets_one_for_everyone() {
     assert!(app.dungeon_command(Some("help")).contains("/dungeon tune [name value]"));
 }
 
-/// Step the host until `ready`, every friend's seat sending its keys.
 fn host_all_until(app: &mut App, seats: &[&crate::delve::together_seat::Seat], what: &str, ready: impl Fn(&App) -> bool) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
     while !ready(app) {
@@ -4391,8 +4232,6 @@ fn friends_take_a_fallen_party_back_to_the_kingdom_on_a_host_with_no_knight() {
     let _public = crate::tests::TestEnvGuard::unset("ANGEL_DUNGEON_PUBLIC_URL");
     let _listen = crate::tests::TestEnvGuard::set("ANGEL_DUNGEON_LISTEN", "127.0.0.1:0");
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
-    // Three seats, every one a friend's: two come, and the host's place
-    // (the last a newcomer takes) stays empty.
     host_when_admitted!(app, "host --watch --3");
     press(&mut app, KeyCode::Enter);
     paint(&mut app, 80, 24);
@@ -4405,7 +4244,6 @@ fn friends_take_a_fallen_party_back_to_the_kingdom_on_a_host_with_no_knight() {
         r.players.get(&ka).is_some_and(|h| !h.away) && r.players.get(&kb).is_some_and(|h| !h.away) && r.players[&1].absent
     });
     assert_eq!(run(&app).party_len(), 2, "two people, a party of two");
-    // The party falls.
     {
         let r = app.realm.dungeon.shooter.edit().unwrap();
         for hero in r.players.values_mut() {
@@ -4414,17 +4252,13 @@ fn friends_take_a_fallen_party_back_to_the_kingdom_on_a_host_with_no_knight() {
         r.phase = crate::delve::together_shooter::Phase::Wiped;
     }
     let raid = run(&app).raid_id;
-    // Confirm only after both guests have received the verdict they are answering.
     host_all_until(&mut app, &[&a, &b], "the friends never saw the verdict", |_| {
         [&a, &b].iter().all(|seat| seat.run().is_some_and(|r| r.over()))
     });
-    // One asks: the party waits for the other.
     a.set_held(button::OK);
     host_all_until(&mut app, &[&a, &b], "the first ask never reached the host", |app| run(app).again.is_some());
     a.set_held(0);
     assert_eq!(run(&app).raid_id, raid, "nobody yanked from the verdict");
-    // The other asks: a new run in the Sozzled Griffin, where every delve
-    // begins, both alive, the same link.
     b.set_held(button::OK);
     host_all_until(&mut app, &[&a, &b], "the party never went back", |app| run(app).raid_id > raid);
     b.set_held(0);
@@ -4437,9 +4271,6 @@ fn friends_take_a_fallen_party_back_to_the_kingdom_on_a_host_with_no_knight() {
     assert!(app.realm.dungeon.hosting.is_some(), "the same link");
 }
 
-/// `ANGEL_WISH_SCROLL_SHOTS=DIR`: the terminal's cells version of the wish
-/// scroll, written as text (`scroll-cells.txt`) and as HTML with its
-/// colours (`scroll-cells.html`).
 #[test]
 #[ignore]
 fn write_wish_scroll_cells() {
@@ -4468,7 +4299,6 @@ fn write_wish_scroll_cells() {
                     run.grant(1, &crate::delve::together_shooter::phrasebook::get(id).unwrap()).unwrap();
                 }
                 let iron = crate::delve::together_shooter::phrasebook::get("iron").unwrap();
-                // Deep enough down for a ladder's fifth (`overclass::top_tier`).
                 run.dungeon.depth = angel_delve::rules::FLOORS;
                 for _ in &iron.tiers { run.grant(1, &iron).unwrap(); }
             }
@@ -4509,7 +4339,6 @@ fn write_wish_scroll_cells() {
     std::fs::write(dir.join("scroll-cells.html"), pages.join("<hr>")).unwrap();
 }
 
-/// The words five knights wish at once in the timing bench.
 const TIMED_WISHES: [&str; 5] = [
     "my arrows turn into fireballs",
     "a frog that fights beside me",
@@ -4518,13 +4347,6 @@ const TIMED_WISHES: [&str; 5] = [
     "huge exploding cannonballs",
 ];
 
-/// Wish timing, from the wish sealed to its skill in the knight's deck,
-/// with one wish and with five at once: `ANGEL_WISH_TIMING=<dir> cargo test
-/// --bin angel wish_grant_timing -- --ignored --nocapture`, the host's
-/// model with `ANGEL_WISH_TIMING_REAL=1` (and its `ANGEL_DRIVER`), else a
-/// stub that answers in `ANGEL_WISH_TIMING_STUB_MS` (default 20 s, about
-/// one real call). Writes `timing.json`, and the briefs the old turn-at-a-
-/// time lesson sent (`before-N.txt`, for `angel --task`) beside it.
 #[test]
 #[ignore]
 fn wish_grant_timing() {
@@ -4625,12 +4447,6 @@ fn wish_grant_timing() {
     std::fs::write(dir.join("timing.json"), serde_json::to_string_pretty(&report).unwrap()).unwrap();
 }
 
-/// Wish timing with the knight taking a while to choose: from the words
-/// spoken (the scroll opens) to the wish in their deck, the pick made after
-/// each of `ANGEL_WISH_CHOOSE_MS` (default 5000,15000,30000), the stub
-/// answering in `ANGEL_WISH_TIMING_STUB_MS` (default 20 s): `ANGEL_WISH_TIMING=<dir>
-/// cargo test --bin angel wish_choose_timing -- --ignored --nocapture`.
-/// Writes `choose-timing.json`.
 #[test]
 #[ignore]
 fn wish_choose_timing() {
@@ -4682,8 +4498,6 @@ fn wish_choose_timing() {
     std::fs::write(dir.join("choose-timing.json"), serde_json::to_string_pretty(&report).unwrap()).unwrap();
 }
 
-/// The old lesson's brief for `words`, its entry written into the
-/// phrasebook of workspace `ws` (`angel --task` reads it as a turn).
 fn learn_brief_for_bench(words: &str, ws: &std::path::Path) -> String {
     angel_realm_host::control::bench_learn_brief("Jordan", words, ws)
 }
@@ -4760,10 +4574,6 @@ fn a_spent_wish_on_unknown_words_is_still_taught_after_a_restart() {
     let _ = std::fs::remove_dir_all(workspace);
 }
 
-
-/// A wish already spent, then learned, that the grant cannot land (every
-/// spell slot taken) is given back, and the knight who wished hears why
-/// on their own screen.
 #[test]
 fn a_learned_wish_that_cannot_be_granted_tells_the_knight_why() {
     use angel_realm_host::control::{Lesson, Pick};
@@ -4829,7 +4639,6 @@ fn a_learned_wish_that_cannot_be_granted_tells_the_knight_why() {
     let before = held(&app, 1);
     app.watch_learning();
     assert_eq!(held(&app, 1), before + 1, "the spent wish came back");
-    // The seat's other notices (the join rite's among them) are not the wish's.
     let notices: Vec<String> = run(&app)
         .seat_notices
         .iter()
@@ -4851,9 +4660,6 @@ fn a_learned_wish_that_cannot_be_granted_tells_the_knight_why() {
     forget(&workspace);
 }
 
-/// A wish still being written is never granted a friend's wish that lands
-/// in the book first, whatever else is in flight: "throwing dice that
-/// release a random turret" was given a friend's Fart Cloud (2026-10-23).
 #[test]
 fn a_wish_in_flight_is_not_granted_a_friends_new_entry() {
     use angel_realm_host::control::{Lesson, Pick};
@@ -4867,7 +4673,6 @@ fn a_wish_in_flight_is_not_granted_a_friends_new_entry() {
         let run = app.realm.dungeon.shooter.edit().unwrap();
         run.players.get_mut(&1).unwrap().wishes = 0;
     }
-    // Knight 1's dice wish is out with its runner, nothing back yet.
     let words = "throwing dice that release a random turret based on what number lands";
     app.realm.dungeon
         .shooter
@@ -4902,7 +4707,6 @@ fn a_wish_in_flight_is_not_granted_a_friends_new_entry() {
         job: Some(7),
         ..Lesson::new(1, words.into())
     });
-    // A friend's fart cloud lands in the book first.
     let book_path = workspace.join(".angel/dungeon/phrasebook.txt");
     std::fs::create_dir_all(book_path.parent().unwrap()).unwrap();
     std::fs::write(
@@ -4963,7 +4767,6 @@ fn dungeon_wish_upgrades_show_spells_first_and_pick_exactly_the_next_tier() {
     assert!(hero.deck.contains(&spell.card_id(1)) && !hero.deck.contains(&spell.card_id(0)));
     assert!(hero.deck.contains(&hold.card_id(0)) && !hero.deck.contains(&hold.card_id(1)));
     assert_eq!(held(&app, 1), wishes - 1);
-    // Typing still uses the same path, including a digit inside the line.
     speak(&mut app, "upgrade Triple Volley");
     assert_eq!(run(&app).players[&1].offer.as_ref().unwrap().choices[0].gives, "Triple Volley II");
     press(&mut app, KeyCode::Esc);
@@ -4981,7 +4784,6 @@ fn dungeon_wish_upgrades_show_max_and_open_greyed_when_no_wishes_remain() {
     let spell = crate::delve::together_shooter::phrasebook::get("firebolt").unwrap();
     {
         let run = app.realm.dungeon.shooter.edit().unwrap();
-        // Deep enough down for a ladder's fifth (`overclass::top_tier`).
         run.dungeon.depth = angel_delve::rules::FLOORS;
         for _ in &spell.tiers { run.grant(1, &spell).unwrap(); }
         run.grant(1, &crate::delve::together_shooter::phrasebook::get("volley").unwrap()).unwrap();
@@ -5027,7 +4829,6 @@ fn a_shooting_stars_wish_alone_opens_the_wish_line_and_spends_nothing_held() {
         let hero = run.players.get_mut(&1).unwrap();
         (hero.wishes, hero.great_wishes) = (0, 0);
     }
-    // Nothing held: the lamp's line stays shut.
     app.open_lamp_wish();
     assert!(app.realm.dungeon.forge.draft.is_none(), "no wish, no line");
     app.realm.dungeon.shooter.edit().unwrap().star_falls_for_test();
@@ -5037,7 +4838,6 @@ fn a_shooting_stars_wish_alone_opens_the_wish_line_and_spends_nothing_held() {
     assert_eq!(app.wish_upgrades(1).1, Some(crate::delve::together_shooter::genie::STAR_HELD));
     let screen = paint(&mut app, 160, 48);
     assert!(screen.contains("A star's wish: free"), "{screen}");
-    // A known wish off the list, as you said: the star's.
     press(&mut app, KeyCode::Down);
     press(&mut app, KeyCode::Enter);
     let offer = run(&app).players[&1].offer.clone().expect("the star's scroll");
@@ -5065,7 +4865,6 @@ fn joined_angelx_wish_upgrades_show_its_own_spells_and_reach_the_hosts_scroll() 
     let spin = |host: &mut App, friend: &mut App, ready: &dyn Fn(&App, &App) -> bool| {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(8);
         while !ready(host, friend) {
-            // Guest traffic is serviced even when the local view is paused.
             host.advance_dungeon_guest();
             host.advance_shooter_at(std::time::Instant::now());
             friend.advance_joined();
@@ -5149,8 +4948,6 @@ fn realm_claim_restores_after_uncertain_destination_write_without_repaying_or_lo
     });
     app.realm.dungeon.shooter.edit().unwrap().triumph =
         Some(crate::delve::together_shooter::Triumph::Grail);
-    // The ordinary private checkpoint captures both the retained identity and
-    // later unclaimed rewards. No special shutdown repair/requeue is needed.
     app.realm.dungeon
         .checkpoint(std::time::Instant::now(), true)
         .unwrap();
@@ -5235,8 +5032,6 @@ fn a_threaded_host_settles_off_its_frame_and_takes_the_same_realm_back() {
         "{}",
         app.realm.dungeon.notice
     );
-    // Only this process's copy knows the asked wish: a realm read from disk
-    // while the settler held it would not.
     let asked = app.economy().ask("Tester", "a lantern that hums").unwrap();
     assert!(
         app.settle_off_frame(),
@@ -5254,13 +5049,10 @@ fn a_threaded_host_settles_off_its_frame_and_takes_the_same_realm_back() {
             .is_some_and(|realm| realm.wishes.iter().any(|w| w.id == asked)),
         "the screen shows the realm's copy meanwhile"
     );
-    // A second cycle while one runs starts nothing new.
     assert!(app.settle_off_frame());
-    // Asked for, the realm comes back from the settler, the same one.
     assert!(app.economy().wishes.iter().any(|w| w.id == asked));
     assert!(!app.realm.dungeon.settling_off_frame());
     assert!(app.realm.dungeon.realm_shown().is_some());
-    // And the frame's own collection finds nothing left to take.
     app.realm.dungeon.collect_settled(false);
     assert!(app.economy().wishes.iter().any(|w| w.id == asked));
 }

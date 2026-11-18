@@ -10,8 +10,6 @@ struct Token<'a> {
     offset: usize,
 }
 
-// Skip comments and literals before balancing braces: test fixtures often
-// contain Rust source, JSON, shell scripts, and braces in raw strings.
 fn tokens(source: &str) -> Vec<Token<'_>> {
     let literal = regex::Regex::new(
         r#"(?s)^(?:b|c)?"(?:\\.|[^"\\])*"|^b?'(?:\\(?:u\{[0-9a-fA-F_]+\}|x[0-9a-fA-F]{2}|.)|[^'\\])'"#,
@@ -106,8 +104,6 @@ fn violations(source: &str) -> Vec<usize> {
                     && rest[4].text == "(")
         });
         let Some(mutation) = mutation else { continue };
-        // A named guard in the test's outer scope, acquired before mutation,
-        // remains alive until all subsequently declared restoration guards drop.
         let mut nesting = 0;
         let mut statement = 0;
         let mut locked = false;
@@ -156,7 +152,6 @@ fn scan(dir: &Path, failures: &mut Vec<String>, files: &mut usize) {
     for entry in entries {
         let kind = entry.file_type().unwrap();
         let path = entry.path();
-        // Never follow symlinks out of the source tree.
         if kind.is_dir() {
             scan(&path, failures, files);
         } else if kind.is_file() && path.extension().is_some_and(|ext| ext == "rs") {

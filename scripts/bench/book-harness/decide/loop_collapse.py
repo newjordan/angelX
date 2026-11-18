@@ -1,14 +1,3 @@
-"""loop_collapse.py — loop_replay's decision, with the loop collapsed in the history.
-
-TRACES=<traces.jsonl> OUT=<rows.jsonl> LOOP_AT=12 N=2 python3 loop_collapse.py
-(run from this directory; it imports loop_replay.py). For every trace whose
-model repeats one call LOOP_AT times, the history up to that decision keeps the
-first (call, result) pair of the loop and drops the later identical ones and
-the ⛔ turns between them, then replays to DeepSeek on the bench's terms:
-  collapsed_mark  the kept result carries ⛔⠇⠁ ×N (the repeat count)
-  collapsed_page  a fresh ⛔⠇⠓⠁ + loop_replay.STRONG_PAGE turn after it
-One row per reply (break / repeat / answer) is appended to OUT. The
-2026-09-30 night report has the results."""
 import importlib.util, json, sys
 spec = importlib.util.spec_from_file_location("lr", "loop_replay.py"); lr = importlib.util.module_from_spec(spec)
 sys.argv = ["x"]; spec.loader.exec_module(lr)
@@ -23,8 +12,6 @@ for line in open(PATH):
         msgs, sig, k = point
         name = t["task"]["data"]["name"]
         tools = [{"type": "function", "function": x} for x in t["tools"]]
-        # collapse: keep the first assistant with this signature and its tool result; drop later
-        # identical assistants, their results, and the harness turns between them
         wired = [lr.wire(m) for m in msgs]
         first = None; keep = []
         i = 0

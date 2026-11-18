@@ -9,27 +9,18 @@
 
 use super::*;
 
-/// The modal in front, highest first. The order is the one `on_key` has
-/// always served: an ask a running turn waits on answers before everything.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Overlay {
     None,
-    /// The approval card.
     Approval,
-    /// `/setup`.
     Setup,
-    /// The `/browser` chooser.
     BrowserPicker,
-    /// The loop workshop dialog.
     LoopDialog,
-    /// The route or thinking menu.
     AgentMenu,
-    /// The Formation deck, while it holds the keyboard.
     MoaDeck,
 }
 
 impl Overlay {
-    /// The name `ui_inspect` reports.
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::None => "none",
@@ -42,15 +33,12 @@ impl Overlay {
         }
     }
 
-    /// Whether the overlay also takes the pointer. The Formation deck is a
-    /// stage surface: its controls ride the ordinary world-button path.
     pub(crate) fn takes_pointer(self) -> bool {
         !matches!(self, Self::None | Self::MoaDeck)
     }
 }
 
 impl App {
-    /// The modal in front, or `Overlay::None`.
     pub(crate) fn top_overlay(&self) -> Overlay {
         if self.pending_approval.is_some() {
             Overlay::Approval

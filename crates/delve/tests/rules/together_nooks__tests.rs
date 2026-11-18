@@ -11,7 +11,6 @@ fn walkable(room: &Room, x: f32, y: f32) -> bool {
     matches!(room.tile(x as i32, y as i32), Tile::Floor | Tile::Door | Tile::Stairs)
 }
 
-/// The tiles a knight can walk to from the nook's doorway.
 fn reach(room: &Room) -> Vec<bool> {
     let door = (0..4).find(|&d| room.doors[d]).unwrap();
     let start = [(11, 0), (23, 6), (11, 13), (0, 6)][door];
@@ -31,7 +30,6 @@ fn reach(room: &Room) -> Vec<bool> {
     seen
 }
 
-/// Every spot a nook asks a knight to stand at.
 fn stations(kind: RoomKind) -> Vec<(f32, f32)> {
     match kind {
         RoomKind::Kitchen => vec![(12.0, 5.6), (10.2, 4.0), (13.8, 4.0)],
@@ -61,16 +59,12 @@ fn every_floor_below_hangs_its_nook_and_takes_no_monster_away() {
             let i = floor.rooms.iter().position(|r| r.kind.nook()).unwrap();
             let room = &floor.rooms[i];
             assert_eq!(room.kind, for_floor(pack, depth));
-            // A dead end: one doorway, onto a room of the floor; the
-            // bellows' never north, where their forge stands.
             assert_eq!(room.doors.iter().filter(|&&d| d).count(), 1);
             assert!(room.kind != RoomKind::Bellows || !room.doors[0]);
             let door = (0..4).find(|&d| room.doors[d]).unwrap();
             let host = floor.neighbour(i, door).expect("its doorway leads somewhere");
             assert!(matches!(floor.rooms[host].kind, RoomKind::Fight | RoomKind::Hall | RoomKind::Treasure | RoomKind::Start | RoomKind::Sanctuary));
             assert!(floor.valid_secret());
-            // Every station is reachable from the doorway, and every
-            // knight arriving through it lands on open floor.
             let seen = reach(room);
             for (x, y) in stations(room.kind) {
                 assert!(seen[y as usize * room.cols + x as usize], "{:?}: {x},{y} unreachable", room.kind);
@@ -106,7 +100,6 @@ fn going_down_readies_the_floors_nook() {
     assert_eq!(friend.nook, run.nook);
 }
 
-/// A party of `seats` standing in a nook of `kind`, off a far cell.
 fn in_nook(kind: RoomKind, seats: u32) -> Run {
     let mut run = Run::new(41, 1, None);
     for id in 2..=seats {
@@ -160,7 +153,6 @@ fn the_kitchen_pays_scoops_behind_his_back_and_ladles_whoever_moves() {
     press(&mut run, 1);
     assert_eq!(nook(&run).pot, SCOOPS - 1);
     assert_eq!(gold(&run, 1), kitchen::SCOOP_GOLD);
-    // Wait for him to turn, then fidget.
     while cook(nook(&run)) != Cook::Looking {
         run.step(&BTreeMap::new());
     }
@@ -170,7 +162,6 @@ fn the_kitchen_pays_scoops_behind_his_back_and_ladles_whoever_moves() {
     assert_eq!(run.enemies.len(), 1, "a cousin comes running");
     assert_eq!(run.enemies[0].kind, EnemyKind::Goblin);
     assert!(run.valid_snapshot());
-    // A still knight is not caught.
     let still = run.players[&1].hp;
     run.step(&BTreeMap::new());
     assert_eq!(run.players[&1].hp, still);
@@ -200,7 +191,6 @@ fn the_quiet_room_pays_pages_and_its_mimics_bite() {
     press(&mut run, 2);
     assert!(run.players[&2].hp < hp, "bitten");
     assert!(run.enemies.iter().any(|e| e.kind == EnemyKind::Mimic));
-    // Read the rest.
     for i in 2..LECTERNS.len() {
         put(&mut run, 1, lectern_stand(i));
         press(&mut run, 1);
@@ -299,12 +289,10 @@ fn the_still_brews_from_what_a_knight_carries() {
     assert_eq!(run.players[&1].hand, vec!["potion".to_string()]);
     assert_eq!(run.players[&1].carried.get(Spoil::Bone), 1);
     assert_eq!(run.players[&1].carried.get(Spoil::Wax), 1);
-    // The same jar twice: a frog.
     run.players.get_mut(&1).unwrap().carried.add(Spoil::Wax, 1);
     press(&mut run, 1);
     press(&mut run, 1);
     assert!(run.players[&1].frog());
-    // Two brews a floor.
     run.players.get_mut(&1).unwrap().carried.add(Spoil::Wax, 1);
     press(&mut run, 1);
     assert!(run.found.as_ref().unwrap().2.contains("ENOUGH"));
@@ -338,7 +326,6 @@ fn ring(run: &mut Run, id: u32, b: u8) {
 #[test]
 fn the_loft_wants_its_tune_rung_back_and_a_wrong_bell_calls_a_wraith() {
     let mut run = in_nook(RoomKind::Loft, 2);
-    // He rings first; nothing counts until he is done.
     ring(&mut run, 1, SEQS[0][0]);
     assert_eq!(nook(&run).pos, 0);
     while show(nook(&run)) != Show::YourTurn {
@@ -372,8 +359,6 @@ fn three_tunes_rung_sing_the_hymn() {
     assert!(run.valid_snapshot());
 }
 
-/// Every nook in play: `ANGEL_ARENA_SHOTS=<dir> cargo test
-/// write_nook_shots -- --ignored`.
 #[test]
 #[ignore]
 fn write_nook_shots() {
@@ -388,7 +373,6 @@ fn write_nook_shots() {
         out.extend(img.rgb_bytes());
         std::fs::write(dir.join(format!("{name}.ppm")), out).unwrap();
     };
-    // Kitchen: scooping while he stirs, then caught while he looks.
     let mut k = in_nook(RoomKind::Kitchen, 3);
     put(&mut k, 1, (12.0, 5.8));
     put(&mut k, 2, (10.0, 6.5));
@@ -407,7 +391,6 @@ fn write_nook_shots() {
         k.step(&BTreeMap::new());
     }
     save(&k, "c-kitchen-caught");
-    // Quiet Room: one read, one mimic.
     let mut r = in_nook(RoomKind::Reading, 2);
     put(&mut r, 1, lectern_stand(0));
     press(&mut r, 1);
@@ -419,7 +402,6 @@ fn write_nook_shots() {
     put(&mut r, 1, lectern_stand(4));
     r.step(&BTreeMap::new());
     save(&r, "d-quiet-room");
-    // Bellows, half hot.
     let mut b = in_nook(RoomKind::Bellows, 2);
     put(&mut b, 1, HANDLES[0]);
     put(&mut b, 2, HANDLES[1]);
@@ -427,7 +409,6 @@ fn write_nook_shots() {
         press(&mut b, 1 + (k % 2));
     }
     save(&b, "e-bellows-pumping");
-    // Dominoes falling, a knight waiting in the first gap.
     let mut o = in_nook(RoomKind::Ossuary, 2);
     put(&mut o, 1, domino_at(0));
     press(&mut o, 1);
@@ -437,7 +418,6 @@ fn write_nook_shots() {
         o.step(&BTreeMap::new());
     }
     save(&o, "f-dominoes-falling");
-    // Still: a first jar over a knight's head.
     let mut s = in_nook(RoomKind::Still, 2);
     for id in [1, 2] {
         let h = s.players.get_mut(&id).unwrap();
@@ -449,7 +429,6 @@ fn write_nook_shots() {
     put(&mut s, 2, JARS[1].0);
     s.step(&BTreeMap::new());
     save(&s, "g-still");
-    // Loft: the ghost ringing, then the party's turn.
     let mut l = in_nook(RoomKind::Loft, 2);
     put(&mut l, 1, loft_under(0));
     put(&mut l, 2, loft_under(3));

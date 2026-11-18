@@ -4,8 +4,6 @@ use super::*;
 use crate::kingdom::{self as economy, Command, Tile, catalog};
 
 pub const SHIFT_TICKS: u64 = HZ as u64 * 10;
-/// One room (or chamber) in this many holds a seam: the second, the fifth,
-/// the eighth. Tuned so a delve reads as the realm's mine (docs/KINGDOM-WORKS.md).
 pub const SEAM_EVERY: usize = 3;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -24,10 +22,6 @@ pub struct Board {
     pub plan_moved: u64,
     pub camera: Option<Tile>,
     pub pending_release: Option<String>,
-    /// On the hillside, the builder out in the world (`hillside`): the way the
-    /// knight faces (0 north, 1 east, 2 south, 3 west), the footprint's corner,
-    /// a pattern's quarter turns, the line being drawn, the flow overlay, whether
-    /// the cursor was last set by the mouse, and the tile last painted.
     pub face: u8,
     pub anchor: Tile,
     pub turn: u8,
@@ -36,11 +30,8 @@ pub struct Board {
     pub overlay: bool,
     pub pointed: bool,
     pub painted: Tile,
-    /// The hotbar, the steps to take back, the card and the numbers this seat is shown
-    /// (`builder_rig`).
     #[serde(skip_serializing_if = "super::builder_rig::Rig::is_idle")]
     pub rig: super::builder_rig::Rig,
-    /// A route in the making: the bay the wagons load at, waiting for the bay they unload at.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop: Option<String>,
 }
@@ -103,13 +94,10 @@ pub struct Deposit {
     pub x: f32,
     pub y: f32,
     pub clear: bool,
-    /// The seam's quarry stone: the resource its claim is of.
     pub resource: &'static str,
     pub name: String,
     pub seam: geology::Seam,
 }
-/// What the field guide says of each part of the Delve's rock: one row a
-/// pack, from `geology`, in the order the desk lists them.
 pub fn guide() -> &'static [geology::Row] {
     &geology::ROWS
 }
@@ -140,8 +128,6 @@ impl Run {
             after
         ));
     }
-    /// Enter the player-built surface with the whole party, as other surface
-    /// doors do. The gate remains a route back to the existing campaign.
     pub fn enter_frontier(&mut self) {
         if self.dungeon.depth != 0 || self.room().kind != RoomKind::Kingdom {
             return;
@@ -178,8 +164,6 @@ impl Run {
             .collect();
         self.dungeon.rooms[i] =
             layout::Room::kingdom(tiles, economy::WIDTH as usize, economy::HEIGHT as usize);
-        // Construction cannot imprison a knight who was on the plot. Relocate
-        // to the closest open tile rather than allowing a collision overlap.
         if self.at == i {
             for h in self.players.values_mut() {
                 let tile = ((h.x / TILE_UNITS) as i16, (h.y / TILE_UNITS) as i16);
@@ -196,9 +180,6 @@ impl Run {
             }
         }
     }
-    /// The frontier is its own surface adapter. Old authored-place triggers do
-    /// not run against new coordinates. It still uses the same hero, collision,
-    /// input, fixed tick, Home state and network snapshot as the campaign.
     pub(super) fn step_frontier(&mut self, inputs: &BTreeMap<u32, Input>) {
         if self.room().cols != economy::WIDTH as usize
             || self.room().rows != economy::HEIGHT as usize
@@ -254,8 +235,6 @@ impl Run {
             }
         }
     }
-    /// Deposits occupy real combat rooms/chambers, never the entrance or a
-    /// peaceful shop. Stable identities survive revisits and checkpoint restore.
     pub fn industry_deposits(&self) -> Vec<Deposit> {
         if self.dungeon.depth == 0 || self.dungeon.depth > DEEPEST || self.over() {
             return Vec::new();
@@ -267,9 +246,6 @@ impl Run {
                 "{:x}-{}-{}-{}",
                 self.seed, self.raid_id, self.dungeon.depth, i
             );
-            // A live Run may revisit the same floor index through another
-            // region. Resource identity must not alias that earlier claim.
-            // A claim from before geology is of the ore the seam still gives.
             let id = if self.home.industry.claims.get(&legacy).is_some_and(|q| {
                 q.resource == resource || (!geology::is_stone(&q.resource) && seam.gives(&q.resource))
             }) {
@@ -320,8 +296,6 @@ impl Run {
         }
     }
 
-    /// Consume builder keys per seat while other knights keep playing. Reuses
-    /// the existing input wire, so native, browser and couch seats agree.
     pub(super) fn industry_inputs(
         &mut self,
         inputs: &BTreeMap<u32, Input>,
@@ -333,7 +307,6 @@ impl Run {
             }
         }
         let surface = self.dungeon.depth == 0 && self.room().kind == RoomKind::Kingdom;
-        // On the hillside the builder is out in the world (`hillside`), not on a desk.
         let mut enter = false;
         let mut gear_actions = Vec::new();
         let mut claim_releases = Vec::new();
@@ -350,8 +323,6 @@ impl Run {
             {
                 continue;
             }
-            // (Bits 0 to 10 are the desk's keys; the builder in the world reads the rest:
-            // Z, G, R and H, and the five skill keys M , . ; ' that the world has no use for.)
             let bits = u32::from(input.cast == 4)
                 | (u32::from(input.interact) << 1)
                 | (u32::from(input.swing) << 2)
@@ -384,7 +355,6 @@ impl Run {
                 board.open = !board.open;
                 Self::found_in(&mut self.home.industry, self.seed);
                 if board.open && !self.home.industry.is_empty() && self.home.industry.world.is_hillside() {
-                    // The builder comes out where the knight stands.
                     board.page = 0;
                     board.gallery = false;
                     board.pointed = false;
@@ -395,14 +365,10 @@ impl Run {
             if !board.open && fresh & 1 == 0 {
                 continue;
             }
-            // (Founded just now, perhaps: asked after the toggle.)
             let hill = !self.home.industry.is_empty() && self.home.industry.world.is_hillside();
             if hill && board.open && board.page == 0 && !board.gallery {
-                // The builder in the world: the knight keeps walking, the rest of
-                // their keys are the builder's.
                 let mut walk = super::hillside::walking_input(&input);
                 if fresh & 1 != 0 {
-                    // (The key that brought the builder out is not a tool's.)
                     fresh = 0;
                 }
                 let hero = self.players.get(&id).map(|h| (h.x, h.y));
@@ -417,11 +383,9 @@ impl Run {
                         released |= 2;
                     }
                 }
-                // Walking brings the view back from where it was sent to look.
                 if input.move_x != 0 || input.move_y != 0 {
                     board.rig.look = None;
                 }
-                // The mouse's button held is E held.
                 let bits = if board.rig.drag.is_some() { bits | 2 } else { bits };
                 super::hillside::world_keys(board, &mut self.home.industry, self.tick, &input, fresh, released, bits, id);
                 walk.dash = false;
@@ -432,8 +396,6 @@ impl Run {
             if !board.open {
                 continue;
             }
-            // Pointer commands are discrete actions on the same authoritative
-            // desk as the keyboard. They never borrow the key-repeat latch.
             if let Some(action) = input.builder {
                 use super::builder_input::BuilderAction;
                 match action {
@@ -473,7 +435,6 @@ impl Run {
             }
             if fresh & 512 != 0 {
                 if hill {
-                    // The ledger closes over the world; the builder is out again.
                     board.page = 0;
                     board.selection = 0;
                 } else {
@@ -483,8 +444,6 @@ impl Run {
             }
             if fresh & 256 != 0 {
                 if hill {
-                    // The ledger over the world has seven pages: the four of the desk's, the
-                    // goals, what the party makes and uses, and what chokes the works.
                     use super::hillside::{PAGE_CHOKES, PAGE_GOALS, PAGE_PRODUCTION};
                     board.page = match board.page {
                         1 => 3,
@@ -824,8 +783,6 @@ impl Run {
         out
     }
     pub(super) fn tick_industry(&mut self, inputs: &BTreeMap<u32, Input>, previous_tick: u64) {
-        // One carrier step per simulation second; machine jobs complete on
-        // ten-second shifts. Pauses never manufacture wall-clock catch-up.
         if self.tick / u64::from(HZ) > previous_tick / u64::from(HZ) && self.active() {
             self.home.industry.advance_second(catalog());
             self.deliver_coin();
@@ -873,9 +830,6 @@ impl Run {
             }
         }
     }
-    /// Returning from home generates a fresh dungeon. Keep secured resource
-    /// nodes, retire abandoned sightings, and give the new expedition its own
-    /// finite encounter budget. Mid-floor checkpoints never call this.
     pub(super) fn prepare_industry_expedition(&mut self) {
         let before = self.home.industry.claims.len();
         self.home.industry.claims.retain(|_, q| q.secured);
@@ -902,11 +856,6 @@ impl Run {
     }
 }
 
-/// A floor of `pack` at `depth` as a proof shows it (the first-stone reel, the
-/// quarry's shots): a seam in a cleared, open room, its sentries and guardian
-/// fallen and its charter won, a mine standing on it, and knight 1 `from`
-/// units left of it and invulnerable, since the proof is of the stone and not
-/// of the fights. Not a way for a party to arrive: the room is stood in.
 #[cfg(any(test, feature = "testing"))]
 pub fn proof_face(pack: Pack, depth: u32, from: f32) -> Run {
     let mut run = Run::new(511, 7, None);
@@ -922,7 +871,6 @@ pub fn proof_face(pack: Pack, depth: u32, from: f32) -> Run {
     run.dungeon.rooms[room].cleared = true;
     run.phase = Phase::Exploring;
     run.calm_for_test();
-    // A review arena with no incidental obstacles.
     for y in 1..run.room().rows - 1 {
         for x in 1..run.room().cols - 1 {
             if matches!(run.room().tile(x as i32, y as i32), layout::Tile::Block | layout::Tile::Hazard | layout::Tile::Bog) {

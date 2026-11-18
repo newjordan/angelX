@@ -88,8 +88,6 @@ impl CargoControls {
                 };
                 validate_values(config, "", file, &self.workspace)?;
             }
-            // Cargo environment is sealed at dispatch. Preserve an explicitly
-            // configured compiler by resolving and hashing it into that seal.
             for file in &self.files {
                 if file.path.file_name() == Some(OsStr::new("config.toml"))
                     && self
@@ -181,8 +179,6 @@ impl CargoControls {
     }
 
     pub(super) fn validate_dispatch(&self, cwd: &Path) -> Result<(), String> {
-        // Explicit crate routing may introduce controls that were not visible
-        // when the registry selected its default crate. Never adopt them late.
         for path in lookup_paths(cwd) {
             if path.exists() && !self.lookup.contains(&path) {
                 return Err(format!(
@@ -200,8 +196,6 @@ impl CargoControls {
     }
 
     pub(super) fn config_args(&self) -> Vec<OsString> {
-        // Cargo gives nearer configuration precedence; legacy `config` wins
-        // over `config.toml` when both names occur in the same directory.
         self.files
             .iter()
             .rev()
@@ -285,7 +279,6 @@ fn validate_values(
                         continue;
                     }
                     if executable && !word.contains('/') {
-                        // Bare executable names use the sealed host PATH.
                         continue;
                     }
                     let path = Path::new(word);

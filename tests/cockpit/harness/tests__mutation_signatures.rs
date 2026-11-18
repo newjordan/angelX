@@ -5,8 +5,6 @@
 
 use super::*;
 
-// --- mutation signatures suite ---
-
 #[test]
 fn mutation_edit_signatures_collapse_identical_payloads() {
     let a = ToolCall {

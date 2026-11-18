@@ -9,8 +9,6 @@ use super::patterns_tests::key;
 use crate::agent::harness::live_policy::{self, LegSource, decide_with, shipped_leg};
 use std::time::Instant;
 
-// The parity oracle: the allocator the shipped `deep-cut` leg replaced. It
-// lives here so production keeps only the features, the input and the check.
 fn allocate_direction(
     memory: &FieldPatternMemoryV1,
     directions: &[DeepCutDirectionV1],
@@ -104,7 +102,6 @@ fn score_direction(
     Ok(Some((score, basis)))
 }
 
-/// The oracle's answer to the same prepared call.
 fn oracle_answer(
     memory: &FieldPatternMemoryV1,
     directions: &[DeepCutDirectionV1],
@@ -248,8 +245,6 @@ fn allocator_after_correction_uses_only_canonical_active_evidence() {
     assert_eq!(fallback.basis, DirectionDecisionBasisV1::UntriedFallback);
 }
 
-// --- the hot-loaded `deep-cut` leg -------------------------------------------
-
 const OUTCOMES: [PatternOutcomeV1; 5] = [
     PatternOutcomeV1::Improvement,
     PatternOutcomeV1::Tie,
@@ -264,9 +259,6 @@ struct Fixture {
     operational: Vec<(String, PatternKeyV1)>,
 }
 
-/// One provisional-transfer record per outcome, plus the operational failures
-/// and timeouts the memory contract allows. Each record costs whole units, so a
-/// direction's score mixes the outcome weight with its cost penalty.
 fn fixture() -> Fixture {
     let source = key();
     let mut memory = FieldPatternMemoryV1::default();
@@ -563,8 +555,6 @@ fn deep_cut_leg_keeps_the_native_error_for_malformed_input() {
     assert!(prepare(&tampered, &[], "fresh-direction").is_err());
 }
 
-/// A policy module from elsewhere in the tree that answers with a direction id
-/// no offer contains: the leg loads and runs, but its answer is out of contract.
 fn doctored_leg() -> angel_live::Program {
     let root = std::env::temp_dir().join(format!("angel-deep-cut-doctor-{}", std::process::id()));
     let module = root.join("deep-cut");
@@ -631,7 +621,6 @@ fn the_published_leg_decides_through_the_shipped_route() {
     let fixture = fixture();
     let directions = table(&fixture).swap_remove(20).1;
     let native = allocate_direction(&fixture.memory, &directions, "fresh-direction", 33).unwrap();
-    // Nothing published: the generation compiled into this binary answers.
     let (shipped_decision, shipped_source) =
         allocate_direction_via_leg(&fixture.memory, &directions, "fresh-direction", 33).unwrap();
     assert!(
@@ -639,8 +628,6 @@ fn the_published_leg_decides_through_the_shipped_route() {
         "{shipped_source:?}"
     );
     assert_eq!(shipped_decision, native);
-    // The route reads the legs a loader publishes; nothing else in this binary
-    // publishes them, and the map is cleared again before the test ends.
     live_policy::offer(&std::collections::BTreeMap::from([(
         "deep-cut".to_string(),
         shipped_leg("deep-cut"),

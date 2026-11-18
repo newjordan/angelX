@@ -3,7 +3,6 @@ use super::*;
 use crate::rollers::{Cell, Dir, Piece, RollerState, SLOTS};
 use crate::works_tests::{build, run};
 
-/// A rich, fully chartered hillside with a deep treasury: these tests are of the line, not of the price.
 fn rich() -> Kingdom {
     let mut k = crate::works_tests::rich();
     for r in catalog().resources.keys() {
@@ -23,7 +22,6 @@ fn run_of(k: &mut Kingdom, piece: Piece, from: Tile, dir: Dir, n: i16) {
         lay(k, piece, t, dir);
     }
 }
-/// A swape at `tile` facing `dir`, finished, with its price paid from the rich camp.
 fn swape(k: &mut Kingdom, tile: Tile, dir: Dir) -> u32 {
     let id = build(k, "swape", tile);
     k.apply(catalog(), Command::Face { tile, dir }).unwrap();
@@ -35,8 +33,6 @@ fn depot(k: &mut Kingdom, tile: Tile) -> u32 {
     k.buildings.get_mut(&id).unwrap().construction = 0;
     id
 }
-/// Two stores a rollerway apart: depot A at (160, 96), a swape loading, `len` tiles of `piece`, a swape
-/// unloading into depot B. Returns (A, B, loader, unloader).
 fn two_stores(piece: Piece, len: i16) -> (Kingdom, u32, u32, u32, u32) {
     let mut k = rich();
     let a = depot(&mut k, (160, 96));
@@ -74,16 +70,13 @@ fn a_boy_lifts_a_good_every_two_seconds_and_a_drive_shaft_makes_it_three_times_a
     slow.buildings.get_mut(&a).unwrap().output.insert("plank".into(), 200);
     run(&mut slow, 60);
     let by_hand = plank(&slow, b) + slow.rollers.holding("plank");
-    // 60 seconds at two seconds a lift is thirty, give or take the first one's fill.
     assert!((27..=31).contains(&by_hand), "a boy's pace: {by_hand}");
-    // The arm fitted to the drive: it lifts at once, and the line carries all it is given.
     let (mut fast, a, b, loader, _) = two_stores(Piece::Roller, 6);
     fast.buildings.get_mut(&a).unwrap().output.insert("plank".into(), 200);
     fast.stock.insert("plank".into(), 400);
     fast.stock.insert("nails".into(), 400);
     fast.apply(c, Command::EnablePower(loader)).unwrap();
     assert!(fast.buildings[&loader].power_upgrade);
-    // A waterwheel's shaft would drive it; the multiplier is what it gains when driven.
     assert_eq!(c.plans["swape"].power.as_ref().unwrap().multiplier, 300);
     run(&mut fast, 5);
     assert!(fast.valid(c));
@@ -95,7 +88,6 @@ fn a_line_that_cannot_unload_backs_up_tile_by_tile_from_its_end() {
     let c = catalog();
     let (mut k, a, b, _, unloader) = two_stores(Piece::Roller, 8);
     k.buildings.get_mut(&a).unwrap().output.insert("plank".into(), 200);
-    // The far store is shut: nothing can be put in it.
     k.apply(c, Command::Pause(b)).unwrap();
     let mut filled = Vec::new();
     for _ in 0..8 {
@@ -104,7 +96,6 @@ fn a_line_that_cannot_unload_backs_up_tile_by_tile_from_its_end() {
     }
     assert!(filled.windows(2).all(|w| w[1] >= w[0]), "the full tiles only grow: {filled:?}");
     assert!(filled.first() < filled.last(), "it fills from the end: {filled:?}");
-    // From the end: the last tile is full before the first.
     assert_eq!(k.rollers.cells[&(171, 96)].held(), SLOTS as u32);
     assert_eq!(k.rollers.cells[&(164, 96)].held(), SLOTS as u32, "after two minutes the whole line is packed");
     assert_eq!(k.buildings[&unloader].lift, 2, "the unloading swape knows it has nowhere to put the plank");
@@ -114,7 +105,6 @@ fn a_line_that_cannot_unload_backs_up_tile_by_tile_from_its_end() {
     assert_eq!(jam.tile, (171, 96), "the jam's head is the line's end");
     assert!(jam.why.contains("cannot put sawn planks into the warehouse"), "{}", jam.why);
     assert_eq!(k.buildings[&a].output["plank"] + k.rollers.holding("plank"), 200, "nothing is lost on the way");
-    // Open the store again and it clears.
     k.apply(c, Command::Pause(b)).unwrap();
     run(&mut k, 120);
     assert!(plank(&k, b) >= 20);
@@ -124,13 +114,11 @@ fn a_line_that_cannot_unload_backs_up_tile_by_tile_from_its_end() {
 #[test]
 fn a_splitter_deals_goods_out_in_turn_and_a_second_unloader_clears_a_backed_up_line() {
     let c = catalog();
-    // A line east to a splitter at (168, 96); north and south of it, a short branch each into a store.
     let mut k = rich();
     let a = depot(&mut k, (160, 96));
     swape(&mut k, (163, 96), Dir::E);
     run_of(&mut k, Piece::Roller, (164, 96), Dir::E, 4);
     lay(&mut k, Piece::Splitter, (168, 96), Dir::E);
-    // Front is closed (no cell); the left (north) and right (south) branches.
     run_of(&mut k, Piece::Roller, (168, 95), Dir::N, 1);
     run_of(&mut k, Piece::Roller, (168, 97), Dir::S, 1);
     let north = depot(&mut k, (167, 92));
@@ -144,7 +132,6 @@ fn a_splitter_deals_goods_out_in_turn_and_a_second_unloader_clears_a_backed_up_l
     let (n, s) = (plank(&k, north), plank(&k, south));
     assert!(n >= 6 && s >= 6, "both branches take goods: {n} north, {s} south");
     assert!(n.abs_diff(s) <= 3, "dealt in turn: {n} and {s}");
-    // Shut one store: the splitter sends everything the other way and the line does not stop.
     k.apply(c, Command::Pause(north)).unwrap();
     let before = plank(&k, south);
     run(&mut k, 100);
@@ -161,7 +148,6 @@ fn a_priority_gate_fills_the_front_and_spills_to_the_sides_only_when_it_is_full(
     swape(&mut k, (163, 96), Dir::E);
     run_of(&mut k, Piece::Roller, (164, 96), Dir::E, 3);
     lay(&mut k, Piece::Gate, (167, 96), Dir::E);
-    // The front way: a short run into a store the swape serves slowly; the side way: a second store.
     run_of(&mut k, Piece::Roller, (168, 96), Dir::E, 2);
     let front = depot(&mut k, (171, 96));
     let u_front = swape(&mut k, (170, 96), Dir::E);
@@ -172,7 +158,6 @@ fn a_priority_gate_fills_the_front_and_spills_to_the_sides_only_when_it_is_full(
     run(&mut k, 30);
     assert!(plank(&k, front) > 0, "the front is served first");
     assert_eq!(plank(&k, side), 0, "and while it takes goods the side gets none: {}", plank(&k, side));
-    // Close the front store: the gate spills them to the side.
     k.apply(c, Command::Pause(front)).unwrap();
     run(&mut k, 90);
     assert!(plank(&k, side) >= 8, "the overflow reaches the side: {}", plank(&k, side));
@@ -184,12 +169,10 @@ fn a_priority_gate_fills_the_front_and_spills_to_the_sides_only_when_it_is_full(
 fn two_lines_merge_in_turn_so_neither_starves() {
     let c = catalog();
     let mut k = rich();
-    // Two stores feed a merge from the north and south; the merge sends east along a short line into a third.
     let a = depot(&mut k, (160, 90));
     let b = depot(&mut k, (160, 100));
     swape(&mut k, (163, 91), Dir::E);
     swape(&mut k, (163, 101), Dir::E);
-    // North feeder: east along y=91 then south to the merge at (168, 96); south feeder mirrors it.
     run_of(&mut k, Piece::Roller, (164, 91), Dir::E, 4);
     run_of(&mut k, Piece::Roller, (168, 91), Dir::S, 5);
     run_of(&mut k, Piece::Roller, (164, 101), Dir::E, 4);
@@ -216,7 +199,6 @@ fn a_trestle_carries_two_lines_over_each_other_without_mixing_them() {
     let b = depot(&mut k, (166, 90));
     swape(&mut k, (163, 96), Dir::E);
     swape(&mut k, (166, 92), Dir::S);
-    // West to east along y=96 and north to south along x=168, crossing at (168, 96).
     run_of(&mut k, Piece::Roller, (164, 96), Dir::E, 4);
     lay(&mut k, Piece::Trestle, (168, 96), Dir::E);
     run_of(&mut k, Piece::Roller, (169, 96), Dir::E, 2);
@@ -241,8 +223,6 @@ fn a_trestle_carries_two_lines_over_each_other_without_mixing_them() {
 #[test]
 fn a_filtered_loader_keeps_goods_the_far_end_cannot_use_off_the_line() {
     let c = catalog();
-    // A bench that wants limestone only: the line from a store of limestone and ale. Without a filter the
-    // ale reaches the end of the line, and nobody takes it.
     let mut k = rich();
     let a = depot(&mut k, (160, 96));
     let loader = swape(&mut k, (163, 96), Dir::E);
@@ -252,13 +232,11 @@ fn a_filtered_loader_keeps_goods_the_far_end_cannot_use_off_the_line() {
     let unloader = swape(&mut k, (169, 96), Dir::E);
     k.buildings.get_mut(&a).unwrap().output.insert("limestone".into(), 6);
     k.buildings.get_mut(&a).unwrap().output.insert("ale".into(), 30);
-    // The loader takes the good there is most of, so the ale goes first, and the kiln wants none of it.
     run(&mut k, 120);
     assert!(k.buildings[&kiln].input.get("limestone").copied().unwrap_or(0) == 0, "the ale blocks the line");
     let row = &k.roller_report(c)[0];
     assert_eq!(row.state, RollerState::Jammed);
     assert!(row.jams[0].why.contains("ale"), "{}", row.jams[0].why);
-    // Set the loader to limestone; take the ale off the line.
     for t in 164..169 {
         k.apply(c, Command::Demolish((t, 96))).unwrap();
     }
@@ -302,19 +280,15 @@ fn a_rollerway_takes_the_ground_and_nothing_else_may_be_built_or_laid_over_it() 
     assert!(k.apply(c, Command::Build { plan: "sawpit".into(), tile: (169, 96) }).is_err(), "nor over its end: the sawpit runs east");
     assert!(k.apply(c, Command::Road((170, 96))).is_err());
     assert!(k.apply(c, Command::Roller { piece: Piece::Roller, tile: (170, 96), dir: Dir::E }).is_err(), "laid so already");
-    // Turned, it is not paid for again; over another piece it is.
     let stock = k.stock.clone();
     k.apply(c, Command::Face { tile: (170, 96), dir: Dir::S }).unwrap();
     assert_eq!(k.rollers.cells[&(170, 96)].dir, Dir::S);
     assert_eq!(k.stock, stock);
-    // A road is crossed on a trestle, not under a roller.
     k.apply(c, Command::Road((172, 96))).unwrap();
     assert!(k.apply(c, Command::Roller { piece: Piece::Roller, tile: (172, 96), dir: Dir::E }).is_err());
     lay(&mut k, Piece::Trestle, (172, 96), Dir::E);
     assert!(k.roads.contains(&(172, 96)), "the road runs on under the trestle");
-    // River, the Keep and the gate refuse it.
     assert!(k.apply(c, Command::Roller { piece: Piece::Roller, tile: hillside::KEEP_CENTRE, dir: Dir::E }).is_err());
-    // Taken up, it gives back its goods to the camp.
     k.rollers.cells.get_mut(&(170, 96)).unwrap().slots[1] = 1;
     k.rollers.goods.push("plank".into());
     let planks = k.amount("plank");
@@ -339,7 +313,6 @@ fn rollerways_are_saved_with_their_goods_and_a_loaded_one_runs_on_as_the_origina
     run(&mut loaded, 60);
     assert_eq!(plank(&loaded, b), plank(&k, b), "both played on alike");
     assert_eq!(loaded.rollers.cells, k.rollers.cells);
-    // An old save with no rollerways at all loads as it was.
     let mut old: serde_json::Value = serde_json::from_str(&json).unwrap();
     old.as_object_mut().unwrap().remove("rollers");
     let bare: Kingdom = serde_json::from_value(old).unwrap();
@@ -350,7 +323,6 @@ fn rollerways_are_saved_with_their_goods_and_a_loaded_one_runs_on_as_the_origina
 fn hundreds_of_tiles_and_thousands_of_goods_cost_a_browser_seat_almost_nothing() {
     let c = catalog();
     let mut k = rich();
-    // Eight rows of sixty tiles, every slot full of planks but the last tile of each: 480 tiles, 1,400 goods.
     k.rollers.goods.push("plank".into());
     for row in 0..8i16 {
         for x in 0..60i16 {
@@ -369,7 +341,6 @@ fn hundreds_of_tiles_and_thousands_of_goods_cost_a_browser_seat_almost_nothing()
         k.rollers_tick(c, &Report::default());
     }
     let per = t.elapsed().as_secs_f64() * 100.0;
-    // A second of the whole line takes under ten milliseconds, in a build with checks on.
     eprintln!("rollers: {per:.2} ms a second for {} tiles and {goods} goods", k.rollers.cells.len());
     assert!(per < 20.0, "{per:.1} ms a second for {} tiles", k.rollers.cells.len());
     assert_eq!(k.rollers.cells.values().map(|c| c.held()).sum::<u32>(), goods, "nothing made or lost by moving it");
@@ -377,7 +348,6 @@ fn hundreds_of_tiles_and_thousands_of_goods_cost_a_browser_seat_almost_nothing()
 
 #[test]
 fn a_hand_chain_moves_goods_at_half_a_rollerway_s_pace() {
-    // The first plank reaches the far store after about this many seconds, on a line of ten tiles.
     let arrival = |piece: Piece| {
         let (mut k, a, b, _, _) = two_stores(piece, 10);
         k.buildings.get_mut(&a).unwrap().output.insert("plank".into(), 5);
@@ -396,7 +366,6 @@ fn a_hand_chain_moves_goods_at_half_a_rollerway_s_pace() {
 #[test]
 fn a_full_branch_the_rest_of_the_line_goes_round_is_not_a_jam() {
     let c = catalog();
-    // A line east to a splitter; its front is a store that takes all, its right a kiln that cannot be put more into.
     let mut k = rich();
     let a = depot(&mut k, (160, 96));
     swape(&mut k, (163, 96), Dir::E);
@@ -424,14 +393,12 @@ fn a_swape_planned_facing_a_way_is_raised_so_and_laid_tiles_come_back_by_the_bui
     use crate::ghosts::Laid;
     let c = catalog();
     let mut k = rich();
-    // A swape laid as a plan, turned while it is still a plan.
     let tile = crate::first_chain::ground_for(c, &k, "swape", (150, 100)).expect("ground for a swape");
     k.apply(c, Command::Plan { plan: "swape".into(), tile, priority: 1, by: 1 }).expect("planned");
     k.apply(c, Command::Face { tile, dir: Dir::W }).expect("a planned swape turns");
     run(&mut k, 120);
     let id = k.at(tile).expect("the hands raised it");
     assert_eq!(k.buildings[&id].facing, Dir::W.index(), "raised facing the way it was planned");
-    // Tiles of rollerway and rail, and the step that took them back.
     run_of(&mut k, Piece::Roller, (150, 110), Dir::E, 3);
     k.apply(c, Command::Rail((150, 114))).expect("a rail tile");
     assert!(k.apply(c, Command::Retract(vec![Laid::Roller((150, 110)), Laid::Roller((151, 110)), Laid::Roller((152, 110)), Laid::Rail((150, 114))])).is_ok());

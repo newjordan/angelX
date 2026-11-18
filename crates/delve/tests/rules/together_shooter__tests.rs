@@ -4,8 +4,6 @@ fn inputs(input: Input) -> BTreeMap<u32, Input> {
     BTreeMap::from([(1, input)])
 }
 
-/// The first room of `kind`, preferring one screen-sized so geometry in a
-/// test (walls, doors, exits) is where the screen puts it.
 fn index_of(run: &Run, kind: RoomKind) -> usize {
     let rooms = &run.dungeon.rooms;
     rooms
@@ -15,7 +13,6 @@ fn index_of(run: &Run, kind: RoomKind) -> usize {
         .unwrap_or_else(|| panic!("no {kind:?} room"))
 }
 
-/// Walk the party into the first fight room from its south side.
 fn hold_the_fight(run: &mut Run) {
     let (w, h) = (run.room().width(), run.room().height());
     let id = run.spawn_body(EnemyKind::Skeleton, w - 3.0, h - 3.0).expect("a foe");
@@ -25,7 +22,7 @@ fn hold_the_fight(run: &mut Run) {
 
 fn fight(run: &mut Run) {
     let room = index_of(run, RoomKind::Fight);
-    run.enter_for_test(room); // combat fixture uses legacy roster/waves; ecology tested via production enter
+    run.enter_for_test(room);
     run.settle_seams_for_test();
     assert_eq!(run.phase, Phase::Fighting);
 }
@@ -102,8 +99,6 @@ fn every_raid_generates_a_new_well_formed_dungeon() {
                     let next = floor.neighbour(i, dir);
                     assert_eq!(door, next.is_some(), "doors lead to rooms");
                     if let Some(next) = next {
-                        // A vault's door waits on a cracked wall until a
-                        // bomb finds it.
                         let crack = floor
                             .secret
                             .is_some_and(|s| s.vault == i && !s.found && s.host == next);
@@ -114,7 +109,6 @@ fn every_raid_generates_a_new_well_formed_dungeon() {
                     }
                 }
                 if room.kind == RoomKind::Wanted {
-                    // Its outlaw is raised when the party walks in.
                     assert!(room.roster.is_empty() && !room.cleared);
                     continue;
                 }
@@ -132,9 +126,6 @@ fn every_raid_generates_a_new_well_formed_dungeon() {
                         | RoomKind::Ledge
                         | RoomKind::Pit
                 );
-                // The first floor's start room is empty and cleared from
-                // the first breath: the party makes its wishes there
-                // (`furnish`, 2026-11-02).
                 let wishing = room.kind == RoomKind::Start && floor.depth <= 1 && floor.rooms[0].cell == room.cell;
                 assert_eq!(if fights && !wishing { !room.roster.is_empty() } else { room.roster.is_empty() }, true, "a fight room holds foes unless it is the first wishing room");
                 assert_eq!(room.cleared, !fights || wishing);
@@ -195,7 +186,6 @@ fn knights_loose_a_quick_stream_of_fast_arrows() {
     assert!(run.players[&1].x < start);
     assert_eq!(run.projectiles.len(), 1);
     let arrow = &run.projectiles[0];
-    // Fast, three times the knight's pace, straying a hair from the aim.
     assert_eq!(arrow.kind, Shot::Arrow);
     assert!((arrow.vx.hypot(arrow.vy) - 40.0).abs() < 0.01);
     assert!(arrow.vy.abs() / arrow.vx < 0.06, "{}", arrow.vy);
@@ -226,9 +216,22 @@ fn crossbow_bolts_pierce_and_walls_stop_shots() {
     let mut bolt = shot(16.0, 14.0, 15.0, 0.0, false);
     (bolt.kind, bolt.damage, bolt.pierce) = (Shot::Bolt, 75, 1);
     run.projectiles = vec![bolt];
-    for _ in 0..30 {
+    for step_i in 0..30 {
         run.step(&BTreeMap::new());
         run.projectiles.retain(|p| !p.hostile);
+        if std::env::var("PROBE").is_ok() {
+            eprintln!(
+                "step {step_i}: projectiles={:?} enemies={:?}",
+                run.projectiles
+                    .iter()
+                    .map(|p| (p.x, p.y, p.vx, p.ttl, p.pierce, p.kind))
+                    .collect::<Vec<_>>(),
+                run.enemies
+                    .iter()
+                    .map(|e| (e.kind, e.x, e.y, e.hp, e.frozen))
+                    .collect::<Vec<_>>(),
+            );
+        }
     }
     assert!(
         run.enemies.iter().all(|e| e.hp == 500 - 75),
@@ -289,12 +292,10 @@ fn dash_has_a_cooldown_and_bombs_are_charges() {
     fight(&mut run);
     let start = run.players[&1].x;
     let (hx, hy) = (run.players[&1].x, run.players[&1].y);
-    // A bomb clears the monsters' shots round the knight, not the room.
     run.projectiles.push(shot(hx - 3.0, hy, 1.0, 0.0, true));
     run.projectiles.push(shot(hx - BOMB_CLEAR - 4.0, hy, 0.0, 0.0, true));
     for enemy in &mut run.enemies {
         enemy.hp = 200;
-        // The re-arm test needs targets inside the first belt's blast.
         (enemy.x, enemy.y) = (hx, hy - 4.0);
     }
     let input = inputs(Input {
@@ -352,7 +353,6 @@ fn barred_doors_hold_until_the_room_is_clear_then_lead_on() {
         ..Default::default()
     };
     {
-        // Stand in the doorway lane and push out of the room.
         let hero = run.players.get_mut(&1).unwrap();
         hero.x = WIDTH / 2.0 + dx as f32 * (WIDTH / 2.0 - 3.0);
         hero.y = HEIGHT / 2.0 + dy as f32 * (HEIGHT / 2.0 - 3.0);
@@ -383,21 +383,14 @@ fn monsters_drop_loot_and_knights_take_what_they_need() {
     run.enemies[0].kind = EnemyKind::Demon;
     let (x, y) = (run.enemies[0].x, run.enemies[0].y);
     slay_all(&mut run);
-    // Re-pinned 2026-11-02: the wish altar's first-room chest holds the
-    // fresh knight's starting gear, so this room's take begins at the
-    // demon's own two cards (its card and the delve's material).
     assert_eq!(
         run.room().items.len(),
         2,
         "the seeded bomb roll adds to the demon's card"
     );
-    // Re-pinned 2026-11-02: Astra's two hundred cards joined the loot
-    // table, so this seed's roll lands the velvet rope; the demon's own
-    // drop is still a material of its delve, where it fell.
     let spoils: Vec<&str> = run.room().items.iter().map(|i| i.card.as_str()).collect();
     let material = run.room().items.iter().find(|i| run.book.get(&i.card).is_some_and(|c| c.is_spoil())).expect("the demon's delve material");
     assert!(material.card == "velvet-rope" || run.book.get(&material.card).unwrap().only_in.is_none_or(|p| p == run.dungeon.pack), "spoils={spoils:?}");
-    // Where it fell, to within a card's scatter.
     assert!((material.x - x).hypot(material.y - y) < 1.5);
     let at = run.at;
     let place = |run: &mut Run, card: &str| {
@@ -457,8 +450,6 @@ fn monsters_drop_loot_and_knights_take_what_they_need() {
 
 #[test]
 fn treasure_chests_open_into_a_prize_and_two_rolls() {
-    // One chest in four bites (`wake_mimic`): the first seed whose chest is
-    // a chest.
     let run = (4..32)
         .map(|seed| {
             let mut run = Run::new(seed, 1, None);
@@ -492,7 +483,7 @@ fn treasure_chests_open_into_a_prize_and_two_rolls() {
 fn stairs_descend_into_a_new_floor_and_revive_the_fallen() {
     let mut run = Run::new(0, 1, Some("Friend"));
     let stairs = index_of(&run, RoomKind::Stairs);
-    run.enter_for_test(stairs); // this fixture exercises boss combat, not political population
+    run.enter_for_test(stairs);
     slay_all(&mut run);
     run.players.get_mut(&2).unwrap().hp = 0;
     let middle = (run.room().width() / 2.0, run.room().height() / 2.0);
@@ -503,7 +494,6 @@ fn stairs_descend_into_a_new_floor_and_revive_the_fallen() {
     assert_eq!(run.floor(), 2);
     assert_ne!(run.dungeon.pack, first);
     assert_eq!(run.at, 0);
-    // Ten rooms, and a Pit, a Wanted hall, a vault and a nook hung off them.
     assert_eq!(
         run.dungeon
             .rooms
@@ -532,7 +522,6 @@ fn stairs_descend_into_a_new_floor_and_revive_the_fallen() {
     let (lx, ly) = run.light.unwrap();
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (lx, ly);
-    // The revived friend must enter the party-wide light too (639972239).
     let friend = run.players.get_mut(&2).unwrap();
     (friend.x, friend.y) = (lx, ly);
     run.step_sim_for_test(&BTreeMap::new());
@@ -568,8 +557,6 @@ fn delve_entity_work_stays_bounded_during_a_long_lair_fight() {
     let lair = index_of(&run, RoomKind::Lair);
     run.clear_prerequisites_for_test();
     run.enter(lair, Some(2));
-    // The dragon and its escort, however many the floor's camp mustered:
-    // a long fight never grows the company.
     let company = run.enemies.len();
     assert!(company <= 8, "{company}");
     for _ in 0..18_000 {
@@ -655,7 +642,6 @@ fn loot_is_shared_each_knight_takes_their_own_and_the_treasury_once() {
     run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.players[&2].hand, ["potion"], "the second knight takes theirs");
     assert!(run.room().items.is_empty(), "gone once every knight has theirs");
-    // Gold goes to the party's one treasury: taken once, for all.
     run.dungeon.rooms[at].items = vec![Item { card: "gold".into(), x: hx, y: hy, held_off: None, took: Vec::new(), dropped: 0, owner: None }];
     let score = run.score;
     run.step_sim_for_test(&BTreeMap::new());
@@ -697,12 +683,9 @@ fn stone_host_is_inert_invulnerable_and_keeps_the_party_up() {
     assert_eq!((run.players[&1].x, run.players[&1].y), position);
     assert_eq!(run.players[&1].bombs, 2);
     assert!(run.projectiles.is_empty());
-    // The guest falls while the host's knight is stone (its player away):
-    // the run waits for them rather than ending.
     run.players.get_mut(&2).unwrap().hp = 0;
     run.step(&BTreeMap::new());
     assert_ne!(run.phase, Phase::Wiped);
-    // A host who plays no knight is no one to wait for.
     run.players.get_mut(&1).unwrap().absent = true;
     run.step(&BTreeMap::new());
     assert_eq!(run.phase, Phase::Wiped);
@@ -710,8 +693,6 @@ fn stone_host_is_inert_invulnerable_and_keeps_the_party_up() {
 
 #[test]
 fn one_knight_falling_while_a_friend_is_away_never_ends_the_run() {
-    // The play box, 2026-10-17: the host plays no knight, one friend away
-    // (stone), the other falls; that ended the run.
     let mut run = Run::new(42, 1, Some("Guest"));
     run.join_seat(3, "Third");
     run.players.get_mut(&1).unwrap().absent = true;
@@ -725,7 +706,6 @@ fn one_knight_falling_while_a_friend_is_away_never_ends_the_run() {
         run.step(&BTreeMap::new());
     }
     assert_ne!(run.phase, Phase::Wiped, "the run waits for the away friend");
-    // The friend comes back and falls too: now everyone is down.
     run.players.get_mut(&3).unwrap().hp = 0;
     run.step(&BTreeMap::new());
     assert_eq!(run.phase, Phase::Wiped);
@@ -785,7 +765,6 @@ fn a_melee_contact_rings_its_hit_once() {
     run.step(&BTreeMap::from([(1, Input { fire: true, ..Default::default() })]));
     assert_eq!(run.enemies[0].hp, 66);
     let hits: Vec<&str> = run.sounds.iter().copied().filter(|s| s.starts_with("hit")).collect();
-    // A medium contact (34 of a hundred, the first of the chain).
     assert_eq!(hits, ["hit_flesh_medium"], "one contact, one hit sound");
 }
 
@@ -820,8 +799,6 @@ fn forged_sword_swings_once_and_bolts_keep_their_checked_look() {
     run.step(&input);
     assert_eq!(run.enemies[0].hp, 66);
     assert_eq!(run.players[&1].swing, 6);
-    // The blow lands solid and holds the room a moment (`melee`): the next
-    // tick played is the one after the hold, and it swings no second time.
     run.step_sim_for_test(&input);
     assert_eq!(run.enemies[0].hp, 66);
     let hero = run.players.get_mut(&1).unwrap();
@@ -850,8 +827,6 @@ fn dungeon_opening_encounter_is_present_at_load_and_can_be_cleared() {
     for seed in 0..12 {
         let run = Run::new(seed, 1, None);
         assert!(run.at_entrance());
-        // The first room is where the party makes its first wishes: it
-        // starts empty and open, and a cleared, unbarred floor says so.
         assert_eq!(run.phase, Phase::Exploring);
         assert_eq!(run.enemies.len(), 0);
         assert!(!run.barred());
@@ -865,7 +840,6 @@ fn spoils_bank_at_the_stairs_bonds_need_two_knights_and_a_wipe_keeps_half() {
     let mut run = Run::new(0, 1, Some("Friend"));
     fight(&mut run);
     slay_all(&mut run);
-    // Two knights cleared the room together: one bond for the party.
     let bonds: u32 = run.players.values().map(|h| h.carried.get(Spoil::Bond)).sum();
     assert_eq!(bonds, 1, "two knights cleared the room together");
     run.players.get_mut(&1).unwrap().carried.add(Spoil::Ore, 4);
@@ -918,7 +892,6 @@ fn monster_doors_glow_then_pour_and_the_room_holds_until_the_last_wave() {
     run.descend_for_test();
     fight(&mut run);
     assert_eq!(run.waves.total, 2, "one wave a floor deep");
-    // Slimes split as they fall: finish the halves too.
     for _ in 0..4 {
         if run.enemies.is_empty() {
             break;
@@ -975,8 +948,6 @@ fn spikes_strike_on_their_beat_and_dashing_knights_pass() {
     fight(&mut run);
     run.calm_for_test();
     run.enemies.clear();
-    // A foe still standing, frozen in a far corner: the fight is on, so
-    // the room's traps are live (they settle once it is won).
     hold_the_fight(&mut run);
     run.traps = vec![Trap::Spikes {
         col: 4,
@@ -1081,7 +1052,6 @@ fn some_treasure_chests_have_teeth() {
     );
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_hazard_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_hazard_shots() {
@@ -1101,7 +1071,6 @@ fn write_hazard_shots() {
             hero.hp = hero.max_hp;
         }
     };
-    // A wave about to come through a glowing doorway.
     let mut run = Run::new(0, 1, Some("Squire"));
     fight(&mut run);
     for enemy in &mut run.enemies {
@@ -1120,7 +1089,6 @@ fn write_hazard_shots() {
         run.step(&BTreeMap::new());
     }
     save("wave_in.ppm", &run);
-    // Spikes, vents, rocks: one room of each, at telling moments.
     let mut run = Run::new(0, 1, None);
     fight(&mut run);
     run.calm_for_test();
@@ -1223,7 +1191,6 @@ fn write_hazard_shots() {
         run.step(&BTreeMap::new());
     }
     save("vents.ppm", &run);
-    // A mimic, mid-snap.
     for seed in 0..40 {
         let mut run = Run::new(seed, 1, None);
         let treasure = index_of(&run, RoomKind::Treasure);
@@ -1253,8 +1220,6 @@ fn vents_breathe_fire_that_crosses_the_room() {
     fight(&mut run);
     run.calm_for_test();
     run.enemies.clear();
-    // A foe still standing, frozen in a far corner: the fight is on, so
-    // the room's traps are live (they settle once it is won).
     hold_the_fight(&mut run);
     run.traps = vec![Trap::Vent {
         side: 3,
@@ -1288,7 +1253,6 @@ fn the_dodge_roll_carries_the_knight_through_shots_untouched() {
         ..Default::default()
     }));
     assert!(run.players[&1].rolling().is_some());
-    // A shot right where the roll is going: it passes harmlessly.
     run.projectiles.push(shot(x, y - 2.0, 0.0, 1.0, true));
     for _ in 0..6 {
         run.step(&inputs(Input {
@@ -1383,7 +1347,6 @@ fn hallways_join_the_chambers() {
     assert!(halls >= 6, "floors have passages ({halls} in 12)");
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_guard_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_guard_shots() {
@@ -1470,8 +1433,6 @@ fn every_knight_swings_a_sword_that_cuts_shots_from_the_air() {
     run.calm_for_test();
     let hero = run.players[&1].clone();
     run.enemies.truncate(1);
-    // Sturdy enough that one stroke bites without felling it, whichever
-    // kind the room put first.
     (run.enemies[0].max_hp, run.enemies[0].hp) = (999, 999);
     run.enemies[0].x = hero.x;
     run.enemies[0].y = hero.y - 1.8;
@@ -1498,7 +1459,7 @@ fn every_knight_swings_a_sword_that_cuts_shots_from_the_air() {
 fn a_guardians_fall_shakes_the_view() {
     let mut run = Run::new(0, 1, None);
     let stairs = index_of(&run, RoomKind::Stairs);
-    run.enter_for_test(stairs); // this fixture exercises boss combat, not political population
+    run.enter_for_test(stairs);
     run.calm_for_test();
     for enemy in &mut run.enemies {
         enemy.hp = 0;
@@ -1548,7 +1509,6 @@ fn a_held_wall_stops_monster_shots_and_empowers_a_friends() {
     };
     run.step(&BTreeMap::from([(1, hold)]));
     assert!(run.players[&1].walling);
-    // A monster's shot coming down at the wall, and a friend's going up through it.
     run.projectiles.push(shot(24.0, 17.0, 0.0, 9.0, true));
     run.projectiles.push(shot(24.5, 19.5, 0.0, -9.0, false));
     for _ in 0..8 {
@@ -1593,7 +1553,6 @@ fn the_sanctuary_mends_and_allows_one_reforge_a_floor() {
     assert!(run.book.get("trip-wall").is_some());
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_wall_shot -- --ignored`
 #[test]
 #[ignore]
 fn write_wall_shot() {
@@ -1642,9 +1601,8 @@ fn write_wall_shot() {
 fn the_first_floors_guardian_leaves_a_sanctuary_before_the_stairs() {
     let mut run = Run::new(0, 1, None);
     let stairs = index_of(&run, RoomKind::Stairs);
-    run.enter_for_test(stairs); // this fixture exercises boss combat, not political population
+    run.enter_for_test(stairs);
     run.calm_for_test();
-    // The guardian falls with the knight standing on the stairs.
     let middle = (run.room().width() / 2.0, run.room().height() / 2.0);
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = middle;
@@ -1673,7 +1631,6 @@ fn the_first_floors_guardian_leaves_a_sanctuary_before_the_stairs() {
         1,
         "standing still on the stairs keeps you here"
     );
-    // Off the stairs and back on: down.
     run.players.get_mut(&1).unwrap().y = middle.1 + 6.0;
     run.step(&BTreeMap::new());
     run.players.get_mut(&1).unwrap().y = middle.1;
@@ -1691,12 +1648,11 @@ fn deeper_stairs_rooms_stay_stairs() {
     let mut run = Run::new(0, 1, None);
     run.descend_for_test();
     let stairs = index_of(&run, RoomKind::Stairs);
-    run.enter_for_test(stairs); // this fixture exercises boss combat, not political population
+    run.enter_for_test(stairs);
     slay_all(&mut run);
     assert_eq!(run.room().kind, RoomKind::Stairs);
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_sanctuary_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_sanctuary_shots() {
@@ -1707,7 +1663,7 @@ fn write_sanctuary_shots() {
     std::fs::create_dir_all(&dir).unwrap();
     let mut run = Run::new(0, 1, Some("Matt"));
     let stairs = index_of(&run, RoomKind::Stairs);
-    run.enter_for_test(stairs); // this fixture exercises boss combat, not political population
+    run.enter_for_test(stairs);
     run.calm_for_test();
     for enemy in &mut run.enemies {
         enemy.hp = 0;
@@ -1723,7 +1679,6 @@ fn write_sanctuary_shots() {
     }
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_privy_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_privy_shots() {
@@ -1756,10 +1711,9 @@ fn write_privy_shots() {
         run.step(&BTreeMap::new());
     }
     save(&run, "dais_wishing");
-    // Floor 1's Sanctuary, a great hall.
     let mut run = Run::new(0, 1, None);
     let stairs = index_of(&run, RoomKind::Stairs);
-    run.enter_for_test(stairs); // this fixture exercises boss combat, not political population
+    run.enter_for_test(stairs);
     slay_all(&mut run);
     for _ in 0..5 * HZ {
         run.step(&BTreeMap::new());
@@ -1770,8 +1724,6 @@ fn write_privy_shots() {
     save(&run, "privy_floor1");
 }
 
-/// `cargo test --release frame_costs -- --ignored --nocapture`: what one
-/// delve frame costs to draw and to encode, for the frame-rate budget.
 #[test]
 #[ignore]
 fn frame_costs() {
@@ -1823,7 +1775,6 @@ fn frame_costs() {
     );
 }
 
-/// `cargo test --release scaled_frame_costs -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn scaled_frame_costs() {
@@ -1985,20 +1936,17 @@ fn spell_shapes_launch_from_the_knight_with_owned_shot_traits() {
 fn a_vigil_wards_its_knight_and_mends_the_knights_beside_it() {
     let mut run = Run::new(0, 1, Some("Friend"));
     run.calm_for_test();
-    // A vigil is kept between fights.
     run.enemies.clear();
     run.phase = Phase::Exploring;
     let key = Input {
         vigil: true,
         ..Default::default()
     };
-    // The key's edge raises it; holding the key on does not flip it back.
     for _ in 0..6 {
         run.step(&inputs(key));
     }
     assert!(run.players[&1].vigil && run.players[&1].stone);
 
-    // Letting go keeps it: the composer, a nap, a lost connection.
     let hero = run.players.get_mut(&1).unwrap();
     hero.invulnerable = 0;
     let (x, y) = (hero.x, hero.y);
@@ -2007,7 +1955,6 @@ fn a_vigil_wards_its_knight_and_mends_the_knights_beside_it() {
     assert!(run.players[&1].vigil);
     assert_eq!(run.players[&1].hp, 100, "warded");
 
-    // A hurt friend beside the statue mends; one across the room does not.
     let friend = run.players.get_mut(&2).unwrap();
     (friend.x, friend.y, friend.hp) = (x + 2.0, y, 40);
     for _ in 0..2 * HZ {
@@ -2024,7 +1971,6 @@ fn a_vigil_wards_its_knight_and_mends_the_knights_beside_it() {
     }
     assert_eq!(run.players[&2].hp, mended, "out of reach");
 
-    // The key again wakes the knight where it stood, then rests a while.
     run.step(&inputs(key));
     let hero = &run.players[&1];
     assert!(!hero.vigil && !hero.stone);
@@ -2042,7 +1988,6 @@ fn controls_without_a_vigil_read_the_same_to_an_older_host() {
     assert!(!old.vigil);
 }
 
-/// A knight on the bomb plate of floor one's peddler, with gold in hand.
 fn merchant_fixture(guest: Option<&str>) -> (Run, merchant::Camp, usize) {
     let mut run = Run::new(23, 7, guest);
     let camp = run.merchant_camp().expect("floor one treasure camp");
@@ -2075,14 +2020,11 @@ fn the_surface_peddler_asks_the_realms_treasury_not_an_empty_purse() {
     (hero.x, hero.y) = ((c as f32 + 0.5) * TILE_UNITS, (r as f32 + 0.5) * TILE_UNITS);
     hero.bombs = 0;
     assert!(hero.carried.is_empty(), "nothing is carried on the surface");
-    // A poor realm: refused, and nothing asked of the cockpit.
     for _ in 0..merchant::STAND_TICKS {
         run.step(&BTreeMap::new());
     }
     assert!(run.peddled.is_empty());
     assert_eq!(run.merchant.approaches[0].sale, Some(merchant::Sale::Short));
-    // Step away, and with gold in the treasury the purchase goes to the
-    // cockpit to pay; the goods follow once it has.
     run.players.get_mut(&1).unwrap().x -= TILE_UNITS;
     run.step(&BTreeMap::new());
     run.players.get_mut(&1).unwrap().x += TILE_UNITS;
@@ -2240,7 +2182,6 @@ fn merchant_cards_obey_hand_capacity_and_holding_fire_never_rebuys() {
             assert_eq!(run.players[&1].carried.get(Spoil::Gold), 200);
             assert_eq!(run.players[&1].hand.len(), cards::HAND);
             assert_eq!(run.merchant.approaches[0].sale, Some(merchant::Sale::Full));
-            // Releasing a key is not enough to rearm; really leave the plate.
             run.players.get_mut(&1).unwrap().x -= TILE_UNITS;
             run.step(&BTreeMap::new());
             let hero = run.players.get_mut(&1).unwrap();
@@ -2310,7 +2251,7 @@ fn merchant_delves_use_safe_rooms_and_pause_for_a_live_mimic_without_rerolling()
     hero.bombs = 0;
     hero.carried.add(Spoil::Gold, 200);
     run.spawn_at_for_test(EnemyKind::Mimic, 10.0, 10.0);
-    run.dungeon.rooms[run.at].cleared = false; // a real awakened chest does this
+    run.dungeon.rooms[run.at].cleared = false;
     assert_eq!(
         run.merchant_camp(),
         Some(camp.clone()),
@@ -2332,7 +2273,6 @@ fn merchant_delves_use_safe_rooms_and_pause_for_a_live_mimic_without_rerolling()
         run.players[&1].carried.get(Spoil::Gold),
         200 - camp.offers[index].gold
     );
-    // A threat arriving after a purchase cannot silently rearm the plate.
     run.spawn_at_for_test(EnemyKind::Mimic, 10.0, 10.0);
     run.dungeon.rooms[run.at].cleared = false;
     run.tick_merchant();
@@ -2393,9 +2333,6 @@ fn merchant_simultaneous_knights_each_pay_once_from_their_own_purses() {
 
 #[test]
 fn two_knights_buying_at_once_each_get_their_own_at_once_and_are_told_alone() {
-    // 2026-10-19: "personal purchasing on the buttons and not wait on
-    // another player's purchase". The bomb plate for the first knight, the
-    // potion plate for their friend, both stepped onto in the same tick.
     let (mut run, camp, bomb) = merchant_fixture(Some("Friend"));
     let potion = camp
         .offers
@@ -2412,13 +2349,10 @@ fn two_knights_buying_at_once_each_get_their_own_at_once_and_are_told_alone() {
     }
     assert_eq!((run.players[&1].bombs, run.players[&2].hand.len()), (0, 0));
     run.step(&BTreeMap::new());
-    // The same tick: each has their own, from their own purse.
     assert_eq!(run.players[&1].bombs, 1);
     assert_eq!(run.players[&2].hand, ["potion"]);
     assert_eq!(run.players[&1].carried.get(Spoil::Gold), 200 - camp.offers[bomb].gold);
     assert_eq!(run.players[&2].carried.get(Spoil::Gold), 100 - camp.offers[potion].gold);
-    // Each is told on their own seat, and neither word lands on the line
-    // every screen shows.
     assert_eq!(run.merchant.approaches[0].sale, Some(merchant::Sale::Bought));
     assert_eq!(run.merchant.approaches[1].sale, Some(merchant::Sale::Bought));
     assert!(run.found.is_none());
@@ -2451,7 +2385,6 @@ fn two_knights_buying_from_the_treasury_at_once_are_both_paid_in_one_settling() 
     for _ in 0..merchant::STAND_TICKS {
         run.step(&BTreeMap::new());
     }
-    // Both asked in the one tick: neither waits for the other's to settle.
     let asked = [
         merchant::Purchase { knight: 1, offer: bomb, shop: merchant::Shop::Peddler },
         merchant::Purchase { knight: 2, offer: potion, shop: merchant::Shop::Peddler },

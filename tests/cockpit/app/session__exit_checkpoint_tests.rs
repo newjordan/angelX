@@ -87,7 +87,6 @@ fn exit_identical_pending_and_successful_retry_has_one_actual_writer_request() {
         ),
         "publication retains one shared snapshot, not serialized prompt copies"
     );
-    // Ordinary saves still create a fresh ticket, even for identical content.
     let ordinary = session
         .queue_history(&sender, Arc::clone(&history))
         .unwrap();
@@ -308,8 +307,6 @@ fn exit_equal_json_numbers_with_different_bytes_require_a_new_writer_request() {
         serde_json::to_vec(&recovered.history[0].tool_calls[0].args).unwrap(),
         expected_args
     );
-    // Decode into distinct Arc allocations so exact-equal arguments exercise
-    // serialization equality as well as the ordinary pointer fast path.
     let exact_clone: Vec<ChatMsg> =
         serde_json::from_slice(&serde_json::to_vec(changed_history.as_ref()).unwrap()).unwrap();
     let third = session

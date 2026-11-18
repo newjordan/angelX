@@ -9,23 +9,14 @@ use std::time::{Duration, Instant};
 use angel_glass::GridSize;
 use angel_glass::remote::{Knight, KnightStatus, Presence, wire};
 
-/// The environment variable that makes a launch a session's process, naming
-/// the session.
 const SERVE_ENV: &str = "ANGEL_SESSION_SERVE";
 
-/// The session this process is to serve, when it is one.
 pub(crate) fn serve_requested() -> Option<String> {
     std::env::var(SERVE_ENV).ok().filter(|name| super::valid_name(name))
 }
 
-/// The far end of an attach, run by `ssh <host> angelX --session-host
-/// <name>`: find the session or start it, then relay the link between this
-/// process's stdin and stdout and the session's socket until either side
-/// closes. The session outlives it.
 pub(crate) fn host_session(name: &str) -> io::Result<()> {
     let session = connect_or_start(name)?;
-    // Unbuffered stdout: a frame must leave when it is written, not when a
-    // line ends.
     let mut out = raw_fd(1);
     out.write_all(wire::MAGIC)?;
     out.flush()?;
@@ -40,7 +31,6 @@ pub(crate) fn host_session(name: &str) -> io::Result<()> {
     Ok(())
 }
 
-/// Copy until either side closes, writing each read at once.
 fn pump(from: &mut impl Read, to: &mut impl Write) -> io::Result<()> {
     let mut buffer = vec![0u8; 256 << 10];
     loop {
@@ -57,17 +47,14 @@ fn pump(from: &mut impl Read, to: &mut impl Write) -> io::Result<()> {
 
 fn raw_fd(fd: i32) -> std::mem::ManuallyDrop<std::fs::File> {
     use std::os::fd::FromRawFd;
-    // The standard streams stay open for the process's life.
     std::mem::ManuallyDrop::new(unsafe { std::fs::File::from_raw_fd(fd) })
 }
 
-/// The session's socket, starting the session when none answers.
 pub(crate) fn connect_or_start(name: &str) -> io::Result<UnixStream> {
     let socket = super::socket(name)?;
     if let Ok(stream) = UnixStream::connect(&socket) {
         return Ok(stream);
     }
-    // One starter at a time: two windows attaching at once start one session.
     let lock_path = super::dir()?.join(format!("{name}.lock"));
     let lock = std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(&lock_path)?;
     use std::os::fd::AsRawFd;
@@ -97,13 +84,8 @@ fn log(name: &str) -> io::Result<PathBuf> {
     Ok(super::dir()?.join(format!("{name}.err")))
 }
 
-/// Start the session's process: this same binary, in a session of its own
-/// (no terminal, no SSH connection it could die with), its stderr in the
-/// session's log.
 fn start(name: &str) -> io::Result<()> {
     use std::os::unix::process::CommandExt;
-    // The launcher runs a private link to the binary and removes it when it
-    // exits; /proc/self/exe stays good after that.
     let exe = if cfg!(target_os = "linux") {
         PathBuf::from("/proc/self/exe")
     } else {
@@ -112,10 +94,8 @@ fn start(name: &str) -> io::Result<()> {
     let log = std::fs::OpenOptions::new().create(true).append(true).open(log(name)?)?;
     let mut command = std::process::Command::new(exe);
     command
-        // `ps` names it for what it is.
         .arg0(format!("angelX-session:{name}"))
         .env(SERVE_ENV, name)
-        // Its children (the shell pane) are not windows.
         .env("ANGEL_GLASS", "0")
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
@@ -130,8 +110,6 @@ fn start(name: &str) -> io::Result<()> {
     Ok(())
 }
 
-/// The session's process: the cockpit under a host with no window, and a
-/// socket where windows (and `--sessions`) find it.
 pub(crate) fn serve(
     name: &str,
     launch: crate::interactive_launch::InteractiveLaunch,
@@ -145,7 +123,6 @@ pub(crate) fn serve(
         std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o600))?;
     }
     eprintln!("=== {} session {name} pid {} ===", chrono_now(), std::process::id());
-    // No cell pixels until a window says (its window opens after its hello).
     let size = GridSize { cols: 120, rows: 40, ..GridSize::default() };
     let (host, hub) = angel_glass::remote::headless(name, size);
     {
@@ -166,7 +143,6 @@ pub(crate) fn serve(
             }
         })?;
     }
-    // The first window sizes the cockpit, cells and pixels, before it draws.
     let deadline = Instant::now() + Duration::from_secs(10);
     while (hub.status().clients == 0 || hub.status().size.cell_width == 0) && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(10));
@@ -188,8 +164,6 @@ pub(crate) fn serve(
     };
     let _ = std::fs::remove_file(&socket);
     match result {
-        // `/self reborn`: the new binary takes the session over; windows
-        // see their link drop and attach again.
         Ok(Some(reborn)) => crate::phoenix(Ok(Some(reborn))),
         other => {
             hub.end("the cockpit quit");
@@ -198,19 +172,14 @@ pub(crate) fn serve(
     }
 }
 
-/// The session's hub, for the cockpit's loop to say who is at work.
 static HUB: std::sync::OnceLock<(angel_glass::remote::Hub, String)> = std::sync::OnceLock::new();
 
-/// Who is at work in the session, for kingdoms watching it
-/// (docs/REMOTE_GLASS.md, "Presence").
 fn presence(hub: angel_glass::remote::Hub, workspace: PathBuf) {
     let workspace = workspace.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     hub.set_presence(Presence { workspace: workspace.clone(), ..Presence::default() });
     let _ = HUB.set((hub, workspace));
 }
 
-/// After each drawn frame, at most once a second: the serving houses'
-/// knights as the session's presence. Nothing outside a session.
 pub(crate) fn presence_tick(app: &crate::app::App) {
     use std::sync::Mutex;
     static LAST: Mutex<Option<Instant>> = Mutex::new(None);

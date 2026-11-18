@@ -7,7 +7,7 @@ was approved by hand. Files under `ui/` are crops of those captures.
 
 | Image | Shown behavior |
 |---|---|
-| [Startup](intro.png) | Fresh launch: Excalibur raised, the knight on the summit. |
+| [Startup](intro.png) | Fresh launch of angelX 0.2.7 in its own window on Muse Spark 1.3 (captured 2026-11-08, the frame the glass window saved of itself): Excalibur in the stone, the knight above the hill. |
 | [Task](task.png) | GLM-5.3 reads the crate while the knight rides to the Scriptorium. |
 | [Model picker](ui/model-picker.png) | `/model` with each route's thinking level. |
 | [Thinking picker](ui/think-picker.png) | `/think` for the selected route. |

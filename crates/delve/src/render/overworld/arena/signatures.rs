@@ -52,8 +52,6 @@ pub(super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option
     } else {
         0
     };
-    // Alternating diagonal pairs plant, swing forward, lift, then reach back.
-    // The wide knees and splayed toes stay outside the boiler in every pose.
     for side in [-1, 1] {
         for leg in 0..4 {
             let phase = (step + leg as u32 + u32::from(side > 0) * 2) % 4;
@@ -76,7 +74,6 @@ pub(super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option
             im.line(foot.0 - 2, foot.1, foot.0 + 2, foot.1, 't');
         }
     }
-    // Cool iron and lit brass separate the boiler from the warm cave floor.
     im.ellipse(48.0, 31.0 + bob as f32, 16.0, 12.0, 'J');
     im.ellipse(49.0, 32.0 + bob as f32, 15.0, 10.0, 'g');
     im.ellipse(49.0, 29.0 + bob as f32, 14.0, 7.0, 'G');
@@ -99,7 +96,6 @@ pub(super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option
     for x in (24..65).step_by(7) {
         im.put(x, 45 + bob, 'T');
     }
-    // Flared funnel, with a permanent moving soot plume within the silhouette.
     im.rect(33, 10 + bob, 9, 15, 'G');
     im.rect(34, 11 + bob, 6, 13, 'g');
     im.line(34, 11 + bob, 34, 24 + bob, 'h');
@@ -113,8 +109,6 @@ pub(super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option
         im.ellipse(cx as f32 + 1.0, cy as f32 + 1.0, (3 + k) as f32, 2.0, 'g');
         im.line(cx - 2, cy - 2, cx + 2, cy - 2, 'J');
     }
-    // The porcelain mask is the focal point: shaded cream, cracks, red lamps,
-    // and a broad black crescent full of irregular teeth.
     let fy = 32 + bob;
     im.ellipse(29.0, fy as f32, 13.0, 15.0, 'o');
     im.ellipse(29.0, fy as f32 - 1.0, 12.0, 14.0, 'h');
@@ -153,8 +147,6 @@ pub(super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option
     Some(im)
 }
 
-/// A guardian at one of its file's charge-ups: crouched lower and wider as
-/// it winds up, shaking at the last; up in the air as it leaps.
 fn winding_figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option<Img> {
     let up = fight::winding(enemy, boss)?;
     let index = enemy.boss?;
@@ -183,7 +175,6 @@ fn winding_figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option<Im
     }
 }
 
-/// `im` drawn `kx` as wide and `ky` as tall, its feet where they were.
 fn squash(im: &Img, kx: f32, ky: f32) -> Img {
     let (w, h) = (
         (im.w as f32 * kx).round().max(1.0) as i32,
@@ -234,7 +225,6 @@ pub(super) fn tender(tick: u32) -> Img {
         im.rect(x, y, 4, 4, 'K');
         im.line(x, y, x + 2, y, 'G');
     }
-    // One hanging lantern, large enough to survive terminal sampling.
     im.rect(12, 12, 7, 7, 't');
     im.rect(13, 13, 5, 5, '7');
     im.rect(14, 14, 3, 3, '@');
@@ -243,8 +233,6 @@ pub(super) fn tender(tick: u32) -> Img {
     im
 }
 
-/// Wide spiders stand with their boiler/coal bed over the collision centre.
-/// Their feet reach one hit radius below it in the top-down view as well.
 pub(super) fn foot_lift(run: &Run, enemy: &Enemy) -> f32 {
     if enemy.kind == crate::rules::EnemyKind::Spiderling && enemy.stage == fight::TENDER
         || enemy
@@ -275,7 +263,6 @@ fn rail(cv: &mut Img, r: &fight::Rail, width: f32, lit: bool, stage: u8, tick: u
     } else {
         'U'
     };
-    // Sleepers and rails bound the actual swept collision corridor.
     for n in (0..d as i32).step_by(10) {
         let (x, y) = (
             a.0 + (dx as f32 * n as f32 / d) as i32,
@@ -331,8 +318,6 @@ fn glow(cv: &mut Img, x: i32, y: i32, reach: f32) {
     }
 }
 
-/// Three arms of dashes spiralling in on `(x, y)`: something drawing the
-/// room toward it.
 fn pull_arms(cv: &mut Img, x: i32, y: i32, tick: u64, (bright, dim): (char, char)) {
     let t = tick as f32 * 0.12;
     for arm in 0..3 {
@@ -346,7 +331,6 @@ fn pull_arms(cv: &mut Img, x: i32, y: i32, tick: u64, (bright, dim): (char, char
     }
 }
 
-/// A dotted ring on the floor, `rx` across, flattened to the floor's slant.
 fn floor_ring(cv: &mut Img, x: i32, y: i32, rx: f32, ink: char, dots: u32) {
     for k in 0..dots {
         let a = k as f32 / dots as f32 * TAU;
@@ -355,8 +339,6 @@ fn floor_ring(cv: &mut Img, x: i32, y: i32, rx: f32, ink: char, dots: u32) {
     }
 }
 
-/// A target closing in on `(x, y)`: a bold ring `rx` across and four
-/// brackets pointing in.
 fn closing(cv: &mut Img, x: i32, y: i32, rx: f32, ink: char) {
     for r in [rx, rx + 1.0] {
         floor_ring(cv, x, y, r, ink, 96);
@@ -372,9 +354,6 @@ fn closing(cv: &mut Img, x: i32, y: i32, rx: f32, ink: char) {
     }
 }
 
-/// A charge's lane from `a` to `b`, `width` either side: a warm dithered
-/// floor that fills in as the wind-up goes on (`t`), bright marching edges
-/// and chevrons the way it will come.
 fn lane(cv: &mut Img, a: (i32, i32), b: (i32, i32), width: f32, t: f32, tick: u64) {
     let d = ((b.0 - a.0) as f32).hypot((b.1 - a.1) as f32).max(1.0);
     let (ux, uy) = ((b.0 - a.0) as f32 / d, (b.1 - a.1) as f32 / d);
@@ -421,10 +400,6 @@ fn lane(cv: &mut Img, a: (i32, i32), b: (i32, i32), width: f32, t: f32, tick: u6
     }
 }
 
-/// The floor under a guardian winding up one of its file's charge-ups:
-/// a ring closing in on it as the blow nears, and where the blow will go —
-/// a charge's lane, a leap's growing shadow, a breath's pull. A slam's
-/// ripples and a beam's line draw themselves (`tide`, `volleys`).
 fn charge_marks(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss) {
     let Some(up) = fight::winding(e, b) else {
         return;
@@ -434,7 +409,6 @@ fn charge_marks(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss) {
     let hot = if pulse { '@' } else { '7' };
     let t = (e.timer as f32 / up.wind.max(1) as f32).min(1.0);
     if e.stage == fight::WIND {
-        // Closing in: wide and dim at first, tight and bright at the blow.
         let rx = e.radius() * UNIT * (2.4 - 1.2 * t) + 6.0;
         closing(cv, x, y, rx, if t > 0.66 { hot } else if t > 0.33 { '7' } else { 'o' });
     }
@@ -447,8 +421,6 @@ fn charge_marks(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss) {
             }
         }
         Windup::Leap if matches!(e.stage, fight::WIND | fight::JUMP) => {
-            // Where it will land: a warm shadow growing to the blow's full
-            // reach, ringed and crossed.
             let t = if e.stage == fight::WIND {
                 0.3 + 0.6 * t
             } else {
@@ -467,8 +439,6 @@ fn charge_marks(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss) {
             pull_arms(cv, x, y, run.tick, ('7', 'o'));
         }
         Windup::Slam if e.stage == fight::WIND => {
-            // Each shockwave ring where it will burst, warm and brightening,
-            // with its lane left dark.
             let lane = run
                 .ravages
                 .iter()
@@ -511,7 +481,6 @@ pub(super) fn under_with(cv: &mut Img, run: &Run) {
         let (x, y) = at(e.x, e.y);
         if b.id == fight::ENGINE {
             glow(cv, x, y + 16, e.radius() * UNIT + 10.0);
-            // Drifting steam curls catch lantern light while leaving floor gaps.
             if (e.stage == 0 && e.timer > 70) || (e.stage == fight::TELL && e.timer < 10) {
                 for k in 0..9 {
                     let drift = ((run.tick as i32 + k * 7) % 18) - 9;
@@ -645,7 +614,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
         } else if b.id == fight::ENGINE && e.stage == fight::TELL {
             cv.text(x + 45, y - 18, "SKREEEE", 'T');
         } else if let Some(up) = fight::winding(e, b).filter(|_| e.stage == fight::WIND) {
-            // Its cry beside it, in a box, lit at the last.
             let word = up.cry.as_str();
             let half = (e.radius() * UNIT * 1.6) as i32 + 6;
             let right = super::camera(run, None).0 + super::NATIVE_W;
@@ -668,14 +636,10 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
     }
 }
 
-/// A guardian's word in a box beside it at height `at.1`, on whichever side
-/// the screen has room, lit or dim.
 fn word_beside(cv: &mut Img, run: &Run, e: &Enemy, at: (i32, i32), word: &str, lit: bool) {
     word_on(cv, run, e, at, word, lit, true);
 }
 
-/// `word_beside` on its left (`right` false) or right, where the screen
-/// has room.
 fn word_on(cv: &mut Img, run: &Run, e: &Enemy, at: (i32, i32), word: &str, lit: bool, right: bool) {
     let (x, y) = at;
     let (left_edge, right_edge) = {
@@ -691,12 +655,8 @@ fn word_on(cv: &mut Img, run: &Run, e: &Enemy, at: (i32, i32), word: &str, lit: 
     cv.text(px, y, word, if lit { 'Y' } else { 'T' });
 }
 
-/// Under the Relic Liege: where it looks — its ward, a crescent of relic
-/// light on the floor before it, and a faint line of its gaze — and its
-/// open back, a gold arc behind it that beats while it stands spent.
 fn court_floor(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss) {
     let facing = e.dir.1.atan2(e.dir.0);
-    // Out past its robes, where the floor shows.
     let reach = e.radius() + 2.2;
     let spent = e.stage == fight::DAZED;
     let arc = |cv: &mut Img, centre: f32, half: f32, r: f32, ink: char, every: u32| {
@@ -712,12 +672,10 @@ fn court_floor(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss) {
         }
     };
     if !court::cracked(e, b) {
-        // The ward: a band of relic light, brightest at its middle.
         arc(cv, facing, 1.2, reach, 'T', 0);
         arc(cv, facing, 1.0, reach + 0.25, '6', 0);
         arc(cv, facing, 0.7, reach + 0.5, 'T', 4);
     }
-    // Its gaze, marching out from the ward.
     for k in 0..8 {
         if (k + run.tick as i32 / 3) % 3 == 0 {
             continue;
@@ -733,15 +691,11 @@ fn court_floor(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss) {
     arc(cv, back, 0.6, reach + 0.25, ink, if spent { 0 } else { 3 });
 }
 
-/// Over the Relic Liege: the one thing to do while it stands spent, its
-/// ward named, quietly, the first few times it turns a blow from the front
-/// (`fight::hinting`), and its word when its ward breaks.
 fn court_over(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss, x: i32, y: i32) {
     let body = e.radius() * UNIT;
     if e.stage == fight::DAZED && !court::cracked(e, b) {
         word_beside(cv, run, e, (x, y - body as i32), "STRIKE ITS BACK", run.tick / 6 % 2 == 0);
     } else if fight::hinting(e) && !court::cracked(e, b) {
-        // By its back, away from the knight it faces.
         word_on(cv, run, e, (x, y - body as i32), "WARDED", false, e.dir.0 < 0.0);
     }
     if e.cry > 0 {
@@ -749,8 +703,6 @@ fn court_over(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss, x: i32, y: i32) {
     }
 }
 
-/// Under Cinderjaw: the heat pooling round it while its furnace stands
-/// open, and the molten glow of its rage.
 fn furnace_floor(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss, x: i32, y: i32) {
     let body = e.radius() * UNIT;
     if furnace::venting(e, b) {
@@ -762,18 +714,11 @@ fn furnace_floor(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss, x: i32, y: i32) {
     }
 }
 
-/// Over Cinderjaw: its core blazing while the furnace stands open, with the
-/// one thing to do written beside it; sparks off its iron when a blow
-/// clangs, and the iron named, quietly, the first few times
-/// (`fight::hinting`); its word for a new stage of the fight; embers off it
-/// molten.
 fn furnace_over(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss, x: i32, y: i32) {
     let body = e.radius() * UNIT;
-    // The furnace grate in its art sits a body and a fifth above its feet.
     let core = (x, y - (body * 1.2) as i32);
     let word_box = |cv: &mut Img, word: &str, lit: bool, dy: i32| word_beside(cv, run, e, (x, y + dy), word, lit);
     if furnace::venting(e, b) {
-        // The furnace door: gold at the heart, in rings out to the red iron.
         let beat = (run.tick / 4 % 2) as f32;
         for (r, ink) in [(9.0 + beat, '7'), (6.0 + beat, '@'), (3.5, '6')] {
             for dy in -(r as i32)..=r as i32 {
@@ -784,7 +729,6 @@ fn furnace_over(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss, x: i32, y: i32) {
                 }
             }
         }
-        // Heat climbing off the open door.
         for k in 0..5 {
             let t = (run.tick as i32 + k * 5) % 16;
             let sx = core.0 - 8 + k * 4;
@@ -792,11 +736,9 @@ fn furnace_over(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss, x: i32, y: i32) {
         }
         word_box(cv, "HIT THE CORE", run.tick / 6 % 2 == 0, core.1 - y - 4);
     } else if furnace::armored(e, b) && e.hurt > 0 {
-        // A blow turned by the iron: short grey sparks off the core.
         for k in 0..8 {
             let a = k as f32 * TAU / 8.0 + e.hurt as f32 * 0.4;
             let (c, s) = (a.cos(), a.sin());
-            // Out past its silhouette, where the flash of the blow does not wash them out.
             let reach = if k % 2 == 0 { body + 12.0 } else { body + 5.0 };
             let from = (core.0 + (c * body * 0.8) as i32, core.1 + (s * body * 0.8) as i32);
             let to = (core.0 + (c * reach) as i32, core.1 + (s * reach) as i32);
@@ -807,7 +749,6 @@ fn furnace_over(cv: &mut Img, run: &Run, e: &Enemy, b: &Boss, x: i32, y: i32) {
         word_box(cv, "IRON", false, core.1 - y - 4);
     }
     if furnace::molten(e, b) {
-        // Embers dripping off it.
         for k in 0..6 {
             let t = (run.tick as i32 + k * 7) % 20;
             let sx = x - body as i32 + (k * 2 + 1) * body as i32 / 6;

@@ -9,28 +9,19 @@ use super::palette::*;
 use super::route::{Kind, Route};
 use crate::render::world3d::math::{V3, v3};
 
-/// The beat of the course: what stands beside the road, 1 pylons of fire, 2 crystal clusters, 3
-/// braziers and banners; 0 for none. A course keeps one beat from line to lap.
 pub fn beat_of(r: &dyn Route) -> u8 { style(r.zone(0.).0).beat }
 
-/// Metres between the beat's objects, one side then the other.
-pub fn pitch(beat: u8) -> f32 { match beat { 1 => 14., 2 => 18., 3 => 20., _ => 1e9 } }
-/// Metres between the truss arches.
+pub fn pitch(beat: u8) -> f32 { match beat { 1 => 14., 2 => 18., 3 => 20., 4 => 17., _ => 1e9 } }
 pub const TRUSS: f32 = 96.;
-/// Metres between the chevron boards of a bend.
 const CHEVRON: f32 = 9.;
-/// The tightest curvature (1/m) that is marked for the eye: a radius of about 150 m.
 const BEND: f32 = 0.0065;
 
-/// Whether the road at `s` is shut in by a vault, where nothing beside it can be seen.
 fn roofed(r: &dyn Route, s: f32) -> bool {
     r.pieces().iter().any(|p| matches!(p.kind, Kind::Tunnel | Kind::CrystalVault) && s >= p.s0 - 2. && s <= p.s1 + 2.)
 }
 
 fn open_air(r: &dyn Route, s: f32) -> bool { r.gaps().iter().any(|g| s >= g.s0 - 6. && s <= g.s1 + 6.) }
 
-/// The beat's object `k`: where it stands (just outside the barrier, on the barrier's cap level), its
-/// road frame and its side; none where the road is roofed, gapped, or off the lap.
 pub fn beat_at(r: &dyn Route, line: u8, k: i32) -> Option<(V3, Row, f32)> {
     let beat = beat_of(r);
     let s = k as f32 * pitch(beat) + if beat == 2 { 9. } else { 0. };
@@ -53,10 +44,10 @@ pub fn along(g: &mut Soup, r: &dyn Route, line: u8, s0: f32, s1: f32, lod: u8) {
             1 => pylon(g, r, p, row, lod),
             2 => cluster(g, r, p, row, sd, k, lod),
             3 => if k % 2 == 0 { brazier(g, r, p, row, sd, lod) } else { banner(g, r, p, row, sd, k, lod) },
+            4 => match k.rem_euclid(3) { 0 => cairn(g, r, p, row, sd, k, lod), 1 => reeds(g, p, row, sd, k, lod), _ => bone_spike(g, p, row, sd, k, lod) },
             _ => {}
         }
     }
-    // Chevron boards, on the outside of each bend.
     let (c0, c1) = ((s0 / CHEVRON).ceil() as i32, ((s1 - 1e-3) / CHEVRON).floor() as i32);
     for k in c0..=c1 {
         let s = k as f32 * CHEVRON;
@@ -66,7 +57,6 @@ pub fn along(g: &mut Soup, r: &dyn Route, line: u8, s0: f32, s1: f32, lod: u8) {
         let sd = if curve > 0. { -1.0 } else { 1.0 };
         chevron(g, r, s, sd, curve.signum());
     }
-    // Truss arches overhead, over the forge's road only.
     if beat != 1 { return; }
     let (a0, a1) = (((s0 - 40.) / TRUSS).ceil() as i32, ((s1 - 40. - 1e-3) / TRUSS).floor() as i32);
     for k in a0..=a1 {
@@ -79,14 +69,11 @@ pub fn along(g: &mut Soup, r: &dyn Route, line: u8, s0: f32, s1: f32, lod: u8) {
     }
 }
 
-/// The flame of beat object `k`, where it burns: the top of a pylon's bowl, a brazier's.
 pub fn flame_base(r: &dyn Route, k: i32) -> Option<V3> {
     let (p, _, _) = beat_at(r, 0, k)?;
     match beat_of(r) { 1 => Some(p + v3(0., 0., 4.86)), 3 if k % 2 == 0 => Some(p + v3(0., 0., 2.05)), _ => None }
 }
 
-/// A cluster of crystals standing outside the barrier, leaning away from the road, in cyan or
-/// violet by turns, and the pool of their light on the stone.
 fn cluster(g: &mut Soup, _r: &dyn Route, p: V3, row: Row, sd: f32, k: i32, lod: u8) {
     let violet = hash(k, 7, 31) < 0.5;
     let (a, b, tip, pool) = if violet { (VIOLET_DIM, VIOLET_FACET, VIOLET_GLOW, VIOLET_POOL) } else { (CYAN_DIM, CYAN_FACET, CYAN_GLOW, CYAN_POOL) };
@@ -105,7 +92,6 @@ fn cluster(g: &mut Soup, _r: &dyn Route, p: V3, row: Row, sd: f32, k: i32, lod: 
         let at = base + out * (0.9 + 1.1 * hash(k, i, 35) + i as f32 * 0.5) + along * ((i as f32 - 1.) * 1.4);
         facet(g, at, h, w, out * (0.5 + 0.6 * hash(k, i, 36)) + along * ((hash(k, i, 37) - 0.5) * 0.8), a, b, tip);
     }
-    // Its light on the road: a pool by the barrier, as long as the cluster is wide.
     if lod == 0 {
         let c = row.pt(sd * (row.half(sd) - 1.4), 0.05);
         let (l, f) = (v3(-row.sn * sd, row.cs * sd, 0.) * 3.0, along * 3.4);
@@ -113,7 +99,6 @@ fn cluster(g: &mut Soup, _r: &dyn Route, p: V3, row: Row, sd: f32, k: i32, lod: 
     }
 }
 
-/// A four-sided crystal whose faces alternate two lights, leaning by `lean`, with a bright tip.
 pub fn facet(g: &mut Soup, base: V3, h: f32, w: f32, lean: V3, a: u8, b: u8, tip: u8) {
     let ring = |z: f32, r: f32, shift: V3, i: usize| {
         let ang = i as f32 / 4. * std::f32::consts::TAU + 0.6;
@@ -127,8 +112,6 @@ pub fn facet(g: &mut Soup, base: V3, h: f32, w: f32, lean: V3, a: u8, b: u8, tip
     }
 }
 
-/// A brazier on an iron stand: a bowl of coals the flame stands in (the flame itself is drawn
-/// fresh each frame, by `ambient`), and a pool of warm light on the stones.
 fn brazier(g: &mut Soup, r: &dyn Route, p: V3, row: Row, sd: f32, lod: u8) {
     let st = style(r.zone(row.s).0);
     g.cuboid(p + v3(-0.14, -0.14, -0.4), p + v3(0.14, 0.14, 1.5), st.post);
@@ -142,7 +125,57 @@ fn brazier(g: &mut Soup, r: &dyn Route, p: V3, row: Row, sd: f32, lod: u8) {
     }
 }
 
-/// A pole with a banner hung from a crossbar, facing the road: the cup's colours down the course.
+fn cairn(g: &mut Soup, r: &dyn Route, p: V3, row: Row, sd: f32, k: i32, lod: u8) {
+    let st = style(r.zone(row.s).0);
+    let fr = Fr { o: p, f: v3(row.cs, row.sn, 0.), l: v3(-row.sn, row.cs, 0.) };
+    let c = sd * (0.7 + 0.25 * hash(k, 3, 41));
+    if lod >= 2 {
+        g.bx(&fr, (-0.2, 0.2), (c - 0.2, c + 0.2), (1.6, 2.2), st.glow);
+        return;
+    }
+    let j = |i: i32| (hash(k, i, 42) - 0.5) * 0.3;
+    g.bx_open(&fr, (-0.8 + j(1), 0.8 + j(1)), (c - 0.72, c + 0.72), (-1.5, 0.55), st.masonry);
+    g.bx(&fr, (-0.55 + j(2), 0.55 + j(2)), (c + j(3) - 0.52, c + j(3) + 0.52), (0.55, 1.25), st.rail);
+    g.bx(&fr, (-0.36 + j(4), 0.36 + j(4)), (c + j(5) - 0.34, c + j(5) + 0.34), (1.25, 1.75), st.masonry);
+    g.bx(&fr, (-0.3, 0.3), (c - 0.3, c + 0.3), (1.75, 1.83), st.rail_cap);
+    g.bx(&fr, (-0.17, 0.17), (c - 0.17, c + 0.17), (1.83, 2.25), st.glow);
+    g.bx(&fr, (-0.22, 0.22), (c - 0.22, c + 0.22), (2.25, 2.33), st.rail_cap);
+    if lod == 0 {
+        let at = row.pt(sd * (row.half(sd) - 1.2), 0.045);
+        let (l, f) = (v3(-row.sn * sd, row.cs * sd, 0.) * 2.0, v3(row.cs, row.sn, 0.) * 2.4);
+        g.quad(at - l - f, at + l - f, at + l + f, at - l + f, st.pool);
+    }
+}
+
+fn reeds(g: &mut Soup, p: V3, row: Row, sd: f32, k: i32, lod: u8) {
+    if lod >= 2 { return; }
+    let out = v3(-row.sn * sd, row.cs * sd, 0.);
+    let along = v3(row.cs, row.sn, 0.);
+    let n = if lod == 0 { 7 } else { 4 };
+    let base = p + v3(0., 0., -1.0);
+    for i in 0..n {
+        let h = 3.0 + 3.0 * hash(k, i, 44);
+        let at = base + out * (0.5 + 0.9 * hash(k, i, 45)) + along * ((hash(k, i, 46) - 0.5) * 2.4);
+        let tip = at + out * (0.4 + 1.2 * hash(k, i, 47)) + v3(0., 0., h);
+        g.spike(at, tip, 0.1 + 0.05 * hash(k, i, 48), WA_BONE);
+        if i == 0 { g.cuboid(tip - v3(0.1, 0.1, 0.1), tip + v3(0.1, 0.1, 0.16), WA_LANTERN_DIM); }
+    }
+}
+
+fn bone_spike(g: &mut Soup, p: V3, row: Row, sd: f32, k: i32, lod: u8) {
+    let out = v3(-row.sn * sd, row.cs * sd, 0.);
+    let h = 5.0 + 3.0 * hash(k, 51, 49);
+    let foot = p + out * 0.9 + v3(0., 0., -1.4);
+    let r = 0.55 + 0.2 * hash(k, 52, 49);
+    if lod >= 2 { g.spike(foot + v3(0., 0., 1.4), foot + v3(0., 0., h * 0.7), r, WA_BONE); return; }
+    g.column(foot, 1.9, r * 1.5, r * 1.1, 5, WA_BONE);
+    g.spike(foot + v3(0., 0., 1.9), foot + out * (0.6 + 0.8 * hash(k, 53, 49)) + v3(0., 0., h), r, WA_BONE);
+    if lod == 0 {
+        let side = v3(row.cs, row.sn, 0.) * 0.7;
+        g.spike(foot + side + v3(0., 0., 1.4), foot + side + out * 0.5 + v3(0., 0., h * 0.55), r * 0.6, WA_BONE);
+    }
+}
+
 fn banner(g: &mut Soup, r: &dyn Route, p: V3, row: Row, sd: f32, k: i32, lod: u8) {
     let st = style(r.zone(row.s).0);
     let fr = Fr { o: p, f: v3(row.cs, row.sn, 0.), l: v3(-row.sn, row.cs, 0.) };
@@ -157,7 +190,6 @@ fn banner(g: &mut Soup, r: &dyn Route, p: V3, row: Row, sd: f32, k: i32, lod: u8
     g.quad(fr.pt(0.06, l0, 5.9), fr.pt(0.06, l1, 5.9), fr.pt(0.06, l1, 5.6), fr.pt(0.06, l0, 5.6), TORCH_DIM);
 }
 
-/// An iron post on the barrier with a bowl of coals and a band of heat, a flame on top.
 fn pylon(g: &mut Soup, r: &dyn Route, p: V3, row: Row, lod: u8) {
     let st = style(r.zone(row.s).0);
     let fr = Fr { o: p, f: v3(row.cs, row.sn, 0.), l: v3(-row.sn, row.cs, 0.) };
@@ -170,33 +202,28 @@ fn pylon(g: &mut Soup, r: &dyn Route, p: V3, row: Row, lod: u8) {
     g.quad(p + v3(-0.46, -0.46, 4.63), p + v3(0.46, -0.46, 4.63), p + v3(0.46, 0.46, 4.63), p + v3(-0.46, 0.46, 4.63), WINDOW_HOT);
     if lod == 0 {
         g.bx_open(&fr, (-0.33, 0.33), (-0.33, 0.33), (2.2, 2.4), SEAM);
-        // The flame that never goes out; the near ones are lit again by `ambient`.
         g.spike(p + v3(0., 0., 4.63), p + v3(0., 0., 5.7), 0.34, FLAME_LICK);
     }
 }
 
-/// A board on the outside of a bend, facing the pod, with a gold chevron pointing the way round.
-/// `turn` is +1 for a bend to the left.
 fn chevron(g: &mut Soup, r: &dyn Route, s: f32, sd: f32, turn: f32) {
     let row = row_on(r, 0, s);
     let st = style(r.zone(s).0);
     let fr = Fr::on(&row, 0.);
     let l = sd * (row.half(sd) + 1.7);
     let z0 = row.pt(l, 0.).z - row.h;
-    // The post, the black face and the two arms.
     g.cuboid(fr.pt(-0.12, l - 0.12, z0 - 0.4), fr.pt(0.12, l + 0.12, z0 + 1.0), st.post);
     let (w, h) = (1.5, 0.95);
     let (c, zc) = (l, z0 + 1.0 + h);
-    g.quad(fr.pt(-0.14, c - w, zc - h), fr.pt(-0.14, c + w, zc - h), fr.pt(-0.14, c + w, zc + h), fr.pt(-0.14, c - w, zc + h), HAZARD_BLACK);
+    g.quad(fr.pt(-0.14, c - w, zc - h), fr.pt(-0.14, c + w, zc - h), fr.pt(-0.14, c + w, zc + h), fr.pt(-0.14, c - w, zc + h), st.chevron[0]);
     let tip = c + turn * 0.9;
     let back = c - turn * 0.8;
     for dz in [1.0f32, -1.0] {
         let (top0, top1) = (zc + dz * 0.78, zc + dz * 0.5);
-        g.quad(fr.pt(-0.17, back, top0), fr.pt(-0.17, tip, zc + dz * 0.08), fr.pt(-0.17, tip, zc - dz * 0.2), fr.pt(-0.17, back, top1), HAZARD_GOLD);
+        g.quad(fr.pt(-0.17, back, top0), fr.pt(-0.17, tip, zc + dz * 0.08), fr.pt(-0.17, tip, zc - dz * 0.2), fr.pt(-0.17, back, top1), st.chevron[1]);
     }
 }
 
-/// A truss over the road, above the chase lens, with a row of furnace lights hung under it.
 fn truss(g: &mut Soup, r: &dyn Route, s: f32) {
     let row = row_on(r, 0, s);
     let st = style(r.zone(s).0);
@@ -208,20 +235,17 @@ fn truss(g: &mut Soup, r: &dyn Route, s: f32) {
         g.bx(&fr, (-0.55, 0.55), (sd * w - 0.6, sd * w + 0.6), (7.6, 7.8), SEAM);
     }
     g.bx(&fr, (-0.4, 0.4), (-w, w), (12.4, 13.4), st.plate);
-    // Diagonals of the truss.
     let t = 10;
     for i in 0..t {
         let (l0, l1) = (-w + 2. * w * i as f32 / t as f32, -w + 2. * w * (i + 1) as f32 / t as f32);
         let (a, b) = if i % 2 == 0 { (11.6, 12.4) } else { (12.4, 11.6) };
         g.quad(fr.pt(0., l0, a), fr.pt(0., l1, b), fr.pt(0., l1, b + 0.22), fr.pt(0., l0, a + 0.22), st.plate);
     }
-    // Furnace lights under the beam: a hot strip and four lamps.
     g.bx(&fr, (-0.3, 0.3), (-w * 0.92, w * 0.92), (11.3, 11.55), SEAM);
     for i in 0..5 {
         let l = -w * 0.8 + 1.6 * w * i as f32 / 4.;
         g.bx(&fr, (-0.55, 0.55), (l - 0.55, l + 0.55), (10.4, 11.3), WINDOW_HOT);
     }
-    // A banner on the face the pods see, black with a gold bar.
     g.quad(fr.pt(-0.46, -w * 0.5, 12.2), fr.pt(-0.46, w * 0.5, 12.2), fr.pt(-0.46, w * 0.5, 10.5), fr.pt(-0.46, -w * 0.5, 10.5), HAZARD_BLACK);
     g.quad(fr.pt(-0.5, -w * 0.46, 11.6), fr.pt(-0.5, w * 0.46, 11.6), fr.pt(-0.5, w * 0.46, 11.1), fr.pt(-0.5, -w * 0.46, 11.1), HAZARD_GOLD);
 }

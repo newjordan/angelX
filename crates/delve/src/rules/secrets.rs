@@ -13,21 +13,15 @@ use super::*;
 use crate::realm::{Spoil, Spoils};
 use std::collections::VecDeque;
 
-/// A keg or a hob's bomb this close to the crack brings it down too.
 pub const CRACK_REACH: f32 = 7.0;
-/// How near the crack a Master Mason's swing works it free, arena units.
 const EYE_HAND: f32 = 2.5;
-/// How close a knight comes before Snibbet pays up, and how many piles.
 const SNIBBET_REACH: f32 = 5.0;
 const HUSH_MONEY: usize = 8;
 
-/// Where Snibbet sits in his vault: its middle, a little north.
 pub fn snibbet_at(room: &Room) -> (f32, f32) {
     (room.width() / 2.0, room.height() / 2.0 - 2.0)
 }
 
-/// West of the centre stair pad, on floor if the generator left any.
-/// The pad is a 2×2 of stair tiles; standing on it goes down.
 pub fn stair_landing(room: &Room) -> (f32, f32) {
     let cx = room.cols as i32 / 2 - 1;
     let cy = room.rows as i32 / 2 - 1;
@@ -43,14 +37,10 @@ pub fn stair_landing(room: &Room) -> (f32, f32) {
     )
 }
 
-/// The north lip of the Pit, off the beast's perch in the middle.
 pub fn sunk_reed_at(room: &Room) -> (f32, f32) {
     (room.width() / 2.0, room.height() / 2.0 - 4.0)
 }
 
-/// The Low Wick: the side-on ledge's far east nook, past its second pit,
-/// where a knight stands on the last step (a body's middle, `FOOT` above
-/// the stone it stands on). Reached only by a jump, never on the way in.
 pub fn low_wick_at(room: &Room) -> (f32, f32) {
     let (cols, rows) = (room.cols as i32, room.rows as i32);
     for c in (cols / 2..cols - 1).rev() {
@@ -65,14 +55,10 @@ pub fn low_wick_at(room: &Room) -> (f32, f32) {
     (room.width() - 3.0, room.height() / 2.0)
 }
 
-/// The Damp Sill: the wet stone at a hall's crossing.
 pub fn damp_sill_at(room: &Room) -> (f32, f32) {
     (room.width() / 2.0, room.height() / 2.0)
 }
 
-/// The room of `kind` farthest from a floor's entrance through its doors
-/// (the first of them, when two are as far): the Salt Niche's fight room
-/// and the Damp Sill's hall, one a floor.
 pub fn farthest(floor: &Floor, kind: RoomKind) -> Option<usize> {
     let mut dist = vec![usize::MAX; floor.rooms.len()];
     dist[0] = 0;
@@ -92,41 +78,27 @@ pub fn farthest(floor: &Floor, kind: RoomKind) -> Option<usize> {
         .max_by_key(|&i| (dist[i], std::cmp::Reverse(i)))
 }
 
-/// What lifts a small secret, done within its reach.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Act {
-    /// A knight keeping vigil.
     Vigil,
-    /// A knight keeping vigil while carrying this spoil, one of which the
-    /// secret takes.
     Offer(Spoil),
-    /// A shield held up.
     Shield,
-    /// A knight's bomb going off.
     Bomb,
-    /// A healing card played (a potion drunk).
     Draught,
 }
 
-/// A small secret waiting in the room the party is in.
 #[derive(Clone, Copy, Debug)]
 pub struct Waiting {
-    /// Its key's word (`cup:{depth}`), and its cues' (`secret_found:cup`,
-    /// `secret_hint:cup`).
     pub name: &'static str,
     pub card: &'static str,
     pub at: (f32, f32),
     pub reach: f32,
     pub act: Act,
-    /// What the notice line says when it lifts.
     pub says: &'static str,
-    /// The Herald may hint at it now (one hint at a time at one altar).
     pub hints: bool,
 }
 
 impl Run {
-    /// A blast in this room: a knight's bomb (`at` none: it fills the
-    /// room) or a keg's or a hob's (near the crack, or nothing).
     pub(super) fn blast_wall(&mut self, at: Option<(f32, f32)>) {
         let Some((host, cx, cy)) = self.dungeon.crack() else {
             return;
@@ -148,10 +120,6 @@ impl Run {
         self.notice("secret_room");
     }
 
-    /// A mason's eye (`trades`): a knight with the cutter's, the setter's or
-    /// the Master Mason's trade hears the cracked wall ring hollow from as
-    /// far as their rank reaches, and a Master's mallet works it free with a
-    /// swing, no bomb wanted.
     pub(super) fn tick_mason_eye(&mut self, inputs: &BTreeMap<u32, Input>) {
         let Some((host, cx, cy)) = self.dungeon.crack() else { return };
         if host != self.at {
@@ -188,8 +156,6 @@ impl Run {
         }
     }
 
-    /// A knight's bomb on an open map: the crack comes down when it went
-    /// off beside it.
     pub(super) fn blast_wall_open(&mut self, at: (f32, f32)) {
         if self
             .dungeon
@@ -200,8 +166,6 @@ impl Run {
         }
     }
 
-    /// Snibbet's vault: the first knight to walk up to him is paid to
-    /// forget he was ever here, gold heaped at their feet.
     pub(super) fn tick_snibbet(&mut self) {
         let Some(secret) = self.dungeon.secret.filter(|s| s.snibbet && !s.paid) else {
             return;
@@ -234,7 +198,6 @@ impl Run {
         self.found = Some((self.tick, 0, "It's a secret to everybody.".into()));
     }
 
-    /// The small secrets waiting in this room, whether or not lifted.
     pub fn waiting_secrets(&self) -> Vec<Waiting> {
         let (room, depth) = (self.room(), self.dungeon.depth);
         let at_altar = |name, card, act, says, hints| Waiting {
@@ -248,8 +211,6 @@ impl Run {
         };
         let mut here = Vec::new();
         match room.kind {
-            // The Empty Cup, and below it on the deeper floors the Glass
-            // Altar, which is hinted at once the cup is lifted.
             RoomKind::Sanctuary if depth >= 2 => {
                 here.push(at_altar(
                     "cup",
@@ -269,7 +230,6 @@ impl Run {
                     ));
                 }
             }
-            // The Unbroken Seal: a chest nobody has opened yet.
             RoomKind::Treasure if depth >= 2 => {
                 if let Some(chest) = room.chest.filter(|c| !c.open) {
                     here.push(Waiting {
@@ -283,7 +243,6 @@ impl Run {
                     });
                 }
             }
-            // The Salt Niche: the heart of the floor's farthest fight.
             RoomKind::Fight
                 if depth >= 2
                     && room.cleared
@@ -299,7 +258,6 @@ impl Run {
                     hints: true,
                 });
             }
-            // Banked Coal: the heart of the dragon's lair, once it is slain.
             RoomKind::Lair if room.cleared => here.push(Waiting {
                 name: "coal",
                 card: "cinder-wick",
@@ -309,7 +267,6 @@ impl Run {
                 says: "The banked coal wakes: a Cinder Wick.",
                 hints: true,
             }),
-            // The Stair Lantern: the landing beside a won stair.
             RoomKind::Stairs if depth >= 2 && room.cleared => here.push(Waiting {
                 name: "lantern",
                 card: "lantern-mote",
@@ -319,7 +276,6 @@ impl Run {
                 says: "The stair lantern drinks: a Lantern Mote.",
                 hints: true,
             }),
-            // The Sunk Reed: the lip of the Pit, its beast slain.
             RoomKind::Pit if depth >= 2 && room.cleared => here.push(Waiting {
                 name: "reed",
                 card: "reed-flute",
@@ -329,8 +285,6 @@ impl Run {
                 says: "Up from the pit: a Reed Flute.",
                 hints: true,
             }),
-            // The Low Wick: the side-on ledge's far nook, with wax, on a
-            // floor that sheds it (spoils are banked at every stair).
             RoomKind::Ledge if self.dungeon.pack.kin() == Pack::Crypt => here.push(Waiting {
                 name: "wick",
                 card: "choir-crumb",
@@ -340,8 +294,6 @@ impl Run {
                 says: "The low wick takes your wax: a Choir Crumb.",
                 hints: true,
             }),
-            // The Damp Sill: the floor's farthest hall, with ore, on a
-            // floor of the Mines' kin.
             RoomKind::Hall
                 if self.dungeon.pack.kin() == Pack::Cavern
                     && farthest(&self.dungeon, RoomKind::Hall) == Some(self.at) =>
@@ -361,9 +313,6 @@ impl Run {
         here
     }
 
-    /// Each tick of a delve: a small secret here lifts for its act done
-    /// within its reach (`booms`: where knights' bombs went off, `draughts`:
-    /// where healing cards were played), or hints once for a knight near it.
     pub(super) fn small_secrets(&mut self, booms: &[(f32, f32)], draughts: &[(f32, f32)]) {
         if self.dungeon.depth == 0 {
             return;
@@ -413,10 +362,6 @@ impl Run {
         }
     }
 
-    /// A small secret lifts: its card on open floor beside its place, out
-    /// of every knight's reach so it is seen before it is taken; the notice
-    /// line; and the cue Wren's bounty and the Herald hear. A card the book
-    /// cannot hold is no secret to find.
     fn lift(&mut self, key: String, secret: &Waiting) {
         if self.book.get(secret.card).is_none() {
             return;
@@ -455,8 +400,6 @@ impl Run {
         self.found = Some((self.tick, 0, secret.says.into()));
     }
 
-    /// The first walk into the room with the crack: the Herald notices the
-    /// wall.
     pub(super) fn notice_crack(&mut self, first_visit: bool) {
         if first_visit
             && self

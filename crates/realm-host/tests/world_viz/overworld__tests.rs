@@ -1,8 +1,6 @@
 use super::ink::{BLACK, PALETTE, is_signal, palette_index, rgb};
 use super::*;
 
-/// The set piece that holds a place: its authored screen where the realm
-/// sets it.
 fn screen_of(place: Place) -> View {
     let (tx, ty) = place.stand();
     let (ox, oy) = map::screen_origin(tx.div_euclid(SCREEN_W), ty.div_euclid(SCREEN_H));
@@ -80,7 +78,6 @@ fn southern_precinct_preserves_the_original_map_and_landmark_coordinates() {
         for ax in 0..4 {
             for (y, row) in Realm::authored_rows(ax, ay).iter().enumerate() {
                 for (x, byte) in row.bytes().enumerate() {
-                    // The only opening in the old border: the village's new south gate.
                     if (ax, ay, x, y) == (1, 2, 7, 10) {
                         continue;
                     }
@@ -111,8 +108,6 @@ fn southern_precinct_preserves_the_original_map_and_landmark_coordinates() {
     for (place, expected) in Place::ALL.iter().zip(original_stands) {
         assert_eq!(place.stand(), expected, "{place:?} moved");
     }
-    // The precinct's set pieces now stand along the town's south street,
-    // each reached from the Village.
     for place in [Place::ArtisanQuarter, Place::Colosseum, Place::Tournament] {
         let path = live::route(Place::Village.stand_world(), place.stand_world());
         assert_eq!(
@@ -125,9 +120,6 @@ fn southern_precinct_preserves_the_original_map_and_landmark_coordinates() {
 
 #[test]
 fn every_road_joins_the_one_network() {
-    // Roads, streets and bridges are one network from the Keep's door: no
-    // stretch of road ends in a field on its own. (Corner to corner joins:
-    // the Dragon Keep's door tile meets its road at a corner.)
     let realm = Realm::get();
     let road = |(x, y): (i32, i32)| x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && matches!(realm.at(x, y), b'=' | b':' | b'H');
     let start = Place::Keep.stand_world();
@@ -237,7 +229,6 @@ fn light_means_activity() {
         work.lights.len() > rest.lights.len(),
         "live work casts light"
     );
-    // The gate torches, College lamp and knight light a resting realm.
     assert_eq!(rest.lights.len(), 4);
 }
 
@@ -263,13 +254,11 @@ fn the_knight_frames_his_own_screen() {
         (FRAME_W, FRAME_H),
         "no HUD band: the frame is the world"
     );
-    // At home in the Keep's set piece, the frame is the set piece whole.
     assert_eq!(View::screen_at(s.knight.x, s.knight.y), screen_of(Place::Keep));
     assert_eq!(Place::Lists.screen(), (9, 5));
     assert_eq!(Place::Keep.screen(), (5, 4), "the town sits in the middle band");
 }
 
-/// Offline renders for review: `ANGEL_OVERWORLD_SHOTS=<dir> cargo test ... -- --ignored`.
 #[test]
 #[ignore]
 fn write_overworld_shots() {
@@ -364,7 +353,6 @@ fn write_overworld_shots() {
     bog.wisps = true;
     save("swamp.ppm", &frame_at(&bog, screen_of(Place::Swamp)));
     save("wards.ppm", &frame_at(&busy(6), screen_of(Place::Wards)));
-    // Pane-shaped views at the locked scale: a tall narrow pane, a wide one.
     save("pane_tall.ppm", &frame_sized(&busy(6), 170, 330));
     for (name, (sx, sy)) in [
         ("waterfall", (2, 1)),
@@ -388,7 +376,6 @@ fn write_overworld_shots() {
         &frame_at(&reading, screen_of(Place::Scriptorium)),
     );
     save("pane_wide.ppm", &frame_sized(&busy(6), 420, 200));
-    // The March: the model houses' castles, the serving houses' banners up.
     let mut march = busy(6);
     let up: Vec<_> = ["deepseek", "kimi", "grok"]
         .into_iter()
@@ -433,8 +420,6 @@ fn the_palette_is_the_realm_master_palette() {
         }
     }
 }
-
-// ─── the live map ────────────────────────────────────────────────────────────
 
 use crate::telemetry::ToolEventId;
 use crate::world_viz::World;
@@ -577,8 +562,6 @@ fn night_sinks_below_the_dusk_mood() {
     assert!(live::ambient_for(0.55) < light::DUSK - 0.1);
 }
 
-// ─── painting it ─────────────────────────────────────────────────────────────
-
 #[test]
 fn the_map_paces_its_frames() {
     let (mut a, mut b, mut c, mut r) = (busy(13), busy(19), busy(20), busy(33));
@@ -605,12 +588,9 @@ fn lazy_frames_render_rgba_on_the_worker() {
     assert!(bytes.chunks_exact(4).all(|px| px[3] == 255));
     let native = frame_sized(&busy(0), 200, 150);
     assert_eq!(bytes, native.rgba_scaled(3).as_slice());
-    // Whole pixels: every 3x3 block is one map pixel.
     let at = |x: usize, y: usize| &bytes[(y * 600 + x) * 4..(y * 600 + x) * 4 + 4];
     assert_eq!(at(3 * 77, 3 * 41), at(3 * 77 + 2, 3 * 41 + 2));
 }
-
-// ─── the scrying glass ───────────────────────────────────────────────────────
 
 #[test]
 fn glass_pictures_are_snapped_to_the_plain_palette() {
@@ -643,7 +623,6 @@ fn glass_pictures_are_snapped_to_the_plain_palette() {
 
 #[test]
 fn a_glass_frames_its_place_and_tethers_to_it() {
-    // The ride and the plates read assets through env-dependent runtime paths.
     let _env = crate::tests::env_lock();
     let world = World::new(7);
     let plate = world.overworld_plate_glass(crate::world_viz::Building::Smithy);
@@ -660,7 +639,6 @@ fn a_glass_frames_its_place_and_tethers_to_it() {
             "off-palette {c:?}"
         );
     }
-    // The smithy is on screen: the tether ends in a signal mark on it.
     let town = screen_of(Place::Smithy);
     let (tx, ty, tw, th) = Place::Smithy.footprint_world();
     let (ax, ay) = (
@@ -692,7 +670,6 @@ fn scrying_tower_glass_uses_the_native_room_and_observatory_anchor() {
 
 #[test]
 fn the_ride_glass_shows_the_dotmax_saddle_view() {
-    // The ride and the plates read assets through env-dependent runtime paths.
     let _env = crate::tests::env_lock();
     let world = World::new(7);
     let ride = world.overworld_ride_glass(crate::world_viz::Building::Chapel);
@@ -708,8 +685,6 @@ fn the_ride_glass_shows_the_dotmax_saddle_view() {
         "same frame, cached"
     );
 }
-
-// ─── the world built out ─────────────────────────────────────────────────────
 
 #[test]
 fn the_sky_follows_the_weather_and_stays_on_the_palette() {
@@ -735,7 +710,6 @@ fn the_sky_follows_the_weather_and_stays_on_the_palette() {
             );
         }
     }
-    // No rain: wet weather is shade, never falling streaks.
     let mut wet = busy(17);
     wet.weather = Weather::Storm;
     let mut wet_later = busy(17);
@@ -833,8 +807,6 @@ fn the_adventure_shows_what_the_quest_holds() {
     assert!(!resting.dragon && !resting.wisps && resting.party.is_empty());
 }
 
-// ─── the locked camera ───────────────────────────────────────────────────────
-
 #[test]
 fn views_keep_inside_the_realm_and_centre_what_they_outgrow() {
     let v = View::around(10.0, 10.0, 200, 120);
@@ -854,17 +826,13 @@ fn views_keep_inside_the_realm_and_centre_what_they_outgrow() {
 #[test]
 fn a_bigger_pane_shows_more_realm_at_the_same_scale() {
     let mut s = busy(0);
-    // busy() stages work at the Smithy; follow that knight rather than the
-    // resting Keep camera (which only caught a red council robe at its edge).
     s.camera = (s.knight.x, s.knight.y - 8.0);
     let small = frame_sized(&s, 160, 100);
     let big = frame_sized(&s, 480, 300);
     assert_eq!((small.w, small.h), (160, 100));
     assert_eq!((big.w, big.h), (480, 300));
-    // The knight sits at the same scale: his sprite pixels are unchanged.
     let knight_px = |f: &Img| f.pixels().filter(|&c| Some(c) == ink::ink('7')).count();
     assert!(knight_px(&small) > 0 && knight_px(&big) >= knight_px(&small));
-    // Past the realm's edge is black paper.
     let whole = frame_sized(&s, MAP_W * TILE + 40, MAP_H * TILE + 40);
     for y in 0..whole.h {
         for x in 0..20 {
@@ -906,8 +874,6 @@ fn the_camera_holds_inside_its_dead_zone_and_follows_out_of_it() {
     );
 }
 
-// ─── slow, warm ambiance ─────────────────────────────────────────────────────
-
 #[test]
 fn the_realm_has_streams_falls_and_lava() {
     let realm = Realm::get();
@@ -920,7 +886,6 @@ fn the_realm_has_streams_falls_and_lava() {
     assert!(count(b'w') > 4, "streams run");
     assert!(count(b'f') > 0, "somewhere a stream falls off the rock");
     assert!(count(b'L') > 4, "lava in the ash wastes");
-    // The Highlands just north of Castle Town carry their streams.
     use crate::world_viz::overworld::map::{CHUNK_H, CHUNK_W};
     let falls = (0..3 * CHUNK_H)
         .flat_map(|y| (3 * CHUNK_W..6 * CHUNK_W).map(move |x| (x, y)))
@@ -932,7 +897,6 @@ fn the_realm_has_streams_falls_and_lava() {
 #[test]
 fn water_and_lava_move_slowly() {
     let mut s = busy(6);
-    // Over a stream running down the Highlands.
     let realm = Realm::get();
     let (wx, wy) = (0..MAP_H)
         .flat_map(|y| (0..MAP_W).map(move |x| (x, y)))
@@ -956,7 +920,6 @@ fn reading_is_done_by_lantern() {
     s.tool = Some(Tool::Book);
     s.knight = Knight::at_place(Place::Scriptorium);
     let staged = scene::stage(&s);
-    // The knight's own sprite, not the castles' 22-wide tower pieces.
     let kx = s.knight.x as i32 - 8;
     assert!(
         staged.props.iter().any(|p| p.x == kx && p.img.w == 22),
@@ -1001,8 +964,6 @@ fn the_map_shows_the_published_pose() {
     assert_eq!(w.shown_knight(), w.knight());
 }
 
-/// A scripted session acted out on the map, for review:
-/// `ANGEL_OVERWORLD_SHOTS=<dir> cargo test write_deed_shots -- --ignored`.
 #[test]
 #[ignore]
 fn write_deed_shots() {
@@ -1127,7 +1088,6 @@ fn write_deed_shots() {
         ((x * TILE + 8) as f32, (y * TILE + 8) as f32)
     };
 
-    // Searches: the hands in the fields, stooks, messengers on the road.
     let seeks: Vec<_> = (0..3)
         .map(|k| call(&mut w, "grep", &format!("pattern=needle{k}, path=cockpit")))
         .collect();
@@ -1153,7 +1113,6 @@ fn write_deed_shots() {
     ticks(&mut w, 900);
     shot(&w, "d14_fields_stooks.ppm", Some(authored(39, 26)));
 
-    // Errands: villagers carry sacks to the granary.
     let errands: Vec<_> = ["ls -la", "python3 x.py", "du -sh target"]
         .into_iter()
         .map(|cmd| call(&mut w, "shell", cmd))
@@ -1171,7 +1130,6 @@ fn write_deed_shots() {
     ticks(&mut w, 60);
     shot(&w, "d16_village_granary.ppm", Some(authored(25, 28)));
 
-    // Memory: a monk at vigil, candles on the step.
     let recall = call(&mut w, "memory_recall", "query=bench pin");
     ticks(&mut w, 60);
     shot(&w, "d17_chapel_vigil.ppm", Some(at(Place::Chapel)));
@@ -1184,7 +1142,6 @@ fn write_deed_shots() {
     ticks(&mut w, 400);
     shot(&w, "d18_chapel_candles.ppm", Some(at(Place::Chapel)));
 
-    // Research: the glass sweeps, stars are fixed, owls fly.
     let study = call(&mut w, "arxiv", "query=sparse attention");
     ticks(&mut w, 40);
     shot(&w, "d19_observatory_beam.ppm", Some(at(Place::Observatory)));
@@ -1213,7 +1170,6 @@ fn write_deed_shots() {
         &render_view(&w.overworld_scene(), View::realm()),
     );
 
-    // A trial as a film: the wagon out, the verdict, the wagon home.
     let film = call(&mut w, "shell", "cargo test --workspace");
     for f in 0..90u32 {
         if f == 60 {
@@ -1234,10 +1190,6 @@ fn write_deed_shots() {
     }
 }
 
-/// Every catalog wish, granted from a full treasury, in catalog order. The
-/// realm that grants them is the cockpit's, so this is its snapshot
-/// (`tests/fixtures/catalog_built.json`); the cockpit's
-/// `catalog_snapshot_matches_the_realm` test fails when the catalog moves on.
 fn catalog_built() -> std::sync::Arc<Vec<angel_delve::realm::Wish>> {
     std::sync::Arc::new(
         serde_json::from_str(include_str!("../fixtures/catalog_built.json"))
@@ -1275,12 +1227,10 @@ fn wish_lots_stand_in_the_wild_apart_and_never_move() {
             assert!(apart, "{lot:?} overlaps {other:?}");
         }
     }
-    // A newly raised wish never moves the ones already standing.
     for k in 1..built.len() {
         let prefix = wishes::lots(&built[..k]);
         assert_eq!(prefix.as_slice(), &wishes::lots(&built)[..k]);
     }
-    // Landmarks stand near the place they were wished beside.
     for (wish, lot) in built.iter().zip(&lots) {
         let (gx, gy) = wishes::place_of(&wish.near).stand_world();
         let d = (lot.tx - gx).abs() + (lot.ty - gy).abs();
@@ -1313,8 +1263,6 @@ fn a_built_wish_appears_and_changes_the_scene_key() {
     assert_eq!(wishes::plaque_word("The Tavern"), "TAVERN");
 }
 
-/// `ANGEL_OVERWORLD_SHOTS=<dir> cargo test write_wish_shots -- --ignored`:
-/// the realm with every catalog wish built, and each wish's own screen.
 #[test]
 #[ignore]
 fn write_wish_shots() {
@@ -1367,7 +1315,6 @@ fn the_guest_wish_view_is_one_screen_around_the_newest_wish() {
     assert_eq!(wish_view(&s).rgb_bytes(), render_view(&s, view).rgb_bytes());
 }
 
-/// `ANGEL_OVERWORLD_SHOTS=<dir> cargo test write_delve_gate_shot -- --ignored`
 #[test]
 #[ignore]
 fn write_delve_gate_shot() {
@@ -1392,10 +1339,6 @@ fn write_delve_gate_shot() {
     std::fs::write(dir.join("delve_gate.ppm"), out).unwrap();
 }
 
-/// Film plates: `ANGEL_OVERWORLD_SHOTS=<dir> cargo test write_grow_film -- --ignored`.
-/// Three sequences of the realm's own pixels, one tick a frame: the realm
-/// growing from bare to built, the knight walking from the Keep to the lit
-/// Delve gate, and the gate's standards rising one by one.
 #[test]
 #[ignore]
 fn write_grow_film() {
@@ -1414,7 +1357,6 @@ fn write_grow_film() {
     let built = catalog_built();
     let all: Vec<_> = built.iter().cloned().collect();
 
-    // The realm grows: bare at first, then tier by tier, wish by wish.
     let frames = 240u32;
     for f in 0..frames {
         let t = f as f32 / (frames - 1) as f32;
@@ -1431,7 +1373,6 @@ fn write_grow_film() {
         save(format!("grow/{f:04}.ppm"), &frame_at(&s, View::realm()));
     }
 
-    // The knight walks to the gate.
     let start = Place::Keep.stand_world();
     let goal = wishes::delve_stand();
     let mut path = vec![start];
@@ -1459,7 +1400,6 @@ fn write_grow_film() {
         save(format!("walk/{f:04}.ppm"), &frame_at(&s, View::around(cam.0, cam.1, 256, 176)));
     }
 
-    // The town sprouts, tier by tier.
     std::fs::create_dir_all(dir.join("town")).unwrap();
     for f in 0..300u32 {
         let mut s = busy(f);
@@ -1471,7 +1411,6 @@ fn write_grow_film() {
         s.chapel_lit = f > 90;
         save(format!("town/{f:04}.ppm"), &frame_at(&s, screen_of(Place::Keep)));
     }
-    // The knight at work: reading at the Scriptorium, hammering at the Smithy.
     for (sub, place, tool) in [
         ("reading", Place::Scriptorium, Tool::Book),
         ("smithy", Place::Smithy, Tool::Hammer),
@@ -1488,7 +1427,6 @@ fn write_grow_film() {
         }
     }
 
-    // The standards rise at the gate.
     let gate = wishes::delve_gate();
     let view = View::around(
         ((gate.tx * 2 + gate.tw) * TILE / 2) as f32,
@@ -1511,12 +1449,10 @@ fn city_watch_patrols_between_keep_and_castle_only_while_a_turn_runs() {
     let lead = ids().next().expect("a first house");
     let mut w = Walker::default();
 
-    // Serving but idle: no watch is posted.
     w.serve(&Serving { lead: Some(lead), seated: Vec::new(), turn: false });
     w.publish();
     assert!(w.shown_watch().is_empty(), "no watch while idle");
 
-    // A turn runs: two guards of the lead house take the road.
     w.serve(&Serving { lead: Some(lead), seated: Vec::new(), turn: true });
     w.publish();
     assert_eq!(w.shown_watch().len(), 2, "two watch guards on duty");
@@ -1524,7 +1460,6 @@ fn city_watch_patrols_between_keep_and_castle_only_while_a_turn_runs() {
     let gates: Vec<(f32, f32)> = w.shown_watch().iter().map(|r| (r.x, r.y)).collect();
     assert_ne!(gates[0], gates[1], "guards start from opposite gates");
 
-    // They walk: a few ticks must move at least one of them.
     for _ in 0..30 {
         w.toward(Place::Keep);
     }
@@ -1534,7 +1469,6 @@ fn city_watch_patrols_between_keep_and_castle_only_while_a_turn_runs() {
         "watch guards patrol, not stand"
     );
 
-    // The turn ends: the watch stands down at once.
     w.serve(&Serving { lead: Some(lead), seated: Vec::new(), turn: false });
     w.publish();
     assert!(w.shown_watch().is_empty(), "watch stands down with the turn");

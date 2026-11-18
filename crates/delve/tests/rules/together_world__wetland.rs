@@ -1,4 +1,3 @@
-// Extra cases in the established host/mirror regression, not a separate harness.
 fn wetland_adventure_regression(mut run: Run) {
     use super::super::{
         countryside as c,
@@ -31,7 +30,6 @@ fn wetland_adventure_regression(mut run: Run) {
             };
             let party = run.players.len() as f32;
             for (n, h) in run.players.values_mut().enumerate() {
-                // All of them must fit the doorway: it takes the whole party.
                 let offset = (n as f32 - (party - 1.0) / 2.0) * 0.6;
                 (h.x, h.y) = if d % 2 == 0 {
                     (x + offset, y)
@@ -90,8 +88,6 @@ fn wetland_adventure_regression(mut run: Run) {
     );
     run.step(&f);
     assert_eq!(wet::stage(&run.home.countryside, &run.marks), 0);
-    // The valves drain the sluice only all open at once: the stage holds at
-    // one until the third is turned, then the bell and the brother.
     for (s, &(kind, at)) in wet::ERRAND.iter().enumerate() {
         run.arrive(room_of(&run.dungeon, kind).unwrap(), at);
         let h = run.players.get_mut(&2).unwrap();
@@ -157,12 +153,10 @@ fn wetland_adventure_regression(mut run: Run) {
     assert_eq!(old.games.surf, Default::default());
     assert_eq!(old.core_visits(), 6);
     assert_eq!(c::PLOTS[2].blocked(&old), None);
-    // Checkpoint migration and live geometry key refresh.
     run.arrive(room_of(&run.dungeon, RoomKind::Gate).unwrap(), (12.0, 9.5));
     run.dungeon.rooms.retain(|r| !wet::PLACES.contains(&r.kind));
     assert!(raise_world(&mut run.dungeon));
     assert!(!raise_world(&mut run.dungeon));
-    // Full surf course through real Input/step: no round state injection.
     let mut game = Run::at_home(41, 1, None, Home::default(), Default::default());
     game.arrive(
         room_of(&game.dungeon, RoomKind::Millpond).unwrap(),
@@ -214,7 +208,6 @@ fn wetland_adventure_regression(mut run: Run) {
     assert_eq!(game.home.countryside.games.surf.wins, 1);
     assert_eq!(game.home.countryside.games.surf.plays, 2);
     assert_eq!(game.home.countryside.games.surf.best, records.surf.best);
-    // Friend's fire cannot rescue owner's untouched board; departure stops it.
     game.join("Unhelpful surfer");
     game.arrive(
         room_of(&game.dungeon, RoomKind::Millpond).unwrap(),

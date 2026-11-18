@@ -14,15 +14,10 @@ use angel_net::input::Hands;
 use angel_net::proto::Welcome;
 use std::collections::VecDeque;
 
-/// The touch layout: the stick on the left, two buttons on the right.
 const CONTROLS: &str = r#"{"stick":"left","buttons":[{"id":"fire","label":"Wave","bit":16},{"id":"use","label":"Banner","bit":32}]}"#;
 
-/// A correction bigger than this (in sub-pixels) is a jump, not a slip:
-/// it is shown at once rather than eased.
 const SNAP: f32 = (64 * SUB) as f32;
-/// Name tags drawn at most, nearest first: a crowd stays readable.
 const NAME_TAGS: usize = 24;
-/// Predictions remembered per command, for measuring corrections.
 const SHOWN_KEPT: usize = 64;
 
 const VOID: u32 = 0xFF14_1712;
@@ -45,7 +40,6 @@ enum Thing {
     Banner { colour: u32 },
 }
 
-/// One thing to draw, at its feet, in screen pixels.
 struct Sprite {
     x: i32,
     y: i32,
@@ -56,11 +50,8 @@ struct Sprite {
 pub struct MusterClient {
     mirror: Mirror,
     seat: Option<u32>,
-    /// Where each of our commands put our knight when it was first
-    /// predicted: when the server answers one, the difference is a correction.
     shown: VecDeque<(u32, i32, i32)>,
     last_ack: u32,
-    /// The correction being eased out, and when it started.
     offset: (f32, f32),
     offset_at: f64,
     sprites: Vec<Sprite>,
@@ -89,8 +80,6 @@ impl MusterClient {
         self.seat
     }
 
-    /// Our knight as the server last said, then through every command it
-    /// has not answered: (before the newest command, after it).
     pub fn predict(&self, pending: &[(u32, MusterCmd)]) -> Option<(Knight, Knight)> {
         let seat = self.seat?;
         let base = Knight::from_state(self.mirror.get(seat)?.latest())?;
@@ -107,17 +96,13 @@ impl MusterClient {
         Some((before, k))
     }
 
-    /// The correction still showing at `now`.
     fn easing(&self, now: f64, over_ms: f64) -> (f32, f32) {
         let left = if over_ms > 0.0 { (1.0 - (now - self.offset_at) / over_ms).clamp(0.0, 1.0) as f32 } else { 0.0 };
         (self.offset.0 * left, self.offset.1 * left)
     }
 
-    /// Our knight's place to draw, in sub-pixels, and its pose.
     fn own(&mut self, view: &View<MusterCmd>) -> Option<(f32, f32, Knight)> {
         let (_, after) = self.predict(view.pending)?;
-        // The server answered more of our commands: compare its word with
-        // what we showed for the last one it took.
         if view.ack != self.last_ack {
             self.last_ack = view.ack;
             let base = Knight::from_state(self.mirror.get(self.seat?)?.latest())?;
@@ -134,7 +119,6 @@ impl MusterClient {
                 self.shown.pop_front();
             }
         }
-        // Remember what each new command was first predicted to do.
         if let Some(&(seq, _)) = view.pending.last()
             && self.shown.back().is_none_or(|(last, _, _)| *last < seq)
         {
@@ -143,11 +127,6 @@ impl MusterClient {
                 self.shown.pop_front();
             }
         }
-        // Then the part of the coming tick the hands held now have walked:
-        // a key shows on the next display frame, not at the next command
-        // tick 50 ms on. The sampler walks a tick for any direction held
-        // in it, so this is what the next command does and nothing drawn
-        // here is taken back. Held only: a press acts once, when sampled.
         let mut ahead = after;
         ahead.step(&MusterCmd::from_hands(&view.hands).held_only(), None);
         let t = view.partial;
@@ -175,7 +154,6 @@ fn shade(colour: u32, num: u32) -> u32 {
     0xFF00_0000 | c(16) | c(8) | c(0)
 }
 
-/// The muster's frame and its drawing tools.
 struct Canvas<'a> {
     px: &'a mut [u32],
     w: i32,
@@ -223,7 +201,6 @@ impl Canvas<'_> {
         self.text(x, y, text, ink);
     }
 
-    /// Rows of a sprite: each char a pixel, `.` clear.
     fn sprite(&mut self, x: i32, y: i32, rows: &[&[u8]], flip: bool, colour: impl Fn(u8) -> u32) {
         for (r, row) in rows.iter().enumerate() {
             let w = row.len() as i32;
@@ -254,7 +231,6 @@ impl Canvas<'_> {
                 sx = end;
             }
         }
-        // A tuft in some tiles, where a hash of the tile puts it.
         let (tx0, ty0) = (cam_x.div_euclid(TILE), cam_y.div_euclid(TILE));
         for ty in ty0..=ty0 + self.h / TILE + 1 {
             for tx in tx0..=tx0 + self.w / TILE + 1 {
@@ -270,7 +246,6 @@ impl Canvas<'_> {
                 }
             }
         }
-        // The fence round the field.
         for edge in [0, FIELD_PX] {
             let x = edge - cam_x;
             for sy in 0..self.h {
@@ -300,7 +275,6 @@ impl Canvas<'_> {
             _ => LEGS,
         });
         if k.wave > 0 {
-            // The arm up, the hand swinging.
             let swing = i32::from(k.wave / 3 % 2);
             for r in 5..8 {
                 self.put(x + 3, y - r, colour);
@@ -394,7 +368,6 @@ impl GameClient for MusterClient {
         let mut canvas = Canvas { px: &mut frame.px, w: VIEW_W as i32, h: VIEW_H as i32 };
         canvas.ground(cam_x, cam_y);
 
-        // Everyone, where they were 100 ms ago, between two snapshots.
         self.sprites.clear();
         let on_screen = |x: i32, y: i32| x > -24 && x < VIEW_W as i32 + 24 && y > -8 && y < VIEW_H as i32 + 24;
         let to_screen = |sx: f32, sy: f32| ((sx / SUB as f32).round() as i32 - cam_x, (sy / SUB as f32).round() as i32 - cam_y);
@@ -450,7 +423,6 @@ impl GameClient for MusterClient {
             }
         }
 
-        // Names over the nearest knights; your own in your colour.
         self.tags.sort_unstable();
         for &(_, x, y, id) in self.tags.iter().take(NAME_TAGS) {
             let Some(m) = self.mirror.get(id) else { continue };
@@ -518,7 +490,6 @@ mod tests {
         let (before, after) = client.predict(&pending).unwrap();
         assert_eq!(before.x, start.x + KNIGHT_SPEED);
         assert_eq!(after.x, start.x + 2 * KNIGHT_SPEED);
-        // The server's answer to the first matches, so nothing is corrected.
         let mut server = start;
         server.step(&right, None);
         table.begin(2);
@@ -554,8 +525,6 @@ mod tests {
         };
         let (still, _, _) = client.own(&view(0.5, Hands::default())).unwrap();
         assert_eq!(still, start.x as f32);
-        // Halfway into a command tick, D down: half a step drawn already,
-        // facing the way it goes.
         let (x, _, pose) = client.own(&view(0.5, hands)).unwrap();
         assert_eq!(x, (start.x + KNIGHT_SPEED / 2) as f32);
         assert!(pose.walking && pose.facing == Facing::Right);
@@ -591,12 +560,9 @@ mod tests {
         assert_eq!((frame.w, frame.h), (VIEW_W, VIEW_H));
         let at = |x: i32, y: i32| frame.px[(y * VIEW_W as i32 + x) as usize];
         let (cx, cy) = (VIEW_W as i32 / 2, VIEW_H as i32 / 2);
-        // Our knight's helmet in the middle, the other's body 40 px right
-        // in its colour, the sheep's wool 40 px left.
         assert_eq!(at(cx, cy - 9), HELM);
         assert_eq!(at(cx + 40, cy - 5), PALETTE[1]);
         assert_eq!(at(cx - 40, cy - 3), WOOL[0]);
-        // The sheep faces left: its face is left of its wool.
         assert_eq!(at(cx - 43, cy - 3), HEAD);
         assert!(frame.px.iter().all(|p| p >> 24 == 0xff));
     }

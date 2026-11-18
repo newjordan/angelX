@@ -10,7 +10,6 @@ use ratatui::{
 use std::fmt::Write;
 use std::sync::{Arc, mpsc};
 
-/// Where a `size` game picture is placed in `area`: its cells, centred.
 pub(crate) fn game_placement(console: &dyn Console, area: Rect, size: (u32, u32)) -> Rect {
     let (cols, rows) = game_cells(console, area, size);
     Rect::new(
@@ -21,8 +20,6 @@ pub(crate) fn game_placement(console: &dyn Console, area: Rect, size: (u32, u32)
     )
 }
 
-/// The cells a `size` picture fills in `area`, keeping its shape: a cell is
-/// about half as wide as it is tall, whatever the screen's density.
 pub(crate) fn game_cells(console: &dyn Console, area: Rect, (fw, fh): (u32, u32)) -> (u16, u16) {
     let (cw, ch) = cell_shape(console);
     let (aw, ah) = (f32::from(area.width) * cw, f32::from(area.height) * ch);
@@ -32,8 +29,6 @@ pub(crate) fn game_cells(console: &dyn Console, area: Rect, (fw, fh): (u32, u32)
     (cols, rows)
 }
 
-/// A cell's width and height in pixels, as the terminal reports them, or a
-/// typical 1:2 cell where it does not.
 pub fn cell_shape(console: &dyn Console) -> (f32, f32) {
     static SHAPE: std::sync::OnceLock<(f32, f32)> = std::sync::OnceLock::new();
     *SHAPE.get_or_init(|| {
@@ -43,11 +38,6 @@ pub fn cell_shape(console: &dyn Console) -> (f32, f32) {
     })
 }
 
-/// [`Console::store`] for one frame of a stream (the viewer's game
-/// and video frames): every call uploads into the stream's held picture, so
-/// the window overwrites its texture in place instead of making a
-/// new one per frame — the decode sequence lives in the frames
-/// themselves, not in the key.
 pub(crate) fn upload_stream(
     console: &dyn Console,
     key: u64,
@@ -58,9 +48,6 @@ pub(crate) fn upload_stream(
     console.store(key, size, span, rgba, true)
 }
 
-/// A PNG the terminal places itself, scaled into `size` cells: the upload
-/// for Kitty (chunked, wrapped for tmux when needed). The terminal does the
-/// scaling, so a small frame goes out whatever the screen's pixel density.
 pub(crate) fn png_upload(console: &dyn Console, png: &[u8], size: Size, id: u32) -> Option<String> {
     if size.width == 0
         || size.height == 0
@@ -104,18 +91,11 @@ pub(crate) fn png_upload(console: &dyn Console, png: &[u8], size: Size, id: u32)
 
 #[derive(Default)]
 pub struct State {
-    /// The authored backed Realm map. Same machinery as the council table, its
-    /// own cache slot so a map repaint never evicts the table.
     pub(crate) map_enabled: bool,
     pub(crate) map_area: Option<Rect>,
-    /// A friend's delve as PNGs Kitty scales itself: the frame on screen
-    /// (sequence, cells, image id) and its upload for this draw.
     pub game_png: Option<(u64, u16, u16, u32)>,
     pub game_upload: Option<String>,
-    /// The game's own render worker (`game_pipeline`), started on first use.
     pub(crate) game_pipeline: Option<crate::game_pipeline::Pipeline>,
-    /// The overworld map on Kitty: a PNG the resident worker encodes, and
-    /// the one encoding now.
     pub(crate) map_png_ready: Option<(PortalCacheKey, Arc<Vec<u8>>, u32, u32)>,
     pub(crate) map_png_pending:
         Option<(PortalCacheKey, mpsc::Receiver<Option<(Vec<u8>, u32, u32)>>)>,
@@ -123,13 +103,6 @@ pub struct State {
 
 impl State {
     pub(crate) fn new(graphics: Graphics) -> Self {
-        // The map is ordinary pixels, so it works on any real graphics
-        // protocol — unlike the council table, which is Kitty-only by design.
-        // Halfblocks is excluded deliberately: it caps at one pixel per cell
-        // half, so a 512px-wide island would land in ~45 pixels and read as
-        // mush. Sixel is capable but the authored plates read as a dead still
-        // on most hosts; prefer the living braille world unless the operator
-        // forces pixel plates (`ANGEL_BACKED_MAP=1`). Kitty/iTerm2 keep plates.
         Self {
             map_enabled: map_desired(graphics),
             ..Self::default()
@@ -159,8 +132,6 @@ impl ViewerArt for Delve {
             .copied()
             .collect();
         let retinue = seated.iter().filter_map(|&id| livery_of(id)).collect();
-        // Who each squire is: the house's first knight, by name, castle and
-        // epithet; the Keep's own squire has no name to give.
         let names = std::iter::once(serving.lead)
             .chain(seated.iter().map(|&id| Some(id)))
             .map(|house| {
@@ -181,7 +152,6 @@ impl ViewerArt for Delve {
     }
 }
 
-/// A house's livery (`liveries`).
 #[cfg(feature = "glass")]
 fn livery_of(id: crate::houses::HouseId) -> Option<[[u8; 3]; 3]> {
     use angel_delve::render::overworld::{ink::ink, light};
@@ -194,10 +164,6 @@ fn livery_of(id: crate::houses::HouseId) -> Option<[[u8; 3]; 3]> {
 impl<S: Screen<State> + ?Sized> Pictures for S {}
 
 pub trait Pictures: Screen<State> {
-    /// The overworld map: in-memory RGBA pixel art through the terminal's
-    /// graphics protocol, keeping the last encoded
-    /// frame on screen while the next one encodes so a walking knight never
-    /// blanks the pane.
     fn render_map_pixels<P, F>(
         &mut self,
         frame: &mut Frame,
@@ -212,17 +178,10 @@ pub trait Pictures: Screen<State> {
         self.render_world_pixels_inner(frame, area, sequence, false, true, true, compose)
     }
 
-    /// Whether map frames go out as terminal images (Kitty, iTerm2, or Sixel
-    /// when asked for); other terminals paint the map in half blocks.
     fn map_pixels_native(&mut self) -> bool {
         self.pixels().map_enabled
     }
 
-    /// A game frame drawn here, on this thread (the art's timings and review;
-    /// live play draws on the render worker, `render_game_async`):
-    /// scaled to exactly the pixels the terminal will show it at, nearest
-    /// pixel, so the terminal places it one to one and pixel art stays
-    /// hard-edged (Kitty smooths what it scales).
     #[cfg(any(test, feature = "testing"))]
     fn render_game_img(
         &mut self,
@@ -238,11 +197,6 @@ pub trait Pictures: Screen<State> {
         })
     }
 
-    /// A game frame made on the game's render worker: `compose` draws the
-    /// picture there (a snapshot pair blended and painted), and it is scaled
-    /// and encoded there too. This frame shows it if it is finished within
-    /// `budget`; otherwise the last finished picture stays up and this one
-    /// lands on the next frame. Nothing here draws or encodes.
     fn render_game_async(
         &mut self,
         frame: &mut Frame,
@@ -260,7 +214,6 @@ pub trait Pictures: Screen<State> {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         (sequence, cols, rows).hash(&mut hasher);
-        // Kept clear of the map's frames, which set the top bit.
         let key = hasher.finish() >> 1;
         let plane = self.pixels();
         let pipeline = plane.game_pipeline.get_or_insert_with(Default::default);
@@ -271,8 +224,6 @@ pub trait Pictures: Screen<State> {
                 Some(scaled_png(&img, cols, rows, shape))
             }),
         );
-        // The first picture at a size is waited for; after that the last
-        // one stands in while the worker catches up.
         let shown = plane
             .game_png
             .is_some_and(|(_, c, r, _)| (c, r) == (cols, rows));
@@ -291,10 +242,6 @@ pub trait Pictures: Screen<State> {
         }
     }
 
-    /// The overworld map on Kitty: composed and encoded as a PNG by the
-    /// resident worker, placed one to one (it arrives already scaled to the
-    /// pane's pixels). A raw picture of that size was megabytes a frame;
-    /// the last frame stays up while the next encodes.
     fn render_map_png<P, F>(
         &mut self,
         frame: &mut Frame,
@@ -334,9 +281,6 @@ pub trait Pictures: Screen<State> {
                     return;
                 }
                 let mut png = Vec::with_capacity(256 * 1024);
-                // Off the draw thread, but a walk asks for a frame every
-                // 25 ms: the fast deflate keeps the map current (the full one
-                // took 4-11 ms a frame and left large maps a frame behind).
                 let ok = image::codecs::png::PngEncoder::new_with_quality(
                     &mut png,
                     image::codecs::png::CompressionType::Fast,
@@ -354,7 +298,6 @@ pub trait Pictures: Screen<State> {
             Some((ready, png, w, h))
                 if ready.width == area.width && ready.height == area.height =>
             {
-                // Map frames are numbered apart from game frames.
                 let seq = ready.sequence | (1 << 63);
                 if self.place_game(frame, area, seq, (w, h), |_, _| Some(png.to_vec())) {
                     self.pixels().map_area = Some(area);
@@ -408,10 +351,6 @@ pub trait Pictures: Screen<State> {
                 };
                 let size = ratatui::layout::Size::new(cols, rows);
                 let upload = encode(cols, rows).and_then(|bytes| match read_glass_frame(&bytes) {
-                    // The GPU window takes the pixels directly, through
-                    // the presentation surface's streaming door: one held
-                    // picture for this viewer's stream, overwritten per
-                    // frame. Nothing to embed in the cells.
                     Some((w, h, rgba)) => upload_stream(
                         console,
                         u64::from(dot_base_id),
@@ -461,7 +400,6 @@ pub trait Pictures: Screen<State> {
         self.render_world_pixels_inner(frame, area, sequence, ambient, false, false, compose)
     }
 
-    // Preserve the explicit pixel-render flags and one-shot composer boundary.
     #[allow(clippy::too_many_arguments)]
     fn render_world_pixels_inner<P, F>(
         &mut self,
@@ -510,7 +448,6 @@ pub trait Pictures: Screen<State> {
         state
     }
 
-    /// Exercise native room-image encoding without halfblock admission.
     #[cfg(any(test, feature = "testing"))]
     fn render_native_location<P, F>(
         &mut self,
@@ -526,10 +463,6 @@ pub trait Pictures: Screen<State> {
         self.render_world_pixels(frame, area, sequence, false, compose) == WorldPixelsState::Ready
     }
 
-    /// Explicit ambient stills also admit ordinary-terminal half blocks. Their
-    /// broad room composition survives the lower pixel count, and filled color
-    /// preserves the plate's material/lighting hierarchy. The caller retains
-    /// the Realm on/off policy and the 3D view renders independently.
     #[cfg(any(test, feature = "testing"))]
     fn render_ambient_location<P, F>(
         &mut self,
@@ -546,14 +479,10 @@ pub trait Pictures: Screen<State> {
     }
 }
 
-/// Whether this host should *prefer* pixel Realm plates over the living braille
-/// world. Capability (`map_supported`) is not enough: sixel is often muddy and
-/// static for the current plate set, so braille is the better default there.
 pub fn map_desired(graphics: Graphics) -> bool {
     if graphics == Graphics::Halfblocks {
         return false;
     }
-    // Explicit operator override wins either way.
     if let Ok(raw) = std::env::var("ANGEL_BACKED_MAP").or_else(|_| std::env::var("ANGEL_TILE_MAP"))
     {
         let off = matches!(
@@ -565,12 +494,6 @@ pub fn map_desired(graphics: Graphics) -> bool {
     matches!(graphics, Graphics::Kitty | Graphics::Iterm2)
 }
 
-/// `img` scaled to `w`x`h` by nearest pixel, as a PNG made for speed (it
-/// only crosses to the terminal on this machine).
-/// A game picture scaled for `cols` x `rows` cells and PNG-encoded: the
-/// smallest whole multiple at or past the size it shows (up to three), so
-/// the terminal only shrinks it a little and pixel edges stay hard, while
-/// the picture stays small enough to send sixty times a second.
 pub fn scaled_png(
     img: &crate::world_viz::overworld::Img,
     cols: u16,
@@ -585,13 +508,8 @@ pub fn scaled_png(
     nearest_png(img, img.w.max(1) as u32 * k, img.h.max(1) as u32 * k)
 }
 
-/// In the GPU window a game or map frame travels as its own pixels, marked
-/// so `place_game` hands it to the window: no scaling, no PNG, no base64.
-/// The window scales it on the GPU, nearest pixel, so pixel art stays hard.
 const GLASS_FRAME: &[u8; 4] = b"GLRW";
 
-/// Straight RGBA pixels as a glass frame. The overworld map still travels
-/// this way; a Delve frame does not (the window draws that from parts).
 fn glass_frame(rgba: &[u8], w: u32, h: u32) -> Vec<u8> {
     let mut out = Vec::with_capacity(12 + rgba.len());
     out.extend_from_slice(GLASS_FRAME);
@@ -601,7 +519,6 @@ fn glass_frame(rgba: &[u8], w: u32, h: u32) -> Vec<u8> {
     out
 }
 
-/// The size and pixels of a glass frame; `None` for anything else (a PNG).
 fn read_glass_frame(bytes: &[u8]) -> Option<(u32, u32, &[u8])> {
     let rest = bytes.strip_prefix(GLASS_FRAME)?;
     let w = u32::from_le_bytes(rest.get(0..4)?.try_into().ok()?);
@@ -627,9 +544,6 @@ fn nearest_png(img: &crate::world_viz::overworld::Img, w: u32, h: u32) -> Vec<u8
         }
     }
     let mut png = Vec::with_capacity(256 * 1024);
-    // Measured (release, 3x a delve frame): the Up filter halves the
-    // bytes of nearest-scaled pixel art for the same fast encode (0.55 ms,
-    // 228 KB against 0.96 ms, 694 KB).
     let _ = image::codecs::png::PngEncoder::new_with_quality(
         &mut png,
         image::codecs::png::CompressionType::Fast,

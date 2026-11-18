@@ -1,18 +1,12 @@
 #![cfg(target_os = "linux")]
-// Model-free process cohort: the production helper, real PPid/session tracing,
-// signal escalation, externally killed worker and main-process exit reaper.
 #[path = "../../../cockpit/src/agent/sandbox/process_owner.rs"]
 #[allow(dead_code)]
 mod process_owner;
 
-// Exercise the startup probe's readiness wait with the real ownership module,
-// without compiling the entire cockpit's unit-test binary.
 #[path = "../../../cockpit/src/agent/sandbox/compatibility.rs"]
 #[allow(dead_code)]
 mod compatibility;
 
-// The compatibility module's doctor formatter expects its parent's Landlock
-// capability probe. Match sandbox::available without restricting this runner.
 fn available() -> bool {
     use landlock::{ABI, Access, AccessFs, Ruleset, RulesetAttr};
     Ruleset::default()
@@ -217,8 +211,6 @@ fn helper_detached_command_child_stays_in_owner_session_and_group() {
 #[test]
 fn lifecycle_cancel_reaps_setsid_and_sigterm_ignoring_children() {
     let _lock = crate::tests::env_lock();
-    // Keep the inner shell present: some shells exec their final simple
-    // command, which made the old five-process readiness condition impossible.
     let mut worker = helper("setsid sh -c 'trap \"\" TERM; sleep 300 & wait' & sleep 300 & wait");
     let root = worker.0.id() as i32;
     let before = wait_tree(&worker, 5);
@@ -292,9 +284,6 @@ fn lifecycle_sigint_exit_reaps_entire_binary_tree() {
     assert_no_orphans(root, &before);
 }
 
-/// A closed terminal (SIGHUP) takes the orderly SIGTERM path: the main process
-/// reaps every owned descendant before it exits. Before, SIGHUP's default
-/// action ended the cockpit and left its helpers' jobs running.
 #[test]
 fn lifecycle_sighup_exit_reaps_entire_binary_tree() {
     let _lock = crate::tests::env_lock();
@@ -316,10 +305,6 @@ fn lifecycle_sighup_exit_reaps_entire_binary_tree() {
     assert_no_orphans(root, &before);
 }
 
-/// The cockpit owns its attached helpers: when the cockpit process dies without
-/// its own cleanup (SIGKILL), an attached helper sees it was reparented and
-/// reaps its tree. Before, the helper and every job under it kept running.
-/// (A detached helper is meant to outlive its launcher; see the bwrap tests.)
 #[test]
 fn lifecycle_helper_reaps_its_tree_when_the_cockpit_dies() {
     let _lock = crate::tests::env_lock();
@@ -399,7 +384,6 @@ fn lifecycle_steady_state_fixture() {
     let root = std::path::PathBuf::from(root);
     process_owner::initialize().unwrap();
 
-    // A failed spawn must leave neither a claim nor a held registry lock.
     assert!(
         Command::new(root.join("missing-command"))
             .spawn_owned()
@@ -438,9 +422,6 @@ fn lifecycle_steady_state_fixture() {
 
     let mut orphan_pids = Vec::new();
     for iteration in 0..4 {
-        // This direct child is born in a thread that exits and transfers its
-        // Child to another waiter. It becomes parented by the group leader,
-        // just like an orphan, but its exit receipt must remain protected.
         let mut moved = std::thread::spawn(|| {
             Command::new("sh")
                 .args(["-c", "sleep 0.05; exit 29"])
@@ -474,7 +455,6 @@ sys.exit(23)
         let orphan = wait_pid_file(&marker);
         orphan_pids.push(orphan);
         assert_reaped_while_alive(orphan, Duration::from_secs(2));
-        // Allow a reaper tick with the protected child already a zombie.
         std::thread::sleep(Duration::from_millis(300));
         assert_eq!(moved.wait().unwrap().code(), Some(29));
         for pid in &orphan_pids {
@@ -485,8 +465,6 @@ sys.exit(23)
         );
     }
 
-    // Dropping a handle relinquishes a receipt; it does not kill intentionally
-    // detached work. Its natural exit must still be reaped while Angel lives.
     let marker = root.join("detached-finished");
     let detached = Command::new("sh")
         .args(["-c", "sleep 0.5; printf done > \"$1\"", "detached"])
@@ -503,7 +481,6 @@ sys.exit(23)
     assert_reaped_while_alive(detached_pid, Duration::from_secs(2));
     assert_eq!(std::fs::read_to_string(marker).unwrap(), "done");
 
-    // Concurrent spawn/register/wait boundaries, with different exact results.
     let waiters: Vec<_> = (50..58)
         .map(|code| {
             std::thread::spawn(move || {
@@ -520,8 +497,6 @@ sys.exit(23)
         waiter.join().unwrap();
     }
 
-    // Cancellation and timeout escalation keep signal receipts and reap dead
-    // adopted grandchildren, without signaling another job's process group.
     for signal in [libc::SIGTERM, libc::SIGKILL] {
         let marker = root.join(format!("cancel-{signal}.pid"));
         let mut command = Command::new("sh");

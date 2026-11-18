@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# e5.sh <route>... — E5: E1's intro arm on the speed baseline (b-base/) and
-# head (h/), n=5 per build, build order shuffled within each round.
-# Labels: e5-<route>-<base|head>-<round>.
 set -u
 if (( $# == 0 )); then
   printf 'Usage: %s <route>...\n' "$0" >&2

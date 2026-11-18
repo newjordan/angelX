@@ -1,4 +1,3 @@
-"""Offline builder coverage for the Delve's knight voices and music."""
 import importlib.util
 from pathlib import Path
 import sys
@@ -57,7 +56,6 @@ class DungeonAudioBuilderTests(unittest.TestCase):
                         target = out / f"{voice}_{clip}_{take}.mp3"
                         self.assertTrue(target.is_file(), f"missing {target.name}")
             self.assertEqual(len(spoken), len(KNIGHTS.VOICES) * len(clips) * 2 - 1)
-            # Two knights never share both lines of a moment.
             for clip in KNIGHTS.CHATTER:
                 self.assertNotEqual(KNIGHTS.takes("a", clip), KNIGHTS.takes("b", clip))
             shaping = [c for c in commands if "-af" in c and "silenceremove" in c[c.index("-af") + 1]]

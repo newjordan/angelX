@@ -1,33 +1,4 @@
 #!/usr/bin/env bash
-# build-prebuilt.sh — build the three binaries a prebuilt angelX package ships.
-#
-#   scripts/release/build-prebuilt.sh MANIFEST TARGET OUT_DIR
-#
-# MANIFEST is the source release manifest `npm run release:evidence` wrote for
-# this checkout's commit. TARGET is linux-x86_64, linux-arm64 or macos-arm64.
-# OUT_DIR receives angel, angel-sandbox, angel-delve-system, glass and build.json. The binaries carry the
-# manifest's source and resource identities, so `angel --build-info --json`
-# names the exact source release they were built from.
-#
-# Linux links against glibc 2.31 through cargo-zigbuild, so one binary runs on
-# Ubuntu 22.04, Debian 11, RHEL 9 and the rolling distros alike. A plain host
-# build needs the build host's own glibc (2.43 on Arch) and runs almost
-# nowhere else. zig and cargo-zigbuild must be on PATH. macOS builds natively
-# on Apple silicon, for macOS 13 and later.
-#
-# Source cartridges are never compiled in. build.rs embeds every source
-# cartridge under ~/.angelX/cartridges, and the builder's own cartridges are
-# private, so ANGEL_CARTRIDGES points at an empty folder and the binaries are
-# checked for the builder's cartridge path afterwards.
-#
-# Build paths name the builder: the home folder (cargo's registry, the
-# toolchain) and the checkout. Rust and C sources are compiled with those
-# folders mapped to ~ and /angelX, ANGEL_PORTABLE_BUILD=1 leaves the
-# checkout's dev fallbacks out, and a binary that still holds either folder is
-# refused.
-#
-# RUSTY_V8_ARCHIVE may name the pinned rusty_v8 static library listed in
-# release/supply-chain-policy.json; without it the v8 build script downloads it.
 set -euo pipefail
 
 usage() { echo "usage: build-prebuilt.sh MANIFEST linux-x86_64|linux-arm64|macos-arm64 OUT_DIR" >&2; exit 2; }
@@ -49,7 +20,6 @@ case "$target" in
   macos-*) [ "$(uname -s)" = Darwin ] || { echo "build-prebuilt: $target builds on macOS" >&2; exit 2; } ;;
 esac
 
-# The checkout must hold exactly the manifest's tree, with clean build inputs.
 [ -f "$manifest" ] || { echo "build-prebuilt: no manifest at $manifest" >&2; exit 2; }
 release_field() { python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); v=m
 for k in sys.argv[2].split("."): v=v[k]
@@ -62,8 +32,6 @@ tree=$(release_field source.tree)
   echo "build-prebuilt: this checkout is not the manifest's tree $tree (commit $commit)" >&2; exit 1; }
 bash "$root/scripts/check/cockpit-source-digest.sh" >/dev/null
 
-# The pinned toolchain's own cargo and rustc, never a rustup proxy that may be
-# broken or start a download mid-build (see bin/angelX).
 channel=$(awk -F'"' '/^channel[[:space:]]*=/{print $2; exit}' "$root/rust-toolchain.toml")
 host_triple=$(rustc -vV 2>/dev/null | awk '/^host:/{print $2}' || true)
 [ -n "$host_triple" ] || host_triple=$( [ "$(uname -s)" = Darwin ] && echo aarch64-apple-darwin || echo "$(uname -m)-unknown-linux-gnu")
@@ -79,8 +47,6 @@ export ANGEL_BUILD_RESOURCE_SHA256="$resource_sha"
 export ANGEL_BUILD_RUSTC="$("$RUSTC" -vV)"
 export ANGEL_BUILD_PROFILE=release
 
-# Map the builder's folders out of every binary (the last matching map wins,
-# so the checkout comes after the home folder it may sit in).
 case "$HOME$root" in *" "*) echo "build-prebuilt: the home folder and checkout paths must not hold spaces" >&2; exit 1 ;; esac
 maps=("$HOME=~")
 [ -n "${CARGO_HOME:-}" ] && maps+=("$CARGO_HOME=~/.cargo")
@@ -93,14 +59,12 @@ for map in "${maps[@]}"; do
 done
 export RUSTFLAGS CFLAGS CXXFLAGS
 export ANGEL_PORTABLE_BUILD=1
-# Shipped builds include the browser page.
 export ANGEL_DELVE_WEB=1
 
 empty_cartridges=$(mktemp -d)
 trap 'rm -rf "$empty_cartridges"' EXIT
 export ANGEL_CARTRIDGES="$empty_cartridges"
 
-# The window comes with every prebuilt: on a desktop the launcher opens it.
 cargo_args=(--locked --release --no-default-features --features glass,delve --bin angel --bin angel-sandbox)
 cd "$root/cockpit"
 case "$target" in
@@ -114,8 +78,6 @@ case "$target" in
     ;;
 esac
 
-# The Delve system and glass, the terminal, from the engine workspace. glass
-# ships so every install has a terminal that shows what angelX shows.
 system_args=(--locked --release --manifest-path "$root/crates/Cargo.toml" -p angel-delve-system -p angel-glass-term)
 case "$target" in
   linux-*) CARGO_TARGET_DIR="$root/cockpit/target" cargo zigbuild "${system_args[@]}" --target "$triple.$glibc_floor" ;;
@@ -126,13 +88,10 @@ built="$root/cockpit/target/$triple/release"
 mkdir -p "$out"
 for name in angel angel-sandbox angel-delve-system glass; do
   [ -x "$built/$name" ] || { echo "build-prebuilt: missing $built/$name" >&2; exit 1; }
-  # A builder's own cartridge source leaves its absolute path in the binary.
   if LC_ALL=C grep -aqF "$HOME/.angelX/cartridges/" "$built/$name"; then
     echo "build-prebuilt: $name carries a cartridge from $HOME/.angelX/cartridges; refusing to package it" >&2
     exit 1
   fi
-  # Nor the builder's folders: a path into the home folder or the checkout
-  # names whoever built it.
   for folder in "$HOME" "${CARGO_HOME:-$HOME}" "${RUSTUP_HOME:-$HOME}" "$root"; do
     if LC_ALL=C grep -aqF "$folder/" "$built/$name"; then
       echo "build-prebuilt: $name carries the build path $folder; refusing to package it" >&2
@@ -145,7 +104,6 @@ done
 floor=""
 case "$target" in
   linux-*)
-    # The newest glibc symbol version either binary needs must not pass the floor.
     for name in angel angel-sandbox angel-delve-system glass; do
       need=$(objdump -T "$out/$name" | grep -o 'GLIBC_[0-9][0-9.]*' | sed 's/GLIBC_//' | sort -uV | tail -1)
       if [ "$(printf '%s\n%s\n' "$need" "$glibc_floor" | sort -V | tail -1)" != "$glibc_floor" ]; then
@@ -158,7 +116,6 @@ case "$target" in
   macos-*) floor="macOS $macos_floor" ;;
 esac
 
-# Run what this host can run: the binary must report the release it was bound to.
 if [ "$triple" = "$host_triple" ]; then
   reported=$("$out/angel" --build-info --json | python3 -c 'import json,sys; b=json.load(sys.stdin); print(b["cockpit_source_sha256"], b["resources"]["sha256"])')
   [ "$reported" = "$source_sha $resource_sha" ] || {

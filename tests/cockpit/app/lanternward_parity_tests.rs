@@ -12,7 +12,6 @@ use std::io::Write;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// What the oracle did, as the corpus the Node harness replays.
 fn dump(sc: &mut Scenario, ticks: u32, dir: &std::path::Path) -> usize {
     let mut file = std::io::BufWriter::new(std::fs::File::create(dir.join(format!("{}.jsonl", sc.name))).unwrap());
     let start = drive::wire(&sc.session);
@@ -58,8 +57,6 @@ fn dump(sc: &mut Scenario, ticks: u32, dir: &std::path::Path) -> usize {
     n
 }
 
-/// The scenarios the corpus holds: every room, one to four knights, the bot
-/// and random keys, the table churning and the session thrown about.
 fn matrix(scale: u32) -> Vec<(u64, u32, Start, Driver, bool, u32)> {
     let mut out = Vec::new();
     for (i, players) in [1u32, 2, 3, 4].into_iter().enumerate() {
@@ -95,12 +92,10 @@ fn write_lanternward_corpus() {
     eprintln!("lanternward corpus: {total} ticks in {}", dir.display());
 }
 
-/// The crate's session from the oracle's, through the shape both save as.
 fn mine(oracle: &crate::lanternward_oracle::Session) -> Session {
     serde_json::from_value(serde_json::to_value(oracle).unwrap()).unwrap()
 }
 
-/// What the matrix has seen, so that "every branch" is a number and not a hope.
 #[derive(Default)]
 struct Seen {
     ticks: u64,
@@ -113,7 +108,6 @@ struct Seen {
     rooms: BTreeSet<u8>,
 }
 
-/// The first place two sessions differ, by path.
 fn first_difference(a: &Value, b: &Value, path: &mut Vec<String>) -> Option<String> {
     match (a, b) {
         (Value::Object(x), Value::Object(y)) => {
@@ -146,8 +140,6 @@ fn first_difference(a: &Value, b: &Value, path: &mut Vec<String>) -> Option<Stri
     }
 }
 
-/// One scenario on the oracle and on the shipped rules side by side, through
-/// the adapter the game runs on, compared whole after every tick.
 fn lockstep(mut sc: Scenario, ticks: u32, seen: &Mutex<Seen>) {
     let mut mine_now = mine(&sc.session);
     let name = sc.name.clone();
@@ -187,8 +179,6 @@ fn lockstep(mut sc: Scenario, ticks: u32, seen: &Mutex<Seen>) {
     all.rooms.extend(local.rooms);
 }
 
-/// The matrix, an edge or two besides: the clock at its limit, keys the wire
-/// may not carry.
 fn scenarios() -> Vec<(Scenario, u32)> {
     crate::agent::harness::live_policy::install_scripted_rules();
     let mut out: Vec<(Scenario, u32)> =
@@ -246,7 +236,6 @@ fn the_bend_rules_match_the_rust_rules_tick_by_tick_in_every_scenario() {
         seen.resets,
         seen.rooms
     );
-    // The branches the matrix is there to reach.
     assert!(seen.wins >= 4, "the fresh games reach the Beacon: {}", seen.wins);
     assert!(seen.wipes >= 1, "a party is wiped and put back");
     assert!(seen.exits >= 1, "a room is left by its door");

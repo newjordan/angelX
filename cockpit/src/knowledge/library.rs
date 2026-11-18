@@ -22,8 +22,6 @@ pub(crate) enum Discipline {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Tutor {
-    /// Stable catalog identity. UI selection and future persisted progress must
-    /// bind to this value rather than the resident's array position.
     pub(crate) id: &'static str,
     pub(crate) name: &'static str,
     pub(crate) role: &'static str,
@@ -32,8 +30,6 @@ pub(crate) struct Tutor {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct CurriculumShelf {
-    /// Stable catalog identity. Reordering the display catalog must not change
-    /// which curriculum a lesson refers to.
     pub(crate) id: &'static str,
     pub(crate) discipline: Discipline,
     pub(crate) title: &'static str,
@@ -42,11 +38,6 @@ pub(crate) struct CurriculumShelf {
     pub(crate) arc: &'static [&'static str],
 }
 
-/// A deterministic teaching plan that is useful without a network or model.
-///
-/// `source_*` is deliberately catalog metadata, not a claim that angelX read
-/// or vendored the linked course. Optional reference enrichment lives in
-/// `term_lookup`; it can fail without taking this lesson away.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct LocalLesson {
     pub(crate) topic: String,
@@ -285,14 +276,10 @@ pub(crate) const CURRICULUM: [CurriculumShelf; 16] = [
     },
 ];
 
-/// Resident rows for a selectable catalog. Callers should retain `Tutor::id`,
-/// never the current array index, when identity must survive a reorder.
 pub(crate) const fn catalog_tutors() -> &'static [Tutor] {
     &TUTORS
 }
 
-/// Curriculum rows for a selectable catalog. Callers should retain
-/// `CurriculumShelf::id`, never the current array index.
 pub(crate) const fn catalog_shelves() -> &'static [CurriculumShelf] {
     &CURRICULUM
 }
@@ -305,9 +292,6 @@ pub(crate) fn shelf_by_id(id: &str) -> Option<&'static CurriculumShelf> {
     CURRICULUM.iter().find(|shelf| shelf.id == id)
 }
 
-/// Collapse layout/control whitespace and cap a user-authored topic without
-/// splitting a Unicode scalar. This deliberately accepts multiword subjects;
-/// the transcript-selection shortcut remains narrower in `term_lookup`.
 pub(crate) fn normalize_topic(raw: &str) -> Option<String> {
     let cleaned = raw
         .chars()
@@ -337,18 +321,12 @@ pub(crate) fn normalize_topic(raw: &str) -> Option<String> {
     Some(clipped)
 }
 
-/// Build a useful local lesson for an arbitrary topic. No network or model
-/// access occurs here; an operator may supply a local routing override.
 pub(crate) fn local_lesson(raw_topic: &str) -> Option<LocalLesson> {
     let topic = normalize_topic(raw_topic)?;
     let context = topic.clone();
     local_lesson_with_context(&topic, &context)
 }
 
-/// Preserve the operator's topic while allowing an optional reference excerpt
-/// to improve discipline/shelf routing. The returned lesson still contains
-/// only local teaching scaffolding; `context` is never represented as course
-/// content that angelX has read.
 pub(crate) fn local_lesson_with_context(raw_topic: &str, context: &str) -> Option<LocalLesson> {
     let topic = normalize_topic(raw_topic)?;
     let routing = rules::snapshot();
@@ -357,8 +335,6 @@ pub(crate) fn local_lesson_with_context(raw_topic: &str, context: &str) -> Optio
     Some(build_local_lesson(topic, discipline, shelf))
 }
 
-/// Open one exact catalog shelf as a local lesson. The shelf title is the
-/// default topic; this keeps Catalog → Enter deterministic and offline.
 pub(crate) fn local_lesson_for_shelf(shelf_id: &str) -> Option<LocalLesson> {
     let shelf = shelf_by_id(shelf_id)?;
     Some(build_local_lesson(
@@ -388,8 +364,6 @@ fn build_local_lesson(
     }
 }
 
-/// A discipline's lesson steps on the book (`⡸`): the section and the page of
-/// its objective; its exercise and its checkpoint follow.
 fn lesson_pages(discipline: Discipline) -> (crate::agent::harness::book::Route, usize) {
     use crate::agent::harness::book::d4567_briefs::{LESSONS, LESSONS_LAST, LESSONS_MORE};
     match discipline {
@@ -404,15 +378,12 @@ fn lesson_pages(discipline: Discipline) -> (crate::agent::harness::book::Route, 
     }
 }
 
-/// The page addresses of a discipline's objective, exercise and checkpoint.
 pub(crate) fn lesson_step_addresses(discipline: Discipline) -> [String; 3] {
     use crate::agent::harness::book::d3_roles::pages;
     let (route, first) = lesson_pages(discipline);
     [first, first + 1, first + 2].map(|page| pages(route, [page]))
 }
 
-/// The steps as the operator reads them: recited from the book, the topic in
-/// its place.
 fn local_lesson_steps(discipline: Discipline, topic: &str) -> (String, String, String) {
     let [objective, exercise, checkpoint] = lesson_step_addresses(discipline).map(|address| {
         crate::agent::harness::book::connect::recite(&address).replace("{topic}", topic)
@@ -421,8 +392,6 @@ fn local_lesson_steps(discipline: Discipline, topic: &str) -> (String, String, S
 }
 
 impl LocalLesson {
-    /// Immediate offline rendering. The source language is intentionally
-    /// explicit: this plan links to a course but has not loaded course content.
     pub(crate) fn render_offline(&self) -> String {
         format!(
             "LOCAL LESSON · READY OFFLINE\nTopic · {}\n\nTutor · {} — {}\nMethod · {}\nObjective · {}\nExercise · {}\nCheckpoint · {}\n{}\nShelf · {} · {}\nCourse · {}\nSource note · catalog pointer only; course content has not been loaded\nNext · {}",
@@ -441,13 +410,7 @@ impl LocalLesson {
         )
     }
 
-    /// Retrieval practice, derived only from the lesson's own fields — recall
-    /// beats rereading, so every lesson closes with prompts that force the
-    /// reader to produce the material instead of scanning it. The answers are
-    /// the objective, method, and checkpoint above the fold; nothing here is
-    /// generated text and nothing is concealed from the lesson itself.
     pub(crate) fn recall_prompt(&self) -> String {
-        // `⠬⠓`'s pages, recited for the operator, the tutor in place.
         use crate::agent::harness::book::{
             connect::recite, d3_roles::pages, ing_drivers::TUTOR_RECALL,
         };
@@ -456,16 +419,7 @@ impl LocalLesson {
         format!("{title}\n    {objective}\n    {method}\n    {proof}")
     }
 
-    /// Produce the tutor's handoff, the context the tutor frame (`⠬⠃`) carries.
-    /// Merely constructing this string cannot submit a turn or spend provider
-    /// credit. The tutor inherits the lesson's Recall practice (`⠬⠓`), so the
-    /// session ends by CHECKING the retrieval answers instead of re-reading the
-    /// material — the same single-sourced pages the offline render recites for
-    /// the operator.
     pub(crate) fn ask_tutor_prompt(&self) -> String {
-        // `⠬⠛`: the handoff's words are the pages; the topic, the tutor and
-        // the curriculum ride as data under their placeholders' names, the
-        // lesson's steps as their addresses (`⡸`), its recall as `⠬⠓`.
         use crate::agent::harness::book::ing_drivers::{TUTOR_HANDOFF, TUTOR_RECALL};
         let [objective, exercise, checkpoint] = lesson_step_addresses(self.discipline);
         format!(
@@ -482,9 +436,6 @@ impl LocalLesson {
     }
 }
 
-/// Render the Scriptorium's complete, inspectable teaching ledger. The
-/// catalog is world-owned display text: it is never appended to conversation
-/// history or offered to a model as hidden context.
 #[cfg(test)]
 pub(crate) fn catalog_text() -> String {
     let mut text = format!("RESIDENT FACULTY · {}\n", TUTORS.len());

@@ -31,6 +31,7 @@ or set `ANGEL_RUNNER_ENV_FILE=/path/to/your.env`.
 | DeepSeek | Set `DEEPSEEK_API_KEY`. Optional settings: `ANGEL_DEEPSEEK_URL`, `ANGEL_DEEPSEEK_MODEL`. | `deepseek` |
 | OpenRouter | Set `OPENROUTER_API_KEY` and `ANGEL_OPENROUTER_MODEL`. Optional endpoint: `ANGEL_OPENROUTER_URL`. | `openrouter` |
 | Anthropic | Set `ANTHROPIC_API_KEY` or `ANGEL_ANTHROPIC_KEY`. The `anthropic` seat uses `ANGEL_ANTHROPIC_MODEL` (default `claude-sonnet-5-5`). Claude Opus 5.5 is its own seat on that same key. | `anthropic`, `claude-opus-5-5` |
+| Gemini 4 Carbon | Set `GEMINI_API_KEY` or `ANGEL_CARBON_KEY`. Optional settings: `ANGEL_CARBON_MODEL` (default `gemini-4-carbon`), `ANGEL_CARBON_URL`. Metered: seated by name, never a MoA role or fallback. | `carbon` |
 | Local server | Set `ANGEL_LOCAL_URL` to an OpenAI-compatible base URL. Set `ANGEL_LOCAL_MODEL`, or let `/models` discovery identify the served model. | `local` |
 
 Select a startup route with `ANGEL_DRIVER`, for example:

@@ -17,19 +17,12 @@ use std::time::{Duration, Instant};
 mod live;
 mod bard_stream;
 
-/// Where the knights' voices sit: their clips are recorded quieter than the
-/// effects, so they play at the effects' own level.
 pub const VOICE_LEVEL: f32 = SFX_LEVEL;
-/// Music runs low under play: 15% (the operator, 2026-10-28).
 const MUSIC_LEVEL: f32 = 0.15;
-/// Short effects cut through on their transients.
 const SFX_LEVEL: f32 = 0.5;
-/// Effects sounding at once, at most.
 const MAX_AT_ONCE: usize = 5;
-/// Effects are encoded at 96 kbit/s: bytes tell their length.
 const SFX_BYTES_PER_SECOND: f32 = 12_000.0;
 
-/// Every effect the game may name.
 pub const SFX: &[&str] = &[
     "shot_bow",
     "shot_crossbow",
@@ -70,7 +63,6 @@ pub const SFX: &[&str] = &[
     "mana_empty",
     "wheel_spin",
     "wheel_land",
-    // Spectacle: hits taken and landed, steps, gear, deaths, the hand, the gate.
     "knight_hit",
     "knight_hit_big",
     "hit_blade",
@@ -107,23 +99,14 @@ pub const SFX: &[&str] = &[
     "hell_gate_rise",
     "hell_gate_enter",
     "circle_toll",
-    // The finishers (`rules::gore`): a boot, a body into stone, a blade
-    // through, a splat, bones, a burst.
     "gore_kick",
     "gore_thunk",
     "gore_chop",
     "gore_splat",
     "gore_bones",
     "gore_burst",
-    // The Bard (`rules::bard`): a note landing (an open hi-hat). Its songs'
-    // slices and Lullabies are `bard::names()`.
     "hit_note",
-    // The Mirage Duelist's Swashbuckle (`rules::champions::mirage`): its
-    // "bing bong", once a cast, in the knights' voice class.
     "mirage_bing_bong",
-    // The blades (`rules::melee`): a whoosh by the arm (`melee::SWING_SOUNDS`),
-    // a contact by its weight (`CONTACT_SOUNDS`), a turned bullet's ting
-    // and whizz (`PARRY_SOUNDS`).
     "swing_sword",
     "swing_axe",
     "swing_maul",
@@ -134,13 +117,10 @@ pub const SFX: &[&str] = &[
     "hit_flesh_heavy",
     "parry",
     "parry_whizz",
-    // A blade's finishers (`gore::SOUNDS`): a head taken and landing, a
-    // body cut through and its halves falling.
     "gore_behead",
     "gore_head_thud",
     "gore_bisect",
     "gore_slump",
-    // Magic by family (`vfx::CAST_SOUNDS`, `vfx::IMPACT_SOUNDS`).
     "cast_fire",
     "cast_frost",
     "cast_holy",
@@ -155,16 +135,12 @@ pub const SFX: &[&str] = &[
     "impact_poison",
     "impact_arcane",
     "impact_earth",
-    // The wish moments: the lamp rubbed and its genie (`altar`), a wish
-    // landing by its tier (`overclass::LAND_SOUNDS`), the fairies' wish.
     "lamp_rub",
     "genie_appear",
     "wish_land",
     "wish_land_grand",
     "wish_land_mythic",
     "fairy_wish",
-    // The steps up (`rules::rewards`): a level, a rung, a relic, a floor
-    // deeper than ever, a constellation lit.
     "level_up",
     "rung_up",
     "relic_find",
@@ -172,8 +148,6 @@ pub const SFX: &[&str] = &[
     "sky_lit",
 ];
 
-/// Every effect the game may name: `SFX`, the Bard's songs (a slice a beat,
-/// a Lullaby each), then the knights' clips.
 pub fn names() -> impl Iterator<Item = &'static str> {
     SFX.iter()
         .copied()
@@ -181,16 +155,12 @@ pub fn names() -> impl Iterator<Item = &'static str> {
         .chain(super::together_shooter::chatter::names().iter().copied())
 }
 
-/// A knight's grunt or chatter, rather than an effect; the Mirage Duelist's
-/// cry goes with them (`VOICE_LEVEL`, and off with the voices).
 fn is_voice(name: &str) -> bool {
     name.starts_with("knights/") || name == "mirage_bing_bong"
 }
 
-/// Every music track.
 pub const TRACKS: &[&str] = &["crypt", "mines", "keep", "boss", "sanctuary", "menu"];
 
-/// The shortest gap between two of the same effect.
 fn gap(name: &str) -> Duration {
     Duration::from_millis(match name {
         "gas_release" => 1500,
@@ -200,9 +170,6 @@ fn gap(name: &str) -> Duration {
         "shot_bow" | "shot_crossbow" | "shot_handgonne" | "shot_bolt" | "shot_arcane"
         | "shot_spark" => 70,
         "hit" | "hit_blade" | "hit_axe" | "hit_arrow" | "hit_bolt" | "hit_blast" | "hit_magic" | "hit_note" => 60,
-        // A song's slice is a beat (0.4 s) and the next beat is another name:
-        // this only stops a tapped fire from restarting the song's opening
-        // over itself. A Lullaby is a bar and a half.
         n if angel_delve::rules::bard::is_slice(n) => 300,
         n if angel_delve::rules::bard::is_bard_sound(n) => 800,
         "step_stone" | "step_gravel" | "step_ash" | "step_wet" | "step_moss" | "step_wood" => 210,
@@ -210,15 +177,12 @@ fn gap(name: &str) -> Duration {
         "boss_roar" | "boss_rage" | "boss_death" | "crack_open" | "hand_rise" | "hand_grab"
         | "hand_drag" | "ground_close" | "hell_gate_rise" | "hell_gate_enter" | "circle_toll"
         | "knight_fall" => 800,
-        // About a second long: another is not heard over the first.
         "mirage_bing_bong" => 1200,
         "kill" => 90,
         "gore_kick" | "gore_thunk" | "gore_chop" | "gore_splat" | "gore_bones" | "gore_burst" => 110,
         "swing" | "roll" | "shield_block" | "clang" | "spike" | "vent_fire" => 150,
         "boss_rise" | "boss_fall" | "descend" | "door_seal" | "door_open" | "area_leave" => 800,
         "wheel_spin" | "wheel_land" => 1500,
-        // The blades, magic by family and the wish moments: the page's own
-        // gaps (`angel_delve::client::sound_gap`).
         "swing_sword" | "swing_axe" | "swing_maul" | "swing_spear" | "swing_cleaver" => 150,
         "hit_flesh_light" | "hit_flesh_medium" | "hit_flesh_heavy" => 70,
         "parry" => 250,
@@ -237,9 +201,6 @@ fn gap(name: &str) -> Duration {
     })
 }
 
-/// Say that a shipped file is missing: to the log, and to stderr when that
-/// is not the screen the cockpit draws on (a host run with its stderr in a
-/// file, as a play server keeps it).
 pub fn missing(line: &str) {
     use std::io::IsTerminal;
     tracing::warn!("{line}");
@@ -248,10 +209,6 @@ pub fn missing(line: &str) {
     }
 }
 
-/// The folders a shipped file may sit under, best first: the one the
-/// launcher names (`ANGEL_RESOURCE_DIR`, the package or checkout it runs
-/// from), this build's own source tree (not in a portable build), then the
-/// package or checkout around the binary itself.
 fn roots() -> Vec<PathBuf> {
     [
         std::env::var_os("ANGEL_RESOURCE_DIR")
@@ -267,14 +224,10 @@ fn roots() -> Vec<PathBuf> {
     .collect()
 }
 
-/// The shipped folder `place` (relative to the repository, as
-/// `cockpit/assets/dungeon/music`), under the first root that has it.
 pub fn resource(place: &str) -> Option<PathBuf> {
     roots().into_iter().map(|root| root.join(place)).find(|d| d.is_dir())
 }
 
-/// The Delve's sound folder: the resource checkout first, then the source
-/// tree, then the package around the binary.
 pub fn sound_dir() -> Option<PathBuf> {
     roots()
         .into_iter()
@@ -282,7 +235,6 @@ pub fn sound_dir() -> Option<PathBuf> {
         .find(|d| d.join("sfx").is_dir() || d.join("music").is_dir())
 }
 
-/// The file of effect `name` (one of `SFX`).
 #[cfg(any(test, feature = "testing"))]
 pub fn sfx_file(name: &str) -> Option<PathBuf> {
     let name = names().find(|&s| s == name)?;
@@ -290,7 +242,6 @@ pub fn sfx_file(name: &str) -> Option<PathBuf> {
     file.is_file().then_some(file)
 }
 
-/// The knights' voices in the mix: how loud, and whether heard at all.
 pub struct Voices {
     pub level: f32,
     pub muted: bool,
@@ -308,17 +259,12 @@ impl Default for Voices {
 #[derive(Default)]
 pub struct Audio {
     live:live::Playback,
-    /// When each effect last played.
     last: HashMap<&'static str, Instant>,
-    /// When the effects now sounding end.
     sounding: Vec<Instant>,
-    /// The track wanted, and the player looping it.
     track: Option<&'static str>,
     player: Option<Child>,
     muted: bool,
-    /// The knights' voices, turned up, down or off on their own.
     pub voices: Voices,
-    /// Effects started (for the tests: they make no sound).
     played: usize,
     dir: Option<PathBuf>,
     looked: bool,
@@ -366,8 +312,6 @@ impl Audio {
         if !self.looked {
             self.looked = true;
             self.dir = sound_dir();
-            // The sounds ship beside the binary, not in it: without them
-            // the game plays silent, and says why once.
             match &self.dir {
                 None => missing("no Delve sounds beside this binary (cockpit/assets/dungeon): the game plays silent"),
                 Some(dir) if !dir.join("music").is_dir() => missing(&format!(
@@ -376,7 +320,6 @@ impl Audio {
                 )),
                 Some(_) => {}
             }
-            // The Bard's songs joined ahead, so its first press is already one stream.
             if !cfg!(any(test, feature = "testing"))
                 && let Some(dir) = &self.dir
             {
@@ -386,9 +329,6 @@ impl Audio {
         self.dir.as_deref()
     }
 
-    /// Play effect `name`, unless it just played or enough are sounding.
-    /// An effect as a seat's client names it (`sfx <file>`): its folders
-    /// are dashes there (`knights-a_cheer_1` is `knights/a_cheer_1`).
     pub fn sfx_line(&mut self, file: &str, now: Instant) {
         if file == angel_delve::wire::sound_file(angel_delve::rules::bard::REST) {
             self.sfx(angel_delve::rules::bard::REST, now);
@@ -398,7 +338,6 @@ impl Audio {
     }
 
     pub fn sfx(&mut self, name: &str, now: Instant) {
-        // The Bard let go of its song: it stops now, muted or not (`rules::bard::strum`).
         if name == angel_delve::rules::bard::REST {
             if !cfg!(any(test, feature = "testing")) {
                 bard_stream::rest();
@@ -418,8 +357,6 @@ impl Audio {
         {
             return;
         }
-        // The Bard's song as one unbroken stream where it can be: a player a slice starts each a
-        // little early or late, and the song stutters.
         if !cfg!(any(test, feature = "testing"))
             && angel_delve::rules::bard::is_slice(name)
             && let Some(dir) = self.dir().map(|d| d.join("sfx"))
@@ -430,8 +367,6 @@ impl Audio {
             return;
         }
         self.sounding.retain(|&end| end > now);
-        // The Bard's song is never the effect that is let go: a missed slice
-        // is a hole in the music, and only its own seat's slices come here.
         let song = angel_delve::rules::bard::is_bard_sound(name);
         if self.sounding.len() >= MAX_AT_ONCE && !song {
             return;
@@ -453,13 +388,11 @@ impl Audio {
         }
     }
 
-    /// Loop `track` (same track: nothing changes; `None`: stop).
     pub fn music(&mut self, track: Option<&str>) {
         let track = match track {
             None => None,
             Some(name) => match TRACKS.iter().copied().find(|&t| t == name).or_else(|| angel_delve::rules::music::known(name)) {
                 Some(t) => Some(t),
-                // An unknown track keeps what is playing.
                 None => return,
             },
         };
@@ -470,7 +403,6 @@ impl Audio {
         self.restart();
     }
 
-    /// Stop the music (the game is collapsed or closed).
     pub fn stop(&mut self) {
         self.live.clear();
         self.sounding.clear();
@@ -492,7 +424,6 @@ impl Audio {
         self.restart();
     }
 
-    /// The track wanted now.
     #[cfg(any(test, feature = "testing"))]
     pub fn track(&self) -> Option<&'static str> {
         self.track
@@ -519,7 +450,6 @@ impl Audio {
     fn kill(&mut self) {
         if let Some(mut child) = self.player.take() {
             let _ = child.kill();
-            // Reap it off the game thread.
             std::thread::spawn(move || {
                 let _ = child.wait();
             });
@@ -540,11 +470,6 @@ fn quiet(command: &mut Command) -> &mut Command {
         .stderr(Stdio::null())
 }
 
-/// One effect, fire and forget.
-/// One effect, played by a player process of its own. The process is
-/// started off the frame, by the effects' own thread: a party's volleys ask
-/// for dozens of effects a second, and starting each on the host's frame
-/// cost the host its smoothness (the browser seats play theirs in the page).
 fn play_once(path: &Path, level: f32) {
     if cfg!(any(test, feature = "testing")) {
         return;
@@ -577,7 +502,6 @@ fn once_player(path: &Path, level: f32) -> Option<Child> {
     let pw = format!("{level:.2}");
     let pa = format!("{}", (level * 65536.0) as u32);
     let mpv = format!("--volume={}", (level * 100.0) as u32);
-    // afplay: every Mac has it.
     let players: [Vec<&str>; 4] = [
         vec!["pw-play", "--volume", &pw],
         vec!["paplay", "--volume", &pa],
@@ -591,7 +515,6 @@ fn once_player(path: &Path, level: f32) -> Option<Child> {
     }
     None
 }
-/// A looping player for one track; the caller keeps it to kill it.
 fn play_looping(path: &Path, level: f32) -> Option<Child> {
     let percent = ((level.clamp(0.0, 1.0) * 100.0) as u32).to_string();
     let mpv_volume = format!("--volume={percent}");

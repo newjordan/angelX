@@ -15,8 +15,6 @@ fn dared(seed: u64, kind: DareKind) -> Run {
     run
 }
 
-/// Every floor's call, the guardian question, the cues that keep or break a
-/// dare, and the stairs.
 #[test]
 #[ignore]
 fn record_dares() {

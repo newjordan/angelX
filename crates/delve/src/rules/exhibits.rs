@@ -5,9 +5,6 @@
 use super::{Floor, Run, TILE_UNITS, Tile};
 use serde::{Deserialize, Serialize};
 
-/// A saved loop site as the run admits it (`Run::enter_settlement`): the
-/// host's settlement lends its id, the player it was saved for, its floor,
-/// and where its exhibits stand.
 pub struct Admission<'a> {
     pub id: &'a str,
     pub player: &'a str,
@@ -15,8 +12,6 @@ pub struct Admission<'a> {
     pub exhibits: Vec<Marker>,
 }
 
-/// Only public geometry; never put private artifact metadata in a Run, guest
-/// HUD, or pixels. Its generic LOCAL RESEARCH sign is shared with guests.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Marker {
@@ -39,7 +34,6 @@ impl Marker {
         })
     }
 
-    /// A knight at `(x, y)` in room `at` stands on this exhibit's spot.
     pub fn beside(&self, at: usize, x: f32, y: f32) -> bool {
         self.room == at
             && (x - (self.stand.0 as f32 + 0.5) * TILE_UNITS).abs() <= TILE_UNITS * 0.7
@@ -48,8 +42,6 @@ impl Marker {
 }
 
 impl Run {
-    /// Knight `id` stands beside one of this settlement's LOCAL RESEARCH
-    /// exhibits, where E reads it rather than meeting the world.
     pub fn beside_exhibit(&self, id: u32) -> bool {
         self.at_home_now()
             && self.settlement_site.is_some()

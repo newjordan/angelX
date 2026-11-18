@@ -9,10 +9,8 @@ pub(super) fn waterwheel(c: &mut Ctx) {
     let (t, work, seed) = (c.t, c.work, c.seed);
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
-    // The race: water across the front of the picture, the bank behind it.
     paint::earth(im, 24.0, 22.0 + 12.0, 23.0, 9.0, seed);
     paint::stream(im, 0, h - 14, w, 14, if work { t } else { 0 }, -1, seed);
-    // Stone piers either side of the wheel, and its axle between them.
     let (cx, cy) = (17.0f32, (h - 22) as f32);
     for x in [1, 31] {
         for y in 0..24 {
@@ -20,21 +18,17 @@ pub(super) fn waterwheel(c: &mut Ctx) {
             im.rect(x, h - 14 - 24 + y + 10, 6, 1, ch);
         }
     }
-    // The wheel: eight spokes, paddles on its rim, its lower paddles in the water.
     let turn_by = if work { paint::turn(t) * 2.0 / 8.0 } else { 0.4 };
     paint::wheel(im, cx, cy, 13.0, turn_by, 8, true, ('o', 'O', 'B'));
     paint::ring(im, cx, cy, 6.0, 'B');
-    // The wheel's foot in the water: spray and a shadow on the stream.
     for k in 0..6 {
         let x = 8 + k * 3;
         im.put(x, h - 14, if work && (k + t as i32) % 2 == 0 { 'W' } else { '3' });
     }
-    // The gearbox shed on the right: the axle goes in through its wall, and a cog turns.
     paint::boards(im, 36, h - 36, 11, 20, seed);
     paint::roof(im, 34, h - 44, 15, 9, crate::render::overworld::material::ramp::SLATE, seed);
     im.line(23, cy as i32, 38, cy as i32, 'o');
     paint::wheel(im, 42.0, (h - 26) as f32, 4.0, if work { paint::turn(t) } else { 0.5 }, 8, false, ('U', 'U', 'V'));
-    // Sacks at the door, waiting on what the power drives.
     paint::pile(im, 40, h - 1, 10, 6, Load::Flour, seed);
 }
 
@@ -43,7 +37,6 @@ pub(super) fn treadwheel_crane(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
     paint::earth(im, 16.0, (h - 12) as f32, 15.5, 11.0, seed);
-    // The base: a timber plate and the mast standing from it.
     im.rect(2, h - 7, 28, 3, 'O');
     im.rect(2, h - 4, 28, 1, 'B');
     for y in 9..h - 6 {
@@ -51,25 +44,21 @@ pub(super) fn treadwheel_crane(c: &mut Ctx) {
         im.put(26, y, 'O');
         im.put(27, y, 'B');
     }
-    // The jib: a long arm to the left, its tie rope back to the mast's head.
     im.line(25, 9, 3, 14, 'o');
     im.line(25, 10, 3, 15, 'B');
     im.line(26, 8, 4, 12, 'O');
     im.line(26, 22, 14, 13, 'b');
-    // The great treadwheel at the foot: a drum a man walks inside.
     let (cx, cy) = (13.0f32, (h - 19) as f32);
     let a = if work { paint::turn(t) * 2.0 / 8.0 } else { 0.2 };
     paint::wheel(im, cx, cy, 11.0, a, 8, false, ('o', 'B', 'O'));
     if work {
         hands::stamp(im, 15, h - 8, Trade::Labourer, Act::Bare(Pose::Walk), t, true);
     }
-    // Rope up the mast, over the head, along the jib and down to the hook.
     let lift = if work { ((paint::turn(t).cos() + 1.0) * 5.0).round() as i32 } else { 12 };
     let hook = 22 + lift;
     paint::rope(im, 24, h - 22, 26, 9, 0.0, 't');
     paint::rope(im, 26, 9, 4, 13, 0.0, 't');
     paint::rope(im, 4, 14, 4, hook, 0.0, 't');
-    // A cut block hanging in the sling.
     im.rect(1, hook, 7, 6, 'i');
     im.rect(1, hook, 7, 1, 'H');
     im.rect(1, hook + 5, 7, 1, 'j');
@@ -84,13 +73,11 @@ pub(super) fn mortar_mill(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
     paint::earth(im, 16.0, (h - 13) as f32, 15.5, 12.0, seed);
-    // The pan: a round stone trough seen from the front and above, mortar in it.
     let (cx, cy) = (16.0f32, (h - 14) as f32);
     im.ellipse(cx, cy + 2.0, 14.0, 8.0, 'j');
     im.ellipse(cx, cy, 14.0, 8.0, 'J');
     im.ellipse(cx, cy, 12.0, 6.5, if work { 'o' } else { 'h' });
     im.ellipse(cx, cy, 9.0, 4.5, if work { 'P' } else { 'o' });
-    // The post at its middle and the sweep that turns the runner round the pan.
     let a = if work { paint::turn(t) } else { 0.8 };
     let (rx, ry) = (a.cos() * 9.0, a.sin() * 4.0);
     let behind = a.sin() < 0.0;
@@ -115,7 +102,6 @@ pub(super) fn mortar_mill(c: &mut Ctx) {
     if work {
         hands::stamp(im, 3, h - 2, Trade::Labourer, Act::Work, t, false);
     }
-    // Sand and lime beside it, the mortar tub.
     paint::pile(im, 26, h - 1, 10, 7, Load::Sand, seed);
     paint::pile(im, 6, h - 1, 9, 6, Load::Lime, seed ^ 3);
     let _ = w;
@@ -126,11 +112,9 @@ pub(super) fn intake(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
     paint::earth(im, 16.0, (h - 8) as f32, 15.5, 7.0, seed);
-    // The river along the back, a stone wall holding its bank, the sluice cut through it.
     paint::stream(im, 0, 12, w, 10, if work { t } else { 0 }, 1, seed);
     paint::blockish(im, 0, 22, 12, 10, ramp::STONE, seed);
     paint::blockish(im, 20, 22, 12, 10, ramp::STONE, seed ^ 1);
-    // The gate: a timber leaf in grooved posts, raised by a screw when it runs.
     let open = if work { 6 } else { 1 };
     paint::post(im, 12, 14, 31);
     paint::post(im, 18, 14, 31);
@@ -139,7 +123,6 @@ pub(super) fn intake(c: &mut Ctx) {
     im.rect(14, 30 - open, 4, 1, 'B');
     im.line(16, 12, 16, 18, 'U');
     im.rect(14, 11, 4, 2, 'v');
-    // The leat: a timber trough taking the water out toward the works.
     im.rect(12, 32, 8, h - 33, 'S');
     paint::stream(im, 13, 32, 6, h - 33, if work { t } else { 0 }, 1, seed ^ 2);
     if !work {
@@ -158,7 +141,6 @@ pub(super) fn treadwheel(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
     paint::earth(im, 16.0, (h - 8) as f32, 15.5, 7.0, seed);
-    // The great drum on its frame: spokes and a tread of boards, a man inside walking.
     paint::post(im, 2, h - 30, h - 2);
     paint::post(im, 28, h - 30, h - 2);
     let a = if work { paint::turn(t) * 2.0 / 10.0 } else { 0.1 };
@@ -169,7 +151,6 @@ pub(super) fn treadwheel(c: &mut Ctx) {
     } else {
         hands::stamp(im, 17, h - 7, Trade::Labourer, Act::Bare(Pose::Stand), 0, true);
     }
-    // The axle, out through the frame to the shaft that carries the work off.
     im.rect(14, h - 18, 4, 4, 'u');
     im.line(18, h - 16, 31, h - 16, 'U');
     let _ = w;
@@ -179,19 +160,16 @@ pub(super) fn horse_gin(c: &mut Ctx) {
     let (t, work, seed) = (c.t, c.work, c.seed);
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
-    // The round: a trodden ring of earth before the gin-house.
     let (cx, cy) = (24.0f32, (h - 16) as f32);
     paint::earth(im, cx, cy, 23.0, 14.0, seed);
     im.ellipse(cx, cy, 18.0, 10.5, 'I');
     im.ellipse(cx, cy, 8.0, 4.0, 'B');
-    // The gin-house at the back: a timber drum under a thatched cone, a door.
     paint::boards(im, 14, h - 52, 20, 14, seed);
     paint::trapezoid(im, 6, h - 52, (23.0, 25.0), (10.0, 38.0), &|x, y, side| {
         if side < 0 { 'o' } else if side > 0 { 'r' } else if (x + y) % 3 == 0 { 'O' } else { 'P' }
     });
     im.rect(23, 3, 3, 3, 'B');
     paint::door(im, 21, h - 39, 6, 11);
-    // The sweep: a long beam out of the drum at head height, the horse yoked to its end.
     let a = if work { paint::turn(t) } else { 2.2 };
     let (hx, hy) = (cx + a.cos() * 14.0, cy + a.sin() * 7.0);
     let draw_horse = |im: &mut crate::render::overworld::ink::Img| {
@@ -199,7 +177,6 @@ pub(super) fn horse_gin(c: &mut Ctx) {
         let stride = if work { (t % 2) as i32 } else { 0 };
         let flip = a.cos() < 0.0;
         let dx = if flip { -1 } else { 1 };
-        // A pale grey horse, so it stands out of the trodden brown.
         im.rect(x - 6, y - 9, 12, 5, 'h');
         im.rect(x - 6, y - 9, 12, 1, 'i');
         im.rect(x - 6, y - 5, 12, 1, 'G');
@@ -233,7 +210,6 @@ pub(super) fn windmill(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
     paint::earth(im, 16.0, (h - 8) as f32, 15.5, 7.0, seed);
-    // The tower: tapering, whitewashed plaster over stone; a boat-shaped cap.
     paint::trapezoid(im, 34, h - 4, (9.0, 23.0), (5.0, 27.0), &|x, y, side| {
         let n = hash(x / 2, y / 3, seed) % 6;
         match side {
@@ -252,7 +228,6 @@ pub(super) fn windmill(c: &mut Ctx) {
     im.ellipse(16.0, 26.0, 8.0, 3.0, 'R');
     paint::door(im, 12, h - 4, 8, 12);
     paint::window(im, 14, 46, 4, 6, work);
-    // The sails: four arms on the hub, lattice frames with cloth on them.
     let (hx, hy) = (16.0f32, 25.0f32);
     let a0 = if work { paint::turn(t) * 0.5 } else { 0.5 };
     for k in 0..4 {
@@ -279,7 +254,6 @@ pub(super) fn drive_shaft(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
     paint::earth(im, 8.0, (h - 5) as f32, 7.5, 4.0, seed);
-    // Two posts with bearings and a long round shaft across them; a cog riding it.
     for x in [1, 12] {
         paint::post(im, x, h - 12, h - 2);
         im.rect(x - 1, h - 12, 4, 2, 'U');
@@ -287,7 +261,6 @@ pub(super) fn drive_shaft(c: &mut Ctx) {
     im.rect(0, h - 11, w, 3, 'O');
     im.rect(0, h - 11, w, 1, 'T');
     im.rect(0, h - 9, w, 1, 'B');
-    // A bar of light that marks the turn: stripes sliding along it.
     for x in 0..w {
         if work && (x + t as i32) % 4 == 0 {
             im.put(x, h - 10, 'o');
@@ -301,7 +274,6 @@ pub(super) fn leyline(c: &mut Ctx) {
     let (t, work, seed) = (c.t, c.work, c.seed);
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
-    // A bed of dark flags, a channel inlaid across it, runes down the channel.
     for y in h - 12..h - 1 {
         for x in 0..w {
             let n = hash(x / 4, y / 3, seed) % 4;
@@ -327,7 +299,6 @@ pub(super) fn mana_engine(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
     paint::earth(im, 16.0, (h - 9) as f32, 15.5, 8.0, seed);
-    // A stepped dais, a ring of coils about a socket, the crystal floating over it.
     paint::blockish(im, 2, h - 14, 28, 10, ramp::SLATE, seed);
     paint::blockish(im, 6, h - 22, 20, 9, ramp::SLATE, seed ^ 1);
     for k in 0..6 {
@@ -339,7 +310,6 @@ pub(super) fn mana_engine(c: &mut Ctx) {
     }
     let bob = if work { (paint::turn(t).sin() * 2.0).round() as i32 } else { 0 };
     let (cx, cy) = (16, h - 34 + bob);
-    // The crystal: a tall gem, lit from within.
     for y in 0..14 {
         let half = if y < 5 { 1 + y } else { (14 - y) / 2 + 1 };
         for x in -half..=half {
@@ -364,7 +334,6 @@ pub(super) fn conduit(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
     paint::earth(im, 8.0, (h - 4) as f32, 7.5, 3.5, seed);
-    // A squat stone pylon with a brass band, a crystal in a cage at its head.
     paint::blockish(im, 3, h - 10, 10, 8, ramp::SLATE, seed);
     im.rect(4, h - 18, 8, 9, 'x');
     im.rect(4, h - 18, 1, 9, 'S');
@@ -393,7 +362,6 @@ pub(super) fn enchanter(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
     paint::earth(im, 16.0, (h - 9) as f32, 15.5, 8.0, seed);
-    // A round tower of slate-blue stone, a cone of violet roof, an iron-banded door.
     paint::trapezoid(im, 22, h - 4, (7.0, 25.0), (5.0, 27.0), &|x, y, side| {
         let n = hash(x / 3, y / 4, seed) % 5;
         match side {
@@ -410,7 +378,6 @@ pub(super) fn enchanter(c: &mut Ctx) {
     });
     im.rect(2, 21, 28, 2, '(');
     paint::door(im, 12, h - 4, 8, 12);
-    // A window high up, and the ring of runes round the middle.
     paint::window(im, 14, 28, 4, 7, work);
     im.rect(15, 28, 2, 7, if work { '[' } else { 'k' });
     for k in 0..7 {
@@ -418,7 +385,6 @@ pub(super) fn enchanter(c: &mut Ctx) {
         let on = work && (k as u32 + t) % 4 < 2;
         im.rect(x, 40, 2, 3, if on { '3' } else { 'S' });
     }
-    // The crystal over the spire, bobbing and throwing light.
     let bob = if work { (paint::turn(t).sin() * 1.5).round() as i32 } else { 0 };
     let (cx, cy) = (16, 3 + bob);
     for y in -4..=4i32 {

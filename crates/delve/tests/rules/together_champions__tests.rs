@@ -1,6 +1,5 @@
 use super::*;
 
-/// A champion of `kit` at (12, 14) aiming east, a tough foe at `(x, y)`.
 fn arena(kit: &str, x: f32, y: f32) -> Run {
     let mut r = Run::new(21, 1, None);
     let fight = r.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
@@ -63,7 +62,6 @@ fn a_champion_takes_up_three_spells_on_keys_one_to_three_and_gives_them_back() {
     assert_eq!(ults::Ult::of(Some("hammerer")), ults::Ult::Earthsplitter);
     assert_eq!(ults::Ult::of(Some("butcher")), ults::Ult::Dismember);
     assert_eq!(ults::Ult::of(Some("alchemist")), ults::Ult::PhilosophersRain);
-    // Back to a plain knight: the champion's spells go with the kit.
     assert!(r.take_up(1, "percival"));
     assert!(r.players[&1].spells.iter().flatten().all(|s| !champions::is_spell(s)));
 }
@@ -80,7 +78,6 @@ fn the_storm_hammer_flies_stuns_the_first_foe_and_bursts_round_it() {
     assert!(lost(&r, 0) >= 50, "the first takes it whole: {}", lost(&r, 0));
     assert!(lost(&r, 1) >= 25 && lost(&r, 1) < lost(&r, 0), "the one beside takes the burst");
     assert!(r.enemies[0].frozen > HZ, "stunned");
-    // Its wait is the card's: eight seconds.
     assert_eq!(r.players[&1].spell_cooldowns[0], 8 * HZ - 12);
 }
 
@@ -177,7 +174,6 @@ fn dismember_holds_a_foe_carves_it_and_feeds_the_butcher() {
     assert!(r.champions.grips.is_empty());
     assert!(lost(&r, 0) >= 130, "carved: {}", lost(&r, 0));
     assert!(r.players[&1].hp > 60, "fed");
-    // Nobody near: the charge keeps.
     let mut r = arena("butcher", 40.0, 14.0);
     r.players.get_mut(&1).unwrap().ult_charge = ults::ULT_FULL;
     step(&mut r, Input { ult: true, ..Default::default() });
@@ -246,7 +242,6 @@ fn a_champions_run_round_trips_with_its_things_in_the_air() {
     let back: Run = serde_json::from_str(&text).unwrap();
     assert_eq!(back.champions, r.champions);
     assert_eq!(back.players[&1].champ, r.players[&1].champ);
-    // A plain knight's run writes nothing of them.
     let plain = Run::new(21, 1, None);
     let text = serde_json::to_string(&plain).unwrap();
     assert!(!text.contains("\"champ") && !text.contains("\"champions\""));
@@ -299,7 +294,6 @@ fn three_champions_and_a_knight_mash_every_key_through_a_fight_and_a_floor_chang
         cast += r.players.values().filter(|h| h.champ.cast > 0).count();
     }
     assert!(thrown > 0 && cracked > 0 && cast > 0, "{thrown} {cracked} {cast}");
-    // Leaving the room leaves its hooks and cracks behind.
     let other = r.dungeon.rooms.iter().enumerate().position(|(i, room)| i != r.at && room.kind == RoomKind::Fight).unwrap();
     r.enter_for_test(other);
     assert!(r.champions.is_empty());
@@ -330,7 +324,6 @@ fn every_champion_can_swap_a_found_arm_without_losing_spells() {
 
 #[test]
 fn the_table_arms_a_champion_again_who_lost_his_arm() {
-    // An older save: the maul already swapped away for a found gun.
     let mut r = arena("hammerer", 40.0, 14.0);
     let gun = r.book.get("handgonne").unwrap().clone();
     r.players.get_mut(&1).unwrap().equip(&gun);
@@ -341,7 +334,6 @@ fn the_table_arms_a_champion_again_who_lost_his_arm() {
     let h = &r.players[&1];
     assert_eq!(h.arm.as_deref(), Some("great-maul"), "the Hammerer at the bar hands the maul back");
     assert!(h.forged.as_ref().is_some_and(|w| w.melee.is_some()));
-    // Armed, a second word at the table is the old one.
     r.pick_patron(1, i);
     assert_eq!(r.players[&1].arm.as_deref(), Some("great-maul"));
 }
@@ -425,7 +417,6 @@ fn bloodlust_feeds_the_reaver_on_his_cuts_and_quickens_him() {
     }
     assert!(lost(&r, 0) > 0);
     assert!(r.players[&1].hp > 60, "fed: {}", r.players[&1].hp);
-    // Quicker on his feet while it lasts.
     let mut slow = arena("reaver", 40.0, 14.0);
     let mut fast = arena("reaver", 40.0, 14.0);
     cast(&mut fast, 3);
@@ -490,7 +481,6 @@ fn the_braced_lance_roots_her_halves_blows_and_throws_back_a_rusher() {
     assert_eq!(r.players[&1].x, x0, "rooted behind the lance");
     assert!(lost(&r, 0) > 0, "the rusher is struck");
     assert!(r.enemies[0].x - r.players[&1].x > d0, "and thrown back");
-    // The same blow, braced and not.
     let h = r.players.get_mut(&1).unwrap();
     (h.invulnerable, h.hp) = (0, 200);
     h.attack_hurt(40);

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Node private writer adapter; text travels on stdin, never on argv."""
 import json
 import base64
 import os
@@ -30,7 +29,7 @@ def main():
                 offset += written
             os.fsync(fd)
     elif mode == 'copy':
-        scanner = runpy.run_path(str(Path(__file__).with_name('trajectory-redact.py')))
+        scanner = PRIVATE['_get_redactor']()
         body = scanner['safe_read'](request['source'])
         if '\0' in body or any(0xDC80 <= ord(c) <= 0xDCFF for c in body):
             PRIVATE['replace_bytes'](request['path'], body.encode('utf-8', errors='surrogateescape'))

@@ -32,7 +32,6 @@ pub(super) struct SetupLimit(libc::rlimit);
 
 impl Drop for SetupLimit {
     fn drop(&mut self) {
-        // A failed preparation must not alter the calling process's limits.
         unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &self.0) };
     }
 }
@@ -95,9 +94,6 @@ pub(super) fn prepare(
     program: OsString,
     args: Vec<OsString>,
 ) -> io::Result<Option<SetupLimit>> {
-    // Several fleet hosts launch with a 1,024 soft FD limit. Pinning a large
-    // workspace needs more setup FDs; use the existing hard allowance, then
-    // restore the worker's original soft limit after those inputs are closed.
     let setup_limit = reserve_descriptors(aliases.len())?;
     let mut mounts = Vec::with_capacity(aliases.len());
     for path in aliases {
@@ -132,17 +128,12 @@ pub(super) fn prepare(
         return Err(io::Error::last_os_error());
     }
     inherit(&input)?;
-    // The current helper stays pinned, including when its installed path is
-    // atomically replaced while this worker is being launched.
     let helper = File::open("/proc/self/exe")?;
     inherit(&helper)?;
     let helper_path = format!("/proc/self/fd/{}", helper.as_raw_fd());
     sources.push(input);
     sources.push(helper);
     command.args(["--cap-add", "CAP_SYS_ADMIN", "--cap-add", "CAP_SETPCAP"]);
-    // No worker-controlled LD_PRELOAD/LD_LIBRARY_PATH or language startup
-    // environment may run in the setup phase. Restore the original environment
-    // only after every overlay is installed and all capabilities are dropped.
     command.env_clear();
     command
         .arg("--")
@@ -179,8 +170,6 @@ fn capabilities() -> io::Result<[CapData; 2]> {
 }
 
 fn drop_capabilities() -> io::Result<()> {
-    // Drop the bounding set too: an eventual uid-0 exec must not reacquire
-    // setup capabilities. SETPCAP remains effective until the final capset.
     for cap in 0..64 {
         if unsafe { libc::prctl(libc::PR_CAPBSET_READ, cap, 0, 0, 0) } == -1 {
             if io::Error::last_os_error().raw_os_error() == Some(libc::EINVAL) {
@@ -229,8 +218,6 @@ fn setup_error(stage: &str) -> io::Error {
 }
 
 fn protect(source: i32, path: &Path) -> io::Result<()> {
-    // Open both endpoints by descriptor. move_mount targets the pinned dentry,
-    // so replacing an ancestor with a symlink cannot redirect the mount.
     let target = super::bwrap::pin_source(path)?;
     let original = std::fs::metadata(format!("/proc/self/fd/{source}"))?;
     let destination = target.metadata()?;
@@ -241,11 +228,6 @@ fn protect(source: i32, path: &Path) -> io::Result<()> {
             "hardlink mount target changed during setup",
         ));
     }
-    // Clone the verified alias in this mount namespace. The original source
-    // descriptor pins identity across namespace setup, but open_tree cannot
-    // clone that host-namespace mount directly. This also retains any stricter
-    // flags already applied to the workspace mount.
-    // OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC | AT_EMPTY_PATH.
     let fd = unsafe {
         libc::syscall(
             libc::SYS_open_tree,
@@ -258,7 +240,6 @@ fn protect(source: i32, path: &Path) -> io::Result<()> {
         return Err(setup_error("open_tree"));
     }
     let mount = unsafe { File::from_raw_fd(fd as i32) };
-    // MOUNT_ATTR_RDONLY | NOSUID | NODEV, retaining all other source flags.
     let attrs = MountAttr {
         attr_set: 1 | 2 | 4,
         attr_clr: 0,
@@ -278,7 +259,6 @@ fn protect(source: i32, path: &Path) -> io::Result<()> {
     {
         return Err(setup_error("mount_setattr"));
     }
-    // MOVE_MOUNT_F_EMPTY_PATH | MOVE_MOUNT_T_EMPTY_PATH.
     if unsafe {
         libc::syscall(
             libc::SYS_move_mount,

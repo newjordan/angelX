@@ -45,9 +45,6 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 
-/// Selectable Grok HTTP club models. `grok-4.7` is the stable default.
-/// `grok-4.5` stays on the list. `grok-4.6` is not offered; an explicit pin
-/// still resolves to that id.
 pub(crate) const GROK_SOTA_MODEL_OPTIONS: &[&str] = &[
     "grok-4.7",
     "grok-4",
@@ -59,64 +56,34 @@ pub(crate) const GROK_SOTA_MODEL_OPTIONS: &[&str] = &[
     "grok-4.20-mini",
 ];
 
-/// Fallback THINK ladder when `models_cache.json` has no effort list for the
-/// pinned model. Matches the Grok 4.5 catalog shipped with the CLI.
 const GROK_DEFAULT_EFFORT_LEVELS: &[&str] = &["low", "medium", "high"];
-/// Published ladder for Grok 4.7 and Grok 4.6. Unlike the generic HTTP ladder
-/// it has no `none` rung and adds `xhigh`; `high` is the provider default.
 const GROK_46_EFFORT_LEVELS: &[&str] = &["low", "medium", "high", "xhigh"];
 const GROK_DEFAULT_MODEL: &str = "grok-4.7";
 const GROK_46_CONTEXT_WINDOW: u64 = 500_000;
 
-/// Bound on the ACP process handshake (initialize, authenticate, session/new).
-/// The CLI refreshes its cached OAuth token during it when necessary. A
-/// prompt — the model thinking — has no clock; Esc cancels it.
 const GROK_ACP_STARTUP_TIMEOUT_SECS: u64 = 30;
 
-/// Response waits block on ACP events. This is only the maximum Esc-observation
-/// latency forced by Club's AtomicBool cancellation API; it is not child/process
-/// polling and does no work between events.
 const GROK_ACP_CANCEL_GRANULARITY: Duration = Duration::from_millis(100);
 
-/// No cockpit-imposed nested-turn cutoff by default. The old value of 12 could
-/// truncate a valid Grok coding/research run even though the outer campaign was
-/// healthy. Operators can still set `ANGEL_GROK_MAX_TURNS` to a positive value;
-/// the one-attempt wall clock above remains the dead-process guard.
 const GROK_DEFAULT_RESEARCH_MAX_TURNS: usize = 0;
 
-/// Shown only when the credentials genuinely cannot be refreshed without the
-/// operator — never merely because the access token aged out.
 const GROK_LOGIN_HINT: &str = "Grok OAuth credentials need a fresh login; run `grok login --oauth` to rewrite ~/.grok/auth.json";
 
-/// Built-in Grok CLI tool ids stripped on the harness surface so Angel owns
-/// the tool loop. Names follow the CLI docs (`run_terminal_cmd`) plus the
-/// event-log aliases observed in the field (`run_terminal_command`).
 const GROK_HARNESS_DISALLOWED_TOOLS: &str = "\
 run_terminal_cmd,run_terminal_command,read_file,search_replace,write,write_file,\
 grep,list_dir,web_search,web_fetch,Agent,todo_write,get_command_or_subagent_output,\
 spawn_subagent,open_page,image_gen,image_edit,monitor,workflow,use_tool,search_tool,\
 bash,shell,read,edit";
 
-/// Short system-prompt override for harness hops: the host seat's route,
-/// `⠜⠚`. Kept tiny so it never blows ARG_MAX; the host tool catalog — and its
-/// markup, how the seat calls `read_file` for the ledger — rides in the prompt
-/// body instead.
 fn grok_harness_system_override() -> String {
     crate::agent::harness::book::ar_seats::GROK_HOST.cells()
 }
 
-/// Experimental ACP host-tool markup switch. **Off by default.** Grok 4.6
-/// refuses `<tool_call>` prose and keeps its own tool dialect, so Angel driver
-/// hops must use the HTTP OAuth seat. Set `ANGEL_GROK_HARNESS_SURFACE=1` only
-/// to retry the denied-tools + markup recovery path against an older CLI.
 const GROK_HARNESS_SURFACE_ENV: &str = "ANGEL_GROK_HARNESS_SURFACE";
 
-/// Which Grok ACP surface to open for this call.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum GrokAcpSurface {
-    /// Pure completion: Angel tools via prose markup; Grok tools denied.
     Harness,
-    /// Bounded research agent: Grok may use its own tools (web, etc.).
     Research,
 }
 
@@ -129,27 +96,13 @@ pub(crate) struct GrokResearchClub {
     mode: GrokMode,
     usage: UsageCell,
     accounting: super::AccountingCell,
-    /// Operator THINK-deck override; wins over env/config defaults for this
-    /// process. Seat-scoped `chat_with_effort` requests bypass this field.
     effort_override: Mutex<Option<String>>,
-    /// Revision+TTL cache of the non-request resolved effort (override/env/
-    /// catalog default). Same contract as HttpClub's effort snapshot: THINK
-    /// mutations invalidate immediately via `route_state_revision`; formation
-    /// pin resync bumps [`super::http::reasoning_env_generation`] and invalidates
-    /// immediately. Opt out with `ANGEL_EFFORT_SNAPSHOT=0`.
     effort_snapshot: Mutex<GrokEffortSnapshot>,
     route_state_revision: AtomicU64,
-    /// Supported effort ids for the selected model, lowest → highest.
     reasoning_levels: Vec<String>,
-    /// Operator-facing descriptions for each effort rung (deck subtitles).
     reasoning_descriptions: Vec<(String, String)>,
-    /// Catalog default when no override/env is set.
     default_effort: Option<String>,
-    /// Trusted context window from the Grok models cache, when known.
     context_window: Option<u64>,
-    /// Long-lived account-OAuth ACP transport. A model/effort/surface mutation
-    /// replaces the cached slot; existing in-flight calls retain their Arc and
-    /// finish on the old process without being killed underneath another turn.
     acp: Mutex<Option<GrokAcpSlot>>,
 }
 
@@ -160,10 +113,6 @@ enum GrokMode {
     },
 }
 
-/// Nested CLI turns allowed on a harness hop. Must be >1: with tools denied the
-/// model often spends turn 1 on a blocked built-in, exits "Max turns reached",
-/// and leaves only prose (or markup) on stdout. One turn made every driver hop
-/// fail hard before Angel could recover a `<tool_call>`.
 const GROK_HARNESS_MAX_TURNS: usize = 3;
 
 impl GrokResearchClub {
@@ -196,8 +145,6 @@ impl GrokResearchClub {
         if let Some(requested) = request.map(str::trim).filter(|s| !s.is_empty()) {
             return self.canonicalize_effort(requested);
         }
-        // Draw-path / no-request resolution: one revision+TTL snapshot instead
-        // of re-locking override + re-reading env on every frame.
         if !super::model_defaults::request_is_pinned()
             && super::http::effort_snapshot_enabled_for_peers()
         {
@@ -253,7 +200,6 @@ impl GrokResearchClub {
         cancel: &AtomicBool,
         effort: Option<&str>,
     ) -> Result<String, String> {
-        // Bare respond is the research/scout path — allow Grok tools.
         self.respond_acp_surface(
             command,
             model,
@@ -284,10 +230,6 @@ impl GrokResearchClub {
             surface,
         };
 
-        // One transparent restart is safe only for a transport death. ACP
-        // sessions are independent, and a connection can die before the
-        // prompt reaches Grok. We never retry timeout/cancel/protocol errors,
-        // which could duplicate completed tool side effects.
         for attempt in 0..2 {
             let connection = match self.acp_connection(&key) {
                 Ok(connection) => connection,
@@ -348,12 +290,6 @@ impl GrokResearchClub {
     }
 
     fn chat_prompt(messages: &[ChatMsg]) -> String {
-        // Prefer full conversation context: the default Club::chat path only
-        // kept the latest user turn, so multi-turn Grok sessions looked like
-        // amnesia. Keep the transcript compact and role-labeled. Include
-        // structured tool calls / tool results so multi-hop harness turns do
-        // not lose the tool transcript (content-only rows drop empty
-        // assistant-with-calls messages).
         let mut parts = Vec::new();
         for msg in messages {
             let role = match msg.role {
@@ -397,8 +333,6 @@ impl GrokResearchClub {
         }
     }
 
-    /// Run one harness hop: pure Grok completion, then recover prose tool calls
-    /// when the Angel harness offered tools.
     fn chat_on_surface(
         &self,
         messages: &[ChatMsg],
@@ -408,14 +342,8 @@ impl GrokResearchClub {
         on_delta: Option<&mut dyn FnMut(StreamDelta)>,
     ) -> Result<ClubReply, String> {
         let _calibration = super::model_defaults::pin_request();
-        // The book's legend, as every wire carries it (a no-op without the
-        // ledger reader, as on the research surface).
         let introduced = crate::agent::harness::book::introduction::introduced(messages, tools);
         let transcript = Self::chat_prompt(&introduced);
-        // Research/text seats keep Grok's own tools. Host-tool driver hops
-        // belong on the HTTP OAuth seat: live Grok 4.6 refuses the markup
-        // contract and narrates "I can't use that tool-call format".
-        // `ANGEL_GROK_HARNESS_SURFACE=1` is an explicit experiment only.
         if !tools.is_empty() && !env_truthy(GROK_HARNESS_SURFACE_ENV, false) {
             return Err("Grok research ACP cannot drive Angel host tools. \
                  Use the grok HTTP OAuth seat (`ANGEL_DRIVER=grok`); \
@@ -445,14 +373,9 @@ impl GrokResearchClub {
                 )?
             }
         };
-        // Only recover prose markup on the harness surface. On the research
-        // surface Grok already ran the work itself, so treating its narration
-        // as pending calls would execute the same side effects twice.
         if surface == GrokAcpSurface::Harness {
             let recovered = filter_offered_tool_calls(extract_prose_tool_calls(&text), tools);
             if !recovered.is_empty() {
-                // Do not stream markup that is about to become structured calls
-                // — matches the OpenAI recovery path's hygiene.
                 return Ok(ClubReply::Calls(recovered));
             }
         }
@@ -904,11 +827,7 @@ fn build_grok_acp_command(key: &GrokAcpKey) -> Command {
     {
         cmd.arg("--cwd").arg(cwd);
     }
-    // Keep the ACP subprocess on its explicit OAuth path. The separately
-    // constructed `grok-api` HTTP seat owns API-key authentication.
     scrub_grok_api_env_from_oauth_child(&mut cmd);
-    // `--reasoning-effort` is a `grok agent` flag. Placing it before `agent`
-    // is silently ignored, and Grok 4.6 then boots at catalog `xhigh`.
     cmd.arg("agent");
     if let Some(effort) = key
         .effort
@@ -1161,8 +1080,6 @@ fn is_soft_grok_agent_failure(detail: &str) -> bool {
         || lower.contains("maximum number of turns")
 }
 
-/// Host-tool contract + transcript for a harness hop. Catalog lives in the
-/// prompt body (not argv) so multi-tool schemas never hit ARG_MAX.
 fn harness_prompt_with_tool_contract(transcript: &str, tools: &[ToolDef]) -> String {
     let mut out = String::with_capacity(transcript.len() + tools.len() * 128 + 512);
     out.push_str("## Angel host tools\n");
@@ -1181,7 +1098,6 @@ fn harness_prompt_with_tool_contract(transcript: &str, tools: &[ToolDef]) -> Str
             if desc.is_empty() {
                 out.push_str(&format!("- `{}` params: {}\n", tool.name, params));
             } else {
-                // Keep each tool line bounded so the contract stays scannable.
                 let desc = if desc.len() > 160 {
                     format!("{}…", &desc[..160])
                 } else {
@@ -1203,9 +1119,7 @@ fn harness_prompt_with_tool_contract(transcript: &str, tools: &[ToolDef]) -> Str
     out
 }
 
-/// Compact JSON Schema-ish params for the harness catalog line.
 fn compact_tool_params_hint(params: &serde_json::Value) -> String {
-    // Prefer property names when present — models need keys more than prose.
     if let Some(props) = params
         .get("properties")
         .and_then(|p| p.as_object())
@@ -1222,7 +1136,6 @@ fn compact_tool_params_hint(params: &serde_json::Value) -> String {
     }
 }
 
-/// Keep only calls for tools Angel actually offered this hop.
 fn filter_offered_tool_calls(calls: Vec<ToolCall>, tools: &[ToolDef]) -> Vec<ToolCall> {
     if tools.is_empty() || calls.is_empty() {
         return calls;
@@ -1255,9 +1168,6 @@ fn grok_published_xhigh_label(model: &str) -> Option<&'static str> {
 }
 
 fn grok_model_catalog(model: Option<&str>) -> GrokCatalog {
-    // The CLI cache can lag a same-day API release. For the published 4.7 and
-    // 4.6 ids, prefer xAI's contract so the cockpit does not silently hide
-    // xhigh or budget a 500k route as unknown.
     if let Some(label) = model.and_then(grok_published_xhigh_label) {
         return GrokCatalog {
             levels: GROK_46_EFFORT_LEVELS
@@ -1495,10 +1405,6 @@ impl Club for GrokResearchClub {
         cancel: &AtomicBool,
         on_delta: &mut dyn FnMut(StreamDelta),
     ) -> Result<ClubReply, String> {
-        // Honor Esc mid-child: the default chat_streaming path called
-        // respond() and ignored cancel for the full timeout. When `tools` is
-        // non-empty this is a harness hop (pure completion); when empty it is
-        // a research/text seat (bounded agent).
         self.chat_on_surface(messages, tools, cancel, effort, Some(on_delta))
     }
 }
@@ -1507,9 +1413,6 @@ fn grok_research_enabled() -> bool {
     env_truthy("ANGEL_GROK_RESEARCH", true)
 }
 
-/// Why the `grok_research` tool would be missing on this host, if it is.
-/// Feeds the capability manifest so the model reads the actual reason instead
-/// of guessing "no API key" and abandoning research turns.
 pub(crate) fn grok_research_unavailable_reason() -> Option<&'static str> {
     if !grok_research_enabled() {
         return Some("disabled by ANGEL_GROK_RESEARCH=0");
@@ -1545,8 +1448,6 @@ fn resolve_grok_model_alias_with_available(raw: &str, available: &[String]) -> S
         return trimmed.to_ascii_lowercase();
     }
     match normalized.as_str() {
-        // `grok` is an angelX compatibility alias, not a documented xAI API id.
-        // Always collapse it locally so it can never reach the wire.
         "grok" => GROK_DEFAULT_MODEL.to_string(),
         "4" | "new" | "latest" | "grok4" | "grok-4" | "4-new" | "grok4-new" | "grok-4-new"
         | "4-latest" | "grok4-latest" | "grok-4-latest" => {
@@ -1672,14 +1573,9 @@ fn expand_home(path: &str) -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from(path))
 }
 
-/// Kill the persistent Grok ACP child and any tool subprocesses it spawned. Children are
-/// put in their own process group at spawn time; fall back to a direct kill
-/// when process-group signaling is unavailable.
 fn kill_grok_child_tree(child: &mut std::process::Child) {
     #[cfg(unix)]
     {
-        // Same pattern as harness/exec.rs: process_group(0) at spawn, killpg
-        // on teardown so shell tools cannot orphan after Esc/timeout.
         let pid = child.id() as libc::pid_t;
         unsafe {
             libc::killpg(pid, libc::SIGKILL);
@@ -1689,32 +1585,18 @@ fn kill_grok_child_tree(child: &mut std::process::Child) {
     let _ = child.wait();
 }
 
-/// One credential record in `~/.grok/auth.json` — the object that carries an
-/// `expires_at`, plus the `refresh_token` stored beside it.
 struct GrokCredential<'a> {
-    /// Access-token expiry, when it parses. `None` means "can't tell", which is
-    /// never treated as a reason to block a call.
     expires_at: Option<u64>,
     refresh_token: Option<&'a str>,
 }
 
 impl GrokCredential<'_> {
-    /// True only when this record cannot serve a request without an operator
-    /// re-login: the access token is spent *and* there is no refresh token to
-    /// silently exchange for a new one.
     fn needs_login(&self, deadline: u64) -> bool {
         self.expires_at
             .is_some_and(|expiry| expiry <= deadline && self.refresh_token.is_none())
     }
 }
 
-/// Whether the Grok CLI would have to stop and ask the operator to log in.
-///
-/// An expired access token is *not* that state. The CLI exchanges the stored
-/// `refresh_token` on the next call and rewrites `~/.grok/auth.json` itself, so
-/// gating on the access-token clock alone hard-failed every Grok turn — the MoA
-/// research scout most visibly — for the whole stretch between token expiry and
-/// the next manual login, while the CLI would have served those turns fine.
 fn grok_oauth_needs_login() -> bool {
     let Some(path) = grok_oauth_file() else {
         return false;
@@ -1734,7 +1616,6 @@ fn grok_oauth_needs_login() -> bool {
         return false;
     };
     let deadline = now.as_secs().saturating_add(300);
-    // Any still-usable record is enough — the file can hold several accounts.
     credentials.iter().all(|cred| cred.needs_login(deadline))
 }
 
@@ -1765,8 +1646,6 @@ fn collect_grok_credentials<'a>(v: &'a serde_json::Value, out: &mut Vec<GrokCred
     }
 }
 
-/// Does the CLI's own stderr read like a credential problem rather than a
-/// model/network one? Keeps the login hint off unrelated failures.
 fn looks_like_grok_auth_failure(detail: &str) -> bool {
     let lower = detail.to_ascii_lowercase();
     ["401", "unauthorized", "unauthenticated", "invalid_grant"]
@@ -1813,40 +1692,28 @@ fn days_from_civil(mut year: i32, month: u32, day: u32) -> Option<u64> {
     (days >= 0).then_some(days as u64)
 }
 
-// ---------------------------------------------------------------------------
-// First-class Grok OAuth — load / refresh / persist (mirrors openai_codex)
-// ---------------------------------------------------------------------------
-
 const GROK_DEFAULT_TOKEN_URL: &str = "https://auth.x.ai/oauth2/token";
 const GROK_DEFAULT_API_BASE: &str = "https://api.x.ai/v1";
-/// Refresh this many seconds before access-token expiry.
 const GROK_OAUTH_REFRESH_SLACK_SECS: u64 = 120;
 
-/// On-disk Grok CLI OAuth credential (`~/.grok/auth.json` entry).
 #[derive(Clone)]
 struct GrokOauthAuth {
     path: PathBuf,
-    /// Map key in auth.json, e.g. `https://auth.x.ai::b1a00492-…`.
     entry_key: String,
     access_token: String,
     refresh_token: String,
     client_id: String,
     token_url: String,
-    /// Unix seconds when the access token expires, when known.
     expires_at: Option<u64>,
 }
 
 pub(crate) struct GrokOauthShared {
     auth: Mutex<GrokOauthAuth>,
-    /// Single-flight refresh gate (in progress flag + waiter condvar).
     refresh_gate: (Mutex<bool>, std::sync::Condvar),
     agent: ureq::Agent,
 }
 
-// Startup diagnostics never include paths, tokens, response bodies, or URLs.
 fn grok_diagnostic(message: std::fmt::Arguments<'_>) {
-    // Match the HTTP transport: redirected/headless stderr retains diagnostics,
-    // while background OAuth discovery must not overwrite the live TUI.
     if !std::io::IsTerminal::is_terminal(&std::io::stderr()) {
         eprintln!("{message}");
     }
@@ -1881,7 +1748,6 @@ fn grok_step<T: Send + 'static>(
 
 fn grok_read(step: &'static str, path: PathBuf) -> std::io::Result<String> {
     grok_step(step, Duration::from_secs(5), move || {
-        // Reject FIFOs/devices; O_NONBLOCK also closes the metadata/open race.
         use std::io::Read;
         let mut options = std::fs::OpenOptions::new();
         options.read(true);
@@ -1936,7 +1802,6 @@ impl GrokOauthAuth {
 
     fn from_value(v: &serde_json::Value, path: PathBuf) -> Option<Self> {
         let map = v.as_object()?;
-        // Prefer the well-known Grok CLI OIDC entry; else first object with key+refresh.
         let preferred = "https://auth.x.ai::b1a00492-073a-47ea-816f-4c329264a828";
         let (entry_key, entry) = if let Some(e) = map.get(preferred).and_then(|x| x.as_object()) {
             (preferred.to_string(), e)
@@ -2000,8 +1865,6 @@ impl GrokOauthAuth {
     fn needs_refresh(&self, now: u64) -> bool {
         match self.expires_at {
             Some(exp) => exp.saturating_sub(GROK_OAUTH_REFRESH_SLACK_SECS) <= now,
-            // Unknown expiry: trust JWT if present, else refresh to be safe when
-            // we have a refresh token (stale cache without expires_at).
             None => jwt_exp_secs(&self.access_token)
                 .map(|exp| exp.saturating_sub(GROK_OAUTH_REFRESH_SLACK_SECS) <= now)
                 .unwrap_or(!self.refresh_token.is_empty()),
@@ -2012,8 +1875,6 @@ impl GrokOauthAuth {
 impl GrokOauthShared {
     fn new(auth: GrokOauthAuth) -> Arc<Self> {
         let agent = ureq::AgentBuilder::new()
-            // The refresh request carries a long-lived refresh token; never
-            // replay it to a redirect target.
             .redirects(0)
             .timeout(Duration::from_secs(55))
             .timeout_connect(Duration::from_secs(10))
@@ -2028,7 +1889,6 @@ impl GrokOauthShared {
         })
     }
 
-    /// Return a live access token, refreshing under a single-flight gate when needed.
     fn bearer(self: &Arc<Self>) -> Result<String, String> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -2047,7 +1907,6 @@ impl GrokOauthShared {
             }
         }
 
-        // Single-flight: one refresher, others wait.
         let (lock, cvar) = &self.refresh_gate;
         let mut inflight = grok_lock(lock)?;
         let started = Instant::now();
@@ -2072,7 +1931,6 @@ impl GrokOauthShared {
             "[grok] refresh-wait complete {} ms",
             started.elapsed().as_millis()
         ));
-        // Re-check after wait — peer may have refreshed.
         {
             let auth = grok_lock(&self.auth)?;
             let now = SystemTime::now()
@@ -2117,7 +1975,6 @@ impl GrokOauthShared {
                 "Grok OAuth has no refresh token; {GROK_LOGIN_HINT}"
             ));
         }
-        // OIDC public client: form body, auth method "none".
         let body = format!(
             "grant_type=refresh_token&refresh_token={}&client_id={}",
             urlencoding_encode(&refresh_token),
@@ -2181,7 +2038,6 @@ impl GrokOauthShared {
 }
 
 impl GrokOauthAuth {
-    /// Best-effort atomic write-back of rotated tokens into auth.json.
     fn persist(&self) {
         let Ok(raw) = grok_read("oauth-persist-read", self.path.clone()) else {
             return;
@@ -2200,8 +2056,6 @@ impl GrokOauthAuth {
         let Ok(out) = serde_json::to_vec_pretty(&v) else {
             return;
         };
-        // Exact durable publish: auth.json holds live tokens, so the
-        // redacting helper would destroy them; fsync + 0600 still apply.
         let _ = crate::platform::workspace_store::write_private_atomic_exact(&self.path, &out);
     }
 }
@@ -2218,13 +2072,11 @@ fn jwt_exp_secs(token: &str) -> Option<u64> {
 }
 
 fn rfc3339_from_secs(secs: u64) -> String {
-    // Enough for expires_at write-back; Grok CLI accepts fractional but integer is fine.
     let days = secs / 86_400;
     let rem = secs % 86_400;
     let hour = rem / 3600;
     let min = (rem % 3600) / 60;
     let sec = rem % 60;
-    // Civil date from Unix day count (Howard Hinnant algorithm inverse of days_from_civil).
     let (y, m, d) = civil_from_days(days as i64);
     format!("{y:04}-{m:02}-{d:02}T{hour:02}:{min:02}:{sec:02}Z")
 }
@@ -2256,18 +2108,9 @@ fn urlencoding_encode(s: &str) -> String {
     out
 }
 
-/// Build selectable Grok HTTP models. OAuth rows use the stable `grok` alias
-/// plus concrete catalog siblings. When an API key is explicitly configured,
-/// `grok-api` is added as a separate route with its own endpoint/model.
-///
-/// This seat is independent of `ANGEL_GROK_RESEARCH`. That flag only gates the
-/// ACP scout / `grok_research` tool; the HTTP driver remains available so
-/// `ANGEL_DRIVER=grok` and SOTA judge/aggregate pins keep working.
 pub(crate) fn grok_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     let mut links = Vec::new();
     if let Some(auth) = GrokOauthAuth::load() {
-        // Refresh is lazy: registration is local-only, and the first HTTP
-        // request calls the shared bearer provider if this token has expired.
         let shared = GrokOauthShared::new(auth);
         let configured = grok_model_from_env();
         let mut models = vec![configured];

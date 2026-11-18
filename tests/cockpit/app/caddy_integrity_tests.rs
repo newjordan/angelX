@@ -1,5 +1,3 @@
-// Included in caddy::tests so these cases use the same isolated store fixture.
-
 #[test]
 fn caddy_unicode_boundary_preserves_headless_terminal_receipt() {
     use crate::agent::harness::{TaskJsonContext, TaskJsonEnvelope, TurnOutcome, TurnStopReason};

@@ -15,44 +15,23 @@
 use crate::Core;
 use crate::frame::Frame;
 
-/// What counts as light: the part of a colour's brightest channel over
-/// this. The Delve's walls, floors and figures sit under it; its fires,
-/// shots and magic over.
 pub const BLOOM_THRESHOLD: f32 = 0.55;
-/// How softly the threshold comes in, either side of it.
 pub const BLOOM_KNEE: f32 = 0.2;
-/// What a white counts for against a colour of the same brightness: a
-/// knight's pale steel is not a flame.
 pub const BLOOM_WHITE: f32 = 0.5;
-/// How much of the stage's own light (its additive layers: fires' pools,
-/// shots' glow, motes) blooms of itself, and the light at which what is
-/// bright around it blooms fully (none where there is no light at all).
 pub const BLOOM_LIGHT: f32 = 0.12;
 pub const BLOOM_LIT: f32 = 0.18;
-/// How much of the bloom is laid over the stage.
 pub const BLOOM_STRENGTH: f32 = 0.6;
-/// Each smaller level's weight as it is added back up the chain.
 pub const BLOOM_SPREAD: f32 = 0.85;
-/// How dark the corners go (0 none, 1 black).
 pub const VIGNETTE: f32 = 0.22;
-/// The canvas's grain in the middle tones: still, a stage pixel each.
 pub const GRAIN: f32 = 0.022;
-/// How far the colours split at a full impact, in stage-texture pixels at
-/// the corners (half that halfway out, none in the middle).
 pub const ABERRATION_PX: f32 = 3.0;
-/// How much the light rises at a full impact.
 pub const IMPACT_RISE: f32 = 0.22;
 
-/// The bloom's levels: the stage halved, then halved again three times.
 const LEVELS: usize = 4;
-/// The passes: bright, three down, three up, the composite.
 const PASSES: usize = 8;
-/// Bytes of one pass's uniforms (`Post` in post.wgsl), and the stride they
-/// are kept at in one buffer.
 const POST_BYTES: u64 = 64;
 const STRIDE: u64 = 256;
 
-/// The uniforms of one pass.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct PostUniform {
@@ -62,9 +41,6 @@ pub struct PostUniform {
     pub hit: [f32; 4],
 }
 
-/// The eight passes' uniforms for a stage texture of `size`, `grid` of its
-/// pixels to one of the stage's own, at `impact` (0..1), in the order they
-/// run.
 pub fn uniforms(size: (u32, u32), grid: f32, impact: f32) -> [PostUniform; PASSES] {
     let grid = if grid.is_finite() { grid.max(1.0) } else { 1.0 };
     let impact = if impact.is_finite() { impact.clamp(0.0, 1.0) } else { 0.0 };
@@ -86,15 +62,10 @@ pub fn uniforms(size: (u32, u32), grid: f32, impact: f32) -> [PostUniform; PASSE
     ]
 }
 
-/// The bloom's levels for a stage texture of `size`: half, a quarter, an
-/// eighth and a sixteenth of it, never under a pixel.
 pub fn level_sizes(size: (u32, u32)) -> [(u32, u32); LEVELS] {
     std::array::from_fn(|k| ((size.0 >> (k + 1)).max(1), (size.1 >> (k + 1)).max(1)))
 }
 
-/// Whether the post pass runs unless the host says otherwise:
-/// `ANGEL_GLASS_POST=0` turns it off where there is an environment (a
-/// window); the browser's page says so itself.
 pub fn on_by_default() -> bool {
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -106,8 +77,6 @@ pub fn on_by_default() -> bool {
     }
 }
 
-/// Pipelines and the uniforms' buffer, made the first time a stage is
-/// post-processed; the textures, made for a size and kept while it holds.
 pub(crate) struct PostState {
     layout: wgpu::BindGroupLayout,
     bright: wgpu::RenderPipeline,
@@ -121,12 +90,9 @@ pub(crate) struct PostState {
 
 struct Targets {
     size: (u32, u32),
-    /// The stage's world, drawn here and read by the passes.
     scene: wgpu::TextureView,
-    /// Its lights alone (`Frame::lights_into`), at the first level's size.
     light: wgpu::TextureView,
     levels: [wgpu::TextureView; LEVELS],
-    /// Each pass's bindings, in the order they run.
     groups: [wgpu::BindGroup; PASSES],
 }
 
@@ -221,13 +187,10 @@ impl PostState {
         Self { layout, bright, down, up, composite, sampler, uniforms, targets: None }
     }
 
-    /// Let the textures go (no stage is drawn now); they are made again
-    /// for the next.
     pub(crate) fn release(&mut self) {
         self.targets = None;
     }
 
-    /// The textures for a stage of `size`, made when missing or another size.
     fn targets(&mut self, device: &wgpu::Device, format: wgpu::TextureFormat, size: (u32, u32)) -> &Targets {
         if self.targets.as_ref().is_none_or(|t| t.size != size) {
             self.targets = None;
@@ -249,8 +212,6 @@ impl PostState {
             let sizes = level_sizes(size);
             let levels: [wgpu::TextureView; LEVELS] = std::array::from_fn(|k| make(sizes[k], "glass-post-level"));
             let light = make(sizes[0], "glass-post-light");
-            // Each pass reads its source, and a second texture it is not
-            // drawing into (only the composite uses it).
             let reads: [(&wgpu::TextureView, &wgpu::TextureView); PASSES] = [
                 (&scene, &light),
                 (&levels[0], &levels[3]),
@@ -288,15 +249,10 @@ impl PostState {
 }
 
 impl Core {
-    /// Whether stages are post-processed (`post.rs`); on unless the host
-    /// turned it off.
     pub fn post(&self) -> bool {
         self.post_on
     }
 
-    /// Turn the stages' post pass on or off (a weak device, or the player's
-    /// choice). Off, a stage is drawn straight into its texture, as before
-    /// there was one, and the post pass's textures are let go.
     pub fn set_post(&mut self, on: bool) {
         self.post_on = on;
         if !on && let Some(post) = self.post.as_mut() {
@@ -304,11 +260,6 @@ impl Core {
         }
     }
 
-    /// A post-processed stage's frame into `target` (`size` pixels, which
-    /// it covers whole), in one submission: its world into the pass's own
-    /// texture, its lights alone (`Frame::lights_into`) at half that, the
-    /// pass (`grid` of the target's pixels to a stage pixel, at `impact`)
-    /// into `target`, and the screen's own marks over it.
     pub(crate) fn draw_post(&mut self, target: &wgpu::TextureView, size: (u32, u32), world: &Frame, screen: &Frame, grid: f32, impact: f32) {
         let mut lights = std::mem::take(&mut self.spare_lights);
         world.lights_into(&mut lights);
@@ -355,7 +306,6 @@ impl Core {
     }
 }
 
-/// A pass over all of `view`, loading it as `load` says.
 fn begin_pass<'e>(encoder: &'e mut wgpu::CommandEncoder, view: &wgpu::TextureView, load: wgpu::LoadOp<wgpu::Color>) -> wgpu::RenderPass<'e> {
     encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
         label: Some("glass-post"),
@@ -390,8 +340,6 @@ mod tests {
 
     #[test]
     fn the_numbers_keep_black_black_and_light_its_own() {
-        // A threshold the dark palette sits under, a knee inside it, and a
-        // bloom that adds light rather than replacing the picture.
         assert!(BLOOM_THRESHOLD - BLOOM_KNEE > 0.3, "the walls and floors never bloom");
         assert!(BLOOM_THRESHOLD + BLOOM_KNEE < 1.0, "a flame does");
         assert!((0.0..1.0).contains(&BLOOM_WHITE), "white counts less than a colour");
@@ -404,10 +352,7 @@ mod tests {
     #[test]
     fn each_pass_is_told_its_source_and_its_weight() {
         let u = uniforms((1152, 672), 3.0, 0.0);
-        // The bright pass reads the stage, a texel of it.
         assert_eq!(u[0].texel, [1.0 / 1152.0, 1.0 / 672.0, 576.0, 336.0]);
-        // Down passes weigh nothing; up passes spread; the composite lays
-        // the bloom at its strength over the stage's own size.
         assert!(u[1..4].iter().all(|p| p.bloom[3] == 0.0));
         assert!(u[4..7].iter().all(|p| p.bloom[3] == BLOOM_SPREAD));
         assert_eq!(u[7].bloom[3], BLOOM_STRENGTH);
@@ -420,7 +365,6 @@ mod tests {
         assert_eq!(uniforms((64, 64), 1.0, 5.0)[7].look[2], 1.0);
         assert_eq!(uniforms((64, 64), 1.0, -1.0)[7].look[2], 0.0);
         assert_eq!(uniforms((64, 64), 1.0, f32::NAN)[7].look[2], 0.0);
-        // A grid under a pixel, or none, is a pixel.
         assert_eq!(uniforms((64, 64), 0.5, 0.0)[7].look[3], 1.0);
         assert_eq!(uniforms((64, 64), f32::INFINITY, 0.0)[7].look[3], 1.0);
     }

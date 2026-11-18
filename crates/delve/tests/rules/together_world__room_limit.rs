@@ -1,8 +1,3 @@
-// A big loop settlement fills the home floor with its own rooms. The world
-// stands on top of whatever it holds: no room of the world is dropped.
-
-/// A fresh run whose home floor holds `rooms` rooms before the world rises
-/// on it: the Undercroft, then settlement rooms in cells clear of the world.
 fn crowded_run(rooms: usize) -> Run {
     let mut run = Run::at_home(7, 1, None, Home::default(), Default::default());
     let mut floor = below_the_world(&run.dungeon);
@@ -34,7 +29,6 @@ fn a_crowded_settlement_loses_none_of_the_worlds_rooms() {
         }
         assert!(run.dungeon.rooms.len() <= HOME_ROOM_LIMIT);
         assert!(run.valid_snapshot(), "{settled} settlement rooms: the raised floor must stand as a snapshot");
-        // Raised once: a second pass adds nothing.
         let raised = run.dungeon.rooms.len();
         assert!(!raise_world(&mut run.dungeon));
         run.raise_kingdom();

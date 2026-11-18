@@ -47,8 +47,6 @@ impl Yard {
         const NAMES: [&str; 10] = ["Ash", "Pip", "Rowan", "Kit", "Briar", "Wren", "Moss", "Finch", "Ember", "Thorn"];
         (0..(3 + usize::from(self.board.min(2)))).map(|i| {
             let roll = self.season as usize + i;
-            // Every board has three choices; the rare shield and alchemist
-            // visit as the company turns over. Upgrades show all five.
             Squire { id: i as u32, kind: TYPES[roll % TYPES.len()], name: NAMES[(roll * 3 + i) % NAMES.len()].into(), level: self.board.clamp(1, 3) }
         }).collect()
     }
@@ -105,7 +103,6 @@ pub struct Companion { pub owner: u32, pub squire: Squire, pub body: Hireling, #
 #[path = "../../tests/rules/together_squires__tests.rs"]
 mod tests;
 
-/// Separate plates keep the same E / touch-use controls as Sir Ector.
 pub fn plates() -> Vec<(Action, (i32, i32, i32, i32))> {
     let mut out = Vec::new();
     for i in 0..5 { out.push((Action::Hire(i), (2 + i as i32 * 4, 3, 2, 1))); }
@@ -125,8 +122,6 @@ pub fn action_at(x: f32, y: f32) -> Option<Action> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Request { owner: String, action: Action, season: u32, game: String, serial: u64 }
 
-/// Marks are deltas on the host. The receipt also makes a restored mark
-/// harmless, and ordered ticks preserve hire -> train -> select requests.
 pub fn settle(yard: &mut Yard, treasury: &mut Spoils, marks: &BTreeMap<String, u32>) -> activity::Settled {
     let mut result = activity::Settled::default();
     let mut requests: Vec<Request> = marks.keys().filter_map(|key| key.strip_prefix("squire:").and_then(|s| serde_json::from_str(s).ok())).collect();
@@ -181,8 +176,6 @@ impl Run {
         for (id, owner, action) in requests {
             let r = Request { owner: owner.clone(), action, season: self.home.squires.season, game: format!("{}:{}", self.seed, self.raid_id), serial: self.tick.saturating_add(1) };
             let answer = self.home.squires.apply(&mut self.treasury, &owner, action);
-            // The same transaction is predicted and then revalidated against
-            // the host's real purse by activity settlement.
             let mark = format!("squire:{}", serde_json::to_string(&r).unwrap());
             self.marks.insert(mark, 1);
             self.found = Some((self.tick, id, answer.unwrap_or_else(|s| s)));
@@ -226,7 +219,6 @@ impl Run {
         let mut squires = std::mem::take(&mut self.squires);
         for s in &mut squires {
             if !self.players.get(&s.owner).is_some_and(|h| !h.absent) { continue; }
-            // Squires do not inherit card summons' wishes or commands.
             s.body.summoner = None;
             let alive = self.ally_survives(&mut s.body, Some(s.owner));
             s.body.summoner = Some(s.owner);
@@ -256,8 +248,6 @@ impl Run {
         if let Some((_, x, y)) = target {
             match kind {
                 Kind::Ninja => {
-                    // A fast diagonal approach puts the squire beyond the
-                    // foe's line to its knight, rather than in their way.
                     let (ox, oy) = owner.unwrap_or((s.body.x, s.body.y));
                     let (ux, uy) = unit(x - ox, y - oy);
                     goal = Some((x + ux * 1.2 - uy, y + uy * 1.2 + ux)); range = 0.5;
@@ -270,8 +260,6 @@ impl Run {
                 _ => { goal = Some((x, y)); range = if kind == Kind::Healer { 10.0 } else { 7.0 }; }
             }
         }
-        // A trained healer keeps vigil beside an uncarried skull. One
-        // rescue per room, five seconds uninterrupted: never a free wipe.
         if kind == Kind::Healer && level >= 3 && !s.rescued {
             let skull = self.players.keys().filter_map(|&id| self.skull_lying(id).map(|at| (id, at)))
                 .min_by(|(_, a), (_, b)| (a.0-s.body.x).hypot(a.1-s.body.y).total_cmp(&(b.0-s.body.x).hypot(b.1-s.body.y)));

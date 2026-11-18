@@ -28,7 +28,6 @@ fn tavern() -> Run {
     r
 }
 
-/// A Mirage Duelist in a fight room, three tough sleeping demons before them.
 fn fight() -> Run {
     let mut r = Run::new(21, 1, Some("Friend"));
     let room = r.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
@@ -99,7 +98,6 @@ fn write_mirage_duelist_shots() {
         save_img(&format!("{name}-zoom"), &crop(&img, x0, y0, 128, 96), 6);
     };
 
-    // The tavern: the east side, where the three of them sit in a row.
     let run = tavern();
     let hall = whole(&run);
     let at = |kit: &str| alehouse::PATRONS.iter().find(|p| p.kit == kit).unwrap().at;
@@ -117,7 +115,6 @@ fn write_mirage_duelist_shots() {
     run.step(&BTreeMap::new());
     seat_shot("mirage-03-picked", &run);
 
-    // Standing: front, across and away.
     let run = fight();
     {
         let mut sheet = Img::new(3 * 66, 40);
@@ -132,7 +129,6 @@ fn write_mirage_duelist_shots() {
         save_img("mirage-04-standing", &sheet, 6);
     }
 
-    // Swashbuckle: the dash, and the flurry.
     let mut run = fight();
     step(&mut run, Input { cast: 1, ..Default::default() });
     idle(&mut run, 4);
@@ -144,7 +140,6 @@ fn write_mirage_duelist_shots() {
     idle(&mut run, mirage::SWASH_EVERY + 2);
     seat_shot("mirage-07-flurry-slash-2", &run);
 
-    // A bouncing dash: walled into a narrow box, the path drawn over the room.
     let mut run = fight();
     let at_room = run.at;
     let (cols, rows) = (run.room().cols, run.room().rows);
@@ -187,7 +182,6 @@ fn write_mirage_duelist_shots() {
         save_img(&format!("mirage-09-bounce-frame-{k}"), &crop(f, x0.max(0), y0.max(0), (24.0 * UNIT * 2.0) as i32, (10.0 * UNIT * 2.0) as i32), 3);
     }
 
-    // Mirror Swap with an image out, and Echo Strike mid-echo.
     let mut run = fight();
     let (hx, hy) = (run.players[&1].x, run.players[&1].y);
     run.phantoms.push(ults::Phantom::standing(1, (hx - 2.0, hy - 5.0), 300));
@@ -206,7 +200,6 @@ fn write_mirage_duelist_shots() {
     idle(&mut run, mirage::ECHO_DELAY - 1);
     seat_shot("mirage-13-echo-lands", &run);
 
-    // The ultimate: the call, then the three at the foes.
     let mut run = fight();
     step(&mut run, Input { ult: true, ..Default::default() });
     idle(&mut run, 3);

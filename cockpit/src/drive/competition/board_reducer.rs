@@ -6,14 +6,8 @@ use crate::agent::harness::live_policy;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-/// The shipped Bend leg: one evaluation classifies a persisted observation.
-/// The decision lives in `cockpit/live/board-reducer/board-reducer.bend`; Rust
-/// keeps the features, the contract and the reducer's own state.
 const LEG: &str = "board-reducer";
 
-/// What the reducer does with an observation: ignore it as a duplicate, ignore
-/// it as stale, ask for a full refresh because the sequence gapped, refuse it
-/// because the observed competition differs, or replace the canonical board.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ObservationDecisionV1 {
@@ -24,15 +18,12 @@ pub(crate) enum ObservationDecisionV1 {
     Replace,
 }
 
-/// The leg's wire shape: a named verdict and nothing else.
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ObservationVerdictV1 {
     decision: ObservationDecisionV1,
 }
 
-/// The features a disposition reads. Journals, adapters, hashes, the canonical
-/// board and every `Result` stay here; the leg chooses only the verdict.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ObservationDecisionInputV1 {
@@ -74,8 +65,6 @@ impl ObservationDecisionInputV1 {
         }
     }
 
-    /// What this input admits: the leg may not invent a conflict, hide one, or
-    /// call a full snapshot gapped.
     fn check(&self, decision: ObservationDecisionV1) -> Result<(), String> {
         match decision {
             ObservationDecisionV1::Conflict if !self.identity_conflict => {
@@ -126,9 +115,6 @@ impl BoardReducerV1 {
         )
     }
 
-    /// Route one disposition through the shipped leg. Any evaluation, decode
-    /// or contract failure keeps the shipped decision, so a bad hot edit never
-    /// moves the canonical board.
     fn observation_decision(
         &self,
         observation: &BoardObservationV1,

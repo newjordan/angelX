@@ -6,7 +6,6 @@ use crate::render::overworld::ink::{GLYPH_ADVANCE, glyph};
 
 pub type Rgb = [u8; 3];
 
-/// A frame being drawn on.
 pub struct Canvas<'a> {
     pub w: usize,
     pub h: usize,
@@ -42,7 +41,6 @@ impl<'a> Canvas<'a> {
         }
     }
 
-    /// A box laid over the picture: `a` of `c`, the rest what was there.
     pub fn shade(&mut self, x: i32, y: i32, w: i32, h: i32, c: Rgb, a: f32) {
         for yy in y..y + h {
             for xx in x..x + w {
@@ -51,7 +49,6 @@ impl<'a> Canvas<'a> {
         }
     }
 
-    /// A one-pixel outline.
     pub fn frame(&mut self, x: i32, y: i32, w: i32, h: i32, c: Rgb) {
         self.rect(x, y, w, 1, c);
         self.rect(x, y + h - 1, w, 1, c);
@@ -59,7 +56,6 @@ impl<'a> Canvas<'a> {
         self.rect(x + w - 1, y, 1, h, c);
     }
 
-    /// Text in the 5x7 font, `scale` times as big; returns the x after it.
     pub fn text(&mut self, x: i32, y: i32, s: &str, c: Rgb, scale: i32) -> i32 {
         let mut cx = x;
         for g in s.chars() {
@@ -75,7 +71,6 @@ impl<'a> Canvas<'a> {
         cx
     }
 
-    /// The same with a one-pixel shadow, so it reads on any ground.
     pub fn label(&mut self, x: i32, y: i32, s: &str, c: Rgb, scale: i32) -> i32 {
         self.text(x + scale, y + scale, s, [4, 4, 8], scale);
         self.text(x, y, s, c, scale)
@@ -90,12 +85,10 @@ impl<'a> Canvas<'a> {
     }
 }
 
-/// `c` scaled by `k`.
 pub fn dim(c: Rgb, k: f32) -> Rgb {
     c.map(|v| (f32::from(v) * k).clamp(0.0, 255.0) as u8)
 }
 
-/// `a` mixed toward `b` by `t`.
 pub fn mix(a: Rgb, b: Rgb, t: f32) -> Rgb {
     [0, 1, 2].map(|k| (f32::from(a[k]) * (1.0 - t) + f32::from(b[k]) * t) as u8)
 }

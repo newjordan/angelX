@@ -1,11 +1,4 @@
 #!/usr/bin/env bash
-# angelX × GPT-6-Luna (reasoning medium) on polyglot-v1.
-# Same Prime Verifiers 0.3.1 cell as the 2026-09-21 round: 136 tasks, one attempt,
-# 600s wall, grade-any-exit, fresh HOME.
-# Luna is the ChatGPT Codex Responses seat (gpt-6-luna), not an API-key HTTP club.
-# Production Codex posts straight to chatgpt.com, so the interception proxy does
-# not see those calls. Effort is pinned by ANGEL_OPENAI_REASONING_EFFORT, and
-# token/cache numbers come from angel.usage (Responses usage), not proxy traces.
 set -euo pipefail
 
 RR=~/angel_tests/angelX-bench/polyglot-20260921
@@ -135,7 +128,6 @@ else
   SRC_SHA=$("$ANGEL_BIN" --build-info --json | python3 -c 'import json,re,sys; v=json.load(sys.stdin).get("cockpit_source_sha256") or ""; print(v if re.fullmatch(r"[0-9a-f]{64}", v) else "")')
 fi
 
-# The proxy is not on the Codex path. A placeholder keeps the eval client config valid.
 KEY_VALUE=unused-luna-direct
 N=${N_TASKS:-136}
 
@@ -171,8 +163,6 @@ fi
 TAG=${ONLY:+smoke-}seed${SEED}
 OUT=$RR/${OUT_ROOT:-runs}/luna/angelx
 RUN_DIR=$TAG-$(date -u +%Y%m%dT%H%M%SZ)
-# Per-call wire records (club/wire_log.rs) land beside the traces: rollout
-# workdirs are deleted after grading, so this is the only copy.
 FLAGS+=(--env.agent.harness.env.ANGEL_WIRE_LOG_DIR "$OUT/$RUN_DIR/wire")
 mkdir -p "$OUT" "$RR/logs"
 printf '%s\n' "$OUT/$RUN_DIR" >"$RR/logs/luna-angelx-current-run.txt"

@@ -12,27 +12,20 @@ use crate::render::overworld::ink::{Img, bayer, hash};
 use crate::rules::race3d::{self as r3, Race3d, TITLE};
 use crate::rules::{HZ, Run};
 
-/// Ticks the last frame is held before the iris closes.
 pub(super) const FREEZE: u32 = 40;
-/// Ticks the iris takes to close, and to open on the podium.
 const IRIS: u32 = 12;
-/// Where the podium's own clock starts, in ticks after the race was done.
 pub(super) const OPENS: u32 = FREEZE + IRIS;
 
-/// Ticks since the race was done, or `None` while it is on.
 pub(super) fn ended(race: &Race3d) -> Option<u32> {
     race.done.then(|| race.t.saturating_sub(race.ended))
 }
 
-/// Whether the podium has the whole screen.
 pub(super) fn on_podium(race: &Race3d) -> bool {
     ended(race).is_some_and(|a| a >= OPENS)
 }
 
 use super::moments::called;
 
-/// The headline of a finish for the seat looking: `YOU WIN` for the knight
-/// who won, `<NAME> WINS` for everyone else.
 pub(super) fn headline(run: &Run, winner: u32, seat: Option<u32>) -> String {
     if Some(winner) == seat {
         "YOU WIN".to_string()
@@ -41,13 +34,10 @@ pub(super) fn headline(run: &Run, winner: u32, seat: Option<u32>) -> String {
     }
 }
 
-/// The field in order, each as the seat looking calls them: `YOU` is the
-/// viewer's own place and no other.
 pub(super) fn standings(run: &Run, race: &Race3d, seat: Option<u32>, take: usize) -> Vec<(u32, String)> {
     race.order().into_iter().map(|id| (id, called(run, id, seat, take))).collect()
 }
 
-/// Over the held frame: the call and the iris closing on it.
 pub(super) fn frozen(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, age: u32) {
     let order = race.order();
     let winner = order.first().copied();
@@ -65,12 +55,10 @@ pub(super) fn frozen(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>
     }
 }
 
-/// A figure of a knight to stand on a step.
 fn figure(run: &Run, id: u32) -> Img {
     run.players.get(&id).map_or_else(|| sprites::knight(id), |h| kn::portrait(h, id))
 }
 
-/// One spectator, `arms` up or down, in body ink `body`.
 fn spectator(body: char, arms: bool, cap: char) -> Img {
     let rows: &[&str] = if arms {
         &["a..cc..a", "a.cccc.a", "aa.cc.aa", ".abbbba.", "..bbbb..", "..bbbb..", "..bbbb.."]
@@ -85,9 +73,6 @@ fn spectator(body: char, arms: bool, cap: char) -> Img {
     Img::from_rows(&refs)
 }
 
-/// Two tiers of spectators along the back wall, twice life size, on their
-/// feet as the podium goes up: arms up in waves, bodies bobbing, a few in
-/// a warm cap.
 fn crowd(im: &mut Img, age: u32, fever: f32) {
     for (tier, (base, ink, cap)) in [(104, 'g', 'j'), (122, 'j', 'G')].into_iter().enumerate() {
         let mut x = -((tier as i32) * 9);
@@ -105,7 +90,6 @@ fn crowd(im: &mut Img, age: u32, fever: f32) {
     }
 }
 
-/// A string of pennants along the top of the stage, in the seats' cloths.
 fn bunting(im: &mut Img, age: u32) {
     let ink = ['O', 'z', 'R', 'M', 'i', 'o'];
     let mut x = -4;
@@ -123,7 +107,6 @@ fn bunting(im: &mut Img, age: u32) {
     }
 }
 
-/// The wreath above the winner's head.
 fn laurel(im: &mut Img, (x, y): (i32, i32), age: u32) {
     let k = ((age as f32) / 10.0).min(1.0);
     let bob = ((age as f32 * 0.2).sin() * 1.5) as i32;
@@ -138,10 +121,8 @@ fn laurel(im: &mut Img, (x, y): (i32, i32), age: u32) {
     im.rect(x - 4, y - 7, 9, 3, '5');
 }
 
-/// The podium scene for a seat, `age` ticks after the iris has closed.
 pub(super) fn podium(run: &Run, race: &Race3d, seat: Option<u32>, age: u32) -> Img {
     let mut im = Img::black(384, 224);
-    // The stage's floor: dark flags, as the deathmatch's.
     for y in 110..224 {
         for x in 0..384 {
             let flag = ((x / 24) + (y - 110) / 12) % 2 == 0;
@@ -153,7 +134,6 @@ pub(super) fn podium(run: &Run, race: &Race3d, seat: Option<u32>, age: u32) -> I
     let order = race.order();
     let winner = order.first().copied().unwrap_or(0);
     let (cx, floor) = (192, 182);
-    // Fireworks over the stage, three launchers in turn.
     if age >= 6 {
         for (j, (x, top, ramp)) in [(72.0, 52.0, ramps::GOLD), (192.0, 34.0, ramps::EMBER), (312.0, 58.0, ramps::BONE)].into_iter().enumerate() {
             let t = age as i32 - 6 - j as i32 * 17;
@@ -165,7 +145,6 @@ pub(super) fn podium(run: &Run, race: &Race3d, seat: Option<u32>, age: u32) -> I
     }
     crowd(&mut im, age, ((age as f32 - 12.0) / 20.0).clamp(0.0, 1.0));
     bunting(&mut im, age);
-    // The beam of light onto the winner.
     let k = ((age as f32 - 4.0) / 12.0).clamp(0.0, 1.0);
     for y in 14..floor {
         let half = 22.0 + y as f32 * 0.5;
@@ -189,7 +168,6 @@ pub(super) fn podium(run: &Run, race: &Race3d, seat: Option<u32>, age: u32) -> I
     if age >= 30 && race.riders.len() > 1 && !race.practice && race.riders[&winner].finish.is_some() {
         laurel(&mut im, head, age - 30);
     }
-    // The rest of the field, small and plain.
     if order.len() > 3 && age >= 24 {
         im.rect(4, 50, 112, 8 + (order.len() as i32 - 3) * 10, 'K');
         im.frame(4, 50, 112, 8 + (order.len() as i32 - 3) * 10, 'g');
@@ -205,13 +183,11 @@ pub(super) fn podium(run: &Run, race: &Race3d, seat: Option<u32>, age: u32) -> I
     if age >= 14 {
         juice::confetti(&mut im, (0, 0, 384, 224), age, 9, 150);
     }
-    // The winner, big, off the top.
     if age >= 4 {
         let title = if race.practice { "FLIGHT DONE".to_string() } else { headline(run, winner, seat) };
         let sub = if race.practice { race.course.board() } else { race.course.name() };
         juice::banner(&mut im, 14, &title, sub, age - 4, 500, Tone::Warm, 3);
     }
-    // What this seat takes home, counting up.
     if let Some(me) = seat.filter(|id| race.riders.contains_key(id)) {
         if age >= 22 && !race.practice {
             let gold = race.won.get(&me).copied().unwrap_or(0);
@@ -229,13 +205,11 @@ pub(super) fn podium(run: &Run, race: &Race3d, seat: Option<u32>, age: u32) -> I
             }
         }
     }
-    // The way home: a thin bar filling along the bottom edge.
     let since = OPENS + age;
     let filled = (384 * since.min(r3::PODIUM) / r3::PODIUM) as i32;
     for x in 0..filled {
         im.put(x, 223, 'o');
     }
-    // The iris opening from black.
     juice::iris(&mut im, (192, 100), 1.0 - (age as f32 / IRIS as f32).min(1.0), 'k');
     im
 }

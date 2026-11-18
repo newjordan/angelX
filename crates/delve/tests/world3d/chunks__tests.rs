@@ -53,7 +53,6 @@ fn dump_around() {
     }
 }
 
-/// Every chunk of the kingdom, with its blockout.
 fn each_chunk(mut check: impl FnMut(&Land, (i32, i32), &[Group])) {
     let geo = geography(&[]);
     let land = Land::of(&geo);
@@ -71,7 +70,6 @@ fn chunk_tiles(land: &Land, cx: i32, cz: i32) -> impl Iterator<Item = (i32, i32)
     (r..r + h).flat_map(move |y| (c..c + w).map(move |x| (x, y)))
 }
 
-/// Points of a tile's floor, `n` by `n`, `inset` pixels in from its edges.
 fn samples((col, row): (i32, i32), n: usize, inset: f32) -> Vec<[f32; 2]> {
     let span = TILE - 2.0 * inset;
     (0..n)
@@ -99,7 +97,6 @@ fn the_kingdom_cuts_into_whole_chunks_of_its_tiles() {
     assert!(gh * CHUNK.1 >= land.rows && (gh - 1) * CHUNK.1 < land.rows);
     assert_eq!(STAGE, (CHUNK.0 as u32 * TILE as u32, CHUNK.1 as u32 * TILE as u32), "a chunk's stage is the chunk");
     assert_eq!(CHUNK, (crate::world::map::CHUNK_W, crate::world::map::CHUNK_H), "the map's own cut");
-    // Neighbours' stages share their edges.
     let set = |cx: i32, cz: i32| angel_stage::set::Set::parse(&write(&land, cx, cz, &[])).unwrap();
     assert!(set(1, 1).border_with(&set(2, 1)).is_some() && set(1, 1).border_with(&set(1, 2)).is_some());
 }
@@ -107,8 +104,6 @@ fn the_kingdom_cuts_into_whole_chunks_of_its_tiles() {
 #[test]
 fn walkable_tiles_are_never_under_a_block() {
     each_chunk(|land, (cx, cz), groups| {
-        // A fingerpost and the set dressing stand on open ground: each block
-        // of them is boot-high, or a slender post a knight passes.
         for s in groups.iter().filter(|g| g.name == "fingerposts" || g.name == "set dressing").flat_map(|g| &g.solids) {
             assert!(s.top() <= LOW || slender(s), "{}: `{}` is boot-high or slender", chunk_id(cx, cz), blockout::line(s));
         }
@@ -165,7 +160,6 @@ fn every_structure_place_and_castle_stands_under_its_building() {
     for (b, seen) in land.builds.iter().zip(seen) {
         assert!(seen, "{} at {:?} is in no chunk", b.name, b.foot);
     }
-    // Every site with a lot, every castle, every structure has a build.
     for site in geo.sites.iter().filter(|s| s.lot.is_some()) {
         assert!(land.builds.iter().any(|b| b.name == site.name), "{} has a build", site.name);
     }
@@ -178,7 +172,6 @@ fn blocked_tiles_read_as_blocked() {
         let view = View::chunk(STAGE, centre(cx, cz));
         let hulls = standing_hulls(&view, groups);
         let standing: Vec<&Solid> = groups.iter().filter(|g| g.role != Role::Ground).flat_map(|g| &g.solids).collect();
-        // A footprint's tiles are its build's, in the chunk that holds it.
         for t in chunk_tiles(land, cx, cz).filter(|&(x, y)| !land.walkable(x, y) && land.built(x, y).is_none()) {
             let cover = land.cover(t.0, t.1);
             if matches!(cover, Cover::Water | Cover::Lava) {
@@ -215,8 +208,6 @@ fn every_chunk_set_parses_with_no_refusals() {
     }
 }
 
-/// Writes the kit's pieces, twelve to a set, under the folder
-/// `ANGEL_WORLD3D_KIT_GALLERY` names: a look at every building at once.
 #[test]
 #[ignore = "writes the kit gallery"]
 fn write_kit_gallery() {

@@ -7,7 +7,6 @@ use angel_face::model::{ARKIT, Goddess};
 use angel_face::{Cue, Drawing, Mind, Track};
 use angel_stage::scene::IDENTITY_MATRIX;
 
-/// A goddess with no parts: only her channels, for the mind and tracks.
 fn bare() -> Goddess {
     Goddess {
         joints: Vec::new(),
@@ -33,23 +32,25 @@ fn bare() -> Goddess {
     }
 }
 
-/// A one-triangle `.glb` whose one morph target is a sparse accessor
-/// moving vertex 2 only.
 fn sparse_glb() -> Vec<u8> {
+    sparse_glb_with(|_| {})
+}
+
+fn sparse_glb_with(edit: fn(&mut serde_json::Value)) -> Vec<u8> {
     let mut bin: Vec<u8> = Vec::new();
     let push_f32 = |bin: &mut Vec<u8>, v: &[f32]| {
         v.iter()
             .for_each(|x| bin.extend_from_slice(&x.to_le_bytes()))
     };
-    push_f32(&mut bin, &[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]); // positions 0..36
+    push_f32(&mut bin, &[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]);
     for i in [0u16, 1, 2] {
-        bin.extend_from_slice(&i.to_le_bytes()); // indices 36..42
+        bin.extend_from_slice(&i.to_le_bytes());
     }
-    bin.extend_from_slice(&[0, 0]); // pad to 44
-    bin.extend_from_slice(&2u16.to_le_bytes()); // sparse index 44..46
-    bin.extend_from_slice(&[0, 0]); // pad to 48
-    push_f32(&mut bin, &[0.0, 0.0, 0.5]); // sparse value 48..60
-    let json = serde_json::json!({
+    bin.extend_from_slice(&[0, 0]);
+    bin.extend_from_slice(&2u16.to_le_bytes());
+    bin.extend_from_slice(&[0, 0]);
+    push_f32(&mut bin, &[0.0, 0.0, 0.5]);
+    let mut json = serde_json::json!({
         "asset": {"version": "2.0"},
         "scene": 0, "scenes": [{"nodes": [0]}],
         "nodes": [{"name": "tri", "mesh": 0}],
@@ -69,6 +70,7 @@ fn sparse_glb() -> Vec<u8> {
              "sparse": {"count": 1, "indices": {"bufferView": 2, "componentType": 5123}, "values": {"bufferView": 3}}}
         ]
     });
+    edit(&mut json);
     let mut text = serde_json::to_vec(&json).unwrap();
     while text.len() % 4 != 0 {
         text.push(b' ');
@@ -109,6 +111,18 @@ fn the_reader_refuses_what_is_not_a_model() {
     let mut cut = sparse_glb();
     cut.truncate(40);
     assert!(glb::read(&cut).is_err());
+}
+
+#[test]
+fn a_node_whose_skin_is_not_in_the_file_is_refused() {
+    assert!(Goddess::from_glb(&sparse_glb_with(|j| j["nodes"][0]["skin"] = 3.into())).is_err());
+}
+
+#[test]
+fn a_model_that_points_past_its_bytes_is_refused() {
+    assert!(glb::read(&sparse_glb_with(|j| j["bufferViews"][0]["byteOffset"] = u64::MAX.into())).is_err());
+    assert!(glb::read(&sparse_glb_with(|j| j["bufferViews"][0]["byteStride"] = u64::MAX.into())).is_err());
+    assert!(glb::read(&sparse_glb_with(|j| j["accessors"][0]["byteOffset"] = u64::MAX.into())).is_err());
 }
 
 fn track_json(frames: &[[f32; 2]]) -> String {
@@ -162,7 +176,6 @@ fn a_bad_track_is_refused() {
     );
 }
 
-/// Run a mind from `from` to `to` at 30 fps, `cue` at each step.
 fn run(
     mind: &mut Mind,
     from: f64,
@@ -206,7 +219,6 @@ fn she_reads_what_you_type_with_her_eyes_down_sometimes() {
         g.channel("eyeLookDownLeft").unwrap(),
         g.channel("eyeLookDownRight").unwrap(),
     ];
-    // Over many seeds, a typing burst makes her look down in some and not all.
     let mut read = 0;
     for seed in 0..40u64 {
         let mut mind = Mind::new(&g, [0.0, 0.03], seed * 7919 + 1);
@@ -262,7 +274,6 @@ fn speech_moves_her_mouth_and_lights_her() {
     assert!(m.voice > 0.5 && m.glow > 1.0);
 }
 
-/// The real avatar, when it is here (`ANGEL_FACE_HOME`, else ~/angelface).
 fn avatar() -> Option<Vec<u8>> {
     let home = std::env::var_os("ANGEL_FACE_HOME")
         .map(std::path::PathBuf::from)

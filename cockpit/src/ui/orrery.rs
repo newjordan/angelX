@@ -19,45 +19,25 @@
 
 use crate::agent::harness::{GraphNodePhase, GraphRunPhase, GraphSnapshot};
 
-/// The Orrery's layer group ("ORRY"): replaced whole every frame it runs,
-/// and cleared with an empty set when the panel hides (a small grid).
 #[cfg(feature = "glass")]
 const GROUP: u32 = 0x4F52_5259;
 
-/// The most nodes the constellation draws; a larger graph keeps its first
-/// nodes and dims the rest of the story. The panel is an overlay, not a
-/// debugger.
 pub(crate) const MAX_NODES: usize = 42;
 
-/// The most edges drawn between the shown nodes.
 pub(crate) const MAX_EDGES: usize = 96;
 
-/// The whole panel's layers, whatever the graph: the chrome alone is a
-/// dozen, the constellation is bounded above, and the cap keeps a wild
-/// producer from turning the overlay into a particle blast.
 pub(crate) const MAX_LAYERS: usize = 300;
 
-/// The panel's lean, radians: enough to read as a held holo-plate, little
-/// enough that rows still scan top-down. Everything except the floor
-/// shadow and the scan sweep turns with it, about the panel's centre,
-/// so the composition leans as one thing.
 pub(crate) const TILT: f32 = -0.05;
 
-/// How much smaller things far up the panel draw, per pixel above the
-/// centre: the plate tips away, so its upper rows recede.
 const DEPTH_PER_PX: f32 = 0.0005;
 
-/// Frames a second the Orrery thread describes. The window presents at
-/// its own pace; 30 is alive without costing like a game.
 #[cfg(feature = "glass")]
 const FPS: f32 = 30.0;
 
-/// How often the thread re-reads the graph snapshot between frames.
 #[cfg(feature = "glass")]
 const REFRESH_SECS: f32 = 0.4;
 
-/// Launch the Orrery thread if this launch asked for it
-/// (`ANGEL_GLASS_ORRERY=1`). No-op in a terminal, twice-run safe.
 pub(crate) fn launch_if_requested() {
     #[cfg(feature = "glass")]
     {
@@ -82,8 +62,6 @@ fn run(host: angel_glass::Host) {
     let mut snapshot = crate::agent::harness::current_graph_snapshot();
     let mut refreshed = std::time::Instant::now();
     let frame = std::time::Duration::from_secs_f32(1.0 / FPS);
-    // A hidden panel (a small grid) is sent once, not every frame: an
-    // empty group on an empty group only wakes the window for nothing.
     let mut hidden_sent = false;
     loop {
         if refreshed.elapsed().as_secs_f32() >= REFRESH_SECS {
@@ -113,8 +91,6 @@ fn run(host: angel_glass::Host) {
     }
 }
 
-/// The Orrery's panel in a window of `grid` when this launch shows it
-/// (`ANGEL_GLASS_ORRERY=1`): the Heartglass stands beside it.
 pub(crate) fn shown_panel(grid: Grid) -> Option<Panel> {
     std::env::var("ANGEL_GLASS_ORRERY")
         .is_ok_and(|v| v == "1")
@@ -122,14 +98,12 @@ pub(crate) fn shown_panel(grid: Grid) -> Option<Panel> {
         .flatten()
 }
 
-/// The window's size, in pixels: all the Orrery knows of the outside.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub(crate) struct Grid {
     pub(crate) width: u32,
     pub(crate) height: u32,
 }
 
-/// The panel plate, in window pixels: anchored to the top right.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Panel {
     pub(crate) x: f32,
@@ -138,14 +112,9 @@ pub(crate) struct Panel {
     pub(crate) h: f32,
 }
 
-/// The panel's size in a 12 × 25 px cell world: these cells decide the
-/// clamps, so the panel lands where the cell-space design put it while
-/// everything inside it is free to be round.
 const CELL: (f32, f32) = (12.0, 25.0);
 
 impl Panel {
-    /// The panel for a window, or `None` when it is too small to float
-    /// one over its text without eating it.
     pub(crate) fn for_grid(grid: Grid) -> Option<Self> {
         let (cols, rows) = (grid.width as f32 / CELL.0, grid.height as f32 / CELL.1);
         if cols < 46.0 || rows < 22.0 {
@@ -153,10 +122,6 @@ impl Panel {
         }
         let w = (cols * 0.40).min(38.0) * CELL.0;
         let h = (rows * 0.34).min(17.0) * CELL.1;
-        // Two cells clear of the right edge and below the header's three
-        // rows: the lean lifts the top-right corner about a twentieth of
-        // the width and the brackets reach past the plate, so a closer
-        // anchor ran off the window and over the session's name.
         Some(Self {
             x: grid.width as f32 - w - 2.0 * CELL.0,
             y: 4.4 * CELL.1,
@@ -165,7 +130,6 @@ impl Panel {
         })
     }
 
-    /// Where the constellation draws: inside the chrome, below the title.
     pub(crate) fn content(self) -> Self {
         Self {
             x: self.x + 34.0,
@@ -179,7 +143,7 @@ impl Panel {
         [self.x + self.w / 2.0, self.y + self.h / 2.0]
     }
 
-    #[allow(dead_code)] // hit-test for the constellation chrome
+    #[allow(dead_code)]
     fn contains(self, p: [f32; 2], slack: f32) -> bool {
         p[0] >= self.x - slack
             && p[0] <= self.x + self.w + slack
@@ -188,7 +152,6 @@ impl Panel {
     }
 }
 
-/// A colour per node phase: the palette the whole panel shares.
 pub(crate) fn phase_color(phase: GraphNodePhase) -> [f32; 4] {
     match phase {
         GraphNodePhase::Pending => [0.22, 0.42, 0.66, 1.0],
@@ -199,14 +162,9 @@ pub(crate) fn phase_color(phase: GraphNodePhase) -> [f32; 4] {
     }
 }
 
-/// The frame chrome's cyan and the plate it holds.
 const CHROME: [f32; 4] = [0.35, 0.85, 1.0, 0.85];
 const PLATE: [f32; 4] = [0.012, 0.03, 0.055, 0.72];
 
-/// Each node's dependency depth in `snapshot`'s first [`MAX_NODES`]
-/// nodes: the longest chain of dependencies above it, bounded like the
-/// pane's own rows against a cyclic graph. Deps outside the shown set do
-/// not count: an edge to nowhere has no depth.
 pub(crate) fn node_depths(nodes: &[crate::agent::harness::GraphNodeSnap]) -> Vec<usize> {
     let shown = nodes.len().min(MAX_NODES);
     let index: std::collections::HashMap<&str, usize> = nodes[..shown]
@@ -244,10 +202,6 @@ pub(crate) fn node_depths(nodes: &[crate::agent::harness::GraphNodeSnap]) -> Vec
         .collect()
 }
 
-/// Where each shown node's light sits in `content` (pixels): dependency
-/// depth in rows top-down, a row's nodes spread across it. Pure: ranks
-/// follow the node order, so the same snapshot gives the same
-/// constellation.
 pub(crate) fn node_positions(
     nodes: &[crate::agent::harness::GraphNodeSnap],
     content: Panel,
@@ -272,27 +226,14 @@ pub(crate) fn node_positions(
         .collect()
 }
 
-/// Where `[x, y, w, h]` goes when the panel leans [`TILT`] about `centre`,
-/// with the turn to give a layer drawing it. The window turns a layer
-/// about its own centre, so the layer keeps the rect's size and only its
-/// centre turns round the panel's. (Placing the turned rect's bounding box
-/// and turning that as well grew every quad by its lean: a 40-column plate
-/// came out two rows taller and ran over the pane's own controls.)
 pub(crate) fn tilted_rect(rect: [f32; 4], centre: [f32; 2]) -> ([f32; 4], f32) {
     tilted_rect_in(rect, centre, (1.0, 1.0))
 }
 
-/// [`tilted_rect`] for a rect in units of `unit` window pixels (cells for
-/// a pane's frame): the turn happens in pixels, where the window turns the
-/// quad, so a lean in cells of 12 x 25 px is the same lean as in pixels.
-/// The quad keeps its own size: the window turns it about its own centre,
-/// so only that centre moves round the panel's.
 pub(crate) fn tilted_rect_in(rect: [f32; 4], centre: [f32; 2], unit: (f32, f32)) -> ([f32; 4], f32) {
     tilted_rect_by(rect, centre, unit, TILT)
 }
 
-/// [`tilted_rect_in`] for a panel that leans by `tilt` instead of the
-/// Orrery's [`TILT`] (the Heartglass, taller, leans less).
 pub(crate) fn tilted_rect_by(rect: [f32; 4], centre: [f32; 2], unit: (f32, f32), tilt: f32) -> ([f32; 4], f32) {
     let [x, y, w, h] = rect;
     let (sin, cos) = tilt.sin_cos();
@@ -304,38 +245,26 @@ pub(crate) fn tilted_rect_by(rect: [f32; 4], centre: [f32; 2], unit: (f32, f32),
     ([rx - w / 2.0, ry - h / 2.0, w, h], tilt)
 }
 
-/// Where point `p` lands when the panel leans [`TILT`] about `centre`:
-/// the same turn [`tilted_rect`] puts a rect through. Segments lean by
-/// leaning their endpoints, then measuring the line between them.
 pub(crate) fn leaned_point(p: [f32; 2], centre: [f32; 2]) -> [f32; 2] {
     leaned_point_by(p, centre, TILT)
 }
 
-/// [`leaned_point`] for a panel that leans by `tilt`.
 pub(crate) fn leaned_point_by(p: [f32; 2], centre: [f32; 2], tilt: f32) -> [f32; 2] {
     let (sin, cos) = tilt.sin_cos();
     let (dx, dy) = (p[0] - centre[0], p[1] - centre[1]);
     [centre[0] + dx * cos - dy * sin, centre[1] + dx * sin + dy * cos]
 }
 
-/// How much smaller things `p` far up the panel draw: the plate tips
-/// away, so rows above its centre are further from the eye.
 pub(crate) fn depth_scale(p: [f32; 2], centre: [f32; 2]) -> f32 {
     1.0 / (1.0 + DEPTH_PER_PX * (centre[1] - p[1]))
 }
 
-/// A point on the panel's own ground: turned with the lean and drawn at
-/// its depth. The Orrery's interior (lights, orbits, edges) goes through
-/// here, so the panel's content recedes with its outline; the chrome
-/// stays on [`tilted_rect`], which only turns.
 pub(crate) fn deep_point(p: [f32; 2], centre: [f32; 2]) -> [f32; 2] {
     let d = [p[0] - centre[0], p[1] - centre[1]];
     let s = depth_scale(p, centre);
     leaned_point([centre[0] + d[0] * s, centre[1] + d[1] * s], centre)
 }
 
-/// A rect drawn on the panel's ground: its centre at its depth, its
-/// sides scaled by the same, then turned with the lean.
 pub(crate) fn deep_rect(rect: [f32; 4], centre: [f32; 2]) -> ([f32; 4], f32) {
     let c = [rect[0] + rect[2] / 2.0, rect[1] + rect[3] / 2.0];
     let s = depth_scale(c, centre);
@@ -345,9 +274,6 @@ pub(crate) fn deep_rect(rect: [f32; 4], centre: [f32; 2]) -> ([f32; 4], f32) {
     )
 }
 
-/// A thin segment's rect and turn, from `a` to `b` (pixel points): a quad
-/// the length of the line, turned to it, so a beam reads as a beam
-/// however it slopes. `thick` is its height across, in pixels.
 pub(crate) fn segment_rect(a: [f32; 2], b: [f32; 2], thick: f32) -> ([f32; 4], f32) {
     let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
     let length = dx.hypot(dy).max(2.0);
@@ -362,13 +288,10 @@ pub(crate) fn segment_rect(a: [f32; 2], b: [f32; 2], thick: f32) -> ([f32; 4], f
     )
 }
 
-/// A pulse's place on the `a` → `b` edge at fraction `k` (0..1).
 pub(crate) fn pulse_at(a: [f32; 2], b: [f32; 2], k: f32) -> [f32; 2] {
     [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k]
 }
 
-/// The idle ribbon's points across `content` at `t` (pixels): two slow
-/// waves crossing, the Orrery's heartbeat while no graph has run.
 pub(crate) fn ribbon_points(content: Panel, t: f32) -> Vec<[f32; 2]> {
     const DOTS: u16 = 22;
     (0..DOTS)
@@ -383,14 +306,10 @@ pub(crate) fn ribbon_points(content: Panel, t: f32) -> Vec<[f32; 2]> {
         .collect()
 }
 
-/// The whole panel at `t`. Deterministic: the same `t` and snapshot give
-/// the same layers, in back-to-front order. An empty grid hides the
-/// panel.
 #[cfg(feature = "glass")]
 fn layers(t: f32, grid: Grid, snapshot: Option<&GraphSnapshot>) -> Vec<angel_glass::Layer> {
     use angel_glass::{Layer, LayerKind, Placement};
 
-    /// A quad in pixels, leaned with the panel.
     fn leaned(id: u64, z: i32, rect: [f32; 4], kind: LayerKind, centre: [f32; 2]) -> Layer {
         let (rect, angle) = tilted_rect(rect, centre);
         let mut layer = Layer::new(id, z, Placement::Pixels(rect), kind);
@@ -404,8 +323,6 @@ fn layers(t: f32, grid: Grid, snapshot: Option<&GraphSnapshot>) -> Vec<angel_gla
     let centre = panel.centre();
     let mut out: Vec<Layer> = Vec::with_capacity(140);
 
-    // The cast shadow: on the terminal's floor, unturned, softer and
-    // wider than the plate so the panel reads as held above the text.
     for (id, (dx, dy, w, h, a)) in [
         (0u64, (8.0f32, 24.0f32, panel.w, panel.h * 0.42, 0.16f32)),
         (1, (4.0, 12.0, panel.w, panel.h * 0.28, 0.22)),
@@ -417,8 +334,6 @@ fn layers(t: f32, grid: Grid, snapshot: Option<&GraphSnapshot>) -> Vec<angel_gla
             LayerKind::Solid([0.0, 0.0, 0.0, a]),
         ));
     }
-    // Light pooling under the plate's near edge: the panel's own glow
-    // grounding it on the terminal's floor.
     let mut pool = Layer::new(
         62,
         0,
@@ -433,9 +348,6 @@ fn layers(t: f32, grid: Grid, snapshot: Option<&GraphSnapshot>) -> Vec<angel_gla
     pool.additive = true;
     out.push(pool);
 
-    // The plate itself: leaned with everything on it, breathing a
-    // little, translucent so the terminal's text shows through dimly,
-    // with a rim of light all around reading as its edge.
     let mut plate = leaned(
         2,
         1,
@@ -464,7 +376,6 @@ fn layers(t: f32, grid: Grid, snapshot: Option<&GraphSnapshot>) -> Vec<angel_gla
         out.push(rim);
     }
 
-    // A rim under the title strip: the panel's one steady light.
     let mut rim = leaned(
         3,
         2,
@@ -475,8 +386,6 @@ fn layers(t: f32, grid: Grid, snapshot: Option<&GraphSnapshot>) -> Vec<angel_gla
     rim.additive = true;
     out.push(rim);
 
-    // The run's status light, left of the title: gold and flickering
-    // while work is under way, else a steady shard of the run's colour.
     let running = snapshot.is_some_and(|s| s.phase == GraphRunPhase::Running);
     let status = snapshot.map_or([0.3, 0.55, 0.8, 1.0], |s| match s.phase {
         GraphRunPhase::Running => [1.0, 0.78, 0.34, 1.0],
@@ -496,17 +405,12 @@ fn layers(t: f32, grid: Grid, snapshot: Option<&GraphSnapshot>) -> Vec<angel_gla
     }
     out.push(light);
 
-    // The content: the graph as a constellation, or an idle ribbon
-    // waiting for one, inside the plate.
     let content = panel.content();
     match snapshot.map(|s| &s.nodes[..]).filter(|nodes| !nodes.is_empty()) {
         Some(nodes) => constellation(&mut out, nodes, content, centre, t),
         None => idle_ribbon(&mut out, content, centre, t),
     }
 
-    // Bracket chrome: four L corners grown outward from the plate's
-    // corners, leaned with it: the plate's frame, bright enough to read
-    // as chrome and thin enough to stay light.
     let (x, y, w, h) = (panel.x, panel.y, panel.w, panel.h);
     let arm_w = (w * 0.20).min(66.0).max(24.0);
     let arm_h = (h * 0.20).min(44.0).max(14.0);
@@ -528,8 +432,6 @@ fn layers(t: f32, grid: Grid, snapshot: Option<&GraphSnapshot>) -> Vec<angel_gla
         }
     }
 
-    // The scan sweep: screen-space, top to bottom, a wide faint band of
-    // light crossing the plate every few seconds.
     let sweep = (t * 0.14).fract();
     let mut sweep = Layer::new(
         60,
@@ -545,8 +447,6 @@ fn layers(t: f32, grid: Grid, snapshot: Option<&GraphSnapshot>) -> Vec<angel_gla
     sweep.additive = true;
     out.push(sweep);
 
-    // Ambient motes rising through the panel, the window's own
-    // animation: described once, moving without this thread.
     let mut motes = Layer::new(
         61,
         8,
@@ -574,10 +474,6 @@ fn layers(t: f32, grid: Grid, snapshot: Option<&GraphSnapshot>) -> Vec<angel_gla
     out
 }
 
-/// The graph's nodes as lights and its edges as thin beams, `content` the
-/// rect they draw in (pixels): dependency depth reads top-down, a row's
-/// nodes spread across it, and every edge into a running node carries a
-/// pulse while its source is done.
 #[cfg(feature = "glass")]
 fn constellation(
     out: &mut Vec<angel_glass::Layer>,
@@ -595,8 +491,6 @@ fn constellation(
         .map(|(i, node)| (node.id.as_str(), i))
         .collect();
 
-    // Edges first (under the lights): a dep's light to its node's, leaned
-    // with the panel, brighter where work is arriving.
     let mut edges = 0usize;
     let mut pulses = 0usize;
     'edges: for (i, node) in nodes.iter().take(at.len()).enumerate() {
@@ -640,8 +534,6 @@ fn constellation(
         }
     }
 
-    // The lights: a soft halo in the phase's colour and a bright core;
-    // running ones flicker, lift and breathe like held embers.
     for (i, node) in nodes.iter().take(at.len()).enumerate() {
         let color = phase_color(node.phase);
         let running = node.phase == GraphNodePhase::Running;
@@ -683,10 +575,6 @@ fn constellation(
     }
 }
 
-/// The idle panel: a slow wave the width of the content under two orbit
-/// rings turning at their own speeds — the Orrery's heartbeat while no
-/// graph has run, and the shape it is named for. Round things are round:
-/// everything here is sized in window pixels.
 #[cfg(feature = "glass")]
 fn idle_ribbon(out: &mut Vec<angel_glass::Layer>, content: Panel, centre: [f32; 2], t: f32) {
     use angel_glass::{Layer, LayerKind, Placement};
@@ -721,10 +609,6 @@ fn idle_ribbon(out: &mut Vec<angel_glass::Layer>, content: Panel, centre: [f32; 
         dot.flicker = 0.25;
         out.push(dot);
     }
-    // The two orbit rings, above the wave, turning slowly: their paths
-    // drawn as dim elliptical strands, small lights along them, and
-    // every few a planet — a wide flickering glow. A warm sun holds the
-    // middle; the wave runs beneath it like the ecliptic.
     let (sun_rect, sun_lean) = deep_rect([mid[0] - 44.0, mid[1] - 30.0, 88.0, 60.0], centre);
     let mut sun = Layer::new(
         619,
@@ -752,7 +636,6 @@ fn idle_ribbon(out: &mut Vec<angel_glass::Layer>, content: Panel, centre: [f32; 
         (0u64, (content.w * 0.42, content.h * 0.26, 0.10f32, 30u16)),
         (1, (content.w * 0.27, content.h * 0.17, -0.16f32, 20u16)),
     ] {
-        // The path itself: short strands end to end around the ellipse.
         const ARC: usize = 10;
         let point = |k: f32| deep_point([mid[0] + rx * k.cos(), mid[1] + ry * k.sin()], centre);
         for i in 0..ARC {

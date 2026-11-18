@@ -17,11 +17,6 @@ use crate::rules::world::OLD_HALL;
 use crate::rules::{RoomKind, Run};
 use crate::render::overworld::light::Light;
 
-// ── The King and his dwarves ─────────────────────────────────────────────
-
-/// King Brannoc Onehorn: one bone horn on his helm (the other snapped to a
-/// stub), a red beard braided to his belt, mail, a round shield with the
-/// foaming tankard, a notched axe.
 pub(super) const KING: [&str; 20] = [
     "..T...................",
     ".Tt...................",
@@ -45,7 +40,6 @@ pub(super) const KING: [&str; 20] = [
     "....nnnnn.nnnnn.......",
 ];
 
-/// The King on his seat.
 const SEATED: [&str; 16] = [
     "..T..........",
     ".Tt..........",
@@ -80,7 +74,6 @@ const MINER: [&str; 12] = [
     "nn...nn.....",
 ];
 
-/// A miner coming up with a sack of ore on his back.
 const PORTER: [&str; 12] = [
     "..ttt.......",
     ".tTttt......",
@@ -96,8 +89,6 @@ const PORTER: [&str; 12] = [
     "..nn..nn....",
 ];
 
-/// A builder with a dressed stone on his shoulder (empty-handed, the top
-/// three rows are not drawn).
 const BUILDER: [&str; 13] = [
     "...VVVVV....",
     "...VWVVVv...",
@@ -130,7 +121,6 @@ const GUARD: [&str; 13] = [
     "..nn..nn....",
 ];
 
-/// A smith at the anvil, the hammer up (and, swung, down).
 const SMITH: [&str; 12] = [
     ".......HH...",
     ".......Hh...",
@@ -146,7 +136,6 @@ const SMITH: [&str; 12] = [
     ".nn..nn.....",
 ];
 
-/// Walking: the last two rows (the legs) step together and apart.
 fn stride(rows: &[&str], t: u32) -> Img {
     let mut im = Img::from_rows(rows);
     if (t / 6).is_multiple_of(2) {
@@ -164,7 +153,6 @@ fn stride(rows: &[&str], t: u32) -> Img {
     im
 }
 
-/// One of the folk, as they look this tick.
 pub(super) fn figure(f: &Figure, tick: u32) -> Img {
     let im = match (f.folk, f.pose) {
         (Folk::Wizard, _) => super::college::wizard(tick),
@@ -172,7 +160,6 @@ pub(super) fn figure(f: &Figure, tick: u32) -> Img {
         (Folk::King, Pose::Seated) => Img::from_rows(&SEATED),
         (Folk::King, _) => Img::from_rows(&KING),
         (Folk::Guard, _) => {
-            // Guards shift their weight now and then.
             let mut im = Img::from_rows(&GUARD);
             if (tick / 45 + f.x as u32).is_multiple_of(5) {
                 im = im.flip_h();
@@ -183,7 +170,6 @@ pub(super) fn figure(f: &Figure, tick: u32) -> Img {
         (Folk::Miner, Pose::Walk) => stride(&MINER, f.t),
         (Folk::Miner, _) => Img::from_rows(&PORTER),
         (Folk::Builder, Pose::Work) => {
-            // Setting a stone: the mallet comes down.
             let mut im = Img::from_rows(&BUILDER[3..]);
             if (f.t / 8).is_multiple_of(2) {
                 im.line(9, 2, 11, 0, 'r');
@@ -200,7 +186,6 @@ pub(super) fn figure(f: &Figure, tick: u32) -> Img {
         (Folk::Smith, _) => {
             let mut im = Img::from_rows(&SMITH);
             if f.pose == Pose::Work && (f.t / 9).is_multiple_of(2) {
-                // The hammer down on the anvil.
                 for y in 0..4 {
                     for x in 6..10 {
                         im.clear(x, y);
@@ -220,7 +205,6 @@ pub(super) fn figure(f: &Figure, tick: u32) -> Img {
     }
 }
 
-/// A carter pushing a handcart east: full of ore going out, empty back.
 fn carter(loaded: bool, t: u32) -> Img {
     let mut im = Img::new(30, 14);
     let cart = kit::handcart();
@@ -241,10 +225,6 @@ fn carter(loaded: bool, t: u32) -> Img {
     im
 }
 
-// ── The mine-head: the camp, the gate-hall rising ───────────────────────
-
-/// The King's camp before his hall stands: a tent of the tankard's red
-/// and timber, a fire, a stack of ore sacks.
 fn camp(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
     let (tx, ty) = at(CAMP_TENT.0 * 2.0, CAMP_TENT.1 * 2.0);
     let tent = Img::from_rows(&[
@@ -273,7 +253,6 @@ fn camp(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
     lights.push(fire(fx, fy - 4, 46.0, 0.42));
 }
 
-/// The barony's stockpile: ore sacks and a heap, growing with the miners.
 fn stockpile(cv: &mut Img, run: &Run) {
     if !run.home.barony.holds_workings() {
         return;
@@ -289,20 +268,14 @@ fn stockpile(cv: &mut Img, run: &Run) {
         cv.put(x + 2, y - 5, 'T');
         cv.line(x, y, x + 4, y, 'P');
     }
-    // The ore itself, beside the sacks: a lump for every piece in the
-    // stockpile.
     super::goods::ore_heap(cv, run);
 }
 
-/// The gate-hall's ruin, as it fell: broken walls of dressed stone, its
-/// doorway's arch still standing, rubble inside. `cleared` (0 to 1) of the
-/// rubble has been carried away.
 fn ruin(cv: &mut Img, cleared: f32) {
     use super::super::material as m;
     let (hc, hr, hw, hh) = OLD_HALL;
     let (hx, hy, w2, h2) = (hc * TILE, hr * TILE, hw * TILE, hh * TILE);
     let t = 9;
-    // The old floor: worn flags, a joint and a chip here and there.
     for x in hx + t..hx + w2 - t {
         for y in hy + t..hy + h2 - t {
             let ink = match super::flags(x, y) {
@@ -316,8 +289,6 @@ fn ruin(cv: &mut Img, cleared: f32) {
             }
         }
     }
-    // The walls in spans of dressed stone, lit along each block's top;
-    // where a span has fallen, its stones lie in a heap.
     let warm = m::ramp::STONE;
     let spans: Vec<(i32, i32, i32, i32, bool)> = {
         let mut out = Vec::new();
@@ -367,7 +338,6 @@ fn ruin(cv: &mut Img, cleared: f32) {
             cv.put(x as i32, y as i32, if r == 10.0 { 'i' } else { 'J' });
         }
     }
-    // The rubble still to clear: heaps of stones, each lit on its top.
     let heaps = ((1.0 - cleared) * 10.0).round() as i32;
     for k in 0..heaps {
         let (rx, ry) = (
@@ -381,7 +351,6 @@ fn ruin(cv: &mut Img, cleared: f32) {
     }
 }
 
-/// Scaffolding against a wall face: poles and planks.
 fn scaffold(cv: &mut Img, x0: i32, x1: i32, y0: i32, y1: i32) {
     for x in (x0..x1).step_by(18) {
         cv.line(x, y0, x, y1, 'r');
@@ -392,9 +361,6 @@ fn scaffold(cv: &mut Img, x0: i32, x1: i32, y0: i32, y1: i32) {
     }
 }
 
-/// The gate-hall at the mine-head: a ruin, the rubble going, its walls
-/// rising whole, its roof, its great door; then finished, the door open on
-/// warm light and the King's banner over it.
 pub(super) fn gate_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32) {
     let b = &run.home.barony;
     if b.here() && b.court != Court::Sworn {
@@ -407,8 +373,6 @@ pub(super) fn gate_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: 
     };
     let (hc, hr, hw, hh) = OLD_HALL;
     let (hx, hy, w, h) = (hc * TILE, hr * TILE, hw * TILE, hh * TILE);
-    // A quarter at a time: the rubble cleared, the walls, the roof, the
-    // front and its door.
     let stage = |from: u32| ((p.saturating_sub(from)) as f32 / 250.0).min(1.0);
     if p < 250 {
         ruin(cv, stage(0));
@@ -416,7 +380,6 @@ pub(super) fn gate_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: 
         return;
     }
     let roof_h = 34;
-    // The walls, risen course by course from the foot.
     let walls = stage(250);
     let wall_top = hy + roof_h;
     let risen = wall_top + ((1.0 - walls) * (h - roof_h) as f32) as i32;
@@ -437,7 +400,6 @@ pub(super) fn gate_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: 
             );
         }
     }
-    // The roof, laid from the eaves up: slate in its courses.
     let roof = stage(500);
     if roof > 0.0 {
         let laid = ((1.0 - roof) * roof_h as f32) as i32;
@@ -450,7 +412,6 @@ pub(super) fn gate_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: 
         }
         cv.line(hx - 3, hy + roof_h, hx + w + 2, hy + roof_h, 'g');
     }
-    // The front: the great door and the King's banner over it.
     let front = stage(750);
     let (dx, dy) = (hx + w / 2, hy + h);
     if front > 0.0 || p >= 1000 {
@@ -487,14 +448,12 @@ pub(super) fn gate_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: 
         }
     }
     if roof >= 1.0 {
-        // A parapet along the eaves, crenellated: a dwarf's hall is a fort.
         for x in (hx - 2..hx + w + 2).step_by(6) {
             cv.rect(x, hy + roof_h - 4, 4, 4, 'h');
             cv.line(x, hy + roof_h - 4, x + 3, hy + roof_h - 4, 'i');
         }
     }
     if front >= 1.0 || p >= 1000 {
-        // Two stout pillars flanking the door, and a band of runes over it.
         for px in [dx - 16, dx + 12] {
             cv.rect(px, dy - 26, 5, 26, 'i');
             cv.line(px, dy - 26, px, dy - 1, 'H');
@@ -507,20 +466,15 @@ pub(super) fn gate_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: 
     if p < 1000 {
         scaffold(cv, hx + 2, hx + w - 2, risen.max(hy + 4), hy + h - 2);
     } else {
-        // Braziers either side of the door, lit.
         for (k, x) in [(0u32, dx - 22), (1, dx + 21)] {
             let im = kit::brazier(tick / 4, 70 + k);
             cv.stamp(&im, x - im.w / 2, dy - im.h + 1);
             lights.push(fire(x, dy - im.h + 3, 44.0, 0.34));
         }
-        // The inscription stands outside, west of the doorway and stair.
         cv.stamp(hall_sign(), hx - 26, dy + 10);
     }
 }
 
-/// "accelerando spoken here", cut into a board on two timber posts.
-/// The six glyphs are the upstream Accelerando shapes, rather than the
-/// Latin source text rendered through the realm's ordinary pixel font.
 fn hall_sign() -> &'static Img {
     static SIGN: std::sync::OnceLock<Img> = std::sync::OnceLock::new();
     SIGN.get_or_init(|| {
@@ -555,7 +509,6 @@ fn hall_sign() -> &'static Img {
     })
 }
 
-/// The King's banner: the foaming tankard on the red of Caer Dwfn.
 fn banner(cv: &mut Img, x: i32, y: i32) {
     let im = Img::from_rows(&[
         "bbbbbbbbbbbbbbbb",
@@ -578,16 +531,8 @@ fn banner(cv: &mut Img, x: i32, y: i32) {
     cv.stamp(&im, x, y);
 }
 
-// ── Inside the King's Hall ───────────────────────────────────────────────
-
-/// The hall inside: flagstones and a red runner up to the dais, pillars,
-/// braziers, the King's banner behind his seat, the war table, the ledger
-/// on its lectern, and at the east end the Great Forge: the crown of the
-/// forges, cold until the first fire is brought home.
 pub(super) fn kings_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32) {
     let b = &run.home.barony;
-    // The runner from the door to the dais: a gold edge, a border woven a
-    // pace inside it, and a diamond every few paces down the middle.
     let (x0, x1) = (11 * TILE + 2, 13 * TILE - 3);
     let mid = (x0 + x1) / 2;
     for y in 4 * TILE..13 * TILE {
@@ -608,8 +553,6 @@ pub(super) fn kings_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick:
             );
         }
     }
-    // The dais: steps of pale stone, the seat of dressed stone on it, the
-    // banner on the wall behind.
     let (c, r, w, h) = SEAT_DAIS;
     let (x0, y0) = (c * TILE, r * TILE);
     for k in 0..3 {
@@ -625,7 +568,6 @@ pub(super) fn kings_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick:
     cv.rect(x0 + 20, y0 - 2, 24, 22, 'h');
     cv.line(x0 + 18, y0 - 4, x0 + 45, y0 - 4, 'i');
     banner(cv, x0 + 24, 1);
-    // Pillars of dressed stone.
     for &(pc, pr) in &PILLARS {
         let (px, py) = (pc * TILE, pr * TILE);
         cv.rect(px + 2, py - 10, 12, 26, 'h');
@@ -633,7 +575,6 @@ pub(super) fn kings_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick:
         cv.rect(px + 1, py + 13, 14, 3, 'J');
         cv.line(px + 4, py - 9, px + 4, py + 12, 'G');
     }
-    // Braziers along the walls.
     for (k, (bx, by)) in [
         (2 * TILE, 7 * TILE),
         (21 * TILE, 11 * TILE),
@@ -647,9 +588,7 @@ pub(super) fn kings_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick:
         cv.stamp(&im, bx - im.w / 2, by);
         lights.push(fire(bx, by + 3, 54.0, 0.36));
     }
-    // The war table and its map of the forges.
     war_table(cv, b);
-    // The ledger on its lectern.
     let (lc, lr, _, _) = LECTERN;
     let (lx, ly) = (lc * TILE, lr * TILE);
     cv.rect(lx + 6, ly + 6, 4, 10, 'B');
@@ -658,9 +597,7 @@ pub(super) fn kings_hall(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick:
     cv.rect(lx + 9, ly + 2, 5, 5, 'T');
     cv.line(lx + 3, ly + 4, lx + 6, ly + 4, 'P');
     cv.line(lx + 10, ly + 4, lx + 13, ly + 4, 'P');
-    // The Great Forge: cold, its mouth black, until the first fire.
     great_forge(cv, b, lights, tick);
-    // The great door, inside: light from the mine-head.
     let (ec, er, ew, _) = barony::HALL_EXIT;
     for y in er * TILE + 4..(er + 2) * TILE {
         for x in ec * TILE..(ec + ew) * TILE {
@@ -679,8 +616,6 @@ fn anvil_mark() -> Img {
     Img::from_rows(&["OOOOO", ".OOO.", "..O..", ".OOO."])
 }
 
-/// Where each forge sits on the war table's map (pixels from its corner):
-/// the Great Forge at the head, the halls below it.
 const MAP_AT: [(i32, i32); 6] = [(10, 22), (22, 26), (34, 22), (46, 26), (54, 18), (32, 8)];
 
 fn war_table(cv: &mut Img, b: &barony::Barony) {
@@ -689,7 +624,6 @@ fn war_table(cv: &mut Img, b: &barony::Barony) {
     cv.rect(x0, y0 + 2, tw, th - 4, 'B');
     cv.rect(x0 + 2, y0 + 4, tw - 4, th - 9, 'T');
     cv.line(x0, y0 + th - 3, x0 + tw - 1, y0 + th - 3, 'b');
-    // The chain: each forge joined to the Great Forge.
     let crown = MAP_AT[5];
     for &(mx, my) in &MAP_AT[..5] {
         cv.line(x0 + mx, y0 + my - 4, x0 + crown.0, y0 + crown.1, 'P');
@@ -711,9 +645,6 @@ fn war_table(cv: &mut Img, b: &barony::Barony) {
     }
 }
 
-/// The Great Forge at the hall's east end: a stone furnace taller than the
-/// hall's doors, its chimney into the rock. Cold: a black mouth, a chain
-/// across it. With the first fire won, an ember lantern hangs by it.
 fn great_forge(cv: &mut Img, b: &barony::Barony, lights: &mut Vec<Light>, tick: u32) {
     let (c, r, w, h) = GREAT_FORGE;
     let (x0, y0, fw, fh) = (c * TILE, r * TILE, w * TILE, h * TILE);
@@ -725,7 +656,6 @@ fn great_forge(cv: &mut Img, b: &barony::Barony, lights: &mut Vec<Light>, tick: 
             cv.put(x, y, if joint { 'g' } else { 'j' });
         }
     }
-    // The mouth, facing the hall.
     let (mx, my) = (x0 + 6, y0 + 46);
     for y in my..my + 30 {
         for x in mx..mx + fw - 18 {
@@ -738,12 +668,9 @@ fn great_forge(cv: &mut Img, b: &barony::Barony, lights: &mut Vec<Light>, tick: 
             }
         }
     }
-    // A chain across the cold mouth.
     for x in (mx..mx + fw - 18).step_by(3) {
         cv.put(x, my + 18 + ((x - mx) / 6) % 2, 'G');
     }
-    // The first fire, won from Cinderjaw, kept in a lantern for this
-    // forge.
     if b.has_done("first-fire") {
         let (lx, ly) = (x0 - 6, y0 + 50);
         cv.line(lx, ly - 12, lx, ly - 4, 'b');
@@ -759,12 +686,6 @@ fn great_forge(cv: &mut Img, b: &barony::Barony, lights: &mut Vec<Light>, tick: 
     }
 }
 
-// ── A forge-hall below ───────────────────────────────────────────────────
-
-/// A forge-hall of Caer Dwfn below: its furnace and anvils. Found in ruin
-/// once the King holds the halls; rising course by course while it is
-/// rebuilt; whole and cold, waiting for fire; then burning, smoke and
-/// sparks out of its chimney.
 pub(super) fn forge(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32) {
     let b = &run.home.barony;
     let Some(f) = barony::forge_of(run.dungeon.pack) else {
@@ -775,7 +696,6 @@ pub(super) fn forge(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32)
     let lit = b.is_lit(f.id);
     let (c, r, w, h) = FURNACE;
     let (x0, y0, fw, fh) = (c * TILE, r * TILE, w * TILE, h * TILE);
-    // How much of the furnace stands: a broken stump, then courses.
     let standing = match progress {
         None => 0.3,
         Some(p) => 0.3 + 0.7 * p as f32 / 1000.0,
@@ -784,7 +704,6 @@ pub(super) fn forge(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32)
     for y in top..y0 + fh {
         let inset = if y < y0 + 20 { (y0 + 20 - y) / 3 } else { 0 };
         for x in x0 + inset..x0 + fw - inset {
-            // A ruin's courses are broken along the top.
             if progress.is_none() && y < top + 6 && hash(x / 5, 0, 97) % 3 == 0 {
                 continue;
             }
@@ -803,7 +722,6 @@ pub(super) fn forge(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32)
             );
         }
     }
-    // The chimney up into the rock, once the furnace stands to its top.
     if progress.is_some_and(|p| p >= 1000) {
         let (cx0, cw) = (x0 + fw / 2 - 9, 18);
         for y in TILE..y0 + 4 {
@@ -814,7 +732,6 @@ pub(super) fn forge(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32)
         }
         cv.rect(cx0 - 2, TILE - 3, cw + 4, 3, 'J');
     }
-    // The mouth: black when cold, burning when lit.
     let (mx, my) = (x0 + fw / 2, y0 + fh - 4);
     for y in my - 18..my {
         for x in mx - 10..mx + 10 {
@@ -833,14 +750,12 @@ pub(super) fn forge(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32)
         if let Some((r, s)) = super::goods::glow(&burn) {
             lights.push(fire(mx, my - 8, r, s));
         }
-        // Smoke out of the chimney only while the forge works.
         if burn == crate::rules::goods::Burn::Working {
             let smoke = kit::smoke(tick);
             cv.stamp(&smoke, mx - smoke.w / 2, TILE - smoke.h + 2);
         }
     }
     if progress.is_none() {
-        // Rubble round the ruin.
         for k in 0..12 {
             let (rx, ry) = (
                 x0 - 16 + (hash(k, 3, 98) % (fw as u32 + 32)) as i32,
@@ -851,12 +766,10 @@ pub(super) fn forge(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32)
     } else if progress.is_some_and(|p| p < 1000) {
         scaffold(cv, x0 - 4, x0 + fw + 4, top.max(y0 + 2), y0 + fh - 2);
     }
-    // Bellows on the side, once rebuilt.
     if progress == Some(1000) {
         cv.rect(x0 + fw + 2, y0 + fh - 16, 10, 8, 'B');
         cv.line(x0 + fw + 2, y0 + fh - 12, x0 + fw, y0 + fh - 12, 'b');
     }
-    // The anvils on their stumps.
     for &(ac, ar) in &ANVILS {
         let (ax, ay) = (ac * TILE, ar * TILE);
         cv.rect(ax + 4, ay + 8, 8, 8, 'B');
@@ -868,9 +781,6 @@ pub(super) fn forge(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32)
     super::goods::bins(cv, run, lights);
 }
 
-// ── Figures and boards ───────────────────────────────────────────────────
-
-/// The folk in sight, and sparks off a smith's anvil.
 pub(super) fn folk(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     let room = run.room().kind;
@@ -888,7 +798,6 @@ pub(super) fn folk(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Wrap words to boards' lines of at most `width` characters.
 fn wrap(text: &str, width: usize) -> Vec<String> {
     let mut lines = vec![String::new()];
     for word in text.split_whitespace() {
@@ -905,8 +814,6 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
     lines
 }
 
-/// A board with a price in spoils (short ones in red) under its lines, and
-/// the hold bar.
 fn price_board(
     lines: &[(String, char)],
     price: &Spoils,
@@ -960,8 +867,6 @@ fn standing_on(run: &Run, plate: (i32, i32, i32, i32)) -> Option<u32> {
     barony::on_plate(run, plate).map(|id| run.players.get(&id).map_or(0, |h| h.buying))
 }
 
-/// Over everything in the barony's rooms: the board of the plate a knight
-/// stands on.
 pub(super) fn boards(cv: &mut Img, run: &Run) {
     let b = &run.home.barony;
     let room = run.room().kind;
@@ -975,7 +880,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         };
         cv.stamp(board, x, y);
     };
-    // The King's mission, at the plate before him.
     if b.court >= Court::Met
         && let Some(_) = standing_on(run, barony::king_plate(b))
         && barony::king_at(b).is_some_and(|(r, _)| r == room)
@@ -1135,7 +1039,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The plates of the mine-head: the King's (once met) and the ruin's.
 pub(super) fn plates(cv: &mut Img, run: &Run) {
     let b = &run.home.barony;
     if run.room().kind == RoomKind::MineHead && b.court >= Court::Met {

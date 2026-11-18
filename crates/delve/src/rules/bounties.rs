@@ -10,26 +10,19 @@ use super::home::Home;
 use super::*;
 use crate::realm::{Spoil, Spoils};
 
-/// What a bounty asks for.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Goal {
-    /// So many of a monster slain.
     Slay(EnemyKind),
-    /// So many of a moment the Herald calls (a cue's head).
     Moment(&'static str),
-    /// A floor reached.
     Reach(u32),
 }
 
-/// One of Wren's bounties.
 pub struct Bounty {
     pub id: &'static str,
     pub title: &'static str,
-    /// Wren's note pinned to it.
     pub says: &'static str,
     pub goal: Goal,
     pub need: u32,
-    /// The floor the party must have reached for Wren to pin it.
     pub from: u32,
     pub pays: &'static [(Spoil, u32)],
 }
@@ -44,7 +37,6 @@ impl Bounty {
     }
 }
 
-/// How many bounties the board holds.
 pub const PINNED: usize = 3;
 
 pub const BOUNTIES: &[Bounty] = &[
@@ -306,16 +298,11 @@ pub fn bounty(id: &str) -> Option<&'static Bounty> {
     BOUNTIES.iter().find(|b| b.id == id)
 }
 
-/// Whether Wren's raid rows have drifted from the holdings: a pin to add
-/// or take down at the next save.
 pub fn drift(home: &Home) -> bool {
     let raided: Vec<&String> = home.holdings.owned.iter().filter(|w| w.raid > 0).map(|w| &w.key).collect();
     raided.len() != home.raids.len() || raided.iter().any(|k| !home.raids.contains(k))
 }
 
-/// Pin a row to Wren's board for every holding the raiders hold, and take
-/// down the ones freed since. The lines it says, for the notice: her rows
-/// are alarms, and pay nothing — the raiders' purse is won in the hall.
 pub fn note_raids(home: &mut Home) -> Vec<String> {
     let mut said = Vec::new();
     for w in home.holdings.owned.iter().filter(|w| w.raid > 0) {
@@ -329,8 +316,6 @@ pub fn note_raids(home: &mut Home) -> Vec<String> {
     said
 }
 
-/// How far along a bounty is, as the board writes it: 7/25,
-/// or the floor to reach.
 pub fn progress(bounty: &Bounty, have: u32) -> String {
     match bounty.goal {
         Goal::Reach(floor) => format!("floor {floor}"),
@@ -338,7 +323,6 @@ pub fn progress(bounty: &Bounty, have: u32) -> String {
     }
 }
 
-/// A bounty pinned to the board, and how far along it is.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Pinned {
     pub id: String,
@@ -347,12 +331,6 @@ pub struct Pinned {
 }
 
 impl Home {
-    /// Fill the board to three. Wren pins what the floors the party has
-    /// reached make fair, the ones she has paid least often first, in her
-    /// order: every job comes round before any comes round twice, and a
-    /// new floor's jobs go up first. With the Type-Foundry's type in the
-    /// case she prints up to `NOTICES_PRINTED` more, `TYPE_PER_NOTICE` type
-    /// each. Returns those just pinned.
     pub fn pin_bounties(&mut self) -> Vec<&'static Bounty> {
         let mut pinned = Vec::new();
         while self.bounties.len() < PINNED + super::goods::NOTICES_PRINTED {
@@ -383,9 +361,6 @@ impl Home {
         pinned
     }
 
-    /// What a delve just did: `marks` (kills and moments), the floor it is
-    /// on. Returns the bounties it finished, taken off the
-    /// board (the cockpit pays them and Wren pins the next).
     pub fn work_bounties(
         &mut self,
         marks: &BTreeMap<String, u32>,
@@ -408,7 +383,6 @@ impl Home {
                 done.push(bounty);
             }
         }
-        // Done ones come down, and any this build doesn't know.
         self.bounties
             .retain(|p| bounty(&p.id).is_some_and(|b| p.have < b.need));
         for bounty in &done {
@@ -418,19 +392,15 @@ impl Home {
     }
 }
 
-/// The mark a kill of `kind` leaves.
 pub fn slay_mark(kind: EnemyKind) -> String {
     format!("slay:{kind:?}")
 }
 
-/// The mark a moment leaves (a cue's head).
 pub fn moment_mark(cue: &str) -> String {
     format!("cue:{}", cue.split(':').next().unwrap_or(cue))
 }
 
 impl Run {
-    /// Count what this tick did for Wren's bounties: the moments since
-    /// `heard`, and the fallen.
     pub(super) fn mark_moments(&mut self, heard: usize) {
         let marks: Vec<String> = self
             .cues
@@ -446,7 +416,6 @@ impl Run {
 
     pub(super) fn mark_kill(&mut self, kind: EnemyKind) {
         *self.marks.entry(slay_mark(kind)).or_default() += 1;
-        // A village's hunt below counts it too (`deep::missions`).
         self.deep_kill(kind);
     }
 }

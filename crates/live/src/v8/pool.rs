@@ -11,8 +11,6 @@ const HEAP_MB: usize = 32;
 
 type Job = (String, mpsc::SyncSender<Result<String, String>>);
 
-/// An `angel_live::Evaluator`: run a module script on a warm pooled isolate.
-/// A script carrying `CALL_MARKER` keeps its module setup per generation key.
 pub fn evaluate(script: &str) -> Result<String, String> {
     static POOL: LazyLock<mpsc::Sender<Job>> = LazyLock::new(|| {
         let (tx, rx) = mpsc::channel::<Job>();
@@ -45,7 +43,6 @@ pub fn evaluate(script: &str) -> Result<String, String> {
         .map_err(|_| "live evaluator stopped".to_string())?
 }
 
-/// `(key, setup, call)` of a script carrying `crate::CALL_MARKER`.
 pub fn split_call(script: &str) -> Option<(&str, &str, &str)> {
     let at = script.find(crate::CALL_MARKER)?;
     let rest = &script[at + crate::CALL_MARKER.len()..];

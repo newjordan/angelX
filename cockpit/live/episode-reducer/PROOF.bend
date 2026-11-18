@@ -1,10 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
 
-# Each law is a closed equality between literal decisions, so its proof only
-# re-runs the same state machine: no arithmetic is assumed and nothing is
-# claimed beyond the twelve literal cases above.
-
 def Laws.a_durable_append_advances_the_recorded_sequence():
   {==}
 

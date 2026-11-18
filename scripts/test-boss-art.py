@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Regression fixtures for measurements that must reject a bad art batch."""
 import runpy
 import copy
 import json
@@ -105,7 +104,6 @@ class PlayerGates(unittest.TestCase):
         colours={'b':(60,40,40),'r':(180,80,30),'c':(255,200,96)}
         pixels=[[x,y,'r'] for y in range(1,6) for x in range(1,6) if (x,y) not in [(1,1),(5,1),(1,5),(5,5)]]
         pixels += [[x,y,'c'] for y in range(2,5) for x in range(2,5)]
-        # Use final, unique pixels as recipes do.
         pixels=list({(x,y):(x,y,k) for x,y,k in pixels}.values())
         spec={'rows':['bbbbbbb']*7,'signature_lights':[{'name':'maw','hues':{k:'#'+bytes(v).hex() for k,v in colours.items()},'pixels':pixels,'falloff':[[0,2,'b']]}]}
         self.assertTrue(any('four-sided' in e for e in art['signature_gate'](spec,colours)))

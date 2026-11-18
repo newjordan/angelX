@@ -16,7 +16,6 @@ fn knight() -> Recipe {
     Recipe::parse(include_str!("../recipes/knight.json")).expect("the knight reads")
 }
 
-/// The game's look key over a frame: FNV-1a of its size and pixels.
 fn key(f: &render::Frame) -> String {
     format!("{:016x}", look_key(&f.raster))
 }
@@ -60,13 +59,10 @@ fn a_frame_takes_milliseconds() {
         }
         let ms = t.elapsed().as_secs_f64() * 1000.0 / (runs * frames) as f64;
         println!("g{}: {ms:.3} ms a frame", g.0);
-        // Generous: a debug build on a slow machine still looks dozens of times a minute.
         assert!(ms < 250.0, "g{} took {ms:.1} ms a frame", g.0);
     }
 }
 
-/// Every JSON example in docs/KILN-RECIPE.md reads as written: a whole
-/// recipe as it is, a part, decals, a rig or clips set into a small one.
 #[test]
 fn the_reference_examples_read() {
     use serde_json::{Value, json};

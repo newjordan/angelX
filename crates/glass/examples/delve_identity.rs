@@ -29,8 +29,6 @@ fn main() -> ExitCode {
     }
 }
 
-/// A strip of `frames` cut into ink rows `side` square, frames side by side
-/// (`a|b`), as a `paint` line cuts it.
 fn ink_rows(rgba: &[u8], (w, h): (u32, u32), frames: usize, side: u32) -> Result<String, String> {
     let crop = looks::crop(w, h, frames, |x, y| rgba[((y * w + x) * 4 + 3) as usize] >= 128).ok_or("nothing drawn")?;
     let inks: Vec<(char, [u8; 3])> =
@@ -75,8 +73,6 @@ fn ink_rows(rgba: &[u8], (w, h): (u32, u32), frames: usize, side: u32) -> Result
     Ok(rows.join("\n"))
 }
 
-/// A painted crown, as a player's picture would come: gold on a clear
-/// ground, three points and a red stone, 64 pixels square.
 fn crown() -> (Vec<u8>, (u32, u32)) {
     let side = 64u32;
     let mut rgba = vec![0u8; (side * side * 4) as usize];
@@ -98,8 +94,6 @@ fn crown() -> (Vec<u8>, (u32, u32)) {
     (rgba, (side, side))
 }
 
-/// The square knight's figure close, from a stage drawn at `scale`: the
-/// stage's pixels round native `(x, y)`, four times as near.
 fn near(pixels: &[u8], size: (u32, u32), scale: u32, at: (f32, f32)) -> (Vec<u8>, (u32, u32)) {
     let span = 48 * scale;
     let (cx, cy) = ((at.0 * scale as f32) as i64, (at.1 * scale as f32) as i64);
@@ -193,8 +187,6 @@ fn run() -> Result<(), String> {
         grant(&mut run, id, wish)?;
     }
     shoot(&run, "04-party-made", 1, None)?;
-    // A body wished to its top tier keeps its painting: a crown on the
-    // circle knight's head, painted, in the inks' place.
     let picture = crown();
     let sha = "c".repeat(64);
     let card = format!(
@@ -205,7 +197,6 @@ fn run() -> Result<(), String> {
     run.book.insert(card);
     run.players.get_mut(&3).ok_or("no knight")?.deck.push("wish-crown-3".into());
     shoot(&run, "05-painted-crown-top-tier", 3, Some((&sha, &picture)))?;
-    // The second floor: the ordinary game, in its own look.
     run.descend_for_test();
     line_up(&mut run)?;
     shoot(&run, "06-floor-two", 1, Some((&sha, &picture)))?;
@@ -240,8 +231,6 @@ impl Gpu {
         Ok(Self { core, device })
     }
 
-    /// A Delve frame as a stage, drawn into a texture `size` pixels as the
-    /// window draws a stage in its cells, on black, and read back.
     fn stage(&mut self, frame: angel_stage::Frame, size: (u32, u32)) -> Vec<u8> {
         for p in frame.pictures {
             self.core.upload(Picture { id: p.id, width: p.width, height: p.height, rgba: p.rgba, cols: 0, rows: 0 });

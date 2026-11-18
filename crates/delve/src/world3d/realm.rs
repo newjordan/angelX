@@ -39,15 +39,10 @@ use super::realm_mono::{Piece, slab, spire};
 use super::realm_place;
 use crate::world::biome::{self, Biome};
 
-/// The kind lava's surface is written as: mud made to glow on the warm
-/// ramp by the set's own `role` and `tone` (no lamp, no shadow), the chunk's
-/// fires staying accents.
 const LAVA: Kind = Kind::Mud;
 
-/// The most lamps a chunk stands.
 pub const LAMPS_A_CHUNK: usize = 3;
 
-/// One named group of a chunk's pieces, as written.
 struct Group {
     name: String,
     lines: Vec<String>,
@@ -59,7 +54,6 @@ impl Group {
     }
 }
 
-/// The chunk `(cx, cz)` of `land` as a set file in the monolith language.
 pub fn chunk_set(land: &Land, terrain: &Terrain, cx: i32, cz: i32) -> String {
     let rect = land.chunk_rect(cx, cz);
     let mut groups = Vec::new();
@@ -93,12 +87,7 @@ pub fn chunk_set(land: &Land, terrain: &Terrain, cx: i32, cz: i32) -> String {
     write(land, terrain, cx, cz, &groups, &lamps)
 }
 
-/// Whether build `b` is a castle or stands inside one's wall (the Keep's old
-/// keep, its turrets, the Rookery and the Chapel are in its face): the
-/// castle stands for it (`realm_castle`).
 pub fn in_castle(b: &chunks::Build) -> bool {
-    // The blank-slate plan stands no great castle: the tiny Keep and the camps
-    // are places (`realm_camp`), not walled castles.
     if crate::world::plan::tabula() {
         return false;
     }
@@ -106,19 +95,15 @@ pub fn in_castle(b: &chunks::Build) -> bool {
     realm_castle::is_castle(b.kit) || crate::world::castles::at(c + w / 2, r + h / 2).is_some()
 }
 
-/// The chunk a footprint belongs to: the one under its middle.
 fn owner((c, r, w, h): blockout::Rect) -> (i32, i32) {
     ((c + w / 2).div_euclid(CHUNK.0), (r + h / 2).div_euclid(CHUNK.1))
 }
 
-/// The kingdom's castles (the map with no wishes), made once.
 pub fn castles() -> &'static [realm_castle::Site] {
     static SITES: OnceLock<Vec<realm_castle::Site>> = OnceLock::new();
     SITES.get_or_init(|| realm_castle::sites(super::kingdom::land()))
 }
 
-/// The set the realm makes of chunk `index` (the map with no wishes),
-/// made once.
 pub fn set_text(index: u32) -> Arc<str> {
     static TEXTS: OnceLock<Vec<OnceLock<Arc<str>>>> = OnceLock::new();
     let count = super::kingdom::COUNT;
@@ -127,9 +112,6 @@ pub fn set_text(index: u32) -> Arc<str> {
     Arc::clone(texts[index as usize % count].get_or_init(|| chunk_set(super::kingdom::land(), realm_ground::terrain(), cx, cz).into()))
 }
 
-// ---------------------------------------------------------------- water ----
-
-/// Water and lava's surfaces over their tiles, merged into runs.
 fn water(land: &Land, (c, r, w, h): blockout::Rect) -> Vec<Piece> {
     let cells: Vec<Option<bool>> = (r..r + h)
         .flat_map(|y| (c..c + w).map(move |x| (x, y)))
@@ -149,8 +131,6 @@ fn water(land: &Land, (c, r, w, h): blockout::Rect) -> Vec<Piece> {
         .collect()
 }
 
-/// Roads over water: a stone deck a hair over the floor, its sides down
-/// into the water, parapets along the water's sides.
 fn bridges(land: &Land, (c, r, w, h): blockout::Rect) -> Vec<Piece> {
     let bridge = |x: i32, y: i32| land.cover(x, y) == Cover::Bridge;
     let cells: Vec<Option<bool>> = (r..r + h).flat_map(|y| (c..c + w).map(move |x| (x, y))).map(|(x, y)| bridge(x, y).then_some(true)).collect();
@@ -184,17 +164,10 @@ fn bridges(land: &Land, (c, r, w, h): blockout::Rect) -> Vec<Piece> {
     out
 }
 
-// ---------------------------------------------------------------- woods ----
-
-/// How tall what stands on tile `(x, y)` may be before it buries the ground
-/// a knight walks behind it: a little over the tiles no one walks north of it.
 fn cap(terrain: &Terrain, x: i32, y: i32) -> f32 {
     34.0 + 16.0 * f32::from(terrain.north_clear(x, y))
 }
 
-/// Woods: dark spires packed and overlapping, a mass with a ragged crown,
-/// taller toward its middle; one or two a tile, each kept inside what its
-/// tile may reach over.
 fn woods(land: &Land, terrain: &Terrain, rect: blockout::Rect) -> Vec<Piece> {
     let mut out = Vec::new();
     for (x, y) in tiles(rect) {
@@ -225,14 +198,10 @@ fn spires_on(land: &Land, terrain: &Terrain, x: i32, y: i32, out: &mut Vec<Piece
     }
 }
 
-/// Rock: great slabs on each two by two of it, stepped into shelves toward
-/// its middle; a lesser slab on a tile of rock alone.
 fn outcrops(land: &Land, terrain: &Terrain, (c, r, w, h): blockout::Rect) -> Vec<Piece> {
     let mut out = Vec::new();
     let rock = |x: i32, y: i32| land.cover(x, y) == Cover::Rock && !land.walkable(x, y);
     let mut done = std::collections::HashSet::new();
-    // The two by twos, aligned to even tiles (a chunk's sides are even, so
-    // none straddles two chunks).
     for y in (r..r + h).step_by(2) {
         for x in (c..c + w).step_by(2) {
             let four = [(x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)];
@@ -252,7 +221,6 @@ fn outcrops(land: &Land, terrain: &Terrain, (c, r, w, h): blockout::Rect) -> Vec
             let first = (top_ground - base) + tall;
             out.push(slab(Kind::Rock, mx, base, mz, [sw, first, sd], turn));
             if tall > 20.0 {
-                // A shelf on it, set back.
                 let more = 8.0 + 10.0 * unit(x, y, 507);
                 out.push(slab(Kind::Rock, mx + (unit(x, y, 508) - 0.5) * 4.0, base + first, mz - sd * 0.16, [sw * 0.66, more, sd * 0.6], turn + (unit(x, y, 509) - 0.5) * 10.0));
             }
@@ -274,7 +242,6 @@ fn outcrops(land: &Land, terrain: &Terrain, (c, r, w, h): blockout::Rect) -> Vec
     out
 }
 
-/// Dead trees on the ash: bare dark spikes, a crooked limb on each.
 fn dead_trees(land: &Land, terrain: &Terrain, rect: blockout::Rect) -> Vec<Piece> {
     let mut out = Vec::new();
     for (x, y) in tiles(rect) {
@@ -293,11 +260,8 @@ fn dead_trees(land: &Land, terrain: &Terrain, rect: blockout::Rect) -> Vec<Piece
     out
 }
 
-/// The map's rim: woods in the green country, slabs in the hills and the
-/// Wastes, nothing on the Coast (its sea).
 fn rim(land: &Land, terrain: &Terrain, rect: blockout::Rect) -> Vec<Piece> {
     let mut out = Vec::new();
-    // The blank-slate plan's country is open hillside to its edge: no woods.
     if crate::world::plan::tabula() {
         return out;
     }
@@ -323,8 +287,6 @@ fn rim(land: &Land, terrain: &Terrain, rect: blockout::Rect) -> Vec<Piece> {
 fn tiles((c, r, w, h): blockout::Rect) -> impl Iterator<Item = (i32, i32)> {
     (r..r + h).flat_map(move |y| (c..c + w).map(move |x| (x, y)))
 }
-
-// ------------------------------------------------------------- the text ----
 
 fn write(land: &Land, terrain: &Terrain, cx: i32, cz: i32, groups: &[Group], lamps: &[(f32, SetLamp)]) -> String {
     let (c, r, w, h) = land.chunk_rect(cx, cz);

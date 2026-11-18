@@ -9,8 +9,6 @@ pub fn enabled(run: &Run) -> bool {
     slot_art::enabled() && !run.at_home_now() && !run.side_on() && run.circle() == 0
 }
 
-/// Nine-slice the native chrome once per envelope, preserving its end caps.
-/// There is no frame-time resampling or per-pixel colour conversion.
 pub fn skin(name: &'static str, w: i32, h: i32) -> Option<Arc<Img>> {
     if !slot_art::enabled() {
         return None;
@@ -46,7 +44,6 @@ pub fn skin(name: &'static str, w: i32, h: i32) -> Option<Arc<Img>> {
     Some(im)
 }
 
-/// The kit's pieces as delivered, loaded once.
 fn sources() -> &'static BTreeMap<&'static str, Img> {
     static SOURCES: OnceLock<BTreeMap<&'static str, Img>> = OnceLock::new();
     SOURCES.get_or_init(|| {
@@ -63,11 +60,6 @@ fn sources() -> &'static BTreeMap<&'static str, Img> {
     })
 }
 
-/// A plate's rim alone round `(x, y, w, h)`, `depth` pixels deep, at the
-/// kit's own pixels: its studded corners (`CORNER` square) kept whole and
-/// its plain rail (the source's middle column and row) run between them,
-/// so a panel of any size wears the same frame as the plates beside it.
-/// What lies inside the rim is left as it was.
 pub fn rim(cv: &mut Img, name: &'static str, (x, y, w, h): (i32, i32, i32, i32), depth: i32) -> bool {
     const CORNER: i32 = 5;
     if !slot_art::enabled() || w < 2 * CORNER || h < 2 * CORNER {
@@ -98,15 +90,8 @@ pub fn rim(cv: &mut Img, name: &'static str, (x, y, w, h): (i32, i32, i32, i32),
     true
 }
 
-/// The minimap's studded frame round a window `(x, y, w, h)`, at the kit's
-/// own pixels: its four corners whole (twelve square), its brass rail run
-/// between them (the kit's plain span, clear of its ornaments). The page's
-/// windows wear the same frame (crates/web/shell/art/frames.py), so a
-/// window in the picture and one over it are one set. What lies inside is
-/// left as it was.
 pub fn window(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32)) -> bool {
     const CORNER: i32 = 12;
-    /// The kit's plain rail: this column (top and bottom) and row (sides).
     const RAIL: i32 = 16;
     if !slot_art::enabled() || w < 2 * CORNER || h < 2 * CORNER {
         return false;
@@ -132,7 +117,6 @@ pub fn window(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32)) -> bool {
             let (sx, sy) = (along(dx, w, src.w), along(dy, h, src.h));
             match src.get(sx, sy) {
                 Some(c) => cv.set(x + dx, y + dy, c),
-                // Outside the rail (the kit's clear margin): no panel.
                 None if sx.min(sy).min(src.w - 1 - sx).min(src.h - 1 - sy) < 3 => cv.clear(x + dx, y + dy),
                 None => {}
             }

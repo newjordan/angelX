@@ -15,8 +15,6 @@ use crate::rules::bannerpeak::{
 };
 use crate::rules::{HZ, Run};
 
-/// The title: two words slam in over the first ground, a line of three under them, and fade. The
-/// card of a banner raised has the same band and takes it.
 pub(super) fn title(im: &mut Img, s: &Session) {
     if s.elapsed >= claims::TITLE || s.phase != Phase::Play || s.announce.is_some() {
         return;
@@ -24,7 +22,6 @@ pub(super) fn title(im: &mut Img, s: &Session) {
     juice::banner(im, 34, "EIGHT BANNERS", "RUN. JUMP. RAISE.", s.elapsed, claims::TITLE, Tone::Warm, 3);
 }
 
-/// How loud a call is inked.
 fn tone(cry: Cry) -> Tone {
     match cry {
         Cry::Lift => Tone::Steel,
@@ -33,17 +30,12 @@ fn tone(cry: Cry) -> Tone {
     }
 }
 
-/// The calls the table has made, placed by `claims::shouts`: the loudest on top, a quieter one
-/// under it, never two of a kind, and out from under a banner's card.
 pub(super) fn shouts(im: &mut Img, s: &Session, id: u32) {
     for (y, cap, title, sub, age, cry, _) in claims::shouts(s, id) {
         juice::banner(im, y, &title, &sub, age, SHOUT_LIFE, tone(cry), cap);
     }
 }
 
-/// A banner just raised: its card slams in over the top of the screen, three fireworks go up
-/// behind it, and a pennant climbs a staff beside it. All of it from the announce's own clock,
-/// so every seat sees the same.
 pub(super) fn raised(im: &mut Img, s: &Session, tick: u32) {
     let Some(a) = s.announce else { return };
     if s.phase != Phase::Play {
@@ -52,7 +44,6 @@ pub(super) fn raised(im: &mut Img, s: &Session, tick: u32) {
     let age = ANNOUNCE_TICKS.saturating_sub(a.t);
     let n = usize::from(a.banner);
     let ink = banner_ink(n);
-    // The sky first: three fireworks in the colours of the realm.
     let rams: [Ramp; 3] = [ramps::GOLD, ramps::EMBER, ramps::BONE];
     for (j, x) in [96.0f32, 288.0, 192.0].into_iter().enumerate() {
         let t = age as i32 - 4 - j as i32 * 9;
@@ -61,10 +52,8 @@ pub(super) fn raised(im: &mut Img, s: &Session, tick: u32) {
             juice::firework(im, x, 150.0, top, t as u32, 17 * (a.banner as u32 + 1) + j as u32 * 5, rams[j], u64::from(tick));
         }
     }
-    // The card.
     let name = BANNER_NAMES[n.min(7)];
     juice::banner(im, 30, name, &format!("BANNER {} OF 8", s.count()), age, ANNOUNCE_TICKS, Tone::Warm, 2);
-    // A pennant climbing a staff either side of the card, a short rise that ends in a snap.
     for side in [-1i32, 1] {
         let x = 192 + side * 118;
         let climb = (age.min(40) as f32 / 40.0 * 34.0) as i32;
@@ -79,8 +68,6 @@ pub(super) fn raised(im: &mut Img, s: &Session, tick: u32) {
     }
 }
 
-/// The pips of King Cinder's three crowns, and the plates left on this one: shown while he is
-/// awake and his crown is still up.
 pub(super) fn crown_bar(im: &mut Img, s: &Session, me: Option<&Knight>) {
     let b = &s.boss;
     if !claims::crown_bar_on(s, me) {
@@ -89,7 +76,6 @@ pub(super) fn crown_bar(im: &mut Img, s: &Session, me: Option<&Knight>) {
     let (bx, by, bw, bh) = claims::CROWN_BAR;
     im.rect(bx, by, bw, bh, 'k');
     im.frame(bx, by, bw, bh, 'g');
-    // Three crowns: gold while still to take, ash once down.
     for i in 0..i32::from(PHASES) {
         let cx = bx + 5 + i * 14;
         let up = i >= i32::from(b.phase);
@@ -105,7 +91,6 @@ pub(super) fn crown_bar(im: &mut Img, s: &Session, me: Option<&Knight>) {
             im.put(cx + 5, by + 9, '7');
         }
     }
-    // The plates left on this crown, one to a seat.
     let seats = s.seats.len().clamp(1, 6) as i32;
     let left = i32::from(b.plates);
     for i in 0..seats {
@@ -122,18 +107,15 @@ pub(super) fn crown_bar(im: &mut Img, s: &Session, me: Option<&Knight>) {
     im.text(nx, ny, name, 'o');
 }
 
-/// A rim of danger: red along the edges as a blow lands and a slow pulse on the last wedge.
 pub(super) fn danger(im: &mut Img, s: &Session, me: Option<&Knight>, tick: u32) {
     let Some(k) = me else { return };
     if s.phase != Phase::Play {
         return;
     }
     let mut k_ = 0.0f32;
-    // One wedge left: a slow pulse along the edges, thin and dark.
     if k.alive() && k.pips <= 1 {
         k_ = 0.10 + 0.10 * ((tick / 10 % 2) as f32);
     }
-    // Just hit: a flash that fades over the first ticks.
     if k.hurt >= 62 {
         k_ = k_.max(0.5 * (k.hurt - 62) as f32 / 8.0);
     }
@@ -142,14 +124,11 @@ pub(super) fn danger(im: &mut Img, s: &Session, me: Option<&Knight>, tick: u32) 
     }
 }
 
-/// The curtain of the finish: the knights at the Great Pole, a night of paper and fire, and a
-/// panel with each knight's sparks and score and the best the realm has seen.
 pub(super) fn finale(im: &mut Img, run: &Run, s: &Session, id: u32, tick: u32) {
     if s.phase != Phase::Finale {
         return;
     }
     let t = s.phase_t;
-    // Fireworks over the court, the gold, the ember and the bone in turn.
     let launches = [(80.0f32, 74.0f32, ramps::GOLD), (192.0, 50.0, ramps::EMBER), (304.0, 80.0, ramps::BONE), (140.0, 64.0, ramps::GOLD), (250.0, 58.0, ramps::EMBER)];
     for (j, (x, top, ramp)) in launches.into_iter().enumerate() {
         let start = 12 + j as u32 * 22;
@@ -163,12 +142,9 @@ pub(super) fn finale(im: &mut Img, run: &Run, s: &Session, id: u32, tick: u32) {
         juice::confetti(im, (0, 20, W, 190), tick, 11, 90);
     }
     let words = claims::finale_words(t);
-    // The title sits in the open sky beside the pole, not over its top banners: drawn on a canvas
-    // as wide as that sky and laid there.
     let mut title = Img::new(232, 44);
     juice::banner(&mut title, 6, words, "", t.min(FINALE_TICKS / 2 + 1) % (FINALE_TICKS / 2 + 1), FINALE_TICKS / 2 + 1, Tone::Warm, 2);
     im.stamp(&title, 150, 24);
-    // The panel: a row per knight, the best the realm has seen, the way home.
     let score = run.home.countryside.games.roundtable[crate::rules::bannerpeak::SLOT].best;
     if t > 70 {
         let (px, py, pw, ph) = claims::panel(s.seats.len());
@@ -196,8 +172,6 @@ pub(super) fn finale(im: &mut Img, run: &Run, s: &Session, id: u32, tick: u32) {
     }
 }
 
-/// The last crown falls: black bars close in over the picture for a moment, the way a film holds
-/// its breath on the winning blow.
 pub(super) fn film(im: &mut Img, s: &Session) {
     let Some(m) = s.show.marks.iter().find(|m| m.kind == crate::rules::bannerpeak::show::Kind::Crown) else { return };
     let age = m.age(s.elapsed);

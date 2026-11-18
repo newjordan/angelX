@@ -101,8 +101,6 @@ fn provenance_provisioning_preserves_operator_marker_lookalikes() {
     assert!(extraction_ask(&[operator]));
 }
 
-/// Serve each scripted reply to one chat-completion request, keeping the
-/// request bodies.
 fn scripted_completions(
     replies: Vec<serde_json::Value>,
 ) -> (String, std::thread::JoinHandle<Vec<serde_json::Value>>) {
@@ -144,10 +142,6 @@ fn scripted_completions(
     (url, handle)
 }
 
-/// The pre-provisioner is connected over its own chat completion: its system
-/// message is its route (`⡸⠙`), it is offered the ledger reader, reads the
-/// route, and its verdict still becomes a directive whose contract is framed by
-/// `⠬⠑`'s pages, recited for a seat that has no tools.
 #[test]
 fn the_pre_provisioner_reads_its_route_through_the_ledger_reader() {
     let _lock = crate::tests::env_lock();

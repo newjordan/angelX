@@ -3,7 +3,6 @@
 use super::kit::*;
 use super::*;
 
-/// A lathe: a profile of (radius, height) turned about the z axis at `at`.
 fn lathe(m: &mut Mesh, at: V3, profile: &[(f32, f32)], n: usize, spin: f32, k: u8) {
     let ring = |r: f32, z: f32, i: usize| {
         let a = i as f32 / n as f32 * TAU + spin;
@@ -15,18 +14,15 @@ fn lathe(m: &mut Mesh, at: V3, profile: &[(f32, f32)], n: usize, spin: f32, k: u
             m.push_quad(ring(w[0].0, w[0].1, i), ring(w[0].0, w[0].1, j), ring(w[1].0, w[1].1, j), ring(w[1].0, w[1].1, i), k);
         }
     }
-    // Close the top.
     if let Some(&(r, z)) = profile.last() {
         for i in 0..n { m.push_tri([at + v3(0., 0., z), ring(r, z, i), ring(r, z, (i + 1) % n)], [[0.; 2]; 3], k); }
     }
 }
 
-/// The cup: a foot, a stem, a bowl, two ears.
 fn trophy(m: &mut Mesh, at: V3, spin: f32, s: f32) {
     let g = mat::CLOTH_GOLD;
     let p = |v: &[(f32, f32)]| v.iter().map(|&(r, z)| (r * s, z * s)).collect::<Vec<_>>();
     lathe(m, at, &p(&[(0., 0.), (1.1, 0.), (1.1, 0.25), (0.45, 0.5), (0.3, 0.7), (0.3, 1.5), (0.7, 1.7), (1.5, 2.9), (1.45, 3.6), (1.35, 3.6)]), 10, spin, g);
-    // The inside of the bowl, darker gold, so it reads as a cup.
     lathe(m, at, &p(&[(1.35, 3.6), (1.3, 3.4), (0.55, 2.2), (0., 2.1)]), 10, spin, mat::BRASS);
     for sg in [-1.0f32, 1.0] {
         let (c, sn) = spin.sin_cos();
@@ -39,9 +35,7 @@ fn trophy(m: &mut Mesh, at: V3, spin: f32, s: f32) {
     }
 }
 
-/// A numeral 1 to 3 in lit bars on a block's face (it faces -x, the lens), `h` tall, centred on `at`.
 fn numeral(m: &mut Mesh, n: usize, at: V3, h: f32, k: u8) {
-    // Segments, seven-bar style: top, upper left, upper right, middle, lower left, lower right, bottom.
     const SEG: [[bool; 7]; 3] = [[false, false, true, false, false, true, false], [true, false, true, true, true, false, true], [true, false, true, true, false, true, true]];
     let (w, t) = (h * 0.5, h * 0.14);
     let bar = |m: &mut Mesh, cy: f32, cz: f32, hy: f32, hz: f32| cuboid(m, at + v3(-0.04, cy - hy, cz - hz), at + v3(0.04, cy + hy, cz + hz), k);
@@ -59,7 +53,6 @@ fn numeral(m: &mut Mesh, n: usize, at: V3, h: f32, k: u8) {
     }
 }
 
-/// A pod set down on a block: turned about its middle by `yaw`, its engines' origin put at `at`.
 fn stand(m: &mut Mesh, first: usize, yaw: f32, at: V3, k: f32) {
     let (s, c) = yaw.sin_cos();
     let mid = v3(-3.3, 0., 0.);
@@ -73,7 +66,6 @@ fn stand(m: &mut Mesh, first: usize, yaw: f32, at: V3, k: f32) {
     }
 }
 
-/// Confetti: flat scraps coming down the screen, each on its own track, a function of the tick.
 fn confetti(m: &mut Mesh, t: f32) {
     const CLOTH: [u8; 6] = [mat::CLOTH_GOLD, mat::HORSE_BAY, mat::HORSE_CHESTNUT, mat::FOLIAGE, mat::WOOD, mat::TRUNK];
     for i in 0..44u32 {
@@ -92,13 +84,11 @@ fn confetti(m: &mut Mesh, t: f32) {
 pub fn draw(s: &rules::Session, seat: u32) -> Img {
     let t = s.flow.now as f32 / 30.;
     let mut world = Mesh::new();
-    // A dark stage, so the blocks and the pods are what the eye finds.
     let ring = |r: f32, i: usize| { let a = i as f32 / 32. * TAU; v3(r * a.cos(), r * a.sin(), 0.) };
     for i in 0..32 {
         world.push_tri([v3(0., 0., 0.), ring(30., i), ring(30., i + 1)], [[0.; 2]; 3], mat::STONE_DARK);
         world.push_quad(ring(14.5, i) + v3(0., 0., 0.02), ring(15.2, i) + v3(0., 0., 0.02), ring(15.2, i + 1) + v3(0., 0., 0.02), ring(14.5, i + 1) + v3(0., 0., 0.02), mat::CLOTH_GOLD);
     }
-    // The blocks: first in the middle, second to its left, third to its right.
     let places: [(usize, f32, f32, u8); 3] = [(0, 0., 3.4, mat::CLOTH_GOLD), (1, -7.6, 2.3, mat::ARMOR), (2, 7.6, 1.4, mat::BRASS)];
     let mut pods_mesh = Mesh::new();
     for &(place, y, h, trim) in &places {
@@ -113,7 +103,6 @@ pub fn draw(s: &rules::Session, seat: u32) -> Img {
         let face = match place { 0 => 0.3 + 0.12 * (t * 0.8).sin(), 1 => 0.75, _ => -0.55 };
         stand(&mut pods_mesh, first, PI + face, v3(0.6, y, h), 1.1);
     }
-    // The cup hangs over the winner.
     let mut gold = Mesh::new();
     trophy(&mut gold, v3(-2.6, 0., 3.4 + 3.3 + 0.2 * (t * 1.6).sin()), t * 0.9, 0.7);
     let mut bits = Mesh::new();
@@ -132,13 +121,11 @@ pub fn draw(s: &rules::Session, seat: u32) -> Img {
 
 fn words(im: &mut Img, s: &rules::Session, seat: u32, t: f32) {
     let class = s.flow.class.name();
-    // The banner.
     plate(im, 70, 6, 244, 36);
     centred(im, 192, 9, "CUP COMPLETE", 3, if (t * 3.) as u32 % 2 == 0 { 'T' } else { '6' });
     let winner = s.flow.podium.first().map_or(String::new(), |l| if l.human { super::who(s, l.seat) } else { pods::livery(l.seat).name.to_string() });
     centred(im, 192, 31, &format!("{class} CUP WON BY {winner}"), 1, 'h');
     let Some(sf) = s.flow.seats.get(&seat) else { return };
-    // The foot: the cup's table, what it paid, what it opened.
     plate(im, 4, 170, 376, 44);
     im.text(10, 174, "THE CUP", 'T');
     for (n, line) in s.flow.podium.iter().take(6).enumerate() {

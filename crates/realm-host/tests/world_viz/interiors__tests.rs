@@ -37,9 +37,6 @@ fn every_supported_building_has_exactly_one_furnished_place() {
 
 #[test]
 fn no_nudge_escapes_the_bay_grid() {
-    // A nudge is art tuning on top of a bay. Once one grows past half a
-    // bay the station belongs in a different bay, and the grid has stopped
-    // describing the room.
     const MAX_NUDGE: f32 = 0.5;
     for place in PLACES {
         for placed in place.stations {
@@ -56,9 +53,6 @@ fn no_nudge_escapes_the_bay_grid() {
 
 #[test]
 fn every_station_stands_inside_its_shell_and_clear_of_the_entry() {
-    // Walls occupy cells 0 and 8, so the open floor is (1.0, 8.0). The
-    // camera stands at y 7.25 and the door is behind it; stations must
-    // leave that approach clear or the player walks into furniture.
     const ENTRY_CLEARANCE_Y: f32 = 6.0;
     for place in PLACES {
         for placed in place.stations {
@@ -83,16 +77,8 @@ fn every_station_stands_inside_its_shell_and_clear_of_the_entry() {
 
 #[test]
 fn station_art_kinds_are_shared_only_where_intended() {
-    // Prop art dispatches on `id - PROP_ID_BASE` with no knowledge of the
-    // room, so two stations sharing an id draw the identical silhouette.
-    // Sharing is legitimate while a station is waiting for its own plate;
-    // it is a bug when it happens by accident. Pin the known set so a new
-    // collision has to be declared here before it can ship.
     const APPROVED_SHARING: [(u8, &[&str]); 2] = [
-        // One flame silhouette serves every open flame in the realm.
         (SMITHY_FIRE_ID, &["forge fire", "chapel taper"]),
-        // One bird, two poses. Kind 10 already spreads or settles its
-        // wings on `lit`, so the pair is the plate working as intended.
         (RAVEN_ID, &["raven", "roosting raven"]),
     ];
 
@@ -160,7 +146,6 @@ fn scriptorium_contains_each_named_tutor_station_once() {
 
 #[test]
 fn a_place_that_gains_a_station_shows_it_without_a_code_change() {
-    // The growth path: append to a place's station list, nothing else.
     let grown_stations: &'static [Placement] = Box::leak(
         SCRIPTORIUM
             .iter()
@@ -229,11 +214,6 @@ fn room_plate_ignores_first_person_flicker_and_leaving_restores_outdoor_key() {
         inside,
         "room plate does not paint the first-person flicker clock"
     );
-    // The outdoor key legitimately animates with the clock (the settled
-    // first-person plate re-keys on the two-pose rider canter, keyed off
-    // `tick`), so restore the clock before the round-trip check — otherwise
-    // this asserts a tick-stability the outdoor key no longer has. Leaving
-    // toggles only `interior`, so at the original tick the key is identical.
     world.tick -= super::super::cinematics::INTERIOR_FRAME_HOLD_TICKS;
     world.leave_interior();
     assert_eq!(world.cinematic_key(), outdoor);

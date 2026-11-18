@@ -16,25 +16,18 @@ use std::sync::Arc;
 
 pub const OSSUARY_LEG: &str = "delve-ossuary";
 
-/// One tick from `program` (`None`: no generation to ask). Any evaluation or
-/// decode failure is an error here, which the rules answer by running the
-/// native tick.
 fn ask_with(program: Option<angel_live::Program>, frame: &OssuaryFrame) -> Result<OssuaryStep, String> {
     let input = serde_json::to_value(frame).map_err(|error| error.to_string())?;
     let (step, source) = policy::decide_with::<Option<OssuaryStep>>(program, OSSUARY_LEG, &input, |_| Ok(()), || None);
     step.ok_or_else(|| format!("{OSSUARY_LEG}: {}", source.as_str()))
 }
 
-/// One tick from the newest live generation of the leg, as the cockpit's live
-/// client last offered it.
 fn ask_latest(frame: &OssuaryFrame) -> Result<OssuaryStep, String> {
     let input = serde_json::to_value(frame).map_err(|error| error.to_string())?;
     let (step, source) = crate::cart::drive::decide_latest::<Option<OssuaryStep>>(OSSUARY_LEG, &input, |_| Ok(()), || None);
     step.ok_or_else(|| format!("{OSSUARY_LEG}: {}", source.as_str()))
 }
 
-/// Read the setting once, at the cockpit's start with the Delve's other
-/// settings.
 pub(crate) fn arm_from_env() {
     arm(std::env::var("ANGEL_BEND_RULES").is_ok_and(|value| value == "1"));
 }
@@ -43,13 +36,11 @@ pub fn arm(on: bool) {
     install_shared_ossuary_brain(on.then(|| Arc::new(ask_latest) as _));
 }
 
-/// The setting, pinned to one generation (`None`: the leg is missing), for tests.
 #[cfg(any(test, feature = "testing"))]
 pub fn arm_pinned(program: Option<angel_live::Program>) {
     install_shared_ossuary_brain(Some(Arc::new(move |frame| ask_with(program.clone(), frame))));
 }
 
-/// A brain pinned to one generation, for tests and measurements.
 #[cfg(any(test, feature = "testing"))]
 pub fn pinned_brain(program: angel_live::Program) -> angel_delve::rules::nooks::OssuaryBrain {
     std::rc::Rc::new(move |frame| {

@@ -6,7 +6,6 @@
 use super::feel::testing::*;
 use super::*;
 
-/// `quiet`, with knights 2 to `n` beside the first, none able to be hurt.
 fn party(n: u32) -> Run {
     let mut run = quiet();
     for id in 2..=n {
@@ -18,7 +17,6 @@ fn party(n: u32) -> Run {
     run
 }
 
-/// A fresh delve whose host plays no knight, five friends in seats 2 to 6.
 fn five_friends(seed: u64) -> Run {
     let mut run = Run::new(seed, 1, None);
     run.set_absent(1, true);
@@ -42,7 +40,6 @@ fn a_party_has_six_seats_and_no_seventh() {
     run.join_seat(0, "Zero");
     assert_eq!(run.players.len(), 6, "no seat past the sixth");
     assert!(run.valid_snapshot());
-    // The seats on the wire: a seat a knight, six of them.
     for knight in 1..=6 {
         assert_eq!(crate::wire::seat_of(knight), Some(knight - 1));
         assert_eq!(crate::wire::knight_of(knight - 1), knight);
@@ -56,14 +53,12 @@ fn the_per_head_tables_hold_six_and_clamp_past_them() {
     assert_eq!(stakes::PARTY_HIT, [60, 100, 120, 135, 140, 145]);
     assert_eq!(stakes::EARLY_PARTY_HIT, [100, 115, 130, 145, 150, 155]);
     assert_eq!(stakes::PARTY_EXTRA, [0, 2, 4, 6, 7, 8]);
-    // Past four a head adds less than the one before it: sub-linear.
     for t in [&stakes::PARTY_HIT[..], &stakes::EARLY_PARTY_HIT[..]] {
         assert!(t[4] - t[3] < t[3] - t[2] && t[5] - t[4] <= t[4] - t[3], "{t:?}");
     }
     assert_eq!(stakes::party_extra(0), 0);
     assert_eq!(stakes::party_extra(1000), 8);
     assert_eq!(stakes::PARTY_FURY, [0, 1, 2, 3, 3, 3]);
-    // The tables cover every seat, and a count past them is the last entry.
     assert_eq!(stakes::PARTY_HIT.len(), MAX_PLAYERS as usize);
     assert_eq!(stakes::EARLY_PARTY_HIT.len(), MAX_PLAYERS as usize);
     assert_eq!(stakes::PARTY_FURY.len(), MAX_PLAYERS as usize);
@@ -74,8 +69,6 @@ fn the_per_head_tables_hold_six_and_clamp_past_them() {
     }
     assert_eq!(stakes::party_fury(6), 3);
     assert_eq!(stakes::party_fury(5), 3);
-    // Each added head lands a monster's hit harder on the first floors, to
-    // the sixth, and the sixth is no bullet hell.
     let mut last = 0;
     for n in 1..=6u32 {
         let mut run = party(n);
@@ -86,7 +79,6 @@ fn the_per_head_tables_hold_six_and_clamp_past_them() {
         assert!(incoming > last, "{n} knights hit harder than {}", n - 1);
         last = incoming;
     }
-    // From the third floor the table is PARTY_HIT's.
     let depth = 3;
     let mut last = 0;
     for n in 1..=6u32 {
@@ -97,7 +89,6 @@ fn the_per_head_tables_hold_six_and_clamp_past_them() {
         assert!(incoming > last, "{n} knights on floor {depth}: {incoming} after {last}");
         last = incoming;
     }
-    // Fury follows the head count into the monsters, capped at three.
     let mut six = party(6);
     let id = a_foe(&mut six, EnemyKind::Skeleton, 30.0, 10.0);
     assert_eq!(six.enemies.iter().find(|e| e.id == id).unwrap().fury, 3);
@@ -105,8 +96,6 @@ fn the_per_head_tables_hold_six_and_clamp_past_them() {
 
 #[test]
 fn a_save_written_with_four_approaches_loads() {
-    // The merchant once kept a four-wide array of seat memories; the sixth
-    // seat must not turn that save into "invalid length 4, expected 6".
     let run = Run::new(9, 1, Some("Friend"));
     let mut tree = serde_json::to_value(&run).unwrap();
     let four = serde_json::json!({
@@ -120,16 +109,12 @@ fn a_save_written_with_four_approaches_loads() {
     let loaded: Run = serde_json::from_value(tree.clone()).expect("a four-seat save loads");
     assert!(loaded.valid_snapshot());
     assert_eq!(loaded.merchant.approaches.len(), MAX_PLAYERS as usize);
-    // What the save held is kept, seat for seat; the seats it never had are
-    // fresh.
     assert!(loaded.merchant.approaches[1].spent);
     assert_eq!(loaded.merchant.approaches[1].offer, Some(1));
     assert_eq!(loaded.merchant.approaches[1].ticks, 7);
     for fresh in &loaded.merchant.approaches[4..] {
         assert_eq!(*fresh, merchant::Approach::default());
     }
-    // Shorter still (a save from before the fourth seat) loads too, and one
-    // with no memories at all.
     tree["merchant"]["approaches"] = serde_json::json!([four]);
     let loaded: Run = serde_json::from_value(tree.clone()).unwrap();
     assert_eq!(loaded.merchant.approaches.len(), MAX_PLAYERS as usize);
@@ -137,12 +122,10 @@ fn a_save_written_with_four_approaches_loads() {
     let loaded: Run = serde_json::from_value(tree.clone()).unwrap();
     assert!(loaded.valid_snapshot());
     assert_eq!(loaded.merchant.approaches.len(), MAX_PLAYERS as usize);
-    // A save that kept more seats than the party has is not a snapshot.
     let mut wide = serde_json::to_value(&run).unwrap();
     wide["merchant"]["approaches"] = serde_json::Value::Array(vec![four.clone(); MAX_PLAYERS as usize + 1]);
     let wide: Run = serde_json::from_value(wide).unwrap();
     assert!(!wide.valid_snapshot());
-    // And a six-seat save written today reads back as it was.
     let mut six = Run::new(9, 1, None);
     six.merchant.approaches[5].spent = true;
     let back: Run = serde_json::from_value(serde_json::to_value(&six).unwrap()).unwrap();
@@ -151,8 +134,6 @@ fn a_save_written_with_four_approaches_loads() {
 
 #[test]
 fn a_whole_four_seat_run_saved_before_the_bump_still_plays() {
-    // A run of four knights, the merchant's memory four wide, steps on after
-    // it loads, and the fifth and sixth friends can sit down in it.
     let mut run = Run::new(21, 1, Some("Two"));
     run.join_seat(3, "Three");
     run.join_seat(4, "Four");
@@ -169,7 +150,6 @@ fn a_whole_four_seat_run_saved_before_the_bump_still_plays() {
     assert!(loaded.valid_snapshot());
 }
 
-/// Every living knight aims north and fires.
 fn volley(run: &Run) -> BTreeMap<u32, Input> {
     run.players
         .iter()
@@ -187,7 +167,6 @@ fn five_friends_with_the_host_absent_join_fight_wipe_and_descend() {
     let fight = fight_room(&run);
     run.enter_for_test(fight);
     assert!(run.valid_snapshot());
-    // A fight: all five fire into the room's foes for a good while.
     let foes = run.enemies.len();
     assert!(foes > 0, "the room's company is up");
     for tick in 0..600 {
@@ -206,8 +185,6 @@ fn five_friends_with_the_host_absent_join_fight_wipe_and_descend() {
         run.enemies.len() < foes || run.enemies.iter().any(|e| e.hp < e.max_hp) || run.phase != Phase::Fighting,
         "five friends hurt the room"
     );
-    // The party falls: every friend down, the host's stone seat not in the
-    // way.
     for (id, hero) in run.players.iter_mut() {
         if *id != 1 {
             hero.invulnerable = 0;
@@ -217,12 +194,10 @@ fn five_friends_with_the_host_absent_join_fight_wipe_and_descend() {
     idle(&mut run, 2);
     assert_eq!(run.phase, Phase::Wiped, "the party fell");
     assert!(run.over());
-    // They ask to go back; the five friends' asking is the whole party's.
     for id in 2..=6 {
         run.ask_again(id);
     }
     assert!(run.again_due(), "every player here asked");
-    // And the next delve lays itself out for the five of them.
     let mut next = Run::new(13, 2, None);
     next.set_absent(1, true);
     for id in 2..=6 {
@@ -237,7 +212,6 @@ fn five_friends_with_the_host_absent_join_fight_wipe_and_descend() {
     }
     idle(&mut next, 60);
     assert!(next.valid_snapshot());
-    // The wiped run itself goes down the stairs for a test's sake, too.
     run.descend_for_test();
     assert_eq!(run.party_size(), 5);
     assert!(run.valid_snapshot());
@@ -262,10 +236,6 @@ fn the_host_and_five_friends_are_six_knights_in_one_fight() {
             assert!(run.valid_snapshot(), "tick {tick}");
         }
     }
-    // More monsters for more knights (the party's own two a head, one past
-    // the fourth), and the volleys no thicker than three extra shots. The
-    // first fight off the stairs is gentle (`stakes::GENTLE_FIRST_TO`): a
-    // room further on.
     let further = |run: &Run| {
         let steps = run.dungeon.steps();
         (0..run.dungeon.rooms.len())

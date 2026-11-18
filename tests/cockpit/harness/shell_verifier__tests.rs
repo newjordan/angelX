@@ -233,7 +233,6 @@ fn a_red_routed_run_keeps_its_first_failure_when_the_tail_would_hide_it() {
         red.ends_with("Ran 2 tests in 0.001s\n\nFAILED (failures=1)"),
         "{red}"
     );
-    // Green: the tail exactly as asked, as before.
     let green = route.present(UNITTEST_RED.into(), false);
     assert_eq!(
         green,
@@ -290,7 +289,6 @@ fn a_tail_that_already_shows_a_failure_is_left_as_asked() {
         route.present(text.into(), true),
         "tool error: python3 -m pytest failed (exit 1)\n[typed output tail]\nFAILED t.py::T::test_a - AssertionError: 0 != 300\n1 failed, 1 passed in 0.01s"
     );
-    // No tail asked: the whole result, as before.
     let whole = plan("shell", &json!({"command": "pytest -q"}), &root).unwrap();
     assert_eq!(whole.present(text.into(), true), text);
 }

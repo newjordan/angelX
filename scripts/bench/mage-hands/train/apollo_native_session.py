@@ -1,4 +1,3 @@
-"""Bounded private native-app seat. Run only inside a new mage-native directory."""
 import argparse
 import json
 import os

@@ -240,7 +240,6 @@ fn skeletons_intercept_fast_shots_before_the_caller_and_take_each_hit() {
     assert_eq!(run.players[&1].hp, hp);
     assert_eq!(run.minions.raised[0].hp, 70);
     assert!(!run.projectiles.iter().any(|p| p.hostile && p.ttl > 0));
-    // A shot from behind reaches the caller before any of the wall.
     run.players.get_mut(&1).unwrap().invulnerable = 0;
     run.projectiles.push(shot((9.0, 12.0), (240.0, 0.0)));
     step(&mut run, Input::default(), 1);

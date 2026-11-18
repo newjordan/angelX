@@ -36,7 +36,6 @@ fn folders_find_cartridges_and_folders_of_them_in_order() {
     let found = folders(std::slice::from_ref(&root));
     assert_eq!(found, [root.join("alpha"), root.join("zeta")]);
     assert!(has_source(&found[0]) && !has_source(&found[1]));
-    // A cartridge named directly is taken as itself.
     assert_eq!(folders(&[root.join("zeta")]), [root.join("zeta")]);
     let _ = std::fs::remove_dir_all(&root);
 }
@@ -79,7 +78,6 @@ fn a_config_only_fleet_is_one_command_printing_one_snapshot() {
     assert_eq!(snapshot.entries[1].score.as_deref(), Some("1.5"));
     assert!(sweep_command("printf 'not json'", None).is_err());
     assert!(sweep_command("exit 3", None).is_err());
-    // The command finds its own cartridge's folder.
     let folder = temp("fleet-folder");
     std::fs::write(folder.join("fleet.sh"), "printf '{\"benchmarks\": 1, \"failed\": 0, \"submissions\": []}'").unwrap();
     let own = sweep_command("bash \"$ANGEL_CARTRIDGE_DIR/fleet.sh\"", Some(&folder)).unwrap();

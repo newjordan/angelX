@@ -13,62 +13,43 @@
 use std::f32::consts::PI;
 use std::time::Instant;
 
-/// When the walls start moving and how long they take to close.
 const WALL_START: f32 = 0.0;
 const WALL_TIME: f32 = 0.62;
-/// Escapement notches the walls move in; each moves in the first part of
-/// its notch and holds for the rest.
 const WALL_NOTCHES: f32 = 5.0;
 const NOTCH_MOVE: f32 = 0.55;
-/// The lock: a small overshoot that settles.
 const LOCK_TIME: f32 = 0.14;
 const LOCK_PX: f32 = 3.0;
 
-/// The floor: the first tile falls at FLOOR_START, the farthest at
-/// FLOOR_START + FLOOR_SPREAD, each a little early or late by up to
-/// FLOOR_JITTER, and each falls for FALL_TIME.
 const FLOOR_START: f32 = 0.34;
 const FLOOR_SPREAD: f32 = 0.70;
 const FLOOR_JITTER: f32 = 0.07;
 const FALL_TIME: f32 = 0.34;
-/// The part of a fall spent in the air; the rest is the thunk.
 const AIR: f32 = 0.84;
-/// In the air a tile is this much bigger, higher, tilted and drifted.
 const LIFT_SCALE: f32 = 0.9;
 const LIFT_PX: f32 = 48.0;
 const TILT: f32 = 0.22;
 const DRIFT_PX: f32 = 16.0;
-/// How far the thunk squashes a tile.
 const THUNK: f32 = 0.06;
 
-/// The stone tiles fade once everything has landed.
 const TILE_FADE_START: f32 = 1.45;
 const TILE_FADE_TIME: f32 = 0.35;
 
-/// The whole transition, in seconds.
 pub const DURATION: f32 = 1.8;
 
-/// One shared scene, not a fade through black. Smooth endpoints keep the
-/// outgoing frame still; gameplay/input never waits on the 420 ms dissolve.
 pub fn handoff_alpha(seconds: f32) -> f32 {
     let t = (seconds / 0.42).clamp(0.0, 1.0);
     1.0 - t * t * (3.0 - 2.0 * t)
 }
 
-/// How one cell looks at one moment of a transition. `REST` is no change.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Motion {
     pub dx: f32,
     pub dy: f32,
     pub scale: f32,
     pub angle: f32,
-    /// Opacity of the cell's own content.
     pub alpha: f32,
-    /// Opacity of the stone tile under the cell (0: no tile).
     pub tile: f32,
-    /// How high the tile still is (1: just appeared, 0: landed).
     pub lift: f32,
-    /// Dust from the landing, fading from 1.
     pub dust: f32,
 }
 
@@ -85,7 +66,6 @@ impl Motion {
     };
 }
 
-/// Where a cell sits, for its motion.
 #[derive(Clone, Copy, Debug)]
 pub struct Place {
     pub col: u16,
@@ -93,7 +73,6 @@ pub struct Place {
     pub cols: u16,
     pub rows: u16,
     pub cell_height: f32,
-    /// A wall: a box-drawing border cell.
     pub wall: bool,
 }
 
@@ -107,11 +86,6 @@ impl Transition {
         Self { started: now }
     }
 
-    /// A transition `seconds` in, for filming fixed moments. The value
-    /// comes from the environment, so it is bounded to a sane span first:
-    /// `Duration::from_secs_f32` panics on overflow and on NaN. The
-    /// `max`/`min` chain (not `clamp`, which passes NaN through) resolves
-    /// every non-finite input to a bound.
     #[allow(clippy::manual_clamp)]
     pub fn at(now: Instant, seconds: f32) -> Self {
         Self {
@@ -119,7 +93,6 @@ impl Transition {
         }
     }
 
-    /// Seconds since the start.
     pub fn time(&self, now: Instant) -> f32 {
         now.saturating_duration_since(self.started).as_secs_f32()
     }
@@ -129,7 +102,6 @@ impl Transition {
     }
 }
 
-/// A cell's motion at time `t`.
 pub fn motion(t: f32, place: Place) -> Motion {
     if t >= DURATION {
         return Motion::REST;
@@ -147,8 +119,6 @@ fn tile_fade(t: f32) -> f32 {
     1.0 - ((t - TILE_FADE_START) / TILE_FADE_TIME).clamp(0.0, 1.0)
 }
 
-/// Walls: the top half comes down from above the window, the bottom half up
-/// from below, notch by notch, and they lock.
 fn wall(t: f32, place: Place) -> Motion {
     let p = ((t - WALL_START) / WALL_TIME).clamp(0.0, 1.0);
     let notches = p * WALL_NOTCHES;
@@ -166,7 +136,6 @@ fn wall(t: f32, place: Place) -> Motion {
         (f32::from(place.rows - place.row) + 1.0) * place.cell_height
     };
     let mut dy = distance * (1.0 - travelled);
-    // The lock: past its stop by a few pixels, then back.
     let k = (t - WALL_START - WALL_TIME) / LOCK_TIME;
     if (0.0..1.0).contains(&k) {
         let direction = if top_half { 1.0 } else { -1.0 };
@@ -175,14 +144,12 @@ fn wall(t: f32, place: Place) -> Motion {
     Motion { dy, ..Motion::REST }
 }
 
-/// Floor tiles: drop from above with a tilt and a drift, land with a thunk.
 fn floor(t: f32, place: Place, tile_fade: f32) -> Motion {
     let start = FLOOR_START
         + FLOOR_SPREAD * distance_from_centre(place)
         + FLOOR_JITTER * hash(place.col, place.row, 1);
     let p = ((t - start) / FALL_TIME).clamp(0.0, 1.0);
     if p <= 0.0 {
-        // Not yet falling: nothing there.
         return Motion {
             alpha: 0.0,
             tile: 0.0,
@@ -190,7 +157,6 @@ fn floor(t: f32, place: Place, tile_fade: f32) -> Motion {
         };
     }
     let fall = (p / AIR).min(1.0);
-    // Height above the ground: a fall that speeds up.
     let height = 1.0 - fall * fall;
     let impact = ((p - AIR) / (1.0 - AIR)).clamp(0.0, 1.0);
     let thunk = if impact > 0.0 && impact < 1.0 {
@@ -216,8 +182,6 @@ fn floor(t: f32, place: Place, tile_fade: f32) -> Motion {
     }
 }
 
-/// 0 at the centre of the grid, 1 at its farthest corner (cells are about
-/// twice as tall as wide, so rows count double).
 fn distance_from_centre(place: Place) -> f32 {
     let cx = f32::from(place.cols) / 2.0;
     let cy = f32::from(place.rows) / 2.0;
@@ -231,7 +195,6 @@ fn ease_out_cubic(x: f32) -> f32 {
     1.0 - (1.0 - x).powi(3)
 }
 
-/// A steady pseudo-random number in [0, 1) for a cell.
 pub fn hash(col: u16, row: u16, salt: u32) -> f32 {
     let mut h = u32::from(col).wrapping_mul(0x9E37_79B1)
         ^ u32::from(row).wrapping_mul(0x85EB_CA77)
@@ -293,7 +256,6 @@ mod tests {
 
     #[test]
     fn walls_hold_between_notches() {
-        // Late in a notch the wall waits: two moments there are the same.
         let notch = WALL_TIME / WALL_NOTCHES;
         let a = motion(notch * 0.8, place(10, 2, true));
         let b = motion(notch * 0.95, place(10, 2, true));

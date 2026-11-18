@@ -1,5 +1,3 @@
-"""The local manual relay owns fixtures and preserves the task's status."""
-
 import json
 import os
 from pathlib import Path
@@ -21,8 +19,6 @@ print(json.dumps({'home': os.environ['HOME'], 'temporary': os.environ['TMPDIR'],
 raise SystemExit(17)
 """
 
-# Run cancellation in a separate subreaper so the suite never adopts unrelated
-# test children. The fixture's direct and inherited pipe holders are all reaped.
 CANCEL = r"""
 import ctypes, json, os, pathlib, signal, subprocess, sys, time, urllib.request
 ctypes.CDLL(None).prctl(36, 1, 0, 0, 0)
@@ -168,8 +164,6 @@ class RelayRunnerTests(unittest.TestCase):
     def test_exited_run_has_no_pending_manual_reply(self):
         self.run.mkdir()
         (self.run / "rc").write_text("143\n")
-        # The run has exited with an unanswered request, including one whose
-        # bytes cannot be parsed. Its completion marker settles the status.
         (self.run / "1.req.json").write_text('{"body":')
         result = subprocess.run([sys.executable, str(self.root / "pending.py"), str(self.run)],
                                 capture_output=True, text=True, timeout=2)

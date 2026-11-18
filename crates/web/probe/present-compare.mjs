@@ -1,39 +1,3 @@
-// The renderer module against the legacy presenter, on the same frames
-// (docs/GLASS_CORE.md, step 1.3): headless Chromium over CDP, never a visible
-// browser.
-//
-//   node crates/web/probe/present-compare.mjs <link> --dist crates/web/dist/delve --out <dir>
-//
-// <link> is a running host's page with its key (the Delve's dev host:
-// `delve-dev-host --port 8820 --bundle crates/web/dist/delve --scene fight --key KEY`,
-// then `http://127.0.0.1:8820/#KEY`).
-//
-// 1. Record. The page is opened with `?present=legacy`, a seat is taken, and the
-//    stage frames the game makes (`angel_stage`, the bytes that go to the
-//    presenter) are kept for --frames frames, from the first one (which carries
-//    every picture). Then the page is opened again with `&stage=0`, which keeps
-//    finished frames (the game draws no pixels of its own while it stages),
-//    and one finished frame is kept.
-// 2. Replay. A page of this script's own loads the shell's present.js, stage.js
-//    and gpu.js and the bundle's renderer build, and draws every recorded
-//    frame, in order and on the same clock, through the legacy presenter and
-//    through the renderer, each on a canvas of its own. The two final images,
-//    read from the canvases in the task that drew them, are compared pixel by
-//    pixel. A game in motion cannot be compared with itself; the same bytes
-//    drawn twice can.
-//
-// 3. Pages. The real page, with the real game, is loaded once per way of
-//    drawing (--modes: `?present=legacy`, `gpu`, `webgl`), and the canvas is
-//    read in the task of a frame (as above; headless Chromium's screenshot
-//    leaves out a WebGPU canvas) after the same number of frames. A game in
-//    motion differs from itself, so these are for looking at, and for the
-//    number of pixels that differ; the replay is the exact comparison.
-//    --skip-replay goes straight to this.
-//
-// For each canvas size (--sizes), each renderer build (--builds) and each of the
-// stage frame and the finished frame it writes <out>/<case>-legacy.png, -gpu.png
-// and -diff.png (the largest channel difference, times 8), and prints one JSON
-// line of numbers. Node built-ins only.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -61,8 +25,6 @@ const CDP_PORT = Number(opt('cdp-port', 8812));
 const PORT = Number(opt('port', 8813));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 fs.mkdirSync(out, { recursive: true });
-
-// ---- the replay page ----
 
 const REPLAY_HTML = `<!doctype html><meta charset="utf-8"><title>replay</title>
 <style>html,body{margin:0;background:#000}canvas{display:block}</style>
@@ -166,8 +128,6 @@ async function drawFinished() {
 }
 </script>`;
 
-// ---- the server: the replay page, the bundle's files, the recording ----
-
 let rec = null, finished = null;
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://local');
@@ -200,21 +160,18 @@ const server = http.createServer((req, res) => {
 });
 await new Promise(resolve => server.listen(PORT, '127.0.0.1', resolve));
 
-// ---- the browser ----
-
 const profile = `${process.env.TMPDIR || os.tmpdir()}/angel-web-compare-${process.pid}`;
 const proc = spawn('/usr/bin/chromium', ['--headless=new', `--remote-debugging-port=${CDP_PORT}`,
   `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--window-size=1600,1000',
-  // WebGPU and WebGL on the machine's GPU through Vulkan, as the probe's --webgpu.
   '--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-angle=vulkan', '--enable-gpu', '--ignore-gpu-blocklist',
   'about:blank'], { stdio: 'ignore' });
 let closed = false;
 const close = () => {
   if (closed) return;
   closed = true;
-  try { proc.kill('SIGKILL'); } catch { /* gone */ }
-  try { server.close(); } catch { /* gone */ }
-  try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* held */ }
+  try { proc.kill('SIGKILL'); } catch { }
+  try { server.close(); } catch { }
+  try { fs.rmSync(profile, { recursive: true, force: true }); } catch { }
 };
 process.on('exit', close);
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { close(); process.exit(1); });
@@ -222,7 +179,7 @@ for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { close
 let target;
 for (let i = 0; i < 50 && !target; i++) {
   await sleep(200);
-  try { target = (await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`)).json()).find(t => t.type === 'page'); } catch { /* not up */ }
+  try { target = (await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`)).json()).find(t => t.type === 'page'); } catch { }
 }
 if (!target) { close(); throw new Error('chromium did not come up'); }
 const ws = new WebSocket(target.webSocketDebuggerUrl);
@@ -265,7 +222,6 @@ try {
   await send('Page.setBypassCSP', { enabled: true });
   await send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false });
 
-  // Click Play as a player does, and wait for the seat.
   const play = async () => {
     await evaluate("document.getElementById('name').value = 'compare'");
     const at = await evaluate("(() => { const r = document.getElementById('play').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()");
@@ -275,7 +231,6 @@ try {
   };
 
   if (!skipReplay) {
-    // 1. Record.
     const url = new URL(link);
     url.searchParams.set('present', 'legacy');
     await send('Page.navigate', { url: url.toString() });
@@ -295,7 +250,6 @@ try {
       await fetch('http://127.0.0.1:${PORT}/rec', { method: 'POST', body: new Blob(parts) });
     })()`);
 
-    // The same game, finished frames: one of them.
     url.searchParams.set('stage', '0');
     await send('Page.navigate', { url: url.toString() });
     await until("window.__angel && __angel.status !== 'loading'", 30000, 'the module again');
@@ -316,7 +270,6 @@ try {
     })()`);
     if (!rec || !finished) throw new Error('the recording did not arrive');
 
-    // 2. Replay, per size and build.
     for (const build of builds) {
       for (const [w, h] of sizes) {
         await send('Emulation.setDeviceMetricsOverride', { width: w, height: 2 * h, deviceScaleFactor: 1, mobile: false });
@@ -341,7 +294,6 @@ try {
     }
   }
 
-  // 3. The real page in each way of drawing.
   const pageShots = {};
   for (const mode of modes) {
     const page = new URL(link);
@@ -364,7 +316,6 @@ try {
     pageShots[mode] = shot;
     console.log(JSON.stringify({ page: mode, presenter: info.presenter, canvas: info.canvas, frames: info.stats.frames, fps: +info.stats.fps.toFixed(1), presentP50: +info.stats.presentP50.toFixed(3), presentP95: +info.stats.presentP95.toFixed(3), wasmP50: +info.stats.wasmP50.toFixed(3) }));
   }
-  // Each against the first: where the pictures differ (a game in motion differs).
   const names = Object.keys(pageShots);
   if (names.length > 1) {
     await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/` });

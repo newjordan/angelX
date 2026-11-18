@@ -22,10 +22,6 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-/// Keep an in-process multi-file commit (including error rollback) alive while
-/// the signal reaper performs normal process exit. `atexit` runs outside signal
-/// context, and other Rust threads continue running while this callback waits.
-/// SIGKILL/power loss are deliberately outside this guarantee.
 #[cfg(target_os = "linux")]
 mod exit_safe_patch {
     use std::sync::{Condvar, Mutex, OnceLock};
@@ -48,7 +44,6 @@ mod exit_safe_patch {
         pub(super) fn enter() -> Result<Self, String> {
             REGISTERED
                 .get_or_init(|| {
-                    // SAFETY: static C callback; no captured state or signal IO.
                     if unsafe { libc::atexit(drain) } == 0 {
                         Ok(())
                     } else {
@@ -76,10 +71,6 @@ mod exit_safe_patch {
     }
 }
 
-/// A page stays below the generic 64 KiB / 800-line history ceiling, so the
-/// model receives one contiguous range instead of a second head/tail elision.
-/// `from_utf8_lossy` can expand malformed bytes threefold, hence 20 KiB rather
-/// than a superficially larger raw-byte ceiling.
 const DEFAULT_READ_PAGE_LINES: usize = 200;
 const MAX_READ_PAGE_LINES: usize = 400;
 const MAX_READ_PAGE_BYTES: usize = 20 * 1024;
@@ -107,9 +98,6 @@ pub(crate) fn with_missing_path_hints(root: &Path, path: &Path, error: String) -
     )
 }
 
-/// Handle virtual URL schemes that share the FS-shaped tool surface.
-/// Returns `Ok(Some(text))` when `path` is a known scheme, `Ok(None)` for
-/// ordinary workspace paths, and `Err` for a malformed known scheme.
 fn try_read_virtual(root: &Path, path: &str) -> Result<Option<String>, String> {
     if path.starts_with("conflict:") || path.contains(":conflict://") {
         return Ok(Some(read_conflict_uri(root, path)?));
@@ -164,8 +152,6 @@ fn try_write_virtual(root: &Path, path: &str, content: &str) -> Result<Option<St
     Ok(None)
 }
 
-/// Structural map of a source file (same heuristics as the `outline` tool),
-/// addressable as `outline://path/to/file.rs` without a separate tool hop.
 fn read_outline_uri(root: &Path, rest: &str) -> Result<String, String> {
     use crate::agent::tools::nav::is_outline_decl;
     let rel = rest.trim().trim_start_matches('/');
@@ -196,11 +182,6 @@ fn read_outline_uri(root: &Path, rest: &str) -> Result<String, String> {
     Ok(out.join("\n") + "\n")
 }
 
-/// `agent://` — FS-shaped access to session handle bodies (spawn digests,
-/// aged tool bulk, code_mode offloads). Forms:
-/// - `agent://` — list live handles
-/// - `agent://hnd_xxx` — capped disclose of that handle
-/// - `agent://hnd_xxx/path.to.field` — if body is JSON, extract via dotted path
 fn read_agent_uri(rest: &str) -> Result<String, String> {
     use crate::agent::harness::{HandleStoreLimits, session_disclose, session_list_receipts};
 
@@ -216,7 +197,6 @@ fn read_agent_uri(rest: &str) -> Result<String, String> {
         }
         let mut out = format!("agent:// catalog ({} live handle(s)):\n", receipts.len());
         for r in receipts.iter().rev().take(64) {
-            // Newest last in LRU → reverse for newest-first listing.
             out.push_str(&format!(
                 "  agent://{}  kind={}  producer={}  bytes={}  lines={}\n",
                 r.handle,
@@ -278,8 +258,6 @@ fn read_agent_uri(rest: &str) -> Result<String, String> {
     Ok(out)
 }
 
-/// Minimal dotted/indexed JSON path extractor: `a.b.0.c` over a JSON value.
-/// Returns pretty-printed JSON for complex values, or a bare string for scalars.
 fn extract_json_path(body: &str, path: &str) -> Result<String, String> {
     let value: serde_json::Value = serde_json::from_str(body.trim()).map_err(|e| {
         format!(
@@ -359,8 +337,6 @@ fn write_conflict_uri(root: &Path, path: &str, content: &str) -> Result<String, 
             confined_write(root, Path::new(&entry.path), updated.as_bytes())?;
             crate::agent::hashline::record_snapshot(&entry.path, &updated);
             invalidate_conflict(root, id);
-            // Other conflicts in the same file may have shifted; drop them so
-            // the agent re-reads for fresh ids.
             invalidate_conflicts_for_path(root, &entry.path);
             let tag = crate::agent::hashline::content_tag(&updated);
             Ok(format!(
@@ -374,9 +350,6 @@ fn write_conflict_uri(root: &Path, path: &str, content: &str) -> Result<String, 
                 return Err("no registered conflicts to bulk-resolve".into());
             }
             let mut receipts = Vec::new();
-            // Resolve in reverse id order so earlier regions stay stable if
-            // multiple land in one file (we invalidate the whole path after
-            // each file write, so group by path).
             let mut by_path: std::collections::BTreeMap<String, Vec<_>> =
                 std::collections::BTreeMap::new();
             for e in entries {
@@ -415,7 +388,6 @@ fn read_skill_uri(root: &Path, rest: &str) -> Result<String, String> {
         .unwrap_or("")
         .trim();
     if name.is_empty() {
-        // skill:// → catalog listing
         let skills = crate::agent::harness::load_skills_for(root);
         if skills.is_empty() {
             return Ok("no skills available for this workspace\n".into());
@@ -452,17 +424,12 @@ fn read_skill_uri(root: &Path, rest: &str) -> Result<String, String> {
     ))
 }
 
-/// Scan a just-read page for merge conflict markers, register them, and return
-/// a footer when any completed blocks were found.
 fn scan_and_register_conflicts(
     root: &Path,
     path: &str,
     text: &str,
     first_line: usize,
 ) -> Option<String> {
-    // When hashline anchors are on, `text` may be annotated with a header and
-    // line-number prefixes — scan the raw page body only (lines after the
-    // optional `[path#tag]` header, stripping `NN  ` prefixes when present).
     let body = strip_read_annotation_for_conflict_scan(text);
     let lines: Vec<&str> = body.lines().collect();
     if lines.is_empty() {
@@ -472,8 +439,6 @@ fn scan_and_register_conflicts(
     if blocks.is_empty() {
         return None;
     }
-    // Reads may use an absolute path through a workspace alias. Store the
-    // relative spelling so resolving from its canonical root uses the same file.
     let relative = crate::agent::harness::workspace_relative(root, Path::new(path)).ok()?;
     let entries =
         crate::agent::conflict::register_conflicts(root, &relative.to_string_lossy(), &blocks);
@@ -482,7 +447,6 @@ fn scan_and_register_conflicts(
 
 fn strip_read_annotation_for_conflict_scan(text: &str) -> String {
     let mut lines = text.lines().peekable();
-    // Drop `[path#tag]` header if present.
     if let Some(first) = lines.peek() {
         let t = first.trim();
         if t.starts_with('[') && t.contains('#') && t.ends_with(']') {
@@ -491,7 +455,6 @@ fn strip_read_annotation_for_conflict_scan(text: &str) -> String {
     }
     let mut out = String::new();
     for line in lines {
-        // Hashline-annotated body: `NN  content` (right-aligned number, two spaces).
         if let Some(rest) = strip_line_number_prefix(line) {
             out.push_str(rest);
         } else {
@@ -515,17 +478,12 @@ fn strip_line_number_prefix(line: &str) -> Option<&str> {
     if i == start {
         return None;
     }
-    // Require the two-space gap hashline uses: `"  "`.
     if bytes.get(i..i + 2) == Some(b"  ") {
         return Some(&line[i + 2..]);
     }
     None
 }
 
-/// When enabled (the default), `read_file` prefixes a `[path#tag]` header and
-/// absolute line numbers so the model can author token-cheap hashline
-/// `apply_patch` edits. Set `ANGEL_HASHLINE_ANCHORS=0` (or `false`/`off`) to
-/// restore plain unnumbered pages.
 fn hashline_anchors_enabled() -> bool {
     match std::env::var("ANGEL_HASHLINE_ANCHORS") {
         Ok(v) => {
@@ -540,20 +498,8 @@ fn hashline_anchors_enabled() -> bool {
     }
 }
 
-/// Above this whole-file size, `read_file` serves the plain page rather than
-/// re-reading the whole file to compute a hashline tag.
 const HASHLINE_ANNOTATE_MAX_BYTES: usize = 512 * 1024;
 
-/// Optional stale-edit guard shared by `str_replace`/`multi_edit`: if the caller
-/// passed an `expect_tag`, reject the edit unless the live file still hashes to
-/// it. Reuses the hashline content tag so read_file's `[path#tag]` header and
-/// this guard speak the same language — a cheap way to fail an edit written
-/// against a version the model no longer sees, rather than silently applying to
-/// changed bytes.
-/// The tag as the model is likely to quote it: `tag`, `#tag`, `path#tag` or the
-/// literal `[path#tag]` header. Measured 2026-09-07 (glm-5.3-flash on a real
-/// repo): it copied the whole `path#tag` and lost two hops to "stale edit" with
-/// identical tags on both sides.
 fn normalize_expect_tag(raw: &str) -> &str {
     let trimmed = raw.trim().trim_start_matches('[').trim_end_matches(']');
     trimmed.rsplit('#').next().unwrap_or(trimmed).trim()
@@ -631,7 +577,6 @@ impl Tool for ReadFileTool {
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let path = args["path"].as_str().ok_or("missing 'path'")?;
-        // Virtual schemes share the read_file surface (oh-my-pi internal URLs).
         if let Some(text) = try_read_virtual(&self.root, path)? {
             return Ok(text);
         }
@@ -664,9 +609,6 @@ impl Tool for ReadFileTool {
             MAX_READ_PAGE_SCAN_BYTES,
         )
         .map_err(|error| with_missing_path_hints(&self.root, Path::new(path), error))?;
-        // Binary guard (git's heuristic: a NUL in the first 8 KiB ⇒ binary). The
-        // page helper probes before rendering, so a huge asset never becomes a
-        // whole-file lossy decode or a context flood.
         if page.binary {
             return Ok(format!(
                 "[binary file: {} bytes, not shown — read_file is for text]",
@@ -677,19 +619,11 @@ impl Tool for ReadFileTool {
             return Ok(format!("[end of file before line {offset}]"));
         }
         let mut text = String::from_utf8_lossy(&page.bytes).into_owned();
-        // Optional hashline anchors: a whole-file `[path#tag]` header plus
-        // absolute line numbers, so the model can address edits by line for a
-        // token-cheap `apply_patch`. The tag is over the WHOLE file (edits are
-        // whole-file addressed); a large file just serves the plain page.
         if hashline_anchors_enabled() {
-            // Refuse oversized files before allocation. The limited reader
-            // also caps a file that grows after its descriptor metadata check.
             if let Ok(Some(whole)) =
                 confined_read_limited(&self.root, Path::new(path), HASHLINE_ANNOTATE_MAX_BYTES)
             {
                 let whole_str = String::from_utf8_lossy(&whole);
-                // Session snapshot so a later stale-tag hashline patch can
-                // remap anchors instead of hard-rejecting.
                 let tag = crate::agent::hashline::record_snapshot(path, &whole_str);
                 let width = (offset + text.lines().count()).max(1).to_string().len();
                 let mut annotated = format!("[{path}#{tag}]\n");
@@ -699,7 +633,6 @@ impl Tool for ReadFileTool {
                 text = annotated;
             }
         }
-        // Surface merge conflicts so the agent can resolve via conflict://N.
         if let Some(footer) = scan_and_register_conflicts(&self.root, path, &text, offset) {
             if !text.ends_with('\n') {
                 text.push('\n');
@@ -711,8 +644,6 @@ impl Tool for ReadFileTool {
                 text.push('\n');
             }
             match page.truncated_more_bytes {
-                // Self-correcting byte-cap truncation: the model resumes at the
-                // named offset instead of blindly retrying the oversized page.
                 Some(more) => text.push_str(&format!(
                     "[truncated: {more} more bytes; next offset {next_offset}]"
                 )),
@@ -743,8 +674,6 @@ impl Tool for WriteFileTool {
             if let Some(msg) = try_write_virtual(&self.root, path, content)? {
                 return Ok(msg);
             }
-            // Rewriting a file with the bytes it already holds changes nothing;
-            // "new tag" would read as a landed change.
             let unchanged = confined_read(&self.root, Path::new(path))
                 .is_ok_and(|existing| existing == content.as_bytes());
             if !unchanged {
@@ -765,8 +694,6 @@ impl Tool for WriteFileTool {
     }
 }
 
-/// An edit whose `new` text equals what it replaces leaves the file as it was;
-/// saying "edited" would let the model believe a fix landed that did not.
 fn unchanged_edit(path: &str, content: &str) -> String {
     format!(
         "no change: 'new' is identical to the text it replaces; {path} is unchanged (tag #{})",
@@ -840,8 +767,6 @@ impl Tool for MultiEditTool {
                 return Err("'edits' must not be empty".to_string());
             }
             let expect_tag = args["expect_tag"].as_str();
-            // Mutate an in-memory copy through one stable descriptor; only write if
-            // EVERY edit lands, so a failed edit leaves the file untouched.
             let (any_fuzzy, updated) = confined_edit(&self.root, Path::new(path), |bytes| {
                 let mut content =
                     String::from_utf8(bytes).map_err(|e| format!("read {path}: {e}"))?;
@@ -892,9 +817,6 @@ impl Tool for MultiEditTool {
     }
 }
 
-/// Map each line of `s` to its byte span `[start, end)` *excluding* the line
-/// terminator (and a trailing `\r`), mirroring `str::lines()` so a pattern split
-/// with `.lines()` aligns index-for-index with these spans.
 fn line_spans(s: &str) -> Vec<(usize, usize)> {
     let bytes = s.as_bytes();
     let mut spans = Vec::new();
@@ -903,7 +825,7 @@ fn line_spans(s: &str) -> Vec<(usize, usize)> {
         if b == b'\n' {
             let mut end = i;
             if end > start && bytes[end - 1] == b'\r' {
-                end -= 1; // fold CRLF to mirror str::lines()
+                end -= 1;
             }
             spans.push((start, end));
             start = i + 1;
@@ -919,11 +841,6 @@ fn line_spans(s: &str) -> Vec<(usize, usize)> {
     spans
 }
 
-/// Fold exotic typographic code-points (smart quotes, en/em dashes, non-breaking
-/// & wide spaces) to their ASCII equivalents — the same mapping Codex's
-/// `seek_sequence` uses — so an edit survives a copy that smuggled in curly
-/// quotes or an nbsp. Only these specific characters are folded; ordinary
-/// leading whitespace is left untouched so indentation can't be normalized away.
 fn normalise_typography(s: &str) -> String {
     s.chars()
         .map(|c| match c {
@@ -936,17 +853,11 @@ fn normalise_typography(s: &str) -> String {
         .collect()
 }
 
-/// 1-based line number for a byte offset into `content` (last line if past end).
 fn line_number_at(content: &str, byte_offset: usize) -> usize {
     let prefix = &content[..byte_offset.min(content.len())];
     prefix.bytes().filter(|&b| b == b'\n').count() + 1
 }
 
-/// Bounded ambiguity hint so the model can disambiguate without re-reading the
-/// whole file. Shows up to `cap` match starts with 1-based line numbers and a
-/// single-line preview. Roll 07 debug rows burned hops on repeated non-unique
-/// multi_edit of identical DateTimeParser sites that only differed by surrounding
-/// function context the error never named.
 fn format_ambiguous_matches(
     content: &str,
     byte_starts: &[usize],
@@ -960,7 +871,6 @@ fn format_ambiguous_matches(
     } else {
         "matches"
     };
-    // The fact keeps its sentence; how to disambiguate is the `⠨⠉` pages.
     let mut msg = format!("'old' is not unique ({n} {kind})");
     if byte_starts.is_empty() {
         msg.push('\n');
@@ -988,7 +898,6 @@ fn format_ambiguous_matches(
         let mut preview = content[line_start..line_end].trim_end();
         let mut truncated = false;
         if preview.len() > PREVIEW {
-            // stay on a char boundary
             let mut end = PREVIEW;
             while end > 0 && !preview.is_char_boundary(end) {
                 end -= 1;
@@ -1006,20 +915,7 @@ fn format_ambiguous_matches(
     msg
 }
 
-/// Locate the unique region of `content` to replace with the caller's `new`.
-/// Tiers, tried in order — each requires a UNIQUE hit, because str_replace has no
-/// positional anchor, so ambiguity must fail loudly rather than guess:
-///   1. exact substring — the byte-identical fast path (matches mid-line too)
-///   2. whole-line block ignoring per-line *trailing* whitespace and `\r` (CRLF)
-///   3. whole-line block after also folding exotic typography to ASCII
-///
-/// Tiers 2–3 are the Codex `seek_sequence` idea, deliberately restricted to
-/// *leading-whitespace-preserving* comparisons: indentation must always match,
-/// so a fuzzy hit can never silently re-indent code (the dominant footgun of
-/// fuzzy patching). Returns `(start, end, fuzzy)` — the byte range to splice and
-/// whether a non-exact tier was used.
 pub(crate) fn locate_replacement(content: &str, old: &str) -> Result<(usize, usize, bool), String> {
-    // Tier 1: exact substring.
     let exact: Vec<usize> = content.match_indices(old).map(|(i, _)| i).collect();
     match exact.len() {
         1 => return Ok((exact[0], exact[0] + old.len(), false)),
@@ -1028,12 +924,6 @@ pub(crate) fn locate_replacement(content: &str, old: &str) -> Result<(usize, usi
         }
         _ => {}
     }
-    // Tiers 2–4: whole-line, leading-whitespace-preserving fuzzy match. Each tier
-    // only *locates* the byte range; leading whitespace is always part of the
-    // comparison, so a fuzzy hit can never silently re-indent code. Modes,
-    // easiest→loosest:
-    //   0 trailing-ws/CRLF tolerant · 1 + exotic-typography folded ·
-    //   2 + internal whitespace collapsed (model reflowed spacing inside a line)
     let cl = line_spans(content);
     let pat: Vec<&str> = old.lines().collect();
     if !pat.is_empty() && cl.len() >= pat.len() {
@@ -1048,7 +938,8 @@ pub(crate) fn locate_replacement(content: &str, old: &str) -> Result<(usize, usi
             match hits.len() {
                 1 => {
                     let i = hits[0];
-                    return Ok((cl[i].0, cl[i + pat.len() - 1].1, true));
+                    let end = through_newline(content, old, cl[i + pat.len() - 1].1);
+                    return Ok((cl[i].0, end, true));
                 }
                 n if n > 1 => {
                     let starts: Vec<usize> = hits.iter().map(|&i| cl[i].0).collect();
@@ -1061,9 +952,18 @@ pub(crate) fn locate_replacement(content: &str, old: &str) -> Result<(usize, usi
     Err(format_near_miss(content, &cl, &pat))
 }
 
-/// Recovery is evidence for a new guarded call, never another matching tier.
-/// In multi_edit the candidate belongs to its intermediate buffer, but the
-/// guard belongs to the original live file and the entire atomic list retries.
+fn through_newline(content: &str, old: &str, mut end: usize) -> usize {
+    if old.ends_with('\n') {
+        if content.as_bytes().get(end) == Some(&b'\r') {
+            end += 1;
+        }
+        if content.as_bytes().get(end) == Some(&b'\n') {
+            end += 1;
+        }
+    }
+    end
+}
+
 fn replacement_recovery(
     content: &str,
     old: &str,
@@ -1089,18 +989,8 @@ fn replacement_recovery(
         error.push_str(&recovery::TRIMMED_REGIONS.cells());
         return error;
     }
-    let mut end = lines[start + pat.len() - 1].1;
-    if old.ends_with('\n') {
-        if content.as_bytes().get(end) == Some(&b'\r') {
-            end += 1;
-        }
-        if content.as_bytes().get(end) == Some(&b'\n') {
-            end += 1;
-        }
-    }
+    let end = through_newline(content, old, lines[start + pat.len() - 1].1);
     let exact = &content[lines[start].0..end];
-    // A unique line window can still be an ambiguous substring (for example
-    // "    f();" also appears inside an eight-space line). Match retry semantics.
     if content.match_indices(exact).take(2).count() != 1 {
         error.push_str("\nThe exact region is not a unique substring.\n⠭⠊⠓");
         return error;
@@ -1126,7 +1016,6 @@ fn replacement_recovery(
         error.push_str("\nEscaped recovery exceeds 4096 bytes; no clipped edit supplied.\n⠭⠊⠛");
         return error;
     }
-    // What to do with the recovery fields is the `⠭⠊` pages.
     error.push_str("\nNo edit was applied.\n");
     error.push_str(&crate::agent::harness::book::x_execution::EDIT_RECOVERY.cells());
     error.push_str("\n[edit recovery] ");
@@ -1135,9 +1024,6 @@ fn replacement_recovery(
     error
 }
 
-/// All match tiers missed: point the model at the closest region so the next
-/// call can succeed with a corrected `old` instead of a full re-read cycle
-/// (28 misses in one night's trajectories — each cost a re-read + retry hop).
 fn format_near_miss(content: &str, cl: &[(usize, usize)], pat: &[&str]) -> String {
     const BASE: &str = "'old' not found (even with whitespace/typography-tolerant matching)";
     if pat.is_empty() || cl.is_empty() {
@@ -1146,15 +1032,13 @@ fn format_near_miss(content: &str, cl: &[(usize, usize)], pat: &[&str]) -> Strin
     if pat.len() > cl.len() {
         return format!("{BASE} — `old` has more lines than the file itself");
     }
-    // Score every window by loosest-mode line equality; break ties by
-    // trimmed-line equality (detects indentation-only misses).
     let norm_content: Vec<String> = cl
         .iter()
         .map(|&(s, e)| norm_match_line(&content[s..e], 2))
         .collect();
     let norm_pat: Vec<String> = pat.iter().map(|p| norm_match_line(p, 2)).collect();
     let trim_pat: Vec<&str> = pat.iter().map(|p| p.trim()).collect();
-    let mut best = (0usize, 0usize, 0usize); // (loose hits, trim hits, window start)
+    let mut best = (0usize, 0usize, 0usize);
     for i in 0..=cl.len() - pat.len() {
         let mut loose = 0usize;
         let mut trimmed = 0usize;
@@ -1214,9 +1098,6 @@ fn format_near_miss(content: &str, cl: &[(usize, usize)], pat: &[&str]) -> Strin
     msg
 }
 
-/// Normalize one line for fuzzy `locate_replacement` matching at the given mode.
-/// Leading whitespace is ALWAYS preserved (so a match can't drive a re-indent);
-/// only trailing/internal whitespace and exotic typography are folded.
 fn norm_match_line(s: &str, mode: u8) -> String {
     let base = if mode >= 1 {
         normalise_typography(s)
@@ -1224,7 +1105,6 @@ fn norm_match_line(s: &str, mode: u8) -> String {
         s.to_string()
     };
     if mode >= 2 {
-        // Preserve leading indent; collapse internal whitespace runs; drop trailing.
         let body = base.trim_start();
         let lead = &base[..base.len() - body.len()];
         let collapsed = body.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -1234,13 +1114,6 @@ fn norm_match_line(s: &str, mode: u8) -> String {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Freeform patch envelope (Codex apply_patch grammar). An alternative to unified
-// diff that's friendlier for models to emit and is applied with the fuzzy
-// `locate_replacement` matcher above, so hunks survive whitespace/context drift.
-// ---------------------------------------------------------------------------
-
-/// One file operation parsed from a freeform patch.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum FileOp {
     Add {
@@ -1257,22 +1130,15 @@ pub(crate) enum FileOp {
     },
 }
 
-/// One `@@`-delimited change within an Update: the `old` block (context + removed
-/// lines) to locate and the `new` block (context + added lines) to write.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct FreeformHunk {
     pub(crate) old: String,
     pub(crate) new: String,
 }
 
-/// Parse the `*** Begin Patch … *** End Patch` envelope into file ops. Lenient on
-/// surrounding blank lines and a closing ` ***` on envelope markers; strict on
-/// malformed hunk lines (so the model gets a
-/// clear correction rather than a silent mis-apply).
 pub(crate) fn parse_freeform_patch(text: &str) -> Result<Vec<FileOp>, String> {
     let lines: Vec<&str> = text.lines().collect();
     let mut i = 0;
-    // Skip to the begin marker.
     while i < lines.len() && !matches!(lines[i].trim(), "*** Begin Patch" | "*** Begin Patch ***") {
         i += 1;
     }
@@ -1317,8 +1183,6 @@ pub(crate) fn parse_freeform_patch(text: &str) -> Result<Vec<FileOp>, String> {
                 move_to = Some(m.trim().to_string());
                 i += 1;
             }
-            // Collect change lines until the next top-level marker, splitting into
-            // hunks on each `@@`.
             let mut hunks = Vec::new();
             let mut cur: Vec<&str> = Vec::new();
             let flush =
@@ -1350,7 +1214,7 @@ pub(crate) fn parse_freeform_patch(text: &str) -> Result<Vec<FileOp>, String> {
                 hunks,
             });
         } else if t.trim().is_empty() {
-            i += 1; // tolerate blank lines between file sections
+            i += 1;
         } else {
             return Err(format!("unexpected line in patch: {t:?}"));
         }
@@ -1358,8 +1222,6 @@ pub(crate) fn parse_freeform_patch(text: &str) -> Result<Vec<FileOp>, String> {
     Err("missing '*** End Patch'".to_string())
 }
 
-/// Turn a hunk's change lines into `(old, new)` blocks. ` ` = context (both),
-/// `-` = removed (old), `+` = added (new); a bare empty line is blank context.
 fn build_hunk(change_lines: &[&str]) -> Result<FreeformHunk, String> {
     let mut old = Vec::new();
     let mut new = Vec::new();
@@ -1517,10 +1379,6 @@ fn plan_freeform_patch(root: &Path, ops: Vec<FileOp>) -> Result<Vec<PlannedFileO
     Ok(planned)
 }
 
-/// Parse + apply a freeform patch under `root`. Every path, source byte string,
-/// and hunk is validated before the first mutation. Commits then compare the
-/// source against that preflight snapshot and roll prior operations back if a
-/// later filesystem action fails.
 fn apply_freeform_patch(root: &Path, text: &str) -> Result<String, String> {
     let ops = parse_freeform_patch(text)?;
     if ops.is_empty() {
@@ -1626,19 +1484,11 @@ fn apply_freeform_patch(root: &Path, text: &str) -> Result<String, String> {
     ))
 }
 
-/// Apply a hashline patch: line-addressed, content-tag-anchored edits to
-/// existing files. Each section verifies the file's live content tag before
-/// applying (stale-patch guard), and the whole patch commits transactionally
-/// with the same "changed since preflight" re-check the freeform path uses.
-/// Supports REM (delete), MV (rename), and block ops via [`crate::agent::hashline`].
 fn apply_hashline_patch(root: &Path, text: &str, stage: bool) -> Result<String, String> {
     use crate::agent::hashline::SectionPlan;
 
     let sections = crate::agent::hashline::parse(text)?;
-    // Preflight: resolve every path inside the workspace and compute the plan,
-    // so a stale tag, out-of-bounds line, or destination collision fails before
-    // any write. Stale tags may recover via the session snapshot store.
-    let mut plans: Vec<(SectionPlan, Vec<u8>, Option<String>)> = Vec::new(); // plan, orig, recovery
+    let mut plans: Vec<(SectionPlan, Vec<u8>, Option<String>)> = Vec::new();
     let mut claimed_dests = BTreeSet::new();
     for section in &sections {
         safe_path(root, section.path())?;
@@ -1662,7 +1512,6 @@ fn apply_hashline_patch(root: &Path, text: &str, stage: bool) -> Result<String, 
                 }
             }
             SectionPlan::Update { path, .. } | SectionPlan::Remove { path } => {
-                // Source paths must not collide with a peer section's dest.
                 if claimed_dests.contains(path) {
                     return Err(format!(
                         "hashline: {path} is both a move destination and another section's target"
@@ -1673,13 +1522,11 @@ fn apply_hashline_patch(root: &Path, text: &str, stage: bool) -> Result<String, 
         plans.push((outcome.plan, original, outcome.recovery_note));
     }
 
-    // Stage mode: hold plans off disk until resolve_edit accept.
     if stage {
         let (actions, notes) = crate::agent::staged_edit::actions_from_hashline_plans(plans);
         return crate::agent::staged_edit::stage_batch(root, actions, notes);
     }
 
-    // Live commit via shared staged_edit commit path.
     let (actions, notes) = crate::agent::staged_edit::actions_from_hashline_plans(plans);
     #[cfg(target_os = "linux")]
     let _exit_guard = exit_safe_patch::Guard::enter()?;
@@ -1709,7 +1556,6 @@ fn apply_hunks(path: &str, hunks: &[FreeformHunk], content: &mut String) -> Resu
     Ok(())
 }
 
-/// Accept or reject a staged hashline edit batch (`apply_patch` with stage=true).
 pub(crate) struct ResolveEditTool {
     pub(crate) root: PathBuf,
 }
@@ -1772,10 +1618,6 @@ impl Tool for ApplyPatchTool {
                 return Err("'diff' is empty".to_string());
             }
             let stage = args["stage"].as_bool().unwrap_or(false);
-            // `*** Begin Patch` fronts two formats. The hashline variant (line-
-            // addressed, content-tag-anchored) carries `[path#tag]` section headers
-            // the freeform envelope never has; route on that. Both avoid shelling
-            // out to git/patch.
             if diff.trim_start().starts_with("*** Begin Patch") {
                 if crate::agent::hashline::looks_like_hashline(diff) {
                     return apply_hashline_patch(&self.root, diff, stage);
@@ -1796,7 +1638,6 @@ impl Tool for ApplyPatchTool {
             }
             let strip = args["strip"].as_u64().unwrap_or(1);
 
-            // Every file the diff touches must resolve inside the workspace.
             let mut targets = extract_diff_targets(diff);
             if targets.is_empty() {
                 return Err("no '+++'/'---' file headers found in diff".to_string());
@@ -1856,8 +1697,6 @@ impl Tool for ApplyPatchTool {
     }
 }
 
-/// Pull the touched file paths out of a unified diff's `+++`/`---` headers,
-/// stripping the conventional `a/`/`b/` prefix and ignoring `/dev/null`.
 fn extract_diff_targets(diff: &str) -> Vec<String> {
     let mut out = Vec::new();
     for line in diff.lines() {
@@ -1879,17 +1718,12 @@ fn extract_diff_targets(diff: &str) -> Vec<String> {
     out
 }
 
-/// Run a patch applier (`git apply`/`patch`) with the diff file appended to
-/// `pre_args`, in `root`. Ok(()) iff it exits 0.
 fn apply_with(
     program: &str,
     pre_args: &[&str],
     patch_path: &Path,
     root: &Path,
 ) -> Result<(), String> {
-    // `git apply`/`patch` necessarily operate by pathname. On Linux, force a
-    // write-confined Landlock domain even when the general shell sandbox is
-    // disabled, so a target swapped to an outbound symlink cannot be modified.
     #[cfg(target_os = "linux")]
     let mut cmd = {
         let policy = crate::agent::sandbox::SandboxPolicy {
@@ -1915,9 +1749,6 @@ fn apply_with(
     };
     cmd.current_dir(root);
     cmd.env("TMPDIR", root);
-    // `output_timed` supplies a null stdin, capped head+tail capture, and
-    // process-group cleanup. In particular the fallback `patch` command can
-    // otherwise prompt on stdin or leave a child holding a pipe forever.
     let (out, timed_out) =
         output_timed(cmd, tool_timeout()).map_err(|e| format!("{program} unavailable: {e}"))?;
     if timed_out {
@@ -1961,3 +1792,18 @@ mod interruption_tests;
 #[cfg(all(test, target_os = "linux"))]
 #[path = "../../../../tests/cockpit/tools/file__hardlink_tests.rs"]
 mod hardlink_tests;
+
+#[cfg(test)]
+mod fuzzy_newline_tests {
+    #[test]
+    fn fuzzy_match_keeps_trailing_newline_of_old() {
+        let c = "fn a() {   \n    body();\n}\nnext();\n";
+        let (s, e, fuzzy) = super::locate_replacement(c, "fn a() {\n    body();\n}\n").unwrap();
+        assert!(fuzzy);
+        let spliced = format!("{}fn b() {{}}\n{}", &c[..s], &c[e..]);
+        assert_eq!(spliced, "fn b() {}\nnext();\n");
+        let c = "a\r\nb\r\nc\r\n";
+        let (s, e, _) = super::locate_replacement(c, "a\nb\n").unwrap();
+        assert_eq!(&c[s..e], "a\r\nb\r\n");
+    }
+}

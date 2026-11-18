@@ -72,11 +72,9 @@ fn the_dug_wing_opens_the_trophy_hall_onto_the_tavern() {
         "doors pair up"
     );
     assert!(run.cues.iter().any(|c| c == "dug"));
-    // Dug once: a second rebuild changes nothing.
     let rooms = run.dungeon.rooms.len();
     run.rebuild_home(dug(), Spoils::default());
     assert_eq!(run.dungeon.rooms.len(), rooms);
-    // A realm that dug it long ago starts with it.
     let run = Run::at_home(3, 1, None, dug(), Spoils::default());
     assert!(run.dungeon.rooms.iter().any(|r| r.kind == RoomKind::Tavern));
     assert!(!run.cues.iter().any(|c| c == "dug"));
@@ -237,7 +235,6 @@ fn dinadan_takes_a_request_at_his_stage() {
     );
 }
 
-/// A delve of `pair` knights with `song` asked for, down the stair.
 fn singing(song: &str, pair: bool) -> Run {
     let mut home = dug();
     home.song = Some(song.into());
@@ -285,8 +282,6 @@ fn the_iron_hymn_guards_and_the_red_ballad_mends_on_kills() {
     let mut run = singing("red", false);
     run.calm_for_test();
     run.step(&BTreeMap::new());
-    // The first floor's opening room is bare of foes now (the wishing room,
-    // 2026-11-02): bring two to slay, or the ballad has no kill to mend on.
     let (hx, hy) = {
         let hero = &run.players[&1];
         (hero.x, hero.y)
@@ -302,8 +297,6 @@ fn the_iron_hymn_guards_and_the_red_ballad_mends_on_kills() {
     let slain = run.enemies.len() as u32;
     run.step(&BTreeMap::new());
     assert!(slain > 0);
-    // It mends, but as lifesteal: the kills of one blow mend once, within
-    // the second's two (`stakes::LEECH_PER_SECOND`).
     let hp = run.players[&1].hp;
     assert!(
         hp > 40 && hp <= 40 + stakes::LEECH_PER_SECOND,

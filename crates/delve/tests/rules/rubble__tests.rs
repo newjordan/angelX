@@ -1,6 +1,5 @@
 use super::*;
 
-/// Cinderjaw in a bare stairs room, with boulders at the tiles `blocks`.
 fn arena(blocks: &[(usize, usize)]) -> Run {
     let mut run = Run::new(17, 1, Some("Friend"));
     run.dungeon = crawl_floor(2, Pack::Cavern, 17);
@@ -40,7 +39,6 @@ fn block(run: &Run, x: i32, y: i32) -> bool {
 
 #[test]
 fn rubble_breaks_the_nearest_blocks_in_reach_and_sends_the_room_anew() {
-    // (12, 7) holds the point (24, 14); two beside it, one far, a wall of seven.
     let wall: Vec<_> = (2..9).map(|y| (16, y)).collect();
     let mut blocks = vec![(11, 7), (13, 7), (20, 7)];
     blocks.extend(&wall);
@@ -54,10 +52,8 @@ fn rubble_breaks_the_nearest_blocks_in_reach_and_sends_the_room_anew() {
     assert!(run.sounds.contains(&"crack_open"));
     assert!(run.feel.puffs.len() >= 4);
 
-    // Never more than SHATTER_MOST, nearest first.
     assert_eq!(run.shatter((33.0, 10.0), 20.0), SHATTER_MOST);
     assert!(block(&run, 20, 7), "the farthest stands");
-    // Nothing in reach: nothing sent.
     let revision = run.dungeon.world_revision;
     assert_eq!(run.shatter((4.0, 4.0), 0.5), 0);
     assert_eq!(run.dungeon.world_revision, revision);
@@ -103,22 +99,17 @@ fn rubble_cinderjaws_stoked_landing_breaks_the_stone_beside_it_once() {
     run.tend_furnace();
     assert!(!block(&run, 13, 7) && !block(&run, 11, 8));
     let revision = run.dungeon.world_revision;
-    // Held in time on its landing, it breaks nothing more.
     run.dungeon.rooms[run.at].set_for_test(12, 8, Tile::Block);
     run.tend_furnace();
     assert!(block(&run, 12, 8), "in reach, but the landing is spent");
     assert_eq!(run.dungeon.world_revision, revision);
 
-    // The fight plays on over the rubble.
     for _ in 0..90 {
         run.step(&Default::default());
     }
     assert!(run.enemies.iter().any(|e| e.kind == EnemyKind::Boss));
 }
 
-/// Boulders round Cinderjaw before and after a stoked landing, drawn the
-/// way every seat draws them, to `RUBBLE_SHOTS` (required).
-/// `cargo test rubble_shots -- --ignored`
 #[test]
 #[ignore]
 fn rubble_shots() {

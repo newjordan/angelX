@@ -16,8 +16,6 @@ use crate::rules::ranch::{
 };
 use crate::rules::{RoomKind, Run, TILE_UNITS};
 
-/// A horse's colours: hide, its shade, its sunlit top, mane, the feather
-/// on the legs, and the hooves.
 #[derive(Clone, Copy)]
 pub(super) struct Hide {
     hide: char,
@@ -29,7 +27,6 @@ pub(super) struct Hide {
     star: bool,
 }
 
-/// Helios: brown, a white star, a yellow mane.
 const HELIOS: Hide = Hide {
     hide: 'R',
     dark: 'r',
@@ -39,7 +36,6 @@ const HELIOS: Hide = Hide {
     hoof: 'X',
     star: true,
 };
-/// Old Barley: a black draft, brushed till he shines.
 const BARLEY: Hide = Hide {
     hide: 'X',
     dark: 'K',
@@ -49,7 +45,6 @@ const BARLEY: Hide = Hide {
     hoof: 'k',
     star: false,
 };
-/// The mares at grass, and the war horses.
 const MARES: [Hide; 3] = [
     Hide { hide: 'R', dark: 'p', light: 'r', mane: ['n', 'n', 'b'], feather: 'n', hoof: 'k', star: false },
     Hide { hide: 'i', dark: 'h', light: 'H', mane: ['H', 'i', 'h'], feather: 'H', hoof: 'X', star: false },
@@ -61,8 +56,6 @@ const WAR: [Hide; 3] = [
     Hide { hide: 'p', dark: 'B', light: 'R', mane: ['n', 'n', 'b'], feather: 'n', hoof: 'k', star: true },
 ];
 
-/// Each leg's (upper, lower) angle for the four frames of the gallop, as
-/// the destrier's.
 const GAIT: [[(f32, f32); 4]; 4] = [
     [(35.0, 10.0), (20.0, -40.0), (-30.0, 30.0), (-10.0, 60.0)],
     [(10.0, -45.0), (40.0, 20.0), (-40.0, 10.0), (-25.0, 40.0)],
@@ -71,7 +64,6 @@ const GAIT: [[(f32, f32); 4]; 4] = [
 ];
 const STAND: [(f32, f32); 4] = [(4.0, 0.0), (-4.0, 0.0), (-4.0, 6.0), (4.0, 4.0)];
 
-/// How a horse is posed.
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum Pose {
     Stand,
@@ -96,12 +88,8 @@ fn thick(im: &mut Img, (x0, y0): (f32, f32), (x1, y1): (f32, f32), ink: char, w:
     }
 }
 
-/// The fire ramp, root to tip: gold at the roots burning to white at the
-/// ends, the way his mane looks with the morning sun through it.
 const FIRE: [char; 6] = ['4', '5', '6', 'T', '9', 'w'];
 
-/// One lock of hair, root to tip: tapering from `w` to a point, waving,
-/// inked by how far along it is (`ramp`).
 fn lock(
     hair: &mut Img,
     k: f32,
@@ -136,12 +124,7 @@ fn lock(
     }
 }
 
-/// A heavy horse side-on, facing east, drawn at `k` times its 64 by 60
-/// design: short-coupled and deep, a crested neck, feathered legs. `fire`,
-/// the tick, sets mane and tail alight in the sun; `braided` plaits the
-/// mane with ribbons.
 pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: bool) -> Img {
-    // Room on the left for the tail to stream.
     const OX: f32 = 18.0;
     const W: f32 = 64.0 + OX;
     const H: f32 = 60.0;
@@ -155,20 +138,16 @@ pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: boo
         _ => None,
     };
     let bob = gait.map_or(0.0, |f| [0.0, -1.5, -0.5, 1.0][(f % 4) as usize]);
-    // The body's centre line; legs hang from it.
     let by = 34.0 + bob;
     let legs = gait.map_or(STAND, |f| GAIT[(f % 4) as usize]);
     let leg = |im: &mut Img, x: f32, (up, lo): (f32, f32), ink: char, near: bool| {
         let (a, b) = (up.to_radians(), (up + lo).to_radians());
         let (kx, ky) = (x + a.sin() * 7.5, by + 2.0 + a.cos() * 7.5);
         let (fx, fy) = (kx + b.sin() * 8.0, ky + b.cos() * 8.0);
-        // The forearm tapers from the body to the knee, the cannon below
-        // it is lean: a leg, not a post.
         let (mx, my) = ((x + kx) / 2.0, (by + ky) / 2.0 + 1.0);
         thick(im, p(x, by), p(mx, my), ink, px(if near { 6.0 } else { 5.0 }));
         thick(im, p(mx, my), p(kx, ky), ink, px(if near { 4.4 } else { 3.8 }));
         thick(im, p(kx, ky), p(fx, fy), ink, px(3.0));
-        // Feather: long hair from mid-cannon over the hoof, flaring, ragged.
         let n = 10;
         for i in 0..=n {
             let t = i as f32 / n as f32;
@@ -192,7 +171,6 @@ pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: boo
     leg(&mut body, 17.0, legs[3], h.dark, false);
     leg(&mut body, 38.0, legs[0], h.hide, true);
     leg(&mut body, 15.0, legs[2], h.hide, true);
-    // Rump, barrel and chest: round and deep, about as long as he is tall.
     let mut shape = Img::new(iw, ih);
     for (cx, cy, rx, ry) in [
         (16.0, by - 9.0, 10.5, 11.0),
@@ -203,7 +181,6 @@ pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: boo
         let (x, y) = p(cx, cy);
         shape.ellipse(x, y, rx * k, ry * k, 'x');
     }
-    // The neck: massive, crested; low to the grass when grazing.
     let (lift, reach, head) = match pose {
         Pose::Graze => (-16.0, 10.0, (52.0, by + 3.0)),
         Pose::Gallop(_) => (12.0, 9.0, (53.0, by - 24.0)),
@@ -213,21 +190,17 @@ pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: boo
         let t = i as f32 / 15.0;
         let (x, y) = p(40.0 + t * reach, by - 13.0 - t * lift);
         shape.ellipse(x, y, (8.0 - t * 3.6) * k, (7.5 - t * 3.4) * k, 'x');
-        // The crest rising over the top line of the neck.
         if pose != Pose::Graze && (0.2..0.85).contains(&t) {
             let (x, y) = p(40.0 + t * reach - 1.5, by - 17.5 - t * lift);
             shape.ellipse(x, y, 4.5 * k, 3.0 * k, 'x');
         }
     }
     let (hx, hy) = head;
-    // A big, kind draft head: broad, a straight face, a wide muzzle.
     let tilt = if pose == Pose::Graze { 2.0 } else { 0.0 };
     let (x, y) = p(hx, hy);
     shape.ellipse(x, y, 6.0 * k, 4.4 * k, 'x');
     let (x, y) = p(hx + 4.8, hy + 2.6 + tilt);
     shape.ellipse(x, y, 3.8 * k, 3.4 * k, 'x');
-    // Shade: sunlit along the top line, dark beneath, a highlight on the
-    // round of the hip.
     for y in 0..ih {
         for x in 0..iw {
             if !shape.solid(x, y) {
@@ -250,7 +223,6 @@ pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: boo
             body.put(x, y, ink);
         }
     }
-    // Two small ears, the eye, a nostril, and the star.
     for (ox, len) in [(-3.0f32, 4.0f32), (-1.5, 3.5)] {
         let (ex, ey) = (hx + ox, hy - 3.6);
         let tip = if pose == Pose::Graze { (ex - 1.5, ey - len + 1.0) } else { (ex - 0.5, ey - len) };
@@ -272,8 +244,6 @@ pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: boo
             }
         }
     }
-    // Parted from the ground by a rim a step under its own shade, never
-    // by a black line.
     let rim = super::super::ink::ink(h.dark).map(m::darker);
     if let Some(rim) = rim {
         let edge: Vec<(i32, i32)> = (0..ih)
@@ -284,7 +254,6 @@ pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: boo
             body.set(x, y, rim);
         }
     }
-    // Mane and tail: thick locks, root to tip.
     let tick = fire.unwrap_or(0);
     let calm = h.mane;
     let shade = |i: u32| i % 3 == 1;
@@ -302,7 +271,6 @@ pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: boo
             crest_a.1 + (crest_b.1 - crest_a.1) * t,
         );
         if braided {
-            // Plaited into knots along the crest, each with a ribbon.
             let (x, y) = p(root.0, root.1 + 1.5);
             body.put(x as i32, y as i32, calm[0]);
             hair.put(x as i32, y as i32 + 1, if i % 2 == 0 { '7' } else { '2' });
@@ -326,14 +294,12 @@ pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: boo
         lock(&mut hair, k, (root.0 + OX, root.1), dir, len, 3.0, (0.9, wind + i as f32), &ramp);
     }
     if !braided {
-        // The forelock, falling over the brow beside the star.
         let ramp = |s: f32| match fire {
             Some(_) => FIRE[((s * 4.0) as usize).min(5)],
             None => calm[0],
         };
         lock(&mut hair, k, (hx - 3.0 + OX, hy - 3.8), (0.7, 0.6), 3.5, 2.0, (0.3, 0.0), &ramp);
     }
-    // The tail: full and long; streaming at the gallop, falling at rest.
     for i in 0..9u32 {
         let root = (6.5 + OX, by - 16.0 + i as f32 * 0.5);
         let (dir, len) = if gait.is_some() {
@@ -355,8 +321,6 @@ pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: boo
     }
     let mut im = body;
     im.stamp(&hair, 0, 0);
-    // In the sun, the hair glows past its own edge, and white sparks drift
-    // off the ends of the tail.
     if let Some(tick) = fire {
         let mut glow = Img::new(iw, ih);
         for y in 0..ih {
@@ -384,33 +348,23 @@ pub(super) fn draft(h: Hide, pose: Pose, k: f32, fire: Option<u32>, braided: boo
     im
 }
 
-/// Morning ground: grass lit from the east, with small yellow flowers in
-/// drifts. `field` is how much of it is open meadow (the yard keeps only its
-/// verges).
 fn grass(cv: &mut Img, x: i32, y: i32, w: i32) {
     let n = vnoise(x as f32 / 22.0, y as f32 / 16.0, 41);
     let sun = x as f32 / w as f32 * 0.45 + (1.0 - y as f32 / 224.0) * 0.15;
-    // Clumps of blades a few pixels across, each lit on its north-west,
-    // where an ordered dither once laid an even checker.
     let c = vnoise(x as f32 / 3.0, y as f32 / 2.2, 42);
     let cl = vnoise((x + 1) as f32 / 3.0, (y + 1) as f32 / 2.2, 42);
     let light = (n * 0.45 + sun + 0.06 + (c - 0.5) * 0.14 + (c - cl) * 0.35).clamp(0.0, 0.999);
     const RAMP: [char; 8] = ['E', 'l', 'N', 'm', 'L', 'A', 'M', 'y'];
     let mut ink = RAMP[(light * RAMP.len() as f32) as usize];
-    // Blades: a darker stroke here and there.
     if hash(x, y, 17) % 37 == 0 || hash(x, y - 1, 17) % 37 == 0 {
         ink = 'E';
     }
-    // Dew catching the sun on the eastern side.
     if x > w / 2 && hash(x, y, 23) % 97 == 0 {
         ink = 'Y';
     }
     cv.put(x, y, ink);
 }
 
-/// The yard's gravel: larger patches of light and shadow with stones in
-/// loose clusters on them, each stone lit along its top over a darker body
-/// and a shadowed foot; never an even speckle.
 fn gravel(x: i32, y: i32) -> char {
     let patch = vnoise(x as f32 / 12.0, y as f32 / 9.0, 35);
     let base = if patch > 0.62 { 'X' } else { 'g' };
@@ -435,7 +389,6 @@ fn gravel(x: i32, y: i32) -> char {
     base
 }
 
-/// Small yellow flowers, thicker in drifts.
 fn flowers(cv: &mut Img, x0: i32, y0: i32, w: i32, h: i32, keep: impl Fn(i32, i32) -> bool) {
     for cy in (y0..y0 + h).step_by(3) {
         for cx in (x0..x0 + w).step_by(3) {
@@ -450,7 +403,6 @@ fn flowers(cv: &mut Img, x0: i32, y0: i32, w: i32, h: i32, keep: impl Fn(i32, i3
                 continue;
             }
             if roll % 5 == 0 {
-                // An open flower: petals round a darker eye.
                 for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
                     cv.put(x + dx, y + dy, '5');
                 }
@@ -466,8 +418,6 @@ fn flowers(cv: &mut Img, x0: i32, y0: i32, w: i32, h: i32, keep: impl Fn(i32, i3
     }
 }
 
-/// The low sun in the north-east: its disc over the tree line and a soft
-/// glow into the sky (the grass is lit by `grass`).
 fn sun(cv: &mut Img) {
     use super::super::ink::ink;
     let (sx, sy) = (cv.w as f32 - 34.0, 2.0);
@@ -482,9 +432,6 @@ fn sun(cv: &mut Img) {
             if d >= 70.0 {
                 continue;
             }
-            // The glow falls off in soft rings whose edges wander in blots:
-            // the sky warms toward the disc, and the crowns and grass in
-            // it take the light a step or two lighter, keeping their marks.
             let g = 1.0 - d / 70.0 + (super::super::light::seam(x, y) - 0.5) * 0.1;
             let Some(c) = cv.get(x, y) else { continue };
             if sky.contains(&Some(c)) {
@@ -503,13 +450,9 @@ fn sun(cv: &mut Img) {
     }
 }
 
-/// A tree line along the north edge, misty in the morning.
 fn tree_line(cv: &mut Img) {
-    // A pale morning sky, warmer toward the sun.
     for y in 0..TILE {
         for x in 0..cv.w {
-            // Soft bands warming toward the sun, their edges wandering in
-            // blots rather than a checker.
             let warm = x as f32 / cv.w as f32 + (super::super::light::seam(x, y) - 0.5) * 0.12 + 0.12;
             cv.put(x, y, if warm > 0.95 { '9' } else if warm > 0.6 { 'c' } else if y < 4 { 'V' } else { 'W' });
         }
@@ -521,7 +464,6 @@ fn tree_line(cv: &mut Img) {
             let ink = if lit { 'A' } else if (y + x / 3) % 4 == 0 { 'F' } else { 'E' };
             cv.put(x, y, ink);
         }
-        // Mist along the foot of the trees, in wisps.
         for y in TILE - 3..TILE {
             if super::super::light::seam(x * 2, y * 4) < 0.24 - (TILE - 1 - y) as f32 * 0.04 {
                 cv.put(x, y, 'V');
@@ -530,7 +472,6 @@ fn tree_line(cv: &mut Img) {
     }
 }
 
-/// A split-rail fence along the room's other edges.
 fn fence(cv: &mut Img, gaps: &[(i32, i32, i32, i32)]) {
     let (w, h) = (cv.w, cv.h);
     let gap = |x: i32, y: i32| {
@@ -538,7 +479,6 @@ fn fence(cv: &mut Img, gaps: &[(i32, i32, i32, i32)]) {
             x >= c * TILE && x < (c + gw) * TILE && y >= (r - 1) * TILE && y < (r + gh + 1) * TILE
         })
     };
-    // South rail: a run of split rails between each gap.
     let mut x = 0;
     while x < w {
         if gap(x, h - 8) {
@@ -551,7 +491,6 @@ fn fence(cv: &mut Img, gaps: &[(i32, i32, i32, i32)]) {
         }
         m::rail_fence(cv, (start - 1, x), h - 2, &[h - 11, h - 7], 22, ('o', 'r'), start as u32);
     }
-    // West and east rails, seen end-on: posts only.
     for y in (TILE + 6..h - 12).step_by(20) {
         if !gap(4, y) {
             cv.rect(3, y, 3, 9, 'P');
@@ -564,7 +503,6 @@ fn fence(cv: &mut Img, gaps: &[(i32, i32, i32, i32)]) {
     }
 }
 
-/// A farm gate standing open over a gap: two posts and trodden ground.
 fn gate(cv: &mut Img, (c, r, w, _): (i32, i32, i32, i32), south: bool) {
     let (x0, x1) = (c * TILE, (c + w) * TILE);
     for yy in r * TILE..(r + 1) * TILE + if south { 8 } else { 0 } {
@@ -590,10 +528,8 @@ fn px((c, r, w, h): (i32, i32, i32, i32)) -> (i32, i32, i32, i32) {
 fn oak(cv: &mut Img) {
     let (x, y, w, h) = px(OAK);
     let (cx, cy) = (x + w / 2, y + h / 2 - 6);
-    // Its morning shadow, long to the south-west.
     for yy in cy..cy + h {
         for xx in x - 30..x + w {
-            // Solid in its core, its edge breaking up in soft blots.
             let (dx, dy) = ((xx - (cx - 22)) as f32 / 34.0, (yy - (cy + 26)) as f32 / 14.0);
             let d = dx * dx + dy * dy;
             if d < 1.0 && (d < 0.55 || super::super::light::seam(xx, yy) > (d - 0.55) / 0.45) {
@@ -629,10 +565,6 @@ fn trough(cv: &mut Img, (c, r, w, _): (i32, i32, i32, i32), tick: u32) {
     cv.line(x, y, x + bw - 1, y, 'o');
 }
 
-/// The flower fields at morning.
-/// What of a room's picture never moves, drawn once and kept: the ground,
-/// the flowers, the tree line and what stands first on them. Each bake
-/// starts from a copy and draws the rest in the same order.
 fn still(cv: &mut Img, slot: &'static std::sync::OnceLock<Img>, draw: fn(&mut Img)) {
     let base = slot.get_or_init(|| {
         let mut base = Img::black(cv.w, cv.h);
@@ -666,7 +598,6 @@ fn pasture(cv: &mut Img, tick: u32) {
     fence(cv, &[FIELDS_OUT]);
     gate(cv, FIELDS_OUT, true);
     sun(cv);
-    // Pollen and motes drifting in the light.
     for i in 0..8 {
         let seed = hash(i, 7, 99);
         let x = (seed % w as u32) as i32 + ((tick / 6 + i as u32 * 13) % 40) as i32 - 20;
@@ -680,15 +611,12 @@ fn pasture(cv: &mut Img, tick: u32) {
 fn barn(cv: &mut Img) {
     let (x, y, w, h) = px(BARN);
     let roof_h = h * 9 / 20;
-    // A gambrel roof in dark red shingles, its ridge catching the sun.
     for yy in y - 6..y + roof_h {
         let inset = ((y + roof_h - yy) as f32 * 0.35) as i32;
         let (west, east) = (x + inset - 4, x + w - inset + 3);
         for xx in west..=east {
             let course = (yy - y) % 4 == 0;
             let mut ink = if course { '8' } else if (xx + (yy / 4) * 3) % 7 == 0 { 'p' } else { 'B' };
-            // The roof as a volume in the low sun: its west slope lit, its
-            // east slope a step into shade, the eave's last course darkest.
             if xx < west + 5 && !course {
                 ink = if ink == 'B' { 'p' } else { 'R' };
             } else if xx > east - 5 {
@@ -702,9 +630,6 @@ fn barn(cv: &mut Img) {
         cv.put(west, yy, 'R');
     }
     cv.line(x + 20, y - 6, x + w - 20, y - 6, 'R');
-    // Red board walls, white trim: the eave's shadow across the top, the
-    // ground's along the foot and the east corner in shade, where each
-    // board's seam widens.
     for yy in y + roof_h..y + h {
         for xx in x..x + w {
             let k = (xx - x) % 5;
@@ -715,8 +640,6 @@ fn barn(cv: &mut Img) {
     cv.line(x, y + roof_h, x + w - 1, y + roof_h, 'c');
     cv.line(x, y + roof_h, x, y + h - 1, 'c');
     cv.line(x + w - 1, y + roof_h, x + w - 1, y + h - 1, 'c');
-    // The hayloft door with hay spilling, and the big doors with white
-    // braces.
     let (lx, ly) = (x + w / 2 - 7, y + 4);
     cv.rect(lx, ly, 14, 12, 'k');
     cv.frame(lx - 1, ly - 1, 16, 14, 'c');
@@ -731,7 +654,6 @@ fn barn(cv: &mut Img) {
     cv.line(dx + dw / 2, dy, dx, dy + dh - 1, 'c');
     cv.line(dx + dw / 2, dy, dx + dw - 1, dy + dh - 1, 'c');
     cv.line(dx + dw - 1, dy, dx + dw / 2, dy + dh - 1, 'c');
-    // A weathervane horse on the ridge.
     let (vx, vy) = (x + w / 2, y - 7);
     cv.line(vx, vy - 9, vx, vy, 'g');
     let vane = Img::from_rows(&["..gg.....", ".gggggg..", "g.gggggg.", "..g...g..", "..g...g.."]);
@@ -746,16 +668,13 @@ fn stall(cv: &mut Img, _tick: u32) {
             cv.line(xx, y + 8, xx, y + h - 1, 'I');
         }
     }
-    // A short roof.
     cv.rect(x - 3, y, w + 6, 8, 'B');
     cv.line(x - 3, y, x + w + 2, y, 'o');
-    // A Dutch door: top open on the dark, bottom shut and braced.
     let (dx, dy) = (x + w / 2 - 10, y + 16);
     cv.rect(dx, dy, 20, 13, 'k');
     cv.rect(dx, dy + 13, 20, h - 29, 'r');
     cv.line(dx, dy + 13, dx + 19, y + h - 1, 'o');
     cv.frame(dx - 1, dy - 1, 22, h - 15, 'o');
-    // His brass plate, and a rosette.
     let (bx, by) = (x + w / 2 - 19, y + 9);
     let tw = super::super::ink::text_width("HELIOS");
     super::super::chrome::inset_panel(cv, (bx, by - 2, tw + 8, 10), super::super::chrome::Tone::NAMEPLATE);
@@ -765,7 +684,6 @@ fn stall(cv: &mut Img, _tick: u32) {
     cv.ellipse(rx as f32, ry as f32, 1.5, 1.5, '6');
     cv.line(rx - 1, ry + 3, rx - 3, ry + 9, '1');
     cv.line(rx + 1, ry + 3, rx + 3, ry + 9, '1');
-    // A horseshoe over the door, points up for luck. The bob is held off.
     let (hx, hy) = (x + w / 2, y + 11);
     let shoe = Img::from_rows(&["v...v", "v...v", ".vvv."]);
     cv.stamp(&shoe, hx - 2 + 24, hy - 1);
@@ -773,7 +691,6 @@ fn stall(cv: &mut Img, _tick: u32) {
 
 fn stud_book(cv: &mut Img) {
     let (x, y, w, h) = px(STUD_BOOK);
-    // Clean straw laid where the mare is led out.
     for yy in y + 2..y + h - 1 {
         for xx in x + 1..x + w - 1 {
             cv.put(xx, yy, if hash(xx, yy, 8) % 4 == 0 { 'O' } else { 't' });
@@ -795,7 +712,6 @@ fn rail(cv: &mut Img) {
     }
     cv.rect(x + 2, y + 8, w - 4, 3, 'r');
     cv.line(x + 2, y + 8, x + w - 3, y + 8, 'o');
-    // A bucket and the grooming box.
     cv.rect(x + w + 2, y + 18, 7, 7, 'J');
     cv.rect(x + w + 3, y + 19, 5, 2, 'q');
     cv.rect(x - 10, y + 18, 9, 6, 'B');
@@ -827,7 +743,6 @@ fn paddock(cv: &mut Img) {
             }
         }
     }
-    // Split rails along the near and far sides.
     for (foot, seed) in [(y + 1, 1), (y + h, 2)] {
         m::rail_fence(cv, (x - 1, x + w + 1), foot, &[foot - 7, foot - 3], 16, ('o', 'r'), 60 + seed);
     }
@@ -837,7 +752,6 @@ fn paddock(cv: &mut Img) {
     }
 }
 
-/// The ranch yard at morning.
 fn ranch(cv: &mut Img, tick: u32) {
     static STILL: std::sync::OnceLock<Img> = std::sync::OnceLock::new();
     still(cv, &STILL, ranch_ground);
@@ -867,7 +781,6 @@ fn ranch_ground(cv: &mut Img) {
             } else if verge {
                 grass(cv, x, y, w);
             } else {
-                // Trodden mud in soft patches, wetter where it is darker.
                 let n = vnoise(x as f32 / 20.0, y as f32 / 14.0, 33) + (vnoise(x as f32 / 4.0, y as f32 / 3.0, 34) - 0.5) * 0.1;
                 cv.put(x, y, if n > 0.72 { 'P' } else { 'B' });
                 if hash(x, y, 29) % 97 == 0 {
@@ -884,7 +797,6 @@ fn ranch_ground(cv: &mut Img) {
     barn(cv);
 }
 
-/// The two rooms' scenery.
 pub fn scenery(run: &Run) -> Img {
     let room = run.room();
     let mut cv = Img::black(room.cols as i32 * TILE, room.rows as i32 * TILE);
@@ -896,7 +808,6 @@ pub fn scenery(run: &Run) -> Img {
     cv
 }
 
-/// The ranch gate in the stables yard: a timber arch with a horseshoe.
 pub fn stables_gate(cv: &mut Img) {
     let (x, y, w, _) = px(r::STABLES_GATE);
     for post in [x - 2, x + w - 1] {
@@ -909,7 +820,6 @@ pub fn stables_gate(cv: &mut Img) {
     cv.stamp(&shoe, x + w / 2 - 2, y - 12);
 }
 
-/// The ranch's groom, brush going.
 fn groom(tick: u32) -> Img {
     let up = (tick / 7) % 2 == 0;
     Img::from_rows(&[
@@ -931,7 +841,6 @@ fn groom(tick: u32) -> Img {
     ])
 }
 
-/// Feet at tile coordinates.
 fn feet(tiles: (f32, f32)) -> (i32, i32) {
     at(tiles.0 * TILE_UNITS, tiles.1 * TILE_UNITS)
 }
@@ -940,7 +849,6 @@ fn face(im: Img, east: bool) -> Img {
     if east { im } else { im.flip_h() }
 }
 
-/// The horses and the folk of the two rooms.
 pub(super) fn figures_with(cv: &mut Img, run: &Run) {
     let kind = run.room().kind;
     if !r::is_room(kind) {
@@ -976,7 +884,6 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run) {
             hide.feather = 'T';
             horses.push((at, draft(hide, pose, k, None, false)));
         }
-        // The white horse out of the swamp, at grass with the herd.
         if let Some(white) = super::swamp::grazing(run) {
             horses.push(white);
         }
@@ -998,11 +905,9 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run) {
         }
         return;
     }
-    // The ranch: Old Barley at the rail, his groom, the war horses.
     let barley = draft(BARLEY, Pose::Stand, 0.76, None, true);
     let (bx, by) = feet((DRAFT_AT.0, DRAFT_AT.1 + 1.2));
     stand(cv, &barley, bx, by);
-    // He shines: a glint travels along his back.
     let glint = (tick / 3) as i32 % 50;
     let glint = glint * 3 / 5;
     cv.put(bx - 15 + glint, by - 33, '9');
@@ -1049,8 +954,6 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run) {
 #[path = "../../../../tests/render/overworld__ranch_shots.rs"]
 mod tests;
 
-/// The same gambrel barn at kingdom scale, at dusk like the map's other
-/// landmarks (`landmarks::landmark`).
 pub fn landmark() -> Img {
     let mut full = Img::new(384, 224);
     barn(&mut full);

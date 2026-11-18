@@ -56,7 +56,6 @@ impl Runtime {
     }
 }
 
-/// Captured once per registry, independently of whether Cargo is installed.
 #[derive(Clone)]
 pub(crate) struct PinnedNativeRuntimes {
     inner: Arc<NativeExecutables>,
@@ -75,10 +74,6 @@ impl PinnedNativeRuntimes {
     }
 
     pub(crate) fn capture(workspace: &Path) -> Self {
-        // Capture only reads immutable files; it never resolves Cargo/rustup or
-        // mutates the environment, so callers may already hold Cargo's lock.
-        // Hash independent images concurrently, retaining every eager pin.
-        // Thread pressure falls back to the same synchronous capture.
         std::thread::scope(|scope| {
             let node = std::thread::Builder::new()
                 .name("pin-node-verifier".into())
@@ -124,11 +119,6 @@ fn env_pin(runtime: Runtime) -> &'static str {
     }
 }
 
-/// True when `dir` is an NVM versioned bin directory by shape alone
-/// (`.../.nvm/versions/node/vX.Y.Z/bin`), regardless of whose $HOME it lives
-/// under. Operator NVM installs on PATH must be trusted even when the harness
-/// runs with an isolated HOME; the task-writable-root exclusion in
-/// `capture_runtime` still rejects any workspace- or /tmp-planted lookalike.
 fn is_nvm_versioned_bin(dir: &Path) -> bool {
     let parts = dir
         .components()
@@ -149,7 +139,7 @@ fn is_nvm_versioned_bin(dir: &Path) -> bool {
 fn runtime_candidates(runtime: Runtime) -> Vec<PathBuf> {
     let names: &[&str] = match runtime {
         Runtime::Node => &[
-            "/opt/node", // Read-only runtime mounted by the sealed action runner.
+            "/opt/node",
             "/usr/bin/node",
             "/usr/local/bin/node",
             "/opt/homebrew/bin/node",
@@ -162,9 +152,6 @@ fn runtime_candidates(runtime: Runtime) -> Vec<PathBuf> {
         ],
     };
     let mut paths = names.iter().map(PathBuf::from).collect::<Vec<_>>();
-    // NVM is a normal operator installation here. Accept only its versioned
-    // bin directory, recognized by path shape rather than $HOME, never a
-    // general PATH entry, workspace shim, or local/bin.
     if runtime == Runtime::Node
         && let Some(path) = std::env::var_os("PATH")
     {
@@ -205,8 +192,6 @@ fn capture_runtime(runtime: Runtime, workspace: &Path) -> Result<PinnedExecutabl
 }
 
 fn capture_runtime_inner(runtime: Runtime, workspace: &Path) -> Result<PinnedExecutable, String> {
-    // An explicit operator pin short-circuits discovery. A bad pin must fail
-    // loudly, never silently fall back to a discovered runtime.
     if let Some(value) = std::env::var_os(env_pin(runtime)) {
         let pin = env_pin(runtime);
         let candidate = PathBuf::from(&value);
@@ -247,8 +232,6 @@ fn capture_runtime_inner(runtime: Runtime, workspace: &Path) -> Result<PinnedExe
         {
             continue;
         }
-        // A stable script named node/python is still a custom runner. The
-        // native loader, not a shebang or shell shim, must execute this image.
         if !native_image(&path) {
             continue;
         }
@@ -297,7 +280,6 @@ fn native_image(path: &Path) -> bool {
     )
 }
 
-/// None keeps the existing Cargo implementation byte-for-byte on its route.
 pub(super) fn dispatch(
     runtimes: &PinnedNativeRuntimes,
     kind: Kind,
@@ -315,10 +297,6 @@ pub(super) fn dispatch(
     let executable = match runtimes.executable(plan.runtime) {
         Ok(executable) => executable,
         Err(reason) => {
-            // K5c contract: a runtime the verifier could not run leaves the verdict
-            // INCONCLUSIVE (no test executed). The structured runtime_missing
-            // diagnostic inside `reason` still reaches the task envelope (D06c),
-            // where task_mode turns it into error.kind = runtime_missing.
             let message = format!("verification inconclusive: {reason}");
             return Some(Ok(message));
         }
@@ -338,8 +316,6 @@ pub(super) fn dispatch(
     ))
 }
 
-/// The lint/check schema; each description is the address of its page in the
-/// calling tool's book section.
 pub(super) fn schema_args(runtime: &str, operation: &str) -> Value {
     serde_json::json!({
         "type": "object",

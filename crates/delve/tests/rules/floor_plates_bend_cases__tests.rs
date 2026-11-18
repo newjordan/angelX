@@ -6,7 +6,6 @@ fn skip(id: u32) -> BTreeMap<u32, Input> {
     BTreeMap::from([(id, Input { skip_plate: true, ..Default::default() })])
 }
 
-/// begin / tick / skip over varied party sizes, kinds and ages.
 #[test]
 #[ignore]
 fn record_floor_plates() {

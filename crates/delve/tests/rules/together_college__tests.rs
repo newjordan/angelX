@@ -71,8 +71,6 @@ fn college_doors_connect_every_room_and_return_the_whole_company_to_the_gate() {
     assert!(r.valid_snapshot());
     assert!(r.dungeon.rooms.len() <= crate::rules::world::HOME_ROOM_LIMIT);
     let mut visited = std::collections::HashSet::new();
-    // The college is come to by its door on the kingdom's map: the green
-    // house in the Delve's courtyard is the tavern's now (`alehouse`).
     let mut todo = vec![RoomKind::CollegeGrounds];
     while let Some(kind) = todo.pop() {
         if !visited.insert(kind) {
@@ -90,7 +88,6 @@ fn college_doors_connect_every_room_and_return_the_whole_company_to_the_gate() {
     for e in &DOORS {
         go(&mut r, e.room, (12.0, 10.5));
         let (x, y) = world::entrance_centre(e);
-        // A release tick off the stair arms the travel ring.
         for h in r.players.values_mut() {
             (h.x, h.y) = (x, y);
         }
@@ -177,7 +174,6 @@ fn college_interact_opens_short_topics_and_accepts_a_research_mission() {
     go(&mut r, RoomKind::WizardStudy, WIZARD);
     tap(&mut r, 1);
     assert_eq!(r.college.page, Page::Menu);
-    // A held E cannot consume the newly opened menu.
     for _ in 0..20 {
         r.step(&keys(
             1,
@@ -368,7 +364,6 @@ fn college_tower_puzzles_reveal_all_three_hidden_sigils() {
         tap(&mut r, 1);
         r.step(&BTreeMap::new());
         let at = SIGILS[i].1;
-        // The shelf really moves its collision, rather than just its drawing.
         if i == 0 {
             assert_eq!(r.room().tile(5, 4), Tile::Floor);
         }
@@ -414,7 +409,6 @@ fn college_migrates_a_full_old_home_without_losing_any_rooms() {
     }
     let old: Vec<_> = r.dungeon.rooms.iter().map(|room| room.cell).collect();
     assert!(world::raise_world(&mut r.dungeon));
-    // Every old room kept, the College's rooms raised beside them.
     let college = world::ROOMS.iter().filter(|(k, _)| is_room(*k)).count();
     assert_eq!(r.dungeon.rooms.len(), old.len() + college);
     for cell in old {

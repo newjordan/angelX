@@ -1,10 +1,5 @@
-# crates/delve/src/rules/foes.rs: the second company's steps (sappers,
-# necromancers, warboars, slimes, hobs, shamans, wards, and the rest), and what
-# they make as Deeds. A Deeds is an object of arrays (foes::Deeds), a tuple one
-# array, a position [x, y].
 import Base
 
-# Walk `(dx, dy)` at `speed` a second with wall sliding; answers the distance moved.
 def foes.walk(enemy: Enemy, room: Room, barred: Bool, mover: U32, r: F32, dx: F32, dy: F32, speed: F32) -> (Enemy, F32):
   &(x: F32, y: F32) = rules.Grid.slide(room, barred, (enemy.x, enemy.y), ((dx * speed * rules.DT() : F32), (dy * speed * rules.DT() : F32)), r, mover)
   moved: F32 = cb.hyp((x - enemy.x : F32), (y - enemy.y : F32))
@@ -12,7 +7,6 @@ def foes.walk(enemy: Enemy, room: Room, barred: Bool, mover: U32, r: F32, dx: F3
   enemy.y = y
   (enemy, moved)
 
-# Keep between `near` and `far` of the nearest knight, sidling between.
 def foes.keep_off(enemy: Enemy, room: Room, barred: Bool, mover: U32, r: F32, dist: F32, cx: F32, cy: F32, near: F32, far: F32, speed: F32) -> Enemy:
   side: F32 = Bool.pick(F32, U32.is_eq(U32.mod(enemy.id, 2), 0), 1.0, F32.neg(1.0))
   wx: F32 = (RS.f_neg(cy) * side : F32)
@@ -43,8 +37,6 @@ def foes.ram(deeds: Deeds, x: F32, y: F32, reach: F32, damage: U32, dx: F32, dy:
   deeds.rams = J.push(deeds.rams, J.JA{[J.of_f32(x), J.of_f32(y), J.of_f32(reach), J.of_u32(damage), cb.of_pair(dx, dy)]})
   deeds
 
-# One of the second company's steps. False for any other monster. Answers
-# (enemy, shots, deeds, handled).
 def foes.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, seed: W.W, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds, Bool):
   kind: String = enemy.kind
   if Bool.not(foes.joined(kind)):
@@ -67,7 +59,6 @@ def foes.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, seed: W.W, s
   beat: U32 = (enemy.timer + enemy.id * 7 : U32)
   if String.eq(kind, "sapper"):
     if U32.is_eq(enemy.stage, 0):
-      # Close in to a few steps off, plant, then run.
       gx: F32 = (tx - cx * 5.5 : F32)
       gy: F32 = (ty - cy * 5.5 : F32)
       &(ux: F32, uy: F32) = rules.unit((gx - enemy.x : F32), (gy - enemy.y : F32))
@@ -84,7 +75,6 @@ def foes.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, seed: W.W, s
         enemy.timer = 0
   elif String.eq(kind, "necromancer"):
     enemy = foes.keep_off(enemy, room, barred, mover, r, dist, cx, cy, 8.0, 12.0, 2.0)
-    # Bones for three raisings; then only its orbs.
     if Bool.and(U32.is_eq(U32.mod(beat, 150), 60), U32.is_lt(enemy.stage, foes.NECRO_RAISES())):
       enemy.stage = (enemy.stage + 1 : U32)
       deeds = foes.spawn(deeds, "skeleton", (enemy.x + F32.neg(1.0) * 2.2 : F32), (enemy.y + 1.2 : F32), 0)
@@ -117,10 +107,8 @@ def foes.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, seed: W.W, s
         enemy.stage = 0
         enemy.timer = 0
   elif Bool.and(String.eq(kind, "slime"), U32.is_lt(U32.mod(enemy.age, 40), 12)):
-    # Hops: a lunge, a squat.
     (enemy, mv: F32) = foes.walk(enemy, room, barred, mover, r, cx, cy, (6.0 - cb.f(enemy.stage) : F32))
   elif String.eq(kind, "risen"):
-    # Humphrey: a lurching shamble, a rising wind-up, then the shove.
     if U32.is_eq(enemy.stage, 0):
       lurch: F32 = Bool.pick(F32, U32.is_lt(U32.mod(beat, 36), 22), 2.1, 0.9)
       (enemy, mv: F32) = foes.walk(enemy, room, barred, mover, r, cx, cy, lurch)
@@ -129,7 +117,6 @@ def foes.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, seed: W.W, s
         enemy.stage = 1
         enemy.timer = 0
     elif U32.is_eq(enemy.stage, 1):
-      # Arms up, jaw loose: the party has a moment to step aside.
       enemy.dir = (cx, cy)
       if U32.is_ge(enemy.timer, 20):
         enemy.stage = 2
@@ -144,12 +131,10 @@ def foes.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, seed: W.W, s
         enemy.stage = 3
         enemy.timer = 0
     else:
-      # Winded, hands on knees, deeply opposed to exercise.
       if U32.is_ge(enemy.timer, 36):
         enemy.stage = 0
         enemy.timer = 0
   elif String.eq(kind, "broodmarrow"):
-    # A hill of hide that answers arrows with offspring.
     if U32.is_eq(enemy.stage, 0):
       enemy = foes.keep_off(enemy, room, barred, mover, r, dist, cx, cy, 4.5, 10.0, 1.6)
       if Bool.and(Bool.and(U32.is_ge(enemy.timer, 80), seen), (dist < 17.0 : F32)):

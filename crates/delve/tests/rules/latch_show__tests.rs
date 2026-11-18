@@ -47,7 +47,6 @@ fn the_title_and_the_three_two_one_stand_the_bout_still_and_the_clock_does_not_r
 fn a_counter_and_each_way_a_guard_folds_are_marked_and_weighed() {
     let mut r = game(1, false);
     let t = r.tune.clone();
-    // A clean counter on the closing beat.
     {
         let d = r.latch.as_mut().unwrap().duels.get_mut(&1).unwrap();
         d.beat = Beat::Tell;
@@ -63,7 +62,6 @@ fn a_counter_and_each_way_a_guard_folds_are_marked_and_weighed() {
     assert_eq!(m.who, 1);
     assert!(matches!(m.kind, Kind::Counter { chain: 1, count: 1, error: 4, .. }), "{:?}", m.kind);
     assert_eq!(m.kind.weight(), Weight::Solid, "a sloppy first counter is a solid blow");
-    // On the closing beat the same counter is a crushing one.
     let mut q = game(1, false);
     {
         let d = q.latch.as_mut().unwrap().duels.get_mut(&1).unwrap();
@@ -119,7 +117,6 @@ fn the_third_counter_is_the_finale_and_the_realm_holds_the_bay_still_for_it_alon
     assert!(matches!(m.kind, Kind::Counter { count: 3, chain: 3, .. }));
     assert_eq!(m.kind.weight(), Weight::Finale);
     assert!(r.hitstop.left > 0, "the winning blow holds the room");
-    // A middling counter holds nothing: seat 2 counters in a fresh round.
     let mut q = game(2, false);
     {
         let d = q.latch.as_mut().unwrap().duels.get_mut(&2).unwrap();
@@ -151,7 +148,6 @@ fn the_table_hears_a_lead_match_point_and_the_whole_table_in_step_once_each() {
     assert_eq!(show.calls.iter().filter(|c| c.cry == Cry::Point && c.who == 1).count(), 1);
     show.standings(9, &[(1, 2), (2, 0), (3, 0)]);
     assert_eq!(show.calls.iter().filter(|c| c.cry == Cry::Point).count(), 1, "match point is called once");
-    // Sync: the whole table counters attack 1, then attack 2: the second makes a streak of two.
     let mut show = Show::default();
     for (attack, now) in [(1u32, 10u32), (2, 50)] {
         for who in seats {
@@ -159,7 +155,6 @@ fn the_table_hears_a_lead_match_point_and_the_whole_table_in_step_once_each() {
         }
     }
     assert_eq!(show.calls.iter().filter(|c| matches!(c.cry, Cry::Sync(2))).count(), 1);
-    // One knight missing an attack breaks the streak.
     let mut show = Show::default();
     for who in seats {
         show.counter(who, 1, 1, 1, 1, 10, &seats);
@@ -215,7 +210,6 @@ fn a_whole_round_keeps_its_show_valid_and_exact_on_the_wire_and_a_rematch_carrie
     assert_eq!(s.quickest(), win);
     assert_eq!(s.elapsed(u64::from(s.done)), s.ended, "the clock stands where the round ended");
     assert_eq!(s.elapsed(u64::from(s.done) + 9), s.ended + 9, "and runs on for the end screen");
-    // Rematch: E, let go, E.
     r.step(&BTreeMap::new());
     r.step(&BTreeMap::from([(1, Input { interact: true, ..Default::default() })]));
     let next = r.latch.as_ref().unwrap();

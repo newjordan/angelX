@@ -1,4 +1,3 @@
-// New content in the established offline renderer. Actual Run::step inputs only.
 fn windcountry_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
     use crate::rules::{Input, HZ, RoomKind, world, countryside as c, windcountry as w, pastimes::{Game, Trencher}};
     use crate::realm::Spoil;
@@ -18,8 +17,6 @@ fn windcountry_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
         }
     };
     let mut r = run.clone();
-    // Doors, interactables, rings and both new travel pads share a connected
-    // walkable component; this checks authored geometry, not just screenshots.
     for (kind, name) in [(RoomKind::GooseGreen,"world-goose-green"),(RoomKind::Kitewright,"world-kitewright"),(RoomKind::SignalHill,"world-signal-hill")] {
         go(&mut r, kind, (12.0, 6.5)); r.step(&empty); check(&r); save(&format!("{name}.png"), &native(&r));
         let room = r.room();

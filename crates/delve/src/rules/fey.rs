@@ -22,25 +22,18 @@ use super::villagers::{Trade, Villager, COMING_OF_AGE, ELDER, NAMES};
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 
-/// Skill grade from which a craftsman is seized.
 pub const FEY_SKILL: u8 = 2;
-/// Sacks the work eats, taken when it begins.
 pub const FEY_SACKS: u32 = 4;
-/// Rent days the workshop is the craftsman's.
 pub const FEY_DAYS: u8 = 2;
-/// Masterworks one holding keeps.
 pub const MAX_WORKS: usize = 3;
 
-/// A craftsman at their seized workshop.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Seizure {
     pub who: String,
     pub trade: Trade,
-    /// Rent days of work left.
     pub days: u8,
 }
 
-/// A finished artifact standing in its maker's workshop.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Masterwork {
     pub maker: String,
@@ -58,23 +51,19 @@ impl Masterwork {
         is_craft(self.trade) && artifact(&id_of(&self.maker, self.trade)).is_some()
     }
 
-    /// The curio this is.
     pub fn curio(&self) -> Option<&'static Curio> {
         artifact(&id_of(&self.maker, self.trade))
     }
 }
 
-/// The trades that keep a workshop.
 pub fn is_craft(trade: Trade) -> bool {
     matches!(trade, Trade::Brewer | Trade::Smith | Trade::Acolyte | Trade::Trader)
 }
 
-/// The curio id of the work `maker` of `trade` makes.
 pub fn id_of(maker: &str, trade: Trade) -> String {
     format!("fey-{}-{}", maker.to_lowercase(), trade.word())
 }
 
-/// A design: what a craft's masterwork is called and what its rules do.
 struct Design {
     trade: Trade,
     thing: &'static str,
@@ -92,7 +81,6 @@ const DESIGNS: [Design; 8] = [
     Design { trade: Trade::Trader, thing: "Ledger of Debts", rules: &[Rule::Gold(25), Rule::Coupon(20), Rule::Damage(-10)] },
 ];
 
-/// A rule's words: (is it a boon, what it does), one or two a rule.
 pub fn describe(rule: Rule) -> Vec<(bool, String)> {
     use Rule::*;
     let more = |n: i32, up: &str, down: &str| (n > 0, if n > 0 { format!("{n}% {up}") } else { format!("{}% {down}", -n) });
@@ -151,26 +139,20 @@ fn table() -> &'static Vec<Curio> {
     })
 }
 
-/// The design a craftsman's hands settle on: fixed by their name and trade.
 fn design_of(maker: &str, trade: Trade) -> &'static Design {
     let kin: Vec<&Design> = DESIGNS.iter().filter(|d| d.trade == trade).collect();
     kin[(super::villagers::mix(super::villagers::seed_of(maker), 29) % kin.len() as u64) as usize]
 }
 
-/// The artifact called `id`, if some craftsman of the realm's folk could
-/// make it.
 pub fn artifact(id: &str) -> Option<&'static Curio> {
     table().iter().find(|c| c.id == id)
 }
 
-/// The bay of the workshop `trade` keeps at `w`: the first standing room
-/// of its family, as the roster and the boards read it.
 pub fn workshop(w: &Holding, trade: Trade) -> Option<usize> {
     let family: Family = trade.family()?;
     w.rooms.iter().position(|r| r.standing() && room_def(&r.id).is_some_and(|d| d.family == family))
 }
 
-/// Whether the workshop in `bay` is a craftsman's, seized.
 pub fn seized_bay(w: &Holding, bay: usize) -> bool {
     w.seized.as_ref().is_some_and(|s| workshop(w, s.trade) == Some(bay))
 }
@@ -186,9 +168,6 @@ fn candidate(w: &Holding, f: &Villager) -> bool {
         && workshop(w, f.trade).is_some()
 }
 
-/// One rent day of the fey: a work in hand comes a day nearer done, or
-/// finishes; with none in hand, a craftsman worth it is seized if the
-/// granary can pay. The lines it says.
 pub fn tend(w: &mut Holding, stores: &mut u32, name: &str) -> Vec<String> {
     let mut said = Vec::new();
     if let Some(mut s) = w.seized.take() {

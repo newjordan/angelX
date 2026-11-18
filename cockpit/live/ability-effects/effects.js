@@ -1,5 +1,3 @@
-// Authored graphs, shared by native and browser Glass. Add cues, primitives
-// and curves here; painting never evaluates this source or reads an asset.
 const fairies = require('./fairies')
 const field = resource('ability-code', 'pack').value.abilities.fairies.parameters
 const key = (tick, scale, colour, opacity = 255, offset = [0, 0]) => ({ tick, scale, colour, opacity, offset })

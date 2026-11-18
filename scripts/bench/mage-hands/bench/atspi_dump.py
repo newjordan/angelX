@@ -1,4 +1,3 @@
-"""Dump every named/valued AT-SPI node (role, name, text, states) of apps by name substring."""
 import sys, gi
 gi.require_version("Atspi", "2.0")
 from gi.repository import Atspi

@@ -4,17 +4,13 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Every knight holds this much LOC until the LOC economy lands.
 pub const START_LOC: u32 = 6;
 pub const MAX_BYTES: usize = 4096;
 const MAX_LINES: usize = 64;
 const MAX_LINE: usize = 80;
-/// Tier I caps: paper damage per second and per volley-plus-swing.
 const DPS_CAP: f32 = 70.0;
 const BURST_CAP: u32 = 100;
 const MAX_SHOTS: u32 = 3;
-/// A blade reaches up to two tiles: close work that still reads as a sweep
-/// (one tile meant standing in a monster to hit it).
 const MAX_REACH: f32 = 4.0;
 const LOCKED: &[(&str, &str)] = &[
     ("pierce", "II"),
@@ -48,8 +44,6 @@ pub struct Melee {
     pub every: u32,
 }
 
-/// A thrown blade that flies out to `range` and comes back to the hand,
-/// cutting every monster it passes on both legs.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Throw {
     pub damage: u32,
@@ -67,10 +61,7 @@ pub struct Weapon {
     pub melee: Option<Melee>,
     #[serde(default)]
     pub throw: Option<Throw>,
-    /// LOC the runes spend.
     pub loc: u32,
-    /// The weapon as canonical runes, after clamping: what the model is shown
-    /// as "my current weapon" next time.
     pub runes: String,
 }
 
@@ -100,7 +91,6 @@ impl Weapon {
         self.spread.map_or(1, |spread| spread.shots)
     }
 
-    /// Paper damage, counting every shot as a hit.
     pub fn dps(&self) -> f32 {
         let ranged = self.bolt.map_or(0.0, |bolt| {
             (bolt.damage * self.shots()) as f32 * 30.0 / bolt.every as f32
@@ -164,7 +154,6 @@ impl Weapon {
 #[derive(Debug)]
 pub struct Checked {
     pub weapon: Weapon,
-    /// Every value the forge changed, in words a model can act on.
     pub notes: Vec<String>,
 }
 
@@ -174,7 +163,6 @@ pub struct Rejected {
 }
 
 impl Rejected {
-    /// The message a player carries back to their model.
     pub fn fix_it(&self) -> String {
         format!(
             "The forge rejected that weapon:\n{}\nFix these and reply with only the corrected rune file.",
@@ -187,8 +175,6 @@ impl Rejected {
     }
 }
 
-/// Chat models wrap answers in prose and code fences; only the first fenced
-/// block counts when there is one.
 fn rune_text(raw: &str) -> &str {
     let Some(open) = raw.find("```") else {
         return raw;
@@ -215,7 +201,6 @@ struct Args {
 
 impl Args {
     fn parse(rest: &str) -> Self {
-        // Models write `key=value`, `key = value`, `key= value` and `key =value`.
         let tokens: Vec<&str> = rest.split_whitespace().collect();
         let mut pairs = Vec::new();
         let mut index = 0;
@@ -275,8 +260,6 @@ impl Args {
     }
 }
 
-/// Check one rune file against `loc` LOC at tier I.
-/// Whether `look <colour> <shape>` names a colour and a shape the Forge knows.
 pub fn valid_look(colour: &str, shape: &str) -> bool {
     COLOURS.contains(&colour) && SHAPES.contains(&shape)
 }
@@ -462,9 +445,6 @@ pub fn check(raw: &str, loc: u32) -> Result<Checked, Rejected> {
     Ok(Checked { weapon, notes })
 }
 
-/// Lower the weapon until its paper damage fits the caps: every damage scaled
-/// by the same factor first, then bolt damage, melee damage, slower cadences
-/// and fewer shots one step at a time. Always terminates.
 fn fit_caps(weapon: &mut Weapon, notes: &mut Vec<String>) {
     let before = weapon.clone();
     let scale = (DPS_CAP / weapon.dps()).min(BURST_CAP as f32 / weapon.burst().max(1) as f32);
@@ -535,7 +515,6 @@ fn fit_caps(weapon: &mut Weapon, notes: &mut Vec<String>) {
     }
 }
 
-/// The instructions a player gives their model, filled in for this knight.
 pub fn rules(loc: u32, current_runes: &str) -> String {
     format!(
         "Forge a weapon for my knight in The Delve, a slow-shot co-op dungeon.

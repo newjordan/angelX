@@ -142,7 +142,6 @@ fn displayed_c_space_and_e_shortcuts_use_actual_browser_control_mapping() {
     assert!(!host.run.kingdom.industry[&1].open);
 }
 
-/// A hillside run with the builder out in the walking world.
 fn hillside() -> Run {
     let mut run = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
     run.walk_kingdom(None);
@@ -188,29 +187,23 @@ fn a_mouse_held_and_dragged_over_the_walking_world_is_a_press_the_tiles_crossed_
     assert!(c.pointer(x, y, 0));
     let first = c.command(&Hands::default()).pressed.builder;
     assert_eq!(first, Some(BuilderAction::Plot { tile: (158, 104), build: true }));
-    // Moved a tile on: the next command says where.
     let (x, y) = at((159, 104));
     assert!(c.pointer_move(x, y));
-    // Moved within the same tile: nothing new.
     assert!(!c.pointer_move(x + 1, y));
     let (x, y) = at((161, 104));
     assert!(c.pointer_move(x, y));
-    // A run of moves is one, the last.
     assert_eq!(c.command(&Hands::default()).pressed.builder, Some(BuilderAction::Hold((161, 104))));
     assert!(c.pointer_up(x, y, 0));
     assert_eq!(c.command(&Hands::default()).pressed.builder, Some(BuilderAction::Let((161, 104))));
     assert!(c.command(&Hands::default()).pressed.builder.is_none());
-    // A press and its release in one tick are two commands, in order.
     let (x, y) = at((160, 104));
     assert!(c.pointer(x, y, 0));
     assert!(c.pointer_up(x, y, 0));
     assert!(matches!(c.command(&Hands::default()).pressed.builder, Some(BuilderAction::Plot { .. })));
     assert!(matches!(c.command(&Hands::default()).pressed.builder, Some(BuilderAction::Let(_))));
-    // A move with no button down is nothing; a right click is a press that is not dragged.
     assert!(!c.pointer_move(x, y));
     assert!(c.pointer(x, y, 2));
     assert!(!c.pointer_move(point(100, 100).0, point(100, 100).1));
-    // The strip at the view's foot is the hotbar's: a slot is a click, the rest of it lays nothing.
     let strip = (arena::NATIVE_H - arena::hill_strip_height() - 2) * 2;
     let (x, y) = point(30, (strip + 14) as u32);
     c.command(&Hands::default());

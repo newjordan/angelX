@@ -84,10 +84,16 @@ fn codex_vision_fallback_preserves_selection_and_requires_image_support() {
             .contains("no signed-in Codex account")
     );
 
-    // Explicit backends must still win, even when native auth is unusable.
     let _kimi_url = TestEnvGuard::set("ANGEL_KIMI_URL", "http://127.0.0.1:9/v1");
     let _kimi_key = TestEnvGuard::set("ANGEL_KIMI_KEY", "fixture");
-    assert_eq!(resolve_vision_club().unwrap().label(), "kimi-vision");
+    let _kimi_model = TestEnvGuard::set("ANGEL_KIMI_MODEL", "k3-256k");
+    assert!(!vision_backend_configured());
+    assert!(
+        resolve_vision_club()
+            .err()
+            .unwrap()
+            .contains("no signed-in Codex account")
+    );
     let _url = TestEnvGuard::set("ANGEL_VISION_URL", "http://127.0.0.1:9/v1");
     let _model = TestEnvGuard::set("ANGEL_VISION_MODEL", "explicit-vlm");
     assert_eq!(resolve_vision_club().unwrap().label(), "vision");
@@ -204,8 +210,6 @@ fn text_only_heuristic_covers_the_local_v4_serve_and_pro() {
 
 #[test]
 fn text_only_heuristic_never_claims_the_current_cloud_flash() {
-    // No declared metadata and no vision name fragment: the live cloud
-    // V4.1 Flash id must not be presumed text-only from its name alone.
     let club = LabelOnlyClub {
         label: "deepseek-flash",
         modalities: vec![],
@@ -233,10 +237,6 @@ fn declared_metadata_outranks_the_name_heuristic_both_ways() {
     );
 }
 
-/// The reported defect: a cloud V4.1 Flash turn carrying a screenshot paid
-/// an extra provider hop to the configured vision sidecar. The real
-/// `HttpClub` (not a label fixture) must declare native image input, keep
-/// the encoded attachment bytes, and never call the sidecar backend.
 #[test]
 fn cloud_flash_keeps_image_bytes_native_and_never_dispatches_the_sidecar() {
     let _env = crate::tests::env_lock();
@@ -279,10 +279,6 @@ fn cloud_flash_keeps_image_bytes_native_and_never_dispatches_the_sidecar() {
     );
     assert_eq!(vision.chats.load(std::sync::atomic::Ordering::SeqCst), 0);
 
-    // Root's matched-benchmark route: the operator's configured DeepSeek
-    // seat pointed at a loopback observer/forwarder that relays the real
-    // API. The route keeps the provider's contract, so the screenshot stays
-    // native instead of paying the sidecar hop that broke the comparison.
     let _api_clubs = crate::tests::TestEnvGuard::set("ANGEL_API_CLUBS", "deepseek");
     let _key = crate::tests::TestEnvGuard::set("ANGEL_DEEPSEEK_KEY", "test-key");
     let _fwd = crate::tests::TestEnvGuard::set("ANGEL_DEEPSEEK_URL", "http://127.0.0.1:8799/v4");
@@ -319,8 +315,6 @@ fn cloud_flash_keeps_image_bytes_native_and_never_dispatches_the_sidecar() {
     assert_eq!(vision.chats.load(std::sync::atomic::Ordering::SeqCst), 0);
 }
 
-/// Pro and the Spark-local V4 serve are genuinely text-only and must keep
-/// the sidecar path (and its failure fallback) intact.
 #[test]
 fn pro_and_local_dsflash_still_route_through_the_sidecar() {
     let _env = crate::tests::env_lock();
@@ -340,8 +334,6 @@ fn pro_and_local_dsflash_still_route_through_the_sidecar() {
             "http://127.0.0.1:18888/v1",
             "deepseek-v4-flash-dspark",
         ),
-        // The same local serve under a neutral label: the retired id alone
-        // must keep it text-only rather than claiming the cloud model.
         (
             "local-gateway",
             "http://127.0.0.1:18888/v1",
@@ -379,8 +371,6 @@ fn resumed_image_history_keeps_book_and_recovery_metadata_through_both_rewrites(
     let digest = "a".repeat(64);
     crate::agent::harness::book::continuity::bind_generation(&mut history, &digest).unwrap();
     history[0].recovery_context.push(crate::agent::club::owned_recovery_context_ref());
-    // Exercise a genuinely restored history, rather than only an in-memory
-    // message carrying the binding.
     let saved = serde_json::to_vec(&history).unwrap();
     let restored: Vec<ChatMsg> = serde_json::from_slice(&saved).unwrap();
     let expected_recovery = restored[0].recovery_context.clone();
@@ -398,6 +388,69 @@ fn resumed_image_history_keeps_book_and_recovery_metadata_through_both_rewrites(
     assert!(failure[0].attachments.is_empty());
     assert_eq!(crate::agent::harness::book::continuity::generation_digest(&failure), Some(digest.as_str()));
     assert_eq!(failure[0].recovery_context, expected_recovery);
+}
+
+#[test]
+fn image_capable_driver_looks_with_itself_and_kimi_is_not_a_vision_route() {
+    use crate::tests::TestEnvGuard;
+    let _guard = crate::tests::env_lock();
+    let _cleared: Vec<_> = ["ANGEL_VISION_URL", "ANGEL_VISION_MODEL"]
+        .into_iter()
+        .map(TestEnvGuard::unset)
+        .collect();
+    let _kimi_url = TestEnvGuard::set("ANGEL_KIMI_URL", "http://127.0.0.1:9/v1");
+    let _kimi_key = TestEnvGuard::set("ANGEL_KIMI_KEY", "fixture");
+
+    let seeing = Arc::new(LabelOnlyClub {
+        label: "gpt-6.1-sol",
+        modalities: vec!["text".into(), "image".into()],
+    }) as Arc<dyn Club>;
+    assert_eq!(
+        VisionBackend::for_driver(None, Some(&seeing))
+            .0
+            .unwrap()
+            .label(),
+        "gpt-6.1-sol"
+    );
+
+    let named = Arc::new(LabelOnlyClub {
+        label: "gpt-6.1-terra",
+        modalities: vec![],
+    }) as Arc<dyn Club>;
+    assert_eq!(
+        VisionBackend::for_driver(None, Some(&named))
+            .0
+            .unwrap()
+            .label(),
+        "gpt-6.1-terra"
+    );
+
+    let blind = Arc::new(LabelOnlyClub {
+        label: "deepseek-v4-pro",
+        modalities: vec!["text".into()],
+    }) as Arc<dyn Club>;
+    let kimi = Arc::new(LabelOnlyClub {
+        label: "kimi",
+        modalities: vec!["text".into(), "image".into()],
+    }) as Arc<dyn Club>;
+    match VisionBackend::for_driver(None, Some(&blind)).0 {
+        Err(error) => assert!(error.contains("no vision backend configured"), "{error}"),
+        Ok(club) => panic!("text-only driver opened {}", club.label()),
+    }
+    match VisionBackend::for_driver(None, Some(&kimi)).0 {
+        Err(error) => assert!(error.contains("no vision backend configured"), "{error}"),
+        Ok(club) => panic!("kimi opened a vision route: {}", club.label()),
+    }
+
+    let _url = TestEnvGuard::set("ANGEL_VISION_URL", "http://127.0.0.1:9/v1");
+    let _model = TestEnvGuard::set("ANGEL_VISION_MODEL", "explicit-vlm");
+    assert_eq!(
+        VisionBackend::for_driver(None, Some(&seeing))
+            .0
+            .unwrap()
+            .label(),
+        "vision"
+    );
 }
 
 #[test]
@@ -425,13 +478,11 @@ fn should_not_apply_without_images() {
         modalities: vec![],
     };
     let msg = ChatMsg::user("hello");
-    // Even if backend env is set in the process, empty attachments short-circuit.
     assert!(
         !msg.attachments
             .iter()
             .any(|m| matches!(m, Media::Image { .. }))
     );
-    // Force-off path when no images
     let _ = club;
     assert!(!should_apply_vision_sidecar(
         &LabelOnlyClub {
@@ -444,8 +495,6 @@ fn should_not_apply_without_images() {
 
 #[test]
 fn rewrite_body_keeps_operator_question() {
-    // Pure composition check without network: the frame is `⠸⠙⠑`, the
-    // backend and the image count beside it.
     use crate::agent::harness::book::{d3_roles::pages, d456_knowledge::VISION};
     let body = sidecar_body(
         "vision",
@@ -454,12 +503,10 @@ fn rewrite_body_keeps_operator_question() {
         "what does the button say?",
     );
     assert!(body.contains("Submit"));
-    // The operator's question is `⠸⠙⠛`, the question beside it.
     assert!(body.contains("\n\n⠸⠙⠛ what does the button say?"), "{body}");
     assert!(!body.contains("Operator question"), "{body}");
     assert!(body.starts_with(&format!("{} vision · 1\n", pages(VISION, [5]))));
     assert!(!body.contains("[vision sidecar"));
-    // The describe question is routes, the operator's question the data.
     assert_eq!(sidecar_question(""), pages(VISION, [1, 2]));
     let asked = sidecar_question("what is this");
     assert!(asked.contains("\nwhat is this\n"), "{asked}");
@@ -500,8 +547,6 @@ struct AgentTurnOnlyVisionClub {
     fail: bool,
 }
 
-/// Sidecar stand-in for gating tests: answers like a VLM without asserting
-/// which thread it runs on, so the caller can exercise the pure rewrite path.
 struct SidecarStub {
     chats: std::sync::atomic::AtomicUsize,
 }

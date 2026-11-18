@@ -14,15 +14,8 @@
 //! restarts both counts, so the guard can never answer its own note.
 use super::*;
 
-/// The same batch with no new text this many hops in a row. In the 808 solved
-/// task-runs of that sheet no batch ever came back twice in a row; both 60-call
-/// repeat loops passed three by their 8th call.
 pub(super) const SAME_CALL_LIMIT: usize = 3;
-/// Tool hops in a row with empty text. Every silent loop of the sheet (7/7)
-/// reached eight by its 16th call; 5 of 808 solved task-runs did, too, and
-/// for them the note costs one short reply.
 pub(super) const SILENT_HOP_LIMIT: usize = 8;
-/// Notes a turn may give; after the last, the guard only counts.
 pub(super) const NOTES_PER_TURN: usize = 3;
 const ARGS_CHARS: usize = 160;
 
@@ -37,15 +30,11 @@ pub(super) struct SilenceGuard {
 }
 
 impl SilenceGuard {
-    /// One tool hop as issued: its visible text and its batch. Answers the
-    /// harness note to give after the hop's results, when one is due.
     pub(super) fn observe(&mut self, text: Option<&str>, calls: &[ToolCall]) -> Option<String> {
         if calls.is_empty() {
             return None;
         }
         let text = text.map(str::trim).unwrap_or_default();
-        // A reply that only repeats the last one (a pasted-back prompt) says
-        // nothing new either.
         let quiet = text.is_empty() || self.last_text.as_deref() == Some(text);
         let batch = calls
             .iter()
@@ -95,7 +84,6 @@ impl SilenceGuard {
         Some(note)
     }
 
-    /// Whether the coming hop follows a note: read once, for one hop.
     pub(super) fn take_wake(&mut self) -> bool {
         std::mem::take(&mut self.wake)
     }

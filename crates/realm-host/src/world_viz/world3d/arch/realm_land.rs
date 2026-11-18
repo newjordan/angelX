@@ -15,18 +15,9 @@ use super::super::mesh::{Mesh, mat};
 use super::compose::{COURT_EXTENT, court_terrain};
 use super::land::terrain_patch_with;
 
-/// Half-width of a painted road, in tiles. The ground grid is 19 × 19 cells
-/// (~2.95 tiles each); under ~1.5 a centreline can slip between cell centres
-/// and vanish. This width keeps the authored branches connected by full
-/// cell edges in the mesh test. Recheck connectivity when moving a waypoint;
-/// diagonals can otherwise meet only at a corner.
 const ROAD_HALF: f32 = 2.0;
 
-/// Named road centrelines, world (x, y). Legs join at shared waypoints so the
-/// whole network is one connected component rooted on the courtyard junction
-/// at (0, -8), which itself sits on the pre-existing central road column.
 const ROADS: &[(&str, &[(f32, f32)])] = &[
-    // Inner courtyard: from the central road around the well to the posterns.
     (
         "court-east",
         &[(0.0, -8.0), (3.0, -7.0), (5.0, -4.0), (11.0, -4.0)],
@@ -35,35 +26,28 @@ const ROADS: &[(&str, &[(f32, f32)])] = &[
         "court-west",
         &[(0.0, -8.0), (-3.0, -7.0), (-5.0, -4.0), (-11.0, -4.0)],
     ),
-    // West outer branch to the library front.
     (
         "west-library",
         &[(-11.0, -4.0), (-15.0, -4.0), (-20.0, -2.0), (-20.0, 1.0)],
     ),
-    // East outer branch to the chapel front.
     (
         "east-chapel",
         &[(11.0, -4.0), (15.0, -4.0), (18.0, -2.0), (17.0, 3.5)],
     ),
-    // East branch south to the observatory front (joins the chapel leg at (15,-4)).
     (
         "observatory",
         &[(15.0, -4.0), (24.0, -4.0), (24.0, -14.0), (20.5, -13.7)],
     ),
-    // Dry-bank service lane to the forge rear door. The original y=-17
-    // spur landed on WATER cells and disconnected from the road network.
     (
         "forge-spur",
         &[(24.0, -14.0), (17.0, -14.0), (13.0, -14.0), (10.2, -13.7)],
     ),
-    // Perimeter footpath to the stable-yard gate.
     (
         "stable-footpath",
         &[(24.0, -4.0), (25.0, 10.0), (23.1, 20.5), (23.1, 21.5)],
     ),
 ];
 
-/// Distance from point to segment in the ground plane.
 fn seg_dist(px: f32, py: f32, a: (f32, f32), b: (f32, f32)) -> f32 {
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
     let t = (((px - a.0) * dx + (py - a.1) * dy) / (dx * dx + dy * dy)).clamp(0.0, 1.0);
@@ -77,14 +61,10 @@ fn near_road(x: f32, y: f32, clearance: f32) -> bool {
     })
 }
 
-/// Keep tree trunks and their low crowns out of the coarse path cells.
-/// Extra width covers half-cell quantization and a modest canopy radius.
 pub fn scenery_excluded(x: f32, y: f32) -> bool {
     near_road(x, y, ROAD_HALF + 2.8)
 }
 
-/// The court terrain with the road network painted on. Drop-in replacement
-/// for the bare `terrain_patch_with` ground in `court_scene`.
 pub fn terrain(seed: u64) -> Mesh {
     let mut m = terrain_patch_with(
         COURT_EXTENT * 2.0,
@@ -92,11 +72,9 @@ pub fn terrain(seed: u64) -> Mesh {
         seed,
         &court_terrain(),
     );
-    // The patch is one `prim::quad` (two triangles) per grid cell, pushed in
-    // row-major order — classify per pair so both halves of a cell agree.
     for pair in m.tris.chunks_exact_mut(2) {
         if pair[0].mat != mat::GRASS {
-            continue; // river bed and the central approach road stay as built
+            continue;
         }
         let (mut x0, mut y0) = (f32::INFINITY, f32::INFINITY);
         let (mut x1, mut y1) = (f32::NEG_INFINITY, f32::NEG_INFINITY);

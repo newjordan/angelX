@@ -11,23 +11,14 @@ use std::{
     time::{Duration, Instant},
 };
 
-/// The checkpoint as it is read back (`together_sim::write_checkpoint`
-/// writes it).
 #[derive(Deserialize)]
 struct Saved {
     version: u32,
     raid_serial: u64,
     run: Run,
-    /// The hosted session's address and join key: a restart opens the same
-    /// link again. (An older save's invitation tokens: the first is the key.)
     invitation: Option<(String, String)>,
-    /// The host played no knight (`/dungeon host --watch`). Absent in an older
-    /// save and for a host that played its own: the env switch decides then.
     #[serde(default)]
     watch: bool,
-    /// Country intents and unpaid Squires' Yard gold, awaiting a realm commit.
-    /// Keep the historical field name and default for old checkpoints. Never
-    /// serialize general combat/bounty marks or expose this on the guest wire.
     #[serde(default)]
     country_intents: BTreeMap<String, u32>,
     #[serde(default)]
@@ -42,11 +33,6 @@ struct Saved {
     brew_outbox: Option<Vec<crate::together_shooter::cauldron::Brewing>>,
 }
 
-/// A realm commit may be newer than the independently written run checkpoint.
-/// Read its company before starting the sim (including a restored listener),
-/// never after an old checkpoint has had a chance to settle over paid goods.
-/// A missing realm is a legacy/checkpoint-only session; an unreadable existing
-/// realm is an error, not an empty company that could erase paid companions.
 #[cfg(test)]
 fn restore_company(run: &mut Run, rewards: Option<&Path>) -> Result<(), String> {
     restore_company_with_journal(run, rewards, None)
@@ -75,8 +61,6 @@ fn restore_company_with_journal(
         run.home.squire_company = realm.home.squire_company;
         run.treasury = realm.treasury;
     }
-    // Only a stale company needs redeployment. Do not heal/reset actors in
-    // ordinary current-company checkpoints on every restart.
     if company_changed && run.dungeon.depth > 0 {
         run.deploy_company_squires();
     }
@@ -84,9 +68,6 @@ fn restore_company_with_journal(
 }
 
 impl DungeonView {
-    /// Save the delve now (`force`), or when the last save is three
-    /// seconds old. The sim thread saves on its own clock as it plays;
-    /// this is for the moments the cockpit must be sure of one.
     pub fn checkpoint(&mut self, now: Instant, force: bool) -> Result<(), String> {
         if !force
             && self
@@ -115,12 +96,9 @@ impl DungeonView {
     pub fn restore(&mut self, workspace: &Path) -> Result<(), String> {
         let path = workspace.join(".angel/dungeon/session.json");
         self.save_path = Some(path.clone());
-        // The knobs moved from a dev panel or `/dungeon tune`, beside it.
         self.shooter
             .set_tune_file(workspace.join(".angel/dungeon/tune.json"));
-        // Its paintings, which the window draws from.
         crate::services::paint_dir(&crate::together_sheets::paint_dir(workspace));
-        // Its wished looks, which the window lays over its HD pack.
         crate::services::looks_dir(&crate::together_looker::looks_dir(workspace));
         let file = match std::fs::File::open(&path) {
             Ok(file) => file,
@@ -147,7 +125,6 @@ impl DungeonView {
             }
         }
         angel_delve::rules::scrolls::validate_run(&saved.run)?;
-        // What can be put right is, so a restart keeps the run and its link.
         let mended = saved.run.mend();
         if !mended.is_empty() {
             tracing::warn!(?mended, "dungeon checkpoint mended on restore");
@@ -169,8 +146,6 @@ impl DungeonView {
             return Err("invalid dungeon checkpoint".into());
         }
         if let Some(outbox) = saved.home_outbox {
-            // The compatibility projection must agree with the authoritative
-            // private facts; neither copy can hide an invalid country intent.
             let country: BTreeMap<_, _> = outbox
                 .marks
                 .iter()
@@ -189,23 +164,17 @@ impl DungeonView {
             return Err("invalid private brew outbox".into());
         }
         saved.run.triumph = saved.realm_triumph;
-        // A valid old checkpoint must receive authored roads immediately,
-        // even when no reward/purchase will trigger rebuild_home this tick.
         crate::together_shooter::world::raise_world(&mut saved.run.dungeon);
         saved.run.migrate_kingdom();
         if !saved.run.valid_snapshot() {
             return Err("invalid migrated dungeon checkpoint".into());
         }
-        // Match World::for_workspace's canonical island identity without
-        // constructing another display world just to find its rewards path.
         let identity = crate::hooks::repo_identity(workspace);
         let rewards = std::env::var_os("HOME").map(|home| {
             std::path::PathBuf::from(home)
                 .join(".angelX/world-rewards")
                 .join(format!("{}.json", identity.key))
         });
-        // Legacy lodge batches were checkpointed before the realm commit.
-        // Retire only a batch known durable in the matching realm file.
         if let Some(payment) = saved.squire_payment {
             let committed = if let Some(path) = rewards.as_ref().map(|p| p.with_extension("realm.json")) {
                 match std::fs::read(path) {
@@ -239,8 +208,6 @@ impl DungeonView {
                 )
             })
             .transpose()?;
-        // Reconcile a stale checkpoint before the sim starts, but never
-        // replace a pending claim or edits newer than its observed realm.
         restore_company_with_journal(&mut saved.run, rewards.as_deref(), commands.as_ref())?;
         if let Some(commands) = &commands {
             if saved.version < 4 && !commands.pending_brews()?.is_empty() {
@@ -259,18 +226,13 @@ impl DungeonView {
             crate::together_web::shipped_prepared().map_err(|e| e.to_string())?
         } else { None };
         self.raid_serial = saved.raid_serial.max(saved.run.raid_id);
-        // Install world and journal under one lock, before its server starts.
         self.shooter.restore_session(saved.run, commands);
         if let Some((bind, key, saved_bind, saved_key)) = door {
-            // A host that watched still watches; the env switch only ever
-            // makes a host watch, as it does for `/dungeon host`.
             let watch = saved.watch || Hosting::watch_by_default();
             let hosting = Hosting {
                 friends: Hosting::most_friends(watch),
                 watch,
             };
-            // The saved link is on record until it is open again: an address
-            // that is not up yet must not cost the next checkpoint its key.
             self.shooter.keep_door(saved_bind, saved_key, watch);
             self.shooter.host_prepared(
                 crate::together_sim::Door {
@@ -403,7 +365,7 @@ mod tests {
         assert_eq!(claim.changes.len(), 1);
         view.checkpoint(Instant::now(), true).unwrap();
         crate::together_files::append_vote_batch(&export, &claim).unwrap();
-        drop(view); // The export completed; its ACK never reached a checkpoint.
+        drop(view);
 
         let mut restored = DungeonView::default();
         restored.restore(dir.path()).unwrap();
@@ -438,7 +400,6 @@ mod tests {
         drop(view);
         let saved = std::fs::read(&path).unwrap();
         let value: serde_json::Value = serde_json::from_slice(&saved).unwrap();
-        // A room out of range is mended on restore (`Run::mend`), not refused.
         let mut mendable = value.clone();
         mendable["run"]["at"] = 999.into();
         std::fs::write(&path, serde_json::to_vec(&mendable).unwrap()).unwrap();
@@ -446,7 +407,6 @@ mod tests {
         restored.restore(dir.path()).unwrap();
         assert_eq!(restored.shooter.as_ref().unwrap().at, 0);
         assert!(restored.hosting.is_none());
-        // What cannot be read, or is not a checkpoint this build writes, is.
         let mut undecodable = value.clone();
         undecodable["run"]["at"] = "nowhere".into();
         let mut missing_journal = value.clone();
@@ -502,15 +462,11 @@ mod tests {
             },
         );
         paid.save().unwrap();
-        // Crash between the realm commit and the next service checkpoint.
-        // Reconcile the actual older serialized checkpoint before starting a
-        // sim; no listener or live host is needed to test the restore boundary.
         let mut old: Saved = serde_json::from_slice(&std::fs::read(checkpoint).unwrap()).unwrap();
         assert!(old.run.home.squire_company.rosters.is_empty());
         restore_company(&mut old.run, Some(&rewards)).unwrap();
         assert_eq!(old.run.home.squire_company, paid.home.squire_company);
         assert_eq!(old.run.treasury, paid.treasury);
-        // The first settlement copy-back now starts from paid C1, not old C0.
         paid.home.squire_company = old.run.reserve_squire_company().unwrap();
         paid.save().unwrap();
         let durable = crate::together_realm::Realm::beside(Some(&rewards));

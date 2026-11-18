@@ -2,7 +2,8 @@ use super::*;
 
 #[test]
 fn manifest_playback_is_the_source_of_truth() {
-    let manifest = load_manifest(&default_root()).expect("knight-journey manifest");
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/knight-journey");
+    let manifest = load_manifest(&root).expect("knight-journey manifest");
     assert_eq!(manifest.scenes.len(), 6);
     let study = manifest.scene(Scene::Study).expect("study");
     assert_eq!(study.sequence, vec![0, 1, 2, 3]);

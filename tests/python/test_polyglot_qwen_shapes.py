@@ -1,4 +1,3 @@
-"""Offline response graph integrity checks for the Qwen character-size audit."""
 import importlib.util
 import json
 from pathlib import Path

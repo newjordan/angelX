@@ -151,7 +151,6 @@ impl Company {
             Building::Hire => self.hire += 1,
             Building::Train => self.train += 1,
         }
-        // Board improvements show immediately; ordinary offers change once per delve.
         if building == Building::Recruit {
             self.ready = false;
             self.refresh(self.cadence);

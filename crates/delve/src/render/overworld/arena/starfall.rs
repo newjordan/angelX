@@ -27,22 +27,14 @@ use crate::rules::starfall::{self as sf, Fall, Star};
 use crate::rules::Run;
 use std::f32::consts::{PI, TAU};
 
-/// The most motes a pass paints.
 const BUDGET: u32 = 2600;
 
-/// Starlight: white-hot through a warm white and blush to lilac and violet.
 const CORE: Ramp = Ramp(['w', '9', '+', '^', ']', '[']);
-/// A fallen star's own gold, from its white heart to its rim.
 const STARGOLD: Ramp = Ramp(['w', '9', '6', '5', '4', 'O']);
-/// The tail, cooling into the dark.
 const TAIL: Ramp = ramps::ARCANE;
-/// The sparks it sheds, and a shard's motes.
 const BLUSH: Ramp = ramps::ROSE;
 const GILT: Ramp = ramps::HOLY;
 
-/// The star's head at `age` ticks after it glinted, in room pixels, for a
-/// seat whose view's top left is `view`: none before it glints or once it
-/// is down.
 fn head(star: &Star, view: (i32, i32), age: f32) -> Option<(f32, f32)> {
     if age < 0.0 || age > sf::LANDS as f32 {
         return None;
@@ -54,31 +46,24 @@ fn head(star: &Star, view: (i32, i32), age: f32) -> Option<(f32, f32)> {
         return Some(s);
     }
     if age < dive {
-        // Across the top of the view, falling a little more as it goes.
         let u = (age - glint) / (dive - glint);
         let x = s.0 + (p.0 - s.0) * u;
         let bow = 10.0 + (star.seed >> 3) as f32 % 8.0;
         let y = s.1 + (p.1 - s.1) * u * u - bow * (u * PI).sin() * (1.0 - u);
         return Some((x, y));
     }
-    // The dive: on along its line, bending down onto where it lands, ever
-    // faster.
     let v = ((age - dive) / (sf::LANDS as f32 - dive)).clamp(0.0, 1.0);
     let e = 0.4 * v + 0.6 * v * v;
     let w = 1.0 - e;
     Some((w * w * p.0 + 2.0 * w * e * c.0 + e * e * l.0, w * w * p.1 + 2.0 * w * e * c.1 + e * e * l.1))
 }
 
-/// Where the star glints, where its dive begins, the dive's bend, and
-/// where it comes down: it crosses from the side of the view away from
-/// where it lands, so its crossing is long.
 fn path(star: &Star, view: (i32, i32)) -> ((f32, f32), (f32, f32), (f32, f32), (f32, f32)) {
     let (vx, vy) = (view.0 as f32, view.1 as f32);
     let w = NATIVE_W as f32;
     let l = (star.land.0 * UNIT, star.land.1 * UNIT - 7.0);
     let from_left = l.0 > vx + w / 2.0 || (l.0 - (vx + w / 2.0)).abs() < 4.0 && star.from_left();
     let dir = if from_left { 1.0 } else { -1.0 };
-    // Below the room's top wall and its signs: the dark over the floor.
     let jitter = (star.seed % 13) as f32;
     let s = (if from_left { vx + 20.0 } else { vx + w - 20.0 }, vy + 66.0 + jitter);
     let px = (l.0 - dir * (52.0 + (star.seed >> 5) as f32 % 18.0)).clamp(vx + 40.0, vx + w - 40.0);
@@ -88,26 +73,20 @@ fn path(star: &Star, view: (i32, i32)) -> ((f32, f32), (f32, f32), (f32, f32), (
     (s, p, c, l)
 }
 
-/// The star whose room the seat looks into.
 fn star_here(run: &Run) -> Option<&Star> {
     run.starfall.star.as_ref().filter(|s| s.room == run.at)
 }
 
-/// Under the figures: the floor lit where the star will land as it dives,
-/// the ring its landing throws, the pool of light under its shard, and the
-/// rings under a catch and a star wish's landing.
 pub(super) fn ground(cv: &mut Img, run: &Run) {
     let mut pen = Pen::new(cv, BUDGET / 2);
     let tick = run.tick;
     if let Some(star) = star_here(run) {
         let age = star.age(tick) as f32;
         let (lx, ly) = (star.land.0 * UNIT, star.land.1 * UNIT);
-        // The floor brightens where it will come down.
         if (sf::DIVE as f32 - 14.0..sf::LANDS as f32).contains(&age) {
             let k = (age - (sf::DIVE as f32 - 14.0)) / (sf::LANDS as f32 - sf::DIVE as f32 + 14.0);
             pen.glow((lx, ly), 6.0 + 16.0 * ease::inward(k), 0.45, CORE.cooler(1), 0.3 + 0.6 * k);
         }
-        // Down: the floor rings.
         let since = age - sf::LANDS as f32;
         if (0.0..34.0).contains(&since) {
             pen.shock((lx, ly), 4.0 + ease::out(since / 22.0) * 46.0, 2.2, 0.45, CORE, ease::inward((since / 30.0).min(1.0)));
@@ -117,7 +96,6 @@ pub(super) fn ground(cv: &mut Img, run: &Run) {
             let fade = shard_fade(life);
             let breath = 0.5 + 0.5 * ((tick as f32) * 0.11).sin();
             pen.glow((lx, ly), 16.0 + 3.0 * breath, 0.42, CORE.cooler(1), (0.55 + 0.25 * breath) * (1.0 - fade));
-            // A star's ring on the floor, turning slowly, coming on as it lands.
             let open = ease::back(((age - sf::LANDS as f32) / 14.0).min(1.0));
             pen.glyph((lx, ly + 0.5), 13.0 * open, 0.42, tick as f32 * 0.012, open, 5, TAIL, 0.25 + fade * 0.75, star.seed);
         }
@@ -145,16 +123,11 @@ pub(super) fn ground(cv: &mut Img, run: &Run) {
     }
 }
 
-/// How far a shard has faded at `life` (0 to 1 of its life): nothing until
-/// its last seconds.
 fn shard_fade(life: f32) -> f32 {
     let from = 1.0 - sf::SHARD_FADE as f32 / sf::SHARD_LIFE as f32;
     ((life - from) / (1.0 - from)).clamp(0.0, 1.0)
 }
 
-/// Over the figures: the star in the sky and its landing, the shard, a
-/// catch, a star wish landing, the little stars over every knight who holds
-/// a star's wish, and the banner that calls it.
 pub(super) fn over(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), focus: Option<u32>) {
     let tick = run.tick;
     {
@@ -177,7 +150,6 @@ pub(super) fn over(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), foc
                 granted(&mut pen, run, hero, view, tick.saturating_sub(g.tick) as f32, g.knight, tick);
             }
         }
-        // Who holds a star's wish: a little star of their own over them.
         for (&id, hero) in run.players.iter().filter(|(_, h)| h.star_wish && h.hp > 0 && !h.absent) {
             let (_, mid) = wishfx::body(run, hero);
             let bob = ((tick as f32) * 0.15 + id as f32).sin() * 1.2;
@@ -199,23 +171,17 @@ pub(super) fn over(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), foc
     }
 }
 
-/// The star in the sky: its glint, its head and halo, the cross of light
-/// about it, its tail and the sparks it sheds.
 fn sky(pen: &mut Pen, star: &Star, view: (i32, i32), age: f32, tick: u64) {
     let Some(at) = head(star, view, age) else { return };
     let glint = sf::GLINT as f32;
     if age < glint {
-        // A glint high in the dark, growing.
         let k = age / glint;
         pen.glow(at, 3.0 + 7.0 * k, 1.0, CORE, 0.4 + 0.5 * k);
         pen.twinkle(at, 2.0 + 5.0 * k, 0.5, CORE);
         return;
     }
-    // Its tail: back along the way it came, a set length of it however
-    // slowly it goes, thick and hot at the head and cooling to nothing.
     let pts = trail(star, view, age, TAIL_LEN);
     tail(pen, &pts, 4.6);
-    // Little stars left in its wake, twinkling out where it passed.
     let first = ((age - 40.0).max(sf::GLINT as f32) / 5.0).ceil() as i32;
     for e in first..=(age / 5.0) as i32 {
         let Some(p) = head(star, view, e as f32 * 5.0) else { continue };
@@ -224,7 +190,6 @@ fn sky(pen: &mut Pen, star: &Star, view: (i32, i32), age: f32, tick: u64) {
         let phase = (age - e as f32 * 5.0) / 40.0;
         pen.twinkle((p.0 + off.0, p.1 + off.1), 2.0 + (h % 2) as f32, phase, if h % 3 == 0 { GILT } else { CORE });
     }
-    // Sparks shed off it as it went, drifting down and going out.
     let first = (age - 34.0).max(glint).ceil() as i32;
     for e in (first..=age as i32).filter(|e| e % 2 == 0) {
         let Some(from) = head(star, view, e as f32) else { continue };
@@ -242,9 +207,7 @@ fn sky(pen: &mut Pen, star: &Star, view: (i32, i32), age: f32, tick: u64) {
         };
         pfx::mote(pen, &m, shape, ramp, 1, tick);
     }
-    // The head: a halo of gold, a cross of light, and a white-hot core.
     let pulse = 0.5 + 0.5 * (age * 0.6).sin();
-    // Hottest first: a glow only lights what is darker than it.
     pen.glow(at, 5.0, 1.0, CORE, 1.0);
     pen.glow(at, 10.0 + 2.0 * pulse, 1.0, GILT, 1.0);
     pen.glow(at, 16.0 + 3.0 * pulse, 1.0, TAIL, 0.65);
@@ -269,11 +232,8 @@ fn sky(pen: &mut Pen, star: &Star, view: (i32, i32), age: f32, tick: u64) {
     }
 }
 
-/// How long the star's tail is, in pixels along its way.
 const TAIL_LEN: f32 = 120.0;
 
-/// The way behind the star at `age`, head first, a pixel or so apart, as
-/// far back as `len` pixels (or to its glint).
 fn trail(star: &Star, view: (i32, i32), age: f32, len: f32) -> Vec<(f32, f32)> {
     let mut out = Vec::with_capacity(len as usize + 2);
     let Some(mut last) = head(star, view, age) else { return out };
@@ -296,9 +256,6 @@ fn trail(star: &Star, view: (i32, i32), age: f32, len: f32) -> Vec<(f32, f32)> {
     out
 }
 
-/// A tail along `pts` (head first): `thick` pixels to each side at the
-/// head, thinning to a thread, its middle hot, its edges cooling into the
-/// dark and dissolving toward its end.
 fn tail(pen: &mut Pen, pts: &[(f32, f32)], thick: f32) {
     let n = pts.len();
     if n < 2 {
@@ -326,11 +283,8 @@ fn tail(pen: &mut Pen, pts: &[(f32, f32)], thick: f32) {
     }
 }
 
-/// Ticks after a landing its burst is drawn.
 const LANDING_TICKS: f32 = 40.0;
 
-/// Where it comes down: a flash, rays of light thrown up, stars flung out
-/// and falling.
 fn landing(pen: &mut Pen, star: &Star, age: f32, tick: u64) {
     let since = age - sf::LANDS as f32;
     if !(0.0..LANDING_TICKS).contains(&since) {
@@ -360,8 +314,6 @@ fn landing(pen: &mut Pen, star: &Star, age: f32, tick: u64) {
     });
 }
 
-/// The outer points of a five-pointed star round `c`, its top point up
-/// when `rot` is zero, `r` out and `squash` up and down.
 fn points(c: (f32, f32), r: f32, inner: f32, rot: f32, squash: f32) -> [(f32, f32); 10] {
     std::array::from_fn(|i| {
         let a = rot - PI / 2.0 + i as f32 * PI / 5.0;
@@ -370,7 +322,6 @@ fn points(c: (f32, f32), r: f32, inner: f32, rot: f32, squash: f32) -> [(f32, f3
     })
 }
 
-/// Whether `(x, y)` lies inside the polygon `poly`.
 fn inside(poly: &[(f32, f32)], x: f32, y: f32) -> bool {
     let mut inn = false;
     let mut j = poly.len() - 1;
@@ -384,8 +335,6 @@ fn inside(poly: &[(f32, f32)], x: f32, y: f32) -> bool {
     inn
 }
 
-/// A solid five-pointed star: lit from its middle out down `ramp`, its
-/// rim a shade down, dissolving by `fade`.
 fn solid_star(pen: &mut Pen, c: (f32, f32), r: f32, rot: f32, ramp: Ramp, fade: f32) {
     let poly = points(c, r, 0.46, rot, 1.0);
     let ri = r.ceil() as i32 + 1;
@@ -397,7 +346,6 @@ fn solid_star(pen: &mut Pen, c: (f32, f32), r: f32, rot: f32, ramp: Ramp, fade: 
                 continue;
             }
             let d = (fx - c.0).hypot(fy - c.1) / r;
-            // The edge: a pixel with open paper beside it, in the star's shape.
             let edge = [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)].iter().any(|&(ox, oy)| !inside(&poly, fx + ox, fy + oy));
             let k = if edge { 0.45 + d * 0.4 } else { d * 0.55 };
             pen.put(x, y, ramp.at(k));
@@ -405,7 +353,6 @@ fn solid_star(pen: &mut Pen, c: (f32, f32), r: f32, rot: f32, ramp: Ramp, fade: 
     }
 }
 
-/// The outline of a five-pointed star, drawn on as `open` goes 0 to 1.
 fn star_lines(pen: &mut Pen, c: (f32, f32), r: f32, rot: f32, squash: f32, open: f32, ramp: Ramp, fade: f32) {
     let pts = points(c, r, 0.42, rot, squash);
     let n = (open.clamp(0.0, 1.0) * 10.0).ceil() as usize;
@@ -420,16 +367,12 @@ fn star_lines(pen: &mut Pen, c: (f32, f32), r: f32, rot: f32, squash: f32, open:
             if bayer(x, y) < fade {
                 continue;
             }
-            // Brightest at the points, cooler toward the hollows.
             let k = if i % 2 == 0 { t } else { 1.0 - t };
             pen.light(x, y, ramp.at(0.05 + k * 0.5 + fade * 0.4));
         }
     }
 }
 
-/// The shard of starlight where the star came down: a five-pointed star
-/// hovering and breathing over its pool, a glint running over it, little
-/// stars coming and going about it and motes going up; fading at its end.
 fn shard(pen: &mut Pen, star: &Star, life: f32, tick: u64) {
     let t = tick as f32;
     let fade = shard_fade(life);
@@ -437,18 +380,14 @@ fn shard(pen: &mut Pen, star: &Star, life: f32, tick: u64) {
     let c = (star.land.0 * UNIT, star.land.1 * UNIT - 9.0 + bob);
     let breath = 0.5 + 0.5 * (t * 0.11).sin();
     let rot = (t * 0.02).sin() * 0.22;
-    // The star first, then its aura about it: violet against its gold, so
-    // its five points read.
     solid_star(pen, c, 7.5 + breath * 0.8, rot, STARGOLD, fade);
     pen.glow(c, 15.0 + 3.0 * breath, 1.0, TAIL, (0.45 + 0.25 * breath) * (1.0 - fade));
-    // A glint running over it now and then.
     let g = (tick % 70) as f32;
     if g < 10.0 && fade < 0.5 {
         let k = g / 10.0;
         pen.twinkle((c.0 - 4.0 + k * 8.0, c.1 - 3.0 + k * 4.0), 4.0, k, CORE);
     }
     pen.light(c.0.round() as i32, c.1.round() as i32, 'w');
-    // Little stars about it, each on a loop of its own.
     for i in 0..6u32 {
         let life_i = 34.0 + (i % 3) as f32 * 6.0;
         let start = (hash(i as i32, 2, 0x5ad) % 1000) as f32 / 1000.0 * life_i;
@@ -461,7 +400,6 @@ fn shard(pen: &mut Pen, star: &Star, life: f32, tick: u64) {
             pen.twinkle(at, 1.6 + (i % 2) as f32, k, if i % 2 == 0 { CORE } else { BLUSH });
         }
     }
-    // Motes going up off it, slowly.
     for i in 0..10u32 {
         let life_i = 50.0;
         let start = (hash(i as i32, 5, 0x5b0) % 1000) as f32 / 1000.0 * life_i;
@@ -477,8 +415,6 @@ fn shard(pen: &mut Pen, star: &Star, life: f32, tick: u64) {
     }
 }
 
-/// The shard taken: it flares, its light leaps in an arc to the knight
-/// and bursts over their head in stars.
 fn caught(pen: &mut Pen, run: &Run, star: &Star, hero: &crate::rules::Hero, since: f32, tick: u64) {
     if since >= sf::CAUGHT_TICKS as f32 {
         return;
@@ -486,14 +422,11 @@ fn caught(pen: &mut Pen, run: &Run, star: &Star, hero: &crate::rules::Hero, sinc
     let from = (star.land.0 * UNIT, star.land.1 * UNIT - 9.0);
     let (_, mid) = wishfx::body(run, hero);
     let to = (mid.0, mid.1 - 10.0);
-    // The flare where it lay.
     if since < 12.0 {
         let k = since / 12.0;
         pen.glow(from, 16.0 * (1.0 - k) + 3.0, 1.0, CORE, 1.0 - k * 0.6);
         pfx::rays(pen, from, 10, 22.0, 0.9, 0.3, CORE, k);
     }
-    // It rises off the floor and goes once round the knight, closing in,
-    // and into them: a ribbon of its light behind it.
     const LEAP: f32 = 18.0;
     let along = |t: f32| {
         let t = t.clamp(0.0, 1.0);
@@ -520,13 +453,11 @@ fn caught(pen: &mut Pen, run: &Run, star: &Star, hero: &crate::rules::Hero, sinc
         pen.glow(head, 4.0, 1.0, CORE, 1.0);
         pen.glow(head, 9.0, 1.0, GILT, 0.9);
         solid_star(pen, head, 4.5, since * 0.35, STARGOLD, 0.0);
-        // Sparks shed off it as it goes round.
         for (j, &p) in pts.iter().enumerate().skip(4).step_by(7) {
             let h = hash(j as i32, since as i32 / 3, 0xca7d);
             pen.twinkle((p.0 + (h % 5) as f32 - 2.0, p.1 + 2.0 + ((h >> 3) % 4) as f32), 2.0, (j as f32 / pts.len() as f32).min(0.95), if h % 2 == 0 { GILT } else { BLUSH });
         }
     }
-    // Over the knight: a burst of stars, a twinkle, light raining off.
     let burst = since - LEAP;
     if burst >= 0.0 {
         if burst < 16.0 {
@@ -546,12 +477,8 @@ fn caught(pen: &mut Pen, run: &Run, star: &Star, hero: &crate::rules::Hero, sinc
     }
 }
 
-/// Ticks a star wish's little star takes to fall onto its knight.
 const FALLS: f32 = 14.0;
 
-/// A star wish landing on its knight: a little star falls out of the dark
-/// onto them, and a five-pointed star of gold opens about them, turning,
-/// light thrown off its points and a shower of stars.
 fn granted(pen: &mut Pen, run: &Run, hero: &crate::rules::Hero, view: (i32, i32), age: f32, id: u32, tick: u64) {
     if age >= sf::GRANT_TICKS as f32 {
         return;
@@ -559,7 +486,6 @@ fn granted(pen: &mut Pen, run: &Run, hero: &crate::rules::Hero, view: (i32, i32)
     let (_, mid) = wishfx::body(run, hero);
     let c = (mid.0, mid.1 - 2.0);
     if age < FALLS {
-        // It falls: from high over them in the dark, a streak to their head.
         let top = (c.0 + 34.0 * if id % 2 == 0 { 1.0 } else { -1.0 }, view.1 as f32 + 6.0);
         let at = |a: f32| {
             let t = ease::inward((a / FALLS).clamp(0.0, 1.0));
@@ -596,13 +522,10 @@ fn granted(pen: &mut Pen, run: &Run, hero: &crate::rules::Hero, view: (i32, i32)
     pen.glow(c, 12.0, 1.0, TAIL.cooler(1), 0.5 * (1.0 - fade));
     star_lines(pen, c, 22.0 * open, rot, 1.0, open, GILT, fade);
     star_lines(pen, c, 15.0 * open, -rot * 1.4 + PI / 5.0, 1.0, open, CORE, (fade + 0.2).min(1.0));
-    // Light thrown off its five points.
     for p in points(c, 22.0 * open, 0.42, rot, 1.0).iter().step_by(2) {
         pen.twinkle(*p, 3.0, ((since - 4.0) / 24.0).clamp(0.0, 0.99), CORE);
     }
-    // Its rays go out along its points, the short ones between them.
     pfx::rays(pen, c, 10, 30.0, 1.0, rot - PI / 2.0, GILT, (since / 20.0).min(1.0));
-    // A shower of stars, thrown up off them and falling all round.
     let spray = Spray {
         gravity: 0.08,
         angle: -PI / 2.0,
@@ -620,8 +543,6 @@ fn granted(pen: &mut Pen, run: &Run, hero: &crate::rules::Hero, view: (i32, i32)
     });
 }
 
-/// The banner over the top of the view while the star is up: "A SHOOTING
-/// STAR!", and the knight's own key under it while they hold its wish.
 fn banner(cv: &mut Img, run: &Run, star: &Star, view: (i32, i32), focus: Option<u32>) {
     let age = star.age(run.tick);
     if !(8..sf::BANNER).contains(&age) {
@@ -632,11 +553,9 @@ fn banner(cv: &mut Img, run: &Run, star: &Star, view: (i32, i32), focus: Option<
     let line = if holds { "MAKE A WISH  T" } else { "MAKE A WISH" };
     let w = text_width(head).max(text_width(line)) + 18;
     let h = 23;
-    // In from above, out the same way.
     let k_in = ease::back(((age - 8) as f32 / 12.0).min(1.0));
     let k_out = ease::inward(((age as f32 - (sf::BANNER as f32 - 12.0)) / 12.0).clamp(0.0, 1.0));
     let drop = (h as f32 + 8.0) * (1.0 - k_in + k_out);
-    // Under the room's top wall, clear of its signs and its way-on mark.
     let x = view.0 + (NATIVE_W - w) / 2;
     let y = view.1 + 27 - drop.round() as i32;
     chrome::panel(cv, (x, y, w, h), Tone::FRAMED.rimmed(chrome::rim_of(']')));
@@ -644,7 +563,6 @@ fn banner(cv: &mut Img, run: &Run, star: &Star, view: (i32, i32), focus: Option<
     cv.text(x + (w - text_width(head)) / 2, y + 3, head, if shine { 'w' } else { '9' });
     cv.text(x + (w - text_width(line)) / 2, y + 12, line, '^');
     if holds {
-        // The key in gold, as every key is.
         let kx = x + (w - text_width(line)) / 2 + text_width("MAKE A WISH  ");
         cv.text(kx, y + 12, "T", '6');
     }
@@ -655,7 +573,6 @@ fn banner(cv: &mut Img, run: &Run, star: &Star, view: (i32, i32), focus: Option<
     }
 }
 
-/// "THE STAR IS YOURS!" over the knight who took it, a moment.
 fn yours(cv: &mut Img, run: &Run, hero: &crate::rules::Hero, view: (i32, i32), since: u64) {
     if !(10..sf::CAUGHT_TICKS + 20).contains(&since) {
         return;

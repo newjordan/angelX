@@ -30,7 +30,6 @@ use super::home::Home;
 use super::*;
 use crate::realm::{Spoil, Spoils};
 
-/// A good in a stockpile or on a rack.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Good {
@@ -78,7 +77,6 @@ impl Good {
         }
     }
 
-    /// The most a stockpile or rack holds.
     pub const fn cap(self) -> u32 {
         match self {
             Good::Ore | Good::Spore => 24,
@@ -89,29 +87,17 @@ impl Good {
     }
 }
 
-/// Ore the miners dig every rent day, once the Upper Workings are his.
 pub const MINE_DIG: u32 = 8;
-/// Spores the kiln's beds grow every rent day, while it burns.
 pub const BED_GROW: u32 = 6;
-/// Bells a holding's towers hang, and what each adds against a band.
 pub const BELLS_HUNG: u32 = 4;
 pub const BELL_CALL: u32 = 2;
-/// Blades the armoury holds, and what each adds against a band (a blade
-/// arms one man: a retainer or a garrison man).
 pub const ARMOURY: u32 = 6;
 pub const BLADE_EDGE: u32 = 1;
-/// Sacks a brew pours into the granary.
 pub const BREW_SACKS: u32 = 3;
-/// Type a notice Wren prints costs, and the most she prints beyond her
-/// three.
 pub const TYPE_PER_NOTICE: u32 = 3;
 pub const NOTICES_PRINTED: usize = 2;
-/// Rent days one settlement runs at most.
 pub const DAYS_MAX: usize = 8;
 
-/// One forge's work: what a batch takes (goods from the stockpiles, a
-/// spoil from the realm's purse), what it makes, and how many batches a
-/// rent day.
 pub struct Recipe {
     pub forge: &'static str,
     pub from: &'static [(Good, u32)],
@@ -120,9 +106,6 @@ pub struct Recipe {
     pub batches: u32,
 }
 
-/// The chain, in the order a shift runs it: ingots first, so the forges
-/// after draw on what the Ore-Forge just made, and the earlier ones eat
-/// first when ingots run short.
 pub const RECIPES: [Recipe; 5] = [
     Recipe {
         forge: "ore-forge",
@@ -174,7 +157,6 @@ impl Recipe {
         s
     }
 
-    /// What a batch is short of, by its word, if anything.
     fn short(&self, goods: &Goods, purse: &Spoils) -> Option<String> {
         self.from
             .iter()
@@ -188,7 +170,6 @@ impl Recipe {
             })
     }
 
-    /// The recipe as a board writes it: `2 INGOT + 1 WAX = 1 BELL`.
     pub fn line(&self) -> String {
         let mut parts: Vec<String> = self
             .from
@@ -209,49 +190,32 @@ impl Recipe {
     }
 }
 
-/// How a place went at the last rent day.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Flow {
-    /// It made (or dug) something.
     Working,
-    /// It made nothing: an input ran short, by its word.
     Starved(String),
-    /// It made nothing: its rack is full.
     Full,
 }
 
-/// A forge's fire, as the room shows it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Burn {
-    /// Not lit.
     Cold,
-    /// Lit since the last rent day: nothing made yet.
     Kindled,
     Working,
-    /// Lit but starved of an input.
     Starved(String),
-    /// Lit, its rack full.
     Full,
-    /// Damped by a knight's hand.
     Banked,
 }
 
-/// The goods the barony keeps, inside `Home` (so a friend's mirror sees
-/// them). Every field defaults, so an older realm save loads as one that
-/// has made nothing yet.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Goods {
     #[serde(default)]
     pub stock: BTreeMap<Good, u32>,
-    /// How each place went at the last rent day: `mine` and the forges, by
-    /// id.
     #[serde(default)]
     pub flow: BTreeMap<String, Flow>,
-    /// Forges whose fire a knight has banked.
     #[serde(default)]
     pub banked: Vec<String>,
-    /// Rent days run, all told.
     #[serde(default)]
     pub days: u32,
 }
@@ -265,7 +229,6 @@ impl Goods {
         self.stock.get(&good).copied().unwrap_or(0)
     }
 
-    /// Put `n` on its stockpile, to the cap. How many went on.
     fn add(&mut self, good: Good, n: u32) -> u32 {
         let had = self.have(good);
         let now = (had + n).min(good.cap());
@@ -275,7 +238,6 @@ impl Goods {
         now - had
     }
 
-    /// Take `n` off, as many as there are. How many came off.
     pub fn take(&mut self, good: Good, n: u32) -> u32 {
         let had = self.have(good);
         let took = n.min(had);
@@ -291,7 +253,6 @@ impl Goods {
         self.banked.iter().any(|f| f == forge)
     }
 
-    /// How a forge's fire stands.
     pub fn burn(&self, b: &Barony, forge: &str) -> Burn {
         if !b.is_lit(forge) {
             return Burn::Cold;
@@ -307,17 +268,14 @@ impl Goods {
         }
     }
 
-    /// The mine-head's stockpile is full: the miners down tools.
     pub fn mine_full(&self) -> bool {
         self.flow.get("mine") == Some(&Flow::Full)
     }
 
-    /// The mine is digging: carts run the track.
     pub fn mine_digging(&self) -> bool {
         self.flow.get("mine") == Some(&Flow::Working)
     }
 
-    /// What the goods look like, for a drawing kept between frames.
     pub fn print(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -336,8 +294,6 @@ impl Goods {
         h.finish()
     }
 
-    /// One shift of a forge: its batches, while the inputs last and the
-    /// rack has room. How it went.
     fn shift(&mut self, r: &Recipe, purse: &mut Spoils) -> Flow {
         let (out, per) = r.makes;
         let mut made = 0;
@@ -362,9 +318,6 @@ impl Goods {
     }
 }
 
-/// The racks empty into the realm: bells hang at the holdings, blades go
-/// to the armoury, a brew is poured into the granary while a whole brew
-/// fits. Type stays on its rack for Wren.
 fn dispatch(g: &mut Goods, h: &mut Holdings) {
     let bells = g.have(Good::Bell).min(BELLS_HUNG.saturating_sub(h.bells));
     h.bells += g.take(Good::Bell, bells);
@@ -376,7 +329,6 @@ fn dispatch(g: &mut Goods, h: &mut Holdings) {
     }
 }
 
-/// One rent day. True if anything changed.
 fn day(home: &mut Home, purse: &mut Spoils) -> bool {
     let Home {
         barony: b,
@@ -384,7 +336,6 @@ fn day(home: &mut Home, purse: &mut Spoils) -> bool {
         holdings: h,
         ..
     } = home;
-    // Nothing is dug, and no forge can be lit, before the workings are his.
     if !b.holds_workings() {
         return false;
     }
@@ -411,8 +362,6 @@ fn day(home: &mut Home, purse: &mut Spoils) -> bool {
     before != (g.clone(), h.bells, h.blades, h.stores)
 }
 
-/// The rent days of a settlement: the party cleared `floors` floors.
-/// True if anything changed.
 pub fn rent_days(home: &mut Home, purse: &mut Spoils, floors: usize) -> bool {
     let mut changed = false;
     for _ in 0..floors.min(DAYS_MAX) {
@@ -421,11 +370,6 @@ pub fn rent_days(home: &mut Home, purse: &mut Spoils, floors: usize) -> bool {
     changed
 }
 
-/// What the bells and blades add against a band that the walls, the
-/// garrison and the retainers fall `short` of: the bells and blades it
-/// takes (the fewest of them, bells spared), or none when they fall short
-/// too. A blade needs a man to carry it, so `blades` is what the men can
-/// arm.
 pub fn cover(short: u32, bells: u32, blades: u32) -> Option<(u32, u32)> {
     let mut best: Option<(u32, u32)> = None;
     for rang in 0..=bells {
@@ -441,7 +385,6 @@ pub fn cover(short: u32, bells: u32, blades: u32) -> Option<(u32, u32)> {
     best
 }
 
-/// A forge's fire banked or stoked by a knight's hand, from the marks.
 pub fn settle(
     realm: &mut super::activity::Realm<'_>,
     marks: &BTreeMap<String, u32>,
@@ -480,8 +423,6 @@ pub fn settle(
 }
 
 impl Run {
-    /// A knight holding E on a lit forge's plate banks its fire, or stokes
-    /// it again.
     pub(super) fn tick_goods(&mut self, inputs: &BTreeMap<u32, Input>) {
         if self.room().kind != RoomKind::Forge {
             return;
@@ -495,12 +436,9 @@ impl Run {
     }
 }
 
-/// A forge-hall's bins (tiles): the stockpile its inputs are drawn from,
-/// west of the furnace, and the rack its output waits on, east of it.
 pub const IN_BIN: (i32, i32, i32, i32) = (3, 3, 3, 2);
 pub const OUT_BIN: (i32, i32, i32, i32) = (18, 3, 3, 2);
 
-/// The bins stand on the floor: walls to walk round.
 pub fn bins(room: &mut Room) {
     for (c, r, w, h) in [IN_BIN, OUT_BIN] {
         for row in r..r + h {

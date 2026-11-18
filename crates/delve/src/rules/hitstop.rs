@@ -6,7 +6,6 @@ use super::*;
 pub struct State {
     pub left: u32,
     pub cooldown: u32,
-    /// The last transport tick held, including the final tick of a hold.
     pub held: bool,
     pub buffered: BTreeMap<u32, Input>,
     #[serde(default, skip_serializing_if = "zero")]
@@ -19,21 +18,14 @@ pub(super) enum Impact {
     Phase,
     EliteKill,
     BossKill,
-    /// The best of a minion's finishers (`gore`); off unless the knob is set.
     Finisher,
-    /// A knight's blow that lands solid, and one that kills (`melee`): both
-    /// wait on the cooldown, so a crowded room is never held still.
     Melee,
     MeleeKill,
 }
 
-/// What a hold does with the caller's map.
 pub(super) enum Resume {
-    /// Still frozen; the caller steps nothing.
     Wait,
-    /// The caller's map, unchanged.
     Same,
-    /// Presses buffered through the hold, laid over the latest.
     Fresh(BTreeMap<u32, Input>),
 }
 
@@ -83,8 +75,6 @@ impl State {
         true
     }
 
-    /// Latest held controls, with valid action presses during the hold
-    /// coalesced like commands that arrive together on the engine wire.
     pub(super) fn inputs(
         &mut self,
         tune: &tune::Tune,
@@ -92,7 +82,6 @@ impl State {
         inputs: &BTreeMap<u32, Input>,
     ) -> Resume {
         if tune.hitstop == 0 {
-            // Disabling a running hold releases its buffered presses too.
             self.left = 0;
             self.cooldown = 0;
             self.held = false;
@@ -132,8 +121,6 @@ impl State {
     }
 }
 
-/// Large bodies retain their authored footprint: party/depth health
-/// scaling never turns a small monster into an elite for hit-stop.
 pub(super) fn elite(enemy: &Enemy) -> bool {
     !matches!(enemy.kind, EnemyKind::Dummy | EnemyKind::Ward) && enemy.radius() >= 1.0
 }
@@ -151,7 +138,6 @@ impl Run {
 
     pub(super) fn finish_hitstop(&mut self) {
         if self.hitstop.finish(&self.tune) {
-            // Existing hit flashes, impact sparks and shake hold with the frame.
             self.shake = self.shake.max(feel::SHAKE_SHOT);
         }
     }

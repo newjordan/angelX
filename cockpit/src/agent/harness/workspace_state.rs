@@ -36,8 +36,6 @@ const PINNED_GIT_CONFIG: &[&str] = &[
     "core.hooksPath=/dev/null",
 ];
 
-/// Incremental SHA-256 for bounded-memory workspace evidence. Keep framing at
-/// the call sites while sharing the platform implementation with one-shot hashes.
 #[derive(Clone)]
 struct StreamingSha256(ring::digest::Context);
 
@@ -64,9 +62,6 @@ fn hex_digest(digest: [u8; 32]) -> String {
     text
 }
 
-/// Hash a reader in constant memory with platform-optimized SHA-256. Callers
-/// remain responsible for framing and any before/after identity checks around
-/// a mutable file.
 pub(crate) fn sha256_reader_hex(reader: &mut impl Read) -> std::io::Result<String> {
     let mut hasher = ring::digest::Context::new(&ring::digest::SHA256);
     let mut buffer = [0_u8; HASH_BUFFER_BYTES];
@@ -124,9 +119,6 @@ fn git_output(root: &Path, args: &[&str], deadline: Instant) -> Option<Vec<u8>> 
     )
 }
 
-/// Cheap changed-path coverage for typed Rust checks. No file-content walk or
-/// Cargo invocation. Missing Git identity, hidden index entries, malformed or
-/// capped output remains unknown instead of certifying a clean worktree.
 pub(crate) fn changed_rust_paths_for_verification(root: &Path) -> Option<Vec<String>> {
     let deadline = Instant::now() + Duration::from_secs(2);
     let scopes = ["*.rs", ":(exclude)off-limits/**"];
@@ -170,7 +162,6 @@ pub(crate) fn changed_rust_paths_for_verification(root: &Path) -> Option<Vec<Str
     {
         return None;
     }
-    // `-v` lowercases assume-unchanged entries; S denotes skip-worktree.
     for row in flags.split(|b| *b == 0).filter(|row| !row.is_empty()) {
         if row.len() < 3 || row[0] != b'H' || row[1] != b' ' {
             return None;
@@ -190,10 +181,6 @@ pub(crate) fn changed_rust_paths_for_verification(root: &Path) -> Option<Vec<Str
     Some(paths.into_iter().collect())
 }
 
-/// Files matching `globs` that differ from `HEAD` or are new and not ignored,
-/// relative to `root`, whatever wrote them: a file tool, a shell here-doc,
-/// `sed -i`, a generator. `None` when this is not a Git checkout, Git does not
-/// answer in time, or more than 1024 paths changed.
 pub(crate) fn changed_paths_matching(root: &Path, globs: &[&str]) -> Option<Vec<String>> {
     let deadline = Instant::now() + Duration::from_secs(2);
     let mut scope = globs.to_vec();
@@ -230,9 +217,6 @@ pub(crate) fn changed_paths_matching(root: &Path, globs: &[&str]) -> Option<Vec<
     Some(paths.into_iter().collect())
 }
 
-/// Tracked files that differ from `HEAD` (edited, staged or deleted), relative
-/// to `root`. `None` when this is not a Git checkout or Git does not answer in
-/// time; untracked files are not included.
 pub(crate) fn changed_tracked_paths(root: &Path) -> Option<Vec<String>> {
     let deadline = Instant::now() + Duration::from_secs(2);
     let changed = git_output(
@@ -258,9 +242,6 @@ pub(crate) fn changed_tracked_paths(root: &Path) -> Option<Vec<String>> {
         .collect()
 }
 
-// Capture-enabled recovery owns these exact isolated roots. A process-global
-// root map deliberately covers native metadata probes on child tool threads;
-// parent workspaces and unconfigured turns do not inherit the restriction.
 static CONFINED_RECOVERY_GIT: OnceLock<
     std::sync::Mutex<std::collections::BTreeMap<PathBuf, usize>>,
 > = OnceLock::new();
@@ -321,9 +302,6 @@ pub(crate) fn pinned_git_command(root: &Path, args: &[&str]) -> Command {
     configure_pinned_git(command, root, args)
 }
 
-/// Only for the recovery stdout forwarder, which places this entire command
-/// inside its own mandatory sandbox. Avoid nesting helpers: the outer helper
-/// intentionally removes its policy environment before executing the payload.
 pub(super) fn pinned_git_for_confined_forwarder(root: &Path, args: &[&str]) -> Command {
     let executable = pinned_git_path().unwrap_or_else(|| Path::new("git-unavailable"));
     configure_pinned_git(Command::new(executable), root, args)
@@ -334,9 +312,6 @@ fn configure_pinned_git(mut command: Command, root: &Path, args: &[&str]) -> Com
         .args(PINNED_GIT_CONFIG)
         .args(args)
         .current_dir(root)
-        // These variables can redirect Git away from the workspace/index being
-        // attested. Credential/pager configuration is irrelevant to local
-        // evidence commands, so strip the entire redirect/config surface.
         .env_remove("GIT_DIR")
         .env_remove("GIT_WORK_TREE")
         .env_remove("GIT_INDEX_FILE")
@@ -376,7 +351,6 @@ struct StreamDigest {
 struct GitStreamEvidence {
     status_code: i32,
     stdout: StreamDigest,
-    // Drained and hashed in full for capture diagnostics, never workspace identity.
     #[cfg_attr(not(test), allow(dead_code))]
     stderr: StreamDigest,
 }
@@ -407,9 +381,6 @@ fn hash_reader(mut reader: impl Read) -> std::io::Result<StreamDigest> {
     })
 }
 
-/// Drain a piped child with constant memory. Stdout is observed in chunks and
-/// hashed in full. Stderr is concurrently drained and hashed in full, including
-/// outputs larger than the former cap, so neither pipe can stall the child.
 fn stream_child_output(
     mut child: crate::agent::sandbox::process_owner::Child,
     mut observe_stdout: impl FnMut(&[u8]) -> bool,
@@ -421,9 +392,6 @@ fn stream_child_output(
     let pid = child.id();
     let mut stdout = child.stdout.take()?;
     let stderr = child.stderr.take()?;
-    // A descendant may leave the private group and retain only stderr after
-    // stdout reaches EOF. Its full digest is available only if this pipe also
-    // closes within the caller's original budget; joining must not renew it.
     let stderr = crate::platform::workspace_store::DeadlinePipe::new(stderr, deadline);
     let stderr_thread = match std::thread::Builder::new()
         .name("workspace-git-stderr".to_string())
@@ -451,8 +419,6 @@ fn stream_child_output(
             revents: 0,
         };
         let wait_ms = remaining.min(Duration::from_millis(50)).as_millis() as i32;
-        // SAFETY: descriptor points to one live stdout fd for this call; poll
-        // does not retain the pointer after returning.
         let ready = unsafe { libc::poll(&mut descriptor, 1, wait_ms) };
         if ready == 0 {
             continue;
@@ -494,7 +460,6 @@ fn stream_child_output(
     let completed = stdout_ok && status.is_some();
     if !completed {
         if isolated_group {
-            // SAFETY: Git is spawned as the leader of this private group.
             unsafe {
                 libc::killpg(pid as libc::pid_t, libc::SIGKILL);
             }
@@ -504,9 +469,6 @@ fn stream_child_output(
     drop(stdout);
     let status = status.or_else(|| child.wait().ok());
     if isolated_group {
-        // A successful Git parent must not leave a descendant retaining
-        // stderr and wedging the reader join.
-        // SAFETY: this is the private group established at spawn.
         unsafe {
             libc::killpg(pid as libc::pid_t, libc::SIGKILL);
         }
@@ -525,8 +487,6 @@ fn stream_child_output(
     })
 }
 
-/// Stream one pinned Git command with constant memory. The caller decides
-/// which exit statuses are expected; every status is retained in the evidence.
 fn git_stream_output(
     root: &Path,
     args: &[&str],
@@ -583,10 +543,6 @@ fn hash_workspace_path(root: &Path, relative: &Path, hasher: &mut DefaultHasher)
     };
     let mut buffer = vec![0_u8; HASH_BUFFER_BYTES];
     if metadata.len() > MAX_EXACT_FINGERPRINT_BYTES {
-        // The live fingerprint is a change detector, not the evaluator's audit
-        // digest. Sampling both ends plus size/mtime prevents a stray model,
-        // dataset, or build artifact from adding multi-gigabyte reads to every
-        // turn while still noticing ordinary rewrites of a large file.
         if let Ok(read) = file.read(&mut buffer) {
             buffer[..read].hash(hasher);
         }
@@ -620,23 +576,10 @@ fn hash_workspace_path(root: &Path, relative: &Path, hasher: &mut DefaultHasher)
     }
 }
 
-/// Hash the actual changed tracked and untracked workspace contents.
-///
-/// The fingerprint is intentionally Git-backed: it avoids walking dependencies
-/// and build products while still detecting opaque shell edits, staged changes,
-/// deletions, renames, and untracked source files. `None` means the workspace is
-/// not a usable Git checkout; direct mutation-tool tracking remains the fallback.
 pub(crate) fn workspace_fingerprint(root: &Path) -> Option<u64> {
-    // A desktop/terminal launcher often opens at $HOME. A home directory can be
-    // a dotfiles Git checkout whose untracked set includes caches, model weights,
-    // and every nested project. Fingerprinting that broad root is optional
-    // policy evidence, so fail open instead of delaying the actual model call.
     if workspace_is_home(root, std::env::var_os("HOME").as_deref()) {
         return None;
     }
-    // All four metadata probes share one wall-clock budget. A repository that
-    // wedges late in the sequence cannot multiply the interactive stall by the
-    // number of Git commands; failure simply disables this optional signal.
     let deadline = Instant::now() + Duration::from_secs(5);
     let [
         status_args,
@@ -644,9 +587,6 @@ pub(crate) fn workspace_fingerprint(root: &Path) -> Option<u64> {
         tracked_paths_args,
         untracked_args,
     ] = fingerprint_probe_args();
-    // The four probes are independent read-only Git views of one tree, so run
-    // them concurrently: turn start/end latency pays the slowest probe instead
-    // of their sum. Any miss still fails open exactly like the sequential form.
     let (status, tracked, tracked_paths, untracked) = std::thread::scope(|scope| {
         let status = scope.spawn(|| git_output(root, &status_args, deadline));
         let tracked = scope.spawn(|| git_output(root, &tracked_args, deadline));
@@ -669,10 +609,6 @@ pub(crate) fn workspace_fingerprint(root: &Path) -> Option<u64> {
     ))
 }
 
-/// One tool result's workspace fingerprint, taken when a fact first asks for
-/// it and shared by the rest: the red run, the verifier attempt, the untested
-/// edit and the green run it records all describe the same unchanged tree, and
-/// a result that records none of them takes no snapshot.
 pub(crate) struct CallFingerprint<'a> {
     root: &'a Path,
     taken: Option<Option<u64>>,
@@ -699,9 +635,6 @@ fn fingerprint_probe_args() -> [Vec<&'static str>; 4] {
         "--",
     ];
     status_args.extend(ACTIVE_WORKSPACE_PATHSPECS);
-    // Enumerate every tracked path rather than trusting status/diff to reveal
-    // it: assume-unchanged, skip-worktree, clean filters, and diff drivers can
-    // deliberately hide real worktree bytes from Git's presentation layer.
     let mut tracked_args = vec!["ls-files", "--stage", "-z", "--"];
     tracked_args.extend(ACTIVE_WORKSPACE_PATHSPECS);
     let mut tracked_paths_args = vec!["ls-files", "-z", "--"];
@@ -746,9 +679,6 @@ fn append_evidence_blob(canonical: &mut StreamingSha256, label: &[u8], bytes: &[
 }
 
 fn append_git_stream(canonical: &mut StreamingSha256, label: &[u8], evidence: &GitStreamEvidence) {
-    // Stderr describes execution (including sandbox scan counts over ignored
-    // scratch), not Git state. Keep draining it, but bind only status and exact
-    // stdout here. Failed probes still fail closed at their callers.
     let mut framed = [0_u8; 44];
     framed[..4].copy_from_slice(&evidence.status_code.to_be_bytes());
     framed[4..12].copy_from_slice(&evidence.stdout.bytes.to_be_bytes());
@@ -810,8 +740,6 @@ fn append_symlink_target(canonical: &mut StreamingSha256, target: &Path) -> Opti
     }
     #[cfg(not(any(unix, windows)))]
     {
-        // Unknown platforms have no stable raw OsStr representation. Fail
-        // closed instead of allowing lossy decoding to collapse two targets.
         append_evidence_blob(canonical, b"symlink-target", target.to_str()?.as_bytes());
     }
     Some(())
@@ -830,9 +758,6 @@ fn append_untracked_path(
         let target = std::fs::read_link(path).ok()?;
         append_symlink_target(canonical, &target)?;
     } else if metadata.is_file() {
-        // Untracked bytes have no Git diff to represent them. Stream exact
-        // content with the same constant-memory SHA sink; otherwise a
-        // same-length middle rewrite could preserve the acceptance identity.
         if metadata.len() > MAX_EXACT_FINGERPRINT_BYTES {
             let exact = hash_reader(std::fs::File::open(&path).ok()?).ok()?;
             if exact.bytes != metadata.len() {
@@ -880,10 +805,6 @@ fn observe_tracked_index_records(pending: &mut Vec<u8>, chunk: &[u8]) -> bool {
                 return false;
             }
             let tag = pending[0];
-            // `git ls-files -v` lowercases every tag carrying the
-            // assume-unchanged bit. `S` is skip-worktree; both flags become
-            // lowercase `s`. Either hides tracked bytes from status/diff, so
-            // exact evidence and verifier reuse must fail closed.
             if tag.is_ascii_lowercase() || tag.eq_ignore_ascii_case(&b'S') {
                 return false;
             }
@@ -931,8 +852,6 @@ fn append_tracked_stage_record(
         || object.iter().any(|byte| !byte.is_ascii_hexdigit())
         || stage != b"0"
     {
-        // Gitlinks (160000), conflicted stages, and unknown index modes cannot
-        // honestly attest the bytes of one ordinary workspace tree.
         return None;
     }
     let path_bytes = &record[tab + 1..];
@@ -962,9 +881,6 @@ fn append_tracked_stage_record(
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
-        // Permission/type bits are semantic workspace state. Inode and times
-        // are used below only as a race guard: hashing them would make a
-        // touch or byte-for-byte revert invalidate otherwise identical proof.
         append_evidence_blob(
             canonical,
             b"tracked-mode",
@@ -1034,9 +950,6 @@ fn observe_tracked_stage_records(
     true
 }
 
-/// Diagnostic-only path identities. Use enumeration and raw file reads, never
-/// status/diff, so collecting names does not invoke clean/smudge filters. These
-/// observations explain a failed evidence comparison; they do not authorize it.
 pub(crate) fn workspace_evidence_paths(
     root: &Path,
 ) -> Option<std::collections::BTreeMap<PathBuf, String>> {
@@ -1069,7 +982,6 @@ pub(crate) fn workspace_evidence_paths(
                     if append_tracked_stage_record(&mut digest, root, &pending).is_none() {
                         return false;
                     }
-                    // Include staged object identity as well as worktree bytes.
                     append_evidence_blob(&mut digest, b"index-record", &pending);
                     &pending[tab + 1..]
                 } else {
@@ -1095,15 +1007,6 @@ pub(crate) fn workspace_evidence_paths(
     Some(paths)
 }
 
-/// Deterministic cryptographic identity for the active Git workspace state.
-///
-/// Unlike [`workspace_fingerprint`], this is an audit artifact rather than a
-/// cheap live-change detector. It hashes porcelain status, the binary tracked
-/// `HEAD` identity, binary tracked diff (or the staged diff before a first
-/// commit), and the exact bytes/targets of sorted untracked paths. Ignored
-/// dependencies and build products remain excluded by Git policy. The reserved
-/// root `.angel-experiment-tmp` is excluded even if force-added. Subprocess
-/// diagnostics (including sandbox receipts on stderr) are not workspace state.
 pub(crate) fn workspace_evidence_sha256(root: &Path) -> Option<String> {
     if workspace_is_home(root, std::env::var_os("HOME").as_deref()) {
         return None;
@@ -1118,9 +1021,6 @@ pub(crate) fn workspace_evidence_sha256(root: &Path) -> Option<String> {
         append_git_stream(&mut canonical, b"head", &head);
         false
     } else {
-        // A missing commit is valid only when HEAD is still a well-formed
-        // symbolic ref. Any other rev-parse failure is corrupt/unavailable
-        // evidence and fails closed instead of masquerading as an unborn repo.
         let symbolic = git_stream_output(root, &["symbolic-ref", "-q", "HEAD"], |_| true)?;
         if !symbolic.success() {
             return None;
@@ -1169,15 +1069,8 @@ pub(crate) fn workspace_evidence_sha256(root: &Path) -> Option<String> {
     if !tracked_diff.success() {
         return None;
     }
-    // This fixed-size frame covers every byte of arbitrarily large Git output;
-    // unlike the former head/tail sampling, a same-length middle-only edit must
-    // change the acceptance identity without materializing the diff.
     append_git_stream(&mut canonical, b"tracked-diff", &tracked_diff);
 
-    // Git presentation diffs can be suppressed by clean filters, attributes,
-    // or external drivers. Bind the actual bytes, kind, mode, and raw symlink
-    // target of every ordinary tracked path instead of trusting that semantic
-    // diff as the sole worktree identity. Gitlinks/conflicted stages fail closed.
     let mut pending_tracked = Vec::new();
     append_evidence_blob(&mut canonical, b"tracked-worktree-stream", b"v1");
     let mut tracked_args = vec!["ls-files", "--stage", "-z", "--"];

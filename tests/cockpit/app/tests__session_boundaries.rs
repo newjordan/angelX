@@ -74,8 +74,6 @@ fn session_boundaries_preserve_unsaved_history_and_retry_after_failure() {
             ChatMsg::assistant("kept post-tool answer"),
         ]);
         let exact_history = serde_json::to_value(&app.history).unwrap();
-        // A real owned-path open failure exercises the shared boundary contract
-        // without process-global resource limits or any model/tool execution.
         let blocked_temp = old_path.with_extension(format!("json.{}.tmp", std::process::id()));
         std::fs::create_dir(&blocked_temp).unwrap();
         let error = app.session.checkpoint(&app.history).unwrap_err();
@@ -115,14 +113,10 @@ fn session_boundaries_preserve_unsaved_history_and_retry_after_failure() {
             "{case}: actionable failure: {message}"
         );
 
-        // Repairing the fixture permits the same normal command. The old
-        // conversation must be durable before its in-memory narrative is reset.
         std::fs::remove_dir(&blocked_temp).unwrap();
         app.input = command;
         app.submit();
         let durable = session::load_for(&old_id, &alpha).unwrap();
-        // Loading marks a conversation without a book generation as legacy,
-        // in memory only; the saved messages must match exactly.
         let mut durable = serde_json::to_value(durable).unwrap();
         for message in durable.as_array_mut().unwrap() {
             message.as_object_mut().unwrap().remove("book_memory");

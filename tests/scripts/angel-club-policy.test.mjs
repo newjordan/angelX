@@ -203,7 +203,6 @@ print(json.dumps({"grok": bool(os.environ.get("XAI_API_KEY")),
     assert.equal(result.status, 0, result.stderr)
     return JSON.parse(result.stdout)
   }
-  // Generic home env files are other tools' shell code: never read by default.
   assert.deepEqual(launch(), { grok: false, openai: false, marker: null })
   const hostEnv = { ANGEL_HOST_ENV: '1' }
   assert.deepEqual(launch([], hostEnv), { grok: true, openai: true, marker: 'system' })
@@ -212,7 +211,6 @@ print(json.dumps({"grok": bool(os.environ.get("XAI_API_KEY")),
     openai: false,
     marker: 'system',
   })
-  // The opt-in may live in .angel.env, whose values still override host defaults.
   writeFileSync(join(source, '.angel.env'), 'ANGEL_HOST_ENV=1\nANGEL_TEST_CONFIG=project\n')
   assert.deepEqual(launch(), { grok: true, openai: true, marker: 'project' })
   assert.deepEqual(launch(['--build-info', '--json']), { grok: false, openai: false, marker: null })
@@ -258,7 +256,6 @@ print(json.dumps({'argv': sys.argv[1:], 'cwd': os.getcwd(), 'marker': os.environ
     assert.ok(!existsSync(join(home, 'env-effect')))
     assert.ok(!existsSync(join(home, '.angelX')), 'preflight must precede launch logging')
   }
-  // JS cannot represent invalid argv bytes; Python supplies them directly.
   for (const flag of ['--draft', '--prompt', '--resume']) {
     const result = spawnSync('python3', ['-c', `import subprocess,sys
 r=subprocess.run([b'bash',sys.argv[1].encode(),sys.argv[2].encode(),b'\\xff'],capture_output=True)
@@ -312,8 +309,6 @@ for (const replaced of [false, true]) {
       '#!/usr/bin/env python3\nimport os, pathlib\npathlib.Path(os.environ["FIXTURE_EXECUTED"]).write_text("selected")\nprint("selected image")\n'
     writeFileSync(selected, image, { mode: 0o755 })
     writeFileSync(replacement, image.replaceAll('selected', 'replacement'), { mode: 0o755 })
-    // Replace a regular source at the actual link boundary, after the
-    // launcher's first SHA check. Only private fixture files are involved.
     if (replaced) {
       writeFileSync(
         join(tools, 'ln'),
@@ -351,7 +346,6 @@ os.execv('/usr/bin/ln', ['ln', *sys.argv[1:]])
       assert.equal(result.stdout, 'selected image\n')
       assert.equal(existsSync(marker), true)
     }
-    // A selected, hashed image keeps the release layout (bin/angelX: DEFAULT_FAST=0).
     assert.deepEqual(readdirSync(join(source, 'cockpit/target/release/run')), [])
   })
 }
@@ -369,7 +363,6 @@ function pinnedLaunchFixture(t, { fallback = false } = {}) {
   const selected = join(root, 'selected')
   const image = '#!/bin/sh\nprintf "pinned image\\n"\n'
   writeFileSync(selected, image, { mode: 0o755 })
-  // Observe line execution without replacing any reads or hash implementation.
   writeFileSync(join(tools, 'python3'), `#!/usr/bin/python3
 import json, os, sys
 if len(sys.argv) > 1 and sys.argv[1] == '-':
@@ -468,7 +461,6 @@ for (const kind of ['missing-digest', 'missing-file', 'nonexecutable', 'director
 for (const kind of ['missing', 'nonexecutable', 'fifo']) {
   test(`pinned launcher rejects a ${kind} final image and cleans up`, (t) => {
     const f = pinnedLaunchFixture(t)
-    // Only private fixture paths; simulate a failed materialization boundary.
     writeFileSync(join(f.root, 'tools/ln'), `#!/bin/sh
 for target do :; done
 rm -f "$target"

@@ -77,8 +77,6 @@ fn rows() -> Vec<Value> {
                 .join("\n");
             source.push('\n');
         } else if name == "transport-retry" {
-            // The existing spawn count log now includes prompt entries. Crash
-            // exactly the first owned process before it returns a usage receipt.
             source = source.replace("[ \"${ANGEL_FAKE_GROK_CRASH_ONCE:-0}\" = 1 ]", "[ 1 = 1 ]");
         }
         std::fs::write(&script, source).unwrap();
@@ -121,7 +119,7 @@ fn rows() -> Vec<Value> {
             );
             drop(club);
             std::fs::remove_dir_all(auth.parent().unwrap()).unwrap();
-            continue; // This setup control produces no accounting receipt to export.
+            continue;
         }
         let report = report.unwrap();
         assert_eq!(report.attempts, expected_attempts as u64, "{name}");
@@ -171,7 +169,7 @@ fn rows() -> Vec<Value> {
             "primary_contract":"https://agentclientprotocol.com/rfds/end-turn-token-usage",
             "producer_path":"owned JSON-RPC subprocess -> GrokAcpConnection::prompt -> parse_grok_acp_usage -> AccountingAttempt -> task_usage_delta -> AccountingReport",
             "synthetic_terminal_usage":terminal_usage,"prompt_dispatches":dispatches,"expected_normalized":expected_normalized,"usage":usage}));
-        drop(club); // Settle only the retained owned process before removing its fixture.
+        drop(club);
         std::fs::remove_dir_all(auth.parent().unwrap()).unwrap();
     }
     rows

@@ -22,7 +22,6 @@ use angel_muster::rules::{SNAPSHOT_HZ, SUB};
 use std::thread;
 use std::time::{Duration, Instant};
 
-/// Bots join this far apart, as a room of people would, faster.
 const JOIN_GAP: Duration = Duration::from_millis(10);
 
 struct Args {
@@ -89,7 +88,6 @@ fn main() {
             name: format!("Bot {i}"),
             seed: u64::from(i) * 7919 + 17,
             wander: !a.stand,
-            // The slow ones are spread through the crowd, not bunched.
             slow: a.slow > 0 && i % (a.n / a.slow).max(1) == 0 && i / (a.n / a.slow).max(1) < a.slow,
             fps: if a.draw { 60 } else { 30 },
             warmup: measure_from.saturating_duration_since(Instant::now()),

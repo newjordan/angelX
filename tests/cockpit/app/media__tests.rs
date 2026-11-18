@@ -192,11 +192,9 @@ fn label_sigil_and_target_cover_every_variant() {
     assert_eq!((link.label(), link.sigil()), ("site", "link"));
     assert_eq!((res.label(), res.sigil()), ("dl", "res"));
     assert_eq!((graph_url.label(), graph_url.sigil()), ("viz", "graph"));
-    // target(): Link/Resource pass the url through; a non-empty Graph keeps its url.
     assert_eq!(link.target(), "https://ex.com");
     assert_eq!(res.target(), "/tmp/file.bin");
     assert_eq!(graph_url.target(), "https://graph.host/g");
-    // local_path(): a Resource with an absolute path resolves; a Link never does.
     assert_eq!(res.local_path().unwrap(), PathBuf::from("/tmp/file.bin"));
     assert!(link.local_path().is_none());
     assert!(graph_url.local_path().is_none());
@@ -210,13 +208,11 @@ fn format_bytes_scales_through_mb_and_gb() {
     assert_eq!(format_bytes(1024), "1.0 KB");
     assert_eq!(format_bytes(1024 * 1024), "1.0 MB");
     assert_eq!(format_bytes(1024 * 1024 * 1024), "1.0 GB");
-    // Beyond a GB stays in GB (the unit index is capped).
     assert_eq!(format_bytes(5 * 1024 * 1024 * 1024), "5.0 GB");
 }
 
 #[test]
 fn short_remote_target_is_returned_whole() {
-    // <= 24 chars → the full url, borrowed (the early-return branch).
     let link = Media::Link {
         label: "x".into(),
         url: "https://a.co".into(),
@@ -228,8 +224,6 @@ fn short_remote_target_is_returned_whole() {
 
 #[test]
 fn missing_local_artifact_summarizes_as_missing() {
-    // An absolute, non-existent, non-PNG path: png fast-path misses, metadata
-    // fails → the "missing" sentinel.
     let res = Media::Resource {
         label: "gone".into(),
         url: "/definitely/not/here/artifact.bin".into(),

@@ -49,7 +49,6 @@ pub use ossuary::COFFER as OSSUARY_COFFER;
 pub use kitchen::STOVE as KITCHEN_STOVE;
 pub use loft::under as loft_under;
 
-/// The six nooks a pack keeps, as room kinds.
 pub const KINDS: [RoomKind; 6] = [
     RoomKind::Kitchen,
     RoomKind::Reading,
@@ -60,13 +59,11 @@ pub const KINDS: [RoomKind; 6] = [
 ];
 
 impl RoomKind {
-    /// A nook below ground.
     pub fn nook(self) -> bool {
         KINDS.contains(&self) || self == RoomKind::GnomeParty
     }
 }
 
-/// The two nooks each pack keeps; a floor takes one by its depth.
 pub fn of_pack(pack: Pack) -> [RoomKind; 2] {
     match pack {
         Pack::Crypt => [RoomKind::Ossuary, RoomKind::Loft],
@@ -79,14 +76,11 @@ pub fn of_pack(pack: Pack) -> [RoomKind; 2] {
     }
 }
 
-/// The nook a floor of `pack` at `depth` keeps.
 pub fn for_floor(pack: Pack, depth: u32) -> RoomKind {
     of_pack(pack)[(depth % 2) as usize]
 }
 
-/// How many monsters one nook may raise, all told.
 pub const RAISE_CAP: u8 = 4;
-/// How near (arena units) a knight stands to use a pot, lectern, jar.
 pub const REACH: f32 = 1.8;
 
 pub(super) fn fill(room: &mut Room, (c, r, w, h): (i32, i32, i32, i32), tile: Tile) {
@@ -97,7 +91,6 @@ pub(super) fn fill(room: &mut Room, (c, r, w, h): (i32, i32, i32, i32), tile: Ti
     }
 }
 
-/// A nook's room: walls, a plain floor, its furniture, one doorway.
 pub fn room(kind: RoomKind, cell: (i32, i32), door: usize) -> Room {
     let mut room = Room::solid_rock(cell);
     room.kind = kind;
@@ -118,8 +111,6 @@ pub fn room(kind: RoomKind, cell: (i32, i32), door: usize) -> Room {
     room
 }
 
-/// Hang the floor's nook off its last fight room with a free cell beside
-/// it, touching nothing else if it can. No dice; true if one was added.
 pub fn add_nook(floor: &mut Floor) -> bool {
     if floor.depth == 0
         || floor.depth >= DEEPEST
@@ -130,9 +121,6 @@ pub fn add_nook(floor: &mut Floor) -> bool {
     }
     let kind = for_floor(floor.pack, floor.depth);
     let taken = |c: (i32, i32)| floor.rooms.iter().any(|r| r.cell == c);
-    // A fight room first, else a passage, the treasure, the entrance; the
-    // last such room first (the deepest, as the floor was laid out). The
-    // bellows' forge fills the north wall, so their doorway is never north.
     let hosts: [&[RoomKind]; 4] = [
         &[RoomKind::Fight],
         &[RoomKind::Hall],
@@ -172,50 +160,33 @@ pub fn add_nook(floor: &mut Floor) -> bool {
     false
 }
 
-/// The floor's nook at play: which room, what is under way there, who
-/// has done what. One struct for all six; the fields a nook does not use
-/// stay at their defaults.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Nook {
     pub room: usize,
-    /// Ticks since the party first stepped in.
     pub t: u32,
     pub done: bool,
-    /// Knights holding E last tick (a bit each): a press, never a hold.
     pub held: u8,
-    /// What each knight has done: scoops, pages, pumps, falls, brews, rings.
     pub score: BTreeMap<u32, u16>,
-    /// Monsters raised so far.
     pub raised: u8,
-    /// Kitchen: scoops left, ticks into the cook's beat, which beat, and
-    /// who has been caught this look.
     pub pot: u8,
     pub cook: u32,
     pub beat: u8,
     pub caught: u8,
-    /// Quiet Room: books opened, and which are mimics.
     pub opened: u16,
     pub mimics: u16,
-    /// Bellows: the heat, and the bellows last pumped (1 or 2).
     pub heat: u32,
     pub last: u8,
-    /// Dominoes: how many have fallen, whether the line is falling, ticks
-    /// to the next, ticks before a stalled line stands again.
     pub fallen: u8,
     pub running: bool,
     pub next: u32,
     pub stalled: u32,
-    /// Still: each knight's first jar (1 to 3), and brews brewed.
     pub jars: BTreeMap<u32, u8>,
     pub brews: BTreeMap<u32, u8>,
-    /// Loft: the round, ticks into its showing, bells rung right so far,
-    /// and the bell last lit with ticks left.
     pub round: u8,
     pub shown: u32,
     pub pos: u8,
     pub lit: Option<(u8, u32)>,
-    /// The gnome's garden: the party and its guests.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub garden: Option<gnome::Garden>,
 }
@@ -249,7 +220,6 @@ impl Nook {
 }
 
 impl Run {
-    /// A new floor: find its nook and set it up.
     pub(super) fn ready_nook(&mut self) {
         self.nook = self
             .dungeon
@@ -267,7 +237,6 @@ impl Run {
             });
     }
 
-    /// The knights who can play: standing, not stone, not in the privy.
     pub(super) fn nook_players(&self) -> Vec<u32> {
         self.players
             .iter()
@@ -276,14 +245,12 @@ impl Run {
             .collect()
     }
 
-    /// Knight `id` stands within reach of tile point `at`.
     pub(super) fn nook_near(&self, id: u32, at: (f32, f32), reach: f32) -> bool {
         self.players
             .get(&id)
             .is_some_and(|h| (h.x - at.0 * TILE_UNITS).hypot(h.y - at.1 * TILE_UNITS) < reach)
     }
 
-    /// Raise a monster at tile point `at`, while the nook has any to raise.
     pub(super) fn nook_raise(&mut self, nook: &mut Nook, kind: EnemyKind, at: (f32, f32)) {
         if nook.raised >= RAISE_CAP {
             return;
@@ -292,7 +259,6 @@ impl Run {
         self.spawn_at(kind, at.0 * TILE_UNITS, at.1 * TILE_UNITS);
     }
 
-    /// The knight who did most is crowned, when friends played too.
     pub(super) fn nook_crown(&mut self, nook: &Nook) -> Option<u32> {
         let best = nook.score.iter().max_by_key(|&(&id, &n)| (n, std::cmp::Reverse(id))).map(|(&id, _)| id)?;
         if self.party_len() > 1 {
@@ -320,8 +286,6 @@ impl Run {
                 RoomKind::Kitchen => self.tick_kitchen(&mut nook, inputs, pressed),
                 RoomKind::Reading => self.tick_reading(&mut nook, pressed),
                 RoomKind::Bellows => self.tick_bellows(&mut nook, pressed),
-                // The Bone Dominoes may run as a hot-loaded module; the native tick
-                // answers when no brain is installed or its answer does not pass.
                 RoomKind::Ossuary => {
                     if !self.tick_ossuary_brain(&mut nook, pressed) {
                         self.tick_ossuary(&mut nook, pressed);
@@ -337,7 +301,6 @@ impl Run {
     }
 }
 
-/// Whether knight `id`'s bit is in `bits`.
 pub(super) fn has(bits: u8, id: u32) -> bool {
     bits & 1 << (id & 7) != 0
 }

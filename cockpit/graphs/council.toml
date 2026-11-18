@@ -1,5 +1,3 @@
-# Fan-out/fan-in council: three specialist seats read the same question in
-# parallel, a chancellor folds their verdicts into one decision memo.
 name = "council"
 description = "Parallel skeptic/architect/security council on one question, folded into a decision memo."
 

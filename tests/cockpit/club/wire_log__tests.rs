@@ -7,7 +7,6 @@ fn last_record(dir: &std::path::Path) -> Value {
     serde_json::from_str(text.lines().last().expect("one line")).expect("JSON record")
 }
 
-/// The status heartbeat prints every 60 s unless the operator sets a cadence.
 #[test]
 fn heartbeat_cadence_is_a_minute_unless_set() {
     let _guard = env_lock();
@@ -25,9 +24,6 @@ fn heartbeat_cadence_is_a_minute_unless_set() {
     }
 }
 
-/// One record per call carries the wire counters, the
-/// reasoning summary and every dispatched call with its arguments as the model
-/// sent them; arguments that were not JSON are noted.
 #[test]
 fn a_call_record_keeps_counters_and_raw_arguments() {
     let _guard = env_lock();
@@ -97,7 +93,6 @@ fn a_failed_call_is_classified_from_its_error() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The heartbeat names the phase a long call is in; no phase has a bound.
 #[test]
 fn the_heartbeat_names_the_phase() {
     let wire = WireCall::new("t", "m", "chat");

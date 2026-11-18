@@ -16,13 +16,10 @@ use super::super::fire;
 use super::{Look, all as keep_all, px_rect, sky};
 use crate::rules::deep::{Culture, Errand, Town, Village, village as v};
 
-/// The hope at which house `i` lights its windows.
 fn lit_at(i: usize) -> u8 {
     [2, 3, 4, 5, 3, 6, 7, 8][i % 8]
 }
 
-/// Where a house's chimney (or its people's like of one) stands, in
-/// pixels: the smoke rises from it.
 pub(super) fn chimney(rect: (i32, i32, i32, i32)) -> (i32, i32) {
     let (x, y, w, _) = px_rect(rect);
     (x + w - 16, y - 22)
@@ -42,8 +39,6 @@ pub(super) fn all(cv: &mut Img, vl: &Village, town: Option<&Town>, lk: &Look, li
     wishing_place(cv, vl, lk, lights, tick);
 }
 
-/// What the party gathered below, set over every door as the village
-/// promised: a glowcap, a sky-crystal, a lump of star-iron, a pearl wick.
 fn over_the_door(cv: &mut Img, culture: Culture, rect: (i32, i32, i32, i32), lk: &Look, lights: &mut Vec<Light>) {
     let (x, y, w, h) = px_rect(rect);
     let (cx, cy) = (x + w / 2, y + h - 22);
@@ -72,8 +67,6 @@ fn over_the_door(cv: &mut Img, culture: Culture, rect: (i32, i32, i32, i32), lk:
 
 fn house(cv: &mut Img, culture: Culture, rect: (i32, i32, i32, i32), seed: u32, lit: bool, lk: &Look, lights: &mut Vec<Light>) {
     let (x, y, w, h) = px_rect(rect);
-    // The nests hang or stand on poles, and the spires stand in the water:
-    // their shadows are their own.
     if !matches!(culture, Culture::Roostfolk | Culture::Chimefolk | Culture::Rootkin | Culture::Saltkin) {
         mat::shadow(cv, ((x + w / 2 + 6) as f32, (y + h + 2) as f32), (w as f32 * 0.5, 4.0), &keep_all);
     }
@@ -90,7 +83,6 @@ fn house(cv: &mut Img, culture: Culture, rect: (i32, i32, i32, i32), seed: u32, 
     let _ = lk;
 }
 
-/// A window `ww` by `wh` at `(x, y)`: lamplit, or dark glass.
 fn window(cv: &mut Img, (x, y, ww, wh): (i32, i32, i32, i32), frame: char, lit: bool, glow: (char, char), lights: &mut Vec<Light>, warm: bool) {
     cv.rect(x - 1, y - 1, ww + 2, wh + 2, frame);
     cv.rect(x, y, ww, wh, if lit { glow.0 } else { 'K' });
@@ -102,9 +94,6 @@ fn window(cv: &mut Img, (x, y, ww, wh): (i32, i32, i32, i32), frame: char, lit: 
     }
 }
 
-/// A cottage under a giant cap: a cream stem swelling to its foot, a round
-/// door and round windows, and over it all the cap's dome, spotted, its
-/// rim curling under onto gills that glow when the house is awake.
 fn cap_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit: bool, lights: &mut Vec<Light>) {
     let cx = x + w / 2;
     let (top_half, foot_half) = (w * 26 / 100, w * 36 / 100);
@@ -112,11 +101,9 @@ fn cap_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit: b
     const STEM: [char; 6] = ['P', 'o', 'O', 't', 'T', 'T'];
     for yy in stem_top..stem_foot {
         let f = (yy - stem_top) as f32 / (stem_foot - stem_top) as f32;
-        // The stem swells toward its foot.
         let half = top_half + ((foot_half - top_half) as f32 * f * f) as i32;
         for xx in cx - half..=cx + half {
             let u = (xx - cx) as f32 / half as f32;
-            // Lit from the upper left: a broad pale face, a shaded right.
             let light = (1.0 - (u + 0.35).abs() * 1.1).max(0.0);
             let mut i = (light * 5.0) as usize;
             if hash(xx, yy / 2, 9301 + seed) % 11 == 0 {
@@ -127,7 +114,6 @@ fn cap_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit: b
         cv.put(cx - half, yy, 'r');
         cv.put(cx + half, yy, 'P');
     }
-    // The round door on its step, and a round window or two.
     cv.rect(cx - 8, stem_foot - 1, 17, 2, 'g');
     cv.ellipse(cx as f32, (stem_foot - 11) as f32, 6.5, 7.0, 'B');
     cv.rect(cx - 6, stem_foot - 11, 13, 10, 'B');
@@ -145,12 +131,10 @@ fn cap_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit: b
             lights.push(Light { x: (wx + 3) as f32, y: (wy + 3) as f32, r: 46.0, s: 0.4, fire: true });
         }
     }
-    // A little cap growing off the stem's side.
     let (sx, sy) = (cx + foot_half - 2, stem_foot - 8);
     cv.line(sx, sy, sx + 4, sy - 5, 'T');
     cv.ellipse((sx + 5) as f32, (sy - 6) as f32, 4.0, 2.5, 'R');
     cv.put(sx + 4, sy - 7, 'T');
-    // The cap: a dome, rust, cream or blue.
     let ramps: [&[char]; 3] = [
         &['n', 'B', 'p', 'R', 'R', 'o', 'O'],
         &['b', 'I', 'P', 'r', 'o', 'O', 't', 'T'],
@@ -171,7 +155,6 @@ fn cap_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit: b
         cv.ellipse(sx as f32, sy as f32, r, r * 0.75, spot.1);
         cv.ellipse(sx as f32 - 0.5, sy as f32 - 0.5, (r - 0.8).max(0.6), (r * 0.75 - 0.8).max(0.6), spot.0);
     }
-    // The rim curls under onto the gills.
     for xx in cx - rx as i32 + 2..cx + rx as i32 - 1 {
         let u = (xx - cx) as f32 / rx;
         let droop = ((1.0 - u * u) * 3.0) as i32;
@@ -187,12 +170,9 @@ fn cap_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit: b
     }
 }
 
-/// A Glimmerkin house: hewn blue stone, a timber door bound in iron, and
-/// crystal breaking out through the roof.
 fn crystal_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit: bool, lights: &mut Vec<Light>) {
     let stone: &[char] = &['s', 'x', 'S', 'u', 'U', 'v'];
     mat::ashlar(cv, (x + 3, y - 10, w - 6, h + 8), stone, 9311 + seed);
-    // The roof slab, its edge lit.
     cv.rect(x, y - 16, w, 6, 'S');
     cv.line(x, y - 16, x + w - 1, y - 16, 'v');
     cv.line(x, y - 11, x + w - 1, y - 11, 'x');
@@ -206,7 +186,6 @@ fn crystal_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, li
             lights.push(Light { x: gx as f32, y: (y - 18) as f32, r: 30.0, s: 0.3, fire: false });
         }
     }
-    // The door, bound in iron.
     let dx = x + w / 2 - 6;
     cv.rect(dx, y + h - 20, 12, 18, 'P');
     for by in [y + h - 16, y + h - 8] {
@@ -216,7 +195,6 @@ fn crystal_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, li
     for wx in [x + 8, x + w - 18] {
         window(cv, (wx, y + h - 26, 10, 8), 'x', lit, ('3', 'w'), lights, false);
     }
-    // A cart of crystal by the door.
     if seed % 2 == 0 {
         let (cx, cy) = (x + w - 10, y + h + 6);
         cv.rect(cx - 8, cy - 6, 16, 6, 'I');
@@ -227,8 +205,6 @@ fn crystal_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, li
     }
 }
 
-/// An Emberfolk house: basalt courses under iron plates, a chimney, a
-/// window red with the forge inside, an anvil at the door.
 fn forge_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit: bool, lights: &mut Vec<Light>) {
     let basalt: &[char] = &['k', 'K', 'X', 'g', 'j', 'G'];
     mat::ashlar(cv, (x + 2, y - 6, w - 4, h + 4), basalt, 9321 + seed);
@@ -237,7 +213,6 @@ fn forge_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit:
     cv.rect(chx - 4, chy - 10, 9, 16, 'X');
     cv.frame(chx - 4, chy - 10, 9, 16, 'K');
     cv.line(chx - 5, chy - 10, chx + 5, chy - 10, 'j');
-    // The forge's mouth, glowing or banked.
     let (fx, fy) = (x + w / 2 - 8, y + h - 18);
     cv.rect(fx - 1, fy - 1, 18, 14, 'K');
     cv.ellipse((fx + 8) as f32, (fy + 2) as f32, 8.0, 5.0, 'K');
@@ -248,7 +223,6 @@ fn forge_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit:
         lights.push(fire(fx + 8, fy + 6, 70.0, 0.55));
     }
     window(cv, (x + 6, y + 6, 8, 7), 'K', lit, ('@', '5'), lights, true);
-    // The anvil.
     let (ax, ay) = (x + 10 + (seed % 2) as i32 * (w - 30), y + h + 8);
     cv.rect(ax - 6, ay - 7, 13, 3, 'j');
     cv.line(ax - 8, ay - 7, ax + 8, ay - 7, 'G');
@@ -256,10 +230,7 @@ fn forge_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit:
     cv.rect(ax - 4, ay, 9, 2, 'g');
 }
 
-/// A Lampwick stilt-house: boards on posts over a puddle of the lake, a
-/// steep shingled roof, a round window and a lamp on a pole.
 fn stilt_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit: bool, lights: &mut Vec<Light>) {
-    // The water under it.
     for yy in y + h - 10..y + h + 6 {
         for xx in x..x + w {
             let (dx, dy) = ((xx - x - w / 2) as f32 / (w / 2 + 2) as f32, (yy - y - h + 2) as f32 / 8.0);
@@ -273,7 +244,6 @@ fn stilt_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit:
         cv.put(px_, y + h + 3, 'u');
     }
     mat::boards(cv, (x + 3, y - 8, w - 6, h - 4), true, 9332 + seed);
-    // The roof: steep, shingled, its ridge lit.
     let peak = y - 34;
     for yy in peak..y - 6 {
         let half = (w / 2 + 4) * (yy - peak) / (y - 6 - peak).max(1);
@@ -287,7 +257,6 @@ fn stilt_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit:
     cv.line(x + w / 2, peak, x + w / 2, peak + 2, 'o');
     window(cv, (x + w / 2 - 4, y + 2, 8, 8), 'n', lit, ('5', '6'), lights, true);
     cv.rect(x + w / 2 - 5, y + h - 22, 10, 14, 'n');
-    // The lamp on its pole by the door.
     let (lx, ly) = (x + w - 4, y + h - 4);
     cv.line(lx, ly, lx, ly - 30, 'B');
     cv.line(lx, ly - 30, lx - 5, ly - 30, 'B');
@@ -297,20 +266,15 @@ fn stilt_house(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), seed: u32, lit:
     }
 }
 
-/// The great hall: the people's grandest house, its door at the top of
-/// the plaza, the town's name over it, and a banner for every deed the
-/// party has done for it.
 fn hall(cv: &mut Img, vl: &Village, town: Option<&Town>, lk: &Look, lights: &mut Vec<Light>) {
     let lit = vl.hope >= 1;
     house(cv, vl.culture, v::HALL, 7, lit, lk, lights);
     let (x, y, w, _) = px_rect(v::HALL);
-    // The deeds' banners, hung along the hall's front.
     let deeds: Vec<Errand> = town.map_or_else(Vec::new, |t| t.deeds.clone());
     for (k, deed) in deeds.iter().take(4).enumerate() {
         let bx = x + 6 + k as i32 * (w - 12) / 4;
         banner(cv, bx, y + 4, *deed, lk);
     }
-    // The town's name on a board over the door.
     let name = vl.culture.town(crate::rules::deep::chapter(vl.floor));
     let tw = super::super::super::ink::text_width(name);
     let (sx, sy) = (x + w / 2 - tw / 2 - 3, y + 2);
@@ -319,7 +283,6 @@ fn hall(cv: &mut Img, vl: &Village, town: Option<&Town>, lk: &Look, lights: &mut
     cv.text(sx + 3, sy + 1, name, if lit { 'O' } else { 'P' });
 }
 
-/// A deed's banner: a cloth hung from a pole, its errand's emblem on it.
 fn banner(cv: &mut Img, x: i32, y: i32, deed: Errand, lk: &Look) {
     cv.line(x - 1, y, x + 9, y, 'B');
     let cloth = match deed {
@@ -353,8 +316,6 @@ fn banner(cv: &mut Img, x: i32, y: i32, deed: Errand, lk: &Look) {
     }
 }
 
-/// The heart in the plaza: the people's own wonder, waking with the first
-/// light and blazing at the last.
 fn heart(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>, tick: u32) {
     let (x, y, w, h) = px_rect(v::HEART);
     let (cx, foot) = (x + w / 2, y + h);
@@ -363,7 +324,6 @@ fn heart(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>, tick: u
     mat::shadow(cv, ((cx + 8) as f32, (foot + 2) as f32), (34.0, 7.0), &keep_all);
     match vl.culture {
         Culture::Capfolk => {
-            // The mother cap: a great blue toadstool, the village's lamp.
             const STEM: [char; 6] = ['P', 'o', 'O', 't', 'T', 'T'];
             for yy in foot - 46..foot {
                 let f = (yy - (foot - 46)) as f32 / 46.0;
@@ -374,7 +334,6 @@ fn heart(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>, tick: u
                     cv.put(xx, yy, STEM[i.min(5)]);
                 }
             }
-            // A ring of little caps round its foot.
             for k in 0..7 {
                 let a = std::f32::consts::PI * (0.1 + k as f32 * 0.8 / 6.0);
                 let (mx, my) = (cx + (a.cos() * 24.0) as i32, foot - 2 + (a.sin() * 5.0) as i32);
@@ -406,7 +365,6 @@ fn heart(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>, tick: u
             }
         }
         Culture::Glimmerkin => {
-            // The great crystal: a spire of facets on a stone foot.
             mat::ashlar(cv, (cx - 26, foot - 12, 52, 12), &['s', 'x', 'S', 'u', 'U'], 9343);
             cv.line(cx - 26, foot - 12, cx + 25, foot - 12, 'v');
             for (lean, tall, seed) in [(-20i32, 30i32, 3u32), (19, 26, 4), (-11, 44, 5), (12, 40, 6)] {
@@ -435,8 +393,6 @@ fn heart(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>, tick: u
             }
         }
         Culture::Emberfolk => {
-            // The forge-heart: a round furnace under a tall stack, its
-            // molten core breathing.
             mat::ashlar(cv, (cx - 10, foot - 76, 20, 40), &['k', 'K', 'X', 'g', 'j'], 9346);
             cv.rect(cx - 12, foot - 80, 24, 5, 'g');
             cv.line(cx - 12, foot - 80, cx + 11, foot - 80, 'J');
@@ -449,7 +405,6 @@ fn heart(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>, tick: u
             if light > 0.5 {
                 cv.ellipse(cx as f32, (foot - 40) as f32, 6.0, 1.5, '6');
             }
-            // Its mouth, and the great anvil before it.
             cv.ellipse(cx as f32, (foot - 18) as f32, 11.0, 9.0, 'K');
             cv.rect(cx - 11, foot - 18, 23, 14, 'K');
             cv.ellipse(cx as f32, (foot - 17) as f32, 8.0, 7.0, if awake { '@' } else { '8' });
@@ -461,7 +416,6 @@ fn heart(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>, tick: u
             }
         }
         Culture::Lampwick => {
-            // The great lamp: a tall post in its pool, a lantern up top.
             for yy in foot - 14..foot + 4 {
                 for xx in cx - 36..cx + 36 {
                     let (dx, dy) = ((xx - cx) as f32 / 36.0, (yy - foot + 5) as f32 / 9.0);
@@ -499,8 +453,6 @@ fn heart(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>, tick: u
     let _ = lk;
 }
 
-/// The wishing place by the well: a mushroom-roofed well, a wishing
-/// stone, an anvil on its stump, a lamp in a pool.
 fn wishing_place(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>, tick: u32) {
     let (x, y, w, h) = px_rect(v::WELL);
     let (cx, foot) = (x + w / 2, y + h);

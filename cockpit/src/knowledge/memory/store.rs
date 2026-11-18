@@ -20,10 +20,6 @@ use serde_json::json;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-/// One unit of stored memory — maps directly onto a MemPalace `add_drawer` call.
-/// `wing` groups by project/agent, `room` by topic/section-kind (Decisions,
-/// Files, Facts, …), `content` is the note text, `source` tags provenance (the
-/// session id) so a drawer can be traced back to where it came from.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Drawer {
     pub wing: String,
@@ -34,24 +30,13 @@ pub struct Drawer {
 
 pub use crate::telemetry::MemoryHealth;
 
-/// The palace interface host code depends on. A trait so compaction/recall are
-/// testable against an in-memory double and degrade to a no-op when unconfigured.
 pub trait MemoryStore: Send + Sync {
-    /// File one drawer. Returns the server's confirmation text. Best-effort: the
-    /// caller treats an `Err` as "not stored", preserves inline continuity, and
-    /// reports the bounded batch outcome without blocking the primary turn.
     fn deposit(&self, drawer: &Drawer) -> Result<String, String>;
 
-    /// Retrieve up to `limit` recall blocks relevant to `query`, optionally scoped
-    /// to one `wing`, most-relevant first. Each element is one drawer's text,
-    /// ready to inject.
     fn search(&self, query: &str, limit: usize, wing: Option<&str>) -> Result<Vec<String>, String>;
 
-    /// Cheap palace overview for session wake-up (drawer counts + wing/room map).
     fn status(&self) -> Result<String, String>;
 
-    /// Whether a real backend is wired (false for [`NullStore`]) — lets callers
-    /// skip recall plumbing entirely when there's nothing behind it.
     fn is_live(&self) -> bool {
         true
     }
@@ -65,8 +50,6 @@ pub trait MemoryStore: Send + Sync {
     }
 }
 
-/// No backend configured: every operation is a silent no-op. Keeps callers
-/// branch-free — they always hold a store, it just does nothing.
 pub struct NullStore;
 
 impl MemoryStore for NullStore {
@@ -92,7 +75,6 @@ impl MemoryStore for NullStore {
     }
 }
 
-/// MemPalace-backed store: deposits/searches via its MCP tools over stdio.
 pub struct McpMemoryStore {
     client: Mutex<Arc<McpClient>>,
     reconnect: Option<(ServerSpec, Duration)>,
@@ -100,9 +82,6 @@ pub struct McpMemoryStore {
 }
 
 impl McpMemoryStore {
-    // MemPalace tool names, from `mempalace/mcp_server.py`. Host-side we call the
-    // raw remote names (not the cockpit-mangled `<server>__<tool>` form, which is
-    // only for tools surfaced to the agent).
     const ADD: &'static str = "mempalace_add_drawer";
     const SEARCH: &'static str = "mempalace_search";
     const STATUS: &'static str = "mempalace_status";
@@ -210,12 +189,6 @@ impl MemoryStore for McpMemoryStore {
     }
 }
 
-/// Interpret a `mempalace_add_drawer` reply. MemPalace signals soft failures
-/// *inside* an otherwise-successful JSON-RPC result (`{"success": false, "error":
-/// …}`, or `{"error": "No palace …"}` on an uninitialized palace) rather than via
-/// the MCP `isError` flag — so a raw `Ok` would count a no-op write as "stored".
-/// Treat an explicit failure as `Err`; `{"success": true}` (including the
-/// `already_exists` dedupe case) and any non-JSON reply stay `Ok`.
 fn interpret_write(text: &str) -> Result<String, String> {
     if let Ok(v) = serde_json::from_str::<serde_json::Value>(text) {
         if v.get("success").and_then(|s| s.as_bool()) == Some(false) {
@@ -234,12 +207,6 @@ fn interpret_write(text: &str) -> Result<String, String> {
     Ok(text.to_string())
 }
 
-/// Parse a `mempalace_search` reply into one recall block per hit. MemPalace
-/// returns `{"results": [{"wing","room","text",…}], …}` JSON-dumped into a single
-/// text block, so we extract each hit's verbatim `text` (prefixed with its
-/// `[wing/room]`) rather than injecting the whole JSON. An error dict / no-results
-/// reply yields an empty list; a non-JSON reply falls back to the raw text so a
-/// response is never silently dropped.
 fn parse_search_results(text: &str) -> Vec<String> {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(text) else {
         let t = text.trim();
@@ -250,7 +217,7 @@ fn parse_search_results(text: &str) -> Vec<String> {
         };
     };
     let Some(results) = v.get("results").and_then(|r| r.as_array()) else {
-        return Vec::new(); // error dict ("No palace found") / unexpected shape
+        return Vec::new();
     };
     results
         .iter()
@@ -270,16 +237,6 @@ fn parse_search_results(text: &str) -> Vec<String> {
         .collect()
 }
 
-/// Connect to the configured MemPalace server, or return a [`NullStore`].
-///
-/// Configured via `ANGEL_MEMPALACE_CMD` — a command line that starts the MemPalace
-/// MCP server over stdio, e.g.
-/// `mempalace-mcp --palace /srv/angel-palace --backend chroma`, or, when
-/// the cockpit runs off the box that owns the store,
-/// `ssh model-host mempalace-mcp --palace /srv/angel-palace` (the data stays on
-/// the explicitly configured host and JSON-RPC tunnels over the SSH pipe).
-/// Unset → no-op store. Spawn/handshake failure → no-op store (logged by the
-/// caller), never a hard error.
 pub fn connect_from_env() -> Arc<dyn MemoryStore> {
     let Some(cmdline) = std::env::var("ANGEL_MEMPALACE_CMD")
         .ok()
@@ -303,12 +260,6 @@ pub fn connect_from_env() -> Arc<dyn MemoryStore> {
             .and_then(|s| s.trim().parse().ok())
             .unwrap_or(30),
     );
-    // Bound startup: the connect runs at launch on the main thread, before the TUI
-    // draws, and `initialize` is otherwise only bounded by the (long) per-call
-    // timeout — a wedged server or a stalling `ssh` would hang the cockpit. Run it
-    // on a side thread and give up after a short handshake deadline, degrading to
-    // the no-op store. A late client is dropped (its child reaped by McpClient's
-    // Drop).
     let connect_deadline = Duration::from_secs(
         std::env::var("ANGEL_MEMPALACE_CONNECT_TIMEOUT")
             .ok()
@@ -326,10 +277,6 @@ pub fn connect_from_env() -> Arc<dyn MemoryStore> {
     }
 }
 
-/// Minimal quote-aware split of a command line on unquoted whitespace, honoring
-/// single and double quotes (so a `--palace "/srv/with space/palace"` survives).
-/// Not a full shell — just enough for the one config string we parse, avoiding a
-/// dependency.
 fn shell_split(s: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut cur = String::new();

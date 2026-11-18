@@ -7,15 +7,12 @@ use super::super::super::ink::Img;
 use super::art_data::{BIG, FOES, Frame, SMALL, Set};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-/// A frame ready to stamp: its picture and where its top-left sits from the feet
-/// (the bottom centre of the body's box).
 pub(super) struct Sprite {
     pub img: Img,
     pub dx: i32,
     pub dy: i32,
 }
 
-/// A seat's four tones, shade to spec: the plume, the tabard and the shield's field.
 pub(super) const SEAT_TONES: [[char; 4]; 6] = [
     ['q', 'Q', 'z', 'V'],
     ['?', ';', '%', '+'],
@@ -39,7 +36,6 @@ thread_local! {
     static CACHE: RefCell<HashMap<Key, Rc<Sprite>>> = RefCell::new(HashMap::new());
 }
 
-/// Frame `index` of `name` in `sets`, in the tones of `seat`, mirrored when `flip`.
 fn get(sets: &'static [Set], name: &str, index: usize, seat: u32, flip: bool) -> Option<Rc<Sprite>> {
     let set = find(sets, name)?;
     let frame: &'static Frame = set.frames.get(index % set.frames.len().max(1))?;
@@ -62,23 +58,18 @@ fn get(sets: &'static [Set], name: &str, index: usize, seat: u32, flip: bool) ->
     Some(sprite)
 }
 
-/// A knight's frame. `big` is the cuirassed, taller knight (the flame knight too).
 pub(super) fn knight(big: bool, name: &str, index: usize, seat: u32, flip: bool) -> Option<Rc<Sprite>> {
     get(if big { BIG } else { SMALL }, name, index, seat, flip)
 }
 
-/// A foe's, the cap's or the loaf's frame (no seat).
 pub(super) fn foe(name: &str, index: usize, flip: bool) -> Option<Rc<Sprite>> {
     get(FOES, name, index, 0, flip)
 }
 
-/// How many frames `name` has among the knights.
 pub(super) fn frames(big: bool, name: &str) -> usize {
     find(if big { BIG } else { SMALL }, name).map_or(0, |s| s.frames.len())
 }
 
-/// The sprite squashed or stretched about its feet: `sx` and `sy` are the share of its width
-/// and height it keeps. Nearest neighbour, so every pixel stays a pixel; the feet stay put.
 pub(super) fn stretched(s: &Sprite, sx: f32, sy: f32) -> Sprite {
     let (w, h) = (s.img.w, s.img.h);
     let (nw, nh) = (((w as f32 * sx).round() as i32).max(1), ((h as f32 * sy).round() as i32).max(1));
@@ -100,7 +91,6 @@ pub(super) fn stretched(s: &Sprite, sx: f32, sy: f32) -> Sprite {
     Sprite { img, dx: (s.dx as f32 * sx).round() as i32, dy: nb - nh }
 }
 
-/// `s` stamped with its feet at `(x, y)`.
 pub(super) fn stamp(im: &mut Img, s: &Sprite, x: i32, y: i32) {
     im.stamp(&s.img, x + s.dx, y + s.dy);
 }

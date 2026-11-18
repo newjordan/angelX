@@ -53,93 +53,38 @@ use super::props;
 use super::raster::{self, View3};
 use super::scene::SCENE_SEED;
 
-/// The moon's absolute bearing in radians — the same disc the sky shader hangs
-/// (raster.rs:438). Rooms that open on the night orient by it.
 const MOON_AZIMUTH: f32 = super::MOON_BEARING * TAU;
 
-/// The heading `interiors::compose` authors for every room (`interiors.rs:407`)
-/// before the ride adds operator yaw. Everything past it is the operator and
-/// the settled sway, which is exactly what should pan the staged camera.
 const BASE_HEADING: f32 = -FRAC_PI_2;
 
-/// Soft limit on the operator's pan, in radians. `tanh` bends rather than
-/// clamps, so two different operator headings never render the same frame.
 const SWING_LIMIT: f32 = 1.60;
 
-/// How much of that pan the staged interior camera actually takes.
-///
-/// Measured in the live cockpit, not guessed: the settled orbit sway runs to
-/// ±0.30 rad (`life.rs:757`) and an interior lens has `tan(fov/2) ≈ 0.5`, so an
-/// un-damped sway walks the room's hero piece ±0.31 of the frame width — a
-/// 160 × 48 capture put the Keep's hearth on its third and a 240 × 64 one, two
-/// sway phases later, had it hanging off the right edge. Outdoors the same sway
-/// is a breath across a 56-tile court; indoors it is the whole composition.
-/// Damping keeps the arrow keys answering (and answering monotonically) while
-/// holding the staged frame together.
 const SWING_GAIN: f32 = 0.55;
 
-/// How far the pan dollies the eye sideways, in tiles. The room breathes with
-/// the operator instead of standing dead still; far too small to walk the
-/// camera into a wall.
 const PARALLAX: f32 = 0.55;
 
-/// Vertical field ceiling, shared with the exterior staging (world3d.rs:430):
-/// braille dots are square, so a tall pane would otherwise stretch the vertical
-/// field past 80° and shrink the whole room to a smudge.
 const VERT_FOV_MAX: f32 = 1.12;
 
-// ── the eight rooms ───────────────────────────────────────────────────────
-
-/// One staged interior: the room's proportions, its openings, and the camera
-/// mark inside it.
-///
-/// Room-local convention: the room is centred on the origin with the floor at
-/// `z = 0`, the **identity wall at +x**, the door behind the camera at −x, and
-/// the ceiling ridge running along `y = 0`. The camera stands near −x and looks
-/// toward +x. `yaw` then turns the whole room (mesh *and* camera) into world
-/// space, which is how a room aims its opening at the moon without any of the
-/// authored numbers below changing.
 struct Chamber {
-    /// Half-extents of the inside face of the shell, in tiles.
     hx: f32,
     hy: f32,
-    /// Wall head and ceiling ridge heights.
     z_wall: f32,
     z_ridge: f32,
-    /// Wall material — STONE for the civic halls, WOOD for the timber shells,
-    /// matching the raycast rooms' own `shell` field (interiors.rs:306).
     shell: u8,
-    /// x positions of the arched WINDOW bays, mirrored on both flank walls.
     bays: &'static [f32],
-    /// Sill height of those bays.
     bay_sill: f32,
-    /// x positions on the **+y** flank where a light shaft drops from the bay
-    /// to a pool on the floor. One or two per room; more reads as bunting.
-    /// Every entry must also appear in `bays` — a shaft is the light *from* a
-    /// window, and one falling out of blank masonry reads as a rendering bug
-    /// (`every_shaft_falls_from_a_real_bay` holds the line).
     shafts: &'static [f32],
-    /// Room orientation in world space.
     yaw: f32,
-    /// Eye mark, room-local, and its height above the floor.
     eye: (f32, f32),
     eye_h: f32,
-    /// The identity piece the shot is about, room-local.
     anchor: (f32, f32, f32),
-    /// Where the anchor sits across and down the frame (0 = left/top).
     frame_x: f32,
     frame_y: f32,
-    /// Focal length as a multiplier on the ride's lens; below 1.0 is longer.
     lens: f32,
-    /// What the frame is about — for the dump sheet and the test table.
     hero: &'static str,
 }
 
-/// The eight rooms in `building_index` order: Keep, Gatehouse, Rookery,
-/// Scriptorium, Smithy, Chapel, Round Table, Observatory.
 const CHAMBERS: [Chamber; 8] = [
-    // Keep — the hearth hall. The fire mouth burns on the end wall behind the
-    // long table; banners hang either side of it.
     Chamber {
         hx: 6.0,
         hy: 4.0,
@@ -158,8 +103,6 @@ const CHAMBERS: [Chamber; 8] = [
         lens: 0.94,
         hero: "the long hearth burning at the head of the hall",
     },
-    // Gatehouse — the passage, open to the night at the far end with the
-    // portcullis teeth down across it and the moon beyond. Low and long.
     Chamber {
         hx: 6.2,
         hy: 2.9,
@@ -178,8 +121,6 @@ const CHAMBERS: [Chamber; 8] = [
         lens: 0.86,
         hero: "the portcullis down across the moonlit gate mouth",
     },
-    // Rookery — the timber loft: three perch beams under heavy rafters, birds
-    // roosting on them, and the loft hatch open on the moon to the left.
     Chamber {
         hx: 5.0,
         hy: 3.4,
@@ -198,9 +139,6 @@ const CHAMBERS: [Chamber; 8] = [
         lens: 0.80,
         hero: "the perch rows black against the open loft door",
     },
-    // Scriptorium — the hero interior, `arch::library_interior`: shelf rows,
-    // reading tables under candle light, the hearth at the far end and window
-    // bays running both flanks.
     Chamber {
         hx: 5.7,
         hy: 2.7,
@@ -211,13 +149,6 @@ const CHAMBERS: [Chamber; 8] = [
         bay_sill: 1.35,
         shafts: &[],
         yaw: 0.0,
-        // Off the centre line on purpose. Standing in the middle of the aisle
-        // put the two shelf rows exactly edge-on and the shot became a
-        // corridor: two brown walls, a bright hole at the end, and not one
-        // book anywhere in it. From the −y quarter the stacks that now project
-        // off that wall (`arch::library_interior`) present their faces
-        // *square* to the lens and telescope into the left third, and the
-        // hearth still burns on its own third to the right of them.
         eye: (-3.95, -0.30),
         eye_h: 1.82,
         anchor: (4.85, 0.0, 1.00),
@@ -226,8 +157,6 @@ const CHAMBERS: [Chamber; 8] = [
         lens: 0.86,
         hero: "the reading hall past the shelf stacks to the hearth",
     },
-    // Smithy — the forge: the fire in its hood on the end wall, the anvil on
-    // its stump between the eye and the light.
     Chamber {
         hx: 5.0,
         hy: 3.6,
@@ -246,22 +175,14 @@ const CHAMBERS: [Chamber; 8] = [
         lens: 0.92,
         hero: "the forge fire in its hood over the anvil",
     },
-    // Chapel — the nave: a rose window high on the east wall, the altar and
-    // its tapers under it, pews leading in.
     Chamber {
         hx: 6.0,
         hy: 3.2,
         z_wall: 4.6,
         z_ridge: 7.0,
         shell: mat::STONE,
-        // The third bay is the shaft's source. Without it the nave's pool of
-        // moonlight fell out of a blank wall, which is a light with no window
-        // — the one thing an audience notices instantly and cannot name.
         bays: &[-3.6, -1.2, 2.9],
         bay_sill: 2.30,
-        // Far enough up the nave to be inside a 42° field: the eye stands four
-        // tiles off the west wall, so a bay any nearer than about seven tiles
-        // sits behind the frame edge and drops its shaft off the picture.
         shafts: &[2.9],
         yaw: 0.0,
         eye: (-4.2, 0.75),
@@ -272,8 +193,6 @@ const CHAMBERS: [Chamber; 8] = [
         lens: 0.94,
         hero: "the rose window over the altar tapers",
     },
-    // Round Table — the council chamber: the ring of light on the table with
-    // the empty seats around it, seen from the one seat left open.
     Chamber {
         hx: 6.3,
         hy: 5.2,
@@ -292,8 +211,6 @@ const CHAMBERS: [Chamber; 8] = [
         lens: 0.96,
         hero: "the lit ring on the round table and its empty seats",
     },
-    // Observatory — the wizard's scrying room. The star slit is the backdrop
-    // to the ringed glass, with the chart desk and warm lamp beside it.
     Chamber {
         hx: 5.0,
         hy: 4.0,
@@ -314,22 +231,10 @@ const CHAMBERS: [Chamber; 8] = [
     },
 ];
 
-/// What the frame is about, for the dump sheet.
 pub fn hero(index: u8) -> &'static str {
     CHAMBERS[(index as usize).min(7)].hero
 }
 
-// ── the ride seam ─────────────────────────────────────────────────────────
-
-/// Native interior geometry renderer. The Observatory uses it for the
-/// Scrying Tower; the other rooms retain their authored location paintings.
-///
-/// Reads only the building, the
-/// `RayView` the ride already built — whose heading carries the settled sway
-/// plus operator yaw, and whose `bob` carries operator pitch — and `bucket`,
-/// which is the same held tick bucket the cinematic key hashes. No
-/// clock, no world state the key does not cover: hand it a bucket the key did
-/// not see and the memo would serve a stale fire.
 pub fn render_interior_frame(
     building: super::super::Building,
     view: &super::super::raycast::RayView,
@@ -347,55 +252,19 @@ pub fn render_interior_frame(
     )
 }
 
-// ── the fire breathes ─────────────────────────────────────────────────────
-
-/// Steps in one breath of the firelight before it comes round again.
-///
-/// Four, because three reads as a stutter and eight is a light show. The cycle
-/// is a *loop*, not noise: the same room at the same phase renders the same
-/// bytes, which is what lets the ride memoize interiors at all.
 pub const BREATH_STEPS: u64 = 4;
 
-/// How many `cinematic_key` buckets one step of that breath lasts.
-///
-/// Measured, not guessed. The key's interior branch steps on `tick / 2`
-/// (cinematics.rs:215) and the world ticks every 25 ms by wall clock
-/// (app_control/turn_io.rs:319), so one bucket is 50 ms. At a step per bucket
-/// the hearth would gutter at 20 Hz — a fault light on a dashboard, not a fire.
-/// Eight buckets puts a step at 0.4 s and the whole four-step cycle at 1.6 s,
-/// which is the rate a real fire draws breath at.
 pub const BUCKETS_PER_STEP: u64 = 8;
 
-/// One step of the breath as `(emissive gain, warm swing)`.
-///
-/// SUBTLE IS THE LAW. The whole excursion is ±3.5% of the flame's authored
-/// value with a couple of code values of hue on it — at braille dot scale that
-/// moves a handful of dots at the edge of the fire's dither and nothing else,
-/// which is exactly what firelight does to a stone wall. Anything an eye can
-/// *catch* here reads as a rendering fault, because the room is otherwise
-/// dead still.
-///
-/// Shaped like a fire and not like a sine, and biased **downward** on purpose.
-/// Two reasons, one artistic and one mechanical: a fire at rest is already at
-/// its brightest and spends its time dipping between draws of air; and the lit
-/// pane of `window_tint` is [255, 198, 116], whose red is already at the top of
-/// the scale, so gain above 1.0 clips and desaturates instead of brightening —
-/// the visible half of the swing is the half that dims. Gain and warm pull
-/// against each other throughout: a flame is palest when it burns hardest.
 const BREATH: [(f32, f32); BREATH_STEPS as usize] = [
-    (1.000, 0.00), // full burn, the authored fire
-    (0.972, 0.05), // settling back, redder
-    (0.988, 0.02), // catching again
-    (0.958, 0.08), // the dip, and its deepest red
+    (1.000, 0.00),
+    (0.972, 0.05),
+    (0.988, 0.02),
+    (0.958, 0.08),
 ];
 
-/// Where each room stands in that cycle, so eight hearths do not breathe in
-/// lockstep — they are eight separate fires in eight separate buildings and
-/// only the operator's own frame rate connects them.
 const BREATH_PHASE: [u64; 8] = [0, 2, 3, 1, 0, 3, 1, 2];
 
-/// The live flame in room `index` at tick-bucket `bucket` — a pure function of
-/// the two, and of nothing else.
 pub fn firelight(index: u8, bucket: u64) -> raster::Firelight {
     let room = (index as usize).min(BREATH_PHASE.len() - 1);
     let step = (bucket / BUCKETS_PER_STEP).wrapping_add(BREATH_PHASE[room]) % BREATH_STEPS;
@@ -403,12 +272,6 @@ pub fn firelight(index: u8, bucket: u64) -> raster::Firelight {
     raster::Firelight { gain, warm }
 }
 
-/// The staged camera inside a room: the authored mark, panned by the operator.
-///
-/// Heading is solved so the room's identity piece lands on its authored third,
-/// and pitch so it lands at its authored height down the frame — the same
-/// screen-fraction framing the exterior vantages use, which is what makes one
-/// table hold up from a 96 × 72 ride pane to a 200 × 304 plate.
 fn staged_view(
     index: u8,
     view: &super::super::raycast::RayView,
@@ -417,8 +280,6 @@ fn staged_view(
 ) -> View3 {
     let chamber = &CHAMBERS[(index as usize).min(CHAMBERS.len() - 1)];
 
-    // Field of view: the operator's zoom, capped so a portrait pane cannot blow
-    // the vertical field out, then lensed.
     let aspect = dot_h.max(1) as f32 / dot_w.max(1) as f32;
     let mut tan_h = (view.fov_rad.clamp(0.70, 1.40) * 0.5).tan();
     let tan_v_max = (VERT_FOV_MAX * 0.5).tan();
@@ -428,17 +289,9 @@ fn staged_view(
     tan_h *= chamber.lens.clamp(0.35, 1.0);
     let tan_v = tan_h * aspect;
 
-    // Everything past the authored interior heading is the operator's pan plus
-    // the settled orbit sway. Soft-limited rather than clamped: a hard clamp
-    // makes two different headings render one frame once they saturate, which
-    // is a camera that has stopped answering the arrow keys.
     let raw = wrap_pi(view.heading_rad - BASE_HEADING);
     let swing = SWING_LIMIT * (raw / SWING_LIMIT).tanh() * SWING_GAIN;
 
-    // Sub-tile parallax: the eye slides along the room's own cross axis as the
-    // operator pans, so the near furniture moves against the far wall. Applied
-    // before the heading solve, so the anchor stays exactly on its third while
-    // the eye breathes.
     let local = (
         chamber.eye.0,
         chamber.eye.1 + (swing * 0.5).clamp(-1.0, 1.0) * PARALLAX,
@@ -446,20 +299,14 @@ fn staged_view(
     let eye = rotate(local, chamber.yaw);
     let anchor = rotate((chamber.anchor.0, chamber.anchor.1), chamber.yaw);
 
-    // Solve the heading that puts the anchor at `frame_x`: a point at angular
-    // offset θ lands at 0.5·(1 + tanθ/tan_h) across the frame.
     let bearing = (anchor.1 - eye.1).atan2(anchor.0 - eye.0);
     let heading = bearing - (tan_h * (2.0 * chamber.frame_x - 1.0)).atan() + swing;
 
-    // ...and the pitch that puts it at `frame_y` down the frame: a ray at world
-    // elevation `elevation` lands at 0.5·(1 − tan(elevation − pitch)/tan_v).
     let reach = ((anchor.0 - eye.0).powi(2) + (anchor.1 - eye.1).powi(2))
         .sqrt()
         .max(1e-3);
     let elevation = ((chamber.anchor.2 - chamber.eye_h) / reach).atan();
     let pitch = elevation - (tan_v * (1.0 - 2.0 * chamber.frame_y)).atan();
-    // The ride's `bob` is the operator's pitch in units of 3% of frame height
-    // (ride.rs:142), exactly as the exterior staging reads it.
     let pitch = (pitch + view.bob * 0.03).clamp(-1.10, 1.10);
 
     View3 {
@@ -480,17 +327,10 @@ fn wrap_pi(angle: f32) -> f32 {
     wrapped - PI
 }
 
-// ── the rooms themselves ──────────────────────────────────────────────────
-
-/// Build one interior. The Scriptorium is the hand-built hero hall; everybody
-/// else gets the parameterized chamber plus their identity dressing.
-///
-/// Pure function of `index` — the determinism law. `arch::library_interior`
-/// and every helper below take an explicit seed and read no ambient state.
 pub fn interior_mesh(index: u8) -> Mesh {
     let index = index.min(7);
     let chamber = &CHAMBERS[index as usize];
-    let seed = sub_seed(SCENE_SEED, 0x494E_5445_0000_0000 | index as u64); // "INTE"
+    let seed = sub_seed(SCENE_SEED, 0x494E_5445_0000_0000 | index as u64);
     let mut mesh = if index == 3 {
         arch::library_interior(seed)
     } else {
@@ -502,14 +342,11 @@ pub fn interior_mesh(index: u8) -> Mesh {
     mesh
 }
 
-/// The shared great hall: floor, shell, open timber ceiling, window bays and
-/// their light, then the room's own identity piece.
 fn chamber_mesh(chamber: &Chamber, seed: u64, index: u8) -> Mesh {
-    let mut rng = Rng::new(sub_seed(seed, 0x484F_4C4C)); // "HOLL"
+    let mut rng = Rng::new(sub_seed(seed, 0x484F_4C4C));
     let mut mesh = Mesh::new();
     let (hx, hy) = (chamber.hx, chamber.hy);
 
-    // Floor. Lantern-lit, so it carries the room's depth ramp on its own.
     prim::quad(
         &mut mesh,
         v3(-hx, -hy, 0.0),
@@ -519,8 +356,6 @@ fn chamber_mesh(chamber: &Chamber, seed: u64, index: u8) -> Mesh {
         mat::FLOOR,
     );
 
-    // Shell. The two flanks and the door wall are plain; the +x wall belongs to
-    // the room's identity and is built by the dressing below.
     for &sy in &[-1.0_f32, 1.0] {
         prim::quad(
             &mut mesh,
@@ -531,7 +366,6 @@ fn chamber_mesh(chamber: &Chamber, seed: u64, index: u8) -> Mesh {
             chamber.shell,
         );
     }
-    // Door wall behind the eye, with the way out punched through it.
     punched_wall(
         &mut mesh,
         v3(-hx, -hy, 0.0),
@@ -552,10 +386,6 @@ fn chamber_mesh(chamber: &Chamber, seed: u64, index: u8) -> Mesh {
         mat::DOOR,
     );
 
-    // A plinth course around the room: one strong horizontal that stops the
-    // walls reading as a folded sheet at dot scale. A *ring*, not a slab — a
-    // full box here would roof the whole floor over at 0.42 tiles and take the
-    // lantern-lit flags (and the room's entire depth ramp) with it.
     const PLINTH: f32 = 0.22;
     const PLINTH_Z: f32 = 0.42;
     for &sy in &[-1.0_f32, 1.0] {
@@ -579,7 +409,6 @@ fn chamber_mesh(chamber: &Chamber, seed: u64, index: u8) -> Mesh {
         F_PZ | F_PX,
     );
 
-    // Open timber ceiling with tie beams — the shape that says "hall".
     for &sy in &[-1.0_f32, 1.0] {
         prim::quad(
             &mut mesh,
@@ -611,7 +440,6 @@ fn chamber_mesh(chamber: &Chamber, seed: u64, index: u8) -> Mesh {
         );
     }
 
-    // Window bays on both flanks, and the light they throw on the floor.
     for &sy in &[-1.0_f32, 1.0] {
         let y = sy * (hy - 0.02);
         let right = v3(-sy, 0.0, 0.0);
@@ -645,7 +473,6 @@ fn chamber_mesh(chamber: &Chamber, seed: u64, index: u8) -> Mesh {
     mesh
 }
 
-/// The plain +x end wall, for rooms whose identity does not rebuild it.
 fn end_wall(mesh: &mut Mesh, chamber: &Chamber) {
     prim::quad(
         mesh,
@@ -666,15 +493,10 @@ fn end_wall(mesh: &mut Mesh, chamber: &Chamber) {
     );
 }
 
-// ── dressing ──────────────────────────────────────────────────────────────
-
-/// Keep — the long hearth burning under its hood, banners either side of it,
-/// and the trestle table leading the eye in.
 fn dress_keep(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
     end_wall(mesh, chamber);
     let x = chamber.hx;
 
-    // Chimney breast, with a battered hood taking it up into the gable.
     prim::boxed(
         mesh,
         v3(x - 0.95, -1.85, 0.0),
@@ -695,8 +517,6 @@ fn dress_keep(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
         mat::STONE_DARK,
     );
 
-    // The fire itself: an arched mouth of light, with the ember bed showing
-    // through it and a pool of firelight on the flags in front.
     prim::arched_panel(
         mesh,
         v3(x - 0.97, -1.15, 0.10),
@@ -716,7 +536,6 @@ fn dress_keep(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
         mat::PATH,
     );
 
-    // Banners flanking the fire.
     for &sy in &[-1.0_f32, 1.0] {
         prim::rect_panel(
             mesh,
@@ -729,13 +548,10 @@ fn dress_keep(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
         );
     }
 
-    // A dragon's skull dragged home, on the flags beside the hearth and
-    // turned to look down the hall.
     if let Some(skull) = props::placed("dragon_skull", v3(x - 2.0, -2.75, 0.0), -FRAC_PI_2 + 0.45, 1.25) {
         mesh.merge(skull);
     }
 
-    // Trestle table down the hall with benches and three candles on it.
     let top = 0.86;
     prim::boxed(
         mesh,
@@ -783,22 +599,16 @@ fn dress_keep(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
     }
 }
 
-/// Gatehouse — the passage opens on the night; the portcullis is down across
-/// it and two braziers burn at the jambs.
 fn dress_gatehouse(mesh: &mut Mesh, chamber: &Chamber) {
     let x = chamber.hx;
     let (oy, oz) = (1.95_f32, 3.20_f32);
 
-    // A knight in plate keeps the passage: a statue on its plinth against the
-    // flank wall, sword point-down, looking across at whoever comes through.
     if let Some(guard) =
         props::placed("knight_statue", v3(x - 1.0, -chamber.hy + 0.55, 0.0), PI - 0.6, 1.0)
     {
         mesh.merge(guard);
     }
 
-    // The gate mouth: the end wall with a big opening punched through it, the
-    // top corners chamfered so it reads as an arch and not a letterbox.
     punched_wall(
         mesh,
         v3(x, -chamber.hy, 0.0),
@@ -830,7 +640,6 @@ fn dress_gatehouse(mesh: &mut Mesh, chamber: &Chamber) {
         chamber.z_ridge,
         chamber.shell,
     );
-    // Ground outside, so the mouth frames a moonlit road rather than a void.
     prim::quad(
         mesh,
         v3(x, -14.0, 0.0),
@@ -840,7 +649,6 @@ fn dress_gatehouse(mesh: &mut Mesh, chamber: &Chamber) {
         mat::PATH,
     );
 
-    // Portcullis: iron teeth down across the opening.
     let bar_x = x - 0.42;
     for i in 0..7 {
         let by = -oy + 0.30 + i as f32 * (2.0 * (oy - 0.30) / 6.0);
@@ -862,7 +670,6 @@ fn dress_gatehouse(mesh: &mut Mesh, chamber: &Chamber) {
         );
     }
 
-    // Braziers at the jambs — the only warm light in a cold passage.
     for &sy in &[-1.0_f32, 1.0] {
         let (bx, by) = (x - 2.30, sy * (chamber.hy - 0.85));
         prim::prism(mesh, bx, by, 0.0, 0.86, 0.16, 0.13, 6, 0.0, mat::STONE_DARK);
@@ -883,15 +690,10 @@ fn dress_gatehouse(mesh: &mut Mesh, chamber: &Chamber) {
     }
 }
 
-/// Rookery — the loft door stands open on the night and the perch rows cross
-/// in front of it, so every bird in the room is a black shape against the moon.
 fn dress_rookery(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
     let (hx, hy) = (chamber.hx, chamber.hy);
     let half = 2.05_f32;
 
-    // The loft door: the whole middle of the end wall is missing, from waist
-    // height on up through the gable to the ridge, because the moon rides at
-    // ~0.29 rad and an opening that stops at the wall head would sit under it.
     punched_wall(
         mesh,
         v3(hx, -hy, 0.0),
@@ -911,7 +713,6 @@ fn dress_rookery(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
         chamber.z_ridge,
         chamber.shell,
     );
-    // The door leaf, swung inboard off the near jamb.
     prim::quad(
         mesh,
         v3(hx - 0.02, -half, 1.22),
@@ -920,7 +721,6 @@ fn dress_rookery(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
         v3(hx - 0.02, -half, 3.20),
         mat::WOOD,
     );
-    // Sill boards, and the light landing on them.
     prim::boxed(
         mesh,
         v3(hx - 0.62, -half, 1.04),
@@ -937,20 +737,6 @@ fn dress_rookery(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
         mat::PATH,
     );
 
-    // Perch rows crossing the doorway's light, ravens roosting along them.
-    //
-    // The heights are not arbitrary and the rows are not level. The sky's
-    // luminous band sits within ~0.17 rad of the horizon (raster.rs:81) and
-    // everything below the horizon is flat night haze, so a bird only reads as
-    // a silhouette if it stands **just above the eye line and no more than
-    // ~0.17 × its distance above it**. A level row puts the near birds against
-    // black wall and only the far ones against light. The rows therefore rise
-    // with depth — which is also how a real loft is built, the near roosts
-    // under the far ones — and the camera sits low (`eye_h` 1.15) so the
-    // horizon runs under every roost in the room.
-    // (x, perch height, birds). The heights clear the eye line by a little and
-    // stay under the 0.17-rad glow band; the depths keep every bird clear of
-    // the tie beams, which cross the doorway at the wall head.
     let roosts: [(f32, f32, usize); 4] = [
         (1.10, 1.50, 1),
         (2.60, 1.64, 1),
@@ -977,21 +763,12 @@ fn dress_rookery(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
             }
         }
         for slot in 0..birds {
-            // Spread along the whole beam, not huddled on its middle. The old
-            // pitch bunched every bird inside ±0.9 of the room's centre line,
-            // so four rows of roosts arrived as one merged dark ridge; a raven
-            // is only a raven if there is night either side of it.
             let span = 3.70_f32;
             let by = if birds <= 1 {
                 rng.range(-1.35, 1.35)
             } else {
                 -span * 0.5 + slot as f32 * span / (birds as f32 - 1.0) + rng.jitter(0.30)
             };
-            // A real profile, not three boxes. The camera looks down the room
-            // at +x, so the birds are drawn broadside across y: beak, head-step
-            // and tail-notch all land square on the moonlit doorway behind
-            // them, which is the only surface in the room bright enough to
-            // silhouette anything against.
             prim::bird_profile(
                 mesh,
                 v3(px, by, z + 0.16),
@@ -1002,8 +779,6 @@ fn dress_rookery(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
         }
     }
 
-    // Rafters over the perches, a hanging lantern for the near warmth, and the
-    // ladder to the loft.
     for &rx in &[-3.60_f32, -1.70] {
         for &sy in &[-1.0_f32, 1.0] {
             prim::boxed(
@@ -1037,9 +812,6 @@ fn dress_rookery(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
         mat::WOOD,
         F_SIDES_TOP,
     );
-    // A brazier by the ladder: at 48 × 18 cells the loft door's cool band is
-    // half a dozen dots, so the room needs one warm mass that survives the
-    // tone curve or it reads as an empty black pane.
     prim::prism(
         mesh,
         2.40,
@@ -1089,13 +861,10 @@ fn dress_rookery(mesh: &mut Mesh, chamber: &Chamber, rng: &mut Rng) {
     }
 }
 
-/// Smithy — the forge fire in its hood, the anvil on its stump in front of it,
-/// the quench barrel and the tool rack.
 fn dress_smithy(mesh: &mut Mesh, chamber: &Chamber) {
     end_wall(mesh, chamber);
     let x = chamber.hx;
 
-    // Forge: a stone bed under a battered hood, the fire burning in its mouth.
     prim::boxed(
         mesh,
         v3(x - 1.20, -1.90, 0.0),
@@ -1133,7 +902,6 @@ fn dress_smithy(mesh: &mut Mesh, chamber: &Chamber) {
         v3(x - 1.22, 0.35, 0.96),
         mat::FIRE,
     );
-    // Firelight on the floor in front of the bed.
     prim::quad(
         mesh,
         v3(x - 3.10, -2.10, 0.03),
@@ -1143,7 +911,6 @@ fn dress_smithy(mesh: &mut Mesh, chamber: &Chamber) {
         mat::PATH,
     );
 
-    // Anvil on its stump, between the eye and the fire.
     let (ax, ay) = (1.30_f32, -0.85_f32);
     prim::prism(mesh, ax, ay, 0.0, 0.62, 0.42, 0.38, 6, 0.0, mat::WOOD);
     prim::boxed(
@@ -1161,7 +928,6 @@ fn dress_smithy(mesh: &mut Mesh, chamber: &Chamber) {
         F_SIDES_TOP,
     );
 
-    // Quench barrel and the tool rack on the far flank.
     prim::prism(mesh, 2.35, 1.85, 0.0, 0.78, 0.42, 0.40, 8, 0.0, mat::WOOD);
     prim::disc(mesh, 2.35, 1.85, 0.79, 0.38, 8, 0.0, mat::WATER);
     prim::boxed(
@@ -1185,13 +951,10 @@ fn dress_smithy(mesh: &mut Mesh, chamber: &Chamber) {
     }
 }
 
-/// Chapel — the rose window over the altar, tapers burning on it, an arcade
-/// and pews leading the eye up the nave.
 fn dress_chapel(mesh: &mut Mesh, chamber: &Chamber) {
     end_wall(mesh, chamber);
     let x = chamber.hx;
 
-    // Rose window: a lit wheel inside a dark stone ring.
     prim::poly_fan(
         mesh,
         v3(x - 0.02, 0.0, 3.25),
@@ -1212,7 +975,6 @@ fn dress_chapel(mesh: &mut Mesh, chamber: &Chamber) {
         0.0,
         mat::WINDOW,
     );
-    // Lancets under it.
     for &sy in &[-1.0_f32, 1.0] {
         prim::arched_panel(
             mesh,
@@ -1226,7 +988,6 @@ fn dress_chapel(mesh: &mut Mesh, chamber: &Chamber) {
         );
     }
 
-    // Altar on its step, two tapers burning at the corners.
     prim::boxed(
         mesh,
         v3(3.15, -1.35, 0.0),
@@ -1260,7 +1021,6 @@ fn dress_chapel(mesh: &mut Mesh, chamber: &Chamber) {
         );
     }
 
-    // Arcade columns and the pews.
     for &cx in &[-1.60_f32, 1.10] {
         for &sy in &[-1.0_f32, 1.0] {
             prim::prism(
@@ -1309,30 +1069,21 @@ fn dress_chapel(mesh: &mut Mesh, chamber: &Chamber) {
     }
 }
 
-/// Round Table — the ring of light on the board with the empty seats around it.
 fn dress_round_table(mesh: &mut Mesh, chamber: &Chamber) {
     end_wall(mesh, chamber);
 
-    // The table: a pedestal, a rim, a board, and the lit ring inlaid in it.
     prim::prism(mesh, 0.0, 0.0, 0.0, 0.72, 1.00, 0.80, 6, 0.0, mat::WOOD);
     prim::prism(mesh, 0.0, 0.0, 0.72, 0.90, 2.55, 2.55, 12, 0.0, mat::WOOD);
     prim::disc(mesh, 0.0, 0.0, 0.90, 2.55, 12, 0.0, mat::WOOD);
     instruments::council_map(mesh);
 
-    // Seats around it — all but the one the camera is standing at.
     for i in 0..8 {
         let angle = TAU * i as f32 / 8.0 + 0.39;
-        // The seat the camera is standing at stays empty — filling it would
-        // mass a chair back across the middle of the board and close off the
-        // whole shot. Index 4 is the one on the staged eye's own bearing.
         if i == 4 {
             continue;
         }
         let (sin, cos) = angle.sin_cos();
         let (sx, sy) = (cos * 3.35, sin * 3.35);
-        // Across the board from the eye stands the Siege Perilous: the seat
-        // no knight may take unbidden, carved stone with its crown above it,
-        // facing the table.
         if i == 0
             && let Some(siege) =
                 props::placed("siege_perilous", v3(cos * 3.6, sin * 3.6, 0.0), angle - FRAC_PI_2, 1.15)
@@ -1342,16 +1093,6 @@ fn dress_round_table(mesh: &mut Mesh, chamber: &Chamber) {
         }
         let seat = {
             let mut chair = Mesh::new();
-            // A chair is a *stepped* silhouette or it is a fence post. The
-            // previous seat was one 0.68-wide slab running floor to 2.14 with
-            // a rail barely wider than itself — at the twelve dots of height
-            // the ring gets, that is a picket, and eight of them read as a
-            // fence around the board. Three steps fix it, and all three have
-            // to be at least a quarter-tile so the Bayer screen keeps them:
-            //   1. a seat wider than the back it carries,
-            //   2. two uprights with real daylight between them,
-            //   3. a top rail that oversails the uprights on both sides.
-            // The eye finds a chair from the daylight, not from the timber.
             prim::boxed(
                 &mut chair,
                 v3(-0.44, -0.42, 0.40),
@@ -1368,8 +1109,6 @@ fn dress_round_table(mesh: &mut Mesh, chamber: &Chamber) {
                     F_SIDES,
                 );
             }
-            // The splat between them — low and broad, so the gap the eye reads
-            // is the one *above* it, right under the rail.
             prim::rect_panel(
                 &mut chair,
                 v3(0.26, -0.30, 0.64),
@@ -1391,8 +1130,6 @@ fn dress_round_table(mesh: &mut Mesh, chamber: &Chamber) {
         mesh.merge(seat.rotated_z(angle).translated(v3(sx, sy, 0.0)));
     }
 
-    // Candles standing on the board, so the near half of the table is not one
-    // flat plank between the eye and the ring.
     for i in 0..3 {
         let angle = TAU * (i as f32 + 0.5) / 3.0 + 0.6;
         let (sin, cos) = angle.sin_cos();
@@ -1415,7 +1152,6 @@ fn dress_round_table(mesh: &mut Mesh, chamber: &Chamber) {
         );
     }
 
-    // Banners on the walls behind them.
     for &(bx, by, yaw) in &[
         (chamber.hx - 0.05, -2.30_f32, 0.0_f32),
         (chamber.hx - 0.05, 1.90, 0.0),
@@ -1433,13 +1169,10 @@ fn dress_round_table(mesh: &mut Mesh, chamber: &Chamber) {
     }
 }
 
-/// Observatory — a wizard's room with the scrying glass framed by the star slit.
 fn dress_observatory(mesh: &mut Mesh, chamber: &Chamber) {
     let (x, hy) = (chamber.hx, chamber.hy);
     let slit = 1.40_f32;
 
-    // The slit: the end wall opens from the sill up, and the gable above it
-    // splits either side so the night runs all the way to the ridge.
     punched_wall(
         mesh,
         v3(x, -hy, 0.0),
@@ -1459,11 +1192,6 @@ fn dress_observatory(mesh: &mut Mesh, chamber: &Chamber) {
         chamber.z_ridge,
         chamber.shell,
     );
-    // What comes *through* the slit. The opening itself is real night sky, so
-    // the room already has a hole in it; what it lacked was any evidence the
-    // hole lets light in. A cold wash on the flags in front of it supplies
-    // that, and the tripod legs standing black in the middle of it are what
-    // turn a bright patch into a shaft.
     prim::quad(
         mesh,
         v3(x - 3.40, -2.05, 0.03),
@@ -1472,8 +1200,6 @@ fn dress_observatory(mesh: &mut Mesh, chamber: &Chamber) {
         v3(x - 3.40, 2.05, 0.03),
         mat::PATH,
     );
-    // Wound from the slit inward, so the moonlight's own fall-off runs the
-    // right way down the floor.
     prim::quad(
         mesh,
         v3(x - 0.10, -slit - 0.10, 0.05),
@@ -1483,8 +1209,6 @@ fn dress_observatory(mesh: &mut Mesh, chamber: &Chamber) {
         mat::MOONLIGHT,
     );
 
-    // Reveals down the slit's cheeks, so the wall reads as a thickness the
-    // night is cut through rather than as a painted rectangle.
     for &sy in &[-1.0_f32, 1.0] {
         prim::quad(
             mesh,
@@ -1496,11 +1220,8 @@ fn dress_observatory(mesh: &mut Mesh, chamber: &Chamber) {
         );
     }
 
-    // The glass occupies the old observing instrument's mark, so its full
-    // pedestal and broad brass rings read from the doorway at mini-pane size.
     instruments::scrying_globe(mesh, v3(1.55, -0.45, 1.92));
 
-    // Chart stand with its lamp, and the star globe on its post.
     prim::boxed(
         mesh,
         v3(-1.30, 1.35, 0.0),
@@ -1525,8 +1246,6 @@ fn dress_observatory(mesh: &mut Mesh, chamber: &Chamber) {
         0.46,
         mat::FIRE,
     );
-    // A lamp hung over the instrument. Same reason as the rookery's brazier:
-    // the star slit alone is cool and thin, and the ride pane crushes it.
     let (lx, ly) = (2.05_f32, 2.05_f32);
     prim::boxed(
         mesh,
@@ -1553,14 +1272,6 @@ fn dress_observatory(mesh: &mut Mesh, chamber: &Chamber) {
     instruments::armillary(mesh, v3(3.30, 2.55, 1.42));
 }
 
-// ── local primitives ──────────────────────────────────────────────────────
-
-/// A wall panel on the plane spanned by unit `right`/`up` from `origin`, with a
-/// rectangular hole punched through it. Emits the four surviving strips (any
-/// that collapse are dropped by `prim::quad`'s degenerate guard), so a doorway
-/// or a gate mouth costs eight triangles and nothing has to be modelled twice.
-///
-/// `hole` is `(u0, u1, v0, v1)` in the panel's own coordinates.
 #[allow(clippy::too_many_arguments)]
 fn punched_wall(
     mesh: &mut Mesh,
@@ -1579,7 +1290,6 @@ fn punched_wall(
         hole.3.clamp(0.0, h),
     );
     let at = |u: f32, v: f32| origin + right * u + up * v;
-    // Below and above the hole, full width.
     prim::quad(
         mesh,
         at(0.0, 0.0),
@@ -1589,7 +1299,6 @@ fn punched_wall(
         material,
     );
     prim::quad(mesh, at(0.0, v1), at(w, v1), at(w, h), at(0.0, h), material);
-    // The jambs either side of it.
     prim::quad(
         mesh,
         at(0.0, v0),
@@ -1601,25 +1310,8 @@ fn punched_wall(
     prim::quad(mesh, at(u1, v0), at(w, v0), at(w, v1), at(u1, v1), material);
 }
 
-/// The light a bay on the +y flank throws into the room: a wedge of moonlight
-/// from the sill down to a pool on the flags, with a lit halo of stone round it.
-///
-/// This started life as a WINDOW slab and had to be deleted: `window_tint`'s
-/// leaded grid (raster.rs) is sized for a pane, so stretched over two and a
-/// half tiles it read as a glowing lattice ramp propped against the wall, and
-/// it was the first thing the eye found in three of the eight rooms. The idea
-/// was never wrong — light arrives from off-frame and lands somewhere — only
-/// the material was. `mat::MOONLIGHT` is cold, unpatterned, weaker than a
-/// flame and less fog-proof, and [`prim::light_shaft`] gives it a body that an
-/// axial camera can actually see, so the shaft is back and this time it reads
-/// as air.
-///
-/// `sill` is the bay's own sill height; the wedge starts a little above it, at
-/// the middle of the opening, so the beam looks like it came *through* glass
-/// rather than out of a slot in the masonry.
 fn light_pool(mesh: &mut Mesh, x: f32, hy: f32, sill: f32) {
     let cy = hy - 1.75;
-    // The halo first, so the bright patch wins the depth test on top of it.
     prim::quad(
         mesh,
         v3(x - 1.05, cy - 1.20, 0.03),
@@ -1647,9 +1339,6 @@ fn light_pool(mesh: &mut Mesh, x: f32, hy: f32, sill: f32) {
     );
 }
 
-/// The +x gable with a slit cut out of its middle, so an opening in the wall
-/// below runs on up to the ridge. The apex above the slit is left open: past
-/// the end wall there is no roof, so the night runs straight in.
 fn slit_gable(
     mesh: &mut Mesh,
     x: f32,
@@ -1674,10 +1363,6 @@ fn slit_gable(
     }
 }
 
-// ── test windows ──────────────────────────────────────────────────────────
-
-/// The staged interior camera as `(x, y, z, heading, pitch, fov)` — the same
-/// review window `world3d::staged_eye` opens on the exterior vantages.
 #[cfg(test)]
 pub fn staged_eye(
     index: u8,
@@ -1696,8 +1381,6 @@ pub fn staged_eye(
     )
 }
 
-/// `(sky, built mass, ground)` for a staged interior — a room is not held to
-/// the vista law, but the mix is how a dump sheet explains a frame.
 #[cfg(test)]
 pub fn composition_mix(
     index: u8,
@@ -1713,16 +1396,6 @@ pub fn composition_mix(
     )
 }
 
-/// How far away the thing **in the middle of the picture** is — the
-/// anti-wall-close-up rail, measured the only way that means anything indoors.
-///
-/// A bearing sweep over the mesh is the wrong instrument here: a room is a box
-/// the camera stands *inside*, so there is always a bookcase or a rafter within
-/// a tile of the eye at the edge of the field, and a nearest-vertex rail either
-/// fails every honest interior or has to be loosened until it proves nothing.
-/// Instead this shoots the nine rays of the central 24% of the frame into the
-/// scene and reports the nearest surface any of them lands on. Ground planes
-/// are skipped — looking down at the flags you stand on is not a close-up.
 #[cfg(test)]
 pub fn standoff(
     index: u8,
@@ -1735,9 +1408,6 @@ pub fn standoff(
     centre_reach(&scene, &camera, dot_w, dot_h)
 }
 
-/// The nearest non-ground surface under the central 24% of the frame — the
-/// instrument behind [`standoff`], on any mesh and camera. The adventure
-/// regions' roomed stages (`region::standoff`) measure themselves with it.
 #[cfg(test)]
 pub fn centre_reach(scene: &Mesh, camera: &View3, dot_w: usize, dot_h: usize) -> f32 {
     let (sin_h, cos_h) = camera.heading_rad.sin_cos();
@@ -1770,7 +1440,6 @@ pub fn centre_reach(scene: &Mesh, camera: &View3, dot_w: usize, dot_h: usize) ->
     nearest
 }
 
-/// Möller–Trumbore, double-sided (the whole renderer is).
 #[cfg(test)]
 fn ray_triangle(origin: V3, direction: V3, v: [V3; 3]) -> Option<f32> {
     let (edge1, edge2) = (v[1] - v[0], v[2] - v[0]);

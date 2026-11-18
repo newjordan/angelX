@@ -126,8 +126,6 @@ fn ballot_pixels_cover_surface_and_delve_only_for_the_voting_seat() {
         let opened = arena::frame_for(&run, 384, 224, Some(2)).rgb_bytes();
         assert_ne!(opened, before);
         assert_ne!(opened, closed);
-        // An opaque panel fills the middle, rather than being hidden by a
-        // scene's early return or the world camera crop.
         let middle = (100 * 384 + 100) * 3;
         assert_ne!(opened[middle..middle + 3], before[middle..middle + 3]);
     }

@@ -29,11 +29,8 @@ pub const CUBE_H: u32 = 160;
 pub const RIBBONS_W: u32 = 480;
 pub const RIBBONS_H: u32 = 140;
 
-/// The most solid segments one formation may emit: a hard cap so a
-/// formation can never flood the instance buffer.
 pub const MAX_SEGMENTS: usize = 260;
 
-/// How long one randomized formation holds before the next seed.
 pub const FORMATION_SECONDS: f32 = 4.0;
 
 type V3 = [f32; 3];
@@ -70,8 +67,6 @@ fn rot_x(v: V3, a: f32) -> V3 {
     [v[0], c * v[1] - s * v[2], s * v[1] + c * v[2]]
 }
 
-/// A ray through pixel `(x, y)` of a `w` × `h` picture, camera at the
-/// origin looking down +z, `fov` the half-height at z = 1.
 fn ray(x: u32, y: u32, w: u32, h: u32, fov: f32) -> V3 {
     let aspect = w as f32 / h as f32;
     let nx = ((x as f32 + 0.5) / w as f32 * 2.0 - 1.0) * aspect * fov;
@@ -89,9 +84,6 @@ fn shade(base: [f32; 3], light: f32) -> [u8; 4] {
     [c(base[0]), c(base[1]), c(base[2]), 255]
 }
 
-/// The animated test card the warped plane shows: sky, a travelling sun,
-/// ridge silhouettes, a scrolling checker road, a bouncing ball, a sweep
-/// line and a frame counter in blocks along the bottom. 256 × 144.
 pub fn video_source(t: f32) -> Vec<u8> {
     const W: u32 = 256;
     const H: u32 = 144;
@@ -157,9 +149,6 @@ pub fn video_source(t: f32) -> Vec<u8> {
     rgba
 }
 
-/// The test card on a framed plane spinning and warping in 3D, raycast
-/// per pixel (exact perspective, the back of the frame shown when it
-/// turns away). Transparent outside the plane. [`VIDEO_W`] × [`VIDEO_H`].
 pub fn warped_video(t: f32) -> Vec<u8> {
     let source = video_source(t);
     let (sw, sh) = (256u32, 144u32);
@@ -190,14 +179,12 @@ pub fn warped_video(t: f32) -> Vec<u8> {
             }
             let edge = u.abs().max(v.abs());
             let px = if edge > 0.9 {
-                // The frame: brass, with darker corners.
                 if u.abs() > 0.96 && v.abs() > 0.94 {
                     [92, 64, 28, 255]
                 } else {
                     [196, 150, 72, 255]
                 }
             } else if denom < 0.0 {
-                // The back of the frame: slate with a diagonal brace.
                 if (u - v).abs() < 0.06 || (u + v).abs() < 0.06 {
                     [70, 78, 96, 255]
                 } else {
@@ -224,8 +211,6 @@ fn lambert(normal: V3, view: V3) -> f32 {
     0.22 + 0.75 * diffuse + 0.7 * spec
 }
 
-/// Three raycast spheres bobbing over a checker ground, blob shadows
-/// shrinking as each rises. Transparent above the horizon.
 pub fn raycast_orbs(t: f32) -> Vec<u8> {
     let mut rgba = vec![0u8; (ORBS_W * ORBS_H * 4) as usize];
     let ground_y = -0.85f32;
@@ -278,8 +263,6 @@ pub fn raycast_orbs(t: f32) -> Vec<u8> {
     rgba
 }
 
-/// A raycast cube turning on two axes and bobbing, faces coloured by
-/// axis, edges picked out bright. Transparent around it.
 pub fn raycast_cube(t: f32) -> Vec<u8> {
     let mut rgba = vec![0u8; (CUBE_W * CUBE_H * 4) as usize];
     let center: V3 = [0.0, 0.22 * (t * 1.6).sin(), 3.0];
@@ -344,8 +327,6 @@ pub fn raycast_cube(t: f32) -> Vec<u8> {
     rgba
 }
 
-/// Sine ribbons as one transparent picture: five curves running in
-/// alternating directions, stamped with a soft brush.
 pub fn line_ribbons(t: f32) -> Vec<u8> {
     let mut rgba = vec![0u8; (RIBBONS_W * RIBBONS_H * 4) as usize];
     let colours: [[u8; 3]; 5] = [
@@ -378,8 +359,6 @@ pub fn line_ribbons(t: f32) -> Vec<u8> {
     rgba
 }
 
-/// A tiny seeded generator (xorshift64): formations are randomized but
-/// reproducible, so a bug seen on screen can be replayed from its seed.
 pub struct Rng(u64);
 
 impl Rng {
@@ -394,7 +373,6 @@ impl Rng {
         self.0 = x;
         x
     }
-    /// In `0.0..1.0`.
     pub fn unit(&mut self) -> f32 {
         (self.next() >> 40) as f32 / (1u64 << 24) as f32
     }
@@ -406,7 +384,6 @@ impl Rng {
     }
 }
 
-/// Which formation the clock is in; changes every [`FORMATION_SECONDS`].
 pub fn formation_seed(t: f32) -> u64 {
     ((t.max(0.0) / FORMATION_SECONDS) as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ 0xB1A5_7E57
 }
@@ -453,11 +430,6 @@ fn segment(
     layers.push(layer);
 }
 
-/// One randomized line formation as solid segment layers over a
-/// `window`-sized area in pixels, alternating below the text (z < 0) and
-/// above it (z > 0). Kinds: parallel sine waves, a rotating starburst, a
-/// sine weave, and a spiral. Every formation also carries two slow waves
-/// behind the text so the z split is always on screen.
 pub fn line_formation(t: f32, window: (f32, f32)) -> Vec<Layer> {
     let (w, h) = window;
     let mut layers = Vec::new();
@@ -467,7 +439,6 @@ pub fn line_formation(t: f32, window: (f32, f32)) -> Vec<Layer> {
     let mut rng = Rng::new(formation_seed(t));
     let kind = rng.pick(4);
     let thick = rng.range(2.0, 4.5);
-    // Two slow waves behind the text, always.
     for (wave, &color) in PALETTE.iter().enumerate().take(2) {
         let base = h * (0.3 + 0.4 * wave as f32);
         let amp = h * 0.06;
@@ -483,7 +454,6 @@ pub fn line_formation(t: f32, window: (f32, f32)) -> Vec<Layer> {
     }
     match kind {
         0 => {
-            // Parallel sine waves, alternating z and direction.
             let waves = 3 + rng.pick(3);
             for wave in 0..waves {
                 let base = h * rng.range(0.12, 0.9);
@@ -503,7 +473,6 @@ pub fn line_formation(t: f32, window: (f32, f32)) -> Vec<Layer> {
             }
         }
         1 => {
-            // A rotating starburst about a drifting centre.
             let centre = drift(t, 2.4, window, (0.0, 0.0));
             let spokes = 10 + rng.pick(10);
             let reach = w.min(h) * rng.range(0.3, 0.55);
@@ -522,7 +491,6 @@ pub fn line_formation(t: f32, window: (f32, f32)) -> Vec<Layer> {
             }
         }
         2 => {
-            // A weave: horizontal and vertical sine threads crossing.
             let threads = 4 + rng.pick(3);
             for i in 0..threads {
                 let frac = i as f32 / threads.max(1) as f32;
@@ -543,7 +511,6 @@ pub fn line_formation(t: f32, window: (f32, f32)) -> Vec<Layer> {
             }
         }
         _ => {
-            // A spiral turning about a drifting centre.
             let centre = drift(t, 4.1, window, (0.0, 0.0));
             let arms = 2 + rng.pick(3);
             let max_r = w.min(h) * rng.range(0.28, 0.5);
@@ -565,21 +532,11 @@ pub fn line_formation(t: f32, window: (f32, f32)) -> Vec<Layer> {
     layers
 }
 
-/// Picture ids the blast streams into (from [`crate::layer::LAYER_PICTURES`]).
 pub const VIDEO_ID: u32 = crate::layer::LAYER_PICTURES + 16;
 pub const ORBS_ID: u32 = crate::layer::LAYER_PICTURES + 17;
 pub const CUBE_ID: u32 = crate::layer::LAYER_PICTURES + 18;
 pub const RIBBONS_ID: u32 = crate::layer::LAYER_PICTURES + 19;
 
-/// The whole blast as layers over a `window`-sized area: the framed video
-/// with a glow behind it, the raycast orbs and cube lifted and bobbing,
-/// the ribbon picture, two translucent turning panels, and the line
-/// formation. The caller streams the four pictures each frame and hands
-/// these over as one layer group. The line formation repeats `copies`
-/// times (different
-/// seeds and phases), for scale testing: how many segment layers can the
-/// compositor carry before the frame budget goes? Ids stay unique across
-/// the whole scene.
 pub fn scene_layers_x(t: f32, window: (f32, f32), copies: usize) -> Vec<Layer> {
     let (w, h) = window;
     let mut layers = Vec::new();
@@ -600,7 +557,6 @@ pub fn scene_layers_x(t: f32, window: (f32, f32), copies: usize) -> Vec<Layer> {
         next += 1;
         layers.push(layer);
     };
-    // The framed, warping video, drifting slowly, a glow behind it.
     let vw = (w * 0.44).min(600.0);
     let vh = vw * VIDEO_H as f32 / VIDEO_W as f32;
     let (vx, vy) = drift(t, 0.0, window, (vw, vh));
@@ -609,27 +565,23 @@ pub fn scene_layers_x(t: f32, window: (f32, f32), copies: usize) -> Vec<Layer> {
     video.angle = 0.07 * (t * 0.5).sin();
     video.height = 26.0 + 18.0 * (t * 0.9).sin().max(0.0);
     push(&mut layers, video);
-    // Raycast orbs, lifted well off the ground, bobbing.
     let ow = (w * 0.3).min(360.0);
     let oh = ow * ORBS_H as f32 / ORBS_W as f32;
     let (ox, oy) = drift(t, 2.9, window, (ow, oh));
     let mut orbs = Layer::new(0, 7, Placement::Pixels([ox, oy, ow, oh]), LayerKind::Picture(ORBS_ID));
     orbs.height = 70.0 + 55.0 * (0.5 + 0.5 * (t * 1.3).sin());
     push(&mut layers, orbs);
-    // The raycast cube, smaller, higher, counter-drifting.
     let cs = (w * 0.18).min(230.0);
     let (cx, cy) = drift(t, 5.2, window, (cs, cs));
     let mut cube = Layer::new(0, 8, Placement::Pixels([cx, cy, cs, cs]), LayerKind::Picture(CUBE_ID));
     cube.height = 110.0 + 70.0 * (0.5 + 0.5 * (t * 1.7 + 1.0).sin());
     cube.breathe = 5.0;
     push(&mut layers, cube);
-    // Sine ribbons as a picture, sliding across near the bottom.
     let rw = (w * 0.52).min(680.0);
     let rh = rw * RIBBONS_H as f32 / RIBBONS_W as f32;
     let rx = ((t * 22.0) % (w + rw)) - rw;
     let ry = h * 0.72 + h * 0.05 * (t * 0.4).sin();
     push(&mut layers, Layer::new(0, 2, Placement::Pixels([rx, ry, rw, rh]), LayerKind::Picture(RIBBONS_ID)));
-    // Two translucent panels turning slowly, one either side of the text.
     for i in 0..2 {
         let pw = w * 0.16;
         let ph = h * 0.2;
@@ -646,8 +598,6 @@ pub fn scene_layers_x(t: f32, window: (f32, f32), copies: usize) -> Vec<Layer> {
     layers
 }
 
-/// A Lissajous drift inside `window` for something of `size`, centred:
-/// the screensaver's path.
 pub fn drift(t: f32, phase: f32, window: (f32, f32), size: (f32, f32)) -> (f32, f32) {
     let (w, h) = window;
     let span_x = ((w - size.0) / 2.0).max(0.0);
@@ -682,7 +632,6 @@ mod tests {
         assert_eq!(alpha(&frame, VIDEO_W, VIDEO_W / 2, VIDEO_H / 2), 255);
         assert_eq!(alpha(&frame, VIDEO_W, 0, 0), 0);
         assert_eq!(alpha(&frame, VIDEO_W, VIDEO_W - 1, VIDEO_H - 1), 0);
-        // Turned past edge-on later, the back still shows as a sliver.
         assert!(opaque(&warped_video(2.6)) > 400);
     }
 
@@ -761,8 +710,6 @@ mod tests {
         assert_eq!(ids.len(), four.len(), "ids unique across copies");
     }
 
-    /// `BLAST_DUMP=/tmp/blast cargo test -p angel-glass dump_blast_frames`
-    /// writes PPM stills of every medium for a human to open.
     #[test]
     fn dump_blast_frames() {
         let Ok(dir) = std::env::var("BLAST_DUMP") else {
@@ -772,7 +719,6 @@ mod tests {
         let write = |name: &str, rgba: &[u8], w: u32, h: u32| {
             let mut out = format!("P6\n{w} {h}\n255\n").into_bytes();
             for px in rgba.chunks_exact(4) {
-                // Composite over a dark slate so alpha reads.
                 let a = px[3] as u32;
                 for &c in &px[..3] {
                     out.push(((c as u32 * a + 24 * (255 - a)) / 255) as u8);

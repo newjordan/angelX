@@ -1,15 +1,9 @@
 use super::*;
 
-/// Delegates to the crate-wide test env lock (process env is global — a
-/// module-local lock can't serialize against other modules' env tests).
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     crate::tests::env_lock()
 }
 
-/// Knobs that shape outbound request bytes (dialect, effort, cache markers,
-/// replay and session pins). Tests scrub them under the crate env lock so a hop
-/// pair cannot be built under two different configurations; the list mirrors
-/// the club prefix suite.
 const PREFIX_ENV: &[&str] = &[
     "ANGEL_REASONING_EFFORT",
     "ANGEL_DEEPSEEK_REASONING_EFFORT",
@@ -58,7 +52,6 @@ impl PrefixEnv {
         let mut previous = Vec::with_capacity(keys.len());
         for &key in keys {
             previous.push((key, std::env::var_os(key)));
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::remove_var(key) };
         }
         resync_prefix_env();
@@ -70,9 +63,7 @@ impl Drop for PrefixEnv {
     fn drop(&mut self) {
         for (key, value) in self.previous.drain(..).rev() {
             match value {
-                // TODO: Audit that the environment access only happens in single-threaded code.
                 Some(value) => unsafe { std::env::set_var(key, value) },
-                // TODO: Audit that the environment access only happens in single-threaded code.
                 None => unsafe { std::env::remove_var(key) },
             }
         }
@@ -86,8 +77,6 @@ fn resync_prefix_env() {
     crate::agent::club::resync_openrouter_anthropic_cache_from_env();
 }
 
-/// Build a JWT (header.payload.signature) with the given payload JSON. Only the
-/// payload segment is real base64url; header/sig are placeholders.
 fn fake_jwt(payload: serde_json::Value) -> String {
     let p = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .encode(serde_json::to_vec(&payload).unwrap());
@@ -108,7 +97,6 @@ fn jwt_exp_and_account_id_decode() {
 
 #[test]
 fn load_parses_chatgpt_auth_and_falls_back_to_id_token_account() {
-    // account_id only present inside the id_token claim.
     let id = fake_jwt(serde_json::json!({
         "https://api.openai.com/auth": { "chatgpt_account_id": "acct_from_id" }
     }));
@@ -125,9 +113,7 @@ fn load_parses_chatgpt_auth_and_falls_back_to_id_token_account() {
 
 #[test]
 fn load_rejects_missing_or_empty_token() {
-    // No tokens object.
     assert!(ChatGptAuth::from_value(&serde_json::json!({}), PathBuf::from("/x")).is_none());
-    // Empty access token (signed out).
     let v = serde_json::json!({ "tokens": { "access_token": "" } });
     assert!(ChatGptAuth::from_value(&v, PathBuf::from("/x")).is_none());
 }
@@ -302,7 +288,6 @@ fn openai_codex_resolved_selection_reaches_responses_fixture() {
     }
     let _model = TestEnvGuard::set("ANGEL_OPENAI_MODEL", "gpt-5.6-luna");
     let _effort = TestEnvGuard::set("ANGEL_OPENAI_REASONING_EFFORT", "invented");
-    // Invalid selection must return before auth refresh or any POST.
     let club = club().with_selection(CodexClub::resolve_selection());
     let error = club.respond("fixture").unwrap_err();
     assert!(error.contains("supported efforts: [max]"), "{error}");
@@ -496,9 +481,6 @@ fn token_adopts_credentials_rotated_by_another_process() {
 
 #[test]
 fn concurrent_token_reads_on_a_valid_token_share_the_fast_path() {
-    // A fresh disk token: every concurrent caller returns it via the fast
-    // path (cheap lock, no refresh gate) with no deadlock or lock inversion —
-    // guards the single-flight refactor against a concurrency regression.
     let dir = std::env::temp_dir().join(format!(
         "angel_codex_auth_concurrent_{}_{}",
         std::process::id(),
@@ -563,14 +545,12 @@ fn unchanged_stale_disk_does_not_undo_an_in_memory_refresh() {
     write_auth("disk-old-access", "disk-old-refresh");
     let mut auth = ChatGptAuth::from_path(path.clone()).unwrap();
 
-    // Model a successful refresh whose best-effort disk write failed.
     auth.access_token = "memory-new-access".into();
     auth.refresh_token = "memory-new-refresh".into();
     assert!(!auth.adopt_disk_credentials());
     assert_eq!(auth.access_token, "memory-new-access");
     assert_eq!(auth.refresh_token, "memory-new-refresh");
 
-    // A genuinely different later disk snapshot is still adopted.
     write_auth("external-new-access", "external-new-refresh");
     assert!(auth.adopt_disk_credentials());
     assert_eq!(auth.access_token, "external-new-access");
@@ -712,9 +692,6 @@ fn auth_persist_preserves_permissions_and_leaves_no_shared_temp_file() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// The ChatGPT-backed Codex Responses endpoint rejects `max_output_tokens`
-/// ("HTTP 400: Unsupported parameter"), so the request must never carry it —
-/// tuned or not. A SOTA link relies on `keep_truncated` for a cut-off reply.
 #[test]
 fn build_request_never_sends_max_output_tokens() {
     for club in [club(), club().sota_tuned()] {
@@ -779,8 +756,6 @@ fn a_reshaped_access_program_list_costs_only_that_model_its_programs() {
     assert_eq!(models.len(), 3, "the catalog survives an odd field");
     assert_eq!(models[0].daybreak_program(), None);
     assert_eq!(models[1].daybreak_program(), Some("daybreak_blue"));
-    // The plain ChatGPT seat serves a model with no programs listed, never one
-    // offered only under Daybreak.
     assert!(models[0].standard_access());
     assert!(!models[2].standard_access());
 }
@@ -810,7 +785,6 @@ fn a_daybreak_seat_sends_its_access_program_and_no_other_seat_does() {
         body["access_programs"]
     );
 
-    // Only the ChatGPT login carries a program; an API-key seat never does.
     let api = CodexClub::api_key_seat(
         "openai-api",
         "gpt-6-sol",
@@ -829,7 +803,6 @@ fn a_daybreak_seat_sends_its_access_program_and_no_other_seat_does() {
             .is_none()
     );
 
-    // Validate the route against the same immutable catalog before dispatch.
     let mut model = CodexModelInfo {
         slug: "gpt-6-sol".into(),
         default_reasoning_level: "high".into(),
@@ -871,8 +844,6 @@ fn a_daybreak_seat_sends_its_access_program_and_no_other_seat_does() {
     );
 }
 
-/// Read one full HTTP request (headers + `Content-Length` body) off a
-/// socket, mirroring the local-server helpers the chat-route tests use.
 fn read_http_request(sock: &mut std::net::TcpStream) -> String {
     use std::io::Read;
     let mut req = Vec::new();
@@ -897,9 +868,6 @@ fn read_http_request(sock: &mut std::net::TcpStream) -> String {
     String::from_utf8_lossy(&req).into_owned()
 }
 
-/// A Responses stream that answers HTTP 200, emits one event and then goes
-/// silent is a model thinking: nothing ends it but the operator. Cancel aborts
-/// the blocked read at once (there is no read deadline to wait out).
 #[test]
 fn a_silent_responses_stream_runs_until_the_operator_cancels() {
     let _guard = env_lock();
@@ -920,7 +888,6 @@ fn a_silent_responses_stream_runs_until_the_operator_cancels() {
                    data: {\"type\":\"response.created\",\"response\":{}}\n\n",
         );
         let _ = sock.flush();
-        // Silent until the client goes away.
         let mut buf = [0u8; 64];
         while matches!(sock.read(&mut buf), Ok(n) if n > 0) {}
     });
@@ -962,9 +929,6 @@ fn a_silent_responses_stream_runs_until_the_operator_cancels() {
     drop(handle.join());
 }
 
-/// A stream that breaks mid-reply, with commentary streamed and a tool call
-/// open, is an incomplete stream the turn may replay, as on the Chat route.
-/// Labelled a bare "stream read error", it once cost a sol task outright.
 #[test]
 fn a_responses_stream_severed_mid_tool_call_is_a_recoverable_incomplete_stream() {
     let _guard = env_lock();
@@ -983,7 +947,6 @@ fn a_responses_stream_severed_mid_tool_call_is_a_recoverable_incomplete_stream()
         let body = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"Reading the header.\"}\n\n\
                     data: {\"type\":\"response.output_item.added\",\"item\":{\"type\":\"function_call\",\"id\":\"fc_1\",\"call_id\":\"call_1\",\"name\":\"read_file\"}}\n\n";
         let _ = write!(sock, "{:x}\r\n{body}\r\n", body.len());
-        // A chunk header that is not hex: the client fails decoding the body.
         let _ = sock.write_all(b"zz\r\ngarbage\r\n");
         let _ = sock.flush();
     });
@@ -1004,7 +967,6 @@ fn a_responses_stream_severed_mid_tool_call_is_a_recoverable_incomplete_stream()
             &mut |_| {},
         )
         .expect_err("a severed stream with a tool call open must fail");
-    // The turn loop replays exactly this class (`is_recoverable_stream_error`).
     assert!(
         err.starts_with(crate::agent::club::INCOMPLETE_STREAM_ERR),
         "{err}"
@@ -1013,8 +975,6 @@ fn a_responses_stream_severed_mid_tool_call_is_a_recoverable_incomplete_stream()
     drop(handle.join());
 }
 
-/// A stream that sends only keep-alives and bookkeeping frames for a while is
-/// a model thinking: it is never cut, and its answer lands when it comes.
 #[test]
 fn a_keep_alive_only_responses_stream_is_never_cut() {
     let _guard = env_lock();
@@ -1092,7 +1052,6 @@ fn build_request_maps_system_to_instructions_and_roles() {
 fn sota_tuned_build_request_keeps_caveman_opt_in() {
     let _guard = env_lock();
     let saved = std::env::var_os("ANGEL_SOTA_CAVEMAN");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_SOTA_CAVEMAN") };
 
     let body = club()
@@ -1100,7 +1059,6 @@ fn sota_tuned_build_request_keeps_caveman_opt_in() {
         .build_request(&[ChatMsg::user("hi")], &[]);
     assert_eq!(body["instructions"], "");
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SOTA_CAVEMAN", "1") };
     let body = club()
         .sota_tuned()
@@ -1116,9 +1074,7 @@ fn sota_tuned_build_request_keeps_caveman_opt_in() {
     assert_eq!(body["input"][0]["content"][0]["text"], "hi");
 
     match saved {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_SOTA_CAVEMAN", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_SOTA_CAVEMAN") },
     }
 }
@@ -1210,7 +1166,6 @@ fn sse_events_decode_text_reasoning_done_and_error() {
         ResponseEvent::ToolCallDone { key, call }
             if key == "fc_1" && call.id == "call_1" && call.name == "list_dir" && call.args["path"] == "."
     ));
-    // A bare complete carries no usage; one with `usage` is parsed through.
     assert!(matches!(
         parse_responses_event(r#"data: {"type":"response.completed","response":{}}"#),
         ResponseEvent::Done(None)
@@ -1234,7 +1189,6 @@ fn sse_events_decode_text_reasoning_done_and_error() {
         r#"data: {"type":"response.failed","response":{"error":{"message":"nope"}}}"#,
     );
     assert!(matches!(fail, ResponseEvent::Failed(m, _) if m == "nope"));
-    // event: lines, comments, blanks, and unrelated events are ignored.
     assert!(matches!(
         parse_responses_event("event: response.output_text.delta"),
         ResponseEvent::Ignore
@@ -1272,17 +1226,12 @@ fn response_tool_call_accumulator_builds_calls_from_deltas() {
 
 #[test]
 fn response_tool_call_accumulator_merges_item_and_call_ids() {
-    // Responses streams identify the output item as `fc_*`, while the
-    // dispatch/result protocol uses `call_*`. A completed item must finish
-    // the started call, not create a second callable entry.
     let mut calls = ResponseToolCalls::default();
     calls.start(
         "fc_1".into(),
         Some("call_1".into()),
         Some("list_dir".into()),
     );
-    // Some gateways key the final argument event by call_id instead of
-    // item_id; this must still join the original entry.
     calls.set_args("call_1", r#"{"path":"."}"#.into());
     calls.done(
         "fc_1".into(),
@@ -1317,7 +1266,6 @@ fn response_tool_call_accumulator_keeps_multi_call_item_order() {
         Some("call_second".into()),
         Some("list_dir".into()),
     );
-    // Completion order is allowed to differ from output-item order.
     calls.done(
         "fc_second".into(),
         ToolCall {
@@ -1345,10 +1293,6 @@ fn response_tool_call_accumulator_keeps_multi_call_item_order() {
     assert_eq!(out[1].id, "call_second");
 }
 
-/// Anything the assembler repairs or drops is reported, never silent: a call
-/// that completes under a different name than it started with, completed
-/// arguments that differ from the streamed ones, final arguments that replace
-/// the deltas, and argument bytes that never got a name and so cannot dispatch.
 #[test]
 fn response_tool_call_accumulator_notes_repairs_and_drops() {
     let mut calls = ResponseToolCalls::default();
@@ -1394,7 +1338,6 @@ fn response_tool_call_accumulator_notes_repairs_and_drops() {
 
 #[test]
 fn format_usage_renders_tokens_and_limits() {
-    // Nothing reported yet → no status noise.
     assert!(format_usage(&UsageStats::default()).is_none());
 
     let stats = UsageStats {
@@ -1429,18 +1372,14 @@ fn format_usage_renders_tokens_and_limits() {
 
 #[test]
 fn parse_usage_handles_absent_partial_and_all_zero() {
-    // Absent usage object → None.
     assert!(parse_usage(None).is_none());
-    // Explicit zero is reported usage, distinct from absent/unknown usage.
     let zero = serde_json::json!({ "input_tokens": 0, "output_tokens": 0 });
     assert_eq!(parse_usage(Some(&zero)).unwrap().input, Some(0));
-    // Only reasoning tokens present → still a Usage.
     let only_reasoning = serde_json::json!({
         "output_tokens_details": { "reasoning_tokens": 7 }
     });
     let u = parse_usage(Some(&only_reasoning)).expect("reasoning-only counts");
     assert_eq!((u.input, u.output, u.reasoning), (None, None, Some(7)));
-    // Input only, with a misshaped reasoning detail (ignored).
     let input_only = serde_json::json!({ "input_tokens": 5, "output_tokens_details": 9 });
     let u2 = parse_usage(Some(&input_only)).expect("input counts");
     assert_eq!((u2.input, u2.output, u2.reasoning), (Some(5), None, None));
@@ -1449,7 +1388,6 @@ fn parse_usage_handles_absent_partial_and_all_zero() {
 #[test]
 fn record_usage_accumulates_and_usage_report_renders() {
     let c = club();
-    // No turns yet → no report.
     assert!(c.usage_report().is_none());
     assert!(c.token_usage().is_none());
     c.record_usage(Usage {
@@ -1466,7 +1404,6 @@ fn record_usage_accumulates_and_usage_report_renders() {
     });
     let report = c.usage_report().expect("usage after two turns");
     assert!(report.contains("turns     2"));
-    // `last` reflects the most recent turn; totals sum across both.
     assert!(report.contains("last      in 20 · out 6 · reasoning 3"));
     assert!(report.contains("session   in 30 · out 10 · total 40"));
     let usage = c.token_usage().expect("structured usage after two turns");
@@ -1494,7 +1431,6 @@ fn format_usage_omits_reasoning_when_zero_and_keeps_plain_limit_labels() {
         total_input: 8,
         total_output: 2,
         total_reasoning: 0,
-        // A non-vendor-prefixed limit header keeps its name (dashes → spaces).
         rate_limits: vec![("ratelimit-remaining".into(), "9".into())],
         ..UsageStats::default()
     };
@@ -1524,11 +1460,9 @@ fn default_model_comes_from_env_or_codex_config() {
     let old_env = std::env::var("ANGEL_OPENAI_MODEL").ok();
     let old_home = std::env::var("CODEX_HOME").ok();
     let old_effort = std::env::var("ANGEL_OPENAI_REASONING_EFFORT").ok();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_OPENAI_MODEL", " env-model ") };
     assert_eq!(CodexClub::default_model().as_deref(), Some("env-model"));
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_OPENAI_MODEL") };
     let dir = std::env::temp_dir().join(format!(
         "angel_codex_home_{}_{}",
@@ -1538,13 +1472,10 @@ fn default_model_comes_from_env_or_codex_config() {
     std::fs::create_dir_all(&dir).expect("create temp codex home");
     std::fs::write(dir.join("config.toml"), "model = \"config-model\"\n")
         .expect("write temp config");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("CODEX_HOME", &dir) };
     assert_eq!(CodexClub::default_model().as_deref(), Some("config-model"));
     let _ = std::fs::remove_dir_all(dir);
 
-    // A forbidden pin stays visible so validation can refuse it truthfully.
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_OPENAI_MODEL", "gpt-5.3-codex-spark") };
     assert_eq!(
         CodexClub::default_model().as_deref(),
@@ -1558,21 +1489,15 @@ fn default_model_comes_from_env_or_codex_config() {
     );
 
     match old_env {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_OPENAI_MODEL", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_OPENAI_MODEL") },
     }
     match old_home {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("CODEX_HOME", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("CODEX_HOME") },
     }
     match old_effort {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_OPENAI_REASONING_EFFORT", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_OPENAI_REASONING_EFFORT") },
     }
 }
@@ -1594,10 +1519,6 @@ fn model_catalog_strips_codex_spark_surfaces() {
     assert!(!models.iter().any(|m| m.slug.contains("spark")));
 }
 
-/// An API-key Responses seat (Meta's Muse Spark) posts to its own endpoint with
-/// only the bearer key, none of the ChatGPT account headers, asks for
-/// reasoning summaries at the configured effort, and streams the summary to
-/// the thinking panel. Meta's Chat Completions endpoint redacts reasoning.
 #[test]
 fn an_api_key_responses_seat_streams_reasoning_summaries() {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -1829,13 +1750,11 @@ fn responses_native_replay_preserves_wire_items_and_stays_private() {
     assert_eq!(input[3]["call_id"], input[4]["call_id"]);
     assert_eq!(input[2]["phase"], "commentary");
     assert_eq!(input[3]["arguments"], "{ \"path\" : \"src\" }");
-    // Native output is never serialized into a generic provider's messages.
     assert!(
         !serde_json::to_string(&history)
             .unwrap()
             .contains("encrypted_content")
     );
-    // Ordinary history append retains the same reusable native prefix.
     history.push(ChatMsg::harness("continue"));
     assert_eq!(
         &route.build_request(&history, &[])["input"]
@@ -1853,11 +1772,6 @@ fn responses_native_replay_preserves_wire_items_and_stays_private() {
     );
 }
 
-/// An API-key seat (Muse on Meta's Responses API) gets its own encrypted
-/// reasoning back, and the legend's introductions don't break the match: the
-/// capture is keyed on the history the turn loop holds, not the outbound copy
-/// the legend writes into. Before, the system prompt's introduced ⠽ stamp made
-/// every captured turn miss.
 #[test]
 fn an_api_key_seat_replays_its_reasoning_with_the_legend_on() {
     use crate::tests::TestEnvGuard;
@@ -1901,7 +1815,6 @@ fn an_api_key_seat_replays_its_reasoning_with_the_legend_on() {
     let input = body["input"].as_array().unwrap();
     assert_eq!(&input[1..4], items.as_slice(), "{body}");
     assert_eq!(input[4]["type"], "function_call_output");
-    // No cache key unless the seat asks for one; Meta's does.
     assert!(body.get("prompt_cache_key").is_none());
     let keyed = route.with_prompt_cache_key();
     let first = keyed.build_request(&history, std::slice::from_ref(&read_file));
@@ -1918,10 +1831,6 @@ fn an_api_key_seat_replays_its_reasoning_with_the_legend_on() {
     );
 }
 
-/// Request N's serialized Responses `input` must be a literal prefix of request
-/// N+1's, continued by a comma and one more element: the provider caches the
-/// re-rendered history only where those bytes and the instructions above them
-/// stay identical.
 fn assert_responses_input_prefix(
     label: &str,
     previous: &serde_json::Value,
@@ -1961,8 +1870,6 @@ fn assert_responses_input_prefix(
     );
 }
 
-/// A prefix check alone passes when a route silently drops the newest item:
-/// every new turn must actually appear in the request that carries it.
 fn assert_responses_turn_present(label: &str, body: &serde_json::Value, needle: &str) {
     assert!(
         body["input"].to_string().contains(needle),
@@ -1991,9 +1898,6 @@ fn responses_call(id: &str, path: &str) -> ToolCall {
     }
 }
 
-/// The same growing conversation as the chat suite, with each assistant turn
-/// carrying private reasoning: a reasoned tool call and its result, a reasoned
-/// answer, a new ask, then a second reasoned tool call and its result.
 fn responses_growing_hops() -> Vec<Vec<ChatMsg>> {
     let hop1 = vec![
         ChatMsg::system("stable policy"),
@@ -2020,7 +1924,6 @@ fn responses_growing_hops() -> Vec<Vec<ChatMsg>> {
     vec![hop1, hop2, hop3, hop4]
 }
 
-/// What was riding the wire by each hop of the ChatGPT conversation.
 fn assert_chatgpt_turns_present(bodies: &[serde_json::Value]) {
     assert_eq!(bodies.len(), 4, "the fixture grows through four hops");
     assert_responses_turn_present("chatgpt responses", &bodies[0], "inspect src/main.rs");
@@ -2067,8 +1970,6 @@ fn responses_chatgpt_input_stays_a_byte_prefix_as_the_turn_grows() {
     }
 }
 
-/// One Responses SSE answer per accepted connection; returns the request body
-/// the production route sent for each hop.
 fn serve_responses(
     listener: std::net::TcpListener,
     expected: usize,
@@ -2097,11 +1998,6 @@ fn serve_responses(
     })
 }
 
-/// Muse is the API-key Responses seat. Its route is built through the same
-/// production constructor the bag uses, so a constructor that forgets to turn
-/// replay on or to send a cache key fails here. The encrypted reasoning rides
-/// back at the head of the turn it belongs to, and the request prefix stays the
-/// one the provider cached as the history grows past it.
 #[test]
 fn responses_muse_input_stays_a_byte_prefix_when_reasoning_replays() {
     let _lock = env_lock();
@@ -2240,7 +2136,7 @@ fn responses_native_replay_invalidates_on_history_or_route_changes() {
     Arc::make_mut(&mut changed[2].tool_calls)[0].args = serde_json::json!({"path":"other"});
     assert!(!native(&changed));
     let mut changed = history.clone();
-    changed[1].content = "Inspect".into(); // same byte length
+    changed[1].content = "Inspect".into();
     assert!(!native(&changed));
     let mut changed = history.clone();
     changed[1].attachments = vec![Media::Image {
@@ -2258,8 +2154,6 @@ fn responses_native_replay_invalidates_on_history_or_route_changes() {
             .to_string()
             .contains("opaque-fixture-state")
     );
-    // Another provider's seat never replays this one's capture, even with its
-    // own replay on: a capture is keyed to the seat that made it.
     let other = CodexClub::api_key_seat(
         "other-provider",
         "other-model",
@@ -2436,7 +2330,6 @@ fn responses_native_replay_clears_stale_state_on_cancel_or_unsuccessful_streams(
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let addr = listener.local_addr().unwrap();
     let server = std::thread::spawn(move || {
-        // The fourth call is cancelled before it starts and never connects.
         for end in ["", "response.failed", "response.incomplete"] {
             let (mut socket, _) = listener.accept().unwrap();
             socket
@@ -2510,9 +2403,6 @@ fn responses_native_replay_preparation_diagnostic() {
     }
 }
 
-/// The legend reaches a Responses seat (Codex, Muse) as it reaches Chat
-/// Completions: before, only the Chat wire carried it, so these seats only
-/// ever saw bare braille.
 #[test]
 fn the_legend_reaches_the_responses_wire() {
     let _guard = crate::tests::env_lock();
@@ -2547,10 +2437,6 @@ fn the_legend_reaches_the_responses_wire() {
     );
 }
 
-/// An OpenAI seat stands on Codex's autonomy page (`⡞⠙⠓`) right after its
-/// system block, met once in English; the prefix holds from hop to hop. Muse
-/// (the same seat), a seat without the ledger reader and the control arm send
-/// none.
 #[test]
 fn an_openai_seat_stands_on_its_vendor_autonomy_page() {
     use crate::agent::harness::book::introduction::LEAD;
@@ -2605,10 +2491,8 @@ fn an_openai_seat_stands_on_its_vendor_autonomy_page() {
     );
 }
 
-/// A completed Responses stream hands its connection to the next call: the
-/// body's chunked tail is read off-thread so the pool can take the socket back.
 #[test]
-#[cfg(target_os = "linux")] // where abortable requests pool
+#[cfg(target_os = "linux")]
 fn responses_calls_reuse_one_provider_connection() {
     use std::io::Write;
     let _guard = env_lock();
@@ -2664,14 +2548,11 @@ data: {{\"type\":\"response.completed\",\"response\":{{}}}}\n\n"
             matches!(&reply, ClubReply::Text(text) if text == answer),
             "{reply:?}"
         );
-        // The finished body's terminator is read on its own thread; a real
-        // turn runs its tools in that gap.
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
     server.join().unwrap();
 }
 
-/// One chunked Responses answer as a keep-alive server sends it.
 fn chunked_responses_answer(answer: &str) -> String {
     let events = format!(
         "data: {{\"type\":\"response.output_text.delta\",\"delta\":\"{answer}\"}}\n\n\
@@ -2690,7 +2571,6 @@ fn drop_socket(sock: std::net::TcpStream, rst: bool) {
             l_onoff: 1,
             l_linger: 0,
         };
-        // SAFETY: a live socket fd and a correctly sized linger struct.
         unsafe {
             libc::setsockopt(
                 sock.as_raw_fd(),
@@ -2704,10 +2584,6 @@ fn drop_socket(sock: std::net::TcpStream, rst: bool) {
     drop(sock);
 }
 
-/// The Responses seats have no transport retry of their own, so a kept
-/// connection the provider dropped (idle FIN/RST, or the close crossing the
-/// next request) would surface as a provider error. It never does: the dead
-/// socket is replaced, or the lost request resent once with the same body.
 #[test]
 #[cfg(target_os = "linux")]
 fn a_responses_call_survives_a_provider_closed_kept_connection() {
@@ -2790,8 +2666,6 @@ fn a_responses_call_survives_a_provider_closed_kept_connection() {
     }
 }
 
-/// The Responses seats carry a provider's `x-should-retry: false` in the
-/// error they return, so the turn treats the failure as permanent.
 #[test]
 fn a_responses_retry_veto_reaches_the_error() {
     use std::io::Write;

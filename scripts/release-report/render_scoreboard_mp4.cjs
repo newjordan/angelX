@@ -6,7 +6,6 @@ const vm = require('vm');
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const OUTPUT_MP4 = path.join(REPO_ROOT, 'website', 'assets', 'scoreboard-timeline.mp4');
 
-// Load benchmark data
 const sandbox = { window: {} };
 vm.runInNewContext(fs.readFileSync(path.join(REPO_ROOT, 'website', 'js', 'bench-data.js'), 'utf8'), sandbox);
 const BENCH = sandbox.window.BENCH;
@@ -416,7 +415,6 @@ async function main() {
           mobile: false
         });
 
-        // Wait for webfonts
         await new Promise(r => setTimeout(r, 800));
         await callCdp('Runtime.evaluate', {
           expression: 'document.fonts.ready.then(() => true);',
@@ -427,7 +425,6 @@ async function main() {
 
         if (isTestFrame) {
           console.log('Capturing square test frames...');
-          // Mid-race frame (p = 0.5)
           await callCdp('Runtime.evaluate', { expression: 'window.renderFrame(0.5);' });
           const snapMid = await callCdp('Page.captureScreenshot', {
             format: 'png',
@@ -436,7 +433,6 @@ async function main() {
           fs.writeFileSync('/tmp/scoreboard_square_mid.png', Buffer.from(snapMid.data, 'base64'));
           console.log('Saved /tmp/scoreboard_square_mid.png');
 
-          // Finished frame (p = 1.0)
           await callCdp('Runtime.evaluate', { expression: 'window.renderFrame(1.0);' });
           const snapDone = await callCdp('Page.captureScreenshot', {
             format: 'png',
@@ -472,11 +468,6 @@ async function main() {
           process.exit(code);
         });
 
-        // Frame timing: 30 fps
-        // Total 390 frames = 13 seconds
-        // 0 to 14: intro holding at 0 (0.5s)
-        // 15 to 255: animation running 0.0 to 1.0 (8.0s)
-        // 256 to 389: freeze frame at 1.0 (4.5s)
         const TOTAL_FRAMES = 390;
         const RUN_START = 15;
         const RUN_END = 255;

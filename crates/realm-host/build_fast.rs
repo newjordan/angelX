@@ -11,9 +11,6 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// A nested WASM build must not reuse a build engine's `CARGO`/`RUSTC`
-/// aliases: they may be script launchers requiring private protocol state.
-/// Use both tools from the sysroot already queried from the outer compiler.
 pub fn wasm_cargo(sysroot: &Path) -> Command {
     let bin = sysroot.join("bin");
     let mut cargo = Command::new(bin.join(format!("cargo{}", std::env::consts::EXE_SUFFIX)));
@@ -27,10 +24,6 @@ pub fn wasm_cargo(sysroot: &Path) -> Command {
     cargo
 }
 
-/// Profile the nested browser-page cargo uses.
-///
-/// `profile_env` is cargo's `PROFILE`. `out_dir` is `OUT_DIR`. Release and
-/// bench keep fat LTO. Everything rebuilt often (`fast`, `dev`, `debug`) does not.
 pub fn nested_web_profile(profile_env: &str, out_dir: &str) -> &'static str {
     let name = profile_from_out_dir(out_dir).unwrap_or(profile_env);
     match name {
@@ -40,8 +33,6 @@ pub fn nested_web_profile(profile_env: &str, out_dir: &str) -> &'static str {
     }
 }
 
-/// All normal builds include browser packaging. Only `Some("1")` skips it,
-/// and only in a working profile. Release artifacts reject an explicit skip.
 pub fn skip_web_bundle(
     requested: Option<&str>,
     profile_env: &str,
@@ -56,8 +47,6 @@ pub fn skip_web_bundle(
     Ok(requested == Some("1"))
 }
 
-/// The profile directory in cargo's layout: `$target/$profile/build/$pkg/out`,
-/// or `$target/$triple/$profile/build/$pkg/out`.
 pub fn profile_from_out_dir(out_dir: &str) -> Option<&str> {
     let parts: Vec<&str> = out_dir.split(['/', '\\']).filter(|part| !part.is_empty()).collect();
     let build = parts.iter().rposition(|part| *part == "build")?;
@@ -67,17 +56,10 @@ pub fn profile_from_out_dir(out_dir: &str) -> Option<&str> {
     Some(parts[build - 1])
 }
 
-/// Cargo treats a `rerun-if-changed` path that is not there as changed, and
-/// reruns the build script on every build. Only watch a path that exists.
 pub fn should_watch(path: &Path) -> bool {
     path.exists()
 }
 
-/// Keep the same freshness coverage without asking Cargo to traverse an input
-/// twice. Cargo watches directories recursively, so an explicit child of a
-/// watched directory adds no coverage. Do not normalize aliases: symlinks and
-/// paths containing `..` stay explicit, including their own identity changes.
-/// Missing inputs stay explicit too; their policy belongs to the caller.
 pub fn minimal_watch_paths(paths: impl IntoIterator<Item = PathBuf>) -> Vec<PathBuf> {
     use std::collections::BTreeSet;
     let paths: BTreeSet<_> = paths.into_iter().collect();
@@ -91,10 +73,6 @@ pub fn minimal_watch_paths(paths: impl IntoIterator<Item = PathBuf>) -> Vec<Path
     }).cloned().collect()
 }
 
-/// Cargo's aggregate `.d` file includes transitive sources, compile-time assets
-/// and build-script inputs. Cargo escapes spaces, but leaves hashes, dollars
-/// and other backslashes literal (this is not fully Make-escaped text). The
-/// first rule is the artifact's complete input list.
 pub fn nested_dependency_paths(dep_info: &str) -> Result<Vec<String>, &'static str> {
     let (_, inputs) = dep_info.split_once(": ").ok_or("nested Cargo dep-info has no dependency rule")?;
     let mut paths = Vec::new();
@@ -161,9 +139,6 @@ mod tests {
 
     #[test]
     fn nested_dependencies_preserve_cargo_paths_and_ignore_phony_rules() {
-        // Cargo 1.95's aggregate .d escapes spaces only. Dollars and hashes
-        // are literal, including repeated dollars and a backslash before '#'.
-        // Captured real Cargo probes: web-bundle-{escape,literal}-depinfo receipts.
         let info = "C:\\target\\game.wasm: /repo/a\\ b.rs /repo/c#d.png /repo/cost$$.png /repo/back\\slash.txt /repo/back\\#hash.txt /repo/back\\\\ space.txt \\\n /repo/last.rs\n\n/repo/phony.rs:\n";
         assert_eq!(nested_dependency_paths(info).unwrap(), ["/repo/a b.rs", "/repo/c#d.png", "/repo/cost$$.png", "/repo/back\\slash.txt", "/repo/back\\#hash.txt", "/repo/back\\ space.txt", "/repo/last.rs"]);
         assert!(nested_dependency_paths("no rule").is_err());
@@ -190,7 +165,6 @@ mod tests {
         assert_eq!(nested_web_profile("dev", ""), "web-fast");
         assert_eq!(nested_web_profile("release", ""), "web");
         assert_eq!(nested_web_profile("bench", ""), "web");
-        // `--profile fast` still reports PROFILE=release on this toolchain.
         assert_eq!(
             nested_web_profile("release", "/work/targets/s9/fast/build/angelX-cockpit-hash/out"),
             "web-size"

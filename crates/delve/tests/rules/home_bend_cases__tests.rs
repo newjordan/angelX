@@ -14,7 +14,6 @@ pub fn dir() -> PathBuf {
         .expect("set DELVE_CASES to the Bend case directory")
 }
 
-/// The cases of one Bend def, written whole on `save`.
 pub struct Cases {
     name: String,
     lines: Vec<String>,
@@ -40,17 +39,14 @@ impl Cases {
     }
 }
 
-/// A value as the host's state tree holds it.
 pub fn to<T: Serialize>(t: &T) -> Value {
     serde_json::to_value(t).unwrap()
 }
 
-/// The Run as `capture_for_rules` writes it.
 pub fn state(run: &crate::rules::Run) -> Value {
     crate::rules::runtime_state::capture_for_rules(run).unwrap().run
 }
 
-/// An object cut to the keys a case needs.
 pub fn keep(v: &Value, keys: &[&str]) -> Value {
     let mut out = Map::new();
     if let Value::Object(m) = v {
@@ -63,7 +59,6 @@ pub fn keep(v: &Value, keys: &[&str]) -> Value {
     Value::Object(out)
 }
 
-/// xorshift64*: seeded variety for the recorders.
 pub struct Mix(pub u64);
 impl Mix {
     pub fn next(&mut self) -> u64 {
@@ -83,9 +78,6 @@ impl Mix {
     }
 }
 
-/// What the rules worker answers a compute request, by contract: the
-/// `angel_delve_system` flow of deserialize, validate, evaluate, check the
-/// result, serialize. `{"Ok": value}` or `{"Err": text}`.
 pub fn worker(contract: &str, input: &Value) -> Value {
     use crate::rules::{brew_jobs, card_paint, home_settlement, reforge_jobs, scrolls, wish_jobs};
     fn go<T: serde::de::DeserializeOwned, R: Serialize>(
@@ -115,9 +107,6 @@ pub fn worker(contract: &str, input: &Value) -> Value {
     }
 }
 
-/// The replay corpus's states, sampled by `scripts` into plain JSON files
-/// (`$HOME_STATES`, required), restored as
-/// Runs in name order. `step` keeps every `step`th.
 pub fn states(step: usize) -> Vec<(String, crate::rules::Run)> {
     let dir = std::env::var_os("HOME_STATES")
         .map(PathBuf::from)

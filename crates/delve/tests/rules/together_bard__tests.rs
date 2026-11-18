@@ -205,8 +205,6 @@ fn four_bots_repeat_byte_identically_and_sleep_survives_wire_roundtrip() {
     }
 }
 
-/// Render four seats using the same rules as the live host; write a one-seat
-/// snapshot for a browser plus three native bots to join for input checks.
 #[test]
 #[ignore]
 fn write_bard_review() {
@@ -238,8 +236,6 @@ fn write_bard_review() {
     }
 }
 
-/// What the Bard's seat hears of a held stream, tick by tick: `(tick, name)` of every Bard sound
-/// on `ticks` ticks of fire from the run's current tick, while the party hears none of it.
 fn hold(r: &mut Run, ticks: u32) -> Vec<(u32, &'static str)> {
     let fire = Input { fire: true, ..Default::default() };
     let mut heard = Vec::new();
@@ -257,7 +253,6 @@ fn hold(r: &mut Run, ticks: u32) -> Vec<(u32, &'static str)> {
     heard
 }
 
-/// A Bard on a dummy far off, left asleep, with the sounds cleared.
 fn playing() -> Run {
     let mut r = arena(EnemyKind::Demon, 35.0, 20.0);
     r.enemies[0].sleep_until = r.tick + 100_000;
@@ -266,12 +261,10 @@ fn playing() -> Run {
     r
 }
 
-/// The song the first knight plays in a fresh run.
 const FIRST: usize = 0;
 
 #[test]
 fn a_held_stream_looses_a_volley_every_four_ticks_so_three_are_a_beat_of_150() {
-    // The measure the whole design rests on: the stream's cadence in the sim.
     let mut r = playing();
     let fire = Input { fire: true, ..Default::default() };
     let mut at = Vec::new();
@@ -294,8 +287,6 @@ fn a_held_stream_looses_a_volley_every_four_ticks_so_three_are_a_beat_of_150() {
 fn a_held_stream_plays_its_song_forward_one_slice_a_beat_in_step_with_the_volleys() {
     let mut r = playing();
     let heard = hold(&mut r, 12 * BEATS + 60);
-    // One slice on the first volley of each beat: tick 0, 12, 24, ..., in the song's order, then the
-    // last phrases go round again.
     let song = song_of(1, 0);
     assert_eq!(song, FIRST);
     let want: Vec<(u32, &str)> = (0..BEATS + 5).map(|n| (12 * n, slice(song, n))).collect();
@@ -304,14 +295,11 @@ fn a_held_stream_plays_its_song_forward_one_slice_a_beat_in_step_with_the_volley
     assert_eq!(heard[BEATS as usize - 1].1, "bard_a_095");
     assert_eq!(heard[BEATS as usize].1, slice(song, LOOP_FROM), "past the last slice it goes round from bar 9");
     assert_eq!(heard[BEATS as usize].1, "bard_a_032");
-    // Each slice lasts a beat and the stream names the next on the beat after: they butt, 12 ticks apart.
     assert!(heard.windows(2).all(|w| w[1].0 - w[0].0 == 12));
 }
 
 #[test]
 fn the_groove_adds_the_bass_then_the_drums_on_bar_lines_and_the_drop_is_the_overload() {
-    // The files are pre-mixed per tier (`bard_tracks/tracks.json`): lead alone on bar 1, the bass from bar 2,
-    // the drums from bar 4. The sim's stages must change on exactly those beats.
     let tracks: serde_json::Value = serde_json::from_slice(
         &std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../cockpit/assets/dungeon/bard_tracks/tracks.json")).unwrap(),
     )
@@ -326,7 +314,6 @@ fn the_groove_adds_the_bass_then_the_drums_on_bar_lines_and_the_drop_is_the_over
     assert_eq!(tracks["beat_s"].as_f64().unwrap(), f64::from(VOLLEYS_PER_BEAT * 4) / f64::from(HZ));
     assert_eq!(tracks["songs"].as_array().unwrap().len(), SONGS);
     assert_eq!((stage(0), stage(BASS_AT - 1), stage(BASS_AT), stage(DROP_AT - 1), stage(DROP_AT), stage(500)), (0, 0, 1, 1, 2, 2));
-    // In the sim: the overload (banner, shake) lands on the volley that opens the first full-band beat.
     let mut r = playing();
     let fire = Input { fire: true, ..Default::default() };
     let mut dropped_at = None;
@@ -350,8 +337,6 @@ fn letting_go_stops_the_song_within_half_a_second() {
     let mut r = playing();
     let heard = hold(&mut r, 70);
     let last = heard.last().unwrap().0;
-    // Nothing is named after the release but what is already sounding: the last slice is one beat
-    // (0.4 s) long plus 16 ms of tail, and no further slice is asked for.
     let mut after = Vec::new();
     for t in 0..60 {
         step(&mut r, Input::default());
@@ -368,7 +353,6 @@ fn a_press_picks_the_song_up_on_the_beat_after_the_last_one_played() {
     let mut r = playing();
     let mut firsts = Vec::new();
     for _ in 0..3 {
-        // 20 ticks: counts on 0, 4, 8, 12, 16, so beats on the first and the fourth.
         let heard = hold(&mut r, 20);
         assert_eq!(heard.len(), 2, "{heard:?}");
         assert_eq!(heard[0].0, 0, "the music starts on the tick of the press");
@@ -387,7 +371,6 @@ fn a_press_picks_the_song_up_on_the_beat_after_the_last_one_played() {
 
 #[test]
 fn each_bard_plays_its_own_song_letting_go_keeps_it_and_a_lullaby_moves_it_on() {
-    // By seat: the first four knights are on the first four songs.
     let seats: Vec<usize> = (1..=4).map(|k| song_of(k, 0)).collect();
     assert_eq!(seats, [0, 1, 2, 3]);
     assert_eq!(song_of(1, SONGS as u32), 0, "round the set");
@@ -405,7 +388,6 @@ fn each_bard_plays_its_own_song_letting_go_keeps_it_and_a_lullaby_moves_it_on() 
     for _ in 0..8 {
         step(&mut r, Input::default());
     }
-    // The Lullaby is the current song's breakdown, and then the next song is up, from its top.
     r.players.get_mut(&1).unwrap().ult_charge = ults::ULT_FULL;
     r.seat_sounds.clear();
     sing(&mut r);
@@ -417,8 +399,6 @@ fn each_bard_plays_its_own_song_letting_go_keeps_it_and_a_lullaby_moves_it_on() 
 
 #[test]
 fn a_held_song_keeps_its_beat_whatever_the_weapon_rate_a_dash_or_a_shield() {
-    // The operator, 2026-11-11: held, the music plays with no break or halt mid-song. The song's
-    // clock is its own: a faster weapon, a dash or a raised shield neither skips nor stalls a beat.
     let mut r = playing();
     let mut heard = Vec::new();
     for t in 0..12 * 40u32 {
@@ -481,7 +461,6 @@ fn every_slice_and_lullaby_the_bard_names_is_a_shipped_file_of_about_the_right_l
     for name in names() {
         let size = std::fs::metadata(sfx.join(format!("{name}.mp3"))).unwrap_or_else(|_| panic!("{name}.mp3 is missing")).len();
         bytes += size;
-        // 96 kbit/s: a beat and its 16 ms tail is about 5.6 kB; a Lullaby is a little over 2.5 s.
         let seconds = size as f32 / 12_000.0;
         let (lo, hi) = if is_slice(name) { (0.3, 0.6) } else { (1.5, 3.2) };
         assert!((lo..hi).contains(&seconds), "{name}: {seconds} s");
@@ -491,7 +470,6 @@ fn every_slice_and_lullaby_the_bard_names_is_a_shipped_file_of_about_the_right_l
 
 #[test]
 fn the_bard_names_no_shot_sound_so_a_deathmatch_shot_is_a_plain_spark_not_its_music() {
-    // The deathmatch pushes a fighter's shot sound to the whole party.
     let r = arena(EnemyKind::Dummy, 14.5, 14.0);
     assert_eq!(classes::shot_sound(&r.players[&1]), None, "the Bard names no shot sound; its song is its own");
     assert!(classes::is_bard(&r.players[&1]));
@@ -527,15 +505,6 @@ fn notes_land_on_a_hi_hat_and_burst_and_the_lullaby_is_its_own() {
     assert!(party.iter().all(|s| !s.starts_with("bard_")) && !party.contains(&"boss_rise"), "the party heard the Lullaby: {party:?}");
 }
 
-
-/// The demo schedules: what the sim's `seat_sounds` hold for a Bard at its seat, tick by tick, for a
-/// Note Stream held 3 s, 8 s and 20 s with a release between (and the Lullaby after), one file per song.
-/// `bard_tracks/demo.py` lays the slices on a timeline at those ticks.
-///
-/// `ANGEL_BARD_DEMO=<dir> cargo test -p angel-delve --lib write_bard_demo_schedules -- --ignored`
-///
-/// The song is pinned to the one being shown before each hold, and put back to its top: in the game a
-/// press picks the song up where the last let go, so the 20 s hold would carry on from the 8 s hold.
 #[test]
 #[ignore]
 fn write_bard_demo_schedules() {
@@ -556,7 +525,6 @@ fn write_bard_demo_schedules() {
             }
         };
         for (seconds, label) in [(3, "3 s"), (8, "8 s"), (20, "20 s")] {
-            // The song this demo shows, whatever the last hold did to it.
             { let h = r.players.get_mut(&1).unwrap(); h.songs = (song as u32).wrapping_sub(song_of(1, 0) as u32); h.tune = 0; }
             let from = r.tick - start;
             for _ in 0..seconds * HZ {
@@ -565,13 +533,11 @@ fn write_bard_demo_schedules() {
             }
             let to = r.tick - start;
             holds.push((from, to, format!("hold {label}")));
-            // The release: the groove breaks, and the last slice rings out.
             for _ in 0..2 * HZ {
                 step(&mut r, Input::default());
                 take(&mut r, &mut events);
             }
         }
-        // The Lullaby (R) of that song.
         r.players.get_mut(&1).unwrap().songs = (song as u32).wrapping_sub(song_of(1, 0) as u32);
         r.players.get_mut(&1).unwrap().ult_charge = ults::ULT_FULL;
         let from = r.tick - start;

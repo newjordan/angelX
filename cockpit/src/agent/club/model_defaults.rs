@@ -69,9 +69,6 @@ fn load(path: Option<&Path>) -> Result<Vec<Entry>, String> {
     Ok(entries)
 }
 
-// A published calibration is immutable. Writers must create a complete new file
-// and rename it over the destination; modifications to an accepted inode are
-// ignored, so a truncating or partially written file cannot change a request.
 const MAX_CALIBRATION_BYTES: u64 = 1024 * 1024;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -103,8 +100,6 @@ struct CalibrationCache {
     entries: Arc<Vec<Entry>>,
     accepted: Option<FileVersion>,
     rejected: Option<FileVersion>,
-    // Keep published/rejected inodes alive so an atomic replacement cannot
-    // reuse an inode number and be mistaken for an in-place modification.
     accepted_file: Option<std::fs::File>,
     rejected_file: Option<std::fs::File>,
 }
@@ -232,8 +227,6 @@ fn snapshot() -> Arc<Vec<Entry>> {
 
 pub(crate) struct RequestCalibrationGuard(bool, std::marker::PhantomData<std::rc::Rc<()>>);
 
-/// Pin a generation for one request, including retries and identity recording.
-/// Nested calls retain the outer generation.
 pub(crate) fn pin_request() -> RequestCalibrationGuard {
     REQUEST_CALIBRATION.with(|slot| {
         if slot.borrow().is_some() {

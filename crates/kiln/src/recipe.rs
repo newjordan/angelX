@@ -18,69 +18,46 @@ use crate::light::Finish;
 use crate::palette::{Ink, Palette, Ramp};
 use crate::rig::Ease;
 
-/// The recipe version this kiln reads.
 pub const VERSION: u32 = 0;
-/// The biggest canvas side, in game pixels (1024 px at grain 8).
 pub const MAX_CANVAS: u32 = 128;
-/// The most parts a recipe has.
 pub const MAX_PARTS: usize = 256;
 
-/// A recipe as written: the JSON's own shape.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Source {
-    /// The schema's version: 0.
     pub kiln: u32,
-    /// What it is: lower-case letters, digits, `-` and `_`.
     pub name: String,
-    /// Its size in game pixels, `[w, h]`.
     pub canvas: [u32; 2],
-    /// Where it stands, in model space: the floor contact under its feet.
     pub pivot: [f32; 2],
-    /// Toward the one light, `[x, y, z]` (y down, z toward the viewer).
     #[serde(default = "realm_light")]
     pub light: [f32; 3],
     #[serde(default)]
     pub outline: Outline,
-    /// At grain 1, how far lit tones are lifted toward the light end of
-    /// their ramps (0..1): at 16 px a tile the shadow is the edge line's.
     #[serde(default = "lift")]
     pub lift: f32,
-    /// Inks and finishes by name.
     pub materials: BTreeMap<String, Material>,
-    /// Volumes and flat shapes, drawn in order (a later part wins a tie).
     pub parts: Vec<Part>,
-    /// Marks drawn for one grain, by grain (`"1"`, `"2"`, `"4"`, `"8"`).
     #[serde(default)]
     pub decals: BTreeMap<String, Vec<Decal>>,
     #[serde(default)]
     pub rig: Rig,
-    /// Motion by name (`idle`, `walk`, `slash`, ...).
     #[serde(default)]
     pub clips: BTreeMap<String, Clip>,
-    /// Words for people; kiln draws nothing from them.
     #[serde(default)]
     pub notes: String,
 }
 
-/// The realm's light: from the upper left and a little toward the viewer.
 pub fn realm_light() -> [f32; 3] {
     [-0.55, -0.9, 0.7]
 }
 
-/// The silhouette's line and the inner lines.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Outline {
-    /// The line's ink where it faces away from the light.
     #[serde(default = "outline_ink")]
     pub ink: String,
-    /// How many steps down its neighbour's ramp the line is where it faces
-    /// the light.
     #[serde(default = "two")]
     pub selout: u8,
-    /// The depth break, in game pixels, at which one part meeting another
-    /// draws an inner line.
     #[serde(default = "inner_break")]
     pub inner: f32,
 }
@@ -107,38 +84,27 @@ fn yes() -> bool {
     true
 }
 
-/// A material: its tones and how light falls on it.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Material {
-    /// Ink keys, dark to light (`"sxSuUvVW"`).
     pub ramp: String,
     pub finish: Finish,
-    /// Moves every tone along the ramp (-1..1; negative darker).
     #[serde(default)]
     pub shade: f32,
 }
 
-/// The kinds of part.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ShapeKind {
-    /// `at`, `r: [rx, ry, rz]`, `turn`.
     Ellipsoid,
-    /// `from`, `to`, `r: [r]` or `[r_from, r_to]`.
     Capsule,
-    /// `at`, `size: [w, h, d]`, `round`, `turn`.
     Box,
-    /// `points: [[x, y], ...]`, `z`, `thick`, `bevel`, `lean`, `curve`.
     Slab,
-    /// `points: [[x, y, z], ...]`, `width: [w]` or `[w_first, w_last]`.
     Stroke,
-    /// `points: [[x, y], ...]`, `z`, and `ink` or `mat` with `tone`: unlit.
     Flat,
 }
 
 impl ShapeKind {
-    /// The shape's name with its article: "an ellipsoid", "a box".
     pub fn a(self) -> &'static str {
         match self {
             ShapeKind::Ellipsoid => "an ellipsoid",
@@ -162,7 +128,6 @@ impl ShapeKind {
     }
 }
 
-/// One part: a shape, its material and what it hangs on.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Part {
@@ -170,10 +135,8 @@ pub struct Part {
     pub shape: ShapeKind,
     #[serde(default)]
     pub mat: Option<String>,
-    /// A flat's ink, by key, in place of a material.
     #[serde(default)]
     pub ink: Option<String>,
-    /// A flat's place on its material's ramp (0 darkest, 1 lightest).
     #[serde(default)]
     pub tone: Option<f32>,
     #[serde(default)]
@@ -202,42 +165,30 @@ pub struct Part {
     pub lean: Option<[f32; 2]>,
     #[serde(default)]
     pub curve: Option<[f32; 2]>,
-    /// Degrees about z (ellipsoid, box), clockwise on screen.
     #[serde(default)]
     pub turn: f32,
     #[serde(default)]
     pub cut: Option<Cut>,
-    /// The bone it hangs on; the root of the picture when none.
     #[serde(default)]
     pub bone: Option<String>,
-    /// The socket it is held in: its points are then about the socket,
-    /// pointing up (-y).
     #[serde(default)]
     pub socket: Option<String>,
-    /// A surface mark: drawn only where this other part shows, at its depth.
     #[serde(default)]
     pub on: Option<String>,
-    /// Moves its tones along the ramp (-1..1).
     #[serde(default)]
     pub shade: f32,
-    /// Added to its depth, to settle ties.
     #[serde(default)]
     pub bias: f32,
-    /// Kept at grain 1 when thin: it wins a pixel with a quarter of the vote.
     #[serde(default)]
     pub keep: bool,
-    /// The grains it is drawn at; all when none.
     #[serde(default)]
     pub grains: Option<Vec<u8>>,
-    /// Drawn only in a clip that shows it.
     #[serde(default)]
     pub hidden: bool,
-    /// Whether it draws inner lines where it covers another part.
     #[serde(default = "yes")]
     pub line: bool,
 }
 
-/// A part's keep box, in its own space: what lies outside is not drawn.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Cut {
@@ -247,72 +198,55 @@ pub struct Cut {
     pub y: Option<[f32; 2]>,
 }
 
-/// A mark drawn for one grain, in that grain's pixels.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Decal {
-    /// Its top-left, in the grain's pixels, at rest.
     pub at: [i32; 2],
-    /// Ink keys, `.` clear.
     pub rows: Vec<String>,
-    /// The bone it rides; it moves with it, never turns.
     #[serde(default)]
     pub bone: Option<String>,
-    /// Drawn only where this part shows.
     #[serde(default)]
     pub on: Option<String>,
 }
 
-/// Bones and sockets.
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Rig {
-    /// Parents before children.
     #[serde(default)]
     pub bones: Vec<Bone>,
-    /// Named points on bones (`grip`, `off_hand`, `head`, `back`, `feet`,
-    /// `tip`).
     #[serde(default)]
     pub sockets: BTreeMap<String, Socket>,
 }
 
-/// A bone: the joint it turns about.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Bone {
     pub id: String,
     #[serde(default)]
     pub parent: Option<String>,
-    /// Its joint, in model space, at rest.
     pub at: [f32; 2],
 }
 
-/// A socket: a point on a bone, and which way what it holds points.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Socket {
     #[serde(default)]
     pub bone: Option<String>,
     pub at: [f32; 2],
-    /// Degrees from up (-y), clockwise, that held parts point.
     #[serde(default)]
     pub turn: f32,
 }
 
-/// A clip: poses keyed in time.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Clip {
     pub frames: u32,
     #[serde(default = "eight")]
     pub fps: f32,
-    /// Whether it loops (the last frame runs back into the first key).
     #[serde(default = "yes", rename = "loop")]
     pub looped: bool,
-    /// Hidden parts it shows.
     #[serde(default)]
     pub show: Vec<String>,
-    /// Parts it hides.
     #[serde(default)]
     pub hide: Vec<String>,
     pub keys: Vec<Key>,
@@ -322,25 +256,19 @@ fn eight() -> f32 {
     8.0
 }
 
-/// A pose at a time.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Key {
-    /// Its frame (fractions allowed).
     pub t: f32,
-    /// How the motion runs from this key to the next.
     #[serde(default)]
     pub ease: Ease,
-    /// Each bone's turn and shift from rest; a bone not named is at rest.
     #[serde(default)]
     pub pose: BTreeMap<String, BonePose>,
 }
 
-/// A bone's change from rest.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BonePose {
-    /// Degrees about its joint, clockwise on screen.
     #[serde(default)]
     pub turn: f32,
     #[serde(default)]
@@ -351,16 +279,12 @@ pub struct BonePose {
     pub dz: f32,
 }
 
-/// What a part is drawn in.
 #[derive(Clone, Debug)]
 pub enum Paint {
-    /// Lit, in a material.
     Lit { mat: usize },
-    /// Unlit, one ink.
     Ink(Ink),
 }
 
-/// A part with its names resolved.
 #[derive(Clone, Debug)]
 pub struct PartRef {
     pub paint: Paint,
@@ -369,7 +293,6 @@ pub struct PartRef {
     pub on: Option<usize>,
 }
 
-/// A decal with its inks read and its names resolved.
 #[derive(Clone, Debug)]
 pub struct DecalRef {
     pub at: [i32; 2],
@@ -380,24 +303,17 @@ pub struct DecalRef {
     pub on: Option<usize>,
 }
 
-/// A checked recipe, ready to draw.
 #[derive(Clone, Debug)]
 pub struct Recipe {
     pub src: Source,
-    /// Toward the light, of unit length.
     pub light: [f32; 3],
     pub outline: Ink,
-    /// Materials in name order: name, ramp, finish, shade.
     pub materials: Vec<(String, Ramp, Finish, f32)>,
-    /// `src.parts`' names resolved, by index.
     pub parts: Vec<PartRef>,
-    /// Each bone's parent, by index.
     pub parents: Vec<Option<usize>>,
-    /// Decals by grain.
     pub decals: BTreeMap<u8, Vec<DecalRef>>,
 }
 
-/// Every fault a recipe has, each with its path.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecipeError(pub Vec<String>);
 
@@ -410,7 +326,6 @@ impl fmt::Display for RecipeError {
 impl std::error::Error for RecipeError {}
 
 impl Recipe {
-    /// Read and check a recipe.
     pub fn parse(json: &str) -> Result<Recipe, RecipeError> {
         if json.len() > 4 << 20 {
             return Err(RecipeError(vec!["the recipe is over 4 MiB".into()]));
@@ -424,27 +339,22 @@ impl Recipe {
         Recipe::check(src)
     }
 
-    /// Check a recipe already read.
     pub fn check(src: Source) -> Result<Recipe, RecipeError> {
         Checker::new().run(src)
     }
 
-    /// A bone's index by id.
     pub fn bone(&self, id: &str) -> Option<usize> {
         self.src.rig.bones.iter().position(|b| b.id == id)
     }
 
-    /// A part's index by id.
     pub fn part(&self, id: &str) -> Option<usize> {
         self.src.parts.iter().position(|p| p.id == id)
     }
 
-    /// The canvas in pixels at `grain`.
     pub fn size_at(&self, grain: Grain) -> (u32, u32) {
         (self.src.canvas[0] * grain.0 as u32, self.src.canvas[1] * grain.0 as u32)
     }
 
-    /// A clip by name.
     pub fn clip(&self, name: &str) -> Option<&Clip> {
         self.src.clips.get(name)
     }
@@ -545,7 +455,6 @@ impl Checker {
         self.finite("outline.inner", src.outline.inner, 0.0, 64.0);
         self.finite("lift", src.lift, 0.0, 1.0);
 
-        // Materials.
         if src.materials.len() > 32 {
             self.fault("materials", format!("{} materials: at most 32", src.materials.len()));
         }
@@ -569,7 +478,6 @@ impl Checker {
         }
         let material = |name: &str| materials.iter().position(|(n, ..)| n == name);
 
-        // Bones and sockets.
         let mut bone_ids: Vec<&str> = Vec::new();
         let mut parents = Vec::new();
         if src.rig.bones.len() > 64 {
@@ -610,7 +518,6 @@ impl Checker {
             self.finite(&format!("{path}.turn"), s.turn, -720.0, 720.0);
         }
 
-        // Parts.
         if src.parts.is_empty() || src.parts.len() > MAX_PARTS {
             self.fault("parts", format!("{} parts: 1..={MAX_PARTS}", src.parts.len()));
         }
@@ -625,7 +532,6 @@ impl Checker {
             }
             let field = |f: &str| format!("{path}.{f}");
             let kind = p.shape;
-            // Which fields each shape takes.
             let takes: &[&str] = match kind {
                 ShapeKind::Ellipsoid => &["at", "r", "turn"],
                 ShapeKind::Capsule => &["from", "to", "r"],
@@ -782,7 +688,6 @@ impl Checker {
                     }
                 }
             }
-            // Paint.
             let paint = match (kind, &p.ink, &p.mat) {
                 (ShapeKind::Flat, Some(_), Some(_)) => {
                     self.fault(field("ink"), "a flat takes ink or mat, not both");
@@ -801,7 +706,6 @@ impl Checker {
                     Paint::Ink(Ink(1))
                 }
             };
-            // What it hangs on.
             let bone_at = match &p.bone {
                 Some(b) => match bone(b) {
                     Some(at) => Some(at),
@@ -853,7 +757,6 @@ impl Checker {
         }
         let part = |id: &str| part_ids.iter().position(|p| *p == id);
 
-        // Decals.
         let mut decals = BTreeMap::new();
         for (g, list) in &src.decals {
             let path = format!("decals.{g}");
@@ -913,7 +816,6 @@ impl Checker {
             decals.insert(grain.0, out);
         }
 
-        // Clips.
         if src.clips.len() > 32 {
             self.fault("clips", "has more than 32 clips");
         }

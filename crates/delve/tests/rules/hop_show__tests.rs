@@ -31,7 +31,6 @@ fn the_table_lights_the_archive_only_when_every_seat_has_crossed() {
         s.crossed(10 + id, id, (80, 30), 1, &tally);
     }
     assert_eq!(s.waves, 0, "two of three is not the table");
-    // The leader crossing again lights nothing more.
     tally.insert(1, 2);
     s.crossed(50, 1, (80, 30), 2, &tally);
     assert_eq!(s.waves, 0);

@@ -7,17 +7,13 @@
 
 use super::*;
 
-/// How long a knight stays chilled, and how fast a chilled knight walks.
 pub const CHILL: u32 = 3 * HZ / 2;
 pub const CHILL_PACE: f32 = 0.6;
-/// Rimeleap's leaps, and how far a leap reaches.
 pub const BOUNCES: u8 = 5;
 pub const BOUNCE_REACH: f32 = 10.0;
-/// The Lich's bolt and his Rimeleap, on their beats.
 const BOLT_EVERY: u32 = 5 * HZ / 2;
 const CHAIN_EVERY: u32 = 6 * HZ;
 
-/// The Lich's step. False for any other monster.
 pub(super) fn act(
     enemy: &mut Enemy,
     heroes: &[(f32, f32)],
@@ -39,7 +35,6 @@ pub(super) fn act(
     };
     let (cx, cy) = unit(tx - enemy.x, ty - enemy.y);
     let dist = (tx - enemy.x).hypot(ty - enemy.y);
-    // Keep between ten and fourteen steps off, drifting sideways between.
     let side = if enemy.id.is_multiple_of(2) { 1.0 } else { -1.0 };
     let way = if dist < 10.0 {
         (-cx, -cy)
@@ -56,7 +51,6 @@ pub(super) fn act(
     );
     let beat = enemy.timer + enemy.id * 13;
     let aim = (ty - enemy.y).atan2(tx - enemy.x);
-    // His bolt is plain cold: only Rimeleap chills, and leaps.
     let (kind, speed, damage, bounces) = if beat % CHAIN_EVERY == CHAIN_EVERY / 2 {
         deeds.cues.push("rimeleap");
         (Shot::Frost, 5.0, 16, BOUNCES)
@@ -83,8 +77,6 @@ pub(super) fn act(
     true
 }
 
-/// Where Rimeleap leaps from a knight it just struck at `(x, y)`: the
-/// nearest other knight standing within reach, if any.
 pub(super) fn next_link(
     hands: &[(u32, f32, f32)],
     struck: u32,
@@ -102,7 +94,6 @@ pub(super) fn next_link(
 }
 
 impl Run {
-    /// Chill wears off.
     pub(super) fn tick_chill(&mut self) {
         for hero in self.players.values_mut() {
             hero.chilled = hero.chilled.saturating_sub(1);

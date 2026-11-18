@@ -1,5 +1,3 @@
-// Execute the shipped browser shell (boot.js) in a bare VM: a fake page, a fake
-// module and a hand-turned clock, with no browser, host or deps.
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
@@ -37,7 +35,6 @@ function element() {
   }
 }
 
-// A page with a game module behind it. `wasm` is what the module's fetch does.
 function page({ wasm = 'loads' } = {}) {
   let now = 0
   let nextTimer = 0
@@ -171,7 +168,6 @@ function page({ wasm = 'loads' } = {}) {
     game,
     sockets,
     turn,
-    // Take a seat's worth of the way: the page's form submitted, the socket open.
     async play() {
       await flush()
       document.getElementById('name').value = 'tester'
@@ -183,7 +179,6 @@ function page({ wasm = 'loads' } = {}) {
       document.hidden = hidden
       documentEvents.dispatch('visibilitychange')
     },
-    // A message the module traps on.
     trap() {
       game.trap = true
       sockets[0].onmessage({ data: new ArrayBuffer(8) })

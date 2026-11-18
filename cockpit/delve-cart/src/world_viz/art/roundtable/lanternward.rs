@@ -37,7 +37,6 @@ fn s(text: impl Into<String>, color: Color) -> Span<'static> {
     Span::styled(text.into(), Style::default().fg(color).bg(Color::Black))
 }
 
-/// `n` of `of` cells filled, as blocks.
 fn bar(n: u32, of: u32, width: u32) -> String {
     let full = (u64::from(n) * u64::from(width) / u64::from(of.max(1))).min(u64::from(width)) as u32;
     "\u{2588}".repeat(full as usize) + &"\u{2591}".repeat((width - full) as usize)
@@ -59,7 +58,6 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
         return;
     };
     let r = Rules::of(&run.tune);
-    // Hearts, gems, keys, the lantern.
     let hearts = k.max_hp.div_ceil(rules::HEART);
     let mut line = vec![s(" ", INK)];
     for h in 0..hearts {
@@ -92,7 +90,6 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
         line.push(s(bar(k.flame, r.flame, 8), if k.flaring() { Color::Rgb(228, 255, 248) } else { GOLD }));
     }
     put(frame, area, 1, line);
-    // The room, the seat and the table.
     let name = rules::world::plan(usize::from(sess.room)).name;
     let mut row2 = vec![s(format!(" {name}   seat {id}"), INK)];
     for (&other, o) in &sess.seats {
@@ -105,7 +102,6 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
         row2.push(s(format!("   MAP {}/5", sess.room + 1), DIM));
     }
     put(frame, area, 2, row2);
-    // The Warden's bar.
     if let Some(w) = &sess.boss
         && w.hp > 0
         && w.st != Ws::Asleep
@@ -122,7 +118,6 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
             ],
         );
     }
-    // The foot: one line from the wisp, then the keys.
     let mut foot = vec![s(" ", INK)];
     if let Some(banner) = sess.banner {
         foot.push(s(format!("{}  {}", banner.item.name(), banner.item.how()), GOLD));

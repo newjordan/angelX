@@ -7,8 +7,6 @@ use super::at;
 use crate::rules::heroes::Cast;
 use std::sync::OnceLock;
 
-/// The strip each spell of the weave plays, in `weave::SPELLS` order; Sleet's
-/// is its field's, and Ball Lightning has none.
 const STRIPS: [Option<&str>; 10] = [
     Some("sunfall"),
     Some("hoarfrost"),
@@ -77,7 +75,6 @@ pub(super) fn strips() -> &'static [Option<Strip>; 10] {
     })
 }
 
-/// The Mage's burning ground (Sunfall's and Wildfire's fire).
 fn burning() -> &'static Strip {
     static BURN: OnceLock<Strip> = OnceLock::new();
     BURN.get_or_init(|| strip("burn", include_bytes!("../../../../assets/spellfx/burn.png")))
@@ -88,8 +85,6 @@ fn stand(cv: &mut Img, strip: &Strip, im: &Img, (x, y): (f32, f32)) {
     cv.stamp(im, px - strip.ox, py - strip.oy);
 }
 
-/// Frame `frame` of spell `spell` cast along `dir`, stood on world point
-/// `(x, y)`; past its last frame it draws nothing.
 pub(super) fn draw(cv: &mut Img, spell: usize, (x, y): (f32, f32), dir: u8, frame: usize) {
     let Some(Some(strip)) = strips().get(spell) else { return };
     let row = &strip.frames[usize::from(dir) % strip.frames.len()];
@@ -97,7 +92,6 @@ pub(super) fn draw(cv: &mut Img, spell: usize, (x, y): (f32, f32), dir: u8, fram
     stand(cv, strip, im, (x, y));
 }
 
-/// A cast as it stands this tick.
 pub(super) fn cast(cv: &mut Img, c: &Cast) {
     if c.wait > 0 {
         return;
@@ -105,16 +99,12 @@ pub(super) fn cast(cv: &mut Img, c: &Cast) {
     draw(cv, usize::from(c.spell), (c.x, c.y), c.dir, (c.age / 2) as usize);
 }
 
-/// Sleet's field: its squall turning over the spot, frame by frame as the
-/// world ticks.
 pub(super) fn sleet(cv: &mut Img, (x, y): (f32, f32), tick: u64) {
     let Some(Some(strip)) = strips().get(6) else { return };
     let n = strip.frames[0].len() as u64;
     draw(cv, 6, (x, y), 0, ((tick / 2) % n) as usize);
 }
 
-/// A Mage's fire on the floor with `left` ticks to burn: its flames held
-/// high until the last of the strip, which burns down as the fire ends.
 pub(super) fn burn(cv: &mut Img, (x, y): (f32, f32), left: u32) {
     let strip = burning();
     let row = &strip.frames[0];

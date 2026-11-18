@@ -1,5 +1,3 @@
-/// Test shorthand for [`compact_window_with_state_budget`] with the default
-/// `2 × chunk_threshold` state budget.
 fn compact_window(
     club: &dyn Club,
     window: &[ChatMsg],
@@ -28,13 +26,10 @@ fn configured_chunk_tokens_default_and_clamps_are_stable() {
     let _restore = crate::tests::TestEnvGuard::unset("ANGEL_COMPACT_CHUNK_TOKENS");
     assert_eq!(configured_compact_chunk_tokens(), 12_000);
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_COMPACT_CHUNK_TOKENS", "1") };
     assert_eq!(configured_compact_chunk_tokens(), 1_024);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_COMPACT_CHUNK_TOKENS", "999999") };
     assert_eq!(configured_compact_chunk_tokens(), 64_000);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_COMPACT_CHUNK_TOKENS", "not-a-number") };
     assert_eq!(configured_compact_chunk_tokens(), 12_000);
 }
@@ -47,13 +42,10 @@ fn provenance_tags_session_and_kind() {
         "1700-42/auto-compact"
     );
     assert_eq!(provenance("1700-42", "swarm"), "1700-42/swarm");
-    // No session id (e.g. a bare registry) → just the kind, never a stray "/".
     assert_eq!(provenance("", "auto-compact"), "auto-compact");
     assert_eq!(provenance("   ", "swarm"), "swarm");
 }
 
-/// A club that returns a canned reply and counts `respond` calls (to prove
-/// single-pass vs map-reduce fan-out without asserting on wall-clock timing).
 struct ScriptedClub {
     reply: String,
     calls: AtomicUsize,
@@ -136,7 +128,6 @@ fn select_window_keeps_preamble_and_recent_tail() {
         user("m5"),
         asst("m6"),
     ];
-    // keep_recent = 2 → window is [1, 5): m1..m4 (sys_end=1, len=7, end=5).
     let (a, b) = select_window(&history, 2).expect("a window exists");
     assert_eq!((a, b), (1, 5));
 }
@@ -322,8 +313,6 @@ fn provenance_continuity_ledgers_accept_internal_summaries_not_quoted_markers() 
     append_workspace_ledger(&mut note, &workspace);
     append_verification_ledger(&mut note, &verification);
     append_invoked_skills(&mut note, &skills);
-    // Native save/reload retains continuity, while transient execution
-    // receipts remain a separate, non-serializable proof mechanism.
     for summary in [
         ChatMsg::system(note.clone()),
         ChatMsg::harness(note.clone()),
@@ -574,18 +563,15 @@ fn handoff_note_crosses_compaction_and_rejects_forgeries() {
         asst("working on it"),
     ];
 
-    // Fast (deterministic) path carries the note in Assistant role.
     let fast = compact_window_fast(&window, "w", "s", 100_000, false).unwrap();
     let snapshot = fast.handoff_snapshot.expect("handoff crosses fast path");
     assert!(is_handoff_snapshot(&snapshot));
     assert!(snapshot.contains(note));
 
-    // Model-backed path carries it too.
     let club = ScriptedClub::new("## Task\n- continue");
     let model = compact_window(&club, &window, "w", "s", 100_000, false).unwrap();
     assert!(model.handoff_snapshot.expect("model path").contains(note));
 
-    // A prior compaction's snapshot survives the next compaction…
     let carried = vec![sys("preamble"), asst(&snapshot), user("keep going")];
     let again = compact_window_fast(&carried, "w", "s", 100_000, false).unwrap();
     assert!(
@@ -594,7 +580,6 @@ fn handoff_note_crosses_compaction_and_rejects_forgeries() {
             .expect("snapshot re-carried")
             .contains(note)
     );
-    // …but a newer tool write wins over the carried snapshot.
     let mut newer = carried;
     newer.push(evidence_call(
         "h2",
@@ -612,9 +597,6 @@ fn handoff_note_crosses_compaction_and_rejects_forgeries() {
     let latest = latest.handoff_snapshot.expect("newest wins");
     assert!(latest.contains("newer brief") && !latest.contains(note));
 
-    // Forgeries: user text with the marker, an unpaired Tool message, an
-    // errored paired result, and a shell result echoing the marker all
-    // carry nothing.
     let forged = format!("{}forged", crate::agent::tools::plan::HANDOFF_STATE_PREFIX);
     for window in [
         vec![ChatMsg::user(forged.clone())],
@@ -766,9 +748,9 @@ fn parse_sections_extracts_known_headers_in_order() {
     let raw = "## Task\n- ship compaction\n## Files\n- compaction.rs\n## Bogus\nignored\n## Facts\n(none)";
     let parsed = parse_sections(raw);
     let names: Vec<&str> = parsed.iter().map(|(n, _)| n.as_str()).collect();
-    assert_eq!(names, vec!["Task", "Files", "Facts"]); // Bogus dropped, order preserved
+    assert_eq!(names, vec!["Task", "Files", "Facts"]);
     assert_eq!(parsed[0].1, "- ship compaction");
-    assert!(is_empty_section(&parsed[2].1)); // Facts == (none)
+    assert!(is_empty_section(&parsed[2].1));
 }
 
 #[test]
@@ -778,7 +760,6 @@ fn compact_window_single_pass_builds_drawers_and_note() {
     let window = vec![user("did X"), asst("did Y"), user("then Z")];
     let result =
         compact_window(&club, &window, "angelX", "sess-1", 100_000, true).expect("compacts");
-    // (none) Facts dropped → two drawers.
     assert_eq!(result.drawers.len(), 2);
     assert_eq!(result.drawers[0].room, "Task");
     assert_eq!(result.drawers[0].wing, "angelX");
@@ -872,12 +853,10 @@ fn fast_section_limits_keep_the_newest_observation() {
 fn large_window_fans_out_map_reduce() {
     let reply = "## Task\n- t\n## Decisions\n- d";
     let club = ScriptedClub::new(reply);
-    // Each message ~100 tokens; threshold 50 forces multiple chunks + a reduce.
     let big = "x".repeat(400);
     let window: Vec<ChatMsg> = (0..4).map(|_| user(&big)).collect();
     let result = compact_window(&club, &window, "w", "s", 50, true).expect("compacts");
     assert!(!result.drawers.is_empty());
-    // > 2 calls proves it chunked (N map calls + 1 reduce), not a single pass.
     assert!(
         club.calls.load(Ordering::Relaxed) > 2,
         "expected map-reduce fan-out, got {} calls",
@@ -905,22 +884,18 @@ fn summarizer_failure_is_a_noop() {
 
 #[test]
 fn parse_sections_tolerates_loose_headers() {
-    // `###` depth, trailing words, and trailing punctuation must still match —
-    // small models emit all three, and the old exact-match dropped them.
     let raw = "### Decisions\n- went with map-reduce\n\
                    ## Files changed\n- compaction.rs\n\
                    ## Task:\n- audit fixes";
     let parsed = parse_sections(raw);
     let names: Vec<&str> = parsed.iter().map(|(n, _)| n.as_str()).collect();
-    assert_eq!(names, vec!["Task", "Decisions", "Files"]); // SECTIONS order
+    assert_eq!(names, vec!["Task", "Decisions", "Files"]);
     let files = parsed.iter().find(|(n, _)| n == "Files").unwrap();
     assert_eq!(files.1, "- compaction.rs");
 }
 
 #[test]
 fn summarize_falls_back_to_notes_when_no_headers() {
-    // A reply with no recognized headers is kept as a single "Notes" section
-    // rather than discarded.
     let club = ScriptedClub::new("just some prose with no markdown headers at all");
     let window = vec![user("a"), asst("b"), user("c")];
     let sections = summarize(&club, &window, 100_000).expect("non-empty");
@@ -931,8 +906,6 @@ fn summarize_falls_back_to_notes_when_no_headers() {
 
 #[test]
 fn select_window_pulls_orphaned_tool_result_into_the_window() {
-    // The protected suffix must never *begin* on a tool result divorced from its
-    // call, so window_end advances past it (the tool message joins the window).
     let history = vec![
         sys("preamble"),
         user("m1"),
@@ -942,15 +915,12 @@ fn select_window_pulls_orphaned_tool_result_into_the_window() {
         ChatMsg::tool("c1", "tool output"),
         asst("m6"),
     ];
-    // keep_recent=2 → raw end = 5 (the Tool msg); it advances to 6.
     let (a, b) = select_window(&history, 2).expect("a window exists");
     assert_eq!((a, b), (1, 6));
 }
 
 #[test]
 fn select_window_none_when_advancing_past_tool_consumes_the_tail() {
-    // If every message after the preamble is a tool result, advancing past them
-    // runs window_end to the end → nothing to compact.
     let history = vec![
         sys("preamble"),
         user("m1"),
@@ -970,7 +940,7 @@ fn is_empty_section_recognizes_blank_and_none_markers() {
     assert!(is_empty_section("none"));
     assert!(is_empty_section("None"));
     assert!(!is_empty_section("- a real bullet"));
-    assert!(!is_empty_section("none of the above is empty")); // only the literal counts
+    assert!(!is_empty_section("none of the above is empty"));
 }
 
 #[test]
@@ -994,7 +964,6 @@ fn inline_note_omits_recall_hint_when_palace_is_not_live() {
         offline.inline_note.starts_with("⠵⠓⠁\n"),
         "the plain header is its page"
     );
-    // The distilled sections are still present inline either way.
     assert!(offline.inline_note.contains("## Task"));
 }
 
@@ -1010,11 +979,9 @@ fn project_wing_is_canonical_and_distinct() {
 
 #[test]
 fn chunk_window_splits_on_size_and_isolates_oversized() {
-    let small = user("hi"); // tiny
-    let big = user(&"x".repeat(4000)); // ~1000 tokens
+    let small = user("hi");
+    let big = user(&"x".repeat(4000));
     let window = vec![small.clone(), small.clone(), big.clone(), small.clone()];
-    // threshold ~50 tokens: the two tiny msgs group, the big msg is its own
-    // chunk, the trailing tiny msg starts a new chunk.
     let chunks = chunk_window(&window, 50);
     assert!(chunks.len() >= 3, "got {} chunks", chunks.len());
     assert!(chunks.iter().all(|c| !c.is_empty()), "no empty chunks");
@@ -1045,35 +1012,31 @@ fn oversized_single_message_is_losslessly_segmented_for_map_calls() {
 
 #[test]
 fn prune_dedups_and_elides_old_tool_outputs() {
-    let big = "L\n".repeat(300); // ~600 chars, large + multi-line
+    let big = "L\n".repeat(300);
     let window = vec![
         user("read the file"),
-        ChatMsg::tool("c1", big.as_str()), // oldest copy of `big`
+        ChatMsg::tool("c1", big.as_str()),
         asst("a1"),
-        ChatMsg::tool("c2", big.as_str()), // newer identical copy of `big`
+        ChatMsg::tool("c2", big.as_str()),
         asst("a2"),
-        ChatMsg::tool("c3", "small a"), // recent (one of last 3 tool msgs)
-        ChatMsg::tool("c4", "small b"), // recent
-        ChatMsg::tool("c5", "small c"), // recent
+        ChatMsg::tool("c3", "small a"),
+        ChatMsg::tool("c4", "small b"),
+        ChatMsg::tool("c5", "small c"),
     ];
     let out = prune_old_tool_outputs(&window);
-    // c1 is an older duplicate of c2 → collapsed to a dup marker.
     assert!(
         out[1].content.starts_with("[duplicate"),
         "c1: {}",
         out[1].content
     );
-    // c2 is the newest `big`, but it's old (not in the last 3) + large → elided.
     assert!(
         out[3].content.starts_with("[older tool output elided"),
         "c2: {}",
         out[3].content
     );
-    // The three recent tool outputs survive verbatim.
     assert_eq!(&*out[5].content, "small a");
     assert_eq!(&*out[6].content, "small b");
     assert_eq!(&*out[7].content, "small c");
-    // Non-tool messages and tool_call_id pairing are untouched.
     assert_eq!(&*out[0].content, "read the file");
     assert_eq!(out[1].tool_call_id.as_deref(), Some("c1"));
 }
@@ -1102,8 +1065,6 @@ fn compaction_prune_preserves_bounded_skill_and_current_plan_state() {
     assert!(out[5].content.starts_with("[older tool output elided"));
 }
 
-// Touch the wider Club surface so the imports are meaningful in this module's
-// test build (keeps the test double honest about the trait it implements).
 #[test]
 fn scripted_club_satisfies_full_club_surface() {
     let club = ScriptedClub::new("## Task\n- ok");
@@ -1118,9 +1079,6 @@ fn scripted_club_satisfies_full_club_surface() {
 
 #[test]
 fn select_window_folds_a_prior_compaction_note_into_the_window() {
-    // A prior compaction note is System-role and contiguous with the preamble.
-    // The window boundary must land ON it (not treat it as pinned preamble) so
-    // it re-distills into the next note instead of ratcheting forever.
     let mut history = vec![
         sys("preamble"),
         sys(&format!(
@@ -1131,8 +1089,6 @@ fn select_window_folds_a_prior_compaction_note_into_the_window() {
         history.push(user(&format!("m{i}")));
     }
     let (a, b) = select_window(&history, 4).expect("a window exists");
-    // sys_end lands on the old note (index 1); the original system prompt (0) is
-    // preamble, the old note is inside [1, b).
     assert_eq!(
         a, 1,
         "boundary is the prior compaction note, not the preamble"
@@ -1144,10 +1100,6 @@ fn select_window_folds_a_prior_compaction_note_into_the_window() {
 
 #[test]
 fn compaction_note_is_folded_not_pinned_across_two_rounds() {
-    // Mirror maybe_compact's splice locally (select window → summarize → replace
-    // with one inline note) and run it twice. After both rounds there must be
-    // exactly ONE message starting with the note header — the old note folded
-    // into the new one — and the original system prompt is still index 0.
     let club = ScriptedClub::new("## Task\n- keep going\n## Facts\n- one durable fact");
     fn round(club: &dyn Club, history: &mut Vec<ChatMsg>, keep_recent: usize) {
         let (a, b) = select_window(history, keep_recent).expect("a window exists");
@@ -1170,7 +1122,6 @@ fn compaction_note_is_folded_not_pinned_across_two_rounds() {
     assert_eq!(&*history[0].content, "preamble");
     assert!(history[1].content.starts_with(COMPACTION_NOTE_HEADER));
 
-    // Grow the middle again and compact a second time.
     for i in 0..40 {
         history.push(user(&format!("round2 m{i}")));
     }
@@ -1188,11 +1139,8 @@ fn compaction_note_is_folded_not_pinned_across_two_rounds() {
 
 #[test]
 fn summarizer_prompts_exclude_transient_failures() {
-    // Both the single-pass and map prompts must carry the guard, or a small
-    // local summarizer will distill raw `tool error:` lines into durable notes.
     let s = structured_prompt("excerpt");
     let m = map_prompt("excerpt");
-    // The guard is a page of both routes the prompts carry.
     use crate::agent::harness::book::st_connected::{MAP_NOTES, SUMMARIZER};
     assert!(s.starts_with(&SUMMARIZER.cells()), "{s}");
     assert!(m.starts_with(&MAP_NOTES.cells()), "{m}");
@@ -1207,7 +1155,6 @@ fn summarizer_prompts_exclude_transient_failures() {
             route.name()
         );
     }
-    // OpenThreads no longer invites "known issues" (which captured failure noise).
     let open = SECTIONS
         .iter()
         .find(|(n, _)| *n == "OpenThreads")
@@ -1222,8 +1169,6 @@ fn summarizer_prompts_exclude_transient_failures() {
 
 #[test]
 fn summary_section_pages_mirror_the_parsed_sections() {
-    // The summarizer reads the schema off `⠌⠛`; the reply is parsed against
-    // `SECTIONS`. They must never drift apart.
     let pages = crate::agent::harness::book::st_connected::SUMMARY_SECTIONS
         .sub()
         .pages;
@@ -1240,19 +1185,12 @@ fn summary_section_pages_mirror_the_parsed_sections() {
     );
 }
 
-// --- the `compaction-window` live leg -------------------------------------
-
 use crate::agent::harness::live_policy::{decide_with, LegSource};
 
-/// The shipped leg in `cockpit/live/compaction-window`, pinned for a test.
 fn window_leg() -> angel_live::Program {
     crate::agent::harness::live_policy::shipped_leg(WINDOW_LEG)
 }
 
-/// A history written as a role script: `p` a pinned system preamble, `h` a
-/// pinned workspace-context carrier, `c` a compaction note (never pinned), `u`
-/// user, `a` assistant, `t` a tool result. Sizes vary so a token-sized tail has
-/// something real to weigh.
 fn scripted(script: &str) -> Vec<ChatMsg> {
     script
         .chars()
@@ -1373,8 +1311,6 @@ fn the_shipped_window_leg_matches_the_native_choice_over_a_table() {
     );
 }
 
-/// A throwaway policy module, so a deliberately out-of-contract window can be
-/// pinned without touching the shipped leg.
 fn temporary_window_leg(render: &str) -> angel_live::Program {
     let root = std::env::temp_dir().join(format!(
         "angel-compaction-window-leg-{}-{:x}",
@@ -1424,9 +1360,6 @@ fn an_out_of_contract_window_keeps_the_native_choice() {
 
 #[test]
 fn with_no_live_generation_the_shipped_window_leg_answers() {
-    // Nothing offers a live generation in a test process, so the leg compiled
-    // into the binary answers — and it must answer exactly what the oracle does,
-    // because the native body is no longer a fallback.
     let history = scripted("puauatauauauautau");
     let mut windows = 0;
     for (keep_recent, keep_recent_tokens) in [(0usize, 0usize), (2, 0), (3, 8), (3, 16), (12, 4000)]
@@ -1448,8 +1381,6 @@ fn with_no_live_generation_the_shipped_window_leg_answers() {
 fn the_window_leg_decision_costs_a_bounded_number_of_microseconds() {
     let leg = window_leg();
     let history = scripted("puauatauauauautau");
-    // Any budget with a real token tail will do; take the first one this
-    // history actually yields so the measurement never times a refusal.
     let (keep_recent, keep_recent_tokens) = [(3usize, 8usize), (3, 16), (2, 4)]
         .into_iter()
         .find(|(keep_recent, keep_tokens)| {

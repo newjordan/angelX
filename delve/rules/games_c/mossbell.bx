@@ -1,7 +1,3 @@
-# crates/delve/src/rules/mossbell.rs — Mossbell, a pinball table in Mossbell's Bathhouse. All the physics is
-# integer (i32, with i64 in the contact maths). Beat is "Idle" | "RootTell" | "Root" | "CrownTell" | "Crown" |
-# "Flinch" | "Defeat". A Stroke is {left, right, nudge (i8), launch}; a Table {ball, seed, keys: [4 bools], history}.
-
 def mossbell.Q() -> U32:
   256
 
@@ -26,7 +22,6 @@ def mossbell.BUMPER.y(+i: U32) -> U32:
 def mossbell.BUMPER.r(+i: U32) -> U32:
   gc.nth_u([10, 10, 11], i)
 
-# Ball::new()
 def mossbell.Ball.new() -> J.Val:
   b0: J.Val = gc.si(gc.si(gc.si(gc.si(J.obj(), "x", (145 * 256 : U32)), "y", (122 * 256 : U32)), "vx", 0), "vy", 0)
   b1: J.Val = J.set(b0, "trail", J.JA{[gc.pairu(145, 122), gc.pairu(145, 122), gc.pairu(145, 122), gc.pairu(145, 122)]})
@@ -36,11 +31,9 @@ def mossbell.Ball.new() -> J.Val:
   b5: J.Val = J.set(b4, "flash", J.JA{[J.JU{0}, J.JU{0}, J.JU{0}]})
   gc.snull(J.set(b5, "impact", gc.pairu(145, 122)), "jackpot_at")
 
-# Ball::contact(x, y)
 def mossbell.Ball.contact(+b: J.Val, +x: U32, +y: U32) -> J.Val:
   gc.su(J.set(b, "impact", gc.pairu(x, y)), "burst", 12)
 
-# fn circle(&mut self, cx, cy, r, bounce) -> bool
 def mossbell.Ball.circle(+b: J.Val, +cx: U32, +cy: U32, +r: U32, +bounce: U32) -> J.Val & Bool:
   dx0: U32 = RS.i_sub(gc.u(b, "x"), cx)
   dy0: U32 = RS.i_sub(gc.u(b, "y"), cy)
@@ -67,7 +60,6 @@ def mossbell.Ball.circle2(+b: J.Val, +cx: U32, +cy: U32, +r: U32, +bounce: U32, 
   else:
     (b1, False{})
 
-# fn rail(&mut self, a, b, bounce) -> bool: the segment's nearest point is a circle of radius 3.
 def mossbell.Ball.rail(+b: J.Val, +ax0: U32, +ay0: U32, +bx0: U32, +by0: U32, +bounce: U32) -> J.Val & Bool:
   ax: U32 = (ax0 * 256 : U32)
   ay: U32 = (ay0 * 256 : U32)
@@ -83,7 +75,6 @@ def mossbell.Ball.rail(+b: J.Val, +ax0: U32, +ay0: U32, +bx0: U32, +by0: U32, +b
 def mossbell.in_range(+v: U32, +lo: U32, +hi: U32) -> Bool:
   Bool.and(RS.i_ge(v, lo), RS.i_le(v, hi))
 
-# Ball::step(stroke, tune, age, seed, tick)
 def mossbell.Ball.step(+b: J.Val, +stroke: J.Val, +tune: J.Val, +age: U32, +seed: W.W, +tick: W.W) -> J.Val:
   b1: J.Val = gc.ifj(gc.b(stroke, "left"), _ => gc.su(b, "left", 5), _ => b)
   b2: J.Val = gc.ifj(gc.b(stroke, "right"), _ => gc.su(b1, "right", 5), _ => b1)
@@ -113,7 +104,6 @@ def mossbell.cool3(+xs: List<&2, U32>) -> List<&2, U32>:
     case Con{h: U32, t: List<&2, U32>}:
       gc.ssub(h, 1) <> mossbell.cool3(t)
 
-# The boss's beat machine: tell, strike, rest.
 def mossbell.beat(+b: J.Val, +seed: W.W) -> J.Val:
   if U32.is_zero(gc.u(b, "hp")):
     gc.ss(b, "beat", "Defeat")
@@ -136,7 +126,6 @@ def mossbell.beat(+b: J.Val, +seed: W.W) -> J.Val:
     else:
       b1
 
-# trail.rotate_right(1); trail[0] = (x, y)
 def mossbell.trail_push(+trail: J.Val, +x: U32, +y: U32) -> J.Val:
   J.JA{gc.pairi(x, y) <> List.take(&2, J.Val, J.items(trail), 3n)}
 
@@ -155,7 +144,6 @@ def mossbell.Ball.move(+b: J.Val, +stroke: J.Val, +tune: J.Val, +age: U32, +seed
   b9: J.Val = gc.su(gc.su(b8, "left", gc.ssub(gc.u(b8, "left"), 1)), "right", gc.ssub(gc.u(b8, "right"), 1))
   gc.ifj(Bool.and(U32.is_zero(gc.u(b9, "hp")), Bool.and(U32.is_eq(gc.u(b9, "lit"), 7), J.is_null(J.get(b9, "jackpot_at")))), _ => J.set(gc.su(J.set(b9, "jackpot_at", W.to_j(tick)), "burst", 16), "impact", gc.pairu(80, 63)), _ => b9)
 
-# A flipper swung with the ball on it knocks it up and across.
 def mossbell.swing(+b: J.Val, +swing: Bool, +left: Bool, +tune: J.Val) -> J.Val:
   bx: U32 = RS.i_div(gc.u(b, "x"), 256)
   along: U32 = gc.pu(left, RS.i_sub(bx, 37), RS.i_sub(123, bx))
@@ -172,7 +160,6 @@ def mossbell.swing(+b: J.Val, +swing: Bool, +left: Bool, +tune: J.Val) -> J.Val:
   else:
     b
 
-# The four sub-steps of a tick; a drain ends them.
 def mossbell.sub(+b: J.Val, +tune: J.Val, +n: U32, +bounce: U32, +tick: W.W) -> J.Val:
   if U32.is_zero(n):
     b
@@ -205,7 +192,6 @@ def mossbell.sub1(+b: J.Val, +tune: J.Val, +bounce: U32) -> J.Val & Bool:
   else:
     (b12, False{})
 
-# if !(x > 140Q && vy < 0) { rail((152,98),(122,123)) }
 def mossbell.right_rail(+b: J.Val, +bounce: U32) -> J.Val:
   if Bool.and(RS.i_gt(gc.u(b, "x"), (140 * 256 : U32)), RS.i_lt(gc.u(b, "vy"), 0)):
     b
@@ -214,7 +200,6 @@ def mossbell.right_rail(+b: J.Val, +bounce: U32) -> J.Val:
     (b2: J.Val, h: Bool) = r
     b2
 
-# Each flipper's rail; a live swing from a falling ball kicks it.
 def mossbell.flippers(+b: J.Val, +tune: J.Val, +bounce: U32) -> J.Val:
   lact: U32 = gc.u(b, "left")
   ract: U32 = gc.u(b, "right")
@@ -249,7 +234,6 @@ def mossbell.bumpers(+b: J.Val, +bounce: U32, +i: U32) -> J.Val:
     else:
       mossbell.bumpers(b1, bounce, (i + 1 : U32))
 
-# The Moss Boss: a hit costs it a point; at zero it is beaten.
 def mossbell.boss(+b: J.Val, +bounce: U32) -> J.Val:
   if U32.is_zero(gc.u(b, "hp")):
     b
@@ -266,7 +250,6 @@ def mossbell.boss(+b: J.Val, +bounce: U32) -> J.Val:
     else:
       b1
 
-# Stroke::merge(&mut self, other)
 def mossbell.Stroke.merge(+a: J.Val, +o: J.Val) -> J.Val:
   s1: J.Val = gc.sb(gc.sb(a, "left", Bool.or(gc.b(a, "left"), gc.b(o, "left"))), "right", Bool.or(gc.b(a, "right"), gc.b(o, "right")))
   s2: J.Val = gc.ifj(U32.is_ne(gc.u(o, "nudge"), 0), _ => J.set(s1, "nudge", J.get(o, "nudge")), _ => s1)
@@ -275,7 +258,6 @@ def mossbell.Stroke.merge(+a: J.Val, +o: J.Val) -> J.Val:
 def mossbell.Stroke.new(+left: Bool, +right: Bool, +nudge: U32, +launch: Bool) -> J.Val:
   gc.sb(gc.si(gc.sb(gc.sb(J.obj(), "left", left), "right", right), "nudge", nudge), "launch", launch)
 
-# Table::new(seed)
 def mossbell.Table.new(+seed: J.Val) -> J.Val:
   t0: J.Val = J.set(J.set(J.obj(), "ball", mossbell.Ball.new()), "seed", seed)
   t1: J.Val = J.set(t0, "keys", J.JA{[J.JBool{False{}}, J.JBool{False{}}, J.JBool{False{}}, J.JBool{False{}}]})
@@ -284,7 +266,6 @@ def mossbell.Table.new(+seed: J.Val) -> J.Val:
 def mossbell.key(+t: J.Val, +i: U32) -> Bool:
   J.bool(J.nth(J.get(t, "keys"), i))
 
-# Table::step(input, tune, age, tick, allowance)
 def mossbell.Table.step(+t: J.Val, +input: J.Val, +tune: J.Val, +age: U32, +tick: W.W, +allowance: W.W) -> J.Val:
   lt: J.Val = J.get(input, "latch_tick")
   ok: Bool = Bool.and(rules.Input.valid(input), Bool.or(J.is_null(lt), Bool.and(W.le(W.of_j(lt), tick), W.le(W.sub(tick, W.of_j(lt)), allowance))))
@@ -308,7 +289,6 @@ def mossbell.Table.step(+t: J.Val, +input: J.Val, +tune: J.Val, +age: U32, +tick
     else:
       mossbell.Table.record(t1, gc.ifj(W.gt(sample, tick), _ => mossbell.Stroke.new(False{}, False{}, 0, False{}), _ => stamped), tune, age, tick)
 
-# A late stamped press rewinds to its tick and replays the history with the stroke merged in.
 def mossbell.Table.replay(+t: J.Val, +sample: W.W, +stroke: J.Val, +nudging: Bool) -> J.Val:
   at: U32 = mossbell.position(J.items(J.get(t, "history")), sample, 0)
   if U32.is_eq(at, 4294967295):
@@ -332,7 +312,6 @@ def mossbell.position(+hs: List<&2, J.Val>, +sample: W.W, +i: U32) -> U32:
       else:
         mossbell.position(t, sample, (i + 1 : U32))
 
-# Replay the samples: each remembers the ball before it, then steps it.
 def mossbell.rerun(+hs: List<&2, J.Val>, +ball: J.Val, +seed: J.Val, +acc: List<&2, J.Val>) -> J.Val & J.Val:
   match hs as List<&2, J.Val>:
     case Nil{}:
@@ -342,21 +321,18 @@ def mossbell.rerun(+hs: List<&2, J.Val>, +ball: J.Val, +seed: J.Val, +acc: List<
       b2: J.Val = mossbell.Ball.step(ball, J.get(h, "stroke"), J.get(h, "tune"), gc.u(h, "age"), W.of_j(seed), W.of_j(J.get(h, "tick")))
       mossbell.rerun(t, b2, seed, h2 <> acc)
 
-# History gets this tick's sample (30 kept), then the ball steps.
 def mossbell.Table.record(+t: J.Val, +stroke: J.Val, +tune: J.Val, +age: U32, +tick: W.W) -> J.Val:
   sample: J.Val = J.set(J.set(gc.su(J.set(J.obj(), "tick", W.to_j(tick)), "age", age), "before", J.get(t, "ball")), "stroke", stroke)
   hist: J.Val = J.push(J.get(t, "history"), J.set(sample, "tune", tune))
   hist2: J.Val = gc.ifj(U32.is_gt(gc.len(J.items(hist)), rules.HZ()), _ => gc.drop_front(hist, 1), _ => hist)
   J.set(J.set(t, "history", hist2), "ball", mossbell.Ball.step(J.get(t, "ball"), stroke, tune, age, W.of_j(J.get(t, "seed")), tick))
 
-# Table::bot_input()
 def mossbell.Table.bot_input(+t: J.Val) -> J.Val:
   b: J.Val = J.get(t, "ball")
   fire: Bool = Bool.or(U32.is_gt(gc.u(b, "save"), 0), Bool.and(RS.i_gt(gc.u(b, "vy"), 0), Bool.and(RS.i_gt(gc.u(b, "y"), (103 * 256 : U32)), Bool.and(RS.i_lt(gc.u(b, "y"), (124 * 256 : U32)), Bool.not(mossbell.key(t, 3))))))
   up: Bool = Bool.and(RS.i_gt(gc.u(b, "y"), (127 * 256 : U32)), Bool.not(mossbell.key(t, 2)))
   gc.sb(gc.si(rules.Input.default(), "move_y", gc.pu(up, RS.i_neg(1), 0)), "fire", fire)
 
-# Session::new(seats, seed)
 def mossbell.Session.new(+seats: List<&2, U32>, +seed: J.Val) -> J.Val:
   s0: J.Val = J.set(J.set(J.obj(), "tables", mossbell.tables(seats, seed)), "seed", seed)
   s1: J.Val = gc.su(gc.su(s0, "started", 0), "left", mossbell.LENGTH())
@@ -369,7 +345,6 @@ def mossbell.tables(+seats: List<&2, U32>, +seed: J.Val) -> J.Val:
     case Con{id: U32, t: List<&2, U32>}:
       J.set(mossbell.tables(t, seed), gc.key(id), mossbell.Table.new(seed))
 
-# Session::points(id), score(id) as a key
 def mossbell.Session.points(+s: J.Val, +id: U32) -> U32:
   (gc.u(J.get(gc.seat(J.get(s, "tables"), id), "ball"), "score") + gc.pu(gc.has_u(id, gc.us(J.get(s, "jackpot"))), 500, 0) : U32)
 
@@ -377,7 +352,6 @@ def mossbell.Session.score(+s: J.Val, +id: U32) -> GcSc:
   b: J.Val = J.get(gc.seat(J.get(s, "tables"), id), "ball")
   GcSc{mossbell.Session.points(s, id), gc.u(b, "drains"), gc.ifw(J.is_null(J.get(b, "jackpot_at")), W.max_value(), W.of_j(J.get(b, "jackpot_at")))}
 
-# a < b: more points first, then fewer drains, then the earlier jackpot
 def mossbell.sc_lt(+a: GcSc, +b: GcSc) -> Bool:
   match a as GcSc:
     case GcSc{ap: U32, ad: U32, aj: W.W}:
@@ -402,7 +376,6 @@ def mossbell.count_lt(+s: J.Val, +ids: List<&2, U32>, +me: GcSc) -> U32:
     case Con{r: U32, t: List<&2, U32>}:
       (gc.pu(mossbell.sc_lt(mossbell.Session.score(s, r), me), 1, 0) + mossbell.count_lt(s, t, me) : U32)
 
-# Session::race(): who has the earliest jackpot
 def mossbell.Session.race(+s: J.Val) -> J.Val:
   m: J.Val = mossbell.min_jackpot(gc.vals(J.get(s, "tables")), J.JNull{})
   s1: J.Val = J.set(s, "jackpot_tick", m)
@@ -427,7 +400,6 @@ def mossbell.jackpot_ids(+s: J.Val, +ids: List<&2, U32>, +m: J.Val) -> List<&2, 
       j: J.Val = J.get(J.get(gc.seat(J.get(s, "tables"), id), "ball"), "jackpot_at")
       gc.ifx_us(Bool.and(Bool.not(J.is_null(j)), Bool.and(Bool.not(J.is_null(m)), W.eq(W.of_j(j), W.of_j(m)))), id, mossbell.jackpot_ids(s, t, m))
 
-# Session::payout(id)
 def mossbell.Session.payout(+s: J.Val, +id: U32) -> U32:
   order: List<&2, U32> = gc.us(J.get(s, "order"))
   match order as List<&2, U32>:
@@ -452,11 +424,9 @@ def mossbell.count_eq(+s: J.Val, +ids: List<&2, U32>, +top: GcSc, +below: U32) -
     case Con{r: U32, t: List<&2, U32>}:
       (gc.pu(Bool.and(U32.is_lt(r, below), mossbell.sc_eq(mossbell.Session.score(s, r), top)), 1, 0) + mossbell.count_eq(s, t, top, below) : U32)
 
-# fn mossbell_showing(&self)
 def mossbell.Run.mossbell_showing(+run: J.Val) -> Bool:
   Bool.and(String.eq(J.str(J.get(rules.Run.room(run), "kind")), "bathhouse"), Bool.not(J.is_null(J.get(run, "mossbell"))))
 
-# fn tick_mossbell(&mut self, inputs)
 def mossbell.Run.tick_mossbell(+run: J.Val, +inputs: J.Val) -> J.Val:
   if Bool.not(String.eq(J.str(J.get(rules.Run.room(run), "kind")), "bathhouse")):
     J.set(run, "mossbell", J.JNull{})
@@ -525,7 +495,6 @@ def mossbell.tick.tables(+run: J.Val, +inputs: J.Val, +s: J.Val, +age: U32, +ids
         r2: J.Val = gc.ifj(U32.is_gt(gc.u(nb, "drains"), gc.u(old, "drains")), _ => gc.sound(r1, "play_card"), _ => r1)
         mossbell.tick.tables(r2, inputs, J.set(s, "tables", gc.put_seat(J.get(s, "tables"), id, t2)), age, t)
 
-# The match is over: order, record, purses.
 def mossbell.tick.payout(+run: J.Val, +s: J.Val) -> J.Val:
   order: List<&2, U32> = mossbell.sort_ids(gc.ids(J.get(s, "tables")), s)
   s1: J.Val = gc.sb(J.set(s, "order", gc.of_us(order)), "key", True{})
@@ -576,7 +545,6 @@ def mossbell.pay_players(+players: J.Val, +s: J.Val, +ids: List<&2, U32>) -> J.V
       else:
         mossbell.pay_players(players, s, t)
 
-# fn start_mossbell(&mut self)
 def mossbell.Run.start_mossbell(+run: J.Val) -> J.Val:
   r: W.W & W.W = loot.Rng.next(W.of_j(J.get(run, "rng")))
   (rng: W.W, seed: W.W) = r

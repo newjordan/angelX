@@ -12,70 +12,42 @@
 use super::*;
 use crate::rules::juice::Weight;
 
-/// The longest any record is worth showing, ticks.
 pub const LIFE: u32 = 90;
-/// The most records kept: the oldest go first.
 const MOST: usize = 64;
-/// A fresh flare is one the module raised this very tick: its clock is full,
-/// less the one tick the lists wind down at the end of it.
 const FRESH: u8 = 14 - 1;
-/// How near (tenths of a unit) a foe's last place is to the flare it left.
 const NEAR_POP: i32 = dm(45);
 
-/// What happened.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum What {
-    /// A craft fired its twin bolt.
     Muzzle,
-    /// A lock snapped on (`n`: how many the craft holds now).
     Lock,
-    /// A volley let go (`n`: starbursts launched).
     Volley,
-    /// A craft's barrel roll began (`n`: 1 to the right, 0 to the left).
     Roll,
-    /// The spur lit.
     Spur,
-    /// A foe fell (`n`: its kind, `Show::kind_of`).
     Pop,
-    /// A kite was shot off a wingman (`n`: the craft saved).
     Rescue,
-    /// A lamp broke (`n`: how many lamps are out).
     LampOut,
-    /// The Wyrm's last lamp: it is falling.
     WyrmDown,
-    /// A chain of hits reached a milestone (`n`: its length).
     Chain,
-    /// A craft's shield took a blow (`n`: how much).
     Hurt,
-    /// A craft went down.
     Fall,
-    /// A gate or a hearth ring taken (`n`: 1 a ring).
     Gate,
-    /// A bolt of the Gloam's turned round by a roll.
     Reflect,
-    /// A beat was cleared (`n`: the one that ended).
     Beat,
-    /// The Wyrm began an attack's tell (`n`: 0 spit, 1 coil, 2 roar).
     Tell,
-    /// The screen-clearing bomb.
     Starfall,
-    /// The party flew home: the beacon is lit.
     Beacon,
 }
 
-/// One thing that happened: what, to whom, where on the rail and when.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Fx {
     pub what: What,
-    /// The seat it was for (0 the wing's, or nobody's).
     pub seat: u8,
     pub n: u16,
-    /// Where on the rail: along, across, up.
     pub s: i32,
     pub x: i32,
     pub z: i32,
     pub weight: Weight,
-    /// The tick it happened on.
     pub born: u32,
 }
 
@@ -88,16 +60,12 @@ impl Fx {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Show {
     pub fx: Vec<Fx>,
-    /// The best the party had flown before this run, in tenths of a percent
-    /// (stamped at the finish, once); 0 when it is not known yet.
     #[serde(default)]
     pub prior: u16,
-    /// Whether `prior` has been written.
     #[serde(default)]
     pub known: bool,
 }
 
-/// A foe's kind as a record's number.
 pub fn kind_n(k: Kind) -> u16 {
     match k {
         Kind::Wisp => 0,
@@ -108,7 +76,6 @@ pub fn kind_n(k: Kind) -> u16 {
     }
 }
 
-/// The weight of a foe falling.
 fn pop_weight(k: Kind, rescue: bool) -> Weight {
     match k {
         Kind::Wisp => Weight::Solid,
@@ -121,7 +88,6 @@ fn pop_weight(k: Kind, rescue: bool) -> Weight {
 }
 
 impl Show {
-    /// Nothing to show: the save leaves it out.
     pub fn quiet(&self) -> bool {
         self.fx.is_empty() && !self.known
     }
@@ -154,15 +120,12 @@ impl Show {
         });
     }
 
-    /// The records of `what` still showing at `now`, oldest first.
     pub fn of(&self, what: What, now: u32) -> impl Iterator<Item = &Fx> {
         self.fx
             .iter()
             .filter(move |f| f.what == what && f.age(now) < LIFE)
     }
 
-    /// The heaviest blow that landed this very tick, which is what holds the
-    /// room still (`Run::hold_for` judges how much).
     pub fn held(&self, now: u32) -> Option<Weight> {
         self.fx
             .iter()
@@ -171,7 +134,6 @@ impl Show {
             .max()
     }
 
-    /// Stamp the best the party had before this run, once.
     pub fn know(&mut self, prior: u16) {
         if !self.known {
             self.prior = prior.min(1000);
@@ -179,8 +141,6 @@ impl Show {
         }
     }
 
-    /// Look at what changed between `old` and `new` (the tick just flown)
-    /// and write it down.
     pub fn observe(&mut self, old: &Session, new: &Session) {
         let now = new.elapsed;
         self.fx.retain(|f| f.age(now) < LIFE);
@@ -235,7 +195,6 @@ impl Show {
                 }
             }
         }
-        // The module's own flares raised this tick say where things fell.
         let lamps_out = |s: &Session| {
             s.foes
                 .iter()
@@ -251,8 +210,6 @@ impl Show {
             let at = (f.s, f.x, f.z);
             match f.what {
                 Burst::Pop => {
-                    // Which foe fell: the one of the old list that is gone
-                    // and stood nearest this place.
                     let gone = old
                         .foes
                         .iter()
@@ -305,12 +262,10 @@ impl Show {
     }
 }
 
-/// How many locks a craft holds.
 fn locks(c: &Craft) -> u32 {
     c.locks.iter().map(|l| u32::from(l.n)).sum()
 }
 
-/// How many starbursts of seat `id` are in the air.
 fn stars_of(s: &Session, id: u32) -> u32 {
     s.bolts
         .iter()
@@ -327,7 +282,6 @@ fn dist(a: (i32, i32, i32), b: (i32, i32, i32)) -> i32 {
     ((ds * ds + dx * dx + dz * dz) as f64).sqrt() as i32
 }
 
-/// The seat whose chain grew to `chain` this tick: who a pop was for.
 fn killer(old: &Session, new: &Session, chain: u8) -> u32 {
     new.seats
         .iter()

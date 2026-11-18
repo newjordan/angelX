@@ -1,7 +1,3 @@
-# The run's generator (loot.rs `Rng`, another group's) behind plain affine
-# pairs. These four are the only place the world port names it, so a change
-# in how its draws are paired is one edit here.
-
 def layout.rng.next(+r: W.W) -> W.W & W.W:
   loot.Rng.next(r)
 

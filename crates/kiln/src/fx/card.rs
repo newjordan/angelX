@@ -20,21 +20,14 @@ use super::recipe::{Form, Kind, Layer, Motion, Range, Recipe, Spawn};
 use super::rng::unit;
 use super::time::Ease;
 
-/// Ticks a second in the game.
 const HZ: f32 = 30.0;
-/// The bridge's frames a second.
 pub const FPS: u32 = 15;
-/// Ticks a frame.
 const R: f32 = HZ / FPS as f32;
-/// The stage: four tiles by two.
 pub const STAGE: [u32; 2] = [64, 32];
-/// The caster's middle, the hand, and where the shot lands.
 const MID: (f32, f32) = (10.0, 19.0);
 const HAND: (f32, f32) = (15.0, 18.0);
 const TARGET: (f32, f32) = (46.0, 18.0);
-/// Frames a shot takes to cross.
 const FLIGHT: f32 = 8.0;
-/// The most layers a card has.
 const MOST_LAYERS: usize = 6;
 
 const WHENS: [&str; 6] = ["cast", "fire", "trail", "hit", "kill", "aura"];
@@ -49,7 +42,6 @@ const PALETTES: [&str; 19] = [
 const MOTIONS: [&str; 8] = ["straight", "wobble", "spiral", "zigzag", "curl", "bounce", "rise", "fall"];
 const EASES: [&str; 5] = ["out", "in", "both", "back", "spring"];
 
-/// One `vfx` line, read.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CardLayer {
     pub on: &'static str,
@@ -70,7 +62,6 @@ fn word(list: &[&'static str], w: &str) -> Option<&'static str> {
     list.iter().copied().find(|x| *x == w)
 }
 
-/// The most motes a layer of each kind throws at once.
 fn most(on: &str) -> u8 {
     match on {
         "trail" => 6,
@@ -82,8 +73,6 @@ fn most(on: &str) -> u8 {
 }
 
 impl CardLayer {
-    /// Read the words after `vfx` as the game does: the layer and the notes
-    /// on what was held to its bounds, or why it does not read.
     pub fn read(rest: &str) -> Result<(CardLayer, Vec<String>), String> {
         let lower = rest.to_ascii_lowercase();
         let mut words = lower.split_whitespace();
@@ -143,7 +132,6 @@ impl CardLayer {
         Ok((l, notes))
     }
 
-    /// Its life in the bridge's frames.
     fn frames(&self) -> f32 {
         f32::from(self.life) / R
     }
@@ -193,13 +181,10 @@ fn form_of(word: &str) -> Option<Form> {
     })
 }
 
-/// A blank layer of `kind`.
 fn blank(kind: Kind) -> Layer {
     serde_json::from_value(serde_json::json!({ "type": kind })).expect("a bare layer reads")
 }
 
-/// A card's `vfx` lines (with or without the leading `vfx`) as an fx
-/// recipe, and the notes on what was set aside or held to its bounds.
 pub fn from_card(lines: &[&str]) -> (Recipe, Vec<String>) {
     let mut notes = Vec::new();
     let mut read = Vec::new();
@@ -224,13 +209,10 @@ pub fn from_card(lines: &[&str]) -> (Recipe, Vec<String>) {
     let has = |on: &str| read.iter().any(|l| l.on == on);
     let cast = read.iter().filter(|l| l.on == "cast").map(CardLayer::frames).fold(0.0f32, f32::max);
     let shot = has("fire") || has("trail") || has("hit") || has("kill");
-    // The cast plays first; its shot is loosed as it peaks.
     let loose = if cast > 0.0 { (cast * 0.4).round() } else { 0.0 };
     let lands = loose + FLIGHT;
     let mut layers: Vec<Layer> = Vec::new();
     if shot {
-        // The shot itself: a small hot head of the wish's colour crossing,
-        // a short tail behind it.
         let head = read.iter().find(|l| l.on == "trail").or_else(|| read.iter().find(|l| l.on == "fire")).or(read.first());
         let mut l = blank(Kind::Comet);
         l.ramp = Some(head.map_or("arcane", |h| h.palette).to_string());
@@ -281,9 +263,6 @@ pub fn from_card(lines: &[&str]) -> (Recipe, Vec<String>) {
     (recipe, notes)
 }
 
-/// The fx layers card layer `c` (the `n`th) plays as, starting at `t0` at
-/// `at`, thrown along `angle`, `scale` times its size; `lands` is when the
-/// shot lands, where a trail ends.
 fn staged(c: &CardLayer, n: u32, t0: f32, at: (f32, f32), angle: f32, scale: f32, lands: f32) -> Vec<Layer> {
     let life = c.frames() * scale.clamp(0.6, 1.6);
     let speed = f32::from(c.speed) * 0.5 * R;
@@ -375,8 +354,6 @@ fn staged(c: &CardLayer, n: u32, t0: f32, at: (f32, f32), angle: f32, scale: f32
             }
             match c.on {
                 "trail" => {
-                    // Motes let go behind the shot as it crosses, about as
-                    // far apart as the game lays them along its path.
                     let wide = matches!(form, Form::Note | Form::Heart | Form::Bubble | Form::Coin | Form::Worm | Form::Fly);
                     let gap = if wide { 7.0 } else { 3.0 } + f32::from(c.size);
                     let per = (TARGET.0 - HAND.0) / FLIGHT;
@@ -431,7 +408,6 @@ mod tests {
         let (r, notes) = from_card(&["vfx trail worms poop wobble count=3 wobble=2", "vfx hit nonsense", "vfx hit shards frost back count=12 speed=5 spread=360 life=16"]);
         assert_eq!(notes.len(), 1, "{notes:?}");
         assert!(r.check().is_ok());
-        // The shot, the trail and the hit.
         assert_eq!(r.layers.len(), 3);
         assert_eq!(r.layers[0].kind, Kind::Comet);
         assert_eq!(r.layers[1].form, Some(Form::Worm));

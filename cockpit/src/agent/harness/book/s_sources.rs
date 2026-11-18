@@ -117,7 +117,6 @@ pub(crate) const PRIMARY: Primary = Primary {
     ],
 };
 
-/// The contract route for a research turn, with its declared origin.
 pub(crate) fn contract(origin: Option<&str>) -> Raise {
     let evidence = match origin {
         Some(origin) => format!("Research origin: {origin}"),

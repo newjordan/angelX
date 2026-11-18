@@ -14,7 +14,6 @@ pub fn dir() -> PathBuf {
         .expect("set DELVE_CASES to the Bend case directory")
 }
 
-/// The cases of one Bend def, written whole (one writer per name) on `save`.
 pub struct Cases {
     name: String,
     lines: Vec<String>,
@@ -43,17 +42,14 @@ impl Cases {
     }
 }
 
-/// A value as the host's state tree holds it.
 pub fn to<T: Serialize>(t: &T) -> Value {
     serde_json::to_value(t).unwrap()
 }
 
-/// The Run as `capture_for_rules` writes it.
 pub fn state(run: &crate::rules::Run) -> Value {
     crate::rules::runtime_state::capture_for_rules(run).unwrap().run
 }
 
-/// An object cut to the keys a case needs.
 pub fn keep(v: &Value, keys: &[&str]) -> Value {
     let mut out = Map::new();
     if let Value::Object(m) = v {
@@ -66,7 +62,6 @@ pub fn keep(v: &Value, keys: &[&str]) -> Value {
     Value::Object(out)
 }
 
-/// A splitmix64 stream: seeds for the cases, the same on every run.
 pub struct Mix(pub u64);
 
 impl Mix {

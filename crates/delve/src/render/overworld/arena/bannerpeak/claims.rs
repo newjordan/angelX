@@ -18,23 +18,18 @@ use crate::rules::bannerpeak as rules;
 
 use super::{H, W};
 
-/// Ticks the title holds.
 pub(super) const TITLE: u32 = 128;
-/// The keys line, in ticks of the run.
 pub(super) const KEYS: u32 = 420;
 
-/// A box: left, top, width, height.
 pub(crate) type Rect = (i32, i32, i32, i32);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Claim {
     pub what: &'static str,
     pub rect: Rect,
-    /// The words of a prompt, for the stage to draw where the box is.
     pub text: &'static str,
 }
 
-/// The plate a line of words sits on, centred on the screen at row `y` (what `text_centre` draws).
 fn plate(words: &str, y: i32) -> Rect {
     let w = text_width(words);
     ((W - w) / 2 - 1, y - 1, w + 2, 9)
@@ -48,10 +43,6 @@ pub(crate) fn inside(r: Rect) -> bool {
     r.0 >= 0 && r.1 >= 0 && r.0 + r.2 <= W && r.1 + r.3 <= H
 }
 
-/// The pixels the kit's `banner` marks on a canvas `canvas_w` wide, whose origin is `(ox, oy)` on
-/// the screen, `age` ticks in: the rails and the words and the line under them, as one box.
-/// It reads the kit's own geometry (a slam makes the first ticks larger); the fade at the very
-/// end lifts the banner a few pixels while it dissolves, and the placements leave room for it.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn banner_rect(canvas_w: i32, (ox, oy): (i32, i32), y: i32, title: &str, sub: &str, age: u32, cap: i32) -> Rect {
     let tw = text_width(title).max(1);
@@ -73,7 +64,6 @@ pub(crate) fn banner_rect(canvas_w: i32, (ox, oy): (i32, i32), y: i32, title: &s
     (ox + x0, oy + y0, x1 - x0, y1 - y0)
 }
 
-/// The calls on show now, loudest first, never two of a kind: `(y, cap, title, sub, age)`.
 pub(crate) fn shouts(s: &Session, id: u32) -> Vec<(i32, i32, String, String, u32, Cry, u8)> {
     if s.phase != Phase::Play || s.elapsed < TITLE {
         return Vec::new();
@@ -87,7 +77,6 @@ pub(crate) fn shouts(s: &Session, id: u32) -> Vec<(i32, i32, String, String, u32
         kinds.push(d);
         fresh
     });
-    // Out from under the card of a banner raised; the card has the top of the screen.
     let (top, gap, most) = if s.announce.is_some() { (84, 52, 1) } else { (66, 52, 2) };
     live.into_iter()
         .take(most)
@@ -109,7 +98,6 @@ fn who(id: u32, seat: u32) -> String {
     }
 }
 
-/// What a call says: its words and the line under them.
 pub(crate) fn words(cry: Cry, seat: u32, id: u32) -> (String, String) {
     match cry {
         Cry::Saved => ("SAVED!".into(), who(id, seat)),
@@ -122,8 +110,6 @@ pub(crate) fn words(cry: Cry, seat: u32, id: u32) -> (String, String) {
     }
 }
 
-/// The crown bar over King Cinder: shown while he is awake, his crown is up, he is within sight and
-/// nothing louder has the top of the screen.
 pub(crate) fn crown_bar_on(s: &Session, me: Option<&Knight>) -> bool {
     let b = &s.boss;
     let Some(k) = me else { return false };
@@ -134,14 +120,12 @@ pub(crate) fn crown_bar_on(s: &Session, me: Option<&Knight>) -> bool {
         && (k.body.foot().0 - b.x).abs() <= 330
 }
 
-/// The crown bar's box and its name under it.
 pub(crate) const CROWN_BAR: Rect = (150, 22, 84, 17);
 pub(crate) fn crown_name() -> Rect {
     let w = text_width("KING CINDER");
     (192 - w / 2, 42, w, 7)
 }
 
-/// The scoreboard of the finish and the title beside the pole.
 pub(crate) fn panel(seats: usize) -> Rect {
     (196, 64, 176, 20 + seats as i32 * 12)
 }
@@ -158,11 +142,8 @@ fn prompt(what: &'static str, text: &'static str, y: i32) -> Claim {
     Claim { what, rect: plate(text, y), text }
 }
 
-/// Every box of words the screen is claiming over the world, for seat `id`. `words_on` is false for
-/// the terminal's picture, which paints its own rows.
 pub(crate) fn overlay(s: &Session, id: u32, me: Option<&Knight>, words_on: bool) -> Vec<Claim> {
     let mut out = Vec::new();
-    // The bar across the top: what it prints and where.
     if let Some(k) = me {
         out.push(boxed("purse", (18, 3, text_width(&format!("x{}", k.coins)) + 1, 9)));
         if k.size != rules::knight::Size::Small {
@@ -190,7 +171,6 @@ pub(crate) fn overlay(s: &Session, id: u32, me: Option<&Knight>, words_on: bool)
                 let age = ANNOUNCE_TICKS.saturating_sub(a.t);
                 let name = BANNER_NAMES[usize::from(a.banner).min(7)];
                 out.push(boxed("card", banner_rect(W, (0, 0), 30, name, &format!("BANNER {} OF 8", s.count()), age, 2)));
-                // The pennants that climb a staff either side of the card (`moments::raised`).
                 for side in [-1, 1] {
                     out.push(boxed("pennant", (192 + side * 118 - 2, 34, 19, 54)));
                 }
@@ -236,25 +216,18 @@ pub(crate) fn overlay(s: &Session, id: u32, me: Option<&Knight>, words_on: bool)
 
 pub(crate) const LEGEND: &str = "SPACE JUMP   S SLAM   F DIVE   E SHIELD";
 
-/// The finish's title at tick `t` of it.
 pub(crate) fn finale_words(t: u32) -> &'static str {
     if t < crate::rules::bannerpeak::session::FINALE_TICKS / 2 { "EIGHT BANNERS FLY" } else { "THE COURT IS LIT" }
 }
 
-/// A sign or a label of the world, where it hangs and what it says.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Hung {
-    /// Screen x of the post, the foot of the post, and the box of words.
     pub post: (i32, i32),
     pub rect: Rect,
     pub words: &'static str,
-    /// A signboard on a post (else a bare label).
     pub board: bool,
 }
 
-/// The signs and labels in view that can hang without meeting any claim, each other, or the
-/// edge: a board that would run off the frame is shifted in so its words are whole, and one that
-/// would sit on other words or under the bar is left unhung for now.
 pub(crate) fn hang(cam: (i32, i32), claims: &[Claim]) -> Vec<Hung> {
     let mut out: Vec<Hung> = Vec::new();
     let mut taken: Vec<Rect> = claims.iter().map(|c| c.rect).collect();

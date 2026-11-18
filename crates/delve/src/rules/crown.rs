@@ -13,7 +13,6 @@ use super::holdings::{self, FAVOUR_CAP, Holdings, RAIDERS, STORES_CAP, SCROLLS_C
 use super::*;
 use crate::realm::{Spoil, Spoils};
 
-/// One answer to a card: its words, and what it costs and does.
 #[derive(Clone, Copy, Debug)]
 pub struct Choice {
     pub label: &'static str,
@@ -21,11 +20,9 @@ pub struct Choice {
     pub favour: i32,
     pub stores: i32,
     pub unrest: i32,
-    /// Walls at every holding.
     pub walls: i32,
     pub scrolls: i32,
     pub retainers: i32,
-    /// Raiders fall on the holding with the weakest walls.
     pub raid: bool,
 }
 
@@ -41,7 +38,6 @@ const NIL: Choice = Choice {
     raid: false,
 };
 
-/// A card from the King: who comes, in a few words, and two answers.
 #[derive(Clone, Copy, Debug)]
 pub struct Card {
     pub title: &'static str,
@@ -49,7 +45,6 @@ pub struct Card {
     pub picks: [Choice; 2],
 }
 
-/// The King's cards, sent in this order, round and round.
 pub const CARDS: [Card; 8] = [
     Card {
         title: "ROYAL VISIT",
@@ -121,13 +116,10 @@ fn shift(n: u32, by: i32, cap: u32) -> u32 {
     (i64::from(n) + i64::from(by)).clamp(0, i64::from(cap)) as u32
 }
 
-/// Whether an answer can be paid.
 pub fn open(choice: &Choice, gold: u32) -> Result<(), &'static str> {
     if gold < choice.gold { Err("PURSE SHORT") } else { Ok(()) }
 }
 
-/// The realm answers card `card` with `pick`: paid from the treasury, its
-/// effects on the holdings, the card cleared. The line the ledger keeps.
 pub fn answer(h: &mut Holdings, treasury: &mut Spoils, card: u8, pick: usize) -> Result<String, &'static str> {
     let c = CARDS.get(usize::from(card)).ok_or("NO CARD")?;
     let choice = c.picks.get(pick).ok_or("NO CARD")?;
@@ -153,7 +145,6 @@ pub fn answer(h: &mut Holdings, treasury: &mut Spoils, card: u8, pick: usize) ->
     Ok(format!("{}{}: {}", title[..1].to_uppercase(), &title[1..], choice.label.to_lowercase()))
 }
 
-/// What the realm's favour does now, in two words, if anything.
 pub fn favour_word(h: &Holdings) -> Option<&'static str> {
     if h.favour >= holdings::ROYAL {
         Some("ROYAL MASONS")
@@ -164,9 +155,6 @@ pub fn favour_word(h: &Holdings) -> Option<&'static str> {
     }
 }
 
-/// Where the King's herald stands with his card, by the Land Office's door,
-/// and the two answer posts either side of him (kingdom tiles). Clear of
-/// every door, banner and little thing of the kingdom's.
 pub fn herald(geo: &super::map::Geography) -> Option<((i32, i32), [(i32, i32); 2])> {
     let site = geo.sites.iter().find(|s| s.room == RoomKind::LandOffice)?;
     let (x, y) = site.stand;
@@ -188,7 +176,6 @@ pub fn herald(geo: &super::map::Geography) -> Option<((i32, i32), [(i32, i32); 2
         .find(|&(h, [a, b])| open(h) && open(a) && open(b))
 }
 
-/// The answer post a knight stands at, if any (within a step of it).
 pub fn post_under(run: &Run, id: u32) -> Option<usize> {
     if run.room().kind != RoomKind::Kingdom || run.home.holdings.card.is_none() {
         return None;
@@ -206,8 +193,6 @@ pub fn card_mark(card: u8, pick: usize) -> String {
 }
 
 impl Run {
-    /// The King's herald in the kingdom: while a card waits the way-on
-    /// arrow leads to him, and holding E at a post answers it.
     pub(super) fn tick_crown(&mut self, inputs: &BTreeMap<u32, Input>) {
         let Some(card) = self.home.holdings.card else {
             return;
@@ -245,8 +230,6 @@ impl Run {
     }
 }
 
-/// How many raiders a raid of `level` sends, less one for each standing
-/// trade room (bought off), and never fewer than two.
 pub fn raiders(level: u8, bought: u32) -> u32 {
     RAIDERS[usize::from(level.min(holdings::RAID_MAX))].saturating_sub(bought).max(2)
 }

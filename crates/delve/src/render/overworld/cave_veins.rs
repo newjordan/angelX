@@ -1,19 +1,11 @@
-// Ore nuggets on a vein cell's drawn top and face, and the sunk adit.
-// Included from cave_paint so it shares the plate.
-
-/// A sunk body's south-facing head. The tunnel sits on `wall`'s face; the
-/// cart is drawn with it, at the mouth, on the floor in front.
 pub(crate) struct MineHead {
     pub region: u8,
     pub wall: (i32, i32),
     pub head: (i32, i32),
 }
 
-/// main, highlight, shade, fleck. Flint's highlight is `U` so the coal shows
-/// on dark rock.
 const ORE_INK: [[char; 4]; 4] = [
     ['i', 'H', 'G', 'O'],
-    // Flint: coal with a grey gloss and bone flecks, so it never reads as the freestone's blue.
     ['K', 'J', 'k', 'c'],
     ['7', '4', '8', '5'],
     ['u', 'V', 's', 'U'],
@@ -85,7 +77,6 @@ fn vein_blocks(cx: i32, cy: i32, face_h: i32) -> [(i32, i32); 4] {
     .map(|(bx, by)| (bx, by.min(face + face_h)))
 }
 
-/// A shape pixel on this vein's top or face, still stone.
 fn shape_pixel(
     plate: &Plate,
     cx: i32,
@@ -109,7 +100,6 @@ fn shape_pixel(
     Some((0, drop))
 }
 
-/// Nuggets on one seen vein wall. Only rock of that cell's top and face.
 fn stamp_vein_cell(plate: &mut Plate, cave: &Cave, cx: i32, cy: i32, index: u8, region: u8) {
     let ink = ORE_INK[usize::from(region.min(3))];
     let face_h = if narrow_pocket(cave, cx, cy + 1) { POCKET_LIP } else { FACE_PX };
@@ -121,8 +111,6 @@ fn stamp_vein_cell(plate: &mut Plate, cave: &Cave, cx: i32, cy: i32, index: u8, 
         let n = 2 + vein_hash(bx, by, VEIN_SEED) % 2;
         for k in 0..n {
             let r = vein_hash(bx, by, VEIN_SEED + k * 7);
-            // Anywhere in the 8 px block (a 3 px shape at 5 still ends at 7), so the
-            // nuggets scatter instead of lining up every 8 px.
             let sx = bx + (r % 6) as i32;
             let sy = by + ((r >> 8) % 6) as i32;
             let shape = SHAPES[((r >> 16) % 4) as usize];
@@ -202,7 +190,6 @@ fn stamp_vein_cell(plate: &mut Plate, cave: &Cave, cx: i32, cy: i32, index: u8, 
     }
 }
 
-/// Restamp veins whose top or face was just redrawn. Not a per-frame walk.
 pub(super) fn stamp_veins(plate: &mut Plate, cave: &Cave, x0: i32, x1: i32, y0: i32, y1: i32) {
     let laid = mines::bodies(cave.seed);
     let y_from = (y0 - 3).max(0);
@@ -237,7 +224,6 @@ pub(super) fn ore_counts_as_rock(kind: u8) -> bool {
     kind == KIND_ORE
 }
 
-/// Proven and not yet sunk. The glint reads this; the wire does not grow.
 pub(super) fn glint_mask(cave: &Cave, sunk: u8) -> u8 {
     let mut mask = 0u8;
     let laid = mines::bodies(cave.seed);
@@ -262,8 +248,6 @@ fn twinkle(cx: i32, cy: i32, tick: u32) -> bool {
     tick.wrapping_add(off) % 48 < 6
 }
 
-/// Lamp steps the painter already uses (`floor_steps`), held to the floor
-/// beside the stone. `blink` is already the proven glint for this tick.
 pub(super) fn ore_rgb(ch: u8, level: u8, region: u8, beside: u8, blink: bool) -> ink::Rgb {
     let level = level.max(6);
     let mut steps = floor_steps(level);
@@ -282,8 +266,6 @@ pub(super) fn ore_rgb(ch: u8, level: u8, region: u8, beside: u8, blink: bool) ->
     rgb
 }
 
-/// Vein cells whose one nugget blinks this tick: proven, not sunk, in the
-/// 6-of-48 window. Built once a frame.
 pub(super) fn blink_cells(cave: &Cave, sunk: u8, tick: u32) -> Vec<(i32, i32)> {
     let mut out = Vec::new();
     let mask = glint_mask(cave, sunk);

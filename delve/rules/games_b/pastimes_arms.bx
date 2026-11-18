@@ -1,6 +1,3 @@
-# crates/delve/src/rules/pastimes.rs — play_round's `match round.game` arms.
-# Each answers (run, (round, still_going)).
-
 def pastimes.play.game(+run: J.Val, +round: J.Val, +gi: U32, +shown: U32, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
   match gi:
     case 0:
@@ -42,8 +39,6 @@ def pastimes.play.game(+run: J.Val, +round: J.Val, +gi: U32, +shown: U32, +input
     case _:
       pastimes.siege.Run.tick_siege(run, round, inputs, elig)
 
-# ---- Broadsheet Boy: deliver the paper to the right doors ------------------
-
 def pastimes.arm.broadsheet(+run: J.Val, +round: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
   pastimes.broadsheet.each(run, round, elig, tapped)
 
@@ -59,7 +54,6 @@ def pastimes.broadsheet.each(+run: J.Val, +round: J.Val, +elig: List<&2, J.Val>,
         (run2: J.Val, round2: J.Val) = pastimes.broadsheet.one(run, round, id, gb.f(me, "x"), gb.f(me, "y"))
         pastimes.broadsheet.each(run2, round2, elig, rest)
 
-# The nearest mailbox within 3.0, as an index, or 5 for none.
 def pastimes.broadsheet.mailbox(+x: F32, +y: F32, +i: U32, +best: U32, +bd: F32) -> U32:
   match i:
     case 5:
@@ -82,8 +76,6 @@ def pastimes.broadsheet.one(+run: J.Val, +round: J.Val, +id: U32, +x: F32, +y: F
   else:
     (run, round)
 
-# ---- Barrel-board Derby / Washtub Regatta: reach the next mark -------------
-
 def pastimes.arm.barrel(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +gi: U32) -> J.Val & (J.Val & Bool):
   run1: J.Val = Bool.pick(J.Val, U32.is_eq(gi, 3), pastimes.washtub.stroke(run, inputs, elig), run)
   i: U32 = gb.u(round, "progress")
@@ -94,7 +86,6 @@ def pastimes.arm.barrel(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<
   else:
     (run1, (round, True{}))
 
-# The paddle's stroke sound: every half second while someone moves.
 def pastimes.washtub.stroke(+run: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>) -> J.Val:
   if Bool.and(U32.is_eq(W.rem_u32(gb.tick(run), 15), 0), pastimes.washtub.moving(inputs, elig)):
     gb.sound(run, "wave_gate")
@@ -108,8 +99,6 @@ def pastimes.washtub.moving(+inputs: J.Val, +elig: List<&2, J.Val>) -> Bool:
     case Con{e: J.Val, t: List<&2, J.Val>}:
       i: J.Val = J.get(inputs, U32.show(gb.u(e, "id")))
       Bool.or(Bool.and(Bool.and(Bool.not(J.is_null(i)), rules.Input.valid(i)), Bool.or(Bool.or(U32.is_ne(gb.i(i, "move_x"), 0), U32.is_ne(gb.i(i, "move_y"), 0)), Bool.or(U32.is_ne(gb.i(i, "aim_x"), 0), U32.is_ne(gb.i(i, "aim_y"), 0)))), pastimes.washtub.moving(inputs, t))
-
-# ---- Turnip Keepy-uppy: kick it as it lands ---------------------------------
 
 def pastimes.arm.turnip(+run: J.Val, +round: J.Val, +shown: U32, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
   elapsed: U32 = gb.ssub(600, shown)
@@ -126,7 +115,6 @@ def pastimes.arm.turnip(+run: J.Val, +round: J.Val, +shown: U32, +elig: List<&2,
   else:
     (run, (round, True{}))
 
-# Some tapping knight stands within 2.2 of the turnip's pad.
 def pastimes.turnip.hit(+tapped: List<&2, U32>, +elig: List<&2, J.Val>) -> Bool:
   match tapped:
     case Nil{}:
@@ -134,8 +122,6 @@ def pastimes.turnip.hit(+tapped: List<&2, U32>, +elig: List<&2, J.Val>) -> Bool:
     case Con{id: U32, rest: List<&2, U32>}:
       me: J.Val = pastimes.find_el(elig, id)
       Bool.or(Bool.and(Bool.not(J.is_null(me)), F32.is_lt(RS.f_hypot((gb.f(me, "x") - 38.0 : F32), (gb.f(me, "y") - 20.0 : F32)), 2.2)), pastimes.turnip.hit(rest, elig))
-
-# ---- Cheese Chuck: throw the cheese at the basket ----------------------------
 
 def pastimes.arm.cheese(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
   cheese: J.Val = J.get(round, "cheese")
@@ -163,13 +149,11 @@ def pastimes.cheese.fly(+run: J.Val, +round: J.Val, +cheese: J.Val) -> J.Val & J
     else:
       (run, J.set(round, "cheese", c1))
 
-# Cheese::valid
 def pastimes.cheese.valid(+c: J.Val) -> Bool:
   ax: U32 = RS.i_abs(gb.i(c, "dx"))
   ay: U32 = RS.i_abs(gb.i(c, "dy"))
   Bool.and(Bool.and(Bool.and(RS.i_ge(gb.i(c, "x"), 0), RS.i_lt(gb.i(c, "x"), 6144)), Bool.and(RS.i_ge(gb.i(c, "y"), 0), RS.i_lt(gb.i(c, "y"), 3584))), Bool.and(Bool.and(U32.is_le(ax, 108), U32.is_le(ay, 108)), Bool.and(U32.is_gt((ax + ay : U32), 0), Bool.and(U32.is_gt(gb.u(c, "left"), 0), U32.is_le(gb.u(c, "left"), 60)))))
 
-# A fresh throw: from the first tapping knight at the line.
 def pastimes.cheese.throw(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
   can: Bool = Bool.and(Bool.and(J.is_null(J.get(round, "cheese")), U32.is_lt(gb.u(round, "shots"), 12)), U32.is_lt(gb.u(round, "progress"), 5))
   who: J.Val = pastimes.cheese.thrower(elig, tapped)
@@ -203,8 +187,6 @@ def pastimes.cheese.end(+run: J.Val, +round: J.Val) -> J.Val & (J.Val & Bool):
     (gb.found(run, 0, "Out of cheese!"), (round, False{}))
   else:
     (run, (round, True{}))
-
-# ---- Hobbyhorse Hurdles: jump the fences -------------------------------------
 
 def pastimes.arm.hobbyhorse(+run: J.Val, +round: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
   fence: U32 = RS.i_mul(RS.i_add(6, RS.i_mul(gb.u(round, "progress"), 3)), 256)
@@ -256,8 +238,6 @@ def pastimes.hobby.each(+run: J.Val, +round: J.Val, +fence: U32, +elig: List<&2,
 def pastimes.in_lane(+y: U32) -> Bool:
   Bool.and(RS.i_ge(y, 1408), RS.i_le(y, 2176))
 
-# ---- Squire Sled Slalom --------------------------------------------------------
-
 def pastimes.arm.sled(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>) -> J.Val & (J.Val & Bool):
   sled: J.Val = J.get(round, "sled")
   if Bool.not(pastimes.has_el(elig, gb.u(sled, "driver"))):
@@ -294,8 +274,6 @@ def pastimes.sled.gate(+run: J.Val, +round: J.Val, +sled: J.Val) -> J.Val & (J.V
   else:
     (run, (round, True{}))
 
-# ---- Shield Surf ---------------------------------------------------------------
-
 def pastimes.arm.surf(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
   surf: J.Val = J.get(round, "surf")
   owner: U32 = gb.u(surf, "owner")
@@ -311,8 +289,6 @@ def pastimes.arm.surf(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2
         (gb.sound(run, "spoil_pickup"), (pastimes.popup(pastimes.progress1(r1), "WAVE!", 12, 6), True{}))
       else:
         (gb.sound(gb.found(run, owner, "Wipeout on wave " ++ U32.show((gb.u(r1, "progress") + 1 : U32)) ++ "!"), "hit"), (r1, False{}))
-
-# ---- Belfry Bat-and-Ball -----------------------------------------------------------
 
 def pastimes.arm.volley(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
   v: J.Val = J.get(round, "volley")
@@ -336,8 +312,6 @@ def pastimes.volley.after(+run: J.Val, +round: J.Val, +v: J.Val, +v1: J.Val) -> 
     (gb.found(run3, gb.u(v1, "owner"), "Three turnips lost!"), (r3, False{}))
   else:
     (run3, (r3, True{}))
-
-# ---- Jester's Half-pipe --------------------------------------------------------------
 
 def pastimes.arm.halfpipe(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
   h: J.Val = J.get(round, "halfpipe")
@@ -369,8 +343,6 @@ def pastimes.halfpipe.landed(+run: J.Val, +round: J.Val, +h: J.Val, +ret: J.Val,
 
 def pastimes.halfpipe.pumped(+run: J.Val, +round: J.Val, +h: J.Val, +pumped: Bool) -> J.Val & (J.Val & Bool):
   (Bool.pick(J.Val, pumped, gb.sound(run, "roll"), run), (J.set(round, "halfpipe", pastimes.halfpipe.Halfpipe.tick_vfx(J.get(round, "halfpipe"))), True{}))
-
-# ---- Cabbage and Roll Racing ------------------------------------------------------------
 
 def pastimes.arm.chariot(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
   c: J.Val = J.get(round, "chariot")
@@ -404,8 +376,6 @@ def pastimes.chariot.verdict(+run: J.Val, +round: J.Val, +ret: J.Val, +owner: U3
       (gb.found(run, owner, "Outraced by a goat!"), (round, False{}))
     case _:
       (run, (round, True{}))
-
-# ---- Carnival Duck Range ---------------------------------------------------------------------
 
 def pastimes.arm.duckshoot(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
   d: J.Val = J.get(round, "duckshoot")

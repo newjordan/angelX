@@ -107,7 +107,6 @@ fn moa_command_opens_formation_deck_without_starting_turn() {
         app.moa_arm_status()
     );
     assert!(app.moa_one_shot.is_none(), "first click must not arm");
-    // Re-click the selected card locks it in for the next turn.
     let recon = app
         .world_buttons
         .iter()
@@ -138,7 +137,6 @@ fn moa_command_opens_formation_deck_without_starting_turn() {
         app.moa_arm_status()
     );
 
-    // Re-open to inspect the roster graph for the remaining assertions.
     app.open_moa_deck(None);
     app.select_moa_card(crate::agent::formations::FormationId::Recon);
     let graph = render_app_text(&mut app, 144, 48);
@@ -355,7 +353,6 @@ fn deferred_submit_echoes_before_goal_reload_and_moa_engage() {
         "angel_defer_submit_goal_{}.json",
         std::process::id()
     ));
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_GOAL_FILE", &tmp) };
     let mut app = seed_preview_app();
     app.bag = Bag::for_render_test(&[
@@ -437,7 +434,6 @@ fn deferred_submit_echoes_before_goal_reload_and_moa_engage() {
         app.interrupt();
         app.interrupt();
     }
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_GOAL_FILE") };
     let _ = std::fs::remove_file(&tmp);
 }
@@ -681,7 +677,6 @@ fn grok_war_command_selects_and_enter_engages_formation() {
         ("grok", &[("grok-4.5", true)]),
     ]);
 
-    // `/moa war` must open the deck on Grok War — not send a MoA chat message.
     app.input = "/moa war".to_string();
     app.cursor = app.input.chars().count();
     app.submit();
@@ -697,7 +692,6 @@ fn grok_war_command_selects_and_enter_engages_formation() {
         "recommended trio+Grok seats must auto-fill when routes are online"
     );
 
-    // Enter locks the selected card for the next turn (card-battle engage).
     app.focus_module("artifacts");
     assert!(app.moa_deck_key(KeyCode::Enter, KeyModifiers::NONE));
     assert!(app.moa_deck.is_none(), "engage closes the deck");
@@ -746,7 +740,6 @@ fn tag_team_command_opens_two_operator_seats_not_council() {
         !deck.selected_roster().is_ready(),
         "nothing is pre-filled: the operator picks both models"
     );
-    // The operator seats both models.
     let index_of = |deck: &formations::MoaDeckState, model: &str| {
         deck.models()
             .iter()
@@ -775,10 +768,6 @@ fn tag_team_command_opens_two_operator_seats_not_council() {
         Some(formations::FormationId::TagTeam)
     );
 
-    // Typing the first message must actually start the turn. A formation whose
-    // roster cannot install fails inside `apply_armed_moa_to_turn`, whose error
-    // path reopens the deck — so the operator selects Tag Team, engages, types,
-    // and lands back on the formation menu forever.
     assert!(
         app.apply_armed_moa_to_turn(),
         "armed Tag Team must engage the turn"
@@ -793,15 +782,10 @@ fn tag_team_command_opens_two_operator_seats_not_council() {
 #[test]
 fn grok_war_formation_sets_frontier_trio_env_contract() {
     let _guard = env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_LANE") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_TASK_TREEBEARD") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_SOTA_MOA_COST_PROFILE") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_GROK_REASONING_EFFORT") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_RL_REWARD") };
     crate::agent::formations::formation(crate::agent::formations::FormationId::GrokWar)
         .apply_sota_env();
@@ -838,7 +822,6 @@ fn grok_war_formation_sets_frontier_trio_env_contract() {
         std::env::var("ANGEL_OPENAI_REASONING_EFFORT").as_deref(),
         Ok("max")
     );
-    // Leaving war must drop the role pins so another formation owns routing.
     crate::agent::formations::formation(crate::agent::formations::FormationId::SoloStrike)
         .apply_sota_env();
     assert!(std::env::var("ANGEL_SOTA_MOA_PROPOSE_CLUB").is_err());

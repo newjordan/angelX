@@ -57,7 +57,6 @@ impl Kind {
     }
 }
 
-/// Every reachable destination, including both orders of the upper delve.
 pub const DESTINATIONS: [(Kind, u32); 12] = [
     (Kind::Gate, 0),
     (Kind::Crypt, 1),
@@ -78,8 +77,6 @@ pub struct Playing {
     pub kind: Kind,
     pub depth: u32,
     pub age: u8,
-    /// Display steps the floor behind gives its results (`floor_stats`)
-    /// before this floor's own title; none for the first floor.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub results: u8,
 }
@@ -89,12 +86,10 @@ fn is_zero(v: &u8) -> bool {
 }
 
 impl Playing {
-    /// The steps the whole plate lasts: the results, then the title.
     pub fn length(self) -> u8 {
         self.results.saturating_add(DURATION)
     }
 
-    /// The floor's own title as it plays now, once the results are done.
     pub fn title(self) -> Option<Playing> {
         (self.age >= self.results).then_some(Playing { age: self.age - self.results, results: 0, ..self })
     }
@@ -131,8 +126,6 @@ impl Run {
     }
 
     pub(super) fn tick_floor_plates(&mut self, inputs: &BTreeMap<u32, Input>) {
-        // The results never hold a fight up: one breaking out cuts them
-        // short, and the floor's title plays.
         let fight = self.fight_on();
         self.floor_plates.retain(|id, plate| {
             if fight && plate.age < plate.results {

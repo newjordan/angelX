@@ -23,7 +23,6 @@ const CLIPS: [&str; 13] = [
     "bow", "gun",
 ];
 const ANCHOR_NAMES: [&str; 6] = ["grip", "off_hand", "head", "back", "feet", "tip"];
-/// (name, parent, source joint, draw order); front means image-right.
 pub(super) const LAYOUT: [(&str, Option<&str>, &str, i64); 15] = [
     ("back", Some("torso"), "neck", 0),
     ("upper_arm_b", Some("torso"), "shoulder_b", 1),
@@ -44,13 +43,10 @@ pub(super) const LAYOUT: [(&str, Option<&str>, &str, i64); 15] = [
 
 const MAX_SIDE: i64 = 1024;
 
-/// A char grid of realm inks (`.` is clear).
 type Grid = Vec<Vec<char>>;
 type Mat = [[f64; 2]; 2];
 
 fn mat_vec(r: Mat, v: [f64; 2]) -> [f64; 2] {
-    // NumPy `@` contracts with a fused multiply-add. A plain add is one ulp
-    // low on some poses and drops a destination pixel across a half boundary.
     [
         r[0][0].mul_add(v[0], r[0][1] * v[1]),
         r[1][0].mul_add(v[0], r[1][1] * v[1]),
@@ -76,7 +72,6 @@ fn rotation(degrees: f64) -> Mat {
     [[c, -s], [s, c]]
 }
 
-/// Python `round()`: ties to even.
 pub(super) fn py_round(v: f64) -> f64 {
     let f = v.floor();
     let diff = v - f;
@@ -91,12 +86,10 @@ pub(super) fn py_round(v: f64) -> f64 {
     }
 }
 
-/// Python `round(v, n)` for the joint decimals (n <= 3 here).
 pub(super) fn round_n(v: f64, n: usize) -> f64 {
     format!("{:.*}", n, v).parse().unwrap_or(v)
 }
 
-/// `numpy.median` of a sample (mean of the two middle values when even).
 pub(super) fn median(mut xs: Vec<f64>) -> f64 {
     xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let n = xs.len();
@@ -107,14 +100,9 @@ pub(super) fn median(mut xs: Vec<f64>) -> f64 {
     }
 }
 
-/// `numpy.clip(v, lo, hi)`.
 pub(super) fn np_clip(v: f64, lo: f64, hi: f64) -> f64 {
     v.max(lo).min(hi)
 }
-
-// ---------------------------------------------------------------------------
-// Motion clips (quick_motion.defaults)
-// ---------------------------------------------------------------------------
 
 #[derive(Clone)]
 pub(super) struct Pose {
@@ -413,10 +401,6 @@ pub(super) fn defaults(h: f64) -> Vec<(&'static str, Vec<Pose>)> {
         .collect()
 }
 
-// ---------------------------------------------------------------------------
-// fit
-// ---------------------------------------------------------------------------
-
 pub(super) struct PartDef {
     pub(super) name: &'static str,
     pub(super) parent: Option<&'static str>,
@@ -434,13 +418,10 @@ pub(super) struct Fitted {
     pub(super) joints: BTreeMap<String, [f64; 2]>,
     pub(super) parts: Vec<PartDef>,
     pub(super) seam_radius: i64,
-    /// (anchor name, owning part, source point)
     pub(super) anchors: Vec<(&'static str, String, [f64; 2])>,
     pub(super) clips: Vec<(&'static str, Vec<Pose>)>,
 }
 
-/// `_contact`: real pixel of one owning mask, nearest to the target
-/// (row-major scan; the first minimum wins, as numpy's argmin).
 pub(super) fn contact_mask(
     mask: &[Vec<bool>],
     target: [f64; 2],
@@ -491,7 +472,6 @@ fn label_id(name: &str) -> usize {
     LABELS.iter().position(|l| *l == name).unwrap()
 }
 
-/// Public shims for `smart` (same module tree).
 pub(super) fn parse_rows_pub(rows: &[&str]) -> Result<Grid, String> {
     parse_rows(rows)
 }
@@ -637,7 +617,6 @@ fn fit(ink: &Grid) -> Result<Fitted, String> {
         }
     }
 
-    // Rear hanging strip (cape).
     {
         let mut tys: Vec<i64> = Vec::new();
         let mut txs: Vec<i64> = Vec::new();
@@ -669,7 +648,6 @@ fn fit(ink: &Grid) -> Result<Fitted, String> {
         }
     }
 
-    // Distal fixups.
     for side in ["b", "f"].iter() {
         for (prefix, chain) in [
             ("hand_", ["lower_arm_", "upper_arm_"]),
@@ -805,10 +783,6 @@ fn fit(ink: &Grid) -> Result<Fitted, String> {
         clips: defaults(height as f64),
     })
 }
-
-// ---------------------------------------------------------------------------
-// build
-// ---------------------------------------------------------------------------
 
 type Transform = (Mat, [f64; 2]);
 
@@ -974,9 +948,6 @@ fn stamp(out: &mut Grid, texture: &Grid, tr: &Transform) -> Result<(), String> {
     for y in y0..y1 {
         for x in x0..x1 {
             let v = [x as f64 - t[0], y as f64 - t[1]];
-            // NumPy `(xy-t)@r` contracts the second product into the first with
-            // an fma, then adds one half. Fusing the half into that fma is one ulp
-            // high when the second product is tiny.
             let sx = (r[1][0].mul_add(v[1], v[0] * r[0][0]) + 0.5).floor() as i64;
             let sy = (r[1][1].mul_add(v[1], v[0] * r[0][1]) + 0.5).floor() as i64;
             if sx < 0 || sy < 0 || sx >= tw as i64 || sy >= th as i64 {
@@ -1040,10 +1011,6 @@ fn anchors_of(
     }
     Ok(out)
 }
-
-// ---------------------------------------------------------------------------
-// Pillow 13 line rasterization (libImaging/Draw.c), for smears.
-// ---------------------------------------------------------------------------
 
 struct Edge {
     x0: i64,
@@ -1136,7 +1103,6 @@ fn mask_hline(mask: &mut [Vec<bool>], mut x0: i64, y: i64, mut x1: i64) {
     }
 }
 
-/// Pillow's `line()` (width 1, Bresenham with the horizontal special case).
 fn draw_line(mask: &mut [Vec<bool>], x0: i64, mut y0: i64, x1: i64, y1: i64) {
     let dy = y1 - y0;
     let ys;
@@ -1193,7 +1159,6 @@ fn draw_line(mask: &mut [Vec<bool>], x0: i64, mut y0: i64, x1: i64, y1: i64) {
     }
 }
 
-/// Pillow's `polygon_generic`, non-alpha branch (mode L, no mask).
 fn polygon_fill(mask: &mut [Vec<bool>], edges: Vec<Edge>) {
     let h = mask.len() as i64;
     if edges.is_empty() {
@@ -1260,7 +1225,6 @@ fn polygon_fill(mask: &mut [Vec<bool>], edges: Vec<Edge>) {
     }
 }
 
-/// Pillow's `ImagingDrawWideLine`.
 fn wide_line(mask: &mut [Vec<bool>], x0: i64, y0: i64, x1: i64, y1: i64, width: i64) {
     let dx = x1 - x0;
     let dy = y1 - y0;
@@ -1291,7 +1255,6 @@ fn wide_line(mask: &mut [Vec<bool>], x0: i64, y0: i64, x1: i64, y1: i64, width: 
     polygon_fill(mask, edges);
 }
 
-/// `ImageDraw.Draw(im).line(points, fill=255, width=width)` on an L mask.
 fn pil_line(mask: &mut [Vec<bool>], points: &[[i64; 2]], width: i64) {
     if width == 1 {
         let mut last: Option<[i64; 2]> = None;
@@ -1394,7 +1357,6 @@ fn build(fit: &Fitted, ink: &Grid) -> Result<Value, String> {
         })
         .collect();
 
-    // Smear ink: brightest visible source ink (r+g+b), ties to the smallest char.
     let mut visible: Vec<char> = Vec::new();
     for row in ink {
         for &c in row {
@@ -1404,7 +1366,6 @@ fn build(fit: &Fitted, ink: &Grid) -> Result<Value, String> {
         }
     }
     visible.sort();
-      // Python `max(visible, key=sum)` keeps the first maximal element.
       let smear_ink = visible
           .iter()
           .copied()
@@ -1471,8 +1432,6 @@ fn build(fit: &Fitted, ink: &Grid) -> Result<Value, String> {
             })()
             .map_err(|e| format!("clips.{clip_name}[{i}]: {e}"))?;
             frames.push(frame);
-            // Re-derive the anchors map for the next frame's smear
-            // straight from the emitted JSON (authoritative integers).
             let mut prev: BTreeMap<&'static str, [i64; 2]> = BTreeMap::new();
             {
                 let obj = &frames.last().unwrap()["anchors"];
@@ -1492,10 +1451,6 @@ fn build(fit: &Fitted, ink: &Grid) -> Result<Value, String> {
         "clips": Value::Object(clips),
     }))
 }
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 fn parse_rows(rows: &[&str]) -> Result<Grid, String> {
     if rows.is_empty() || rows[0].is_empty() {
@@ -1522,7 +1477,6 @@ fn parse_rows(rows: &[&str]) -> Result<Grid, String> {
     Ok(grid)
 }
 
-/// Ink rows -> the full game.json text (all 13 clips, Python-parity pixels).
 pub fn auto_rig_json(rows: &[&str]) -> Result<String, String> {
     let grid = parse_rows(rows)?;
     let fitted = fit(&grid)?;
@@ -1532,8 +1486,6 @@ pub fn auto_rig_json(rows: &[&str]) -> Result<String, String> {
     Ok(text)
 }
 
-/// Ink rows -> the full game.json text using the SILHOUETTE fit
-/// (falls back to the proportional fit exactly where the Python does).
 pub fn auto_rig_smart_json(rows: &[&str]) -> Result<String, String> {
     let grid = parse_rows(rows)?;
     let fitted = super::smart::fit_smart(&grid)?.fit;
@@ -1543,13 +1495,11 @@ pub fn auto_rig_smart_json(rows: &[&str]) -> Result<String, String> {
     Ok(text)
 }
 
-/// The silhouette fit's plan for these rows: "biped" or "robe".
 pub fn auto_rig_plan(rows: &[&str]) -> Result<&'static str, String> {
     let grid = parse_rows(rows)?;
     super::smart::plan_smart(&grid)
 }
 
-/// Ink rows -> a parsed [`Rig`] with all 13 clips (the game's own loader).
 pub fn auto_rig(rows: &[&str]) -> Result<Rig, String> {
     let json = match auto_rig_smart_json(rows) {
         Ok(json) => json,
@@ -1558,9 +1508,6 @@ pub fn auto_rig(rows: &[&str]) -> Result<Rig, String> {
     Rig::parse(&json).map_err(|e| e.to_string())
 }
 
-/// The part map `auto_rig` used: smart when that fit returns Ok, else the
-/// proportional cut. A standing figure has a head, a torso, and a leg, or
-/// the robe plan.
 pub struct FigureParts {
     pub plan: &'static str,
     pub head: bool,
@@ -1596,8 +1543,6 @@ pub fn figure_parts(rows: &[&str]) -> Result<FigureParts, String> {
     Ok(parts_of(&fit(&parse_rows(rows)?)?, "biped"))
 }
 
-/// The proportional fit stays callable: ink rows -> Rig (13 clips, no
-/// silhouette reading).
 pub fn auto_rig_proportional(rows: &[&str]) -> Result<Rig, String> {
     let json = auto_rig_json(rows)?;
     Rig::parse(&json).map_err(|e| e.to_string())

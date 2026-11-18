@@ -40,11 +40,6 @@ pub(crate) struct ProjectIdentity {
     pub(crate) canonical_root_sha256: String,
 }
 
-/// Body-free identity joining one headless task invocation to its rollout.
-///
-/// The operator prompt is never copied here. Its digest, the canonical runtime
-/// configuration digest, and the caller's task/run identities are sealed into
-/// the first journal event before any provider request is made.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct TaskRolloutBindingV1 {
@@ -156,7 +151,6 @@ impl CaptureDescriptor {
             mode,
             semantic_bodies: mode.stores_bodies(),
             media_bodies: false,
-            // These sources are deliberately not accepted by the recorder API.
             private_reasoning_captured: false,
             provider_headers_captured: false,
             recorder_revision: env!("CARGO_PKG_VERSION").to_string(),
@@ -414,7 +408,6 @@ pub(crate) enum RewardEvidenceStorage {
     External,
 }
 
-/// Body-free receipt projected only at the harness tool-execution boundary.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct CodingEvalEvidence {
@@ -652,9 +645,6 @@ pub(crate) fn validate_attempt_order(attempts: &[PolicyAttemptV1]) -> Result<(),
                 && attempt.attempt_index == previous.attempt_index.saturating_add(1)
                 && match &previous.outcome {
                     PolicyStepOutcome::ProviderFailedNoAction { .. } => true,
-                    // Explicit transport truncation can retract speculative
-                    // prose and retry without committing an action. Ordinary
-                    // non-retryable partial failures must still terminate.
                     PolicyStepOutcome::ProviderFailedAfterPartial { failure } => failure.retryable,
                     _ => false,
                 };

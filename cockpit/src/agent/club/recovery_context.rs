@@ -20,8 +20,6 @@ pub(crate) struct RecoveryContextRef {
     pub(crate) workspace_sha256: String,
     pub(crate) experiment_key_sha256: String,
     pub(crate) summary_sha256: String,
-    /// None includes legacy records and failed capture. Neither state can
-    /// resolve an auxiliary operation; only a future native audit link could.
     pub(crate) producer: Option<RecoveryProducerRef>,
 }
 
@@ -29,9 +27,6 @@ pub(crate) fn recovery_context_refs(messages: &[ChatMsg]) -> Vec<RecoveryContext
     let mut refs = BTreeMap::new();
     for message in messages {
         for reference in &message.recovery_context {
-            // Identity deduplicates the same experiment displayed twice. A
-            // conflicting saved descriptor can only lose producer linkage,
-            // never become clean or acquire authority from either copy.
             refs.entry(reference.import_id.clone())
                 .and_modify(|retained: &mut RecoveryContextRef| {
                     if retained != reference {

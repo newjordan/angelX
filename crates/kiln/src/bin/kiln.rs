@@ -39,7 +39,6 @@ use angel_kiln::{Grain, Palette, Raster, Recipe};
 
 const USAGE: &str = "kiln render|shot|check|describe|compare|export|watch <recipe.json> [options]; see the top of src/bin/kiln.rs or docs/KILN-RECIPE.md";
 
-/// Flags that take no value.
 const SWITCHES: [&str; 7] = ["json", "strip", "onion", "sockets", "ink-rows", "help", "quick-rig"];
 
 struct Args {
@@ -101,8 +100,6 @@ fn read_recipe(path: &Path) -> Result<Recipe, String> {
     Recipe::parse(&text).map_err(|e| format!("{} does not read:\n{e}", path.display()))
 }
 
-/// A reference picture and its grain: `path@g`, or the grain its height
-/// fits best against the canvas.
 fn reference(spec: &str, recipe: &Recipe) -> Result<(Rgba, Grain), String> {
     let (path, grain) = match spec.rsplit_once('@') {
         Some((p, g)) if g.parse::<u8>().is_ok() => (p, g.parse::<u8>().ok().and_then(Grain::of)),
@@ -130,14 +127,12 @@ fn save(path: &Path, bytes: &[u8]) -> Result<(), String> {
     std::fs::write(path, bytes).map_err(|e| format!("{}: {e}", path.display()))
 }
 
-/// A drawing as a PNG in the realm's inks.
 fn write_raster(path: &Path, r: &Raster, wrote: &mut Vec<String>) -> Result<(), String> {
     save(path, &encode::png(&Indexed::of(r), Palette::realm())?)?;
     wrote.push(format!("{} ({}x{})", path.display(), r.w, r.h));
     Ok(())
 }
 
-/// Frames as a looping GIF in the realm's inks.
 fn write_gif(path: &Path, frames: &[Raster], delay: u16, wrote: &mut Vec<String>) -> Result<(), String> {
     let first = frames.first().ok_or("a GIF needs a frame")?;
     let mut gif = Gif::new(first.w, first.h, Palette::realm())?;
@@ -149,7 +144,6 @@ fn write_gif(path: &Path, frames: &[Raster], delay: u16, wrote: &mut Vec<String>
     Ok(())
 }
 
-/// Strips one under another.
 fn stacked(rows: &[Rgba]) -> Rgba {
     let w = rows.iter().map(|s| s.w).max().unwrap_or(0);
     let mut sheet = Rgba::filled(w, rows.iter().map(|s| s.h).sum(), shot::PAPER);
@@ -173,7 +167,6 @@ fn write(path: &Path, img: &Rgba, wrote: &mut Vec<String>) -> Result<(), String>
     Ok(())
 }
 
-/// The moment a command looks at: the still, or a clip's frame.
 fn moment(recipe: &Recipe, args: &Args, grain: Grain) -> Result<Frame, String> {
     match args.get("clip") {
         None => Ok(render::still(recipe, grain)),
@@ -270,7 +263,6 @@ fn render_cmd(recipe: &Recipe, args: &Args) -> Result<ExitCode, String> {
         Fx::parse(&text).map_err(|e| format!("{p} does not read:\n{e}"))
     });
     let effect = effect.transpose()?;
-    // Negative: the clip joins the effect already under way.
     let fx_from: i64 = args.get("fx-from").map_or(Ok(0), |v| v.parse().map_err(|_| format!("--fx-from {v:?} is not a whole number")))?;
     for c in &clips {
         let clip = recipe.clip(c).unwrap();
@@ -291,7 +283,6 @@ fn render_cmd(recipe: &Recipe, args: &Args) -> Result<ExitCode, String> {
                     write_raster(&dir.join(format!("{name}-{tag}-g{}-{i}.png", g.0)), &f.raster, &mut wrote)?;
                 }
             }
-            // At true screen size (times the scale): grain g at 4 / g.
             let reel = shot::reel_inks(&frames, 4 * scale, floor.as_ref());
             write_gif(&dir.join(format!("{name}-{tag}-g{}.gif", g.0)), &reel, delay, &mut wrote)?;
             if g.0 == 1 || g.0 == 4 {
@@ -459,8 +450,6 @@ fn watch(path: &Path, args: &Args) -> Result<ExitCode, String> {
     }
 }
 
-/// Lay frame `t` of an effect over a figure's frame (none when `t` is
-/// outside the effect), its pivot on socket `at` or at the point `x,y`.
 fn lay_fx(fx: &Fx, frame: &mut Frame, at: &str, t: i64) -> Result<(), String> {
     if t < 0 || t >= fx.frames() as i64 {
         return Ok(());
@@ -476,8 +465,6 @@ fn lay_fx(fx: &Fx, frame: &mut Frame, at: &str, t: i64) -> Result<(), String> {
     Ok(())
 }
 
-/// An effect's frames at each grain: a PNG a frame, a GIF a grain at true
-/// screen size, and strips at grains 1 and 4.
 fn fx_cmd(fx: &Fx, args: &Args) -> Result<ExitCode, String> {
     let name = fx.name().to_string();
     let dir = match args.get("out") {

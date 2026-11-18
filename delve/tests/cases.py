@@ -1,13 +1,4 @@
 #!/usr/bin/env python3
-"""Run recorded Rust cases through the Bend port.
-
-    python3 delve/tests/cases.py [--only GROUP ...] [--cases DIR] NAME|GROUP ...
-
-NAME is a Bend def name with recorded cases (DIR/<name>.jsonl[.gz]); GROUP
-expands to every `case.<name>` wrapper in delve/rules/GROUP. Builds the program
-(delve/build.py, `--only` passed through), compiles the case runner natively,
-and prints pass/fail per name with the first differing path of each failure.
-"""
 import argparse
 import gzip
 import json
@@ -27,7 +18,6 @@ class Float(str):
 
 
 def bj(v):
-    """A JSON value (floats kept as their text) as BJ1."""
     if v is None:
         return "null"
     if v is True:
@@ -55,7 +45,6 @@ TOKEN = re.compile(r'"(?:[^"\\]|\\.)*"|f[0-9a-f]{8}(?![a-z])|w[0-9a-f]{16}|-?\d+
 
 
 def unbj(text):
-    """BJ1 back to Python values: floats as f32 bit patterns tagged ('f', bits)."""
     toks = TOKEN.findall(text)
     pos = 0
 

@@ -6,12 +6,8 @@ pub const LANDINGS: [i32; 3] = [8 * 256, 16 * 256, 10 * 256];
 pub const WINDS: [i32; 3] = [1, -1, 2];
 pub const FLIGHT: u32 = 2 * HZ;
 pub const CATCH: i32 = 180;
-/// A miss inside twice the catch reach still earns a gasp: the goose
-/// stretched for it. Wider than that is just a miss.
 pub const NEAR_MISS: i32 = CATCH * 2;
-/// Ticks the goose hops about after a catch.
 pub const CELEBRATE_TICKS: u8 = 12;
-/// Ticks the goose droops after a miss.
 pub const SULK_TICKS: u8 = 12;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,11 +22,8 @@ pub struct Trencher {
     pub goose: i32,
     pub flight: Option<Plate>,
     pub wait: u32,
-    /// Ticks left of the post-catch hop (0 = composed). Presentational
-    /// only; old checkpoints without it read as composed.
     #[serde(default)]
     pub celebrate: u8,
-    /// Ticks left of the post-miss droop (0 = composed).
     #[serde(default)]
     pub sulk: u8,
 }

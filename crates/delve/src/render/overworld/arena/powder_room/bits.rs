@@ -5,8 +5,6 @@
 use super::super::super::ink::Img;
 use std::sync::OnceLock;
 
-/// The keg, twelve square: a stave barrel with two iron hoops, lit from the
-/// upper left. `heat` 0 is cold wood, 1 warm, 2 red-hot, 3 white.
 pub(super) fn keg(heat: u8) -> &'static Img {
     static KEGS: OnceLock<[Img; 4]> = OnceLock::new();
     let kegs = KEGS.get_or_init(|| {
@@ -34,7 +32,6 @@ pub(super) fn keg(heat: u8) -> &'static Img {
     &kegs[usize::from(heat.min(3))]
 }
 
-/// The strip's keg, eight square.
 pub(super) fn strip_keg() -> &'static Img {
     static KEG: OnceLock<Img> = OnceLock::new();
     KEG.get_or_init(|| {
@@ -42,19 +39,16 @@ pub(super) fn strip_keg() -> &'static Img {
     })
 }
 
-/// The leader's crown, seven by four.
 pub(super) fn crown() -> &'static Img {
     static CROWN: OnceLock<Img> = OnceLock::new();
     CROWN.get_or_init(|| Img::from_rows(&["T.T.T.T", "TtTtTtT", "tOOOOOt", ".nnnnn."]))
 }
 
-/// A gold coin, five square, for the pot.
 pub(super) fn coin() -> &'static Img {
     static COIN: OnceLock<Img> = OnceLock::new();
     COIN.get_or_init(|| Img::from_rows(&[".444.", "46TO4", "4TOa4", "4OaO4", ".444."]))
 }
 
-/// A flame, two frames, three by five (the lanterns').
 pub(super) fn flame(frame: u32) -> &'static Img {
     static FLAMES: OnceLock<[Img; 2]> = OnceLock::new();
     let f = FLAMES.get_or_init(|| {
@@ -66,8 +60,6 @@ pub(super) fn flame(frame: u32) -> &'static Img {
     &f[(frame % 2) as usize]
 }
 
-/// A knight sooted, as a dark silhouette in the shape of any sprite: every
-/// pixel of it soot black, the edge a light grey so it reads on stone.
 pub(super) fn sooted(src: &Img) -> Img {
     let mut out = Img::new(src.w, src.h);
     for y in 0..src.h {

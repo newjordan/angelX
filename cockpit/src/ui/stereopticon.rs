@@ -21,26 +21,17 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::time::Instant;
 
-/// The Stereopticon's layer group ("STRP"): one showing at a time,
-/// swept with every other group when a frame stops drawing it.
 #[cfg(feature = "glass")]
 const GROUP: u32 = 0x5354_5250;
 
-/// The replay screen's window picture: layers carry their picture ids in
-/// full, so it simply lives in the layer band.
 #[cfg(feature = "glass")]
 const SCREEN: u32 = angel_glass::LAYER_PICTURES + 0x57A7_0000;
 
-/// The chrome's cyan, shared with the Orrery, and the plate it holds.
 #[cfg(feature = "glass")]
 const CHROME: [f32; 4] = [0.35, 0.85, 1.0, 0.85];
 #[cfg(feature = "glass")]
 const PLATE: [f32; 4] = [0.012, 0.03, 0.055, 0.72];
 
-/// The decoder's viewport for a pane `area` of `cell` window pixels: the
-/// Scryglass worker's scaler speaks 2×4-pixel units, so a pane shown at
-/// the window's own density asks for its pixels back — capped at 720 rows
-/// so a huge pane decodes like a television, not a cinema.
 pub(crate) fn decode_viewport(area: Rect, cell: (u16, u16)) -> (usize, usize) {
     if cell.0 == 0 || cell.1 == 0 {
         return (2, 2);
@@ -53,24 +44,15 @@ pub(crate) fn decode_viewport(area: Rect, cell: (u16, u16)) -> (usize, usize) {
     )
 }
 
-/// What a `present` did: nothing (no window), drew the frame, or held an
-/// ended replay long enough to want it started again.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Played {
-    /// No window: the caller keeps its cells.
     Hidden,
-    /// The frame drew; the pane is the Stereopticon's.
     Shown,
-    /// The replay ended and its hold elapsed: restart it.
     Restarting,
 }
 
-/// How long an ended replay holds its last frame before it plays again.
 const REPLAY_HOLD: std::time::Duration = std::time::Duration::from_millis(1800);
 
-/// The deck between frames: what it last uploaded (so an unchanged
-/// decoder sequence costs nothing), and when an ending replay began
-/// holding. One video shows at a time, so one deck is enough.
 #[derive(Default)]
 struct Deck {
     uploaded: Option<(u64, u32, u32)>,
@@ -80,10 +62,6 @@ struct Deck {
 static DECK: std::sync::LazyLock<std::sync::Mutex<Deck>> =
     std::sync::LazyLock::new(Default::default);
 
-/// Show one decoded video frame in the frame at `anchor`: `pixels` the
-/// decoder's latest, `position` into `duration`, `paused` now, black
-/// paper over the anchor's cells. False outside the window, where the
-/// caller paints cells as before.
 pub(crate) fn present(
     pixels: &VideoPixels,
     position: std::time::Duration,
@@ -104,8 +82,6 @@ pub(crate) fn present(
         if w == 0 || h == 0 || anchor.width == 0 || anchor.height == 0 {
             return Played::Hidden;
         }
-        // One upload per decoded frame: the worker's sequence moves only
-        // when a new frame has landed.
         {
             let mut deck = DECK.lock().unwrap();
             if deck.uploaded != Some((pixels.sequence, w, h)) {
@@ -128,8 +104,6 @@ pub(crate) fn present(
         let layers = frame_layers(placed, k, paused, position.as_secs_f32());
         crate::ui::glass::show_group(host, GROUP, layers);
         blank(buffer, anchor);
-        // An ended replay holds, then starts again: the controls below
-        // are the Scryglass's own, so a restart is one command away.
         let mut deck = DECK.lock().unwrap();
         if let Some(held) = deck.ended_at
             && held.elapsed() >= REPLAY_HOLD
@@ -146,8 +120,6 @@ pub(crate) fn present(
     }
 }
 
-/// Note whether the replay has ended this frame, so [`present`] can hold
-/// its last frame before restarting. Callers pass the decoder's `ended`.
 pub(crate) fn note_ended(ended: bool) {
     let mut deck = DECK.lock().unwrap();
     if ended {
@@ -159,9 +131,6 @@ pub(crate) fn note_ended(ended: bool) {
     }
 }
 
-/// The frame warming up: its first frame still decoding, the pane holds
-/// the plate with its sweep running and nothing on the screen. False
-/// outside the window, where the caller paints its own loading cells.
 pub(crate) fn warming(anchor: Rect, buffer: &mut Buffer, t: f32) -> bool {
     #[cfg(feature = "glass")]
     {
@@ -185,8 +154,6 @@ pub(crate) fn warming(anchor: Rect, buffer: &mut Buffer, t: f32) -> bool {
     }
 }
 
-/// Black paper over the anchor's cells: the presented pixels and their
-/// chrome decide everything the pane shows.
 fn blank(buffer: &mut Buffer, area: Rect) {
     for y in area.y..area.bottom() {
         for x in area.x..area.right() {
@@ -197,11 +164,6 @@ fn blank(buffer: &mut Buffer, area: Rect) {
     }
 }
 
-/// Where the screen may go inside `anchor` so its plate, chrome and lean
-/// stay in the pane: the plate reaches a row above the screen and two
-/// below and a column to its right (`plate_rect`), the brackets and the
-/// lean about another cell, so the pane's own lines around it (the path
-/// above, the controls below) stay readable and clickable.
 #[cfg(feature = "glass")]
 fn room_for_plate(anchor: Rect) -> Rect {
     const LEFT: u16 = 1;
@@ -219,8 +181,6 @@ fn room_for_plate(anchor: Rect) -> Rect {
     }
 }
 
-/// The frame's plate in cells: the placed screen plus its bezel margin,
-/// grown for the chrome, kept inside whole cells.
 #[cfg(feature = "glass")]
 fn plate_rect(placed: Rect) -> Rect {
     let grow_w = 0.9_f32.min(f32::from(placed.width) * 0.06);
@@ -241,11 +201,8 @@ fn centre_of(rect: Rect) -> [f32; 2] {
     ]
 }
 
-/// A quad in cells, leaned with the panel: the Orrery's own lean, so the
-/// two panels read as objects from one world.
 #[cfg(feature = "glass")]
 fn leaned(id: u64, z: i32, rect: [f32; 4], kind: angel_glass::LayerKind, centre: [f32; 2]) -> angel_glass::Layer {
-    // The lean turns in pixels, as the window turns the quad.
     let unit = crate::ui::glass::cell_pixels()
         .map_or((12.0, 25.0), |(w, h)| (f32::from(w), f32::from(h)));
     let (rect, angle) = crate::ui::orrery::tilted_rect_in(rect, centre, unit);
@@ -254,11 +211,6 @@ fn leaned(id: u64, z: i32, rect: [f32; 4], kind: angel_glass::LayerKind, centre:
     layer
 }
 
-/// The full frame at `placed` (the screen's cells, aspect already kept):
-/// back to front, the shadow on the floor, the plate, the screen, its
-/// rim and brackets, the progress track, and the shimmer crossing it.
-/// The shimmer rides the replay's own clock, so the panel is a pure
-/// function of where the video is.
 #[cfg(feature = "glass")]
 fn frame_layers(placed: Rect, k: f32, paused: bool, clock: f32) -> Vec<angel_glass::Layer> {
     use angel_glass::{Layer, LayerKind, Placement};
@@ -272,7 +224,6 @@ fn frame_layers(placed: Rect, k: f32, paused: bool, clock: f32) -> Vec<angel_gla
     );
     let mut out: Vec<Layer> = Vec::with_capacity(24);
 
-    // The floor shadow and the screen's own spill of light.
     out.push(Layer::new(
         0,
         0,
@@ -288,12 +239,10 @@ fn frame_layers(placed: Rect, k: f32, paused: bool, clock: f32) -> Vec<angel_gla
     spill.additive = true;
     out.push(spill);
 
-    // The plate, leaned with everything on it, breathing a little.
     let mut plate_layer = leaned(2, 1, [px, py, pw, ph], LayerKind::Solid(PLATE), centre);
     plate_layer.breathe = 0.8;
     out.push(plate_layer);
 
-    // The screen itself: the decoder's picture at the window's density.
     let mut screen = leaned(
         3,
         4,
@@ -309,7 +258,6 @@ fn frame_layers(placed: Rect, k: f32, paused: bool, clock: f32) -> Vec<angel_gla
     screen.breathe = 0.5;
     out.push(screen);
 
-    // A rim of light around the screen, additive, flickering faintly.
     let (sx, sy, sw, sh) = (
         f32::from(placed.x),
         f32::from(placed.y),
@@ -330,7 +278,6 @@ fn frame_layers(placed: Rect, k: f32, paused: bool, clock: f32) -> Vec<angel_gla
         id += 1;
     }
 
-    // Bracket chrome at the plate's corners, the Orrery's own arms.
     let arm_w = (pw * 0.14).min(3.6).max(1.2);
     let arm_h = (ph * 0.14).min(2.4).max(0.9);
     let mut id = 20u64;
@@ -351,9 +298,6 @@ fn frame_layers(placed: Rect, k: f32, paused: bool, clock: f32) -> Vec<angel_gla
         }
     }
 
-    // The progress track on the plate's own plane, along the screen's
-    // bottom edge inside it: a dark rail, a bright fill riding the
-    // replay's clock, and quarter ticks standing over the rail.
     let track = [sx + 0.5, sy + sh - 0.75, (sw - 1.0).max(1.0), 0.09];
     out.push(leaned(
         40,
@@ -385,7 +329,6 @@ fn frame_layers(placed: Rect, k: f32, paused: bool, clock: f32) -> Vec<angel_gla
         out.push(tick);
     }
 
-    // Paused: two steady bars of light over the screen's middle.
     if paused {
         for (i, dx) in [-0.85f32, 0.35].into_iter().enumerate() {
             let mut bar = leaned(
@@ -400,8 +343,6 @@ fn frame_layers(placed: Rect, k: f32, paused: bool, clock: f32) -> Vec<angel_gla
         }
     }
 
-    // The scan shimmer crossing the screen, screen-space and slow, on
-    // the replay's own clock.
     let sweep = (clock * 0.22).fract();
     let mut sweep = Layer::new(
         60,
@@ -420,8 +361,6 @@ fn frame_layers(placed: Rect, k: f32, paused: bool, clock: f32) -> Vec<angel_gla
     out
 }
 
-/// The warming frame: plate, brackets and a brisker sweep, no screen —
-/// the pane says "coming" without a single cell of its own.
 #[cfg(feature = "glass")]
 fn warming_layers(plate: Rect, centre: [f32; 2], t: f32) -> Vec<angel_glass::Layer> {
     use angel_glass::{Layer, LayerKind, Placement};

@@ -404,6 +404,11 @@ def stakes.fan_out.loop6(+_xs: List<&2, J.Val>, +fury: U32, +shots: List<&2, J.V
     case Con{+s, +_t6}:
       stakes.fan_out.if8(Bool.and(U32.is_ge(i, from), Bool.and(J.is_null(cb.gj(cb.gj(cb.gj(s, "traits"), "path"), "beam")), U32.is_lt(U32.from_nat(List.length(&2, J.Val, fired)), 12))), fury, shots, from, fired, i, _t6, s)
 
+# The room holds for its party: foes and their shots wait (Run::holding).
+
+def presence.Run.holding(+run: J.Val) -> Bool:
+  Bool.not(String.eq(J.str(J.get(run, "held")), "open"))
+
 # --- rules.rs
 
 def rules.Run.foes_left(+run: J.Val) -> Bool:

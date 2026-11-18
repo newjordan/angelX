@@ -88,7 +88,6 @@ pub(super) fn first_submit(
     }
 }
 
-/// FG-SUB-030-failed-or-stale-head-does-not-block-later-eligible-item
 #[test]
 fn fg_sub_030_failed_or_stale_head_does_not_block_later_eligible_item() {
     let repository = repository_with(&[
@@ -133,7 +132,6 @@ fn fg_sub_030_failed_or_stale_head_does_not_block_later_eligible_item() {
     assert!(decision.next.action.starts_with("submit_candidate:"));
 }
 
-/// FG-SUB-031-accept-then-timeout-reconciles-without-duplicate-submit
 #[test]
 fn fg_sub_031_accept_then_timeout_reconciles_without_duplicate_submit() {
     let mut spool = spool_one();
@@ -181,7 +179,6 @@ fn fg_sub_031_accept_then_timeout_reconciles_without_duplicate_submit() {
     ));
 }
 
-/// FG-SUB-032-restart-from-started-reconciles-same-action-key
 #[test]
 fn fg_sub_032_restart_from_started_reconciles_same_action_key() {
     let dir = TestDir::new("started-restart");
@@ -226,7 +223,6 @@ fn fg_sub_032_restart_from_started_reconciles_same_action_key() {
     }
 }
 
-/// FG-SUB-033-duplicate-and-corrected-results-bind-once-with-revision-chain
 #[test]
 fn fg_sub_033_duplicate_and_corrected_results_bind_once_with_revision_chain() {
     let mut spool = spool_one();

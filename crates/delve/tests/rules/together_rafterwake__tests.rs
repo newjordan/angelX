@@ -16,7 +16,6 @@ fn game(seats: u32) -> Run {
         },
     )]));
     assert!(r.rafterwake.is_some());
-    // These tests are about the climb: the title and the 3-2-1 have their own tests below.
     r.rafterwake.as_mut().unwrap().go = 0;
     r
 }
@@ -561,7 +560,6 @@ fn rafterwake_podium_columns_end_at_their_headers() {
     }
 }
 
-/// Every knight waits out the title and the 3-2-1 together and starts on one tick.
 #[test]
 fn rafterwake_everyone_starts_together_after_the_count() {
     let mut r = game(4);
@@ -581,12 +579,10 @@ fn rafterwake_everyone_starts_together_after_the_count() {
     r.step(&keys);
     let s = r.rafterwake.as_ref().unwrap();
     assert_eq!(s.left, LENGTH - 1, "the first tick of the round");
-    // Every seat started the same tick, so every seat moved the same way.
     assert!(s.lanes.values().all(|d| d.x == s.lanes[&1].x && d.x > 42 * Q));
     assert!(r.valid_snapshot());
 }
 
-/// A button held through the count is not a press the moment the round starts.
 #[test]
 fn rafterwake_a_press_held_through_the_count_is_not_a_hop() {
     let mut r = game(2);
@@ -600,8 +596,6 @@ fn rafterwake_a_press_held_through_the_count_is_not_a_hop() {
     assert!(d.ground.is_some(), "still on the plank: the held button did not hop");
 }
 
-/// The crew bell rings as the crew's average deck passes 3, 6 and 9: once each, with high hops,
-/// gold for the pot and a call the whole table hears.
 #[test]
 fn rafterwake_crew_bell_rings_at_three_six_nine_and_pays_the_pot() {
     let mut r = game(4);
@@ -617,14 +611,12 @@ fn rafterwake_crew_bell_rings_at_three_six_nine_and_pays_the_pot() {
         assert_eq!(s.bell, BELL_LIFE - 0, "the bell's hops last their time");
         assert_eq!(s.pot(), base + BELL_GOLD * (n as u32 + 1));
         assert!(s.show.list.iter().any(|c| c.cry == show::Cry::Bell(n as u8 + 1)));
-        // Another tick at the same decks rings nothing new.
         r.step(&BTreeMap::new());
         assert_eq!(r.rafterwake.as_ref().unwrap().bells as usize, n + 1);
     }
     assert!(r.valid_snapshot());
 }
 
-/// A knight who is not the whole crew's average does not ring the bell alone.
 #[test]
 fn rafterwake_one_fast_knight_does_not_ring_the_crew_bell() {
     let mut r = game(4);
@@ -633,7 +625,6 @@ fn rafterwake_one_fast_knight_does_not_ring_the_crew_bell() {
     assert_eq!(r.rafterwake.as_ref().unwrap().bells, 0);
 }
 
-/// High hops: the same press clears a little more air while the bell rings.
 #[test]
 fn rafterwake_bell_hops_a_little_higher() {
     let jump = |boost: bool| {
@@ -650,8 +641,6 @@ fn rafterwake_bell_hops_a_little_higher() {
     assert!(jump(true) > jump(false), "{} vs {}", jump(true), jump(false));
 }
 
-/// The show's marks: a hop, a landing, a deck won and a keeper struck are written on the tick
-/// they happen, and a heavy one holds the room's time.
 #[test]
 fn rafterwake_marks_name_what_happened_and_a_strike_holds_the_room() {
     use show::Kind;
@@ -664,7 +653,6 @@ fn rafterwake_marks_name_what_happened_and_a_strike_holds_the_room() {
     }
     assert!(seen.contains(&Kind::Hop), "{seen:?}");
     assert!(seen.iter().any(|k| matches!(k, Kind::Land { .. })), "{seen:?}");
-    // The keeper struck from above: a mark, heavy, and the run's hit-stop is asked for.
     let mut r = game(2);
     let s = r.rafterwake.as_mut().unwrap();
     let d = s.lanes.get_mut(&1).unwrap();
@@ -683,7 +671,6 @@ fn rafterwake_marks_name_what_happened_and_a_strike_holds_the_room() {
     assert!(r.hitstop.left > 0 || r.hitstop.held, "a crushing hit holds the room");
 }
 
-/// The lead changes hands only with a margin, once, and is called to the table.
 #[test]
 fn rafterwake_lead_is_called_once_with_a_margin() {
     let mut c = show::Calls::default();
@@ -696,14 +683,12 @@ fn rafterwake_lead_is_called_once_with_a_margin() {
     assert_eq!((c.list[0].cry, c.list[0].who), (show::Cry::Lead, 2));
     c.standings(31, &[(1, 100), (2, 150)]);
     assert_eq!(c.list.len(), 1, "no second call for the same leader");
-    // A fall is called, then not again at once.
     c.fell(3, 40);
     c.fell(3, 50);
     assert_eq!(c.list.iter().filter(|c| c.cry == show::Cry::Fell).count(), 1);
     assert!(c.valid());
 }
 
-/// Snapshots written before the show have none of its fields and still load.
 #[test]
 fn rafterwake_old_snapshots_load_and_a_quiet_round_writes_nothing_new() {
     let r = game(2);

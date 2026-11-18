@@ -31,21 +31,16 @@ use crate::together_shooter::script::INKS;
 use image::RgbaImage;
 use std::io::Read;
 
-/// Where a workspace keeps the delve's sheets.
 pub fn dir(workspace: &std::path::Path) -> std::path::PathBuf {
     workspace.join(".angel/dungeon/sheets")
 }
 
-/// Where a workspace keeps the delve's paintings, each as
-/// `<sha256>.png`: the host's paint store, which its friends fetch from.
 pub fn paint_dir(workspace: &std::path::Path) -> std::path::PathBuf {
     workspace.join(".angel/dungeon/paint")
 }
 
-/// A painting is a PNG of at most 4 MiB.
 pub const MAX_PAINT_BYTES: usize = 4 * 1024 * 1024;
 
-/// The ink nearest a colour, over the whole realm palette.
 fn nearest_ink(c: [u8; 3]) -> char {
     use angel_delve::render::overworld::ink::ink;
     let mut best = ('.', i32::MAX);
@@ -61,8 +56,6 @@ fn nearest_ink(c: [u8; 3]) -> char {
     best.0
 }
 
-/// Cut a sheet into frames of ink rows, `side` pixels square. `frames`
-/// counts the strip's frames; none guesses it from the picture's shape.
 pub fn cut(
     bytes: &[u8],
     frames: Option<usize>,
@@ -72,7 +65,6 @@ pub fn cut(
     cut_image(image, size, frames, side)
 }
 
-/// `cut`, of a picture already read.
 fn cut_image(
     mut image: RgbaImage,
     (width, height): (u32, u32),
@@ -104,7 +96,6 @@ fn cut_image(
             "the sheet width must divide evenly into its frames".into(),
         ]);
     }
-    // What every frame draws, together: one box, so the frames line up.
     let Some(crop) = looks::crop(width, height, count, |x, y| image.get_pixel(x, y)[3] >= 128)
     else {
         return Err(vec!["the sheet has nothing drawn on it".into()]);
@@ -118,7 +109,6 @@ fn cut_image(
         for ty in 0..side {
             let mut row = String::new();
             for tx in 0..side {
-                // The source box this pixel covers.
                 let x0 = ox + i64::from(tx * span / side);
                 let x1 = (ox + i64::from(((tx + 1) * span).div_ceil(side))).max(x0 + 1);
                 let y0 = oy + i64::from(ty * span / side);
@@ -168,29 +158,21 @@ fn cut_image(
     Ok(out)
 }
 
-/// A picture line's word: a sheet, cut into rows, or a painting, cut and
-/// kept whole.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Kind {
     Sheet,
     Paint,
 }
 
-/// One `sheet` line: `sheet <slot> <file> [frames=N] [size=N] [at=place]`,
-/// or one `paint` line, which may add `move=<words>`.
 struct Line<'a> {
     slot: &'a str,
     file: &'a str,
     frames: Option<usize>,
     size: Option<u32>,
     at: Option<&'a str>,
-    /// A painting's motion words.
     moves: Option<&'a str>,
-    /// A painting's normal map, a file beside it.
     normal: Option<&'a str>,
-    /// A painting that is pixel art.
     pixel: bool,
-    /// In a phrasebook entry: the tier the look starts at.
     tier: Option<usize>,
 }
 
@@ -287,12 +269,6 @@ fn parse(kind: Kind, rest: &str) -> Result<Line<'_>, String> {
     Ok(line)
 }
 
-/// Replace every `sheet` and `paint` line of a card, wish or landmark file
-/// with the sprite (or `art`) block its picture makes, reading the pictures
-/// from `dir` and keeping each painting in `paint` (the workspace's
-/// [`paint_dir`]). `art_side` is the face art's size (16 for a card, 32 for
-/// a landmark). A paint line's own rows (right under it) go into its block
-/// in place of the cut. Errors name their line.
 pub fn inline(
     raw: &str,
     dir: &std::path::Path,
@@ -355,7 +331,6 @@ pub fn inline(
     }
 }
 
-/// The word and rest of a `sheet` or `paint` line, when `line` is one.
 fn sheet_line(line: &str) -> Option<(Kind, &str)> {
     let line = line.trim();
     let (word, rest) = line.split_once(char::is_whitespace)?;
@@ -441,8 +416,6 @@ fn block(
         return Err("sheet art is a single frame, without at= or tier=".into());
     }
     let frames = line.frames.or(slot.is_none().then_some(1));
-    // A painting's own rows: checked as drawn rows (a worn piece placed
-    // small is checked as one), as many frames as the painting.
     let own = match (rows, slot) {
         (Some(rows), Some(slot)) => {
             let rows: Vec<String> = rows.iter().map(|r| r.to_string()).collect();
@@ -469,7 +442,6 @@ fn block(
         }),
     }
     .map_err(|e| format!("{}: {}", line.file, e.join("; ")))?;
-    // Its own rows stand for its inks; the cut only checked the picture.
     let cut = own.unwrap_or(cut);
     let normal = match line.normal {
         Some(file) => Some(normal_map(file, dir, painted_size)?),
@@ -490,7 +462,6 @@ fn block(
         (_, Some(_)) => return Err("at= places a worn sheet only".into()),
         (_, None) => cut,
     };
-    // Kept only once the whole line has checked.
     let painted = match kind {
         Kind::Sheet => None,
         Kind::Paint => Some(
@@ -503,7 +474,6 @@ fn block(
         ),
         _ => None,
     };
-    // A worn piece remembers the part of the knight it was put on.
     let at = (slot == Slot::Worn).then(|| looks::place(line.at.unwrap_or("body")).unwrap_or("body").to_string());
     let sprite = looks::Sprite {
         frames,
@@ -526,7 +496,6 @@ fn block(
     })
 }
 
-/// A painting's pixels: a PNG, on a transparent background.
 fn painting(bytes: &[u8]) -> Result<(RgbaImage, (u32, u32)), Vec<String>> {
     if !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
         return Err(vec!["a painting must be a PNG".into()]);
@@ -540,9 +509,6 @@ fn painting(bytes: &[u8]) -> Result<(RgbaImage, (u32, u32)), Vec<String>> {
     Ok((image, size))
 }
 
-/// Crop each returned frame to the shared subject square. Signed source
-/// coordinates keep tall subjects near a cell edge from bleeding across
-/// animation cells. No resampling is involved.
 pub fn fit_picture(bytes: &[u8], frames: usize) -> Result<Vec<u8>, String> {
     let (image, (w, h)) = painting(bytes).map_err(|e| e.join("; "))?;
     if !(1..=MAX_FRAMES).contains(&frames) || w % frames as u32 != 0 {
@@ -560,9 +526,6 @@ pub fn fit_picture(bytes: &[u8], frames: usize) -> Result<Vec<u8>, String> {
             *out.get_pixel_mut(f * crop.span + x, y) = *image.get_pixel(f * crop.cell + sx as u32, sy as u32);
         }
     }}}
-    // A solid square can lose its entire transparent background in the
-    // crop. Retain one clear pixel around each cell so the normalized PNG
-    // still satisfies the painting format; the renderer crops it again.
     if out.pixels().all(|p| p[3] >= 128) {
         let side = crop.span + 2;
         let mut padded = RgbaImage::new(side * frames as u32, side);
@@ -576,9 +539,6 @@ pub fn fit_picture(bytes: &[u8], frames: usize) -> Result<Vec<u8>, String> {
     Ok(bytes.into_inner())
 }
 
-/// A painting's normal map (`normal=<file_n.png>`): a PNG in the sheets
-/// folder beside it, at most 4 MiB, exactly the painting's `size`. Its
-/// bytes, to keep as they are.
 fn normal_map(file: &str, dir: &std::path::Path, size: (u32, u32)) -> Result<Vec<u8>, String> {
     let plain = file
         .chars()
@@ -620,14 +580,12 @@ fn normal_map(file: &str, dir: &std::path::Path, size: (u32, u32)) -> Result<Vec
     Ok(bytes)
 }
 
-/// Keep a painting in the paint store under its sha256, and name it.
 fn keep_painting(bytes: &[u8], paint: &std::path::Path) -> Result<String, Vec<String>> {
     let sha = angel_live::host::sha256_hex(bytes);
     let path = paint.join(format!("{sha}.png"));
     if path.is_file() {
         return Ok(sha);
     }
-    // Written beside, then put in place: a reader never sees half.
     let kept = angel_live::host::workspace_store::write_atomic(&path, bytes)
         .map_err(std::io::Error::other);
     kept.map(|()| sha)

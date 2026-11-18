@@ -14,7 +14,6 @@ use super::layout::{SUMMIT, info};
 use super::world::TILE;
 use serde::{Deserialize, Serialize};
 
-/// The attacks of a crown, in order, before he kneels.
 pub fn pattern(phase: u8) -> &'static [Attack] {
     match phase {
         0 => &[Attack::Stomp, Attack::Embers],
@@ -23,7 +22,6 @@ pub fn pattern(phase: u8) -> &'static [Attack] {
     }
 }
 
-/// One tick. `at` are the feet of the knights standing; `seats` how many sit.
 pub fn step(boss: &mut Boss, at: &[(i32, i32)], seats: u8, elapsed: u32) {
     boss.head_before = boss.head;
     boss.x_before = boss.x;
@@ -65,7 +63,6 @@ pub fn step(boss: &mut Boss, at: &[(i32, i32)], seats: u8, elapsed: u32) {
         Beat::Rest => {
             boss.t = boss.t.saturating_sub(1);
             boss.head = (boss.head + 1).min(HEAD_UP);
-            // Step toward the nearest knight, slowly.
             if let Some(&(tx, _)) = near.iter().min_by_key(|(x, _)| (x - boss.x).abs()) {
                 if elapsed % 2 == 0 {
                     boss.x += (tx - boss.x).clamp(-1, 1);
@@ -121,7 +118,6 @@ pub fn step(boss: &mut Boss, at: &[(i32, i32)], seats: u8, elapsed: u32) {
     }
 }
 
-/// The warning an attack gives: where it will be.
 fn warn(boss: &mut Boss, near: &[(i32, i32)], seats: u8, elapsed: u32) {
     let f = floor();
     let tell = boss.t;
@@ -148,7 +144,6 @@ fn warn(boss: &mut Boss, near: &[(i32, i32)], seats: u8, elapsed: u32) {
             });
         }
         Attack::Embers => {
-            // A column on a knight, more of them for more seats and later crowns.
             let columns = 1 + i32::from(boss.phase) + i32::from(seats.saturating_sub(1)) / 2;
             let mut aims: Vec<i32> = near.iter().map(|&(x, _)| x).collect();
             aims.sort_unstable();
@@ -175,14 +170,12 @@ fn warn(boss: &mut Boss, near: &[(i32, i32)], seats: u8, elapsed: u32) {
     }
 }
 
-/// The blow lands.
 fn strike(boss: &mut Boss) {
     if boss.kind == Attack::Stomp {
         let f = floor();
         let n = 1 + i32::from(boss.phase >= 1);
         for k in 0..n {
             for dir in [-1, 1] {
-                // The second wave follows the first.
                 boss.hazards.push(Hazard {
                     x: boss.x - 8 + dir * k * 40,
                     y: f - 14,
@@ -197,7 +190,6 @@ fn strike(boss: &mut Boss) {
     }
 }
 
-/// A slam landed with its feet at `(x, y)` pixels: whether a plate fell.
 pub fn slam(boss: &mut Boss, x: i32, y: i32) -> bool {
     let Some(c) = boss.crown() else {
         return false;
@@ -213,7 +205,6 @@ pub fn slam(boss: &mut Boss, x: i32, y: i32) -> bool {
     false
 }
 
-/// A crown falls: the next, or the last of them.
 fn fall(boss: &mut Boss) {
     boss.phase += 1;
     boss.hazards.clear();
@@ -226,7 +217,6 @@ fn fall(boss: &mut Boss) {
     }
 }
 
-/// The leg's own wire, as the adapter sends it: a tick of the fight.
 #[derive(Serialize, Deserialize)]
 pub struct Ask {
     pub elapsed: u32,
@@ -235,14 +225,12 @@ pub struct Ask {
     pub boss: Boss,
 }
 
-/// The leg's own wire back: the fight after the tick.
 #[derive(Serialize)]
 pub struct Next {
     pub op: &'static str,
     pub boss: Boss,
 }
 
-/// A slam, with the feet it landed at.
 #[derive(Serialize, Deserialize)]
 pub struct AskSlam {
     pub x: i32,
@@ -250,7 +238,6 @@ pub struct AskSlam {
     pub boss: Boss,
 }
 
-/// The slam's answer.
 #[derive(Serialize)]
 pub struct Slammed {
     pub op: &'static str,
@@ -258,7 +245,6 @@ pub struct Slammed {
     pub boss: Boss,
 }
 
-/// The oracle's engine: the same two ops the leg answers, answered natively.
 pub fn answer(id: &str, input: &serde_json::Value) -> Result<serde_json::Value, String> {
     if id != "bannerpeak-rules" {
         return Err(format!("no oracle for {id}"));

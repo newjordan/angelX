@@ -4,7 +4,6 @@
 use super::*;
 use crate::tests::{TestEnvGuard, env_lock};
 
-// The wire strings, spelled out here so a rename on the code side shows up.
 const SLEEPING: &str = "guardian-sleeping";
 const WATCHING: &str = "guardian-watching";
 const RESURRECTING: &str = "guardian-resurrecting";
@@ -16,14 +15,11 @@ fn the_phase_labels_are_the_strings_peers_match_on() {
     assert_eq!(GuardianPhase::Resurrecting.label(), RESURRECTING);
 }
 
-/// A throwaway rig: a state root, a peer directory holding one long-dead
-/// instance whose checkout is present here, and a guardian ready to answer it.
 struct Rig {
     root: PathBuf,
     state_root: PathBuf,
     peers_dir: PathBuf,
     _peer_env: TestEnvGuard,
-    // Restore the environment before releasing the shared lock.
     _lock: std::sync::MutexGuard<'static, ()>,
 }
 
@@ -76,7 +72,6 @@ impl Rig {
         )
     }
 
-    /// What peers read off this guardian's heartbeat file.
     fn published_activity(&self, guardian: &Guardian) -> String {
         read_peers(&self.peers_dir, None)
             .into_iter()
@@ -95,7 +90,6 @@ impl Drop for Rig {
 #[test]
 fn a_failed_spawn_does_not_leave_the_guardian_resurrecting() {
     let rig = Rig::new("spawn-failed");
-    // The resurrection log directory cannot be made: a file sits where it goes.
     std::fs::write(rig.state_root.join("guardian"), b"in the way").expect("block the log dir");
     let mut guardian = rig.guardian(false);
 
@@ -108,7 +102,6 @@ fn a_failed_spawn_does_not_leave_the_guardian_resurrecting() {
         "{record:?}"
     );
     assert_eq!(guardian.beat.heartbeat.activity, SLEEPING);
-    // The next scan finds the death answered; peers still read an idle guardian.
     guardian.turn();
     assert_eq!(rig.published_activity(&guardian), SLEEPING);
 }

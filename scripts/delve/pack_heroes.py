@@ -1,14 +1,4 @@
 #!/usr/bin/env python3
-"""Cut the Demonic Dungeon heroes (VEXED, CC BY 4.0) into the Delve's ink rows.
-
-    python3 scripts/delve/pack_heroes.py
-
-Reads `cockpit/assets/dungeon/packs/demonic-dungeon/Heroes.png` (the red
-tunic variant, the first four columns) and writes
-`crates/delve/src/render/overworld/arena/pack_heroes_frames.rs`. Each frame is
-the sheet's 16x16 cell centred on the knights' 20x18 canvas. The tunic is ink
-`7` and the boots `8`, so a knight's own colours dress them.
-"""
 from pathlib import Path
 
 from PIL import Image
@@ -17,12 +7,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SHEET = ROOT / "cockpit/assets/dungeon/packs/demonic-dungeon/Heroes.png"
 OUT = ROOT / "crates/delve/src/render/overworld/arena/pack_heroes_frames.rs"
 
-# The sheet's six weapon sets, one every fifteen rows of cells.
 GROUPS = ["UNARMED", "HAMMER", "AXE", "BOW", "SWORD", "MACE"]
-# Within a set: (name, row offset, frames).
 ANIMS = [("IDLE", 0, 3), ("SIDE", 2, 2), ("FRONT", 5, 2), ("STRIKE", 8, 3)]
-# What the figures draw (`pack_heroes.rs`): a bow for the bow and the
-# crossbow, the bare hands for a handgonne.
 USED = {"UNARMED_IDLE", "UNARMED_SIDE", "UNARMED_FRONT", "BOW_IDLE", "BOW_SIDE", "BOW_FRONT", "BOW_STRIKE"}
 
 OUTLINE, SKIN, LIGHT, TUNIC, BROWN = "160D13", "EF9E4E", "F6F2C3", "AD4030", "904B41"
@@ -38,7 +24,7 @@ def ink(hexv: str, x: int, y: int) -> str:
     if hexv == TUNIC:
         return "7"
     if hexv == BROWN:
-        return "8" if y >= 13 else "R"  # boots; hair, wood and leather
+        return "8" if y >= 13 else "R"
     raise SystemExit(f"unmapped colour #{hexv} at {x},{y}")
 
 

@@ -17,8 +17,6 @@
 use crate::knowledge::memory::store::{Drawer, MemoryStore};
 use std::sync::Arc;
 
-/// A free-form contribution from an agent or a moa synthesis, before curation.
-/// `topic` becomes the drawer `room`; `wing`/`source` tag provenance as usual.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Report {
     pub wing: String,
@@ -27,8 +25,6 @@ pub struct Report {
     pub source: String,
 }
 
-/// Curates reports into the palace. Holds the store plus (eventually) the dedup
-/// index and routing/importance policy.
 pub struct Librarian {
     store: Arc<dyn MemoryStore>,
 }
@@ -38,11 +34,6 @@ impl Librarian {
         Self { store }
     }
 
-    /// File a report into the palace after curation.
-    ///
-    /// v0 is a **pass-through**: a non-empty report becomes one drawer, with no
-    /// dedup, importance gating, or splitting yet — those are the work that gates
-    /// the moa wiring (see [`curate`]). Returns whether anything was filed.
     pub fn file(&self, report: &Report) -> bool {
         let drawers = curate(report);
         let mut filed = 0usize;
@@ -55,12 +46,6 @@ impl Librarian {
     }
 }
 
-/// Turn a report into the drawers that should actually be filed.
-///
-/// TODO(librarian): this is where the moa-grade curation lives — dedup against
-/// the existing palace (`store.search` the topic first), score importance and
-/// drop low-signal reports, and split a multi-topic synthesis into one drawer per
-/// finding. Until that exists, the moa stays unwired. v0: one drawer, verbatim.
 fn curate(report: &Report) -> Vec<Drawer> {
     if report.body.trim().is_empty() {
         return Vec::new();

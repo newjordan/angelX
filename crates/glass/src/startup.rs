@@ -9,7 +9,6 @@ use std::io::Write;
 use std::sync::OnceLock;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-/// The first mark's instant, when tracing is on.
 fn origin() -> Option<Instant> {
     static ORIGIN: OnceLock<Option<Instant>> = OnceLock::new();
     *ORIGIN.get_or_init(|| {
@@ -19,7 +18,6 @@ fn origin() -> Option<Instant> {
     })
 }
 
-/// Note that startup reached `what`.
 pub fn mark(what: &str) {
     let Some(origin) = origin() else {
         return;

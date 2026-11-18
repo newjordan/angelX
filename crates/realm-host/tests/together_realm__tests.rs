@@ -1,7 +1,5 @@
 use super::*;
 
-/// The atomic writers' one-shot fault in the caller's thread, armed as the
-/// cockpit's storage regression tests arm it.
 mod storage_atomic_tests {
     use angel_live::host::workspace_store::fault::AFTER_RENAME;
     use std::path::PathBuf;
@@ -239,7 +237,7 @@ fn a_published_but_unacknowledged_realm_claim_is_confirmed_once_and_stale_saves_
             .unwrap_err()
             .contains("different content")
     );
-    let mut next = bank_claim(4, 7); // ordinary acknowledged commands can leave gaps
+    let mut next = bank_claim(4, 7);
     next.transfer.reclaimed.clear();
     next.transfer.triumph = None;
     assert!(realm.settle_claim(&next, "Host").unwrap().applied);
@@ -392,7 +390,6 @@ fn home_payment_and_refund_survive_uncertain_writes_without_repeating_either_pha
     );
     assert_eq!(realm.treasury.get(Spoil::Gold), 100 - price);
     assert_eq!(realm.home.knights.values().map(|p| p.xp).sum::<u32>(), 10);
-    // The world changed before delivery, so the paid item cannot be placed.
     run.leave(2);
     let delivered = journal
         .complete_home(&mut run, &claim, result.clone())
@@ -415,8 +412,6 @@ fn home_payment_and_refund_survive_uncertain_writes_without_repeating_either_pha
             .get(Spoil::Gold),
         100
     );
-    // Restore uses the source's cached delivery even after the destination
-    // retires its large prepared payload. Available capacity cannot replay it.
     let mut restored = Journal::restore(saved, &claim.session, 9).unwrap();
     run.dungeon.rooms[run.at].items.clear();
     assert_eq!(
@@ -551,7 +546,7 @@ fn country_larder_rent_commits_once_with_an_uncertain_bank_claim() {
     };
     let fixture = ClaimFixture::new();
     let mut realm = Realm::beside(Some(&fixture.rewards()));
-    realm.home.countryside.built = 1; // Bakery: one sack per rent day.
+    realm.home.countryside.built = 1;
     realm.home.holdings.stores = 2;
     realm.home.holdings.owned.push(Holding {
         key: Deed::Floor(Pack::Crypt).key(),

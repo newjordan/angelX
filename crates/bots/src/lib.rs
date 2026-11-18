@@ -13,7 +13,6 @@ use angel_serve::client::WsClient;
 use angel_serve::ws::{Message, code};
 use std::time::{Duration, Instant};
 
-/// A muster client a bot can drive: drawn, or not.
 pub trait Muster: GameClient<Cmd = MusterCmd> {
     fn muster(&self) -> &MusterClient;
 }
@@ -24,8 +23,6 @@ impl Muster for MusterClient {
     }
 }
 
-/// The muster's client without the drawing: everything else as a browser
-/// runs it, for bots that measure the server, not the renderer.
 pub struct Headless(pub MusterClient);
 
 impl GameClient for Headless {
@@ -58,59 +55,40 @@ impl Muster for Headless {
     }
 }
 
-/// How one bot behaves.
 #[derive(Clone, Debug)]
 pub struct BotConfig {
     pub url: String,
     pub join: String,
     pub name: String,
     pub seed: u64,
-    /// Walk about and wave; otherwise stand still.
     pub wander: bool,
-    /// Read the socket slowly, like a phone on a bad link.
     pub slow: bool,
-    /// Frames a second asked of the runtime (60 when drawing).
     pub fps: u32,
-    /// Measurements start this long after joining (the crowd gathering).
     pub warmup: Duration,
-    /// A wandering bot further than this from the muster point (in field
-    /// sub-pixels) heads back toward it, so the crowd stays a crowd.
     pub stray: i32,
 }
 
-/// The default stray: about two views across from the muster point.
 pub const STRAY: i32 = 600 * SUB;
 
-/// What one bot saw.
 #[derive(Clone, Debug, Default)]
 pub struct Report {
     pub seat: Option<u32>,
     pub rejected: Option<String>,
-    /// Why the connection ended early, if it did.
     pub error: Option<String>,
-    /// Over the measured span (after the warmup):
     pub secs: f64,
     pub snapshots: u64,
     pub bytes: u64,
-    /// Gaps between snapshot arrivals, milliseconds.
     pub intervals: Vec<f32>,
-    /// Ping round trips, milliseconds.
     pub rtts: Vec<f32>,
-    /// `Runtime::frame` times (prediction, interpolation and drawing), milliseconds.
     pub frames: Vec<f32>,
-    /// Things held in the mirror, sampled each second.
     pub held: Vec<u32>,
 }
 
-/// A slow bot reads this much...
 const SLOW_BYTES: usize = 256;
-/// ...at most this often: 1 KB/s, well under what the muster sends.
 const SLOW_EVERY: Duration = Duration::from_millis(250);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-/// How long a leaving bot waits for the server's close frame.
 pub const CLOSE_TIMEOUT: Duration = Duration::from_secs(2);
 
-/// A deterministic random walk for the bots' thumbs.
 pub struct Rng(pub u64);
 
 impl Rng {
@@ -125,9 +103,6 @@ impl Rng {
     }
 }
 
-/// A thumb on a stick: holds a direction for a while, sometimes rests,
-/// drifts back toward the muster point if it strays far, and now and then
-/// waves or plants its banner.
 struct Thumb {
     rng: Rng,
     until_ms: f64,
@@ -169,8 +144,6 @@ impl Thumb {
     }
 }
 
-/// One bot's whole run: join, play until `until`, say goodbye. Returns
-/// what it measured and its runtime (the mirror is inside).
 pub fn run<G: Muster>(cfg: &BotConfig, until: Instant) -> (Report, Runtime<G>) {
     let mut report = Report::default();
     let mut rt = Runtime::<G>::new();
@@ -291,9 +264,6 @@ pub fn run<G: Muster>(cfg: &BotConfig, until: Instant) -> (Report, Runtime<G>) {
             let _ = ws.send(&out);
         }
         ws.close(code::NORMAL);
-        // Finish the close handshake before dropping the socket. A goodbye
-        // still in the server's receive buffer when the socket resets would
-        // leave the seat held for a resume.
         let deadline = Instant::now() + CLOSE_TIMEOUT;
         loop {
             let remaining = deadline.saturating_duration_since(Instant::now());
@@ -309,7 +279,6 @@ pub fn run<G: Muster>(cfg: &BotConfig, until: Instant) -> (Report, Runtime<G>) {
     (report, rt)
 }
 
-/// The value at a share of a sorted list (nearest rank).
 pub fn pct(sorted: &[f32], p: f64) -> f32 {
     if sorted.is_empty() {
         return f32::NAN;

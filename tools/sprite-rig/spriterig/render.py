@@ -1,19 +1,8 @@
-"""Batched triangle rasterizer with affine texture mapping (numpy only).
-
-Modes
-  nearest : point sampling, rendered directly at output scale. Keeps pixel art crisp
-            (rotated pixels stay hard-edged, RotSprite-like look at scale>=2).
-  aa      : supersampled (ss x ss) bilinear sampling of a *premultiplied* texture, then
-            box-filtered down in premultiplied space -> clean edges, no dark fringes,
-            no seams at joints.
-All triangles of a part are rasterized in one vectorized batch (no per-triangle loop).
-"""
 import numpy as np
 from .rig import bone_matrices, skin
 
 
 def _batch_raster(acc, tex, src, dst, tris, bilinear, chunk=384):
-    """Split triangles into size-sorted chunks so each chunk's patch grid stays tight."""
     D = dst[tris]
     ext = (D.max(1) - D.min(1)).max(1)
     order = np.argsort(ext)
@@ -22,11 +11,9 @@ def _batch_raster(acc, tex, src, dst, tris, bilinear, chunk=384):
 
 
 def _raster_chunk(acc, tex, src, dst, tris, bilinear):
-    """acc: (H,W,4) float32 premultiplied canvas, painted in place (src-over).
-    tex: (th,tw,4) float32 premultiplied. src/dst: vertex arrays in texture / canvas px."""
     H, W = acc.shape[:2]
     th, tw = tex.shape[:2]
-    D = dst[tris].astype(np.float32)   # T,3,2
+    D = dst[tris].astype(np.float32)
     S = src[tris].astype(np.float32)
     lo = np.floor(D.min(1)).astype(np.int32)
     hi = np.ceil(D.max(1)).astype(int) + 1
@@ -42,7 +29,7 @@ def _raster_chunk(acc, tex, src, dst, tris, bilinear):
     ax, ay, bx, by, cx, cy = ax[ok], ay[ok], bx[ok], by[ok], cx[ok], cy[ok]
     pw, ph = (hi - lo).max(0)
     gy, gx = np.mgrid[0:ph, 0:pw].astype(np.float32)
-    px = lo[:, 0, None, None] + gx[None] + 0.5           # T,ph,pw
+    px = lo[:, 0, None, None] + gx[None] + 0.5
     py = lo[:, 1, None, None] + gy[None] + 0.5
     inb = (px < hi[:, 0, None, None]) & (py < hi[:, 1, None, None])
     r = lambda v: v[:, None, None]
@@ -57,7 +44,6 @@ def _raster_chunk(acc, tex, src, dst, tris, bilinear):
     sx = a0 * S[t, 0, 0] + a1 * S[t, 1, 0] + a2 * S[t, 2, 0]
     sy = a0 * S[t, 0, 1] + a1 * S[t, 1, 1] + a2 * S[t, 2, 1]
     oy = py[idx].astype(int); ox = px[idx].astype(int)
-    # de-duplicate pixels covered by two triangles of the same part (shared edges)
     lin = oy * W + ox
     lin, first = np.unique(lin, return_index=True)
     sx, sy = sx[first], sy[first]
@@ -74,7 +60,6 @@ def _raster_chunk(acc, tex, src, dst, tris, bilinear):
 
 
 def _prep(rig):
-    """Cache premultiplied float textures on each part."""
     for p in rig["parts"]:
         if not hasattr(p, "ptex"):
             t = p.tex.astype(np.float32) / 255
@@ -83,8 +68,6 @@ def _prep(rig):
 
 
 def render_pose(rig, pose, canvas, offset, scale=1, mode="aa", ss=None):
-    """Render one pose. Only the bbox of the skinned mesh is rasterized (the canvas can be
-    large to fit jumps/falls without costing time)."""
     _prep(rig)
     ss = ss or 2
     s = ss if mode == "aa" else 1

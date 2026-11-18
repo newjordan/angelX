@@ -13,8 +13,6 @@ fn dragons_breath_lights_its_throat_and_belly_inside_the_same_body() {
         assert_ne!(rest.get(x, y), fire.get(x, y), "internal fire at {x},{y}");
         assert!(super::super::ink::is_signal(fire.get(x, y).unwrap()));
     }
-    // Horn, both wing spars and the tip of the curled tail are solid in
-    // both states; none is supplied by the procedural breath pixels.
     for (x, y) in [(51, 3), (24, 6), (36, 4), (5, 27)] {
         assert!(rest.solid(x, y), "dragon feature at {x},{y}");
         assert_eq!(rest.get(x, y), fire.get(x, y));
@@ -26,7 +24,6 @@ fn dragons_breath_lights_its_throat_and_belly_inside_the_same_body() {
     }
 }
 
-/// All authored cycles and state poses, independent of room light and camera.
 #[test]
 #[ignore]
 fn write_foe_art_review() {
@@ -298,11 +295,6 @@ fn approved_foe_hashes() -> std::collections::BTreeMap<String, u64> {
     hashes
 }
 
-// Re-pinned 2026-11-07 for the Fungelder (`sprites::fungelder`): a new page in the
-// bestiary, so `v1-Fungelder` is new, and the thirteen guardians' hashes move with
-// it because the walk spawns one more monster before them (the run's ids and
-// counters at that point). With the Fungelder left out of the walk, every one of the
-// other sixty-nine hashes is what it was.
 #[test]
 fn approved_bestiary_pixels_stay_exact() {
     let expected: std::collections::BTreeMap<String, u64> =
@@ -317,7 +309,6 @@ fn write_approved_foe_hashes() {
     std::fs::write(path, serde_json::to_vec_pretty(&approved_foe_hashes()).unwrap()).unwrap();
 }
 
-/// Same pose and tick through each existing hit interval.
 #[test]
 #[ignore]
 fn write_foe_hit_shots() {
@@ -389,7 +380,6 @@ fn foe_hits_keep_material_detail_coverage_and_the_existing_intervals() {
         let mut phases = Vec::new();
         for hurt in [6, 4, 3, 1] {
             e.hurt = hurt;
-            // Delivered bodies already contain their cached RGB hit grade.
             let hit = if library {
                 foe_figure(&run, &e, run.tick as u32)
             } else {

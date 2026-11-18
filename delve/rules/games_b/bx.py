@@ -1,25 +1,4 @@
 #!/usr/bin/env python3
-"""bx: a thin layer over Bend for the world port. `X.bx` -> `X.bend`.
-
-Bend 2 refuses `match` on anything but a parameter or a pattern-bound name, so
-every Rust `if`, `match`, and tuple `let` over a computed value becomes its own
-def that takes the live locals as parameters. bx writes those defs. Everything
-that is not a `def` passes through untouched. Inside a bx `def` the statements:
-
-    name: Type = expr                      a let (always reusable: `+name = expr`)
-    (a: A, b: B) = expr                    a pair destructure of a computed value
-    K{a: A, b: B} of T = expr              a constructor destructure of a computed value
-    name: Type = if cond:                  a value-producing if (then-block, `else:`)
-    name: Type = match e as E:             a value-producing match
-    if cond:  ... else: ...                last statement: branches, each a block
-    match e as E:                          last statement; `match e as E, f as F:`
-      case Pat:                            pattern binders are `x` or `x: Type`
-    expr                                   last statement: the result
-
-Every block ends in an expression. Binders that a later lifted def needs must
-carry a type (a let, a parameter, or `x: Type` in a pattern). Run:
-    python3 delve/rules/world/bx.py [file.bx ...]
-"""
 import pathlib
 import re
 import sys
@@ -31,7 +10,6 @@ def strip_lits(s):
 
 
 def idents(s):
-    """Plain (undotted) names used in `s`, outside literals and field paths."""
     s = strip_lits(s)
     out = set()
     for m in re.finditer(r"(?<![A-Za-z0-9_.])[A-Za-z_][A-Za-z0-9_]*(?![A-Za-z0-9_]*[.{])", s):
@@ -93,11 +71,7 @@ def split_ws_top(s):
 class Err(Exception):
     pass
 
-
-# ---- patterns ---------------------------------------------------------------
-
 def parse_pat(s, i=0):
-    """Returns (bend text, [(name, type|None)], next index)."""
     while i < len(s) and s[i] == " ":
         i += 1
     binders = []
@@ -179,7 +153,6 @@ def parse_pat(s, i=0):
 
 
 def parse_case_pats(text):
-    """`P1 P2` -> bend text, binders."""
     out, binders = [], []
     for part in split_ws_top(text):
         t, b, i = parse_pat(part, 0)
@@ -189,11 +162,7 @@ def parse_case_pats(text):
         binders += b
     return " ".join(out), binders
 
-
-# ---- reading blocks -----------------------------------------------------------
-
 def logical_lines(body_lines):
-    """Join continuation lines (open brackets); drop blanks and comments."""
     out, buf, ind = [], "", None
     for raw in body_lines:
         if not raw.strip() or (buf == "" and raw.strip().startswith("#")):
@@ -217,7 +186,6 @@ LET = re.compile(r"^(?P<lhs>.+?) = (?P<rhs>.+)$")
 
 
 def parse_block(lines, i, indent):
-    """Statements at exactly `indent`; returns (stmts, next i)."""
     stmts = []
     while i < len(lines) and lines[i][0] >= indent:
         ind, text = lines[i]
@@ -301,9 +269,6 @@ def parse_match(lines, i, indent, head):
         body, i = parse_block(lines, i, lines[i][0])
         cases.append((pat[:-1], body))
     return {"k": "match", "scr": scr, "cases": cases}, i
-
-
-# ---- emitting -------------------------------------------------------------------
 
 def stmts_text(stmts):
     out = []
@@ -426,7 +391,6 @@ class Gen:
         return body
 
     def lift(self, s, gamma, ret):
-        """A branching statement as its own def; returns the call text."""
         h = self.fresh()
         text = stmts_text([s])
         if s["k"] == "if":

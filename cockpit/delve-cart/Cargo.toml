@@ -29,7 +29,3 @@ tracing = "0.1"
 unicode-segmentation = "=1.13.3"
 unicode-width = "0.2"
 ureq = { version = "2", path = "../../vendor/ureq", default-features = false, features = ["json", "tls", "native-certs", "gzip", "brotli"] }
-
-# No [dev-dependencies]: this crate sits outside the cockpit's workspace, and
-# cargo refuses `cargo test --package angel-delve-cart` (the gate's step) for a
-# non-member that has any. Its tests need nothing beyond its dependencies.

@@ -8,7 +8,6 @@
 use super::foes::Deeds;
 use super::*;
 
-/// A slam gathering: where, and ticks until it lands.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Slam {
     pub x: f32,
@@ -16,15 +15,12 @@ pub struct Slam {
     pub left: u32,
 }
 
-/// The slam's wind-up, its reach and its weight; how often it comes (and
-/// how often once the beast is below a third of its health).
 pub const SLAM_WINDUP: u32 = 30;
 pub const SLAM_REACH: f32 = 4.5;
 const SLAM_DAMAGE: u32 = 35;
 const SLAM_EVERY: u32 = 9 * HZ / 2;
 const SLAM_EVERY_ENRAGED: u32 = 3 * HZ;
 
-/// The Pit Tyrant's step. False for any other monster.
 pub(super) fn act(
     enemy: &mut Enemy,
     heroes: &[(f32, f32)],
@@ -65,7 +61,6 @@ pub(super) fn act(
     } else if enemy.timer >= SLAM_WINDUP {
         (enemy.stage, enemy.timer) = (0, 0);
     }
-    // Its breath: a fan of embers at the nearest knight, sooner as it dies.
     let beat = enemy.timer + enemy.id * 7;
     let every = enemy.beat(90);
     if enemy.stage == 0 && beat % every == every / 2 && target.is_some() {
@@ -93,8 +88,6 @@ pub(super) fn act(
     true
 }
 
-/// The Talisman, as the run's book holds it: taken, it mends its knight
-/// whole and stays with them until they fall.
 pub fn talisman_card() -> Card {
     let raw = "name The Talisman
 kind take
@@ -122,8 +115,6 @@ art
 }
 
 impl Run {
-    /// Slams gather and land: a knight in the ring is struck and thrown
-    /// clear.
     pub(super) fn tick_slams(&mut self, slams: Vec<(f32, f32)>) {
         for (x, y) in slams {
             if self.slams.len() < 4 {
@@ -163,8 +154,6 @@ impl Run {
         }
     }
 
-    /// The Pit Tyrant felled: the Talisman where it fell, a ring of gold, and a
-    /// prize from the chest's own book.
     pub(super) fn pit_fallen(&mut self, fallen: &[(EnemyKind, f32, f32)]) {
         for &(_, x, y) in fallen.iter().filter(|f| f.0 == EnemyKind::PitTyrant) {
             self.book.insert(talisman_card());

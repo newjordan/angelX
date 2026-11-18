@@ -77,8 +77,6 @@ fn redact_excerpt(text: &str) -> String {
 }
 
 fn dispatched_json(output: &str) -> Option<serde_json::Value> {
-    // Handles pretty or compact --json output with CLI notices preceding it.
-    // Run only after the existing literal-command recognizer found a submit.
     for (at, _) in output.match_indices('{').take(64) {
         let mut stream =
             serde_json::Deserializer::from_str(&output[at..]).into_iter::<serde_json::Value>();
@@ -98,10 +96,6 @@ fn dispatched_id(output: &str) -> Option<String> {
         .or_else(|| crate::agent::harness::extract_submission_id(output))
 }
 
-/// Retain the small dispatch receipt independently of rotating process logs.
-/// Streams stay separate so stderr cannot split stdout's JSON. Only stamped
-/// submit processes allocate this bounded capture; after finding a receipt the
-/// normal log pumps do no more parsing.
 #[derive(Default)]
 pub(crate) struct DispatchCapture {
     streams: [Vec<u8>; 2],
@@ -153,7 +147,6 @@ fn classify_outcome(exit: i32, output: &str) -> String {
     "unknown".into()
 }
 
-/// Record a stamped submit after the tool process exits (no network).
 pub(crate) fn journal_execution(
     tool: &str,
     command: &str,
@@ -194,8 +187,6 @@ pub(crate) fn journal_execution(
         .flatten();
     let persistence_error = if let (Some(id), Some(workspace)) = (submission_id.as_ref(), workspace)
     {
-        // Use the CLI's submitted commit, not a post-submit scan of a workspace
-        // that may already contain the next candidate. No extra tree hashing.
         let git_commit_id = dispatched_json(output).and_then(|body| {
             body["submission"]["submissionCommitSha"]
                 .as_str()
@@ -246,7 +237,6 @@ pub(crate) fn journal_execution(
     persistence_error
 }
 
-/// The rewritten command plus the notice the tool result carries.
 pub(crate) struct Stamped {
     pub command: String,
     pub notice: String,
@@ -261,7 +251,6 @@ fn submit_re() -> &'static Regex {
     RE.get_or_init(|| {
         let boards: Vec<String> = super::boards().map(regex::escape).collect();
         if boards.is_empty() {
-            // No board is plugged in: nothing is a submit.
             return Regex::new(r"[^\s\S]").expect("empty submit regex");
         }
         Regex::new(&format!(r"\b({})(\s+)submit\b", boards.join("|"))).expect("submit regex")
@@ -276,11 +265,6 @@ struct Word {
     dynamic: bool,
 }
 
-/// Recognize only the literal message-producing form `$(cat <<'DELIM' ... )`.
-/// Its quoted body cannot execute shell expansions. Preserve byte offsets while
-/// hiding that data from the flat attribution lexer; the original command is
-/// still what runs. Pipelines, unquoted delimiters and executable tails stay on
-/// the conservative path instead of being guessed safe by this recognizer.
 fn literal_heredoc_substitution_end(command: &str, start: usize) -> Option<usize> {
     const MAX_LITERAL_BYTES: usize = 64 * 1024;
     let header_start = start.checked_add(2)?;
@@ -353,12 +337,10 @@ fn mask_literal_heredoc_substitutions(command: &str) -> Option<String> {
             continue;
         }
         if quote != Some(b'\'') && byte == b'$' && bytes.get(at + 1) == Some(&b'(') {
-            // Do not resume scanning inside an unsupported substitution using
-            // the outer quote state: nested shell quoting has its own grammar.
             let end = literal_heredoc_substitution_end(command, at)?;
             let masked = masked.get_or_insert_with(|| bytes.to_vec());
             masked[at..end].fill(b'x');
-            masked[at] = b'$'; // Still a dynamic argument, never a literal submit option.
+            masked[at] = b'$';
             at = end;
             continue;
         }
@@ -372,14 +354,7 @@ fn mask_literal_heredoc_substitutions(command: &str) -> Option<String> {
     masked.map(|bytes| String::from_utf8(bytes).expect("ASCII replacement at UTF-8 boundaries"))
 }
 
-/// Keep spans and command boundaries, unlike shell::shell_words which flattens
-/// both. Quoted data is never searched for executable names.
 fn submission_words(command: &str) -> Result<Vec<Vec<Word>>, String> {
-    // Here-doc bodies are data, not command lines. Do not lex them as code.
-    // The existing shell reader has the same stripping rule, but its flattened
-    // token API cannot retain edit spans. Unsupported execution syntax fails
-    // explicitly rather than being rewritten as though fully parsed.
-
     let masked = mask_literal_heredoc_substitutions(command);
     let command = masked.as_deref().unwrap_or(command);
     let mut commands = Vec::new();
@@ -492,9 +467,6 @@ fn submission_words(command: &str) -> Result<Vec<Vec<Word>>, String> {
                 );
             }
             if words.iter().any(|w| w.dynamic && w.value.contains("<<")) {
-                // A heredoc's remaining lines are not ordinary shell commands.
-                // Reject only if executable submission follows its delimiter;
-                // the payload itself is never searched or modified.
                 let header_end = command[words[0].start..]
                     .find('\n')
                     .map(|n| words[0].start + n)
@@ -527,10 +499,6 @@ fn submission_words(command: &str) -> Result<Vec<Vec<Word>>, String> {
                 };
                 let quoted_delimiter =
                     command[delimiter_start..delimiter_end].contains(['\'', '"', '\\']);
-                // A pipeline or output redirection belongs to the header, not
-                // the delimiter. Live proof commands use `<<'EOF' 2>&1 | head`.
-                // Still inspect that executable tail: a submit in the pipeline
-                // must retain the same attribution checks as a later command.
                 let header_tail = &command[delimiter_end..header_end];
                 if header_tail.contains("<<") {
                     return Err(
@@ -559,10 +527,6 @@ fn submission_words(command: &str) -> Result<Vec<Vec<Word>>, String> {
                 if !found {
                     return Ok(submissions);
                 }
-                // Only quoted heredocs make every body byte literal. An
-                // unquoted body can execute substitutions despite looking like
-                // a document; refuse potential nested submissions rather than
-                // silently skipping their attribution along with the text.
                 let body = &command[body_start..suffix_start];
                 if !quoted_delimiter
                     && (body.contains("$(") || body.contains('`'))
@@ -615,7 +579,6 @@ fn note_line_re() -> &'static Regex {
     })
 }
 
-/// Never substitute configured defaults or first-request provenance for a seat.
 pub(crate) fn model_label() -> Result<String, String> {
     crate::agent::harness::run_identity::live_model()
         .ok_or_else(|| "submission refused: no live executing model identity".into())
@@ -625,8 +588,6 @@ fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 
-/// Rewrite a shell command that submits to a board so its attribution flags
-/// carry the live identity. `None` when the command is not a submission.
 pub(crate) fn stamp(command: &str, workspace: Option<&Path>) -> Result<Option<Stamped>, String> {
     let submissions = submission_words(command)?;
     if submissions.is_empty() {
@@ -701,7 +662,6 @@ pub(crate) fn stamp(command: &str, workspace: Option<&Path>) -> Result<Option<St
         let segment = &command[words[0].start..words.last().unwrap().end];
         let prefix = command[..words[0].start].trim();
         let anchor = leading_cd_anchor(command, words, workspace);
-        // More complex directory transitions cannot authenticate a note path.
         if !prefix.is_empty() && anchor.is_none() {
             continue;
         }
@@ -725,9 +685,6 @@ pub(crate) fn stamp(command: &str, workspace: Option<&Path>) -> Result<Option<St
     }))
 }
 
-/// Use the same statically known directory for note correction and the eventual
-/// receipt. A shell/proc tool's initial cwd may precede `cd candidate && submit`.
-/// More complex directory transitions retain the existing conservative handling.
 fn leading_cd_anchor(command: &str, words: &[Word], workspace: Option<&Path>) -> Option<PathBuf> {
     command[..words.first()?.start]
         .trim()
@@ -783,7 +740,6 @@ fn note_file_path(command: &str, workspace: Option<&Path>) -> Option<PathBuf> {
             raw = Some(value);
             break;
         }
-        // A quoted prose argument containing --note-file is not a flag.
         at += 1;
     }
     let raw = raw?;
@@ -791,15 +747,12 @@ fn note_file_path(command: &str, workspace: Option<&Path>) -> Option<PathBuf> {
     if path.is_absolute() {
         return Some(path);
     }
-    // The caller supplies a certified anchor; never infer cd from quoted prose.
     if raw.contains('$') {
         return None;
     }
     Some(workspace?.join(path))
 }
 
-/// Replace the values of `Model:` / `Harness:` lines (any markdown emphasis)
-/// with the live identity. Returns the number of lines corrected.
 fn correct_note_file(path: &Path, model: &str) -> std::io::Result<usize> {
     let text = std::fs::read_to_string(path)?;
     let mut corrected = 0usize;

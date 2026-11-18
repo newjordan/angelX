@@ -133,8 +133,6 @@ fn focus_keeps_the_original_cycle_and_adjusts_the_picker_in_hand() {
 
 #[test]
 fn every_picker_choice_reaches_the_settings_it_always_did() {
-    // The card's pickers name each choice with the action the workshop
-    // rows did; each lands on the same limits.
     let laps = [5, 25, 100, 0];
     let clocks = [15 * 60, 60 * 60, 4 * 60 * 60, 5 * 24 * 60 * 60, 0];
     let fuels = [250_000, 1_000_000, 2_000_000, 0];
@@ -166,7 +164,6 @@ fn every_picker_choice_reaches_the_settings_it_always_did() {
         d.apply((fuel.action)(i));
         assert_eq!(d.settings().token_budget, want, "fuel {i}");
     }
-    // The custom slot opens the typed length, as the old row's did.
     let mut d = LoopLaunchDialog::new("ship", 0, false);
     d.apply((lap.action)(4));
     assert!(d.custom_entry_active());
@@ -231,13 +228,11 @@ fn custom_length_takes_an_exact_round_count_the_presets_do_not_offer() {
     let mut d = LoopLaunchDialog::new("long haul", 0, false);
     assert_eq!(d.settings().max_iters, 0, "the workshop opens endless");
     assert_eq!(LoopLaunchDialog::custom_length_slot(), ITERATIONS.len());
-    d.focus_next(); // clock is focused first
-    d.adjust(false); // endless -> 100
+    d.focus_next();
+    d.adjust(false);
     assert_eq!(d.settings().max_iters, 100);
-    d.adjust(true); // back to endless
+    d.adjust(true);
     assert_eq!(d.settings().max_iters, 0);
-    // Past the last preset sits the custom slot: it opens the entry rather than
-    // selecting a length nobody typed.
     d.adjust(true);
     assert!(d.custom_entry_active(), "the custom slot opens the entry");
     assert_eq!(
@@ -254,15 +249,12 @@ fn custom_length_takes_an_exact_round_count_the_presets_do_not_offer() {
     assert!(!d.custom_entry_active());
     assert_eq!(d.laps, Laps::Custom);
 
-    // Re-opening keeps what was committed; dropping it never loses it, and the
-    // row stays on the length it left: Esc must not turn a 137-lap cap endless.
     d.begin_custom_length();
     assert_eq!(d.custom_entry_text(), Some("137"));
     assert!(d.cancel_custom_length());
     assert_eq!(d.custom_iterations, Some(137));
     assert_eq!(d.settings().max_iters, 137, "back on the length it left");
 
-    // An empty entry, or a zero, is not a length.
     d.begin_custom_length();
     for _ in 0..4 {
         d.custom_length_backspace();
@@ -295,8 +287,6 @@ fn committed_custom_length_reopens_for_editing() {
     assert!(d.commit_custom_length());
     assert_eq!(d.settings().max_iters, 42);
 
-    // Selecting the custom slot again reopens the editor, seeded — for the
-    // mouse (apply) and for the keyboard (adjust cycling onto the slot) alike.
     d.apply(LoopDialogAction::SelectIterations(
         LoopLaunchDialog::custom_length_slot(),
     ));
@@ -307,9 +297,9 @@ fn committed_custom_length_reopens_for_editing() {
     assert!(d.commit_custom_length());
     assert_eq!(d.settings().max_iters, 47);
 
-    d.adjust(false); // off the custom slot, back to endless
+    d.adjust(false);
     assert_eq!(d.settings().max_iters, 0);
-    d.adjust(true); // cycling onto the custom slot opens the entry too
+    d.adjust(true);
     assert!(d.custom_entry_active());
     assert_eq!(d.custom_entry_text(), Some("47"));
     assert!(d.cancel_custom_length());
@@ -337,15 +327,11 @@ fn settings_honour_the_typed_draft() {
     for ch in "99".chars() {
         assert!(d.custom_length_digit(ch));
     }
-    // The row shows 99, so a start from here launches with 99 — the draft is
-    // never silently dropped for the preset underneath.
     assert_eq!(d.settings().max_iters, 99);
     assert!(d.cancel_custom_length());
     assert_eq!(d.settings().max_iters, 25, "dropping the draft restores 25");
 }
 
-/// Commit a typed length the way the operator does, through the card's own
-/// custom slot.
 fn commit_typed_length(d: &mut LoopLaunchDialog, digits: &str) {
     d.apply(LoopDialogAction::SelectIterations(
         LoopLaunchDialog::custom_length_slot(),
@@ -362,7 +348,6 @@ fn peeking_at_a_committed_length_and_pressing_esc_keeps_the_cap() {
     commit_typed_length(&mut d, "42");
     assert_eq!(d.settings().max_iters, 42);
 
-    // Click the custom slot again to look at it, then Esc.
     d.apply(LoopDialogAction::SelectIterations(
         LoopLaunchDialog::custom_length_slot(),
     ));
@@ -417,7 +402,6 @@ fn a_zero_draft_over_a_committed_length_keeps_the_cap() {
 
 #[test]
 fn a_restored_custom_cap_survives_peeking_and_esc() {
-    // A restart card opens on the saved, non-preset cap.
     let mut d = LoopLaunchDialog::new("restart", 0, false);
     d.restore_settings(LoopLaunchSettings {
         deadline_secs: 0,
@@ -477,7 +461,6 @@ fn the_selection_is_one_value_the_picker_and_the_cap_both_read() {
     d.apply(LoopDialogAction::SelectIterations(0));
     assert_eq!(d.laps, Laps::Preset(0));
     assert_eq!(d.settings().max_iters, 5);
-    // The typed length is remembered behind the preset and reopens seeded.
     d.apply(LoopDialogAction::SelectIterations(
         LoopLaunchDialog::custom_length_slot(),
     ));

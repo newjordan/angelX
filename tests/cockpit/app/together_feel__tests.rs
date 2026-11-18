@@ -4,7 +4,6 @@ use crate::together_shooter::*;
 use crate::together_shooter::feel::testing::*;
 use std::collections::BTreeMap;
 
-/// Integrated fights: `ANGEL_ARENA_SHOTS=<dir> cargo test write_integration_shots -- --ignored`.
 #[test]
 #[ignore]
 fn write_integration_shots() {
@@ -42,7 +41,6 @@ fn write_integration_shots() {
         ] {
             a_foe(&mut run, kind, x, y);
         }
-        // A real fight's incoming patterns develop before the knight opens fire.
         idle(&mut run, 45);
         run.tick_feel(&[(1, 12); 10], &[]);
         for _ in 0..7 {

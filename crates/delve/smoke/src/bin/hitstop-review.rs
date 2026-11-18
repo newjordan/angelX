@@ -182,7 +182,6 @@ fn main() {
                 }
                 windows.retain(|(_, end)| t < *end);
             }
-            // Normalize only tune metadata; the old simulation had no off knob.
             let tune = r.tune;
             r.tune = Tune::default();
             let save = serde_json::to_vec(&r).unwrap();

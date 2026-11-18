@@ -21,7 +21,6 @@ use super::{Paths, Version, git, valid_id};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-/// One published plugin.
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Entry {
@@ -30,14 +29,10 @@ pub(crate) struct Entry {
     pub(crate) label: String,
     pub(crate) version: String,
     pub(crate) description: String,
-    /// The public repository the plugin is fetched from.
     pub(crate) repository: String,
-    /// The reviewed commit, in full.
     pub(crate) commit: String,
-    /// The plugin's folder inside the repository; empty for its root.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub(crate) path: String,
-    /// The plugin tree digest of that folder at that commit.
     pub(crate) sha256: String,
     pub(crate) license: String,
     pub(crate) authors: Vec<String>,
@@ -48,8 +43,6 @@ pub(crate) struct Entry {
 }
 
 impl Entry {
-    /// What is wrong with this entry. `public` holds it to the public
-    /// registry's rule: the repository is an https URL.
     pub(crate) fn problems(&self, public: bool) -> Vec<String> {
         let mut problems = Vec::new();
         let id = &self.id;
@@ -125,8 +118,6 @@ impl Entry {
         problems
     }
 
-    /// Whether every word of `query` is in the id, label, description or a
-    /// keyword (case-insensitive).
     pub(crate) fn matches(&self, query: &str) -> bool {
         let haystack = format!(
             "{} {} {} {}",
@@ -141,7 +132,6 @@ impl Entry {
             .all(|word| haystack.contains(&word.to_lowercase()))
     }
 
-    /// The repository, with the folder when there is one.
     pub(crate) fn source(&self) -> String {
         if self.path.is_empty() {
             self.repository.clone()
@@ -151,7 +141,6 @@ impl Entry {
     }
 }
 
-/// A one-line description of at most 200 characters, or what is wrong.
 pub(crate) fn description_problem(description: &str) -> Option<String> {
     if description.trim().is_empty() {
         Some("no description".into())
@@ -164,14 +153,10 @@ pub(crate) fn description_problem(description: &str) -> Option<String> {
     }
 }
 
-/// The parsed registry.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Registry {
-    /// In id order.
     pub(crate) entries: Vec<Entry>,
-    /// Where it was read from.
     pub(crate) source: String,
-    /// Set when the registry could not be fetched and a cached copy stands in.
     pub(crate) stale: Option<String>,
 }
 
@@ -201,9 +186,6 @@ impl Registry {
             .collect()
     }
 
-    /// Every entry's problems, and the ids sharing a repository folder: the
-    /// registry-wide rules `scripts/plugins/check-registry.py` enforces, held
-    /// here against the tree's own registry.
     #[cfg(test)]
     pub(crate) fn problems(&self, public: bool) -> Vec<String> {
         let mut problems: Vec<String> = self
@@ -228,8 +210,6 @@ impl Registry {
     }
 }
 
-/// Read the registry from `paths.registry`: a URL or a local file. A fetched
-/// copy is cached; when the fetch fails, the cache stands in and says so.
 pub(crate) fn load(paths: &Paths) -> Result<Registry, String> {
     let source = paths.registry.as_str();
     let cache = paths.state.join("registry.toml");
@@ -276,19 +256,13 @@ fn read_source(source: &str) -> Result<String, String> {
         .map_err(|e| format!("cannot read the plugin registry at {path}: {e}"))
 }
 
-/// How [`upsert`] changed the registry.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Change {
     Added,
-    /// The id was there, from the same repository; its version before.
     Updated(String),
-    /// The id was there with this very entry.
     Unchanged,
 }
 
-/// `text` with `entry` added in id order, or its table replaced when the id
-/// is already there from the same repository. A different repository's
-/// plugin keeps its id.
 pub(crate) fn upsert(text: &str, entry: &Entry) -> Result<(String, Change), String> {
     let current = Registry::parse(text, super::REGISTRY_FILE)?;
     let rendered = render(entry)?;
@@ -319,7 +293,6 @@ pub(crate) fn upsert(text: &str, entry: &Entry) -> Result<(String, Change), Stri
         out.push_str(&lines[end..].concat());
         return Ok((out, Change::Updated(existing.version.clone())));
     }
-    // Before the first table whose id sorts after this one, or at the end.
     let at = lines
         .iter()
         .position(|line| header(line).is_some_and(|key| key.as_str() > entry.id.as_str()))
@@ -347,15 +320,12 @@ pub(crate) fn upsert(text: &str, entry: &Entry) -> Result<(String, Change), Stri
     Ok((out, Change::Added))
 }
 
-/// The key of a `[id]` header line.
 fn table_key(line: &str) -> Option<String> {
     let line = line.trim();
     let inner = line.strip_prefix('[')?.strip_suffix(']')?;
     (!inner.starts_with('[')).then(|| inner.trim().trim_matches('"').to_owned())
 }
 
-/// The line after a table's last line: the next header, less the comment and
-/// blank lines that lead into it.
 fn section_end(lines: &[&str], start: usize) -> usize {
     let next = lines[start + 1..]
         .iter()
@@ -368,7 +338,6 @@ fn section_end(lines: &[&str], start: usize) -> usize {
     end
 }
 
-/// Where the comment lines directly above `index` begin.
 fn comment_start(lines: &[&str], index: usize) -> usize {
     let mut at = index;
     while at > 0 && lines[at - 1].trim_start().starts_with('#') {
@@ -377,11 +346,9 @@ fn comment_start(lines: &[&str], index: usize) -> usize {
     at
 }
 
-/// One entry as its registry table.
 pub(crate) fn render(entry: &Entry) -> Result<String, String> {
     let mut table = BTreeMap::new();
     table.insert(entry.id.clone(), entry.clone());
     let body = toml::to_string(&table).map_err(|e| e.to_string())?;
-    // `toml` writes the fields in declaration order under `[id]`.
     Ok(body)
 }

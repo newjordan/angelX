@@ -75,8 +75,6 @@ fn valid_receipt(raw: &str, source: &str, code: &str) -> bool {
             && receipt.output_digest == digest(code.as_bytes())
     })
 }
-/// The build receipt of a prepared generation, which `prepare` has already
-/// checked against the captured sources and output.
 pub(super) fn receipt(files: &BTreeMap<String, String>) -> Option<crate::BuildReceipt> {
     let receipt: Receipt = serde_json::from_str(files.get(RECEIPT)?).ok()?;
     Some(crate::BuildReceipt {
@@ -157,8 +155,6 @@ fn read_bound(mut reader: impl Read, limit: usize) -> Result<Vec<u8>, String> {
     }
     Ok(bytes)
 }
-// Keep an exited child unreaped until its whole process group has retired.
-// Its PID cannot be reused while we close descendants holding build pipes.
 #[cfg(unix)]
 fn exited(child: &mut std::process::Child) -> std::io::Result<bool> {
     let mut info = unsafe { std::mem::zeroed::<libc::siginfo_t>() };
@@ -185,8 +181,6 @@ fn compile(input: &[u8]) -> Result<Vec<u8>, String> {
     );
     run_node(&program, input, Duration::from_secs(10))
 }
-// Rust owns the staging root, so SIGKILL of Node cannot strand private source
-// captures. Node owns subdirectories during normal operation; Drop is the fence.
 struct Scratch(std::path::PathBuf);
 impl Scratch {
     fn new() -> Result<Self, String> {
@@ -253,7 +247,6 @@ fn run_node(program: &str, input: &[u8], timeout: Duration) -> Result<Vec<u8>, S
             Err(e) => break Err(e.to_string()),
         }
     };
-    // Retire the entire build group, including a compiler holding inherited pipes.
     #[cfg(unix)]
     unsafe {
         libc::kill(-(pid as i32), libc::SIGKILL);

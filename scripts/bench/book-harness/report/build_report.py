@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-"""build_report.py report-data.json out.html — the calibration report. Every
-sentence that carries a number is computed from the data it sits above."""
 import html
 import json
 import os

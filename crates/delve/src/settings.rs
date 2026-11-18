@@ -7,14 +7,9 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
-/// The host's choices for the whole process.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Settings {
-    /// Keep the feel ledger (`ANGEL_DELVE_FEEL=1`).
     pub feel_ledger: bool,
-    /// Lay every delve floor open (`ANGEL_DELVE_OPEN=1`): one map to
-    /// explore, no doors between fights (`rules::depths`). A run takes it
-    /// when it starts (`Run::open_floors`).
     pub open_floors: bool,
 }
 
@@ -39,14 +34,9 @@ impl ScopedState {
 }
 
 thread_local! {
-    // Context scopes are intentionally thread-local: the rules reducer may
-    // temporarily install an immutable session context without changing the
-    // process-wide host settings used by legacy callers.
     static SCOPED: RefCell<ScopedState> = RefCell::new(ScopedState { next_token: 0, stack: Vec::new() });
 }
 
-/// A thread-bound temporary settings override. Nested scopes restore the
-/// previous visible value on drop, including during unwinding.
 pub struct Scope {
     token: u64,
     _thread_bound: PhantomData<Rc<()>>,
@@ -63,7 +53,6 @@ impl Drop for Scope {
     }
 }
 
-/// Temporarily override settings for this thread only.
 pub fn scoped(settings: Settings) -> Scope {
     SCOPED.with(|state| {
         let mut state = state.borrow_mut();
@@ -76,7 +65,6 @@ pub fn scoped(settings: Settings) -> Scope {
     })
 }
 
-/// Take the host's settings.
 pub fn set(settings: Settings) {
     #[cfg(any(test, feature = "testing"))]
     from_env();
@@ -84,7 +72,6 @@ pub fn set(settings: Settings) {
     OPEN_FLOORS.store(settings.open_floors, Ordering::Relaxed);
 }
 
-/// The settings in force.
 pub fn get() -> Settings {
     if let Some(settings) =
         SCOPED.with(|state| state.borrow().stack.last().map(|(_, value)| *value))
@@ -99,8 +86,6 @@ pub fn get() -> Settings {
     }
 }
 
-/// Under test, the environment stands in for a host, once, before anything
-/// a test sets.
 #[cfg(any(test, feature = "testing"))]
 fn from_env() {
     static ONCE: std::sync::Once = std::sync::Once::new();
@@ -153,7 +138,6 @@ mod tests {
             SCOPED.with(|state| state.borrow().stack.last().unwrap().0),
             1
         );
-        // Force allocation to wrap over all three live IDs; it must find 2.
         SCOPED.with(|state| state.borrow_mut().next_token = u64::MAX);
         let newer = scoped(options(true, true));
         let tokens: Vec<_> = SCOPED.with(|state| {
@@ -165,7 +149,7 @@ mod tests {
                 .collect()
         });
         assert_eq!(tokens, vec![u64::MAX, 0, 1, 2]);
-        drop(outer); // An outer scope may end before its inner scopes.
+        drop(outer);
         assert_eq!(get(), options(true, true));
         drop(newer);
         assert_eq!(get(), options(false, true));

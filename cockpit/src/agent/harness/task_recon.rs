@@ -2,8 +2,6 @@
 
 use super::*;
 
-/// The recon frame is `⠍⠊`: its pages (untrusted repository data, never
-/// instructions) are in the ledger, verbatim.
 const TASK_RECON_PREFIX: &str = "⠍⠊\n";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -35,8 +33,6 @@ fn without_code_mode_receipt(result: &str) -> &str {
         .unwrap_or(result)
 }
 
-/// The recon map, and the floor: the whole pages of the small top candidates,
-/// as `read_file` shows them, so the first edit needs no read hop.
 fn map_and_floor(body: &str) -> (String, Vec<String>) {
     let Ok(serde_json::Value::Object(mut map)) = serde_json::from_str::<serde_json::Value>(body)
     else {
@@ -64,8 +60,6 @@ fn truncate_utf8(value: &str, max_bytes: usize) -> &str {
     &value[..end]
 }
 
-/// Destroy semantic identifiers while preserving UTF-8 validity and exact byte
-/// length. Punctuation and whitespace remain as a compute/shape placebo.
 fn mask_alphanumeric_same_bytes(value: &str) -> String {
     value
         .chars()
@@ -143,8 +137,6 @@ fn task_recon_context_with(
     };
     let mut context =
         truncate_utf8(&format!("{TASK_RECON_PREFIX}{body}"), max_bytes.max(1)).to_string();
-    // The floor rides whole pages only, while they fit under the cap: a page
-    // is never cut in half.
     for page in floor {
         if context.len() + 1 + page.len() > max_bytes {
             break;
@@ -156,9 +148,6 @@ fn task_recon_context_with(
     Some(context)
 }
 
-/// Optional headless treatment. Default `off` preserves the causal baseline;
-/// `repo` injects useful evidence and `placebo` performs the exact same reads
-/// before masking their semantic content at identical byte length.
 pub(crate) fn task_recon_context(registry: &ToolRegistry, prompt: &str) -> Option<String> {
     task_recon_context_with(
         registry,

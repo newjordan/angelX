@@ -181,10 +181,6 @@ fn campaign_request_and_generated_plans_are_first_write_wins() {
 
 #[test]
 fn evaluator_consumption_ledger_separates_replay_resume_retry_and_reproduction() {
-    // These fixtures spawn raw `git` (not the env-stripping pinned command),
-    // so they hold the crate env lock: a concurrent test that sets GIT_DIR
-    // (the workspace-evidence decoy) would otherwise redirect this repo's
-    // git into a non-repository and fail these assertions at random.
     let _guard = crate::tests::env_lock();
     let root = std::env::temp_dir().join(format!(
         "angel-evaluator-consumption-{}",
@@ -349,10 +345,6 @@ fn evaluator_consumption_ledger_separates_replay_resume_retry_and_reproduction()
 
 #[test]
 fn evaluator_consumption_ledger_serializes_concurrent_resume() {
-    // These fixtures spawn raw `git` (not the env-stripping pinned command),
-    // so they hold the crate env lock: a concurrent test that sets GIT_DIR
-    // (the workspace-evidence decoy) would otherwise redirect this repo's
-    // git into a non-repository and fail these assertions at random.
     let _guard = crate::tests::env_lock();
     let root = std::env::temp_dir().join(format!(
         "angel-evaluator-consumption-concurrent-{}",
@@ -430,10 +422,6 @@ fn evaluator_consumption_ledger_serializes_concurrent_resume() {
 
 #[test]
 fn evaluator_pair_ledger_is_atomic_resumable_and_recovers_a_torn_tail() {
-    // These fixtures spawn raw `git` (not the env-stripping pinned command),
-    // so they hold the crate env lock: a concurrent test that sets GIT_DIR
-    // (the workspace-evidence decoy) would otherwise redirect this repo's
-    // git into a non-repository and fail these assertions at random.
     let _guard = crate::tests::env_lock();
     let root = std::env::temp_dir().join(format!(
         "angel-evaluator-pair-consumption-{}",
@@ -497,8 +485,6 @@ fn evaluator_pair_ledger_is_atomic_resumable_and_recovers_a_torn_tail() {
         1
     );
 
-    // A fresh execution of exactly the frozen logical sample resumes the
-    // original pair instead of increasing the cohort N.
     let resumed_inventory = make_evidence("pair-inventory", "inventory-subject");
     let resumed_outcome = make_evidence("pair-outcome", "outcome-subject");
     let resumed = consume_pair(
@@ -527,7 +513,6 @@ fn evaluator_pair_ledger_is_atomic_resumable_and_recovers_a_torn_tail() {
         .contains("slot is already frozen")
     );
 
-    // A changed stochastic output cannot occupy the already frozen slot.
     let changed = make_evidence("pair-outcome", "changed-outcome-subject");
     assert!(
         consume_pair(
@@ -590,8 +575,6 @@ fn evaluator_pair_ledger_is_atomic_resumable_and_recovers_a_torn_tail() {
         .contains("already counted in the legacy ledger")
     );
 
-    // A partial final frame is the only recoverable corruption class. It is
-    // truncated under the ledger lock before the next complete atomic pair.
     use std::io::Write as _;
     std::fs::OpenOptions::new()
         .append(true)
@@ -628,10 +611,6 @@ fn evaluator_pair_ledger_is_atomic_resumable_and_recovers_a_torn_tail() {
 
 #[test]
 fn evaluator_pair_ledger_serializes_competing_outputs_for_one_slot() {
-    // These fixtures spawn raw `git` (not the env-stripping pinned command),
-    // so they hold the crate env lock: a concurrent test that sets GIT_DIR
-    // (the workspace-evidence decoy) would otherwise redirect this repo's
-    // git into a non-repository and fail these assertions at random.
     let _guard = crate::tests::env_lock();
     let root =
         std::env::temp_dir().join(format!("angel-evaluator-pair-race-{}", std::process::id()));

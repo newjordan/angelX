@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-"""wire_connections.py <label> [<label> ...] — did each approved piece reach each
-seat's wire? Reads out/wire-<label>-<seat>-<scenario>.jsonl (wire_connections.sh)
-and prints one grid per label: a row per piece, a column per seat."""
 import glob
 import json
 import os
@@ -18,7 +15,6 @@ def text(content):
 
 
 def normalize(body):
-    """(messages as (role, text), tools as (name, description)) for either API."""
     msgs, tools = [], []
     if "messages" in body:
         for m in body["messages"]:
@@ -50,7 +46,6 @@ def load(label, seat, scenario):
 
 
 def checks(fix, loop):
-    """Each piece: True/False, or None when the scenario did not run."""
     out = {}
     if fix:
         first_msgs, first_tools = normalize(fix[0]["body"])

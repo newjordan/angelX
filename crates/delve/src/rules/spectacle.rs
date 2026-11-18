@@ -13,56 +13,32 @@
 
 use super::*;
 
-// ─── the flinch ──────────────────────────────────────────────────────────────
-
-/// Ticks a hit's pose lasts.
 pub const STRUCK: u32 = 16;
-/// A hit of at least this share of a knight's health is a heavy one.
 const HEAVY_HIT: u32 = 22;
-/// Ground a knight covers between footsteps.
 const STRIDE: f32 = 3.4;
-/// Footsteps are off: a party's steps drowned out the shots, in the host's
-/// mixer and in a browser's few-at-a-time.
 pub const FOOTSTEPS: bool = false;
-/// The fewest ticks between two of one weapon's landed-hit sounds: a volley
-/// landing tick after tick sounds as a run of hits, not a buzz. Four
-/// archers' arrows landed thirteen times in their busiest second, five
-/// ticks running, and a hit's take runs 0.26 s: one each 4 ticks keeps at
-/// most two of it sounding.
 const LANDED_EVERY: u64 = 4;
 
-// ─── the demon hand ──────────────────────────────────────────────────────────
-
-/// A fallen guardian's loot lies about it this long before the ground cracks.
 pub const LOOT_WAIT: u32 = 4 * HZ;
 pub const CRACK: u32 = 36;
 pub const RISE: u32 = 45;
 pub const GRAB: u32 = 18;
 pub const PULL: u32 = 66;
 pub const CLOSE: u32 = 30;
-/// The whole claim, from the fall to the ground shut.
 pub const CLAIM: u32 = LOOT_WAIT + CRACK + RISE + GRAB + PULL + CLOSE;
 
-/// Where a claim has got to; each number runs from 0 to 1 through its beat.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Beat {
-    /// The body lies where it fell, its loot about it.
     Lying,
-    /// The ground splits beneath it, glowing.
     Cracking(f32),
-    /// The hand climbs out of the crack.
     Rising(f32),
-    /// The claws close on the body.
     Grabbing(f32),
-    /// The hand drags the body down.
     Pulling(f32),
-    /// The ground shuts over the place.
     Closing(f32),
     Gone,
 }
 
 impl Beat {
-    /// The beat of a claim `age` ticks after the fall.
     pub fn of(age: u64) -> Beat {
         let mut left = age;
         let mut next = |len: u32| -> Option<f32> {
@@ -95,18 +71,14 @@ impl Beat {
     }
 }
 
-/// A slain guardian's body, waiting to be claimed.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Corpse {
     pub kind: EnemyKind,
-    /// Which of the run's guardians it was.
     pub boss: Option<u8>,
     pub x: f32,
     pub y: f32,
     pub born: u64,
-    /// The room it lies in: leaving it leaves the claim unseen.
     pub room: usize,
-    /// How big it was, in arena units.
     pub radius: f32,
 }
 
@@ -116,21 +88,12 @@ impl Corpse {
     }
 }
 
-// ─── the hell gate and its circles ───────────────────────────────────────────
-
-/// Ticks the gate takes to rise out of the floor.
 pub const GATE_RISE: u32 = 3 * HZ;
-/// How near a knight must stand to go through.
 const GATE_REACH: f32 = 1.9;
-/// The circle's title card shows this long.
 pub const CARD_TICKS: u32 = 6 * HZ;
-/// Each circle's monsters carry this much more health, in percent; the
-/// knights take this much more from a hit. The rest of what a circle does to
-/// a fight (its hordes, champions, embers and burnt draughts) is `hell`'s.
 const CIRCLE_HP: u32 = 18;
 const CIRCLE_HURT: u32 = 12;
 
-/// The gate at a dungeon's end.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Gate {
     pub x: f32,
@@ -140,13 +103,11 @@ pub struct Gate {
 }
 
 impl Gate {
-    /// How far up it has risen, from 0 to 1.
     pub fn risen(&self, tick: u64) -> f32 {
         (tick.saturating_sub(self.born) as f32 / GATE_RISE as f32).min(1.0)
     }
 }
 
-/// "First Circle", "Second Circle" and on.
 pub fn circle_name(n: u32) -> String {
     const ORDINALS: [&str; 12] = [
         "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth",
@@ -158,8 +119,6 @@ pub fn circle_name(n: u32) -> String {
     }
 }
 
-/// What each circle is called below its number: the old poet's nine, then
-/// the pit itself.
 pub fn circle_title(n: u32) -> &'static str {
     match n {
         1 => "Limbo",
@@ -177,18 +136,13 @@ pub fn circle_title(n: u32) -> &'static str {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Spectacle {
-    /// The latest guardian changing its pattern; a picture, never an input hold.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub phase: Option<PhaseMark>,
     pub corpses: Vec<Corpse>,
     pub gate: Option<Gate>,
-    /// 0 above; each gate passed is one circle deeper.
     pub circle: u32,
-    /// The title card of the circle just entered: when, and which.
     pub card: Option<(u64, u32)>,
-    /// Monsters up to this id already carry their circle's strength.
     pub scaled_id: u32,
-    /// The descent now under way is into the next circle, not a floor down.
     #[serde(
         default,
         skip_serializing_if = "crate::rules::runtime_state::omit",
@@ -197,7 +151,6 @@ pub struct Spectacle {
     pub circling: bool,
 }
 
-/// A brief guardian cue, timestamped like its corpse and the circle card.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PhaseMark {
     pub x: f32,
@@ -209,9 +162,6 @@ pub struct PhaseMark {
 
 pub const PHASE_MARK: u64 = 30;
 
-// ─── the watcher ─────────────────────────────────────────────────────────────
-
-/// One knight as the tick before saw them.
 pub(super) struct SeenHero {
     id: u32,
     x: f32,
@@ -225,7 +175,6 @@ pub(super) struct SeenHero {
     booby: bool,
 }
 
-/// The run as the tick before saw it, for the watcher to compare.
 pub(super) struct Seen {
     sounded: usize,
     cued: usize,
@@ -271,13 +220,10 @@ impl Run {
         }
     }
 
-    /// The circle the party is in; 0 above.
     pub fn circle(&self) -> u32 {
         self.spectacle.circle
     }
 
-    /// Once a tick, after the tick: poses, bones, claims, the gate, circles
-    /// and sounds, from what changed.
     pub(super) fn watch(&mut self, seen: Seen) {
         if self.spectacle.phase.is_some_and(|p| p.room != self.at || self.tick.saturating_sub(p.born) >= PHASE_MARK) {
             self.spectacle.phase = None;
@@ -295,8 +241,6 @@ impl Run {
         super::scratch::give_seen_foes(seen.foes);
     }
 
-    /// The nearest thing that might have struck the knight at `(x, y)`: a
-    /// monster or a hostile shot.
     fn striker(&self, x: f32, y: f32) -> Option<(f32, f32)> {
         let foes = self
             .enemies
@@ -356,17 +300,13 @@ impl Run {
             };
             hero.struck = hero.struck.saturating_sub(1);
             if before.hp > 0 && hero.hp < before.hp {
-                // A deeper circle hits harder.
                 if circle > 0 {
                     let more = (before.hp - hero.hp) * CIRCLE_HURT * circle / 100;
-                    // Still never more of them than one hit may take.
                     let least = before.hp.saturating_sub(hero.max_hp * super::hero::ONE_HIT_MOST / 100);
                     hero.hp = hero.hp.saturating_sub(more).max(least.min(hero.hp));
                 }
                 let lost = before.hp - hero.hp;
                 hero.struck = STRUCK;
-                // A damaged save can carry an hp past any kit. The compare must
-                // not overflow; mend also keeps that hp from reaching play.
                 hero.struck_big = lost.saturating_mul(100)
                     >= hero.max_hp.max(1).saturating_mul(HEAVY_HIT);
                 hero.struck_dir = strikers
@@ -398,12 +338,10 @@ impl Run {
                     sounds.push("knight_fall");
                     shake = shake.max(10);
                     if self.phase == Phase::Wiped {
-                        // The party's clock stops here: the bones land now.
                         sounds.push("bones_clatter");
                     }
                 }
             } else if before.hp > 0 && hero.hp == 0 {
-                // Fell some other way: stairs and winds aside, still bones.
                 hero.fell = tick.max(1);
                 downed.push(before.id);
                 sounds.push("knight_fall");
@@ -414,7 +352,6 @@ impl Run {
             if hero.hp > 0 {
                 hero.fell = 0;
             }
-            // What came off.
             if before.pop == 0 && hero.pop > 0 {
                 if hero.gear_was == 0 && hero.gear >= 1 {
                     sounds.push("helmet_pop");
@@ -429,7 +366,6 @@ impl Run {
             if before.spin == 0 && hero.spin > 0 {
                 sounds.push("axe_spin");
             }
-            // The booby prize took a blow and flew off.
             if before.booby && hero.booby.is_none() && hero.invulnerable > 0 {
                 sounds.push("helmet_pop");
                 sounds.push("clang");
@@ -437,7 +373,6 @@ impl Run {
             if hero.bombs < before.bombs {
                 sounds.push("bomb_toss");
             }
-            // Footsteps.
             let moved = (hero.x - before.x).hypot(hero.y - before.y);
             if hero.hp > 0
                 && !hero.stone
@@ -458,7 +393,6 @@ impl Run {
             } else {
                 hero.stride = 0.0;
             }
-            // A card played from the hand.
             if hero.hand.len() < before.hand.len()
                 && let Some(card) = before
                     .hand
@@ -477,27 +411,21 @@ impl Run {
     }
 
     fn watch_foes(&mut self, seen: &Seen) {
-        // A hit landed: the sound of the weapon that landed it.
         let struck = seen.foes.iter().any(|&(id, hp, _)| {
             self.enemies.iter().find(|e| e.id == id).is_none_or(|e| e.hp < hp)
         });
         if struck && let Some((by, sound)) = self.landed_sound(seen) {
             let fresh = &mut self.sounds[seen.sounded..];
-            // The plain thud gives way to the weapon's own.
             let plain = fresh.iter().filter(|&&s| s == "hit").count();
             if plain > 0 || fresh.is_empty() {
                 let kept: Vec<&'static str> = fresh.iter().copied().filter(|&s| s != "hit").collect();
                 self.sounds.truncate(seen.sounded);
                 self.sounds.extend(kept);
             }
-            // A stroke that already rang its own hit (`arms`), as heavy as
-            // it landed (`melee::CONTACT_SOUNDS`), or a spell that broke in
-            // its own family's way (`vfx::IMPACT_SOUNDS`) is not rung twice.
             let rung = self.sounds[seen.sounded..]
                 .iter()
                 .any(|s| *s == sound || melee::CONTACT_SOUNDS.contains(s) || vfx::IMPACT_SOUNDS.contains(s));
             if !rung && sound == super::bard::HIT {
-                // The Bard's hi-hat is part of its groove: its own ears only.
                 self.seat_sound_every(by, sound, LANDED_EVERY);
             } else if !rung {
                 self.sound_every(sound, LANDED_EVERY);
@@ -513,8 +441,6 @@ impl Run {
         }
     }
 
-    /// What a landed hit sounded like, by the weapon nearest the foe, and
-    /// whose weapon that was.
     fn landed_sound(&self, seen: &Seen) -> Option<(u32, &'static str)> {
         let hurt: Vec<(f32, f32)> = seen
             .foes
@@ -543,7 +469,6 @@ impl Run {
         } else if hero.forged.is_none()
             && (hero.weapon == Weapon::Notes || super::classes::of(hero).is_some_and(|c| c.name == "Bard"))
         {
-            // The Bard's notes land on an open hi-hat, over the groove.
             super::bard::HIT
         } else if hero.forged.as_ref().is_some_and(|w| w.bolt.is_some())
             || super::classes::shot_look(hero).is_some()
@@ -561,8 +486,6 @@ impl Run {
         }))
     }
 
-    /// What was picked up off the floor this tick: gold has a sound of its
-    /// own.
     fn watch_items(&mut self, seen: &Seen) {
         if self.at != seen.at {
             return;
@@ -589,9 +512,6 @@ impl Run {
         }
     }
 
-    // ── the claim ───────────────────────────────────────────────────────
-
-    /// Bodies of the guardians that just fell, to be claimed.
     pub(super) fn leave_corpses(
         &mut self,
         fallen: &[(EnemyKind, f32, f32)],
@@ -679,9 +599,6 @@ impl Run {
         self.sounds.extend(sounds);
     }
 
-    // ── the gate ────────────────────────────────────────────────────────
-
-    /// A fiery gate rises where a dungeon ends, beside the way home.
     pub(super) fn raise_hell_gate(&mut self) {
         let room = self.room();
         let (x, y) = (room.width() / 2.0 + 11.0, room.height() / 2.0 + 6.0);
@@ -708,8 +625,6 @@ impl Run {
         }
     }
 
-    /// Whether a knight has stepped into the risen gate: the party goes down
-    /// to the next circle.
     pub(super) fn step_into_gate(&mut self) -> bool {
         let Some(g) = self.spectacle.gate else {
             return false;
@@ -735,8 +650,6 @@ impl Run {
         self.descend();
         self.spectacle.circling = false;
         if self.dungeon.depth != floor || self.crossroads.is_some() {
-            // A circle is the delve begun again: its privies (and the toll
-            // for passing them by) are new too.
             for hero in self.players.values_mut() {
                 hero.relieved = None;
                 hero.pit.visits = 0;
@@ -750,7 +663,6 @@ impl Run {
         self.cues.push(format!("circle:{circle}"));
     }
 
-    /// Monsters new to the floor carry the circle's strength.
     fn strength_of_circles(&mut self) {
         let circle = self.spectacle.circle;
         let from = self.spectacle.scaled_id;
@@ -765,8 +677,6 @@ impl Run {
         }
     }
 
-    /// The title card of the circle just entered, while it shows: the
-    /// circle, and how far into the card's time.
     pub fn circle_card(&self) -> Option<(u32, f32)> {
         let (at, circle) = self.spectacle.card?;
         let age = self.tick.saturating_sub(at);
@@ -774,7 +684,6 @@ impl Run {
     }
 }
 
-/// The sound a played card makes: a draught is drunk, holy water splashed.
 fn played_sound(card: &Card) -> &'static str {
     let name = card.name.to_lowercase();
     if name.contains("holy") {
@@ -792,7 +701,6 @@ fn played_sound(card: &Card) -> &'static str {
 
 #[cfg(any(test, feature = "testing"))]
 impl Run {
-    /// Hurt knight `id` as a monster does, inside a tick the watcher sees.
     pub fn hurt_for_test(&mut self, id: u32, damage: u32) {
         let seen = self.seen();
         if let Some(hero) = self.players.get_mut(&id) {

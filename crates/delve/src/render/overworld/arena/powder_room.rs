@@ -22,12 +22,9 @@ mod set;
 pub(super) mod walls;
 pub(crate) mod words;
 
-/// A test's switch to draw the room as it was before the store (for the
-/// frame-time bench's other side).
 #[cfg(test)]
 pub(crate) static OFF: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-/// The powder store in the room the party stands in.
 fn here(run: &Run) -> Option<&Powder> {
     #[cfg(test)]
     if OFF.load(std::sync::atomic::Ordering::Relaxed) {
@@ -36,9 +33,6 @@ fn here(run: &Run) -> Option<&Powder> {
     run.powder.as_ref().filter(|p| p.room == run.at)
 }
 
-/// The milliseconds each part of the store takes to draw one frame for
-/// `focus`, for the frame-time bench: the live set and the blasts under the
-/// figures, the blasts over them, the strip and the moments.
 #[cfg(test)]
 pub(crate) fn profile(run: &Run, focus: Option<u32>) -> [(&'static str, f64); 3] {
     use std::time::Instant;
@@ -59,26 +53,18 @@ pub(crate) fn profile(run: &Run, focus: Option<u32>) -> [(&'static str, f64); 3]
     out
 }
 
-/// Whether the room the party stands in is a powder store (its stone and
-/// crates are laid by `walls`, with the room's scenery).
 pub(super) fn walled(run: &Run) -> bool {
     here(run).is_some()
 }
 
-/// Whether the skills bar keeps out of the view while the store is played:
-/// the little map and the strip have the edges.
 pub(super) fn tucks_tray(run: &Run) -> bool {
     here(run).is_some_and(|p| !p.done || finish::age(p, run.tick as u32).is_some())
 }
 
-/// How far down the view the top marks reach, for boards that settle
-/// under them.
 pub(super) fn strip_bottom(run: &Run) -> Option<i32> {
     here(run).map(|_| hud::BOTTOM)
 }
 
-/// The store's set, live, over the scenery and under the figures: kegs and
-/// their lanes, soot, lanterns, and the blasts' light and rings on the stone.
 pub(super) fn floor(cv: &mut Img, run: &Run, focus: Option<u32>, view: (i32, i32)) {
     let Some(p) = here(run) else {
         return;
@@ -87,7 +73,6 @@ pub(super) fn floor(cv: &mut Img, run: &Run, focus: Option<u32>, view: (i32, i32
     finish::ground(cv, run, p, focus, view);
 }
 
-/// What the blasts do, over the figures (room pixels).
 pub(super) fn over(cv: &mut Img, run: &Run, focus: Option<u32>, view: (i32, i32)) {
     let Some(p) = here(run) else {
         return;
@@ -97,9 +82,6 @@ pub(super) fn over(cv: &mut Img, run: &Run, focus: Option<u32>, view: (i32, i32)
     finish::over(cv, run, p, focus, view);
 }
 
-/// The view's marks: the strip and the store's bar, the little map and the
-/// moments over the view; once the minute is out, the live finish and then
-/// the yard.
 pub(super) fn screen(over: &mut Img, run: &Run, focus: Option<u32>, origin: (i32, i32)) {
     let Some(p) = here(run) else {
         return;
@@ -116,7 +98,6 @@ pub(super) fn screen(over: &mut Img, run: &Run, focus: Option<u32>, origin: (i32
     hud::strip(&mut led, over, run, p, focus);
     hud::minimap(over, run, p, focus, origin);
     hud::hand(over, p, focus, now);
-    // Once the minute is out the finish has the screen to itself.
     if p.show.ended.is_none() {
         moments::last_seconds(&mut led, over, p);
     }

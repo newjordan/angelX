@@ -1,17 +1,12 @@
 use super::*;
 
-/// A mock tool host: a few arithmetic/echo "tools" so the runtime can be
-/// exercised end-to-end without a ToolRegistry.
 fn mock(name: &str, args: &Value) -> Result<String, String> {
     match name {
-        // echo: return the args back as compact JSON.
         "echo" => Ok(args.to_string()),
-        // double: {n} -> n*2 as a string.
         "double" => {
             let n = args.get("n").and_then(|v| v.as_i64()).unwrap_or(0);
             Ok((n * 2).to_string())
         }
-        // boom: always errors (to test catchable throws).
         "boom" => Err("kaboom".to_string()),
         other => Err(format!("unknown tool: {other}")),
     }
@@ -41,7 +36,6 @@ fn run_ok(script: &str) -> Outcome {
     .expect("run ok")
 }
 
-/// Like `mock`, plus a `sleep` tool so concurrency is observable.
 fn slow_mock(name: &str, args: &Value) -> Result<String, String> {
     if name == "sleep" {
         let ms = args.get("ms").and_then(|v| v.as_u64()).unwrap_or(0);
@@ -67,7 +61,6 @@ fn batch_preserves_order_and_captures_errors() {
 
 #[test]
 fn batch_runs_concurrently() {
-    // 8 × 50ms run concurrently (cap 16) → well under the 400ms serial sum.
     let specs: Vec<(String, Value)> = (0..8)
         .map(|_| ("sleep".to_string(), serde_json::json!({ "ms": 50 })))
         .collect();
@@ -84,7 +77,6 @@ fn batch_runs_concurrently() {
 
 #[test]
 fn batch_respects_concurrency_cap() {
-    // cap 2 over 4 × 50ms → ~2 waves ≈ 100ms+, not the 200ms full-serial.
     let specs: Vec<(String, Value)> = (0..4)
         .map(|_| ("sleep".to_string(), serde_json::json!({ "ms": 50 })))
         .collect();
@@ -179,8 +171,6 @@ fn malformed_batch_schedule_fails_closed_to_declaration_order() {
 
 #[test]
 fn batch_from_js_returns_structured_results() {
-    // End-to-end through V8: batch() returns parsed objects, in order, with
-    // per-item ok/error, all in one run.
     let out = run_ok(
         "const r = batch([{tool:'double',args:{n:5}},{tool:'boom'},{tool:'double',args:{n:6}}]); \
              return r.map(x => x.ok ? x.output : 'ERR').join(',');",
@@ -211,8 +201,6 @@ fn batch_scheduler_can_force_effects_serial_in_declaration_order() {
 
 #[test]
 fn batch_rejects_oversized_spec_before_dispatch() {
-    // YOLO lifts the construction cap (`usize::MAX`); pin it off so this
-    // checks the ordinary 48-item bound, not the inherited operator profile.
     let _lock = crate::tests::env_lock();
     let _yolo = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
     let _smart = crate::tests::TestEnvGuard::unset("ANGEL_YOLO_SMART");
@@ -232,10 +220,6 @@ fn batch_rejects_oversized_spec_before_dispatch() {
     );
 }
 
-/// Scenario: a realistic "mass-test" program — map inputs to specs, run them
-/// concurrently with `batch()` (one failure mixed in), aggregate the
-/// successes, return JSON. Exercises loop + map + batch + per-item error +
-/// JSON return in a single turn (the marquee code-mode use case).
 #[test]
 fn mass_test_aggregation_program() {
     let out = run_ok(

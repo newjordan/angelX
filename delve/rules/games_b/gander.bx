@@ -1,6 +1,3 @@
-# crates/delve/src/rules/pastimes/gander.rs — Gander Joust: one hall, every
-# seat riding together; positions are 1/256 tiles (i32).
-
 def pastimes.gander.LEDGE_X0(+i: U32) -> U32:
   match i:
     case 0:
@@ -28,7 +25,6 @@ def pastimes.gander.LEDGE_ROW(+i: U32) -> U32:
     case _:
       8
 
-# WAVES: (ticks until it arrives, lane row, column it comes in from).
 def pastimes.gander.WAVE_DOWN(+i: U32) -> U32:
   match i:
     case 0:
@@ -69,7 +65,6 @@ def pastimes.gander.rival(+i: U32) -> J.Val:
   r1: J.Val = gb.si(gb.si(gb.si(gb.si(r0, "x", (from * 256 : U32)), "y", (lane * 256 : U32)), "dx", Bool.pick(U32, right, RS.i_neg(40), 40)), "dy", 0)
   gb.si(gb.su(gb.su(gb.si(r1, "face", Bool.pick(U32, right, RS.i_neg(1), 1)), "clash", 0), "down", pastimes.gander.WAVE_DOWN(i)), "lane", (lane * 256 : U32))
 
-# Gander::new(seats)
 def pastimes.gander.Gander.new(+seats: List<&2, U32>) -> J.Val:
   n: U32 = U32.min(U32.from_nat(List.length(&2, U32, seats)), 6)
   ks: List<&2, J.Val> = pastimes.gander.knights(List.take(&2, U32, seats, U32.to_nat(n)), 0)
@@ -91,8 +86,6 @@ def pastimes.gander.zeros(+n: U32) -> List<&2, J.Val>:
     case _:
       J.JU{0} <> pastimes.gander.zeros((n - 1 : U32))
 
-# ---- accessors over {run, round, g} ------------------------------------------------
-
 def pastimes.gander.rd(+g: J.Val, +i: U32, +k: String) -> U32:
   gb.i(J.nth(J.get(g, "riders"), i), k)
 
@@ -111,7 +104,6 @@ def pastimes.gander.cg(+c: J.Val) -> J.Val:
 def pastimes.gander.with_g(+c: J.Val, +g: J.Val) -> J.Val:
   J.set(c, "g", g)
 
-# The ledge a rider rests on (its top row in 1/256 tiles), or 0.
 def pastimes.gander.resting_on(+x: U32, +y: U32, +i: U32) -> U32:
   match i:
     case 3:
@@ -122,8 +114,6 @@ def pastimes.gander.resting_on(+x: U32, +y: U32, +i: U32) -> U32:
         row
       else:
         pastimes.gander.resting_on(x, y, (i + 1 : U32))
-
-# ---- Run::tick_gander ----------------------------------------------------------------
 
 def pastimes.gander.Run.tick_gander(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
   g: J.Val = J.get(round, "gander")
@@ -151,8 +141,6 @@ def pastimes.gander.any_seated(+seats: List<&2, U32>, +elig: List<&2, J.Val>) ->
     case Con{s: U32, t: List<&2, U32>}:
       Bool.or(pastimes.has_el(elig, s), pastimes.gander.any_seated(t, elig))
 
-# ---- the riders' turn -----------------------------------------------------------------------
-
 def pastimes.gander.riders_turn(+c: J.Val, +inputs: J.Val, +tapped: List<&2, U32>, +count: U32, +i: U32) -> J.Val:
   if U32.is_ge(i, (count + 3 : U32)):
     c
@@ -173,7 +161,6 @@ def pastimes.gander.rider_turn(+c: J.Val, +inputs: J.Val, +tapped: List<&2, U32>
   else:
     pastimes.gander.fly(c1, inputs, tapped, count, i, knight)
 
-# A downed rival counts to its return, then comes in from its side.
 def pastimes.gander.wait_wave(+c: J.Val, +count: U32, +i: U32) -> J.Val:
   g: J.Val = pastimes.gander.cg(c)
   down: U32 = (pastimes.gander.rd(g, i, "down") - 1 : U32)
@@ -187,7 +174,6 @@ def pastimes.gander.wait_wave(+c: J.Val, +count: U32, +i: U32) -> J.Val:
   else:
     pastimes.gander.with_g(c, g1)
 
-# The knight nearest in x that is not stunned and is above the tar.
 def pastimes.gander.near_knight(+g: J.Val, +count: U32, +x: U32, +k: U32, +best: U32, +bd: U32) -> U32:
   if U32.is_ge(k, count):
     best
@@ -227,7 +213,6 @@ def pastimes.gander.fly(+c: J.Val, +inputs: J.Val, +tapped: List<&2, U32>, +coun
   g1: J.Val = pastimes.gander.wr(pastimes.gander.wr(pastimes.gander.wr(pastimes.gander.wr(pastimes.gander.wr(g, i, "dy", dy4), i, "x", x1), i, "y", y3), i, "dx", dx2), i, "face", face)
   pastimes.gander.with_g(c1, g1)
 
-# Landing on a ledge from above, or standing still on one: (y, dy, dx).
 def pastimes.gander.land(+x: U32, +before: U32, +y: U32, +dy: U32, +dx: U32, +k: U32) -> U32 & (U32 & U32):
   if RS.i_gt(dy, 0):
     pastimes.gander.land.ledges(x, before, y, dy, dx, 0)
@@ -245,8 +230,6 @@ def pastimes.gander.land.ledges(+x: U32, +before: U32, +y: U32, +dy: U32, +dx: U
     top: U32 = (pastimes.gander.LEDGE_ROW(k) * 256 : U32)
     hit: Bool = Bool.and(Bool.and(RS.i_le(before, top), RS.i_ge(y, top)), Bool.and(RS.i_ge(x, (pastimes.gander.LEDGE_X0(k) * 256 : U32)), RS.i_le(x, (pastimes.gander.LEDGE_X1(k) * 256 : U32))))
     pastimes.gander.land.ledges(x, before, Bool.pick(U32, hit, top, y), Bool.pick(U32, hit, 0, dy), Bool.pick(U32, hit, RS.i_div(RS.i_mul(dx, 3), 4), dx), (k + 1 : U32))
-
-# ---- the tar -----------------------------------------------------------------------------------
 
 def pastimes.gander.tar(+c: J.Val, +count: U32) -> J.Val:
   g: J.Val = pastimes.gander.cg(c)
@@ -268,7 +251,6 @@ def pastimes.gander.tar(+c: J.Val, +count: U32) -> J.Val:
       frame: U32 = gb.ssub(gb.u(hand, "frame"), 1)
       pastimes.gander.with_g(c, J.set(g, "hand", Bool.pick(J.Val, U32.is_eq(frame, 0), J.JNull{}, gb.su(hand, "frame", frame))))
 
-# The first rider on the tar (not stunned, not down, low enough), or 100.
 def pastimes.gander.grabbed(+g: J.Val, +i: U32) -> U32:
   if U32.is_ge(i, J.len(J.get(g, "riders"))):
     100
@@ -292,8 +274,6 @@ def pastimes.gander.tar_takes(+c: J.Val, +i: U32, +knight: Bool) -> J.Val:
 def pastimes.gander.mistake_ctx(+c: J.Val) -> J.Val:
   J.set(c, "round", pastimes.mistake(J.get(c, "round")))
 
-# felled: a unhorsed rider's egg drops on the ledge it was over, if that
-# ledge has none yet.
 def pastimes.gander.felled(+c: J.Val, +v: U32) -> J.Val:
   g: J.Val = pastimes.gander.cg(c)
   x: U32 = pastimes.gander.rd(g, v, "x")
@@ -327,16 +307,12 @@ def pastimes.gander.egg_on(+es: List<&2, J.Val>, +row: U32) -> Bool:
     case Con{e: J.Val, t: List<&2, J.Val>}:
       Bool.or(U32.is_eq(gb.u(e, "row"), row), pastimes.gander.egg_on(t, row))
 
-# ---- collisions --------------------------------------------------------------------------------------
-
-# Whether rider i may take part in a clack this moment.
 def pastimes.gander.free(+g: J.Val, +i: U32) -> Bool:
   Bool.and(Bool.and(U32.is_eq(pastimes.gander.rd(g, i, "stun"), 0), U32.is_eq(pastimes.gander.rd(g, i, "down"), 0)), U32.is_eq(pastimes.gander.rd(g, i, "clash"), 0))
 
 def pastimes.gander.touching(+g: J.Val, +a: U32, +b: U32) -> Bool:
   Bool.and(U32.is_lt(RS.u_abs_diff(pastimes.gander.rd(g, a, "x"), pastimes.gander.rd(g, b, "x")), 200), U32.is_lt(RS.u_abs_diff(pastimes.gander.rd(g, a, "y"), pastimes.gander.rd(g, b, "y")), 176))
 
-# The pairs touching now, as a*8+b in ascending order.
 def pastimes.gander.pairs(+g: J.Val, +n: U32, +a: U32, +b: U32, +acc: List<&2, U32>) -> List<&2, U32>:
   if U32.is_ge(a, n):
     acc
@@ -378,8 +354,6 @@ def pastimes.gander.clack_pair(+c: J.Val, +a: U32, +b: U32) -> J.Val:
         g1: J.Val = pastimes.gander.wr(pastimes.gander.wr(pastimes.gander.wru(pastimes.gander.wru(g, a, "clash", b), b, "clash", a), a, "dx", da), b, "dx", db)
         pastimes.gander.with_g(c, g1)
 
-# `w` is above `v`: a knight winning clacks; a rival winning unhorses a knight
-# or knocks another rival down.
 def pastimes.gander.decide(+c: J.Val, +w: U32, +v: U32) -> J.Val:
   g: J.Val = pastimes.gander.cg(c)
   if U32.is_eq(pastimes.gander.rd(g, w, "who"), 0):
@@ -417,7 +391,6 @@ def pastimes.gander.unhorse_knight(+c: J.Val, +v: U32) -> J.Val:
 def pastimes.mistake_ctx(+c: J.Val) -> J.Val:
   J.set(c, "round", pastimes.mistake(J.get(c, "round")))
 
-# A clash ends when the other is gone or the riders have drawn apart.
 def pastimes.gander.unclash(+c: J.Val, +i: U32) -> J.Val:
   g: J.Val = pastimes.gander.cg(c)
   if U32.is_ge(i, J.len(J.get(g, "riders"))):
@@ -426,8 +399,6 @@ def pastimes.gander.unclash(+c: J.Val, +i: U32) -> J.Val:
     cl: U32 = pastimes.gander.rd(g, i, "clash")
     gone: Bool = Bool.and(U32.is_ne(cl, 0), Bool.or(Bool.or(U32.is_ge(cl, J.len(J.get(g, "riders"))), U32.is_gt(pastimes.gander.rd(g, Bool.pick(U32, U32.is_ge(cl, J.len(J.get(g, "riders"))), 0, cl), "down"), 0)), Bool.not(pastimes.gander.touching(g, i, Bool.pick(U32, U32.is_ge(cl, J.len(J.get(g, "riders"))), 0, cl)))))
     pastimes.gander.unclash(pastimes.gander.with_g(c, Bool.pick(J.Val, gone, pastimes.gander.wru(g, i, "clash", 0), g)), (i + 1 : U32))
-
-# ---- the eggs -------------------------------------------------------------------------------------------
 
 def pastimes.gander.eggs_turn(+c: J.Val, +count: U32) -> J.Val:
   g: J.Val = pastimes.gander.cg(c)
@@ -438,7 +409,6 @@ def pastimes.gander.eggs_turn(+c: J.Val, +count: U32) -> J.Val:
   else:
     c1
 
-# Eggs from the last to the first; the lowest to run out hatches.
 def pastimes.gander.eggs_each(+c: J.Val, +count: U32, +k: U32, +hatch: U32) -> J.Val & U32:
   if U32.is_eq(k, 0):
     (c, hatch)
@@ -486,7 +456,6 @@ def pastimes.gander.drop_nth(+xs: List<&2, J.Val>, +i: U32) -> List<&2, J.Val>:
       else:
         h <> pastimes.gander.drop_nth(t, (i - 1 : U32))
 
-# The first rider (not stunned, not down) touching an egg, or 100.
 def pastimes.gander.egg_touch(+g: J.Val, +ex: U32, +row: U32, +i: U32) -> U32:
   if U32.is_ge(i, J.len(J.get(g, "riders"))):
     100
@@ -497,7 +466,6 @@ def pastimes.gander.egg_touch(+g: J.Val, +ex: U32, +row: U32, +i: U32) -> U32:
     else:
       pastimes.gander.egg_touch(g, ex, row, (i + 1 : U32))
 
-# An egg hatches into the first downed rival's slot (or the first rival's).
 def pastimes.gander.hatch(+c: J.Val, +count: U32, +k: U32) -> J.Val:
   g: J.Val = pastimes.gander.cg(c)
   e: J.Val = J.nth(J.get(g, "eggs"), k)
@@ -510,7 +478,6 @@ def pastimes.gander.hatch(+c: J.Val, +count: U32, +k: U32) -> J.Val:
   g4: J.Val = pastimes.gander.wru(pastimes.gander.wru(pastimes.gander.wru(g3, slot, "stun", 0), slot, "clash", 0), slot, "down", 0)
   J.set(pastimes.gander.with_g(c, g4), "run", gb.found(gb.sound(J.get(c, "run"), "clang"), 0, "AN EGG HATCHED! A RIVAL RIDES."))
 
-# The first rival slot (count..count+3) that is down, else `count`.
 def pastimes.gander.down_slot(+g: J.Val, +count: U32, +i: U32) -> U32:
   if U32.is_ge(i, (count + 3 : U32)):
     count
@@ -519,8 +486,6 @@ def pastimes.gander.down_slot(+g: J.Val, +count: U32, +i: U32) -> U32:
       i
     else:
       pastimes.gander.down_slot(g, count, (i + 1 : U32))
-
-# ---- the heroes follow their riders -----------------------------------------------------------------------
 
 def pastimes.gander.seat_heroes(+c: J.Val, +i: U32) -> J.Val:
   g: J.Val = pastimes.gander.cg(c)

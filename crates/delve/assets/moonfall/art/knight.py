@@ -1,11 +1,3 @@
-"""The knights of Moonfall: a tall closed helm over a tabard in the seat's
-house colour, a plume and a cloak of it, steel at the shoulders and shins.
-The three masks change the helm: bare (plain steel), Swift (pale blue steel,
-white wings), Stout (bronze, heavy and brow-barred).
-
-The house colour is drawn in marker characters (`#` shadow, `&` base, `*` lit)
-and the stage swaps them for the seat's ramp when it builds its bank, so one
-set of frames serves all six seats. Same canvas and rig as the villagers."""
 from rig import *
 
 HOUSE = ["#", "&", "*"]
@@ -23,11 +15,9 @@ def helm(sp, c, d, kind, ph, bob, x):
     if d == "left":
         hx = CX - 0.5
         sp.paint(ell(hx + 0.5, hy - 0.2, rx - 0.1, 4.2), ramp, rim=True, fall=False)
-        # the visor: a dark slit with an eye in it
         sp.fill(rect(int(hx - 4), int(hy + 0.2), 4, 1), "k")
         px(sp, hx - 3, hy + 0.2, "w")
         sp.fill(rect(int(hx - 3), int(hy + 1.2), 3, 1), ramp[0])
-        # plume streaming back
         for i, (dx, dy) in enumerate([(1, -5), (2, -6), (3, -6), (4, -6), (5, -5), (5, -4)]):
             px(sp, hx + dx, hy + dy, HOUSE[2] if i < 3 else HOUSE[1])
         px(sp, hx + 2, hy - 5, HOUSE[1])
@@ -51,7 +41,6 @@ def helm(sp, c, d, kind, ph, bob, x):
         px(sp, CX - 2, hy + 0.2, "w"); px(sp, CX + 1, hy + 0.2, "w")
         sp.fill(rect(int(CX), int(hy - 3.5), 1, 3), ramp[0])
         sp.fill(rect(int(CX - 2), int(hy + 1.2), 5, 1), ramp[0])
-        # the plume, a crest of the house's colour over the crown
         for dx, dy, ch in [(0, -5, HOUSE[2]), (1, -6, HOUSE[2]), (2, -6, HOUSE[1]), (3, -5, HOUSE[1]), (-1, -5, HOUSE[1]), (0, -6, HOUSE[1])]:
             px(sp, CX + dx, hy + dy, ch)
         if c.mask == "swift":
@@ -68,7 +57,6 @@ def cloak(sp, c, d, kind, ph, bob, x):
     top = c.top + bob
     fl = x.get("flare", 0)
     if d == "down":
-        # a cloak edge showing past each shoulder
         sp.paint(poly([(CX - c.sh - 1.2 - fl, top + 1), (CX + c.sh + 1.2 + fl, top + 1), (CX + c.sh + 2.0 + fl, c.hem + 1), (CX - c.sh - 2.0 - fl, c.hem + 1)]), HOUSE, rim=False, fall=False)
     elif d == "up":
         sp.paint(poly([(CX - c.sh - 0.6, top), (CX + c.sh + 0.6, top), (CX + c.sh + 1.4 + fl, c.hem + 3), (CX - c.sh - 1.4 - fl, c.hem + 3)]), HOUSE, rim=True, fall=False)
@@ -80,12 +68,10 @@ def kit(sp, c, d, kind, ph, bob, x, hands):
     top = c.top + bob
     ramp = MASKS[c.mask]
     if d == "down":
-        # the house colour is the tabard's front; a crest and a belt
         sp.paint(poly([(CX - 2.6, top + 1), (CX + 2.6, top + 1), (CX + 3.4, c.hem), (CX - 3.4, c.hem)]), HOUSE, rim=True, fall=False)
         sp.fill(rect(int(CX - 3), c.hem - 1, 7, 1), HOUSE[0])
         px(sp, CX - 0.5, top + 4, "6"); px(sp, CX + 0.5, top + 4, "6") if False else None
         sp.fill(rect(int(CX - 1), top + 3, 2, 3), "6")
-        # steel at the shoulders
         for side in (-1, 1):
             sp.paint(rect(int(CX + side * (c.sh + 0.1) - (1 if side < 0 else 0)) - 1, top - 0, 3, 2), ramp, rim=True, fall=False)
     elif d == "up":
@@ -132,7 +118,6 @@ def walk(mask, d, ph):
 
 
 def roll(mask, d, ph):
-    """A sidestep: a crouch, a hop with the cloak out, a landing."""
     c = KNIGHTS[mask]
     lift = [0, 3, 1][ph]
     flare = [0, 2, 1][ph]
@@ -151,12 +136,10 @@ def cheer(mask, ph):
 
 
 def down(mask, ph):
-    """Snuffed out: lying where they fell, the plume and cloak spread."""
     ramp = MASKS[mask]
     sp = Sprite(W, H)
     b = ph % 2
     y0 = 19
-    # a cloak spread under them, the tabard along it, the helm at one end
     sp.paint(ell(9, y0 + 3, 8.0, 3.2), HOUSE, rim=True, fall=False)
     sp.paint(ell(9.5, y0 + 2, 5.2, 2.6), ["K", "g", "j"], rim=True, fall=False)
     sp.paint(ell(9.5, y0 + 2, 3.6, 2.0 - 0 * b), HOUSE, rim=True, fall=False)

@@ -9,7 +9,6 @@
 use crate::ui::viz::agentviz::{ActivitySnapshot, SeatState};
 use crate::ui::viz::council_table::Deed;
 
-/// The table seats sixteen; further seats are counted, not drawn.
 pub const MAX_SEATS: usize = 16;
 pub const MAX_STAGE_BYTES: usize = 64;
 pub const MAX_SEAT_LABEL_BYTES: usize = 48;
@@ -17,11 +16,8 @@ pub const MAX_SEAT_LABEL_BYTES: usize = 48;
 #[derive(Clone, Debug)]
 pub struct CouncilPresentation {
     pub stage: String,
-    /// Seats beyond the sixteen the table can show.
     pub omitted_seats: usize,
-    /// The seats at the table, in slot order (sixteen at most).
     pub seats: Vec<CouncilSeat>,
-    /// What the centre of the table shows for this stage.
     pub deed: Deed,
 }
 
@@ -31,8 +27,6 @@ pub struct CouncilSeat {
     pub state: SeatState,
 }
 
-/// The stage the table is currently presenting, folded from the activity
-/// signal: it tracks every sequence bump.
 #[derive(Clone, Debug)]
 struct ActiveStage {
     stage: String,
@@ -40,16 +34,13 @@ struct ActiveStage {
     seats: Vec<CouncilSeat>,
 }
 
-/// Follows the council for the painted Round Table.
 pub struct Council {
-    /// Kitty-capable: the panel follows the council.
     live: bool,
     observed_sequence: Option<u64>,
     active_stage: Option<ActiveStage>,
 }
 
 impl Council {
-    /// Live only for a Kitty-capable interactive viewer.
     pub fn discover(kitty_capable: bool) -> Self {
         if cfg!(test) || !kitty_capable {
             return Self::with_live(false);
@@ -57,7 +48,6 @@ impl Council {
         Self::painted()
     }
 
-    /// The painted station table follows the council.
     pub fn painted() -> Self {
         Self::with_live(true)
     }
@@ -70,14 +60,10 @@ impl Council {
         }
     }
 
-    /// A7: without Kitty the panel is inert — skip activity locks and
-    /// stage folding on the UI advance hot path.
     pub fn is_live(&self) -> bool {
         self.live
     }
 
-    /// One UI tick: follow the council when the activity moved (the stage is
-    /// cloned only then).
     pub fn tick(&mut self) {
         if !self.live {
             return;
@@ -87,9 +73,6 @@ impl Council {
         }
     }
 
-    /// Fold a new activity revision into the council: refresh the presented
-    /// stage and its seats (a seat-state update re-publishes the same stage
-    /// under a newer sequence).
     fn note_activity(&mut self, activity: &ActivitySnapshot) {
         if self.observed_sequence == Some(activity.sequence) {
             return;
@@ -130,7 +113,6 @@ impl Council {
         Self::council_for_test(stage, &states)
     }
 
-    /// A painted-table council seated with `states`, labelled `seat 1`….
     #[cfg(test)]
     pub fn council_for_test(stage: &str, states: &[SeatState]) -> Self {
         let mut council = Self::painted();

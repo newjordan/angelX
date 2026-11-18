@@ -14,13 +14,9 @@
 use super::*;
 use std::collections::BTreeSet;
 
-/// How long the party waits once the first knight asks: five seconds.
 pub const AGAIN_WAIT: u32 = 5 * HZ;
-/// With nobody asking, the verdict stands this long and then the party
-/// goes back anyway: a fallen party is never left on the board.
 pub const VERDICT_HOLD: u32 = 10 * HZ;
 
-/// Who has asked to go back, and the ticks left before the party goes.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Again {
@@ -29,13 +25,10 @@ pub struct Again {
 }
 
 impl Run {
-    /// The run has fallen or is won: its verdict stands on the board.
     pub fn over(&self) -> bool {
         matches!(self.phase, Phase::Won | Phase::Wiped)
     }
 
-    /// Knight `id` asks to go back to the kingdom: only once the run is
-    /// over, and only a knight whose player is here.
     pub fn ask_again(&mut self, id: u32) {
         if !self.over() || self.players.get(&id).is_none_or(|h| h.away || h.absent) {
             return;
@@ -45,9 +38,6 @@ impl Run {
         again.left = again.left.min(AGAIN_WAIT);
     }
 
-    /// One tick of the wait: whether the party goes now, every player here
-    /// having asked or the wait having run out. A run playing again (a host
-    /// who started it another way) forgets the asking.
     pub fn again_due(&mut self) -> bool {
         if !self.over() {
             self.again = None;

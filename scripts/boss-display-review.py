@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Bounded sheets from source-sized rooms and actual emitted cell buffers."""
 import argparse,json,math
 from pathlib import Path
 from PIL import Image,ImageDraw,ImageFont

@@ -148,7 +148,6 @@ fn main() {
     )
     .unwrap();
     println!("{}", report);
-    // Verify the released character's actual surface placement and dialogue.
     r.walk_kingdom(Some(angel_delve::rules::forest_road::ENT_TILE));
     r.step(&BTreeMap::from([(1, angel_delve::rules::Input {
         interact: true, ..Default::default()

@@ -2,22 +2,11 @@
 
 use super::*;
 
-// ---------------------------------------------------------------------------
-// Tailnet-dynamic fleet resolution is opt-in. When enabled, resolve club URLs
-// from `tailscale status --json` by the host's DNSName label. A host that's
-// absent or offline is not auto-selected. An explicit `ANGEL_<LABEL>_URL`
-// always wins, and the ordinary fallback is loopback rather than a private
-// deployment address.
-// ---------------------------------------------------------------------------
-
-/// A tailnet peer: its IPv4 (100.x) and whether tailscale reports it online.
 pub(crate) struct TailHost {
     pub(crate) ip: String,
     pub(crate) online: bool,
 }
 
-/// The unique tailnet name = the first DNSName label, lowercased.
-/// `"gpu-box-1.tail-example.ts.net."` → `"gpu-box-1"`.
 pub(crate) fn tailnet_label(dns_name: &str) -> Option<String> {
     let label = dns_name.split('.').next().unwrap_or("").trim();
     (!label.is_empty()).then(|| label.to_lowercase())
@@ -33,7 +22,6 @@ pub(crate) fn insert_tail_node(
     let Some(label) = tailnet_label(dns) else {
         return;
     };
-    // First IPv4 (the 100.x); skip the IPv6 that follows it.
     let ip = node
         .get("TailscaleIPs")
         .and_then(|a| a.as_array())
@@ -44,7 +32,6 @@ pub(crate) fn insert_tail_node(
     let Some(ip) = ip else {
         return;
     };
-    // `Self` omits Online (it's the local node) → treat as online.
     let online = node.get("Online").and_then(|o| o.as_bool()).unwrap_or(true);
     map.insert(
         label,
@@ -55,7 +42,6 @@ pub(crate) fn insert_tail_node(
     );
 }
 
-/// Parse a `tailscale status --json` document → tailnet-label → host. Pure.
 pub(crate) fn parse_tailnet(v: &serde_json::Value) -> std::collections::HashMap<String, TailHost> {
     let mut map = std::collections::HashMap::new();
     if let Some(s) = v.get("Self") {
@@ -69,17 +55,12 @@ pub(crate) fn parse_tailnet(v: &serde_json::Value) -> std::collections::HashMap<
     map
 }
 
-/// Query the live tailnet. Callers must gate this behind an explicit opt-in.
-/// Empty map if tailscale is missing or unreadable.
 pub(crate) fn live_tailnet_hosts() -> std::collections::HashMap<String, TailHost> {
     let mut command = std::process::Command::new("tailscale");
     command.args(["status", "--json"]);
     tailnet_hosts_from_command(command, Duration::from_secs(3))
 }
 
-/// Parse one best-effort tailnet-status command behind a fixed whole-tree
-/// deadline. Keeping this boundary command-shaped makes the hang behavior
-/// regression-testable without replacing the operator's `tailscale` binary.
 pub(crate) fn tailnet_hosts_from_command(
     command: std::process::Command,
     timeout: Duration,
@@ -98,14 +79,10 @@ pub(crate) fn tailnet_hosts() -> std::collections::HashMap<String, TailHost> {
     }
 }
 
-/// Stable bag-box name for a discovered surface: every self-hosted model the
-/// scan finds folds into the one expandable `local` box as another mode (its
-/// label is the served model), never a per-machine tab.
 pub(crate) fn canonical_fleet_box(_host: &str) -> String {
     "local".to_string()
 }
 
-/// Resolve a box host against a parsed tailnet by its label.
 pub(crate) fn tailnet_lookup<'a>(
     host: &str,
     tailnet: &'a std::collections::HashMap<String, TailHost>,
@@ -113,8 +90,6 @@ pub(crate) fn tailnet_lookup<'a>(
     tailnet.get(&host.trim().to_ascii_lowercase())
 }
 
-/// Build `http://<ip>:<port>/v1`, resolving `<ip>` from the tailnet by host (else
-/// the caller-provided fallback). Pure (no env) so it's unit-testable.
 pub(crate) fn url_from(
     host: &str,
     port: u16,
@@ -127,8 +102,6 @@ pub(crate) fn url_from(
     format!("http://{ip}:{port}/v1")
 }
 
-/// A club's endpoint URL: explicit `ANGEL_<LABEL>_URL` wins, else the
-/// opt-in tailnet-resolved address, else the caller-provided fallback.
 pub(crate) fn resolve_club_url(
     label: &str,
     host: &str,
@@ -145,14 +118,10 @@ pub(crate) fn resolve_club_url(
     url_from(host, port, fallback_ip, tailnet)
 }
 
-/// Is `host` usable for auto-selection? Online per tailscale; if resolution is
-/// disabled or unavailable (empty map), assume the fallback/env route is usable.
 pub(crate) fn host_online(
     host: &str,
     tailnet: &std::collections::HashMap<String, TailHost>,
 ) -> bool {
-    // An empty host means the box is IP-pinned (no tailnet name lookup), so it's
-    // always seedable-online; the background prober gives the real verdict.
     if host.is_empty() || tailnet.is_empty() {
         return true;
     }
@@ -170,43 +139,19 @@ pub(crate) fn env_first(keys: &[&str]) -> Option<String> {
     })
 }
 
-/// Exact model ids currently published by DeepSeek's OpenAI-compatible API.
-/// Keep this list provider-authored: local nicknames belong in the resolver
-/// below and must never be forwarded in a request body. `deepseek-flash` is the
-/// live V4.1 Flash id (native multimodal); `deepseek-v4-pro` is the text-only
-/// Pro seat, whose service and billing are unchanged.
 pub(crate) const DEEPSEEK_API_MODEL_OPTIONS: &[&str] = &["deepseek-v4-pro", "deepseek-flash"];
 
-/// GLM routes exposed by the ordinary cockpit when Z.ai credentials are
-/// configured. Keep the flagship first: it is the configurable/default `glm`
-/// seat. GLM-5.3-Flash and the preceding generation remain selectable beside it.
 pub(crate) const GLM_API_MODEL_OPTIONS: &[&str] = &["glm-5.3", "glm-5.3-flash", "glm-5.2"];
 
-/// Kimi routes exposed by the ordinary cockpit when Moonshot credentials are
-/// configured. Keep the flagship first: it is the configurable/default `kimi`
-/// seat. Kimi K3.1 is the newer generation and sits beside K3, never replacing
-/// it — a pinned `ANGEL_KIMI_MODEL=kimi-k3` must keep its route unchanged.
-/// Provider-authored ids only — local nicknames belong in the resolver below
-/// and `driver_target`, never in a request body.
 pub(crate) const KIMI_API_MODEL_OPTIONS: &[&str] = &["kimi-k3", "kimi-k3.1"];
 
-/// The same Kimi generations as served by the Kimi Code plan
-/// (`api.kimi.ai|api.kimi.com/coding/v1`), whose catalog names them
-/// differently: K3 is `k3`, K3.1 ships only as `k3.1-pro` and its 2x-cost
-/// `k3.1-pro-highspeed` (live `/models` catalog, 2026-10-26). Sending
-/// Moonshot's `kimi-k3.1` there is a 400 "model id does not exist".
 pub(crate) const KIMI_CODE_MODEL_OPTIONS: &[&str] = &["k3", "k3.1-pro", "k3.1-pro-highspeed"];
 
-/// Whether a Kimi base URL is the Kimi Code plan rather than Moonshot's API.
 pub(crate) fn is_kimi_code_url(url: &str) -> bool {
     let url = url.to_ascii_lowercase();
     (url.contains("kimi.ai") || url.contains("kimi.com")) && url.contains("/coding")
 }
 
-/// OpenRouter free seats the ordinary cockpit exposes when a key is configured.
-/// Keep the default first: Ox Alpha is the `openrouter` bag slot and the
-/// cheap-MoA breadth route. Remaining ids are extra selectable `sota` routes.
-/// Provider-authored slugs only — local nicknames belong in the resolver below.
 pub(crate) const OPENROUTER_API_MODEL_OPTIONS: &[&str] = &[
     "stealth/union-alpha",
     "stealth/ox-alpha",
@@ -220,15 +165,6 @@ pub(crate) const OPENROUTER_API_MODEL_OPTIONS: &[&str] = &[
     "nvidia/nemotron-3.5-lightning:free",
 ];
 
-/// Resolve retired DeepSeek ids locally while preserving explicit unknown ids.
-/// DeepSeek's V4 migration mapped both legacy endpoints
-/// (`deepseek-chat`/`deepseek-reasoner`) onto V4 Flash with thinking selected
-/// separately, then retired them on 2026-07-24. V4.1 Flash now ships as
-/// `deepseek-flash`; the older `deepseek-v4-flash` and the experimental
-/// `deepseek-v4-flash-vision-exp` ids still alias it upstream but must never be
-/// the request body's model. Matching is exact — a locally served V4
-/// checkpoint under its own id and every custom/unknown pin pass through
-/// untouched.
 pub(crate) fn resolve_deepseek_model_alias(raw: &str) -> String {
     let trimmed = raw.trim();
     match trimmed.to_ascii_lowercase().as_str() {
@@ -242,8 +178,6 @@ pub(crate) fn resolve_deepseek_model_alias(raw: &str) -> String {
     }
 }
 
-/// Local GLM nicknames. Provider-authored ids pass through unchanged; unknown
-/// explicit pins stay forward-compatible for private gateways.
 pub(crate) fn resolve_glm_model_alias(raw: &str) -> String {
     let trimmed = raw.trim();
     match trimmed.to_ascii_lowercase().as_str() {
@@ -252,16 +186,10 @@ pub(crate) fn resolve_glm_model_alias(raw: &str) -> String {
     }
 }
 
-/// Local Kimi K3.1 nicknames. Provider-authored ids (`kimi-k3`, `kimi-k3.1`,
-/// and the Kimi Code plan's `k3`) pass through unchanged; unknown explicit
-/// pins stay forward-compatible for private gateways.
 pub(crate) fn resolve_kimi_model_alias(raw: &str) -> String {
     resolve_kimi_model_alias_for(raw, false)
 }
 
-/// [`resolve_kimi_model_alias`] for a known endpoint: on the Kimi Code plan
-/// every K3.1 nickname (and Moonshot's `kimi-k3.1`) maps to `k3.1-pro`, and
-/// Moonshot's `kimi-k3` maps to the plan's `k3`.
 pub(crate) fn resolve_kimi_model_alias_for(raw: &str, kimi_code: bool) -> String {
     let trimmed = raw.trim();
     if kimi_code {
@@ -275,15 +203,11 @@ pub(crate) fn resolve_kimi_model_alias_for(raw: &str, kimi_code: bool) -> String
         };
     }
     match trimmed.to_ascii_lowercase().as_str() {
-        // `kimi-k3.1` is also an arm so mixed-case pins canonicalize to the
-        // exact provider id (idempotent, same shape as the GLM resolver).
         "k3.1" | "kimi-3.1" | "kimi3.1" | "kimi-k3.1" => "kimi-k3.1".to_string(),
         _ => trimmed.to_string(),
     }
 }
 
-/// Map OpenRouter model aliases onto current defaults. Explicit
-/// paid pins and unknown ids pass through unchanged.
 pub(crate) fn resolve_openrouter_model_alias(raw: &str) -> String {
     let trimmed = raw.trim();
     match trimmed.to_ascii_lowercase().as_str() {
@@ -300,21 +224,14 @@ pub(crate) fn resolve_openrouter_model_alias(raw: &str) -> String {
     }
 }
 
-/// API-key providers are available when credentials are present unless the
-/// operator explicitly disables or scopes them with `ANGEL_API_CLUBS`. OAuth
-/// clubs and local fleet endpoints are registered separately. `*`/`all` admits
-/// every family, while a comma list admits only the named families.
 pub(crate) fn api_club_enabled(alias: &str) -> bool {
     let family = if alias.starts_with("glm-") {
         "glm"
     } else if alias.starts_with("kimi-") || alias == "k3" || alias.starts_with("k3-") || alias.starts_with("k3.") {
-        // Kimi Code plan ids (`k3`, `k3-256k`, `k3.1-pro*`) share the seat.
         "kimi"
     } else if alias == "deepseek-flash" {
         "deepseek"
     } else if alias.starts_with("claude-") || alias == "opus" {
-        // Opus 5.5 and the other first-party Claude seats share the
-        // `anthropic` allowlist entry and the same API key.
         "anthropic"
     } else if alias == "grok-api" {
         "grok"
@@ -353,10 +270,6 @@ pub(crate) fn optional_sota_http_club(
     }
     let key = env_first(key_keys)?;
     let model = env_first(model_keys).or_else(|| default_model.map(str::to_string))?;
-    // The two built-in DeepSeek seats share this provider URL. Canonicalize
-    // retired ids before constructing the club so neither request bodies nor
-    // route identity can leak an upstream-invalid alias. A custom/unknown id is
-    // intentionally preserved for private gateways and future provider models.
     let deepseek_seat = default_url.trim_end_matches('/') == "https://api.deepseek.com/v1";
     let model = if deepseek_seat {
         resolve_deepseek_model_alias(&model)
@@ -371,13 +284,6 @@ pub(crate) fn optional_sota_http_club(
         model
     };
     let url = env_first(url_keys).unwrap_or_else(|| default_url.to_string());
-    // OpenRouter clubs wear the request model as their label so a free slug
-    // (or a paid pin) is what the bag and MoA matcher see, not a stale default.
-    // DeepSeek must likewise label its configured wire model, not the seat's
-    // default: otherwise a Flash request is displayed and attributed as Pro.
-    // GLM does the same: pinning `ANGEL_GLM_MODEL=glm-5.3-flash` must make the
-    // `glm` seat advertise that id, or `ANGEL_DRIVER=glm-5.3-flash` misses it.
-    // Muse likewise: a pinned `muse-spark-1.3-contributor` must not show as 1.3.
     let label = if deepseek_seat
         || default_url.contains("openrouter.ai")
         || default_url.contains("z.ai")
@@ -389,47 +295,27 @@ pub(crate) fn optional_sota_http_club(
     } else {
         label.to_string()
     };
-    // A remote SOTA link feeds the MoA. OpenRouter free seats can still
-    // truncate output or rate-limit, so keep the SOTA network-tuned behavior.
     let mut http = HttpClub::new(label, url, model, Some(key));
     if deepseek_seat {
-        // This seat reads the operator's configured DeepSeek namespace
-        // (`ANGEL_DEEPSEEK_*`), so it *is* the provider's route even when
-        // ANGEL_DEEPSEEK_URL points at a local forwarder/observer that relays
-        // the real API. Provider-private reasoning replay and the provider's
-        // declared capabilities follow the contract, not the URL's host.
         http = http.with_provider_contract(ProviderContract::DeepSeek);
-        // DeepSeek's own harness speaks its Anthropic-compatible Messages API
-        // (Messages-only since 2026-09-19); `chat` keeps Chat Completions.
         if std::env::var("ANGEL_DEEPSEEK_API")
             .is_ok_and(|api| api.trim().eq_ignore_ascii_case("messages"))
         {
             http = http.with_deepseek_messages();
         }
     } else if default_url.contains("z.ai") || default_url.contains("bigmodel.cn") {
-        // All GLM catalog seats share ANGEL_GLM_* controls, including a
-        // custom gateway/model pin. The display label remains the model id.
         http = http.with_env_namespace("GLM");
     } else if alias == "openrouter" {
-        // The configured seat keeps its controls when its model is the label
-        // or its endpoint is an operator-selected compatible provider.
         http = http.with_env_namespace("OPENROUTER");
     }
     let club: Arc<dyn Club> = Arc::new(http.sota_tuned());
     Some((alias.to_string(), club, Arc::new(AtomicBool::new(true))))
 }
 
-/// Provider-authored id for the Claude Opus 5.5 seat. Nicknames (`opus`,
-/// `opus-5.5`) resolve in `driver_target` and never go on the wire.
 pub(crate) const ANTHROPIC_OPUS_55_MODEL: &str = "claude-opus-5-5";
 
-/// The configurable first-party seat when `ANGEL_ANTHROPIC_MODEL` is unset.
 const ANTHROPIC_DEFAULT_MODEL: &str = "claude-sonnet-5-5";
 
-/// One first-party Messages club. `alias` is the bag slot; `model` is the
-/// id on the wire and the club label. The key is `ANGEL_ANTHROPIC_KEY` or
-/// `ANTHROPIC_API_KEY`. Adaptive thinking, signed-thinking replay, and
-/// cache breakpoints are the Messages contract (`http/anthropic_messages.rs`).
 fn anthropic_messages_club(
     alias: &str,
     model: String,
@@ -451,19 +337,12 @@ fn anthropic_messages_club(
     ))
 }
 
-/// The configurable Anthropic seat (`anthropic`): `ANGEL_ANTHROPIC_MODEL`,
-/// or Claude Sonnet 5.5 when that pin is unset. Output cap is
-/// `ANGEL_ANTHROPIC_MAX_TOKENS` (default 32000); effort is
-/// `ANGEL_ANTHROPIC_EFFORT` (default medium).
 pub(crate) fn optional_anthropic_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     let model = env_first(&["ANGEL_ANTHROPIC_MODEL"])
         .unwrap_or_else(|| ANTHROPIC_DEFAULT_MODEL.to_string());
     anthropic_messages_club("anthropic", model)
 }
 
-/// The configurable Anthropic seat, plus Claude Opus 5.5 on the same key
-/// and endpoint. A pin that is already Opus 5.5 is not seated twice.
-/// Metered per token: selectable by name, never a MoA preference.
 pub(crate) fn optional_anthropic_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     let Some(primary) = optional_anthropic_http_club() else {
         return Vec::new();
@@ -484,9 +363,24 @@ pub(crate) fn optional_anthropic_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc
     links
 }
 
-/// Build the configurable GLM seat plus every other built-in GLM catalog
-/// choice. The configured model is never duplicated, even when it is one of
-/// the built-ins.
+pub(crate) const CARBON_SEAT: &str = "carbon";
+
+pub(crate) fn optional_carbon_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
+    if !api_club_enabled(CARBON_SEAT) {
+        return None;
+    }
+    let key = env_first(&["ANGEL_CARBON_KEY", "GEMINI_API_KEY"])?;
+    let model = env_first(&["ANGEL_CARBON_MODEL"]).unwrap_or_else(|| "gemini-4-carbon".to_string());
+    let url = env_first(&["ANGEL_CARBON_URL"])
+        .unwrap_or_else(|| "https://generativelanguage.googleapis.com/v1beta/openai".to_string());
+    let http = HttpClub::new(CARBON_SEAT, url, model, Some(key)).with_gemini_thought_signatures();
+    Some((
+        CARBON_SEAT.to_string(),
+        Arc::new(http.sota_tuned()),
+        Arc::new(AtomicBool::new(true)),
+    ))
+}
+
 pub(crate) fn optional_glm_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     const URL_KEYS: &[&str] = &["ANGEL_GLM_URL", "GLM_API_URL"];
     const MODEL_KEYS: &[&str] = &["ANGEL_GLM_MODEL", "GLM_MODEL"];
@@ -532,10 +426,6 @@ pub(crate) fn optional_glm_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc<Atomi
     links
 }
 
-/// Bind credentials to the selected GLM provider before consulting generic
-/// aliases. Operators commonly retain both Zhipu and Z.ai keys while moving an
-/// `ANGEL_GLM_URL` between the two services; a stale generic key must not
-/// silently shadow the provider-specific credential for that URL.
 pub(crate) fn glm_key_env_order(url: &str) -> &'static [&'static str] {
     const ZAI_KEYS: &[&str] = &[
         "ZAI_API_KEY",
@@ -569,16 +459,11 @@ pub(crate) fn glm_key_env_order(url: &str) -> &'static [&'static str] {
     }
 }
 
-/// Build the configurable Kimi seat plus every other built-in Kimi catalog
-/// choice. The configured model is never duplicated, even when it is one of
-/// the built-ins (mirror of [`optional_glm_http_clubs`]).
 pub(crate) fn optional_kimi_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     const URL_KEYS: &[&str] = &["ANGEL_KIMI_URL", "KIMI_API_URL", "MOONSHOT_API_URL"];
     const MODEL_KEYS: &[&str] = &["ANGEL_KIMI_MODEL", "KIMI_MODEL", "MOONSHOT_MODEL"];
     const KEY_KEYS: &[&str] = &["ANGEL_KIMI_KEY", "KIMI_API_KEY", "MOONSHOT_API_KEY"];
 
-    // The catalog follows the endpoint actually configured: a Kimi Code
-    // plan URL serves its own ids, never Moonshot's.
     let options = if env_first(URL_KEYS).is_some_and(|url| is_kimi_code_url(&url)) {
         KIMI_CODE_MODEL_OPTIONS
     } else {
@@ -623,9 +508,6 @@ pub(crate) fn optional_kimi_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc<Atom
     links
 }
 
-/// An explicitly enabled, explicitly pinned OpenRouter route only. A retained
-/// key must not populate the cockpit or its failover bench with speculative
-/// free models. Historical model metadata remains available for old receipts.
 pub(crate) fn optional_openrouter_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     const URL_KEYS: &[&str] = &["ANGEL_OPENROUTER_URL", "OPENROUTER_BASE_URL"];
     const MODEL_KEYS: &[&str] = &["ANGEL_OPENROUTER_MODEL", "OPENROUTER_MODEL"];
@@ -644,7 +526,6 @@ pub(crate) fn optional_openrouter_http_clubs() -> Vec<(String, Arc<dyn Club>, Ar
     configured.into_iter().collect()
 }
 
-/// Resolve only known official GPT-6 families; custom model IDs are preserved.
 fn openai_gpt6_family(model: &str) -> Option<&'static str> {
     ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna"]
         .into_iter()
@@ -697,9 +578,6 @@ pub(crate) fn openai_api_uses_responses(
     Ok(official && openai_gpt6_family(model).is_some())
 }
 
-/// Explicit API-key seat, separate from ChatGPT OAuth. Known official GPT-6
-/// routes need Responses for reasoning with tools; custom gateways stay chat
-/// unless the operator selects a transport.
 pub(crate) fn optional_openai_api_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     optional_openai_api_for_launch(None)
 }
@@ -760,36 +638,15 @@ pub(crate) fn optional_openai_api_for_launch(
     ))
 }
 
-/// Reasoning efforts Muse Spark accepts (`none` is rejected with HTTP 400).
 pub(crate) const META_REASONING_LEVELS: &[&str] = &["minimal", "low", "medium", "high", "xhigh"];
 
-/// Meta Model API (Muse Spark). Metered per token with no plan, so it sits
-/// late in the SOTA order and is not in the cheap profile.
-/// `muse-spark-1.3-contributor` is the cheaper data-sharing tier and must be
-/// chosen explicitly with `ANGEL_META_MODEL`.
-///
-/// Muse Spark always reasons, and Meta's Chat Completions endpoint redacts that
-/// reasoning to empty. The seat therefore speaks the Responses API, which
-/// streams reasoning summaries to the thinking panel.
-/// `ANGEL_META_REASONING_EFFORT` picks the effort (unset, the calibrated one) and
-/// `ANGEL_META_REASONING_SUMMARY` the summary level (`detailed` by default, so
-/// the panel shows more than one sentence); `ANGEL_META_API=chat` keeps the
-/// Chat Completions route. Muse gets its own encrypted reasoning back every hop
-/// (`ANGEL_META_REPLAY=0` stops it): without it each hop thinks from scratch
-/// and the cached prefix breaks where the reasoning was. Every request carries a
-/// `prompt_cache_key`, which Meta needs before it caches anything.
 pub(crate) fn optional_meta_http_club() -> Option<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     let model = env_first(&["ANGEL_META_MODEL"]).unwrap_or_else(|| "muse-spark-1.3".to_string());
     meta_http_club("meta", model, &["ANGEL_META_MODEL"])
 }
 
-/// Built-in Meta catalog choices seated beside the configured `meta` seat, each
-/// under its own model id (`ANGEL_DRIVER=muse-wonder-1.0`). Muse Wonder 1.0 is
-/// Meta's flagship (listed by `GET /v1/models`, served on Responses).
 pub(crate) const META_API_MODEL_OPTIONS: &[&str] = &["muse-wonder-1.0"];
 
-/// The configured `meta` seat plus every other built-in Meta choice, never
-/// duplicating the configured model.
 pub(crate) fn optional_meta_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
     let configured = optional_meta_http_club();
     let configured_model = configured
@@ -888,40 +745,25 @@ pub(crate) fn default_glm_url() -> &'static str {
     }
 }
 
-/// Per-slot metadata captured while the bag is assembled, used to pick the
-/// smartest *available* model for the brain. `auto` is false for the practice
-/// swing and most cloud tabs so the auto-pick never silently jumps to them.
-/// LongCat is the exception when configured: the operator explicitly asked for
-/// it as the main driver, and `ANGEL_DRIVER` can still override that.
 pub(crate) struct SlotMeta {
     pub(crate) agent: usize,
     pub(crate) slot: usize,
     pub(crate) model: String,
-    /// Backend-reported parameter count when known (llama.cpp `/v1/models`
-    /// `meta.n_params`); `None` falls back to parsing the model id.
     pub(crate) n_params: Option<u64>,
     pub(crate) is_swarm: bool,
     pub(crate) auto: bool,
     pub(crate) available: Arc<AtomicBool>,
 }
 
-/// A live model surface discovered by scanning the tailnet: a backend that
-/// answered `GET /v1/models`. The model id + param count feed the smartest-
-/// available driver heuristic and the Hydra surface registration.
 #[derive(Debug, Clone)]
 pub(crate) struct Surface {
-    /// tailnet label of the host serving it (e.g. `gpu-box-1`, `compute-a`).
     host: String,
     ip: String,
     port: u16,
-    /// `http://<ip>:<port>/v1` — the OpenAI-compatible base.
     url: String,
     model_id: String,
 }
 
-/// Standard OpenAI-compatible server ports (llama.cpp 8080, vLLM 8000,
-/// LM Studio 1234, Ollama 11434, SGLang 30000), probed on every online peer
-/// during discovery. Override with `ANGEL_SCAN_PORTS` (comma-separated).
 pub(crate) fn scan_ports() -> Vec<u16> {
     if let Ok(s) = std::env::var("ANGEL_SCAN_PORTS") {
         let v: Vec<u16> = s.split(',').filter_map(|p| p.trim().parse().ok()).collect();
@@ -972,20 +814,13 @@ fn model_serving_host_excluded(host: &str, ip: &str) -> bool {
 }
 
 pub(crate) fn model_serving_target_allowed(host: &str, ip: &str) -> bool {
-    // Generic exclusions are authoritative exact host/IP matches. The
-    // legacy Atlas flag is handled when constructing the explicit Atlas slot.
     !model_serving_host_excluded(host, ip)
 }
 
-/// The local Hydra head's base URL (`ANGEL_HYDRA_URL` overrides).
 pub(crate) fn hydra_base() -> String {
     std::env::var("ANGEL_HYDRA_URL").unwrap_or_else(|_| "http://127.0.0.1:17876".to_string())
 }
 
-/// How often the discovery sweep re-runs. `ANGEL_SCAN_INTERVAL_SECS` overrides;
-/// `0` = sweep once at launch (the old behavior). The default keeps up with an
-/// operator who swaps checkpoints mid-session: a model pulled up on any rig —
-/// or registered with Hydra — becomes selectable within a minute.
 pub(crate) fn scan_interval() -> Option<Duration> {
     let secs = std::env::var("ANGEL_SCAN_INTERVAL_SECS")
         .ok()
@@ -994,10 +829,6 @@ pub(crate) fn scan_interval() -> Option<Duration> {
     (secs > 0).then(|| Duration::from_secs(secs))
 }
 
-/// Bound the OS-thread burst used by one discovery sweep. Tailnets can contain
-/// many non-model peers, and probing every peer x port with one thread each can
-/// otherwise create hundreds of threads every 45 seconds. Model inference
-/// concurrency is independent of this control-plane limit.
 pub(crate) fn scan_concurrency(targets: usize) -> usize {
     let configured = std::env::var("ANGEL_SCAN_CONCURRENCY")
         .ok()
@@ -1008,9 +839,6 @@ pub(crate) fn scan_concurrency(targets: usize) -> usize {
     targets.min(configured)
 }
 
-/// Parse a Hydra surface endpoint (`http://<host>:<port>[/v1]`) → (host, port).
-/// Local fleet surfaces carry an explicit plain-http host:port; anything else
-/// (https cloud URLs, missing port) is not a scannable fleet endpoint → `None`.
 pub(crate) fn parse_endpoint_host_port(endpoint: &str) -> Option<(String, u16)> {
     let rest = endpoint.trim().strip_prefix("http://")?;
     let rest = rest.trim_end_matches('/');
@@ -1023,11 +851,6 @@ pub(crate) fn parse_endpoint_host_port(endpoint: &str) -> Option<(String, u16)> 
     Some((host.to_string(), port))
 }
 
-/// Pure parse of a Hydra `/surfaces/list` reply → `(host label, ip, port)`
-/// probe targets. Only `roles:["chat",…]` surfaces qualify — gen/OCR/embedding
-/// surfaces registered on the same head aren't chat clubs. The registry's
-/// `model_id` is deliberately ignored: a row is a *candidate*, and the live
-/// `/models` probe answers with what the endpoint serves right now.
 pub(crate) fn parse_hydra_chat_targets(v: &serde_json::Value) -> Vec<(String, String, u16)> {
     let Some(surfaces) = v.get("surfaces").and_then(|s| s.as_array()) else {
         return Vec::new();
@@ -1055,13 +878,6 @@ pub(crate) fn parse_hydra_chat_targets(v: &serde_json::Value) -> Vec<(String, St
     out
 }
 
-/// Chat surfaces registered with the LOCAL Hydra head, as probe targets for the
-/// fleet sweep. This is the read half of the Hydra loop (the cockpit already
-/// publishes what it scans): registering a model surface with Hydra — by
-/// modeld, a script, or another agent — is enough to make it selectable here,
-/// including localhost-bound heads the tailnet port sweep can't see. Empty on
-/// any transport/parse failure (a head that's down just contributes nothing),
-/// and unless `ANGEL_HYDRA_DISCOVER=1`.
 pub(crate) fn hydra_chat_targets() -> Vec<(String, String, u16)> {
     if !hydra_discovery_enabled() {
         return Vec::new();
@@ -1085,20 +901,12 @@ pub(crate) fn hydra_chat_targets() -> Vec<(String, String, u16)> {
     parse_hydra_chat_targets(&v)
 }
 
-/// Discover live model surfaces: every ONLINE tailnet peer × candidate port,
-/// plus every chat surface registered with the local Hydra head, probed with
-/// `GET http://<ip>:<port>/v1/models` on short timeouts — all probes concurrent
-/// so the whole sweep costs ~one timeout regardless of fleet size. A port that
-/// answers with at least one model is a surface; a peer that's down, a closed
-/// port, a stale registry row, or a non-JSON reply is simply skipped. Empty
-/// unless `ANGEL_SCAN=1`.
 pub(crate) fn scan_fleet() -> Vec<Surface> {
     if !fleet_scan_enabled() {
         return Vec::new();
     }
     let tailnet = live_tailnet_hosts();
     let ports = scan_ports();
-    // Short, fixed timeouts so one closed/black-holed port can't stall launch.
     let agent = ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_millis(800))
         .timeout_read(Duration::from_millis(1500))
@@ -1120,9 +928,6 @@ pub(crate) fn scan_fleet() -> Vec<Surface> {
             }
         }
     }
-    // Hydra-registered chat surfaces join the same sweep and the same liveness
-    // bar — this also covers endpoints the tailnet sweep can't reach (loopback
-    // heads on this rig, off-tailnet boxes, nonstandard ports).
     for (host, ip, port) in hydra_chat_targets() {
         if !model_serving_target_allowed(&host, &ip) {
             continue;
@@ -1156,7 +961,6 @@ pub(crate) fn scan_fleet() -> Vec<Surface> {
                     let Ok(v) = resp.into_json::<serde_json::Value>() else {
                         continue;
                     };
-                    // OpenAI shape: data[].id ; llama.cpp also fills models[].name.
                     let model_id = v
                         .pointer("/data/0/id")
                         .and_then(|x| x.as_str())
@@ -1181,9 +985,6 @@ pub(crate) fn scan_fleet() -> Vec<Surface> {
     found.into_inner().unwrap_or_default()
 }
 
-/// A short, human label for a discovered model id: drop the path and extension,
-/// lowercase, clamp length. `/home/x/qworld/nvfp4_model` → `nvfp4_model`;
-/// `Qwen3.6-27B-MTP-pi-tune-Q4_K_M.gguf` → `qwen3.6-27b-mtp-pi-tune`.
 pub(crate) fn short_model_label(model_id: &str) -> String {
     let base = model_id
         .rsplit('/')
@@ -1205,9 +1006,6 @@ pub(crate) fn short_model_label(model_id: &str) -> String {
     if s.is_empty() { "model".to_string() } else { s }
 }
 
-/// Largest `<N>B`/`<N>b` parameter token in a model id, in billions.
-/// `Qwen3.6-27B-…` → 27.0 ; `siq-1-35b-turbo` → 35.0 ; `gemma4` → None (the `4`
-/// is a version, not params — not followed by `b`).
 pub(crate) fn parse_param_billions(model_id: &str) -> Option<f64> {
     let s = model_id.to_ascii_lowercase();
     let b = s.as_bytes();
@@ -1234,28 +1032,19 @@ pub(crate) fn parse_param_billions(model_id: &str) -> Option<f64> {
     best
 }
 
-/// Param counts (billions) for fleet models whose id doesn't encode the size,
-/// taken from the box specs above. Keeps the heuristic from under-rating a known
-/// big model just because its name is a codename.
 pub(crate) fn known_model_billions(model_l: &str) -> Option<f64> {
     if model_l.contains("gemma4") {
-        return Some(26.0); // the 26B/4B-active NVFP4 MoE the swarm fans over
+        return Some(26.0);
     }
     if model_l.contains("longcat-2.0")
         || model_l.contains("longcat2.0")
         || model_l.contains("longcat")
     {
-        return Some(520.0); // score the configured LongCat account above local fleet models
+        return Some(520.0);
     }
     None
 }
 
-/// Heuristic "smartness" for the driver auto-pick: bigger models score higher,
-/// with a nudge for the swarm (a multi-agent amplifier over its inner model) and
-/// reasoning/coder heads. Param count is the spine — the backend's reported
-/// `n_params`, else a known-model size, else the largest `<N>B` token in the id.
-/// Unknown size falls to a low floor so an unsized model still outranks the
-/// practice swing but loses to any peer we *can* size.
 pub(crate) fn model_smartness(model_id: &str, n_params: Option<u64>, is_swarm: bool) -> u64 {
     let ml = model_id.to_ascii_lowercase();
     let base: f64 = n_params
@@ -1286,9 +1075,6 @@ pub(crate) fn model_smartness(model_id: &str, n_params: Option<u64>, is_swarm: b
     score as u64
 }
 
-/// Put the smartest *available* fleet model in hand: among auto-eligible slots
-/// that are up, pick the highest [`model_smartness`], set that box's active mode
-/// to it, and return the box index. `None` when nothing auto-eligible is up.
 pub(crate) fn smartest_available(agents: &mut [Agent], slot_meta: &[SlotMeta]) -> Option<usize> {
     let best = slot_meta
         .iter()
@@ -1302,20 +1088,6 @@ pub(crate) fn smartest_available(agents: &mut [Agent], slot_meta: &[SlotMeta]) -
     Some(best.agent)
 }
 
-/// Spawn the background fleet-discovery thread: sweep for live model surfaces
-/// ([`scan_fleet`]: tailnet ports + Hydra-registered chat surfaces), stream
-/// anything new into the bag, register what was found with the LOCAL Hydra
-/// head (`POST /surfaces/register`) so the rest of the fleet/tools see what
-/// this rig found — then sleep and sweep again ([`scan_interval`]), so a model
-/// the operator pulls up mid-session appears without a relaunch. Runs ENTIRELY
-/// off the startup path — a slow `tailscale` subprocess or a black-holed port
-/// can never delay the first frame (the cockpit guarantees a <50ms bootstrap).
-/// Best-effort: a Hydra head that's down just means nothing is published or
-/// read this round. Endpoints carry the tailnet IP (not `0.0.0.0`), so Hydra's
-/// unauthenticated-public guard never rejects them. `ANGEL_SCAN=1` enables
-/// discovery; `ANGEL_HYDRA_PUBLISH=1` enables registration;
-/// `ANGEL_HYDRA_DISCOVER=1` enables registry reads; `ANGEL_HYDRA_URL` overrides
-/// the loopback head address.
 pub(crate) fn spawn_fleet_discovery(
     brain: Option<(String, u16)>,
     mut known: std::collections::HashSet<(String, u16)>,
@@ -1333,18 +1105,11 @@ pub(crate) fn spawn_fleet_discovery(
                     return;
                 }
                 let surfaces = scan_fleet();
-                // Stream every NEW machine/model into the bag as a selectable box. A
-                // port the static specs (or an earlier round) already cover is skipped
-                // — same endpoint, just confirmed live; its follow-backend club picks
-                // up a swapped checkpoint on its own. The UI thread folds the rest in
-                // via drain_discovered.
                 for s in &surfaces {
                     if !known.insert((s.ip.clone(), s.port)) {
                         continue;
                     }
                     let label = short_model_label(&s.model_id);
-                    // follow_backend: the operator swaps checkpoints on fleet rigs
-                    // freely — the club renames itself instead of going stale.
                     let club: Arc<dyn Club> = Arc::new(
                         HttpClub::new(
                             label.clone(),
@@ -1364,21 +1129,18 @@ pub(crate) fn spawn_fleet_discovery(
                         active: 0,
                     };
                     if tx.send((agent, s.model_id.clone())).is_err() {
-                        return; // the bag (receiver) is gone — nothing left to fold into
+                        return;
                     }
                 }
                 publish_surfaces_to_hydra(&surfaces, &brain);
                 let Some(delay) = scan_interval() else {
-                    return; // ANGEL_SCAN_INTERVAL_SECS=0 → the old one-shot scan
+                    return;
                 };
                 std::thread::sleep(delay);
             }
         });
 }
 
-/// Register every surface the sweep confirmed live with the LOCAL Hydra head.
-/// Re-registering each round is deliberate: it refreshes `updated_at`/`status`,
-/// so the registry doubles as a liveness record for other agents on this rig.
 fn publish_surfaces_to_hydra(surfaces: &[Surface], brain: &Option<(String, u16)>) {
     if surfaces.is_empty() || !hydra_publish_enabled() {
         return;

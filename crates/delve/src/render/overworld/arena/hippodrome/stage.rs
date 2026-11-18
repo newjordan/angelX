@@ -10,7 +10,6 @@ use super::{art, finish, fx, hud, moments, view::View, world};
 use crate::rules::chariot::{Phase, heading_on, pos_on, tangent_on, show::Kind};
 use crate::rules::juice::Weight;
 
-/// A blow a notch lighter: what a rival's trouble does to your screen.
 fn lighter(w: Weight) -> Weight {
     match w {
         Weight::Finale => Weight::Kill,
@@ -20,9 +19,6 @@ fn lighter(w: Weight) -> Weight {
     }
 }
 
-/// The world's shake for this seat: its own barges and wrecks in full, a rival's a notch lighter,
-/// the first team home and the photograph for all. The picture keeps its phase while the room is
-/// held, so a freeze still trembles.
 pub(super) fn shake(v: &View) -> (i32, i32) {
     let now = v.now;
     let phase = u64::from(now) * 7 + u64::from(v.run.hitstop.left) * 3;
@@ -40,7 +36,6 @@ pub(super) fn shake(v: &View) -> (i32, i32) {
     juice::shake(blows, phase)
 }
 
-/// One team as it stands in this frame.
 struct Pose {
     i: usize,
     at: (i32, i32),
@@ -54,13 +49,11 @@ fn pose(v: &View, i: usize, cam: (i32, i32)) -> Pose {
     let drawn = v.drawn(i);
     let (tx, ty) = tangent_on(v.course(), drawn);
     let h = heading_on(v.course(), drawn);
-    // Head-on or from behind only where the road runs nearly straight down or up the screen.
     let view = if ty.abs() > tx.abs() * 1.6 { if ty > 0.0 { art::View::Head } else { art::View::Rear } } else { art::View::Side };
     let _ = h;
     Pose { i, at: (x as i32 - cam.0, y as i32 - cam.1), tangent: (tx, ty), view, flip: view == art::View::Side && tx < 0.0 }
 }
 
-/// Where the feet stand on a picture of `view`: the sprite's anchor.
 fn anchor(view: art::View) -> (i32, i32) {
     match view {
         art::View::Side => (32, 35),
@@ -69,7 +62,6 @@ fn anchor(view: art::View) -> (i32, i32) {
     }
 }
 
-/// The dithered shadow under a team.
 fn shadow(layer: &mut Img, (x, y): (i32, i32), view: art::View) {
     let (rx, ry) = if view == art::View::Side { (24.0, 4.5) } else { (15.0, 4.0) };
     for dy in -5..=5 {
@@ -82,7 +74,6 @@ fn shadow(layer: &mut Img, (x, y): (i32, i32), view: art::View) {
     }
 }
 
-/// A team's picture now: the sprite, dressed with the driver's class, struck white, squashed.
 fn sprite_of(v: &View, p: &Pose) -> Img {
     let race = v.race;
     let r = &race.racers[p.i];
@@ -101,7 +92,6 @@ fn sprite_of(v: &View, p: &Pose) -> Img {
         };
         class_looks::dress_driver(&mut im, art::driver_at(p.view), facing, p.flip, look, seat);
     }
-    // Struck: the blow's own flash, then its squash and stretch.
     let now = v.now;
     let blow = race
         .show
@@ -122,7 +112,6 @@ fn sprite_of(v: &View, p: &Pose) -> Img {
     im
 }
 
-/// The bunting over the line, strung between two posts.
 fn gantry(layer: &mut Img, w: &world::World, cam: (i32, i32), now: u32, cloths: &[char]) {
     let (lx, ly, tx, ty) = w.line;
     let (nx, ny) = (-ty, tx);
@@ -153,7 +142,6 @@ fn gantry(layer: &mut Img, w: &world::World, cam: (i32, i32), now: u32, cloths: 
     }
 }
 
-/// The gate's bar across the road at the line: down while the field is held, lifted at the off.
 fn gate_bar(layer: &mut Img, w: &world::World, cam: (i32, i32), open: f32) {
     let (lx, ly, tx, ty) = w.line;
     let (nx, ny) = (-ty, tx);
@@ -171,7 +159,6 @@ fn gate_bar(layer: &mut Img, w: &world::World, cam: (i32, i32), open: f32) {
     }
 }
 
-/// Dropped iron waits where every driver can see it.
 fn irons(layer: &mut Img, v: &View, cam: (i32, i32)) {
     for &(at, lane) in &v.race.traps {
         let (tx, ty) = pos_on(v.course(), at, lane);
@@ -191,7 +178,6 @@ fn irons(layer: &mut Img, v: &View, cam: (i32, i32)) {
     }
 }
 
-/// How hot the racing is: the share of the field within a few lengths of another.
 fn heat(v: &View) -> f32 {
     let rs = &v.race.racers;
     let mut close = 0;
@@ -205,7 +191,6 @@ fn heat(v: &View) -> f32 {
     (close as f32 / 3.0).min(1.0)
 }
 
-/// The race on `scene` (the world, under any shake) and `over` (the plates and words).
 pub(super) fn frame(scene: &mut Img, over: &mut Img, run: &crate::rules::Run, w: i32, h: i32, focus: Option<u32>) {
     let Some(v) = View::new(run, focus, (w, h)) else { return };
     let race = v.race;
@@ -217,12 +202,10 @@ pub(super) fn frame(scene: &mut Img, over: &mut Img, run: &crate::rules::Run, w:
     let course = v.course();
     let wd = world::world(race.track);
     let cam = v.camera();
-    // The baked country is laid out with a margin of black paper round it.
     let wcam = (cam.0 + world::PAD, cam.1 + world::PAD);
     let now = v.now;
     let mut layer = world::window(wd, wcam.0, wcam.1, w, h);
     let cloths: Vec<char> = race.racers.iter().map(|r| art::livery(&r.house).cloth).collect();
-    // The crowd: a roar runs round the stands from wherever the lead changed hands.
     let roar = race
         .show
         .fx
@@ -239,7 +222,6 @@ pub(super) fn frame(scene: &mut Img, over: &mut Img, run: &crate::rules::Run, w:
         gate_bar(&mut layer, wd, wcam, open);
     }
     irons(&mut layer, &v, cam);
-    // Everyone in the picture, back to front: the dust first, so the field runs in front of it.
     let mut poses: Vec<Pose> = (0..race.racers.len()).map(|i| pose(&v, i, cam)).collect();
     poses.retain(|p| p.at.0 > -70 && p.at.0 < w + 70 && p.at.1 > -50 && p.at.1 < h + 70);
     poses.sort_by_key(|p| p.at.1);
@@ -255,7 +237,6 @@ pub(super) fn frame(scene: &mut Img, over: &mut Img, run: &crate::rules::Run, w:
         let r = &race.racers[p.i];
         let (_ax, ay) = anchor(p.view);
         let mut at = p.at;
-        // A blown team wobbles; a locked one shudders.
         if r.wind < 0.25 && race.phase == Phase::Racing && r.place.is_none() {
             at.1 += ((now / 3) % 2) as i32 - 1;
         }
@@ -264,11 +245,9 @@ pub(super) fn frame(scene: &mut Img, over: &mut Img, run: &crate::rules::Run, w:
         }
         shadow(&mut layer, at, p.view);
         let im = sprite_of(&v, p);
-        // The feet stay where the base picture's did, whatever the squash made of its canvas.
         let h0 = if p.view == art::View::Side { 38 } else { 44 };
         let bottom = at.1 - ay + 1 + h0;
         layer.stamp(&im, at.0 - im.w / 2, bottom - im.h);
-        // The marker over the viewer's own team, bobbing.
         if v.mine && p.i == v.me && race.phase != Phase::Done {
             let bob = ((now / 6) % 2) as i32;
             let (mx, my) = (at.0, at.1 - ay - 8 + bob);
@@ -278,14 +257,12 @@ pub(super) fn frame(scene: &mut Img, over: &mut Img, run: &crate::rules::Run, w:
             layer.rect(mx - 1, my - 2, 3, 1, ink);
             layer.rect(mx, my - 3, 1, 1, ink);
         }
-        // Sparks off a wheel that is working hard.
         let cornering = r.cornering(course);
         if race.phase == Phase::Racing && r.place.is_none() && r.speed > 5.0 && (r.wrecked > 0 || (cornering && r.speed > 6.5)) {
             let (bx, by) = (-p.tangent.0, -p.tangent.1);
             let wheel = (at.0 as f32 + bx * 18.0, at.1 as f32 - 4.0 + by * 6.0);
             fx::sparks(&mut layer, wheel, (bx, by), if r.wrecked > 0 { 3 } else { 2 }, u32::from(r.team) * 17 + 3, now);
         }
-        // The whip's crack at the horses' heads.
         if let Some(age) = race.show.since(Kind::Whip, r.team, now).filter(|&a| a < 12) {
             let reach = if p.view == art::View::Side { 30.0 } else { 6.0 };
             let lift = if p.view == art::View::Side { 22.0 } else { 34.0 };
@@ -294,7 +271,6 @@ pub(super) fn frame(scene: &mut Img, over: &mut Img, run: &crate::rules::Run, w:
             fx::crack(&mut layer, from, to, age, u32::from(r.team) * 13 + 1, now);
         }
     }
-    // Barges and wrecks, where they happened.
     for f in race.show.fx.iter() {
         let age = f.age(now);
         let (tx, ty) = pos_on(course, f.at[0], f.at[1]);
@@ -315,12 +291,10 @@ pub(super) fn frame(scene: &mut Img, over: &mut Img, run: &crate::rules::Run, w:
         }
     }
     gantry(&mut layer, wd, wcam, now, &cloths);
-    // The paper at the line for the first team home.
     if let Some(f) = race.show.fx.iter().find(|f| f.kind == Kind::Finish && f.n == 1) {
         let (lx, ly, ..) = wd.line;
         finish::paper(&mut layer, (lx as i32 - wcam.0, ly as i32 - wcam.1 - 20), f.age(now));
     }
-    // Wind past the lens: the faster the viewer rides, the more of it, and a rush at the off.
     let me = &race.racers[v.me];
     let pace = if race.phase == Phase::Racing { me.speed / 11.0 } else { 0.0 };
     let surge = if race.phase == Phase::Racing && race.t < 26 { 1.0 - race.t as f32 / 26.0 } else { 0.0 };
@@ -329,14 +303,12 @@ pub(super) fn frame(scene: &mut Img, over: &mut Img, run: &crate::rules::Run, w:
     let (dx, dy) = shake(&v);
     scene.stamp(&layer, dx, dy);
 
-    // Over it: the plates, the calls, the count, the iris.
     let plan = moments::plan_of(&v);
     hud::draw(over, &v, &plan);
     if let Some(b) = &plan.banner {
         moments::draw_banner(over, b);
     }
     moments::draw_start(over, &plan, &v);
-    // The photograph's flash, for everyone.
     if race.show.fx.iter().any(|f| f.kind == Kind::Photo && f.age(now) < 2) {
         for y in 0..over.h {
             for x in 0..over.w {

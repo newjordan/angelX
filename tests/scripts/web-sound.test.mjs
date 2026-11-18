@@ -1,4 +1,3 @@
-// Execute the shipped classic browser script, without a browser, host or deps.
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
@@ -22,6 +21,7 @@ function rig({ unlocked = true, songs = false } = {}) {
   const requests = []
   const sources = []
   const timers = new Map()
+  const intervals = new Map()
   const storage = new Map()
   let timerId = 0
   const ctx = {
@@ -63,8 +63,7 @@ function rig({ unlocked = true, songs = false } = {}) {
     [
       'hit',
       ...Array.from({ length: 75 }, (_, i) => `music-${i}`),
-      // The Bard's songs, when asked for: a few beats of two of them and their Lullabies.
-      ...(songs ? ['a', 'b'].flatMap((song) => [...Array.from({ length: 24 }, (_, i) => slice(song, i)), `bard_${song}_lull`]) : []),
+      ...(songs ? ['a', 'b', 'c', 'd', 'e'].flatMap((song) => [...Array.from({ length: 24 }, (_, i) => slice(song, i)), `bard_${song}_lull`]) : []),
     ].map((n) => [n, n]),
   )
   const sound = vm.runInNewContext(`${source}\nmakeSound(manifest)`, {
@@ -87,6 +86,13 @@ function rig({ unlocked = true, songs = false } = {}) {
     clearTimeout(id) {
       timers.delete(id)
     },
+    setInterval(fn) {
+      intervals.set(++timerId, fn)
+      return timerId
+    },
+    clearInterval(id) {
+      intervals.delete(id)
+    },
     fetch(url, options) {
       const d = deferred()
       requests.push({ url, options, ...d })
@@ -100,6 +106,11 @@ function rig({ unlocked = true, songs = false } = {}) {
     sources,
     requests,
     timers,
+    intervals,
+    async pump() {
+      for (const fn of [...intervals.values()]) fn()
+      await flush()
+    },
     advance(ms) {
       now += ms
     },
@@ -182,7 +193,7 @@ test('superseded fetch/decode/retry and explicit stop cannot start stale music',
   r.sound.music('music-0')
   await r.deliver()
   r.sound.music('music-1')
-  r.sound.music('music-0') // ABA: same name, different request
+  r.sound.music('music-0')
   assert.equal(r.requests.length, 1, 'serialize uncancellable decodes to bound pending buffers')
   decode.resolve({ name: 'stale' })
   await flush()
@@ -206,7 +217,7 @@ test('superseded fetch/decode/retry and explicit stop cannot start stale music',
 test('SFX use wall time and reject pending sounds across suspension, even with a frozen audio clock', async () => {
   const r = rig()
   r.sound.sfx('hit')
-  r.advance(1000) // AudioContext.currentTime can freeze during a stall/suspension.
+  r.advance(1000)
   await r.deliver()
   assert.equal(r.sound.played, 0)
   r.sound.sfx('hit')
@@ -281,7 +292,7 @@ test('an abandoned fetch is aborted, and a late response cannot replace the requ
   r.sound.music('music-0')
   r.sound.music('music-1')
   assert.equal(r.requests[0].options.signal.aborted, true)
-  await r.deliver(0) // Simulate a late response despite cancellation.
+  await r.deliver(0)
   assert.equal(r.music().length, 0)
   await r.deliver(1)
   assert.equal(r.music()[0].buffer.name, 'music-1')
@@ -444,31 +455,29 @@ test("the Bard's slices fetch ahead, never count among the six voices and never 
   const asked = r.requests.slice(before).map((q) => q.url)
   assert.ok(['bard_a_003', 'bard_a_004', 'bard_a_009'].every((n) => asked.includes(n)), 'the beat and the six after it are fetched')
   await r.deliver(r.requests.findIndex((q, i) => i >= before && q.url === 'bard_a_003'))
+  await r.pump()
   const playing = r.sources.filter((s) => s.started && !s.stopped)
   assert.equal(playing.length, 7, 'six effects and the slice')
   assert.equal(playing.filter((s) => s.buffer?.name === 'bard_a_003').length, 1)
 })
 
-test("the Bard's slices overlap their neighbour, three at most, and a late one is skipped", async () => {
+test("the Bard's Lullabies overlap, three at most, and a late one is skipped", async () => {
   const r = rig({ songs: true })
-  for (let beat = 0; beat < 4; beat++) {
-    r.sound.sfx(`bard_a_${String(beat).padStart(3, '0')}`)
+  for (const song of ['a', 'b', 'c', 'd']) {
+    const name = `bard_${song}_lull`
+    const before = r.requests.length
+    r.sound.sfx(name)
     await flush()
-    for (let i = 0; i < r.requests.length; i++) {
-      if (r.requests[i].url === `bard_a_${String(beat).padStart(3, '0')}`) {
-        r.requests[i].resolve({ ok: true, arrayBuffer: async () => r.requests[i].url })
-      }
-    }
+    for (const q of r.requests.slice(before)) q.resolve({ ok: true, arrayBuffer: async () => q.url })
     await flush()
   }
   assert.equal(r.sources.filter((s) => s.started && !s.stopped).length, 3, 'the oldest is let go at three')
-  // One more that comes in after a quarter of a second is skipped: late is worse than silent.
   const started = r.sources.length
-  r.sound.sfx('bard_b_000')
+  r.sound.sfx('bard_e_lull')
   r.advance(300)
-  for (const q of r.requests.filter((q) => q.url === 'bard_b_000')) q.resolve({ ok: true, arrayBuffer: async () => q.url })
+  for (const q of r.requests.filter((q) => q.url === 'bard_e_lull')) q.resolve({ ok: true, arrayBuffer: async () => q.url })
   await flush()
-  assert.equal(r.sources.length, started, 'a slice 300 ms late is not played')
+  assert.equal(r.sources.length, started, 'a Lullaby 300 ms late is not played')
 })
 
 test("the page warms every song's opening beats and Lullaby once it can sound, and a suspension silences the song", async () => {
@@ -484,6 +493,7 @@ test("the page warms every song's opening beats and Lullaby once it can sound, a
   r.sound.sfx('bard_a_000')
   for (const q of r.requests.filter((q) => q.url === 'bard_a_000')) q.resolve({ ok: true, arrayBuffer: async () => q.url })
   await flush()
+  await r.pump()
   const song = r.sources.filter((s) => s.started && !s.stopped)
   assert.equal(song.length, 1)
   r.sound.suspend()

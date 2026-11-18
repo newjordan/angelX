@@ -1,28 +1,9 @@
 #!/usr/bin/env python3
-"""Bootstrap verdicts for scorecard v2 (docs/RENDER_SCORECARD.md).
-
-Reads pooled raw frame series for two sides and reports medians plus
-a 95% bootstrap interval on the difference of medians (glass - kitty,
-so a negative interval favours glass on time metrics). Deterministic:
-the resampler is a seeded LCG, no wall-clock or hash-order dependence,
-so a stranger re-running this on the committed series gets the same
-numbers to the last digit.
-"""
 import json
 import math
+import random
 import statistics
 import sys
-
-
-class Lcg:
-    """A tiny seeded PRNG (Numerical Recipes constants)."""
-
-    def __init__(self, seed=0x2545F491):
-        self.state = seed & 0xFFFFFFFF
-
-    def randrange(self, n):
-        self.state = (1664525 * self.state + 1013904223) & 0xFFFFFFFF
-        return self.state % n
 
 
 def percentile(sorted_vals, p):
@@ -33,10 +14,9 @@ def percentile(sorted_vals, p):
 
 
 def bootstrap_median_diff(a, b, resamples=10000, seed=0x2545F491):
-    """(median(a)-median(b), lo, hi) at 95% by percentile bootstrap."""
     if not a or not b:
         return (float("nan"),) * 3
-    rng = Lcg(seed)
+    rng = random.Random(seed)
     diffs = []
     for _ in range(resamples):
         ma = statistics.median(a[rng.randrange(len(a))] for _ in range(len(a)))
@@ -68,10 +48,6 @@ def summarize(name, glass, kitty, lower_is_better=True):
 
 
 def main():
-    # analyze.py NAME GLASS_JSONL... -- KITTY_JSON...
-    # Each glass file: a series.json ({"frames_ms": [...]}) or keyframe
-    # text is handled by the caller converting first. Kitty files are
-    # bench JSONs carrying "times_ms".
     args = sys.argv[1:]
     name = args[0]
     sep = args.index("--")

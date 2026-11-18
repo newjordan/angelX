@@ -137,8 +137,6 @@ pub(crate) struct Layouts {
     entries: VecDeque<Entry>,
     partial: Option<Arc<str>>,
     failure: Option<String>,
-    /// Last actual transcript pixels, before selection highlighting. Selection
-    /// freezes these while an asynchronous replacement layout finishes.
     pub(crate) painted: Option<Buffer>,
 }
 
@@ -148,8 +146,6 @@ impl Layouts {
         self.entries.clear();
         self.partial = None;
         self.painted = None;
-        // Keep the one outstanding job accounted for until its reply arrives.
-        // Its old generation will be rejected; no second worker is spawned.
     }
 
     pub(crate) fn busy(&self) -> bool {
@@ -190,7 +186,6 @@ impl Layouts {
             return;
         }
         if reply.entry.partial {
-            // One completed partial, one active job and one latest snapshot.
             self.entries.retain(|entry| !entry.partial);
         }
         if let Some(index) = self.entries.iter().position(|entry| {
@@ -297,8 +292,6 @@ impl Layouts {
     }
 }
 
-/// Copy only the physical viewport. A resize clips the previously painted
-/// selection; it never rewraps or substitutes a late result underneath it.
 pub(crate) fn paint(buffer: &Buffer, destination: &mut Buffer, area: Rect) {
     use unicode_width::UnicodeWidthStr;
     let width = area.width.min(buffer.area.width);
@@ -307,8 +300,6 @@ pub(crate) fn paint(buffer: &Buffer, destination: &mut Buffer, area: Rect) {
             if let Some(cell) = destination.cell_mut((area.x + x, area.y + y)) {
                 let source = &buffer[(buffer.area.x + x, buffer.area.y + y)];
                 if source.symbol().width() > usize::from(width - x) {
-                    // A frozen wider viewport may end halfway through a glyph.
-                    // Do not let its terminal cell width cross into the rail.
                     *cell = ratatui::buffer::Cell::default();
                     cell.set_style(source.style());
                 } else {

@@ -6,7 +6,6 @@ use std::collections::BTreeMap;
 
 type Keys = BTreeMap<u32, Input>;
 
-/// A knight who wanders: a new heading every `hold` ticks.
 fn wander(id: u32, t: u32, hold: u32) -> Input {
     let mut h = id.wrapping_mul(0x9E37_79B1) ^ (t / hold).wrapping_mul(0x85EB_CA77);
     h ^= h >> 15;
@@ -22,7 +21,6 @@ fn join(r: &mut Run, seats: u32) {
     }
 }
 
-/// A delve floor's own mini-game, `depth` floors down: the folly its hall holds.
 fn floor_game(depth: u32, seats: u32) -> Run {
     let mut r = Run::new(41, 1, None);
     for _ in 0..depth {
@@ -35,7 +33,6 @@ fn floor_game(depth: u32, seats: u32) -> Run {
     r
 }
 
-/// Which folly a floor holds.
 fn which(r: &Run) -> &'static str {
     if r.folly.is_some() {
         "wax_maze"
@@ -50,7 +47,6 @@ fn which(r: &Run) -> &'static str {
     }
 }
 
-/// Run the game with its knights wandering until the dare's board is up.
 fn into_the_window(r: &mut Run, extra: u32) {
     let after = (r.tune.dare_after * crate::rules::HZ as f32) as u64;
     let since = r.dare.as_ref().expect("a dare is called").since;
@@ -77,14 +73,10 @@ fn write_dare_baseline() {
     }
 }
 
-// ─── the wheel ──────────────────────────────────────────────────────────────
-
 use crate::realm::Spoils;
 use crate::rules::fortune::{self, Luck, Mode};
 use crate::rules::home::{BUY_HOLD, Home, Station};
 
-/// The hall with the wheel's `level` rung, `seats` knights in it, knight one
-/// on the lever, the rest on the floor before the benches.
 fn hall(seed: u64, level: u8, seats: u32) -> Run {
     let mut home = Home { deepest: 3, ..Home::default() };
     home.levels.insert(Station::Wheel, level);
@@ -108,7 +100,6 @@ fn hold(on: bool) -> Keys {
     BTreeMap::from([(1, Input { interact: on, ..Default::default() })])
 }
 
-/// A seed whose wheel stops on a wedge of `luck`, at the fourth rung.
 fn seed_for(luck: Luck, skip: usize) -> u64 {
     (0..400u64)
         .filter(|&seed| {
@@ -126,8 +117,6 @@ fn save(dir: &std::path::Path, n: u32, img: &crate::render::overworld::Img) {
     image::save_buffer(dir.join(format!("f{n:04}.png")), &img.rgb_bytes(), img.w as u32, img.h as u32, image::ColorType::Rgb8).unwrap();
 }
 
-/// The spin on film, a frame every tick, as seat one sees it and (beside it)
-/// seat two: `ANGEL_FORTUNE_FILM=<dir>` writes `<dir>/<name>/f0000.png`.
 #[test]
 #[ignore]
 fn write_fortune_film() {
@@ -167,8 +156,6 @@ fn write_fortune_film() {
     }
 }
 
-// ─── words ──────────────────────────────────────────────────────────────────
-
 use super::claims::{self, Rect};
 use crate::render::overworld::ink::said;
 
@@ -180,7 +167,6 @@ fn inside(r: Rect, w: i32, h: i32) -> bool {
     r.0 >= 0 && r.1 >= 0 && r.0 + r.2 <= w && r.1 + r.3 <= h
 }
 
-/// Every box of words laid in seat `seat`'s view of the hall, once each.
 fn hall_words(run: &Run, seat: u32) -> Vec<(String, Rect)> {
     let (_, mut laid) = claims::read(|| frame_for(run, 384, 224, Some(seat)));
     laid.sort();
@@ -188,7 +174,6 @@ fn hall_words(run: &Run, seat: u32) -> Vec<(String, Rect)> {
     laid
 }
 
-/// No two boxes of words meet and none leaves the room above the tray.
 fn assert_clear(laid: &[(String, Rect)], what: &str) {
     for (i, (a, ra)) in laid.iter().enumerate() {
         assert!(inside(*ra, 384, 192), "{what}: {a} {ra:?} leaves the view");
@@ -230,7 +215,6 @@ fn the_plates_boards_and_the_coffers_never_meet_either() {
     use crate::rules::feats::Tier;
     let mut run = hall(5, 4, 4);
     run.home.boxes = vec![Tier::Gold, Tier::Silver];
-    // One knight on the lever, one on Fortune's plate, one on the coffer's.
     let stand = |run: &mut Run, id: u32, plate: (i32, i32, i32, i32)| {
         let hero = run.players.get_mut(&id).unwrap();
         hero.x = (plate.0 as f32 + plate.2 as f32 / 2.0) * 2.0;
@@ -251,7 +235,6 @@ fn the_plates_boards_and_the_coffers_never_meet_either() {
 #[test]
 fn you_names_only_the_seat_that_pulled_and_only_for_that_seat() {
     let mut run = hall(seed_for(Luck::Fair, 0), 4, 4);
-    // Knight three pulls: they hold the lever.
     let (c, r, w, h) = fortune::LEVER;
     for id in 1..=4 {
         let hero = run.players.get_mut(&id).unwrap();
@@ -307,8 +290,6 @@ fn every_line_the_wheel_speaks_is_two_or_three_plain_words() {
     }
 }
 
-// ─── the dare card ──────────────────────────────────────────────────────────
-
 use crate::rules::dares::{CALLED, DareKind};
 
 #[test]
@@ -326,27 +307,17 @@ fn the_dare_card_is_two_short_lines_and_fits_the_view() {
     }
 }
 
-/// Where each game keeps its words while a dare is called (the dare is up
-/// from five seconds into a floor), as boxes in the 384 by 224 view.
 fn kept_words(game: &str) -> Vec<(&'static str, Rect)> {
     let mut out = vec![
-        // The Wax Maze's strip (16) and the Belfry's (21) run along the top.
         ("strip", (0, 0, 384, 22)),
-        // The folly boards top right, their titles, and every banner and call the
-        // lanes put up, in the middle of the view.
         ("middle", (0, 22, 384, 138)),
     ];
     if game == "wax_maze" {
-        // Its map in the bottom right corner.
         out.push(("map", (192, 160, 192, 32)));
     }
     out
 }
 
-/// A seat's view with the dare card up and without it, each re-drawn once to be sure of it: the
-/// views are only a fair pair when every re-draw of an unchanged state is the same picture. The
-/// suite's other tests share process-wide switches and caches, so a draw can now and then differ
-/// from the next by a few pixels in the tray whatever this test does; such a pair is tried again.
 #[allow(clippy::type_complexity)]
 fn fair_pair(
     run: &Run,
@@ -355,11 +326,8 @@ fn fair_pair(
     game: &str,
 ) -> Option<(crate::render::overworld::Img, Vec<(String, Rect)>, Vec<Rect>, crate::render::overworld::Img, said::Said)> {
     for _ in 0..8 {
-        // Hold the lit-scenery cache for both looks, so another test's room cannot
-        // evict this room's drawing between them (`scenery::pin_scene_cache`).
         let _pin = crate::render::overworld::arena::scenery::pin_scene_cache();
         let (with, laid) = claims::read(|| frame_for(run, 384, 224, Some(seat)));
-        // What the Powder Room says it keeps on that screen (the only game that lists its boxes).
         let theirs: Vec<Rect> = if game == "powder" {
             crate::render::overworld::arena::powder_words().iter().map(|c| c.rect).collect()
         } else {
@@ -400,7 +368,6 @@ fn the_dare_card_never_meets_another_games_words_and_only_its_own_corner_changes
                 let card = super::dare::card(r.dare.as_ref().unwrap());
                 let (rx, ry) = super::dare::rest(&card, 224);
                 let rect = (rx, ry, card.w, card.h);
-                // Whole in the view, above the tray, and clear of every box the games keep.
                 assert!(inside(rect, 384, 192), "{game}: the card {rect:?} leaves the view");
                 for (what, zone) in kept_words(game) {
                     assert!(!meets(rect, zone), "{game}: the card {rect:?} meets the game's {what} {zone:?}");
@@ -417,7 +384,6 @@ fn the_dare_card_never_meets_another_games_words_and_only_its_own_corner_changes
                     for theirs in &theirs {
                         assert!(!meets(rect, *theirs), "{game} seat {seat} tick {i}: the card {rect:?} meets the game's words {theirs:?}");
                     }
-                    // Nothing but the card's own corner changes (the card slides in from the edge).
                     let mut changed = 0;
                     for y in 0..224 {
                         for x in 0..384 {
@@ -427,7 +393,6 @@ fn the_dare_card_never_meets_another_games_words_and_only_its_own_corner_changes
                             }
                         }
                     }
-                    // And it sits on no line of words the game wrote on the view itself.
                     for line in said.lines.iter().filter(|l| l.on == (384, 224)) {
                         let words = (line.at.0, line.at.1, text_width(&line.text), 7);
                         assert!(!meets(rect, words) || changed == 0, "{game}: the card meets {:?} at {words:?}", line.text);
@@ -456,8 +421,6 @@ fn the_dare_card_waits_behind_a_finished_games_own_screen() {
     assert_eq!(frame_for(&r, 384, 224, Some(1)), frame_for(&bare, 384, 224, Some(1)));
 }
 
-/// The dare card over each folly on film, a frame every tick of its five seconds and a little either side:
-/// `ANGEL_DARE_FILM=<dir>` writes `<dir>/dare-<game>/f0000.png`.
 #[test]
 #[ignore]
 fn write_dare_film() {

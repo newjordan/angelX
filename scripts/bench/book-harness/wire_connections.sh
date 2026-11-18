@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# wire_connections.sh <angel-binary> <label> — walk one build through a scripted
-# fix and a scripted loop on every seat's real club, each pointed at the local
-# stub model, and keep every request each seat sent: out/wire-<label>-<seat>-<scenario>.jsonl.
-# wire_connections.py then checks each approved piece on each seat's wire.
-# Seats: deepseek, glm, grok, muse (Responses API), local. No API is called.
 set -euo pipefail
 BIN=$(readlink -f "${1:?angel binary}"); LABEL=${2:?label}
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -31,7 +26,6 @@ for SEAT in $SEATS; do for SC in $SCENARIOS; do
   LOG=$OUT/wire-$LABEL-$SEAT-$SC.jsonl; rm -f "$LOG" "$LOG.paths"
   SCRIPT_ENV=()
   if [[ $SC == loop ]]; then
-    # The same red run six times: the loop detectors and their own turns.
     python3 -c 'import json,sys; s=[["run_tests",{"runtime":"python","entrypoint":"unittest"}]]*6+[None]; json.dump(s,open(sys.argv[1],"w"))' "$RUN/script.json"
     SCRIPT_ENV=(STUB_SCRIPT="$RUN/script.json")
   fi

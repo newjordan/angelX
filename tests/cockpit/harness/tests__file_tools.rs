@@ -5,8 +5,6 @@
 
 use super::*;
 
-// --- file tools / notes / todo suite ----------------------------------------
-
 #[test]
 fn reverse_tool_works() {
     let out = ReverseTool
@@ -23,13 +21,10 @@ fn shell_accepts_recovered_cmd_alias_without_an_extra_tool_hop() {
         .call(&serde_json::json!({"cmd":"printf recovered-cmd"}))
         .expect("legacy cmd alias should execute through the canonical shell tool");
     assert!(result.contains("recovered-cmd"), "{result}");
-    // `script` is the code_mode-vocabulary alias for the same command slot:
-    // a nested `shell({script})` call must run, not error on `command`.
     let result = tool
         .call(&serde_json::json!({"script":"printf recovered-script"}))
         .expect("script alias should execute through the canonical shell tool");
     assert!(result.contains("recovered-script"), "{result}");
-    // `command` stays authoritative when several aliases appear.
     let result = tool
         .call(&serde_json::json!({
             "command":"printf authoritative",
@@ -74,8 +69,6 @@ fn unrecoverable_tool_arguments_fail_closed_without_dispatch() {
 
 #[test]
 fn file_tools_write_read_replace_list_roundtrip() {
-    // Exact-byte read assertions need plain pages; hashline anchors are on by
-    // default and prefix `[path#tag]` + line numbers.
     let _env = crate::tests::env_lock();
     let _anchors = crate::tests::TestEnvGuard::set("ANGEL_HASHLINE_ANCHORS", "0");
     let root = std::env::temp_dir().join(format!("angel_ft_{}", std::process::id()));
@@ -112,7 +105,6 @@ fn file_tools_write_read_replace_list_roundtrip() {
         .unwrap();
     assert!(l.contains("b.txt"), "got: {l}");
 
-    // Confinement: no climbing out and no absolute paths outside this workspace.
     assert!(
         reg.dispatch("read_file", &serde_json::json!({"path": "../escape"}))
             .is_err()
@@ -134,8 +126,6 @@ fn file_tools_write_read_replace_list_roundtrip() {
 
 #[test]
 fn read_file_pages_are_contiguous_bounded_and_schema_documented() {
-    // Page sizing and exact next-offset teaching are independent of hashline
-    // anchors; pin them off so this contract stays byte-stable.
     let _env = crate::tests::env_lock();
     let _anchors = crate::tests::TestEnvGuard::set("ANGEL_HASHLINE_ANCHORS", "0");
     let root = scratch("read_pages");
@@ -281,9 +271,6 @@ fn read_file_pages_bound_deep_scans_and_giant_lines() {
         "deep line offsets must not turn into an unbounded whole-file read: {deep_error}"
     );
 
-    // A giant single line self-corrects: largest prefix that fits, a truncation
-    // marker naming the skipped bytes, and an offset that advances past the
-    // unpageable line — success instead of a retried error.
     std::fs::write(root.join("giant.txt"), "x".repeat(49 * 1024)).unwrap();
     let giant = tool
         .call(&serde_json::json!({"path":"giant.txt","limit":1}))
@@ -303,8 +290,6 @@ fn read_file_pages_bound_deep_scans_and_giant_lines() {
         "[end of file before line 2]"
     );
 
-    // Byte-cap truncation across many lines: the partial line is resumed from
-    // its start on the next page, so no content is lost.
     let fat_source = (1..=200)
         .map(|line| format!("l{:04}:{}\n", line, "x".repeat(193)))
         .collect::<String>();
@@ -359,7 +344,6 @@ fn notes_tool_persists_across_instances() {
         "got: {list}"
     );
 
-    // Cross-session: a fresh tool instance on the same file sees prior notes.
     let mut reg2 = ToolRegistry::new();
     reg2.register(Box::new(NotesTool::at(p.clone(), &alpha)));
     let seen = reg2
@@ -434,7 +418,6 @@ fn todo_tool_add_complete_set_persist() {
     assert_eq!(done_state["items"][0]["text"], "write parser");
     assert_eq!(done_state["items"][0]["done"], true);
 
-    // State persists across dispatch calls (same registry instance).
     let list = reg
         .dispatch("todo", &serde_json::json!({"action": "list"}))
         .unwrap();
@@ -444,7 +427,6 @@ fn todo_tool_add_complete_set_persist() {
     assert_eq!(list_state["items"][1]["text"], "add tests");
     assert_eq!(list_state["items"][1]["done"], false);
 
-    // set replaces the whole list.
     reg.dispatch(
         "todo",
         &serde_json::json!({"action": "set", "items": ["only one"]}),
@@ -458,14 +440,11 @@ fn todo_tool_add_complete_set_persist() {
         "got: {list2}"
     );
 
-    // completing a missing id errors.
     assert!(
         reg.dispatch("todo", &serde_json::json!({"action": "complete", "id": 99}))
             .is_err()
     );
 }
-
-// --- residual binary read coverage (folded from parent) -------------------
 
 #[test]
 fn read_file_detects_binary() {
@@ -486,8 +465,6 @@ fn read_file_detects_binary() {
     );
 }
 
-/// Benchmark: detecting a binary short-circuits the whole-file lossy decode,
-/// so even a large asset returns fast.
 #[test]
 fn read_file_binary_is_fast() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -549,8 +526,6 @@ fn read_file_hashline_anchors_keep_huge_sparse_text_paged() {
     let _env = crate::tests::env_lock();
     let _anchors = crate::tests::TestEnvGuard::set("ANGEL_HASHLINE_ANCHORS", "1");
     let root = scratch("hashline_sparse_page");
-    // The first probe is text, so the binary shortcut cannot mask the optional
-    // whole-file enrichment bug. No 4 GiB allocation or read is needed.
     let path = root.join("huge.txt");
     std::fs::write(&path, "bounded\n".repeat(2048)).unwrap();
     std::fs::OpenOptions::new()

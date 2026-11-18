@@ -65,8 +65,6 @@ def main():
     report["before"] = identities()
     env = dict(os.environ, RUSTUP_AUTO_INSTALL="0", RUSTUP_DIST_SERVER="http://127.0.0.1:9",
                RUSTUP_UPDATE_ROOT="http://127.0.0.1:9", CARGO_NET_OFFLINE="true")
-    # Reuse the actual installer logic but audit its child-command requests.
-    # A regression asking for fetch/install/build fails before executing it.
     guard = '''import importlib.util,json,sys
 s=importlib.util.spec_from_file_location("installer",sys.argv.pop(1))
 m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
@@ -99,8 +97,6 @@ print("AUDIT_COMMANDS "+json.dumps(calls))
                               if row["name"].endswith(mode)) * 1000 for mode in ("default", "offline")}
     save()
 
-    # No full compiler rebuild: a stdlib-only temporary crate exercises the
-    # actual Cargo precedence of the installer's wrapper/target/flags overrides.
     cargo, rustc = installer.local_toolchain()
     with tempfile.TemporaryDirectory(prefix="angel-blaze-setup-control-") as temporary:
         work = Path(temporary)
@@ -115,7 +111,6 @@ print("AUDIT_COMMANDS "+json.dumps(calls))
         config = {'build': {'rustc-wrapper': str(wrapper), 'rustc-workspace-wrapper': str(wrapper),
                             'target-dir': str(work / 'wrong-config-target')},
                   'target': {host: {'rustflags': ['--invalid-config-rustflag']}}}
-        # These values are JSON-compatible TOML strings/arrays.
         (work / ".cargo/config.toml").write_text(
             '[build]\n' + '\n'.join(f'{key} = {json.dumps(value)}' for key, value in config['build'].items()) +
             f'\n[target.{host}]\nrustflags = ["--invalid-config-rustflag"]\n')
@@ -138,7 +133,6 @@ print("AUDIT_COMMANDS "+json.dumps(calls))
         finally:
             os.environ.clear()
             os.environ.update(original_env)
-        # --locked also applies to this actual Cargo control.
         run('cargo-lockfile', [cargo, 'generate-lockfile', '--offline'], clean, work)
         for label, marker in [('original', 'original'), ('edit', 'edited'), ('restore', 'original')]:
             source = work / 'src/main.rs'

@@ -1,6 +1,3 @@
-"""Offline regressions: no GPU, desktop input, network or provider tokens used.
-Run: python3 -I scripts/bench/mage-hands/bench/test_live_bench.py
-"""
 import json
 import os
 from pathlib import Path
@@ -96,7 +93,6 @@ class LiveScoreTests(unittest.TestCase):
 
 class LivePreflightTests(unittest.TestCase):
     def run_preflight(self, binary="/bin/true", approved=""):
-        # A preflight must reject before it touches Hyprland or the network.
         return subprocess.run(
             ["bash", str(HERE / "live_bench.sh"), "--preflight"],
             env={**os.environ, "ANGEL_BENCH_BIN": binary, "MAGE_ALLOW_MUSE": approved},
@@ -179,8 +175,6 @@ class LiveTaskLimitsTests(unittest.TestCase):
 
 class WarmupTests(unittest.TestCase):
     def test_warmup_uses_mage_template_and_normalized_json_coordinates(self):
-        # Execute the actual heredoc with HTTP and PIL replaced by deterministic
-        # fixtures. No real socket, GPU, model or provider request is used.
         source = (HERE / "preflight.sh").read_text().split("<<'PY'\n", 1)[1].split("\nPY", 1)[0]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

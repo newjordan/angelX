@@ -13,8 +13,6 @@
 
 use std::path::{Path, PathBuf};
 
-/// The user skills dir (for help text only). The actual catalog is bundled +
-/// user, merged by the shared loader; this is just where a user drops their own.
 fn user_dir() -> PathBuf {
     if let Ok(d) = std::env::var("ANGEL_SKILLS_DIR")
         && !d.trim().is_empty()
@@ -25,12 +23,10 @@ fn user_dir() -> PathBuf {
     PathBuf::from(home).join(".angelX").join("skills")
 }
 
-/// Where user skills are read from (for the "no skills" help text).
 pub fn dir_display() -> String {
     user_dir().display().to_string()
 }
 
-/// Names of available skills (bundled + user), sorted — via the shared loader.
 pub fn list_for(workspace: &Path) -> Vec<String> {
     crate::agent::harness::load_skills_for(workspace)
         .into_iter()
@@ -38,9 +34,6 @@ pub fn list_for(workspace: &Path) -> Vec<String> {
         .collect()
 }
 
-/// Bounded, model-free keyword search over the already-admitted catalog.
-/// Matching is case-insensitive across names and one-line descriptions; skill
-/// bodies stay unloaded and unrendered.
 pub fn search_for(workspace: &Path, query: &str) -> String {
     const MAX_QUERY_CHARS: usize = 128;
     const MAX_RESULTS: usize = 24;
@@ -110,9 +103,6 @@ pub fn search_for(workspace: &Path, query: &str) -> String {
     out
 }
 
-/// Bounded health report for every configured skill source. This shares the
-/// loader's exact admission path, so a rejection shown here is the reason the
-/// same entry is absent from `/skills` and `skill(name)`.
 pub fn check_for(workspace: &Path) -> String {
     let audit = crate::agent::harness::audit_skills_for(workspace);
     let mut out = format!(

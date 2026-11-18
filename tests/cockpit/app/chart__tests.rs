@@ -8,7 +8,6 @@ fn chart_has_requested_height() {
 
 #[test]
 fn chart_plots_some_dots() {
-    // A non-flat series should set at least one non-empty braille cell.
     let series = [0.0, 1.0, 0.0, 1.0, 0.0];
     let text = line_chart(&series, 20, 3);
     let any = text.lines.iter().any(|l| {

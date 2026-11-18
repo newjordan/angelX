@@ -78,7 +78,6 @@ fn a_v3_snapshot_derives_stats_and_powers_and_claims_no_baked_art() {
     assert_eq!(serde_json::from_value::<CreatureV3>(json).unwrap(), sealed);
     let draft: Creation = serde_json::from_str(&serde_json::to_string(&c).unwrap()).unwrap();
     assert_eq!(draft.seal().unwrap(), sealed);
-    // Changing the draft cannot rewrite a sealed creation.
     c.equip(Slot::Hands, None).unwrap();
     assert_eq!(sealed.powers.abilities[0].id, "slash");
 }
@@ -107,8 +106,6 @@ fn bad_anatomy_and_complexity_are_rejected_at_the_boundary() {
     });
     check(|c| c.name.clear());
     assert!(serde_json::from_str::<Plan>("\"quadruped\"").is_err());
-    // Weapon creation has its own flow; no weapon mount or held weapon can
-    // enter this biped's anatomy, even through imported recipe data.
     assert!(serde_json::from_str::<Slot>("\"weapon\"").is_err());
     assert!(
         Creation::default()
@@ -205,7 +202,6 @@ fn weapons_are_a_role_with_their_own_flow_and_never_a_creatures_anatomy() {
     assert_eq!(s.sealed_weapon.as_ref().unwrap().powers, s.weapon.powers());
     s.action(Action::Confirm, 11);
     assert!(!s.open, "a weapon has no Test drive here: Keep it closes");
-    // Going back un-seals and walks the weapon's flow, not the creature's.
     let mut s = Session::default();
     s.open(0, "Ada");
     s.creation.role = Role::Weapon;
@@ -215,7 +211,6 @@ fn weapons_are_a_role_with_their_own_flow_and_never_a_creatures_anatomy() {
     s.action(Action::Back, 13);
     assert_eq!(s.step, Step::Enchant);
     assert!(s.sealed_weapon.is_none() && s.granted.is_none());
-    // Type picks the kind by moving onto it; Parts follow the kind's chain.
     s.go(Step::Type, 14);
     s.action(Action::Row(3), 14);
     assert_eq!(s.weapon.kind, WeaponKind::Shield);
@@ -230,7 +225,6 @@ fn weapons_are_a_role_with_their_own_flow_and_never_a_creatures_anatomy() {
     s.action(Action::More, 18);
     assert_ne!(s.weapon.chosen("blade").unwrap().part_id, before);
     s.weapon.validate().unwrap();
-    // A shield's budget and a creature's stay apart.
     assert_eq!(s.power().1, WEAPON_BUDGET);
     s.creation.role = Role::Hero;
     assert_eq!(s.power().1, 50);
@@ -282,16 +276,13 @@ fn a_wish_edits_the_same_recipe_the_hands_edit_and_crosses_between_flows() {
     assert_eq!(s.creation.role, Role::Weapon);
     assert!(s.chat.open && s.chat.lines.len() == 2 && s.chat.lines[0].who == Who::You);
     assert_eq!(s.creation.maker, "Ada", "a wish never changes who made it");
-    // A hand edit between two wishes is kept.
     s.weapon.set_stretch(Some(140)).unwrap();
     s.say("bigger head", 3);
     assert_eq!(s.weapon.stretch, Some(140));
     assert_eq!(s.chat.turns.len(), 3, "the conversation is seeded once, then one turn per wish");
-    // Back to a creature.
     s.say("a tiny green minion", 4);
     assert!(!s.forge() && s.creation.role == Role::Minion && s.step == Step::Powers);
     s.creation.validate().unwrap();
-    // A wish unseals a granted creation and a closed editor takes none.
     s.go(Step::Life, 5);
     s.action(Action::Confirm, 5);
     assert!(s.sealed.is_some());
@@ -303,7 +294,6 @@ fn a_wish_edits_the_same_recipe_the_hands_edit_and_crosses_between_flows() {
     assert!(s.chat.lines.iter().filter(|l| l.who == Who::You).all(|l| l.text.chars().count() <= super::session::MAX_WISH_CHARS));
     s.open = false;
     assert!(!s.say("a sword", 8));
-    // The chat keeps only its last lines.
     s.open = true;
     for i in 0..40 {
         s.say(&format!("a sword {i}"), 9);
@@ -318,7 +308,6 @@ fn the_test_drive_walks_strikes_and_meets_inside_the_floor() {
     let wall = |x: f32, _: f32| x < 12.0;
     let ground = Ground { spawn: (0.0, 0.0), walkable: &wall, foes: &foes, friend: Some((3.0, 0.0)) };
     let mut d = Drive::new((0.0, 0.0), &stats, 0);
-    // Feet never cross the wall, and a diagonal is no faster than a straight walk.
     for t in 0..200 {
         d.step(DriveInput { dx: 1, ..Default::default() }, t, &ground);
     }
@@ -331,7 +320,6 @@ fn the_test_drive_walks_strikes_and_meets_inside_the_floor() {
         b.step(DriveInput { dx: 1, dy: 1, ..Default::default() }, t, &all);
     }
     assert!((a.x.hypot(a.y) - b.x.hypot(b.y)).abs() < 0.01, "diagonals are normalised");
-    // A strike: windup, then strike, the blow landing once on the first tick of the strike.
     let mut s = Drive::new((6.0, 0.0), &stats, 0);
     let near = Ground { spawn: (6.0, 0.0), walkable: &walkable_all, foes: &foes, friend: None };
     let mut events = Vec::new();
@@ -349,7 +337,6 @@ fn the_test_drive_walks_strikes_and_meets_inside_the_floor() {
     let drive::Event::Struck(hit) = blows[0].1 else { unreachable!() };
     assert_eq!((hit.foe, hit.damage), (0, stats.melee), "the nearest foe, for the derived melee");
     assert_eq!(s.strikes, 1);
-    // Rooted while the blow comes, free in recovery; no second strike while one is under way.
     let mut r = Drive::new((6.0, 0.0), &stats, 0);
     r.step(DriveInput { attack: true, ..Default::default() }, 0, &near);
     let x = r.x;
@@ -358,14 +345,12 @@ fn the_test_drive_walks_strikes_and_meets_inside_the_floor() {
     assert_eq!(r.attack_at, Some(0), "not restarted");
     r.step(DriveInput { dx: 1, ..Default::default() }, 16, &near);
     assert!(r.x > x, "free again in the recovery");
-    // A miss says so; a meeting answers only when the friend is near.
     let far = Ground { spawn: (0.0, 0.0), walkable: &walkable_all, foes: &[(100.0, 0.0)], friend: Some((3.0, 0.0)) };
     let mut m = Drive::new((0.0, 0.0), &stats, 0);
     let ev: Vec<_> = (0..12).flat_map(|t| m.step(DriveInput { attack: t == 0, interact: t == 11, ..Default::default() }, t, &far)).collect();
     assert!(ev.contains(&drive::Event::Missed) && ev.contains(&drive::Event::Spoke(1)), "{ev:?}");
     let alone = Ground { spawn: (0.0, 0.0), walkable: &walkable_all, foes: &[], friend: Some((50.0, 0.0)) };
     assert_eq!(m.step(DriveInput { interact: true, ..Default::default() }, 20, &alone), vec![drive::Event::Alone]);
-    // Stats drive it: a heavier build is slower.
     let mut heavy = Creation::default();
     heavy.sculpt.bulk = 100;
     let slow = Drive::new((0.0, 0.0), &heavy.stats(), 0);
@@ -396,13 +381,10 @@ fn the_test_drive_follows_the_grant_only_where_a_floor_can_stand() {
     assert_eq!(s.step, Step::Drive, "the editor keys do nothing during the drive");
     s.action(Action::Back, 8);
     assert!(s.drive.is_none() && s.step == Step::Life && s.sealed.is_some(), "Q returns to the grant");
-    // Never reachable out of turn.
     let mut other = Session::default();
     other.open(0, "Ada");
     assert!(other.drive_step(DriveInput::default(), 1, &ground).is_empty() && other.drive.is_none());
 }
-
-// ---- Looks: the Hero's knights, a row on the Paint page and the Test drive's number keys ----
 
 #[test]
 fn only_a_hero_has_looks_and_its_first_look_is_the_plain_recipe() {
@@ -413,14 +395,12 @@ fn only_a_hero_has_looks_and_its_first_look_is_the_plain_recipe() {
     for role in [Role::Minion, Role::Monster, Role::Boss, Role::Weapon] {
         assert!(role.looks().is_empty(), "{role:?} shows the stand-in boss");
     }
-    // Wearing the first look is wearing none: a recipe that cycled round is the recipe it began as.
     let plain = Creation::default();
     let mut c = plain.clone();
     assert_eq!(c.look_at(), 0);
     assert!(c.set_look(2) && c.look.as_deref() == Some("frog-knight") && c.look_at() == 2);
     assert!(c.set_look(0) && c.look.is_none() && c == plain);
     assert!(!c.set_look(3), "a Hero has three looks");
-    // Nothing of it shows in a plain recipe's JSON, so old recipes and the v3 snapshot read as before.
     assert!(serde_json::to_value(&plain).unwrap().get("look").is_none());
     let mut worn = plain.clone();
     worn.set_look(1);
@@ -434,7 +414,6 @@ fn only_a_hero_has_looks_and_its_first_look_is_the_plain_recipe() {
     })
     .unwrap();
     assert_eq!(old, plain, "a recipe saved before looks existed still loads");
-    // A look the role does not offer is ignored: it reads as the role's first.
     let mut stray = Creation { role: Role::Monster, ..plain };
     stray.look = Some("a6-crusader".into());
     assert!(stray.looks().is_empty() && stray.look_at() == 0 && !stray.set_look(1));
@@ -457,7 +436,6 @@ fn the_paint_page_has_a_look_row_for_a_hero_and_arrows_flip_it() {
     assert!(s.creation.look.is_none() && s.row_value(4) == "Knight (2D)", "the looks go round");
     s.action(Action::Less, 6);
     assert_eq!(s.creation.look.as_deref(), Some("frog-knight"));
-    // The other rows are where they were; the wish row sits under the fifth.
     s.action(Action::Row(0), 7);
     s.action(Action::More, 8);
     assert_eq!(s.creation.paint.scheme, Pigment::Moss);
@@ -468,7 +446,6 @@ fn the_paint_page_has_a_look_row_for_a_hero_and_arrows_flip_it() {
     assert!(s.on_wish_row());
     s.action(Action::More, 10);
     assert_eq!(s.creation.look.as_deref(), Some("frog-knight"), "the wish row has nothing to turn");
-    // A role without looks keeps the four rows it always had.
     for role in [Role::Minion, Role::Monster, Role::Boss] {
         let mut other = Session::default();
         other.open(0, "Ada");
@@ -478,7 +455,6 @@ fn the_paint_page_has_a_look_row_for_a_hero_and_arrows_flip_it() {
         other.action(Action::Look(1), 2);
         assert!(other.creation.look.is_none(), "{role:?} has no look to wear");
     }
-    // A weapon's page is its own.
     let mut forge = Session::default();
     forge.open(0, "Ada");
     forge.creation.role = Role::Weapon;
@@ -508,14 +484,11 @@ fn the_drive_flips_a_looks_but_the_grant_is_not_edited_by_it() {
     s.action(Action::Look(0), 8);
     assert!(s.creation.look.is_none());
     assert!(s.granted.is_some() && s.sealed == sealed, "a look is a view: the sealed recipe and its grant stand");
-    // A closed editor ignores it like everything else.
     s.action(Action::Close, 9);
     let before = s.clone();
     s.action(Action::Look(1), 10);
     assert_eq!(s, before);
 }
-
-// ---- Eight ways: the drive faces where the hands point ----
 
 #[test]
 fn a_way_is_one_of_eight_and_the_arrows_name_it() {
@@ -531,9 +504,7 @@ fn a_way_is_one_of_eight_and_the_arrows_name_it() {
     }
     assert_eq!((Way::default(), Way::from_axes(0, 0), Way::from_short("up")), (Way::South, None, None));
     assert_eq!(Way::from_axes(5, -9), Some(Way::NorthEast), "only the sign of an arrow counts");
-    // Right is east, and down the floor (toward the camera) is south.
     assert_eq!((Way::from_axes(1, 0), Way::from_axes(0, 1), Way::from_axes(-1, -1)), (Some(Way::East), Some(Way::South), Some(Way::NorthWest)));
-    // Two-way art: north and south are its front walk; every way with a left part is its east walk turned about.
     for (way, flat) in [
         (Way::South, (Way::South, false)),
         (Way::North, (Way::South, false)),
@@ -556,7 +527,6 @@ fn the_test_drive_faces_where_the_hands_point_runs_on_shift_and_keeps_the_old_tw
     let fresh = || Drive::new((0.0, 0.0), &stats, 0);
     let d = fresh();
     assert_eq!((d.way, d.running, d.facing, d.vertical), (Way::South, false, 1, false), "it stands toward the camera at the start");
-    // Eight arrows, eight ways; the old fields say what they always said (facing is left or right, vertical is no sideways arrow).
     for way in Way::ALL {
         let (dx, dy) = way.axes();
         let mut d = fresh();
@@ -564,21 +534,17 @@ fn the_test_drive_faces_where_the_hands_point_runs_on_shift_and_keeps_the_old_tw
         assert!(d.moving && d.way == way && !d.running, "{way:?}");
         assert_eq!(d.vertical, dx == 0, "{way:?}");
         assert_eq!(d.facing, if dx == 0 { 1 } else { dx }, "{way:?}");
-        // Standing still keeps the way it faced.
         d.step(DriveInput::default(), 1, &all);
         assert!(!d.moving && d.way == way, "{way:?}: it stays turned");
     }
-    // A wall does not turn it away: it faces the way the hands point, it just does not get there.
     let wall = |x: f32, _: f32| x > 0.0;
     let ground = Ground { spawn: (1.0, 0.0), walkable: &wall, foes: &[], friend: None };
     let mut d = Drive::new((1.0, 0.0), &stats, 0);
     d.step(DriveInput { dx: -1, ..Default::default() }, 0, &ground);
     assert!(!d.moving && d.way == Way::West && d.facing == -1);
-    // A diagonal faces its corner; sliding along a wall on one axis keeps it.
     let mut d = Drive::new((1.0, 0.0), &stats, 0);
     d.step(DriveInput { dx: -1, dy: -1, ..Default::default() }, 0, &ground);
     assert_eq!(d.way, Way::NorthWest);
-    // Rooted in a blow it does not turn; free in the recovery it does.
     let foes = [(30.0, 0.0)];
     let near = Ground { spawn: (0.0, 0.0), walkable: &walkable_all, foes: &foes, friend: None };
     let mut d = fresh();
@@ -588,7 +554,6 @@ fn the_test_drive_faces_where_the_hands_point_runs_on_shift_and_keeps_the_old_tw
     assert_eq!(d.way, Way::East, "rooted in the windup: still facing the foe");
     d.step(DriveInput { dx: -1, dy: 1, ..Default::default() }, 1 + drive::ATTACK_TICKS - 2, &near);
     assert_eq!(d.way, Way::SouthWest, "free in the recovery");
-    // Shift runs: faster than a walk by the run's own factor, and only while it moves.
     let (mut walk, mut run) = (fresh(), fresh());
     for t in 0..30 {
         walk.step(DriveInput { dx: 1, ..Default::default() }, t, &all);
@@ -598,15 +563,11 @@ fn the_test_drive_faces_where_the_hands_point_runs_on_shift_and_keeps_the_old_tw
     assert!((run.x / walk.x - drive::RUN_SPEED).abs() < 0.01, "a run is {} of a walk", run.x / walk.x);
     run.step(DriveInput { run: true, ..Default::default() }, 30, &all);
     assert!(!run.running && !run.moving, "holding Shift with no arrow runs nowhere");
-    // Shift against a wall is no run.
     let mut d = Drive::new((1.0, 0.0), &stats, 0);
     d.step(DriveInput { dx: -1, run: true, ..Default::default() }, 0, &ground);
     assert!(!d.running, "it did not move");
 }
 
-// ---- Slice 6: clip-timed blows, a cast, a foe that strikes back, a fall ----
-
-/// An art's timing as the pipeline's A6 gives it (12 fps clips at 30 Hz): the blow lands on frame 1.
 fn clip_timing() -> drive::Timing {
     let settle = drive::SETTLE;
     drive::Timing {
@@ -619,7 +580,6 @@ fn clip_timing() -> drive::Timing {
 
 #[test]
 fn the_fixed_timeline_is_the_librarys_and_asks_nothing_of_a_cast_a_fall_or_a_foe() {
-    // The library's own blow: eight ticks of windup, six of strike, six of recovery, no settle.
     let fixed = drive::Timing::FIXED;
     assert_eq!(fixed.blow, drive::Blow { windup: 8, strike: 6, recover: 6, settle: 0 });
     assert_eq!((fixed.blow.clip(), fixed.blow.ticks()), (drive::ATTACK_TICKS, drive::ATTACK_TICKS));
@@ -627,7 +587,6 @@ fn the_fixed_timeline_is_the_librarys_and_asks_nothing_of_a_cast_a_fall_or_a_foe
     let stats = Creation::default().stats();
     let mut d = Drive::new((0.0, 0.0), &stats, 0);
     assert_eq!(d.timing, fixed, "a fresh drive plays the library's timeline");
-    // The same hands the old test used: the blow lands on tick 8 of it, and its poses are on the same ticks.
     let foes = [(6.0, 0.0)];
     let near = Ground { spawn: (0.0, 0.0), walkable: &walkable_all, foes: &foes, friend: None };
     let mut poses = Vec::new();
@@ -649,8 +608,6 @@ fn the_fixed_timeline_is_the_librarys_and_asks_nothing_of_a_cast_a_fall_or_a_foe
         .collect();
     assert_eq!(poses, want);
     assert!(busy[5 + 19] && !busy[5 + 20], "twenty ticks, to the tick");
-    // A set with no clips of its own has no cast and no death, and its foes never strike back: the keys do nothing
-    // and standing beside a foe for ten seconds costs nothing.
     let mut d = Drive::new((0.0, 0.0), &stats, 0);
     let mut seen = Vec::new();
     for t in 0..300u64 {
@@ -686,7 +643,6 @@ fn a_clip_timed_blow_lands_on_the_clips_impact_frame_and_has_the_clips_own_spans
             assert_eq!(pose, want, "tick {t}");
         }
     }
-    // Busy through the clip and its settle (21 ticks), then free to strike again.
     assert!(d.attack_at.is_none(), "the blow is over");
     let mut e = Drive::new((0.0, 0.0), &stats, 0);
     e.retime(clip_timing(), 0);
@@ -695,7 +651,6 @@ fn a_clip_timed_blow_lands_on_the_clips_impact_frame_and_has_the_clips_own_spans
     assert_eq!(e.attack_at, Some(0), "not restarted while it settles");
     e.step(DriveInput { attack: true, ..Default::default() }, 21, &near);
     assert_eq!(e.attack_at, Some(21), "and free the tick it is over");
-    // Rooted through windup and strike, free in the recovery.
     let mut r = Drive::new((0.0, 0.0), &stats, 0);
     r.retime(clip_timing(), 0);
     r.step(DriveInput { attack: true, ..Default::default() }, 0, &near);
@@ -704,7 +659,6 @@ fn a_clip_timed_blow_lands_on_the_clips_impact_frame_and_has_the_clips_own_spans
     assert_eq!(r.x, x, "rooted in the strike");
     r.step(DriveInput { dx: -1, ..Default::default() }, 6, &near);
     assert!(r.x < x, "free in the recovery, which is the clip's own follow-through");
-    // The spark of the blow is where the strike is.
     assert_eq!((d.blow_age(10 + 2), d.blow_age(10 + 3)), (None, None), "the drive has finished with it by now");
     let mut s = Drive::new((0.0, 0.0), &stats, 0);
     s.retime(clip_timing(), 0);
@@ -725,7 +679,6 @@ fn the_art_may_change_between_blows_and_never_in_the_middle_of_one() {
     d.step(DriveInput::default(), 40, &near);
     d.retime(drive::Timing::FIXED, 40);
     assert_eq!(d.timing, drive::Timing::FIXED, "between blows it does");
-    // A fall the new art cannot play ends with it.
     d.retime(clip_timing(), 41);
     d.step(DriveInput { fall: true, ..Default::default() }, 42, &near);
     assert!(d.down(43));
@@ -742,7 +695,6 @@ fn a_cast_plays_once_roots_while_it_plays_and_is_free_in_its_settle() {
     let ev = d.step(DriveInput { cast: true, ..Default::default() }, 4, &near);
     assert_eq!(ev, vec![drive::Event::Cast]);
     assert_eq!(d.acting(4), Some((Act::Cast, 0)));
-    // Rooted while the clip plays (18 ticks), turning nowhere.
     let (x, way) = (d.x, d.way);
     let ev = d.step(DriveInput { dx: 1, cast: true, attack: true, ..Default::default() }, 10, &near);
     assert!(ev.is_empty() && d.x == x && d.way == way, "no walking, no second cast, no blow");
@@ -753,7 +705,6 @@ fn a_cast_plays_once_roots_while_it_plays_and_is_free_in_its_settle() {
     assert!(d.x > x, "free in the settle");
     assert_eq!(d.acting(4 + 23), Some((Act::Cast, 23)));
     assert_eq!(d.acting(4 + 24), None, "and over after the settle");
-    // A cast can be struck out of its settle, and a blow's windup is not interrupted by one.
     let mut b = Drive::new((0.0, 0.0), &stats, 0);
     b.retime(clip_timing(), 0);
     b.step(DriveInput { attack: true, ..Default::default() }, 0, &near);
@@ -788,7 +739,6 @@ fn a_foe_in_reach_strikes_back_on_a_timer_and_the_creature_flinches() {
     assert_eq!(hurts[1].tick - hurts[0].tick, drive::FOE_EVERY, "and again 75 ticks after");
     assert_eq!(d.hurts, 2);
     assert!(tells.first().is_some_and(|&t| t + drive::FOE_TELL + 1 > hurts[0].tick), "a tell before the blow: {tells:?}");
-    // The flinch plays the hit clip, roots it for the clip and frees it in the settle.
     let mut f = Drive::new((0.0, 0.0), &stats, 0);
     f.retime(clip_timing(), 0);
     let mut at = None;
@@ -806,7 +756,6 @@ fn a_foe_in_reach_strikes_back_on_a_timer_and_the_creature_flinches() {
     assert_eq!(f.x, x, "a flinch holds it");
     f.step(DriveInput { dx: -1, ..Default::default() }, at + 11, &ground);
     assert!(f.x < x, "and lets it go in the settle");
-    // Out of reach it is left alone, a creature that has fallen is left alone, and a blow waits on a windup.
     let mut away = Drive::new((30.0, 0.0), &stats, 0);
     away.retime(clip_timing(), 0);
     for t in 0..300u64 {
@@ -851,7 +800,6 @@ fn the_fall_key_plays_the_death_clip_stays_down_and_gets_up_on_a_second_press() 
         d.step(DriveInput { dx: 1, attack: true, cast: true, ..Default::default() }, t, &near);
     }
     assert!(d.x == x && d.attack_at.is_none() && d.acting(60) == Some((Act::Fell, 57)), "nothing moves it while it is down");
-    // A press while the clip is still falling is not a getting up; once it has fallen it is.
     let mut e = Drive::new((0.0, 0.0), &stats, 0);
     e.retime(clip_timing(), 0);
     e.step(DriveInput { fall: true, ..Default::default() }, 0, &near);
@@ -865,7 +813,6 @@ fn the_fall_key_plays_the_death_clip_stays_down_and_gets_up_on_a_second_press() 
     e.step(DriveInput { dx: 1, ..Default::default() }, 33 + 33, &near);
     assert!(e.x > 0.0, "free in the settle");
     assert_eq!(e.acting(33 + 33 + 6), None);
-    // A fall in the middle of a blow ends the blow.
     let mut b = Drive::new((0.0, 0.0), &stats, 0);
     b.retime(clip_timing(), 0);
     b.step(DriveInput { attack: true, ..Default::default() }, 0, &near);

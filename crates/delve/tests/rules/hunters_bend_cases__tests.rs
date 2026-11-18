@@ -14,7 +14,6 @@ fn full(run: &Run) -> Value {
     crate::rules::runtime_state::capture_for_rules(run).unwrap().run
 }
 
-/// The keys of the run a function changes, for its `out`.
 fn pick(run: &Value, keys: &[&str]) -> Value {
     let mut out = serde_json::Map::new();
     for k in keys {
@@ -88,7 +87,6 @@ fn record_hunters() {
                 let (ex, ey) = (30.0 + r.unit() * 12.0, 6.0 + r.unit() * 16.0);
                 let mut run = with(seed, extra, kind, ex, ey);
                 for t in 0..7 * HZ {
-                    // A knight now and then steps off the line or rolls.
                     let keys: BTreeMap<u32, Input> = run
                         .players
                         .keys()
@@ -96,7 +94,6 @@ fn record_hunters() {
                             (id, Input { move_x: r.below(3) as i8 - 1, move_y: r.below(3) as i8 - 1, dash: r.below(40) == 0, ..Default::default() })
                         })
                         .collect();
-                    // act on every hunter, as the room walks them.
                     let room = run.room();
                     let barred = run.barred();
                     let grid = Grid { room, barred };
@@ -117,7 +114,6 @@ fn record_hunters() {
                             500,
                         );
                     }
-                    // tick_hunters on a copy, when something hangs in the air or sits on the floor.
                     if cases::count("hunters.Run.tick_hunters") < 90 && (!run.hooks.is_empty() || !run.webs.is_empty() || t % 40 == 0) && r.below(25) == 0 {
                         let mut c = run.clone();
                         let before = full(&c);
@@ -132,7 +128,6 @@ fn record_hunters() {
                             90,
                         );
                     }
-                    // brood_full, webbed
                     if t % 25 == 0 {
                         cases::rec_cap(
                             "hunters.Run.brood_full",
@@ -153,7 +148,6 @@ fn record_hunters() {
             }
         }
     }
-    // hunt: hooks, webs and rot applied to runs with party members around.
     for seed in 0..30u64 {
         for extra in [0usize, 1, 3] {
             let mut run = with(seed, extra, EnemyKind::Flesher, 36.0, 14.0);

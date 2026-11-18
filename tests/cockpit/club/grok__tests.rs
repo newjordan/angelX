@@ -1,8 +1,6 @@
 use super::*;
 use std::ffi::OsString;
 
-/// Delegates to the crate-wide test env lock (process env is global — a
-/// module-local lock can't serialize against other modules' env tests).
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     crate::tests::env_lock()
 }
@@ -49,14 +47,12 @@ struct EnvGuard {
 impl EnvGuard {
     fn set(key: &'static str, value: &str) -> Self {
         let old = std::env::var_os(key);
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var(key, value) };
         Self { key, old }
     }
 
     fn unset(key: &'static str) -> Self {
         let old = std::env::var_os(key);
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var(key) };
         Self { key, old }
     }
@@ -65,10 +61,8 @@ impl EnvGuard {
 impl Drop for EnvGuard {
     fn drop(&mut self) {
         if let Some(old) = &self.old {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::set_var(self.key, old) };
         } else {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::remove_var(self.key) };
         }
         if self.key.ends_with("REASONING_EFFORT") || self.key.ends_with("REASONING_DIALECT") {
@@ -176,9 +170,6 @@ fn grok_login_state_with_credentials(tag: &str, auth_json: &str) -> bool {
     grok_oauth_needs_login()
 }
 
-/// The regression: a spent access token with a refresh token beside it is
-/// the CLI's normal steady state, not a fatal one. Blocking here took the
-/// whole Grok club — research scout included — offline between logins.
 #[test]
 fn grok_runs_with_expired_access_token_when_refresh_token_is_present() {
     let _lock = env_lock();
@@ -212,7 +203,6 @@ fn grok_runs_with_unexpired_access_token() {
     assert!(!needs_login);
 }
 
-/// A second account keeps the club alive even when one record is stale.
 #[test]
 fn grok_runs_when_any_credential_record_is_usable() {
     let _lock = env_lock();
@@ -415,8 +405,6 @@ fn grok_acp_command_forwards_effort_without_an_arbitrary_turn_cap() {
 
 #[test]
 fn grok_harness_surface_denies_nested_agent_tools() {
-    // Regression for "angel freezes when grok is the driver": the harness
-    // hop must not open Grok's own multi-tool agent loop.
     let key = GrokAcpKey {
         command: "grok".to_string(),
         model: Some("grok-4.5".to_string()),
@@ -442,7 +430,6 @@ fn grok_harness_surface_denies_nested_agent_tools() {
             .any(|w| { w[0] == "--max-turns" && w[1] == GROK_HARNESS_MAX_TURNS.to_string() }),
         "harness needs a small nested budget (>1) so denied tools do not hard-fail: {args:?}"
     );
-    // The override is the host seat's route, `⠜⠚`, whose pages hold its words.
     let host = crate::agent::harness::book::ar_seats::GROK_HOST;
     assert!(
         args.windows(2)
@@ -702,7 +689,6 @@ fn grok_startup_file_read_rejects_fifo_without_waiting_for_writer() {
     std::fs::create_dir_all(&directory).unwrap();
     let path = directory.join("auth-fifo");
     let name = std::ffi::CString::new(path.as_os_str().as_encoded_bytes()).unwrap();
-    // SAFETY: name is a valid NUL-terminated pathname owned by this test.
     assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
     let started = Instant::now();
     assert!(
@@ -790,7 +776,6 @@ fn grok_oauth_http_catalog_lists_47_and_keeps_45() {
     assert!(Arc::ptr_eq(&links[0].2, &links[1].2));
     assert!(!Arc::ptr_eq(&links[0].2, &links[2].2));
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_GROK_MODEL", "grok-4.6") };
     let current = grok_http_clubs();
     assert_eq!(current.len(), 4);
@@ -1109,9 +1094,6 @@ fn grok_research_chat_with_host_tools_fails_closed_by_default() {
     );
 }
 
-/// Explicit live acceptance for the installed Grok account seat. Kept
-/// ignored in ordinary CI because it consumes provider quota and requires
-/// `grok login --oauth`; release validation runs it deliberately.
 #[test]
 #[ignore = "live Grok account OAuth + ACP acceptance"]
 fn live_grok_acp_reuses_process_and_runs_its_own_research_tool() {
@@ -1172,7 +1154,6 @@ fn live_grok_acp_reuses_process_and_runs_its_own_research_tool() {
     assert!(err.contains("HTTP OAuth"), "{err}");
 }
 
-/// HTTP OAuth is the Angel host-tool driver. Gated off in ordinary CI.
 #[test]
 #[ignore = "live Grok account OAuth HTTP tool-calling acceptance"]
 fn live_grok_oauth_http_calls_an_offered_host_tool() {
@@ -1235,8 +1216,6 @@ fn grok_research_tool_advertises_and_guards_query() {
         .expect_err("an empty query is rejected before any network call");
     assert!(err.contains("empty"), "{err}");
 }
-// Intended inside club/grok.rs's existing tests module. This uses the actual
-// process fixture and crate-wide env guard; the extracted review probe is separate.
 #[cfg(unix)]
 #[test]
 fn grok_usage_projection_separates_session_setup_and_retains_empty_reply_usage() {
@@ -1246,8 +1225,6 @@ fn grok_usage_projection_separates_session_setup_and_retains_empty_reply_usage()
     for case in ["setup-failure", "empty-text", "normal"] {
         let (auth, script, spawns) = fake_grok_acp_fixture(&format!("usage-{case}"));
         let mut fixture = std::fs::read_to_string(&script).unwrap();
-        // Record generation dispatch separately from spawn without additional
-        // environment variables or an interpolated shell path.
         fixture = fixture.replace(
             "    *'\"method\":\"session/prompt\"'*)",
             "    *'\"method\":\"session/prompt\"'*)\n      printf 'prompt\\n' >> \"${ANGEL_FAKE_GROK_SPAWNS}\"",

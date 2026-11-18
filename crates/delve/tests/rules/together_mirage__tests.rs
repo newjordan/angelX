@@ -9,12 +9,6 @@ use crate::rules::champions::mirage::{self, Swash};
 use crate::rules::spells::IMPOSTURE_MAX;
 use crate::rules::ults::{PHANTOM_SHARE, Phantom};
 
-/// The tiles the tests' room is walled down to: a clean box of floor, so a
-/// wall is where the test says it is. Columns and rows of floor from the
-/// room's (2, 2) (a fight room is 24 by 14 tiles); a tile is `TILE_UNITS` (2)
-/// across, so the floor of the usual box runs from x = 4 to 44 and from y = 4
-/// to 24, and the knight (0.42 round) stands no nearer a wall than 4.42, 43.58,
-/// 4.42 and 23.58.
 const BOX: (usize, usize) = (20, 10);
 const LEFT: f32 = 4.0;
 const TOP: f32 = 4.0;
@@ -31,12 +25,10 @@ fn boxed(r: &mut Run, (cols, rows): (usize, usize)) {
     }
 }
 
-/// A knight of `kit` standing at `(x, y)` aiming along `(ax, ay)` in the usual box.
 fn arena(kit: &str, at: (f32, f32), aim: (f32, f32)) -> Run {
     arena_in(kit, at, aim, BOX)
 }
 
-/// The same in a box of `cols` by `rows` tiles.
 fn arena_in(kit: &str, (x, y): (f32, f32), (ax, ay): (f32, f32), size: (usize, usize)) -> Run {
     let mut r = Run::new(21, 1, None);
     let fight = r.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
@@ -54,13 +46,10 @@ fn arena_in(kit: &str, (x, y): (f32, f32), (ax, ay): (f32, f32), size: (usize, u
     r
 }
 
-/// A second knight in the room, so another knight's images are kept (an
-/// image of a knight who is not there is gone at the tick's end).
 fn with_friend(r: &mut Run) {
     r.join_seat(2, "Friend");
 }
 
-/// A tough foe asleep where it stands.
 fn foe(r: &mut Run, x: f32, y: f32) -> usize {
     r.spawn_at_for_test(EnemyKind::Demon, x, y);
     let i = r.enemies.len() - 1;
@@ -108,12 +97,10 @@ fn voices(r: &Run) -> usize {
     r.sounds.iter().filter(|s| **s == "mirage_bing_bong").count()
 }
 
-/// No thrust of the foil gets in the way of what is being counted.
 fn no_thrusts(r: &mut Run) {
     r.players.get_mut(&1).unwrap().fire_cooldown = 1_000_000;
 }
 
-/// Cast Swashbuckle and run it until the dash is over, tracking the path.
 fn dash(r: &mut Run) -> Vec<(f32, f32)> {
     cast(r, 1);
     assert!(swash(r).dashing(), "the dash is set running");
@@ -132,8 +119,6 @@ fn dash(r: &mut Run) -> Vec<(f32, f32)> {
 fn length(path: &[(f32, f32)]) -> f32 {
     path.windows(2).map(|w| (w[1].0 - w[0].0).hypot(w[1].1 - w[0].1)).sum()
 }
-
-// ─── the hero ────────────────────────────────────────────────────────────────
 
 #[test]
 fn the_mirage_duelist_is_a_champion_with_a_foil_and_three_spells() {
@@ -188,7 +173,6 @@ fn the_patron_is_pickable_sits_apart_and_arms_the_knight() {
     assert_eq!(h.guard_card.as_deref(), Some("dodge-roll"));
     assert_eq!(h.ult(), ults::Ult::HallOfMirrors);
     assert_eq!(h.max_hp, 110 + h.home_hp);
-    // The three of them stand in a row, clear of one another and of every other seat.
     let near: Vec<_> = ["lancer", "phantomlancer", "mirageduelist"]
         .iter()
         .map(|k| alehouse::PATRONS.iter().find(|p| p.kit == *k).unwrap())
@@ -198,8 +182,6 @@ fn the_patron_is_pickable_sits_apart_and_arms_the_knight() {
         assert!((p.at.0 - q.at.0).hypot(p.at.1 - q.at.1) > 1.2, "{} sits apart from {}", p.label, q.label);
     }
 }
-
-// ─── Swashbuckle ─────────────────────────────────────────────────────────────
 
 #[test]
 fn a_dash_in_the_open_runs_exactly_its_base_length_and_never_bounces() {
@@ -215,7 +197,6 @@ fn a_dash_in_the_open_runs_exactly_its_base_length_and_never_bounces() {
 
 #[test]
 fn a_dash_into_a_wall_at_an_angle_reflects_the_axis_it_met_and_carries_on() {
-    // Toward the east wall, down and east: it meets it 4 units on.
     let mut r = arena("mirageduelist", (40.0, 16.0), (1.0, 0.5));
     cast(&mut r, 1);
     let (hx, hy) = (swash(&r).hx, swash(&r).hy);
@@ -240,8 +221,6 @@ fn a_dash_into_a_wall_at_an_angle_reflects_the_axis_it_met_and_carries_on() {
 
 #[test]
 fn the_first_wall_triples_the_dash_once_and_the_distance_run_counts() {
-    // Straight at the east wall from 3.58 short of it, with the whole box to
-    // run back across: one bounce, then the budget.
     let mut r = arena("mirageduelist", (40.0, 18.0), (1.0, 0.0));
     dash(&mut r);
     let s = swash(&r);
@@ -255,8 +234,6 @@ fn the_first_wall_triples_the_dash_once_and_the_distance_run_counts() {
 
 #[test]
 fn a_third_wall_ends_the_dash_on_open_floor_after_two_rebounds() {
-    // A narrow box (y from 4 to 12), so the walls come quickly: east at 4
-    // units, south at 8, north at 24.
     let mut r = arena_in("mirageduelist", (40.0, 8.0), (1.0, 0.5), (20, 4));
     dash(&mut r);
     let s = swash(&r);
@@ -270,7 +247,6 @@ fn a_third_wall_ends_the_dash_on_open_floor_after_two_rebounds() {
 
 #[test]
 fn a_corner_turns_both_components() {
-    // Into the north-east corner on the diagonal.
     let mut r = arena("mirageduelist", (42.5, 5.5), (1.0, -1.0));
     cast(&mut r, 1);
     let (hx, hy) = (swash(&r).hx, swash(&r).hy);
@@ -334,7 +310,6 @@ fn a_bouncing_dash_still_ends_in_its_four_slashes_from_where_it_ends() {
 #[test]
 fn a_fast_dash_cannot_skip_a_one_tile_wall() {
     let mut r = arena("mirageduelist", (19.0, 18.0), (1.0, 0.0));
-    // A single column of wall across the way (x 28 to 30), floor either side.
     let at = r.at;
     let room = &mut r.dungeon.rooms[at];
     for row in 2..2 + BOX.1 {
@@ -367,7 +342,6 @@ fn the_aim_steers_a_dash_at_ninety_degrees_a_second_and_no_aim_leaves_it_straigh
     }
     let curved = (hero(&r).x, hero(&r).y);
     assert!(curved.1 < straight.1 - 0.8, "the held aim pulled it up: {curved:?} against {straight:?}");
-    // Eight ticks of 3 degrees is 24 degrees off east at most.
     let s = swash(&r);
     let turned = s.hy.atan2(s.hx).to_degrees();
     assert!((-24.5..-23.0).contains(&turned), "turned {turned} degrees, at most 3 a tick");
@@ -387,7 +361,6 @@ fn a_bounce_is_reflected_first_and_the_steering_goes_on_from_the_reflection() {
         if s.bounces == 1 && at_bounce.is_none() {
             assert!(s.hx < 0.0, "reflected to the west at once: ({}, {})", s.hx, s.hy);
             at_bounce = Some(off(&s).abs());
-            // Eight more ticks of the held aim: at most 24 degrees round, and from the reflection.
             for _ in 0..8 {
                 step(&mut r, Input { aim_y: -1, ..Default::default() });
             }
@@ -440,7 +413,6 @@ fn the_dash_leaves_one_image_where_it_began_and_keeps_the_cap() {
 #[test]
 fn the_flurry_is_four_slashes_eight_ticks_apart_each_at_the_foils_blow_times_one_point_two() {
     let mut r = arena("mirageduelist", (14.0, 18.0), (1.0, 0.0));
-    // 11 units of dash, ending at x = 25; the foe stands 3 beyond it.
     let a = foe(&mut r, 28.0, 18.0);
     no_thrusts(&mut r);
     cast(&mut r, 1);
@@ -467,7 +439,6 @@ fn the_flurry_is_four_slashes_eight_ticks_apart_each_at_the_foils_blow_times_one
 #[test]
 fn each_slash_follows_the_aim_held_that_tick() {
     let mut r = arena("mirageduelist", (14.0, 18.0), (1.0, 0.0));
-    // The dash ends at x = 25: one foe 3 east of it, one 3 north.
     let east = foe(&mut r, 28.0, 18.0);
     let north = foe(&mut r, 25.0, 15.0);
     no_thrusts(&mut r);
@@ -475,27 +446,22 @@ fn each_slash_follows_the_aim_held_that_tick() {
     while swash(&r).dashing() {
         idle(&mut r, 1);
     }
-    // The first slash fell on the tick the dash ended, along the way it ended: east.
     let first = lost(&r, east);
     assert!(first > 0 && lost(&r, north) == 0, "slash 1 went east");
     let aim = |ax: i8, ay: i8| Input { aim_x: ax, aim_y: ay, ..Default::default() };
-    // Swing the aim north for the second slash ...
     for _ in 0..mirage::SWASH_EVERY {
         step(&mut r, aim(0, -1));
     }
     let second = lost(&r, north);
     assert!(second > 0 && lost(&r, east) == first, "slash 2 went north: {} {}", lost(&r, east), second);
-    // ... back east for the third ...
     for _ in 0..mirage::SWASH_EVERY {
         step(&mut r, aim(1, 0));
     }
     assert_eq!((lost(&r, east), lost(&r, north)), (2 * first, second), "slash 3 went east");
-    // ... and north again for the fourth.
     for _ in 0..mirage::SWASH_EVERY {
         step(&mut r, aim(0, -1));
     }
     assert_eq!((lost(&r, east), lost(&r, north)), (2 * first, 2 * second), "slash 4 went north");
-    // No fifth.
     for _ in 0..mirage::SWASH_EVERY {
         step(&mut r, aim(1, 0));
     }
@@ -520,7 +486,6 @@ fn a_slash_hits_every_foe_in_its_arc_not_the_nearest_three() {
 #[test]
 fn the_images_already_out_strike_with_each_slash_at_their_share() {
     let mut r = arena("mirageduelist", (14.0, 18.0), (1.0, 0.0));
-    // An image whose own east reach finds a foe the knight's slash never will.
     let far = foe(&mut r, 27.0, 10.0);
     r.phantoms.push(Phantom::standing(1, (24.0, 10.0), 900));
     no_thrusts(&mut r);
@@ -540,14 +505,12 @@ fn swashbuckle_waits_its_cooldown_and_the_voice_is_one_per_cast() {
     assert_eq!(hero(&r).spell_cooldowns[0], 10 * HZ);
     idle(&mut r, 150);
     assert_eq!(voices(&r), 1, "not once a bounce, not once a slash");
-    // Still cooling: another press makes no dash and no sound.
     let before = (hero(&r).x, hero(&r).y, mine(&r).len());
     r.sounds.clear();
     cast(&mut r, 1);
     assert_eq!(voices(&r), 0);
     assert!(!swash(&r).dashing());
     assert_eq!((hero(&r).x, hero(&r).y, mine(&r).len()), before);
-    // Ready again, it goes.
     idle(&mut r, 10 * HZ);
     r.sounds.clear();
     cast(&mut r, 1);
@@ -621,8 +584,6 @@ fn a_run_holding_the_new_state_round_trips() {
     assert_eq!(back.players[&1].champ, r.players[&1].champ);
 }
 
-// ─── Mirror Swap ─────────────────────────────────────────────────────────────
-
 #[test]
 fn mirror_swap_changes_places_with_the_nearest_own_image_only() {
     let mut r = arena("mirageduelist", (20.0, 18.0), (1.0, 0.0));
@@ -678,7 +639,6 @@ fn with_no_image_mirror_swap_blinks_along_the_aim_and_leaves_one() {
     assert_eq!(images.len(), 1);
     assert_eq!((images[0].x, images[0].y), (20.0, 18.0));
     assert!(h.invulnerable > 0, "shielded all the same");
-    // A full room: the blink still goes, the image is not made.
     let mut r = arena("mirageduelist", (20.0, 18.0), (1.0, 0.0));
     with_friend(&mut r);
     for k in 0..IMPOSTURE_MAX {
@@ -697,8 +657,6 @@ fn the_blink_never_ends_in_a_wall() {
     assert!(walkable(&r, (h.x, h.y)) && h.x <= 43.58 + 0.001, "stopped short of the wall: {}", h.x);
 }
 
-// ─── Echo Strike ─────────────────────────────────────────────────────────────
-
 #[test]
 fn echo_strike_echoes_exactly_the_next_three_thrusts_nine_ticks_later_for_half() {
     let mut r = arena("mirageduelist", (20.0, 18.0), (1.0, 0.0));
@@ -706,7 +664,6 @@ fn echo_strike_echoes_exactly_the_next_three_thrusts_nine_ticks_later_for_half()
     cast(&mut r, 3);
     assert_eq!(hero(&r).champ.echoes, mirage::ECHO_THRUSTS);
     let blow = hero(&r).scaled(14);
-    // Four thrusts, each on its own; only three are echoed.
     let mut hits: Vec<(u64, u32)> = Vec::new();
     let mut last = 0;
     let mut thrust_ticks = Vec::new();
@@ -771,8 +728,6 @@ fn an_unspent_echo_lapses_and_the_stance_is_deterministic() {
     assert_eq!(run(), run());
 }
 
-// ─── the Hall of Mirrors ─────────────────────────────────────────────────────
-
 fn hall(r: &mut Run) {
     r.players.get_mut(&1).unwrap().ult_charge = ults::ULT_FULL;
     step(r, Input { ult: true, ..Default::default() });
@@ -826,18 +781,14 @@ fn the_knights_thrusts_during_the_hall_make_no_juxtapose_images_and_the_cap_hold
     }
     assert_eq!(phantoms.len(), before, "nothing extra while the Hall stands");
     assert!(phantoms.len() <= IMPOSTURE_MAX);
-    // Without the Hall the same stance makes them.
     let mut none: Vec<Phantom> = Vec::new();
     for salt in 0..500 {
         champions::juxtapose(&mut none, &hero, 1, salt, &grid);
     }
     assert!(!none.is_empty());
-    // And the Hall's own images take no part in the mirroring of a thrust.
     let struck = ults::phantom_strikes(&r.phantoms, 1, &mut r.enemies, &grid, (1.0, 0.0), (3.2, 30.0), 14);
     assert!(struck.is_empty());
 }
-
-// ─── the dodge ───────────────────────────────────────────────────────────────
 
 #[test]
 fn the_dodge_roll_leaves_a_decoy_for_a_second_and_a_half_if_a_place_is_free() {
@@ -851,7 +802,6 @@ fn the_dodge_roll_leaves_a_decoy_for_a_second_and_a_half_if_a_place_is_free() {
     assert!(hero(&r).x > 20.0, "and the roll went on");
     idle(&mut r, mirage::DECOY_TICKS);
     assert!(mine(&r).is_empty(), "gone after 1.5 s");
-    // No free place: no decoy.
     let mut r = arena("mirageduelist", (20.0, 18.0), (1.0, 0.0));
     with_friend(&mut r);
     for k in 0..IMPOSTURE_MAX {
@@ -860,13 +810,10 @@ fn the_dodge_roll_leaves_a_decoy_for_a_second_and_a_half_if_a_place_is_free() {
     step(&mut r, Input { dash: true, move_x: 1, ..Default::default() });
     assert_eq!(r.phantoms.len(), IMPOSTURE_MAX);
     assert!(mine(&r).is_empty());
-    // Another champion's roll leaves nothing.
     let mut r = arena("lancer", (20.0, 18.0), (1.0, 0.0));
     step(&mut r, Input { dash: true, move_x: 1, ..Default::default() });
     assert!(mine(&r).is_empty());
 }
-
-// ─── the voice ───────────────────────────────────────────────────────────────
 
 #[test]
 fn the_voice_is_a_shipped_effect_with_a_gap_longer_than_itself() {

@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""patterns::signature (a match over (kind, pack, elite)) -> Bend, arms in order.
-
-Writes patterns.signature(+kind: String, +pack: String, +elite: Bool) -> J.Val:
-null for None, else {"every", "damage", "chain": [[emitter, shot], ...]}.
-"""
 import pathlib
 import re
 import sys

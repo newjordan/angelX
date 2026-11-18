@@ -1,16 +1,6 @@
 import Base
 import ./sl.bend as S
 
-# The slots of the ride's state. The host (index.js) lays the session out in the
-# same order; a mismatch here is a different game, which the parity test finds.
-#
-#   0..255     the session: its header, the numbers, the sounds, the keys
-#   256..287   when each lantern post, spring and boost pad last fired
-#   288..767   the foes: four slots each (hits left, smoke, flinch)
-#   768..1919  the seats, 192 slots each, for knights 1 to 6
-#   a seat:    56 named slots, then 24 slots of spark bits (as halves of u64),
-#              then room for 16 loose sparks of five slots each
-
 def x(+t: S.Sl, +b: U32) -> U32:
   S.g(t, (b + 0 : U32))
 

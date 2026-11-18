@@ -6,7 +6,6 @@
 use super::world::Level;
 use std::sync::OnceLock;
 
-/// The road, asked for once.
 pub fn level() -> &'static Level {
     static LEVEL: OnceLock<Level> = OnceLock::new();
     LEVEL.get_or_init(|| {
@@ -16,8 +15,6 @@ pub fn level() -> &'static Level {
     })
 }
 
-/// Expand the module's compact signed-delta geometry; old oracle answers
-/// already contain arrays and remain unchanged.
 pub fn unpack_road(value: &mut serde_json::Value) -> Result<(), String> {
     let paths = value.pointer_mut("/terrain/paths").and_then(|v| v.as_array_mut()).ok_or("missing road paths")?;
     for path in paths {

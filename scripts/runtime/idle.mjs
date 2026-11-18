@@ -1,5 +1,3 @@
-// Tiny idle/heartbeat helpers shared by Habitsmith. Not the Reflex research loop.
-
 export function isIdle({ angelTty, newestLedgerMs, now, idleMs }) {
   if (angelTty) return false
   if (newestLedgerMs == null) return true
@@ -26,7 +24,6 @@ export function angelTtyRunning(execFileSync) {
         const tty = execFileSync('ps', ['-o', 'tty=', '-p', pid], { encoding: 'utf8' }).trim()
         if (tty && tty !== '?') return true
       } catch {
-        /* pid vanished */
       }
     }
     return false

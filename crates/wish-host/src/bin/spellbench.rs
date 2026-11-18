@@ -58,7 +58,6 @@ fn main() {
     }
 }
 
-/// The spell's own name, for the line of the report.
 fn serde_name(spec: &str) -> String {
     spec.split(r#""name":""#)
         .nth(1)

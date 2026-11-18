@@ -19,8 +19,6 @@ fn save(img: &Img, dir: &std::path::Path, name: &str) {
     }
 }
 
-/// `run` with the foe `boss` standing at the middle of its room, a knight
-/// beside it, stepped `ticks` past its telegraph.
 fn standing(mut run: Run, boss: crate::rules::Boss, ticks: u32) -> Run {
     run.enemies.clear();
     run.projectiles.clear();
@@ -43,8 +41,6 @@ fn write_content_shots() {
     let Some(dir) = std::env::var_os("ANGEL_CONTENT_SHOTS") else { return };
     let dir = std::path::PathBuf::from(dir);
     std::fs::create_dir_all(&dir).unwrap();
-    // The foes, alone: the art as the field dresses it, at the stature it
-    // stands at as a chief and as a guardian.
     let foes = [
         ("archive-drowned-reeve", crate::rules::bosses::checked("archive-drowned-reeve").unwrap()),
         ("template-chief", crate::rules::bosses::check("template-chief", content::template("foe-chief.boss").unwrap()).unwrap().0),
@@ -56,8 +52,6 @@ fn write_content_shots() {
         save(&foe_figure(&run, e, run.tick as u32), &dir, &format!("{name}-figure"));
         save(&frame_v1(&run, 384, 224, Some(1)), &dir, &format!("{name}-room"));
     }
-    // The Drowned Reeve in the Wanted hall of an Archive floor, as a party
-    // walks in: the poster, then the showdown.
     for seed in 1..=24u64 {
         let mut run = Run::at_home(seed, 1, None, crate::rules::home::Home::default(), Default::default());
         run.begin_in(crate::rules::Pack::Crypt);

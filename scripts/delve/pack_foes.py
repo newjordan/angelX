@@ -1,13 +1,4 @@
 #!/usr/bin/env python3
-"""Cut the Demonic Dungeon monsters (VEXED, CC BY 4.0) into the Delve's ink rows.
-
-    python3 scripts/delve/pack_foes.py
-
-Reads `cockpit/assets/dungeon/packs/demonic-dungeon/Monsters.png` and writes
-`crates/delve/src/render/overworld/arena/pack_foes_frames.rs`: three frames a
-foe, each colour as its nearest ink, trimmed to the box the three frames
-share.
-"""
 import re
 from pathlib import Path
 
@@ -18,17 +9,14 @@ SHEET = ROOT / "cockpit/assets/dungeon/packs/demonic-dungeon/Monsters.png"
 INK_RS = ROOT / "crates/delve/src/render/overworld/ink.rs"
 OUT = ROOT / "crates/delve/src/render/overworld/arena/pack_foes_frames.rs"
 
-# Foe: (sheet row, first column) of its three frames. Foes whose art carries
-# a telegraph or a state (the Spitter's swell, the Hound's crouch, the
-# Oathbound's burning visor) keep their own.
 FOES = {
-    "SKELETON": (0, 4),     # the archer
+    "SKELETON": (0, 4),
     "BAT": (0, 8),
     "MIMIC": (1, 8),
-    "HEXER": (2, 0),        # the medusa
-    "IMP": (2, 8),          # the trident demon
+    "HEXER": (2, 0),
+    "IMP": (2, 8),
     "SLIME": (3, 4),
-    "WARD": (4, 0),         # the green serpent
+    "WARD": (4, 0),
     "SPIDERLING": (6, 0),
 }
 

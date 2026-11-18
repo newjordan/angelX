@@ -54,7 +54,6 @@ fn status_text(strip: &ToolStrip, width: usize) -> String {
         .unwrap_or_default()
 }
 
-/// Backdate the newest entry's start so age fragments are deterministic.
 fn backdate_current(strip: &mut ToolStrip, ago: Duration) {
     if let Some(entry) = strip.entries.last_mut() {
         entry.started = Instant::now().checked_sub(ago).unwrap_or_else(Instant::now);
@@ -111,7 +110,6 @@ fn snapshot_retains_error_counts_and_dedupes_costly_command_shape() {
         "output filenames and presentation pipes must not disguise a repeated benchmark"
     );
 
-    // Treebeard Hi/Q wrapper + popcorn-cli must collapse to the same fingerprint.
     let mut wrap = ToolStrip::default();
     wrap.call(
         "shell",
@@ -162,8 +160,6 @@ fn snapshot_retains_error_counts_and_dedupes_costly_command_shape() {
 
 #[test]
 fn verified_receipts_require_a_real_measurement_or_submission() {
-    // Status polls and listings are outcome activity but never a verified
-    // receipt; a failed benchmark is a blocker diagnostic, not progress.
     let mut churn = ToolStrip::default();
     churn.call("shell", "git status --short");
     churn.result("shell", "M src/kernel.cu");
@@ -201,7 +197,6 @@ fn verified_receipts_require_a_real_measurement_or_submission() {
         snap.verifier_failures[0]
     );
 
-    // A succeeded local benchmark script is a measured candidate.
     let mut bench = ToolStrip::default();
     bench.call("shell", "./benchmark.sh --local-iterate 2>&1 | tail -5");
     bench.result("shell", "score=0.42");
@@ -213,7 +208,6 @@ fn verified_receipts_require_a_real_measurement_or_submission() {
         "{}",
         snap.verified_outcome_actions[0]
     );
-    // Output redirection must not disguise a repeated measurement.
     let mut again = ToolStrip::default();
     again.call("shell", "./benchmark.sh --local-iterate -o /tmp/other.txt");
     again.result("shell", "score=0.42");
@@ -223,8 +217,6 @@ fn verified_receipts_require_a_real_measurement_or_submission() {
         "the same measurement cannot look novel under a new output path"
     );
 
-    // Reads that merely *name* a benchmark or submit are not receipts
-    // (the matrices run credited `cat …/benchmark.json` 18 times).
     let mut reads = ToolStrip::default();
     reads.call(
         "shell",
@@ -246,7 +238,6 @@ fn verified_receipts_require_a_real_measurement_or_submission() {
         "reads are not receipts: {:?}",
         snap.verified_outcome_actions
     );
-    // Launchers and directory hops do not hide a real measurement.
     let mut launched = ToolStrip::default();
     launched.call(
         "shell",
@@ -271,7 +262,6 @@ fn verified_receipts_require_a_real_measurement_or_submission() {
             .all(|r| r.starts_with("measured:"))
     );
 
-    // A real submit is a submission receipt.
     let mut submit = ToolStrip::default();
     submit.call("shell", "board submit cand.py --note 'v2 kernel'");
     submit.result("shell", "submission 829 accepted");
@@ -308,8 +298,6 @@ fn ledger_shows_per_call_age_for_unfinished_entry() {
     let mut s = ToolStrip::default();
     s.call("shell", "cargo build");
     backdate_current(&mut s, Duration::from_secs(43));
-    // Also backdate the turn-level started clock so the total elapsed
-    // matches the call (otherwise right-rail budget squeezes the fragment).
     s.started = Some(
         Instant::now()
             .checked_sub(Duration::from_secs(43))
@@ -378,7 +366,6 @@ fn warp_drive_eases_with_event_rate_and_respects_reduced() {
     );
     assert_eq!(s.warp_drive(true), 1.0, "Reduced clamps drive to 1.0");
 
-    // Burst of result events → drive approaches the ceiling.
     for i in 0..16 {
         s.call(&format!("t{i}"), "");
         s.result(&format!("t{i}"), "ok");
@@ -394,8 +381,6 @@ fn warp_drive_eases_with_event_rate_and_respects_reduced() {
         "Reduced still clamps after a burst"
     );
 
-    // Stall cue wins over warp: the flatline style ignores time entirely,
-    // so a stalled lane stays flat regardless of drive.
     let stalled = bar_row_with_silence(&s, 40, s.warp_time(false), true);
     let flat = bar_row_with_silence(&s, 40, 0.0, true);
     assert_eq!(
@@ -526,25 +511,19 @@ fn cargo_subcommands_receive_specific_verifier_labels() {
 
 #[test]
 fn stall_readout_thresholds_escalate_and_disarm() {
-    // Below the pulse threshold: no readout at all.
     assert!(stall_readout(0, 20, Some(600)).is_none());
     assert!(stall_readout(19, 20, Some(600)).is_none());
-    // Past it: the silence report.
     let warn = stall_readout(25, 20, Some(600)).unwrap();
     assert_eq!(warn.text, "\u{00b7} silent 25s");
     assert_eq!(warn.severity, StallSeverity::Warn);
-    // Past half the watchdog deadline: countdown to abandonment.
     let watchdog = stall_readout(301, 20, Some(600)).unwrap();
     assert_eq!(watchdog.text, "\u{00b7} watchdog 299s");
     assert_eq!(watchdog.severity, StallSeverity::Watchdog);
-    // The countdown floors at zero rather than going negative.
     assert_eq!(
         stall_readout(700, 20, Some(600)).unwrap().text,
         "\u{00b7} watchdog 0s"
     );
-    // 0 disarms the pulse entirely, however silent the stream.
     assert!(stall_readout(9_999, 0, Some(600)).is_none());
-    // No watchdog configured: silence keeps reporting without a countdown.
     assert_eq!(
         stall_readout(301, 20, None).unwrap().severity,
         StallSeverity::Warn
@@ -556,13 +535,11 @@ fn status_row_with_silence_appends_fragment_and_flattens_the_lane() {
     let mut s = ToolStrip::default();
     s.call("shell", "cmd=cargo build");
 
-    // 0s silent: byte-identical to the plain row, lane keeps its motion.
     let quiet = status_row_parts_with_silence(&s, 80, stall_readout(0, 20, Some(600))).unwrap();
     assert!(quiet.stall.is_none());
     assert_eq!(compose(&quiet), status_text(&s, 80));
     assert_eq!(motion_cue_with_silence(&s, false), MotionCue::Work);
 
-    // 25s: the silence fragment rides the right rail and still fits.
     let warn = status_row_parts_with_silence(&s, 80, stall_readout(25, 20, Some(600))).unwrap();
     assert_eq!(warn.stall.as_ref().unwrap().severity, StallSeverity::Warn);
     let row = compose(&warn);
@@ -570,7 +547,6 @@ fn status_row_with_silence_appends_fragment_and_flattens_the_lane() {
     assert_eq!(UnicodeWidthStr::width(row.as_str()), 80, "{row:?}");
     assert_eq!(motion_cue_with_silence(&s, true), MotionCue::Stalled);
 
-    // 301s of a 600s deadline: the watchdog countdown takes the rail.
     let hot = status_row_parts_with_silence(&s, 80, stall_readout(301, 20, Some(600))).unwrap();
     assert_eq!(
         hot.stall.as_ref().unwrap().severity,
@@ -578,7 +554,6 @@ fn status_row_with_silence_appends_fragment_and_flattens_the_lane() {
     );
     assert!(compose(&hot).ends_with("\u{00b7} watchdog 299s"));
 
-    // Narrow panes drop the fragment with the rest of the rail.
     for width in [1, 8, 14] {
         let narrow =
             status_row_parts_with_silence(&s, width, stall_readout(25, 20, Some(600))).unwrap();
@@ -835,7 +810,6 @@ fn unknown_and_duplicate_result_ids_are_neutral_diagnostics() {
 }
 #[test]
 fn measured_receipts_ignore_pipes_inside_quotes_and_heredoc_bodies() {
-    // Operator finding 2026-09-11 (qwen38 loop): both of these minted "measured candidates".
     let grep = r#"cd /home/user/comps/qwen/qwen38-125b-a6b-cuda-v1 && grep -rn "verify_rows_top1\|read_logit_row\|defer_frontier\|verify_rows" ds4/ | head"#;
     assert!(
         measured_submission_fingerprint("shell", grep).is_none(),
@@ -854,13 +828,11 @@ py
         measured_submission_fingerprint("shell", heredoc).is_none(),
         "heredoc body is not a program"
     );
-    // Real board measurements in program position still count.
     for cmd in [
         "cd /home/user/comps/qwen/qwen38-125b-a6b-cuda-v1 && benchd-bin/benchd iterate --engine .build/release/worker",
         "cd /home/user/comps/qwen/qwen38-125b-a6b-cuda-v1 && tools/local-baseline.sh",
         "CUDA_ENGINE_EXECUTABLE=/x/cuda-engine ./tools/qwen38-125b-a6b-measure-and-score.sh",
         "timeout 900 bash tools/benchmark.sh --local-iterate",
-        // The Board board CLI's own local run (a GPU host's bitcoin loop).
         "cd qsb-frontier && board run --track pinning",
         "board validate --track subset",
     ] {
@@ -879,7 +851,6 @@ py
     assert!(
         measured_submission_fingerprint("shell", "cat score.json && grep bench notes.md").is_none()
     );
-    // Exact line from the ripe loop that had minted "submitted:shell:ls experiments".
     let ls = "ls experiments/go* experiments/*go* challenge/ripemd160/submissions 2>/dev/null | head -40; ls challenge/ripemd160/submissions/ 2>/dev/null | head -20; cat challenge/ripemd160/submitting.md 2>/dev/null";
     assert!(
         measured_submission_fingerprint("shell", ls).is_none(),
@@ -898,10 +869,6 @@ py
 
 #[test]
 fn measured_receipt_names_the_segment_that_qualified() {
-    // Heesch loop finding 2026-09-25: this line was recorded as
-    // `measured:shell:board --help` — the label came from the first segment
-    // while the qualification scanned all of them. The segment that measured
-    // was the `heesch_verify` one.
     let line = "board --help 2>&1 | head -80; echo '---'; python3 -m heesch_verify submission/best.heesch 2>&1 | tail -40";
     assert_eq!(
         measured_submission_fingerprint("shell", line),
@@ -912,8 +879,6 @@ fn measured_receipt_names_the_segment_that_qualified() {
         "{:?}",
         measured_submission_fingerprint("shell", line)
     );
-    // A submission segment labels a mixed line the same way (it is the
-    // stronger claim and the line's mutating act).
     assert_eq!(
         measured_submission_fingerprint(
             "shell",
@@ -921,12 +886,10 @@ fn measured_receipt_names_the_segment_that_qualified() {
         ),
         Some(("shell:board submit cand.py".to_string(), true))
     );
-    // A single-segment measurement keeps the fingerprint it had before.
     assert_eq!(
         measured_submission_fingerprint("shell", "./benchmark.sh --local-iterate 2>&1 | tail -5"),
         Some(("shell:./benchmark.sh --local-iterate".to_string(), false))
     );
-    // The strip's receipt and the loop ledger's row command follow the label.
     let mut strip = ToolStrip::default();
     strip.call("shell", line);
     strip.result("shell", "heesch_verify: submission/best.heesch OK, 42 rows");
@@ -946,8 +909,6 @@ fn measured_receipt_names_the_segment_that_qualified() {
 
 #[test]
 fn remote_and_locked_measurements_count() {
-    // Pinning seats 2026-09-25: every locked rig-B A/B ran through `ssh`, and
-    // the strip saw only `ssh`, so a night of measurements counted zero.
     let ssh = "ssh -i ~/.ssh/id_ed25519 -p 2222 root@rig.example";
     let quoted_env = format!(
         "{ssh} 'cd /workspace/qsb && QSB_GRINDER=\"cmd:python3 harness/gpu_wrap.py --src candidates/subset/subset.cu --no-build\" QSB_SECONDS=240 ./benchmark.sh subset'"
@@ -982,7 +943,6 @@ fn remote_and_locked_measurements_count() {
         measured_submission_fingerprint("shell", &remote_submit).map(|(_, submit)| submit),
         Some(true)
     );
-    // Reads and setup stay reads, remote or local; `ab` counts only as a word.
     for line in [
         format!("{ssh} 'cat /workspace/run/score-pinning.json; ls benchmark-results'"),
         format!(
@@ -1173,7 +1133,6 @@ fn ledger_folds_older_calls_and_fits_its_width() {
         assert_eq!(cells, 60, "{} {}", row.call, row.args);
     }
 
-    // A squeezed pane keeps the newest call rather than the fold line.
     let one = s.ledger_rows(60, 1);
     assert_eq!(one.len(), 1);
     assert_eq!(one[0].call, "shell");

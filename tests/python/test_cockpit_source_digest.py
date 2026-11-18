@@ -46,7 +46,8 @@ class SourceDigestTests(unittest.TestCase):
                 write(path, "baseline\n")
             destination = root / "scripts/check/cockpit-source-digest.sh"
             destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(SCRIPT, destination)
+            destination.write_text(SCRIPT.read_text().replace(
+                "# Source identity inventory: angel-source-v8\n", ""), encoding="utf-8")
             git("add", ".")
             git("commit", "-qm", "v2 inputs")
             old_v2 = git("rev-parse", "HEAD")
@@ -111,8 +112,20 @@ class SourceDigestTests(unittest.TestCase):
             git("commit", "-qm", "shared native loader")
             self.assertEqual(digest("--scheme"), "angel-source-v7")
             self.assertEqual(digest("--commit", v6), v6_digest)
+            catalog_path = "delve/kingdom/frontier.json"
+            write(catalog_path, "first\n")
+            git("add", catalog_path)
+            git("commit", "-qm", "historical catalogue before inventory upgrade")
+            v7 = git("rev-parse", "HEAD")
+            v7_digest = digest()
+            self.assertEqual(digest("--scheme"), "angel-source-v7")
+            shutil.copyfile(SCRIPT, destination)
+            git("add", str(destination.relative_to(root)))
+            git("commit", "-qm", "catalogue source inventory", "--allow-empty")
+            self.assertEqual(digest("--scheme"), "angel-source-v8")
+            self.assertEqual(digest("--commit", v7), v7_digest)
             before = digest()
-            for path in [*RUNTIME_INPUTS, help_path, *new_paths, native_path]:
+            for path in [*RUNTIME_INPUTS, help_path, *new_paths, native_path, catalog_path]:
                 write(path, "changed\n")
                 self.assertIn(path, digest("--dirty"))
                 git("add", path)
@@ -120,6 +133,39 @@ class SourceDigestTests(unittest.TestCase):
                 after = digest()
                 self.assertNotEqual(before, after, path)
                 before = after
+
+            write("docs/unrelated.md", "does not affect the binary\n")
+            git("add", "docs/unrelated.md")
+            git("commit", "-qm", "unrelated docs")
+            self.assertEqual(digest(), before)
+            for path in [help_path, native_path]:
+                content = (root / path).read_text()
+                git("rm", "-q", path)
+                git("commit", "-qm", "remove previous scheme prerequisite")
+                self.assertEqual(digest("--scheme"), "angel-source-v8")
+                missing = subprocess.run(["bash", str(destination)], cwd=root, env=env,
+                                         capture_output=True, text=True)
+                self.assertEqual(missing.returncode, 128)
+                self.assertEqual(missing.stdout, "")
+                write(path, content)
+                git("add", path)
+                git("commit", "-qm", "restore prerequisite")
+                self.assertEqual(digest(), before)
+            git("rm", "-q", catalog_path)
+            git("commit", "-qm", "remove required catalogue")
+            missing = subprocess.run(["bash", str(destination)], cwd=root, env=env,
+                                     capture_output=True, text=True)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertEqual(missing.stdout, "")
+            write(".gitignore", catalog_path + "\n")
+            git("add", ".gitignore")
+            git("commit", "-qm", "ignored catalogue")
+            write(catalog_path, "ignored\n")
+            self.assertIn(catalog_path, digest("--dirty"))
+            ignored = subprocess.run(["bash", str(destination)], cwd=root, env=env,
+                                     capture_output=True, text=True)
+            self.assertEqual(ignored.returncode, 3)
+            self.assertEqual(ignored.stdout, "")
 
 
 if __name__ == "__main__":

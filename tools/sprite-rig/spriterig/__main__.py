@@ -38,7 +38,7 @@ def run(inp, out, anims=DEFAULT_SET, frames=0, override=None, cell=None, scale=1
     t_rig = time.perf_counter() - T0
     mode = pick_mode(rgba, o.get("mode", mode) if mode == "auto" else mode)
     h, w = rig["shape"]
-    m = int(0.75 * h)  # generous canvas for jump / death; cropped to the union bbox below
+    m = int(0.75 * h)
     canvas, offset = (w + 2 * m, h + 2 * m), (m, m)
     timing = {"input": inp, "mode": mode, "scale": scale, "rig_ms": round(1000 * t_rig, 2),
               "triangles": int(sum(len(p.tris) for p in rig["parts"])), "anims": {}}
@@ -123,7 +123,6 @@ def main(argv=None):
         return quick_main(argv[1:])
     if argv and argv[0] == "creative":
         return creative_main(argv[1:])
-    # Keep the original positional PNG invocation compatible, but explicit.
     if argv and not argv[0].startswith("-"):
         print("Creative animation (non-game-parity); prefer 'spriterig creative'.")
         return creative_main(argv)

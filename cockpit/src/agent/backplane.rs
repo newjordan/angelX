@@ -11,7 +11,6 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
-/// `⠎⠉` opens and closes the broker block; its framing is the ledger page.
 pub(crate) const BROKER_HEADER: &str = "⠎⠉";
 pub(crate) const BROKER_SENTINEL: &str = "⠎⠉";
 pub(crate) const RECALL_TOKEN_CEILING: usize = 8_000;
@@ -26,12 +25,6 @@ pub(crate) enum BackplaneMode {
     Active,
 }
 
-/// Resolve `ANGEL_BACKPLANE` once (launch config).
-///
-/// A7: `mode()` sits on the UI advance hot path (`clerk.tick` gate) and several
-/// hop/compact/routing checks — re-reading env every call was pure dead weight.
-/// Production caches the first resolution; tests re-read so `TestEnvGuard` can
-/// pin legacy/shadow/active without process restart.
 pub(crate) fn mode() -> BackplaneMode {
     #[cfg(not(test))]
     {
@@ -49,10 +42,6 @@ fn mode_from_env() -> BackplaneMode {
             "shadow" | "report" => BackplaneMode::Shadow,
             _ => BackplaneMode::Active,
         },
-        // The registry/broker/attribution path has an exact legacy off-control
-        // and has completed its shadow-parity phase. Keep the converged path on
-        // by default; operators can still request `shadow` for observation-only
-        // comparisons or `0` for the historical prompt/routing layout.
         Err(_) => BackplaneMode::Active,
     }
 }
@@ -109,9 +98,6 @@ impl RouteId {
         ))
     }
 
-    /// ID shape written by route-preference schema v2 before model identity was
-    /// included. Kept only to restore those preferences when their saved tuple
-    /// still matches; new routes must use [`Self::chat`].
     pub(crate) fn legacy_chat(
         agent: &str,
         driver: &str,
@@ -244,10 +230,6 @@ impl ResourceLease {
     }
 }
 
-/// A resource acquisition paired locally with its exact inverse. Dropping the
-/// guard releases only the lease instance it acquired, so normal returns,
-/// early returns, and unwinding all restore the registry without a remote
-/// cleanup site having to remember the matching call.
 pub(crate) struct ResourceLeaseGuard {
     registry: Arc<BackplaneRegistry>,
     lease: ResourceLease,
@@ -271,8 +253,6 @@ impl Drop for ResourceLeaseGuard {
 pub(crate) struct BackplaneRegistry {
     state: RwLock<RegistryState>,
     leases: Mutex<BTreeMap<String, ResourceLease>>,
-    /// Exact source snapshot paired with `state`. The mutex stays held through
-    /// publication so concurrent old/new refreshes cannot publish out of order.
     source_snapshot: Mutex<Option<Arc<Vec<RouteChoice>>>>,
     publications: AtomicU64,
 }
@@ -284,8 +264,6 @@ impl BackplaneRegistry {
         registry
     }
 
-    /// Publish the Bag's routing graph only when its exact source snapshot
-    /// changes. Returns whether a new graph was published.
     pub(crate) fn refresh_from_bag(&self, bag: &Bag) -> bool {
         let choices = bag.route_choices();
         let Ok(mut published) = self.source_snapshot.lock() else {
@@ -414,10 +392,6 @@ impl BackplaneRegistry {
             return None;
         }
 
-        // Legacy identities occasionally used a model name as their driver. A
-        // model-only fallback is safe only when it identifies exactly one live
-        // foreground route; same-named models on different surfaces must never
-        // silently collapse to whichever descriptor discovery visited last.
         let model = identity.model.as_deref().unwrap_or(&identity.driver);
         let mut model_matches = state.routes.values().filter(|route| {
             route.roles.contains(&WorkloadRole::Foreground)
@@ -502,9 +476,6 @@ impl BackplaneRegistry {
         Ok(lease)
     }
 
-    /// Acquire a lease whose inverse travels with the acquisition. Use this for
-    /// process-local work so a failed or panicking worker cannot strand the
-    /// resource in the registry.
     pub(crate) fn acquire_scoped(
         self: &Arc<Self>,
         resource_group: &str,
@@ -652,9 +623,6 @@ fn add_head_descriptors(state: &mut RegistryState) {
     }
 }
 
-/// Load specialist async heads only when an operator explicitly names a
-/// registry. Public/source builds must not compile a developer's live fleet
-/// inventory, private routes, or machine topology into the binary.
 fn configured_head_registry() -> Option<(String, String)> {
     if let Some(path) = std::env::var_os("ANGEL_HEADS_FILE").filter(|path| !path.is_empty()) {
         let path = std::path::PathBuf::from(path);
@@ -715,8 +683,6 @@ pub(crate) struct KnowledgeCandidate {
     pub(crate) independent: bool,
     pub(crate) digest: String,
     pub(crate) prompt_policy: PromptPolicy,
-    /// Reviewed evidence payload. Clones share the buffer with `ChatMsg.content`
-    /// and operator memory slots instead of copying long notes on the UI tick.
     pub(crate) content: Arc<str>,
 }
 
@@ -841,21 +807,10 @@ impl KnowledgeBroker {
         }
     }
 
-    /// Swap the broker's own tail block (and any atlas lens block) for the new
-    /// selection. Deliberately bounded: the broker only ever deletes messages it
-    /// manages, which live at the previous turn's tail — so a provider's prefix
-    /// cache survives up to that point. Compaction notes and auto-recall notes
-    /// are NOT touched here: they are static once written, sit near the head of
-    /// the conversation, and deleting them each turn re-billed the entire
-    /// cached prefix on every submit (their owners — the compactor and the
-    /// recall pass — still consolidate them on their own schedules).
     pub(crate) fn replace(history: &mut Vec<ChatMsg>, selection: &BrokerSelection) {
         history.retain(|message| {
             let broker_managed = is_broker_message(&message.content)
                 || crate::knowledge::atlas::is_lens_message(&message.content);
-            // Persisted generated broker/lens blocks retain Harness role.
-            // A legacy marker in any other role is unowned conversation data;
-            // text alone cannot authorize removal or migrate its provenance.
             message.role != crate::agent::club::ChatRole::Harness || !broker_managed
         });
         if let Some(block) = selection.block.as_ref() {
@@ -863,9 +818,6 @@ impl KnowledgeBroker {
         }
     }
 
-    /// Turn-start refresh must not remove evidence from a prefix already sent
-    /// to the provider. Append changed manifests, referencing bodies still visible
-    /// in earlier broker blocks instead of serializing them again.
     pub(crate) fn append(history: &mut Vec<ChatMsg>, selection: &BrokerSelection) {
         let Some(block) = selection.block.as_ref() else {
             return;
@@ -879,9 +831,6 @@ impl KnowledgeBroker {
         }
         let (previous, visible) = visible_broker_candidates(history, "");
         let selected = parse_broker_candidates(block, "", &mut BTreeMap::new());
-        // The previous manifest may contain references rather than full bodies.
-        // Only resolved entries count: a dangling reference must not suppress a
-        // body that needs to be emitted again after history pruning.
         if !selected.is_empty()
             && previous
                 .iter()
@@ -932,8 +881,6 @@ pub(crate) fn is_broker_message(content: &str) -> bool {
 }
 
 pub(crate) fn atlas_lens_candidates(lens: &str, project_key: &str) -> Vec<KnowledgeCandidate> {
-    // Rendered item boundaries are distinct from recalled text: the lens
-    // neutralizes in-content list markers. Preserve multiline evidence.
     lens.split("\n- [")
         .skip(1)
         .filter_map(|item| {
@@ -1009,10 +956,6 @@ pub(crate) fn selected_context(history: &[ChatMsg]) -> (Vec<String>, Vec<String>
         }
     }
     if ids.is_empty() {
-        // Legacy and shadow modes keep their historical prompt layout. Attribute
-        // those actual inputs too, without copying any prompt prose into the
-        // outcome, so the off-control remains observable rather than appearing
-        // to have used no learned context.
         for (index, message) in history.iter().enumerate() {
             if let Some(memory) = delimited_block(
                 &message.content,
@@ -1091,8 +1034,6 @@ fn push_context_receipt(
     digests.push(crate::knowledge::cut::sha256_hex(content.as_bytes()));
 }
 
-/// Only the latest manifest nominates candidates. Earlier, still-visible
-/// bodies can resolve its references, but cannot resurrect omitted sources.
 fn visible_broker_candidates(
     history: &[ChatMsg],
     project_key: &str,
@@ -1155,8 +1096,6 @@ fn parse_broker_candidates(
             continue;
         };
         if source.unchanged {
-            // A reference has no body or closing tag. In particular, a dangling
-            // one must not consume the next source while looking for a body.
             if !source.id.is_empty() {
                 if let Some(candidate) = visible.get(source.digest) {
                     let mut candidate = candidate.clone();

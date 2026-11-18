@@ -12,39 +12,23 @@
 use super::{Building, RealmActivity};
 use crate::loop_summary::{EscalationTier, LoopStatus, LoopSummary};
 
-/// How many ticks a measurement banner ("treasure!" / "empty chest") and the
-/// submission banners stay up.
 const BANNER_TICKS: u64 = 40;
-/// `LoopFinished{ok:true}` walks the loot home for this long, then the quest
-/// idles back in town.
 const HOMECOMING_TICKS: u64 = 120;
-/// How many recent tool classifications feed `loop_kind_for`'s tie-break.
 const TOOL_MIX_WINDOW: usize = 12;
-/// The room camera's exact historical horizon. Keep an anchor plus at most
-/// one pace change per tick; no session-length allocation survives reset.
 pub(super) const WALK_LOOKBACK: u64 = 12;
 const WALK_SEGMENTS: usize = WALK_LOOKBACK as usize + 1;
 
-/// The places an adventure goes. Assigned by loop kind and harness state —
-/// never by the model's prose.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Region {
-    /// Idle / ordinary turns; the knight walks the town landmarks.
     CastleTown,
-    /// Competition, podrace, and coding loops: the measured-candidates path.
     TheMines,
-    /// Research and exploration loops; unknown territory.
     DarkForest,
-    /// Stalled loops, blocked verifiers, awaiting approval.
     Swamp,
-    /// A submission in flight or an acceptance gate judging the work.
     DragonKeep,
-    /// A finished loop walking the loot home.
     Homecoming,
 }
 
 impl Region {
-    /// The place's name as the pane title and `/world quest` say it.
     pub fn label(self) -> &'static str {
         match self {
             Region::CastleTown => "Castle Town",
@@ -57,7 +41,6 @@ impl Region {
     }
 }
 
-/// Stall depth, 0..=3 — fog density, monster count, hero pace for Z2.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Danger(u8);
 
@@ -66,7 +49,6 @@ impl Danger {
         Danger(0)
     }
 
-    /// Clamp into the legal 0..=3 band.
     fn new(level: u8) -> Self {
         Danger(level.min(3))
     }
@@ -75,14 +57,11 @@ impl Danger {
         self.0
     }
 
-    /// `stale_count * 3 / pivot.max(1)`, clamped to 0..=3.
     pub fn from_stall(stale: usize, pivot: usize) -> Self {
         Danger::new((stale * 3 / pivot.max(1)).min(3) as u8)
     }
 }
 
-/// What kind of adventure a loop is. Fixed at `LoopStarted` from the task
-/// text, podrace mode, and the recent tool mix.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum LoopKind {
     Competition,
@@ -93,7 +72,6 @@ pub enum LoopKind {
 }
 
 impl LoopKind {
-    /// How `/world quest` names the adventure.
     pub fn label(self) -> &'static str {
         match self {
             LoopKind::Competition => "competition",
@@ -104,7 +82,6 @@ impl LoopKind {
     }
 }
 
-/// Harness facts folded into the quest, in the order the mirror emits them.
 #[derive(Clone, Debug, PartialEq)]
 pub enum AdventureEvent {
     LoopStarted {
@@ -114,22 +91,16 @@ pub enum AdventureEvent {
     Iteration {
         n: usize,
     },
-    /// Rising or falling; carries the new level.
     Stall {
         level: u8,
     },
-    /// The loop escalated its approach (tier change) — a fresh direction.
     Pivot,
-    /// A measurement receipt was observed; objective comparison is unavailable.
     MeasurementObserved,
-    /// A trusted comparable measurement supplied an improvement verdict.
-    // Trusted comparison fixtures only; the live mirror emits MeasurementObserved.
     #[cfg(any(test, feature = "testing"))]
     Measured {
         improved: bool,
     },
     Submitted,
-    /// The judge returned on in-flight work (acceptance gate verdict).
     SubmissionSettled {
         accepted: bool,
     },
@@ -141,32 +112,20 @@ pub enum AdventureEvent {
     TurnEnded {
         ok: bool,
     },
-    /// Live formation size (1 = solo hero).
     Party {
         size: u8,
     },
-    /// A record beaten: a submission the board accepted as an improvement
-    /// and promoted. Its official score, if the board gave one.
     RecordPromoted {
         score: Option<String>,
     },
-    /// A submission settled without a promotion (rejected, timed out, or
-    /// accepted but no record): the guardian holds, and the party falls back.
     PromotionFailed {
         score: Option<String>,
     },
 }
 
-/// How long the guardian's fight lasts: three minutes for a record beaten,
-/// to sit back and enjoy; two for a retreat.
 pub const RECORD_FIGHT: u64 = 40 * 180;
 pub const RETREAT_FIGHT: u64 = 40 * 120;
 
-/// The quest: everything the renderer needs about the current adventure.
-///
-/// Session state only — deliberately not persisted in world-rewards. Loot
-/// accumulates across the session's loops; banners and the homecoming walk
-/// expire on the world tick.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Quest {
     region: Region,
@@ -180,33 +139,19 @@ pub struct Quest {
     since_tick: u64,
     kind: LoopKind,
     home_return_until: u64,
-    /// True from `LoopStarted` to `LoopFinished`.
     on_adventure: bool,
-    /// A submission is in flight / the judge holds the work: stay in the
-    /// Dragon Keep until an `Iteration` resumes or the loop finishes.
     submission_latch: bool,
-    /// Last world tick the quest observed (event or `observe_tick`).
     last_tick: u64,
-    /// The region [`Quest::region`] last reported, and the tick it changed.
-    /// Z2's renderer fades the screen over the change, so the change needs a
-    /// clock of its own — `since_tick` belongs to the banner.
     seen_region: Region,
     region_since: u64,
-    /// Tick the party size last changed — the followers' sparkle clock.
     party_since: u64,
-    /// Cumulative anchor and bounded recent pace changes, in half-speed ticks.
     walk_clock: Vec<WalkPace>,
-    /// Region folds within one world tick are a batch. Retain just the original
-    /// epoch so an unpainted round trip can restore it (not a per-region cache).
     region_rollback: Option<RegionRollback>,
-    /// Records promoted and promotions failed this session; the tick the
-    /// last guardian rose, whether that bout is won, and its score.
     records: u32,
     retreats: u32,
     record_at: Option<u64>,
     record_won: bool,
     record_score: Option<String>,
-    /// The tick the last measurement came in.
     measured_at: Option<u64>,
 }
 
@@ -226,10 +171,6 @@ struct WalkPace {
 }
 
 impl Quest {
-    // Keep fresh quest values independent on the pinned rustc 1.95: in release
-    // builds, inlining this constructor lets MIR reuse a by-value argument that
-    // the first scripted run mutates. The existing determinism test reproduces
-    // treasures=1/2 without this guard (including in a standalone executable).
     #[inline(never)]
     pub fn idle() -> Self {
         Quest {
@@ -261,10 +202,7 @@ impl Quest {
         }
     }
 
-    /// Fold one harness fact in. Deterministic in `(state, event, tick)`.
     pub fn apply(&mut self, ev: AdventureEvent, tick: u64) {
-        // Motion is prospective, but event/banner/homecoming timestamps keep
-        // the harness fact's original tick (including late facts).
         let walk_tick = tick.max(self.last_tick);
         self.advance_walk_history(walk_tick);
         let reset_walk = matches!(
@@ -283,8 +221,6 @@ impl Quest {
             }
             AdventureEvent::Iteration { n } => {
                 self.iteration = n;
-                // The judge released the work; the party rides back to the
-                // adventure's own grounds.
                 self.submission_latch = false;
                 self.settle();
             }
@@ -293,7 +229,6 @@ impl Quest {
                 self.settle();
             }
             AdventureEvent::Pivot => {
-                // A structural pivot is fresh ground: the fog lifts.
                 self.danger = Danger::calm();
                 self.settle();
             }
@@ -305,8 +240,6 @@ impl Quest {
             }
             #[cfg(any(test, feature = "testing"))]
             AdventureEvent::Measured { improved } => {
-                // Reward-never-punish: a regression is an empty chest, never
-                // danger or a lost treasure.
                 if improved {
                     self.treasures = self.treasures.saturating_add(1);
                     self.flash("treasure!", tick);
@@ -321,12 +254,9 @@ impl Quest {
             }
             AdventureEvent::SubmissionSettled { accepted } => {
                 if accepted {
-                    // The banner stays raised over the keep until an
-                    // iteration resumes or the loop finishes.
                     self.submission_latch = true;
                     self.flash("banner raised", tick);
                 } else {
-                    // Back to the home grounds; no penalty.
                     self.submission_latch = false;
                 }
                 self.settle();
@@ -347,11 +277,8 @@ impl Quest {
                 }
             }
             AdventureEvent::Tool(..) => {
-                // Tool traffic walks the town landmarks; inside an adventure
-                // the region stands. The rolling mix lives on `World`.
             }
             AdventureEvent::TurnStarted | AdventureEvent::TurnEnded { .. } => {
-                // Ordinary turns are Castle Town life; loops own the region.
             }
             AdventureEvent::Party { size } => {
                 let size = size.clamp(1, 8);
@@ -361,14 +288,12 @@ impl Quest {
                 self.party = size;
             }
             AdventureEvent::RecordPromoted { score } => {
-                // A guardian rises for the party to beat.
                 self.records += 1;
                 self.record_at = Some(tick);
                 self.record_won = true;
                 self.record_score = score;
             }
             AdventureEvent::PromotionFailed { score } => {
-                // A guardian rises, and holds the hall.
                 self.retreats += 1;
                 self.record_at = Some(tick);
                 self.record_won = false;
@@ -376,8 +301,6 @@ impl Quest {
             }
         }
         if reset_walk {
-            // Explicit loop/iteration boundaries must never resurrect an old
-            // epoch, even when a later fold returns to its region this tick.
             self.region_rollback = None;
             if self.seen_region != self.region() {
                 self.seen_region = self.region();
@@ -401,8 +324,6 @@ impl Quest {
     }
 
     fn note_walk_pace(&mut self, tick: u64) {
-        // Late facts affect motion prospectively without changing the existing
-        // event/banner timestamps or historical positions.
         let tick = tick.max(self.last_tick);
         let slow = self.danger.level() >= 1;
         if self.walk_clock.last().is_some_and(|pace| pace.slow == slow) {
@@ -424,15 +345,9 @@ impl Quest {
         debug_assert!(self.walk_clock.len() <= WALK_SEGMENTS);
     }
 
-    /// Accumulated progress independent of map pace: two units per calm tick,
-    /// one per stalled tick. Integer arithmetic preserves fractional tiles and
-    /// is safe even at u64::MAX; renderers supply their authored ticks per tile.
     pub fn walk_half_ticks(&self, tick: u64) -> u128 {
         let end = self.walk_clock.partition_point(|pace| pace.tick <= tick);
         if end == 0 {
-            // Older than the retained horizon: clamp to the cumulative anchor.
-            // Exact replay is only promised for last_tick-12..=last_tick (and
-            // prospective lookups); before a fresh epoch its anchor is zero.
             return self.walk_clock.first().map_or(0, |pace| pace.half_ticks);
         }
         let pace = &self.walk_clock[end - 1];
@@ -457,17 +372,12 @@ impl Quest {
         }
     }
 
-    /// The world clock advanced without an event (banner / homecoming expiry).
     pub fn observe_tick(&mut self, tick: u64) {
         let tick = tick.max(self.last_tick);
         self.advance_walk_history(tick);
         self.mark_region(tick);
     }
 
-    /// Genuine region entry starts a new walk. Same-tick folds are one visual
-    /// batch: returning to the batch's original region restores its progress
-    /// and fade clock. A different tick or explicit iteration commits the new
-    /// epoch; there is deliberately no cross-tick per-region journey cache.
     fn mark_region(&mut self, tick: u64) {
         let now = self.region();
         if now == self.seen_region {
@@ -496,14 +406,11 @@ impl Quest {
         self.seen_region = now;
     }
 
-    /// Ticks elapsed since the visible region last changed — the renderer's
-    /// fade phase.
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn region_since(&self) -> u64 {
         self.region_since
     }
 
-    /// Tick the party size last changed — followers sparkle in and out.
     #[allow(dead_code)]
     pub fn party_since(&self) -> u64 {
         self.party_since
@@ -571,13 +478,10 @@ impl Quest {
         self.banner_live()
     }
 
-    /// The live banner, or `None` once its ticks are spent.
     pub fn banner(&self) -> Option<&'static str> {
         self.banner.filter(|_| self.banner_live())
     }
 
-    /// The loop's iteration count — the walk's clock. Z2/Z3 turn it into the
-    /// waypoint the hero stands on (`world3d::region::waypoint`).
     pub fn iteration(&self) -> usize {
         self.iteration
     }
@@ -590,9 +494,6 @@ impl Quest {
         self.kind
     }
 
-    /// How far into the guardian's fight a settled submission brought (in
-    /// world ticks), while it lasts, and whether it's a record (won) or a
-    /// retreat.
     pub fn record_fight(&self, tick: u64) -> Option<(u32, bool)> {
         let into = tick.checked_sub(self.record_at?)?;
         let lasts = if self.record_won {
@@ -603,7 +504,6 @@ impl Quest {
         (into < lasts).then_some((into as u32, self.record_won))
     }
 
-    /// The last promoted record's score, and how many have been promoted.
     pub fn record_score(&self) -> Option<&str> {
         self.record_score.as_deref()
     }
@@ -613,19 +513,15 @@ impl Quest {
         self.records
     }
 
-    /// How long since the last measurement came in (world ticks), while it's
-    /// news: ten seconds.
     pub fn fresh_measurement(&self, tick: u64) -> Option<u32> {
         let since = tick.checked_sub(self.measured_at?)?;
         (since < 400).then_some(since as u32)
     }
 
-    /// Guardians risen this session, won or not.
     pub fn bouts(&self) -> u32 {
         self.records + self.retreats
     }
 
-    /// HUD-ready banner text: the homecoming banner carries the loot count.
     pub fn banner_text(&self) -> Option<String> {
         match self.banner()? {
             "homecoming" => Some(format!("homecoming · {} treasure(s)", self.treasures)),
@@ -634,25 +530,15 @@ impl Quest {
     }
 }
 
-/// Where the loop's home grounds are, by kind.
 fn home_region(kind: LoopKind, measured: usize) -> Region {
     match kind {
         LoopKind::Competition | LoopKind::Coding => Region::TheMines,
         LoopKind::Research => Region::DarkForest,
-        // An unclassified loop that is measuring candidates is mining ore,
-        // not surveying woods (design table: TheMines = measured-candidates
-        // path).
         LoopKind::Unknown if measured > 0 => Region::TheMines,
         LoopKind::Unknown => Region::DarkForest,
     }
 }
 
-/// The region snapshot for a loop state. Pure; the `Quest` state machine
-/// applies the same rules through its events.
-///
-/// Precedence: no loop → town; a submission the judge holds → Dragon Keep
-/// (only an iteration or finishing dislodges it); danger ≥ 2 → Swamp; else
-/// the kind's home grounds. `AwaitingApproval` forces danger ≥ 2.
 pub fn region_for(
     kind: LoopKind,
     status: &LoopStatus,
@@ -685,19 +571,13 @@ pub fn region_for(
     home_region(kind, measured)
 }
 
-/// Which lean a tool call gives the loop-kind classifier.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ToolLean {
     Neither,
-    /// Shell / benchmark / submission work: the forge and the gate.
     Competitive,
-    /// Read / search / research work: the scriptorium and the observatory.
     Research,
 }
 
-/// Rolling classification of the last [`TOOL_MIX_WINDOW`] tool calls. Breaks
-/// `Unknown` ties toward the work the agent actually does; it can never
-/// demote a kind the task text already named.
 #[derive(Clone, Debug)]
 pub struct ToolMix {
     ring: Vec<ToolLean>,
@@ -735,7 +615,6 @@ impl ToolMix {
             + usize::from(lean == ToolLean::Research);
     }
 
-    /// Promote an `Unknown` kind by strict majority of the filled window.
     fn promote(&self, kind: LoopKind) -> LoopKind {
         if kind != LoopKind::Unknown {
             return kind;
@@ -750,7 +629,6 @@ impl ToolMix {
     }
 }
 
-/// Classify a loop by its task text, podrace mode, and recent tool mix.
 pub fn loop_kind_for(task: &str, podrace: bool, tool_mix: &ToolMix) -> LoopKind {
     if podrace {
         return LoopKind::Competition;
@@ -784,9 +662,6 @@ pub fn loop_kind_for(task: &str, podrace: bool, tool_mix: &ToolMix) -> LoopKind 
     tool_mix.promote(LoopKind::Unknown)
 }
 
-/// Last-seen loop facts kept on `App`; diffed once per frame against the
-/// loop's [`LoopSummary`] to emit [`AdventureEvent`]s. Runs whether or not the world pane
-/// is visible — the quest is session state, like the village pulses.
 #[derive(Clone, Debug)]
 pub struct LoopMirror {
     status: LoopStatus,
@@ -796,8 +671,6 @@ pub struct LoopMirror {
     submissions: usize,
     tier: EscalationTier,
     party: u8,
-    /// Promoted records and failed promotions seen, and whether the first
-    /// look (which only counts what's already there) has happened.
     records: usize,
     failures: usize,
     primed: bool,
@@ -838,17 +711,12 @@ impl LoopMirror {
         if !st.podrace {
             return Danger::from_stall(st.stale_count, st.pivot).level();
         }
-        // Podrace stale_count is lack of authoritative objective comparison,
-        // not proof that the fast/deep workers are idle. Render observed
-        // inactivity or execution failure; never punish missing metric authority.
         if st.last_log_all_errors {
             return 2;
         }
         Danger::from_stall(st.idle_log_tail, st.pivot).level()
     }
 
-    /// Diff and drain. Event order: LoopStarted, Iteration, Stall, Pivot,
-    /// Measured, Submitted, SubmissionSettled, LoopFinished, Party.
     pub fn drain(
         &mut self,
         st: &LoopSummary,
@@ -873,8 +741,6 @@ impl LoopMirror {
             events.push(AdventureEvent::Stall { level });
         }
         if st.tier != self.tier {
-            // Escalation is a structural pivot: more of the engine on the
-            // problem, a fresh direction.
             events.push(AdventureEvent::Pivot);
         }
         if st.measured_candidates > self.measured_candidates {
@@ -883,13 +749,9 @@ impl LoopMirror {
         let entered_verifying =
             st.status == LoopStatus::Verifying && self.status != LoopStatus::Verifying;
         if st.submissions > self.submissions || entered_verifying {
-            // Entering `Verifying` puts the work in front of the judge — the
-            // same in-flight state a submitted competition candidate has.
             events.push(AdventureEvent::Submitted);
         }
         if self.status == LoopStatus::Verifying && st.status != LoopStatus::Verifying {
-            // The acceptance gate returned: `Done` is the accepted verdict,
-            // any return to the arm/stop ladder is a rejection (no penalty).
             events.push(AdventureEvent::SubmissionSettled {
                 accepted: st.status == LoopStatus::Done,
             });
@@ -909,9 +771,6 @@ impl LoopMirror {
         if party != self.party {
             events.push(AdventureEvent::Party { size: party });
         }
-        // A record beaten and promoted: the guardian's fight, won. A
-        // submission settled without one: the guardian holds, and the party
-        // falls back. What's already there at the first look is history.
         if self.primed && st.promotions > self.records {
             events.push(AdventureEvent::RecordPromoted {
                 score: st.last_promotion_score.clone(),

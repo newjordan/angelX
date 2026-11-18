@@ -1,7 +1,6 @@
 use super::super::*;
 use super::*;
 
-/// A calm, empty room with the host's knight in it, the chatter awake.
 fn quiet() -> Run {
     let mut run = Run::new(4, 1, None);
     let room = run
@@ -13,20 +12,17 @@ fn quiet() -> Run {
     run.enter_for_test(room);
     run.calm_for_test();
     run.enemies.clear();
-    // The way in has its own moments; start from a quiet party.
     run.cues.clear();
     run.chatter(0);
     run.sounds.clear();
     run
 }
 
-/// A hit as a monster lands it, on a knight free to take it.
 fn strike(run: &mut Run, id: u32, damage: u32) {
     run.players.get_mut(&id).unwrap().invulnerable = 0;
     run.hurt_for_test(id, damage);
 }
 
-/// The knights' noises since the last look.
 fn heard(run: &mut Run) -> Vec<&'static str> {
     let said = run
         .sounds
@@ -38,7 +34,6 @@ fn heard(run: &mut Run) -> Vec<&'static str> {
     said
 }
 
-/// A moment happens `ticks` after the last one; the knights react.
 fn moment(run: &mut Run, ticks: u64, cue: &str) -> Vec<&'static str> {
     run.tick += ticks;
     let from = run.cues.len();
@@ -131,9 +126,6 @@ fn hits_grunt_now_and_then_and_a_fall_always_sounds() {
     assert!(fall.iter().any(|s| s.contains("_waah_")), "{fall:?}");
 }
 
-/// How often the knights make a noise in real fights: three knights fire at
-/// the nearest foe, strafe, and roll now and then, room after room.
-/// `cargo test --bin angel knights_noise_rate -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn knights_noise_rate() {

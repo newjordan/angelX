@@ -1,16 +1,9 @@
-# crates/delve/src/rules/griffinwing.rs — the session: its consts, the five
-# numbers, the small mutators every part calls (sound, say, spark, next_id),
-# the table and the formation. The tick (`step`) and its transitions are in
-# step.bend; the Run's hooks in run.bend.
-
 def griffinwing.SLOT() -> U32:
   3
 
-# A run never runs past an hour; a longer one is not a run to play.
 def griffinwing.LIMIT() -> U32:
   (60 * 60 * rules.HZ() : U32)
 
-# A fall puts the beat back this many ticks after the last knight goes down.
 def griffinwing.RETRY() -> U32:
   24
 
@@ -23,7 +16,6 @@ def griffinwing.VICTORY() -> U32:
 def griffinwing.TALLY_HOLD() -> U32:
   45
 
-# A knight who falls rises again this many ticks later, at the formation.
 def griffinwing.RISE() -> U32:
   75
 
@@ -51,13 +43,9 @@ def griffinwing.CAMPAIGN_MARK() -> String:
 def griffinwing.GOLD_MARK() -> String:
   "griffinwing:gold-medal"
 
-# A seat's bit.
 def griffinwing.bit(+id: U32) -> U32:
   U32.shln(1, U32.to_nat((RS.u_clamp(id, 1, 8) - 1 : U32)))
 
-# ─── the five numbers ───────────────────────────────────────────────────────
-
-# `Nums::default()`: where the knobs start.
 def griffinwing.Nums.default() -> J.Val:
   griffinwing.Nums.make(40, 30, 64, 75, 50)
 
@@ -69,7 +57,6 @@ def griffinwing.Nums.make(+charge: U32, +roll: U32, +window: U32, +spur: U32, +t
   +n4 = ga.su(n3, "spur", spur)
   ga.su(n4, "tell", tell)
 
-# `Nums::of(&tune)`: `Tune::roundtable[SLOT]`, each clamped to its bounds.
 def griffinwing.Nums.of(+tune: J.Val) -> J.Val:
   griffinwing.Nums.of.row(J.nth(J.get(tune, "roundtable"), griffinwing.SLOT()))
 
@@ -81,34 +68,26 @@ def griffinwing.Nums.of.row(+row: J.Val) -> J.Val:
     RS.u_clamp(ga.nu(row, 3), 30, 180),
     RS.u_clamp(ga.nu(row, 4), 40, 120))
 
-# The steer box's half width and half height.
 def griffinwing.Nums.wx(+n: J.Val) -> U32:
   griffinwing.types.dm(ga.u(n, "window"))
 
 def griffinwing.Nums.wz(+n: J.Val) -> U32:
   RS.i_div((griffinwing.types.dm(ga.u(n, "window")) * 5 : U32), 8)
 
-# How much of a roll reflects: all but its last ten ticks.
 def griffinwing.Nums.reflect(+n: J.Val) -> U32:
   U32.max(ga.ssub(ga.u(n, "roll"), 10), 8)
 
-# ─── the session ────────────────────────────────────────────────────────────
-
-# The rail's point the formation flies at now.
 def griffinwing.Session.anchor(+s: J.Val) -> U32:
   (griffinwing.rail.ORIGIN(U32.min(ga.u(s, "stage"), 2)) + (ga.u(s, "t") * griffinwing.types.PACE() : U32) : U32)
 
-# How many knights fly: the pressure on the foes.
 def griffinwing.Session.pressure(+s: J.Val) -> U32:
   RS.u_clamp(gw.nseats(s), 1, rules.MAX_PLAYERS())
 
-# A fresh id for a foe.
 def griffinwing.Session.next_id(+s: J.Val) -> J.Val:
   gw.out(
     ga.su(s, "ids", Bool.pick(U32, U32.is_ge(ga.u(s, "ids"), 60000), 1, (ga.u(s, "ids") + 1 : U32))),
     J.JU{ga.u(s, "ids")})
 
-# `snd.contains(name)`.
 def gw.has_str(+xs: List<&2, J.Val>, +name: String) -> Bool:
   match xs:
     case Nil{}:
@@ -121,7 +100,6 @@ def griffinwing.Session.sound(+s: J.Val, +name: String) -> J.Val:
     _ => ga.push(s, "snd", J.JS{name}),
     _ => s)
 
-# `calls.iter().any(|c| c.line == line && c.ticks > 40)`.
 def griffinwing.Session.said(+cs: List<&2, J.Val>, +line: String) -> Bool:
   match cs:
     case Nil{}:
@@ -129,8 +107,6 @@ def griffinwing.Session.said(+cs: List<&2, J.Val>, +line: String) -> Bool:
     case Con{+c, +t}:
       Bool.or(Bool.and(String.eq(ga.s(c, "line"), line), U32.is_gt(ga.u(c, "ticks"), 40)), griffinwing.Session.said(t, line))
 
-# A rider's short shout, shown as a portrait for a moment. The same line is
-# not said twice in a row, and four show at most.
 def griffinwing.Session.say(+s: J.Val, +who: U32, +line: String) -> J.Val:
   gw.ifj(griffinwing.Session.said(ga.items(s, "calls"), line),
     _ => s,
@@ -169,8 +145,6 @@ def griffinwing.Session.Flare.make(+what: String, +at: U32, +x: U32, +z: U32, +t
   +f5 = ga.su(f4, "ticks", ticks)
   ga.su(f5, "n", n)
 
-# Who calls the hints: the first of the riders still flying, and when a full
-# table leaves none (or all are lost), Aster, the wing's lead.
 def griffinwing.Session.voice(+s: J.Val) -> U32:
   griffinwing.Session.voice.go(ga.items(s, "wing"))
 
@@ -181,20 +155,16 @@ def griffinwing.Session.voice.go(+ws: List<&2, J.Val>) -> U32:
     case Con{+w, +t}:
       Bool.pick(U32, ga.b(w, "lost"), griffinwing.Session.voice.go(t), ga.u(w, "id"))
 
-# Fill the wing up to four with riders: the seats first, riders in the seats
-# nobody sits in.
 def griffinwing.Session.fill_wing(+s: J.Val) -> J.Val:
   griffinwing.Session.fill_wing.add(
     griffinwing.Session.fill_wing.pop(s, ga.ssub(griffinwing.types.WING(), gw.nseats(s))),
     ga.ssub(griffinwing.types.WING(), gw.nseats(s)))
 
-# while wing.len() > want { wing.pop() }
 def griffinwing.Session.fill_wing.pop(+s: J.Val, +want: U32) -> J.Val:
   gw.ifj(U32.is_gt(gw.len(s, "wing"), want),
     _ => griffinwing.Session.fill_wing.pop(gw.trunc(s, "wing", (gw.len(s, "wing") - 1 : U32)), want),
     _ => s)
 
-# while wing.len() < want { push a rider }
 def griffinwing.Session.fill_wing.add(+s: J.Val, +want: U32) -> J.Val:
   gw.ifj(U32.is_lt(gw.len(s, "wing"), want),
     _ => griffinwing.Session.fill_wing.add(ga.push(s, "wing", griffinwing.Session.Wingman.make(gw.len(s, "wing"))), want),
@@ -210,7 +180,6 @@ def griffinwing.Session.Wingman.of(+k: U32, +x: U32, +z: U32, +back: U32) -> J.V
   +w3 = ga.sb(w2, "lost", False{})
   ga.su(w3, "fire", (12 * k : U32))
 
-# Seat a knight at the formation, unhurt for a moment.
 def griffinwing.Session.sit(+s: J.Val, +id: U32, +joined: U32) -> J.Val:
   gw.ifj(Bool.or(Bool.not(U32.is_eq(RS.u_clamp(id, 1, rules.MAX_PLAYERS()), id)), ga.has_key(J.get(s, "seats"), id)),
     _ => s,
@@ -224,16 +193,12 @@ def griffinwing.Session.sit.in(+s: J.Val, +id: U32, +joined: U32) -> J.Val:
 def griffinwing.Session.Seat.make(+joined: U32, +craft: J.Val) -> J.Val:
   ga.sv(ga.su(J.obj(), "joined", joined), "craft", craft)
 
-# The kingdom tile its door stands on: walk up and press E.
 def griffinwing.ENTRY() -> J.Val:
   ga.pair_i(105, 9)
 
-# Every mark this adventure may write.
 def griffinwing.MARKS() -> J.Val:
   J.JA{[J.JS{griffinwing.CAMPAIGN_MARK()}, J.JS{griffinwing.GOLD_MARK()}]}
 
-# The five numbers (charge, roll, window, spur, tell) as the knob panel shows
-# them: {name, label, constant, min, max, start}.
 def griffinwing.NUMBERS() -> J.Val:
   J.JA{[
     griffinwing.NUMBERS.row("griffinwing_lock", "Charge ticks", "griffinwing::NUMBERS[0]", 20, 90, 40),

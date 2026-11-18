@@ -6,7 +6,6 @@
 use crate::render::braille::{braille_char, braille_dot_bit};
 use std::fmt::Write as _;
 
-/// One terminal cell: its dots, the ink they are drawn in, and the ground.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Cell {
     pub bits: u8,
@@ -14,8 +13,6 @@ pub struct Cell {
     pub bg: [u8; 3],
 }
 
-/// The cells of a `w` by `h` frame of pixels (both multiples of 2 and 4),
-/// row by row, into `out`.
 pub fn cells(rgb: &[[u8; 3]], w: usize, h: usize, out: &mut Vec<Cell>) {
     out.clear();
     for cy in 0..h / 4 {
@@ -42,7 +39,6 @@ pub fn cells(rgb: &[[u8; 3]], w: usize, h: usize, out: &mut Vec<Cell>) {
     }
 }
 
-/// The cells as terminal text: truecolor only where the colours change.
 pub fn ansi(cells: &[Cell], cols: usize, out: &mut String) {
     for row in cells.chunks(cols) {
         let (mut fg, mut bg) = (None, None);

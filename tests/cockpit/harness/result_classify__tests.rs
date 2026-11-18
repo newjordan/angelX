@@ -27,9 +27,6 @@ fn shell(command: &str) -> ToolCall {
     call("shell", serde_json::json!({"command": command}))
 }
 
-/// Tool results the turn really sees: red and green verifier runs, exit
-/// 126/127, negative and overflowing codes, unparsable and absent codes,
-/// multi-line bodies, and tool errors that are not verifier runs.
 fn result_cases() -> Vec<(ToolCall, String)> {
     let tests = || verifier("run_tests");
     vec![
@@ -152,7 +149,6 @@ fn verdict_call() -> ToolCall {
     call("delegate", serde_json::json!({"task": "check"}))
 }
 
-/// Provider replies reduced to the two no-content markers.
 fn reply_cases() -> Vec<&'static str> {
     vec![
         "empty reply (no text and no tool calls)",
@@ -168,7 +164,6 @@ fn reply_cases() -> Vec<&'static str> {
     ]
 }
 
-/// One leg decision, exactly as the wrapper asks for it.
 fn live_answer(
     leg: &angel_live::Program,
     features: &ResultFeatures,
@@ -184,8 +179,6 @@ fn live_answer(
     )
 }
 
-/// The shipped leg and the native classifiers must agree on every result, and
-/// the leg must be the one that answered.
 #[test]
 fn live_result_classify_matches_every_native_verdict() {
     let leg = shipped_leg(LEG);
@@ -201,7 +194,6 @@ fn live_result_classify_matches_every_native_verdict() {
             call.name,
             source.as_str()
         );
-        // The four wrappers read one field each; each must equal its native leg.
         assert_eq!(verdict.error, is_error_result_native(&result));
         assert_eq!(
             verdict.red_verifier,
@@ -211,7 +203,6 @@ fn live_result_classify_matches_every_native_verdict() {
             verdict.dispatch_failure,
             is_dispatch_failure_native(&call, &result)
         );
-        // The text-only wrapper sees the same result with no call kind.
         let text_features = ResultFeatures::of_result(&result);
         let (text_verdict, text_source) =
             live_answer(&leg, &text_features, || native_of_result(&result));
@@ -227,9 +218,6 @@ fn live_result_classify_matches_every_native_verdict() {
     assert!(checked >= 30, "only {checked} results were compared");
 }
 
-/// The production wrappers route through the generation compiled into the
-/// binary now, with no native fallback. With nothing offered each answer must
-/// still be the oracle's, case for case.
 #[test]
 fn the_shipped_leg_answers_every_production_wrapper() {
     for (call, result) in result_cases() {
@@ -260,8 +248,6 @@ fn the_shipped_leg_answers_every_production_wrapper() {
     }
 }
 
-/// The provider-reply half: the leg and the native markers agree, and an
-/// unmarked reply is never an empty one.
 #[test]
 fn live_result_classify_matches_every_native_reply_verdict() {
     let leg = shipped_leg(LEG);
@@ -286,8 +272,6 @@ fn live_result_classify_matches_every_native_reply_verdict() {
     assert!(checked >= 8, "only {checked} replies were compared");
 }
 
-/// A generation that breaks the leg's contract is rejected and the native
-/// classifiers answer instead, so a bad hot edit never changes a decision.
 #[test]
 fn a_broken_result_classify_generation_keeps_the_native_verdict() {
     let root = std::env::temp_dir().join(format!(
@@ -307,7 +291,6 @@ fn a_broken_result_classify_generation_keeps_the_native_verdict() {
         ),
     )
     .unwrap();
-    // A clean result cannot be a dispatch failure; claiming one is out of contract.
     std::fs::write(
         root.join(LEG).join("index.js"),
         "module.exports={apiVersion:1,render:()=>({error:false,red_verifier:false,dispatch_failure:true,empty_reply:false})}",
@@ -336,7 +319,6 @@ fn a_broken_result_classify_generation_keeps_the_native_verdict() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// The cost that matters is one render per classified result.
 #[test]
 fn live_result_classify_reports_a_median_decision_cost() {
     let leg = shipped_leg(LEG);
@@ -364,4 +346,77 @@ fn live_result_classify_reports_a_median_decision_cost() {
         "result-classify leg: {:.1} µs median, {:.1} µs p95 over 200 decisions",
         samples[100], samples[190]
     );
+}
+
+/// Three commands with the shape of the ones a debugging agent really issued in a recorded
+/// run: an edit through a heredoc, then the test it wants to see, behind `timeout`, a
+/// memory-cap wrapper, a pipeline into `grep`, a subshell or a loop. Each came back red.
+/// After the third, the turn was told "Every tool call in your last several turns failed"
+/// and the agent dropped a design whose values were already right.
+fn debugging_commands() -> Vec<String> {
+    vec![
+        "cd /w/repo/src/lib; python3 - <<'EOF'\ns=open('a.rs').read()\nopen('a.rs','w').write(s.replace('x','y'))\nEOF\n\
+         cd /w/repo; (timeout 1200 memcap 2539 cargo test --release --offline t_ -- --nocapture 2>&1 \
+         | grep -E \"^error|-->|test |panicked|assert|left|right\" -A3 | head -40)"
+            .to_string(),
+        "cd /w/repo; cat >> src/lib/tests.rs <<'EOF'\n#[test]\nfn t_add_only() { assert_eq!(1, 1); }\nEOF\n\
+         (timeout 1200 memcap 2539 cargo test --release --offline t_add_only 2>&1 \
+         | grep -E \"^error|-->|test |panicked\" -A3 | head -30); \
+         (timeout 600 cargo test --release --offline t_carry_only 2>&1 | grep -E \"test |panicked\" | head)"
+            .to_string(),
+        "cd /w/repo; sed -i 's/let m = 1;/let m = 2;/' src/lib/a.rs; python3 - <<'EOF'\nprint('edit')\nEOF\n\
+         for c in 256 128 64 16 2; do echo chunk $c; CHUNK=$c timeout 600 cargo test --release --offline \
+         t_carry_only 2>&1 | grep -E \"^test |left|right\" | head -4; done"
+            .to_string(),
+    ]
+}
+
+#[test]
+fn three_red_tests_in_a_row_do_not_raise_the_every_call_failed_notice() {
+    let red = "tool error: shell command failed (exit 101)\ntest lib::tests::t_divide ... FAILED\n\
+               assertion `left == right` failed: phase";
+    let mut errors = crate::agent::harness::book::x_execution::ErrorStreak::default();
+    for command in debugging_commands() {
+        let call = shell(&command);
+        assert!(is_red_test_shell_run(&call, red), "red test not recognised: {command}");
+        let counted = is_dispatch_failure(&call, red) && !is_red_test_shell_run(&call, red);
+        assert!(errors.observe(counted).is_none(), "the notice fired on a red test: {command}");
+    }
+    assert_eq!(errors.streak(), 0);
+}
+
+#[test]
+fn only_a_test_that_ran_is_kept_out_of_the_failed_call_streak() {
+    let wrapped = shell("timeout 600 cargo test --release t_");
+    // The wrapper or the test program was not found: the call did not run a test.
+    for missing in [
+        "tool error: shell command failed (exit 127)\nbash: timeout: command not found",
+        "tool error: shell command failed (exit 126)\nbash: ./t: Permission denied",
+    ] {
+        assert!(!is_red_test_shell_run(&wrapped, missing));
+    }
+    // A command with no test in it that exits non-zero is still a failed call.
+    let plain = shell("cat /w/repo/missing.txt");
+    let failed = "tool error: shell command failed (exit 1)\ncat: /w/repo/missing.txt: No such file or directory";
+    assert!(!is_red_test_shell_run(&plain, failed));
+    assert!(is_dispatch_failure(&plain, failed));
+    // A test name inside a heredoc body is text being written, not a test being run.
+    let writing = shell("cat > notes.md <<'EOF'\nlater: cargo test t_\nEOF\nfalse");
+    assert!(!is_red_test_shell_run(&writing, "tool error: shell command failed (exit 1)"));
+    // Other tools are untouched.
+    assert!(!is_red_test_shell_run(&verifier("run_tests"), "tool error: run_tests failed (exit 101)"));
+    // Wrappers seen in real sessions.
+    for command in [
+        "CHUNK=2 timeout 600 cargo test --release t_carry_only",
+        "(cargo test --release t_)",
+        "for c in 2 4; do CHUNK=$c cargo test t_; done",
+        "wrapped-cargo test --release t_profile -- --nocapture",
+        "timeout 900 python3 -m pytest -x tests/",
+        "cd /w/repo && timeout 300 go test ./...",
+    ] {
+        assert!(
+            is_red_test_shell_run(&shell(command), "tool error: shell command failed (exit 1)\nFAILED"),
+            "not recognised as a test run: {command}"
+        );
+    }
 }

@@ -5,8 +5,6 @@
 
 use super::*;
 
-// --- nav tools suite --------------------------------------------------------
-
 #[test]
 fn truncate_to_char_boundary_handles_multibyte_edges() {
     let mut s = format!("{}{}", "x".repeat(3999), "ើtail");
@@ -23,8 +21,8 @@ fn glob_match_handles_wildcards_and_double_star() {
     assert!(glob_match("**/*.rs", "src/sub/c.rs"));
     assert!(glob_match("**/*.rs", "a.rs"));
     assert!(glob_match("src/*.rs", "src/a.rs"));
-    assert!(!glob_match("src/*.rs", "src/sub/a.rs")); // * doesn't cross /
-    assert!(!glob_match("*.rs", "src/a.rs")); // top-level only
+    assert!(!glob_match("src/*.rs", "src/sub/a.rs"));
+    assert!(!glob_match("*.rs", "src/a.rs"));
     assert!(glob_match("*.toml", "Cargo.toml"));
     assert!(glob_match("?.txt", "a.txt"));
     assert!(!glob_match("?.txt", "ab.txt"));
@@ -51,13 +49,11 @@ fn defs_finds_definitions() {
         .dispatch("defs", &serde_json::json!({"name": "Beta"}))
         .unwrap();
     assert!(b.contains("struct Beta"), "got: {b}");
-    // a non-identifier name is rejected (no regex injection)
     assert!(
         reg.dispatch("defs", &serde_json::json!({"name": "a b"}))
             .is_err()
     );
 
-    // helper precision (the dependency-free fallback path)
     assert!(line_defines("pub fn alpha() {", "alpha"));
     assert!(!line_defines("    alpha();", "alpha"));
     assert!(word_present("alpha()", "alpha"));
@@ -115,7 +111,6 @@ fn grep_finds_matches_and_handles_misses() {
         .unwrap();
     assert_eq!(miss, "no matches");
 
-    // Exercise the dependency-free fallback directly (independent of `rg`).
     let fb = grep_fallback(&root, "gamma", false).unwrap();
     assert!(fb.contains("b.rs") && fb.contains("gamma"), "got: {fb}");
     let _ = std::fs::remove_dir_all(&root);
@@ -219,7 +214,6 @@ fn git_diff_shows_uncommitted_changes() {
     let root = std::env::temp_dir().join(format!("angel_gd_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).unwrap();
-    // Init a repo with one committed file.
     if run_git(&root, &["init", "-q"]).is_err() {
         eprintln!("git unavailable; skipping git_diff test");
         return;
@@ -231,11 +225,9 @@ fn git_diff_shows_uncommitted_changes() {
     let mut reg = ToolRegistry::new();
     register_file_tools(&mut reg, root.clone());
 
-    // Clean tree → no changes.
     let clean = reg.dispatch("git_diff", &serde_json::json!({})).unwrap();
     assert!(clean.contains("no uncommitted"), "got: {clean}");
 
-    // Modify → diff shows the added line.
     std::fs::write(root.join("g.txt"), "one\ntwo\n").unwrap();
     let d = reg.dispatch("git_diff", &serde_json::json!({})).unwrap();
     assert!(d.contains("g.txt") && d.contains("+two"), "got: {d}");
@@ -301,16 +293,14 @@ fn outline_lists_symbols_and_skips_comments() {
 
 #[test]
 fn fuzzy_score_requires_subsequence() {
-    assert!(fuzzy_score("clb", "src/club.rs").is_some()); // c,l,b ⊂ club
-    assert!(fuzzy_score("hrs", "src/harness.rs").is_some()); // non-contiguous ok
+    assert!(fuzzy_score("clb", "src/club.rs").is_some());
+    assert!(fuzzy_score("hrs", "src/harness.rs").is_some());
     assert!(fuzzy_score("xyz", "src/club.rs").is_none());
-    assert!(fuzzy_score("swarm", "src/harness.rs").is_none()); // no 'w' after 's'
+    assert!(fuzzy_score("swarm", "src/harness.rs").is_none());
 }
 
 #[test]
 fn fuzzy_basename_prefix_outranks_incidental_match() {
-    // "harness" is a subsequence of both, but only the first is a basename
-    // prefix — it must win.
     let paths = vec![
         "src/harness.rs".to_string(),
         "docs/handler_arch_notes_rss.md".to_string(),

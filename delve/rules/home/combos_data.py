@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Writes delve/rules/home/_combos_data.bend from the family tables of crates/delve/src/rules/combos.rs."""
 import pathlib
 import re
 

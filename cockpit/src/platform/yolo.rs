@@ -21,7 +21,6 @@
 
 use std::sync::atomic::{AtomicU8, Ordering};
 
-/// Pure parser kept separate for deterministic tests.
 pub(crate) fn parse(raw: Option<&str>) -> bool {
     match raw {
         Some(value) => {
@@ -35,14 +34,10 @@ pub(crate) fn parse(raw: Option<&str>) -> bool {
     }
 }
 
-/// Operator execution posture.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Profile {
-    /// Ordinary interactive guards.
     Guarded,
-    /// Powerful coding without full-machine YOLO.
     Smart,
-    /// Unrestricted execution (classic YOLO).
     Full,
 }
 
@@ -56,7 +51,6 @@ impl Profile {
     }
 }
 
-// 0 = uncached (must re-read env), 1 = Guarded, 2 = Smart, 3 = Full.
 const PROF_UNCACHED: u8 = 0;
 const PROF_GUARDED: u8 = 1;
 const PROF_SMART: u8 = 2;
@@ -87,7 +81,6 @@ fn invalidate_profile_cache() {
     CACHED_PROFILE.store(PROF_UNCACHED, Ordering::Release);
 }
 
-/// Resolve the active profile. Full overrides Smart when both are set.
 pub(crate) fn profile() -> Profile {
     #[cfg(test)]
     {
@@ -107,34 +100,26 @@ pub(crate) fn profile() -> Profile {
     }
 }
 
-/// Whether the operator has selected the unrestricted-execution profile.
 pub(crate) fn enabled() -> bool {
     matches!(profile(), Profile::Full)
 }
 
-/// Whether smart / powerful-coding posture is active (and Full is not).
 pub(crate) fn smart_enabled() -> bool {
     matches!(profile(), Profile::Smart)
 }
 
-/// Workspace action power: skip action-capsule approvals and allow confident
-/// local mutations. True for Smart and Full.
 pub(crate) fn workspace_power() -> bool {
     matches!(profile(), Profile::Smart | Profile::Full)
 }
 
-/// Effectful `code_mode` is allowed without a separate env pin.
 pub(crate) fn code_effects_allowed() -> bool {
     workspace_power()
 }
 
-/// Gate-green self-edit merges skip the human modal under Smart/Full.
 pub(crate) fn auto_integrate_self_edits() -> bool {
     workspace_power()
 }
 
-/// Whether this approval scope should auto-approve under Smart (workspace
-/// work only). Full still uses the blanket path in [`approval::ask`].
 pub(crate) fn smart_auto_approves(scope: &crate::agent::approval::ApprovalScope) -> bool {
     if !smart_enabled() {
         return false;
@@ -146,43 +131,30 @@ pub(crate) fn smart_auto_approves(scope: &crate::agent::approval::ApprovalScope)
     )
 }
 
-/// Change the live full-YOLO posture. Enabling Full clears Smart so the two
-/// profiles never stack. Consumers read flags at action/turn time.
 pub(crate) fn set(enabled: bool) {
     if enabled {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var("ANGEL_YOLO", "1") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var("ANGEL_YOLO_SMART") };
         store_profile(Profile::Full);
     } else {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var("ANGEL_YOLO") };
-        // Smart may still be set — re-resolve from env on next read.
         invalidate_profile_cache();
     }
 }
 
-/// Change the live Smart posture. Enabling Smart clears Full.
 pub(crate) fn set_smart(enabled: bool) {
     if enabled {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var("ANGEL_YOLO_SMART", "1") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var("ANGEL_YOLO") };
         store_profile(Profile::Smart);
     } else {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var("ANGEL_YOLO_SMART") };
         invalidate_profile_cache();
     }
 }
 
-/// Clear both Full and Smart (return to Guarded).
 pub(crate) fn clear_all() {
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_YOLO") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_YOLO_SMART") };
     store_profile(Profile::Guarded);
 }

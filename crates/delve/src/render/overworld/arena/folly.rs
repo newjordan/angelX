@@ -4,12 +4,10 @@
 
 use super::*;
 
-/// The Belfry Shoot's board and title card (the bats are the room's own).
 pub(super) fn bats_layer(over: &mut Img, run: &Run) {
     let Some(shoot) = run.bats.as_ref().filter(|b| b.room == run.at) else {
         return;
     };
-    // The Belfry's own strip, title and moments (`belfry_shoot`) stand in for this board.
     if super::belfry_shoot::walled(run) {
         return;
     }
@@ -21,15 +19,12 @@ pub(super) fn bats_layer(over: &mut Img, run: &Run) {
     }
 }
 
-/// The Keg Gantry: the ogre on the top girder, the kegs rolling and
-/// falling, the board (how high each knight has climbed) and the title.
 pub(super) fn gantry_layer(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
     use crate::rules::gantry::TOP_ROW;
     let Some(g) = run.gantry.as_ref().filter(|g| g.room == run.at) else {
         return;
     };
     if !g.done {
-        // The ogre, swaying at the top-left with a keg on his shoulder.
         let (x, y) = at(1.6 * TILE_UNITS, (TOP_ROW as f32 + 0.1) * TILE_UNITS);
         let (x, y) = (x - ox, y - oy);
         let sway = [0, 1, 0, -1][(run.tick / 8 % 4) as usize];
@@ -47,7 +42,6 @@ pub(super) fn gantry_layer(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
             "...mm..mm...",
             "...mm..mm...",
         ];
-        // Drawn twice the size: an ogre should loom.
         for (ry, row) in ogre.iter().enumerate() {
             for (rx, c) in row.chars().enumerate() {
                 if c != '.' {
@@ -74,14 +68,11 @@ pub(super) fn gantry_layer(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
     }
 }
 
-/// Book Hop's flood, under the knights: ink in the lanes, the banks and the
-/// landing dry, the books drifting, and ripples where someone sank.
 pub(super) fn hop_floor(cv: &mut Img, run: &Run) {
     use crate::rules::hop;
     let Some(h) = run.hop.as_ref().filter(|h| h.room == run.at) else {
         return;
     };
-    // The drowned archive (`book_hop`) lays its own hall, books and strip.
     if super::book_hop::walled(run) {
         return;
     }
@@ -91,8 +82,6 @@ pub(super) fn hop_floor(cv: &mut Img, run: &Run) {
     for r in 1..rows - 1 {
         let y = r * TILE;
         let Some(l) = hop::lane(rows, r) else {
-            // A dry bank or the landing: flagstones, each lit along its top
-            // and shaded at its foot, their joints staggered row to row.
             let shift = if r % 2 == 0 { 0 } else { TILE / 2 };
             for yy in y..y + TILE {
                 for x in TILE..(cols - 1) * TILE {
@@ -113,15 +102,11 @@ pub(super) fn hop_floor(cv: &mut Img, run: &Run) {
             }
             continue;
         };
-        // The water: one river from bank to bank (lane to lane the same
-        // water, no stripes), its shallows a step paler against a bank;
-        // ripples in short clumps that drift with each lane's flow.
         let flow = (t as i32 * if l % 2 == 0 { 1 } else { -1 }) / 3;
         let bank_above = hop::lane(rows, r - 1).is_none();
         let bank_below = hop::lane(rows, r + 1).is_none();
         for yy in y..y + TILE {
             let dy = yy - y;
-            // The stone bank's own steps (no signal ink: water is scenery).
             let shore = (bank_above && dy < 2) || (bank_below && dy >= TILE - 2);
             let shallow = (bank_above && dy < 4) || (bank_below && dy >= TILE - 4);
             let base = if shore {
@@ -141,7 +126,6 @@ pub(super) fn hop_floor(cv: &mut Img, run: &Run) {
         }
         let (lefts, len) = hop::books(l, t, width);
         let spines = ['R', 'B', 'e', 'U', 'P'];
-        // A book running off one end comes back in at the other.
         let span = lefts.len() as i32 * hop::SPACING as i32 * TILE;
         for (k, &bx) in lefts.iter().enumerate() {
             let x0 = (bx / TILE_UNITS * TILE as f32) as i32;
@@ -151,10 +135,6 @@ pub(super) fn hop_floor(cv: &mut Img, run: &Run) {
                 if a >= b {
                     continue;
                 }
-                // A book's spine, its ends rounded where they are its own
-                // (not where it runs off the lane), lit along its top in its
-                // own colour's lighter step and shaded along its foot, with
-                // gilt bands.
                 let ink = spines[(k + l) % spines.len()];
                 let c = super::super::ink::ink(ink).unwrap_or(BLACK);
                 let (lit, deep) = (super::super::material::lighter(c), super::super::material::darker(c));
@@ -195,7 +175,6 @@ fn hop_ripple(left: u32) -> u32 {
     3 + (crate::rules::HZ / 2 - left.min(crate::rules::HZ / 2)) / 2
 }
 
-/// Book Hop's board and title, over everything.
 pub(super) fn hop_layer(over: &mut Img, run: &Run) {
     let Some(h) = run.hop.as_ref().filter(|h| h.room == run.at) else {
         return;
@@ -211,13 +190,10 @@ pub(super) fn hop_layer(over: &mut Img, run: &Run) {
     }
 }
 
-/// The Powder Room: lit kegs, the fire of a blast, the board and the title.
-/// Crate tiles are already drawn as room blocks, beneath the actors.
 pub(super) fn powder_layer(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
     let Some(p) = run.powder.as_ref().filter(|p| p.room == run.at) else {
         return;
     };
-    // The store's own strip, kegs and moments (`powder_room`) stand in for this board.
     if super::powder_room::walled(run) {
         return;
     }
@@ -230,7 +206,6 @@ pub(super) fn powder_layer(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
         over.rect(x + 4, y + 5, 8, 9, 'K');
         over.rect(x + 4, y + 7, 8, 1, 'G');
         over.rect(x + 4, y + 11, 8, 1, 'G');
-        // The fuse burns down, sparking.
         let spark = if run.tick / 3 % 2 == 0 { '6' } else { '7' };
         over.put(x + 9, y + 3, spark);
         over.put(x + 8, y + 4, 'h');
@@ -249,8 +224,6 @@ pub(super) fn powder_layer(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
     }
 }
 
-/// A folly's standings, top right: a headline, then each knight's colour,
-/// name and score.
 pub(super) fn folly_board(over: &mut Img, run: &Run, head: &str, rows: &[(u32, u32)]) {
     let (w, row) = (118, 11);
     let x0 = NATIVE_W - w - 5;
@@ -273,10 +246,8 @@ pub(super) fn folly_board(over: &mut Img, run: &Run, head: &str, rows: &[(u32, u
     }
 }
 
-/// A folly's title card: its name, and how to play in a few words.
 pub(super) fn folly_title(over: &mut Img, a: &str, b: &str) {
     let tw = super::super::ink::text_width(b).max(super::super::ink::text_width(a));
-    // High in the view: the middle is where an unused wish waits.
     let (bx, by) = ((NATIVE_W - tw) / 2 - 8, 44);
     chrome::panel(over, (bx, by, tw + 16, 34), chrome::Tone::FRAMED);
     over.text((NATIVE_W - super::super::ink::text_width(a)) / 2, by + 7, a, 'O');

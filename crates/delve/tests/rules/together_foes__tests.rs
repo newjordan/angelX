@@ -1,8 +1,6 @@
 use super::*;
 use crate::realm::Spoil;
 
-/// Floor one's entrance (a plain room, no pillars) as a fight, knight one
-/// at its middle, one monster of `kind` at `(x, y)` ready to act.
 fn with(kind: EnemyKind, x: f32, y: f32) -> Run {
     let mut run = Run::new(33, 1, None);
     run.enter_for_test(0);
@@ -22,7 +20,6 @@ fn tick(run: &mut Run, ticks: u32) {
     }
 }
 
-/// Step with knight one held at full health and in place.
 fn hold(run: &mut Run, ticks: u32) {
     for _ in 0..ticks {
         let hero = run.players.get_mut(&1).unwrap();
@@ -57,7 +54,6 @@ fn a_sappers_keg_blows_and_a_shot_sets_it_off_early() {
     assert!(!run.kegs.is_empty(), "a keg is planted near the knight");
     let keg = run.kegs[0];
     assert!((keg.x - 24.0).hypot(keg.y - 14.0) < 10.0);
-    // A knight's shot at a keg sets it off, and a monster beside it feels it.
     run.spawn_at_for_test(EnemyKind::Skeleton, keg.x + 1.0, keg.y);
     let skeleton = run.enemies.last().unwrap().id;
     let hp = run.enemies.last().unwrap().hp;
@@ -230,7 +226,6 @@ fn a_loot_goblin_with_nothing_to_take_keeps_clear_and_slips_away() {
         "gone"
     );
     assert!(run.cues.iter().any(|c| c == "goblin_escaped"));
-    // Caught: gold all round, and now and then a prize.
     let mut run = with(EnemyKind::Goblin, 30.0, 14.0);
     run.enemies[0].hp = 0;
     tick(&mut run, 1);
@@ -238,7 +233,6 @@ fn a_loot_goblin_with_nothing_to_take_keeps_clear_and_slips_away() {
     assert!(gold >= 5, "{gold} gold");
 }
 
-/// A knight with something to lose, and a goblin at their elbow.
 fn robbery() -> Run {
     let mut run = with(EnemyKind::Goblin, 26.0, 14.0);
     let hero = run.players.get_mut(&1).unwrap();
@@ -331,7 +325,6 @@ fn a_goblin_killed_bursts_with_everything_it_took_and_gold_on_top() {
     let total = run.players[&1].carried.clone();
     for _ in 0..3 {
         hold(&mut run, 4);
-        // Let it take a second and third thing from the same knight.
         let g = run.enemies.iter_mut().find(|e| e.kind == EnemyKind::Goblin);
         if let Some(g) = g {
             let hero = &run.players[&1];
@@ -467,8 +460,6 @@ fn a_shaman_boxes_a_knight_in_with_wards_that_crumble() {
         );
     }
     run.enemies.retain(|e| e.kind == EnemyKind::Ward);
-    // Re-pinned 2026-11-02: a shaman on the beat re-raises its wards, so
-    // what crumbles in time is each batch, not the census after one stand.
     hold(&mut run, foes::WARD_STANDS + 2);
     let fresh: Vec<u32> = run
         .enemies
@@ -545,7 +536,6 @@ fn a_broodmarrow_tears_a_child_from_its_back_and_throws_it() {
         .unwrap()
         .hp;
     assert!(marrow_hp < full, "the rip is a wound it chose");
-    // It lands with its teeth out, and stands up as an imp.
     let hp = run.players[&1].hp;
     run.players.get_mut(&1).unwrap().invulnerable = 0;
     tick(&mut run, foes::FLING_FALL);
@@ -560,8 +550,6 @@ fn a_broodmarrow_tears_a_child_from_its_back_and_throws_it() {
 #[test]
 fn a_broodmarrows_brood_is_bounded_and_it_never_bleeds_itself_dead() {
     let mut run = with(EnemyKind::Broodmarrow, 34.0, 14.0);
-    // One rip from the floor of its life: it pays once, and then the
-    // brood is not free — no farming the poor for bounty.
     run.enemies[0].hp = foes::BROOD_RIP + 1;
     hold(&mut run, 26 * HZ);
     let imps = run
@@ -590,7 +578,6 @@ fn a_broodmarrows_brood_is_bounded_and_it_never_bleeds_itself_dead() {
 #[test]
 fn the_oathbound_share_one_wound_and_grieve_alone() {
     let mut run = with(EnemyKind::Oathbound, 34.0, 14.0);
-    // Give it its twin: the pair stands shoulder to shoulder.
     let twin_id = run.spawn_at_for_test(EnemyKind::Oathbound, 35.0, 15.0);
     let ids: Vec<u32> = run
         .enemies
@@ -599,7 +586,6 @@ fn the_oathbound_share_one_wound_and_grieve_alone() {
         .map(|e| e.id)
         .collect();
     assert_eq!(ids.len(), 2);
-    // Wound one: the oath bills both.
     run.enemies
         .iter_mut()
         .find(|e| e.id == ids[0])
@@ -613,8 +599,6 @@ fn the_oathbound_share_one_wound_and_grieve_alone() {
     assert_eq!(a, b, "what one takes, both feel ({a} vs {b})");
     assert!(a < 240);
     assert!(run.valid_snapshot());
-    // Fell one with a blow meant for it: the survivor keeps exactly one
-    // wound, the oath breaks, and the grief begins.
     run.enemies
         .iter_mut()
         .find(|e| e.id == ids[0])
@@ -632,7 +616,6 @@ fn the_oathbound_share_one_wound_and_grieve_alone() {
 fn a_stroke_that_reaches_both_oathbound_ends_the_oath_entirely() {
     let mut run = with(EnemyKind::Oathbound, 34.0, 14.0);
     run.spawn_at_for_test(EnemyKind::Oathbound, 35.0, 15.0);
-    // One stroke, both graves: no survivor, no grief, no cue.
     for e in run.enemies.iter_mut().filter(|e| e.kind == EnemyKind::Oathbound) {
         e.hp = 0;
     }
@@ -650,7 +633,6 @@ fn a_stroke_that_reaches_both_oathbound_ends_the_oath_entirely() {
 #[test]
 fn a_whirlgrave_well_pulls_knights_and_bends_shots() {
     let mut run = with(EnemyKind::Whirlgrave, 34.0, 14.0);
-    // A well, opened at a known spot beside the knight.
     run.wells.push(foes::Well {
         x: 20.0,
         y: 14.0,
@@ -668,8 +650,6 @@ fn a_whirlgrave_well_pulls_knights_and_bends_shots() {
         hero.x
     );
     assert!(run.valid_snapshot());
-    // A straight arrow bends: fire one past the well's shoulder and it
-    // lands off the line a no-well control run draws.
     let mut control = run.clone();
     control.wells.clear();
     let fire = BTreeMap::from([(
@@ -682,7 +662,6 @@ fn a_whirlgrave_well_pulls_knights_and_bends_shots() {
     )]);
     run.step(&fire);
     control.step(&fire);
-    // Arrows fly fast: as far as the old slow ones went in twenty ticks.
     for _ in 0..8 {
         run.step(&BTreeMap::new());
         control.step(&BTreeMap::new());
@@ -704,19 +683,16 @@ fn a_whirlgrave_well_pulls_knights_and_bends_shots() {
 
 #[test]
 fn a_whirlgraves_wells_close_with_their_stone_and_two_is_the_limit() {
-    // Two stones, two leans: the room will humour exactly that many.
     let mut run = with(EnemyKind::Whirlgrave, 34.0, 14.0);
     run.spawn_at_for_test(EnemyKind::Whirlgrave, 30.0, 14.0);
     run.wells.push(foes::Well { x: 20.0, y: 14.0, left: foes::WELL_SPAN });
     run.wells.push(foes::Well { x: 26.0, y: 10.0, left: foes::WELL_SPAN });
     assert_eq!(run.wells.len(), 2);
-    // A third is simply not poured, even when a stone tries.
     run.spawn_at_for_test(EnemyKind::Whirlgrave, 32.0, 12.0);
     for _ in 0..20 * HZ as usize {
         run.step(&BTreeMap::new());
         assert!(run.wells.len() <= foes::WELLS_MAX, "two wells, no more");
     }
-    // Fell every stone: the lean ends with them.
     for e in run.enemies.iter_mut().filter(|e| e.kind == EnemyKind::Whirlgrave) {
         e.hp = 0;
     }
@@ -724,9 +700,6 @@ fn a_whirlgraves_wells_close_with_their_stone_and_two_is_the_limit() {
     assert!(run.wells.is_empty(), "no stone, no lean");
 }
 
-// ─── The Fungelder ──────────────────────────────────────────────────────────
-
-/// The garden: every standing thick wall in the room.
 fn thick_stems(run: &Run) -> Vec<&skills::Barricade> {
     run.works
         .barricades
@@ -772,8 +745,6 @@ fn a_mushroom_stops_knight_and_monster_alike() {
     tick(&mut run, 2);
     let stems = thick_stems(&run);
     assert_eq!(stems.len(), 3, "the garden stands");
-    // A knight's own arrow, fired into the nearest stem: it dies, and the
-    // stem feels it — the garden is democratic.
     let (a0, b0, a1, b1) = (stems[0].a, stems[0].b, stems[1].a, stems[1].b);
     drop(stems);
     let (mx, my) = ((a0.0 + b0.0) / 2.0, (a0.1 + b0.1) / 2.0);
@@ -801,7 +772,6 @@ fn a_mushroom_stops_knight_and_monster_alike() {
         .iter()
         .any(|w| w.hp < foes::MUSHROOM_HP);
     assert!(chipped, "the stem felt the arrow");
-    // A monster's orb, at the next stem: the same law, other side.
     let (mx, my) = ((a1.0 + b1.0) / 2.0, (a1.1 + b1.1) / 2.0);
     run.projectiles.push(Projectile {
         x: mx,
@@ -835,7 +805,6 @@ fn a_mushroom_shoves_a_knight_round_itself() {
         fall: 2,
     });
     tick(&mut run, 2);
-    // The knight stands dead on an edge: the garden moves them out.
     let stems = thick_stems(&run);
     let (mx, my) = (
         (stems[0].a.0 + stems[0].b.0) / 2.0,
@@ -860,7 +829,6 @@ fn a_mushroom_shoves_a_knight_round_itself() {
 #[test]
 fn a_garden_is_bounded_and_rots_in_time() {
     let mut run = with(EnemyKind::Fungelder, 34.0, 14.0);
-    // Five sacs burst at once: the room still holds at most nine stems.
     for i in 0..5 {
         run.sacs.push(foes::Spore {
             from: (34.0, 10.0),
@@ -875,7 +843,6 @@ fn a_garden_is_bounded_and_rots_in_time() {
         foes::MUSHROOM_ROOM,
         "nine stems, no more"
     );
-    // Fell the gardener and let the clock run: the whole garden rots.
     for e in run.enemies.iter_mut().filter(|e| e.kind == EnemyKind::Fungelder) {
         e.hp = 0;
     }
@@ -888,8 +855,6 @@ fn a_garden_is_bounded_and_rots_in_time() {
     );
 }
 
-/// The Fungelder's garden, frame by frame, for the deliverable GIF:
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve --lib write_fungelder_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_fungelder_shots() {
@@ -899,14 +864,11 @@ fn write_fungelder_shots() {
     let dir = std::path::PathBuf::from(dir);
     std::fs::create_dir_all(&dir).unwrap();
     let mut run = with(EnemyKind::Fungelder, 32.0, 12.0);
-    // The knight holds still at the room's middle; the gardener lobs at
-    // them, the garden stands, and a pair of arrows die on it.
     let mut n = 0;
     let mut bloomed = false;
     for tick in 0..340 {
         run.players.get_mut(&1).unwrap().hp = run.players[&1].max_hp;
         if tick == 220 {
-            // A knight's own arrow, into the garden.
             if let Some(wall) = thick_stems(&run).first().copied() {
                 let (mx, my) = ((wall.a.0 + wall.b.0) / 2.0, (wall.a.1 + wall.b.1) / 2.0);
                 run.projectiles.push(Projectile {

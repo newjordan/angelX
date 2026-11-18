@@ -22,7 +22,6 @@ fn a_call_repeated_silently_three_times_earns_one_note_naming_it() {
     assert!(note.contains("cargo test"), "{note}");
     assert!(note.contains("3 times in a row"), "{note}");
     assert!(note.contains("one or two lines"), "{note}");
-    // The note wakes thinking for exactly the next hop.
     assert!(guard.take_wake());
     assert!(!guard.take_wake());
 }
@@ -45,8 +44,6 @@ fn text_or_a_changed_call_restarts_the_repeat_count() {
 
 #[test]
 fn a_pasted_back_reply_is_no_new_text() {
-    // rust-robot-name, v1 s1: `echo hi` sixty times, each under the same
-    // pasted-back system prompt.
     let paste = "⠽⠃⠍⠁⠽⠑\n⠍⠓\n`/ws/robot-name`";
     let echo = call("shell", serde_json::json!({"command": "echo hi"}));
     let mut guard = SilenceGuard::default();
@@ -71,8 +68,6 @@ fn eight_textless_hops_earn_a_note_even_when_the_calls_differ() {
 
 #[test]
 fn the_rust_bowling_loop_is_interrupted_and_the_guard_stays_bounded() {
-    // v3 s0 rust-bowling: one silent rewrite, then 52 silent shell calls, 37
-    // identical in a row, to the 60-hop cap.
     let mut guard = SilenceGuard::default();
     let mut notes = Vec::new();
     let mut wakes = 0;
@@ -91,6 +86,5 @@ fn the_rust_bowling_loop_is_interrupted_and_the_guard_stays_bounded() {
     assert_eq!(notes.len(), NOTES_PER_TURN, "{notes:?}");
     assert_eq!(wakes, NOTES_PER_TURN);
     assert_eq!(notes[0], SILENT_HOP_LIMIT - 1, "{notes:?}");
-    // Each later note needs a fresh run of its own.
     assert!(notes.windows(2).all(|pair| pair[1] - pair[0] >= SAME_CALL_LIMIT));
 }

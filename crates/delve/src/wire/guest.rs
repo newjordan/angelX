@@ -17,30 +17,18 @@ use angel_net::doc::delta::Patch;
 use angel_net::doc::value::{self, Value};
 use std::borrow::Cow;
 
-/// What a patch did to the shot list. Ids only: the tree, after the patch
-/// is applied, has the courses.
 pub enum Shots {
-    /// The list was not in the patch.
     Same,
-    /// Ids gone, and ids whose value was resent. Order is the list's old
-    /// order with those ids removed, then any new id.
     Edit { gone: Vec<u64>, touched: Vec<u64> },
-    /// Replaced or reordered: read the list again.
     Rebuild,
 }
 
-/// Wire fields that are not the run's own (`finish`, `aim_sent`). A patch
-/// that only names these still leaves the run to be flown for the new tick.
 const BESIDE: &[&str] = &[flight::AIM, super::WORLD_ITEM, super::WORLD_CHUNKS, super::WORLD_NEAR];
 
-/// The run a seat is keeping, and the flights of the shots it last read, so
-/// a tick that did not resend them flies them again.
 #[derive(Default)]
 pub struct Guest {
     run: Option<Run>,
     holds: Vec<ShotHold>,
-    /// Foes as the tree last carried them (courses and timer starts), so a
-    /// tick that did not resend the list can fly them as `read` would.
     foes: Vec<Value>,
     fast: u32,
     full: u32,
@@ -48,8 +36,6 @@ pub struct Guest {
 }
 
 impl Guest {
-    /// The top-level fields a patch puts back, or `None` when the patch is
-    /// not a struct's (the run is read whole).
     pub fn fields(patch: &Patch) -> Option<Vec<Cow<'static, str>>> {
         match patch {
             Patch::Struct { set, gone } => {
@@ -62,7 +48,6 @@ impl Guest {
         }
     }
 
-    /// How the patch treats the shot list, read before the patch is applied.
     pub fn shots_of(patch: &Patch) -> Shots {
         let Patch::Struct { set, .. } = patch else {
             return Shots::Rebuild;
@@ -79,9 +64,6 @@ impl Guest {
         }
     }
 
-    /// The run `tree` holds. `changed` is the fields the patch named; `None`
-    /// reads the tree whole (`read`). `shots` says whether the shot list
-    /// can be flown on, or has to be read again.
     pub fn read(
         &mut self,
         tree: &Value,
@@ -100,8 +82,6 @@ impl Guest {
             return self.whole(tree);
         }
         let mut run = prev;
-        // Ages and feel are reckoned against the tick the tree names, which
-        // may be listed after the field that needs it.
         if let Some(tick) = tree.field("tick").and_then(Value::as_id) {
             run.tick = tick;
         }
@@ -169,13 +149,10 @@ impl Guest {
         let tick = run.tick;
         let delta = tick.wrapping_sub(old_tick);
         if delta != 0 && !saw_enemies && !self.fly_foes(&mut run) {
-            // No course kept for this list: read the field as it stands.
             if self.put_enemies(&mut run, tree).is_err() {
                 return self.whole(tree);
             }
         }
-        // A course or a clock is the same value while it holds, so the patch
-        // may not name `players`. Land it to this tick anyway, as `read` does.
         if delta != 0 && !saw_players && !self.fly_knights(&mut run, tree) {
             return self.whole(tree);
         }
@@ -191,8 +168,6 @@ impl Guest {
         Ok(out)
     }
 
-    /// Ticks read by putting fields back, ticks read whole, and the fields
-    /// the last whole read was for.
     pub fn stats(&self) -> (u32, u32, &str) {
         (self.fast, self.full, &self.miss)
     }
@@ -209,11 +184,6 @@ impl Guest {
         Ok(run)
     }
 
-    /// Foes as `read` lands them: courses flown to the tick, timers counted
-    /// from their start, ages reckoned from the birth tick the wire stores.
-    /// The raw list is kept so a later tick can fly it without reading it
-    /// again. A field this cannot land is an error, and the caller reads
-    /// the tree whole.
     fn put_enemies(&mut self, run: &mut Run, tree: &Value) -> Result<(), value::Error> {
         let Some(enemies) = tree.field("enemies") else {
             run.enemies.clear();
@@ -242,8 +212,6 @@ impl Guest {
         };
     }
 
-    /// Fly the kept foe list to this tick, as `land` would. False when this
-    /// seat has no list to fly, so the caller reads the field.
     fn fly_foes(&self, run: &mut Run) -> bool {
         if run.enemies.len() != self.foes.len() {
             return false;
@@ -263,10 +231,6 @@ impl Guest {
         true
     }
 
-    /// Knights as `read` lands them: a course flown to the tick, a clock wound
-    /// from its start, a field the wire left out filled from its serde default.
-    /// False when the field is gone or will not deserialize, so the caller
-    /// reads the tree whole.
     fn put_players(&self, run: &mut Run, tree: &Value) -> bool {
         let Some(players) = tree.field("players") else {
             return false;
@@ -286,10 +250,6 @@ impl Guest {
         }
     }
 
-    /// The tree's knights, brought to this tick when the patch did not name
-    /// them. False when the field is gone or will not land, so the caller
-    /// reads the tree whole. A list with no course and no clock is already
-    /// the run's.
     fn fly_knights(&self, run: &mut Run, tree: &Value) -> bool {
         match tree.field("players") {
             Some(players) if super::knights::needs_land(players) => self.put_players(run, tree),
@@ -314,8 +274,6 @@ impl Guest {
             self.holds.clear();
             return Ok(());
         };
-        // The stop indexes the room. A patch that leaves it unreadable is
-        // refused, not panicked.
         if !super::room_can_stop_shot(run) {
             return Err(serde::de::Error::custom("the room cannot stop a shot"));
         }
@@ -348,9 +306,6 @@ impl Guest {
         Ok(())
     }
 
-    /// Drop gone shots and replace the ones resent, keeping the list's order.
-    /// False when the holds no longer match the tree, so the caller reads
-    /// the list again.
     fn edit_holds(
         &mut self,
         list: &Value,
@@ -383,8 +338,6 @@ impl Guest {
     }
 }
 
-/// Put one named field of the tree back onto the run. False when the name
-/// is not a field this knows, or the patch took it off the tree (read whole).
 fn put_field(run: &mut Run, tree: &Value, name: &str) -> bool {
     if name == "module_visuals" {
         let scene = tree.field(name).map(value::from_value).transpose();
@@ -430,15 +383,10 @@ fn put_field(run: &mut Run, tree: &Value, name: &str) -> bool {
         pastimes, cinder, latch, brasswake, rafterwake, pennon, wayfarers, mossbell, critters, pits, frogs, shoulders, bosses, book,
         found, shake, traps, rocks, waves, works, window, makers, ladders, spectacle, sparks, blasts, floor_tally, floor_results, boons,
         wishing, lamp, genie, asked, held, fellowship, again, rewards,
-        // The ballot between floors counts its clock down a tick at a time, and a Knight Racers
-        // card puts its whole race there: left out of this list each tick read the run whole.
         crossroads, knight_racers, caves,
     )
 }
 
-/// Feel the tree did not resend: each fading line's life is the tick it
-/// ends, so a later tick is that many less (`unreckon_feel`). Lines are not
-/// dropped here; the host sends the shorter list when one ends.
 fn fade_feel(feel: &mut crate::rules::feel::Feel, delta: u64) {
     let sub = |ttl: &mut u8| {
         *ttl = u64::from(*ttl).saturating_sub(delta) as u8;

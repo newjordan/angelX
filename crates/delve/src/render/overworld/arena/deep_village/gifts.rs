@@ -17,7 +17,6 @@ use crate::rules::{
     },
 };
 
-/// The six places a wish stands (tile points, its foot).
 pub const SLOTS: [(f32, f32); 6] = [(13.4, 12.8), (23.0, 12.8), (8.8, 13.8), (27.4, 13.8), (14.2, 20.4), (22.4, 20.4)];
 
 pub(super) fn all(cv: &mut Img, run: &Run, vl: &Village, town: Option<&Town>) {
@@ -33,7 +32,6 @@ pub(super) fn all(cv: &mut Img, run: &Run, vl: &Village, town: Option<&Town>) {
         let (fx, fy) = (28, 60);
         match rose.filter(|&age| age < RISE) {
             Some(age) => {
-                // Rising out of the ground: only so much of it is up yet.
                 let f = age as f32 / RISE as f32;
                 let shown = (im.h as f32 * f) as i32;
                 let mut part = Img::new(im.w, im.h);
@@ -53,8 +51,6 @@ pub(super) fn all(cv: &mut Img, run: &Run, vl: &Village, town: Option<&Town>) {
             sparkle(cv, (x, y - 20), rose.unwrap_or(0) as u32 + 40, 1.0);
         }
     }
-    // The words on the one wish a knight stands nearest, so two never
-    // overlap.
     let nearest = town
         .wishes
         .iter()
@@ -72,7 +68,6 @@ pub(super) fn all(cv: &mut Img, run: &Run, vl: &Village, town: Option<&Town>) {
     }
 }
 
-/// Sparks thrown up round a wish as it rises.
 fn sparkle(cv: &mut Img, (x, y): (i32, i32), age: u32, f: f32) {
     for k in 0..28 {
         let h = hash(k, 3, 9401);
@@ -88,7 +83,6 @@ fn sparkle(cv: &mut Img, (x, y): (i32, i32), age: u32, f: f32) {
     }
 }
 
-/// The words on a wish, over it.
 fn plaque(cv: &mut Img, wish: &CityWish, (x, y): (i32, i32)) {
     let words: String = wish.words.to_uppercase().chars().take(38).collect();
     let lines = [format!("\"{words}\""), format!("WISHED BY {}", wish.shown.to_uppercase())];
@@ -100,12 +94,10 @@ fn plaque(cv: &mut Img, wish: &CityWish, (x, y): (i32, i32)) {
     }
 }
 
-/// One wish, drawn on a 56 by 64 canvas, its foot at (28, 60).
 fn draw(im: &mut Img, run: &Run, wish: &CityWish, tick: u32) {
     let (cx, foot) = (28, 60);
     match wish.gift {
         Gift::Lanterns => {
-            // A tree of lanterns: a dark trunk branching, a lamp at every tip.
             mat::shadow(im, ((cx + 4) as f32, foot as f32), (14.0, 3.0), &keep_all);
             for (x0, y0, x1, y1) in [(cx, foot, cx, foot - 34), (cx, foot - 20, cx - 14, foot - 32), (cx, foot - 26, cx + 14, foot - 38), (cx, foot - 34, cx - 8, foot - 46), (cx, foot - 34, cx + 6, foot - 50)] {
                 im.line(x0, y0, x1, y1, 'b');
@@ -138,11 +130,8 @@ fn draw(im: &mut Img, run: &Run, wish: &CityWish, tick: u32) {
             mat::broadleaf(im, cx + 10, foot - 6, 9.0, mat::ramp::FOCAL, 9412, 1, &keep_all);
         }
         Gift::Statue => {
-            // The plinth, and the knight in stone on it.
             mat::ashlar(im, (cx - 12, foot - 12, 24, 12), &['g', 'j', 'G', 'J', 'h'], 9413);
             im.line(cx - 13, foot - 12, cx + 12, foot - 12, 'i');
-            // The knight's own figure, where it can be had, else a knight
-            // with the sword raised; twice their size, in the village's stone.
             let own = run
                 .players
                 .iter()
@@ -230,7 +219,6 @@ fn draw(im: &mut Img, run: &Run, wish: &CityWish, tick: u32) {
     }
 }
 
-/// `im` cut down to what is drawn in it.
 fn trim(im: &Img) -> Img {
     let (mut x0, mut y0, mut x1, mut y1) = (im.w, im.h, -1, -1);
     for y in 0..im.h {
@@ -254,9 +242,6 @@ fn trim(im: &Img) -> Img {
     out
 }
 
-/// A figure turned to the village's stone: every ink by its lightness,
-/// stretched across the stone's whole ramp so its features stay, and a
-/// dark edge round it.
 fn stone(im: &Img) -> Img {
     const RAMP: [char; 6] = ['G', 'J', 'h', 'i', 'H', 'W'];
     let lum = |c: [u8; 3]| 0.299 * c[0] as f32 + 0.587 * c[1] as f32 + 0.114 * c[2] as f32;
@@ -287,7 +272,6 @@ fn stone(im: &Img) -> Img {
     out
 }
 
-/// A knight in stone: helm, cape and shield, the sword raised high.
 fn generic_knight() -> Img {
     Img::from_rows(&[
         "........W.......",

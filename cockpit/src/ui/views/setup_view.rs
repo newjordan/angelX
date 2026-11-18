@@ -16,30 +16,20 @@ use ratatui::{
 use std::time::Instant;
 use unicode_width::UnicodeWidthStr;
 
-/// The card's widest; wider windows centre it.
 const MAX_COLS: u16 = 84;
-/// Below this the page is plain words over the whole window, no box.
 const MIN_COLS: u16 = 44;
 const MIN_ROWS: u16 = 12;
-/// Words sit this far in from the card's sides.
 pub(crate) const INSET: u16 = 3;
-/// The most choices shown at once; the rest scroll.
 const MOST_ITEMS: usize = 9;
 
-/// Tonal inks: no white, one warm accent.
 pub(crate) const TEXT: Color = Color::Rgb(176, 180, 188);
 pub(crate) const SOFT: Color = Color::Rgb(118, 123, 132);
 pub(crate) const BRIGHT: Color = Color::Rgb(224, 226, 230);
 pub(crate) const ACCENT: Color = Color::Rgb(196, 134, 92);
 const READY: Color = Color::Rgb(138, 172, 124);
 const EDGE: Color = Color::Rgb(62, 66, 74);
-/// The chosen row in a terminal, where no glass pill glides under it.
 const PICK_BG: Color = Color::Rgb(30, 33, 40);
 
-// --- the composer -------------------------------------------------------------
-
-/// One page laid out on a card: its cells, where the chosen row and the
-/// field are, and what answers a click, all from the card's top-left.
 pub(crate) struct Composed {
     pub(crate) buffer: Buffer,
     pub(crate) cursor: Option<u16>,
@@ -47,8 +37,6 @@ pub(crate) struct Composed {
     pub(crate) hits: Vec<(Rect, Hit)>,
 }
 
-/// Words wrapped to `width` columns. A leading indent stays on every line,
-/// and a numbered step ("1. …") wraps under its words, not its number.
 fn wrap(text: &str, width: usize) -> Vec<String> {
     if text.is_empty() {
         return vec![String::new()];
@@ -82,7 +70,6 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
         .collect()
 }
 
-/// A row of styled runs, and what a click on it does.
 type Row = (Vec<(String, Style)>, Option<RowHit>);
 
 #[derive(Clone, Copy)]
@@ -91,9 +78,6 @@ enum RowHit {
     Keys,
 }
 
-/// Lay `page` out on a card `width` columns wide and at most `most_rows`
-/// tall, its first `title_rows` left for the title. `pill` is true where a
-/// glass pill marks the chosen row; a terminal shades it instead.
 pub(crate) fn compose(page: &Page, width: u16, most_rows: u16, title_rows: u16, pill: bool) -> Composed {
     let room = usize::from(width.saturating_sub(2 * INSET)).max(1);
     let text = Style::default().fg(TEXT);
@@ -109,7 +93,6 @@ pub(crate) fn compose(page: &Page, width: u16, most_rows: u16, title_rows: u16, 
         let shown = if f.shown.is_empty() {
             vec![("› ".to_string(), Style::default().fg(ACCENT)), (f.hint.to_string(), soft)]
         } else {
-            // The end of a long entry stays in view, with the caret after it.
             let chars: Vec<char> = f.shown.chars().collect();
             let keep = room.saturating_sub(4);
             let tail: String = chars[chars.len().saturating_sub(keep)..].iter().collect();
@@ -133,8 +116,6 @@ pub(crate) fn compose(page: &Page, width: u16, most_rows: u16, title_rows: u16, 
         .filter(|item| !item.about.is_empty())
         .map(|item| wrap(&item.about, room).into_iter().take(2).collect())
         .unwrap_or_default();
-    // What must fit around the choices: the title, the about lines, the
-    // key bar and the margins.
     let fixed = usize::from(title_rows) + rows.len() + 1 + about.len() + usize::from(!about.is_empty()) + 3;
     let item_rows = page
         .items
@@ -187,7 +168,6 @@ pub(crate) fn compose(page: &Page, width: u16, most_rows: u16, title_rows: u16, 
     let mut buffer = Buffer::empty(Rect::new(0, 0, width, height));
     let mut hits = Vec::new();
     let right = width.saturating_sub(INSET);
-    // The key bar always shows: on a short card it takes the last row.
     let bar_y = (title_rows + rows.len() as u16 - 1).min(height.saturating_sub(2));
     for (i, (runs, hit)) in rows.iter().enumerate() {
         let y = title_rows + i as u16;
@@ -233,7 +213,6 @@ pub(crate) fn compose(page: &Page, width: u16, most_rows: u16, title_rows: u16, 
     Composed { buffer, cursor: row(cursor), field: row(field), hits }
 }
 
-/// Where a card `width` by `height` sits in `root`: centred.
 fn card_rect(root: Rect, width: u16, height: u16) -> Rect {
     let width = width.min(root.width);
     let height = height.min(root.height);
@@ -249,7 +228,6 @@ fn card_width(root: Rect) -> u16 {
     root.width.saturating_sub(8).min(MAX_COLS)
 }
 
-/// Whether `root` is room for a card at all.
 fn roomy(root: Rect) -> bool {
     root.width >= MIN_COLS + 8 && root.height >= MIN_ROWS
 }
@@ -260,7 +238,6 @@ pub(crate) fn offset<T>(hits: Vec<(Rect, T)>, area: Rect) -> Vec<(Rect, T)> {
         .collect()
 }
 
-/// Copy a composed card's cells onto `area` of the frame.
 pub(crate) fn paint(buf: &mut Buffer, area: Rect, card: &Buffer) {
     for y in 0..area.height.min(card.area.height) {
         for x in 0..area.width.min(card.area.width) {
@@ -274,8 +251,6 @@ pub(crate) fn paint(buf: &mut Buffer, area: Rect, card: &Buffer) {
     }
 }
 
-/// A card in a terminal: black, a hairline round it, its title on the
-/// first row inside.
 pub(crate) fn paint_box(buf: &mut Buffer, area: Rect, title: &str, card: &Buffer) {
     Clear.render(area, buf);
     for y in area.top()..area.bottom() {
@@ -317,7 +292,6 @@ pub(crate) fn render(frame: &mut Frame, root: Rect, app: &mut App) {
     }
     let buf = frame.buffer_mut();
     if !roomy(root) {
-        // Too small for a box: the page as plain words over the window.
         let composed = compose(&page, root.width, root.height, 2, false);
         Clear.render(root, buf);
         paint(buf, root, &composed.buffer);
@@ -337,10 +311,6 @@ pub(crate) fn render(frame: &mut Frame, root: Rect, app: &mut App) {
     app.setup.hits = offset(composed.hits, area);
 }
 
-/// Terminal image protocols repaint whole image tiles. Downgrade only panes
-/// touching this menu (not the whole workspace) so a retained image cannot
-/// repaint across the card between UI frames. The window draws its card
-/// over its pictures, so it needs none of this.
 pub(crate) fn register_image_occlusion(root: Rect, app: &mut App) {
     if !app.setup.open() || (crate::ui::glass::active() && roomy(root)) {
         return;
@@ -356,8 +326,6 @@ pub(crate) fn register_image_occlusion(root: Rect, app: &mut App) {
     app.image_occluders.push(area);
 }
 
-/// The glass card: the page composed with the title left to the window,
-/// published with the frame. An approval outranks it.
 #[cfg(feature = "glass")]
 fn render_card(root: Rect, app: &mut App) {
     if app.pending_approval.is_some() {
@@ -378,7 +346,6 @@ fn render_card(root: Rect, app: &mut App) {
     crate::ui::glass::set_card(Some(card));
 }
 
-/// What the squire does for the guide's mood.
 #[cfg(feature = "glass")]
 fn knight(pose: crate::app::setup_menu::Pose) -> angel_glass::card::Knight {
     use crate::app::setup_menu::Pose;
@@ -393,7 +360,6 @@ fn knight(pose: crate::app::setup_menu::Pose) -> angel_glass::card::Knight {
     }
 }
 
-/// A page's identity: a new one plays its words in.
 #[cfg(feature = "glass")]
 fn serial(page: &Page) -> u64 {
     use std::hash::{Hash, Hasher};
@@ -404,13 +370,10 @@ fn serial(page: &Page) -> u64 {
     hasher.finish()
 }
 
-/// Pure card construction, so the native contract is testable without a
-/// window or provider discovery.
 #[cfg(feature = "glass")]
 pub(crate) fn native_card(root: Rect, page: &Page) -> Option<(angel_glass::card::Card, Vec<(Rect, Hit)>)> {
     use angel_glass::card::TITLE_ROWS;
     let width = card_width(root);
-    // Rows above are kept for the squire on the roof.
     let composed = compose(page, width, root.height.saturating_sub(6), TITLE_ROWS, true);
     let area = card_rect(root, width, composed.buffer.area.height);
     let area = Rect { y: area.y.max(root.y + 3.min(root.height)), ..area };

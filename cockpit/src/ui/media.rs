@@ -10,8 +10,6 @@ const SUMMARY_CACHE_LIMIT: usize = 128;
 
 static SUMMARY_CACHE: OnceLock<Mutex<HashMap<PathBuf, &'static str>>> = OnceLock::new();
 
-/// A rich-media card surfaced in the right-panel carousel: previews, links,
-/// graphs, and resources the angel produces during a session.
 pub enum Media {
     Image {
         label: String,
@@ -33,7 +31,6 @@ pub enum Media {
         label: String,
         url: String,
     },
-    /// Model deliveries retain workspace authority through actual decoding.
     Confined {
         card: Box<Media>,
         root: PathBuf,
@@ -74,8 +71,6 @@ impl Media {
         }
     }
 
-    /// A readable location for shelf and preview chrome. No metadata reads or
-    /// source loading: exact absolute identities remain available through Copy.
     pub fn location_label(&self) -> String {
         if let Some(source) = self.source() {
             if let Some(root) = source.root
@@ -171,7 +166,6 @@ impl Media {
 
     pub fn artifact_summary_cow(&self) -> Cow<'_, str> {
         match self {
-            // Summaries must not reopen a model path outside its authority.
             Media::Confined { .. } => Cow::Borrowed("workspace artifact"),
             Media::Image { path, .. } => {
                 local_artifact_summary_raw(path).unwrap_or_else(|| truncated_target(path))
@@ -205,7 +199,6 @@ impl MediaSource {
         Self { path, root: None }
     }
 
-    /// Keep the returned descriptor alive through every consumer operation.
     pub(crate) fn open(&self) -> Result<std::fs::File, String> {
         reject_quarantine(&self.path)?;
         match &self.root {
@@ -224,8 +217,6 @@ impl MediaSource {
                     .canonicalize()
                     .map_err(|error| format!("Cannot read requested file: {error}"))?;
                 reject_quarantine(&path)?;
-                // The operator can name an external local file, but once its
-                // identity is resolved a parent swap cannot redirect the open.
                 #[cfg(unix)]
                 {
                     crate::agent::harness::confined_open_read_no_symlinks(Path::new("/"), &path)
@@ -254,8 +245,6 @@ pub(crate) fn presentation_text_valid(text: &str, limit: usize) -> bool {
         && !text.chars().any(|ch| ch.is_control() || matches!(ch, '\u{061c}' | '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2060}'..='\u{206f}' | '\u{feff}'))
 }
 
-/// A successful `present` dispatch contains the exact workspace-bound target.
-/// Error text and arbitrary JSON must never become a visible delivery event.
 pub(crate) fn presentation_from_result(result: &str) -> Option<(String, String, String)> {
     let value: serde_json::Value = serde_json::from_str(result).ok()?;
     if value.get("status")?.as_str()? != "queued" {
@@ -302,9 +291,6 @@ pub(crate) fn model_presentation_target_in(raw: &str, workspace: &Path) -> Resul
     Ok(root.join(relative).to_string_lossy().into_owned())
 }
 
-/// Operator `/show` accepts documents as well as the existing raster/MP4 path.
-/// Reading and decoding happens off the UI thread; unknown formats retain their
-/// actual identity and get an explicit unsupported-document result in Stage.
 pub(crate) fn artifact_from_path_in(raw: &str, workspace: &Path) -> Result<Media, String> {
     let target = presentation_target_in(raw, workspace)?;
     if target.starts_with("http://") || target.starts_with("https://") {
@@ -476,7 +462,6 @@ pub fn open_target(target: &str) -> std::io::Result<()> {
                     .map(|_| ())
             })
     } else if cfg!(target_os = "macos") {
-        // macOS has no xdg-open; `open` takes URLs, files and folders.
         let path = target.strip_prefix("file://").unwrap_or(target);
         Command::new("open").arg(path).spawn_owned().map(|_| ())
     } else {
@@ -486,8 +471,6 @@ pub fn open_target(target: &str) -> std::io::Result<()> {
             .spawn_owned()
             .map(|_| ())
             .or_else(|_| {
-                // Minimal WMs (Omarchy/Hyprland) may ship no xdg-open folder
-                // handler; fall back to a known file manager for local dirs.
                 if !path.starts_with("http://")
                     && !path.starts_with("https://")
                     && std::path::Path::new(path).is_dir()
@@ -536,8 +519,6 @@ fn graph_fallback_url() -> &'static str {
         .as_str()
 }
 
-/// Resolve only already-absolute local cards. Legacy relative cards are inert:
-/// guessing via process cwd can cross the active project boundary.
 fn local_media_path(raw: &str) -> Option<PathBuf> {
     let raw = raw.strip_prefix("file://").unwrap_or(raw);
     if raw.starts_with("http://") || raw.starts_with("https://") || raw.trim().is_empty() {
@@ -558,16 +539,10 @@ fn local_media_path_in(raw: &str, workspace: &Path) -> Option<PathBuf> {
     Some(workspace.join(raw))
 }
 
-/// Classify a `/show` target for the terminal-native Scryglass. Video is kept
-/// deliberately local and MP4-first; every other supported raster format is
-/// verified through the image crate before a card is created.
 pub fn visual_from_path(raw: &str) -> Result<Media, String> {
     visual_from_path_in(raw, &crate::agent::harness::default_workspace())
 }
 
-/// Resolve a visual against the cockpit's active workspace. Relative paths do
-/// not fall back to the process cwd, which may name a different project after
-/// `/cd`.
 pub fn visual_from_path_in(raw: &str, workspace: &Path) -> Result<Media, String> {
     let path = local_media_path_in(raw, workspace)
         .ok_or_else(|| "target is not a local file".to_string())?;

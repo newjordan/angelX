@@ -93,7 +93,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     let floor = p.floor;
     let mut im = Img::black(384, 224);
     let fx = Img::new(384, 224);
-    // The three simple block bands can be replaced independently by art.
     for (layer, speed, y) in [("far", 4, 120), ("mid", 2, 150), ("near", 1, 184)] {
         let scroll = cam / speed;
         for x in -1..=3 {
@@ -271,7 +270,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
         'h',
     );
     for (&seat, k) in &s.knights {
-        // Four riders have 96 pixels each across the header; six, 64.
         let x = 4 + (seat as i32 - 1) * if s.knights.keys().any(|&id| id > 4) { 64 } else { 96 };
         let colour = rider_ink(seat);
         text(&mut im, x, 17, &format!("{seat} HP {:3}", k.hp), colour);
@@ -335,7 +333,6 @@ pub(super) fn frame(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
     out
 }
 pub(super) fn kingdom(im: &mut Img, run: &Run, origin: (i32, i32)) {
-    // The Forest road's mouth and the Old Oak stand on the full plan's map only.
     if !crate::world::plan::full() {
         return;
     }
@@ -347,14 +344,11 @@ pub(super) fn kingdom(im: &mut Img, run: &Run, origin: (i32, i32)) {
             road::ENT_TILE.0 * 16 + 8 - origin.0,
             road::ENT_TILE.1 * 16 + 8 - origin.1,
         );
-        // The kingdom has its own small slot; the side-view Ent would cover
-        // the buildings around the forest edge.
         slot(im, "forest.ent-kingdom", "idle", run.tick as u32, x, y + 8);
         text(im, x - super::super::ink::text_width("OLD OAK") / 2, y - 38, "OLD OAK", 'g');
     }
 }
 
-/// A rider's ink on the road: a seat each, six of them.
 fn rider_ink(seat: u32) -> char {
     ['u', 'O', 'g', 'R', 'l', 'z'][(seat.max(1) as usize - 1) % 6]
 }

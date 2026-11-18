@@ -41,7 +41,6 @@ fn captured_kit_and_reservation_survive_handoff_and_exact_completion_never_repla
     let mut saved = journal.capture().unwrap();
     let mut journal = Journal::restore(saved.clone(), &claim.session, 9).unwrap();
     journal.validate_reforge_handoff(&run, &restored).unwrap();
-    // Captured brief data is independent of later book/name edits.
     let original = claim.work.original.clone();
     if let Some(mut edited) = original.clone() {
         edited.name = "Later definition".into();
@@ -107,7 +106,6 @@ fn changed_kit_floor_and_reused_seat_cannot_receive_the_old_answer() {
                 run.players.insert(1, fresh);
             }
         }
-        // Some builtin guard choices are already Shield; always force a new kit.
         if scenario == 0 {
             run.players.get_mut(&1).unwrap().guard_card = None;
         }

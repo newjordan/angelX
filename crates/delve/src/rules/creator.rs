@@ -37,13 +37,10 @@ pub const STYLES: &[&str] = &[
     "galeweaver",
     "cinderheart",
 ];
-/// The mirror's cloth colours, by number: a saved look keeps its number,
-/// so a new colour goes on the end (the dyes' violet, plum and rose).
 pub const COLOURS: &[&str] = &[
     "Russet", "Slate", "Ash", "Ochre", "Moss", "Steel", "Clay", "Charcoal", "Violet", "Plum",
     "Rose",
 ];
-/// The mirror's hair colours, by number, the same way.
 pub const HAIR_COLOURS: &[&str] = &["Black", "Brown", "Gold", "Auburn", "Ash", "Silver", "Lilac", "Pink"];
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -172,7 +169,6 @@ impl Run {
         }
     }
 
-    /// The page's existing words line edits a name only while that row is up.
     pub fn mirror_name(&mut self, id: u32, words: &str) -> bool {
         if !self.near_mirror(id) {
             return false;
@@ -195,10 +191,7 @@ impl Run {
         true
     }
 
-    /// Consume only the knight at the glass; friends keep all their controls.
     pub(super) fn creator_inputs(&mut self, inputs: &BTreeMap<u32, Input>) -> BTreeMap<u32, Input> {
-        // A resumed pre-washroom tavern keeps its old floor cells; only the
-        // annex and its doorway are grafted on from the current room plan.
         for room in &mut self.dungeon.rooms {
             if room.kind == RoomKind::Alehouse && room.cols == 36 && room.rows == 20 {
                 let old = room.clone();
@@ -233,13 +226,9 @@ impl Run {
                 .rooms
                 .get(at)
                 .is_some_and(|r| r.kind == RoomKind::Alehouse);
-            if in_tavern
-                && self
-                    .home
-                    .wardrobe
-                    .mirror_seen
-                    .insert(h.mirror_owner().to_owned())
-            {
+            let seen = &mut self.home.wardrobe.mirror_seen;
+            if in_tavern && !seen.contains(h.mirror_owner()) {
+                seen.insert(h.mirror_owner().to_owned());
                 h.mirror.nudge = HZ * 6;
             }
             if !near {

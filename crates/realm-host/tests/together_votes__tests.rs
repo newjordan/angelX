@@ -122,7 +122,6 @@ fn journal_vote_export_retry_is_idempotent_after_uncertain_append() {
         ],
     };
     crate::together_files::append_vote_batch(&path, &batch).unwrap();
-    // Model the crash window after the append completed but before Journal ACK.
     crate::together_files::append_vote_batch(&path, &batch).unwrap();
     let mut file = std::fs::OpenOptions::new().append(true).open(&path).unwrap();
     use std::io::Write;

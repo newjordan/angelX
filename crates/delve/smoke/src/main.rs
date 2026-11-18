@@ -75,7 +75,6 @@ fn main() {
     if rage || ravage { return; }
     for (kind, name) in SCENES.iter().enumerate() {
         let whole = wire_scene(kind as u32);
-        // Taken in for a while first, as the wasm run is.
         for _ in 0..240 {
             wire_host();
             wire_client();

@@ -108,8 +108,6 @@ function sandboxArgs(root, binary, args) {
     '--setenv',
     'LC_ALL',
     'C.UTF-8',
-    // Headless mode refuses the offline practice driver unless the caller opts
-    // in explicitly; the smoke selects `--driver practice` on purpose.
     '--setenv',
     'ANGEL_PRACTICE',
     '1',
@@ -276,6 +274,8 @@ export function verifyRunnerContractSmoke(binaryPath) {
     prompt: 'Return a short runner transport acknowledgement.',
   }
   expected.promptSha256 = sha256(expected.prompt)
+  let failed = false
+  let primaryError
   try {
     for (const dir of ['home', 'rollouts', 'workspace']) {
       mkdirSync(`${root}/${dir}`, { mode: 0o700 })
@@ -343,8 +343,21 @@ export function verifyRunnerContractSmoke(binaryPath) {
       audit_receipt_sha256: receipt.receipt_sha256,
       unsafe_accept_cmd_rejected: true,
     }
+  } catch (error) {
+    failed = true
+    primaryError = error
+    throw error
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    try {
+      rmSync(root, { recursive: true, force: true })
+    } catch (cleanupError) {
+      if (!failed) throw cleanupError
+      throw new AggregateError(
+        [primaryError, cleanupError],
+        `${primaryError.message}; temporary runner smoke cleanup failed`,
+        { cause: primaryError },
+      )
+    }
   }
 }
 

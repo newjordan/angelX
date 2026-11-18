@@ -21,9 +21,6 @@ pub(crate) const HEDGE: Route = Route::new(CELL, '⠓');
 pub(crate) const CHECKPOINT: Route = Route::new(CELL, '⠊');
 pub(crate) const DELEGATOR: Route = Route::new(CELL, '⠚');
 
-/// Page addresses on one route, in order: the route's cells, each followed by
-/// a page digit (1-based) — `pages(SYNTHESIS, 1..=3)` is `⠐⠙⠁⠐⠙⠃⠐⠙⠉`. The
-/// mixture sends a label, or a variant of a section, as its pages.
 pub(crate) fn pages(route: Route, numbers: impl IntoIterator<Item = usize>) -> String {
     numbers
         .into_iter()

@@ -85,7 +85,6 @@ fn an_accepted_live_edit_returns_the_next_generation_with_the_tool_result() {
         "{result}"
     );
     assert!(lines[1].ends_with(" ms"), "{result}");
-    // Every file tool that writes reports the same way.
     let edited = rig
         .registry
         .dispatch(
@@ -138,7 +137,6 @@ fn a_broken_live_edit_returns_the_kept_generation_and_the_error() {
         "{result}"
     );
     assert!(lines[1].contains(" ms · kept previous: "), "{result}");
-    // The previous generation still serves.
     assert_eq!(
         rig.client
             .request(Some("report"), serde_json::json!({"name":"still"}))
@@ -158,7 +156,6 @@ fn an_edit_outside_the_live_root_returns_no_verdict() {
         "notes.txt",
         "src/index.js",
         "live-notes/report/index.js",
-        // A file directly in the root belongs to no module.
         "live/notes.txt",
     ] {
         let started = Instant::now();
@@ -169,14 +166,12 @@ fn an_edit_outside_the_live_root_returns_no_verdict() {
             "{path}"
         );
     }
-    // A failed tool call opens nothing either.
     let missing = rig.registry.dispatch(
         "str_replace",
         &serde_json::json!({"path":"live/report/index.js","old":"absent text","new":"x"}),
     );
     assert!(missing.is_err());
     assert!(rig.registry.take_live_outcomes().is_none());
-    // Without a loader bound, a live-looking path is an ordinary write.
     rig.registry.set_live_outcomes(None);
     assert!(
         !rig.write("live/report/index.js", WORKING)
@@ -185,8 +180,6 @@ fn an_edit_outside_the_live_root_returns_no_verdict() {
     );
 }
 
-/// Write through `write_file` and cancel the call while it waits for the loader:
-/// the same outcome as a verdict slower than the activation window.
 fn write_then_stop_waiting(rig: &Rig, content: &str) -> String {
     let stop = AtomicBool::new(false);
     std::thread::scope(|scope| {
@@ -240,7 +233,6 @@ fn a_verdict_after_the_window_rides_the_next_tool_result_once() {
         .unwrap();
     assert!(!again.contains(ENVELOPE), "{again}");
     assert!(rig.registry.take_live_outcomes().is_none());
-    // A verdict no tool result carried reaches the next turn's context instead.
     let result = write_then_stop_waiting(&rig, "module.exports={apiVersion:1,render:()=>'later'}");
     assert!(!result.contains(ENVELOPE), "{result}");
     let until = Instant::now() + std::time::Duration::from_secs(5);

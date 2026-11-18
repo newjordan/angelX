@@ -103,7 +103,6 @@ impl Activity {
                     |(_, name)| format!("tool {name}"),
                 ))
             }
-            // Heartbeats/notices are liveness, never productive output.
             _ => None,
         };
         if let Some(phase) = phase {
@@ -121,9 +120,6 @@ impl Drop for Activity {
     }
 }
 
-/// The worker remains on its original thread (preserving thread-local lineage).
-/// A scoped observer consumes live events and retains the original failure count.
-/// A completion flag also bounds shutdown if a provider retains a sender clone.
 pub(crate) fn observe_delegate_turn<T>(
     cancel: &AtomicBool,
     club: &str,
@@ -153,8 +149,6 @@ pub(crate) fn observe_delegate_turn<T>(
                     Err(mpsc::RecvTimeoutError::Timeout) => {}
                 }
             }
-            // Capture every event already queued by the completed turn. Do not
-            // wait for an accidentally retained sender to close.
             for event in rx.try_iter() {
                 observe(event);
             }

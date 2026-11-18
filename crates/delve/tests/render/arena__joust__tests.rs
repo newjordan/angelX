@@ -16,8 +16,6 @@ use std::collections::BTreeMap;
 
 type Keys = BTreeMap<u32, Input>;
 
-/// A party of `seats` at the lists with `gold` in the realm's purse: knight
-/// 1 on the mount plate, knight 2 nearest to it, any more further off.
 pub(super) fn party(seats: u32, gold: u32) -> Run {
     let home = Home { stable: Stable::default(), ..Home::default() };
     let mut treasury = Spoils::default();
@@ -59,18 +57,14 @@ pub(super) fn named(run: &mut Run) {
     }
 }
 
-/// How a rider rides a pass.
 #[derive(Clone, Copy)]
 pub(super) struct Plan {
     pub aim: Aim,
     pub shield: Aim,
-    /// Ticks against the meeting the strike falls (none: never).
     pub strike: Option<i32>,
-    /// Ticks into the ready stage before spurring.
     pub spur: u32,
 }
 
-/// One rider's keys this tick, from his plan.
 pub(super) fn rider_keys(run: &Run, id: u32, plan: Plan, e_was: &mut bool) -> Input {
     let Some(j) = run.joust.as_ref() else { return Input::default() };
     let foe = j.foe.as_ref().filter(|f| f.id == id);
@@ -98,8 +92,6 @@ pub(super) fn rider_keys(run: &Run, id: u32, plan: Plan, e_was: &mut bool) -> In
     }
 }
 
-/// The gallery's hands: back a rider and raise before the flag, throw a
-/// favour as the riders close.
 pub(super) fn gallery_keys(run: &Run, id: u32, backs: u8, cheer_at: u32) -> Input {
     let Some(j) = run.joust.as_ref() else { return Input::default() };
     match j.stage {
@@ -119,7 +111,6 @@ pub(super) fn gallery_keys(run: &Run, id: u32, backs: u8, cheer_at: u32) -> Inpu
     }
 }
 
-/// Frames of one scene on disk.
 struct Reel {
     dir: std::path::PathBuf,
     n: u32,
@@ -153,18 +144,12 @@ impl Reel {
     }
 }
 
-/// The plans a scripted bout rides, pass after pass: the knight's and the
-/// friend's. The first pass trades a clean hit for a shield; the second a
-/// mighty hit for a miss and the foe goes over.
 fn plans(course: u8, variant: u8) -> (Plan, Plan) {
     match (variant, course) {
-        // The foe wins: his lance finds the knight's open side and the
-        // knight never strikes.
         (1, _) => (
             Plan { aim: Aim::Low, shield: Aim::Low, strike: None, spur: 20 },
             Plan { aim: Aim::High, shield: Aim::Low, strike: Some(0), spur: 24 },
         ),
-        // Nobody strikes: three passes ridden for nothing.
         (2, _) => (
             Plan { aim: Aim::Low, shield: Aim::Low, strike: None, spur: 14 },
             Plan { aim: Aim::Low, shield: Aim::Low, strike: None, spur: 16 },
@@ -190,7 +175,6 @@ fn plans_a(course: u8) -> (Plan, Plan) {
     }
 }
 
-/// Drive one scripted bout at `seats` seats, handing every tick to `each`.
 pub(super) fn ride(seats: u32, variant: u8, mut each: impl FnMut(&Run, u32)) -> Run {
     let mut run = party(seats, 300);
     named(&mut run);
@@ -216,8 +200,6 @@ pub(super) fn ride(seats: u32, variant: u8, mut each: impl FnMut(&Run, u32)) -> 
     run
 }
 
-/// `ANGEL_JOUST_REEL=<dir> cargo test -p angel-delve --lib write_joust_reel -- --ignored --nocapture`
-/// writes `<dir>/<name>/f0000.png ...` at 30 fps, seats side by side.
 #[test]
 #[ignore = "writes the reel"]
 fn write_joust_reel() {
@@ -245,11 +227,8 @@ fn write_joust_reel() {
     println!("{name}: {} frames", reel.n);
 }
 
-// ── The words ─────────────────────────────────────────────────────────────
-
 use super::hud;
 
-/// What the seat looking should read for knight `id`, worked out on its own.
 fn expected(run: &Run, id: u32, me: u32, take: usize) -> String {
     if id == me {
         return "YOU".into();
@@ -258,7 +237,6 @@ fn expected(run: &Run, id: u32, me: u32, take: usize) -> String {
     if name.is_empty() || name == "YOU" { format!("KNIGHT {id}") } else { name.chars().take(take).collect() }
 }
 
-/// Draw `me`'s screen and judge the words on it.
 pub(super) fn judge(run: &Run, me: u32, what: &str) {
     let _ = frame_for(run, 384, 224, Some(me));
     let all = hud::last();
@@ -275,7 +253,6 @@ pub(super) fn judge(run: &Run, me: u32, what: &str) {
     let viewer_rides = rider(0) == Some(me) || rider(1) == Some(me);
     for c in &all {
         let words: Vec<&str> = c.text.split(' ').collect();
-        // The chips name the riders: the viewer YOU, nobody else.
         if c.what == "chip" {
             let side = if c.rect.0 < 192 { 0 } else { 1 };
             let want = match rider(side) {
@@ -294,7 +271,6 @@ pub(super) fn judge(run: &Run, me: u32, what: &str) {
                 "{what}: {} {:?} says YOU to a seat that is not at the table",
                 c.what, c.text
             );
-            // Only a rider is told he is down, or that he wins.
             if c.text.contains("YOU ARE DOWN") || c.text.starts_with("YOU WIN") {
                 assert!(viewer_rides, "{what}: {:?} said to a seat that is not riding", c.text);
             }
@@ -303,7 +279,6 @@ pub(super) fn judge(run: &Run, me: u32, what: &str) {
                 assert_eq!(down, Some(me), "{what}: {:?}", c.text);
             }
         }
-        // A KNIGHT n is a real seat with the default name, never the viewer.
         let numbered = words.iter().position(|w| *w == "KNIGHT").filter(|at| words.get(at + 1).is_some_and(|w| w.parse::<u32>().is_ok()));
         if let Some(at) = numbered {
             let id: u32 = words.get(at + 1).and_then(|w| w.parse().ok()).unwrap_or(0);
@@ -311,7 +286,6 @@ pub(super) fn judge(run: &Run, me: u32, what: &str) {
             assert_eq!(expected(run, id, me, 10), format!("KNIGHT {id}"), "{what}: {:?}", c.text);
         }
     }
-    // The gallery lines name each knight in the gallery by their own name.
     let tags: Vec<&hud::Claim> = all.iter().filter(|c| c.what == "gallery").collect();
     for c in tags {
         let who = c.text.split(' ').next().unwrap_or("");
@@ -325,8 +299,6 @@ pub(super) fn judge(run: &Run, me: u32, what: &str) {
     }
 }
 
-/// Whole bouts at one to six seats: on every sampled tick, on a few seats'
-/// own screens, the three rules hold.
 #[test]
 fn the_lists_words_never_meet_and_yous_belong_to_the_viewer() {
     for (seats, variant) in (1..=6u32).flat_map(|n| (0..3u8).map(move |v| (n, v))) {
@@ -353,11 +325,6 @@ fn the_lists_words_never_meet_and_yous_belong_to_the_viewer() {
     }
 }
 
-/// `cargo test -p angel-delve --lib lists_frame_time -- --ignored --nocapture`:
-/// what a seat's screen costs mid-bout, the room as it was against the lists
-/// as they are now, both drawn from every state of sixty ticks of the charge
-/// (the quickest of five draws each, so a busy box moves them together), the
-/// mean of those.
 #[test]
 #[ignore = "times the screen"]
 fn lists_frame_time() {

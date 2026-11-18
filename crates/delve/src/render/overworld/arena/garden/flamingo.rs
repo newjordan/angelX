@@ -42,34 +42,22 @@ use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 type V = (f32, f32);
 
-/// Its pinks, deepest first: wine, rose, the body, the blush, the cream.
 const PINK: [char; 5] = ['!', '?', ';', '%', '+'];
-/// A feather off it, cream at the core to wine.
 const FEATHER: Ramp = Ramp(['+', '+', '%', ';', '?', '!']);
-/// Air moving: pale through the steel blues.
 const GUST: Ramp = Ramp(['W', 'V', 'v', 'U', 'u', 'S']);
-/// The sound of it.
 const HONK: Ramp = Ramp(['+', '%', 'T', ';', '?', '!']);
-/// Turned earth.
 const SOD: Ramp = Ramp(['M', 'y', 'P', 'I', 'b', 'n']);
 
-/// The picture it is drawn on, and where its foot stands in it.
 const W: i32 = 92;
 const H: i32 = 70;
 const FOOT: V = (46.0, 69.0);
 
-/// Where its hip stands over its foot, and its body over that.
 const HIP: f32 = -21.0;
 const BODY: V = (-1.0, -26.0);
-/// The body's half-width and half-height.
 const RX: f32 = 11.0;
 const RY: f32 = 6.5;
-/// Where its neck leaves the body, from the body's middle.
 const SHOULDER: V = (8.0, -3.0);
-/// Its head at rest, from the shoulder.
 const REST_HEAD: V = (0.0, -16.0);
-
-// ─── the pose ────────────────────────────────────────────────────────────────
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Eye {
@@ -80,47 +68,31 @@ enum Eye {
     Cross,
 }
 
-/// One leg: its knee and its foot, from the hip; whether its clod is on
-/// the floor.
 #[derive(Clone, Copy, Debug)]
 struct Leg {
     knee: V,
     foot: V,
 }
 
-/// How the bird stands this tick.
 #[derive(Clone, Copy, Debug)]
 struct Pose {
-    /// Which way it faces, turning about its standing leg: 0 to the
-    /// right, a half turn to the left, a quarter toward us.
     turn: f32,
-    /// How far its body sinks on bent legs, and its lean (forward, down).
     drop: f32,
     pitch: f32,
-    /// Its head from the shoulder; how far forward the neck's middle bows;
-    /// where the beak points (0 straight ahead, more is down); how far it
-    /// is open.
     head: V,
     bow: f32,
     tilt: f32,
     gape: f32,
-    /// Wings: 0 folded, 1 up and spread; swept forward 0 to 1; held out to
-    /// the sides (a pirouette) instead.
     wings: f32,
     sweep: f32,
     out: bool,
-    /// The near leg and the far one.
     legs: [Leg; 2],
-    /// Swollen with air; its feathers stood up.
     puff: f32,
     ruffle: f32,
     eye: Eye,
     angry: bool,
-    /// Shaken off its place a pixel or two.
     jitter: V,
-    /// Its beak in the floor, a little way ahead.
     stuck: bool,
-    /// What it is under the feathers: a moulded lawn ornament on two rods.
     plastic: bool,
     tick: u32,
     seed: u32,
@@ -154,22 +126,16 @@ impl Pose {
 }
 
 const STRAIGHT: Leg = Leg { knee: (0.5, 11.0), foot: (0.0, 21.0) };
-/// Folded up under it, the shin back and the clod tucked to its belly.
 const TUCKED: Leg = Leg { knee: (-5.5, 7.0), foot: (1.5, 3.0) };
 
-/// The phase of a beat `every` ticks long that fired at `age` ticks
-/// `offset` ago: ticks since it last fired.
 fn since(age: u32, offset: u32, every: u32) -> u32 {
     (age + offset) % every.max(1)
 }
 
-/// How many ticks apart a line of the file fires at this stage.
 fn every_at(every: u32, stage: Stage) -> u32 {
     if stage == Stage::Rage { (every * 2 / 3).max(4) } else { every.max(4) }
 }
 
-/// A walking leg at `phase` (0 to 1): planted and pushing back for half,
-/// then lifted high, knee up, and swung forward.
 fn stride(phase: f32, reach: f32, lift: f32) -> Leg {
     let p = phase.rem_euclid(1.0);
     if p < 0.5 {
@@ -180,15 +146,12 @@ fn stride(phase: f32, reach: f32, lift: f32) -> Leg {
         let f = (p - 0.5) / 0.5;
         let up = ease::bump(f);
         let x = -reach + 2.0 * reach * ease::both(f);
-        // A strut: the knee goes up high and forward, the shin hanging
-        // under it, the toe kicked out at the last.
         let knee = (x * 0.4 + 4.0 * up + 1.0, 11.0 - 8.0 * up * lift);
         let foot = (x - 2.0 * up + 3.0 * up * f, 21.0 - 9.0 * up * lift);
         Leg { knee, foot }
     }
 }
 
-/// The flamingo's pose this tick.
 fn pose(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Pose {
     let seed = hash(enemy.id as i32, 7, 0xf1a);
     let mut p = Pose::rest(tick, seed);
@@ -196,7 +159,6 @@ fn pose(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Pose {
     let stage = boss.stage(enemy.hp, enemy.max_hp);
     let rage = stage == Stage::Rage;
     p.angry = rage;
-    // It faces the nearest knight, or the way it last went.
     let nearest = run
         .players
         .values()
@@ -229,7 +191,6 @@ fn pose(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Pose {
         }
         (fight::DAZED, Some(_)) => honked(&mut p, enemy.timer as f32, t),
         (fight::WIND | fight::JUMP, Some(_)) => {
-            // Another charge-up, should a file give it one: it rears.
             let k = (enemy.timer as f32 / up.map_or(30, |u| u.wind).max(1) as f32).min(1.0);
             honk_wind(&mut p, k * 0.6, t);
         }
@@ -240,13 +201,11 @@ fn pose(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Pose {
             } else {
                 idle(&mut p, t, seed);
             }
-            // The fan: wings up before it, the gust on it.
             if let Some(fan) = boss.attacks.first().filter(|a| a.from <= stage) {
                 let every = every_at(fan.every, stage);
                 let after = since(enemy.age, 0, every);
                 gust(&mut p, after, every);
             }
-            // The rage's spiral: a pirouette round each volley.
             if rage && let Some(spin) = boss.attacks.get(1).filter(|a| a.from <= stage) {
                 let every = every_at(spin.every, stage);
                 let after = since(enemy.age, 11, every);
@@ -254,7 +213,6 @@ fn pose(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Pose {
             }
         }
     }
-    // Struck: it flinches, eyes wide, feathers up.
     if enemy.hurt > 0 && !p.stuck {
         let k = f32::from(enemy.hurt) / 6.0;
         p.head.0 -= 3.0 * k;
@@ -267,14 +225,11 @@ fn pose(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Pose {
     p
 }
 
-/// Standing about on one leg: the head bobbing and turning a little; now
-/// and then it shakes its feathers out, and every so often it changes legs.
 fn idle(p: &mut Pose, t: f32, seed: u32) {
     let bob = (t * 0.13).sin();
     p.head.0 += bob * 1.2;
     p.head.1 += (t * 0.26).sin().abs() * 1.2;
     p.tilt = 0.25 + (t * 0.07).sin() * 0.12;
-    // Changing legs: both down a moment, then the other up.
     let shift = ((t as u32 + seed % 97) % 240) as f32;
     if shift < 14.0 {
         let k = ease::bump(shift / 14.0);
@@ -283,7 +238,6 @@ fn idle(p: &mut Pose, t: f32, seed: u32) {
     } else if shift >= 120.0 {
         p.legs = [TUCKED, STRAIGHT];
     }
-    // The ruffle.
     let r = ((t as u32 + seed % 61) % 150) as f32;
     if r < 16.0 {
         let k = ease::bump(r / 16.0);
@@ -295,8 +249,6 @@ fn idle(p: &mut Pose, t: f32, seed: u32) {
     }
 }
 
-/// The strut: a high step each half second, its body bobbing on the
-/// step and its head going forward and back like a pigeon's.
 fn strut(p: &mut Pose, t: f32) {
     let phase = (t / 28.0).fract();
     p.legs = [stride(phase, 3.5, 1.0), stride(phase + 0.5, 3.5, 1.0)];
@@ -308,15 +260,12 @@ fn strut(p: &mut Pose, t: f32) {
     p.tilt = 0.28;
 }
 
-/// Ticks before the fan the wings rise, and after it they fold away.
 const GUST_RISE: u32 = 14;
 const GUST_FOLD: u32 = 16;
 
-/// The wing-gust about the fan, `after` ticks since it last loosed.
 fn gust(p: &mut Pose, after: u32, every: u32) {
     let before = every - after;
     if before <= GUST_RISE && after != 0 {
-        // Up and spread, the flight feathers fanned.
         let k = ease::out(1.0 - before as f32 / GUST_RISE as f32);
         p.wings = p.wings.max(k);
         p.sweep = 0.0;
@@ -324,7 +273,6 @@ fn gust(p: &mut Pose, after: u32, every: u32) {
         p.tilt -= 0.1 * k;
         p.pitch -= 0.08 * k;
     } else if after < GUST_FOLD {
-        // The beat: swept forward hard, then folded.
         let k = after as f32 / GUST_FOLD as f32;
         let sweep = ease::out((k * 3.0).min(1.0));
         p.wings = p.wings.max(1.0 - ease::both(((k - 0.35) / 0.65).max(0.0)));
@@ -335,7 +283,6 @@ fn gust(p: &mut Pose, after: u32, every: u32) {
     }
 }
 
-/// Ticks of the pirouette before its spiral looses, and after.
 const SPIN_LEAD: u32 = 8;
 const SPIN_TAIL: u32 = 14;
 
@@ -351,11 +298,8 @@ fn spinning(after: u32, every: u32) -> Option<f32> {
     }
 }
 
-/// The pirouette: up on one leg, the other drawn up to its knee, wings out
-/// to the sides, a turn and a half and back to facing where it was.
 fn pirouette(p: &mut Pose, after: u32, every: u32, t: f32) {
     let Some(k) = spinning(after, every) else {
-        // Between spins it is cross: feathers up, a shiver.
         p.ruffle = p.ruffle.max(0.25);
         p.jitter.0 += if (t as u32) % 4 < 2 { 0.4 } else { -0.4 };
         return;
@@ -373,14 +317,11 @@ fn pirouette(p: &mut Pose, after: u32, every: u32, t: f32) {
     p.eye = Eye::Shut;
 }
 
-/// STAB, winding: down on bent legs, the neck coiling back like a spring
-/// with the beak level along the lane, wings half up; shaking at the last.
 fn stab_wind(p: &mut Pose, k: f32) {
     let e = ease::out(k);
     p.legs = [Leg { knee: (3.0 * e + 0.5, 11.0 - 1.0 * e), foot: (2.0 * e, 21.0) }, Leg { knee: (-0.5 + 2.0 * e, 11.0), foot: (-3.0, 21.0) }];
     p.drop = 5.0 * e;
     p.pitch = -0.18 * e;
-    // The last of it: one more pull back before it lets go.
     let pull = ease::bump(((k - 0.7) / 0.3).clamp(0.0, 1.0)) * 2.0;
     p.head = (lerp(REST_HEAD.0, -9.0, e) - pull, lerp(REST_HEAD.1, -10.0, e));
     p.bow = 4.0 * e;
@@ -393,8 +334,6 @@ fn stab_wind(p: &mut Pose, k: f32) {
     }
 }
 
-/// Down the lane: neck out flat like a spear, body leaning in, the legs
-/// a blur under it, wings swept back.
 fn lunge(p: &mut Pose, t: f32) {
     let phase = (t / 8.0).fract();
     p.legs = [stride(phase, 6.0, 0.7), stride(phase + 0.5, 6.0, 0.7)];
@@ -409,8 +348,6 @@ fn lunge(p: &mut Pose, t: f32) {
     p.angry = true;
 }
 
-/// Its beak in the floor after the lunge, tail up and legs kicking, until
-/// it yanks it out at the last and shakes its head.
 fn stuck(p: &mut Pose, k: f32, t: f32) {
     if k < 0.72 {
         let kick = (t * 0.9).sin();
@@ -422,7 +359,6 @@ fn stuck(p: &mut Pose, k: f32, t: f32) {
         p.eye = Eye::Dizzy;
         p.jitter = (kick * 0.6, 0.0);
     } else {
-        // Free, with a spring back up.
         let f = (k - 0.72) / 0.28;
         let s = ease::spring(f);
         p.pitch = 0.75 * (1.0 - s);
@@ -434,8 +370,6 @@ fn stuck(p: &mut Pose, k: f32, t: f32) {
     }
 }
 
-/// HONK, winding: it rears, swelling with the air it draws in, its beak
-/// up and a little open, feathers standing; shaking at the last.
 fn honk_wind(p: &mut Pose, k: f32, t: f32) {
     let e = ease::out(k);
     p.puff = e;
@@ -453,8 +387,6 @@ fn honk_wind(p: &mut Pose, k: f32, t: f32) {
     }
 }
 
-/// The honk itself, `a` ticks after: beak wide, neck thrust out, the air
-/// going out of it; then down again, a little dazed.
 fn honked(p: &mut Pose, a: f32, t: f32) {
     let out = (1.0 - a / 12.0).clamp(0.0, 1.0);
     p.puff = (1.0 - a / 8.0).clamp(0.0, 1.0);
@@ -477,8 +409,6 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
 }
 
-// ─── the drawing ─────────────────────────────────────────────────────────────
-
 fn add(a: V, b: V) -> V {
     (a.0 + b.0, a.1 + b.1)
 }
@@ -494,9 +424,6 @@ fn bez(p: [V; 4], t: f32) -> V {
     (a * p[0].0 + b * p[1].0 + c * p[2].0 + d * p[3].0, a * p[0].1 + b * p[1].1 + c * p[2].1 + d * p[3].1)
 }
 
-/// The picture and the turn it is drawn at: a point of the bird's own
-/// side (`x` forward, `y` down, `z` toward us when it faces right) goes to
-/// the picture turned about its standing leg.
 struct Paint {
     im: Img,
     c: f32,
@@ -509,12 +436,10 @@ impl Paint {
         Paint { im: Img::new(W, H), c: turn.cos(), s: turn.sin(), off }
     }
 
-    /// A point of the bird to the picture.
     fn p(&self, x: f32, y: f32, z: f32) -> V {
         (x * self.c - z * self.s + self.off.0, y + self.off.1)
     }
 
-    /// How near us a point of the bird stands.
     fn near(&self, x: f32, z: f32) -> f32 {
         x * self.s + z * self.c
     }
@@ -537,9 +462,6 @@ impl Paint {
         self.im.ellipse(FOOT.0 + c.0, FOOT.1 + c.1, rx.max(0.5), ry.max(0.5), ch);
     }
 
-    /// A shaded egg round `c` (half-sizes `rx`, `ry`, leaning `tilt`):
-    /// lit from the upper left down `ramp`, dark at its far rim, and on a
-    /// glossy one a hard white highlight, as paint on plastic shines.
     #[allow(clippy::too_many_arguments)]
     fn egg(&mut self, c: V, rx: f32, ry: f32, tilt: f32, ramp: &[char], gloss: bool, fluff: Option<(f32, u32)>) {
         let (cx, cy) = (FOOT.0 + c.0, FOOT.1 + c.1);
@@ -552,7 +474,6 @@ impl Paint {
             for x in (cx - r).floor() as i32..=(cx + r).ceil() as i32 {
                 let (dx, dy) = (x as f32 + 0.5 - cx, y as f32 + 0.5 - cy);
                 let (lx, ly) = (dx * ct + dy * st, -dx * st + dy * ct);
-                // Feathers standing up break its edge into tufts.
                 let edge = fluff.map_or(1.0, |(f, seed)| {
                     let a = ly.atan2(lx);
                     let tuft = ((a * 7.0 + (seed % 7) as f32).sin() * 0.5 + 0.5).powi(3);
@@ -564,7 +485,6 @@ impl Paint {
                     continue;
                 }
                 let z = (1.0 - d).max(0.0).sqrt();
-                // The light and the normal in the picture's frame.
                 let (nx, ny) = (u * ct - v * st, u * st + v * ct);
                 let lam = (nx * l.0 + ny * l.1 + z * l.2).max(0.0);
                 let mut i = ((lam * 1.15) * (n as f32 - 0.01)) as usize;
@@ -588,10 +508,8 @@ fn norm(x: f32, y: f32, z: f32) -> (f32, f32, f32) {
     (x / l, y / l, z / l)
 }
 
-/// Below this a wing lies folded, lifted a little; from it, it opens.
 const OPEN: f32 = 0.32;
 
-/// What is drawn, back to front.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Part {
     Wing(f32),
@@ -602,8 +520,6 @@ enum Part {
     Neck,
 }
 
-/// The flamingo in `p`, on its picture with its standing foot at the
-/// bottom middle, trimmed to what is drawn.
 fn draw(p: &Pose) -> Img {
     let mut pt = Paint::new(p.turn, p.jitter);
     let puff = 1.0 + p.puff * 0.45;
@@ -618,7 +534,6 @@ fn draw(p: &Pose) -> Img {
         (0.0, 3, Part::Body),
         (pt.near(-2.0, 6.0), 4, Part::Fold(1.0)),
         (pt.near(-2.0, -6.0), 4, Part::Fold(-1.0)),
-        // In front of a raised wing, so the head shows through a flap.
         (pt.near(shoulder.0 + 2.0, 0.0).max(-3.0) + 4.6 * pt.c.abs(), 5, Part::Neck),
     ];
     if p.wings >= OPEN || p.out {
@@ -636,13 +551,11 @@ fn draw(p: &Pose) -> Img {
                 let fluff = (p.ruffle > 0.05).then_some((p.ruffle, p.seed ^ (p.tick / 3)));
                 pt.egg(c, rx, RY * puff, tilt * pt.c, &PINK, true, fluff);
                 if p.plastic {
-                    // Paint on plastic: a long shine along its back.
                     let a = pt.p(body.0 - 6.0, body.1 - RY + 1.6, 0.0);
                     let b = pt.p(body.0 + 3.0, body.1 - RY + 1.2, 0.0);
                     pt.seg(a, b, '+');
                     pt.seg(add(a, (2.0 * pt.c, 0.0)), add(b, (-2.0 * pt.c, 0.0)), 'H');
                 }
-                // Its belly, a shade deeper where the legs go in.
                 let belly = pt.p(body.0 + 1.0, body.1 + RY * puff - 1.2, 0.0);
                 pt.seg(add(belly, (-3.0 * pt.c.abs(), 0.0)), add(belly, (3.0 * pt.c.abs(), 0.0)), '?');
             }
@@ -660,8 +573,6 @@ fn draw(p: &Pose) -> Img {
     trim(&im)
 }
 
-/// `im` cut to what is drawn on it, its foot column kept in the middle
-/// and a pixel spare round it for a rim to light.
 fn trim(im: &Img) -> Img {
     let (mut x0, mut x1, mut y0) = (im.w, 0, im.h);
     for y in 0..im.h {
@@ -682,13 +593,10 @@ fn trim(im: &Img) -> Img {
     Img::from_view(im, foot - half, top, half * 2 + 1, im.h - top)
 }
 
-/// A wire leg from the hip: thigh to the knee, shin to the foot, the joint
-/// a knob, and the clod of lawn it came out of on its end.
 fn leg(pt: &mut Paint, p: &Pose, hip: V, i: usize) {
     let z = if i == 0 { 1.2 } else { -1.2 };
     let far = pt.near(0.0, z) < 0.0;
     if p.plastic {
-        // Two plain rods down into the lawn.
         let x = if i == 0 { 1.5 } else { -1.5 };
         let (a, b) = (pt.p(hip.0 + x, hip.1, z), pt.p(x * 1.4, 0.0, z));
         pt.seg(a, b, if far { 'G' } else { 'h' });
@@ -700,7 +608,6 @@ fn leg(pt: &mut Paint, p: &Pose, hip: V, i: usize) {
     let (wire, lit) = if far { ('G', 'J') } else { ('h', 'i') };
     pt.seg(h, k, wire);
     pt.seg(k, f, wire);
-    // A glint down the near side of the wire.
     if !far {
         let m = ((h.0 + k.0) / 2.0, (h.1 + k.1) / 2.0);
         pt.dot(m, lit);
@@ -710,7 +617,6 @@ fn leg(pt: &mut Paint, p: &Pose, hip: V, i: usize) {
     sod(pt, f, far, p.seed ^ i as u32);
 }
 
-/// A clod of lawn on a foot: earth, a lip of turf and a few blades.
 fn sod(pt: &mut Paint, f: V, far: bool, seed: u32) {
     let (earth, dark, grass, blade) = if far { ('I', 'b', 'l', 'A') } else { ('P', 'I', 'A', 'y') };
     pt.blob(add(f, (0.0, -0.3)), 2.6, 1.4, dark);
@@ -722,15 +628,12 @@ fn sod(pt: &mut Paint, f: V, far: bool, seed: u32) {
     }
 }
 
-/// Its tail: three plumes up off its back, the black of the folded flight
-/// feathers under them.
 fn tail(pt: &mut Paint, p: &Pose, body: V, tilt: f32) {
     let flick = (p.tick as f32 * 0.21 + p.seed as f32).sin() * 0.08 + p.ruffle * 0.2;
     let base = add(body, rot((-RX + 2.0, -1.5), tilt));
     let fan: &[(f32, f32)] = if p.plastic { &[(-2.75, 6.5), (-2.95, 6.0)] } else { &[(-2.6, 6.5), (-2.85, 7.5), (-3.1, 6.0), (-2.35, 5.0)] };
     for (k, &(a, len)) in fan.iter().enumerate() {
         let a = a + tilt - flick * (k as f32 - 1.0);
-        // A plume: full at the root, curling to a point.
         for g in 0..=8 {
             let t = g as f32 / 8.0;
             let along = add(base, (a.cos() * len * t, a.sin() * len * t - t * t * 0.8));
@@ -741,7 +644,6 @@ fn tail(pt: &mut Paint, p: &Pose, body: V, tilt: f32) {
         let tip = add(base, (a.cos() * len, a.sin() * len - 0.8));
         pt.dot(pt.p(tip.0, tip.1, 0.0), '+');
     }
-    // The flight feathers' black, below.
     let under = add(body, rot((-RX + 2.0, 1.5), tilt));
     let end = add(under, rot((-6.0, 0.5), tilt));
     let (a, b) = (pt.p(under.0, under.1, 0.0), pt.p(end.0, end.1, 0.0));
@@ -749,8 +651,6 @@ fn tail(pt: &mut Paint, p: &Pose, body: V, tilt: f32) {
     pt.seg(add(a, (0.0, -1.0)), add(b, (0.5, -1.0)), 'j');
 }
 
-/// The wing folded on its side `side`: a teardrop of feathers, scalloped
-/// in rows, its black tips down over the tail.
 fn folded(pt: &mut Paint, p: &Pose, body: V, tilt: f32, side: f32, puff: f32) {
     let lift = (p.wings / OPEN).min(1.0) * 3.0;
     let z = side * 5.0;
@@ -766,10 +666,8 @@ fn folded(pt: &mut Paint, p: &Pose, body: V, tilt: f32, side: f32, puff: f32) {
             }
             let at = add(body, rot((x, y + dy), tilt));
             let q = pt.p(at.0, at.1, z);
-            // Rows of feathers lying over each other, each edge a curve.
             let row = (x - 0.3 * dy * dy).rem_euclid(3.2) < 1.0;
             let ink = if p.plastic {
-                // A moulded wing: one smooth piece, its rim raised.
                 if dy < -half + 1.0 { '%' } else if dy > half - 1.0 || f > 0.92 { '?' } else { ';' }
             } else if f > 0.8 {
                 if dy > 0.0 { 'g' } else { 'j' }
@@ -785,18 +683,12 @@ fn folded(pt: &mut Paint, p: &Pose, body: V, tilt: f32, side: f32, puff: f32) {
     }
 }
 
-/// A wing open on its side `side`: a fan of feathers off the shoulder,
-/// blush at the coverts and black at the flight feathers, raised by
-/// `wings`, swept forward by `sweep`; or held straight out (a pirouette).
 fn wing(pt: &mut Paint, p: &Pose, body: V, tilt: f32, side: f32) {
     let far = pt.near(0.0, side * 4.0) < 0.0;
     let root = add(body, rot((if p.out { 3.0 } else { -1.0 }, -4.0), tilt));
-    // Its flight feathers are black, drawn in the charcoals so they read
-    // against a dark floor too.
     let (inner, mid, light, tip, edge) = if far { ('!', '?', ';', 'X', 'g') } else { ('?', ';', '%', 'g', 'j') };
     let rays = 26;
     if p.out {
-        // Out to the side, a little up, as a dancer holds her arms.
         for r in 0..=rays {
             let f = r as f32 / rays as f32;
             let reach = 16.0 * (0.55 + 0.45 * (f * PI).sin());
@@ -813,10 +705,6 @@ fn wing(pt: &mut Paint, p: &Pose, body: V, tilt: f32, side: f32) {
         }
         return;
     }
-    // Up and spread: a fan from straight up (its leading edge) back to
-    // along its back (its trailing one), folding down onto the back as it
-    // closes and turning forward with the sweep; the far one behind and
-    // higher.
     let raise = ((p.wings - OPEN) / (1.0 - OPEN)).clamp(0.0, 1.0) * 0.75 + 0.25;
     let lead = -FRAC_PI_2 - 0.1 - (1.0 - raise) * 1.1 + p.sweep * 1.45 + if far { -0.35 } else { 0.0 };
     let span = 0.35 + raise * 1.1;
@@ -824,7 +712,6 @@ fn wing(pt: &mut Paint, p: &Pose, body: V, tilt: f32, side: f32) {
     for r in 0..=rays {
         let f = r as f32 / rays as f32;
         let a = lead - span * f + tilt;
-        // Each flight feather's tip a little round, so the edge scallops.
         let notch = if r % 3 == 0 { 1.4 } else if r % 3 == 2 { 0.5 } else { 0.0 };
         let reach = len * (0.72 + 0.28 * (f * PI * 0.85).sin()) - notch;
         let n = reach.ceil() as i32;
@@ -846,12 +733,9 @@ fn wing(pt: &mut Paint, p: &Pose, body: V, tilt: f32, side: f32) {
     }
 }
 
-/// The neck from the shoulder in its S to the head, the head, its eye,
-/// and the beak.
 fn neck_and_head(pt: &mut Paint, p: &Pose, shoulder: V) {
     let head = add(shoulder, p.head);
     let stuck = p.stuck;
-    // The beak in the floor: the head down at the ground ahead of it.
     let head = if stuck { (shoulder.0 + 9.0, -4.5) } else { head };
     let ctrl = if stuck {
         [shoulder, add(shoulder, (6.0, -6.0)), add(head, (2.0, -9.0)), head]
@@ -859,8 +743,6 @@ fn neck_and_head(pt: &mut Paint, p: &Pose, shoulder: V) {
         let d = (head.0 - shoulder.0, head.1 - shoulder.1);
         let len = d.0.hypot(d.1).max(1.0);
         let (ux, uy) = (d.0 / len, d.1 / len);
-        // Bowed out in front low down and back behind the head: the S a
-        // lawn flamingo's neck is cast in.
         let (nx, ny) = (-uy, ux);
         let b = (6.0 + p.bow).max(0.0);
         [
@@ -873,7 +755,6 @@ fn neck_and_head(pt: &mut Paint, p: &Pose, shoulder: V) {
     let n = 28;
     let pts: Vec<V> = (0..=n).map(|i| bez(ctrl, i as f32 / n as f32)).collect();
     let r_at = |i: usize| lerp(2.4, 1.5, i as f32 / n as f32);
-    // Its shadow side, the body of it, the lit side, a gloss down it.
     for (i, &q) in pts.iter().enumerate() {
         let q = pt.p(q.0, q.1, 0.0);
         pt.blob(add(q, (0.5, 0.6)), r_at(i), r_at(i), '?');
@@ -890,12 +771,9 @@ fn neck_and_head(pt: &mut Paint, p: &Pose, shoulder: V) {
         let q = pt.p(q.0, q.1, 0.0);
         pt.dot(add(q, (-r_at(i) * 0.6, -r_at(i) * 0.4)), '+');
     }
-    // The head.
     let hq = pt.p(head.0, head.1, 0.0);
     let face = pt.c;
     pt.egg(hq, 3.4 + 0.3 * (1.0 - face.abs()), 3.0, 0.0, &PINK, true, None);
-    // The beak: thick and pale at the face, bent down hard at its middle,
-    // its tip black; its lower half dropping open.
     let a = if stuck { 1.35 } else { p.tilt };
     let dir = |a: f32| (a.cos() * pt.c, a.sin());
     let base = add(hq, (2.6 * pt.c, 0.7));
@@ -905,7 +783,6 @@ fn neck_and_head(pt: &mut Paint, p: &Pose, shoulder: V) {
     if gape > 0.05 {
         let lo_bend = add(base, (dir(a + gape).0 * 3.0, dir(a + gape).1 * 3.0 + 1.0));
         let lo_tip = add(lo_bend, (dir(a + gape + 0.9).0 * 2.8, dir(a + gape + 0.9).1 * 2.8));
-        // The mouth inside, dark.
         pt.seg(add(base, (0.0, 1.0)), add(bend, (0.0, 1.0)), '!');
         pt.seg(base, lo_bend, 'h');
         pt.seg(lo_bend, lo_tip, 'K');
@@ -919,7 +796,6 @@ fn neck_and_head(pt: &mut Paint, p: &Pose, shoulder: V) {
     pt.seg(add(bend, (0.0, 1.0)), add(tip, (-0.6 * pt.c, 0.0)), 'k');
     pt.dot(bend, 'i');
     pt.dot(tip, 'k');
-    // Its eye, on whichever side looks at us; both when it faces us.
     for side in [1.0f32, -1.0] {
         let z = side * 1.6;
         if pt.near(0.5, z) < -0.2 {
@@ -933,7 +809,6 @@ fn neck_and_head(pt: &mut Paint, p: &Pose, shoulder: V) {
 fn eye(pt: &mut Paint, e: V, p: &Pose, front: bool) {
     let toward = if pt.c >= 0.0 { 1.0 } else { -1.0 };
     if p.plastic {
-        // A painted eye: a black dot with its shine painted on.
         pt.blob(e, 1.0, 1.0, 'k');
         pt.dot(add(e, (-0.5 * toward, -0.5)), 'W');
         return;
@@ -965,16 +840,10 @@ fn eye(pt: &mut Paint, e: V, p: &Pose, front: bool) {
         }
     }
     if p.angry && !matches!(p.eye, Eye::Cross) {
-        // A brow, down toward the beak: it means it.
         pt.seg(add(e, (-1.6 * toward, -2.4)), add(e, (1.4 * toward, -1.4)), 'k');
     }
 }
 
-// ─── where its parts are ─────────────────────────────────────────────────────
-
-/// Where the parts of a pose stand, from its foot, as drawn: its body's
-/// middle, its head, its beak's tip, and which way it faces across the
-/// picture (1 right, -1 left, near 0 at us).
 #[derive(Clone, Copy, Debug)]
 struct Joints {
     body: V,
@@ -997,20 +866,14 @@ fn joints(p: &Pose) -> Joints {
     Joints { body: pt.p(body.0, body.1, 0.0), head: hq, beak: tip, face: pt.c }
 }
 
-// ─── what moves round it ─────────────────────────────────────────────────────
-
-/// The most motes the flamingo's own marks paint in a frame.
 const BUDGET: u32 = 1400;
 
-/// A feather loosed at `at`, `k` through its fall: a little quill turning
-/// as it rocks down.
 fn feather(pen: &mut Pen, at: V, k: f32, seed: u32, tick: u32) {
     if !(0.0..1.0).contains(&k) {
         return;
     }
     let rock = ((tick as f32 * 0.25) + seed as f32 * 0.7).sin();
     let (x, y) = ((at.0 + rock * 1.5).round() as i32, at.1.round() as i32);
-    // Its quill along the way it hangs, its vane either side.
     let (dx, dy) = if rock > 0.35 { (1, -1) } else if rock < -0.35 { (1, 1) } else { (1, 0) };
     let (nx, ny) = (-dy, dx);
     let fade = |s: f32| FEATHER.at(s + k * 0.45);
@@ -1026,11 +889,6 @@ fn feather(pen: &mut Pen, at: V, k: f32, seed: u32, tick: u32) {
     }
 }
 
-/// Over the figures: the wind and feathers of its gust, the glint of the
-/// beak as it winds up a stab, the lunge's streak and the feathers it
-/// sheds, the dirt off its beak and the stars round its head when it is
-/// stuck, the air it draws in and the honk going out in rings, the spiral
-/// of feathers off its pirouette, and the feathers a hit knocks loose.
 pub(in super::super) fn over(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     for e in run.enemies.iter().filter(|e| e.hp > 0) {
@@ -1048,7 +906,6 @@ pub(in super::super) fn over(cv: &mut Img, run: &Run) {
         match (e.stage, up.map(|u| u.kind)) {
             (fight::WIND, Some(Windup::Charge)) => {
                 let k = (e.timer as f32 / up.map_or(30, |u| u.wind).max(1) as f32).min(1.0);
-                // The tip glints, quicker to the last.
                 if k > 0.35 {
                     let every = if k > 0.75 { 6 } else { 12 };
                     let ph = (tick % every) as f32 / every as f32;
@@ -1056,7 +913,6 @@ pub(in super::super) fn over(cv: &mut Img, run: &Run) {
                 }
             }
             (fight::DASH, _) => {
-                // A pink streak off the beak, speed lines past the body.
                 let d = (e.dir.0, e.dir.1 * 0.9);
                 let pts: Vec<V> = (0..14).map(|i| (beak.0 - d.0 * i as f32 * 2.2, beak.1 - d.1 * i as f32 * 2.2 + (i as f32 * 0.9 + tick as f32).sin() * 0.4)).collect();
                 pen.ribbon(&pts, FEATHER, 2.2);
@@ -1072,7 +928,6 @@ pub(in super::super) fn over(cv: &mut Img, run: &Run) {
                 shed(&mut pen, run, e, up.map_or(26.0, |u| u.speed), e.timer as f32, tick);
                 let ground = w((j.head.0 + 1.5 * j.face, 0.0));
                 if k < 0.72 {
-                    // Its beak in a little mound of turned earth.
                     let (gx, gy) = (ground.0 as i32, ground.1 as i32);
                     for (dx, ch) in [(-4, 'b'), (-3, 'I'), (-2, 'P'), (-1, 'P'), (1, 'P'), (2, 'P'), (3, 'I'), (4, 'b')] {
                         pen.put(gx + dx, gy, ch);
@@ -1083,14 +938,12 @@ pub(in super::super) fn over(cv: &mut Img, run: &Run) {
                     for (dx, ch) in [(-2, 'M'), (2, 'y')] {
                         pen.put(gx + dx, gy - 2, ch);
                     }
-                    // Stars round its head.
                     for s in 0..3 {
                         let a = tick as f32 * 0.22 + s as f32 * TAU / 3.0;
                         let at = (body.0 + a.cos() * 9.0, body.1 - 9.0 + a.sin() * 3.0);
                         pen.twinkle(at, 1.6, ((tick / 2 + s * 5) % 12) as f32 / 12.0, ramps::GOLD);
                     }
                 } else {
-                    // Out it comes, and the earth with it.
                     let a = (k - 0.72) / 0.28 * fight::RECOVER as f32 * 0.28;
                     let spray = Spray { seed, n: few(12, pen.calm), at: ground, angle: -FRAC_PI_2 - 0.4 * j.face, spread: 2.0, speed: (1.2, 2.8), life: (8.0, 12.0), drag: 0.08, gravity: 0.25, squash: 1.0, stagger: 0.0 };
                     spray.each(a, |m| pfx::mote(&mut pen, &m, Shape::Dot, SOD, 1, run.tick));
@@ -1099,7 +952,6 @@ pub(in super::super) fn over(cv: &mut Img, run: &Run) {
             }
             (fight::WIND, Some(Windup::Inhale)) => {
                 let k = (e.timer as f32 / up.map_or(30, |u| u.wind).max(1) as f32).min(1.0);
-                // The air going into it, streaming to its beak.
                 for i in 0..few(18, pen.calm) {
                     let h = hash(i as i32, 3, seed);
                     let life = 10 + h % 8;
@@ -1112,7 +964,6 @@ pub(in super::super) fn over(cv: &mut Img, run: &Run) {
             }
             (fight::DAZED, Some(Windup::Inhale)) => honk_marks(&mut pen, &j, (beak, body, head), e.timer as f32, seed, tick, (fx, fy)),
             _ => {
-                // The wing-gust about its fan.
                 if let Some(fan) = boss.attacks.first().filter(|a| a.from <= stage) {
                     let every = every_at(fan.every, stage);
                     let after = since(e.age, 0, every) as f32;
@@ -1126,7 +977,6 @@ pub(in super::super) fn over(cv: &mut Img, run: &Run) {
                         gust_marks(&mut pen, body, aim, fan.arc.to_radians(), after, seed, tick);
                     }
                 }
-                // The pirouette's spiral of feathers.
                 if stage == Stage::Rage
                     && let Some(spin) = boss.attacks.get(1).filter(|a| a.from <= stage)
                 {
@@ -1139,7 +989,6 @@ pub(in super::super) fn over(cv: &mut Img, run: &Run) {
                         spiral_feathers(&mut pen, body, after as f32, seed ^ (e.age / every.max(1)), tick);
                     }
                 }
-                // Its ruffle: a feather or two let go, drifting down.
                 let r = (tick + p.seed % 61) % 150;
                 if r < 50 && !p.angry {
                     for i in 0..2u32 {
@@ -1151,7 +1000,6 @@ pub(in super::super) fn over(cv: &mut Img, run: &Run) {
                 }
             }
         }
-        // A hit knocks a feather or two loose.
         if e.hurt > 0 {
             let k = 6.0 - f32::from(e.hurt);
             let hit = Spray { seed: hash(e.id as i32, e.hp as i32, 0xfe), n: 3, at: (body.0, body.1 - 2.0), angle: -FRAC_PI_2, spread: 3.6, speed: (1.5, 2.6), life: (6.0, 7.0), drag: 0.15, gravity: 0.15, squash: 1.0, stagger: 0.0 };
@@ -1161,8 +1009,6 @@ pub(in super::super) fn over(cv: &mut Img, run: &Run) {
     fallen_over(cv, run);
 }
 
-/// The feathers a lunge sheds down the lane, each let go where it passed
-/// and drifting down; `after` ticks since it stopped.
 fn shed(pen: &mut Pen, run: &Run, e: &Enemy, speed: f32, after: f32, tick: u32) {
     let Some(r) = e.signature.rails.first() else { return };
     let len = (r.b.0 - r.a.0).hypot(r.b.1 - r.a.1).max(0.1);
@@ -1185,8 +1031,6 @@ fn shed(pen: &mut Pen, run: &Run, e: &Enemy, speed: f32, after: f32, tick: u32) 
     let _ = run;
 }
 
-/// The gust off its wings, `after` ticks since its fan: a fan of wind
-/// lines going out along `aim` `arc` wide, pink feathers carried in it.
 fn gust_marks(pen: &mut Pen, from: V, aim: f32, arc: f32, after: f32, seed: u32, tick: u32) {
     let k = after / 16.0;
     let n = if pen.calm { 5 } else { 9 };
@@ -1197,7 +1041,6 @@ fn gust_marks(pen: &mut Pen, from: V, aim: f32, arc: f32, after: f32, seed: u32,
         let r = 4.0 + ease::out((k * 1.15 - unit(i, 3, seed) * 0.25).max(0.0)) * 50.0 + unit(i, 4, seed) * 10.0;
         let at = (from.0 + ux * r, from.1 + uy * r + (f * 6.0 + after * 0.5).sin());
         pen.streak(at, (ux, uy), 8.0 + 10.0 * (1.0 - k), GUST, k * 0.9);
-        // A little curl at the end of every other line.
         if i % 2 == 0 && k > 0.2 {
             let c = (at.0 + uy * 2.0, at.1 - ux * 2.0);
             pen.light(c.0.round() as i32, c.1.round() as i32, GUST.at(0.4 + k * 0.5));
@@ -1205,14 +1048,11 @@ fn gust_marks(pen: &mut Pen, from: V, aim: f32, arc: f32, after: f32, seed: u32,
     }
     let feathers = Spray { seed, n: if pen.calm { 4 } else { 8 }, at: from, angle: aim, spread: arc, speed: (2.0, 3.6), life: (13.0, 16.0), drag: 0.1, gravity: 0.04, squash: 0.75, stagger: 0.4 };
     feathers.each(after, |m| feather(pen, m.at, m.k, m.seed, tick));
-    // The air pushed off the wings, a soft crescent.
     if after < 8.0 {
         pen.ring((from.0 + aim.cos() * (6.0 + after * 3.0), from.1 + aim.sin() * (4.0 + after * 2.0)), 6.0 + after * 2.0, 1.0, 0.6, GUST, 0.3 + after / 10.0);
     }
 }
 
-/// Round the pirouette: ribbons of pink wound round its middle, turning
-/// with it, and the air it stirs.
 fn spin_marks(pen: &mut Pen, body: V, turn: f32, k: f32, seed: u32, tick: u32) {
     let power = ease::bump(k);
     for arm in 0..3 {
@@ -1232,8 +1072,6 @@ fn spin_marks(pen: &mut Pen, body: V, turn: f32, k: f32, seed: u32, tick: u32) {
     let _ = (seed, tick);
 }
 
-/// The spiral of feathers its pirouette throws, `after` ticks since its
-/// spiral loosed: three arms of them, curling out.
 fn spiral_feathers(pen: &mut Pen, body: V, after: f32, seed: u32, tick: u32) {
     for arm in 0..3u32 {
         for i in 0..if pen.calm { 3 } else { 5 } {
@@ -1250,8 +1088,6 @@ fn spiral_feathers(pen: &mut Pen, body: V, after: f32, seed: u32, tick: u32) {
     }
 }
 
-/// The honk, `a` ticks after: rings of sound out of its beak, the cry
-/// over it, and the air knocked out of it all round.
 fn honk_marks(pen: &mut Pen, j: &Joints, (beak, body, head): (V, V, V), a: f32, seed: u32, tick: u32, foot: (i32, i32)) {
     if a < 22.0 {
         let face = if j.face >= 0.0 { 1.0 } else { -1.0 };
@@ -1263,7 +1099,6 @@ fn honk_marks(pen: &mut Pen, j: &Joints, (beak, body, head): (V, V, V), a: f32, 
             let r = 4.0 + ease::out(t / 16.0) * 30.0;
             pen.shock((beak.0 + face * r * 0.35, beak.1), r, 1.6, 0.8, HONK, t / 16.0);
         }
-        // The blast all round, where its burst goes.
         if a < 12.0 {
             pen.shock((body.0, foot.1 as f32), 8.0 + ease::out(a / 12.0) * 40.0, 2.2, 0.45, GUST, a / 12.0);
         }
@@ -1271,7 +1106,6 @@ fn honk_marks(pen: &mut Pen, j: &Joints, (beak, body, head): (V, V, V), a: f32, 
         blown.each(a, |m| feather(pen, m.at, m.k, m.seed, tick));
     }
     if a < 20.0 {
-        // HONK!, popping up over it.
         let lift = ease::back((a / 6.0).min(1.0)) * 6.0;
         let word = "HONK!";
         let w = super::super::super::ink::text_width(word);
@@ -1286,15 +1120,9 @@ fn honk_marks(pen: &mut Pen, j: &Joints, (beak, body, head): (V, V, V), a: f32, 
     }
 }
 
-// ─── its fall ────────────────────────────────────────────────────────────────
-
-/// Ticks it quivers, and where it hits the floor and goes off in feathers.
 const QUIVER: f32 = 8.0;
 const POOF: f32 = 24.0;
 
-/// Its body as it lies, if this corpse is the flamingo's: quivering, then
-/// toppling, then (from the poof) the plastic ornament it always was,
-/// stuck in the ground at an angle, wobbling to a stop.
 pub(in super::super) fn corpse(run: &Run, c: &Corpse) -> Option<Img> {
     let boss = c.boss.and_then(|i| run.bosses.get(usize::from(i)))?;
     if !is(boss) {
@@ -1316,7 +1144,6 @@ pub(in super::super) fn corpse(run: &Run, c: &Corpse) -> Option<Img> {
             p.jitter = (if (run.tick % 2) == 0 { 1.0 } else { -1.0 }, 0.0);
             p.eye = Eye::Wide;
         } else {
-            // Over it goes, stiff as a board, faster as it falls.
             lean = -ease::inward((age - QUIVER) / (POOF - QUIVER)) * 1.5;
             p.legs = [STRAIGHT, Leg { knee: (0.5, 11.0), foot: (-1.0, 21.0) }];
         }
@@ -1324,7 +1151,6 @@ pub(in super::super) fn corpse(run: &Run, c: &Corpse) -> Option<Img> {
         let pivot = (im.w / 2, im.h - 1);
         stamp_turned(&mut cv, &im, pivot, (CW / 2, CH - 1), lean);
     } else {
-        // What is left: the ornament, at its angle, wobbling to rest.
         let t = age - POOF;
         let lean = 0.32 + 0.5 * (-t / 14.0).exp() * (t * 0.45).cos();
         let mut p = Pose::rest(0, seed);
@@ -1336,22 +1162,18 @@ pub(in super::super) fn corpse(run: &Run, c: &Corpse) -> Option<Img> {
         let im = draw(&p);
         let pivot = (im.w / 2, im.h - 1);
         stamp_turned(&mut cv, &im, pivot, (CW / 2, CH - 4), lean);
-        // Stuck in a heap of its own feathers, growing as they come down.
         mound(&mut cv, ((t / 24.0).min(1.0) * 0.6 + 0.4).min(1.0), seed);
     }
     cv.outline_outside('k');
     Some(cv)
 }
 
-/// The heap at the stake's foot, `full` of the way piled: feathers over
-/// feathers, the lit ones on top, the deep ones under.
 fn mound(cv: &mut Img, full: f32, seed: u32) {
     let (cx, cy) = (CW / 2, CH - 1);
     let (rx, ry) = (12.0 * full + 2.0, 4.5 * full + 1.0);
     for y in (cy as f32 - ry * 1.4) as i32..=cy {
         for x in (cx as f32 - rx) as i32..=(cx as f32 + rx) as i32 {
             let (u, v) = ((x - cx) as f32 / rx, (cy - y) as f32 / (ry * 1.4));
-            // Lumpy on top, a feather's tip here and there.
             let lump = 1.0 + 0.18 * ((x as f32 * 1.3 + seed as f32).sin() * (x as f32 * 0.7).cos());
             if u * u + v * v > lump {
                 continue;
@@ -1362,7 +1184,6 @@ fn mound(cv: &mut Img, full: f32, seed: u32) {
             cv.put(x, y, ink);
         }
     }
-    // Quills sticking out of it.
     for k in 0..(4.0 * full) as i32 + 1 {
         let h = hash(k, 2, seed);
         let x = cx - (rx as i32) + 2 + (h % (rx as u32 * 2).max(1)) as i32;
@@ -1372,12 +1193,9 @@ fn mound(cv: &mut Img, full: f32, seed: u32) {
     }
 }
 
-/// The corpse's picture: as wide as it lies fallen, as tall as it stands.
 const CW: i32 = 112;
 const CH: i32 = 58;
 
-/// `src` onto `cv` turned `a` about its pixel `pivot`, which lands on
-/// `to`: nearest-neighbour, so its inks stay its own.
 fn stamp_turned(cv: &mut Img, src: &Img, pivot: (i32, i32), to: (i32, i32), a: f32) {
     let (s, c) = a.sin_cos();
     for y in 0..cv.h {
@@ -1391,8 +1209,6 @@ fn stamp_turned(cv: &mut Img, src: &Img, pivot: (i32, i32), to: (i32, i32), a: f
     }
 }
 
-/// Each fallen flamingo in the room, how long since it fell, and where it
-/// lies; while the hand has not yet shut the ground over it.
 fn fallen(run: &Run) -> impl Iterator<Item = (f32, (i32, i32), Beat, u32)> + '_ {
     run.spectacle.corpses.iter().filter_map(move |c| {
         let boss = c.boss.and_then(|i| run.bosses.get(usize::from(i)))?;
@@ -1401,16 +1217,12 @@ fn fallen(run: &Run) -> impl Iterator<Item = (f32, (i32, i32), Beat, u32)> + '_ 
     })
 }
 
-/// Whether a monster's fall at `(x, y)` is the flamingo's, which falls in
-/// its own feathers (the flash of it is the room's own).
 pub(in super::super) fn owns_fall(run: &Run, x: f32, y: f32) -> bool {
     run.spectacle.corpses.iter().any(|c| {
         c.boss.and_then(|i| run.bosses.get(usize::from(i))).is_some_and(is) && (c.x - x).abs() < 0.5 && (c.y - y).abs() < 0.5
     })
 }
 
-/// Under the figures: the heap of its feathers round where it fell, laid
-/// down as they land; going as the ground shuts.
 pub(in super::super) fn fallen_under(cv: &mut Img, run: &Run) {
     for (age, (x, y), beat, seed) in fallen(run) {
         if age < POOF {
@@ -1425,7 +1237,6 @@ pub(in super::super) fn fallen_under(cv: &mut Img, run: &Run) {
         let mut pen = Pen::new(cv, 400);
         for i in 0..n {
             let h = hash(i, 9, seed);
-            // Strewn round the heap, thinning out away from it.
             let r = 10.0 + ((h % 1000) as f32 / 1000.0).powf(0.8) * 18.0;
             let a = ((h >> 10) % 628) as f32 / 100.0;
             let at = (x as f32 + a.cos() * r, y as f32 + a.sin() * r * 0.4 - 1.0);
@@ -1434,8 +1245,6 @@ pub(in super::super) fn fallen_under(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Over the figures: its last quiver, the crash and the cloud of its own
-/// feathers, and the feathers coming down out of it.
 fn fallen_over(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     for (age, (x, y), _, seed) in fallen(run) {
@@ -1443,7 +1252,6 @@ fn fallen_over(cv: &mut Img, run: &Run) {
         let (x, y) = (x as f32, y as f32);
         if age < POOF {
             if age > QUIVER {
-                // A last honk goes out of it as it goes over.
                 let k = (age - QUIVER) / (POOF - QUIVER);
                 pen.twinkle((x + 6.0, y - 46.0 + k * 20.0), 2.0, k, FEATHER);
             }
@@ -1453,7 +1261,6 @@ fn fallen_over(cv: &mut Img, run: &Run) {
         let side = 22.0;
         let mid = (x + side * 0.5, y - 8.0);
         if t < 22.0 {
-            // The poof: a cloud of pink billowing out and thinning.
             let k = t / 22.0;
             for b in 0..7 {
                 let a = b as f32 / 7.0 * TAU + unit(b, 1, seed) * 0.8;
@@ -1467,14 +1274,11 @@ fn fallen_over(cv: &mut Img, run: &Run) {
             }
             pen.shock((mid.0, y), 6.0 + ease::out(k) * 34.0, 2.0, 0.42, FEATHER, ease::inward(k));
         }
-        // Feathers thrown up out of it, coming down slowly, rocking.
         let up = Spray { seed, n: if pen.calm { 12 } else { 24 }, at: mid, angle: -FRAC_PI_2, spread: 4.2, speed: (1.8, 4.6), life: (40.0, 64.0), drag: 0.16, gravity: 0.012, squash: 1.0, stagger: 0.0 };
         up.each(t, |m| feather(&mut pen, m.at, m.k, m.seed, tick));
     }
 }
 
-/// A billow of the poof: pale pink on its lit top, rose under, breaking
-/// up through the dither as it goes.
 fn puff(pen: &mut Pen, c: V, r: f32, k: f32) {
     let ri = r.ceil() as i32;
     let fill = (1.0 - k).powf(0.9);
@@ -1495,14 +1299,10 @@ fn puff(pen: &mut Pen, c: V, r: f32, k: f32) {
     }
 }
 
-// ─── the hooks ───────────────────────────────────────────────────────────────
-
-/// Whether `boss` is the Lawn Flamingo.
 pub(in super::super) fn is(boss: &Boss) -> bool {
     boss.id == FLAMINGO
 }
 
-/// The flamingo `enemy` is, drawn, if it is the flamingo.
 pub(in super::super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32) -> Option<Img> {
     if !is(boss) {
         return None;
@@ -1510,7 +1310,6 @@ pub(in super::super) fn figure(run: &Run, enemy: &Enemy, boss: &Boss, tick: u32)
     Some(draw(&pose(run, enemy, boss, tick)))
 }
 
-/// Every pose it has, a row of each, for the review sheet.
 #[cfg(test)]
 pub(in super::super) fn sheet() -> Img {
     let poses: Vec<Pose> = {

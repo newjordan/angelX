@@ -59,7 +59,6 @@ fn blank_body_row_via_bare_plus() {
 
 #[test]
 fn multiple_ops_use_original_numbering() {
-    // Insert at 1 and swap 3 refer to ORIGINAL lines; order-independent.
     let out = apply("a\nb\nc\n", "INS.PRE 1:\n+HEAD\nSWAP 3:\n+C").unwrap();
     assert_eq!(out, "HEAD\na\nb\nC\n");
 }
@@ -81,10 +80,8 @@ fn stale_tag_is_rejected() {
 
 #[test]
 fn stale_tag_recovers_when_snapshot_and_anchors_map() {
-    // Unique path so parallel unit tests do not share the process store.
     let path = format!("recover_ok_{}.rs", std::process::id());
     invalidate_snapshot(&path);
-    // Model read "a\nb\nc\n". External agent inserted a header line.
     let snapshot = "a\nb\nc\n";
     let live = "HEAD\na\nb\nc\n";
     let tag = record_snapshot(&path, snapshot);
@@ -149,7 +146,6 @@ fn looks_like_hashline_discriminates() {
     assert!(looks_like_hashline(
         "*** Begin Patch\n[f.rs#a1b2c3d4]\nDEL 1\n*** End Patch"
     ));
-    // A freeform Codex patch has the envelope but no [path#tag] header.
     assert!(!looks_like_hashline(
         "*** Begin Patch\n*** Update File: f.rs\n@@\n-a\n+b\n*** End Patch"
     ));

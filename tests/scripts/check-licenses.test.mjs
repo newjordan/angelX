@@ -1,10 +1,9 @@
-// The license gate is only worth having if its rejection path works, so these
 // tests pin the SPDX semantics that decide allow/refuse — especially the
-// disjunction case (`Apache-2.0 OR GPL-2.0-only`), where a substring match on
-// "GPL" would fail a dependency that carries no obligation at all, and the
-// conjunction case, where the same substring would wrongly pass one.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import {
   ALLOWED_EXCEPTIONS,
@@ -12,11 +11,40 @@ import {
   REFUSED_LICENSES,
   auditLicenses,
   evaluateExpression,
+  npmRecords,
   parseExpression,
   tokenize,
 } from '../../scripts/check/check-licenses.mjs'
 
 const allowed = (expression) => evaluateExpression(expression).allowed
+
+test('npm workspace links defer to their audited target, never bypassing license checks', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'angel-license-workspace-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const packages = {
+    '': { name: 'root', license: 'MIT' },
+    'node_modules/a': { resolved: 'packages/a', link: true },
+    'node_modules/@scope/b': { resolved: 'packages/b', link: true },
+    'packages/a': { version: '1.0.0', license: 'MIT' },
+    'packages/b': { version: '2.0.0', license: 'Apache-2.0' },
+    'node_modules/regular': { version: '3.0.0', license: 'ISC' },
+  }
+  const collect = () => {
+    writeFileSync(join(root, 'package-lock.json'), JSON.stringify({ lockfileVersion: 3, packages }))
+    return npmRecords(root)
+  }
+  const records = collect()
+  assert.equal(records.length, 3, 'the links are not extra dependency records')
+  assert.deepEqual(records.map((record) => record.version).sort(), ['1.0.0', '2.0.0', '3.0.0'])
+  assert.deepEqual(auditLicenses(records).violations, [])
+  packages['packages/a'].license = 'GPL-3.0-only'
+  assert.deepEqual(auditLicenses(collect()).violations.map((item) => item.kind), ['refused'])
+  delete packages['packages/a'].license
+  assert.deepEqual(auditLicenses(collect()).violations.map((item) => item.kind), ['missing'])
+  delete packages['packages/a']
+  assert.deepEqual(auditLicenses(collect()).violations.map((item) => item.kind), ['missing'],
+    'an absent target must not let a link evade the gate')
+})
 
 test('permissive licenses pass, case-insensitively', () => {
   for (const expression of [
@@ -34,7 +62,6 @@ test('permissive licenses pass, case-insensitively', () => {
 })
 
 test('a copyleft arm of a disjunction does not fail the dependency', () => {
-  // self_cell in the real graph declares exactly this.
   assert.equal(allowed('Apache-2.0 OR GPL-2.0-only'), true)
   assert.equal(allowed('MIT OR Apache-2.0 OR LGPL-2.1-or-later'), true)
   assert.equal(allowed('Apache-2.0 OR AGPL-3.0'), true)
@@ -120,6 +147,18 @@ test('a malformed expression is reported, not thrown at the caller', () => {
     ['unparsable', 'unparsable'],
   )
   assert.equal(report.inspected, 2)
+})
+
+test('malformed SPDX factors cannot hide behind an allowed OR arm', () => {
+  for (const license of ['MIT OR )', ') OR MIT', 'MIT OR OR', 'MIT OR AND', 'MIT OR WITH', '(MIT OR )', 'MIT OR Apache-2.0 WITH )', 'MIT OR Apache-2.0 WITH AND']) {
+    assert.throws(() => evaluateExpression(license), /SPDX|exception/, license)
+    const report = auditLicenses([{ name: 'malformed', version: '1', license }])
+    assert.equal(report.violations.length, 1, license)
+    assert.equal(report.violations[0].kind, 'unparsable', license)
+    assert.deepEqual(report.byExpression.get(license), { allowed: 0, refused: 1 }, license)
+  }
+  assert.equal(evaluateExpression('MIT OR Future-License-1.0').allowed, true,
+    'syntactically valid unknown alternatives retain the existing policy')
 })
 
 test('a missing license is its own violation kind', () => {

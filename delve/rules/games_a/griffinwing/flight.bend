@@ -1,10 +1,3 @@
-# crates/delve/src/rules/griffinwing/flight.rs — the craft in the air: steering
-# with a banking lean, the free reticle, the tap and the hold-to-charge lock,
-# the roll, the spur and the brake, Starfall, and the wingmen.
-#
-# A stage that changes both the session and one craft returns the workspace
-# {"s": session, "c": craft} (gw.pk / gw.ps / gw.pc).
-
 def gw.pk(+s: J.Val, +c: J.Val) -> J.Val:
   J.set(J.set(J.obj(), "s", s), "c", c)
 
@@ -31,7 +24,6 @@ def griffinwing.flight.bits(+i: J.Val) -> U32:
     U32.or(Bool.to_u32(ga.b(i, "fire")), U32.shln(Bool.to_u32(ga.b(i, "dash")), 1n)),
     U32.or(U32.shln(Bool.to_u32(ga.b(i, "bomb")), 2n), U32.or(U32.shln(Bool.to_u32(ga.b(i, "interact")), 3n), U32.shln(Bool.to_u32(ga.b(i, "swing")), 4n))))
 
-# A seat's place in the formation: across and up, tenths of a unit.
 def griffinwing.flight.slot.x(+id: U32) -> U32:
   Bool.pick(U32, U32.is_eq(id, 1), 0,
     Bool.pick(U32, U32.is_eq(id, 2), gw.neg(griffinwing.types.dm(22)),
@@ -47,7 +39,6 @@ def griffinwing.flight.slot.z(+id: U32) -> U32:
 def griffinwing.flight.slot(+id: U32) -> J.Val:
   ga.pair_i(griffinwing.flight.slot.x(id), griffinwing.flight.slot.z(id))
 
-# A rider's place: across, up and ahead of the knights.
 def griffinwing.flight.rider_slot.x(+k: U32) -> U32:
   Bool.pick(U32, U32.is_eq(k, 0), gw.neg(griffinwing.types.dm(30)),
     Bool.pick(U32, U32.is_eq(k, 1), griffinwing.types.dm(30),
@@ -64,7 +55,6 @@ def griffinwing.flight.rider_slot.back(+k: U32) -> U32:
 def griffinwing.flight.rider_slot(+k: U32) -> J.Val:
   ga.trio(J.of_i32(griffinwing.flight.rider_slot.x(k)), J.of_i32(griffinwing.flight.rider_slot.z(k)), J.of_i32(griffinwing.flight.rider_slot.back(k)))
 
-# How fast a craft steers, across and up, and how quickly it gets there.
 def griffinwing.flight.V_X() -> U32:
   62
 
@@ -134,30 +124,21 @@ def griffinwing.flight.ROLL_V() -> U32:
 def griffinwing.flight.TAP_WINDOW() -> U32:
   9
 
-# The craft's body, for the bolts that hit it.
 def griffinwing.flight.CRAFT_R() -> U32:
   griffinwing.types.dm(10)
 
-# How far from a craft a rolling shield turns a bolt round.
 def griffinwing.flight.REFLECT_R() -> U32:
   griffinwing.types.dm(26)
 
-# What Starfall does to every foe it reaches.
 def griffinwing.flight.STARFALL() -> U32:
   120
 
-# The bolts' home pace (starbursts steer at it).
 def griffinwing.flight.Session.star_speed() -> U32:
   griffinwing.flight.V_STAR()
 
-# ─── where a craft is ───────────────────────────────────────────────────────
-
-# The rail point a craft is at.
 def griffinwing.flight.Session.craft_s(+s: J.Val, +c: J.Val) -> U32:
   (griffinwing.Session.anchor(s) + ga.u(c, "back") : U32)
 
-# A craft by the id a bolt or a foe holds: a seat's, a rider's. Its place along,
-# across and up, and whether it is flying. null: none by that id.
 def griffinwing.flight.Session.craft_at(+s: J.Val, +id: U32) -> J.Val:
   gw.ifj(gw.within(id, 1, 6),
     _ => griffinwing.flight.Session.craft_at.seat(s, J.get(J.get(s, "seats"), U32.show(id))),
@@ -177,7 +158,6 @@ def griffinwing.flight.Session.craft_at.rider(+s: J.Val, +w: J.Val) -> J.Val:
     _ => J.JA{[J.of_i32(griffinwing.flight.Session.craft_s(s, J.get(w, "craft"))), J.of_i32(ga.u(J.get(w, "craft"), "x")), J.of_i32(ga.u(J.get(w, "craft"), "z")),
       J.JBool{Bool.and(Bool.not(ga.b(w, "lost")), U32.is_zero(ga.u(J.get(w, "craft"), "down")))}]})
 
-# `wing.iter().find(|w| w.id == id)`: the rider, or null.
 def griffinwing.flight.Session.wing_find(+ws: List<&2, J.Val>, +id: U32) -> J.Val:
   match ws:
     case Nil{}:
@@ -185,7 +165,6 @@ def griffinwing.flight.Session.wing_find(+ws: List<&2, J.Val>, +id: U32) -> J.Va
     case Con{+w, +t}:
       gw.ifj(U32.is_eq(ga.u(w, "id"), id), _ => w, _ => griffinwing.flight.Session.wing_find(t, id))
 
-# The parts of a `craft_at` answer.
 def gw.at_some(+r: J.Val) -> Bool:
   Bool.not(J.is_null(r))
 
@@ -201,15 +180,12 @@ def gw.at_z(+r: J.Val) -> U32:
 def gw.at_ok(+r: J.Val) -> Bool:
   J.bool(J.nth(r, 3))
 
-# ─── one knight's tick in the air ───────────────────────────────────────────
-
 def gw.put_craft(+s: J.Val, +id: U32, +c: J.Val) -> J.Val:
   ga.sv(s, "seats", ga.put_at(J.get(s, "seats"), id, ga.sv(ga.at(J.get(s, "seats"), id), "craft", c)))
 
 def gw.craft_of(+s: J.Val, +id: U32) -> J.Val:
   J.get(ga.at(J.get(s, "seats"), id), "craft")
 
-# Whether a key bit went down this tick: `on && old & key == 0`.
 def gw.edge(+old: U32, +key: U32, +on: Bool) -> Bool:
   Bool.and(on, U32.is_zero(U32.and(old, key)))
 
@@ -218,7 +194,6 @@ def griffinwing.flight.Session.fly(+s: J.Val, +id: U32, +i: J.Val, +n: J.Val) ->
     _ => s,
     _ => griffinwing.flight.Session.fly.seated(s, id, i, n, gw.craft_of(s, id)))
 
-# The counters wind down; a fallen craft rises or stays down.
 def griffinwing.flight.Session.fly.seated(+s: J.Val, +id: U32, +i: J.Val, +n: J.Val, +c0: J.Val) -> J.Val:
   +c1 = gw.subs(c0, "hurt", 1)
   +c2 = gw.subs(c1, "cool", 1)
@@ -240,7 +215,6 @@ def griffinwing.flight.Session.fly.down(+id: U32, +c0: J.Val) -> J.Val:
     _ => griffinwing.flight.Session.fly.rise(id, c5),
     _ => c5)
 
-# Back in the wing, mended a little, unhurt for a moment.
 def griffinwing.flight.Session.fly.rise(+id: U32, +c0: J.Val) -> J.Val:
   +c1 = ga.si(c0, "x", griffinwing.flight.slot.x(id))
   +c2 = ga.si(c1, "z", griffinwing.flight.slot.z(id))
@@ -253,8 +227,6 @@ def griffinwing.flight.Session.fly.rise(+id: U32, +c0: J.Val) -> J.Val:
 def griffinwing.flight.Session.fly.up(+s: J.Val, +id: U32, +i: J.Val, +n: J.Val, +c0: J.Val) -> J.Val:
   griffinwing.flight.Session.fly.up.roll(s, id, i, n, c0, ga.u(c0, "keys"), gw.double_tap(c0, ga.u(i, "move_x")))
 
-# A second tap of a direction is a roll that way: the craft's tap state and
-# whether it was a double.
 def gw.double_tap(+c: J.Val, +mx: U32) -> J.Val:
   gw.ifj(Bool.and(U32.is_ne(mx, 0), U32.is_ne(ga.u(c, "last_x"), mx)),
     _ => gw.double_tap.in(c, mx),
@@ -275,7 +247,6 @@ def griffinwing.flight.Session.fly.up.roll2(+s: J.Val, +id: U32, +i: J.Val, +n: 
       griffinwing.Session.sound(s, "roll"), id, i, n, griffinwing.flight.Session.fly.rolled(c, i, n), old),
     _ => griffinwing.flight.Session.fly.up.step(s, id, i, n, c, old))
 
-# The roll: a spinning shield, and a throw to the side.
 def griffinwing.flight.Session.fly.rolled(+c0: J.Val, +i: J.Val, +n: J.Val) -> J.Val:
   griffinwing.flight.Session.fly.rolled.dir(c0, n,
     gw.ifu(U32.is_ne(ga.u(i, "move_x"), 0),
@@ -292,8 +263,6 @@ def griffinwing.flight.Session.fly.rolled.dir(+c0: J.Val, +n: J.Val, +dir: U32) 
   +c7 = ga.su(c6, "charge", 0)
   ga.sv(c7, "locks", J.JA{[]})
 
-# From the roll's end to the end of the tick: the reins, the spur, the
-# reticle, the fire key, Starfall.
 def griffinwing.flight.Session.fly.up.step(+s: J.Val, +id: U32, +i: J.Val, +n: J.Val, +c0: J.Val, +old: U32) -> J.Val:
   +c1 = ga.su(c0, "roll", ga.ssub(ga.u(c0, "roll"), 1))
   +c2 = griffinwing.flight.Session.fly.reins(c1, i, n)
@@ -303,7 +272,6 @@ def griffinwing.flight.Session.fly.up.step(+s: J.Val, +id: U32, +i: J.Val, +n: J
   +w6 = griffinwing.flight.Session.fly.bomb(gw.ps(w5), id, i, gw.pc(w5), old, griffinwing.flight.Session.craft_s(s, c4))
   gw.put_craft(gw.ps(w6), id, gw.pc(w6))
 
-# The reins: speed toward the stick, the window's walls, the lean.
 def griffinwing.flight.Session.fly.reins(+c0: J.Val, +i: J.Val, +n: J.Val) -> J.Val:
   griffinwing.flight.Session.fly.reins.move(
     c0, n,
@@ -324,7 +292,6 @@ def griffinwing.flight.Session.fly.reins.move(+c0: J.Val, +n: J.Val, +tx: U32, +
   +c7 = ga.si(c6, "bank", (ga.u(c6, "bank") + gw.div((gw.div((ga.u(c6, "vx") * griffinwing.types.Q() : U32), griffinwing.flight.V_X()) - ga.u(c6, "bank") : U32), 4) : U32))
   ga.si(c7, "lift", (ga.u(c7, "lift") + gw.div((gw.div((ga.u(c7, "vz") * griffinwing.types.Q() : U32), griffinwing.flight.V_Z()) - ga.u(c7, "lift") : U32), 4) : U32))
 
-# The spur on a short meter, and the brake.
 def griffinwing.flight.Session.fly.spur(+c0: J.Val, +i: J.Val, +n: J.Val) -> J.Val:
   griffinwing.flight.Session.fly.spur.go(
     c0, i,
@@ -355,7 +322,6 @@ def griffinwing.flight.Session.fly.spur.fill(+c: J.Val) -> J.Val:
     _ => ga.sb(c, "spent", False{}),
     _ => c)
 
-# How far the spur or the brake slides the craft along the rail.
 def griffinwing.flight.Session.fly.spur.back(+c0: J.Val, +i: J.Val) -> J.Val:
   griffinwing.flight.Session.fly.spur.slide(c0,
     gw.ifu(ga.b(c0, "boost"), _ => griffinwing.flight.BOOST_BACK(),
@@ -368,13 +334,10 @@ def griffinwing.flight.Session.fly.spur.slide(+c0: J.Val, +want: U32) -> J.Val:
 def griffinwing.flight.Session.fly.spur.slide2(+c0: J.Val, +back: U32) -> J.Val:
   ga.si(ga.si(c0, "ds", (griffinwing.types.PACE() + back - ga.u(c0, "back") : U32)), "back", back)
 
-# The reticle: instant, and it stays where it is put.
 def griffinwing.flight.Session.fly.reticle(+c0: J.Val, +i: J.Val) -> J.Val:
   +c1 = ga.si(c0, "rx", gw.clamp((ga.u(c0, "rx") + (ga.u(i, "aim_x") * griffinwing.flight.RET_V() : U32) : U32), gw.neg(griffinwing.flight.RX_MAX()), griffinwing.flight.RX_MAX()))
   ga.si(c1, "rz", gw.clamp((ga.u(c1, "rz") - (ga.u(i, "aim_y") * griffinwing.flight.RET_V() : U32) : U32), gw.neg(griffinwing.flight.RZ_MAX()), griffinwing.flight.RZ_MAX()))
 
-# Fire: a tap is a twin bolt; a hold charges and locks; letting go sends the
-# locks.
 def griffinwing.flight.Session.fly.fire(+s: J.Val, +id: U32, +i: J.Val, +n: J.Val, +c: J.Val, +old: U32, +s_c: U32) -> J.Val:
   gw.ifj(Bool.and(U32.is_zero(ga.u(c, "roll")), ga.b(i, "fire")),
     _ => griffinwing.flight.Session.fly.fire.on(s, id, n, c, old, s_c),
@@ -411,13 +374,10 @@ def griffinwing.flight.Session.fly.fire.let_go(+w: J.Val) -> J.Val:
   +c3 = ga.su(c2, "dwell", 0)
   gw.pk(gw.ps(w), ga.sv(c3, "locks", J.JA{[]}))
 
-# Starfall.
 def griffinwing.flight.Session.fly.bomb(+s: J.Val, +id: U32, +i: J.Val, +c: J.Val, +old: U32, +s_c: U32) -> J.Val:
   gw.ifj(Bool.and(gw.edge(old, griffinwing.flight.K_BOMB(), ga.b(i, "bomb")), Bool.and(U32.is_gt(ga.u(c, "bombs"), 0), U32.is_zero(ga.u(c, "roll")))),
     _ => gw.pk(griffinwing.combat.Session.starfall(s, id, s_c, ga.u(c, "x"), ga.u(c, "z")), ga.su(c, "bombs", (ga.u(c, "bombs") - 1 : U32))),
     _ => gw.pk(s, c))
-
-# ─── the bolts a craft fires ────────────────────────────────────────────────
 
 def griffinwing.types.Bolt.make(+shot: String, +owner: U32, +s: U32, +x: U32, +z: U32, +vs: U32, +vx: U32, +vz: U32, +dmg: U32, +life: U32, +aim: U32, +src: U32, +delay: U32, +full: Bool) -> J.Val:
   +b0 = J.obj()
@@ -441,7 +401,6 @@ def griffinwing.flight.Session.push_bolt(+s: J.Val, +b: J.Val) -> J.Val:
     _ => ga.push(s, "bolts", b),
     _ => s)
 
-# A tap: two bolts, side by side, both to where the reticle points.
 def griffinwing.flight.Session.tap(+s: J.Val, +owner: U32, +c: J.Val, +s_c: U32) -> J.Val:
   griffinwing.Session.sound(
     griffinwing.flight.Session.tap.side(
@@ -465,12 +424,6 @@ def griffinwing.flight.Session.tap.bolt(+s: J.Val, +owner: U32, +fs: U32, +fx: U
     griffinwing.types.Bolt.make("Lance", owner, fs, fx, fz, (griffinwing.types.PACE() + gw.v3a(v) : U32), gw.v3b(v), gw.v3c(v),
       griffinwing.flight.LANCE(), griffinwing.flight.BOLT_LIFE(), 0, 0, 0, False{}))
 
-
-
-# Everything the reticle sweeps over while F is held is locked: a bracket on
-# each, snapping on. A great body (a lamp) takes up to three if the reticle
-# dwells on it. Returns the workspace {"s","c"}; while it runs the workspace
-# also carries "total" (the locks' count) and "dwelt".
 def griffinwing.flight.Session.acquire(+s: J.Val, +c0: J.Val, +s_c: U32) -> J.Val:
   +c1 = ga.sv(c0, "locks", J.JA{griffinwing.flight.Session.acquire.keep(ga.items(c0, "locks"), ga.items(s, "foes"), s_c)})
   griffinwing.flight.Session.acquire.done(
@@ -487,7 +440,6 @@ def gw.ifj_l(c: Bool, a: Unit -> List<&2, J.Val>, b: Unit -> List<&2, J.Val>) ->
     case False{}:
       b(Unit{})
 
-# c.locks.retain(|l| a foe with that id is lockable and within reach)
 def griffinwing.flight.Session.acquire.keep(+ls: List<&2, J.Val>, +foes: List<&2, J.Val>, +s_c: U32) -> List<&2, J.Val>:
   match ls:
     case Nil{}:
@@ -514,7 +466,6 @@ def griffinwing.flight.Session.acquire.go(+foes: List<&2, J.Val>, +w: J.Val, +s_
     case Con{+f, +t}:
       griffinwing.flight.Session.acquire.go(t, griffinwing.flight.Session.acquire.foe(f, w, s_c), s_c)
 
-# One foe under the reticle's ray.
 def griffinwing.flight.Session.acquire.foe(+f: J.Val, +w: J.Val, +s_c: U32) -> J.Val:
   griffinwing.flight.Session.acquire.foe2(f, w, (ga.u(f, "s") - s_c : U32))
 
@@ -532,7 +483,6 @@ def griffinwing.flight.Session.acquire.foe3(+f: J.Val, +w: J.Val, +ax: U32, +az:
     _ => w,
     _ => griffinwing.flight.Session.acquire.lock(f, w, griffinwing.flight.Session.acquire.find(ga.items(gw.pc(w), "locks"), ga.u(f, "id"), 0)))
 
-# The index of the lock on this foe, or the length.
 def griffinwing.flight.Session.acquire.find(+ls: List<&2, J.Val>, +id: U32, +k: U32) -> U32:
   match ls:
     case Nil{}:
@@ -545,7 +495,6 @@ def griffinwing.flight.Session.acquire.lock(+f: J.Val, +w: J.Val, +at: U32) -> J
     _ => griffinwing.flight.Session.acquire.dwell(f, w, at),
     _ => griffinwing.flight.Session.acquire.snap(f, w))
 
-# The reticle dwells on a lamp already locked: up to three on one body.
 def griffinwing.flight.Session.acquire.dwell(+f: J.Val, +w: J.Val, +at: U32) -> J.Val:
   gw.ifj(Bool.and(gw.isn(f, "kind", "Lamp"),
       Bool.and(U32.is_lt(ga.u(gw.item(gw.pc(w), "locks", at), "n"), griffinwing.types.MAX_PER_BODY()),

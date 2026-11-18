@@ -17,9 +17,6 @@ use angel_serve::ws::Message;
 use ratatui::crossterm::event::{self, KeyCode, KeyModifiers};
 use std::time::{Duration, Instant};
 
-/// A browser seat as the page speaks: the hello with the link's key, a
-/// command each pump with what it applied (so its writer never holds back),
-/// and the run read back from each snapshot's tree.
 struct Page {
     ws: WsClient,
     seat: Option<u32>,
@@ -65,8 +62,6 @@ impl Page {
         page
     }
 
-    /// One command with the keys held now, then everything that arrived
-    /// within `wait`.
     fn pump(&mut self, wait: Duration) {
         if self.seat.is_some() {
             self.command();
@@ -109,12 +104,10 @@ impl Page {
         }
     }
 
-    /// Hold these keys from the next command on.
     fn hold(&mut self, held: Input) {
         self.held = held;
     }
 
-    /// One tick's command, saying which tick the page has applied.
     fn command(&mut self) {
         self.seq += 1;
         let mut body = Vec::new();
@@ -146,7 +139,6 @@ fn paint(app: &mut App) {
         .unwrap();
 }
 
-/// One display frame of both terminals and a pump of the page.
 fn frame(host: &mut App, friend: &mut App, page: &mut Page) {
     host.advance_shooter_at(Instant::now());
     paint(host);
@@ -188,14 +180,12 @@ fn a_threaded_host_its_own_seat_a_joined_friend_and_a_browser_seat_play_one_delv
         "one link: {message}"
     );
     host.on_key(event::KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-    // A friend's angelX pastes the link; a browser opens it.
     let mut friend = App::preview(crate::ui::viewer::Viewer::static_preview());
     friend.terminal_focused = true;
     let joined = friend.dungeon_command(Some(&format!("join {link}")));
     assert!(joined.starts_with("Joined the delve"), "{joined}");
     let mut page = Page::open(&link);
 
-    // Everyone seated, and each client holds the whole party.
     let deadline = Instant::now() + Duration::from_secs(20);
     let gathered = |host: &App, friend: &App, page: &Page| {
         host.dungeon
@@ -232,8 +222,6 @@ fn a_threaded_host_its_own_seat_a_joined_friend_and_a_browser_seat_play_one_delv
     knights.sort();
     assert_eq!(knights, vec![1, 2, 3], "three seats, three knights");
 
-    // The checkpoint is the service's, from a published tick, every three
-    // seconds: taken away, it comes back while this thread only plays.
     let until = Instant::now() + Duration::from_secs(8);
     while !save.exists() {
         assert!(Instant::now() < until, "no checkpoint was written");
@@ -260,8 +248,6 @@ fn a_threaded_host_its_own_seat_a_joined_friend_and_a_browser_seat_play_one_delv
         "the link is saved: {saved}"
     );
 
-    // Everyone holds a key that walks right: the host's own terminal, the
-    // friend's, and the page.
     host.dungeon.shooter.latch();
     let start = host.dungeon.shooter.as_ref().unwrap().clone();
     for knight in 1..=3 {
@@ -296,7 +282,6 @@ fn a_threaded_host_its_own_seat_a_joined_friend_and_a_browser_seat_play_one_delv
             x(&now, knight)
         );
     }
-    // Each client sees the others walk, not only itself.
     for _ in 0..20 {
         frame(&mut host, &mut friend, &mut page);
     }
@@ -318,7 +303,6 @@ fn a_threaded_host_its_own_seat_a_joined_friend_and_a_browser_seat_play_one_delv
             "the page sees knight {knight} walk"
         );
     }
-    // The host's own screen is its seat's client's frame.
     let picture = host
         .dungeon
         .shooter
@@ -331,7 +315,6 @@ fn a_threaded_host_its_own_seat_a_joined_friend_and_a_browser_seat_play_one_delv
         crate::delve::world_viz::overworld::arena::seat_size()
     );
 
-    // An edit on the host reaches every client.
     host.on_key(event::KeyEvent::new_with_kind(
         KeyCode::Char('d'),
         KeyModifiers::NONE,
@@ -362,7 +345,6 @@ fn a_threaded_host_its_own_seat_a_joined_friend_and_a_browser_seat_play_one_delv
         frame(&mut host, &mut friend, &mut page);
     }
 
-    // What the run banks settles into the host's realm.
     if let Some(mut run) = host.dungeon.shooter.as_mut() {
         let mut spoils = crate::delve::together_realm::Spoils::default();
         spoils.add(crate::delve::together_realm::Spoil::Bone, 4);

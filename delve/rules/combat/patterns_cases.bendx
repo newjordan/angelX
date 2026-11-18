@@ -1,4 +1,3 @@
-# Cases recorded from the Rust original (tests/rules/patterns_bend_cases__tests.rs).
 import Base
 
 def case.patterns.emit(input: J.Val) -> J.Val:

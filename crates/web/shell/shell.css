@@ -1,18 +1,3 @@
-/* The shell's page: the game's picture on black, and everything laid over
-   it in one hand and one set of frames, at the picture's own pixel.
-   No inline styles anywhere: the server's CSP allows only these files.
-
-   - The hand is knight.ttf (art/font.py): the Delve's capitals with small
-     letters drawn to match, a pixel to every --px, set at whole multiples.
-   - The frames are the Delve's HUD kit (skin.css, art/frames.py): a window
-     (.win, the studded iron frame), a plate (.plate, the capped bar), a
-     slot (.slot, the action plate) and a well (.well), each a nine-slice
-     at one source pixel to one --px, nearest-sampled.
-   - --px, --pic-* and --view-* come from boot.js (`placePicture`): the
-     page pixel, the picture's box and the room's view within it, so what
-     lies over the picture is placed on it, at its scale, at any window
-     size. Until a frame is drawn they stand for the whole window. */
-
 :root {
   --px: 2px;
   --pic-l: 0px;
@@ -21,7 +6,6 @@
   --pic-h: 100vh;
   --view-t: 0px;
   --view-b: 100vh;
-  /* The realm's inks (the HUD kit's own): no white, no glare. */
   --black: #080505;
   --deep: #0b1514;
   --face: #132724;
@@ -39,8 +23,6 @@
   --ink-dim: #7a7c72;
   --gold: #d8a95e;
   --hand: "Knight Hand", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  /* The hand at one, and twice: ten pixels to the em, twelve to the line,
-     so the baseline falls on a whole pixel. */
   --type: calc(var(--px) * 10);
   --line: calc(var(--px) * 12);
 }
@@ -63,7 +45,6 @@ html, body {
 body {
   position: fixed;
   inset: 0;
-  /* A game, not a document: no selecting, no callouts, no bounce. */
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
@@ -71,30 +52,22 @@ body {
   overscroll-behavior: none;
 }
 
-/* The game takes every touch: a finger dragging a card pans nothing. */
 #stage { position: absolute; inset: 0 0 40px; touch-action: none; }
 
 #screen {
   display: block;
   width: 100%;
   height: 100%;
-  /* The backing store is sized in device pixels; if a browser still has to
-     resample it, nearest keeps the pixels square. */
   image-rendering: crisp-edges;
   image-rendering: pixelated;
 }
 
-/* A card dragged in the hand (`controls.drag`, boot.js): the plate it left
-   dimmed, the plate it would land on framed in gold, and its outline riding
-   the pointer. Hairlines in the realm's inks, nothing that glows. */
 #stage.over-slot { cursor: grab; }
 #stage.dragging { cursor: grabbing; }
 .drag-mark { position: fixed; box-sizing: border-box; pointer-events: none; }
 .drag-mark.from { background: rgba(8, 5, 5, 0.6); }
 .drag-mark.to { border: var(--px) solid var(--gold); }
 .drag-mark.ghost { border: var(--px) solid var(--ink-2); background: rgba(19, 39, 36, 0.4); }
-
-/* ---- the frames ---- */
 
 .win, .plate, .slot, .well {
   box-sizing: border-box;
@@ -106,7 +79,6 @@ body {
   border-radius: 0;
   box-shadow: none;
 }
-/* A window: the studded iron frame, twelve pixels a corner. */
 .win {
   position: absolute;
   border-width: calc(var(--px) * 12);
@@ -116,7 +88,6 @@ body {
   padding: 0 calc(var(--px) * 2);
   color: var(--ink);
 }
-/* A window's crown: the kit's gem, set on the top rail's middle. */
 .win.crested::before {
   content: "";
   position: absolute;
@@ -127,8 +98,6 @@ body {
   background: var(--art-gem) 0 0 / 100% 100% no-repeat;
   image-rendering: pixelated;
 }
-/* A plate: the capped bar, nine pixels a cap, four a rail; its face is the
-   line's own height, twice the kit's. */
 .plate {
   border-width: calc(var(--px) * 4) calc(var(--px) * 9);
   border-image-source: var(--art-plate);
@@ -138,15 +107,12 @@ body {
   line-height: var(--line);
   color: var(--ink);
 }
-/* A slot: an action plate, five pixels a corner. */
 .slot {
   border-width: calc(var(--px) * 5);
   border-image-source: var(--art-slot);
   border-image-slice: 5 fill;
   border-image-width: calc(var(--px) * 5);
 }
-/* A well to type in: the cold plate, its face sunk to near black; brass
-   rimmed while the keys are its. */
 .well {
   border-width: calc(var(--px) * 5);
   border-image-source: var(--art-well);
@@ -155,7 +121,6 @@ body {
 }
 .well:focus { border-image-source: var(--art-well-lit); }
 
-/* A key cap: a carved iron button, one pixel of rim each side. */
 kbd {
   display: inline-block;
   min-width: calc(var(--px) * 6);
@@ -171,7 +136,6 @@ kbd {
 .hint { white-space: nowrap; color: var(--ink-dim); }
 .hint + .hint { margin-left: calc(var(--px) * 8); }
 
-/* Words in a window: a title in gold on a hard shadow, the rest in ink. */
 .win h1, .win h2, .win h3 { margin: 0; font: inherit; font-weight: normal; }
 .win h2 { color: var(--gold); text-shadow: var(--px) var(--px) 0 var(--black); }
 .rule {
@@ -193,13 +157,11 @@ input::placeholder { color: var(--ink-dim); opacity: 1; }
 button { cursor: pointer; touch-action: manipulation; }
 button:focus-visible { outline: none; }
 
-/* A plate button: gold words; its face lifts under the pointer. */
 button.plate { color: var(--gold); text-shadow: var(--px) var(--px) 0 var(--black); }
 button.plate:hover:not(:disabled), button.plate:focus-visible { border-image-source: var(--art-plate-lit); }
 button.plate:active:not(:disabled) { transform: translateY(var(--px)); }
 button.plate:disabled { color: var(--ink-dim); cursor: default; }
 
-/* A tip, in a plate, over what it names. */
 [data-tip] { position: relative; }
 [data-tip]:hover::after {
   content: attr(data-tip);
@@ -219,9 +181,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
   pointer-events: none;
 }
 
-/* ---- the screens ---- */
-
-/* The name, before the game: a crowned window in the middle of the black. */
 #join {
   inset: 0;
   margin: auto;
@@ -234,7 +193,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
 }
 #join[hidden] { display: none; }
 #join h1 {
-  /* The hand at twice: a pixel of it two of the page's. */
   font-size: calc(var(--px) * 20);
   line-height: calc(var(--px) * 20);
   text-align: center;
@@ -246,7 +204,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
 #join input { width: 100%; padding: 0 calc(var(--px) * 2); line-height: var(--line); caret-color: var(--gold); color: var(--ink); }
 #join button { margin-top: calc(var(--px) * 2); }
 
-/* The link's state, at the window's top left: one plate. */
 #status {
   position: absolute;
   left: 8px;
@@ -256,7 +213,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
 }
 #status:empty { display: none; }
 
-/* One short line at the top of the room's view, off the action. */
 #toast {
   position: absolute;
   left: calc(var(--pic-l) + var(--pic-w) / 2);
@@ -271,9 +227,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
 #toast:empty { display: none; }
 #toast.gone { opacity: 0; }
 
-/* The wish line, over the room's foot: one window as wide as reads well,
-   centred on the picture, its foot on the room's bottom wall, clear of
-   the bands. */
 #say {
   --wide: min(calc(var(--px) * 280), calc(var(--pic-w) - var(--px) * 8), calc(100vw - 16px));
   left: calc(var(--pic-l) + (var(--pic-w) - var(--wide)) / 2);
@@ -313,8 +266,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
 #say-picks .off, #say-picks .off .label, #say-picks .off .tip { color: var(--ink-dim); }
 #say-picks .note { margin: var(--px) 0; color: var(--ink-dim); }
 
-/* The genie's offers, to tap: a row of plates under the game's own scroll,
-   on the room's bottom wall, the key to each in its cap. */
 #choices {
   position: absolute;
   left: var(--pic-l);
@@ -336,9 +287,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
 #choices button.back { color: var(--ink-2); }
 #choices [data-tip]:hover::after { left: 50%; right: auto; transform: translateX(-50%); }
 
-/* The sheet (Tab): the knight's own screen, over the whole picture. A
-   crowned window; the knight, their health and kit down one column, the
-   ledgers (wishes, teachers) down the other where there is room. */
 #sheet {
   --wide: min(calc(var(--px) * 620), calc(100vw - 16px));
   left: calc((100vw - var(--wide)) / 2);
@@ -364,8 +312,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
   scrollbar-width: thin;
   scrollbar-color: var(--iron-hi) var(--black);
 }
-/* Side by side, each column scrolls on its own: the knight stays in view
-   down the ledgers. */
 @media (min-width: 1000px) {
   #sheet-page { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-template-rows: 100%; overflow-y: hidden; }
   #sheet .column { height: 100%; overflow-y: auto; padding-right: calc(var(--px) * 2); scrollbar-width: thin; scrollbar-color: var(--iron-hi) var(--black); }
@@ -405,7 +351,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
   background: var(--deep);
   border: var(--px) solid var(--iron-lo);
 }
-/* A ledger: its first column names the row, the rest line up beside it. */
 #sheet .rows { display: grid; gap: var(--px) calc(var(--px) * 5); align-items: baseline; }
 #sheet .rows.cols-2 { grid-template-columns: max-content minmax(0, 1fr); }
 #sheet .rows.cols-3 { grid-template-columns: max-content max-content minmax(0, 1fr); }
@@ -417,9 +362,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
 #sheet .cell { color: var(--ink-2); }
 #sheet .cell.locked, #sheet .cell.locked b { color: #7d5a3e; }
 
-/* A count out of a few: pips, gold when won, sunk when not. */
-/* On a ledger's first line: six pixels in a twelve-pixel line, three from
-   its top. */
 .pips { display: inline-flex; gap: var(--px); align-self: start; margin-top: calc(var(--px) * 3); vertical-align: top; }
 .pips i {
   width: calc(var(--px) * 6);
@@ -428,7 +370,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
   box-shadow: inset 0 0 0 var(--px) var(--iron);
 }
 .pips i.lit { background: var(--brass); box-shadow: inset 0 0 0 var(--px) var(--brass-lo), inset var(--px) var(--px) 0 var(--gold); }
-/* A meter: an iron trough, its fill in the kit's inks, the count after. */
 .meter { display: inline-flex; align-items: center; gap: calc(var(--px) * 3); color: var(--ink-2); }
 .meter .track {
   position: relative;
@@ -448,8 +389,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
 }
 .meter.health .track i { background: #a8452c; box-shadow: inset 0 var(--px) 0 #c4683f, inset 0 calc(var(--px) * -1) 0 var(--rust-lo); }
 .meter.health .track { width: calc(var(--px) * 90); }
-
-/* ---- the dock: full screen and the sound, in the foot below the picture ---- */
 
 #dock {
   position: absolute;
@@ -473,7 +412,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
 }
 #mute:hover { border-image-source: var(--art-slot-lit); }
 #mute.off { border-image-source: var(--art-slot-cold); color: var(--ink-dim); }
-/* The volume: an iron rail sunk in black, a brass stud to drag. */
 #volume {
   -webkit-appearance: none;
   appearance: none;
@@ -512,7 +450,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
   border: var(--px) solid var(--black);
 }
 
-/* The page's own numbers (?stats): a dev's, in a plain monospace. */
 #stats {
   position: absolute;
   right: 10px;
@@ -527,8 +464,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
 }
 #stats:empty { display: none; }
 
-/* The dev panel (panel.js): F2 on a dev link or in a dev session. Tonal
-   greys on near-black, beside the game rather than over its middle. */
 #panel {
   position: absolute;
   top: 0;
@@ -548,7 +483,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
   -webkit-font-smoothing: auto;
   outline: none;
 }
-/* A dev's buttons and fields: plain slate, apart from the game's frames. */
 #panel button, #panel input, #panel textarea {
   font: inherit;
   color: #bcc5c9;
@@ -559,8 +493,6 @@ button.plate:disabled { color: var(--ink-dim); cursor: default; }
 #panel button { padding: 4px 8px; }
 #panel button:hover { background: linear-gradient(180deg, #1d2d3a 0%, #142029 100%); border-color: #31475a; }
 #panel[hidden] { display: none; }
-/* Open, the panel takes its own column: the game is fitted beside it,
-   not covered by it. */
 body.panel-open #stage { right: min(420px, 92vw); }
 #panel header { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
 #panel header span { flex: 1; color: #c9b88f; }

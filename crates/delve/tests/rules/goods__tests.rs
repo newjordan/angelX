@@ -7,7 +7,6 @@ use crate::rules::holdings::{
 };
 use crate::rules::home::{BUY_HOLD, Home};
 
-/// A realm whose King holds the workings and whose named forges burn.
 fn burning(forges: &[&str]) -> Home {
     let mut home = Home::default();
     home.barony.court = Court::Sworn;
@@ -48,7 +47,6 @@ fn the_mine_digs_and_the_ore_forge_smelts_it_into_ingots() {
     let mut t = Spoils::default();
     assert!(rent_days(&mut home, &mut t, 1));
     let g = &home.goods;
-    // Eight ore dug; four batches of two ore, an ingot each.
     assert_eq!((g.have(Good::Ore), g.have(Good::Ingot)), (0, 4));
     assert_eq!(g.flow.get("mine"), Some(&Flow::Working));
     assert_eq!(g.burn(&home.barony, "ore-forge"), Burn::Working);
@@ -67,7 +65,6 @@ fn nothing_is_dug_before_the_workings_are_his() {
 
 #[test]
 fn a_stockpile_that_fills_stops_the_mine_and_the_miners_rest() {
-    // The Ore-Forge is cold: the ore piles up to its cap, and the mine says so.
     let mut home = burning(&[]);
     let mut t = Spoils::default();
     for _ in 0..3 {
@@ -82,8 +79,6 @@ fn a_stockpile_that_fills_stops_the_mine_and_the_miners_rest() {
 
 #[test]
 fn a_forge_short_of_an_input_stalls_and_says_which() {
-    // The Bell-Forge burns but nothing smelts the ingots: it is starved of
-    // them, and it makes nothing.
     let mut home = burning(&["bell-forge"]);
     let mut t = stocked();
     rent_days(&mut home, &mut t, 1);
@@ -93,7 +88,6 @@ fn a_forge_short_of_an_input_stalls_and_says_which() {
     );
     assert_eq!(home.goods.have(Good::Bell), 0);
     assert_eq!(t.get(Spoil::Wax), 40, "a starved forge draws nothing");
-    // With ingots but no wax, it is wax it wants.
     home.barony.lit.push("ore-forge".into());
     home.goods.stock.insert(Good::Ingot, 4);
     let mut bare = purse(&[(Spoil::Ember, 5)]);
@@ -110,8 +104,6 @@ fn a_chain_forge_draws_ingots_and_spoils_and_makes_its_goods() {
     home.goods.stock.insert(Good::Ingot, 4);
     let mut t = stocked();
     rent_days(&mut home, &mut t, 1);
-    // The Ore-Forge adds four; the Bell-Forge takes two batches of two
-    // ingots and a wax each, and the two bells hang at the holdings.
     assert_eq!(home.goods.have(Good::Ingot), 4 + 4 - 4);
     assert_eq!(t.get(Spoil::Wax), 38);
     assert_eq!(home.holdings.bells, 2);
@@ -124,7 +116,6 @@ fn a_full_rack_idles_a_forge_without_drawing_anything() {
     let mut home = burning(&["ore-forge", "type-foundry"]);
     home.goods.stock.insert(Good::Ingot, 8);
     let mut t = stocked();
-    // Six type a day onto a rack of twelve.
     rent_days(&mut home, &mut t, 2);
     assert_eq!(home.goods.have(Good::Type), 12);
     let bone = t.get(Spoil::Bone);
@@ -142,7 +133,6 @@ fn the_racks_empty_into_the_realm_while_it_has_room() {
         rent_days(&mut home, &mut t, 1);
         home.goods.stock.insert(Good::Ingot, 16);
     }
-    // Four bells hang; the rest wait on the rack, and then it is full.
     assert_eq!(home.holdings.bells, goods::BELLS_HUNG);
     assert_eq!(home.holdings.blades, goods::ARMOURY);
     assert_eq!(home.goods.have(Good::Bell), Good::Bell.cap());
@@ -154,7 +144,6 @@ fn brew_pours_sacks_into_the_granary_until_a_whole_brew_will_not_fit() {
     let mut home = burning(&["spore-kiln"]);
     let mut t = stocked();
     rent_days(&mut home, &mut t, 1);
-    // Six spores grown, two batches of three, an ember each.
     assert_eq!(home.holdings.stores, 2 * BREW_SACKS);
     assert_eq!(t.get(Spoil::Ember), 78);
     home.holdings.stores = STORES_CAP - 1;
@@ -196,7 +185,6 @@ fn a_banked_forge_draws_nothing_and_a_stoked_one_works_again() {
     let out = settle(&mut realm, &marks);
     assert!(out.said[0].1.contains("stoked"));
     assert_eq!(home.goods.burn(&home.barony, "bell-forge"), Burn::Kindled);
-    // A forge that is not lit cannot be banked.
     let mut realm = activity::Realm {
         home: &mut home,
         treasury: &mut treasury,
@@ -216,7 +204,6 @@ fn a_rent_day_is_a_floor_cleared_and_pay_tribute_runs_it() {
     barony::pay_tribute(&mut home, &mut t, 2);
     assert_eq!(home.goods.days, 2);
     assert_eq!(home.goods.have(Good::Ingot), 8);
-    // A settlement never runs more than a delve's worth at once.
     barony::pay_tribute(&mut home, &mut t, 100);
     assert_eq!(home.goods.days, 2 + DAYS_MAX as u32);
 }
@@ -227,7 +214,6 @@ fn the_whole_chain_runs_for_a_long_while_and_never_overfills() {
     let mut t = stocked();
     for day in 0..40 {
         rent_days(&mut home, &mut t, 1);
-        // The realm wears its goods out: bands, wages, notices.
         if day % 5 == 4 {
             home.holdings.bells = 0;
             home.holdings.blades = 0;
@@ -240,9 +226,6 @@ fn the_whole_chain_runs_for_a_long_while_and_never_overfills() {
         assert!(home.holdings.valid());
         assert!(home.holdings.stores <= STORES_CAP);
     }
-    // Every forge has had a shift, and the Ore-Forge's ingots are what
-    // limit the rest: some forge went short of them at some point, so the
-    // rack of ingots is not simply full.
     for id in ALL {
         assert!(home.goods.flow.contains_key(id), "{id}");
     }
@@ -260,7 +243,6 @@ fn what_old_saves_hold_loads_and_goods_round_trip() {
     home.goods.banked.push("bell-forge".into());
     let again: Home = serde_json::from_str(&serde_json::to_string(&home).unwrap()).unwrap();
     assert_eq!(again.goods, home.goods);
-    // A newer build's unknown good resets the store, not the realm.
     let mut value = serde_json::to_value(&home).unwrap();
     value["goods"]["stock"] = serde_json::json!({"mithril": 3});
     let lossy: Home = serde_json::from_value(value).unwrap();
@@ -270,9 +252,7 @@ fn what_old_saves_hold_loads_and_goods_round_trip() {
 
 #[test]
 fn bells_and_blades_cover_what_the_walls_fall_short_of() {
-    // Nothing short, nothing used.
     assert_eq!(cover(0, 3, 3), Some((0, 0)));
-    // A bell calls two; the fewest items win, bells spared.
     assert_eq!(cover(2, 4, 0), Some((1, 0)));
     assert_eq!(cover(2, 0, 4), Some((0, 2)));
     assert_eq!(cover(3, 4, 4), Some((1, 1)));
@@ -282,8 +262,6 @@ fn bells_and_blades_cover_what_the_walls_fall_short_of() {
     assert_eq!(cover(1, 0, 0), None);
 }
 
-/// A worth-robbing Crypt with a brave steward, so the walls only wear to
-/// the band, and the next band `days` off.
 fn muster_against(strength: u32, walls: u32) -> holdings::Holdings {
     let (mut h, _) = held();
     h.owned[0].rooms = ["taproom", "shrine", "smithy"]
@@ -306,7 +284,6 @@ fn muster_against(strength: u32, walls: u32) -> holdings::Holdings {
 
 #[test]
 fn bells_turn_a_band_the_walls_would_lose_to() {
-    // Seven courses and Gwen's two against ten raiders: one short.
     let mut h = muster_against(10, 7);
     assert_eq!(h.defence(&h.owned[0]), 9);
     let said = rent_day(&mut h, 1);
@@ -314,7 +291,6 @@ fn bells_turn_a_band_the_walls_would_lose_to() {
         said.iter().any(|l| l.contains("fell to 10 raiders")),
         "{said:?}"
     );
-    // The same band against the same walls with a bell hung.
     let mut h = muster_against(10, 7);
     h.bells = 2;
     assert_eq!(h.defence(&h.owned[0]), 13);
@@ -331,8 +307,6 @@ fn bells_turn_a_band_the_walls_would_lose_to() {
 
 #[test]
 fn blades_arm_the_men_there_are_and_no_more() {
-    // Two garrison men (Gwen's) can carry two blades, however many are in
-    // the armoury.
     let mut h = muster_against(11, 7);
     h.blades = 6;
     assert_eq!(h.defence(&h.owned[0]), 7 + 2 + 2);
@@ -347,7 +321,6 @@ fn blades_arm_the_men_there_are_and_no_more() {
         "{said:?}"
     );
     assert_eq!(h.blades, 4);
-    // Three short is more than two blades make good.
     let mut h = muster_against(12, 7);
     h.blades = 6;
     let said = rent_day(&mut h, 1);
@@ -377,25 +350,20 @@ fn type_prints_wrens_extra_notices_and_costs_type() {
         ..Home::default()
     };
     assert_eq!(home.pin_bounties().len(), PINNED);
-    // No type, no more notices.
     assert!(home.pin_bounties().is_empty());
     home.goods.stock.insert(Good::Type, TYPE_PER_NOTICE * 2 + 1);
     let printed = home.pin_bounties();
     assert_eq!(printed.len(), NOTICES_PRINTED);
     assert_eq!(home.bounties.len(), PINNED + NOTICES_PRINTED);
     assert_eq!(home.goods.have(Good::Type), 1);
-    // A finished notice comes down; a new one is printed only with type.
     home.bounties.pop();
     assert!(home.pin_bounties().is_empty());
     home.bounties.pop();
     home.bounties.pop();
     home.goods.stock.insert(Good::Type, TYPE_PER_NOTICE);
-    // Back to three, which are free; the fourth takes the type.
     assert_eq!(home.pin_bounties().len(), 1 + 1);
     assert_eq!(home.goods.have(Good::Type), 0);
 }
-
-// ── The run's half ───────────────────────────────────────────────────────
 
 fn hold(run: &mut Run, plate: (i32, i32, i32, i32)) {
     let (c, r, w, h) = plate;
@@ -440,7 +408,6 @@ fn holding_e_on_a_lit_forges_plate_marks_a_bank_and_an_unlit_forges_does_not() {
         run.marks
     );
     assert!(!run.marks.keys().any(|m| m.starts_with("barony:relight")));
-    // The Crypt's forge is rebuilt but cold: its plate relights, not banks.
     let mut home = burning(&[]);
     home.barony.works.push(Work {
         id: "bell-forge".into(),
@@ -491,7 +458,6 @@ fn the_smiths_hammer_only_while_the_forge_works_and_the_miners_rest_when_the_pil
     let mut t = Spoils::default();
     rent_days(&mut home, &mut t, 1);
     assert_eq!(pose(&home), Pose::Work);
-    // A full pile: the miners stand by the heap instead of walking the shaft.
     let mut full = burning(&[]);
     for _ in 0..4 {
         rent_days(&mut full, &mut t, 1);
@@ -505,8 +471,6 @@ fn the_smiths_hammer_only_while_the_forge_works_and_the_miners_rest_when_the_pil
         }
     }
 }
-
-// ── Through the King's own plates ────────────────────────────────────────
 
 #[test]
 fn two_forges_are_ordered_built_relit_and_then_make_goods_every_rent_day() {
@@ -538,11 +502,9 @@ fn two_forges_are_ordered_built_relit_and_then_make_goods_every_rent_day() {
         barony::settle(&mut home, &mut t, 1, &marks(&[(relight.as_str(), 1)]), &who);
         assert!(home.barony.is_lit(id), "{id} burns");
     }
-    // A delve to the Keep: three floors cleared, three shifts.
     let wax = t.get(Spoil::Wax);
     let tribute = barony::pay_tribute(&mut home, &mut t, 3).expect("a tribute");
     assert!(tribute.get(Spoil::Gold) > 0);
-    // Ore to ingots, ingots and wax to bells, hung at the holdings.
     assert_eq!(home.goods.days, 3);
     assert_eq!(home.holdings.bells, 4);
     assert_eq!(

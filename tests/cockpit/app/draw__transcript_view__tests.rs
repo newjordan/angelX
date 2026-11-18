@@ -496,13 +496,11 @@ fn stalled_stream_reports_silence_and_watchdog_with_separate_ambience() {
         buffer.cell((x, 0)).expect("fragment cell").fg
     };
 
-    // Fresh stream: no readout, and the lane keeps its motion style.
     terminal
         .draw(|frame| render_tool_strip(frame, &app, frame.area()))
         .unwrap();
     assert!(!row_text(&terminal, 0).contains("silent"));
 
-    // 25s silent: gold silence fragment + stationary warning marker.
     let stalled_at = std::time::Instant::now()
         .checked_sub(std::time::Duration::from_secs(25))
         .expect("monotonic clock has 25s of history");
@@ -537,7 +535,6 @@ fn stalled_stream_reports_silence_and_watchdog_with_separate_ambience() {
     );
     assert!(row_text(&terminal, 1).starts_with("! "));
 
-    // 301s of the 600s deadline: danger watchdog countdown.
     let deep_stall = std::time::Instant::now()
         .checked_sub(std::time::Duration::from_secs(301))
         .expect("monotonic clock has 301s of history");
@@ -766,7 +763,6 @@ fn transcript_scrollbar_is_inside_the_border_and_reaches_both_ends() {
         "│",
         "scroll rail must not overwrite the panel border"
     );
-    // Track cells between the thumb and the ends stay dotted, not solid bars.
     let mid = body.y + 1;
     if mid < body.y + body.height - 1 {
         assert_eq!(
@@ -1214,7 +1210,6 @@ fn transcript_link_click_opens_local_artifact_in_stage() {
             modifiers: ratatui::crossterm::event::KeyModifiers::NONE,
         });
         if matches!(kind, ratatui::crossterm::event::MouseEventKind::Down(_)) {
-            // Glass can paint another frame before the release arrives.
             app.transcript_links.clear();
             terminal
                 .draw(|frame| render_transcript(frame, &mut app, frame.area()))
@@ -1270,7 +1265,7 @@ fn transcript_link_drag_selects_without_opening_and_stale_release_is_ignored() {
             .is_some_and(|selection| !selection.is_empty())
     );
     app.on_mouse(event(MouseEventKind::Down(MouseButton::Left), pos.x));
-    app.transcript_links.clear(); // Route change/hidden transcript before release.
+    app.transcript_links.clear();
     app.on_mouse(event(MouseEventKind::Up(MouseButton::Left), pos.x));
     assert_eq!(app.media.len(), before);
 }

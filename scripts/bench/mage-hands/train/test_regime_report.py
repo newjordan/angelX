@@ -1,4 +1,3 @@
-"""Local receipt/collector tests: synthetic files, no SDK, model or network."""
 import copy
 import hashlib
 import importlib.util

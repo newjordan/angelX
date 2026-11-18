@@ -13,17 +13,13 @@ pub enum BuilderAction {
     Selection(u16),
     Confirm,
     NextPlan { back: bool },
-    /// The mouse button still held, and the pointer on a new tile (a row laid, a line drawn).
     Hold((u8, u8)),
-    /// The button let go on a tile.
     Let((u8, u8)),
-    /// A hotbar slot clicked (0 to 8).
     Slot(u8),
 }
 impl BuilderAction {
     pub fn valid(self) -> bool {
         match self {
-            // (The hillside's tiles are the realm's, 240 by 176; the valley's desk is 72 by 54.)
             Self::Plot { tile, .. } => i16::from(tile.0) < crate::kingdom::REALM_WIDTH && i16::from(tile.1) < crate::kingdom::REALM_HEIGHT,
             Self::Page(n) => n < 9,
             Self::Plan(n) => usize::from(n) <= catalog().menu.len().max(super::hillside::tools().len()),
@@ -138,8 +134,6 @@ pub fn layout(run: &Run, knight: u32) -> Option<Layout> {
     })
 }
 
-/// Invert the exact build-desk fit inside the room picture, excluding the
-/// party/HUD bands and the desk's letterbox. Inputs are frame pixels.
 pub fn logical_point(x: u32, y: u32, view_w: u32, view_h: u32, top: u32) -> Option<(u32, u32)> {
     if view_w == 0 || view_h == 0 || x >= view_w {
         return None;
@@ -175,7 +169,6 @@ pub fn hit(layout: &Layout, x: u32, y: u32, button: u8) -> Option<BuilderAction>
         return Some(BuilderAction::Page(((x - 14) / 83) as u8));
     }
     if layout.page == 0 {
-        // The map's first 16 pixels are its status strip, not a plot.
         if within(x, y, 12, 101, 448, 292) {
             let t = if layout.zoom { 48 } else { 32 };
             let ox =
@@ -283,7 +276,6 @@ mod tests {
         assert_eq!(logical_point(384, 28 + 224, 768, 448, 28), Some((384, 224)));
         assert_eq!(logical_point(0, 27, 768, 448, 28), None);
         assert_eq!(logical_point(0, 28 + 448, 768, 448, 28), None);
-        // Tall room: the desk has black rows above and below it.
         assert_eq!(logical_point(100, 28, 768, 600, 28), None);
         assert_eq!(logical_point(384, 28 + 300, 768, 600, 28), Some((384, 224)));
         assert_eq!(logical_point(u32::MAX, u32::MAX, 768, 448, 28), None);
@@ -355,7 +347,6 @@ mod tests {
                 tile: (71, 53),
                 build: true,
             },
-            // The hillside's tiles are the realm's: 240 by 176.
             BuilderAction::Plot {
                 tile: (239, 175),
                 build: true,

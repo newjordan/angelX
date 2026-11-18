@@ -1,5 +1,3 @@
-"""Private benchmark copies must not share source files or Git state."""
-
 import importlib.util
 import os
 from pathlib import Path
@@ -116,7 +114,6 @@ class SnapshotTests(unittest.TestCase):
         (self.source / "output").symlink_to(self.destination, target_is_directory=True)
         other = self.root / "other-copy"
         other.mkdir()
-        # A source link reaching its actual output is forbidden as well.
         (self.source / "output").unlink()
         (self.source / "output").symlink_to(other, target_is_directory=True)
         with self.assertRaisesRegex(ValueError, "destination"):

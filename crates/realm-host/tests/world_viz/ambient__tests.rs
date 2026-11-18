@@ -47,8 +47,6 @@ fn dotmax_arrival_requires_entry_and_leaving_restores_the_world() {
             .unwrap();
         assert_eq!((resized.width, resized.height), (32, 14));
         assert!(!std::sync::Arc::ptr_eq(&entered, &resized));
-        // Put a same-size room frame back into the cache immediately before
-        // leaving, so a stale relaxed-cache hit cannot hide behind a resize.
         let entered = world
             .scryglass_frame_paced(40, 16, true, 0.0, 0.0, 1.05)
             .unwrap();

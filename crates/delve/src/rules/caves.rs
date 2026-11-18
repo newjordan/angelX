@@ -13,8 +13,6 @@ use super::world::{Dest, Entrance};
 use super::{Hero, Input, Run, RoomKind, Tile, TILE_UNITS};
 use world::Cave;
 
-/// Courtyard mouth. The party stands on it and the existing stair hold
-/// takes them in (`floors::travel` → `take_entrance`).
 pub const YARD_MOUTH: Entrance = Entrance {
     id: "cave-yard",
     room: RoomKind::Gate,
@@ -24,8 +22,6 @@ pub const YARD_MOUTH: Entrance = Entrance {
     needs: None,
 };
 
-/// First delve floor, in the start room. Stamped as stairs when that floor
-/// is entered, then taken by the same stair hold.
 pub const FLOOR_MOUTH: Entrance = Entrance {
     id: "cave-floor",
     room: RoomKind::Start,
@@ -35,19 +31,14 @@ pub const FLOOR_MOUTH: Entrance = Entrance {
     needs: None,
 };
 
-/// Where a knight appears inside, and the lit way back out.
-/// Both are a scan of the seed's generated cave, the same on host and guest.
 pub fn spawn_cell(seed: u32) -> (i32, i32) {
     base(seed).spawn
 }
 
-/// Grip boots: open floor just before the frost region's first ice.
-/// The same cells for a seed on host and guest, and reachable without digging.
 pub(crate) fn grip_cell(seed: u32) -> (i32, i32) {
     boot_pair(seed).0
 }
 
-/// Blades: open floor in the frost region, past its first ice.
 pub(crate) fn blades_cell(seed: u32) -> (i32, i32) {
     boot_pair(seed).1
 }
@@ -152,9 +143,6 @@ pub fn exit_cell(seed: u32) -> (i32, i32) {
     base(seed).exit
 }
 
-/// A seed's cave as generated, with its arrival and its way out. Generating
-/// and scanning it costs about a millisecond, so it is done once a seed and
-/// every later reader shares that one.
 struct Base {
     seed: u32,
     cave: Cave,
@@ -176,7 +164,6 @@ fn base(seed: u32) -> Arc<Base> {
     let exit = scan_exit(&cave, spawn.0, spawn.1);
     let (grip, blades) = place_boots(&cave, spawn);
     let made = Arc::new(Base { seed, cave, spawn, exit, grip, blades });
-    // A session plays one seed. Four are kept so tests on other seeds do not push it out.
     if kept.len() >= 4 {
         kept.remove(0);
     }
@@ -356,30 +343,19 @@ fn scan_exit(cave: &world::Cave, sx: i32, sy: i32) -> (i32, i32) {
     found.map(|(_, ex, ey)| (ex, ey)).unwrap_or((sx, sy))
 }
 
-/// Ticks a knight takes over one cell: a pixel a tick.
 pub const MOVE_EVERY: u8 = 8;
-/// Ticks between one knight's shovel hits while the key is held.
 const SWING_EVERY: u8 = 10;
-/// Ticks a knight rests after a blast.
 const BLAST_EVERY: u8 = 24;
 const CHANGE_CAP: usize = 4096;
 
-/// A shovel hit that did not break the cell.
 pub const BURST_CHIP: u8 = 0;
-/// A cell breaking into rubble.
 pub const BURST_CRUMBLE: u8 = 1;
-/// A magic blast, at the cell it was aimed at.
 pub const BURST_BLAST: u8 = 2;
-/// A burst is dropped this many ticks after it starts. The longest picture of
-/// one runs 67 ticks.
 const BURST_KEPT: u32 = 72;
 const BURST_CAP: usize = 32;
 
-/// Rock struck or broken a moment ago, for the draw: when, where and which.
-/// Not part of the cave's cells; a guest who joins late misses only the dust.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Burst {
-    /// The tick it starts on. A blast's outer breaks start a little after it.
     pub at: u32,
     pub x: i16,
     pub y: i16,
@@ -400,7 +376,6 @@ pub struct Seat {
     pub back_x: i16,
     pub back_y: i16,
     pub from_yard: bool,
-    /// Extra cells ice has carried this knight. A guest reads the same count.
     #[serde(default)]
     pub slides: u32,
     #[serde(default)]
@@ -409,7 +384,6 @@ pub struct Seat {
     coast_dx: i8,
     #[serde(default)]
     coast_dy: i8,
-    /// 0 plain, 1 grip, 2 blades. Grip does not coast.
     #[serde(default)]
     footwear: u8,
     #[serde(default)]
@@ -420,20 +394,14 @@ pub struct Seat {
     skid_dx: i8,
     #[serde(default)]
     skid_dy: i8,
-    /// 255 means no skid. Otherwise ticks since the slide was last refreshed.
     #[serde(default = "skid_none")]
     skid_age: u8,
-    /// The last step taken, so the draw can carry the knight across the cell
-    /// while `cool` counts down.
     #[serde(default)]
     step_dx: i8,
     #[serde(default)]
     step_dy: i8,
-    /// That step was ice carrying the knight, not a stride.
     #[serde(default)]
     glide: bool,
-    /// The tick after the last shovel hit or blast (0 before the first), and
-    /// the ticks to rest from it.
     #[serde(default)]
     acted: u32,
     #[serde(default)]
@@ -471,30 +439,24 @@ impl Seat {
         }
     }
 
-    /// How far behind its cell the knight is still drawn, in pixels: the step
-    /// it is taking, a pixel a tick.
     pub(crate) fn stride(&self) -> (i32, i32) {
         let left = i32::from(self.cool.min(MOVE_EVERY));
         (-i32::from(self.step_dx) * left, -i32::from(self.step_dy) * left)
     }
 
-    /// Mid-step: walking or carried by ice.
     pub(crate) fn stepping(&self) -> bool {
         self.cool > 0 && (self.step_dx != 0 || self.step_dy != 0)
     }
 
-    /// The step being taken is ice carrying the knight.
     pub(crate) fn gliding(&self) -> bool {
         self.stepping() && self.glide
     }
 
-    /// Ticks since the last shovel hit or blast, while the knight still rests from it.
     pub(crate) fn swinging(&self, tick: u32) -> Option<u32> {
         let age = (tick + 1).checked_sub(self.acted)?;
         (self.acted > 0 && age < u32::from(self.rest)).then_some(age)
     }
 
-    /// Age of a shovel hit only. A blast rests longer, and must keep its fist.
     pub(crate) fn digging(&self, tick: u32) -> Option<u32> {
         let age = self.swinging(tick)?;
         (self.rest == SWING_EVERY).then_some(age)
@@ -524,8 +486,6 @@ impl Seat {
         }
     }
 
-    /// A slide's wake, while it still shows: the cell it reached, the way it
-    /// went, and the ticks since it stopped. Gone at 15.
     pub(crate) fn skid(&self) -> Option<((i32, i32), (i32, i32), u8)> {
         if self.skid_age >= 15 || (self.skid_dx == 0 && self.skid_dy == 0) {
             return None;
@@ -555,8 +515,6 @@ fn boots_of(n: u8) -> world::Footwear {
     }
 }
 
-/// Awake cells kept across ticks. Equal to any other diet so a field compare
-/// still means the guest log, not the scratch.
 #[derive(Clone, Debug, Default)]
 struct Diet {
     ready: bool,
@@ -582,41 +540,28 @@ pub struct Field {
     pub changes: BTreeMap<u32, u64>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub seats: BTreeMap<u32, Seat>,
-    /// Host step count. Countdowns are derived from it, so a fire is two wire
-    /// writes. Not serialized: a changing clock would republish the cave every tick.
     #[serde(skip)]
     clock: u32,
-    /// Tick a cell caught fire. Fire is FIRE_LIFE minus the ticks since, while above 0.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     fires: BTreeMap<u32, u32>,
-    /// Tick a cell's steam ends.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     steams: BTreeMap<u32, u32>,
-    /// Integrity left on a wall acid has bitten. Untouched walls are not listed.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     acids: BTreeMap<u32, u8>,
-    /// Tick a melting cell refreezes, if its water is still there.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     melts: BTreeMap<u32, u32>,
-    /// Rock struck or broken in the last few ticks. Empty in a quiet cave.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub bursts: Vec<Burst>,
-    /// Who took the grip boots. 0 means they still lie on the floor.
     #[serde(default, skip_serializing_if = "u32_zero")]
     pub grip_by: u32,
-    /// Who took the blades. 0 means they still lie on the floor.
     #[serde(default, skip_serializing_if = "u32_zero")]
     pub blades_by: u32,
-    /// Ticks a knight has stood on the mouth. Not world state; each host counts its own.
     #[serde(skip)]
     mouth_hold: BTreeMap<u32, u32>,
-    /// Vein cells a knight has proved. Sorted. Not written into the shared cave.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub proven: Vec<(i32, i32)>,
-    /// Whether interact was held last tick. The sink is the press, not the hold.
     #[serde(skip)]
     interact_down: BTreeMap<u32, bool>,
-    /// Cells the fluid step may touch, kept across ticks. Not part of the guest log.
     #[serde(skip)]
     diet: Diet,
 }
@@ -638,7 +583,6 @@ impl Field {
         self.seats.contains_key(&id)
     }
 
-    /// One more tick stood on the mouth. The count is this host's, not the cave.
     pub fn mouth_tick(&mut self, id: u32) -> u32 {
         let n = self.mouth_hold.entry(id).or_default();
         *n = n.saturating_add(1);
@@ -668,9 +612,6 @@ impl Field {
         cave
     }
 
-    /// One host step of water and refreezing. Changed cells are stored so a
-    /// second seat, reading the same field, draws the same fluids.
-    /// The whole-map path, kept so a test can prove the awake path matches it.
     pub(crate) fn step_fluids_scan(&mut self) {
         if self.seats.is_empty() {
             return;
@@ -955,7 +896,6 @@ fn keep_until(map: &mut BTreeMap<u32, u32>, now: u32, k: u32, left: u8) {
         }
     }
 
-    /// A stand beside soft rock, and the aim that faces it. Fixed scan, west-to-east.
     pub fn soft_aim(&self) -> Option<(i16, i16, i8, i8)> {
         let cave = self.view();
         for y in 1..world::MAP_H - 1 {
@@ -982,7 +922,6 @@ fn keep_until(map: &mut BTreeMap<u32, u32>, now: u32, k: u32, left: u8) {
             n = n.wrapping_mul(0x100000001b3).wrapping_add(u64::from(*k));
             n = n.wrapping_mul(0x100000001b3).wrapping_add(*v);
         }
-        // Hot entries, not the clock. A fire republishes on catch and out only.
         for (k, v) in &self.fires {
             n = n.wrapping_mul(0x100000001b3).wrapping_add(u64::from(*k));
             n = n.wrapping_mul(0x100000001b3).wrapping_add(u64::from(*v));
@@ -1002,12 +941,10 @@ fn keep_until(map: &mut BTreeMap<u32, u32>, now: u32, k: u32, left: u8) {
         n
     }
 
-    /// The whole cave as it stands: the seed's cave with every changed cell laid over it.
     pub fn view(&self) -> Cave {
         self.view_as(self.seed)
     }
 
-    /// `view`, for a cave nobody has entered yet and so has no seed of its own.
     pub(crate) fn view_as(&self, seed: u32) -> Cave {
         let mut cave = base(seed).cave.clone();
         for (key, packed) in &self.changes {
@@ -1017,7 +954,6 @@ fn keep_until(map: &mut BTreeMap<u32, u32>, now: u32, k: u32, left: u8) {
         cave
     }
 
-    /// One cell as it stands, without building the whole cave.
     pub(crate) fn cell(&self, x: i32, y: i32) -> Option<world::Cell> {
         let base = base(self.seed);
         let mut cell = *base.cave.at(x, y)?;
@@ -1028,7 +964,6 @@ fn keep_until(map: &mut BTreeMap<u32, u32>, now: u32, k: u32, left: u8) {
         Some(cell)
     }
 
-    /// Change the cave through `f` and keep what cell `(x, y)` became.
     fn edit(&mut self, x: i32, y: i32, f: impl FnOnce(&mut Cave)) {
         let mut cave = self.view();
         f(&mut cave);
@@ -1037,8 +972,6 @@ fn keep_until(map: &mut BTreeMap<u32, u32>, now: u32, k: u32, left: u8) {
         }
     }
 
-    /// Keep one changed cell. A long walk fills the log with melt ticks, and a
-    /// dig still has to land, so a full log gives up another cell for it.
     fn record(&mut self, x: i32, y: i32, cell: &world::Cell) {
         let k = key(x, y);
         if self.changes.len() >= CHANGE_CAP && !self.changes.contains_key(&k) {
@@ -1111,7 +1044,6 @@ fn apply(cave: &mut Cave, key: u32, packed: u64) {
     }
 }
 
-/// A changed cell's packed state laid over the generated one.
 fn lay(cell: &mut world::Cell, packed: u64) {
     cell.flags = ((packed >> 24) & 0xffff) as u16;
     cell.fluid = ((packed >> 40) & 0xff) as u8;
@@ -1139,8 +1071,6 @@ impl Run {
         }
     }
 
-    /// The seed of this run's cave: the one it has, or the one it will be
-    /// given when the first knight goes in.
     pub(crate) fn cave_seed(&self) -> u32 {
         if self.caves.seed != 0 {
             return self.caves.seed;
@@ -1163,7 +1093,6 @@ impl Run {
         self.cues.push("entrance:cave".to_string());
     }
 
-    /// One knight who has stood on the mouth. The rest of the party stays in the delve.
     pub fn enter_one(&mut self, id: u32, from_yard: bool) {
         if self.players.get(&id).is_none_or(|h| h.hp == 0 || h.stone) || self.caves.inside(id) {
             return;
@@ -1198,8 +1127,6 @@ impl Run {
         self.caves.clear_mouth(id);
     }
 
-    /// Where the next knight in arrives: the arrival cell, or the first free
-    /// place two cells from it, so a party stands apart and not in one spot.
     fn arrival_for_next(&self) -> (i32, i32) {
         let seed = self.caves.seed.max(1);
         let (sx, sy) = spawn_cell(seed);
@@ -1214,7 +1141,6 @@ impl Run {
         (sx, sy)
     }
 
-    /// Any knight who stands on the mouth for the usual stair time goes in alone.
     pub(crate) fn stands_on_cave_mouth(&self, id: u32) -> bool {
         if self.caves.inside(id) {
             return false;
@@ -1380,7 +1306,6 @@ impl Run {
         let mut pack = seat.pack();
         let (fx, fy) = if dx == 0 && dy == 0 { face_step(seat.face) } else { (dx, dy) };
         let (tx, ty) = aim_cell(seat.x as i32, seat.y as i32, input, fx, fy);
-        // A held key is one hit every `SWING_EVERY` ticks, so the cracks show.
         if input.fire && seat.rested(tick) {
             let before: u8 = pack.stone.iter().sum();
             if self.fire_at(&mut pack, tx, ty) {
@@ -1450,14 +1375,11 @@ impl Run {
         }
     }
 
-    /// The shovel on the cell in front. True when it struck something.
     fn fire_at(&mut self, pack: &mut world::Pack, x: i32, y: i32) -> bool {
         let Some(cell) = self.caves.cell(x, y) else {
             return false;
         };
         let tick = self.tick as u32;
-        // An open ice floor does not melt under a shovel: a dull chip, and
-        // a few ice chips from the frost rock-chip sheet. Thin water still closes.
         if cell.ice() && !cell.wall() {
             self.caves.burst(tick, x, y, BURST_CHIP);
             self.sounds.push("rock_land");
@@ -1470,8 +1392,6 @@ impl Run {
         if !cell.wall() {
             return false;
         }
-        // One hit. A loose wall opens on hit 3; hits 1 and 2 crack it. Hard
-        // rock only rings: it takes magic.
         let mut dig = world::Dig::Miss;
         self.caves.edit(x, y, |cave| dig = cave.shovel(pack, x, y));
         match dig {
@@ -1483,7 +1403,6 @@ impl Run {
         true
     }
 
-    /// Magic on the cell in front. True when it was spent.
     fn magic_at(&mut self, pack: &mut world::Pack, x: i32, y: i32, element: u8) -> bool {
         let Some(cell) = self.caves.cell(x, y) else {
             return false;
@@ -1522,7 +1441,6 @@ impl Run {
             let cy = (i as i32) / w;
             self.caves.record(cx, cy, cell);
             if before[i] & world::FL_WALL != 0 && !cell.wall() {
-                // The aimed cell breaks with the blast, its neighbours two ticks after.
                 let late = if (cx, cy) == (x, y) { 0 } else { 2 };
                 self.caves.burst(tick + late, cx, cy, BURST_CRUMBLE);
             }
@@ -1718,7 +1636,6 @@ fn face_of(dx: i32, dy: i32) -> u8 {
 }
 
 fn aim_cell(x: i32, y: i32, input: &Input, dx: i32, dy: i32) -> (i32, i32) {
-    // A zero on one axis is part of the aim, not a request to use facing.
     let aimed = input.aim_x != 0 || input.aim_y != 0;
     let ax = if aimed { i32::from(input.aim_x) } else { dx };
     let ay = if aimed { i32::from(input.aim_y) } else { dy };
@@ -1748,7 +1665,6 @@ fn element_of(hero: &Hero, cast: u8) -> u8 {
     0
 }
 
-/// The yard mouth, if this tile is it. Other entrances win first.
 pub fn yard_mouth(kind: RoomKind, col: i32, row: i32) -> Option<&'static Entrance> {
     let (x, y, w, h) = YARD_MOUTH.at;
     (kind == RoomKind::Gate && col >= x && col < x + w && row >= y && row < y + h).then_some(&YARD_MOUTH)
@@ -1761,7 +1677,7 @@ pub fn floor_mouth(kind: RoomKind, col: i32, row: i32) -> Option<&'static Entran
 
 #[cfg(test)]
 #[path = "../../tests/rules/caves__tests.rs"]
-mod tests; // cf1 proof stills live in this module
+mod tests;
 
 #[cfg(test)]
 mod proven_set {

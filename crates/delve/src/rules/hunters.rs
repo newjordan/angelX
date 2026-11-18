@@ -14,9 +14,6 @@
 use super::foes::Deeds;
 use super::*;
 
-/// The Flesher's hook in flight: whose it is, where its head is, the way
-/// it flies, how far it has gone, whether it is coming back, and the
-/// knight it caught.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Hook {
     pub by: u32,
@@ -28,7 +25,6 @@ pub struct Hook {
     pub caught: Option<u32>,
 }
 
-/// A web on the floor: where, and ticks left.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Web {
     pub x: f32,
@@ -36,26 +32,19 @@ pub struct Web {
     pub left: u32,
 }
 
-/// How far the hook flies, how fast out and back, the stare before the
-/// throw, how often, and how hard the cleaver lands on a knight reeled in.
 pub const HOOK_RANGE: f32 = 15.0;
 const HOOK_SPEED: f32 = 22.0;
 const REEL_SPEED: f32 = 16.0;
 pub const HOOK_WINDUP: u32 = 20;
 const HOOK_EVERY: u32 = 4 * HZ;
 const HOOK_DAMAGE: u32 = 20;
-/// The rot round the Flesher: its reach, and a point of health every few
-/// ticks (it never fells a knight; the cleaver does that).
 pub const ROT_REACH: f32 = 2.6;
 const ROT_EVERY: u32 = 8;
-/// A web's reach, how long it lasts, and the pace a knight keeps in one.
 pub const WEB_REACH: f32 = 2.6;
 pub const WEB_LASTS: u32 = 8 * HZ;
 pub const WEB_PACE: f32 = 0.6;
-/// The most spiderlings a room holds at once.
 const BROOD: usize = 6;
 
-/// One of the third company's steps. False for any other monster.
 pub(super) fn act(
     enemy: &mut Enemy,
     heroes: &[(f32, f32)],
@@ -91,7 +80,6 @@ pub(super) fn act(
                 deeds.rot.push((enemy.x, enemy.y));
             }
             match enemy.stage {
-                // Shamble after the party; when one is in reach, stare.
                 0 => {
                     walk(enemy, (cx, cy), 1.6);
                     let ready = enemy.timer >= HOOK_EVERY + (enemy.id % 4) * 9;
@@ -99,7 +87,6 @@ pub(super) fn act(
                         (enemy.stage, enemy.timer, enemy.dir) = (1, 0, (cx, cy));
                     }
                 }
-                // The stare: his line shows on the floor.
                 1 => {
                     if enemy.timer >= HOOK_WINDUP {
                         deeds.hooks.push((enemy.id, enemy.x, enemy.y, enemy.dir));
@@ -107,7 +94,6 @@ pub(super) fn act(
                         (enemy.stage, enemy.timer) = (2, 0);
                     }
                 }
-                // Reeling in, out of breath.
                 _ => {
                     if enemy.timer >= 2 * HZ {
                         (enemy.stage, enemy.timer) = (0, 0);
@@ -116,7 +102,6 @@ pub(super) fn act(
             }
         }
         Silkmother => {
-            // Keep off, sidling; webs under the knights, spiderlings.
             let side = if enemy.id.is_multiple_of(2) { 1.0 } else { -1.0 };
             let way = if dist < 8.0 {
                 (-cx, -cy)
@@ -139,7 +124,6 @@ pub(super) fn act(
             }
         }
         _ => {
-            // A spiderling scuttles straight in, zig-zagging.
             let zig = ((enemy.age as f32) * 0.5 + enemy.id as f32).sin() * 0.6;
             walk(enemy, unit(cx - cy * zig, cy + cx * zig), 5.4);
         }
@@ -148,7 +132,6 @@ pub(super) fn act(
 }
 
 impl Run {
-    /// Hooks thrown, webs spun, the rot: make what the hunters did so.
     pub(super) fn hunt(
         &mut self,
         hooks: Vec<(u32, f32, f32, (f32, f32))>,
@@ -188,7 +171,6 @@ impl Run {
         }
     }
 
-    /// Hooks fly and reel in; webs fade.
     pub(super) fn tick_hunters(&mut self) {
         for web in &mut self.webs {
             web.left = web.left.saturating_sub(1);
@@ -203,7 +185,6 @@ impl Run {
                 .find(|e| e.id == hook.by && e.hp > 0)
                 .map(|e| (e.x, e.y, e.radius()))
             else {
-                // The Flesher fell: his hook drops whatever it held.
                 done.push(i);
                 continue;
             };
@@ -212,8 +193,6 @@ impl Run {
                 let step = REEL_SPEED * DT;
                 let next = (hook.x + ux * step, hook.y + uy * step);
                 let home = (bx - next.0).hypot(by - next.1) < br + 1.0;
-                // A reeled knight stops at a barred door or a wall. The hook
-                // may go on; the knight does not follow through stone.
                 if let Some(id) = hook.caught {
                     let room = &self.dungeon.rooms[self.at];
                     let grid = Grid { room, barred: self.barred() };
@@ -223,8 +202,6 @@ impl Run {
                         let followed = (stopped.0 - next.0).hypot(stopped.1 - next.1) < 0.08;
                         (hero.x, hero.y) = stopped;
                         if followed && home {
-                            // A ward after a hit holds against the hook too: no
-                            // reel-in lands on a blow just taken.
                             hero.hurt(HOOK_DAMAGE);
                             self.room_hurt = true;
                             self.fx.push(Fx::Shake(6));
@@ -251,7 +228,6 @@ impl Run {
                     (hook.x, hook.y) = next;
                     hook.out += step;
                 }
-                // The first knight it touches, unless rolling clear.
                 let caught = self
                     .players
                     .iter()
@@ -272,12 +248,10 @@ impl Run {
         }
     }
 
-    /// Whether a knight standing at `(x, y)` is in a web.
     pub(super) fn webbed(webs: &[Web], x: f32, y: f32) -> bool {
         webs.iter().any(|w| (w.x - x).hypot(w.y - y) < WEB_REACH)
     }
 
-    /// The spiderlings a room holds now, for the brood's cap.
     pub(super) fn brood_full(&self) -> bool {
         self.enemies
             .iter()

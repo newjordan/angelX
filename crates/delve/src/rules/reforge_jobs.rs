@@ -81,7 +81,6 @@ fn bounded(value: &impl Serialize, limit: usize) -> bool {
     serde_json::to_vec(value).is_ok_and(|bytes| bytes.len() <= limit)
 }
 impl Work {
-    /// Canonical retained result identity, shared by owners and read-only clients.
     pub fn result_id(session: &str, raid: u64, request: u64) -> String {
         let hash = session.bytes().fold(0xcbf29ce484222325u64, |h, b| {
             (h ^ u64::from(b)).wrapping_mul(0x100000001b3)

@@ -9,7 +9,6 @@ use crate::render::overworld::arena::{NATIVE_H, NATIVE_W, scene_for};
 use crate::rules::cosmetic_wish::key;
 use crate::rules::{Pack as Kit, RoomKind, Rng, Run, layout, looks, resolution};
 
-/// A folder of its own under the temporary directory.
 fn scratch(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("angel-hd-looks-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -26,8 +25,6 @@ fn write_png(path: &Path, (w, h): (u32, u32), colour: [u8; 4]) {
 const GREEN: [u8; 4] = [40, 160, 60, 255];
 const RED: [u8; 4] = [200, 30, 30, 255];
 
-/// A looks folder as the host composes it: seat 2's sugarloaf knight, every
-/// frame of its idle, both hands, one drawing 64 by 80 in `colour`.
 fn composed(dir: &Path, colour: [u8; 4]) {
     write_png(&dir.join("mirror-look-1/frog.png"), (64, 80), colour);
     let art: Vec<String> = (0..6)
@@ -51,7 +48,6 @@ fn drawn(width: u32, scale: u32) -> NamedDrawing {
     }
 }
 
-/// No pack installed when the test is over, and the floor's own rung rule.
 struct Clean;
 impl Clean {
     fn new() -> Self {
@@ -79,7 +75,6 @@ fn a_looks_pack_laid_over_a_base_replaces_the_keys_it_names_and_keeps_the_rest()
     ]);
     let over = Pack::of(4, []).with_named([(A.to_string(), drawn(64, 4))]);
     let merged = base.overlaid(&over);
-    // Every rung of the key it names is the looks pack's: a knight is the wished figure, not the wished figure under a still.
     let widths = |pack: &Pack, key: &str| -> Vec<u32> {
         let mut w: Vec<_> = [2, 4, 8].iter().filter_map(|&s| pack.named_for(key, "bare", s, false)).map(|d| d.drawing.width).collect();
         w.dedup();
@@ -106,13 +101,11 @@ fn a_watch_finds_the_looks_without_a_restart_and_gives_them_up_when_the_file_goe
     let mut watch = LooksWatch::new(Some(base.clone()));
     let t0 = Instant::now();
 
-    // Nowhere to look yet, then a folder with no file: the base is what is installed.
     assert!(!watch.refresh(t0));
     watch.set_dir(dir.clone());
     assert!(!watch.refresh(t0 + Duration::from_secs(2)));
     assert_eq!(installed().unwrap().generation(), base.generation());
 
-    // The job lands: the next look at the folder lays it over.
     composed(&dir, GREEN);
     assert!(!watch.refresh(t0 + Duration::from_millis(2500)), "looked at once a second");
     assert!(watch.refresh(t0 + Duration::from_secs(4)));
@@ -122,17 +115,14 @@ fn a_watch_finds_the_looks_without_a_restart_and_gives_them_up_when_the_file_goe
     assert_eq!((frog.drawing.width, frog.drawing.height, &frog.drawing.rgba[..4]), (64, 80, &GREEN[..]));
     assert_eq!(pack.named_for(B, "bare", 4, false).map(|d| d.drawing.width), Some(30), "the base's knights stay");
     assert!(pack.warnings().is_empty(), "{:?}", pack.warnings());
-    // Nothing changed: nothing is read again.
     assert!(!watch.refresh(t0 + Duration::from_secs(6)));
     assert_eq!(installed().unwrap().generation(), pack.generation());
 
-    // Another look for the same key is the one drawn from then on.
     std::thread::sleep(Duration::from_millis(20));
     composed(&dir, RED);
     assert!(watch.refresh(t0 + Duration::from_secs(8)));
     assert_eq!(&installed().unwrap().named_for(A, "bare", 4, false).unwrap().drawing.rgba[..4], &RED[..]);
 
-    // The roster emptied (the host takes the file away): the base alone.
     std::fs::remove_file(dir.join(MANIFEST)).unwrap();
     assert!(watch.refresh(t0 + Duration::from_secs(10)));
     assert_eq!(installed().unwrap().generation(), base.generation());
@@ -153,7 +143,6 @@ fn a_watch_with_no_base_installs_the_looks_alone_and_takes_them_away() {
     std::fs::remove_file(dir.join(MANIFEST)).unwrap();
     assert!(watch.refresh(t0 + Duration::from_secs(2)));
     assert!(installed().is_none());
-    // A looks pack that is not a pack: its warnings are the log's, the knight keeps its inks.
     std::fs::write(dir.join(MANIFEST), "not json").unwrap();
     assert!(watch.refresh(t0 + Duration::from_secs(4)));
     assert!(installed().is_none_or(|p| p.named_len() == 0));
@@ -176,7 +165,6 @@ fn crypt_fight() -> Run {
     panic!("no fight room on the Crypt's first floor");
 }
 
-/// What the game named, for seat `n`.
 fn seat(run: &Run, n: u32) -> Vec<(crate::render::overworld::arena::room_scene::Body, Named)> {
     let scene = scene_for(run, NATIVE_W, NATIVE_H, Some(1));
     let tag = format!("/seat{n}/");
@@ -189,7 +177,6 @@ fn a_knight_drawn_whole_from_its_look_is_drawn_by_the_looks_pack_and_the_other_s
     let dir = scratch("seats");
     let mut run = crypt_fight();
     let goose = run.players[&2].name.clone();
-    // Seat 2 wished a look; the worn painter's ink is on it.
     run.home.wardrobe.mirror_looks.insert(
         goose.clone(),
         crate::rules::cosmetic_wish::Look {
@@ -202,12 +189,10 @@ fn a_knight_drawn_whole_from_its_look_is_drawn_by_the_looks_pack_and_the_other_s
     assert_eq!(run.players[&2].worn(&run.book).len(), 1);
     let plain = crypt_fight();
 
-    // Floor one, rung 16, the ink on: seat 2 is the worn look, drawn by no name; seat 1 is the game's own knight, named.
     assert_eq!(resolution::rung(&run, 1).px(), 16);
     assert!(seat(&run, 2).is_empty(), "a knight wearing ink is nobody's named figure");
     assert_eq!(seat(&run, 1).len(), 1);
 
-    // The job lands: the run is told, and the looks pack is in the folder the window watches.
     composed(&dir, GREEN);
     let mut watch = LooksWatch::new(None);
     watch.set_dir(dir.clone());
@@ -223,22 +208,18 @@ fn a_knight_drawn_whole_from_its_look_is_drawn_by_the_looks_pack_and_the_other_s
     assert_eq!((sent[0].width, sent[0].height, &sent[0].rgba[..4]), (64, 80, &GREEN[..]));
     assert!(!placed.body, "the whole figure");
 
-    // Seat 1: no entry of its design and colours, and its own rung is 16: its inks.
     let (b1, n1) = &seat(&run, 1)[0];
     assert!(n1.key.contains("/great-helm/") && n1.key.contains("/seat1/"));
     assert_eq!(n1.rung.px(), 16);
     assert!(HdArt::default().picture(b1, &mut Vec::new()).is_none(), "seat 1's frames do not come from the new entries");
-    // Not even at its finest rung: nothing in the pack is its key.
     resolution::set_rule(Some(resolution::Rule::Fixed(resolution::BODY_RUNG)));
     let (b1, _) = &seat(&run, 1)[0];
     assert!(HdArt::default().picture(b1, &mut Vec::new()).is_none());
     resolution::set_rule(None);
 
-    // What the 1x frame shows is the plain seat knight, as for a seat with no look at all: the ink is not laid over the rig.
     let flat = scene_for(&run, NATIVE_W, NATIVE_H, Some(1)).compose();
     assert!(flat == scene_for(&plain, NATIVE_W, NATIVE_H, Some(1)).compose(), "a terminal sees the plain knight");
 
-    // Off again (a new wish, a lost set): the worn ink is on the knight, nothing is drawn by name.
     assert!(run.set_mirror_body(&key(&goose), "", false));
     assert!(seat(&run, 2).is_empty());
     assert_eq!(run.players[&2].worn(&run.book).len(), 1);

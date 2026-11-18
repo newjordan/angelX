@@ -8,17 +8,12 @@
 //! and it's yours, and the crown with it.
 use super::*;
 
-/// The goose's pace (a knight walks at 13), how near is caught, how far a
-/// peck knocks you, and how long a honk holds its attention.
 pub const GOOSE_PACE: f32 = 16.0;
-/// How long a grab startles it (it rears and honks) before it gives chase.
 pub const STARTLE: u32 = HZ * 3 / 4;
 const CAUGHT: f32 = 1.1;
 const PECK: f32 = 3.0;
 pub const HONK: u32 = 3 * HZ;
 
-/// The heist under way: the goose (units), who carries the sail (0: on
-/// its spot), and who it is honked at, for how long.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Heist {
     pub goose: (f32, f32),
@@ -38,7 +33,6 @@ impl Heist {
     }
 }
 
-/// Where the goose stands guard: a step west of the sail.
 pub fn guard() -> (f32, f32) {
     ((CLOTH.0 - 1.5) * TILE_UNITS, CLOTH.1 * TILE_UNITS)
 }
@@ -51,12 +45,9 @@ pub const QUEST_MARKS: [&str; 6] = [
 ];
 pub const PLOT: usize = 13;
 pub const KITE: (i32, i32, i32, i32) = (19, 10, 2, 1);
-/// The Windmill's end of the kite: in the open north meadow, clear of the
-/// bakery, the goat lift and the corner HUD.
 pub const MILL_KITE: (i32, i32, i32, i32) = (14, 4, 2, 1);
 pub const MAKER: (f32, f32) = (5.0, 9.0);
 pub const CLOTH: (f32, f32) = (19.5, 5.0);
-/// The painted flags spell FISH / BOOT / CROWN; the levers are not in that order.
 pub const FLAGS: [(f32, f32); 3] = [(5.0, 5.5), (12.0, 9.0), (19.0, 5.5)];
 pub const ORDER: [usize; 3] = [2, 0, 1];
 
@@ -81,13 +72,11 @@ pub fn shape(room: &mut Room) {
 impl Run {
     pub(super) fn tick_windcountry(&mut self, inputs: &BTreeMap<u32, Input>) {
         let kind = self.room().kind;
-        // E as pressed this tick, not held from the last.
         let held = self.players.keys()
             .filter(|id| inputs.get(id).is_some_and(|i| i.valid() && i.interact))
             .fold(0u8, |bits, &id| bits | 1 << (id & 7));
         let pressed = held & !self.lever_held;
         self.lever_held = held;
-        // Off the green with the sail: the heist is won.
         if kind != RoomKind::GooseGreen {
             if let Some(h) = self.heist.take() {
                 if h.carrier != 0 && self.players.contains_key(&h.carrier) {
@@ -130,12 +119,10 @@ impl Run {
     }
 }
 impl Run {
-    /// The green: grab, chase, honk, peck.
     fn tick_heist(&mut self, pressed: u8) {
         let mut h = self.heist.take().unwrap_or(Heist { goose: guard(), ..Default::default() });
         let cloth = (CLOTH.0 * TILE_UNITS, CLOTH.1 * TILE_UNITS);
         let able = |hero: &hero::Hero| hero.hp > 0 && !hero.stone && hero.privy == 0;
-        // E: grab the sail from its spot, or honk at the goose.
         for (&id, hero) in self.players.iter().filter(|(_, x)| able(x)) {
             if pressed & 1 << (id & 7) == 0 {
                 continue;
@@ -151,7 +138,6 @@ impl Run {
                 self.found = Some((self.tick, id, format!("HONK! IT WANTS {}.", hero.name.to_uppercase())));
             }
         }
-        // Who it goes for: the honker, else the thief, else home to guard.
         if let Some((_, t)) = h.honked.as_mut() {
             *t = t.saturating_sub(1);
         }
@@ -177,7 +163,6 @@ impl Run {
                 h.goose.1 += dy;
             }
         }
-        // Caught: a peck, and the sail goes home if it was the thief.
         if let Some(id) = target {
             let g = h.goose;
             let room = &self.dungeon.rooms[self.at];
@@ -193,7 +178,6 @@ impl Run {
                     hero.invulnerable = HZ;
                     let name = hero.name.to_uppercase();
                     self.sounds.push("hero_hurt");
-                    // A honker stays its quarry until the honk wears off.
                     if h.carrier == id {
                         h.carrier = 0;
                         self.found = Some((self.tick, id, "HONK! THE GOOSE TOOK IT BACK.".into()));
@@ -206,7 +190,6 @@ impl Run {
         self.heist = Some(h);
     }
 
-    /// The sail got away: the job moves on, and the thief is crowned.
     fn sail_away(&mut self, carrier: u32) {
         self.marks.insert(QUEST_MARKS[1].into(), 1);
         if self.party_len() > 1 {

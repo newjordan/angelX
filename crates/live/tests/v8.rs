@@ -53,7 +53,6 @@ fn the_pool_runs_a_script_with_a_fresh_context_and_no_tools() {
         backend::evaluate("return {value: (await Promise.resolve(41)) + 1}").unwrap(),
         r#"{"value":42}"#
     );
-    // Nothing a call defines survives into the next one.
     backend::evaluate("globalThis.leak = 7; return 1").unwrap();
     assert_eq!(
         backend::evaluate("return typeof globalThis.leak").unwrap(),
@@ -95,16 +94,13 @@ fn a_cached_setup_runs_once_per_key_and_a_failed_call_forgets_it() {
     let bump = "return ++feature.n";
     assert_eq!(warm.run_cached("a", setup, bump, deadline).unwrap(), "1");
     assert_eq!(warm.run_cached("a", setup, bump, deadline).unwrap(), "2");
-    // Another key is another context.
     assert_eq!(warm.run_cached("b", setup, bump, deadline).unwrap(), "1");
     assert_eq!(warm.run_cached("a", setup, bump, deadline).unwrap(), "3");
-    // A failing call drops its context; the next call builds the setup again.
     assert!(
         warm.run_cached("a", setup, "throw Error('boom')", deadline)
             .is_err()
     );
     assert_eq!(warm.run_cached("a", setup, bump, deadline).unwrap(), "1");
-    // A call's own locals are scoped to that call.
     warm.run_cached("a", setup, "const mine = 5; return mine", deadline)
         .unwrap();
     assert_eq!(
@@ -112,7 +108,6 @@ fn a_cached_setup_runs_once_per_key_and_a_failed_call_forgets_it() {
             .unwrap(),
         "undefined"
     );
-    // A runaway call terminates its isolate; the next call rebuilds and runs.
     let error = warm
         .run_cached("a", setup, "for(;;){}", deadline)
         .unwrap_err();
@@ -180,8 +175,6 @@ fn a_system_module_calls_reuse_the_generation_setup_and_a_new_generation_replace
         registry.snapshot().surfaces["scoreboard"].lines,
         vec!["value 50"]
     );
-    // A new generation of the same module is a new key: its code answers at once,
-    // and the state carries over through the module's own `migrate` default.
     staged.source(
         "module.exports={apiVersion:2, initialize:()=>({count:0}), \
          reduce:(s,e)=>({state:{count:s.count+10},output:'new='+(s.count+10)}), \
@@ -194,7 +187,6 @@ fn a_system_module_calls_reuse_the_generation_setup_and_a_new_generation_replace
             .unwrap()["output"],
         "new=60"
     );
-    // A module whose reducer throws reports it and keeps serving afterwards.
     staged.source(
         "module.exports={apiVersion:2, migrate:()=>{throw Error('refused')}, reduce:()=>{}}",
     );
@@ -214,8 +206,6 @@ fn a_system_module_calls_reuse_the_generation_setup_and_a_new_generation_replace
     );
 }
 
-/// The pool without its cache: the call marker becomes a plain comment, so
-/// every call evaluates the whole script in a fresh context.
 fn whole_script(script: &str) -> Result<String, String> {
     backend::evaluate(&script.replace(angel_live::CALL_MARKER, "//"))
 }

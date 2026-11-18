@@ -21,31 +21,22 @@ mod hud;
 mod moments;
 pub(super) mod walls;
 
-/// Whether the room the party stands in is a Wax Maze's (its stone and
-/// lanes are laid by `walls`, with the room's scenery).
 pub(super) fn walled(run: &Run) -> bool {
     here(run).is_some_and(|m| m.crypt.2 > 0)
 }
 
-/// The maze in the room the party stands in.
 fn here(run: &Run) -> Option<&WaxMaze> {
     run.folly.as_ref().filter(|m| m.room == run.at)
 }
 
-/// Whether the skills bar keeps out of the view: the maze is being
-/// played in this room (its title card included).
 pub(super) fn tucks_tray(run: &Run) -> bool {
     here(run).is_some_and(|m| !m.done)
 }
 
-/// A tile's middle, in the room's pixels.
 fn middle((x, y): (i32, i32)) -> (i32, i32) {
     (x * TILE + TILE / 2, y * TILE + TILE / 2)
 }
 
-/// The maze's floor, in the room's pixels: the crypt's cells, the wax and
-/// the holy water, and the moments on the floor (a drop's pop, the holy
-/// water's rings). Once the podium is called it is just a crypt again.
 pub(super) fn floor(cv: &mut Img, run: &Run) {
     let Some(maze) = here(run) else {
         return;
@@ -55,7 +46,6 @@ pub(super) fn floor(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     if !maze.done {
         crypt(cv, maze);
-        // The wax: big cream drops, a glint travelling the lanes.
         for i in maze.wax.iter() {
             let (tx, ty) = tile(i);
             let (x, y) = middle((tx, ty));
@@ -63,7 +53,6 @@ pub(super) fn floor(cv: &mut Img, run: &Run) {
             let drop = bits::drop(glint);
             cv.stamp(drop, x - drop.w / 2, y - drop.h / 2);
         }
-        // The holy water: a flask in a ring of cold light, bubbles rising.
         let vial = wax_art::holy(tick);
         for &i in &maze.holy {
             let (x, y) = middle(tile(i));
@@ -78,8 +67,6 @@ pub(super) fn floor(cv: &mut Img, run: &Run) {
     fx::under(cv, run, maze);
 }
 
-/// The crypt's four cells, where the wraiths wait: a barred slot in each,
-/// and a pair of green eyes in it while its king rests.
 fn crypt(cv: &mut Img, maze: &WaxMaze) {
     for w in &maze.wraiths {
         let (x, y) = middle(w.home);
@@ -96,9 +83,6 @@ fn crypt(cv: &mut Img, maze: &WaxMaze) {
     }
 }
 
-/// How a wraith looks now, as the art team drew its moods: hunting, pale
-/// and fleeing, flashing as the holy water wears off, and at rest in the
-/// crypt (or a caught one's crown and eyes racing home), its robe gone.
 fn mood(maze: &WaxMaze, w: &Wraith) -> KingMood {
     if w.eyes || w.rest > 0 {
         KingMood::Rest
@@ -111,8 +95,6 @@ fn mood(maze: &WaxMaze, w: &Wraith) -> KingMood {
     }
 }
 
-/// A wraith's ink for an arrow at the view's edge: its robe's green when
-/// hunting, grey when pale, white as the pale wears off.
 fn ink(maze: &WaxMaze, w: &Wraith, tick: u64) -> char {
     match mood(maze, w) {
         KingMood::FleeEnding if tick / 4 % 2 == 0 => 'W',
@@ -121,13 +103,6 @@ fn ink(maze: &WaxMaze, w: &Wraith, tick: u64) -> char {
     }
 }
 
-/// The wraiths, in the room's pixels, over the knights: the art team's
-/// little green kings (`wax_art::king`), their robes a veil the room shows
-/// through and their crowns and eyes solid. The veil is laid as a
-/// half-tone, every other pixel on the room's own grid, so it holds still
-/// on the floor as the king moves and every pixel stays on the palette.
-/// Each has a shadow and a tail behind it, and is white a moment when
-/// caught; over them the knights' pointers, runs and moments (`fx`).
 pub(super) fn wraiths(cv: &mut Img, run: &Run) {
     let Some(maze) = here(run) else {
         return;
@@ -139,8 +114,6 @@ pub(super) fn wraiths(cv: &mut Img, run: &Run) {
             let (tx, ty) = w.pos();
             let (x, y) = at(tx * TILE_UNITS, ty * TILE_UNITS);
             let (x0, y0) = (x - veil.w / 2, y - veil.h / 2 - 1);
-            // An aura on the floor round it, so a king never merges with the
-            // stone: cold when pale, green when it hunts, dim when it waits.
             if !w.eyes {
                 let (aura, reach) = if maze.pale_now(w) { ('Q', 9) } else if w.rest > 0 { ('F', 7) } else { ('E', 9) };
                 for dy in -reach..=reach {
@@ -152,7 +125,6 @@ pub(super) fn wraiths(cv: &mut Img, run: &Run) {
                     }
                 }
             }
-            // Its shadow on the floor.
             if !w.eyes {
                 for dy in 0..3 {
                     for dx in -5..=5 {
@@ -162,7 +134,6 @@ pub(super) fn wraiths(cv: &mut Img, run: &Run) {
                     }
                 }
             }
-            // A tail trailing behind a king on the move.
             let (dx, dy) = ((w.to.0 - w.at.0).signum(), (w.to.1 - w.at.1).signum());
             if (dx, dy) != (0, 0) && w.roaming() {
                 for (j, back) in [7, 11, 15].into_iter().enumerate() {
@@ -199,9 +170,6 @@ pub(super) fn wraiths(cv: &mut Img, run: &Run) {
     fx::over(cv, run, maze, !maze.done);
 }
 
-/// The view's marks: the strip, the table's bar and the little map, the
-/// moments over the view and the title card; once the maze is won, the live
-/// finish and then the hall (`finish`).
 pub(super) fn screen(over: &mut Img, run: &Run, focus: Option<u32>, origin: (i32, i32)) {
     let Some(maze) = here(run) else {
         return;
@@ -228,14 +196,10 @@ pub(super) fn screen(over: &mut Img, run: &Run, focus: Option<u32>, origin: (i32
     }
 }
 
-/// How far down the view the strip reaches, for boards that settle under
-/// it.
 pub(super) fn strip_bottom(run: &Run) -> Option<i32> {
     here(run).map(|_| hud::BOTTOM)
 }
 
-/// The wraiths for `beyond`'s arrows: where each one abroad is, in the
-/// room's pixels, and its ink.
 pub(super) fn beyond(run: &Run) -> Vec<((i32, i32), char)> {
     let Some(maze) = here(run).filter(|m| !m.done) else {
         return Vec::new();

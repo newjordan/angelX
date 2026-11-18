@@ -225,9 +225,6 @@ impl Club for FailureCancellationClub {
             .map(|m| m.content.as_ref())
             .unwrap_or_default();
         if system.contains(&format!("node={} ", self.fail_node)) {
-            // Exercise the adversarial ordering: the sibling must enter
-            // the provider before the named node fails. Arrival order must
-            // never decide which node owns the failure.
             if self.fail_node == "first" {
                 let deadline = Instant::now() + Duration::from_secs(2);
                 while !self.sibling_started.load(Ordering::SeqCst) {
@@ -355,8 +352,6 @@ impl Club for RetryEpochClub {
         if system.contains("node=c ") {
             let attempt = self.c_calls.fetch_add(1, Ordering::SeqCst);
             if attempt == 0 {
-                // Keep the first C generation in flight until A has been
-                // retried, proving that its late landing is discarded.
                 Self::wait_for(&self.a_calls, 2, "retry target generation two")?;
                 return Ok(ClubReply::Text("c-stale-from-a1".to_string()));
             }
@@ -414,8 +409,6 @@ fn spec(name: &str, nodes: Vec<GraphNodeSpec>) -> GraphSpec {
 }
 
 fn engine(club: Arc<StubClub>) -> AgentGraphEngine {
-    // A quiet per-engine workspace: fingerprinting the shared temp root
-    // sees other tests' churn and trips run_turn's verification nudge.
     static WS: AtomicUsize = AtomicUsize::new(0);
     let dir = std::env::temp_dir().join(format!(
         "agent-graph-test-{}-{}",
@@ -654,8 +647,6 @@ fn agent_graph_stalled_stream_retries_and_sums_usage() {
         worker.stall_retries
     );
     let allocation = outcome.episode.token_allocation.as_ref().unwrap();
-    // The stalled attempt sent no usage, so the total stays unknown (accounting law);
-    // the reported subset is numeric and the unreported attempt is counted.
     assert!(
         allocation["paid_spent_reported"].as_u64().is_some(),
         "paid_spent_reported should be numeric: {allocation}"
@@ -667,9 +658,6 @@ fn agent_graph_stalled_stream_retries_and_sums_usage() {
     outcome.episode.validate().unwrap();
 }
 
-/// A cancelled graph run must not sit out a whole backoff: the seat's retry
-/// wait is sliced so the cancel lands within one slice, and an already
-/// cancelled seat issues no wait at all.
 #[test]
 fn graph_retry_backoff_wait_is_cancellable() {
     let cancel = Arc::new(AtomicBool::new(false));
@@ -692,11 +680,6 @@ fn graph_retry_backoff_wait_is_cancellable() {
     assert!(started.elapsed() < Duration::from_millis(50));
 }
 
-/// Scripted provider for graph retry-budget tests: every POST is counted and
-/// answered with one shape, so the number of provider attempts a node spends
-/// is exact. `cut` streams real prose, then holds the socket past the stall
-/// window (a recoverable cut); `permanent` answers 401 with stall context in
-/// the body (a permanent failure wearing a recoverable spelling).
 fn graph_fault_server(
     mode: &'static str,
     hold_ms: u64,
@@ -738,7 +721,6 @@ fn graph_fault_server(
                 );
                 continue;
             }
-            // Drain the body so the client never sees a reset on close.
             let head = String::from_utf8_lossy(&request).to_ascii_lowercase();
             let length: usize = head
                 .lines()
@@ -780,10 +762,6 @@ fn graph_fault_server(
     (url, hits, stop)
 }
 
-/// An explicit provider budget is a hard operator limit. A tool-bearing node
-/// is a full turn whose own budget owns recovery, so the graph must not start
-/// another turn after that allowance is spent: one attempt plus one retry is
-/// two provider requests, never four.
 #[test]
 fn agent_graph_tool_bearing_node_spends_the_explicit_retry_budget_once() {
     let _lock = crate::tests::env_lock();
@@ -834,9 +812,6 @@ fn agent_graph_tool_bearing_node_spends_the_explicit_retry_budget_once() {
     println!("G01j explicit budget: {attempts} provider attempts for ANGEL_PROVIDER_RETRIES=1");
 }
 
-/// A permanent failure that also reads like a stall must stay actionable in a
-/// toolless node: the graph's own retry may not launder a rejected credential
-/// into repeated paid attempts.
 #[test]
 fn agent_graph_toolless_node_does_not_retry_a_permanent_failure() {
     let _lock = crate::tests::env_lock();
@@ -915,7 +890,6 @@ impl Club for AllocatedGraphClub {
     }
 }
 
-/// Operator-ordered F01 contract: graph nodes and fan-in complete despite over-allocation.
 #[test]
 fn agent_graph_overallocation_admits_nodes_and_fanin() {
     let _lock = crate::tests::env_lock();
@@ -964,7 +938,6 @@ fn agent_graph_overallocation_admits_nodes_and_fanin() {
     outcome.episode.validate().unwrap();
 }
 
-/// Operator-ordered F01 contract: allocation mismatch and untracked providers never deny nodes.
 #[test]
 fn agent_graph_inherited_allocation_reports_untracked_provider_without_refusal() {
     let _lock = crate::tests::env_lock();
@@ -1025,8 +998,6 @@ fn agent_graph_shared_allocation_and_remaining_wall_reach_fanin() {
     outcome.episode.validate().unwrap();
 }
 
-/// The shared batching advisory follows the grant: a tool-bearing node gets
-/// it, a no-tool node is never told to batch calls it cannot make.
 #[test]
 fn node_prompt_batching_advisory_follows_the_grant() {
     let spec = node("worker", "do the thing", &[]);
@@ -1156,7 +1127,6 @@ fn validation_rejects_unordered_code_nodes_even_inside_a_diamond() {
     let error = validate_graph_spec(&graph).unwrap_err();
     assert!(error.contains("code nodes 'left-write' and 'right-write'"));
     assert!(error.contains("unordered"), "{error}");
-    // How to order them is the `⠰⠉` page beside the facts.
     let serialize = crate::agent::harness::book::d56_replies::SERIALIZE_WRITERS;
     assert!(error.contains(&serialize.cells()), "{error}");
     assert!(serialize.text().contains("depends_on"));
@@ -1177,8 +1147,6 @@ fn validation_rejects_unordered_code_nodes_even_inside_a_diamond() {
 
 #[test]
 fn validation_allows_transitively_ordered_code_and_parallel_read_only_nodes() {
-    // Reverse declaration order is deliberate: array position must not be
-    // mistaken for dependency reachability.
     let mut graph = spec(
         "ordered-code",
         vec![
@@ -1687,7 +1655,6 @@ fn gate_fail_loops_back_with_feedback_then_passes() {
         .unwrap();
     assert_eq!(review.retries, 1);
     assert_eq!(review.gate.as_deref(), Some("PASS"));
-    // The final answer is the gate sink's PASS verdict output.
     assert!(outcome.answer.contains("VERDICT: PASS"));
     outcome.episode.validate().expect("episode receipt audits");
     assert_eq!(outcome.episode.schema, GRAPH_EPISODE_SCHEMA);
@@ -2090,9 +2057,6 @@ fn operator_cancel_is_attributed_in_the_sealed_node_receipt() {
     let cancel = Arc::new(AtomicBool::new(false));
     let worker_cancel = Arc::clone(&cancel);
     let worker_club = Arc::clone(&club);
-    // Toolchain identity capture is deliberately an engine-construction
-    // preflight. Keep it outside the node-start deadline: this test is
-    // about cancellation of a running seat, not cold rustup/disk latency.
     let engine = AgentGraphEngine::new(
         std::env::temp_dir(),
         Some(worker_club as Arc<dyn Club>),
@@ -2509,9 +2473,6 @@ fn gate_evaluation_reads_the_last_verdict_line() {
 
 #[test]
 fn reward_binding_cli_round_trips_a_real_episode_end_to_end() {
-    // The full scorer chain, pinned: real episode receipt on disk → the
-    // real cockpit binary (`angel --bind-graph-reward`) → stdout receipt
-    // that matches the store. This is what sidecar scorers actually run.
     let _guard = crate::tests::env_lock();
     let root = std::env::temp_dir().join(format!(
         "agent-graph-reward-cli-{}-{}",
@@ -2533,9 +2494,6 @@ fn reward_binding_cli_round_trips_a_real_episode_end_to_end() {
     let episode_id = outcome.episode.episode_id.clone();
     let trace_id = outcome.episode.traces[0].trace_id.clone();
 
-    // Cargo exposes the built binary's path to integration-test processes
-    // via CARGO_BIN_EXE_angel; for unit tests inside the bin crate it is
-    // absent, so fall back to the sibling `angel` next to deps/<test-exe>.
     let binary = std::env::var("CARGO_BIN_EXE_angel")
         .ok()
         .or_else(|| {
@@ -2576,7 +2534,6 @@ fn reward_binding_cli_round_trips_a_real_episode_end_to_end() {
     assert_eq!(receipt["episode_id"], episode_id.as_str());
     assert_eq!(receipt["trace_id"], trace_id.as_str());
     assert_eq!(receipt["reward"]["score"], 1.0);
-    // And the receipt the CLI printed is byte-identical to the store's.
     let binding_path = root
         .join(crate::platform::workspace_store::workspace_key(&workspace))
         .join("episodes")
@@ -2614,11 +2571,9 @@ fn external_reward_binding_is_digest_tight_audited_and_idempotent() {
     let trace_id = trace.trace_id.clone();
     let output_sha = trace.output.as_ref().expect("trace output").sha256.clone();
 
-    // The sealed episode receipt itself stays reward-free forever.
     assert!(trace.reward.is_none() && trace.reward_source.is_none());
     assert!(!trace.eligibility.training_eligible);
 
-    // A valid binding records both digests it was bound against.
     let binding = bind_episode_reward(
         &workspace,
         &episode_id,
@@ -2637,7 +2592,6 @@ fn external_reward_binding_is_digest_tight_audited_and_idempotent() {
     assert_eq!(binding.reward_source, "coding_eval");
     assert_eq!(binding.reward_contract, "coding_eval_v1");
 
-    // The binding receipt is owner-only on disk.
     let binding_path = root
         .join(crate::platform::workspace_store::workspace_key(&workspace))
         .join("episodes")
@@ -2655,7 +2609,6 @@ fn external_reward_binding_is_digest_tight_audited_and_idempotent() {
         );
     }
 
-    // Identical re-binding is idempotent; a conflicting one is refused.
     let again = bind_episode_reward(
         &workspace,
         &episode_id,
@@ -2677,7 +2630,6 @@ fn external_reward_binding_is_digest_tight_audited_and_idempotent() {
     .unwrap_err();
     assert!(conflict.contains("refusing overwrite"), "{conflict}");
 
-    // Unknown trace, null reward, and oversized payloads are refused.
     let unknown = "f".repeat(64);
     assert!(
         bind_episode_reward(
@@ -2716,7 +2668,6 @@ fn external_reward_binding_is_digest_tight_audited_and_idempotent() {
         .contains("maximum")
     );
 
-    // A tampered episode receipt fails its digest audit before any bind.
     let episode_path = root
         .join(crate::platform::workspace_store::workspace_key(&workspace))
         .join("episodes")
@@ -2792,7 +2743,6 @@ fn graph_planner_only_is_incomplete_not_completed() {
     let graph = spec("planner-only", vec![node("planner", "plan {task}", &[])]);
     let cancel = AtomicBool::new(false);
     let outcome = engine(Arc::clone(&club)).run(&graph, "task", &cancel);
-    // A lone planner is the sink: it did finish with a result.
     let outcome = outcome.unwrap();
     assert!(outcome.snapshot.fanin.finished_with_result);
     assert_eq!(
@@ -2946,10 +2896,6 @@ fn direct_graph_keeps_tool_generation_when_override_changes_between_nodes() {
     assert!(seen.iter().all(|value| value == "graph tool generation one"), "{seen:?}");
 }
 
-/// What a graph trace records for a node turn that ended in each stop reason.
-/// Flags are passed through as given; `kind` and `infrastructure_failure` are
-/// derived. An idle-timeout node reads `kind: deadline` with whatever
-/// `deadline_reached` the turn carried (false when the watchdog stopped it).
 #[test]
 fn graph_trace_termination_for_every_stop_reason_is_pinned() {
     use TurnStopReason::*;
@@ -2980,7 +2926,6 @@ fn graph_trace_termination_for_every_stop_reason_is_pinned() {
     }
 }
 
-/// Fails the named node with `text` and lets every other node answer.
 struct NodeErrorClub {
     fail_node: &'static str,
     text: &'static str,
@@ -3037,9 +2982,6 @@ fn run_failed_graph(fail_node: &'static str, text: &'static str) -> GraphRunErro
     .unwrap_err()
 }
 
-/// A provider error that happens to say "cancelled" is the node's own failure,
-/// not an operator cancellation: the label, the phase and the episode kind
-/// say so.
 #[test]
 fn a_node_error_that_says_cancelled_is_a_failed_run_not_a_cancelled_one() {
     let error = run_failed_graph("joiner", "request cancelled by upstream proxy");
@@ -3060,7 +3002,6 @@ fn a_node_error_that_says_cancelled_is_a_failed_run_not_a_cancelled_one() {
     );
 }
 
-/// The same goes for a node whose id happens to contain the word.
 #[test]
 fn a_node_id_that_says_cancelled_is_a_failed_run_not_a_cancelled_one() {
     let error = run_failed_graph("cancelled_orders", "forced failure");
@@ -3076,8 +3017,6 @@ fn a_node_id_that_says_cancelled_is_a_failed_run_not_a_cancelled_one() {
     );
 }
 
-/// Pinned today: an ordinary node failure's label and the reason text a caller
-/// reads after "did not complete:".
 #[test]
 fn a_plain_node_failure_labels_node_failed_and_keeps_its_reason_text() {
     let club_error = "forced failure";
@@ -3127,8 +3066,6 @@ fn a_plain_node_failure_labels_node_failed_and_keeps_its_reason_text() {
     );
 }
 
-/// Pinned today: an operator cancel labels `cancelled`, a graph deadline
-/// labels with its own text.
 #[test]
 fn operator_cancel_and_deadline_keep_their_incomplete_labels() {
     let _guard = crate::tests::env_lock();
@@ -3186,8 +3123,6 @@ fn operator_cancel_and_deadline_keep_their_incomplete_labels() {
     assert_eq!(failure.episode.incomplete_reason.as_deref(), Some(text));
 }
 
-/// Today's text classifier, kept here as the oracle the typed reasons must
-/// match for every reason except a node's own failure.
 fn legacy_label(reason: &str, cancelled: bool) -> String {
     if cancelled || reason.contains("cancelled") {
         return "cancelled".to_string();
@@ -3252,7 +3187,6 @@ fn graph_wind_labels_match_the_old_text_classifier() {
     }
 }
 
-/// The texts callers read after "did not complete:" and in the snapshot.
 #[test]
 fn graph_wind_reasons_keep_their_texts() {
     assert_eq!(GraphWind::Cancelled.reason(), "cancelled by operator");
@@ -3272,12 +3206,9 @@ fn graph_wind_reasons_keep_their_texts() {
         GraphWind::FaninIncomplete.reason(),
         "terminal fan-in did not finish with a result"
     );
-    // The planner text mentions "no schedulable", so it has always labelled
-    // as `no_schedulable_nodes`, never `planner_no_plan`.
     assert_eq!(GraphWind::PlannerNoPlan.label(), "no_schedulable_nodes");
 }
 
-/// The one deliberate change: a node's own words never make a cancelled run.
 #[test]
 fn a_node_failure_that_says_cancelled_labels_node_failed() {
     let wind = GraphWind::NodeFailed {

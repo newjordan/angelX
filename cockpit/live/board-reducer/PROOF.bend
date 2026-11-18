@@ -1,9 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
 
-# Each law is a closed equality between literal verdicts, so its proof only
-# re-runs the same disposition: no journal or adapter behaviour is claimed.
-
 def Laws.a_mismatched_identity_conflicts_before_a_duplicate():
   {==}
 

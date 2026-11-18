@@ -13,19 +13,11 @@ use angel_plug::feed::{
 use ratatui::crossterm::event::KeyCode;
 use std::sync::mpsc;
 
-/// Display-side sensing can arrive in a reconnect burst. Preserve FIFO while
-/// preventing that optional telemetry from monopolizing input/draw latency.
 pub const VILLAGE_PULSES_PER_FRAME: usize = 64;
 
 #[derive(Default)]
 pub struct State {
-    /// Last-seen loop facts diffed each frame into `AdventureEvent`s for the
-    /// world quest (`adventure.rs`). Drains whether or not the world pane is
-    /// visible — quest state must track the loop like the village pulses.
     pub(crate) loop_mirror: LoopMirror,
-    /// Pulses from the village's single background sensing thread (forge +
-    /// head health, rare chatter), drained in `advance`. `None` when the
-    /// village is off (`ANGEL_VILLAGE=0`) or under test.
     pub village_rx: Option<mpsc::Receiver<VillagePulse>>,
 }
 
@@ -139,7 +131,6 @@ impl FeedWorld for Delve {
                 }
             }
             Feed::Notice { text, painted } => {
-                // The scriptorium copies a scroll for every compaction.
                 if text.starts_with("compacting context") {
                     self.host.dungeon.ops.note(Op::Compactions);
                 }
@@ -247,8 +238,6 @@ impl FeedWorld for Delve {
         let facts = read();
         let has_id = facts.has_id;
         let summary = summary_of(facts);
-        // The loop log is persisted by loop_ctl. Iteration boundaries alone
-        // are not receipts (resume may first observe iteration 200).
         if has_id {
             self.host.sync_loop(&summary);
         }
@@ -274,8 +263,6 @@ impl FeedWorld for Delve {
             elapsed_secs: facts.budget.elapsed_secs,
             deadline_secs: facts.budget.deadline_secs,
         });
-        // Share the visual inactivity/blocker interpretation with the quest.
-        // Objective-comparison absence is not evidence of an idle party.
         let agitated = active && LoopMirror::stall_level(&summary_of(facts)) >= 2;
         self.host
             .world
@@ -346,8 +333,6 @@ impl FeedRules for Delve {
                 ..StageAct::default()
             };
         }
-        // Keep the familiar key as a status shortcut. Dotmax is the
-        // sole outdoor renderer; room entry owns plate transitions.
         if matches!(code, KeyCode::Char('v')) {
             world_viz::world3d::cycle();
             return StageAct {

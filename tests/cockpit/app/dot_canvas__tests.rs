@@ -28,7 +28,6 @@ fn ink_pixels(raster: &image::RgbaImage) -> Vec<(u32, u32)> {
         .collect()
 }
 
-/// Standard 8-dot Braille: columns 0,1 and rows 0..4, bits 0..=7.
 const DOT_MAP: [(u32, u32, char); 8] = [
     (0, 0, '\u{2801}'),
     (0, 1, '\u{2802}'),

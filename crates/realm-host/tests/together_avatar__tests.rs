@@ -16,7 +16,6 @@ fn encode(image: &RgbaImage, format: ImageFormat) -> Vec<u8> {
     bytes
 }
 
-/// A 300×300 picture: a red knight body with a blue helm on `background`.
 fn knight(background: Rgba<u8>) -> RgbaImage {
     RgbaImage::from_fn(300, 300, |x, y| {
         if (130..170).contains(&x) && (40..80).contains(&y) {
@@ -45,7 +44,6 @@ fn avatar_on_a_flat_background_becomes_a_clean_sprite_and_portrait() {
     let portrait = decode(&checked.avatar.portrait);
     assert_eq!(sprite.dimensions(), (SPRITE, SPRITE));
     assert_eq!(portrait.dimensions(), (PORTRAIT, PORTRAIT));
-    // Cropped and centred: the corners are clear and the body fills the middle.
     assert_eq!(sprite.get_pixel(0, 0)[3], 0);
     assert_eq!(sprite.get_pixel(16, 24)[3], 255);
     assert!(sprite.pixels().all(|p| p[3] == 0 || p[3] == 255));
@@ -133,7 +131,6 @@ fn avatar_instructions_carry_the_players_words_and_the_rules() {
 
 #[test]
 fn avatar_rejects_a_scene_of_separate_things_and_clears_stray_specks() {
-    // Two equal figures side by side: not one character.
     let pair = RgbaImage::from_fn(300, 300, |x, y| {
         if (40..120).contains(&x) && (60..240).contains(&y)
             || (180..260).contains(&x) && (60..240).contains(&y)
@@ -145,7 +142,6 @@ fn avatar_rejects_a_scene_of_separate_things_and_clears_stray_specks() {
     });
     let errors = check(&encode(&pair, ImageFormat::Png)).unwrap_err();
     assert!(errors[0].contains("several separate things"), "{errors:?}");
-    // A knight with a few sparkles keeps the knight and drops the sparkles.
     let mut sparkly = knight(Rgba([255, 255, 255, 255]));
     for (x, y) in [(20, 20), (270, 30), (25, 280)] {
         for dx in 0..3 {

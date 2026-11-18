@@ -110,8 +110,6 @@ impl UiPolicy {
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct GamePolicy {
-    /// An overlay, not a rewrite of the workspace's saved tuning. Omitted
-    /// names inherit the host's normal tuning again on the next generation.
     pub knobs: BTreeMap<String, f64>,
 }
 

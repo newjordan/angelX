@@ -19,8 +19,6 @@ mod loop_dialog_source;
 mod drive {
     pub(crate) use crate::loop_dialog_source as loop_dialog;
 }
-// The composer reaches the game through `app::control::realm::GameHost`: here
-// the Delve's own cartridge, as in a default build.
 mod app {
     pub(crate) mod control {
         pub(crate) mod realm {
@@ -46,7 +44,6 @@ use ui::loop_card::{self, Phase, Race};
 
 const DOCK_GROUP: u32 = 0x4C4F_4F50;
 
-/// What the window shows at one moment of the script.
 #[derive(Clone)]
 enum Scene {
     Open(LoopLaunchDialog),
@@ -92,7 +89,7 @@ fn main() {
         let mut terminal = Terminal::new(host.backend()).unwrap();
         let task = "ship the parser rewrite behind a feature flag";
         let mut open = LoopLaunchDialog::new(task, 0, false);
-        open.focus_next(); // laps, while the production keyboard cycle starts at clock
+        open.focus_next();
         let mut clock = open.clone();
         clock.focus_prev();
         let mut fuel = clock.clone();
@@ -129,7 +126,6 @@ fn main() {
             )
         };
 
-        // (from, scene, shots: (at, name)) — times after the window settles.
         let script: Vec<(f32, Scene, Vec<(f32, &str)>)> = vec![
             (
                 0.0,
@@ -248,8 +244,6 @@ fn main() {
             .flat_map(|(_, _, s)| s.iter().map(|(at, n)| (at + delay, n.to_string())))
             .collect();
         shots.sort_by(|a, b| a.0.total_cmp(&b.0));
-        // The films are made at the window's own cell size and grid, again
-        // whenever those change (the window settles its size after it opens).
         let mut art: Option<loop_card::Art> = None;
         let mut stilled = false;
         let start = Instant::now();
@@ -305,7 +299,6 @@ fn main() {
                 root.width.min(80),
                 root.height.min(24),
             );
-            // The ticker's strip under the fake cockpit's one-row header.
             let ticker_area = Rect::new(
                 root.x,
                 root.y.saturating_add(1),
@@ -398,7 +391,6 @@ fn main() {
     }
 }
 
-/// A cockpit behind the card: its header, a transcript, the message box.
 fn cockpit(b: &mut ratatui::buffer::Buffer, r: Rect) {
     let ink = Style::default().fg(Color::Rgb(96, 104, 116));
     let head = Style::default().fg(Color::Rgb(120, 150, 190));
@@ -447,7 +439,6 @@ fn cockpit(b: &mut ratatui::buffer::Buffer, r: Rect) {
     );
 }
 
-/// The films' own frames and the goal shot as stills, on the card's glass.
 fn stills(out: &Path, art: Option<&loop_card::Art>) {
     use angel_delve::render::racers::card;
     let save = |name: &str, film: &card::Film, i: usize, scale: u32| {

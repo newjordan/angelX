@@ -1,13 +1,4 @@
 #!/usr/bin/env bash
-# angel-setup.sh — `angelX setup`: connect a model.
-#
-# Finds what this machine already has (model servers running on localhost, API
-# keys in the environment, ChatGPT or Grok plan logins), lets the operator pick
-# one or add a key or a server, and saves the choice to ~/.angelX/angel.env.
-# bin/angelX loads that file on every interactive launch, and runs this script
-# by itself once (--first-run) when nothing at all is configured.
-#
-# Plain bash 3.2 and curl, no python: it has to run on a stock Mac.
 set -euo pipefail
 
 first_run=0
@@ -17,7 +8,6 @@ settings_shown="~/.angelX/angel.env"
 
 say() { printf '%s\n' "$*"; }
 
-# ask PROMPT [DEFAULT] → REPLY. End of input ends setup.
 ask() {
   if [ -n "${2:-}" ]; then printf '%s [%s]: ' "$1" "$2"; else printf '%s: ' "$1"; fi
   IFS= read -r REPLY || { printf '\n'; exit 1; }
@@ -33,8 +23,6 @@ ask_secret() {
 
 have_curl() { command -v curl >/dev/null 2>&1; }
 
-# http_get URL [KEY] → HTTP_CODE and HTTP_BODY. The key travels to curl on
-# stdin, never on the command line where other users could read it.
 http_get() {
   local body code
   body=$(mktemp)
@@ -49,16 +37,12 @@ http_get() {
   rm -f "$body"
 }
 
-# Model ids of an OpenAI-style /models answer, in order.
 model_ids() { tr ',{}[]' '\n\n\n\n\n' | sed -n -E 's/^ *"id" *: *"([^"]*)" *$/\1/p'; }
 
-# envval NAME: a variable's value by name (names come from the fixed tables here).
 envval() { eval "printf '%s' \"\${$1:-}\""; }
 
-# --- saving ----------------------------------------------------------------
 sq() { printf '%s' "$1" | sed "s/'/'\\\\''/g"; }
 
-# save NAME VALUE [NAME VALUE …]: replace those names in angel.env, keep the rest.
 save() {
   local tmp names="" i
   mkdir -p "$HOME/.angelX"
@@ -87,7 +71,6 @@ saved() {
   say "Connected: $1. Saved to $settings_shown; run \`angelX setup\` to change it."
 }
 
-# pick_model IDS DEFAULT_NUMBER → MODEL. One model is picked without asking.
 pick_model() {
   local ids="$1" count n=0 id
   count=$(printf '%s\n' "$ids" | grep -c . || true)

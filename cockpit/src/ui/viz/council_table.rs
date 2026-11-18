@@ -14,16 +14,11 @@ use std::sync::OnceLock;
 
 const STATION: &[u8] = include_bytes!("../../../assets/realm/v2/interiors/station-round-table.png");
 
-/// The painted table's opaque box inside the 144x144 plate, with a pixel of
-/// air for the outlines drawn at its edge.
 const CROP: (u32, u32, u32, u32) = (4, 7, 136, 125);
 
-/// Composed picture size: the station plate's table, uncropped pixels.
 pub(crate) const WIDTH: u32 = CROP.2;
 pub(crate) const HEIGHT: u32 = CROP.3;
 
-/// The eight throne chairs, clockwise from the head of the table, in plate
-/// pixels: the chair's cushion, then the place laid before it.
 const CHAIRS: [((i32, i32), (i32, i32)); 8] = [
     ((72, 26), (72, 45)),
     ((113, 38), (104, 53)),
@@ -35,8 +30,6 @@ const CHAIRS: [((i32, i32), (i32, i32)); 8] = [
     ((31, 38), (40, 53)),
 ];
 
-/// Seats past the eighth sit between the thrones: their places lie on the
-/// rim between two laid places.
 const STOOLS: [(i32, i32); 8] = [
     (88, 46),
     (113, 63),
@@ -50,10 +43,8 @@ const STOOLS: [(i32, i32); 8] = [
 
 const MAP_CENTRE: (i32, i32) = (72, 74);
 
-/// The table top's rim, so a vacant throne darkens and the timber does not.
 const TABLE_TOP: ((i32, i32), f32, f32) = ((72, 75), 57.0, 41.0);
 
-/// The deed at the centre of the table, the portal shader's `STAGE_*`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub(crate) enum Deed {
     #[default]
@@ -64,8 +55,6 @@ pub(crate) enum Deed {
 }
 
 impl Deed {
-    /// The deed a stage names: synthesis, any judge panel, a verify round,
-    /// and the bare table for every other stage.
     pub(crate) fn of_stage(stage: &str) -> Self {
         match stage {
             "synthesis" => Self::Synthesis,
@@ -76,7 +65,6 @@ impl Deed {
     }
 }
 
-// Realm inks (cockpit/assets/realm/palette.json, as the shader names them).
 const INK_N: [u8; 3] = [0x1a, 0x0e, 0x07];
 const INK_FLAME_CORE: [u8; 3] = [0xff, 0xf2, 0xc4];
 const INK_6: [u8; 3] = [0xfb, 0xd0, 0x70];
@@ -96,8 +84,6 @@ fn station() -> &'static RgbaImage {
     })
 }
 
-/// Where each of `count` seats sits: an even spread over the thrones while
-/// they suffice, then the rim stools in order.
 fn seat_places(count: usize) -> Vec<Place> {
     let count = count.min(CHAIRS.len() + STOOLS.len());
     if count <= CHAIRS.len() {
@@ -117,14 +103,11 @@ enum Place {
     Stool(usize),
 }
 
-/// Ordered 4x4 dither threshold in 0..1, for pixel-art light falloff.
 fn bayer(x: i32, y: i32) -> f32 {
     const M: [[u8; 4]; 4] = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
     (f32::from(M[(y & 3) as usize][(x & 3) as usize]) + 0.5) / 16.0
 }
 
-/// A light pool around `at`: 1 at the centre to 0 at radius `r`, flattened
-/// to dithered steps so the plate keeps hard pixels.
 fn pool(x: i32, y: i32, at: (i32, i32), rx: f32, ry: f32) -> f32 {
     let dx = (x - at.0) as f32 / rx;
     let dy = (y - at.1) as f32 / ry;
@@ -144,8 +127,6 @@ fn near(x: i32, y: i32, at: (i32, i32), rx: f32, ry: f32) -> bool {
     dx * dx + dy * dy <= 1.0
 }
 
-/// Compose the lit table for `states` (one per seat, up to sixteen) and the
-/// stage's `deed`. The result is `WIDTH`x`HEIGHT`, transparent off the table.
 pub(crate) fn compose(states: &[SeatState], deed: Deed) -> RgbaImage {
     let plate = station();
     let places = seat_places(states.len());
@@ -168,7 +149,6 @@ pub(crate) fn compose(states: &[SeatState], deed: Deed) -> RgbaImage {
             if a == 0 {
                 continue;
             }
-            // Dusk over the hall; the map keeps its own lamp.
             let mut light: f32 = if near(px, py, MAP_CENTRE, 31.0, 21.0) {
                 0.95
             } else {
@@ -256,7 +236,6 @@ fn put(out: &mut RgbaImage, x: i32, y: i32, ink: [u8; 3]) {
     }
 }
 
-/// Paint a sprite of rows: `.` leaves the table, letters pick inks.
 fn sprite(out: &mut RgbaImage, at: (i32, i32), rows: &[&str], inks: &[(char, [u8; 3])]) {
     let h = rows.len() as i32;
     let w = rows.iter().map(|row| row.len()).max().unwrap_or(0) as i32;
@@ -274,19 +253,18 @@ fn sprite(out: &mut RgbaImage, at: (i32, i32), rows: &[&str], inks: &[(char, [u8
     }
 }
 
-/// A lit candle at a sitting seat's place.
 fn candle(out: &mut RgbaImage, at: (i32, i32)) {
     sprite(
         out,
         (at.0, at.1 - 2),
         &[
-            "..o..", //
-            ".oyo.", //
-            ".oWo.", //
-            "oyWyo", //
-            ".nwn.", //
-            ".nwn.", //
-            ".nwn.", //
+            "..o..",
+            ".oyo.",
+            ".oWo.",
+            "oyWyo",
+            ".nwn.",
+            ".nwn.",
+            ".nwn.",
             "nnnnn",
         ],
         &[
@@ -299,7 +277,6 @@ fn candle(out: &mut RgbaImage, at: (i32, i32)) {
     );
 }
 
-/// An answer laid on the table: bright parchment, or red for a failure.
 fn parchment(out: &mut RgbaImage, at: (i32, i32), failed: bool) {
     let (sheet, line, seal) = if failed {
         (INK_WAX_LIGHT, INK_WAX_DARK, INK_WAX_DARK)
@@ -310,31 +287,29 @@ fn parchment(out: &mut RgbaImage, at: (i32, i32), failed: bool) {
         out,
         at,
         &[
-            "nnnnnnnnn", //
-            "nwwwwwwwn", //
-            "nwllllwwn", //
-            "nwwwwwwwn", //
-            "nwlllllwn", //
-            "nwwwwwssn", //
+            "nnnnnnnnn",
+            "nwwwwwwwn",
+            "nwllllwwn",
+            "nwwwwwwwn",
+            "nwlllllwn",
+            "nwwwwwssn",
             "nnnnnnnnn",
         ],
         &[('w', sheet), ('l', line), ('s', seal), ('n', INK_N)],
     );
 }
 
-/// A seat past the eighth throne: a short candle or a folded answer on the
-/// rim between two thrones.
 fn stool_mark(out: &mut RgbaImage, at: (i32, i32), state: SeatState) {
     match state {
         SeatState::Running => sprite(
             out,
             (at.0, at.1 - 1),
             &[
-                ".o.", //
-                "oWo", //
-                "oyo", //
-                "nwn", //
-                "nwn", //
+                ".o.",
+                "oWo",
+                "oyo",
+                "nwn",
+                "nwn",
                 "nnn",
             ],
             &[
@@ -355,10 +330,10 @@ fn stool_mark(out: &mut RgbaImage, at: (i32, i32), state: SeatState) {
                 out,
                 at,
                 &[
-                    "nnnnnnn", //
-                    "nwwwwwn", //
-                    "nwllwwn", //
-                    "nwwwwwn", //
+                    "nnnnnnn",
+                    "nwwwwwn",
+                    "nwllwwn",
+                    "nwwwwwn",
                     "nnnnnnn",
                 ],
                 &[('w', sheet), ('l', line), ('n', INK_N)],
@@ -368,7 +343,6 @@ fn stool_mark(out: &mut RgbaImage, at: (i32, i32), state: SeatState) {
     }
 }
 
-/// The deed on the map at the table's heart.
 fn deed_mark(out: &mut RgbaImage, deed: Deed) {
     match deed {
         Deed::Council => {}
@@ -376,18 +350,18 @@ fn deed_mark(out: &mut RgbaImage, deed: Deed) {
             out,
             MAP_CENTRE,
             &[
-                "..........nnn..........", //
-                "nnnnnnnnnnnynnnnnnnnnnn", //
-                "nyyyyyyyyyyyyyyyyyyyyyn", //
-                "nnnonnnnnnnynnnnnnnonnn", //
-                "..non.....nyn.....non..", //
-                ".no.on....nyn....no.on.", //
-                ".no.on....nyn....no.on.", //
-                "no...on...nyn...no...on", //
-                "nyyyyyn...nyn...nyyyyyn", //
-                ".noooon...nyn...noooon.", //
-                "..nnnn...nnynn...nnnn..", //
-                ".........nyyyn.........", //
+                "..........nnn..........",
+                "nnnnnnnnnnnynnnnnnnnnnn",
+                "nyyyyyyyyyyyyyyyyyyyyyn",
+                "nnnonnnnnnnynnnnnnnonnn",
+                "..non.....nyn.....non..",
+                ".no.on....nyn....no.on.",
+                ".no.on....nyn....no.on.",
+                "no...on...nyn...no...on",
+                "nyyyyyn...nyn...nyyyyyn",
+                ".noooon...nyn...noooon.",
+                "..nnnn...nnynn...nnnn..",
+                ".........nyyyn.........",
                 "........nnnnnnn........",
             ],
             &[('y', INK_6), ('o', INK_4), ('n', INK_N)],
@@ -396,17 +370,17 @@ fn deed_mark(out: &mut RgbaImage, deed: Deed) {
             out,
             MAP_CENTRE,
             &[
-                "....nnnnnnn....", //
-                "..nnwwwwwwwnn..", //
-                ".nwwddddddwwwn.", //
-                ".nwdwwwlwwwdwn.", //
-                "nwwdwwwlwwwdwwn", //
-                "nwdwwlllllwwdwn", //
-                "nwdwwwwlwwwwdwn", //
-                "nwdwwwwlwwwwdwn", //
-                ".nwdwwwwwwwdwn.", //
-                ".nwwddddddwwwn.", //
-                "..nnwwwwwwwnn..", //
+                "....nnnnnnn....",
+                "..nnwwwwwwwnn..",
+                ".nwwddddddwwwn.",
+                ".nwdwwwlwwwdwn.",
+                "nwwdwwwlwwwdwwn",
+                "nwdwwlllllwwdwn",
+                "nwdwwwwlwwwwdwn",
+                "nwdwwwwlwwwwdwn",
+                ".nwdwwwwwwwdwn.",
+                ".nwwddddddwwwn.",
+                "..nnwwwwwwwnn..",
                 "....nnnnnnn....",
             ],
             &[
@@ -424,9 +398,6 @@ fn deed_mark(out: &mut RgbaImage, deed: Deed) {
     }
 }
 
-/// Scale the composed table to fill `target` pixels with its shape kept:
-/// whole-pixel nearest up to the next multiple past the target, then one
-/// smooth step down, so the painted pixels stay hard at any cell size.
 pub(crate) fn fit(picture: &RgbaImage, target: (u32, u32)) -> RgbaImage {
     let (w, h) = (picture.width().max(1), picture.height().max(1));
     let s = (target.0 as f32 / w as f32).min(target.1 as f32 / h as f32);
@@ -442,7 +413,6 @@ pub(crate) fn fit(picture: &RgbaImage, target: (u32, u32)) -> RgbaImage {
     image::imageops::resize(&big, out.0, out.1, image::imageops::FilterType::Triangle)
 }
 
-/// Cells the picture needs at `rows` tall, its shape kept for `cell` pixels.
 pub(crate) fn columns_for(rows: u16, cell: (u16, u16)) -> u16 {
     let (cw, ch) = (f32::from(cell.0.max(1)), f32::from(cell.1.max(1)));
     let px_h = f32::from(rows) * ch;
@@ -450,8 +420,6 @@ pub(crate) fn columns_for(rows: u16, cell: (u16, u16)) -> u16 {
     (px_w / cw).round().max(1.0) as u16
 }
 
-/// One identity per distinct picture, so a sequence bump that changes no
-/// seat or deed re-uses the encoded frame.
 pub(crate) fn picture_key(states: &[SeatState], deed: Deed) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();

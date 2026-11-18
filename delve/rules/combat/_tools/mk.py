@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""Local build for the combat group: its fragments and its own stubs only
-(other groups' half-written stubs never block a check).
-
-    python3 delve/rules/combat/_tools/mk.py [out.bend]   -> delve/build/combat.bend
-"""
 import importlib.util
 import re
 import pathlib
@@ -25,7 +20,7 @@ def git_files(prefix):
     r = subprocess.run(["git", "ls-tree", "-r", "HEAD", "--name-only", prefix], cwd=ROOT, capture_output=True, text=True)
     return sorted(x for x in r.stdout.split() if x.endswith(".bend"))
 
-sources = []   # (label, text)
+sources = []
 for f in sorted((ROOT / "delve" / "rules" / "combat").glob("*.bend")):
     sources.append((str(f.relative_to(ROOT)), f.read_text()))
 for g in os.environ.get("MK_WITH", "").split():

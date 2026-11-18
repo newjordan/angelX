@@ -70,11 +70,9 @@ fn a_sooting_is_blamed_on_the_keg_whose_fire_it_stood_in() {
     let s = show.soots.last().unwrap();
     assert_eq!((s.who, s.by, s.lost), (1, 2, 3));
     assert!(show.shouts.iter().any(|c| c.cry == Cry::Soot));
-    // Sooting the one who sooted you is a payback.
     blast_at(&mut show, 200, 1, (9, 9), &[], 0);
     show.sooted(201, 2, (9, 10), (2, 2), 3);
     assert!(show.shouts.iter().any(|c| c.cry == Cry::Payback && c.who == 1));
-    // Your own keg is an own keg.
     blast_at(&mut show, 300, 3, (7, 7), &[], 0);
     show.sooted(301, 3, (7, 7), (3, 3), 0);
     assert!(show.shouts.iter().any(|c| c.cry == Cry::OwnKeg));
@@ -110,7 +108,6 @@ fn the_picture_walks_a_keg_s_lanes_as_the_rules_do() {
     let room = run.room().clone();
     let p = run.powder.as_mut().unwrap();
     p.t = crate::rules::folly::TITLE;
-    // The corner knight's tile: a keg set there.
     let at = p.corners[&1];
     let (arms, hit) = cross(&room, &p.crates, at);
     let crates_before = p.crates.len();

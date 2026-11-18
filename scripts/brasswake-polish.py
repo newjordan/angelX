@@ -28,8 +28,6 @@ def module(name):
 boss = module('boss-art')
 brass = module('brasswake-art')
 INK = boss.palette()
-# Each material has exactly four authored levels, cool contour to warm light.
-# Use the realm's actual pigment names rather than approximate duplicated RGBs.
 REVERSE = {v: k for k, v in INK.items()}
 RAMPS = {name: ''.join(REVERSE[c] for c in colours) for name, colours in {
     'copper': [(69, 39, 18), (120, 70, 32), (169, 118, 57), (216, 169, 94)],
@@ -124,7 +122,6 @@ def keeper(source):
     for n in range(12):
         x, y = n % 4 * source.width // 4, n // 4 * source.height // 3
         tile = brass.components(boss.extract(source.crop((x, y, x + source.width // 4, y + source.height // 3)), 'neutral', 65))
-        # Source eye colours locate the face; their texture is discarded below.
         bright = {(xx, yy) for yy in range(tile.height) for xx in range(tile.width)
                   if (lambda c: c[3] and c[1] > 105 and c[0] < c[1] * .76 and c[2] > c[0] * 1.15)(tile.getpixel((xx, yy)))}
         parts = sorted(boss.components(bright), key=len, reverse=True)[:2]
@@ -156,7 +153,6 @@ def keeper(source):
                     if im.getpixel((xx, yy)) == INK[RAMPS['copper'][0]] + (255,):
                         im.putpixel((xx, yy), INK[RAMPS['copper'][1]] + (255,))
         eye = [(round(cx * factor) + x, round(cy * factor) + y) for cx, cy in centres[n]]
-        # Hand-shaped belly lights replace the last fragmented rivet clusters.
         d = ImageDraw.Draw(im)
         if n in [0, 1, 2, 8, 9]:
             d.polygon([(28, 43), (35, 41), (39, 42), (37, 47), (33, 49), (29, 46)], fill=INK[RAMPS['copper'][3]] + (255,))
@@ -176,8 +172,6 @@ def porter(im, n, eye):
         for x in range(max(1, cx - 9), min(47, cx + 9)):
             if im.getpixel((x, y)) == INK[RAMPS['copper'][1]] + (255,) and all(im.getpixel(p)[3] for p in boss.neighbours(x, y)):
                 im.putpixel((x, y), INK[RAMPS['copper'][2]] + (255,))
-    # A stout keg apron with two broad hoops and a stave light gives the porter
-    # a brewery trade, rather than an indistinct orange belly beneath a hood.
     if n not in [4, 6, 10]:
         for yy, width, colour in [(cy + 9, 14, RAMPS['slate'][1]), (cy + 17, 12, RAMPS['slate'][1])]:
             for y in range(yy, yy + 2):
@@ -188,7 +182,6 @@ def porter(im, n, eye):
             for x in range(cx - 3, cx):
                 if im.getpixel((x, y))[3]:
                     im.putpixel((x, y), INK[RAMPS['copper'][3]] + (255,))
-        # Cap brim makes the face's direction explicit at native size.
         d.line([(cx - 7, cy - 4), (cx + 6, cy - 4)], fill=INK[RAMPS['slate'][2]] + (255,), width=2)
     lenses(im, [(cx - 3, cy - 1), (cx + 3, cy - 1)], dim=n == 10)
     return finish(im, [RAMPS['copper'], RAMPS['slate']])
@@ -196,7 +189,6 @@ def porter(im, n, eye):
 
 def effects():
     for n in range(4):
-        # Full-width crowns meet the 48-pixel boss slam box without changing it.
         im = Image.new('RGBA', (48, 32))
         d = ImageDraw.Draw(im)
         y = 23 + n

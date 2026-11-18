@@ -20,8 +20,6 @@ mod builder_tests;
 #[path = "client_creation__tests.rs"]
 mod creation_tests;
 
-/// The host's half, for feeding a client: a run, its publisher (as a
-/// host keeps one), and what one client was last sent of it.
 struct Host {
     run: Run,
     publisher: wire::Publisher,
@@ -35,7 +33,6 @@ impl Host {
         Host { run, publisher: wire::Publisher::default(), names: Writer::default(), last: None, tick: 0 }
     }
 
-    /// The next snapshot for `seat`: (tick, whole, body).
     fn snapshot(&mut self, seat: Option<u32>) -> (u32, bool, Vec<u8>) {
         self.tick += 1;
         let tree = self.publisher.publish(&self.run).unwrap();
@@ -104,7 +101,6 @@ fn tap(bits: u32) -> Hands {
 #[test]
 fn the_welcome_sets_the_size_and_a_stale_page_is_turned_away() {
     let c = DelveClient::boot(&welcome(Some(1), &Params { world3d: false, deep3d: false, atari: false }.encode())).unwrap();
-    // The party's band over the room's view.
     assert_eq!((c.size(), c.seat()), ((384, 224 + (arena::BAND_H + arena::HUD_H) as u32), Some(1)));
     assert!(DelveClient::boot(&welcome(Some(1), &[9, 0])).is_err());
     assert!(DelveClient::boot(&welcome(Some(1), &[])).is_err());
@@ -123,13 +119,10 @@ fn snapshots_are_patched_read_back_and_kept() {
         assert_eq!(c.newest().unwrap().projectiles.len(), host.run.projectiles.len());
     }
     assert_eq!(c.kept.len(), KEEP);
-    // Nothing changed: an empty body moves the newest tick on.
     let (tick, whole, body) = host.snapshot(Some(0));
     assert!(!whole && body.is_empty());
     c.snapshot(tick, false, &body).unwrap();
     assert_eq!(c.newest_tick(), Some(tick));
-    // A patch that does not fit, or bytes that are not one, are refused
-    // and leave the run held as it was.
     let held = c.newest().unwrap().tick;
     assert!(c.snapshot(tick + 1, false, &[0x7f, 1, 2]).is_err());
     assert!(c.snapshot(tick + 1, true, &[]).is_err());
@@ -143,8 +136,6 @@ fn wish_notices_follow_authoritative_windows_for_each_seat_once() {
     let mut clients: Vec<_> = (0..4).map(|seat| (Host::new(host.run.clone()), client(Some(seat)))).collect();
     for (h, c) in &mut clients { h.send(c); }
     host.run.clear_for_test();
-    // Wishes are given (a new floor, a floor's boss fell): what the notices
-    // follow, wherever they came from.
     for hero in host.run.players.values_mut() {
         hero.wishes = 0;
     }
@@ -160,7 +151,6 @@ fn wish_notices_follow_authoritative_windows_for_each_seat_once() {
         assert_eq!(read(h, c, &host.run), ["notice Wishes given. Rub the genie's lamp (E) and wish."]);
         assert!(read(h, c, &host.run).is_empty());
     }
-    // Learning also spends a wish before a card is granted.
     host.run.spend_wish(4);
     for (index, (h, c)) in clients.iter_mut().enumerate() {
         let lines = read(h, c, &host.run);
@@ -168,7 +158,6 @@ fn wish_notices_follow_authoritative_windows_for_each_seat_once() {
         if index == 3 { assert_eq!(lines, ["notice Wish spent: none held."]); }
         assert!(read(h, c, &host.run).is_empty());
     }
-    // A fall/revival and the next fight are not wish spending or earning.
     host.run.players.get_mut(&1).unwrap().hp = 0;
     for (h, c) in &mut clients { assert!(read(h, c, &host.run).is_empty()); }
     host.run.players.get_mut(&1).unwrap().hp = 3;
@@ -184,26 +173,21 @@ fn the_keys_make_the_old_seats_inputs() {
     let walk = c.command(&held(button::UP | button::RIGHT | button::AIM_LEFT | button::FIRE));
     assert_eq!((walk.held.move_x, walk.held.move_y, walk.held.aim_x, walk.held.aim_y), (1, -1, -1, 0));
     assert!(walk.held.fire && !walk.held.dash);
-    // Shift with a walk dashes; Space dashes standing.
     assert!(c.command(&held(button::SHIFT | button::LEFT)).held.dash);
     assert!(!c.command(&held(button::SHIFT)).held.dash);
     assert!(c.command(&held(button::JUMP)).held.dash);
-    // E meets the world and takes gear; the rest of the keys.
     let e = c.command(&held(button::USE));
     assert!(e.held.interact && e.held.take);
     let keys = c.command(&held(key::BOMB | key::DRINK | key::VIGIL | key::ULT | button::ALT | button::SLOT3 | key::SKILLS[4]));
     let i = keys.held;
     assert!(i.bomb && i.vigil && i.ult && i.swing);
     assert_eq!((i.play, i.cast, i.skill), (1, 3, 5));
-    // A tap shorter than a tick is in the command's presses.
     let t = c.command(&tap(button::FIRE | key::SKILLS[1]));
     assert!(!t.held.fire && t.pressed.fire);
     assert_eq!((t.pressed.skill, t.input().skill), (2, 2));
     assert!(t.input().fire);
-    // A pad's stick leaning a little is no walk; past the lean it is.
     let mut lean = |x: i8| c.command(&Hands { x, ..Hands::default() }).held.move_x;
     assert_eq!((lean(30), lean(-90), lean(127)), (0, -1, 1));
-    // Every command reads back on the server's side.
     for cmd in [walk, e, keys, t] {
         let mut b = Vec::new();
         DelveClient::encode_cmd(&cmd, &mut b);
@@ -220,14 +204,12 @@ fn the_ballot_takes_the_keys_until_it_shuts() {
     let vote = open.pressed.vote.expect("the toggle goes out");
     assert_eq!(vote.action, Action::Toggle);
     assert!(c.ballot_open(), "open at once on this screen");
-    // Until the run takes it, it is sent again, and nothing else is.
     let again = c.command(&held(button::RIGHT | button::FIRE));
     assert_eq!(again.pressed.vote, Some(vote));
     assert_eq!(again.input().move_x, 0);
     host.step(&[(0, again)]);
     host.send(&mut c);
     assert!(host.run.playtest.open(1) && c.ballot_open());
-    // In the ballot the arrows choose and the digits rate.
     let down = c.command(&tap(button::AIM_DOWN));
     assert_eq!(down.pressed.vote.map(|v| v.action), Some(Action::Down));
     host.step(&[(0, down)]);
@@ -236,7 +218,6 @@ fn the_ballot_takes_the_keys_until_it_shuts() {
     assert_eq!(rate.pressed.vote.map(|v| v.action), Some(Action::Rate(5)));
     host.step(&[(0, rate)]);
     host.send(&mut c);
-    // Esc shuts it, and the keys are the game's again.
     let close = c.command(&tap(button::MENU));
     assert_eq!(close.pressed.vote.map(|v| v.action), Some(Action::Close));
     assert!(!c.ballot_open());
@@ -260,14 +241,10 @@ fn the_map_key_held_lays_the_floor_over_this_seats_screen_and_nothing_else() {
     };
     let plain = draw(&mut c, Hands::default());
     assert!(!c.map_open());
-    // Held, the whole floor is over the view.
     let up = draw(&mut c, held(key::MAP_KEY));
     assert!(c.map_open() && up != plain);
-    // And the key is no one else's business: the command is as with no key.
     assert_eq!(c.command(&held(key::MAP_KEY)), c.command(&held(0)));
-    // Let go, the view is as it was.
     assert!(draw(&mut c, Hands::default()) == plain && !c.map_open());
-    // The ballot has the key for "not tried yet": no map behind it.
     let open = c.command(&tap(key::BALLOT));
     host.step(&[(0, open)]);
     host.send(&mut c);
@@ -276,8 +253,6 @@ fn the_map_key_held_lays_the_floor_over_this_seats_screen_and_nothing_else() {
     assert!(!c.map_open());
 }
 
-/// The map key held at the Keep stands the view back for the page as for the window (the page
-/// draws through `DelveClient::draw`, which must wrap its frame in `stand_back::with`).
 #[test]
 #[ignore = "needs the blank-slate plan standing: ANGEL_REALM_PLAN=tabula"]
 fn the_page_draws_the_stand_back_view_when_the_map_key_is_held_at_the_keep() {
@@ -320,7 +295,6 @@ fn a_press_during_the_floors_plate_dismisses_it_and_does_nothing_else() {
     assert!(!c.command(&held(0)).pressed.skip_plate, "asked once it is gone");
 }
 
-/// The party at home, in the Forest, a game a knight may pause or leave.
 fn forest() -> Run {
     let mut home = home::Home::default();
     home.levels.insert(home::Station::Wing, 1);
@@ -348,11 +322,9 @@ fn escape_pauses_a_rooms_game_and_enter_leaves_it() {
     let pause = c.command(&tap(button::MENU));
     assert!(c.menu_open() && pause.held.activity_menu);
     assert!(!pause.input().fire && pause.input().move_x == 0);
-    // Paused, the knight waits; Esc again resumes.
     assert!(c.command(&held(button::RIGHT)).held.activity_menu);
     c.command(&tap(button::MENU));
     assert!(!c.menu_open());
-    // Enter leaves, and asks until the run has the knight out.
     let leave = c.command(&tap(key::LEAVE));
     assert!(leave.pressed.leave_activity);
     host.step(&[(0, leave)]);
@@ -378,11 +350,9 @@ fn the_own_knight_walks_on_the_next_frame_ahead_of_the_server() {
     c.draw(&view(&c, &[], 0, Hands::default(), 0.0), &mut frame);
     assert_eq!((frame.w, frame.h), (384, 224 + (arena::BAND_H + arena::HUD_H) as u32));
     assert_eq!(c.drawn_at(), Some(server), "standing, drawn where the server has it");
-    // D held, no command sampled yet: a part of a tick walked at once.
     c.draw(&view(&c, &[], 0, held(button::RIGHT), 0.3), &mut frame);
     let (x, _) = c.drawn_at().unwrap();
     assert!(x > server.0, "the next frame shows the key");
-    // Two commands the server has not answered: two ticks on, then more.
     let right = DelveCmd { held: Input { move_x: 1, ..Input::default() }, pressed: Input::default() };
     let pending = [(1, right), (2, right)];
     c.draw(&view(&c, &pending, 0, held(button::RIGHT), 0.0), &mut frame);
@@ -390,9 +360,7 @@ fn the_own_knight_walks_on_the_next_frame_ahead_of_the_server() {
     c.draw(&view(&c, &pending, 0, held(button::RIGHT), 0.5), &mut frame);
     let (more, _) = c.drawn_at().unwrap();
     assert!(two > x && more > two, "{server:?}: a third of a tick {x}, two ticks {two}, and a half {more}");
-    // The newest run held is the server's word still.
     assert_eq!(c.newest().unwrap().players[&1].x, server.0);
-    // The server takes them and agrees: nothing to correct.
     host.step(&[(0, right)]);
     host.send(&mut c);
     host.step(&[(0, right)]);
@@ -422,7 +390,6 @@ fn a_frame_is_the_seats_own_view_at_its_art_size() {
     lines.clear();
     c.lines(&mut lines);
     assert!(lines.is_empty(), "said once");
-    // Cards in hand: the page is told where their plates are, to drag.
     host.run.players.get_mut(&1).unwrap().hand = vec!["potion".into(), "holy-water".into()];
     host.step(&[]);
     host.send(&mut c);
@@ -456,7 +423,6 @@ fn the_band_holds_a_card_for_every_knight_wherever_they_stand() {
     let (w, h) = (384, 224 + arena::BAND_H + arena::HUD_H);
     let paper = |w: u32| if w >> 24 == 0 { 0xff00_0000 } else { w };
     let rows = (arena::band_rows(h) as usize) * w as usize;
-    // The band is the whole party's, as it is drawn from the run in full.
     let party = arena::seat_frame(newest, w, h, Some(1));
     assert!(frame.px[..rows].iter().zip(party.words()).all(|(&a, b)| a == paper(*b)), "a card for each of the three knights");
     let alone = arena::seat_frame(&newest.view_for_seat(1).unwrap(), w, h, Some(1));
@@ -476,7 +442,6 @@ fn events_become_the_shells_lines_and_rapid_ones_are_thinned() {
     c.events(10, &[&shot, &grunt, &other, &say, b"\xff"], &mut lines);
     assert_eq!(lines, vec!["sfx shot_bow", "sfx knights-a_oof_1", "say Old Blaise: Mind the stair."]);
     lines.clear();
-    // The bow again a tick later is under its 70 ms gap; three ticks on it plays.
     c.events(11, &[&shot], &mut lines);
     c.events(13, &[&shot], &mut lines);
     assert_eq!(lines, vec!["sfx shot_bow"]);
@@ -490,7 +455,6 @@ fn a_tuned_pace_reaches_the_client_and_its_prediction_walks_the_servers_steps() 
     let mut host = Host::new(r);
     let mut c = client(Some(1));
     host.send(&mut c);
-    // The host moves the walking pace: the next tick's patch carries it.
     host.run.tune.hero_speed = 21.0;
     host.step(&[]);
     host.send(&mut c);
@@ -511,23 +475,15 @@ fn a_tuned_pace_reaches_the_client_and_its_prediction_walks_the_servers_steps() 
     let mut counts = Vec::new();
     c.dev_stats(&mut counts);
     assert_eq!(counts[0], ("corrections", 0.0), "the server walked where the client drew");
-    // And it is the tuned pace: two ticks ahead of the server, at 21 a second
-    // doubled on the road.
     let server = c.newest().unwrap().players[&2].x;
     let drawn = c.drawn_at().unwrap().0;
     let road = host.run.tune.road_pace;
     assert!((drawn - server - 2.0 * 21.0 * road * (1.0 / HZ as f32)).abs() < 1e-3 || (drawn - server - 2.0 * 21.0 * (1.0 / HZ as f32)).abs() < 1e-3, "{server} {drawn}");
 }
 
-/// One run of a client against a host over a link of some shape: the own
-/// knight as it was drawn on each 120 Hz display frame, and what the host
-/// and client did. Keys: `keys(t_ms)` is what is held at `t_ms`.
 struct Rolled {
-    /// (t_ms, drawn x, drawn y, rolling as drawn, keys held)
     frames: Vec<(f64, f32, f32, bool, u32)>,
-    /// The largest correction the client eased in.
     worst_correction: f32,
-    /// Ticks the host's knight was rolling.
     host_rolled: u32,
     counts: angel_net::cmd::Counts,
 }
@@ -537,8 +493,6 @@ fn roll_through(secs: f64, keys: impl Fn(f64) -> u32, link: impl Fn(u32) -> f64)
     use angel_net::input::Sampler;
     let step = 1000.0 / f64::from(HZ);
     let mut run = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
-    // At the head of a straight stretch of road, as the Keep's street
-    // once was: the knight trots, and a roll keeps that pace.
     let geo = geography::geography(&[]);
     let floor = |x: i32, y: i32| geo.room.tile(x, y) == crate::rules::Tile::Floor;
     let start = (2..geo.room.rows as i32 - 2)
@@ -553,8 +507,6 @@ fn roll_through(secs: f64, keys: impl Fn(f64) -> u32, link: impl Fn(u32) -> f64)
     let mut c = client(Some(0));
     let mut seat: SeatInputs<DelveCmd> = SeatInputs::default();
     let mut sampler = Sampler::default();
-    // In flight: (arrives at, seq, command) to the host; (arrives at,
-    // tick, whole, body, ack) to the client. One TCP stream each way.
     let mut up: VecDeque<(f64, u32, DelveCmd)> = VecDeque::new();
     let mut down: VecDeque<(f64, u32, bool, Vec<u8>, u32)> = VecDeque::new();
     let mut pending: Vec<(u32, DelveCmd)> = Vec::new();
@@ -562,18 +514,15 @@ fn roll_through(secs: f64, keys: impl Fn(f64) -> u32, link: impl Fn(u32) -> f64)
     let mut out = Rolled { frames: Vec::new(), worst_correction: 0.0, host_rolled: 0, counts: Default::default() };
     let (mut next_cmd, mut next_tick, mut t) = (0.0, 7.0, 0.0);
     let mut held = 0u32;
-    // The first whole snapshot, as a join sends it.
     let (tick, whole, body) = host.snapshot(Some(0));
     c.snapshot(tick, whole, &body).unwrap();
     while t < secs * 1000.0 {
-        // The keys.
         let now_keys = keys(t);
         if now_keys != held {
             sampler.down(now_keys & !held);
             sampler.up(held & !now_keys);
             held = now_keys;
         }
-        // The client's command tick.
         while next_cmd <= t {
             let hands = sampler.sample();
             let cmd = c.command(&hands);
@@ -584,7 +533,6 @@ fn roll_through(secs: f64, keys: impl Fn(f64) -> u32, link: impl Fn(u32) -> f64)
             last_cmd = next_cmd;
             next_cmd += step;
         }
-        // The host's tick.
         while next_tick <= t {
             while up.front().is_some_and(|u| u.0 <= next_tick) {
                 let (_, s, cmd) = up.pop_front().unwrap();
@@ -598,7 +546,6 @@ fn roll_through(secs: f64, keys: impl Fn(f64) -> u32, link: impl Fn(u32) -> f64)
             down.push_back((at, tick, whole, body, acked));
             next_tick += step;
         }
-        // The display frame.
         while down.front().is_some_and(|d| d.0 <= t) {
             let (_, tick, whole, body, acked) = down.pop_front().unwrap();
             c.snapshot(tick, whole, &body).unwrap();
@@ -628,14 +575,11 @@ fn roll_through(secs: f64, keys: impl Fn(f64) -> u32, link: impl Fn(u32) -> f64)
 
 #[test]
 fn a_roll_is_drawn_ahead_with_no_correction_freeze_or_jump_over_a_jittery_link() {
-    // D held from 0.2 s to 2.6 s; Space tapped (two ticks) at 0.8 s and,
-    // once the roll has rearmed, at 2.1 s.
     let keys = |t: f64| {
         let walk = if (200.0..2600.0).contains(&t) { button::RIGHT } else { 0 };
         let space = if (800.0..860.0).contains(&t) || (2100.0..2160.0).contains(&t) { button::JUMP } else { 0 };
         walk | space
     };
-    // A 30 ms trip with up to 50 ms of jitter, each way.
     let jitter = |n: u32| {
         let x = n.wrapping_mul(2_654_435_761).rotate_left(13).wrapping_mul(0x9E37_79B1);
         30.0 + 50.0 * f64::from(x) / f64::from(u32::MAX)
@@ -646,9 +590,6 @@ fn a_roll_is_drawn_ahead_with_no_correction_freeze_or_jump_over_a_jittery_link()
     assert!(r.worst_correction < 1e-3, "corrected by {}", r.worst_correction);
     let rolling = r.frames.iter().filter(|f| f.3).count();
     assert!(rolling > 2 * 20, "the roll drawn on {rolling} frames");
-    // Every frame with D held after the first command moves the knight
-    // east, by no more than a roll's pace allows: nothing held still,
-    // nothing skipped.
     let per_frame_max = 27.0 / 120.0 * 1.2;
     for w in r.frames.windows(2) {
         let (a, b) = (w[0], w[1]);
@@ -668,14 +609,12 @@ fn on_a_fallen_runs_board_enter_asks_to_go_back_and_the_board_says_so() {
     let mut host = Host::new(run);
     let mut c = client(Some(1));
     host.send(&mut c);
-    // A walk or a shot is nothing on the board; Enter is the way back.
     assert_eq!(c.command(&held(button::RIGHT | button::FIRE)), DelveCmd::neutral());
     let enter = c.command(&tap(button::OK));
     assert!(enter.pressed.again && enter.input().again);
     let mut b = Vec::new();
     DelveClient::encode_cmd(&enter, &mut b);
     assert_eq!(DelveCmd::decode(&b), Some(enter), "it reads back on the host");
-    // The board shows the way, then the wait once a knight has asked.
     let mut frame = Frame::default();
     c.draw(&view(&c, &[], 0, Hands::default(), 0.0), &mut frame);
     let asking = frame.px.clone();
@@ -706,10 +645,6 @@ fn the_tab_sheet_shows_held_cards_totals_and_every_wish_with_its_level() {
 
 #[test]
 fn the_sheet_locks_exactly_the_tier_the_grant_refuses() {
-    // A fresh knight at every step of every wish's ladder: the sheet says
-    // LOCKED where the grant refuses, and nowhere else. No rank and no
-    // teacher holds a tier back; only the floor keeps the fourth and fifth
-    // (`overclass::top_tier`), the third open everywhere.
     let fresh = Run::new(4, 1, Some("Gawain"));
     for depth in [1, 2, crate::rules::FLOORS] {
         let top = crate::rules::overclass::top_tier(depth);
@@ -844,22 +779,17 @@ fn holding_escape_leaves_a_touge_hall() {
 #[test]
 fn side_on_space_jumps_and_up_shoots_up() {
     use angel_net::input::button;
-    // Up held (move_y -1), no Space: aim and fire straight up, no jump.
     let mut input = Input { move_y: -1, move_x: 1, ..Input::default() };
     side_on_keys(&mut input, 0);
     assert_eq!((input.move_y, input.aim_x, input.aim_y, input.fire), (0, 0, -1, true));
-    // Space held: a jump (the rules read move_y < 0), not a dash.
     let mut input = Input { dash: true, ..Input::default() };
     side_on_keys(&mut input, button::JUMP);
     assert_eq!((input.move_y, input.dash), (-1, false));
-    // Down still drops through a plank.
     let mut input = Input { move_y: 1, ..Input::default() };
     side_on_keys(&mut input, 0);
     assert_eq!(input.move_y, 1);
 }
 
-/// The first room with its monsters gone, a friend in it, and plain bows:
-/// room to shoot.
 fn range() -> Run {
     let mut run = Run::new(7, 1, Some("Friend"));
     run.enemies.clear();
@@ -871,17 +801,14 @@ fn range() -> Run {
     run
 }
 
-/// A frame's view at `now_ms`, `render` ticks behind the newest.
 fn view_at<'a>(c: &DelveClient, pending: &'a [(u32, DelveCmd)], ack: u32, hands: Hands, partial: f32, now_ms: f64) -> View<'a, DelveCmd> {
     View { now_ms, ..view(c, pending, ack, hands, partial) }
 }
 
-/// The own shots the last frame drew.
 fn own_drawn(c: &DelveClient) -> Vec<(f32, f32)> {
     c.drawn_all.iter().filter(|s| s.0).map(|s| (s.1, s.2)).collect()
 }
 
-/// A command that aims up (and so fires), and one that walks east.
 fn aim_up() -> DelveCmd {
     DelveCmd { held: Input { aim_y: -1, ..Input::default() }, pressed: Input::default() }
 }
@@ -890,7 +817,6 @@ fn east() -> DelveCmd {
     DelveCmd { held: Input { move_x: 1, ..Input::default() }, pressed: Input::default() }
 }
 
-/// A host and a client four ticks into `range`.
 fn at_the_range() -> (Host, DelveClient) {
     let mut host = Host::new(range());
     let mut c = client(Some(0));
@@ -907,8 +833,6 @@ fn a_fire_press_shows_an_own_shot_on_the_next_frame_where_the_knight_is_drawn() 
     let (_, mut c) = at_the_range();
     let mut frame = Frame::default();
     let server = c.newest().unwrap().players[&1].x;
-    // Running east, two commands the server has not answered, and up
-    // pressed since the last command: no command carries it yet.
     let mut hands = held(button::RIGHT | button::AIM_UP);
     hands.pressed = button::AIM_UP;
     c.draw(&view(&c, &[(1, east()), (2, east())], 0, hands, 0.25), &mut frame);
@@ -930,33 +854,26 @@ fn the_servers_shot_takes_the_ghosts_place_eased_with_no_second_shot() {
     let mut frame = Frame::default();
     let step = 1000.0 / f64::from(HZ);
     let t0 = 1000.0;
-    // Command 1 fires: its ghost flies from the knight.
     let sent = [(1, aim_up())];
     c.draw(&view_at(&c, &sent, 0, Hands::default(), 0.5, t0), &mut frame);
     let ghost = own_drawn(&c);
     assert_eq!(ghost.len(), 1);
-    // The server's knight stood half a unit to the east of the client's
-    // when it took the command: its arrow leaves from there.
     host.run.players.get_mut(&1).unwrap().x += 0.5;
     host.step(&[(0, aim_up())]);
     assert_eq!(host.run.projectiles.iter().filter(|p| p.loosed_by(1)).count(), 1);
     host.send(&mut c);
-    // A tick on, the answer: the server's shot is drawn where the ghost
-    // would be (no jump), and it is the only one.
     c.draw(&view_at(&c, &[], 1, Hands::default(), 0.5, t0 + step), &mut frame);
     let handed = own_drawn(&c);
     assert_eq!(handed.len(), 1, "no second shot: {handed:?}");
     let newest = c.newest().unwrap();
     let server = newest.projectiles.iter().find(|p| p.loosed_by(1)).unwrap();
     let now_at = (server.x + server.vx * 0.5 / HZ as f32, server.y + server.vy * 0.5 / HZ as f32);
-    // (The wire sends a shot's place to a 256th of a unit.)
     let near = |a: f32, b: f32| (a - b).abs() < 0.01;
     assert!(near(handed[0].0, ghost[0].0), "drawn at the ghost's x: {ghost:?} -> {handed:?}");
     assert!(near(handed[0].0, now_at.0 - 0.5), "half a unit off the server's, to ease out: {handed:?} {now_at:?}");
     let mut counts = Vec::new();
     c.dev_stats(&mut counts);
     assert!(counts.contains(&("shot_handovers", 1.0)) && counts.contains(&("shot_ghosts", 0.0)), "{counts:?}");
-    // Half the ease on, half the gap; once it has run, the server's own place.
     c.draw(&view_at(&c, &[], 1, Hands::default(), 0.5, t0 + step + SHOT_EASE_MS / 2.0), &mut frame);
     let mid = own_drawn(&c);
     assert!(near(mid[0].0, now_at.0 - 0.25), "{mid:?} {now_at:?}");
@@ -964,7 +881,6 @@ fn the_servers_shot_takes_the_ghosts_place_eased_with_no_second_shot() {
     let done = own_drawn(&c);
     assert_eq!(done.len(), 1);
     assert!(near(done[0].0, now_at.0) && near(done[0].1, now_at.1), "{done:?} {now_at:?}");
-    // The next tick it is the same shot, flown on: still one.
     host.step(&[(0, DelveCmd::neutral())]);
     host.send(&mut c);
     c.draw(&view_at(&c, &[], 2, Hands::default(), 0.0, t0 + 2.0 * step + SHOT_EASE_MS), &mut frame);
@@ -979,12 +895,10 @@ fn a_ghost_the_server_never_matches_goes_quietly() {
     let t0 = 1000.0;
     c.draw(&view_at(&c, &[(1, aim_up())], 0, Hands::default(), 0.5, t0), &mut frame);
     assert_eq!(own_drawn(&c).len(), 1);
-    // The server took command 1 but loosed nothing (its arm was not ready).
     host.run.players.get_mut(&1).unwrap().fire_cooldown = 20;
     host.step(&[(0, aim_up())]);
     assert_eq!(host.run.projectiles.iter().filter(|p| p.loosed_by(1)).count(), 0);
     host.send(&mut c);
-    // It flies on a moment, in case the shot comes a tick late, then goes.
     c.draw(&view_at(&c, &[], 1, Hands::default(), 0.5, t0 + step), &mut frame);
     assert_eq!(own_drawn(&c).len(), 1, "a moment's grace");
     c.draw(&view_at(&c, &[], 1, Hands::default(), 0.5, t0 + step + GHOST_GRACE_MS + 1.0), &mut frame);
@@ -992,8 +906,6 @@ fn a_ghost_the_server_never_matches_goes_quietly() {
     let mut counts = Vec::new();
     c.dev_stats(&mut counts);
     assert!(counts.contains(&("shot_unmatched", 1.0)) && counts.contains(&("shot_ghosts", 0.0)), "{counts:?}");
-    // A ghost that meets stone goes there and then: aimed west from the
-    // west wall, it is gone before the server answers.
     let west = DelveCmd { held: Input { aim_x: -1, ..Input::default() }, pressed: Input::default() };
     let (mut host, mut c) = at_the_range();
     host.run.players.get_mut(&1).unwrap().x = 1.6;
@@ -1009,7 +921,6 @@ fn a_ghost_the_server_never_matches_goes_quietly() {
 fn a_friends_shots_and_the_monsters_are_still_drawn_between_two_ticks() {
     let (mut host, mut c) = at_the_range();
     let mut frame = Frame::default();
-    // Both knights fire; a monster's shot flies across the room too.
     host.step(&[(0, aim_up()), (1, aim_up())]);
     let mut monster = host.run.projectiles.iter().find(|p| p.loosed_by(2)).unwrap().clone();
     (monster.hostile, monster.traits.owner) = (true, 0);
@@ -1036,21 +947,15 @@ fn a_friends_shots_and_the_monsters_are_still_drawn_between_two_ticks() {
     for (d, t) in drawn.iter().zip(&theirs) {
         assert!((d.0 - t.0).abs() < 1e-4 && (d.1 - t.1).abs() < 1e-4, "half a tick back, as before: {d:?} {t:?}");
     }
-    // Ours is drawn from the newest tick, with the knight.
     let ours = newest.projectiles.iter().find(|p| p.loosed_by(1)).unwrap();
     assert_eq!(own_drawn(&c), vec![(ours.x, ours.y)]);
 }
 
-/// What a client drew of its own shots over a link: each display frame's
-/// time, the knight as drawn, and its own shots as drawn.
 struct Fired {
     frames: Vec<(f64, f32, f32, Vec<(f32, f32)>)>,
-    /// Own shots the host loosed in all.
     loosed: usize,
 }
 
-/// `roll_through`'s link, in `range`, drawing the own shots each 120 Hz
-/// frame as `draw` does (`own`, then `own_shots`).
 fn fire_through(secs: f64, keys: impl Fn(f64) -> u32, one_way_ms: f64) -> Fired {
     use angel_net::cmd::SeatInputs;
     use angel_net::input::Sampler;
@@ -1126,7 +1031,6 @@ fn fire_through(secs: f64, keys: impl Fn(f64) -> u32, one_way_ms: f64) -> Fired 
 
 #[test]
 fn over_a_150_ms_link_a_running_knights_arrow_leaves_it_at_once_and_flies_on_unbroken() {
-    // East held from 0.2 s; up tapped at 0.8 s and at 1.6 s.
     let press = [800.0, 1600.0];
     let keys = |t: f64| {
         let walk = if (200.0..2400.0).contains(&t) { button::RIGHT } else { 0 };
@@ -1136,26 +1040,16 @@ fn over_a_150_ms_link_a_running_knights_arrow_leaves_it_at_once_and_flies_on_unb
     let r = fire_through(2.6, keys, 75.0);
     assert_eq!(r.loosed, 2, "the host loosed both arrows");
     let frame_ms = 1000.0 / 120.0;
-    // A bow's arrow flies 40 units a second. On the frame of the press it
-    // has flown as long as the tick its command plays on has run (the
-    // server moves a shot on the tick it looses it): the part of a tick not
-    // yet sampled, or a tick and a frame for a press sampled at once.
     let arrow_speed = 40.0;
     let first_flight = 0.6 + arrow_speed * (1.0 / HZ as f32 + 1.0 / 120.0) + 0.1;
     for &p in &press {
-        // The first frame drawn after the press shows the arrow, at the
-        // knight as drawn.
         let i = r.frames.iter().position(|f| f.0 >= p).unwrap();
         let (t, kx, ky, shots) = &r.frames[i];
         assert!(*t - p < frame_ms, "the frame after the press");
         let near = shots.iter().min_by(|a, b| (a.0 - kx).hypot(a.1 - ky).total_cmp(&(b.0 - kx).hypot(b.1 - ky)));
         let (x, y) = *near.unwrap_or_else(|| panic!("no arrow on the frame after the press at {p} ms"));
         assert!((x - kx).abs() < 0.25 && ky - y < first_flight, "it leaves the knight: knight ({kx}, {ky}), arrow ({x}, {y})");
-        // From there on, one arrow for this press, never jumping: each frame
-        // it flies on by a frame's flight, through the server's answer.
         let mut was = (x, y);
-        // (A third of a second: through the answer, 150 ms on, and its ease,
-        // short of the far wall.)
         for f in r.frames[i + 1..].iter().take_while(|f| f.0 < p + 330.0) {
             let mine: Vec<_> = f.3.iter().filter(|s| (s.0 - was.0).abs() < 1.0).collect();
             assert_eq!(mine.len(), 1, "one arrow at {:.0} ms: {:?}", f.0, f.3);
@@ -1166,8 +1060,6 @@ fn over_a_150_ms_link_a_running_knights_arrow_leaves_it_at_once_and_flies_on_unb
     }
 }
 
-/// A lit room (`world3d::rooms_lit`, the default 3D) goes to a page as its
-/// set's text and its look, no plate: the page makes the same lit blocks.
 #[test]
 fn a_page_that_draws_scenes_is_sent_a_lit_room_by_its_set_and_its_look() {
     use angel_stage::wire::{TAG_LOOK, decode};
@@ -1190,19 +1082,16 @@ fn a_page_that_draws_scenes_is_sent_a_lit_room_by_its_set_and_its_look() {
     assert!(set.text.is_some() && set.png.is_none(), "its text, no plate");
     assert!(first.frame.pictures.iter().all(|p| p.width * p.height < 512 * 512), "no plate's pixels either");
     assert_eq!(world.figures.len(), 2, "both knights stand in it");
-    // The page makes the lit blocks from it, the room's own, baked.
     let mut sets = angel_stage::set::Sets::default();
     let mut made = world.clone();
     assert!(sets.fill(&mut made));
     let lit = crate::world3d::rooms_lit::lit_for(run.room(), run.dungeon.pack).expect("lit");
     let piece = lit.piece((0, 0)).unwrap();
     assert_eq!(set.key, piece.key);
-    // Baking reduces the node count: the page has far fewer nodes than the set's shapes.
     assert!(made.blocks.len() + made.floor.len() < piece.set.shapes.len() + 1,
         "baking reduces nodes: page {} vs set {}",
         made.blocks.len() + made.floor.len(), piece.set.shapes.len() + 1);
     assert!(made.meshes.len() >= 1, "its ground's mesh plus baked meshes");
-    // The next frame names the set by its key alone.
     c.draw(&view(&c, &[], 0, Hands::default(), 0.0), &mut Frame::default());
     assert!(c.stage(1016.0, &mut out));
     let next = decode(&out).unwrap().frame.props.unwrap().world.unwrap();
@@ -1213,9 +1102,6 @@ fn a_page_that_draws_scenes_is_sent_a_lit_room_by_its_set_and_its_look() {
     crate::world3d::set_enabled(false);
 }
 
-/// A page told the deep floors stand up (`Params::deep3d`) keeps an upper
-/// floor in the 2D black look and stands a deep one up lit, what lies on
-/// its floor a turning card of plain shapes a wire carries.
 #[test]
 fn a_page_stands_up_only_the_floors_its_host_says_are_deep() {
     use angel_stage::wire::decode;
@@ -1242,11 +1128,9 @@ fn a_page_stands_up_only_the_floors_its_host_says_are_deep() {
         deep.descend_for_test();
     }
     deep.calm_for_test();
-    // Past the beat of coming down into the deep, which leans the camera in.
     deep.deep_beat = None;
     let (x, y) = deep.players.values().next().map(|h| (h.x + 3.0, h.y)).unwrap();
     let at = deep.at;
-    // A bow has no model: it turns as a card. A sword is its model.
     deep.dungeon.rooms[at].items.push(crate::rules::Item::lying("bow".into(), x, y, 0));
     deep.dungeon.rooms[at].items.push(crate::rules::Item::lying("knights-blade".into(), x + 3.0, y, 0));
     let mut c = DelveClient::boot(&welcome(Some(1), &Params::with_mode(Mode::Deep).encode())).unwrap();
@@ -1256,8 +1140,6 @@ fn a_page_stands_up_only_the_floors_its_host_says_are_deep() {
     let world = props.world.expect("floor 4 stands up");
     let look = world.look.expect("its look");
     assert!(look.lights(), "lit");
-    // A lit delve lights its play where it stands: a pool at each knight, a
-    // glow over each of the two things on its floor (reach in stage pixels).
     let pools = |reach: f32| look.lamps.iter().filter(|l| (l.reach - reach).abs() < 1e-3).count();
     assert_eq!(pools(arena::stage_frame::LOOT_POOL.0), 2, "a glow over the bow and the blade");
     assert_eq!(pools(arena::stage_frame::KNIGHT_POOL.0), knights, "a pool round each standing knight");
@@ -1284,13 +1166,11 @@ fn a_rub_of_the_lamp_opens_that_seats_wish_line_and_its_grant_is_said_to_it() {
     };
     read(&mut mine.0, &mut mine.1, &host.run);
     read(&mut theirs.0, &mut theirs.1, &host.run);
-    // Knight 1 rubs the lamp: only its seat opens its line, and once.
     host.run.lamp.rubbed.insert(1, host.run.tick + 1);
     host.run.step(&BTreeMap::new());
     assert_eq!(read(&mut mine.0, &mut mine.1, &host.run), ["ask"]);
     assert!(read(&mut mine.0, &mut mine.1, &host.run).is_empty());
     assert!(read(&mut theirs.0, &mut theirs.1, &host.run).is_empty());
-    // Its wish lands mid-play: said to that seat, in short.
     host.run.lamp_sent(1, "bouncy arrows");
     host.run.step(&BTreeMap::new());
     host.run.lamp_landed(1, "bouncy arrows", "Fine Ricochet I. Bounce waits on Swift");
@@ -1299,10 +1179,6 @@ fn a_rub_of_the_lamp_opens_that_seats_wish_line_and_its_grant_is_said_to_it() {
     assert!(read(&mut theirs.0, &mut theirs.1, &host.run).is_empty());
 }
 
-
-/// Six knights, a full room of foes and a few hundred shots, as the host
-/// would send it: a whole tree, then a patch a tick (or nothing, when the
-/// tree did not change).
 fn crowded_stream(ticks: u32) -> (Vec<(u32, bool, Vec<u8>)>, usize, usize) {
     use crate::rules::{EnemyKind, RoomKind, TILE_UNITS};
     let mut run = Run::new(11, 1, Some("Percival"));
@@ -1369,7 +1245,6 @@ fn crowded_stream(ticks: u32) -> (Vec<(u32, bool, Vec<u8>)>, usize, usize) {
     (frames, foes, shots)
 }
 
-/// The apply this seat used to do: decode, patch the tree, read the run whole.
 fn old_apply(names: &mut Reader, tree: &mut Option<Value>, whole: bool, body: &[u8]) -> Result<Option<Run>, String> {
     if whole {
         *names = Reader::default();
@@ -1449,7 +1324,6 @@ fn crowded_apply_matches_old_read() {
     assert!(fast > full, "the crowded stream was read whole too often: fast {fast} full {full} miss {miss}");
 }
 
-/// Mean and p95 microseconds to decode and apply one tick of a crowded fight.
 #[test]
 #[ignore]
 fn bench_crowded_apply() {
@@ -1477,7 +1351,6 @@ fn bench_crowded_apply() {
         let (fast, full, miss) = client.guest.stats();
         (samples, fast, full, miss.to_string())
     };
-    // A warm pass, then the one the numbers come from.
     let _ = time_old(&frames);
     let _ = time_new(&frames);
     let old = time_old(&frames);
@@ -1497,9 +1370,6 @@ fn bench_crowded_apply() {
     );
 }
 
-/// A knight raised in a monster's body (a skull's possession) mid-stream:
-/// that knight's own browser seat keeps reading the run and sees the body.
-/// A seat that could not read it froze its player as a "tiny jelly".
 #[test]
 fn a_possessed_knights_seat_keeps_reading_the_run() {
     use crate::rules::{EnemyKind, RoomKind};
@@ -1534,7 +1404,6 @@ fn a_possessed_knights_seat_keeps_reading_the_run() {
         }
         last = Some(seen_view);
         client.snapshot(n + 1, whole, &body).unwrap_or_else(|why| panic!("tick {}: the seat refused its stream: {why:?}", n + 1));
-        // Its own knight drawn as the page draws it, walking.
         let mut frame = Frame::default();
         let walk = Hands { held: 1, ..Hands::default() };
         client.draw(&view(&client, &[], 0, walk, 0.0), &mut frame);
@@ -1568,8 +1437,6 @@ fn wish_upgrade_picks_follow_each_seats_deck_and_update_from_patches() {
     host.run.grant(1, &spell).unwrap();
     host.run.grant(1, &spell).unwrap();
     host.send(&mut c);
-    // The first floor's top is the third: the fourth is shown, faint, with
-    // the floor it waits for; at the fifth, deep enough down, MAX.
     assert!(c.picks().contains("\tFirebolt\tIII → IV\tIts tier IV waits for floor 2\t\n"), "{}", c.picks());
     host.run.dungeon.depth = crate::rules::FLOORS;
     host.run.grant(1, &spell).unwrap();
@@ -1631,7 +1498,6 @@ fn spell_upgrades_picks_hud_and_saves_patch_only_the_owning_seat() {
     assert!(own.picks().contains("\tSoul Rip\tIII\tMAX\t"));
 }
 
-/// Times, for one tick, as the bench in the cockpit does.
 struct BenchStats(Vec<std::time::Duration>);
 
 impl BenchStats {
@@ -1656,9 +1522,6 @@ impl BenchStats {
     }
 }
 
-/// A four-knight fight on the third floor, kept at full pressure: the
-/// heroes cannot fall and the foes mend each tick, so the counts a real
-/// fight reaches stay up for the whole bench.
 fn floor3_fight() -> Run {
     net_perf_fight(3, 4, false)
 }
@@ -1686,8 +1549,6 @@ fn net_perf_fight(depth: u32, seats: u32, reduced: bool) -> Run {
     run
 }
 
-/// Opt-in final-build fixture: one selected, fully trained companion per seat.
-/// All five kinds are represented; a sixth ninja fills the real six-seat party.
 fn net_perf_squad(run: &mut Run) {
     use crate::rules::squires_lodge::{self as squires, Kind, Member, Roster};
     for (&seat, hero) in &run.players {
@@ -1761,12 +1622,6 @@ fn bench_inputs(run: &Run, i: usize) -> BTreeMap<u32, Input> {
         .collect()
 }
 
-/// One browser seat's frame, end to end, on the third floor with four
-/// knights: the step, the snapshot copy and the tree on the host's sim;
-/// each seat's share diffed and encoded on its writer; one seat's client
-/// reading each tick, drawing a frame, and (with `stage`) making the
-/// stage frame a page draws.
-/// `cargo test -p angel-delve --release floor3_bench -- --ignored --nocapture`
 fn floor3_scene(name: &str, stage: bool) {
     net_perf_scene(name, stage, floor3_fight());
 }
@@ -1886,8 +1741,6 @@ fn net_perf_scene(name: &str, stage: bool, mut run: Run) {
             }
         }
     }
-    // These phases are separate from the client's read/draw. Sum their
-    // unsorted samples to report the host's six-seat work for each tick.
     let mut host_work = BenchStats((0..ticks).map(|i| {
         step.0[i] + snap.0[i] + tree.0[i]
             + encode.0[i * seats..(i + 1) * seats].iter().sum::<std::time::Duration>()
@@ -1990,7 +1843,6 @@ fn net_perf_wire_torches_animate_without_new_ground_pixels() {
     c.stage_props(true);
     let mut out = Vec::new();
     let mut frame = Frame::default();
-    // Read a new tick whole so interpolation cannot keep showing tick zero.
     for tick in [0, 12] {
         host.run.tick = tick;
         let mut publisher = wire::Publisher::default();
@@ -2009,8 +1861,6 @@ fn net_perf_wire_torches_animate_without_new_ground_pixels() {
     }
 }
 
-/// Export repeatable real-wire soak inputs and a pixel proof without a host.
-/// DELVE_NET_FIXTURES=/owned/path cargo test ... net_perf_export -- --ignored
 #[test]
 #[ignore]
 fn net_perf_export() {
@@ -2041,7 +1891,6 @@ fn net_perf_export() {
                     run.step(&bench_inputs(&run, i));
                 }
                 assert_eq!(run.squire_views().iter().filter(|s| !s.downed).count(), 6);
-                // Publish/read before painting: proof of the client's actual replicated fight.
                 let mut host = Host::new(run);
                 let mut c = client(Some(0));
                 host.send(&mut c);
@@ -2064,9 +1913,6 @@ fn net_perf_export() {
     image::save_buffer(dir.join("floor3-heavy-six.png"), &rgba, img.w as u32, img.h as u32, image::ColorType::Rgba8).unwrap();
 }
 
-/// Same seeded heavy fight, six seats, all client phases and stage upload bytes.
-/// Wire Mbps is the p95 of rolling one-second windows (30 Hz), not stage uploads.
-/// Preserve floor3_bench above as the historical four-seat control.
 #[test]
 #[ignore]
 fn net_perf_six_seat_bench() {
@@ -2182,7 +2028,6 @@ fn mirror_creator_owns_navigation_confirm_close_and_never_gameplay_or_menus() {
     host.run.players.get_mut(&1).unwrap().mirror.open = true;
     let mut c = client(Some(0));
     host.send(&mut c);
-    // Even stale UI requests cannot escape into an activity menu or ballot.
     c.menu = true;
     c.leaving = 3;
     c.skipping = 3;
@@ -2359,8 +2204,6 @@ fn squires_same_kind_shot_does_not_take_the_owners_prediction_ghost() {
     companion.body.x = h.x;
     companion.body.y = h.y;
     companion.body.cooldown = 0;
-    // A frozen target north: the ranger and the bow fire the same kind,
-    // close enough to compete for the same answered ghost.
     host.run
         .spawn_at_for_test(crate::rules::EnemyKind::Slime, h.x, h.y - 6.0);
     host.run.enemies.last_mut().unwrap().frozen = 1000;
@@ -2382,8 +2225,6 @@ fn squires_same_kind_shot_does_not_take_the_owners_prediction_ghost() {
         host.run.projectiles[companion_shot].kind,
         crate::rules::Shot::Arrow
     );
-    // Publish the companion first: a bad classification would steal the
-    // ghost before the actual bow shot has a chance to take it over.
     host.run.projectiles.swap(0, companion_shot);
     host.send(&mut c);
     c.draw(&view(&c, &[], 1, Hands::default(), 0.5), &mut frame);
@@ -2410,9 +2251,6 @@ fn squires_same_kind_shot_does_not_take_the_owners_prediction_ghost() {
     );
 }
 
-/// Replay a saved run (`REPLAY_RUN=<run.json>`) through a page at every seat
-/// for thirty seconds, every knight walking, each frame drawn as a browser
-/// seat draws it: a panic here is one a player's page would stop on.
 #[test]
 #[ignore]
 fn replay_a_saved_run_through_every_seats_page() {
@@ -2454,14 +2292,11 @@ fn a_knight_owing_their_rite_is_invited_to_the_creator_as_they_arrive_and_no_wis
         lines.into_iter().filter(|l| l == "ask" || l.starts_with("notice ")).collect::<Vec<_>>()
     };
     for seat in 0..2 {
-        // A seat that has just come into the run is invited at once, though its first frame has no
-        // earlier one to compare with: the Creator's slip, not the wish scroll.
         let mut seen = (Host::new(run.clone()), client(Some(seat)));
         let said = read(&mut seen.0, &mut seen.1, &run);
         assert!(said.iter().all(|l| l != "ask" && !l.contains("press T")), "no wish is asked: {said:?}");
         assert!(seen.1.creation.invite.shown(run.tick).is_some_and(|(_, slip)| slip), "seat {seat}");
         assert!(!seen.1.creation.session.open, "it is offered, never forced open");
-        // Made, it is not offered again.
         let mut made = run.clone();
         made.contribute(1 + seat as u32, crate::rules::rite::tests::blade("Oathmark")).unwrap();
         made.step(&BTreeMap::new());

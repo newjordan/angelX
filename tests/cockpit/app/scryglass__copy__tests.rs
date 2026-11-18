@@ -34,7 +34,6 @@ fn stage_copy_location_preserves_absolute_image_video_and_file_uri_paths() {
     let base = root("location");
     let path = base.join("shape with spaces.png");
     let expected = path.to_str().unwrap();
-    // Location copying does not decode or read files, including missing files.
     let cards = vec![
         Media::Image {
             label: "image".into(),
@@ -186,7 +185,6 @@ fn stage_copy_requires_current_media_overlay_not_a_stale_reveal_or_selection() {
     stage.reveal_media(0, true);
     stage.controller.clear_overlay();
     assert!(stage.controller.show_overlay(StageOverlay::Lesson));
-    // The reveal may remain active behind a lesson. Never copy it as visible work.
     assert_eq!(stage.active_media(), Some(0));
     assert!(
         stage
@@ -274,7 +272,6 @@ fn stage_copy_text_is_the_sanitized_loaded_snapshot_and_switches_cards_safely() 
     assert!(!first.text.contains('\x1b'));
     assert!(first.description.contains("SHA256"));
     assert_eq!(first.fallback_file, "stage-document.txt");
-    // Copy what was loaded, not a later changed file masquerading as the preview.
     std::fs::write(&a, "changed after display").unwrap();
     assert_eq!(text_ready(&mut stage, &cards).text, first.text);
     stage.reveal_media(1, true);

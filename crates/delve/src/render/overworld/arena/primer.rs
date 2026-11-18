@@ -24,7 +24,6 @@
 use super::*;
 use crate::rules::{EnemyKind, HZ, TELEGRAPH};
 
-/// The hints, in the order they are wanted.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Hint {
     Fire,
@@ -33,24 +32,14 @@ pub enum Hint {
 
 const HINTS: [Hint; 2] = [Hint::Fire, Hint::Wish];
 
-/// Every timing a hint keeps, in ticks.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Knobs {
-    /// Off: no hint is ever shown.
     pub on: bool,
-    /// The deepest floor hints are shown on.
     pub floors: u32,
-    /// How long a foe has been awake near a knight who has not fought
-    /// before the fire key is named.
     pub fire_after: u32,
-    /// How long into the first floor before the wish key is named (after
-    /// the floor's title card and its own wish sign have had their say),
-    /// and until when it may come back in calm moments.
     pub wish_after: u32,
     pub wish_until: u32,
-    /// How far a foe may be for the knight to count as in a fight, units.
     pub near: f32,
-    /// The least a hint stays up once it has come, to be read.
     pub hold: u32,
 }
 
@@ -60,38 +49,25 @@ impl Default for Knobs {
     }
 }
 
-/// Ticks a hint takes to leave (`notices::board_from`'s own).
 const LEAVE: u64 = 8;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 struct Slot {
-    /// The tick it came up, and the tick it began to leave.
     since: Option<u64>,
     gone: Option<u64>,
-    /// Used: it never comes again on this seat.
     done: bool,
 }
 
-/// A seat's hints: which is up, since when, and which have been used, and
-/// what it has seen of its knight (only what a seat's own run carries: the
-/// floor's tally stays on the host, `wire::PRIVATE`).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Primer {
     pub knobs: Knobs,
     slots: [Slot; HINTS.len()],
-    /// The run's tick last drawn: a run begun again (a lower tick) clears
-    /// what is up, not what was learned.
     last: u64,
-    /// The floor the seat stands on (the raid, the depth) and the tick it
-    /// first saw it, and the wishes its knight held there.
     floor: Option<(u64, u32)>,
     began: u64,
     held: Option<u8>,
 }
 
-/// Whether `hint` is used by knight `id` now (it is done with): the fire key
-/// pressed (a shot loosed, a punch or a swing thrown); a wish spent, or the
-/// scroll open.
 fn used(run: &Run, id: u32, hint: Hint, held: Option<u8>) -> bool {
     let Some(hero) = run.players.get(&id) else { return false };
     match hint {
@@ -100,9 +76,6 @@ fn used(run: &Run, id: u32, hint: Hint, held: Option<u8>) -> bool {
     }
 }
 
-/// The age a wanted `hint` has had its reason for, in ticks (the foe awake
-/// a moment, the floor begun `into` ticks ago), or nothing when it is not
-/// wanted now.
 fn wanted(run: &Run, id: u32, hint: Hint, k: &Knobs, into: u64) -> Option<u64> {
     let hero = run.players.get(&id).filter(|h| h.hp > 0 && !h.absent)?;
     let depth = run.dungeon.depth;
@@ -124,13 +97,11 @@ fn wanted(run: &Run, id: u32, hint: Hint, k: &Knobs, into: u64) -> Option<u64> {
             if depth != 1 || !run.can_wish(id) || awake(k.near * 1.5).next().is_some() {
                 return None;
             }
-            // `then`, not `then_some`: the subtraction must wait for the guard.
             (into >= u64::from(k.wish_after) && into <= u64::from(k.wish_until)).then(|| into - u64::from(k.wish_after))
         }
     }
 }
 
-/// The hint's key and word, for knight `id`.
 fn words(run: &Run, id: u32, hint: Hint) -> (&'static str, &'static str) {
     match hint {
         Hint::Fire if run.players.get(&id).is_some_and(|h| h.unarmed()) => ("ARROWS", "PUNCH"),
@@ -139,7 +110,6 @@ fn words(run: &Run, id: u32, hint: Hint) -> (&'static str, &'static str) {
     }
 }
 
-/// The hint's plate: a keycap and its word on a dark strip.
 fn plate(key: &str, word: &str, glint: bool) -> Img {
     let ink = super::super::ink::text_width;
     let cap = ink(key) + 4;
@@ -157,7 +127,6 @@ impl Primer {
         Primer { knobs, ..Primer::default() }
     }
 
-    /// Bring the hints up to knight `id`'s run as its seat sees it.
     pub fn update(&mut self, run: &Run, id: u32) {
         let now = run.tick;
         if now < self.last {
@@ -167,7 +136,6 @@ impl Primer {
         }
         self.last = now;
         let k = self.knobs;
-        // A new floor: its clock starts, and the wishes held on it.
         let here = (run.raid_id, run.dungeon.depth);
         let held_now = run.players.get(&id).map(|h| h.wishes + h.great_wishes);
         if self.floor != Some(here) {
@@ -179,7 +147,6 @@ impl Primer {
             self.held = Some(n);
         }
         let mut up = false;
-        // Only a floor the hints are for says whether one has been used.
         let floor = (1..=k.floors).contains(&run.dungeon.depth);
         let held = used_held;
         for (slot, &hint) in self.slots.iter_mut().zip(&HINTS) {
@@ -188,8 +155,6 @@ impl Primer {
             }
             let want = k.on && !slot.done && wanted(run, id, hint, &k, into).is_some();
             match (slot.since, slot.gone) {
-                // Up: it stays while wanted, and at least long enough to read
-                // (a hint used leaves at once).
                 (Some(since), None) => {
                     let read = now >= since + u64::from(k.hold);
                     if slot.done || (!want && read) {
@@ -202,7 +167,6 @@ impl Primer {
                 (Some(_), Some(_)) => up = true,
                 (None, _) => {}
             }
-            // One hint at a time.
             if slot.since.is_none() && want && !up {
                 slot.since = Some(now);
                 up = true;
@@ -210,8 +174,6 @@ impl Primer {
         }
     }
 
-    /// The hint up now (coming, holding or leaving) over knight `id`'s view
-    /// `out` (the room's view, as `genie::paint` takes it).
     pub fn paint(&mut self, out: &mut Img, run: &Run, id: u32) {
         self.update(run, id);
         let k = if out.w >= 2 * NATIVE_W && out.h >= 2 * NATIVE_H { 2 } else { 1 };
@@ -224,15 +186,12 @@ impl Primer {
             let age = now.saturating_sub(since) as f32;
             let life = slot.gone.map(|g| (g + LEAVE).saturating_sub(since) as f32);
             let (key, word) = words(run, id, hint);
-            // The key glints once a second, to be found among the rest.
             let glint = now % u64::from(HZ) < 4;
             let mut im = plate(key, word, glint);
             if k > 1 {
                 im = enlarge(&im, k as f32);
             }
             let view_h = out.h / k;
-            // At the foot of the view, clear of the knight: above them when
-            // they stand there.
             let ky = run.players.get(&id).map_or(0, |h| frame_px(run, out.w, out.h, Some(id), h.x, h.y).1 / k);
             let foot = view_h - im.h / k - 8;
             let y = if ky > foot - 10 { 26 } else { foot };
@@ -241,7 +200,6 @@ impl Primer {
         }
     }
 
-    /// The hint up now, if any (for tests and the first-session bot).
     pub fn showing(&self) -> Option<Hint> {
         self.slots.iter().zip(&HINTS).find(|(s, _)| s.since.is_some() && s.gone.is_none()).map(|(_, &h)| h)
     }

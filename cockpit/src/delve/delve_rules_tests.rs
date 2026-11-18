@@ -11,14 +11,11 @@
 pub use angel_delve::rules::race3d::*;
 pub use angel_delve::rules::{Input, HZ};
 
-// Its `answer` is the engine half that serves crates/delve's own tests.
 #[allow(dead_code)]
 #[path = "../../../crates/delve/src/rules/race3d/oracle.rs"]
 mod oracle;
 
 use std::collections::{BTreeMap, BTreeSet};
-
-// ── the race the parity drives ─────────────────────────────────────────────
 
 fn rider(s: f32, x: f32, lane: u8) -> Rider {
     Rider {
@@ -73,10 +70,7 @@ fn field(seats: u32) -> Race3d {
     }
 }
 
-/// A scripted hand: a small generator so every branch is played over the
-/// sessions, with the odd held key and a hop now and then.
 fn hand(tick: u32, id: u32) -> Input {
-    // A hash: the products are meant to wrap.
     let mut h = u64::from(tick).wrapping_mul(0x9e37_79b9_7f4a_7c15) ^ u64::from(id).wrapping_mul(0x1234_5678_9abc_def);
     h ^= h >> 29;
     let axis = |bits: u64| match bits % 5 {
@@ -128,13 +122,10 @@ fn differ(a: &Rider, b: &Rider) -> Vec<&'static str> {
     out
 }
 
-/// The whole state, tick by tick: the leg and the moved oracle must agree on
-/// every bit of it.
 fn parity(seats: u32, ticks: u32) {
     parity_of(field(seats), ticks);
 }
 
-/// The same, from any field; the sounds the ticks made, for coverage.
 fn parity_of(mut race: Race3d, ticks: u32) -> BTreeSet<&'static str> {
     let mut heard = BTreeSet::new();
     let ids: Vec<u32> = race.riders.keys().copied().collect();
@@ -183,10 +174,6 @@ fn the_leg_rolls_the_shaft_exactly_as_the_native_rules_did() {
     parity(4, 180);
 }
 
-/// A crowd: knights on top of one another anywhere along the shaft, going every
-/// way at once, on a gem, at a crossing or on a rotten plank half the time, so
-/// the bump, the pickups, the carts, the planks and the edges are all played at
-/// their boundaries.
 fn crowd(seed: u64) -> Race3d {
     let mut h = seed.wrapping_mul(0x9e37_79b9_7f4a_7c15) | 1;
     let mut next = move |lo: f32, hi: f32| {
@@ -256,20 +243,29 @@ fn the_leg_bumps_and_picks_up_exactly_as_the_native_rules_did() {
     }
 }
 
-/// One test at a time on the engine's pool: the timing below is the leg's own,
-/// not the parity's neighbours.
 static ENGINE: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// The Shaft Run ticks at `HZ` (30) inside a 33 ms frame the whole game
-/// shares: this holds the leg's own slice of it, and reports the bytes.
 #[test]
 fn the_shaft_tick_is_a_small_slice_of_a_frame_at_four_riders() {
     let _alone = ENGINE.lock().unwrap_or_else(|p| p.into_inner());
+    if std::env::var_os("ANGEL_SHAFT_TICK_ALONE").is_none() {
+        const NAME: &str = "delve::delve_rules_tests::the_shaft_tick_is_a_small_slice_of_a_frame_at_four_riders";
+        let out = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", NAME, "--nocapture", "--test-threads=1"])
+            .env("ANGEL_SHAFT_TICK_ALONE", "1")
+            .output()
+            .unwrap();
+        let (stdout, stderr) = (String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+        for line in stderr.lines().filter(|l| l.contains("shaft tick") || l.contains("the tick took")) {
+            eprintln!("{line}");
+        }
+        assert!(out.status.success() && stdout.contains("1 passed; 0 failed;"), "the measuring process failed:\n{stderr}");
+        return;
+    }
     crate::agent::harness::live_policy::install_scripted_rules();
     let mut race = field(4);
     let ids: Vec<u32> = race.riders.keys().copied().collect();
     let inputs: BTreeMap<u32, Input> = ids.iter().map(|&id| (id, hand(400, id))).collect();
-    // warm the pool, then measure a thousand ticks
     for _ in 0..32 {
         leg::run(&mut race, &inputs, &ids).expect("the leg answers");
         race.t += 1;
@@ -298,10 +294,6 @@ fn the_shaft_tick_is_a_small_slice_of_a_frame_at_four_riders() {
     assert!(median < 4_000.0, "the tick took {median:.0} us of a {frame_us:.0} us frame");
 }
 
-/// The shipped leg rolls the Shaft Run alone: it hands an ore cart or a griffin
-/// back untouched, which is why `Run::tick_race3d` ticks those two natively. A
-/// leg that learns to fly them must pass the parity above on them first, and
-/// then the race may ask it.
 #[test]
 fn the_shipped_leg_rolls_the_shaft_alone_and_leaves_the_cart_and_the_griffin_to_rust() {
     let _alone = ENGINE.lock().unwrap_or_else(|p| p.into_inner());

@@ -47,88 +47,60 @@ pub use cultures::Culture;
 pub use missions::{Errand, Mission, Sign};
 pub use village::Village;
 
-/// The first floor of the Deep: the Deep Road, below the Unknown.
 pub const ROAD: u32 = DEEPEST + 1;
-/// Floors in a chapter: a village, and the nine below it.
 pub const CHAPTER: u32 = 10;
-/// The depth a floor of the Deep plays as: the Fungal Deep's, the last
-/// floor above the Unknown that keeps a stair, a guardian and a nook.
 pub const ECHO: u32 = DEEPEST - 1;
-/// The packs the Deep turns over, floor by floor (never the swamp, which
-/// is a delve of its own).
 pub const PACKS: [Pack; 6] = [Pack::Archive, Pack::Fungal, Pack::Cavern, Pack::Crypt, Pack::Hellforge, Pack::Unknown];
-/// The most villages and errands the realm remembers.
 pub const MOST_TOWNS: usize = 64;
 pub const MOST_MISSIONS: usize = 24;
 
-/// Whether floor `floor` of the Deep is a village.
 pub fn is_village(floor: u32) -> bool {
     floor >= CHAPTER && floor.is_multiple_of(CHAPTER)
 }
 
-/// The chapter floor `floor` belongs to: 0 for the road down (7 to 9), 1
-/// for the first village and its nine floors (10 to 19), and so on.
 pub fn chapter(floor: u32) -> u32 {
     floor / CHAPTER
 }
 
-/// The village whose errands are laid on floor `floor`: the one at the top
-/// of its chapter, none on the road down or in a village itself.
 pub fn errands_from(floor: u32) -> Option<u32> {
     (floor > CHAPTER && !is_village(floor)).then(|| chapter(floor) * CHAPTER)
 }
 
-/// The pack floor `floor` of the Deep is drawn from: the packs turn over
-/// floor by floor, and each chapter starts them at a new place.
 pub fn pack_at(floor: u32, wheel: u32) -> Pack {
     let turn = floor as usize + chapter(floor) as usize * 5 + wheel as usize;
     PACKS[turn % PACKS.len()]
 }
 
-/// Monsters' health on floor `floor`, in percent of their base: on from
-/// the Unknown's, a tenth more a floor.
 pub fn health(floor: u32) -> u32 {
     160 + 10 * floor.saturating_sub(DEEPEST)
 }
 
-/// What monsters deal on floor `floor`, in percent: on from the Unknown's,
-/// a little more a floor.
 pub fn hit(floor: u32) -> u32 {
     240 + 6 * floor.saturating_sub(DEEPEST)
 }
 
-/// A guardian's health on top of the floor's, in percent.
 pub fn boss_health(floor: u32) -> u32 {
     390 + 20 * floor.saturating_sub(DEEPEST)
 }
 
-/// What a floor of the Deep pays for its errands' work, by chapter.
 pub fn purse(floor: u32) -> u32 {
     60 + 40 * chapter(floor)
 }
 
-/// The party's way down the Deep, while a delve is in it.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Descent {
-    /// The floor of the Deep the party stands on: 7 and down.
     pub floor: u32,
-    /// The village this floor is, while the party stands in one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub village: Option<Village>,
-    /// The errands' marks laid on this floor: beacons, relics, the lost.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub signs: Vec<Sign>,
-    /// Knights holding E last tick, a bit each: a press, never a hold.
     #[serde(skip_serializing_if = "is_zero")]
     pub held: u8,
-    /// The meeting on this floor of the road (`road`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub meeting: Option<road::Meeting>,
-    /// What the party carries down the road to the next village.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub cargo: Vec<road::Cargo>,
-    /// How much the road has stirred the dread at the next village's stair.
     #[serde(skip_serializing_if = "is_zero")]
     pub stir: u8,
 }
@@ -150,55 +122,39 @@ impl Descent {
     }
 }
 
-/// One village the realm has met: who lives there, whether its lamps were
-/// lit, the deeds done for it and the wishes visitors made.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Town {
-    /// Its floor: 10, 20, 30...
     pub floor: u32,
     pub culture: Culture,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub lit: bool,
-    /// The errands done for it, in the order done.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub deeds: Vec<Errand>,
-    /// The visitors' wishes for the city, each standing in its slot.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub wishes: Vec<city::CityWish>,
-    /// Its people's dread was felled at the stair above it (`dread`).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub dread: bool,
-    /// The one the party sent home has been seen home: their reunion has
-    /// played (`village::Village::reunion`).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reunited: bool,
 }
 
 impl Town {
-    /// A village the realm has just met: dark, and nothing done for it yet.
     pub fn new(floor: u32, culture: Culture) -> Town {
         Town { floor, culture, lit: false, deeds: Vec::new(), wishes: Vec::new(), dread: false, reunited: false }
     }
 }
 
-/// What the realm remembers of the Deep (`Home::deep`).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Chronicle {
-    /// Where this realm's wheel of peoples starts: set the first time a
-    /// party goes down the Deep Road, and kept, so the wheel turns the
-    /// same way for this realm ever after.
     #[serde(skip_serializing_if = "is_zero32")]
     pub wheel: u32,
-    /// The deepest floor of the Deep the realm has stood on.
     #[serde(skip_serializing_if = "is_zero32")]
     pub deepest: u32,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub towns: Vec<Town>,
-    /// The errands the villages asked, done or not.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub missions: Vec<Mission>,
-    /// How each people stands with the realm after the road (`road`).
     #[serde(skip_serializing_if = "road::Ledger::is_empty")]
     pub road: road::Ledger,
 }
@@ -221,7 +177,6 @@ impl Chronicle {
             && self.towns.iter().all(|t| t.wishes.iter().all(city::CityWish::valid))
     }
 
-    /// The village on floor `floor`, as the realm knows it.
     pub fn town(&self, floor: u32) -> Option<&Town> {
         self.towns.iter().find(|t| t.floor == floor)
     }
@@ -230,20 +185,14 @@ impl Chronicle {
         self.towns.iter_mut().find(|t| t.floor == floor)
     }
 
-    /// The people of the village on floor `floor`: the one met there, or
-    /// the wheel's next. The wheel never sets the same people two villages
-    /// running (`cultures::turn`).
     pub fn culture_at(&self, floor: u32) -> Culture {
         self.town(floor).map_or_else(|| cultures::turn(self.wheel, chapter(floor)), |t| t.culture)
     }
 
-    /// The villages lit, as floors: each one a landing of the Winding Stair.
     pub fn lit(&self) -> impl Iterator<Item = u32> + '_ {
         self.towns.iter().filter(|t| t.lit).map(|t| t.floor)
     }
 
-    /// The errands open on floor `floor`: those its chapter's village asked
-    /// and the party has yet to finish.
     pub fn open_on(&self, floor: u32) -> impl Iterator<Item = (usize, &Mission)> + '_ {
         let from = errands_from(floor);
         self.missions
@@ -254,14 +203,10 @@ impl Chronicle {
 }
 
 impl home::Home {
-    /// The Deep Road is open: the realm has stood on the Unknown's floor,
-    /// so the Winding Stair goes on below it.
     pub fn deep_road(&self) -> bool {
         self.deepest >= DEEPEST
     }
 
-    /// The Winding Stair's landings in the Deep: the Deep Road, and every
-    /// village lit.
     pub fn deep_landings(&self) -> Vec<u32> {
         if !self.deep_road() {
             return Vec::new();
@@ -274,34 +219,25 @@ impl home::Home {
 }
 
 impl Run {
-    /// The floor of the Deep the party stands on, while it is in the Deep.
     pub fn deep_floor(&self) -> Option<u32> {
         self.deep.as_ref().map(|d| d.floor)
     }
 
-    /// Whether the party stands in a village of the Deep.
     pub fn in_deep_village(&self) -> bool {
         self.deep.as_ref().is_some_and(|d| d.village.is_some()) && self.room().kind == RoomKind::DeepVillage
     }
 
-    /// Whether the party is still falling into a village as a star: it is
-    /// not yet down among the folk.
     pub fn star_falling(&self) -> bool {
         self.in_deep_village() && self.deep.as_ref().and_then(|d| d.village.as_ref()).is_some_and(|v| v.falling(self.tick))
     }
 
-    /// Where the view looks while the star falls: up at the cavern's dark,
-    /// where it comes from (arena units).
     pub fn star_camera(&self) -> Option<(f32, f32)> {
         let v = self.deep.as_ref()?.village.as_ref().filter(|_| self.star_falling())?;
-        // The last of the fall, the view follows the star down.
         let t = (self.tick.saturating_sub(v.arrived) as f32 / village::FALL as f32 - 0.7).max(0.0) / 0.3;
         let ease = t * t * (3.0 - 2.0 * t);
         Some(village::units((village::LANDING.0, 4.0 + (village::LANDING.1 - 4.0) * ease)))
     }
 
-    /// Monsters' health on this floor of the Deep, in place of the six
-    /// floors' table.
     pub(super) fn deep_health(&self) -> Option<u32> {
         self.deep_floor().map(health)
     }
@@ -314,13 +250,9 @@ impl Run {
         self.deep_floor().map(boss_health)
     }
 
-    /// Down the Winding Stair to landing `floor` of the Deep: the delve
-    /// begins there, on the Deep Road or in a village lit before.
     pub(super) fn enter_the_deep(&mut self, floor: u32) {
         self.first = self.dungeon.pack;
         if self.home.deep.wheel == 0 {
-            // The realm's wheel, set once from the delve that first went
-            // down: kept by the realm from then on.
             self.home.deep.wheel = (mix(self.seed ^ self.raid_id.rotate_left(29)) % 997) as u32 + 1;
         }
         self.deep = Some(Descent { floor, ..Descent::default() });
@@ -328,8 +260,6 @@ impl Run {
         self.finish_descent(ECHO, pack, true);
     }
 
-    /// Down the stair from a floor of the Deep to the next. The floor
-    /// behind is closed and banked as any cleared floor is.
     pub(super) fn descend_deep(&mut self) {
         let Some(floor) = self.deep_floor() else {
             return;
@@ -353,8 +283,6 @@ impl Run {
         self.finish_descent(ECHO, pack, false);
     }
 
-    /// The pack floor `floor` of the Deep is drawn from: a village's is its
-    /// people's own.
     fn deep_pack(&self, floor: u32) -> Pack {
         if is_village(floor) {
             self.home.deep.culture_at(floor).kin()
@@ -363,15 +291,12 @@ impl Run {
         }
     }
 
-    /// The floor the stair has just laid, if it is a village: its room.
     pub(super) fn deep_village_floor(&mut self) -> Option<Floor> {
         let floor = self.deep_floor().filter(|&f| is_village(f))?;
         let culture = self.home.deep.culture_at(floor);
         Some(village::floor(culture, ECHO))
     }
 
-    /// A new floor of the Deep is laid: its record kept, a village met, or
-    /// the errands' signs laid on it.
     pub(super) fn ready_deep_floor(&mut self) {
         let Some(floor) = self.deep_floor() else {
             return;
@@ -387,8 +312,6 @@ impl Run {
         }
     }
 
-    /// One tick of the Deep: a village's talk, wishes and lights, or the
-    /// errands' signs on a floor below.
     pub(super) fn tick_deep(&mut self, inputs: &BTreeMap<u32, Input>) {
         let Some(mut deep) = self.deep.take() else {
             return;
@@ -412,9 +335,6 @@ impl Run {
         self.deep = Some(deep);
     }
 
-    /// The keys a village takes before the rest of the tick sees them:
-    /// while the star is still falling nobody moves, and a knight in
-    /// conversation answers with 1, 2 and 3 rather than casting.
     pub(super) fn deep_inputs(&mut self, inputs: &BTreeMap<u32, Input>) -> Option<BTreeMap<u32, Input>> {
         let village = self.in_deep_village();
         let falling = village && self.deep.as_ref().and_then(|d| d.village.as_ref()).is_some_and(|v| v.falling(self.tick));
@@ -455,8 +375,6 @@ impl Run {
 
 #[cfg(any(test, feature = "testing"))]
 impl Run {
-    /// Floor `floor` of the Deep laid fresh, the party on it: for tests and
-    /// shots that start below the Unknown.
     pub fn deep_floor_for_test(&mut self, floor: u32) {
         if self.home.deep.wheel == 0 {
             self.home.deep.wheel = 1;

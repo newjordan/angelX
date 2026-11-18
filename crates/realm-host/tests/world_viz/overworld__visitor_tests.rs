@@ -2,7 +2,6 @@ use super::super::{castles, frame_at, pace, render_view, view_sized, wishes};
 use super::*;
 use angel_delve::world::houses;
 
-/// Tick the world until the visitor stops, at most `limit` ticks.
 fn settle(world: &mut World, limit: usize) {
     for _ in 0..limit {
         world.tick();
@@ -16,8 +15,6 @@ fn pose(world: &World) -> VisitorPose {
     world.overworld_scene().visitor.expect("the visitor is out")
 }
 
-/// A world with the visitor walked (by road, as a click sends him) to the
-/// tile before `door`.
 fn at_door(door: (i32, i32)) -> World {
     let mut world = World::new(7);
     world.start_walk();
@@ -57,8 +54,6 @@ fn every_door_stands_on_ground_the_roads_reach_and_the_table_names_each_once() {
 
 #[test]
 fn the_delve_gate_opens_from_its_own_step_above_the_north_road() {
-    // The gate stands in the open Highlands just above the North Road: the
-    // knight walks up to its own step, and a click on it walks him there.
     let stand = wishes::delve_stand();
     let from = Place::Keep.stand_world();
     assert_eq!(route(from, stand).last(), Some(&stand), "the gate is reached on foot");
@@ -148,7 +143,6 @@ fn a_structure_stops_him_and_his_feet_stay_on_open_ground() {
         (kx..kx + kw).contains(&door.0) && (ky..ky + kh).contains(&ahead),
         "the Keep's wall is what stops him"
     );
-    // Along the road the way is open.
     world.steer_visitor((1, 0));
     for _ in 0..40 {
         world.tick();
@@ -188,8 +182,6 @@ fn at_the_lists_and_the_delve_gate_the_sign_says_where_the_door_leads() {
         let mut bare = scene.clone();
         bare.visitor = None;
         assert_ne!(with.rgb_bytes(), render_view(&bare, view).rgb_bytes());
-        // The sign's lit brass top rim (`chrome::Tone::FRAMED`, its corners
-        // cut) runs over his head, every pixel of it.
         let sign = kit::door_sign(&want.sign(), true);
         let lit = super::super::ink::ink('O').unwrap();
         let rim = (0..sign.w).filter(|&x| sign.get(x, 0) == Some(lit)).count() as i32;
@@ -222,8 +214,6 @@ fn the_kitty_frame_and_the_half_block_frame_both_follow_him() {
     assert_ne!(half(&first).rgb_bytes(), half(&moved).rgb_bytes());
 }
 
-/// Offline renders for review:
-/// `ANGEL_OVERWORLD_SHOTS=<dir> cargo test write_visitor_shots -- --ignored`.
 #[test]
 #[ignore]
 fn write_visitor_shots() {
@@ -237,8 +227,6 @@ fn write_visitor_shots() {
         out.extend(img.rgb_bytes());
         std::fs::write(dir.join(name), out).unwrap();
     };
-    // A Kitty-sized view (a 64x30-cell pane at scale 2) and the half-block
-    // view of a 64x24-cell pane.
     let shot = |world: &World, w: i32, h: i32| {
         let mut scene = world.overworld_scene();
         pace(&mut scene, false);
@@ -254,7 +242,6 @@ fn write_visitor_shots() {
         }
         save(&format!("walk_east_{frame}.ppm"), &shot(&world, 320, 180));
     }
-    // Out on the plaza, no door at hand: the mark over his head.
     let mut world = World::new(7);
     world.start_walk();
     world.steer_visitor((0, 1));

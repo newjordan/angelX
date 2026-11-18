@@ -30,7 +30,9 @@
       "test": "npm run test:release && npm run test:workers && npm run test:book && npm run test:moa && npm run test:connections && npm run test:polyglot && npm run check:licenses && npm run test:hygiene && npm run test:media && npm run test:labyrinth && npm run test:website",
     "test:book": "python3 -m unittest discover -s tests/python -p 'test_book_*.py'",
     "test:moa": "python3 -m unittest discover -s tests/python -p test_moa_report.py",
-    "test:hygiene": "node --test --test-concurrency=1 tests/scripts/check-duplicate-content.test.mjs tests/scripts/check-research-embed.test.mjs tests/scripts/check-licenses.test.mjs tests/scripts/check-cockpit-fast.test.mjs tests/scripts/check-book-harness.test.mjs && npm run test:setup",
+    "test:hygiene": "node --test --test-concurrency=1 tests/scripts/check-duplicate-content.test.mjs tests/scripts/check-research-embed.test.mjs tests/scripts/check-licenses.test.mjs tests/scripts/check-cockpit-fast.test.mjs tests/scripts/check-book-harness.test.mjs && npm run test:setup && npm run test:native-entry-fixture && npm run test:golden-frames",
+    "test:golden-frames": "python3 -m unittest discover -s tests/python -p test_compare_golden_frames.py",
+    "test:native-entry-fixture": "python3 -m unittest discover -s tests/python -p test_native_entry_fixture.py",
     "test:setup": "python3 -m unittest discover -s tests/python -p 'test_install_blaze.py'",
     "test:media": "node --test --test-concurrency=1 tests/scripts/pan-pace.test.mjs tests/scripts/web-sound.test.mjs tests/scripts/web-boot.test.mjs tests/scripts/web-music-metadata.test.mjs tests/scripts/live-sound.test.mjs",
     "build:website": "[ ! -d website ] || node website/build.mjs",
@@ -49,7 +51,8 @@
     "format": "prettier --write 'scripts/**/*.mjs' 'tests/scripts/**/*.mjs'",
     "format:check": "prettier --check 'scripts/**/*.mjs' 'tests/scripts/**/*.mjs'",
     "test:cockpit": "bash scripts/check/check-cockpit-fast.sh --test-threads=1",
-    "test:workers": "node --test --test-concurrency=1 tests/scripts/habitsmith.test.mjs tests/scripts/dossier-tick.test.mjs tests/scripts/repo-dossier.test.mjs tests/scripts/process-lease.test.mjs tests/scripts/settlement-exhibits.test.mjs tests/scripts/science-brief.test.mjs tests/scripts/repo-search.test.mjs tests/scripts/cut-report.test.mjs tests/scripts/self-map.test.mjs tests/scripts/test-runner-report.test.mjs"
+    "test:workers": "node --test --test-concurrency=1 tests/scripts/causal-graph.test.mjs tests/scripts/habitsmith.test.mjs tests/scripts/dossier-tick.test.mjs tests/scripts/repo-dossier.test.mjs tests/scripts/process-lease.test.mjs tests/scripts/worker-lock.test.mjs tests/scripts/settlement-exhibits.test.mjs tests/scripts/science-brief.test.mjs tests/scripts/repo-search.test.mjs tests/scripts/cut-report.test.mjs tests/scripts/self-map.test.mjs tests/scripts/test-runner-report.test.mjs && npm run test:private-store",
+    "test:private-store": "python3 -m unittest discover -s tests/python -p test_private_store_bridge.py"
   },
   "dependencies": {
     "pxpipe-proxy": "^0.8.0"

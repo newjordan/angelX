@@ -217,8 +217,6 @@ fn wear(hero: &mut Hero, gear: &Gear, definition: &Card) {
                 .find(|&i| hero.spells[i].is_none() && hero.module_spells[i].is_none())
             {
                 hero.spells[i] = Some(gear.id.into());
-                // A previously occupied slot may still carry its cooldown.
-                // Issuing gear never erases that elapsed-time obligation.
                 if let Some(bar) = hero.bar.iter_mut().find(|s| s.is_none()) {
                     *bar = Some(cards::BarSlot::Spell(gear.id.into()));
                 }
@@ -227,8 +225,6 @@ fn wear(hero: &mut Hero, gear: &Gear, definition: &Card) {
     }
 }
 
-// Seats can change owner without reconstructing the Hero. A previous player's
-// bound gear must never travel with that seat into a new player's wardrobe.
 fn reclaim_unowned(hero: &mut Hero, loadout: Option<&Loadout>) {
     let unowned = |id: &str| item(id).is_some() && !loadout.is_some_and(|l| l.owned.contains(id));
     if hero.arm.as_deref().is_some_and(unowned) {
@@ -293,9 +289,6 @@ impl Run {
         })
     }
 
-    /// One atomic armory action: check capacity and the target slot, reserve one
-    /// finished item if unowned, then record ownership and equip. Failure leaves
-    /// stock, catalogue, hero and ledger unchanged. No floor card is minted.
     pub fn kingdom_gear_action(&mut self, player: u32, id: &str) -> Result<String, String> {
         let gear = item(id).ok_or("Unknown kingdom equipment")?;
         let status = self
@@ -324,7 +317,6 @@ impl Run {
         if !status.owned && self.home.industry.rev >= u64::MAX - 1 {
             return Err("Kingdom revision limit reached".into());
         }
-        // All possible failure checks precede this commit.
         self.book.insert(definition.clone());
         if !status.owned {
             let amount = self
@@ -349,9 +341,6 @@ impl Run {
         Ok(format!("{} equipped. {}", gear.name, gear.controls))
     }
 
-    /// Apply the selected bound loadout after the ordinary class kit is rebuilt
-    /// for an expedition. Repeated calls consume no stock and grant no bonuses,
-    /// pickups, healing, mana, spell copies or cooldown resets.
     pub fn restore_kingdom_gear(&mut self, player: u32) {
         if !self.home.kingdom_gear.valid() {
             return;

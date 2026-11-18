@@ -11,11 +11,8 @@ use crate::together_painter as painter;
 use crate::together_shooter::{cards, cauldron, phrasebook};
 use std::time::{Duration, Instant};
 
-// A brew is let go if angelX has not answered it in this long.
 const BREW_TIME: Duration = Duration::from_secs(600);
 
-/// A brew angelX is making a spell of its own for: the run's ask, when it
-/// came, and its turn.
 #[derive(Clone, Debug)]
 pub struct Kettle {
     pub claim: angel_delve::rules::brew_jobs::Claim,
@@ -24,15 +21,10 @@ pub struct Kettle {
     pub acknowledged: bool,
     pub persisted: bool,
     pub asked: Instant,
-    /// When its turn began, and whether that turn has been seen running.
     pub started: Option<Instant>,
     pub seen: bool,
-    /// What the pot said of the card the first turn wrote, when a second
-    /// turn is mending it.
     pub mending: Option<Vec<String>>,
-    /// A separate model turn has reviewed the first draft.
     pub reviewed: bool,
-    /// Its delivery's saves, running off the frame.
     pub saving: Option<super::Saving<(bool, Result<(), String>)>>,
 }
 
@@ -41,11 +33,7 @@ impl Session<'_> {
         self.cx.workspace().join(".angel/dungeon/brewed")
     }
 
-    /// Discover new brew work, accept finished answers, and start the next
-    /// model turn when angelX is free.
     pub fn watch_brewing(&mut self) {
-        // A previous game's model turn may still finish. Keep that turn alive,
-        // but its scoped answer cannot enter the replacement game session.
         let sim = &self.dungeon.shooter;
         let before = self.dungeon.forge.kettles.len();
         self.dungeon
@@ -55,7 +43,6 @@ impl Session<'_> {
         if before != self.dungeon.forge.kettles.len() {
             self.dungeon.forge.stirring = false;
         }
-        // New brews admitted by a save off the frame are persisted now.
         match super::dungeon_settle::admitted(&mut self.dungeon.forge.brew_admitting) {
             Some(Ok(covered)) => {
                 for kettle in &mut self.dungeon.forge.kettles {
@@ -133,8 +120,6 @@ impl Session<'_> {
             self.dungeon.notice = format!("Brew retained: {error}");
         }
         let idle = !self.facts().busy();
-        // A computed answer or durable terminal receipt needs no model turn.
-        // Storage/worker failures retry these exact values, never the model.
         if let Some(i) = self.dungeon.forge.kettles.iter().position(|k| {
             k.persisted
                 && (k.answer.is_some()
@@ -214,15 +199,10 @@ impl Session<'_> {
             };
             let result = match read {
                 Ok(card) => {
-                    // Review before submitting to the simulation: answer_brew can
-                    // install the card, so it must only see the final draft.
-                    // One extra turn per live kettle, within the original deadline.
                     if !kettle.reviewed && kettle.asked.elapsed()
                         < BREW_TIME.saturating_sub(Duration::from_secs(30))
                     {
                         kettle.reviewed = true;
-                        // A repaired first draft now enters creative review,
-                        // not another repair dispatch with stale diagnostics.
                         kettle.mending = None;
                         kettle.started = None;
                         kettle.seen = false;
@@ -273,9 +253,6 @@ impl Session<'_> {
         }
         let done = kettle.completed.as_ref().expect("terminal brew above");
         let persist = if let Some(link) = self.dungeon.shooter.link() {
-            // Off the frame: the saves and the card's publication run on a
-            // thread of their own; the brew lands on the frame that finds
-            // them done.
             match kettle.saving.as_ref().map(super::Saving::done) {
                 Some(None) => {
                     self.dungeon.forge.kettles.push(kettle);
@@ -311,8 +288,6 @@ impl Session<'_> {
         } else { (|| -> Result<(), String> {
             self.dungeon.checkpoint(Instant::now(), true)?;
             if !kettle.acknowledged {
-                // Later paintings reload this source. Keep the accepted policy
-                // result, including its behavior, as the painter's base.
                 if done.result.is_ok()
                     && let Some(card) = &done.accepted
                 {
@@ -359,7 +334,6 @@ impl Session<'_> {
         self.cx.say(line.clone().into());
         self.dungeon.notice = line;
     }
-    /// Knight `player`'s name for a brief or a notice.
     fn knight_name(&self, player: u32) -> String {
         if player == 1 {
             return self.host_name();
@@ -371,7 +345,6 @@ impl Session<'_> {
             .map_or_else(|| "A knight".to_string(), |h| h.name.clone())
     }
 
-    /// Start the next brewing turn when angelX is free.
     fn brew_next(&mut self) {
         if self.dungeon.forge.stirring
             || self.facts().turn_running
@@ -421,7 +394,6 @@ impl Session<'_> {
                     );
                 let taken = cauldron::taken(&run.book);
                 let sheets = crate::together_sheets::dir(&self.cx.workspace());
-                // A file left from before is not this brew's answer.
                 let _ = std::fs::remove_file(&path);
                 let (wa, wb) = (wish_of(&a), wish_of(&b));
                 brew_brief(
@@ -438,13 +410,10 @@ impl Session<'_> {
         let kettle = &mut self.dungeon.forge.kettles[i];
         (kettle.started, kettle.seen) = (Some(Instant::now()), false);
         self.dungeon.forge.stirring = true;
-        // The game stays on screen: the turn runs behind it.
         self.cx.make(Move::Submit { brief, keep_draft: true });
     }
 }
 
-/// The wish a card was granted from, as the brief tells it: the words that
-/// call it, whose it is, and its tiers.
 fn wish_of(card: &cards::Card) -> Option<String> {
     let book = phrasebook::book();
     let wish = book
@@ -469,10 +438,6 @@ fn wish_of(card: &cards::Card) -> Option<String> {
     ))
 }
 
-/// Stable, order-independent creative direction: swapping the ingredients must
-/// not turn rerolling into a way to shop for a different power budget.
-/// These are art/combat briefs, never extra mechanics or permission to exceed
-/// the card grammar. No RNG state or additional model dispatch is consumed.
 fn fusion_direction(a: &str, b: &str) -> &'static str {
     const DIRECTIONS: [&str; 6] = [
         "Storm salvage: a battered instrument containing impossible weather. Seek a lane-clearing payoff; show one bright pressure seam against heavy metal.",
@@ -483,7 +448,6 @@ fn fusion_direction(a: &str, b: &str) -> &'static str {
         "Clockwork folklore: a handmade charm repaired with precision machinery. Seek a surprising companion or projectile relationship, only if supported; use an asymmetric silhouette with a clear central joint.",
     ];
     let (a, b) = if a <= b { (a, b) } else { (b, a) };
-    // Explicit FNV-1a keeps direction stable across processes and platforms.
     let mut hash = 0xcbf29ce484222325u64;
     for byte in a.bytes().chain(std::iter::once(0)).chain(b.bytes()) {
         hash = (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3);
@@ -491,8 +455,6 @@ fn fusion_direction(a: &str, b: &str) -> &'static str {
     DIRECTIONS[(hash % DIRECTIONS.len() as u64) as usize]
 }
 
-/// What angelX is asked when a brew rises: one new spell card, a true
-/// fusion of the two that went in.
 pub fn brew_brief(
     name: &str,
     inputs: [(&cards::Card, Option<&str>); 2],
@@ -607,8 +569,6 @@ The game reads the file when your turn ends, checks it with the card checker and
     )
 }
 
-/// A second, bounded model turn critiques the existing draft, rather than
-/// generating another unconnected spell or installing an unchecked answer.
 fn review_brew_brief(name: &str, path: &std::path::Path, inputs: &[cards::Card; 2]) -> String {
     format!(
         "Review the cauldron spell drafted for {name} in {path}. This is a separate creative quality pass. Read that existing file first. Write ONLY that same card file (and its sprite sheet if needed); no code changes.\n\n\
@@ -630,7 +590,6 @@ Inks, each group dark→light: {inks}. Keep every art row within the format's bo
     )
 }
 
-/// What angelX is asked when the spell it brewed was turned away.
 fn mend_brew_brief(
     name: &str,
     path: &std::path::Path,

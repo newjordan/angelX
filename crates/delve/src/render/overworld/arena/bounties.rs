@@ -10,21 +10,16 @@ use crate::rules::Run;
 use crate::rules::bounties;
 use crate::rules::home::BOUNTY_BOARD;
 
-/// The board on its posts, as the cellar's scenery has it, with the
-/// `printed` extra notices the Type-Foundry's type has run off beside Wren's
-/// three.
 pub(super) fn furniture(cv: &mut Img, printed: usize) {
     let (c, r, w, _) = BOUNTY_BOARD;
     let (x0, x1) = (c * TILE, (c + w) * TILE);
     let foot = (r + 1) * TILE - 2;
     let (top, bottom) = (foot - 34, foot - 11);
-    // Two posts, into the floor.
     for x in [x0 + 4, x1 - 7] {
         cv.rect(x, top + 4, 3, foot - top - 4, 'B');
         cv.line(x, top + 4, x, foot, 'P');
         cv.line(x - 1, foot, x + 3, foot, 'I');
     }
-    // The panel: cork in a timber frame.
     let (pw, ph) = (x1 - x0 - 2, bottom - top);
     cv.rect(x0 + 1, top, pw, ph, 'o');
     for y in top + 1..bottom - 1 {
@@ -44,8 +39,6 @@ pub(super) fn furniture(cv: &mut Img, printed: usize) {
     }
     cv.frame(x0 + 1, top, pw, ph, 'B');
     cv.line(x0 + 1, top, x1 - 2, top, 'P');
-    // Three notes, each with a red pin and Wren's hand on it; narrower to
-    // make room when type has printed more, which are set in even lines.
     let (step, wide) = if printed > 0 { (9, 7) } else { (13, 10) };
     let first = if printed > 0 { x0 + 3 } else { x0 + 6 };
     for i in 0..3 + printed as i32 {
@@ -62,7 +55,6 @@ pub(super) fn furniture(cv: &mut Img, printed: usize) {
     }
 }
 
-/// What a knight standing at the board reads.
 pub(super) fn sheet(run: &Run) -> Img {
     let title = "WREN'S BOUNTIES";
     let rows: Vec<(
@@ -84,7 +76,6 @@ pub(super) fn sheet(run: &Run) -> Img {
             ))
         })
         .collect();
-    // Her raid rows: alarms, not wages — the purse is won in the hall.
     let raids: Vec<String> = run
         .home
         .raids
@@ -136,7 +127,6 @@ pub(super) fn sheet(run: &Run) -> Img {
     im
 }
 
-/// The board's foot, in arena units: a knight near it reads the sheet.
 pub(super) fn foot() -> (f32, f32) {
     let (c, r, w, _) = BOUNTY_BOARD;
     ((c as f32 + w as f32 / 2.0) * 2.0, (r as f32 + 1.5) * 2.0)

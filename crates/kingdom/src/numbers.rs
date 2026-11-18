@@ -10,7 +10,6 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-/// How a line of a card reads: plain, well, strained or stopped.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Tone {
     #[default]
@@ -27,17 +26,14 @@ pub struct Row {
     pub tone: Tone,
 }
 
-/// What pointing at a thing says of it.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Card {
     pub title: String,
-    /// "WORKS", "LINE", "STORE" or "PLAN".
     pub kind: String,
     pub at: Tile,
     pub rows: Vec<Row>,
 }
 
-/// One good over the last hour, oldest minute first.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GoodLine {
     pub good: String,
@@ -52,30 +48,23 @@ pub struct GoodLine {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Production {
-    /// Whole minutes the books hold (at most 59).
     pub minutes: u8,
     pub goods: Vec<GoodLine>,
 }
 
-/// One thing holding the works back, and where it is.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Choke {
     pub text: String,
-    /// The works at fault (a plan id), the good in the way, and where to go to see it.
     pub plan: String,
     pub good: String,
     pub at: Tile,
-    /// Seconds the works lost to it over the last few minutes.
     pub lost: u32,
     pub tone: Tone,
-    /// This is what the Keep's chain is waiting on.
     pub keep: bool,
 }
 
-/// What one seat is shown, made for it alone.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Numbers {
-    /// The sim second it was made.
     pub at: u64,
     pub card: Option<Card>,
     pub production: Option<Production>,
@@ -99,7 +88,6 @@ fn row(label: &str, text: impl Into<String>, tone: Tone) -> Row {
 }
 
 impl Kingdom {
-    /// The card of whatever is at `tile`: a plan, a works, a store, a line.
     pub fn card(&self, c: &Catalog, tile: Tile) -> Option<Card> {
         if let Some(id) = self.ghost_at(c, tile) {
             return Some(self.plan_card(c, id));
@@ -208,7 +196,6 @@ impl Kingdom {
             ));
         }
         if !matches!(status, Status::Working | Status::Idle | Status::Construction | Status::Paused) {
-            // What it waits for is the thing to read first: straight under its state.
             let why = self.clerk_why_idle(c, id);
             let short: Vec<&str> = why.split("; ").take(2).collect();
             rows.insert(1, row("WAITING", short.join("; "), tone));
@@ -235,7 +222,6 @@ impl Kingdom {
             let m = self.books.minutes(&g);
             let trend = if id == 1 && m.len() >= 3 {
                 let (a, z) = (i64::from(m[m.len() - 3].2), i64::from(m[m.len() - 1].2));
-                // (Only a stock that is moving says which way.)
                 match (z - a) / 2 {
                     0 => String::new(),
                     d => format!("  {d:+}/MIN"),
@@ -281,7 +267,6 @@ impl Kingdom {
         Card { title: spec.name.clone(), kind: "LINE".into(), at: tile, rows }
     }
 
-    /// The last hour of the goods the party has dealt in, busiest first.
     pub fn production(&self, c: &Catalog, limit: usize) -> Production {
         let closed = self.books.minute.saturating_sub(self.books.began).min(HOUR as u64 - 1) as u8;
         let mut goods: Vec<GoodLine> = self
@@ -309,13 +294,10 @@ impl Kingdom {
         Production { minutes: closed, goods }
     }
 
-    /// What is choking the works, worst first: each cause the Clerk finds behind a
-    /// starved or stopped works, with the seconds it has cost and where it stands.
     pub fn bottlenecks(&self, c: &Catalog, limit: usize) -> Vec<Choke> {
         let report = self.report(c);
         let machines: BTreeMap<u32, crate::MachineRow> = self.machine_report(c).into_iter().map(|m| (m.id, m)).collect();
         let mut found: BTreeMap<(String, String, String), Choke> = BTreeMap::new();
-        // What each missing good comes down to, asked of the Clerk once.
         let mut roots: BTreeMap<String, Option<Cause>> = BTreeMap::new();
         let mut put = |key: (String, String, String), choke: Choke| match found.get_mut(&key) {
             Some(e) => e.lost += choke.lost,
@@ -332,7 +314,6 @@ impl Kingdom {
         };
         let pname = |plan: &str| c.plans.get(plan).map_or(plan.to_string(), |p| p.name.to_uppercase());
         let gname = |g: &str| name_of(c, g).to_uppercase();
-        // Every works that is held up, and why.
         for (&id, b) in &self.buildings {
             if id == 1 || b.construction > 0 {
                 continue;
@@ -368,7 +349,6 @@ impl Kingdom {
                 }
             }
         }
-        // What the Keep waits on is always among them, and counts for more.
         if let Some(site) = self.keep_site() {
             if let Some(root) = self.clerk(c, site).causes.last().cloned() {
                 let at = self.buildings.get(&self.sites[&site].yard).map_or(self.camp(), |y| y.tile);
@@ -396,7 +376,6 @@ impl Kingdom {
         out
     }
 
-    /// A cause in words, the plan at fault and where to find it (`near` when no such works stands).
     fn cause_words(&self, c: &Catalog, cause: &Cause, near: Tile) -> (String, String, Tile) {
         let pname = |plan: &str| c.plans.get(plan).map_or(plan.to_string(), |p| p.name.to_uppercase());
         let gname = |g: &str| name_of(c, g).to_uppercase();

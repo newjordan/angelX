@@ -15,10 +15,6 @@ use std::sync::Arc;
 #[path = "../../../../tests/cockpit/tools/consult__deli_tests.rs"]
 mod deli_tests;
 
-/// Resolve an operator-typed seat name against a roster: exact label first,
-/// then a label or live-model-id substring. The one place this matching rule
-/// lives — `consult_model` and the needs-pro escalation seat both go through it,
-/// so a name that works for one works for the other.
 pub(crate) fn find_in_roster(roster: &[Arc<dyn Club>], wanted: &str) -> Option<Arc<dyn Club>> {
     let lower = wanted.trim().to_ascii_lowercase();
     roster
@@ -33,8 +29,6 @@ pub(crate) fn find_in_roster(roster: &[Arc<dyn Club>], wanted: &str) -> Option<A
         .map(Arc::clone)
 }
 
-/// Local seats (the `local` box's modes) are optional. A turn must
-/// not depend on any of them being up; only use one while `Club::is_available`.
 pub(crate) fn is_optional_local_label(label: &str) -> bool {
     let label = label.trim();
     !label.is_empty()
@@ -42,8 +36,6 @@ pub(crate) fn is_optional_local_label(label: &str) -> bool {
         && !crate::agent::club::is_sota_label(label)
 }
 
-/// Live optional-local labels — used in skip receipts so the model can pick a
-/// seat that is actually up instead of retrying the corpse.
 pub(crate) fn live_optional_local_labels(roster: &[Arc<dyn Club>]) -> Vec<String> {
     roster
         .iter()
@@ -64,7 +56,6 @@ pub(crate) fn skip_down_local_message(tool: &str, wanted: &str, live: &[String])
     )
 }
 
-/// What to do with a resolved seat that may be a down local box.
 pub(crate) enum LocalSeat {
     Use {
         club: Arc<dyn Club>,
@@ -75,9 +66,6 @@ pub(crate) enum LocalSeat {
     },
 }
 
-/// If `wanted` is an optional local and currently down, use another live local
-/// or `self_club`. If nothing is up, skip — never fail the turn for a dark LAN
-/// box.
 pub(crate) fn take_local_seat(
     wanted: Arc<dyn Club>,
     roster: &[Arc<dyn Club>],
@@ -112,7 +100,6 @@ pub(crate) fn take_local_seat(
     LocalSeat::Skip { wanted: from }
 }
 
-/// Extract display text from a [`ClubReply`].
 fn reply_text(reply: ClubReply) -> String {
     match reply {
         ClubReply::Text(text) => text,
@@ -120,8 +107,6 @@ fn reply_text(reply: ClubReply) -> String {
     }
 }
 
-/// Call another model or club (luna-on-high, deepseek-v4-flash, sota-swarm, etc.)
-/// directly mid-turn for code help or second opinions.
 pub(crate) struct ConsultModelTool {
     roster: Vec<Arc<dyn Club>>,
     fallback_club: Option<Arc<dyn Club>>,
@@ -139,25 +124,18 @@ impl ConsultModelTool {
         find_in_roster(&self.roster, wanted)
     }
 
-    /// Resolve a club plus an optional per-call reasoning effort (pinned only
-    /// by the smart-escalation alias).
     fn resolve_club(&self, name: &str) -> Result<(Arc<dyn Club>, Option<String>), String> {
         let trimmed = name.trim();
         if trimmed.is_empty()
             || trimmed.eq_ignore_ascii_case("auto")
             || trimmed.eq_ignore_ascii_case("self")
         {
-            // auto/self → in-hand only (never a random roster head).
             return self
                 .fallback_club
                 .clone()
                 .map(|club| (club, None))
                 .ok_or_else(|| "consult_model: no in-hand club for auto/self".to_string());
         }
-        // "smart"/"sota" = the ONE designated escalation seat (Sol@max by
-        // default, Kimi-K3@high alternative; TUI operators get the popup
-        // choice). If the chosen seat is absent from this roster (e.g. no
-        // ChatGPT OAuth token), the alternative is tried before erroring.
         if trimmed.eq_ignore_ascii_case("smart") || trimmed.eq_ignore_ascii_case("sota") {
             let seat = crate::agent::club::smart_seat();
             let (seat, club) = match self.find_in_roster(&seat.club) {
@@ -183,7 +161,6 @@ impl ConsultModelTool {
             deny_sota_if_blocked_except(club.label(), self_label)?;
             return Ok((club, None));
         }
-        // Fail closed — do NOT fall through to roster[0] (was openai/codex).
         Err(format!(
             "consult_model: unknown club '{trimmed}'. Available: self, auto, smart, {}",
             self.roster
@@ -312,6 +289,9 @@ impl Tool for ConsultModelTool {
         messages.push(ChatMsg::user(prompt));
 
         let club: Arc<dyn Club> = if method == "deli" {
+            if let Err(disengaged) = crate::drive::deli::check_deli_runway(rounds) {
+                return Ok(disengaged.consult_notice(club.label()));
+            }
             Arc::new(crate::drive::deli::DeliClub::for_consult(
                 club,
                 rounds,
@@ -320,8 +300,6 @@ impl Tool for ConsultModelTool {
         } else {
             club
         };
-        // A smart-escalation consult pins its effort per-call (Sol@max /
-        // Kimi@high) without mutating the seat's route state.
         let reply = club
             .chat_streaming_with_effort(
                 &messages,
@@ -356,8 +334,6 @@ impl Tool for ConsultModelTool {
     }
 }
 
-/// Request an adversarial code review on a file, diff, or raw code snippet using
-/// a cheap SOTA model or swarm panel.
 pub(crate) struct CodeReviewTool {
     roster: Vec<Arc<dyn Club>>,
     fallback_club: Option<Arc<dyn Club>>,
@@ -372,7 +348,6 @@ impl CodeReviewTool {
     }
 
     fn resolve_club(&self, name: Option<&str>) -> Result<Arc<dyn Club>, String> {
-        // Default: self (in-hand) — self-review / self-test, not silent SOTA.
         let target_name = name.unwrap_or("self");
         if target_name.eq_ignore_ascii_case("self")
             || target_name.eq_ignore_ascii_case("auto")
@@ -474,8 +449,6 @@ impl Tool for CodeReviewTool {
             target.to_string()
         };
 
-        // `⠌⠙`: the reviewer's brief is the ledger pages; the focus and the
-        // code are the data. The reviewer is connected (the ledger reader only).
         let messages = vec![
             ChatMsg::system(format!(
                 "{} focus={focus}",

@@ -2,7 +2,6 @@
 //! every other one, and broken for the rest of the floor.
 use super::*;
 
-/// The first floor below, standing in a room that keeps pots.
 fn potted_room() -> Run {
     (0..60u64)
         .find_map(|seed| {
@@ -30,7 +29,6 @@ fn pots_stand_on_the_floor_by_the_walls_of_ordinary_rooms() {
         assert_eq!(room.tile(tx, ty), Tile::Floor);
         assert!(ty == 1 || ty == room.rows as i32 - 2, "by a wall");
     }
-    // The seed places them: a friend's copy agrees.
     let twin = run.clone();
     assert_eq!(twin.pots_of(twin.at), run.pots_of(run.at));
 }
@@ -49,7 +47,6 @@ fn a_swing_breaks_a_pot_and_it_stays_broken_for_the_floor() {
     assert_eq!(run.pot_shards.len(), 1);
     assert!(run.sounds.contains(&"bones_clatter"));
     assert!(run.valid_snapshot());
-    // Swinging again breaks nothing new.
     let left = run.pots_of(run.at).len();
     run.players.get_mut(&1).unwrap().swing = 0;
     run.tick_pots();
@@ -98,7 +95,6 @@ fn every_other_pot_holds_a_coin_and_a_new_floor_has_whole_pots() {
     assert!(run.pots_broken.is_empty(), "a new floor, whole pots");
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_pot_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_pot_shots() {

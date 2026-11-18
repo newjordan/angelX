@@ -1,4 +1,3 @@
-"""The backend interface and what a render returns."""
 import subprocess
 from dataclasses import dataclass, field
 
@@ -9,7 +8,6 @@ class BackendError(Exception):
 
 @dataclass
 class Render:
-    """One asset rendered: a strip of `frames` frames of `frame` size, drawn at `grain`."""
     png: str
     frame: tuple
     frames: int = 1
@@ -26,41 +24,33 @@ class Render:
 
 class Backend:
     name = ""
-    ext = ""  # a source file's suffix
-    kinds = ()  # the kinds of job it can draw: figure, prop, vfx
-    grain = 4  # the grain its sources draw at
+    ext = ""
+    kinds = ()
+    grain = 4
 
     def available(self):
-        """(True, version) when usable, else (False, why not)."""
         raise NotImplementedError
 
     def names(self, source):
-        """The asset names a source defines."""
         raise NotImplementedError
 
     def render(self, source, name, out_dir):
-        """Render one asset into out_dir; a Render."""
         raise NotImplementedError
 
     def check(self, source, name):
-        """The backend's own lints: a list of {rule, level, msg}."""
         return []
 
     def describe(self, source, name):
-        """The backend's own text description of an asset."""
         return ""
 
     def compare(self, source, name, ref):
-        """The asset against a reference PNG, as text."""
         raise BackendError(f"{self.name} cannot compare")
 
     def template(self, name, kind):
-        """A starting source for a new asset, as text."""
         return ""
 
 
 def run(cmd, cwd=None, env=None, timeout=120, stdin=None):
-    """A command's (exit code, stdout, stderr), never raising on a non-zero exit."""
     try:
         p = subprocess.run(cmd, cwd=cwd, env=env, input=stdin, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:

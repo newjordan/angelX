@@ -8,7 +8,6 @@ use crate::rules::{RoomKind, Run, countryside};
 pub(super) fn scenery(cv: &mut Img, run: &Run) {
     let kind = run.room().kind;
     if kind == RoomKind::Crag {
-        // Snow-capped outcrops; a rope course between them.
         for (k, (c, r, w, h)) in [(3, 1, 5, 2), (16, 1, 5, 2), (3, 11, 6, 2), (16, 11, 5, 2)].into_iter().enumerate() {
             let mut stones = Vec::new();
             for n in 0..w * 2 {
@@ -33,7 +32,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
         }
         m::sign(cv, 9 * TILE, 3 * TILE - 2, "SQUIRES THIS WAY", 'T');
     } else if kind == RoomKind::Rookery {
-        // The Royal Bird Office and its loft, pigeon-holed.
         for (k, (c, r, w, h)) in [(3, 2, 6, 3), (16, 2, 4, 3)].into_iter().enumerate() {
             let (x, y, pw, ph) = (c * TILE + 2, r * TILE - 8, w * TILE - 4, h * TILE + 8);
             m::house(cv, (x, y, pw, ph), &m::House { roof: m::ramp::SLATE, stone: true, windows: 0 }, 151 + k as u32);
@@ -48,7 +46,6 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
         m::sign(cv, 15 * TILE, 6 * TILE, "NO AIR MAIL", 'T');
         cv.text(15 * TILE, 6 * TILE + 12, "AFTER TEA", 'h');
     } else if kind == RoomKind::Observatory {
-        // A stone tower under a slate dome, its telescope out.
         let keep = |_: i32, _: i32| true;
         m::block(cv, (6 * TILE + 4, TILE + 6, 4 * TILE - 8, 3 * TILE - 6), m::ramp::STONE, false, 152);
         m::lobe(cv, (8.0 * TILE as f32, 2.0 * TILE as f32), (28.0, 14.0), m::ramp::SLATE, 153, 5.0, 0.0, &keep);
@@ -116,8 +113,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             }
         }
         if i >= 2 {
-            // These names are puzzle clues, not dusk-lit ground decoration.
-            // Stamp them after lighting on dark paper for readable contrast.
             let label = ["BOOT", "GOOSE", "CROWN"][i - 2];
             let width = super::super::ink::text_width(label) + 6;
             super::super::chrome::chip(cv, (x - width / 2, y + 10, width, 9));

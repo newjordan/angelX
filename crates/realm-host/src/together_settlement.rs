@@ -41,8 +41,6 @@ pub struct Receipt {
     pub iteration: usize,
     pub changed: bool,
     pub sequence: usize,
-    /// Geography is fixed when a room's first cut is paid for. Research cues
-    /// never supply a work ticket, and replay does not consult today's map.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plan: Option<planning::Plan>,
 }
@@ -53,11 +51,9 @@ pub struct Site {
     pub id: String,
     pub player: String,
     seed: u64,
-    /// The global sequence preserves interleaved loops and permits replay validation.
     pub loops: BTreeMap<String, Vec<Receipt>>,
     pub floor: Floor,
     pub resources: Resources,
-    /// Work tickets, not seconds: three cuts, a build, then a craft per room.
     pub work: u32,
     pub built: usize,
     pub tavern: bool,
@@ -85,9 +81,7 @@ impl Site {
         }
     }
 
-    /// One completed iteration does one job. Duplicate/out-of-order receipts
-    /// are harmless; missing iteration numbers are NOT inferred as work.
-    #[cfg_attr(not(test), allow(dead_code))] // a receipt with no research plan
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn apply(
         &mut self,
         loop_id: &str,
@@ -104,7 +98,6 @@ impl Site {
         changed: bool,
         input: Option<&planning::Input>,
     ) -> Result<bool, String> {
-        // A duplicate cannot replace its original flag or research provenance.
         if self.has_receipt(loop_id, iteration) {
             return Ok(false);
         }
@@ -130,8 +123,6 @@ impl Site {
         if !self.work.is_multiple_of(5) {
             return Ok(self.active_plan(room).cloned());
         }
-        // Once geography branches, a missing map continues from the last
-        // recorded cue rather than colliding with a future legacy coordinate.
         let previous = room.checked_sub(1).and_then(|room| self.active_plan(room));
         input
             .or_else(|| previous.map(|plan| &plan.input))
@@ -185,8 +176,6 @@ impl Site {
         let room = (self.work / 5) as usize;
         let phase = self.work % 5;
         if room >= ROOMS.len() {
-            // After the bounded wing is complete only actual changed candidates
-            // can craft, and only while the site's mined ore lasts.
             if changed {
                 self.craft();
             }
@@ -203,8 +192,6 @@ impl Site {
                 }
                 let r = &mut self.floor.rooms[4 + room];
                 r.kind = plan.map_or(ROOMS[room].2, |plan| plan.kind);
-                // Distinct furniture in the shared collision map, never across
-                // the central through-walk or a doorway.
                 match r.kind {
                     RoomKind::Stockpile => {
                         for col in [3, 4, 6, 7, 9, 10] {
@@ -227,8 +214,6 @@ impl Site {
                 self.built += 1;
             }
             _ => {
-                // An unchanged iteration may finish the build ticket, but it
-                // cannot conjure a crafted item. All resources remain banked.
                 if changed {
                     self.craft();
                 }
@@ -265,8 +250,6 @@ impl Site {
                 .position(|&(dx, dy)| (px + dx, py + dy) == (x, y))
                 .expect("adjacent wing");
             let mut r = Room::solid_rock((x, y));
-            // A central crossing gives every partial excavation a reachable
-            // front, whichever direction the next branch will take.
             for row in 1..ROWS - 1 {
                 for col in 1..COLS - 1 {
                     if row.abs_diff(ROWS / 2) <= 1 || col.abs_diff(COLS / 2) <= 1 {
@@ -275,16 +258,12 @@ impl Site {
                 }
             }
             if i == 0 {
-                // The old hall's chapel screen stands behind its west wall.
-                // Cut an ingress through the screen as part of this real job;
-                // reciprocal door flags alone do not make a usable passage.
                 for row in [ROWS / 2 - 1, ROWS / 2] {
                     self.floor.rooms[0].set(1, row, Tile::Floor);
                 }
             }
             self.floor.rooms[prev].open_door(dir);
             r.open_door((dir + 2) % 4);
-            // Insert before the optional tavern so the wing's indices stay stable.
             self.floor.rooms.insert(4 + i, r);
         }
         let index = 4 + i;
@@ -303,8 +282,6 @@ impl Site {
         let index = 4 + plan.room;
         if slice == 0 {
             let mut room = Room::solid_rock(plan.target);
-            // Keep a reachable working face and camera position throughout the
-            // partial cut. The selected rock route adds a real connecting cut.
             for row in 1..ROWS - 1 {
                 for col in 1..COLS - 1 {
                     if row.abs_diff(ROWS / 2) <= 1 || col.abs_diff(COLS / 2) <= 1 {
@@ -349,8 +326,6 @@ impl Site {
         }
     }
 
-    /// A hall alone is not an invented loop association. Empty but real loops
-    /// are recorded too, so their home can be resumed before any work receipt.
     pub fn associated(&self) -> bool {
         !self.loops.is_empty()
     }
@@ -418,14 +393,10 @@ impl Site {
         if !self.restore_exhibits(&mut replay) {
             return false;
         }
-        // Reject malformed maps, invented resources, duplicate receipts, and
-        // incompatible saves before any picture or playable run sees the map.
         serde_json::to_value(self).ok() == serde_json::to_value(replay).ok()
     }
 }
 
-/// Atomic site transactions, with an advisory OS lock for concurrent cockpits.
-/// A corrupt/unreadable ledger is an error, never a reason to start over.
 pub struct Store {
     pub site: Site,
     pub path: Option<PathBuf>,
@@ -480,7 +451,6 @@ impl Store {
         Ok(Some(site))
     }
 
-    /// Entry routes refresh without deriving work or replacing a playable save.
     pub fn refresh(&mut self) -> Result<(), String> {
         if let Some(path) = &self.path {
             match Self::load(path, &self.site)? {
@@ -493,14 +463,12 @@ impl Store {
         Ok(())
     }
 
-    #[cfg_attr(not(test), allow(dead_code))] // a loop with no research frontier
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn sync(&mut self, st: &LoopSummary, tavern: bool) -> Result<bool, String> {
         self.sync_with_plan(st, tavern, None)
     }
 
-    /// A current frontier is usable only for one newly completed iteration.
-    /// Catch-up must not relabel old receipts with today's research map.
-    #[cfg_attr(not(test), allow(dead_code))] // one new iteration; catch-up uses sync_with_plans
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn sync_with_plan(
         &mut self,
         st: &LoopSummary,
@@ -519,8 +487,6 @@ impl Store {
         })
     }
 
-    /// Per-iteration snapshots from the canonical loop log can survive resume
-    /// and catch-up without attributing a newer frontier to an older job.
     pub fn sync_with_plans(
         &mut self,
         st: &LoopSummary,
@@ -543,8 +509,6 @@ impl Store {
     ) -> Result<bool, String> {
         let durable = st.durable_settlement_events.as_ref();
         let has_loop = durable.is_some();
-        // A paid realm wing may be built between loops. Reflect that existing
-        // purchase without inventing a loop association or excavation receipt.
         if !has_loop && (!tavern || !self.site.associated() || self.site.tavern) {
             return Ok(false);
         }
@@ -564,8 +528,6 @@ impl Store {
                 next.loops.insert(facts.0.clone(), Vec::new());
             }
             if has_loop {
-                // Resolve inputs against the pre-transaction site, before any
-                // catch-up row makes the remaining row appear to be live.
                 let inputs: BTreeMap<_, _> = facts
                     .1
                     .iter()
@@ -592,8 +554,6 @@ impl Store {
         Ok(changed)
     }
 
-    /// Reload under the site lock; publish neither partial manifests nor failed
-    /// writes. The returned bool includes another cockpit's committed changes.
     fn transact<T>(
         &mut self,
         update: impl FnOnce(&mut Site) -> Result<T, String>,
@@ -618,9 +578,6 @@ impl Store {
             let lock = options
                 .open(p.with_extension("lock"))
                 .map_err(|e| e.to_string())?;
-            // A process forked anywhere in the cockpit holds a copy of this
-            // descriptor until it execs, so a lock just released can still
-            // read as held for a moment. Wait that out before calling it busy.
             let mut tries = 0;
             loop {
                 match lock.try_lock() {
@@ -674,7 +631,6 @@ impl Store {
             use std::os::unix::fs::OpenOptionsExt;
             options.mode(0o600);
         }
-        // Never remove someone else's temp or overwrite an invalid ledger.
         let mut file = options.open(&temp).map_err(|e| e.to_string())?;
         let result = (|| -> std::io::Result<()> {
             file.write_all(&bytes)?;

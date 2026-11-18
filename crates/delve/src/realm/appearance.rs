@@ -2,7 +2,6 @@
 //! Glass selects a cached frame without evaluating feature code during paint.
 use serde::{Deserialize, Serialize};
 
-/// Authored clip policy; lowered into legacy uniform frames before publication.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Step {
@@ -44,8 +43,6 @@ pub struct Animation {
     pub phase_offset: u32,
 }
 impl Animation {
-    /// Exact GCD lowering preserves both old wire layout and old player timing.
-    /// Validate the complete expansion before cloning any pixel buffers.
     pub fn with_steps(&self, steps: &[Step]) -> Result<Self, String> {
         let frame_ticks = validate_steps(steps, self.frames.len())?;
         let mut frames = Vec::new();

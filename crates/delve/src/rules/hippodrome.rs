@@ -12,7 +12,6 @@ pub const QUEST_MARKS: [&str; 5] = [
 pub const WAGER_MARKS: [&str; 6] = ["country:wager:0", "country:wager:1", "country:wager:2", "country:wager:finish:0", "country:wager:finish:1", "country:wager:finish:2"];
 pub const PLOT: usize = 12;
 pub const COACH: (i32, i32, i32, i32) = (19, 10, 2, 1);
-/// Travel has its own plate: E at COACH boards the herd race exclusively.
 pub const COACH_GATE: (i32, i32, i32, i32) = (19, 12, 2, 1);
 pub const STABLE_COACH: (i32, i32, i32, i32) = (19, 10, 2, 1);
 pub const MECHANIC: (f32, f32) = (5.0, 9.5);
@@ -37,7 +36,6 @@ pub fn shape(room: &mut Room) {
     let rects: &[(usize,usize,usize,usize)] = match room.kind {
         RoomKind::Hippodrome => &[(3,2,6,2),(15,2,6,2),(8,9,2,2)],
         RoomKind::Wheelwright => &[(3,2,5,3),(15,2,6,2),(7,10,3,2),(15,11,3,1)],
-        // The river is scenery, not a hazard on the free footpath.
         RoomKind::TollBridge => &[(3,2,6,3),(15,2,6,3),(8,9,2,3),(14,10,2,2),(3,11,4,1)],
         _ => &[],
     };

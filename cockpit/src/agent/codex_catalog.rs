@@ -197,7 +197,6 @@ fn read_checked_with(
     path: &Path,
     mut after_read: impl FnMut(usize),
 ) -> Result<CheckedCatalog, Diagnostic> {
-    // Reopen only after a revision change; consumers never read again.
     for attempt in 0..2 {
         let mut file = OpenOptions::new()
             .read(true)
@@ -301,8 +300,6 @@ fn parse(bytes: &[u8]) -> Result<CheckedCatalog, Diagnostic> {
         if let Some(map) = r.get("thinkingLevelMap") {
             let map = map.as_object().ok_or(Diagnostic::Thinking)?;
             for (level, wire) in map {
-                // Pi publishes both exclusions and a native no-effort wire
-                // under `off`. Neither is selectable by this reasoning route.
                 if level == "off" && (wire.is_null() || wire.as_str() == Some("none")) {
                     continue;
                 }
@@ -328,7 +325,6 @@ fn parse(bytes: &[u8]) -> Result<CheckedCatalog, Diagnostic> {
         {
             continue;
         }
-        // Fixed Codex wire profile, never imported generic compat flags or clamping.
         let mut wires = BTreeSet::new();
         for level in LEVELS {
             match thinking.get(*level) {

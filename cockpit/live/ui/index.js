@@ -1,5 +1,3 @@
-// Cockpit composition. Save this file while the host is open: geometry,
-// visibility, panel order and composer copy change without losing the chat.
 module.exports = {
   apiVersion: 1,
   render() {

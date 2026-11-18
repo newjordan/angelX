@@ -9,14 +9,10 @@
 //! says it is.
 use crate::*;
 
-/// What a milestone is, for how it is drawn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
-    /// A step of the opening.
     Step,
-    /// A charter to fund.
     Charter,
-    /// A stage of the Keep.
     Stage,
 }
 
@@ -25,27 +21,19 @@ pub struct Milestone {
     pub id: String,
     pub kind: Kind,
     pub name: String,
-    /// What to do, in words that name the keys.
     pub how: String,
-    /// Why it is worth it.
     pub why: String,
-    /// What it opens, by name.
     pub unlocks: Vec<String>,
-    /// The milestones it waits on.
     pub after: Vec<String>,
     pub done: bool,
-    /// Counted progress, when there is a count: have of need.
     pub have: u32,
     pub need: u32,
-    /// How many steps from the roots: its indent in the tree.
     pub depth: u8,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Goals {
-    /// Every milestone, parents before children.
     pub nodes: Vec<Milestone>,
-    /// The one to do now: the first that is not done and has everything it waits on done.
     pub next: Option<usize>,
 }
 
@@ -62,7 +50,6 @@ fn upper(s: &str) -> String {
     s.to_uppercase()
 }
 
-/// A list of names, in a sentence: "A, B AND C".
 fn names(v: &[String]) -> String {
     match v {
         [] => String::new(),
@@ -77,7 +64,6 @@ impl Kingdom {
         self.buildings.values().filter(|b| b.plan == plan && b.construction == 0).count()
     }
 
-    /// The milestones as the kingdom stands: the spine, the charters and the Keep's stages.
     pub fn goals(&self, c: &Catalog) -> Goals {
         let mut nodes: Vec<Milestone> = Vec::new();
         let hill = c.hill_charters();
@@ -202,13 +188,11 @@ impl Kingdom {
             homes as u32,
             2,
         ));
-        // The rest of the charters, each after the charters it needs.
         let mut rest: Vec<(&String, &Technology)> = hill.iter().copied().filter(|(id, _)| !nodes.iter().any(|n| n.id == format!("charter:{id}"))).collect();
         rest.sort_by_key(|(id, t)| (self.charter_depth(c, id), t.name.clone()));
         for (id, t) in rest {
             charter(id, &mut nodes, t.requires.iter().map(|r| format!("charter:{r}")).collect());
         }
-        // The Keep's stages, staked out or not.
         let site = self.keep_site().map(|id| (id, &self.sites[&id]));
         if let Some(castle) = c.castles.get(crate::seam::KEEP_PLAN) {
             let mut before = "mortar".to_string();
@@ -217,7 +201,6 @@ impl Kingdom {
                 let bill = crate::site::stage_needs(c, st);
                 let wants: Vec<String> = bill.iter().take(2).map(|(r, n)| format!("{n} {}", upper(&c.resources.get(r).map_or(r.as_str(), |x| x.name.as_str())))).collect();
                 let id = format!("stage:{}", st.id);
-                // A roof stage waits on the roofing charter.
                 let mut after = vec![before.clone()];
                 if st.name.contains("roof") {
                     after.push("charter:roofing".into());
@@ -246,14 +229,11 @@ impl Kingdom {
                 before = id;
             }
         }
-        // How deep each stands, and the one to do now.
         let by_id: std::collections::BTreeMap<String, usize> = nodes.iter().enumerate().map(|(i, n)| (n.id.clone(), i)).collect();
         for i in 0..nodes.len() {
             let d = nodes[i].after.iter().filter_map(|a| by_id.get(a)).map(|&j| nodes[j].depth + 1).max().unwrap_or(0);
             nodes[i].depth = d.min(9);
         }
-        // The charters nobody is waiting on are branches, not the thing to do now: a charter is
-        // the next goal only when something on the spine or the stages waits on it.
         let wanted: std::collections::BTreeSet<String> = nodes.iter().filter(|n| n.kind != Kind::Charter).flat_map(|n| n.after.clone()).collect();
         let next = nodes.iter().position(|n| {
             !n.done
@@ -263,15 +243,12 @@ impl Kingdom {
         Goals { nodes, next }
     }
 
-    /// How many charters stand between a charter and the first.
     fn charter_depth(&self, c: &Catalog, id: &str) -> u8 {
         c.tech(id).map_or(0, |t| t.requires.iter().map(|r| self.charter_depth(c, r) + 1).max().unwrap_or(0))
     }
 }
 
 impl Catalog {
-    /// The charters a hillside player can fund: the hillside's own and the base charters
-    /// they and the hillside's works stand on, by how far each is from the first.
     pub fn hill_charters(&self) -> Vec<(&String, &Technology)> {
         fn depth(c: &Catalog, id: &str) -> u8 {
             c.tech(id).map_or(0, |t| t.requires.iter().map(|r| depth(c, r) + 1).max().unwrap_or(0))

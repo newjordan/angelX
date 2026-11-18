@@ -43,7 +43,6 @@ fn atlas() -> &'static Atlas {
                                 c = ramp[i];
                             }
                         }
-                        // Exact same actor grade, baked once rather than per frame.
                         c = art::grade_actor(c, [0.35, 0.30, 0.28]);
                         out.set(x as i32, y as i32, c);
                     }
@@ -113,7 +112,6 @@ pub fn sprite(kit: &str, state: &str, index: usize, seat: usize) -> &'static Img
         .unwrap();
     &atlas().frames[&format!("{kit}/{file}")][seat]
 }
-/// 384×224 at one native sample per pixel; the anchor is presentation-only.
 pub fn layers(kit: &str, state: &str, ms: u64, seat: usize) -> (Img, Img) {
     let mut base = Img::black(384, 224);
     let mut fx = Img::new(384, 224);
@@ -131,7 +129,6 @@ pub fn layers(kit: &str, state: &str, ms: u64, seat: usize) -> (Img, Img) {
     let (ox, oy) = (192 - anchor.0, 180 - anchor.1);
     base.stamp(im, ox, oy);
     if kit == "fx" {
-        // Peripheral soot is atmosphere; hot lobes and impact cores stay solid.
         for y in 0..im.h {
             for x in 0..im.w {
                 if let Some(c) = im.get(x, y) {

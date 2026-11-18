@@ -11,7 +11,6 @@ impl StoreLease {
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;
-            // SAFETY: the returned lease retains this live descriptor.
             let result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
             if result != 0 {
                 return Err(io_error("lock", path, std::io::Error::last_os_error()));
@@ -26,7 +25,6 @@ impl Drop for StoreLease {
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;
-            // SAFETY: this lease exclusively owns the descriptor until drop.
             let _ = unsafe { libc::flock(self.0.as_raw_fd(), libc::LOCK_UN) };
         }
     }
@@ -53,8 +51,6 @@ pub(super) fn open_private(path: &Path, kind: OpenKind) -> Result<File, String> 
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        // Validate the opened descriptor before doing I/O. A FIFO must not
-        // wait for a peer during open before the regular-file check runs.
         options
             .mode(0o600)
             .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);

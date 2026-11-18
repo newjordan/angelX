@@ -3,9 +3,6 @@ use crate::agent::club::{ChatMsg, ToolCall};
 use serde_json::Value;
 use std::sync::Arc;
 
-/// Hash the serializable message stream without allocating JSON or retaining
-/// old payloads. Chained boundaries let each replay validate its full prefix in
-/// O(1); the request computes the boundaries once in O(history bytes).
 fn extend_digest(prior: &[u8; 32], message: &ChatMsg) -> [u8; 32] {
     struct DigestWriter(ring::digest::Context);
     impl std::io::Write for DigestWriter {
@@ -47,8 +44,6 @@ impl ResponseReplay {
         content: &str,
         items: Vec<Value>,
     ) -> Option<Arc<Self>> {
-        // A partial/unsupported native item set must not replace valid generic
-        // history. Require every returned function and all visible prose.
         if items.iter().any(|item| {
             item["type"] == "reasoning"
                 && item["encrypted_content"]
@@ -101,7 +96,6 @@ impl ResponseReplay {
             .then_some(self.items.as_slice())
     }
 
-    /// Conservative byte budget only; encrypted size is not an API token count.
     pub(crate) fn extra_bytes(&self) -> usize {
         self.extra_bytes
     }
@@ -114,8 +108,6 @@ fn same_calls(left: &[ToolCall], right: &[ToolCall]) -> bool {
         })
 }
 
-/// Keep only completed items, indexed in provider order. Terminal output wins
-/// over duplicate item-done frames. Never capture summaries from delta events.
 #[derive(Default)]
 pub(super) struct ReplayItems {
     items: std::collections::BTreeMap<u64, Value>,
@@ -130,8 +122,6 @@ impl ReplayItems {
 
     pub(super) fn observe_parsed(&mut self, line: &super::events::ParsedResponsesLine<'_>) {
         let payload = line.payload;
-        // The literal gate is part of replay provenance: an escaped event type
-        // alone must not admit an item that the original capture would skip.
         if !payload.contains("response.output_item.done") && !payload.contains("response.completed")
         {
             return;

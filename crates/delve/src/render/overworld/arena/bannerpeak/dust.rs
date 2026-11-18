@@ -17,7 +17,6 @@ use crate::rules::bannerpeak::{
 use crate::rules::juice::Weight;
 use std::f32::consts::PI;
 
-/// Where the purse sits on the HUD, for a coin to fly to.
 pub(super) const PURSE: (i32, i32) = (9, 9);
 
 fn smoke(pen: &mut Pen, at: (f32, f32), age: f32, seed: u32, n: u32, angle: f32, spread: f32, speed: (f32, f32), size: u8, tick: u64) {
@@ -32,7 +31,6 @@ fn smoke(pen: &mut Pen, at: (f32, f32), age: f32, seed: u32, n: u32, angle: f32,
     spray.each(age, |m| pfx::mote(pen, &m, Shape::Smoke, ramps::BONE, size, tick));
 }
 
-/// One mark, drawn behind (`back`) or over (`front`) the knights.
 fn one(back: &mut Img, front: &mut Img, m: &Mark, s: &Session, id: u32, cam: (i32, i32), tick: u64) {
     let now = s.elapsed;
     let age = m.age(now);
@@ -53,7 +51,6 @@ fn one(back: &mut Img, front: &mut Img, m: &Mark, s: &Session, id: u32, cam: (i3
         Kind::Hop => {
             let mut pen = Pen::new(back, 80);
             smoke(&mut pen, at, a, seed, 4, -PI / 2.0, 2.6, (0.4, 1.1), 2, tick);
-            // A triple jump leaves a ring of sparks behind its feet.
             if m.n == 2 && age < 10 {
                 let mut p = Pen::new(front, 80);
                 pfx::rays(&mut p, (at.0, at.1 - 2.0), 7, 11.0, 0.7, seed as f32, ramps::GOLD, a / 10.0);
@@ -90,7 +87,6 @@ fn one(back: &mut Img, front: &mut Img, m: &Mark, s: &Session, id: u32, cam: (i3
             juice::impact_burst(front, at, age, seed, weight, tick);
             let text = format!("+{}", m.n);
             juice::pop_number(front, &text, (x, y - 8), age, 28, 1, if m.n >= 400 { '6' } else { 'T' });
-            // The wisp's light, returned: a warm mote that climbs away.
             let mut pen = Pen::new(front, 80);
             let lights = Spray { gravity: -0.06, drag: 0.05, ..Spray::round(seed ^ 0x9, 3, (at.0, at.1 - 3.0), (0.4, 1.0), (14.0, 26.0)) };
             lights.each(a, |mote| pfx::mote(&mut pen, &mote, Shape::Ember, ramps::GOLD, 1, tick));
@@ -151,7 +147,6 @@ fn one(back: &mut Img, front: &mut Img, m: &Mark, s: &Session, id: u32, cam: (i3
                 pen.shock((at.0, at.1), 2.0 + a * 1.5, 1.4, 0.4, ramps::FROST, a / 14.0);
                 pen.shock((at.0, at.1 - 6.0), 2.0 + a * 1.0, 1.0, 0.4, ramps::FROST, (a / 14.0).min(1.0));
             }
-            // Arrows that rise off the shield: the lift.
             for i in 0..3i32 {
                 let rise = a * 1.6 - i as f32 * 4.0;
                 if (0.0..16.0).contains(&rise) {
@@ -203,7 +198,6 @@ fn one(back: &mut Img, front: &mut Img, m: &Mark, s: &Session, id: u32, cam: (i3
             juice::impact_burst(front, at, age, seed, Weight::Graze, tick);
         }
         Kind::Plate => {
-            // A plate off the crown: a heavy burst and a falling plate of gold.
             juice::impact_burst(front, at, age, seed, Weight::Kill, tick);
             let mut pen = Pen::new(front, 160);
             let plates = Spray { spread: 2.8, angle: -PI / 2.0, gravity: 0.2, ..Spray::round(seed ^ 0x3, 8, at, (1.5, 3.4), (18.0, 32.0)) };
@@ -213,7 +207,6 @@ fn one(back: &mut Img, front: &mut Img, m: &Mark, s: &Session, id: u32, cam: (i3
             juice::impact_burst(front, at, age, seed, Weight::Finale, tick);
             juice::death_burst(front, (at.0, at.1 + 12.0), age, seed ^ 0x21, tick);
             if age < 120 {
-                // A column of embers lifting off the fallen king.
                 let mut pen = Pen::new(front, 300);
                 let col = Spray { spread: 1.0, angle: -PI / 2.0, gravity: -0.02, ..Spray::round(seed ^ 0x7, 24, (at.0, at.1 + 26.0), (0.8, 2.6), (30.0, 62.0)) };
                 col.each(a, |mote| pfx::mote(&mut pen, &mote, Shape::Ember, ramps::EMBER, 1, tick));
@@ -223,14 +216,11 @@ fn one(back: &mut Img, front: &mut Img, m: &Mark, s: &Session, id: u32, cam: (i3
     }
 }
 
-/// A coin out of a rune block (or off the ground): it leaps, spins, hangs a moment glinting and
-/// then flies to the purse if it is yours; a friend's drops away in a sparkle.
 #[allow(clippy::too_many_arguments)]
 fn coin(front: &mut Img, m: &Mark, _s: &Session, id: u32, _cam: (i32, i32), x: i32, y: i32, age: u32, seed: u32, tick: u64) {
     let a = age as f32;
     let mine = u32::from(m.who) == id;
     if m.n == 1 {
-        // Gathered: a ping of light where it was.
         let mut pen = Pen::new(front, 60);
         if age < 8 {
             pfx::rays(&mut pen, (x as f32, y as f32), 6, 9.0, 1.0, seed as f32, ramps::GOLD, a / 8.0);
@@ -239,7 +229,6 @@ fn coin(front: &mut Img, m: &Mark, _s: &Session, id: u32, _cam: (i32, i32), x: i
         stars.each(a, |mote| pfx::mote(&mut pen, &mote, Shape::Star, ramps::GOLD, 1, tick));
         return;
     }
-    // Phases: leap (0..9), hang (9..16), fly (16..32).
     let (cx, cy) = if age < 9 {
         let t = a / 9.0;
         (x as f32, y as f32 - 4.0 - 24.0 * (1.0 - (1.0 - t) * (1.0 - t)))
@@ -263,13 +252,11 @@ fn coin(front: &mut Img, m: &Mark, _s: &Session, id: u32, _cam: (i32, i32), x: i
     if w > 2 {
         front.rect(ix, iy - 2, 1, 4, '4');
     }
-    // A glint on the hang.
     if (9..16).contains(&age) {
         let g = (age - 9) as i32;
         front.put(ix - 4 + g, iy - 4, 'w');
         front.put(ix - 4 + g - 1, iy - 4, 'T');
     }
-    // The burst out of the block at the leap.
     if age < 10 {
         let mut pen = Pen::new(front, 80);
         let spray = Spray { gravity: 0.1, angle: -PI / 2.0, spread: 2.2, ..Spray::round(seed, 7, (x as f32, y as f32 - 2.0), (0.8, 2.4), (8.0, 16.0)) };
@@ -277,7 +264,6 @@ fn coin(front: &mut Img, m: &Mark, _s: &Session, id: u32, _cam: (i32, i32), x: i
     }
 }
 
-/// The marks of the session, behind and over the knights.
 pub(super) fn layers(s: &Session, id: u32, cam: (i32, i32), phase: u64) -> Option<(Img, Img)> {
     let live = |m: &&Mark| m.kind != Kind::Banner && (-60..W + 60).contains(&(m.x - cam.0)) && (-90..H + 60).contains(&(m.y - cam.1));
     if !s.show.marks.iter().any(|m| live(&m)) {

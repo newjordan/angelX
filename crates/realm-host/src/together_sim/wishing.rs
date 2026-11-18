@@ -13,7 +13,6 @@ impl Sim {
             core.commands.session() == claim.session && core.run.raid_id == claim.raid
         })
     }
-    /// Claim only newly queued intentions. Unchanged frames copy no definitions.
     pub fn new_wish_claims(
         &mut self,
         cursor: &mut Option<(String, u64)>,
@@ -124,7 +123,6 @@ impl Sim {
             edited,
             ..
         } = &mut *core;
-        // Logical policy rejection is terminal and refunds exactly once.
         let done = commands.complete_wish(run, claim, input, accepted, authored, rejection)?;
         *edited = true;
         Ok(done)

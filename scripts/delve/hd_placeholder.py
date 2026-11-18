@@ -21,7 +21,6 @@ import sys
 
 from PIL import Image
 
-# How far the marked pixel of each art pixel's square goes toward white.
 MARK = 0.45
 
 
@@ -46,7 +45,6 @@ def main(argv):
     manifest = json.load(open(os.path.join(request, "pack.json")))
     scale = manifest.get("scale", 4)
     wanted = [e for e in manifest["art"] if not only or any(e["name"].startswith(p) for p in only)]
-    # A mirror reads another entry's file: that one is made too.
     files = {e.get("file", e["name"] + ".png") for e in wanted}
     made = 0
     for name in sorted(files):

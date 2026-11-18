@@ -60,7 +60,6 @@ fn record_shield() {
             let keys = ["shielding", "aim_x", "aim_y", "max_hp", "guard", "shield_wear"];
             let base = hero_json(&run, id, &keys);
             let hero: Hero = run.players[&id].clone();
-            // turns / entry / meets
             let (dx, dy) = (float(&mut m, 3.0), float(&mut m, 3.0));
             turns_c.add(json!({"h": base, "dx": dx, "dy": dy}), json!(turns(&hero, (dx, dy))));
             let (a, b, c) = ((float(&mut m, 4.0), float(&mut m, 4.0)), (float(&mut m, 4.0), float(&mut m, 4.0)), (float(&mut m, 2.0), float(&mut m, 2.0)));
@@ -69,7 +68,6 @@ fn record_shield() {
             let body = 0.58 + float(&mut m, 0.3).abs();
             let met = meets(&hero, c, a, b, body).map(|k| json!({"t": k.t, "shield": k.shield, "at": [k.at.0, k.at.1]}));
             meets_c.add(json!({"h": base, "cx": c.0, "cy": c.1, "ax": a.0, "ay": a.1, "bx": b.0, "by": b.1, "body": body}), json!(met));
-            // wear
             let damage = *m.pick(&[0, 1, 5, 12, 30, 80, 400]);
             let mut after = run.clone();
             let knocked = after.players.get_mut(&id).unwrap().shield_turned(damage);

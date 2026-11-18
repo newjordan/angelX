@@ -12,15 +12,12 @@ use super::knights;
 use super::sprites;
 use crate::rules::{Hero, HZ};
 
-/// Ticks the bones take to settle.
 const FALL: u32 = HZ * 7 / 10;
 
 fn rows(rows: &[&str]) -> Img {
     Img::from_rows(rows)
 }
 
-/// The skull: lying with the bones, carried over a friend's head, or
-/// marking a monster weak enough to raise a knight in.
 pub(super) fn skull() -> Img {
     rows(&[
         ".iHHi.", "iHHHHi", "HkHHkH", "iHHHHi", ".iHHi.", "..hh..",
@@ -41,7 +38,6 @@ fn pelvis() -> Img {
     rows(&["hiHHih", ".hhhh.", "..hh.."])
 }
 
-/// A long bone `len` pixels, knobbed at both ends.
 fn bone(len: i32) -> Img {
     let mut im = Img::new(len, 3);
     for x in 1..len - 1 {
@@ -55,14 +51,10 @@ fn bone(len: i32) -> Img {
     im
 }
 
-/// A scrap of the knight's tabard, in their colours.
 fn cloth() -> Img {
     rows(&[".7777.", "775577", "7755587", ".78888."])
 }
 
-/// One piece of the skeleton: its picture, where it stood (from the feet,
-/// the picture's middle), where it comes to rest, how high it hops, and how
-/// many ticks it waits to let go.
 struct Piece {
     im: Img,
     from: (i32, i32),
@@ -73,7 +65,6 @@ struct Piece {
 }
 
 fn pieces(id: u32, hero: &Hero) -> Vec<Piece> {
-    // The same knight always falls the same way; seats differ.
     let h = |n: i32| (hash(n, id as i32, 61) % 7) as i32 - 3;
     let side = if hero.aim_x < 0.0 { -1 } else { 1 };
     let mut out = vec![
@@ -123,11 +114,7 @@ fn pieces(id: u32, hero: &Hero) -> Vec<Piece> {
     out
 }
 
-/// A fallen knight's bones with their feet at `(x, y)`; the skull among
-/// them unless `skull` is false (a friend carries it, or it was dropped
-/// elsewhere).
 pub(super) fn draw(cv: &mut Img, hero: &Hero, id: u32, tick: u64, wiped: bool, x: i32, y: i32, skull: bool) {
-    // A wiped party's clock has stopped: its bones are already down.
     let age = if hero.fell == 0 || wiped {
         u32::MAX
     } else {
@@ -143,7 +130,6 @@ pub(super) fn draw(cv: &mut Img, hero: &Hero, id: u32, tick: u64, wiped: bool, x
         let (px, py) = if t >= 1.0 {
             (tx, ty)
         } else {
-            // A hop out, then a smaller one as it lands.
             let u = t.clamp(0.0, 1.0);
             let ease = u * (2.0 - u);
             let bounce = (u * std::f32::consts::PI).sin() * p.hop
@@ -161,14 +147,12 @@ pub(super) fn draw(cv: &mut Img, hero: &Hero, id: u32, tick: u64, wiped: bool, x
         if p.turn && t >= 0.5 {
             im = sprites::quarter_turn(&im);
         }
-        // A cloud where each piece lands.
         if (1.0..1.35).contains(&t) && n < 3 {
             let puff = sprites::dust(((t - 1.0) * 30.0) as u32 + 4);
             cv.stamp(&puff, tx - puff.w / 2, ty - puff.h / 2 + 2);
         }
         cv.stamp(&im, px - im.w / 2, py - im.h / 2);
     }
-    // The cloth, in the knight's colours, falling last beside the ribs.
     let colours = if hero.colours().is_empty() {
         knights::seat_colours(id)
     } else {

@@ -1,18 +1,12 @@
 #!/usr/bin/env bash
-# Edit/test feedback shares the launcher's incremental fast profile, not a
-# separate debug tree. Opt into final release qualification explicitly.
 set -euo pipefail
 check_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-# Pin the actual Cargo/toolchain before tests replace HOME in their fixtures.
-# A direct Cargo installation also works without a rustup shim.
 gate_cargo=$(command -v cargo)
 if command -v rustup > /dev/null 2>&1; then
   gate_cargo=$(cd "$check_root" && rustup which cargo)
   gate_toolchain=$(cd "$check_root" && rustup show active-toolchain)
   export RUSTUP_TOOLCHAIN="${gate_toolchain%% *}"
 fi
-# Match the launcher's identity inputs: switching between launch and test must
-# not invalidate the host crate just because one omitted compiler provenance.
 gate_compiler="$(dirname "$gate_cargo")/rustc"
 if [[ -x "$gate_compiler" ]]; then
   export RUSTC="$gate_compiler"
@@ -24,8 +18,6 @@ if [[ "${1:-}" == --release ]]; then
   qualify_release=1
   shift
 fi
-# Fix source/toolchain identity before compiling anything in a final gate.
-# Discovering an unbound image afterward otherwise forces another release build.
 if (( qualify_release )); then
   gate_source=$(bash "$check_root/scripts/check/cockpit-source-digest.sh")
   if [[ -n "${ANGEL_BUILD_SOURCE_SHA256:-}" && "$ANGEL_BUILD_SOURCE_SHA256" != "$gate_source" ]]; then
@@ -46,8 +38,6 @@ bash "$check_root/scripts/check/check-locks.sh"
 bash "$check_root/scripts/check/check-plug-boundary.sh"
 bash "$check_root/scripts/check/check-legacy-terminal-boundary.sh"
 python3 "$check_root/scripts/check/check-active-connections.py"
-# A gate owns its temporary fixtures, including stores left by test binaries.
-# Preserve the caller's parent while removing only this invocation's directory.
 gate_tmp=$(mktemp -d "${TMPDIR:-/tmp}/angelx-tests.XXXXXX")
 trap 'rm -rf -- "$gate_tmp"' EXIT
 trap 'exit 130' INT
@@ -57,13 +47,7 @@ prepare_helper=0
 if [[ -z "${ANGEL_T_SANDBOX_HELPER:-}" ]]; then
   prepare_helper=1
 fi
-# The development phase builds the `devfast` profile (cockpit/Cargo.toml):
-# debug assertions and overflow checks stay on, but the code is optimized —
-# at dev's opt-0 the CPU-bound tests alone take ~15x longer.
 printf 'Development tests (devfast, no release LTO)...\n'
-# Compile first, then keep the test image and CLI/helper siblings private. A
-# concurrent Cargo build may unlink the shared target executable while tests
-# use current_exe() to re-exec; the gate's own image stays available until exit.
 build_log="$gate_tmp/build.jsonl"
 test_log="$gate_tmp/tests.jsonl"
 image="$gate_tmp/image"
@@ -90,9 +74,6 @@ if (( ! prepare_helper )); then
   image_args+=(--helper "$ANGEL_T_SANDBOX_HELPER")
 fi
 python3 "$check_root/scripts/check/copy-cockpit-test-image.py" "${image_args[@]}"
-# A caller's interactive authority is not a test fixture. Individual tests
-# opt into their own authority explicitly. Cargo normally sets the package cwd
-# when launching its test executable; preserve that contract for the copy.
 (
   cd "$check_root/cockpit"
   ANGEL_YOLO=0 ANGEL_YOLO_SMART=0 CARGO="$gate_cargo" \
@@ -100,7 +81,6 @@ python3 "$check_root/scripts/check/copy-cockpit-test-image.py" "${image_args[@]}
     ANGEL_T_SANDBOX_HELPER="$image/devfast/angel-sandbox" \
     "$image/devfast/deps/angel-tests" "$@"
 )
-# Dependency tests do not run with `--bin angel`: retain moved V8 coverage.
 ANGEL_YOLO=0 ANGEL_YOLO_SMART=0 \
   "$gate_cargo" test --locked --profile devfast --manifest-path "$check_root/cockpit/Cargo.toml" \
     --package angel-code-mode --lib -- "$@"

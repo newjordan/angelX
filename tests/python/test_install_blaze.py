@@ -1,4 +1,3 @@
-"""Pinned Blaze setup must be reusable offline without trusting stale/corrupt images."""
 import contextlib
 import hashlib
 import importlib.util
@@ -111,7 +110,6 @@ class BlazeInstallTests(unittest.TestCase):
                 raise subprocess.CalledProcessError(1, args)
             return subprocess.CompletedProcess(args, 0, str(path) + "\n")
         if args[:3] == ("rustup", "toolchain", "install"):
-            # Network-free fixtures opt in to this only in explicit repair tests.
             if not getattr(self, "allow_provision", False):
                 raise AssertionError("unnecessary toolchain provisioning")
             self.provision()

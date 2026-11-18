@@ -1,16 +1,10 @@
 #!/usr/bin/env bash
-# Operator lock: files in locks/locked.sha256 are settled systems. Any byte
-# change fails here until the operator approves the change and the manifest is
-# re-sealed by hand (`scripts/check/check-locks.sh --seal`, operator only).
-# An agent session must never run --seal: re-sealing without the operator's
-# explicit approval naming the change defeats the lock and is forbidden.
 set -euo pipefail
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 manifest="$root/locks/locked.sha256"
 cd "$root"
 
 seal() {
-  # The protected set. Keep in step with CLAUDE.md's locked list.
   local files=(
     cockpit/src/agent/harness/book/d3456_advisories.rs
     cockpit/src/drive/loop_ctl.rs

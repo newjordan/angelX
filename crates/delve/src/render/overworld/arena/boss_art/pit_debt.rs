@@ -31,7 +31,6 @@ pub(super) fn foreman_warning(cv: &mut Img, run: &Run, enemy: &Enemy) -> bool {
                 (x + (angle.cos() * radius).round() as i32,
                  y + (angle.sin() * radius).round() as i32)
             };
-            // Join the same 38px rage directions, leaving their real safe gap.
             ring_band(cv, run, [point(a, 34.0), point(a, 42.0), point(b, 42.0), point(b, 34.0)], core);
             ring_band(cv, run, [point(a, 40.0), point(a, 42.0), point(b, 42.0), point(b, 40.0)], edge);
         }
@@ -68,9 +67,6 @@ struct Annulus {
     burst: [Vec<Pixel>; 5],
 }
 
-/// Geometry is baked once for each of Ravage's existing eight radii. A new
-/// cast only supplies its anchor and two integer lane edges; rotated casts
-/// do not allocate another set of full-room canvases.
 fn annuli() -> &'static [Annulus; 8] {
     static RINGS: OnceLock<[Annulus; 8]> = OnceLock::new();
     RINGS.get_or_init(|| {
@@ -99,7 +95,6 @@ fn annuli() -> &'static [Annulus; 8] {
                             None
                         };
                         let colour = if stage == 3 {
-                            // Two clean radial bands; the final annulus has no tiled flecks.
                             Some(if d >= radius { [63, 156, 140] } else { [43, 111, 102] })
                         } else if boundary && along < [2, 4, 8][stage] {
                             Some([80, 163, 144])
@@ -199,8 +194,6 @@ pub(in super::super) fn ravage(cv: &mut Img, run: &Run, ravage: &Ravage) -> bool
     for (k, ring) in annuli().iter().enumerate().take(usize::from(ravage.rings)) {
         let bursts = ravage.ring(k as u8).1;
         if ravage.age < bursts {
-            // All annuli are committed at cast and charge together; each
-            // still bursts on its own original beat.
             let stage = (ravage.age * 4 / WARN).min(3) as usize;
             stamp(cv, run, &ring.warning[stage], anchor, &lane);
         } else if ravage.age < bursts + UP {
@@ -211,8 +204,6 @@ pub(in super::super) fn ravage(cv: &mut Img, run: &Run, ravage: &Ravage) -> bool
     true
 }
 
-/// The Laser retains its own 21-tick warning and exact committed reach.
-/// Its danger corridor uses BEAM_HALF, with no invented destination circle.
 pub(in super::super) fn leviathan_laser(cv: &mut Img, _run: &Run, shot: &Projectile, beam: Beam) {
     let kit = effects(Art::Leviathan);
     let from = at(shot.x, shot.y);

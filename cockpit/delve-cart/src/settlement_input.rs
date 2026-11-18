@@ -9,8 +9,6 @@ use angel_realm_host::together_settlement::planning::{MAX_ROUTE, Outcome, Resear
 use angel_live::host::sha256_hex;
 use std::path::Path;
 
-/// Select one eligible research frontier. An explicit campaign choice can use
-/// input_for_door; both paths derive the route and review outcome from the map.
 pub fn input(
     root: &Path,
     task: &str,
@@ -34,7 +32,7 @@ pub fn input(
     map_input(&*map, task, door).map(Some)
 }
 
-#[cfg_attr(not(test), allow(dead_code))] // an explicit door choice; tests and a campaign pick call it
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn input_for_door(
     root: &Path,
     task: &str,
@@ -90,8 +88,6 @@ fn map_input(map: &dyn ResearchMap, task: &str, door: &str) -> Result<Input, Str
     {
         return Err("settlement research route exceeds the recorded planning budget".into());
     }
-    // A disconnected door has no invented connection to another research
-    // node. Its singleton route still records the exact chosen frontier.
     let route: Vec<String> = route["path"]
         .as_array()
         .map(|path| {

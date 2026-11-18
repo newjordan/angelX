@@ -8,8 +8,6 @@ fn http_deadline_is_inherited_by_all_scoped_science_workers() {
     listener.set_nonblocking(true).unwrap();
     let url = format!("http://{}/", listener.local_addr().unwrap());
     let server = std::thread::spawn(move || {
-        // A worker may exhaust its inherited deadline before connecting.
-        // Bound accept too: a socket read timeout cannot bound accept().
         let accept_deadline = std::time::Instant::now() + Duration::from_secs(2);
         std::thread::scope(|scope| {
             for _ in Source::all() {
@@ -364,8 +362,6 @@ fn real_synthesis_batches_provider_mapping_and_preserves_source_errors() {
     assert_eq!(first.doi.as_deref(), Some("10.1234/valid"));
     assert!(first.url.is_none());
     let count = || std::fs::read_to_string(&calls).unwrap().lines().count();
-    // One preparation, one provider batch, one fold; the briefing is separate
-    // because native code supplies the validated citation lines to it.
     assert_eq!(count(), 3);
     assert!(result.brief(3).unwrap().contains("Valid paper"));
     assert_eq!(count(), 4);
@@ -417,8 +413,6 @@ fn known_legacy_entry_uses_single_source_protocol_without_replaying_search() {
     assert_eq!(calls.load(Ordering::SeqCst), 4);
     assert_eq!(result.papers[0].title, "Legacy result");
 
-    // An arbitrary changed entry is not silently classified as legacy from a
-    // failed process. It must implement the explicit v2 handshake.
     std::fs::write(
         scripts.join("science-brief.mjs"),
         format!("{LEGACY_ENTRY}// modified\n"),
@@ -664,8 +658,6 @@ fn sane_year_clamps_out_of_band_values() {
 #[test]
 fn future_dated_record_does_not_hijack_the_freshest_anchor() {
     let _lock = crate::tests::env_lock();
-    // A hostile 9999 year is dropped to None, so a genuine 2024 paper stays
-    // the freshest rather than being buried by the corrupt record.
     let body = serde_json::json!({
         "results": [
             { "display_name": "corrupt future", "publication_year": 9999 },
@@ -681,12 +673,10 @@ fn future_dated_record_does_not_hijack_the_freshest_anchor() {
 
 #[test]
 fn result_container_present_distinguishes_missing_from_empty() {
-    // Present-but-empty is a legitimate no-results (no note).
     assert!(result_container_present(
         Source::OpenAlex,
         &serde_json::json!({ "results": [] })
     ));
-    // Missing/renamed container is schema drift (a noted skip).
     assert!(!result_container_present(
         Source::OpenAlex,
         &serde_json::json!({ "meta": { "count": 0 } })
@@ -714,7 +704,6 @@ fn doi_less_records_do_not_merge_on_a_shared_generic_title() {
         citations: 1,
         source: Source::EuropePmc,
     };
-    // Same title, different first author + year → two distinct works.
     let folded = fold(vec![paper("Alice Smith", 2019), paper("Bob Jones", 2024)]).unwrap();
     assert_eq!(
         folded.len(),
@@ -727,7 +716,7 @@ fn doi_less_records_do_not_merge_on_a_shared_generic_title() {
 fn empty_title_records_never_collapse_into_one() {
     let _lock = crate::tests::env_lock();
     let blank = |src, url: &str| Paper {
-        title: "  ".into(), // squashes to an empty normalized title
+        title: "  ".into(),
         authors: vec![],
         year: None,
         doi: None,
@@ -781,7 +770,6 @@ fn themes_surface_shared_title_keywords() {
         snapshot: None,
     };
     let themes = syn.themes(5);
-    // "graph" is in all three; the ≥2 filter keeps the shared terms only.
     assert_eq!(themes[0], ("graph".to_string(), 3));
     assert!(themes.iter().all(|(_, c)| *c >= 2));
 }
@@ -868,7 +856,6 @@ fn prune_drops_stale_entries_and_keeps_fresh_ones() {
     for p in [&stale, &fresh, &other] {
         std::fs::write(p, "{}").unwrap();
     }
-    // Age the stale entry well past the horizon.
     let past = std::time::SystemTime::now() - Duration::from_secs(120);
     std::fs::File::options()
         .write(true)

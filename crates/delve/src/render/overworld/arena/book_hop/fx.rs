@@ -15,18 +15,12 @@ use crate::rules::hop::{self, Hop};
 use crate::rules::hop_show::{CROSS_LIFE, LAND_LIFE, LIT_LIFE, SINK_LIFE, Sink};
 use crate::rules::{Run, TILE_UNITS};
 
-/// The water thrown up: pale at the top, the river's own at the foot.
 const INK: Ramp = Ramp(['V', 'U', 'z', 'u', 'S', 'x']);
-/// Paper dust off a book: cream down to its shadow.
 const PAPER: Ramp = Ramp(['c', '$', 'i', 'h', 'J', 'G']);
-/// A bookmark's silk.
 const SILK: Ramp = Ramp(['7', 'R', 'p', 'B', 'b', 'n']);
 
-/// How long the knight takes to go under, in ticks.
 const GOING: u32 = 16;
 
-/// The knight sunk, going under: their figure (white for two ticks, then
-/// itself) with its feet taken by the water line a row at a time.
 fn going_under(cv: &mut Img, run: &Run, s: &Sink, age: u32) {
     let who = u32::from(s.who);
     let Some(hero) = run.players.get(&who) else { return };
@@ -46,8 +40,6 @@ fn going_under(cv: &mut Img, run: &Run, s: &Sink, age: u32) {
         return;
     }
     let (x, y) = s.at;
-    // The upper part of the figure, its foot on the water line; ink dithered
-    // over its lowest rows, as the river climbs it.
     for sy in 0..show {
         for sx in 0..fig.w {
             let Some(c) = fig.get(sx, sy) else { continue };
@@ -57,8 +49,6 @@ fn going_under(cv: &mut Img, run: &Run, s: &Sink, age: u32) {
     }
 }
 
-/// A knight sunk: the ring of water thrown up, rings on the river, bubbles
-/// rising, and for a wall the dust off the stone.
 fn sunk(cv: &mut Img, run: &Run, s: &Sink, now: u32, tick: u64) {
     let age = now.saturating_sub(s.born);
     if age >= SINK_LIFE {
@@ -68,10 +58,8 @@ fn sunk(cv: &mut Img, run: &Run, s: &Sink, now: u32, tick: u64) {
     going_under(cv, run, s, age);
     let seed = hash(s.at.0, s.at.1, u32::from(s.who)) & 0xffff;
     let mut pen = Pen::new(cv, 500);
-    // The crown of water.
     let crown = Spray { angle: -std::f32::consts::FRAC_PI_2, spread: 1.9, gravity: 0.17, drag: 0.04, ..Spray::round(seed, 30, (x, y - 1.0), (1.6, 4.4), (14.0, 28.0)) };
     crown.each(age as f32, |m| pfx::mote(&mut pen, &m, Shape::Droplet, INK, 2, tick));
-    // The plume: a column of water standing up out of the hole, then falling in.
     if age < 12 {
         let up = (crate::motion::math::sin(age as f32 / 12.0 * std::f32::consts::PI) * 17.0) as i32;
         for dy in 0..up {
@@ -84,20 +72,17 @@ fn sunk(cv: &mut Img, run: &Run, s: &Sink, now: u32, tick: u64) {
             }
         }
     }
-    // Rings on the river, four in turn.
     for j in 0..4u32 {
         if age >= j * 4 && age - j * 4 < 26 {
             let a = (age - j * 4) as f32;
             pen.ring((x, y + 1.0), 3.0 + a * 1.15, 1.1, 0.42, INK, a / 26.0);
         }
     }
-    // Bubbles, once the water has closed over.
     if age >= 6 {
         let bubbles = Spray { angle: -std::f32::consts::FRAC_PI_2, spread: 0.7, gravity: -0.004, drag: 0.03, stagger: 4.0, ..Spray::round(seed ^ 0x5a, 5, (x, y), (0.15, 0.45), (22.0, 36.0)) };
         bubbles.each((age - 6) as f32, |m| pfx::mote(&mut pen, &m, Shape::Bubble, INK, 1, tick));
     }
     if s.wall {
-        // A book against the stone: grit and a spark.
         let side = if s.at.0 < 192 { -1.0 } else { 1.0 };
         let grit = Spray { angle: if side < 0.0 { 0.0 } else { std::f32::consts::PI }, spread: 1.4, gravity: 0.06, ..Spray::round(seed ^ 0x77, 10, (x + side * 4.0, y - 4.0), (0.8, 2.2), (10.0, 20.0)) };
         grit.each(age as f32, |m| pfx::mote(&mut pen, &m, Shape::Shard, ramps::SMOKE, 1, tick));
@@ -107,7 +92,6 @@ fn sunk(cv: &mut Img, run: &Run, s: &Sink, now: u32, tick: u64) {
     }
 }
 
-/// A knight set down: a ring on the book (or the stone), a puff of paper.
 fn landed(cv: &mut Img, l: &crate::rules::hop_show::Land, now: u32, tick: u64) {
     let age = now.saturating_sub(l.born);
     if age >= LAND_LIFE {
@@ -119,16 +103,12 @@ fn landed(cv: &mut Img, l: &crate::rules::hop_show::Land, now: u32, tick: u64) {
     pen.ring((x, y + 2.0), 2.0 + a * 0.55, 0.9, 0.4, if l.lane == 255 { ramps::SMOKE } else { INK }, a / LAND_LIFE as f32);
     let dust = Spray { gravity: 0.03, squash: 0.5, ..Spray::round(hash(l.at.0, l.at.1, 3) & 0xff, 5, (x, y + 1.0), (0.5, 1.3), (8.0, 16.0)) };
     dust.each(a, |m| pfx::mote(&mut pen, &m, Shape::Dot, if l.lane == 255 { ramps::SMOKE } else { PAPER }, 1, tick));
-    // On the very edge of the book: a gold flick, a near thing.
     if l.edge && age < 14 {
         let tings = Spray { gravity: 0.03, drag: 0.1, ..Spray::round(hash(l.at.0, l.at.1, 5) & 0xff, 6, (x, y - 5.0), (0.7, 1.6), (9.0, 15.0)) };
         tings.each(a, |m| pfx::mote(&mut pen, &m, Shape::Star, ramps::GOLD, 1, tick));
     }
 }
 
-/// A knight over the far bank: gold and bookmarks thrown up, a ring of light
-/// on the stone, a column of sparkle; and the knight dropping back in on the
-/// near bank, a ring and a fall of paper.
 fn crossed(cv: &mut Img, c: &crate::rules::hop_show::Cross, now: u32, rows: i32, tick: u64) {
     let age = now.saturating_sub(c.born);
     if age >= CROSS_LIFE {
@@ -153,7 +133,6 @@ fn crossed(cv: &mut Img, c: &crate::rules::hop_show::Cross, now: u32, rows: i32,
             }
         }
     }
-    // The column of sparkle where they stood, rising a moment.
     if age < 10 {
         for dy in 0..22i32 {
             let fall = 1.0 - dy as f32 / 22.0;
@@ -164,7 +143,6 @@ fn crossed(cv: &mut Img, c: &crate::rules::hop_show::Cross, now: u32, rows: i32,
             }
         }
     }
-    // Back on the near bank: they drop in on a ring.
     if (5..26).contains(&age) {
         let ny = (hop::near_bank(rows) * TILE + 12) as f32;
         let b = (age - 5) as f32;
@@ -175,8 +153,6 @@ fn crossed(cv: &mut Img, c: &crate::rules::hop_show::Cross, now: u32, rows: i32,
     }
 }
 
-/// The archive lit: a sweep of gold along the far bank, motes off every
-/// lantern and feathers off the owls.
 fn flare(cv: &mut Img, h: &Hop, cols: i32, now: u32, tick: u64) {
     let Some(f) = h.show.flared else { return };
     let age = now.saturating_sub(f);
@@ -185,7 +161,6 @@ fn flare(cv: &mut Img, h: &Hop, cols: i32, now: u32, tick: u64) {
     }
     let w = cols * TILE;
     let a = age as f32;
-    // The sweep: a dithered band of gilt crossing the bank in a third of a second.
     if age < 18 {
         let sx = (ease::out(a / 18.0) * (w + 40) as f32) as i32 - 20;
         for y in 14..34 {
@@ -208,7 +183,6 @@ fn flare(cv: &mut Img, h: &Hop, cols: i32, now: u32, tick: u64) {
     feathers.each(a, |m| pfx::mote(&mut pen, &m, Shape::Petal, ramps::EARTH, 1, tick));
 }
 
-/// An arrow over every knight, in their own ink; the seat looking bobs more.
 fn arrows(cv: &mut Img, run: &Run, h: &Hop, focus: Option<u32>, tick: u32) {
     for &id in h.crossings.keys() {
         let Some(hero) = run.players.get(&id).filter(|p| p.hp > 0 && !p.stone) else { continue };
@@ -220,10 +194,8 @@ fn arrows(cv: &mut Img, run: &Run, h: &Hop, focus: Option<u32>, tick: u32) {
             [0, 0, -1, -1][(tick / 6 % 4) as usize]
         };
         let arrow = bits::arrow(knights::seat_mark(id));
-        // Over the head: the figure stands about twenty pixels tall.
         let ay = (y - 33 + bob).max(1);
         cv.stamp(&arrow, x - arrow.w / 2, ay);
-        // A run of clean crossings burns beside the arrow.
         let run_of = h.show.run_of(id);
         if run_of >= 2 {
             let fire = bits::flame(tick / 3 + id);
@@ -235,8 +207,6 @@ fn arrows(cv: &mut Img, run: &Run, h: &Hop, focus: Option<u32>, tick: u32) {
     }
 }
 
-/// A flag on the wall a book is carrying the seat looking into, flashing
-/// as it nears: a bar of red dither the lane's height and an arrow.
 fn warning(cv: &mut Img, run: &Run, h: &Hop, focus: Option<u32>, tick: u32) {
     let Some(me) = focus else { return };
     let Some(hero) = run.players.get(&me).filter(|p| p.hp > 0 && !p.stone) else { return };
@@ -273,7 +243,6 @@ fn warning(cv: &mut Img, run: &Run, h: &Hop, focus: Option<u32>, tick: u32) {
             }
         }
     }
-    // A bang mark on the stone beside it.
     let bang = bit_bang();
     cv.stamp(&bang, if dir > 0.0 { wall - 8 } else { wall + 4 }, y0 + 4);
 }
@@ -291,7 +260,6 @@ fn bit_bang() -> Img {
     im
 }
 
-/// What the hop does over the knights, in the room's pixels.
 pub(super) fn over(cv: &mut Img, run: &Run, h: &Hop, focus: Option<u32>) {
     let now = run.tick as u32;
     let rows = run.room().rows as i32;

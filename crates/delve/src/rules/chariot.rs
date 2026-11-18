@@ -19,33 +19,18 @@ pub mod show;
 use show::Kind;
 use super::juice::Weight;
 
-/// Laps of the oval, and its length in paces (one lap is the whole field).
 pub const LAPS: u32 = 3;
 pub const LAP: f32 = 1200.0;
-/// Ticks the field holds at the gate before the off: the course's name, then three beats
-/// (3, 2, 1), and the gate drops on the next.
 pub const GATE_TICKS: u32 = 3 * HZ;
-/// How long the result stands before the driver steps down: the line held, the iris, the podium.
 pub const RESULT_TICKS: u32 = 11 * HZ;
-/// Tiles from one lane unit to the next: the width a lane of `Racer::lane` is, on the road.
 pub const LANE_TILES: f32 = 1.3;
-/// The most teams a field holds: one for every seat at the table.
 pub const MOST_TEAMS: usize = 6;
-/// The purse, by finishing place.
 pub const PURSE: [u32; 4] = [90, 45, 20, 0];
 
-/// A course the coach can take the field to: a closed parametric curve in
-/// its own tile country, far bigger than the Hippodrome room — the race
-/// view follows the player's chariot round it. Distance runs the curve's
-/// parameter, the lane pushes along its normal, and corners are wherever
-/// the curve actually bends, so every course has its own rhythm of
-/// straights, sweepers and hairpins.
 #[derive(Clone, Copy, Debug)]
 pub struct Track {
     pub name: &'static str,
-    /// One lap, in paces.
     pub lap: f32,
-    /// The course's country, in tiles.
     pub map: (f32, f32),
     kind: TrackKind,
 }
@@ -67,11 +52,8 @@ pub const TRACKS: [Track; 5] = [
     Track { name: "The Hairpin", lap: 1950.0, map: (72.0, 36.0), kind: TrackKind::Hairpin },
 ];
 
-/// The bend (radians of heading change per tile of ground, over a
-/// 120-pace window) at which a stretch of course counts as a corner.
 const CORNER_BEND: f32 = 0.075;
 
-/// The centreline of a course at parameter `a` (radians), in tiles.
 fn centre(track: &Track, a: f32) -> (f32, f32) {
     let (cx, cy) = (track.map.0 / 2.0, track.map.1 / 2.0);
     match track.kind {
@@ -106,9 +88,6 @@ fn param(track: &Track, dist: f32) -> f32 {
     (dist.rem_euclid(track.lap) / track.lap) * std::f32::consts::TAU
 }
 
-/// Where a chariot stands on a course (tiles): the centreline, pushed
-/// along its normal by the lane — negative lanes toward the inside of
-/// the bend the course is taking.
 pub fn pos_on(track: &Track, dist: f32, lane: f32) -> (f32, f32) {
     let a = param(track, dist);
     let (x, y) = centre(track, a);
@@ -117,10 +96,6 @@ pub fn pos_on(track: &Track, dist: f32, lane: f32) -> (f32, f32) {
     (x + nx * lane * LANE_TILES, y + ny * lane * LANE_TILES)
 }
 
-/// How hard the course bends at `dist`: heading change per tile of
-/// ground over the 120 paces around it, so a bend means the same thing
-/// on the fast and slow stretches of a curve. Straights sit near 0.03;
-/// tight ends run past 0.15.
 pub fn bend_on(track: &Track, dist: f32) -> f32 {
     let a = param(track, dist);
     let da = (60.0 / track.lap) * std::f32::consts::TAU;
@@ -131,13 +106,11 @@ pub fn bend_on(track: &Track, dist: f32) -> f32 {
     d.sin().atan2(d.cos()).abs() / ground
 }
 
-/// The direction of travel on a course at `dist`, as a unit vector.
 pub fn tangent_on(track: &Track, dist: f32) -> (f32, f32) {
     let phi = angle_at(track, param(track, dist));
     (phi.cos(), phi.sin())
 }
 
-/// The heading of travel on a course at `dist`, for the sprite sheets.
 pub fn heading_on(track: &Track, dist: f32) -> Heading {
     let phi = angle_at(track, param(track, dist));
     let (vx, vy) = (phi.cos(), phi.sin());
@@ -159,60 +132,42 @@ pub enum Phase {
     Done,
 }
 
-/// One chariot in the field.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Racer {
-    /// Which team this is: stays with the chariot when a friend's screen swaps it forward.
     #[serde(default)]
     pub team: u8,
     pub name: String,
     pub house: String,
     pub blood: Bloodline,
-    /// Paces run, over all laps.
     pub dist: f32,
-    /// Lateral place on the track, -1 (inside rail) to 1 (outer wall).
     pub lane: f32,
     pub speed: f32,
-    /// 0 (blown) to 1 (fresh). The whip spends it; corners test it.
     pub wind: f32,
-    /// Ticks lost to a crash or a caltrop, wheels locked.
     pub wrecked: u32,
-    /// Whipped this tick: a whipped team gains no wind back.
     #[serde(default)]
     pub whipped: bool,
     pub caltrops: u8,
-    /// Finished place, once over the line.
     pub place: Option<u8>,
-    /// Ticks of crash spin animation remaining (dust cloud around chariot).
     #[serde(default)]
     pub crash_spin: u8,
-    /// Ticks of boost flame effect remaining (flame particles behind chariot).
     #[serde(default)]
     pub boost_flame: u8,
-    /// Ticks of lap-complete flash remaining (screen flash + "LAP" text burst).
     #[serde(default)]
     pub lap_flash: u8,
-    /// Ticks of cabbage splat effect remaining (splat particles on rival hit).
     #[serde(default)]
     pub cabbage_splat: u8,
-    /// Tile-space X position of the cabbage splat.
     #[serde(default)]
     pub splat_x: i32,
-    /// Tile-space Y position of the cabbage splat.
     #[serde(default)]
     pub splat_y: i32,
-    /// Paces freewheeled past the line after finishing: the victory lap, for the picture.
     #[serde(default)]
     pub coast: f32,
-    /// The race clock when this lap began, and the best lap run, in ticks.
     #[serde(default)]
     pub lap_at: u32,
     #[serde(default)]
     pub best: u32,
-    /// When the line was crossed, in race ticks and fractions of one.
     #[serde(default)]
     pub line: f32,
-    /// Ticks since a barge touched this team: the pair's rest, and the picture's jolt.
     #[serde(default)]
     pub jolt: u8,
 }
@@ -248,31 +203,19 @@ impl Racer {
     pub fn lap(&self, track: &Track) -> u32 {
         ((self.dist / track.lap) as u32).min(LAPS)
     }
-    /// Where on this lap of `track` the chariot is, 0 to 1.
     pub fn around_on(&self, track: &Track) -> f32 {
         self.dist.rem_euclid(track.lap) / track.lap
     }
-    /// In a corner of `track`: wherever the course bends hard — long
-    /// enough for cornering blood and nerve to tell, while the
-    /// straights still belong to pace.
     pub fn cornering(&self, track: &Track) -> bool {
         bend_on(track, self.dist) > CORNER_BEND
     }
-    /// Top pace on the straight, from blood and wind.
     fn top(&self) -> f32 {
         (7.0 + f32::from(self.blood.pace) * 0.55) * (0.72 + 0.28 * self.wind)
     }
-    /// Top pace through a bend of `bend` radians per tile: cornering
-    /// blood holds the line, and the harder the bend, the more it must
-    /// give back.
     fn corner_top(&self, bend: f32) -> f32 {
         4.2 + f32::from(self.blood.corner) * 0.42 + (1.0 - self.lane.abs()) * 0.5
             - ((bend - CORNER_BEND).max(0.0) * 18.0).min(1.6)
     }
-    /// A driver's hands for one tick: steer toward the held side, whip
-    /// while held, and drop one caltrop on the press. `was` is the (whip,
-    /// caltrop) keys held last tick. Returns (the whip was first cracked
-    /// this tick, a caltrop to leave on the course).
     fn hands(&mut self, input: Input, was: (bool, bool)) -> (bool, Option<(f32, f32)>) {
         self.lane = (self.lane + f32::from(input.move_x) * 0.03).clamp(-1.0, 1.0);
         self.whipped = input.dash && self.wrecked == 0;
@@ -287,16 +230,12 @@ impl Racer {
         };
         (self.whipped && !was.0, trap)
     }
-    /// One lash of the whip: speed now, paid for in wind at the stamina's
-    /// rate. The same lash for the player's hand and a rival's — the
-    /// player's edge is judgment, not a stronger arm.
     fn lash(&mut self) {
         self.speed += 0.09;
         self.wind = (self.wind - 0.0022 - 0.0009 * f32::from(9 - self.blood.stamina)).max(0.0);
     }
 }
 
-/// What happened on a tick, for the announcer and the sound board.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Event {
     Off,
@@ -304,7 +243,6 @@ pub enum Event {
     CaltropDropped,
     CaltropHit(u8),
     Shoulder(u8),
-    /// A team took the lead.
     Lead(u8),
     Crash(u8),
     FinalLap(u8),
@@ -313,43 +251,30 @@ pub enum Event {
     Lost,
 }
 
-/// A race at the Hippodrome, as it stands.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Chariot {
-    /// Zero after the starter forfeits; that team then races itself.
     pub driver: u32,
-    /// The herd horse the driver brought, by name (its record is settled
-    /// under this name; a mount-name means the old three, unrecorded).
     pub horse: String,
     pub racers: Vec<Racer>,
     pub traps: Vec<(f32, f32)>,
     pub phase: Phase,
     pub t: u32,
     pub seed: u64,
-    /// Which course in `TRACKS` this race runs (the seed's pick; an older
-    /// race with no course recorded runs the Rusty Oval).
     #[serde(default)]
     pub track: usize,
-    /// Keys held last tick, so a held key acts once.
     #[serde(default)]
     held: (bool, bool),
-    /// Friends in the room when the race began each drive a rival team:
-    /// (racer index, seat), and their keys held last tick.
     #[serde(default)]
     pub friends: Vec<(u8, u32)>,
     #[serde(default)]
     friend_held: Vec<(bool, bool)>,
-    /// A clock that never resets, for the moments the picture shows (`show`).
     #[serde(default)]
     pub clock: u32,
-    /// What the picture remembers of the race.
     #[serde(default, skip_serializing_if = "show::Show::quiet")]
     pub show: show::Show,
 }
 
 impl Chariot {
-    /// The field: the player's horse first, then one chariot per other
-    /// market house, blood seasoned by each house's service in `stable`.
     pub fn field(driver: u32, horse: &Horse, stable: &Stable, seed: u64) -> Self {
         let mut racers = vec![Racer::new(
             horse.name.clone(),
@@ -388,8 +313,6 @@ impl Chariot {
             phase: Phase::Gate,
             t: 0,
             seed,
-            // The coachman's whim: each seed names its course, so a mirror
-            // and a test agree on where the race runs.
             track: (mix(seed ^ 0x7AC7) % TRACKS.len() as u64) as usize,
             held: (false, false),
             friends: Vec::new(),
@@ -399,14 +322,11 @@ impl Chariot {
         }
     }
 
-    /// Friend `seat`, named `name`, takes the reins of the next rival team.
     pub fn seat_friend(&mut self, seat: u32, name: &str) {
         let index = self.friends.len() + 1;
         if index >= MOST_TEAMS {
             return;
         }
-        // More knights than the market's yards: the field grows a team for each, from the keep's
-        // own stock, and the grid spreads to fit.
         while self.racers.len() <= index {
             let mut blood = bloodline("the keep");
             blood_season(&mut blood, 0);
@@ -431,7 +351,6 @@ impl Chariot {
         }
     }
 
-    /// The racer seat `seat` drives, if any (0 for the one who boarded).
     pub fn racer_of(&self, seat: u32) -> Option<usize> {
         if seat == self.driver {
             return Some(0);
@@ -439,8 +358,6 @@ impl Chariot {
         self.friends.iter().find(|(_, s)| *s == seat).map(|(i, _)| usize::from(*i))
     }
 
-    /// Every knight at the reins, with the racer each drives: the one who
-    /// boarded on racer 0, then the friends on their teams.
     pub fn seats(&self) -> Vec<(u32, usize)> {
         std::iter::once((self.driver, 0))
             .chain(self.friends.iter().map(|&(i, s)| (s, usize::from(i))))
@@ -448,7 +365,6 @@ impl Chariot {
             .collect()
     }
 
-    /// The course this race runs.
     pub fn course(&self) -> &'static Track {
         &TRACKS[self.track.min(TRACKS.len() - 1)]
     }
@@ -457,23 +373,19 @@ impl Chariot {
         &self.racers[0]
     }
 
-    /// Running order, first to last (indices into `racers`).
     pub fn order(&self) -> Vec<usize> {
         let mut order: Vec<usize> = (0..self.racers.len()).collect();
-        // Teams home in the order they crossed; the rest by how far they have run.
         order.sort_by(|&a, &b| {
             let (ra, rb) = (&self.racers[a], &self.racers[b]);
             ra.place
                 .unwrap_or(u8::MAX)
                 .cmp(&rb.place.unwrap_or(u8::MAX))
                 .then(rb.dist.partial_cmp(&ra.dist).unwrap_or(std::cmp::Ordering::Equal))
-                // A tie goes by team number, not by where a friend's screen has swapped it.
                 .then(ra.team.cmp(&rb.team))
         });
         order
     }
 
-    /// The announcer's current line, called off the state of the race.
     pub fn call(&self) -> &'static str {
         match self.phase {
             Phase::Gate => "LET THE CARNAGE BEGIN!",
@@ -499,14 +411,11 @@ impl Chariot {
         }
     }
 
-    /// One tick of the race. `input` drives racer 0; rivals drive
-    /// themselves off the seed. Returns what happened, in order.
     #[cfg(any(test, feature = "testing"))]
     pub fn tick(&mut self, input: Input) -> Vec<Event> {
         self.tick_with(input, &[])
     }
 
-    /// A team loses its wheels to a barge.
     fn wreck_by_barge(&mut self, lose: usize, win: usize, pace: f32, now: u32, events: &mut Vec<Event>) {
         let hard = if pace >= 8.0 { Weight::Kill } else { Weight::Crushing };
         let (wt, lt) = (self.racers[win].team, self.racers[lose].team);
@@ -518,14 +427,12 @@ impl Chariot {
         self.show.put(Kind::Wreck, lt, wt, (pace * 10.0) as u32, at, hard, now);
     }
 
-    /// As `tick`, with friends' keys too, in `friends` order.
     pub fn tick_with(&mut self, input: Input, friend_inputs: &[Input]) -> Vec<Event> {
         let mut events = Vec::new();
         self.t += 1;
         self.clock += 1;
         let now = self.clock;
         self.show.tick(now);
-        // The teams home freewheel past the line, for the picture.
         for r in self.racers.iter_mut().filter(|r| r.place.is_some()) {
             r.speed *= 0.965;
             r.coast += r.speed.max(0.0);
@@ -545,8 +452,6 @@ impl Chariot {
         }
         let course = self.course();
         let count = self.racers.len();
-        // The drivers' hands: steer, whip, and the caltrop bag — the
-        // player's on racer 0, then each friend's on their own team.
         let mut drivers = Vec::new();
         if self.driver != 0 { drivers.push((0, input, self.held)); }
         self.held = (input.dash, input.bomb);
@@ -562,7 +467,6 @@ impl Chariot {
         for (index, keys, was) in drivers {
             let (cracked, trap) = self.racers[index].hands(keys, was);
             let (team, at) = (self.racers[index].team, [self.racers[index].dist, self.racers[index].lane]);
-            // A lash held keeps cracking: once on the press, then every half second.
             if cracked || (self.racers[index].whipped && (now + 5 * index as u32) % 14 == 0) {
                 if cracked {
                     events.push(Event::Whip);
@@ -575,17 +479,12 @@ impl Chariot {
                 self.show.put(Kind::Iron, team, 0, 0, [trap.0, trap.1], Weight::Graze, now);
             }
         }
-        // Rivals: chase the leader, take the inside at corners, whip like
-        // drivers (hard while the team has wind, resting it back on the
-        // straights), drop iron for a tailgater, and never drive the same
-        // race twice (seed, not dice).
         for i in 0..count {
             if driven[i] {
                 continue;
             }
             let (seed, t) = (self.seed, self.t);
             let hash = mix(seed ^ (i as u64) << 16 ^ u64::from(t / HZ));
-            // Is anyone riding this rival's tail, close enough to eat iron?
             let tailgated = {
                 let me = &self.racers[i];
                 self.racers.iter().enumerate().any(|(j, o)| {
@@ -619,9 +518,6 @@ impl Chariot {
                 self.show.put(Kind::Iron, team, 0, 0, [trap.0, trap.1], Weight::Graze, now);
             }
         }
-        // Barging: teams side by side give each other the lane. Nerve decides who gives it, and in
-        // a corner the loser may not keep his wheels. A pair of rivals only keeps out of each
-        // other's way; any pair with a knight at the reins fights.
         for i in 0..count {
             self.racers[i].jolt = self.racers[i].jolt.saturating_sub(1);
         }
@@ -644,15 +540,12 @@ impl Chariot {
                 }
                 let corner = self.racers[i].cornering(course) || self.racers[j].cornering(course);
                 let nerve = i32::from(self.racers[i].blood.nerve) - i32::from(self.racers[j].blood.nerve);
-                // The harder-nerved team holds the line; a tie goes to the lower team.
                 let (win, lose) = if nerve >= 0 { (i, j) } else { (j, i) };
                 let pace = self.racers[i].speed.max(self.racers[j].speed);
-                // Locked in a corner, the team with less nerve may lose its wheels on any tick.
                 let crash = corner
                     && nerve != 0
                     && mix(self.seed ^ u64::from(now) ^ ((i as u64) << 40) ^ ((j as u64) << 48)) % 11 == 0;
                 if self.racers[i].jolt > 0 || self.racers[j].jolt > 0 {
-                    // Still locked: the lane opens a little, the way the shove went.
                     self.racers[i].lane = (self.racers[i].lane + side * 0.015).clamp(-1.0, 1.0);
                     self.racers[j].lane = (self.racers[j].lane - side * 0.015).clamp(-1.0, 1.0);
                     if crash {
@@ -683,7 +576,6 @@ impl Chariot {
                 }
             }
         }
-        // Caltrops wait where they fell, for anyone but their owner.
         let mut hits = Vec::new();
         for (at, lane) in &self.traps {
             for (i, r) in self.racers.iter().enumerate() {
@@ -697,7 +589,6 @@ impl Chariot {
             self.racers[i].wrecked = HZ * 3 / 4;
             self.racers[i].speed = 0.0;
             self.racers[i].crash_spin = 10;
-            // Cabbage splat: when a rival is hit, store their position for the splat effect.
             if i != 0 {
                 let (sx, sy) = pos_on(course, self.racers[i].dist, self.racers[i].lane);
                 self.racers[i].cabbage_splat = 4;
@@ -723,8 +614,6 @@ impl Chariot {
             self.traps
                 .retain(|(at, _)| !hits.iter().any(|&i| (self.racers[i].dist - at).abs() < 3.0));
         }
-        // The running itself: corners cap the pace, blown teams fade, and
-        // the wind comes back on the straights at the stamina's pace.
         let total = course.lap * LAPS as f32;
         let mut placed = self.racers.iter().filter(|o| o.place.is_some()).count() as u8;
         let mut crossed: Vec<usize> = Vec::new();
@@ -732,7 +621,6 @@ impl Chariot {
             if r.place.is_some() {
                 continue;
             }
-            // Decay crash spin, boost flame, lap flash and cabbage splat animations.
             r.crash_spin = r.crash_spin.saturating_sub(1);
             r.boost_flame = r.boost_flame.saturating_sub(1);
             r.lap_flash = r.lap_flash.saturating_sub(1);
@@ -749,7 +637,6 @@ impl Chariot {
                 r.speed += (cap - r.speed).clamp(-0.22, 0.045);
                 let prev_dist = r.dist;
                 r.dist += r.speed.max(0.0);
-                // Lap complete: flash celebration when crossing a lap boundary.
                 let (before, after) = ((prev_dist / course.lap) as u32, (r.dist / course.lap) as u32);
                 if after > before && after < LAPS {
                     r.lap_flash = 6;
@@ -773,8 +660,6 @@ impl Chariot {
                 }
             }
             if r.dist >= total {
-                // The line is crossed somewhere inside this tick: how far in is what places two
-                // teams that cross together.
                 let over = r.dist - total;
                 r.line = now as f32 - over / r.speed.max(0.5);
                 r.dist = total;
@@ -797,7 +682,6 @@ impl Chariot {
             let (team, at) = (self.racers[index].team, [self.racers[index].dist, self.racers[index].lane]);
             let weight = if place == 1 { Weight::Finale } else { Weight::Graze };
             self.show.put(Kind::Finish, team, 0, u32::from(place), at, weight, now);
-            // A photograph: the second team home within half a second of the first.
             if place == 2 {
                 if let Some(first) = self.racers.iter().find(|r| r.place == Some(1)) {
                     let margin = self.racers[index].line - first.line;
@@ -809,7 +693,6 @@ impl Chariot {
                 }
             }
         }
-        // The leader gets a continuous boost flame effect.
         let order = self.order();
         let leader = order[0];
         if self.racers[leader].place.is_none() && self.racers[leader].wrecked == 0 {
@@ -840,8 +723,6 @@ impl Chariot {
     }
 }
 
-/// Teams this close along the course (paces) and this close across it (lane widths) are touching.
-/// How a barge costs: the loser's pace in a corner and on a straight, and the winner's.
 const LOSER_CORNER: f32 = 0.82;
 const LOSER_STRAIGHT: f32 = 0.9;
 const WINNER: f32 = 0.97;
@@ -860,16 +741,11 @@ fn mix(mut h: u64) -> u64 {
     h ^ h >> 31
 }
 
-/// Where a chariot stands in the Hippodrome room (tiles): the oval, with
-/// the lane pushing out from the rail. For the driver, the rivals and the
-/// renderer alike.
 #[cfg(any(test, feature = "testing"))]
 pub fn track_at(racer: &Racer) -> (f32, f32) {
     track_at_dist(racer.dist, racer.lane)
 }
 
-/// The oval at any distance and lane — a dropped caltrop's address, as
-/// much as a chariot's.
 pub fn track_at_dist(dist: f32, lane: f32) -> (f32, f32) {
     let a = (dist.rem_euclid(LAP) / LAP) * std::f32::consts::TAU;
     let out = lane * 1.1;
@@ -879,17 +755,11 @@ pub fn track_at_dist(dist: f32, lane: f32) -> (f32, f32) {
     )
 }
 
-/// Which way a chariot points on the oval, so the renderer can pick its
-/// sheet: along the straights it runs east or west (west while
-/// `around() < 0.5`, by the tangent's sign), and round the ends it comes
-/// at the viewer or away from them instead of riding sideways.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Heading {
     East,
     West,
-    /// Away from the viewer, up the west end.
     North,
-    /// At the viewer, down the east end.
     South,
 }
 
@@ -898,8 +768,6 @@ pub fn heading(racer: &Racer) -> Heading {
     heading_at(racer.dist)
 }
 
-/// The heading at any distance round the oval (the renderer's gate grid
-/// draws chariots a few paces behind their true mark).
 #[cfg(any(test, feature = "testing"))]
 pub fn heading_at(dist: f32) -> Heading {
     let a = (dist.rem_euclid(LAP) / LAP) * std::f32::consts::TAU;
@@ -914,9 +782,6 @@ pub fn heading_at(dist: f32) -> Heading {
 }
 
 impl Run {
-    /// Board a chariot at the Hippodrome coach and race. The driver brings
-    /// the selected grown herd horse, or the best eligible one; otherwise a keep nag runs
-    /// unrecorded — buy or breed a horse to make the race count.
     pub fn board_chariot(&mut self, id: u32) {
         let stable = &self.home.stable;
         let horse = stable.selected_herd.and_then(|i| stable.herd.get(i))
@@ -932,7 +797,6 @@ impl Run {
                 ..Horse::default()
             });
         let mut race = Chariot::field(id, &horse, stable, self.seed ^ self.tick as u64);
-        // Everyone in the room races: friends take the rival teams.
         for (&seat, hero) in &self.players {
             if seat != id && hero.hp > 0 && !hero.stone {
                 race.seat_friend(seat, &hero.name);
@@ -944,7 +808,6 @@ impl Run {
         self.sounds.push("door_open");
     }
 
-    /// One tick at the Hippodrome: the coach plate, and a race if one runs.
     pub(super) fn tick_hippodrome_race(&mut self, inputs: &BTreeMap<u32, Input>) {
         if self.chariot.is_none() {
             let mut driver = None;
@@ -965,9 +828,6 @@ impl Run {
                     && hero.y / TILE_UNITS >= r as f32
                     && hero.y / TILE_UNITS < (r + h) as f32;
                 if on && interact && !hero.buy_spent {
-                    // Space is also a dodge outside the race. Board the
-                    // drift ride immediately so that dodge cannot carry a
-                    // driver off the coach plate during the E hold.
                     hero.buying = if inputs.get(&id).is_some_and(|i| i.dash) {
                         super::home::BUY_HOLD
                     } else { hero.buying.saturating_add(1) };
@@ -1016,7 +876,6 @@ impl Run {
                 }
                 Event::Won => {
                     self.cues.push("chariot_won".into());
-                    // The purse, in sound ("pastime_won" is a cue, not an SFX).
                     self.sounds.push("gold");
                     self.crown_the_charioteer(&race);
                 }
@@ -1026,7 +885,6 @@ impl Run {
                 }
                 Event::Finished(0, place) if race.driver != 0 => {
                     let name = race.horse.replace(' ', "_");
-                    // A field of six has a fifth and a sixth: the horse's record knows four.
                     let place = place.min(4);
                     *self
                         .marks
@@ -1036,8 +894,6 @@ impl Run {
                 _ => {}
             }
         }
-        // The blows of this tick hold the room: the realm's own hit-stop, for what a knight at the
-        // reins is in, and for the first home and the photograph at the line.
         let seated: Vec<u8> = race.seats().iter().filter_map(|&(_, i)| race.racers.get(i)).map(|r| r.team).collect();
         let held = race.show.held(race.clock, |f| {
             matches!(f.kind, Kind::Finish | Kind::Photo) || seated.contains(&f.team) || seated.contains(&f.other)
@@ -1046,9 +902,6 @@ impl Run {
             self.hold_for(weight);
         }
         self.finish_hit_hold();
-        // Seat each driver in the room at the same point of their lap:
-        // the race view itself is the stage's big course, but the knights
-        // in the world ride the little grounds oval in step with it.
         let seats = race.seats();
         for &(seat, index) in &seats {
             let racer = &race.racers[index];
@@ -1074,8 +927,6 @@ impl Run {
 }
 
 impl Run {
-    /// With friends in the race, the best-placed knight wears the crown and
-    /// the rest a cabbage, as at any game against friends.
     fn crown_the_charioteer(&mut self, race: &Chariot) {
         if race.friends.is_empty() {
             return;
@@ -1098,8 +949,6 @@ impl Run {
     }
 }
 
-/// What a race marked, settled into the stable: the horse's record and
-/// the purse in gold (paid by the caller, like the coach commission).
 pub fn settle_chariot(
     stable: &mut Stable,
     marks: &BTreeMap<String, u32>,
@@ -1107,7 +956,6 @@ pub fn settle_chariot(
     let mut said = Vec::new();
     let mut gold = 0;
     for (mark, &times) in marks {
-        // The same horse in the same place twice in one outing is paid twice.
         let times = times.clamp(1, 20);
         let Some(rest) = mark.strip_prefix("chariot:") else {
             continue;

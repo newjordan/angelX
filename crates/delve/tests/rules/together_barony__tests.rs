@@ -4,7 +4,6 @@ use crate::realm::{Spoil, Spoils};
 use crate::rules::home::{BUY_HOLD, Home};
 use crate::rules::world;
 
-/// A home whose King has come and been met.
 fn met() -> Home {
     let mut home = Home::default();
     let mut t = Spoils::default();
@@ -27,7 +26,6 @@ fn the_king_comes_once_a_floor_of_the_mines_is_cleared() {
     let out = settle(&mut home, &mut t, 1, &BTreeMap::new(), &who);
     assert_eq!(home.barony.court, Court::Camped);
     assert!(said(&out, "brannoc_arrives"));
-    // A realm already below the Mines (an older save) meets him at once.
     let mut old = Home {
         deepest: 3,
         ..Home::default()
@@ -72,7 +70,6 @@ fn clearing_the_mines_halls_wins_the_upper_workings_and_his_tribute() {
     assert_eq!(home.barony.ledger.paid_back.get(Spoil::Gold), 150);
     assert_eq!(crew(&home.barony), 4, "a dwarf home from the workings");
     assert_eq!(home.barony.miners(), 3);
-    // The First Fire waits for the Ore-Forge to burn.
     assert!(home.barony.mission.is_none());
     let paid = pay_tribute(&mut home, &mut t, 2).unwrap();
     assert_eq!(paid.get(Spoil::Ore), 6);
@@ -113,7 +110,6 @@ fn the_kings_hall_costs_a_great_deal_and_is_built_over_time() {
     assert_eq!(t.get(Spoil::Gold), 9000 - 3000);
     assert_eq!(home.barony.ledger.paid_in.get(Spoil::Gold), 3000);
     assert!(home.barony.ledger.lines[0].what.contains("Knight 1"));
-    // Not twice.
     let again = settle(
         &mut home,
         &mut t,
@@ -128,7 +124,6 @@ fn the_kings_hall_costs_a_great_deal_and_is_built_over_time() {
             .any(|(_, l)| l.contains("paid for already"))
     );
     assert_eq!(t.get(Spoil::Gold), 6000);
-    // Three dwarves for half an hour of realm time: ten-second shifts.
     let def = work("hall").unwrap();
     let shifts = def.labour / (SHIFT_SECS * crew(&home.barony));
     assert_eq!(shifts, 180, "half an hour, in ten-second shifts");
@@ -179,7 +174,6 @@ fn the_ore_forge_is_found_rebuilt_relit_and_then_works() {
     settle(&mut home, &mut t, 1, &marks(&[("clear:Cavern", 8)]), &who);
     settle(&mut home, &mut t, 1, &order, &who);
     assert_eq!(home.barony.labour("ore-forge"), Some(0));
-    // Fire before it stands does nothing.
     let relight = marks(&[("barony:relight:ore-forge:1", 1)]);
     settle(&mut home, &mut t, 1, &relight, &who);
     assert!(!home.barony.is_lit("ore-forge"));
@@ -201,7 +195,6 @@ fn the_ore_forge_is_found_rebuilt_relit_and_then_works() {
     assert_eq!(t.get(Spoil::Ember), embers - 8, "fire from Dragon Keep");
     assert!(out.earned.contains(&"hammers_ring"));
     assert!(said(&out, "forge_relit:ore-forge"));
-    // Burning: more miners, a richer tribute, and the First Fire asked for.
     assert_eq!(home.barony.miners(), 5);
     let paid = pay_tribute(&mut home, &mut t, 1).unwrap();
     assert_eq!(
@@ -245,7 +238,6 @@ fn the_crew_builds_one_work_at_a_time_in_the_order_paid() {
         &marks(&[("barony:order:ore-forge:1", 1), ("barony:order:hall:1", 1)]),
         &who,
     );
-    // The marks come in name order: the hall, then the forge.
     assert_eq!(home.barony.building().unwrap().id, "hall");
     settle(
         &mut home,
@@ -271,8 +263,6 @@ fn the_ledger_keeps_its_last_lines_and_every_total() {
     assert_eq!(b.ledger.paid_in.get(Spoil::Gold), 100);
     assert_eq!(b.ledger.paid_back.get(Spoil::Gold), 100);
 }
-
-// ── The run's half ───────────────────────────────────────────────────────
 
 fn at(kind: RoomKind, home: Home, at: (f32, f32)) -> Run {
     let mut run = Run::at_home(7, 1, None, home, rich());
@@ -410,9 +400,7 @@ fn a_floor_of_the_mines_has_its_forge_hall_once_the_workings_are_his() {
             .expect("joined to a hall");
         assert!(run.dungeon.rooms[host].doors[(door + 2) % 4]);
         assert!(run.valid_snapshot(), "seed {seed}");
-        // The floor's politics are drawn as ever, the forge-hall with them.
         assert!(run.boss_gate_line().is_some(), "seed {seed}");
-        // The next floor down has the forge of its own halls, one hall.
         run.descend_for_test();
         assert!(barony::forge_of(run.dungeon.pack).is_some());
         assert_eq!(

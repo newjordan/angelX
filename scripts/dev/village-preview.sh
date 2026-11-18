@@ -1,6 +1,4 @@
 #!/bin/sh
-# Launch an isolated, persistent local village. Optional first argument: Run JSON.
-# Build prerequisites are the native dev host and crates/web/dist/delve-village.
 set -eu
 
 village_root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)

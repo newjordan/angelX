@@ -124,10 +124,6 @@ fn heartbeat_line(v: Option<&serde_json::Value>) -> String {
     }
 }
 
-/// Tri-state, mirroring `conductorMode` in `scripts/runtime/conductor-tick.mjs`: a typo
-/// falls through to the state that cannot act. Measure runs the whole night path
-/// (lock, gates, folds, briefing) and withholds only the act — see
-/// `docs/WORKERS.md`.
 fn armed_line(conductor: Option<&str>, driver: Option<&str>) -> String {
     match conductor
         .map(str::trim)
@@ -289,13 +285,8 @@ fn is_live_project(workspace: &Path) -> bool {
 }
 
 fn queue_values(queue_path: &Path) -> Vec<serde_json::Value> {
-    let v = read_json(queue_path).unwrap_or_else(|| serde_json::Value::Array(Vec::new()));
-    if let Some(a) = v.as_array() {
-        return a.clone();
-    }
-    v.get("items")
-        .and_then(|v| v.as_array())
-        .cloned()
+    read_json(queue_path)
+        .and_then(|v| array_from(&v, &["items", "queue"]).cloned())
         .unwrap_or_default()
 }
 
@@ -500,7 +491,6 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
-/// `/conductor [status | approve <id> | reject <id>]` dispatch.
 pub(crate) fn run(arg: Option<&str>, workspace: &Path) -> String {
     if !is_live_project(workspace) {
         return "/conductor is bound to the angelX source project; /cd to that repository before reviewing or mutating its queue".to_string();

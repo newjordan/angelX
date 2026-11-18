@@ -15,17 +15,13 @@ use std::path::PathBuf;
 
 type Keys = BTreeMap<u32, Input>;
 
-/// The names a table of up to six carries: a clean name, the default `You`, a short one, an empty
-/// one, a long one and one with a number in it.
 const NAMES: [&str; 6] = ["Gawain", "You", "Dara", "", "Alexandrina", "Bran 2"];
 
-/// A table of `seats` knights in the Hippodrome, the race boarded and standing at the gate.
 pub(super) fn table(seats: u32) -> Run {
     let mut r = Run::at_home(7, 1, Some("Gawain"), Default::default(), Default::default());
     for id in 2..=seats {
         r.join_seat(id, &format!("Seat {id}"));
     }
-    // The run seats a guest beside the host: a table of one is the host alone.
     if seats == 1 {
         r.leave(2);
     }
@@ -41,8 +37,6 @@ pub(super) fn table(seats: u32) -> Run {
     r
 }
 
-/// A knight at the reins: odd seats ride at whoever is alongside and whip hard, even seats keep
-/// clear and let the wind come back, now and then a seat drops iron on whoever rides its tail.
 pub(super) fn hands(r: &Run) -> Keys {
     let Some(c) = r.chariot.as_ref() else { return Keys::new() };
     c.seats()
@@ -73,7 +67,6 @@ fn frame(r: &Run, seat: u32) -> Img {
     frame_for(r, 384, 224, Some(seat))
 }
 
-/// The race played through to the end of its result: calls `each` before every tick.
 fn through(r: &mut Run, mut each: impl FnMut(&Run)) {
     for _ in 0..60_000 {
         if r.chariot.is_none() {
@@ -104,8 +97,6 @@ fn save(dir: &std::path::Path, n: u32, seats: &[u32], r: &Run) {
     image::save_buffer(dir.join(format!("f{n:04}.png")), &sheet.rgb_bytes(), sheet.w as u32, sheet.h as u32, image::ColorType::Rgb8).unwrap();
 }
 
-/// The ticks the race's moments land on, found by running it: the first barge, wreck, lead
-/// change, photograph and line, and when the race was done.
 fn moments_of(seats: u32) -> BTreeMap<&'static str, u32> {
     let mut found = BTreeMap::new();
     let mut r = table(seats);
@@ -132,7 +123,6 @@ fn moments_of(seats: u32) -> BTreeMap<&'static str, u32> {
     found
 }
 
-/// Two teams side by side in a corner at pace, the second with less nerve: a barge.
 fn setup_barge(r: &mut Run) {
     let c = r.chariot.as_mut().unwrap();
     let course = c.course();
@@ -157,7 +147,6 @@ fn setup_barge(r: &mut Run) {
     }
 }
 
-/// The first two teams a pace apart and a few strides from the line: a photograph.
 fn setup_photo(r: &mut Run) {
     let c = r.chariot.as_mut().unwrap();
     let total = c.course().lap * crate::rules::chariot::LAPS as f32;
@@ -172,8 +161,6 @@ fn setup_photo(r: &mut Run) {
     }
 }
 
-/// Play a table of `seats` and write the frames of the tick window `[from, to)` (30 fps); a
-/// scenario, if given, sets the field up at the tick `from`.
 fn reel(root: &std::path::Path, name: &str, seats: u32, show: &[u32], from: u32, to: u32) {
     reel_with(root, name, seats, show, from, to, None);
 }
@@ -232,17 +219,13 @@ fn write_chariot_reel() {
     }
 }
 
-// ─── the words ───────────────────────────────────────────────────────────────
-
 use super::view::View;
 
-/// How the test spells a team from the viewer's seat.
 fn spelled(r: &Run, v: &View, team: u8, me_team: Option<u8>) -> Option<String> {
     if Some(team) == me_team {
         return Some("YOU".into());
     }
     let Some(seat) = v.seat_of(team) else {
-        // A yard's own team is called by its house (or the horse's name at the head of the field).
         let t = v.race.racers.iter().find(|t| t.team == team)?;
         return Some(if team == 0 && t.name != "Yard Nag" { t.name.to_uppercase() } else { t.house.to_uppercase() });
     };
@@ -250,8 +233,6 @@ fn spelled(r: &Run, v: &View, team: u8, me_team: Option<u8>) -> Option<String> {
     Some(if n.is_empty() || n == "YOU" { format!("KNIGHT {seat}") } else { n })
 }
 
-/// The rules of the words, for every claim on `me`'s screen: nothing meets, everything is in
-/// frame, and `YOU` is only the viewer.
 fn check(r: &Run, me: u32, what: &str) -> Vec<(String, (i32, i32, i32, i32), Option<u8>)> {
     let v = View::new(r, Some(me), (384, 224)).unwrap();
     let me_team = v.mine.then(|| v.my_team());
@@ -296,7 +277,6 @@ fn check(r: &Run, me: u32, what: &str) -> Vec<(String, (i32, i32, i32, i32), Opt
     claims
 }
 
-/// Every line the pen wrote on the whole 384 by 224 screen sits inside one of the claimed boxes.
 fn check_pen(r: &Run, me: u32, what: &str) {
     let (_, said) = said::read(|| frame(r, me));
     let claims = super::claims_for(r, Some(me)).unwrap();
@@ -332,8 +312,6 @@ fn the_words_never_meet_stay_in_frame_and_you_is_only_you() {
             if at % 17 == 0 {
                 check_pen(r, 1 + at / 17 % seats, &format!("{seats} seats, tick {}", r.tick));
             }
-            // A friend's own screen is the swapped view: it must claim what the host's frame of
-            // that seat claims.
             if at % 53 == 0 && seats > 1 {
                 let me = 2;
                 let view = r.view_for_seat(me).unwrap_or_else(|| r.clone());
@@ -358,7 +336,6 @@ fn every_seat_races_its_own_team_and_six_seats_make_six_teams() {
     let mut teams: Vec<u8> = c.racers.iter().map(|t| t.team).collect();
     teams.sort_unstable();
     assert_eq!(teams, [0, 1, 2, 3, 4, 5]);
-    // Each seat's picture rides its own team: the frames differ, and seat 6's is not the host's.
     let host = frame(&r, 1);
     let sixth = frame(&r, 6);
     assert_ne!(host, sixth, "two seats, two cameras");
@@ -427,7 +404,6 @@ fn a_barge_and_a_photograph_show_on_every_seat() {
     assert!(called.contains("PHOTO FINISH"), "the photograph is called on every seat: {called:?}");
 }
 
-/// The cost of a frame over a four-seat race, as the proof measures it.
 #[test]
 #[ignore = "measures the picture's cost"]
 fn bench_chariot_frame() {
@@ -453,7 +429,6 @@ fn bench_chariot_frame() {
 
 #[test]
 fn the_chariot_lines_up_on_the_stands() {
-    // The bake of every course finishes and a frame draws from each.
     let mut r = table(2);
     let course_count = crate::rules::chariot::TRACKS.len();
     for track in 0..course_count {

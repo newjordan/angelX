@@ -30,7 +30,6 @@ pub fn lay(run: &mut Run, card: &str, x: f32, y: f32) {
     });
 }
 
-/// A calm, cleared room with the knight at its middle and nothing in it.
 pub fn quiet() -> Run {
     let mut run = Run::new(4, 1, None);
     fight(&mut run);
@@ -44,7 +43,6 @@ pub fn quiet() -> Run {
 }
 
 pub fn frame(run: &Run) -> Img {
-    // The wish board that follows a cleared room would cover the knight.
     let mut run = run.clone();
     run.window = None;
     crate::render::overworld::arena::frame(&run, 384, 224)

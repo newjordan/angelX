@@ -22,9 +22,6 @@ fn scratch(tag: &str) -> PathBuf {
     dir
 }
 
-/// The x86 fixture holds one promoted, one rejected, one in-flight, and one
-/// phantom fire: exactly two official bindings, the phantom surfaced as a
-/// typed failure, in-flight ignored.
 #[test]
 fn fixture_fires_settle_into_two_bindings_with_phantom_surfaced() {
     let adapter = FlywheelAdapterV1::open(&fixture("x86")).unwrap();
@@ -157,8 +154,6 @@ fn truncated_fires_line_is_a_typed_malformed_failure_not_a_panic() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The full live path: the same fires also flow through the board reducer's
-/// in-memory journal without disturbing reward binding (journal is board-only).
 #[test]
 fn settle_after_engage_keeps_board_and_rewards_independent() {
     let mut adapter = FlywheelAdapterV1::open(&fixture("x86")).unwrap();

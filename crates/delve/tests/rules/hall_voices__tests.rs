@@ -46,7 +46,6 @@ fn said_by(r: &Run, voice: Voice) -> Option<String> {
     r.alehouse.calls.iter().find(|c| c.voice == voice).map(|c| c.text.clone())
 }
 
-/// A knight's name as a line carries it.
 fn called(r: &Run, id: u32) -> String {
     r.players[&id].name.to_uppercase()
 }
@@ -67,7 +66,6 @@ fn the_keeper_greets_a_knight_who_comes_to_the_bar_by_name_and_once() {
     let line = said_by(&r, Voice::Keeper).expect("the keeper speaks");
     assert!(line.contains(&called(&r, 1)), "by name: {line}");
     assert!(r.speaking(Voice::Keeper));
-    // The line goes in a few seconds, and he does not say it twice.
     for _ in 0..CALL_TICKS + 5 {
         r.step(&BTreeMap::new());
     }
@@ -214,7 +212,6 @@ fn the_place_is_named_on_coming_into_it_for_three_seconds() {
         r.step(&BTreeMap::new());
     }
     assert_eq!(r.title_age(), None, "gone after its moment");
-    // A calling taken up is one fewer free on the next coming-in.
     let mage = patron("scryglass");
     tap(&mut r, 1, (PATRONS[mage].at.0, PATRONS[mage].at.1 - 1.0));
     let to = world::room_of(&r.dungeon, RoomKind::Bazaar).unwrap();
@@ -225,7 +222,6 @@ fn the_place_is_named_on_coming_into_it_for_three_seconds() {
     r.arrive(back, alehouse::FROM_BAZAAR);
     let after = r.place_title().unwrap().1.split(' ').next().unwrap().parse::<usize>().unwrap();
     assert_eq!(after, free - 1);
-    // The keeper greets afresh when the party has come back.
     assert_eq!(r.alehouse.greeted, 0);
 }
 
@@ -249,11 +245,9 @@ fn the_talk_survives_a_save_and_an_old_save_without_it_still_loads() {
     let back: alehouse::House = serde_json::from_str(&json).unwrap();
     assert_eq!(back, r.alehouse);
     assert!(back.valid());
-    // A house saved before any of it carries none of the new fields.
     let old: alehouse::House = serde_json::from_str(r#"{"funded":3,"said":{}}"#).unwrap();
     assert!(old.calls.is_empty() && old.greeted == 0 && old.stoked == 0 && old.came == 0);
     assert!(old.valid());
-    // A line over the length is not a valid house.
     let mut bad = back.clone();
     bad.calls[0].text = "X".repeat(MOST_LETTERS + 1);
     assert!(!bad.valid());

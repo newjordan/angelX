@@ -73,8 +73,6 @@ pub(crate) fn machine_mode(arg: &OsStr) -> bool {
     )
 }
 
-/// None denotes an existing helper/headless grammar, not permission to enter a
-/// TUI with unknown arguments. Errors deliberately never include argv content.
 pub(crate) fn parse(args: &[OsString]) -> Result<Option<InteractiveLaunch>> {
     let ordinary = ordinary_args(args);
     let globals = &args[..args.len() - ordinary.len()];
@@ -186,8 +184,6 @@ pub(crate) fn parse(args: &[OsString]) -> Result<Option<InteractiveLaunch>> {
     Ok(Some(launch))
 }
 
-/// Resolve relative selections against the original cwd, not a later bootstrap
-/// directory. CLI > invoking environment > original cwd. No writes or auth.
 pub(crate) fn workspace(
     launch: &InteractiveLaunch,
     env: Option<OsString>,

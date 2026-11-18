@@ -128,6 +128,29 @@ test('verifier binds manifest sidecars to normalized USTAR paths, modes, sizes, 
   assert.equal(readFileSync(join(source, 'cockpit/src/main.rs'), 'utf8'), 'fn main() {}\n')
 })
 
+test('manifest collision checks visit ancestors, not siblings or only the previous path', (t) => {
+  const release = fixture(t)
+  const original = JSON.parse(readFileSync(release.manifestPath, 'utf8'))
+  for (const [paths, expected] of [
+    [['a', 'a-', 'a/b'], /file\/directory collision: a\/b/u],
+    [['a', 'a-', 'a/b/c/d'], /file\/directory collision: a\/b\/c\/d/u],
+    [['a/b', 'a/b-', 'a/b/c'], /file\/directory collision: a\/b\/c/u],
+    [['a', 'ab/child'], /archive entry count differs/u],
+    [['a-b', 'a/b'], /archive entry count differs/u],
+    [['a', 'a'], /duplicate or unsorted: a/u],
+    [['b', 'a'], /duplicate or unsorted: a/u],
+  ]) {
+    const entries = paths.map((path) => ({ path, mode: '100644', bytes: 0, sha256: 'a'.repeat(64) }))
+    const { manifest_sha256, ...unsigned } = original
+    unsigned.entries = entries
+    unsigned.entries_manifest_sha256 = sha256Bytes(canonicalJson(entries))
+    const manifest = { ...unsigned, manifest_sha256: sha256Bytes(canonicalJson(unsigned)) }
+    write(release.manifestPath, canonicalJson(manifest))
+    write(`${release.manifestPath}.sha256`, `${sha256File(release.manifestPath)}  source.manifest.json\n`)
+    assert.throws(() => verifyReleaseSet(release.manifestPath), expected, paths.join(', '))
+  }
+})
+
 test('archive byte tampering fails before extraction', (t) => {
   const release = fixture(t)
   const archive = readFileSync(release.archivePath)

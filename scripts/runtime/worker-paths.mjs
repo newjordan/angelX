@@ -1,8 +1,6 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-// Match the native cockpit's stores. Every graph writer uses the same graph;
-// CLI overrides are passed explicitly to children by the Conductor.
 export function workerPaths(env = process.env, userHomeDir = homedir()) {
   const configured = (value, fallback) =>
     typeof value === 'string' && value.trim() ? value : fallback

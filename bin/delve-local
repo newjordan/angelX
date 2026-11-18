@@ -1,24 +1,4 @@
 #!/usr/bin/env bash
-# delve-local — one browser link on this machine.
-#
-#   delve-local [workspace]
-#
-# Starts a private loopback Delve (nothing is opened beyond this machine),
-# hosts it for one friend without a knight of the host's own (nobody plays
-# the hidden terminal: `--watch` leaves its knight as stone with the
-# party), and prints its link. Open that link in a browser:
-# the Delve's page plays the seat (nothing to install), on the host's one
-# port, its socket at /ws. The same link pasted into angelX
-# (/dungeon join <link>) plays it from a terminal.
-#
-# The workspace defaults to a throwaway one, ${TMPDIR:-/tmp}/delve-local-<port>,
-# which this script marks as its own and clears of its last run. A workspace
-# you name is refused when it is your home directory or already holds a saved
-# Delve (.angel/dungeon/session.json), unless DELVE_LOCAL_FORCE=1; even then
-# that save is resumed, never removed.
-#
-# Knobs: DELVE_PORT (default 8768), DELVE_LOCAL_FORCE=1, and
-# ANGEL_DUNGEON_FRAME_TIMING=<file> to log the server's step timing.
 set -euo pipefail
 
 port="${DELVE_PORT:-8768}"
@@ -43,7 +23,6 @@ mkdir -p "$workspace"
 workspace="$(cd "$workspace" && pwd -P)"
 home="$(cd "$HOME" && pwd -P)"
 save="$workspace/.angel/dungeon/session.json"
-# A workspace this script made. Its save is the script's own last run.
 marker="$workspace/.delve-local"
 if [ -f "$marker" ]; then
   rm -f "$save"
@@ -63,9 +42,6 @@ mkdir -p "$workspace/.angel/dungeon"
 
 session="delve-local-$$"
 cleanup() {
-  # Killing the session hangs up only the pane's first process; angelX runs
-  # below it and would keep going with no terminal. The whole pane's process
-  # group gets the hangup, so the host exits in order.
   local pane
   pane="$(tmux list-panes -t "$session" -F '#{pane_pid}' 2>/dev/null | head -n 1 || true)"
   if [ -n "$pane" ]; then
@@ -78,7 +54,6 @@ trap 'cleanup; exit 130' INT
 trap 'cleanup; exit 143' TERM
 trap 'cleanup; exit 129' HUP
 
-# A throwaway session. The composer pauses the delve, so the script leaves it.
 env_line="ANGEL_NO_BUILD=1 ANGEL_SETUP=0 ANGEL_DUNGEON_LISTEN=127.0.0.1:$port"
 if [ -n "${ANGEL_DUNGEON_FRAME_TIMING:-}" ]; then
   env_line="$env_line ANGEL_DUNGEON_FRAME_TIMING=$(printf '%q' "$ANGEL_DUNGEON_FRAME_TIMING")"
@@ -100,8 +75,6 @@ if [ "$ready" -ne 1 ]; then
   exit 1
 fi
 
-# The saved invitation (the door and the join key) is the link. The hosted
-# menu covers the notice, so the pane is not a reliable place to read it.
 tmux send-keys -t "$session" "/dungeon_host --1 --watch 127.0.0.1:$port" Enter
 
 link=""
@@ -134,8 +107,6 @@ if [ -z "$link" ]; then
   tmux capture-pane -p -t "$session" -S -120 >&2 || true
   exit 1
 fi
-# Enter continues into the entrance room. F6 leaves the composer so the
-# delve runs; it pauses while the composer is open.
 sleep 0.3
 tmux send-keys -t "$session" Enter
 sleep 0.2
@@ -143,8 +114,6 @@ tmux send-keys -t "$session" F6
 
 printf '%s\n' "$link"
 echo "delve-local: open that link. This process keeps the seat up; Ctrl-C closes it." >&2
-# Stay alive so the host does. A signal interrupts the wait at once, and the
-# traps close the session.
 while tmux has-session -t "$session" 2>/dev/null; do
   sleep 2 &
   wait $! || true

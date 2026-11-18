@@ -38,8 +38,6 @@ fn selection_wrap_preserves_formation_data_behavior() {
     let mut deck = MoaDeckState::new(Vec::new());
     let original = *deck.selected();
     deck.move_selection_at(-1, Instant::now());
-    // Wrapping backwards from the first card lands on the last one in the
-    // built-in deck order (Auto MoA was appended last).
     assert_eq!(deck.selected().id, FormationId::AutoMoa);
     assert_eq!(original.width, formation(FormationId::SoloStrike).width);
     assert_eq!(
@@ -72,7 +70,7 @@ fn grok_war_rosters_trio_under_grok_command() {
     ];
     let roster = FormationRoster::new(FormationId::GrokWar, &models);
     let slots = formation(FormationId::GrokWar).slots();
-    assert_eq!(slots.len(), 6); // scout + 3 propose + judge + aggregate
+    assert_eq!(slots.len(), 6);
     let labels: Vec<_> = roster
         .assignments()
         .iter()
@@ -81,12 +79,12 @@ fn grok_war_rosters_trio_under_grok_command() {
     assert_eq!(
         labels,
         vec![
-            "grok-4.5",        // scout
-            "glm-5.2",         // P1
-            "deepseek-v4-pro", // P2
-            "gpt-5.6-sol",     // P3
-            "grok-4.5",        // judge
-            "grok-4.5",        // aggregate / manager
+            "grok-4.5",
+            "glm-5.2",
+            "deepseek-v4-pro",
+            "gpt-5.6-sol",
+            "grok-4.5",
+            "grok-4.5",
         ]
     );
     assert!(roster.is_ready());
@@ -122,21 +120,14 @@ fn tag_team_is_two_seats_the_operator_fills() {
         2,
         "Tag Team is two models, not the council panel"
     );
-    // Nothing is pre-filled: the operator picks both models.
     let mut roster = FormationRoster::new(FormationId::TagTeam, &models);
     assert_eq!(roster.assignments(), &[None, None]);
     assert!(!roster.is_ready());
-    // Any two models share the workload — local, frontier, or one of each.
     assert!(roster.assign(0, models[0].route.clone()));
     assert!(roster.assign(1, models[1].route.clone()));
     assert!(roster.is_ready());
 }
 
-/// Refinement layers must follow the formation's own width: Full Muster
-/// (layers=2, width=3) pins `ANGEL_SWARM_REFINE_WIDTH` to 3 — each refine
-/// layer carries the full history plus every draft, so the generic 6-seat
-/// default doubles the formation's per-layer input spend. Single-layer
-/// formations never refine; the disengage path (SoloStrike) clears it.
 #[test]
 fn apply_sota_env_pins_refine_width_to_the_formation_width() {
     let _lock = crate::tests::env_lock();
@@ -174,21 +165,14 @@ fn apply_sota_env_pins_refine_width_to_the_formation_width() {
         Ok("Full Muster"),
         "the engaged formation names itself for the ledgers"
     );
-    // Disengage: the resting formation owns no refine width and no name.
     formation(FormationId::SoloStrike).apply_sota_env();
     assert!(std::env::var_os("ANGEL_SWARM_REFINE_WIDTH").is_none());
     assert!(std::env::var_os("ANGEL_SOTA_MOA_FORMATION").is_none());
 }
 
-/// The conditional-advice posture lives in one env knob, and it must not
-/// outlive the engagement that set it.
 #[test]
 fn tag_team_clears_the_dissent_gate_and_council_keeps_it_off() {
     let _lock = crate::tests::env_lock();
-    // `apply_sota_env` writes the whole MoA knob set as a side effect, and
-    // tests that never take this lock still read those knobs. Snapshot every
-    // key either formation can touch so this test restores the process
-    // environment exactly as it found it.
     const TOUCHED: &[&str] = &[
         "ANGEL_SOTA_MOA_MODE",
         "ANGEL_SOTA_MOA_ALWAYS",
@@ -234,15 +218,11 @@ fn tag_team_clears_the_dissent_gate_and_council_keeps_it_off() {
         std::env::var_os("ANGEL_OPENAI_MODEL").is_none(),
         "Tag Team must not pin Sol"
     );
-    // A frontier formation must get its strict quorum back.
     formation(FormationId::Council).apply_sota_env();
     assert!(std::env::var_os("ANGEL_SOTA_MOA_DISSENT_GATE").is_none());
     assert!(std::env::var_os("ANGEL_SOTA_MOA_ALLOW_DEGRADED").is_none());
 }
 
-/// The failure this guards is silent, expensive, and easy to ship: the generic
-/// fallback would fill Tag Team's seats from the intelligence order, billing a
-/// frontier model the operator never picked.
 #[test]
 fn tag_team_never_fills_a_seat_with_a_frontier_model_on_its_own() {
     let frontier = MoaModelChoice {
@@ -270,7 +250,6 @@ fn tag_team_never_fills_a_seat_with_a_frontier_model_on_its_own() {
         .iter()
         .map(|a| a.as_ref().map(|r| r.model.clone()))
         .collect();
-    // No frontier model may occupy a tag-team seat.
     assert_eq!(assigned, vec![None, None]);
     assert!(!roster.is_ready());
 }
@@ -342,13 +321,12 @@ fn think_picker_stages_and_clears_the_focused_seats_role_effort() {
         model(1, "beta", "model-b"),
     ]);
     deck.select(FormationId::Duel);
-    assert!(deck.select_slot(2)); // Duel graph order: P1 P2 J1 A1
+    assert!(deck.select_slot(2));
     let ladder = || vec!["low".to_string(), "medium".to_string(), "high".to_string()];
     assert!(deck.open_effort_picker(ladder()));
     assert_eq!(deck.focus(), MoaDeckFocus::Efforts);
-    // Nothing staged yet: the cursor rests on the env-default row.
     assert_eq!(deck.selected_effort_index(), 3);
-    deck.move_effort(-1); // wraps up onto "high"
+    deck.move_effort(-1);
     assert_eq!(deck.selected_effort_index(), 2);
     assert_eq!(
         deck.stage_selected_effort(),
@@ -359,14 +337,11 @@ fn think_picker_stages_and_clears_the_focused_seats_role_effort() {
         deck.selected_roster().role_effort(FormationRole::Judge),
         Some("high")
     );
-    // The engagement snapshot carries the staged THINK column.
     let engagement = deck.engagement().expect("duel roster is ready");
     assert_eq!(
         engagement.roster.role_effort(FormationRole::Judge),
         Some("high")
     );
-    // Reopening lands the cursor on the staged level; the env-default row
-    // clears the seat back to env policy.
     assert!(deck.open_effort_picker(ladder()));
     assert_eq!(deck.selected_effort_index(), 2);
     deck.move_effort(1);
@@ -381,24 +356,19 @@ fn think_picker_stages_and_clears_the_focused_seats_role_effort() {
     );
 }
 
-/// The verification chain of the roster THINK column: stage an effort on a
-/// seat through the picker, activate the roster on a real Bag, and the
-/// staged value is exactly what [`FormationRoster::seat_efforts`] hands the
-/// engaged wrapper (Bag activation consumes this same roster surface).
 #[test]
 fn staged_think_effort_rides_activation_into_seat_efforts() {
     let _lock = crate::tests::env_lock();
     let mut bag = crate::agent::club::Bag::for_reasoning_render_test();
     let mut deck = MoaDeckState::new(bag.moa_model_choices());
     deck.select(FormationId::Duel);
-    assert!(deck.select_slot(2)); // J1
+    assert!(deck.select_slot(2));
     let sol = deck
         .models()
         .iter()
         .position(|choice| choice.route.model == "gpt-5.6-sol")
         .expect("ladder-declaring route");
     assert!(deck.assign_model(sol));
-    // The ladder exactly as the deck opener resolves it from the Bag.
     let route = deck
         .selected_roster()
         .assignment(2)
@@ -414,7 +384,7 @@ fn staged_think_effort_rides_activation_into_seat_efforts() {
         .expect("route row in the deck");
     assert_eq!(levels, vec!["low", "medium", "high"]);
     assert!(deck.open_effort_picker(levels));
-    deck.move_effort(-1); // env-default row -> "high"
+    deck.move_effort(-1);
     assert_eq!(
         deck.stage_selected_effort(),
         Some((FormationRole::Judge, Some("high".to_string())))
@@ -430,8 +400,6 @@ fn staged_think_effort_rides_activation_into_seat_efforts() {
     assert!(seats.aggregate.is_none());
 }
 
-/// Capability truth: a ladder-less route opens the picker with no invented
-/// levels — only the env-default clear row remains actionable.
 #[test]
 fn think_picker_without_a_ladder_offers_only_the_env_default_row() {
     let model = MoaModelChoice {
@@ -453,20 +421,18 @@ fn think_picker_without_a_ladder_offers_only_the_env_default_row() {
     assert!(deck.select_slot(0));
     assert!(deck.open_effort_picker(Vec::new()));
     assert!(deck.effort_options().is_empty());
-    assert_eq!(deck.selected_effort_index(), 0); // the env-default row
+    assert_eq!(deck.selected_effort_index(), 0);
     assert_eq!(
         deck.stage_selected_effort(),
         Some((FormationRole::Propose, None))
     );
 }
 
-/// The swarm carries no scout seat effort, so the picker refuses the seat
-/// instead of staging a value activation would silently drop.
 #[test]
 fn think_picker_refuses_the_scout_seat() {
     let mut deck = MoaDeckState::new(Vec::new());
     deck.select(FormationId::Recon);
-    assert!(deck.select_slot(0)); // Recon's S1
+    assert!(deck.select_slot(0));
     assert!(!deck.open_effort_picker(vec!["low".to_string()]));
     assert_ne!(deck.focus(), MoaDeckFocus::Efforts);
     assert!(deck.stage_effort(0).is_none());
@@ -551,9 +517,7 @@ fn self_seats_fill_every_formation_with_the_model_in_hand() {
             "{formation:?}: {seats:?}"
         );
     }
-    // Tag Team still waits for the operator's two picks.
     assert!(seated(FormationId::TagTeam).iter().all(|m| m == "?"));
-    // `mixed` brings back the intelligence-order picks.
     let _mixed = crate::tests::TestEnvGuard::set("ANGEL_MOA_SEATS", "mixed");
     assert_eq!(seated(FormationId::GrokWar)[1], "glm-5.2");
 }
@@ -615,9 +579,6 @@ fn roster_keeps_one_preference_generation_after_reload() {
     std::fs::remove_dir(dir).unwrap();
 }
 
-// --- a formation is an overlay on the operator's environment ------------------
-
-/// Every env knob a formation can write.
 const FORMATION_KNOBS: &[&str] = &[
     "ANGEL_SOTA_MOA_FORMATION",
     "ANGEL_SOTA_MOA_MODE",
@@ -652,9 +613,6 @@ const FORMATION_KNOBS: &[&str] = &[
     "ANGEL_TRAJECTORY_LOG",
 ];
 
-/// Hand the process an operator environment: the listed knobs set, every other
-/// formation knob unset. Dropping it puts the process back as it was and empties
-/// the overlay, so one test's engagement never hands values back into another's.
 struct OperatorEnv {
     _guards: Vec<crate::tests::TestEnvGuard>,
 }
@@ -681,8 +639,6 @@ fn knob(key: &str) -> Option<String> {
     std::env::var(key).ok()
 }
 
-/// Grok War leaves the cheap profile so its metered seats can fire. The profile
-/// is the operator's, so it comes back when the war ends.
 #[test]
 fn grok_war_gives_the_operators_cost_profile_back() {
     let _lock = crate::tests::env_lock();
@@ -697,8 +653,6 @@ fn grok_war_gives_the_operators_cost_profile_back() {
     );
 }
 
-/// The `high` Grok effort is the war's, not the operator's: it goes with the
-/// war. An effort the operator set stays theirs the whole way through.
 #[test]
 fn grok_war_effort_pin_ends_with_the_war() {
     let _lock = crate::tests::env_lock();
@@ -727,9 +681,6 @@ fn an_effort_the_operator_set_survives_the_war() {
     );
 }
 
-/// Every pin the war adds goes with it, and every setting it overrode comes
-/// back: the Sol model and effort, the Grok tool switch, trajectory logging and
-/// the lane.
 #[test]
 fn leaving_grok_war_restores_every_knob_it_wrote() {
     let _lock = crate::tests::env_lock();
@@ -777,9 +728,6 @@ fn leaving_grok_war_restores_every_knob_it_wrote() {
     }
 }
 
-/// The cockpit applies the staged formation every turn and again on every
-/// failure path. A repeat must not mistake its own earlier write for the
-/// operator's setting.
 #[test]
 fn applying_the_same_formation_again_still_restores_the_operators_env() {
     let _lock = crate::tests::env_lock();
@@ -798,22 +746,17 @@ fn applying_the_same_formation_again_still_restores_the_operators_env() {
     );
 }
 
-/// Restoring runs only for a knob this module wrote and nobody has changed
-/// since: an effort picked mid-war is the operator's new choice.
 #[test]
 fn a_knob_changed_during_the_war_is_not_overwritten_on_exit() {
     let _lock = crate::tests::env_lock();
     let _env = operator_env(&[]);
 
     formation(FormationId::GrokWar).apply_sota_env();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_GROK_REASONING_EFFORT", "low") };
     formation(FormationId::SoloStrike).apply_sota_env();
     assert_eq!(knob("ANGEL_GROK_REASONING_EFFORT").as_deref(), Some("low"));
 }
 
-/// Tag Team drops the operator's Sol pin while it runs ("do not pin Sol") and
-/// gives it back when it ends.
 #[test]
 fn tag_team_hands_the_operators_openai_pin_back_on_exit() {
     let _lock = crate::tests::env_lock();
@@ -829,8 +772,6 @@ fn tag_team_hands_the_operators_openai_pin_back_on_exit() {
         knob("ANGEL_OPENAI_MODEL").as_deref(),
         Some("operator-model")
     );
-    // The quorum pins are deliberately not handed back: a frontier formation
-    // keeps its strict quorum even when the operator's env carried them.
     assert_eq!(knob("ANGEL_SOTA_MOA_ALLOW_DEGRADED"), None);
     assert_eq!(knob("ANGEL_SOTA_MOA_DISSENT_GATE"), None);
 }

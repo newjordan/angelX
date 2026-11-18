@@ -10,16 +10,13 @@ pub fn mix(a: Rgb, b: Rgb, t: f32) -> Rgb {
     std::array::from_fn(|i| (a[i] as f32 + (b[i] as f32 - a[i] as f32) * t).round() as u8)
 }
 
-/// One restrained grade; cool occlusion, warm material highlights, tonal ivory.
 pub fn grade(c: Rgb, light: [f32; 3], body: bool) -> Rgb {
     let base = if body { [0.40, 0.43, 0.48] } else { [0.0; 3] };
     std::array::from_fn(|k| (c[k] as f32 * (base[k] + light[k] * 0.70)).min(IVORY[k] as f32) as u8)
 }
-/// Bodies retain a modest visibility floor; use the identical light and grade.
 pub fn grade_actor(c: Rgb, light: [f32; 3]) -> Rgb {
     grade(c, light.map(|v| v * 0.55 + 0.44), true)
 }
-/// Existing ride/ambient converter, with box coverage so small sparks survive.
 pub fn braille(fx: &Img, w: usize, h: usize) -> ColoredBrailleImage {
     let mut rgba = image::RgbaImage::new((w * 2) as u32, (h * 4) as u32);
     for y in 0..h * 4 {
@@ -48,7 +45,6 @@ pub fn braille(fx: &Img, w: usize, h: usize) -> ColoredBrailleImage {
     }
     super::braille::frame_to_braille_graded(&rgba, w, h, false)
 }
-/// Native pictures carry the same coloured dots as cells, over crisp pixels.
 pub fn native(base: &Img, fx: &Img) -> Img {
     let (w, h) = ((base.w as usize / 8).max(1), (base.h as usize / 16).max(1));
     let dots = braille(fx, w, h);
@@ -72,7 +68,6 @@ pub fn native(base: &Img, fx: &Img) -> Img {
                     for yy in y + 1..(y + 3).min(base.h as usize) {
                         for xx in x + 1..(x + 3).min(base.w as usize) {
                             let c = base.get(xx as i32, yy as i32).unwrap_or(BLACK);
-                            // Bright material/attack samples own their silhouette.
                             if c.iter().copied().max().unwrap_or(0) < 100 {
                                 out.set(xx as i32, yy as i32, mix(c, cell.fg, 0.52));
                             }

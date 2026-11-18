@@ -158,8 +158,6 @@ impl Event {
         if run.raid_id != self.raid {
             return Ok(false);
         }
-        // Check the complete batch before writing any metadata. A stale event
-        // retires harmlessly; it cannot alter a replacement seat or source.
         for change in &self.changes {
             let current = match change {
                 Change::Lamp {

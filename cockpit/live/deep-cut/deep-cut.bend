@@ -1,11 +1,5 @@
 import Base
 
-# The competition director's choice of which research direction takes the next
-# deep cut. Eligibility, scoring and the pick are decided here; the adapter
-# supplies ids, a lexicographic rank, evidence class tags and each use's cost
-# already reduced to whole units. A score is a signed 64-bit value in two words,
-# so it saturates exactly where the native i64 does.
-
 type W64 is Data:
   Bits{hi: U32, lo: U32}
 
@@ -41,8 +35,6 @@ type Best is Data:
 
 type Decision is Data:
   Decision{selected: String, basis: U32}
-
-# --- signed 64-bit words -----------------------------------------------------
 
 def sign(hi: U32) -> Bool:
   U32.is_ge(hi, 2147483648)
@@ -151,8 +143,6 @@ def same_word(+a: W64, +b: W64) -> Bool:
     case Bits{hi, lo}:
       same_word_b(hi, lo, b)
 
-# --- one direction's evidence ------------------------------------------------
-
 def weight(o: Outcome) -> W64:
   match o:
     case Improvement{}:
@@ -233,8 +223,6 @@ def score_direction(+d: Direction) -> Scored:
   match d:
     case Direction{id, rank, uses}:
       score_uses(uses)
-
-# --- the pick ----------------------------------------------------------------
 
 def promote_pick(+points: W64, +hint: U32, +id: String, +rank: U32, +total: W64, +order: U32, +why: U32, +name: String, +choose: Bool) -> Best:
   match choose:

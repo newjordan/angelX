@@ -1,10 +1,3 @@
-"""Claude Code, headless (`claude -p`).
-
-A job agent gets the file tools and kiln's MCP tools, nothing else: no shell,
-no web, `--restricted` so its file tools stay in its workdir, `--strict-mcp-
-config` so only kiln is loaded, and `--permission-prompts none` so anything
-not allowed is refused rather than asked. Images are files it Reads.
-"""
 import json
 import os
 import shutil
@@ -32,8 +25,6 @@ class Claude(Adapter):
 
     def ask(self, prompt, images=(), workdir=None, budget=600, mcp=None, tools=None, schema=None,
             label="claude", resume=None, max_usd=None, file_tools=None):
-        """mcp: the kiln server's argv (rooted in workdir) or None; tools: the
-        kiln tool names to allow (all the server offers when None)."""
         work = Path(workdir or ".").resolve()
         work.mkdir(parents=True, exist_ok=True)
         seen = []

@@ -31,8 +31,6 @@ use std::path::{Path, PathBuf};
 pub(crate) const BACKUP_CONFIG_SCHEMA: &str = "angelX.backup/v1";
 const MANIFEST_SCHEMA: &str = "angelX.backup-manifest/v1";
 
-/// Top-level state entries per tier. Names are directories (or absent) under
-/// the angelX state root; small top-level config files ride along in core.
 const CORE_DIRS: &[&str] = &[
     "sessions",
     "memories",
@@ -42,7 +40,6 @@ const CORE_DIRS: &[&str] = &[
     "loops",
     "goals",
     "continual-harness",
-    // Saved conversations reference these exact catalog generations by digest.
     "book-generations",
 ];
 const BULK_EXTRA_DIRS: &[&str] = &[
@@ -54,7 +51,6 @@ const BULK_EXTRA_DIRS: &[&str] = &[
     "yukon-strategy",
     "wish-paint",
 ];
-/// Never backed up at any tier: live runtime state and caches.
 const ALWAYS_EXCLUDED: &[&str] = &["proc", "cache", "build-cache", ".backup-staging"];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -82,8 +78,6 @@ impl Tier {
         }
     }
 
-    /// Directory names this tier includes. `All` is resolved by listing the
-    /// source root (see [`collect_sources`]), so it returns the union too.
     fn dirs(self) -> Vec<&'static str> {
         let mut dirs = CORE_DIRS.to_vec();
         if self != Self::Core {
@@ -150,7 +144,6 @@ fn snapshot_name(created_ms: u128) -> String {
     format!("{created_ms:013}-{}", std::process::id())
 }
 
-/// Hash a file by streaming it (bulk files can be far too large to buffer).
 fn hash_file(path: &Path) -> std::io::Result<String> {
     let mut file = std::fs::File::open(path)?;
     let mut context = ring::digest::Context::new(&ring::digest::SHA256);
@@ -170,8 +163,6 @@ fn hash_file(path: &Path) -> std::io::Result<String> {
     Ok(hex)
 }
 
-/// Copy `source` to `temp` while hashing; returns the hex digest. The caller
-/// renames or discards the temp once it knows whether a hardlink will do.
 fn copy_with_hash(source: &Path, temp: &Path) -> std::io::Result<String> {
     use std::io::Write as _;
     let mut input = std::fs::File::open(source)?;
@@ -202,10 +193,6 @@ fn relative_posix(root: &Path, path: &Path) -> Option<String> {
         .map(|rel| rel.to_string_lossy().replace('\\', "/"))
 }
 
-/// Files (and symlinks) a tier covers under `source_root`, sorted by relative
-/// path. Directories are recreated on demand during copy; special files
-/// (fifos, sockets, devices) are skipped and counted by the caller via the
-/// returned skip count.
 fn collect_sources(source_root: &Path, tier: Tier) -> Result<(Vec<PathBuf>, usize), String> {
     let mut roots: Vec<PathBuf> = Vec::new();
     if tier == Tier::All {
@@ -225,7 +212,6 @@ fn collect_sources(source_root: &Path, tier: Tier) -> Result<(Vec<PathBuf>, usiz
                 roots.push(path);
             }
         }
-        // Small top-level config files ride along in core and bulk.
         if let Ok(entries) = std::fs::read_dir(source_root) {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -239,7 +225,6 @@ fn collect_sources(source_root: &Path, tier: Tier) -> Result<(Vec<PathBuf>, usiz
             }
         }
     }
-    // Log/error droppings never ride along, at any tier.
     let droppings = |path: &Path| {
         let name = path.file_name().map(|n| n.to_string_lossy().into_owned());
         matches!(name, Some(n) if n.ends_with(".err") || n.ends_with(".log"))
@@ -300,10 +285,6 @@ fn repoint_latest(target_root: &Path, name: &str) -> Result<(), String> {
     Ok(())
 }
 
-// Session snapshots can change after the initial source inventory. Read the
-// *copied* sessions, then add every generation they reference before the
-// backup manifest is published. Deserialization skips message bodies and
-// attachments instead of keeping another full copy of the conversation.
 #[derive(Deserialize)]
 struct SessionGenerationRefs {
     schema: String,
@@ -338,8 +319,6 @@ fn include_session_generations(
             .map_err(|error| format!("read copied session {}: {error}", entry.path))?;
         let session: SessionGenerationRefs = match serde_json::from_reader(file) {
             Ok(session) => session,
-            // Backups have always preserved non-session and damaged files in
-            // this directory as-is. They do not have a usable session binding.
             Err(error) if !error.is_io() => continue,
             Err(error) => return Err(format!("read copied session {}: {error}", entry.path)),
         };
@@ -397,9 +376,6 @@ fn include_session_generations(
     Ok(())
 }
 
-/// Take one snapshot of `source_root` into `target_root`. Unchanged files
-/// (same relative path and sha256 as the previous snapshot) are hardlinked
-/// from it; everything else is copied. Returns the snapshot directory name.
 pub(crate) fn snapshot_local(
     source_root: &Path,
     target_root: &Path,
@@ -408,8 +384,6 @@ pub(crate) fn snapshot_local(
     snapshot_local_after_collection(source_root, target_root, tier, || {})
 }
 
-// The callback permits a deterministic test of writes that land after the
-// initial directory inventory. Production always passes a no-op.
 fn snapshot_local_after_collection(
     source_root: &Path,
     target_root: &Path,
@@ -472,8 +446,6 @@ fn snapshot_local_after_collection(
                 });
                 continue;
             }
-            // Copy beside the destination while hashing; if the digest
-            // matches the previous snapshot, discard the copy and hardlink.
             let temp = destination.with_extension(format!("part.{}", std::process::id()));
             let sha = copy_with_hash(source, &temp)
                 .map_err(|e| format!("copy {}: {e}", source.display()))?;
@@ -536,8 +508,6 @@ pub(crate) struct RestoreStats {
     pub refused: usize,
 }
 
-/// Verify `snapshot_dir` against its manifest. Every regular file must hash
-/// to its recorded digest; symlinks must point where recorded.
 pub(crate) fn verify_snapshot(snapshot_dir: &Path) -> Result<Manifest, String> {
     let manifest = read_manifest(snapshot_dir)
         .ok_or_else(|| format!("no readable manifest in {}", snapshot_dir.display()))?;
@@ -545,7 +515,6 @@ pub(crate) fn verify_snapshot(snapshot_dir: &Path) -> Result<Manifest, String> {
         return Err(format!("unsupported manifest schema {:?}", manifest.schema));
     }
     for file in &manifest.files {
-        // Manifest paths are data: never let one escape the snapshot tree.
         if file.path.starts_with('/') || file.path.split('/').any(|part| part == "..") {
             return Err(format!("manifest path escapes snapshot: {:?}", file.path));
         }
@@ -570,9 +539,6 @@ pub(crate) fn verify_snapshot(snapshot_dir: &Path) -> Result<Manifest, String> {
     Ok(manifest)
 }
 
-/// Restore a verified snapshot into `destination_root`. Files whose current
-/// content already matches are left alone; differing files are only
-/// overwritten with `force`. Restored files publish atomically.
 pub(crate) fn restore_local(
     snapshot_dir: &Path,
     destination_root: &Path,
@@ -584,8 +550,6 @@ pub(crate) fn restore_local(
         .iter()
         .any(|file| file.path.starts_with("book-generations/"))
     {
-        // Catalog snapshots are private session dependencies. Restore their
-        // directory with the same owner-only policy used by the live store.
         let dir = super::workspace_store::private_io::PrivateDirectory::open(
             &destination_root.join("book-generations"),
         )
@@ -648,7 +612,6 @@ pub(crate) fn restore_local(
     Ok(stats)
 }
 
-/// Snapshot directory names, oldest first (names sort by creation time).
 pub(crate) fn list_snapshots(target_root: &Path) -> Vec<String> {
     let Ok(entries) = std::fs::read_dir(target_root.join("snapshots")) else {
         return Vec::new();
@@ -663,8 +626,6 @@ pub(crate) fn list_snapshots(target_root: &Path) -> Vec<String> {
     names
 }
 
-/// Remove all but the newest `keep` snapshots. The `latest` target is never
-/// pruned. Returns the removed names.
 pub(crate) fn prune_local(target_root: &Path, keep: usize) -> Result<Vec<String>, String> {
     let names = list_snapshots(target_root);
     let latest = latest_snapshot_dir(target_root)
@@ -681,10 +642,6 @@ pub(crate) fn prune_local(target_root: &Path, keep: usize) -> Result<Vec<String>
     }
     Ok(removed)
 }
-
-// ---------------------------------------------------------------------------
-// Target slot: config file, environment, explicit flag (in that order).
-// ---------------------------------------------------------------------------
 
 #[derive(Clone, Debug)]
 enum Target {
@@ -704,8 +661,6 @@ fn parse_target(raw: &str) -> Result<Target, String> {
             .ok_or_else(|| format!("rsync target must be rsync://user@host:/abs/path: {raw}"))?;
         return Ok(Target::Remote { ssh, path });
     }
-    // [user@]host:/abs/path (a colon before any slash). A bare host is an
-    // ssh destination as-is, so ssh_config aliases carry user/hostname.
     if let Some((ssh, path)) = raw.split_once(':')
         && !ssh.is_empty()
         && !ssh.contains('/')
@@ -776,11 +731,6 @@ fn run_command(program: &str, args: &[String]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
-/// Remote snapshot: assemble locally under the target slot's staging area,
-/// then rsync it with `--link-dest` against the previous remote snapshot so
-/// unchanged files hardlink on the far side too. The manifest ships last,
-/// into an `.incomplete-` directory that is renamed and made `latest` only
-/// once complete.
 fn snapshot_remote(
     state_root: &Path,
     ssh: &str,
@@ -826,16 +776,10 @@ fn snapshot_remote(
         let _ = run_command("ssh", &[ssh.to_string(), format!("rm -rf {incomplete}")]);
         return Err(error);
     }
-    // The local staging copy has served its purpose; keep only the newest
-    // as the hardlink basis for the next run so staging stays bounded.
     let _ = prune_local(&staging_root, 1);
     Ok((name, stats))
 }
 
-/// Fetch one file from the latest snapshot at the configured target into
-/// `staging_dir`, verified against the snapshot manifest's hash. Used by
-/// the guardian to recover a dead peer's session file without restoring a
-/// whole snapshot. Returns the fetched file's path.
 pub(crate) fn fetch_latest_file(
     state_root: &Path,
     relative: &str,

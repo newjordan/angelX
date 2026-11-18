@@ -14,7 +14,6 @@ pub fn dir() -> PathBuf {
         .expect("set DELVE_CASES to the Bend case directory")
 }
 
-/// The cases of one Bend def, written whole (one writer per name) on `save`.
 pub struct Cases {
     name: String,
     lines: Vec<String>,
@@ -44,12 +43,10 @@ impl Cases {
     }
 }
 
-/// A value as the host's state tree holds it.
 pub fn to<T: Serialize>(t: &T) -> Value {
     serde_json::to_value(t).unwrap()
 }
 
-/// A splitmix64 stream: seeds for the cases, the same on every run.
 pub struct Mix(pub u64);
 
 impl Mix {

@@ -4,7 +4,6 @@
 
 use super::*;
 
-/// Paint a side-on hall's scenery and light it for dusk.
 pub(super) fn scenery(run: &Run) -> Img {
     let room = run.room();
     let pack = run.dungeon.pack;
@@ -22,7 +21,6 @@ pub(super) fn scenery(run: &Run) -> Img {
         )
     };
 
-    // The back wall: coursed stone, its joints only half drawn.
     let mortar = st.pool.0;
     for y in 0..ph {
         for x in 0..pw {
@@ -47,7 +45,6 @@ pub(super) fn scenery(run: &Run) -> Img {
                     let right = room.tile(col + 1, row) != Tile::Ledge;
                     plank(&mut cv, x, y, left, right, v);
                 }
-                // Iron spikes in the bottom of a pit.
                 Tile::Hazard if !open(col, row + 1) => {
                     for k in 0..4 {
                         let sx = x + 2 + k * 4;
@@ -65,7 +62,6 @@ pub(super) fn scenery(run: &Run) -> Img {
             }
         }
     }
-    // Torches along the back wall, high up where the air is open.
     let mut col = 6;
     while col < room.cols as i32 - 2 {
         let row = 2;
@@ -76,8 +72,6 @@ pub(super) fn scenery(run: &Run) -> Img {
         }
         col += 10;
     }
-    // The doorway: a dark arch in the west wall, torches above, bars down
-    // while the hall is fought.
     if let Some(row) = (0..room.rows as i32).find(|&r| room.tile(0, r) == Tile::Door) {
         let y = row * TILE;
         cv.stamp(&torch(tick / 4, 7), 4, y - 12);
@@ -90,8 +84,6 @@ pub(super) fn scenery(run: &Run) -> Img {
     cv
 }
 
-/// A timber plank on the tile at `(x, y)`: a lit top edge, grain, a dark
-/// underside, and a bracket under each end.
 fn plank(cv: &mut Img, x: i32, y: i32, left: bool, right: bool, v: u32) {
     for dx in 0..TILE {
         cv.put(x + dx, y, 'o');
@@ -112,8 +104,6 @@ fn plank(cv: &mut Img, x: i32, y: i32, left: bool, right: bool, v: u32) {
     }
 }
 
-/// A banner over a doorway that leads side-on: crimson, with a gold
-/// chevron, hung from an iron rod.
 pub(super) fn banner() -> Img {
     Img::from_rows(&[
         "jJJJJJJJj",

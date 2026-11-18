@@ -11,20 +11,14 @@ use crate::rules::brasswake::{
     show::{Cry, Kind},
 };
 
-/// Ticks the title holds, and the GO that follows it.
 pub(super) const TITLE: u32 = 44;
 pub(super) const GO: u32 = 30;
-/// Ticks a score takes to fly from the foe to the plate.
 pub(super) const FLY: u32 = 22;
-/// Ticks a number hangs over a struck foe.
 pub(super) const POP: u32 = 20;
-/// The banner's top row at rest.
 pub(super) const BANNER_Y: i32 = 44;
-/// Where the GO stands, its centre, and the box it claims for its whole life.
 pub(super) const GO_AT: (i32, i32) = (192, 104);
 pub(super) const GO_BOX: Rect = (96, 50, 192, 108);
 
-/// The work still flying to the plate at `now`.
 pub(super) fn in_flight(d: &Lane, now: u32) -> u32 {
     d.show
         .marks
@@ -36,7 +30,6 @@ pub(super) fn in_flight(d: &Lane, now: u32) -> u32 {
         .sum()
 }
 
-/// Ticks since a flying score last landed on the plate, while the bump lasts.
 pub(super) fn landing(d: &Lane, now: u32) -> Option<u32> {
     d.show
         .marks
@@ -47,14 +40,10 @@ pub(super) fn landing(d: &Lane, now: u32) -> Option<u32> {
         .min()
 }
 
-/// The pixels the kit's `banner` marks on the screen, `age` ticks in: the rails, the words and the
-/// line under them, as one box. It reads the kit's own geometry (a slam makes the first ticks
-/// larger); the fade at the very end lifts the banner a few pixels, and the placements leave room.
 pub(super) fn banner_rect(title: &str, sub: &str, age: u32, cap: i32) -> Rect {
     banner_rect_at(BANNER_Y, title, sub, age, cap)
 }
 
-/// `banner_rect` for a banner whose top row at rest is `y`.
 pub(super) fn banner_rect_at(y: i32, title: &str, sub: &str, age: u32, cap: i32) -> Rect {
     let tw = text_width(title).max(1);
     let rest = ((W - 24) / tw).clamp(1, cap.max(1));
@@ -75,7 +64,6 @@ pub(super) fn banner_rect_at(y: i32, title: &str, sub: &str, age: u32, cap: i32)
     (x0, y0, x1 - x0, y1 - y0)
 }
 
-/// A banner on show.
 #[derive(Clone, Debug)]
 pub(super) struct Banner {
     pub title: String,
@@ -88,11 +76,9 @@ pub(super) struct Banner {
     pub rect: Rect,
 }
 
-/// A number over a struck foe.
 #[derive(Clone, Debug)]
 pub(super) struct Pop {
     pub text: String,
-    /// Where it started: over the foe's head.
     pub at: (i32, i32),
     pub age: u32,
     pub scale: i32,
@@ -100,14 +86,11 @@ pub(super) struct Pop {
     pub rect: Rect,
 }
 
-/// Everything the moments put on the screen at one tick.
 #[derive(Clone, Debug, Default)]
 pub(super) struct Plan {
-    /// Every line of the 5x7 font on the screen.
     pub words: Vec<hud::Word>,
     pub banner: Option<Banner>,
     pub pops: Vec<Pop>,
-    /// Ticks into the GO, while it shows.
     pub go: Option<u32>,
 }
 
@@ -116,7 +99,6 @@ fn who(run: &Run, id: u32, me: u32) -> String {
 }
 use crate::rules::Run;
 
-/// The banner the screen of seat `id` shows now: the loudest of what is alive.
 pub(super) fn banner(run: &Run, s: &Session, id: u32) -> Option<Banner> {
     let d = &s.lanes[&id];
     let now = run.tick as u32;
@@ -169,15 +151,12 @@ pub(super) fn banner(run: &Run, s: &Session, id: u32) -> Option<Banner> {
             _ => {}
         }
     }
-    // Nothing speaks over the GO.
     if (TITLE..TITLE + GO).contains(&elapsed) {
         return None;
     }
     all.into_iter().max_by_key(|b| (b.rank, u32::MAX - b.age))
 }
 
-/// The numbers over struck foes, each placed where it meets no word, no banner and no other number.
-/// `anchor(foe)` is where a foe's head is on the screen; `fixed` the boxes of words already claimed.
 pub(super) fn pops(run: &Run, s: &Session, id: u32, anchor: &dyn Fn(usize) -> Option<(i32, i32)>, fixed: &[Rect]) -> Vec<Pop> {
     let d = &s.lanes[&id];
     let now = run.tick as u32;
@@ -221,7 +200,6 @@ pub(super) fn pops(run: &Run, s: &Session, id: u32, anchor: &dyn Fn(usize) -> Op
     placed
 }
 
-/// The whole plan of seat `id`'s screen.
 pub(super) fn plan(run: &Run, s: &Session, id: u32, anchor: &dyn Fn(usize) -> Option<(i32, i32)>) -> Plan {
     let elapsed = LENGTH - s.left;
     let banner = banner(run, s, id);
@@ -240,7 +218,6 @@ pub(super) fn plan(run: &Run, s: &Session, id: u32, anchor: &dyn Fn(usize) -> Op
     Plan { words, banner, pops, go }
 }
 
-/// Every box of pixel text in `plan`, named.
 pub(super) fn boxes(plan: &Plan) -> Vec<(&'static str, Rect)> {
     let mut out = Vec::new();
     if let Some(b) = &plan.banner {
@@ -252,8 +229,6 @@ pub(super) fn boxes(plan: &Plan) -> Vec<(&'static str, Rect)> {
     out.extend(plan.pops.iter().map(|p| ("pop", p.rect)));
     out
 }
-
-// ─── drawing ─────────────────────────────────────────────────────────────────
 
 pub(super) fn paint(im: &mut Img, plan: &Plan) {
     if let Some(go) = plan.go {
@@ -267,7 +242,6 @@ pub(super) fn paint(im: &mut Img, plan: &Plan) {
     }
 }
 
-/// The sparks that carry a blow's work to the plate: from the foe's head up and over to the score.
 pub(super) fn sparks(im: &mut Img, d: &Lane, now: u32, anchor: &dyn Fn(usize) -> Option<(i32, i32)>) {
     const PLATE: (f32, f32) = (30.0, 24.0);
     for m in &d.show.marks {

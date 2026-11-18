@@ -10,7 +10,6 @@ use std::time::{Duration, Instant};
 
 const STARLIGHT: &str = "wish starlight | Starlight Arrows\nsay make my arrows glow like stars | starlight arrows | glowing arrows\ntier homing 1; damage 10 :: Arrows glow and seek.\ntier homing 2; damage 15 :: Arrows burn bright and seek.\ntier homing 2; damage 20 :: Arrows are stars.\n";
 
-/// A distinct learned entry for stress runs: `id` granted for `said`.
 fn entry(id: &str, name: &str, said: &str) -> String {
     format!(
         "wish {id} | {name}\nsay {said} | {name}\ntier damage 5 :: {name}, a little.\ntier damage 10 :: {name}, more.\ntier damage 15 :: {name}, most.\n"
@@ -53,14 +52,11 @@ fn has_card(app: &App, id: u32, prefix: &str) -> bool {
     run(app).players.get(&id).is_some_and(|h| h.deck.iter().any(|c| c.starts_with(prefix)))
 }
 
-/// One cockpit frame: the server steps itself; the frame latches, claims,
-/// teaches and looks for grants, and draws.
 fn frame(app: &mut App) {
     app.advance_shooter_at(Instant::now());
     let _ = paint(app, 160, 48);
 }
 
-/// Frames at about 60 a second until `done`, or `limit` passes.
 fn frames_until(app: &mut App, limit: Duration, done: impl Fn(&App) -> bool) -> bool {
     let start = Instant::now();
     loop {
@@ -82,7 +78,6 @@ fn frames(app: &mut App, n: usize) {
     }
 }
 
-/// What the host's wishing looks like now, for a failed assertion.
 fn state(app: &App, id: u32) -> String {
     let hero = &run(app).players[&id];
     format!(
@@ -122,8 +117,6 @@ fn temp(label: &str) -> std::path::PathBuf {
     dir
 }
 
-/// A hosted delve with the server on its own threads, the party down to
-/// floor one and the room won, so knight 1 holds a wish.
 fn hosted(label: &str, threaded: bool, oracle: std::sync::Arc<dyn crate::agent::club::Club>) -> Fixture {
     let root = temp(label);
     let home = root.join("home");
@@ -154,7 +147,6 @@ fn hosted(label: &str, threaded: bool, oracle: std::sync::Arc<dyn crate::agent::
     Fixture { app, workspace, _home: home_guard }
 }
 
-/// Knight 1 says `words` on the terminal's scroll and picks the genie's first way.
 fn host_wishes(app: &mut App, words: &str) {
     let keyboard_before = app.dungeon_keyboard_active();
     app.open_reforge();
@@ -234,8 +226,6 @@ fn stress_a_threaded_hosts_lamp_wish_is_granted() {
     assert_eq!(held(app, 1), before - 1);
 }
 
-/// Three new wishes back to back, each written slowly, the knight playing
-/// on: all three land and three wishes are spent.
 #[test]
 fn stress_a_threaded_host_with_three_slow_wishes_in_flight_gets_all_three() {
     let _guard = crate::tests::env_lock();
@@ -266,8 +256,6 @@ fn stress_a_threaded_host_with_three_slow_wishes_in_flight_gets_all_three() {
     assert_eq!(held(app, 1), before - 3, "three wishes spent: {}", state(app, 1));
 }
 
-/// The host's terminal loses focus while a friend is seated: the host's
-/// knight stands as stone. A wish already chosen still lands.
 #[test]
 fn stress_a_threaded_hosts_wish_lands_while_its_terminal_is_unfocused() {
     let _guard = crate::tests::env_lock();
@@ -283,7 +271,6 @@ fn stress_a_threaded_hosts_wish_lands_while_its_terminal_is_unfocused() {
     assert_eq!(held(app, 1), before - 1);
 }
 
-/// A friend joins over the link and both knights wish at once.
 #[test]
 fn stress_a_threaded_host_and_a_joined_friend_both_get_their_wishes() {
     let _guard = crate::tests::env_lock();
@@ -309,7 +296,6 @@ fn stress_a_threaded_host_and_a_joined_friend_both_get_their_wishes() {
         assert!(start.elapsed() < Duration::from_secs(10), "the friend never took a seat: {}", fx.app.realm.dungeon.notice);
         std::thread::sleep(Duration::from_millis(10));
     }
-    // `host` opens the Delve's menu over the game; the host goes back in.
     fx.app.realm.dungeon.intro = None;
     {
         let mut run = fx.app.realm.dungeon.shooter.as_mut().unwrap();
@@ -323,7 +309,6 @@ fn stress_a_threaded_host_and_a_joined_friend_both_get_their_wishes() {
         std::thread::sleep(Duration::from_millis(16));
     }
     let host_before = held(&fx.app, 1);
-    // The host wishes first; the friend while the host's is being written.
     host_wishes(&mut fx.app, "make my arrows glow like stars");
     press(&mut friend, KeyCode::Char('t'));
     friend.advance_joined();
@@ -367,10 +352,6 @@ fn pct(v: &mut [f64], p: f64) -> f64 {
     v[((v.len() as f64 * p) as usize).min(v.len() - 1)]
 }
 
-/// How evenly a joined friend's seat hears the host's ticks, and how long
-/// the host's frames and the server's steps take, for `WISH_STRESS_SECS`
-/// (20). Appends one JSON line to `WISH_STRESS_OUT` labelled
-/// `WISH_STRESS_LABEL`. Run under whatever load the machine is under.
 #[test]
 #[ignore]
 fn stress_seat_cadence() {
@@ -466,9 +447,6 @@ fn stress_seat_cadence() {
     assert!(gaps.len() > 10, "the friend heard almost nothing: {report}");
 }
 
-/// Knight 1 as the user's knight stood on 2026-11-04 (from the save): five
-/// plain wishes, a super wish, a star's wish and a freedom wish held. A
-/// new wish said on T's scroll still lands, and one wish is spent.
 #[test]
 fn stress_a_threaded_host_holding_star_super_and_freedom_wishes_gets_a_new_wish() {
     let _guard = crate::tests::env_lock();
@@ -494,10 +472,6 @@ fn stress_a_threaded_host_holding_star_super_and_freedom_wishes_gets_a_new_wish(
     assert_ne!(before, after, "something was spent on it: {}", state(app, 1));
 }
 
-/// The seat cadence on a heavy delve: the night's save and phrasebook
-/// (`WISH_STRESS_SAVE`, `WISH_STRESS_BOOK`), the party down a floor and
-/// `WISH_STRESS_ENEMIES` (24) skeletons in the room, with the rules worker
-/// when `ANGEL_DELVE_SYSTEM` names one. Same report as `stress_seat_cadence`.
 #[test]
 #[ignore]
 fn stress_seat_cadence_heavy() {
@@ -607,7 +581,6 @@ fn stress_seat_cadence_heavy() {
             .split_whitespace()
             .filter_map(|w| w.split_once('=').and_then(|(_, v)| v.parse().ok()))
             .collect();
-        // sim n=.. step_us p50=.. max=.. publish_us p50=.. max=..
         if nums.len() >= 5 {
             step_p50.push(nums[1] as f64);
             step_max = step_max.max(nums[2]);
@@ -640,8 +613,6 @@ fn stress_seat_cadence_heavy() {
     assert!(gaps.len() > 10, "the friend heard almost nothing: {report}");
 }
 
-/// The model in hand, every reply kept: how long it took, what it was asked
-/// (a mend's brief carries the checker's errors) and what came back.
 struct Recording {
     inner: std::sync::Arc<dyn crate::agent::club::Club>,
     calls: std::sync::Mutex<Vec<(f64, String, Result<String, String>)>>,
@@ -694,12 +665,6 @@ const NIGHT_WISHES: [&str; 6] = [
     "a cape that farts fire",
 ];
 
-/// The host's real model writing `WISH_STRESS_WORDS` (';'-separated, default
-/// six of the night's kinds of wishes) all at once, one knight each, as a
-/// party wishes: per wish, how long until usable, the model's first answer
-/// and its mend, what was granted or why it was handed back, and the
-/// checker's errors on every first answer. `ANGEL_DRIVER` and its model and
-/// effort pick the model. Appends a JSON line to `WISH_STRESS_OUT`.
 #[test]
 #[ignore]
 fn stress_real_model_wishes() {
@@ -714,7 +679,6 @@ fn stress_real_model_wishes() {
     let workspace = root.join("workspace");
     std::fs::create_dir_all(&home).unwrap();
     std::fs::create_dir_all(&workspace).unwrap();
-    // The model's sign-in and settings, nothing else of the real home.
     std::os::unix::fs::symlink(format!("{real_home}/.codex"), home.join(".codex")).unwrap();
     let _home = crate::tests::TestEnvGuard::set("HOME", home.to_str().unwrap());
     let club = std::sync::Arc::new(Recording {

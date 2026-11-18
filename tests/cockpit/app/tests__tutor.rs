@@ -129,7 +129,6 @@ fn tutor_sending_a_question_restores_work_and_keeps_loading_context_honest() {
             .content
             .contains("Why is an eigenvector useful?")
     );
-    // The handoff is `⠬⠛`, whose pages say the curriculum is a catalog pointer.
     let handoff = crate::agent::harness::book::ing_drivers::TUTOR_HANDOFF;
     assert!(request.user_msg.content.contains(&handoff.cells()));
     assert!(handoff.sub().pages.join(" ").contains("catalog pointer"));

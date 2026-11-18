@@ -1,11 +1,3 @@
-"""Codex (`codex exec`, gpt-6.1-sol), as the wish painter calls it.
-
-The sandbox is workspace-write rooted in the workdir: it writes there only,
-and has no network. kiln's MCP server is added for the one call with `-c`
-(the owner's config.toml is never edited) and limited to the tools the job
-allows with `enabled_tools`. Images go in with `-i`; a JSON answer is held
-to a schema with `--output-schema`.
-"""
 import json
 import os
 import shutil
@@ -56,10 +48,7 @@ class Codex(Adapter):
         (work / f"{label}.prompt.md").write_text(prompt)
         env = dict(paths.node_env(), TMPDIR=os.environ.get("TMPDIR", tempfile.gettempdir()))
         t0 = time.time()
-        # The model has been seen to send nothing at all for many minutes (no
-        # error, no event): such a run is killed at STALL seconds and tried once more.
         alive = lambda text: '"type":"item.' in text or '"type":"error"' in text or '"type":"turn.failed"' in text
-        # A short call (a critic's) gets half its budget before it counts as stalled, so a retry still fits.
         stall = min(self.stall, max(150, budget // 2))
         code, secs = run_logged(cmd, log, stdin_text=prompt, cwd=work, env=env, timeout=budget, alive=alive, stall=stall)
         stalls = 0

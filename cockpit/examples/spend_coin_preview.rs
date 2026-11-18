@@ -1,5 +1,3 @@
-// Isolated visual verifier: imports production coin material and motion.
-// Does not start an agent, change session state, or join a game.
 use std::time::Duration;
 
 #[path = "../src/ui/viz/spend_viz.rs"]
@@ -29,7 +27,6 @@ fn main() {
     angel_glass::run(options, move |host| {
         use ratatui::{Terminal, layout::Rect, style::{Color, Style}, widgets::Paragraph};
         let mut terminal = Terminal::new(host.backend()).unwrap();
-        // The sixteen native flip frames use the exact production material.
         for frame in 0..16u32 {
             let mut rgba = Vec::with_capacity(96 * 96 * 4);
             for y in 0..96 {

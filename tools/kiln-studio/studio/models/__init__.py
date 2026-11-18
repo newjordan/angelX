@@ -1,10 +1,3 @@
-"""The owner's models, one interface (studio.models.base.Adapter):
-
-    claude     Claude Code headless (`claude -p`), an agent with kiln's tools
-    codex      Codex (`codex exec`, gpt-6.1-sol), an agent with kiln's tools
-    treebeard  the local treebeard router, quick text
-    comfy      ComfyUI on the DGX Spark, concept images
-"""
 from .base import Adapter, Answer, Ledger, ModelError
 
 

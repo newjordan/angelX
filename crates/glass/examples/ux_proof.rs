@@ -24,7 +24,6 @@ use angel_gpu::{Core, Draw, Frame, Instance, Picture, Stage};
 
 const STAGE: u32 = 0x00FA_57A4;
 
-/// What each 3D frame cost the game before the GPU had it: the scene, then the stage maker.
 static TIMES: std::sync::Mutex<Vec<(u64, u64)>> = std::sync::Mutex::new(Vec::new());
 
 
@@ -56,7 +55,6 @@ fn run() -> Result<(), String> {
         }
     }
     let scene = scene.ok_or_else(usage)?;
-    // A window that draws scenes (the kingdom's 3D is only for one).
     arena::props_meshes(true);
     if !angel_delve::world::plan::tabula() {
         return Err("needs the blank-slate plan standing: ANGEL_REALM_PLAN=tabula".into());
@@ -66,7 +64,6 @@ fn run() -> Result<(), String> {
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let gpu = if dry { None } else { Some(Gpu::new()?) };
     if !dry {
-        // A window that draws scenes: the kingdom's 3D is only for one.
         arena::draw_parts_outside(true);
         arena::props_meshes(true);
     }
@@ -83,7 +80,6 @@ fn run() -> Result<(), String> {
     }
 }
 
-/// Frames of a reel: a frame every `every` ticks, 3D and flat.
 struct Reel {
     gpu: Option<Gpu>,
     dir: PathBuf,
@@ -125,14 +121,11 @@ impl Reel {
     }
 }
 
-// ---------------------------------------------------------------- the pilot ----
-
 fn tile_of(run: &Run) -> (i16, i16) {
     let h = &run.players[&1];
     ((h.x / TILE_UNITS) as i16, (h.y / TILE_UNITS) as i16)
 }
 
-/// Walk to the middle of `to`, holding `extra` besides the walking.
 fn go(reel: &mut Reel, run: &mut Run, to: (i16, i16), extra: Input) -> Result<(), String> {
     let (tx, ty) = ((f32::from(to.0) + 0.5) * TILE_UNITS, (f32::from(to.1) + 0.5) * TILE_UNITS);
     for _ in 0..1500 {
@@ -141,7 +134,6 @@ fn go(reel: &mut Reel, run: &mut Run, to: (i16, i16), extra: Input) -> Result<()
         if dx.abs() < 0.3 && dy.abs() < 0.3 {
             return Ok(());
         }
-        // One axis at a time, the longer first, so the knight walks straight lines.
         let (mx, my) = if dx.abs() >= dy.abs() { (dx.signum() as i8, 0) } else { (0, dy.signum() as i8) };
         reel.tick(run, Input { move_x: mx, move_y: my, ..extra })?;
     }
@@ -160,7 +152,6 @@ fn tool(run: &mut Run, tool: Tool) {
     b.rig.keep(i);
 }
 
-/// Hold a key `n` ticks with the knight standing.
 fn hold(reel: &mut Reel, run: &mut Run, n: usize, input: Input) -> Result<(), String> {
     for _ in 0..n {
         reel.tick(run, input)?;
@@ -168,23 +159,18 @@ fn hold(reel: &mut Reel, run: &mut Run, n: usize, input: Input) -> Result<(), St
     Ok(())
 }
 
-/// The mouse: a pointer action as the page sends it.
 fn mouse(reel: &mut Reel, run: &mut Run, a: BuilderAction) -> Result<(), String> {
     reel.tick(run, Input { builder: Some(a), ..Default::default() })
 }
 
-/// The builder comes out.
 fn builder(reel: &mut Reel, run: &mut Run) -> Result<(), String> {
     press(reel, run, Input { cast: 4, ..Default::default() })
 }
 
-/// A beat of frames with nothing pressed.
 fn beat(reel: &mut Reel, run: &mut Run, ticks: usize) -> Result<(), String> {
     hold(reel, run, ticks, Input::default())
 }
 
-/// The camp's works, as the `works` proof raised them: a quarry on a won seam, a kiln, a banker,
-/// the carts, a woodsman, a sawpit, a well, a cottage, a mortar mill.
 fn the_works(run: &mut Run) -> Result<(), String> {
     let c = catalog();
     win_seam(run);
@@ -207,10 +193,6 @@ fn the_works(run: &mut Run) -> Result<(), String> {
     Ok(())
 }
 
-// ----------------------------------------------------------------- the world ----
-
-/// A hillside run on open ground, rich, the Great Shaft a ley lift (the proof is of the
-/// lines, not of how slowly three blocks a minute come up).
 fn hill(x: f32, y: f32) -> Run {
     let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
     run.walk_kingdom(None);
@@ -249,29 +231,20 @@ fn win_seam(run: &mut Run) {
     run.home.industry.secure("mines-3");
 }
 
-// ------------------------------------------------------------------ the scenes ----
-
-/// Ghost plans a row at a time: the builder out, planning on, E held while walking east lays a row
-/// of cottages as plans; the camp's hands walk out carrying the materials and raise them, the
-/// urgent one first; one plan is made urgent and another cancelled with the mouse and the keys.
 fn row(reel: &mut Reel) -> Result<(), String> {
     let mut run = hill(144.5, 99.5);
     reel.every = 3;
     beat(reel, &mut run, 6)?;
     builder(reel, &mut run)?;
     tool(&mut run, Tool::Plan("cottage"));
-    // The comma key: lay plans, not buildings.
     press(reel, &mut run, Input { skill: 2, ..Default::default() })?;
     beat(reel, &mut run, 6)?;
-    // Face east, then hold E and walk: a row of plans behind the knight.
     hold(reel, &mut run, 3, Input { move_x: 1, ..Default::default() })?;
     hold(reel, &mut run, 90, Input { move_x: 1, interact: true, ..Default::default() })?;
     beat(reel, &mut run, 10)?;
-    // Back along the row, so the camp and the whole row are in the view.
     go(reel, &mut run, (151, 99), Input::default())?;
     beat(reel, &mut run, 10)?;
     println!("plans laid: {}", run.home.industry.plans.ghosts.len());
-    // The mouse points at the third plan; F makes it urgent; at the fifth, X cancels it.
     let plans: Vec<(u32, (i16, i16))> = run.home.industry.plans.ghosts.iter().map(|(id, g)| (*id, g.tile)).collect();
     let third = plans.get(2).ok_or("no third plan")?;
     mouse(reel, &mut run, BuilderAction::Plot { tile: (third.1.0 as u8, third.1.1 as u8), build: false })?;
@@ -283,7 +256,6 @@ fn row(reel: &mut Reel) -> Result<(), String> {
         beat(reel, &mut run, 8)?;
         press(reel, &mut run, Input { bomb: true, ..Default::default() })?;
     }
-    // Put the card away, and watch the hands.
     mouse(reel, &mut run, BuilderAction::Slot(0))?;
     press(reel, &mut run, Input { team: true, ..Default::default() })?;
     reel.every = 5;
@@ -294,8 +266,6 @@ fn row(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// A building picked up with G, copies of it laid, a group copied with M and stamped, a row dragged
-/// out with the mouse, and Z taking the last back.
 fn stamp(reel: &mut Reel) -> Result<(), String> {
     let mut run = hill(156.5, 104.5);
     let c = catalog();
@@ -308,19 +278,16 @@ fn stamp(reel: &mut Reel) -> Result<(), String> {
     reel.every = 3;
     beat(reel, &mut run, 6)?;
     builder(reel, &mut run)?;
-    // G: the cursor on the sawpit, it is in hand.
     mouse(reel, &mut run, BuilderAction::Plot { tile: (147, 101), build: false })?;
     beat(reel, &mut run, 24)?;
     press(reel, &mut run, Input { vigil: true, ..Default::default() })?;
     beat(reel, &mut run, 12)?;
-    // E on empty ground lays another; Z takes it back.
     mouse(reel, &mut run, BuilderAction::Plot { tile: (157, 101), build: false })?;
     beat(reel, &mut run, 8)?;
     press(reel, &mut run, Input { interact: true, ..Default::default() })?;
     beat(reel, &mut run, 20)?;
     press(reel, &mut run, Input { play: 1, ..Default::default() })?;
     beat(reel, &mut run, 14)?;
-    // M at one corner of the group, M at the other: a copy in hand.
     mouse(reel, &mut run, BuilderAction::Plot { tile: (145, 100), build: false })?;
     press(reel, &mut run, Input { skill: 1, ..Default::default() })?;
     beat(reel, &mut run, 10)?;
@@ -330,7 +297,6 @@ fn stamp(reel: &mut Reel) -> Result<(), String> {
     }
     press(reel, &mut run, Input { skill: 1, ..Default::default() })?;
     beat(reel, &mut run, 18)?;
-    // Stamp it to the east; then turn it twice and stamp it again, up the slope.
     mouse(reel, &mut run, BuilderAction::Plot { tile: (157, 100), build: false })?;
     beat(reel, &mut run, 14)?;
     press(reel, &mut run, Input { interact: true, ..Default::default() })?;
@@ -339,7 +305,6 @@ fn stamp(reel: &mut Reel) -> Result<(), String> {
     press(reel, &mut run, Input { ult: true, ..Default::default() })?;
     mouse(reel, &mut run, BuilderAction::Plot { tile: (153, 114), build: false })?;
     beat(reel, &mut run, 14)?;
-    // A road dragged out with the left button.
     tool(&mut run, Tool::Road);
     mouse(reel, &mut run, BuilderAction::Plot { tile: (144, 108), build: true })?;
     for x in 145..=156u8 {
@@ -354,8 +319,6 @@ fn stamp(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// What to do now and why, from the first minute: the goal at the view's top right, the whole tree
-/// in the ledger, and the goal moving on as the party wins a seam and funds its charters.
 fn goals(reel: &mut Reel) -> Result<(), String> {
     let c = catalog();
     let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
@@ -370,7 +333,6 @@ fn goals(reel: &mut Reel) -> Result<(), String> {
     }
     reel.every = 3;
     beat(reel, &mut run, 20)?;
-    // The ledger: C, then P five times for the goals' page, the tree.
     press(reel, &mut run, Input { cast: 4, ..Default::default() })?;
     press(reel, &mut run, Input { ride: true, ..Default::default() })?;
     for _ in 0..4 {
@@ -381,7 +343,6 @@ fn goals(reel: &mut Reel) -> Result<(), String> {
         press(reel, &mut run, Input { swing: true, ..Default::default() })?;
         beat(reel, &mut run, 10)?;
     }
-    // Back to the world; the seam is won and the charters funded, the goal moves on.
     press(reel, &mut run, Input { ride: true, ..Default::default() })?;
     beat(reel, &mut run, 20)?;
     win_seam(&mut run);
@@ -400,8 +361,6 @@ fn goals(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// The Great Shaft's head at the Delve's gate, at each lift: one head, not two (the sim's lift is a
-/// building of the works now, drawn with them, and the old head stays away on the hillside).
 fn gate(reel: &mut Reel) -> Result<(), String> {
     let mut run = hill(141.5, 85.5);
     reel.every = 4;
@@ -414,13 +373,10 @@ fn gate(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// A bench with nothing to work from, and the card that says why: what it makes, in and out a
-/// minute, stock, crew, what it waits for; then a store's and a plan's.
 fn card(reel: &mut Reel) -> Result<(), String> {
     let mut run = hill(150.5, 106.5);
     the_works(&mut run)?;
     {
-        // The seam gives out: the banker has no rock.
         let k = &mut run.home.industry;
         k.stock.remove("limestone");
         k.stock.remove("block");
@@ -445,7 +401,6 @@ fn card(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// What the party made, used and held: the ledger's output page, a good at a time.
 fn graph(reel: &mut Reel) -> Result<(), String> {
     let mut run = hill(150.5, 106.5);
     the_works(&mut run)?;
@@ -465,14 +420,12 @@ fn graph(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// The list of what chokes the works, worst first; E sends the view to the first.
 fn chokes(reel: &mut Reel) -> Result<(), String> {
     let mut run = hill(150.5, 106.5);
     let c = catalog();
     the_works(&mut run)?;
     {
         let k = &mut run.home.industry;
-        // A mortar mill with no lime behind it, and a banker with no rock.
         let mill = k.buildings.iter().find(|(_, b)| b.plan == "mortar-mill").map(|(i, _)| *i).ok_or("a mill")?;
         k.apply(c, Command::Connect(mill))?;
         k.stock.remove("limestone");
@@ -495,7 +448,6 @@ fn chokes(reel: &mut Reel) -> Result<(), String> {
     beat(reel, &mut run, 18)?;
     press(reel, &mut run, Input { interact: true, ..Default::default() })?;
     beat(reel, &mut run, 60)?;
-    // Walking brings the view back.
     hold(reel, &mut run, 40, Input { move_x: -1, ..Default::default() })?;
     beat(reel, &mut run, 20)?;
     Ok(())
@@ -561,9 +513,6 @@ impl Gpu {
         }
     }
 
-    /// A Delve frame as a stage, drawn into a texture `size` pixels as the
-    /// window draws a stage in its cells, on black, and (when `read`) read
-    /// back; else waited for.
     fn stage(&mut self, mut frame: angel_stage::Frame, size: (u32, u32), read: bool) -> Vec<u8> {
         self.upload(std::mem::take(&mut frame.pictures));
         self.core.set_stage(

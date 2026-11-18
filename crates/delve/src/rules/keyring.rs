@@ -13,11 +13,8 @@
 
 use super::*;
 
-/// How near a knight must stand to a key to take it, and to the boss door
-/// to open it with the key in hand.
 pub const KEY_REACH: f32 = 1.4;
 pub const DOOR_REACH: f32 = 5.0;
-/// Ticks between two reminders at a locked door.
 const REMIND: u64 = 3 * HZ as u64;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -31,14 +28,10 @@ pub enum Door {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Hold {
-    /// Not yet made: the chiefs still hold the route.
     #[default]
     Kept,
-    /// Lying on the floor of `room`.
     Lying { room: usize, x: f32, y: f32 },
-    /// In knight `knight`'s keeping, last seen at `(x, y)`.
     Carried { knight: u32, x: f32, y: f32 },
-    /// Spent on the door.
     Spent,
 }
 
@@ -46,8 +39,6 @@ pub enum Hold {
 pub struct Key {
     pub door: Door,
     pub hold: Hold,
-    /// The tick a knight last stood at the shut door, so the reminder is
-    /// not said every step.
     #[serde(default)]
     pub told: u64,
 }
@@ -64,8 +55,6 @@ impl Key {
     }
 }
 
-/// The nearest open floor to `(x, y)` in `room`, so the key never lies in a
-/// wall or over a pit.
 fn settle(room: &Room, x: f32, y: f32) -> (f32, f32) {
     for ring in 0..16 {
         let r = ring as f32 * 0.5;
@@ -84,7 +73,6 @@ fn settle(room: &Room, x: f32, y: f32) -> (f32, f32) {
     (room.width() / 2.0, room.height() / 2.0)
 }
 
-/// A carrier of the key by its kind, as the gate's lines name it.
 pub fn bearer_name(kind: EnemyKind) -> String {
     let name = bestiary::ENTRIES
         .iter()
@@ -94,9 +82,6 @@ pub fn bearer_name(kind: EnemyKind) -> String {
 }
 
 impl boss_gates::Gates {
-    /// The camp slot in room `at` that carries the Boss Key: the toughest
-    /// of a standing chief's camp (its first of the hardiest kind, of the
-    /// camp's own faction), once the camp has mustered.
     pub fn key_carrier(&self, at: usize) -> Option<u8> {
         self.leader(at).filter(|l| !l.defeated)?;
         let camp = self.economy.camp(at).filter(|c| c.deployed)?;
@@ -108,7 +93,6 @@ impl boss_gates::Gates {
             .map(|(slot, _)| slot as u8)
     }
 
-    /// The kind of room `at`'s key carrier, if its camp has mustered.
     pub fn carrier_kind(&self, at: usize) -> Option<EnemyKind> {
         let slot = self.key_carrier(at)?;
         self.economy
@@ -118,9 +102,6 @@ impl boss_gates::Gates {
             .copied()
     }
 
-    /// Camp slot `slot` of room `at` fell: if it carried the key, its chief's
-    /// route is won (the leader's loss, once). Actual corpse settlement is
-    /// the only caller.
     pub(super) fn carrier_fell(&mut self, at: usize, slot: u8) -> bool {
         if self.key_carrier(at) != Some(slot) {
             return false;
@@ -135,10 +116,6 @@ impl boss_gates::Gates {
 }
 
 impl Run {
-    /// A key carrier left the floor at `(x, y)` with its loss recorded
-    /// (`Gates::carrier_fell`): the party hears its chief's route is won,
-    /// and the Boss Key drops there if that opened the guardian, which was
-    /// shut (`was_open`) before.
     pub(super) fn carrier_lost(&mut self, x: f32, y: f32, kind: EnemyKind, was_open: bool) {
         self.cues.push(format!("leader_fall:{}", bearer_name(kind)));
         if !was_open && self.boss_gates.as_ref().is_some_and(boss_gates::Gates::unlocked) {
@@ -147,9 +124,6 @@ impl Run {
         }
     }
 
-    /// A chief whose key carrier is gone from its camp's books with no loss
-    /// recorded (a body raised before raising booked it, 2026-10-30) has
-    /// lost it all the same: the room could never clear.
     pub(super) fn heal_lost_carrier(&mut self) {
         let at = self.at;
         let Some(g) = &mut self.boss_gates else { return };
@@ -169,8 +143,6 @@ impl Run {
         self.carrier_lost(x, y, kind, was_open);
     }
 
-    /// Whether `enemy` carries the Boss Key: the elite at the head of the
-    /// chief's camp here, alive, the key not yet fallen.
     pub fn carries_key(&self, enemy: &Enemy) -> bool {
         enemy.hp > 0
             && self.works.key.hold == Hold::Kept
@@ -181,7 +153,6 @@ impl Run {
                 .is_some_and(|g| g.key_carrier(self.at) == enemy.camp_slot)
     }
 
-    /// The key carrier in the room the party stands in, by name.
     pub fn bearer_here(&self) -> Option<String> {
         self.boss_gates
             .as_ref()?
@@ -189,19 +160,15 @@ impl Run {
             .map(bearer_name)
     }
 
-    /// Whether this floor's boss door is shut for want of the key.
     pub fn boss_door_shut(&self) -> bool {
         self.boss_gates.is_some() && self.works.key.door == Door::Locked
     }
 
-    /// The side of this room whose doorway leads to the shut boss door, if
-    /// any: the lock is drawn there.
     pub fn shut_door_side(&self) -> Option<usize> {
         let g = self.boss_gates.as_ref().filter(|_| self.boss_door_shut())?;
         (0..4).find(|&dir| self.dungeon.neighbour(self.at, dir) == Some(g.guardian))
     }
 
-    /// Which knight carries the key.
     pub fn key_bearer(&self) -> Option<u32> {
         match self.works.key.hold {
             Hold::Carried { knight, .. } => Some(knight),
@@ -209,7 +176,6 @@ impl Run {
         }
     }
 
-    /// The key lying in the room the party stands in.
     pub fn key_on_floor(&self) -> Option<(f32, f32)> {
         match self.works.key.hold {
             Hold::Lying { room, x, y } if room == self.at => Some((x, y)),
@@ -217,8 +183,6 @@ impl Run {
         }
     }
 
-    /// Who still stands between the party and the key: each standing
-    /// chief's elite, by kind once its camp has mustered, else by camp.
     pub fn key_keepers(&self) -> Vec<String> {
         let Some(g) = self.boss_gates.as_ref() else {
             return Vec::new();
@@ -239,9 +203,6 @@ impl Run {
             .collect()
     }
 
-    /// Whether the room the party stands in is its floor's guardian's, so
-    /// a boss here is the floor's own and not a route chief: the gate's
-    /// apex room, or (with no gates) the stairs, the threshold and the lair.
     pub fn guardian_room(&self) -> bool {
         match &self.boss_gates {
             Some(g) => g.guardian == self.at,
@@ -252,7 +213,6 @@ impl Run {
         }
     }
 
-    /// What the gate line adds about the key.
     pub fn key_line(&self) -> Option<String> {
         if !self.boss_door_shut() {
             return None;
@@ -274,8 +234,6 @@ impl Run {
         })
     }
 
-    /// The carrier whose fall opened the route fell at `(x, y)`: it drops
-    /// the key there.
     pub(super) fn drop_boss_key(&mut self, x: f32, y: f32) {
         if self.boss_gates.is_none()
             || self.works.key.door == Door::Open
@@ -294,14 +252,10 @@ impl Run {
         self.found = Some((self.tick, 0, "the Boss Key falls".into()));
     }
 
-    /// The key is taken up, dropped by whoever falls, and made good if the
-    /// chiefs fell by any road that did not leave it.
     pub(super) fn tick_key(&mut self) {
         if self.boss_gates.is_none() || self.works.key.door == Door::Open {
             return;
         }
-        // The route is open but no key was made (a save from before, or a
-        // carrier that fell out of sight): it lies at the first knight's feet.
         if self.works.key.hold == Hold::Kept
             && self.boss_gates.as_ref().is_some_and(|g| g.unlocked())
             && let Some((x, y)) = self
@@ -342,8 +296,6 @@ impl Run {
                     };
                 }
                 Some(hero) => {
-                    // Fallen, or turned to stone with their player away: the
-                    // key drops at their feet for a knight still standing.
                     let (x, y) = settle(self.room(), hero.x, hero.y);
                     self.works.key.hold = Hold::Lying {
                         room: self.at,
@@ -354,7 +306,6 @@ impl Run {
                     self.sounds.push("spoil_pickup");
                 }
                 None => {
-                    // Gone home: it lies where they last stood.
                     let Hold::Carried { x, y, .. } = self.works.key.hold else {
                         return;
                     };
@@ -371,9 +322,6 @@ impl Run {
         }
     }
 
-    /// The party reaches for the doorway `dir` toward `next`. True when the
-    /// boss door holds them back. The knight with the key at the door
-    /// unlocks it, spends the key, and the way is open.
     pub(super) fn boss_door_holds(&mut self, next: usize, dir: usize) -> bool {
         let Some(guardian) = self.boss_gates.as_ref().map(|g| g.guardian) else {
             return false;
@@ -396,7 +344,6 @@ impl Run {
             self.fx.push(Fx::Shake(8));
             return false;
         }
-        // Held back: stepped in from the doorway, and told why now and then.
         let (cx, cy) = (self.room().width() / 2.0, self.room().height() / 2.0);
         let barred = self.barred();
         let at = self.at;

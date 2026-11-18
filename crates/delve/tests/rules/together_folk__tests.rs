@@ -9,13 +9,11 @@ fn home_with(b: Barony) -> Home {
     }
 }
 
-/// Every room of the world, as the run lays it out.
 fn rooms() -> Vec<Room> {
     let run = Run::at_home(7, 1, None, Home::default(), Default::default());
     run.dungeon.rooms.clone()
 }
 
-/// Everyone in sight over a long stretch of ticks, by room.
 fn sight(home: &Home) -> Vec<(RoomKind, Figure)> {
     let mut out = Vec::new();
     for kind in [
@@ -84,7 +82,6 @@ fn the_camped_king_and_his_guards_wait_at_the_mine_head() {
         seen.iter()
             .any(|(k, f)| f.folk == Folk::King && *k == RoomKind::MineHead)
     );
-    // His man waits in the gate courtyard, the main way in.
     assert!(
         seen.iter()
             .any(|(k, f)| f.folk == Folk::Guard && *k == RoomKind::Gate)
@@ -142,7 +139,6 @@ fn builders_haul_stone_to_the_ruin_while_the_hall_goes_up() {
     for (kind, f) in &seen {
         assert!(walkable(&rooms, *kind, f), "{f:?}");
     }
-    // Built, they are gone.
     b.works[0].labour = work("hall").unwrap().labour;
     b.court = Court::Sworn;
     let after = sight(&home_with(b));
@@ -192,7 +188,6 @@ fn where_anyone_is_is_the_same_for_the_same_realm_and_tick() {
             figures(&home, RoomKind::MineHead, Pack::Cavern, tick)
         );
     }
-    // And they move.
     assert_ne!(
         figures(&home, RoomKind::MineHead, Pack::Cavern, 100),
         figures(&home, RoomKind::MineHead, Pack::Cavern, 160)

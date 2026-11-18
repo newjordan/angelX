@@ -108,7 +108,6 @@ fn panic_text(err: Box<dyn std::any::Any + Send>) -> String {
         .unwrap_or_else(|| "non-string panic".to_string())
 }
 
-/// Feed `body`. A panic is a failure string; `Ok` is the snapshot's own result.
 fn feed(client: &mut DelveClient, tick: u32, whole: bool, body: &[u8]) -> Result<Result<(), Malformed>, String> {
     match catch_unwind(AssertUnwindSafe(|| client.snapshot(tick, whole, body))) {
         Ok(result) => Ok(result),
@@ -291,7 +290,6 @@ fn damaged_crowded_stream_does_not_panic_and_recovers() {
     }
     trials.push(("tiles-short", true, encode_whole(&short), false));
 
-    // A patch the seat's name table can read, naming a field the fight never had.
     let mut names = Writer::default();
     let mut prefix = Vec::new();
     names.value(&mut prefix, good);

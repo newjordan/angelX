@@ -7,7 +7,6 @@ std::thread_local! {
     static WATCH: std::cell::Cell<Option<u32>> = const { std::cell::Cell::new(None) };
 }
 
-/// A seat's camera choice for this drawing only; its HUD keeps its owner.
 pub(crate) fn with_watch<T>(watching: Option<u32>, f: impl FnOnce() -> T) -> T {
     struct Back(Option<u32>);
     impl Drop for Back {
@@ -17,17 +16,11 @@ pub(crate) fn with_watch<T>(watching: Option<u32>, f: impl FnOnce() -> T) -> T {
     f()
 }
 
-/// Where the camera's view starts in a room's native pixels: centred on
-/// `focus` (or between the living knights), kept inside the room. An
-/// ordinary room is exactly one view, so its camera never moves.
 pub fn camera(run: &Run, focus: Option<u32>) -> (i32, i32) {
     let (x, y) = camera_exact(run, focus);
     (x.floor() as i32, y.floor() as i32)
 }
 
-/// The camera between whole pixels: `camera` is its whole pixel. A window
-/// that draws the room itself scrolls by this, so the room glides under a
-/// knight it follows instead of stepping a pixel at a time.
 pub fn camera_exact(run: &Run, focus: Option<u32>) -> (f32, f32) {
     let (pw, ph) = room_px(run.room());
     let corner = |(cx, cy): (f32, f32)| {
@@ -36,7 +29,6 @@ pub fn camera_exact(run: &Run, focus: Option<u32>) -> (f32, f32) {
             (cy * UNIT - NATIVE_H as f32 / 2.0).clamp(0.0, (ph - NATIVE_H).max(0) as f32),
         )
     };
-    // A village of the Deep looks up at the dark while the star falls.
     if let Some(sky) = run.star_camera() {
         return corner(sky);
     }
@@ -46,15 +38,12 @@ pub fn camera_exact(run: &Run, focus: Option<u32>) -> (f32, f32) {
         } else { (hero.x, hero.y) });
     }
     if run.room().kind == RoomKind::Kingdom {
-        // A seat sent to look at a place (the list of what chokes the works) sees it, until it walks.
         if let Some((x, y)) = focus.and_then(|id| run.kingdom.industry.get(&id)).and_then(|b| b.rig.look) {
             return corner((x * crate::rules::TILE_UNITS, y * crate::rules::TILE_UNITS));
         }
         let hero = focus
             .and_then(|id| run.players.get(&id))
             .or_else(|| run.players.get(&1))
-            // A host who plays no knight sends none (`Hero::absent`): the
-            // party's first.
             .or_else(|| run.players.values().next());
         let centre = hero
             .map(|h| h.camera.unwrap_or((h.x, h.y - 1.0)))
@@ -71,7 +60,6 @@ pub fn camera_exact(run: &Run, focus: Option<u32>) -> (f32, f32) {
             .map(|h| (h.x, h.y))
             .collect(),
     };
-    // In the Wanted hall the view takes in the outlaw too.
     let mut watched = watched;
     if run.room().kind == RoomKind::Wanted
         && let Some(e) = run.enemies.iter().find(|e| e.boss.is_some() && e.hp > 0)
@@ -82,7 +70,6 @@ pub fn camera_exact(run: &Run, focus: Option<u32>) -> (f32, f32) {
         && run.tick.saturating_sub(fall.at)
             < u64::from(crate::rules::outlaw::FALL)
     {
-        // The view stays on the outlaw while it falls.
         watched.push((fall.x, fall.y));
     }
     let (sx, sy) = watched
@@ -95,19 +82,10 @@ pub fn camera_exact(run: &Run, focus: Option<u32>) -> (f32, f32) {
     corner((sx / n, sy / n))
 }
 
-/// One view of `full` from `(ox, oy)`.
 pub(super) fn crop(full: &Img, (ox, oy): (i32, i32)) -> Img {
     Img::from_view(full, ox, oy, NATIVE_W, NATIVE_H)
 }
 
-/// What the view cannot show: a mark on its edge toward each monster (red)
-/// and each knight (their colours) out of sight in a great hall. The mark is
-/// an arrowhead pointing out, so it reads as a pointer and never as a small
-/// monster at the edge of the room.
-/// A gold arrow at `(ax, ay)` with its tip toward `(ux, uy)`, outlined so it
-/// reads on any ground, and its two- or three-word label just above or
-/// below it (`edge`: pinned to the view's edge, so the label goes toward
-/// the middle).
 pub(in super::super) fn pointer(
     over: &mut Img,
     (ax, ay): (f32, f32),
@@ -134,7 +112,6 @@ pub(in super::super) fn pointer(
     vec![tag, arrow]
 }
 
-/// Where [`pointer`] sets its name's text and the arrow's box.
 fn pointer_spots((ax, ay): (f32, f32), (_, uy): (f32, f32), name: &str, edge: bool) -> ((i32, i32), (i32, i32, i32, i32)) {
     let label = name.to_uppercase();
     let w = super::super::ink::text_width(&label);
@@ -144,23 +121,15 @@ fn pointer_spots((ax, ay): (f32, f32), (_, uy): (f32, f32), name: &str, edge: bo
     } else {
         ay.round() as i32 - 21
     };
-    // Over the arrow when there is room for it there; under it when the view's top edge is in
-    // the way (a name pushed up to the edge would lie on its own arrow).
     let ly = if raw < 4 { ay.round() as i32 + 13 } else { raw }.clamp(4, NATIVE_H - 13);
     ((lx, ly), (ax as i32 - 10, ay as i32 - 10, 21, 21))
 }
 
-/// The rectangles [`pointer`] would fill, `(tag, arrow)`, without drawing them.
 pub(in super::super) fn pointer_boxes(at: (f32, f32), toward: (f32, f32), name: &str, edge: bool) -> ((i32, i32, i32, i32), (i32, i32, i32, i32)) {
     let (text, arrow) = pointer_spots(at, toward, name, edge);
     (chrome::label_rect(text, &name.to_uppercase()), arrow)
 }
 
-/// Where a box `w` wide over room pixel `x` starts: centred on `x`, kept
-/// inside the seat's view (`view`, its top-left; the view `NATIVE_W` wide)
-/// while `x` is in sight, and inside the room (`room_w` wide) always. A
-/// name or a word over a figure near the view's edge stays whole on that
-/// seat's screen; one over a figure out of sight stays with the figure.
 pub(in super::super) fn in_view_x(x: i32, w: i32, view: (i32, i32), room_w: i32) -> i32 {
     let mut x0 = x - w / 2;
     if (view.0..view.0 + NATIVE_W).contains(&x) && w + 6 <= NATIVE_W {
@@ -169,8 +138,6 @@ pub(in super::super) fn in_view_x(x: i32, w: i32, view: (i32, i32), room_w: i32)
     x0.clamp(0, (room_w - w).max(0))
 }
 
-/// As `in_view_x`, for the row a box `h` tall starts on over room pixel
-/// `y`: never above the seat's view while `y` is in sight.
 pub(in super::super) fn in_view_y(y0: i32, y: i32, view: (i32, i32)) -> i32 {
     if (view.1..view.1 + NATIVE_H).contains(&y) {
         y0.max(view.1 + 3)
@@ -179,17 +146,13 @@ pub(in super::super) fn in_view_y(y0: i32, y: i32, view: (i32, i32)) -> i32 {
     }
 }
 
-/// One camera origin shared by both art pipelines, including hit shake.
 pub fn view_origin(run: &Run, focus: Option<u32>) -> (i32, i32) {
     let origin = camera(run, focus);
-    // A best finisher's kick rides the picture alone (`rules::gore`).
     let shake = run.shake.max(run.gore_kick());
     let (x, y) = smooth_shake(run.tick, u32::from(shake), 12, 6.0);
     (origin.0 + x, origin.1 + y)
 }
 
-/// Picture-only impact motion. The existing countdown is the trauma: small
-/// blows barely move, and the last ticks settle instead of buzzing.
 pub(super) fn smooth_shake(tick: u64, left: u32, full: u32, reach: f32) -> (i32, i32) {
     if crate::render::viewer::calm() { return (0, 0); }
     crate::motion::shake(tick, left, full, reach)

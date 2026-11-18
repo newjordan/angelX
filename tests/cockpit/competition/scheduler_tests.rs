@@ -184,12 +184,6 @@ fn deterministic_fallback_and_throughput_fixture_toward_ac16() {
     );
 }
 
-// --- live `lane-schedule` leg -------------------------------------------------
-//
-// The Bend leg owns the lane ranking; Rust keeps the state, the validation and
-// the application of the choice. `select_lanes` stays as the native fallback and
-// as the parity oracle for the table below.
-
 fn lane_state(
     seats: u16,
     gap: u64,
@@ -224,8 +218,6 @@ fn live_lanes(
     (selection.lanes, source)
 }
 
-/// The same decision, taken by the generation compiled into this binary: the
-/// shipped leg answers without a module directory, exactly as a turn asks it.
 fn shipped_lanes(
     state: &SchedulerStateV1,
 ) -> (Vec<usize>, crate::agent::harness::live_policy::LegSource) {

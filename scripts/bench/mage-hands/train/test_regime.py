@@ -1,4 +1,3 @@
-"""Offline contracts; no providers or GPU calls."""
 import importlib.util
 import json
 from pathlib import Path

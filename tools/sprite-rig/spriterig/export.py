@@ -1,4 +1,3 @@
-"""Sprite sheets, PNG frames and polished GIFs (shared canvas, ground shadow, labels)."""
 import json, os
 import numpy as np
 from PIL import Image, ImageDraw
@@ -60,11 +59,10 @@ def label(im, text):
 
 
 def save_gif(images, path, fps):
-    # one shared adaptive palette for stable colours across frames
     strip = Image.new("RGB", (images[0].width, images[0].height * len(images)))
     for i, im in enumerate(images):
         strip.paste(im, (0, i * images[0].height))
-    if strip.height > 4096:  # palette from a subsample of frames is plenty
+    if strip.height > 4096:
         step = -(-len(images) // (4096 // images[0].height or 1))
         return save_gif_pal(images, path, fps, images[::step])
     pal = strip.quantize(255, method=Image.FASTOCTREE, dither=Image.NONE)

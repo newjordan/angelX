@@ -112,7 +112,6 @@ fn zero_reserve_has_observable_output_and_hunger_tradeoff_without_free_food() {
             .is_err()
     );
     assert_eq!(unreserved, before);
-    // Reinstating the reserve permits farm output to refill the meal store.
     unreserved
         .apply(catalog(), Command::FoodReserve(2))
         .unwrap();

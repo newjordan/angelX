@@ -36,7 +36,6 @@ fn the_wait_runs_out_and_an_away_knight_holds_nobody() {
         assert!(ticks <= AGAIN_WAIT, "the wait ends");
     }
     assert_eq!(ticks + 1, AGAIN_WAIT, "five seconds from the first ask");
-    // An away knight neither asks nor is waited for.
     let mut run = fallen();
     run.set_away(1, true);
     run.ask_again(1);

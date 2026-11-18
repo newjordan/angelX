@@ -1,4 +1,3 @@
-"""CPU-only recovery contracts. No model weights, endpoints, or Modal imports."""
 import copy
 import importlib.util
 import json
@@ -193,7 +192,6 @@ class BatchTests(unittest.TestCase):
 
 
 class TrainerWiringTests(unittest.TestCase):
-    """Import the real launcher with a recording-only Modal stand-in; never connects."""
     def test_launcher_rejects_missing_budget_and_scope_before_remote_call(self):
         import types
         from unittest.mock import patch
@@ -234,7 +232,7 @@ class TrainerWiringTests(unittest.TestCase):
         self.assertEqual(module.run_approved(**valid)['dry_run'], True)
         self.assertEqual(calls, [])
         module.run_approved(**valid, dry_run=False)
-        self.assertEqual(len(calls), 1)  # recording stub, never the real Modal SDK
+        self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0]['dataset_sha256'], 'a' * 64)
 
     def test_trainer_uses_full_replies_real_batches_and_reloads_before_candidate_eval(self):
@@ -256,7 +254,6 @@ class TrainerWiringTests(unittest.TestCase):
 
 
 class ProductionParityTests(unittest.TestCase):
-    """Compile the actual four production functions, not a second handwritten oracle."""
     @classmethod
     def setUpClass(cls):
         cls.root = Path(__file__).resolve().parents[4]

@@ -15,28 +15,22 @@ fn a_brew_brief_shows_both_spells_whole_and_every_name_taken() {
         std::path::Path::new(".angel/dungeon/brewed/brewed-000001-f2-k1.card"),
         std::path::Path::new(".angel/dungeon/sheets"),
     );
-    // Both cards whole: names, flavour, effects, art.
     for card in [storm, hedge] {
         assert!(text.contains(&card.file()), "{} is shown whole", card.id);
         assert!(text.contains(card.text.trim()));
         assert!(text.contains(&card.art[0]));
     }
     assert!(text.contains("It was granted from the wish “Hedge Maze”"));
-    // What the knight holds besides, and the stand-in.
     assert!(text.contains(&imposture.name) && text.contains("Kitchen Garden"));
-    // Every name taken: the book's spells, the pot's recipes.
     assert!(text.contains("Never reuse one of these names"));
     for name in ["Cabbage Storm", "Hedge Maze", "Hot Cabbages", "Steam Burst", "Twin Moons"] {
         assert!(text.contains(&format!("| {name} |")), "{name} is taken");
     }
-    // A cabbage went in, so cabbages may come out.
     assert!(text.contains("A cabbage went in"));
-    // The vocabulary, the budget, the inks, the card format.
     assert!(text.contains(SPELL_LINES) && text.contains(SUMMONS) && text.contains(INKS));
     assert!(text.contains(&cauldron::POWER_BUDGET.to_string()));
     assert!(text.contains(&cards::rules()));
     assert!(text.contains("brewed-000001-f2-k1.card"));
-    // No cabbage in, none out.
     let ward = book
         .cards
         .iter()
@@ -54,8 +48,6 @@ fn a_brew_brief_shows_both_spells_whole_and_every_name_taken() {
     assert!(text.contains("No cabbage went in"));
 }
 
-/// A delve on floor two with knight 1 holding the Kitchen Garden stand-in
-/// of a Cabbage Storm thrown in with a Hedge Maze, and the run's ask.
 fn brewing(workspace: &std::path::Path) -> (App, cauldron::Brewing) {
     let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
     std::sync::Arc::get_mut(&mut app.tools)
@@ -81,7 +73,6 @@ fn brewing(workspace: &std::path::Path) -> (App, cauldron::Brewing) {
     (app, ask)
 }
 
-/// angelX's brewing turn ends, having written `card` (or nothing).
 fn turn_ends(app: &mut App, ask: &cauldron::Brewing, card: Option<&str>) {
     let result_id = app.realm.dungeon.forge.kettles.iter().find(|k| k.claim.work.ask.knight == ask.knight).unwrap().claim.work.result_id.clone();
     let path = app.brewed_dir().join(format!("{result_id}.card"));
@@ -124,8 +115,6 @@ fn a_brewed_answer_takes_the_stand_ins_place_while_the_game_runs() {
     assert!(app.realm.dungeon.forge.kettles[0].started.is_some(), "angelX is brewing");
     let result_id = app.realm.dungeon.forge.kettles[0].claim.work.result_id.clone();
     turn_ends(&mut app, &ask, Some(ORCHARD));
-    // The first draft goes back for its review turn, a second look by the
-    // model before the game installs it (`Kettle::reviewed`).
     assert!(app.realm.dungeon.forge.kettles[0].reviewed && app.realm.dungeon.forge.kettles[0].answer.is_none());
     turn_ends(&mut app, &ask, Some(ORCHARD));
     let run = app.realm.dungeon.shooter.as_ref().unwrap();
@@ -144,19 +133,15 @@ fn a_rejected_brew_is_mended_once_and_then_leaves_the_stand_in() {
     app.thinking = None;
     app.pending_turn = None;
     app.watch_brewing();
-    // Over the power budget: turned away, and sent back to be mended.
     let binding = app.realm.dungeon.forge.kettles[0].claim.work.placeholder.id.clone();
     let result_id = app.realm.dungeon.forge.kettles[0].claim.work.result_id.clone();
     let greedy = ORCHARD.replace("cooldown 20", "cooldown 2");
     turn_ends(&mut app, &ask, Some(&greedy));
-    // The first draft goes back for its review turn, a second look by the
-    // model before the game installs it (`Kettle::reviewed`).
     turn_ends(&mut app, &ask, Some(&greedy));
     assert!(app.realm.dungeon.notice.contains("mending"), "{}", app.realm.dungeon.notice);
     let kettle = &app.realm.dungeon.forge.kettles[0];
     assert!(kettle.mending.as_ref().unwrap().iter().any(|e| e.contains("power")));
     assert!(kettle.started.is_some(), "the mending turn has begun");
-    // Still turned away: the stand-in stays.
     turn_ends(&mut app, &ask, Some(&greedy));
     let run = app.realm.dungeon.shooter.as_ref().unwrap();
     assert_eq!(run.players[&1].spells[0].as_deref(), Some(binding.as_str()));
@@ -177,8 +162,6 @@ fn an_uncertain_brew_checkpoint_retries_the_same_answer_without_a_second_grant_o
     let claim = app.realm.dungeon.forge.kettles[0].claim.clone();
     let path = app.realm.dungeon.save_path.clone().unwrap();
     turn_ends(&mut app, &ask, Some(ORCHARD));
-    // The first draft goes back for its review turn, a second look by the
-    // model before the game installs it (`Kettle::reviewed`).
     crate::platform::workspace_store::storage_atomic_tests::fail_after_publish(path.clone());
     turn_ends(&mut app, &ask, Some(ORCHARD));
     assert!(
@@ -262,8 +245,6 @@ fn a_full_receipt_queue_still_drains_existing_brews_before_admitting_new_work() 
     }
     assert_eq!(app.realm.dungeon.shooter.pending_brews().unwrap().len(), 64);
     turn_ends(&mut app, &ask, Some(ORCHARD));
-    // The first draft goes back for its review turn, a second look by the
-    // model before the game installs it (`Kettle::reviewed`).
     turn_ends(&mut app, &ask, Some(ORCHARD));
     let pending = app.realm.dungeon.shooter.pending_brews().unwrap();
     assert_eq!(pending.len(), 63);

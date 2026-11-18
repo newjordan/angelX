@@ -31,9 +31,6 @@ pub(crate) struct LiveModules {
 impl LiveModules {
     pub fn new(enabled: bool) -> Self {
         let root = crate::agent::hotload::root();
-        // The bootstrap clip is only ever handed to the window's host; a cockpit
-        // in a terminal has none (a host is installed once, before the cockpit
-        // is built), so decoding the pack there is startup work nothing reads.
         #[cfg(feature = "glass")]
         let startup_squire_clip = crate::ui::glass::host()
             .and_then(|_| crate::agent::hotload::showcase_squire::startup_clip(&root));
@@ -59,8 +56,6 @@ impl LiveModules {
         }
     }
 
-    /// Let the tool registry's file tools report what the loader made of an
-    /// edit inside this root.
     fn bind_outcomes(&self, tools: &crate::agent::harness::ToolRegistry) {
         tools.set_live_outcomes(
             self.client
@@ -170,9 +165,6 @@ fn discard_startup_squire(snapshot: &Snapshot, client_enabled: bool) -> bool {
             .any(|status| status.id == "showcase-squire" && status.error.is_some())
 }
 
-/// Apply the prepared showcase resource at the same boundary used by the
-/// live app tick. Kept small and explicit so activation cost can be measured
-/// without opening a desktop window.
 #[cfg(feature = "glass")]
 fn apply_showcase_squire(
     host: &angel_glass::Host,
@@ -192,7 +184,6 @@ fn apply_showcase_squire(
     if let Some((identity, clip)) = latest {
         host.showcase_squire_clip(Some(identity), Some(clip));
     } else if !keep_startup_squire(snapshot, client_enabled) {
-        // A healthy snapshot without the resource is an intentional removal.
         host.showcase_squire_clip(None, None);
     }
 }
@@ -235,9 +226,6 @@ impl App {
     }
 
     pub(crate) fn run_registered_live_command(&mut self, name: &str, arg: Option<&str>) -> bool {
-        // Before the first catalogue arrives, queue slash commands behind
-        // worker discovery. Never reinterpret them as model messages because
-        // their module has not finished preparing yet.
         if !self.live_modules.accepts_command(name) {
             return false;
         }
@@ -314,8 +302,6 @@ impl App {
                 return;
             }
         };
-        // Check BEFORE sending to the worker: a rejected UI admission must
-        // never leave an unobserved mutation behind.
         if self.live_modules.pending.len() >= 8 {
             self.system_msg("live module requests are busy; retry shortly");
             return;
@@ -344,11 +330,8 @@ impl App {
     }
 
     pub(crate) fn advance_live_modules(&mut self) {
-        // The worker publishes before replying. Collect ready replies first,
-        // then bind that snapshot before exposing selection acknowledgements.
         let mut pending = Vec::new();
         for mut request in std::mem::take(&mut self.live_modules.pending) {
-            // A response from a prior project/thread cannot enter a new chat.
             if request.session != self.session.id
                 || request.workspace != self.tools.current_workspace()
             {
@@ -367,8 +350,6 @@ impl App {
         }
         let revision = self.live_modules.snapshot.revision;
         let snapshot = if pending.iter().any(|request| request.resolved.is_some()) {
-            // A busy snapshot lock must defer the reply as well. Retain the
-            // result in the same bounded queue without resending its command.
             match self.live_modules.client.snapshot() {
                 Some(snapshot) => (snapshot.revision != revision).then_some(snapshot),
                 None => {
@@ -440,9 +421,6 @@ impl App {
                 &self.live_modules.snapshot,
                 self.live_modules.client.is_enabled(),
             ) {
-                // The first healthy registry state supersedes the bootstrap,
-                // including a healthy removal. Do not retain or resurrect it
-                // after a later failed edit.
                 self.live_modules.startup_squire_clip = None;
             }
             crate::agent::hotload::publish_legs(
@@ -460,13 +438,9 @@ impl App {
             self.live_modules.bind_outcomes(&self.tools);
             self.live_modules.bound_registry = registry;
         }
-        // A workspace can replace its Sim without changing module code.
-        // Pointer equality makes the ordinary tick a no-op here.
         if let Some(policy) = &self.live_modules.snapshot.game {
             self.realm.live_rules(Some(policy));
         }
-        // The native owner applies slots and prepared character presentation
-        // under one lock before a selection acknowledgement becomes visible.
         self.realm
             .live_characters(&self.live_modules.snapshot.resources);
         #[cfg(feature = "glass")]
@@ -490,8 +464,6 @@ impl App {
                             angel_live::kernel::WithdrawalStatus,
                         >(value.clone())
                         {
-                            // Bind the worker's publication first. If it advanced
-                            // after accepting the request, show that newer phase.
                             let status = self
                                 .live_modules
                                 .snapshot
@@ -625,7 +597,6 @@ mod tests {
             m.text
                 .contains(&format!("withdrawal {}: published", status.id))
         }));
-        // A stale receipt query must not accidentally mutate or readmit.
         app.run_live_command("reload", Some(&format!("abort {}", status.id + 1)));
         pump(&mut app, |app| app.live_modules.pending.is_empty());
         assert_eq!(app.live_modules.snapshot.withdrawal, Some(status.clone()));
@@ -650,7 +621,6 @@ mod tests {
                 .iter()
                 .any(|s| s.id == "operator-fixture" && s.generation == 2)
         );
-        // Old generation never silently maps to a freshly enabled generation.
         app.run_live_command("reload", Some("withdraw operator-fixture@1"));
         pump(&mut app, |app| app.live_modules.pending.is_empty());
         assert!(
@@ -699,7 +669,6 @@ mod tests {
                 .iter()
                 .any(|r| r.module == "provider")
         });
-        // Full UI queue must reject without sending an otherwise valid mutation.
         let mut senders = Vec::new();
         for _ in 0..8 {
             let (tx, rx) = mpsc::channel();
@@ -1000,8 +969,6 @@ mod tests {
             host.showcase_squire_resource().unwrap().1.card,
             motion_edited.1.card
         );
-        // Ambiguous ambient defaults refuse policy adoption, while an explicit
-        // imported provider remains authoritative regardless of its module ID.
         let other = root.join("other-reactions");
         std::fs::create_dir_all(&other).unwrap();
         let mut other_manifest = motion_manifest.clone();
@@ -1049,8 +1016,6 @@ mod tests {
         let rebound_motion = rebound_resource.imports().get("custom-reactions", "pack", "glass-card-motion/1").unwrap();
         let published_motion = &rebound_snapshot.resources["custom-reactions/pack"];
         let rebound_art = host.showcase_squire_resource().unwrap();
-        // Missing source retains admitted art bytes, while the accepted graph
-        // can rebind that art to the now-valid provider candidate.
         assert_eq!(rebound_resource.value, retained_resource.value);
         assert_eq!(rebound_resource.identity, retained_resource.identity);
         assert!(rebound_resource.generation > retained_resource.generation);
@@ -1065,13 +1030,10 @@ mod tests {
         assert_eq!(rebound_art.1.frames, retained_art.1.frames);
         assert_eq!(rebound_art.1.card.as_ref(), published_motion.binding::<angel_glass::CardMotion>());
         assert_ne!(rebound_art.1.card, retained_card);
-        // Outstanding compositions and their pinned dependency graph stay old.
         assert_eq!(retained_art.1.card, retained_card);
         assert_eq!(retained_resource.imports().get("custom-reactions", "pack", "glass-card-motion/1").unwrap().generation, retained_motion.generation);
         assert_ne!(retained_motion.identity, rebound_motion.identity);
         assert!(rebound_snapshot.statuses.iter().any(|status| status.id == "showcase-squire" && status.error.is_some()));
-        // This exercises explicit Host cleanup only. Registry withdrawal and
-        // re-enable through this Glass composition require a separate fixture.
         host.showcase_squire_clip(None, None);
         assert!(host.showcase_squire_resource().is_none());
         std::fs::remove_dir_all(root).unwrap();
@@ -1081,9 +1043,6 @@ mod tests {
     #[test]
     fn registry_withdrawal_reenable_preserves_issued_glass_compositions() {
         use std::sync::Arc;
-        // A publisher frame can temporarily own a clip while serializing it.
-        // Public catch-up takes the same frame lock and observes the removal
-        // before we require outstanding issued references to release the Arc.
         fn observe_removal(hub: &angel_glass::remote::Hub) {
             use angel_glass::remote::wire::{self, Down, Kind, Up};
             use std::net::{Shutdown, TcpListener, TcpStream};
@@ -1357,8 +1316,6 @@ mod tests {
         use std::net::{Shutdown, TcpListener, TcpStream};
         use std::sync::Arc;
 
-        // Inspect installed Host state through the existing production catch-up
-        // protocol. A fresh attachment also resolves a pending publisher wake.
         fn installed(hub: &angel_glass::remote::Hub) -> (angel_glass::ShowcaseClipIdentity, Arc<angel_glass::ShowcaseSquireClip>) {
             let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
             let mut viewer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
@@ -1494,8 +1451,6 @@ mod tests {
         let initial = registry.snapshot();
         let mut previous_identity = initial.resources["showcase-squire/pack"].identity.clone();
 
-        // Use Glass's real no-window Host and open the same showcase surface.
-        // This accepts activation events but does not run a renderer or GPU.
         let (host, hub) = angel_glass::remote::headless(
             "showcase-squire-latency",
             angel_glass::GridSize::default(),
@@ -1535,7 +1490,6 @@ mod tests {
             }
         }
 
-        // Nearest-rank p50/p95 in microseconds (51 samples, 3 warmups).
         for (name, values) in [
             ("write+Registry.refresh+snapshot", &registry_us),
             ("App-to-Glass host setter", &bridge_us),
@@ -1678,8 +1632,6 @@ mod tests {
 module.exports={apiVersion:2,initialize:()=>({calls:0}),reduce:(state,event)=>({state:{calls:state.calls+1},output:`accepted ${event.arguments} (${state.calls+1})`})}
 "#).unwrap();
         let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
-        // On a failed assertion this guard releases the evaluator before App
-        // drops and joins its worker, so the regression cannot hang shutdown.
         let release = Release;
         app.live_modules.client = Client::start(source.0.clone(), held_evaluate);
         let (mutex, changed) = DISCOVERY.get_or_init(Default::default);

@@ -4,8 +4,6 @@ use super::paintings::{self, Painting, Pose};
 use crate::rules::cards::Card;
 use crate::rules::looks::{Body, Part, Sprite, ink_bounds};
 
-/// Remove empty margins and fit every frame together. A painting's common
-/// subject crop then lands in exactly the same square as its fallback inks.
 pub(super) fn fitted(sprite: &Sprite, part: Part) -> Sprite {
     let Some([x, y, w, h]) = ink_bounds(&sprite.frames) else {
         return sprite.clone();
@@ -67,9 +65,6 @@ pub(super) fn dressed_aimed(body: &Img, fit: Body, worn: &[&Sprite], tick: u64, 
                 .unwrap_or_else(|| part.origin((im.w, im.h)));
             let phase = phase.wrapping_add(n as u32 * 977);
             let mut pose = Pose::of(&sprite.moves, tick, phase, (0.0, 0.0));
-            // Resolve the PNG rectangle once, before motion. Its centre is
-            // also the ink pivot, including odd square-crop margins. A
-            // different pivot on the second pass makes sparse frames drift.
             let rect = if part.stretch {
                 [0.0, 0.0, im.w as f32, im.h as f32]
             } else if let (Some([x, y, w, h]), Some(square)) = (
@@ -99,8 +94,6 @@ pub(super) fn dressed_aimed(body: &Img, fit: Body, worn: &[&Sprite], tick: u64, 
                 }
             }
             let (moved, offset) = pose.apply(&im, pivot);
-            // Keep the standing point fixed and the entire moving piece above
-            // the floor. Padding below a body would move its feet in the world.
             at.1 -= (at.1 + offset.1 + moved.h - body.h).max(0);
             (
                 sprite,
@@ -163,8 +156,6 @@ pub(super) fn dressed_aimed(body: &Img, fit: Body, worn: &[&Sprite], tick: u64, 
             }
         }
     });
-    // Only visible fallback inks can be removed by the HD compositor.
-    // A matching colour in the body must not be punched out for a cape.
     for p in &mut paints {
         p.pixel = true;
         if !p.under {
@@ -181,12 +172,6 @@ pub(super) fn dressed_aimed(body: &Img, fit: Body, worn: &[&Sprite], tick: u64, 
     (out, paints)
 }
 
-/// The dye a colour wish wears instead of its own drawing's inks, darkest
-/// first: when its name asks for purple or pink (`dead_wishes::dye_of`)
-/// and its drawing has none of that dye, as a colour drawn before there
-/// were dyes has not ("Bright Pink" had to be drawn in coral and cream).
-/// A pale name keeps the dye's light end, a bright one all but its
-/// darkest, a deep one its dark end.
 pub(super) fn dye_ramp(card: &Card) -> Option<Vec<Rgb>> {
     use super::super::ink::{PINK_BANK, VIOLET_BANK, bank_colours, dye_bank, ink, rgb};
     use crate::rules::dead_wishes::{Dye, dye_of, lightness_of};
@@ -210,12 +195,6 @@ pub(super) fn dye_ramp(card: &Card) -> Option<Vec<Rgb>> {
     })
 }
 
-/// A colour wish follows the existing silhouette and shading. This also
-/// works for unfamiliar shape and avatar bodies; no rectangular overlay
-/// or painting is put over their eyes or outside their outline. A purple
-/// or pink one is drawn in its dye (`dye_ramp`), the body's darkest to its
-/// lightest laid along the dye's whole ramp, so a dark knight wished pink
-/// is pink and not the dye's wine.
 pub(super) fn tinted(body: &Img, card: &Card, fit: Body) -> Img {
     use super::super::ink::ink;
     let Some(swatch) = card.looks.worn.as_ref() else {
@@ -238,8 +217,6 @@ pub(super) fn tinted(body: &Img, card: &Card, fit: Body) -> Img {
         return body.clone();
     }
     let [x0, y0, w, h] = fit.bounds;
-    // The light the body's own pixels span: all of it for a drawn swatch,
-    // the body's darkest to its lightest for a dye.
     let (lo, hi) = if dye.is_some() {
         (y0..y0 + h)
             .flat_map(|y| (x0..x0 + w).map(move |x| (x, y)))
@@ -256,7 +233,6 @@ pub(super) fn tinted(body: &Img, card: &Card, fit: Body) -> Img {
             if let Some(c) = body.get(x, y) {
                 let luma = luma_of(c).saturating_sub(lo);
                 let index = (luma as usize * colours.len() / span).min(colours.len() - 1);
-                // Preserve the face's detail and the held equipment.
                 let face = fit.face;
                 let (fx, fy) = face.origin(face.size);
                 if !(x >= fx && x < fx + face.size.0 && y >= fy && y < fy + face.size.1) {
@@ -289,15 +265,12 @@ fn hover(tick: u64, phase: u32) -> i32 {
 }
 
 pub(super) fn floating_at(body: &Img, item: &Img, at: (i32, i32), tick: u64, phase: u32, strike: bool) -> (i32, i32, i32) {
-    // `at` is already the artist's grip, not a hint about which side to use.
-    // In particular, a padded class canvas must not push the weapon outward.
     let x = at.0;
     let y = (at.1 + if strike { 0 } else { hover(tick, phase) }).min(body.h - item.h);
     let pad = (-x).max(x + item.w - body.w).max(0);
     (x, y, pad)
 }
 
-/// The actor is mirrored later for left aim; undo that mirror here.
 fn clock_angle(aim: (f32, f32), forward: f32) -> f32 {
     let (mut x, y) = aim;
     if !x.is_finite() || !y.is_finite() || x.hypot(y) < 0.001 { return -forward; }
@@ -305,8 +278,6 @@ fn clock_angle(aim: (f32, f32), forward: f32) -> f32 {
     y.atan2(x) - forward
 }
 
-/// Reserve the weapon's whole sweep above the floor once, so its hand
-/// position stays fixed rather than sliding up/down as the weapon turns.
 fn clock_anchor(body: &Img, item: &Img, grip: (i32, i32), hand: (i32, i32)) -> (i32, i32) {
     let mut radius = 0.0_f32;
     for y in 0..item.h { for x in 0..item.w {
@@ -317,8 +288,6 @@ fn clock_anchor(body: &Img, item: &Img, grip: (i32, i32), hand: (i32, i32)) -> (
     (hand.0, hand.1.min(body.h - 2 - radius.ceil() as i32))
 }
 
-/// A point on the weapon relative to the unpadded body. Cast flares use
-/// this exact transform too, rather than the old front/back staff drawings.
 pub(super) fn clock_point(body: &Img, item: &Img, grip: (i32, i32), forward: f32, hand: (i32, i32), aim: (f32, f32), point: (i32, i32)) -> (i32, i32) {
     let hand = clock_anchor(body, item, grip, hand);
     let (sin, cos) = clock_angle(aim, forward).sin_cos();
@@ -327,8 +296,6 @@ pub(super) fn clock_point(body: &Img, item: &Img, grip: (i32, i32), forward: f32
      hand.1 + (x * sin + y * cos).round() as i32)
 }
 
-/// Camera-facing equipment rotated in screen space about its grip pixel.
-/// `forward` is the artwork's firing direction in radians (right = zero).
 pub(super) fn clocked(body: &Img, item: &Img, grip: (i32, i32), forward: f32, hand: (i32, i32), aim: (f32, f32)) -> Img {
     let hand = clock_anchor(body, item, grip, hand);
     let pose = Pose { angle: clock_angle(aim, forward), ..Pose::STILL };
@@ -338,7 +305,6 @@ pub(super) fn clocked(body: &Img, item: &Img, grip: (i32, i32), forward: f32, ha
     let top = (-at.1).max(0);
     let mut out = Img::new(body.w + pad * 2, body.h + top);
     out.stamp(body, pad, top);
-    // Always in front of the body, including when aiming up.
     out.stamp(&turned, pad + at.0, top + at.1);
     out
 }

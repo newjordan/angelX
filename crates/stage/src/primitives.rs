@@ -11,15 +11,10 @@ use std::f32::consts::{PI, TAU};
 
 use crate::scene::MeshData;
 
-/// The sides a round primitive takes (a cylinder's, a frustum's, an arch's
-/// curve), clamped the way a sphere's longitudes are.
 pub const RING_SEGMENTS: std::ops::RangeInclusive<u16> = 3..=64;
-/// The steps a staircase takes.
 pub const STAIR_STEPS: std::ops::RangeInclusive<u16> = 2..=16;
-/// The posts a fence takes.
 pub const FENCE_POSTS: std::ops::RangeInclusive<u16> = 2..=8;
 
-/// `v` made a unit vector (its length, for a vector that is not zero).
 fn norm(v: [f32; 3]) -> [f32; 3] {
     let len = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
     [v[0] / len, v[1] / len, v[2] / len]
@@ -33,21 +28,15 @@ fn cross(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
     [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
 }
 
-/// A quad as four corners in the order a viewer outside it sees top left,
-/// bottom left, bottom right, top right (the picture upright), drawn
-/// counter-clockwise from there.
 fn quad(mesh: &mut MeshData, corners: [[f32; 3]; 4], normal: [f32; 3]) {
     let base = mesh.positions.len() as u32;
     mesh.positions.extend(corners);
     mesh.normals.extend([normal; 4]);
     mesh.uvs.extend([[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]]);
     mesh.colors.extend([[1.0; 4]; 4]);
-    // Counter-clockwise from the front: top left, bottom left, bottom right;
-    // then top left, bottom right, top right.
     mesh.indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
 }
 
-/// A triangle, counter-clockwise from outside.
 fn tri(mesh: &mut MeshData, corners: [[f32; 3]; 3], normal: [f32; 3]) {
     let base = mesh.positions.len() as u32;
     mesh.positions.extend(corners);
@@ -57,8 +46,6 @@ fn tri(mesh: &mut MeshData, corners: [[f32; 3]; 3], normal: [f32; 3]) {
     mesh.indices.extend([base, base + 1, base + 2]);
 }
 
-/// A box (an axis-aligned one) as six quads, in the order of
-/// `scene::CUBE_FACES` without the groups: a fence's posts and rails.
 fn box_at(mesh: &mut MeshData, centre: [f32; 3], half: [f32; 3]) {
     let [cx, cy, cz] = centre;
     let [hx, hy, hz] = half;
@@ -70,8 +57,6 @@ fn box_at(mesh: &mut MeshData, centre: [f32; 3], half: [f32; 3]) {
     quad(mesh, [[cx + hx, cy + hy, cz - hz], [cx + hx, cy - hy, cz - hz], [cx - hx, cy - hy, cz - hz], [cx - hx, cy + hy, cz - hz]], [0.0, 0.0, -1.0]);
 }
 
-/// A number in 0..1 from a seed and an index, always the same one: the
-/// lumps of a rock, the puffs of a blob.
 fn hash01(seed: u16, index: u32) -> f32 {
     let mut h = u32::from(seed).wrapping_mul(0x9E37_79B1) ^ index.wrapping_mul(0x85EB_CA6B);
     h ^= h >> 13;
@@ -81,21 +66,14 @@ fn hash01(seed: u16, index: u32) -> f32 {
 }
 
 impl MeshData {
-    /// A cylinder of diameter 1 and height 1, centred: flat caps, smooth
-    /// sides (a column, a tower, a log).
     pub fn cylinder(segments: u16) -> Self {
         Self::tube(segments, 0.5, 0.5)
     }
 
-    /// A cylinder whose top diameter is 0.6 (a tower's top, a tree trunk, a
-    /// chimney pot).
     pub fn frustum(segments: u16) -> Self {
         Self::tube(segments, 0.5, 0.3)
     }
 
-    /// The round part the cylinder and the frustum share: `segments` sides
-    /// (clamped to [`RING_SEGMENTS`]) between a bottom ring of one radius and
-    /// a top ring of another, with a flat cap on each.
     fn tube(segments: u16, bottom: f32, top: f32) -> Self {
         let n = u32::from(segments.clamp(*RING_SEGMENTS.start(), *RING_SEGMENTS.end()));
         let mut mesh = Self::default();
@@ -103,8 +81,6 @@ impl MeshData {
             let a = i as f32 / n as f32 * TAU;
             a.sin_cos()
         };
-        // The sides: the top ring then the bottom, and the quads between. A
-        // frustum narrows upward, which tilts the side normal by its slant.
         let slant = bottom - top;
         let k = 1.0 / (1.0 + slant * slant).sqrt();
         for j in 0..=1u32 {
@@ -123,7 +99,6 @@ impl MeshData {
             mesh.indices.extend([tl, bl, br]);
             mesh.indices.extend([tl, br, tr]);
         }
-        // A cap on the top (a fan facing up) and one on the bottom (down).
         for (y, r, up) in [(0.5, top, true), (-0.5, bottom, false)] {
             let facing = [0.0, if up { 1.0 } else { -1.0 }, 0.0];
             let middle = mesh.positions.len() as u32;
@@ -149,23 +124,16 @@ impl MeshData {
         mesh
     }
 
-    /// A ramp: the bottom is the unit square, the back (-Z) is full height,
-    /// and it slopes down to nothing at +Z.
     pub fn wedge() -> Self {
         let mut mesh = Self::default();
-        // The bottom, the back and the slope.
         quad(&mut mesh, [[-0.5, -0.5, 0.5], [-0.5, -0.5, -0.5], [0.5, -0.5, -0.5], [0.5, -0.5, 0.5]], [0.0, -1.0, 0.0]);
         quad(&mut mesh, [[0.5, 0.5, -0.5], [0.5, -0.5, -0.5], [-0.5, -0.5, -0.5], [-0.5, 0.5, -0.5]], [0.0, 0.0, -1.0]);
         quad(&mut mesh, [[-0.5, 0.5, -0.5], [-0.5, -0.5, 0.5], [0.5, -0.5, 0.5], [0.5, 0.5, -0.5]], norm([0.0, 1.0, 1.0]));
-        // The two sides: right triangles.
         tri(&mut mesh, [[-0.5, -0.5, -0.5], [-0.5, -0.5, 0.5], [-0.5, 0.5, -0.5]], [-1.0, 0.0, 0.0]);
         tri(&mut mesh, [[0.5, -0.5, -0.5], [0.5, 0.5, -0.5], [0.5, -0.5, 0.5]], [1.0, 0.0, 0.0]);
         mesh
     }
 
-    /// A pitched roof prism: the ridge runs along X at the top centre, the
-    /// two slopes come down to the bottom edges at -Z and +Z, and the gable
-    /// ends at -X and +X are triangles.
     pub fn gable() -> Self {
         let mut mesh = Self::default();
         quad(&mut mesh, [[-0.5, 0.5, 0.0], [-0.5, -0.5, 0.5], [0.5, -0.5, 0.5], [0.5, 0.5, 0.0]], norm([0.0, 1.0, 2.0]));
@@ -176,8 +144,6 @@ impl MeshData {
         mesh
     }
 
-    /// A hipped roof: a ridge along X from x = -0.25 to +0.25 at the top,
-    /// four sloped faces down to the unit square.
     pub fn hip() -> Self {
         let mut mesh = Self::default();
         quad(&mut mesh, [[-0.25, 0.5, 0.0], [-0.5, -0.5, 0.5], [0.5, -0.5, 0.5], [0.25, 0.5, 0.0]], norm([0.0, 1.0, 2.0]));
@@ -188,7 +154,6 @@ impl MeshData {
         mesh
     }
 
-    /// A square-based spire to a point at the top centre.
     pub fn pyramid() -> Self {
         let mut mesh = Self::default();
         tri(&mut mesh, [[-0.5, -0.5, 0.5], [0.5, -0.5, 0.5], [0.0, 0.5, 0.0]], norm([0.0, 1.0, 2.0]));
@@ -199,22 +164,13 @@ impl MeshData {
         mesh
     }
 
-    /// A wall block with a round-topped opening through it along Z (a
-    /// doorway, a window): the opening is 0.6 wide, its straight sides rise
-    /// to y = 0 (the middle) and a half circle closes it to y = +0.3. The
-    /// opening's inner faces are part of the mesh, facing into it.
-    /// `segments` is the half circle's sides (clamped to [`RING_SEGMENTS`]).
     pub fn arch(segments: u16) -> Self {
         let n = u32::from(segments.clamp(*RING_SEGMENTS.start(), *RING_SEGMENTS.end()));
         let mut mesh = Self::default();
-        // The half circle, left to right over the top of the opening.
         let arc = |i: u32| {
             let a = PI - i as f32 / n as f32 * PI;
             (0.3 * a.cos(), 0.3 * a.sin())
         };
-        // The two flat faces of the wall (at z = ±0.5): the square with the
-        // opening taken out — a column each side, and the bell over the
-        // opening between the arc and the top edge.
         for front in [true, false] {
             let z = if front { 0.5 } else { -0.5 };
             let facing = [0.0, 0.0, if front { 1.0 } else { -1.0 }];
@@ -223,18 +179,12 @@ impl MeshData {
                 if front {
                     quad(mesh, corners, facing);
                 } else {
-                    // The same quad seen from behind: each triangle reversed.
                     let [a, b, c, d] = corners;
                     quad(mesh, [c, b, a, d], facing);
                 }
             };
             face(&mut mesh, [p(-0.5, 0.5), p(-0.5, -0.5), p(-0.3, -0.5), p(-0.3, 0.5)]);
             face(&mut mesh, [p(0.3, 0.5), p(0.3, -0.5), p(0.5, -0.5), p(0.5, 0.5)]);
-            // The bell: over each arc segment, the whole piece between the
-            // segment and the top edge — a trapezoid of two triangles, so
-            // no part of it is left open however steep or shallow the arc
-            // runs. The first segment starts at (-0.3, 0) and the last ends
-            // at (0.3, 0), so the bell meets the columns edge to edge.
             for i in 0..n {
                 let (x0, y0) = arc(i);
                 let (x1, y1) = arc(i + 1);
@@ -247,10 +197,8 @@ impl MeshData {
                 }
             }
         }
-        // The opening's straight sides, facing into it.
         quad(&mut mesh, [[-0.3, 0.0, 0.5], [-0.3, -0.5, 0.5], [-0.3, -0.5, -0.5], [-0.3, 0.0, -0.5]], [1.0, 0.0, 0.0]);
         quad(&mut mesh, [[0.3, 0.0, -0.5], [0.3, -0.5, -0.5], [0.3, -0.5, 0.5], [0.3, 0.0, 0.5]], [-1.0, 0.0, 0.0]);
-        // The half cylinder over it, its faces looking down into the opening.
         for i in 0..n {
             let (x0, y0) = arc(i);
             let (x1, y1) = arc(i + 1);
@@ -264,11 +212,8 @@ impl MeshData {
             mesh.normals.extend([inward; 4]);
             mesh.uvs.extend([[i as f32 / n as f32, 0.0], [i as f32 / n as f32, 1.0], [(i + 1) as f32 / n as f32, 1.0], [(i + 1) as f32 / n as f32, 0.0]]);
             mesh.colors.extend([[1.0; 4]; 4]);
-            // Into the opening, so the winding runs the other way from a
-            // cylinder's side.
             mesh.indices.extend([base, base + 2, base + 1, base, base + 3, base + 2]);
         }
-        // The rest of the block: the top, the bottom and the two ends.
         quad(&mut mesh, [[-0.5, 0.5, -0.5], [-0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, -0.5]], [0.0, 1.0, 0.0]);
         quad(&mut mesh, [[-0.5, -0.5, 0.5], [-0.5, -0.5, -0.5], [0.5, -0.5, -0.5], [0.5, -0.5, 0.5]], [0.0, -1.0, 0.0]);
         quad(&mut mesh, [[0.5, 0.5, 0.5], [0.5, -0.5, 0.5], [0.5, -0.5, -0.5], [0.5, 0.5, -0.5]], [1.0, 0.0, 0.0]);
@@ -276,40 +221,27 @@ impl MeshData {
         mesh
     }
 
-    /// A staircase of `steps` (clamped to [`STAIR_STEPS`]) rising toward -Z,
-    /// filling the unit cube from bottom-front to top-back: a ramp a figure
-    /// can walk up.
     pub fn stairs(steps: u16) -> Self {
         let n = u32::from(steps.clamp(*STAIR_STEPS.start(), *STAIR_STEPS.end()));
         let mut mesh = Self::default();
         let depth = 1.0 / n as f32;
         let rise = 1.0 / n as f32;
-        // The tread and the riser of each step, then the back, the bottom
-        // and the two sides (the staircase's own profile).
         for i in 0..n {
             let z_front = 0.5 - i as f32 * depth;
             let z_back = z_front - depth;
             let top = -0.5 + (i + 1) as f32 * rise;
             let below = -0.5 + i as f32 * rise;
-            // The tread, on top.
             quad(&mut mesh, [[-0.5, top, z_back], [-0.5, top, z_front], [0.5, top, z_front], [0.5, top, z_back]], [0.0, 1.0, 0.0]);
-            // The riser, facing +Z (the staircase rises toward -Z).
             quad(&mut mesh, [[-0.5, top, z_front], [-0.5, below, z_front], [0.5, below, z_front], [0.5, top, z_front]], [0.0, 0.0, 1.0]);
-            // The sides: the profile under this step.
             quad(&mut mesh, [[0.5, top, z_front], [0.5, -0.5, z_front], [0.5, -0.5, z_back], [0.5, top, z_back]], [1.0, 0.0, 0.0]);
             quad(&mut mesh, [[-0.5, top, z_back], [-0.5, -0.5, z_back], [-0.5, -0.5, z_front], [-0.5, top, z_front]], [-1.0, 0.0, 0.0]);
         }
-        // The back of the last step and the ground under it all.
         quad(&mut mesh, [[0.5, 0.5, -0.5], [0.5, -0.5, -0.5], [-0.5, -0.5, -0.5], [-0.5, 0.5, -0.5]], [0.0, 0.0, -1.0]);
         quad(&mut mesh, [[-0.5, -0.5, 0.5], [-0.5, -0.5, -0.5], [0.5, -0.5, -0.5], [0.5, -0.5, 0.5]], [0.0, -1.0, 0.0]);
         mesh
     }
 
-    /// A lumpy boulder (a rock, a cliff): an icosphere with each of its
-    /// points pushed in or out by a hash of the seed and its index (a radius
-    /// between 0.38 and 0.5), flat shaded, sitting on y = -0.5.
     pub fn rock(seed: u16) -> Self {
-        // The icosahedron, subdivided once: 42 points, 80 faces.
         let t = (1.0 + 5.0f32.sqrt()) * 0.5;
         let mut points: Vec<[f32; 3]> = [
             [-1.0, t, 0.0], [1.0, t, 0.0], [-1.0, -t, 0.0], [1.0, -t, 0.0],
@@ -349,13 +281,10 @@ impl MeshData {
             }
             faces = divided;
         }
-        // Each point pushed in or out by its own hash of the seed.
         let radii: Vec<f32> = (0..points.len()).map(|i| 0.38 + 0.12 * hash01(seed, i as u32)).collect();
         let at = |i: u32| [points[i as usize][0] * radii[i as usize], points[i as usize][1] * radii[i as usize], points[i as usize][2] * radii[i as usize]];
-        // It sits on y = -0.5.
         let lift = -0.5 - (0..points.len()).map(|i| at(i as u32)[1]).fold(f32::INFINITY, f32::min);
         let mut mesh = Self::default();
-        // Flat shaded: three points a face, the face's own normal.
         for [a, b, c] in faces {
             let (pa, pb, pc) = (at(a), at(b), at(c));
             let normal = norm(cross(sub(pb, pa), sub(pc, pa)));
@@ -369,9 +298,6 @@ impl MeshData {
         mesh
     }
 
-    /// A soft clump of foliage (a bush, a tree's canopy): a few overlapping
-    /// squashed spheres placed by the seed, merged into one mesh and staying
-    /// inside the unit cube.
     pub fn blob(seed: u16) -> Self {
         let count = 3 + (hash01(seed, 1000) * 3.0) as u32;
         let mut mesh = Self::default();
@@ -391,8 +317,6 @@ impl MeshData {
         mesh
     }
 
-    /// A fence of `posts` (clamped to [`FENCE_POSTS`]) evenly along X with
-    /// two rails between them, all inside the unit cube and thin in Z (0.1).
     pub fn fence(posts: u16) -> Self {
         let n = u32::from(posts.clamp(*FENCE_POSTS.start(), *FENCE_POSTS.end()));
         let mut mesh = Self::default();
@@ -408,8 +332,6 @@ impl MeshData {
     }
 }
 
-/// A squashed sphere (an ellipsoid) about `centre`, one blob's puff: the
-/// picture wraps it as a sphere's does.
 fn ellipsoid(mesh: &mut MeshData, centre: [f32; 3], radii: [f32; 3]) {
     let (cols, rows) = (10u32, 5u32);
     let first = mesh.positions.len() as u32;
@@ -497,8 +419,6 @@ mod tests {
     #[test]
     fn the_closed_primitives_face_outward() {
         for (name, data) in cases() {
-            // The fence is a frame and the blob a few clumps; the arch keeps
-            // a doorway, whose inner faces look into it on purpose.
             if name.starts_with("fence") || name.starts_with("blob") || name.starts_with("arch") {
                 continue;
             }
@@ -510,10 +430,6 @@ mod tests {
                 let n = norm(cross(sub(b, a), sub(c, a)));
                 let centroid = [(a[0] + b[0] + c[0]) / 3.0, (a[1] + b[1] + c[1]) / 3.0, (a[2] + b[2] + c[2]) / 3.0];
                 let d = n[0] * (centroid[0] - centre[0]) + n[1] * (centroid[1] - centre[1]) + n[2] * (centroid[2] - centre[2]);
-                // A staircase is concave: a low tread honestly faces up from
-                // below the middle of the block, so the dot says nothing
-                // there (its own test checks each face sees the sky); every
-                // other shape must face out of the middle.
                 if !name.starts_with("stairs") {
                     assert!(d > -0.05, "{name}: a triangle faces inward (dot {d})");
                 }
@@ -535,13 +451,10 @@ mod tests {
             let n = norm(cross(sub(b, a), sub(c, a)));
             let centroid = [(a[0] + b[0] + c[0]) / 3.0, (a[1] + b[1] + c[1]) / 3.0, (a[2] + b[2] + c[2]) / 3.0];
             let d = n[0] * (centroid[0] - centre[0]) + n[1] * (centroid[1] - centre[1]) + n[2] * (centroid[2] - centre[2]);
-            // The opening's own faces point into it on purpose; the wall
-            // around it must point out.
             let inside = [a, b, c].iter().all(|p| p[0].abs() <= 0.3 + 1e-3 && p[1] <= 0.3 + 1e-3);
             if !inside {
                 assert!(d > -0.05, "a triangle of the arch is turned the wrong way (dot {d})");
             }
-            // The wall's faces point out of the block; the opening's point in.
             if n[2] > 0.9 {
                 assert!(centroid[2] > 0.4, "the front face is not at +Z");
             }
@@ -550,8 +463,6 @@ mod tests {
             }
             let inside = [a, b, c].iter().all(|p| p[0].abs() <= 0.3 + 1e-3 && p[1] >= -1e-3 && p[1] <= 0.3 + 1e-3);
             if inside && n[2].abs() < 0.5 {
-                // The straight sides look across, the crown down: every inner
-                // face looks at the point of the opening's axis at its height.
                 let axis = [0.0, centroid[1], centroid[2]];
                 let toward = [axis[0] - centroid[0], axis[1] - centroid[1], axis[2] - centroid[2]];
                 let dot = n[0] * toward[0] + n[1] * toward[1] + n[2] * toward[2];
@@ -560,9 +471,6 @@ mod tests {
         }
     }
 
-    /// The triangles of one flat face of the arch (the +Z one or the -Z
-    /// one): every corner on the face's plane, every stored normal facing
-    /// out of it. Each is checked to wind the way its normal says.
     fn arch_face(data: &MeshData, sign: f32) -> Vec<[[f32; 2]; 3]> {
         let mut out = Vec::new();
         for t in data.indices.chunks(3) {
@@ -579,8 +487,6 @@ mod tests {
         out
     }
 
-    /// Whether a point is in the arch's opening, the half circle taken as
-    /// the polyline the mesh actually draws (its `segments` chords).
     fn in_arch_opening(x: f32, y: f32, segments: u16) -> bool {
         if x.abs() >= 0.3 - 1e-4 {
             return false;
@@ -615,8 +521,6 @@ mod tests {
                     (area - want).abs() <= want * 0.01,
                     "arch {segments}, face {sign}: the faces cover {area}, the square less the opening is {want}"
                 );
-                // Nothing of the face stands in the opening: sample each
-                // triangle on a grid, its corners and edges included.
                 for t in &face {
                     for i in 0..=8u32 {
                         for j in 0..=(8 - i) {
@@ -637,8 +541,6 @@ mod tests {
         for segments in [3u16, 8, 16, 64] {
             let n = u32::from(segments);
             let data = MeshData::arch(segments);
-            // The soffit is every triangle whose corners all lie on the
-            // half circle; each must run the wall's full depth.
             let mut area = 0.0;
             for t in data.indices.chunks(3) {
                 let c = [data.positions[t[0] as usize], data.positions[t[1] as usize], data.positions[t[2] as usize]];
@@ -650,7 +552,6 @@ mod tests {
                 let nrm = cross(sub(c[1], c[0]), sub(c[2], c[0]));
                 area += 0.5 * (nrm[0] * nrm[0] + nrm[1] * nrm[1] + nrm[2] * nrm[2]).sqrt();
             }
-            // The chords of the half circle, one unit deep.
             let chords: f32 = (0..n)
                 .map(|i| {
                     let (a0, a1) = (PI - i as f32 / n as f32 * PI, PI - (i + 1) as f32 / n as f32 * PI);

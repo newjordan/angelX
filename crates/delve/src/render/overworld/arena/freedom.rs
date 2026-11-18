@@ -19,20 +19,17 @@ use crate::rules::{Run, TILE_UNITS};
 
 const TAU: f32 = std::f32::consts::TAU;
 
-/// The weapons locker's face in native pixels: left, top, width, height.
 fn locker_rect() -> (i32, i32, i32, i32) {
     let (x, y) = at(f::LOCKER_AT.0 * TILE_UNITS, f::LOCKER_AT.1 * TILE_UNITS);
     (x - 50, y - 60, 100, 60)
 }
 
-/// A bay of the locker, `i` from 0 (three across, two down): its inside.
 fn bay_rect(i: usize) -> (i32, i32, i32, i32) {
     let (x0, y0, _, _) = locker_rect();
     let (c, r) = ((i % 3) as i32, (i / 3) as i32);
     (x0 + 7 + c * 29, y0 + 11 + r * 23, 28, 20)
 }
 
-/// Where the `i`th wish of `place` stands: its foot, in native pixels.
 fn slot_px(run: &Run, place: Place, i: usize) -> (i32, i32) {
     match place {
         Place::Safe => {
@@ -46,8 +43,6 @@ fn slot_px(run: &Run, place: Place, i: usize) -> (i32, i32) {
     }
 }
 
-/// Where the genie's smoke comes from at `place`: the brazier's bowl, or
-/// the lamp on the locker's crest.
 fn source_px(place: Place, spot: (f32, f32)) -> (i32, i32) {
     match place {
         Place::Safe => {
@@ -61,25 +56,18 @@ fn source_px(place: Place, spot: (f32, f32)) -> (i32, i32) {
     }
 }
 
-/// A knight here holds a freedom wish: the spot burns bright.
 fn awake(run: &Run) -> bool {
     run.players.values().any(|h| !h.absent && h.hp > 0 && h.freedom_wishes > 0)
 }
 
-/// How far into its landing a wish is, when it is `place`'s `slot`.
 fn landing(run: &Run, place: Place, slot: usize) -> Option<u32> {
     let l = run.freedom.landed.as_ref()?;
     (l.place == place && usize::from(l.slot) == slot).then(|| run.tick.saturating_sub(l.tick) as u32)
 }
 
-/// When a landing thing has shimmered in whole.
 const REVEALED: u32 = 46;
-/// When its shimmer begins.
 const REVEAL_FROM: u32 = 14;
 
-// ─── on the floor ────────────────────────────────────────────────────────────
-
-/// The place's spot and what has been wished into it, on the floor.
 pub(super) fn ground(cv: &mut Img, run: &Run) {
     let Some((place, spot)) = run.freedom_spot() else {
         return;
@@ -101,9 +89,6 @@ pub(super) fn ground(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Draw a thing with `paint` at its foot, shimmering into being while it
-/// lands (`age` ticks in): a dissolve up from its foot, its newest pixels
-/// white gold.
 fn drawn_in(cv: &mut Img, age: Option<u32>, (x, y): (i32, i32), paint: impl Fn(&mut Img, i32, i32)) {
     let Some(age) = age.filter(|&a| a < REVEALED) else {
         paint(cv, x, y);
@@ -131,8 +116,6 @@ fn drawn_in(cv: &mut Img, age: Option<u32>, (x, y): (i32, i32), paint: impl Fn(&
     }
 }
 
-/// The small gold plaque under a wished thing ("wished by", read up close
-/// on its board).
 fn plaque(cv: &mut Img, x: i32, y: i32) {
     cv.rect(x - 6, y, 13, 4, 'a');
     cv.rect(x - 5, y, 11, 3, '4');
@@ -141,11 +124,7 @@ fn plaque(cv: &mut Img, x: i32, y: i32) {
     cv.put(x - 5, y, '6');
 }
 
-/// The genie's brazier: a tripod of gold, a bowl of coals, and his teal fire
-/// over it. `lit`: 1 embers, 2 burning for a knight with a freedom wish, 3 a
-/// wish landing.
 fn brazier(cv: &mut Img, x: i32, y: i32, tick: u32, lit: u8) {
-    // Its glow on the floor.
     let glow = i32::from(lit) * 7;
     for i in 0..glow {
         let a = i as f32 * 2.39996;
@@ -155,7 +134,6 @@ fn brazier(cv: &mut Img, x: i32, y: i32, tick: u32, lit: u8) {
         }
     }
     cv.ellipse(x as f32 + 0.5, y as f32, 9.0, 2.2, 'K');
-    // Three legs, splayed, with ball feet.
     for (fx, top) in [(-7, -3), (7, 3), (0, 0)] {
         cv.line(x + fx, y - 1, x + top, y - 12, if fx == 0 { '4' } else { 'a' });
         if fx != 0 {
@@ -164,8 +142,6 @@ fn brazier(cv: &mut Img, x: i32, y: i32, tick: u32, lit: u8) {
         cv.rect(x + fx - 1, y - 1, 2, 2, '4');
         cv.put(x + fx - 1, y - 1, '5');
     }
-    // The stem's ring, and the bowl: dark gold under, lit gold over, a band
-    // of studs, the lamp's mark on its face.
     cv.rect(x - 3, y - 14, 7, 2, '4');
     cv.line(x - 3, y - 14, x + 3, y - 14, '5');
     cv.ellipse(x as f32 + 0.5, y as f32 - 18.0, 9.5, 4.6, 'a');
@@ -176,7 +152,6 @@ fn brazier(cv: &mut Img, x: i32, y: i32, tick: u32, lit: u8) {
     }
     cv.line(x - 1, y - 16, x + 2, y - 16, '6');
     cv.put(x + 3, y - 17, '6');
-    // The rim and the coals in it.
     cv.ellipse(x as f32 + 0.5, y as f32 - 22.0, 9.5, 2.2, '5');
     cv.ellipse(x as f32 + 0.5, y as f32 - 22.0, 8.0, 1.5, '8');
     for k in 0..6 {
@@ -185,7 +160,6 @@ fn brazier(cv: &mut Img, x: i32, y: i32, tick: u32, lit: u8) {
         cv.put(cx, y - 22, if hot { '@' } else { '7' });
     }
     cv.put(x - 8, y - 23, '6');
-    // His fire: teal tongues over the coals, taller while it calls.
     let (tongues, tall) = match lit {
         1 => (2, 4),
         2 => (3, 14),
@@ -198,7 +172,6 @@ fn brazier(cv: &mut Img, x: i32, y: i32, tick: u32, lit: u8) {
         teal_flame(cv, fx, y - 22, h, tick, k);
     }
     if lit > 1 {
-        // Sparks lifting off, and a curl of his smoke.
         for k in 0..4u32 {
             let t = (tick + k * 17) % 40;
             let sx = x - 4 + (hash(k as i32, (tick / 40) as i32, 5) % 9) as i32 + ((t as f32 * 0.3 + k as f32).sin() * 2.0) as i32;
@@ -218,9 +191,6 @@ fn brazier(cv: &mut Img, x: i32, y: i32, tick: u32, lit: u8) {
     }
 }
 
-/// One tongue of the genie's teal fire, `h` tall, its foot at `(x, y)`: a
-/// round root with a white heart, licking up to a wavering point, and now
-/// and then a lick torn off its tip.
 fn teal_flame(cv: &mut Img, x: i32, y: i32, h: i32, tick: u32, k: i32) {
     let h = h.max(2);
     for yy in 0..h {
@@ -242,7 +212,6 @@ fn teal_flame(cv: &mut Img, x: i32, y: i32, h: i32, tick: u32, k: i32) {
             cv.put(x + xx + lean.round() as i32, y - yy, ink);
         }
     }
-    // A lick torn off the tip, rising and going out.
     let t = (tick + k as u32 * 7) % 16;
     if t < 8 {
         let lean = ((tick as f32 * 0.4 + k as f32 * 1.7) - h as f32 * 0.5).sin() * 3.0;
@@ -251,8 +220,6 @@ fn teal_flame(cv: &mut Img, x: i32, y: i32, h: i32, tick: u32, k: i32) {
         cv.put(lx, ly - 1, '1');
     }
 }
-
-// ─── the safe room's things ──────────────────────────────────────────────────
 
 fn safe_thing(cv: &mut Img, u: &Upgrade, x: i32, y: i32, tick: u32) {
     match u.gift {
@@ -265,15 +232,10 @@ fn safe_thing(cv: &mut Img, u: &Upgrade, x: i32, y: i32, tick: u32) {
     }
 }
 
-/// A free-standing stone hearth: an arched firebox in coursed stone, a
-/// mantel with a candle and a cup on it, a short chimney, logs ablaze, and
-/// now and then a little heart rising from the fire.
 fn hearth(cv: &mut Img, x: i32, y: i32, tick: u32) {
-    // The hearthstone it stands on.
     cv.rect(x - 16, y - 3, 33, 4, 'u');
     cv.line(x - 16, y - 3, x + 16, y - 3, 'v');
     cv.line(x - 16, y, x + 16, y, 'S');
-    // Coursed stone, lit from the left.
     let (l, top, w, h) = (x - 14, y - 29, 29, 26);
     for yy in 0..h {
         let course = yy / 5;
@@ -293,35 +255,29 @@ fn hearth(cv: &mut Img, x: i32, y: i32, tick: u32) {
             cv.put(l + xx, top + yy, ink);
         }
     }
-    // The chimney stack over it.
     cv.rect(x - 5, y - 41, 11, 10, 'G');
     cv.frame(x - 5, y - 41, 11, 10, 'g');
     cv.line(x - 5, y - 41, x + 5, y - 41, 'J');
     cv.line(x - 4, y - 37, x + 4, y - 37, 'g');
     cv.rect(x - 6, y - 43, 13, 2, 'j');
-    // The arch and the dark of the firebox.
     cv.ellipse(x as f32 + 0.5, y as f32 - 15.0, 8.5, 6.0, 'U');
     cv.rect(x - 8, y - 15, 17, 12, 'U');
     cv.ellipse(x as f32 + 0.5, y as f32 - 14.0, 7.0, 5.0, 'k');
     cv.rect(x - 6, y - 14, 13, 11, 'k');
     cv.rect(x - 5, y - 12, 11, 8, 'n');
-    // The logs, crossed.
     cv.rect(x - 6, y - 6, 13, 3, 'B');
     cv.line(x - 6, y - 6, x + 6, y - 6, 'r');
     cv.line(x - 4, y - 8, x + 4, y - 5, 'p');
     cv.line(x - 4, y - 9, x + 4, y - 6, 'R');
-    // The fire.
     for k in 0..3 {
         let flick = (hash(k, (tick / 3) as i32, 0x4f1) % 4) as i32;
         fire_tongue(cv, x - 3 + k * 3, y - 7, 6 + flick - (k - 1).abs() * 2, tick, k);
     }
-    // Its light spilling onto the hearthstone.
     for k in 0..5 {
         if (tick / 4 + k) % 3 != 0 {
             cv.put(x - 6 + k as i32 * 3, y - 2, if k % 2 == 0 { 'O' } else { 'o' });
         }
     }
-    // The mantel, and what stands on it.
     cv.rect(x - 17, y - 31, 35, 3, 'P');
     cv.line(x - 17, y - 31, x + 17, y - 31, 'O');
     cv.line(x - 17, y - 29, x + 17, y - 29, 'n');
@@ -331,7 +287,6 @@ fn hearth(cv: &mut Img, x: i32, y: i32, tick: u32) {
     cv.rect(x + 9, y - 34, 4, 3, 'o');
     cv.put(x + 13, y - 33, 'o');
     cv.line(x + 9, y - 34, x + 12, y - 34, 't');
-    // A heart, now and then, rising out of the fire: it mends.
     let t = tick % 70;
     if t < 34 {
         let (hx, hy) = (x - 1 + ((t as f32 * 0.25).sin() * 2.0) as i32, y - 12 - t as i32);
@@ -343,7 +298,6 @@ fn hearth(cv: &mut Img, x: i32, y: i32, tick: u32) {
     }
 }
 
-/// One tongue of an ordinary fire, `h` tall.
 fn fire_tongue(cv: &mut Img, x: i32, y: i32, h: i32, tick: u32, k: i32) {
     let sway = ((tick / 5 + k as u32 * 3) % 4) as i32 - 1;
     for yy in 0..h.max(1) {
@@ -364,13 +318,10 @@ fn fire_tongue(cv: &mut Img, x: i32, y: i32, h: i32, tick: u32, k: i32) {
     }
 }
 
-/// A hot spring: an oval pool in a ring of rounded stones, its water
-/// rippling and its steam rising and drifting; a bucket and ladle beside.
 fn spring(cv: &mut Img, x: i32, y: i32, tick: u32) {
     let (cx, cy) = (x as f32 + 0.5, y as f32 - 8.0);
     cv.ellipse(cx, cy + 1.5, 17.0, 7.5, 'S');
     cv.ellipse(cx, cy, 16.5, 7.0, 'u');
-    // The ring of stones.
     for k in 0..18 {
         let a = k as f32 / 18.0 * TAU;
         let (sx, sy) = (cx + a.cos() * 14.5, cy + a.sin() * 5.8);
@@ -378,7 +329,6 @@ fn spring(cv: &mut Img, x: i32, y: i32, tick: u32) {
         cv.ellipse(sx, sy, r + 0.6, r * 0.75, 'U');
         cv.ellipse(sx - 0.5, sy - 0.5, r * 0.6, r * 0.4, 'v');
     }
-    // The water: deep in the middle, a lit band, glints.
     cv.ellipse(cx, cy, 12.0, 4.6, 'q');
     cv.ellipse(cx - 1.0, cy - 0.6, 10.0, 3.4, 'Q');
     cv.ellipse(cx - 2.0, cy - 1.2, 6.0, 1.6, 'z');
@@ -395,9 +345,7 @@ fn spring(cv: &mut Img, x: i32, y: i32, tick: u32) {
             cv.put(x - 7 + k as i32 * 6, y - 9 + (k as i32 % 2), 'W');
         }
     }
-    // Steam: soft puffs rising off the water, leaning and thinning.
     steam(cv, x - 7, y - 11, tick, 3, 7);
-    // A bucket and its ladle on the rim.
     let (bx, by) = (x + 14, y - 3);
     cv.rect(bx - 2, by - 5, 6, 5, 'r');
     cv.line(bx - 2, by - 5, bx + 3, by - 5, 'o');
@@ -405,8 +353,6 @@ fn spring(cv: &mut Img, x: i32, y: i32, tick: u32) {
     cv.line(bx + 1, by - 6, bx + 4, by - 10, 'o');
 }
 
-/// Steam rising from `(x, y)`: `n` columns `gap` apart, each a run of soft
-/// puffs that grow, lean and thin as they climb.
 fn steam(cv: &mut Img, x: i32, y: i32, tick: u32, n: i32, gap: i32) {
     for k in 0..n {
         for p in 0..3u32 {
@@ -420,7 +366,6 @@ fn steam(cv: &mut Img, x: i32, y: i32, tick: u32, n: i32, gap: i32) {
             for dy in -ry..=ry {
                 for dx in -rx..=rx {
                     let inside = (dx * dx) as f32 / (r * r) + (dy * dy) as f32 / (r * r * 0.64) <= 1.0;
-                    // Thinner as it climbs: a sparser dither.
                     let keep = (hash(px + dx, py + dy, t) % 10) as f32 > tf * 9.0;
                     if inside && keep {
                         cv.put(px + dx, py + dy, ink);
@@ -431,16 +376,12 @@ fn steam(cv: &mut Img, x: i32, y: i32, tick: u32, n: i32, gap: i32) {
     }
 }
 
-/// A feast table: a trestle under a white cloth, a roast on its platter
-/// steaming, a pie, a loaf, a bowl of apples, goblets, and two candles.
 fn feast(cv: &mut Img, x: i32, y: i32, tick: u32) {
-    // Legs, and the trestle's foot rail.
     for lx in [x - 13, x + 12] {
         cv.rect(lx, y - 9, 2, 9, 'B');
         cv.put(lx, y - 9, 'R');
     }
     cv.line(x - 12, y - 3, x + 12, y - 3, 'b');
-    // The top, and the cloth over it falling down the front.
     cv.rect(x - 16, y - 16, 33, 6, 'o');
     cv.rect(x - 16, y - 16, 33, 5, 'H');
     cv.line(x - 16, y - 16, x + 16, y - 16, 'W');
@@ -450,7 +391,6 @@ fn feast(cv: &mut Img, x: i32, y: i32, tick: u32) {
         cv.put(x - 15 + k * 4, y - 8, 'h');
     }
     cv.line(x - 16, y - 11, x + 16, y - 11, 'h');
-    // The roast on its platter, glazed, a bone showing.
     cv.ellipse(x as f32 - 2.0, y as f32 - 16.0, 7.0, 2.2, 'V');
     cv.ellipse(x as f32 - 2.0, y as f32 - 18.0, 5.0, 3.0, 'p');
     cv.ellipse(x as f32 - 2.5, y as f32 - 18.6, 4.0, 2.2, 'R');
@@ -458,29 +398,24 @@ fn feast(cv: &mut Img, x: i32, y: i32, tick: u32) {
     cv.put(x - 4, y - 20, 't');
     cv.line(x + 3, y - 20, x + 5, y - 22, 'H');
     cv.put(x + 6, y - 23, 'W');
-    // Steam off the roast.
     steam(cv, x - 2, y - 21, tick + 5, 1, 0);
-    // The pie.
     cv.ellipse(x as f32 + 10.0, y as f32 - 16.0, 4.5, 1.8, 'R');
     cv.ellipse(x as f32 + 10.0, y as f32 - 16.7, 4.0, 1.4, 'O');
     cv.put(x + 9, y - 17, 'R');
     cv.put(x + 11, y - 17, 'R');
     cv.put(x + 10, y - 16, 'R');
-    // The loaf, and the apples in their bowl.
     cv.ellipse(x as f32 - 12.0, y as f32 - 16.5, 3.5, 1.8, 'O');
     cv.line(x - 13, y - 17, x - 11, y - 17, 't');
     cv.ellipse(x as f32 + 4.0, y as f32 - 14.0, 2.8, 1.2, 'r');
     for (dx, ink) in [(-1, '7'), (1, 'y'), (0, '7')] {
         cv.put(x + 4 + dx, y - 15 - i32::from(dx == 0), ink);
     }
-    // Goblets, catching the light.
     for gx in [x - 8, x + 15] {
         cv.rect(gx, y - 20, 2, 2, 'O');
         cv.put(gx, y - 20, 't');
         cv.line(gx, y - 18, gx + 1, y - 18, 'r');
         cv.put(gx, y - 17, 'O');
     }
-    // Two candles, flickering.
     for (k, cx) in [x - 15, x + 13].into_iter().enumerate() {
         cv.rect(cx, y - 22, 1, 5, 'T');
         let flick = (tick / 4 + k as u32 * 2) % 3;
@@ -489,11 +424,7 @@ fn feast(cv: &mut Img, x: i32, y: i32, tick: u32) {
     }
 }
 
-/// A war table: a parchment map pinned flat on a stout table, a river and
-/// woods inked on it, a red route marching across to a flag that flutters,
-/// little pins standing in it, a compass in its corner.
 fn war_table(cv: &mut Img, x: i32, y: i32, tick: u32) {
-    // The table: its legs and front, its top.
     for lx in [x - 14, x + 13] {
         cv.rect(lx, y - 8, 2, 8, 'B');
     }
@@ -501,13 +432,11 @@ fn war_table(cv: &mut Img, x: i32, y: i32, tick: u32) {
     cv.line(x - 16, y - 9, x + 16, y - 9, 'B');
     cv.rect(x - 16, y - 22, 33, 11, 'r');
     cv.line(x - 16, y - 22, x + 16, y - 22, 'o');
-    // The parchment on it, curling at its corners.
     let (mx, my, mw, mh) = (x - 14, y - 21, 29, 10);
     cv.rect(mx, my, mw, mh, 'T');
     cv.frame(mx, my, mw, mh, 't');
     cv.put(mx, my, 'o');
     cv.put(mx + mw - 1, my + mh - 1, 'o');
-    // A river winding through, the woods, the hills.
     for k in 0..mw - 2 {
         let ry = my + 4 + ((k as f32 * 0.5).sin() * 2.0) as i32;
         cv.put(mx + 1 + k, ry, 'Q');
@@ -520,14 +449,12 @@ fn war_table(cv: &mut Img, x: i32, y: i32, tick: u32) {
         cv.put(mx + hx - 1, my + hy, 'P');
         cv.put(mx + hx + 1, my + hy, 'P');
     }
-    // The route, marching: red dashes toward the flag.
     let march = (tick / 6 % 3) as i32;
     for k in 0..12 {
         if (k + march) % 3 != 0 {
             cv.put(mx + 3 + k * 2, my + 7 - k / 3, '7');
         }
     }
-    // The flag at its end, fluttering, and pins standing in the map.
     let (fx, fy) = (mx + mw - 4, my + 2);
     cv.line(fx, fy - 6, fx, fy + 1, 'k');
     let flap = (tick / 7 % 2) as i32;
@@ -539,29 +466,23 @@ fn war_table(cv: &mut Img, x: i32, y: i32, tick: u32) {
         cv.line(mx + px, my + py - 3 - bob, mx + px, my + py, 'j');
         cv.put(mx + px, my + py - 4 - bob, ['7', 'Q', 'O'][k]);
     }
-    // The compass rose in the corner, its needle glinting.
     let (cx, cy) = (mx + 3, my + mh - 3);
     cv.put(cx, cy - 1, 'n');
     cv.put(cx, cy + 1, 'n');
     cv.put(cx - 1, cy, 'n');
     cv.put(cx + 1, cy, 'n');
     cv.put(cx, cy, if (tick / 12) % 4 == 0 { 'W' } else { 'o' });
-    // A spyglass on the table's edge.
     cv.line(x + 3, y - 10, x + 10, y - 12, 'O');
     cv.put(x + 10, y - 12, 't');
 }
 
-/// A featherbed: a low timber frame, its headboard up at the west end, a
-/// fat pillow, a patchwork quilt, and sleep rising off it in little Zs.
 fn featherbed(cv: &mut Img, x: i32, y: i32, tick: u32) {
-    // The frame's front and feet.
     cv.rect(x - 15, y - 7, 31, 5, 'R');
     cv.line(x - 15, y - 7, x + 15, y - 7, 'o');
     cv.line(x - 15, y - 3, x + 15, y - 3, 'B');
     for fx in [x - 15, x + 14] {
         cv.rect(fx, y - 3, 2, 3, 'B');
     }
-    // The mattress and the quilt over most of it, in patches.
     cv.rect(x - 13, y - 15, 28, 8, 'H');
     cv.line(x - 13, y - 15, x + 14, y - 15, 'W');
     for py in 0..7 {
@@ -578,16 +499,13 @@ fn featherbed(cv: &mut Img, x: i32, y: i32, tick: u32) {
     for k in 0..4 {
         cv.put(x - 4 + k * 5, y - 11, 'W');
     }
-    // The pillow, plumped.
     cv.ellipse(x as f32 - 9.5, y as f32 - 13.5, 4.5, 2.6, 'V');
     cv.ellipse(x as f32 - 10.0, y as f32 - 14.0, 3.5, 1.8, 'W');
-    // The headboard at the west end, and the footboard low at the east.
     cv.rect(x - 17, y - 21, 3, 19, 'P');
     cv.line(x - 17, y - 21, x - 17, y - 3, 'O');
     cv.ellipse(x as f32 - 15.5, y as f32 - 21.0, 2.0, 1.5, 'o');
     cv.rect(x + 15, y - 12, 2, 10, 'P');
     cv.put(x + 15, y - 13, 'o');
-    // Sleep, rising.
     for k in 0..3u32 {
         let t = (tick + k * 26) % 78;
         if t > 60 {
@@ -602,9 +520,6 @@ fn featherbed(cv: &mut Img, x: i32, y: i32, tick: u32) {
     }
 }
 
-// ─── curios ──────────────────────────────────────────────────────────────────
-
-/// What a curio looks like, read from its words.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(super) enum Shape {
     Statue,
@@ -620,9 +535,6 @@ pub(super) enum Shape {
     Urn,
 }
 
-/// The shape and the colours a curio's words ask for: a word of a family
-/// names it, a colour word paints it, and the words' own hash picks for
-/// words that say neither.
 pub(super) fn curio_look(words: &str) -> (Shape, [char; 4]) {
     const SHAPES: [(Shape, &[&str]); 11] = [
         (Shape::Statue, &["statue", "bust", "idol", "sculpture", "gargoyle", "figure", "effigy", "carving", "knight", "king", "queen"]),
@@ -667,13 +579,10 @@ pub(super) fn curio_look(words: &str) -> (Shape, [char; 4]) {
     (shape, colours)
 }
 
-/// A curio, painted from its words on a little plinth (`big`: the safe
-/// room's size; else a locker bay's).
 fn curio(cv: &mut Img, words: &str, x: i32, y: i32, tick: u32, big: bool) {
     let (shape, [dark, mid, lit, glint]) = curio_look(words);
     let k = if big { 1.0 } else { 0.7 };
     let p = |n: f32| (n * k).round() as i32;
-    // The plinth.
     let (pw, ph) = (p(14.0), p(7.0));
     cv.rect(x - pw / 2, y - ph, pw + 1, ph, 'u');
     cv.line(x - pw / 2, y - ph, x + pw / 2, y - ph, 'v');
@@ -685,7 +594,6 @@ fn curio(cv: &mut Img, words: &str, x: i32, y: i32, tick: u32, big: bool) {
         Shape::Statue => {
             let subject = curio_look(&words.to_lowercase().replace("statue", "").replace("bust", "")).0;
             if matches!(subject, Shape::Critter | Shape::Bird) {
-                // A statue of the creature its words name, on a taller socle.
                 cv.rect(x - p(5.0), top - p(3.0), p(10.0) + 1, p(3.0), dark);
                 cv.line(x - p(5.0), top - p(3.0), x + p(5.0), top - p(3.0), lit);
                 creature(cv, subject, x, top - p(3.0), tick, k, [dark, mid, lit, glint], false);
@@ -825,12 +733,9 @@ fn curio(cv: &mut Img, words: &str, x: i32, y: i32, tick: u32, big: bool) {
     }
 }
 
-/// A carved bust on its socle: broad shoulders, a neck, a head with its
-/// brow and nose, a laurel round it.
 fn bust(cv: &mut Img, x: i32, top: i32, k: f32, [dark, mid, lit, glint]: [char; 4]) {
     let p = |n: f32| (n * k).round() as i32;
     cv.rect(x - p(3.0), top - p(3.0), p(6.0) + 1, p(3.0), dark);
-    // The shoulders and chest, a fold of drapery across.
     for yy in 0..p(8.0) {
         let half = p(4.0) + yy * p(4.0) / p(8.0).max(1);
         for xx in -half..=half {
@@ -839,7 +744,6 @@ fn bust(cv: &mut Img, x: i32, top: i32, k: f32, [dark, mid, lit, glint]: [char; 
         }
     }
     cv.line(x - p(6.0), top - p(7.0), x + p(3.0), top - p(10.0), dark);
-    // The neck, and the head.
     cv.rect(x - p(1.5), top - p(14.0), p(3.0) + 1, p(3.0), mid);
     let (hx, hy) = (x as f32 + 0.5, (top - p(18.0)) as f32);
     cv.ellipse(hx, hy, 3.8 * k, 4.4 * k, mid);
@@ -847,7 +751,6 @@ fn bust(cv: &mut Img, x: i32, top: i32, k: f32, [dark, mid, lit, glint]: [char; 
     cv.line(x - p(2.0), hy as i32 - 1, x + p(2.0), hy as i32 - 1, dark);
     cv.put(x + 1, hy as i32 + 1, dark);
     cv.put(x, hy as i32 + p(2.5), dark);
-    // The laurel.
     for i in 0..7 {
         let a = std::f32::consts::PI * (0.15 + i as f32 / 7.0 * 0.7);
         cv.put(x - (a.cos() * 4.2 * k) as i32, hy as i32 - (a.sin() * 4.6 * k) as i32, if i % 2 == 0 { 'A' } else { 'l' });
@@ -855,9 +758,6 @@ fn bust(cv: &mut Img, x: i32, top: i32, k: f32, [dark, mid, lit, glint]: [char; 
     cv.put(x - p(2.0), hy as i32 - p(4.0), glint);
 }
 
-/// A creature, curled on a cushion (`cushion`) or carved on its socle: a
-/// cat, a dog, a frog curled up with its tail flicking, or a bird perched,
-/// blinking.
 #[allow(clippy::too_many_arguments)]
 fn creature(cv: &mut Img, shape: Shape, x: i32, top: i32, tick: u32, k: f32, [dark, mid, lit, glint]: [char; 4], cushion: bool) {
     let p = |n: f32| (n * k).round() as i32;
@@ -873,7 +773,6 @@ fn creature(cv: &mut Img, shape: Shape, x: i32, top: i32, tick: u32, k: f32, [da
         top
     };
     if shape == Shape::Bird {
-        // On its perch: a round body, a pale breast, ear tufts, big eyes.
         cv.line(x - p(6.0), base - 1, x + p(6.0), base - 1, 'P');
         let (bx, by) = (fx, (base - p(8.0)) as f32);
         cv.ellipse(bx, by, 4.5 * k, 6.0 * k, mid);
@@ -910,20 +809,13 @@ fn creature(cv: &mut Img, shape: Shape, x: i32, top: i32, tick: u32, k: f32, [da
     cv.put(x - p(8.0), base - p(6.0) + flick - 1, mid);
 }
 
-// ─── the weapons locker ──────────────────────────────────────────────────────
-
-/// The weapons locker: a tall armoire of dark oak, its doors thrown open on
-/// six bays, brass at its hinges, and on its crest the genie's lamp on a
-/// gold cartouche, smoking teal while a knight here holds a freedom wish.
 fn locker(cv: &mut Img, run: &Run, wished: &[Upgrade], tick: u32) {
     let (x0, y0, w, h) = locker_rect();
     let lit = if run.freedom.landed.is_some() { 3 } else if awake(run) { 2 } else { 1 };
-    // The shadow on the floor, and the plinth.
     cv.ellipse((x0 + w / 2) as f32, (y0 + h) as f32, (w / 2 + 6) as f32, 3.0, 'K');
     cv.rect(x0 - 2, y0 + h - 5, w + 4, 5, 'B');
     cv.line(x0 - 2, y0 + h - 5, x0 + w + 1, y0 + h - 5, 'R');
     cv.line(x0 - 2, y0 + h - 1, x0 + w + 1, y0 + h - 1, 'n');
-    // The doors, thrown open to either side: planked, brass-hinged.
     for (side, dx) in [(-1, x0 - 6), (1, x0 + w)] {
         let (hinge, edge) = if side < 0 { (dx + 5, dx) } else { (dx, dx + 5) };
         cv.rect(dx, y0 + 9, 6, h - 15, 'P');
@@ -937,7 +829,6 @@ fn locker(cv: &mut Img, run: &Run, wished: &[Upgrade], tick: u32) {
         }
         cv.put(if side < 0 { dx + 1 } else { dx + 4 }, y0 + h / 2 + 3, 't');
     }
-    // The carcass: sides, the dark back of each bay, the shelves.
     cv.rect(x0, y0 + 8, w, h - 13, 'B');
     cv.rect(x0 + 2, y0 + 8, 2, h - 13, 'R');
     cv.rect(x0 + w - 4, y0 + 8, 2, h - 13, 'p');
@@ -948,7 +839,6 @@ fn locker(cv: &mut Img, run: &Run, wished: &[Upgrade], tick: u32) {
             cv.line(bx, py, bx + bw - 1, py, 'b');
         }
         cv.line(bx, by, bx + bw - 1, by, 'k');
-        // Its shelf, and the brass tag on its lip.
         cv.rect(bx - 1, by + bh, bw + 2, 2, 'P');
         cv.line(bx - 1, by + bh, bx + bw, by + bh, 'O');
         let filled = i < wished.len();
@@ -956,19 +846,16 @@ fn locker(cv: &mut Img, run: &Run, wished: &[Upgrade], tick: u32) {
         if filled {
             cv.put(bx + bw / 2 - 3, by + bh + 1, '6');
         } else {
-            // An empty bay: two pegs waiting.
             for px in [bx + 8, bx + bw - 9] {
                 cv.rect(px, by + 5, 2, 2, 'r');
                 cv.put(px, by + 5, 'o');
             }
         }
     }
-    // The uprights between the bays.
     for c in 1..3 {
         let (bx, _, _, _) = bay_rect(c);
         cv.rect(bx - 2, y0 + 9, 1, h - 15, 'P');
     }
-    // The crown: a moulded cornice, and the gold cartouche with the lamp.
     cv.rect(x0 - 4, y0 + 2, w + 8, 7, 'R');
     cv.line(x0 - 4, y0 + 2, x0 + w + 3, y0 + 2, 'o');
     cv.line(x0 - 3, y0 + 4, x0 + w + 2, y0 + 4, 'P');
@@ -980,12 +867,9 @@ fn locker(cv: &mut Img, run: &Run, wished: &[Upgrade], tick: u32) {
     cv.ellipse(cx as f32 + 0.5, y0 as f32 + 3.0, 13.0, 5.5, 'a');
     cv.ellipse(cx as f32 + 0.5, y0 as f32 + 3.0, 12.0, 4.6, '4');
     cv.ellipse(cx as f32 - 2.0, y0 as f32 + 1.5, 7.0, 1.6, '5');
-    // Crossed blades engraved on it.
     cv.line(cx - 6, y0 + 6, cx + 6, y0, 'a');
     cv.line(cx - 6, y0, cx + 6, y0 + 6, 'a');
     cv.put(cx, y0 + 3, '6');
-    // The lamp on the crest: its foot, its belly lit along the top, the
-    // long spout curling up, the handle's loop, the lid and its knob.
     let (lx, ly) = (cx, y0 - 3);
     cv.rect(lx - 2, ly + 1, 5, 2, 'a');
     cv.line(lx - 3, ly + 2, lx + 3, ly + 2, '4');
@@ -1014,7 +898,6 @@ fn locker(cv: &mut Img, run: &Run, wished: &[Upgrade], tick: u32) {
                 cv.put(sx, sy, if i % 3 == 0 { '3' } else { '2' });
             }
         }
-        // His glow in the bays still to be filled.
         for i in wished.len()..f::MOST_PER_PLACE {
             let (bx, by, bw, bh) = bay_rect(i);
             if (tick / 10 + i as u32) % 4 == 0 {
@@ -1022,7 +905,6 @@ fn locker(cv: &mut Img, run: &Run, wished: &[Upgrade], tick: u32) {
             }
         }
     }
-    // What has been wished into it, each in its bay.
     for (i, u) in wished.iter().enumerate() {
         let (bx, by, bw, bh) = bay_rect(i);
         drawn_in(cv, landing(run, Place::Locker, i), (bx + bw / 2, by + bh - 1), |im, x, y| {
@@ -1042,14 +924,11 @@ fn locker_thing(cv: &mut Img, u: &Upgrade, x: i32, y: i32, tick: u32) {
     }
 }
 
-/// A grinding wheel on its frame, turning, sparks off a blade held to it.
 fn whetstone(cv: &mut Img, x: i32, y: i32, tick: u32) {
-    // The frame and its trough.
     cv.line(x - 8, y, x - 4, y - 10, 'P');
     cv.line(x + 8, y, x + 4, y - 10, 'P');
     cv.rect(x - 7, y - 3, 15, 3, 'r');
     cv.line(x - 7, y - 3, x + 7, y - 3, 'o');
-    // The wheel, its spokes turning.
     let (cx, cy) = (x as f32 + 0.5, y as f32 - 10.0);
     cv.ellipse(cx, cy, 6.5, 6.5, 'G');
     cv.ellipse(cx, cy, 5.5, 5.5, 'J');
@@ -1060,9 +939,7 @@ fn whetstone(cv: &mut Img, x: i32, y: i32, tick: u32) {
         cv.put((cx + a.cos() * 4.0) as i32, (cy + a.sin() * 4.0) as i32, 'g');
     }
     cv.put(x, y - 10, 'O');
-    // The crank.
     cv.line(x, y - 10, x + (turn.cos() * 3.0) as i32 + 7, y - 10 + (turn.sin() * 3.0) as i32, 'o');
-    // A blade to the wheel, and its sparks.
     cv.line(x - 11, y - 13, x - 5, y - 15, 'W');
     cv.line(x - 11, y - 12, x - 5, y - 14, 'V');
     cv.line(x - 13, y - 12, x - 11, y - 12, 'P');
@@ -1072,10 +949,7 @@ fn whetstone(cv: &mut Img, x: i32, y: i32, tick: u32) {
     }
 }
 
-/// A fletcher's rack: a quiver crammed with fletched arrows, a bow on its
-/// pegs behind, a loose feather drifting.
 fn fletching(cv: &mut Img, x: i32, y: i32, tick: u32) {
-    // The bow on its pegs.
     for i in 0..17 {
         let t = i as f32 / 16.0;
         let bx = x + 5 + ((t * std::f32::consts::PI).sin() * 3.0) as i32;
@@ -1084,7 +958,6 @@ fn fletching(cv: &mut Img, x: i32, y: i32, tick: u32) {
     cv.line(x + 5, y - 18, x + 5, y - 2, 'H');
     cv.put(x + 5, y - 18, 'o');
     cv.put(x + 5, y - 2, 'o');
-    // The quiver: leather, a strap, arrows bristling.
     cv.rect(x - 6, y - 12, 7, 12, 'p');
     cv.line(x - 6, y - 12, x, y - 12, 'R');
     cv.line(x - 6, y - 7, x, y - 7, 'O');
@@ -1096,15 +969,12 @@ fn fletching(cv: &mut Img, x: i32, y: i32, tick: u32) {
         cv.put(x + ax + 1, top, ink);
         cv.put(x + ax, top - 1, ink);
     }
-    // A feather, drifting down and up again.
     let t = (tick % 90) as f32 / 90.0;
     let (fx, fy) = (x - 9 + ((t * TAU).sin() * 2.0) as i32, y - 16 + (t * 10.0) as i32);
     cv.put(fx, fy, 'W');
     cv.put(fx + 1, fy - 1, 'H');
 }
 
-/// A powder keg on its cradle, three black bombs beside it, the fuse
-/// spitting.
 fn keg(cv: &mut Img, x: i32, y: i32, tick: u32) {
     let (cx, cy) = (x as f32 - 2.5, y as f32 - 7.0);
     cv.ellipse(cx, cy, 6.0, 7.0, 'B');
@@ -1116,14 +986,12 @@ fn keg(cv: &mut Img, x: i32, y: i32, tick: u32) {
     for (dx, dy) in [(0, 0), (1, 1), (2, 2), (2, 0), (0, 2)] {
         cv.put(x - 4 + dx, y - 8 + dy, 'k');
     }
-    // The fuse, curling up, spitting at its end.
     cv.line(x - 2, y - 14, x, y - 17, 'P');
     cv.line(x, y - 17, x + 3, y - 18, 'P');
     let sp = (tick / 2) % 4;
     for (dx, dy) in [(0, 0), (-1, -1), (1, -1), (0, -2), (1, 1)].into_iter().take(2 + sp as usize) {
         cv.put(x + 4 + dx, y - 19 + dy, if (dx + dy + sp as i32) % 2 == 0 { 'w' } else { '6' });
     }
-    // The bombs.
     for (bx, by) in [(x + 7, y - 3), (x + 4, y - 3), (x + 6, y - 7)] {
         cv.ellipse(bx as f32, by as f32, 2.6, 2.6, 'K');
         cv.put(bx - 1, by - 1, 'g');
@@ -1131,15 +999,10 @@ fn keg(cv: &mut Img, x: i32, y: i32, tick: u32) {
     }
 }
 
-/// An armour stand: a great helm on a post, a mail coif under it, a
-/// cuirass with its pauldrons on the cross-tree, a glint passing over the
-/// steel and a red plume on top.
 fn armour(cv: &mut Img, x: i32, y: i32, tick: u32) {
     cv.line(x, y - 2, x, y - 4, 'P');
     cv.rect(x - 4, y - 2, 9, 2, 'B');
     cv.line(x - 4, y - 2, x + 4, y - 2, 'R');
-    // The cuirass: a breastplate lit on the left, a ridge down its middle,
-    // the faulds below, the pauldrons rounded over the shoulders.
     for yy in 0..7 {
         let half = 5 - yy / 3;
         for xx in -half..=half {
@@ -1153,8 +1016,6 @@ fn armour(cv: &mut Img, x: i32, y: i32, tick: u32) {
         cv.ellipse((x + side * 6) as f32 + 0.5, y as f32 - 10.5, 2.4, 1.6, 'U');
         cv.put(x + side * 6 - 1, y - 11, 'V');
     }
-    // The coif, and the great helm: flat-topped, its eye slit and its
-    // breaths, the plume.
     cv.rect(x - 3, y - 13, 7, 2, 'h');
     cv.put(x - 2, y - 13, 'i');
     cv.put(x + 1, y - 12, 'i');
@@ -1169,7 +1030,6 @@ fn armour(cv: &mut Img, x: i32, y: i32, tick: u32) {
     for (dx, dy) in [(0, -20), (1, -20), (1, -21), (2, -21), (3, -21)] {
         cv.put(x + dx, y + dy, if dx < 2 { '7' } else { '8' });
     }
-    // A glint, sweeping over it.
     let g = (tick % 60) as i32;
     if g < 14 {
         let gx = x - 6 + g;
@@ -1180,14 +1040,11 @@ fn armour(cv: &mut Img, x: i32, y: i32, tick: u32) {
     }
 }
 
-/// A practice dummy: a straw-stuffed sack on a post, a target painted on
-/// its chest with an arrow in it, rocking a little from the last blow.
 fn dummy(cv: &mut Img, x: i32, y: i32, tick: u32) {
     let rock = ((tick as f32 * 0.12).sin() * 1.2).round() as i32;
     cv.line(x, y, x, y - 6, 'P');
     cv.rect(x - 3, y - 1, 7, 1, 'B');
     cv.line(x - 6, y - 12 + rock, x + 6, y - 12 - rock, 'P');
-    // The body and head, straw sticking out.
     cv.ellipse(x as f32 + 0.5 + rock as f32 * 0.5, y as f32 - 10.0, 4.5, 5.0, 'o');
     cv.ellipse(x as f32 - 0.5 + rock as f32 * 0.5, y as f32 - 11.0, 3.0, 3.5, 't');
     cv.ellipse(x as f32 + 0.5 + rock as f32, y as f32 - 17.5, 3.0, 3.0, 'o');
@@ -1196,7 +1053,6 @@ fn dummy(cv: &mut Img, x: i32, y: i32, tick: u32) {
     for (dx, dy) in [(-4, -14), (5, -13), (-3, -20), (3, -21)] {
         cv.put(x + dx + rock, y + dy, 'T');
     }
-    // The target and the arrow in it.
     let (tx, ty) = (x + rock / 2, y - 10);
     cv.ellipse(tx as f32 + 0.5, ty as f32, 2.6, 2.6, 'H');
     cv.ellipse(tx as f32 + 0.5, ty as f32, 1.6, 1.6, '7');
@@ -1206,17 +1062,11 @@ fn dummy(cv: &mut Img, x: i32, y: i32, tick: u32) {
     cv.put(tx + 7, ty - 4, 'W');
 }
 
-// ─── over the figures ────────────────────────────────────────────────────────
-
-/// Over the figures: a wish landing's moment, the spot's board for the
-/// seat's knight, a gold star over each knight holding a freedom wish, and
-/// the plaque of whatever the seat's knight stands by.
 pub(super) fn over(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), focus: Option<u32>) {
     let Some((place, spot)) = run.freedom_spot() else {
         return;
     };
     let tick = run.tick as u32;
-    // Who holds a freedom wish: a little gold star twinkling over them.
     for hero in run.players.values().filter(|h| h.freedom_wishes > 0 && h.hp > 0 && !h.absent) {
         let (x, y) = at(hero.x, hero.y);
         let bob = [0, 1, 1, 0][(tick / 8 % 4) as usize];
@@ -1238,7 +1088,6 @@ pub(super) fn over(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), foc
         prompt(cv, run, place, spot, me, view);
         return;
     }
-    // The plaque of the wished thing the knight stands nearest, close by.
     let wished = run.home.wished.of(place);
     let near = (0..wished.len())
         .map(|i| (i, slot_px(run, place, i)))
@@ -1250,7 +1099,6 @@ pub(super) fn over(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), foc
     }
 }
 
-/// A four-pointed star, `r` its reach, twinkling.
 fn star(cv: &mut Img, x: i32, y: i32, tick: u32, r: i32) {
     let tw = (tick / 5 % 4) as i32;
     let reach = r + i32::from(tw == 1 || tw == 2);
@@ -1264,8 +1112,6 @@ fn star(cv: &mut Img, x: i32, y: i32, tick: u32, r: i32) {
     }
 }
 
-/// The spot's board for knight `me` beside it: what it is, what E does, and
-/// how full the place is.
 fn prompt(cv: &mut Img, run: &Run, place: Place, spot: (f32, f32), me: u32, view: (i32, i32)) {
     let hero = &run.players[&me];
     let (x, y) = source_px(place, spot);
@@ -1296,8 +1142,6 @@ fn prompt(cv: &mut Img, run: &Run, place: Place, spot: (f32, f32), me: u32, view
     cv.text(px + (w - text_width(&line)) / 2, py + 21, &line, '3');
 }
 
-/// A wished thing's plaque, read up close: its name, its words, what it
-/// does, and who wished it.
 fn plaque_board(cv: &mut Img, u: &Upgrade, (x, y): (i32, i32), view: (i32, i32)) {
     let mut lines: Vec<(String, char)> = vec![(fit(&u.name().to_uppercase(), 30), '6')];
     if u.gift != Gift::Curio {
@@ -1315,7 +1159,6 @@ fn plaque_board(cv: &mut Img, u: &Upgrade, (x, y): (i32, i32), view: (i32, i32))
     }
 }
 
-/// Text cut to `most` characters, an ellipsis when it is cut.
 fn fit(s: &str, most: usize) -> String {
     if s.chars().count() <= most {
         return s.to_string();
@@ -1325,9 +1168,6 @@ fn fit(s: &str, most: usize) -> String {
     t
 }
 
-/// A freedom wish landing: the genie's smoke pouring from the spot to the
-/// place, a ring of gold bursting where the thing shimmers in, sparks
-/// raining, the genie himself popping out over it to wave, and its banner.
 fn moment(cv: &mut Img, run: &Run, place: Place, spot: (f32, f32), l: &f::Landed, legible: bool, view: (i32, i32)) {
     let tick = run.tick as u32;
     let age = run.tick.saturating_sub(l.tick) as u32;
@@ -1335,8 +1175,6 @@ fn moment(cv: &mut Img, run: &Run, place: Place, spot: (f32, f32), l: &f::Landed
     let (sx, sy) = source_px(place, spot);
     let (tx, ty) = slot_px(run, place, usize::from(l.slot));
     let mid_y = ty - if place == Place::Safe { 16 } else { 10 };
-    // The smoke, poured along an arc from the spot to the place: soft
-    // puffs of his teal, fattest mid-arc, swirling as they go.
     if age <= 44 {
         let pour = (age as f32 / 18.0).min(1.0);
         let gone = ((age as f32 - 26.0) / 18.0).clamp(0.0, 1.0);
@@ -1370,7 +1208,6 @@ fn moment(cv: &mut Img, run: &Run, place: Place, spot: (f32, f32), l: &f::Landed
             }
         }
     }
-    // The flash where it lands, as the thing begins to shimmer in.
     if (REVEAL_FROM - 2..REVEAL_FROM + 8).contains(&age) {
         let k = (age + 2 - REVEAL_FROM) as f32 / 10.0;
         let r = 4.0 + k * 10.0;
@@ -1383,7 +1220,6 @@ fn moment(cv: &mut Img, run: &Run, place: Place, spot: (f32, f32), l: &f::Landed
             }
         }
     }
-    // The burst: a ring of gold spreading on the floor, rays, a flash.
     if (REVEAL_FROM - 4..REVEALED + 30).contains(&age) {
         let k = (age + 4 - REVEAL_FROM) as f32 / 50.0;
         let r = 6.0 + k * 34.0;
@@ -1407,7 +1243,6 @@ fn moment(cv: &mut Img, run: &Run, place: Place, spot: (f32, f32), l: &f::Landed
             }
         }
     }
-    // Sparkles raining round it, the whole while.
     for i in 0..16u32 {
         let t = (age + i * 11) % 50;
         let x = tx - 22 + (hash(i as i32, 0, 0x5a) % 45) as i32 + ((t as f32 * 0.2 + i as f32).sin() * 2.0) as i32;
@@ -1420,7 +1255,6 @@ fn moment(cv: &mut Img, run: &Run, place: Place, spot: (f32, f32), l: &f::Landed
             }
         }
     }
-    // The genie, out of his smoke over the thing: he waves, then he's off.
     if (22..life - 12).contains(&age) {
         let pop = age - 22;
         let full = if place == Place::Safe { 50 } else { 46 };
@@ -1428,8 +1262,6 @@ fn moment(cv: &mut Img, run: &Run, place: Place, spot: (f32, f32), l: &f::Landed
         let mood = if run.genie.free() { Mood::Free } else { Mood::Cheer };
         let g = genie_art::figure(mood, run.tick, rows);
         let bob = ((tick as f32 * 0.12).sin() * 2.0) as i32;
-        // Beside the thing, his tail curling down to it: by the safe room's
-        // things, or out at the locker's side.
         let (gx, gy) = match place {
             Place::Safe => (tx + 30, ty - 26 - g.h + bob),
             Place::Locker => {
@@ -1437,14 +1269,12 @@ fn moment(cv: &mut Img, run: &Run, place: Place, spot: (f32, f32), l: &f::Landed
                 (x0 + w + 20, y0 + 30 - g.h + bob)
             }
         };
-        // His smoke tail curling down to the thing.
         for i in 0..14 {
             let sway = ((tick as f32 * 0.2) + i as f32 * 0.6).sin() * 2.0;
             cv.put(gx + (sway as i32) - i / 3, gy + g.h - 4 + i, if i % 3 == 0 { '3' } else { '2' });
         }
         cv.stamp(&g, gx - g.w / 2, gy.max(view.1));
         if age > life - 26 {
-            // A puff, and he's gone.
             let k = (age - (life - 26)) as f32 / 14.0;
             for i in 0..18 {
                 let a = i as f32 / 18.0 * TAU;
@@ -1453,7 +1283,6 @@ fn moment(cv: &mut Img, run: &Run, place: Place, spot: (f32, f32), l: &f::Landed
             }
         }
     }
-    // Its banner, for everyone.
     if legible && (18..life - 6).contains(&age) {
         let Some(u) = run.home.wished.of(place).get(usize::from(l.slot)) else {
             return;

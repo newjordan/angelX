@@ -32,17 +32,12 @@ use super::builder_rig::{self, Snap};
 use crate::kingdom::{Command, Dir, Kingdom, Laid, LineKind, Piece, Placement, Stock, Terrain, Tile, catalog};
 use serde::{Deserialize, Serialize};
 
-/// The ledger's pages the world adds to the desk's four (`industry`): the goals,
-/// what the party made and used, and what chokes the works. (The desk's own pages
-/// of these numbers are not on the hillside's ledger.)
 pub const PAGE_GOALS: u8 = 2;
 pub const PAGE_PRODUCTION: u8 = 4;
 pub const PAGE_CHOKES: u8 = 7;
 
-/// The most tiles a dragged line keeps (the longest line the catalogue allows is far less).
 pub const MAX_PATH: usize = 400;
 
-/// A line in the making: where it began and the ground the knight has walked since.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Draft {
     pub kind: LineKind,
@@ -50,23 +45,16 @@ pub struct Draft {
     pub path: Vec<Tile>,
 }
 
-/// What the builder has in hand.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Tool {
     Road,
     Plan(&'static str),
     Line(LineKind),
-    /// A piece of rollerway, laid a tile at a time (E held while walking paints a run of it).
     Roller(Piece),
-    /// Rail, laid a tile at a time like a road; every tile it touches joins it.
     Rail,
-    /// A bay: a named place to load and unload, on a rail tile beside a building.
     Bay,
-    /// A route: E at the bay it starts from, E at the bay it runs to.
     Route,
     Pattern(&'static str),
-    /// A knight's hands on what the Deep has broken: beat out a fire, mend a battered wall, set
-    /// a cut line or a burnt works to rights (`Command::Mend`).
     Mend,
 }
 
@@ -85,7 +73,6 @@ impl Tool {
             Tool::Pattern(name) => c.patterns.get(*name).map_or_else(|| copy_name(name), |p| p.name.to_uppercase()),
         }
     }
-    /// A tool that paints as the knight walks while E is held.
     pub fn brush(&self) -> bool {
         match self {
             Tool::Road => true,
@@ -96,16 +83,12 @@ impl Tool {
     }
 }
 
-/// A kept copy's name on its tool: "COPY A".
 fn copy_name(id: &str) -> String {
     format!("COPY {}", id.trim_start_matches("copy-").to_uppercase())
 }
 
-/// The plans that stand against the Deep (`deep_raid`): the builder offers them last.
 const DEFENCES: [&str; 4] = ["palisade", "wood-gate", "watchtower", "brazier"];
 
-/// Every tool, in the order the builder cycles them: the road, the hillside's
-/// works, the lines you lay between them, the patterns you stamp down.
 pub fn tools() -> &'static [Tool] {
     static TOOLS: std::sync::OnceLock<Vec<Tool>> = std::sync::OnceLock::new();
     TOOLS.get_or_init(|| {
@@ -118,19 +101,13 @@ pub fn tools() -> &'static [Tool] {
             v.extend([Tool::Rail, Tool::Bay, Tool::Route]);
         }
         v.extend(c.patterns.keys().map(|n| Tool::Pattern(n.as_str())));
-        // The copies a party keeps, in the places the realm has for them (`Kingdom::clip`):
-        // a tool only while something is kept in its place (`usable`).
         v.extend(crate::kingdom::ghosts::COPY_NAMES.iter().map(|n| Tool::Pattern(*n)));
-        // What stands against the Deep, then the hands that mend what it broke: last, so no tool's
-        // place (a hotbar keeps places) moves for them.
         v.extend(c.hillside_menu.iter().filter(|id| DEFENCES.contains(&id.as_str())).map(|id| Tool::Plan(id.as_str())));
         v.push(Tool::Mend);
         v
     })
 }
 
-/// Whether a tool can be taken in hand in this kingdom: all of them, but a copy whose place
-/// holds nothing.
 pub fn usable(k: &Kingdom, tool: &Tool) -> bool {
     match tool {
         Tool::Pattern(name) if crate::kingdom::ghosts::COPY_NAMES.contains(name) => k.copies.contains_key(*name),
@@ -138,7 +115,6 @@ pub fn usable(k: &Kingdom, tool: &Tool) -> bool {
     }
 }
 
-/// The tool `delta` steps on from `from` that can be taken in hand.
 pub fn step_tool(k: &Kingdom, from: usize, delta: i32) -> usize {
     let all = tools();
     let n = all.len() as i32;
@@ -152,67 +128,45 @@ pub fn step_tool(k: &Kingdom, from: usize, delta: i32) -> usize {
     from
 }
 
-/// The tool a board holds.
 pub fn tool_of(board: &Board) -> &'static Tool {
     let all = tools();
     &all[board.plan % all.len()]
 }
 
-/// How the land took the ghost.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Verdict {
-    /// It would be taken as it stands.
     Fits,
-    /// The land suits it; the camp lacks the price (or a charter).
     Short,
-    /// The land refuses it.
     Refused,
 }
 
-/// The ghost of the tool in hand on the ground, for the flat view, the 3D view
-/// and the words on the screen.
 #[derive(Clone, Debug)]
 pub struct Ghost {
     pub tool: Tool,
-    /// The tile the cursor is on.
     pub cursor: Tile,
-    /// The footprint's top-left corner (the cursor for a road or a line).
     pub anchor: Tile,
-    /// The footprint, inclusive: `(x0, y0, x1, y1)`.
     pub rect: (i16, i16, i16, i16),
     pub verdict: Verdict,
     pub cost: Stock,
-    /// The tool's name and one line on the land or the price, upper case.
     pub name: String,
     pub note: String,
-    /// A line in the making: the ground it has crossed.
     pub path: Vec<Tile>,
-    /// The builder is laying plans for the camp's hands, not building now.
     pub planning: bool,
-    /// A patch being copied: from its marked corner to the cursor, inclusive.
     pub select: Option<(i16, i16, i16, i16)>,
-    /// The way a piece of rollerway or a swape would face (0 north, 1 east, 2 south, 3 west).
     pub dir: u8,
 }
 
 const FACES: [(i16, i16); 4] = [(0, -1), (1, 0), (0, 1), (-1, 0)];
 
-/// The way a piece of rollerway or a swape would face: the way the knight faces, turned by the
-/// quarter turns the builder has been given (the P key).
 fn facing(board: &Board) -> Dir {
     Dir::from_index(board.face.wrapping_add(board.turn))
 }
 
-/// The tile in front of a knight standing on `feet`, facing `face` (0 north, 1
-/// east, 2 south, 3 west).
 fn ahead(feet: Tile, face: u8) -> Tile {
     let (dx, dy) = FACES[usize::from(face % 4)];
     (feet.0 + dx, feet.1 + dy)
 }
 
-/// Where a footprint `w` by `d` sits for a cursor on `tile`: in front of a
-/// knight facing `face` (its near edge's middle on the cursor), or, for the
-/// mouse, centred on it.
 fn anchor_for(tile: Tile, (w, d): (i16, i16), face: u8, pointed: bool) -> Tile {
     if pointed {
         return (tile.0 - (w - 1) / 2, tile.1 - (d - 1) / 2);
@@ -225,13 +179,11 @@ fn anchor_for(tile: Tile, (w, d): (i16, i16), face: u8, pointed: bool) -> Tile {
     }
 }
 
-/// A plan's footprint in tiles, width and depth, in this kingdom.
 fn size_of(k: &Kingdom, plan: &str) -> (i16, i16) {
     let (span, depth) = k.dims(&catalog().plans[plan]);
     (i16::from(span) + 1, i16::from(depth) + 1)
 }
 
-/// The building at `tile` or the nearest within two tiles of it.
 pub fn building_near(k: &Kingdom, tile: Tile) -> Option<u32> {
     if let Some(id) = k.at(tile) {
         return Some(id);
@@ -259,8 +211,6 @@ fn money(cost: &Stock) -> String {
 }
 
 fn stamp_cost(k: &Kingdom, name: &str, origin: Tile, turns: u8) -> Result<Stock, String> {
-    // A stamp's price is found on a copy with a bottomless treasury: kept for the
-    // last answer, since the ghost asks every frame and the same thing every time.
     type Key = (u64, String, Tile, u8);
     static LAST: std::sync::Mutex<Option<(Key, Result<Stock, String>)>> = std::sync::Mutex::new(None);
     let key = (k.rev, name.to_string(), origin, turns);
@@ -277,7 +227,6 @@ fn stamp_cost(k: &Kingdom, name: &str, origin: Tile, turns: u8) -> Result<Stock,
     answer
 }
 
-/// The ghost of what `board` holds, on `k`'s ground.
 pub fn ghost(board: &Board, k: &Kingdom) -> Ghost {
     let c = catalog();
     let tool = tool_of(board).clone();
@@ -341,7 +290,6 @@ pub fn ghost(board: &Board, k: &Kingdom) -> Ghost {
                 }
                 (Ok(()), Some(short)) => {
                     g.verdict = Verdict::Short;
-                    // Short, so the price and the reason fit one line of the builder's strip.
                     let short = short.to_uppercase().replace("RESEARCH ", "NEEDS ").replace(" FIRST", "");
                     g.note = format!("{}  (A PLAN: {})", money(&p.cost), short);
                 }
@@ -484,7 +432,6 @@ pub fn ghost(board: &Board, k: &Kingdom) -> Ghost {
             }
         }
         Tool::Mend => {
-            // What is broken here, in words.
             let id = k.at(cursor);
             g.note = if id.is_some_and(|id| k.havoc.fires.contains_key(&id)) {
                 "A FIRE: E BEATS AT THE FLAMES, A WELL BESIDE IT PUTS IT OUT".into()
@@ -511,7 +458,6 @@ pub fn ghost(board: &Board, k: &Kingdom) -> Ghost {
                 g.note = "NOTHING KEPT HERE: M COPIES A GROUP OF WORKS".into();
                 return g;
             };
-            // The pattern's reach, turned.
             let mut lo = (0i16, 0i16);
             let mut hi = (0i16, 0i16);
             let turned = |(dx, dy): (i16, i16)| match board.turn % 4 {
@@ -555,15 +501,10 @@ pub fn ghost(board: &Board, k: &Kingdom) -> Ghost {
     g
 }
 
-/// The keys of a knight with the builder in hand, other than the walking: what
-/// the world gets of their input while they build (the rest is the builder's).
 pub fn walking_input(input: &Input) -> Input {
     Input { move_x: input.move_x, move_y: input.move_y, ..Input::default() }
 }
 
-/// Put the cursor where the knight's feet and face say, or where the mouse
-/// pointed it, and the board's turn and facing up to date. `bits` as the desk
-/// reads the keys.
 pub(super) fn aim_cursor(board: &mut Board, hero: Option<(f32, f32)>, input: &Input) {
     if input.move_x != 0 || input.move_y != 0 {
         board.pointed = false;
@@ -583,9 +524,6 @@ pub(super) fn aim_cursor(board: &mut Board, hero: Option<(f32, f32)>, input: &In
     }
 }
 
-/// What E does with the tool in hand at `tile`: build it now if the camp can pay and the
-/// builder is not planning, else lay it as a plan for the camp's hands. Returns the words
-/// and what was laid (for taking it back).
 fn lay(board: &Board, k: &mut Kingdom, tool: &Tool, at: Tile, seat: u32) -> (Result<String, String>, Vec<Laid>) {
     let c = catalog();
     let snap = Snap::of(k);
@@ -610,7 +548,6 @@ fn lay(board: &Board, k: &mut Kingdom, tool: &Tool, at: Tile, seat: u32) -> (Res
                 plan(k, id, at)
             } else {
                 let said = k.apply(c, Command::Build { plan: (*id).to_string(), tile: at });
-                // A swape is raised facing the way the builder faces.
                 if said.is_ok() && c.plans[*id].swape > 0 {
                     let _ = k.apply(c, Command::Face { tile: at, dir: facing(board) });
                 }
@@ -633,8 +570,6 @@ fn lay(board: &Board, k: &mut Kingdom, tool: &Tool, at: Tile, seat: u32) -> (Res
     (result, what)
 }
 
-/// What the cursor holds in hand, as a tool: the plan or work standing there, the road, the
-/// line.
 fn grab(k: &Kingdom, cursor: Tile) -> Option<Tool> {
     let c = catalog();
     let plan_tool = |plan: &str| tools().iter().find(|t| matches!(t, Tool::Plan(id) if *id == plan)).cloned();
@@ -657,7 +592,6 @@ fn grab(k: &Kingdom, cursor: Tile) -> Option<Tool> {
     k.lines.values().find(|l| l.path.contains(&cursor)).and_then(|l| tools().iter().find(|t| matches!(t, Tool::Line(kind) if *kind == l.kind)).cloned())
 }
 
-/// What one press of E (or the tiles laid while it is held) laid, kept for taking back as one.
 fn remember(board: &mut Board, what: Vec<Laid>, first: bool, held: bool) {
     let extend = board.rig.held_step && !first;
     if extend && let Some(last) = board.rig.undo.last_mut() {
@@ -672,17 +606,10 @@ fn index_of(tool: &Tool) -> usize {
     tools().iter().position(|t| t == tool).unwrap_or(0)
 }
 
-/// The builder's keys for one seat, one tick (the world mode of the desk):
-/// `fresh` the keys newly down, `released` the keys just let go, `bits` the
-/// keys down, laid out as `industry_inputs` lays them. Returns the words
-/// for the board's message line.
 pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &Input, fresh: u32, released: u32, bits: u32, seat: u32) {
     let c = catalog();
     let n = tools().len();
     let say = |board: &mut Board, r: Result<String, String>| board.message = r.unwrap_or_else(|e| e);
-    // The tool in hand: Q and the side arrows step through every tool, the number keys take a
-    // slot of the hotbar, the up and down arrows another bank of it. The slot in hand holds
-    // whatever is in hand.
     let before = board.plan;
     if fresh & 4 != 0 {
         board.plan = step_tool(k, board.plan, 1);
@@ -713,8 +640,6 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
         board.rig.mark = None;
     }
     if fresh & (256 | (1 << 13)) != 0 {
-        // On a piece of rollerway or a swape, P turns the one under the cursor a quarter; else it
-        // turns what is about to be laid.
         let at = board.tile;
         let turns_there = matches!(tool_of(board), Tool::Roller(_) | Tool::Plan("swape")) && (k.roller_at(at).is_some() || k.at(at).is_some_and(|id| k.is_swape(c, id)));
         if turns_there {
@@ -752,14 +677,12 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
     if released & 2 != 0 {
         board.rig.held_step = false;
     }
-    // Z takes back the last thing laid.
     if fresh & (1 << 11) != 0 {
         match board.rig.undo.pop() {
             Some(step) => say(board, k.apply(c, Command::Retract(step.what))),
             None => board.message = "NOTHING TO TAKE BACK".into(),
         }
     }
-    // G takes in hand what the cursor is on.
     if fresh & (1 << 12) != 0 {
         match grab(k, cursor) {
             Some(t) => {
@@ -770,7 +693,6 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
             None => board.message = "NOTHING HERE TO TAKE IN HAND".into(),
         }
     }
-    // M marks the corner of a patch, then the other, and copies what stands in it.
     if fresh & (1 << 15) != 0 {
         match board.rig.mark.take() {
             None => {
@@ -791,10 +713,8 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
             }
         }
     }
-    // E: lay the tool (or walk a line).
     match &tool {
         Tool::Road | Tool::Plan(_) | Tool::Pattern(_) => {
-            // Holding E while walking lays a row, as a mouse dragged does (a stamp is one press).
             let brush = held && cursor != board.painted && !matches!(tool, Tool::Pattern(_));
             if fresh & 2 != 0 || brush {
                 board.painted = cursor;
@@ -806,7 +726,6 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
                         remember(board, what, first, held);
                         say(board, result);
                     }
-                    // Walking along laying a row, a place that cannot take another is no error.
                     Err(_) if !first => {}
                     Err(_) => say(board, result),
                 }
@@ -814,15 +733,12 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
         }
         Tool::Roller(_) | Tool::Rail => {
             let first = fresh & 2 != 0;
-            // Held while walking, E lays a run of it, tile by tile.
             if first || (held && cursor != board.painted) {
                 let last = board.painted;
                 board.painted = cursor;
                 let snap = Snap::of(k);
                 let laid = match &tool {
                     Tool::Roller(piece) => {
-                        // Walking a run of it: each tile faces the next, so a corner turns itself, and
-                        // the new tile faces the way the knight walks.
                         let step = (!first).then(|| Dir::between(last, cursor)).flatten();
                         let dir = step.unwrap_or_else(|| facing(board));
                         if let Some(d) = step
@@ -839,7 +755,6 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
                         remember(board, snap.laid(k), first, held);
                         say(board, laid);
                     }
-                    // Painting over what is laid so is no error.
                     Err(e) if !first && (e.contains("so already") || e.contains("laid here already")) => {}
                     Err(_) => say(board, laid),
                 }
@@ -851,7 +766,6 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
             }
         }
         Tool::Mend => {
-            // A press beats at a fire, mends a wall, or sets a cut line right.
             if fresh & 2 != 0 {
                 board.painted = cursor;
                 say(board, k.apply(c, Command::Mend(cursor)));
@@ -884,7 +798,6 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
             if fresh & 2 != 0 {
                 match building_near(k, cursor) {
                     Some(id) => {
-                        // The way begins on the ground the knight stands on (the cursor is the tile ahead).
                         let (dx, dy) = FACES[usize::from(board.face % 4)];
                         let feet = (cursor.0 - dx, cursor.1 - dy);
                         let first = if k.at(feet).is_none() { vec![feet] } else { Vec::new() };
@@ -898,11 +811,9 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
                     let from_tile = k.buildings.get(&d.from).map(|b| b.tile);
                     let outside = !from_tile.is_some_and(|t| t == cursor) && k.at(cursor).is_none();
                     if outside && d.path.last() != Some(&cursor) && d.path.len() < MAX_PATH {
-                        // Walking back over its own way takes the tail off.
                         if let Some(at) = d.path.iter().position(|t| *t == cursor) {
                             d.path.truncate(at + 1);
                         } else {
-                            // A step across a corner is two steps along the sides.
                             if let Some(&last) = d.path.last()
                                 && last.0 != cursor.0
                                 && last.1 != cursor.1
@@ -930,8 +841,6 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
             }
         }
     }
-    // X: drop a copy half marked or a line half drawn, else cancel the plan under the ghost,
-    // else take down what is under it.
     if fresh & 8 != 0 {
         if board.rig.mark.take().is_some() {
             board.message = "COPY DROPPED".into();
@@ -948,7 +857,6 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
                 here.map(|id| k.buildings[&id].tile).unwrap_or(cursor)
             };
             if let Tool::Line(_) = tool {
-                // Take down the line whose track is under the cursor.
                 let hit = k.lines.iter().find(|(_, l)| l.path.contains(&cursor)).map(|(id, _)| *id);
                 match hit {
                     Some(id) => say(board, k.apply(c, Command::Unline(id))),
@@ -959,7 +867,6 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
             }
         }
     }
-    // F pauses what is under the ghost, or sets how urgent a plan is.
     if fresh & 16 != 0 {
         if let Some(id) = k.ghost_at(c, cursor) {
             let next = (k.plans.ghosts[&id].priority + 1) % 3;
@@ -971,11 +878,7 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
             }
         }
     }
-    // . changes its recipe (at a carter's yard, the carts it keeps; at a swape, the one good it
-    // lifts; with the route tool in hand, it sends another wagon out); ; links a claim (with the
-    // route tool, sells a wagon); ' turns the supply.
     if fresh & ((1 << 17) | (1 << 18)) != 0 && matches!(tool, Tool::Route) {
-        // . sends another wagon out on the route that serves the bay here; ; sells one.
         let bay = k.rails.cells.get(&cursor).and_then(|r| r.bay.clone());
         let route = bay.and_then(|name| k.rails.routes.iter().find(|(_, r)| r.stops.iter().any(|s| s.bay == name)).map(|(&i, _)| i));
         match route {
@@ -992,7 +895,6 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
             let p = &c.plans[&b.plan];
             let recipes = &p.recipes;
             if p.swape > 0 {
-                // A swape lifts whatever comes, or one good of those it stands between.
                 let goods = k.swape_goods(c, id);
                 let next = match &b.filter {
                     None => goods.first().cloned(),
@@ -1034,8 +936,6 @@ pub(super) fn world_keys(board: &mut Board, k: &mut Kingdom, tick: u64, input: &
     builder_rig::refresh(board, k);
 }
 
-/// The goals, production and chokes pages of the ledger, one tick of one seat's keys on
-/// them: the arrows and Q move the selection; E on a choke sends the view to look at it.
 pub(super) fn ledger_screen(board: &mut Board, k: &Kingdom, tick: u64, input: &Input, fresh: u32) {
     let numbers = board.rig.numbers.as_ref();
     let count = match board.page {
@@ -1057,7 +957,6 @@ pub(super) fn ledger_screen(board: &mut Board, k: &Kingdom, tick: u64, input: &I
     }
     if board.page == PAGE_CHOKES && fresh & 2 != 0 {
         if let Some(ch) = board.rig.numbers.as_ref().and_then(|n| n.chokes.get(board.selection)).cloned() {
-            // The cursor goes there, the view with it: walking brings it back.
             board.tile = ch.at;
             board.pointed = true;
             board.rig.look = Some((f32::from(ch.at.0) + 0.5, f32::from(ch.at.1) + 0.5));
@@ -1070,9 +969,6 @@ pub(super) fn ledger_screen(board: &mut Board, k: &Kingdom, tick: u64, input: &I
     builder_rig::refresh(board, k);
 }
 
-/// Lay the line a knight has walked from `d.from` to the building by the cursor.
-/// The ground they crossed is the line's way when the sim takes it; else the
-/// shortest way between the two is laid, and the words say so.
 fn finish_line(k: &mut Kingdom, d: &Draft, cursor: Tile) -> Result<String, String> {
     let c = catalog();
     let Some(to) = building_near(k, cursor).filter(|to| *to != d.from) else {
@@ -1082,8 +978,6 @@ fn finish_line(k: &mut Kingdom, d: &Draft, cursor: Tile) -> Result<String, Strin
         return Err("A LINE NEEDS TWO BUILDINGS".into());
     };
     let _ = (a, b);
-    // The building's own tile each end of the way starts from, and the ground between it and
-    // where the knight began or ended (a tile or two of a gap, when they let go a step off).
     let (from, tail_from) = gap(k, d.from, d.path.first().copied());
     let (end, tail_to) = gap(k, to, d.path.last().copied());
     let walked = match (from, end) {
@@ -1114,8 +1008,6 @@ fn finish_line(k: &mut Kingdom, d: &Draft, cursor: Tile) -> Result<String, Strin
     }
 }
 
-/// The tile of building `id` nearest `tile`, and the free tiles in a straight run between them
-/// (the gap, none when they touch; the first step is along x).
 fn gap(k: &Kingdom, id: u32, tile: Option<Tile>) -> (Option<Tile>, Vec<Tile>) {
     let (Some(b), Some(tile)) = (k.buildings.get(&id), tile) else { return (None, Vec::new()) };
     let Some(near) = k.covered(b).min_by_key(|t| t.0.abs_diff(tile.0) + t.1.abs_diff(tile.1)) else { return (None, Vec::new()) };
@@ -1133,40 +1025,30 @@ fn gap(k: &Kingdom, id: u32, tile: Option<Tile>) -> (Option<Tile>, Vec<Tile>) {
     (Some(near), between)
 }
 
-/// A click: the cursor goes to the tile, and the tool is laid there if it was
-/// the left button.
 pub(super) fn plot(board: &mut Board, tile: Tile) {
     board.tile = tile;
     board.pointed = true;
 }
 
-/// Whether this seat has the builder out in the world.
 pub fn building(run: &Run, seat: u32) -> bool {
     run.hill_world() && run.kingdom.industry.get(&seat).is_some_and(|b| b.open && b.page == 0)
 }
 
 impl Run {
-    /// The industry is the hillside kingdom and the party is on the surface.
     pub fn hill_world(&self) -> bool {
         self.dungeon.depth == 0 && self.room().kind == RoomKind::Kingdom && self.sim_hillside()
     }
 
-    /// The ghost seat `seat` sees, if their builder is out in the world.
     pub fn hill_ghost(&self, seat: u32) -> Option<Ghost> {
         let board = self.kingdom.industry.get(&seat)?;
         (building(self, seat)).then(|| ghost(board, &self.home.industry))
     }
 
-    /// Leave the builder's pointer action to the board: set the cursor. Returns whether it
-    /// is a press (E, as far as the board's tool is concerned) and whether it is a release.
-    /// The button held down is E held: a row laid as the mouse is dragged along it, a line
-    /// drawn from one building to another.
     pub(super) fn hill_pointer(board: &mut Board, action: BuilderAction) -> (bool, bool) {
         match action {
             BuilderAction::Plot { tile, build } => {
                 let tile = (i16::from(tile.0), i16::from(tile.1));
                 plot(board, tile);
-                // A right click points: its card. A left click lays, and the card goes.
                 board.rig.card = !build;
                 board.rig.drag = build.then_some((tile, tile));
                 (build, false)
@@ -1203,10 +1085,6 @@ impl Run {
         }
     }
 
-    /// The tiles under the hillside's buildings are shut in the realm's room, as
-    /// the Keep's stonework is (`site::patch_room`), and open again when a building
-    /// comes down. Read when the kingdom has changed; a knight a building
-    /// went up on is moved to the nearest open ground.
     pub(super) fn follow_works_tiles(&mut self, index: usize) {
         use std::collections::BTreeSet;
         if !self.sim_hillside() {
@@ -1242,7 +1120,6 @@ impl Run {
         }
         self.hands.seen.walled = now;
         self.dungeon.world_revision = self.dungeon.world_revision.wrapping_add(1);
-        // A building went up on a knight: out to the nearest open ground.
         let room = &self.dungeon.rooms[index];
         let open = |x: i32, y: i32| x >= 0 && y >= 0 && (x as usize) < room.cols && (y as usize) < room.rows && room.tile(x, y) == layout::Tile::Floor;
         for h in self.players.values_mut() {

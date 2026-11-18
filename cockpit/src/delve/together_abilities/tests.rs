@@ -253,7 +253,6 @@ fn invalid_actual_batch_does_not_partially_apply_and_cancel_does_not_replay() {
     assert_eq!(runtime.effects, 0);
     assert_eq!(run.players[&1].mana, 100.0);
     assert!(runtime.groups.values().any(|group| group.fault.is_some()));
-    // A resource update in the same generation cannot clear quarantine.
     select(&mut registry, "bloom 1 2");
     runtime.set_sources(sources(&registry), &mut run);
     assert!(runtime.groups.values().any(|group| group.fault.is_some()));
@@ -330,7 +329,6 @@ fn bounded_capacity_defers_once_and_unaffordable_starts_do_not_stall_active_cast
             .all(|group| group.casts.is_empty() && group.fault.is_none())
     );
     assert_eq!(runtime.pending.len(), 1);
-    // Re-observing a committed tick cannot issue the projectile again.
     runtime.after_step(&mut run);
     assert_eq!(runtime.effects, 2);
     select(&mut registry, "cancel 1");
@@ -408,8 +406,6 @@ fn four_player_executable_ability_tick_cost() {
     let fixture = Fixture::new();
     let effects = fixture.root.join("ability-effects/effects.js");
     let mut graphs = std::fs::read_to_string(&effects).unwrap();
-    // Continuous four-player emissions exercise the adapter, with one-tick
-    // graph lives so the fixture does not intentionally fill its VFX budget.
     graphs.push_str("\nfor(const bank of Object.values(exports.banks)) for(const graph of Object.values(bank)) {graph.ticks=1; for(const node of graph.nodes) node.keys=node.keys.slice(0,1)}\n");
     std::fs::write(effects, graphs).unwrap();
     fixture.edit(
@@ -1494,7 +1490,6 @@ fn owned_tick(
         .before_owned_frame(run, "native-owned-test")
         .unwrap();
     run.step(&inputs);
-    // BeginFrame applies exactly this same post-step seat filter.
     let proofs = proofs
         .into_iter()
         .filter(|proof| {
@@ -1587,7 +1582,6 @@ fn owned_callback_rejection_retains_requests_actors_media_and_visual_ids_then_re
             .into_value(),
         before
     );
-    // Error and logical refusal both drop every exclusive actor guard.
     assert!(
         runtime
             .advance_frame(&run, "native-owned-test", &fence, &claims, |_| Err(
@@ -1849,7 +1843,6 @@ fn owned_source_replacement_is_transactional_and_stale_request_needs_explicit_ca
     );
     assert!(runtime.pending.is_empty());
     assert!(runtime.groups.is_empty());
-    // A replaced seat's otherwise identical queued input also stays explicit.
     let definition = run.players[&1].module_spells[0].clone().unwrap();
     let request = Request {
         raid: run.raid_id,
@@ -2040,8 +2033,6 @@ fn owned_uncertain_post_world_commit_retries_frozen_transition_after_owner_prefi
     assert_eq!(runtime.media.emitted, 0);
     assert!(runtime.has_unresolved_frame());
     let exact = serde_json::to_value(&runtime.frozen.as_ref().unwrap().world).unwrap();
-    // Generic owned supervision reconstructs only the accepted prefix; this
-    // unaccepted exchange must be retried through the retained native plan.
     run = angel_delve::rules::runtime_state::restore(seed).unwrap();
     pending = phase;
     assert!(
@@ -2137,8 +2128,6 @@ fn owned_uncertain_sources_retain_exact_resources_and_intent_despite_registry_ch
     );
     assert!(!runtime.has_unresolved_sources());
     assert_eq!(runtime.sources[&1].generation, generation);
-    // The game slot uses a stable local alias; the resource binding maps
-    // that alias to the selected provider's concrete ability.
     assert_eq!(run.players[&1].module_spells[0].as_ref().unwrap().ability, "slot1");
     assert_eq!(runtime.sources[&1].binding::<Loadout>().unwrap().executables["slot1"].ability, "bloom");
 }
@@ -2173,8 +2162,6 @@ fn owned_already_accepted_source_intent_reconciles_native_ack_without_second_wor
                 let owned::Event::ReplaceSlots { replacements, .. } = event else {
                     panic!("wrong retained source intent")
                 };
-                // Root checks the exact accepted envelope outcome (and projected slots)
-                // under the sole-producer Core lock, then supplies its known ACK.
                 for replacement in replacements {
                     assert_eq!(
                         run.players[&replacement.player].module_spells,
@@ -2247,8 +2234,6 @@ fn owned_already_accepted_world_batch_reconciles_frozen_native_plan_without_worl
     assert!(
         runtime
             .retry_owned_frame(|batch| {
-                // QueryFramePhase reports this exact begin/frame and the one-producer
-                // ability phase bit. A known ACK must not resend/reapply the batch.
                 assert_eq!(batch.frame, pending.frame);
                 assert!(pending.abilities_applied);
                 Ok(true)

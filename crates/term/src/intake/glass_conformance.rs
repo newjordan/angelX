@@ -22,8 +22,6 @@ fn b64(data: &[u8]) -> String {
     out
 }
 
-/// Feed one `glass;` sequence to a fresh intake, and return the intake,
-/// the engine and the replies it earned.
 fn glass(input: &[u8]) -> (Intake, FakeEngine, Vec<u8>) {
     let mut intake = Intake::new(angel_glass::LAYER_PICTURES);
     intake.set_cell((8, 16));
@@ -46,8 +44,6 @@ fn glass(input: &[u8]) -> (Intake, FakeEngine, Vec<u8>) {
 fn apc(body: &str) -> Vec<u8> {
     format!("\x1b_glass;{body}\x1b\\").into_bytes()
 }
-
-// ---------------------------------------------------------------- splitter
 
 #[test]
 fn the_dialect_is_lifted_and_text_stays_exact() {
@@ -124,8 +120,6 @@ fn glass_sequences_survive_every_split() {
     }
 }
 
-// ---------------------------------------------------------------- hello
-
 #[test]
 fn hello_answers_the_version_and_ops() {
     let (_, _, replies) = glass(&apc("hello;r=1"));
@@ -143,8 +137,6 @@ fn an_unknown_op_is_an_error_and_never_a_panic() {
     let (_, _, replies) = glass(&apc("wat;r=9"));
     assert_eq!(replies, b"\x1b_glass;r=9;EINVAL:unknown op wat\x1b\\".to_vec());
 }
-
-// ---------------------------------------------------------------- layer
 
 #[test]
 fn a_layer_covers_every_field() {
@@ -186,10 +178,8 @@ fn rings_and_lines_are_strokes_with_their_width_and_glow() {
     assert_eq!((strokes[0].width, strokes[0].glow), (2.5, 7.0));
     assert!(layers[0].additive);
     assert_eq!(strokes[1].shape, angel_glass::StrokeShape::Line);
-    // The defaults: a stroke a pixel and a half wide, with no glow.
     assert_eq!((strokes[1].width, strokes[1].glow), (1.5, 0.0));
     assert_eq!(layers[1].angle, 0.5);
-    // Out of range is held to the range, as the other sizes are.
     assert_eq!((strokes[2].width, strokes[2].glow), (angel_glass::MAX_STROKE_PX, 0.0));
 }
 
@@ -228,7 +218,6 @@ fn px_pins_to_the_window_and_at_scrolls_with_the_text() {
     let mut engine = FakeEngine::new();
     intake.handle(Media::Glass(b"glass;layer;id=1;k=solid;c=ff0000;at=0,0,2,8".to_vec()), &mut engine);
     intake.handle(Media::Glass(b"glass;layer;id=2;k=solid;c=00ff00;px=10,20,30,40".to_vec()), &mut engine);
-    // The text-anchored layer moves with the view; the pinned one never.
     let top0 = intake.expansion.frame(0, 24, false);
     let top5 = intake.expansion.frame(5, 24, false);
     let find = |layers: &Vec<angel_glass::Layer>, id: u32| {
@@ -257,8 +246,6 @@ fn anchor_window_keeps_its_own_row_wherever_the_view_is() {
         assert_eq!(find(&layers, 3).placement, angel_glass::Placement::Cells([1.0, 9.0, 10.0, 8.0]), "top {top}");
     }
 }
-
-// ---------------------------------------------------------------- picture
 
 #[test]
 fn a_chunked_picture_assembles_under_its_first_chunk_keys() {
@@ -290,8 +277,6 @@ fn a_png_picture_decodes_through_the_shared_loader() {
     assert_eq!(described.pictures[0].height, 2);
 }
 
-// ---------------------------------------------------------------- group
-
 #[test]
 fn a_group_replaces_whole_and_ten_thousand_layers_settle_fast() {
     let records: String = (0..10_000)
@@ -307,7 +292,6 @@ fn a_group_replaces_whole_and_ten_thousand_layers_settle_fast() {
     println!("10_000-layer group: parse {parse:?}, with frame {frame:?}");
     assert_eq!(layers.len(), 10_000);
     assert_eq!(replies, b"\x1b_glass;r=2;OK;\x1b\\".to_vec());
-    // A second group with the same id replaces, it does not add.
     let one = b64(b"layer;id=1;k=solid;c=000000;at=0,0,1,1");
     let (intake, _, _) = glass(&[
         apc(&format!("group;g=1;n=10000;{payload}")).as_slice(),
@@ -321,8 +305,6 @@ fn a_group_past_the_layer_cap_is_refused() {
     let (_, _, replies) = glass(&apc("group;g=1;n=70000;r=1;dHlwZQ=="));
     assert_eq!(replies, b"\x1b_glass;r=1;EINVAL:n is capped at 65536\x1b\\".to_vec());
 }
-
-// ---------------------------------------------------------------- remove
 
 #[test]
 fn remove_takes_one_layer_a_range_a_group_or_all() {
@@ -344,8 +326,6 @@ fn remove_takes_one_layer_a_range_a_group_or_all() {
     assert_eq!(intake.expansion.frame(0, 24, false).len(), 0);
 }
 
-// ---------------------------------------------------------------- showcase
-
 #[test]
 fn the_showcase_opens_on_an_uploaded_picture_and_closes() {
     let mut intake = Intake::new(angel_glass::LAYER_PICTURES);
@@ -358,19 +338,14 @@ fn the_showcase_opens_on_an_uploaded_picture_and_closes() {
     assert!(intake.expansion.showcase().is_none());
     intake.handle(Media::Glass(b"glass;showcase;id=5".to_vec()), &mut engine);
     assert_eq!(intake.expansion.showcase(), Some(5));
-    // The showcase shows the picture's own pixels, kept in the store
-    // under the dialect's window id.
     let (width, height, rgba, _) =
         intake.picture_pixels(super::glass_dialect::ID_BASE + 5).expect("the picture is kept");
     assert_eq!((width, height, rgba.len()), (2, 1, 8));
     intake.handle(Media::Glass(b"glass;showcase;close=1".to_vec()), &mut engine);
     assert_eq!(intake.expansion.showcase(), None);
-    // A picture that was never uploaded is an error, not a panic.
     intake.handle(Media::Glass(b"glass;showcase;id=99;r=4".to_vec()), &mut engine);
     assert!(intake.take_replies().starts_with(b"\x1b_glass;r=4;EINVAL:"));
 }
-
-// ---------------------------------------------------------------- lifecycle
 
 #[test]
 fn text_anchored_layers_leave_with_their_text() {
@@ -378,14 +353,10 @@ fn text_anchored_layers_leave_with_their_text() {
     let mut engine = FakeEngine::new();
     engine.scrolled = 5;
     intake.handle(Media::Glass(b"glass;layer;id=1;k=solid;c=ff0000;at=0,0,1,1".to_vec()), &mut engine);
-    // A pinned layer survives everything but its own remove.
     intake.handle(Media::Glass(b"glass;layer;id=2;k=solid;c=ff0000;px=0,0,1,1".to_vec()), &mut engine);
-    // ED 2 on the primary screen: scrolled becomes the new boundary and
-    // the anchored layer, above it, goes with the screen.
     intake.expansion.clear_screen(false, 6);
     let layers = intake.expansion.frame(6, 24, false);
     assert_eq!(layers.len(), 1, "the pinned layer stays");
-    // ED 3: the saved lines go, and a layer anchored to them.
     intake.handle(Media::Glass(b"glass;layer;id=3;k=solid;c=ff0000;at=0,0,1,1".to_vec()), &mut engine);
     intake.expansion.clear_saved(6);
     assert_eq!(intake.expansion.frame(6, 24, false).len(), 1);
@@ -413,8 +384,6 @@ fn ris_removes_everything_the_dialect_made() {
     assert_eq!(intake.expansion.frame(0, 24, false).len(), 0);
     assert_eq!(intake.expansion.showcase(), None);
 }
-
-// ---------------------------------------------------------------- errors
 
 #[test]
 fn malformed_values_are_errors_never_panics() {
@@ -444,7 +413,6 @@ fn malformed_values_are_errors_never_panics() {
 #[test]
 fn opacity_out_of_range_and_bad_keys_are_errors() {
     let (_, _, replies) = glass(&apc("layer;id=1;k=solid;at=0,0,1,1;q=nothing;r=1"));
-    // Unknown keys are refused, as the reference says.
     assert_eq!(replies, b"\x1b_glass;r=1;EINVAL:unknown key q\x1b\\".to_vec());
 }
 

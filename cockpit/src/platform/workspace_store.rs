@@ -54,9 +54,6 @@ pub fn angel_subdir(name: &str) -> PathBuf {
     angel_dir().join(name)
 }
 
-// The key, the atomic writers and the private lock live in the Kernel's host
-// services (`angel_live::host::workspace_store`) so the realm host stands on
-// the same code; they are re-exported here at their old paths.
 pub use angel_live::host::workspace_store::workspace_key;
 #[cfg(not(test))]
 pub(crate) use angel_live::host::workspace_store::{write_atomic, write_private_atomic, write_private_atomic_exact};
@@ -90,8 +87,6 @@ pub fn workspace_json_path_in(dir: &Path, workspace: &Path) -> PathBuf {
     dir.join(format!("{}.json", workspace_key(workspace)))
 }
 
-/// Remove one state file and durably publish the deletion. Missing files are
-/// already in the requested state.
 pub(crate) fn remove_durable(path: &Path) -> Result<(), String> {
     match std::fs::remove_file(path) {
         Ok(()) => {}
@@ -107,29 +102,13 @@ pub(crate) fn remove_durable(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
-// Repo identity — the repository a workspace belongs to.
-// ---------------------------------------------------------------------------
-
-/// The repository a workspace belongs to: its canonical root (the **main
-/// worktree**), the stable key every per-repo store files under, and the
-/// `owner/repo` slug when the repo has one.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RepoIdentity {
-    /// The main worktree's root — never a linked worktree, never a subdirectory.
-    /// Falls back to the workspace itself when this is not a git repo.
     pub root: PathBuf,
-    /// `workspace_key(root)`. The join key for the ledger, the dossier artifact,
-    /// The Cut's manifest, and the work-context store.
     pub key: String,
-    /// `owner/repo`, from the confirmed work context if there is one, else the
-    /// `origin` remote. `None` for a repo with no remote (purely local work).
     pub slug: Option<String>,
 }
 
-/// Whether repo-identity resolution is on (`ANGEL_REPO_IDENTITY`, default
-/// **on**). `0` restores the legacy path-only keying: every directory is its
-/// own "repo" again.
 fn identity_enabled() -> bool {
     match std::env::var("ANGEL_REPO_IDENTITY") {
         Ok(v) => {
@@ -146,8 +125,6 @@ fn identity_enabled() -> bool {
 const GIT_CAPTURE_LIMIT_BYTES: usize = 1_048_576;
 const GIT_POLL_INTERVAL: Duration = Duration::from_millis(10);
 
-/// Wake on the owned child's exit instead of imposing a 10ms floor on every
-/// short metadata probe. Older kernels and other platforms keep bounded polling.
 struct CaptureExitWake {
     #[cfg(target_os = "linux")]
     fd: Option<std::os::fd::OwnedFd>,
@@ -159,10 +136,8 @@ impl CaptureExitWake {
             #[cfg(target_os = "linux")]
             fd: {
                 use std::os::fd::FromRawFd as _;
-                // SAFETY: pid names our unreaped child; flags=0 and no pointers.
                 let fd = unsafe { libc::syscall(libc::SYS_pidfd_open, _pid, 0_u32) };
                 (fd >= 0).then(|| {
-                    // SAFETY: a successful syscall returns a new owned CLOEXEC fd.
                     unsafe { std::os::fd::OwnedFd::from_raw_fd(fd as i32) }
                 })
             },
@@ -179,7 +154,6 @@ impl CaptureExitWake {
                 revents: 0,
             };
             let millis = remaining.as_millis().clamp(1, i32::MAX as u128) as i32;
-            // SAFETY: one live descriptor, owned for the duration of poll.
             let ready = unsafe { libc::poll(&mut descriptor, 1, millis) };
             if (ready >= 0 && descriptor.revents & (libc::POLLERR | libc::POLLNVAL) == 0)
                 || (ready < 0
@@ -198,9 +172,6 @@ struct CapturedStdout {
     overflow: bool,
 }
 
-/// A pipe can outlive its direct child when a descendant changes sessions.
-/// Poll before each read so the caller's deadline also bounds EOF, without
-/// leaving a reader thread blocked for that descendant's lifetime.
 #[cfg(unix)]
 pub(crate) struct DeadlinePipe<R> {
     pipe: R,
@@ -209,8 +180,6 @@ pub(crate) struct DeadlinePipe<R> {
 
 #[cfg(unix)]
 impl<R> DeadlinePipe<R> {
-    /// The owned pipe must have one reader, so readiness makes its next read
-    /// nonblocking. Shared by bounded metadata capture and streamed evidence.
     pub(crate) fn new(pipe: R, deadline: Instant) -> Self {
         Self { pipe, deadline }
     }
@@ -236,12 +205,8 @@ impl<R: std::io::Read + std::os::fd::AsRawFd> std::io::Read for DeadlinePipe<R> 
                 .as_millis()
                 .saturating_add(1)
                 .min(i32::MAX as u128) as i32;
-            // SAFETY: this thread owns the pipe and one live pollfd. No other
-            // reader can consume its ready bytes before the following read.
             let ready = unsafe { libc::poll(&mut descriptor, 1, millis) };
             if ready == 0 {
-                // Recheck the absolute deadline; very large caller budgets
-                // can require more than one poll's i32 millisecond allowance.
                 continue;
             }
             if ready < 0 {
@@ -286,7 +251,6 @@ where
 fn kill_capture_group(child: &mut std::process::Child, pid: u32) {
     #[cfg(unix)]
     {
-        // SAFETY: this child was placed in a private process group at spawn.
         unsafe {
             libc::killpg(pid as libc::pid_t, libc::SIGKILL);
         }
@@ -295,13 +259,6 @@ fn kill_capture_group(child: &mut std::process::Child, pid: u32) {
     let _ = child.wait();
 }
 
-/// Capture one command without trusting an external timeout utility.
-///
-/// The reader drains concurrently and retains only `limit` bytes, so a noisy
-/// child cannot deadlock on a full pipe or grow the cockpit without bound.
-/// `None` means the deadline expired. The child leads a private process group
-/// so timeout cleanup also closes pipes inherited by grandchildren. On Unix,
-/// the same deadline bounds EOF even if a descendant escapes that group.
 fn capture_command_with_deadline(
     mut command: Command,
     timeout: Duration,
@@ -345,9 +302,6 @@ fn capture_command_with_deadline(
             }
         }
     };
-    // A successful parent can still leave a grandchild holding stdout open.
-    // Reap that private group before joining the reader. The reader's own
-    // deadline also bounds an out-of-group descendant retaining the pipe.
     #[cfg(unix)]
     unsafe {
         libc::killpg(pid as libc::pid_t, libc::SIGKILL);
@@ -376,19 +330,12 @@ fn capture_with_deadline(
     capture_command_with_deadline(command, timeout, limit)
 }
 
-/// Capture a preconfigured metadata command within one caller-owned budget.
-/// Exact environment and executable pinning stay on `command`; this boundary
-/// supplies process-tree cleanup, concurrent draining, and the shared 1 MiB cap.
-/// Callers must reject `None` rather than interpreting a timeout or overflow as
-/// an empty successful response.
 pub(crate) fn capture_bounded_command(command: Command, timeout: Duration) -> Option<Vec<u8>> {
     let (status, out) =
         capture_command_with_deadline(command, timeout, GIT_CAPTURE_LIMIT_BYTES).ok()??;
     (status.success() && !out.overflow).then_some(out.bytes)
 }
 
-/// Startup metadata only. Its larger allowance admits tracked path lists from
-/// large repositories; timeout/overflow remains unavailable, never an empty tree.
 pub(crate) fn capture_startup_repo_command(
     command: Command,
     timeout: Duration,
@@ -396,8 +343,6 @@ pub(crate) fn capture_startup_repo_command(
     capture_optional_probe_with_limit(command, timeout, 16 * 1024 * 1024)
 }
 
-/// Distinguish an unavailable probe from a valid negative response (e.g. non-Git
-/// workspace). Optional turn telemetry can report partial evidence and continue.
 pub(crate) fn capture_optional_probe(
     command: Command,
     timeout: Duration,
@@ -419,17 +364,12 @@ fn capture_optional_probe_with_limit(
     Ok(status.success().then_some(out.bytes))
 }
 
-/// Take the advisory store lock. Contention is REPORTED, never resolved by
-/// dropping the write: a durable store operation waits for the lock, and every
-/// 2 s of waiting emits a labelled `[memory-health]` receipt line so the stall is
-/// visible (R04e progress truth). Only a real lock error returns `Err`.
 #[cfg(unix)]
 pub(crate) fn lock_store(file: &std::fs::File, step: &'static str) -> std::io::Result<()> {
     use std::os::fd::AsRawFd;
     let started = Instant::now();
     let mut reported_at = Duration::ZERO;
     loop {
-        // SAFETY: caller owns this descriptor through the call and its guard.
         if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0 {
             if reported_at > Duration::ZERO {
                 eprintln!(
@@ -458,14 +398,10 @@ pub(crate) fn lock_store(file: &std::fs::File, step: &'static str) -> std::io::R
     }
 }
 
-/// Repository-oriented name retained for the exact Git evidence callers.
 pub(crate) fn capture_repo_command(command: Command, timeout: Duration) -> Option<Vec<u8>> {
     capture_bounded_command(command, timeout)
 }
 
-/// Run a repository metadata probe with a whole-tree deadline and bounded
-/// output. Shared by repo identity and the first-contact work landing so Git
-/// and networked `gh` lookups have the same cross-platform failure boundary.
 pub(crate) fn capture_repo_probe(
     program: &str,
     args: &[&str],
@@ -484,15 +420,11 @@ fn git_capture(args: &[&str], cwd: &Path, secs: u64) -> Option<String> {
     capture_repo_probe("git", args, cwd, secs)
 }
 
-/// Optional repository metadata: preserve valid empty responses and label
-/// unavailable probes before falling back, without stopping the turn.
 fn run_identity_probe(mut command: Command) -> std::io::Result<Option<Vec<u8>>> {
     command.env("GIT_OPTIONAL_LOCKS", "0");
     capture_optional_probe(command, Duration::from_millis(300))
 }
 
-/// Optional repository metadata: preserve valid empty responses and label
-/// unavailable probes before falling back, without stopping the turn.
 pub(crate) fn identity_probe(command: Command, step: &'static str) -> Option<Vec<u8>> {
     match run_identity_probe(command) {
         Ok(output) => output,
@@ -506,13 +438,6 @@ pub(crate) fn identity_probe(command: Command, step: &'static str) -> Option<Vec
     }
 }
 
-/// The main worktree's path out of `git worktree list --porcelain` — **pure**.
-///
-/// git prints the main worktree first and the linked worktrees after it, always,
-/// which makes this the one answer that resolves a linked worktree, a
-/// subdirectory, a detached checkout, and a bare repo to the same identity. A
-/// submodule reports *its own* main worktree (a submodule is a separate
-/// repository with a separate remote), which is likewise correct.
 #[cfg(test)]
 pub fn main_worktree_from_porcelain(out: &str) -> Option<PathBuf> {
     out.lines()
@@ -521,7 +446,6 @@ pub fn main_worktree_from_porcelain(out: &str) -> Option<PathBuf> {
         .filter(|p| !p.as_os_str().is_empty())
 }
 
-/// Read the first NUL-delimited worktree path without lossy conversion or trim.
 fn main_worktree_from_porcelain_z(out: &[u8]) -> Option<PathBuf> {
     let raw = out
         .split_inclusive(|byte| *byte == 0)
@@ -540,13 +464,6 @@ fn main_worktree_from_porcelain_z(out: &[u8]) -> Option<PathBuf> {
     }
 }
 
-/// The repository root for `workspace`: the main worktree when git knows one,
-/// else `workspace` unchanged.
-///
-/// When git's answer names the *same directory* as `workspace`, the workspace
-/// path is returned **as given** rather than git's canonicalized spelling — so a
-/// repo that is already keyed by its own path keeps its exact key and its whole
-/// accumulated history, even if some ancestor is a symlink.
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn canonical_repo_root(workspace: &Path) -> PathBuf {
     if !identity_enabled() {
@@ -555,18 +472,7 @@ pub fn canonical_repo_root(workspace: &Path) -> PathBuf {
     canonical_repo_root_enabled(workspace).unwrap_or_else(|| workspace.to_path_buf())
 }
 
-/// Resolve a repository root after the caller has already captured the
-/// identity-mode setting. This keeps the cache key and resolved value in the
-/// same mode when tests or an embedding process switch the compatibility
-/// escape hatch between calls. `None` is specifically a transient or malformed
-/// Git probe, so callers can fall back without permanently memoizing a
-/// workspace-only identity.
 fn canonical_repo_root_enabled(workspace: &Path) -> Option<PathBuf> {
-    // The usual checkout has a complete `.git` directory. Finding the nearest
-    // such marker is local metadata I/O, so it avoids letting a busy process
-    // table turn an ordinary subdirectory into a transient workspace-only
-    // identity. Stop at the first `.git` entry: a file is a linked-worktree or
-    // submodule marker and must use Git below to find its main worktree.
     if std::env::var_os("GIT_DIR").is_none()
         && std::env::var_os("GIT_WORK_TREE").is_none()
         && let Some(root) = local_checkout_root(workspace)
@@ -584,8 +490,6 @@ fn canonical_repo_root_enabled(workspace: &Path) -> Option<PathBuf> {
         .current_dir(workspace);
     let out = match run_identity_probe(command) {
         Ok(Some(out)) => out,
-        // Git answered definitively that this is not a repository. This
-        // workspace-only identity is stable and may be cached.
         Ok(None) => return Some(workspace.to_path_buf()),
         Err(error) => {
             eprintln!(
@@ -615,9 +519,6 @@ fn local_checkout_root(workspace: &Path) -> Option<PathBuf> {
         if !metadata.is_dir() {
             return None;
         }
-        // Avoid treating an empty or unrelated `.git` directory as a trusted
-        // identity boundary. Real non-bare repositories carry these three
-        // pieces of local Git metadata.
         return (marker.join("HEAD").is_file()
             && marker.join("config").is_file()
             && marker.join("objects").is_dir())
@@ -626,10 +527,6 @@ fn local_checkout_root(workspace: &Path) -> Option<PathBuf> {
     None
 }
 
-/// The `owner/repo` slug for a repo root: the user's confirmed work context
-/// first (it is the authoritative, human-blessed answer and costs no spawn),
-/// else the `origin` remote — which a linked worktree shares with its main
-/// checkout, so a worktree is no longer anonymous.
 fn slug_for_root(root: &Path) -> Option<String> {
     if let Some(slug) = crate::agent::tools::work_landing::load_context(root).and_then(|c| c.repo) {
         return Some(slug);
@@ -644,10 +541,6 @@ fn slug_for_root(root: &Path) -> Option<String> {
     crate::agent::tools::work_landing::normalize_remote(&url).map(|s| s.slug())
 }
 
-/// Repository identity depends on the compatibility mode as well as the
-/// workspace path. In particular, caching a path-only identity while
-/// `ANGEL_REPO_IDENTITY=0` must not make a later enabled lookup forget that
-/// the workspace belongs to its repository.
 type IdentityCache = Mutex<HashMap<(PathBuf, bool), RepoIdentity>>;
 
 fn identity_cache() -> &'static IdentityCache {
@@ -655,12 +548,6 @@ fn identity_cache() -> &'static IdentityCache {
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// The repository `workspace` belongs to. Memoized per process: the ledger
-/// stamps this on **every recorded command**, so the git spawns must happen once
-/// per distinct workspace, not once per record. The cache is keyed by the
-/// canonicalized path so two spellings of one directory (relative/absolute,
-/// trailing separators, symlinked temp dirs) share one entry instead of
-/// re-running the git probes.
 pub fn repo_identity(workspace: &Path) -> RepoIdentity {
     let enabled = identity_enabled();
     let cache_key = (
@@ -672,9 +559,6 @@ pub fn repo_identity(workspace: &Path) -> RepoIdentity {
     {
         return hit.clone();
     }
-    // One probe per workspace at a time: startup asks for the same identity from
-    // its main thread and from the threads that warm it, and the later asker
-    // should take the first one's answer rather than spawn the same git again.
     let gate = identity_gate(format!("identity:{enabled}:{}", cache_key.0.display()));
     let _probing = gate.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if let Ok(cache) = identity_cache().lock()
@@ -690,8 +574,6 @@ pub fn repo_identity(workspace: &Path) -> RepoIdentity {
     let cacheable = root.is_some();
     let root = root.unwrap_or_else(|| workspace.to_path_buf());
     let slug = if cacheable {
-        // A subdirectory, the skills directory and the checkout root itself all
-        // resolve to one repository: ask git for its origin once per root.
         slug_for_root_memoized(&root)
     } else {
         slug_for_root(&root)
@@ -707,8 +589,6 @@ pub fn repo_identity(workspace: &Path) -> RepoIdentity {
     id
 }
 
-/// Per-key mutexes that serialize one probe at a time without serializing
-/// unrelated probes. Entries are a few bytes and live for the process.
 fn identity_gate(key: String) -> std::sync::Arc<Mutex<()>> {
     static GATES: OnceLock<Mutex<HashMap<String, std::sync::Arc<Mutex<()>>>>> = OnceLock::new();
     let gates = GATES.get_or_init(|| Mutex::new(HashMap::new()));
@@ -716,10 +596,6 @@ fn identity_gate(key: String) -> std::sync::Arc<Mutex<()>> {
     std::sync::Arc::clone(gates.entry(key).or_default())
 }
 
-/// [`slug_for_root`] remembered per repository root, for the same lifetime and
-/// under the same conditions as the identity cache that calls it (the caller
-/// only gets here for a root that git resolved). The confirmed work context is
-/// still read on every call, so a slug the operator sets mid-session wins.
 fn slug_for_root_memoized(root: &Path) -> Option<String> {
     type SlugCache = Mutex<HashMap<PathBuf, Option<String>>>;
     static SLUGS: OnceLock<SlugCache> = OnceLock::new();
@@ -748,10 +624,6 @@ fn slug_for_root_memoized(root: &Path) -> Option<String> {
     slug
 }
 
-/// True only when both serialized identity fields match the canonical
-/// repository containing `workspace`. Instruction-bearing stores use this as
-/// their common fail-closed boundary: a key alone or a path alone is never
-/// sufficient, and legacy records with either field missing remain inert.
 pub fn matches_project(workspace: &Path, root: &Path, key: &str) -> bool {
     let identity = repo_identity(workspace);
     identity.root == root && identity.key == key

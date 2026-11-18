@@ -13,7 +13,6 @@ pub fn dir() -> PathBuf {
     std::env::var_os("DELVE_CASES").map(PathBuf::from).expect("set DELVE_CASES to the Bend case directory")
 }
 
-/// The cases of one Bend def, written whole on `save`.
 pub struct Cases {
     name: String,
     lines: Vec<String>,
@@ -40,12 +39,10 @@ impl Cases {
     }
 }
 
-/// The Run as `capture_for_rules` writes it.
 pub fn state(run: &Run) -> Value {
     runtime_state::capture_for_rules(run).unwrap().run
 }
 
-/// An object cut to the keys a case needs (absent keys stay absent).
 pub fn keep(v: &Value, keys: &[&str]) -> Value {
     let mut out = Map::new();
     if let Value::Object(m) = v {
@@ -62,7 +59,6 @@ pub fn to<T: serde::Serialize>(t: &T) -> Value {
     serde_json::to_value(t).unwrap()
 }
 
-/// xorshift64: the recorders' own dice.
 pub struct Dice(pub u64);
 impl Dice {
     pub fn next(&mut self) -> u64 {
@@ -82,7 +78,6 @@ impl Dice {
     }
 }
 
-/// Random keys: mostly walking, some fire, the odd rarer key.
 pub fn random_input(d: &mut Dice) -> Input {
     let mut i = Input::default();
     if d.chance(70) {
@@ -119,8 +114,6 @@ pub fn random_inputs(run: &Run, d: &mut Dice) -> BTreeMap<u32, Input> {
     run.players.keys().map(|&id| (id, random_input(d))).collect()
 }
 
-/// A delve in some state: `party` knights, `floors` floors down, walked about
-/// at random for `steps` ticks.
 pub fn scene(seed: u64, party: u32, floors: u32, steps: u32) -> Run {
     let mut run = Run::new(seed, seed ^ 0x51ed, None);
     for id in 2..=party {
@@ -138,7 +131,6 @@ pub fn scene(seed: u64, party: u32, floors: u32, steps: u32) -> Run {
     run
 }
 
-/// Scenes in all sorts: the corpus every recorder draws from.
 pub fn scenes(n: u64) -> Vec<Run> {
     (0..n)
         .map(|k| {
@@ -152,7 +144,6 @@ pub fn scenes(n: u64) -> Vec<Run> {
 #[ignore]
 fn record_core_helpers() {
     let mut d = Dice(0xc0ffee);
-    // Input::valid / pressing.
     let mut valid = Cases::new("rules.Input.valid");
     let mut pressing = Cases::new("rules.Input.pressing");
     for k in 0..200 {
@@ -181,14 +172,12 @@ fn record_core_helpers() {
     pressing.add(to(&Input::default()), json!(false));
     valid.save();
     pressing.save();
-    // command::lay_over.
     let mut lay = Cases::new("command.lay_over");
     for _ in 0..150 {
         let (a, b) = (random_input(&mut d), random_input(&mut d));
         lay.add(json!({"under": to(&a), "over": to(&b)}), to(&command::lay_over(a, &b)));
     }
     lay.save();
-    // Run helpers over real scenes.
     let mut cs: BTreeMap<&str, Cases> = BTreeMap::new();
     for name in [
         "rules.Run.active", "again.Run.over", "rules.Run.floor", "rules.Run.room", "rules.Run.at_entrance",
@@ -230,12 +219,10 @@ fn record_core_helpers() {
     }
 }
 
-/// Hero `id` as the state tree holds it.
 pub fn hero_json(run: &Run, id: u32) -> Value {
     state(run)["players"][id.to_string()].clone()
 }
 
-/// Run `f` on a hero (a clone of the run's) and answer the hero as it stands after.
 pub fn with_hero(run: &Run, id: u32, f: impl FnOnce(&mut Hero)) -> Value {
     let mut r = run.clone();
     f(r.players.get_mut(&id).unwrap());
@@ -252,7 +239,6 @@ fn pick_hero(run: &Run, d: &mut Dice) -> u32 {
 fn record_core_state() {
     let mut d = Dice(0xfeed);
     let scenes = scenes(48);
-    // Hero::hurt / blow over knights in all sorts of kit.
     let mut hurt = Cases::new("hero.Hero.hurt");
     let mut blow = Cases::new("hero.Hero.blow");
     let mut hurt_most = Cases::new("hero.Hero.hurt_most");
@@ -299,7 +285,6 @@ fn record_core_state() {
     hurt.save();
     hurt_most.save();
     blow.save();
-    // Hitstop.
     let mut inputs_c = Cases::new("hitstop.State.inputs");
     let mut finish_c = Cases::new("hitstop.Run.finish_hitstop");
     for (k, run) in scenes.iter().enumerate() {
@@ -338,7 +323,6 @@ fn record_core_state() {
                 json!({"run": keep(&s, &["hitstop", "tune"]), "ids": ids, "inputs": to(&inputs)}),
                 json!({"state": out_state, "resume": resume_j}),
             );
-            // finish.
             let mut r2 = r.clone();
             r2.shake = d.below(6) as u32;
             let s2 = state(&r2);
@@ -368,7 +352,6 @@ fn record_core_step_helpers() {
     let mut hits_c = Cases::new("desperate.Run.mark_hits");
     for (k, run) in scenes.into_iter().enumerate() {
         let mut run = run;
-        // count_idle: random inputs, some invalid or default.
         let inputs: BTreeMap<u32, Input> = run
             .players
             .keys()
@@ -380,7 +363,6 @@ fn record_core_step_helpers() {
         let mut r2 = run.clone();
         r2.count_idle(&inputs);
         idle_c.add(json!({"run": keep(&s, &["players", "idle"]), "inputs": to(&inputs)}), keep(&state(&r2), &["idle"]));
-        // rescale_party: the party changes under the monsters.
         let mut r3 = run.clone();
         let before = r3.scaled();
         if k % 3 == 0 {
@@ -398,7 +380,6 @@ fn record_core_step_helpers() {
             json!({"run": keep(&s3, &["players", "enemies", "scaled_for"]), "before": before}),
             keep(&state(&r3), &["enemies", "scaled_for"]),
         );
-        // modes.
         let mut r4 = run.clone();
         let modes = ["turbo", "glass_jaw", "collapse", "ironman", "all_random", "long_way_down"];
         r4.mode = serde_json::from_value(json!(modes[k % modes.len()])).unwrap();
@@ -407,7 +388,6 @@ fn record_core_step_helpers() {
         turbo_c.add(keep(&s4, &["mode", "tick", "dungeon"]), json!(r4.turbo()));
         r4.harden();
         harden_c.add(keep(&s4, &["mode", "players"]), keep(&state(&r4), &["players"]));
-        // the collapse.
         let mut r5 = run.clone();
         r5.mode = serde_json::from_value(json!(if k % 5 == 4 { "turbo" } else { "collapse" })).unwrap();
         let at = r5.tick + d.below(60);
@@ -420,7 +400,6 @@ fn record_core_step_helpers() {
             keep(&s5, &["mode", "collapse_at", "tick", "phase", "players", "rocks", "rng", "dungeon", "at", "fx", "cues", "kingdom", "exits"]),
             keep(&state(&r5), &["rocks", "rng", "fx", "cues"]),
         );
-        // trophies.
         let mut r6 = run.clone();
         let names = ["victory", "grail", "boss_fall:cinderjaw", "boss_fall:the-index", "knight_down", "low_hp", "elite"];
         let heard = r6.cues.len();
@@ -431,7 +410,6 @@ fn record_core_step_helpers() {
         let s6 = state(&r6);
         r6.mark_trophies(heard);
         marks_c.add(json!({"run": keep(&s6, &["cues", "marks"]), "heard": heard}), keep(&state(&r6), &["marks"]));
-        // fx.
         let mut r7 = run.clone();
         r7.shake = d.below(8) as u32;
         r7.sparks = (0..d.below(33)).map(|i| Spark { from: (1.0, 2.0), to: (3.0 + i as f32, 4.0), ttl: d.below(4) as u8 }).collect();
@@ -442,7 +420,6 @@ fn record_core_step_helpers() {
         let mut r8 = r7.clone();
         r7.show_fx();
         show_c.add(keep(&s7, &["shake", "fx", "sparks"]), keep(&state(&r7), &["shake", "fx", "sparks"]));
-        // present also ages gore and echoes.
         r8.tick = 500 + d.below(300);
         r8.feel.echoes = (0..d.below(5)).map(|i| (400 + d.below(300) + i, "hit")).collect();
         let s8 = state(&r8);
@@ -452,7 +429,6 @@ fn record_core_step_helpers() {
             keep(&state(&r8), &["shake", "fx", "sparks", "gore", "feel", "sounds"]),
         );
         let _ = &mut age_c;
-        // mark_hits.
         let mut r9 = run.clone();
         for e in r9.enemies.iter_mut() {
             if d.chance(50) {

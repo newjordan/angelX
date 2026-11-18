@@ -41,9 +41,6 @@ pub(super) fn render_agent_control_menu(frame: &mut Frame, app: &mut App) {
         .and_then(|index| route_choices.get(index))
         .map(|choice| choice.reasoning_levels.clone())
         .unwrap_or_default();
-    // Picks are deliberately separate and advisory. A star is operational
-    // reliability; a diamond is explicit user usefulness. Neither changes the
-    // selected route without Enter.
     let operational_pick = crate::knowledge::route_intelligence::operational_pick_for_context(
         &app.route_evidence,
         &route_choices,

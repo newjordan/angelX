@@ -42,7 +42,6 @@ impl CodexStartup {
                 selection.effort.clone_from(effort);
                 selection.effort_source = "cli";
             }
-            // No built-in fallback permission for an explicit mandate.
             catalog
                 .resolve(&selection.model, Some(&selection.effort), false)
                 .map_err(

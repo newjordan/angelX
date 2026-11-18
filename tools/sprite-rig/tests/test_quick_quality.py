@@ -1,4 +1,3 @@
-"""Conservative quality gates: synthetic unit vectors, no fabricated native oracle."""
 import copy
 import importlib.util
 import json
@@ -22,12 +21,6 @@ SAMPLE = Path(__file__).parents[1] / 'samples/quick/squire.png'
 
 @pytest.fixture(scope='module')
 def example():
-    """An editable planted-foot animation, not a golden render of the generator.
-
-    Default walk/run have moving painted bottoms; a quality gate must expose
-    that, not quietly move frames to hide it. This deliberate fixup keeps shoes
-    planted and animates arms, still exercising every authored clip and smear.
-    """
     rig = Q.fit(SAMPLE)
     for name in K.LOOPS:
         for pose in rig['clips'][name]:
@@ -40,8 +33,6 @@ def example():
 
 @pytest.fixture
 def native(tmp_path):
-    # Intentionally much larger padding than the sprite. Palette RGB must come
-    # from Delve, but these tiny rows are synthetic Rust-manifest unit vectors.
     ink = next(iter(Q._palette()))
     w, h = 151, 113
     rows = ['.'*w for _ in range(h)]
@@ -58,7 +49,6 @@ def native(tmp_path):
 
 @pytest.fixture
 def fast(monkeypatch):
-    # Pixel-measurement tests don't repeatedly encode the exact same artifacts.
     monkeypatch.setattr(K, '_contacts', lambda *a, **kw: None)
     monkeypatch.setattr(K.Q, 'export', lambda *a, **kw: None)
 
@@ -159,7 +149,6 @@ def test_anchor_must_match_painted_region_not_just_exist(example, native, tmp_pa
         target = f['anchors']['feet']
     else:
         target = f['anchors']['head']
-    # Wrong but IN BOUNDS and on painted ink, not just an obvious empty corner.
     f['anchors'][anchor] = target[:]
     report = check(game, native, tmp_path)
     failed(report, 'painted_anchor_proximity')
@@ -177,7 +166,7 @@ def test_one_pixel_floor_jitter_cannot_hide_behind_fixed_json_pivot(example, nat
     frame['rows'] = ['.'*game['canvas'][0]] + frame['rows'][:-1]
     for point in frame['anchors'].values():
         point[1] += 1
-    Q.validate_game(game)  # Schema alone cannot see the jitter.
+    Q.validate_game(game)
     failed(check(game, native, tmp_path), 'fixed_floor')
 
 
@@ -268,7 +257,6 @@ def test_missing_smear_is_detected_by_actual_added_pixels(example, native, tmp_p
     failed(report, 'smear_added_ink')
     assert all(f['pixels'] == 0 for f in report['checks']['smear_added_ink']['clips']['slash'])
     failed(report, 'source_rebuild')
-    # Removing both metadata and pixels still does not make a swing smear exist.
     report = check(no_smear, native, tmp_path, rig=broken, image=SAMPLE)
     assert report['checks']['source_rebuild']['status'] == 'pass'
     failed(report, 'smear_added_ink')
@@ -283,7 +271,6 @@ def test_source_pair_required(example, native, tmp_path, fast, source_only):
 
 
 def test_all_frames_native_scale_common_floor_overlays_and_nearest_x6(example, native, tmp_path):
-    # Full artifact verifier once; all clips and GIF timings remain native-size.
     rig, game = example
     report = check(game, native, tmp_path, rig=rig, image=SAMPLE)
     assert report['ok']
@@ -292,14 +279,12 @@ def test_all_frames_native_scale_common_floor_overlays_and_nearest_x6(example, n
         expected = sheet.resize((sheet.width*6, sheet.height*6), Image.Resampling.NEAREST)
         np.testing.assert_array_equal(large, expected)
         assert sheet.width < 2*151*max(map(len, game['clips'].values()))
-        # The native reference block is exactly 5x7 at 1x, NOT scaled to rig size.
         ink_rgb = Q._palette()[next(iter(Q._palette()))]
         a = np.array(sheet)
         color = (a == ink_rgb).all(-1)
         assert color[20:80, :92].sum() == 35
         ys, xs = np.nonzero(color[20:80, :92])
         assert (xs.max()-xs.min()+1, ys.max()-ys.min()+1) == (5, 7)
-        # Both painted subjects terminate on the same y, no padding-based shrink.
         first = game['clips']['idle'][0]
         floor = K._bounds(K._mask(first))[3]-1
         native_bottom = int(ys.max()+20)
@@ -338,7 +323,6 @@ def test_cli_from_other_cwd_paths_exit_failure_and_machine_report(example, nativ
     game_path = tmp_path/'game.json'
     game_path.write_text(json.dumps(example[1]))
     script = Path(K.__file__).resolve()
-    # Missing baseline must be a visible nonzero exit with a report, not a fake.
     proc = subprocess.run([sys.executable, str(script), '--game', str(game_path),
                            '--native', str(tmp_path/'missing.json'), '--out', str(tmp_path/'cli')],
                           cwd=tmp_path, text=True, capture_output=True)
@@ -364,8 +348,6 @@ def test_palette_missing_is_visible_input_failure(example, native, tmp_path, fas
 
 def test_source_mask_membership_must_be_painted_not_transparent(example, native, tmp_path, fast):
     rig = copy.deepcopy(example[0])
-    # An author can paint a mask over transparent source pixels. That is NOT a
-    # painted hand, even when the anchor is inside this counterfeit mask.
     rig['anchors']['grip']['point'] = [0, 0]
     rows = rig['parts']['hand_f']['mask']
     rows[0] = '#'+rows[0][1:]
@@ -388,7 +370,6 @@ def test_contact_layout_does_not_hide_floor_jitter(example, native, tmp_path):
         is_ink = np.zeros(pixels.shape[:2], bool)
         for rgb in set(Q._palette().values()):
             is_ink |= (pixels == rgb).all(-1)
-        # Native/rig pairs use the same pivot origin, NOT re-grounded bounds.
         bottom0 = np.nonzero(is_ink[20:, 92:184])[0].max()
         bottom1 = np.nonzero(is_ink[20:, 276:368])[0].max()
         assert bottom1 == bottom0+1
@@ -416,7 +397,6 @@ def test_conservative_metrics_accept_other_native_sprite_sizes(example, native, 
     with Image.open(SAMPLE) as source:
         image = source.resize((size, size), Image.Resampling.NEAREST)
     rig = Q.fit(image)
-    # Same explicit planted-foot fixup; no quality-side normalization.
     for name in K.LOOPS:
         for pose in rig['clips'][name]:
             pose['offset'] = [0, 0]

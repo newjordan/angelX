@@ -29,12 +29,9 @@ pub(crate) const TEACHER_NOTES: Route = Route::new(CELL, '⠓');
 pub(crate) const TEACHER_NOTES_MORE: Route = Route::new(CELL, '⠊');
 pub(crate) const TEACHER: Route = Route::new(CELL, '⠚');
 
-/// `⠟⠛⠁`: the acceptance gate passed and the turn ends on it.
 pub(crate) const ACCEPTED: &str = "Acceptance gate passed after {hop} tool hop(s); the verified workspace is ready for inspection.";
-/// `⠟⠛⠃`: a research turn hit its hop cap with no draft.
 pub(crate) const NO_DRAFT: &str =
     "Evidence is missing; no research draft was produced before the hop cap.";
-/// `⠟⠛⠉`: the research contract's whole-question decline.
 pub(crate) const DISCLOSURE: &str =
     "No evidence in the corpus supports an answer to this question.";
 
@@ -148,7 +145,6 @@ pub(crate) const PRIMARY: Primary = Primary {
     ],
 };
 
-/// Which stop facts lead the warpath, most pressing first.
 const PRIORITY: [Route; 14] = [
     v_verification::ACCEPTANCE,
     v_verification::RED,
@@ -173,18 +169,6 @@ fn rank(route: Route) -> usize {
         .unwrap_or(PRIORITY.len())
 }
 
-/// The once-per-turn stop checkpoint, and the one stop a failed confirming
-/// re-run (`⠧⠑`) keeps after it: the model's own green test failing on the
-/// code it answers on is a result, not advice. polyglot-v1 cpp-robot-name on
-/// Sonnet 5.5: `⠧⠋` spent the checkpoint, the model's next green was never
-/// re-run, and the grader's run failed.
-///
-/// An answer that carries raw tool-call markup while nothing in the workspace
-/// changed this turn does not stand either: it is a tool call that failed to
-/// parse, not a result. polyglot-v1 rust-robot-name on DeepSeek V4.1 Flash
-/// (2026-11-01): the model pasted its prompt back ending in DSML tool markup,
-/// the checkpoint fired once, and the identical second paste stood with the
-/// stub untouched. It stops again up to [`MARKUP_RESTOPS`] times a turn.
 #[derive(Default)]
 pub(crate) struct Checkpoint {
     spent: bool,
@@ -192,7 +176,6 @@ pub(crate) struct Checkpoint {
     markup_restops: usize,
 }
 
-/// Extra stops a turn spends on unexecuted tool markup with no workspace change.
 pub(crate) const MARKUP_RESTOPS: usize = 2;
 
 impl Checkpoint {
@@ -200,14 +183,10 @@ impl Checkpoint {
         self.spent
     }
 
-    /// Whether a failed confirming re-run would still reach the model.
     pub(crate) fn shows_flaky(&self) -> bool {
         !self.spent || !self.flaky_shown
     }
 
-    /// The checkpoint warpath for these facts, or `None` when there are none,
-    /// it was already shown this turn (unless `⠧⠑` is among them and has not
-    /// had its stop), or too little budget is left to act.
     pub(crate) fn engage(
         &mut self,
         workspace: &Path,
@@ -217,9 +196,6 @@ impl Checkpoint {
         self.engage_with(workspace, facts, budget_left, false)
     }
 
-    /// [`Self::engage`], told whether the workspace is unchanged this turn
-    /// (no mutation call, same fingerprint). With that, a `⠭⠃` markup answer
-    /// is shown its stop again instead of standing, a bounded number of times.
     pub(crate) fn engage_with(
         &mut self,
         workspace: &Path,
@@ -258,7 +234,6 @@ impl Checkpoint {
         self.flaky_shown |= facts
             .iter()
             .any(|raise| raise.route == v_verification::FLAKY);
-        // Evidence for every fact reaches the ledger, even past the cap.
         for raise in facts {
             if let Some(evidence) = raise.evidence.as_deref() {
                 super::ledger::record(workspace, raise.route, evidence);
@@ -279,11 +254,6 @@ impl Checkpoint {
     }
 }
 
-/// The checkpoint as the model reads it: the warpath, then what the facts
-/// carry inline — the failing run's tail, the changed files, the receipt — as
-/// the 0.1.6 advisories quoted them, and what is left to act on. The facts
-/// are data; the sentences that go with them arrive through the legend. The
-/// checkpoint's own evidence (`⠟⠁`, the list of facts) stays in the ledger.
 pub(crate) fn stop_turn(cells: &str, shown: &[Raise], left: Option<&str>) -> String {
     let mut turn = cells.to_string();
     if let Some(left) = left {
@@ -303,10 +273,6 @@ pub(crate) fn stop_turn(cells: &str, shown: &[Raise], left: Option<&str>) -> Str
     turn
 }
 
-/// What a task turn still has after a stop checkpoint, or `None` when too
-/// little is left for the checkpoint to be worth a hop: fewer than three steps
-/// (an edit, a test run, the answer), or less than a quarter of the task's
-/// wall clock. `wall_secs` 0 means no wall.
 pub(crate) fn task_budget_left(
     hop: usize,
     max_hops: Option<usize>,

@@ -75,7 +75,6 @@ fn apply_reply_accumulates_distinct_and_tracks_stall() {
     let mut st = LoopState::default();
     assert_eq!(apply_reply(&mut st, &block("a", &["f1", "f2"])), 2);
     assert_eq!(apply_reply(&mut st, &block("b", &["f3"])), 1);
-    // Repeat of a known finding → no fresh ground → stall climbs.
     assert_eq!(apply_reply(&mut st, &block("c", &["f1"])), 0);
     assert_eq!(st.findings.len(), 3);
     assert_eq!(st.iteration, 3);
@@ -249,8 +248,6 @@ fn podrace_receipts_record_execution_without_objective_progress() {
         "source-backed prose is not competition progress"
     );
 
-    // An unverified outcome fingerprint (status poll / listing) is still
-    // not a measured candidate.
     let polling = ToolStripSnapshot {
         calls: 1,
         outcome_actions: vec!["outcome:shell:git status:result=aa".into()],
@@ -275,7 +272,6 @@ fn podrace_receipts_record_execution_without_objective_progress() {
     );
     assert_eq!(st.log.last().unwrap().verified_outcome_actions, 1);
 
-    // Replaying the identical receipt must not keep the run alive.
     apply_reply_with_tools(&mut st, "DIRECTION: submit again", &submitted);
     assert_eq!(st.stale_count, 6, "a repeated receipt is not new progress");
     assert_eq!(st.submissions, 1);
@@ -289,13 +285,10 @@ fn podrace_stall_climbs_through_findings_workspace_change_and_status_polls() {
         workspace: Some(PathBuf::from(env!("CARGO_MANIFEST_DIR"))),
         ..Default::default()
     };
-    // Seed the remembered fingerprint so the next observation can be
-    // desynchronized into a forced workspace change.
     apply_reply_with_tools(&mut st, &block("seed", &[]), &ToolStripSnapshot::default());
     let current = st.last_workspace_fingerprint;
     st.last_workspace_fingerprint = current.map(|f| f.wrapping_add(1));
 
-    // 5 fresh findings + a workspace change + a git status poll.
     let mut tools = ToolStripSnapshot {
         calls: 1,
         ..Default::default()
@@ -315,7 +308,6 @@ fn podrace_stall_climbs_through_findings_workspace_change_and_status_polls() {
         "findings, workspace edits, and status polls are not measured candidates"
     );
 
-    // One verified benchmark receipt records execution, not improvement.
     let bench = ToolStripSnapshot {
         calls: 1,
         verified_outcome_actions: vec![
@@ -393,7 +385,6 @@ fn verifier_blocked_set_by_failure_and_checkpoint_cleared_by_receipt() {
         Some("benchctl measure-job: missing required --golden")
     );
 
-    // Prose novelty cannot clear a blocked verification path.
     apply_reply_with_tools(
         &mut st,
         &block("explore a new kernel direction", &["novel fact"]),
@@ -404,8 +395,6 @@ fn verifier_blocked_set_by_failure_and_checkpoint_cleared_by_receipt() {
         Some("benchctl measure-job: missing required --golden")
     );
 
-    // A `VERIFY … blocked` / `DECISION … blocked` checkpoint refreshes the
-    // diagnostic from the reply itself.
     apply_reply_with_tools(
         &mut st,
         "DIRECTION: report\nDECISION blocked: organizer must reconcile",
@@ -425,7 +414,6 @@ fn verifier_blocked_set_by_failure_and_checkpoint_cleared_by_receipt() {
         Some("blocked · benchctl requires --golden")
     );
 
-    // A verified receipt clears it.
     let ok = ToolStripSnapshot {
         calls: 1,
         verified_outcome_actions: vec![
@@ -437,7 +425,6 @@ fn verifier_blocked_set_by_failure_and_checkpoint_cleared_by_receipt() {
     assert!(st.verifier_blocked.is_none());
     assert_eq!(st.measured_candidates, 1);
 
-    // Ordinary loops keep today's behaviour: no blocker arming.
     let mut ordinary = LoopState::default();
     apply_reply_with_tools(&mut ordinary, "DIRECTION: preflight", &failed);
     assert!(ordinary.verifier_blocked.is_none());
@@ -489,7 +476,6 @@ fn budget_trips_on_iters_and_tokens() {
     };
     assert!(budget_tripped(&st2).is_some(), "token budget trips");
 
-    // Deadline in the past trips; far future doesn't.
     let past = LoopState {
         deadline_secs: 1,
         started_ms: 0,
@@ -558,15 +544,11 @@ fn says_done_is_tolerant_but_anchored() {
     assert!(says_done("work done\nLOOP_DONE"));
     assert!(says_done("**LOOP_DONE**"));
     assert!(says_done("- LOOP_DONE."));
-    assert!(says_done("loopdone")); // case/underscore tolerant
-    // Must be its own line, not buried in prose.
+    assert!(says_done("loopdone"));
     assert!(!says_done("I will write LOOP_DONE when finished"));
     assert!(!says_done("not finished yet"));
 }
 
-/// Only a note that asks the run itself to wrap up or stop may let a done
-/// claim end a loop with no acceptance command. The notes on the mlx, cuda
-/// and sig loops of 2026-10-15 asked for nothing of the kind.
 #[test]
 fn only_a_wrap_up_note_lets_a_done_claim_end_the_run() {
     for note in [
@@ -597,11 +579,6 @@ fn only_a_wrap_up_note_lets_a_done_claim_end_the_run() {
     }
 }
 
-/// A restated plan is not progress. Sol restated the same "submit + delegate
-/// a moonshot" plan five consecutive turns (overwatch 2026-09-25) while
-/// churning the workspace, so `workspace_changed`/novel receipts kept
-/// resetting `stale_count` and the stall ladder never fired. An
-/// effectively-identical consecutive reply must not credit progress.
 #[test]
 fn a_repeated_reply_does_not_reset_staleness_even_with_churn() {
     let _env = crate::tests::env_lock();
@@ -615,7 +592,6 @@ fn a_repeated_reply_does_not_reset_staleness_even_with_churn() {
     let plan = "DIRECTION: submit the carrier and delegate a moonshot\n\
                 FINDINGS:\n\
                 - the subset slot is free [evidence: file:a.rs:1]";
-    // Churn that used to mask restatement: a novel outcome receipt each turn.
     let mut tools = ToolStripSnapshot {
         calls: 2,
         ..ToolStripSnapshot::default()
@@ -649,8 +625,6 @@ fn a_repeated_reply_does_not_reset_staleness_even_with_churn() {
     let _ = std::fs::remove_dir_all(&workspace);
 }
 
-/// The detector must not fire on a reply that actually moved on: a different
-/// direction with fresh admissible findings still resets staleness.
 #[test]
 fn a_changed_reply_with_fresh_findings_still_resets_staleness() {
     let _env = crate::tests::env_lock();

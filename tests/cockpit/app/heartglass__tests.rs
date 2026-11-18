@@ -15,10 +15,6 @@ use super::heart::{self, Part};
 use super::{Grid, Layout, Panel};
 use crate::ui::orrery;
 
-// ------------------------------------------------------------ synthetic ----
-
-/// The palette the cartridge writes (its `cloud.py`), with each group's
-/// cardiac flag.
 pub(super) const GROUPS: [(&str, [u8; 3], bool); 9] = [
     ("myocardium", [255, 64, 88], true),
     ("endocardium", [64, 224, 255], true),
@@ -31,7 +27,6 @@ pub(super) const GROUPS: [(&str, [u8; 3], bool); 9] = [
     ("other", [200, 200, 210], false),
 ];
 
-/// A small deterministic generator: no clock, no global state.
 struct Rng(u64);
 
 impl Rng {
@@ -51,11 +46,8 @@ impl Rng {
     }
 }
 
-/// One synthetic stage: `(label, kind, board, points)`, each point
-/// `(x, y, z, group)`.
 pub(super) type StageSpec = (String, u8, String, Vec<([f32; 3], u8)>);
 
-/// A made-up heart-ish stage: a tube of cells bent like a C, `n` of them.
 pub(super) fn tube(label: &str, kind: u8, board: &str, n: usize, seed: u64) -> StageSpec {
     let mut rng = Rng(seed | 1);
     let points = (0..n)
@@ -74,7 +66,6 @@ pub(super) fn tube(label: &str, kind: u8, board: &str, n: usize, seed: u64) -> S
     (label.to_string(), kind, board.to_string(), points)
 }
 
-/// Encode stages exactly as the cartridge's `cloud.encode` does.
 pub(super) fn encode(stages: &[StageSpec]) -> Vec<u8> {
     let mut out = b"VECCLD01".to_vec();
     out.extend_from_slice(&(GROUPS.len() as u32).to_le_bytes());
@@ -103,7 +94,6 @@ pub(super) fn encode(stages: &[StageSpec]) -> Vec<u8> {
     out
 }
 
-/// Encode a decoded cloud again, from its own groups.
 fn reencode(cloud: &Cloud) -> Vec<u8> {
     let mut out = b"VECCLD01".to_vec();
     out.extend_from_slice(&(cloud.groups.len() as u32).to_le_bytes());
@@ -139,8 +129,6 @@ pub(super) fn three_stages() -> Vec<StageSpec> {
     ]
 }
 
-/// Where in an encoded file the first stage's count of points is, and the
-/// first point's group byte.
 fn offsets(bytes: &[u8]) -> (usize, usize) {
     let mut at = 8 + 4;
     for (name, _, _) in GROUPS {
@@ -154,7 +142,6 @@ fn offsets(bytes: &[u8]) -> (usize, usize) {
     (at, at + 4 + 12)
 }
 
-/// A board as the contract writes it, with every field filled.
 fn board_json(sha: &str) -> String {
     let board = |key: &str,
                  short: &str,
@@ -216,8 +203,6 @@ fn board_json(sha: &str) -> String {
     )
 }
 
-// ---------------------------------------------------------------- cloud ----
-
 #[test]
 fn a_cloud_round_trips_through_the_reader() {
     let stages = three_stages();
@@ -237,7 +222,6 @@ fn a_cloud_round_trips_through_the_reader() {
             assert_eq!(p.cardiac, GROUPS[usize::from(*group)].2);
         }
     }
-    // An empty cloud (no groups, no stages) is a cloud with nothing in it.
     let mut empty = b"VECCLD01".to_vec();
     empty.extend_from_slice(&0u32.to_le_bytes());
     empty.extend_from_slice(&0u32.to_le_bytes());
@@ -253,21 +237,17 @@ fn a_cloud_round_trips_through_the_reader() {
 #[test]
 fn the_reader_holds_the_contracts_bounds() {
     let good = encode(&three_stages());
-    // Not a cloud.
     assert_eq!(decode_cloud(b""), Err(CloudError::NotCloud));
     assert_eq!(
         decode_cloud(b"VECCLD02\0\0\0\0\0\0\0\0"),
         Err(CloudError::NotCloud)
     );
-    // Past 16 MiB, whatever it holds.
     let mut big = good.clone();
     big.resize(MAX_CLOUD_BYTES + 1, 0);
     assert_eq!(decode_cloud(&big), Err(CloudError::TooBig));
-    // 65 groups.
     let mut groups = good.clone();
     groups[8..12].copy_from_slice(&(MAX_GROUPS + 1).to_le_bytes());
     assert_eq!(decode_cloud(&groups), Err(CloudError::TooManyGroups));
-    // 17 stages.
     let mut stages_at = 12;
     for (name, _, _) in GROUPS {
         stages_at += 4 + name.len();
@@ -275,34 +255,27 @@ fn the_reader_holds_the_contracts_bounds() {
     let mut many = good.clone();
     many[stages_at..stages_at + 4].copy_from_slice(&(MAX_STAGES + 1).to_le_bytes());
     assert_eq!(decode_cloud(&many), Err(CloudError::TooManyStages));
-    // 20,001 points in a stage.
     let (count_at, group_at) = offsets(&good);
     let mut points = good.clone();
     points[count_at..count_at + 4].copy_from_slice(&(MAX_POINTS + 1).to_le_bytes());
     assert_eq!(decode_cloud(&points), Err(CloudError::TooManyPoints));
-    // A group index out of range.
     let mut group = good.clone();
     group[group_at] = 9;
     assert_eq!(decode_cloud(&group), Err(CloudError::GroupOutOfRange));
-    // A stage kind that is neither observed nor ours.
     let kind_at = count_at - 1 - 1;
     assert_eq!(good[kind_at], 0, "the first stage is observed");
     let mut kind = good.clone();
     kind[kind_at] = 2;
     assert_eq!(decode_cloud(&kind), Err(CloudError::BadKind));
-    // A coordinate that is not a number.
     let mut nan = good.clone();
     nan[count_at + 4..count_at + 8].copy_from_slice(&f32::NAN.to_le_bytes());
     assert_eq!(decode_cloud(&nan), Err(CloudError::NotFinite));
-    // A name that is not UTF-8.
     let mut name = good.clone();
     name[16] = 0xFF;
     assert_eq!(decode_cloud(&name), Err(CloudError::NotUtf8));
-    // A byte past the end.
     let mut trailing = good.clone();
     trailing.push(0);
     assert_eq!(decode_cloud(&trailing), Err(CloudError::TrailingBytes));
-    // Every proper prefix is refused, never read in part.
     for end in 0..good.len() {
         assert!(
             decode_cloud(&good[..end]).is_err(),
@@ -322,24 +295,20 @@ fn thousands_of_mutated_clouds_are_refused_or_read_within_bounds() {
     for round in 0..6000 {
         let mut bytes = good.clone();
         match round % 6 {
-            // Flip a few bytes anywhere.
             0 | 1 => {
                 for _ in 0..1 + rng.below(4) {
                     let i = rng.below(bytes.len());
                     bytes[i] ^= 1 << rng.below(8);
                 }
             }
-            // Overwrite a byte with an extreme.
             2 => {
                 let i = rng.below(bytes.len());
                 bytes[i] = [0x00, 0xFF, 0x7F, 0x80][rng.below(4)];
             }
-            // Cut it short.
             3 => {
                 let end = rng.below(bytes.len());
                 bytes.truncate(end);
             }
-            // Insert or remove a run.
             4 => {
                 let i = rng.below(bytes.len());
                 let n = 1 + rng.below(16);
@@ -349,7 +318,6 @@ fn thousands_of_mutated_clouds_are_refused_or_read_within_bounds() {
                     bytes.drain(i..(i + n).min(bytes.len()));
                 }
             }
-            // Lie in a count.
             _ => {
                 let i = rng.below(bytes.len().saturating_sub(4));
                 bytes[i..i + 4].copy_from_slice(&(rng.next() as u32).to_le_bytes());
@@ -367,8 +335,6 @@ fn thousands_of_mutated_clouds_are_refused_or_read_within_bounds() {
                         assert!(p.pos.iter().all(|v| v.is_finite()));
                     }
                 }
-                // What was accepted re-encodes to exactly its own length:
-                // nothing was skipped or guessed.
                 assert_eq!(
                     reencode(&cloud).len(),
                     bytes.len(),
@@ -379,15 +345,11 @@ fn thousands_of_mutated_clouds_are_refused_or_read_within_bounds() {
         }
     }
     println!("mutated clouds: {accepted} read within bounds, {refused} refused");
-    // Both happen often: a flipped coordinate is still a cloud, a lying
-    // count or a cut is not.
     assert!(
         refused > 1500 && accepted > 1500,
         "{accepted} accepted, {refused} refused"
     );
 }
-
-// ---------------------------------------------------------------- board ----
 
 #[test]
 fn a_full_board_parses_as_the_contract_writes_it() {
@@ -415,7 +377,6 @@ fn a_full_board_parses_as_the_contract_writes_it() {
     assert_eq!(hx.history.len(), 2);
     assert!(!hx.history[0].official && hx.history[1].official);
     assert_eq!(hx.latest_official().map(|m| m.score), Some(61.2));
-    // 2026-10-27T00:00:00Z.
     assert_eq!(c.phase.collab_ends, Some(1_793_059_200));
     assert_eq!(c.phase.name, "P2");
     assert_eq!(c.quest.heart_proxy_runs, 7);
@@ -431,7 +392,6 @@ fn a_full_board_parses_as_the_contract_writes_it() {
 
 #[test]
 fn missing_and_null_fields_read_as_unknown() {
-    // Only a key: everything else is unknown, the floor is 50.
     let c = parse_board(br#"{"schema": "vec.board/1", "boards": [{"key": "T1:val"}]}"#)
         .expect("a sparse board");
     let b = &c.boards[0];
@@ -441,7 +401,6 @@ fn missing_and_null_fields_read_as_unknown() {
     assert!(b.ours_best.is_none() && b.proxy_best.is_none() && b.history.is_empty());
     assert_eq!(b.budget, campaign::Budget::default());
     assert!(c.cloud.is_none() && c.events.is_empty() && c.phase.collab_ends.is_none());
-    // Nulls, wrong types and a best with no score.
     let c = parse_board(
         br#"{"schema": "vec.board/1", "boards": [{"key": "HX", "ve_leader": null, "ve_top10": "71",
             "ours_best": {"score": null}, "proxy_best": {"at": "x"}, "budget": {"used": -1, "limit": "2"},
@@ -457,7 +416,6 @@ fn missing_and_null_fields_read_as_unknown() {
     assert_eq!(b.history[0].score, 52.5);
     assert!(c.cloud.is_none(), "a digest that is not one names no cloud");
     assert!(c.phase.collab_ends.is_none());
-    // Boards without a key are left out; a board list with none is no campaign.
     let c = parse_board(br#"{"schema": "vec.board/1", "boards": [{"label": "x"}, {"key": "G4"}]}"#)
         .unwrap();
     assert_eq!(c.boards.len(), 1);
@@ -483,7 +441,6 @@ fn what_is_not_a_board_is_no_campaign() {
             String::from_utf8_lossy(bad)
         );
     }
-    // A cut board is no campaign, at every length.
     let full = board_json(&"b".repeat(64));
     for end in (0..full.len() - 1).step_by(7) {
         assert!(
@@ -491,7 +448,6 @@ fn what_is_not_a_board_is_no_campaign() {
             "cut at {end}"
         );
     }
-    // Past a megabyte, whatever it holds.
     let mut big = full.clone().into_bytes();
     big.truncate(big.len() - 1);
     big.extend(std::iter::repeat_n(b' ', 1 << 20));
@@ -538,7 +494,6 @@ fn a_new_official_score_is_noticed_once() {
         None,
         "nothing new against itself"
     );
-    // A second official score on HI.
     let after = board_json(&sha).replacen(
         r#""key": "T2:heart:val_interp", "track": "t", "label": "Heart interp E8.5", "short": "HI", "heart": true,
                "floor": 50.0, "baseline": 50.0, "ve_leader": 73.0, "ve_top10": 69.5, "ve_partner": 56.5,
@@ -556,7 +511,6 @@ fn a_new_official_score_is_noticed_once() {
     assert_eq!(row, 1);
     assert_eq!(mark.score, 58.4);
     assert_eq!(after.new_official_since(&after), None);
-    // A proxy score alone is not official.
     let proxied = board_json(&sha).replace(
         r#""proxy_best": {"score": 63.0"#,
         r#""proxy_best": {"score": 66.0"#,
@@ -565,9 +519,6 @@ fn a_new_official_score_is_noticed_once() {
     assert_eq!(proxied.new_official_since(&before), None);
 }
 
-// -------------------------------------------------------------- watcher ----
-
-/// A fresh folder of its own under the test's temporary directory.
 fn folder(name: &str) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!("heartglass-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -575,8 +526,6 @@ fn folder(name: &str) -> std::path::PathBuf {
     dir
 }
 
-/// Write `bytes` to `path` the cartridge's way (tmp + rename), with a
-/// modification time of its own, so a poll always sees it changed.
 fn write(path: &Path, bytes: &[u8], stamp: u64) {
     let tmp = path.with_extension("tmp");
     std::fs::write(&tmp, bytes).unwrap();
@@ -596,7 +545,6 @@ fn the_watcher_reads_a_campaign_and_its_cloud_only_when_they_change() {
         *now += Duration::from_millis(1100);
         w.poll(*now)
     };
-    // Nothing there: no campaign yet.
     assert_eq!(tick(&mut w, &mut now), campaign::Changes::default());
     assert!(w.campaign().is_none() && w.cloud().is_none());
 
@@ -610,27 +558,22 @@ fn the_watcher_reads_a_campaign_and_its_cloud_only_when_they_change() {
     assert_eq!(w.cloud().map(|c| c.stages.len()), Some(4));
     let first = std::sync::Arc::clone(w.cloud().unwrap());
 
-    // Polled again within the second: nothing is looked at.
     assert_eq!(
         w.poll(now + Duration::from_millis(200)),
         campaign::Changes::default()
     );
 
-    // The cloud file changes under a board that still names the old one:
-    // it is not read (the board's digest is what says a cloud changed).
     let cloud_b = encode(&three_stages()[..2]);
     write(&dir.join("heart_cloud.bin"), &cloud_b, 3);
     assert_eq!(tick(&mut w, &mut now), campaign::Changes::default());
     assert!(std::sync::Arc::ptr_eq(w.cloud().unwrap(), &first));
 
-    // A board that changes but names the same cloud: the cloud stays as it is.
     let same = board_json(&sha_a).replace("HX 61.2", "HX 61.2 again");
     write(&dir.join("board.json"), same.as_bytes(), 4);
     let changes = tick(&mut w, &mut now);
     assert!(changes.board && !changes.cloud);
     assert!(std::sync::Arc::ptr_eq(w.cloud().unwrap(), &first));
 
-    // The board names the new cloud: read, checked against the digest.
     write(
         &dir.join("board.json"),
         board_json(&sha256_hex(&cloud_b)).as_bytes(),
@@ -640,7 +583,6 @@ fn the_watcher_reads_a_campaign_and_its_cloud_only_when_they_change() {
     assert!(changes.board && changes.cloud);
     assert_eq!(w.cloud().map(|c| c.stages.len()), Some(2));
 
-    // A board naming a cloud whose bytes are not those: the shown cloud stays.
     write(
         &dir.join("board.json"),
         board_json(&"d".repeat(64)).as_bytes(),
@@ -650,8 +592,6 @@ fn the_watcher_reads_a_campaign_and_its_cloud_only_when_they_change() {
     assert!(changes.board && !changes.cloud);
     assert_eq!(w.cloud().map(|c| c.stages.len()), Some(2));
 
-    // A malformed cloud the board names: no cloud yet, and not read again
-    // until the board names another.
     let mut broken = encode(&three_stages());
     broken.push(7);
     write(&dir.join("heart_cloud.bin"), &broken, 7);
@@ -665,7 +605,6 @@ fn the_watcher_reads_a_campaign_and_its_cloud_only_when_they_change() {
     assert!(w.cloud().is_none());
     assert_eq!(tick(&mut w, &mut now), campaign::Changes::default());
 
-    // A malformed board: no campaign, no cloud.
     write(
         &dir.join("board.json"),
         b"{\"schema\": \"vec.board/1\", \"boards\": [",
@@ -675,17 +614,12 @@ fn the_watcher_reads_a_campaign_and_its_cloud_only_when_they_change() {
     assert!(changes.board);
     assert!(w.campaign().is_none() && w.cloud().is_none());
 
-    // The board goes away: still nothing, and no panic.
     std::fs::remove_file(dir.join("board.json")).unwrap();
     tick(&mut w, &mut now);
     assert!(w.campaign().is_none());
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-// --------------------------------------------------------------- layout ----
-
-/// The window sizes the panel is checked in: the nested seat's, laptop and
-/// desktop screens, a 4K one, and a tall narrow one.
 const WINDOWS: [(u32, u32); 6] = [
     (1576, 880),
     (1600, 900),
@@ -695,7 +629,6 @@ const WINDOWS: [(u32, u32); 6] = [
     (1100, 1300),
 ];
 
-/// The four corners of `rect` grown by `grow`, leaned with the panel.
 fn leaned_corners(rect: Panel, grow: f32, centre: [f32; 2]) -> [[f32; 2]; 4] {
     let (x0, y0, x1, y1) = (
         rect.x - grow,
@@ -706,7 +639,6 @@ fn leaned_corners(rect: Panel, grow: f32, centre: [f32; 2]) -> [[f32; 2]; 4] {
     [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map(|p| super::leaned_point(p, centre))
 }
 
-/// The Orrery's corners grown by `grow`, leaned its own way.
 fn orrery_corners(rect: Panel, grow: f32) -> [[f32; 2]; 4] {
     let (x0, y0, x1, y1) = (
         rect.x - grow,
@@ -725,7 +657,6 @@ fn inside(inner: Panel, outer: Panel) -> bool {
         && inner.y + inner.h <= outer.y + outer.h + 1e-3
 }
 
-/// The header's rows the panel must stay below, and the composer's above.
 const HEADER_PX: f32 = 3.0 * 25.0;
 const COMPOSER_PX: f32 = 3.0 * 25.0;
 
@@ -736,7 +667,6 @@ fn the_panel_stays_in_the_window_and_off_the_header() {
         let l = Layout::for_grid(grid, None, 5)
             .unwrap_or_else(|| panic!("{width}x{height} floats the panel"));
         let p = l.panel;
-        // Its brackets reach 7 px past the plate; the lean turns them.
         for [x, y] in leaned_corners(p, 7.0, p.centre()) {
             assert!(x >= 0.0 && x <= width as f32, "{width}x{height}: x {x}");
             assert!(y >= HEADER_PX, "{width}x{height}: over the header at y {y}");
@@ -745,7 +675,6 @@ fn the_panel_stays_in_the_window_and_off_the_header() {
                 "{width}x{height}: over the composer at y {y}"
             );
         }
-        // Every part sits inside the plate, top to bottom without overlap.
         let parts = [l.title, l.heart, l.stages, l.axis];
         for part in parts.iter().chain(&l.rows).chain([&l.legend, &l.ticker]) {
             assert!(inside(*part, p), "{width}x{height}: {part:?} outside {p:?}");
@@ -761,13 +690,10 @@ fn the_panel_stays_in_the_window_and_off_the_header() {
         }
         assert!(l.heart.h >= super::MIN_HEART && l.heart.h <= super::MAX_HEART);
         assert_eq!(l.rows.len(), 5);
-        // Right-anchored two cells in (and in by its lean), below the header.
         let lean = p.h * 0.5 * super::TILT.abs().sin();
         assert!((p.x + p.w + lean - (width as f32 - 24.0)).abs() < 1e-3);
         assert!((p.y - 110.0).abs() < 1e-3);
     }
-    // In the nested seat (1576 x 880) it is 40 columns wide and the heart
-    // gets the room left after the boards.
     let l = Layout::for_grid(
         Grid {
             width: 1576,
@@ -784,7 +710,6 @@ fn the_panel_stays_in_the_window_and_off_the_header() {
 
 #[test]
 fn small_windows_float_no_panel() {
-    // Too narrow, too short, or with no room for the heart over the boards.
     for (width, height) in [(900, 1000), (1600, 560), (1280, 720), (400, 300), (0, 0)] {
         assert_eq!(
             Layout::for_grid(Grid { width, height }, None, 5),
@@ -830,7 +755,6 @@ fn the_panel_stands_beside_the_orrery_or_below_it_never_on_it() {
             );
         }
     }
-    // A wide window puts it beside, level with the Orrery's top.
     let grid = Grid {
         width: 1920,
         height: 1080,
@@ -855,8 +779,6 @@ fn rows_follow_the_board_count() {
         campaign::MAX_BOARDS
     );
 }
-
-// ---------------------------------------------------------------- heart ----
 
 fn cloud() -> Cloud {
     decode_cloud(&encode(&three_stages())).unwrap()
@@ -887,7 +809,6 @@ fn a_stage_becomes_slab_meshes_the_gpu_takes() {
             assert_eq!(mesh.groups.len(), slab.parts.len());
             assert!(slab.band[0] < slab.band[1]);
             for (&(_, count), part) in mesh.groups.iter().zip(&slab.parts) {
-                // Eight triangles a gem.
                 assert_eq!(count % 24, 0);
                 match part {
                     Part::Halo => halos += count / 24,
@@ -931,7 +852,6 @@ fn cardiac_cells_keep_their_lineage_colour_and_the_rest_dim() {
             }
         }
     }
-    // Strays far from the heart are left out.
     let mut stages = three_stages();
     stages[0].3.push(([9.0, 0.0, 0.0], 0));
     let cloud = decode_cloud(&encode(&stages)).unwrap();
@@ -953,10 +873,8 @@ fn the_cycle_builds_the_first_stage_then_scans_from_each_to_the_next() {
     assert!((m.k - 0.5).abs() < 1e-3);
     let m = moment(3.0 * (HOLD + SCAN) + 0.1, 3).unwrap();
     assert_eq!((m.from, m.to), (Some(2), 0), "it comes round");
-    // One stage builds once and then holds.
     let m = moment(5.0 * (HOLD + SCAN) + 0.1, 1).unwrap();
     assert_eq!((m.from, m.to, m.k), (None, 0, 1.0));
-    // A clock that is not a number is the start.
     assert_eq!(moment(f32::NAN, 2).unwrap().to, 0);
 }
 
@@ -974,7 +892,6 @@ fn a_scan_trades_each_slab_of_the_old_stage_for_the_new() {
     }
     assert_eq!(heart::presence(band, heart::scan_height(0.0), true), 0.0);
     assert_eq!(heart::presence(band, heart::scan_height(1.0), true), 1.0);
-    // Lower slabs come in first.
     let scan = heart::scan_height(0.5);
     assert!(heart::presence([-1.0, -0.8], scan, true) > heart::presence([0.8, 1.0], scan, true));
 }
@@ -1003,7 +920,6 @@ fn the_scene_draws_the_stage_in_front_and_both_while_scanning() {
             })
             .collect::<std::collections::HashSet<_>>()
     };
-    // Held: stage 1 alone, every slab.
     let held = heart::scene(
         &built,
         heart::Pose {
@@ -1017,7 +933,6 @@ fn the_scene_draws_the_stage_in_front_and_both_while_scanning() {
             .iter()
             .any(|n| n.mesh == Some(MeshRef::Uploaded(heart::RING_MESH)))
     );
-    // Mid-scan: some of stage 1 going, some of stage 2 coming.
     let mid = heart::scene(
         &built,
         heart::Pose {
@@ -1028,7 +943,6 @@ fn the_scene_draws_the_stage_in_front_and_both_while_scanning() {
     let shown = meshes(&mid);
     assert!(!shown.is_disjoint(&ids(1)) && !shown.is_disjoint(&ids(2)));
     assert!(shown.is_subset(&ids(1).union(&ids(2)).copied().collect()));
-    // Every slab hangs from the beating root, and the draw list is sound.
     for node in &mid.nodes {
         if let Some(MeshRef::Uploaded(id)) = node.mesh
             && id != heart::RING_MESH
@@ -1043,7 +957,6 @@ fn the_scene_draws_the_stage_in_front_and_both_while_scanning() {
         }
     }
     assert!(!mid.draw_list().is_empty());
-    // No stages: the ring idles alone.
     let idle = heart::scene(&[], heart::Pose { t: 3.0, flare: 0.0 });
     assert!(meshes(&idle).is_empty());
     assert_eq!(idle.draw_list().len(), 1);
@@ -1059,7 +972,6 @@ fn the_heart_beats_and_swells_more_in_a_flare() {
         (0.0..0.05).contains(&lo) && hi > 0.95 && hi < 1.2,
         "{lo}..{hi}"
     );
-    // The trace's spike is on the beat's lub.
     let spike = (0..1000)
         .map(|i| i as f32 * heart::BEAT_PERIOD / 1000.0)
         .fold((0.0, f32::MIN), |best, t| {
@@ -1081,7 +993,6 @@ fn the_heart_beats_and_swells_more_in_a_flare() {
             .scale[0]
     };
     assert!(scale(1.0) > scale(0.0));
-    // The centre of the heart lands inside its viewport.
     let c = heart::project([0.0, 0.0, 0.0], (900, 640)).unwrap();
     assert!(
         (0.3..0.7).contains(&c[0]) && (0.2..0.8).contains(&c[1]),
@@ -1097,7 +1008,6 @@ fn the_heart_beats_and_swells_more_in_a_flare() {
 #[test]
 fn a_flare_rises_from_its_first_frame_and_runs_its_course() {
     let flare = heart::Flare { at: 10.0, row: 2 };
-    // Its first frame is dark but the flare is not over: it rises next.
     assert_eq!(flare.strength(10.0), 0.0);
     assert!(!flare.over(10.0));
     assert!(flare.strength(10.15) > 0.9);
@@ -1112,7 +1022,6 @@ fn a_flare_rises_from_its_first_frame_and_runs_its_course() {
     assert_eq!(flare.strength(9.0), 0.0, "nothing before it began");
 }
 
-/// Campaigns with nothing in them still have a sane score range.
 #[test]
 fn an_empty_campaign_is_handled_everywhere() {
     let c = Campaign {
@@ -1127,24 +1036,18 @@ fn an_empty_campaign_is_handled_everywhere() {
     assert_eq!(c.new_official_since(&c), None);
 }
 
-// -------------------------------------------------------------- command ----
-
 #[test]
 fn heart_is_a_built_in_command_ahead_of_any_cartridges() {
     use crate::ui::input::{ParsedInput, cartridge_command, parse, slash_command_matches};
     assert!(matches!(parse("/heart").unwrap(), ParsedInput::Heart));
     assert!(matches!(parse("  /heart  ").unwrap(), ParsedInput::Heart));
-    // A cartridge's own `/heart` is never reached: the built-in wins.
     assert!(cartridge_command("heart").is_none());
     assert!(slash_command_matches("/hea").contains(&"heart"));
     assert!(
         slash_command_matches("/hea").contains(&"hear"),
         "/hear is still there"
     );
-    // `/hear <audio>` keeps its meaning.
     assert!(!matches!(parse("/hear clip.wav"), Ok(ParsedInput::Heart)));
-    // Its two looks: floating over the window, and back on the plate; and
-    // the floating modules back where they were designed.
     assert!(matches!(parse("/heart float").unwrap(), ParsedInput::HeartLook(true)));
     assert!(matches!(parse("/heart  plate ").unwrap(), ParsedInput::HeartLook(false)));
     assert!(matches!(parse("/heart reset").unwrap(), ParsedInput::HeartReset));
@@ -1193,7 +1096,6 @@ fn the_demo_campaign_is_synthetic_labelled_and_in_bounds() {
                 && p.cardiac == (p.group < 4)
         }));
     }
-    // The demo cloud survives the contract's own codec, both ways.
     assert_eq!(decode_cloud(&reencode(&cloud)).unwrap(), cloud);
 }
 
@@ -1212,7 +1114,6 @@ fn the_demo_watcher_serves_from_memory_and_never_polls_a_folder() {
 
 #[test]
 fn outside_the_window_heart_says_where_the_panel_lives() {
-    // A test run has no window: the toggle changes nothing.
     assert_eq!(super::toggle(), super::Toggled::NoWindow);
     assert!(!super::visible());
     super::launch_if_requested();

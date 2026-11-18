@@ -9,7 +9,6 @@ pub struct Item {
     pub label: &'static str,
 }
 
-// Stable IDs are saved and exported. Labels may change without losing votes.
 macro_rules! items {
     ($(($id:literal, $group:literal, $label:literal)),* $(,)?) => {
         pub const ITEMS: &[Item] = &[$(Item { id: $id, group: $group, label: $label }),*];
@@ -340,7 +339,6 @@ impl Run {
         for seat in self.playtest.seats.values_mut() {
             seat.hint = seat.hint.saturating_sub(1);
         }
-        // Nothing to strip: the map the caller holds is the ballot.
         if inputs
             .iter()
             .all(|(&id, input)| !input.skip_plate && input.vote.is_none() && !self.playtest.open(id))

@@ -5,8 +5,6 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 
-// Bound metadata work, not the worker's workspace size. Incomplete coverage is
-// reported; unscanned directories are never made read-only.
 const MAX_ENTRIES: usize = 50_000;
 
 #[derive(Debug, Default)]
@@ -14,7 +12,6 @@ pub(super) struct Scan {
     pub paths: Vec<PathBuf>,
     pub limited: Vec<PathBuf>,
     pub visited: usize,
-    /// Shared temp roots excluded from the walk (documented non-promise).
     pub skipped_temp_roots: Vec<PathBuf>,
 }
 
@@ -37,11 +34,6 @@ impl Scan {
         })
     }
 
-    /// The pre-exec stderr line: counts only. The per-path digest arrays can
-    /// run to kilobytes on a limited scan and, since the helper shares the
-    /// child's stderr, they used to displace the child's own output from every
-    /// bounded tool receipt (a `node --test` tail became a hash dump). The full
-    /// digest receipt stays available under `ANGEL_SANDBOX_TRACE=1`.
     pub fn stderr_line(&self) -> serde_json::Value {
         if matches!(
             std::env::var("ANGEL_SANDBOX_TRACE").as_deref(),
@@ -68,12 +60,6 @@ pub(super) fn scan(roots: &[PathBuf]) -> io::Result<Scan> {
         .collect::<io::Result<Vec<_>>>()?;
     roots.sort();
     roots.dedup();
-    // Shared temp roots (/tmp, /var/tmp, the process temp dir) are writable by
-    // policy and are NOT alias-scanned: they hold tens of thousands of foreign
-    // entries, so walking them on every spawn cost seconds and broke tool
-    // liveness, and writes under them are a documented non-promise
-    // (docs/security/workspace-confinement.md, default-command-temp). Explicit
-    // workspace/cache roots that merely live under a temp root stay scanned.
     let shared_temp = shared_temp_roots();
     let mut skipped_temp = Vec::new();
     roots.retain(|root| {
@@ -100,7 +86,6 @@ pub(super) fn scan(roots: &[PathBuf]) -> io::Result<Scan> {
     Ok(scan)
 }
 
-/// Canonical shared temp roots the alias scan never walks.
 fn shared_temp_roots() -> Vec<PathBuf> {
     let mut roots = vec![
         PathBuf::from("/tmp"),
@@ -139,10 +124,6 @@ fn scan_with_limit(roots: &[PathBuf], limit: usize) -> io::Result<Scan> {
                 ),
             )
         };
-        // An entry the scan cannot inspect (another user's 0700 directory under a
-        // shared temp root, a file that vanished mid-walk) must never abort the
-        // sandbox launch: it is recorded as unscanned and the receipt says the
-        // alias check was partial. Only a genuinely broken root fails the plan.
         let metadata = match std::fs::symlink_metadata(&path) {
             Ok(metadata) => metadata,
             Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
@@ -157,7 +138,6 @@ fn scan_with_limit(roots: &[PathBuf], limit: usize) -> io::Result<Scan> {
             *links = (*links).max(metadata.nlink());
             paths.push(path);
         } else if metadata.is_dir() {
-            // Pin before enumeration; a swapped ancestor symlink is rejected.
             let directory: File = match super::bwrap::pin_source(&path) {
                 Ok(directory) => directory,
                 Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
@@ -178,8 +158,6 @@ fn scan_with_limit(roots: &[PathBuf], limit: usize) -> io::Result<Scan> {
                     Err(error) => return Err(scan_error("enumerate directory", error)),
                 };
             for entry in entries {
-                // Bound memory as well as metadata calls. Protect the entire
-                // directory if enumeration would exceed the remaining budget.
                 if pending.len() >= limit.saturating_sub(scan.visited) {
                     scan.limited.push(path.clone());
                     break;
@@ -193,10 +171,6 @@ fn scan_with_limit(roots: &[PathBuf], limit: usize) -> io::Result<Scan> {
             }
         }
     }
-    // Cargo commonly hardlinks incremental artifacts within its own writable
-    // trees. Only protect an inode when some alias is outside the observed
-    // grants. Missing/inaccessible/unscanned aliases remain conservatively
-    // external because the observed count is then lower than st_nlink.
     for (links, mut paths) in aliases.into_values() {
         paths.sort();
         paths.dedup();
@@ -211,7 +185,6 @@ fn scan_with_limit(roots: &[PathBuf], limit: usize) -> io::Result<Scan> {
     Ok(scan)
 }
 
-/// Copy work is bounded; exhausted or failed copies are explicit degradation.
 pub(super) fn privatize(scan: &Scan) -> serde_json::Value {
     privatize_with_limits(scan, 64, 64 * 1024 * 1024)
 }
@@ -243,13 +216,12 @@ fn privatize_with_limits(scan: &Scan, max_count: usize, max_bytes: u64) -> serde
             continue;
         };
         if !external.contains(&(meta.dev(), meta.ino())) {
-            continue; // Every alias is in the scanned writable trees.
+            continue;
         }
         if attempted >= max_count || meta.len() > max_bytes.saturating_sub(bytes) {
             unprotected.push(path.clone());
             continue;
         }
-        // Charge attempted bytes too, so IO failures cannot evade the copy bound.
         attempted += 1;
         bytes += meta.len();
         if private_copy(path, &meta).is_ok() {

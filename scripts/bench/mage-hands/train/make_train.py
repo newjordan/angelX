@@ -1,11 +1,3 @@
-"""Training samples for Mage-as-hands, dev split only (bench test apps and
-test web domains never appear). Each sample is ground's exact request: a
-view of the screen (full frame, or a 2x/3x crop scaled back to full size, its
-centre jittered off the target like a real cascade step), an instruction in
-one of several phrasings, and Mage's own answer format with the box centre on
-the [0, 999] frame.
-  python3 -I make_train.py <out-dir>
-"""
 import collections, hashlib, json, os, random, re, shutil, sys
 from urllib.parse import urlparse
 
@@ -55,14 +47,13 @@ def phrase(name, kind, icon):
 
 
 def view(cx, cy, z):
-    """Crop (x0, y0, cw, ch) 1/z of the frame holding (cx, cy), its centre jittered off the target."""
     if z == 1:
         return None
     cw, ch = W // z, H // z
     jx, jy = rng.uniform(-0.35, 0.35) * cw, rng.uniform(-0.35, 0.35) * ch
     x0 = min(max(round(cx + jx - cw / 2), 0), W - cw)
     y0 = min(max(round(cy + jy - ch / 2), 0), H - ch)
-    x0 = min(max(x0, round(cx) - cw + 8), round(cx) - 8)  # keep the target inside with a margin
+    x0 = min(max(x0, round(cx) - cw + 8), round(cx) - 8)
     y0 = min(max(y0, round(cy) - ch + 8), round(cy) - 8)
     return [min(max(x0, 0), W - cw), min(max(y0, 0), H - ch), cw, ch]
 
@@ -91,7 +82,7 @@ for root, src in SOURCES:
             seen.add(n.lower())
             pool.append(e)
         rng.shuffle(pool)
-        pool.sort(key=lambda e: not is_icon(e, src))  # icons first: the weakness
+        pool.sort(key=lambda e: not is_icon(e, src))
         pool = pool[:CAP[src]]
         sid = hashlib.sha1(f"{root}/{p['shot']}".encode()).hexdigest()[:12]
         screens[sid] = f"{root}/{p['shot']}"

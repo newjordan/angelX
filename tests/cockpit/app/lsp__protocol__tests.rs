@@ -9,5 +9,5 @@ fn pull_report_normalizes_full_and_unchanged() {
     assert_eq!(p["diagnostics"].as_array().unwrap().len(), 1);
     let unchanged = json!({ "kind": "unchanged", "resultId": "1" });
     let p2 = pull_report_to_params("file:///a.rs", &unchanged);
-    assert_eq!(p2["diagnostics"].as_array().unwrap().len(), 0); // no items -> clean
+    assert_eq!(p2["diagnostics"].as_array().unwrap().len(), 0);
 }

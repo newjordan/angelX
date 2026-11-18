@@ -13,12 +13,9 @@ use crate::rules::brasswake::{
 };
 use crate::rules::juice::Weight;
 
-/// Ale: a pale head down to a dark amber.
 pub(super) const ALE: Ramp = Ramp(['9', 'T', 't', 'O', 'o', 'r']);
-/// Steam off a copper vat: bone to smoke.
 pub(super) const STEAM: Ramp = Ramp(['H', 'i', 'h', 'J', 'G', 'j']);
 
-/// What an effect needs to place itself on the screen.
 #[derive(Clone, Copy)]
 pub(super) struct Ctx<'a> {
     pub d: &'a Lane,
@@ -36,7 +33,6 @@ fn seed(m: &Mark, extra: u32) -> u32 {
     m.born.wrapping_mul(0x9E37_79B1).wrapping_add(extra.wrapping_mul(0x85EB_CA77)) ^ 0x2c1b_3c6d
 }
 
-/// A dithered shadow under a body's feet.
 pub(super) fn shadow(im: &mut Img, x: i32, y: i32, rx: i32, ry: i32, k: f32) {
     for dy in -ry..=ry {
         for dx in -rx..=rx {
@@ -48,10 +44,6 @@ pub(super) fn shadow(im: &mut Img, x: i32, y: i32, rx: i32, ry: i32, k: f32) {
     }
 }
 
-// ─── under the bodies ────────────────────────────────────────────────────────
-
-/// What lies on the floor: a puddle of ale where a cask broke, a scuff where a slam fell, the
-/// light of a gate that fell.
 pub(super) fn floor(im: &mut Img, c: Ctx) {
     for m in &c.d.show.marks {
         if m.wave != c.d.wave && !matches!(m.kind, Kind::Clear { .. }) {
@@ -82,7 +74,6 @@ pub(super) fn floor(im: &mut Img, c: Ctx) {
                 pen.shock((x as f32, y as f32 + 2.0), 6.0 + age as f32 * r / 12.0, 1.8, 0.4, ramps::SMOKE, age as f32 / 24.0);
             }
             Kind::Clear { .. } if age < 30 => {
-                // A shaft of light down the gate that fell.
                 let gx = (i32::from(m.wave) + 1) * 240 - c.cam;
                 let k = age as f32 / 30.0;
                 let half = (4.0 + 10.0 * ease::out((age as f32 / 8.0).min(1.0))) as i32;
@@ -100,8 +91,6 @@ pub(super) fn floor(im: &mut Img, c: Ctx) {
     }
 }
 
-/// A foe's telegraph: the danger rectangle fills with dither as the wind-up runs out, and a
-/// shrinking ring closes on the spot a slam will land; steam chevrons run the rush's length.
 pub(super) fn telegraph(im: &mut Img, c: Ctx, tell: u32) {
     for e in &c.d.foes {
         if !matches!(e.beat, Beat::Tell) || e.hp == 0 {
@@ -121,7 +110,6 @@ pub(super) fn telegraph(im: &mut Img, c: Ctx, tell: u32) {
             }
         }
         if e.rush {
-            // Chevrons that run toward the far end, faster as it nears.
             let step = 16;
             let slide = (c.now as i32 * 2) % step;
             let mut xx = if e.dir > 0 { x + 4 + slide } else { x + z.w - 4 - slide };
@@ -142,8 +130,6 @@ pub(super) fn telegraph(im: &mut Img, c: Ctx, tell: u32) {
     }
 }
 
-/// Where a thrown cask will land, and the cask coming down on it: a shadow that tightens, the cask
-/// falling out of the dark above the aisle, turning.
 pub(super) fn incoming_floor(im: &mut Img, c: Ctx, tell_total: u32) {
     for k in &c.d.incoming {
         if k.tell == 0 {
@@ -156,27 +142,21 @@ pub(super) fn incoming_floor(im: &mut Img, c: Ctx, tell_total: u32) {
         shadow(im, cx, cy + 4, (r * 1.2) as i32, (r * 0.45) as i32 + 1, 0.7 - t * 0.3);
         let mut pen = Pen::new(im, 160);
         pen.ring((cx as f32, cy as f32 + 2.0), 10.0 + 22.0 * t, 1.2, 0.45, ALE, 0.0);
-        // Whose cask it is: the thrower's colour on a pip over the mark.
         im.rect(cx - 3, z.y - 12, 6, 8, 'k');
         im.rect(cx - 2, z.y - 11, 4, 6, super::hud::pip(k.from));
     }
 }
 
-/// The height a falling cask is over its mark, `tell` ticks before it lands.
 pub(super) fn fall_height(tell: u32, total: u32) -> i32 {
     let t = tell as f32 / total.max(1) as f32;
     (t * t * 190.0) as i32
 }
-
-// ─── over the bodies ─────────────────────────────────────────────────────────
 
 fn splinters(pen: &mut Pen, at: (f32, f32), age: f32, sd: u32, n: u32, tick: u64) {
     let wood = Spray { gravity: 0.22, ..Spray::round(sd, n, at, (1.6, 4.2), (14.0, 26.0)) };
     wood.each(age, |m| pfx::mote(pen, &m, Shape::Shard, ramps::EARTH, 2, tick));
 }
 
-/// A blow landed: the spark and its splinters, dust at the heel on the heavy ones, stars and a
-/// foam of dust on a kill, a row of blasts down a keeper that falls.
 pub(super) fn blow(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     let Kind::Blow { swing, boss, slain, foe, .. } = m.kind else { return };
     let age = m.age(c.now);
@@ -187,7 +167,6 @@ pub(super) fn blow(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     let sd = seed(m, u32::from(foe));
     juice::impact_burst(im, at, age, sd, w, tick);
     if age < 3 {
-        // The instant of contact: a hard star, bigger for a heavier blow, that is gone in three ticks.
         let r = 3 + 2 * w as i32 + (2 - age as i32);
         let (cx, cy) = (at.0 as i32, at.1 as i32);
         for i in -r..=r {
@@ -212,7 +191,6 @@ pub(super) fn blow(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
             pen.shock((fx, fy + 2.0), 4.0 + age as f32 * 2.6, 1.6, 0.4, ramps::SMOKE, age as f32 / 18.0);
         }
         if swing == 2 && age < 9 {
-            // The kick's drive: speed lines thrown the way it went, long ones across the aisle.
             for i in 0..7 {
                 let off = hash(i, sd as i32, 3) as f32 % 34.0;
                 let len = 9.0 + (hash(i, sd as i32, 5) % 40) as f32;
@@ -229,7 +207,6 @@ pub(super) fn blow(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
         }
     }
     if boss && slain {
-        // The room whites out for the length of the hold, then the blasts roll down the keeper.
         if age < 7 {
             for y in TOP..BOTTOM {
                 for x in 0..W {
@@ -239,7 +216,6 @@ pub(super) fn blow(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
                 }
             }
         }
-        // A chain of blasts down the keeper's length, the vat roaring.
         for i in 0..9u32 {
             let start = i * 4;
             if age < start {
@@ -259,8 +235,6 @@ pub(super) fn blow(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     }
 }
 
-/// The swing in the air: a streak in front of the fist for a jab, an arc for the cross, a low
-/// sweep for the kick; it follows the knight.
 pub(super) fn swoosh(im: &mut Img, c: Ctx, tick: u64) {
     let d = c.d;
     for m in &d.show.marks {
@@ -298,7 +272,6 @@ pub(super) fn swoosh(im: &mut Img, c: Ctx, tick: u64) {
     }
 }
 
-/// A knight struck: the spark off the body and a ring; held off: a bright tick of steel.
 pub(super) fn hurt(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     let Kind::Hurt { guarded, boss } = m.kind else { return };
     let age = m.age(c.now);
@@ -321,8 +294,6 @@ pub(super) fn hurt(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     drops.each(age as f32, |mt| pfx::mote(&mut pen, &mt, Shape::Droplet, pfx::ramps::BLOOD, 1, tick));
 }
 
-/// A slam or a rush that came down: the floor cracks, dust and chips fly; the keeper's makes a
-/// bigger crater and thrown stone.
 pub(super) fn quake(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     let Kind::Quake { boss, rush, hit } = m.kind else { return };
     let age = m.age(c.now);
@@ -345,7 +316,6 @@ pub(super) fn quake(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     let _ = hit;
 }
 
-/// A cask breaking on the aisle: staves and hoops thrown, ale slopped in sheets, foam, a ring.
 pub(super) fn smash(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     let Kind::Smash { hit, .. } = m.kind else { return };
     let age = m.age(c.now);
@@ -367,7 +337,6 @@ pub(super) fn smash(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     }
 }
 
-/// Bread eaten: hearts rise off the knight, sparkles ring them.
 pub(super) fn bread(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     let age = m.age(c.now);
     let (x, y) = c.at(m.x, m.y);
@@ -379,7 +348,6 @@ pub(super) fn bread(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     glints.each(age as f32, |mt| pfx::mote(&mut pen, &mt, Shape::Star, ramps::GOLD, 1, tick));
 }
 
-/// The knight lifted a cask: a pop of dust at the hands; it left them: a ring and long lines.
 pub(super) fn heft(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     let age = m.age(c.now);
     if age > 14 {
@@ -406,7 +374,6 @@ pub(super) fn heft(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     }
 }
 
-/// A step: a puff of dust at the heel, rising and thinning.
 pub(super) fn step(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     let age = m.age(c.now);
     let (x, y) = c.at(m.x, m.y);
@@ -416,7 +383,6 @@ pub(super) fn step(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     dust.each(age as f32, |mt| pfx::mote(&mut pen, &mt, Shape::Smoke, ramps::SMOKE, 1, tick));
 }
 
-/// A fall: the knight hits the floor with a ring and a cloud; a rise: stars wheel off.
 pub(super) fn tumble(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     let age = m.age(c.now);
     let (x, y) = c.at(m.x, m.y);
@@ -425,7 +391,6 @@ pub(super) fn tumble(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     match m.kind {
         Kind::Fall if age < 40 => {
             pen.shock((x, y + 2.0), 4.0 + age as f32 * 2.4, 2.0, 0.4, ramps::SMOKE, (age as f32 / 20.0).min(1.0));
-            // Stars wheel over the downed knight.
             for i in 0..4 {
                 let a = age as f32 * 0.22 + i as f32 * 1.57;
                 let (sx, sy) = (x + a.cos() * 11.0, y - 38.0 + a.sin() * 3.5);
@@ -441,8 +406,6 @@ pub(super) fn tumble(im: &mut Img, c: Ctx, m: &Mark, tick: u64) {
     }
 }
 
-/// A thrown cask in the air: it leaves the knight's hands high and spinning, and runs off the top
-/// of the screen toward the next aisle.
 pub(super) fn thrown(im: &mut Img, c: Ctx, cask: &Img, m: &Mark) {
     if m.kind != Kind::Throw {
         return;
@@ -459,7 +422,6 @@ pub(super) fn thrown(im: &mut Img, c: Ctx, cask: &Img, m: &Mark) {
     let py = y - 34.0 - 70.0 * (1.0 - (1.0 - t * 1.3).powi(2)).max(0.0) - t * 90.0;
     let img = if (age / 2) % 2 == 0 { cask.clone() } else { cask.flip_h() };
     im.stamp(&img, px as i32 - img.w / 2, py as i32 - img.h / 2);
-    // Its wake: ale flecks and a streak of air.
     let mut pen = Pen::new(im, 80);
     for i in 1..5 {
         let tt = (t - i as f32 * 0.05).max(0.0);
@@ -468,7 +430,6 @@ pub(super) fn thrown(im: &mut Img, c: Ctx, cask: &Img, m: &Mark) {
     }
 }
 
-/// A rim of red round the stage when the knight is down to its last hearts or a hit just landed.
 pub(super) fn rim(im: &mut Img, c: Ctx, tick: u64) {
     let d = c.d;
     let hurt = d.show.marks.iter().filter(|m| matches!(m.kind, Kind::Hurt { guarded: false, .. })).map(|m| m.age(c.now)).min();

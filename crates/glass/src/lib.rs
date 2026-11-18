@@ -55,22 +55,14 @@ pub use config::{BrailleStyle, Options, Palette};
 pub use font::render_page;
 pub use layer::{LAYER_PICTURES, Layer, LayerKind, MAX_STROKE_PX, Particles, Placement, Stand, Stroke, StrokeShape, Tilt};
 pub use angel_gpu::{Stage, PictureProducer};
-/// The renderer core and its wgpu, for a test elsewhere that draws a scene
-/// offscreen on a device of its own (the cockpit's Heartglass test).
 pub use angel_gpu as gpu;
 pub use wgpu;
-/// The 3D scene description (`angel-stage`'s), for `Host::set_scene`.
 pub use angel_stage::scene;
 pub use showcase::{Fit, Herald, Livery, MODEL_ROOT, Mark, SHOWCASE_PICTURE, Showing};
 pub use squire::{ClipStep as ShowcaseClipStep, ShowcaseSquireClip};
 pub use window::run;
 pub use zones::{PointerEvent, Zone, ZoneKind};
 
-/// Locking shared state that survives a panicked holder. The window's
-/// shared state is plain data — a grid size, a snapshot slot, layer and
-/// picture queues — rebuilt or resent by its producers every frame, so a
-/// thread dying mid-update must not poison the session for everyone else:
-/// recover the data and go on, the way GPU errors are logged, not fatal.
 pub(crate) trait LockExt<T> {
     fn lock_recover(&self) -> std::sync::MutexGuard<'_, T>;
 }
@@ -81,21 +73,14 @@ impl<T> LockExt<T> for Mutex<T> {
     }
 }
 
-/// The input reader's error once the window is closed.
 pub const WINDOW_CLOSED: &str = "the glass window closed";
 
-/// The most layers one producer set may carry, window layers and a
-/// stage's alike. Far beyond anything drawn today (the blast stress
-/// scene peaks near twelve thousand); it exists so a buggy or hostile
-/// producer cannot make every frame's work unbounded.
 pub(crate) const MAX_LAYERS: usize = 65_536;
 
-/// Whether an input error means the window was closed (a normal quit).
 pub fn window_closed(error: &io::Error) -> bool {
     error.kind() == io::ErrorKind::BrokenPipe && error.to_string() == WINDOW_CLOSED
 }
 
-/// The grid that fits the window, and its cell size in pixels.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "remote", derive(serde::Serialize, serde::Deserialize))]
 pub struct GridSize {
@@ -107,17 +92,12 @@ pub struct GridSize {
     pub cell_height: u32,
 }
 
-/// How the cursor is drawn: the shape a program asked for, and the
-/// colour it set, if it set one. The block with the palette's cursor
-/// colour is what a plain text surface draws.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct CursorStyle {
     pub kind: CursorKind,
-    /// The colour a program set for the cursor, as RGB.
     pub color: Option<[u8; 3]>,
 }
 
-/// The shapes a cursor can take.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum CursorKind {
     #[default]
@@ -126,10 +106,8 @@ pub enum CursorKind {
     Bar,
 }
 
-/// One published frame of the text grid.
 #[derive(Default)]
 pub(crate) struct Snapshot {
-    /// Screen identity published with its cells, not sampled mid-handoff.
     pub game: bool,
     pub cells: Vec<Cell>,
     pub cols: u16,
@@ -140,7 +118,6 @@ pub(crate) struct Snapshot {
     pub revision: u64,
 }
 
-/// The latest frame; the render thread takes it when `fresh`.
 #[derive(Default)]
 pub(crate) struct Slot {
     pub snapshot: Snapshot,
@@ -151,109 +128,62 @@ pub(crate) struct Slot {
 pub(crate) struct Shared {
     pub slot: Mutex<Slot>,
     pub grid: Mutex<GridSize>,
-    /// The layer list, shared by reference: the window takes the `Arc`
-    /// per draw (no copy, however many layers), and a producer mutating
-    /// it pays the copy-on-write on its own thread instead.
     pub layers: Mutex<Arc<Vec<Layer>>>,
     pub game_keyboard: AtomicBool,
     pub game_surface: AtomicBool,
     pub card: Mutex<Option<Arc<card::Card>>>,
     pub card_changed: AtomicBool,
-    /// Pictures handed over (`Host::upload_picture`), waiting for the
-    /// render thread.
     pub pictures: Mutex<Vec<graphics::Picture>>,
-    /// A picture was handed over since the last flush.
     pub pictures_waiting: AtomicBool,
-    /// Pictures let go (`Host::free_pictures`), by id, for the render
-    /// thread to free before it next uploads.
     pub freed_pictures: Mutex<Vec<u32>>,
-    /// Stages set (`Some`) or taken down (`None`) since the render thread
-    /// last looked, in order, by picture id.
     pub stages: Mutex<Vec<(u32, Option<Stage>)>>,
-    /// 3D scenes set (`Some`, with the size of the picture they are drawn
-    /// into) or taken down (`None`) since the render thread last looked, by
-    /// picture id. Only the latest for an id is kept.
     pub scenes: Mutex<Vec<(u32, Option<(scene::Scene, (u32, u32))>)>>,
     pub gpu_pictures: Mutex<Vec<(u32, Option<(Box<dyn PictureProducer>, (u32,u32))>)>>,
-    /// The showcase's latest request, waiting for the window.
     pub showcase: Mutex<Option<showcase::Request>>,
-    /// The serial of the showing up now; 0 when none is.
     pub showcase_live: std::sync::atomic::AtomicU64,
     pub showcase_serial: std::sync::atomic::AtomicU64,
     pub showcase_clicks: std::sync::atomic::AtomicU32,
-    /// A playing showing's place (f32 bits, NaN for none), its pause,
-    /// and a seek asked for (`Host::showcase_progress`, `showcase_seek`).
     pub showcase_progress: std::sync::atomic::AtomicU32,
     pub showcase_paused: AtomicBool,
     pub showcase_seek: std::sync::atomic::AtomicU32,
-    /// A showcase frame waits to go up, its wake-up already sent.
     pub showcase_frame_waiting: AtomicBool,
-    /// Presses of the copy button (`Host::showcase_copies`).
     pub showcase_copies: std::sync::atomic::AtomicU32,
-    /// Steps asked for with the panel's arrows (`Host::showcase_steps`).
     pub showcase_steps: std::sync::atomic::AtomicI32,
-    /// Times the operator closed the showcase (`Host::showcase_dismissals`).
     pub showcase_dismissals: std::sync::atomic::AtomicU32,
-    /// The next showing's model (`Host::showcase_model`).
     pub showcase_model: Mutex<Option<Vec<scene::Node>>>,
-    /// Latest prepared authored squire clip; an open popup leases the
-    /// resource revision it is currently drawing.
     pub showcase_squire_clip: Mutex<Option<(ShowcaseClipIdentity, Arc<ShowcaseSquireClip>)>>,
-    /// Meshes handed over (`Host::upload_mesh`), waiting for the window.
     pub meshes: Mutex<Vec<(u32, scene::MeshData)>>,
-    /// The next showing's marks (`Host::showcase_marks`).
     pub showcase_marks: Mutex<Vec<showcase::Mark>>,
-    /// Regions a producer takes the left button over, by layer group
-    /// (`Host::set_pointer_zones`), and what the pointer did there.
     pub zones: Mutex<Vec<(u32, Zone)>>,
     pub zone_events: Mutex<Vec<(u32, PointerEvent)>>,
-    /// Where the pointer is over the window, `None` when it is outside it
-    /// (`Host::pointer`).
     pub pointer: Mutex<Option<[f32; 2]>>,
-    /// One display frame of the monitor the window is on, in nanoseconds;
-    /// 0 until the window knows (`Host::frame_interval`).
     pub frame_nanos: std::sync::atomic::AtomicU64,
 }
 
 pub(crate) enum UserEvent {
     Frame,
-    /// Pictures arrived with no change to the cells.
     Pictures,
     Layers,
-    /// The showcase was opened, changed or closed (`Host::showcase`).
     Showcase,
     Title(String),
     Attention,
     Capture(std::path::PathBuf),
-    /// Film the assembly transition into this directory.
     Film(std::path::PathBuf),
-    /// Film this frame into the recording begun at this instant
-    /// (`record.rs`); `None` ends it.
     Record(Option<std::time::Instant>),
-    /// The GPU is open: the window's renderer can be made.
     GpuReady,
-    /// Close as if the window's close button was pressed.
     Close,
-    /// The cockpit has returned; end the event loop.
     Exit,
-    /// End the process with this code, from the window's thread.
     ExitProcess(i32),
-    /// Text for the clipboard of whoever is looking: only a headless host
-    /// sends it (`remote`); a window copies on the cockpit's thread.
     #[cfg_attr(not(feature = "remote"), allow(dead_code))]
     Clipboard(String),
 }
 
-/// Where a host's wake-ups go: the window's event loop, or, for a host
-/// with no window of its own (`remote::headless`), the thread that sends
-/// the frames to the windows looking at it.
 pub(crate) enum Wake {
     Window(EventLoopProxy<UserEvent>),
     #[cfg_attr(not(feature = "remote"), allow(dead_code))]
     Channel(std::sync::mpsc::Sender<UserEvent>),
 }
 
-/// What the cockpit thread holds: the window's services.
 #[derive(Clone)]
 pub struct Host {
     shared: Arc<Shared>,
@@ -273,20 +203,14 @@ impl Host {
         }
     }
 
-    /// Whether this host has a window of its own: false for a session's
-    /// headless host, whose frames go to the windows attached to it.
     pub fn has_window(&self) -> bool {
         matches!(&*self.proxy.lock_recover(), Wake::Window(_))
     }
 
-    /// A ratatui backend drawing into this window.
     pub fn backend(&self) -> GlassBackend {
         GlassBackend::new(self.clone())
     }
 
-    /// The window's keyboard and mouse as terminal events, for the cockpit's
-    /// input thread. Once the window closes, it returns [`WINDOW_CLOSED`].
-    /// There is one reader; a second call gets an error.
     pub fn input_reader(
         &self,
     ) -> io::Result<impl FnMut(Duration) -> io::Result<Option<Event>> + Send + 'static> {
@@ -312,30 +236,22 @@ impl Host {
         self.send(UserEvent::Title(title.to_string()));
     }
 
-    /// The window's equivalent of the terminal bell.
     pub fn request_attention(&self) {
         self.send(UserEvent::Attention);
     }
 
-    /// While a game holds the keyboard, modifier keys report on their own and
-    /// Shift stays on every key (the terminal's game keyboard mode).
     pub fn set_game_keyboard(&self, active: bool) {
         self.shared.game_keyboard.store(active, Ordering::Relaxed);
     }
 
-    /// Visual screen identity, independent of keyboard focus or a pause menu.
     pub fn set_game_surface(&self, active: bool) {
         self.shared.game_surface.store(active, Ordering::Relaxed);
     }
 
-    /// Identity of the currently installed prepared actor resource. Producers
-    /// can avoid re-preparing a composite whose dependencies are unchanged.
     pub fn showcase_squire_resource(&self) -> Option<(ShowcaseClipIdentity, Arc<ShowcaseSquireClip>)> {
         self.shared.showcase_squire_clip.lock_recover().clone()
     }
 
-    /// Install the latest validated authored squire clip. Replacing a clip
-    /// updates an open showcase in place; its pose clock and position survive.
     pub fn showcase_squire_clip(&self, identity: Option<ShowcaseClipIdentity>, clip: Option<Arc<ShowcaseSquireClip>>) {
         let mut current = self.shared.showcase_squire_clip.lock_recover();
         let same = match (&*current, &clip) {
@@ -349,9 +265,6 @@ impl Host {
         self.send(UserEvent::Showcase);
     }
 
-    /// Prepare a caller-owned squire pack and install it as this host's
-    /// startup lease. The caller chooses and packages the bytes; Glass only
-    /// validates the shared format and owns the prepared resource lifetime.
     pub fn install_showcase_squire_pack(
         &self,
         module: &str,
@@ -378,9 +291,6 @@ impl Host {
         Ok(())
     }
 
-    /// Put text on the system clipboard. False when no clipboard tool ran.
-    /// A headless host hands it to the window looking at it, whose
-    /// clipboard it lands on.
     pub fn copy_to_clipboard(&self, text: &str) -> bool {
         if self.has_window() {
             clipboard::copy(text)
@@ -390,9 +300,6 @@ impl Host {
         }
     }
 
-    /// Put up the card (`card.rs`), change what it says, or (`None`)
-    /// take it down. No wake here: the backend publishes it atomically
-    /// with the cockpit frame.
     pub fn set_card(&self, card: Option<card::Card>) {
         let mut current = self.shared.card.lock_recover();
         if current.is_none() && card.is_none() {
@@ -402,7 +309,6 @@ impl Host {
         self.shared.card_changed.store(true, std::sync::atomic::Ordering::Release);
     }
 
-    /// Add a layer, or replace the one with the same id.
     pub fn set_layer(&self, layer: Layer) {
         {
             let mut shared = self.shared.layers.lock_recover();
@@ -416,9 +322,6 @@ impl Host {
         self.send(UserEvent::Layers);
     }
 
-    /// Replace every layer of `group` (ids whose top 32 bits are `group`)
-    /// with `layers`, in one go: a producer's per-frame set, such as the
-    /// Delve's thrown things. An empty list clears the group.
     pub fn set_layer_group(&self, group: u32, layers: Vec<Layer>) {
         {
             let mut shared = self.shared.layers.lock_recover();
@@ -433,8 +336,6 @@ impl Host {
         self.send(UserEvent::Layers);
     }
 
-    /// Replace the whole layer list at once: a remote window showing the
-    /// layers of a session on another machine (`remote`).
     pub fn set_layers(&self, layers: Arc<Vec<Layer>>) {
         *self.shared.layers.lock_recover() = layers;
         self.send(UserEvent::Layers);
@@ -445,34 +346,19 @@ impl Host {
         self.send(UserEvent::Layers);
     }
 
-    /// End the process from the window's thread once it has released the GPU
-    /// and the window. Exiting from any other thread while the window
-    /// presents tears the GPU driver down under it.
     pub fn exit_process(&self, code: i32) {
         self.send(UserEvent::ExitProcess(code));
     }
 
-    /// A picture straight onto the GPU side, for a producer in this process:
-    /// its pixels as they are. The picture cells naming `picture.id` show it
-    /// (`graphics.rs`).
     pub fn upload_picture(&self, picture: graphics::Picture) {
         self.shared.pictures.lock_recover().push(picture);
-        // The frame that shows it presents it, once; its flush sends the
-        // wake-up (`GlassBackend::flush`).
         self.shared.pictures_waiting.store(true, Ordering::Release);
     }
 
-    /// Let pictures go that nothing will show again: the producer has
-    /// dropped them and its layers no longer name them. Call after the
-    /// layers that stopped naming them are set; the render thread frees
-    /// them before its next upload, and reuses their textures.
     pub fn free_pictures(&self, ids: impl IntoIterator<Item = u32>) {
         self.shared.freed_pictures.lock_recover().extend(ids);
     }
 
-    /// Show `stage` in the cells naming its id, drawn by the window every
-    /// frame until it is replaced or taken down. Its pictures go up first
-    /// (`upload_picture`); the frame that shows it presents it.
     pub fn set_stage(&self, mut stage: Stage) {
         stage.layers.truncate(MAX_LAYERS);
         self.shared
@@ -482,18 +368,11 @@ impl Host {
         self.shared.pictures_waiting.store(true, Ordering::Release);
     }
 
-    /// Take a stage down.
     pub fn remove_stage(&self, id: u32) {
         self.shared.stages.lock_recover().push((id, None));
         self.shared.pictures_waiting.store(true, Ordering::Release);
     }
 
-    /// Show a 3D `scene` in the picture `id`, `size` pixels: the window
-    /// draws it into its own texture every frame until it is replaced or
-    /// taken down, and any layer naming the picture places it (lifted,
-    /// turned, over or under the text) as it does any picture. Its pictures
-    /// go up first (`upload_picture`). Set it again each frame to animate it;
-    /// only the latest set for an id is drawn.
     pub fn set_scene(&self, id: u32, mut scene: scene::Scene, size: (u32, u32)) {
         scene.nodes.truncate(scene::MAX_NODES);
         let mut scenes = self.shared.scenes.lock_recover();
@@ -503,8 +382,6 @@ impl Host {
         self.shared.pictures_waiting.store(true, Ordering::Release);
     }
 
-    /// Install/remove a GPU-resident picture. Its target is placed by ordinary
-    /// picture layers; replacing it drops the previous producer on the GPU thread.
     pub fn set_gpu_picture(&self, id:u32, producer: Option<(Box<dyn PictureProducer>, (u32,u32))>) {
         let mut pictures=self.shared.gpu_pictures.lock_recover();
         pictures.retain(|(other,_)|*other!=id);
@@ -513,7 +390,6 @@ impl Host {
         self.shared.pictures_waiting.store(true,Ordering::Release);
     }
 
-    /// Take a scene down.
     pub fn remove_scene(&self, id: u32) {
         let mut scenes = self.shared.scenes.lock_recover();
         scenes.retain(|(other, _)| *other != id);
@@ -522,22 +398,12 @@ impl Host {
         self.shared.pictures_waiting.store(true, Ordering::Release);
     }
 
-    /// Take the left button over `zones` (window pixels) for the producer
-    /// of layer `group`, replacing its earlier ones; an empty list gives
-    /// them back. A press in a zone, the moves while it is held and its
-    /// release are that producer's (`take_pointer_events`), never the
-    /// cockpit's; a press and release in a `Move` zone without a drag is
-    /// handed on to the cockpit as a click where it happened. Everything
-    /// else (other buttons, the wheel, moves with no press) goes on as
-    /// before. The first zone in the list that holds the pointer wins.
     pub fn set_pointer_zones(&self, group: u32, zones: Vec<Zone>) {
         let mut all = self.shared.zones.lock_recover();
         all.retain(|(g, _)| *g != group);
         all.extend(zones.into_iter().map(|z| (group, z)));
     }
 
-    /// What the pointer did in `group`'s zones since the last call, oldest
-    /// first.
     pub fn take_pointer_events(&self, group: u32) -> Vec<PointerEvent> {
         let mut all = self.shared.zone_events.lock_recover();
         let mut mine = Vec::new();
@@ -552,14 +418,10 @@ impl Host {
         mine
     }
 
-    /// Where the pointer is over the window, in pixels; `None` when it is
-    /// outside it.
     pub fn pointer(&self) -> Option<[f32; 2]> {
         *self.shared.pointer.lock_recover()
     }
 
-    /// One display frame of the monitor the window is on (60 Hz until
-    /// the window knows): how often a producer's own motion needs a frame.
     pub fn frame_interval(&self) -> std::time::Duration {
         match self.shared.frame_nanos.load(Ordering::Relaxed) {
             0 => std::time::Duration::from_nanos(1_000_000_000 / 60),
@@ -567,7 +429,6 @@ impl Host {
         }
     }
 
-    /// Save the next frame as a PNG, drawn offscreen (no desktop behind it).
     pub fn capture(&self, path: impl Into<std::path::PathBuf>) {
         self.send(UserEvent::Capture(path.into()));
     }

@@ -1,15 +1,8 @@
 import Base
 import ./j.bend as J
 
-# u64 arithmetic with Rust's release semantics (wrapping add/sub/mul, shift
-# amounts masked to 6 bits, division by zero answers 0). A u64 is two U32
-# halves. W is Data: every parameter here is reusable.
-
 type W is Data:
   W{hi: U32, lo: U32}
-
-# Construction and parts
-# ----------------------
 
 def zero() -> W:
   W{0, 0}
@@ -26,7 +19,6 @@ def of_u32(+v: U32) -> W:
 def of_parts(+hi: U32, +lo: U32) -> W:
   W{hi, lo}
 
-# `x as u32`: the low half.
 def lo32(+a: W) -> U32:
   match a:
     case W{+h, +l}:
@@ -36,9 +28,6 @@ def hi32(+a: W) -> U32:
   match a:
     case W{+h, +l}:
       h
-
-# Bits
-# ----
 
 def xor(+a: W, +b: W) -> W:
   match a b:
@@ -59,9 +48,6 @@ def not(+a: W) -> W:
   match a:
     case W{+h, +l}:
       W{U32.not(h), U32.not(l)}
-
-# Comparing
-# ---------
 
 def eq(+a: W, +b: W) -> Bool:
   match a b:
@@ -101,9 +87,6 @@ def min(+a: W, +b: W) -> W:
 def max(+a: W, +b: W) -> W:
   Bool.pick(W, lt(a, b), b, a)
 
-# Adding and multiplying
-# ----------------------
-
 def add(+a: W, +b: W) -> W:
   match a b:
     case W{+ah, +al} W{+bh, +bl}:
@@ -124,7 +107,6 @@ def add_u32(+a: W, +b: U32) -> W:
 def sub_u32(+a: W, +b: U32) -> W:
   sub(a, W{0, b})
 
-# The full 64-bit product of two U32, from 16-bit limbs.
 def mul32.go(+p00: U32, +p01: U32, +p10: U32, +p11: U32) -> W:
   +mid = ((p00 >> 16n : U32) + U32.and(p01, 65535) + U32.and(p10, 65535) : U32)
   W{((p11 + (p01 >> 16n : U32) + (p10 >> 16n : U32) + (mid >> 16n : U32)) : U32),
@@ -150,7 +132,6 @@ def mul(+a: W, +b: W) -> W:
 def mul_u32(+a: W, +b: U32) -> W:
   mul(a, W{0, b})
 
-# Shifts: the amount is masked to 6 bits as Rust's release `<<` and `>>` do.
 def shl32(+x: U32, +n: U32) -> U32:
   U32.shln(x, U32.to_nat(n))
 
@@ -187,12 +168,6 @@ def rotl(+a: W, +n: U32) -> W:
 def rotr(+a: W, +n: U32) -> W:
   or(shr(a, n), shl(a, (64 - U32.and(n, 63) : U32)))
 
-# Division
-# --------
-
-# One step of restoring division: bring the next bit of `a` into the
-# remainder, and subtract the divisor when it fits. `carry` marks a remainder
-# that overflowed 64 bits, which is certainly not below the divisor.
 def divmod.step(+q: W, +r: W, +a: W, +b: W) -> W & W & W:
   +top = shr(a, 63)
   +carry = U32.is_ge(hi32(r), 2147483648)
@@ -222,7 +197,6 @@ def divmod.pick(small: Bool, +a: W, +b: W) -> W & W:
     case False{}:
       divmod.go(64n, zero(), zero(), a, b)
 
-# Quotient and remainder together; a zero divisor answers (0, 0).
 def divmod.zero(z: Bool, +a: W, +b: W) -> W & W:
   match z:
     case True{}:
@@ -250,12 +224,8 @@ def rem(+a: W, +b: W) -> W:
 def div_u32(+a: W, +b: U32) -> W:
   div(a, W{0, b})
 
-# `a % b` for a u64 and a u32 divisor: the remainder is below b, so a U32.
 def rem_u32(+a: W, +b: U32) -> U32:
   lo32(rem(a, W{0, b}))
-
-# Saturating ops, min/max, abs_diff
-# ---------------------------------
 
 def sat_add(+a: W, +b: W) -> W:
   +s = add(a, b)
@@ -267,9 +237,6 @@ def sat_sub(+a: W, +b: W) -> W:
 def abs_diff(+a: W, +b: W) -> W:
   Bool.pick(W, lt(a, b), sub(b, a), sub(a, b))
 
-# Bit counts
-# ----------
-
 def bitlen32.go(n: Nat, +x: U32, +acc: U32) -> U32:
   match n:
     case 0n:
@@ -277,7 +244,6 @@ def bitlen32.go(n: Nat, +x: U32, +acc: U32) -> U32:
     case 1n+p:
       bitlen32.go(p, (x >> 1n : U32), (acc + Bool.to_u32(U32.is_ne(x, 0)) : U32))
 
-# The number of significant bits of a U32 (0 for 0).
 def bitlen32(+x: U32) -> U32:
   bitlen32.go(32n, x, 0)
 
@@ -302,13 +268,9 @@ def count_ones(+a: W) -> U32:
 def trailing_zeros(+a: W) -> U32:
   Bool.pick(U32, is_zero(a), 64, (bitlen(and(a, neg(a))) - 1 : U32))
 
-# More u64
-# --------
-
 def is_multiple_of(+a: W, +b: W) -> Bool:
   Bool.pick(Bool, is_zero(b), is_zero(a), is_zero(rem(a, b)))
 
-# floor(sqrt(a)): the root is below 2^32, so try each of its bits from the top.
 def isqrt.go(n: Nat, +a: W, +res: U32, +bit: U32) -> U32:
   match n:
     case 0n:
@@ -320,7 +282,6 @@ def isqrt.go(n: Nat, +a: W, +res: U32, +bit: U32) -> U32:
 def isqrt(+a: W) -> W:
   W{0, isqrt.go(32n, a, 0, 2147483648)}
 
-# `a.pow(e)`, wrapping.
 def pow.go(n: Nat, +a: W, +e: U32, +r: W) -> W:
   match n:
     case 0n:
@@ -353,9 +314,6 @@ def checked_sub(+a: W, +b: W) -> Maybe<&2, W>:
 def checked_mul(+a: W, +b: W) -> Maybe<&2, W>:
   checked.go(Bool.and(Bool.not(is_zero(a)), gt(b, div(max_value(), a))), mul(a, b))
 
-# Signed 64-bit (two's complement in the same W)
-# ---------------------------------------------
-
 def s_is_neg(+a: W) -> Bool:
   U32.is_ge(hi32(a), 2147483648)
 
@@ -386,14 +344,12 @@ def s_max(+a: W, +b: W) -> W:
 def s_clamp(+x: W, +lo: W, +hi: W) -> W:
   s_min(s_max(x, lo), hi)
 
-# -1, 0 or 1.
 def s_signum(+a: W) -> W:
   Bool.pick(W, s_is_neg(a), max_value(), Bool.pick(W, is_zero(a), zero(), one()))
 
 def s_negif(+flip: Bool, +a: W) -> W:
   Bool.pick(W, flip, neg(a), a)
 
-# Truncating division and remainder (a zero divisor answers 0).
 def s_div(+a: W, +b: W) -> W:
   s_negif(Bool.xor(s_is_neg(a), s_is_neg(b)), div(s_abs(a), s_abs(b)))
 
@@ -410,25 +366,17 @@ def s_rem_euclid(+a: W, +b: W) -> W:
   +r = s_rem(a, b)
   Bool.pick(W, s_is_neg(r), add(r, s_abs(b)), r)
 
-# `>>` on a signed value, the amount masked to 6 bits.
 def s_sar(+a: W, +n: U32) -> W:
   Bool.pick(W, s_is_neg(a), not(shr(not(a), n)), shr(a, n))
-
-# Casts
-# -----
 
 def as_f32.make(+w: U32) -> F32:
   match w:
     case U32{d}:
       F32{d}
 
-# The mantissa carries the leading 1 at bit 23; rounding up past 2^24 lets the
-# add carry into the exponent field, which is the right renormalization.
 def as_f32.bits(+exp: U32, +m: U32) -> F32:
   as_f32.make(((exp << 23n : U32) + m - 8388608 : U32))
 
-# `x as f32`, rounded to nearest even. Above 32 bits take the top 24 bits and
-# round on the rest, so the value is rounded once.
 def as_f32.big(+a: W, +len: U32) -> F32:
   +s = (len - 24 : U32)
   +m = shr(a, s)
@@ -449,9 +397,6 @@ def as_f32(+a: W) -> F32:
 
 def s_as_f32(+a: W) -> F32:
   Bool.pick(F32, s_is_neg(a), F32.neg(as_f32(neg(a))), as_f32(a))
-
-# The J tree
-# ----------
 
 def of_j.fin(hl: U32 & U32) -> W:
   (h, l) = hl

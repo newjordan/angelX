@@ -5,15 +5,13 @@ pub(crate) const STREAM_ARTIFACT_THRESHOLD_CHARS: usize = 1_600;
 pub(crate) const STREAM_ARTIFACT_EARLY_CHARS: usize = 240;
 pub(crate) const ARTIFACT_NOTE_CONTEXT_CHARS: usize = 1_200;
 
-/// Incremental equivalent of the two live artifact predicates. Retains only
-/// marker overlap and first-fence metadata; work scales with the new delta.
 #[derive(Default)]
 pub(crate) struct StreamArtifactDetector {
     chars: usize,
     bytes: usize,
     tail: String,
     html: bool,
-    fence: u8, // 0: seeking, 1: info, 2: body, 3: closed
+    fence: u8,
     ticks: usize,
     info: String,
     info_space: bool,
@@ -280,12 +278,6 @@ pub(crate) fn cap_chars(text: &str, max: usize) -> String {
     out
 }
 
-/// One named background job owned by the cockpit's single flight slot.
-///
-/// Keeping the receiver together with trusted operation/retry labels lets the UI
-/// report a vanished worker instead of silently releasing the slot. Cancellation
-/// is logical: the receiver is dropped immediately and the shared flag prevents a
-/// late worker reply from becoming observable after Esc/^C.
 pub(crate) struct BackgroundJob {
     receiver: mpsc::Receiver<BgOutcome>,
     operation: &'static str,
@@ -297,7 +289,6 @@ pub(crate) struct BackgroundJob {
     live_output: Arc<std::sync::Mutex<BackgroundLiveOutput>>,
 }
 
-/// Cancellation-aware sender paired with [`BackgroundJob`].
 pub(crate) struct BackgroundReply {
     sender: mpsc::Sender<BgOutcome>,
     cancelled: Arc<std::sync::atomic::AtomicBool>,
@@ -365,9 +356,6 @@ fn sanitize_live_terminal_bytes(bytes: &[u8]) -> String {
     let mut plain = Vec::with_capacity(bytes.len());
     let mut state = Escape::Ground;
     for &byte in bytes {
-        // CAN/SUB terminate an in-flight control sequence. The chronological
-        // stream merger inserts CAN at pipe boundaries so an unterminated
-        // escape from one child pipe cannot consume another pipe's label/data.
         if matches!(byte, 0x18 | 0x1a) {
             state = Escape::Ground;
             continue;
@@ -479,8 +467,6 @@ impl BackgroundLiveOutput {
             self.chunks
                 .push_back(BackgroundOutputChunk { stream, start, end });
         }
-        // Hysteresis keeps a pathological one-byte stream alternation from
-        // turning every callback after saturation into an O(n) compaction.
         if self.chunks.len() > BACKGROUND_LIVE_STREAM_BYTES * 4 {
             self.prune_chunks();
         }
@@ -728,10 +714,6 @@ impl BackgroundReply {
 const BACKGROUND_NOTICE_DETAIL_CHARS: usize = 240;
 const BACKGROUND_NOTICE_WORKSPACE_CHARS: usize = 64;
 
-/// A detached compaction deposit batch. The UI accepts the history splice
-/// before this enters the shared bounded memory queue, so slow infrastructure
-/// never keeps the flight slot busy or creates one worker per `/compact`.
-/// Results return through [`BackgroundNotice`] instead of disappearing.
 pub(crate) struct MemoryDepositBatch {
     store: Arc<dyn crate::knowledge::memory::store::MemoryStore>,
     drawers: Vec<crate::knowledge::memory::store::Drawer>,
@@ -772,7 +754,6 @@ impl MemoryDepositBatch {
     }
 }
 
-/// Completion feedback from detached work that no longer owns [`App::bg_job`].
 pub(crate) enum BackgroundNotice {
     MemoryDeposits {
         workspace: PathBuf,
@@ -871,23 +852,12 @@ fn unsafe_notice_format(character: char) -> bool {
     )
 }
 
-/// The result of a [`BackgroundJob`], applied on the UI thread in
-/// [`App::advance`]. Keeps potentially slow work — compaction/palace persistence, a
-/// palace query for `/memories palace` — off the event loop so the TUI stays
-/// responsive (renders, scrolls, accepts an interrupt) while it runs.
 pub(crate) enum BgOutcome {
-    /// Show a system message in the transcript.
     Note(String),
-    /// Apply a completed `/compact`: replace `history[range]` with `note`, persist
-    /// the thread, and show `message`. The indices were taken when the job was
-    /// spawned; `submit` is gated on `bg_job`, so history hasn't shifted.
     Compact {
         range: std::ops::Range<usize>,
         note: Box<ChatMsg>,
         plan: Option<Box<ChatMsg>>,
-        /// Memory deposits are deliberately handed back to the UI with the
-        /// splice. A cancelled or disconnected job therefore cannot file notes
-        /// after the operator has abandoned it.
         deposits: Option<MemoryDepositBatch>,
         message: String,
     },

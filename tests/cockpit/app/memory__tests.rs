@@ -1,8 +1,5 @@
 use super::*;
 
-// Persistence (save/load) is covered by the app-level test under `env_lock`,
-// since it mutates the process-global `ANGEL_MEMORY_FILE`.
-
 #[test]
 fn context_block_is_empty_when_no_memories() {
     assert_eq!(context_block(&[] as &[String]), "");
@@ -38,7 +35,6 @@ fn memory_limits_bound_storage_and_rendering() {
     let hostile = vec!["z".repeat(MAX_MEMORY_ITEM_BYTES); MAX_MEMORY_ITEMS + 20];
     let block = context_block(&hostile);
     assert!(block.len() <= MAX_MEMORY_CONTEXT_BYTES);
-    // The bound is `⠗⠓⠃`, the count beside it.
     assert!(
         block.contains(&crate::agent::harness::book::d3_roles::pages(
             crate::agent::harness::book::r_relentless::BOUNDS,

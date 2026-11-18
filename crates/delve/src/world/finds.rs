@@ -16,26 +16,17 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Kind {
-    /// E mends the knight to full.
     Shrine,
-    /// E, once a run, turns up a cache.
     Ruin,
-    /// A wanderer by the fire: E, and he tells of a find nobody has made.
     Campfire,
-    /// E, and the stones hum and glow a moment.
     Stones,
-    /// E, once a run, something glints inside.
     Cave,
-    /// E, once a run, a pack someone lost: a card or a consumable.
     LostPack,
-    /// E: he trades a thunder scroll for a potion, once a run.
     Hermit,
-    /// E: a coin of renown down the well, once a run, for a small boon.
     Well,
 }
 
 impl Kind {
-    /// What E does, for the hint beside it.
     pub fn verb(self) -> &'static str {
         match self {
             Kind::Shrine => "PRAY",
@@ -49,7 +40,6 @@ impl Kind {
         }
     }
 
-    /// How the wanderer tells of one.
     pub fn told(self) -> &'static str {
         match self {
             Kind::Shrine => "A SHRINE STANDS IN",
@@ -64,7 +54,6 @@ impl Kind {
     }
 }
 
-/// One find: what it is, the tile it stands on, its biome.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Find {
     pub kind: Kind,
@@ -72,21 +61,12 @@ pub struct Find {
     pub biome: Biome,
 }
 
-/// How many finds a run has.
 pub const COUNT: usize = 30;
-/// How near (tiles) a knight stands to use one.
 pub const REACH: f32 = 1.6;
-/// The renown a cache is worth.
 pub const CACHE: u32 = 15;
-/// The renown a coin down the well costs.
 pub const COIN: u32 = 10;
-/// No two finds nearer than this (tiles).
 const APART: i32 = 14;
 
-/// How many finds each biome holds, and of what kinds, in turn. The first
-/// twelve are the kingdom's first finds and keep their places in the run's
-/// saved bits; the eighteen after them were added as the open country
-/// filled in, weighted toward the quieter biomes.
 const SHARE: [(Biome, usize, &[Kind]); 18] = [
     (Biome::Wastes, 3, &[Kind::Ruin, Kind::Cave, Kind::Stones]),
     (Biome::Highlands, 2, &[Kind::Cave, Kind::Stones]),
@@ -96,7 +76,6 @@ const SHARE: [(Biome, usize, &[Kind]); 18] = [
     (Biome::WindCountry, 1, &[Kind::Stones]),
     (Biome::Longbow, 1, &[Kind::Campfire]),
     (Biome::March, 1, &[Kind::Ruin]),
-    // The quiet country.
     (Biome::Wastes, 3, &[Kind::LostPack, Kind::Hermit, Kind::Shrine]),
     (Biome::Highlands, 2, &[Kind::Hermit, Kind::LostPack]),
     (Biome::Greenwood, 2, &[Kind::Well, Kind::LostPack]),
@@ -113,19 +92,14 @@ fn chebyshev(a: (i32, i32), b: (i32, i32)) -> i32 {
     (a.0 - b.0).abs().max((a.1 - b.1).abs())
 }
 
-/// Every tile a find may stand on: open ground with open ground round it,
-/// five tiles off any road, clear of doors, lots, set pieces, castles and
-/// fingerposts and waystations. Worked out once.
 pub(super) fn spots() -> &'static [(i32, i32)] {
     static SPOTS: OnceLock<Vec<(i32, i32)>> = OnceLock::new();
     SPOTS.get_or_init(|| {
-        // Nothing is hidden on the blank-slate plan's hillside.
         if super::plan::tabula() {
             return Vec::new();
         }
         let geo = kingdom::geography(&[]);
         let idx = |(x, y): (i32, i32)| (y * MAP_W + x) as usize;
-        // Steps to the nearest road, up to 6.
         let mut near = vec![6u8; (MAP_W * MAP_H) as usize];
         let mut frontier: Vec<(i32, i32)> = (0..MAP_H)
             .flat_map(|y| (0..MAP_W).map(move |x| (x, y)))
@@ -160,18 +134,15 @@ pub(super) fn spots() -> &'static [(i32, i32)] {
                         && s.lot.is_none_or(|l| chebyshev((l.tx + l.tw / 2, l.ty + l.th / 2), t) > 6)
                 })
             })
-            // Well clear of a castle's wall all round.
             .filter(|&(x, y)| {
                 castles.iter().all(|&(cx, cy, cw, ch)| x < cx - 6 || y < cy - 6 || x >= cx + cw + 6 || y >= cy + ch + 6)
             })
             .filter(|&t| posts.iter().all(|p| chebyshev(p.at, t) > 4))
-            // And off a waystation's ground.
             .filter(|&t| halts.iter().all(|h| chebyshev((h.rect.tx + 3, h.rect.ty + 2), t) > 7))
             .collect()
     })
 }
 
-/// The run's finds, from its seed.
 pub fn finds(seed: u64) -> Arc<Vec<Find>> {
     type Cache = Mutex<Option<(u64, Arc<Vec<Find>>)>>;
     static CACHE: OnceLock<Cache> = OnceLock::new();
@@ -186,7 +157,6 @@ pub fn finds(seed: u64) -> Arc<Vec<Find>> {
     out
 }
 
-/// `tiles` in `home`, in the run's order (a hash of each tile and the run).
 fn ranked(home: Biome, salt: u32, tiles: impl Iterator<Item = (i32, i32)>) -> Vec<(i32, i32)> {
     let mut here: Vec<(u32, (i32, i32))> = tiles
         .filter(|&(x, y)| biome::at(x, y) == home)
@@ -207,8 +177,6 @@ fn place(seed: u64) -> Vec<Find> {
     };
     let mut out: Vec<Find> = Vec::new();
     for (home, share, kinds) in SHARE {
-        // The clearings of the biome's wild camps first, then any other
-        // open ground that will do; the kinds go round in turn.
         let candidates = ranked(home, salt, wild()).into_iter().chain(ranked(home, salt, spots().iter().copied()));
         let mut taken = 0;
         for at in candidates {

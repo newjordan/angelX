@@ -14,7 +14,6 @@ fn dir() -> Option<std::path::PathBuf> {
     Some(dir)
 }
 
-/// A picture at its own size and nearest-neighbour scaled up.
 fn save(dir: &std::path::Path, name: &str, img: &Img, scale: u32) {
     image::RgbaImage::from_raw(img.w as u32, img.h as u32, img.rgba_bytes())
         .unwrap()
@@ -26,9 +25,6 @@ fn save(dir: &std::path::Path, name: &str, img: &Img, scale: u32) {
         .unwrap();
 }
 
-/// A lone knight standing at realm tile `(x, y)`, a moment settled, the camera
-/// `up` units (half tiles) above where it would sit (the dead zone lets it rest
-/// there), so what stands behind the knight is in the frame.
 fn at_framed(tile: (f32, f32), up: f32) -> Run {
     let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
     run.walk_kingdom(Some((tile.0 as i32, tile.1 as i32)));
@@ -45,8 +41,6 @@ fn at(tile: (f32, f32)) -> Run {
     at_framed(tile, 0.0)
 }
 
-/// Walk knight 1 toward each waypoint (realm tiles) in turn, a frame every
-/// `every` ticks into `<dir>/<name>/NNNN.png` at native size.
 fn walk(dir: &std::path::Path, name: &str, mut run: Run, waypoints: &[(f32, f32)], every: usize) {
     let frames = dir.join(name);
     std::fs::create_dir_all(&frames).unwrap();
@@ -91,11 +85,9 @@ fn walk(dir: &std::path::Path, name: &str, mut run: Run, waypoints: &[(f32, f32)
     assert!(n > 20, "a walk of {n} frames");
 }
 
-/// The whole map, averaged down by `k`, as one picture.
 fn overview(k: i32) -> Img {
     let atlas = crate::render::overworld::kingdom::atlas(&[]);
     let (w, h) = (atlas.w / k, atlas.h / k);
-    // The realm is drawn on black paper: lifted so the eye finds it.
     let lift = |v: u32| (v * 7 / 2).min(255) as u8;
     let mut out = Img::black(w, h);
     for y in 0..h {
@@ -132,18 +124,14 @@ fn write_upper_world_shots() {
         return;
     }
     use crate::world::plan::tabula as t;
-    // The tiny castle, whole: the knight at the spawn before it.
     let run = at_framed((t::KEEP_STAND.0 as f32, t::KEEP_STAND.1 as f32 + 1.0), 4.0);
     save(&dir, "keep-begun", &frame_for(&run, 384, 224, Some(1)), 3);
-    // A camp, house 0's (Sol, the north), and the knight at its fire.
     let c0 = t::camp_stand(t::CAMPS[0]);
     let run = at_framed((c0.0 as f32 + 5.0, c0.1 as f32 + 2.0), 4.0);
     save(&dir, "camp-sol", &frame_for(&run, 384, 224, Some(1)), 3);
-    // Another, in the south east.
     let c6 = t::camp_stand(t::CAMPS[6]);
     let run = at_framed((c6.0 as f32 + 5.0, c6.1 as f32 + 2.0), 4.0);
     save(&dir, "camp-6", &frame_for(&run, 384, 224, Some(1)), 3);
-    // Every camp, one frame each (a contact sheet is cut from them afterwards).
     std::fs::create_dir_all(dir.join("camps")).unwrap();
     for (i, camp) in t::CAMPS.iter().enumerate() {
         let stand = t::camp_stand(*camp);
@@ -154,15 +142,12 @@ fn write_upper_world_shots() {
             .save(dir.join("camps").join(format!("{i:02}.png")))
             .unwrap();
     }
-    // The empty hillside between the Keep and a camp, wide (twice the view).
     let run = at((100.0, 76.0));
     save(&dir, "hillside-wide", &frame_for(&run, 768, 448, Some(1)), 2);
     save(&dir, "hillside", &frame_for(&run, 384, 224, Some(1)), 3);
-    // The Delve's door.
     let (dx, dy) = t::delve_stand();
     let run = at((dx as f32, dy as f32 + 1.5));
     save(&dir, "delve-door", &frame_for(&run, 384, 224, Some(1)), 3);
-    // The walk: spawn, past the castle's west flank, out to the north camp.
     let spawn = at((t::KEEP_STAND.0 as f32, t::KEEP_STAND.1 as f32 + 1.0));
     walk(
         &dir,
@@ -171,16 +156,11 @@ fn write_upper_world_shots() {
         &[(122.0, 89.0), (121.0, 78.0), (121.0, 66.0), (129.0, 62.0), (c0.0 as f32, c0.1 as f32 + 1.0)],
         3,
     );
-    // And the walk to the Delve door.
     let spawn = at((t::KEEP_STAND.0 as f32, t::KEEP_STAND.1 as f32 + 1.0));
     walk(&dir, "walk-delve", spawn, &[(138.0, 90.0), (dx as f32, dy as f32 + 0.5)], 3);
     world3d_proof(&dir);
 }
 
-/// The realm's 3D sets for the Keep's chunk and a camp's, parsed as a page
-/// parses them, written as text, and drawn from above (a plan view, each
-/// shape's footprint painted low to high, lighter the higher): no GPU, just
-/// what the sets hold and where.
 fn world3d_proof(dir: &std::path::Path) {
     use crate::world3d::{kingdom as k3, realm};
     use crate::world::plan::tabula as t;

@@ -26,7 +26,6 @@ pub enum Make {
     Weapon(WeaponCreation),
 }
 
-/// A part the library lacks, to be painted: its place, what it should look like, and what stands in.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Want {
     pub slot: String,
@@ -39,13 +38,11 @@ pub struct Spec {
     pub wish: String,
     pub make: Make,
     pub wants: Vec<Want>,
-    /// What the genie trimmed to fit the budget, in order.
     pub trimmed: Vec<String>,
     pub asked: u16,
     pub cost: u16,
     pub budget: u16,
     pub notes: Vec<String>,
-    /// A weapon named inside a creature's wish: creatures are bare-handed, it is its own wish.
     pub fork: Option<String>,
     pub reply: String,
     pub quip: String,
@@ -59,7 +56,6 @@ pub struct Turn {
 }
 
 impl Spec {
-    /// The live recipe as a spec, for seeding a conversation.
     pub fn of(creation: &Creation, weapon: &WeaponCreation) -> Self {
         let make = if creation.role.is_weapon() {
             Make::Weapon(weapon.clone())
@@ -89,9 +85,6 @@ impl Spec {
 
 pub const PARSER: &str = "offline keywords";
 
-// ------------------------------------------------------------------------------------ the game's gate
-
-/// Every word `refused` names, covered by `bar` (a censor bar) and counted. Whole words, any case.
 pub fn censor_by(text: &str, bar: &str, refused: &dyn Fn(&str) -> bool) -> (String, usize) {
     let (mut out, mut word, mut covered) = (String::new(), String::new(), 0);
     for c in text.chars().chain(std::iter::once(' ')) {
@@ -114,15 +107,9 @@ pub fn censor_by(text: &str, bar: &str, refused: &dyn Fn(&str) -> bool) -> (Stri
     (out, covered)
 }
 
-/// The game's own gate on what a wish may say (`cards::not_for_work`: a public build refuses a long
-/// list, a private table only slurs, both from the one rule). A wish with such a word is not turned
-/// away: the word gets a censor bar, in the transcript and in everything made of the words, and the
-/// rest is granted. Nothing refused ever reaches a `Want`'s look, a name or a reply.
 pub fn censor(text: &str, bar: &str) -> (String, usize) {
     censor_by(text, bar, &|w| crate::rules::cards::not_for_work(w).is_some())
 }
-
-// ------------------------------------------------------------------------------------ words
 
 fn stem(w: &str) -> String {
     if w.len() > 4 && w.ends_with("ies") {
@@ -181,7 +168,6 @@ const CREATURE_NOUNS: &[&str] = &[
     "folk", "npc", "townsfolk", "shopkeeper", "waiter", "maid", "butcher", "brewer", "healer", "scribe", "jester",
 ];
 
-/// A Folk's occupations (the rite, 2026-11-07): a wish naming one makes a world NPC, not a fighter.
 const FOLK_NOUNS: &[&str] = &[
     "barman", "barmaid", "bartender", "innkeeper", "publican", "smith", "blacksmith", "pilgrim", "merchant", "baker",
     "farmer", "priest", "monk", "cook", "villager", "peasant", "traveller", "traveler", "hermit", "bard", "fisherman",
@@ -189,7 +175,6 @@ const FOLK_NOUNS: &[&str] = &[
     "butcher", "brewer", "healer", "scribe", "jester",
 ];
 
-/// What a Folk of an occupation says on E, unless its maker puts words in its mouth.
 fn folk_line(ws: &[String]) -> &'static str {
     const LINES: &[(&[&str], &str)] = &[
         (&["barman", "barmaid", "bartender", "innkeeper", "publican", "waiter", "brewer"], "What'll it be, traveller? The ale is cold."),
@@ -203,7 +188,6 @@ fn folk_line(ws: &[String]) -> &'static str {
     LINES.iter().find(|(names, _)| any(ws, names)).map_or(FOLK_LINES[0], |(_, line)| *line)
 }
 
-/// A Folk's calling from the words: where it stands, whether it wanders, what it says.
 fn edit_folk(c: &mut Creation, ws: &[String], fresh: bool) -> bool {
     let mut changed = false;
     if !c.spells.is_empty() {
@@ -232,7 +216,6 @@ fn edit_folk(c: &mut Creation, ws: &[String], fresh: bool) -> bool {
         c.calling.habit = habit;
         changed = true;
     }
-    // "who says welcome home": the rest of the wish is the line.
     let said = pos(ws, &["say", "says", "saying", "shout", "shouts", "whisper", "whispers"]).map(|i| {
         let rest = ws[i + 1..].join(" ");
         let mut chars = rest.chars();
@@ -248,13 +231,11 @@ fn edit_folk(c: &mut Creation, ws: &[String], fresh: bool) -> bool {
     changed
 }
 
-/// Words that resize what is already there.
 const SIZE_WORDS: &[&str] = &[
     "bigger", "larger", "huge", "enlarge", "smaller", "tiny", "shrink", "thicker", "wider", "thinner", "longer",
     "shorter", "extend", "lengthen", "shorten", "taller",
 ];
 
-/// Words that mean a change to what already stands.
 const TRIGGERS: &[&str] = &[
     "bigger", "larger", "huge", "enlarge", "smaller", "tiny", "shrink", "longer", "shorter", "extend", "lengthen",
     "shorten", "taller", "make", "add", "change", "swap", "glow", "more", "less", "instead", "paint", "colour", "color",
@@ -275,7 +256,6 @@ fn school_of(ws: &[String]) -> Option<School> {
     TABLE.iter().find(|(_, l)| any(ws, l)).map(|(s, _)| *s)
 }
 
-/// A colour said of a flame or a gem: the school whose glow wears it.
 fn glow_colour(ws: &[String]) -> Option<School> {
     const TABLE: &[(&str, School)] = &[
         ("blue", School::Ice),
@@ -312,7 +292,6 @@ fn metal_word(ws: &[String]) -> Option<Material> {
     TABLE.iter().find(|(_, l)| any(ws, l)).map(|(m, _)| *m)
 }
 
-/// The paint a socketless weapon wears in place of a gem.
 fn school_metal(school: School) -> Material {
     match school {
         School::Fire => Material::Shell,
@@ -337,7 +316,6 @@ const SLOT_WORDS: &[(&str, &[&str])] = &[
     ("limb", &["limb"]),
 ];
 
-/// What a word means to a part's own name and materials.
 fn synonyms(w: &str) -> &'static [&'static str] {
     match w {
         "skull" | "skeleton" => &["skull"],
@@ -383,7 +361,6 @@ fn means(word: &str, toks: &[String]) -> bool {
     toks.iter().any(|t| t == word) || synonyms(word).iter().any(|s| toks.iter().any(|t| t == s))
 }
 
-/// Every word the catalogues, lexicons and fillers understand; the rest is a motif to be painted.
 fn known(w: &str) -> bool {
     use std::collections::BTreeSet;
     use std::sync::OnceLock;
@@ -434,8 +411,6 @@ fn known(w: &str) -> bool {
     vocab.contains(w) || w.chars().all(|c| c.is_ascii_digit())
 }
 
-// ------------------------------------------------------------------------------------ genie voice
-
 fn pick<'a>(seed: &str, options: &[&'a str]) -> &'a str {
     let h = seed
         .bytes()
@@ -448,7 +423,6 @@ fn caps(s: &str) -> String {
     c.next().map_or_else(String::new, |f| f.to_uppercase().chain(c).collect())
 }
 
-/// Where a noun phrase ends: what follows describes, it does not name.
 const CUT: &[&str] = &[
     "with", "in", "of", "that", "who", "holding", "wearing", "carrying", "for", "wielding", "using", "held", "and",
     "dripping", "which",
@@ -469,15 +443,12 @@ fn title(ws: &[String], limit: usize) -> String {
     if name.is_empty() { "Wished thing".into() } else { name.chars().take(limit).collect() }
 }
 
-// ------------------------------------------------------------------------------------ the seam
-
 pub fn wish_to_spec(text: &str, history: &[Turn]) -> Spec {
     let (said, covered) = censor(text, " ");
     let shown = censor(text, "####").0;
     let text = said.as_str();
     let all = words(text);
     let trigger = any(&all, TRIGGERS);
-    // "Call it Mossy Tom": what follows is a name, not a wish.
     let (ws, rename): (Vec<String>, Vec<String>) = match pos(&all, &["call", "name", "rename"]) {
         Some(i) => (
             all[..i].to_vec(),
@@ -488,8 +459,6 @@ pub fn wish_to_spec(text: &str, history: &[Turn]) -> Spec {
     let prev = history.last().map(|t| &t.spec);
     let prev_make = prev.map(|p| &p.make);
     let prev_weapon = matches!(prev_make, Some(Make::Weapon(_)));
-    // A new kind of thing named: the head phrase decides ("a frog-themed spear with ..." is a
-    // spear; "a frog knight in ... with a shield" is a knight), the last noun of it leading.
     let decide = |ws: &[String]| match (pos(ws, WEAPON_NOUNS), pos(ws, CREATURE_NOUNS)) {
         (Some(_), None) => Some(true),
         (None, Some(_)) => Some(false),
@@ -567,7 +536,6 @@ pub fn wish_to_spec(text: &str, history: &[Turn]) -> Spec {
     spec
 }
 
-/// Wishes that ask for the world: the genie builds the grandest weapon he can, then haggles.
 const OVERSIZE: &[&str] = &[
     "infinite", "unlimited", "endless", "godlike", "omnipotent", "invincible", "unstoppable", "apocalypse",
     "strongest", "mightiest", "ultimate", "everything", "universe", "unbeatable",
@@ -611,11 +579,9 @@ fn kind_of_words(ws: &[String]) -> Option<WeaponKind> {
             &["sword", "longsword", "saber", "sabre", "rapier", "katana", "cutlass", "falchion", "blade", "cleaver", "machete", "knife", "dagger"],
         ),
     ];
-    // The first one named leads: "a wand with a blade" is a wand.
     ws.iter().find_map(|w| KINDS.iter().find(|(_, l)| l.contains(&w.as_str())).map(|(k, _)| *k))
 }
 
-/// The tip a noun names: "axe" is a war axe head, "plunger" a mace head with a gag attached.
 fn tip_for(ws: &[String]) -> Option<(&'static str, &'static str)> {
     const TIPS: &[(&[&str], &str, &str)] = &[
         (&["cleaver", "machete", "chopper"], "blade", "w5w.blade-cleaver"),
@@ -633,7 +599,6 @@ fn tip_for(ws: &[String]) -> Option<(&'static str, &'static str)> {
     ws.iter().find_map(|w| TIPS.iter().find(|(l, _, _)| l.contains(&w.as_str())).map(|(_, s, id)| (*s, *id)))
 }
 
-/// Words that sit just before a slot noun belong to that slot ("skull pommel", "gold guard").
 fn attached(ws: &[String]) -> Vec<(&'static str, Vec<String>)> {
     let mut out: Vec<(&'static str, Vec<String>)> = Vec::new();
     for (i, w) in ws.iter().enumerate() {
@@ -677,7 +642,6 @@ fn edit_weapon(
         WeaponKind::Bow => "limb",
         WeaponKind::Shield => "face",
     };
-    // The noun's own part.
     let mut chosen_by_noun: Option<&str> = None;
     if fresh && let Some((slot, id)) = tip_for(ws) {
         if w.equip(slot, Some(id)).is_ok() {
@@ -701,9 +665,7 @@ fn edit_weapon(
         let _ = w.equip("face", Some(id));
         chosen_by_noun = Some("face");
     }
-    // A school: a focus takes its head, a socketed weapon a gem, a hammer the colours.
     let said_colour = glow_colour(ws).filter(|_| any(ws, &["flame", "fire", "glow", "glowing", "gem", "crystal", "light", "spark", "flaming", "burning"]));
-    // "Make the flame blue" tints what burns; it does not change the school.
     let named_school = if said_colour.is_some() && !fresh { None } else { school_of(ws) };
     if let Some(school) = named_school.filter(|_| !fresh || w.kind != WeaponKind::Bow) {
         if w.kind.is_focus() {
@@ -720,13 +682,11 @@ fn edit_weapon(
     }
     if let Some(school) = said_colour {
         w.paint.glow = Some(school);
-        // With no spark to tint, the colours the weapon wears for its school follow the word.
         if w.gem.is_none() && !w.kind.is_focus() {
             w.paint.metal = school_metal(school);
         }
         changed = true;
     }
-    // Parts by their names, slot by slot (a refinement that only resizes swaps nothing).
     let resizing = !fresh && any(ws, SIZE_WORDS);
     let loose: Vec<String> = ws
         .iter()
@@ -753,7 +713,6 @@ fn edit_weapon(
             changed = true;
         }
     }
-    // Colour of one part's metal ("gold guard"), or of the whole weapon.
     if let Some(m) = metal_word(ws).filter(|m| !matches!(m, Material::Bone) || !fresh) {
         let mut painted = false;
         for (slot, mine) in &att {
@@ -767,22 +726,18 @@ fn edit_weapon(
             painted = true;
         }
         if !painted && fresh && !matches!(m, Material::Plate | Material::Bone) {
-            // "A rusty cleaver", "a gold hammer": the head wears it.
             w.paint.slot_metal.insert(tip_slot.to_string(), m);
             painted = true;
         }
         changed |= painted;
     }
-    // Refinements: size, length, a gem.
     if !fresh {
         changed |= refine_weapon(w, ws, &att, notes, wants);
     }
-    // What the library lacks becomes a want, with the nearest part standing in.
     let missing: Vec<&String> = ws
         .iter()
         .filter(|x| !known(x) && !x.chars().all(|c| c.is_ascii_digit()))
         .collect();
-    // Said again, an odd word is only a part to paint when it sits on a slot ("add a lily-pad blade").
     let missing: Vec<&String> = if fresh {
         missing
     } else {
@@ -791,7 +746,6 @@ fn edit_weapon(
     if !missing.is_empty() {
         let first = ws.iter().position(|x| x == missing[0]).unwrap_or(0);
         let mut run = missing.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(" ");
-        // The noun right after the odd word is part of the look: "toilet plunger".
         match ws.get(first + missing.len()) {
             Some(next) if WEAPON_NOUNS.contains(&next.as_str()) || SLOT_WORDS.iter().any(|(_, l)| l.contains(&next.as_str())) => {
                 run = format!("{run} {next}");
@@ -818,7 +772,6 @@ fn edit_weapon(
         });
         changed = true;
     }
-    // A skull or bone motif the chain has no part for ("skull pommel" on a J11 haft).
     for (slot, mine) in &att {
         let wanted = mine.iter().find(|m| matches!(m.as_str(), "skull" | "bone" | "gold" | "spike"));
         if let Some(m) = wanted && w.kind.slots().contains(slot) {
@@ -845,7 +798,6 @@ fn refine_weapon(
     let up = any(ws, &["bigger", "larger", "huge", "enlarge", "thicker", "wider"]);
     let down = any(ws, &["smaller", "tiny", "shrink", "thinner"]);
     if up || down {
-        // The thing named: a slot noun, a part word, else (if no thing is named at all) the tip.
         let named: Vec<&String> = ws.iter().filter(|x| !STOP.contains(&x.as_str()) && !TRIGGERS.contains(&x.as_str())).collect();
         let slot = att
             .iter()
@@ -902,8 +854,6 @@ fn refine_weapon(
     changed
 }
 
-// ------------------------------------------------------------------------------------ creatures
-
 fn edit_creature(
     c: &mut Creation,
     ws: &[String],
@@ -913,7 +863,6 @@ fn edit_creature(
     fork: &mut Option<String>,
 ) -> bool {
     let mut changed = false;
-    // Role by the words.
     let role = [
         (Role::Folk, FOLK_NOUNS),
         (Role::Minion, &["minion", "pet", "sidekick", "imp", "tiny", "little"][..]),
@@ -934,13 +883,11 @@ fn edit_creature(
     if c.role == Role::Folk {
         changed |= edit_folk(c, ws, fresh);
     }
-    // A weapon named in a creature's wish is its own wish.
     if let Some(i) = pos(ws, WEAPON_NOUNS) && ws[i] != "weapon" {
         let from = i.saturating_sub(2);
         let phrase = ws[from..=i].iter().filter(|w| !STOP.contains(&w.as_str())).cloned().collect::<Vec<_>>().join(" ");
         *fork = Some(phrase);
     }
-    // Parts.
     const PART_WORDS: &[(&str, &[&str])] = &[
         ("ember-mask", &["ember", "flame", "mask", "burning", "fire"]),
         ("stone-brow", &["stone", "brow", "rock", "granite", "ogre", "troll"]),
@@ -962,9 +909,7 @@ fn edit_creature(
         let words = PART_WORDS.iter().find(|(id, _)| *id == p.id).map_or(&[][..], |(_, l)| *l);
         let slot_hit = ws.iter().any(|w| w == &p.slot.name().to_lowercase());
         let hit = words.iter().filter(|w| ws.iter().any(|x| x == *w)).count();
-        // "royal armour" means the royal mail, "iron" alone only an armour.
         if hit > 0 && c.chosen(p.slot).is_none_or(|x| x.part_id != p.id) {
-            // The part that names the most of its own words wins its slot.
             let rival = PARTS.iter().filter(|q| q.slot == p.slot && q.id != p.id).any(|q| {
                 let qw = PART_WORDS.iter().find(|(id, _)| *id == q.id).map_or(&[][..], |(_, l)| *l);
                 qw.iter().filter(|w| ws.iter().any(|x| x == *w)).count() > hit
@@ -983,7 +928,6 @@ fn edit_creature(
             }
         }
     }
-    // Paint.
     const PIGMENTS: &[(Pigment, &[&str])] = &[
         (Pigment::Moss, &["moss", "mossy", "green", "frog", "toad", "swamp", "forest", "lizard"]),
         (Pigment::Slate, &["slate", "grey", "gray", "blue", "stone", "steel", "ghost"]),
@@ -1021,7 +965,6 @@ fn edit_creature(
         c.paint.pattern = p;
         changed = true;
     }
-    // Sculpt.
     let s = &mut c.sculpt;
     let bump = |v: &mut u8, d: i32| *v = (i32::from(*v) + d).clamp(0, 100) as u8;
     let head_ws = pos(ws, &["head"]).is_some();
@@ -1059,7 +1002,6 @@ fn edit_creature(
         bump(&mut s.bulk, -15);
         changed = true;
     }
-    // Magic: a school with a way of casting it.
     let schoolly = school_of(ws);
     let castly = any(ws, &["cast", "spell", "bolt", "nova", "beam", "ward", "summon", "aura", "breath", "shoot", "hurl", "blast", "casts", "magic", "shoots", "breathes", "throws"]);
     if let Some(school) = schoolly.filter(|_| castly || pos(ws, &["spell"]).is_some()) {
@@ -1080,7 +1022,6 @@ fn edit_creature(
             changed = true;
         }
     }
-    // What the catalogue lacks.
     let unknown: Vec<&String> = ws.iter().filter(|w| !known(w) && !PIGMENTS.iter().any(|(_, l)| l.contains(&w.as_str()))).collect();
     if !unknown.is_empty() && fresh {
         let slot = if any(ws, &["head", "face"]) { "head" } else { "head" };
@@ -1093,9 +1034,6 @@ fn edit_creature(
     changed
 }
 
-// ------------------------------------------------------------------------------------ haggling
-
-/// A boss-sized wish: trim what costs most until it fits, and say what went. Never a refusal.
 fn haggle(spec: &mut Spec) {
     let mut steps = Vec::new();
     match &mut spec.make {
@@ -1170,8 +1108,6 @@ fn haggle(spec: &mut Spec) {
     }
     spec.trimmed = steps;
 }
-
-// ------------------------------------------------------------------------------------ the answer
 
 fn speak(spec: &mut Spec, ws: &[String], refine: bool, changed: bool) {
     let seed = spec.wish.clone();

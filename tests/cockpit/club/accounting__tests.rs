@@ -43,7 +43,6 @@ fn usage_accounting_reasoning_contract_coverage_survives_merge_and_window_delta(
     };
     let included = observation(ReasoningConvention::Included, 10, 3);
     let separate = observation(ReasoningConvention::Separate, 10, 3);
-    // Zero is observed data, but does not establish the provider's convention.
     let unknown_zero = observation(ReasoningConvention::Unknown, 0, 0);
     let mut before = AccountingSnapshot::default();
     before.record(Some(included));
@@ -400,7 +399,6 @@ fn usage_accounting_poisoned_or_disappearing_sources_are_untracked() {
     assert!(AccountingView::default().delta(&before).untracked_sources);
 }
 
-/// Operator-ordered F01 contract: settled overrun cannot prevent the next attempt.
 #[test]
 fn formation_budget_accounting_attempts_keep_overrun_and_unknown_usage() {
     let _lock = crate::tests::env_lock();

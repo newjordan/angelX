@@ -13,12 +13,10 @@ use crate::rules::brasswake::{
 };
 use crate::rules::{HZ, Run};
 
-/// A box: left, top, width, height.
 pub(super) type Rect = (i32, i32, i32, i32);
 
 pub(super) const W: i32 = 384;
 pub(super) const H: i32 = 224;
-/// The stage's rows: the aisle shows between the bars.
 pub(super) const TOP: i32 = 34;
 pub(super) const BOTTOM: i32 = 180;
 
@@ -30,7 +28,6 @@ pub(super) fn inside(r: Rect) -> bool {
     r.0 >= 0 && r.1 >= 0 && r.0 + r.2 <= W && r.1 + r.3 <= H
 }
 
-/// A line of the 5x7 font where it stands.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Word {
     pub x: i32,
@@ -59,7 +56,6 @@ fn centre(y: i32, text: impl Into<String>, ink: char) -> Word {
     Word { x: (W - text_width(&text)) / 2, y, text, ink }
 }
 
-/// A knight's name as the table shows it: four letters, or `K2` for the default `Knight 2`.
 pub(super) fn short(name: &str) -> String {
     let up = name.to_uppercase();
     match up.strip_prefix("KNIGHT ") {
@@ -68,44 +64,33 @@ pub(super) fn short(name: &str) -> String {
     }
 }
 
-/// The name of seat `id` in the run.
 pub(super) fn name_of(run: &Run, id: u32, n: usize) -> String {
     run.players.get(&id).map_or("KNIGHT", |h| h.name.as_str()).to_uppercase().chars().take(n).collect()
 }
 
-/// The seat's ink on a board.
 pub(super) fn pip(id: u32) -> char {
     knights::seat_mark(id)
 }
 
-/// The seats in the order the table shows them: first place first.
 pub(super) fn ranked(s: &Session) -> Vec<u32> {
     let mut order: Vec<u32> = s.lanes.keys().copied().collect();
     order.sort_by_key(|&id| (s.score(id), id));
     order
 }
 
-// ─── the bars ────────────────────────────────────────────────────────────────
-
-/// The standings grid: two columns, three rows, a seat in each.
 const COLS: [i32; 2] = [232, 306];
 const ROWS: [i32; 3] = [187, 197, 207];
-/// Where the keys line sits.
 const KEYS_Y: i32 = 184;
-/// The race track: its left and right ends and its line.
 const TRACK: (i32, i32, i32) = (14, 218, 212);
 
-/// Where seat `n`th in rank sits on the standings grid.
 pub(super) fn entry(n: usize) -> (i32, i32) {
     (COLS[n % 2], ROWS[(n / 2).min(2)])
 }
 
-/// What the knight's own score shows: the work flying to the plate is not in it until it lands.
 pub(super) fn shown(d: &Lane, now: u32) -> u32 {
     d.score.saturating_sub(moments::in_flight(d, now))
 }
 
-/// The three keys: where the walk, the punch and the E key's words sit.
 pub(super) fn keys(run: &Run, d: &Lane, elapsed: u32) -> Vec<Word> {
     let _ = run;
     let ink = if elapsed < 20 * HZ { 'i' } else { 'J' };
@@ -120,7 +105,6 @@ pub(super) fn keys(run: &Run, d: &Lane, elapsed: u32) -> Vec<Word> {
     vec![word(8, KEYS_Y, "ARROWS WALK", ink), word(84, KEYS_Y, "F PUNCH", ink), word(134, KEYS_Y, e_text, e_ink)]
 }
 
-/// Every word of the playing screen.
 pub(super) fn words(run: &Run, s: &Session, id: u32) -> Vec<Word> {
     let d = &s.lanes[&id];
     let now = run.tick as u32;
@@ -152,28 +136,22 @@ pub(super) fn words(run: &Run, s: &Session, id: u32) -> Vec<Word> {
     out
 }
 
-/// Whether the vat keeper lies slain.
 pub(super) fn keeper_down(d: &Lane) -> bool {
     d.wave == 3 && d.foes.iter().all(|e| e.hp == 0)
 }
 
-/// Whether the combo shows: a chain alive, the knight up, the round not yet won.
 pub(super) fn combo_shown(d: &Lane) -> bool {
     d.chain > 0 && d.down == 0 && !keeper_down(d)
 }
 
-/// The boxes of pixel text on the playing screen that are not `Word`s: the work, the combo.
 pub(super) const SCORE_BOX: Rect = (6, 15, 70, 18);
 pub(super) const COMBO_BOX: Rect = (150, 2, 84, 30);
-
-// ─── pixels ──────────────────────────────────────────────────────────────────
 
 fn heart(full: bool) -> &'static Img {
     static HEARTS: std::sync::OnceLock<[Img; 2]> = std::sync::OnceLock::new();
     &HEARTS.get_or_init(|| [heart_img(false), heart_img(true)])[usize::from(full)]
 }
 
-/// Big figures from a small cache: the work and the chain change a few times a second at most.
 fn figures(text: &str, scale: i32, fill: char) -> Img {
     thread_local! {
         static CACHE: std::cell::RefCell<std::collections::HashMap<(String, i32, char), Img>> = Default::default();
@@ -213,7 +191,6 @@ fn heart_img(full: bool) -> Img {
     out
 }
 
-/// A seat's shield on the track: seven wide, nine tall.
 fn shield(ink: char) -> Img {
     let mut im = Img::new(7, 9);
     for (y, w) in [7, 7, 7, 7, 5, 5, 3, 1].into_iter().enumerate() {
@@ -243,12 +220,10 @@ fn gate_x(pos: i32) -> i32 {
     TRACK.0 + pos * (TRACK.1 - TRACK.0) / 960
 }
 
-/// The race track: every knight's place along the four aisles to the keeper, and who carries a cask.
 fn track(im: &mut Img, run: &Run, s: &Session, id: u32) {
     let now = run.tick as u32;
     let (x0, x1, y) = TRACK;
     let me = &s.lanes[&id];
-    // A team kick lights the whole track for a moment; the first knight at the keeper lights its head.
     let call = |cry: Cry| s.show.list.iter().filter(|c| c.cry == cry).map(|c| c.age(now)).min();
     let team = call(Cry::Team).filter(|&a| a < 24);
     im.rect(x0, y, x1 - x0 + 1, 3, if team.is_some_and(|a| (a / 3) % 2 == 0) { 'o' } else { 'g' });
@@ -267,7 +242,6 @@ fn track(im: &mut Img, run: &Run, s: &Session, id: u32) {
         let hit = lane.show.latest(|m| matches!(m.kind, Kind::Blow { .. }).then(|| m.age(now))).is_some_and(|a| a < 3);
         let sh = if hit { juice::impact_frame(&shield(pip(who)), 'H') } else { shield(pip(who)) };
         if who == id {
-            // The knight at this screen: a taller marker with an arrow over it.
             let bob = (now / 6 % 2) as i32;
             im.rect(x + 3 - 1, spot - 5 + bob, 3, 1, 't');
             im.rect(x + 3, spot - 4 + bob, 1, 1, 't');
@@ -283,7 +257,6 @@ fn track(im: &mut Img, run: &Run, s: &Session, id: u32) {
     }
 }
 
-/// The standings' pips and the local frame.
 fn standings(im: &mut Img, run: &Run, s: &Session, id: u32) {
     let now = run.tick as u32;
     for (n, who) in ranked(s).into_iter().enumerate() {
@@ -295,13 +268,11 @@ fn standings(im: &mut Img, run: &Run, s: &Session, id: u32) {
         im.rect(x, y, 4, 7, 'k');
         im.rect(x + 1, y + 1, 2, 5, pip(who));
         if n == 0 && lane.score > 0 {
-            // A crown on the leader.
             im.rect(x - 1, y - 3, 6, 1, 'T');
             im.put(x - 1, y - 4, 'T');
             im.put(x + 2, y - 4, 'T');
             im.put(x + 4, y - 4, 'T');
         }
-        // A seat that just landed a blow lights its row's edge.
         if let Some(age) = lane.show.latest(|m| matches!(m.kind, Kind::Blow { .. }).then(|| m.age(now))) {
             if age < 8 && who != id {
                 im.rect(x - 3, y + 8, 73 * (8 - age as i32) / 8, 1, pip(who));
@@ -310,14 +281,11 @@ fn standings(im: &mut Img, run: &Run, s: &Session, id: u32) {
     }
 }
 
-/// The bars, the hearts, the work, the combo, the track and the standings: everything but the words.
 pub(super) fn paint(im: &mut Img, run: &Run, s: &Session, id: u32) {
     let d = &s.lanes[&id];
     let now = run.tick as u32;
-    // The bars are the black paper; only their hairlines are drawn.
     im.rect(0, TOP - 1, W, 1, 'S');
     im.rect(0, BOTTOM, W, 1, 'S');
-    // Hearts: one flash for the heart a blow took, a bloom for bread.
     let lost = d.show.latest(|m| matches!(m.kind, Kind::Hurt { guarded: false, .. }).then(|| m.age(now))).filter(|&a| a < 10);
     let bloom = d.show.latest(|m| matches!(m.kind, Kind::Bread).then(|| m.age(now))).filter(|&a| a < 16);
     let low = d.hp <= 2 && d.down == 0;
@@ -337,11 +305,9 @@ pub(super) fn paint(im: &mut Img, run: &Run, s: &Session, id: u32) {
             }
         }
     }
-    // The work, big, bumped when a flying score lands.
     let bump = moments::landing(d, now).map_or(0.0, |a| juice::bump(a, 8));
     let score = figures(&shown(d, now).to_string(), 2, if bump > 0.3 { 'c' } else { 't' });
     im.stamp(&score, SCORE_BOX.0, SCORE_BOX.1 - (bump * 3.0) as i32);
-    // The combo: the chain in big figures and three pips for the swings.
     if combo_shown(d) {
         let flash = d.show.latest(|m| matches!(m.kind, Kind::Blow { .. }).then(|| m.age(now))).is_some_and(|a| a < 3);
         let chain = figures(&format!("X{}", d.chain), 2, if flash { 'c' } else { 'T' });

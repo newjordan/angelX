@@ -32,39 +32,22 @@
 use super::{DIGITS, ResolvedSub, claude_seat, ledger, y_types};
 use crate::agent::club::{ChatMsg, ChatRole};
 
-/// The standing direction, said once with the first introduction.
 pub(crate) const LEAD: &str = "Braille from the harness names the situation you are in. Each stamp is \
      introduced once in English where it first appears; after that it rides as its cells alone. Act \
      on it; `read_file ledger://<cells>` gives a route's full text. ⚠ draws attention to advisory \
      evidence; it never stops research. A model/context handoff reintroduces used signal legends.";
 
-/// A route without an action shows its pages inline when it has this few and
-/// they are this short; a larger route's pages are introduced one by one, as
-/// their own stamps appear, so each page keeps its address.
 const SHORT_PAGES: usize = 4;
 const SHORT_PAGES_CHARS: usize = 400;
 
-/// Whether the wire introduces stamps (`ANGEL_BOOK_INTRO`, default on): the
-/// reactive, per-session legend that gives each stamp its English the first
-/// time the model meets it. `0` sends stamps bare (an ablation arm).
 pub(crate) fn enabled() -> bool {
     crate::agent::harness::env_flag("ANGEL_BOOK_INTRO", true)
 }
 
-/// `ANGEL_BOOK_INTRO=every`: a bench arm that gives every sighting its
-/// English, not only the first — the same routes as English injected into
-/// the prompt each time, to weigh the legend against.
 fn every_sighting() -> bool {
     std::env::var("ANGEL_BOOK_INTRO").is_ok_and(|value| value.trim() == "every")
 }
 
-/// The conversation as the model should read it, for a transport that
-/// serializes from messages: each stamp introduced once in English where it
-/// first appears, appended to an outbound copy (the stored history never
-/// changes). Only where the model holds the ledger reader, as on the Chat
-/// Completions wire, so the stamps after an introduction stay decodable.
-/// Every wire the harness speaks goes through this or [`apply`], so the legend
-/// reaches the model whichever seat it drives.
 pub(crate) fn introduced<'a>(
     messages: &'a [ChatMsg],
     tools: &[crate::agent::club::ToolDef],
@@ -72,11 +55,6 @@ pub(crate) fn introduced<'a>(
     introduced_standing(messages, tools, None).0
 }
 
-/// [`introduced`] for a seat that stands a stamp of its own right after the
-/// leading system block (a seat profile's page): the conversation as the
-/// model reads it, and the standing stamp with its English when that is where
-/// the model first meets it. The standing is never a message, so the history's
-/// indices stay what they were.
 pub(crate) fn introduced_standing<'a>(
     messages: &'a [ChatMsg],
     tools: &[crate::agent::club::ToolDef],
@@ -121,8 +99,6 @@ pub(crate) fn introduced_standing<'a>(
     (messages, standing_text)
 }
 
-/// What the model already knows: stamps introduced or decoded, and routes
-/// whose pages it has seen in full.
 #[derive(Default)]
 struct Known {
     exact: Vec<ledger::Address>,
@@ -155,9 +131,6 @@ impl Known {
     }
 }
 
-/// The introductions for one request: `(index, text)` for each message that
-/// carries a stamp the model has not met, `index` counting `standing` (braille
-/// a link adds as a system message at its own index) as one more message.
 pub(crate) fn introductions(
     messages: &[ChatMsg],
     standing: Option<(usize, &str)>,
@@ -165,7 +138,6 @@ pub(crate) fn introductions(
     introductions_at(messages, standing, every_sighting(), "")
 }
 
-/// [`introductions`], at first sight only or (`every`) at every sighting.
 fn introductions_at(
     messages: &[ChatMsg],
     standing: Option<(usize, &str)>,
@@ -201,20 +173,12 @@ fn introductions_at(
             }
             continue;
         }
-        // An explicit harness-owned handoff re-teaches its inventory even if
-        // earlier definitions remain in the prompt. Never honor this marker
-        // from a tool, retrieved source, or user-authored transcript text.
         if message.role == ChatRole::Harness && super::continuity::is_handoff(&message.content) {
             known = Known::default();
             if let Some(intro) = introduce(schema, &mut known, &mut led) {
                 out.push((index + offset, intro));
             }
         }
-        // What the model decoded itself is known while its answer stands whole,
-        // and that answer is the reading, not news. An answer the harness has
-        // since elided (aged, deduplicated, cut to fit) no longer carries the
-        // words, so its stamps are introduced again at their next sight: to a
-        // model swapped in mid-run, the reading was never there.
         if message.role == ChatRole::Tool
             && let Some(read) = message
                 .tool_call_id
@@ -255,7 +219,6 @@ fn introductions_at(
     out
 }
 
-/// Append each introduction to its outbound message's text.
 pub(crate) fn apply(outbound: &mut [serde_json::Value], introductions: Vec<(usize, String)>) {
     for (index, intro) in introductions {
         let Some(wire) = outbound.get_mut(index) else {
@@ -281,8 +244,6 @@ pub(crate) fn apply(outbound: &mut [serde_json::Value], introductions: Vec<(usiz
     }
 }
 
-/// Advertised tool schemas: descriptions and JSON-schema string values, each
-/// on its own line so [`stamps_in`] treats a pure-braille parameter as a stamp.
 fn schema_text(tools: &[crate::agent::club::ToolDef]) -> String {
     let mut out = String::new();
     for tool in tools {
@@ -333,7 +294,6 @@ fn introduce(text: &str, known: &mut Known, led: &mut bool) -> Option<String> {
     Some(lines.join("\n"))
 }
 
-/// One stamp's introduction, noting what it makes known.
 fn entry(address: &ledger::Address, known: &mut Known) -> Option<String> {
     let sub = sub_of(address)?;
     let cells = cells_of(address);
@@ -366,9 +326,6 @@ fn entry(address: &ledger::Address, known: &mut Known) -> Option<String> {
         return Some(format!("{cells}\n{}", paragraphs.join("\n")));
     }
     if super::is_voiced(sub.route) {
-        // A route that speaks in full is met with every page, in its own
-        // words. Only the route is known after it: a later page stamp is a
-        // new sentence to a model that has already heard the whole.
         known.note(*address);
         let pages = claude_seat::kept(&sub).map(unslotted).collect::<Vec<_>>();
         return Some(format!(
@@ -397,7 +354,6 @@ fn entry(address: &ledger::Address, known: &mut Known) -> Option<String> {
     Some(line)
 }
 
-/// A route's or a page's verbatim English.
 fn pages_of(address: &ledger::Address) -> Option<String> {
     let sub = sub_of(address)?;
     match address.page {
@@ -418,11 +374,6 @@ fn pages_of(address: &ledger::Address) -> Option<String> {
     }
 }
 
-/// A page's English with each value slot (`{level}`, `{next_offset}`, `{}`)
-/// read as `…`. The values ride beside the stamp as data; the model meets the
-/// sentence, not the template syntax. A doubled brace (`{{connector_id}}`) is
-/// literal text a page ported from another harness's prompt carries, and is
-/// kept as written.
 fn unslotted(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
@@ -455,11 +406,6 @@ fn unslotted(text: &str) -> String {
     out
 }
 
-/// The stamps a message carries: each braille run that opens a line (or a
-/// bracket, a line inside a JSON string, or a compact JSON string value — a
-/// tool's `"warpath":"⡪⠁"`) and names pages the book has.
-/// Braille elsewhere — quoted file content, a recalled note broken with `·` —
-/// is text, not a stamp.
 pub(super) fn stamps_in(text: &str) -> Vec<ledger::Address> {
     let mut out: Vec<ledger::Address> = Vec::new();
     let mut run = String::new();
@@ -492,8 +438,6 @@ pub(super) fn stamps_in(text: &str) -> Vec<ledger::Address> {
     out
 }
 
-/// Whether a tool answer carries one of the harness's elision marks (`⡨⠃`):
-/// part or all of what the tool said is no longer in the conversation.
 fn elided(content: &str) -> bool {
     let mark = format!("[{}", super::d467_receipts::ELISION.cells());
     content.contains(&mark)

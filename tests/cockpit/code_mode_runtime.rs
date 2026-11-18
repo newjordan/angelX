@@ -40,8 +40,6 @@ fn code_mode_runtime_cap_is_checked_before_host_batch_dispatch() {
     );
 }
 
-// Exercise V8 semantics without rebuilding or linking the full cockpit test
-// harness. Host scheduling/identity/effect policy remains tested in the facade.
 use std::ops::Range;
 
 fn mock(name: &str, args: &Value) -> Result<String, String> {
@@ -61,8 +59,6 @@ fn parallel_all(specs: &[(String, Value)]) -> Vec<Range<usize>> {
     }
 }
 
-// Signature-compatible test adapter; these tests target JS semantics, not the
-// host's parallel scheduler (which is not part of this crate).
 fn run(
     script: &str,
     names: &[String],
@@ -105,7 +101,6 @@ fn returns_string_verbatim() {
 #[test]
 fn returns_object_as_json() {
     let out = run_ok("return {a: 1, b: [2, 3]};");
-    // JSON.stringify ordering is insertion order.
     assert_eq!(out.result, r#"{"a":1,"b":[2,3]}"#);
 }
 
@@ -116,7 +111,6 @@ fn undefined_return_is_empty() {
 
 #[test]
 fn calls_named_host_tool() {
-    // double({n:21}) -> "42"
     assert_eq!(run_ok("return double({n: 21});").result, "42");
 }
 
@@ -144,7 +138,6 @@ fn pending_async_promise_returns_an_incomplete_execution_error() {
 
 #[test]
 fn loops_and_batches_across_calls() {
-    // Sum double(1..=4) = 2+4+6+8 = 20, in ONE run (would be 4 round-trips).
     let out = run_ok(
         "let total = 0; for (let i = 1; i <= 4; i++) { total += Number(double({n: i})); } return total;",
     );
@@ -153,7 +146,6 @@ fn loops_and_batches_across_calls() {
 
 #[test]
 fn generic_tool_dispatch_reaches_any_tool() {
-    // tool('double', {n:9}) works even without relying on the named wrapper.
     assert_eq!(run_ok("return tool('double', {n: 9});").result, "18");
 }
 
@@ -224,12 +216,6 @@ fn infinite_loop_times_out() {
 
 #[test]
 fn heap_bomb_terminates_instead_of_aborting() {
-    // Unbounded allocation under a tiny (8MB) heap cap must be TERMINATED by
-    // the near-heap-limit callback (returns Err) rather than crash the whole
-    // process via V8's FatalProcessOutOfMemory. The timeout is generous (30s)
-    // so the failure is provably the heap guard, not the wall-clock watchdog
-    // (the heap fills in well under a second). If this test process *aborts*
-    // instead of failing the assertion, the heap guard regressed.
     let err = run(
         "let a = []; for (;;) { a.push(new Array(200000).fill(7)); }",
         &[],
@@ -239,7 +225,6 @@ fn heap_bomb_terminates_instead_of_aborting() {
         8,
     )
     .unwrap_err();
-    // Termination surfaces through has_terminated() as "execution timed out".
     assert!(
         err.contains("timed out") || err.contains("terminated"),
         "expected a termination error, got: {err}"
@@ -248,9 +233,6 @@ fn heap_bomb_terminates_instead_of_aborting() {
 
 #[test]
 fn bad_json_args_throw() {
-    // Force a non-serializable arg path by calling the bridge directly with a
-    // value JSON.stringify drops to undefined → "{}" parses fine; instead test
-    // that a thrown error inside a tool propagates with the tool name.
     let err = run(
         "return tool('nope', {});",
         &[],
@@ -271,7 +253,6 @@ fn active_run_rechecks_revoked_batch_policy_before_dispatch() {
     let invoke = |_: &str, _: &Value| panic!("unexpected single dispatch");
     let batch = |specs: &[(String, Value)]| {
         dispatched.fetch_add(1, Ordering::SeqCst);
-        // Revoke the larger allowance while this run is still active.
         cap.store(1, Ordering::SeqCst);
         specs.iter().map(|(name, _)| Ok(name.clone())).collect()
     };

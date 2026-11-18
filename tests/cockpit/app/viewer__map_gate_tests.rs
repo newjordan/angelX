@@ -218,10 +218,6 @@ fn native_video_pixels_are_bounded_exact_and_coalesce_without_stale_generations(
 
 #[test]
 fn the_tile_map_accepts_every_real_graphics_protocol() {
-    // This gate was originally copied from the WebGPU portal, which is
-    // Kitty-only on purpose. That left the map dark on sixel terminals —
-    // the protocol this project's own sessions actually negotiate — for no
-    // reason, because a composed frame is just pixels.
     for protocol in [
         ProtocolType::Kitty,
         ProtocolType::Sixel,
@@ -236,32 +232,22 @@ fn the_tile_map_accepts_every_real_graphics_protocol() {
 fn sixel_prefers_living_braille_unless_backed_map_forced() {
     use crate::delve::cart::viewer::map_desired;
     use angel_plug::viewer::Graphics;
-    // Capability stays open (operator can force plates), but the default
-    // picture on sixel is the living braille world — static sixel plates
-    // were reading as a broken still.
     let _lock = crate::tests::env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_BACKED_MAP") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_TILE_MAP") };
     assert!(map_supported(ProtocolType::Sixel));
     assert!(!map_desired(Graphics::Sixel));
     assert!(map_desired(Graphics::Kitty));
     assert!(map_desired(Graphics::Iterm2));
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_BACKED_MAP", "1") };
     assert!(map_desired(Graphics::Sixel));
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_BACKED_MAP", "0") };
     assert!(!map_desired(Graphics::Kitty));
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_BACKED_MAP") };
 }
 
 #[test]
 fn halfblocks_falls_back_to_the_braille_map() {
-    // Excluded on resolution, not capability: one pixel per cell half
-    // cannot hold a 512px island, and braille reads better than mush.
     assert!(!map_supported(ProtocolType::Halfblocks));
 }
 
@@ -343,8 +329,6 @@ fn artifact_still_pixels_preserve_portrait_rgb_flat_opacity_and_fail_closed() {
                 assert!(cells.iter().any(|cell| [cell.fg, cell.bg].iter().any(|color| matches!(color, Color::Rgb(r, g, b) if !crate::ui::term::art::DMD_PALETTE.contains(&[*r, *g, *b])))), "artifact RGB must not collapse to the DMD palette");
             }
             1 => assert!(
-                // Uniform halfblocks use a colored space: its background
-                // still covers the whole terminal cell opaquely.
                 cells
                     .iter()
                     .all(|cell| cell.fg == source_color && cell.bg == source_color),
@@ -430,8 +414,6 @@ fn still_inspector_native_geometry_pending_continuity_and_failure() {
     let mut viewer = Viewer::with_picker(Viewer::picker_for_protocol(ProtocolType::Kitty));
     let mut terminal = Terminal::new(TestBackend::new(16, 8)).unwrap();
     let scene = Rect::new(2, 1, 8, 4);
-    // Prime identity/source, not protocol; the real worker encodes with the
-    // same ioctl-derived picker that defines the cache and pointer mapping.
     viewer.artifact_identity = Some((source.clone(), 1));
     viewer.artifact_decoded = Some(decoded);
     let draw = |viewer: &mut Viewer, terminal: &mut Terminal<TestBackend>, font| {
@@ -494,8 +476,6 @@ fn still_inspector_native_geometry_pending_continuity_and_failure() {
                 .any(|c| c.symbol().contains('\u{10eeee}'))
         );
     }
-    // Any same-scene encoder failure cancels old authority, even if desired
-    // view advanced. No stale-success ready flag and no faulted old image.
     tx.send(Err("controlled encoder failure".into())).unwrap();
     terminal
         .draw(|f| {
@@ -517,7 +497,6 @@ fn still_inspector_native_geometry_pending_continuity_and_failure() {
     assert!(viewer.inspector.drag.is_none());
     assert!(viewer.artifact.is_none());
 
-    // Explicit resize epoch prevents A→B→A resurrecting a pending protocol.
     viewer.artifact_identity = Some((source.clone(), 1));
     let (tx, rx) = mpsc::channel();
     viewer.artifact_pending = Some(PendingArtifact {
@@ -597,7 +576,6 @@ fn still_inspector_source_decode_once_coalesces_and_cleans_error_identity_resize
     let area = Rect::new(2, 3, 48, 16);
     ready(&mut viewer, &mut terminal, area, &source, 1);
     let allocation = Arc::as_ptr(viewer.artifact_decoded.as_ref().unwrap());
-    // Once opened, gestures and resize must succeed even with file removed.
     std::fs::remove_file(&source.path).unwrap();
     viewer.inspector.action(Action::ZoomIn);
     terminal
@@ -629,8 +607,6 @@ fn still_inspector_source_decode_once_coalesces_and_cleans_error_identity_resize
         Arc::strong_count(viewer.artifact_decoded.as_ref().unwrap()),
         1
     );
-    // Same path + new request must NOT use cached decoded data. Missing file
-    // produces an error and clears every input/pixel/cache authority.
     let deadline = std::time::Instant::now() + Duration::from_secs(10);
     let mut fault = None;
     while fault.is_none() && std::time::Instant::now() < deadline {
@@ -684,7 +660,6 @@ fn native_artifact_pixels_preserve_source_resize_and_failure_identity() {
     assert_eq!(decoded.to_rgba8().get_pixel(0, 0).0, [230, 40, 20, 255]);
     let mut viewer = Viewer::with_picker(halfblock_picker());
     let mut terminal = Terminal::new(TestBackend::new(32, 16)).unwrap();
-    // Browsing cannot abandon a running decoder and launch another one.
     let (blocked_tx, blocked_rx) = mpsc::channel();
     let blocked_key = ArtifactKey {
         request_id: 0,

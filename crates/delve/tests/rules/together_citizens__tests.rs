@@ -1,6 +1,3 @@
-// Citizens are a pure function of (seed, bays, tick): the same holding or
-// settlement always shows the same folk at the same tick, and pictures can
-// never mint, move or lose a citizen by being drawn.
 use super::{Bay, BayState, Job, MAX_CITIZENS, phase, roster};
 
 fn bays(states: &[BayState]) -> Vec<Bay> {
@@ -35,11 +32,9 @@ fn roster_is_deterministic_bounded_and_homed() {
     assert!(!a.is_empty() && a.len() <= MAX_CITIZENS);
     assert!(a.iter().all(|c| c.home < place.len()));
     assert!(a.iter().all(|c| place[c.home].state != BayState::Empty));
-    // One builder works the one rising room; nobody builds a standing room.
     let builders: Vec<_> = a.iter().filter(|c| c.job == Job::Build).collect();
     assert_eq!(builders.len(), 1);
     assert_eq!(builders[0].home, 1);
-    // Ids are unique: two citizens never share a walk phase by accident.
     let mut ids: Vec<_> = a.iter().map(|c| c.id).collect();
     ids.sort_unstable();
     ids.dedup();
@@ -72,9 +67,7 @@ fn phase_walks_out_works_and_walks_back_within_span() {
         }
         assert!(saw_work && saw_back && saw_far, "span {span} never completes a round trip");
     }
-    // Different citizens are staggered, not a marching column.
     let steps: Vec<_> = (0..6).map(|id| phase(9, id, 500, 40, 6).step).collect();
     assert!(steps.windows(2).any(|w| w[0] != w[1]), "{steps:?}");
-    // A zero stride can never divide by zero or move anybody.
     assert_eq!(phase(9, 2, 500, 40, 0).step, 0);
 }

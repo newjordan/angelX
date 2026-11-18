@@ -4,9 +4,6 @@
 
 use super::*;
 
-/// Crypt flags: a worn joint here and there, and worn chips a few to a
-/// patch. Every hall of the realm is floored with them, so the marks are
-/// worked out once a block of the floor and kept.
 pub(super) fn flags(x: i32, y: i32) -> Option<char> {
     const B: i32 = 64;
     const N: i32 = 16;
@@ -38,17 +35,9 @@ fn flags_at(x: i32, y: i32) -> Option<char> {
     {
         return Some('x');
     }
-    // Worn chips in the flags, a few to a patch.
     chip(x, y, 83, 68, 84, 'S', 's')
 }
 
-/// A small mark at `(x, y)`, or none: cells of six by five, every other
-/// row shifted, each holding one with chance `p` in 256 at its own place in
-/// the cell, two or three pixels wide and two high, its top row `top` and
-/// the rounded row under it `body`. Grouped marks with black paper
-/// between, never a lone pixel. With a `patch` seed the chance rises and
-/// falls in slow patches, none in the bare stretches and all of `p` where
-/// the marks collect; the patch is looked up only on a mark's own pixels.
 pub(super) fn chip(x: i32, y: i32, seed: u32, p: u32, patch: u32, top: char, body: char) -> Option<char> {
     let cy = y.div_euclid(5);
     let sx = x + cy.rem_euclid(2) * 3;
@@ -75,18 +64,14 @@ pub(super) fn chip(x: i32, y: i32, seed: u32, p: u32, patch: u32, top: char, bod
     }
 }
 
-/// The Mines' pebbles, strewn like the roads up to the mine mouth: small
-/// stones lit on top, gathered in drifts.
 pub(super) fn pebbles(x: i32, y: i32) -> Option<char> {
     chip(x, y, 85, 16, 86, 'o', 'B').or_else(|| chip(x, y, 89, 96, 86, 'P', 'b'))
 }
 
-/// The Keep's ash in drifts, with an ember cooling in it now and then.
 pub(super) fn ash(x: i32, y: i32) -> Option<char> {
     chip(x, y, 88, 5, 0, 'p', 'b').or_else(|| chip(x, y, 87, 88, 90, 'g', 'X'))
 }
 
-/// The Archive's floor: worn flags, and pages that drifted off the shelves.
 pub(super) fn pages(x: i32, y: i32) -> Option<char> {
     let h = hash(x / 3, y / 2, 91);
     if h.is_multiple_of(97) && (x % 3 != 2) {
@@ -95,14 +80,10 @@ pub(super) fn pages(x: i32, y: i32) -> Option<char> {
     flags(x, y).filter(|_| hash(x / 6, y / 5, 92).is_multiple_of(2))
 }
 
-/// The Fungal Deep's floor: moss in tufts, lit on top, and now and then a
-/// spore that glows.
 pub(super) fn moss(x: i32, y: i32) -> Option<char> {
     chip(x, y, 95, 4, 0, 'Y', 'l').or_else(|| chip(x, y, 93, 140, 94, 'm', 'l'))
 }
 
-/// The Unknown's floor: hardly a floor at all — a lattice of faint light,
-/// as if the world were still being worked out.
 pub(super) fn lattice(x: i32, y: i32) -> Option<char> {
     let on = (x.rem_euclid(TILE) == 0 && y.rem_euclid(4) == 0)
         || (y.rem_euclid(TILE) == 0 && x.rem_euclid(4) == 0);

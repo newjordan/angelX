@@ -1,4 +1,3 @@
-// Extend the existing offline write_world_shots gate, never open a host.
 fn wetland_world_shots(base: &Run, save: &impl Fn(&str, &Img)) {
     use crate::rules::{
         HZ, Input, RoomKind,

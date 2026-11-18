@@ -1,5 +1,3 @@
-"""A manual reader never observes a half-written relay request or reply."""
-
 import json
 from pathlib import Path
 import shutil
@@ -68,7 +66,6 @@ class RelayPublicationTests(unittest.TestCase):
         self.addCleanup(self.retire)
 
     def retire(self):
-        # Release every fixture writer before stopping its directly owned job.
         (self.root / "writing.release").touch()
         for job in reversed(self.jobs):
             if job.poll() is None:

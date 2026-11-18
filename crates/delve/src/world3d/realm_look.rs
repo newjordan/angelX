@@ -13,7 +13,6 @@ use super::chunks::CHUNK;
 use crate::world::biome::{self, Biome};
 use crate::world::map::{CHUNKS_X, CHUNKS_Y};
 
-/// Castle Town: cold indigo slate, the hub's stone.
 pub const CASTLE_TOWN: [[u8; 3]; 8] = [
     [0x0c, 0x0e, 0x14],
     [0x14, 0x17, 0x22],
@@ -24,7 +23,6 @@ pub const CASTLE_TOWN: [[u8; 3]; 8] = [
     [0x56, 0x5a, 0x8f],
     [0x7d, 0x7f, 0xa6],
 ];
-/// The Greenwood: deep pine green.
 pub const GREENWOOD: [[u8; 3]; 8] = [
     [0x0d, 0x13, 0x10],
     [0x15, 0x21, 0x1b],
@@ -35,7 +33,6 @@ pub const GREENWOOD: [[u8; 3]; 8] = [
     [0x5b, 0x8a, 0x77],
     [0x81, 0xa2, 0x95],
 ];
-/// The Highlands: steel blue.
 pub const HIGHLANDS: [[u8; 3]; 8] = [
     [0x0e, 0x11, 0x12],
     [0x16, 0x1c, 0x20],
@@ -46,7 +43,6 @@ pub const HIGHLANDS: [[u8; 3]; 8] = [
     [0x5f, 0x73, 0x86],
     [0x84, 0x91, 0x9f],
 ];
-/// The Wastes: ash with rust in it.
 pub const WASTES: [[u8; 3]; 8] = [
     [0x12, 0x0f, 0x0e],
     [0x1f, 0x18, 0x17],
@@ -57,7 +53,6 @@ pub const WASTES: [[u8; 3]; 8] = [
     [0x85, 0x6c, 0x60],
     [0x9e, 0x8e, 0x85],
 ];
-/// The Coast: sea teal.
 pub const COAST: [[u8; 3]; 8] = [
     [0x0d, 0x13, 0x13],
     [0x16, 0x20, 0x20],
@@ -68,7 +63,6 @@ pub const COAST: [[u8; 3]; 8] = [
     [0x5d, 0x81, 0x88],
     [0x83, 0x9b, 0xa0],
 ];
-/// The Fen: marsh olive.
 pub const FEN: [[u8; 3]; 8] = [
     [0x12, 0x13, 0x0d],
     [0x1f, 0x20, 0x16],
@@ -79,7 +73,6 @@ pub const FEN: [[u8; 3]; 8] = [
     [0x7e, 0x87, 0x5e],
     [0x98, 0xa0, 0x83],
 ];
-/// The Tilt-Yards: dull ochre.
 pub const TILT_YARDS: [[u8; 3]; 8] = [
     [0x13, 0x10, 0x0d],
     [0x20, 0x1c, 0x16],
@@ -90,7 +83,6 @@ pub const TILT_YARDS: [[u8; 3]; 8] = [
     [0x89, 0x7d, 0x5c],
     [0xa1, 0x99, 0x82],
 ];
-/// The Fairground: plum.
 pub const FAIRGROUND: [[u8; 3]; 8] = [
     [0x12, 0x0e, 0x12],
     [0x1f, 0x17, 0x1f],
@@ -101,7 +93,6 @@ pub const FAIRGROUND: [[u8; 3]; 8] = [
     [0x84, 0x61, 0x7f],
     [0x9d, 0x86, 0x99],
 ];
-/// Wind Country: the downs' sage.
 pub const WIND_COUNTRY: [[u8; 3]; 8] = [
     [0x0f, 0x12, 0x0e],
     [0x19, 0x1e, 0x18],
@@ -112,7 +103,6 @@ pub const WIND_COUNTRY: [[u8; 3]; 8] = [
     [0x67, 0x80, 0x65],
     [0x89, 0x9b, 0x88],
 ];
-/// Longbow Country: moss.
 pub const LONGBOW: [[u8; 3]; 8] = [
     [0x11, 0x13, 0x0d],
     [0x1c, 0x20, 0x16],
@@ -123,7 +113,6 @@ pub const LONGBOW: [[u8; 3]; 8] = [
     [0x71, 0x88, 0x5d],
     [0x90, 0xa0, 0x83],
 ];
-/// The March: oxblood.
 pub const MARCH: [[u8; 3]; 8] = [
     [0x12, 0x0e, 0x0f],
     [0x1f, 0x17, 0x19],
@@ -135,7 +124,6 @@ pub const MARCH: [[u8; 3]; 8] = [
     [0x9e, 0x85, 0x87],
 ];
 
-/// Water, wherever it runs: teal greys (the proof's river).
 pub const WATER: [[u8; 3]; 8] = [
     [0x0b, 0x12, 0x16],
     [0x12, 0x1e, 0x25],
@@ -147,7 +135,6 @@ pub const WATER: [[u8; 3]; 8] = [
     [0x82, 0x9f, 0xa3],
 ];
 
-/// Where lamps light: embers.
 pub const EMBER: [[u8; 3]; 8] = [
     [0x17, 0x10, 0x0e],
     [0x29, 0x19, 0x12],
@@ -159,11 +146,8 @@ pub const EMBER: [[u8; 3]; 8] = [
     [0xe6, 0xb2, 0x66],
 ];
 
-/// The light's glint on water, a lit window, a fire: the accents, kept as
-/// they are (the glint is the first, as the look's water wants).
 pub const GLINT: [u8; 3] = [0xd9, 0xd6, 0xb8];
 pub const WINDOW: [u8; 3] = [0xee, 0xae, 0x55];
-/// The blank slate's open hillside: grass, dialled back like the rest.
 pub const HILLSIDE: [[u8; 3]; 8] = [
     [0x0e, 0x13, 0x0c],
     [0x18, 0x22, 0x14],
@@ -176,7 +160,6 @@ pub const HILLSIDE: [[u8; 3]; 8] = [
 ];
 pub const FIRE: [u8; 3] = [0xe2, 0x7a, 0x34];
 
-/// Biome `b`'s palette.
 pub fn palette(b: Biome) -> [[u8; 3]; 8] {
     match b {
         Biome::CastleTown => CASTLE_TOWN,
@@ -194,7 +177,6 @@ pub fn palette(b: Biome) -> [[u8; 3]; 8] {
     }
 }
 
-/// Every biome, for the tests.
 pub const BIOMES: [Biome; 11] = [
     Biome::CastleTown,
     Biome::Greenwood,
@@ -209,46 +191,25 @@ pub const BIOMES: [Biome; 11] = [
     Biome::March,
 ];
 
-/// How wide a zone's feather is (kingdom pixels): the palette slides over
-/// fourteen tiles, seven either side of a border.
 pub const FEATHER: f32 = 224.0;
-/// How round a zone's corners are.
 pub const ROUND: f32 = 24.0;
-/// A metre in the kingdom's pixels (a knight stands about 22).
 pub const METRE: f32 = 11.0;
-/// Toward the sun: low in the west-south-west, behind the eye's left, so
-/// long shadows fall up and to the right and the fronts are lit.
 pub const SUN: [f32; 3] = [-0.66, 0.46, 0.46];
-/// How far round the view the sun's shadows are cast (kingdom pixels).
 pub const SHADOW_REACH: f32 = 960.0;
-/// The most lamps a view is lit by: the nearest its middle of its near
-/// chunks'.
 pub const LAMPS_A_VIEW: usize = 8;
-/// How far round the line to the knight what stands before it is opened.
 pub const REVEAL: f32 = 30.0;
-/// Whether the look keeps the knights in sight: what stands before each is
-/// opened by the dither, measured from the stage camera's own pinhole, and
-/// the figures' depth leaves the openings out, so a knight behind a
-/// building or a wood shows through it.
 pub const REVEAL_ON_STAGE: bool = true;
-/// How high over the knight's feet the reveal looks (kingdom pixels).
 pub const REVEAL_AT: f32 = 8.0;
 
-/// A view of the realm: the stage's top-left in the kingdom's pixels (the
-/// world is placed so this is the stage's origin) and its size; the
-/// knight it follows (its feet); the clock in seconds.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct View {
     pub origin: [f32; 2],
     pub size: [f32; 2],
     pub knight: Option<[f32; 2]>,
-    /// The party's other knights out in the kingdom, kept in sight too.
     pub others: [Option<[f32; 2]>; 3],
     pub time: f32,
 }
 
-/// The look of `view`, lit by `lamps` (the near chunks', the kingdom's
-/// pixels): positions in the stage's own (the kingdom's less `origin`).
 pub fn look(view: &View, lamps: &[SetLamp]) -> Look {
     let [ox, oz] = view.origin;
     let centre = [ox + view.size[0] / 2.0, oz + view.size[1] / 2.0];
@@ -280,10 +241,8 @@ pub fn look(view: &View, lamps: &[SetLamp]) -> Look {
             }
         })
         .collect();
-    // The blank slate's camps and Keep dye their cloth, over the hillside's.
     look.zones.extend(camp_zones(view));
     look.zones.truncate(BIOME_ZONES + CAMP_ZONES);
-    // The lamps nearest the view's middle, each flickering on its own.
     let mut near: Vec<&SetLamp> = lamps.iter().collect();
     let away = |l: &SetLamp| (l.at[0] - centre[0]).hypot(l.at[2] - centre[1]);
     near.sort_by(|a, b| away(a).total_cmp(&away(b)));
@@ -297,9 +256,6 @@ pub fn look(view: &View, lamps: &[SetLamp]) -> Look {
             Lamp { at: [l.at[0] - ox, l.at[1], l.at[2] - oz], reach: l.reach, strength: l.strength * flicker }
         })
         .collect();
-    // Kept in sight at its knees: the reveal leaves what is under 0.7 below
-    // its point (a metre's measure in the shader, ENGINE-ASKS.md), so the
-    // point sits low enough that a plinth before the knight is opened too.
     if REVEAL_ON_STAGE {
         look.reveal = view.knight.map(|[x, z]| Reveal { at: [x - ox, REVEAL_AT, z - oz], radius: REVEAL });
         look.reveals = view.others.iter().flatten().map(|&[x, z]| Reveal { at: [x - ox, REVEAL_AT, z - oz], radius: REVEAL }).collect();
@@ -307,38 +263,16 @@ pub fn look(view: &View, lamps: &[SetLamp]) -> Look {
     look
 }
 
-/// How far past a camp's tents the dye fades out, kingdom pixels, and past
-/// a banner or the Keep's (the ground under them takes it too: the less the
-/// better).
 pub const TENT_FEATHER: f32 = 8.0;
 pub const BANNER_FEATHER: f32 = 4.0;
-/// How far past the view's edge a camp's cloth is still taken for in sight:
-/// the tipped floor shows more of the world than the view's size says (six
-/// tiles, as far as the stage's far edge reaches). The Works' buildings
-/// (`works_look`) are taken for in sight the same way.
 pub const SEEN_BEYOND: f32 = 96.0;
 
-/// A look has sixteen zones (`angel_stage::look::ZONE_MAX`), shared out so no
-/// kind starves the others: the neighbouring biomes of the full plan take at
-/// most this many,
 pub const BIOME_ZONES: usize = 4;
-/// the camps' cloth (two to a camp, tents and banner) at most this many,
 pub const CAMP_ZONES: usize = 4;
-/// and the Keep three (`works_site::dye`, which pushes them last: its limestone
-/// and over it the crane's timber yard and the lane to it). The Works' buildings
-/// (`works_look::dye_buildings`) have what is left.
 pub const KEEP_ZONES: usize = 3;
 
-/// The colour a house's cloth gives its ramp's chroma, at least, as a part of
-/// the ramp's brightness (dusk inks are dim and nearly grey; a tent that is
-/// plainly its house's colour wants more than they carry).
 const CLOTH_CHROMA: f32 = 0.45;
 
-/// A ramp of a cloth's colour, entry for entry as bright as `base` (the
-/// place's own ramp, so the eight-step ladder holds, docs/BRAND.md): the
-/// cloth's hue throughout, its chroma a part of each entry's brightness and
-/// never over the guide's, kept inside what a colour can be at that
-/// brightness.
 pub fn cloth_ramp(cloth: [u8; 3], base: &[[u8; 3]; 8]) -> [[u8; 3]; 8] {
     use angel_stage::brand::{ENV_CHROMA, chroma, luma};
     let u = cloth.map(|c| f32::from(c) / 255.0);
@@ -348,8 +282,6 @@ pub fn cloth_ramp(cloth: [u8; 3], base: &[[u8; 3]; 8]) -> [[u8; 3]; 8] {
     let ratio = (spread / own.max(0.04)).max(CLOTH_CHROMA);
     base.map(|entry| {
         let l = luma(entry);
-        // How much of the cloth's lean this brightness takes: the chroma it
-        // wants over the cloth's own, held inside [0, 1] on every channel.
         let mut k = if spread < 1e-3 { 0.0 } else { (ratio * l).min(ENV_CHROMA) / spread };
         for d in lean {
             if d > 1e-4 {
@@ -362,14 +294,6 @@ pub fn cloth_ramp(cloth: [u8; 3], base: &[[u8; 3]; 8]) -> [[u8; 3]; 8] {
     })
 }
 
-/// The blank-slate plan's cloth, in zones (docs/REALM-MONOLITH.md): the look
-/// is one ramp a place, so a camp's tents and banner would take the hillside's
-/// green. Each camp near the view lies two small zones over its cloth, the
-/// tents and the banner, in a ramp of its house's own colour (the flat map's,
-/// `render::overworld::camps`), each as tight as its cloth, for what lies
-/// under them takes the dye too.
-/// The nearest the view's middle, at most [`CAMP_ZONES`]; the farthest
-/// first, so the nearest lies over them. None in the full plan.
 pub fn camp_zones(view: &View) -> Vec<Zone> {
     use crate::render::overworld::camps;
     use crate::world::houses;
@@ -410,11 +334,6 @@ pub fn camp_zones(view: &View) -> Vec<Zone> {
     near.into_iter().map(|(_, zone)| zone).collect()
 }
 
-/// The biome under `centre` (the look's own ramp) and the nearest others
-/// as zones, at most [`BIOME_ZONES`], the farthest first so the nearest lies over
-/// them: each the largest box of its chunks round the nearest of them in
-/// the five by five chunks round the view, `[x0, z0, x1, z1]` in the
-/// kingdom's pixels.
 pub fn zones(centre: [f32; 2]) -> (Biome, Vec<(Biome, [f32; 4])>) {
     let (cw, ch) = ((CHUNK.0 * 16) as f32, (CHUNK.1 * 16) as f32);
     let (ccx, ccz) = (((centre[0] / cw).floor() as i32).clamp(0, CHUNKS_X - 1), ((centre[1] / ch).floor() as i32).clamp(0, CHUNKS_Y - 1));
@@ -439,8 +358,6 @@ pub fn zones(centre: [f32; 2]) -> (Biome, Vec<(Biome, [f32; 4])>) {
         let Some(&(sx, sz)) = cells.iter().min_by(|a, b| away(rect_px([a.0, a.1, a.0, a.1])).total_cmp(&away(rect_px([b.0, b.1, b.0, b.1])))) else {
             continue;
         };
-        // Grow the box a strip at a time while every chunk of the strip is
-        // the biome's, the strip nearer the view first.
         let mut r = [sx, sz, sx, sz];
         let all = |c0: i32, r0: i32, c1: i32, r1: i32| (r0..=r1).all(|z| (c0..=c1).all(|x| inside(x, z) && biome::chunk(x, z) == b));
         loop {

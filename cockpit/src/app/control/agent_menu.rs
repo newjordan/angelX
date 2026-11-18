@@ -317,14 +317,6 @@ impl App {
         }
     }
 
-    /// Cycle the in-hand route's thinking effort across its reasoning levels,
-    /// returning the applied effort when one exists.
-    ///
-    /// Test-only. This was written for a deliberate `[`/`]` keybind, but those
-    /// keys now drive the Scryglass gallery (`turn_io.rs`) and the agent menu's
-    /// own movement (`agent_menu.rs`), so no production path calls it: the live
-    /// way to choose an effort is `open_thinking_menu_for_route`. Give it a key
-    /// it owns, or delete it together with its tests.
     #[cfg(test)]
     fn cycle_thinking(&mut self, forward: bool) -> Option<String> {
         self.launch_interaction();
@@ -510,8 +502,6 @@ impl App {
         }
     }
 
-    /// Captures all keyboard input while the deck is open, so ordinary typing
-    /// cannot leak into the composer beneath it.
     pub(crate) fn agent_menu_key(&mut self, code: KeyCode) -> bool {
         if self.agent_menu.is_none() {
             return false;
@@ -590,8 +580,6 @@ impl App {
                 self.system_msg(message);
             }
             KeyCode::Char('[') | KeyCode::Char(']') => {
-                // A preview must never change the in-hand route. Inspect the
-                // highlighted model's own ladder; Enter commits both choices.
                 if self
                     .agent_menu
                     .is_some_and(|menu| menu.kind == AgentMenuKind::Model)

@@ -10,25 +10,17 @@
 use super::*;
 use crate::kingdom::{Stock, catalog};
 
-/// A knight's step with a block on the shoulders, against their walk.
 pub const BLOCK_PACE: f32 = 0.62;
-/// The most gold the stockyard keeps waiting for the kingdom's coffers.
 pub const COIN_WAITING: u32 = 1_000_000;
 
-/// How the Great Shaft lifts what the Delve gives up.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Tier {
-    /// A rope, a bucket and strong backs.
     #[default]
     Hand,
-    /// A drum and a crank, turned by two.
     Windlass,
-    /// A capstan walked by a horse.
     HorseGin,
-    /// A wheel in the race, a hoist on the drum.
     WaterHoist,
-    /// A column of ley light that carries the load.
     LeyLift,
 }
 
@@ -55,24 +47,18 @@ impl Tier {
             "A column of ley light lifts the load on its own.",
         ][self.index()]
     }
-    /// Blocks the shaft lifts in a minute: the number the production game
-    /// reads. The great tower is eleven thousand stones, so the last two
-    /// tiers are what a castle that size is built on.
     pub fn throughput(self) -> u32 {
         [3, 10, 24, 60, 140][self.index()]
     }
-    /// Blocks the stockyard holds.
     pub fn capacity(self) -> u32 {
         [16, 40, 96, 200, 400][self.index()]
     }
-    /// How loud a working shift is, in Stir (`stir`).
     pub fn noise(self) -> u16 {
         [0, 1, 1, 2, 2][self.index()]
     }
     pub fn next(self) -> Option<Tier> {
         Self::ALL.get(self.index() + 1).copied()
     }
-    /// What the camp pays to raise the shaft to this tier.
     pub fn cost(self) -> Stock {
         let goods: &[(&str, u32)] = match self {
             Tier::Hand => &[],
@@ -83,7 +69,6 @@ impl Tier {
         };
         goods.iter().map(|&(r, n)| (r.to_string(), n)).collect()
     }
-    /// A built plan this tier stands on: the race's wheel, the ley engine.
     pub fn needs(self) -> Option<&'static str> {
         match self {
             Tier::WaterHoist => Some("waterwheel"),
@@ -93,8 +78,6 @@ impl Tier {
     }
 }
 
-/// `12 SAWN PLANKS, 8 TIMBER`: a price in the camp's goods, for the words on
-/// screen.
 pub fn cost_label(cost: &Stock) -> String {
     cost.iter()
         .map(|(r, n)| format!("{n} {}", catalog().resources[r].name.to_uppercase()))
@@ -102,22 +85,17 @@ pub fn cost_label(cost: &Stock) -> String {
         .join(", ")
 }
 
-/// The stockyard at the Delve's gate, and the shaft over it.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Stockyard {
     pub rev: u64,
     pub tier: Tier,
-    /// Rough blocks waiting, by their stone's catalogue id.
     pub stone: BTreeMap<String, u32>,
-    /// Blocks ever brought up, for the ledger.
     pub hauled: u32,
-    /// The Delve's banked gold, waiting to be counted as the kingdom's coin.
     pub coin: u32,
 }
 
 impl Stockyard {
-    /// Nothing ever hauled, raised or banked: the realm writes no yard.
     pub fn is_empty(&self) -> bool {
         *self == Self::default()
     }
@@ -141,8 +119,6 @@ impl Stockyard {
             && self.hauled < u32::MAX / 2
             && self.coin <= COIN_WAITING
     }
-    /// Stack `n` blocks of `stone`, as many as there is room for (and of
-    /// rubble, as many as the hillside's share allows). Returns how many went in.
     pub fn stack(&mut self, stone: &str, n: u32) -> u32 {
         let mut put = n.min(self.room());
         if stone == geology::RUBBLE {
@@ -156,7 +132,6 @@ impl Stockyard {
         }
         0
     }
-    /// Take up to `n` blocks of `stone` out of the yard, for the wall.
     pub fn draw(&mut self, stone: &str, n: u32) -> u32 {
         let took = n.min(self.count(stone));
         if took > 0 {
@@ -168,25 +143,16 @@ impl Stockyard {
         }
         took
     }
-    /// The most rubble the yard holds at once: the hillside is a poor early
-    /// source, and its field stone never fills the yard the Delve's blocks
-    /// are set down in.
     pub const RUBBLE_MOST: u32 = 8;
 
-    /// Whether the benches have rough stone to cut a stone from.
     pub fn can_cut(&self) -> bool {
         self.held() > 0
     }
 
-    /// Whether the hillside may add another piece of rubble to the yard.
     pub fn wants_rubble(&self) -> bool {
         self.room() > 0 && self.count(geology::RUBBLE) < Self::RUBBLE_MOST
     }
 
-    /// Take what one cut stone is made of out of the yard: a block of a
-    /// quarry stone if there is one (the stone that is most plentiful, so no
-    /// seam is starved), else a piece of rubble. Returns the stone it is cut
-    /// from.
     pub fn take_for_cut(&mut self) -> Option<String> {
         let best = self
             .stone
@@ -204,7 +170,6 @@ impl Stockyard {
         None
     }
 
-    /// The Delve's gold, counted as the kingdom's coin once it can be held.
     pub fn bank_gold(&mut self, gold: u32) {
         if gold > 0 {
             self.coin = self.coin.saturating_add(gold).min(COIN_WAITING);
@@ -214,7 +179,6 @@ impl Stockyard {
 }
 
 impl Run {
-    /// What the shaft lifts a minute: the number the production game reads.
     pub fn shaft_throughput(&self) -> u32 {
         if self.shaft_lift().is_some() {
             return self.home.industry.report(catalog()).shaft;
@@ -222,10 +186,7 @@ impl Run {
         self.home.stockyard.tier.throughput()
     }
 
-    /// What raising the shaft one tier needs, and whether the camp has it.
     pub fn shaft_next(&self) -> Option<(Tier, Stock, Result<(), String>)> {
-        // With the sim live the lift is its building: the next lift is the plan that
-        // replaces it, at that plan's price.
         if let Some((id, tier)) = self.shaft_lift() {
             let next = tier.next()?;
             let k = &self.home.industry;
@@ -272,7 +233,6 @@ impl Run {
         Some((next, cost, ready))
     }
 
-    /// Raise the Great Shaft one tier, paying from the camp.
     pub fn upgrade_shaft(&mut self) -> Result<String, String> {
         let Some((next, cost, ready)) = self.shaft_next() else {
             return Err("the shaft is as deep and as strong as it gets".into());
@@ -296,15 +256,10 @@ impl Run {
         Ok(line)
     }
 
-    /// Hand the Delve's gold to the kingdom as coin: the yard keeps what the
-    /// camp's storage cannot hold yet, and it waits there, saved. The same
-    /// gold is still in the treasury; coin is the kingdom's own ledger.
     pub(super) fn tally_coin(&mut self, spoils: &Spoils) {
         self.home.stockyard.bank_gold(spoils.get(Spoil::Gold));
     }
 
-    /// Once a second: coin the yard holds goes into the camp's coffers, as
-    /// far as the camp can store it.
     pub(super) fn deliver_coin(&mut self) {
         if self.home.stockyard.coin == 0 || self.home.industry.is_empty() {
             return;

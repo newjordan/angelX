@@ -18,8 +18,6 @@ pub(crate) fn severity_label(sev: Option<u64>) -> &'static str {
     }
 }
 
-/// Render a `publishDiagnostics` params payload as agent-readable lines
-/// (1-based line:col, like an editor and like compiler output).
 pub(crate) fn format_diagnostics(path_display: &str, params: &Value) -> String {
     let diags = match params.get("diagnostics").and_then(|d| d.as_array()) {
         Some(d) => d,
@@ -60,9 +58,6 @@ pub(crate) fn format_diagnostics(path_display: &str, params: &Value) -> String {
     )
 }
 
-/// `file://` URI for an absolute path (minimal, not full percent-encoding —
-/// spaces are encoded since they're the common case; rust-analyzer/pyright accept
-/// the rest verbatim on local paths).
 pub(crate) fn path_to_uri(path: &Path) -> String {
     let s = path.to_string_lossy().replace(' ', "%20");
     if s.starts_with('/') {
@@ -72,17 +67,12 @@ pub(crate) fn path_to_uri(path: &Path) -> String {
     }
 }
 
-/// Decode a `file://` URI back to a path string (inverse of [`path_to_uri`] for
-/// the common local case: strip the scheme, undo `%20`).
 pub(crate) fn uri_to_path(uri: &str) -> String {
     uri.strip_prefix("file://")
         .unwrap_or(uri)
         .replace("%20", " ")
 }
 
-/// First occurrence of `symbol` in `text`, as a 0-based (line, utf16-col)
-/// position for an LSP request. Column counts UTF-16 code units (the LSP default
-/// encoding) so non-ASCII lines map correctly. `None` if absent.
 pub(crate) fn find_symbol_position(text: &str, symbol: &str) -> Option<(u64, u64)> {
     if symbol.is_empty() {
         return None;
@@ -96,9 +86,6 @@ pub(crate) fn find_symbol_position(text: &str, symbol: &str) -> Option<(u64, u64
     None
 }
 
-/// Resolve the query position from tool args: explicit 1-based `line`(+`character`)
-/// wins; otherwise locate `symbol`'s first occurrence in `text`. Returns 0-based
-/// (line, character) for the LSP request.
 pub(crate) fn resolve_position(args: &Value, text: &str) -> Result<(u64, u64), String> {
     if let Some(line) = args.get("line").and_then(|l| l.as_u64()) {
         let ch = args.get("character").and_then(|c| c.as_u64()).unwrap_or(1);
@@ -111,9 +98,6 @@ pub(crate) fn resolve_position(args: &Value, text: &str) -> Result<(u64, u64), S
     Err("tool error: provide `symbol` or `line` (+ optional `character`)".into())
 }
 
-/// One LSP `Location`/`LocationLink` → `path:line:col` (1-based). Handles both the
-/// `Location { uri, range }` and `LocationLink { targetUri, targetSelectionRange }`
-/// shapes servers return interchangeably.
 pub(crate) fn location_line(loc: &Value) -> Option<String> {
     let uri = loc
         .get("uri")
@@ -136,8 +120,6 @@ pub(crate) fn location_line(loc: &Value) -> Option<String> {
     Some(format!("  {}:{}:{}", uri_to_path(uri), line, col))
 }
 
-/// Render a definition/references result (null | Location | Location[]) as a list
-/// of `path:line:col`.
 pub(crate) fn format_locations(result: &Value) -> String {
     let locs: Vec<&Value> = match result {
         Value::Null => vec![],
@@ -151,8 +133,6 @@ pub(crate) fn format_locations(result: &Value) -> String {
     format!("{} location(s):\n{}", lines.len(), lines.join("\n"))
 }
 
-/// Extract readable text from a hover result: `contents` may be a `MarkupContent
-/// { value }`, a bare string, a `{ language, value }`, or an array of those.
 pub(crate) fn format_hover(result: &Value) -> String {
     fn one(v: &Value) -> Option<String> {
         match v {
@@ -177,7 +157,6 @@ pub(crate) fn format_hover(result: &Value) -> String {
     }
 }
 
-/// LSP `SymbolKind` enum → a short label.
 pub(crate) fn symbol_kind_label(kind: Option<u64>) -> &'static str {
     match kind {
         Some(2) => "module",
@@ -199,9 +178,6 @@ pub(crate) fn symbol_kind_label(kind: Option<u64>) -> &'static str {
     }
 }
 
-/// One symbol's start line (1-based), from whichever shape the server used:
-/// `DocumentSymbol` (`selectionRange`/`range`) or `SymbolInformation`
-/// (`location.range`).
 pub(crate) fn symbol_line(sym: &Value) -> u64 {
     sym.pointer("/selectionRange/start/line")
         .or_else(|| sym.pointer("/range/start/line"))
@@ -211,9 +187,6 @@ pub(crate) fn symbol_line(sym: &Value) -> u64 {
         + 1
 }
 
-/// Render a `textDocument/documentSymbol` result as an indented outline. Handles
-/// both the hierarchical `DocumentSymbol[]` (recurses `children`) and the flat
-/// `SymbolInformation[]` shapes. `out` accumulates `"  kind name  Lline detail"`.
 pub(crate) fn walk_symbols(sym: &Value, depth: usize, out: &mut Vec<String>) {
     let kind = symbol_kind_label(sym.get("kind").and_then(|k| k.as_u64()));
     let name = sym.get("name").and_then(|n| n.as_str()).unwrap_or("?");
@@ -238,8 +211,6 @@ pub(crate) fn walk_symbols(sym: &Value, depth: usize, out: &mut Vec<String>) {
     }
 }
 
-/// Format a `documentSymbol` result (an array, hierarchical or flat) as a symbol
-/// outline. Empty/absent → a friendly note.
 pub(crate) fn format_document_symbols(result: &Value) -> String {
     let arr = match result.as_array() {
         Some(a) if !a.is_empty() => a,
@@ -252,12 +223,11 @@ pub(crate) fn format_document_symbols(result: &Value) -> String {
     format!("{} symbol(s):\n{}", out.len(), out.join("\n"))
 }
 
-/// One `WorkspaceSymbol`/`SymbolInformation` → `kind name  path:line  (container)`.
 pub(crate) fn workspace_symbol_line(sym: &Value) -> Option<String> {
     let name = sym.get("name").and_then(|n| n.as_str())?;
     let kind = symbol_kind_label(sym.get("kind").and_then(|k| k.as_u64()));
     let uri = sym.pointer("/location/uri").and_then(|u| u.as_str())?;
-    let line = symbol_line(sym); // reads /location/range/start/line
+    let line = symbol_line(sym);
     let container = sym
         .get("containerName")
         .and_then(|c| c.as_str())
@@ -274,8 +244,6 @@ pub(crate) fn workspace_symbol_line(sym: &Value) -> Option<String> {
     ))
 }
 
-/// Format a merged `workspace/symbol` result (flat `SymbolInformation[]`) into a
-/// project-wide hit list. `results` is one server's array.
 pub(crate) fn format_workspace_symbols(query: &str, results: &Value) -> String {
     let lines: Vec<String> = results
         .as_array()

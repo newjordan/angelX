@@ -45,7 +45,6 @@ fn a_book_carries_its_rider_and_the_ink_sends_you_back() {
     let row = landing(rows) + 1;
     let l = lane(rows, row).unwrap();
     let t = 1;
-    // Stand on the middle of a book well inside the walls.
     let (lefts, len) = books(l, t, width);
     let bx = lefts
         .iter()
@@ -61,7 +60,6 @@ fn a_book_carries_its_rider_and_the_ink_sends_you_back() {
     let h = &run.players[&1];
     assert!((h.x - bx).abs() > 0.05, "carried along");
     assert_eq!((h.y / TILE_UNITS) as i32, row, "still afloat");
-    // Now into the ink between books.
     let gap = lefts.iter().map(|&b| b + len + 1.0).find(|&x| x > 3.0 * TILE_UNITS && x < (cols as f32 - 3.0) * TILE_UNITS && !afloat(l, t + 1, width, x)).unwrap();
     {
         let h = run.players.get_mut(&1).unwrap();
@@ -120,8 +118,6 @@ fn the_hall_is_one_screen_whatever_the_party() {
 
 #[test]
 fn the_river_is_the_halls_only_hazard() {
-    // Whatever the seed lays in a hall, nothing is laid over the river: the
-    // room is armed after the folly starts, and leaves it alone.
     for seed in 0..40u64 {
         let mut run = Run::new(seed, 1, None);
         run.join_seat(2, "Two");
@@ -137,7 +133,6 @@ fn the_river_is_the_halls_only_hazard() {
         run.enter_for_test(hall);
         assert!(run.hop.is_some());
         assert!(run.traps.is_empty() && run.rocks.is_empty(), "seed {seed}: no spikes or vents under the books");
-        // And one laid before it starts is swept off.
         run.traps.push(Trap::Spikes { col: 9, row: 9, phase: 0 });
         let at = run.at;
         run.start_book_hop(at);
@@ -214,7 +209,6 @@ fn the_whole_table_crossing_lights_the_archive_and_pays_the_table() {
     assert_eq!(run.hop.as_ref().unwrap().show.ended.unwrap().waves, 1);
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_hop_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_hop_shots() {

@@ -5,7 +5,6 @@
 use super::wishes::{self, Lot};
 use std::sync::OnceLock;
 
-/// The College's ground, west of the Delve's gate above the North Road.
 pub const LOT: Lot = Lot {
     tx: 80,
     ty: 32,
@@ -13,8 +12,6 @@ pub const LOT: Lot = Lot {
     th: 4,
 };
 
-/// The College's lot: none in the blank-slate plan (an empty lot that holds
-/// no tile), where the College is not on the map.
 pub fn lot() -> Lot {
     if super::plan::tabula() {
         return Lot { tx: 0, ty: 0, tw: 0, th: 0 };
@@ -27,8 +24,6 @@ pub fn stand() -> (i32, i32) {
     (l.tx + 2, l.ty + l.th)
 }
 
-/// A short free approach through the cleared woods, with planks over streams.
-/// It joins the existing road and avoids every authored building and gate.
 pub fn approach() -> &'static [(i32, i32)] {
     use super::map::{MAP_H, MAP_W, Realm, STRUCTURES, place_tile};
     use std::collections::{BTreeMap, VecDeque};

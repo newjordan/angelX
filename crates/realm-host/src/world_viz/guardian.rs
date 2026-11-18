@@ -9,23 +9,15 @@
 use super::*;
 use angel_live::host::peer_watch::{Heartbeat, STALE_AFTER_MS};
 
-/// What the giant is doing, derived fresh from each peer scan.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum GuardianState {
-    /// No guardian on the fleet: no giant in the realm.
     #[default]
     Absent,
-    /// A guardian lives and every knight breathes: asleep by the keep.
     Sleeping,
-    /// A guardian lives and a knight has fallen silent: awake, watching.
     Watching,
-    /// A resurrection is running somewhere on the fleet.
     Resurrecting,
 }
 
-/// Derive the giant's state from one peer scan. The giant *is* the
-/// guardian: with no guardian heartbeat there is no giant, however many
-/// knights lie fallen — the realm only shows help that actually exists.
 pub fn guardian_state(peers: &[Heartbeat], at_ms: u128) -> GuardianState {
     let live = |peer: &Heartbeat| peer.is_live(at_ms);
     if peers.iter().any(|peer| {
@@ -52,9 +44,6 @@ pub fn guardian_state(peers: &[Heartbeat], at_ms: u128) -> GuardianState {
     }
 }
 
-/// The giant's pose for one state: (width, height, lit) in sprite units,
-/// where a villager stands 0.30 × 0.58. Sleeping slumps wide and low;
-/// waking states stand roughly three villagers tall.
 pub fn giant_pose(state: GuardianState) -> Option<(f32, f32, bool)> {
     match state {
         GuardianState::Absent => None,
@@ -64,8 +53,6 @@ pub fn giant_pose(state: GuardianState) -> Option<(f32, f32, bool)> {
     }
 }
 
-/// Where the giant stands, in world tiles: beside the keep, easing a
-/// half-step toward the town when kneeling over the fallen.
 pub fn giant_position(
     state: GuardianState,
     keep: (usize, usize),
@@ -88,8 +75,6 @@ impl World {
         self.live_realm_style = style;
     }
 
-    /// Fold one peer scan into the giant. Transitions announce themselves
-    /// once, in the gain line, the way the town announces its growth.
     pub fn note_guardian_peers(&mut self, peers: &[Heartbeat], at_ms: u128) {
         let next = guardian_state(peers, at_ms);
         if next == self.guardian_state {
@@ -119,7 +104,6 @@ impl World {
         }
     }
 
-    /// `/world`-facing one-liner for reports that list the realm's folk.
     pub fn guardian_line(&self) -> Option<&'static str> {
         match self.guardian_state {
             GuardianState::Absent => None,

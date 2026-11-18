@@ -15,7 +15,6 @@ fn meets(a: Rect, b: Rect) -> bool {
     a.0 < b.0 + b.2 && b.0 < a.0 + a.2 && a.1 < b.1 + b.3 && b.1 < a.1 + a.3
 }
 
-/// The names a table sits under: a real one, the default, none, and real.
 const NAMES: [&str; 6] = ["Gawain", "You", "", "Lyra", "Bran", "Elin"];
 
 fn table(seats: u32) -> Run {
@@ -28,7 +27,6 @@ fn table(seats: u32) -> Run {
     r
 }
 
-/// What the seat looking should read for knight `id`, worked out on its own.
 fn expected(run: &Run, id: u32, me: u32, take: usize) -> String {
     if id == me {
         return "YOU".into();
@@ -41,7 +39,6 @@ fn claims() -> Vec<(&'static str, Rect, String)> {
     super::hud::CLAIMS.with(|c| c.borrow().clone())
 }
 
-/// Draw `me`'s screen and judge the words on it.
 fn judge(run: &Run, me: u32, what: &str) {
     let _ = super::layers(run, Some(me));
     let all = claims();
@@ -54,7 +51,6 @@ fn judge(run: &Run, me: u32, what: &str) {
             assert!(!meets(*a, *b), "{what}: {an} {at:?} {a:?} meets {bn} {bt:?} {b:?}");
         }
     }
-    // The chips name every seat, the viewer YOU and nobody else.
     let chips: Vec<&str> = all.iter().filter(|(n, ..)| *n == "chip-name").map(|(.., t)| t.as_str()).collect();
     let n = s.lanes.len();
     if !chips.is_empty() {
@@ -64,7 +60,6 @@ fn judge(run: &Run, me: u32, what: &str) {
             assert_eq!(*chip, expected(run, *id, me, 12), "{what}: chip of seat {id}");
         }
     }
-    // No other word says YOU but the viewer's own calls and the viewer's own place.
     for (name, _, text) in &all {
         let words: Vec<&str> = text.split(' ').collect();
         if words.contains(&"YOU") {
@@ -73,14 +68,12 @@ fn judge(run: &Run, me: u32, what: &str) {
                 "{what}: {name} {text:?} says YOU outside a name or a call"
             );
         }
-        // A KNIGHT n is a real seat with the default name, never the viewer.
         if let Some(at) = words.iter().position(|w| *w == "KNIGHT") {
             let id: u32 = words.get(at + 1).and_then(|w| w.parse().ok()).unwrap_or(0);
             assert!(id != me && s.lanes.contains_key(&id), "{what}: {name} {text:?} calls a knight who is not at the table");
             assert_eq!(expected(run, id, me, 12), format!("KNIGHT {id}"), "{what}: {text:?}");
         }
     }
-    // The rest of the table: "4 NAME 690", the place and the name matching the board.
     for (name, _, text) in &all {
         if *name != "rest" {
             continue;
@@ -90,7 +83,6 @@ fn judge(run: &Run, me: u32, what: &str) {
         let who = words[1..words.len() - 1].join(" ");
         assert_eq!(who, expected(run, s.order[place - 1], me, 8), "{what}: {text:?}");
     }
-    // The podium names the board's order, the viewer YOU only on their own step.
     let podium: Vec<&str> = all.iter().filter(|(n, ..)| *n == "podium-name").map(|(.., t)| t.as_str()).collect();
     let top: Vec<String> = s.order.iter().take(3).map(|&id| expected(run, id, me, 9)).collect();
     for name in &podium {
@@ -99,8 +91,6 @@ fn judge(run: &Run, me: u32, what: &str) {
     assert!(podium.iter().filter(|&&t| t == "YOU").count() <= 1, "{what}: {podium:?}");
 }
 
-/// Who plays how: a perfect knight, a late one, one who naps now and then,
-/// one who sits out the opening, a masher, and a slow one.
 fn hands(run: &Run, tick: u32) -> BTreeMap<u32, Input> {
     let Some(s) = run.pennon.as_ref() else { return BTreeMap::new() };
     if s.hold > 0 {
@@ -125,7 +115,6 @@ fn hands(run: &Run, tick: u32) -> BTreeMap<u32, Input> {
     keys
 }
 
-/// Every sampled tick of whole rounds at one to six seats: the three rules hold.
 #[test]
 fn pennon_words_never_meet_and_yous_belong_to_the_viewer() {
     for seats in 1..=6u32 {
@@ -142,7 +131,6 @@ fn pennon_words_never_meet_and_yous_belong_to_the_viewer() {
             if ended && over_at.is_none() {
                 over_at = Some(t);
             }
-            // The finish plays through: every tick for the first moments, then sparser.
             let every = if over_at.is_some_and(|o| t < o + 130) { 3 } else { 7 };
             if t % every == 0 {
                 for &v in &views {
@@ -159,8 +147,6 @@ fn pennon_words_never_meet_and_yous_belong_to_the_viewer() {
     }
 }
 
-/// The busiest screens there are: a pennon felled, another struck, a call
-/// going up, the run of hits, the last seconds and the keys, six at the table.
 #[test]
 fn pennon_busiest_screens_keep_their_words_apart() {
     for seats in [2, 4, 6] {
@@ -217,7 +203,6 @@ fn pennon_busiest_screens_keep_their_words_apart() {
     }
 }
 
-/// A final board with every sort of name: the podium and the rest of the table.
 #[test]
 fn pennon_podium_names_every_place_by_its_own_name() {
     for seats in 1..=6u32 {
@@ -247,9 +232,6 @@ fn pennon_podium_names_every_place_by_its_own_name() {
     let _ = (pennon::LENGTH, Q);
 }
 
-/// The terminal paints the same screen: its small words are written by the
-/// terminal itself, in cells four wide and eight tall, and no two meet there
-/// either.
 #[test]
 fn pennon_terminal_path_carries_its_words_in_clear_cells() {
     for seats in [1u32, 4, 6] {

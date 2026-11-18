@@ -1,17 +1,4 @@
 #!/usr/bin/env bash
-# e3_session.sh <bin-dir> <label> — one live /loop session in the TUI, driven
-# through tmux, against the seat named by ROUTE (see seat.sh) behind
-# proxy_log.py. Arm: ANGEL_BOOK_INTRO=0|1. The workspace is a copy of the
-# Yukon heesch benchmark (HEESCH, default ~/comps/heesch, set up), with no git
-# remote and no Yukon login; the verifier (e3/verify_heesch.py) is green only
-# for hc_verified >= 5, a target that stays red, so the loop stalls and raises
-# its routes. Nothing is submitted.
-#   ITERS (default 6)       the loop's iteration cap (/loop now iters=N)
-#   STALL_STOP (default 1)  ANGEL_LOOP_STALL_STOP: stalls before a pivot
-#   LIMIT (default 7200)    seconds before the driver stops the loop
-#   WORKROOT (default $TMPDIR, else /tmp)  where workspaces, homes and TMPDIR live
-# Out: out/<label>.jsonl (requests), .stderr, .screen (last frame),
-# .state/ (loop and learner state), .run (one summary line).
 set -u
 if [[ $# != 2 || ! "$2" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
   printf 'Usage: %s <bin-dir> <label> (alphanumeric, dot, underscore or dash)\n' "$0" >&2
@@ -32,8 +19,6 @@ SESSION_OWNED=0
 SESSION_TARGET="=$SESSION:"
 stop_workspace_jobs() {
   local proc
-  # Work is a private snapshot: only processes still using this invocation's
-  # directory are candidates for its workspace cleanup.
   for proc in /proc/[0-9]*; do
     case "$(readlink "$proc/cwd" 2>/dev/null)" in
       "$WORK"|"$WORK"/*) kill -9 "${proc#/proc/}" 2>/dev/null || true ;;

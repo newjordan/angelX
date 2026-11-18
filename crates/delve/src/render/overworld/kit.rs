@@ -17,14 +17,8 @@ use super::scene::{Soldier, SoldierState};
 
 pub mod hero;
 
-/// Distinct pictures a sprite's memory keeps before it starts over: the kit's own call sites ask for
-/// a few dozen, so only a stray caller with ever-new arguments reaches it.
 const DRAWN_KEEP: usize = 256;
 
-/// A sprite drawn once per distinct arguments and handed out as copies. A sprite is a pure function
-/// of its arguments, and the ambient map asks for the same buildings again at every step it takes,
-/// so drawing them again was most of what a resting window spent: the copy of a finished picture
-/// is a pass over its words, the drawing a pass over every pixel with a dusk applied after.
 fn drawn_once<K: Eq + Hash>(
     memory: &'static OnceLock<Mutex<HashMap<K, Img>>>,
     key: K,
@@ -44,9 +38,6 @@ fn drawn_once<K: Eq + Hash>(
     img
 }
 
-// ─── organic shapes ──────────────────────────────────────────────────────────
-
-/// Ellipsoid blobs `(cx, cy, rx, ry)` shaded onto `ramp` (dark → light).
 pub fn blob(
     w: i32,
     h: i32,
@@ -67,7 +58,6 @@ pub fn blob(
                 let d2 = dx * dx + dy * dy;
                 if d2 < 1.0 {
                     let z = (1.0 - d2).sqrt();
-                    // Lower blobs sit in front.
                     let score = z + cy / h as f32 * 0.4;
                     if best.is_none_or(|(s, _)| score > s) {
                         best = Some((score, norm3(dx, dy, z)));
@@ -86,9 +76,6 @@ pub fn blob(
     im
 }
 
-/// As `blob`, softer, for stone and earth: the form leads with a soft
-/// terminator between a broad lit side and a broad shaded side, grouped
-/// marks lie over it, and the ordered dither is only a whisper.
 pub fn blob_soft(
     w: i32,
     h: i32,
@@ -131,9 +118,6 @@ pub fn blob_soft(
     im
 }
 
-/// A tree tile, drawn by the shared material system: 20x22, standing on
-/// its tile's foot so the crowns of neighbouring tiles overlap, south over
-/// north. Stamp it two pixels left of and six above its tile.
 fn tree(v: u32) -> Img {
     use super::material::{Leaf, tree as grow};
     let mut im = Img::new(20, 22);
@@ -151,15 +135,11 @@ fn tree(v: u32) -> Img {
         Leaf::Hedge => super::material::ramp::HEDGE,
         _ => super::material::ramp::OAK,
     };
-    // Each tile's tree grows in a habit of its own; the tall and the broad
-    // ones a little smaller, so every crown stays inside its sprite.
     let habit = (v * 3 + v / 8) % 5;
     match leaf {
         Leaf::Pine => grow(&mut im, x, 21, r, leaf, seed, &keep),
         _ => super::material::broadleaf(&mut im, x, 21, if matches!(habit, 1 | 2) { r * 0.9 } else { r }, ramp, seed, habit, &keep),
     }
-    // A map tree sits a step quieter than a room's: the realm's buildings
-    // and walkers stay the brighter things.
     for y in 0..im.h {
         for x in 0..im.w {
             if let Some(c) = im.get(x, y) {
@@ -172,10 +152,6 @@ fn tree(v: u32) -> Img {
 
 fn rock(v: u32, ramp: &[char]) -> Img {
     let j = |k: i32| (hash(v as i32, k, 8) % 100) as f32 / 100.0 - 0.5;
-    // Each variant is its own heap, and each fills its tile as the stone it
-    // stands for does: three stones in a clump, a boulder with a stone at
-    // its foot, an uneven pair, or a low slab with a stone on its back, so
-    // a row of them reads as a rockfall, not a stamp.
     let blobs: Vec<(f32, f32, f32, f32)> = match v % 4 {
         0 => vec![
             (5.0 + j(1), 10.0 + j(2), 5.4, 5.2),
@@ -187,11 +163,9 @@ fn rock(v: u32, ramp: &[char]) -> Img {
         _ => vec![(8.0 + j(1), 10.5 + j(2), 7.4, 5.0), (6.5 + j(3), 5.5 + j(4), 4.6, 3.8)],
     };
     let mut im = blob_soft(16, 16, &blobs, ramp, 0.75, v, 1.3);
-    // A crack or two, dark with a lit lip above.
     for k in 0..2 {
         let x = 3 + (hash(v as i32, k, 9) % 10) as i32;
         let y = 5 + (hash(v as i32, k, 10) % 7) as i32;
-        // Only on the stone: a crack never hangs in the air.
         if !(im.solid(x, y) && im.solid(x + 1, y + 1)) {
             continue;
         }
@@ -217,8 +191,6 @@ fn dead_tree() -> Img {
     im
 }
 
-/// Rock ramps by region: timber-brown in the Mines, charcoal around the
-/// Dragon Keep, slate everywhere else.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RockKind {
     Slate,
@@ -226,7 +198,6 @@ pub enum RockKind {
     Char,
 }
 
-/// Terrain sprites, built once.
 pub struct Tiles {
     pub trees: Vec<Img>,
     pub rocks: Vec<Vec<Img>>,
@@ -266,8 +237,6 @@ impl Tiles {
     }
 }
 
-// ─── building kit ────────────────────────────────────────────────────────────
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Wall {
     Stone,
@@ -302,9 +271,6 @@ fn wall_px(kind: Wall, x: i32, y: i32, ww: i32) -> char {
             } else {
                 ('S', 'u', 'U')
             };
-            // The shared material's coursing: each block its own tone, a
-            // rounded stone lit along its top, its corners worn into the
-            // joints and its lower right in shadow.
             let tone = hash((x + off) / 6, row, 51) % 4;
             let corner = (lx == 1 || lx == 5) && (ly == 0 || ly == 2);
             if ly == 3 || lx == 0 || corner {
@@ -342,7 +308,6 @@ fn wall_px(kind: Wall, x: i32, y: i32, ww: i32) -> char {
     }
 }
 
-/// A house from the kit: front wall with door and windows under a roof.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct House {
     pub w: i32,
@@ -350,10 +315,8 @@ pub struct House {
     pub roof_h: i32,
     pub wall: Wall,
     pub roof: Roof,
-    /// Firelight in the doorway — a forge at work.
     pub door_glow: bool,
     pub windows: i32,
-    /// Lamplight in the windows — someone is home and working.
     pub lit: bool,
     pub chimney: bool,
 }
@@ -392,8 +355,6 @@ fn house_drawn(hs: &House) -> Img {
             }
         }
     }
-    // The roof in the shared material: coursed shingles, thatch or slate,
-    // lit at the ridge, dark at the eave, hipped at the ends.
     let ramp = match hs.roof {
         Roof::Slate => super::material::ramp::SLATE,
         Roof::Tile => super::material::ramp::TILE,
@@ -401,7 +362,6 @@ fn house_drawn(hs: &House) -> Img {
     };
     let hip = (rh * 2 / 3).min(w / 5);
     super::material::roof_hip(&mut im, (0, top, w, rh), ramp, (w * 7 + rh) as u32, hip);
-    // Under the hips the gable wall shows: fill with the wall's top course.
     for y in top..top + rh {
         for x in 0..w {
             if im.get(x, y).is_none() && y >= top + rh / 2 {
@@ -484,7 +444,6 @@ fn house_drawn(hs: &House) -> Img {
 pub enum Top {
     Crenel,
     Cone(Roof),
-    /// An observatory dome; `true` while the bench is lit.
     Dome(bool),
 }
 
@@ -625,8 +584,6 @@ pub fn arch(im: &mut Img, x: i32, y: i32, w: i32, h: i32, portcullis: bool) {
     }
 }
 
-/// A banner on a pole; `field` and `charge` are signal inks — a flag only
-/// flies for something real (an earned tier, a repo's colours, a house).
 pub fn flag(field: char, charge: char) -> Img {
     let mut im = Img::new(9, 12);
     im.line(1, 1, 1, 11, 'h');
@@ -638,9 +595,6 @@ pub fn flag(field: char, charge: char) -> Img {
     im
 }
 
-// ─── landmarks ───────────────────────────────────────────────────────────────
-
-/// The keep; banners fly from tier 4.
 pub fn keep(tier: u32) -> Img {
     static DRAWN: OnceLock<Mutex<HashMap<u32, Img>>> = OnceLock::new();
     drawn_once(&DRAWN, tier, || keep_drawn(tier))
@@ -717,11 +671,8 @@ fn chapel_drawn(lit: bool) -> Img {
     im
 }
 
-/// The Round Table; `seated` are `(seat 0..6, robe ink)` for council members.
 pub fn round_table(seated: &[(usize, char)]) -> Img {
     let mut im = Img::new(48, 54);
-    // A stepped pale-stone rotunda, open toward the road. The slate canopy
-    // covers only the rear gallery, leaving all six chairs and the map clear.
     for (cy, ry, ink) in [(42.0, 11.0, 'S'), (40.0, 11.0, 'U'), (38.0, 11.0, 'V')] {
         im.ellipse(24.0, cy, 23.0, ry, ink);
     }
@@ -787,15 +738,12 @@ pub fn round_table(seated: &[(usize, char)]) -> Img {
         im.rect(x, 22, 1, 3, 'T');
         im.put(x, 21, if active { '5' } else { 'o' });
     }
-    // Broad entrance steps leave the council approachable from the east road.
     im.rect(16, 48, 17, 2, 'V');
     im.rect(14, 50, 21, 2, 'U');
     im.line(14, 50, 34, 50, 'W');
     im
 }
 
-/// Inhabited village architecture: deeper roofs, a front stoop and a planted
-/// sill. Window light still reflects real fleet activity.
 pub fn cottage(variant: u32, lit: bool) -> Img {
     static DRAWN: OnceLock<Mutex<HashMap<(u32, bool), Img>>> = OnceLock::new();
     drawn_once(&DRAWN, (variant, lit), || cottage_drawn(variant, lit))
@@ -824,8 +772,6 @@ fn cottage_drawn(variant: u32, lit: bool) -> Img {
         2,
         0,
     );
-    // Each cottage breaks its roof its own way: a dormer in the middle, a
-    // dormer to one side, a gable over the door, or a pair of small dormers.
     let glass = if lit { '5' } else { 's' };
     let dormer = |im: &mut Img, cx: i32, half: i32| {
         im.line(cx - half, 17, cx, 17 - half - 1, 'O');
@@ -837,9 +783,6 @@ fn cottage_drawn(variant: u32, lit: bool) -> Img {
         0 => dormer(&mut im, 17, 5),
         1 => dormer(&mut im, 11, 4),
         2 => {
-            // A gable over the door: a plaster triangle in the eaves'
-            // shade under its own boards, lit on the west, a small window
-            // in it.
             for y in 9..22 {
                 let half = (y - 9) * 3 / 4 + 1;
                 for x in 18 - half..=18 + half {
@@ -871,7 +814,6 @@ pub enum Trade {
     Granary,
 }
 
-/// A shop is recognizable by its open working bay and goods, even when idle.
 pub fn workshop(trade: Trade, active: bool) -> Img {
     static DRAWN: OnceLock<Mutex<HashMap<(Trade, bool), Img>>> = OnceLock::new();
     drawn_once(&DRAWN, (trade, active), || workshop_drawn(trade, active))
@@ -1001,8 +943,6 @@ fn garden_fence_drawn(w: i32) -> Img {
     im
 }
 
-/// A sunken sand arena within three tiers of stone seating. The south arch
-/// stays visually open; this landmark is reached from its exterior gate.
 pub fn colosseum() -> Img {
     static DRAWN: OnceLock<Img> = OnceLock::new();
     DRAWN.get_or_init(colosseum_drawn).clone()
@@ -1017,8 +957,6 @@ fn colosseum_drawn() -> Img {
         im.ellipse(80.0, 44.0, rx, ry, ink);
         im.ellipse(80.0, 42.0, rx - 3.0, ry - 2.0, 'S');
     }
-    // The sand at dusk: a dark rim, the floor a brown under the night,
-    // grains a step warmer.
     im.ellipse(80.0, 43.0, 47.0, 21.0, 'B');
     im.ellipse(80.0, 42.0, 43.0, 18.0, 'P');
     for y in 26..59 {
@@ -1162,8 +1100,6 @@ fn market_stall_drawn(v: u32) -> Img {
     } else {
         ('T', 'u')
     };
-    // The awning in bands four pixels wide, lit along its top, a step
-    // darker toward its hem, which hangs in a scallop under each band.
     for x in 0..16 {
         let ink = if (x / 4) % 2 == 0 { stripes.0 } else { stripes.1 };
         let hem = if x % 4 == 1 || x % 4 == 2 { 6 } else { 5 };
@@ -1306,7 +1242,6 @@ fn ruins_drawn() -> Img {
     im
 }
 
-/// The tilting yard: stands, raked sand, fence and the tilt barrier.
 pub fn lists_ground() -> Img {
     static DRAWN: OnceLock<Img> = OnceLock::new();
     DRAWN.get_or_init(lists_ground_drawn).clone()
@@ -1360,11 +1295,9 @@ fn lists_ground_drawn() -> Img {
     for x in (34..158).step_by(12) {
         im.rect(x, 44, 2, 5, 'b');
     }
-    // Bunting, crowd and barrier at dusk: cloth, not lamps.
     super::light::at_dusk(&im)
 }
 
-/// A pavilion for a house of the tournament.
 pub fn tent(house: Heraldry) -> Img {
     static DRAWN: OnceLock<Mutex<HashMap<Heraldry, Img>>> = OnceLock::new();
     drawn_once(&DRAWN, house, || tent_drawn(house))
@@ -1397,8 +1330,6 @@ fn tent_drawn(house: Heraldry) -> Img {
     im.rect(13, 0, 5, 3, c1);
     im.put(12, 19, '4');
     im = shaded_rim(&im);
-    // Striped canvas at dusk: the house's colours as dyed cloth, never as
-    // the signal inks a rider or a board wears for the joust itself.
     super::light::at_dusk(&im)
 }
 
@@ -1430,7 +1361,6 @@ pub fn quintain(active: bool, tick: u32) -> Img {
     im
 }
 
-/// The standings board: `(name, score, heraldry)` rows.
 pub fn board(rows: &[(String, u32, Heraldry)]) -> Img {
     let mut im = Img::new(55, 32);
     im.rect(4, 20, 2, 12, 'B');
@@ -1475,9 +1405,6 @@ pub fn torch(tick: u32, seed: u32) -> Img {
     im
 }
 
-// ─── figures ─────────────────────────────────────────────────────────────────
-
-/// The two houses of the lists.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Heraldry {
     Red,
@@ -1485,7 +1412,6 @@ pub enum Heraldry {
 }
 
 impl Heraldry {
-    /// `(field, shadow)` inks.
     pub fn inks(self) -> (char, char) {
         match self {
             Heraldry::Red => ('7', '8'),
@@ -1501,15 +1427,10 @@ impl Heraldry {
     }
 }
 
-/// The hero toward the viewer, whole and at rest: steel helm, the seat's
-/// plume and tabard, the gold-rimmed shield (`hero.rs` draws every other
-/// way of seeing him).
 pub fn knight() -> Img {
     hero::draw(hero::Dress::WHOLE)
 }
 
-/// The knight at rest with a book: seated on a bench, pages open in his
-/// lap, a lantern burning at his side. Cozy reading by warm light.
 pub fn reader() -> Img {
     let head = knight();
     let mut im = Img::new(22, 16);
@@ -1534,20 +1455,14 @@ pub fn reader() -> Img {
     im
 }
 
-/// The visitor: the operator's own knight. A frost plume and a sea-green
-/// tabard where the hero wears red and gold, and a blue shield.
 pub fn visitor() -> Img {
     hero::visitor()
 }
 
-/// A small frost chevron over the visitor's head: which figure is yours.
 pub fn visitor_mark() -> Img {
     Img::from_rows(&["wwwww", ".w3w.", "..w.."])
 }
 
-/// The sign over the visitor at a door. Where going in opens something it
-/// says ENTER above the name in a gold frame; a place with nothing behind
-/// its door only gives its name, in quieter ink.
 pub fn door_sign(name: &str, opens: bool) -> Img {
     let text: String = name.to_uppercase().chars().take(20).collect();
     let tw = super::ink::text_width(&text);
@@ -1561,19 +1476,15 @@ pub fn door_sign(name: &str, opens: bool) -> Img {
     keyed_sign("ENTER", &text)
 }
 
-/// `door_sign` at a door a knight goes in by `key`: the key and ENTER
-/// above the name, so ENTER never reads as the key to press.
 pub fn door_key_sign(name: &str, key: &str) -> Img {
     let text: String = name.to_uppercase().chars().take(20).collect();
     keyed_sign(&format!("{key} ENTER"), &text)
 }
 
-/// Away from a door with wishmotes banked: the rod is in reach (`raisings`).
 pub fn survey_sign(key: &str) -> Img {
     keyed_sign(&format!("{key} SURVEY"), "RAISE THE KINGDOM")
 }
 
-/// A framed gold board: `top` in brass over `text`.
 fn keyed_sign(top: &str, text: &str) -> Img {
     let (tw, ew) = (super::ink::text_width(text), super::ink::text_width(top));
     let w = tw.max(ew) + 8;
@@ -1584,8 +1495,6 @@ fn keyed_sign(top: &str, text: &str) -> Img {
     im
 }
 
-/// A knight waiting outside while the party plays on in `place`: where
-/// the party is and how to go back in, or at its door, the key to do it.
 pub fn waiting_sign(place: &str, at_door: bool) -> Img {
     let name: String = place.to_uppercase().chars().take(20).collect();
     let (top, bottom, frame) = if at_door {
@@ -1603,7 +1512,6 @@ pub fn waiting_sign(place: &str, at_door: bool) -> Img {
     im
 }
 
-/// A mounted knight in profile, facing right, lance couched.
 pub fn rider(house: Heraldry) -> Img {
     let (c1, c2) = house.inks();
     let star = house.charge();
@@ -1655,9 +1563,6 @@ pub fn rider(house: Heraldry) -> Img {
     im
 }
 
-/// The figure's own edge, dark where it turns from the light: every pixel
-/// on the silhouette's right or lower edge two steps down its own bank (a
-/// coloured contour, never black), the lit upper and left edges left open.
 pub fn shaded_rim(im: &Img) -> Img {
     let mut out = im.clone();
     for y in 0..im.h {
@@ -1672,8 +1577,6 @@ pub fn shaded_rim(im: &Img) -> Img {
     out
 }
 
-/// A seat of the muster: helm over a tabard in the stage's ink. A returned
-/// seat raises its pennant, a failed seat goes dark red, a cut seat grey.
 pub fn soldier(s: Soldier) -> Img {
     let tabard = match s.state {
         SoldierState::Failed => '8',
@@ -1701,7 +1604,6 @@ pub fn soldier(s: Soldier) -> Img {
     im
 }
 
-/// A companion on the quest, robed in the party's ink.
 pub fn squire(robe: char) -> Img {
     let rows = [
         "...hhh....",
@@ -1722,12 +1624,8 @@ pub fn squire(robe: char) -> Img {
     Img::from_rows(&refs)
 }
 
-/// The dragon curled on the ruined keep; `breathing` while a gate judges.
-/// Its scales are half signal red: a judging gate is live state and must
-/// read at a glance.
 pub fn dragon(breathing: bool, tick: u32) -> Img {
     let mut im = Img::new(72, 46);
-    // wings behind, ribbed
     for (x0, dir) in [(24, -1), (42, 1)] {
         for i in 0..17 {
             let h = 20 - i;
@@ -1767,7 +1665,6 @@ pub fn dragon(breathing: bool, tick: u32) -> Img {
         );
     }
     im.outline_inside('n');
-    // horns, eye and jaw
     im.line(49, 9, 46, 5, 'h');
     im.line(52, 9, 51, 4, 'h');
     im.rect(54, 12, 2, 2, '6');
@@ -1796,7 +1693,6 @@ pub fn dragon(breathing: bool, tick: u32) -> Img {
     im
 }
 
-/// A treasure chest: gold-banded and shut, or open and empty.
 pub fn chest(full: bool) -> Img {
     if full {
         Img::from_rows(&[
@@ -1823,19 +1719,15 @@ pub fn chest(full: bool) -> Img {
     }
 }
 
-/// A will-o'-wisp over the swamp.
 pub fn wisp() -> Img {
     Img::from_rows(&["...2...", "..232..", ".23w32.", "..232..", "...2..."])
 }
 
-/// A name plaque: readable text on a dark board.
 pub fn plaque(name: &str) -> Img {
     let text: String = name.to_uppercase().chars().take(7).collect();
     district_sign(&text)
 }
 
-/// A place's sign standing in the realm's lit map (`chrome::Tone::NIGHT_SIGN`),
-/// `plaque`'s seven letters or a district's whole name.
 pub fn realm_sign(name: &str, short: bool) -> Img {
     let text: String = name.to_uppercase().chars().take(if short { 7 } else { 20 }).collect();
     let w = super::ink::text_width(&text) + 6;
@@ -1845,8 +1737,6 @@ pub fn realm_sign(name: &str, short: bool) -> Img {
     im
 }
 
-/// Authored district names get a complete sign; repo-supplied ward names
-/// still use the compact plaque above.
 pub fn district_sign(name: &str) -> Img {
     let text: String = name.to_uppercase().chars().take(20).collect();
     let w = super::ink::text_width(&text) + 6;
@@ -1877,9 +1767,6 @@ pub fn smoke(tick: u32) -> Img {
     im
 }
 
-// ─── deeds: tool calls out on the roads ──────────────────────────────────────
-
-/// A wheel turning: rim, hub and a spoke that alternates with `turn`.
 fn wheel(im: &mut Img, cx: i32, cy: i32, turn: bool) {
     for (dx, dy) in [
         (-1, -2),
@@ -1907,9 +1794,6 @@ fn wheel(im: &mut Img, cx: i32, cy: i32, turn: bool) {
     }
 }
 
-/// A horse in profile facing right, its body's left end at `x`, back at `y`,
-/// in a `coat` with a darker `mane`. Coats stay light: on black paper at dusk
-/// a bay horse vanishes into the road.
 fn horse(im: &mut Img, x: i32, y: i32, stride: bool, (coat, mane): (char, char)) {
     im.ellipse(x as f32 + 3.5, y as f32 + 2.0, 3.6, 1.9, coat);
     im.rect(x + 5, y - 3, 2, 4, coat);
@@ -1929,14 +1813,9 @@ fn horse(im: &mut Img, x: i32, y: i32, stride: bool, (coat, mane): (char, char))
     }
 }
 
-/// The cargo wagon of a trial, facing right: a canvas tilt over a timber
-/// bed, a lantern lit while the trial runs, a grey in the shafts. Its
-/// verdict flies from the pole — verified green passed, amber failed — and a
-/// failed trial throws its rear wheel.
 pub fn wagon(moving: bool, frame: u32, verdict: Option<bool>) -> Img {
     let mut im = Img::new(26, 17);
     let turn = moving && frame % 2 == 1;
-    // Canvas tilt with its hoops.
     im.rect(3, 2, 10, 1, 'O');
     im.rect(2, 3, 12, 6, 'T');
     for x in [5, 9] {
@@ -1945,7 +1824,6 @@ pub fn wagon(moving: bool, frame: u32, verdict: Option<bool>) -> Img {
     im.line(2, 8, 13, 8, 't');
     im.line(1, 3, 1, 8, 'O');
     im.line(14, 3, 14, 8, 'O');
-    // Bed and shafts.
     im.line(0, 9, 15, 9, 'R');
     im.line(1, 10, 14, 10, 'r');
     im.line(15, 9, 17, 9, 'o');
@@ -1953,7 +1831,6 @@ pub fn wagon(moving: bool, frame: u32, verdict: Option<bool>) -> Img {
     match verdict {
         Some(false) => {
             wheel(&mut im, 11, 12, false);
-            // The rear wheel lies in the road; the pole leans.
             im.ellipse(2.5, 15.5, 2.6, 1.0, 'o');
             im.put(2, 15, 'O');
             im.line(0, 1, 1, 8, 'J');
@@ -1967,7 +1844,6 @@ pub fn wagon(moving: bool, frame: u32, verdict: Option<bool>) -> Img {
     }
     match verdict {
         None => {
-            // The trial runs: the lantern burns.
             im.put(15, 7, '5');
             im.put(15, 8, '6');
         }
@@ -1981,9 +1857,6 @@ pub fn wagon(moving: bool, frame: u32, verdict: Option<bool>) -> Img {
     im
 }
 
-/// A courier at the gallop, facing right, cloaked in the dispatch blue.
-/// Riding home he carries the answer as a sealed scroll — or, for a call
-/// that failed, an amber pennant and nothing else.
 pub fn courier(moving: bool, frame: u32, verdict: Option<bool>) -> Img {
     let mut im = Img::new(18, 16);
     horse(&mut im, 4, 9, moving && frame % 2 == 1, ('i', 'J'));
@@ -2006,8 +1879,6 @@ pub fn courier(moving: bool, frame: u32, verdict: Option<bool>) -> Img {
     im
 }
 
-/// A raven on the wing, wings up or down with `frame`, carrying the sealed
-/// scroll of a commit while it is still being sealed.
 pub fn raven(frame: u32, carrying: bool) -> Img {
     let mut im = if frame.is_multiple_of(2) {
         Img::from_rows(&["hh...hh", "..JhJ..", "...J..."])
@@ -2021,13 +1892,10 @@ pub fn raven(frame: u32, carrying: bool) -> Img {
     im
 }
 
-/// A raven at rest: one sealed commit.
 pub fn raven_perched() -> Img {
     Img::from_rows(&[".hh.", "hJho", ".JJ.", ".G.."])
 }
 
-/// The Rookery's roost: a timber perch that goes up with the first sealed
-/// commit, one raven on it for each.
 pub fn roost(ravens: u32) -> Img {
     let w = ROOST_W;
     let mut im = Img::new(w, 13);
@@ -2042,11 +1910,8 @@ pub fn roost(ravens: u32) -> Img {
     im
 }
 
-/// The roost's width: five ravens and their posts.
 pub const ROOST_W: i32 = 27;
 
-/// Folk of the realm at work, facing right: a hat or hood over a face, a
-/// tunic in `cloth`, legs that step with `frame`.
 fn folk(cloth: char, hood: bool, frame: u32) -> Img {
     let head: [&str; 4] = if hood {
         ["...ooo....", "..oooo....", "..oTTo....", "...oo....."]
@@ -2071,7 +1936,6 @@ fn folk(cloth: char, hood: bool, frame: u32) -> Img {
     im
 }
 
-/// A field hand working a crop row with the scythe, swinging with `frame`.
 pub fn field_hand(frame: u32) -> Img {
     let mut im = folk('M', false, frame);
     if frame.is_multiple_of(2) {
@@ -2086,7 +1950,6 @@ pub fn field_hand(frame: u32) -> Img {
     im
 }
 
-/// A small winged graph sprite. Signal light is an actual call's status.
 pub fn graph_sprite(frame: u32, returned: Option<bool>) -> Img {
     let mut im = Img::new(9, 11);
     let wing = if frame.is_multiple_of(2) { 2 } else { 4 };
@@ -2108,8 +1971,6 @@ pub fn graph_sprite(frame: u32, returned: Option<bool>) -> Img {
     im
 }
 
-/// A messenger at the run, a harvest sheaf over the shoulder: a finding on
-/// its way to the Scriptorium.
 pub fn messenger(frame: u32) -> Img {
     let mut im = folk('R', false, frame);
     for (x, y, c) in [
@@ -2124,7 +1985,6 @@ pub fn messenger(frame: u32) -> Img {
     im
 }
 
-/// A villager on an errand, the sack on its back until it is delivered.
 pub fn villager(frame: u32, carrying: bool) -> Img {
     let mut im = folk('U', false, frame);
     if carrying {
@@ -2135,8 +1995,6 @@ pub fn villager(frame: u32, carrying: bool) -> Img {
     im
 }
 
-/// A monk at vigil in the chapel yard: a rust habit with a rope belt, a
-/// lantern held out before him.
 pub fn monk(frame: u32, tick: u32) -> Img {
     let mut im = folk('R', true, frame).recolor(&[('o', 'r'), ('O', 'T')]);
     im.line(2, 8, 5, 8, 't');
@@ -2156,7 +2014,6 @@ pub fn monk(frame: u32, tick: u32) -> Img {
     im
 }
 
-/// An owl on the wing, a finding under it, bound for the Scriptorium.
 pub fn owl(frame: u32) -> Img {
     let mut im = if frame.is_multiple_of(2) {
         Img::from_rows(&["O.....O", "OO.O.OO", ".OOTOO.", "..OOO..", "...o..."])
@@ -2169,15 +2026,12 @@ pub fn owl(frame: u32) -> Img {
     framed
 }
 
-/// A stook: one search harvested, standing in the field it came from.
 pub fn stook() -> Img {
     Img::from_rows(&[
         "..t..", ".tOt.", ".OOO.", "tOoOt", "OOoOO", "O.o.O", "o...o",
     ])
 }
 
-/// Sacks delivered at the granary door, one for every errand run, heaped
-/// into a mound from the middle out.
 pub fn sacks(n: u32) -> Img {
     const HEAP: [(i32, i32); 12] = [
         (9, 8),
@@ -2195,7 +2049,6 @@ pub fn sacks(n: u32) -> Img {
     ];
     let sack = Img::from_rows(&[".oo.", "tTTt", "tTtt", ".tt."]);
     let mut im = Img::new(21, 12);
-    // Lower sacks first, so the upper ones sit on them.
     let mut placed: Vec<(i32, i32)> = HEAP.iter().copied().take(n as usize).collect();
     placed.sort_by_key(|&(_, y)| std::cmp::Reverse(y));
     for (x, y) in placed {
@@ -2204,7 +2057,6 @@ pub fn sacks(n: u32) -> Img {
     im
 }
 
-/// Votive candles on the chapel step: one for every memory kept.
 pub fn candles(n: u32, tick: u32) -> Img {
     let mut im = Img::new((n as i32 * 3).max(1), 4);
     for i in 0..n as i32 {
@@ -2216,7 +2068,6 @@ pub fn candles(n: u32, tick: u32) -> Img {
     im
 }
 
-/// A star over the Observatory: one research finding. Some twinkle.
 pub fn star(twinkle: bool) -> Img {
     let mut im = Img::new(3, 3);
     im.put(1, 1, 'w');
@@ -2228,9 +2079,6 @@ pub fn star(twinkle: bool) -> Img {
     im
 }
 
-/// The Observatory's glass sweeping the sky while research runs: a beam
-/// from the dome at `angle` radians, brightest at the glass. The image's
-/// bottom centre is the dome.
 pub fn beam(angle: f32) -> Img {
     const REACH: i32 = 40;
     let mut im = Img::new(REACH * 2 + 1, REACH + 1);
@@ -2250,8 +2098,6 @@ pub fn beam(angle: f32) -> Img {
     im
 }
 
-/// One trial on the Lists fence: verified green at the head of the pole for
-/// a pass, amber at half-mast for a failure.
 pub fn pennant(passed: bool) -> Img {
     let mut im = Img::new(4, 8);
     im.line(0, 0, 0, 7, 'J');
@@ -2268,8 +2114,6 @@ pub fn pennant(passed: bool) -> Img {
     im
 }
 
-/// Books studied this session, in low stacks by the Scriptorium door: a
-/// cover over cream page edges, so a pile never reads as a figure.
 pub fn books(n: u32) -> Img {
     const COVERS: [char; 5] = ['R', 'z', 'O', 'M', 'U'];
     const STACK: u32 = 3;
@@ -2287,7 +2131,6 @@ pub fn books(n: u32) -> Img {
     im
 }
 
-/// The Smithy's rack: a blade for every file forged this session.
 pub fn blade_rack(n: u32) -> Img {
     let n = n as i32;
     let mut im = Img::new(n * 3 + 3, 12);
@@ -2304,7 +2147,6 @@ pub fn blade_rack(n: u32) -> Img {
     im
 }
 
-/// Sparks off the anvil, `age` ticks after the strike: they rise and thin.
 pub fn sparks(age: u32) -> Img {
     let mut im = Img::new(14, 12);
     let rise = (age / 2) as i32;
@@ -2319,9 +2161,6 @@ pub fn sparks(age: u32) -> Img {
     im
 }
 
-// ─── icons & cues ────────────────────────────────────────────────────────────
-
-/// What the knight is doing, as a HUD item and an emote.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Tool {
     Hammer,
@@ -2364,7 +2203,6 @@ pub fn icon(tool: Tool) -> Img {
     }
 }
 
-/// A speech bubble holding an icon, tail at the bottom left.
 pub fn bubble(tool: Tool) -> Img {
     let icon = icon(tool);
     let mut im = Img::new(16, 17);
@@ -2378,7 +2216,6 @@ pub fn bubble(tool: Tool) -> Img {
     im
 }
 
-/// Beacon brackets and a bobbing arrow over a live place (world pixels).
 pub fn beacon(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32), tick: u32) {
     let (x0, y0, x1, y1) = (x - 3, y - 3, x + w + 2, y + h + 2);
     for (cx, cy, sx, sy) in [

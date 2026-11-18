@@ -65,7 +65,6 @@ fn corners_are_cut_and_the_box_is_symmetric() {
         for (x, y) in [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)] {
             assert!(im.get(x, y).is_none(), "{w}x{h}: corner {x},{y} is cut");
         }
-        // The middle of each edge is the box.
         for (x, y) in [(w / 2, 0), (w / 2, h - 1), (0, h / 2), (w - 1, h / 2)] {
             assert!(im.get(x, y).is_some(), "{w}x{h}: edge {x},{y}");
         }
@@ -93,7 +92,6 @@ fn the_rim_is_lit_above_and_shaded_below() {
     assert_eq!(im.get(30, 0), ink('O'));
     assert_eq!(im.get(0, 10), ink('o'));
     assert_eq!(im.get(30, 19), ink('r'));
-    // The fill falls toward black: its top row lighter than its foot.
     let lum = |c: Rgb| c.iter().map(|&v| u32::from(v)).sum::<u32>();
     assert!(lum(im.get(30, 2).unwrap()) > lum(im.get(30, 17).unwrap()));
 }
@@ -109,7 +107,6 @@ fn the_shadow_falls_only_outside_the_box() {
             if let Some(c) = bare.get(x, y) {
                 assert_eq!(shaded.get(x, y), Some(c), "the box itself at {x},{y}");
             } else if shaded.get(x, y).is_some() {
-                // Only below and to the right of the box, a pixel off it.
                 assert!(x >= 3 && y >= 3 && x <= 42 && y <= 14, "shadow at {x},{y}");
             }
         }
@@ -122,8 +119,6 @@ fn a_label_keeps_its_old_place_and_words() {
     let mut im = Img::new(80, 20);
     let rect = label(&mut im, (10, 5), "E: TALK", '6', Tone::KEY);
     assert_eq!(rect, (7, 3, text_width("E: TALK") + 6, 11));
-    // The words are the 5x7 hand's, in the brass a prompt wears at dusk
-    // (a bright gold letter steps down to it, `dusk_mark`).
     let mut words = Img::new(80, 20);
     words.text(10, 5, "E: TALK", '6');
     for y in 0..20 {
@@ -137,7 +132,6 @@ fn a_label_keeps_its_old_place_and_words() {
 
 #[test]
 fn lettering_over_the_world_never_wears_a_bright_gold_or_white() {
-    // Gold goes to brass and cream or white to grey; the quiet inks stay.
     for ch in ['4', '5', '6', '@', 'T', 't'] {
         assert_eq!(dusk_mark(ch), 'O', "{ch}");
     }
@@ -147,7 +141,6 @@ fn lettering_over_the_world_never_wears_a_bright_gold_or_white() {
     for ch in ['O', 'o', 'i', 'h', 'J', '$', '7', 'r'] {
         assert_eq!(dusk_mark(ch), ch, "{ch}");
     }
-    // Whatever it answers is no brighter than brass or the quiet grey.
     let top = |c: char| {
         let [r, g, b] = ink(c).unwrap();
         0.299 * f32::from(r) + 0.587 * f32::from(g) + 0.114 * f32::from(b)
@@ -155,7 +148,6 @@ fn lettering_over_the_world_never_wears_a_bright_gold_or_white() {
     for ch in ['4', '5', '6', '@', 'T', 't', '9', 'c', 'w', 'H', 'W'] {
         assert!(top(dusk_mark(ch)) <= top('i') + 0.5, "{ch}");
     }
-    // A label's letters wear it too.
     let mut im = Img::new(80, 20);
     label(&mut im, (10, 5), "E: TALK", '9', Tone::KEY);
     assert!(im.pixels().all(|p| p != ink('9').unwrap()));
@@ -187,8 +179,6 @@ fn corners_put_back_round_a_square_fill() {
     assert_eq!(im.get(8, 5), ink('B'));
 }
 
-/// The kit on black paper and over scenery, three times up:
-/// `ANGEL_CHROME_SHEET=<file.png> cargo test -p angel-delve write_chrome_sheet -- --ignored`.
 #[test]
 #[ignore]
 fn write_chrome_sheet() {
@@ -197,7 +187,6 @@ fn write_chrome_sheet() {
     };
     let (w, h) = (384, 224);
     let mut im = Img::new(w, h);
-    // Half the sheet over grass and timber, the other half black paper.
     for y in 0..h {
         for x in w / 2..w {
             let c = match (x / 7 + y / 5) % 3 {

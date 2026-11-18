@@ -67,7 +67,6 @@ fn main() {
         .unwrap_or(3000);
     let png_mode = std::env::args().nth(2).is_some_and(|v| v == "png");
 
-    // Six pre-generated variants per stream: the producer's bytes.
     let ring: Vec<Vec<Vec<u8>>> = STREAMS
         .iter()
         .map(|&(id, w, h)| {

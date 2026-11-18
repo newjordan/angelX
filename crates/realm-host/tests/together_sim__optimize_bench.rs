@@ -46,7 +46,6 @@ fn kingdom() -> Run {
     run
 }
 
-/// Floor 4's fight room with the most foes.
 fn crowded_fight() -> Run {
     let mut run = party(Run::new(3, 9, Some("Two")));
     while run.dungeon.depth < 4 {
@@ -67,7 +66,6 @@ fn crowded_fight() -> Run {
     run
 }
 
-/// The ballot between floors, its clock counting down a tick at a time.
 fn crossroads() -> Run {
     use angel_delve::rules::crossroads::{Game, Stage, State, VOTE_TIME};
     let mut run = crowded_fight();
@@ -116,10 +114,6 @@ fn pub_room() -> Run {
     run
 }
 
-/// The realm's standing wishes as a host with a built-up realm has them: each
-/// one a name, its words and 32 by 32 rows of ink. A sensitivity probe, not a
-/// count anyone measured on a real realm. `salt` changes the ids, so a list
-/// that places the same lots is still a list the caches have not seen.
 fn stand_wishes_salted(n: usize, salt: u32) {
     use angel_delve::realm::{Status, Wish};
     let wishes: Vec<Wish> = (0..n)
@@ -144,7 +138,6 @@ fn stand_wishes(n: usize) {
     stand_wishes_salted(n, 0);
 }
 
-/// A new salt each time it is asked.
 fn fresh_salt() -> u32 {
     static SALT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
     SALT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
@@ -152,7 +145,6 @@ fn fresh_salt() -> u32 {
 
 fn scene(name: &str) -> Run {
     if name.starts_with("wish_lands") {
-        // Forty wishes stand; one more lands partway through (`run_scene`).
         angel_delve::world::wishes::SLOW_SEARCH.store(name.ends_with("slow"), std::sync::atomic::Ordering::Relaxed);
         stand_wishes_salted(40, fresh_salt());
         let mut run = kingdom();
@@ -177,8 +169,6 @@ fn scene(name: &str) -> Run {
     }
 }
 
-/// What the four knights press on tick `i`: walk in turns, loose a shot every
-/// third tick, and (on the road) hold the gas.
 fn presses(name: &str, i: usize) -> [Input; 4] {
     let mut out = [Input::default(); 4];
     for (seat, input) in out.iter_mut().enumerate() {
@@ -217,7 +207,6 @@ impl Samples {
     }
 }
 
-/// `DelveClient::snapshot`'s reading of a tree, without the client round it.
 #[derive(Default)]
 struct Probe {
     names: angel_net::doc::wire::Reader,
@@ -255,9 +244,6 @@ fn us(since: Instant) -> f64 {
     since.elapsed().as_secs_f64() * 1e6
 }
 
-/// CPU time, in microseconds, of this thread (`THREAD`) or of the whole process
-/// (`PROCESS`: the rules worker's own pipe thread counts here too). A busy machine
-/// stretches the wall clock but not the CPU a piece of work takes.
 fn cpu(clock: libc::clockid_t) -> f64 {
     let mut t = libc::timespec { tv_sec: 0, tv_nsec: 0 };
     unsafe { libc::clock_gettime(clock, &mut t) };
@@ -266,7 +252,6 @@ fn cpu(clock: libc::clockid_t) -> f64 {
 const THREAD: libc::clockid_t = libc::CLOCK_THREAD_CPUTIME_ID;
 const PROCESS: libc::clockid_t = libc::CLOCK_PROCESS_CPUTIME_ID;
 
-/// CPU time a child process has used, in microseconds (clock ticks of 10 ms).
 fn child_cpu(pid: u32) -> Option<f64> {
     let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
     let after = stat.rsplit_once(')')?.1;
@@ -283,8 +268,6 @@ fn hash_of(run: &Run) -> u64 {
     h.finish()
 }
 
-/// The first `apply` takes the prepared worker up; until one has, the engine
-/// answers that it is preparing. Paused calls (`step` false) change nothing.
 fn wait_for_worker(shared: &Shared) {
     let began = Instant::now();
     loop {
@@ -300,7 +283,6 @@ fn wait_for_worker(shared: &Shared) {
     }
 }
 
-/// One scene in one mode, `ticks` long: every metric's samples go to `out`.
 fn run_scene(name: &str, mode: &str, ticks: usize, out: &mut BTreeMap<&'static str, Samples>, bytes: &mut usize) {
     use angel_delve::wire;
     let hot = mode == "hot";
@@ -332,12 +314,8 @@ fn run_scene(name: &str, mode: &str, ticks: usize, out: &mut BTreeMap<&'static s
         params: &params,
     };
     let mut client = crate::together_seat::Client::boot(&welcome).unwrap();
-    // A second reader of seat 1's snapshots, as the client reads them (`DelveClient::snapshot`),
-    // for what `wire::Guest` says of itself: ticks read by putting fields back, ticks read whole,
-    // and the fields that made it read whole.
     let mut probe = Probe::default();
     let mut frame = Frame::default();
-    // The first ticks lay the worker's state down and the caches warm: not counted.
     let warm = 12;
     let started_at = lock(&shared.core).run.tick;
     let worker_pid = lock(&shared.core).engine.as_ref().and_then(|e| e.status().worker_pid);
@@ -345,7 +323,6 @@ fn run_scene(name: &str, mode: &str, ticks: usize, out: &mut BTreeMap<&'static s
     let mut landed_at: Option<u32> = None;
     let mut worst_after_landing = (0.0f64, 0.0f64);
     for i in 0..ticks + warm {
-        // The knights are kept on their feet, so the scene stays what it is.
         {
             let mut core = lock(&shared.core);
             for hero in core.run.players.values_mut() {
@@ -370,7 +347,6 @@ fn run_scene(name: &str, mode: &str, ticks: usize, out: &mut BTreeMap<&'static s
         let step = us(at);
         let step_cpu = cpu(PROCESS) - cpu_at;
         if i == 0 {
-            // The first step of a run: caches cold (a rules worker's own are, whatever the host's).
             println!("FIRST_STEP {name} {mode} {:.1} ms", step / 1000.0);
         }
         if hot && let Some(error) = lock(&shared.core).engine_error.clone() {
@@ -445,7 +421,6 @@ fn run_scene(name: &str, mode: &str, ticks: usize, out: &mut BTreeMap<&'static s
             out.entry("cpu_client_draw").or_default().add(draw_cpu);
             out.entry("cpu_host_tick").or_default().add(step_cpu + publish_cpu + encode_cpu);
         }
-        // The checkpoint's copy under the lock and its encode, as the service takes them.
         if counted && i % 30 == 0 {
             let at = Instant::now();
             let (run, commands) = {
@@ -462,8 +437,6 @@ fn run_scene(name: &str, mode: &str, ticks: usize, out: &mut BTreeMap<&'static s
         let n = ticks as f64;
         let host = (cpu(PROCESS) - proc_at) / n;
         let worker = worker_pid.zip(worker_at).and_then(|(pid, at)| child_cpu(pid).map(|now| (now - at) / n));
-        // Everything the tick costs: the host process (the sim, the publish, the four writers' work,
-        // one client reading and drawing) and the rules worker's process.
         println!("CPU {name} {mode} host_process_us_per_tick={host:.0} worker_process_us_per_tick={:.0} wall_us_per_tick={:.0}", worker.unwrap_or(0.0), wall_at.elapsed().as_secs_f64() * 1e6 / n);
     }
     {
@@ -527,8 +500,6 @@ fn delve_optimize_bench() {
     }
 }
 
-/// `angel_live::delta::diff` as it was before whole subtrees were asked about first: every node
-/// walked, a path built for each. Kept here to time the one against the other on the same states.
 fn diff_every_node(old: &serde_json::Value, new: &serde_json::Value) -> Vec<serde_json::Value> {
     use serde_json::{Value, json};
     fn walk(old: &Value, new: &Value, path: &mut Vec<Value>, ops: &mut Vec<Value>) {
@@ -567,7 +538,6 @@ fn diff_every_node(old: &serde_json::Value, new: &serde_json::Value) -> Vec<serd
             _ => {}
         }
     }
-    /// Equal, and bit for bit when a float: a worker must see `-0.0` become `0.0`.
     fn same(a: &Value, b: &Value) -> bool {
         match (a, b) {
             (Value::Number(x), Value::Number(y)) => x == y && x.as_f64().map(f64::to_bits) == y.as_f64().map(f64::to_bits),
@@ -579,10 +549,6 @@ fn diff_every_node(old: &serde_json::Value, new: &serde_json::Value) -> Vec<serd
     ops
 }
 
-/// What one hot step is made of, piece by piece, on one scene stepped
-/// embedded: the host's capture, diff, restore and clone, the worker's patch
-/// (the host patches the same), and the bytes that cross. Then each top-level
-/// field's size and how many ticks changed it.
 #[test]
 #[ignore]
 fn delve_hot_breakdown() {
@@ -604,7 +570,6 @@ fn delve_hot_breakdown() {
             }
             let keys = presses(name, i);
             let inputs: BTreeMap<u32, Input> = keys.iter().enumerate().map(|(s, k)| (s as u32 + 1, *k)).collect();
-            // The worker steps a run it has just restored, not the one it stepped last.
             let pre = capture_for_step(&run).unwrap().into_value();
             let mut cold = restore_value(&pre).unwrap();
             let at = Instant::now();
@@ -622,7 +587,6 @@ fn delve_hot_breakdown() {
             let at = Instant::now();
             let ops = angel_live::delta::diff(&held, &state);
             let diff = us(at);
-            // The two find the same changes, in the same order.
             assert_eq!(ops, old_ops);
             let at = Instant::now();
             let sent = serde_json::to_vec(&ops).unwrap();
@@ -685,9 +649,6 @@ fn delve_hot_breakdown() {
     }
 }
 
-/// What the wish lots cost, old search against new in one process, taken in
-/// turn; and the one-entry geography cache: a hit, and the price of two callers
-/// that ask with different wish lists in turn.
 #[test]
 #[ignore]
 fn delve_geography_cost() {
@@ -750,9 +711,6 @@ fn delve_geography_cost() {
     stand_wishes(0);
 }
 
-/// What a client does when the realm's wishes change, piece by piece: the lots
-/// the 3D realm stands for them (`world3d::lots::of`, which the chunks'
-/// sets are made from), then one frame drawn.
 #[test]
 #[ignore]
 fn delve_wish_landing_cost() {

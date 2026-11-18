@@ -37,7 +37,6 @@ fn fade(x: f32) -> Fade {
     Fade { x, ttl: 9 }
 }
 
-/// What a client holds after `patch` reaches it over the wire.
 fn sent(held: &mut Value, names: (&mut Writer, &mut Reader), patch: &Patch) {
     let mut out = Vec::new();
     names.0.patch(&mut out, patch);
@@ -48,8 +47,6 @@ fn sent(held: &mut Value, names: (&mut Writer, &mut Reader), patch: &Patch) {
     apply(held, read).unwrap();
 }
 
-/// Each state after the first as a patch, read back on the far side into
-/// the same tree.
 fn round_trip(states: &[State]) -> Vec<Patch> {
     let (mut w, mut r) = (Writer::default(), Reader::default());
     let mut out = Vec::new();
@@ -85,7 +82,6 @@ fn a_shared_subtree_reads_compares_and_writes_as_what_it_holds() {
     Writer::default().value(&mut b, &shared);
     assert_eq!(a, b, "the same bytes");
     assert_eq!(shared.field("gold"), Some(&Value::U(3)));
-    // The same subtree in two trees is passed by; a changed one is walked.
     let again = shared.clone();
     assert_eq!(diff(&shared, &again), None);
     let mut more = shared.clone();
@@ -125,11 +121,8 @@ fn shots_loosed_and_landed_are_sent_as_an_edit_without_the_whole_order() {
     let s = |shots: Vec<Shot>| State { gold: 0, note: None, shots, fades: vec![] };
     let states = [
         s((1..=40).map(|i| shot(i, i as f32)).collect()),
-        // Two land, one is loosed: no order.
         s((1..=40).filter(|&i| i != 3 && i != 20).map(|i| shot(i, i as f32)).chain([shot(41, 0.0)]).collect()),
-        // One flies on.
         s((1..=40).filter(|&i| i != 3 && i != 20).map(|i| shot(i, if i == 7 { 9.0 } else { i as f32 })).chain([shot(41, 0.0)]).collect()),
-        // Moved about: the whole order.
         s(vec![shot(41, 0.0), shot(1, 1.0)]),
         s(vec![]),
         s(vec![shot(50, 1.0)]),
@@ -149,11 +142,8 @@ fn a_crowd_of_shots_loosed_landed_and_turned_is_put_right_by_id() {
     let s = |shots: Vec<Shot>| State { gold: 0, note: None, shots, fades: vec![] };
     let states = [
         s((1..=600).map(|i| shot(i, i as f32)).collect()),
-        // Two in three land, a hundred are loosed, a few fly on.
         s((1..=600).filter(|i| i % 3 == 0).map(|i| shot(i, if i % 30 == 0 { -1.0 } else { i as f32 })).chain((601..=700).map(|i| shot(i, 0.0))).collect()),
-        // Loosed, landed and turned at once, a crowd of each.
         s((1..=700).filter(|i| i % 3 == 0 || *i > 650).map(|i| shot(i, if i % 4 == 0 { 7.5 } else { i as f32 })).chain((701..=900).map(|i| shot(i, 1.0))).collect()),
-        // Past the edit: the whole order, a crowd of them moved about.
         s((701..=900).rev().map(|i| shot(i, 2.0)).chain((1..=30).map(|i| shot(i, 3.0))).collect()),
         s(vec![]),
     ];
@@ -202,8 +192,6 @@ fn an_unchanged_tree_has_no_patch_and_a_reordered_one_none_to_send() {
 
 #[test]
 fn struct_and_map_patches_preserve_insert_delete_append_and_reorder_exactly() {
-    // Reappearing optional fields and new sorted keys must retain their source
-    // positions. Pure deletion and tail additions still use compact patches.
     let cases = [
         (vec!["a", "c"], vec!["a", "b", "c"], true),
         (vec!["a", "b", "c"], vec!["a", "c", "d"], false),
@@ -239,11 +227,11 @@ fn exact_order_mode_reaches_nested_containers_without_changing_legacy_diff() {
             2 => Value::Seq(vec![value]),
             3 => Value::Some(Box::new(value)),
             4 => Value::Variant(Cow::Borrowed("nested"), Box::new(value)),
-            5 => Value::Seq(vec![item(1, value)]), // KeyedEdit
+            5 => Value::Seq(vec![item(1, value)]),
             6 => {
                 let mut items = vec![item(1, value), item(2, Value::Unit)];
                 if reverse { items.reverse(); }
-                Value::Seq(items) // Keyed, with a reordered old id
+                Value::Seq(items)
             }
             _ => unreachable!(),
         }

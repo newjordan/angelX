@@ -26,13 +26,11 @@ fn some_input(state: &mut u64) -> Input {
     }
 }
 
-/// The struct halves of the small games, stepped with random keys.
 #[test]
 #[ignore]
 fn record_pastimes_structs() {
     for seed in 1..=4u64 {
         let mut st = 0x9e37_79b9_7f4a_7c15u64.wrapping_mul(seed);
-        // Surf
         let mut s = Surf::new(1);
         let mut wave = 0u8;
         for n in 0..500u32 {
@@ -51,7 +49,6 @@ fn record_pastimes_structs() {
                 wave = (wave + 1) % 6;
             }
         }
-        // Halfpipe
         let mut h = Halfpipe::new(1);
         let (mut progress, mut mistakes) = (0u8, 0u8);
         for n in 0..700u32 {
@@ -81,7 +78,6 @@ fn record_pastimes_structs() {
                 (progress, mistakes) = (0, 0);
             }
         }
-        // Volley
         let mut v = Volley::new(1);
         for n in 0..900u32 {
             let input = some_input(&mut st);
@@ -97,7 +93,6 @@ fn record_pastimes_structs() {
                 v = Volley::new(1);
             }
         }
-        // DuckShoot
         let mut d = DuckShoot::new(1);
         for n in 0..500u32 {
             let input = some_input(&mut st);
@@ -113,7 +108,6 @@ fn record_pastimes_structs() {
                 d = DuckShoot::new(1);
             }
         }
-        // Powder: three sappers in one yard.
         let mut y = Powder::new(&[1, 2, 3], (seed % 7) as u8);
         for n in 0..500u32 {
             let mut keys = BTreeMap::new();
@@ -132,7 +126,6 @@ fn record_pastimes_structs() {
                 y = Powder::new(&[1, 2, 3], ((seed + u64::from(n)) % 7) as u8);
             }
         }
-        // Siege: the march, the walls, the stones.
         let mut z = Siege::new(1);
         for n in 0..2600u32 {
             let mut input = some_input(&mut st);
@@ -154,7 +147,6 @@ fn record_pastimes_structs() {
                 z = Siege::new(1);
             }
         }
-        // Chariot
         let mut c = Chariot::new(1);
         for n in 0..1800u32 {
             let input = some_input(&mut st);
@@ -197,7 +189,6 @@ fn tick(run: &mut Run, keys: &BTreeMap<u32, Input>, name: &str, record: bool) {
     }
 }
 
-/// Each game, started from its pad, played at random, won and timed out.
 #[test]
 #[ignore]
 fn record_pastimes_rounds() {
@@ -218,7 +209,6 @@ fn record_pastimes_rounds() {
                     keys.insert(id, some_input(&mut st));
                 }
                 if t % 5 == 0 {
-                    // Walk on to a target now and then so the position games score.
                     let r = rnd(&mut st);
                     let target = match game {
                         Game::Barrel => run.pastimes.round.as_ref().map(|r| FLAGS[usize::from(r.progress.min(5))]),
@@ -274,7 +264,6 @@ fn record_pastimes_rounds() {
             }
         }
     }
-    // The crossroads plays Powder Keg and the Gander hall for the table.
     for (seed, seats) in [(31u64, 1u32), (32, 2), (33, 3)] {
         for game in [Game::Powder, Game::Gander] {
             let mut run = Run::at_home(seed, 1, None, Default::default(), Default::default());
@@ -296,7 +285,6 @@ fn record_pastimes_rounds() {
             }
         }
     }
-    // Rooms that hold no game: the state leaves.
     let mut run = Run::at_home(5, 1, None, Default::default(), Default::default());
     for _ in 0..3 {
         tick(&mut run, &BTreeMap::new(), "pastimes.Run.tick_pastimes", true);

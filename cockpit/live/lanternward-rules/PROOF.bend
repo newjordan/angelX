@@ -1,9 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
 
-# Each law is a closed equality between folded words, so its proof only re-runs
-# the computation both sides name and finds them the same.
-
 def Laws.a_quarter_turn_is_q():
   {==}
 

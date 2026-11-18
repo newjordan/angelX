@@ -12,15 +12,11 @@ use crate::rules::belfry_show::{Cry, SHOUT_LIFE, Shout};
 use crate::rules::folly::{BAT_TIME, BatShoot, TITLE};
 use crate::rules::{EnemyKind, HZ, Run};
 
-/// Ticks a flying number takes to reach the strip, from the kill.
 pub(super) const FLY: u32 = 27;
-/// Ticks each of 3, 2 and 1 shows, and the first one's start.
 const BEAT: u32 = 12;
 const FIRST: u32 = TITLE - 3 * BEAT + 1;
-/// Ticks GO shows.
 pub(super) const GO: u32 = 28;
 
-/// The title, its two plain words and the countdown, over the view.
 pub(super) fn opening(over: &mut Img, run: &Run, shoot: &BatShoot) {
     let t = shoot.t;
     let tick = run.tick as u32;
@@ -28,7 +24,6 @@ pub(super) fn opening(over: &mut Img, run: &Run, shoot: &BatShoot) {
         return;
     }
     if t < TITLE {
-        // The view dims behind the title, and clears as the numbers come.
         let k = if t < FIRST { 0.8 } else { 0.8 * (1.0 - (t - FIRST) as f32 / 12.0).max(0.0) };
         for y in 0..NATIVE_H {
             for x in 0..NATIVE_W {
@@ -40,7 +35,6 @@ pub(super) fn opening(over: &mut Img, run: &Run, shoot: &BatShoot) {
         if t < FIRST + 6 {
             juice::banner(over, 36, "THE BELFRY SHOOT", "", t, FIRST + 6, Tone::Warm, 3);
         }
-        // Two plain words, each with its picture: the bat, the bell.
         if (6..FIRST).contains(&t) {
             let fade = 1.0 - ((t as f32 - 6.0) / 6.0).clamp(0.0, 1.0);
             let mut shoot_w = juice::big_text_img("SHOOT", 2, 'T', 'B');
@@ -81,9 +75,6 @@ fn words(cry: Cry) -> String {
     }
 }
 
-/// The banner: the loudest call of the newest moment, big, under the strip;
-/// under it a line of small words: whose it is (not yours) and the other
-/// calls the same moment made.
 pub(super) fn callouts(over: &mut Img, run: &Run, shoot: &BatShoot, focus: Option<u32>, now: u32) {
     let mut calls: Vec<Shout> = shoot.show.shouts.iter().copied().filter(|c| now.saturating_sub(c.born) < SHOUT_LIFE).collect();
     calls.sort_by_key(|c| (std::cmp::Reverse(c.born), std::cmp::Reverse(c.cry.rank())));
@@ -111,8 +102,6 @@ pub(super) fn callouts(over: &mut Img, run: &Run, shoot: &BatShoot, focus: Optio
     juice::banner(over, hud::BOTTOM + 28, &title, &sub.join("  "), now.saturating_sub(top.born), SHOUT_LIFE, tone, cap);
 }
 
-/// What flies to the strip: each bat felled, its harm as a number for the
-/// seat looking (a crumb of the knight's ink for the others).
 pub(super) fn fly_ups(over: &mut Img, shoot: &BatShoot, focus: Option<u32>, (ox, oy): (i32, i32), now: u32) {
     for h in shoot.show.hits.iter().filter(|h| h.kill && h.who != 0) {
         let age = h.age(now);
@@ -133,9 +122,6 @@ pub(super) fn fly_ups(over: &mut Img, shoot: &BatShoot, focus: Option<u32>, (ox,
     }
 }
 
-/// A dithered rim of `fill` along the view's edges, `depth` pixels deep, `k`
-/// (0 to 1) how strong: `juice::vignette` over the same box, but touching only
-/// the rim's own pixels, since it is drawn most frames.
 fn rim(over: &mut Img, k: f32, depth: i32, fill: char) {
     if k <= 0.0 {
         return;
@@ -161,10 +147,7 @@ fn rim(over: &mut Img, k: f32, depth: i32, fill: char) {
     }
 }
 
-/// The sting of a bite on the seat looking: a red rim that fades, and the
-/// bell's warm flash round the edge when it tolls.
 pub(super) fn danger(over: &mut Img, run: &Run, shoot: &BatShoot, focus: Option<u32>, now: u32) {
-    // A crowd of bats closing on the seat looking: a rim that pulses.
     if let Some(hero) = focus.and_then(|me| run.players.get(&me)).filter(|h| h.hp > 0) {
         let near = run
             .enemies
@@ -191,7 +174,6 @@ pub(super) fn danger(over: &mut Img, run: &Run, shoot: &BatShoot, focus: Option<
     }
 }
 
-/// The last five seconds, one big number a second, slammed in.
 pub(super) fn last_seconds(over: &mut Img, shoot: &BatShoot) {
     if shoot.done || shoot.titled() || shoot.left() > 5 {
         return;

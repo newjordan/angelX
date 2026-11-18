@@ -41,27 +41,17 @@ pub use mirror::{Mirror, Mirrored};
 pub use send::{Interest, Viewer, Written};
 pub use world::{Entity, State, Table, World};
 
-/// Bytes one snapshot may carry, everything in it counted. What does not
-/// fit carries to the next snapshot. At 20 snapshots a second this caps a
-/// client near 24 KB/s however crowded its view.
 pub const BUDGET: usize = 1200;
-/// A thing's changing bytes: a position and a pose, not a document.
 pub const MAX_STATE: usize = 24;
-/// A thing's bytes fixed at its appearance: a colour and a name.
 pub const MAX_SPAWN: usize = 64;
-/// Samples a client keeps of each thing: enough to draw 100 ms behind
-/// through a few late snapshots.
 pub const HISTORY: usize = 8;
 
-/// Something the client holds changed and was left for a later snapshot,
-/// so the things this snapshot does not mention may not be as they were.
 const DEFERRED: u8 = 1;
 
 const GLOBALS_SAME: u8 = 0;
 const GLOBALS_WHOLE: u8 = 1;
 const GLOBALS_PATCH: u8 = 2;
 
-/// Bytes a varint of `n` takes.
 fn varint_len(n: u64) -> usize {
     let bits = 64 - n.leading_zeros() as usize;
     bits.max(1).div_ceil(7)

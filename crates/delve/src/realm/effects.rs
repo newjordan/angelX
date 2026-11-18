@@ -123,7 +123,6 @@ impl Graph {
     }
 }
 impl Node {
-    /// Linear keyframe evaluation is bounded and independent of module code.
     pub fn at(&self, tick: u32) -> Option<Key> {
         let mut previous = self.keys.first()?.clone();
         for next in self.keys.iter().skip(1).take(15) {
@@ -161,8 +160,6 @@ pub struct Playing {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Scene {
-    /// Zero permits uncached/manual views. The owner changes a nonzero
-    /// revision whenever its immutable catalogue or instance list changes.
     #[serde(default)]
     pub revision: u64,
     pub graphs: BTreeMap<String, Arc<Graph>>,

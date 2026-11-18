@@ -1,10 +1,3 @@
-# crates/delve/src/rules/gantry.rs — the Keg Gantry, the third folly: a side-on
-# hall becomes a scaffold of three girders; kegs roll down them; the first
-# knight to stand on the top girder takes the pot.
-#
-# `run.gantry` is {room, t, kegs: [{x, y, dir, drop, cleared: [ids]}], jumped:
-# {id: n}, height: {id: h}, ante: {id: gold}, done}. Kegs are in 1/16 units.
-
 def gantry.TITLE() -> U32:
   60
 
@@ -14,7 +7,6 @@ def gantry.CLIMB_TIME() -> U32:
 def gantry.SCAFFOLD() -> List<&2, String>:
   ["################################################", "#..............................................#", "#=========================================.....#", "#..............................................#", "#..............................................#", "#.....=========================================#", "#..............................................#", "#..............................................#", "#=========================================.....#", "#..............................................#", "#..............................................#", "################################################", "################################################", "################################################"]
 
-# Which girder (0 floor .. 3 summit) a body standing at `y` (units) is on.
 def gantry.girder(+y: F32) -> U32:
   row: U32 = RS.f_as_i32((y / 2.0 : F32))
   if RS.i_le(row, 2):
@@ -25,7 +17,6 @@ def gantry.girder(+y: F32) -> U32:
     else:
       Bool.pick(U32, RS.i_le(row, 8), 1, 0)
 
-# On a floor with a side-on hall, that hall is the floor's gantry.
 def gantry.Run.pick_gantry(+run: J.Val) -> J.Val:
   r1: J.Val = J.set(J.set(run, "gantry", J.JNull{}), "gantry_room", J.JNull{})
   if U32.is_eq(J.u32(J.get(J.get(run, "dungeon"), "depth")), 0):
@@ -44,7 +35,6 @@ def gantry.pick(+rooms: List<&2, J.Val>, +i: U32) -> U32:
       else:
         gantry.pick(t, (i + 1 : U32))
 
-# The scaffold goes up (doors kept) over the hall.
 def gantry.scaffold(+room: J.Val) -> J.Val:
   g: LayGrid = layout.grid.of_room(room)
   layout.grid.put(room, gantry.scaffold.rows(g, gantry.SCAFFOLD(), 0))
@@ -75,7 +65,6 @@ def gantry.scaffold.tile(+c: Char) -> LayTile:
     case _:
       TileFloor{}
 
-# Into the gantry: the scaffold goes up, the antes go in.
 def gantry.Run.start_gantry(+run: J.Val, +index: U32) -> J.Val:
   dungeon: J.Val = J.get(run, "dungeon")
   room: J.Val = gantry.scaffold(layout.Floor.room(dungeon, index))
@@ -111,7 +100,6 @@ def gantry.footed(+t: LayTile) -> Bool:
     case _:
       False{}
 
-# One keg's tick: it rolls, falls or turns; it leaves past the room's ends.
 def gantry.keg_step(+room: J.Val, +k: J.Val, +step: U32) -> J.Val:
   x: F32 = gantry.keg_pos_x(k)
   y: F32 = gantry.keg_pos_y(k)
@@ -130,7 +118,6 @@ def gantry.keg_step(+room: J.Val, +k: J.Val, +step: U32) -> J.Val:
   else:
     J.set(k, "x", J.of_i32((J.u32(J.get(k, "x")) + RS.i_mul(step, J.u32(J.get(k, "dir"))) : U32)))
 
-# The kegs that stay: x inside the room, between 0.5 and (cols - 0.5) tiles.
 def gantry.kegs_step(+room: J.Val, +ks: List<&2, J.Val>, +step: U32, +cols: U32) -> List<&2, J.Val>:
   match ks as List<&2, J.Val>:
     case Nil{}:
@@ -146,8 +133,6 @@ def gantry.kegs_step(+room: J.Val, +ks: List<&2, J.Val>, +step: U32, +cols: U32)
 def gantry.with(+run: J.Val, +g: J.Val) -> J.Val:
   J.set(run, "gantry", g)
 
-# The climb's tick: kegs roll and fall, knights are caught or clear them, and
-# the summit ends it.
 def gantry.Run.tick_gantry(+run: J.Val) -> J.Val:
   g0: J.Val = J.get(run, "gantry")
   if J.is_null(g0):
@@ -180,7 +165,6 @@ def gantry.knights(+s: WS, +ids: List<&2, U32>) -> WS:
     case Con{id: U32, t: List<&2, U32>}:
       gantry.knights(gantry.knight(s, id), t)
 
-# One living knight: caught or clearing each keg, and how high they have got.
 def gantry.knight(+s: WS, +id: U32) -> WS:
   match s as WS:
     case WS{run: J.Val, g: J.Val, mark: U32}:
@@ -239,7 +223,6 @@ def gantry.knight.keg(+s: WS, +id: U32, +i: U32) -> WS:
           else:
             s
 
-# The highest girder this knight has reached; the first to stand grounded on the summit.
 def gantry.knight.height(+s: WS, +id: U32) -> WS:
   match s as WS:
     case WS{run: J.Val, g: J.Val, mark: U32}:
@@ -250,7 +233,6 @@ def gantry.knight.height(+s: WS, +id: U32) -> WS:
       summit: U32 = Bool.pick(U32, Bool.and(Bool.and(U32.is_eq(at, 3), J.bool(J.get(h, "grounded"))), U32.is_eq(mark, 4294967295)), id, mark)
       WS{run, g1, summit}
 
-# The summit, or the candle burnt down, ends it: the pot and the crown.
 def gantry.finish(+s: WS) -> J.Val:
   match s as WS:
     case WS{run: J.Val, g: J.Val, mark: U32}:
@@ -259,7 +241,6 @@ def gantry.finish(+s: WS) -> J.Val:
       else:
         gantry.with(run, g)
 
-# The knight with the greatest (height, jumps), the least id on a tie, else none.
 def gantry.best_by(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +g: J.Val, +best: U32, +bh: U32, +bj: U32) -> U32:
   match hs as List<&2, Sigma<&2, &2, String, _ => J.Val>>:
     case Nil{}:
@@ -280,7 +261,6 @@ def gantry.pot(+xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> U32:
     case Con{p: Sigma<&2, &2, String, _ => J.Val>, t: List<&2, Sigma<&2, &2, String, _ => J.Val>>}:
       (J.u32(world.key_val(p)) + gantry.pot(t) : U32)
 
-# Pay each jumper (and the best the pot), crown the best, close the room.
 def gantry.award(+run: J.Val, +g: J.Val, +summit: U32) -> J.Val:
   best: U32 = Bool.pick(U32, U32.is_ne(summit, 4294967295), summit, gantry.best_by(J.int_fields(J.get(g, "height")), g, 4294967295, 0, 0))
   pot: U32 = gantry.pot(J.fields(J.get(g, "ante")))

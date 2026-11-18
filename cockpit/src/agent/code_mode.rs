@@ -12,8 +12,6 @@ pub use angel_code_mode::Outcome;
 type ToolInvoker<'a> = dyn Fn(&str, &Value) -> Result<String, String> + Sync + 'a;
 type BatchScheduler<'a> = dyn Fn(&[(String, Value)]) -> Vec<Range<usize>> + Sync + 'a;
 
-/// Run with the existing host authority and footprint scheduler. No V8 types
-/// cross this boundary, and no tool gains capabilities through the extraction.
 pub fn run(
     script: &str,
     tool_names: &[String],
@@ -36,8 +34,6 @@ pub fn run(
     )
 }
 
-/// Concurrency cap for `batch()`: `ANGEL_CODE_MODE_BATCH_CONCURRENCY`, else the
-/// machine's parallelism clamped to 16.
 fn batch_cap() -> usize {
     if let Ok(v) = std::env::var("ANGEL_CODE_MODE_BATCH_CONCURRENCY")
         && let Ok(n) = v.trim().parse::<usize>()
@@ -50,8 +46,6 @@ fn batch_cap() -> usize {
         .unwrap_or(8)
 }
 
-/// A separate construction bound prevents a script from materialising a huge
-/// batch specification before the per-call dispatch budget can reject it.
 fn batch_item_cap() -> usize {
     if crate::platform::yolo::enabled() {
         return usize::MAX;
@@ -63,8 +57,6 @@ fn batch_item_cap() -> usize {
         .unwrap_or(48)
 }
 
-/// Run `specs` through `invoke` concurrently, `cap` at a time, preserving order.
-/// Pure (no V8) so it's unit-testable. A worker panic becomes that item's error.
 pub fn run_batch(
     invoke: &(dyn Fn(&str, &Value) -> Result<String, String> + Sync),
     specs: &[(String, Value)],
@@ -104,9 +96,6 @@ pub fn run_batch(
     out
 }
 
-/// Run consecutive scheduler segments in declaration order, concurrently
-/// within multi-item segments. A malformed scheduler response fails closed to
-/// one serial segment per call rather than risking reordered effects.
 pub fn run_scheduled_batch(
     invoke: &(dyn Fn(&str, &Value) -> Result<String, String> + Sync),
     specs: &[(String, Value)],

@@ -1,5 +1,3 @@
-"""Replay labels and source files are validated before any provider work."""
-
 import contextlib
 import importlib.util
 import io

@@ -7,9 +7,6 @@ fn at_the_gate() -> Run {
     run
 }
 
-/// Knight one (and any friend) stands on `e`'s stair long enough to take it.
-/// A step first where they stand: arriving on stairs, one steps off before
-/// they work.
 fn take(run: &mut Run, e: &Entrance) {
     run.step(&BTreeMap::new());
     let (x, y) = entrance_centre(e);
@@ -54,8 +51,6 @@ fn the_world_rises_once_on_the_home_floor_and_never_below() {
     let mut run = Run::at_home(7, 1, None, Home::default(), Default::default());
     let rooms = run.dungeon.rooms.len();
     assert!(!raise_world(&mut run.dungeon), "at_home already raised it");
-    // Foot objectives, all ordinary door lanes and a four-friend arrival fan
-    // must be reachable in each authored surface room, not just on the map.
     use super::super::{countryside, pastimes};
     for &(kind, _) in &ROOMS {
         let room = &run.dungeon.rooms[room_of(&run.dungeon, kind).unwrap()];
@@ -219,12 +214,10 @@ fn the_world_rises_once_on_the_home_floor_and_never_below() {
         assert_eq!(run.dungeon.rooms[i].cell, cell);
         assert!(run.dungeon.rooms[i].valid_snapshot());
     }
-    // Cells are unique across the whole floor.
     let mut cells: Vec<_> = run.dungeon.rooms.iter().map(|r| r.cell).collect();
     cells.sort_unstable();
     cells.dedup();
     assert_eq!(cells.len(), rooms);
-    // A loop settlement digs within six cells of the cellar: never this far.
     let cellar = run.dungeon.rooms[0].cell;
     for (_, (x, y)) in ROOMS {
         assert!((x - cellar.0).abs() > 6 || (y - cellar.1).abs() > 6);
@@ -246,10 +239,6 @@ fn every_entrance_stands_on_stairs_reachable_from_its_rooms_doors() {
                 assert_eq!(room.tile(col, row), Tile::Stairs, "{} at {col},{row}", e.id);
             }
         }
-        // Flood the walkable tiles from the room's first open door (or the
-        // arrival in the gate) and find the entrance in it.
-        // A room with no doorways (the King's Hall) is entered by an
-        // entrance: flood from where it arrives instead.
         let arrival = ENTRANCES.iter().find_map(|o| match o.to {
             Dest::Room(kind, (x, y)) if kind == e.room => Some((x as i32, y as i32)),
             _ => None,
@@ -280,7 +269,6 @@ fn every_entrance_stands_on_stairs_reachable_from_its_rooms_doors() {
         if let Dest::Room(kind, (x, y)) = e.to {
             let dest = &run.dungeon.rooms[room_of(&run.dungeon, kind).unwrap()];
             for n in 0..4 {
-                // Match arrive()'s true four-knight fan, 2.4 arena units apart.
                 let (hx, hy) = ((x - 1.8 + n as f32 * 1.2) * TILE_UNITS, y * TILE_UNITS);
                 assert!(walkable(dest, hx, hy), "{} arrival {n}", e.id);
                 assert!(
@@ -307,7 +295,6 @@ fn the_gates_stair_goes_down_to_the_undercroft_and_its_stair_comes_back_up() {
     for hero in run.players.values() {
         assert!(walkable(run.room(), hero.x, hero.y));
     }
-    // Arriving beside the stair up does not bounce the party back up.
     for _ in 0..DESCEND_HOLD * 2 {
         run.step(&BTreeMap::new());
     }
@@ -321,7 +308,6 @@ fn a_moment_on_the_stair_is_needed_and_a_step_off_cancels_it() {
     let mut run = at_the_gate();
     run.step(&BTreeMap::new());
     let (x, y) = entrance_centre(entrance("gate"));
-    // The whole party stands on the plate: the moment on it begins then.
     for hero in run.players.values_mut() {
         (hero.x, hero.y) = (x, y);
     }
@@ -407,7 +393,6 @@ fn a_mirror_of_the_world_follows_the_host_through_the_gate() {
     let mut friend = host.wire_copy();
     assert_eq!(friend.room().kind, RoomKind::Home);
 
-    // Both forest games use the same host state and live projection as travel.
     use super::super::forest;
     let clearing = room_of(&host.dungeon, RoomKind::Forest).unwrap();
     host.arrive(clearing, forest::LANTERN);
@@ -445,7 +430,6 @@ fn a_mirror_of_the_world_follows_the_host_through_the_gate() {
     while host.forest.show_left > 0 {
         host.tick_forest();
     }
-    // Wrong notes end a round without a reward, but allow a retry.
     let wrong = (host.forest.melody(0) + 1) % forest::RUNES.len();
     place(&mut host, 1, forest::RUNES[wrong]);
     host.tick_forest();
@@ -489,7 +473,6 @@ fn a_mirror_of_the_world_follows_the_host_through_the_gate() {
     assert_eq!(saved.forest.hunt_left, 0);
     assert_eq!(saved.forest.songs, 1, "leaving keeps the bests");
 
-    // The new arcade rides the same host/mirror/save contract as the clearing.
     use super::super::{countryside, pastimes};
     use pastimes::Game;
     let place = |run: &mut Run, id, (x, y): (f32, f32)| {
@@ -505,7 +488,6 @@ fn a_mirror_of_the_world_follows_the_host_through_the_gate() {
             },
         )])
     };
-    // Plots, lamps and the folk answer the interact key, not the fire key.
     let meet = |id| {
         BTreeMap::from([(
             id,
@@ -529,12 +511,11 @@ fn a_mirror_of_the_world_follows_the_host_through_the_gate() {
         .enumerate()
         .filter(|(i, _)| mask & (1 << i) != 0)
     {
-        // Each paper knight walks their own round; the starter's is this one.
         let id = 1;
         place(&mut host, id, pad);
         host.tick_pastimes(&BTreeMap::new());
         host.tick_pastimes(&fire(id));
-        host.tick_pastimes(&fire(id)); // held F does not deliver a second sheet
+        host.tick_pastimes(&fire(id));
     }
     assert!(host.pastimes.round.is_none());
     assert_eq!(host.home.countryside.games.wins[0], 1);
@@ -551,7 +532,6 @@ fn a_mirror_of_the_world_follows_the_host_through_the_gate() {
         host.home.countryside.games
     );
 
-    // Both walk/roll courses require the ordered target, not an out-of-order flag.
     for game in [Game::Barrel, Game::Washtub] {
         checkpoint.arrive(
             room_of(&checkpoint.dungeon, game.room()).unwrap(),
@@ -580,7 +560,6 @@ fn a_mirror_of_the_world_follows_the_host_through_the_gate() {
         assert_eq!(checkpoint.home.countryside.games.wins[game.index()], 1);
         assert!(checkpoint.home.countryside.games.best[game.index()] > 0);
     }
-    // Turnip presses are edge-triggered, quantized to a beat, and shared.
     checkpoint.arrive(
         room_of(&checkpoint.dungeon, RoomKind::Fairground).unwrap(),
         Game::Turnip.start(),
@@ -598,7 +577,6 @@ fn a_mirror_of_the_world_follows_the_host_through_the_gate() {
         "holding F cannot juggle"
     );
     for n in 1..8 {
-        // Walk time forward to a distinct landing window, release then tap.
         let elapsed = Game::Turnip.time() - checkpoint.pastimes.round.as_ref().unwrap().left;
         let next = (elapsed / HZ + 1) * HZ;
         for _ in elapsed..next {
@@ -626,7 +604,7 @@ fn a_mirror_of_the_world_follows_the_host_through_the_gate() {
     round.left = 1;
     let i = round.recipients.trailing_zeros() as usize;
     round.tried = round.recipients & !(1 << i);
-    round.progress = 2; // This delivery would actually win without the expiry guard.
+    round.progress = 2;
     place(&mut restored, 1, pastimes::MAILBOXES[i]);
     let score = restored.score;
     restored.tick_pastimes(&fire(1));
@@ -666,7 +644,6 @@ fn a_mirror_of_the_world_follows_the_host_through_the_gate() {
     windcountry_adventure_regression(checkpoint.clone());
     original_turnip_cue_regression();
     broadsheet_walking_regression();
-    // The realm, not a practice round, owns the paid works and one-time ramble.
     let mut country = countryside::Country::default();
     let mut treasury = crate::realm::Spoils::default();
     let marks = BTreeMap::from_iter(
@@ -690,7 +667,6 @@ fn a_mirror_of_the_world_follows_the_host_through_the_gate() {
     let paid = treasury.clone();
     assert!(!countryside::settle(&mut country, &mut treasury, &request).0);
     assert_eq!(treasury, paid);
-    // An idle knight must not monopolize a plot while a friend holds E.
     let plot = &countryside::PLOTS[0];
     checkpoint.arrive(room_of(&checkpoint.dungeon, plot.room).unwrap(), plot.at);
     place(&mut checkpoint, 1, plot.at);
@@ -721,7 +697,6 @@ fn a_mirror_of_the_world_follows_the_host_through_the_gate() {
     );
     assert_eq!(checkpoint.build_hold, Some((0, 2, 1)));
 
-    // Extra places must not replace missing core visits or revoke old rewards.
     let legacy: Home = serde_json::from_value(serde_json::json!({"countryside": {
         "visited": 63, "relics": 7, "built": 7,
         "ramble_paid": true, "relics_paid": true
@@ -747,8 +722,6 @@ fn a_mirror_of_the_world_follows_the_host_through_the_gate() {
     take(&mut checkpoint, entrance("meadow-coach"));
     assert_eq!(checkpoint.room().kind, RoomKind::Gate);
 
-    // Trace the production beacon/bell -> lantern marks -> save settlement ->
-    // ferry purchase path, including co-op and replayed transaction marks.
     use countryside::LAMPS;
     checkpoint.treasury.add(Spoil::Gold, 1000);
     checkpoint.treasury.add(Spoil::Bone, 20);
@@ -929,8 +902,6 @@ fn an_older_checkpoint_gets_its_world_when_home_is_rebuilt() {
     );
     assert_eq!(run.dungeon.rooms[gate].tile(c, r), Tile::Stairs);
     assert!(!raise_world(&mut run.dungeon), "migration is idempotent");
-    // Publishing an old topology before migration must not retain the same
-    // whole-mirror key. A stale live frame is rejected until a whole arrives.
     run.dungeon
         .rooms
         .retain(|r| !matches!(r.kind, RoomKind::Causeway | RoomKind::Priory));
@@ -990,8 +961,6 @@ fn merchant_camps_are_seeded_bounded_safe_and_do_not_rewrite_the_estate() {
     assert_eq!(locations.len(), 2, "seeded surface variation");
     assert!(catalogs.len() > 3, "seeded prices and offers");
     assert!(camp(7, 1, &base).is_none(), "no camp in an unraised estate");
-    // Every authored surface trail is reciprocal, and legacy occupied cells
-    // remain untouched rather than being silently excavated for a new road.
     let mut raised = base.clone();
     raise_world(&mut raised);
     for &(a, b) in TRAILS {
@@ -1062,8 +1031,6 @@ fn merchant_seed_stream_leaves_combat_rng_alone_and_never_uses_combat_rooms() {
     }
 }
 
-// Exercised by the pre-existing host/mirror/world regression, not a new
-// standalone verifier with invented score assignments.
 fn western_circuit_regression(mut run: Run) {
     use super::super::{countryside, pastimes};
     use crate::realm::Spoil;
@@ -1223,7 +1190,6 @@ fn western_circuit_regression(mut run: Run) {
     run.tick_pastimes(&throw);
     assert!(run.pastimes.round.is_none(), "timeout precedes launching");
 
-    // Survey uses real co-op E inputs; marks settle only in the host's save.
     let fire = BTreeMap::from([(
         2,
         Input {
@@ -1342,9 +1308,6 @@ include!("together_world__broadsheet.rs");
 include!("together_world__surf_cue.rs");
 include!("together_world__washtub.rs");
 
-// Exercises the original festival through the same live-input entry as travel.
-// In particular, a tap must be judged against the cue in the published round,
-// not the phase that will be drawn after that tap's tick has completed.
 fn original_turnip_cue_regression() {
     use super::super::pastimes::Game;
     let empty = BTreeMap::new();
@@ -1367,7 +1330,6 @@ fn original_turnip_cue_regression() {
             room_of(&run.dungeon, RoomKind::Fairground).unwrap(),
             Game::Turnip.start(),
         );
-        // A friend can keep playing while the host is a warded statue.
         run.players.get_mut(&1).unwrap().stone = true;
         let (x, y) = Game::Turnip.start();
         let friend = run.players.get_mut(&2).unwrap();
@@ -1380,8 +1342,6 @@ fn original_turnip_cue_regression() {
         run
     };
 
-    // All displayed phases, including the last gold frame and the red frame
-    // immediately before the next beat. No injected round clock is used.
     for phase in 0..HZ {
         let mut run = fresh();
         for _ in 0..phase {
@@ -1407,7 +1367,6 @@ fn original_turnip_cue_regression() {
         let counts = (round.progress, round.mistakes);
         let mirror = restored.wire_copy();
         assert_eq!(mirror.pastimes, restored.pastimes);
-        // Holding F through another beat must not turn into another tap.
         for _ in 0..HZ + 1 {
             restored.step(&fire(&[2]));
         }
@@ -1437,7 +1396,6 @@ fn original_turnip_cue_regression() {
         if beat + 1 < u32::from(Game::Turnip.need()) {
             let round = run.pastimes.round.as_ref().unwrap();
             assert_eq!((round.progress, round.mistakes), ((beat + 1) as u8, 0));
-            // Simultaneous friends and continued F each yield only one kick.
             for _ in 0..3 {
                 run.step(&together);
             }
@@ -1469,8 +1427,6 @@ fn original_turnip_cue_regression() {
     assert_eq!(run.score, paid_score);
     assert_eq!(run.treasury, treasury, "practice wins never mint gold");
 
-    // Walk off and back to retry with ordinary controls, rather than clearing
-    // the pad latch or teleporting a round into existence.
     let moving = |direction| {
         BTreeMap::from_iter([2, 3].map(|id| {
             (
@@ -1549,7 +1505,6 @@ fn holding_e_on_a_plot_already_built_files_no_order() {
 #[test]
 fn one_bad_countryside_field_is_mended_and_the_rest_kept() {
     use super::super::countryside::{self, Country};
-    // A stage past its end, and a field of the wrong kind: each goes alone.
     let home: Home = serde_json::from_value(serde_json::json!({"countryside": {
         "visited": 63, "relics": 7, "built": 7, "ramble_paid": true, "relics_paid": true,
         "signal": 9, "lamps": "lots", "survey": 5
@@ -1562,7 +1517,6 @@ fn one_bad_countryside_field_is_mended_and_the_rest_kept() {
     assert_eq!(country.survey, 5, "a good field stays as it was");
     assert_eq!(country.signal, 0, "the bad stage starts again");
     assert_eq!(country.lamps, 0, "the unreadable field is left at its default");
-    // Built and paid progress vouches for the job behind it.
     let built: Country = countryside::load(serde_json::json!({
         "built": 1 << 4, "survey": 3, "harbour_paid": true, "harbour": 1, "minutes": 5
     }));
@@ -1571,7 +1525,6 @@ fn one_bad_countryside_field_is_mended_and_the_rest_kept() {
     assert_eq!(built.survey, 7);
     assert_eq!(built.harbour, 3);
     assert_eq!((built.post, built.minutes), (1, 5));
-    // Whatever the numbers, a load always comes back playable.
     let mut seed = 0x2545_f491_4f6c_dd1du64;
     let mut roll = |n: u64| {
         seed ^= seed << 13;
@@ -1597,7 +1550,6 @@ fn one_bad_countryside_field_is_mended_and_the_rest_kept() {
         }
         let save = serde_json::Value::Object(save);
         assert!(countryside::load(save.clone()).valid(), "{save}");
-        // Mending alone makes it whole: never the fresh start.
         if let Ok(mut country) = serde_json::from_value::<Country>(save.clone()) {
             country.repair();
             assert!(country.valid(), "{save}");
@@ -1605,8 +1557,6 @@ fn one_bad_countryside_field_is_mended_and_the_rest_kept() {
     }
 }
 
-/// Humphrey the Risen is retired: however far the festival goes, no zombie
-/// claws up above ground, and one left standing in an older save is cleared.
 #[test]
 fn no_zombies_rise_above_ground() {
     let mut run = at_the_gate();

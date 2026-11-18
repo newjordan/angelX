@@ -7,7 +7,6 @@ use super::*;
 use crate::rules::ults::{PHANTOM_SHARE, Phantom};
 use crate::rules::spells::IMPOSTURE_MAX;
 
-/// A knight of `kit` at (12, 14) aiming east, one tough foe at `(x, y)`.
 fn arena(kit: &str, x: f32, y: f32) -> Run {
     let mut r = Run::new(21, 1, None);
     let fight = r.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
@@ -77,7 +76,6 @@ fn the_phantom_lancer_is_a_champion_with_its_own_calling() {
     let arm = r.book.get("phantom-lance").expect("the arm is in the book");
     let lancer = r.book.get("war-lance").unwrap();
     assert_eq!(arm.kind, cards::Kind::Arm);
-    // The same long straight thrust as the Lancer's.
     let (a, b) = (arm.arm.clone().unwrap(), lancer.arm.clone().unwrap());
     let cards::Arm::Forged(a) = a else { panic!("a forged arm") };
     let cards::Arm::Forged(b) = b else { panic!("a forged arm") };
@@ -119,7 +117,6 @@ fn the_patron_is_pickable_and_arms_the_knight() {
     assert_eq!(h.spells[..3], [Some("spirit-lance".to_string()), Some("doppelganger".to_string()), Some("juxtapose".to_string())]);
     assert_eq!(h.ult(), ults::Ult::PhantomLegion);
     assert_eq!(h.max_hp, 120 + h.home_hp);
-    // Nobody else's seat is shared with it.
     for (_, q) in alehouse::PATRONS.iter().enumerate().filter(|(j, _)| *j != i && alehouse::patron_room(*j) == RoomKind::Alehouse) {
         assert!((p.at.0 - q.at.0).hypot(p.at.1 - q.at.1) > 1.2, "{} sits apart from {}", p.label, q.label);
     }
@@ -127,8 +124,6 @@ fn the_patron_is_pickable_and_arms_the_knight() {
 
 #[test]
 fn an_image_thrusts_when_its_knight_does_for_a_share_once_each() {
-    // A foe in front of the knight, and one far to the side beside an image
-    // the knight's blade cannot reach.
     let mut r = arena("phantomlancer", 14.0, 14.0);
     let near = 0;
     let far = foe(&mut r, 15.0, 6.0);
@@ -137,11 +132,9 @@ fn an_image_thrusts_when_its_knight_does_for_a_share_once_each() {
     let full = lost(&r, near);
     assert!(full > 0, "the knight's own thrust lands");
     assert_eq!(lost(&r, far), (full * PHANTOM_SHARE / 100).max(1), "the image strikes for its share");
-    // Held on, the next thrust is a whole beat away: the image waits for it.
     let once = lost(&r, far);
     idle(&mut r, 3);
     assert_eq!(lost(&r, far), once, "once per thrust");
-    // Two images, two strokes.
     let mut r = arena("phantomlancer", 14.0, 14.0);
     let far = foe(&mut r, 15.0, 6.0);
     r.phantoms.push(Phantom::standing(1, (12.0, 6.0), 600));
@@ -157,13 +150,11 @@ fn an_image_strikes_nothing_for_an_owner_with_no_images_or_no_melee_arm() {
     step(&mut r, Input { fire: true, ..Default::default() });
     assert!(lost(&r, 0) > 0);
     assert_eq!(lost(&r, far), 0, "no images, no second stroke");
-    // An archer with an image beside the foe: arrows are copied, nothing is struck.
     let mut r = arena("percival", 40.0, 14.0);
     let far = foe(&mut r, 38.0, 6.0);
     r.phantoms.push(Phantom::standing(1, (12.0, 6.0), 600));
     step(&mut r, Input { fire: true, ..Default::default() });
     assert_eq!(lost(&r, far), 0, "a bow does not thrust (its arrows are still in the air)");
-    // Another knight's images do not strike for this one.
     let mut r = arena("phantomlancer", 14.0, 14.0);
     let far = foe(&mut r, 15.0, 6.0);
     r.phantoms.push(Phantom::standing(2, (12.0, 6.0), 600));
@@ -175,7 +166,6 @@ fn an_image_strikes_nothing_for_an_owner_with_no_images_or_no_melee_arm() {
 fn an_image_credits_the_knight_with_the_damage_it_did() {
     let mut r = arena("phantomlancer", 40.0, 14.0);
     let far = foe(&mut r, 15.0, 6.0);
-    // The knight's thrust must find something: a second foe in front.
     foe(&mut r, 14.0, 14.0);
     r.phantoms.push(Phantom::standing(1, (12.0, 6.0), 600));
     let before = r.players[&1].ult_charge;
@@ -195,7 +185,6 @@ fn images_keep_the_room_cap_and_the_oldest_of_the_owner_gives_way() {
     }
     assert_eq!(phantoms.len(), IMPOSTURE_MAX);
     assert!(phantoms.iter().all(|p| p.left >= 106), "the shortest-lived went first: {phantoms:?}");
-    // Another knight's are never taken.
     let mut room: Vec<Phantom> = (0..IMPOSTURE_MAX).map(|k| Phantom::standing(2, (k as f32, 0.0), 50)).collect();
     assert!(!ults::add_image(&mut room, Phantom::standing(1, (0.0, 0.0), 500)));
     assert_eq!(room.len(), IMPOSTURE_MAX);
@@ -305,7 +294,6 @@ fn doppelganger_never_ends_in_a_wall_whichever_way_it_is_aimed() {
             cast(&mut r, 2);
             tried += 1;
             if r.at != room {
-                // Blinked into a doorway and out of the room: the images stay behind with it.
                 continue;
             }
             let h = &r.players[&1];
@@ -413,7 +401,6 @@ fn phantom_legion_rings_the_knight_with_four_images_for_eight_seconds() {
         assert!(walkable(&r, (p.x, p.y)));
         assert!(p.left <= champions::LEGION_TICKS);
     }
-    // They keep the ring as she walks.
     for _ in 0..10 {
         step(&mut r, Input { move_x: 1, ..Default::default() });
     }
@@ -421,7 +408,6 @@ fn phantom_legion_rings_the_knight_with_four_images_for_eight_seconds() {
     for p in mine(&r) {
         assert!((p.x - h.x - p.dx).abs() < 0.01 && (p.y - h.y - p.dy).abs() < 0.01);
     }
-    // Eight seconds from the cast, no more.
     idle(&mut r, champions::LEGION_TICKS - 12);
     assert_eq!(mine(&r).len(), 4, "still there a tick before");
     idle(&mut r, 1);
@@ -438,7 +424,6 @@ fn phantom_legion_keeps_the_cap_and_a_recast_replaces_the_ring() {
     ult(&mut r);
     assert_eq!(mine(&r).len(), 4, "a recast replaces the ring, never adds to it");
     assert!(r.phantoms.len() <= IMPOSTURE_MAX);
-    // Another knight's image fills a place: the ring is the room's to humour.
     let mut r = arena("phantomlancer", 40.0, 14.0);
     r.enemies.clear();
     r.phantoms.push(Phantom::standing(2, (30.0, 8.0), 600));
@@ -496,7 +481,6 @@ fn a_run_holding_images_the_stance_and_the_new_ultimate_round_trips() {
     assert_eq!(back.players[&1].champ, r.players[&1].champ);
     assert!(back.players[&1].champ.juxta > 0);
     assert_eq!(back.players[&1].ult, Some(ults::Ult::PhantomLegion));
-    // And plays on the same.
     let (mut a, mut b) = (r, back);
     for _ in 0..30 {
         step(&mut a, Input { fire: true, ..Default::default() });
@@ -508,19 +492,15 @@ fn a_run_holding_images_the_stance_and_the_new_ultimate_round_trips() {
 
 #[test]
 fn an_old_save_with_none_of_the_new_fields_still_loads() {
-    // A phantom as Phantasm saved it, with no `fixed` and no `life`.
     let old = serde_json::json!({ "owner": 1, "x": 3.0, "y": 4.0, "dx": 2.6, "dy": 0.0, "left": 77 });
     let p: Phantom = serde_json::from_value(old).expect("an old image loads");
     assert_eq!((p.fixed, p.life, p.left), (false, 0, 77));
     assert_eq!(p.age(), ults::PHANTOM_TICKS - 77, "an old image ages by the old eight seconds");
-    // And an image of the old kind writes itself the old way.
     let written = serde_json::to_value(p).unwrap();
     assert!(written.get("fixed").is_none() && written.get("life").is_none(), "{written}");
-    // A stance as it was, with no `juxta`.
     let stance: champions::Stance = serde_json::from_value(serde_json::json!({ "brace": 4, "fury": 2 })).expect("an old stance loads");
     assert_eq!((stance.brace, stance.fury, stance.juxta), (4, 2, 0));
     assert!(serde_json::to_value(champions::Stance { brace: 1, ..Default::default() }).unwrap().get("juxta").is_none());
-    // A whole run, written by this build and stripped of the new keys.
     let mut r = arena("lancer", 40.0, 14.0);
     r.phantoms.push(Phantom::beside(1, (12.0, 14.0), (0.0, 2.6), 100));
     let mut value = serde_json::to_value(&r).unwrap();

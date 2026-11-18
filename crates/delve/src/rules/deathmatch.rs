@@ -27,8 +27,6 @@ pub const PACE: f32 = 9.0;
 pub const TURN: f32 = 2.6;
 const NUMBERS: [Number; 5] = [Number::stub("deathmatch_unused", "First to ten", "deathmatch::GOAL"); 5];
 
-/// Original loop corridors around a broad hub. The same cells build the
-/// collision grid and the cached wall mesh; a wall cannot be shot through.
 pub const MAP: [&str; 18] = [
     "########################",
     "#..........##..........#",
@@ -143,7 +141,6 @@ impl Fighter {
     pub fn alive(&self) -> bool {
         self.connected && self.hero.hp > 0 && self.respawn == 0
     }
-    /// Shared by the host and the browser's pending-command replay.
     pub fn walk_arena(&mut self, input: Input, fields: &[Field]) {
         let before = (self.hero.x, self.hero.y);
         self.walk(input);
@@ -159,8 +156,6 @@ impl Fighter {
         let (s, c) = self.yaw.sin_cos();
         let (forward, strafe) = (-input.move_y as f32, input.move_x as f32);
         let (mx, my) = unit(c * forward - s * strafe, s * forward + c * strafe);
-        // The guard reads local movement, then its roll is turned into the
-        // camera's world axes. own_step keeps the guard's ordinary pace.
         let ((_, _), _) = self.hero.own_keys(&Input { aim_x: 0, aim_y: 0, ..input }, false, true);
         (self.hero.aim_x, self.hero.aim_y) = (c, s);
         if self.hero.dash_ticks == ROLL_TICKS {
@@ -195,7 +190,6 @@ pub struct Session {
     pub purse: u32,
     #[serde(default)]
     pub fields: Vec<Field>,
-    /// What the picture makes a fuss of: blows, calls, streaks (`juice`). No rule reads it.
     #[serde(default, skip_serializing_if = "juice::Juice::quiet")]
     pub show: juice::Juice,
 }
@@ -248,8 +242,6 @@ impl Session {
         ids.sort_by_key(|id| (std::cmp::Reverse(self.fighters[id].kills), self.fighters[id].deaths, *id));
         ids
     }
-    /// The knight stands again at the spawn farthest from the living, with their
-    /// kit restored; what else the respawn clears the leg says.
     fn spawn(&mut self, id: u32) -> Result<(), String> {
         let others = |p: &(f32, f32)| {
             let near = self.fighters.iter().filter(|(other, f)| **other != id && f.alive());
@@ -269,8 +261,6 @@ impl Session {
         f.hero.hero_kit = Default::default();
         Ok(())
     }
-    /// One tick of the round. A tick the leg cannot answer leaves the round as it
-    /// stood; nothing is guessed natively.
     pub fn step(&mut self, inputs: &BTreeMap<u32, Input>, book: &Book, seed: u64) {
         let _ = self.play(inputs, book, seed);
     }
@@ -287,8 +277,6 @@ impl Session {
             return Ok(());
         }
         let ids: Vec<_> = self.fighters.keys().copied().collect();
-        // One question asks every knight's turn as the tick found them; a knight a rival
-        // has struck since (the only change a turn can see) is asked again, alone.
         let asked: Vec<Value> = ids.iter().map(|&id| self.turn_facts(id)).collect();
         let batch = leg::ask("turns", json!({ "turns": asked }))?;
         for (i, &id) in ids.iter().enumerate() {
@@ -312,7 +300,6 @@ impl Session {
             if blow > 0 {
                 self.hit(owner, id, blow, (0., 0.));
             }
-            // The slam roots a walking knight on the old count; it runs down now.
             let h = &mut self.fighters.get_mut(&id).unwrap().hero;
             put!(t["champ"] => h.champ; windup, rot);
             let (at, slam, rot) = (
@@ -329,7 +316,6 @@ impl Session {
             if t["orbit"] == true {
                 self.orbits(id);
             }
-            // The turn already said whether the knight may attack; that stands unless a blow or a win has landed since.
             let unchanged =
                 self.winner.is_some() == (facts["winner"] == true) && (self.fighters[&id].hero.hp > 0) == (facts["living"] == true);
             self.attack(id, input, book, seed, leg::num(&t["power_num"]), unchanged.then(|| t["armed"] == true))?;
@@ -344,7 +330,6 @@ impl Session {
         }
         let fields = if live { json!(self.fields) } else { json!([]) };
         let sweep = leg::ask("close", json!({ "sweep": { "ticks": self.ticks, "fields": fields, "feed": self.feed } }))?;
-        // The frags the pulses below score are fresh, so forgetting the old ones first is the same.
         put!(sweep => self; feed);
         if live {
             let pulses: Vec<Field> = serde_json::from_value(sweep["pulses"].clone()).map_err(|e| e.to_string())?;
@@ -356,7 +341,6 @@ impl Session {
         }
         Ok(())
     }
-    /// What a knight's turn is asked: the tick's clock and the counters that run down.
     fn turn_facts(&self, id: u32) -> Value {
         let f = &self.fighters[&id];
         json!({ "ticks": self.ticks, "orbit_every": ORBIT_EVERY, "rot_every": champions::ROT_EVERY, "winner": self.winner.is_some(), "living": f.hero.hp > 0,
@@ -364,7 +348,6 @@ impl Session {
             "hero": pick!(f.hero; leeched, passive, chilled, invulnerable, fire_cooldown, sword_cooldown, play_cooldown, bomb_cooldown, spell_cooldowns),
             "champ": pick!(f.hero.champ; fury, windup, rot) })
     }
-    /// The knight takes what pickups they stand on; the leg says what each gives.
     fn gather(&mut self, id: u32) -> Result<(), String> {
         let f = &self.fighters[&id];
         let near = |&(x, y, _): &(f32, f32, Pickup)| !((x - f.hero.x).hypot(y - f.hero.y) > 1.2);
@@ -382,9 +365,6 @@ impl Session {
         put!(taken => f; power);
         Ok(())
     }
-    /// A blow from `owner` on `target` along `way`: true when it hurt. Whether it
-    /// lands and what it scores is the leg's; the shield, the mail and the wound
-    /// are the kit's.
     pub fn hit(&mut self, owner: u32, target: u32, damage: u32, way: (f32, f32)) -> bool {
         self.strike(owner, target, damage, way).unwrap_or(false)
     }
@@ -474,15 +454,12 @@ impl Run {
     pub fn deathmatch_showing(&self) -> bool {
         self.deathmatch.is_some()
     }
-    /// Clean entry for the town door and a future mini-game ballot.
     pub fn start_deathmatch(&mut self) {
         if !self.on_stage() || self.deathmatch.is_some() {
             return;
         }
         self.forest.leave();
         let mut s = Session::new(&self.players, &self.book);
-        // The same tenth-of-carried-gold stake as a race hall. It changes
-        // hands only at a win; abandoning a round loses nobody's purse.
         s.ante = self
             .players
             .iter()
@@ -498,14 +475,12 @@ impl Run {
         };
         let before = s.ticks;
         let home = self.deathmatch_round(&mut s, inputs).unwrap_or(false);
-        // The heaviest blow of the tick holds the room's time, as the realm's hit-stop does.
         let heaviest = if s.ticks > before { s.show.blows.iter().filter(|b| b.born == s.ticks).map(|b| b.weight).max() } else { None };
         self.deathmatch = Some(s);
         if let Some(weight) = heaviest {
             self.hold_for(weight);
         }
         self.finish_hit_hold();
-        // A random room's game ends in the room, not at the kingdom's door.
         if home && !self.encounter_hosts() {
             for id in self.players.keys().copied().collect::<Vec<_>>() {
                 self.leave_activity(id);
@@ -513,10 +488,6 @@ impl Run {
             self.deathmatch = None;
         }
     }
-    /// One tick of the round and what the room owes it: seats arriving late get
-    /// their real kit, nobody outside, absent or away can be farmed, the shots are
-    /// heard, and a win pays the pot. True when the podium has run and the knights
-    /// go home.
     fn deathmatch_round(&mut self, s: &mut Session, inputs: &BTreeMap<u32, Input>) -> Result<bool, String> {
         let crossroads = self.host_pays();
         let gold = |id: &u32| self.players.get(id).map_or(0, |h| h.carried.get(Spoil::Gold));
@@ -566,7 +537,6 @@ impl Run {
                 Some("Card") => self.sounds.push("play_card"),
                 Some("Won") => self.cues.push("pastime_won".into()),
                 _ => {
-                    // A shot's cue names its shooter; the sound is that fighter's.
                     let shooter = leg::num(&cue["id"]);
                     self.sounds.extend(s.fighters.get(&shooter).map(Fighter::shot_sound));
                 }

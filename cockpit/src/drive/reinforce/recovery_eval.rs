@@ -9,8 +9,6 @@ pub(crate) struct RecoveryEvalRequest<'a> {
     pub scratch: &'a Path,
     pub task: &'a str,
     pub answer: &'a str,
-    /// `None` = the controller declined a time cap; the verifier is then
-    /// bounded by cancellation alone.
     pub timeout: Option<Duration>,
     pub cancel: &'a AtomicBool,
 }
@@ -35,9 +33,6 @@ pub(crate) fn run(request: RecoveryEvalRequest<'_>) -> Result<RecoveryEvalExecut
     let shell = std::fs::canonicalize("/bin/sh").map_err(|e| e.to_string())?;
     let shell_sha256 =
         crate::knowledge::cut::sha256_hex(&std::fs::read(&shell).map_err(|e| e.to_string())?);
-    // Preserve the ordinary operator command's inherited environment, while
-    // confining all writes and network access. Only the environment hash is
-    // retained; no credential values are exported into evidence or a row.
     let mut environment = std::env::vars_os().collect::<Vec<_>>();
     for (key, value) in [
         ("TMPDIR", request.scratch.to_path_buf()),
@@ -98,8 +93,6 @@ pub(crate) fn run(request: RecoveryEvalRequest<'_>) -> Result<RecoveryEvalExecut
         return Err("recovery evaluator cancelled before dispatch".into());
     }
     let started = Instant::now();
-    // The controller's independent deadline watcher also sets this cancel flag;
-    // even a parent YOLO timeout override cannot lift cancellation ownership.
     let capture = crate::agent::harness::output_timed_captured_cancellable(
         process,
         request.timeout,

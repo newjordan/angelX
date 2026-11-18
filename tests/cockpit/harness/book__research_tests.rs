@@ -55,7 +55,6 @@ fn a_campaign_raises_live_then_its_verdict() {
     assert!(no_spread(&json!({"advantage_variance": 0.0})));
     assert!(!no_spread(&json!({"advantage_variance": 0.16})));
     assert!(!no_spread(&json!({"advantage_variance": null})));
-    // As a campaign's status and history rows carry it: serde's `Result`.
     assert!(no_spread(&json!({"Ok": {"advantage_variance": 0.0}})));
     assert!(!no_spread(&json!({"Ok": {"advantage_variance": 0.16}})));
     assert!(!no_spread(&json!({"Err": "campaign cancelled"})));
@@ -77,12 +76,10 @@ fn every_research_route_is_introduced_as_an_action() {
             "{}",
             sub.name
         );
-        // A verdict the model must act on carries its action.
         if sub.pages.is_empty() {
             assert!(!sub.action.is_empty(), "{} has no action", sub.name);
         }
     }
-    // A stamp in a tool's JSON `warpath` field is introduced in English.
     let record = crate::agent::club::ChatMsg::tool(
         "r",
         r#"{"status":"completed","warpath":"⡪⠃⡪⠁"}"#.to_string(),

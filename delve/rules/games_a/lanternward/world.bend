@@ -1,12 +1,3 @@
-# crates/delve/src/rules/lanternward/world.rs — Lanternward's fixed ground:
-# whole-number math, the five rooms' tiles, what a body may stand on.
-#
-# An i32 is a U32 holding its two's complement pattern; an i64 that the Rust
-# keeps only in a product is computed on the unsigned magnitude (U32 when it
-# fits, W otherwise) with the sign applied last, so the result is the same
-# truncating division Rust's `i64 /` does. A position pair `(i32, i32)` is
-# `U32 & U32`. Q is 256, TILE 16, TILE_SHIFT 12.
-
 def lanternward.world.Q() -> U32:
   256
 
@@ -19,9 +10,6 @@ def lanternward.world.TILE_SHIFT() -> U32:
 def lanternward.world.ROOMS() -> U32:
   5
 
-# The integer square root of a u64, rounded down (Rust's `isqrt` on a
-# non-negative i64): the root's bits from the top, each kept while its square
-# stays under `n`.
 def lanternward.world.isqrt.go(+k: Nat, +n: W.W, +res: U32) -> U32:
   match k:
     case 0n:
@@ -33,7 +21,6 @@ def lanternward.world.isqrt.go(+k: Nat, +n: W.W, +res: U32) -> U32:
 def lanternward.world.isqrt(+n: W.W) -> W.W:
   W.of_u32(lanternward.world.isqrt.go(32n, n, 0))
 
-# Squares under 2^32 take the cheap root.
 def lanternward.world.isqrt.fit(small: Bool, +n: W.W) -> U32:
   match small:
     case True{}:
@@ -41,17 +28,14 @@ def lanternward.world.isqrt.fit(small: Bool, +n: W.W) -> U32:
     case False{}:
       lanternward.world.isqrt.go(32n, n, 0)
 
-# floor(sqrt(n)) of a u64 as a U32 (the root of anything below 2^64 fits).
 def lanternward.world.isqrt32(+n: W.W) -> U32:
   lanternward.world.isqrt.fit(U32.is_zero(W.hi32(n)), n)
 
-# How long `(dx, dy)` is, in its own units.
 def lanternward.world.dist(+dx: U32, +dy: U32) -> U32:
   +ax = RS.i_abs(dx)
   +ay = RS.i_abs(dy)
   lanternward.world.isqrt32(W.add(W.mul32(ax, ax), W.mul32(ay, ay)))
 
-# `a * b / c` in i64, truncated to i32.
 def lanternward.world.mul_div.fit(small: Bool, +ma: U32, +mb: U32, +mc: U32) -> U32:
   match small:
     case True{}:
@@ -65,7 +49,6 @@ def lanternward.world.mul_div(+a: U32, +b: U32, +c: U32) -> U32:
   +q = lanternward.world.mul_div.fit(Bool.and(U32.is_lt(ma, 65536), U32.is_lt(mb, 65536)), ma, mb, RS.i_abs(c))
   Bool.pick(U32, Bool.xor(Bool.xor(RS.i_is_neg(a), RS.i_is_neg(b)), RS.i_is_neg(c)), RS.i_neg(q), q)
 
-# `(dx, dy)` as a vector of length Q, scaled up first when short.
 def lanternward.world.unit.mag(+m: U32, +l: U32, +neg: Bool) -> U32:
   +q = lanternward.world.unit.mag.fit(U32.is_lt(m, 16777216), m, l)
   Bool.pick(U32, neg, RS.i_neg(q), q)
@@ -96,7 +79,6 @@ def lanternward.world.unit.big(+big: U32, +dx: U32, +dy: U32) -> U32 & U32:
 def lanternward.world.unit(+dx: U32, +dy: U32) -> U32 & U32:
   lanternward.world.unit.big(RS.u_max(RS.i_abs(dx), RS.i_abs(dy)), dx, dy)
 
-# The dot product of two Q vectors, in Q: (a.x*b.x + a.y*b.y) / Q in i64.
 def lanternward.world.dot4.fit(small: Bool, +ax: U32, +ay: U32, +bx: U32, +by: U32) -> U32:
   match small:
     case True{}:
@@ -124,7 +106,6 @@ def lanternward.world.dot4(+ax: U32, +ay: U32, +bx: U32, +by: U32) -> U32:
       Bool.and(U32.is_le(RS.i_abs(bx), 23170), U32.is_le(RS.i_abs(by), 23170))),
     ax, ay, bx, by)
 
-# dot((ax, ay), unit(dx, dy)).
 def lanternward.world.dot_unit.go(+ax: U32, +ay: U32, u: U32 & U32) -> U32:
   (ux, uy) = u
   lanternward.world.dot4(ax, ay, ux, uy)
@@ -137,7 +118,6 @@ def lanternward.world.dot(a: U32 & U32, b: U32 & U32) -> U32:
   (bx, by) = b
   lanternward.world.dot4(ax, ay, bx, by)
 
-# Sine of a whole-degree angle in Q (Bhaskara's rational).
 def lanternward.world.sin_q.go(+d: U32, +neg: Bool) -> U32:
   +p = (d * (180 - d : U32) : U32)
   +num = (1024 * p + RS.i_div((40500 - p : U32), 2) : U32)
@@ -152,12 +132,9 @@ def lanternward.world.sin_q(+deg: U32) -> U32:
 def lanternward.world.cos_q(+deg: U32) -> U32:
   lanternward.world.sin_q((deg + 90 : U32))
 
-# The Q direction of a whole-degree angle.
 def lanternward.world.dir(+deg: U32) -> U32 & U32:
   (lanternward.world.cos_q(deg), lanternward.world.sin_q(deg))
 
-# The whole degree whose direction lies closest to `u`: of those that point
-# its way, the one with the least sideways error.
 def lanternward.world.angle_of.go(+k: Nat, +d: U32, +ux: U32, +uy: U32, +bs: U32, +bd: U32) -> U32:
   match k:
     case 0n:
@@ -174,27 +151,21 @@ def lanternward.world.angle_of.u(u: U32 & U32) -> U32:
   Bool.pick(U32, Bool.and(U32.is_zero(ux), U32.is_zero(uy)), 0,
     lanternward.world.angle_of.go(360n, 0, ux, uy, 2147483647, 0))
 
-# The whole-degree angle of `(dx, dy)`, 0 for no length.
 def lanternward.world.angle_of(+dx: U32, +dy: U32) -> U32:
   lanternward.world.angle_of.u(lanternward.world.unit(dx, dy))
 
-# The turn from angle `a` to angle `b`, -180 to 180.
 def lanternward.world.turn(+a: U32, +b: U32) -> U32:
   (RS.i_rem_euclid((b - a + 180 : U32), 360) - 180 : U32)
 
-# A tile's column or row of a position in Q pixels.
 def lanternward.world.tile_of(+v: U32) -> U32:
   RS.i_shr(v, 12)
 
-# The middle of tile `t`, in Q pixels.
 def lanternward.world.middle(+t: U32) -> U32:
   (t * 4096 + 2048 : U32)
 
-# The rooms. `plan(room)` clamps to the last room; a "Plan" is its room index.
 def lanternward.world.plan(+room: U32) -> U32:
   RS.u_min(room, 4)
 
-# STAIR
 def lanternward.world.rows.stair() -> List<&2, String>:
   ["######################",
    "#..............==..\"\"#",
@@ -215,7 +186,6 @@ def lanternward.world.rows.stair() -> List<&2, String>:
    "#########QQ###########",
    "######################"]
 
-# LAMP
 def lanternward.world.rows.lamp() -> List<&2, String>:
   ["##############################",
    "#..........#.c.#......########",
@@ -234,7 +204,6 @@ def lanternward.world.rows.lamp() -> List<&2, String>:
    "#.@.@.@.@.@.@..............###",
    "##############################"]
 
-# GALLERY
 def lanternward.world.rows.gallery() -> List<&2, String>:
   ["######################################",
    "#..o.............#.................###",
@@ -253,7 +222,6 @@ def lanternward.world.rows.gallery() -> List<&2, String>:
    "#####################.c.##############",
    "######################################"]
 
-# VAULT
 def lanternward.world.rows.vault() -> List<&2, String>:
   ["################################",
    "#..........##.c..##..........###",
@@ -274,7 +242,6 @@ def lanternward.world.rows.vault() -> List<&2, String>:
    "#............................###",
    "################################"]
 
-# WARDEN
 def lanternward.world.rows.warden() -> List<&2, String>:
   ["##############################",
    "#............................#",
@@ -314,7 +281,6 @@ def lanternward.world.rows(+room: U32) -> List<&2, String>:
     case _:
       lanternward.world.rows.warden()
 
-# Whether the Gloam holds the room dark (the Key Vault).
 def lanternward.world.Plan.dark(+room: U32) -> Bool:
   U32.is_eq(lanternward.world.plan(room), 3)
 
@@ -356,7 +322,6 @@ def lanternward.world.Plan.at.in(+room: U32, +tx: U32, +ty: U32) -> U32:
   lanternward.world.char.go(
     lanternward.world.row.go(lanternward.world.rows(room), U32.to_nat(ty)), U32.to_nat(tx))
 
-# The letter at a tile; wall beyond the edge.
 def lanternward.world.Plan.at(+room: U32, +tx: U32, +ty: U32) -> U32:
   +r = lanternward.world.plan(room)
   Bool.pick(U32,
@@ -364,8 +329,6 @@ def lanternward.world.Plan.at(+room: U32, +tx: U32, +ty: U32) -> U32:
     35,
     lanternward.world.Plan.at.in(r, tx, ty))
 
-# Every tile with this letter, row by row, each packed as x + 65536 * y
-# (lanternward.world.packed_x / packed_y).
 def lanternward.world.Plan.find.row(s: String, +c: U32, +x: U32, +y: U32) -> List<&2, U32>:
   match s:
     case SNil{}:
@@ -391,11 +354,9 @@ def lanternward.world.Plan.find.rows(+rows: List<&2, String>, +c: U32, +y: U32) 
 def lanternward.world.Plan.find(+room: U32, +c: U32) -> List<&2, U32>:
   lanternward.world.Plan.find.rows(lanternward.world.rows(lanternward.world.plan(room)), c, 0)
 
-# Walls and bars stop a body for good; the rest is for the props.
 def lanternward.world.wall(+c: U32) -> Bool:
   Bool.or(U32.is_eq(c, 35), U32.is_eq(c, 86))
 
-# The closet a secret hides, as tiles (x0, y0, x1, y1); none outside rooms 1-3.
 def lanternward.world.closet(+room: U32) -> J.Val:
   match room:
     case 1:
@@ -413,9 +374,6 @@ def lanternward.world.packed_x(+p: U32) -> U32:
 def lanternward.world.packed_y(+p: U32) -> U32:
   U32.shrn(p, 16n)
 
-# ---- cases ----
-
-# A pair as the JSON array [x, y] of two i32.
 def lanternward.pair_j(p: U32 & U32) -> J.Val:
   (x, y) = p
   ga.pair_i(x, y)

@@ -1,7 +1,5 @@
 use super::*;
 
-/// Floor one of the Crypt, its first fight room emptied and calmed, with
-/// knight one walking in `kind`'s body, aiming right.
 fn raised(kind: EnemyKind) -> Run {
     let mut run = Run::new(4, 1, Some("Bree"));
     run.begin_in(Pack::Crypt);
@@ -23,7 +21,6 @@ fn raised(kind: EnemyKind) -> Run {
     run
 }
 
-/// A monster `dx` to the right of knight one, held still.
 fn foe(run: &mut Run, kind: EnemyKind, dx: f32) -> u32 {
     let (x, y) = (run.players[&1].x + dx, run.players[&1].y);
     run.spawn_at_for_test(kind, x, y);
@@ -58,7 +55,6 @@ fn hp(run: &Run, id: u32) -> u32 {
 #[test]
 fn a_raised_skeleton_looses_the_skeletons_bones_not_the_knights_arm() {
     let mut run = raised(EnemyKind::Skeleton);
-    // One behind, so the room is still a fight.
     foe(&mut run, EnemyKind::Bat, -8.0);
     tick(&mut run, fire());
     let mine: Vec<&Projectile> = run.projectiles.iter().filter(|p| !p.hostile).collect();
@@ -124,7 +120,6 @@ fn the_sword_and_the_spell_cards_wait_in_a_borrowed_body() {
         },
     );
     assert_eq!(hp(&run, imp), full, "no sword in a bat");
-    // A bat casts nothing, whatever cards the knight holds.
     tick(&mut run, cast());
     assert!(run.projectiles.is_empty());
     assert!(run.hud(1, &hud::Keys::FIRST).unwrap().spells.iter().all(Option::is_none));
@@ -145,7 +140,6 @@ fn a_raised_lich_casts_rimeleap_and_it_leaps_monster_to_monster() {
     assert_eq!(run.players[&1].body_rearm, bodies::SPELL_REARM);
     let hud = run.hud(1, &hud::Keys::FIRST).unwrap();
     assert_eq!(hud.spells[0].as_ref().map(|s| s.name.as_str()), Some("Rimeleap"));
-    // Not again till it is ready.
     let cast_once = run.projectiles.len();
     tick(&mut run, Input::default());
     tick(&mut run, cast());

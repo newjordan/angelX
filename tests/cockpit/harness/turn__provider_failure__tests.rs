@@ -29,7 +29,6 @@ impl Drop for Root {
     }
 }
 
-/// The module exactly as shipped.
 fn install_shipped(root: &Root) {
     let package = Path::new(env!("CARGO_MANIFEST_DIR")).join("live/errors");
     for entry in std::fs::read_dir(package).unwrap() {
@@ -38,7 +37,6 @@ fn install_shipped(root: &Root) {
     }
 }
 
-/// A plain JavaScript leg, for answers the shipped policy would never give.
 fn install_js(root: &Root, render: &str) {
     std::fs::write(
         root.module().join("module.json"),
@@ -52,7 +50,6 @@ fn install_js(root: &Root, render: &str) {
     .unwrap();
 }
 
-/// What the host does on a reload: publish the snapshot's legs to the registry.
 fn publish(modules: &mut angel_live::Registry, registry: &ToolRegistry) {
     modules.refresh(true);
     registry.set_live_policies(modules.snapshot().policies);
@@ -79,13 +76,10 @@ fn context(attempt: usize, budget: Option<usize>) -> FailureContext {
 
 const QUOTA_429: &str = r#"HTTP 429: {"error":{"code":"1310","message":"Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-07-03 11:33:39"}}"#;
 
-/// Real error strings from the native classifier's own tests and the club's
-/// error envelopes, grouped by the class the native policy gives them.
 fn corpus() -> Vec<(&'static str, FailureClass)> {
     use FailureClass::*;
     let stalled = "stream stalled: server kept the connection alive but sent no data for 60s";
     let mut cases: Vec<(&'static str, FailureClass)> = vec![
-        // Permanent: status, credentials, config, veto, certificate.
         ("HTTP 400: malformed messages", Permanent),
         ("HTTP 401: Unauthorized", Permanent),
         ("HTTP 402: payment required", Permanent),
@@ -133,7 +127,6 @@ fn corpus() -> Vec<(&'static str, FailureClass)> {
         ),
         ("does not exist or you do not have access to it", Permanent),
         ("unknown model gpt-9", Permanent),
-        // Quota: a long window that retrying cannot clear.
         (QUOTA_429, Quota),
         ("HTTP 429: weekly quota exhausted", Quota),
         ("HTTP 429: monthly quota exhausted", Quota),
@@ -142,7 +135,6 @@ fn corpus() -> Vec<(&'static str, FailureClass)> {
             Quota,
         ),
         ("quota exhausted: 429 insufficient_quota", Quota),
-        // Context overflow, which the turn compacts and rebuilds first.
         (
             "HTTP 413: context_length_exceeded: payload too large",
             Context,
@@ -157,7 +149,6 @@ fn corpus() -> Vec<(&'static str, FailureClass)> {
             Context,
         ),
         ("HTTP 500: exceed_context_size_error", Context),
-        // Transient: everything the retry loop exists for.
         ("HTTP 408: timeout", Transient),
         ("HTTP 425: too early", Transient),
         ("HTTP 429: rate limited", Transient),
@@ -244,7 +235,6 @@ fn native_verdict_names_each_corpus_case_by_the_class_the_turn_gave_it() {
             assert_eq!(verdict.delay_ms, 0, "{error}");
         }
     }
-    // The ladder: base * (replays + 1), capped.
     let ladder: Vec<_> = [0, 1, 2, 3, 9]
         .iter()
         .map(|attempt| native_verdict("HTTP 503: overloaded", &context(*attempt, None)).delay_ms)
@@ -299,7 +289,6 @@ fn a_leg_that_asks_for_more_than_native_falls_back_with_the_native_decision() {
     let permanent = "HTTP 401: Unauthorized";
     let transient = "HTTP 503: overloaded";
     let plain = "connection reset by peer";
-    // (render body, error, attempt, budget): each answer is looser than native.
     let looser: [(&str, &str, usize, Option<usize>); 9] = [
         (
             "({class:'transient',retry:true,delay_ms:0})",
@@ -360,7 +349,6 @@ fn a_leg_that_asks_for_more_than_native_falls_back_with_the_native_decision() {
         );
         assert_eq!(leg_parts(&decision.leg).0, "live-fallback");
     }
-    // Throwing is a fallback too, never a failed turn.
     let root = Root::new("throws");
     install_js(
         &root,
@@ -399,7 +387,6 @@ fn a_stricter_leg_is_honored_and_a_missing_leg_is_native() {
     let second = decide_failure(&registry, "connection reset by peer", &ctx);
     assert!(second.verdict.retry && !second.declined);
     assert_eq!(second.verdict.delay_ms, 5);
-    // Native keeps its 500 ms ladder; only a live leg may ask for less.
     let bare = ToolRegistry::new();
     let native = decide_failure(&bare, "HTTP 503: overloaded", &ctx);
     assert_eq!(native.leg, LegSource::Native);
@@ -417,7 +404,6 @@ fn an_edited_leg_serves_the_next_turn_not_the_one_in_flight() {
     let ctx = context(1, None);
     let error = "HTTP 503: overloaded";
     assert!(decide_failure(&registry, error, &ctx).verdict.retry);
-    // An adapter edit: the shipped policy, held to one replay.
     std::fs::write(
         root.module().join("index.js"),
         std::fs::read_to_string(root.module().join("index.js"))
@@ -429,7 +415,6 @@ fn an_edited_leg_serves_the_next_turn_not_the_one_in_flight() {
     )
     .unwrap();
     publish(&mut modules, &registry);
-    // The turn that pinned the old generation keeps it.
     assert_eq!(registry.live_policy("errors").unwrap().digest(), before);
     assert!(decide_failure(&registry, error, &ctx).verdict.retry);
     registry.pin_live_policies();
@@ -510,8 +495,6 @@ impl Club for FailingClub {
     }
 }
 
-/// One whole turn against a club that always fails: provider calls made, the
-/// terminal message, the notices and the ledger's `provider_unavailable` record.
 fn failing_turn(
     registry: &ToolRegistry,
     error: &'static str,
@@ -602,7 +585,6 @@ fn a_turn_retries_through_the_shipped_leg_exactly_as_it_did_natively() {
 fn a_turn_ignores_a_looser_leg_and_obeys_a_stricter_one() {
     let _guard = crate::tests::env_lock();
     let _env = turn_env();
-    // Looser: replays a permanent failure. Native stops, with the receipt saying so.
     let root = Root::new("turn-looser");
     install_js(&root, "({class:'transient',retry:true,delay_ms:0})");
     let (_modules, registry) = live_registry(&root);
@@ -615,7 +597,6 @@ fn a_turn_ignores_a_looser_leg_and_obeys_a_stricter_one() {
     assert!(message.contains(" [errors leg live-fallback:"), "{message}");
     assert_eq!(record["leg"], "live-fallback");
     assert_eq!(record["class"], "permanent");
-    // Stricter: one replay, then stop, and the receipt names the leg.
     let root = Root::new("turn-stricter");
     install_js(
         &root,
@@ -634,7 +615,6 @@ fn a_turn_ignores_a_looser_leg_and_obeys_a_stricter_one() {
 
 #[test]
 fn an_overflow_classed_by_the_leg_is_compacted_and_a_context_claim_without_flags_is_refused() {
-    // The leg may only name `context` where the flags show an overflow.
     let root = Root::new("context");
     install_js(&root, "({class:'context',retry:false,delay_ms:0})");
     let (_modules, registry) = live_registry(&root);
@@ -669,7 +649,6 @@ fn a_bend_source_edit_changes_the_next_turns_retries_and_a_broken_law_is_refused
             .verdict
             .retry
     );
-    // An edit that keeps the laws: no more than two replays.
     let capped = source.replace(
         "    case False{}:\n      True{}\n    case True{}:\n      (attempt < budget : U32)",
         "    case False{}:\n      (attempt < 2 : U32)\n    case True{}:\n      (attempt < budget : U32)",
@@ -697,7 +676,6 @@ fn a_bend_source_edit_changes_the_next_turns_retries_and_a_broken_law_is_refused
             .retry
     );
     assert_ne!(registry.live_policy("errors").unwrap().digest(), first);
-    // An edit that retries a rejected certificate cannot be proven and never ships.
     std::fs::write(
         root.module().join("errors.bend"),
         capped.replace("veto || config || cert || auth", "veto || config || auth"),

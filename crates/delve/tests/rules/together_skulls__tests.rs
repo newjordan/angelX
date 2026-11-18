@@ -1,8 +1,5 @@
 use super::*;
 
-/// Floor one of the Crypt, its first fight room emptied and calmed: knight
-/// one standing on the left, knight two fallen in the middle, and knight
-/// three (when asked for) standing on the right.
 fn fallen_friend(three: bool) -> Run {
     let mut run = Run::new(4, 1, Some("Bree"));
     if three {
@@ -27,7 +24,6 @@ fn fallen_friend(three: bool) -> Run {
     let two = run.players.get_mut(&2).unwrap();
     two.hp = 0;
     two.fell = run.tick.max(1);
-    // The bones settle before anyone can take the skull up.
     for _ in 0..=skulls::SKULL_SETTLE {
         idle(&mut run);
     }
@@ -48,7 +44,6 @@ fn press(run: &mut Run, id: u32) {
     )]));
 }
 
-/// Knight one walks onto knight two's bones and takes the skull up.
 fn carried(three: bool) -> Run {
     let mut run = fallen_friend(three);
     let hero = run.players.get_mut(&1).unwrap();
@@ -57,7 +52,6 @@ fn carried(three: bool) -> Run {
     run
 }
 
-/// A bat beside knight one, at `share` percent of its health.
 fn weak_bat(run: &mut Run, share: u32) -> u32 {
     let (x, y) = (run.players[&1].x + 1.5, run.players[&1].y);
     run.spawn_at_for_test(EnemyKind::Bat, x, y);
@@ -108,12 +102,10 @@ fn a_carrier_who_falls_drops_the_skull_at_their_feet() {
     assert_eq!(run.players[&2].skull_at, Some((12.0, 9.0)));
     assert_eq!(run.skull_lying(2), Some((12.0, 9.0)));
     assert_ne!(run.phase, Phase::Wiped, "knight three still stands");
-    // Knight three walks over to where it fell and takes it up.
     let hero = run.players.get_mut(&3).unwrap();
     (hero.x, hero.y) = (12.4, 9.0);
     idle(&mut run);
     assert_eq!(run.skull_carrier(2), Some(3));
-    // One skull in hand: knight one's own lies with its bones still.
     assert!(run.skull_lying(1).is_some());
 }
 
@@ -157,7 +149,6 @@ fn the_skull_on_a_weak_monster_raises_the_knight_in_its_body() {
     assert!(run.cues.iter().any(|c| c == "possess"));
     let hud = run.hud(2, &hud::Keys::FIRST).unwrap();
     assert!(hud.status.contains("bat"), "{}", hud.status);
-    // It walks on its own keys, down a lane cleared of the room's pillars.
     let row = (run.players[&2].y / TILE_UNITS) as usize;
     let cols = run.room().cols;
     let at = run.at;
@@ -216,8 +207,6 @@ fn the_sanctuary_gives_a_raised_knight_their_own_shape() {
 
 #[test]
 fn the_stairs_down_reach_the_next_floors_well() {
-    // A raised knight is standing, so the stairs do not revive them; the
-    // next floor opens on its Sanctuary, and that gives them back their shape.
     let mut run = carried(false);
     weak_bat(&mut run, 10);
     press(&mut run, 1);
@@ -231,11 +220,8 @@ fn the_stairs_down_reach_the_next_floors_well() {
 
 #[test]
 fn a_raised_knight_holds_off_the_wipe_with_the_host_seat_absent() {
-    // The live server's party: the host plays no knight (an absent seat),
-    // two friends fight.
     let mut run = fallen_friend(true);
     run.set_absent(1, true);
-    // Knight three carries knight two's skull to a weak bat.
     let hero = run.players.get_mut(&3).unwrap();
     (hero.x, hero.y) = (20.5, 14.0);
     idle(&mut run);
@@ -247,11 +233,9 @@ fn a_raised_knight_holds_off_the_wipe_with_the_host_seat_absent() {
     bat.frozen = 1000;
     press(&mut run, 3);
     assert_eq!(run.players[&2].possessed, Some(EnemyKind::Bat));
-    // Knight three falls; the raised knight still stands.
     run.players.get_mut(&3).unwrap().hp = 0;
     idle(&mut run);
     assert_ne!(run.phase, Phase::Wiped, "a raised knight is a knight standing");
-    // And when it falls too, the party has fallen.
     run.players.get_mut(&2).unwrap().hp = 0;
     idle(&mut run);
     assert_eq!(run.phase, Phase::Wiped);
@@ -265,7 +249,6 @@ fn a_save_from_before_skulls_still_loads() {
     let back: Run = serde_json::from_str(&json).unwrap();
     assert_eq!(back.players[&2].possessed, None);
     assert_eq!(back.players[&1].carrying_skull, None);
-    // And a raised knight round-trips.
     let mut run = carried(false);
     weak_bat(&mut run, 10);
     press(&mut run, 1);
@@ -273,9 +256,6 @@ fn a_save_from_before_skulls_still_loads() {
     assert_eq!(back.players[&2].possessed, Some(EnemyKind::Bat));
 }
 
-
-/// Skulls in play: `ANGEL_ARENA_SHOTS=<dir> cargo test write_skull_shots
-/// -- --ignored`.
 #[test]
 #[ignore]
 fn write_skull_shots() {
@@ -296,18 +276,15 @@ fn write_skull_shots() {
             std::fs::write(dir.join(format!("{name}{art}.ppm")), out).unwrap();
         }
     };
-    // The fallen knight's own view of its skull, and a friend's.
     let run = fallen_friend(false);
     save(&run, "a-skull-lying-own", 2);
     save(&run, "b-skull-lying-friend", 1);
-    // Carried over the head, a weak bat marked.
     let mut run = carried(false);
     weak_bat(&mut run, 10);
     run.spawn_at_for_test(EnemyKind::Skeleton, 30.0, 10.0);
     run.enemies.last_mut().unwrap().frozen = 1000;
     idle(&mut run);
     save(&run, "c-carried", 1);
-    // Raised in the bat's body.
     press(&mut run, 1);
     for _ in 0..HZ {
         idle(&mut run);
@@ -316,9 +293,6 @@ fn write_skull_shots() {
     save(&run, "e-raised-own", 2);
 }
 
-/// Raising a fallen knight in the chief's key carrier is that carrier's
-/// fall to its camp: the route is won, the Boss Key drops, the room clears
-/// (2026-10-30: a raised carrier left the room fighting forever).
 #[test]
 fn a_knight_raised_in_the_key_carrier_wins_its_chiefs_route() {
     let mut cleared = 0;
@@ -335,8 +309,6 @@ fn a_knight_raised_in_the_key_carrier_wins_its_chiefs_route() {
             e.frozen = 1000;
             e.age = e.age.max(10 * HZ);
         }
-        // Knight two falls beside knight one, who takes the skull up and
-        // stands at the weakened carrier.
         for hero in run.players.values_mut() {
             hero.invulnerable = 100_000;
         }

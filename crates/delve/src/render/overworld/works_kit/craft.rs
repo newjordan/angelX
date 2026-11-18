@@ -11,7 +11,6 @@ pub(super) fn farmstead(c: &mut Ctx) {
     let (t, work, seed) = (c.t, c.work, c.seed);
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
-    // Ploughed strips across the front, in furrows: ripe grain, hemp.
     for (k, (x, y, fw, fh, grain)) in [(2, h - 24, 28, 10, true), (33, h - 24, 29, 10, false), (2, h - 13, 60, 11, true)].into_iter().enumerate() {
         for yy in y..y + fh {
             for xx in x..x + fw {
@@ -42,7 +41,6 @@ pub(super) fn farmstead(c: &mut Ctx) {
         }
         im.rect(x, y + fh, fw, 1, 'b');
     }
-    // The farmhouse: stone below, thatch, a chimney smoking.
     let wall_y = paint::dwelling(im, 0, h - 62, 32, 17, 20, Front::Stone, ramp::THATCH, seed);
     paint::door(im, 12, wall_y + 19, 6, 11);
     paint::window(im, 5, wall_y + 4, 4, 4, work);
@@ -51,11 +49,9 @@ pub(super) fn farmstead(c: &mut Ctx) {
     if work {
         paint::smoke(im, 26, h - 70, t, 12, 4, false);
     }
-    // The barn: tall boards, a broad door, a loft hatch.
     let barn_y = paint::dwelling(im, 34, h - 64, 30, 15, 24, Front::Board, ramp::THATCH, seed ^ 1);
     paint::door(im, 44, barn_y + 23, 11, 16);
     im.rect(46, barn_y + 3, 6, 5, 'k');
-    // A rick of hay.
     paint::pile(im, 58, h - 25, 11, 9, Load::Grain, seed);
     if work {
         hands::stamp(im, 20, h - 14, Trade::Herder, Act::Work, t, false);
@@ -67,23 +63,19 @@ pub(super) fn mill(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
     paint::earth(im, 16.0, (h - 9) as f32, 15.5, 8.5, seed);
-    // The mill house: square, stone, a steep slate roof.
     paint::stone(im, 3, h - 36, 24, 33, seed);
     paint::roof(im, 0, 8, 30, 14, ramp::SLATE, seed);
-    // The stone's window: the runner stone seen turning, its furrows spinning.
     im.rect(10, h - 30, 10, 9, 'b');
     im.ellipse(15.0, (h - 25) as f32, 4.0, 3.0, 'J');
     for k in 0..6 {
         let a = k as f32 / 6.0 * std::f32::consts::TAU + if work { paint::turn(t) * 0.5 } else { 0.0 };
         im.put((15.0 + a.cos() * 3.2) as i32, (h - 25) as f32 as i32 + (a.sin() * 2.4) as i32, 'g');
     }
-    // The hoist: a beam out of the loft with a rope, a sack riding it.
     im.line(21, 16, 31, 16, 'o');
     im.line(21, 17, 31, 17, 'B');
     let lift = if work { ((paint::turn(t).cos() + 1.0) * 6.0).round() as i32 } else { 14 };
     paint::rope(im, 30, 17, 30, 20 + lift, 0.0, 't');
     paint::sack(im, 27, 27 + lift, ['H', 'i', 'h']);
-    // The door at the foot, flour dust drifting out of it.
     paint::door(im, 12, h - 4, 7, 11);
     if work {
         paint::dust(im, 16, h - 12, t, 'H');
@@ -100,7 +92,6 @@ pub(super) fn bakery(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
     paint::earth(im, 16.0, (h - 9) as f32, 15.5, 8.5, seed);
-    // A brick house under tile, a counter in its window, a chimney.
     let wall_y = paint::dwelling(im, 0, 14, 26, 16, h - 2 - 29, Front::Brick, ramp::TILE, seed);
     paint::chimney(im, 17, 20, 5, 14);
     paint::window(im, 5, wall_y + 5, 8, 7, work);
@@ -109,7 +100,6 @@ pub(super) fn bakery(c: &mut Ctx) {
         im.ellipse(6.0 + k as f32 * 3.0, (wall_y + 11) as f32, 1.6, 1.0, 'O');
     }
     paint::door(im, 16, h - 3, 6, 13);
-    // The domed oven bulging out of the side, its mouth glowing.
     let keep = |_: i32, _: i32| true;
     material::lobe(im, (26.0, (h - 13) as f32), (6.5, 9.0), &['b', 'B', 'r', 'R', 'o', 'O'], seed, 1.8, 0.1, &keep);
     paint::mouth(im, 23, h - 12, 6, 7, work, t);
@@ -128,7 +118,6 @@ pub(super) fn brewery(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
     paint::earth(im, 24.0, (h - 11) as f32, 23.0, 10.5, seed);
-    // A big timber hall, a steep roof with a louvred vent at the ridge.
     let wall_y = paint::dwelling(im, 0, 10, 48, 18, h - 2 - 27, Front::Board, ramp::TILE, seed);
     im.rect(19, 3, 10, 8, 'B');
     for k in 0..3 {
@@ -138,7 +127,6 @@ pub(super) fn brewery(c: &mut Ctx) {
     if work {
         paint::smoke(im, 24, 1, t, 12, 5, true);
     }
-    // The copper kettle in the open bay: a riveted dome, a pipe to the vent.
     im.rect(6, wall_y + 4, 22, h - 6 - wall_y, 'K');
     let foot = h - 4;
     let keep = |_: i32, _: i32| true;
@@ -155,7 +143,6 @@ pub(super) fn brewery(c: &mut Ctx) {
         }
         hands::stamp(im, 29, h - 3, Trade::Brewer, Act::Bare(Pose::Slash), t, true);
     }
-    // Barrels stacked by the door.
     paint::door(im, 34, h - 3, 7, 13);
     for (x, y) in [(43, h - 1), (47, h - 1), (45, h - 9)] {
         material::barrel(im, x, y);
@@ -170,13 +157,11 @@ pub(super) fn weaving_shed(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
     paint::earth(im, 24.0, (h - 11) as f32, 23.0, 10.5, seed);
-    // A shed with its front open: a boarded back in shadow, thatch over it.
     let wall_y = paint::dwelling(im, 0, 6, 34, 16, h - 2 - 21, Front::Board, ramp::THATCH, seed);
     im.rect(4, wall_y + 2, 26, h - 6 - wall_y, 'K');
     for x in [3, 31] {
         paint::post(im, x, wall_y, h - 3);
     }
-    // The loom: a tall frame strung with warp, cloth woven in stripes at its foot.
     im.rect(8, wall_y + 2, 2, h - 8 - wall_y, 'O');
     im.rect(24, wall_y + 2, 2, h - 8 - wall_y, 'O');
     im.rect(8, wall_y + 2, 18, 2, 'O');
@@ -196,7 +181,6 @@ pub(super) fn weaving_shed(c: &mut Ctx) {
     if work {
         hands::stamp(im, 17, h - 2, Trade::Roper, Act::Bare(Pose::Slash), t, false);
     }
-    // Dyed cloth hung on a line outside: violet, blue, ochre.
     im.line(36, h - 40, 47, h - 40, 'o');
     im.line(36, h - 40, 36, h - 4, 'B');
     for (k, col) in [')', 'Q', 'O', 'z'].into_iter().enumerate() {

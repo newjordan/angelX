@@ -2,8 +2,6 @@ use super::*;
 
 #[test]
 fn profile_aliases_pick_expected_agents() {
-    // Machines are not personas: a host label with no model family is the
-    // standby agent, whichever box it names.
     for label in ["turbo", "atlas", "spark", "apollo", "gpu-comp", "local"] {
         assert_eq!(profile_for(label).key, AgentKey::Unknown, "{label}");
     }
@@ -65,11 +63,9 @@ fn every_model_family_wears_its_own_knight() {
     assert_eq!(route("openai-api", "openai/gpt-5.6-luna"), AgentKey::Luna);
     assert_eq!(route("openai-api", "openai/gpt-6-astra"), AgentKey::Astra);
     assert_eq!(route("openai", "gpt-5.6-sol"), AgentKey::Codex);
-    // The Daybreak seat serves Sol and Luna models; its seat name decides.
     assert_eq!(route("daybreak", "gpt-6-sol"), AgentKey::Daybreak);
     assert_eq!(route("daybreak", "gpt-6-luna"), AgentKey::Daybreak);
     assert_eq!(route("openai", "gpt-6-sol"), AgentKey::Codex);
-    // Only the seat name picks Daybreak; a model id naming it keeps its family.
     assert_eq!(route("openai", "gpt-daybreak-blue-latest"), AgentKey::Codex);
     assert_eq!(route("xai", "grok-4.7"), AgentKey::Grok);
     assert_eq!(route("deepseek", "deepseek-v4-pro"), AgentKey::DeepSeek);
@@ -99,7 +95,6 @@ fn every_model_family_wears_its_own_knight() {
         route("openrouter", "cohere/north-mini-code:free"),
         AgentKey::North
     );
-    // Providers serve families; they are not characters themselves.
     assert_eq!(route("cerebras", "zai-glm-4.7"), AgentKey::Glm);
     assert_eq!(route("openrouter", "moonshotai/kimi-k3"), AgentKey::Kimi);
     assert_eq!(route("cerebras", "cerebras-native"), AgentKey::Unknown);
@@ -129,7 +124,6 @@ fn every_model_family_wears_its_own_knight() {
     .map(|key| crate::ui::helm::sheet(key).unwrap())
     .collect();
     assert_eq!(sheets.len(), 16, "each seat has its own sheet");
-    // Daybreak's knight is not drawn yet: it wears the champion stills.
     assert_eq!(crate::ui::helm::sheet(AgentKey::Daybreak), None);
 }
 
@@ -172,7 +166,6 @@ fn the_served_model_wins_over_the_machine_that_serves_it() {
         AgentKey::Codex,
         "an unknown model retains the original OpenAI-compatible driver fallback"
     );
-    // A machine serving a model with no family shows no machine persona.
     for machine in ["turbo", "atlas", "spark", "apollo"] {
         assert_eq!(
             profile_for_route(machine, machine, Some("mystery-7b")).key,
@@ -282,8 +275,6 @@ fn unknown_profiles_still_have_real_image_assets() {
 
 #[test]
 fn asset_falls_back_to_the_other_when_one_is_missing() {
-    // No profile ships a half-filled asset pair, so exercise the `.or()`
-    // fallback directly (the test module can see the private fields).
     let only_neutral = AgentProfile {
         key: AgentKey::Unknown,
         name: "n",
@@ -292,7 +283,6 @@ fn asset_falls_back_to_the_other_when_one_is_missing() {
         standard_asset: Some("neutral.png"),
         high_effort_asset: None,
     };
-    // The high tier falls back to standard when its companion is absent.
     assert_eq!(only_neutral.asset(true), Some("neutral.png"));
     assert_eq!(only_neutral.asset(false), Some("neutral.png"));
 
@@ -321,13 +311,9 @@ fn asset_falls_back_to_the_other_when_one_is_missing() {
 
 #[test]
 fn contains_ascii_case_guards_empty_needle_and_short_haystack() {
-    // Empty needle → false (never "found").
     assert!(!contains_ascii_case("anything", b""));
-    // Haystack shorter than the needle → false, no out-of-bounds.
     assert!(!contains_ascii_case("ab", b"abcdef"));
-    // A match at the very end is found.
     assert!(contains_ascii_case("xxAPOLLO", b"apollo"));
-    // First byte matches but the tail diverges → keep scanning, ultimately false.
     assert!(!contains_ascii_case("apXlomore", b"apollo"));
 }
 

@@ -1,18 +1,3 @@
-"""Fine-tune microsoft/Mage-VL-Cowork as angel's hands (desktop `ground`).
-
-Budget: $15 operator-approved (2026-10-30). B200 at ~$6.25/h. Hard caps:
-smoke() times out at 15 min, train() at 100 min, and training itself stops
-at its own wall-clock deadline and saves. The model download runs on CPU.
-
-LoRA r=64 on every language-model linear (q/k/v/o/gate/up/down, 252
-matrices) plus the vision->language merger in full; vision encoder frozen.
-Loss on the answer tokens only. Samples are ground's exact request (see
-make_train.py), dev split only.
-
-  modal run modal_mage.py::download
-  modal run modal_mage.py::smoke --run smoke1
-  modal run --detach modal_mage.py::train --run main1 --minutes 80
-"""
 import modal
 
 app = modal.App("mage-hands-train")
@@ -79,7 +64,7 @@ def run_training(run, minutes, lr, rank, accum, workers, sanity):
                 x0, y0, cw, ch = s["crop"]
                 img = img.crop((x0, y0, x0 + cw, y0 + ch)).resize((1920, 1080), Image.LANCZOS)
             b = io.BytesIO()
-            img.save(b, format="JPEG", quality=95)  # ground sends JPEG q95
+            img.save(b, format="JPEG", quality=95)
             img = Image.open(io.BytesIO(b.getvalue())).convert("RGB")
             enc = proc(text=[prompt(s["target"])], images=[img], return_tensors="pt")
             ans = tok(s["answer"] + "<|im_end|>\n", add_special_tokens=False, return_tensors="pt")["input_ids"]
@@ -116,7 +101,6 @@ def run_training(run, minutes, lr, rank, accum, workers, sanity):
 
     def save(tag):
         model.save_pretrained(f"{out}/{tag}")
-        # checkpoint names: "visual.merger.*" (the PEFT name is "...model.visual.merger.*")
         save_file({"visual." + n.split(".visual.", 1)[1]: p.detach().to(torch.bfloat16).cpu().contiguous()
                    for n, p in merger.items()}, f"{out}/{tag}/merger.safetensors")
         data_vol.commit()
@@ -201,9 +185,6 @@ def train(run: str = "main1", minutes: int = 80):
 
 @app.function(image=image, gpu="B200", cpu=8, memory=65536, volumes=VOLS, timeout=45 * 60)
 def evaluate(run: str = "main1", tag: str = "final"):
-    """Held-out test split, base vs fine-tuned, through ground's exact pipeline
-    (template prompt, JPEG q95, first look then 2x and 3x crops scaled back up).
-    Same code and process for both; base = adapter disabled + original merger."""
     import contextlib, io, json, math, re, time
     import torch
     from PIL import Image

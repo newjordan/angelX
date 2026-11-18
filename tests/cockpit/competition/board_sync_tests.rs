@@ -91,7 +91,6 @@ fn unreadable_state_dir_is_an_error_not_a_report() {
     let _ = std::fs::remove_dir_all(&empty);
     let failure = run(&empty).unwrap_err();
     assert_eq!(failure.class, AdapterFailureClassV1::Transport);
-    // Truncated JSON in a state file is also typed, never a panic.
     let dir =
         std::env::temp_dir().join(format!("angel-board-sync-truncated-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

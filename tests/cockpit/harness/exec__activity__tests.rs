@@ -105,9 +105,6 @@ fn owned_cpu_crosses_sessions_without_crediting_siblings() {
     }
     impl Drop for BusyProbe {
         fn drop(&mut self) {
-            // The fixture parent terminates and reaps its detached payload.
-            // Keep cleanup tied to the claimed parent handle; do not signal a
-            // PID that could have been reused after its identity check.
             let _ = std::fs::write(&self.stop, "stop");
             let _ = self.parent.wait();
         }

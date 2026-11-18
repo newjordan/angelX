@@ -20,10 +20,8 @@ use crate::rules::{HZ, RoomKind, Run, TILE_UNITS, Tile};
 use serde::Deserialize;
 use std::sync::OnceLock;
 
-/// How near (tiles) a knight stands to talk with someone.
 pub const TALK_REACH: f32 = 2.0;
 
-/// The peoples who live in or visit the fort, for their figures.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Race {
     Dwarf,
@@ -33,36 +31,23 @@ pub enum Race {
     Other,
 }
 
-/// Someone of the fort, placed on their level.
 #[derive(Clone, Debug)]
 pub struct Person {
     pub id: u32,
-    /// Their name in the Delve's letters, the fort's word for them made
-    /// English ("Ungiz Brotherkey").
     pub name: String,
     pub race: Race,
     pub female: bool,
-    /// `citizen`, `resident` or `visitor`.
     pub role: String,
-    /// What the fort has them do (`home_job`: `guard`, `mason`, ...), and
-    /// their profession as the game names it.
     pub job: String,
     pub profession: String,
-    /// The level they belong to, as the line says it ("the Barracks").
     pub district: String,
-    /// The level they stand on.
     pub level: RoomKind,
-    /// Whether the import had them on this level (not on a dropped one).
     pub from_data: bool,
-    /// Their own tile, and their round: tiles, their own first.
     pub home: (i32, i32),
     pub route: Vec<(i32, i32)>,
-    /// Ticks at each stop of the round, and where in it they start.
     pub period: u64,
     pub phase: u64,
-    /// Everything they might say, one a press.
     pub lines: Vec<String>,
-    /// Where they are in `all()`: their figure's index.
     pub slot: usize,
 }
 
@@ -111,7 +96,6 @@ struct File {
     people: Vec<Raw>,
 }
 
-/// A small fixed mix of two numbers: who stands where, and when.
 fn mix(a: u32, b: u32) -> u32 {
     let mut h = a.wrapping_mul(0x9e37_79b9) ^ b.wrapping_mul(0x85eb_ca6b);
     h ^= h >> 15;
@@ -119,8 +103,6 @@ fn mix(a: u32, b: u32) -> u32 {
     h ^ (h >> 13)
 }
 
-/// A name in the Delve's letters: the fort's accents dropped, anything else
-/// outside plain ASCII left out.
 pub fn ascii(text: &str) -> String {
     text.chars()
         .filter_map(|c| {
@@ -158,7 +140,6 @@ fn race_of(name: &str) -> Race {
     }
 }
 
-/// A level's name as a line says it: "The Barracks" is "the Barracks".
 fn district_name(slug: &str) -> String {
     LEVELS
         .iter()
@@ -170,8 +151,6 @@ fn district_name(slug: &str) -> String {
         .unwrap_or_else(|| "Bomrekedan".to_string())
 }
 
-/// The kinds of place a job belongs at, best first (`kingdom.json` place
-/// kinds; a `workshop:` or `furnace:` prefix matches any).
 fn places_for(job: &str) -> &'static [&'static str] {
     match job {
         "guard" => &["barracks", "archery"],
@@ -202,27 +181,16 @@ fn matches_kind(want: &str, kind: &str) -> bool {
     if want.ends_with(':') { kind.starts_with(want) } else { kind == want }
 }
 
-/// One level's open ground, for placing its people.
 struct Ground {
     kind: RoomKind,
     room: crate::rules::Room,
     taken: Vec<bool>,
-    /// Tiles where a party lands, which nobody blocks.
     landings: Vec<(f32, f32)>,
-    /// Where the level's questline teachers stand (`questline`): nobody
-    /// stands near enough that one press could be for either.
     teachers: Vec<(i32, i32)>,
-    /// The level's works signs (`works::WORKS`), kept clear: a press on
-    /// one is the works'.
     signs: Vec<(i32, i32, i32, i32)>,
 }
 
-/// How far (tiles each way) a person's own tile keeps from a teacher's:
-/// their round goes two tiles out, and a knight is heard from two tiles by
-/// either, so no spot is in reach of both.
 pub const TEACHER_CLEAR: i32 = 6;
-/// How far (tiles each way) a person's own tile keeps from a works sign's
-/// rect: their round, two tiles out, never steps onto it.
 pub const SIGN_CLEAR: i32 = 3;
 
 impl Ground {
@@ -252,8 +220,6 @@ impl Ground {
         x >= 0 && y >= 0 && (x as usize) < self.room.cols && (y as usize) < self.room.rows && self.room.tile(x, y) == Tile::Floor
     }
 
-    /// Open floor a person may stand on: off every stair and the tiles
-    /// beside one, clear of where a party lands.
     fn open(&self, x: i32, y: i32) -> bool {
         if !self.floor(x, y) {
             return false;
@@ -277,15 +243,11 @@ impl Ground {
             && !self.signs.iter().any(|&(c, r, w, h)| x >= c - SIGN_CLEAR && x < c + w + SIGN_CLEAR && y >= r - SIGN_CLEAR && y < r + h + SIGN_CLEAR) && !self.taken[y as usize * self.room.cols + x as usize]
     }
 
-    /// Whether nothing stands on the tile: bare floor, a stockpile, a
-    /// field, a shrub.
     fn bare(&self, x: i32, y: i32) -> bool {
         let level = super::level(self.kind).unwrap();
         matches!(level.dress_at(x, y), b' ' | b'p' | b'f' | b'"')
     }
 
-    /// The nearest free tile to `(x, y)`, ring by ring: bare floor first
-    /// within a few tiles, else any free floor.
     fn nearest(&self, (x, y): (i32, i32)) -> Option<(i32, i32)> {
         let ring = |r: i32| {
             (-r..=r).flat_map(move |dy| (-r..=r).map(move |dx| (dx, dy))).filter(move |&(dx, dy)| dx.abs().max(dy.abs()) == r).map(move |(dx, dy)| (x + dx, y + dy))
@@ -300,8 +262,6 @@ impl Ground {
         self.taken[y as usize * self.room.cols + x as usize] = true;
     }
 
-    /// A short round from `home`: a tile or two either side along a straight
-    /// line of open floor, home between each.
     fn route(&self, home: (i32, i32), seed: u32) -> Vec<(i32, i32)> {
         const STEPS: [(i32, i32); 8] = [(1, 0), (-1, 0), (0, 1), (0, -1), (2, 0), (-2, 0), (0, 2), (0, -2)];
         let start = (seed % STEPS.len() as u32) as usize;
@@ -322,7 +282,6 @@ impl Ground {
             route.push(stop);
             route.push(home);
         }
-        // The round closes on its first stop: no second home at its end.
         if route.len() > 1 {
             route.pop();
         }
@@ -330,8 +289,6 @@ impl Ground {
     }
 }
 
-/// The place on `kind` where someone of `job` would be found, by `seed`
-/// among the fittest: its rect's middle tile.
 fn workplace(kind: RoomKind, job: &str, seed: u32) -> Option<(i32, i32)> {
     for want in places_for(job) {
         let fits: Vec<_> = places_on(kind).filter(|p| matches_kind(want, &p.kind)).collect();
@@ -343,7 +300,6 @@ fn workplace(kind: RoomKind, job: &str, seed: u32) -> Option<(i32, i32)> {
     places_on(kind).nth((seed % 7) as usize).map(|p| (p.rect.x + p.rect.w / 2, p.rect.y + p.rect.h / 2))
 }
 
-/// A skill's name as a line says it.
 fn skill_words(skill: &str) -> String {
     match skill {
         "melee_combat" => "a fight at close quarters".into(),
@@ -367,13 +323,11 @@ fn skill_words(skill: &str) -> String {
     }
 }
 
-/// An office as a line says it ("MILITIA_CAPTAIN" is "militia captain").
 fn office_words(code: &str) -> String {
     let words = code.to_lowercase().replace('_', " ");
     words.strip_prefix("custom ").map(str::to_string).unwrap_or(words)
 }
 
-/// What one of their traits makes them say, if anything.
 fn trait_line(t: &str) -> Option<String> {
     if let Some(v) = t.strip_prefix("values ") {
         return Some(format!("Nothing matters more to me than {v}."));
@@ -474,8 +428,6 @@ fn read() -> Vec<Person> {
         .unwrap_or_else(|e| panic!("bomrekedan people.json: {e}"));
     let mut grounds: Vec<Ground> = LEVELS.iter().map(|d| Ground::new(d.kind)).collect();
     let mut out: Vec<Person> = Vec::new();
-    // Those the game had on a kept level first, so their tiles are theirs;
-    // then those from dropped levels, round their work.
     let mut order: Vec<&Raw> = file.people.iter().filter(|r| r.level.is_some()).collect();
     order.extend(file.people.iter().filter(|r| r.level.is_none()));
     for raw in order {
@@ -518,7 +470,6 @@ fn read() -> Vec<Person> {
             slot: 0,
         });
     }
-    // By level, then as the file had them.
     out.sort_by_key(|p| index(p.level));
     for (slot, p) in out.iter_mut().enumerate() {
         p.slot = slot;
@@ -526,13 +477,11 @@ fn read() -> Vec<Person> {
     out
 }
 
-/// Everyone, read and placed once, by level top down.
 pub fn all() -> &'static [Person] {
     static PEOPLE: OnceLock<Vec<Person>> = OnceLock::new();
     PEOPLE.get_or_init(read)
 }
 
-/// The people of level `kind` (none for a room that is no level).
 pub fn on(kind: RoomKind) -> &'static [Person] {
     static RANGES: OnceLock<Vec<(usize, usize)>> = OnceLock::new();
     let ranges = RANGES.get_or_init(|| {
@@ -549,8 +498,6 @@ pub fn on(kind: RoomKind) -> &'static [Person] {
 }
 
 impl Person {
-    /// The leg of their round they are on at `tick`: from, to, and the
-    /// ticks into it.
     fn leg(&self, tick: u64) -> ((i32, i32), (i32, i32), u64) {
         let n = self.route.len() as u64;
         let t = tick + self.phase;
@@ -559,13 +506,11 @@ impl Person {
         (from, self.route[stop as usize], t % self.period)
     }
 
-    /// Ticks to walk from one stop to the next: two tiles a second.
     fn walk_ticks(from: (i32, i32), to: (i32, i32)) -> u64 {
         let d = (from.0 - to.0).abs() + (from.1 - to.1).abs();
         d as u64 * u64::from(HZ) / 2
     }
 
-    /// Where they stand at `tick` (tiles; a tile's middle at rest).
     pub fn at(&self, tick: u64) -> (f32, f32) {
         let (from, to, into) = self.leg(tick);
         let walk = Self::walk_ticks(from, to);
@@ -573,14 +518,11 @@ impl Person {
         (from.0 as f32 + (to.0 - from.0) as f32 * k + 0.5, from.1 as f32 + (to.1 - from.1) as f32 * k + 0.5)
     }
 
-    /// Whether they are on the move at `tick`, and which way across
-    /// (`true`: west).
     pub fn walking(&self, tick: u64) -> Option<bool> {
         let (from, to, into) = self.leg(tick);
         (into < Self::walk_ticks(from, to)).then_some(to.0 < from.0)
     }
 
-    /// What they say when a knight speaks to them at `tick`.
     pub fn says(&self, tick: u64) -> String {
         let line = &self.lines[((tick / 3) as usize + self.id as usize) % self.lines.len()];
         let job = if self.job.is_empty() { self.profession.to_lowercase() } else { self.job.clone() };
@@ -588,8 +530,6 @@ impl Person {
     }
 }
 
-/// The person of level `kind` nearest `(x, y)` (tiles) at `tick`, within
-/// talking reach.
 pub fn near(kind: RoomKind, (x, y): (f32, f32), tick: u64) -> Option<&'static Person> {
     on(kind)
         .iter()
@@ -603,10 +543,7 @@ pub fn near(kind: RoomKind, (x, y): (f32, f32), tick: u64) -> Option<&'static Pe
 }
 
 impl Run {
-    /// A knight's fresh E (`pressed`, a bit a knight) beside someone of the
-    /// fort: they say their line. A knight on a stair is taking it.
     pub(crate) fn tick_bomrekedan_people(&mut self, pressed: u8) {
-        // Most ticks have no fresh press: nothing more to look at.
         if pressed == 0 {
             return;
         }
@@ -623,12 +560,9 @@ impl Run {
             if self.room().tile(x.floor() as i32, y.floor() as i32) == Tile::Stairs {
                 continue;
             }
-            // A press within a questline teacher's hearing is the teacher's.
             let teacher = crate::rules::questline::book().lines.iter().any(|q| {
-                // The same reach `tick_teachers` hears a press at.
                 q.kind() == kind && (x - q.at.0 as f32).abs() <= crate::rules::questline::TEACHER_REACH && (y - q.at.1 as f32).abs() <= crate::rules::questline::TEACHER_REACH
             });
-            // So is one on a works sign (`works`, its E held to raise).
             if teacher || super::works::WORKS.iter().any(|w| w.level == kind && w.on_sign(h.x, h.y)) {
                 continue;
             }

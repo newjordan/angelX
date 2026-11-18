@@ -15,14 +15,10 @@ use crate::rules::caves::{Burst, BURST_BLAST, BURST_CHIP, BURST_CRUMBLE};
 
 struct Kind {
     frames: u32,
-    /// One frame's size, and how many stand in a row of the sheet.
     w: u32,
     h: u32,
     columns: u32,
-    /// The point of a frame that sits on the floor line under the struck
-    /// wall's face, at the middle of its cell.
     pivot: (i32, i32),
-    /// The sheets, by region: mine, hollow, foundry, frost.
     sheets: [&'static [u8]; 4],
 }
 
@@ -37,15 +33,12 @@ macro_rules! sheets {
     };
 }
 
-/// By `Burst::kind`: chip, crumble, blast.
 static KINDS: [Kind; 3] = [
     Kind { frames: 28, w: 72, h: 72, columns: 6, pivot: (36, 32), sheets: sheets!("rock-chip") },
     Kind { frames: 61, w: 64, h: 72, columns: 9, pivot: (32, 46), sheets: sheets!("rock-crumble") },
     Kind { frames: 67, w: 168, h: 140, columns: 8, pivot: (84, 88), sheets: sheets!("rock-blast") },
 ];
 
-/// One pixel of a frame: where it lies from the pivot, and its colour
-/// multiplied by its cover.
 struct Dab {
     dx: i16,
     dy: i16,
@@ -56,10 +49,8 @@ struct Sheet {
     frames: Vec<Vec<Dab>>,
 }
 
-/// A sheet is read the first time it is drawn, or when `warm` asks.
 static SHEETS: [OnceLock<Sheet>; 12] = [const { OnceLock::new() }; 12];
 
-/// Cover fainter than this does not show; such pixels are not kept.
 const FAINT: u8 = 6;
 
 fn kind_of(burst: &Burst) -> Option<usize> {
@@ -102,14 +93,12 @@ fn decode(png: &[u8], frames_n: u32, w: u32, h: u32, columns: u32, pivot: (i32, 
     Sheet { frames }
 }
 
-/// Read a region's three sheets now, so the first hit there does not wait on it.
 pub(crate) fn warm(region: u8) {
     for kind in 0..KINDS.len() {
         let _ = sheet(kind, region);
     }
 }
 
-/// Read all twelve rock sheets (four regions, three kinds) during entry.
 pub(crate) fn warm_all() {
     for region in 0..4 {
         warm(region);
@@ -117,14 +106,10 @@ pub(crate) fn warm_all() {
     warm_loops();
 }
 
-/// Lay `burst`'s frame for `tick` over `im`, its pivot at `at` on the screen.
-/// Nothing is drawn before it starts or after its last frame.
 pub(crate) fn stamp(im: &mut Img, burst: &Burst, region: u8, tick: u32, at: (i32, i32)) {
     stamp_if(im, burst, region, tick, at, |_, _, _| true);
 }
 
-/// As `stamp`, but only dabs whose offset from the pivot is between `dy_lo`
-/// and `dy_hi`, and only on screen rows above `clip_y`.
 pub(crate) fn stamp_band(
     im: &mut Img,
     burst: &Burst,
@@ -138,8 +123,6 @@ pub(crate) fn stamp_band(
     stamp_if(im, burst, region, tick, at, |_, y, dy| dy >= dy_lo && dy <= dy_hi && y < clip_y);
 }
 
-/// As `stamp`, but a dab is laid only when `keep` says so. `dy` is the dab's
-/// offset from the pivot: negative is the breaking cloud, positive the rubble.
 pub(crate) fn stamp_if(
     im: &mut Img,
     burst: &Burst,
@@ -175,7 +158,6 @@ pub(crate) fn stamp_if(
     }
 }
 
-// One sheet each, not per region. Premultiplied, same blend as the rock sheets.
 const LOOPS: [Loop; 4] = [
     Loop { frames: 14, w: 24, h: 28, columns: 5, pivot: (12, 24), png: include_bytes!("../../../assets/cave_fx/flame-cell.png") },
     Loop { frames: 24, w: 24, h: 36, columns: 6, pivot: (12, 30), png: include_bytes!("../../../assets/cave_fx/steam-wisp.png") },
@@ -215,7 +197,6 @@ pub(crate) fn loop_frames(which: usize) -> u32 {
     LOOPS[which].frames
 }
 
-/// Sheet frame for this tick, offset by a hash of the cell so neighbours do not pulse together.
 pub(crate) fn loop_frame(tick: u32, x: i32, y: i32, which: usize, salt: u32) -> u32 {
     let frames = loop_frames(which);
     let off = crate::ink::hash(x, y, salt) % frames;
@@ -274,7 +255,6 @@ thread_local! {
     static ASH: RefCell<AshBook> = RefCell::new(AshBook { seed: 0, tick: 0, born: Vec::new() });
 }
 
-/// First 240 ticks after the painter saw this cell turn to ash.
 pub(crate) fn ash_embers_live(seed: u32, x: i32, y: i32, tick: u32, is_ash: bool) -> bool {
     ASH.with(|slot| {
         let mut book = slot.borrow_mut();

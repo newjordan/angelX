@@ -12,7 +12,6 @@ draw shot
 .22.|.33.
 ";
 
-/// A fresh workspace with the card in its reforged folder.
 fn workspace(name: &str) -> (PathBuf, PathBuf) {
     let root = std::env::temp_dir().join(format!("wish-painter-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
@@ -23,7 +22,6 @@ fn workspace(name: &str) -> (PathBuf, PathBuf) {
     (root, card)
 }
 
-/// A two-frame painting on a transparent ground, a disc in each frame.
 fn painting(path: &Path, colour: [u8; 3]) {
     let mut image = image::RgbaImage::new(64, 32);
     for (x, y, p) in image.enumerate_pixels_mut() {
@@ -35,7 +33,6 @@ fn painting(path: &Path, colour: [u8; 3]) {
     image.save(path).unwrap();
 }
 
-/// A painter that runs `body` in the shell.
 fn script(root: &Path, name: &str, body: &str) -> PathBuf {
     use std::os::unix::fs::PermissionsExt as _;
     let path = root.join(name);
@@ -60,7 +57,6 @@ fn card_job(root: &Path, card_path: &Path) -> Job {
     )
 }
 
-/// Poll until every painter has ended, with what they painted.
 fn settle(painters: &mut Painters) -> Vec<Target> {
     let mut painted = Vec::new();
     let start = Instant::now();
@@ -68,10 +64,8 @@ fn settle(painters: &mut Painters) -> Vec<Target> {
         painted.extend(painters.poll());
         std::thread::sleep(Duration::from_millis(20));
     }
-    // The reader thread may finish a moment after its painter.
     std::thread::sleep(Duration::from_millis(100));
     painted.extend(painters.poll());
-    // Each poll deduplicates its own batch, not notifications across polls.
     let mut unique = Vec::new();
     for target in painted {
         if !unique.contains(&target) {
@@ -102,14 +96,12 @@ echo '{"slot":"shot","file":"two.png","frames":2,"move":["bob","wobble"]}'"#,
     painters.start(painter, job);
     let painted = settle(&mut painters);
     assert_eq!(painted, vec![Target::Card(card.clone())]);
-    // The painter read its job.
     let asked: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(out.join("job.json")).unwrap()).unwrap();
     assert_eq!(asked["wish"], "flaming arrows");
     assert_eq!(asked["slots"][0]["slot"], "shot");
     assert_eq!(asked["slots"][0]["frames"], 2);
     assert_eq!(asked["slots"][0]["side"], 16);
-    // The card ends with the second painting alone, its draw block gone.
     let text = std::fs::read_to_string(&card).unwrap();
     let sha = angel_live::host::sha256_hex(&std::fs::read(out.join("two.png")).unwrap());
     let name = format!("fire-bow-shot-{}.png", &sha[..12]);
@@ -124,7 +116,6 @@ echo '{"slot":"shot","file":"two.png","frames":2,"move":["bob","wobble"]}'"#,
         1,
         "the first painting is let go"
     );
-    // Republished: read again, the run's book draws the painting.
     let painted = card_from(&card, &sheets, &together_sheets::paint_dir(&root)).unwrap();
     let mut run = crate::together_shooter::Run::new(0, 9, None);
     run.book = book;
@@ -147,7 +138,6 @@ fn a_failing_or_babbling_painter_changes_nothing() {
     let (root, card) = workspace("fail");
     let job = card_job(&root, &card);
     std::fs::create_dir_all(&job.out).unwrap();
-    // Not transparent: the card would turn it away.
     image::RgbaImage::from_pixel(64, 32, image::Rgba([9, 9, 9, 255]))
         .save(job.out.join("flat.png"))
         .unwrap();
@@ -218,8 +208,6 @@ wish other | Other\n\
 say other\n\
 tier damage 1 :: More.\n";
     let new = with_paint(raw, Some(("fire-shot", 2)), "wish-fire-shot-2", Slot::Shot, &paint("p.png", 1), None).unwrap();
-    // The tier-2 look gives way, keeping its motion; tier 1's stays; the
-    // next entry is untouched.
     assert_eq!(
         new,
         "wish fire-shot | Fire Shot\n\
@@ -267,9 +255,6 @@ fn a_levels_look_is_named_for_its_tier_over_the_learners_own() {
     let mut pixel = paint("wish-fire-shot-3-shot-0123.png", 2);
     pixel.pixel = true;
     let new = with_paint(ENTRY, Some(("fire-shot", 3)), "wish-fire-shot-3", Slot::Shot, &pixel, Some((1, &rows))).unwrap();
-    // The learner's look stays (its grade), the painter's comes after it,
-    // named for tier 1, its rows as many frames as the painting; the next
-    // entry is untouched.
     assert_eq!(
         new,
         "wish fire-shot | Fire Shot\n\
@@ -290,13 +275,11 @@ wish other | Other\n\
 say other\n\
 tier damage 1 :: More.\n"
     );
-    // Another level's look joins it; the same level's replaces it.
     let three = with_paint(&new, Some(("fire-shot", 3)), "wish-fire-shot-3", Slot::Shot, &paint("wish-fire-shot-3-shot-4567.png", 1), Some((3, &rows))).unwrap();
     assert!(three.contains("0123.png") && three.contains("paint shot wish-fire-shot-3-shot-4567.png frames=1 move=stretch tier=3\n..33..\n"), "{three}");
     let again = with_paint(&three, Some(("fire-shot", 3)), "wish-fire-shot-3", Slot::Shot, &paint("wish-fire-shot-3-shot-89ab.png", 1), Some((1, &rows))).unwrap();
     assert!(!again.contains("0123") && again.contains("4567") && again.contains("89ab.png frames=1 move=stretch tier=1"), "{again}");
     assert!(again.contains("draw shot move=stretch\n.k22."), "the learner's look stays: {again}");
-    // A top picture alone takes the top tier's place.
     let alone = with_paint(&again, Some(("fire-shot", 3)), "wish-fire-shot-3", Slot::Shot, &paint("wish-fire-shot-3-shot-cdef.png", 1), None).unwrap();
     assert!(!alone.contains("4567") && alone.contains("89ab") && alone.contains("cdef.png frames=1 move=stretch tier=3\n\nwish other"), "{alone}");
 }
@@ -307,13 +290,11 @@ fn a_card_with_rows_is_its_painting_alone() {
     let new = with_paint(CARD, None, "fire-bow", Slot::Shot, &paint("fire-bow-shot-0123.png", 2), Some((1, &rows))).unwrap();
     assert!(!new.contains("draw shot"), "{new}");
     assert!(new.ends_with("paint shot fire-bow-shot-0123.png frames=2\n..33..|..33..\n.3333.|.3333.\n"), "{new}");
-    // Four-frame rows under a one-frame painting: the first frame.
     let four = vec!["1|2|3|4".to_string()];
     assert_eq!(fit_rows(&four, 1), vec!["1".to_string()]);
     assert_eq!(fit_rows(&four, 4), four);
 }
 
-/// A learned workspace: ENTRY learned in it.
 fn learned_workspace(name: &str) -> (PathBuf, PathBuf) {
     let root = std::env::temp_dir().join(format!("wish-painter-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
@@ -336,8 +317,6 @@ fn learned_job(root: &Path, book: &Path, level: usize) -> Job {
     job(root, target, &card, "fire shot", &slots(&card), (level, 3))
 }
 
-/// The learned wish as the book reads it from the workspace, its pictures
-/// cut and kept.
 fn read_back(root: &Path, book: &Path) -> phrasebook::Wish {
     let raw = std::fs::read_to_string(book).unwrap();
     let (inlined, errors) = together_files::phrasebook_with_sheets(&raw, &together_sheets::dir(root), &together_sheets::paint_dir(root));
@@ -347,7 +326,6 @@ fn read_back(root: &Path, book: &Path) -> phrasebook::Wish {
     wishes.into_iter().find(|w| w.id == "fire-shot").unwrap()
 }
 
-/// A one-frame picture in the job's folder: a `side` square of `ink`.
 fn pixel_picture(path: &Path, side: u32, frames: u32, colour: [u8; 3]) {
     let image = image::RgbaImage::from_fn(side * frames + 2 * frames, side + 2, |x, y| {
         let x = x % (side + 2);
@@ -364,7 +342,6 @@ fn pixel_picture(path: &Path, side: u32, frames: u32, colour: [u8; 3]) {
 fn each_level_shows_its_own_look_as_drawn_and_the_grade_holds() {
     let (root, book) = learned_workspace("levels");
     let job = learned_job(&root, &book, 1);
-    // The painter was told the rows as shown, their size, and the levels.
     let asked: serde_json::Value = serde_json::from_str(&job.input).unwrap();
     assert_eq!(asked["slots"][0]["rows"], serde_json::json!([".k22.", "k2222", ".k22."]));
     assert_eq!(asked["slots"][0]["size"], serde_json::json!([5, 3]));
@@ -376,7 +353,6 @@ fn each_level_shows_its_own_look_as_drawn_and_the_grade_holds() {
     pixel_picture(&job.out.join("low.png"), 5, 1, [200, 40, 20]);
     pixel_picture(&job.out.join("high.png"), 20, 1, [40, 200, 20]);
     pixel_picture(&job.out.join("strip.png"), 20, 4, [40, 20, 200]);
-    // Bad lines change nothing.
     for bad in [
         r#"{"slot":"shot","level":1,"file":"low.png","rows":["..ZZ..","..qq*."]}"#,
         r#"{"slot":"shot","level":1,"file":"low.png","rows":["kkkkkkkkkkkkkkkkkkkkkkkkkkkk"]}"#,
@@ -397,8 +373,6 @@ fn each_level_shows_its_own_look_as_drawn_and_the_grade_holds() {
     let wish = read_back(&root, &book);
     assert_eq!(wish.grade(), before, "the learner's drawing is still what is graded");
     let shot = |t: usize| read_back(&root, &book).card(t).unwrap().looks.shot.unwrap();
-    // Each level its own look, as drawn: the low one first, the high one
-    // above, a picture and the pixel word at every level.
     assert_eq!(shot(0).frames[0], vec![".1111.", "111111", ".1111."]);
     assert_eq!(shot(1).frames[0], vec![".3333.", "333333", ".3333."]);
     for t in 0..3 {
@@ -406,12 +380,10 @@ fn each_level_shows_its_own_look_as_drawn_and_the_grade_holds() {
         assert_eq!(shot(t).moves, vec![Move::Stretch], "tier {t}");
     }
     assert_eq!(shot(1).paint, shot(2).paint, "one picture, two levels");
-    // The top level's animation: four frames, the rows held still.
     let anim = r#"{"slot":"shot","level":3,"file":"strip.png","frames":4,"pixel":true,"rows":[".3333.","333333",".3333."]}"#;
     assert_eq!(apply(&job, anim), Ok(Applied::Written));
     assert_eq!(shot(2).frames.len(), 4);
     assert_eq!(shot(1).frames.len(), 1);
-    // Three pictures written, two still named: the one let go is gone.
     let sheets: Vec<_> = std::fs::read_dir(together_sheets::dir(&root)).unwrap().flatten().collect();
     assert_eq!(sheets.len(), 3, "low, high and the strip");
     let _ = std::fs::remove_dir_all(&root);
@@ -428,7 +400,6 @@ fn a_climb_starts_the_painter_again_first_in_line_and_a_restart_carries_on() {
     painters.start(painter.clone(), grant);
     assert_eq!(painters.level(&key), Some(1));
     assert!(out.join("job.json").is_file(), "kept with the pictures");
-    // The same level again asks for nothing; a higher one goes first in line.
     assert!(!painters.climbed(&key, 1, || None));
     for n in 1..MAX_RUNNING - 1 {
         let mut job = learned_job(&root, &book, 1);
@@ -456,7 +427,6 @@ fn a_climb_starts_the_painter_again_first_in_line_and_a_restart_carries_on() {
     }
     assert!(asked().contains("\"level\":2"), "the climb's painter was told its level");
     painters.stop();
-    // A restarted host knows the wish from its folder, at the level kept.
     let mut fresh = Painters::default();
     let target = Target::Learned { phrasebook: book.clone(), wish: "fire-shot".into(), top: 3 };
     let kept = Job::kept(&root, &key, target).expect("its job is kept");
@@ -493,7 +463,6 @@ fn a_painter_in_the_background_holds_no_place() {
     for out in &outs {
         assert!(out.join("started").is_file(), "{} ran", out.display());
     }
-    // A reforged card asked again stops its older painter.
     let mut again = card_text.clone();
     again.id = "fire-bow-0".into();
     let quiet = script(&root, "quiet", "sleep 2");

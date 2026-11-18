@@ -1,12 +1,6 @@
-# The combat group's small kit: Data pairs and the state tree's field
-# accessors. `cb.*` names are helpers that belong to no Rust file.
-
-# A reusable pair (Bend's `A & B` is affine and cannot be split with `+`).
 def cb.DP(-A: Data, -B: Data) -> Data:
   Sigma<&2, &2, A, _ => B>
 
-# Reading a field of a state object (a missing or null field reads as the
-# Rust Default).
 def cb.gj(+o: J.Val, +k: String) -> J.Val:
   J.get(o, k)
 
@@ -25,7 +19,6 @@ def cb.gs(+o: J.Val, +k: String) -> String:
 def cb.gw(+o: J.Val, +k: String) -> W.W:
   W.of_j(J.get(o, k))
 
-# Writing one; the caller owns the skip_serializing_if rule of the field.
 def cb.sj(+o: J.Val, +k: String, +v: J.Val) -> J.Val:
   J.set(o, k, v)
 
@@ -47,7 +40,6 @@ def cb.sw(+o: J.Val, +k: String, +v: W.W) -> J.Val:
 def cb.del(+o: J.Val, +k: String) -> J.Val:
   J.del(o, k)
 
-# An (f32, f32) tuple in the state is a two-item array.
 def cb.pair(+a: J.Val) -> Sigma<&2, &2, F32, _ => F32>:
   (J.f32(J.nth(a, 0)), J.f32(J.nth(a, 1)))
 
@@ -60,11 +52,9 @@ def cb.gp(+o: J.Val, +k: String) -> Sigma<&2, &2, F32, _ => F32>:
 def cb.sp(+o: J.Val, +k: String, +x: F32, +y: F32) -> J.Val:
   J.set(o, k, cb.of_pair(x, y))
 
-# A string equals a literal (string patterns do not match in Bend).
 def cb.is(+o: J.Val, +k: String, +want: String) -> Bool:
   String.eq(J.str(J.get(o, k)), want)
 
-# [0, n)
 def cb.range.go(more: Bool, +i: U32, +n: U32) -> List<&2, U32>:
   match more:
     case True{}:
@@ -75,7 +65,6 @@ def cb.range.go(more: Bool, +i: U32, +n: U32) -> List<&2, U32>:
 def cb.range(+n: U32) -> List<&2, U32>:
   cb.range.go(U32.is_lt(0, n), 0, n)
 
-# Option fields: null (or absent) is None.
 def cb.mu(+v: J.Val) -> Maybe<&2, U32>:
   match v:
     case J.JNull{}:
@@ -175,7 +164,6 @@ def cb.sow(+o: J.Val, +k: String, +m: Maybe<&2, W.W>) -> J.Val:
     case None{}:
       J.set(o, k, J.JNull{})
 
-# skip_serializing_if variants: the key leaves the object at its default.
 def cb.su0(+o: J.Val, +k: String, +v: U32) -> J.Val:
   cb.skip.if(U32.is_zero(v), o, k, J.of_u32(v))
 
@@ -208,7 +196,6 @@ def cb.sp0.go(p: Sigma<&2, &2, F32, _ => F32>, +o: J.Val, +k: String) -> J.Val:
 def cb.sp0(+o: J.Val, +k: String, +p: Sigma<&2, &2, F32, _ => F32>) -> J.Val:
   cb.sp0.go(p, o, k)
 
-# Pushing onto an array held in an object (a Rust `Vec::push` on a field).
 def cb.push(+o: J.Val, +k: String, +v: J.Val) -> J.Val:
   J.set(o, k, J.push(J.get(o, k), v))
 
@@ -218,7 +205,6 @@ def cb.len(+o: J.Val, +k: String) -> U32:
 def cb.sskip(+o: J.Val, +k: String, +v: String, +omit: String) -> J.Val:
   cb.skip.if(String.eq(v, omit), o, k, J.of_str(v))
 
-# A state value written as BJ1 text (floats as f + 8 hex digits of the f32).
 def cb.lit(+text: String) -> J.Val:
   cb.lit.go(B.read(text))
 
@@ -229,7 +215,6 @@ def cb.lit.go(r: B.Read) -> J.Val:
     case B.Bad{at}:
       J.JNull{}
 
-# Rust's `as` casts and the like, short.
 def cb.f(+n: U32) -> F32:
   RS.u_as_f32(n)
 
@@ -251,7 +236,6 @@ def cb.sub0(+a: U32, +b: U32) -> U32:
 def cb.add0(+a: U32, +b: U32) -> U32:
   RS.u_sat_add(a, b)
 
-# A Vec<Projectile>-shaped list, as the state holds it.
 def cb.nth_pair(+a: J.Val, +i: U32) -> Sigma<&2, &2, F32, _ => F32>:
   cb.pair(J.nth(a, i))
 
@@ -263,7 +247,6 @@ def cb.pair_zero.go(+p: Sigma<&2, &2, F32, _ => F32>) -> Bool:
   (+x, +y) = p
   Bool.and(F32.is_eq(x, 0.0), F32.is_eq(y, 0.0))
 
-# A reusable pair as the affine pair the other groups' functions take.
 def cb.aff(+p: Sigma<&2, &2, F32, _ => F32>) -> F32 & F32:
   cb.aff.go(p)
 
@@ -316,15 +299,12 @@ def cb.of_opt_pair(+m: Maybe<&2, Sigma<&2, &2, F32, _ => F32>>) -> J.Val:
     case None{}:
       J.JNull{}
 
-# Rust's `Deeds::default()`.
 def foes.Deeds.default() -> J.Val:
   cb.lit("{\"clouds\":[],\"pulls\":[],\"sweeps\":[],\"sounds\":[],\"shake\":0,\"spawns\":[],\"kegs\":[],\"lobs\":[],\"flings\":[],\"wells\":[],\"rams\":[],\"escaped\":[],\"cues\":[],\"hooks\":[],\"webs\":[],\"rot\":[],\"slams\":[],\"ravages\":[],\"bursts\":[],\"holes\":[],\"crit\":{\"erupts\":[],\"bashes\":[],\"globs\":[],\"rings\":[],\"rams\":[]},\"swamp\":{\"grabs\":[],\"lures\":[]}}")
 
-# An (x, y) pair held as a Data pair, as the state's [x, y].
 def cb.pair_j(+p: Sigma<&2, &2, F32, _ => F32>) -> J.Val:
   cb.of_pair2(p)
 
-# A BTreeMap<u32, _> key back to its number.
 def cb.key_u32(+k: String) -> U32:
   cb.key_u32.go(U32.read(k))
 

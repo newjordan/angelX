@@ -1,12 +1,3 @@
-// Case generator for the numerics group (test tooling, not product code).
-//
-//   ~/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin/rustc -O gen_cases.rs -o gen_cases
-//   DELVE_CASES=<dir> ./gen_cases [per-function count] [seed]
-//   (ONLY=RS.f_sin,RS.f_cos limits the functions written)
-//
-// Writes `{"fn":"W.add","in":[..],"out":..}` JSONL, one file per function.
-// Floats are printed as the exact f64 of the f32 (so they read back exactly);
-// NaN and the infinities are the strings "nan", "inf", "-inf".
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -30,7 +21,6 @@ impl Rng {
     }
 }
 
-// An input float. NaN keeps its sign (copysign reads it) as "nan" / "-nan".
 fn jf(x: f32) -> String {
     if x.is_nan() {
         (if x.is_sign_negative() { "\"-nan\"" } else { "\"nan\"" }).into()
@@ -59,7 +49,6 @@ impl Out {
         let w = self.files.entry(name.to_string()).or_insert_with(|| {
             BufWriter::new(File::create(format!("{}/{}.jsonl", dir, name)).unwrap())
         });
-        // outputs compare NaN by class only
         let out = if out == "\"-nan\"" { "\"nan\"".to_string() } else { out };
         writeln!(w, "{{\"fn\":\"{}\",\"in\":[{}],\"out\":{}}}", name, inp.join(","), out).unwrap();
     }
@@ -80,7 +69,6 @@ fn special_f32() -> Vec<f32> {
     v
 }
 
-// A float from a mix of strategies: raw bits, ranges, small integers and halves, specials.
 fn fany(r: &mut Rng, sp: &[f32]) -> f32 {
     match r.below(10) {
         0 | 1 => loop {
@@ -96,7 +84,6 @@ fn fany(r: &mut Rng, sp: &[f32]) -> f32 {
         6 => r.range(-1.0, 1.0),
         7 => r.range(-100000.0, 100000.0),
         8 => {
-            // near an integer or half, a few ulps off
             let base = (r.below(2000) as f32 - 1000.0) / 2.0;
             f32::from_bits((base.to_bits() as i64 + r.below(7) as i64 - 3) as u32)
         }
@@ -157,7 +144,6 @@ fn main() {
     let seed: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(0x9E3779B97F4A7C15);
     let dir = std::env::var("DELVE_CASES").expect("set DELVE_CASES to the case output directory");
     std::fs::create_dir_all(&dir).unwrap();
-    // ONLY=RS.f_sin,RS.f_cos limits the output to those functions (for bulk runs).
     let only = std::env::var("ONLY").ok().map(|v| v.split(',').map(|x| x.to_string()).collect());
     let mut o = Out { dir, only, files: HashMap::new() };
     let mut r = Rng(seed | 1);
@@ -167,7 +153,6 @@ fn main() {
     let su = |x: u32| x.to_string();
     let sb = |x: bool| (if x { "true" } else { "false" }).to_string();
 
-    // ---- W (u64) ----
     for _ in 0..n {
         let (a, b) = (u64any(&mut r), u64any(&mut r));
         let nsh = match r.below(3) { 0 => r.below(64) as u32, 1 => r.below(130) as u32, _ => u32any(&mut r) };
@@ -215,7 +200,6 @@ fn main() {
         o.emit("W.trailing_zeros", &[s(a)], su(a.trailing_zeros()));
         o.emit("W.as_f32", &[s(a)], jf(a as f32));
     }
-    // u64 -> f32 rounding edge cases (ties at the 24-bit boundary)
     for e in 24..64u32 {
         for k in 0..16u64 {
             let base = (1u64 << e) | (k << (e - 24).saturating_sub(4));
@@ -226,7 +210,6 @@ fn main() {
         }
     }
 
-    // ---- more u64 and i64 (carried as u64 bit patterns) ----
     for _ in 0..n {
         let (a, b) = (u64any(&mut r), u64any(&mut r));
         let e = r.below(40) as u32;
@@ -263,7 +246,6 @@ fn main() {
         let i32v = i32any(&mut r);
         o.emit("W.s_of_i32", &[si(i32v)], s(i32v as i64 as u64));
     }
-    // ---- i32 / u32 ----
     for _ in 0..n {
         let (a, b) = if r.below(3) == 0 { (i32small(&mut r), i32small(&mut r)) } else { (i32any(&mut r), i32any(&mut r)) };
         let c = i32any(&mut r);
@@ -283,7 +265,6 @@ fn main() {
             o.emit("RS.i_div_euclid", &ab, si(a.div_euclid(b)));
             o.emit("RS.i_rem_euclid", &ab, si(a.rem_euclid(b)));
         } else if b != 0 && a == i32::MIN && b == -1 {
-            // wrapping_rem_euclid is 0, quotient wraps
             o.emit("RS.i_rem_euclid", &ab, si(a.wrapping_rem_euclid(b)));
         }
         o.emit("RS.i_lt", &ab, sb(a < b));
@@ -329,7 +310,6 @@ fn main() {
         o.emit("RS.i_as_f32", &[si(a)], jf(a as f32));
     }
 
-    // ---- f32 ----
     for _ in 0..n {
         let (x, y) = (fany(&mut r, &sp), fany(&mut r, &sp));
         let z = fany(&mut r, &sp);
@@ -383,14 +363,12 @@ fn main() {
         o.emit("RS.f_cos", &[jf(x)], jf(x.cos()));
         o.emit("RS.f_exp", &[jf(x)], jf(x.exp()));
         o.emit("RS.f_ln", &[jf(x)], jf(x.ln()));
-        // powi: small and large exponents, both signs
         let e = match r.below(4) { 0 => i32small(&mut r) % 12, 1 => i32small(&mut r), 2 => i32any(&mut r) % 100, _ => i32any(&mut r) };
         o.emit("RS.f_powi", &[jf(x), si(e)], jf(x.powi(e)));
         let b = match r.below(3) { 0 => r.range(0.0, 10.0), 1 => r.range(0.0, 2.0), _ => ffin(&mut r, &sp).abs() };
         let p = match r.below(3) { 0 => r.range(-4.0, 4.0), 1 => (r.below(9) as f32 - 4.0) / 2.0, _ => ffin(&mut r, &sp) };
         o.emit("RS.f_powf", &[jf(b), jf(p)], jf(b.powf(p)));
         o.emit("RS.f_powf", &xy, jf(x.powf(y)));
-        // sin / cos on game-sized angles
         let a = match r.below(3) { 0 => r.range(-7.0, 7.0), 1 => r.range(-130.0, 130.0), _ => r.range(-2000.0, 2000.0) };
         o.emit("RS.f_sin", &[jf(a)], jf(a.sin()));
         o.emit("RS.f_cos", &[jf(a)], jf(a.cos()));
@@ -398,7 +376,6 @@ fn main() {
         o.emit("RS.f_exp", &[jf(ex)], jf(ex.exp()));
         let lx = match r.below(3) { 0 => r.range(0.0, 10.0), 1 => r.range(0.0, 1000.0), _ => f32::from_bits(((r.next() >> 33) as u32) & 0x7fff_ffff) };
         o.emit("RS.f_ln", &[jf(lx)], jf(lx.ln()));
-        // two-argument functions on game-sized values
         let (gy, gx) = (r.range(-300.0, 300.0), r.range(-300.0, 300.0));
         o.emit("RS.f_hypot", &[jf(gy), jf(gx)], jf(gy.hypot(gx)));
         o.emit("RS.f_atan2", &[jf(gy), jf(gx)], jf(gy.atan2(gx)));
@@ -408,7 +385,6 @@ fn main() {
         o.emit("RS.f_round", &[jf(gy)], jf(gy.round()));
         o.emit("RS.f_round", &[jf(hy)], jf(hy.round()));
     }
-    // exp / ln / powf near their limits and special inputs
     for _ in 0..n {
         let x = match r.below(4) { 0 => r.range(-110.0, -80.0), 1 => r.range(80.0, 90.0), 2 => r.range(-104.5, -102.5), _ => r.range(88.0, 89.0) };
         o.emit("RS.f_exp", &[jf(x)], jf(x.exp()));
@@ -428,7 +404,6 @@ fn main() {
         let ex = 127.0 + r.unit() * 2.0;
         o.emit("RS.f_powf", &[jf(2.0), jf(ex)], jf(2.0f32.powf(ex)));
     }
-    // atan2 with a subnormal result: exact ties between two floats
     for _ in 0..n {
         let yb = f32::from_bits(((r.next() >> 41) as u32 & 0x7fffff) | if r.below(4) == 0 { 0x00800000 } else { 0 });
         let xe = f32::from_bits(0x3f800000 + ((r.below(30) as u32) << 23)) * if r.below(2) == 0 { 1.0 } else { 3.0 };
@@ -438,7 +413,6 @@ fn main() {
         let x2 = f32::from_bits(0x4e80_0000 + ((r.next() >> 41) as u32 & 0x03ff_ffff));
         o.emit("RS.f_atan2", &[jf(y2), jf(x2)], jf(y2.atan2(x2)));
     }
-    // sin / cos right at multiples of pi/2 and pi/4, where the reduction is hardest
     for _ in 0..n {
         let k = match r.below(3) { 0 => r.below(64), 1 => r.below(100000), _ => r.below(1 << 30) } as f64;
         let q = if r.below(2) == 0 { std::f64::consts::FRAC_PI_2 } else { std::f64::consts::FRAC_PI_4 };
@@ -452,7 +426,6 @@ fn main() {
         o.emit("RS.f_sin", &[jf(big)], jf(big.sin()));
         o.emit("RS.f_cos", &[jf(-big)], jf((-big).cos()));
     }
-    // half-way values for round, and all edge pairs for min/max/hypot/atan2/rem_euclid
     for k in -300..=300 {
         for d in [0.0f32, 0.25, 0.5, 0.75] {
             let x = k as f32 + d;
@@ -478,7 +451,6 @@ fn main() {
             o.emit("RS.f_copysign", &xy, jf(x.copysign(y)));
         }
     }
-    // hypot where the squares nearly cancel the double rounding, and subnormals
     for _ in 0..n {
         let e1 = r.below(120) as i32 - 100;
         let e2 = e1 - r.below(40) as i32;
@@ -492,7 +464,6 @@ fn main() {
         let by = f32::from_bits(0x7f00_0000 + (r.next() >> 41) as u32 % 0x7fffff);
         o.emit("RS.f_hypot", &[jf(bx), jf(by)], jf(bx.hypot(by)));
     }
-    // ---- more u32, checked ops, total_cmp ----
     let so = |x: Option<u32>| match x { Some(v) => v.to_string(), None => "null".to_string() };
     let sow = |x: Option<u64>| match x { Some(v) => v.to_string(), None => "null".to_string() };
     for _ in 0..n {
@@ -524,10 +495,8 @@ fn main() {
             o.emit("RS.f_total_cmp", &[jf(x), jf(y)], (match x.total_cmp(&y) { std::cmp::Ordering::Less => "-1", std::cmp::Ordering::Equal => "0", std::cmp::Ordering::Greater => "1" }).to_string());
         }
     }
-    // ---- soft double (u64 bit patterns) ----
     let dbits = |x: f64| s(x.to_bits());
     let rd = |r: &mut Rng| -> f64 {
-        // a normal double: random sign, exponent in a wide but safe range, any mantissa
         let e = match r.below(4) { 0 => r.below(60) as i64 - 30, 1 => r.below(200) as i64 - 100, _ => r.below(500) as i64 - 250 };
         let mant = match r.below(6) { 0 => 0, 1 => (1u64 << 52) - 1, 2 => 1u64 << r.below(52), _ => r.next() & ((1u64 << 52) - 1) };
         let sign = r.below(2);
@@ -540,17 +509,14 @@ fn main() {
         o.emit("RS.d_add", &[dbits(a), dbits(c)], dbits(nz(a + c)));
         o.emit("RS.d_sub", &[dbits(a), dbits(c)], dbits(nz(a - c)));
         o.emit("RS.d_fma", &[dbits(a), dbits(b), dbits(c)], dbits(nz(a.mul_add(b, c))));
-        // addend close to -(a*b): cancellation
         let p = a * b;
         let near = f64::from_bits((p.to_bits() as i64 + r.below(9) as i64 - 4) as u64);
         let c2 = -near;
         o.emit("RS.d_fma", &[dbits(a), dbits(b), dbits(c2)], dbits(nz(a.mul_add(b, c2))));
-        // addend of about the same size, or a few bits off
         let c3 = f64::from_bits(((p.to_bits() as i64) + (r.below(200) as i64 - 100) * (1i64 << r.below(52))) as u64) * if r.below(2) == 0 { 1.0 } else { -1.0 };
         if c3.is_finite() && c3 != 0.0 {
             o.emit("RS.d_fma", &[dbits(a), dbits(b), dbits(c3)], dbits(nz(a.mul_add(b, c3))));
         }
-        // far apart exponents
         let c4 = f64::from_bits(c.to_bits() ^ 0).copysign(a) * 2f64.powi(r.below(160) as i32 - 80);
         if c4.is_finite() && c4 != 0.0 && c4.abs() > 1e-250 && c4.abs() < 1e250 {
             o.emit("RS.d_fma", &[dbits(a), dbits(b), dbits(c4)], dbits(nz(a.mul_add(b, c4))));
@@ -559,11 +525,9 @@ fn main() {
         if f.is_finite() && f != 0.0 {
             o.emit("RS.d_of_f32", &[jf(f)], dbits(f as f64));
         }
-        // double -> f32 across the normal, subnormal and overflow ranges
         let e = r.below(340) as i32 - 190;
         let dv = (1.0 + (r.next() >> 11) as f64 / (1u64 << 53) as f64) * 2f64.powi(e) * if r.below(2) == 0 { 1.0 } else { -1.0 };
         o.emit("RS.d_to_f32", &[dbits(dv)], jf(dv as f32));
-        // a double that is nearly a tie between two f32
         let fb = f32::from_bits((r.next() >> 33) as u32 & 0x7f7fffff) as f64;
         let ulp = f32::from_bits(((fb as f32).to_bits() + 1) & 0x7fffffff) as f64 - fb;
         let tie = fb + ulp / 2.0;
@@ -577,7 +541,6 @@ fn main() {
         let tv = (r.range(-1.0, 1.0) as f64) * 2f64.powi(r.below(31) as i32);
         o.emit("RS.d_trunc_i32", &[dbits(tv)], si(tv as i32));
     }
-    // u32 -> f32 cast ties
     for _ in 0..n {
         let k = (r.next() >> 33) as u32 | 0x8000_0000;
         let u = k >> r.below(8) as u32;

@@ -8,7 +8,6 @@ impl ViewerArt for Shelf {
 
     #[cfg(feature = "glass")]
     fn squires() -> (Option<[[u8; 3]; 3]>, Vec<[[u8; 3]; 3]>, Vec<Vec<String>>) {
-        // The console still shows the Keep's own squire without a cartridge.
         (None, Vec::new(), vec![vec!["A squire of the Keep".to_string()]])
     }
 }

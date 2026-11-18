@@ -25,45 +25,23 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
-/// One frame of mini-viz content, handed to [`show`].
-#[allow(dead_code)] // Mesh (and Stage/Layers producers) land in later slices.
+#[allow(dead_code)]
 pub(crate) enum Showing {
-    /// Pixels, straight (not premultiplied) RGBA. `key` identifies
-    /// the content: the same key at the same size is uploaded once.
-    /// Per-frame producers whose pixels are expensive to make should
-    /// prefer [`picture`], which only asks for them on a cache miss.
     Picture { key: u64, width: u32, height: u32, rgba: Vec<u8> },
-    /// Declared window layers, in absolute cell placements. Nothing
-    /// is clipped to the anchor: a layer may break out of it and
-    /// float over the terminal. Layer ids are the caller's, unique
-    /// within this showing.
     #[cfg(feature = "glass")]
     Layers(Vec<angel_glass::Layer>),
-    /// A glass stage: layers in the stage's own pixels, drawn by the
-    /// window into its own texture at the window's density. It is
-    /// presented under the mini-viz's stage id in the anchor's
-    /// cells; the handed-over `id`, `cols` and `rows` are replaced.
     #[cfg(feature = "glass")]
     Stage(Box<angel_glass::Stage>),
-    /// One frame of a video stream: pixels like [`Showing::Picture`],
-    /// but uploaded on every showing — frames change, so Picture's
-    /// upload-once would freeze the first one. `key` identifies the
-    /// stream (the caller hashes its source), so its frames keep one
-    /// window picture, overwritten in place at the same size.
     Video {
         key: u64,
         width: u32,
         height: u32,
         rgba: Vec<u8>,
     },
-    /// A 3D scene by name/path. Declared, not yet presentable.
     Mesh { scene: String },
 }
 
-/// Present `showing` in the mini-viz anchored at `anchor`. `true`
-/// when the window took it; `false` outside the window, or for a
-/// kind glass cannot present yet — the caller then paints cells.
-#[allow(dead_code)] // First producers (stills, layers) land in later slices.
+#[allow(dead_code)]
 pub(crate) fn show(showing: &Showing, anchor: Rect, buffer: &mut Buffer) -> bool {
     match showing {
         Showing::Picture { key, width, height, rgba } => {
@@ -86,11 +64,6 @@ pub(crate) fn show(showing: &Showing, anchor: Rect, buffer: &mut Buffer) -> bool
     }
 }
 
-/// Present a decoded video frame of `source` at decode `sequence` and
-/// `size`, fit inside `anchor`. One held picture per source, like
-/// [`Showing::Video`]: a new sequence overwrites it in place, and a
-/// repaint of the same frame uploads nothing. `pixels` runs only for
-/// a new frame inside the glass window.
 pub(crate) fn video(
     source: &str,
     sequence: u64,
@@ -124,17 +97,11 @@ pub(crate) fn video(
     shown
 }
 
-/// The last decode sequence [`video`] uploaded, per source key.
 #[cfg(feature = "glass")]
 static VIDEO_SEQUENCES: std::sync::LazyLock<
     std::sync::Mutex<std::collections::HashMap<u64, u64>>,
 > = std::sync::LazyLock::new(Default::default);
 
-/// Present a scrolled document (`receipt` + `text` at `scroll`) as a
-/// high-density rasterized page inside `anchor`. Rasterization via `swash` in
-/// `angel-glass` runs only on a cache miss in the glass window; outside the
-/// window (or when no font is available) this returns `false` and the caller
-/// paints cells as before.
 pub(crate) fn document(
     receipt: &str,
     text: &str,
@@ -181,12 +148,6 @@ pub(crate) fn document(
     }
 }
 
-/// Present pixels identified by `key` at `size`, fit inside `anchor`.
-/// `pixels` runs only when the surface does not already hold this
-/// key at this size, and never outside the window — a terminal
-/// caller pays nothing for asking. The bytes must be straight RGBA
-/// of exactly `size.0 * size.1 * 4`; anything else is refused
-/// (returns `false`) with the anchor untouched.
 pub(crate) fn picture(
     key: u64,
     size: (u32, u32),
@@ -197,12 +158,6 @@ pub(crate) fn picture(
     present_picture(key, size, anchor, buffer, None, false, pixels)
 }
 
-/// [`picture`] for one picture that changes in place, the world map: its content `key` changes
-/// every few steps and the old one is never shown again, so the picture keeps one window id (one
-/// texture, written over) for `slot` instead of a new id and a new texture for every key, which the
-/// window kept until the budget evicted them (some 700 MiB of the GPU's memory, and a texture
-/// allocated for every step). The pixels upload when `key`, `size` or the cells it spans change, as
-/// for [`picture`]; what is drawn is the same pixels.
 pub(crate) fn picture_in_place(
     slot: u64,
     key: u64,
@@ -214,9 +169,6 @@ pub(crate) fn picture_in_place(
     present_picture(key, size, anchor, buffer, Some(slot), false, pixels)
 }
 
-/// [`picture`] for a stream whose frames change: the pixels upload
-/// on every showing into the stream's held picture (see
-/// [`Showing::Video`]). `pixels` still runs only inside the window.
 pub(crate) fn stream_picture(
     key: u64,
     size: (u32, u32),
@@ -247,10 +199,6 @@ fn present_picture(
         if size.0 == 0 || size.1 == 0 || anchor.width == 0 || anchor.height == 0 {
             return false;
         }
-        // Placed by placeholder cells, like every pane picture: the
-        // window draws the texture where they sit, and cell overlays
-        // (captions, dancers) may still replace individual cells
-        // over it, exactly as they do over the pane today.
         let placed = fit_span(anchor, cell_px, size);
         let (id, upload) = {
             let mut cache = CACHE.lock().unwrap();
@@ -283,13 +231,6 @@ fn present_picture(
     }
 }
 
-/// Store pixels under content `key` at `size` for placeholder
-/// `span`, once: the window picture id, or `None` outside the
-/// window or for bytes that are not exactly `size` of straight
-/// RGBA. For producers that place their own placeholder cells (the
-/// viewer's stills, which keep their inspector); [`picture`] is
-/// this plus the mini-viz's own placement. One cache and one id
-/// band serve both, so the same still shown twice uploads once.
 pub(crate) fn upload(key: u64, size: (u32, u32), span: (u16, u16), rgba: Vec<u8>) -> Option<u32> {
     store(key, size, span, rgba, false)
 }
@@ -324,14 +265,6 @@ pub(crate) fn store(
     }
 }
 
-/// Present `lines` as one rasterized page in `anchor`: the text is
-/// rendered to pixels by the glass crate's own font stack
-/// (`angel_glass::page`, so the cockpit carries no second one) at
-/// the window's cell density, then shown as a [`picture`] under
-/// `key` — the caller hashes the visible content, so an unchanged
-/// page uploads once and only a scrolled or edited one re-renders,
-/// and only inside the window (the raster closure never runs for a
-/// terminal). `fg` is the ink; the paper is black, like the pane's.
 pub(crate) fn document_page(
     key: u64,
     lines: Vec<String>,
@@ -364,9 +297,6 @@ pub(crate) fn document_page(
     }
 }
 
-/// The presentation surface's page rasterizer: one `Pager` (a loaded
-/// font stack; loading runs fontconfig), reloaded when the window's
-/// cell height changes. `None` when no font answers.
 #[cfg(feature = "glass")]
 pub(crate) fn with_pager<R>(
     cell_height: u16,
@@ -387,8 +317,6 @@ pub(crate) fn with_pager<R>(
     held.as_mut().map(|h| f(&mut h.pager))
 }
 
-/// One upload, bytes checked: straight RGBA of exactly `size`, or
-/// nothing is sent and the caller falls back.
 #[cfg(feature = "glass")]
 fn send(
     host: &angel_glass::Host,
@@ -414,9 +342,6 @@ fn send(
     true
 }
 
-/// After each drawn frame (called from `glass::frame_done`): the
-/// mini-viz stage leaves the window on any frame that did not show
-/// it. Layer groups are swept by the glass module's own bookkeeping.
 pub(crate) fn frame_done() {
     #[cfg(feature = "glass")]
     if let Some(host) = crate::ui::glass::host() {
@@ -429,20 +354,12 @@ pub(crate) fn frame_done() {
     }
 }
 
-/// The mini-viz layer group ("MINI"): one showing at a time, swept
-/// with every other group when a frame stops drawing it.
 #[cfg(feature = "glass")]
 const GROUP: u32 = 0x4D49_4E49;
 
-/// The mini-viz stage's picture id: fits the placeholder's 24 bits
-/// and is a multiple of four, which the viewer's own pictures never
-/// are — the same discipline as the Delve's stage id, a different
-/// number.
 #[cfg(feature = "glass")]
 const STAGE_ID: u32 = 0x00B1_0B1C;
 
-/// Black paper under an anchored showing, as the pane's own cell
-/// painting lays it: the presented pixels decide the rest.
 #[cfg(feature = "glass")]
 fn blank(buffer: &mut Buffer, area: Rect) {
     for y in area.y..area.bottom() {
@@ -490,7 +407,6 @@ fn show_stage(mut stage: angel_glass::Stage, anchor: Rect, buffer: &mut Buffer) 
     true
 }
 
-/// Whether the mini-viz stage was drawn this frame, and is up at all.
 #[cfg(feature = "glass")]
 #[derive(Default)]
 struct StageState {
@@ -502,50 +418,28 @@ struct StageState {
 static STAGE_STATE: std::sync::LazyLock<std::sync::Mutex<StageState>> =
     std::sync::LazyLock::new(Default::default);
 
-/// Window pictures for presented pixels start here. Placeholder
-/// cells carry a picture id in their foreground colour — 24 bits —
-/// so unlike layer pictures (`LAYER_PICTURES` and up, carried in
-/// instance data) these ids must fit under `0x0100_0000`. The band
-/// sits past the viewer's stills (`0x00E0_0000..0x00F0_0000`) and
-/// steps by four, which the viewer's dot ids (2 mod 4) never are;
-/// the Delve's stage id lives further up the same band.
 #[cfg(feature = "glass")]
 const PICTURE_BASE: u32 = 0x00F1_0000;
-/// Ids handed out before the counter wraps (each is 4 apart, so
-/// the band ends at `0x00F4_FFFC`).
 #[cfg(feature = "glass")]
 const PICTURE_SPAN: u32 = 0x4000;
-/// Contents whose uploads the surface remembers at once; older ones
-/// are forgotten (and re-uploaded if shown again), never leaked.
 #[cfg(feature = "glass")]
 const CACHE_KEEP: usize = 64;
 
-/// Which window picture holds each content key: its pixel size and
-/// the cell span it was uploaded for (the placeholder grid the
-/// window slices by — a resized anchor needs a fresh upload).
 #[cfg(feature = "glass")]
 #[derive(Default)]
 struct Cache {
     by_key: std::collections::HashMap<u64, (u32, (u32, u32), (u16, u16))>,
     order: std::collections::VecDeque<u64>,
     next: u32,
-    /// The pictures that change in place (`picture_in_place`), each on an id of its own.
     slots: [Option<Slot>; SLOT_KEEP],
     clock: u64,
 }
 
-/// Window pictures of the pictures that change in place: one id each, in a band of their own
-/// (past the content band and short of the Delve's stage id), so no content key's id is ever one of
-/// theirs however many contents have been claimed since.
 #[cfg(feature = "glass")]
 const SLOT_BASE: u32 = 0x00F5_0000;
-/// How many such pictures at once: the world map is one; a resized pane is another until it is
-/// the least recently shown, and its id goes to the next.
 #[cfg(feature = "glass")]
 const SLOT_KEEP: usize = 8;
 
-/// What a slot holds: its name, the content now in its window picture, and the size and cell span
-/// that content was sent for.
 #[cfg(feature = "glass")]
 #[derive(Clone, Copy)]
 struct Slot {
@@ -558,10 +452,6 @@ struct Slot {
 
 #[cfg(feature = "glass")]
 impl Cache {
-    /// The picture id for `key`, and whether the caller must
-    /// upload: a held key at the same size and span needs nothing;
-    /// a new key, or either changed, uploads (again). A stream
-    /// claim always uploads — its frames change under a stable key.
     fn claim(&mut self, key: u64, size: (u32, u32), span: (u16, u16), stream: bool) -> (u32, bool) {
         if let Some((id, held_size, held_span)) = self.by_key.get_mut(&key) {
             let upload = stream || *held_size != size || *held_span != span;
@@ -581,17 +471,11 @@ impl Cache {
         (id, true)
     }
 
-    /// Drop a claim whose upload never landed, so the next showing
-    /// tries again instead of placing cells over a missing picture.
     fn forget(&mut self, key: u64) {
         self.by_key.remove(&key);
         self.order.retain(|held| *held != key);
     }
 
-    /// The window picture of the slot `name`, and whether the caller must upload: the slot keeps
-    /// its id while its content changes, and uploads when the content, its size or its cell span
-    /// differ from what the picture holds. A name not held takes a free slot, else the least
-    /// recently shown one (whose id it takes over; the picture sent under it replaces that one).
     fn claim_in_slot(&mut self, name: u64, key: u64, size: (u32, u32), span: (u16, u16)) -> (u32, bool) {
         self.clock += 1;
         let at = self
@@ -610,7 +494,6 @@ impl Cache {
         (SLOT_BASE + 4 * at as u32, upload)
     }
 
-    /// Drop a slot claim whose upload never landed.
     fn forget_slot(&mut self, name: u64) {
         for slot in &mut self.slots {
             if slot.is_some_and(|s| s.name == name) {
@@ -624,13 +507,6 @@ impl Cache {
 static CACHE: std::sync::LazyLock<std::sync::Mutex<Cache>> =
     std::sync::LazyLock::new(Default::default);
 
-/// The cells a `pic`-pixel picture occupies inside `anchor` (cells
-/// of `cell_px` window pixels each): aspect kept (contain) at the
-/// window's pixel density, centered, in whole cells — placeholder
-/// grids are whole cells by construction. The texture itself is
-/// the picture's own pixels, so clarity comes from the pixels, not
-/// from subdividing cells. Any zero in the inputs keeps the whole
-/// anchor, and the caller has already refused to present.
 #[cfg(any(feature = "glass", test))]
 pub(crate) fn fit_span(anchor: Rect, cell_px: (u16, u16), pic: (u32, u32)) -> Rect {
     if cell_px.0 == 0 || cell_px.1 == 0 || pic.0 == 0 || pic.1 == 0 {
@@ -656,17 +532,11 @@ mod tests {
     #[test]
     fn fit_keeps_aspect_and_centers() {
         let anchor = Rect::new(10, 5, 40, 20);
-        let cell = (10, 20); // anchor is 400x400 window pixels
-        // Square picture: fills exactly.
+        let cell = (10, 20);
         assert_eq!(fit_span(anchor, cell, (200, 200)), Rect::new(10, 5, 40, 20));
-        // Wide picture: full width, letterboxed (100px at scale 1 is
-        // 5 rows of 20px; (20-5)/2 rounds down to a 7-row top margin).
         assert_eq!(fit_span(anchor, cell, (400, 100)), Rect::new(10, 12, 40, 5));
-        // Tall picture: full height, pillarboxed.
         assert_eq!(fit_span(anchor, cell, (100, 400)), Rect::new(25, 5, 10, 20));
-        // A picture at the exact pixel size sits one to one.
         assert_eq!(fit_span(anchor, cell, (400, 400)), Rect::new(10, 5, 40, 20));
-        // Degenerate inputs keep the whole anchor.
         assert_eq!(fit_span(anchor, (0, 20), (100, 100)), anchor);
         assert_eq!(fit_span(anchor, cell, (0, 100)), anchor);
     }
@@ -678,7 +548,6 @@ mod tests {
         assert!(!document("receipt", "hello", 0, anchor, &mut buffer));
         assert!(!video("ride.mp4", 1, (2, 2), anchor, &mut buffer, || vec![0; 16]));
         assert!(!show(&Showing::Mesh { scene: "keep".into() }, anchor, &mut buffer));
-        // A video frame outside the window is refused like a picture.
         assert!(!show(
             &Showing::Video {
                 key: 1,
@@ -689,15 +558,12 @@ mod tests {
             anchor,
             &mut buffer
         ));
-        // No window in a test: a picture is refused and its pixels
-        // are never asked for — the terminal path pays nothing.
         let asked = std::cell::Cell::new(false);
         assert!(!picture(7, (4, 4), anchor, &mut buffer, || {
             asked.set(true);
             vec![0; 64]
         }));
         assert!(!asked.get(), "pixels are only made for the window");
-        // The stills' upload doors likewise need the window.
         assert_eq!(upload(7, (2, 2), (1, 1), vec![0; 16]), None);
         assert_eq!(store(7, (2, 2), (1, 1), vec![0; 16], true), None);
     }
@@ -733,7 +599,6 @@ mod tests {
         assert!(up, "a failed upload is retried, not remembered as held");
         let (other, up) = cache.claim(43, (10, 10), (4, 2), false);
         assert!(up && other != id, "another key, another picture");
-        // Flood past the keep limit: key 42 is forgotten.
         for k in 100..100 + CACHE_KEEP as u64 {
             cache.claim(k, (1, 1), (1, 1), false);
         }
@@ -780,14 +645,12 @@ mod tests {
         assert_eq!(cache.claim_in_slot(9, 139, (320, 180), (40, 12)), (id, false), "and settles");
         assert_eq!(cache.claim_in_slot(9, 139, (640, 360), (40, 12)), (id, true), "a new size uploads");
         assert_eq!(cache.claim_in_slot(9, 139, (640, 360), (60, 12)), (id, true), "a new span uploads");
-        // Another slot is another picture, and neither is a content key's.
         let (other, up) = cache.claim_in_slot(10, 100, (320, 180), (40, 12));
         assert!(up && other != id);
         let (content, _) = cache.claim(100, (320, 180), (40, 12), false);
         assert!(content != id && content != other, "content ids never meet slot ids");
         assert!((SLOT_BASE..SLOT_BASE + 4 * SLOT_KEEP as u32).contains(&id));
         assert!(id < 0x0100_0000 && id % 4 == 0 && id < 0x00FA_57A4, "ids survive the placeholder colour");
-        // A failed upload is retried, not remembered.
         cache.forget_slot(10);
         let (_, up) = cache.claim_in_slot(10, 100, (320, 180), (40, 12));
         assert!(up);
@@ -802,22 +665,16 @@ mod tests {
         distinct.sort_unstable();
         distinct.dedup();
         assert_eq!(distinct.len(), SLOT_KEEP, "each slot has its own id");
-        // Slot 0 is shown again: slot 1 is now the least recently shown, and a new name takes its id.
         cache.claim_in_slot(0, 0, (4, 4), (1, 1));
         let (taken, up) = cache.claim_in_slot(99, 1, (4, 4), (1, 1));
         assert_eq!(taken, ids[1]);
         assert!(up);
-        // The one it displaced uploads again when it comes back.
         assert!(cache.claim_in_slot(1, 1, (4, 4), (1, 1)).1);
     }
 
     #[cfg(feature = "glass")]
     #[test]
     fn picture_ids_survive_placeholder_encoding() {
-        // Placeholder cells carry the id in a foreground colour:
-        // 24 bits survive, and the viewer's dot ids are 2 mod 4, so
-        // presented pictures stay 0 mod 4, past its stills band and
-        // short of the Delve's stage id (0x00FA_57A4).
         let mut cache = Cache::default();
         let mut seen = std::collections::HashSet::new();
         for k in 0..300u64 {
@@ -832,7 +689,6 @@ mod tests {
 
     #[test]
     fn a_stage_does_not_inflate_showing() {
-        // Stage is boxed so a still or a video frame is not a 700-byte enum.
         assert!(std::mem::size_of::<Showing>() < 128);
     }
 }

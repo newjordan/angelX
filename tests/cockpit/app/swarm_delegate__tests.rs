@@ -41,7 +41,6 @@ fn phone_block_can_use_claim_as_question() {
     assert_eq!(reqs[0].placement, Placement::Phone("math".to_string()));
     assert!(reqs[0].cmd.is_empty());
 
-    // A mistyped placement is discarded, never silently run as local shell.
     assert!(
         parse_requests("```swarm-test\nwhere: phon:math\ncmd: cargo test\nclaim: typo\n```")
             .is_empty()
@@ -190,7 +189,7 @@ fn delegated_capture_is_bounded_and_kills_process_groups() {
 
 #[test]
 fn non_local_placements_gated_by_their_flag() {
-    let r = Router::from_env(); // env unset in test → all disabled
+    let r = Router::from_env();
     for placement in [
         Placement::Remote("spark".to_string()),
         Placement::Peer("gpu-host".to_string()),
@@ -217,7 +216,6 @@ fn phone_targets_resolve() {
     let _local_bag = crate::tests::TestEnvGuard::unset("ANGEL_LOCAL_URL");
     let _local_phone_model = crate::tests::TestEnvGuard::unset("ANGEL_PHONE_LOCAL_MODEL");
     let _local_bag_model = crate::tests::TestEnvGuard::unset("ANGEL_LOCAL_MODEL");
-    // the default / first phone is deepseek (external SOTA API)
     let (url, model, _) = phone_target("default").expect("default resolves");
     assert!(
         url.contains("deepseek"),
@@ -225,20 +223,18 @@ fn phone_targets_resolve() {
     );
     assert!(model.contains("deepseek"));
     assert!(phone_target("deepseek").is_some());
-    assert!(phone_target("math").is_some()); // alias → deepseek
+    assert!(phone_target("math").is_some());
     assert!(
         phone_target("local").is_none(),
         "no compiled local endpoint"
     );
     assert!(phone_target("spark-r1").is_none());
 
-    // The local phone rides the local box's own URL.
     let _configured =
         crate::tests::TestEnvGuard::set("ANGEL_LOCAL_URL", "http://runner.example/v1");
     let (url, model, _) = phone_target("local").expect("the local box phone resolves");
     assert_eq!(url, "http://runner.example/v1");
     assert!(model.is_empty(), "an unpinned local model follows /models");
-    // unknown + unconfigured → None
     assert!(phone_target("totally-unknown-xyz").is_none());
 }
 
@@ -302,13 +298,12 @@ fn phone_deepseek_answers() {
         eprintln!("DEEPSEEK_API_KEY is absent; skipping live phone contract");
         return;
     }
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SWARM_PHONE", "1") };
     let r = Router::from_env();
     let req = TestRequest {
         claim: "17 * 23 = 391".to_string(),
         cmd: "What is 17 * 23? Reply with just the number.".to_string(),
-        placement: Placement::Phone("default".to_string()), // → deepseek
+        placement: Placement::Phone("default".to_string()),
         why: "arithmetic check".to_string(),
     };
     let res = r.run(&req);
@@ -330,7 +325,6 @@ fn an_evidence_block_marks_a_missing_claim_with_its_page() {
         detail: "ok".to_string(),
     };
     let block = evidence_block(&[result(""), result("the parser handles empty input")]);
-    // The frame is `⠐⠚`; a request with no claim is `⠐⠚⠙`, never English.
     assert!(block.starts_with("⠐⠚\n"), "{block}");
     assert!(block.contains("  claim: ⠐⠚⠙\n"), "{block}");
     assert!(
@@ -368,7 +362,6 @@ fn incomplete_swarm_evidence_fixture() {
                 "1 passed\n",
             );
             let result = if peer {
-                // Local operator-command stand-in; it never contacts a peer.
                 router.peer_cmd = format!(
                     "exec python3 '{}'",
                     root.join(format!("peer-{stream}.py")).display()

@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-"""Run recorded cases through the combat group alone.
-
-    python3 delve/rules/combat/_tools/run.py [--max N] [--cases DIR] NAME...   (NAME = a case wrapper name, or `all`)
-
-Builds delve/build/combat.bend (mk.py), compiles the case runner against it and
-prints pass/fail per name like delve/tests/cases.py.
-"""
 import argparse
 import gzip
 import importlib.util

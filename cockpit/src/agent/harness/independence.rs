@@ -25,27 +25,16 @@ use std::path::PathBuf;
 
 use super::footprint::paths_overlap;
 
-/// One exclusive resource a child claims while it runs.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Resource {
-    /// The shared workspace root: a child that writes here claims the whole tree —
-    /// today's `tools=code` seat, and any child without a checkout of its own.
     Workspace(PathBuf),
-    /// A child's own checkout (a delegated git worktree). Worktrees live beside the
-    /// repository, not inside it, so one of these still commutes with a workspace
-    /// writer.
     Worktree(PathBuf),
-    /// A single claimed path — a file a child was told to publish, a scratch dir.
     Path(PathBuf),
-    /// A named git ref (a delegate's `angel/<run>` branch): two children may not
-    /// create, move, or delete the same ref.
     Ref(String),
-    /// A TCP port a child's service binds.
     Port(u16),
 }
 
 impl Resource {
-    /// How a refusal names this resource.
     pub(crate) fn label(&self) -> String {
         match self {
             Resource::Workspace(path) => format!("the shared workspace {}", path.display()),
@@ -56,9 +45,6 @@ impl Resource {
         }
     }
 
-    /// Do two resources exclude each other? Paths conflict when one contains the
-    /// other — the same rule the tool-call gate uses, so there is one definition of
-    /// overlapping paths in the harness, not two.
     fn conflicts(&self, other: &Resource) -> bool {
         use Resource::*;
         match (self, other) {
@@ -74,8 +60,6 @@ impl Resource {
             (Path(a), Path(b)) => paths_overlap(a, b),
             (Ref(a), Ref(b)) => a == b,
             (Port(a), Port(b)) => a == b,
-            // Distinct kinds with nothing in common (a port is not a path, and a
-            // worktree beside the workspace is not inside it).
             _ => false,
         }
     }
@@ -87,7 +71,6 @@ impl std::fmt::Display for Resource {
     }
 }
 
-/// One child's declared footprint: the seat it is judged under, and what it claims.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ChildFootprint {
     seat: String,
@@ -115,12 +98,10 @@ impl ChildFootprint {
         self
     }
 
-    /// A child that writes in the one shared checkout.
     pub(crate) fn workspace_writer(seat: impl Into<String>, root: impl Into<PathBuf>) -> Self {
         Self::new(seat).claim(Resource::Workspace(root.into()))
     }
 
-    /// A child with a checkout of its own, working on its own ref.
     pub(crate) fn worktree_child(
         seat: impl Into<String>,
         root: impl Into<PathBuf>,
@@ -131,7 +112,6 @@ impl ChildFootprint {
             .claim(Resource::Ref(git_ref.into()))
     }
 
-    /// The first resource both children claim — the overlap *witness*.
     pub(crate) fn overlap(&self, other: &Self) -> Option<Resource> {
         self.resources
             .iter()
@@ -139,28 +119,21 @@ impl ChildFootprint {
             .cloned()
     }
 
-    /// May these two run at once (and be reverted in either order)?
     pub(crate) fn commutes_with(&self, other: &Self) -> bool {
         self.overlap(other).is_none()
     }
 }
 
-/// A wave decomposition: every pair inside a wave commutes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Plan {
     pub(crate) waves: Vec<Vec<usize>>,
 }
 
 impl Plan {
-    /// One wave holding every child: they all commute, so they may run together and
-    /// their inverses may be applied in any order.
     pub(crate) fn independent(&self) -> bool {
         self.waves.len() <= 1
     }
 
-    /// The order the inverses are applied in: last wave first, and within a wave any
-    /// order works (its members commute), so reverse insertion order is the
-    /// deterministic choice.
     pub(crate) fn revert_order(&self) -> Vec<usize> {
         let mut order: Vec<usize> = self.waves.iter().flatten().copied().collect();
         order.reverse();
@@ -168,9 +141,6 @@ impl Plan {
     }
 }
 
-/// Greedy wave decomposition: each child joins the first wave it commutes with
-/// everywhere, else opens a new one. Members of a wave therefore commute pairwise,
-/// and a later wave only holds children that collided with an earlier wave.
 pub(crate) fn plan(children: &[ChildFootprint]) -> Plan {
     let mut waves: Vec<Vec<usize>> = Vec::new();
     for (index, child) in children.iter().enumerate() {
@@ -186,7 +156,6 @@ pub(crate) fn plan(children: &[ChildFootprint]) -> Plan {
     Plan { waves }
 }
 
-/// The first pair that cannot run together, named with the resource they share.
 pub(crate) fn first_conflict(children: &[ChildFootprint]) -> Option<(usize, usize, Resource)> {
     for (left, child) in children.iter().enumerate() {
         for (right, other) in children.iter().enumerate().skip(left + 1) {
@@ -198,12 +167,8 @@ pub(crate) fn first_conflict(children: &[ChildFootprint]) -> Option<(usize, usiz
     None
 }
 
-/// The refusal receipt for a set of children that do not all commute, naming the
-/// colliding pair and the resource — `None` when the whole set may run at once.
 pub(crate) fn refusal(children: &[ChildFootprint]) -> Option<String> {
     let (left, right, resource) = first_conflict(children)?;
-    // The way out depends on what collided: a shared *checkout* has a ready answer
-    // (a delegated worktree is disjoint from it), a shared ref or port does not.
     let advice = match resource {
         Resource::Workspace(_) => crate::agent::harness::book::d56_replies::SHARED_WORKSPACE,
         _ => crate::agent::harness::book::d56_replies::SHARED_RESOURCE,

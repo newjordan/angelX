@@ -1,8 +1,3 @@
-# crates/delve/src/rules/griffinwing/script.rs — the three beats' scripts: what
-# appears, and when, along the rail. The tables themselves are in
-# script_table.bend (generated from the Rust's builders). An act is a J object
-# {"k": kind, ...fields} (the Rust enum `Act`); an event is {"at", "act"}.
-
 def gw.ev(+at: U32, +act: J.Val) -> J.Val:
   ga.sv(ga.su(J.obj(), "at", at), "act", act)
 
@@ -45,12 +40,9 @@ def gw.act_say(+line: String) -> J.Val:
 def gw.act_beast() -> J.Val:
   ga.ss(J.obj(), "k", "Beast")
 
-# How many ticks the rail takes to carry a thing from where it appears to the
-# formation.
 def griffinwing.script.LEAD_TICKS() -> U32:
   U32.div(griffinwing.types.LEAD(), griffinwing.types.PACE())
 
-# The scripts, built once (here: by stage).
 def griffinwing.script.list(+stage: U32) -> List<&2, J.Val>:
   gw.ifjl(U32.is_eq(U32.min(stage, 2), 0), _ => griffinwing.script.thunderhead(),
     _ => gw.ifjl(U32.is_eq(U32.min(stage, 2), 1), _ => griffinwing.script.causeway(), _ => griffinwing.script.roost()))
@@ -58,8 +50,6 @@ def griffinwing.script.list(+stage: U32) -> List<&2, J.Val>:
 def griffinwing.script.script(+stage: U32) -> J.Val:
   J.JA{griffinwing.script.list(stage)}
 
-# Where a beat's script stands when it comes back to the tick `cp`: how many of
-# its events come before it.
 def griffinwing.script.resume(+stage: U32, +cp: U32) -> U32:
   griffinwing.script.resume.go(griffinwing.script.list(stage), cp)
 
@@ -70,7 +60,6 @@ def griffinwing.script.resume.go(+es: List<&2, J.Val>, +cp: U32) -> U32:
     case Con{+e, +t}:
       gw.ifu(U32.is_lt(ga.u(e, "at"), cp), _ => (1 + griffinwing.script.resume.go(t, cp) : U32), _ => 0)
 
-# Run the events that are due.
 def griffinwing.script.Session.run_script(+s: J.Val, +n: J.Val) -> J.Val:
   griffinwing.script.Session.run_script.go(s, griffinwing.script.script(ga.u(s, "stage")))
 
@@ -84,11 +73,9 @@ def griffinwing.script.Session.run_script.ev(+s: J.Val, +script: J.Val, +ev: J.V
       griffinwing.script.Session.act(ga.su(s, "next", U32.and((ga.u(s, "next") + 1 : U32), 65535)), J.get(ev, "act")),
       script))
 
-# A centred spread: the `k`th of `count`, in half steps.
 def griffinwing.script.Session.spread(+k: U32, +count: U32) -> U32:
   ((2 * k : U32) - (count - 1 : U32) : U32)
 
-# How many of a wave: `n + (seats - 1) * plus / 2`.
 def griffinwing.script.Session.count(+s: J.Val, +n: U32, +plus: U32) -> U32:
   (n + gw.div(((griffinwing.Session.pressure(s) - 1 : U32) * plus : U32), 2) : U32)
 
@@ -108,13 +95,11 @@ def griffinwing.script.Session.act.kind(+s: J.Val, +act: J.Val, +k: String, +far
                     _ => gw.ifj(String.eq(k, "Say"), _ => griffinwing.Session.say(s, griffinwing.Session.voice(s), ga.s(act, "line")),
                       _ => griffinwing.boss.Session.rise(s)))))))))))
 
-# A flight of snuffers.
 def griffinwing.script.Session.act.wisps(+s: J.Val, +act: J.Val, +far: U32) -> J.Val:
   griffinwing.script.Session.act.wisps.pin(
     griffinwing.script.Session.act.wisps.go(s, act, far, 0, griffinwing.script.Session.count(s, ga.u(act, "n"), ga.u(act, "plus"))),
     ga.u(act, "mode"))
 
-# if mode == 3 { for f in foes where f.mode == 3 && f.ticks == 0 { f.ticks = 60 } }
 def griffinwing.script.Session.act.wisps.pin(+s: J.Val, +mode: U32) -> J.Val:
   gw.ifj(U32.is_eq(mode, 3),
     _ => ga.sv(s, "foes", J.JA{griffinwing.script.Session.act.wisps.pin.go(ga.items(s, "foes"))}),
@@ -136,7 +121,6 @@ def griffinwing.script.Session.act.wisps.go(+s: J.Val, +act: J.Val, +far: U32, +
       act, far, (k + 1 : U32), count),
     _ => s)
 
-# The wisp's offset by shape: (dx, dz, ds, vx).
 def griffinwing.script.Session.act.wisps.one(+s: J.Val, +act: J.Val, +far: U32, +k: U32, +sp: U32) -> J.Val:
   griffinwing.script.Session.act.wisps.spawn(s, act, far, k, ga.u(act, "shape"), sp)
 
@@ -162,7 +146,6 @@ def griffinwing.script.Session.act.wisps.put(+s: J.Val, +act: J.Val, +far: U32, 
     (far + ds : U32), (griffinwing.types.dm(ga.u(act, "x")) + dx : U32), (griffinwing.types.dm(ga.u(act, "z")) + dz : U32),
     gw.neg(15), vx, 0, "Fly", ga.u(act, "mode"), U32.and((k * 7 : U32), 255)))
 
-# Kites crossing in a file from one side.
 def griffinwing.script.Session.act.convoy(+s: J.Val, +act: J.Val, +far: U32) -> J.Val:
   griffinwing.script.Session.act.convoy.go(s, act, far, 0, griffinwing.script.Session.count(s, ga.u(act, "n"), ga.u(act, "plus")))
 
@@ -175,13 +158,11 @@ def griffinwing.script.Session.act.convoy.go(+s: J.Val, +act: J.Val, +far: U32, 
       act, far, (k + 1 : U32), count),
     _ => s)
 
-# A kite that hunts a wingman and latches onto its tail.
 def griffinwing.script.Session.act.hunter(+s: J.Val, +act: J.Val, +far: U32) -> J.Val:
   gw.out_s(griffinwing.combat.Session.spawn_foe(s, "Kite",
     (far - griffinwing.types.dm(40) : U32), (ga.u(act, "side") * griffinwing.types.dm(90) : U32), griffinwing.types.dm(40),
     0, 0, 0, "Hunt", 1, 0))
 
-# A lantern tower on a ledge.
 def griffinwing.script.Session.act.turret(+s: J.Val, +act: J.Val, +far: U32) -> J.Val:
   griffinwing.script.Session.act.turret.set(
     griffinwing.combat.Session.spawn_foe(s, "Turret", far, griffinwing.types.dm(ga.u(act, "x")), griffinwing.types.dm(ga.u(act, "z")),
@@ -208,11 +189,9 @@ def griffinwing.types.Prop.make(+thing: String, +s: U32, +x: U32, +z: U32, +w: U
   +p7 = ga.su(p6, "taken", 0)
   ga.su(p7, "phase", phase)
 
-# `if self.props.len() < MAX_PROPS { push }`.
 def gw.push_prop(+s: J.Val, +p: J.Val) -> J.Val:
   gw.ifj(U32.is_lt(gw.len(s, "props"), griffinwing.types.MAX_PROPS()), _ => ga.push(s, "props", p), _ => s)
 
-# A ridge with dive-bombers waiting behind it.
 def griffinwing.script.Session.act.ridge(+s: J.Val, +act: J.Val, +far: U32) -> J.Val:
   griffinwing.script.Session.act.ridge.bombers(
     gw.push_prop(s, griffinwing.types.Prop.make("Ridge", far, griffinwing.types.dm(ga.u(act, "x")), gw.neg(griffinwing.types.dm(30)),
@@ -229,8 +208,6 @@ def griffinwing.script.Session.act.ridge.bombers(+s: J.Val, +act: J.Val, +far: U
       act, far, (k + 1 : U32), count),
     _ => s)
 
-# A bonus gate (or a victory gate), a hearth ring, a rock arch, a pair of
-# shutters: where the rail brings them.
 def griffinwing.script.Session.act.gate(+s: J.Val, +act: J.Val, +origin: U32) -> J.Val:
   gw.ifj(U32.is_lt(gw.len(s, "props"), griffinwing.types.MAX_PROPS()),
     _ => griffinwing.script.Session.act.gate.offer(
@@ -255,8 +232,6 @@ def griffinwing.script.Session.act.arch(+s: J.Val, +act: J.Val, +origin: U32) ->
 def griffinwing.script.Session.act.shutter(+s: J.Val, +act: J.Val, +origin: U32) -> J.Val:
   gw.push_prop(s, griffinwing.types.Prop.make("Shutter", (origin + ga.u(act, "rel") : U32), 0, 0, 0, 0, griffinwing.types.dm(30), ga.u(act, "phase")))
 
-# The warm fly-through after the Wyrm: a procession of gold gates and hearth
-# rings, lit for the way home. It pays nothing and offers nothing.
 def griffinwing.script.Session.victory_gates(+s: J.Val) -> J.Val:
   griffinwing.script.Session.victory_gates.go(s, (griffinwing.Session.anchor(s) + griffinwing.types.dm(150) : U32), 0)
 

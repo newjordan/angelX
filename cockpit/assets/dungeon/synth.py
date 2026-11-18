@@ -1,4 +1,3 @@
-"""Synthesized Delve sounds: Fortune's wheel spinning down, and its landing bell."""
 import numpy as np, wave, sys
 SR = 44100
 rng = np.random.default_rng(7)
@@ -17,7 +16,6 @@ def spin(T=4.0, crossings=28):
         c = click(1700 + rng.uniform(-60, 60), bright=0.8 + 0.4 * (1 - k / crossings))
         i = int(tk * SR)
         out[i:i + len(c)] += c[: len(out) - i]
-    # The hub's low rumble, slowing with the wheel.
     t = np.arange(len(out)) / SR
     speed = np.clip(3 * (1 - t / T) ** 2, 0, None)
     rumble = np.sin(2 * np.pi * np.cumsum(40 + 30 * speed) / SR) * 0.08 * speed / 3

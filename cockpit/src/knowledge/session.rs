@@ -32,9 +32,6 @@ const SESSION_SCHEMA: &str = "angel-project-session/v1";
 const SESSION_FLUSH_TIMEOUT: Duration = Duration::from_secs(2);
 #[cfg(not(test))]
 const SESSION_WRITER_QUEUE_CAPACITY: usize = 8;
-// Unit tests create many unrelated fake sessions in one process. Their shared
-// writer is a harness artifact; the capacity-one admission regression below
-// pins production semantics without making parallel fixtures contend.
 #[cfg(test)]
 const SESSION_WRITER_QUEUE_CAPACITY: usize = 128;
 
@@ -91,8 +88,6 @@ pub(crate) enum SessionSaveStatus {
     Failed(SessionSaveError),
 }
 
-/// Payload-free state sampled when a wait expires. Values belong to that
-/// attempt and that instant; later saves or late completion cannot rewrite them.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SessionWriterTimeout {
     pub(crate) attempt_id: u64,
@@ -194,8 +189,6 @@ impl SaveAttempt {
         if let Some(result) = &state.result {
             return result.clone();
         }
-        // Freeze the phase and timings under the completion mutex. Do not
-        // publish timeout as the I/O result: the exact attempt may settle late.
         let now = Instant::now();
         Err(SessionSaveError::WriterTimeout(SessionWriterTimeout {
             attempt_id: self.id,
@@ -227,8 +220,6 @@ impl SaveAttempt {
 #[derive(Default)]
 struct SavePublication {
     latest_attempt: Option<Arc<SaveAttempt>>,
-    // One shared snapshot per live session publication, including after save.
-    // Payload buffers remain Arc-shared; this never accumulates older attempts.
     latest_snapshot: Option<PublishedSnapshot>,
 }
 
@@ -250,8 +241,6 @@ impl PublishedSnapshot {
     }
 }
 
-/// Compare every serialized message field. Transient reasoning and execution
-/// receipts deliberately do not affect the persisted checkpoint identity.
 fn same_persisted_history(left: &[ChatMsg], right: &[ChatMsg]) -> bool {
     use crate::agent::club::Media;
     left.len() == right.len()
@@ -268,8 +257,6 @@ fn same_persisted_history(left: &[ChatMsg], right: &[ChatMsg]) -> bool {
                                 left.id == right.id
                                     && left.name == right.name
                                     && left.args == right.args
-                                    // Value equality aliases -0.0 and +0.0. Exit
-                                    // reuse requires the exact persisted encoding.
                                     && serde_json::to_vec(&left.args)
                                         .ok()
                                         .zip(serde_json::to_vec(&right.args).ok())
@@ -294,9 +281,6 @@ fn same_persisted_history(left: &[ChatMsg], right: &[ChatMsg]) -> bool {
         })
 }
 
-/// Bind keys + a history snapshot. `SessionRecord` (schema + serde document)
-/// is assembled on the session-saver thread, not the caller. History is an
-/// `Arc` so a submit path can share one Vec clone with `Thinking::spawn`.
 struct SaveSnapshot {
     path: PathBuf,
     workspace: PathBuf,
@@ -336,8 +320,6 @@ fn write_queued_snapshot(snapshot: SaveSnapshot) {
     write_queued_snapshot_observed(snapshot, |_| {});
 }
 
-// The observer is empty in production. Tests can hold one owned attempt at a
-// real phase boundary without a process-global hook or changing I/O semantics.
 fn write_queued_snapshot_observed(
     snapshot: SaveSnapshot,
     mut observe: impl FnMut(SessionWritePhase),
@@ -362,7 +344,6 @@ fn enqueue_writer(
     })
 }
 
-/// Directory holding session snapshots.
 pub fn sessions_dir() -> PathBuf {
     std::env::var_os("ANGEL_SESSION_DIR")
         .map(PathBuf::from)
@@ -384,7 +365,6 @@ fn gen_id() -> String {
     format!("{now_ms:013}-{}-{nonce}", std::process::id())
 }
 
-/// A live session: an id and the file it snapshots to.
 #[derive(Clone)]
 pub struct Session {
     pub id: String,
@@ -396,11 +376,9 @@ pub struct Session {
 }
 
 impl Session {
-    /// Start a fresh session in the default directory.
     pub fn new() -> Self {
         Self::at(sessions_dir(), gen_id())
     }
-    /// Session sink for static preview/test renders that must not touch disk.
     pub fn disabled() -> Self {
         Self {
             id: "disabled".to_string(),
@@ -415,20 +393,17 @@ impl Session {
     pub(crate) fn is_disabled(&self) -> bool {
         self.disabled
     }
-    /// Re-open an existing session id for the same canonical repository.
     pub fn with_id_for(id: &str, workspace: &Path) -> Self {
         let mut session = Self::at(sessions_dir(), id.to_string());
         session.bind(workspace);
         session
     }
-    /// Explicit dir + id + repository binding (testable without env).
     #[cfg(test)]
     pub fn at_for(dir: PathBuf, id: String, workspace: &Path) -> Self {
         let mut session = Self::at(dir, id);
         session.bind(workspace);
         session
     }
-    /// Explicit dir + id (testable without env).
     pub fn at(dir: PathBuf, id: String) -> Self {
         let path = dir.join(format!("{id}.json"));
         Self {
@@ -441,7 +416,6 @@ impl Session {
         }
     }
 
-    /// Bind this sink to the canonical repository before it can persist.
     pub fn bind(&mut self, workspace: &Path) {
         let identity = crate::platform::workspace_store::repo_identity(workspace);
         self.workspace = Some(identity.root);
@@ -451,10 +425,6 @@ impl Session {
         &self.path
     }
 
-    /// Atomically snapshot the thread after every older queued snapshot.
-    /// Boundary commands use this blocking form so an older turn save can
-    /// never land afterward and roll the session back. No-op for an empty
-    /// thread (avoids stub files).
     pub fn save(&self, history: &[ChatMsg]) -> Result<(), SessionSaveError> {
         if self.disabled || history.is_empty() {
             return Ok(());
@@ -462,14 +432,6 @@ impl Session {
         self.checkpoint(history)
     }
 
-    /// `save`, off the calling thread. The submit/turn-landing paths run on the
-    /// UI thread, where assembling and serializing a whole long conversation
-    /// plus the write is a visible frame hitch — those enqueue bind keys and a
-    /// history snapshot to one global writer thread, which builds the
-    /// `SessionRecord` and writes it. A single consumer and an eight-job bound
-    /// keep writes ordered without retaining unlimited full-history snapshots
-    /// behind a slow filesystem. Saturation fails visibly and nonblockingly;
-    /// the last completed atomic snapshot remains recoverable.
     pub fn save_async(&self, history: &[ChatMsg]) -> Result<(), SessionSaveError> {
         if self.disabled || history.is_empty() {
             return Ok(());
@@ -477,8 +439,6 @@ impl Session {
         self.save_history(Arc::from(history))
     }
 
-    /// Enqueue an already-cloned history snapshot. Callers that also spawn a
-    /// turn worker pass the same `Arc` so the UI thread pays one Vec clone.
     pub(crate) fn save_history(&self, history: Arc<[ChatMsg]>) -> Result<(), SessionSaveError> {
         if self.disabled || history.is_empty() {
             return Ok(());
@@ -500,8 +460,6 @@ impl Session {
         history: Arc<[ChatMsg]>,
         reuse_latest: bool,
     ) -> Result<Arc<SaveAttempt>, SessionSaveError> {
-        // Serialize nonblocking admission across cloned handles. The writer
-        // completes only the per-attempt receipt and holds no publication lock.
         let mut published = self
             .save_status
             .lock()
@@ -548,9 +506,6 @@ impl Session {
         Ok(attempt)
     }
 
-    /// Wait for the latest save attempted by this session at entry. A later
-    /// save cannot replace this receipt or conceal its failure. Abrupt process
-    /// death can still lose a queued snapshot; a timeout does not cancel I/O.
     pub(crate) fn flush_pending(&self) -> Result<(), SessionSaveError> {
         if self.disabled {
             return Ok(());
@@ -564,8 +519,6 @@ impl Session {
         attempt.map_or(Ok(()), |attempt| attempt.wait(SESSION_FLUSH_TIMEOUT))
     }
 
-    /// Wait for this exact committed history, even if another cloned handle
-    /// admits a newer save concurrently. FIFO admission still orders disk I/O.
     pub(crate) fn checkpoint(&self, history: &[ChatMsg]) -> Result<(), SessionSaveError> {
         if self.disabled || history.is_empty() {
             return self.flush_pending();
@@ -573,9 +526,6 @@ impl Session {
         self.checkpoint_to(writer_sender(), history)
     }
 
-    /// Ordinary exit may retry a timed-out checkpoint without queuing the
-    /// same write again. Reuse is tied to exact persisted fields and binding;
-    /// failed attempts get a fresh ticket, and ordinary checkpoints never reuse.
     pub(crate) fn checkpoint_for_exit(&self, history: &[ChatMsg]) -> Result<(), SessionSaveError> {
         if self.disabled || history.is_empty() {
             return self.flush_pending();
@@ -618,10 +568,6 @@ fn binding_matches(
     previous: &mut impl Read,
     record: &SessionRecord,
 ) -> Result<bool, SessionSaveError> {
-    // Read the whole snapshot in blocks first. serde_json's `from_reader` on a
-    // raw `File` makes one syscall per byte, which dominated every hop's
-    // checkpoint; the full-record parse keeps a truncated or corrupt snapshot
-    // from being overwritten just because its binding fields still read.
     let mut bytes = Vec::new();
     previous
         .read_to_end(&mut bytes)
@@ -635,15 +581,11 @@ fn binding_matches(
     )
 }
 
-/// The production binding check parses a full snapshot from a byte buffer.
-/// Benchmarks time this instead of a narrower type so the row measures the
-/// operation the checkpoint actually runs.
 #[cfg(test)]
 pub(crate) fn parse_prior_snapshot(bytes: &[u8]) -> bool {
     serde_json::from_slice::<SessionRecord>(bytes).is_ok()
 }
 
-/// A snapshot-shaped record serialized to bytes, for the hot-path benchmark.
 #[cfg(test)]
 pub(crate) fn prior_snapshot_bytes(history: &[ChatMsg]) -> Vec<u8> {
     serde_json::to_vec(&serde_json::json!({
@@ -685,8 +627,6 @@ fn write_snapshot(
     phase(SessionWritePhase::Serialize);
     let mut snapshot = serde_json::to_value(record)
         .map_err(|error| SessionSaveError::Serialize(error.to_string()))?;
-    // Scrub decoded history, including nested tool arguments, before the
-    // temporary file is opened. Binding fields must remain exact on resume.
     crate::platform::secrets::redact_value(&mut snapshot["history"]);
     let json = serde_json::to_vec(&snapshot)
         .map_err(|error| SessionSaveError::Serialize(error.to_string()))?;
@@ -699,9 +639,6 @@ fn write_snapshot(
     {
         return Err(SessionSaveError::BindingMismatch);
     }
-    // Keep the per-process temporary name for recovery/fault diagnostics, but
-    // never reuse it: an existing entry is foreign staging and stays untouched.
-    // The checked exclusive open creates mode 0600 before any payload bytes.
     let tmp = path.with_extension(format!("json.{}.tmp", std::process::id()));
     let tmp_name = tmp
         .file_name()
@@ -717,7 +654,6 @@ fn write_snapshot(
         file.sync_all()
     })();
     if let Err(error) = write_result {
-        // Reclaim only the entry still naming our checked temporary FD.
         let _ = directory.remove_owned(tmp_name, &file);
         return Err(SessionSaveError::Write(error.to_string()));
     }
@@ -726,7 +662,6 @@ fn write_snapshot(
         let _ = directory.remove_owned(tmp_name, &file);
         return Err(SessionSaveError::Rename(error.to_string()));
     }
-    // Publication remains atomic and the held parent is made durable last.
     phase(SessionWritePhase::SyncDirectory);
     directory
         .sync()
@@ -755,7 +690,6 @@ fn matches_workspace(record: &SessionRecord, workspace: &Path) -> bool {
         )
 }
 
-/// Load a session only when its serialized repository binding matches.
 pub fn load_for(id: &str, workspace: &Path) -> Result<Vec<ChatMsg>, String> {
     let path = sessions_dir().join(format!("{id}.json"));
     let record = load_record_path(&path)?;
@@ -765,15 +699,10 @@ pub fn load_for(id: &str, workspace: &Path) -> Result<Vec<ChatMsg>, String> {
         ));
     }
     let mut history = repair_interrupted_tool_batch(record.history);
-    // Mark legacy sessions for baseline binding at the next model request.
-    // Reading a saved conversation stays possible even if the catalog store
-    // is temporarily missing or unavailable.
     crate::agent::harness::book::continuity::mark_legacy(&mut history);
     Ok(history)
 }
 
-/// The facts of an interrupted call; what to check before a retry is its
-/// `⠰⠙` page on the line after.
 const UNKNOWN_TOOL_OUTCOME: &str = "tool error: the previous cockpit exited after recording this call but before its result became durable; outcome unknown";
 
 fn unknown_tool_outcome() -> String {
@@ -783,10 +712,6 @@ fn unknown_tool_outcome() -> String {
     )
 }
 
-/// Close a crash-interrupted tool-call batch without guessing whether any
-/// side effect happened. The pre-dispatch checkpoint deliberately ends with
-/// an assistant call message; on resume, synthetic results restore provider
-/// protocol validity while making replay an explicit operator/model decision.
 fn repair_interrupted_tool_batch(mut history: Vec<ChatMsg>) -> Vec<ChatMsg> {
     let Some(last) = history.last() else {
         return history;
@@ -803,23 +728,17 @@ fn repair_interrupted_tool_batch(mut history: Vec<ChatMsg>) -> Vec<ChatMsg> {
     history
 }
 
-/// Summary of a saved session, for listing.
 pub struct SessionInfo {
     pub id: String,
-    /// File mtime (ms since epoch) — sort key.
     pub mtime: u64,
-    /// Number of user turns.
     pub turns: usize,
-    /// First user message (for a human-readable hint).
     pub preview: String,
 }
 
-/// Saved sessions for one canonical repository, newest first.
 pub fn list_for(workspace: &Path) -> Vec<SessionInfo> {
     list_dir_for(&sessions_dir(), workspace)
 }
 
-/// Saved sessions in `dir` that match `workspace` (testable).
 pub fn list_dir_for(dir: &Path, workspace: &Path) -> Vec<SessionInfo> {
     let mut out = Vec::new();
     let Ok(rd) = std::fs::read_dir(dir) else {
@@ -860,7 +779,7 @@ pub fn list_dir_for(dir: &Path, workspace: &Path) -> Vec<SessionInfo> {
             preview,
         });
     }
-    out.sort_by_key(|s| std::cmp::Reverse(s.mtime)); // newest first
+    out.sort_by_key(|s| std::cmp::Reverse(s.mtime));
     out
 }
 

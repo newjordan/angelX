@@ -21,11 +21,8 @@ pub(crate) enum Pose {
     Settled,
 }
 
-/// `None` for a seat whose knight is not drawn yet: it wears its stills.
 pub(crate) fn sheet(key: AgentKey) -> Option<&'static str> {
     Some(match key {
-        // The Round Table: one knight per model family, eight held poses drawn
-        // from the seat portrait the model chose.
         AgentKey::Codex => "assets/realm/avatars/round-table/sheet/sol.png",
         AgentKey::Luna => "assets/realm/avatars/round-table/sheet/luna.png",
         AgentKey::Astra => "assets/realm/avatars/round-table/sheet/astra.png",
@@ -43,7 +40,6 @@ pub(crate) fn sheet(key: AgentKey) -> Option<&'static str> {
         AgentKey::Inkling => "assets/realm/avatars/round-table/sheet/inkling.png",
         AgentKey::Laguna => "assets/realm/avatars/round-table/sheet/laguna.png",
         AgentKey::North => "assets/realm/avatars/round-table/sheet/north.png",
-        // An unnamed route keeps the plain helm.
         AgentKey::Unknown => "assets/agents/helms/sparky.png",
     })
 }
@@ -61,7 +57,6 @@ pub(crate) fn pose(
         PortraitState::Thinking => Pose::Thinking,
         PortraitState::Victory | PortraitState::Recovery => Pose::Settled,
         PortraitState::Idle if motion == MotionMode::Full => {
-            // Brief, infrequent glances; never invent work or success in idle.
             match elapsed.as_millis() % 24_000 {
                 7_000..9_000 => Pose::Left,
                 17_000..19_000 => Pose::Right,
@@ -79,9 +74,6 @@ fn frame_cache() -> &'static Mutex<HashMap<PathBuf, Frames>> {
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// Pixel size of a sheet's frames (every pose shares one canvas). With
-/// `decode` false this only reads the cache, so the draw thread never decodes
-/// a sheet; `None` until a portrait worker has decoded it once.
 pub(crate) fn frame_size(path: &Path, decode: bool) -> Option<(u32, u32)> {
     let cached = frame_cache()
         .lock()
@@ -96,8 +88,6 @@ pub(crate) fn frame_size(path: &Path, decode: bool) -> Option<(u32, u32)> {
     }
 }
 
-/// Decode each selected sheet off the draw thread, then retain bounded 192px
-/// frames. No original-sized sheet remains in the cache (five sheets < 6 MiB).
 pub(crate) fn frame_image(path: &Path, pose: u8) -> Result<image::DynamicImage, String> {
     if pose >= 8 {
         return Err("unknown helm pose".into());
@@ -111,8 +101,6 @@ pub(crate) fn frame_image(path: &Path, pose: u8) -> Result<image::DynamicImage, 
             .map_err(|e| format!("decode helm: {e}"))?
             .to_rgba8();
         let (width, height) = source.dimensions();
-        // The reviewed originals have odd dimensions. Integer grid boundaries
-        // preserve every cell without assuming a divisible sheet or stretching.
         if width < 4 || height < 2 || u64::from(width) * u64::from(height) > 2_000_000 {
             return Err("helm sheet dimensions outside reviewed bounds".into());
         }
@@ -147,8 +135,6 @@ pub(crate) fn frame_image(path: &Path, pose: u8) -> Result<image::DynamicImage, 
     ))
 }
 
-/// Character geometry comes exclusively from the reviewed alpha mask: dark
-/// armor and face shadows are foreground, never mistaken for black background.
 fn character_bounds(frame: &image::RgbaImage) -> Option<(u32, u32, u32, u32)> {
     let (mut left, mut top) = frame.dimensions();
     let (mut right, mut bottom) = (0, 0);
@@ -163,23 +149,15 @@ fn character_bounds(frame: &image::RgbaImage) -> Option<(u32, u32, u32, u32)> {
     (right > left && bottom > top).then_some((left, top, right, bottom))
 }
 
-/// The Round Table sheets are pixel sprites on a hard 2x grid.
 pub(crate) fn is_pixel_sheet(path: &Path) -> bool {
     path.to_string_lossy().contains("round-table/sheet/")
 }
 
-/// The `/setup` guide's sheet is drawn registered: every pose stands on the
-/// same ground point of its cell, so its frames keep their own offsets.
 pub(crate) fn is_registered_sheet(path: &Path) -> bool {
     path.to_string_lossy().contains("onboarding/setup/")
 }
 
-/// One crop for every frame (the union of their masks) and one scale, so a
-/// full-body figure keeps its feet where they were drawn while its arms and
-/// props reach out in different poses. Per-pose anchoring would slide it.
 pub(crate) fn anchor_registered_frames(frames: &[image::RgbaImage]) -> Vec<image::RgbaImage> {
-    // Portraits are never enlarged past their natural size in cells, so the
-    // guide is kept big enough to fill its box on any font and then fitted.
     const SIZE: u32 = 512;
     let Some((l, t, r, b)) = frames
         .iter()
@@ -203,12 +181,6 @@ pub(crate) fn anchor_registered_frames(frames: &[image::RgbaImage]) -> Vec<image
         .collect()
 }
 
-/// Pixel frames share one canvas, as wide as the widest pose and as tall as
-/// the tallest, so every pose takes one scale in the bay. Each pose stands in
-/// its lower-right corner on its own mask: shoulder against the right wall,
-/// torso on the base. The sheets' poses sit loosely in their cells, and a
-/// shared crop left the idle knight short of the wall and above the base.
-/// Nothing is resampled (see `viewer::anchor_portrait_canvas`).
 fn anchor_pixel_frames(frames: &[image::RgbaImage]) -> Vec<image::RgbaImage> {
     let bounds: Vec<_> = frames.iter().map(character_bounds).collect();
     let (width, height) = bounds
@@ -237,9 +209,6 @@ fn anchor_pixel_frames(frames: &[image::RgbaImage]) -> Vec<image::RgbaImage> {
         .collect()
 }
 
-/// Fit the character rather than the sheet cell. One scale across all poses
-/// prevents breathing/zoom on state changes; each bust's right and bottom mask
-/// edges remain anchored. A 3px transparent margin protects antialiased edges.
 fn anchor_character_frames(frames: &[image::RgbaImage]) -> Vec<image::RgbaImage> {
     const SIZE: u32 = 192;
     const PAD: u32 = 3;

@@ -47,8 +47,6 @@ impl ApiControls {
     }
 }
 
-/// Same conservative output fitting and reservation contract as HttpClub,
-/// using Responses' max_output_tokens field. The Attempt owns settlement.
 pub(super) fn fit_and_reserve(
     mut bytes: Vec<u8>,
     route: &str,

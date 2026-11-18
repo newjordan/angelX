@@ -10,8 +10,6 @@ use drive::*;
 
 const CAP: usize = 70;
 
-/// Record a call that works on the session (the knight taken out of it), the
-/// knight and the events.
 fn kcase(
     name: &str,
     qual: bool,
@@ -51,7 +49,6 @@ fn record_lanternward_kit() {
                 let mask = buttons(&inp);
                 let press = mask & !k.held;
                 let id_ = id;
-                // The keys and the seat itself.
                 if take("lanternward.kit.buttons", 7) {
                     rec("lanternward.kit.buttons", json!({"i": jv(&inp)}), json!(mask));
                 }
@@ -91,7 +88,6 @@ fn record_lanternward_kit() {
                         jv(&Seat::new(id, s.elapsed, at)),
                     );
                 }
-                // Lantern, upkeep, targets and the lock.
                 kcase("lanternward.kit.Session.refill", true, 8, &t, &k, r, json!({}), |t, k, _| {
                     t.refill(k, r);
                     Value::Null
@@ -141,7 +137,6 @@ fn record_lanternward_kit() {
                     t.face_and_move(k, &inp, r);
                     Value::Null
                 });
-                // A shove, and a lean on a block.
                 let (dx, dy) = (g.below(2400) as i32 - 1200, g.below(2400) as i32 - 1200);
                 kcase("lanternward.kit.Session.shove", true, 6, &t, &k, r, json!({"dx": dx, "dy": dy}), |t, k, _| {
                     t.shove(k, dx, dy);
@@ -170,7 +165,6 @@ fn record_lanternward_kit() {
                         Value::Null
                     });
                 }
-                // The acts, each in its own act.
                 kcase("lanternward.kit.Session.falling", k.act == Act::Fall, 1, &t, &k, r, json!({}), |t, k, _| {
                     t.falling(k);
                     Value::Null
@@ -240,7 +234,6 @@ fn record_lanternward_kit() {
                     rec("lanternward.kit.Seat.flaring", json!({"k": jv(&k)}), json!(k.flaring()));
                     rec("lanternward.kit.Seat.up", json!({"k": jv(&k)}), json!(k.up()));
                 }
-                // A swing's arc, and a lunge's line: the three arcs the sword has.
                 for (reach, cos, dmg, heavy) in [(18, 66, 2u32, false), (22, -44, 4, true), (22, -Q, 3, true), (18, -Q, 4, true)] {
                     kcase(
                         "lanternward.kit.Session.sweep",

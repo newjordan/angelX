@@ -1,13 +1,4 @@
 #!/usr/bin/env python3
-"""Emit Bend zero-argument defs for the scalar `const`s of a group's Rust modules.
-
-    python3 delve/rules/core/consts.py <out.bend> <module-file.rs>...
-
-`const NAME: u32 = 4 * HZ;` in crates/delve/src/rules/foo.rs becomes
-`def foo.NAME() -> U32:`. Integer and f32 arithmetic is evaluated with Rust's
-rules (f32 rounding after every operation); anything else (arrays, tuples,
-structs) is listed as skipped, to be written by hand.
-"""
 import ast, pathlib, re, struct, sys
 
 SRC = pathlib.Path(__file__).resolve().parents[3] / "crates/delve/src"
@@ -72,7 +63,7 @@ def ev(node, env):
 def rust_expr(e):
     e = re.sub(r"\bsuper::", "", e)
     e = re.sub(r"\bcrate::rules::", "", e)
-    e = re.sub(r"\b\w+::(?=[A-Z_]+\b)", "", e)  # mod::NAME -> NAME
+    e = re.sub(r"\b\w+::(?=[A-Z_]+\b)", "", e)
     e = re.sub(r"(\d)_(\d)", r"\1\2", e)
     e = re.sub(r"(\d)_(\d)", r"\1\2", e)
     e = re.sub(r"(\b0x[0-9a-fA-F]+)(?:u\d+|usize|i\d+)\b", r"\1", e)
@@ -80,7 +71,6 @@ def rust_expr(e):
     e = re.sub(r"\bas\s+(usize|u32|u8|u16|i32|u64|i64)\b", "", e)
     m = re.search(r"\bas\s+f32\b", e)
     while m:
-        # `X as f32` -> float(X)
         pre = e[: m.start()].rstrip()
         mm = re.search(r"(\(?[\w.]+\)?)$", pre)
         e = pre[: mm.start()] + f"FLOAT({mm.group(1)})" + e[m.end():]

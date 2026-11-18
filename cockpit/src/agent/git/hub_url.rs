@@ -28,7 +28,6 @@ use crate::agent::harness::{output_timed, tool_timeout};
 
 const MAX_GH_OUT: usize = 200_000;
 
-/// Whether `raw` is a pr:// or issue:// URI.
 pub(crate) fn is_github_uri(raw: &str) -> bool {
     let t = raw.trim();
     t.starts_with("pr://") || t.starts_with("issue://")
@@ -51,14 +50,11 @@ pub(crate) enum View {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Parsed {
     pub(crate) kind: Kind,
-    /// Optional `owner/repo` from the URI.
     pub(crate) repo: Option<String>,
-    /// None means "list open items".
     pub(crate) number: Option<u64>,
     pub(crate) view: View,
 }
 
-/// Parse `pr://…` / `issue://…`. Returns a human error for malformed ids.
 pub(crate) fn parse_github_uri(raw: &str) -> Result<Parsed, String> {
     let t = raw.trim();
     let (kind, rest) = if let Some(r) = t.strip_prefix("pr://") {
@@ -78,7 +74,6 @@ pub(crate) fn parse_github_uri(raw: &str) -> Result<Parsed, String> {
         });
     }
 
-    // Split trailing view segment: …/diff|files|comments
     let (main, view) = match rest.rsplit_once('/') {
         Some((head, "diff")) if kind == Kind::Pr => (head, View::Diff),
         Some((head, "files")) if kind == Kind::Pr => (head, View::Files),
@@ -86,7 +81,6 @@ pub(crate) fn parse_github_uri(raw: &str) -> Result<Parsed, String> {
         _ => (rest, View::Default),
     };
 
-    // Forms: `42` | `owner/repo/42` | `owner/repo` (list for that repo)
     let parts: Vec<&str> = main.split('/').filter(|p| !p.is_empty()).collect();
     match parts.as_slice() {
         [] => Ok(Parsed {
@@ -128,7 +122,6 @@ pub(crate) fn parse_github_uri(raw: &str) -> Result<Parsed, String> {
     }
 }
 
-/// Resolve a GitHub virtual URL against `workspace` (for default repo context).
 pub(crate) fn resolve_github_uri(workspace: &Path, raw: &str) -> Result<String, String> {
     let parsed = parse_github_uri(raw)?;
     if which_gh().is_none() {
@@ -166,7 +159,6 @@ pub(crate) fn resolve_github_uri(workspace: &Path, raw: &str) -> Result<String, 
         }
         (Kind::Pr, Some(n), View::Diff) => {
             let num = n.to_string();
-            // `gh pr diff` has no --json; raw unified diff.
             run_gh(workspace, parsed.repo.as_deref(), &["pr", "diff", &num])
         }
         (Kind::Pr, Some(n), View::Files) => {
@@ -224,7 +216,6 @@ pub(crate) fn resolve_github_uri(workspace: &Path, raw: &str) -> Result<String, 
 }
 
 fn which_gh() -> Option<PathBuf> {
-    // Cheap existence check without shelling through `which`.
     let path = std::env::var_os("PATH")?;
     for dir in std::env::split_paths(&path) {
         let candidate = dir.join("gh");
@@ -240,7 +231,6 @@ use std::path::PathBuf;
 fn run_gh(workspace: &Path, repo: Option<&str>, args: &[&str]) -> Result<String, String> {
     let mut cmd = Command::new("gh");
     cmd.current_dir(workspace);
-    // Unattended: never prompt for auth mid-tool.
     cmd.env("GH_PROMPT_DISABLED", "1");
     cmd.env("GIT_TERMINAL_PROMPT", "0");
     if let Some(r) = repo {
@@ -285,7 +275,6 @@ fn run_gh(workspace: &Path, repo: Option<&str>, args: &[&str]) -> Result<String,
     }
 }
 
-/// Keep the maximum prefix on a UTF-8 boundary before appending the notice.
 fn cap_gh_output(text: &mut String) {
     if text.len() > MAX_GH_OUT {
         let mut end = MAX_GH_OUT;

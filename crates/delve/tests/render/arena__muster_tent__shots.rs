@@ -23,7 +23,6 @@ fn tent_run(kind: RoomKind, at: (f32, f32)) -> Run {
     r
 }
 
-/// Every frame of the tent draws: its pavilion and its inside.
 #[test]
 fn the_tent_draws_outside_and_in() {
     for (kind, at) in [(RoomKind::MineHead, crate::rules::muster_tent::OUTSIDE), (RoomKind::MusterTent, crate::rules::muster_tent::ARRIVAL)] {
@@ -33,8 +32,6 @@ fn the_tent_draws_outside_and_in() {
     }
 }
 
-/// Opt-in PNGs for review: the mine-head with the tent, the tent's inside,
-/// and a knight at a recruit's table with the prompt up.
 #[test]
 #[ignore = "exports the muster tent for visual review"]
 fn muster_tent_export_pngs() {

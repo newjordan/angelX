@@ -1,18 +1,4 @@
 #!/usr/bin/env python3
-"""Assemble the final Mage training dataset from the frozen baseline.
-
-Inputs (read only):
-  baseline:  frozen hands dataset with train/validation/test.jsonl + screens/
-  addon:     optional element-dropout positives (train-only JSONL + screens/)
-
-Output: a NEW directory shaped exactly as modal_regime.py consumes it
-(train.jsonl, validation.jsonl, test.jsonl, system.txt, screens/) plus a
-manifest. Nothing is uploaded, trained, or deployed here.
-
-Failure policy: refuse a new artifact unless every row is provably a single
-in-box click on an installed screen, no augmented screen leaks into a held-out
-split, and no duplicate supervision row is introduced.
-"""
 from __future__ import annotations
 
 import argparse
@@ -37,7 +23,6 @@ def read_rows(path: Path) -> list[dict]:
 
 
 def project_click(row: dict) -> tuple[float, float]:
-    """Validate one supervision row and return the clicked pixel point."""
     width, height = row["width"], row["height"]
     if type(width) is not int or type(height) is not int or width < 2 or height < 2:
         raise ValueError("invalid dimensions")
@@ -116,7 +101,6 @@ def main(argv=None) -> int:
     rows = {split: read_rows(baseline / f"{split}.jsonl") for split in SPLITS}
     base_counts = {split: len(value) for split, value in rows.items()}
 
-    # Validate and fingerprint every baseline row/screen before touching disk.
     base_screen_sha: dict[str, str] = {}
     for split in SPLITS:
         for row in rows[split]:
@@ -124,8 +108,6 @@ def main(argv=None) -> int:
                 raise SystemExit(f"{split} row declares split={row.get('split')!r}")
             project_click(row)
             base_screen_sha[row["screen"]] = screen_digest(baseline, row)
-    # Every installed screen is re-keyed by its content hash; the addon names
-    # its images by variant id, so merge through this single map.
     origins = {rel: baseline / rel for rel in base_screen_sha}
 
     added = []
@@ -135,8 +117,6 @@ def main(argv=None) -> int:
         manifest = json.loads((addon / "manifest.json").read_text())
         audit = json.loads((addon / "AUDIT.json").read_text())
         source = manifest.get("source") or {}
-        # The addon records the source hash it observed before and after its
-        # build; both must name this baseline, and its own audit must have passed.
         base_manifest_sha = digest(baseline / "manifest.json")
         observed = {source.get("manifest_sha256_before"),
                     source.get("manifest_sha256_after"),
@@ -161,7 +141,6 @@ def main(argv=None) -> int:
         if str(addon).startswith(str(baseline)):
             raise SystemExit("addon must not live inside the baseline dataset")
 
-        # Held-out screens and pixels from the untouched splits set the gate.
         heldout_screens = {row["screen"] for split in ("validation", "test") for row in rows[split]}
         from PIL import Image
         heldout_pixels = set()
@@ -181,8 +160,6 @@ def main(argv=None) -> int:
             if row.get("variant_id") and Path(old_rel).stem != row["variant_id"]:
                 raise SystemExit(f"addon screen does not match its variant id: {old_rel}")
             row["screen"] = f"screens/{sha}.png"
-            # The addon reused its parent's label_id. In the merged set every
-            # supervision row needs its own identity while staying traceable.
             row["parent_label_id"] = row.get("parent_label_id") or row["label_id"]
             row["label_id"] = hashlib.sha256(
                 f"variant|{row.get('variant_id') or sha}".encode()).hexdigest()
@@ -197,7 +174,6 @@ def main(argv=None) -> int:
             origins[row["screen"]] = addon / old_rel
             added.append((row, sha, pixels))
 
-        # No exact duplicate supervision, and no duplicate screen among addons.
         seen_keys, seen_sha = set(), set()
         for row, sha, _ in added:
             key = (sha, row["target"], tuple(row["box"]), row["answer"])
@@ -209,7 +185,6 @@ def main(argv=None) -> int:
             seen_sha.add(sha)
         rows["train"] = rows["train"] + [row for row, _, _ in added]
 
-    # Unique-scene accounting: row counts overstate diversity; report both.
     def unique_scenes(split: str) -> int:
         return len({row["screen"] for row in rows[split]})
 

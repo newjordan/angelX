@@ -10,8 +10,6 @@ use std::collections::BTreeMap as Map;
 #[path = "games_a_bend_cases__tests.rs"]
 pub mod cases;
 
-/// Cases kept of each function, and of each run, and the ticks between two of a
-/// function's cases in one run.
 pub const CAP: usize = 64;
 
 #[derive(Default)]
@@ -26,7 +24,6 @@ thread_local! {
     static NOW: RefCell<(usize, u32)> = const { RefCell::new((0, 0)) };
 }
 
-/// The recorder's clock: which run and which tick it is on.
 pub fn at(run: usize, tick: u32) {
     NOW.with(|n| *n.borrow_mut() = (run, tick));
 }
@@ -35,8 +32,6 @@ pub fn clock() -> (usize, u32) {
     NOW.with(|n| *n.borrow())
 }
 
-/// Whether to record a case of `name` now: a steady scatter over the runs and
-/// over each run's time (about four cases a run).
 pub fn want(name: &str) -> bool {
     if cases::count(name) >= CAP {
         return false;
@@ -54,11 +49,8 @@ pub fn want(name: &str) -> bool {
     h % RATE == 0
 }
 
-/// Ticks between two scattered cases, on average.
 pub const RATE: u64 = 1500;
 
-/// Whether to record a case of an event (a state the caller has found): at most
-/// `per_run` a run, `gap` ticks apart.
 pub fn want_with(name: &str, per_run: usize, gap: u32) -> bool {
     if cases::count(name) >= CAP {
         return false;
@@ -81,13 +73,10 @@ pub fn want_with(name: &str, per_run: usize, gap: u32) -> bool {
     })
 }
 
-/// Append a case.
 pub fn rec(name: &str, input: Value, out: Value) {
     cases::rec_cap(name, &input, &out, usize::MAX);
 }
 
-/// A session as the Bend port reads it: serde's shape with the sound and
-/// leave queues the checkpoint carries.
 pub fn sj(s: &Session) -> Value {
     let mut v = serde_json::to_value(s).unwrap();
     let o = v.as_object_mut().unwrap();
@@ -96,7 +85,6 @@ pub fn sj(s: &Session) -> Value {
     v
 }
 
-/// Only some fields of a session (for functions that read just those).
 pub fn sj_keys(s: &Session, keys: &[&str]) -> Value {
     let v = sj(s);
     let mut o = serde_json::Map::new();
@@ -116,7 +104,6 @@ pub fn nums_j(n: &Nums) -> Value {
     json!({"charge": n.charge, "roll": n.roll, "window": n.window, "spur": n.spur, "tell": n.tell})
 }
 
-/// The one thing about a hero the game reads: whether it sits.
 pub fn heroes_j(h: &BTreeMap<u32, Hero>) -> Value {
     let mut o = serde_json::Map::new();
     for (id, hero) in h {
@@ -137,7 +124,6 @@ pub fn v3(t: (i32, i32, i32)) -> Value {
     json!([t.0, t.1, t.2])
 }
 
-/// A steady generator (xorshift64*), seeded from the run and the tick.
 pub struct Rng(pub u64);
 
 impl Rng {
@@ -152,7 +138,6 @@ impl Rng {
         self.0 = x;
         x.wrapping_mul(0x2545_F491_4F6C_DD1D)
     }
-    /// `0..n`.
     pub fn below(&mut self, n: u64) -> u64 {
         if n == 0 {
             0
@@ -160,7 +145,6 @@ impl Rng {
             (self.next() >> 11) % n
         }
     }
-    /// `lo..=hi`.
     pub fn range(&mut self, lo: i32, hi: i32) -> i32 {
         lo + self.below((hi - lo + 1) as u64) as i32
     }

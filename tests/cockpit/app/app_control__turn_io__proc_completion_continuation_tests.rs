@@ -9,7 +9,7 @@ fn completion_wakes_only_authorized_matching_running_loop() {
         workspace: Some(workspace.to_path_buf()),
         status: LoopStatus::Running,
         max_iters: 4,
-        iteration: 4, // wakeup must not replenish an exhausted budget
+        iteration: 4,
         token_budget: 100,
         tokens_spent: 100,
         ..Default::default()

@@ -32,28 +32,17 @@ use crate::rules::{
     wetland, woodland, world,
 };
 
-/// Where an item's room comes from.
 #[derive(Clone, Copy, Debug)]
 pub enum Source {
-    /// A room of the world, from the home floor.
     Place(RoomKind),
-    /// A delve's hand-drawn one-screen chamber: its pack, which of its
-    /// `SMALL` quadrants, its doors (north, east, south, west).
     Chamber { pack: Pack, small: usize, doors: [bool; 4] },
-    /// A delve's bigger hand-drawn chamber: its pack, which of its
-    /// `all_great` quadrants; all four doors open.
     Great { pack: Pack, index: usize },
-    /// A nook below ground (`rules::nooks`), its doorway on the west.
     Nook(RoomKind),
-    /// The Sanctuary: a safe room with the reforge altar, four doors.
     Sanctuary,
-    /// The vault behind a cracked wall: pillars at its corners.
     Vault,
-    /// The King's forge-hall below: a furnace and two anvils.
     Forge,
 }
 
-/// One item of the pilot: a room and what its tiles are.
 #[derive(Clone, Copy, Debug)]
 pub struct Item {
     pub source: Source,
@@ -65,13 +54,11 @@ impl Item {
         self.dressing.id
     }
 
-    /// The room as the game lays it.
     pub fn room(&self) -> Room {
         match self.source {
             Source::Place(kind) => {
                 let mut floor = layout::undercroft(Pack::Crypt);
                 world::raise_world(&mut floor);
-                // Maud's tavern is dug out west of the Trophy Hall.
                 if kind == RoomKind::Tavern {
                     layout::dig_tavern(&mut floor);
                 }
@@ -111,7 +98,6 @@ impl Item {
                 room
             }
             Source::Vault => {
-                // `layout::vault`: pillars at the corners, one doorway.
                 let mut room = Room::solid_rock((0, 0));
                 room.kind = RoomKind::Secret;
                 let (cols, rows) = (room.cols, room.rows);
@@ -130,15 +116,12 @@ impl Item {
         }
     }
 
-    /// Its blockout set: the generated room, with its landmark overlay
-    /// (`assets/world3d/<item>/landmark.set`) appended when it has one.
     pub fn set(&self) -> String {
         let landmark = super::blockout::landmark(self.id());
         super::blockout::room_set_with(&self.room(), &self.dressing, landmark.as_deref())
     }
 }
 
-/// The stable block's stall doors (`world::stall_doors`), x and width.
 const STALL_DOORS: [(f32, f32); 3] = [(80.0, 22.0), (181.0, 22.0), (282.0, 22.0)];
 
 pub const PILOT: [Item; 10] = [
@@ -154,7 +137,6 @@ pub const PILOT: [Item; 10] = [
                 (ANVIL, Prop::Anvil),
                 (RACK, Prop::Rack),
                 (BARREL, Prop::Trough { depth: 18.0, height: 10.0 }),
-                // A stack of bar iron, waiting; the coal heap.
                 ((7, 10, 2, 1), Prop::Low(Kind::Metal, "bar-iron")),
                 ((16, 11, 2, 1), Prop::Heap(Kind::Rock, "coal")),
             ],
@@ -177,7 +159,6 @@ pub const PILOT: [Item; 10] = [
                 (town::STALLS[1].counter, Prop::Stall { north: false, goods: Kind::Plaster }),
                 (town::STALLS[2].counter, Prop::Stall { north: true, goods: Kind::Metal }),
                 (CROSS, Prop::Cross),
-                // Hay by the north wall.
                 ((9, 2, 2, 1), Prop::Heap(Kind::Crop, "hay")),
             ],
             notes: &[
@@ -193,16 +174,12 @@ pub const PILOT: [Item; 10] = [
             id: "stables",
             title: "The stables (RoomKind::Stables)",
             setting: Setting::Outdoor { edge: Edge::Wood(Leaf::Oak), field: Field::Grass },
-            // `world::roads(Stables)`.
             roads: &[(9, 0, 6, 5), (0, 6, 24, 2), (2, 4, 20, 2), (21, 6, 3, 2), (19, 4, 2, 4), (20, 7, 2, 5), (11, 11, 10, 1), (11, 11, 2, 3)],
             props: &[
-                // The stable block (`world::STABLE_BLOCK`), its middle cleared
-                // for the road north: two wings, an arch between them.
                 ((2, 1, 7, 3), Prop::Barn { doors: &STALL_DOORS }),
                 ((15, 1, 7, 3), Prop::Barn { doors: &STALL_DOORS }),
                 ((9, 1, 6, 1), Prop::Arch),
                 (world::TROUGH, Prop::Trough { depth: 9.0, height: 8.0 }),
-                // The paddock fence (`world::PADDOCK`), up to the coach's plate.
                 ((4, 10, 15, 1), Prop::Fence),
                 (ranch::STABLES_GATE, Prop::Gate),
             ],
@@ -220,8 +197,6 @@ pub const PILOT: [Item; 10] = [
             setting: Setting::Outdoor { edge: Edge::Wood(Leaf::Oak), field: Field::Grass },
             roads: &[(11, 0, 2, 14), (0, 6, 24, 2)],
             props: &[
-                // `pastimes::scenery`: roofs thatch, tile, slate in turn; every
-                // other cottage of stone; a window to each 24 pixels.
                 ((3, 1, 4, 2), Prop::Cottage { walls: Kind::Stone, roof: Kind::Thatch, windows: 2 }),
                 ((7, 1, 2, 2), Prop::Cottage { walls: Kind::Plaster, roof: Kind::Roof, windows: 1 }),
                 ((16, 1, 5, 2), Prop::Cottage { walls: Kind::Stone, roof: Kind::Slate, windows: 3 }),
@@ -267,9 +242,7 @@ pub const PILOT: [Item; 10] = [
             props: &[
                 (countryside::MARSH_FERRY, Prop::Jetty),
                 (swamp::PLATE, Prop::Plate(Kind::Stone)),
-                // Sir Damp's Ferry Office, staked out until the realm builds it.
                 (countryside::PLOTS[3].footprint, Prop::Site),
-                // Rushes standing in the water (`countryside::scenery`).
                 ((3, 2, 1, 1), Prop::Reeds),
                 ((8, 3, 1, 1), Prop::Reeds),
                 ((19, 2, 1, 1), Prop::Reeds),
@@ -334,26 +307,19 @@ pub const PILOT: [Item; 10] = [
     },
 ];
 
-/// An item by its id: of the pilot, or of the second wave ([`all`]).
 pub fn item(id: &str) -> Option<&'static Item> {
     all().iter().find(|i| i.id() == id)
 }
 
-/// Every item ([`every`]), made once and kept.
 pub fn all() -> &'static [Item] {
     static ALL: std::sync::OnceLock<Vec<Item>> = std::sync::OnceLock::new();
     ALL.get_or_init(every)
 }
 
-/// Item `id`'s place in [`all`]: the same in every build of the game, so a
-/// window and a page across a wire number an item's pictures alike.
 pub fn slot(id: &str) -> Option<u32> {
     all().iter().position(|i| i.id() == id).map(|at| at as u32)
 }
 
-/// Every item: the pilot, then the second wave (every other room of the
-/// kingdom's places, every chamber the dungeon masters drew, the side
-/// rooms).
 pub fn every() -> Vec<Item> {
     let mut all: Vec<Item> = PILOT.to_vec();
     all.extend(super::places::PLACES);

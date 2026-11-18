@@ -15,27 +15,20 @@ use super::{Clock, Plan, arena, party};
 use angel_delve::rules::{EnemyKind, Pack};
 use crate::world_viz::overworld::ink::Img;
 
-/// One stretch of the fight.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Beat {
-    /// The floor trembles; it rises out of the stone; it comes on.
     Stir,
     Rise,
     Come,
-    /// The party presses; the guardian rallies and the party gives ground.
     Press,
     Rally,
-    /// Won: it rages, falls, and the light after.
     Rage,
     Fall,
     Light,
-    /// Lost: the party backs away, and the dark closes over the hall.
     Retreat,
     Fade,
 }
 
-/// A beat: from when, how long, where the guardian's health goes across
-/// it, and where the party stands (cells back from where it began).
 #[derive(Clone, Copy, Debug)]
 struct Stretch {
     beat: Beat,
@@ -55,7 +48,6 @@ const fn stretch(beat: Beat, at: u32, len: u32, health: (f32, f32), back: (f32, 
     }
 }
 
-/// The record's fight (three minutes of world ticks, 40 a second).
 const WON: [Stretch; 11] = [
     stretch(Beat::Stir, 0, 160, (1.0, 1.0), (0.0, 0.0)),
     stretch(Beat::Rise, 160, 240, (1.0, 1.0), (0.0, 0.0)),
@@ -70,7 +62,6 @@ const WON: [Stretch; 11] = [
     stretch(Beat::Light, 6960, 240, (0.0, 0.0), (0.0, 0.0)),
 ];
 
-/// The retreat (two minutes).
 const LOST: [Stretch; 9] = [
     stretch(Beat::Stir, 0, 160, (1.0, 1.0), (0.0, 0.0)),
     stretch(Beat::Rise, 160, 240, (1.0, 1.0), (0.0, 0.0)),
@@ -83,7 +74,6 @@ const LOST: [Stretch; 9] = [
     stretch(Beat::Fade, 4500, 300, (1.0, 1.0), (5.0, 5.0)),
 ];
 
-/// The beat `t` ticks in, and how far through it.
 fn now(won: bool, t: u32) -> (Stretch, f32) {
     let script: &[Stretch] = if won { &WON } else { &LOST };
     let s = script
@@ -99,20 +89,16 @@ fn ease(k: f32) -> f32 {
     k * k * (3.0 - 2.0 * k)
 }
 
-/// How much of the guardian's health is left.
 fn health(won: bool, t: u32) -> f32 {
     let (s, k) = now(won, t);
     s.health.0 + (s.health.1 - s.health.0) * k
 }
 
-/// How far the party has given ground, in cells.
 fn back(won: bool, t: u32) -> f32 {
     let (s, k) = now(won, t);
     s.back.0 + (s.back.1 - s.back.0) * ease(k)
 }
 
-/// A knight's blow, every so often while the party presses; the guardian's
-/// own, oftener while it rallies; how near it stands, and how far it lunges.
 const STRIKE: u32 = 100;
 const LASH: u32 = 220;
 const NEAR: f32 = 3.6;
@@ -126,13 +112,11 @@ fn fighting(beat: Beat) -> bool {
     matches!(beat, Beat::Press | Beat::Rally | Beat::Rage)
 }
 
-/// A knight's blow lands now (the guardian washes white).
 fn struck(won: bool, t: u32) -> bool {
     let (s, _) = now(won, t);
     pressing(s.beat) && (t - s.at) % STRIKE < 5
 }
 
-/// How far into the guardian's own lash it is (0 none, to 1 at its height).
 fn lash(won: bool, t: u32) -> f32 {
     let (s, _) = now(won, t);
     if !fighting(s.beat) {
@@ -150,9 +134,6 @@ fn lash(won: bool, t: u32) -> f32 {
     }
 }
 
-/// Each knight's health, as the old games kept it in the corner: the lashes
-/// that landed on them so far, less the mending (Dame Lynette's Guardian
-/// Angel at the end of a won fight's second rally; a breath after the fall).
 fn party_health(won: bool, t: u32, knights: usize) -> Vec<f32> {
     let script: &[Stretch] = if won { &WON } else { &LOST };
     let mut hp = vec![1.0f32; knights.max(1)];
@@ -196,8 +177,6 @@ fn party_health(won: bool, t: u32, knights: usize) -> Vec<f32> {
     hp
 }
 
-/// The guardian of a fight: the floor's own, a different one each time
-/// where the floor has two; the dragon in the Keep and below.
 pub(super) fn guardian(pack: Pack, bouts: u32, tick: u32) -> (String, Img, f32) {
     use angel_delve::rules::{bosses, trophies};
     static BOSSES: std::sync::OnceLock<Vec<bosses::Boss>> = std::sync::OnceLock::new();
@@ -221,8 +200,6 @@ pub(super) fn guardian(pack: Pack, bouts: u32, tick: u32) -> (String, Img, f32) 
     (name, art, 1.35)
 }
 
-/// Only the top `frac` of a picture: what shows of something rising out of
-/// the floor or sinking into it.
 fn above_floor(img: &Img, frac: f32) -> Img {
     let keep = ((img.h as f32 * frac.clamp(0.0, 1.0)).round() as i32).max(1);
     let mut out = Img::new(img.w, keep);
@@ -236,7 +213,6 @@ fn above_floor(img: &Img, frac: f32) -> Img {
     out
 }
 
-/// The fight as the party sees it.
 pub(super) fn frame(plan: &Plan, clock: &Clock, t: u32, (w, h): (u32, u32)) -> image::RgbaImage {
     let won = clock.won;
     let (s, k) = now(won, t);
@@ -247,7 +223,6 @@ pub(super) fn frame(plan: &Plan, clock: &Clock, t: u32, (w, h): (u32, u32)) -> i
     let (cx, cy) = party::centre(at);
     let ahead = party::open_ahead(&plan.dungeon, at, look) as f32;
     let behind = party::open_ahead(&plan.dungeon, at, look + std::f32::consts::PI) as f32;
-    // Where the party stands now: given ground, as far as the hall allows.
     let given = back(won, t).min(behind);
     let (ex, ey) = (cx - look.cos() * given, cy - look.sin() * given);
     let tick = t / 4;
@@ -258,7 +233,6 @@ pub(super) fn frame(plan: &Plan, clock: &Clock, t: u32, (w, h): (u32, u32)) -> i
     };
     let hurt = lash(won, t);
     let jolt = hurt * 0.03 * ((t as f32) * 2.3).sin();
-    // Backing away: the step's bob.
     let stepping = if s.beat == Beat::Retreat || (s.beat == Beat::Rally && k < 1.0) {
         ((t as f32) / 7.0).sin().abs() * 0.02
     } else {
@@ -273,9 +247,6 @@ pub(super) fn frame(plan: &Plan, clock: &Clock, t: u32, (w, h): (u32, u32)) -> i
         pitch: 0.02,
     };
     let (_, art, tall) = guardian(plan.dungeon.pack, clock.bouts, tick);
-    // Where the guardian stands: rising out of the stone a way off, coming
-    // on, then toe to toe, lunging when it lashes out; it holds its ground
-    // as the party gives it.
     let dist = match s.beat {
         Beat::Stir | Beat::Rise => 5.2,
         Beat::Come => 5.2 - (5.2 - NEAR) * k,
@@ -296,7 +267,6 @@ pub(super) fn frame(plan: &Plan, clock: &Clock, t: u32, (w, h): (u32, u32)) -> i
         if struck(won, t) {
             img = super::flash(&img);
         }
-        // Staggering before it goes down.
         let sway = if s.beat == Beat::Fall && k < 0.33 {
             ((t as f32) * 0.5).sin() * 0.12
         } else {
@@ -310,7 +280,6 @@ pub(super) fn frame(plan: &Plan, clock: &Clock, t: u32, (w, h): (u32, u32)) -> i
             false,
         ));
     }
-    // The light after: gold where it fell.
     if s.beat == Beat::Light {
         let coin = Tex::from_img(&Img::from_rows(&COIN));
         for (dx, dy) in [
@@ -352,8 +321,6 @@ pub(super) fn frame(plan: &Plan, clock: &Clock, t: u32, (w, h): (u32, u32)) -> i
         stairs: &faces.stairs,
         ceiling: &faces.ceiling,
     };
-    // The torch dips as it wakes and as the party's beaten back; it glows
-    // hot round the guardian when it rages; the record's light is gold.
     let gain = match s.beat {
         Beat::Stir | Beat::Rise => 0.75 + 0.25 * ((t as f32) * 0.8).sin().abs(),
         Beat::Light => 1.0 + 0.3 * k,
@@ -367,8 +334,6 @@ pub(super) fn frame(plan: &Plan, clock: &Clock, t: u32, (w, h): (u32, u32)) -> i
         glow: match s.beat {
             Beat::Rage => Some((gx, gy, 1.6 + ((t as f32) * 0.2).sin().abs())),
             Beat::Light => Some((gx, gy, 3.0 * k)),
-            // It stands in a light of its own, so it holds even in a small
-            // pane: a little in front of it, pooling on the floor.
             Beat::Come | Beat::Press | Beat::Rally | Beat::Fall | Beat::Retreat => {
                 Some((gx - look.cos() * 0.8, gy - look.sin() * 0.8, 1.0))
             }
@@ -380,7 +345,6 @@ pub(super) fn frame(plan: &Plan, clock: &Clock, t: u32, (w, h): (u32, u32)) -> i
     swing(&mut out, won, t);
     bar(&mut out, won, t);
     party_bars(&mut out, won, t, super::party_names(clock.party).len());
-    // Its blow lands: red at the edges of the view.
     if hurt > 0.6 {
         let edge = (out.width().min(out.height()) / 6).max(2);
         let (ow, oh) = (out.width(), out.height());
@@ -397,11 +361,8 @@ pub(super) fn frame(plan: &Plan, clock: &Clock, t: u32, (w, h): (u32, u32)) -> i
     out
 }
 
-/// A coin of the record's gold.
 pub(super) const COIN: [&str; 6] = [".@55@.", "@5665@", "56cc65", "56cc65", "@5665@", ".@55@."];
 
-/// The leading knight's sword: drawn back as a blow comes, sweeping across
-/// as it lands, and home again; held up on guard as the party gives ground.
 fn swing(out: &mut image::RgbaImage, won: bool, t: u32) {
     let (s, _) = now(won, t);
     let pose = if pressing(s.beat) {
@@ -411,7 +372,6 @@ fn swing(out: &mut image::RgbaImage, won: bool, t: u32) {
             _ => (0, (0.0, 0.0)),
         }
     } else if matches!(s.beat, Beat::Rally | Beat::Retreat) {
-        // On guard, giving ground.
         (1, (-3.0, -2.0))
     } else {
         (0, (0.0, 0.0))
@@ -419,8 +379,6 @@ fn swing(out: &mut image::RgbaImage, won: bool, t: u32) {
     super::hands(out, pose, t);
 }
 
-/// The guardian's health, a bar across the top of the view: red, running
-/// down and, when it rallies, back up paler; hot while it rages.
 fn bar(out: &mut image::RgbaImage, won: bool, t: u32) {
     let (s, _) = now(won, t);
     if matches!(s.beat, Beat::Stir | Beat::Rise | Beat::Light | Beat::Fade) {
@@ -445,7 +403,6 @@ fn bar(out: &mut image::RgbaImage, won: bool, t: u32) {
                 if hot {
                     [236, 182, 74]
                 } else if mending && x - x0 > fill - bw / 12 {
-                    // The wound closing: the bar's end comes back paler.
                     [214, 120, 96]
                 } else {
                     [168, 52, 31]
@@ -458,8 +415,6 @@ fn bar(out: &mut image::RgbaImage, won: bool, t: u32) {
     }
 }
 
-/// The knights' health in the top-left corner, one bar each in their
-/// colours, as the old games kept it.
 fn party_bars(out: &mut image::RgbaImage, won: bool, t: u32, knights: usize) {
     let (s, _) = now(won, t);
     if matches!(s.beat, Beat::Stir | Beat::Rise | Beat::Fade) {
@@ -502,7 +457,6 @@ fn party_bars(out: &mut image::RgbaImage, won: bool, t: u32, knights: usize) {
     }
 }
 
-/// What's happening in the fight, in two lines that change slowly.
 pub(super) fn log(clock: &Clock, plan: &Plan, t: u32, score: Option<&str>) -> [String; 2] {
     let won = clock.won;
     let (s, k) = now(won, t);
@@ -641,7 +595,6 @@ pub(super) fn log(clock: &Clock, plan: &Plan, t: u32, score: Option<&str>) -> [S
     [first, chorus[(t / 480) as usize % chorus.len()].clone()]
 }
 
-/// How much of the guardian's health is left, for the tests.
 #[cfg(test)]
 pub(super) fn health_for_test(won: bool, t: u32) -> f32 {
     health(won, t)

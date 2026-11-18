@@ -1,29 +1,15 @@
 use super::*;
 
-/// Where the MoA formation machine stands, read off the arm fields so the chip, the
-/// label, the status line, the inspector and the chip cache all say the same thing.
-///
-/// The fields are `moa_one_shot` (armed for the next turn), `moa_session` (armed for
-/// every turn), `moa_restore_after_turn` (a one-shot's wrapper took the route and gives it
-/// back when the worker settles) and the open deck. A turn consumes the one-shot, so from
-/// then until the worker settles only `moa_restore_after_turn` says a formation is running.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum MoaPhase {
-    /// Nothing armed, deck closed: normal coordinator turns.
     Idle,
-    /// The deck is open with nothing armed: a draft pick, not yet an arm.
     Staging,
-    /// A one-shot is armed for the next turn; a staged session waits behind it.
     NextTurn,
-    /// A session roster is armed for every turn.
     Session,
-    /// A one-shot formation is running the turn. The turn consumed its engagement, so
-    /// the formation's name and seats are no longer held here.
     Engaged,
 }
 
 impl MoaPhase {
-    /// The word the inspector reports.
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::Idle => "idle",
@@ -34,16 +20,12 @@ impl MoaPhase {
         }
     }
 
-    /// A formation is armed or running (the deck's draft pick does not count).
     pub(crate) fn is_live(self) -> bool {
         !matches!(self, Self::Idle | Self::Staging)
     }
 }
 
 impl App {
-    /// The formation's phase. A one-shot staged during a run shows as `NextTurn`
-    /// (it is what the operator can still change), then a run under a one-shot, then
-    /// the session, then the open deck.
     pub(crate) fn moa_phase(&self) -> MoaPhase {
         if self.moa_one_shot.is_some() {
             MoaPhase::NextTurn
@@ -58,7 +40,6 @@ impl App {
         }
     }
 
-    /// The formation armed for a turn: the one-shot first, else the session roster.
     pub(crate) fn moa_armed(&self) -> Option<&crate::agent::formations::MoaEngagement> {
         self.moa_one_shot.as_ref().or(self.moa_session.as_ref())
     }
@@ -140,10 +121,6 @@ impl App {
         let Some(deck) = self.moa_deck.as_mut() else {
             return false;
         };
-        // The live-turn interrupt contract outranks this display-only board.
-        // Ctrl+G remains the global shell escape hatch; Ctrl+C joins Esc as a
-        // live-turn interrupt. Every other modified chord stays captured so it
-        // cannot edit the hidden composer beneath Formation.
         if matches!(code, KeyCode::Esc) && (self.thinking.is_some() || self.bg_job.is_some()) {
             return false;
         }
@@ -226,9 +203,6 @@ impl App {
             }
             KeyCode::Enter => {
                 if deck.focus() == crate::agent::formations::MoaDeckFocus::Formations {
-                    // Card-battle lock-in: Enter arms the selected formation for
-                    // the next turn. Tab still drills into the roster graph for
-                    // seat reassignment; S/A arms for the whole session.
                     self.play_selected_moa_card(false);
                 } else {
                     deck.open_model_picker();
@@ -308,9 +282,6 @@ impl App {
                 )
             }
             (None, None) => {
-                // While the deck is open the world rail used to keep saying
-                // "Solo" even with Grok War highlighted — selection felt dead.
-                // Surface the draft pick until Enter/N/S (or re-click) arms it.
                 if let Some(deck) = self.moa_deck.as_ref() {
                     let formation = deck.selected();
                     if formation.is_resting() {
@@ -333,7 +304,6 @@ impl App {
         }
     }
 
-    /// Short label for the agent-panel FORMATION chip (armed > engaged > draft > plain).
     pub(crate) fn moa_formation_chip_label(&self) -> String {
         let scope = match self.moa_phase() {
             MoaPhase::Engaged => return "FORMATION/live".to_string(),
@@ -360,9 +330,6 @@ impl App {
         }
     }
 
-    /// Mouse hit on a formation row. First click previews; clicking the already
-    /// selected ready card arms it for the next turn so the world rail leaves
-    /// Solo once the operator has actually locked the pick in.
     pub(crate) fn select_or_arm_moa_card(&mut self, id: crate::agent::formations::FormationId) {
         let already_selected = self
             .moa_deck
@@ -396,10 +363,6 @@ impl App {
         }
     }
 
-    /// Open the THINK picker for the focused Formation seat. The ladder is the
-    /// assigned route's own declared reasoning levels — capability truth: a
-    /// route that declares none gets the explicit n/a line, never an invented
-    /// ladder — and every refusal to open says why.
     pub(crate) fn open_moa_effort_picker(&mut self) {
         self.launch_interaction();
         let Some(deck) = self.moa_deck.as_ref() else {
@@ -446,10 +409,6 @@ impl App {
         }
     }
 
-    /// Stage THINK picker row `index` onto the focused seat's role (keyboard
-    /// Enter today; the picker's mouse rows land with the Formation WorldButton
-    /// wave). The staged value engages with the next armed turn/session, and
-    /// the result is voiced either way.
     pub(crate) fn stage_moa_effort(&mut self, index: usize) {
         let Some(deck) = self.moa_deck.as_mut() else {
             return;
@@ -504,10 +463,6 @@ impl App {
         self.system_msg("Formation cleared — normal coordinator turns restored".to_string());
     }
 
-    /// Apply the staged formation at the turn boundary. `false` means the
-    /// roster changed or went offline and the caller must keep the draft rather
-    /// than silently sending it through another model. Successful engagement
-    /// is carried by the rebuilt route itself, never by rewriting User text.
     pub(crate) fn apply_armed_moa_to_turn(&mut self) -> bool {
         let one_shot = self.moa_one_shot.clone();
         let Some(engagement) = one_shot.clone().or_else(|| self.moa_session.clone()) else {
@@ -554,9 +509,6 @@ impl App {
         }
     }
 
-    /// Hand control back after a one-shot worker completes. If a session roster
-    /// was staged during the run it becomes active now; otherwise restore the
-    /// concrete route that was selected before engagement.
     pub(crate) fn restore_moa_after_turn(&mut self) {
         if !std::mem::take(&mut self.moa_restore_after_turn) {
             return;
@@ -615,8 +567,6 @@ impl App {
         } else {
             ""
         };
-        // The staged THINK column rides the engagement; the receipt names each
-        // staged seat so an effort override is never armed silently.
         let efforts = engagement.roster.seat_efforts();
         let staged = [
             (

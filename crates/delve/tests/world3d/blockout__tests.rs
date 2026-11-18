@@ -11,7 +11,6 @@ fn assets() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/world3d")
 }
 
-/// Points of a tile's floor, `n` by `n`, `inset` pixels in from its edges.
 fn samples((col, row): (i32, i32), n: usize, inset: f32) -> Vec<[f32; 2]> {
     let span = TILE - 2.0 * inset;
     (0..n)
@@ -30,8 +29,6 @@ fn under(s: &Solid, [x, z]: [f32; 2]) -> bool {
     x > x0 && x < x1 && z > z0 && z < z1
 }
 
-/// The item's landmark overlay as the group it adds to the room's, when it
-/// has one: every check of the room holds it too.
 fn landmark_group(item: &Item) -> Option<Group> {
     let text = landmark(item.id())?;
     let solids = landmark_solids(&text).unwrap_or_else(|why| panic!("{}: {}", item.id(), why.join("; ")));
@@ -100,7 +97,6 @@ fn every_dressing_names_tiles_its_room_has() {
                         Prop::Low(..) | Prop::Heap(..) | Prop::Arch | Prop::Deck(_) => walkable(tile),
                         Prop::Site => matches!(tile, Tile::Block | Tile::Stairs),
                         Prop::Column { .. } => matches!(tile, Tile::Block | Tile::Hazard),
-                        // A region: what is blocked in it is the prop's.
                         _ => true,
                     };
                     assert!(fits, "{}: {} at {x},{y} stands on {tile:?}", item.id(), prop.word());
@@ -112,19 +108,12 @@ fn every_dressing_names_tiles_its_room_has() {
     });
 }
 
-/// What the dressing names, a place's every blocked tile is under: nothing
-/// is left to the setting's own default block (a boulder, a crate). The
-/// chambers' templates are not dressed tile by tile: their packs' own blocks
-/// stand for them.
 #[test]
 fn every_blocked_tile_of_a_place_is_named() {
     each_room(|item, room, _| {
         if matches!(item.source, Source::Chamber { .. } | Source::Great { .. }) {
             return;
         }
-        // Bomrekedan's blocked tiles are named from the import's DRESS grid
-        // (`blockout::fort_block`), not by a static prop list and not by the
-        // hall's default crate.
         if crate::rules::world::bomrekedan::is_level(room.kind) {
             return;
         }
@@ -166,7 +155,6 @@ fn every_room_of_the_world_and_every_chamber_template_has_an_item() {
     for source in [Source::Sanctuary, Source::Vault, Source::Forge] {
         assert!(all.iter().any(|i| std::mem::discriminant(&i.source) == std::mem::discriminant(&source)), "{source:?}");
     }
-    // Ids: lower case letters, digits and `-`, each once.
     for (k, item) in all.iter().enumerate() {
         let id = item.id();
         assert!(!id.is_empty() && id.len() <= 64 && id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-'), "{id}");
@@ -222,8 +210,6 @@ fn check_walkable_tiles_are_never_under_a_block(id: &str, _setting: Setting, roo
         .flat_map(|g| &g.solids)
         .filter(|s| s.top() > LOW && s.bottom() < HEADROOM)
         .collect();
-    // A solid can cover a sample only on a tile its footprint meets. Bin
-    // once; each sample still asks `under`, so a hit is the same hit.
     let cols = room.cols as usize;
     let mut bins: Vec<Vec<&Solid>> = vec![Vec::new(); cols * room.rows as usize];
     for s in &blocks {
@@ -258,8 +244,6 @@ fn check_walkable_tiles_stay_in_view_of_the_game_camera(id: &str, _setting: Sett
     assert_eq!(view.size, (room.cols as u32 * 16, room.rows as u32 * 16), "{}: the room's stage", id);
     let hulls = occluders(&view, groups.iter().filter(|g| g.role != Role::Ground && g.role != Role::Hazard).flat_map(|g| &g.solids));
     let open = open_tiles(room);
-    // Hulls whose screen bounds meet the tile, gathered once. `hidden_by`
-    // still samples the tile, so the share is the share it always reported.
     let mut near: Vec<Vec<&Hull>> = vec![Vec::new(); open.len()];
     for h in &hulls {
         for (i, t) in open.iter().enumerate() {
@@ -307,8 +291,6 @@ fn check_blocked_tiles_are_under_or_behind_what_blocks_them(id: &str, _setting: 
             })
             .count() as f32
             / blocked.len() as f32;
-        // A round crown leaves its corners to the grass, as the painter's
-        // tree does; a staked site is open ground roped off.
         let least = if g.name.starts_with("tree") {
             0.5
         } else if g.name.starts_with("site") {
@@ -370,7 +352,6 @@ fn check_doors_are_gaps_where_the_door_tiles_are(id: &str, setting: Setting, roo
         if masonry {
             let leaf = group.solids.iter().find(|s| s.kind == Kind::Door).expect("a door leaf or sill");
             let [x0, z0, x1, z1] = leaf.footprint();
-            // Just outside the wall's outer face.
             let (lo, hi, edge) = match side {
                 Side::North => (x0, x1, z1),
                 Side::South => (x0, x1, z0 - h),
@@ -379,7 +360,6 @@ fn check_doors_are_gaps_where_the_door_tiles_are(id: &str, setting: Setting, roo
             };
             assert_eq!((lo, hi, edge), (a, b, 0.0), "{}: the {side:?} door spans its tiles at the wall's face", id);
         }
-        // Its flanking wall tiles stand.
         for k in [from - 1, to] {
             let (c, r) = match side {
                 Side::North => (k, 0),
@@ -406,15 +386,6 @@ fn check_the_far_wall_stands_full_height_and_the_near_wall_low(id: &str, _settin
     assert!(near < far / 2.0, "{}: the near wall ({near}) stays low beside the far ({far})", id);
 }
 
-
-/// The rooms the dice lay on seeded floors (each delve, floors 1 to 3, a
-/// party of one and of two), each as its dressing has it
-/// (`rooms_lit::dressing_for`), and the map of an open floor of each delve
-/// piece by piece (each piece's tiles and the ring of the map round them, as
-/// `rooms_lit` cuts it): every one agrees with the game as the items do. Its
-/// walls stand on its wall tiles, nothing over ground a knight walks, the
-/// floor in view, its blocks over its blocked tiles, its hazards low, a
-/// doorway where each door is.
 #[test]
 fn rooms_with_no_item_on_seeded_floors_agree_with_the_game() {
     use crate::rules::{Rng, layout};
@@ -472,9 +443,6 @@ fn every_set_is_tens_to_a_few_hundred_well_formed_lines() {
         let set = item.set();
         let lines: Vec<&str> = set.lines().collect();
         let room = item.room();
-        // A bigger room has more to it, a tile at a time in places: up to
-        // half a line a tile for a level of Bomrekedan, its walls and
-        // blocked tiles all as imported (`world::bomrekedan`).
         let most = if room.cols * room.rows > 24 * 14 { 2000.max(room.cols * room.rows / 2) } else { 400 };
         assert!((20..=most).contains(&lines.len()), "{}: {} lines", item.id(), lines.len());
         assert_eq!(lines[0], format!("set {}", item.id()));
@@ -505,7 +473,6 @@ fn every_set_is_tens_to_a_few_hundred_well_formed_lines() {
             shapes += 1;
         }
         assert!(shapes >= 6, "{}: {shapes} shapes", item.id());
-        // Every id once.
         let ids: Vec<&str> = lines.iter().filter_map(|l| l.split('#').next().unwrap().split(" id ").nth(1)).map(str::trim).collect();
         for (k, id) in ids.iter().enumerate() {
             assert!(!ids[k + 1..].contains(id), "{}: id {id} twice", item.id());
@@ -531,17 +498,14 @@ fn merging_makes_few_rectangles_that_cover_every_cell_once() {
 fn the_camera_sees_what_stands_up_over_the_floor_behind_it() {
     let room = PILOT[0].room();
     let view = View::of(&room);
-    // A tall block hides the floor north of it, never south of it.
     let wall = Solid::block(Kind::Stone, px((10, 6, 2, 1)), 0.0, 32.0);
     let hulls = occluders(&view, [&wall]);
     assert!(view.hidden(&hulls, (10, 5)) > 0.9, "the tile behind");
     assert!(view.hidden(&hulls, (10, 4)) > 0.5, "and the one behind that");
     assert_eq!(view.hidden(&hulls, (10, 7)), 0.0, "the tile in front");
-    // The far wall hides nothing in the room.
     let far = Solid::block(Kind::Stone, px((0, 0, 24, 1)), 0.0, WALL);
     let hulls = occluders(&view, [&far]);
     assert!(open_tiles(&room).iter().all(|&t| view.hidden(&hulls, t) == 0.0));
-    // A boot-high thing hides nothing.
     assert!(occluders(&view, [&Solid::block(Kind::Metal, px((5, 5, 1, 1)), 0.0, LOW)]).is_empty());
 }
 
@@ -557,8 +521,6 @@ fn a_trimmed_group_keeps_its_stacking() {
     }
 }
 
-
-/// Where an item's landmark begins in its set text.
 const LANDMARK_MARK: &str = "\n# landmark (";
 
 #[test]
@@ -566,7 +528,6 @@ fn every_set_parses_with_no_refusals() {
     assert_eq!(angel_stage::set::GAME_TILT, crate::render::overworld::arena::stage_frame::TILT, "the set's camera is the game's");
     for item in &every() {
         let text = item.set();
-        // The generated part, then the landmark's lines.
         let (generated, landmark) = match text.split_once(LANDMARK_MARK) {
             Some((g, l)) => (format!("{g}\n"), l.split_once('\n').map_or("", |(_, rest)| rest)),
             None => (text.clone(), ""),
@@ -591,8 +552,6 @@ fn every_set_parses_with_no_refusals() {
                 assert!((shape.at[k] - solid.at[k]).abs() < 0.01 && (shape.size[k] - solid.size[k]).abs() < 0.01, "{}: line {}", item.id(), shape.line);
             }
         }
-        // The landmark: read by the same parser, the whole set reads as one,
-        // its landmark's blocks after the generator's.
         let ours = landmark_solids(landmark).unwrap_or_else(|why| panic!("{}: {}", item.id(), why.join("; ")));
         let whole = angel_stage::set::Set::parse(&text).unwrap_or_else(|refusals| {
             panic!("{}: {}", item.id(), refusals.iter().map(|r| r.to_string()).collect::<Vec<_>>().join("; "))
@@ -614,7 +573,6 @@ fn the_view_is_the_sets_game_camera() {
         panic!("the stage camera is a custom projection");
     };
     for p in [[0.0, 0.0, 0.0], [192.0, 0.0, 112.0], [384.0, 48.0, 16.0], [16.0, 30.0, 200.0]] {
-        // Column-major: m[column][row].
         let clip: [f32; 4] = std::array::from_fn(|r| (0..3).map(|c| m[c][r] * p[c]).sum::<f32>() + m[3][r]);
         let (w, h) = (view.size.0 as f32, view.size.1 as f32);
         let at = [(clip[0] / clip[3] + 1.0) / 2.0 * w, (1.0 - clip[1] / clip[3]) / 2.0 * h];
@@ -623,11 +581,6 @@ fn the_view_is_the_sets_game_camera() {
     }
 }
 
-
-
-// ------------------------------------------------------------ landmarks ----
-
-/// A landmark overlay on a room of the pilot, as a generator would read it.
 fn overlay_on(item: &Item, text: &str) -> (Room, Vec<Group>, Vec<Solid>) {
     let room = item.room();
     let groups = blockout(&room, &item.dressing);
@@ -674,13 +627,11 @@ fn a_landmark_reads_the_set_syntax_and_refuses_the_rest() {
         let why = landmark_solids(bad).expect_err(bad);
         assert!(why[0].starts_with("landmark line 1:"), "{bad}: {why:?}");
     }
-    // Every bad line is told, with its number.
     assert_eq!(landmark_solids("box stone at 0 0 0 size 1 1 1\nset a\n\nplate 1 1\n").unwrap_err().len(), 2);
 }
 
 #[test]
 fn a_landmark_that_breaks_the_rooms_agreement_is_caught() {
-    // The village (PILOT[3]): an open green, walls round it.
     let item = &PILOT[3];
     let room = item.room();
     let (c, r) = open_tiles(&room).into_iter().find(|&(c, r)| room.tile(c, r) == Tile::Floor && r > 4).unwrap();
@@ -690,19 +641,15 @@ fn a_landmark_that_breaks_the_rooms_agreement_is_caught() {
     let faults = landmark_faults(&room, &groups, &solids);
     assert!(faults.iter().any(|f| f.contains("stands over walkable tiles")), "{faults:?}");
     assert!(faults.iter().any(|f| f.contains("hides")), "a wall in the open floor hides the floor behind it: {faults:?}");
-    // The same block high over the floor is a lintel, but it is out of the plate.
     let (room, groups, solids) = overlay_on(item, &format!("box stone at {} 40 {} size 8 4 8", centre.0, centre.1));
     assert!(landmark_faults(&room, &groups, &solids).iter().all(|f| !f.contains("stands over")), "a lintel may span the floor");
     let (room, groups, solids) = overlay_on(item, "box stone at 40 0 4 size 20 900 8");
     assert!(landmark_faults(&room, &groups, &solids).iter().any(|f| f.contains("out of the plate")));
-    // A name the generator already uses is not ours to take.
     let taken = groups.iter().flat_map(|g| &g.solids).find_map(|s| s.id.clone()).expect("the village names its cottages");
     let (room, groups, solids) = overlay_on(item, &format!("box stone at 40 0 4 size 8 8 8 id {taken}"));
     assert!(landmark_faults(&room, &groups, &solids).iter().any(|f| f.contains("already the set's")));
 }
 
-/// A landmark stands only on the room's blocked tiles, hides nothing it
-/// should not, and keeps to the plate: the rooms that have one.
 #[test]
 fn landmarks_stand_only_on_blocked_tiles_and_keep_the_floor_in_view() {
     let ids: Vec<&str> = every().iter().map(|i| i.id()).collect();
@@ -712,12 +659,10 @@ fn landmarks_stand_only_on_blocked_tiles_and_keep_the_floor_in_view() {
         let (room, groups, solids) = overlay_on(item, &text);
         assert!(solids.len() >= 4, "{}: a landmark is a structure, not a mark", item.id());
         broken.extend(landmark_faults(&room, &groups, &solids).into_iter().map(|f| format!("{}: {f}", item.id())));
-        // The set the generator writes carries it, after its own.
         let set = item.set();
         assert!(set.contains(LANDMARK_MARK), "{}", item.id());
     }
     assert!(broken.is_empty(), "{}", broken.join("\n"));
-    // No landmark file sits under a name that is no item.
     for entry in std::fs::read_dir(assets()).unwrap().flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if entry.path().join("landmark.set").exists() {
@@ -726,13 +671,6 @@ fn landmarks_stand_only_on_blocked_tiles_and_keep_the_floor_in_view() {
     }
 }
 
-/// Lit rooms (`rooms_lit`, docs/REALM-MONOLITH.md "Rooms, lit"): every
-/// item's room and the rooms the dice lay on seeded floors (each delve,
-/// floors 1 to 3, a party of one and of two), and an open floor's map piece
-/// by piece, as their masses are made monolithic (`rooms_lit_mass`), agree
-/// with the game as the generator's blockouts do: walls on their wall tiles,
-/// nothing over ground a knight walks, the floor in view, blocked tiles
-/// blocked, hazards low.
 #[test]
 fn lit_rooms_agree_with_the_game() {
     use crate::rules::{Rng, layout};

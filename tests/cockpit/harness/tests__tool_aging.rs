@@ -5,8 +5,6 @@
 
 use super::*;
 
-// --- tool aging / shrink / inspection dedup suite ---------------------------
-
 #[test]
 fn completed_tool_argument_shrink_keeps_recent_calls_and_valid_structure() {
     let mut history = vec![ChatMsg::system("sys"), ChatMsg::user("task")];
@@ -206,7 +204,6 @@ fn age_tool_results_elides_old_bulk_and_protects_recent_hops() {
     for recent in &tools[2..] {
         assert_eq!(&*recent.content, big, "protected recent hops untouched");
     }
-    // Non-tool messages are never touched.
     assert_eq!(&*history[0].content, "sys");
     assert_eq!(&*history[1].content, "task");
 }
@@ -240,13 +237,11 @@ fn age_tool_results_stores_handle_backed_receipts_when_enabled() {
             .expect("handle id in receipt");
         handles.push(handle.to_string());
     }
-    // Explicit disclosure recovers bulk without re-running the tool.
     for handle in &handles {
         let slice = session_disclose(handle, 0, 256).expect("disclose");
         assert!(slice.content.contains("handle-age-body"));
         assert!(slice.total_bytes >= big.len() || slice.total_bytes > 0);
     }
-    // Root trajectory classifies handle receipts, not bulk.
     let traj = root_trajectory(&history);
     assert!(traj.handle_receipts >= 2);
     assert_eq!(traj.bulk_tool_results, 4, "recent hops remain bulk");
@@ -326,7 +321,7 @@ fn semantic_aging_protects_whole_recent_parallel_hop() {
 
 #[test]
 fn semantic_aging_protects_exact_token_tail() {
-    let body = "x".repeat(1_000); // 250 deterministic estimate tokens.
+    let body = "x".repeat(1_000);
     let mut history = vec![ChatMsg::system("sys"), ChatMsg::user("task")];
     for i in 0..6 {
         semantic_tool_hop(
@@ -589,8 +584,6 @@ fn age_tool_results_is_idempotent() {
         2
     );
     let snapshot: Vec<String> = history.iter().map(|m| m.content.to_string()).collect();
-    // Even with the bulk floor dropped, an already-aged message is skipped
-    // (the marker check, not the byte count, is what makes this idempotent).
     assert_eq!(
         age_tool_results(&mut history, 4, 0, 1, false, 12),
         InspectionAging::default()
@@ -758,16 +751,12 @@ fn age_tool_results_skips_small_outputs() {
 #[test]
 fn tool_aging_env_wiring_and_kill_switch() {
     let _guard = crate::tests::env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_TOOL_AGE_KEEP_HOPS") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_TOOL_AGE_MIN_BYTES") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_TOOL_AGE_PROTECT_TOKENS") };
     let big = "y".repeat(4096);
     let mut history = tool_hop_history(12, &big);
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_TOOL_AGING", "0") };
     assert_eq!(
         maybe_age_tool_results(&mut history),
@@ -776,7 +765,6 @@ fn tool_aging_env_wiring_and_kill_switch() {
     );
     assert!(history.iter().all(|m| !m.content.contains(TOOL_AGED_MARK)));
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_TOOL_AGING") };
     assert_eq!(
         maybe_age_tool_results(&mut history).results,
@@ -784,8 +772,6 @@ fn tool_aging_env_wiring_and_kill_switch() {
         "defaults: keep 4 true hops plus an 8k-token result tail"
     );
 }
-
-// --- opt-in effect aging (ANGEL_TOOL_AGE_EFFECTS) ----------------------------
 
 fn effect_hop_history() -> (Vec<ChatMsg>, Vec<String>) {
     let mut history = vec![ChatMsg::system("sys"), ChatMsg::user("task")];
@@ -904,10 +890,6 @@ fn write_results_are_never_effect_aged() {
     );
 }
 
-// --- second-stage excerpt shrink (ANGEL_TOOL_AGE_EXCERPT_HOPS) ----------------
-
-/// Thirty bulky shell hops: enough distance for receipts to travel far past
-/// any sane excerpt window while the newest hops stay protected.
 fn excerpt_hop_history() -> (Vec<ChatMsg>, Vec<String>) {
     let mut history = vec![ChatMsg::system("sys"), ChatMsg::user("task")];
     let mut bodies = Vec::new();
@@ -976,7 +958,6 @@ fn old_effect_receipts_drop_their_excerpt_after_the_window() {
             "the two newest hops stay intact"
         );
     }
-    // A second pass is a no-op: nothing left to drop, history byte-identical.
     let snapshot: Vec<String> = history.iter().map(|m| m.content.to_string()).collect();
     assert_eq!(
         age_tool_results(&mut history, 2, 0, 512, true, 5),
@@ -1010,10 +991,6 @@ fn excerpt_hops_zero_keeps_excerpts() {
     session_clear();
 }
 
-// --- cache-stable mode: aging deferred until compaction ---------------------
-
-/// Prefix retention defaults on even for unknown providers. Explicit per-club
-/// and global pins still select the historical token-first ablation.
 #[test]
 fn cache_stable_mode_defaults_on_and_the_club_pin_beats_the_global() {
     let _guard = crate::tests::env_lock();
@@ -1027,8 +1004,6 @@ fn cache_stable_mode_defaults_on_and_the_club_pin_beats_the_global() {
         "unknown providers also retain prefixes by default"
     );
 
-    // A backend with a documented byte-exact prefix cache runs cache-first by
-    // default; the explicit global still overrides detection either way.
     let capable = crate::agent::club::HttpClub::new(
         "cache-stable-probe",
         "http://127.0.0.1:9/v1",
@@ -1052,16 +1027,13 @@ fn cache_stable_mode_defaults_on_and_the_club_pin_beats_the_global() {
         cache_stable_mode(&wrapped),
         "a cache-capable aggregate must keep its outer swarm history append-only"
     );
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_CACHE_STABLE", "0") };
     assert!(
         !cache_stable_mode(&capable),
         "an explicit global off overrides capability detection"
     );
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_CACHE_STABLE") };
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_CACHE_STABLE", "1") };
     assert!(cache_stable_mode(&club));
     assert!(
@@ -1069,7 +1041,6 @@ fn cache_stable_mode_defaults_on_and_the_club_pin_beats_the_global() {
         "a club with no env namespace still follows the global"
     );
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_CACHE_STABLE_PROBE_CACHE_STABLE", "0") };
     assert!(
         !cache_stable_mode(&club),
@@ -1077,9 +1048,7 @@ fn cache_stable_mode_defaults_on_and_the_club_pin_beats_the_global() {
     );
     assert!(cache_stable_mode(&logical), "the pin is scoped to its club");
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_CACHE_STABLE", "0") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_CACHE_STABLE_PROBE_CACHE_STABLE", "1") };
     assert!(
         cache_stable_mode(&club),
@@ -1087,7 +1056,6 @@ fn cache_stable_mode_defaults_on_and_the_club_pin_beats_the_global() {
     );
     assert!(!cache_stable_mode(&logical));
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_CACHE_STABLE_PROBE_CACHE_STABLE") };
     assert!(
         !cache_stable_mode(&club),
@@ -1095,17 +1063,12 @@ fn cache_stable_mode_defaults_on_and_the_club_pin_beats_the_global() {
     );
 }
 
-/// Records, per request, whether the history it was handed already carried an
-/// aged receipt — the observable signature of a mid-turn in-place rewrite, which
-/// is exactly what invalidates a byte-exact provider prefix from there on.
 struct AgingProbeClub {
     hops: AtomicUsize,
     requests_with_aged_results: AtomicUsize,
     retained: std::sync::Mutex<Vec<ChatMsg>>,
     check_prefix: bool,
-    /// Publishes a provider harness's compaction trigger (DeepSeek's route).
     provider_budget: bool,
-    /// Hops before the answer (ten for the historical probes).
     stop_at: usize,
 }
 
@@ -1140,8 +1103,6 @@ impl Club for AgingProbeClub {
         if hop >= self.stop_at {
             return Ok(ClubReply::Text("done".into()));
         }
-        // A distinct bulky inspection per hop: aging-eligible (`reverse` is a
-        // read footprint), never a duplicate, never a repeated identity.
         Ok(ClubReply::Calls(vec![ToolCall {
             id: format!("c{hop}"),
             name: "reverse".into(),
@@ -1150,9 +1111,6 @@ impl Club for AgingProbeClub {
     }
 }
 
-/// Run ten `reverse` hops with both aging tails tightened so the pass has
-/// something to do and crosses the historical eight-hop rewrite boundary. The
-/// caller holds the env lock.
 fn aging_probe_turn(cache_stable: &str) -> (usize, Vec<ChatMsg>, Vec<String>) {
     aging_probe_turn_with_cadence(cache_stable, "0")
 }
@@ -1162,17 +1120,12 @@ fn aging_probe_turn_with_cadence(
     cadence: &str,
 ) -> (usize, Vec<ChatMsg>, Vec<String>) {
     let _cadence = EnvGuard::set("ANGEL_ROLLING_REWRITE_HOPS", cadence);
-    // The body-size floor is a separate, orthogonal gate: pin it off here so
-    // this probe exercises the cadence mechanism itself on a short history
-    // (see the `ANGEL_ROLLING_REWRITE_MIN_TOKENS` note in turn/mod.rs).
     let _floor = EnvGuard::set("ANGEL_ROLLING_REWRITE_MIN_TOKENS", "0");
     let _broker = EnvGuard::set("ANGEL_BACKPLANE", "1");
     let _stable = EnvGuard::set("ANGEL_CACHE_STABLE", cache_stable);
     let _hops = EnvGuard::set("ANGEL_TOOL_AGE_KEEP_HOPS", "1");
     let _tokens = EnvGuard::set("ANGEL_TOOL_AGE_PROTECT_TOKENS", "0");
     let _min = EnvGuard::set("ANGEL_TOOL_AGE_MIN_BYTES", "512");
-    // Plain receipts rather than handle receipts: the mark is the same, but the
-    // fixture then depends on nothing but the aging pass.
     let _handles = EnvGuard::set("ANGEL_HANDLE_STORE", "0");
     let club = AgingProbeClub {
         hops: AtomicUsize::new(0),
@@ -1184,8 +1137,6 @@ fn aging_probe_turn_with_cadence(
     };
     let reg = ToolRegistry::with_defaults();
     let mut history = vec![ChatMsg::user("probe the aging boundary")];
-    // Seed real broker-owned evidence so continuation checks do not depend on
-    // whether the developer's local memory stores happen to contain anything.
     let atlas = reg.atlas();
     let project = atlas.project_key();
     let selection = crate::agent::backplane::KnowledgeBroker::select(
@@ -1288,8 +1239,6 @@ fn cache_stable_holds_tool_result_aging_until_compaction() {
     assert_eq!(spoken, 1, "one note per turn, not per hop: {notices:?}");
 }
 
-/// A boundary that actually rewrote history resets the held-hop count, so the
-/// turn-seal notice cannot claim deferral for hops it already flushed.
 #[test]
 fn cache_stable_held_hop_count_resets_at_a_real_rewrite_boundary() {
     let _guard = crate::tests::env_lock();
@@ -1360,10 +1309,6 @@ fn tool_result_aging_stays_mid_turn_when_cache_stable_is_off() {
     );
 }
 
-/// Records, per request, whether the history it was handed already carried a
-/// shrunk-argument receipt — the observable signature of a mid-turn in-place
-/// rewrite of a completed call, which invalidates a byte-exact provider prefix
-/// from that message on exactly the way tool-result aging does.
 struct ShrinkProbeClub {
     hops: AtomicUsize,
     requests_with_shrunk_arguments: AtomicUsize,
@@ -1400,16 +1345,10 @@ impl Club for ShrinkProbeClub {
     }
 }
 
-/// Run one bounded turn of four completed `write_file` calls with the shrink
-/// thresholds tightened so the pass has three calls to receipt. The caller
-/// holds the env lock.
 fn shrink_probe_turn(cache_stable: &str) -> (usize, Vec<ChatMsg>, Vec<String>) {
     let _stable = EnvGuard::set("ANGEL_CACHE_STABLE", cache_stable);
     let _keep = EnvGuard::set("ANGEL_TOOL_ARGUMENT_KEEP_CALLS", "1");
     let _min = EnvGuard::set("ANGEL_TOOL_ARGUMENT_MIN_BYTES", "64");
-    // Isolate the argument rewriter: result aging would otherwise be a second
-    // source of the deferral notice, and the verification gate would add an
-    // unscripted hop after the writes.
     let _aging = EnvGuard::set("ANGEL_TOOL_AGING", "0");
     let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
     let club = ShrinkProbeClub {
@@ -1496,10 +1435,6 @@ fn tool_argument_shrinking_stays_mid_turn_when_cache_stable_is_off() {
     );
 }
 
-/// Records, per request, whether the history it was handed already carried a
-/// duplicate-inspection receipt — dedup rewrites an *older* identical result in
-/// place exactly like aging does, so a mid-turn receipt is the same
-/// prefix-cache invalidation signature.
 struct DedupProbeClub {
     hops: AtomicUsize,
     requests_with_dedup_receipts: AtomicUsize,
@@ -1524,9 +1459,6 @@ impl Club for DedupProbeClub {
         if hop >= 4 {
             return Ok(ClubReply::Text("done".into()));
         }
-        // The *same* bulky read every hop: identical identity, identical
-        // content, no interleaved effect — dedup-eligible from the second
-        // result on (`reverse` is a read footprint).
         Ok(ClubReply::Calls(vec![ToolCall {
             id: format!("c{hop}"),
             name: "reverse".into(),
@@ -1535,9 +1467,6 @@ impl Club for DedupProbeClub {
     }
 }
 
-/// Run one bounded turn of four identical `reverse` hops with aging disabled so
-/// the dedup pass is the only in-place rewriter left. The caller holds the env
-/// lock.
 fn dedup_probe_turn(cache_stable: &str) -> (usize, Vec<ChatMsg>, Vec<String>) {
     let _stable = EnvGuard::set("ANGEL_CACHE_STABLE", cache_stable);
     let _aging = EnvGuard::set("ANGEL_TOOL_AGING", "0");
@@ -1677,8 +1606,6 @@ fn p06c_retention_measures_real_aging_path_without_recounting() {
     assert_eq!(super::super::trajectory::tools_output_snapshot(), output);
 }
 
-/// Drives the production turn loop and file tools with the cohort's generated
-/// sources. No provider, network, run deadline, or hop ceiling is involved.
 #[test]
 fn tool_aging_c03d_long_workload_scripted_smoke() {
     let _lock = crate::tests::env_lock();
@@ -1825,7 +1752,6 @@ fn tool_aging_c03e_threshold_counts_durable_receipt_bytes() {
     let _dir = EnvGuard::set("ANGEL_TRAJECTORY_DIR", root.to_str().unwrap());
     let _log = EnvGuard::set("ANGEL_TRAJECTORY_LOG", "1");
     let _handles = EnvGuard::set("ANGEL_HANDLE_STORE", "0");
-    // The bare receipt is smaller, but its digest makes it exceed 128 bytes.
     let mut history = tool_hop_history(2, &"x".repeat(128));
     let before = serde_json::to_vec(&history).unwrap();
     assert_eq!(
@@ -1834,7 +1760,6 @@ fn tool_aging_c03e_threshold_counts_durable_receipt_bytes() {
     );
     assert_eq!(serde_json::to_vec(&history).unwrap(), before);
     assert!(!root.join("evidence/parking-events.jsonl").exists());
-    // At the configured production floor, parking actually replaces the body.
     let mut history = tool_hop_history(2, &"y".repeat(512));
     let before: usize = history.iter().map(|m| m.content.len()).sum();
     let result = age_tool_results(&mut history, 1, 0, 512, false, 0);
@@ -1848,13 +1773,9 @@ fn tool_aging_c03e_threshold_counts_durable_receipt_bytes() {
     );
 }
 
-/// A seat whose provider publishes its own harness's compaction policy
-/// (DeepSeek) keeps every prior byte across the hops where the default rolling
-/// flush (every 12 hops) rewrites them, with no cadence configured.
 #[test]
 fn a_provider_harness_seat_keeps_history_append_only_between_compactions() {
     let _guard = crate::tests::env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_ROLLING_REWRITE_HOPS") };
     let _floor = EnvGuard::set("ANGEL_ROLLING_REWRITE_MIN_TOKENS", "0");
     let _stable = EnvGuard::set("ANGEL_CACHE_STABLE", "1");

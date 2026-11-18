@@ -11,24 +11,10 @@ use angel_delve::render::braille::ColoredBrailleImage;
 pub(super) use angel_delve::render::braille::frame_to_braille_world3d as frame_to_braille_graded;
 
 impl World {
-    /// True while the knight is between landmarks — the ride owns the pane.
     pub fn riding(&self) -> bool {
         self.avatar != self.dest() || !self.avatar_vis_settled()
     }
 
-    /// Persistent Scryglass first-person frame at cell resolution. `None` only
-    /// for a zero pane; every real pane renders. It remains valid after arrival
-    /// and accepts a display-only camera offset. Memoized on the semantic
-    /// cinematic key, so only a world state change recomposes the scene —
-    /// redraws driven by transcript motion reuse the frame. Returned by shared
-    /// handle: a draw only reads the frame, so a cache hit must not copy the
-    /// whole cell buffer out per redraw.
-    ///
-    /// `relaxed` marks a live agent turn: the toy pane must not spend draw
-    /// time on scenery, so a memoized frame of the right size is reused
-    /// until `RELAXED_REFRESH_TICKS` world ticks have passed. The ride keeps
-    /// moving at a low cadence while the agent lane keeps the cycles, and
-    /// catches up to full motion the moment the turn ends.
     #[cfg(any(test, feature = "testing"))]
     pub fn scryglass_frame_paced(
         &self,
@@ -70,9 +56,6 @@ impl World {
         fov: f32,
         motion: crate::telemetry::MotionMode,
     ) -> Option<std::sync::Arc<ColoredBrailleImage>> {
-        /// Minimum world ticks between outdoor recompositions during a turn.
-        /// (Idle keystrokes are already protected upstream: `advance` paces
-        /// `world.tick()` by wall clock, so typing can't churn the key.)
         const RELAXED_REFRESH_TICKS: u64 = 30;
         if cells_w == 0 || cells_h == 0 {
             return None;
@@ -82,8 +65,6 @@ impl World {
         let ambient = self.ambient_interior_visible();
         let expedition = self.expedition_playback(motion);
         let region_stage = world3d::region::stage_for(self.quest().region());
-        // A loop's region is walked as the Delve's crawl, unless the older
-        // expedition walk is asked for.
         let crawl = self.loop_crawl_on().then(|| self.crawl_clock(motion));
         let world_key = if ambient {
             self.ambient_scene_sequence(motion)
@@ -105,8 +86,6 @@ impl World {
             let same_view = cached.view_key == view_key;
             let fresh = cached.world_key == world_key && same_view;
             let hold = if region_stage.is_some() {
-                // Five rendered frames per second while the agent works;
-                // smooth camera travel without turning the toy into a busy loop.
                 world3d::expedition::FRAME_TICKS * 2
             } else {
                 RELAXED_REFRESH_TICKS
@@ -123,7 +102,6 @@ impl World {
         super::world_scene_tax::note_ride_compose();
         let dot_w = (cells_w * 2) as u32;
         let dot_h = (cells_h * 4) as u32;
-        // Entered locations use their retained painting; outdoors always use Dotmax.
         let mut frame = if ambient {
             image::imageops::resize(
                 &super::ambient::frame(self.ambient_building(), self.ambient_pose(motion)),
@@ -151,9 +129,6 @@ impl World {
             view.bob = if self.riding() { view.bob } else { 0.0 } + pitch / 0.03;
             world3d::render_ride_frame(&map, &view, dot_w, dot_h)
         };
-        // Outdoor first-person: stamp the current mounted animation frame at
-        // the bottom of the plate. Interiors stay on foot — no saddle overlay
-        // — while Dotmax retains its established mounted overlay.
         if self.interior.is_none() && !ambient && region_stage.is_none() && crawl.is_none() {
             composite_rider_overlay(&mut frame, cinematics::rider_frame_key(self));
         }
@@ -178,8 +153,6 @@ impl World {
     }
 }
 
-/// The red companion holds the left rail, blue the right, on one shared
-/// baseline. The shared sprite compositor preserves aspect and the road center.
 pub(super) fn composite_rider_overlay(
     frame: &mut image::RgbaImage,
     key: cinematics::RiderFrameKey,

@@ -1,7 +1,6 @@
 //! A 3×5 pixel font for name tags and the count: capitals, digits and a
 //! little punctuation; small letters draw as capitals.
 
-/// A glyph's five rows of three bits, top row first, left pixel highest.
 const fn glyph(rows: [u8; 5]) -> u16 {
     ((rows[0] as u16) << 12) | ((rows[1] as u16) << 9) | ((rows[2] as u16) << 6) | ((rows[3] as u16) << 3) | rows[4] as u16
 }
@@ -66,11 +65,9 @@ pub fn glyph_of(c: char) -> u16 {
     }
 }
 
-/// Glyphs are 3 wide with a column between.
 pub const ADVANCE: i32 = 4;
 pub const HEIGHT: i32 = 5;
 
-/// The width of `text` in pixels.
 pub fn width(text: &str) -> i32 {
     (text.chars().count() as i32 * ADVANCE - 1).max(0)
 }

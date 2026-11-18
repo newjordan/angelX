@@ -37,9 +37,6 @@ impl Drop for SpawnSeatPermit {
     }
 }
 
-/// Detached threads cannot be force-killed safely. Bound their total process
-/// footprint instead: a blocked provider may retain its seat, but repeated
-/// timed-out formations cannot create an unbounded number of blocked threads.
 pub(crate) fn reserve_spawn_seats(n: usize, limit: usize) -> Result<Vec<SpawnSeatPermit>, String> {
     let limit = limit.max(1);
     let mut current = SPAWN_SEATS_INFLIGHT.load(Ordering::Acquire);
@@ -69,11 +66,6 @@ pub(crate) fn spawn_seats_inflight() -> usize {
     SPAWN_SEATS_INFLIGHT.load(Ordering::Acquire)
 }
 
-/// Fold MoA drafts without letting aggregation extend the formation deadline.
-/// The worker owns a seat permit until the provider call *actually* exits. If
-/// cancellation is only cooperative and the club blocks, the caller still
-/// returns on time and admission control prevents unbounded replacement
-/// synthesis threads.
 #[cfg(test)]
 pub(crate) fn bounded_moa_synthesis(
     club: Arc<dyn Club>,
@@ -119,7 +111,6 @@ fn bounded_moa_synthesis_with_deadline(
         .spawn(move || {
             let _book_catalog = book_catalog.map(super::book::catalog::enter);
             let _permit = permit;
-            // The aggregator is connected: offered the ledger reader alone.
             let result =
                 super::book::connect::chat(&*club, Path::new("."), &messages, None, &worker_cancel)
                     .map(crate::agent::club::ClubReply::Text);
@@ -153,12 +144,6 @@ fn bounded_moa_synthesis_with_deadline(
     }
 }
 
-/// Personas share the skill frontmatter/body grammar, but deliberately have a
-/// separate filename namespace: `<name>/PERSONA.md` is canonical, with legacy
-/// `<name>/SKILL.md` and flat `<name>.md` accepted for existing user bundles.
-/// The shipped set is embedded so installing or relocating the binary cannot
-/// silently empty the advertised catalog. Explicit bundled and user directories
-/// overlay it case-insensitively; the user layer wins last.
 pub(crate) fn load_personas() -> Vec<Skill> {
     let embedded = [
         (
@@ -220,9 +205,6 @@ fn merge_personas(base: Vec<Skill>, overlay: Vec<Skill>) -> Vec<Skill> {
     by_name.into_values().collect()
 }
 
-/// Load only persona-shaped bundles. Generic skill discovery must not learn to
-/// ingest `PERSONA.md`, because that would leak persona bodies into skill
-/// catalogs and automatic skill routing.
 pub(crate) fn load_personas_from(dir: &Path) -> Vec<Skill> {
     let mut entries = match confined_read_dir(dir, Path::new("")) {
         Ok(entries) => entries,
@@ -235,9 +217,6 @@ pub(crate) fn load_personas_from(dir: &Path) -> Vec<Skill> {
         let (relative, fallback) = if entry.is_dir {
             let canonical = entry_path.join("PERSONA.md");
             let legacy = entry_path.join("SKILL.md");
-            // Presence selects the canonical file even if its eventual confined
-            // open fails. Never fall through from a malformed/unsafe canonical
-            // bundle to a different legacy body in the same directory.
             let has_canonical = confined_read_dir(dir, &entry_path)
                 .ok()
                 .is_some_and(|children| {
@@ -345,8 +324,6 @@ impl Formation {
     }
 }
 
-/// Shared with the agent-graph runtime — graph node seats use the same scoped
-/// tool grants as spawn seats.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Grant {
     None,
@@ -382,9 +359,6 @@ impl Grant {
         }
     }
 
-    /// Capability-set semantics for nested delegation. Grants are deliberately
-    /// not ordered: `read_only` includes local shell inspection while
-    /// `research` includes network access, so neither is a subset of the other.
     fn capabilities(self) -> u8 {
         match self {
             Self::None => 0,
@@ -398,10 +372,6 @@ impl Grant {
         self.capabilities() & !ceiling.capabilities() == 0
     }
 
-    /// One scoped registry per *formation* (tools are `Send + Sync`; seats
-    /// dispatch through a shared `Arc`). Deliberately lean — no MCP, no LSP —
-    /// so a wide panel starts in microseconds. Nested `spawn` is optional
-    /// under Treebeard when depth still allows another nesting level.
     pub(crate) fn registry(
         self,
         workspace: &Path,
@@ -409,10 +379,6 @@ impl Grant {
         cargo: &PinnedCargo,
     ) -> ToolRegistry {
         let mut r = ToolRegistry::new();
-        // Keep registry-level policy/evidence rooted to the same workspace as
-        // the scoped tools. Without this, grant registries inherited the
-        // process cwd, so finalization fingerprints and Atlas state could
-        // inspect a different repository from the seat's actual tools.
         r.set_workspace(workspace.to_path_buf());
         if self != Self::None {
             r.register(Box::new(crate::agent::tools::labyrinth::LabyrinthTool::new(
@@ -420,8 +386,6 @@ impl Grant {
             )));
         }
         match self {
-            // No workspace tools — only the ledger reader, so the seat reads its
-            // routes like every other seat (`book::connect`).
             Self::None => {
                 r.register(Box::new(super::book::connect::LedgerReader {
                     workspace: workspace.to_path_buf(),
@@ -462,9 +426,6 @@ impl Grant {
             }
         }
         if let Some(parent) = nested_spawn {
-            // Child formation: same workspace/roster, bounded to this seat's
-            // exact capability set. The root tool is unrestricted; only this
-            // derived nested handle carries a ceiling.
             r.register(Box::new(SpawnTool {
                 workspace: parent.workspace.clone(),
                 self_club: parent.self_club.clone(),
@@ -478,7 +439,6 @@ impl Grant {
     }
 }
 
-/// The read-only slice of the file toolset (no write/patch/repair).
 fn register_read_tools(r: &mut ToolRegistry, root: &Path) {
     let root = root.to_path_buf();
     r.register(Box::new(ReadFileTool { root: root.clone() }));
@@ -499,9 +459,6 @@ struct SeatResult {
 const SEAT_SALVAGE_TOOLS: usize = 4;
 const SEAT_SALVAGE_CHARS: usize = 1_500;
 
-/// What the collector has seen one seat do, from its live turn events. The
-/// first model output starts that seat's working clock, and a seat cut by the
-/// clock reports this instead of discarding its work.
 #[derive(Default)]
 struct SeatProgress {
     first_response: Option<Instant>,
@@ -548,7 +505,6 @@ impl SeatProgress {
         }
     }
 
-    /// Text streamed before a tool call is the seat's latest note to itself.
     fn keep_text(&mut self) {
         if !self.text.trim().is_empty() {
             self.notes = std::mem::take(&mut self.text);
@@ -556,9 +512,6 @@ impl SeatProgress {
         self.text.clear();
     }
 
-    /// `limit` to produce a first response, then a fresh `limit` of work from
-    /// it: a queued or slow-to-start provider never eats the seat's work time,
-    /// and a provider that never answers is still cut.
     fn expires_at(&self, started: Instant, limit: Duration) -> Instant {
         self.first_response.unwrap_or(started) + limit
     }
@@ -587,7 +540,6 @@ impl SeatProgress {
     }
 }
 
-/// The last `cap` characters, marked when anything was dropped.
 fn tail_chars(s: &str, cap: usize) -> String {
     let count = s.chars().count();
     if count <= cap {
@@ -597,16 +549,11 @@ fn tail_chars(s: &str, cap: usize) -> String {
     format!("…{tail}")
 }
 
-/// The `spawn` tool: formation fan-out over self-copies or fleet peers.
 pub(crate) struct SpawnTool {
     workspace: PathBuf,
-    /// The caller's own club as of registry build — what `club:"self"` means.
-    /// `None` (or a stale in-hand after a Tab) degrades to `auto`.
     self_club: Option<Arc<dyn Club>>,
     clubs: HashMap<String, Arc<dyn Club>>,
     personas: Vec<Skill>,
-    /// `None` only for the root interactive tool. Nested handles carry the
-    /// parent seat's effective grant and can request only a capability subset.
     grant_ceiling: Option<Grant>,
     cargo: PinnedCargo,
 }
@@ -679,23 +626,9 @@ impl SpawnTool {
         }
     }
 
-    /// Resolve the club for each seat. `self`/`auto` = the caller's own club
-    /// replicated (self-same panel — the quality floor is the driver itself,
-    /// never a random fleet box); `smart`/`sota` = the ONE designated
-    /// escalation seat (`ANGEL_SOTA_SMART_CLUB`, default `luna`); `fleet`
-    /// explicitly spreads seats round-robin across reachable roster clubs (the
-    /// old `auto` — it silently seated cheap test-fleet models into helper
-    /// panels and wrecked output quality, so it is now opt-in by name); a
-    /// label picks one club explicitly.
     fn seat_clubs(&self, spec: &str, n: usize) -> Result<Vec<Arc<dyn Club>>, String> {
         let mut spec = spec.trim().to_lowercase();
         if spec == "smart" || spec == "sota" {
-            // The designated escalation seat (Sol@max default, Kimi-K3@high
-            // alternative; TUI operators get the popup choice). Availability
-            // fallback: if the primary is not seated here, try the alternative.
-            // Pin the effort on an immutable per-seat view. The underlying
-            // route can still serve ordinary turns and graph nodes concurrently
-            // without a last-writer-wins reasoning setting.
             let seat = crate::agent::club::smart_seat();
             let seat = if self.clubs.contains_key(&seat.club.to_lowercase()) {
                 seat
@@ -714,7 +647,6 @@ impl SpawnTool {
         {
             return Ok(vec![Arc::clone(c); n]);
         }
-        // No pinned self — fall through to the fleet spread rather than failing.
         if spec == "fleet" || spec == "auto" || spec == "self" || spec.is_empty() {
             let live: Vec<&Arc<dyn Club>> =
                 self.clubs.values().filter(|c| c.is_available()).collect();
@@ -781,9 +713,6 @@ impl SpawnTool {
         names
     }
 
-    /// Persona for seat `i`: an explicit list cycles across seats; a single
-    /// name dresses every seat; none = a plain numbered seat. Bodies are read
-    /// from the catalog loaded at registry build — never the caller's context.
     fn seat_persona(&self, personas: &[String], i: usize) -> Result<(String, String), String> {
         if personas.is_empty() {
             return Ok((format!("seat-{}", i + 1), String::new()));
@@ -819,26 +748,15 @@ impl SpawnTool {
         quorum_k: usize,
         parent_cancel: Option<&AtomicBool>,
     ) -> Result<String, String> {
-        // Direct test/tool invocations get a root allowance here; ordinary
-        // turn dispatch already installed one, and nested seats inherit it.
         let _budget_scope = DescendantBudgetScope::enter_root();
         let descendant_budget = current_descendant_budget()?;
         let started = Instant::now();
-        // Approval posture controls authority, never behavioral runaway.
-        // A blocking provider must not turn a bounded formation into an
-        // unbounded parent wait merely because YOLO is enabled.
         let deadline = (!timeout.is_zero()).then_some(timeout);
         let n = tasks.len();
         let clubs = self.seat_clubs(club_spec, n)?;
-        // Resolve every persona before starting any thread. Previously an
-        // invalid later persona returned early after earlier seats had already
-        // detached, without ever setting their cancellation flag.
         let seat_personas = (0..n)
             .map(|i| self.seat_persona(personas, i))
             .collect::<Result<Vec<_>, _>>()?;
-        // A formation is one atomic logical wave. MoA's aggregator is itself
-        // a model descendant, so reserve it explicitly with the drafts even
-        // if a later timeout/cancellation prevents that admitted call.
         let descendant_calls = n
             .checked_add(usize::from(formation == Formation::Moa))
             .ok_or("descendant call count overflow")?;
@@ -855,10 +773,7 @@ impl SpawnTool {
         .max(configured_max);
         let permits = reserve_spawn_seats(n, inflight_limit)
             .map_err(|error| format!("{error}; {}", budget_receipt.fields()))?;
-        // Child seats run at depth+1. Allow them to re-spawn only when that
-        // level is still below the lane max (Treebeard default 2).
         let nested_spawn = (subcall_depth() + 1 < treebeard_max_depth()).then_some(self);
-        // One shared registry per formation; seats dispatch concurrently.
         let registry = Arc::new(grant.registry(&self.workspace, nested_spawn, &self.cargo));
         let cancel = Arc::new(AtomicBool::new(false));
         let (tx, rx) = mpsc::channel::<SeatResult>();
@@ -882,8 +797,6 @@ impl SpawnTool {
             let failed_persona = persona_name.clone();
             let thread_budget = descendant_budget.clone();
             let book_catalog = super::book::catalog::current();
-            // Seat events feed the collector: the first model output starts
-            // the seat's clock, and a cut seat reports its latest work.
             let (evt_tx, evt_rx) = mpsc::channel::<TurnEvent>();
             seat_events.push(evt_rx);
             if let Err(err) = std::thread::Builder::new()
@@ -915,9 +828,6 @@ impl SpawnTool {
                     });
                 })
             {
-                // `spawn` drops the closure (and its permit) on failure. Land a
-                // synthetic seat result immediately instead of waiting for the
-                // full formation deadline for a thread that never existed.
                 let _ = failed_tx.send(SeatResult {
                     seat: i,
                     persona: failed_persona,
@@ -933,13 +843,6 @@ impl SpawnTool {
             seat_labels.clone(),
         );
 
-        // Collect until: all seats, a successful quorum, a quorum that can no
-        // longer be reached, or every unlanded seat's clock has run out. Each
-        // seat gets `limit` to produce a first response and then a fresh
-        // `limit` of work from it. Failed seats still land, but do not satisfy
-        // quorum and therefore cannot cut slower healthy seats. Cut seats get
-        // the formation cancel flag flipped and wind down at their next hop
-        // boundary in the background.
         let mut results: Vec<Option<SeatResult>> = (0..n).map(|_| None).collect();
         let mut progress: Vec<SeatProgress> = (0..n).map(|_| SeatProgress::default()).collect();
         let drain_events = |progress: &mut Vec<SeatProgress>| {
@@ -996,9 +899,6 @@ impl SpawnTool {
             return Err("spawn formation cancelled by parent turn".to_string());
         }
 
-        // A seat the clock cut lands as a failure that carries its salvage
-        // (first-response timing, latest tool calls, partial notes), so the
-        // caller sees what the seat was doing instead of an empty error.
         if let (true, Some(limit)) = (timed_out, deadline) {
             drain_events(&mut progress);
             let cut: Vec<usize> = (0..n).filter(|&i| results[i].is_none()).collect();
@@ -1058,9 +958,6 @@ impl SpawnTool {
             ));
         }
         let elapsed = started.elapsed();
-        // Synthesis gets only what is left of the formation's clock, which
-        // runs to the latest seat expiry now that seat clocks start at their
-        // first response.
         let synthesis_budget = deadline.map(|limit| {
             progress
                 .iter()
@@ -1147,9 +1044,6 @@ impl SpawnTool {
                 Ok(offload_spawn_root(&header, &body, formation.label()))
             }
             Formation::Moa => {
-                // Fold the drafts with one synthesis call on the first seat's
-                // club (the formation is homogeneous unless auto-routed; any
-                // member is a fair synthesizer).
                 let drafts: Vec<&SeatResult> = seats.iter().filter(|s| s.answer.is_ok()).collect();
                 let synth_club = self
                     .seat_clubs("self", 1)
@@ -1201,8 +1095,6 @@ impl SpawnTool {
                         let strat = format!("{header}\n{}", stats.join(" · "));
                         Ok(offload_spawn_root(&strat, answer.trim(), "moa"))
                     }
-                    // Synthesis failed — degrade to a panel digest rather than
-                    // discarding the drafts the fleet already paid for.
                     None => {
                         let blocks: Vec<String> =
                             seats.iter().map(|s| seat_block(s, 3_500)).collect();
@@ -1246,7 +1138,6 @@ impl SpawnTool {
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
                 .ok_or("missing 'task' (or 'tasks')")?;
-            // Solo is one seat; only the multi-seat formations default to three.
             let solo = args
                 .get("formation")
                 .and_then(|v| v.as_str())
@@ -1268,11 +1159,6 @@ impl SpawnTool {
             None => self.default_grant(),
         };
         self.enforce_grant_ceiling(grant)?;
-        // §3.1.1 / Thm 43-45 (ledger T5): the schedule is *derived* from what each
-        // seat claims, not hardcoded on the grant. A `tools=code` seat writes in the
-        // one shared workspace, so two of them overlap there and are serialized; a
-        // seat that declares a checkout of its own commutes and is admitted at n>1.
-        // The refusal names the resource, so a caller can see why.
         let seats: Vec<ChildFootprint> = (1..=n)
             .map(|index| {
                 let seat = format!("{}-{index}", grant.label());
@@ -1326,8 +1212,6 @@ impl SpawnTool {
     }
 }
 
-/// Keep the formation strategy line(s) root-visible; offload bulk seat digests
-/// under a session handle when they clear the subcall floor.
 fn offload_spawn_root(strategy: &str, bulk: &str, identity_tag: &str) -> String {
     let min = subcall_offload_min_bytes();
     if let Some(receipt) = maybe_offload_root_body(
@@ -1352,10 +1236,6 @@ fn seat_system(
     n: usize,
     grant: Grant,
 ) -> String {
-    // Every seat reads the ledger: a granted seat through `read_file`, a bare
-    // seat through the ledger reader alone. Its frame is `⠜⠉` (persona, count
-    // and formation beside it), its persona `⠜⠙`, then the batching page
-    // `⠺⠉⠁` or the bare-seat contract `⠌⠁`.
     use super::book::{ar_seats, st_connected, w_workflow};
     let mut s = format!(
         "{} persona={persona_name} n={n} formation={}",
@@ -1416,9 +1296,6 @@ impl Tool for SpawnTool {
             })
             .map(Grant::label)
             .collect::<Vec<_>>();
-        // Keep the historical read-only default when it fits. Research and
-        // none ceilings default to no tools because read-only local shell is
-        // not a subset of either capability set.
         let default_grant = self.default_grant().label();
         let ceiling = self
             .grant_ceiling
@@ -1492,9 +1369,6 @@ impl Tool for SpawnTool {
     }
 }
 
-/// No default per-seat clock: a seat thinks as long as it needs. Nothing
-/// cancels a model's train of thought on time alone; an explicit
-/// `timeout_secs` or `ANGEL_SPAWN_TIMEOUT` still sets one.
 const DEFAULT_SPAWN_TIMEOUT_SECS: usize = 0;
 
 fn configured_formation_timeout(args: &Value) -> Duration {

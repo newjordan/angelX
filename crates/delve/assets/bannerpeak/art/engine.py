@@ -1,4 +1,3 @@
-"""A tiny sprite engine: sprites are dicts {(x, y): ink}, composed in layers."""
 from PIL import Image
 from palette import PAL
 
@@ -28,7 +27,6 @@ def flip(s, w):
 
 
 def rot90(s, w, h, k):
-    """Rotate k quarter turns clockwise on a w x h canvas (result is square-ish)."""
     for _ in range(k % 4):
         s = {(h - 1 - y, x): c for (x, y), c in s.items()}
         w, h = h, w
@@ -36,14 +34,12 @@ def rot90(s, w, h, k):
 
 
 def rotate(s, deg, cx, cy):
-    """Nearest-neighbour turn about (cx, cy) in cell units (clockwise)."""
     import math
 
     a = math.radians(deg)
     ca, sa = math.cos(a), math.sin(a)
     out = {}
     pts = list(s.items())
-    # inverse mapping so no holes open
     xs = [p[0][0] for p in pts]
     ys = [p[0][1] for p in pts]
     r = int(max(max(xs) - min(xs), max(ys) - min(ys)) + 4)
@@ -63,7 +59,6 @@ def recolor(s, m):
 
 
 def outline(s, ch="k", keep=None):
-    """A one pixel rim round the silhouette."""
     out = dict(s)
     for (x, y) in list(s):
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
@@ -81,7 +76,6 @@ def rows(s, w, h):
 
 
 def render(sprites, w, h, zoom=8, cols=8, bg=(10, 10, 14), box=None, labels=None):
-    """A contact sheet of sprites (list of dicts) for the eye."""
     n = len(sprites)
     rws = (n + cols - 1) // cols
     cw, ch = w * zoom + 8, h * zoom + 8

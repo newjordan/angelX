@@ -63,7 +63,6 @@ def sky_pieces(sheet):
     for y0, y1 in runs(rows):
         cols = [sum(not is_magenta(px[x, y]) for y in range(y0, y1)) > (y1 - y0) / 2 for x in range(w)]
         (x0, x1), = runs(cols)
-        # Trim two pixels off the magenta fringe, then check no magenta is left.
         x0, y0, x1, y1 = x0 + 2, y0 + 2, x1 - 2, y1 - 2
         for x in range(x0, x1):
             assert not is_magenta(px[x, y0]) and not is_magenta(px[x, y1 - 1]), 'magenta left on a band edge'
@@ -157,7 +156,6 @@ def prepare(slot, delivery_root, output_root):
         sheet, pieces = canyon_sheet(delivery)
         sheet.save(out / 'source-sheet.png')
     else:
-        # The sky's kept sheet is the second image of its run.
         kept = delivery / ('source-sheet-2.png' if slot == 'sky' else 'source-sheet.png')
         shutil.copyfile(kept, out / 'source-sheet.png')
         sheet = Image.open(kept)

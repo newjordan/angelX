@@ -8,11 +8,9 @@ pub(super) fn well(c: &mut Ctx) {
     let (w, h) = (c.w, c.h);
     let im = &mut c.im;
     paint::earth(im, 8.0, (h - 5) as f32, 7.5, 4.5, seed);
-    // The ring of stone and its black water.
     paint::stone(im, 2, h - 9, 12, 7, seed);
     im.ellipse(8.0, (h - 9) as f32, 6.0, 2.5, 'h');
     im.ellipse(8.0, (h - 9) as f32, 4.5, 1.7, 'q');
-    // Two posts, a bar with the windlass, a little roof.
     paint::post(im, 2, 6, h - 8);
     paint::post(im, 12, 6, h - 8);
     paint::lean_roof(im, 0, 1, 16, 6, ramp::TIMBER, seed);

@@ -9,13 +9,11 @@ trait Start {
 }
 
 impl Start for Shipwright {
-    /// Ask `club` for build `plan` on a thread of its own.
     fn start(&mut self, club: Arc<dyn Club>, plan: Plan, fleet: Vec<Vessel>) {
         self.start_oracle(crate::app::control::realm::club_oracle(club), plan, fleet);
     }
 }
 
-/// One build asked of `club`: the brief, the checker, one mend.
 fn design(club: &dyn Club, plan: &Plan, fleet: &[Vessel]) -> Result<Design, String> {
     design_with(plan, fleet, |prompt| crate::agent::club::with_read_timeout_at_least(GRANT_CALL, || club.respond(prompt)))
 }

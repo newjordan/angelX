@@ -11,13 +11,11 @@ pub(super) fn append(path: &Path, record: &Value, cap: u64, age: Duration) -> io
     #[cfg(unix)]
     {
         use std::os::fd::AsRawFd;
-        // SAFETY: lock owns this live fd; closing releases the advisory lock.
         if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX) } != 0 {
             return Err(io::Error::last_os_error());
         }
     }
     let mut line = crate::platform::secrets::to_redacted_vec(record).map_err(io::Error::other)?;
-    // Reserve space for the bounded rotation receipt before deleting anything.
     if (line.len() as u64).saturating_add(1024) > cap {
         return Err(io::Error::from(io::ErrorKind::FileTooLarge));
     }

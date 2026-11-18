@@ -1,4 +1,3 @@
-// Request-scoped self-map projection; the host owns source reads and the gate.
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { project } from '../../lib/self-map/report.mjs'

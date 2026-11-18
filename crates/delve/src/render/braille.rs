@@ -1,10 +1,5 @@
 pub use angel_stage::braille::*;
 
-/// Tone calibration for the moonlit frame → 1-bit dots. Tuned against the
-/// moving and settled scene fixtures: while riding, the sky stays
-/// almost empty (stars and moon only), near walls dither at roughly half, and
-/// fog starves walls toward the horizon. Settled vistas deliberately use a
-/// luminous-horizon painting curve instead.
 const TONE_BLACK: f32 = 18.0;
 const TONE_WHITE: f32 = 118.0;
 const TONE_GAMMA: f32 = 0.82;
@@ -12,13 +7,8 @@ const VISTA_TONE_BLACK: f32 = 8.0;
 const VISTA_TONE_WHITE: f32 = 112.0;
 const VISTA_TONE_GAMMA: f32 = 0.78;
 
-/// A cell's ink must clear this max-channel value to survive on a dark
-/// terminal; depth still reads from dot density, not ink brightness.
 const INK_FLOOR: f32 = 70.0;
 
-/// The calibrated tone curve as a 256-entry luma LUT: the black/white points
-/// and gamma only ever see 8-bit luma, so the per-dot `powf` (thousands per
-/// re-march) collapses to one table build.
 fn tone_lut(vista: bool) -> &'static [f32; 256] {
     static LUT: std::sync::OnceLock<[f32; 256]> = std::sync::OnceLock::new();
     static VISTA_LUT: std::sync::OnceLock<[f32; 256]> = std::sync::OnceLock::new();
@@ -52,8 +42,6 @@ pub fn frame_to_braille_graded(
     frame_to_braille(frame, cells_w, cells_h, vista, false)
 }
 
-/// Tonal bridge for the realm's 3D views only. Native map art continues to
-/// use `frame_to_braille_graded` and its existing floor and density screen.
 pub fn frame_to_braille_world3d(
     frame: &image::RgbaImage,
     cells_w: usize,
@@ -70,9 +58,6 @@ fn frame_to_braille(
     vista: bool,
     tonal: bool,
 ) -> ColoredBrailleImage {
-    // Structure first: the shared fitter picks each cell's dots from the
-    // cell's own light/dark split, so outlines, wall edges and doorways keep
-    // their line and dark material is drawn as shape, not dust.
     let lut = tone_lut(vista);
     let fit = fit_braille_tonal(
         cells_w,
@@ -94,8 +79,6 @@ fn frame_to_braille(
         if bits == 0 {
             continue;
         }
-        // The cell's ink is the mean of its lit pixels: saturated, and as
-        // dark as the material is. A dim dot is lifted only enough to show.
         let mut fg = ink;
         let peak = fg[0].max(fg[1]).max(fg[2]);
         if !tonal && peak > 0.0 && peak < INK_FLOOR {

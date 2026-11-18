@@ -10,21 +10,14 @@
 
 use super::*;
 
-/// Caps on what the lists may hold, so a mirror's packet stays small and a
-/// hostile snapshot cannot grow them.
 const MAX_EFFECTS: usize = 48;
 
-/// The run's skill objects, room perils, key and showdown state.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Works {
-    /// The floor (raid, depth) these were laid for; another floor starts
-    /// them afresh.
     #[serde(default)]
     pub floor: Option<(u64, u32)>,
-    /// Each knight's skill bar.
     #[serde(default)]
     pub kits: BTreeMap<u32, skills::Kit>,
-    /// This room's clouds of gas, burning ground, mines and barricades.
     #[serde(default)]
     pub clouds: Vec<skills::Cloud>,
     #[serde(default)]
@@ -33,33 +26,23 @@ pub struct Works {
     pub mines: Vec<skills::Mine>,
     #[serde(default)]
     pub barricades: Vec<skills::Barricade>,
-    /// Shields in the air.
     #[serde(default)]
     pub flights: Vec<skills::Flight>,
-    /// Blast, flash and dust animations playing out.
     #[serde(default)]
     pub booms: Vec<skills::Boom>,
-    /// Monsters poisoned or burning, by id.
     #[serde(default)]
     pub banes: Vec<skills::Ailment>,
-    /// This room's own dangers.
     #[serde(default)]
     pub perils: Vec<perils::Peril>,
-    /// This room's gauntlet: a bridge and its axes, hammers, a boulder's
-    /// lane, a saw's rail. Left out when there is none, so a room without
-    /// one is written as it always was.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gauntlets: Vec<gauntlets::Gauntlet>,
-    /// The floor's Boss Key and its door.
     #[serde(default)]
     pub key: keyring::Key,
-    /// The Wanted hall's showdown.
     #[serde(default)]
     pub outlaw: outlaw::Showdown,
 }
 
 impl Works {
-    /// Bounded and finite, as every mirrored list must be.
     pub fn valid(&self) -> bool {
         let finite = |x: f32, y: f32| x.is_finite() && y.is_finite();
         self.kits.len() <= MAX_PLAYERS as usize
@@ -97,7 +80,6 @@ impl Works {
             && self.outlaw.valid()
     }
 
-    /// A room is left behind: its clouds and mines go with it.
     pub(super) fn leave_room(&mut self) {
         self.clouds.clear();
         self.blazes.clear();
@@ -112,9 +94,6 @@ impl Works {
 }
 
 impl Run {
-    /// A floor of its own: skills' cooldowns, the key and the showdown start
-    /// over. A run saved before the Boss Key existed and already past its
-    /// chiefs keeps its boss door open.
     pub(super) fn sync_works(&mut self) {
         let stamp = (self.raid_id, self.dungeon.depth);
         if self.works.floor == Some(stamp) {
@@ -132,8 +111,6 @@ impl Run {
         }
     }
 
-    /// A room is entered: stale objects go, the floor's key and the room's
-    /// own dangers are laid.
     pub(super) fn works_enter(&mut self) {
         self.sync_works();
         self.works.leave_room();
@@ -141,8 +118,6 @@ impl Run {
         self.arm_gauntlets();
     }
 
-    /// One tick of the skills, the perils, the key and the showdown, after
-    /// monsters and shots have moved.
     pub(super) fn tick_works(&mut self, inputs: &BTreeMap<u32, Input>) {
         self.sync_works();
         self.tick_skills(inputs);

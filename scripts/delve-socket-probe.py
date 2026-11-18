@@ -1,17 +1,4 @@
 #!/usr/bin/env python3
-"""Join a hosted Delve seat over its WebSocket the way the browser page does,
-and report what a friend would see: frames per second, the gaps between
-frames, ping, and how old frames are when they land.
-
-    delve-socket-probe.py <invitation link> [seconds] [--ip <address>] [--ack-delay <ms>]
-
-The link is the one the host hands out (http(s)://host:port/#<seat code>).
---ip connects to that address while keeping the link's name for TLS, to test
-one route (e.g. a public Funnel ingress) on purpose. --ack-delay holds each
-frame receipt back, as a far route does, so the host's frame window skips
-frames. Only the standard library is used, so it runs on a bare Mac or
-Linux box.
-"""
 
 import base64, json, os, socket, ssl, struct, sys, threading, time
 from urllib.parse import urlsplit
@@ -42,7 +29,6 @@ def main():
         raw.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         return ssl.create_default_context().wrap_socket(raw, server_hostname=host) if secure else raw
 
-    # Take the seat as the page does on load.
     hello = connect()
     hello.sendall(
         (
@@ -113,13 +99,11 @@ def main():
     seqs = []
     errors = []
     kinds = {1: 0, 4: 0}
-    # Each patch must name the picture received just before it as its base.
     held = {"seq": None, "bad": 0}
     t0 = time.time()
     stop = threading.Event()
 
     def keys():
-        # Walk right then left, renewing every 80 ms like the page.
         sequence = 1
         while not stop.is_set():
             if state["raid"] is not None:

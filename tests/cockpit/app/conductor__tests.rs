@@ -115,13 +115,10 @@ fn status_is_quiet_when_artifacts_are_absent_or_disarmed() {
 #[test]
 fn measure_mode_reports_itself_and_a_typo_falls_through_to_disarmed() {
     let base = scratch("measure");
-    // Measure is a real state, not "disarmed" — reporting it as disarmed is how
-    // you stop trusting your own dashboard.
     let text = status_text_in(&base, Some("measure"), None);
     assert!(text.contains("state: measure"), "{text}");
     assert!(text.contains("dispatches nothing"), "{text}");
 
-    // A typo must fail into the state that cannot act — never into armed.
     for typo in ["measur", "Measure ", "yes", ""] {
         let text = status_text_in(&base, Some(typo), None);
         let armed = text.contains("state: armed");
@@ -277,5 +274,72 @@ fn reject_removes_worktree_deletes_branch_and_spools() {
     let spool = std::fs::read_to_string(state.join("verdicts.jsonl")).unwrap();
     assert!(spool.contains("\"action\":\"reject\""));
     assert!(spool.contains("conductor_code_file"));
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+fn queue_one_under_key(state: &Path, id: &str, branch: &str, wt: &Path) {
+    let wt = wt.to_string_lossy().to_string();
+    write_json(
+        &state.join("queue.json"),
+        serde_json::json!({
+            "queue": [
+                {
+                    "id": id,
+                    "branch": branch,
+                    "goal": "Change file.txt",
+                    "agendaNode": "conductor_code_file",
+                    "worktree": wt,
+                    "worktreeTop": wt
+                }
+            ]
+        }),
+    );
+}
+
+#[test]
+fn approve_finds_an_item_listed_under_a_queue_key() {
+    let base = scratch("approve-queue-key");
+    let state = base.join("state");
+    let repo = init_repo(&base);
+    let branch = "angel/conductor-test-approve-queue-key";
+    let wt = parked_branch(&repo, &base, branch, "approved\n");
+    queue_one_under_key(&state, "q-key-approve", branch, &wt);
+
+    let msg = approve_in(&state, &repo, "q-key-approve");
+    assert!(msg.contains("conductor approved"), "{msg}");
+    assert_eq!(
+        std::fs::read_to_string(repo.join("file.txt")).unwrap(),
+        "approved\n"
+    );
+    let queue = std::fs::read_to_string(state.join("queue.json")).unwrap();
+    assert_eq!(
+        serde_json::from_str::<Vec<serde_json::Value>>(&queue)
+            .unwrap()
+            .len(),
+        0
+    );
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+#[test]
+fn reject_finds_an_item_listed_under_a_queue_key() {
+    let base = scratch("reject-queue-key");
+    let state = base.join("state");
+    let repo = init_repo(&base);
+    let branch = "angel/conductor-test-reject-queue-key";
+    let wt = parked_branch(&repo, &base, branch, "rejected\n");
+    queue_one_under_key(&state, "q-key-reject", branch, &wt);
+
+    let msg = reject_in(&state, &repo, "q-key-reject");
+    assert!(msg.contains("conductor rejected"), "{msg}");
+    assert!(!wt.exists(), "worktree removed");
+    assert!(run_git(&repo, &["rev-parse", "--verify", branch]).is_err());
+    let queue = std::fs::read_to_string(state.join("queue.json")).unwrap();
+    assert_eq!(
+        serde_json::from_str::<Vec<serde_json::Value>>(&queue)
+            .unwrap()
+            .len(),
+        0
+    );
     let _ = std::fs::remove_dir_all(&base);
 }

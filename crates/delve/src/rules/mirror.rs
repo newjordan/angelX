@@ -8,7 +8,6 @@
 
 use super::*;
 
-/// Where everything stood on one tick, for drawing part of the way on.
 #[derive(Clone, Debug, Default)]
 pub struct Pose {
     tick: u64,
@@ -21,7 +20,6 @@ pub struct Pose {
 }
 
 impl Run {
-    /// Where everything stands now.
     pub fn pose(&self) -> Pose {
         Pose {
             tick: self.tick,
@@ -39,17 +37,11 @@ impl Run {
         }
     }
 
-    /// The run as a client reads it from the engine's wire
-    /// (`crate::wire`): what a friend's screen holds of this tick.
     #[cfg(any(test, feature = "testing"))]
     pub fn wire_copy(&self) -> Run {
         crate::wire::read(&crate::wire::publish(self).expect("a run makes a tree")).expect("a tree reads back")
     }
 
-    /// `f` with everyone but knight `own.0` drawn part of the way from
-    /// `before`, and that knight drawn as `own.1` (a client's own knight:
-    /// the newest tick's, walked on by its own keys); then put back as it
-    /// was, with no copy of the whole run per frame.
     pub fn drawn_with<T>(
         &mut self,
         before: &Pose,
@@ -60,10 +52,6 @@ impl Run {
         self.drawn_with_shots(before, alpha, own, None, f)
     }
 
-    /// `drawn_with`, and with `shots` given, knight `own.0`'s own shots
-    /// (`Projectile::loosed_by`) drawn as those rather than as this tick
-    /// has them: a client's own shots, drawn ahead with its knight. Then
-    /// all put back as they were.
     pub fn drawn_with_shots<T>(
         &mut self,
         before: &Pose,
@@ -76,21 +64,14 @@ impl Run {
         let places: Vec<(f32, f32)> = self.projectiles.iter().map(|p| (p.x, p.y)).collect();
         self.blend(before, alpha);
         let swapped = own.map(|(id, hero)| (id, self.players.insert(id, hero.clone())));
-        // Riders sit on their carrier as it is drawn: a client's own
-        // carrier ahead, or anyone's between two ticks (`shoulders`).
         let grid = Grid {
             room: &self.dungeon.rooms[self.at],
             barred: self.barred(),
         };
         self.shoulders.seat_riders(&grid, &mut self.players);
-        // The knight's own shots out (each with its place in the list), and
-        // the ones given in, after everyone else's.
         let mut mine: Vec<(usize, Projectile)> = Vec::new();
         let theirs = self.projectiles.len();
         if let (Some((id, _)), Some(drawn)) = (own, shots) {
-            // One pass out, each with the place it had in the list (a
-            // removal apiece is a pass apiece: a crowd of one's own shots
-            // would be the square of the room's).
             let mut seen = 0;
             let mut places = Vec::new();
             let taken: Vec<Projectile> = self
@@ -111,7 +92,6 @@ impl Run {
         if shots.is_some() && own.is_some() {
             self.projectiles.truncate(theirs - mine.len());
             if !mine.is_empty() {
-                // And back in one pass, each where it was.
                 let mut rest = std::mem::take(&mut self.projectiles).into_iter();
                 let mut mine = mine.into_iter().peekable();
                 self.projectiles.reserve(theirs);
@@ -137,7 +117,6 @@ impl Run {
         out
     }
 
-    /// Everything `drawn_*` moved, back where `now` and `shots` had it.
     fn put_back(&mut self, now: &Pose, shots: &[(f32, f32)]) {
         for (id, x, y) in &now.players {
             if let Some(hero) = self.players.get_mut(id) {
@@ -164,12 +143,6 @@ impl Run {
         }
     }
 
-    /// Whether knight `id`'s going is its own to draw ahead: the run is
-    /// live, no ride holds the reins and Turbo is not doubling ticks; the
-    /// knight is standing and not stone, in a top-down room, and in none of
-    /// the states something other than its keys moves it (the privy and the
-    /// pit stop, a Bladewind, a Ravage's throw). A client draws a knight
-    /// that is not from the server's ticks, blended like everyone else.
     pub fn predictable(&self, id: u32) -> bool {
         let at = self.exits.outside.get(&id).map_or(self.at, |e| e.at);
         self.active()
@@ -190,13 +163,6 @@ impl Run {
             && !self.shoulders.carried(id)
     }
 
-    /// Step knight `id` one tick on by `input`, as the sim steps it
-    /// (`Run::play`, through the same `Hero::own_keys` and
-    /// `Hero::own_step`): the roll's rearm runs down, the guard key acts
-    /// (a roll starts and runs, a shield or a wall slows the walk, a spin
-    /// turns), a dagger's blink lands, and the knight slides along stone at
-    /// the ground's pace. Nothing but the knight's own going moves. False,
-    /// and nothing done, when it is not `predictable`.
     pub fn predict(&mut self, id: u32, input: Input) -> bool {
         if !self.predictable(id) {
             return false;
@@ -226,9 +192,7 @@ impl Run {
         let ((dx, dy, speed), _) = hero.own_step(walk, &grid, tune.roll_speed, |h| {
             fx::ground_pace(h, webs, song, roads.as_deref(), tune)
         });
-        // A carrier goes slower for every rider, as the sim has it.
         let speed = speed * self.shoulders.pace(id) * self.hands.pace(id);
-        // In the Wax Maze, the lanes' glide, as the sim steps it.
         let glided = self
             .folly
             .as_mut()
@@ -254,17 +218,6 @@ impl Run {
         true
     }
 
-    /// Knight `id`'s fire key on one tick, as the sim fires it (`Run::play`,
-    /// through the same `Hero::loose`), for a client drawing its own shots
-    /// ahead of the server: called after `predict` of the same input. The
-    /// fire cooldown runs down; with the fire key or an aim held, the arm
-    /// ready and no guard up, the cooldown is set again (and moved by the
-    /// fire-rate knob) and the shots loosed are pushed to `shots` where
-    /// they leave the knight, before their first step. A handgonne kicks
-    /// the knight back. A punch or a forged weapon's swing sets the
-    /// cooldown and looses nothing, and neither does a festival's F.
-    /// `tick` is the tick the command plays on: a stream strays by it.
-    /// False, and nothing done, when the knight is not `predictable`.
     pub fn predict_fire(&mut self, id: u32, input: Input, tick: u64, shots: &mut Vec<Projectile>) -> bool {
         if !self.predictable(id) {
             return false;
@@ -281,10 +234,7 @@ impl Run {
             barred,
         };
         let enemies: &[Enemy] = if outside.is_none() { &self.enemies } else { &[] };
-        // What the server holds in flight of this knight's: a volley past
-        // its budget leaves its middle, as the server's does.
         let flying = volley_in_flight(&self.projectiles, id);
-        // A borrowed body's volleys are the server's to draw (`bodies`).
         let Some(hero) = self.players.get_mut(&id).filter(|h| h.possessed.is_none()) else {
             return false;
         };
@@ -309,7 +259,6 @@ impl Run {
             })
         });
         if hero.arm.as_deref() == Some("flask-bandolier") {
-            // The Alchemist's flask is the server's to draw (`champions`).
             hero.fire_cooldown = hero.cooldown(champions::FLASK_REARM);
         } else if hero.unarmed() {
             hero.fire_cooldown = 9;
@@ -329,7 +278,6 @@ impl Run {
             if let Some(Loosed::Arm(_, (ax, ay))) = hero.loose(id, &self.book, burning, rng, flying, shots)
                 && hero.weapon == Weapon::Handgonne
             {
-                // The kick: back along the aim, never through stone.
                 let kick = (-ax * feel::RECOIL, -ay * feel::RECOIL);
                 (hero.x, hero.y) = grid.slide((hero.x, hero.y), kick, HERO_RADIUS, Mover::Hero);
             }
@@ -340,8 +288,6 @@ impl Run {
                 }
             }
         }
-        // The attack-rate knob, as the sim moves a cooldown set this tick
-        // (`tune::tune_knights`).
         let now = hero.fire_cooldown;
         if tune.fire_rate != 100 && now != was && now > was.saturating_sub(1) {
             hero.fire_cooldown = tune.cooldown(now);
@@ -349,13 +295,6 @@ impl Run {
         true
     }
 
-    /// Where knight `id`'s own `shot` is drawn `ticks` of flight on from
-    /// `from`, for a client drawing its shots ahead of the server: along its
-    /// course and no further than its life, stopped at stone (one that
-    /// bounces is held there, any other is gone) and gone at the first live
-    /// monster on the way unless it pierces (one that forks stops there
-    /// too: what it splits into is the server's to send). `None` when it is
-    /// gone.
     pub fn flown(&self, id: u32, shot: &Projectile, from: (f32, f32), ticks: f32) -> Option<(f32, f32)> {
         if ticks > shot.ttl as f32 {
             return None;
@@ -396,8 +335,6 @@ impl Run {
         let k = 1.0 - alpha.clamp(0.0, 1.0);
         let gap = gap as f32;
         let back = |now: f32, then: f32| {
-            // A jump of more than a few units a tick is a teleport (a pit,
-            // a door): it is not drawn sliding.
             if (now - then).abs() > JUMP * gap {
                 now
             } else {
@@ -440,15 +377,11 @@ impl Run {
 }
 
 impl Projectile {
-    /// Whether knight `id` loosed this shot (its arm's, a forged weapon's,
-    /// or a phantom's copy of them).
     pub fn loosed_by(&self, id: u32) -> bool {
         !self.hostile && !self.traits.squire && u32::from(self.traits.owner) == id
     }
 }
 
-/// A seat's keys as the sim reads them (`Run::play`): a command it would
-/// refuse is none, and a frog only hops.
 fn own_input(hero: &Hero, input: Input) -> Input {
     let input = Some(input).filter(|i| i.valid()).unwrap_or_default();
     if hero.frog() {
@@ -462,12 +395,7 @@ fn own_input(hero: &Hero, input: Input) -> Input {
     }
 }
 
-/// Two poses this many ticks apart or fewer slide from one to the other:
-/// a host that sends every other tick (15 snapshots a second at the 30 Hz
-/// tick) is drawn as smoothly as one that sends them all. A longer gap is
-/// drawn as it stands.
 const BLEND_TICKS: u64 = 2;
-/// A thing that moved further than this in a tick jumped.
 const JUMP: f32 = 4.0;
 
 #[cfg(test)]

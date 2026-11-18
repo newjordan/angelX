@@ -1,26 +1,15 @@
-# The model-job contracts' policies: card_paint.rs, wish_jobs.rs, brew_jobs.rs,
-# reforge_jobs.rs. A `Result<(), String>` is a `Maybe<&2, String>` (None is Ok).
-
-# ---- shared ---------------------------------------------------------------------
-
-# serde_json::to_vec(value).len() <= limit
 def jobs.bounded(+v: J.Val, +limit: U32) -> Bool:
   U32.is_le(home.util.jlen(v), limit)
 
 def jobs.refuse(ok: Bool, +why: String) -> Maybe<&2, String>:
   home.util.ite(Maybe<&2, String>, ok, u => None{}, u => Some{why})
 
-# every item of a J array is a string within `n` bytes
 def jobs.strs_within(+xs: List<&2, J.Val>, +n: U32) -> Bool:
   home.util.all_len(xs, n)
 
-# a card's id is lowercase letters, digits and dashes
 def card_paint.id_ok(+id: String) -> Bool:
   Bool.and(Bool.not(String.is_empty(id)), Bool.and(home.util.blen_le(id, 128), scrolls.policy.id_chars(id)))
 
-# ---- card_paint.rs --------------------------------------------------------------
-
-# `looks` of a card as a value to compare: absent is empty
 def card_paint.looks(+card: J.Val) -> J.Val:
   home.util.ite(J.Val, J.has(card, "looks"), u => J.get(card, "looks"), u => J.obj())
 
@@ -37,14 +26,12 @@ def card_paint.checks_back(+card: J.Val, +r: J.Val) -> Bool:
     u => Bool.and(J.eq(J.get(J.get(J.get(r, "Ok"), "card"), "art"), J.get(card, "art")), J.eq(card_paint.looks(J.get(J.get(r, "Ok"), "card")), card_paint.looks(card))),
     u => False{})
 
-# Authorship metadata and visual progress are independent of game behavior.
 def card_paint.same_definition(+current: J.Val, +authored: J.Val) -> Bool:
   J.eq(card_paint.bare(current), card_paint.bare(authored))
 
 def card_paint.bare(+c: J.Val) -> J.Val:
   J.del(J.del(J.del(c, "by"), "art"), "looks")
 
-# identity::piece_of: an ultimate, a weapon, magic, or a worn part at its place
 def card_paint.piece_of(+card: J.Val) -> String:
   home.util.ite(String, Bool.not(J.is_null(J.get(card, "ult"))), u => "ultimate",
     u => card_paint.piece_of.kind(card, J.str(J.get(card, "kind"))))
@@ -137,8 +124,6 @@ def card_paint.Request.validate_result(+req: J.Val, +decision: J.Val) -> Maybe<&
   jobs.refuse(Bool.and(U32.is_le(J.len(J.get(decision, "accepted")), J.len(J.get(req, "candidates"))), card_paint.result_ok(J.items(J.get(req, "candidates")), J.items(J.get(decision, "accepted")), Nil{})),
     "paint policy returned an uncaptured, duplicate or identity-changing visual")
 
-# ---- wish_jobs.rs ---------------------------------------------------------------
-
 def wish_jobs.valid_ask(+ask: J.Val) -> Bool:
   Bool.and(home.util.rng(J.u32(J.get(ask, "knight")), 1, 6),
   Bool.and(Bool.not(home.util.is_blank(J.str(J.get(ask, "words")))),
@@ -179,7 +164,6 @@ def wish_jobs.Work.valid(+work: J.Val) -> Bool:
 def wish_jobs.PolicyRequest.validate(+req: J.Val) -> Maybe<&2, String>:
   jobs.refuse(Bool.and(wish_jobs.Work.valid(J.get(req, "work")), wish_jobs.valid_wish(J.get(req, "wish"))), "invalid wish policy inputs")
 
-# `result` is the PolicyResult as serialised: {"Ok": wish} or {"Err": [text]}
 def wish_jobs.PolicyRequest.validate_result(+req: J.Val, +result: J.Val) -> Maybe<&2, String>:
   jobs.refuse(
     home.util.ite(Bool, J.has(result, "Ok"),
@@ -192,8 +176,6 @@ def jobs.errors_ok(+es: List<&2, J.Val>) -> Bool:
 
 def wish_jobs.PolicyRequest.evaluate(+req: J.Val) -> J.Val:
   home.util.ok(J.get(req, "wish"))
-
-# ---- brew_jobs.rs ---------------------------------------------------------------
 
 def brew_jobs.id(+v: String) -> Bool:
   Bool.and(Bool.not(String.is_empty(v)), Bool.and(home.util.blen_le(v, 128), home.util.all_in(v, [48, 57, 65, 90, 97, 122], "-_")))
@@ -236,11 +218,9 @@ def brew_jobs.Work.valid(+work: J.Val) -> Bool:
 def brew_jobs.PolicyRequest.validate(+req: J.Val) -> Maybe<&2, String>:
   jobs.refuse(Bool.and(brew_jobs.Work.valid(J.get(req, "work")), Bool.and(U32.is_le(J.len(J.get(req, "taken")), 4096), jobs.bounded(req, 1048576))), "invalid brew policy inputs")
 
-# the card re-checked from its file is the card
 def brew_jobs.same_card(+card: J.Val, +r: J.Val) -> Bool:
   home.util.ite(Bool, J.has(r, "Ok"), u => J.eq(J.get(J.get(r, "Ok"), "card"), card), u => False{})
 
-# `result` is the PolicyResult as serialised: {"Ok": card} or {"Err": [text]}
 def brew_jobs.PolicyRequest.validate_result(+req: J.Val, +result: J.Val) -> Maybe<&2, String>:
   jobs.refuse(
     Bool.and(
@@ -252,7 +232,6 @@ def brew_jobs.PolicyRequest.validate_result(+req: J.Val, +result: J.Val) -> Mayb
       jobs.bounded(result, 262144)),
     "invalid brew policy result")
 
-# Answers {"Ok": PolicyResult} or {"Err": text}.
 def brew_jobs.PolicyRequest.evaluate(+req: J.Val) -> J.Val:
   brew_jobs.PolicyRequest.evaluate.card(req, J.set(J.get(req, "card"), "id", J.get(J.get(req, "work"), "result_id")))
 
@@ -271,8 +250,6 @@ def brew_jobs.PolicyRequest.evaluate.checked(+m: Maybe<&2, String>, +result: J.V
       home.util.err(why)
     case None{}:
       home.util.ok(result)
-
-# ---- reforge_jobs.rs --------------------------------------------------------------
 
 def reforge.part_kind(+part: String) -> String:
   Bool.pick(String, String.eq(part, "offense"), "arm", "guard")

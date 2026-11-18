@@ -46,7 +46,6 @@ fn untested_introduction_uses_a_tool_loaded_in_bounded_task_mode() {
 fn a_stamp_is_introduced_at_first_sight_then_rides_alone() {
     let intros = introductions(&turn(), None);
     let indices: Vec<usize> = intros.iter().map(|(index, _)| *index).collect();
-    // The opening system message and the first red run; never the second.
     assert_eq!(indices, vec![0, 3], "{intros:?}");
     let red = &intros[1].1;
     assert!(
@@ -57,7 +56,6 @@ fn a_stamp_is_introduced_at_first_sight_then_rides_alone() {
         red.contains("→ fix the first diagnostic before the next edit"),
         "{red}"
     );
-    // The standing direction is said once, with the first introduction.
     assert!(intros[0].1.starts_with(LEAD), "{}", intros[0].1);
     assert!(!red.contains(LEAD), "{red}");
 }
@@ -71,9 +69,7 @@ fn the_core_type_is_introduced_as_its_pages_and_covers_its_routes() {
         core.contains("You are Angel — the Driver for this workspace."),
         "{core}"
     );
-    // The workspace map is its signal and its short pages.
     assert!(core.contains("\n⠍⠓ the task workspace map"), "{core}");
-    // A route the core already spelled out rides alone when it comes back.
     let mut messages = turn();
     messages.push(tool("c", "done\n⠺⠃"));
     let later = introductions(&messages, None);
@@ -88,8 +84,6 @@ fn a_page_is_introduced_as_its_sentence() {
     ];
     let intros = introductions(&messages, None);
     let goal = &intros[1].1;
-    // The values ride beside the stamps; a slot reads as `…`, never as
-    // template syntax.
     assert!(goal.contains("⠗⠃⠃ objective: …"), "{goal}");
     assert!(
         goal.contains("⠗⠃⠙ verifiable check (must pass): …"),
@@ -147,9 +141,6 @@ fn reading_one_page_does_not_teach_the_whole_route() {
     assert!(intros.last().unwrap().1.contains("Keep code blocks"));
 }
 
-/// A reading the harness has since elided no longer carries the words: the
-/// stamp is introduced again at its next sight, as it must be for a model
-/// swapped in mid-run that never saw the answer.
 #[test]
 fn a_stamp_whose_reading_was_elided_is_introduced_again() {
     let aged = format!(
@@ -181,7 +172,6 @@ fn braille_quoted_mid_line_is_text_not_a_stamp() {
         "   12 | //! | ⠧ v | `v_verification.rs` | what the tests say ⠧⠉ |",
     )];
     assert!(introductions(&messages, None).is_empty());
-    // A mark opens a bracket; a line inside a JSON string opens after `\n`.
     let marks = vec![
         tool("b", "[⡨⠃⠚ aged=2 dropped=0 saved=100]"),
         ChatMsg::harness(r#"{"skills_catalog":"\n\n⠥⠃\n16\n"}"#.to_string()),
@@ -198,7 +188,6 @@ fn braille_quoted_mid_line_is_text_not_a_stamp() {
 #[test]
 fn a_compacted_first_sight_is_introduced_again() {
     let messages = turn();
-    // Compaction dropped the first red run: the second one is introduced.
     let compacted = vec![
         messages[0].clone(),
         messages[1].clone(),
@@ -264,9 +253,7 @@ fn the_http_wire_carries_the_introduction_only_where_the_model_can_read() {
         .build_body(&messages, std::slice::from_ref(&read_file), false)
         .unwrap();
     assert!(text(&body).contains("fix the first diagnostic before the next edit"));
-    // The history itself is untouched.
     assert!(!messages[3].content.contains("diagnostic"));
-    // No reader, no introduction; and the switch turns it off.
     let bare = club.build_body(&messages, &[], false).unwrap();
     assert!(!text(&bare).contains("fix the first diagnostic before the next edit"));
     let _off = crate::tests::TestEnvGuard::set("ANGEL_BOOK_INTRO", "0");
@@ -274,9 +261,6 @@ fn the_http_wire_carries_the_introduction_only_where_the_model_can_read() {
     assert!(!text(&off).contains("fix the first diagnostic before the next edit"));
 }
 
-/// The transport-neutral legend: an outbound copy with each stamp's English at
-/// first sight, the stored history untouched; nothing without the ledger
-/// reader or with the switch off. On by default.
 #[test]
 fn the_legend_copy_is_introduced_and_leaves_history_alone() {
     let _guard = crate::tests::env_lock();
@@ -317,8 +301,6 @@ fn the_legend_copy_is_introduced_and_leaves_history_alone() {
     ));
 }
 
-/// The bench arm `ANGEL_BOOK_INTRO=every` introduces a stamp at every
-/// sighting; the lead is still said once.
 #[test]
 fn the_every_sighting_arm_repeats_the_english() {
     let intros = super::introductions_at(&turn(), None, true, "");
@@ -339,8 +321,6 @@ fn the_every_sighting_arm_repeats_the_english() {
     );
 }
 
-/// A loop route rides its own turn after the warning sign; the stamp after the
-/// sign still gets its English at first sight, and rides alone after that.
 #[test]
 fn a_loop_turn_after_the_warning_sign_is_introduced_once() {
     let messages = vec![
@@ -366,7 +346,6 @@ fn a_value_slot_reads_as_an_ellipsis_and_a_doubled_brace_is_kept() {
         "only … tokens remain"
     );
     assert_eq!(unslotted("at `{}` now"), "at `…` now");
-    // Braces that are a ported prompt's own text stay as written.
     let ported = "the format `[$app-name](app://{{connector_id}})` and `{\"authority\":{\"kind\":\"orchestrator\"}}`";
     assert_eq!(unslotted(ported), ported);
     assert_eq!(unslotted("{{a}} then {b}"), "{{a}} then …");
@@ -405,6 +384,5 @@ fn advertised_tool_schema_stamps_are_introduced_once() {
         "{}",
         out[0].content
     );
-    // The same stamp in a later message rides alone.
     assert_eq!(&*out[2].content, "hint ⠣⠃⠁");
 }

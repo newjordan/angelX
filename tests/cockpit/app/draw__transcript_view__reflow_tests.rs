@@ -177,10 +177,10 @@ fn reflow_commit_anchors_the_readers_current_message() {
     let mut app = seeded(20);
     app.visual_motion = MotionMode::Off;
     app.settle_transcript_spawns();
-    let area = Rect::new(0, 0, 27, 10); // 24 text cells
+    let area = Rect::new(0, 0, 27, 10);
     let mut terminal = Terminal::new(TestBackend::new(27, 10)).unwrap();
     app.selection = Some(mouse::Selection::new(mouse::PaneId::Transcript, area, 1, 1));
-    step(&mut app, 24, 20); // ready but held
+    step(&mut app, 24, 20);
     terminal
         .draw(|frame| render_transcript(frame, &mut app, area))
         .unwrap();

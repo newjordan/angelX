@@ -4,14 +4,9 @@
 
 use crate::Core;
 
-/// The atlas's largest side.
 const ATLAS_SIZE: u32 = 2048;
-/// The side it starts at: a terminal's glyphs fit with room to spare,
-/// and it grows to [`ATLAS_SIZE`] the first time it fills, so a window
-/// holds 4 MiB here, not 16, until it needs more.
 const ATLAS_START: u32 = 1024;
 
-/// Where one image sits in the atlas, and how the host places it.
 #[derive(Clone, Copy)]
 pub struct Entry {
     pub uv: [f32; 4],
@@ -20,12 +15,6 @@ pub struct Entry {
     pub colored: bool,
 }
 
-/// Whether the glyph atlas can hold the working set. A full atlas is
-/// emptied and rebuilt once; if it fills again immediately, the set of
-/// glyphs on screen is simply larger than the atlas, and resetting every
-/// frame would re-raster and re-upload thousands of glyphs per frame
-/// forever. Saturated instead: overflow glyphs draw blank until the next
-/// real reset (a font-size change), and the frame rate survives.
 #[derive(Default)]
 pub(crate) struct AtlasHealth {
     pub(crate) full: bool,
@@ -54,10 +43,7 @@ impl AtlasHealth {
 pub(crate) struct Atlas {
     texture: wgpu::Texture,
     pub(crate) view: wgpu::TextureView,
-    /// The side now: [`ATLAS_START`], or [`ATLAS_SIZE`] once grown.
     side: u32,
-    /// Set when the texture was replaced by a larger one, so the core
-    /// binds the new view before it draws.
     pub(crate) grown: bool,
     x: u32,
     y: u32,
@@ -100,9 +86,6 @@ impl Atlas {
         (self.x, self.y, self.row) = (0, 0, 0);
     }
 
-    /// Replace the texture with one of the largest side, holding what the
-    /// old one held where it held it: entries are in pixels and the shader
-    /// divides by the texture's own size, so every entry stays good.
     fn grow(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         let texture = atlas_texture(device, ATLAS_SIZE);
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("glass-atlas-grow") });
@@ -111,7 +94,6 @@ impl Atlas {
             texture.as_image_copy(),
             wgpu::Extent3d { width: self.side, height: self.side, depth_or_array_layers: 1 },
         );
-        // Writes already queued to the old texture land before this copy.
         queue.submit([encoder.finish()]);
         self.view = texture.create_view(&Default::default());
         self.texture = texture;
@@ -119,7 +101,6 @@ impl Atlas {
         self.grown = true;
     }
 
-    /// Shelf packing with a one-pixel gutter. `None` when full.
     pub(crate) fn insert(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, w: u32, h: u32, rgba: &[u8]) -> Option<[u32; 2]> {
         if w + 1 > ATLAS_SIZE || h + 1 > ATLAS_SIZE {
             return None;
@@ -170,43 +151,35 @@ impl Atlas {
 }
 
 impl Core {
-    /// Pack an RGBA image into the atlas. `None` when it does not fit.
     pub fn atlas_insert(&mut self, w: u32, h: u32, rgba: &[u8]) -> Option<[u32; 2]> {
         let at = self.atlas.insert(&self.device, &self.queue, w, h, rgba);
         self.rebind_atlas();
         at
     }
 
-    /// The atlas's side and pixels, read back from the GPU: for tests.
     #[doc(hidden)]
     pub fn atlas_pixels(&self) -> (u32, Vec<u8>) {
         (self.atlas.side, self.read_back(&self.atlas.texture, (self.atlas.side, self.atlas.side)))
     }
 
-    /// Bind the atlas's new texture after it grew.
     fn rebind_atlas(&mut self) {
         if std::mem::take(&mut self.atlas.grown) {
             self.bind_group = crate::draw::bind(&self.device, &self.bind_layout, &self.globals, &self.atlas.view, &self.nearest);
         }
     }
 
-    /// Whether the atlas filled and wants emptying before the next build.
     pub fn atlas_full(&self) -> bool {
         self.atlas_health.full
     }
 
-    /// Note that an insert found the atlas full (`AtlasHealth`).
     pub fn atlas_insert_failed(&mut self) {
         self.atlas_health.insert_failed();
     }
 
-    /// Note that the frame was rebuilt after a reset (`AtlasHealth`).
     pub fn atlas_settle_after_rebuild(&mut self) {
         self.atlas_health.settle_after_rebuild();
     }
 
-    /// Empty the atlas: the generated entries are forgotten with the glyphs
-    /// the host drew into it, and it starts healthy again.
     pub fn reset_atlas(&mut self) {
         self.shadow_entry = None;
         self.light_entry = None;
@@ -214,8 +187,6 @@ impl Core {
         self.atlas_health.reset();
     }
 
-    /// A light's falloff: full at the middle, easing to nothing at the edge
-    /// with no rim, drawn once into the atlas.
     pub(crate) fn light(&mut self) -> Option<Entry> {
         if let Some(entry) = self.light_entry {
             return Some(entry);
@@ -243,7 +214,6 @@ impl Core {
         Some(entry)
     }
 
-    /// A soft round shadow, drawn once into the atlas.
     pub(crate) fn shadow(&mut self) -> Option<Entry> {
         if let Some(entry) = self.shadow_entry {
             return Some(entry);

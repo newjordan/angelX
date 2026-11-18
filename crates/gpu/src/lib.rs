@@ -55,8 +55,6 @@ use draw::{bind, instance_buffer};
 use picture::GpuPicture;
 use wallpaper::GpuWallpaper;
 
-/// The renderer: a device and queue the host made, the pipeline that draws
-/// every frame, and everything it keeps between frames.
 pub struct Core {
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -68,32 +66,18 @@ pub struct Core {
     bind_group: wgpu::BindGroup,
     pictures: FastMap<u32, GpuPicture>,
     picture_bytes: usize,
-    /// Textures of freed pictures, lent to the next picture of their size
-    /// (`free_picture`).
     spare_pictures: Vec<GpuPicture>,
-    /// The bytes of pictures written to the GPU by uploads, all told.
     written_bytes: u64,
-    /// ANGEL_GLASS_GPU_PREMULTIPLY: uploaded pictures stay straight in
-    /// storage and the shader premultiplies (`PICTURE_STRAIGHT`). It
-    /// spares the producer thread the CPU scan; off by default.
     gpu_premultiply: bool,
-    /// Stages drawn into their pictures every frame, by picture id.
     stages: HashMap<u32, Stage>,
-    /// The scene each stage last drew, and the slides under way (when one
-    /// began, on the host's clock, and the way the new scene comes in).
     stage_scenes: HashMap<u32, u64>,
     slides: HashMap<u32, (f64, [f32; 2])>,
     frame_number: u64,
-    /// Meshes, depth buffers and scene targets (`scene.rs`).
     three: scene::SceneState,
     producers: HashMap<u32, (Box<dyn PictureProducer>, (u32,u32))>,
     wallpaper: Option<GpuWallpaper>,
-    /// The soft shadow under lifted layers, once drawn into the atlas.
     shadow_entry: Option<Entry>,
-    /// A light's falloff, once drawn into the atlas.
     light_entry: Option<Entry>,
-    /// When the host's clock first showed a breathing layer: a breath
-    /// starts from nothing there.
     breath_origin: Option<f64>,
     text_gamma: f32,
     globals: wgpu::Buffer,
@@ -101,25 +85,15 @@ pub struct Core {
     capacity: usize,
     atlas: Atlas,
     atlas_health: AtlasHealth,
-    /// A finished frame's buffers, kept for the next frame to refill.
     spare_frame: Frame,
-    /// Emptied instance buffers kept for the next build.
     spare_vecs: Vec<Vec<Instance>>,
-    /// A post-processed stage's screen marks, drawn over its world after
-    /// the post pass: the frame's buffers kept as `spare_frame`'s are.
     spare_screen: Frame,
-    /// And its lights alone, which the post pass blooms around.
     spare_lights: Frame,
-    /// The stages' post pass (`post.rs`), made when first used, and whether
-    /// it runs.
     post: Option<post::PostState>,
     post_on: bool,
 }
 
 impl Core {
-    /// A renderer on `device` and `queue`, drawing into textures of
-    /// `view_format`. `text_gamma` is the text coverage curve (1 = as
-    /// rasterized).
     pub fn new(
         device: wgpu::Device,
         queue: wgpu::Queue,
@@ -265,36 +239,27 @@ impl Core {
         }
     }
 
-    /// Start a frame: pictures drawn in it are the ones eviction spares.
     pub fn begin_frame(&mut self) {
         self.frame_number += 1;
     }
 
-    /// Whether a stage's slide is under way, or one of its layers breathes,
-    /// flickers or drifts: it needs frames though nothing else changes.
     pub fn stages_animating(&self) -> bool {
         !self.slides.is_empty()
             || self.stages.values().any(|s| s.layers.iter().any(angel_stage::Layer::animating))
     }
 
-    /// A finished frame's buffers, for the next frame to refill. Give them
-    /// back with [`Core::keep_frame`].
     pub fn take_frame(&mut self) -> Frame {
         std::mem::take(&mut self.spare_frame)
     }
 
-    /// Keep a frame's buffers for the next one.
     pub fn keep_frame(&mut self, frame: Frame) {
         self.spare_frame = frame;
     }
 
-    /// The emptied instance buffers kept for the next build, for it to pop
-    /// its working buffers from. Give them back with [`Core::keep_vecs`].
     pub fn take_vecs(&mut self) -> Vec<Vec<Instance>> {
         std::mem::take(&mut self.spare_vecs)
     }
 
-    /// Keep emptied instance buffers for the next build.
     pub fn keep_vecs(&mut self, vecs: Vec<Vec<Instance>>) {
         self.spare_vecs = vecs;
     }

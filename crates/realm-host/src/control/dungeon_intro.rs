@@ -6,8 +6,6 @@ use crate::together_shooter::{Pack, knights};
 use crate::delve_intro::{Field, Intro};
 
 impl Session<'_> {
-    /// Pick the actual gate sprite in the last rendered map projection. A
-    /// terminal cell covers several map pixels; transparent corners do not hit.
     pub fn delve_map_hit(&self, x: u16, y: u16) -> bool {
         use crate::world_viz::overworld::{map::TILE, wishes};
         let Some((area, view)) = *self.overworld_map else { return false; };
@@ -32,10 +30,6 @@ impl Session<'_> {
         })
     }
 
-    /// A click on the Delve's gate in the map: call the knight there, or, when
-    /// he waits at it, open the Delve's menu. Only the rendered dungeon
-    /// sprite is an entrance, never the pane, its border, or a different
-    /// stage surface. True when the click was the gate's.
     pub fn gate_click(&mut self, x: u16, y: u16) -> bool {
         if !(self.delve_map_hit(x, y)
             && self.dungeon.intro.is_none()
@@ -54,7 +48,6 @@ impl Session<'_> {
         true
     }
 
-    /// Send the knight to the Delve's gate.
     pub(crate) fn call_delve(&mut self) -> String {
         self.world.delve_called = true;
         self.world.delve_lit = true;
@@ -66,13 +59,10 @@ impl Session<'_> {
         "Your knight sets out for the Delve, by the Mines. When he reaches its gate, click the dungeon on the map (or press F4) to enter.".into()
     }
 
-    /// The knight has reached the gate and waits there.
     pub(crate) fn delve_at_gate(&self) -> bool {
         self.world.at_delve_gate()
     }
 
-    /// The music for what is on screen: the menu, the delve's own track,
-    /// the guardians', the Sanctuary's calm — and silence while you code.
     pub fn tune_audio(&mut self) {
         let track = if !self.dungeon_view_active() {
             None
@@ -86,14 +76,11 @@ impl Session<'_> {
         self.dungeon.audio.music(track);
     }
 
-    /// Say so once when the knight reaches the gate. While a delve is on,
-    /// he stays at the gate and its torches burn.
     pub fn watch_delve_gate(&mut self) {
         if self.dungeon.shooter.is_some() {
             self.world.delve_called = true;
             self.world.delve_lit = true;
         }
-        // The party's wishes stand as standards by the gate on the map.
         self.world.delve_boons = self.dungeon.shooter.as_ref().map_or(0, |run| {
             run.players
                 .values()
@@ -109,9 +96,7 @@ impl Session<'_> {
         }
     }
 
-    /// The Delve's menu: the way into every run, new or under way.
     pub fn open_intro(&mut self) {
-        // A friend's delve is the game: the menu could only begin another.
         if self.dungeon.venue() == Venue::Joined {
             self.expand_dungeon();
             return;
@@ -143,9 +128,6 @@ impl Session<'_> {
         self.expand_dungeon();
     }
 
-    /// The menu after `/dungeon_host`: the party is set to the invited
-    /// friends and the host's knight stays theirs. Enter continues into the
-    /// entrance room; another knight or delve begins anew, friends along.
     pub(crate) fn open_hosted_intro(&mut self) {
         self.open_intro();
         let at_entrance = self
@@ -176,7 +158,6 @@ impl Session<'_> {
         }
     }
 
-    /// Keys on the intro. True when the intro used the key.
     pub(super) fn intro_key(&mut self, key: event::KeyEvent) -> bool {
         let Some(choices) = self.dungeon.intro.as_mut() else {
             return false;
@@ -184,8 +165,6 @@ impl Session<'_> {
         if key.kind == event::KeyEventKind::Release {
             return true;
         }
-        // The Enter or E still held from the map's door repeats into the
-        // menu: it must not click through to a delve, or to hosting one.
         if key.kind == event::KeyEventKind::Repeat
             && matches!(key.code, KeyCode::Enter | KeyCode::Char(' ' | 'e'))
         {
@@ -214,7 +193,6 @@ impl Session<'_> {
         true
     }
 
-    /// Enter the Delve with what the intro chose.
     fn begin_delve(&mut self) {
         let Some(choices) = self.dungeon.intro.take() else {
             return;
@@ -228,7 +206,6 @@ impl Session<'_> {
                 self.start_shooter(Some("Squire"));
                 None
             }
-            // Already hosting: a fresh delve, and the same invitations.
             _ if self.dungeon.hosting.is_some() => {
                 self.start_shooter(None);
                 Some(self.dungeon_command(Some("invite")))

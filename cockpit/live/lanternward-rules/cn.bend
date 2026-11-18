@@ -1,7 +1,3 @@
-# The one context button. E opens, reads, lifts, throws, takes a flame, lights,
-# unlocks, relights; its label changes with what the knight faces. With nothing
-# to do it is the roll, or, locked on, the hop. crates/delve/src/rules/
-# lanternward/ctx.rs. The knight acting is `cur`.
 import Base
 import ./r.bend as R
 import ./c.bend as C
@@ -22,16 +18,12 @@ import ./ht.bend as H
 
 def S() -> Data: R.W
 
-# ----- what E would do -----------------------------------------------------------------
-
-# Ticks a brazier lit from an ember burns: shorter the more hands.
 def burn_ticks(+w: S) -> U32: U32.max(M.sat(C.burn(), U32.mul(C.burn_step(), M.dec(U32.max(L.len64(W.seats(w)), 1)))), C.burn_min())
 
 def beacon_ready(+w: S) -> Bool: U32.is_eq(W.room(w), 4) && U32.is_ge(W.stage(w), 3)
 
 def carrying_boss_key(+w: S) -> Bool: U32.is_eq(W.hold_k(w), C.hold_carried()) && U32.is_eq(W.hold_a(w), K.id(w))
 
-# What E does to this thing for the knight, if anything: its code, or none.
 def prop_ctx(+w: S, +p: R.W8) -> U32:
   +k = Pr.kind(p)
   +off = U32.is_eq(Pr.on(p), 0)
@@ -46,8 +38,6 @@ def prop_ctx(+w: S, +p: R.W8) -> U32:
   Bool.pick(U32, U32.is_eq(k, C.pk_boss()) && off && carrying_boss_key(w), C.cx_unlock(),
   Bool.pick(U32, U32.is_eq(k, C.pk_beacon()) && off && beacon_ready(w), C.cx_relight(), C.cx_none()))))))))))
 
-# The nearest thing in reach and in front of the knight: the best so far is
-# (found, distance, code, index).
 def ctx_props(+ps: List<&2, R.W8>, +w: S, +i: U32, +best: R.W8) -> R.W8:
   match ps:
     case Nil{}:
@@ -61,8 +51,6 @@ def ctx_props(+ps: List<&2, R.W8>, +w: S, +i: U32, +best: R.W8) -> R.W8:
       +ok = U32.is_ne(c, C.cx_none()) && U32.is_le(d, U32.mul(C.ctx_reach(), 256)) && Bool.not(U32.is_gt(d, U32.mul(12, 256)) && N.slt(G.dot(K.fx(w), K.fy(w), G.vx(u), G.vy(u)), C.ctx_front())) && (U32.is_eq(Cx.ok(best), 0) || U32.is_lt(d, Cx.d(best)))
       ctx_props(t, w, U32.add(i, 1), Bool.pick(R.W8, ok, R.W8{1, d, c, i, 0, 0, 0, 0}, best))
 
-# A friend on the ground within reach comes before anything else: the first by
-# seat.
 def down_near(+ks: List<&2, R.T8>, +w: S, +found: U32, +done: Bool) -> U32:
   match ks:
     case Nil{}:
@@ -75,8 +63,6 @@ def down_near(+ks: List<&2, R.T8>, +w: S, +found: U32, +done: Bool) -> U32:
           +hit = U32.is_eq(Seat.act(o), C.a_down()) && N.slt(G.dist(U32.sub(Seat.x(o), K.x(w)), U32.sub(Seat.y(o), K.y(w))), U32.mul(C.revive_reach(), 256))
           down_near(t, w, Bool.pick(U32, hit, Seat.id(o), found), hit)
 
-# The nearest thing in reach and in front of the knight that E would act on:
-# its code, then the index (or a knight's id) it acts on.
 def context(+w: S) -> R.W8:
   +friend = down_near(W.seats(w), w, C.none(), False{})
   +best = ctx_props(W.props(w), w, 0, R.W8{0, 0, 0, 0, 0, 0, 0, 0})
@@ -84,9 +70,6 @@ def context(+w: S) -> R.W8:
     Bool.pick(R.W8, U32.is_ne(friend, C.none()), R.W8{C.cx_revive(), friend, 0, 0, 0, 0, 0, 0},
       Bool.pick(R.W8, U32.is_eq(Cx.ok(best), 1), R.W8{Cx.c(best), Cx.i(best), 0, 0, 0, 0, 0, 0}, R.W8{C.cx_none(), 0, 0, 0, 0, 0, 0, 0})))
 
-# ----- what a chest holds and what a knight is given ------------------------------------------
-
-# What a chest holds, by its room and its place in it: the item, then its number.
 def chest_item(+room: U32, +id: U32) -> R.W8:
   Bool.pick(R.W8, U32.is_eq(room, 0), R.W8{C.it_map(), 0, 0, 0, 0, 0, 0, 0},
   Bool.pick(R.W8, U32.is_eq(room, 1), Bool.pick(R.W8, U32.is_eq(id, 0), R.W8{C.it_lantern(), 0, 0, 0, 0, 0, 0, 0}, R.W8{C.it_gems(), 25, 0, 0, 0, 0, 0, 0}),
@@ -109,8 +92,6 @@ def heart_all(+ks: List<&2, R.T8>) -> List<&2, R.T8>:
       +mx = U32.add(Seat.max_hp(o), C.heart())
       Con{Seat.set_hp(Seat.set_max_hp(o, mx), mx), heart_all(t)}
 
-# The item's gift to the party: a map, the lantern with a full tank for all, a
-# key, a heart container (every knight's hearts full), gems, bombs.
 def gift(+w: S, +id: U32, +item: U32, +n: U32) -> S:
   +flame = W.r_flame(w)
   +mx = U32.add(K.max_hp(w), C.heart())
@@ -121,7 +102,6 @@ def gift(+w: S, +id: U32, +item: U32, +n: U32) -> S:
   Bool.pick(S, U32.is_eq(item, C.it_container()), K.set_hp(K.set_max_hp(W.set_seats(W.set_p_cont(w, U32.min(U32.add(W.p_cont(w), 1), 255)), heart_all(W.seats(w))), mx), mx),
   Bool.pick(S, U32.is_eq(item, C.it_gems()), K.set_gems(w, U32.add(K.gems(w), n)), K.set_bombs(w, U32.add(K.bombs(w), n))))))))
 
-# An item comes to the party; its finder holds it up.
 def grant(+w: S, +id: U32, +item: U32, +n: U32) -> S:
   +w1 = gift(w, id, item, n)
   +w2 = K.set_charge(K.set_step(K.set_chain(K.set_shield(K.set_lock_i(K.set_lock_k(K.set_item_n(K.set_item_k(K.set_lamp(K.set_t(K.set_act(w1, C.a_item()), 0), 0), item), n), 0), 0), 0), 0), 0), 0)
@@ -135,13 +115,10 @@ def open_chest(+w: S, +id: U32, +i: U32) -> S:
   +w2 = Q.fx(Q.sound(w1, 8), C.fxk_light(), Pr.x(p), Pr.y(p), 0)
   grant(w2, id, Cx.ok(it), Cx.d(it))
 
-# ----- the context button pressed ----------------------------------------------------------------
-
 def read_sign(+w: S, +i: U32, +base: U32) -> S:
   +p = L.get8(W.props(w), U32.to_nat(i))
   Q.sound(K.set_read_t(K.set_read_id(K.set_read_on(w, 1), U32.add(base, Pr.id(p))), C.read_ticks()), 7)
 
-# The index of the first gate with this number, or none.
 def gate_find(+ps: List<&2, R.W8>, +id: U32, +j: U32, +found: U32, +done: Bool) -> U32:
   match ps:
     case Nil{}:
@@ -184,11 +161,6 @@ def unlock(+w: S, +i: U32) -> S:
   +w1 = Bool.pick(S, door, W.set_p_keys(w, M.dec(W.p_keys(w))), W.set_hold_k(w, C.hold_spent()))
   Q.sound(Q.solved(W.set_props(w1, L.set8(W.props(w1), U32.to_nat(i), Pr.set_on(p, 1))), Pr.x(p), Pr.y(p)), 13)
 
-# E pressed with a thing in reach. `ret` is 0 when there is nothing to do (the
-# caller rolls or hops); a revive or a relight is held, not pressed, so it
-# counts as done and does nothing here.
-# What E does, by what it meets: a revive or a relight is held, not pressed, so
-# it does nothing here.
 def use_dispatch(+ds: Nat, +w: S, +id: U32, +i: U32) -> S:
   match ds:
     case 0n:
@@ -245,10 +217,6 @@ def use_context(+w: S, +id: U32) -> S:
   +i = Ct.i(c)
   W.set_ret(use_dispatch(U32.to_nat(Ct.k(c)), w, id, i), Bool.to_u32(Bool.not(U32.is_eq(Ct.k(c), C.cx_none()))))
 
-# ----- a block pushed -------------------------------------------------------------------------------
-
-# Whether any thing but plates and the block itself stands where the block
-# would go.
 def slide_stops(+ps: List<&2, R.W8>, +b: U32, +j: U32, +x: U32, +y: U32, +tx: U32, +ty: U32, +hit: Bool) -> Bool:
   match ps:
     case Nil{}:
@@ -260,8 +228,6 @@ def slide_stops(+ps: List<&2, R.W8>, +b: U32, +j: U32, +x: U32, +y: U32, +tx: U3
         case False{}:
           slide_stops(t, b, U32.add(j, 1), x, y, tx, ty, U32.is_ne(j, b) && U32.is_ne(Pr.kind(q), C.pk_plate()) && Q.blocks(q, x, y, tx, ty))
 
-# Start a block sliding one tile the way it was pushed, if the place is open: not
-# onto a tile against a wall, a pit or the way on, so none is ever stuck for good.
 def start_slide(+w: S, +b: U32) -> S:
   +p = L.get8(W.props(w), U32.to_nat(b))
   +on = Pr.on(p)

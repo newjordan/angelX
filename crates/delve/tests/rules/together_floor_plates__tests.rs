@@ -31,7 +31,6 @@ fn together_floor_plates_arrive_after_the_real_descent_and_expire() {
                 crate::rules::crossroads::testing::finish(&mut run);
             }
         }
-        // The floor behind's results, then the title.
         let plate = run.floor_plate(Some(1)).unwrap();
         assert_eq!(plate.length(), crate::rules::floor_stats::SHOWN + DURATION);
         for _ in 0..plate.length() {
@@ -93,7 +92,6 @@ fn together_floor_plates_gate_hold_and_wrens_landing_use_arrival_depth() {
         .find(|e| e.room == RoomKind::Gate && matches!(e.to, world::Dest::Room(RoomKind::Home, _)))
         .unwrap();
     let centre = world::entrance_centre(entrance);
-    // The whole party stands on the plate: it moves them all together.
     for hero in run.players.values_mut() {
         (hero.x, hero.y) = centre;
     }
@@ -105,7 +103,6 @@ fn together_floor_plates_gate_hold_and_wrens_landing_use_arrival_depth() {
     run.step(&BTreeMap::new());
     assert_eq!(run.floor_plate(Some(1)).unwrap().kind, Kind::Gate);
     assert_eq!(run.floor(), 0);
-    // The map table has earned floor 4 and chosen that landing.
     run.home.deepest = 4;
     run.home.landing = 4;
     run.home.levels.insert(home::Station::Map, 3);

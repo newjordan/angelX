@@ -20,8 +20,6 @@ use super::merchant::{Purchase, Shop};
 
 pub const PLACES: [RoomKind; 3] = [RoomKind::Market, RoomKind::Bathhouse, RoomKind::Smithy];
 
-/// A stall: who keeps it, what they buy, the opening offer and the most
-/// they will ever pay, where its counter stands and where a seller stands.
 pub struct Stall {
     pub keeper: &'static str,
     pub buys: Spoil,
@@ -36,24 +34,17 @@ pub const STALLS: [Stall; 3] = [
     Stall { keeper: "THE CHANDLER", buys: Spoil::Wax, word: "WAX", base: 5, top: 9, counter: (17, 2, 4, 2), at: (19.0, 4.6) },
     Stall { keeper: "SOUP NED", buys: Spoil::Bone, word: "BONE", base: 3, top: 6, counter: (16, 10, 4, 2), at: (18.0, 9.2) },
 ];
-/// The market cross in the south-west corner.
 pub const CROSS: (i32, i32, i32, i32) = (4, 10, 2, 2);
-/// Ticks of holding E for each extra gold; how long past the top offer a
-/// stallholder's patience lasts; how long an offended one stays shut.
 pub const HAGGLE_STEP: u32 = 6;
 pub const PATIENCE: u32 = HZ;
 pub const SHUT: u32 = 3 * HZ;
 
-/// The four tubs (their middles, tiles), the copper that heats them, the
-/// towel bench; what a soak costs and how long it lasts.
 pub const TUBS: [(f32, f32); 4] = [(5.0, 3.6), (9.5, 3.6), (14.5, 3.6), (19.0, 3.6)];
 pub const COPPER: (i32, i32, i32, i32) = (21, 1, 2, 3);
 pub const BENCH: (i32, i32, i32, i32) = (2, 11, 5, 1);
 pub const BATH_GOLD: u32 = 5;
 pub const SOAK: u32 = 3 * HZ;
 
-/// The smithy: the hearth, the anvil, the armour rack and the quench
-/// barrel; where a knight stands at the anvil and at the rack.
 pub const HEARTH: (i32, i32, i32, i32) = (9, 1, 6, 3);
 pub const ANVIL: (i32, i32, i32, i32) = (11, 5, 2, 1);
 pub const RACK: (i32, i32, i32, i32) = (18, 1, 4, 2);
@@ -62,16 +53,11 @@ pub const AT_ANVIL: (f32, f32) = (9.9, 5.6);
 pub const AT_RACK: (f32, f32) = (20.0, 3.7);
 pub const TEMPER_GOLD: u32 = 40;
 pub const MEND_GOLD: u32 = 25;
-/// How long the hammer rings on a tempering, and the helmet on a mending.
 pub const HAMMER: u32 = HZ;
 pub const DING: u32 = HZ;
 
-/// How near (arena units) a knight stands to use a counter, tub or anvil.
 const REACH: f32 = 1.6;
 
-/// The town's moment-to-moment state: who is haggling at which stall and
-/// for how long, which stalls are shut and for how long, and the smith's
-/// hammer and helmet test.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Town {
@@ -93,17 +79,14 @@ impl Town {
     }
 }
 
-/// The ticks of holding before stall `i`'s keeper takes offence.
 pub fn haggle_limit(i: usize) -> u32 {
     (STALLS[i].top - STALLS[i].base) * HAGGLE_STEP + PATIENCE
 }
 
-/// What stall `i` offers after `ticks` of haggling.
 pub fn offer(i: usize, ticks: u32) -> u32 {
     (STALLS[i].base + ticks / HAGGLE_STEP).min(STALLS[i].top)
 }
 
-/// A sale waiting for the realm's save: which stall's spoil, by which seat.
 pub fn sale_mark(i: usize, id: u32) -> String {
     format!("country:sell:{}:{id}", STALLS[i].word.to_lowercase())
 }
@@ -116,7 +99,6 @@ fn fill(room: &mut Room, (c, r, w, h): (i32, i32, i32, i32), tile: Tile) {
     }
 }
 
-/// Solid furniture; the tubs stay floor (a knight climbs in).
 pub fn shape(room: &mut Room) {
     match room.kind {
         RoomKind::Market => {
@@ -138,7 +120,6 @@ pub fn shape(room: &mut Room) {
     }
 }
 
-/// The realm settles the square's sales: a spoil out, its gold in.
 pub fn settle(treasury: &mut Spoils, marks: &BTreeMap<String, u32>, news: &mut Vec<String>) -> bool {
     let mut changed = false;
     for (i, stall) in STALLS.iter().enumerate() {
@@ -169,10 +150,8 @@ impl Run {
             .is_some_and(|h| (h.x - at.0 * TILE_UNITS).hypot(h.y - at.1 * TILE_UNITS) < REACH)
     }
 
-    /// One tick in the town; `pressed` holds the knights whose E went down.
     pub(super) fn tick_town(&mut self, inputs: &BTreeMap<u32, Input>, pressed: u8) {
         let kind = self.room().kind;
-        // Clocks run down anywhere; the soakers stay in their tubs.
         for t in &mut self.town.shut {
             *t = t.saturating_sub(1);
         }
@@ -227,14 +206,12 @@ impl Run {
             if let Some((stall, ticks)) = self.town.haggles.get(&id).copied() {
                 let i = usize::from(stall);
                 if !holding || !self.near_spot(id, STALLS[i].at) {
-                    // Let go: sold at the offer on the table.
                     self.town.haggles.remove(&id);
                     let gold = offer(i, ticks);
                     self.marks.insert(sale_mark(i, id), gold);
                     self.sounds.push("gold");
                     self.found = Some((self.tick, id, format!("SOLD! {gold} GOLD.")));
                 } else if ticks + 1 > haggle_limit(i) {
-                    // Pushed too far: the shutters come down.
                     self.town.haggles.remove(&id);
                     self.town.shut[i] = SHUT;
                     self.sounds.push("door_seal");
@@ -271,7 +248,6 @@ impl Run {
         }
     }
 
-    /// The tub before knight `id`, if they stand at one.
     fn tub_before(&self, id: u32) -> Option<usize> {
         TUBS.iter().position(|&(x, y)| self.near_spot(id, (x, y + 1.6)))
     }
@@ -293,7 +269,6 @@ impl Run {
         self.found = Some((self.tick, id, message));
     }
 
-    /// Old Dint's two jobs: 0 tempers the arm in hand, 1 mends the kit.
     fn ask_the_smith(&mut self, id: u32, job: usize) {
         let hero = &self.players[&id];
         let (refusal, gold) = if job == 0 {
@@ -322,7 +297,6 @@ impl Run {
         self.found = Some((self.tick, id, message));
     }
 
-    /// What a town purchase costs, while it can still be done.
     pub(super) fn town_price(&self, p: Purchase) -> Option<u32> {
         let hero = self.players.get(&p.knight)?;
         match p.shop {
@@ -342,7 +316,6 @@ impl Run {
         }
     }
 
-    /// The treasury paid for town purchase `p`: the work is done.
     pub(super) fn town_paid(&mut self, p: Purchase) {
         let Some(hero) = self.players.get_mut(&p.knight) else {
             return;
@@ -388,8 +361,6 @@ impl Run {
         }
     }
 
-    /// Soakers stay in their tubs until the soak is done; out, they are
-    /// scrubbed. A knight who leaves the bathhouse gets out at once.
     fn tick_soaks(&mut self, kind: RoomKind) {
         let tick = self.tick;
         let mut done = Vec::new();
@@ -421,7 +392,6 @@ impl Run {
     }
 }
 
-/// The tub a knight stands in, if any.
 pub fn tub_of(hero: &Hero) -> Option<usize> {
     TUBS.iter()
         .position(|&(x, y)| (hero.x - x * TILE_UNITS).hypot(hero.y - y * TILE_UNITS) < 0.5)

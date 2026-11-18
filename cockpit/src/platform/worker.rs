@@ -7,8 +7,6 @@
 use std::process::Command;
 use std::time::Duration;
 
-/// Send one bounded request and collect one bounded response. A failed or
-/// timed-out process never returns partial output as a successful response.
 #[cfg(test)]
 pub(crate) fn run(
     command: Command,
@@ -20,7 +18,6 @@ pub(crate) fn run(
     run_cancellable(command, input, timeout, input_limit, output_limit, || false)
 }
 
-/// As `run`, but also stops promptly when the owning request is interrupted.
 #[cfg(unix)]
 pub(crate) fn run_cancellable(
     mut command: Command,
@@ -57,15 +54,9 @@ pub(crate) fn run_cancellable(
     let mut child = command
         .spawn_owned()
         .map_err(|error| format!("could not start worker: {error}"))?;
-    // Group signals must precede reaping the leader: once its PID is released,
-    // a new and unrelated group could acquire the same numeric ID. The claim
-    // pins the unreaped direct child while the signal is sent. This only covers
-    // descendants that remain in the private process group.
     let kill_group = |pid: libc::pid_t| {
-        // SAFETY: the claim protects this unreaped child and its group ID.
         unsafe {
             libc::killpg(pid, libc::SIGKILL);
-            // If the child moved itself out of the group, still stop it.
             libc::kill(pid, libc::SIGKILL);
         }
     };
@@ -89,7 +80,6 @@ pub(crate) fn run_cancellable(
         return Err("worker output pipe unavailable".into());
     };
     for fd in [stdin.as_raw_fd(), stdout.as_raw_fd()] {
-        // SAFETY: both descriptors are owned by these live pipe handles.
         let ok = unsafe {
             let flags = libc::fcntl(fd, libc::F_GETFL);
             flags >= 0 && libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) == 0
@@ -131,7 +121,7 @@ pub(crate) fn run_cancellable(
                 }
             }
             if written == input.len() {
-                stdin.take(); // EOF is part of the request protocol.
+                stdin.take();
             }
         }
         loop {
@@ -160,8 +150,6 @@ pub(crate) fn run_cancellable(
             let ready = child.with_unreaped_identity(|pid| {
                 let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
                 loop {
-                    // SAFETY: the direct child is claimed. WNOWAIT retains its
-                    // identity until its group has been signalled.
                     let result = unsafe {
                         libc::waitid(
                             libc::P_PID,
@@ -172,10 +160,6 @@ pub(crate) fn run_cancellable(
                     };
                     if result == 0 {
                         let exited = unsafe { info.si_pid() } != 0;
-                        // Keep a successful leader unreaped while a descendant
-                        // still holds stdout. It may be producing the rest of
-                        // the response; killing it now would return a truncated
-                        // result as success. A failed leader can stop promptly.
                         let failed = exited
                             && (info.si_code != libc::CLD_EXITED
                                 || unsafe { info.si_status() } != 0);
@@ -214,8 +198,6 @@ pub(crate) fn run_cancellable(
                 };
             }
         }
-        // Poll both pipes together. This keeps a worker that writes before it
-        // reads from deadlocking, and leaves no detached reader/writer thread.
         let mut fds = [
             libc::pollfd {
                 fd: stdin.as_ref().map_or(-1, AsRawFd::as_raw_fd),
@@ -229,9 +211,7 @@ pub(crate) fn run_cancellable(
             },
         ];
         let remaining = deadline.saturating_duration_since(Instant::now());
-        // Poll periodically even after EOF so the child's exit is observed.
         let millis = remaining.as_millis().saturating_add(1).min(25) as i32;
-        // SAFETY: fds contains two valid poll descriptors or the ignored -1.
         let ready = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as libc::nfds_t, millis) };
         if ready < 0 && std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted {
             stop(&mut child);

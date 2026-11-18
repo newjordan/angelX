@@ -8,37 +8,26 @@
 use crate::render::world3d::math::V3;
 use crate::render::world3d::mesh::mat;
 
-/// The shop's own materials.
 pub const FLOOR_PLATE: u8 = 64;
 pub const HAZARD: u8 = 65;
 pub const BRICK: u8 = 66;
 pub const TIMBER: u8 = 67;
 pub const RUST: u8 = 68;
 pub const CHEST: u8 = 69;
-/// Lamp glass and its filament: gives its own warm light.
 pub const LAMP: u8 = 70;
-/// A neon sign.
 pub const NEON: u8 = 71;
 pub const RUBBER: u8 = 72;
-/// A high window with moonlight behind it.
 pub const MOONGLASS: u8 = 73;
-/// A soft dark patch laid on the floor under a thing.
 pub const SHADOW: u8 = 74;
-/// A lift's platform.
 pub const PAD: u8 = 75;
-/// The ring and glow that mark what a knight is about to pick.
 pub const MARK: u8 = 76;
-/// A spark.
 pub const SPARK: u8 = 77;
-/// The knights' tunics, one colour to a bay.
 pub const SEAT: u8 = 80;
 pub const SKIN: u8 = 86;
 pub const DARK_STEEL: u8 = 87;
 pub const PAPER: u8 = 88;
-/// Glowing marks in the colour of a seat.
 pub const GLOW_SEAT: u8 = 90;
 
-/// The tunic colours of the six seats.
 pub const SEAT_COLOURS: [[f32; 3]; 6] = [
     [0.55, 0.14, 0.12],
     [0.14, 0.32, 0.62],
@@ -48,7 +37,6 @@ pub const SEAT_COLOURS: [[f32; 3]; 6] = [
     [0.12, 0.50, 0.52],
 ];
 
-/// A surface point's look.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Surf {
     pub albedo: [f32; 3],
@@ -57,7 +45,6 @@ pub struct Surf {
     pub shin: f32,
 }
 
-/// What the haze at a distance fades to: the black of a roof with no moon.
 pub fn fog_colour() -> [f32; 3] {
     [0.018, 0.020, 0.036]
 }
@@ -70,7 +57,6 @@ fn hash(x: i32, y: i32) -> f32 {
     (h & 0xffff) as f32 / 65535.0
 }
 
-/// Smooth noise in two dimensions.
 fn noise(x: f32, y: f32) -> f32 {
     let (xi, yi) = (x.floor(), y.floor());
     let (fx, fy) = (x - xi, y - yi);
@@ -89,10 +75,8 @@ fn scale(c: [f32; 3], k: f32) -> [f32; 3] {
     [c[0] * k, c[1] * k, c[2] * k]
 }
 
-/// The surface at `p` (its normal `n`) of material `m`, written into `s`.
 pub fn surface(m: u8, p: V3, n: V3, s: &mut Surf) {
     *s = Surf { albedo: rgb(90, 90, 100), glow: [0.0; 3], spec: 0.0, shin: 12.0 };
-    // the two world axes across a face, for patterns that sit on it
     let (u, v) = if n.z.abs() > 0.7 {
         (p.x, p.y)
     } else if n.x.abs() > n.y.abs() {
@@ -101,7 +85,6 @@ pub fn surface(m: u8, p: V3, n: V3, s: &mut Surf) {
         (p.x, p.z)
     };
     match m {
-        // ---- the parts' own materials
         mat::STONE_DARK => {
             s.albedo = rgb(56, 58, 74);
             s.spec = 0.45;
@@ -152,7 +135,6 @@ pub fn surface(m: u8, p: V3, n: V3, s: &mut Surf) {
         mat::STONE => s.albedo = rgb(100, 100, 112),
         mat::HORSE_CHESTNUT => s.albedo = rgb(150, 82, 40),
         mat::PARCHMENT => s.albedo = rgb(200, 180, 130),
-        // ---- the shop
         FLOOR_PLATE => {
             let (fu, fv) = (u.rem_euclid(2.0), v.rem_euclid(2.0));
             let seam = fu < 0.05 || fv < 0.05;
@@ -160,7 +142,6 @@ pub fn surface(m: u8, p: V3, n: V3, s: &mut Surf) {
             let oil = noise(u * 0.9 + 4.0, v * 0.9 + 9.0);
             let stain = if oil > 0.72 { 0.7 } else { 1.0 };
             let k = if seam { 0.45 } else { 0.8 + 0.4 * grit };
-            // diamond tread: little lozenges across each plate
             let tread = ((u * 5.0).sin() * (v * 5.0).sin()).abs() * 0.18;
             s.albedo = scale(rgb(52, 52, 60), k * stain + tread);
             s.spec = 0.25 * stain;

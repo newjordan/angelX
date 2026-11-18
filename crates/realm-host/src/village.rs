@@ -27,22 +27,13 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Duration;
 
-/// The serving model the villager chatter is generated on — the apprentice's
-/// own base weights (see `docs`: the ABT loop promotes adapters over it).
 const VOICE_MODEL: &str = "qwen3.5:4b";
 
-/// Seconds between full sensing cycles. Generous: the forge trains for
-/// minutes-to-hours, so a sub-minute cadence gains nothing.
 const POLL_SECS: u64 = 45;
 
-/// Pause between successive head probes inside one cycle, so a sweep never
-/// bursts the whole tailnet at once.
 const STAGGER_MS: u64 = 750;
 
-/// Longest chatter line the village will display or cache.
 const CHATTER_MAX_CHARS: usize = 72;
-
-// ─── env knobs (all documented in docs/ENV.md) ───────────────────────────────
 
 fn env_on(name: &str, default: bool) -> bool {
     std::env::var(name)
@@ -55,20 +46,14 @@ fn env_on(name: &str, default: bool) -> bool {
         .unwrap_or(default)
 }
 
-/// `ANGEL_VILLAGE` — the whole layer. Default off so an ordinary launch never
-/// polls fleet endpoints. `1` enables polling, persistence, and drawing.
 pub fn enabled() -> bool {
     env_on("ANGEL_VILLAGE", false)
 }
 
-/// `ANGEL_VILLAGE_FLAVOR` — local-model chatter. `0` keeps the village talking
-/// from the canned lines only (no ollama calls).
 pub fn flavor_enabled() -> bool {
     env_on("ANGEL_VILLAGE_FLAVOR", true)
 }
 
-/// `ANGEL_FORGE_URL` — the ABT trainer sidecar. Defaults to loopback; remote
-/// deployments must provide their route explicitly.
 pub fn forge_url() -> String {
     std::env::var("ANGEL_FORGE_URL")
         .ok()
@@ -76,8 +61,6 @@ pub fn forge_url() -> String {
         .unwrap_or_else(|| "http://127.0.0.1:8017".to_string())
 }
 
-/// `ANGEL_VILLAGE_VOICE_URL` — the OpenAI-compatible endpoint chatter is
-/// generated on. Defaults to a local Ollama-compatible port.
 pub fn voice_url() -> String {
     std::env::var("ANGEL_VILLAGE_VOICE_URL")
         .ok()
@@ -85,8 +68,6 @@ pub fn voice_url() -> String {
         .unwrap_or_else(|| "http://127.0.0.1:11434".to_string())
 }
 
-/// `ANGEL_VILLAGE_STATE` override, else `~/.angelX/village.json`. `None` with no
-/// HOME — the village then runs unpersisted rather than crashing.
 pub fn state_path() -> Option<PathBuf> {
     if let Some(p) = std::env::var_os("ANGEL_VILLAGE_STATE") {
         return Some(PathBuf::from(p));
@@ -94,22 +75,12 @@ pub fn state_path() -> Option<PathBuf> {
     std::env::var_os("HOME").map(|h| Path::new(&h).join(".angelX").join("village.json"))
 }
 
-// ─── persisted state: the village survives restarts ─────────────────────────
-
-/// What outlives a session: permanent upgrades, the apprentice's identity,
-/// the last-seen dataset size (so the granary renders offline), cached
-/// chatter, and the celebration history. Session moods (soot, chatter
-/// windows, which lights are lit *right now*) deliberately die with the
-/// session — they are re-sensed within a poll cycle.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct VillageState {
     pub version: u32,
-    /// Permanent forge upgrade tier — never decreases, even across a rollback.
     pub smithy_level: u32,
-    /// Last `current_adapter` seen (e.g. "v2"); advancement past it = promotion.
     pub last_adapter: Option<String>,
-    /// The trainee's villager name, generated once then kept forever.
     pub apprentice_name: String,
     pub dataset_total: u64,
     pub chatter: Vec<String>,
@@ -130,8 +101,6 @@ impl Default for VillageState {
     }
 }
 
-/// Load the persisted village — any failure (no path, missing file, corrupt
-/// JSON) reads as a fresh village, never a crash.
 pub fn load_state(path: Option<&Path>) -> VillageState {
     let Some(path) = path else {
         return VillageState::default();
@@ -142,8 +111,6 @@ pub fn load_state(path: Option<&Path>) -> VillageState {
     serde_json::from_str(&text).unwrap_or_default()
 }
 
-/// Atomic best-effort save (tmp + rename): a crash mid-write can never leave a
-/// half-written village behind, and a read-only disk never takes the town down.
 pub fn save_state(path: &Path, state: &VillageState) {
     if let Some(dir) = path.parent() {
         let _ = std::fs::create_dir_all(dir);
@@ -151,24 +118,15 @@ pub fn save_state(path: &Path, state: &VillageState) {
     let Ok(raw) = angel_live::host::secrets::to_redacted_vec(state) else {
         return;
     };
-    // Caller already redacted; bulk tier keeps the atomic publish without
-    // paying fsync for state whose loss only resets the village.
     let _ = angel_live::host::workspace_store::write_atomic(path, &raw);
 }
 
-// ─── the live view the world renders ─────────────────────────────────────────
-
-/// Persisted `state` + this session's fleet telemetry + the hamlet layout.
-/// Built by `World::enable_village`; a `World` without one (unit tests,
-/// `ANGEL_VILLAGE=0`) renders exactly as before.
 pub struct Village {
     pub state: VillageState,
     pub path: Option<PathBuf>,
-    // Hamlet layout, snapped to land once at enable time.
     pub forge_pos: (usize, usize),
     pub granary_pos: (usize, usize),
     pub cottages: Vec<(String, (usize, usize))>,
-    // Live telemetry (re-sensed every poll cycle; dark until the first pulse).
     pub forge_up: bool,
     pub training: bool,
     pub new_samples: u64,
@@ -178,7 +136,6 @@ pub struct Village {
     pub eval_base: Option<f64>,
     pub heads_up: Vec<(String, bool)>,
     pub last_gate_pass: Option<bool>,
-    // Bounded beats (tick windows, so `animating()` can settle).
     pub soot_until: u64,
     pub chatter_note: String,
     pub chatter_until: u64,
@@ -209,9 +166,6 @@ impl Village {
     }
 }
 
-// ─── forge health parsing (pure — unit tested offline) ──────────────────────
-
-/// One `/health` reading from the forge sidecar.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ForgeSnapshot {
     pub training: bool,
@@ -226,9 +180,6 @@ pub struct ForgeSnapshot {
     pub ollama_models: usize,
 }
 
-/// Tolerant fold of the forge's `/health` JSON — any missing field degrades to
-/// its default, never a panic, so a sidecar schema tweak dims a light instead
-/// of breaking the town.
 pub fn parse_forge_health(v: &serde_json::Value) -> ForgeSnapshot {
     let cycle = &v["last_cycle"];
     ForgeSnapshot {
@@ -245,8 +196,6 @@ pub fn parse_forge_health(v: &serde_json::Value) -> ForgeSnapshot {
     }
 }
 
-/// Path to free-train last-cycle handoff (`FORGE_LAST_CYCLE` or
-/// `~/.angelX/forge-last-cycle.json`).
 pub fn forge_last_cycle_path() -> Option<PathBuf> {
     if let Ok(raw) = std::env::var("FORGE_LAST_CYCLE") {
         let p = PathBuf::from(raw);
@@ -257,11 +206,6 @@ pub fn forge_last_cycle_path() -> Option<PathBuf> {
     std::env::var_os("HOME").map(|h| Path::new(&h).join(".angelX").join("forge-last-cycle.json"))
 }
 
-/// Merge free-train local handoff into a forge snapshot (AUTOPROMOTE=0 path).
-///
-/// Remote `/health` often has empty `last_cycle` / no ollama pin when free-train
-/// leaves adapters on disk only. Local `forge-last-cycle.json` still has version
-/// + gate so the village can advance the apprentice level and soot/gate lights.
 pub fn merge_local_last_cycle(mut snap: ForgeSnapshot) -> ForgeSnapshot {
     let Some(path) = forge_last_cycle_path() else {
         return snap;
@@ -284,7 +228,6 @@ pub fn merge_local_last_cycle(mut snap: ForgeSnapshot) -> ForgeSnapshot {
     if snap.eval_loss_base.is_none() {
         snap.eval_loss_base = v.get("eval_loss_base").and_then(|x| x.as_f64());
     }
-    // Prefer remote current_adapter; fall back to free-train version tag (vN).
     if snap.adapter.is_none()
         && let Some(ver) = v.get("version").and_then(|x| x.as_str())
         && !ver.is_empty()
@@ -294,8 +237,6 @@ pub fn merge_local_last_cycle(mut snap: ForgeSnapshot) -> ForgeSnapshot {
     snap
 }
 
-/// Path to free-train live status (`FORGE_WHEN_FREE_STATUS` or
-/// `~/.angelX/forge-when-free-status.json`).
 pub fn forge_when_free_status_path() -> Option<PathBuf> {
     if let Ok(raw) = std::env::var("FORGE_WHEN_FREE_STATUS") {
         let p = PathBuf::from(raw);
@@ -310,11 +251,6 @@ pub fn forge_when_free_status_path() -> Option<PathBuf> {
     })
 }
 
-/// Merge free-train pulse/finalize status so the village forge glows mid-LoRA.
-///
-/// A free-train job on another box often leaves the forge host's
-/// `/health.training=false` while it runs; local status from forge-train-pulse
-/// is authoritative for "is free-train still cooking".
 pub fn merge_local_free_train_status(mut snap: ForgeSnapshot) -> ForgeSnapshot {
     let Some(path) = forge_when_free_status_path() else {
         return snap;
@@ -347,7 +283,6 @@ pub fn merge_local_free_train_status(mut snap: ForgeSnapshot) -> ForgeSnapshot {
                 .map(|i| i as u64)
         });
     }
-    // In-flight job may already know the version once harvest starts writing.
     if snap.adapter.is_none()
         && let Some(ver) = v.get("version").and_then(|x| x.as_str())
         && !ver.is_empty()
@@ -363,8 +298,6 @@ pub fn merge_local_free_train_status(mut snap: ForgeSnapshot) -> ForgeSnapshot {
     snap
 }
 
-/// Adapter tag → level: the LAST run of digits in the string ("v2" → 2,
-/// "angel-head2:v13" → 13, no digits → 0).
 pub fn adapter_level(adapter: &str) -> u32 {
     let mut best = 0u32;
     let mut cur = 0u32;
@@ -387,8 +320,6 @@ pub fn adapter_level(adapter: &str) -> u32 {
     best
 }
 
-/// Granary fill fraction from `dataset.total`, log-scaled so the first
-/// samples visibly move the bar (10 samples ≈ 22%, saturating near 50k).
 pub fn granary_fill(total: u64) -> f32 {
     if total == 0 {
         return 0.0;
@@ -396,8 +327,6 @@ pub fn granary_fill(total: u64) -> f32 {
     let f = ((total as f64) + 1.0).ln() / (50_000f64 + 1.0).ln();
     f.clamp(0.0, 1.0) as f32
 }
-
-// ─── the pulse: what one sensing cycle reports to the UI thread ──────────────
 
 #[derive(Clone, Debug)]
 pub struct HeadLight {
@@ -407,21 +336,12 @@ pub struct HeadLight {
 
 #[derive(Clone, Debug, Default)]
 pub struct VillagePulse {
-    /// `None` = the forge didn't answer this cycle (village goes dark, state
-    /// persists untouched).
     pub forge: Option<ForgeSnapshot>,
     pub heads: Vec<HeadLight>,
-    /// A fresh chatter line (already clipped), generated rarely — on promotion
-    /// or first village load — with canned fallbacks when the 4B is offline.
     pub chatter: Option<String>,
-    /// The apprentice's name, generated once when the state carries none.
     pub apprentice_name: Option<String>,
 }
 
-// ─── explicit head registry (JSON → cottages) ────────────────────────────────
-
-/// `(id, health_url)` per non-forge head. Reads only the explicit
-/// `ANGEL_HEADS_FILE`; unset, unreadable, or invalid input means no heads.
 pub fn discover_heads() -> Vec<(String, String)> {
     if let Some(path) = std::env::var_os("ANGEL_HEADS_FILE").filter(|path| !path.is_empty())
         && let Ok(text) = std::fs::read_to_string(path)
@@ -435,8 +355,6 @@ pub fn discover_heads() -> Vec<(String, String)> {
     Vec::new()
 }
 
-/// Fold a head-registry JSON value into `(id, health_url)`. The forge is excluded — it is the
-/// forge building, polled in full via `ANGEL_FORGE_URL` (env wins over file).
 pub fn heads_from_json(v: &serde_json::Value) -> Vec<(String, String)> {
     let Some(heads) = v["heads"].as_array() else {
         return Vec::new();
@@ -459,9 +377,6 @@ pub fn heads_from_json(v: &serde_json::Value) -> Vec<(String, String)> {
     out
 }
 
-// ─── chatter: the 4B's own voice, with canned lines for the silence ──────────
-
-/// Offline small-talk, hash-picked so the village never goes mute.
 const FALLBACK_LINES: &[&str] = &[
     "the forge sleeps, but the anvil remembers",
     "fair skies over the granary today",
@@ -471,7 +386,6 @@ const FALLBACK_LINES: &[&str] = &[
     "smoke on the hill means the smith is learning",
 ];
 
-/// Offline apprentice names, hash-picked when the 4B can't be asked.
 const FALLBACK_NAMES: &[&str] = &["Wat", "Tam", "Perkin", "Rowan", "Dickon", "Elric", "Nell"];
 
 fn time_roll() -> u64 {
@@ -489,8 +403,6 @@ fn fallback_name() -> String {
     FALLBACK_NAMES[(time_roll() % FALLBACK_NAMES.len() as u64) as usize].to_string()
 }
 
-/// First line only, quotes shed, hard-capped — whatever the model says, the
-/// status line gets at most one short utterance.
 pub fn clip_line(text: &str, max: usize) -> String {
     let first = text
         .lines()
@@ -507,9 +419,6 @@ pub fn clip_line(text: &str, max: usize) -> String {
     out
 }
 
-/// Pull the utterance out of an OpenAI-compatible chat response. qwen3.5 is a
-/// reasoning model: with tight budgets `message.content` comes back empty and
-/// the text sits in a `reasoning` field — fall back to its last non-empty line.
 pub fn flavor_from_response(v: &serde_json::Value) -> Option<String> {
     let msg = &v["choices"][0]["message"];
     let content = msg["content"].as_str().unwrap_or("").trim();
@@ -531,10 +440,6 @@ pub fn flavor_from_response(v: &serde_json::Value) -> Option<String> {
     (!clipped.is_empty()).then_some(clipped)
 }
 
-// ─── the poller: one background thread, staggered probes, bounded timeouts ───
-
-/// Everything the sensing thread needs, handed over at spawn so it never
-/// touches `App` or the environment again.
 pub struct PollerSeed {
     pub forge_url: String,
     pub voice_url: String,
@@ -555,7 +460,6 @@ fn fetch_forge(base: &str) -> Option<ForgeSnapshot> {
         .unwrap_or_default();
     snap = merge_local_last_cycle(snap);
     snap = merge_local_free_train_status(snap);
-    // Keep the forge lit offline when free-train handoff exists (remote dark).
     if remote_ok.is_some()
         || snap.adapter.is_some()
         || snap.gate_pass.is_some()
@@ -568,20 +472,15 @@ fn fetch_forge(base: &str) -> Option<ForgeSnapshot> {
     }
 }
 
-/// Reachability: any HTTP answer counts as "the light is on" — a 404 means the
-/// process is alive; only a transport failure darkens the window.
 fn probe(url: &str) -> bool {
     crate::hooks::http_probe(url)
 }
 
-/// One line from the 4B, or `None` (caller falls back to the canned lines).
 fn generate_flavor(voice_url: &str, prompt: &str) -> Option<String> {
     let url = format!("{}/v1/chat/completions", voice_url.trim_end_matches('/'));
     let body = serde_json::json!({
         "model": VOICE_MODEL,
         "messages": [{"role": "user", "content": prompt}],
-        // A reasoning model with a tight budget returns empty content — 200
-        // leaves room for the think AND the line (see flavor_from_response).
         "max_tokens": 200,
         "temperature": 0.9,
     });
@@ -589,9 +488,6 @@ fn generate_flavor(voice_url: &str, prompt: &str) -> Option<String> {
     flavor_from_response(&v)
 }
 
-/// Spawn the single village sensing thread. Cycle: forge `/health`, then each
-/// head staggered, then (rarely) a chatter/name generation; one `VillagePulse`
-/// per cycle over the channel. Exits when the receiver drops.
 pub fn spawn_poller(seed: PollerSeed) -> mpsc::Receiver<VillagePulse> {
     let (tx, rx) = mpsc::channel();
     let _ = std::thread::Builder::new()
@@ -610,7 +506,6 @@ pub fn spawn_poller(seed: PollerSeed) -> mpsc::Receiver<VillagePulse> {
                     });
                     std::thread::sleep(Duration::from_millis(STAGGER_MS));
                 }
-                // Name the apprentice once, ever.
                 let mut apprentice_name = None;
                 if !named {
                     let asked = seed.flavor.then(|| {
@@ -624,7 +519,6 @@ pub fn spawn_poller(seed: PollerSeed) -> mpsc::Receiver<VillagePulse> {
                     apprentice_name = Some(name.unwrap_or_else(fallback_name));
                     named = true;
                 }
-                // Chatter fires on promotion or the village's first load only.
                 let promoted_now = forge
                     .as_ref()
                     .is_some_and(|f| f.adapter.is_some() && f.adapter != last_adapter);
@@ -665,7 +559,7 @@ pub fn spawn_poller(seed: PollerSeed) -> mpsc::Receiver<VillagePulse> {
                     })
                     .is_err()
                 {
-                    return; // UI gone — stand down
+                    return;
                 }
                 std::thread::sleep(Duration::from_secs(POLL_SECS));
             }

@@ -4,22 +4,16 @@ use crate::rules::creation::{Action, DriveInput, Ground, Session, Step};
 use crate::rules::rite::{self, Made};
 use angel_net::input::{Hands, button};
 
-/// The rite's invitation to the Creator on a newcomer's own screen: a slip for the first seconds
-/// after they arrive, then a corner hint for as long as the rite is owed. It never holds a key
-/// but C while N is held, never blocks the knight and is the client's alone.
 #[derive(Default)]
 pub(super) struct Invite {
     owed: bool,
     since: u64,
-    /// The Creator has been opened from it: the slip does not come back this session.
     done: bool,
 }
 
-/// How long the slip shows before it puts itself off, in ticks.
 const SLIP_TICKS: u64 = 10 * crate::rules::HZ as u64;
 
 impl Invite {
-    /// The run says whether the rite is owed now; a rite newly owed starts the slip.
     pub fn update(&mut self, owed: bool, tick: u64) {
         if owed && !self.owed {
             self.since = tick;
@@ -28,7 +22,6 @@ impl Invite {
         self.owed = owed;
     }
 
-    /// Whether N held and C opens the Creator for the rite now.
     pub fn up(&self) -> bool {
         self.owed
     }
@@ -37,7 +30,6 @@ impl Invite {
         self.done = true;
     }
 
-    /// What to draw at `tick`: none, the slip (with its age), or the corner hint.
     pub fn shown(&self, tick: u64) -> Option<(u64, bool)> {
         let age = tick.saturating_sub(self.since);
         self.owed.then_some((age, !self.done && age < SLIP_TICKS))
@@ -47,19 +39,15 @@ impl Invite {
 #[derive(Default)]
 pub(super) struct Editor {
     pub session: Session,
-    /// The Test drive's fixture floor, stood up the first time it is walked.
     pub floor: Option<Floor>,
     pub invite: Invite,
-    /// A thing brought to life, on its way to the host: `(kind, body)`.
     pub outbox: Vec<(u32, Vec<u8>)>,
-    /// The grant tick of the piece last sent, so one grant is one action.
     sent: Option<u64>,
     repeat_at: u64,
 }
 
 impl Editor {
     pub fn hands(&mut self, hands: &Hands, tick: u64) {
-        // Only a dev build can stand a fixture floor up for the Test drive.
         self.session.can_drive = cfg!(any(test, feature = "testing"));
         let on = |bits| hands.pressed & bits != 0;
         if self.session.step == Step::Drive {
@@ -112,8 +100,6 @@ impl Editor {
         self.bring_to_life();
     }
 
-    /// Whatever the grant just sealed is the realm's: sent to the host once, as the Creator drew it
-    /// (the host checks it again, credits the maker and takes it into the world).
     fn bring_to_life(&mut self) {
         let Some(granted) = self.session.granted else {
             return;
@@ -134,9 +120,6 @@ impl Editor {
         }
     }
 
-    /// The Test drive: the arrows and WASD walk (Shift runs), F strikes, R casts (the game's ultimate key),
-    /// X falls and gets up again (the bomb key), E meets, 1 to 3 flip the looks, Q goes back, Esc closes.
-    /// R and X do something only for art that has a cast or a death clip of its own.
     fn drive(&mut self, hands: &Hands, tick: u64) {
         let on = |bits| hands.pressed & bits != 0;
         if on(button::MENU) {
@@ -147,7 +130,6 @@ impl Editor {
             self.session.action(Action::Back, tick);
             return;
         }
-        // The number keys flip the creature's looks while it walks (a role with no such look ignores them).
         if let Some(n) = [button::SLOT1, button::SLOT2, button::SLOT3, button::SLOT4].iter().position(|&b| on(b)) {
             self.session.action(Action::Look(n), tick);
         }
@@ -167,12 +149,10 @@ impl Editor {
         self.drive_input(input, tick);
     }
 
-    /// One tick of scripted or real input on the fixture floor.
     pub fn drive_input(&mut self, input: DriveInput, tick: u64) {
         #[cfg(any(test, feature = "testing"))]
         {
             let floor = self.floor.get_or_insert_with(|| Floor::new("Ada"));
-            // The art on show says how it times its clips; a look flipped mid-walk changes it between blows.
             self.session.timing = crate::render::creation::timing(&self.session.creation);
             let ground = Ground {
                 spawn: floor.spawn,

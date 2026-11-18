@@ -40,7 +40,6 @@ function write(path, text, mode = 0o644) {
   writeFileSync(path, text, { mode })
 }
 
-// A package shaped like package-prebuilt.sh output, with stub programs.
 function fakePackage(dir, version, { runs = true, prebuilt = true, glass = false } = {}) {
   const top = join(dir, 'pkg', `angelX-${version}-${platform}`)
   write(join(top, 'bin/angelX'), '#!/bin/sh\necho launcher\n', 0o755)
@@ -101,7 +100,6 @@ test('install.sh puts glass, its terminal, on the PATH', { skip: !platform }, (t
   assert.equal(run.status, 0, run.stderr)
   assert.match(run.stdout, /glass, its terminal, is installed too/)
   assert.equal(readlinkSync(join(home, '.local/bin/glass')), join(home, '.angelX/current/bin/glass'))
-  // An upgrade keeps pointing through current at the new release.
   const again = install(home, fakePackage(dir, '9.9.2', { glass: true }))
   assert.equal(again.status, 0, again.stderr)
   assert.equal(
@@ -163,8 +161,6 @@ test('install.sh replaces nothing when the package is wrong or will not run', { 
   )
 })
 
-// The real launcher in an unpacked prebuilt whose cockpit prints the window
-// choice it was handed, launched on a desktop with no terminal around it.
 function launchPrebuilt(t, prebuiltJson, args = []) {
   const dir = scratch(t)
   const top = join(dir, 'angelX')
@@ -217,7 +213,6 @@ test('install.sh upgrades in place and keeps the previous release', { skip: !pla
   )
 })
 
-// A stand-in model server: GET /v1/models only.
 async function modelServer(t, models) {
   const server = createServer((request, response) => {
     if (request.url === '/v1/models') {
@@ -236,7 +231,6 @@ async function modelServer(t, models) {
 function runSetup(home, answers, env = {}) {
   return new Promise((resolve) => {
     const child = spawn('bash', [setup], {
-      // No localhost probing: whatever runs on this machine must not shift the menu.
       env: { HOME: home, PATH: process.env.PATH, ANGEL_SETUP_PORTS: '', ...env },
       stdio: ['pipe', 'pipe', 'pipe'],
     })
@@ -336,7 +330,6 @@ test('prebuilt angelX only defaults ANGEL_GLASS=1 when PREBUILT.json includes gl
     SSH_TTY: '',
   }
 
-  // 1. Terminal-only prebuilt (like 0.2.4) stays in the terminal.
   write(
     join(pkg, 'PREBUILT.json'),
     JSON.stringify({ version: '0.2.4', features: 'no default features (no video decoding)' }, null, 2),
@@ -348,7 +341,6 @@ test('prebuilt angelX only defaults ANGEL_GLASS=1 when PREBUILT.json includes gl
   assert.equal(withoutGlass.status, 0, withoutGlass.stderr)
   assert.match(withoutGlass.stdout, /^ANGEL_GLASS=0$/m)
 
-  // 2. Glass-capable prebuilt defaults ANGEL_GLASS=1 on a desktop display.
   write(
     join(pkg, 'PREBUILT.json'),
     JSON.stringify({ version: '0.2.5', features: 'glass (no video decoding)' }, null, 2),

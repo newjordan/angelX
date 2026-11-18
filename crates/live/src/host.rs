@@ -15,7 +15,6 @@ pub mod runtime_paths;
 pub mod secrets;
 pub mod workspace_store;
 
-/// Stable SHA-256 content identity using the already-linked platform implementation.
 pub fn sha256_hex(data: &[u8]) -> String {
     use std::fmt::Write as _;
     let digest = ring::digest::digest(&ring::digest::SHA256, data);

@@ -7,29 +7,20 @@
 
 use angel_stage::marks;
 
-/// The private-use character a program prints where a picture part belongs.
 pub const GLYPH: char = '\u{10EEEE}';
 
-/// One visible cell, as the engine keeps it: the character, up to three
-/// combining marks, and the colours that carry ids.
 #[derive(Clone, Copy, Debug)]
 pub struct CellRef {
     pub symbol: char,
     pub marks: [char; 3],
-    /// Foreground as an image-id fragment: a palette index, or 24-bit RGB.
-    /// `None` when the colour is the default and carries no id.
     pub fg: Option<u32>,
-    /// Underline colour as a placement id. `None` or zero means any
-    /// virtual placement of the image.
     pub underline: Option<u32>,
 }
 
-/// A virtual placement the cells may refer to.
 #[derive(Clone, Copy, Debug)]
 pub struct Virtual {
     pub image: u32,
     pub placement: Option<u32>,
-    /// The box the picture is fitted into, in cells.
     pub columns: u32,
     pub rows: u32,
     pub width: u32,
@@ -37,23 +28,18 @@ pub struct Virtual {
     pub gpu: u32,
 }
 
-/// One run of adjacent placeholder cells, as a picture part.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Part {
     pub gpu: u32,
     pub image: u32,
     pub placement: Option<u32>,
-    /// Screen position of the fitted region, in cells.
     pub column: f32,
     pub row: f32,
     pub width: f32,
     pub height: f32,
-    /// Source rectangle in image pixels.
     pub source: [f32; 4],
 }
 
-/// Where a virtual placement's placeholders sit: the minimum column and
-/// row, in screen cells. A relative child anchors here.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Origin {
     pub image: u32,
@@ -72,9 +58,6 @@ struct Resolved {
     underline: u32,
 }
 
-/// The picture parts for the visible cells, and the origin of each virtual
-/// placement those cells refer to. Empty when nothing virtual exists, so
-/// the caller can skip the scan.
 pub fn parts(
     cells: &[CellRef],
     cols: u16,
@@ -106,8 +89,6 @@ pub fn parts(
         let screen_row = (i / cols) as u32;
         let screen_col = (i % cols) as u32;
         note_origin(&mut origins, virt, screen_col, screen_row);
-        // A run: the same image, placement and image-row, in adjacent
-        // screen columns, with consecutive image columns.
         let mut span = 1u32;
         while i + (span as usize) < resolved.len()
             && !(i + span as usize).is_multiple_of(cols)
@@ -148,10 +129,6 @@ fn note_origin(origins: &mut Vec<Origin>, virt: &Virtual, col: u32, row: u32) {
     }
 }
 
-/// The first and second marks are the row and the column; the third is
-/// the image id's most significant byte. A missing mark is taken from the
-/// placeholder to the left when the specification's colour rules hold.
-/// The first cell of a row, with only a row mark, takes column 0.
 fn resolve(cell: &CellRef, left: Option<Resolved>) -> Option<Resolved> {
     if cell.symbol != GLYPH {
         return None;
@@ -202,8 +179,6 @@ fn resolve(cell: &CellRef, left: Option<Resolved>) -> Option<Resolved> {
     })
 }
 
-/// Underline zero may choose any virtual placement of the image. A named
-/// placement id must match. The lowest placement id wins when several may.
 fn pick(virtuals: &[Virtual], image: u32, placement: u32) -> Option<&Virtual> {
     if placement != 0 {
         return virtuals
@@ -216,9 +191,6 @@ fn pick(virtuals: &[Virtual], image: u32, placement: u32) -> Option<&Virtual> {
         .min_by_key(|v| v.placement.unwrap_or(0))
 }
 
-/// Fit the picture into the virtual placement's box, keeping its aspect,
-/// and take the source rectangle the cells cover. The destination is the
-/// fitted region, not the whole cell, so a letterbox is not stretched.
 fn fitted(
     virt: &Virtual,
     img_row: u32,

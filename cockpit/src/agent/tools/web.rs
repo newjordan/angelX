@@ -28,9 +28,6 @@ fn is_deprecated_site_local_ipv6(ip: std::net::Ipv6Addr) -> bool {
     ip.segments()[0] & 0xffc0 == 0xfec0
 }
 
-/// Allow public addresses and explicit loopback. RFC1918, ULA, and CGNAT
-/// require an operator opt-in; link-local/metadata, multicast, unspecified,
-/// documentation, benchmark, and reserved ranges always fail closed.
 pub(crate) fn http_ip_allowed(ip: IpAddr, allow_private_network: bool) -> bool {
     match ip {
         IpAddr::V4(ip) => {
@@ -133,15 +130,6 @@ fn http_request_redirect_limit(
     }
 }
 
-// ---------------------------------------------------------------------------
-// web_search — native search over the local SearXNG (angel's web stack, :8888).
-// Codex ships a built-in web_search; angel already has the *capability* at the
-// angel/Hermes layer, but the cockpit's own agent loop lacked a first-class tool.
-// This is a thin, read-only GET over SearXNG's JSON API, mirroring the moa's
-// research query. `ANGEL_SEARXNG_URL` overrides; `ANGEL_WEB_SEARCH=0` disables.
-// ---------------------------------------------------------------------------
-
-/// Explicit configuration only: never advertise a guessed host or port.
 pub(crate) fn configured_research_origin() -> Option<String> {
     std::env::var("ANGEL_SEARXNG_URL")
         .ok()
@@ -159,9 +147,6 @@ pub(crate) fn research_origin(raw: &str) -> Option<String> {
     .then(|| raw.trim().trim_end_matches('/').to_string())
 }
 
-/// A configured research origin rides after the route as data: the page that
-/// names the origin (its `{origin}` placeholder), the origin, then the page
-/// that keeps shell off the host. Both pages sit in the tool's own section.
 fn research_description(description: &str, origin_page: &str, probe_page: &str) -> String {
     match configured_research_origin() {
         Some(origin) => format!("{description} {origin_page} {origin} {probe_page}"),
@@ -187,8 +172,6 @@ pub(crate) fn searxng_url() -> String {
         .unwrap_or_else(|| "http://127.0.0.1:8888/search".to_string())
 }
 
-/// Format SearXNG's JSON response into a compact, model-friendly result list.
-/// Pure (no network) so it's unit-testable with a canned response.
 pub(crate) fn format_searxng(v: &Value, limit: usize) -> String {
     let Some(results) = v.get("results").and_then(|r| r.as_array()) else {
         return "no results".to_string();
@@ -250,8 +233,6 @@ impl Tool for WebSearchTool {
             return Err("'query' must not be empty".to_string());
         }
         let limit = args["limit"].as_u64().unwrap_or(5).clamp(1, 20) as usize;
-        // The harness supplies an explicit per-task declaration without mutating
-        // process environment shared by other turns or dispatch workers.
         let url = args
             .get("_research_origin")
             .and_then(Value::as_str)
@@ -263,11 +244,6 @@ impl Tool for WebSearchTool {
             .query("format", "json");
         let resp = match req.call() {
             Ok(r) => r,
-            // The service answered but rejected the request — that is a
-            // configuration/quota problem, not an unreachable host. Say which,
-            // so the model doesn't chase a "start SearXNG" red herring. The most
-            // common causes: JSON output not enabled (403) and bot/rate limiting
-            // (429).
             Err(http_transport::Error::Status(code, resp)) => {
                 let snippet = crate::drive::science::sanitize_metadata(
                     &resp.into_string().map_err(|e| e.to_string())?,
@@ -296,28 +272,12 @@ impl Tool for WebSearchTool {
     }
 }
 
-/// Register `web_search` over the local SearXNG, gated on `ANGEL_WEB_SEARCH`
-/// (default on). Read-only; errors gracefully if SearXNG is down.
 pub(crate) fn maybe_register_web_search(r: &mut ToolRegistry) {
     if env_flag("ANGEL_WEB_SEARCH", true) {
         r.register(Box::new(WebSearchTool));
     }
 }
 
-// ---------------------------------------------------------------------------
-// grok_research — live web + X research via Grok (xAI). SearXNG finds pages;
-// this taps Grok's own agentic web/X search for current, dated, source-cited
-// findings — the same scout the MoA panel grounds on, now a first-class tool
-// any driver can call on demand (not just passive proposer grounding). Reuses
-// the OAuth-CLI GrokResearchClub, so `~/.grok/auth.json` and silent refresh are
-// shared. Registered only when Grok OAuth is actually configured, so a box
-// without a Grok login simply doesn't advertise it. `ANGEL_GROK_TOOL=0` disables.
-// ---------------------------------------------------------------------------
-
-/// Frame a bare query as a research-scout brief so the tool returns comparable,
-/// source-cited findings to the MoA grounding path. Pure — unit-testable. The
-/// scout is a CLI seat with no tool channel, so it cannot be offered the
-/// ledger reader: it hears `⡸⠑`'s pages recited, the request as data.
 pub(crate) fn grok_tool_prompt(query: &str) -> String {
     use crate::agent::harness::book::{
         connect::recite, d3_roles::pages, d4567_briefs::GROK_RESEARCH,
@@ -370,8 +330,6 @@ impl Tool for GrokResearchTool {
     }
 }
 
-/// Register `grok_research` when Grok OAuth CLI is configured and
-/// `ANGEL_GROK_TOOL` isn't disabled. Absent config → not advertised, no error.
 pub(crate) fn maybe_register_grok_research(r: &mut ToolRegistry) {
     if !env_flag("ANGEL_GROK_TOOL", true) {
         return;
@@ -381,20 +339,7 @@ pub(crate) fn maybe_register_grok_research(r: &mut ToolRegistry) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// web_fetch — direct HTTP GET of an arbitrary URL. web_search finds pages;
-// this reads them. Without it the agent's only route to a page's *content*
-// was `shell` + curl — functional, but invisible to models that reach for a
-// first-class fetch tool. HTML is stripped to readable text; other content
-// types are returned as-is (lossy UTF-8).
-// ---------------------------------------------------------------------------
-
-/// Strip an HTML document to readable text: drop `<script>`/`<style>` blocks,
-/// remove tags, decode the common entities, and collapse whitespace runs.
-/// Pure (no network) so it's unit-testable with canned markup.
 pub(crate) fn html_to_text(html: &str) -> String {
-    // Case-insensitive block removal by scanning a lowercased shadow copy —
-    // ASCII lowercasing preserves byte offsets into the original.
     fn strip_blocks(s: &str, tag: &str) -> String {
         let lower = s.to_ascii_lowercase();
         let open = format!("<{tag}");
@@ -406,7 +351,7 @@ pub(crate) fn html_to_text(html: &str) -> String {
             out.push_str(&s[pos..start]);
             match lower[start..].find(&close) {
                 Some(end) => pos = start + end + close.len(),
-                None => return out, // unterminated block: drop the rest
+                None => return out,
             }
         }
         out.push_str(&s[pos..]);
@@ -421,7 +366,6 @@ pub(crate) fn html_to_text(html: &str) -> String {
             '<' => in_tag = true,
             '>' if in_tag => {
                 in_tag = false;
-                // Tags often separate words/blocks; keep them separated.
                 text.push(' ');
             }
             _ if !in_tag => text.push(c),
@@ -435,7 +379,6 @@ pub(crate) fn html_to_text(html: &str) -> String {
         .replace("&gt;", ">")
         .replace("&quot;", "\"")
         .replace("&#39;", "'");
-    // Collapse whitespace: runs of spaces/tabs → one space, 3+ newlines → 2.
     let mut out = String::with_capacity(text.len());
     let mut spaces = 0usize;
     let mut newlines = 0usize;
@@ -460,10 +403,6 @@ pub(crate) fn html_to_text(html: &str) -> String {
     out.trim().to_string()
 }
 
-/// The declared charset from a `Content-Type` header (`text/html; charset=…`),
-/// lowercased. `None` when the header is absent or carries no `charset`
-/// parameter — distinct from an explicit `utf-8`, so an HTML `<meta charset>`
-/// sniff can still take over.
 fn header_charset(resp: &http_transport::Response) -> Option<String> {
     let ct = resp.header("Content-Type")?.to_ascii_lowercase();
     ct.split(';')
@@ -474,8 +413,6 @@ fn header_charset(resp: &http_transport::Response) -> Option<String> {
         .filter(|c| !c.is_empty())
 }
 
-/// Sniff a leading `<meta charset=…>` / `<meta http-equiv=… charset=…>` from the
-/// head of an HTML document when the HTTP header declared no charset.
 fn sniff_meta_charset(head: &[u8]) -> Option<String> {
     let text = String::from_utf8_lossy(head).to_ascii_lowercase();
     let idx = text.find("charset")?;
@@ -488,11 +425,6 @@ fn sniff_meta_charset(head: &[u8]) -> Option<String> {
     (!label.is_empty()).then(|| label.to_string())
 }
 
-/// Decode a response body to UTF-8. When a non-UTF-8 charset is declared (HTTP
-/// header, or an HTML `<meta charset>` when the header is silent), transcode via
-/// `encoding_rs`; otherwise fall back to lossy UTF-8. Returns the text plus an
-/// optional note when a non-UTF-8 charset was applied or replacement characters
-/// appeared, so a page's mojibake is flagged rather than trusted silently.
 fn decode_body(raw: &[u8], charset: Option<&str>, html: bool) -> (String, Option<String>) {
     let label = charset.map(str::to_string).or_else(|| {
         if html {
@@ -525,9 +457,6 @@ fn decode_body(raw: &[u8], charset: Option<&str>, html: bool) -> (String, Option
     }
 }
 
-/// A `Content-Encoding` the HTTP client did not transparently decode. `ureq`
-/// strips the header for encodings it handled (gzip/br), so a value still
-/// present and not `identity` means the body is raw compressed bytes.
 fn undecoded_encoding(resp: &http_transport::Response) -> Option<String> {
     resp.header("Content-Encoding")
         .map(|e| e.trim().to_string())
@@ -572,8 +501,6 @@ impl Tool for WebFetchTool {
             .clamp(1_000, 200_000) as usize;
         let resp = match http_transport::request("GET", url, true, 5).call() {
             Ok(r) => r,
-            // A non-2xx response still has a useful status + body (error
-            // pages, JSON error payloads) — return it rather than erroring.
             Err(http_transport::Error::Status(_, r)) => r,
             Err(e) => return Err(format!("web_fetch: {url} unreachable ({e})")),
         };
@@ -583,8 +510,6 @@ impl Tool for WebFetchTool {
         let undecoded = undecoded_encoding(&resp);
         let mut raw = Vec::new();
         use std::io::Read;
-        // Read a generous multiple of the cap: HTML shrinks a lot when
-        // stripped, so a tight pre-cap would under-fill the text budget.
         let raw_prefix_limit = 4 * max;
         resp.into_reader()
             .take(raw_prefix_limit as u64)
@@ -594,8 +519,6 @@ impl Tool for WebFetchTool {
         let is_html = ctype.contains("html");
         let (text, decode_note) = decode_body(&raw, charset.as_deref(), is_html);
         let body = if is_html { html_to_text(&text) } else { text };
-        // Surface anything that makes the text possibly-unusable so the model can
-        // distinguish real content from a garbled body under a 200 status.
         let mut flags = String::new();
         if let Some(enc) = &undecoded {
             flags.push_str(&format!(" [undecoded Content-Encoding: {enc}]"));
@@ -623,19 +546,11 @@ impl Tool for WebFetchTool {
     }
 }
 
-/// Register `web_fetch`, gated on `ANGEL_WEB_FETCH` (default on).
 pub(crate) fn maybe_register_web_fetch(r: &mut ToolRegistry) {
     if env_flag("ANGEL_WEB_FETCH", true) {
         r.register(Box::new(WebFetchTool));
     }
 }
-
-// ---------------------------------------------------------------------------
-// http_request — full-verb HTTP for APIs. web_fetch reads pages (GET, HTML →
-// text); this one *talks to services*: method + headers + body, raw response
-// back. The REST surface his stack actually uses — local inference servers,
-// Hydra mailboxes, HF hub, Vast.ai — is unreachable through a GET-only tool.
-// ---------------------------------------------------------------------------
 
 pub(crate) const HTTP_METHODS: [&str; 6] = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"];
 
@@ -699,9 +614,6 @@ impl Tool for HttpRequestTool {
             .as_u64()
             .unwrap_or(20_000)
             .clamp(1_000, 200_000) as usize;
-        // Mutating and credential-bearing calls never follow redirects.
-        // Public reads may redirect, but every hop is still resolved through
-        // the same outbound-address policy.
         let headers = args["headers"].as_object();
         let redirects = http_request_redirect_limit(&method, headers);
         let mut req = http_transport::request(&method, url, true, redirects);
@@ -727,14 +639,11 @@ impl Tool for HttpRequestTool {
         };
         let resp = match result {
             Ok(r) => r,
-            // Non-2xx bodies carry the API's actual error — return them.
             Err(http_transport::Error::Status(_, r)) => r,
             Err(e) => return Err(format!("http_request: {url} unreachable ({e})")),
         };
         let status = resp.status();
         let ctype = resp.content_type().to_string();
-        // gzip/br are decoded transparently by the client; a Content-Encoding
-        // still present means the body is raw compressed bytes we can't read.
         let undecoded = undecoded_encoding(&resp);
         let mut raw = Vec::new();
         use std::io::Read;
@@ -758,7 +667,6 @@ impl Tool for HttpRequestTool {
     }
 }
 
-/// Register `http_request`, gated on `ANGEL_HTTP_REQUEST` (default on).
 pub(crate) fn maybe_register_http_request(r: &mut ToolRegistry) {
     if env_flag("ANGEL_HTTP_REQUEST", true) {
         r.register(Box::new(HttpRequestTool));

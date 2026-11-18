@@ -1,5 +1,3 @@
-# Case wrappers for latch.rs: unpack the recorded input, call the port, pack the recorded output.
-
 def gcase.latch.Duel.step_at(+i: J.Val) -> J.Val:
   r: J.Val & String = latch.Duel.step_at(J.get(i, "d"), J.get(i, "input"), J.get(i, "tune"), gc.maybe_w(J.get(i, "now")), W.of_j(J.get(i, "allowance")))
   (d: J.Val, sound: String) = r

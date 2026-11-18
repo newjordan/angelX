@@ -2,7 +2,6 @@
 //! numbers it already holds (a mote's index, the recipe's seed, a frame),
 //! so a frame renders alone, in any order, the same on every machine.
 
-/// Murmur3's finaliser: every bit of `h` stirred into every other.
 fn stir(mut h: u32) -> u32 {
     h ^= h >> 16;
     h = h.wrapping_mul(0x85eb_ca6b);
@@ -11,21 +10,16 @@ fn stir(mut h: u32) -> u32 {
     h ^ (h >> 16)
 }
 
-/// A well-mixed hash of two numbers and a salt. Each goes in through its
-/// own round, so neighbouring indices under any salt come out apart (one
-/// round over the three together left some salts bunched).
 pub fn hash(a: i32, b: i32, s: u32) -> u32 {
     let h = stir(s.wrapping_mul(0x9e37_79b9) ^ 0x2545_f491);
     let h = stir(h ^ (a as u32).wrapping_mul(0x27d4_eb2d));
     stir(h ^ (b as u32).wrapping_mul(0x1656_67b1))
 }
 
-/// A share in `0..1` hashed from `(a, b, s)`.
 pub fn unit(a: i32, b: i32, s: u32) -> f32 {
     (hash(a, b, s) >> 16) as f32 / 65536.0
 }
 
-/// Smooth value noise in `0..=1`.
 pub fn noise(x: f32, y: f32, s: u32) -> f32 {
     let (x0, y0) = (x.floor(), y.floor());
     let (fx, fy) = (x - x0, y - y0);
@@ -39,8 +33,6 @@ pub fn noise(x: f32, y: f32, s: u32) -> f32 {
 
 const BAYER: [[f32; 4]; 4] = [[0.0, 8.0, 2.0, 10.0], [12.0, 4.0, 14.0, 6.0], [3.0, 11.0, 1.0, 9.0], [15.0, 7.0, 13.0, 5.0]];
 
-/// The 4x4 ordered-dither threshold in `(0, 1)` at a picture's pixel, so a
-/// pattern is keyed on the picture and never swims as an effect moves.
 pub fn bayer(x: i32, y: i32) -> f32 {
     (BAYER[(y & 3) as usize][(x & 3) as usize] + 0.5) / 16.0
 }

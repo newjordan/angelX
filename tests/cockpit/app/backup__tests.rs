@@ -146,8 +146,6 @@ fn backup_captures_generation_published_after_source_inventory() {
         workspace.path(),
     );
     let mut history = vec![ChatMsg::system("system"), ChatMsg::user("task")];
-    // The session filename is already inventoried, but its generation does
-    // not exist until after the backup has finished discovering source paths.
     session.save(&history).unwrap();
     let original = catalog::Catalog::baseline().bytes();
     let mut published = String::new();
@@ -224,14 +222,12 @@ fn restore_rejects_a_symlinked_book_generation_directory() {
 fn unchanged_files_hardlink_and_changed_files_recopy() {
     let fixture = Fixture::new();
     let (first, _) = snapshot_local(&fixture.source, &fixture.target, Tier::Bulk).unwrap();
-    // Snapshot names embed creation ms; force a distinct second name.
     std::thread::sleep(std::time::Duration::from_millis(2));
     std::fs::write(fixture.source.join("sessions/one.json"), b"{\"turn\":2}").unwrap();
     let (second, stats) = snapshot_local(&fixture.source, &fixture.target, Tier::Bulk).unwrap();
     assert_ne!(first, second);
     let first_dir = fixture.snapshot_dir(&first);
     let second_dir = fixture.snapshot_dir(&second);
-    // trajectories/big.bin is unchanged: same inode across snapshots.
     assert_eq!(
         inode(&first_dir.join("trajectories/big.bin")),
         inode(&second_dir.join("trajectories/big.bin"))
@@ -240,7 +236,6 @@ fn unchanged_files_hardlink_and_changed_files_recopy() {
         stats.linked >= 1,
         "unchanged file should hardlink: {stats:?}"
     );
-    // sessions/one.json changed: new inode, new content; old snapshot intact.
     assert_ne!(
         inode(&first_dir.join("sessions/one.json")),
         inode(&second_dir.join("sessions/one.json"))
@@ -263,8 +258,6 @@ fn tampered_snapshot_fails_verification() {
     let fixture = Fixture::new();
     let (name, _) = snapshot_local(&fixture.source, &fixture.target, Tier::Core).unwrap();
     let dir = fixture.snapshot_dir(&name);
-    // Hardlinked/owned file: rewrite through a fresh inode to simulate bitrot
-    // without touching the source.
     let path = dir.join("sessions/one.json");
     let replacement = dir.join("sessions/.tampered");
     std::fs::write(&replacement, b"{\"turn\":999}").unwrap();
@@ -285,7 +278,6 @@ fn restore_refuses_differing_files_without_force() {
     let stats = restore_local(&dir, &fixture.source, false).unwrap();
     assert_eq!(stats.refused, 1);
     assert_eq!(std::fs::read(&live).unwrap(), b"{\"turn\":50}");
-    // A missing file restores even without force.
     assert_eq!(
         std::fs::read(fixture.source.join("settings.toml")).unwrap(),
         b"key = 1"
@@ -295,7 +287,6 @@ fn restore_refuses_differing_files_without_force() {
     assert!(stats.restored >= 1);
     assert_eq!(std::fs::read(&live).unwrap(), b"{\"turn\":1}");
 
-    // Second forced pass: everything already identical.
     let stats = restore_local(&dir, &fixture.source, true).unwrap();
     assert_eq!(stats.restored, 0);
     assert!(stats.identical >= 2);
@@ -339,7 +330,6 @@ fn target_parsing_distinguishes_local_and_remote() {
         }
         other => panic!("expected remote, got {other:?}"),
     }
-    // A bare ssh alias (user/hostname live in ssh_config) is remote too.
     match parse_target("casper:/home/user/angel-backups").unwrap() {
         Target::Remote { ssh, path } => {
             assert_eq!(ssh, "casper");
@@ -360,7 +350,6 @@ fn target_parsing_distinguishes_local_and_remote() {
 fn fetch_latest_file_verifies_against_the_manifest() {
     let fixture = Fixture::new();
     snapshot_local(&fixture.source, &fixture.target, Tier::Core).unwrap();
-    // Point the slot at the fixture vault through the config file.
     std::fs::write(
         fixture.source.join("backup.json"),
         serde_json::json!({
@@ -373,7 +362,6 @@ fn fetch_latest_file_verifies_against_the_manifest() {
     let staging = fixture.root.join("fetch-staging");
     let fetched = fetch_latest_file(&fixture.source, "sessions/one.json", &staging).unwrap();
     assert_eq!(std::fs::read(&fetched).unwrap(), b"{\"turn\":1}");
-    // A file the snapshot does not hold is refused, not invented.
     let error = fetch_latest_file(&fixture.source, "sessions/missing.json", &staging).unwrap_err();
     assert!(
         error.contains("fetch") || error.contains("not in"),
@@ -384,7 +372,6 @@ fn fetch_latest_file_verifies_against_the_manifest() {
 #[test]
 fn unconfigured_backup_is_dormant_not_an_error() {
     let fixture = Fixture::new();
-    // No backup.json in the fixture source, no flags: status reports dormant.
     let text = dispatch(&fixture.source, &["status".to_string()]).unwrap();
     assert!(text.contains("not configured"), "{text}");
 }
@@ -394,12 +381,9 @@ fn a_hash_mismatched_snapshot_is_rejected_and_never_restored() {
     let fixture = Fixture::new();
     let (name, _) = snapshot_local(&fixture.source, &fixture.target, Tier::Core).unwrap();
     let dir = fixture.snapshot_dir(&name);
-    // Bitrot in the snapshot: swap a new inode in so the source is untouched.
     let replacement = dir.join("sessions/.bitrot");
     std::fs::write(&replacement, b"{\"turn\":999}").unwrap();
     std::fs::rename(&replacement, dir.join("sessions/one.json")).unwrap();
-    // Live state differs from the snapshot, so --force would overwrite it if
-    // the snapshot were trusted at all.
     std::fs::write(fixture.source.join("sessions/one.json"), b"{\"turn\":50}").unwrap();
     std::fs::remove_file(fixture.source.join("settings.toml")).unwrap();
 

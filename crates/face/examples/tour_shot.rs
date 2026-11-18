@@ -46,7 +46,6 @@ fn run() -> Result<(), String> {
         t += 1.0 / 30.0;
     }
     let (w, h) = (WINDOW.0 as f32, WINDOW.1 as f32);
-    // Mock cockpit: a transcript, a composer, a header strip.
     let ui = vec![
         Layer::new(1, 0, Placement::Pixels([0.0, 0.0, w, h]), LayerKind::Solid([0.03, 0.04, 0.055, 1.0])),
         Layer::new(2, 0, Placement::Pixels([20.0, 50.0, w * 0.62, h - 170.0]), LayerKind::Solid([0.06, 0.08, 0.11, 1.0])),
@@ -122,8 +121,6 @@ impl Gpu {
         Ok(Self { core, device })
     }
 
-    /// Her scene into its picture, then a window-sized stage of `layers`
-    /// over a dark terminal, read back.
     fn shoot(
         &mut self,
         scene: angel_stage::scene::Scene,

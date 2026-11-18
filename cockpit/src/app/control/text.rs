@@ -1,8 +1,6 @@
 //! Pure text builders, actions/keybinds, key parsing, clipboard delivery.
 use super::*;
 
-// --- pure text builders for the ported Codex commands ----------------------
-
 pub(crate) fn keymap_text() -> String {
     "keymap (defaults; /keymap overrides)\n  \
      Tab        next box (agent)\n  \
@@ -58,8 +56,6 @@ pub(crate) fn debug_config_text() -> String {
 }
 
 pub(crate) fn sandbox_text(workspace: &Path) -> String {
-    // Report the registry's ACTIVE workspace — where the tools actually operate —
-    // not the process cwd (which can differ after `/cd`).
     let ws = workspace.display();
     let profile = crate::platform::authority_profile::active(false);
     format!(
@@ -68,7 +64,6 @@ pub(crate) fn sandbox_text(workspace: &Path) -> String {
     )
 }
 
-/// Byte offset of the `char_idx`-th char (or the string length past the end).
 pub(crate) fn byte_of(s: &str, char_idx: usize) -> usize {
     if char_idx == s.len() {
         return s.len();
@@ -79,7 +74,6 @@ pub(crate) fn byte_of(s: &str, char_idx: usize) -> usize {
         .unwrap_or(s.len())
 }
 
-/// vim `w`: start of the next word (char index).
 pub(crate) fn next_word(s: &str, cursor: usize) -> usize {
     let chars: Vec<char> = s.chars().collect();
     let n = chars.len();
@@ -93,7 +87,6 @@ pub(crate) fn next_word(s: &str, cursor: usize) -> usize {
     i
 }
 
-/// vim `b`: start of the previous word (char index).
 pub(crate) fn prev_word(s: &str, cursor: usize) -> usize {
     let chars: Vec<char> = s.chars().collect();
     let mut i = cursor.min(chars.len());
@@ -106,8 +99,6 @@ pub(crate) fn prev_word(s: &str, cursor: usize) -> usize {
     i
 }
 
-/// Composer indices remain scalar offsets for history/clipboard compatibility,
-/// but every editable position is an extended-grapheme boundary.
 pub(crate) fn grapheme_floor(s: &str, cursor: usize) -> usize {
     grapheme_boundary(s, cursor, false)
 }
@@ -141,7 +132,6 @@ fn grapheme_boundary(s: &str, cursor: usize, ceil: bool) -> usize {
 }
 
 pub(crate) fn previous_grapheme(s: &str, cursor: usize) -> usize {
-    // Keep ordinary end-of-ASCII typing/backspace independent of draft size.
     if cursor == s.len() && s.as_bytes().last().is_some_and(u8::is_ascii) && !s.ends_with("\r\n") {
         return cursor.saturating_sub(1);
     }
@@ -155,7 +145,6 @@ pub(crate) fn next_grapheme(s: &str, cursor: usize) -> usize {
     grapheme_ceil(s, cursor.saturating_add(1))
 }
 
-/// A remappable input action (see `/keymap`).
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
     NextBox,
@@ -172,7 +161,6 @@ pub(crate) enum Action {
     OpenThinking,
 }
 
-/// A custom key → action binding set via `/keymap`.
 pub(crate) struct Keybind {
     pub code: KeyCode,
     pub mods: KeyModifiers,
@@ -286,7 +274,6 @@ pub(crate) fn relentless_output_delivered(reply: &str) -> bool {
     .any(|needle| lower.contains(needle))
 }
 
-/// Map a pet name to an ASCII sprite (or echo the literal for anything else).
 pub(crate) fn pet_glyph(name: &str) -> String {
     match name.to_ascii_lowercase().as_str() {
         "cat" => "(=^·^=)".to_string(),
@@ -335,19 +322,11 @@ pub(crate) fn clipboard_receipt(
     format!("copy · {chars} chars · {transport} · {fallback}")
 }
 
-/// Request a clipboard update via OSC-52 and always mirror the selection to a
-/// fallback file under `~/.angelX/`. Emitting OSC-52 cannot prove that the outer
-/// terminal accepted it, so the receipt reports a request rather than claiming
-/// clipboard success. The returned string is shown in the transcript.
 pub(crate) fn deliver_to_clipboard(text: &str, file_name: &str) -> String {
     use std::io::Write;
     let chars = text.chars().count();
 
-    // OSC-52 is best effort. Cap the actual base64 payload, and write between
-    // draws so it cannot race the ratatui backend's own stdout.
     let transport = if let Some(copied) = crate::ui::glass::copy(text) {
-        // The GPU window has no terminal to ask; the desktop's clipboard tool
-        // takes the text instead.
         if copied {
             ClipboardTransport::RequestSent
         } else {
@@ -371,7 +350,6 @@ pub(crate) fn deliver_to_clipboard(text: &str, file_name: &str) -> String {
         }
     };
 
-    // Always-on file fallback.
     let home = std::env::var("HOME").unwrap_or_default();
     let path = std::path::Path::new(&home).join(".angelX").join(file_name);
     if let Some(dir) = path.parent() {

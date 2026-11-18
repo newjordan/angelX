@@ -70,7 +70,6 @@ fn args_that_repeat_the_runner_command_keep_what_follows() {
     );
     assert_eq!(out["runner"], "js");
     assert_eq!(out["args"], "--watchAll=false");
-    // An explicit entrypoint always wins; a runtime already given is kept.
     let out = normalize_run_tests_args(
         &json!({"runner": "python3 -m pytest", "entrypoint": "unittest"}),
         &ws,
@@ -80,7 +79,6 @@ fn args_that_repeat_the_runner_command_keep_what_follows() {
     assert_eq!(out["runtime"], "python");
     assert!(out.get("runner").is_none());
     assert_eq!(out["args"], "'-k' 'x'");
-    // Cargo strips its own repeated subcommand (`cargo_argv`).
     let out = normalize_run_tests_args(&json!({"runtime": "rust", "args": "test"}), &ws);
     assert_eq!(out["args"], "test");
 }
@@ -115,7 +113,6 @@ fn an_absolute_dir_inside_the_workspace_becomes_workspace_relative() {
     assert_eq!(out["dir"], "react");
     let out = normalize_run_tests_args(&json!({"crate": canonical.to_string_lossy()}), &root);
     assert_eq!(out["crate"], ".");
-    // Outside the workspace it stays as given, and the tool reports it.
     let out = normalize_run_tests_args(&json!({"dir": "/etc"}), &root);
     assert_eq!(out["dir"], "/etc");
     let _ = std::fs::remove_dir_all(&root);

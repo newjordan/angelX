@@ -371,7 +371,6 @@ fn pack(id: &str, version: i64, consumer: bool) -> Candidate {
 }
 fn packs() -> Kernel {
     let mut kernel = Kernel::default();
-    // Consumer sorts before providers and is deliberately supplied first.
     install(
         &mut kernel,
         vec![
@@ -420,7 +419,6 @@ fn provider_code_and_state_changes_rebind_consumers_atomically_without_resetting
         7
     );
     assert_eq!(kernel.checkpoint("loadout").unwrap().state, 7);
-    // A read-only command must not manufacture another closure generation.
     kernel.dispatch(Kind::Command, "left", &json!({})).unwrap();
     assert_eq!(kernel.generation("loadout"), Some(3));
 }
@@ -1407,7 +1405,6 @@ fn pending_epoch_reservation_survives_unrelated_commits_until_final_publication(
         assert!(kernel.commit(last).unwrap_err().contains("reserved"));
         assert!(kernel.identity("reserved-slot").is_none());
         assert_eq!(kernel.epoch, u64::MAX - 1);
-        // Independent state-only work remains admitted without using an epoch.
         kernel
             .dispatch(Kind::Command, "spare", &Value::Null)
             .unwrap();
@@ -1458,7 +1455,6 @@ fn reserved_epoch_remains_available_for_state_rebinding_abort_after_final_refusa
     assert!(kernel.commit(unrelated).unwrap_err().contains("reserved"));
     let aborted = kernel.abort_withdraw(status.id).unwrap();
     assert_eq!(aborted.phase, WithdrawalPhase::Aborted);
-    // Abort really needed the reserved epoch to rebind mirror from count0 to2.
     assert_eq!(kernel.epoch, u64::MAX);
     assert_eq!(kernel.generation("mirror"), Some(2));
     assert_eq!(kernel.resources()["mirror/pack"].value["count"], 2);

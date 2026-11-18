@@ -1,17 +1,3 @@
-"""Creative procedural dolls, NOT native game-pixel parity. Use spriterig.native for game gear.
-
-Paper-doll animator CLI.
-
-  python -m spriterig.doll export  [-l knight,mage|path.json|all] [-c slash,dab|attacks|emotes|all]
-                                   [--views side,front,3q,back|8dir] [--mixamo DIR] [--in-place]
-                                   [--out out/doll] [--gif] [--scale 3]
-  python -m spriterig.doll check   [-l ...] [-c ...] [--out out/doll/check]      # validator + magenta preview
-  python -m spriterig.doll list                                                  # kit contents
-  python -m spriterig.doll bench
-
-One command renders character x loadout x clip x view -> transparent sprite sheet PNG +
-JSON (frame size, fps, loop, hit/smear events) and optional preview GIF.
-"""
 import argparse, glob, json, os, sys, time
 import numpy as np
 from . import dsl, Doll, Loadout, load_kit
@@ -38,7 +24,7 @@ def loadouts(spec):
         elif s in names:
             out.append(Loadout(os.path.join(LIB, "loadouts", s + ".json")))
         else:
-            out.append(Loadout({"name": s, "body": s}))   # bare body
+            out.append(Loadout({"name": s, "body": s}))
     return out
 
 
@@ -54,7 +40,6 @@ def resample(c, fps=12):
 
 
 def clips_for(spec, lo, lib, mixamo):
-    """attacks -> the ones suiting this loadout's weapon; emotes; all; or explicit names."""
     wt = lo.weapon_type()
     pool = {**lib, **mixamo}
     if spec in (None, "all"):
@@ -115,10 +100,6 @@ def cmd_export(a):
 
 
 def check_frames(fr, clip=None):
-    """Per-frame problems: [(kind, frame, mask)]. Rendering already ran the cleanup pass,
-    so this flags what would still look broken: off-canvas clipping, empty frames,
-    orphans/pinholes (should be 0), and popping (silhouette area jumps). Pops are not
-    flagged on smear frames (they are meant to) or in clips tagged `glitch`/`snap`."""
     issues = []
     T = len(clip) if clip is not None else 0
     sm = getattr(clip, "smear", set()) if clip is not None else set()
@@ -158,7 +139,6 @@ def cmd_check(a):
                     continue
                 bad += 1
                 print(f"{lo.name:16s} {cname:16s} {v:6s} " + "; ".join(f"f{i}:{k}" for k, i, _ in iss[:6]))
-                # preview: offending frames, problem pixels in magenta
                 ims = []
                 for k, i, m in iss[:8]:
                     im = rgba(fr[i]).copy(); im[m] = (255, 0, 255, 255)

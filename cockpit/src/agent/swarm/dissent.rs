@@ -22,11 +22,6 @@
 
 use super::*;
 
-/// Content words of a draft: lowercased alphanumeric runs of ≥4 chars. Short
-/// tokens (articles, "the"/"is", list numbers) carry no signal about *what* a
-/// draft concluded; the longer vocabulary does, and it survives rephrasing far
-/// better than the word-3-gram shingles the dedup pass uses. Length is taken
-/// on the original token so Unicode case-folding cannot change the ≥4 floor.
 fn content_words(text: &str) -> std::collections::HashSet<String> {
     text.split(|c: char| !c.is_alphanumeric())
         .filter(|w| w.chars().count() >= 4)
@@ -34,11 +29,6 @@ fn content_words(text: &str) -> std::collections::HashSet<String> {
         .collect()
 }
 
-/// Negation markers the content-word filter cannot see. `not`/`no`/`nor` are
-/// under the 4-char floor, and every `n't` contraction is mangled by the
-/// alphanumeric split (`isn't` → `isn` + `t`, both dropped). The longer markers
-/// are included too: Jaccard does see them, but only as ordinary vocabulary —
-/// it has no notion that they *invert* a claim.
 const NEGATION_MARKERS: [&str; 12] = [
     "not",
     "no",
@@ -54,15 +44,8 @@ const NEGATION_MARKERS: [&str; 12] = [
     "false",
 ];
 
-/// How strongly a polarity gap suppresses measured similarity. A single flipped
-/// conclusion in a short draft should read as total disagreement, so the gap is
-/// amplified rather than used raw.
 const POLARITY_SCALE: f64 = 3.0;
 
-/// Count negation markers in `text`: whole-word matches from
-/// [`NEGATION_MARKERS`] plus every `n't` contraction. Walks the fully
-/// lowercased string (not the original-token split) so contractions and
-/// case-folded markers stay visible.
 fn negation_count(text: &str) -> usize {
     let lower = text.to_lowercase();
     let contractions = lower.matches("n't").count();
@@ -73,9 +56,6 @@ fn negation_count(text: &str) -> usize {
     contractions + words
 }
 
-/// Per-draft vocabulary + polarity, built once and reused across a comparison
-/// pool. Polarity density is negation count over content-word cardinality
-/// (minimum 1), matching the former `negation_rate` path without retokenizing.
 struct DraftSignature<'a> {
     words: std::collections::HashSet<String>,
     negation_rate: f64,
@@ -113,29 +93,10 @@ impl<'a> DraftSignature<'a> {
     }
 }
 
-/// Vocabulary overlap between two drafts: Jaccard over content words, in
-/// [0, 1], suppressed when the two carry materially different polarity.
-///
-/// Jaccard alone is blind to contradiction. "We should ship the change" and "We
-/// should not ship the change" have *identical* content-word sets — `not` is
-/// under the 4-char floor — so they scored 1.0, i.e. perfect agreement, and the
-/// gate then relaxed the pipeline exactly when its proposers had reached
-/// opposite conclusions. Two drafts built from the same vocabulary but carrying
-/// different amounts of negation are asserting different things about the same
-/// subject, so the polarity gap suppresses the score.
-///
-/// The adjustment only ever *lowers* similarity — it can raise measured dissent
-/// and escalate verification, never lower it and skip verification that the
-/// unadjusted metric would have triggered. A miscalibration here costs spend,
-/// not correctness.
 pub(crate) fn draft_similarity(a: &str, b: &str) -> f64 {
     DraftSignature::new(a).similarity(&DraftSignature::new(b))
 }
 
-/// Mean pairwise dissent (1 − similarity) across the draft set, or `None` when
-/// there is nothing to disagree with (fewer than two drafts). The *mean* — not
-/// the max — so one deliberately contrarian persona (red-team disagrees by
-/// design) can't single-handedly escalate every turn.
 pub(crate) fn draft_dissent(drafts: &[String]) -> Option<f64> {
     if drafts.len() < 2 {
         return None;
@@ -193,7 +154,6 @@ pub(crate) fn contention_summary(drafts: &[String]) -> String {
             .then_with(|| a.0.cmp(&b.0))
     });
     if ranked.is_empty() {
-        // `⠈⠓⠙`: no clear frontier yet.
         return crate::agent::harness::book::d3_roles::pages(
             crate::agent::harness::book::d4_angles::WAVE,
             [4],
@@ -207,30 +167,23 @@ pub(crate) fn contention_summary(drafts: &[String]) -> String {
         .join("\n")
 }
 
-/// Dissent at or above this → escalate. `ANGEL_MOA_DISSENT_HI` overrides.
 pub(crate) fn dissent_hi() -> f64 {
     env_f64("ANGEL_MOA_DISSENT_HI", 0.7)
 }
 
-/// Dissent at or below this → relax. `ANGEL_MOA_DISSENT_LO` overrides.
 pub(crate) fn dissent_lo() -> f64 {
     env_f64("ANGEL_MOA_DISSENT_LO", 0.45)
 }
 
-/// Verify rounds an escalation buys (`ANGEL_MOA_DISSENT_VERIFY`, default 1).
 pub(crate) fn dissent_verify_rounds() -> usize {
     env_usize("ANGEL_MOA_DISSENT_VERIFY", 1)
 }
 
-/// What the gate decided for one turn.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum GateAction {
-    /// Drafts diverged: buy scrutiny — judge on, verify round(s) on.
     Escalate,
-    /// No strong signal either way: run the configured pipeline unchanged.
     Hold,
-    /// Drafts agree: skip refine layers, judge, verify, and extra samples.
     Relax,
 }
 
@@ -244,8 +197,6 @@ impl GateAction {
     }
 }
 
-/// Per-turn knob overrides from the dissent score, with env thresholds.
-/// `None` dissent (gate off, or a single draft) leaves the knobs untouched.
 pub(crate) fn gate_knobs(k: &Knobs, dissent: Option<f64>) -> (Knobs, Option<GateAction>) {
     gate_knobs_at(
         k,
@@ -256,16 +207,6 @@ pub(crate) fn gate_knobs(k: &Knobs, dissent: Option<f64>) -> (Knobs, Option<Gate
     )
 }
 
-/// [`gate_knobs`] with the thresholds explicit (testable without env).
-///
-/// Escalate wins when a misconfigured `lo > hi` makes both bounds true —
-/// over-scrutiny is the safer failure. Escalation sets `judge` and grants
-/// `rounds` verify passes (never taking away configured rounds); at width 2
-/// the judge is a free no-op (auto-keep ≥ draft count skips the reviewer
-/// calls), so the verify round is what escalation actually buys there.
-/// Relaxation drops the optional stages — refine layers, reflect, judge,
-/// verify, extra samples — and leaves the synthesis, so agreeing turns still
-/// end in one polished answer (and stream live, since nothing post-processes).
 pub(crate) fn gate_knobs_at(
     k: &Knobs,
     dissent: Option<f64>,

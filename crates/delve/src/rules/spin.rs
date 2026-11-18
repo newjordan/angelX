@@ -6,25 +6,16 @@
 
 use super::*;
 
-/// Ticks a spin lasts.
 pub const TICKS: u32 = 14;
-/// How far the axes reach from her middle, in arena units.
 pub const REACH: f32 = 3.0;
-/// Each sweep's damage, before the knight's own bonuses.
 const DAMAGE: u32 = 26;
-/// Ticks before she can spin again.
 pub const REARM: u32 = 2 * HZ + HZ / 2;
-/// Her pace while spinning, against her walk.
 pub(super) const PACE: f32 = 0.8;
 
-/// The axes cut on this tick of the spin (0 is the first).
 pub fn sweeping(age: u32) -> bool {
     age == 0 || age == TICKS / 2
 }
 
-/// One sweep: the monsters in reach are cut as one stroke (`aoe`), every
-/// hostile shot in the circle is cut down. Returns the damage dealt in all,
-/// and how many foes it cut.
 pub(super) fn sweep(
     owner: u32,
     hero: &Hero,

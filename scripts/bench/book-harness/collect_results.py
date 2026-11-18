@@ -27,8 +27,6 @@ def usage_totals(rows):
 
 per_request = receipt.per_request
 
-# Runs whose out-dir path names the remote host were run there; the rest ran
-# on the local workstation. Both labels can be set to the real machine names.
 REMOTE_HOST = os.environ.get("BENCH_REMOTE_HOST", "gpu-host")
 LOCAL_HOST = os.environ.get("BENCH_LOCAL_HOST", "workstation")
 

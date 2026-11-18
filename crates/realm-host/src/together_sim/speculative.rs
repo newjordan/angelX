@@ -22,8 +22,6 @@ impl Sim {
             event,
         })
     }
-    /// Absence is retryable. A different journal retires the old projection;
-    /// matching raid/seat numbers alone never authorize adoption by a new game.
     pub fn deliver_speculative(&mut self, pending: &Pending) -> Result<(), String> {
         if pending.event.changes.is_empty() {
             return Ok(());

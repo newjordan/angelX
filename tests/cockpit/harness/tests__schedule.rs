@@ -6,8 +6,6 @@
 
 use super::*;
 
-// --- schedule / path-overlap suite ---
-
 #[test]
 fn parallel_reads_still_parallelize() {
     let b = vec![
@@ -16,7 +14,6 @@ fn parallel_reads_still_parallelize() {
         tc("list_dir", serde_json::json!({"path":"."})),
     ];
     assert!(batch_parallelizable_with(&b, true));
-    // Reads parallelize regardless of the write-extension flag.
     assert!(batch_parallelizable_with(&b, false));
 }
 
@@ -128,8 +125,6 @@ fn absolute_path_batches_fail_closed_to_serial_scheduling() {
 
 #[test]
 fn tool_repair_is_classified_mutating_not_parallel_safe() {
-    // tool_repair mutates ~/.local/bin symlinks and global git config, so it must
-    // NOT be read-only/parallel-safe — it forces the batch serial.
     assert!(!is_parallel_safe("tool_repair"));
     assert!(matches!(
         footprint("tool_repair", &serde_json::json!({}), true),
@@ -147,9 +142,6 @@ fn tool_repair_is_classified_mutating_not_parallel_safe() {
 
 #[test]
 fn writes_to_same_file_via_dot_segments_serialize() {
-    // `a/x` and `a/./x` lexically differ but resolve to the same file; the
-    // footprint must collapse `.`/`..` (like safe_path) so they conflict and
-    // do NOT run concurrently. Likewise `a/x` vs `a/b/../x`.
     let b = vec![
         tc(
             "write_file",
@@ -182,17 +174,12 @@ fn writes_to_same_file_via_dot_segments_serialize() {
 
 #[test]
 fn write_with_broad_read_serializes() {
-    // grep scans the whole tree → unsafe to run during a write.
     let b = vec![
         tc("grep", serde_json::json!({"pattern":"x"})),
         tc("write_file", serde_json::json!({"path":"a.rs"})),
     ];
     assert!(!batch_parallelizable_with(&b, true));
 }
-
-/// Regression (found by scenario sweep): read_file on a BINARY file must
-/// return a concise notice, not a wall of U+FFFD from from_utf8_lossy that
-/// floods the model's context.
 
 #[test]
 fn read_file_vs_write_respects_path_overlap() {
@@ -218,7 +205,6 @@ fn effectful_calls_force_serial() {
         tc("shell", serde_json::json!({"cmd":"ls"})),
     ];
     assert!(!batch_parallelizable_with(&shell, true));
-    // apply_patch can touch several files → treated as an effect, never parallel.
     let patch = vec![
         tc("write_file", serde_json::json!({"path":"a.rs"})),
         tc("apply_patch", serde_json::json!({"patch":"..."})),
@@ -263,7 +249,7 @@ fn mixed_batch_segments_preserve_conflict_order_and_cover_every_call_once() {
 #[test]
 fn paths_overlap_is_component_wise() {
     assert!(paths_overlap(Path::new("a/b.rs"), Path::new("a/b.rs")));
-    assert!(paths_overlap(Path::new("a"), Path::new("a/b.rs"))); // dir contains file
-    assert!(!paths_overlap(Path::new("a/b.rs"), Path::new("a/bc.rs"))); // not a string prefix
+    assert!(paths_overlap(Path::new("a"), Path::new("a/b.rs")));
+    assert!(!paths_overlap(Path::new("a/b.rs"), Path::new("a/bc.rs")));
     assert!(!paths_overlap(Path::new("a.rs"), Path::new("b.rs")));
 }

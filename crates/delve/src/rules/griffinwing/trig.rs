@@ -39,7 +39,6 @@ fn atan_f64(x: f64) -> f64 {
     let (neg, x) = (x < 0.0, x.abs());
     let inv = x > 1.0;
     let mut t = if inv { 1.0 / x } else { x };
-    // Halve the angle twice: atan t = 2 atan (t / (1 + sqrt (1 + t t))).
     for _ in 0..2 {
         t /= 1.0 + (1.0 + t * t).sqrt();
     }
@@ -79,7 +78,6 @@ fn atan2_f64(y: f64, x: f64) -> f64 {
     }
 }
 
-/// The deterministic versions, as methods on `f32` under their own names.
 pub trait Det {
     fn dsin(self) -> f32;
     fn dcos(self) -> f32;

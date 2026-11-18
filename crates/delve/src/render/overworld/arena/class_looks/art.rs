@@ -8,7 +8,6 @@
 use super::{Layer, View};
 
 pub(super) const MAGE: [View; 3] = [
-    // front
     View {
         body: &[
             "..........u.....",
@@ -79,7 +78,6 @@ pub(super) const MAGE: [View; 3] = [
             ],
         },
     },
-    // side
     View {
         body: &[
             "......u.........",
@@ -136,7 +134,6 @@ pub(super) const MAGE: [View; 3] = [
             ],
         },
     },
-    // back
     View {
         body: &[
             ".....u..........",
@@ -210,7 +207,6 @@ pub(super) const MAGE: [View; 3] = [
 ];
 
 pub(super) const HEALER: [View; 3] = [
-    // front
     View {
         body: &[
             "......JhhJ......",
@@ -255,7 +251,6 @@ pub(super) const HEALER: [View; 3] = [
             ],
         },
     },
-    // side
     View {
         body: &[
             "......JhhJ......",
@@ -300,7 +295,6 @@ pub(super) const HEALER: [View; 3] = [
             ],
         },
     },
-    // back
     View {
         body: &[
             "......JhhJ......",
@@ -348,7 +342,6 @@ pub(super) const HEALER: [View; 3] = [
 ];
 
 pub(super) const ARCHER: [View; 3] = [
-    // front
     View {
         body: &[
             ".......m........",
@@ -399,7 +392,6 @@ pub(super) const ARCHER: [View; 3] = [
             ],
         },
     },
-    // side
     View {
         body: &[
             ".....m..........",
@@ -447,7 +439,6 @@ pub(super) const ARCHER: [View; 3] = [
             ],
         },
     },
-    // back
     View {
         body: &[
             "....7..m........",
@@ -499,7 +490,6 @@ pub(super) const ARCHER: [View; 3] = [
 ];
 
 pub(super) const SWORDSMAN: [View; 3] = [
-    // front
     View {
         body: &[
             ".......87.......",
@@ -549,7 +539,6 @@ pub(super) const SWORDSMAN: [View; 3] = [
             ],
         },
     },
-    // side
     View {
         body: &[
             "......87........",
@@ -592,7 +581,6 @@ pub(super) const SWORDSMAN: [View; 3] = [
             ],
         },
     },
-    // back
     View {
         body: &[
             ".......78.......",
@@ -645,7 +633,6 @@ pub(super) const SWORDSMAN: [View; 3] = [
 ];
 
 pub(super) const SHIELDMAIDEN: [View; 3] = [
-    // front
     View {
         body: &[
             "................",
@@ -690,7 +677,6 @@ pub(super) const SHIELDMAIDEN: [View; 3] = [
             ],
         },
     },
-    // side
     View {
         body: &[
             "................",
@@ -735,7 +721,6 @@ pub(super) const SHIELDMAIDEN: [View; 3] = [
             ],
         },
     },
-    // back
     View {
         body: &[
             "................",
@@ -783,7 +768,6 @@ pub(super) const SHIELDMAIDEN: [View; 3] = [
 ];
 
 pub(super) const GUNNER: [View; 3] = [
-    // front
     View {
         body: &[
             "................",
@@ -828,7 +812,6 @@ pub(super) const GUNNER: [View; 3] = [
             ],
         },
     },
-    // side
     View {
         body: &[
             "................",
@@ -869,7 +852,6 @@ pub(super) const GUNNER: [View; 3] = [
             ],
         },
     },
-    // back
     View {
         body: &[
             "................",
@@ -917,7 +899,6 @@ pub(super) const GUNNER: [View; 3] = [
 ];
 
 pub(super) const BERSERKER: [View; 3] = [
-    // front
     View {
         body: &[
             "....T......T....",
@@ -970,7 +951,6 @@ pub(super) const BERSERKER: [View; 3] = [
             ],
         },
     },
-    // side
     View {
         body: &[
             ".....T.....T....",
@@ -1016,7 +996,6 @@ pub(super) const BERSERKER: [View; 3] = [
             ],
         },
     },
-    // back
     View {
         body: &[
             "....T......T....",

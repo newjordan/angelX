@@ -1,17 +1,4 @@
 #!/usr/bin/env python3
-"""Lay a delve pack's floors and walls in the Demonic Dungeon style (VEXED, CC BY 4.0).
-
-    python3 scripts/delve/pack_tiles.py crypt teal
-    python3 scripts/delve/pack_tiles.py keep red
-
-Writes the kit's floor (`dgn.floor.<pack>`) and open-room walls
-(`dgn.owall.<pack>`) under crates/delve/assets/art-slots, each piece at the
-size and name the kit already has. The walls are built from the pack's own
-parts (`Dungeon.png`): the flat top with its lit edge, the outline, and the
-brick face below it; the floors are the pack's sparse dither tiles
-(`Background.png`) on its darkest ink. Every pixel is then its nearest game
-ink, as the kit's banks require.
-"""
 import sys
 from pathlib import Path
 
@@ -36,7 +23,6 @@ def ink_table():
 
 
 def inked(im, table, near={}):
-    """Every pixel as its nearest game ink: the kit's banks take inks only."""
     out = im.copy()
     for y in range(im.height):
         for x in range(im.width):
@@ -51,34 +37,23 @@ def inked(im, table, near={}):
 def rgb(h):
     return tuple(int(h[k : k + 2], 16) for k in (0, 2, 4)) + (255,)
 
-
-# The wall's inks, by style: outline, top, lit edge, brick face, the dark line.
 STYLES = {
     "teal": dict(o="160D13", t="4D6660", h="8EB89E", f="5F575E", d="31293E", floor=2),
     "red": dict(o="160D13", t="AD4030", h="E79B7C", f="904B41", d="56212A", floor=1),
-    # The cave (`Cave.png`): a sandy top with a rough lip, a face of rock.
     "cave": dict(o="160D13", t="D1935F", h="904B41", f="904B41", d="56212A", floor=1, rock=True),
 }
-# The floor names, each with its dither tile's row in Background.png, from the
-# sparsest up: a floor reads as dark stone with a little grain.
 FLOORS = {
     "plain": 19, "worn": 20, "cracked": 21, "patched": 23, "stained": 14, "rich": 17,
     "trim-0": 18, "trim-1": 22, "crack": 11, "puddle": 10, "debris": 9, "detail": 15,
 }
-# The brick face's mortar, as the pack lays it: dashes of five in eight, the
-# rows between them plain, each course offset.
 MORTAR = ["........", "...#####", "........", "#####...", "........", "#####...", "........"]
 
-
-# The cave's face as the pack lays it: `f` its rock, `o` the cracks, `d` shade.
 ROCK = ["daadaaaa", "baabbaab", "abbadbbd", "aaaadaad", "baabbaab", "dbbdabba", "daadaaaa"]
-# The lip where the top meets the face, and the rough lit edge of the top.
 ROCK_LIP = "aacc"
 ROCK_EDGE = ["daad", "acca"]
 
 
 def face_rows(phase, rock=False):
-    """The seven rows of face under the dark line, shifted by `phase`."""
     if rock:
         return [(row * 4)[phase : phase + 16].replace("a", ".").replace("b", "#") for row in ROCK]
     return [(row * 3)[phase : phase + 16] for row in MORTAR]
@@ -116,7 +91,6 @@ def main(pack, style):
                 im.putpixel((x, y0), hl)
 
     def band(im, room_side, y0=0, y1=16):
-        """A side wall's flat top, its outline and a sliver of face toward the room."""
         for y in range(y0, y1):
             for x in range(16):
                 im.putpixel((x, y), t)

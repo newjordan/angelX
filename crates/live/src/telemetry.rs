@@ -12,16 +12,12 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt;
 
-// ---- tool outcomes (was agent::harness::registry) ----
-
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ToolEventId(pub String);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExecutionOutcome {
     Succeeded,
-    /// The harness rejected the call before dispatch, so no tool execution
-    /// occurred and no mutation or verification credit may be attributed.
     NotStarted,
     Failed,
     Denied,
@@ -30,9 +26,6 @@ pub enum ExecutionOutcome {
 }
 
 impl ExecutionOutcome {
-    /// Stable machine projection. Keep this explicit so multi-word variants do
-    /// not inherit Rust's `Debug` spelling (for example, `NotStarted` must not
-    /// leak as the ambiguous `notstarted`).
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Succeeded => "succeeded",
@@ -45,8 +38,6 @@ impl ExecutionOutcome {
     }
 }
 
-/// Verifier truth is independent from dispatch truth. A verifier process may
-/// run successfully while reporting a red or inconclusive project state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VerificationOutcome {
     NotApplicable,
@@ -82,8 +73,6 @@ impl ToolOutcome {
     }
 }
 
-// ---- competition submissions (was agent::harness::cartridges::fleet) ----
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SubmissionPhase {
     Queued,
@@ -95,15 +84,11 @@ pub enum SubmissionPhase {
 }
 
 impl SubmissionPhase {
-    /// The fleet row's reading of a board status word.
     pub fn from_status(status: &str) -> Self {
         StatusWord::find(status).map_or(Self::Unknown, |row| row.fleet)
     }
 }
 
-/// What the slot watcher makes of a board status word: still waiting, or
-/// settled one of three ways. Only a word it recognises settles the slot; a
-/// status it has never seen is not evidence of acceptance, so it waits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SlotOutcome {
     InFlight,
@@ -122,8 +107,6 @@ impl SlotOutcome {
     }
 }
 
-/// One status word a competition board is known to send, and how each reader
-/// takes it. Matching ignores ASCII case and surrounding whitespace.
 struct StatusWord {
     word: &'static str,
     fleet: SubmissionPhase,
@@ -146,12 +129,6 @@ const fn word(word: &'static str, fleet: SubmissionPhase, slot: SlotOutcome) -> 
 use SlotOutcome as Slot;
 use SubmissionPhase as Fleet;
 
-/// Every status word, read both ways: by the fleet row (`SubmissionPhase`)
-/// and by the slot watcher (`SlotOutcome`). The two agree on every row but
-/// four, marked DISAGREE. Those four are kept as each reader has always read
-/// them, until the operator rules; `tests/status_words.rs` pins them. A word
-/// not listed is unknown: `Unknown` to the fleet row, still waiting to the
-/// slot watcher.
 const STATUS_WORDS: &[StatusWord] = &[
     word("queued", Fleet::Queued, Slot::InFlight),
     word("pending", Fleet::Queued, Slot::InFlight),
@@ -162,7 +139,6 @@ const STATUS_WORDS: &[StatusWord] = &[
     word("in_flight", Fleet::Running, Slot::InFlight),
     word("accepted", Fleet::Accepted, Slot::Accepted),
     word("promoted", Fleet::Accepted, Slot::Accepted),
-    // DISAGREE: the fleet row counts these as accepted; the watcher keeps waiting.
     word("complete", Fleet::Accepted, Slot::InFlight),
     word("completed", Fleet::Accepted, Slot::InFlight),
     word("timeout", Fleet::TimedOut, Slot::TimedOut),
@@ -170,16 +146,12 @@ const STATUS_WORDS: &[StatusWord] = &[
     word("timed-out", Fleet::TimedOut, Slot::TimedOut),
     word("rejected", Fleet::Rejected, Slot::Rejected),
     word("failed", Fleet::Rejected, Slot::Rejected),
-    // DISAGREE: the fleet row counts this as rejected; the watcher keeps waiting.
     word("promotion failed", Fleet::Rejected, Slot::InFlight),
     word("error", Fleet::Rejected, Slot::Rejected),
     word("cancelled", Fleet::Rejected, Slot::Rejected),
     word("canceled", Fleet::Rejected, Slot::Rejected),
-    // DISAGREE: the watcher settles it as rejected; the fleet row has no reading for it.
     word("superseded", Fleet::Unknown, Slot::Rejected),
 ];
-
-// ---- subsystem health (was knowledge::{memory::store, atlas, atlas_clerk}) ----
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MemoryHealth {
@@ -230,8 +202,6 @@ impl ClerkHealth {
         }
     }
 }
-
-// ---- graph garden data (was knowledge::graph_crop) ----
 
 pub const MAX_PLOTS: usize = 4;
 pub const MAX_POINTS: u8 = 32;
@@ -378,20 +348,15 @@ pub struct Chart {
 pub struct GraphReceipt {
     pub revision: u64,
     pub request: GraphRequest,
-    /// Authoritative post-call snapshot, including a tombstone after clear.
     pub chart: Option<Chart>,
 }
 
-/// Dedicated telemetry retains the real arguments and receipt, not truncated prose.
 #[derive(Clone, Debug)]
 pub enum GraphEvent {
     Requested(GraphRequest),
     Returned(GraphReceipt),
 }
 
-/// The garden's bounded chart ledger: applies each [`GraphRequest`] and returns
-/// the receipt the world projects. Plain state; the cockpit's graph tool keeps
-/// one.
 #[derive(Default)]
 pub struct GraphStore {
     plots: BTreeMap<String, Option<Chart>>,
@@ -474,9 +439,6 @@ impl GraphStore {
     }
 }
 
-// ---- ceremony and motion (was ui::viz::lifecycle_viz) ----
-
-/// Frame rate and frame count of the lifecycle cut-in plates.
 pub const FPS: f32 = 12.0;
 pub const FRAME_COUNT: usize = 44;
 const DURATION_SECS: f32 = 3.6;
@@ -513,7 +475,6 @@ impl CeremonyKind {
         DURATION_SECS
     }
 
-    /// Status word the lifecycle cut-in shows beside the plate.
     pub const fn work_state(self) -> &'static str {
         match self {
             Self::GoalSet => "Goal set",
@@ -557,8 +518,6 @@ impl MotionMode {
         !matches!(self, Self::Off)
     }
 
-    /// Wall time used for chrome clocks. `off` stays at `frozen`; `reduced`
-    /// ticks at most once per second.
     pub fn chrome_elapsed(
         self,
         started: std::time::Instant,
@@ -572,50 +531,29 @@ impl MotionMode {
     }
 }
 
-// ---- agent-activity seats (was ui::viz::agentviz) ----
-
-/// One seat's lifecycle within the current stage. `Running` is the implied
-/// default for any seat without a published update, so `seat_states` can stay
-/// empty on publish and existing [`stage`] callers keep working unchanged.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SeatState {
     #[default]
     Running,
-    /// The seat came back with a usable result.
     Returned,
-    /// The seat came back with an error.
     Failed,
-    /// The seat was abandoned at the wave deadline/quorum/cancel barrier.
     Cut,
 }
 
-/// The latest published fan-out (a moa/swarm stage or a `spawn` formation), as
-/// the miniworld reads it each tick to muster an army: stage name, one label
-/// per seat and each seat's lifecycle. Plain data; the cockpit's
-/// `ui::viz::agentviz` publishes it and keeps the old path as a re-export.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct StageSnapshot {
-    /// Stable publish identity; seat updates change `seq`, not this identity.
     pub stage_id: u64,
     pub name: String,
     pub agents: Vec<String>,
-    /// Per-seat lifecycle, index-aligned with `agents`. Starts empty on every
-    /// publish (all seats implicitly `Running`) and may stay shorter than
-    /// `agents`; read through [`StageSnapshot::seat_state`].
     pub seat_states: Vec<SeatState>,
-    /// Monotonic per publish — the world re-musters when this moves. Seat
-    /// updates bump it too, so consumers keyed off the seq re-read for pips.
     pub seq: u64,
 }
 
 impl StageSnapshot {
-    /// The state of seat `idx`; `Running` when no update has been published.
     pub fn seat_state(&self, idx: usize) -> SeatState {
         self.seat_states.get(idx).copied().unwrap_or_default()
     }
 
-    /// How many seats have come back with a result (`Returned`) — the "3/6
-    /// back" count for status rows.
     pub fn returned(&self) -> usize {
         self.seat_states
             .iter()
@@ -623,8 +561,6 @@ impl StageSnapshot {
             .count()
     }
 }
-
-// ---- research measurements (was drive::research_workspace::measurement) ----
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -665,9 +601,6 @@ impl Measurement {
         Ok(())
     }
 
-    /// How the value stands against its baseline, by exact decimal order. The
-    /// order is candidate-oriented, the same one the competition comparator
-    /// gives a higher-is-better or lower-is-better objective.
     pub fn comparison(&self) -> &'static str {
         let Some(baseline) = &self.baseline else {
             return match self.dataset {
@@ -688,8 +621,6 @@ impl Measurement {
         }
     }
 }
-
-// ---- exact decimal scores (was drive::competition::schema) ----
 
 const MAX_SCORE_BYTES: usize = 128;
 

@@ -2,12 +2,8 @@ use super::super::super::raycast::{RayMap, RaySprite, RayView};
 use super::super::mesh::mat;
 use super::*;
 
-/// The dot canvases the floors are judged at: the ride's own small pane
-/// (48 × 18 cells) and the wide one the cockpit usually runs (72 × 26).
 const PANES: [(usize, usize); 2] = [(144, 104), (96, 72)];
 
-/// A settled 31 × 31 window with one lit landmark — the shape
-/// `travel_scene()` hands the seam, so the operator swing reads as zero.
 fn window() -> (RayMap, RayView) {
     let span = 31usize;
     let centre = (span as f32 - 1.0) * 0.5;
@@ -60,7 +56,6 @@ fn every_region_but_castle_town_has_a_stage_and_a_walk() {
         );
         assert_eq!(waypoint_count(region), marks(stage).len());
     }
-    // The Mines' walk is Z2's room grid: one waypoint per chamber.
     assert_eq!(
         waypoint_count(Region::TheMines),
         arch::regions::MINE_STATIONS,
@@ -84,7 +79,6 @@ fn each_stage_is_built_once_shared_and_inside_the_triangle_ceiling() {
             stage.label(),
             first.tris.len()
         );
-        // Z3 spec §3: 8k triangles per stage.
         assert!(
             first.tris.len() <= 8_000,
             "{}: {} triangles blew the stage budget",
@@ -184,10 +178,6 @@ fn every_mark_stages_thirds_standoff_and_a_reach() {
                     stage.label()
                 ),
                 Framing::Room { frame_y, .. } => {
-                    // Indoors the identity piece sits in the upper-middle
-                    // band — never centred, never on the floor line. (The
-                    // Mines aim at the gallery's vanishing point at chest
-                    // height, so "above the eye" is not a rule here.)
                     assert!(
                         (0.30..=0.60).contains(&frame_y),
                         "{} [{index}]: identity piece at {frame_y} is not in the upper-middle band",
@@ -215,21 +205,6 @@ fn every_mark_stages_thirds_standoff_and_a_reach() {
 
 #[test]
 fn every_staged_region_frame_honours_the_vista_floors() {
-    // The floors are the court's own (`ride.rs`): open sky above, mass
-    // never more than half the frame, real ground to stand on, and the eye
-    // never inside four tiles of a facade. New stages pass them or the
-    // staging is wrong — they are never loosened.
-    //
-    // Every mark is measured before anything fails, because restaging is a
-    // whole-table job: fixing the one mark a `?` short-circuit reported
-    // just moves the failure to the next one.
-    //
-    // Z3b: a **roomed** mark (`Framing::Room` — the Mines, the Dragon Keep)
-    // has no horizon and no sky, so the outdoor sky/mass floors would fail
-    // every honest interior. It is judged the way `interior.rs` judges its
-    // eight rooms: a floor band to stand on, a light source somewhere in
-    // the scene, and the centre-of-frame reach below. The floors are not
-    // loosened — a different family of place gets its own instrument.
     let mut broken: Vec<String> = Vec::new();
     for stage in Stage::ALL {
         let scene = super::super::scene::region_scene(stage, 0, 3, 0);
@@ -326,8 +301,6 @@ fn the_anchor_lands_on_its_third_and_the_horizon_in_the_lower_third() {
                         (0.5 * (1.0 + camera.pitch.tan() / tan_v), horizon, "horizon")
                     }
                     Framing::Room { anchor_z, frame_y } => {
-                        // Where the identity piece's own point lands down
-                        // the frame, from the camera actually solved.
                         let reach = ((vantage.anchor.0 - camera.pos.x).powi(2)
                             + (vantage.anchor.1 - camera.pos.y).powi(2))
                         .sqrt();
@@ -381,15 +354,11 @@ fn operator_yaw_and_pitch_turn_the_staged_region_camera() {
         taken > 0.41 && taken < 0.5,
         "a staged region camera must follow operator yaw, took {taken:.3} of 0.5"
     );
-    // Monotone with no saturation: a bigger turn is always a bigger turn,
-    // or the arrow keys stop answering past some angle.
     let further = staged_view(Stage::Mines, 4, &map, &view, 0.9, 96, 72);
     assert!(
         wrap_pi(further.heading_rad - turned.heading_rad) > 0.25,
         "the swing must keep answering past half a radian"
     );
-    // The town's own heading is not the region's: a ride pointed anywhere
-    // must not drag the staged mark off its composition.
     view.heading_rad += 1.3;
     let unmoved = staged_view(Stage::Mines, 4, &map, &view, 0.0, 96, 72);
     assert!(
@@ -447,8 +416,6 @@ fn danger_pulls_the_haze_in_and_never_past_the_lantern() {
                 "{}: danger {danger} must shorten the sight line",
                 stage.label()
             );
-            // Fog closer than the rider's lantern reach would black the
-            // near ground out and the frame would have no foreground.
             assert!(
                 fog > 12.0,
                 "{}: danger {danger} fogged the frame to {fog:.1} tiles",
@@ -481,7 +448,6 @@ fn forest_crowns_keep_readable_green_ink_in_the_small_terminal_pane() {
         let dots = frame_to_braille_graded(&frame, 48, 18, false);
         let mut green = 0;
         let mut black = 0;
-        // Above the floor: grass cannot stand in for readable tree crowns.
         for y in 0..12 {
             for x in 0..48 {
                 let cell = dots.cell(x, y).unwrap();

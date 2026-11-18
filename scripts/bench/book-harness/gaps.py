@@ -59,8 +59,6 @@ def action_of(rows, index):
                 return assistant_action(message)
     items = body.get("input")
     if isinstance(items, list):
-        # A Responses tool batch has separate function_call items. Choose its
-        # first call, preserving the original first-call grouping convention.
         batch = []
         for position in range(len(items) - 1, -1, -1):
             item = items[position]

@@ -19,8 +19,6 @@ use ratatui_core::terminal::Terminal;
 use angel_glass::graphics::Picture;
 use angel_glass::{LAYER_PICTURES, Layer, LayerKind, Placement};
 
-/// (id, w, h, z, cols, rows, row, col): the blast's four streams, as in
-/// the Kitty bench.
 const BLAST4: [(u32, u32, u32, i32, f32, f32, f32, f32); 4] = [
     (11, 320, 200, -1, 40.0, 12.0, 1.0, 1.0),
     (12, 192, 160, 0, 24.0, 10.0, 3.0, 19.0),
@@ -36,11 +34,6 @@ fn env<T: std::str::FromStr>(key: &str, default: T) -> T {
         .unwrap_or(default)
 }
 
-/// The M8 golden scene as straight RGBA: a red alpha ramp on the
-/// left half, opaque green/blue checker on the right. One
-/// generation rule shared with scripts/bench/render/golden_check.py,
-/// which asserts the composited result (sRGB-space blending) from a
-/// captured frame.
 fn golden_bytes(w: u32, h: u32) -> Vec<u8> {
     let mut buf = vec![0u8; (w * h * 4) as usize];
     let half = w / 2;
@@ -87,7 +80,6 @@ struct Streams {
     specs: Vec<(u32, u32, u32, i32, f32, f32, f32, f32)>,
     ring: Vec<Vec<Vec<u8>>>,
     payload: usize,
-    /// Photon mode: every pixel is the frame sequence as colour.
     solid_stamp: bool,
 }
 
@@ -110,10 +102,6 @@ impl Streams {
         let mut layers = Vec::with_capacity(self.specs.len());
         for (i, s) in self.specs.iter().enumerate() {
             let id = LAYER_PICTURES + s.0;
-            // The frame sequence as a 16x16 block of colour at the
-            // picture's origin: an outside observer (framecount) reads
-            // which produced frame reached the screen, and when. A
-            // block, not one pixel, so scaling filters cannot blend it.
             let mut rgba = self.ring[i][n % self.ring[i].len()].clone();
             let stamp = (n as u32).to_le_bytes();
             if self.solid_stamp {
@@ -149,9 +137,6 @@ impl Streams {
     }
 }
 
-/// Adversarial: `count` fresh 16x16 pictures per frame, ids cycling a
-/// 4096 pool — texture-allocation churn against the upload cache, the
-/// mirror of the Kitty bench's churn mode.
 fn push_churn(host: &angel_glass::Host, img: &[u8], count: usize, seq: &mut u32) {
     let mut layers = Vec::with_capacity(count);
     for k in 0..count {
@@ -322,8 +307,6 @@ fn main() {
                 }
             }
         }
-        // Raw produce series, when asked (bench analysis wants the
-        // series, not someone else's percentiles).
         if let Ok(path) = std::env::var("STREAM_BENCH_RAW") {
             let all: Vec<String> = produced
                 .iter()
@@ -332,7 +315,6 @@ fn main() {
                 .collect();
             let _ = std::fs::write(&path, format!("[{}]\n", all.join(",")));
         }
-        // Drop the first 30 frames (warm-up), like the Kitty bench.
         let mut times: Vec<Duration> = produced.into_iter().skip(30).collect();
         times.sort_unstable();
         let grid = host.grid_size();
@@ -355,8 +337,6 @@ fn main() {
 mod tests {
     use super::*;
 
-    /// The cross-language constant: `kitty_gfx_bench.frame_bytes(4,2,1,7)`
-    /// asserts the same bytes, so both harnesses race identical pixels.
     #[test]
     fn frame_formula_matches_the_kitty_bench() {
         assert_eq!(
@@ -366,12 +346,9 @@ mod tests {
                 255, 12, 6, 2, 255, 13, 6, 3, 255,
             ]
         );
-        // Frames must differ: a renderer may skip an unchanged upload.
         assert_ne!(frame_bytes(8, 8, 0, 1), frame_bytes(8, 8, 1, 1));
     }
 
-    /// The golden generation rule golden_check.py asserts against:
-    /// alpha ramps 0..=255 across the left half, checker is exact.
     #[test]
     fn golden_scene_formula() {
         let px = |buf: &[u8], x: u32, y: u32| {

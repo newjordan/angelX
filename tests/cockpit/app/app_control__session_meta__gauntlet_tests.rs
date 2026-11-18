@@ -1,7 +1,5 @@
 use super::*;
 
-/// A stand-in club: a label + whether it's a synthesizing meta-driver (the
-/// selection logic only reads those two signals).
 struct FakeClub {
     label: &'static str,
     synth: bool,
@@ -32,10 +30,10 @@ fn chroniclers_drop_practice_sota_and_synths_dedup_and_lead_with_in_hand() {
     let roster = vec![
         club("gemma4"),
         club("practice"),
-        club("gpt-5-codex"), // SOTA — metered, dropped
-        synth_club("swarm"), // meta-driver — a whole fan-out, dropped
+        club("gpt-5-codex"),
+        synth_club("swarm"),
         club("nex2-mini"),
-        club("gemma4"), // dup, dropped
+        club("gemma4"),
         club("qwen3"),
     ];
     let picked = select_chroniclers(roster, "nex2-mini", 6);
@@ -47,7 +45,6 @@ fn chroniclers_drop_practice_sota_and_synths_dedup_and_lead_with_in_hand() {
 fn chroniclers_respect_the_cap() {
     let roster = vec![club("a"), club("b"), club("c"), club("d")];
     let picked = select_chroniclers(roster, "b", 2);
-    // in-hand first, then the cap.
     assert_eq!(picked.len(), 2);
     assert_eq!(picked[0].label(), "b");
 }

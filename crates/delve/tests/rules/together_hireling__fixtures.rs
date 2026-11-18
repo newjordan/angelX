@@ -4,7 +4,6 @@ use super::*;
 use crate::realm::Spoils;
 use crate::rules::home::{Home, Station};
 
-/// A realm whose west wing is dug: the tavern, and Beaumains in it.
 pub fn tavern_home() -> Home {
     let mut home = Home {
         deepest: 1,
@@ -14,7 +13,6 @@ pub fn tavern_home() -> Home {
     home
 }
 
-/// One knight down the stair, with Beaumains if `hired`.
 pub fn down(hired: bool) -> Run {
     let mut home = tavern_home();
     home.hire = hired.then(|| "beaumains".into());
@@ -23,8 +21,6 @@ pub fn down(hired: bool) -> Run {
     run
 }
 
-/// A first-floor fight room, emptied and calmed, with Beaumains if
-/// `hired`; knight one at (12, 12), unhurt, holding `hand`.
 pub fn fight_with(hired: bool, hand: &[&str]) -> Run {
     let mut run = down(hired);
     let room = run
@@ -33,7 +29,6 @@ pub fn fight_with(hired: bool, hand: &[&str]) -> Run {
         .iter()
         .position(|r| r.kind == RoomKind::Fight)
         .unwrap();
-    // An open room: whatever stone or pits the floor gave it, cleared.
     let open = &mut run.dungeon.rooms[room];
     for row in 1..open.rows - 1 {
         for col in 1..open.cols - 1 {
@@ -63,7 +58,6 @@ pub fn play(run: &mut Run, slot: u8) {
     )]));
 }
 
-/// A foe at `(x, y)`, awake, that holds still by itself (`frozen`).
 pub fn foe_at(run: &mut Run, kind: EnemyKind, (x, y): (f32, f32), frozen: u32) -> u32 {
     run.spawn_at_for_test(kind, x, y);
     let foe = run.enemies.last_mut().unwrap();

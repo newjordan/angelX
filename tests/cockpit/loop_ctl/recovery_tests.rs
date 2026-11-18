@@ -402,7 +402,6 @@ fn recovery_context_queued_prior_result_and_latest_running_owner_are_independent
         app.loop_ctl.pending_proc_completions.clear();
         app.loop_ctl.pending_recovery_contexts.clear();
         assert!(crate::agent::club::recovery_context_refs(&app.loop_iteration_convo()).is_empty());
-        // A legacy/mutated returned summary remains useful unknown context.
         let last = app.loop_ctl.experiments.last_mut().unwrap();
         last.status = recovery::ExperimentStatus::Returned;
         last.summary = Some("LEGACY_DIAGNOSTIC".into());
@@ -560,13 +559,10 @@ fn experiment_status_words_are_the_saved_and_printed_words() {
 fn a_reply_that_arrives_too_late_leaves_no_older_record_running_behind_a_newer_experiment() {
     fixture("orphan-behind-newer", |root| {
         let (mut app, tx, _) = held(root);
-        // The run was replaced before the reply landed: the reply is dropped and
-        // the record is left without an owner.
         app.loop_ctl.id = "replacement-run".into();
         tx.send(Ok(reply(&app, "TOO_LATE"))).unwrap();
         app.loop_drain_experiment();
         assert!(app.loop_experiment.is_none());
-        // A newer experiment launches before the old record is looked at again.
         let newer: recovery::ExperimentRecord = serde_json::from_value(serde_json::json!({
             "key": "newer-experiment",
             "hypothesis": "a second mechanism",

@@ -1,14 +1,5 @@
 import Base
 
-# Authored worker-health policy. Rust keeps fingerprinting, lease-store
-# mutations and error/health construction; this module decides, from the
-# numeric features the adapter supplies, whether a worker is healthy,
-# nudged, inspected, replaced, and whether a semantic loop continues,
-# pivots, retries or requests a fresh turn. Phase/step codes mirror the
-# native enums:
-#   phase  0=Granted 1=Active 2=Suspect 3=Nudged 4=Inspected 5=Fenced 6=Released
-#   health 0=Fresh 1=Degraded 2=Retrying 3=NeedsAttention
-
 type Recovery is Data:
   Step{state: Nat, phase: Nat}
   Blocked{}
@@ -36,10 +27,6 @@ def recovery(phase: Nat) -> Recovery:
     case 7n+p:
       Blocked{}
 
-# progress=True resets staleness and continues fresh; otherwise the native
-# caller already incremented the candidate count, so stale_next == 2 pivots
-# (degraded), == 4 archives into a fresh turn (needs attention), anything
-# else keeps retrying while staying on the direction.
 def semantic(progress: Bool, stale_next: Nat) -> Semantic:
   match progress:
     case True{}:

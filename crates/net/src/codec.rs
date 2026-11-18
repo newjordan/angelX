@@ -2,7 +2,6 @@
 //! their little-endian bits, text and blobs behind their length. Every
 //! message and every tree is written and read with these.
 
-/// Why bytes did not read.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Malformed;
 
@@ -39,7 +38,6 @@ pub fn put_str(out: &mut Vec<u8>, text: &str) {
     put_blob(out, text.as_bytes());
 }
 
-/// Bytes being read, front to back.
 pub struct Bytes<'a> {
     pub rest: &'a [u8],
 }
@@ -67,12 +65,10 @@ impl<'a> Bytes<'a> {
         Err(Malformed)
     }
 
-    /// A varint that must fit in 32 bits.
     pub fn u32(&mut self) -> Result<u32, Malformed> {
         u32::try_from(self.varint()?).map_err(|_| Malformed)
     }
 
-    /// A zigzag varint that must fit in 32 bits.
     pub fn i32(&mut self) -> Result<i32, Malformed> {
         i32::try_from(unzigzag(self.varint()?)).map_err(|_| Malformed)
     }
@@ -91,7 +87,6 @@ impl<'a> Bytes<'a> {
         Ok(head)
     }
 
-    /// A blob of at most `max` bytes.
     pub fn blob(&mut self, max: usize) -> Result<&'a [u8], Malformed> {
         let n = self.varint()?;
         if n > max as u64 {
@@ -100,12 +95,10 @@ impl<'a> Bytes<'a> {
         self.take(n as usize)
     }
 
-    /// UTF-8 text of at most `max` bytes.
     pub fn str(&mut self, max: usize) -> Result<&'a str, Malformed> {
         std::str::from_utf8(self.blob(max)?).map_err(|_| Malformed)
     }
 
-    /// Everything was read.
     pub fn end(&self) -> Result<(), Malformed> {
         if self.rest.is_empty() { Ok(()) } else { Err(Malformed) }
     }

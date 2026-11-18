@@ -25,25 +25,17 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock, mpsc};
 
-/// Whether she is wanted in the window.
 static VISIBLE: AtomicBool = AtomicBool::new(false);
-/// Whether she may speak aloud.
 static VOICE: AtomicBool = AtomicBool::new(true);
 
-/// What the cockpit tells her thread.
 #[derive(Clone, Debug)]
 enum Msg {
     Cue(CueKind),
-    /// Speak a line: an occasion (`arrive`, `done`, ...) or a line's id.
     Say(String),
-    /// Her spectacle now: burning eyes, lasers, a rainbow.
     Spectacle,
-    /// Her tour of the harness: begin it (true) or end it.
     Tour(bool),
 }
 
-/// The cockpit's cues, as her thread takes them (the crate's own `Cue`
-/// lives behind the window's feature).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum CueKind {
     Typing,
@@ -54,8 +46,6 @@ enum CueKind {
 
 static SENDER: OnceLock<Mutex<mpsc::Sender<Msg>>> = OnceLock::new();
 
-/// A part of the cockpit she knows the place of: she sits over the world
-/// (the mini-viz), and her tour points at all of them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Region {
     World,
@@ -64,10 +54,8 @@ pub(crate) enum Region {
     Header,
 }
 
-/// Where each region was last drawn (cells) and when.
 static REGIONS: Mutex<[Option<(ratatui::layout::Rect, std::time::Instant)>; 4]> = Mutex::new([None; 4]);
 
-/// `region` drew at `area` this frame.
 pub(crate) fn note_region(region: Region, area: ratatui::layout::Rect) {
     if !visible() {
         return;
@@ -77,23 +65,19 @@ pub(crate) fn note_region(region: Region, area: ratatui::layout::Rect) {
     }
 }
 
-/// The mini-viz drew at `area` this frame.
 pub(crate) fn note_panel(area: ratatui::layout::Rect) {
     note_region(Region::World, area);
 }
 
-/// Where `region` is, if it drew in the last second.
 fn region(region: Region) -> Option<ratatui::layout::Rect> {
     let r = REGIONS.lock().ok()?;
     r[region as usize].and_then(|(area, at)| (at.elapsed() < std::time::Duration::from_secs(1)).then_some(area))
 }
 
-/// The mini-viz's place, if it drew in the last second.
 fn panel() -> Option<ratatui::layout::Rect> {
     region(Region::World)
 }
 
-/// What she says on her tour, for the transcript (taken by `observe`).
 static CAPTIONS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 fn caption(text: String) {
@@ -102,8 +86,6 @@ fn caption(text: String) {
     }
 }
 
-/// `/onboard`: her tour of the harness, calling her in if she is away;
-/// `/onboard stop` ends it.
 pub(crate) fn tour(start: bool) -> Result<(), String> {
     if !crate::ui::glass::active() {
         return Err("she lives in angelX's window (ANGEL_GLASS=1); a terminal has no room for her tour".into());
@@ -116,9 +98,6 @@ pub(crate) fn tour(start: bool) -> Result<(), String> {
     Ok(())
 }
 
-/// Whether a message typed to the agent is a request for her tour: short,
-/// and asking to be onboarded. Teaching is the agent's ("teach me ..." is
-/// a question for it, never her tour).
 pub(crate) fn onboarding_request(text: &str) -> bool {
     let t = text.trim().to_lowercase();
     t.chars().count() <= 80
@@ -126,10 +105,8 @@ pub(crate) fn onboarding_request(text: &str) -> bool {
         && t.split(|c: char| !c.is_alphanumeric()).any(|w| matches!(w, "onboard" | "onboarding" | "onboarded"))
 }
 
-/// Her thread's last word on herself, for `/face status`.
 static STATUS: Mutex<String> = Mutex::new(String::new());
 
-/// `/face status`: what her thread last said of itself.
 pub(crate) fn status() -> String {
     let said = STATUS.lock().map(|s| s.clone()).unwrap_or_default();
     let voice = if VOICE.load(Ordering::Relaxed) { "voice on" } else { "muted" };
@@ -141,21 +118,17 @@ pub(crate) fn status() -> String {
     }
 }
 
-/// Where her thread writes what happens to her, for debugging.
 pub(crate) fn log_path() -> PathBuf {
     home().join("logs/face.log")
 }
 
-/// What `/face` did.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Toggled {
     Shown,
     Hidden,
-    /// Not in the window: nothing to float her over.
     NoWindow,
 }
 
-/// Where her model and voice live.
 pub(crate) fn home() -> PathBuf {
     if let Some(dir) = std::env::var_os("ANGEL_FACE_HOME").filter(|v| !v.is_empty()) {
         return PathBuf::from(dir);
@@ -163,14 +136,10 @@ pub(crate) fn home() -> PathBuf {
     std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default().join("angelface")
 }
 
-/// Whether she is wanted now.
 pub(crate) fn visible() -> bool {
     VISIBLE.load(Ordering::Relaxed)
 }
 
-/// Bring her in if this launch asked for her (`ANGEL_GLASS_FACE=1`, or
-/// `=quiet` for her without her voice until `/face voice`). No-op in a
-/// terminal; twice-run safe.
 pub(crate) fn launch_if_requested() {
     let wanted = std::env::var("ANGEL_GLASS_FACE").unwrap_or_default();
     if matches!(wanted.as_str(), "1" | "on" | "quiet") && crate::ui::glass::active() {
@@ -182,7 +151,6 @@ pub(crate) fn launch_if_requested() {
     }
 }
 
-/// `/face`: call her in, or send her away.
 pub(crate) fn toggle() -> Toggled {
     if !crate::ui::glass::active() {
         return Toggled::NoWindow;
@@ -196,12 +164,10 @@ pub(crate) fn toggle() -> Toggled {
     }
 }
 
-/// `/face mute` (false) and `/face voice` (true).
 pub(crate) fn set_voice(on: bool) {
     VOICE.store(on, Ordering::Relaxed);
 }
 
-/// `/face say <occasion|line>`: what she will say, or why she cannot.
 pub(crate) fn say(what: &str) -> Result<String, String> {
     if !crate::ui::glass::active() {
         return Err("she lives in angelX's window (ANGEL_GLASS=1); a terminal has no room for her".into());
@@ -223,7 +189,6 @@ pub(crate) fn say(what: &str) -> Result<String, String> {
     Ok(what.to_string())
 }
 
-/// `/face lasers`: her spectacle now, if she is here.
 pub(crate) fn spectacle() -> Result<(), String> {
     if !crate::ui::glass::active() {
         return Err("she lives in angelX's window (ANGEL_GLASS=1)".into());
@@ -235,7 +200,6 @@ pub(crate) fn spectacle() -> Result<(), String> {
     Ok(())
 }
 
-/// Her lines as `(id, occasion, text)`, from the bank's index.
 pub(crate) fn bank_lines() -> Vec<(String, String, String)> {
     let path = home().join("voice/bank/index.json");
     let Ok(text) = std::fs::read_to_string(&path) else { return Vec::new() };
@@ -261,7 +225,6 @@ fn send(msg: Msg) {
     }
 }
 
-/// What the cockpit looked like at the last pass, to tell what changed.
 #[derive(Default)]
 struct Watch {
     input: (usize, u64),
@@ -270,9 +233,6 @@ struct Watch {
 
 static WATCH: Mutex<Option<Watch>> = Mutex::new(None);
 
-/// Once a loop pass: what she should know of the cockpit. A key into the
-/// composer, a turn begun, the agent at work, a turn ended well or badly.
-/// Nothing while she is away.
 pub(crate) fn observe(app: &mut crate::app::App) {
     if !visible() {
         return;
@@ -289,7 +249,6 @@ pub(crate) fn observe(app: &mut crate::app::App) {
         return;
     };
     if input != last.input {
-        // A sent composer empties: that is the turn, not typing.
         if input.0 == 0 && last.input.0 > 0 && busy {
             send(Msg::Cue(CueKind::Submitted));
         } else if input.0 > 0 {
@@ -313,7 +272,6 @@ fn quick_hash(bytes: &[u8]) -> u64 {
     h
 }
 
-/// Start her thread, once.
 fn launch() {
     #[cfg(feature = "glass")]
     {
@@ -349,18 +307,12 @@ mod presence {
     use std::sync::mpsc;
     use std::time::{Duration, Instant};
 
-    /// Her picture's z: over the terminal's text.
     const Z: i32 = 60;
-    /// How tall she stands, as a share of the window's height.
     const HEIGHT_SHARE: f32 = 0.21;
-    /// How much she grows as she speaks.
     const FORWARD_GROW: f32 = 0.14;
-    /// Her frame rate.
     const FRAME: Duration = Duration::from_millis(33);
-    /// The time between pressing play and the first sound, assumed.
     const AUDIO_LATENCY: Duration = Duration::from_millis(70);
 
-    /// A line she can say.
     struct Line {
         id: String,
         occasion: String,
@@ -368,14 +320,12 @@ mod presence {
         track: Arc<Track>,
     }
 
-    /// A line being said.
     struct Speaking {
         track: Arc<Track>,
         started: Instant,
         _player: Option<ServiceChild>,
     }
 
-    /// Her log: a line a happening, stamped with seconds on her clock.
     struct Log(Option<std::fs::File>);
 
     impl Log {
@@ -398,7 +348,6 @@ mod presence {
         }
     }
 
-    /// What a step of her tour points at.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     enum Aim {
         Her,
@@ -409,9 +358,6 @@ mod presence {
         Middle,
     }
 
-    /// Her tour of the harness: each step a line of hers (the voice bank's
-    /// `tour_*`, its words kept here too, for the transcript and for a
-    /// tour without her voice) and what she points at while she says it.
     const TOUR: [(&str, Aim, &str); 11] = [
         ("tour_01_welcome", Aim::Her, "Hello. I have been folded into your terminal. Let me show you around, before the cube notices."),
         ("tour_02_composer", Aim::Composer, "This little box is where you speak to me. Type your wish, and press Enter. I will pretend I was not already listening."),
@@ -426,17 +372,12 @@ mod presence {
         ("tour_11_farewell", Aim::Her, "That is enough to begin. Ask me anything. I will be right here, in the corner, with my cube."),
     ];
 
-    /// Where her tour is: the next step and when it may begin, and how many
-    /// legs have pointed so far.
     struct Tour {
         step: usize,
         next_at: f64,
         legs: u32,
     }
 
-    /// A limb pointing: what, from where it bursts in to what it points at
-    /// (the grid's pixels), when it came and when it goes, how long it is
-    /// stretched (meters), its picture's size, and pixels a meter.
     struct Gesture {
         kind: LimbKind,
         entry: [f32; 2],
@@ -448,14 +389,11 @@ mod presence {
         ppm: f32,
     }
 
-    /// How long a limb takes to burst in, and to withdraw.
     const EXTEND: f64 = 0.55;
     const RETRACT: f64 = 0.4;
-    /// How far in from its picture's end the tip sits, pixels.
     const TIP_ROOM: f32 = 10.0;
 
     impl Gesture {
-        /// Its layer at `now`, placed in cells, or `None` once it has gone.
         fn layer(&self, now: f64, cell: (f32, f32)) -> Option<angel_glass::Layer> {
             if now >= self.ends {
                 return None;
@@ -470,7 +408,6 @@ mod presence {
             } else {
                 1.0
             };
-            // Held: it taps at what it points at.
             let tap = if s >= EXTEND && now <= self.ends - RETRACT { 7.0 * ((s - EXTEND) as f32 * 9.0).sin().max(0.0) } else { 0.0 };
             let along = -(1.0 - out) * w * 1.02 + tap;
             let (r, angle) = draw::limb_rect(self.entry, self.target, self.size, TIP_ROOM, along);
@@ -485,9 +422,6 @@ mod presence {
         }
     }
 
-    /// Where a limb bursts in from to point at `target`: a point past an
-    /// edge of a `w` x `h` window (a leg likes to come down from the top),
-    /// far enough for a long reach and not absurdly far.
     fn entry_for(target: [f32; 2], w: f32, h: f32, leg: bool, rng: &mut u64) -> [f32; 2] {
         let past = 80.0;
         for _ in 0..24 {
@@ -512,10 +446,6 @@ mod presence {
         log.line(0.0, &format!("---- angelface starts (pid {})", std::process::id()));
         set_status("starting".into());
         if !host.has_window() {
-            // A session host with no window of its own forwards what is
-            // drawn over its link; her meshes change every frame she
-            // speaks, so she stays out of those until the link carries
-            // her as a model and weights.
             eprintln!("angelface: no window here; she appears only in a window of her own");
             log.line(0.0, "no window here: she stays out");
             set_status("no window here".into());
@@ -538,7 +468,6 @@ mod presence {
             Vec::new()
         });
         log.line(0.0, &format!("her: {} parts, {} channels; {} lines in her voice", goddess.parts.len(), goddess.channels.len(), lines.len()));
-        // Frame accounting for the status and the log.
         let mut frames = 0u32;
         let mut busiest = Duration::ZERO;
         let mut spent = Duration::ZERO;
@@ -559,7 +488,6 @@ mod presence {
         let mut was_working = false;
         let mut greeted = false;
         let mut arrived_at = f64::INFINITY;
-        // Her spectacle: when the next is due, and where it strikes.
         let mut next_spectacle = f64::INFINITY;
         let mut strike: [f32; 2] = [0.0; 2];
         let mut pictures_sent = false;
@@ -611,7 +539,6 @@ mod presence {
                 pictures_sent = true;
             }
 
-            // What happened in the cockpit.
             while let Ok(msg) = rx.try_recv() {
                 match msg {
                     Msg::Say(what) => {
@@ -677,7 +604,6 @@ mod presence {
                     }
                 }
             }
-            // She greets you once she has formed; she muses if all is still.
             if !greeted && tour.is_none() && mind.here() && now > arrived_at + angel_face::mind::ARRIVAL + 0.4 {
                 greeted = true;
                 queued.get_or_insert((now, "arrive".into()));
@@ -706,7 +632,6 @@ mod presence {
                 }
             }
 
-            // Her spectacle, when it is due and she is free for it.
             if now >= next_spectacle && tour.is_none() && mind.here() && !mind.in_spectacle(now) {
                 if speaking.is_some() || mind.reading() || queued.is_some() {
                     next_spectacle = now + 12.0;
@@ -725,7 +650,6 @@ mod presence {
                 }
             }
 
-            // Her speech, her mind.
             let channels = goddess.channels.len();
             let speech = speaking.as_ref().and_then(|s| {
                 let t = Instant::now().saturating_duration_since(s.started).as_secs_f32();
@@ -740,22 +664,16 @@ mod presence {
             let k = 1.0 - (-(FRAME.as_secs_f32()) * if speech.is_some() { 1.6 } else { 0.8 }).exp();
             forward += ((speech.is_some() as u8 as f32) - forward) * k;
 
-            // Where she stands, and where your words are from her eyes.
             let Some((cells, angle, size)) = placement(grid, panel(), forward, moment.presence, now) else {
                 std::thread::sleep(FRAME);
                 continue;
             };
-            // In window pixels, near enough for where she looks (the grid's
-            // own small margin aside): her eyes sit a little above her
-            // picture's middle, turned with it.
             let (cw, ch) = (grid.cell_width as f32, grid.cell_height as f32);
             let rect = [cells[0] * cw, cells[1] * ch, cells[2] * cw, cells[3] * ch];
             let (sin, cos) = angle.sin_cos();
             let up = rect[3] * 0.05;
             let eyes = [rect[0] + rect[2] * 0.5 + sin * up, rect[1] + rect[3] * 0.5 - cos * up];
             let reach = rect[3] * 1.6;
-            // A point on screen as yaw and pitch in her own frame: turned
-            // back by her lean, since her face is leaning with the picture.
             let toward = |p: [f32; 2]| {
                 let (dx, dy) = (p[0] - eyes[0], p[1] - eyes[1]);
                 let (x, y) = (dx * cos + dy * sin, -dx * sin + dy * cos);
@@ -775,7 +693,6 @@ mod presence {
                 pointer = Some(p);
             }
 
-            // Her tour: a step when the last has been said.
             let (gw, gh) = (grid.cols as f32 * cw, grid.rows as f32 * ch);
             if let Some(t) = tour.as_mut()
                 && now >= t.next_at
@@ -799,7 +716,6 @@ mod presence {
                         speaking = Some(Speaking { track: line.track.clone(), started: Instant::now() + AUDIO_LATENCY, _player: player });
                         spoke_at = now;
                     }
-                    // What she points at, in the grid's pixels.
                     let at_region = |r: Region, fx: f32, fy: f32| {
                         region(r).map(|a| [(f32::from(a.x) + f32::from(a.width) * fx) * cw, (f32::from(a.y) + f32::from(a.height) * fy) * ch])
                     };
@@ -832,15 +748,11 @@ mod presence {
                 }
             }
 
-            // Draw her.
             for (id, mesh) in drawing.meshes(&moment) {
                 sent_bytes += mesh.positions.len() * 48 + mesh.indices.len() * 4;
                 host.upload_mesh(id, mesh);
             }
             let scene = drawing.scene(&moment, now);
-            // Her spectacle's layers, worked in the grid's pixels (cells
-            // times the cell) and placed in cells, so they land on her
-            // picture exactly as glass lays it.
             let mut layers = draw::layers(Placement::Cells(cells), Z, &moment, drawing.regalia, angle);
             if moment.spectacle.is_some()
                 && let Some(a) = drawing.anchors(&scene, size)
@@ -888,7 +800,6 @@ mod presence {
                 );
                 last_size = size;
             }
-            // A limb pointing, while one is.
             match gesture.as_ref().and_then(|g| g.layer(now, (cw, ch)).map(|l| (g, l))) {
                 Some((g, layer)) => {
                     if let Some(limb) = drawing.limb_scene(g.kind, g.length, g.size, g.ppm, TIP_ROOM, moment.liquid.max(0.05)) {
@@ -940,20 +851,8 @@ mod presence {
         }
     }
 
-    /// How far her picture is turned in her corner, radians (clockwise on
-    /// screen): negative leans her face up and out of the corner, her neck
-    /// into it.
     const LEAN: f32 = -0.75;
 
-    /// Her place in a window of `grid`, in cells, and her picture's turn:
-    /// about a fifth of its height, her neck in the bottom right corner of
-    /// the mini-viz panel (of the window, above the composer, when the
-    /// mini-viz is not drawn), leaning out of it on the diagonal. She rises
-    /// out of the corner along that diagonal with her presence, a little
-    /// past her place and back (`presence` 0 is wholly beyond the corner),
-    /// grows a little as she speaks (`forward`), and her lean drifts on her
-    /// clock `now`. Returns the cells, the turn and the size her picture is
-    /// drawn at (her largest, so it is only ever shown smaller).
     fn placement(
         grid: angel_glass::GridSize,
         panel: Option<ratatui::layout::Rect>,
@@ -969,20 +868,14 @@ mod presence {
         let side_px = (h * HEIGHT_SHARE).clamp(130.0, 560.0);
         let largest_px = (side_px * (1.0 + FORWARD_GROW)).round() as u32;
         let side = side_px * (1.0 + FORWARD_GROW * forward);
-        // The corner, in pixels.
         let corner = match panel {
             Some(p) => [f32::from(p.x + p.width) * cw, f32::from(p.y + p.height) * ch],
             None => [w - 2.0 * cw, h - 4.0 * ch],
         };
-        // Her lean drifts, slow and uneasy.
         let t = now as f32;
         let angle = LEAN + 0.045 * (t * 0.23).sin() + 0.02 * (t * 0.71 + 1.7).sin();
-        // Where her neck's end lands from her picture's middle once turned:
-        // that point sits in the corner.
         let (s, c) = angle.sin_cos();
         let neck = [-s * side * 0.5, c * side * 0.5];
-        // Rising out of the corner: from a picture's length beyond it, a
-        // little past her place, then home.
         let k = rise(presence);
         let out = 1.0 - k;
         let centre = [corner[0] - neck[0] * 0.9 + neck[0] * 2.2 * out, corner[1] - neck[1] * 0.9 + neck[1] * 2.2 * out];
@@ -990,15 +883,12 @@ mod presence {
         Some((cells, angle, (largest_px, largest_px)))
     }
 
-    /// Her rise through her presence, 0..1, a little past 1 before it
-    /// settles (an ease out with an overshoot).
     fn rise(p: f32) -> f32 {
         let x = p.clamp(0.0, 1.0) - 1.0;
         let back = 1.9;
         1.0 + (back + 1.0) * x * x * x + back * x * x
     }
 
-    /// The bank's lines with their tracks, the rest taken off each.
     fn load_lines(bank: &Path, goddess: &Goddess) -> Result<Vec<Line>, String> {
         let text = std::fs::read_to_string(bank.join("index.json")).map_err(|e| format!("{}: {e}", bank.join("index.json").display()))?;
         let index: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
@@ -1026,7 +916,6 @@ mod presence {
         Ok(out)
     }
 
-    /// A line by id, or one at random for an occasion.
     fn pick<'a>(lines: &'a [Line], what: &str, rng: &mut u64) -> Option<&'a Line> {
         if let Some(line) = lines.iter().find(|l| l.id == what) {
             return Some(line);
@@ -1035,7 +924,6 @@ mod presence {
         (!fit.is_empty()).then(|| fit[(uniform(rng) * fit.len() as f32) as usize % fit.len()])
     }
 
-    /// Play a WAV, owned: it stops when she does.
     fn play(wav: &Path) -> Option<ServiceChild> {
         let quiet = |c: &mut Command| {
             c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());

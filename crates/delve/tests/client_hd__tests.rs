@@ -6,7 +6,6 @@ use super::*;
 use crate::rules::{Pack as Kit, RoomKind, Rng, layout};
 use angel_stage::wire::decode;
 
-/// The Crypt's first fight room, its foes gone, two knights in it.
 fn crypt_fight() -> Run {
     for seed in 3..11u64 {
         let floor = layout::floor_party(1, Kit::Crypt, 2, &mut Rng::new(seed));
@@ -22,8 +21,6 @@ fn crypt_fight() -> Run {
     panic!("no fight room");
 }
 
-/// The page's next stage frame, decoded, with the pictures of any frame
-/// the page was sent before it (a page keeps every picture it is sent).
 fn staged(c: &mut DelveClient) -> angel_stage::wire::Decoded {
     let mut out = Vec::new();
     let before = c.stage(1000.0, &mut out).then(|| decode(&out).expect("it reads").frame.pictures).unwrap_or_default();
@@ -53,11 +50,8 @@ fn a_page_fetches_the_drawings_its_knights_want_and_draws_them_once_they_come() 
     }
     let mut host = Host::new(run);
     host.send(&mut c);
-    // Without a manifest: the inks, nothing wanted.
     let plain = staged(&mut c);
     assert_eq!(c.painting_wanted(), None);
-    // The manifest, the page at four of its pixels to the game's, every
-    // knight on the 64 rung.
     assert!(c.hd_manifest(MANIFEST, 4, 64));
     let first = staged(&mut c);
     assert!(first.frame.pictures.iter().all(|p| (p.width, p.height) != (52, 64)), "nothing drawn before its pixels come");
@@ -66,20 +60,16 @@ fn a_page_fetches_the_drawings_its_knights_want_and_draws_them_once_they_come() 
     assert_eq!(c.painting_wanted(), None, "once");
     let _ = staged(&mut c);
     assert_eq!(c.painting_wanted(), None, "not asked again while it comes");
-    // Its pixels come: drawn in the knight's place, by its feet.
     let rgba = [180u8, 40, 40, 255].repeat(52 * 64);
     assert!(c.put_painting("hd/knight/one@64.png", 52, 64, &rgba));
     let drawn = staged(&mut c);
     let picture = drawn.frame.pictures.iter().find(|p| (p.width, p.height) == (52, 64)).expect("the drawing sent");
-    // (The wire carries quads, in the stage's pixels.)
     let quad = drawn.quads.iter().find(|q| q.picture == picture.id).expect("drawn");
     let [_, _, w, h] = quad.rect;
     assert_eq!((w, h), (13.0, 16.0), "a 64 drawing at a quarter of its pixels");
-    // The next frame names it again without its pixels.
     let again = staged(&mut c);
     assert!(again.frame.pictures.iter().all(|p| (p.width, p.height) != (52, 64)), "sent once");
     assert!(again.quads.iter().any(|q| q.picture == picture.id));
-    // A drawing the page could not fetch is let go: the knight keeps its inks.
     let mut c2 = client(Some(1));
     let mut host2 = Host::new(crypt_fight());
     host2.send(&mut c2);
@@ -100,11 +90,9 @@ fn a_page_shows_no_drawing_finer_than_its_scale_and_none_at_sixteen() {
     let mut c = client(Some(1));
     let mut host = Host::new(crypt_fight());
     host.send(&mut c);
-    // A page at 4x on the 128 rung takes the 32, not the 128 it cannot show.
     assert!(c.hd_manifest(manifest, 4, 128));
     let _ = staged(&mut c);
     assert_eq!(c.painting_wanted().as_deref(), Some("hd/knight/coarse@32.png"));
-    // On the game's own rule, floor one is sixteen: nothing is wanted.
     let mut c = client(Some(1));
     let mut host = Host::new(crypt_fight());
     host.send(&mut c);
@@ -114,12 +102,6 @@ fn a_page_shows_no_drawing_finer_than_its_scale_and_none_at_sixteen() {
     assert_eq!(c.painting_wanted(), None, "floor one: the game's grain");
 }
 
-/// The stage frames a page is sent with HD art, for drawing in a browser
-/// by the page's own `stage.js` (docs/LADDER.md, "The browser"): the
-/// Crypt's fight room, both knights, plain and at each rung, with the
-/// drawings of the pack at `ANGEL_HD_PACK` fed as the page would.
-///
-/// `ANGEL_HD_STAGE=<dir> ANGEL_HD_PACK=<pack> cargo test -p angel-delve write_hd_stage_frames -- --ignored`
 #[test]
 #[ignore]
 fn write_hd_stage_frames() {
@@ -139,8 +121,6 @@ fn write_hd_stage_frames() {
         let mut host = Host::new(run.clone());
         host.send(&mut c);
         let mut fetched = 0usize;
-        // Every frame the page is sent, in order: a page keeps the pictures
-        // each one brings.
         let mut frames: Vec<Vec<u8>> = Vec::new();
         let mut frame = |c: &mut DelveClient| {
             let mut out = Vec::new();
@@ -165,7 +145,6 @@ fn write_hd_stage_frames() {
         frame(&mut c);
         frame(&mut c);
         drop(frame);
-        // One file: each frame's length, then the frame.
         let mut all = Vec::new();
         for f in &frames {
             all.extend((f.len() as u32).to_le_bytes());

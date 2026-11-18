@@ -50,7 +50,6 @@ fn each_moment_paints_while_it_plays_and_nothing_after() {
         let after = with(&run, knight, kind.clone(), life);
         assert!(after.rewards.playing(after.tick).next().is_none());
         assert_eq!(differs(&plain, &frame_for(&after, NATIVE_W, NATIVE_H, Some(1))), 0, "{kind:?} gone");
-        // The same run, the same pixels.
         let again = frame_for(&with(&run, knight, kind.clone(), mid), NATIVE_W, NATIVE_H, Some(1));
         assert_eq!(differs(&playing, &again), 0, "{kind:?} is a pure picture");
     }
@@ -83,7 +82,6 @@ fn the_road_ahead_lays_out_one_to_six_knights() {
         let early = rewards::road_page(&run, 2);
         let full = rewards::road_page(&run, 400);
         assert!(differs(&early, &full) > 500, "{n}: it builds");
-        // Nothing leaves the board's own margins.
         for y in 0..NATIVE_H {
             for x in [0, 1, NATIVE_W - 2, NATIVE_W - 1] {
                 assert_eq!(full.get(x, y), Some([0, 0, 0]), "{n} knights: ({x}, {y})");

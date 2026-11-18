@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Retest only the polyglot tasks Luna-medium missed, escalating effort
-# high -> xhigh -> max. A task drops out once it scores 1.0.
 set -euo pipefail
 
 RR=~/angel_tests/angelX-bench/polyglot-20260921

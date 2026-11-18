@@ -1,7 +1,3 @@
-// The Delve's frames in wasm under node, a tick stepped before each, the
-// frame alone timed by node's clock:
-//   cargo build -p angel-delve-smoke --target wasm32-unknown-unknown --release
-//   node crates/delve/smoke/smoke.mjs <path to angel_delve_smoke.wasm>
 import { readFileSync } from "node:fs";
 
 const bytes = readFileSync(process.argv[2]);
@@ -15,12 +11,9 @@ const scene = (kind) => {
   if (party) instance.exports.party();
   if (rage) force_rage();
   if (ravage) force_ravage();
-  // Match client boot plus its first snapshot; raw admission remains measurable.
   if (!process.argv.includes("--unprepared")) instance.exports.warm_entry(kind);
 };
 const scenes = ["first-room", "kingdom", "busy-fight", "cinder-stack", "latch-duel", "mossbell", "brasswake", "rafterwake", "pennon-rush", "cinderjaw", "the-index", "mother-of-spores", "waxen-warden", "the-bone-choir", "crypt-tithe-marshal", "crypt-tax-keeper", "crypt-relic-liege", "iron-tusk-chief", "red-pick-chief", "the-foreman", "late-fee-leviathan", "side-hall", "book-hop"];
-// The Round Table adventures' stubs, scene kinds 39 to 43 (the holes between
-// are the boss and forest scenes this script does not time).
 ["lanternward", "moonfall", "bannerpeak", "griffinwing", "lightgallop"].forEach((name, i) => { scenes[39 + i] = name; });
 const hex = (n) => n.toString(16).padStart(8, "0");
 {
@@ -47,9 +40,6 @@ const hex = (n) => n.toString(16).padStart(8, "0");
     );
   });
 }
-// Frames as a client draws them (live), at 60 a second with a tick every
-// other one: the slowest twentieth, and the slowest, against the exact
-// frames' (where every sixth tick redraws the room's lit scenery at once).
 {
   const [w, h] = [384, 224];
   scenes.forEach((name, kind) => {
@@ -72,10 +62,6 @@ const hex = (n) => n.toString(16).padStart(8, "0");
   });
 }
 
-// The client's half of the wire a tick: the patch read and applied, the
-// tree read back into a run. Each scene is taken in for a while first, so
-// the engine has compiled the reading code fully (as a page that has
-// played a few seconds has), then timed.
 scenes.forEach((name, kind) => {
   if (rage || ravage || party) return;
   const whole = wire_scene(kind);

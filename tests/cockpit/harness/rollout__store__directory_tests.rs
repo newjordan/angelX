@@ -56,8 +56,6 @@ fn actual_rollout_base_and_descendants_are_private_under_zero_umask_and_migratio
             .mode(0o700)
             .create(&workspace)
             .unwrap();
-        // Both blob-first and recorder/lease-first construction create the
-        // explicit base and repo subtree privately before payload writes.
         for first in ["blob-first", "lease-first"] {
             let base = shared.join(first);
             let _env = crate::tests::TestEnvGuard::set(

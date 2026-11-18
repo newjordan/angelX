@@ -41,26 +41,19 @@
 #[cfg(any(test, feature = "testing"))]
 use std::sync::OnceLock;
 
-/// Which upper world the map is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Plan {
-    /// The old realm, whole.
     Full,
-    /// One tiny castle, a camp for each model house, open hillside.
     Tabula,
 }
 
-/// THE SWITCH. `Plan::Full` brings the full old realm back.
 pub const PLAN: Plan = Plan::Tabula;
 
-/// The plan the map is laid out by.
 #[cfg(not(any(test, feature = "testing")))]
 pub const fn active() -> Plan {
     PLAN
 }
 
-/// The plan the map is laid out by: [`PLAN`], the old one in this crate's own
-/// tests, or what `ANGEL_REALM_PLAN` (`tabula` or `full`) says.
 #[cfg(any(test, feature = "testing"))]
 pub fn active() -> Plan {
     static ACTIVE: OnceLock<Plan> = OnceLock::new();
@@ -74,56 +67,31 @@ pub fn active() -> Plan {
     })
 }
 
-/// Whether the blank-slate plan is the one standing.
 pub fn tabula() -> bool {
     active() == Plan::Tabula
 }
 
-/// Whether the full old realm is the one standing.
 pub fn full() -> bool {
     active() == Plan::Full
 }
 
-/// A rectangle in realm tiles `(tx, ty, tw, th)`.
 pub type Rect = (i32, i32, i32, i32);
 
-/// The Tabula plan, as plain data and pure functions.
 pub mod tabula {
     use super::Rect;
     use crate::world::map::{CHUNK_H, CHUNK_W, MAP_H, MAP_W};
 
-    /// The one biome the whole country is: the frontier, "The March".
     pub const BIOME: crate::world::biome::Biome = crate::world::biome::Biome::March;
 
-    /// The Keep's site: the great tower raised stone by stone (`world::works`,
-    /// docs: the Works), its ditch and all, `28 x 28` tiles on tile corner
-    /// `works::ORIGIN`. The static map holds the whole of it closed (nothing
-    /// is placed, no one is sent across it); what a knight may walk on inside
-    /// is the site's (`rules::site`): the bailey, the gate's causeway, the
-    /// Delve's gate and the spawn open, the ditch, the walls and the keep
-    /// shut as they are dug and laid. Over chunks (4, 4), (5, 4), (4, 5) and
-    /// (5, 5).
     pub const KEEP: Rect = (119, 67, 28, 28);
 
-    /// The spawn and the walkers' start: in the bailey, in the lee of the
-    /// gate. The castle is raised over the way down, which is the story.
     pub const KEEP_STAND: (i32, i32) = (133, 89);
 
-    /// The Delve's gate, a stair into the hillside beside the Keep.
     pub const DELVE_GATE: Rect = (139, 84, 3, 3);
 
-    /// A camp's ground: two tents, a fire and a banner pole, `7 x 4` tiles,
-    /// with the knight's stand a tile below its middle and the house's name
-    /// carved on the ground under that.
     pub const CAMP_W: i32 = 7;
     pub const CAMP_H: i32 = 4;
 
-    /// The ring of camps: one chunk each of the sixteen round the middle one
-    /// (the ring of chunks two out from the Keep's), clockwise from the north,
-    /// each camp set by hand at its own spot in its chunk so the ring is
-    /// loose, never a grid; the camps are 29 to 59 tiles from the Keep (five
-    /// to nine seconds on foot) and at least 15 from each other. House
-    /// `i` of `houses::ids()` camps at `CAMPS[i]`.
     pub const CAMPS: [Rect; 16] = [
         (128, 54, CAMP_W, CAMP_H),
         (149, 52, CAMP_W, CAMP_H),
@@ -143,34 +111,24 @@ pub mod tabula {
         (108, 52, CAMP_W, CAMP_H),
     ];
 
-    /// The tile a camp's knight stands on at home: a tile below its middle.
     pub const fn camp_stand(camp: Rect) -> (i32, i32) {
         (camp.0 + camp.2 / 2, camp.1 + camp.3)
     }
 
-    /// The Delve gate's stand: the tile before its mouth.
     pub const fn delve_stand() -> (i32, i32) {
         (DELVE_GATE.0 + DELVE_GATE.2 / 2, DELVE_GATE.1 + DELVE_GATE.3)
     }
 
-    /// The terrain of the whole realm: open meadow, edge to edge.
     pub fn terrain() -> Vec<u8> {
         vec![b'.'; (MAP_W * MAP_H) as usize]
     }
 
-    /// Every rectangle of closed ground: the Keep, each camp and the Delve's
-    /// gate. Everything else is open.
     pub fn closed() -> Vec<Rect> {
         let mut out = vec![KEEP, DELVE_GATE];
         out.extend(CAMPS);
         out
     }
 
-    /// Whether `(x, y)` is a tile a knight may walk on in this plan: on the
-    /// map, one tile in from its rim, and not on closed ground. The Keep's
-    /// site counts as open here (its walls and ditch are the Works', laid as
-    /// the castle rises: `rules::site`, tested against every state of the
-    /// build in `world::works`).
     pub fn walkable(x: i32, y: i32) -> bool {
         let site = |&r: &Rect| r == KEEP;
         x > 0
@@ -180,15 +138,12 @@ pub mod tabula {
             && !closed().iter().filter(|r| !site(r)).any(|&(tx, ty, tw, th)| x >= tx && y >= ty && x < tx + tw && y < ty + th)
     }
 
-    /// The chunk `(cx, cy)` a rectangle lies wholly inside, if it does.
     pub fn chunk_of((tx, ty, tw, th): Rect) -> Option<(i32, i32)> {
         let (cx, cy) = (tx.div_euclid(CHUNK_W), ty.div_euclid(CHUNK_H));
         let inside = (tx + tw - 1).div_euclid(CHUNK_W) == cx && (ty + th - 1).div_euclid(CHUNK_H) == cy;
         inside.then_some((cx, cy))
     }
 
-    /// Whether the knight can walk from the Keep's stand to `to`, over the
-    /// open ground of this plan (four ways, as the walkers step).
     pub fn reaches(to: (i32, i32)) -> bool {
         let idx = |(x, y): (i32, i32)| (y * MAP_W + x) as usize;
         let mut seen = vec![false; (MAP_W * MAP_H) as usize];

@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# run_one.sh <angel-binary> <sandbox-helper> <label> <plain|reader>
-# One headless task against the stub model; the request log lands in out/<label>.jsonl.
 set -euo pipefail
 if [[ $# != 4 ]]; then
   printf 'Usage: %s <angel-binary> <sandbox-helper> <label> <plain|reader>\n' "$0" >&2

@@ -19,53 +19,30 @@ use super::*;
 use super::kingdom::door_at;
 use crate::world::works::{self, Castle};
 
-/// The most sites a run keeps.
 pub const MAX_SITES: usize = 8;
 
-/// How many stones stand when a run first looks at the Keep (and in a save
-/// from before sites): partway up the second lift of the great tower, the
-/// ditch dug and the scaffolds and the crane standing.
 pub const START: u32 = 1_500;
 
-/// How near a knight must be to the site, in tiles from its middle, for the
-/// masons to keep at it.
 pub const NEAR_TILES: f32 = 30.0;
 
-/// How long E is held at the site before the Chronicle begins, ticks.
 pub const CHRONICLE_HOLD: u32 = 45;
 
-/// How long the Chronicle takes to replay the whole build, ticks: thirty
-/// seconds, bare hillside to today.
 pub const CHRONICLE_TICKS: u64 = 30 * HZ as u64;
 
-/// One castle on the map.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Site {
-    /// The baked castle's id.
     pub plan: String,
-    /// How many stones stand, in lay order.
     pub laid: u32,
-    /// Who set them, run-length: `(end, seat)` means the stones from the
-    /// last run's end up to `end` were set by `seat` (0: the realm's own
-    /// masons, before the party came).
     pub marks: Vec<(u32, u8)>,
-    /// Which stones were set true (plumb and level both), as stone ranges
-    /// `[start, end)`: a true stone is the stronger for it. Left out while
-    /// none is.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub trues: Vec<(u32, u32)>,
-    /// Stones knocked out of the lift in hand by a raid (or brought down with them,
-    /// `works_siege`): they stood once (`index < laid`) and stand no more, in lay
-    /// order. The masons and the knights lay them again before they lay another.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub lost: Vec<u32>,
-    /// Runs of stone type by laid index: `(end, kind)`. Empty reads as all limestone.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub bands: Vec<(u32, u8)>,
 }
 
-/// The most stones a site keeps as lost at once.
 pub const MAX_LOST: usize = 256;
 
 impl Default for Site {
@@ -75,14 +52,10 @@ impl Default for Site {
 }
 
 impl Site {
-    /// The Keep's site as a run first sees it.
     pub fn keep() -> Site {
         Site { plan: works::KEEP.to_string(), laid: START, marks: vec![(START, 0)], trues: Vec::new(), lost: Vec::new(), bands: Vec::new() }
     }
 
-    /// The castle this site raises, if this build knows it.
-    /// Kind of the stone at this laid index. Empty bands are limestone.
-    /// Pale limestone, green-veined, dark basalt, blue ice-stone. Colour only.
     pub fn stone_rgb(kind: u8) -> [f32; 3] {
         match kind {
             1 => [0.48, 0.70, 0.42],
@@ -101,7 +74,6 @@ impl Site {
         0
     }
 
-    /// Remember `n` stones of `kind` just laid, as one run.
     pub fn note_kind(&mut self, n: u32, kind: u8) {
         if n == 0 {
             return;
@@ -124,7 +96,6 @@ impl Site {
         works::castle(&self.plan)
     }
 
-    /// Whether the site's numbers are ones a run may carry.
     pub fn valid(&self) -> bool {
         let most = self.castle().map_or(1 << 20, Castle::len);
         self.plan.len() <= 64
@@ -142,7 +113,6 @@ impl Site {
             && self.lost.last().is_none_or(|&i| i < self.laid)
     }
 
-    /// Put right what [`Site::valid`] would refuse.
     pub fn mend(&mut self) {
         self.plan.truncate(64);
         let most = self.castle().map_or(1 << 20, Castle::len);
@@ -173,8 +143,6 @@ impl Site {
         self.lost.truncate(MAX_LOST);
     }
 
-    /// Who set stone `index`: the seat of the run it falls in, 0 when it
-    /// was set before any record (or is not set yet).
     pub fn setter(&self, index: u32) -> u8 {
         if index >= self.laid {
             return 0;
@@ -183,19 +151,14 @@ impl Site {
         self.marks.get(at).map_or(0, |&(_, seat)| seat)
     }
 
-    /// The next stone to set: the first one knocked out, else the first not yet laid.
     pub fn next(&self) -> u32 {
         self.lost.first().copied().unwrap_or(self.laid)
     }
 
-    /// Whether stone `index` stands: laid, and not knocked out.
     pub fn stands(&self, index: u32) -> bool {
         index < self.laid && self.lost.binary_search(&index).is_err()
     }
 
-    /// Knock out stones (those laid and standing; the rest are ignored, and no more than
-    /// [`MAX_LOST`] are ever out at once). A true stone knocked out is true no longer: whatever
-    /// is set in its place is a new stone. How many went.
     pub fn lose(&mut self, stones: &[u32]) -> usize {
         let mut n = 0;
         for &i in stones {
@@ -210,7 +173,6 @@ impl Site {
         n
     }
 
-    /// Set stone `index` down as not true.
     fn unmark_true(&mut self, index: u32) {
         let at = self.trues.partition_point(|&(_, end)| end <= index);
         let Some(&(a, b)) = self.trues.get(at).filter(|&&(a, _)| a <= index) else { return };
@@ -227,7 +189,6 @@ impl Site {
         }
     }
 
-    /// Set stone `index` down as true.
     fn mark_true(&mut self, index: u32) {
         if self.is_true(index) {
             return;
@@ -247,8 +208,6 @@ impl Site {
         }
     }
 
-    /// Set `n` more stones as `seat`'s, up to the castle's last: the stones knocked out first,
-    /// in lay order, then the stones not yet laid.
     pub fn lay(&mut self, n: u32, seat: u8) {
         let fill = (n as usize).min(self.lost.len());
         self.lost.drain(..fill);
@@ -263,16 +222,12 @@ impl Site {
             _ => self.marks.push((to, seat)),
         }
         self.laid = to;
-        // A tally kept to a few thousand runs: merge the oldest when it is long.
         if self.marks.len() > 4000 {
             self.marks.remove(0);
         }
     }
 
-    /// Set the next stone as `seat`'s, true or not: its mark goes in the
-    /// tally, and a true stone is kept (`trues`).
     pub fn lay_set(&mut self, seat: u8, truth: bool) {
-        // A stone knocked out is set again where it stood.
         if !self.lost.is_empty() {
             let index = self.lost.remove(0);
             if truth {
@@ -294,18 +249,15 @@ impl Site {
         }
     }
 
-    /// Whether stone `index` was set true.
     pub fn is_true(&self, index: u32) -> bool {
         let at = self.trues.partition_point(|&(_, end)| end <= index);
         self.trues.get(at).is_some_and(|&(start, _)| start <= index)
     }
 
-    /// How many of the stones that stand were set true.
     pub fn true_count(&self) -> u32 {
         self.trues.iter().map(|&(a, b)| b - a).sum()
     }
 
-    /// How many stones each seat has set, `(seat, count)`, the most first.
     pub fn tally(&self) -> Vec<(u8, u32)> {
         let mut counts: BTreeMap<u8, u32> = BTreeMap::new();
         let mut from = 0;
@@ -319,13 +271,11 @@ impl Site {
     }
 }
 
-/// A run's sites.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Sites(pub Vec<Site>);
 
 impl Default for Sites {
-    /// The Keep, partway up: what a run (or a save from before sites) has.
     fn default() -> Self {
         Sites(vec![Site::keep()])
     }
@@ -343,7 +293,6 @@ impl Sites {
         }
     }
 
-    /// The Keep's site.
     pub fn keep(&self) -> Option<&Site> {
         self.0.iter().find(|s| s.plan == works::KEEP)
     }
@@ -352,16 +301,11 @@ impl Sites {
         self.0.iter_mut().find(|s| s.plan == works::KEEP)
     }
 
-    /// Left out of a save and the wire while it is as a run starts.
     pub fn is_default(&self) -> bool {
         *self == Sites::default()
     }
 }
 
-/// Make `room`'s tiles over `site` what its stonework and ditch say:
-/// a wall where the stones reach a knee, a pit where the ditch is dug, floor
-/// else. Never the Delve's gate, which the map holds closed itself. True if
-/// any tile changed.
 pub fn patch_room(room: &mut Room, sites: &Sites) -> bool {
     let mut changed = false;
     let gate = crate::world::plan::tabula::DELVE_GATE;
@@ -394,9 +338,6 @@ pub fn patch_room(room: &mut Room, sites: &Sites) -> bool {
 }
 
 impl Run {
-    /// The Keep at work: the knights' hands and the hired hands beside them
-    /// (`hands`) set the stones, each stone as whoever set it; and the
-    /// kingdom's tiles over the site follow what stands.
     pub(super) fn tick_sites(&mut self, inputs: &BTreeMap<u32, Input>) {
         if !works::on_map() {
             return;
@@ -408,9 +349,6 @@ impl Run {
         self.follow_site_tiles();
     }
 
-    /// The Chronicle: a knight holding E in the site's grounds (and not at a
-    /// door, where E opens it) for [`CHRONICLE_HOLD`] ticks starts the replay of
-    /// the whole build for everyone, [`CHRONICLE_TICKS`] long.
     fn tick_chronicle(&mut self, inputs: &BTreeMap<u32, Input>, castle: &'static Castle) {
         if self.site_replay.is_some_and(|began| self.tick >= began + CHRONICLE_TICKS) {
             self.site_replay = None;
@@ -439,9 +377,6 @@ impl Run {
         }
     }
 
-    /// How many of `site`'s stones are shown now: what stands, or, while the
-    /// Chronicle plays, the build as it rose, from bare hillside to what
-    /// stands, eased.
     pub fn site_shown(&self, site: &Site) -> u32 {
         match self.site_replay {
             Some(began) if self.tick >= began && self.tick < began + CHRONICLE_TICKS => {
@@ -453,7 +388,6 @@ impl Run {
         }
     }
 
-    /// The kingdom's tiles over the sites made what the stonework says.
     pub(super) fn follow_site_tiles(&mut self) {
         if !works::on_map() {
             return;
@@ -465,8 +399,6 @@ impl Run {
         self.follow_works_tiles(i);
     }
 
-    /// Set the Keep's site to `laid` stones standing (a test's or a
-    /// developer's hook): the stones set on the way are the realm masons'.
     pub fn lay_to(&mut self, plan: &str, laid: u32) {
         let site = match self.sites.0.iter().position(|s| s.plan == plan) {
             Some(i) => &mut self.sites.0[i],

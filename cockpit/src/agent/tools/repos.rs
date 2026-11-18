@@ -56,8 +56,6 @@ impl Tool for RepoSearchTool {
     }
 }
 
-/// Register `repo_search`, gated on `ANGEL_REPO_TOOL` (default on). GitHub
-/// search is free + key-less, so it advertises everywhere without config.
 pub(crate) fn maybe_register_repos(r: &mut ToolRegistry) {
     if env_flag("ANGEL_REPO_TOOL", true) {
         r.register(Box::new(RepoSearchTool));

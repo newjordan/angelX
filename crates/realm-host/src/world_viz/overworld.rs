@@ -13,8 +13,6 @@
 
 pub use angel_delve::render::overworld::*;
 
-// These two keep their own module over the Delve's same-named ones that the
-// glob above re-exports (the shadowing the cockpit always had).
 #[allow(hidden_glob_reexports)]
 mod deeds;
 pub mod garden;
@@ -23,7 +21,6 @@ mod live;
 mod outcomes;
 mod visitor;
 
-// The overworld tests read these through `use super::*`; live.rs imports glass directly.
 pub use deeds::Deeds;
 #[cfg(test)]
 pub use glass::{GLASS_H, GLASS_W, picture_from_rgba};
@@ -38,8 +35,6 @@ use map::{Place, Realm};
 #[cfg(test)]
 use scene::{Joust, Knight, Soldier, Ward, Weather};
 
-/// What the cockpit lays over the map: its graph garden, and the walking
-/// visitor's door sign.
 #[derive(Debug)]
 pub struct MiniViz {
     pub garden: garden::GardenFrame,
@@ -69,8 +64,6 @@ impl Overlay for MiniViz {
     }
 }
 
-/// Whether travel and arrival show their glass over the map
-/// (`ANGEL_WORLD_GLASS=off` keeps the map bare).
 pub fn glass_enabled() -> bool {
     std::env::var("ANGEL_WORLD_GLASS").map_or(true, |raw| {
         !matches!(
@@ -80,8 +73,6 @@ pub fn glass_enabled() -> bool {
     })
 }
 
-/// Whether the Realm route shows this map (the default) or the Dotmax 3D
-/// ride as before (`ANGEL_WORLD_MAP=3d`).
 pub fn map_enabled() -> bool {
     std::env::var("ANGEL_WORLD_MAP").map_or(true, |raw| {
         !matches!(
@@ -95,8 +86,6 @@ pub fn map_enabled() -> bool {
 #[path = "../../tests/world_viz/overworld__tests.rs"]
 mod tests;
 
-// The Delve's drawing tests. (The two that need the cockpit's realm and a
-// guest's picture run beside the cockpit's own tests.)
 #[cfg(test)]
 #[path = "../../tests/world_viz/overworld__castles_tests.rs"]
 mod castles_tests;

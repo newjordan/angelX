@@ -3,8 +3,6 @@ use crate::rules::{Input, RoomKind};
 use std::collections::BTreeMap;
 use super::super::stage_frame::{self, StageMaker};
 
-/// A run of one knight in the first room of `kind` on floor one, `ticks`
-/// into its fight.
 fn fight(seed: u64, kind: RoomKind, ticks: u32) -> Run {
     let mut run = Run::new(seed, 1, Some("Friend"));
     let index = run
@@ -46,7 +44,6 @@ fn floor_one_is_drawn_in_the_boards_few_flat_inks() {
     let inks = inks_of(&field);
     assert!(inks.iter().all(|c| INKS.contains(c)), "only the board's inks: {inks:?}");
     assert!(inks.len() <= INKS.len());
-    // A wall that meets the floor is a plain bar; the floor is the field.
     let room = run.room();
     let (col, row) = (room.cols as i32 / 2 + 3, 0);
     assert_eq!(room.tile(col, row), Tile::Wall);
@@ -54,7 +51,6 @@ fn floor_one_is_drawn_in_the_boards_few_flat_inks() {
     let (c, r) = (3, 3);
     assert_eq!(room.tile(c, r), Tile::Floor);
     assert_eq!(field.get(c * TILE + 5, r * TILE + 5), Some(FIELD));
-    // Pong's net down the middle.
     let x = (room.cols as i32 * TILE / 2 - 1) & !1;
     let dashes = (0..room.rows as i32 * TILE).filter(|&y| field.get(x, y) == Some(GREY)).count();
     assert!(dashes > 40, "a dashed centre line, {dashes} pixels");
@@ -81,7 +77,6 @@ fn a_foe_on_the_board_is_a_blocky_sprite_in_one_hue() {
     let inks = inks_of(&im);
     assert!(inks.iter().all(|c| [FOE, PONG, FIELD].contains(c)), "{inks:?}");
     assert!(inks.contains(&FOE));
-    // Two pixels to a block.
     for y in (0..im.h - 1).step_by(2) {
         for x in (0..im.w - 1).step_by(2) {
             let c = im.get(x, y);
@@ -102,7 +97,6 @@ fn a_window_lays_the_board_flat_and_unlit_and_floor_two_tips_again() {
     assert!(scene.lights.is_empty() && scene.emitters.is_empty() && scene.pickups.is_empty());
     let frame = StageMaker::default().make(&scene, |_| None);
     assert_eq!(frame.tilt, 0.0);
-    // Down the stairs the world gains its first rung back.
     run.descend_for_test();
     assert!(!here(&run));
     let scene = std::sync::Arc::new(scene_for(&run, NATIVE_W, NATIVE_H, Some(1)));
@@ -121,16 +115,10 @@ fn a_page_takes_the_board_from_its_hosts_welcome() {
     set(false);
 }
 
-/// The identity start as a page sees it: the host's welcome turns the board
-/// on, and each of floor one's three rooms reaches the page as the board,
-/// tick after tick. A page bakes the next torch step a stage a frame, from
-/// the ordinary dungeon's art (`scenery::DungeonBake`), so the board must
-/// never have a next torch step; floor two's torches step again.
 #[test]
 fn the_identity_floor_reaches_a_page_as_the_board() {
     use super::super::scenery::torch_step;
     use crate::wire::Params;
-    // The host (ANGEL_DELVE_IDENTITY=1) says so in its welcome.
     set(true);
     let welcome = Params::with_mode(crate::world3d::room::Mode::Off).encode();
     set(false);
@@ -161,17 +149,11 @@ fn the_identity_floor_reaches_a_page_as_the_board() {
             let ground = scene.ground.expect("the board's field");
             let inks = inks_of(&ground);
             assert!(inks.iter().all(|c| INKS.contains(c)), "room {index}: only the board's inks, {inks:?}");
-            // The wall along the foot is a plain bar, not the dungeon's bricks.
             let room = run.room();
             let (col, row) = (3, room.rows as i32 - 1);
             assert_eq!(room.tile(col, row), Tile::Wall);
             assert_eq!(ground.get(col * TILE + 5, row * TILE + 5), Some(BAR), "room {index}");
         }
-        // What stands and moves in the room besides the knights and its foes
-        // (a frog hopping about) is held to the board's inks too, on a page
-        // and in a terminal alike. (A foe is the foe's hue,
-        // `a_foe_on_the_board_is_a_blocky_sprite_in_one_hue`; a guardian's
-        // nameplate and bar are its marks.)
         let mut bare = run.clone();
         bare.players.clear();
         bare.enemies.clear();
@@ -185,7 +167,6 @@ fn the_identity_floor_reaches_a_page_as_the_board() {
         assert!(!inks.is_empty(), "room {index}: the frog is drawn");
         assert!(inks.iter().all(|c| INKS.contains(c)), "room {index}: the room's creatures in the board's inks, {inks:?}");
     }
-    // Floor two: the dungeon's own look, its torches stepping.
     run.descend_for_test();
     assert!(!here(&run));
     let step = torch_step(&run);
@@ -196,9 +177,6 @@ fn the_identity_floor_reaches_a_page_as_the_board() {
     set(false);
 }
 
-/// The board's proof shots, as a terminal draws them (a pixel of the frame
-/// is half a cell): `ANGEL_ATARI_SHOTS=<dir> cargo test -p angel-delve --lib
-/// write_atari_shots`.
 #[test]
 fn write_atari_shots() {
     let Some(dir) = std::env::var_os("ANGEL_ATARI_SHOTS") else {
@@ -224,18 +202,15 @@ fn write_atari_shots() {
     let both = |name: &str, run: &Run| {
         set(true);
         save(&format!("{name}-a0.png"), &frame(run, NATIVE_W, NATIVE_H), 3);
-        // A terminal of 200 x 58 cells: the frame boiled down to its grain.
         save(&format!("{name}-a0-term200.png"), &frame(run, 200, 116), 6);
         set(false);
         save(&format!("{name}-today.png"), &frame(run, NATIVE_W, NATIVE_H), 3);
     };
-    // A party of three in a fight on floor one: the doors barred, foes in.
     for seed in [11u64, 23] {
         let mut run = Run::new(seed, 1, Some("Friend"));
         run.join_seat(3, "Goose Inspector");
         let index = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
         run.enter_for_test(index);
-        // Loot on the floor, in the board's second hue.
         let (w, h) = (run.room().width(), run.room().height());
         for (k, card) in ["gold", "potion", "gold"].iter().enumerate() {
             run.dungeon.rooms[run.at].items.push(crate::rules::Item {
@@ -248,7 +223,6 @@ fn write_atari_shots() {
         step(&mut run, 70, -1);
         both(&format!("fight-{seed}"), &run);
     }
-    // The knights stood together in the middle of the room, the view on them.
     let gather = |run: &mut Run| {
         let (w, h) = (run.room().width(), run.room().height());
         for (k, hero) in run.players.values_mut().enumerate() {
@@ -256,14 +230,12 @@ fn write_atari_shots() {
             hero.camera = Some((hero.x, hero.y - 1.0));
         }
     };
-    // The floor's guardian, in the stairs room it holds.
     let mut run = Run::new(11, 1, Some("Friend"));
     run.join_seat(3, "Goose Inspector");
     let index = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Stairs).unwrap();
     run.enter_for_test(index);
     gather(&mut run);
     step(&mut run, 90, -1);
-    // The view on the guardian, the knights below it.
     if let Some((bx, by)) = run.enemies.iter().find(|e| e.is_boss()).map(|e| (e.x, e.y)) {
         for (k, hero) in run.players.values_mut().enumerate() {
             (hero.x, hero.y) = (bx - 2.0 + 1.6 * k as f32, by + 4.5);
@@ -272,12 +244,10 @@ fn write_atari_shots() {
         step(&mut run, 2, -1);
     }
     both("guardian", &run);
-    // The way down once it falls: the stairs open.
     run.clear_for_test();
     gather(&mut run);
     step(&mut run, 20, 0);
     both("stairs-open", &run);
-    // Down the stairs: floor two keeps today's black look, the first rung.
     let mut run = Run::new(11, 1, Some("Friend"));
     run.descend_for_test();
     let index = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight).unwrap();
@@ -288,9 +258,6 @@ fn write_atari_shots() {
     set(false);
 }
 
-/// The identity start's streamlined first floor shows the whole board: grey
-/// walls at the head, the foot and both sides, all on the view above the
-/// HUD's band, and a gap in the head wall where the stairs stand.
 #[test]
 fn the_streamlined_room_shows_its_whole_frame_with_the_stairs_gap() {
     set(true);

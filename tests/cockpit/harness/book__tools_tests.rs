@@ -4,12 +4,6 @@
 //! page address.
 use super::super::{DIGITS, Route, Sub, TOC, ledger, primary};
 
-/// Each tool's section and the sentences its schema carried, in order: the
-/// guidance moved off its description, then each parameter's description. A
-/// page dropped, merged or paraphrased fails here.
-/// Load the original tool-page witness at test time.
-/// The digest frames every row and page length, so omission, reordering and
-/// whitespace changes cannot silently weaken the existing assertions.
 fn original_tool_notes() -> Vec<(String, String, Vec<String>)> {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../tests/cockpit/fixtures/original-tool-notes.json");
@@ -34,11 +28,8 @@ fn original_tool_notes() -> Vec<(String, String, Vec<String>)> {
     notes
 }
 
-
-/// Volume II's chapters, in table-of-contents order.
 const VOLUME_TWO: &str = "⠡⠩⠹⠱⠫⠣⠷⠾⠯⠮";
 
-/// A section that carries a tool's pages past ten is named for it, continued.
 const CONTINUED: &str = ", continued";
 
 fn section(cells: &str) -> &'static Sub {
@@ -50,12 +41,10 @@ fn section(cells: &str) -> &'static Sub {
         .unwrap_or_else(|| panic!("{cells} is not a section"))
 }
 
-/// The tool a Volume II section belongs to.
 fn tool_of(sub: &Sub) -> &'static str {
     sub.name.strip_suffix(CONTINUED).unwrap_or(sub.name)
 }
 
-/// A tool's sections: its own first, then its continuation.
 fn sections_of(tool: &str) -> Vec<Route> {
     let mut subs: Vec<&Sub> = TOC
         .iter()
@@ -106,7 +95,6 @@ fn volume_two_is_one_section_per_tool_and_each_routes_somewhere() {
             );
         }
     }
-    // A continuation follows a full section of its own tool.
     for name in &tools {
         if let Some(tool) = name.strip_suffix(CONTINUED) {
             let own = sections_of(tool);
@@ -121,7 +109,6 @@ fn is_braille(word: &str) -> bool {
     !word.is_empty() && word.chars().all(ledger::is_cell)
 }
 
-/// Does a page keep a `{placeholder}` for data after its address to fill?
 fn has_placeholder(page: &str) -> bool {
     page.match_indices('{').any(|(at, _)| {
         let rest = &page[at + 1..];
@@ -133,8 +120,6 @@ fn has_placeholder(page: &str) -> bool {
     })
 }
 
-/// One word of page addresses, each into this tool's own sections; the last
-/// page it names.
 fn own_pages(tool: &str, word: &str, own: &[Route]) -> String {
     let addresses =
         ledger::addresses(word).unwrap_or_else(|| panic!("{tool}: `{word}` is not addresses"));
@@ -159,8 +144,6 @@ fn own_pages(tool: &str, word: &str, own: &[Route]) -> String {
     last
 }
 
-/// Page addresses and their data: data rides only right after an address
-/// whose page keeps a placeholder for it.
 fn check_pages_and_data(tool: &str, words: &[&str], own: &[Route]) {
     let mut fills = false;
     for word in words {
@@ -172,10 +155,6 @@ fn check_pages_and_data(tool: &str, words: &[&str], own: &[Route]) {
     }
 }
 
-/// A description: what the tool does, then its route (its own section, and
-/// its continuation when its guidance runs there), then only pages of its own
-/// sections with the data their placeholders take. The routes it names, or
-/// none when the tool has no section.
 fn description_routes(def: &crate::agent::club::ToolDef, own: &[Route]) -> Vec<Route> {
     let words: Vec<&str> = def.description.split_whitespace().collect();
     let Some(at) = words.iter().position(|word| is_braille(word)) else {
@@ -209,7 +188,6 @@ fn description_routes(def: &crate::agent::club::ToolDef, own: &[Route]) -> Vec<R
     routes
 }
 
-/// Every `description` in a params schema, with its JSON path.
 fn param_descriptions(params: &serde_json::Value) -> Vec<(String, String)> {
     fn walk(value: &serde_json::Value, path: String, out: &mut Vec<(String, String)>) {
         match value {
@@ -246,25 +224,14 @@ fn schema_texts(def: &crate::agent::club::ToolDef) -> Vec<String> {
         .collect()
 }
 
-/// Every tool schema the harness advertises, full with its lean twin: the
-/// practice registry in each mode that changes a schema (solo, remote consults
-/// off, a research origin, a sealed task, YOLO), the tools registered only on
-/// demand (language servers, the cockpit screen, embeddings, memory) and the
-/// variants a mode picks (the full self map, the offline cargo).
 fn every_schema(root: &std::path::Path) -> Vec<crate::agent::club::ToolDef> {
     use crate::agent::harness::Tool;
     use crate::tests::TestEnvGuard;
-    // Schema coverage must include the optional vision tool on hosts without
-    // credentials or a cached image-capable model catalog. No request is made.
     let _vision_url = TestEnvGuard::set("ANGEL_VISION_URL", "http://127.0.0.1:9/v1");
     let _vision_model = TestEnvGuard::set("ANGEL_VISION_MODEL", "schema-fixture");
-    // Exercise the actual optional registration path without host credentials,
-    // ambient enable/model settings, or a tool call. Guards restore the caller.
     let _jev_key = TestEnvGuard::set("TYPESAFE_API_KEY", "schema-fixture-key");
     let _jev_enabled = TestEnvGuard::set("ANGEL_JEV", "1");
     let _jev_model = TestEnvGuard::set("ANGEL_JEV_MODEL", "schema-fixture");
-    // Grok's registration checks local file existence, not a token exchange.
-    // The empty marker and missing catalog live only in the caller's scratch.
     let schema_grok_auth = root.join("schema-grok-auth.json");
     std::fs::write(&schema_grok_auth, "{}").unwrap();
     let _grok_auth = TestEnvGuard::set("ANGEL_GROK_OAUTH_FILE", schema_grok_auth.to_str().unwrap());
@@ -276,6 +243,7 @@ fn every_schema(root: &std::path::Path) -> Vec<crate::agent::club::ToolDef> {
     let _grok_tool = TestEnvGuard::set("ANGEL_GROK_TOOL", "1");
     let _grok_research = TestEnvGuard::set("ANGEL_GROK_RESEARCH", "1");
     let _grok_model = TestEnvGuard::set("ANGEL_GROK_MODEL", "grok-4.7");
+    let _mcp = TestEnvGuard::set("ANGEL_MCP_CONFIG", "/nonexistent/mcp.json");
     let bag = crate::agent::club::Bag::practice_for_test();
     let mut defs = Vec::new();
     let modes: [&[(&'static str, &str)]; 3] = [
@@ -341,9 +309,6 @@ fn given_optional_tools_absent_when_enumerating_then_schemas_and_env_survive() {
     let _lock = crate::tests::env_lock();
     let root = std::env::temp_dir().join(format!("angel-book-jev-schema-{}", std::process::id()));
     std::fs::create_dir_all(&root).unwrap();
-    // Given no credential, disabled integration, or invalid ambient model,
-    // When enumerating schemas, Then real registration is covered using only
-    // synthetic fixture configuration and the original environment is restored.
     for (key, enabled, model) in [
         (None, "0", ""),
         (Some("  "), "1", "invalid/model"),
@@ -377,8 +342,6 @@ fn given_optional_tools_absent_when_enumerating_then_schemas_and_env_survive() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
-/// True when `def` is the schema that cartridge advertised, not merely a
-/// first-party tool that shares a cartridge tool's name.
 fn schema_from_own_cartridge(def: &crate::agent::club::ToolDef) -> bool {
     crate::agent::harness::cartridges::all()
         .iter()
@@ -421,7 +384,6 @@ fn every_schema_names_its_tools_section_and_carries_no_moved_sentence() {
                     );
                 }
             }
-            // Its description names its section, or it has none.
             let routes = description_routes(def, &own);
             assert_eq!(
                 routes.is_empty(),
@@ -429,10 +391,6 @@ fn every_schema_names_its_tools_section_and_carries_no_moved_sentence() {
                 "{} ends with its route",
                 def.name
             );
-            // Every parameter description is its pages. A plugged-in
-            // cartridge's tool has no book section, so its English schema is
-            // not held to page addresses; a first-party tool without a section
-            // carries no descriptions to check (graph).
             let described = param_descriptions(&def.params);
             if own.is_empty() {
                 if !described.is_empty() {
@@ -454,7 +412,6 @@ fn every_schema_names_its_tools_section_and_carries_no_moved_sentence() {
                 }
             }
         }
-        // A lean parameter is the same page as its full one.
         let full_params: std::collections::HashMap<_, _> =
             param_descriptions(&full.params).into_iter().collect();
         for (path, text) in param_descriptions(&lean.params) {
@@ -464,7 +421,6 @@ fn every_schema_names_its_tools_section_and_carries_no_moved_sentence() {
         }
         seen.insert(full.name);
     }
-    // Every Volume II section belongs to a tool the harness advertises.
     for (cells, tool, _) in &notes {
         let tool = tool.strip_suffix(CONTINUED).unwrap_or(tool);
         assert!(seen.contains(tool), "{cells} {tool} is no advertised tool");
@@ -472,8 +428,6 @@ fn every_schema_names_its_tools_section_and_carries_no_moved_sentence() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// Tool search indexes the English a schema's braille names: the route reads
-/// as its section's pages, a parameter as its own.
 #[test]
 fn tool_search_reads_the_pages_a_schema_names() {
     use crate::agent::harness::Tool;
@@ -493,8 +447,6 @@ fn tool_search_reads_the_pages_a_schema_names() {
     assert!(!text.chars().any(ledger::is_cell), "{text}");
 }
 
-/// Wire weight of the tool schemas: `cargo test schema_weight -- --ignored
-/// --nocapture` prints bytes and English totals for the practice registry.
 #[test]
 #[ignore = "measurement"]
 fn schema_weight() {
@@ -534,9 +486,6 @@ fn schema_weight() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// The advertised schemas as sent and with every braille description read out
-/// in English (`ledger::expand`), written to `ANGEL_SCHEMA_DUMP/<set>-{braille,english}.json`
-/// for an outside tokenizer: `ANGEL_SCHEMA_DUMP=/tmp/d cargo test schema_expansion_dump -- --ignored`.
 #[test]
 #[ignore = "measurement"]
 fn schema_expansion_dump() {

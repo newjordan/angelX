@@ -27,39 +27,24 @@ use super::works_mesh::{self, BLOCK, Part};
 use crate::rules::Run;
 use crate::world::works::{self, Castle, PX_PER_M};
 
-/// How many stones after it is laid a block's mortar is wet: a few minutes at the pace the hands and the hired hands set (`rules::hands`).
 pub const WET_STONES: u32 = 64;
 
-/// What a window draws of a site this frame.
 #[derive(Debug)]
 pub struct WorksView {
     pub plan: &'static str,
     pub laid: u32,
-    /// Stone meshes, each with how wet its mortar is, 0 (dry) to 1.
     pub parts: Vec<(Arc<Part>, f32)>,
-    /// Stone kind of each part. Empty means all limestone.
     pub kinds: Vec<u8>,
-    /// The falsework standing.
     pub falsework: Vec<Arc<Part>>,
     pub lamps: Vec<SetLamp>,
-    /// The site alive: the crane and its stone, the benches, the dust, the
-    /// pegs and marks, as nodes in kingdom pixels (ids from [`LIFE_IDS`]).
     pub life: Vec<Node>,
-    /// The box the whole castle fills, kingdom pixels.
     pub bounds: ([f32; 3], [f32; 3]),
-    /// The crane's yard in kingdom pixels, `[x0, z0, x1, z1]`: where the
-    /// look dyes the timber ramp (`works_yard`).
     pub yard: Option<[f32; 4]>,
-    /// The lane the carts come by to it, in the same ramp.
     pub lane: Option<[f32; 4]>,
 }
 
-/// The first id of the site's own nodes, over the parts' (which count from 0).
 pub const LIFE_IDS: u64 = 0x1_0000;
 
-/// The Keep's site as the run has it, or `None` (no site, no castle known):
-/// as it stands, or as the Chronicle replays it; the marks near a knight
-/// (`knight`, kingdom pixels) shown.
 pub fn of(run: &Run, knight: Option<[f32; 2]>) -> Option<Arc<WorksView>> {
     if !works::on_map() {
         return None;
@@ -67,9 +52,6 @@ pub fn of(run: &Run, knight: Option<[f32; 2]>) -> Option<Arc<WorksView>> {
     let site = run.sites.keep()?;
     let castle = site.castle()?;
     let shown = run.site_shown(site);
-    // The carpenters' bays stand ahead of the masons; the Chronicle shows the
-    // build as it was, no bay before its time. The crane turns on the site's
-    // own clock, so a knight on the wheel turns it faster.
     let built = if run.site_replay.is_some() { shown } else { run.hands.yard.timber };
     let mut v = view_banded(castle, shown, built, &site.lost, &site.bands);
     let yard = super::works_yard::of(castle, run, shown, built, run.crane_seconds());
@@ -108,17 +90,14 @@ fn push_run(
     }
 }
 
-/// A castle with `laid` stones standing, with nothing alive about it yet.
 pub fn view(castle: &'static Castle, laid: u32) -> WorksView {
     view_built(castle, laid, laid)
 }
 
-/// [`view`] with the falsework raised as far as stone `built`.
 pub fn view_built(castle: &'static Castle, laid: u32, built: u32) -> WorksView {
     view_lost(castle, laid, built, &[])
 }
 
-/// [`view_built`] with the stones `lost` (sorted) knocked out of the lift in hand by a raid.
 pub fn view_lost(castle: &'static Castle, laid: u32, built: u32, lost: &[u32]) -> WorksView {
     view_banded(castle, laid, built, lost, &[])
 }
@@ -133,12 +112,10 @@ pub fn view_banded(castle: &'static Castle, laid: u32, built: u32, lost: &[u32],
             break;
         }
         if end <= laid {
-            // A lift done: one mesh a chunk. Its mortar is as dry as its last block's.
             let wet = wetness(laid, end);
             push_run(&mut parts, &mut kinds, castle, first, end, end, &[], bands, wet);
             continue;
         }
-        // The lift going up: blocks, the last of them as far as it is laid.
         let mut from = first;
         while from < laid {
             let to = (from + BLOCK).min(end);
@@ -165,15 +142,11 @@ pub fn view_banded(castle: &'static Castle, laid: u32, built: u32, lost: &[u32],
     }
 }
 
-/// How wet the mortar of stones laid up to `end` is with `laid` standing:
-/// 1 as it is laid, drying to 0 over [`WET_STONES`] stones.
 pub fn wetness(laid: u32, end: u32) -> f32 {
     let age = laid.saturating_sub(end);
     (1.0 - age as f32 / WET_STONES as f32).clamp(0.0, 1.0)
 }
 
-/// The light a site gives: a brazier in the bailey beside the gate's mouth
-/// and a lantern up at the working face (the last stone laid).
 fn lamps(castle: &Castle, laid: u32) -> Vec<SetLamp> {
     let mut out = vec![SetLamp { at: castle.world([-2.6, -12.4, 1.6]), reach: 64.0, strength: 0.85 }];
     if laid > 0 {
@@ -186,8 +159,6 @@ fn lamps(castle: &Castle, laid: u32) -> Vec<SetLamp> {
     out
 }
 
-/// The next lift pegged out in line before it is laid: stakes at the first
-/// course's corners once the lift going up is two thirds laid.
 fn pegs(castle: &'static Castle, laid: u32) -> Vec<Arc<Part>> {
     if laid == 0 || laid >= castle.len() {
         return Vec::new();
@@ -202,7 +173,6 @@ fn pegs(castle: &'static Castle, laid: u32) -> Vec<Arc<Part>> {
     works_mesh::pegs(castle, next)
 }
 
-/// The site alive, as nodes in kingdom pixels.
 fn life(castle: &'static Castle, site: &crate::rules::site::Site, laid: u32, knight: Option<[f32; 2]>, yard: Vec<Node>) -> Vec<Node> {
     use crate::world::works_life as wl;
     let k = PX_PER_M;
@@ -219,31 +189,26 @@ fn life(castle: &'static Castle, site: &crate::rules::site::Site, laid: u32, kni
         n.transform = Transform { translation: px(c), rotation: quat_axis_angle([0.0, 1.0, 0.0], yaw), scale: size_m.map(|v| v * k) };
         n
     };
-    // The cutting benches, a block on each.
     if laid < castle.len() {
         for b in wl::BANKERS {
             push(&mut out, cube([b[0], b[1], 0.45], [1.5, 0.7, 0.9], 0.0, 0.34));
             push(&mut out, cube([b[0] + 0.1, b[1], 1.05], [0.7, 0.45, 0.3], 0.0, 0.66));
         }
     }
-    // The yard alive: the crane, the stack at its foot, the carts, the tubs, the ladder (`works_yard`).
     for n in yard {
         push(&mut out, n);
     }
-    // Dust where the last stones landed.
     for p in wl::dust(castle, laid) {
         let mut n = Node::new(0, MeshRef::Sphere { segments: 8 }, Material { alpha: AlphaMode::Blend, ..Material::lit([0.86, 0.84, 0.78, p.thick], 0.0) });
         n.transform = Transform { translation: px(p.at), scale: [p.radius * k; 3], ..Transform::IDENTITY };
         push(&mut out, n);
     }
-    // The fire in the bailey's brazier.
     let at = px([-2.6, -12.4, 0.8]);
     let [r, g, b] = Kind::Fire.capture();
     let mut fire = Node::new(0, MeshRef::Cone { segments: 6 }, Material { accent: true, ..Material::color([f32::from(r) / 255.0, f32::from(g) / 255.0, f32::from(b) / 255.0, 1.0]) });
     fire.transform = Transform { translation: [at[0], at[1] + 6.0, at[2]], scale: [0.5 * k, 1.1 * k, 0.5 * k], ..Transform::IDENTITY };
     push(&mut out, fire);
     push(&mut out, cube([-2.6, -12.4, 0.35], [0.8, 0.8, 0.7], 0.0, 0.5));
-    // Mason's marks: on the stones near the knight, cut by whoever set them.
     if let Some(feet) = knight {
         let covers = works_mesh::covers(castle);
         let (ox, oz) = works::origin_px();
@@ -254,13 +219,11 @@ fn life(castle: &'static Castle, site: &crate::rules::site::Site, laid: u32, kni
         let mut cands: Vec<(f32, u32)> = Vec::new();
         for i in 0..laid {
             let b = castle.stones[i as usize].aabb();
-            // A box standing off the ground whose south face is open to the air.
             if !matches!(castle.stones[i as usize].shape, works::Shape::Box(_)) || b[2] < 20 || covers.faces[i as usize][2] <= laid {
                 continue;
             }
             let c = [f32::from(b[0] + b[3]) / 200.0, f32::from(b[1]) / 100.0, f32::from(b[2] + b[5]) / 200.0];
             let d = near(c);
-            // On the floor this near and not far above it: marks a knight reads.
             if d < 46.0 && c[2] * k < 40.0 {
                 cands.push((d, i));
             }
@@ -288,16 +251,10 @@ fn life(castle: &'static Castle, site: &crate::rules::site::Site, laid: u32, kni
     out
 }
 
-// ------------------------------------------------------------ the ramp ----
-
-/// The castle's stone as a ramp: the hillside's brightness ladder, in
-/// limestone (`realm_look::cloth_ramp`, so the brand's eight steps hold).
 pub fn stone_ramp() -> &'static [[u8; 3]; 8] {
     static RAMP: OnceLock<[[u8; 3]; 8]> = OnceLock::new();
     RAMP.get_or_init(|| {
         use angel_stage::brand::luma;
-        // Each step keeps the hillside's luminance and takes a warm grey's
-        // hue: limestone, not the green of the grass under it.
         let warm = [1.07f32, 1.0, 0.86];
         let norm = 0.2126 * warm[0] + 0.7152 * warm[1] + 0.0722 * warm[2];
         realm_look::HILLSIDE.map(|e| {
@@ -307,22 +264,15 @@ pub fn stone_ramp() -> &'static [[u8; 3]; 8] {
     })
 }
 
-/// Dye the look over the site with the stone's own ramp, as a zone as wide
-/// as the site (the ditch's outer rim), when it is in view. The camps' zones
-/// give way if the look is full.
 pub fn dye(look: &mut Look, view: &realm_look::View, works: &WorksView) {
     let [ox, oz] = view.origin;
     let (lo, hi) = works.bounds;
-    // Seen: the site's box touches the view, with the tipped floor's reach.
     let beyond = 96.0;
     if hi[0] + beyond < ox || lo[0] - beyond > ox + view.size[0] || hi[2] + beyond < oz || lo[2] - beyond > oz + view.size[1] {
         return;
     }
-    // The curtain's reach, the castle's middle: the ditch and the hillside
-    // outside it keep the ground's own ramp.
     let (cx, cz) = works::origin_px();
     let half = [17.4 * PX_PER_M; 2];
-    // Three slots: the Keep's own, and over it the crane's yard and the lane to it (timber, in the Keep's limestone).
     look.zones.truncate(ZONE_MAX - 3);
     look.zones.push(Zone { ramp: stone_ramp().to_vec(), at: [cx - ox, cz - oz], half, radius: 18.0, feather: 22.0 });
     for [x0, z0, x1, z1] in works.yard.into_iter().chain(works.lane) {
@@ -330,11 +280,6 @@ pub fn dye(look: &mut Look, view: &realm_look::View, works: &WorksView) {
     }
 }
 
-// ------------------------------------------------------------ the ditch ----
-
-/// A chunk of the kingdom with the site's ditch dug into its ground, as far
-/// as the earth lifts done say; the chunk as it is where the ditch does not
-/// reach it or none is dug.
 pub fn dig(run: &Run, chunk: &Arc<Chunk>) -> Arc<Chunk> {
     if !works::on_map() {
         return Arc::clone(chunk);
@@ -362,7 +307,6 @@ pub fn dig(run: &Run, chunk: &Arc<Chunk>) -> Arc<Chunk> {
     dug
 }
 
-/// Whether the castle's earthworks lie over chunk `chunk`.
 fn touches(castle: &Castle, chunk: &Chunk) -> bool {
     let (cx, cz) = super::kingdom::cell(chunk.index);
     let (x0, z0) = (cx as f32 * 384.0, cz as f32 * 256.0);
@@ -374,9 +318,6 @@ fn touches(castle: &Castle, chunk: &Chunk) -> bool {
     x0 < maxx + 16.0 && x0 + 384.0 > minx - 16.0 && z0 < maxz + 16.0 && z0 + 256.0 > minz - 16.0
 }
 
-/// A chunk's text with its `ground` statement's corners lowered where the
-/// earth lifts done with `laid` stones standing dug the ring, and darkened
-/// where it is dug.
 fn dig_text(castle: &Castle, text: &str, laid: u32) -> Option<String> {
     let mut lines: Vec<String> = text.lines().map(str::to_string).collect();
     let at = lines.iter().position(|l| l.starts_with("ground "))?;
@@ -385,7 +326,6 @@ fn dig_text(castle: &Castle, text: &str, laid: u32) -> Option<String> {
     let (heights, tones) = rest.split_once(" tones")?;
     let mut h: Vec<f32> = heights.split_whitespace().map(|v| v.parse().ok()).collect::<Option<_>>()?;
     let mut t: Vec<f32> = tones.split_whitespace().map(|v| v.parse().ok()).collect::<Option<_>>()?;
-    // `ground <cols> <rows> step <s> at <x> <z>`.
     let words: Vec<&str> = head.split_whitespace().collect();
     let (cols, rows): (usize, usize) = (words.get(1)?.parse().ok()?, words.get(2)?.parse().ok()?);
     let step: f32 = words.get(4)?.parse().ok()?;
@@ -395,7 +335,6 @@ fn dig_text(castle: &Castle, text: &str, laid: u32) -> Option<String> {
     }
     let (ox, oz) = works::origin_px();
     let mut changed = false;
-    // A corner is a cell of `step` pixels about it: five points in it.
     let r = step * 0.34;
     for j in 0..=rows {
         for i in 0..=cols {
@@ -410,7 +349,6 @@ fn dig_text(castle: &Castle, text: &str, laid: u32) -> Option<String> {
                 let mut inside = 0;
                 for (dx, dz) in [(0.0, 0.0), (r, r), (-r, r), (r, -r), (-r, -r)] {
                     let (px, py) = (mx + dx / PX_PER_M, my - dz / PX_PER_M);
-                    // The causeway before the gate stays whole.
                     if px.abs() < 1.5 && py < 0.0 {
                         continue;
                     }
@@ -429,9 +367,6 @@ fn dig_text(castle: &Castle, text: &str, laid: u32) -> Option<String> {
                 t[k] = (t[k] * (1.0 - 0.45 * covered)).max(0.0);
                 changed = true;
             }
-            // The bailey is trodden earth, not the dark of the hillside: lifted
-            // to a pale packed floor inside the curtain, falling off to the green
-            // at the ditch's inner lip, so what stands there is read against it.
             let reach = 15.6f32;
             let inside = ((reach - mx.abs().max(my.abs() * 0.98)) / 2.4).clamp(0.0, 1.0);
             if inside > 0.0 {

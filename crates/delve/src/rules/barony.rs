@@ -29,46 +29,34 @@ use super::home::{BUY_HOLD, Home};
 use super::*;
 use crate::realm::{Spoil, Spoils};
 
-/// Where King Brannoc is in his story.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Court {
-    /// Not come up the stair yet.
     #[default]
     Absent,
-    /// Camped by the Winding Stair, waiting to be spoken to.
     Camped,
-    /// Met: his missions begin.
     Met,
-    /// His hall stands and he has sworn to the crown: a baron of the realm.
     Sworn,
 }
 
-/// A work the realm paid for, and the labour his dwarves have put in.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Work {
     pub id: String,
-    /// Crew-seconds of labour done (each dwarf at work adds one a second).
     #[serde(default)]
     pub labour: u32,
 }
 
-/// One line of the baron's ledger: what moved, which way.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Entry {
     pub what: String,
     #[serde(default)]
     pub spoils: Spoils,
-    /// True: the realm paid him. False: he paid the realm.
     #[serde(default)]
     pub paid_in: bool,
 }
 
-/// How many recent lines the ledger keeps (the totals are kept apart).
 pub const LEDGER_LINES: usize = 8;
 
-/// The relationship, in spoils: what the realm has paid into his works,
-/// what he has paid back, and the latest lines.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ledger {
     #[serde(default)]
@@ -96,65 +84,42 @@ impl Ledger {
     }
 }
 
-/// The barony as the realm keeps it, inside `Home` (so a friend's mirror
-/// sees it with the cellar). Every field defaults, so an older realm save
-/// loads as a realm the King has not come to yet.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Barony {
     #[serde(default)]
     pub court: Court,
-    /// Works paid for, in the order they were paid: the crew builds the
-    /// first unfinished one.
     #[serde(default)]
     pub works: Vec<Work>,
-    /// The King's mission now, and how far along it is.
     #[serde(default)]
     pub mission: Option<super::bounties::Pinned>,
-    /// Missions done, by id.
     #[serde(default)]
     pub done: Vec<String>,
-    /// Forges relit, by id.
     #[serde(default)]
     pub lit: Vec<String>,
     #[serde(default)]
     pub ledger: Ledger,
-    /// The lost halls the King has sent the party after, and the ones it
-    /// has won him (`reclaim`).
     #[serde(default, skip_serializing_if = "super::reclaim::Halls::is_empty")]
     pub halls: super::reclaim::Halls,
 }
 
-/// Where a work stands.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Site {
-    /// The gate-hall's ruin at the mine-head, in the world.
     KingsHall,
-    /// Off the first hall of every floor of a delve.
     Forge(Pack),
 }
 
-/// A work the realm can pay for: its price, how much labour it takes, what
-/// must come first, and where it stands.
 pub struct WorkDef {
     pub id: &'static str,
     pub name: &'static str,
-    /// What it does, on its ledger board (at most 30 characters).
     pub says: &'static str,
     pub price: &'static [(Spoil, u32)],
-    /// Crew-seconds.
     pub labour: u32,
-    /// The mission that must be done first (`None`: meeting him is enough).
     pub after: Option<&'static str>,
     pub site: Site,
 }
 
 use Spoil::{Bone, Ember, Gem, Gold, Ore, Wax};
 
-/// The works. A perfect bot delve to Dragon Keep banks about 2,200 gold,
-/// 14 ore, 7 gems and 46 embers (`haul_probe`), and Tobbin's dearest rung is
-/// 1,200 gold: the King's Hall is most of two such delves, the Ore-Forge
-/// most of one. Labour: one delve to Dragon Keep is about half an hour of
-/// realm time, so three dwarves raise the hall in about one.
 pub const WORKS: [WorkDef; 6] = [
     WorkDef {
         id: "hall",
@@ -216,25 +181,16 @@ pub fn work(id: &str) -> Option<&'static WorkDef> {
     WORKS.iter().find(|w| w.id == id)
 }
 
-/// One of Caer Dwfn's forges: the hall it stands in, the work that rebuilds
-/// it, the fire that relights it, and what it gives once lit.
 pub struct Forge {
     pub id: &'static str,
     pub name: &'static str,
     pub pack: Pack,
-    /// Its rebuilding work (`None`: not rebuildable).
     pub work: Option<&'static str>,
-    /// What relights it, carried up the stair.
     pub relight: &'static [(Spoil, u32)],
-    /// Its specialty, for the war table.
     pub makes: &'static str,
-    /// What it adds to the tribute for every floor the party clears.
     pub tribute: &'static [(Spoil, u32)],
 }
 
-/// The forges of Caer Dwfn, one a hall, the King's Great Forge last: the
-/// crown of the chain, relit only with the first fire. Each forge but the
-/// last is rebuilt, relit and then works (`goods`).
 pub const FORGES: [Forge; 6] = [
     Forge {
         id: "ore-forge",
@@ -296,30 +252,23 @@ pub fn forge(id: &str) -> Option<&'static Forge> {
     FORGES.iter().find(|f| f.id == id)
 }
 
-/// The forge of a delve's halls, if it has one the realm can rebuild.
 pub fn forge_of(pack: Pack) -> Option<&'static Forge> {
     FORGES.iter().find(|f| f.pack == pack && f.work.is_some())
 }
 
-/// What a mission asks for.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Goal {
-    /// So many fight rooms cleared in a delve's halls.
     Clear(Pack),
-    /// A guardian felled, by its id.
     Fell(&'static str),
 }
 
-/// One of the King's missions.
 pub struct Mission {
     pub id: &'static str,
     pub title: &'static str,
-    /// What he asks, in his words.
     pub asks: &'static str,
     pub goal: Goal,
     pub need: u32,
     pub pays: &'static [(Spoil, u32)],
-    /// The forge that must be lit before he asks it (`None`: none).
     pub after_lit: Option<&'static str>,
 }
 
@@ -348,28 +297,16 @@ pub fn mission(id: &str) -> Option<&'static Mission> {
     MISSIONS.iter().find(|m| m.id == id)
 }
 
-/// Tribute for every floor the party clears, once the Upper Workings are
-/// his again: the miners follow the knights down and dig what they free.
-/// A Mines floor brings a bot about 10 ore (`haul_probe`); his miners add a
-/// third again, and a little gold.
 pub const WORKINGS_TRIBUTE: &[(Spoil, u32)] = &[(Ore, 3), (Gold, 30)];
 
-/// His dwarves at work on a site: three of his own, and one more for every
-/// mission done (they come home from the halls the knights free).
 pub fn crew(barony: &Barony) -> u32 {
     3 + barony.done.len() as u32 + barony.halls.crew()
 }
 
-/// How much mail the Ore-Forge's shirts are worth: one piece, six in the
-/// hundred of every hit turned aside.
 pub const FORGED_MAIL: u32 = 1;
 
-/// The realm seconds between labour marks: the run reports time in chunks,
-/// so the realm is not written every tick.
 pub const SHIFT_SECS: u32 = 10;
 
-/// How a knight holds E at the King's plates, or a forge's: as long as a
-/// station's.
 pub const HOLD: u32 = BUY_HOLD;
 
 fn spoils(list: &[(Spoil, u32)]) -> Spoils {
@@ -411,12 +348,10 @@ impl Barony {
         self.lit.iter().any(|f| f == forge)
     }
 
-    /// A work's labour so far, if it was paid for.
     pub fn labour(&self, id: &str) -> Option<u32> {
         self.works.iter().find(|w| w.id == id).map(|w| w.labour)
     }
 
-    /// How far a work stands, 0 to 1000 (per mille), if paid for.
     pub fn progress(&self, id: &str) -> Option<u32> {
         let def = work(id)?;
         self.labour(id)
@@ -427,7 +362,6 @@ impl Barony {
         self.progress(id) == Some(1000)
     }
 
-    /// The work the crew is on: the first paid for and unfinished.
     pub fn building(&self) -> Option<&'static WorkDef> {
         self.works
             .iter()
@@ -436,13 +370,10 @@ impl Barony {
             .map(|(_, d)| d)
     }
 
-    /// The Upper Workings are his: the Mines' forge is found, its miners
-    /// at work.
     pub fn holds_workings(&self) -> bool {
         self.has_done("workings")
     }
 
-    /// Can a work be paid for now? Why not, if not.
     pub fn may_commission(&self, def: &WorkDef) -> Result<(), String> {
         if self.court < Court::Met {
             return Err("King Brannoc has not been met yet".into());
@@ -457,8 +388,6 @@ impl Barony {
         Ok(())
     }
 
-    /// Miners at work below: two once the Upper Workings are his, two more
-    /// for every forge lit.
     pub fn miners(&self) -> u32 {
         if self.holds_workings() {
             3 + 2 * self.lit.len() as u32
@@ -467,7 +396,6 @@ impl Barony {
         }
     }
 
-    /// What one floor cleared pays him and the realm.
     pub fn tribute(&self) -> Spoils {
         let mut t = Spoils::default();
         if self.holds_workings() {
@@ -480,7 +408,6 @@ impl Barony {
         t
     }
 
-    /// Pin the next mission, if none is pinned and one is ready. Returns it.
     pub fn pin(&mut self) -> Option<&'static Mission> {
         if self.court < Court::Met || self.mission.is_some() {
             return None;
@@ -496,8 +423,6 @@ impl Barony {
     }
 }
 
-/// What the barony looks like, for a drawing kept between frames: the
-/// court, each work to the percent, the forges lit, the missions done.
 pub fn print(b: &Barony) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -511,19 +436,14 @@ pub fn print(b: &Barony) -> u64 {
     h.finish()
 }
 
-/// The mark a cleared fight room leaves, by the delve it is in.
 pub fn clear_mark(pack: Pack) -> String {
     format!("clear:{pack:?}")
 }
 
-/// What `settle` did, for the cockpit to say and announce.
 #[derive(Debug, Default, PartialEq)]
 pub struct Settled {
-    /// The realm changed and wants saving.
     pub changed: bool,
-    /// (chorus cue, notice line), in order.
     pub said: Vec<(String, String)>,
-    /// Achievements earned.
     pub earned: Vec<&'static str>,
 }
 
@@ -533,10 +453,6 @@ impl Settled {
     }
 }
 
-/// The cockpit's half of the barony, once a frame: King Brannoc comes when
-/// a floor of the Mines has been cleared (`mines_cleared`, the realm's
-/// count) or the party has been below the second floor; what the run marked
-/// is paid, worked and counted. `who` names a knight by id for the ledger.
 pub fn settle(
     home: &mut Home,
     treasury: &mut Spoils,
@@ -558,7 +474,6 @@ pub fn settle(
         b.court = Court::Met;
         out.changed = true;
     }
-    // Labour: the crew on the first unfinished work.
     let secs = marks.get("barony:labour").copied().unwrap_or(0);
     if secs > 0
         && let Some(def) = b.building()
@@ -593,7 +508,6 @@ pub fn settle(
             );
         }
     }
-    // Paid works, from their plates.
     for (mark, _) in marks.iter().filter(|(m, _)| m.starts_with("barony:order:")) {
         let mut parts = mark.trim_start_matches("barony:order:").split(':');
         let (Some(id), knight) = (parts.next(), parts.next().and_then(|k| k.parse().ok())) else {
@@ -632,7 +546,6 @@ pub fn settle(
             ),
         );
     }
-    // Forges relit, with fire carried up from below.
     for (mark, _) in marks
         .iter()
         .filter(|(m, _)| m.starts_with("barony:relight:"))
@@ -667,7 +580,6 @@ pub fn settle(
             format!("{} burns again. The hammers ring in Caer Dwfn", f.name),
         );
     }
-    // His mission: what the run did toward it.
     if let Some(pinned) = b.mission.as_mut()
         && let Some(m) = mission(&pinned.id)
     {
@@ -706,8 +618,6 @@ pub fn settle(
     out
 }
 
-/// Tribute for the floors a delve just cleared (one entry each), paid into
-/// the treasury and written in the ledger. What was paid, if anything.
 pub fn pay_tribute(home: &mut Home, treasury: &mut Spoils, floors: usize) -> Option<Spoils> {
     super::goods::rent_days(home, treasury, floors);
     let b = &mut home.barony;
@@ -729,31 +639,16 @@ pub fn pay_tribute(home: &mut Home, treasury: &mut Spoils, floors: usize) -> Opt
     Some(paid)
 }
 
-// ── The run's half: plates, greetings, marks ─────────────────────────────
-
-/// The King's camp at the mine-head, before his hall stands: where he
-/// stands, the plate before him (his mission is read there), his fire and
-/// tent, his two guards (tiles).
 pub const CAMP_KING: (f32, f32) = (8.0, 8.9);
 pub const KING_PLATE: (i32, i32, i32, i32) = (7, 10, 2, 1);
 pub const CAMP_FIRE: (f32, f32) = (5.9, 10.2);
 pub const CAMP_TENT: (f32, f32) = (3.6, 10.6);
 pub const CAMP_GUARDS: [(f32, f32); 2] = [(9.9, 8.7), (4.9, 12.2)];
-/// The gate-hall's great door, in the ruin's south wall (walk-on, open
-/// once the hall stands), and the plate before it where the rebuilding is
-/// paid for (tiles).
 pub const HALL_DOOR: (i32, i32, i32, i32) = (5, 6, 2, 1);
 pub const HALL_PLATE: (i32, i32, i32, i32) = (5, 7, 2, 1);
-/// The barony's stockpile in the yard, where the porters drop the ore
-/// (tiles, the middle of the heap).
 pub const STOCKPILE_AT: (f32, f32) = (9.6, 11.6);
-/// How near the King a knight comes before he speaks.
 const KING_REACH: f32 = 4.0;
 
-/// The King's Hall, inside: his seat on its dais against the north wall,
-/// the Great Forge at the east end (cold until the first fire), the war
-/// table with the forges of Caer Dwfn on it, the ledger's lectern, four
-/// pillars, and the great door out (tiles).
 pub const SEAT_DAIS: (i32, i32, i32, i32) = (10, 1, 4, 2);
 pub const SEAT_AT: (f32, f32) = (12.0, 3.1);
 pub const SEAT_PLATE: (i32, i32, i32, i32) = (11, 4, 2, 1);
@@ -764,11 +659,8 @@ pub const LECTERN: (i32, i32, i32, i32) = (3, 3, 1, 1);
 pub const LECTERN_PLATE: (i32, i32, i32, i32) = (3, 4, 1, 1);
 pub const PILLARS: [(i32, i32); 4] = [(7, 3), (16, 3), (7, 7), (16, 7)];
 pub const HALL_EXIT: (i32, i32, i32, i32) = (11, 12, 2, 1);
-/// The hall's guards either side of the seat.
 pub const HALL_GUARDS: [(f32, f32); 2] = [(9.0, 3.4), (15.0, 3.4)];
 
-/// A forge-hall below (tiles): the furnace in the middle, two anvils, and
-/// the plate before its mouth where it is paid for and relit.
 pub const FURNACE: (i32, i32, i32, i32) = (10, 3, 4, 4);
 pub const ANVILS: [(i32, i32); 2] = [(7, 8), (16, 8)];
 pub const FORGE_PLATE: (i32, i32, i32, i32) = (11, 8, 2, 1);
@@ -778,7 +670,6 @@ fn inside((col, row, w, h): (i32, i32, i32, i32), x: f32, y: f32) -> bool {
     c >= col as f32 && c < (col + w) as f32 && r >= row as f32 && r < (row + h) as f32
 }
 
-/// Is a standing knight on `plate`? Which one.
 pub fn on_plate(run: &Run, plate: (i32, i32, i32, i32)) -> Option<u32> {
     run.players
         .iter()
@@ -786,8 +677,6 @@ pub fn on_plate(run: &Run, plate: (i32, i32, i32, i32)) -> Option<u32> {
         .map(|(&id, _)| id)
 }
 
-/// Where the King is (tiles), and in which room: at his camp by the ruin,
-/// then on his seat in his hall.
 pub fn king_at(b: &Barony) -> Option<(RoomKind, (f32, f32))> {
     match b.court {
         Court::Absent => None,
@@ -796,7 +685,6 @@ pub fn king_at(b: &Barony) -> Option<(RoomKind, (f32, f32))> {
     }
 }
 
-/// The plate his mission is read at, wherever he is.
 pub fn king_plate(b: &Barony) -> (i32, i32, i32, i32) {
     if b.court == Court::Sworn {
         SEAT_PLATE
@@ -806,11 +694,7 @@ pub fn king_plate(b: &Barony) -> (i32, i32, i32, i32) {
 }
 
 impl Run {
-    /// One tick of the barony, wherever the party is: realm time for the
-    /// works, the King's greeting, and the plates at the ruin and the
-    /// forges.
     pub(super) fn tick_barony(&mut self, inputs: &BTreeMap<u32, Input>) {
-        // Labour goes on wherever the party is: realm time is play time.
         if self.home.barony.building().is_some()
             && self.tick.is_multiple_of(u64::from(SHIFT_SECS * HZ))
         {
@@ -861,8 +745,6 @@ impl Run {
         }
     }
 
-    /// Holding E on `plate` marks `what` (with the knight's id) once the
-    /// hold fills, like a station's plate.
     pub(super) fn hold_plate(
         &mut self,
         inputs: &BTreeMap<u32, Input>,
@@ -897,8 +779,6 @@ impl Run {
         }
     }
 
-    /// The cockpit's word on the barony changed: what stands now shows.
-    /// Called from `rebuild_home` with the barony before.
     pub(super) fn barony_news(&mut self, before: &Barony) {
         self.reclaim_news(&before.halls);
         let now = &self.home.barony;
@@ -923,8 +803,6 @@ impl Run {
     }
 }
 
-// ── Layout: the King's Hall inside, a forge-hall below ───────────────────
-
 fn fill(room: &mut Room, (c, r, w, h): (i32, i32, i32, i32), tile: Tile) {
     for row in r..r + h {
         for col in c..c + w {
@@ -933,8 +811,6 @@ fn fill(room: &mut Room, (c, r, w, h): (i32, i32, i32, i32), tile: Tile) {
     }
 }
 
-/// The King's Hall, inside: one room of the world, reached only by its
-/// great door at the mine-head (it has no doorways of its own).
 pub fn kings_hall_room(cell: (i32, i32)) -> Room {
     let mut room = Room::solid_rock(cell);
     room.kind = RoomKind::KingsHall;
@@ -954,8 +830,6 @@ pub fn kings_hall_room(cell: (i32, i32)) -> Room {
     room
 }
 
-/// A forge-hall below: its furnace in the middle and two anvils, a door
-/// toward the hall it hangs off.
 pub fn forge_room(cell: (i32, i32), door: usize) -> Room {
     let mut room = Room::solid_rock(cell);
     room.kind = RoomKind::Forge;
@@ -973,11 +847,6 @@ pub fn forge_room(cell: (i32, i32), door: usize) -> Room {
     room
 }
 
-/// Once the King holds a delve's upper halls, every floor of it has its
-/// forge-hall, off the entrance (or the first hall with room beside it).
-/// Chosen without dice: the first free neighbour, west, east, south, north,
-/// so every other room stays as the seed laid it. Called before the floor's
-/// politics are drawn, so they see the room. True if a room was added.
 pub fn add_forge_hall(floor: &mut Floor, barony: &Barony) -> bool {
     if forge_of(floor.pack).is_none() || !barony.holds_workings() {
         return false;

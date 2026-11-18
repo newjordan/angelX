@@ -1,6 +1,3 @@
-/// The art pass review set: every room of the world above, one room of each
-/// dungeon pack, and the kingdom, each with a knight standing in it.
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_art_pass_shots -- --ignored`.
 #[test]
 #[ignore]
 fn write_art_pass_shots() {

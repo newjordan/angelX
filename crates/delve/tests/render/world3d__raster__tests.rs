@@ -21,8 +21,6 @@ fn pixel(frame: &RgbaImage, x: u32, y: u32) -> [u8; 3] {
 
 #[test]
 fn the_z_buffer_hides_geometry_behind_a_wall() {
-    // A near quad squarely in front of a far quad: the far one must never
-    // reach the frame, whichever order the mesh lists them in.
     let far = |mesh: &mut Mesh| {
         mesh.push_quad(
             v3(9.0, -4.0, 0.0),
@@ -56,7 +54,6 @@ fn the_z_buffer_hides_geometry_behind_a_wall() {
         b.as_raw(),
         "depth order must not depend on list order"
     );
-    // The emissive far quad would be unmistakable; the near stone is dim.
     let centre = pixel(&a, 32, 24);
     assert!(
         luma(centre) < 90.0,
@@ -66,8 +63,6 @@ fn the_z_buffer_hides_geometry_behind_a_wall() {
 
 #[test]
 fn near_plane_clipping_survives_a_camera_inside_the_geometry() {
-    // Camera planted in the middle of a box: every face straddles or sits
-    // behind the near plane. This must render, not panic or blank out.
     let mut mesh = Mesh::new();
     let (lo, hi) = (-2.0f32, 2.0f32);
     for &z in &[0.0f32, 3.0] {
@@ -119,7 +114,6 @@ fn near_plane_clipping_survives_a_camera_inside_the_geometry() {
         .filter(|p| p.0[3] == 255 && luma([p.0[0], p.0[1], p.0[2]]) > 0.0)
         .count();
     assert_eq!(interior_pixels, 64 * 48, "every pixel must be painted");
-    // Standing inside, the walls fill the frame — no sky punches through.
     let above = pixel(&frame, 32, 2);
     assert!(
         luma(above) > 45.0,
@@ -148,11 +142,8 @@ fn the_moon_is_the_brightest_thing_in_the_sky() {
 
 #[test]
 fn window_glow_is_brightest_at_the_pane_centre_and_keeps_its_lead() {
-    // The mullion lattice stays dark — the lead owns the window's shape.
     assert_eq!(window_tint(0.0, 0.0), [76, 55, 35]);
     assert_eq!(window_tint(0.02, 0.02), [76, 55, 35]);
-    // The glow concentrates at the pane centre and falls toward the lead —
-    // the promised "one hot dot" reading, subtle enough to stay glass.
     let centre = window_tint(0.5 * 0.16, 0.5 * 0.20);
     let off_centre = window_tint(0.84 * 0.16, 0.5 * 0.20);
     let corner = window_tint(0.84 * 0.16, 0.90 * 0.20);
@@ -170,7 +161,6 @@ fn window_glow_is_brightest_at_the_pane_centre_and_keeps_its_lead() {
         corner[0] >= 200,
         "the falloff stays subtle — the pane never reads as dim: {corner:?}"
     );
-    // Deterministic: same uv in, same glass out (cache-safe by construction).
     assert_eq!(centre, window_tint(0.5 * 0.16, 0.5 * 0.20));
 }
 
@@ -292,9 +282,6 @@ fn fire_glass_keeps_cames_and_exposed_flame_keeps_a_bright_inner_tongue() {
     );
 }
 
-// ─── a scene's own painted surfaces are opt-in ──────────────────────────────
-
-/// A wall of three painted-capable materials side by side, and a floor.
 fn painted_wall() -> Mesh {
     let mut mesh = Mesh::new();
     for (k, material) in [mat::ROCK, mat::STONE, mat::BONE].into_iter().enumerate() {
@@ -397,8 +384,6 @@ fn a_painted_material_changes_its_own_dots_and_no_others() {
         }
     }
     assert!(changed > 200 && kept > 200, "{changed} painted, {kept} kept");
-    // The painted rock is red, and still lit by the shared lighting: a wall in
-    // shadow is darker than one in the key.
     let rock = seen.iter().position(|&m| m == mat::ROCK).expect("rock in view");
     let [r, g, b] = pixel(&frame, (rock % 96) as u32, (rock / 96) as u32);
     assert!(r > g && r > b, "painted rock is red: {r} {g} {b}");
@@ -414,12 +399,10 @@ fn a_painted_surface_reads_a_coarser_copy_far_away() {
     }
     let mut painted = Painted::new();
     painted.set(mat::STONE, checker);
-    // Near, a texel is the table's own; far, it is the mean of its neighbours.
     assert_eq!(painted.sample(mat::STONE, 0, 0, 1.0), Some([200, 200, 200]));
     assert_eq!(painted.sample(mat::STONE, 1, 0, 1.0), Some([0, 0, 0]));
     assert_eq!(painted.sample(mat::STONE, 0, 0, 100.0), Some([100, 100, 100]));
     assert_eq!(painted.sample(mat::STONE, 255, 255, 100.0), Some([100, 100, 100]));
-    // What it does not paint it does not answer for.
     assert_eq!(painted.sample(mat::ROCK, 0, 0, 1.0), None);
 }
 

@@ -14,7 +14,6 @@ pub fn on_floor(depth: u32, seed: u64, mode: Mode) -> Run {
 }
 
 pub fn finish_room(run: &mut Run) {
-    // A slain slime splits into bounded descendants, each settled normally.
     for _ in 0..8 {
         run.clear_for_test();
         if run.room().cleared {
@@ -29,11 +28,10 @@ pub fn finish_room(run: &mut Run) {
 
 pub fn kill_leader(run: &mut Run, which: usize) {
     let w = run.boss_gates.as_ref().unwrap().leaders[which].clone();
-    run.enter(w.room, Some(2)); // deliberately use production entry, not fixture bypass
-    // The chief's camp is led by an elite with the Boss Key, never a boss.
+    run.enter(w.room, Some(2));
     assert!(run.enemies.iter().any(|e| e.elite && run.carries_key(e)));
     assert!(!run.enemies.iter().any(|e| e.is_boss()));
-    finish_room(run); // actual zero-HP removal through step/settle_kills
+    finish_room(run);
     assert!(run.boss_gates.as_ref().unwrap().leaders[which].defeated);
     assert!(run.room().cleared);
 }

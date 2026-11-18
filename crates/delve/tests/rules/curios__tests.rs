@@ -50,14 +50,12 @@ fn every_curios_card_passes_the_card_checker_whole() {
         assert!(checked.notes.is_empty(), "{}: nothing clamped: {:?}", c.id, checked.notes);
         assert_eq!(checked.card.effects.len(), c.words.len());
     }
-    // They never enter the book: they cannot drop.
     let book = Book::builtin();
     assert!(CURIOS.iter().all(|c| book.get(&format!("curio-{}", c.id)).is_none()));
 }
 
 #[test]
 fn the_curio_cards_hold_within_the_caps() {
-    // Every curio at once cannot pass the deck's caps.
     let all: Vec<&str> = CURIOS.iter().map(|c| c.id).collect();
     let b = with(&all).bonus;
     assert!(b.armor <= 2 && b.speed <= 25 && b.rate <= 30 && b.orbit <= 2 && b.chain <= 1);
@@ -73,7 +71,6 @@ fn the_stock_is_the_runs_alone_and_the_same_every_time() {
     curios.dedup();
     assert_eq!(curios.len(), a.len(), "no two wares alike");
     assert!(a.iter().all(|o| o.price >= 5 && o.price % 5 == 0));
-    // Another run, another bazaar; across runs every curio turns up.
     let mut seen = std::collections::BTreeSet::new();
     let mut different = 0;
     for raid in 0..60u64 {
@@ -83,11 +80,9 @@ fn the_stock_is_the_runs_alone_and_the_same_every_time() {
     }
     assert!(different > 55, "{different}");
     assert_eq!(seen.len(), CURIOS.len(), "all of them turn up");
-    // The fence's ware is cheaper than it would be on a stall.
     let (slot, fence) = bazaar::fence(7, 1);
     assert_eq!(slot, bazaar::FENCE_SLOT);
     assert!(fence.price < fence.curio().price);
-    // Stock reads only seed and raid: stepping a run changes nothing.
     let mut run = Run::at_home(7, 1, None, Default::default(), Default::default());
     let before = run.bazaar_stock();
     for _ in 0..20 {
@@ -119,7 +114,6 @@ fn the_spoon_of_unreasonable_confidence_is_huge_on_bats_and_soft_on_the_rest() {
     assert_eq!(with(&[]).curio_versus(EnemyKind::Bat), 100);
 }
 
-/// What one arrow does to a monster of `kind` standing in its path.
 fn arrow_damage(items: &[&str], kind: EnemyKind) -> u32 {
     let mut run = Run::new(3, 1, None);
     run.calm_for_test();
@@ -201,7 +195,6 @@ fn the_cape_of_dramatic_entrances_wards_a_new_room_and_then_makes_you_pose() {
     h.curio_enters(true);
     assert!(h.invulnerable >= 2 * HZ, "two seconds untouched");
     assert!(h.fire_cooldown >= 30, "posing: no shooting for a second");
-    // Not in the kingdom, and not for a knight without it.
     let mut h = with(&["cape-dramatic-entrances"]);
     h.invulnerable = 0;
     h.curio_enters(false);
@@ -240,7 +233,6 @@ fn gloves_of_butter_fire_fast_and_drop_every_fourth_shot_out_the_back() {
     assert!(wait(&h) < wait(&with(&[])));
     assert!((h.curio_veer(4) - std::f32::consts::PI).abs() < 0.001);
     assert_eq!(h.curio_veer(3), 0.0);
-    // And through a real bow: the fourth arrow flies the other way.
     let mut run = Run::new(3, 1, None);
     let bow = run.book.get("bow").cloned().unwrap();
     let book = run.book.clone();
@@ -349,11 +341,6 @@ fn the_wheel_of_cheese_mends_a_snack_when_a_room_clears_and_smells() {
     run.curios_clear();
     assert_eq!(run.players[&1].hp, 62, "twelve health");
     assert!((pace(&run.players[&1]) / plain_pace() - 0.9).abs() < 0.001);
-    // Through the real clearing of a room: the helper's sweep empties the
-    // room by hand (hp 0 in a loop, not a fight), so the party lands in
-    // Exploring without the clear hook — the snack is paid by `curios_clear`
-    // itself, as shown above. Re-pinned 2026-11-02 to hold the real path to
-    // its own rule instead of the helper's side effect.
     let mut run = Run::new(3, 1, None);
     {
         let h = run.players.get_mut(&1).unwrap();
@@ -419,7 +406,6 @@ fn hammock_slippers_hit_hard_only_after_a_second_of_standing_still() {
         run.step_sim_for_test(&BTreeMap::new());
     }
     assert_eq!(run.players[&1].curio_damage(), 145, "rested");
-    // A step puts the rest to nothing.
     let h = run.players.get_mut(&1).unwrap();
     h.x += 1.0;
     run.step_sim_for_test(&BTreeMap::new());
@@ -505,7 +491,6 @@ fn the_tinfoil_crown_keeps_hexes_and_chills_out_and_the_radio_in() {
     let h = &run.players[&1];
     assert_eq!((h.hexed, h.chilled, h.mired), (0, 0, 0));
     assert_eq!(wait(h), 117, "interference: fire slower");
-    // A knight without the crown is still chilled.
     run.players.get_mut(&1).unwrap().pockets.items.clear();
     run.players.get_mut(&1).unwrap().chilled = 90;
     run.step_sim_for_test(&BTreeMap::new());
@@ -619,7 +604,6 @@ fn the_moth_in_a_matchbox_makes_shots_bigger_and_rattles() {
 
 #[test]
 fn every_curio_changes_something_a_knight_can_measure() {
-    // A catch-all: whatever it says, a curio's boon or bane is in the numbers.
     let base = with(&[]);
     for c in &CURIOS {
         let mut h = with(&[c.id]);
@@ -655,7 +639,6 @@ fn a_knight_buys_a_curio_with_e_and_keeps_it_for_the_run() {
     let stock = run.bazaar_stock();
     let offer = stock[0];
     let curio = offer.curio();
-    // Into the bazaar, before the first stall's first ware.
     let at = bazaar::stand_of(0).unwrap();
     let to_bazaar = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Bazaar).unwrap();
     run.arrive(to_bazaar, at);
@@ -668,7 +651,6 @@ fn a_knight_buys_a_curio_with_e_and_keeps_it_for_the_run() {
     assert!(run.players[&1].pockets.has(curio.id), "{} bought", curio.id);
     assert_eq!(run.players[&1].carried.get(Spoil::Gold), before - offer.price);
     assert!(run.alehouse.said[&1].good);
-    // Again: they do not stack, and nothing is charged.
     let gold = run.players[&1].carried.get(Spoil::Gold);
     for _ in 0..crate::rules::home::BUY_HOLD + 3 {
         run.step(&BTreeMap::from([(1, Input { interact: true, ..Default::default() })]));
@@ -677,7 +659,6 @@ fn a_knight_buys_a_curio_with_e_and_keeps_it_for_the_run() {
     assert_eq!(run.players[&1].carried.get(Spoil::Gold), gold);
     assert_eq!(run.players[&1].pockets.items.len(), 1);
     assert!(run.alehouse.said[&1].text.contains("ALREADY"));
-    // Through the world and down the stair, the pockets stay.
     run.descend_for_test();
     assert!(run.players[&1].pockets.has(curio.id));
     assert!(run.valid_snapshot());
@@ -690,12 +671,10 @@ fn a_pauper_a_full_pocket_and_a_friend_are_each_told_and_charged_alone() {
     run.walk_alehouse();
     run.step(&BTreeMap::new());
     let stock = run.bazaar_stock();
-    // A pauper is told what they lack.
     run.players.get_mut(&1).unwrap().spend_gold(10_000);
     run.buy_curio(1, 0);
     assert!(run.alehouse.said[&1].text.contains("MORE GOLD"));
     assert!(run.players[&1].pockets.items.is_empty());
-    // Pockets fill at six.
     let owned: Vec<String> = CURIOS.iter().take(curios::POCKETS).map(|c| c.id.to_string()).collect();
     run.players.get_mut(&2).unwrap().pockets.items = owned.clone();
     run.players.get_mut(&2).unwrap().carried.add(Spoil::Gold, 10_000);
@@ -703,7 +682,6 @@ fn a_pauper_a_full_pocket_and_a_friend_are_each_told_and_charged_alone() {
     run.buy_curio(2, slot);
     assert!(run.alehouse.said[&2].text.contains("POCKETS ARE FULL"));
     assert_eq!(run.players[&2].pockets.items, owned);
-    // The friend's buying never touches the first knight's purse or board.
     assert!(run.alehouse.said[&1].text.contains("MORE GOLD"));
 }
 
@@ -717,7 +695,6 @@ fn the_fence_sells_one_curio_cheaply_in_the_tavern() {
     run.buy_curio(1, slot);
     assert!(run.players[&1].pockets.has(offer.curio().id));
     assert_eq!(run.players[&1].carried.get(Spoil::Gold), before - offer.price);
-    // And through the hold, at the fence's own stand.
     let mut run = Run::at_home(9, 2, None, Default::default(), Default::default());
     run.walk_alehouse();
     run.step(&BTreeMap::new());
@@ -744,7 +721,6 @@ fn pockets_round_trip_and_an_old_knight_has_none() {
     let old: Hero = serde_json::from_value(old).unwrap();
     assert!(old.pockets.items.is_empty() && old.pockets.valid());
     assert!(serde_json::to_value(with(&[])).unwrap().get("pockets").is_none(), "nothing on the wire when empty");
-    // A pocket naming a curio that does not exist is no snapshot.
     let mut bad = with(&["boots-mild-inconvenience"]);
     bad.pockets.items.push("a-thing-that-is-not-there".into());
     assert!(!bad.pockets.valid());

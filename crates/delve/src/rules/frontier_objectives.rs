@@ -30,13 +30,10 @@ impl ObjectiveStatus {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ObjectiveRoute {
-    /// Starting region needed for this exact sequence of campaign floors.
     pub first: Pack,
     pub pack: Pack,
     pub floor: u32,
     pub here: bool,
-    /// False means this floor is current or ahead on the active/planned trip.
-    /// True explicitly asks for a new trip rather than promising past floors.
     pub next_expedition: bool,
 }
 impl ObjectiveRoute {
@@ -103,9 +100,6 @@ impl ExpeditionObjective {
     }
 }
 
-/// Find the earliest reachable occurrence using the same mapping as actual
-/// deposits. In particular Mines-first does not promise crystal on floor 2:
-/// that floor is the Crypt. Iron is unavailable ahead on a Crypt-first trip.
 pub fn route_for(run: &Run, resource: &str) -> Option<ObjectiveRoute> {
     let current = run.dungeon.depth;
     if (1..=DEEPEST).contains(&current)
@@ -131,8 +125,6 @@ pub fn route_for(run: &Run, resource: &str) -> Option<ObjectiveRoute> {
             });
         }
     }
-    // Choose the shortest real fresh trip, not an arbitrary ore label. These
-    // are the authored start-region choices, not the deeper floor packs.
     [Pack::Crypt, Pack::Cavern, Pack::Swamp]
         .into_iter()
         .flat_map(|first| (1..=DEEPEST).map(move |floor| (first, floor)))
@@ -153,8 +145,6 @@ impl Run {
     pub fn frontier_objective(&self) -> Option<ExpeditionObjective> {
         self.frontier_objective_for(self.home.industry.survey_goal?)
     }
-    /// Production-only charters stay in the land desk. Only real ore-claim
-    /// requirements create expedition orders or combat instructions.
     pub fn frontier_objective_for(&self, parcel: Parcel) -> Option<ExpeditionObjective> {
         let kingdom = &self.home.industry;
         let offer = kingdom.expansion_offer(parcel).ok()?;
@@ -229,8 +219,6 @@ impl Run {
             blocked_reason,
         })
     }
-    /// Call only at expedition start or a successful claim interaction, never
-    /// every simulation tick. Custom objective text uses the visible notice wire.
     pub(super) fn announce_frontier_objective(&mut self) {
         if let Some(objective) = self.frontier_objective() {
             self.notices.push(objective.notice());

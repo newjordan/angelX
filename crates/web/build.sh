@@ -1,31 +1,4 @@
 #!/bin/sh
-# Build a game's browser bundle: crates/web/build.sh <game-crate-dir> [game]
-#
-#   crates/web/build.sh web/testgame testgame
-#
-# <game-crate-dir> is relative to crates/ and holds a cdylib that invokes
-# angel_web::export_client!. [game] names the bundle (default: the crate
-# directory's name). Writes crates/web/dist/<game>/:
-#
-#   index.html     the shell page, {{asset:NAME}} left for the server to fill
-#                  with /a/<hash>.<ext>; the sounds manifest is inline in it
-#   *.js, *.css    the shell
-#   knight.ttf     the shell's pixel hand (shell/art/font.py)
-#   <game>.wasm    the game's client
-#   render-webgpu.js, render-webgpu_bg.wasm, render-webgl.js, render-webgl_bg.wasm
-#                  the renderer (crates/web/render), in the two builds the page
-#                  picks between: only when the wasm-bindgen CLI is at hand
-#                  ($WASM_BINDGEN, or `wasm-bindgen` on PATH, at the version the
-#                  crate pins). Without it the bundle has no renderer and the
-#                  page draws as it did before: nothing else needs it.
-#   <sound files>  from <game-crate-dir>/sounds/, if there is one, and from
-#                  the folders <game-crate-dir>/sounds.list names (a name
-#                  prefix, "-" for none, then a folder, a line each)
-#
-# and prints each file's size and its gzip size (what a browser downloads),
-# then the first load (the page, the shell and the game's wasm) apart from the
-# sounds, which the shell fetches only when a sound is first asked for, and
-# the renderer, of which a browser takes one build.
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -37,8 +10,6 @@ game=${2:-$(basename "$crate_dir")}
 package=$(sed -n 's/^name *= *"\(.*\)"/\1/p' "$crate_dir/Cargo.toml" | head -n 1)
 lib=$(printf '%s' "$package" | tr - _)
 target_dir=${CARGO_TARGET_DIR:-$crates/target}
-# The cargo profile the wasm is built in: `web` (fat LTO, what a phone downloads), or `web-fast`
-# (no LTO, a fraction of the link time) for trying a change; the bundle is the same either way.
 profile=${WEB_PROFILE:-web}
 
 (cd "$crates" && cargo build -p "$package" --profile "$profile" --target wasm32-unknown-unknown)
@@ -49,9 +20,6 @@ mkdir -p "$out"
 cp "$target_dir/wasm32-unknown-unknown/$profile/$lib.wasm" "$out/$game.wasm"
 cp "$here/shell/"*.js "$here/shell/"*.css "$here/shell/"*.ttf "$out/"
 
-# The page's rules modules (rules.js, as crates/web/rules_js.rs writes it):
-# the Bend modules <game-crate-dir>/rules.list names (a folder a line), a
-# function per file, run by the page as a native host runs them in V8.
 {
   printf '%s\n' "// The game's rules modules (crates/web/rules_js.rs): its rules.list's Bend modules, a function per file." \
     '"use strict";' 'globalThis.angelRules = Object.create(null);'
@@ -72,12 +40,6 @@ cp "$here/shell/"*.js "$here/shell/"*.css "$here/shell/"*.ttf "$out/"
   fi
 } > "$out/rules.js"
 
-# The renderer, twice: WebGPU only (what a browser with navigator.gpu loads),
-# and with wgpu's WebGL2 backend too (what one without loads). Each is the
-# same crate built with a feature, run through wasm-bindgen into
-# render-<build>.js + render-<build>_bg.wasm. The CLI must be the version the
-# crate pins; without it, or with another, the renderer is skipped with a
-# line and the page keeps its own presenter (docs/GLASS_CORE.md).
 renderers=""
 render_files=""
 bindgen=${WASM_BINDGEN:-}
@@ -98,11 +60,8 @@ else
 fi
 renderers="{$renderers}"
 
-# The sounds manifest: {"name": "{{asset:name.ext}}", ...}, inline in the
-# page so the server's asset names reach it.
 sounds=""
 sound_files=""
-# add_sounds <folder> <prefix>: every file in the folder, as <prefix><file>.
 add_sounds() {
   for f in "$1"/*; do
     [ -f "$f" ] || continue

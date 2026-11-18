@@ -11,8 +11,6 @@ const CROP_W: i32 = 112;
 const CROP_H: i32 = 76;
 const SCALE: u32 = 4;
 
-/// A calm bare room: a knight at `(hx, hy)` and a monster `gap` units on
-/// along `dir`, one blow from death, holding still.
 fn scene(kind: EnemyKind, weapon: Weapon, hero: (f32, f32), gap: f32, dir: (f32, f32)) -> (Run, u32) {
     let mut run = quiet();
     bare(&mut run);
@@ -22,7 +20,6 @@ fn scene(kind: EnemyKind, weapon: Weapon, hero: (f32, f32), gap: f32, dir: (f32,
     let id = a_foe(&mut run, kind, hero.0 + dir.0 * gap, hero.1 + dir.1 * gap);
     let e = run.enemies.iter_mut().find(|e| e.id == id).unwrap();
     (e.hp, e.max_hp, e.frozen) = (1, 1, 100_000);
-    // Let the room settle so nothing is a fresh spawn.
     for _ in 0..40 {
         let e = run.enemies.iter_mut().find(|e| e.id == id).unwrap();
         e.hp = 1;
@@ -35,7 +32,6 @@ fn aim(dir: (f32, f32)) -> (i8, i8) {
     (dir.0.round() as i8, dir.1.round() as i8)
 }
 
-/// Fire at the monster until it falls (a few ticks), `swing` for a sword.
 fn finish(run: &mut Run, id: u32, dir: (f32, f32), swing: bool) {
     for _ in 0..40 {
         if !run.enemies.iter().any(|e| e.id == id && e.hp > 0) {
@@ -55,14 +51,12 @@ fn crop_at(run: &Run, at: (f32, f32)) -> Img {
     Img::from_view(&img, x0, y0, CROP_W, CROP_H)
 }
 
-/// A sheet of the finisher at `ages` (ticks after the blow), upscaled.
 fn sheet(run: &mut Run, at: (f32, f32), ages: &[u64], cols: usize) -> image::RgbaImage {
     let born = run.gore.last().map_or(run.tick, |g| g.born);
     let mut cells = Vec::new();
     for &age in ages {
         while run.tick < born + age {
             run.step(&BTreeMap::new());
-            // The kill's loot lies where it fell and hides the picture.
             let at = run.at;
             run.dungeon.rooms[at].items.clear();
         }
@@ -92,7 +86,6 @@ fn dir_of(name: &str) -> Option<std::path::PathBuf> {
 const AGES: [u64; 8] = [0, 3, 6, 9, 13, 20, 60, 130];
 const STRIP_AGES: [u64; 6] = [0, 2, 5, 9, 16, 45];
 
-/// One row of a contact sheet: a real kill, played to the end.
 #[derive(Clone, Copy)]
 struct Row {
     kind: EnemyKind,
@@ -101,8 +94,6 @@ struct Row {
     gap: f32,
     dir: (f32, f32),
     swing: bool,
-    /// The variant to show (the kill is repeated a tick later until the
-    /// seeded choice lands on it).
     var: u8,
 }
 
@@ -115,7 +106,6 @@ impl Row {
     }
 }
 
-/// The row's kill, in the variant it asks for, and where the monster fell.
 fn played(row: Row) -> (Run, (f32, f32)) {
     for extra in 0..90 {
         let (mut run, id) = scene(row.kind, row.weapon, row.hero, row.gap, row.dir);
@@ -143,7 +133,6 @@ fn strip(row: Row, ages: &[u64]) -> image::RgbaImage {
     sheet(&mut run, at, ages, ages.len())
 }
 
-/// Rows stacked, the kills' own frames side by side.
 fn contact(name: &str, rows: &[Row]) {
     let Some(path) = dir_of(name) else { return };
     let strips: Vec<image::RgbaImage> = rows.iter().map(|&r| strip(r, &STRIP_AGES)).collect();
@@ -155,7 +144,6 @@ fn contact(name: &str, rows: &[Row]) {
     out.save(path.with_extension("png")).unwrap();
 }
 
-/// One real kill, its frames in a sheet.
 fn shoot(name: &str, kind: EnemyKind, weapon: Weapon, hero: (f32, f32), gap: f32, dir: (f32, f32), swing: bool, ages: &[u64]) {
     let Some(path) = dir_of(name) else { return };
     let (mut run, id) = scene(kind, weapon, hero, gap, dir);
@@ -169,8 +157,6 @@ fn shoot(name: &str, kind: EnemyKind, weapon: Weapon, hero: (f32, f32), gap: f32
     sheet(&mut run, at, ages, 4).save(path.with_extension("png")).unwrap();
 }
 
-/// The four contact sheets: the kick, the shot at range, the blade, the burst
-/// and the splat, each species reading as what it is made of.
 #[test]
 #[ignore]
 fn write_finisher_contact_sheets() {
@@ -232,9 +218,6 @@ fn print_sprites() {
     }
 }
 
-/// `cargo test --release -p angel-delve finisher_cost -- --ignored --nocapture`:
-/// what a room of finishers at once costs a frame, against the same room
-/// without them, and the motes each pass spends.
 #[test]
 #[ignore]
 fn finisher_cost_under_many_deaths() {

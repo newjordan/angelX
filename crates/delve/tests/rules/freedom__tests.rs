@@ -16,8 +16,6 @@ fn put(run: &mut Run, id: u32, (x, y): (f32, f32)) {
     (h.x, h.y) = (x, y);
 }
 
-/// A party of two standing in a floor-two Sanctuary, the window and its
-/// signs gone.
 fn sanctuary() -> Run {
     let mut run = Run::new(0, 1, Some("Matt"));
     run.descend_for_test();
@@ -27,15 +25,12 @@ fn sanctuary() -> Run {
     run
 }
 
-/// Knight `id` holds `n` freedom wishes, as the genie's thanks would leave
-/// them.
 fn holds(run: &mut Run, id: u32, n: u8) {
     run.players.get_mut(&id).unwrap().freedom_wishes = n;
     let name = run.players[&id].name.clone();
     run.home.wished.held.insert(name, n);
 }
 
-/// Knight `id` walks to the wishing spot, presses E and says `words`.
 fn wish_at_spot(run: &mut Run, id: u32, words: &str) -> genie::Offer {
     let (_, at) = run.freedom_spot().expect("the wishing spot stands");
     put(run, id, (at.0 - 1.0, at.1 - 0.5));
@@ -196,11 +191,9 @@ fn the_safe_room_gives_its_gifts_once_a_floor() {
     assert_eq!(b.hand.iter().filter(|c| *c == "potion").count(), 1, "the feast's potion");
     assert!(gifted.freedom.charted && gifted.freedom.rested && gifted.freedom.given);
     assert!(plain.freedom == Default::default(), "nothing wished, nothing written");
-    // The war map: every room of the floor on the map.
     let charted = gifted.floor_map(Some(1)).nodes.len();
     let known = plain.floor_map(Some(1)).nodes.len();
     assert!(charted > known, "{charted} of {} charted, {known} known", gifted.dungeon.rooms.len());
-    // Out of the door, rested: the featherbed's ward; back in, no second feast.
     let mut run = gifted;
     let door = (0..4).find(|&d| run.dungeon.neighbour(run.at, d).is_some()).unwrap();
     let next = run.dungeon.neighbour(run.at, door).unwrap();
@@ -260,7 +253,6 @@ fn rolling_the_scroll_up_or_walking_out_keeps_the_freedom_wish() {
     assert!(hero.offer.is_none() && hero.place_wish.is_none());
     assert_eq!(hero.freedom_wishes, 1);
     assert!(run.home.wished.safe.is_empty());
-    // Begun, then out of the door: the words are the knight's own again.
     wish_at_spot(&mut run, 1, "a hot spring");
     let door = (0..4).find(|&d| run.dungeon.neighbour(run.at, d).is_some()).unwrap();
     let next = run.dungeon.neighbour(run.at, door).unwrap();
@@ -268,7 +260,6 @@ fn rolling_the_scroll_up_or_walking_out_keeps_the_freedom_wish() {
     run.step(&BTreeMap::new());
     assert!(run.players[&1].place_wish.is_none() && run.players[&1].offer.is_none());
     assert_eq!(run.players[&1].freedom_wishes, 1);
-    // No freedom wish held: the spot says how to earn one.
     let mut run = sanctuary();
     run.genie.freed = Some((0, "Matt".into()));
     let (_, at) = run.freedom_spot().expect("the freed genie's brazier burns");
@@ -299,7 +290,6 @@ fn the_realm_keeps_the_places_and_the_wishes_held_and_hands_them_back() {
     holds(&mut run, 2, 2);
     wish_at_spot(&mut run, 2, "a war map");
     run.choose(2, 0).unwrap();
-    // The host's settlement carries it into the realm, as the privy wall.
     let mut journal = Journal::new("session-a".into(), run.raid_id);
     let claim = journal.claim_home(&mut run).unwrap().expect("the run has home news");
     assert_eq!(claim.transfer.view.wished, run.home.wished);
@@ -315,13 +305,10 @@ fn the_realm_keeps_the_places_and_the_wishes_held_and_hands_them_back() {
     assert!(result.changed);
     assert_eq!(result.home.wished.safe[0].gift, freedom::Gift::WarMap);
     assert_eq!(result.home.wished.held.get("Matt"), Some(&1));
-    // A new delve from that realm: the war map in the safe room, and the
-    // unspent freedom wish back in Matt's hands.
     let next = Run::at_home(5, 3, Some("Matt"), result.home.clone(), Default::default());
     assert_eq!(next.home.wished, result.home.wished);
     assert_eq!(next.players[&2].freedom_wishes, 1);
     assert_eq!(next.players[&1].freedom_wishes, 0);
-    // And through a save, whole.
     let saved = serde_json::to_string(&result.home).unwrap();
     assert!(saved.contains("\"wished\""));
     let back: home::Home = serde_json::from_str(&saved).unwrap();
@@ -335,7 +322,6 @@ fn the_realm_keeps_the_places_and_the_wishes_held_and_hands_them_back() {
 
 #[test]
 fn an_old_save_without_freedom_wishes_loads_and_writes_unchanged() {
-    // A run and a realm from before: none of the new fields are written...
     let run = Run::new(9, 4, Some("Matt"));
     let saved = serde_json::to_string(&run).unwrap();
     for field in ["\"freedom\"", "\"wished\"", "\"freedom_wishes\"", "\"place_wish\""] {
@@ -343,17 +329,14 @@ fn an_old_save_without_freedom_wishes_loads_and_writes_unchanged() {
     }
     let home = serde_json::to_string(&home::Home::default()).unwrap();
     assert!(!home.contains("wished"));
-    // ...and what was written before reads back and writes the same bytes.
     let back: Run = serde_json::from_str(&saved).unwrap();
     assert_eq!(serde_json::to_string(&back).unwrap(), saved);
     let back: home::Home = serde_json::from_str(&home).unwrap();
     assert_eq!(serde_json::to_string(&back).unwrap(), home);
-    // A garbled realm subtree never costs the realm: it reads as nothing.
     let mut garbled: serde_json::Value = serde_json::from_str(&home).unwrap();
     garbled["wished"] = serde_json::json!({"safe": "not a list"});
     let back: home::Home = serde_json::from_value(garbled).unwrap();
     assert!(back.wished.is_empty());
-    // A gift a later realm knows reads as a curio.
     let later: freedom::Upgrade =
         serde_json::from_value(serde_json::json!({"gift": "moon_gate", "words": "a moon gate", "by": "Matt"})).unwrap();
     assert_eq!(later.gift, freedom::Gift::Curio);
@@ -367,17 +350,12 @@ fn save(dir: &std::path::Path, run: &Run, name: &str) {
     std::fs::write(dir.join(format!("{name}.ppm")), out).unwrap();
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_freedom_shots -- --ignored`:
-/// the genie set free, the safe room's brazier and its prompt, a wish
-/// landing, the safe room with its six wishes, the weapons locker before and
-/// after, and a wish landing in it.
 #[test]
 #[ignore]
 fn write_freedom_shots() {
     let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else { return };
     let dir = std::path::PathBuf::from(dir).join("freedom");
     std::fs::create_dir_all(&dir).unwrap();
-    // The genie set free, a second in, and three.
     let mut free = sanctuary();
     free.genie.freedom = genie::FREEDOM;
     free.players.get_mut(&1).unwrap().great_wishes = 1;
@@ -392,7 +370,6 @@ fn write_freedom_shots() {
     for _ in 0..genie::FREED_TICKS {
         free.step(&BTreeMap::new());
     }
-    // At the brazier, holding the freedom wish: its prompt.
     let (_, at) = free.freedom_spot().unwrap();
     put(&mut free, 1, (at.0 - 1.6, at.1 - 0.4));
     put(&mut free, 2, (at.0 - 9.0, at.1 - 3.0));
@@ -400,7 +377,6 @@ fn write_freedom_shots() {
         free.step(&BTreeMap::new());
     }
     save(&dir, &free, "b-brazier-prompt");
-    // The wish said: the scroll shows what it became.
     wish_at_spot(&mut free, 1, "a roaring hearth to warm us");
     for _ in 0..6 {
         free.step(&BTreeMap::new());
@@ -413,7 +389,6 @@ fn write_freedom_shots() {
         }
         save(&dir, &free, n);
     }
-    // The safe room with all six, a knight reading a plaque.
     let mut full = sanctuary();
     use freedom::Gift::*;
     full.home.wished.safe = [
@@ -438,7 +413,6 @@ fn write_freedom_shots() {
         full.step(&BTreeMap::new());
     }
     save(&dir, &full, "e-safe-room-six-b");
-    // The weapons locker: called up by a freedom wish, then filled.
     let mut tavern = Run::at_home(4, 2, Some("Matt"), Default::default(), Default::default());
     tavern.walk_alehouse();
     tavern.floor_plates.clear();

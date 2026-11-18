@@ -31,7 +31,6 @@ def digest(path):
 
 
 def present(path):
-    # A dangling symlink is not an absent installation eligible for replacement.
     return path.exists() or path.is_symlink()
 
 
@@ -106,8 +105,6 @@ def local_toolchain():
         host = run(str(rustc), "--print", "host-tuple", capture_output=True, env=env).stdout.strip()
         if not host or any(char not in "abcdefghijklmnopqrstuvwxyz0123456789_-" for char in host):
             return None
-        # Check rustup's installed-file inventories, not just one sentinel per
-        # component. Missing alloc/host libraries must not pass as a complete setup.
         rustlib = sysroot / "lib/rustlib"
         components = (rustlib / "components").read_text().splitlines()
         for component in ("rust-src", f"rust-std-{host}", "rust-std-wasm32-unknown-unknown"):
@@ -156,11 +153,8 @@ def ensure_toolchain(offline):
 
 def build_settings(cargo, rustc, offline):
     env = dict(os.environ, RUSTUP_TOOLCHAIN=TOOLCHAIN, RUSTC=rustc, RUSTUP_AUTO_INSTALL="0")
-    # Never inherit the host application's target directory or compiler wrapper.
     for name in ("CARGO_TARGET_DIR", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER", "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS"):
         env.pop(name, None)
-    # Explicit overrides beat Cargo's config-file and CARGO_BUILD_* forms.
-    # An empty encoded flag list beats target-specific configured rustflags.
     env.update(CARGO_BUILD_TARGET_DIR=str(SOURCE / "target"),
                CARGO_BUILD_RUSTC_WRAPPER="", CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER="",
                CARGO_ENCODED_RUSTFLAGS="")
@@ -176,13 +170,11 @@ def build_settings(cargo, rustc, offline):
 
 
 def select():
-    # A valid already-selected generation needs no inode/mtime churn.
     selected = DESTINATION / "selected"
     if selected.is_file() and not selected.is_symlink():
         with selected.open("rb") as source:
             if source.read(128) == (REVISION + "\n").encode():
                 return
-    # The launcher reads this regular-file selector, not a symlink.
     with tempfile.NamedTemporaryFile(mode="w", prefix="selected-", dir=DESTINATION, delete=False) as output:
         selector = Path(output.name)
         output.write(REVISION + "\n")
@@ -211,7 +203,6 @@ def install(offline):
     version = DESTINATION / REVISION
     installed = validate_install(version) if present(version) else None
     if SOURCE.exists():
-        # Reuse must not hide an existing locally modified/mismatched checkout.
         check_source()
     elif installed is None:
         if offline:
@@ -228,7 +219,6 @@ def install(offline):
     else:
         command, env, artifacts = build_settings(cargo, rustc, offline)
         run(*command, cwd=SOURCE, env=env)
-        # Keep frontend, daemon and rustc wrapper together; publish only complete generations.
         DESTINATION.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="install-", dir=DESTINATION) as scratch:
             stage = Path(scratch)

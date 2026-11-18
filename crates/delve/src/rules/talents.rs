@@ -10,19 +10,13 @@
 use super::home::{BUY_HOLD, Home, Order, Station};
 use super::*;
 
-/// One talent: its name, Sir Ector's word on it, and what it does (a held
-/// card's effect).
 pub struct Talent {
     pub name: &'static str,
     pub says: &'static str,
     pub effect: &'static str,
-    /// What it does, for the lectern.
     pub does: &'static str,
 }
 
-/// Twelve lessons, a talent on the left lectern and one on the right. A
-/// knight's record keeps each choice by its place here, so a new lesson goes
-/// on the end.
 pub const LESSONS: [[Talent; 2]; 12] = [
     [
         Talent {
@@ -194,14 +188,10 @@ pub const LESSONS: [[Talent; 2]; 12] = [
     ],
 ];
 
-/// The experience that reaches levels 2 to 13: each level asks 600 more than
-/// the one before, and every level is a lesson.
 pub const LEVELS: [u32; 12] = [600, 1800, 3600, 6000, 9000, 12600, 16800, 21600, 27000, 33000, 39600, 46800];
 
 const _: () = assert!(LEVELS.len() == LESSONS.len());
 
-/// A knight's prowess, kept by the realm: experience, and the talent
-/// learned at each lesson so far (0 the left, 1 the right).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Prowess {
     #[serde(default)]
@@ -215,17 +205,14 @@ impl Prowess {
         1 + LEVELS.iter().filter(|&&n| self.xp >= n).count() as u32
     }
 
-    /// Lessons earned and not yet taken.
     pub fn waiting(&self) -> usize {
         (self.level() as usize - 1).saturating_sub(self.learned.len())
     }
 
-    /// The lesson after those learned, if there is one.
     pub fn next(&self) -> Option<&'static [Talent; 2]> {
         LESSONS.get(self.learned.len())
     }
 
-    /// The talents learned, in order.
     pub fn talents(&self) -> impl Iterator<Item = (usize, &'static Talent)> + '_ {
         self.learned
             .iter()
@@ -236,10 +223,7 @@ impl Prowess {
     }
 }
 
-/// Sir Ector's two lecterns in the Yard's south-west corner (column, row,
-/// width, height in tiles): the left talent, and the right.
 pub const LECTERNS: [(i32, i32, i32, i32); 2] = [(2, 11, 2, 1), (6, 11, 2, 1)];
-/// Where Sir Ector stands, between and behind them (tiles).
 pub const ECTOR_AT: (f32, f32) = (5.0, 10.2);
 
 fn inside((col, row, w, h): (i32, i32, i32, i32), x: f32, y: f32) -> bool {
@@ -247,19 +231,14 @@ fn inside((col, row, w, h): (i32, i32, i32, i32), x: f32, y: f32) -> bool {
     c >= col as f32 && c < (col + w) as f32 && r >= row as f32 && r < (row + h) as f32
 }
 
-/// The lectern a point stands on: 0 the left, 1 the right.
 pub fn lectern_at(x: f32, y: f32) -> Option<usize> {
     LECTERNS.iter().position(|&p| inside(p, x, y))
 }
 
-/// The name the realm keeps a player's own progress under, whichever kit they
-/// wear: their prowess and their questlines. Friends on one kit keep two
-/// records, and a change of class keeps the one.
 pub fn profile_key(hero: &Hero) -> String {
     hero.name.to_lowercase()
 }
 
-/// The name the realm keeps what belongs to a kit under: its squires and works.
 pub fn knight_key(hero: &Hero) -> String {
     hero.knight
         .clone()
@@ -271,8 +250,6 @@ impl Home {
         self.knights.get(who).cloned().unwrap_or_default()
     }
 
-    /// `who` learns the left (0) or right (1) talent of their next lesson,
-    /// if one is waiting.
     pub fn learn(&mut self, who: &str, side: u8) -> Result<&'static Talent, String> {
         let prowess = self.knights.entry(who.to_string()).or_default();
         let Some(lesson) = prowess.next() else {
@@ -292,7 +269,6 @@ impl Home {
 }
 
 impl Run {
-    /// Experience for what fell this tick, for every knight in the party.
     pub(super) fn mark_experience(&mut self, kinds: &[EnemyKind]) {
         let xp: u32 = kinds.iter().map(|k| (k.bounty() / 25).max(1)).sum();
         if xp > 0 {
@@ -300,8 +276,6 @@ impl Run {
         }
     }
 
-    /// The lecterns: holding E on one asks Sir Ector for its talent; he
-    /// greets whoever walks up.
     pub(super) fn tick_lessons(&mut self, inputs: &BTreeMap<u32, Input>) {
         let mut asked = Vec::new();
         for (&id, hero) in self.players.iter_mut() {

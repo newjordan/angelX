@@ -1,4 +1,3 @@
-// Called from the established host/mirror world test, not a separate verifier.
 fn eastern_adventure_regression(mut run: Run) {
     use super::super::{
         countryside as c,
@@ -18,7 +17,6 @@ fn eastern_adventure_regression(mut run: Run) {
             },
         )])
     };
-    // The quest folk answer the interact key, not the fire key.
     let meet = |id| {
         BTreeMap::from([(
             id,
@@ -40,8 +38,7 @@ fn eastern_adventure_regression(mut run: Run) {
     place(&mut run, 1, (fence - 0.2, 7.0));
     run.tick_pastimes(&empty);
     place(&mut run, 1, (fence + 0.1, 7.0));
-    run.tick_pastimes(&fire(2)); // friend's jump cannot lift the host
-    // The host started it; the friend rides a heat of their own.
+    run.tick_pastimes(&fire(2));
     assert_eq!(run.pastimes.round.as_ref().unwrap().progress, 0);
     assert_eq!(run.pastimes.round.as_ref().unwrap().mistakes, 1);
     for _ in 0..pastimes::JUMP_TICKS + 10 {
@@ -69,7 +66,6 @@ fn eastern_adventure_regression(mut run: Run) {
         }
         assert!(run.pastimes.valid());
     }
-    // First home wins: the host's clear course ends the friend's heat too.
     assert!(run.pastimes.round.is_none() && run.pastimes.heat.is_none());
     assert_eq!(run.home.countryside.games.hobbyhorse.wins, 1);
     assert!(run.home.countryside.games.hobbyhorse.best > 0);
@@ -78,8 +74,6 @@ fn eastern_adventure_regression(mut run: Run) {
     let score = run.score;
     run.tick_pastimes(&fire(1));
     assert_eq!(run.score, score);
-    // The advertised rhythm must work at the real movement/tick speed, not
-    // just through position injection: six jumps without stopping to wait.
     let mut riding = run.clone();
     riding.players.retain(|&id, _| id == 1);
     riding.pastimes = Default::default();

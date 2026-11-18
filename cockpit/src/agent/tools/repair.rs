@@ -18,10 +18,6 @@ const REPAIR_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub(crate) struct ToolRepairTool {
     pub(crate) workspace: PathBuf,
-    /// Repair invocations so far this session. The session budget
-    /// (`ANGEL_TOOL_REPAIR_LIMIT`, default 2) counts against this so a drifted
-    /// model can't hammer the tool — which mutates `~/.local/bin` and global git
-    /// config — unbounded.
     calls: AtomicU32,
 }
 
@@ -36,8 +32,6 @@ impl ToolRepairTool {
 
 impl Tool for ToolRepairTool {
     fn workspace_write_scope_is_opaque(&self, _args: &Value) -> bool {
-        // Even diagnosis invokes external CLI probes without a read-only
-        // filesystem ceiling. repair=false is intent, not a write audit.
         true
     }
 
@@ -49,10 +43,6 @@ impl Tool for ToolRepairTool {
         crate::agent::harness::core_catalog::baseline_def("tool_repair")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
-        // Session call budget: even once the user has approved a repair, cap the
-        // number of attempts so a drifted model can't loop on it. Default 2;
-        // ANGEL_TOOL_REPAIR_LIMIT=0 makes it unlimited. Counted per session (per
-        // tool instance), mirroring the ANGEL_ERROR_LIMIT env style.
         let limit = if crate::platform::yolo::enabled() {
             0
         } else {
@@ -65,8 +55,6 @@ impl Tool for ToolRepairTool {
             );
         }
         let tool = args.get("tool").and_then(|v| v.as_str()).unwrap_or("auto");
-        // Diagnose-only by default — mutations require an explicit repair=true, which
-        // the description gates on user approval.
         let repair = args
             .get("repair")
             .and_then(|v| v.as_bool())
@@ -332,10 +320,6 @@ fn command_text_with_timeout(
 }
 
 fn git_credential_smoke(workspace: &Path, home: &Path) -> Result<(), String> {
-    // The request is fixed source text rather than model input. A shell pipe is
-    // used solely to feed Git because the shared fixed probe deliberately owns
-    // stdin as null; the private process group still contains Git and any
-    // configured credential-helper descendants.
     let mut command = Command::new("/bin/sh");
     command
         .args([

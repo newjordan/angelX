@@ -16,7 +16,6 @@ fn heroes(n: u32) -> BTreeMap<u32, Hero> {
     (1..=n).map(|id| (id, Hero::new(&format!("Knight {id}"), 0.0, 0.0))).collect()
 }
 
-/// A session of `n` knights with the Dimming far behind, and the heroes.
 fn ride(n: u32) -> (Session, BTreeMap<u32, Hero>) {
     let h = heroes(n);
     let mut s = Session::new(&h).unwrap();
@@ -35,7 +34,6 @@ fn tick(s: &mut Session, h: &BTreeMap<u32, Hero>, inputs: &[(u32, Input)]) -> Ve
     s.step(&map, h, &NUM)
 }
 
-/// Set knight `id` on the main road at column `x` with ground speed `gsp`.
 fn put(s: &mut Session, id: u32, x: i32, gsp: i32) {
     let lvl = level();
     let at = lvl.terrain.paths[lvl.main].s_at_x(x);
@@ -52,7 +50,6 @@ fn rider(s: &Session, id: u32) -> &Rider {
     &s.seats[&id].rider
 }
 
-/// The index of the first foe of `kind` at or after column `x`.
 fn foe_after(kind: FoeKind, x: i32) -> usize {
     level().foes.iter().position(|f| f.kind == kind && f.x >= x).unwrap()
 }
@@ -60,13 +57,11 @@ fn foe_after(kind: FoeKind, x: i32) -> usize {
 #[test]
 fn a_roll_pops_a_snuffer_and_a_run_into_it_is_a_hit() {
     let i = foe_after(FoeKind::Snuffer, 900);
-    // Rolling through.
     let (mut s, h) = ride(1);
     let x = level().foes[i].x;
     put(&mut s, 1, x - 150, 1280);
     let mut tucked = false;
     for t in 0..80 {
-        // Tuck at the last moment, as a player would.
         tucked |= rider(&s, 1).roll;
         tick(&mut s, &h, &[(1, keys(1, t > 8, false, false))]);
         if s.foes[i].hp == 0 {
@@ -77,7 +72,6 @@ fn a_roll_pops_a_snuffer_and_a_run_into_it_is_a_hit() {
     assert_eq!(rider(&s, 1).kills, 1);
     assert!(rider(&s, 1).sparks >= 1, "a spark of returned light");
     assert!(rider(&s, 1).down == 0 && rider(&s, 1).hits == 0, "the roll was not hurt");
-    // Running into it, upright.
     let (mut s, h) = ride(1);
     put(&mut s, 1, x - 150, 1280);
     for _ in 0..80 {
@@ -98,7 +92,6 @@ fn bouncing_on_a_foe_springs_him_up_and_a_popped_foe_re_forms_later() {
     put(&mut s, 1, x - 110, 1100);
     let mut bounced = false;
     for t in 0..120 {
-        // A leap taken early enough to come down on it.
         let jump = (4..16).contains(&t);
         tick(&mut s, &h, &[(1, keys(1, false, jump, false))]);
         let r = rider(&s, 1);
@@ -109,7 +102,6 @@ fn bouncing_on_a_foe_springs_him_up_and_a_popped_foe_re_forms_later() {
     }
     assert!(bounced, "popped from above and thrown up");
     assert_eq!(rider(&s, 1).chain, 1);
-    // Out of sight, it comes back.
     put(&mut s, 1, x - 900, 0);
     for _ in 0..REFORM + 40 {
         tick(&mut s, &h, &[(1, keys(0, false, false, false))]);
@@ -137,17 +129,14 @@ fn a_hit_scatters_the_sparks_in_an_arc_and_they_can_be_taken_back() {
     let r = rider(&s, 1);
     assert_eq!(r.sparks, 0);
     assert!(r.hurt > 0 && r.down == 0, "hurt, not down");
-    // They are not all one heading: an arc of them, some left, some right, all up.
     let (lo, hi) = (r.loose.iter().map(|l| l.vx).min().unwrap(), r.loose.iter().map(|l| l.vx).max().unwrap());
     assert!(lo < -200 && hi > 200 && r.loose.iter().all(|l| l.vy < 0), "{lo} {hi}");
-    // They bounce on the road and wait to be taken: stand under them.
     let mut taken = 0;
     for _ in 0..90 {
         tick(&mut s, &h, &[(1, keys(0, false, false, false))]);
         taken = taken.max(rider(&s, 1).sparks);
     }
     assert!(taken >= 1, "some were won back");
-    // After their time they are gone.
     for _ in 0..LOOSE_LIFE {
         tick(&mut s, &h, &[(1, keys(0, false, false, false))]);
     }
@@ -159,7 +148,6 @@ fn a_hit_with_no_sparks_fells_him_and_the_lantern_carries_him_home_in_under_a_se
     let b = foe_after(FoeKind::Bramble, 600);
     let x = level().foes[b].x;
     let (mut s, h) = ride(1);
-    // A post lit far ahead is where he will wake.
     s.posts |= 1;
     put(&mut s, 1, x - 60, 700);
     let mut fell = 0;
@@ -214,7 +202,6 @@ fn a_crate_breaks_to_a_roll_and_gives_a_shield_and_a_hay_bale_springs_him_up() {
     }
     let r = rider(&s, 1);
     assert!(r.shield && r.crates & (1 << c) != 0, "the crate broke and gave its shield");
-    // A hay bale throws him high, his pace kept.
     let sp = lvl.springs.iter().position(|b| b.kind == SpringKind::Up).unwrap();
     let (mut s, h) = ride(1);
     put(&mut s, 1, lvl.springs[sp].x - 70, 1100);
@@ -263,7 +250,6 @@ fn a_post_lit_by_one_knight_is_lit_for_all_and_holds_the_dimming_back() {
     assert_eq!(s.posts & 1, 1, "lit");
     assert!(s.dim <= (post.x - HOLD + 400) * Q, "and the Dimming thrown back: {}", s.dim / Q);
     assert!(s.post_t[0] > 0);
-    // Knight 1 never touched it, yet a fall wakes him at that post.
     let b = foe_after(FoeKind::Bramble, 600);
     let bx = level().foes[b].x;
     s.dim = -4000 * Q;
@@ -284,7 +270,6 @@ fn a_lance_lock_dashes_at_the_nearest_foe_and_chains_to_the_next_refilling_the_g
     {
         let r = &mut s.seats.get_mut(&1).unwrap().rider;
         *r = Rider::new_on(&lvl.terrain, lvl.main, lvl.terrain.paths[lvl.main].s_at_x(first.x - 70));
-        // Airborne beside the first wisp, drifting forward.
         r.ground = None;
         r.x = (first.x - 70) * Q;
         r.y = (first.y + 20) * Q;
@@ -297,7 +282,6 @@ fn a_lance_lock_dashes_at_the_nearest_foe_and_chains_to_the_next_refilling_the_g
     let mut pressed = false;
     for _ in 0..160 {
         let r = rider(&s, 1);
-        // A fresh press each time a wisp is in the cone, as a player taps.
         let want = r.lock.is_none() && r.lock_cd == 0 && !r.grounded() && s.find_lock(r, &NUM).is_some();
         let press = want && !r.jump_key;
         pressed |= press;
@@ -369,7 +353,6 @@ fn the_dimming_swallows_a_straggler_and_the_lantern_carries_him_home_to_be_held_
 fn more_knights_mean_a_quicker_dimming_more_foes_and_a_tougher_warden_never_less() {
     let pace = |n: u32| {
         let (mut s, h) = ride(n);
-        // Just behind the rearmost knight, inside the chase's reach.
         s.dim = -300 * Q;
         let before = s.dim;
         tick(&mut s, &h, &[]);
@@ -384,7 +367,6 @@ fn more_knights_mean_a_quicker_dimming_more_foes_and_a_tougher_warden_never_less
     let w = lvl.foes.iter().position(|f| f.kind == FoeKind::Warden).unwrap();
     let hits: Vec<u8> = (1..=6).map(|n| ride(n).0.foes[w].hp).collect();
     assert_eq!(hits, [3, 4, 5, 6, 7, 8]);
-    // A knight who leaves does not make it weaker; one who joins makes it harder.
     let (mut s, mut h) = ride(4);
     s.foes[w].hp -= 1;
     h.remove(&4);
@@ -475,7 +457,6 @@ fn the_five_numbers_move_what_they_say() {
     let base = Numbers::default();
     assert!(!run_loop(base).0, "a good pace holds the wall");
     assert!(run_loop(Numbers { loop_min: 1100, ..base }).0, "a higher number asks for more speed");
-    // Slope: the same downhill gives more speed at a higher number.
     let down = |slope: i32| {
         let lvl = level();
         let mut r = old_rider(1730);
@@ -487,7 +468,6 @@ fn the_five_numbers_move_what_they_say() {
         r.gsp
     };
     assert!(down(200) > down(100) && down(100) > down(40), "{} {} {}", down(40), down(100), down(200));
-    // Spur: the cap.
     let spur = |cap: i32| {
         let lvl = level();
         let mut r = old_rider(100);
@@ -500,7 +480,6 @@ fn the_five_numbers_move_what_they_say() {
         r.gsp
     };
     assert!(spur(2800) > spur(1600) + 300);
-    // Lock: the reach.
     let (mut s, _) = ride(1);
     let lvl = level();
     let first = lvl.foes[lvl.foes.iter().position(|f| f.kind == FoeKind::Floater).unwrap()];
@@ -513,7 +492,6 @@ fn the_five_numbers_move_what_they_say() {
     let r = rider(&s, 1).clone();
     assert!(s.find_lock(&r, &Numbers { lock_reach: 96, ..base }).is_none());
     assert!(s.find_lock(&r, &Numbers { lock_reach: 200, ..base }).is_some());
-    // Dimming: the pace.
     let pace = |d: i32| {
         let h = heroes(1);
         let mut s = Session::new(&h).unwrap();
@@ -527,8 +505,6 @@ fn the_five_numbers_move_what_they_say() {
 #[test]
 fn no_valley_is_a_trap_a_knight_at_rest_in_any_dip_rides_out_without_the_spur() {
     use super::oracle::{Route, Skill};
-    // The trench's foot, the half-pipe's floor, the rhythm's valleys, the
-    // valley road, the fen's floor and the marsh.
     let bottoms = [1855, 5420 + 160, 7820 + 120, 7820 + 420, 7820 + 720, 8720 + 450, 11300 + 900, 15000 + 330];
     for x in bottoms {
         let (mut s, h) = ride(1);
@@ -551,7 +527,6 @@ fn no_valley_is_a_trap_a_knight_at_rest_in_any_dip_rides_out_without_the_spur() 
 #[test]
 fn the_real_loops_hold_a_gallop_and_a_spur_and_drop_a_rider_who_slowed() {
     let lvl = level();
-    // Each loop's mouth, and how long a run-up he gets.
     for (mouth, run) in [(4700, 340), (16760, 440)] {
         let go = |from: i32, spur: bool| {
             let mut r = old_rider(from);
@@ -561,19 +536,15 @@ fn the_real_loops_hold_a_gallop_and_a_spur_and_drop_a_rider_who_slowed() {
             }
             (ev.contains(&Ev::Fell), r.x / Q)
         };
-        // A full gallop from the foot of the run: round and away.
         let (fell, x) = go(mouth - run, false);
         assert!(!fell && x > mouth + 400, "a gallop holds the loop at {mouth}: fell {fell} x {x}");
-        // Standing a few strides off the mouth, the trot falls from the wall,
         let (fell, _) = go(mouth - 40, false);
         assert!(fell, "a trot falls at {mouth}");
-        // and the spur, from the same place, goes round.
         let (fell, x) = go(mouth - 40, true);
         assert!(!fell && x > mouth + 400, "the spur makes it at {mouth}: fell {fell} x {x}");
     }
 }
 
-/// A small deterministic dice: no clock, no ambient randomness.
 struct Dice(u64);
 impl Dice {
     fn next(&mut self) -> u32 {
@@ -609,8 +580,6 @@ fn a_fuzz_of_keys_and_teleports_never_breaks_a_ride_or_its_state() {
                 *left -= 1;
                 inputs.insert(id, *k);
             }
-            // Now and then a knight is set down somewhere else on the road, at
-            // any speed, even on a loop's ceiling or a rail.
             if t % 97 == 0 {
                 let id = 1 + dice.next() % 6;
                 let lvl = level();
@@ -628,7 +597,6 @@ fn a_fuzz_of_keys_and_teleports_never_breaks_a_ride_or_its_state() {
                 assert!(s.valid(), "seed {seed} tick {t}");
             }
         }
-        // The whole state is plain data: it survives the wire.
         let json = serde_json::to_string(&s).unwrap();
         let back: Session = serde_json::from_str(&json).unwrap();
         assert!(back == s && back.valid());

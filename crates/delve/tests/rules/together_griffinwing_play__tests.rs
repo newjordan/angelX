@@ -3,7 +3,6 @@
 //! the roll that turns a bolt round), then the beats, the Wyrm, the table.
 use super::*;
 
-/// A party of `seats` knights in an empty sky: no script, no foes.
 fn sky(seats: u32) -> (BTreeMap<u32, Hero>, Session) {
     let mut r = Run::griffinwing_for_test();
     for id in 2..=seats {
@@ -12,7 +11,6 @@ fn sky(seats: u32) -> (BTreeMap<u32, Hero>, Session) {
     let heroes = r.players.clone();
     let mut s = Session::new(&heroes);
     s.next = u16::MAX;
-    // The riders sit this out: these checks are the knight's own verbs.
     for w in &mut s.wing {
         w.lost = true;
     }
@@ -33,7 +31,6 @@ fn craft(s: &Session) -> &Craft {
     &s.seats[&1].craft
 }
 
-/// A wisp `ahead` whole units in front of the seat's craft, `x` across and `z` up.
 fn wisp(s: &mut Session, ahead: i32, x: i32, z: i32) -> u16 {
     let at = s.craft_s(&s.seats[&1].craft.clone()) + dm(ahead * 10);
     s.spawn_foe(
@@ -161,7 +158,6 @@ fn a_tap_is_a_rapid_twin_bolt_that_goes_where_the_reticle_points() {
         2,
         "two at once"
     );
-    // Aim a little up and to the right: the bolts drift that way.
     let (h, mut s) = sky(1);
     go(
         &mut s,
@@ -181,7 +177,6 @@ fn a_tap_is_a_rapid_twin_bolt_that_goes_where_the_reticle_points() {
         b.vx,
         b.vz
     );
-    // And a tap lands: a wisp dead ahead falls to a few of them.
     let (h, mut s) = sky(1);
     let w = wisp(&mut s, 18, 0, 0);
     for k in 0..14 {
@@ -195,7 +190,6 @@ fn a_tap_is_a_rapid_twin_bolt_that_goes_where_the_reticle_points() {
 #[test]
 fn holding_charges_and_locks_what_the_reticle_sweeps_and_letting_go_pops_each() {
     let (h, mut s) = sky(1);
-    // Three in a row, a little below where the reticle starts.
     let ids = [
         wisp(&mut s, 44, -6, -3),
         wisp(&mut s, 45, 0, -3),
@@ -205,7 +199,6 @@ fn holding_charges_and_locks_what_the_reticle_sweeps_and_letting_go_pops_each() 
         fire: true,
         ..Default::default()
     };
-    // Past the tap, the charge gathers; sweep the reticle across the three.
     go(&mut s, &h, 9, hold);
     assert!(
         craft(&s).charge > 0 && craft(&s).locks.is_empty(),
@@ -229,7 +222,6 @@ fn holding_charges_and_locks_what_the_reticle_sweeps_and_letting_go_pops_each() 
     for id in ids {
         assert!(locked.contains(&id));
     }
-    // Let go: a chain of pops, two ticks apart, each its own body.
     s.step(&press(1, Input::default()), &h, &Nums::default());
     let stars: Vec<u8> = s
         .bolts
@@ -252,7 +244,6 @@ fn holding_charges_and_locks_what_the_reticle_sweeps_and_letting_go_pops_each() 
     );
     assert!(craft(&s).chain >= 3 || s.beat.kills == 3);
     assert_eq!(s.beat.kills, 3);
-    // The chain paid more than three single pops.
     assert!(s.beat.pts > 3 * Kind::Wisp.worth());
 }
 
@@ -278,7 +269,6 @@ fn no_more_than_six_locks_and_a_short_hold_still_lets_go() {
 
 #[test]
 fn a_roll_turns_an_incoming_bolt_round_and_a_bare_craft_takes_it() {
-    // A Gloam bolt on its way to the craft.
     let fire_at = |s: &mut Session| {
         let c = s.seats[&1].craft.clone();
         let from = (s.craft_s(&c) + dm(300), 0, 0);
@@ -316,7 +306,6 @@ fn a_roll_turns_an_incoming_bolt_round_and_a_bare_craft_takes_it() {
         dash: true,
         ..Default::default()
     };
-    // Wait for the bolt to near, then roll.
     let mut turned = false;
     for k in 0..80 {
         let i = if k == 40 { roll } else { Input::default() };
@@ -330,13 +319,10 @@ fn a_roll_turns_an_incoming_bolt_round_and_a_bare_craft_takes_it() {
     assert_eq!(craft(&s).shield, SHIELD, "and nothing touched the craft");
 }
 
-// ─── the rest of the verbs ──────────────────────────────────────────────────
-
 fn step1(s: &mut Session, h: &BTreeMap<u32, Hero>, i: Input) {
     s.step(&press(1, i), h, &Nums::default());
 }
 
-/// The foe with this id, if it is still there.
 fn foe(s: &Session, id: u16) -> Option<&Foe> {
     s.foes.iter().find(|f| f.id == id)
 }
@@ -356,7 +342,6 @@ fn a_double_tap_of_a_direction_is_a_roll_that_way() {
         craft(&s).roll > 0 && craft(&s).dir == 1,
         "the second tap rolls"
     );
-    // The button rolls too, and a roll has its rest.
     let (h, mut s) = sky(1);
     step1(
         &mut s,
@@ -481,7 +466,6 @@ fn a_gate_scores_a_ring_mends_and_an_arch_takes_a_scrape() {
     assert_eq!(craft(&s).pts, oracle::GATE, "the gate paid");
     assert_eq!(craft(&s).gates, 1);
     assert_eq!(craft(&s).shield, 90, "the ring mended fifty");
-    // An arch whose opening is off to the side: a craft in the middle scrapes it.
     let (h, mut s) = sky(1);
     let here = s.craft_s(&craft(&s).clone());
     s.seats.get_mut(&1).unwrap().craft.hurt = 0;
@@ -498,7 +482,6 @@ fn a_gate_scores_a_ring_mends_and_an_arch_takes_a_scrape() {
     });
     go(&mut s, &h, 90, Input::default());
     assert_eq!(craft(&s).shield, SHIELD - 15, "one scrape, then spared");
-    // Threaded, it costs nothing.
     let (h, mut s) = sky(1);
     let here = s.craft_s(&craft(&s).clone());
     s.seats.get_mut(&1).unwrap().craft.hurt = 0;
@@ -538,7 +521,6 @@ fn shutters_close_on_a_clock_and_a_craft_can_arrive_when_they_are_open() {
         .map(|t| things::shutter_gap(&p, t, n.wx()))
         .collect();
     assert!(gaps.iter().min().unwrap() < &dm(10) && gaps.iter().max().unwrap() > &n.wx());
-    // Closed when it is passed: a scrape; open: nothing.
     let closed = (0..things::SHUTTER_PERIOD)
         .min_by_key(|&t| gaps[t as usize])
         .unwrap();
@@ -550,8 +532,6 @@ fn shutters_close_on_a_clock_and_a_craft_can_arrive_when_they_are_open() {
         let _ = &h;
         let here = s2.craft_s(&craft(&s2).clone());
         s2.seats.get_mut(&1).unwrap().craft.hurt = 0;
-        // The shutter is at the craft's plane in 30 ticks: set its phase so
-        // that tick is `phase`.
         let arrive = (dm(300) / PACE) as u32;
         let ph = (things::SHUTTER_PERIOD + phase - (arrive % things::SHUTTER_PERIOD))
             % things::SHUTTER_PERIOD;
@@ -566,7 +546,6 @@ fn shutters_close_on_a_clock_and_a_craft_can_arrive_when_they_are_open() {
             taken: 0,
             phase: ph as u16,
         });
-        // Off to the side (a craft sitting in a closing gap is the test).
         s2.seats.get_mut(&1).unwrap().craft.x = dm(40);
         go(&mut s2, &h2, 140, Input::default());
         assert_eq!(craft(&s2).shield < SHIELD, hurt, "phase {phase}");
@@ -614,7 +593,6 @@ fn starfall_clears_the_bolts_and_the_small_foes_and_there_are_three() {
         "and the bolts"
     );
     assert_eq!(s.beat.kills, 3);
-    // Held, it throws one.
     go(
         &mut s,
         &h,
@@ -630,7 +608,6 @@ fn starfall_clears_the_bolts_and_the_small_foes_and_there_are_three() {
 #[test]
 fn a_kite_latches_onto_a_rider_and_shooting_the_chaser_saves_it() {
     let (h, mut s) = sky(1);
-    // The riders are in this one.
     for w in &mut s.wing {
         w.lost = false;
     }
@@ -658,7 +635,6 @@ fn a_kite_latches_onto_a_rider_and_shooting_the_chaser_saves_it() {
     go(&mut s, &h, 60, Input::default());
     let worn = s.wing.iter().find(|w| w.id == victim).unwrap().craft.shield;
     assert!(worn < before, "it drains the rider: {before} to {worn}");
-    // The knight's own hands save them: a bot knight shoots the chaser.
     let bot = |s: &Session| s.bot_input(1, &h[&1]);
     for _ in 0..200 {
         let i = bot(&s);
@@ -698,7 +674,6 @@ fn an_unsaved_rider_is_lost_and_a_roll_shakes_a_kite_off_a_knight() {
     assert!(s.beat.lost >= 1, "nobody shot the chaser: a rider is lost");
     assert!(s.wing.iter().any(|w| w.lost));
     assert!(s.calls.iter().any(|c| c.line == Line::Lost) || s.beat.lost > 0);
-    // A knight with a kite on their tail rolls it off.
     let (h, mut s) = sky(1);
     let id = s
         .spawn_foe(Kind::Kite, (s.anchor(), 0, 0), (0, 0, 0), St::Latched, 1, 0)
@@ -718,10 +693,6 @@ fn an_unsaved_rider_is_lost_and_a_roll_shakes_a_kite_off_a_knight() {
     assert_eq!(foe(&s, id).map(|f| f.st), Some(St::Flee), "shaken off");
 }
 
-// ─── the Wyrm ───────────────────────────────────────────────────────────────
-
-/// The third beat at the Wyrm's rising, with `seats` knights and no riders
-/// to speak of.
 fn wyrm_beat(seats: u32) -> (BTreeMap<u32, Hero>, Session) {
     let (h, mut s) = sky(seats);
     s.stage = 2;
@@ -768,7 +739,6 @@ fn a_reflected_bolt_opens_the_lit_lamp_and_only_a_charged_lock_breaks_it() {
             f.hp = 0
         }
     });
-    // Everything a knight throws at a shut lamp pings off it.
     let here = s.craft_s(&craft(&s).clone());
     let lamp = foe(&s, id).unwrap().clone();
     let star = |full: bool, dmg: u16| Bolt {
@@ -794,7 +764,6 @@ fn a_reflected_bolt_opens_the_lit_lamp_and_only_a_charged_lock_breaks_it() {
         foe(&s, id).unwrap().full,
         "a shut lamp takes nothing"
     );
-    // A turned bolt of the Wyrm's own opens it.
     let here = s.craft_s(&craft(&s).clone());
     let lamp = foe(&s, id).unwrap().clone();
     s.push_bolt(Bolt {
@@ -819,7 +788,6 @@ fn a_reflected_bolt_opens_the_lit_lamp_and_only_a_charged_lock_breaks_it() {
         St::Open,
         "opened by a reflected bolt"
     );
-    // An uncharged starburst bounces; a charged one lands.
     for (full, hurt) in [(false, false), (true, true)] {
         let before = foe(&s, id).unwrap().hp;
         let here = s.craft_s(&craft(&s).clone());
@@ -843,7 +811,6 @@ fn a_reflected_bolt_opens_the_lit_lamp_and_only_a_charged_lock_breaks_it() {
         go(&mut s, &h, 40, Input::default());
         assert_eq!(foe(&s, id).unwrap().hp < before, hurt, "full {full}");
     }
-    // The lamp's shield closes again after its ticks, hurt kept.
     go(&mut s, &h, oracle::OPEN + 5, Input::default());
     assert_eq!(foe(&s, id).unwrap().st, St::Shut);
     assert!(foe(&s, id).unwrap().hp < foe(&s, id).unwrap().full);
@@ -965,13 +932,11 @@ fn the_coils_hurt_a_craft_outside_the_gap_and_the_roar_one_inside_its_column() {
             b.marks = vec![(0, 0)];
         }
         go(&mut s, &h, 40, Input::default());
-        // In the middle: outside a gap at +5, and inside a column at 0.
         assert_eq!(
             craft(&s).shield < SHIELD,
             atk == 1 || inside,
             "attack {atk}"
         );
-        // Moved to where it is safe, it takes nothing.
         let (h, mut s) = wyrm_beat(1);
         s.seats.get_mut(&1).unwrap().craft.x = if atk == 1 { dm(50) } else { dm(-50) };
         {
@@ -996,8 +961,6 @@ fn the_coils_hurt_a_craft_outside_the_gap_and_the_roar_one_inside_its_column() {
     }
 }
 
-/// Four bots (or one, two, six) fly the whole adventure through the real
-/// run: the tick it ended on, or None if it had not by `limit`.
 fn flown(seats: u32, limit: u32) -> (Run, Option<u32>) {
     let mut r = Run::griffinwing_for_test();
     for id in 2..=seats {
@@ -1008,7 +971,6 @@ fn flown(seats: u32, limit: u32) -> (Run, Option<u32>) {
         let inputs = r.roundtable_inputs();
         r.step(&inputs);
         if tick % 50 == 0 {
-            // Every moment of a flight is a session the wire may carry.
             assert!(
                 r.griffinwing.as_ref().is_none_or(Session::valid) && crate::wire::drawable(&r),
                 "{seats} seats, tick {tick}"
@@ -1071,11 +1033,8 @@ fn explore_bots() {
     }
 }
 
-// ─── the whole adventure, at the table ──────────────────────────────────────
-
 #[test]
 fn four_bots_fly_all_three_beats_at_one_two_four_and_six_seats() {
-    // The ticks each table took, recorded in the brief's tuning table.
     let mut took = Vec::new();
     for seats in [1, 2, 4, 6] {
         let (r, done) = flown(seats, 12_000);
@@ -1117,15 +1076,12 @@ fn the_finish_marks_the_home_and_pays_each_knight_once() {
     assert_eq!(r.home.countryside.games.roundtable[SLOT].wins, 1);
     assert_eq!(r.home.countryside.games.roundtable[SLOT].plays, 1);
     assert!(r.home.countryside.games.roundtable[SLOT].best > 0);
-    // Ticking on at the tally pays nothing more.
     for _ in 0..(TALLY_HOLD - 5) {
         r.step(&BTreeMap::new());
     }
     assert_eq!((gold(&r, 1), gold(&r, 2)), (a, b), "once, not each tick");
     assert_eq!(r.griffinwing.as_ref().unwrap().paid, bit(1) | bit(2));
-    // Gold medal or not, the laurel follows the medal.
     assert_eq!(r.players[&1].laurel, s.medal == Some(Medal::Gold));
-    // And E leaves it, with the party home at the door.
     r.step(&BTreeMap::from([(
         1,
         Input {
@@ -1156,7 +1112,6 @@ fn the_finish_marks_the_home_and_pays_each_knight_once() {
 fn a_wipe_starts_the_beat_over_in_under_a_second_with_the_progress_kept() {
     let (h, mut s) = sky(2);
     s.next = 0;
-    // Into the second beat's turrets, with a banked first beat.
     s.stage = 1;
     s.bank = Tally {
         pts: 900,
@@ -1176,7 +1131,6 @@ fn a_wipe_starts_the_beat_over_in_under_a_second_with_the_progress_kept() {
     for _ in 0..5 {
         s.step(&BTreeMap::new(), &h, &n);
     }
-    // Every knight goes down at once.
     for seat in s.seats.values_mut() {
         seat.craft.shield = 0;
     }
@@ -1201,7 +1155,6 @@ fn a_wipe_starts_the_beat_over_in_under_a_second_with_the_progress_kept() {
             .all(|k| k.craft.shield == SHIELD && k.craft.down == 0)
     );
     assert!(s.bolts.is_empty() && s.beat.pts == 0 && s.wing.iter().all(|w| !w.lost));
-    // One knight falling is not a wipe: they rise again at the formation.
     let (h, mut s) = sky(2);
     s.seats.get_mut(&1).unwrap().craft.shield = 0;
     s.step(&BTreeMap::new(), &h, &n);
@@ -1218,7 +1171,6 @@ fn a_wipe_starts_the_beat_over_in_under_a_second_with_the_progress_kept() {
 fn a_wipe_in_the_wyrms_fight_keeps_its_lamps_and_returns_to_the_wyrm() {
     let (h, mut s) = wyrm_beat(1);
     let n = Nums::default();
-    // The first lamp is out.
     let first = s.boss.as_ref().unwrap().lamps[0];
     {
         let f = s.foes.iter_mut().find(|f| f.id == first).unwrap();
@@ -1289,7 +1241,6 @@ fn both_knights_at_a_table_of_two_have_something_to_do() {
         );
     }
     assert!(t_both.is_some());
-    // Without a knight at one seat (their keys idle) the party does worse.
     for idle in [1, 2] {
         let (r, t) = run(Some(idle));
         let s2 = r.griffinwing.as_ref().unwrap();
@@ -1334,7 +1285,6 @@ fn more_knights_mean_more_foes_each_with_more_health_never_less() {
     }
     assert!(wave(6).0 > wave(1).0, "more of them");
     assert!(wave(6).3 > wave(1).3, "and more bolts to a turret's volley");
-    // Fewer riders fly the wing as knights fill the seats.
     let riders: Vec<usize> = (1..=MAX_PLAYERS).map(|n| sky(n).1.wing.len()).collect();
     assert_eq!(riders, [3, 2, 1, 0, 0, 0]);
 }
@@ -1367,7 +1317,6 @@ fn a_knight_who_joins_mid_run_flies_in_at_once_and_scales_the_beat_up_by_a_share
             assert!(f.hp >= g.hp, "never weaker");
         }
     }
-    // Standing up and sitting down again does not scale it twice.
     let mut heroes = r.players.clone();
     let mut s2 = s.clone();
     heroes.get_mut(&2).unwrap().away = true;
@@ -1379,7 +1328,6 @@ fn a_knight_who_joins_mid_run_flies_in_at_once_and_scales_the_beat_up_by_a_share
     assert_eq!(s2.seats.len(), 2);
     let again: Vec<u32> = s2.foes.iter().take(hp.len()).map(|f| f.full).collect();
     assert_eq!(hp, again, "a seat already provisioned scales nothing");
-    // The party carries on and finishes.
     let mut done = false;
     for _ in 0..12_000 {
         let i = r.roundtable_inputs();
@@ -1417,14 +1365,12 @@ fn the_same_keys_replay_to_the_same_bytes_and_the_session_stays_bounded() {
         serde_json::to_vec(&a.griffinwing).unwrap(),
         serde_json::to_vec(&b.griffinwing).unwrap()
     );
-    // And it reads back what it wrote.
     let back: Run = serde_json::from_str(&serde_json::to_string(&a).unwrap()).unwrap();
     assert_eq!(back.griffinwing, a.griffinwing);
 }
 
 #[test]
 fn each_of_the_five_numbers_moves_the_thing_it_names() {
-    // lock: the hold's charge fills in its ticks.
     for charge in [20u32, 40, 90] {
         let (h, mut s) = sky(1);
         let n = Nums {
@@ -1445,7 +1391,6 @@ fn each_of_the_five_numbers_moves_the_thing_it_names() {
             "charge {charge}: {ticks}"
         );
     }
-    // window: the steer box's half width, in tenths of a unit.
     for window in [40u32, 64, 90] {
         let (h, mut s) = sky(1);
         let n = Nums {
@@ -1467,7 +1412,6 @@ fn each_of_the_five_numbers_moves_the_thing_it_names() {
         }
         assert_eq!(s.seats[&1].craft.x, dm(window as i32));
     }
-    // spur: ticks of boost from a full meter.
     for spur in [30u32, 75, 180] {
         let (h, mut s) = sky(1);
         let n = Nums {
@@ -1491,7 +1435,6 @@ fn each_of_the_five_numbers_moves_the_thing_it_names() {
         }
         assert!((spur..=spur + 2).contains(&ticks), "spur {spur}: {ticks}");
     }
-    // tell: a turret shows its footprint this long, and never under forty.
     for tell in [40u32, 50, 120] {
         let (h, mut s) = sky(1);
         s.act(oracle::Act::Turret { x: 0, z: 0 });
@@ -1516,7 +1459,6 @@ fn each_of_the_five_numbers_moves_the_thing_it_names() {
         assert!(n.min <= n.start && n.start <= n.max);
     }
     assert!(NUMBERS[4].min >= 40, "a tell is never under forty");
-    // A knob moved on the run's tune reaches the sim.
     let mut r = Run::griffinwing_for_test();
     assert!(r.tune.set("griffinwing_window", 90.0));
     assert_eq!(Nums::of(&r.tune).window, 90);
@@ -1591,7 +1533,6 @@ fn friends_cover_each_other_a_knight_with_a_kite_on_their_tail_is_saved_by_anoth
     for seat in s.seats.values_mut() {
         seat.craft.hurt = 0;
     }
-    // Knight 1 does nothing; knight 2's hands (a bot's) drop back and shoot.
     let mut saved_at = None;
     for tick in 0..400 {
         let i = s.bot_input(2, &h[&2]);
@@ -1608,8 +1549,6 @@ fn friends_cover_each_other_a_knight_with_a_kite_on_their_tail_is_saved_by_anoth
     assert!(s.seats[&2].craft.back < 0, "by dropping back behind them");
 }
 
-/// The bots' rounds for the brief's tuning table: one knob moved, the rest at
-/// their starts, at one and at four seats, for a sure hand and a novice's.
 #[test]
 #[ignore = "prints the tuning table's bot rounds"]
 fn tuning_rounds() {
@@ -1702,7 +1641,6 @@ fn the_riders_lines_are_short_and_never_a_wall_of_words() {
             );
         }
     }
-    // The beats' own words: two or three plain words on a card.
     for words in rail::WORDS {
         assert!(words.split(' ').count() <= 4, "{words}");
     }
@@ -1762,7 +1700,6 @@ fn the_slot_list_names_every_actor_and_art_never_sets_a_hitbox() {
         }));
         assert_eq!(s["placeholder"], serde_json::json!(true));
     }
-    // The sim's radii the art must respect are the ones the slots name.
     for s in slots.iter().filter(|s| s["sim_radius_tenths"].is_i64()) {
         let id = s["id"].as_str().unwrap();
         let r = s["sim_radius_tenths"].as_i64().unwrap() as i32;
@@ -1789,7 +1726,6 @@ fn a_party_that_has_lit_the_beacon_before_is_paid_the_smaller_replay_purse() {
     s.first = false;
     assert_eq!(s.purse(), REPLAY + 3 * REPLAY_MEDAL);
     assert!(REPLAY + 3 * REPLAY_MEDAL < PURSE + PURSE_MEDAL);
-    // The run reads the Home when it opens.
     let mut r = Run::griffinwing_for_test();
     assert!(r.griffinwing.as_ref().unwrap().first);
     r.home.roundtable[SLOT] |= BEGUN;
@@ -1815,7 +1751,6 @@ fn random_hands_and_a_table_that_comes_and_goes_never_break_the_session() {
         state
     };
     for tick in 0..9_000u32 {
-        // Knights come and go.
         if tick % 211 == 0 {
             let id = 1 + roll() % MAX_PLAYERS;
             if let Some(h) = heroes.get_mut(&id) {
@@ -1897,8 +1832,6 @@ fn an_hour_at_the_tally_or_with_the_fire_key_held_is_still_a_valid_session() {
 
 #[test]
 fn hands_that_press_at_random_for_a_long_time_never_leave_the_session_out_of_bounds() {
-    // Twelve tables of one to six knights, keys held for a while at a time,
-    // knights coming and going, until the Wyrm falls or forty thousand ticks.
     for seed in 1..=12u32 {
         let seats = 1 + seed % 6;
         let mut r = Run::griffinwing_for_test();
@@ -1978,7 +1911,6 @@ fn bots_at_a_table_that_comes_and_goes_fly_on_and_the_session_stays_valid_every_
         let n = Nums::default();
         let mut finished = false;
         for tick in 0..20_000u32 {
-            // Someone steps away or comes back every so often (never knight 1).
             if tick % 331 == 0 && tick > 0 && seats > 1 {
                 let id = 2 + (tick / 331) % (seats - 1);
                 if let Some(h) = heroes.get_mut(&id) {
@@ -2012,9 +1944,6 @@ fn bots_at_a_table_that_comes_and_goes_fly_on_and_the_session_stays_valid_every_
 
 #[test]
 fn a_table_that_sits_down_after_the_wyrm_falls_settles_once_and_not_every_tick() {
-    // The only knight stands up and sits down again inside the tally, so no
-    // one is left who flew it home. Nobody is paid, and the beacon's news and
-    // the Home's wins are still told once, not on every tick that follows.
     let (mut r, done) = flown(1, 12_000);
     assert!(done.is_some());
     {

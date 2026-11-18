@@ -100,8 +100,6 @@ fn fixture_env(root: &Path) -> Vec<EnvGuard> {
         std::fs::create_dir_all(root.join(directory)).unwrap();
     }
     vec![
-        // The scratch workspace is its own repository even when the scratch
-        // directory sits inside a checkout: git must not climb into it.
         EnvGuard::set("GIT_CEILING_DIRECTORIES", root.to_str().unwrap()),
         EnvGuard::unset("HOME"),
         EnvGuard::set("XDG_CONFIG_HOME", root.join("config").to_str().unwrap()),
@@ -220,8 +218,6 @@ fn delegated_lineage_native_parent_reaudits_child_and_exact_applied_commit() {
             .count(),
         1
     );
-    // Consumer parity can reuse these exact producer/auditor bytes. This is an
-    // explicit owned test output, never a production environment knob.
     let export = std::env::var_os("ANGEL_DELEGATED_LINEAGE_FIXTURE").map(PathBuf::from);
     if let Some(path) = export.as_ref() {
         std::fs::write(path, serde_json::to_vec_pretty(&receipt).unwrap()).unwrap();
@@ -237,7 +233,6 @@ fn delegated_lineage_native_parent_reaudits_child_and_exact_applied_commit() {
         )
         .unwrap();
     }
-    // Even a newly self-hashed child manifest cannot replace its sealed journal.
     let repo_key = crate::platform::workspace_store::repo_identity(&workspace).key;
     let child = links[0]["artifact"]["child_rollout_id"].as_str().unwrap();
     let path = root

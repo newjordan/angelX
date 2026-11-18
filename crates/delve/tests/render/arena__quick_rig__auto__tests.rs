@@ -21,7 +21,6 @@ fn rows(text: &str) -> Vec<&str> {
     text.lines().filter(|l| !l.is_empty()).collect()
 }
 
-/// Compare semantic JSON; print the first differences frame by frame.
 fn assert_game_parity(produced: &str, expected: &str, label: &str) {
     let got: Value = serde_json::from_str(produced).expect("produced parses as JSON");
     let want: Value = serde_json::from_str(expected).expect("fixture parses as JSON");
@@ -76,7 +75,6 @@ fn auto_rig_frog_matches_python_game_json() {
     let json = auto_rig_json(&rows(FROG_ROWS)).expect("frog rigs");
     let elapsed = started.elapsed();
     assert_game_parity(&json, FROG_GAME, "frog");
-    // The output must be loadable by the runtime parser itself.
     Rig::parse(&json).expect("frog game.json parses as Rig");
     println!("auto_rig frog: {elapsed:?}");
 }
@@ -108,7 +106,6 @@ fn auto_rig_blank_sprite_is_an_error_not_a_panic() {
     let blank = vec!["...."; 4];
     match auto_rig(&blank) {
         Ok(rig) => {
-            // A valid rig must still parse.
             let json = auto_rig_json(&blank).expect("json matches rig result");
             Rig::parse(&json).expect("blank-sprite rig parses");
             let _ = rig;
@@ -136,7 +133,6 @@ fn auto_rig_one_pixel_sprite_is_an_error_not_a_panic() {
 
 #[test]
 fn auto_rig_timing_per_sprite() {
-    // Measures the full fit+build pipeline on both fixtures.
     for (label, text) in [("frog", FROG_ROWS), ("squire", SQUIRE_ROWS)] {
         let started = Instant::now();
         let json = auto_rig_json(&rows(text)).expect("rigs");
@@ -185,7 +181,6 @@ fn delve_smart_json(r: &[&str]) -> Result<Value, String> {
 fn auto_rig_smart_matches_python_fixtures() {
     for (name, text) in SMART_CASES {
         let r = rows(text);
-        // rig.json parity: masks, joints, anchors and plan.
         let want_rig: serde_json::Value =
             serde_json::from_str(&smart_fixture(name, "rig.json")).unwrap();
         assert_eq!(
@@ -210,7 +205,6 @@ fn auto_rig_smart_matches_python_fixtures() {
                 "{name}: part {part} mask mismatch"
             );
         }
-        // game.json parity: rows, ticks and anchors, clip by clip.
         let want_game: serde_json::Value =
             serde_json::from_str(&smart_fixture(name, "game.json")).unwrap();
         let got = delve_smart_json(&r).expect("smart build");

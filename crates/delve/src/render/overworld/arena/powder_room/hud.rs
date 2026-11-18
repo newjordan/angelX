@@ -14,42 +14,33 @@ use super::bits;
 use crate::rules::powder::Powder;
 use crate::rules::{Run, Tile, TILE_UNITS};
 
-/// How far down the view the top marks reach.
 pub(super) const BOTTOM: i32 = 15;
 
 const LEFT: i32 = 42;
 
-/// One knight's place in the strip.
 pub(super) struct Chip {
     pub id: u32,
     pub x: i32,
-    /// Where the chip ends (the next begins).
     pub w: i32,
-    /// Letters of the name that fit.
     pub name: usize,
 }
 
-/// The pot's tag.
 fn pot_tag(p: &Powder) -> String {
     format!("{}G", p.ante.values().sum::<u32>())
 }
 
-/// Where the pot's coin sits.
 fn pot_x(p: &Powder) -> i32 {
     NATIVE_W - 9 - text_width(&pot_tag(p)) - 8
 }
 
-/// The knights' chips, left to right in seat order, fitted to the strip.
 pub(super) fn chips(p: &Powder) -> Vec<Chip> {
     let n = p.broken.len().max(1) as i32;
     let room = pot_x(p) - 6 - LEFT;
     let each = room / n;
-    // Marker, gap, name, gap, up to three digits.
     let name = ((each - 7 - 3 - text_width("000") - 2) / 6).clamp(0, 8) as usize;
     p.broken.keys().enumerate().map(|(i, &id)| Chip { id, x: LEFT + each * i as i32, w: each, name }).collect()
 }
 
-/// The name a seat goes by here: `YOU` for the seat looking.
 pub(super) fn called(run: &Run, id: u32, focus: Option<u32>, most: usize) -> String {
     if focus == Some(id) && most >= 3 {
         return "YOU".to_string();
@@ -62,18 +53,15 @@ pub(super) fn called(run: &Run, id: u32, focus: Option<u32>, most: usize) -> Str
         .collect()
 }
 
-/// Where a knight's count sits in the strip, for what flies to it.
 pub(super) fn anchor(p: &Powder, id: u32) -> (i32, i32) {
     chips(p).iter().find(|c| c.id == id).map_or((NATIVE_W / 2, 8), |c| (c.x + c.w - 8, 8))
 }
 
-/// The share of the store the table has broken, 0 to 100.
 pub(super) fn cleared(p: &Powder) -> u32 {
     let total = u32::from(p.show.team) + p.crates.len() as u32;
     if total == 0 { 0 } else { u32::from(p.show.team) * 100 / total }
 }
 
-/// The strip, the store's bar and the clock's last seconds.
 pub(super) fn strip(led: &mut Ledger, over: &mut Img, run: &Run, p: &Powder, focus: Option<u32>) {
     let now = run.tick as u32;
     chrome::panel(over, (4, 1, NATIVE_W - 8, 11), chrome::Tone::SLATE);
@@ -110,12 +98,10 @@ pub(super) fn strip(led: &mut Ledger, over: &mut Img, run: &Run, p: &Powder, foc
             let name = called(run, chip.id, focus, chip.name);
             led.small(over, "name", chip.x + 8, 3, &name, if you { 'T' } else { 'i' });
         }
-        // A crate flying in lands, and the count swells.
         let pulse = landed(chip.id).map_or(0.0, |age| juice::bump(age, 8));
         let num = n.to_string();
         let ink = if pulse > 0.0 { '9' } else if lead { 'T' } else { 'h' };
         led.small(over, "count", chip.x + chip.w - 3 - text_width(&num), 3 - i32::from(pulse > 0.5), &num, ink);
-        // The run of crates, a fuse under the chip burning down.
         let run_len = p.show.run_of(chip.id, now);
         if run_len >= 2 {
             let last = p.show.combo.get(&chip.id).map_or(0, |c| c.0);
@@ -132,8 +118,6 @@ pub(super) fn strip(led: &mut Ledger, over: &mut Img, run: &Run, p: &Powder, foc
     store_bar(led, over, p, now);
 }
 
-/// The kegs a seat has to set, bottom left: a lit keg for each in hand,
-/// a dark one, its fuse a short bar, for each burning. No words.
 pub(super) fn hand(over: &mut Img, p: &Powder, focus: Option<u32>, now: u32) {
     let Some(me) = focus.filter(|id| p.broken.contains_key(id)) else { return };
     if p.done || p.titled() {
@@ -157,9 +141,6 @@ pub(super) fn hand(over: &mut Img, p: &Powder, focus: Option<u32>, now: u32) {
     }
 }
 
-/// The table's bar: a fuse along the strip's foot that burns the store
-/// away, a gap at each mark the table calls at (a quarter, half, most);
-/// brightest where a crate has just broken.
 fn store_bar(_led: &mut Ledger, over: &mut Img, p: &Powder, now: u32) {
     let (x0, w, y0) = (8, NATIVE_W - 16, 12);
     let pct = cleared(p);
@@ -177,9 +158,6 @@ fn store_bar(_led: &mut Ledger, over: &mut Img, p: &Powder, now: u32) {
     }
 }
 
-/// The whole store in small, two pixels a tile, bottom right: stone
-/// floor, piers, crates, lit kegs, flames, the knights in their colours;
-/// the view's own frame. Only for a hall bigger than a screen.
 pub(super) fn minimap(over: &mut Img, run: &Run, p: &Powder, focus: Option<u32>, (ox, oy): (i32, i32)) {
     let room = run.room();
     let (cols, rows) = (room.cols as i32, room.rows as i32);
@@ -210,7 +188,6 @@ pub(super) fn minimap(over: &mut Img, run: &Run, p: &Powder, focus: Option<u32>,
     for k in &p.kegs {
         over.rect(x0 + k.at.0 * 2 - 1, y0 + k.at.1 * 2 - 1, 4, 4, if now / 4 % 2 == 0 { '9' } else { '7' });
     }
-    // The view's own frame, so a knight sees where they are.
     let (vx, vy) = (x0 + ox.clamp(0, cols * super::super::TILE) / 8, y0 + oy.clamp(0, rows * super::super::TILE) / 8);
     let (vw, vh) = ((NATIVE_W / 8).min(x0 + w - vx), (NATIVE_H / 8).min(y0 + h - vy));
     for dx in (0..vw).step_by(2) {

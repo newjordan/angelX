@@ -1,7 +1,3 @@
-/// Every hostile kind in rows beside the knights, on each pack's floor: the
-/// native picture (3x) over what a terminal of 192 columns paints in
-/// half-blocks (6x), and `sizes.txt`, each kind's drawn size in map pixels:
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_lineup_shots -- --ignored`.
 #[test]
 #[ignore]
 fn write_lineup_shots() {
@@ -23,8 +19,6 @@ fn write_lineup_shots() {
         image::imageops::replace(&mut out, &b, 0, i64::from(h));
         out.save(dir.join(name)).unwrap();
     };
-    // A floor of `pack`, standing in its first room of `kind`, emptied, the
-    // four knights at the head of the rows.
     let room = |pack: Pack, kind: RoomKind, rows: &[f32]| {
         let mut run = Run::new(21, 1, Some("Friend"));
         run.begin_in(pack);
@@ -49,7 +43,6 @@ fn write_lineup_shots() {
     };
     let mut sizes = String::new();
     let lit_share = |im: &Img| {
-        // How much of it stands out from black paper: as light as `j`.
         let (mut ink, mut lit) = (0, 0);
         for c in im.pixels().filter(|&c| c != BLACK) {
             ink += 1;
@@ -135,7 +128,6 @@ fn write_lineup_shots() {
             let (row, col) = (i / 7, i % 7);
             let x = 9.0 + col as f32 * 5.0;
             run.spawn_at_for_test(kind, x, rows[row]);
-            // Placed, not walked: the spawn's own spot check may move it.
             if let Some(e) = run.enemies.last_mut() {
                 (e.x, e.y) = (x, rows[row]);
             }
@@ -144,8 +136,6 @@ fn write_lineup_shots() {
             note(&run, "monster");
         }
         save(&format!("lineup-monsters-{name}.png"), &run);
-        // The pack's bosses: as route chiefs in a fight room, then as the
-        // floor's guardian in the stairs room.
         for (role, kind) in [("chiefs", RoomKind::Fight), ("guardians", RoomKind::Stairs)] {
             let rows = [11.0, 25.0];
             let mut run = room(pack, kind, &rows);
@@ -158,7 +148,6 @@ fn write_lineup_shots() {
             save(&format!("lineup-{role}-{name}.png"), &run);
         }
     }
-    // The beasts that are bosses without a file: the Pit's and the lair's.
     let rows = [12.0, 25.0];
     let mut run = room(Pack::Hellforge, RoomKind::Fight, &rows);
     for (kind, x, y) in [
@@ -174,7 +163,6 @@ fn write_lineup_shots() {
     }
     note(&run, "beast");
     save("lineup-beasts.png", &run);
-    // Every critter at each step of its move.
     let rows = [6.0, 12.0, 18.0, 24.0];
     let mut run = room(Pack::Crypt, RoomKind::Fight, &rows);
     let critters = [

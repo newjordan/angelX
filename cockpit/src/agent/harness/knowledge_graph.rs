@@ -30,24 +30,12 @@ use std::hash::BuildHasher;
 
 const KG_DOC_CAP_DEFAULT: usize = 24_000;
 const KG_QUERY_EDGE_CAP_DEFAULT: usize = 400;
-/// Entities listed per resolution call, per type group — beyond this the group
-/// is truncated (and says so) rather than blowing the prompt.
 const KG_RESOLVE_GROUP_CAP: usize = 120;
-/// A node this connected is a hub — worth a synthesized profile.
 const KG_HUB_MIN_DEGREE_DEFAULT: usize = 3;
-/// Profiles written per `summarize` run.
 const KG_SUMMARIZE_CAP_DEFAULT: usize = 5;
-/// A profile goes stale once the node gains this many edges past the degree
-/// it was written at.
 const KG_PROFILE_REFRESH_DELTA: usize = 2;
 const STORE_VERSION: u64 = 1;
 
-// ---------------------------------------------------------------------------
-// The type system (the cookbook schema)
-// ---------------------------------------------------------------------------
-
-/// The five declared entity types. Extraction may use no other value — an
-/// unknown type is a schema violation that fails the ingest loudly.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub(crate) enum EntityType {
@@ -78,9 +66,6 @@ impl EntityType {
     }
 }
 
-/// One extracted entity: name + declared type + a one-sentence description
-/// grounded in the source document (the resolution stage's disambiguation
-/// context).
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct Entity {
     pub name: String,
@@ -90,7 +75,6 @@ pub(crate) struct Entity {
     pub description: String,
 }
 
-/// One typed edge: directed, predicate a short verb phrase.
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct Relation {
     pub source: String,
@@ -98,7 +82,6 @@ pub(crate) struct Relation {
     pub target: String,
 }
 
-/// The extraction contract — what a club call must return, verbatim JSON.
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct ExtractedGraph {
     #[serde(default)]
@@ -107,7 +90,6 @@ pub(crate) struct ExtractedGraph {
     pub relations: Vec<Relation>,
 }
 
-/// Resolution: one cluster of surface forms naming the same real-world thing.
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct Cluster {
     pub canonical: String,
@@ -121,8 +103,6 @@ pub(crate) struct ResolvedClusters {
     pub clusters: Vec<Cluster>,
 }
 
-/// Summarization: coarse dating for a hub profile — `YYYY` / `YYYY-MM`,
-/// `unknown`, or `ongoing` for the end.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct TimeRange {
     #[serde(default)]
@@ -131,8 +111,6 @@ pub(crate) struct TimeRange {
     pub end: String,
 }
 
-/// The synthesized hub-node profile (cookbook stage 4): written once a node's
-/// degree crosses the hub threshold, refreshed as the degree grows.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct EntityProfile {
     pub summary: String,
@@ -140,15 +118,9 @@ pub(crate) struct EntityProfile {
     pub key_facts: Vec<String>,
     #[serde(default)]
     pub time_range: Option<TimeRange>,
-    /// Node degree when this profile was written — the staleness signal.
-    /// Store-side metadata; the summarization reply never sets it.
     #[serde(default)]
     pub at_degree: usize,
 }
-
-// ---------------------------------------------------------------------------
-// The store (multi-digraph with provenance)
-// ---------------------------------------------------------------------------
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct KnowledgeNode {
@@ -158,12 +130,10 @@ pub(crate) struct KnowledgeNode {
     pub description: String,
     #[serde(default)]
     pub aliases: BTreeSet<String>,
-    /// Provenance: every document this entity was extracted from.
     #[serde(default)]
     pub source_docs: BTreeSet<String>,
     #[serde(default)]
     pub mentions: u64,
-    /// Synthesized hub profile; absent until `summarize` elects the node.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile: Option<EntityProfile>,
 }
@@ -173,7 +143,6 @@ pub(crate) struct KnowledgeEdge {
     pub source: String,
     pub predicate: String,
     pub target: String,
-    /// Provenance: the document this triple was extracted from.
     pub source_doc: String,
 }
 
@@ -181,17 +150,12 @@ pub(crate) struct KnowledgeEdge {
 pub(crate) struct KnowledgeGraph {
     #[serde(default)]
     pub version: u64,
-    /// Canonical name → node. BTreeMap for stable serialization.
     #[serde(default)]
     pub nodes: BTreeMap<String, KnowledgeNode>,
-    /// Multi-digraph: parallel edges between the same pair are kept when the
-    /// predicate or provenance differs; byte-exact duplicates fold.
     #[serde(default)]
     pub edges: Vec<KnowledgeEdge>,
 }
 
-/// Hashes only index candidate positions; equality against the original edge
-/// resolves collisions. This avoids cloning graph text for a transient index.
 struct EdgeIndex {
     hash: RandomState,
     positions: HashMap<u64, Vec<usize>>,
@@ -228,7 +192,6 @@ impl EdgeIndex {
     }
 }
 
-/// What one ingest did — every count the operator would ask about.
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct IngestReport {
     pub entities_new: usize,
@@ -240,8 +203,6 @@ pub(crate) struct IngestReport {
 }
 
 impl KnowledgeGraph {
-    /// Case-insensitive canonical lookup over names and aliases.
-    /// First BTreeMap canonical whose name or alias matches wins.
     pub(crate) fn resolve_name(&self, name: &str) -> Option<String> {
         let want = name.trim().to_lowercase();
         if want.is_empty() {
@@ -257,9 +218,6 @@ impl KnowledgeGraph {
         None
     }
 
-    /// Per-fold lowercase → canonical map. Built in BTreeMap order so the
-    /// first owner of a key wins, matching a linear `resolve_name` scan.
-    /// Never stored on the graph (save/load JSON is unchanged).
     fn fold_name_lookup(&self) -> HashMap<String, String> {
         let mut cap = self.nodes.len();
         for node in self.nodes.values() {
@@ -288,10 +246,6 @@ impl KnowledgeGraph {
         }
     }
 
-    /// Fold one extraction into the graph. Entities upsert (union provenance,
-    /// bump mentions); relations require both endpoints to resolve — the
-    /// extraction contract says every relation connects extracted entities, so
-    /// a dangling endpoint is a contract violation we skip and count.
     pub(crate) fn fold(&mut self, extracted: &ExtractedGraph, source_doc: &str) -> IngestReport {
         let mut report = IngestReport::default();
         let mut lookup = self.fold_name_lookup();
@@ -333,14 +287,8 @@ impl KnowledgeGraph {
                 }
             }
         }
-        // For small batches, a linear scan avoids building an index. Larger
-        // batches otherwise repeatedly scan the whole graph, including edges
-        // already added earlier in this extraction.
         let batch = extracted.relations.len();
         let mut edge_index = if batch >= 200 {
-            // Count actionable relations only until indexing is worthwhile.
-            // Both factors of the saturating comparison count are monotone,
-            // so later valid relations cannot reverse the decision.
             let mut valid = 0usize;
             let use_index = extracted.relations.iter().any(|relation| {
                 if relation.predicate.trim().is_empty()
@@ -395,10 +343,6 @@ impl KnowledgeGraph {
         report
     }
 
-    /// Apply one resolution cluster: fold every alias node into the canonical
-    /// one — union aliases/provenance, sum mentions, rewrite edges. Returns the
-    /// number of merge-created self-loop edges dropped ("Edwin Aldrin —is→
-    /// Buzz Aldrin" is not a fact once both names are the same node).
     fn merge_cluster(&mut self, canonical: &str, members: &[String]) -> usize {
         for member in members {
             if member == canonical {
@@ -431,7 +375,6 @@ impl KnowledgeGraph {
         self.edges
             .retain(|e| !(e.source == e.target && e.source == canonical));
         let dropped = before - self.edges.len();
-        // Rewrites can also create byte-exact duplicates; fold them.
         let mut seen: Vec<KnowledgeEdge> = Vec::with_capacity(self.edges.len());
         let mut index = (self.edges.len() >= 256).then(EdgeIndex::new);
         for edge in self.edges.drain(..) {
@@ -470,7 +413,6 @@ impl KnowledgeGraph {
         )
     }
 
-    /// Degree (in + out) per node name.
     pub(crate) fn degrees(&self) -> BTreeMap<String, usize> {
         let mut degree: BTreeMap<String, usize> = BTreeMap::new();
         for edge in &self.edges {
@@ -480,7 +422,6 @@ impl KnowledgeGraph {
         degree
     }
 
-    /// Top hub nodes by degree, for the stats surface.
     pub(crate) fn hubs(&self, count: usize) -> Vec<(String, usize)> {
         let mut ranked: Vec<(String, usize)> = self.degrees().into_iter().collect();
         ranked.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
@@ -488,10 +429,6 @@ impl KnowledgeGraph {
         ranked
     }
 
-    // -- persistence --------------------------------------------------------
-
-    /// Missing file = empty graph; a present-but-unparseable file is a loud
-    /// error, never silently replaced (saving over it would destroy the store).
     pub(crate) fn load_from(path: &Path) -> Result<Self, String> {
         let body = match std::fs::read_to_string(path) {
             Ok(body) => body,
@@ -522,8 +459,6 @@ impl KnowledgeGraph {
     }
 }
 
-/// One store per workspace: `~/.angelX/knowledge/<ws-key>.json`
-/// (`ANGEL_KNOWLEDGE_DIR` overrides the directory).
 pub(crate) fn knowledge_store_path(workspace: &Path) -> PathBuf {
     std::env::var_os("ANGEL_KNOWLEDGE_DIR")
         .map(PathBuf::from)
@@ -534,9 +469,6 @@ pub(crate) fn knowledge_store_path(workspace: &Path) -> PathBuf {
         ))
 }
 
-/// One stable companion lock serializes every graph read-modify-write across
-/// processes. Hold the directory handle as well as the lock descriptor so the
-/// checked lock file stays anchored for the transaction's lifetime.
 struct KnowledgeGraphStoreLock {
     file: std::fs::File,
     _directory: crate::platform::workspace_store::private_io::PrivateDirectory,
@@ -565,14 +497,9 @@ impl KnowledgeGraphStoreLock {
 impl Drop for KnowledgeGraphStoreLock {
     fn drop(&mut self) {
         use std::os::fd::AsRawFd;
-        // SAFETY: the descriptor remains owned by this guard through Drop.
         let _ = unsafe { libc::flock(self.file.as_raw_fd(), libc::LOCK_UN) };
     }
 }
-
-// ---------------------------------------------------------------------------
-// The pipeline engine (extract / resolve / query — one club call each)
-// ---------------------------------------------------------------------------
 
 pub(crate) struct KnowledgeGraphEngine {
     workspace: PathBuf,
@@ -626,9 +553,6 @@ impl KnowledgeGraphEngine {
             .transpose()
     }
 
-    /// Same contract as agent-graph seats: `self`/`auto` = the in-hand driver,
-    /// explicit label = roster lookup, paid SOTA seats honor the withholding
-    /// rules and say so.
     fn resolve_club(&self, spec: Option<&str>) -> Result<Arc<dyn Club>, String> {
         let want = spec.unwrap_or("").trim().to_lowercase();
         if want.is_empty() || want == "self" || want == "auto" {
@@ -680,8 +604,6 @@ impl KnowledgeGraphEngine {
         }
     }
 
-    /// One seat call, connected: the seat is offered the ledger reader alone
-    /// (`book::connect`), so it can read the route its prompt opens with.
     fn ask(&self, club: &dyn Club, prompt: &str, cancel: &AtomicBool) -> Result<String, String> {
         super::book::connect::chat(
             club,
@@ -692,7 +614,6 @@ impl KnowledgeGraphEngine {
         )
     }
 
-    /// Extract one document into the store. One club call, strict JSON out.
     pub(crate) fn ingest(
         &self,
         club_spec: Option<&str>,
@@ -744,8 +665,6 @@ impl KnowledgeGraphEngine {
         Ok(line)
     }
 
-    /// Deduplicate surface forms: one club call per entity type with ≥2 nodes,
-    /// clustering by description. Only validated clusters merge.
     pub(crate) fn resolve(
         &self,
         club_spec: Option<&str>,
@@ -841,10 +760,6 @@ impl KnowledgeGraphEngine {
         Ok(line)
     }
 
-    /// Cookbook stage 4: synthesize profiles for hub nodes (degree ≥
-    /// `ANGEL_KG_HUB_DEGREE`) that have none yet or whose profile went stale
-    /// (degree grew by `KG_PROFILE_REFRESH_DELTA`+ since it was written). One
-    /// club call per hub, capped per run.
     pub(crate) fn summarize(
         &self,
         club_spec: Option<&str>,
@@ -890,7 +805,6 @@ impl KnowledgeGraphEngine {
         let mut refreshed = 0usize;
         for (name, profile) in profiles {
             let Some(node) = graph.nodes.get_mut(&name) else {
-                // A concurrent resolve may have removed this surface form.
                 continue;
             };
             if matches!(
@@ -923,7 +837,6 @@ impl KnowledgeGraphEngine {
         Ok(line)
     }
 
-    /// Answer a question from the graph alone; every claim cites an edge.
     pub(crate) fn query(
         &self,
         club_spec: Option<&str>,
@@ -977,21 +890,11 @@ impl KnowledgeGraphEngine {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Prompts + reply parsing
-// ---------------------------------------------------------------------------
-
-/// The extraction's reply shape, beside `⠸⠑⠛` (the page quotes it).
 pub(crate) const EXTRACTION_SHAPE: &str = "{\"entities\":[{\"name\":\"…\",\"type\":\"PERSON\",\"description\":\"…\"}],\n \"relations\":[{\"source\":\"…\",\"predicate\":\"…\",\"target\":\"…\"}]}";
-/// The resolution's reply shape, beside `⠸⠋⠛`.
 pub(crate) const RESOLUTION_SHAPE: &str =
     "{\"clusters\":[{\"canonical\":\"…\",\"aliases\":[\"…\"]}]}";
-/// A hub profile's reply shape, beside `⠸⠛⠉`.
 pub(crate) const PROFILE_SHAPE: &str = "{\"summary\":\"2-3 sentences\",\"key_facts\":[\"…\"],\"time_range\":{\"start\":\"YYYY or YYYY-MM or unknown\",\"end\":\"YYYY or YYYY-MM or ongoing or unknown\"}}";
 
-/// `⠸⠑`: the extractor's brief is the route; the allowed types, the reply
-/// shape and the source id ride beside their pages, and a truncated document
-/// adds `⠸⠑⠊`.
 fn extraction_prompt(source_doc: &str, body: &str, truncated: bool) -> String {
     use super::book::{d3_roles::pages, d456_knowledge::KG_EXTRACT};
     let types = EntityType::ALL
@@ -1013,8 +916,6 @@ fn extraction_prompt(source_doc: &str, body: &str, truncated: bool) -> String {
     )
 }
 
-/// `⠸⠋`: the deduplicator's brief is the route; the entity type and the reply
-/// shape ride beside their pages, the entities below.
 fn resolution_prompt(entity_type: EntityType, members: &[(String, String)]) -> String {
     use super::book::{d3_roles::pages, d456_knowledge::KG_RESOLVE};
     let listing = members
@@ -1037,8 +938,6 @@ fn resolution_prompt(entity_type: EntityType, members: &[(String, String)]) -> S
     )
 }
 
-/// Every edge incident to `name`, with direction preserved and provenance
-/// attached — the evidence a hub profile must be grounded in.
 fn serialize_entity_context(graph: &KnowledgeGraph, name: &str) -> String {
     let mut lines = Vec::new();
     for edge in &graph.edges {
@@ -1057,8 +956,6 @@ fn serialize_entity_context(graph: &KnowledgeGraph, name: &str) -> String {
     lines.join("\n")
 }
 
-/// `⠸⠛`: the profiler's brief is the route; the entity and its facts are the
-/// data, the reply shape beside its page.
 fn profile_prompt(node: &KnowledgeNode, context: &str) -> String {
     use super::book::{d3_roles::pages, d456_knowledge::KG_PROFILE};
     let docs = node
@@ -1085,8 +982,6 @@ fn profile_prompt(node: &KnowledgeNode, context: &str) -> String {
     )
 }
 
-/// `⠸⠓`: the answerer's brief is the route; the subgraph and the question are
-/// the data.
 fn query_prompt(serialized: &str, question: &str) -> String {
     format!(
         "{}\n\n{serialized}\n\nQuestion: {question}",
@@ -1094,9 +989,6 @@ fn query_prompt(serialized: &str, question: &str) -> String {
     )
 }
 
-/// Rank edges by question-term overlap (names, aliases, predicates), keep the
-/// top `cap`, and serialize them with their incident entities' descriptions.
-/// Returns (serialized, listed, total).
 fn serialize_subgraph(
     graph: &KnowledgeGraph,
     question: &str,
@@ -1108,8 +1000,6 @@ fn serialize_subgraph(
         .filter(|t| t.len() >= 3)
         .map(str::to_string)
         .collect();
-    // The same endpoint can appear on thousands of edges. Compute its hit
-    // once per query while preserving the exact Unicode lowercase semantics.
     fn node_hit<'a>(
         graph: &KnowledgeGraph,
         terms: &[String],
@@ -1150,7 +1040,6 @@ fn serialize_subgraph(
             (score, edge)
         })
         .collect();
-    // Stable: matches first, then original extraction order.
     scored.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
     let total = scored.len();
     let picked: Vec<&KnowledgeEdge> = scored.into_iter().take(cap).map(|(_, e)| e).collect();
@@ -1174,7 +1063,6 @@ fn serialize_subgraph(
                     node.aliases.iter().cloned().collect::<Vec<_>>().join(", ")
                 ));
             }
-            // A synthesized hub profile carries what no single edge does.
             if let Some(profile) = &node.profile {
                 out.push_str(&format!("\n  profile: {}", profile.summary));
                 if let Some(range) = &profile.time_range
@@ -1196,9 +1084,6 @@ fn serialize_subgraph(
     (out, picked.len(), total)
 }
 
-/// Tolerant strict-JSON reader: models fence or preface JSON despite
-/// instructions, so strip fences and slice the outermost object — but a reply
-/// with no object at all fails loudly, quoting what came back.
 fn parse_reply_json<T: serde::de::DeserializeOwned>(reply: &str) -> Result<T, String> {
     let trimmed = reply.trim();
     let unfenced = trimmed
@@ -1217,12 +1102,6 @@ fn parse_reply_json<T: serde::de::DeserializeOwned>(reply: &str) -> Result<T, St
     serde_json::from_str(slice).map_err(|e| e.to_string())
 }
 
-// ---------------------------------------------------------------------------
-// The agent-callable tool
-// ---------------------------------------------------------------------------
-
-/// `knowledge_graph` — typed, provenance-carrying graph memory shared across
-/// sessions in this workspace.
 pub(crate) struct KnowledgeGraphTool {
     workspace: PathBuf,
     self_club: Option<Arc<dyn Club>>,
@@ -1313,10 +1192,6 @@ impl Tool for KnowledgeGraphTool {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Tests — scripted stub clubs only (test-budget law: no live models)
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/harness/knowledge_graph__tests.rs"]

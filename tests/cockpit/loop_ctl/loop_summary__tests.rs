@@ -111,7 +111,6 @@ fn summary_copies_each_field() {
             plans: [(2, plan("q.door"))].into_iter().collect(),
         })
     );
-    // Active rows: nothing idle, nothing failed, no settled submissions.
     assert!(!s.last_log_all_errors);
     assert_eq!(s.idle_log_tail, 0);
     assert_eq!(
@@ -177,7 +176,6 @@ fn summary_mirrors_every_status_and_tier() {
 #[test]
 fn summary_derives_the_inactivity_tail_from_the_log() {
     let mut st = LoopState::default();
-    // Newest first: two rows of pure failure after a row that did something.
     st.log = vec![
         log_row(1, 3, 0, true),
         log_row(2, 2, 2, false),
@@ -186,7 +184,6 @@ fn summary_derives_the_inactivity_tail_from_the_log() {
     let s = st.summary();
     assert_eq!(s.idle_log_tail, 2);
     assert!(s.last_log_all_errors);
-    // A workspace change, finding or outcome ends the tail.
     st.log[2].workspace_changed = true;
     let s = st.summary();
     assert_eq!(s.idle_log_tail, 0);

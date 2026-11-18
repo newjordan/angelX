@@ -1,4 +1,3 @@
-// Local text-token estimates. No provider cache or chat-template measurement.
 export const SCOPE = {
   total:
     'Sum of separately encoded message text, function names/arguments, and JSON tool schemas; excludes chat framing and non-text payloads.',

@@ -10,7 +10,6 @@ fn drop_key() -> Input {
     Input { interact: true, ..Default::default() }
 }
 
-/// A board that chains `links` times when its first pair is dropped in the first column.
 fn staged(links: u8) -> Board {
     let cols: [&[u8]; 6] = if links >= 3 {
         [&[1, 1], &[2, 3], &[2, 3], &[3], &[2, 1], &[3, 2]]
@@ -32,7 +31,6 @@ fn staged(links: u8) -> Board {
     b
 }
 
-/// Step a board with nothing pressed until it is still, returning every mark it made, oldest first.
 fn settle(b: &mut Board, tune: &Tune, made: &mut Vec<Mark>) {
     for _ in 0..120 {
         b.step(Input::default(), tune);
@@ -41,7 +39,6 @@ fn settle(b: &mut Board, tune: &Tune, made: &mut Vec<Mark>) {
                 made.push(*m);
             }
         }
-        // The cascade ends when the next pair comes.
         if b.flash == 0 && b.piece > 0 {
             break;
         }
@@ -66,15 +63,12 @@ fn a_dropped_pair_and_a_three_link_chain_are_marked_link_by_link() {
         .collect();
     assert_eq!(pops, vec![(1, 3), (2, 6), (3, 9)], "three links, each taking its link's number of cracks");
     assert_eq!(b.cracks, 18);
-    // Twelve cracks were crossed on the third link: one stage, once.
     let stages: Vec<u8> = kinds.iter().filter_map(|k| if let Kind::Stage { n } = k { Some(*n) } else { None }).collect();
     assert_eq!(stages, vec![1]);
-    // Every pop names exactly the pots that went, by colour.
     let Kind::Pop { by, .. } = kinds.iter().find(|k| matches!(k, Kind::Pop { chain: 1, .. })).copied().unwrap() else { unreachable!() };
     assert_eq!(by[0].count(), 3, "three blue pots");
     assert!(by[0].has(0, 7) && by[0].has(0, 8) && by[0].has(0, 9));
     assert_eq!(by[1].count() + by[2].count() + by[3].count(), 0);
-    // The marks are in the board's own ticks, and old ones go.
     assert!(made.iter().all(|m| m.born <= b.clock));
     assert!(b.valid());
     for _ in 0..70 {
@@ -97,7 +91,6 @@ fn weights_grow_with_the_chain_and_the_last_crack_is_the_finale() {
     assert_eq!(Kind::Stage { n: 3 }.weight(), Weight::Finale);
     assert_eq!(Kind::Slag { col: 0, row: 0, hit: true, near: true }.weight(), Weight::Crushing);
     assert_eq!(Kind::Slag { col: 0, row: 0, hit: false, near: false }.weight(), Weight::Solid);
-    // The last of the kiln: thirty-four and a pop of three splits it.
     let mut b = staged(2);
     b.cracks = 34;
     b.step(drop_key(), &Tune::default());
@@ -118,7 +111,6 @@ fn slag_is_marked_where_it_lands_and_into_the_pair_it_is_a_cough() {
     b.step(Input::default(), &tune);
     let slag = b.show.marks.iter().find_map(|m| if let Kind::Slag { col, row, hit, near } = m.kind { Some((col, row, hit, near)) } else { None });
     assert_eq!(slag, Some((2, 7, false, true)), "slag settles on the stack, in the pair's own column");
-    // Slag dropped into a pair that cannot move is a cough.
     let mut b = Board::seeded(5);
     for y in 2..ROWS {
         b.cells[y][3] = 1 + (y % 2) as u8;
@@ -163,10 +155,8 @@ fn the_table_hears_a_lead_a_big_chain_a_stage_and_match_point_once_each() {
     for call in &c.list {
         assert!(call.cry.rank() <= 9);
     }
-    // They are let go.
     c.tick(50 + 200);
     assert!(c.list.is_empty());
-    // Two knights close to the end and three cracks apart: the race is called once.
     let mut race = Calls::default();
     race.standings(5, &[(1, 26), (2, 20)]);
     assert!(!race.list.iter().any(|c| c.cry == Cry::Close), "not yet near the end");
@@ -176,7 +166,6 @@ fn the_table_hears_a_lead_a_big_chain_a_stage_and_match_point_once_each() {
     race.standings(8, &[(1, 29), (2, 28)]);
     assert_eq!(race.list.iter().filter(|c| c.cry == Cry::Close).count(), 1);
     assert_eq!(race.list.iter().find(|c| c.cry == Cry::Close).map(|c| c.who), Some(1));
-    // A lone knight has no lead to take.
     let mut solo = Calls::default();
     solo.standings(5, &[(1, 20)]);
     assert!(solo.list.is_empty());

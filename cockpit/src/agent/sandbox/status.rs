@@ -26,7 +26,6 @@ pub(crate) fn attach(command: &mut std::process::Command) -> std::io::Result<Rec
     let file = File::options().read(true).write(true).open("/dev/null")?;
     let fd = file.as_raw_fd();
     command.env(ENV, fd.to_string());
-    // Only async-signal-safe fcntl in the forked command child. Parent remains CLOEXEC.
     unsafe {
         command.pre_exec(move || {
             if libc::fcntl(fd, libc::F_SETFD, 0) < 0 {
@@ -54,7 +53,6 @@ pub(super) fn publish(receipt: &serde_json::Value) {
         std::env::remove_var(ENV);
     }
     if let Some(fd) = fd.filter(|fd| *fd > 2) {
-        // Helper owns the inherited descriptor; drop closes it before command execution.
         let mut file = unsafe { File::from_raw_fd(fd) };
         if let Ok(bytes) = serde_json::to_vec(receipt) {
             let _ = file.write_all(&bytes);

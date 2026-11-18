@@ -42,9 +42,6 @@ use std::process::{Command, Stdio};
 
 type Keys = BTreeMap<u32, Input>;
 
-// ---------------------------------------------------------------- randomness
-
-/// xorshift64*: the scenarios' own deterministic randomness.
 #[derive(Clone)]
 struct Xs(u64);
 impl Xs {
@@ -68,9 +65,6 @@ impl Xs {
     }
 }
 
-// ------------------------------------------------------------------- drivers
-
-/// How a monkey presses keys: percent chances a tick.
 #[derive(Clone, Copy)]
 struct Style {
     fire: u64,
@@ -109,7 +103,6 @@ const PRESS: Style = Style {
     extras: 0,
 };
 
-/// Random but sticky keys: a walk, now and then a press.
 struct Monkey {
     rng: Xs,
     walk: BTreeMap<u32, (i8, i8, u32)>,
@@ -201,8 +194,6 @@ fn dir8(dx: f32, dy: f32) -> (i8, i8) {
     ][k as usize]
 }
 
-/// A patient fighter: kites to a distance, aims, dodges shots coming at it,
-/// plays what its hand and spells offer. None: nothing to fight.
 fn fighter(run: &Run, id: u32) -> Option<Input> {
     let hero = &run.players[&id];
     if hero.hp == 0 || hero.stone {
@@ -315,10 +306,8 @@ fn fighter(run: &Run, id: u32) -> Option<Input> {
     Some(input)
 }
 
-/// The tile grid of the party's room, walked.
 struct Grid<'a> {
     room: &'a rules::layout::Room,
-    /// Tiles a knight was pinned against: something the tiles do not show.
     blocked: &'a BTreeSet<(i32, i32)>,
 }
 impl Grid<'_> {
@@ -329,7 +318,6 @@ impl Grid<'_> {
                 Tile::Floor | Tile::Door | Tile::Ledge | Tile::Bog | Tile::Stairs
             )
     }
-    /// The next tile on the shortest open path from `from` to `to`.
     fn step(&self, from: (i32, i32), to: (i32, i32)) -> Option<(i32, i32)> {
         let (cols, rows) = (self.room.cols as i32, self.room.rows as i32);
         if from == to || from.0 < 0 || from.1 < 0 || from.0 >= cols || from.1 >= rows {
@@ -360,7 +348,6 @@ impl Grid<'_> {
     }
 }
 
-/// Keys that walk a knight toward tile `goal` of its room.
 fn walk_to(run: &Run, hero: &Hero, goal: (i32, i32), blocked: &BTreeSet<(i32, i32)>) -> (i8, i8) {
     let here = ((hero.x / TILE_UNITS) as i32, (hero.y / TILE_UNITS) as i32);
     let to = |c: i32, r: i32| ((c as f32 + 0.5) * TILE_UNITS, (r as f32 + 0.5) * TILE_UNITS);
@@ -377,16 +364,11 @@ fn walk_to(run: &Run, hero: &Hero, goal: (i32, i32), blocked: &BTreeSet<(i32, i3
     (sign(dx, 0.35), sign(dy, 0.35))
 }
 
-/// A party that crawls a dungeon floor: fights what is in the room, then walks
-/// to the doorway of the next room it has not seen, and finally to the stairs.
 struct Pilot {
     rng: Xs,
     wander: Option<(i32, i32)>,
     until: u64,
-    /// Where each knight was, and since when; a knight pinned for a while
-    /// shuffles off in a random direction.
     pinned: BTreeMap<u32, ((f32, f32), u64, (i8, i8, u64))>,
-    /// Tiles of the room it stands in that stopped a knight.
     blocked: (usize, BTreeSet<(i32, i32)>),
 }
 impl Pilot {
@@ -399,12 +381,10 @@ impl Pilot {
             blocked: (usize::MAX, BTreeSet::new()),
         }
     }
-    /// The tile the party should walk to now, and the way to push once there.
     fn goal(&mut self, run: &Run) -> Option<((i32, i32), (i8, i8))> {
         let room = run.room();
         let (cols, rows) = (room.cols as i32, room.rows as i32);
         if run.open_map() {
-            // An open floor is one map: wander to far floor tiles.
             if self.wander.is_none() || run.tick >= self.until {
                 for _ in 0..40 {
                     let (c, r) = (
@@ -421,7 +401,6 @@ impl Pilot {
             return self.wander.map(|g| (g, (0, 0)));
         }
         let floor = &run.dungeon;
-        // Rooms by walking distance from here; the first unseen one, else the stairs.
         let mut first: BTreeMap<usize, usize> = BTreeMap::new();
         let mut queue = std::collections::VecDeque::from([run.at]);
         let mut seen = BTreeSet::from([run.at]);
@@ -483,7 +462,6 @@ impl Pilot {
                             .total_cmp(&(b.x - hero.x).hypot(b.y - hero.y))
                     });
                 if let (Phase::Fighting, Some(e)) = (run.phase, nearest) {
-                    // Nothing to shoot yet: walk at the nearest body.
                     (input.move_x, input.move_y) =
                         (sign(e.x - hero.x, 1.0), sign(e.y - hero.y, 1.0));
                     (input.aim_x, input.aim_y) = dir8(e.x - hero.x, e.y - hero.y);
@@ -529,8 +507,6 @@ impl Pilot {
     }
 }
 
-// ----------------------------------------------------------------- scenarios
-
 struct Tick {
     inputs: Keys,
     step: bool,
@@ -541,7 +517,6 @@ impl Tick {
     }
 }
 
-/// A host's side of a tick: moves on the run it keeps, then the keys.
 type Drive = Box<dyn FnMut(&mut Run, u64) -> Tick>;
 
 struct Rig {
@@ -554,7 +529,6 @@ struct Scenario {
     covers: &'static str,
     ticks: usize,
     settings: Settings,
-    /// A phrasebook (text, errors) other than the stock one.
     book: Option<(String, Vec<String>)>,
     make: Box<dyn Fn() -> Rig>,
 }
@@ -593,7 +567,6 @@ fn ids(run: &Run) -> Vec<u32> {
     run.players.keys().copied().collect()
 }
 
-/// A run on floor `depth` with `n` knights, playing the pilot.
 fn crawl(seed: u64, depth: u32, n: u32) -> Rig {
     let mut run = Run::new(seed, 700 + seed, None);
     while run.dungeon.depth < depth {
@@ -611,7 +584,6 @@ fn pilot_rig(run: Run, seed: u64) -> Rig {
     }
 }
 
-/// Floor `depth`, its guardian's room entered with `n` knights, the pilot fighting.
 fn guardian(seed: u64, depth: u32, n: u32) -> Rig {
     let mut run = Run::new(seed, 800 + seed, None);
     while run.dungeon.depth < depth {
@@ -625,7 +597,6 @@ fn guardian(seed: u64, depth: u32, n: u32) -> Rig {
     pilot_rig(run, seed)
 }
 
-/// Every boss a floor's pack can raise, one after another in the first hall.
 fn boss_parade(seed: u64, depth: u32, n: u32, per: u64) -> Rig {
     let mut run = Run::new(seed, 900 + seed, None);
     while run.dungeon.depth < depth {
@@ -691,8 +662,6 @@ fn surface(seats: u32, levels: u8) -> Run {
     run
 }
 
-/// The party into the place of room kind `kind` on the kingdom map or the
-/// Undercroft, as a walker through its door would be.
 fn visit(run: &mut Run, kind: RoomKind) {
     let geo = rules::map::geography(&run.kingdom.wishes);
     let root = if rules::college::is_room(kind) {
@@ -710,7 +679,6 @@ fn visit(run: &mut Run, kind: RoomKind) {
     }
 }
 
-/// Visits sites `first..first + count` of the kingdom map in turn, `per` ticks each.
 fn tour(first: usize, count: usize, per: u64, seats: u32, seed: u64) -> Rig {
     let run = surface(seats, 2);
     let mut monkey = Monkey::new(seed);
@@ -726,7 +694,6 @@ fn tour(first: usize, count: usize, per: u64, seats: u32, seed: u64) -> Rig {
     Rig { run, drive }
 }
 
-/// A fixture run started with `seats` knights, played by `keys`.
 fn played(mut run: Run, seats: u32, keys: impl FnMut(&Run, u64) -> Keys + 'static) -> Rig {
     for id in 2..=seats {
         run.join_seat(id, &format!("Knight {id}"));
@@ -739,7 +706,6 @@ fn played(mut run: Run, seats: u32, keys: impl FnMut(&Run, u64) -> Keys + 'stati
     }
 }
 
-/// What the Round Table's bots press; after the game, a monkey.
 fn table(slug: &'static str, seats: u32, seed: u64) -> Rig {
     let run = Run::roundtable_for_test(slug).expect("a Round Table game");
     let mut monkey = Monkey::new(seed);
@@ -751,7 +717,6 @@ fn table(slug: &'static str, seats: u32, seed: u64) -> Rig {
             monkey.keys(&ids, CALM)
         }
     });
-    // A seat that sits down late, as a joiner does.
     let mut late = false;
     let inner = std::mem::replace(&mut rig.drive, Box::new(|_, _| Tick::go(Keys::new())));
     let mut inner = inner;
@@ -764,7 +729,6 @@ fn table(slug: &'static str, seats: u32, seed: u64) -> Rig {
     rig
 }
 
-/// A shelf game: the lone press that starts it, then its seat bots.
 fn shelf(make: fn() -> Run, seats: u32, seed: u64) -> Rig {
     let mut monkey = Monkey::new(seed);
     let mut run = make();
@@ -821,7 +785,6 @@ fn shelf_bots(run: &Run, monkey: &mut Monkey) -> Keys {
     }
 }
 
-/// The pastimes of the kingdom's greens, `per` ticks each, a monkey at the keys.
 fn pastimes(games: Vec<rules::pastimes::Game>, per: u64, seats: u32, seed: u64) -> Rig {
     let run = surface(seats, 1);
     let mut monkey = Monkey::new(seed);
@@ -840,7 +803,6 @@ fn pastimes(games: Vec<rules::pastimes::Game>, per: u64, seats: u32, seed: u64) 
     Rig { run, drive }
 }
 
-/// A race hall of `course` with `seats` riders; the drift bot drives the Touge.
 fn race(course: rules::race3d::Course, seats: u32, seed: u64) -> Rig {
     let run = angel_delve::render::overworld::arena::race3d::testing::racing(course, seats);
     let mut monkey = Monkey::new(seed);
@@ -851,7 +813,6 @@ fn race(course: rules::race3d::Course, seats: u32, seed: u64) -> Rig {
                 if race.course == rules::race3d::Course::Touge {
                     *input = rules::race3d::drift_bot(race, id);
                 } else {
-                    // Gas, steer by turns, now and then a jump.
                     input.fire = true;
                     input.dash = (run.tick + u64::from(id) * 7) % 53 == 0;
                 }
@@ -863,7 +824,6 @@ fn race(course: rules::race3d::Course, seats: u32, seed: u64) -> Rig {
     rig
 }
 
-/// The first seed from 41 whose floor `depth` has a hall of 20 or more columns.
 fn hall_floor(depth: u32, seats: u32) -> (Run, usize) {
     for seed in 41..200 {
         let mut run = Run::new(seed, 1, None);
@@ -885,7 +845,6 @@ fn hall_floor(depth: u32, seats: u32) -> (Run, usize) {
     panic!("no hall");
 }
 
-/// A hall's folly (the depth picks which), a monkey playing it.
 fn folly(depth: u32, seats: u32, seed: u64) -> Rig {
     let (mut run, at) = hall_floor(depth, seats);
     run.clear_prerequisites_for_test();
@@ -901,7 +860,6 @@ fn folly(depth: u32, seats: u32, seed: u64) -> Rig {
     }
 }
 
-/// The six nooks, 200 ticks each.
 fn nooks_rig(seats: u32) -> Rig {
     let mut run = Run::new(41, 1, None);
     for id in 2..=seats {
@@ -927,8 +885,6 @@ fn nooks_rig(seats: u32) -> Rig {
     Rig { run, drive }
 }
 
-/// Floor 3's stairs with the floor cleared: the party stands on them, goes down
-/// into the crossroads, votes, and plays the card it picked.
 fn crossroads(seats: u32, seed: u64) -> Rig {
     use rules::votes::{Action, Command};
     let mut run = Run::new(47, 9, None);
@@ -938,9 +894,6 @@ fn crossroads(seats: u32, seed: u64) -> Rig {
     while run.dungeon.depth < 3 {
         run.descend_for_test();
     }
-    // The third floor ends in the dragon's lair and has no stairs of its own; a
-    // stair is laid in the first room (the test fixtures do the same) and the
-    // party stands on it.
     run.boss_gates = None;
     run.enemies.clear();
     run.phase = Phase::Exploring;
@@ -970,7 +923,6 @@ fn crossroads(seats: u32, seed: u64) -> Rig {
     let mut monkey = Monkey::new(seed);
     let mut rng = Xs::new(seed);
     let drive: Drive = Box::new(move |run, t| {
-        // Standing still on the stairs takes the party down; then the vote, then the game.
         let mut keys = if run.crossroads.is_some() {
             monkey.keys(&ids(run), WILD)
         } else {
@@ -993,7 +945,6 @@ fn crossroads(seats: u32, seed: u64) -> Rig {
     Rig { run, drive }
 }
 
-/// Dame Fortune's lever pulled again and again, the wheel left to spin.
 fn fortune_wheel(seed: u64) -> Rig {
     let mut home = rules::home::Home {
         deepest: 3,
@@ -1036,7 +987,6 @@ fn fortune_wheel(seed: u64) -> Rig {
     Rig { run, drive }
 }
 
-/// Wishes asked of the phrasebook, granted to a party that fights on.
 fn wishing(seed: u64, seats: u32) -> Rig {
     let mut run = Run::new(seed, 500 + seed, None);
     knights(&mut run, seats);
@@ -1073,7 +1023,6 @@ fn wishing(seed: u64, seats: u32) -> Rig {
     Rig { run, drive }
 }
 
-/// A cleared floor's cauldron: spells learned, thrown in, brewed.
 fn cauldron(seed: u64) -> Rig {
     use rules::cauldron;
     let mut run = Run::new(seed, 2, Some("Matt"));
@@ -1102,7 +1051,6 @@ fn cauldron(seed: u64) -> Rig {
     let mut monkey = Monkey::new(seed);
     let drive: Drive = Box::new(move |run, t| {
         if let Some(pot) = run.cauldron_here().cloned() {
-            // Knight 1 a step south of the pot; presses spaced apart.
             if t % 40 == 1 {
                 if let Some(hero) = run.players.get_mut(&1) {
                     (hero.x, hero.y) = (pot.x, pot.y + 2.0);
@@ -1140,7 +1088,6 @@ fn cauldron(seed: u64) -> Rig {
     Rig { run, drive }
 }
 
-/// The Undercroft's rooms and the surface's halls, visited in turn, pressed at.
 fn home_rooms(seed: u64) -> Rig {
     let mut home = rules::home::Home::default();
     for station in [
@@ -1185,7 +1132,6 @@ fn home_rooms(seed: u64) -> Rig {
     Rig { run, drive }
 }
 
-/// A dungeon floor played by a monkey: every key a knight has, pressed at random.
 fn chaos(seed: u64, depth: u32, n: u32) -> Rig {
     let mut run = Run::new(seed, 600 + seed, None);
     while run.dungeon.depth < depth {
@@ -1199,8 +1145,6 @@ fn chaos(seed: u64, depth: u32, n: u32) -> Rig {
     }
 }
 
-/// Host-side moves a live host makes between ticks: seats come and go, presence
-/// and the room's hold change, the tune moves, the world is paused a while.
 fn host_moves(seed: u64) -> Rig {
     let mut rig = crawl(seed, 2, 3);
     let mut inner = std::mem::replace(&mut rig.drive, Box::new(|_, _| Tick::go(Keys::new())));
@@ -1241,7 +1185,6 @@ fn host_moves(seed: u64) -> Rig {
 
 fn scenarios() -> Vec<Scenario> {
     let mut all = Vec::new();
-    // The dungeon: parties of one, two and four, floors one to six.
     all.push(sc(
         "solo-f1-crawl",
         "one knight crawling floor 1: doors, fights, loot, the stairs",
@@ -1342,7 +1285,6 @@ fn scenarios() -> Vec<Scenario> {
             rig
         },
     ));
-    // Home, the kingdom and its places.
     all.push(sc(
         "kingdom-walk",
         "two knights wander the kingdom map pressing E",
@@ -1412,7 +1354,6 @@ fn scenarios() -> Vec<Scenario> {
             move || tour(first, count, 100, 2, 100 + n as u64),
         ));
     }
-    // The Round Table's adventures and the races.
     for (n, slug) in [
         "lanternward",
         "moonfall",
@@ -1464,7 +1405,6 @@ fn scenarios() -> Vec<Scenario> {
     ] {
         all.push(sc(name, covers, 900, move || shelf(make, 3, 300)));
     }
-    // Pastimes, rides and the small games.
     {
         use rules::pastimes::Game;
         let games = Game::ALL.to_vec();
@@ -1572,7 +1512,6 @@ fn scenarios() -> Vec<Scenario> {
             }
         },
     ));
-    // Crossroads, wishes, the cauldron, host moves, a full table.
     all.push(sc(
         "crossroads",
         "floor 3's stairs: the descent into the crossroads, the vote, the card played",
@@ -1630,10 +1569,7 @@ fn scenarios() -> Vec<Scenario> {
     all
 }
 
-// ------------------------------------------------------------------ recorder
-
 fn drain(run: &mut Run) {
-    // What the host takes out of the run after a tick (see realm-host's step).
     run.cues.clear();
     run.sounds.clear();
     run.seat_sounds.clear();
@@ -1674,7 +1610,6 @@ impl Tape {
     }
 }
 
-/// The registry's places that are on in every room (`rules::activity::WORLD`, `PLACES`).
 const ALWAYS_ON: [&str; 8] = [
     "the kingdom",
     "the countryside",
@@ -1732,7 +1667,6 @@ fn record(sc: &Scenario, dir: &Path, stock: &(String, Vec<String>)) -> Entry {
         .map(|o| o.keys().cloned().collect())
         .unwrap_or_default();
     let mut previous = serde_json::to_string(&first).unwrap();
-    // The worker restores it as the host's first word.
     runtime_state::restore_value(&first).expect("the opening state restores");
     tape.line(&[r#"{"kind":"restore","state":"#, &previous, "}"]);
     raw += previous.len() as u64 + 32;
@@ -1748,7 +1682,6 @@ fn record(sc: &Scenario, dir: &Path, stock: &(String, Vec<String>)) -> Entry {
         let before_text = serde_json::to_string(&before).unwrap();
         let book = phrasebook::snapshot();
         let mut event = json!({"inputs": tick.inputs, "settings": settings::get(), "phrasebook": book, "step": tick.step});
-        // The worker's own apply wants the whole event; the file leaves a repeated book out.
         let full = event.clone();
         if shown_book.as_ref() == Some(&book) {
             event.as_object_mut().unwrap().remove("phrasebook");
@@ -1778,7 +1711,6 @@ fn record(sc: &Scenario, dir: &Path, stock: &(String, Vec<String>)) -> Entry {
         raw += (if same { 4 } else { before_text.len() } + event_text.len() + after_text.len() + 60)
             as u64;
         entry.stepped += usize::from(tick.step);
-        // Coverage: which top-level parts of the Run moved this tick.
         if let Some(top) = after["run"].as_object() {
             if let Some(last) = &last_top {
                 for (k, v) in top {
@@ -1790,7 +1722,6 @@ fn record(sc: &Scenario, dir: &Path, stock: &(String, Vec<String>)) -> Entry {
             last_top = Some(top.clone());
         }
         previous = after_text;
-        // The host's run continues from the worker's word.
         rig.run = runtime_state::restore_value(&after)
             .unwrap_or_else(|e| panic!("{}: tick {t}: reply does not restore: {e}", sc.name));
         entry.rooms.insert(format!("{:?}", rig.run.room().kind));

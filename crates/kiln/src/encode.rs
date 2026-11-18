@@ -7,7 +7,6 @@ use crate::palette::{Ink, Palette};
 use crate::raster::Raster;
 use std::borrow::Cow;
 
-/// An indexed picture: an ink number a pixel, row by row; 0 is clear.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Indexed {
     pub w: u32,
@@ -16,22 +15,18 @@ pub struct Indexed {
 }
 
 impl Indexed {
-    /// A clear `w` x `h` picture.
     pub fn new(w: u32, h: u32) -> Indexed {
         Indexed { w, h, px: vec![0; (w * h) as usize] }
     }
 
-    /// A raster's inks.
     pub fn of(r: &Raster) -> Indexed {
         Indexed { w: r.w, h: r.h, px: r.ink.iter().map(|i| i.0).collect() }
     }
 
-    /// Every pixel `ink`.
     pub fn fill(&mut self, ink: Ink) {
         self.px.fill(ink.0);
     }
 
-    /// `ink` in the box `(x, y, w, h)`, held to the picture.
     pub fn rect(&mut self, x: i32, y: i32, w: u32, h: u32, ink: Ink) {
         for yy in y.max(0)..(y + h as i32).min(self.h as i32) {
             for xx in x.max(0)..(x + w as i32).min(self.w as i32) {
@@ -40,8 +35,6 @@ impl Indexed {
         }
     }
 
-    /// `src` laid at `(x, y)`, each of its pixels `scale` pixels square;
-    /// its clear pixels leave what is under them.
     pub fn blit(&mut self, src: &Indexed, x: i32, y: i32, scale: u32) {
         let s = scale.max(1) as i32;
         for sy in 0..src.h as i32 {
@@ -66,7 +59,6 @@ impl Indexed {
         }
     }
 
-    /// The picture `n` times bigger, each pixel a square.
     pub fn scaled(&self, n: u32) -> Indexed {
         let mut out = Indexed::new(self.w * n, self.h * n);
         out.blit(self, 0, 0, n);
@@ -74,7 +66,6 @@ impl Indexed {
     }
 }
 
-/// The palette as RGB bytes, clear first: `n` entries, at least the inks.
 fn table(palette: &Palette, n: usize) -> Vec<u8> {
     let mut out = vec![0u8; n.max(palette.len() + 1) * 3];
     for ink in palette.inks() {
@@ -84,7 +75,6 @@ fn table(palette: &Palette, n: usize) -> Vec<u8> {
     out
 }
 
-/// A PNG of `img`, indexed, the clear transparent.
 pub fn png(img: &Indexed, palette: &Palette) -> Result<Vec<u8>, String> {
     let mut out = Vec::new();
     {
@@ -99,8 +89,6 @@ pub fn png(img: &Indexed, palette: &Palette) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
-/// A PNG of RGBA bytes, row by row: for sheets that set kiln's pictures
-/// beside pictures from elsewhere.
 pub fn png_rgba(w: u32, h: u32, rgba: &[u8]) -> Result<Vec<u8>, String> {
     let mut out = Vec::new();
     {
@@ -113,7 +101,6 @@ pub fn png_rgba(w: u32, h: u32, rgba: &[u8]) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
-/// An animated GIF being written, the realm's inks its palette.
 pub struct Gif {
     enc: gif::Encoder<Vec<u8>>,
     w: u16,
@@ -121,7 +108,6 @@ pub struct Gif {
 }
 
 impl Gif {
-    /// A GIF of `w` x `h` frames that plays round and round.
     pub fn new(w: u32, h: u32, palette: &Palette) -> Result<Gif, String> {
         let (w, h) = (u16::try_from(w).map_err(|_| "too wide for a GIF")?, u16::try_from(h).map_err(|_| "too tall for a GIF")?);
         let mut enc = gif::Encoder::new(Vec::new(), w, h, &table(palette, 128)).map_err(|e| e.to_string())?;
@@ -129,7 +115,6 @@ impl Gif {
         Ok(Gif { enc, w, h })
     }
 
-    /// A frame shown for `delay` hundredths of a second.
     pub fn frame(&mut self, img: &Indexed, delay: u16) -> Result<(), String> {
         if (img.w, img.h) != (u32::from(self.w), u32::from(self.h)) {
             return Err(format!("a {}x{} frame in a {}x{} GIF", img.w, img.h, self.w, self.h));
@@ -146,14 +131,11 @@ impl Gif {
         self.enc.write_frame(&f).map_err(|e| e.to_string())
     }
 
-    /// The GIF's bytes.
     pub fn finish(self) -> Result<Vec<u8>, String> {
         self.enc.into_inner().map_err(|e| e.to_string())
     }
 }
 
-/// A PNG read back as RGBA bytes, row by row, whatever its colour type:
-/// a reference to compare against, a floor to stand a figure on.
 pub fn read_png(bytes: &[u8]) -> Result<(u32, u32, Vec<u8>), String> {
     let mut d = png::Decoder::new(std::io::Cursor::new(bytes));
     d.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
@@ -171,7 +153,6 @@ pub fn read_png(bytes: &[u8]) -> Result<(u32, u32, Vec<u8>), String> {
     Ok((info.width, info.height, rgba))
 }
 
-/// A frame's delay in hundredths of a second at `fps`.
 pub fn delay(fps: u32) -> u16 {
     (100.0 / fps.max(1) as f32).round() as u16
 }

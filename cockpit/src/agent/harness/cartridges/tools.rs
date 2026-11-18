@@ -70,7 +70,6 @@ impl Tool for CartridgeTool {
             .spawn_owned()
             .map_err(|e| format!("{name}: start {}: {e}", program.display()))?;
         if let Some(mut stdin) = child.stdin.take() {
-            // A program that never reads its arguments closes the pipe early.
             let _ = stdin.write_all(args.to_string().as_bytes());
         }
         let stdout = drain(child.stdout.take());
@@ -131,7 +130,6 @@ fn tail(text: &str, max: usize) -> &str {
     &text[start..]
 }
 
-/// Whether a plugged-in cartridge marks `name` as a core tool.
 pub(crate) fn is_core(name: &str) -> bool {
     super::all()
         .iter()
@@ -139,8 +137,6 @@ pub(crate) fn is_core(name: &str) -> bool {
         .any(|cartridge| cartridge.config.tools.iter().any(|tool| tool.core && tool.name == name))
 }
 
-/// Every plugged-in config-only cartridge's tools: deferred, or core. A name already
-/// taken keeps its first tool.
 pub(crate) fn register(r: &mut ToolRegistry, workspace: &Path) {
     for cartridge in super::all() {
         let Some(folder) = &cartridge.folder else {

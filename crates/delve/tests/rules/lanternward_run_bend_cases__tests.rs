@@ -28,11 +28,9 @@ fn record_lanternward_run() {
         closed.lanternward = None;
         rec("lanternward.Run.lanternward_showing", json!({"run": rj(&run)}), json!(run.lanternward_showing()));
         rec("lanternward.Run.lanternward_showing", json!({"run": rj(&closed)}), json!(closed.lanternward_showing()));
-        // Open the table on a closed room.
         let mut c = closed.clone();
         c.start_lanternward();
         rec("lanternward.Run.start_lanternward", json!({"run": rj(&closed)}), json!({"run": rj(&c)}));
-        // A table that was played before (a record to count on).
         let mut again = closed.clone();
         again.home.countryside.games.roundtable[SLOT].plays = 4;
         again.home.countryside.games.roundtable[SLOT].wins = 2;
@@ -70,7 +68,6 @@ fn record_lanternward_run() {
             }
             run.step(&inputs);
         }
-        // The Beacon burns: first time, and again.
         for (first, plays) in [(true, 1u32), (false, 3)] {
             let mut r2 = run.clone();
             r2.home.countryside.games.roundtable[SLOT].plays = plays;

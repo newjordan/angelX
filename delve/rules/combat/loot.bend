@@ -1,18 +1,3 @@
-# crates/delve/src/rules/loot.rs — the run's generator and the drop tables.
-#
-# `Rng` is a newtype over u64: in the state it is the bare number, here the
-# `W.W` itself. Every draw hands back the new generator beside the value:
-#
-#   loot.Rng.new(+seed: W.W) -> W.W
-#   loot.Rng.next(+r: W.W) -> W.W & W.W                  (generator, output)
-#   loot.Rng.below(+r: W.W, +n: U32) -> W.W & U32   (generator, 0 <= v < max(n, 1))
-#   loot.Rng.chance(+r: W.W, +percent: U32) -> W.W & Bool
-#   loot.Rng.pick(+r: W.W, +weights: List<&2, U32>) -> W.W & U32
-#
-# `pick` is Rust's generic `pick<T: Copy>(&[(T, u32)]) -> T`: it takes the
-# weights alone and answers the index of the chosen entry (the caller indexes
-# its own table; zero weights are never chosen, an empty table answers 0).
-
 def loot.Rng.new(+seed: W.W) -> W.W:
   W.or(W.xor(seed, W.W{2654435769, 2135587861}), W.W{0, 1})
 
@@ -53,8 +38,6 @@ def loot.sum(+ws: List<&2, U32>) -> U32:
     case Con{+h, +t}:
       (h + loot.sum(t) : U32)
 
-# The index the roll lands on, walking the weights as Rust does: a roll under
-# the weight is the entry, otherwise the weight comes off the roll.
 def loot.Rng.pick.walk(+ws: List<&2, U32>, +roll: U32, +i: U32) -> U32:
   match ws:
     case Nil{}:
@@ -76,7 +59,6 @@ def loot.Rng.pick.go(rv: W.W & U32, +ws: List<&2, U32>) -> W.W & U32:
 def loot.Rng.pick(+r: W.W, +ws: List<&2, U32>) -> W.W & U32:
   loot.Rng.pick.go(loot.Rng.below(r, loot.sum(ws)), ws)
 
-# Cases (recorded from the Rust original: tests/rules/loot_bend_cases__tests.rs)
 def case.loot.Rng.new(+input: J.Val) -> J.Val:
   W.to_j(loot.Rng.new(W.of_j(J.get(input, "seed"))))
 

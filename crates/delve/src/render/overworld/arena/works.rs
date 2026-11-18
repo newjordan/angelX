@@ -22,7 +22,6 @@ fn feet(run: &Run) -> f32 {
     if run.side_on() { FOOT } else { 0.0 }
 }
 
-/// A point on the ground, in native pixels.
 fn ground(run: &Run, x: f32, y: f32) -> (i32, i32) {
     at(x, y + feet(run))
 }
@@ -31,8 +30,6 @@ fn rows(rows: &[&str]) -> Img {
     Img::from_rows(rows)
 }
 
-/// A column of flame `h` pixels tall standing on `(x, base)`, flickering:
-/// blood at its foot, amber through the middle, gold at the tip.
 fn tongue(cv: &mut Img, x: i32, base: i32, h: i32, tick: u32, seed: i32) {
     for k in 0..h {
         let f = k as f32 / h.max(1) as f32;
@@ -50,20 +47,14 @@ fn tongue(cv: &mut Img, x: i32, base: i32, h: i32, tick: u32, seed: i32) {
             'T'
         };
         cv.put(x + sway, base - k, ink);
-        // The body of the flame is two wide near its foot.
         if f < 0.6 {
             cv.put(x + sway + 1, base - k, if f < 0.3 { 'P' } else { 'o' });
         }
     }
 }
 
-// ─── gas ─────────────────────────────────────────────────────────────────────
-
-/// A cloud: cached rolling lobes inside the original radius, a crisp rim
-/// marking bad air and cool low interiors that keep figures readable.
 pub(super) fn gas_stamp(run: &Run, cloud: &skills::Cloud) -> (std::sync::Arc<Img>, i32, i32) {
     let (cx, cy) = at(cloud.x, cloud.y);
-    // The floor projection's 0.72/0.8 squash.
     let r = cloud.radius() * UNIT;
     let squash = if run.side_on() { 0.8 } else { 0.72 };
     let (rx, ry) = (r as i32, (r * squash) as i32);
@@ -78,10 +69,6 @@ fn gas(cv: &mut Img, run: &Run, cloud: &skills::Cloud) {
     cv.stamp(&im,x,y);
 }
 
-// ─── fire ────────────────────────────────────────────────────────────────────
-
-/// Burning ground: a bed of embers, and tongues of flame that rise and
-/// gutter as it burns down.
 fn blaze(cv: &mut Img, run: &Run, b: &skills::Blaze) {
     let tick = run.tick as u32;
     let (cx, cy) = ground(run, b.x, b.y);
@@ -102,13 +89,11 @@ fn blaze(cv: &mut Img, run: &Run, b: &skills::Blaze) {
         }
         x += 2;
     }
-    // Sparks climb out of it.
     for k in 0..4 {
         let t = (tick as i32 + k * 9) % 30;
         let sx = cx + (hash(k, tick as i32 / 30, 4) % (2 * rx.max(1) as u32 + 1)) as i32 - rx;
         cv.put(sx, cy - 6 - t / 2, if t < 15 { '6' } else { '@' });
     }
-    // A monster's fire wears a beating rim: never ground to stand on.
     if b.hostile() {
         let ink = if tick / 5 % 2 == 0 { '@' } else { '7' };
         let (ex, ey) = (rx + 2, ry + 1);
@@ -121,8 +106,6 @@ fn blaze(cv: &mut Img, run: &Run, b: &skills::Blaze) {
         }
     }
 }
-
-// ─── mines ───────────────────────────────────────────────────────────────────
 
 fn mine_body() -> Img {
     rows(&[
@@ -141,8 +124,6 @@ fn mine(cv: &mut Img, run: &Run, m: &Mine) {
     let body = mine_body().recolor(&[('h','U'),('J','V'),('G','u'),('g','x'),('j','S')]);
     cv.stamp(&body, x - body.w / 2, y - body.h + 1);
     let tick = run.tick;
-    // Its light: quick amber while arming, a slow red pulse once armed, a
-    // gold flicker when a neighbour's blast has lit it.
     let ink = if m.fuse > 0 {
         if tick.is_multiple_of(2) { '6' } else { '5' }
     } else if !m.armed() {
@@ -159,16 +140,11 @@ fn mine(cv: &mut Img, run: &Run, m: &Mine) {
     for (dx, dy) in [(0, -4), (-1, -4), (0, -3), (-1, -3)] {
         cv.put(x + dx, y + dy, ink);
     }
-    // Studs round the shoulder.
     for dx in [-4, 3] {
         cv.put(x + dx, y - 3, 'i');
     }
 }
 
-// ─── barricades ──────────────────────────────────────────────────────────────
-
-/// A palisade: stakes along the line, a crossbeam lashed over them. A worn
-/// one has stakes snapped to stumps; a falling one tips and sinks.
 fn barricade(cv: &mut Img, run: &Run, w: &Barricade) {
     let (a, b) = (at(w.a.0, w.a.1), at(w.b.0, w.b.1));
     let fell = w
@@ -180,7 +156,6 @@ fn barricade(cv: &mut Img, run: &Run, w: &Barricade) {
         return;
     }
     if run.side_on() {
-        // A wall of planks standing on the ground, as tall as it is.
         let planks = 4;
         let (top, base) = (a.1.min(b.1), a.1.max(b.1));
         let height = base - top;
@@ -220,7 +195,6 @@ fn barricade(cv: &mut Img, run: &Run, w: &Barricade) {
     let (dx, dy) = ((b.0 - a.0) as f32, (b.1 - a.1) as f32);
     let length = dx.hypot(dy).max(1.0);
     let stakes = (length / 4.0).round() as i32 + 1;
-    // A lashed beam low along the line, then the stakes on it, nearest last.
     if fell == 0.0 {
         for i in 0..=length as i32 {
             let t = i as f32 / length;
@@ -275,16 +249,12 @@ fn barricade(cv: &mut Img, run: &Run, w: &Barricade) {
             cv.put(x + 2, y - k2, if tip { 'B' } else { 'P' });
         }
         if broken && fell == 0.0 {
-            // A splinter beside the stump.
             cv.put(x + 3, y - 1, 'O');
             cv.put(x + 4, y, 'o');
         }
     }
 }
 
-/// The Fungelder's garden: mushrooms standing thick along the line — pale
-/// stalks, broad spotted caps. A wounded one stands shorter; a falling
-/// one folds back into the ground it came from and leaves only litter.
 fn mushroom_wall(cv: &mut Img, a: (i32, i32), b: (i32, i32), wear: f32, fell: f32) {
     let (dx, dy) = ((b.0 - a.0) as f32, (b.1 - a.1) as f32);
     let length = dx.hypot(dy).max(1.0);
@@ -301,17 +271,14 @@ fn mushroom_wall(cv: &mut Img, a: (i32, i32), b: (i32, i32), wear: f32, fell: f3
         );
         let short = (hash(k, 9, 4) % 100) as f32 / 100.0 < wear;
         let h = ((1.0 - fell) * if short { 2.0 } else { 3.0 }).round() as i32;
-        // The stalk: pale, and unbothered by anybody's war.
         for s in 0..h.max(1) {
             cv.put(x, y - s, if s == 0 { 'H' } else { 'c' });
         }
         if h < 1 {
-            // A rotting stump, and a lie about what stood here.
             cv.put(x - 1, y, 'f');
             cv.put(x + 1, y, 'f');
             continue;
         }
-        // The cap: broad, spotted, the whole point of the exercise.
         let top = y - h;
         let half = if short { 1 } else { 2 };
         for dx2 in -half..=half {
@@ -325,8 +292,6 @@ fn mushroom_wall(cv: &mut Img, a: (i32, i32), b: (i32, i32), wear: f32, fell: f3
     }
 }
 
-// ─── blasts ──────────────────────────────────────────────────────────────────
-
 fn boom(cv: &mut Img, run: &Run, b: &skills::Boom) {
     let p = 1.0 - b.left as f32 / b.of.max(1) as f32;
     let ground_level = matches!(b.kind, BoomKind::Mine | BoomKind::Dust | BoomKind::Burst);
@@ -338,7 +303,6 @@ fn boom(cv: &mut Img, run: &Run, b: &skills::Boom) {
     let tick = run.tick as i32;
     match b.kind {
         BoomKind::Mine => {
-            // A ring of fire, a fireball inside it, smoke and sparks outward.
             let reach = b.reach * UNIT;
             let r = reach * (0.35 + 0.65 * p.sqrt());
             let n = (r * 5.0) as i32;
@@ -358,7 +322,6 @@ fn boom(cv: &mut Img, run: &Run, b: &skills::Boom) {
                 );
                 cv.put(x, y - 1, if p < 0.6 { 'o' } else { 'S' });
             }
-            // The fireball: solid and bright at first, burning down to embers.
             let core = (reach * 0.55 * (1.0 - p * 0.7)) as i32;
             let fire = super::fx::stamp(super::fx::Stamp::Fireball, core, core, (p * 5.0) as u8);
             cv.stamp(&fire, cx - core, cy - core - core / 3);
@@ -371,14 +334,12 @@ fn boom(cv: &mut Img, run: &Run, b: &skills::Boom) {
                     if p < 0.6 { '4' } else { 'J' },
                 );
             }
-            // Smoke lifts off the crater.
             for k in 0..6 {
                 let h = (p * 16.0) as i32 + k * 2;
                 cv.put(cx - 5 + k * 2, cy - h, if p < 0.5 { 'G' } else { 'J' });
             }
         }
         BoomKind::Flash => {
-            // Gas lighting all through: a swelling sheet of gold and green.
             let reach = b.reach * UNIT;
             let r = reach * (0.5 + 0.5 * p);
             let (rx, ry) = (r as i32, (r * 0.75) as i32);
@@ -387,7 +348,6 @@ fn boom(cv: &mut Img, run: &Run, b: &skills::Boom) {
 
         }
         BoomKind::Dust => {
-            // A cloud of grit that rises and thins.
             let reach = b.reach * UNIT;
             for k in 0..22 {
                 let a = k as f32 * 0.7 + hash(k, 1, 4) as f32 * 0.01;
@@ -412,7 +372,6 @@ fn boom(cv: &mut Img, run: &Run, b: &skills::Boom) {
             }
         }
         BoomKind::Burst => {
-            // A flash of rays from the ground.
             let reach = b.reach * UNIT;
             for k in 0..12 {
                 let a = k as f32 * TAU / 12.0;
@@ -428,7 +387,6 @@ fn boom(cv: &mut Img, run: &Run, b: &skills::Boom) {
             let _ = tick;
         }
         BoomKind::Clang => {
-            // A four-pointed starburst, gold and silver.
             let len = 3 + (4.0 * (1.0 - (p - 0.4).abs())) as i32;
             for s in 0..=len {
                 for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
@@ -444,10 +402,6 @@ fn boom(cv: &mut Img, run: &Run, b: &skills::Boom) {
     }
 }
 
-// ─── the thrown shield ───────────────────────────────────────────────────────
-
-/// The knight's own sun-star shield, face on, as a disc: a gold rim, the
-/// house colour on the field, and the star in gold.
 fn shield_disc() -> Img {
     rows(&[
         "...44444...",
@@ -464,8 +418,6 @@ fn shield_disc() -> Img {
     ])
 }
 
-/// The disc turned about its upright axis, `turn` radians on: narrower as
-/// it goes edge-on, the rim showing alone at the edge.
 pub(super) fn shield_turned(colours: &[(char, char)], turn: f32) -> Img {
     let disc = shield_disc().recolor(colours);
     let k = turn.cos().abs();
@@ -477,7 +429,6 @@ pub(super) fn shield_turned(colours: &[(char, char)], turn: f32) -> Img {
             let c = disc.get(sx.min(disc.w - 1), y);
             if let Some(c) = c {
                 let ox = (disc.w - w) / 2 + x;
-                // Edge-on it is only the rim.
                 if w <= 3 {
                     out.put(ox, y, '4');
                 } else {
@@ -499,7 +450,6 @@ fn flight(cv: &mut Img, run: &Run, f: &skills::Flight) {
             h.colours()
         }
     });
-    // A comet's tail of the rim's gold behind it.
     let speed = f.vx.hypot(f.vy).max(0.01);
     for k in 1..6 {
         let back = k as f32 * 2.2;
@@ -512,16 +462,12 @@ fn flight(cv: &mut Img, run: &Run, f: &skills::Flight) {
     let turn = f.age as f32 * 0.9;
     let im = shield_turned(colours, turn);
     cv.stamp(&im, x - im.w / 2, y - im.h / 2);
-    // A glint where the rim catches the light.
     if (f.age / 2).is_multiple_of(3) {
         cv.put(x + (turn.sin() * 4.0) as i32, y - 4, '6');
     }
 }
 
-// ─── the rooms' perils ───────────────────────────────────────────────────────
-
 fn grate(lit: f32, tick: u32) -> Img {
-    // The slit smoulders even at rest, so the plate is known for what it is.
     let glow = if lit > 0.66 {
         if tick.is_multiple_of(2) { '6' } else { '@' }
     } else if lit > 0.33 {
@@ -563,7 +509,6 @@ fn peril_floor(cv: &mut Img, run: &Run, p: &Peril) {
             let im = grate(lit, t32 / 2);
             cv.stamp(&im, cx - im.w / 2, cy - im.h / 2);
             if lit > 0.0 {
-                // The floor round it takes the glow.
                 for k in 0..16 {
                     let ang = k as f32 * 0.4;
                     let d = 8.0 + 3.0 * lit;
@@ -578,7 +523,6 @@ fn peril_floor(cv: &mut Img, run: &Run, p: &Peril) {
             }
         }
         Peril::Seep { .. } => {
-            // A crack in a damp, green-stained patch of floor.
             let wet = warn.unwrap_or(0.0);
             for k in 0..22 {
                 let a = k as f32 * 0.7;
@@ -628,7 +572,6 @@ fn peril_floor(cv: &mut Img, run: &Run, p: &Peril) {
                 let (sx, sy) = if across { (x, y + 1) } else { (x + 1, y) };
                 cv.put(x, y, 'k');
                 cv.put(sx, sy, 'k');
-                // Ember seen through the seam: dull at rest, pulsing as it warns.
                 let glow = (lit * pulse * 100.0) as u32 + 18;
                 if hash(i, 7, t32 / 4) % 100 < glow {
                     let ink = if lit > 0.7 {
@@ -651,7 +594,6 @@ fn peril_floor(cv: &mut Img, run: &Run, p: &Peril) {
                 && !(perils::CRUMBLE_FALL..perils::CRUMBLE_RUBBLE).contains(&beat)
                 && beat < perils::CRUMBLE_RUBBLE
             {
-                // Loose paving: a few dark seams, the stones a shade apart.
                 for i in (0..2 * half).step_by(3) {
                     cv.put(x0 + i, y0, 'X');
                     cv.put(x0 + i + 1, y0 + 2 * half - 1, 'X');
@@ -662,7 +604,6 @@ fn peril_floor(cv: &mut Img, run: &Run, p: &Peril) {
                 cv.line(x0, cy, x0 + 4, cy + 1, 'X');
             }
             if let Some(w) = warn {
-                // Hairlines that spread, and grit shaken loose.
                 let reach = (w * 2.0 * half as f32) as i32 + 4;
                 for k in 0..6 {
                     let a = k as f32 * 1.05 + 0.4;
@@ -684,13 +625,11 @@ fn peril_floor(cv: &mut Img, run: &Run, p: &Peril) {
                     cv.put(gx, gy, 'J');
                 }
                 if w > 0.75 && (tick / 2).is_multiple_of(2) {
-                    // The shudder before it goes.
                     for x in -half..half {
                         cv.put(cx + x, y0 - 1, 'X');
                     }
                 }
             } else if beat >= perils::CRUMBLE_FALL && beat < perils::CRUMBLE_RUBBLE {
-                // The hole: black, with a ragged lip, chunks still falling.
                 let g = (beat - perils::CRUMBLE_FALL) as i32;
                 for y in -half..half {
                     for x in -half..half {
@@ -711,7 +650,6 @@ fn peril_floor(cv: &mut Img, run: &Run, p: &Peril) {
                     cv.put(gx + 1, gy, 'G');
                 }
             } else if beat >= perils::CRUMBLE_RUBBLE {
-                // Rubble where it fell.
                 for k in 0..16 {
                     let rx = cx - half + 2 + (hash(k, 6, 8) % (2 * half as u32 - 4)) as i32;
                     let ry = cy - half + 2 + (hash(k, 7, 8) % (2 * half as u32 - 4)) as i32;
@@ -723,8 +661,6 @@ fn peril_floor(cv: &mut Img, run: &Run, p: &Peril) {
     }
 }
 
-/// What rises over the figures: a jet's column, a seam's flames, a vent's
-/// bubbling.
 fn peril_air(cv: &mut Img, run: &Run, p: &Peril) {
     let t32 = run.tick as u32;
     let (px, py) = p.at();
@@ -732,7 +668,6 @@ fn peril_air(cv: &mut Img, run: &Run, p: &Peril) {
     match *p {
         Peril::Jet { .. } => {
             if let Some(w) = p.warning(run.tick) {
-                // Hissing: sparks leap off the grate, more and higher.
                 let n = 2 + (w * 8.0) as i32;
                 for k in 0..n {
                     let up = (hash(k, t32 as i32 / 2, 5) % (4 + (w * 10.0) as u32)) as i32;
@@ -741,7 +676,6 @@ fn peril_air(cv: &mut Img, run: &Run, p: &Peril) {
                 }
             }
             if let Some(s) = p.striking(run.tick) {
-                // The roar: a column that climbs, holds, and gutters.
                 let swell = (s * PI).sin().sqrt();
                 let height = (40.0 * swell) as i32;
                 for dx in -6..=6i32 {
@@ -758,7 +692,6 @@ fn peril_air(cv: &mut Img, run: &Run, p: &Peril) {
         }
         Peril::Seep { .. } => {
             if let Some(w) = p.warning(run.tick) {
-                // Bubbles break at the crack; thin green wisps climb.
                 for k in 0..(2 + (w * 4.0) as i32) {
                     let phase = (t32 as i32 * 2 + k * 11) % 24;
                     let sx = cx - 3
@@ -786,7 +719,6 @@ fn peril_air(cv: &mut Img, run: &Run, p: &Peril) {
                     i += 2;
                 }
             } else if p.warning(run.tick).is_some() {
-                // Embers lifting off the seam.
                 for k in 0..3 {
                     let up = (t32 as i32 + k * 7) % 14;
                     let along = (hash(k, t32 as i32 / 14, 8) % 18) as i32 - 9;
@@ -803,8 +735,6 @@ fn peril_air(cv: &mut Img, run: &Run, p: &Peril) {
     }
 }
 
-/// Where a foe stands and how tall it is, in native pixels: its feet and
-/// height.
 pub(super) fn foe_box(run: &Run, e: &Enemy) -> (i32, i32, i32) {
     let (x, y) = if run.side_on() {
         at(e.x, e.y + if e.boss.is_some() { e.radius() } else { FOOT })
@@ -819,14 +749,10 @@ pub(super) fn foe_box(run: &Run, e: &Enemy) -> (i32, i32, i32) {
         None => ((e.radius() * 2.0 * UNIT) as i32).max(stature::FOE_MIN),
     };
     let _ = EnemyKind::Bat;
-    // The Lawn Flamingo stands taller than its file's art (`garden`).
     let h = if e.boss.and_then(|i| run.bosses.get(usize::from(i))).is_some_and(super::garden::is_flamingo) { h.max(46) } else { h };
-    // Up on the Butcher's hook, if he holds it.
     let (hx, hy) = super::champions::hoist(run, e);
     (x + hx, y + hy, h)
 }
-
-// ─── the Boss Key and its door ───────────────────────────────────────────────
 
 pub(super) fn key_sprite() -> Img {
     rows(&[
@@ -843,7 +769,6 @@ fn key_lying(cv: &mut Img, run: &Run, x: f32, y: f32) {
     let bob = ((run.tick as f32 * 0.14).sin() * 1.5).round() as i32;
     let im = key_sprite();
     cv.stamp(&im, px - im.w / 2, py - 8 + bob);
-    // A slow ring of glints round it.
     for k in 0..4 {
         let a = run.tick as f32 * 0.05 + k as f32 * PI / 2.0;
         cv.put(
@@ -867,7 +792,6 @@ fn key_carried(cv: &mut Img, run: &Run) {
     cv.stamp(&im, x - im.w / 2, y - 26 + bob);
 }
 
-/// The boss door in this room's wall, shut and chained.
 fn locked_door(cv: &mut Img, run: &Run) {
     let Some(side) = run.shut_door_side() else {
         return;
@@ -880,7 +804,6 @@ fn locked_door(cv: &mut Img, run: &Run) {
     } else {
         (TILE, 2 * TILE)
     };
-    // Iron-banded planks across the doorway.
     for y in 0..h {
         for x in 0..w {
             let plank = if wide { x % 5 == 0 } else { y % 5 == 0 };
@@ -904,7 +827,6 @@ fn locked_door(cv: &mut Img, run: &Run) {
     for (rx, ry) in [(3, 3), (w - 4, 3), (3, h - 4), (w - 4, h - 4)] {
         cv.put(x0 + rx, y0 + ry, 'i');
     }
-    // Chains from corner to corner.
     for i in 0..w.min(h) * 2 {
         let t = i as f32 / (w.min(h) * 2) as f32;
         let (cx, cy) = ((t * (w - 1) as f32) as i32, (t * (h - 1) as f32) as i32);
@@ -914,7 +836,6 @@ fn locked_door(cv: &mut Img, run: &Run) {
             }
         }
     }
-    // The padlock, gold: the shackle lifts when the key is brought near.
     let near = run
         .key_bearer()
         .and_then(|id| run.players.get(&id))
@@ -944,9 +865,6 @@ fn locked_door(cv: &mut Img, run: &Run) {
     }
 }
 
-// ─── layers ──────────────────────────────────────────────────────────────────
-
-/// Under the figures: what lies on the ground.
 pub(super) fn under_with(cv: &mut Img, run: &Run) {
     for p in &run.works.perils {
         peril_floor(cv, run, p);
@@ -962,7 +880,6 @@ pub(super) fn under_with(cv: &mut Img, run: &Run) {
         barricade(cv, run, w);
     }
     for c in &run.works.clouds { gas(cv, run, c); }
-    // Keep every wall segment's danger core readable through its neighbours.
     for c in run.works.clouds.iter().filter(|c| c.wall()) {
         let (x,y)=at(c.x,c.y);
         let r=c.radius()*UNIT;
@@ -977,11 +894,7 @@ pub(super) fn under_with(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Over the figures: flame columns, blasts, shields in the air, the key a
-/// knight carries (what ails a monster is `ailments`').
 pub(super) fn over(cv: &mut Img, run: &Run) {
-    // On the Atari board what a trap throws up is one blocky sprite in the
-    // foe's hue; the key a knight carries keeps its own.
     super::atari::held_to(cv, run, super::atari::FOE, |cv| air(cv, run));
     key_carried(cv, run);
     super::team::over(cv, run);
@@ -991,8 +904,6 @@ fn air(cv: &mut Img, run: &Run) {
     for p in &run.works.perils {
         peril_air(cv, run, p);
     }
-    // A sparse rising fringe makes gas read as a cloud above the floor,
-    // without painting an opaque fog over the knights' bodies.
     for cloud in &run.works.clouds {
         let (x, y) = at(cloud.x, cloud.y);
         let r = cloud.radius() * UNIT;
@@ -1013,12 +924,10 @@ fn air(cv: &mut Img, run: &Run) {
     }
 }
 
-/// A knight who crouches: the sprite is shorter by a few rows, squatting.
 pub(super) fn crouched(im: &Img) -> Img {
     let mut out = Img::new(im.w, im.h);
     let mut ty = im.h - 1;
     for sy in (0..im.h).rev() {
-        // Drop every fourth row from the top half: head closer to shoulders.
         if sy % 4 == 1 && sy < im.h - 4 {
             continue;
         }
@@ -1032,7 +941,6 @@ pub(super) fn crouched(im: &Img) -> Img {
     out
 }
 
-/// A body that stands on `(x, y)` (arena units): placed like the figures.
 #[allow(dead_code)]
 pub(super) fn place(cv: &mut Img, im: &Img, x: f32, y: f32) {
     stand_at(cv, im, x, y, 0);

@@ -21,29 +21,21 @@ use crate::recipe::Recipe;
 use crate::render::{self, Frame};
 use crate::rig::QUICK_RIG_SOCKETS;
 
-/// The game's ticks a second, for a frame's `ticks`.
 pub const GAME_HZ: f32 = 30.0;
 
-/// The clip names the game's quick-rig reads.
 pub const QUICK_RIG_CLIPS: [&str; 13] = ["idle", "walk", "run", "roll", "hurt", "die", "cast", "slash", "overhead", "thrust", "flail", "bow", "gun"];
 
-/// Where a canvas sits in an export's frame, at grain 1.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Place {
-    /// The export's size.
     pub w: u32,
     pub h: u32,
-    /// Where the canvas's top-left lands.
     pub x: i32,
     pub y: i32,
 }
 
-/// The game's rig frame: 46 x 46, the pivot at 23, 30.
 pub struct Frame46;
 
 impl Frame46 {
-    /// The recipe's canvas placed so its pivot lands on the frame's; an
-    /// error when it does not fit.
     pub fn place(recipe: &Recipe) -> Result<Place, String> {
         let [w, h] = recipe.src.canvas;
         let (px, py) = (recipe.src.pivot[0].floor() as i32, (recipe.src.pivot[1].ceil() as i32 - 1).max(0));
@@ -54,13 +46,11 @@ impl Frame46 {
         Ok(p)
     }
 
-    /// The recipe's canvas as it is: no margin.
     pub fn none(recipe: &Recipe) -> Place {
         Place { w: recipe.src.canvas[0], h: recipe.src.canvas[1], x: 0, y: 0 }
     }
 }
 
-/// A frame's raster in the export's frame, at its own grain.
 pub fn placed(frame: &Frame, at: Place) -> Raster {
     let g = frame.grain.0 as u32;
     let mut out = Raster::new(at.w * g, at.h * g);
@@ -77,7 +67,6 @@ pub fn placed(frame: &Frame, at: Place) -> Raster {
     out
 }
 
-/// A raster mirrored left to right (`x = w - 1 - x`).
 pub fn mirrored(r: &Raster) -> Raster {
     let mut out = Raster::new(r.w, r.h);
     for y in 0..r.h {
@@ -92,8 +81,6 @@ pub fn mirrored(r: &Raster) -> Raster {
     out
 }
 
-/// The game's look key of a picture: FNV-1a over its size and its pixels as
-/// the game keeps them (`0xffrrggbb`, clear 0); `room_scene::look_key`.
 pub fn look_key(r: &Raster) -> u64 {
     let p = Palette::realm();
     let mut hash = 0xcbf2_9ce4_8422_2325u64;
@@ -111,7 +98,6 @@ pub fn look_key(r: &Raster) -> u64 {
     hash
 }
 
-/// A socket's pixel in the export's frame, at grain 1.
 fn anchor(frame: &Frame, name: &str, at: Place, pivot: [i32; 2]) -> [i32; 2] {
     match frame.sockets.get(name) {
         Some([x, y]) => [x.floor() as i32 + at.x, y.floor() as i32 + at.y],
@@ -119,8 +105,6 @@ fn anchor(frame: &Frame, name: &str, at: Place, pivot: [i32; 2]) -> [i32; 2] {
     }
 }
 
-/// Each exported clip's frames at `grain`, without held gear: the recipe's
-/// quick-rig clips, or the still as idle when it has no idle.
 pub fn body_clips(recipe: &Recipe, grain: Grain) -> (BTreeMap<String, (f32, Vec<Frame>)>, Vec<String>) {
     let mut out = BTreeMap::new();
     let mut skipped = Vec::new();
@@ -138,8 +122,6 @@ pub fn body_clips(recipe: &Recipe, grain: Grain) -> (BTreeMap<String, (f32, Vec<
     (out, skipped)
 }
 
-/// The quick-rig export (version 1), and the recipe's clips it left out
-/// (names the game does not read).
 pub fn quick_rig(recipe: &Recipe) -> Result<(Value, Vec<String>), String> {
     let at = Frame46::place(recipe)?;
     let pivot = [
@@ -169,14 +151,11 @@ pub fn quick_rig(recipe: &Recipe) -> Result<(Value, Vec<String>), String> {
     Ok((json!({ "version": 1, "canvas": [at.w, at.h], "pivot": pivot, "clips": out }), skipped))
 }
 
-/// One HD pack drawing: its file in the pack's folder and its picture.
 pub struct Drawing {
     pub file: String,
     pub raster: Raster,
 }
 
-/// An HD pack for the recipe's body (every exported frame at grain 4, and
-/// each one's mirror keyed for facing left): the drawings and `pack.json`.
 pub fn hd_pack(recipe: &Recipe) -> Result<(Vec<Drawing>, Value), String> {
     let at = Frame46::place(recipe)?;
     let (small, _) = body_clips(recipe, Grain::GAME);
@@ -198,7 +177,6 @@ pub fn hd_pack(recipe: &Recipe) -> Result<(Vec<Drawing>, Value), String> {
     Ok((drawings, json!({ "scale": 4, "art": art })))
 }
 
-/// Ink rows of a frame, `.` clear.
 pub fn ink_rows(frame: &Frame) -> Vec<String> {
     frame.raster.ink_rows(Palette::realm())
 }
@@ -209,7 +187,6 @@ mod tests {
 
     #[test]
     fn the_look_key_is_the_games() {
-        // One opaque black pixel: the game's FNV-1a over 1, 1, 0xff0b0a08.
         let mut r = Raster::new(1, 1);
         r.put(0, 0, Palette::realm().ink('k').unwrap(), 0.0, 1);
         let mut hash = 0xcbf2_9ce4_8422_2325u64;

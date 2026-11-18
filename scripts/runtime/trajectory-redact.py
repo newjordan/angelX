@@ -80,7 +80,6 @@ def load_env_file(path: Path) -> dict:
 
 
 def known_values(env_files):
-    # Retain both current environment and saved values when a name was rotated.
     pairs = set(os.environ.items())
     for f in env_files:
         pairs.update(load_env_file(Path(f)).items())
@@ -90,9 +89,8 @@ def known_values(env_files):
         if is_secret_name(n)
         and len(v.encode("utf-8")) >= MIN_SECRET_LEN
         and not v.startswith("«redacted")
-        and not v.startswith(("/", "~", "."))  # *_KEY_FILE holds a path, not a key
+        and not v.startswith(("/", "~", "."))
     ]
-    # Longest first so a value that embeds another is replaced whole.
     pairs.sort(key=lambda nv: (-len(nv[1]), nv[0]))
     return pairs
 
@@ -137,8 +135,6 @@ def iter_files(dirs, skipped=None):
         skipped.append({"file": str(path), "reason": reason})
 
     def walk(path):
-        # Reopen through each ancestor using nofollow. No symlinked directory
-        # can redirect enumeration outside the requested store.
         descriptor = os.open("/", os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
         try:
             for part in path.absolute().parts[1:]:
@@ -178,8 +174,6 @@ def iter_files(dirs, skipped=None):
 
 
 def scan_text(text: str, values):
-    # Decode JSON strings so quotes, backslashes and Unicode escapes cannot
-    # hide a known value. The scanner also accepts non-JSON diagnostic text.
     texts = []
     field_hits = 0
 
@@ -192,7 +186,7 @@ def scan_text(text: str, values):
                 except ValueError:
                     texts.append(value)
                 else:
-                    visit(nested)
+                    visit(nested, credential)
             else:
                 texts.append(value)
             if credential and value and not value.startswith("«redacted"):
@@ -203,7 +197,7 @@ def scan_text(text: str, values):
         elif isinstance(value, dict):
             for key, item in value.items():
                 visit(key)
-                visit(item, credential_field(key))
+                visit(item, credential or credential_field(key))
 
     try:
         visit(json.loads(text))
@@ -276,7 +270,8 @@ def redact_record(value, values, credential=False):
         clean = {} if isinstance(value, dict) else []
         items = value.items() if isinstance(value, dict) else enumerate(value)
         for key, item in items:
-            child, n = redact_record(item, values, credential_field(key) if isinstance(value, dict) else credential)
+            child_credential = credential or (isinstance(value, dict) and credential_field(key))
+            child, n = redact_record(item, values, child_credential)
             hits += n
             if isinstance(value, dict):
                 clean_key, key_hits = redact_text(key, values)
@@ -457,8 +452,6 @@ def do_redact(src, dst, values):
             raise ValueError("staged export failed final secret scan")
         if per_file:
             rejected[key] = per_file
-        # Re-evaluate every source against current credentials and patterns.
-        # An unchanged mtime/size cannot certify a prior staged copy as safe.
         if target.exists() and safe_read(target) == clean:
             with private["private_parent"](target) as (directory, name):
                 descriptor = private["_checked"](directory, name, os.O_RDONLY)
@@ -470,15 +463,12 @@ def do_redact(src, dst, values):
         names.add(key)
         wrote += 1
         hits += n
-    # Drop staged copies whose source is gone so the feed never re-ships them.
     removed = 0
     for g in dst.glob("*.jsonl"):
         if g.name not in names:
             with private["private_parent"](g) as (directory, name):
                 os.unlink(name, dir_fd=directory)
             removed += 1
-    # Counts-only receipt of what was dropped from the staged copy, so the
-    # operator can recapture or delete the source; never the record bodies.
     receipt = dst / REJECTIONS_RECEIPT
     if receipt.is_symlink():
         raise ValueError("staging receipt must not be a symbolic link")
@@ -518,7 +508,6 @@ def main():
         try:
             return do_redact(a.paths[0], a.paths[1], values)
         except (OSError, ValueError):
-            # Parser errors can include credential substrings. Never echo them.
             print("redaction failed: invalid source, unsafe staging path, or secret-bearing sealed record", file=sys.stderr)
             return 2
     ap.error("choose --scan or --redact")

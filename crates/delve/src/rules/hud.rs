@@ -10,9 +10,6 @@
 use super::*;
 use serde::{Deserialize, Serialize};
 
-/// One thing a knight holds: its key, its name, and how ready it is, from
-/// nothing (0) to ready (1). `state` is the word that goes with it
-/// ("ready", "3s", "62%"), left empty when there is nothing to say.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Slot {
     pub key: String,
@@ -37,31 +34,23 @@ impl Slot {
     }
 }
 
-/// The keys a seat plays with: the labels on the HUD, the tray and the
-/// footer, and the help, so a remap lives here and nowhere else.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Keys {
-    /// The keys that walk the knight, as one word.
     pub walk: &'static str,
     pub fire: &'static str,
-    /// Plates, levers, cages, the folk and their booths.
     pub interact: &'static str,
     pub guard: &'static str,
     pub sword: &'static str,
-    /// Drinks the first card in hand; the rest move up.
     pub quaff: &'static str,
-    /// Puts the first card in hand at the back: the next one is up.
     pub cycle: &'static str,
     pub spells: [&'static str; cards::SPELL_SLOTS],
     pub ult: &'static str,
     pub take: &'static str,
     pub bomb: &'static str,
-    /// Fart Cloud, Fire Pit, Mines, Barrier, Shield Throw.
     pub skills: [&'static str; skills::SKILLS],
 }
 
 impl Keys {
-    /// The first knight on a keyboard, a friend's angelX, a browser guest.
     pub const FIRST: Keys = Keys {
         walk: "WASD",
         fire: "F",
@@ -76,7 +65,6 @@ impl Keys {
         bomb: "X",
         skills: ["M", ",", ".", ";", "'"],
     };
-    /// A second knight sharing the keyboard: H takes and meets the world.
     pub const SECOND: Keys = Keys {
         walk: "IJKL",
         fire: "Enter",
@@ -92,8 +80,6 @@ impl Keys {
         skills: ["8", "9", "0", "-", "="],
     };
 
-    /// The keys a seat plays with: the second only for a second knight on
-    /// this keyboard, never for a friend playing from afar.
     pub fn of(id: u32, couch: bool) -> &'static Keys {
         if couch && id == 2 {
             &Keys::SECOND
@@ -102,15 +88,12 @@ impl Keys {
         }
     }
 
-    /// What this seat moves and fights with, two spaces between keys: the
-    /// first line of the footer and the help.
     pub fn fight_line(&self, side_on: bool) -> String {
         let walk = if side_on {
             "A/D run  W jump  S drop".to_string()
         } else {
             format!("{} walk", self.walk)
         };
-        // The first knight aims with the arrows; a second fires where they walk.
         let aim = if self.walk == Keys::FIRST.walk {
             "arrows aim/fire  "
         } else {
@@ -144,7 +127,6 @@ impl Keys {
             .join("  ")
     }
 
-    /// The spell keys as one word: "1-4", or "5 6 7 \\".
     pub fn spell_keys(&self) -> String {
         if self.spells == Keys::FIRST.spells {
             "1-4".into()
@@ -154,31 +136,20 @@ impl Keys {
     }
 }
 
-/// A pit stop at the privy, as the HUD shows it: the stage, the straps, the
-/// marker on its bar and the green it must meet, and the clock.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PitHud {
     pub stage: String,
-    /// Straps done, and straps in the stage.
     pub straps: (u8, u8),
-    /// The whole stop's clock and this stage's, in seconds.
     pub total: String,
     pub stage_time: String,
-    /// The marker on its bar, 0 to 1; none outside a strap stage.
     pub marker: Option<f32>,
-    /// The bar's good and clean zones, as half-widths about the middle.
     pub zone: (f32, f32),
-    /// What to press.
     pub hint: String,
-    /// The party's best times, fastest first: name and seconds.
     pub board: Vec<(String, String)>,
 }
 
-/// The room's wish allowance, read from the existing window and knight.
-/// Wishes do not accumulate between rooms.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WishHud {
-    /// Wishes held: plain ones, and super ones.
     Ready { wishes: u8, great: u8 },
     Spent,
     Closed,
@@ -193,7 +164,6 @@ impl WishHud {
         }
     }
 
-    /// A super wish is held.
     pub fn great(self) -> bool {
         matches!(self, Self::Ready { great, .. } if great > 0)
     }
@@ -208,7 +178,6 @@ impl WishHud {
         }
     }
 
-    /// Knight `hero`'s wishes as the HUD shows them.
     pub fn of(hero: &Hero) -> WishHud {
         if hero.hp == 0 {
             Self::Fallen
@@ -225,45 +194,32 @@ pub struct Hud {
     pub name: String,
     pub hp: u32,
     pub max_hp: u32,
-    /// 0 whole, 1 bare-headed, 2 in smallclothes: the colour of the bar.
     pub gear: u8,
     pub mail: u32,
     pub weapon: Slot,
     pub guard: Slot,
     pub spells: Vec<Option<Slot>>,
-    /// The keys of the spell slots, for the empty ones.
     pub spell_keys: Vec<String>,
-    /// Play cards by slot; empty slots are `None`.
     pub hand: Vec<Option<Slot>>,
     pub bombs: u32,
     pub max_bombs: u32,
     pub ult: Slot,
     pub rune: Option<(String, u32)>,
     pub carrying: String,
-    /// The weapon beside the knight that the take key swaps to, by name.
     pub take: Option<(String, String)>,
-    /// A word for a state that overrides the rest: fallen, stone, a vigil.
     pub status: String,
-    /// The pit stop under way at the privy, if one is.
     #[serde(default)]
     pub pit: Option<PitHud>,
-    /// Lines for what rides with the knight: a frog on the shoulder, a
-    /// frog's gift for the floor, the relief the privy left.
     #[serde(default)]
     pub perks: Vec<String>,
-    /// The skill bar: gas, fire, mines, barricade, shield.
     #[serde(default)]
     pub skills: Vec<Slot>,
-    /// Whole pips of valour (`feel::PIPS` at most): a skill spends one.
     #[serde(default)]
     pub valour: u32,
-    /// Times the arm in hand has been tempered.
     #[serde(default)]
     pub temper: u8,
-    /// This knight carries the floor's Boss Key.
     #[serde(default)]
     pub key: bool,
-    /// Derived locally; older HUD snapshots may omit it.
     #[serde(default)]
     pub wishes: Option<WishHud>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -277,8 +233,6 @@ impl Run {
         self.players.get(&id).map(WishHud::of)
     }
 
-    /// The take key's weapon for knight `id`: the nearest lying within
-    /// reach, as `(key, name)`.
     pub fn weapon_beside(&self, id: u32) -> Option<&Card> {
         let hero = self.players.get(&id).filter(|h| h.hp > 0 && !h.stone)?;
         self.room()
@@ -294,7 +248,6 @@ impl Run {
             .map(|(card, _)| card)
     }
 
-    /// Knight `id`'s HUD, with the labels of the keys they play.
     pub fn hud(&self, id: u32, keys: &Keys) -> Option<Hud> {
         let hero = self.players.get(&id)?;
         let card_name =
@@ -306,7 +259,6 @@ impl Run {
             .or_else(|| card_name(hero.arm.as_deref()))
             .unwrap_or_else(|| hero.weapon.name().to_string());
         let weapon = match hero.possessed {
-            // A borrowed body's arms, not the knight's (`bodies`).
             Some(kind) => bodies::arms_name(kind, self.dungeon.pack),
             None => format!("{weapon}{}", tier(hero.temper)),
         };
@@ -343,8 +295,6 @@ impl Run {
                 Slot::new(keys.guard, guard_name, fill, state)
             }
             cards::Guard::Shield => {
-                // The meter: what the shield can still turn, or, knocked
-                // aside, how far it has come back.
                 let wear = hero.shield_wear;
                 let left = wear.left(hero.max_hp);
                 let (fill, state) = if wear.down > 0 {
@@ -370,8 +320,6 @@ impl Run {
             ),
         };
         let spells = if let Some(kind) = hero.possessed {
-            // A borrowed body's one spell, on the first key; the knight's
-            // cards wait.
             let spell = bodies::spell(kind).map(|spell| {
                 let left = hero.body_rearm;
                 let state = if left == 0 {
@@ -410,8 +358,6 @@ impl Run {
             })
             .collect()
         };
-        // The quaff key drinks the first card; the rest wait their turn,
-        // and the next-card key brings the second up.
         let hand = (0..cards::HAND)
             .map(|slot| {
                 let card = self.book.get(hero.hand.get(slot)?)?;
@@ -497,8 +443,6 @@ impl Run {
     }
 }
 
-/// The key under hand slot `slot`: the quaff key drinks the first, the
-/// next-card key brings the second up, and the rest have none.
 pub fn hand_key(keys: &Keys, slot: usize) -> &'static str {
     match slot {
         0 => keys.quaff,
@@ -507,7 +451,6 @@ pub fn hand_key(keys: &Keys, slot: usize) -> &'static str {
     }
 }
 
-/// A tempered arm's mark after its name: " II" to " IV".
 pub fn tier(temper: u8) -> &'static str {
     match temper {
         0 => "",
@@ -517,7 +460,6 @@ pub fn tier(temper: u8) -> &'static str {
     }
 }
 
-/// What rides with a knight, as the HUD says it.
 fn hero_perks(hero: &Hero) -> Vec<String> {
     let mut out = Vec::new();
     if hero.rider {
@@ -527,7 +469,6 @@ fn hero_perks(hero: &Hero) -> Vec<String> {
         out.push(gift.perk().to_string());
     }
     if hero.freedom_wishes > 0 {
-        // The freed genie's thanks (`freedom`).
         out.push(format!(
             "{} freedom wish{}: E at a Sanctuary's genie brazier or the tavern's weapons locker",
             hero.freedom_wishes,
@@ -535,7 +476,6 @@ fn hero_perks(hero: &Hero) -> Vec<String> {
         ));
     }
     if hero.star_wish {
-        // Caught under a shooting star (`starfall`).
         out.push("a star's wish: T, free, before you leave its room".to_string());
     }
     if hero.pit.speed > 0 {

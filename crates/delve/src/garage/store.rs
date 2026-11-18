@@ -12,9 +12,7 @@ use super::ledger::Ledger;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-/// Where the host keeps the ledger inside a workspace.
 pub const FILE: &str = ".angel/dungeon/garage.json";
-/// A ledger file larger than this is not one.
 pub const MAX_BYTES: u64 = 16 * 1024 * 1024;
 
 #[derive(Clone, Debug)]
@@ -27,12 +25,10 @@ impl Store {
         Store { path: path.into() }
     }
 
-    /// The store of a workspace.
     pub fn in_workspace(workspace: &Path) -> Store {
         Store::new(workspace.join(FILE))
     }
 
-    /// The store in a dungeon folder (`.angel/dungeon`): the ledger beside the cards and sheets.
     pub fn in_dungeon(dungeon: &Path) -> Store {
         Store::new(dungeon.join("garage.json"))
     }
@@ -41,7 +37,6 @@ impl Store {
         &self.path
     }
 
-    /// The saved ledger; empty when there is no file yet.
     pub fn load(&self) -> Result<Ledger, String> {
         let file = match std::fs::File::open(&self.path) {
             Ok(f) => f,
@@ -66,7 +61,6 @@ impl Store {
         }
     }
 
-    /// Write the ledger down and mark it clean.
     pub fn save(&self, ledger: &mut Ledger) -> Result<(), String> {
         let err = |e: std::io::Error| format!("{}: {e}", self.path.display());
         if let Some(dir) = self.path.parent() {
@@ -84,7 +78,6 @@ impl Store {
         Ok(())
     }
 
-    /// Save only if something changed since the last save.
     pub fn save_if_dirty(&self, ledger: &mut Ledger) -> Result<bool, String> {
         if !ledger.dirty() {
             return Ok(false);

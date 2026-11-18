@@ -8,13 +8,10 @@
 
 use std::sync::Mutex;
 
-// The snapshot is plain data the realm host reads too, so it lives in `telemetry`.
 pub use crate::telemetry::{SeatState, StageSnapshot};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ActivitySnapshot {
-    /// Monotonic revision of the activity signal, including a transition to
-    /// the empty state. Followers use this to see that the activity moved.
     pub sequence: u64,
     pub stage: Option<StageSnapshot>,
 }
@@ -43,11 +40,6 @@ pub fn stage(name: impl Into<String>, agents: Vec<String>) {
     });
 }
 
-/// Publish one seat's lifecycle within the *current* stage. A no-op when no
-/// stage is live or `idx` falls outside its roster — a straggler reporting
-/// after the next stage re-published must not corrupt the new formation.
-/// Bumps the sequence only on a real change, so seq-keyed consumers never
-/// re-form for a repeat.
 pub fn stage_seat_update(idx: usize, state: SeatState) {
     if !seat_states_enabled() {
         return;
@@ -76,8 +68,6 @@ pub fn stage_seat_update(idx: usize, state: SeatState) {
     }
 }
 
-/// `ANGEL_VIZ_SEAT_STATES=0` opts out of per-seat telemetry (the stage-level
-/// muster keeps working). Read once; the gate speaks when it suppresses.
 fn seat_states_enabled() -> bool {
     static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *ENABLED.get_or_init(|| {
@@ -96,14 +86,10 @@ fn seat_states_enabled() -> bool {
     })
 }
 
-/// The latest published stage, if any. `None` after [`clear`] — the army
-/// disbands.
 pub fn current() -> Option<StageSnapshot> {
     activity().stage
 }
 
-/// Compact right-rail pips for the live tool strip. Formats under the lock so
-/// the draw path does not clone the stage snapshot (name + roster) each frame.
 pub(crate) fn current_seat_pips() -> Option<String> {
     let Ok(g) = STAGE.lock() else {
         return None;
@@ -120,14 +106,10 @@ pub(crate) fn current_seat_pips() -> Option<String> {
     ))
 }
 
-/// The activity revision alone, so a per-tick reader can skip cloning the
-/// stage when nothing moved.
 pub fn activity_sequence() -> u64 {
     STAGE.lock().map(|g| g.sequence).unwrap_or_default()
 }
 
-/// Read the current activity and its revision under one lock. Unlike
-/// [`current`], this preserves the sequence of an empty/disbanded state.
 pub fn activity() -> ActivitySnapshot {
     STAGE
         .lock()
@@ -138,7 +120,6 @@ pub fn activity() -> ActivitySnapshot {
         .unwrap_or_default()
 }
 
-/// Turn over — drop the stage so the world disbands the muster.
 pub fn clear() {
     if let Ok(mut g) = STAGE.lock()
         && g.current.take().is_some()

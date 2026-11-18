@@ -146,10 +146,7 @@ fn extraction_folds_typed_entities_edges_and_provenance() {
             .iter()
             .all(|edge| edge.source_doc == "apollo.md")
     );
-    // The extraction prompt carries the type vocabulary and the contract.
     let prompt = &club.prompts()[0];
-    // The brief is `⠸⠑`; the vocabulary, the reply shape and the source id
-    // ride beside their pages, inline.
     use crate::agent::harness::book::{d3_roles::pages, d456_knowledge::KG_EXTRACT};
     assert!(
         prompt.starts_with(&format!("{}\n", KG_EXTRACT.cells())),
@@ -207,8 +204,6 @@ fn multidigraph_keeps_parallel_predicates_and_folds_exact_duplicates() {
     let mut graph = KnowledgeGraph::default();
     let first: ExtractedGraph = serde_json::from_str(APOLLO_EXTRACTION).unwrap();
     graph.fold(&first, "apollo.md");
-    // Same pair, different predicate: a second edge. Same triple, same
-    // doc: folds. Same triple, new doc: kept (fresh provenance).
     let second: ExtractedGraph = serde_json::from_str(r#"{
             "entities": [{"name": "Neil Armstrong", "type": "PERSON", "description": ""}],
             "relations": [
@@ -314,7 +309,6 @@ fn indexed_edges_still_compare_the_original_values_on_hash_collision() {
     let other = KnowledgeEdge { source_doc: "two".into(), ..edge.clone() };
     let edges = vec![edge.clone()];
     let mut index = EdgeIndex::from_edges(&edges);
-    // Force both lookups into the same bucket without relying on chance.
     let collision_key = index.key(&other);
     index.positions.entry(collision_key).or_default().push(0);
     assert!(index.contains(&edges, &edge));
@@ -354,7 +348,6 @@ fn indexed_resolution_dedup_preserves_first_edge_and_drops_only_merge_loops() {
 fn resolution_merges_aliases_rewrites_edges_and_reports() {
     let store = scratch_store("resolve");
     let club = StubClub::shared(&[
-        // One PERSON-group call (other types have <2 members).
         r#"{"clusters":[{"canonical":"Buzz Aldrin","aliases":["Edwin Aldrin"]}]}"#,
     ]);
     let engine = engine_with(club, store.clone());
@@ -382,7 +375,6 @@ fn resolution_merges_aliases_rewrites_edges_and_reports() {
     let buzz = &graph.nodes["Buzz Aldrin"];
     assert!(buzz.aliases.contains("Edwin Aldrin"));
     assert_eq!(buzz.mentions, 2);
-    // Both edges rewrote to the canonical name and folded into one.
     assert_eq!(graph.edges.len(), 1);
     assert_eq!(graph.edges[0].source, "Buzz Aldrin");
     assert_eq!(
@@ -503,8 +495,6 @@ fn fenced_and_prefaced_replies_still_parse_but_garbage_is_loud() {
     assert!(err.contains("no JSON object"), "{err}");
 }
 
-/// A hub (degree ≥ 3) gets a grounded profile; the prompt carries only that
-/// node's incident edges, and the profile then rides into query context.
 #[test]
 fn summarize_profiles_hubs_and_feeds_them_back_into_query() {
     let store = scratch_store("summarize");
@@ -518,7 +508,6 @@ fn summarize_profiles_hubs_and_feeds_them_back_into_query() {
     let mut graph = KnowledgeGraph::default();
     let extracted: ExtractedGraph = serde_json::from_str(APOLLO_EXTRACTION).unwrap();
     graph.fold(&extracted, "apollo.md");
-    // A third edge lifts Apollo 11 to degree 3 — the hub threshold.
     let more: ExtractedGraph = serde_json::from_str(r#"{
             "entities": [{"name": "Apollo 11", "type": "EVENT", "description": ""},
                          {"name": "Buzz Aldrin", "type": "PERSON", "description": "Lunar module pilot"}],
@@ -532,7 +521,6 @@ fn summarize_profiles_hubs_and_feeds_them_back_into_query() {
     assert!(report.contains("1 profiles written"), "{report}");
     assert!(report.contains("profiles=1"), "{report}");
 
-    // Grounded only in this entity's own edges — never the whole graph.
     let prompt = &club.prompts()[0];
     assert!(prompt.contains("Entity: Apollo 11 [EVENT]"), "{prompt}");
     assert!(
@@ -573,8 +561,6 @@ fn summarize_profiles_hubs_and_feeds_them_back_into_query() {
     let _ = std::fs::remove_file(&store);
 }
 
-/// Re-running is a no-op until a profile goes stale; growth past the delta
-/// re-elects the node, and the cap speaks about the backlog.
 #[test]
 fn profiles_refresh_only_when_stale_and_the_cap_speaks() {
     let store = scratch_store("summarize-stale");
@@ -606,7 +592,6 @@ fn profiles_refresh_only_when_stale_and_the_cap_speaks() {
         "no club call for an up-to-date hub"
     );
 
-    // Two more edges push degree 3 -> 5, past the refresh delta.
     let mut graph = KnowledgeGraph::load_from(&store).unwrap();
     let grown: ExtractedGraph = serde_json::from_str(r#"{
             "entities": [{"name": "Apollo 11", "type": "EVENT", "description": ""},

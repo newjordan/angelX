@@ -22,7 +22,6 @@ const DEFAULT_MANIFESTS: &[&str] = &[
     include_str!("../../../modules/graph.toml"),
 ];
 
-/// Supported native surfaces and their installed resource names.
 const MANIFEST_FILES: &[(&str, &str)] = &[
     ("core", "core.toml"),
     ("agent", "agent.toml"),
@@ -131,7 +130,6 @@ impl ModuleManifest {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ModuleState {
     Dormant,
-    /// Read-only compatibility with saved layouts from the retired web bridge.
     Loading,
     Active,
     Suspended,
@@ -222,21 +220,14 @@ pub struct ModuleStatus {
 struct ModuleInstance {
     manifest: ModuleManifest,
     state: ModuleState,
-    /// What was asked of this module. The *state* is derived from this intent and
-    /// the declared data sources holding, never assigned directly.
     intent: ModuleIntent,
     window: ModuleWindow,
 }
 
-/// What a context asked of a module — the once-owned input to a derived state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ModuleIntent {
-    /// Never asked for: dormant, and dormant again if it stops being available.
     Idle,
-    /// Asked for: active while its declared sources are present, suspended when
-    /// one leaves, and active again when it returns (no restart, no reload).
     Requested,
-    /// Stopped by the operator: stays stopped while the sources come and go.
     Stopped,
 }
 
@@ -246,9 +237,6 @@ pub struct ModuleHost {
     z_order: Vec<ModuleId>,
     focused: Option<ModuleId>,
     next_z: u16,
-    /// `Σ` for the cockpit surfaces: the data sources the host has been told are
-    /// present. A manifest's `data_sources` used to be an annotation; here it is the
-    /// spec its state is derived from (§3.2 Def 19/21/22).
     data_sources: CoeffectStore,
 }
 
@@ -273,9 +261,6 @@ impl ModuleHost {
             .map(|m| m.manifest.id.clone())
             .collect::<Vec<_>>();
         for id in startup_ids {
-            // A startup module whose declared feed this host has been told is gone
-            // stays dormant instead of opening onto nothing; declaring the source
-            // later brings it up with no restart.
             if host.available(&id) {
                 host.activate(&id)?;
             }
@@ -283,17 +268,12 @@ impl ModuleHost {
         Ok(host)
     }
 
-    /// Reload the native surface manifests as one transaction. A bad or
-    /// missing file leaves the host unchanged. Surface identity, intent and
-    /// window geometry belong to the host, not to the files.
     pub fn reload_manifests(&mut self, dir: &Path) -> Result<Vec<(ModuleId, ModuleState)>, String> {
         let mut manifests = Vec::with_capacity(MANIFEST_FILES.len());
         for &(id, filename) in MANIFEST_FILES {
             let path = dir.join(filename);
             let mut options = std::fs::OpenOptions::new();
             options.read(true);
-            // Opening a FIFO must not wait forever if a resource was replaced
-            // while the operator is requesting a reload.
             #[cfg(unix)]
             {
                 use std::os::unix::fs::OpenOptionsExt;
@@ -364,8 +344,6 @@ impl ModuleHost {
         Ok(changed)
     }
 
-    /// The spec a manifest declares: each `data_sources` entry is a required key,
-    /// namespaced so a source name cannot collide with a tool/provider key.
     fn spec_of(manifest: &ModuleManifest) -> Requirement {
         Requirement::any(
             manifest
@@ -379,11 +357,6 @@ impl ModuleHost {
         Self::spec_of(&self.modules[id].manifest)
     }
 
-    /// Declare whether a data source is present. `false` is a positive statement
-    /// that the feed is gone (the module's dependents suspend); never mentioning a
-    /// source leaves it *unknown*, and an unknown source does not disable anything —
-    /// a host that has not been told about a feed behaves exactly as it did before
-    /// this transfer.
     pub fn declare_data_source(
         &mut self,
         source: &str,
@@ -394,13 +367,10 @@ impl ModuleHost {
         self.react(change)
     }
 
-    /// Whether the sources a module declares are all not-declined.
     fn available(&self, id: &ModuleId) -> bool {
         self.data_sources.declined_keys(&self.spec(id)).is_empty()
     }
 
-    /// The declared sources this host is missing — named in the refusal, so a pane
-    /// that does not open can say why.
     fn missing_sources(&self, id: &ModuleId) -> Vec<String> {
         let spec = self.spec(id);
         self.data_sources
@@ -414,17 +384,10 @@ impl ModuleHost {
             .collect()
     }
 
-    /// §3.2's reacting (Def 22): classify one change against every module's spec and
-    /// move only the modules that must be re-derived. A module that does not name the
-    /// changed key is neutral **by independence** (§3.4) and is left alone.
     fn react(&mut self, change: Change) -> Vec<(ModuleId, ModuleState)> {
         let ids: Vec<ModuleId> = self.modules.keys().cloned().collect();
         let mut moved = Vec::new();
         for id in ids {
-            // Boundness *and* readiness: a module that names the key re-derives even
-            // when a first declaration arrives already declined, because for a surface
-            // unknown and declined are different states (`react` calls that step
-            // neutral — right for a spec-satisfaction consumer, wrong here).
             if !change.touches(&self.spec(&id)) {
                 continue;
             }
@@ -438,9 +401,6 @@ impl ModuleHost {
         moved
     }
 
-    /// Derive a module's state from its intent and whether its declared sources are
-    /// present. Nothing else assigns `state` — that is what makes the permutations in
-    /// the order-independence test converge on the same statuses.
     fn derive(&mut self, id: &ModuleId) {
         let available = self.available(id);
         let intent = self.modules[id].intent;
@@ -568,7 +528,7 @@ impl ModuleHost {
         Ok(())
     }
 
-    #[allow(dead_code)] // reserved for Phase-B window-drag snapping
+    #[allow(dead_code)]
     pub fn snap_to_bounds(&mut self, id: &ModuleId, bounds: WindowRect) -> Result<(), String> {
         let module = self
             .modules
@@ -617,9 +577,6 @@ impl ModuleHost {
         let body =
             std::fs::read_to_string(&path).map_err(|e| format!("read {}: {e}", path.display()))?;
         let profile: LayoutProfile = toml::from_str(&body).map_err(|e| e.to_string())?;
-        // Reconcile into a candidate first. Parsing already happens before any
-        // mutation; the clone keeps future validation/normalization failures
-        // from ever exposing a half-applied frame to the draw loop.
         let mut candidate = self.clone();
         candidate.reconcile_layout(profile)?;
         *self = candidate;
@@ -627,8 +584,6 @@ impl ModuleHost {
     }
 
     fn reconcile_layout(&mut self, profile: LayoutProfile) -> Result<(), String> {
-        // A layout is keyed by stable module id. If a hand-edited or legacy
-        // profile repeats one, the final declaration wins deterministically.
         let saved = profile
             .modules
             .into_iter()
@@ -643,15 +598,11 @@ impl ModuleHost {
         let mut focus_requests: Vec<(u16, ModuleId)> = Vec::new();
         for (id, saved) in saved {
             let Some(module) = self.modules.get_mut(&id) else {
-                continue; // retired/foreign module ids remain inert
+                continue;
             };
             if saved.rect.width == 0 || saved.rect.height == 0 {
                 return Err(format!("layout module {id} has a zero-sized rectangle"));
             }
-            // A saved layout records what was *asked for*, not what is possible now.
-            // The state is re-derived once every intent is restored, so a surface whose
-            // declared feed this host no longer has comes back suspended instead of
-            // resurrected (§3.2 — this is why the path no longer assigns `state`).
             module.intent = match restored_layout_state(&id, saved.state) {
                 ModuleState::Active => ModuleIntent::Requested,
                 ModuleState::Suspended => ModuleIntent::Stopped,
@@ -667,25 +618,16 @@ impl ModuleHost {
             restore_ids.push(id);
         }
 
-        // Every restored intent is in place: derive, so availability decides the
-        // state rather than the saved layout.
         for id in &restore_ids {
             self.derive(id);
         }
 
-        // Serialized z values are ordering hints, not trusted counters. Sort
-        // with an id tie-break, then make the one valid focus owner topmost.
         self.z_order = self.modules.keys().cloned().collect();
         self.z_order.sort_by(|left, right| {
             let left_z = self.modules.get(left).map(|m| m.window.z).unwrap_or(0);
             let right_z = self.modules.get(right).map(|m| m.window.z).unwrap_or(0);
             (left_z, left).cmp(&(right_z, right))
         });
-        // Highest-z request among the surfaces that can actually run wins. Filtering
-        // happens here, on the *derived* state: a saved surface whose declared feed is
-        // declined derives to Suspended, so it must not take focus from a lower-z
-        // surface that is live (the pre-derive state would have answered with what the
-        // layout file claimed, not what this host has).
         focus_requests.sort();
         let focused = focus_requests
             .iter()
@@ -698,8 +640,6 @@ impl ModuleHost {
             self.z_order.push(id.clone());
         }
 
-        // Compact to a fresh monotonic sequence so a hostile u16::MAX or
-        // duplicate z cannot make future focus bumps inert.
         for (index, id) in self.z_order.iter().enumerate() {
             if let Some(module) = self.modules.get_mut(id) {
                 module.window.z = u16::try_from(index + 1).unwrap_or(u16::MAX);
@@ -731,8 +671,6 @@ fn restored_layout_state(id: &ModuleId, saved: ModuleState) -> ModuleState {
         return ModuleState::Active;
     }
     match saved {
-        // Loading and failure are observations of a prior runtime, not desired
-        // configuration. Never resurrect either as a live cockpit surface.
         ModuleState::Loading | ModuleState::Failed => ModuleState::Suspended,
         state => state,
     }

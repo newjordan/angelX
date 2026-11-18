@@ -24,7 +24,6 @@ use std::time::Instant;
 
 type Inputs = BTreeMap<u32, Input>;
 
-/// The module a mutation check swaps in (`DEATHMATCH_LEG_DIR`).
 static MUTANT: std::sync::OnceLock<angel_live::Program> = std::sync::OnceLock::new();
 
 fn mutant_engine(id: &str, input: &serde_json::Value) -> Result<serde_json::Value, String> {
@@ -34,9 +33,6 @@ fn mutant_engine(id: &str, input: &serde_json::Value) -> Result<serde_json::Valu
     }
 }
 
-/// The process's rules engine, installed once: the shipped leg, or, for the
-/// mutation check, the rebuilt copy of it in the directory `DEATHMATCH_LEG_DIR`
-/// names (a folder holding `deathmatch-rules/`).
 fn engine() {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(|| match std::env::var_os("DEATHMATCH_LEG_DIR") {
@@ -60,7 +56,6 @@ fn engine() {
     });
 }
 
-/// A small deterministic dice, apart from the game's own.
 struct Dice(u64);
 impl Dice {
     fn next(&mut self) -> u64 {
@@ -77,7 +72,6 @@ impl Dice {
     }
 }
 
-/// Wishes that make a knight's shots do the odd things the rules answer for.
 fn gift(book: &mut Book, id: &str, effects: Vec<cards::Effect>) {
     let mut card = book.get("bow").unwrap().clone();
     card.id = id.into();
@@ -122,7 +116,6 @@ fn gifts(book: &mut Book) {
     );
 }
 
-/// The kits a sweep hands round: none, a champion, a mage, a gift of wishes.
 const KITS: [&str; 12] = [
     "",
     "hammerer",
@@ -141,8 +134,6 @@ const KITS: [&str; 12] = [
 fn outfit(run: &mut Run, id: u32, kit: &str) {
     match kit {
         "" => {}
-        // A champion whose three spells lay a hedge, a decoy and a totem, so
-        // the parity sweep covers every kind of field however the book deals.
         "arena-fields" => {
             run.take_up(id, "hammerer");
             let base = run.players[&id].spells[0].clone().expect("a champion has a first spell");
@@ -171,7 +162,6 @@ fn outfit(run: &mut Run, id: u32, kit: &str) {
     }
 }
 
-/// A party of `seats` in Knights Wish at the town door, the title card over.
 fn party(seats: u32, kits: &[&str]) -> Run {
     engine();
     let mut run = roundtable::fixture(&dm::ADVENTURE);
@@ -182,7 +172,6 @@ fn party(seats: u32, kits: &[&str]) -> Run {
     for (i, kit) in kits.iter().enumerate() {
         outfit(&mut run, i as u32 + 1, kit);
     }
-    // The town door seated the first knight before the kit; the others join late, kit in hand.
     let (hero, book) = (run.players[&1].clone(), run.book.clone());
     run.deathmatch
         .as_mut()
@@ -192,7 +181,6 @@ fn party(seats: u32, kits: &[&str]) -> Run {
     run
 }
 
-/// What a lockstep run saw, to prove the script reached the branches it names.
 #[derive(Debug, Default, Clone)]
 struct Seen {
     ticks: u32,
@@ -249,7 +237,6 @@ impl Seen {
     }
 }
 
-/// The whole of what a tick may change, as one comparable text.
 fn slice(run: &Run) -> serde_json::Value {
     serde_json::json!({
         "round": run.deathmatch, "players": run.players, "sounds": run.sounds, "cues": run.cues,
@@ -258,7 +245,6 @@ fn slice(run: &Run) -> serde_json::Value {
     })
 }
 
-/// Where two JSON trees differ (up to `limit` places), for a failure to name.
 fn differences(
     a: &serde_json::Value,
     b: &serde_json::Value,
@@ -298,8 +284,6 @@ fn differences(
     }
 }
 
-/// Two Runs from one start: one ticks the round with the native rules, one
-/// with the leg. They are compared after every tick.
 struct Pair {
     native: Run,
     leg: Run,
@@ -316,7 +300,6 @@ impl Pair {
             seen: Seen::default(),
         }
     }
-    /// The same change to both, before a tick.
     fn both(&mut self, change: impl Fn(&mut Run)) {
         change(&mut self.native);
         change(&mut self.leg);
@@ -417,7 +400,6 @@ impl Pair {
     }
 }
 
-/// A knight standing somewhere, whole and unwarded.
 fn ready(run: &mut Run, id: u32, at: (f32, f32)) {
     if let Some(f) = run
         .deathmatch
@@ -432,7 +414,6 @@ fn ready(run: &mut Run, id: u32, at: (f32, f32)) {
     }
 }
 
-/// Past the title card with every ward down; the late seats have joined.
 fn start(pair: &mut Pair) {
     pair.tick(&Inputs::new());
     pair.both(|run| {
@@ -474,7 +455,6 @@ fn deathmatch_melee_decisions_match_native_boundaries() {
     }
 }
 
-// --- a pilot for the knights ---------------------------------------------------------------
 fn roll(dice: &mut Dice) -> Input {
     let axis = |d: &mut Dice| d.below(3) as i8 - 1;
     Input {
@@ -500,9 +480,6 @@ fn roll(dice: &mut Dice) -> Input {
     }
 }
 
-/// Keys held a while and then re-rolled, as a hand holds them; the one-press
-/// keys (bomb, cards, spells) fire on the first tick of a hold only. A tick in
-/// a hundred sends a key the rules must refuse.
 struct Pilot {
     dice: Dice,
     held: BTreeMap<u32, (Input, u32)>,
@@ -537,7 +514,6 @@ impl Pilot {
     }
 }
 
-/// Knights standing in a row on open ground, near enough to fight.
 fn gather(run: &mut Run, seats: &[u32], row: f32) {
     for (i, &id) in seats.iter().enumerate() {
         if run
@@ -558,7 +534,6 @@ fn gather(run: &mut Run, seats: &[u32], row: f32) {
     }
 }
 
-/// One sweep: a party plays `ticks` of random keys with the dice fixed by `seed`.
 fn sweep(seed: u64, seats: u32, ticks: u32, nearly_won: bool) -> Seen {
     let kits: Vec<&str> = (0..seats)
         .map(|i| KITS[((seed as usize) + 5 * i as usize) % KITS.len()])
@@ -566,7 +541,6 @@ fn sweep(seed: u64, seats: u32, ticks: u32, nearly_won: bool) -> Seen {
     let mut run = party(seats, &kits);
     run.seed = seed;
     let mut pair = Pair::new(run);
-    // Cards and spells to cast: every spell the book has, round the seats.
     pair.both(|run| {
         let spells: Vec<String> = run
             .book
@@ -630,7 +604,6 @@ fn sweep(seed: u64, seats: u32, ticks: u32, nearly_won: bool) -> Seen {
                 }
             });
         }
-        // Somebody drifts away, comes back, steps out of the room, a seat joins late.
         if t == ticks / 3 && seats >= 3 {
             pair.both(|run| run.set_away(seats, true));
         }
@@ -658,8 +631,6 @@ fn sweep(seed: u64, seats: u32, ticks: u32, nearly_won: bool) -> Seen {
 fn a_lone_knight_holds_the_round_and_idle_parties_age_alike() {
     for seats in 1..=6 {
         let mut pair = Pair::new(party(seats, &[]));
-        // Every pickup resting, a knight firing from the first tick: nothing may
-        // shoot or count down until the title card has run its three seconds.
         pair.both(|run| run.deathmatch.as_mut().unwrap().pickups = [50; 5]);
         let fire = Inputs::from([(
             1,
@@ -751,7 +722,6 @@ fn random_rounds_match_the_native_rules_tick_for_tick() {
     );
 }
 
-// --- the unit tests that drove the native game, now driving the leg ----------------------------
 fn six() -> Run {
     engine();
     let mut r = roundtable::fixture(&ADVENTURE);
@@ -1062,8 +1032,6 @@ fn the_town_door_returns_everyone_with_their_original_kit_and_one_purse() {
     assert_eq!(r.deathmatch.as_ref().unwrap().winner, Some(1));
     assert_eq!(r.players[&1].carried.get(Spoil::Gold), 110);
     assert_eq!(r.players[&2].carried.get(Spoil::Gold), 90);
-    // The winning blow holds the room (the realm's hit-stop), and the podium's
-    // clock waits out the hold: a second's slack beyond the podium covers it.
     for _ in 0..PODIUM + HZ {
         if !r.deathmatch_showing() {
             break;
@@ -1317,7 +1285,6 @@ fn held_orbits_clouds_and_chill_reach_knight_targets() {
     assert!(s.fighters[&2].hero.chilled > 0);
 }
 
-// --- targeted rounds, native against leg ---------------------------------------------------------
 #[test]
 fn the_tenth_kill_ends_the_round_and_the_podium_pays_the_pot() {
     let mut pair = Pair::new(party(3, &[]));
@@ -1377,9 +1344,6 @@ fn the_tenth_kill_ends_the_round_and_the_podium_pays_the_pot() {
     );
 }
 
-/// Every champion's feats and the wishes that chill, burn, burst and cloud, at
-/// arm's length with the target kept alive, so every consequence of a landed
-/// shot runs and is compared.
 #[test]
 fn champions_and_wishes_match_the_native_rules_when_they_land() {
     let mut total = Seen::default();
@@ -1425,7 +1389,6 @@ fn champions_and_wishes_match_the_native_rules_when_they_land() {
                     f.hero.x = 17.5;
                     f.hero.y = 13.;
                 }
-                // The shooter stays half hurt, so a leech has something to mend.
                 let hero = &mut s.fighters.get_mut(&1).unwrap().hero;
                 hero.hp = hero.max_hp / 2;
             });
@@ -1450,8 +1413,6 @@ fn champions_and_wishes_match_the_native_rules_when_they_land() {
     assert!(total.healed > 0 || total.shots > 100);
 }
 
-/// The slam that lands the tenth kill ends the round in the middle of the
-/// knight's own turn: the trigger they are holding fires nothing.
 #[test]
 fn a_slam_that_wins_the_round_ends_the_knights_turn_before_they_fire() {
     let mut pair = Pair::new(party(2, &["hammerer"]));
@@ -1482,7 +1443,6 @@ fn a_slam_that_wins_the_round_ends_the_knights_turn_before_they_fire() {
     assert_eq!(s.fighters[&1].flash, 0);
 }
 
-/// A ward of any ticks left turns every blow; a blow on the spent ward lands.
 #[test]
 fn a_warded_knight_turns_every_blow_until_the_ward_is_spent() {
     let mut pair = Pair::new(party(2, &[]));
@@ -1556,7 +1516,6 @@ fn the_standings_break_ties_by_deaths_then_seat() {
     assert_eq!(s.order(), vec![3, 2, 4, 1]);
 }
 
-// --- the interlude: Knights Wish as a crossroads card -----------------------------------------------
 fn stairs(depth: u32, seats: u32) -> Run {
     engine();
     let mut run = Run::new(47, 9, None);
@@ -1684,7 +1643,6 @@ fn deathmatch_ten_kills_ranks_by_kills_deaths_and_seat_and_only_pays_crossroads(
         f.deaths = deaths;
     }
     s.winner = Some(3);
-    // Even a restored town stake must not pay in the crossroads.
     s.ante = (1..=6).map(|id| (id, 20)).collect();
     s.ended = dm::PODIUM;
     run.step(&BTreeMap::new());
@@ -1793,8 +1751,6 @@ fn deathmatch_real_tenth_frag_ends_early_without_taking_any_town_stakes() {
     );
 }
 
-/// The same rounds as the crossroads plays them (no town stake, no late joiners),
-/// native against leg.
 #[test]
 fn crossroads_rounds_match_the_native_rules_tick_for_tick() {
     let mut seen = Seen::default();
@@ -1845,7 +1801,6 @@ fn crossroads_rounds_match_the_native_rules_tick_for_tick() {
     );
 }
 
-// --- measurements (ignored) ------------------------------------------------------------------------
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering::Relaxed};
 static CALLS: AtomicU64 = AtomicU64::new(0);
 static ENGINE_NS: AtomicU64 = AtomicU64::new(0);
@@ -1873,7 +1828,6 @@ fn counting_engine(id: &str, input: &serde_json::Value) -> Result<serde_json::Va
     Ok(out)
 }
 
-/// This thread's CPU time, which a busy machine inflates far less than the wall clock.
 fn cpu_ns() -> u128 {
     let mut at = libc::timespec {
         tv_sec: 0,
@@ -1887,7 +1841,6 @@ fn percentile(sorted: &[u128], p: f64) -> u128 {
     sorted[((sorted.len() as f64 - 1.0) * p).round() as usize]
 }
 
-/// Four knights in a running fight: the native tick against the leg's, per tick.
 #[test]
 #[ignore = "measures the leg: --ignored --nocapture per_tick_cost"]
 fn per_tick_cost_at_four_knights() {
@@ -1938,7 +1891,6 @@ fn per_tick_cost_at_four_knights() {
         }
         times
     };
-    // The floor of one call on this machine now: the smallest question the leg answers.
     let floor = |n: usize| {
         let ask = serde_json::json!({"op": "begin", "winner": false, "ended": 0, "connected": 4, "ticks": 90, "pickups": [0, 0, 0, 0, 0]});
         let (mut wall, mut cpu) = (Vec::new(), Vec::new());

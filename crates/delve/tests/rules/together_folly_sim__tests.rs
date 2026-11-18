@@ -7,7 +7,6 @@ use std::collections::VecDeque;
 
 const NAMES: [&str; 4] = ["You", "Wren", "Bors", "Enid"];
 
-// The maze's API as the harness reads it.
 fn w_out(w: &folly::Wraith) -> bool {
     w.roaming()
 }
@@ -28,20 +27,12 @@ fn pale_turned(m: &folly::WaxMaze, before: &folly::WaxMaze) -> bool {
 }
 const PALE_WARN: u32 = folly::PALE_WARN;
 
-/// How a knight is driven.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Thumb {
-    /// Path-finds to the nearest wax away from calm wraiths, pressing
-    /// diagonals to line up as a bot would.
     Bot,
-    /// One arrow key at a time, the next one pressed a little before the
-    /// turn and the last let go, as a person plays.
     Human,
-    /// As `Human`, firing, bombing and casting as it goes.
     Rowdy,
-    /// As `Human`, to the nearest wax with no mind for the wraiths.
     Careless,
-    /// Presses nothing.
     Idle,
 }
 
@@ -67,10 +58,7 @@ pub(super) struct Report {
     pub door_recatch: u32,
     pub ended_at: Option<u32>,
     pub found: String,
-    /// Each temper's distance to the nearest knight while hunting (tiles,
-    /// summed) and the ticks it was summed over.
     pub hunt: [(f32, u32); 4],
-    /// Knights fallen by the end (nothing in the maze hurts).
     pub fallen: usize,
 }
 
@@ -111,7 +99,6 @@ impl Report {
     }
 }
 
-/// A run of `knights` knights about to walk into the floor's Wax Maze.
 pub(super) fn party(knights: u32, seed: u64) -> (Run, usize) {
     let mut run = Run::new(seed, 1, None);
     for id in 2..=knights {
@@ -130,7 +117,6 @@ fn open(room: &Room, (x, y): (i32, i32)) -> bool {
     matches!(room.tile(x, y), Tile::Floor)
 }
 
-/// Tiles reachable on foot from `from`.
 fn reach(room: &Room, from: (i32, i32)) -> BTreeSet<(i32, i32)> {
     let mut seen = BTreeSet::from([from]);
     let mut queue = VecDeque::from([from]);
@@ -145,8 +131,6 @@ fn reach(room: &Room, from: (i32, i32)) -> BTreeSet<(i32, i32)> {
     seen
 }
 
-/// The first step from `from` toward the nearest tile `goal` likes,
-/// keeping off `danger`.
 fn path_step(
     room: &Room,
     from: (i32, i32),
@@ -179,7 +163,6 @@ fn tile_of(h: &Hero) -> (i32, i32) {
     ((h.x / TILE_UNITS).floor() as i32, (h.y / TILE_UNITS).floor() as i32)
 }
 
-/// Per-knight memory of the human thumb: the key held.
 #[derive(Clone, Copy, Default)]
 struct Held {
     key: (i8, i8),
@@ -239,15 +222,11 @@ fn drive(run: &Run, id: u32, thumb: Thumb, held: &mut Held, tick: u32) -> Input 
             input.move_y = if dy.abs() > 0.2 { dy.signum() as i8 } else { 0 };
         }
         Thumb::Human | Thumb::Rowdy | Thumb::Careless => {
-            // The way to the next tile, one key: pressed as soon as the
-            // knight is within half a tile of the turn.
             let want = ((next.0 - here.0).signum() as i8, (next.1 - here.1).signum() as i8);
             let (hx, hy) = ((here.0 as f32 + 0.5) * TILE_UNITS, (here.1 as f32 + 0.5) * TILE_UNITS);
             let along_x = held.key.0 != 0;
             let turning = (want.0 != 0) != along_x || held.key == (0, 0);
             if turning {
-                // A person turns a little early: when the knight is within
-                // a third of a tile of the middle of the turn's tile.
                 let off = if along_x { (hero.x - hx).abs() } else { (hero.y - hy).abs() };
                 if held.key == (0, 0) || off < 0.7 * TILE_UNITS / 2.0 * 2.0 / 3.0 + 0.2 || want == (-held.key.0, -held.key.1) {
                     held.key = want;
@@ -271,8 +250,6 @@ fn drive(run: &Run, id: u32, thumb: Thumb, held: &mut Held, tick: u32) -> Input 
     input
 }
 
-/// Play the floor's maze through to its end with `thumbs` driving each
-/// knight; `shots` names moments to draw.
 pub(super) fn play(knights: u32, seed: u64, thumbs: &[Thumb], mut shot: impl FnMut(&Run, &str)) -> Report {
     let (mut run, index) = party(knights, seed);
     let gold0: BTreeMap<u32, i64> = run.players.iter().map(|(&id, h)| (id, i64::from(h.carried.get(Spoil::Gold)))).collect();
@@ -324,7 +301,6 @@ pub(super) fn play(knights: u32, seed: u64, thumbs: &[Thumb], mut shot: impl FnM
         let Some(maze) = run.folly.clone() else {
             break;
         };
-        // Knights: snagged (a key held, going nowhere), in stone.
         for (&id, h) in &run.players {
             if h.hp == 0 || h.stone {
                 continue;
@@ -334,7 +310,6 @@ pub(super) fn play(knights: u32, seed: u64, thumbs: &[Thumb], mut shot: impl FnM
             }
             let pressed = inputs.get(&id).is_some_and(|i| i.move_x != 0 || i.move_y != 0);
             let moved = before.get(&id).is_some_and(|&(x, y)| (x - h.x).abs() + (y - h.y).abs() > 0.01);
-            // A knight held by a hit-stop (a catch, a touch, the holy water) is not snagged.
             if pressed && !moved && !maze.titled() && !maze.done && !run.hitstop.frozen() {
                 *report.snag_ticks.entry(id).or_default() += 1;
                 let s = still.entry(id).or_default();
@@ -346,7 +321,6 @@ pub(super) fn play(knights: u32, seed: u64, thumbs: &[Thumb], mut shot: impl FnM
                 still.insert(id, 0);
             }
         }
-        // Touches and catches.
         for (&id, &until) in &maze.spooked {
             if spooked0.get(&id) != Some(&until) {
                 *report.touched.entry(id).or_default() += 1;
@@ -497,8 +471,6 @@ fn wax_maze_sim() {
     }
 }
 
-/// One knight's way through the maze, a line every third of a second:
-/// `WAX_K` knights, `WAX_SEED`, knight `WAX_WHO`.
 #[test]
 #[ignore]
 fn wax_maze_trace() {

@@ -5,14 +5,11 @@
 //! and every friend's copy sees the same pots.
 use super::*;
 
-/// Pots a room keeps, at most, and how long shards lie about (ticks).
 pub const POTS: usize = 4;
 pub const SHARDS: u32 = HZ / 2;
-/// How near a shot or a swing must come (units).
 const SHOT_REACH: f32 = 0.8;
 const SWING_REACH: f32 = 2.2;
 
-/// Whether room `kind` keeps pots: the ordinary rooms of a delve.
 fn potted(kind: RoomKind) -> bool {
     matches!(
         kind,
@@ -21,25 +18,21 @@ fn potted(kind: RoomKind) -> bool {
 }
 
 impl Run {
-    /// The pots of room `index`, where they stand (units), by their number.
     pub fn pots_of(&self, index: usize) -> Vec<(u8, (f32, f32))> {
         let Some(room) = self.dungeon.rooms.get(index) else {
             return Vec::new();
         };
-        // The merchant's camp keeps its crockery on the cart.
         if self.dungeon.depth == 0
             || self.simple_creation()
             || !potted(room.kind)
             || room.laid.map_or(room.great(), |(c, r)| c > COLS || r > ROWS)
             || self.merchant_camp().is_some_and(|c| c.room == index)
-            // The Wax Maze's lanes are the wax's.
             || self.folly.as_ref().is_some_and(|m| m.room == index && !m.done)
             || self.hop.as_ref().is_some_and(|m| m.room == index && !m.done)
         {
             return Vec::new();
         }
         let (cols, rows) = (room.cols as i32, room.rows as i32);
-        // Hard by the north and south walls, clear of the doorways.
         let spots: Vec<(i32, i32)> = (2..cols - 2)
             .flat_map(|x| [(x, 1), (x, rows - 2)])
             .filter(|&(x, y)| {
@@ -61,7 +54,6 @@ impl Run {
             .collect()
     }
 
-    /// Shots and swings break the pots they meet.
     pub(super) fn tick_pots(&mut self) {
         self.pot_shards.retain_mut(|s| {
             s.2 = s.2.saturating_sub(1);
@@ -93,7 +85,6 @@ impl Run {
             *self.pots_broken.entry(self.at).or_default() |= 1 << i;
             self.pot_shards.push((x, y, SHARDS));
             self.sounds.push("bones_clatter");
-            // Every other pot kept a coin.
             if mix(self.seed ^ (self.at as u64) << 5 ^ u64::from(i)) % 2 == 0
                 && self.feel.coins.len() < feel::COINS
             {

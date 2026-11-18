@@ -16,17 +16,12 @@ use crate::rules::{HZ, Run, Tile, TILE_UNITS};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 
-/// Pixels a lane's current carries a thing a tick: the tomes ride at their
-/// own pace; the water and its pages drift at a little over half of it.
 fn lane_speed(l: usize) -> f32 {
     hop::PACES[l % hop::PACES.len()] / TILE_UNITS * TILE as f32 / HZ as f32
 }
 
-/// The book spine inks a shelf is filled with.
 const SPINES: [char; 8] = ['7', 'p', 'l', 'e', 'u', ')', 'o', 'r'];
 
-/// One shelf of books laid along `x0..x1` with their feet on `foot`: spines
-/// of three to five pixels, five to eight tall, a gilt dash on the tall ones.
 fn shelf(im: &mut Img, x0: i32, x1: i32, foot: i32, top: i32, seed: u32, dark: bool) {
     im.rect(x0, top, x1 - x0, foot - top, 'k');
     let mut x = x0;
@@ -35,7 +30,6 @@ fn shelf(im: &mut Img, x0: i32, x1: i32, foot: i32, top: i32, seed: u32, dark: b
         let h = hash(k, seed as i32, 7);
         let w = 2 + (h % 3) as i32;
         let tall = ((foot - top) - 2).min(4 + ((h >> 3) % 4) as i32);
-        // A gap now and then, where a book has gone to the river.
         if (h >> 8) % 11 == 0 {
             x += w;
             k += 1;
@@ -55,16 +49,13 @@ fn shelf(im: &mut Img, x0: i32, x1: i32, foot: i32, top: i32, seed: u32, dark: b
         x += w;
         k += 1;
     }
-    // The shelf board: lit along its edge, dark beneath.
     im.rect(x0, foot, x1 - x0, 1, if dark { 'p' } else { 'o' });
     im.rect(x0, foot + 1, x1 - x0, 1, 'b');
 }
 
-/// A bookcase along the top or foot of the hall: two shelves, a cornice.
 pub(super) fn bookcase_row(im: &mut Img, y0: i32, w: i32, seed: u32, dark: bool) {
     shelf(im, 0, w, y0 + 7, y0 + 1, seed, dark);
     shelf(im, 0, w, y0 + 14, y0 + 8, seed ^ 0x55, dark);
-    // Pilasters every six tiles, a cornice along the top.
     for px in (0..w).step_by(TILE as usize * 6) {
         im.rect(px, y0, 3, 16, 'B');
         im.rect(px, y0, 1, 16, 'o');
@@ -73,8 +64,6 @@ pub(super) fn bookcase_row(im: &mut Img, y0: i32, w: i32, seed: u32, dark: bool)
     im.rect(0, y0, w, 1, 'p');
 }
 
-/// A side wall, a tile wide, from `y0` for `rows` tiles: stone courses with
-/// a niche at the middle of each tile and a stack of books in it.
 fn side_wall(im: &mut Img, x0: i32, y0: i32, rows: i32, seed: u32) {
     for r in 0..rows {
         let y = y0 + r * TILE;
@@ -94,8 +83,6 @@ fn side_wall(im: &mut Img, x0: i32, y0: i32, rows: i32, seed: u32) {
                 im.put(x, yy, ink);
             }
         }
-        // The niche: a dark recess with a stack of laid books and a stub of
-        // candle (its flame is lit live).
         im.rect(x0 + 3, y + 3, 10, 11, 'k');
         im.rect(x0 + 3, y + 3, 10, 1, 's');
         im.rect(x0 + 3, y + 13, 10, 1, 'S');
@@ -111,9 +98,6 @@ fn side_wall(im: &mut Img, x0: i32, y0: i32, rows: i32, seed: u32) {
     }
 }
 
-/// The flagstones of a dry row `r`: each lit along its top and shaded at its
-/// foot, the joints staggered row to row; `warm` greys them up for the
-/// landing.
 fn flagstones(im: &mut Img, r: i32, x0: i32, x1: i32, warm: bool) {
     let y = r * TILE;
     let shift = if r % 2 == 0 { 0 } else { TILE / 2 };
@@ -130,7 +114,6 @@ fn flagstones(im: &mut Img, r: i32, x0: i32, x1: i32, warm: bool) {
             } else if stone % 3 == 0 {
                 if warm { 'G' } else { 'S' }
             } else if stone % 7 == 0 && bayer(x, yy) < 0.2 {
-                // Moss in a crack.
                 'e'
             } else if warm {
                 'j'
@@ -142,7 +125,6 @@ fn flagstones(im: &mut Img, r: i32, x0: i32, x1: i32, warm: bool) {
     }
 }
 
-/// The still hall for a room `cols` by `rows` tiles with doors at `doors`.
 fn hall(cols: i32, rows: i32, doors: &[(i32, i32)]) -> Img {
     let (w, h) = (cols * TILE, rows * TILE);
     let mut im = Img::black(w, h);
@@ -154,11 +136,9 @@ fn hall(cols: i32, rows: i32, doors: &[(i32, i32)]) -> Img {
         if hop::lane(rows, r).is_none() {
             flagstones(&mut im, r, TILE, (cols - 1) * TILE, r == hop::landing(rows));
         } else {
-            // The river's bed, so the first frame is never bare paper.
             im.rect(TILE, r * TILE, (cols - 2) * TILE, TILE, 's');
         }
     }
-    // The landing's gilt rim and its studs: the place to stand safe.
     let l = hop::landing(rows);
     if rows > 6 {
         let (y0, y1) = (l * TILE, l * TILE + TILE - 1);
@@ -177,7 +157,6 @@ fn hall(cols: i32, rows: i32, doors: &[(i32, i32)]) -> Img {
             im.put(cx, y0 + 9, 'a');
         }
     }
-    // The far bank's gilt lip along the water, and the near bank's.
     let far = hop::far_bank(rows);
     let near = hop::near_bank(rows);
     for x in TILE..(cols - 1) * TILE {
@@ -187,7 +166,6 @@ fn hall(cols: i32, rows: i32, doors: &[(i32, i32)]) -> Img {
         im.put(x, far * TILE + TILE - 1, 'a');
         im.put(x, near * TILE, 'S');
     }
-    // The shadow of the top case on the far bank, dithered.
     for y in TILE..TILE + 6 {
         for x in TILE..(cols - 1) * TILE {
             if bayer(x, y) < (1.0 - (y - TILE) as f32 / 6.0) * 0.55 {
@@ -195,8 +173,6 @@ fn hall(cols: i32, rows: i32, doors: &[(i32, i32)]) -> Img {
             }
         }
     }
-    // The doors (if the walls have them): an arch of dark stone with a gilt
-    // keystone, laid over the cases.
     for &(c, r) in doors {
         let (x, y) = (c * TILE, r * TILE);
         im.rect(x, y, TILE, TILE, 'k');
@@ -208,7 +184,6 @@ fn hall(cols: i32, rows: i32, doors: &[(i32, i32)]) -> Img {
     im
 }
 
-/// The hall for `run`'s room, drawn once and kept.
 fn still(run: &Run) -> Arc<Img> {
     type Key = (i32, i32, u64);
     static CACHE: OnceLock<Mutex<HashMap<Key, Arc<Img>>>> = OnceLock::new();
@@ -233,28 +208,20 @@ fn still(run: &Run) -> Arc<Img> {
     im
 }
 
-/// The seats at the table, in seat order.
 pub(super) fn seats(h: &Hop) -> Vec<u32> {
     h.crossings.keys().copied().collect()
 }
 
-/// How many lanterns hang over the far bank: one for each seat, three for a
-/// lone knight.
 pub(super) fn lantern_count(h: &Hop) -> usize {
     if h.crossings.len() > 1 { h.crossings.len() } else { crate::rules::hop_show::SOLO_LANTERNS as usize }
 }
 
-/// Where lantern `k` of `n` hangs (room pixels: the middle of its chain's
-/// foot), spread along the far bank between the walls.
 pub(super) fn lantern_at(cols: i32, k: usize, n: usize) -> (i32, i32) {
     let span = (cols - 6) * TILE;
     let x = 3 * TILE + span * (2 * k as i32 + 1) / (2 * n.max(1) as i32);
     (x, 24)
 }
 
-/// Whether lantern `k` is lit now, and in whose ink: a seat's lantern is
-/// lit while that seat has crossed since the archive was last lit; a lone
-/// knight's, one for each crossing toward three.
 fn lantern_lit(h: &Hop, k: usize) -> Option<char> {
     let ids = seats(h);
     if ids.len() > 1 {
@@ -266,16 +233,12 @@ fn lantern_lit(h: &Hop, k: usize) -> Option<char> {
     }
 }
 
-/// The flowing water of lane `l` in row `r`: a current of dashes and the
-/// pages lost on it, at `t` ticks into the minute.
 fn current(cv: &mut Img, r: i32, l: usize, cols: i32, t: u32) {
     let y = r * TILE;
     let (x0, x1) = (TILE, (cols - 1) * TILE);
     let w = x1 - x0;
     let dir = if l % 2 == 0 { 1.0 } else { -1.0 };
     cv.rect(x0, y, w, TILE, 's');
-    // A lighter band along the lane's top edge, where the bank above shows
-    // in the water.
     cv.rect(x0, y, w, 2, 'x');
     let drift = lane_speed(l) * 0.55 * t as f32 * dir;
     for k in 0..9 {
@@ -289,7 +252,6 @@ fn current(cv: &mut Img, r: i32, l: usize, cols: i32, t: u32) {
             cv.put(px, ly, if i == len - 1 && dir > 0.0 || i == 0 && dir < 0.0 { 'u' } else { 'S' });
         }
     }
-    // Sparkles that come and go.
     for k in 0..6 {
         let h = hash(k, l as i32 + 40, 313);
         if (t / 7 + h) % 6 < 2 {
@@ -297,7 +259,6 @@ fn current(cv: &mut Img, r: i32, l: usize, cols: i32, t: u32) {
             cv.put(px, y + 3 + ((h >> 14) % 10) as i32, 'U');
         }
     }
-    // Pages lost on the current: little cream leaves that bob and turn.
     for k in 0..3 {
         let h = hash(k, l as i32 + 77, 317);
         let sx = ((h % w as u32) as f32 + lane_speed(l) * 0.75 * t as f32 * dir).rem_euclid(w as f32) as i32;
@@ -310,8 +271,6 @@ fn current(cv: &mut Img, r: i32, l: usize, cols: i32, t: u32) {
     }
 }
 
-/// The light a lit lantern throws on the far bank and down the river, as a
-/// warm dither with a shimmer.
 fn pools(cv: &mut Img, run: &Run, h: &Hop, cols: i32, tick: u32, flare: f32) {
     let n = lantern_count(h);
     for k in 0..n {
@@ -321,7 +280,6 @@ fn pools(cv: &mut Img, run: &Run, h: &Hop, cols: i32, tick: u32, flare: f32) {
         if power <= 0.0 {
             continue;
         }
-        // A pool on the bank.
         for dy in 0..14i32 {
             for dx in -22..=22i32 {
                 let d = (dx * dx) as f32 / 484.0 + (dy * dy) as f32 / 196.0;
@@ -330,7 +288,6 @@ fn pools(cv: &mut Img, run: &Run, h: &Hop, cols: i32, tick: u32, flare: f32) {
                 }
             }
         }
-        // Its reflection, a dither column that wavers down the first lanes.
         let rows = (run.room().rows as i32).min(14);
         for y in 32..(rows / 2) * TILE {
             let fall = 1.0 - (y - 32) as f32 / ((rows / 2) * TILE - 32) as f32;
@@ -348,7 +305,6 @@ fn pools(cv: &mut Img, run: &Run, h: &Hop, cols: i32, tick: u32, flare: f32) {
     }
 }
 
-/// Which seat stands where on the near bank before the start: their pad.
 fn pads(cv: &mut Img, h: &Hop, cols: i32, rows: i32) {
     let ids = seats(h);
     let seated = ids.len().max(1) as f32;
@@ -367,8 +323,6 @@ fn pads(cv: &mut Img, h: &Hop, cols: i32, rows: i32) {
     }
 }
 
-/// The owls on the top shelf: their frame at `tick`, given what the table is
-/// cheering.
 fn owls(cv: &mut Img, run: &Run, h: &Hop, cols: i32, tick: u32) {
     let n = 6;
     let w = cols * TILE;
@@ -379,7 +333,6 @@ fn owls(cv: &mut Img, run: &Run, h: &Hop, cols: i32, tick: u32) {
     for k in 0..n {
         let x = 22 + (w - 56) * k / (n - 1) + (hash(k, 4, 5) % 8) as i32;
         let phase = hash(k, 1, 0x0f) % 40;
-        // The cheer rolls along the row of owls, one a tick behind the next.
         let wave = cheer.map(|a| a >= k as u32 * 2).unwrap_or(false);
         let frame = if flare.is_some() || wave {
             2
@@ -394,8 +347,6 @@ fn owls(cv: &mut Img, run: &Run, h: &Hop, cols: i32, tick: u32) {
     }
 }
 
-/// The lanterns over the far bank, lit in the seats' own inks, twice the
-/// size of the pixel art so the table's goal reads across the hall.
 fn lanterns(cv: &mut Img, h: &Hop, cols: i32, tick: u32) {
     let n = lantern_count(h);
     let flare = h.show.flared.map(|f| tick.saturating_sub(f)).filter(|&a| a < crate::rules::hop_show::LIT_LIFE);
@@ -403,7 +354,6 @@ fn lanterns(cv: &mut Img, h: &Hop, cols: i32, tick: u32) {
         let (x, _) = lantern_at(cols, k, n);
         let lit = if flare.is_some() { Some('6') } else { lantern_lit(h, k) };
         let swing = if lit.is_some() { [0, 0, 1, 1][((tick / 9 + k as u32) % 4) as usize] } else { 0 };
-        // The chain from the rafter.
         for yy in 0..4 {
             cv.put(x + swing, yy, 'j');
             cv.put(x + 1 + swing, yy, 'G');
@@ -415,7 +365,6 @@ fn lanterns(cv: &mut Img, h: &Hop, cols: i32, tick: u32) {
             pen.glow(((x + swing) as f32, 13.0), 17.0, 1.0, ramps::GOLD, power);
         }
         cv.stamp(&lamp, x - 7 + swing, 4);
-        // The seat's plate under it, so every lantern is somebody's, lit or cold.
         let ids = seats(h);
         let owner = if ids.len() > 1 { ids.get(k) } else { ids.first() };
         if let Some(&id) = owner {
@@ -425,19 +374,15 @@ fn lanterns(cv: &mut Img, h: &Hop, cols: i32, tick: u32) {
     }
 }
 
-/// A tome of lane `l` at left edge `x0`: the book with its bob, wake and
-/// shadow.
 #[allow(clippy::too_many_arguments)]
 fn tome_at(cv: &mut Img, y: i32, x0: i32, len: i32, cover: usize, dir: f32, l: usize, bob: i32, dip: bool, lo: i32, hi: i32) {
     let book = bits::tome(len, cover, dip);
     let by = y + 1 + bob + i32::from(dip);
-    // Its shadow in the ink under the front edge.
     for x in (x0 + 2)..(x0 + len - 2) {
         if x >= lo && x < hi && bayer(x, by + TOME_H) < 0.7 {
             cv.put(x, by + TOME_H, 'k');
         }
     }
-    // The wake: a bow wave on the leading end, short dashes behind.
     let (lead, tail) = if dir > 0.0 { (x0 + len, x0 - 1) } else { (x0 - 1, x0 + len) };
     let step = if dir > 0.0 { 1 } else { -1 };
     for (i, (dx, dy)) in [(1, 4), (2, 5), (3, 7), (2, 9), (1, 10)].into_iter().enumerate() {
@@ -455,7 +400,6 @@ fn tome_at(cv: &mut Img, y: i32, x0: i32, len: i32, cover: usize, dir: f32, l: u
         }
     }
     let _ = l;
-    // The book itself, clipped to the river's banks.
     for yy in 0..book.h {
         for xx in 0..book.w {
             let px = x0 + xx;
@@ -469,7 +413,6 @@ fn tome_at(cv: &mut Img, y: i32, x0: i32, len: i32, cover: usize, dir: f32, l: u
     }
 }
 
-/// The hall under the knights for the seat's view of the room.
 pub(super) fn under(cv: &mut Img, run: &Run, h: &Hop) {
     let room = run.room();
     let (cols, rows) = (room.cols as i32, room.rows as i32);
@@ -489,7 +432,6 @@ pub(super) fn under(cv: &mut Img, run: &Run, h: &Hop) {
         current(cv, r, l, cols, t);
     }
     pools(cv, run, h, cols, tick, flare);
-    // The books, over the water's own lights.
     for r in 1..rows - 1 {
         let Some(l) = hop::lane(rows, r) else { continue };
         let y = r * TILE;
@@ -499,13 +441,11 @@ pub(super) fn under(cv: &mut Img, run: &Run, h: &Hop) {
         let span = lefts.len() as i32 * hop::SPACING as i32 * TILE;
         for (k, &bx) in lefts.iter().enumerate() {
             let x0 = (bx / TILE_UNITS * TILE as f32) as i32;
-            // A book running off one end comes back in at the other.
             for piece in [x0, x0 - span] {
                 if piece + w + 5 < lo || piece - 5 >= hi {
                     continue;
                 }
                 let bob = [0, 0, 1, 1][((tick / 7 + k as u32 * 3 + l as u32 * 2) % 4) as usize];
-                // A landing dips the book it was on.
                 let dip = h.show.lands.iter().any(|d| {
                     usize::from(d.lane) == l && tick.saturating_sub(d.born) < 9 && d.at.0 >= piece && d.at.0 < piece + w
                 });
@@ -516,7 +456,6 @@ pub(super) fn under(cv: &mut Img, run: &Run, h: &Hop) {
     pads(cv, h, cols, rows);
     lanterns(cv, h, cols, tick);
     owls(cv, run, h, cols, tick);
-    // The candles in the side niches, and dust turning in the lantern light.
     for side in [0, cols - 1] {
         for r in 1..rows - 1 {
             let (cx, cy) = (side * TILE + 8, r * TILE + 6);

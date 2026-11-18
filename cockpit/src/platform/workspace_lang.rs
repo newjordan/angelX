@@ -35,35 +35,22 @@ impl Lang {
     }
 }
 
-/// One detected language and the evidence that placed it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LangHit {
     pub lang: Lang,
-    /// Where the marker sits relative to the workspace root (`.` for the root).
     pub dir: PathBuf,
-    /// The marker file or test-file pattern that produced the hit.
     pub marker: String,
-    /// True when the marker was a manifest (Cargo.toml, package.json, …) rather
-    /// than loose test files.
     pub manifest: bool,
 }
 
-/// The command `run_tests` should run for a workspace, in argv form, plus how to
-/// read its output.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TestPlan {
     pub lang: Lang,
-    /// Program (resolved on `PATH` by the caller) and arguments.
     pub program: &'static str,
     pub args: Vec<String>,
-    /// Directory to run in, relative to the workspace root.
     pub dir: PathBuf,
-    /// Human label for receipts (`node --test`, `pytest -q`, …).
     pub label: String,
-    /// Why this plan was chosen (marker path), for the receipt.
     pub because: String,
-    /// The package.json `test` script when the plan is `npm test` (so a caller
-    /// with explicit file/name args can bypass a script that hardcodes globs).
     pub script: Option<String>,
 }
 
@@ -177,10 +164,6 @@ fn scan_dir(root: &Path, rel: &Path, hits: &mut Vec<LangHit>) {
     }
 }
 
-/// Shallow scan: the root, then each first-level directory (and `test`/`tests`
-/// one level deeper, since suites often live there). Results are ordered
-/// root-first, manifests before loose test files, so `hits[0]` is the best
-/// single answer.
 pub fn detect(workspace: &Path) -> Vec<LangHit> {
     let mut hits = Vec::new();
     scan_dir(workspace, Path::new("."), &mut hits);
@@ -205,7 +188,6 @@ pub fn detect(workspace: &Path) -> Vec<LangHit> {
             "test" | "tests" | "__tests__" | "spec"
         );
         if is_test_dir && hits.len() == before {
-            // e.g. tests/unit/*.test.mjs
             if let Ok(rd) = std::fs::read_dir(workspace.join(sub)) {
                 let mut inner: Vec<PathBuf> = rd
                     .flatten()
@@ -219,14 +201,10 @@ pub fn detect(workspace: &Path) -> Vec<LangHit> {
             }
         }
     }
-    // Root-first, manifests-first within a directory; stable otherwise. A
-    // CMakeLists.txt beside another language's manifest (a native addon, a
-    // bundled C library) never outranks that language's own runner.
     hits.sort_by_key(|h| (h.dir != Path::new("."), !h.manifest, h.lang == Lang::Cpp));
     hits
 }
 
-/// Distinct language names in detection order (what the caddy card prints).
 pub fn lang_names(hits: &[LangHit]) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     for h in hits {
@@ -262,21 +240,10 @@ fn has_pytest_config(dir: &Path) -> bool {
     false
 }
 
-/// Choose the test command for a workspace. `prefer` pins a language when the
-/// workspace holds several (the caller passes it from the tool args); otherwise
-/// the first detected hit wins. Rust is deliberately *not* planned here — the
-/// Cargo path keeps its own pinned, trusted verifier — so a Rust-first workspace
-/// returns `None` and the caller takes the Cargo route.
 pub fn plan_tests(workspace: &Path, hits: &[LangHit], prefer: Option<Lang>) -> Option<TestPlan> {
     plan_tests_for(workspace, hits, prefer, None)
 }
 
-/// [`plan_tests`] for a caller that names its entrypoint, as `run_tests` does
-/// from its `entrypoint` argument or from the command the model wrote. A
-/// named runner is the runner that runs: `pytest` runs pytest with exactly the
-/// model's own arguments (the typed route's rule in `verifier/plan.rs`), and
-/// `node` runs node's own runner even beside a package script. Unnamed, the
-/// workspace's files choose, as before.
 pub fn plan_tests_for(
     workspace: &Path,
     hits: &[LangHit],
@@ -297,8 +264,6 @@ pub fn plan_tests_for(
     match hit.lang {
         Lang::Rust => None,
         Lang::Js => {
-            // package.json with a real test script wins; otherwise node's
-            // built-in runner discovers *.test.{js,mjs,cjs}, test/**, test.js.
             if entrypoint != Some("node")
                 && let Some(script) = package_json_test_script(&abs.join("package.json"))
             {
@@ -347,9 +312,6 @@ pub fn plan_tests_for(
                 Some(TestPlan {
                     lang: Lang::Python,
                     program: "python3",
-                    // `-p *test*.py` matches both `test_foo.py` and the
-                    // exercism-style `foo_test.py` suffix; the unittest default
-                    // `test*.py` silently finds zero suffix-named suites.
                     args: vec![
                         "-m".into(),
                         "unittest".into(),
@@ -368,8 +330,6 @@ pub fn plan_tests_for(
         Lang::Go => Some(TestPlan {
             lang: Lang::Go,
             program: "go",
-            // -v so the receipt counts test functions (--- PASS/FAIL lines), not
-            // packages: a 3-test package read "1 passed" in the 2026-09-07 dogfood.
             args: vec!["test".into(), "-v".into(), "./...".into()],
             dir,
             label: "go test -v ./...".into(),
@@ -385,10 +345,6 @@ pub fn plan_tests_for(
             because,
             script: None,
         }),
-        // Configure, build, then run whatever the project registered with CTest.
-        // A build that runs its own tests (Exercism's C++ track wires the test
-        // binary into the default target) fails at the build step instead;
-        // `--no-tests=ignore` keeps such a project green when CTest has nothing.
         Lang::Cpp => Some(TestPlan {
             lang: Lang::Cpp,
             program: "sh",
@@ -404,8 +360,6 @@ pub fn plan_tests_for(
 const CMAKE_TEST_SCRIPT: &str = "cmake -S . -B build && cmake --build build && \
      ctest --test-dir build --output-on-failure --no-tests=ignore";
 
-/// Resolve a program on `PATH` (or verify an explicit path). Shared by
-/// `run_tests`' non-Cargo runners and the shell tool's exit-127 hint.
 pub(crate) fn resolve_on_path(program: &str) -> Option<PathBuf> {
     if program.contains('/') {
         let p = PathBuf::from(program);
@@ -422,10 +376,6 @@ const RUNTIME_PROBES: &[&str] = &[
     "python3", "python", "pytest", "uv", "node", "npm", "bun", "cargo", "go", "swift",
 ];
 
-/// Runtime shims appended to the *end* of child PATH: real programs always win.
-/// Reconcile against current HOME/PATH on each use with filesystem probes only;
-/// permanent positive/negative caching hides removed homes and installed runtimes.
-/// Off with `ANGEL_RUNTIME_SHIMS=0`.
 pub(crate) fn runtime_shims_dir() -> Option<PathBuf> {
     if !crate::agent::harness::env_flag("ANGEL_RUNTIME_SHIMS", true) {
         return None;
@@ -446,7 +396,6 @@ fn runtime_shims_in(home: &Path, search: &std::ffi::OsStr) -> Option<PathBuf> {
             if resolve(missing).is_some() {
                 return None;
             }
-            // Absolute targets remain valid when the child changes directory.
             resolve(real)?
                 .canonicalize()
                 .ok()
@@ -456,8 +405,6 @@ fn runtime_shims_in(home: &Path, search: &std::ffi::OsStr) -> Option<PathBuf> {
     if links.is_empty() {
         return None;
     }
-    // A new runtime selection gets a new directory, never replacement/deletion
-    // of a link or ordinary file owned by the operator or another live process.
     let mut identity = std::collections::hash_map::DefaultHasher::new();
     links.hash(&mut identity);
     let dir = home
@@ -483,11 +430,6 @@ fn runtime_shims_in(home: &Path, search: &std::ffi::OsStr) -> Option<PathBuf> {
     made.then_some(dir)
 }
 
-/// Which language runtimes this host actually has on `PATH`, rendered once per
-/// process for the pre-turn card: e.g. `python3 (no python) · node · npm · cargo
-/// · go`. Existence checks only — nothing is executed. Measured 2026-09-07 in the
-/// arena: every python task lost its first shell hop to `python -m unittest`
-/// (exit 127) on a host that only has `python3`; the model had no way to know.
 pub(crate) fn host_runtimes() -> &'static str {
     static CACHE: OnceLock<String> = OnceLock::new();
     CACHE.get_or_init(|| {
@@ -521,10 +463,6 @@ pub(crate) fn host_runtimes() -> &'static str {
     })
 }
 
-/// For a shell command that exited 127 ("command not found"): name the program
-/// that is missing and the sibling that exists, so the next hop is the fix and
-/// not a guess. Looks at the first word of each `&&`/`;`/`|`-separated segment,
-/// skipping `cd`, `env`, `VAR=value` prefixes and shell builtins.
 pub(crate) fn missing_program_hint(command: &str) -> Option<String> {
     const BUILTINS: &[&str] = &[
         "cd", "env", "export", "set", "echo", "test", "[", "true", "false", "exit", "source", ".",
@@ -588,10 +526,6 @@ pub(crate) fn missing_program_hint(command: &str) -> Option<String> {
     None
 }
 
-/// A `run_tests` runner written as the command the tool's own description
-/// names (`npm test`, `npx jest`, `cargo test`, `python3 -m pytest`, `node
-/// --test`) rather than a bare language word: its language, the entrypoint the
-/// command names, and how many leading words the command itself took.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RunnerCommand {
     pub lang: Lang,
@@ -599,9 +533,6 @@ pub struct RunnerCommand {
     pub words: usize,
 }
 
-/// Read a test command's leading words as a [`RunnerCommand`]; `None` when
-/// they are not a test-runner invocation (a bare `test` is cargo's subcommand
-/// only, and the Cargo route handles it).
 pub fn parse_runner_command(words: &[&str]) -> Option<RunnerCommand> {
     let word = |i: usize| {
         words
@@ -637,7 +568,6 @@ pub fn parse_runner_command(words: &[&str]) -> Option<RunnerCommand> {
     }
 }
 
-/// Parse `lang` from a `run_tests` `runner`/`lang` argument.
 pub fn parse_lang(s: &str) -> Option<Lang> {
     match s.trim().to_ascii_lowercase().as_str() {
         "rust" | "cargo" => Some(Lang::Rust),
@@ -650,8 +580,6 @@ pub fn parse_lang(s: &str) -> Option<Lang> {
     }
 }
 
-/// Counts parsed from a non-Cargo test runner's output. Recognises node's TAP
-/// and spec reporters, jest, vitest, mocha, pytest, unittest and `go test`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct RunnerCounts {
     pub passed: usize,
@@ -659,19 +587,13 @@ pub struct RunnerCounts {
     pub skipped: usize,
 }
 
-// The in-process adapter is audited against these exact two shipped modules.
-// A future edit may change their protocol or add ESM imports, in which case
-// the existing Node worker remains authoritative until the adapter is audited.
 fn inline_runner_generation_compatible(wrapper: &str, module: &str) -> bool {
     crate::knowledge::cut::sha256_hex(wrapper.as_bytes())
         == "e6b79c0d45276480fc1ffbada85391b11e68be4ad9464a64f6b3f60af7b3fd65"
         && crate::knowledge::cut::sha256_hex(module.as_bytes())
-            == "4aab40cc7775f8cef6e74799c0d9a41e9444698a43d3a68670d988cdfce22bde"
+            == "6ff2ccf127ca74b79c84d7a40c480483f7e671831c2db9b7e2eb9bb5ff152abb"
 }
 
-/// Interpret one bounded runner transcript through a pinned, replaceable module.
-/// Exit status and test execution remain the caller's responsibility. An
-/// unavailable or invalid worker is an error, never an empty passing summary.
 pub fn parse_runner_output(
     lang: Lang,
     stdout: &str,
@@ -719,15 +641,11 @@ fn parse_runner_output_with(
     });
     let input =
         serde_json::to_vec(&request).map_err(|error| format!("encode test summary: {error}"))?;
-    // A user-pinned Node and changed modules retain the original worker path.
-    // Only the exact shipped, capability-free module is evaluated in-process;
-    // this preserves arbitrary hotloaded ESM and its existing protocol.
     const WRAPPER: &str = include_str!("../../../scripts/runtime/test-runner-report.mjs");
     const MODULE: &str = include_str!("../../../lib/test-runner/report.mjs");
     const MAX_INLINE_INPUT: usize = 1024 * 1024;
     static INLINE_COMPATIBLE: OnceLock<bool> = OnceLock::new();
     let node_pin = std::env::var_os("ANGEL_NODE_BIN").is_some();
-    // Preserve the explicit runtime pin's validation order.
     let pinned_node = if node_pin {
         Some(
             crate::agent::tools::runtime_missing::resolve("node").map_err(|_| {
@@ -737,8 +655,6 @@ fn parse_runner_output_with(
     } else {
         None
     };
-    // Both execution paths own this same private, two-read generation. If
-    // V8 is saturated or times out, the fallback cannot pick up a later edit.
     let snapshot = crate::platform::worker_snapshot::Snapshot::capture(
         &crate::platform::runtime_paths::root(),
         &[
@@ -765,8 +681,6 @@ fn parse_runner_output_with(
         false
     };
     let projected = if inline {
-        // The host preserves JSON number tokens as wrappers. The protocol's
-        // fixed version is the only numeric input; restore its exact value.
         let source = MODULE.replacen("export function project(", "function runnerReport(", 1);
         let source = format!(
             "{source}\nfunction project(input) {{ return runnerReport({{...input, version: 1}}); }}"

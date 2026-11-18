@@ -1,25 +1,17 @@
-# crates/delve/src/rules/activity.rs — the games played inside a room, in one registry with one lifecycle.
-# Rust's `RIDES`, `FOLLIES`, `HOME_ROOMS`, `WORLD` and `PLACES` tables of closures become explicit
-# sequences here, in the tables' order. The Round Table adventures and the rides that live in
-# their own modules are reached by `<module>.ACTIVITY.on(run)` / `.ride(run, inputs)` / `.end(run)`.
-
 def activity.kind_is(run: J.Val, kind: String) -> Bool:
     return String.eq(layout.Room.kind(rules.Run.room(run)), kind)
 
-# The keys of the seats in `seated`, each laid over a blank map (`joust::reins_all`).
 def joust.reins_all(inputs: J.Val, seated: J.Val) -> J.Val:
     out: J.Val = J.obj()
     for id: J.Val in J.items(seated):
         out = J.set(out, U32.show(J.u32(id)), core.or_else(J.get(inputs, U32.show(J.u32(id))), rules.Input.default()))
     return out
 
-# A ride whose game may have ended with its tick: its blank map while the state stands, else none.
 def activity.ride_while(run: J.Val, present: Bool) -> (J.Val, J.Val?):
     if present:
         return (run, Some{J.obj()})
     return (run, None{})
 
-# The ride under way, if any, plays its tick; the keys the rest of the step sees.
 def activity.Run.ride(run: J.Val, inputs: J.Val) -> (J.Val, J.Val?):
     if activity.kind_is(run, "muster"):
         run = pennon.Run.tick_pennon(run, inputs)
@@ -71,12 +63,10 @@ def activity.Run.ride(run: J.Val, inputs: J.Val) -> (J.Val, J.Val?):
             return (run, None{})
         return (run, Some{joust.reins_all(inputs, chariot.Chariot.seat_ids(c))})
     if race3d.Run.race3d_showing(run):
-        # The keys drive the race, and the knights stand still in the hall.
         run = race3d.Run.tick_race3d(run, inputs)
         return (run, Some{J.obj()})
     return (run, None{})
 
-# A Sanctuary's field banner stands in the room.
 def activity.has_banner(room: J.Val) -> Bool:
     match (layout.Room.field_banner(room) : (F32, F32)?):
         case Some{p: (F32, F32)}:
@@ -84,7 +74,6 @@ def activity.has_banner(room: J.Val) -> Bool:
         case None{}:
             return False{}
 
-# The follies' ticks, in order.
 def activity.Run.tick_follies(run: J.Val, inputs: J.Val) -> J.Val:
     if Bool.not(J.is_null(altar.Run.wish_altar(run))):
         run = altar.Run.tick_wish_altar(run, inputs)
@@ -98,7 +87,6 @@ def activity.Run.tick_follies(run: J.Val, inputs: J.Val) -> J.Val:
     run = powder.Run.tick_powder(run, inputs)
     return hop.Run.tick_book_hop(run)
 
-# The realm's places' ticks, in order.
 def activity.Run.tick_places(run: J.Val, inputs: J.Val) -> J.Val:
     if U32.is_zero(rules.Run.floor(run)):
         run = home.Run.tick_home(run, inputs)
@@ -109,7 +97,6 @@ def activity.Run.tick_places(run: J.Val, inputs: J.Val) -> J.Val:
     run = swamp.Run.tick_swamp_notice(run, inputs)
     return merchant.Run.tick_merchant(run)
 
-# The Undercroft room the party stands in plays; true when one did (the stair's landing plays otherwise).
 def activity.Run.tick_home_room(run: J.Val, inputs: J.Val) -> (J.Val, Bool):
     if activity.kind_is(run, "fortune"):
         return (fortune.Run.tick_fortune(run, inputs), True{})
@@ -129,7 +116,6 @@ def activity.Run.tick_home_room(run: J.Val, inputs: J.Val) -> (J.Val, Bool):
         return (world.Run.tick_world(run, inputs), True{})
     return (run, False{})
 
-# Every one of the world's games that is on, in order.
 def activity.Run.tick_world_games(run: J.Val, inputs: J.Val) -> J.Val:
     run = kingdom.Run.tick_kingdom(run, inputs)
     if activity.kind_is(run, "stables"):
@@ -139,7 +125,6 @@ def activity.Run.tick_world_games(run: J.Val, inputs: J.Val) -> J.Val:
     run = countryside.Run.tick_countryside(run, inputs)
     return pastimes.Run.tick_pastimes(run, inputs)
 
-# End every game that ends when a view leaves its room.
 def activity.Run.end_outside_activities(run: J.Val) -> J.Val:
     for k: String in ["pennon", "forest_road", "rafterwake", "brasswake", "mossbell", "latch", "cinder", "joust", "chariot"]:
         run = J.set(run, k, J.JNull{})

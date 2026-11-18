@@ -83,7 +83,6 @@ fn links_match_and_arrive_on_open_floor() {
             rects.push((rect(&e["at"]), e["arrive"].clone()));
         }
         assert!(!rects.is_empty(), "{slug} has no links");
-        // Distinct rects, and they are exactly the level's '>' tiles.
         for (i, a) in rects.iter().enumerate() {
             for b in &rects[i + 1..] {
                 assert!(!links::overlaps(a.0, b.0), "{slug}: links overlap");
@@ -95,7 +94,6 @@ fn links_match_and_arrive_on_open_floor() {
                 assert_eq!(c == b'>', inside, "{slug} ({x},{y}): '>' only on links");
             }
         }
-        // One walkable region, reached from the first link.
         let reach = links::flood(&t, &links::cells(rects[0].0));
         for (y, row) in t.iter().enumerate() {
             for (x, &c) in row.iter().enumerate() {
@@ -104,7 +102,6 @@ fn links_match_and_arrive_on_open_floor() {
                 }
             }
         }
-        // Arrivals: five plain floor tiles in a row, reachable.
         for (r, a) in &rects {
             let (ax, ay) = (a["x"].as_i64().expect("arrive") as i32, a["y"].as_i64().unwrap() as i32);
             for x in ax - 2..=ax + 2 {
@@ -134,7 +131,6 @@ fn places_and_people_name_real_levels() {
         let lf = &ls[p["level"].as_str().unwrap()];
         let (x, y, w, h) = rect(&p["rect"]);
         assert!(x >= 0 && y >= 0 && x + w <= lf.w as i32 && y + h <= lf.h as i32, "{id} lies off its level");
-        // A temple is to a deity or to a religion, never both.
         assert!(p.get("deity").is_none() || p.get("religion").is_none(), "{id}");
         if p.get("religion_entity").is_some() {
             assert!(p["religion"].is_string(), "{id} names its religion");
@@ -154,9 +150,6 @@ fn places_and_people_name_real_levels() {
     }
 }
 
-/// The same as the `df-import` command, for machines whose application
-/// control will not start a freshly built binary but runs test harnesses:
-/// `cargo test -p angel-df-import --release -- --ignored regenerate`.
 #[test]
 #[ignore]
 fn regenerate() {
@@ -171,8 +164,6 @@ fn regenerate() {
     }
 }
 
-/// With the raw export present (it is not committed), a fresh run writes
-/// exactly the committed files.
 #[test]
 fn rerun_is_byte_identical() {
     let export = repo().join("expansions/bomrekedan/df-export");
@@ -203,4 +194,9 @@ fn rerun_is_byte_identical() {
     for (fresh, committed) in pairs {
         assert!(fs::read(&fresh).unwrap() == fs::read(&committed).unwrap(), "{} differs", committed.display());
     }
+}
+
+#[test]
+fn a_negative_height_is_an_error_not_a_panic() {
+    assert!(LevelFile::parse("LEVEL a\nNAME a\nZ 0\nSIZE 1 -1\nORIGIN 0 0\nTILES\n").is_err());
 }

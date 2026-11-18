@@ -20,10 +20,6 @@ fn art(rows: &[&str]) -> Img {
     im
 }
 
-/// Paint every find in view onto `over` (whose top-left is world pixel
-/// `origin`); returns the rectangle of the key shown, if any. `stood`: the
-/// finds stand up as blocks of their own (the kingdom in 3D,
-/// `world3d::lots`), so only the wanderer, the hermit and the key are drawn.
 pub(super) fn draw(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option<u32>, legible: bool, stood: bool) -> Vec<(i32, i32, i32, i32)> {
     let hero = run.players.get(&focus.unwrap_or(1));
     let tick = run.tick;
@@ -42,7 +38,6 @@ pub(super) fn draw(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option<
             continue;
         }
         let found = run.kingdom.found & (1 << i) != 0;
-        // What stands up in 3D goes on a scratch picture, thrown away.
         let mut scratch = Img::new(0, 0);
         let art_on: &mut Img = if stood { &mut scratch } else { &mut *over };
         match find.kind {
@@ -61,7 +56,6 @@ pub(super) fn draw(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option<
                     ".GGGGGGGGGGGG.",
                     "XXXXXXXXXXXXXX",
                 ]);
-                // Its candle burns once a knight has knelt there.
                 im.put(6, 6, if found { 'o' } else { 'X' });
                 im.rect(6, 7, 2, 2, 'J');
                 art_on.stamp(&im, x - 7, y - 12);
@@ -83,12 +77,10 @@ pub(super) fn draw(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option<
                     y - 9,
                 );
                 if !found {
-                    // The cache: a small chest half under the stones.
                     art_on.stamp(&art(&["BBBBB", "BrJrB", "BBBBB"]), x - 2, y - 4);
                 }
             }
             Kind::Campfire => {
-                // Logs, a low fire that breathes, the wanderer sitting by.
                 let flame = ['R', 'o', 'R', 'r'][(tick / 6 % 4) as usize];
                 art_on.stamp(&art(&["..bB..Bb..", "bBBbBBbBBb", ".bb....bb."]), x - 5, y - 3);
                 art_on.stamp(&art(&["..p..", ".pRp.", "pRoRp"]), x - 2, y - 6);
@@ -109,8 +101,6 @@ pub(super) fn draw(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option<
                 }
             }
             Kind::LostPack => {
-                // A pack and a bedroll against a staff driven in the ground;
-                // opened, the flap lies back on the empty pack.
                 let mut im = art(&[
                     "...........P....",
                     "...........P....",
@@ -130,8 +120,6 @@ pub(super) fn draw(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option<
                 art_on.stamp(&im, x - 8, y - 10);
             }
             Kind::Hermit => {
-                // A rough lean-to of poles and turf, and the hermit at its
-                // door with his lantern out.
                 art_on.stamp(
                     &art(&[
                         "......NNNNN.........",
@@ -149,7 +137,6 @@ pub(super) fn draw(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option<
                     y - 10,
                 );
                 let mut man = kit::monk(tick as u32 / 12, tick as u32);
-                // His lantern is unlit: nothing here is happening.
                 man.rect(7, 6, 2, 2, 'g');
                 over.stamp(&man, x + 10, y - man.h);
             }
@@ -179,7 +166,6 @@ pub(super) fn draw(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option<
             }
         }
         if legible && nearest == Some(i) {
-            // The same key the kingdom's other little things show.
             let label = format!("E: {}", find.kind.verb());
             let w = crate::render::overworld::ink::text_width(&label);
             taken.push(chrome::label(over, (x - w / 2, y - 26), &label, 'O', chrome::Tone::KEY));

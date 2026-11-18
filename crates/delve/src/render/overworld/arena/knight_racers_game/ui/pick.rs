@@ -6,19 +6,16 @@ use crate::garage::parts;
 use crate::rules::knight_racers::career::{self, course_key};
 use crate::rules::knight_racers::flow::Local;
 
-/// What a pod's numbers read as on a bar, 0 to 1: placed between the roster's least and most.
 fn norm(v: f32, pick: impl Fn(&rules::PodSpec) -> f32) -> f32 {
     let all: Vec<f32> = rules::pods().iter().map(&pick).collect();
     let (lo, hi) = (all.iter().copied().fold(f32::MAX, f32::min), all.iter().copied().fold(f32::MIN, f32::max));
     (0.2 + 0.65 * (v - lo) / (hi - lo).max(1e-3)).clamp(0.05, 1.)
 }
 
-/// How a pod is opened.
 fn pod_hint(pod: u8) -> &'static str {
     match pod { 2 => "WIN THE SQUIRE CUP", 1 => "WIN THE KNIGHT CUP", 3 => "WIN THE CHAMPION CUP", 4 => "WIN EVERY RACE OF A CUP", _ => "" }
 }
 
-/// The five bars of a pod, as the knight's parts make it, with what the parts add.
 fn pod_bars(im: &mut Img, x: i32, y: i32, base: &rules::PodSpec, tuned: &rules::PodSpec) {
     let rows: [(&str, fn(&rules::PodSpec) -> f32, bool); 5] = [
         ("TOP", |p| p.top, true), ("BOOST", |p| p.boost, true), ("PUSH", |p| p.accel, true), ("GRIP", |p| p.grip, true), ("WEIGHT", |p| p.mass, true),
@@ -30,7 +27,6 @@ fn pod_bars(im: &mut Img, x: i32, y: i32, base: &rules::PodSpec, tuned: &rules::
     }
 }
 
-/// The pod select: the six pods on a turntable, who may race which, and each seat's readiness.
 pub fn pods(race: &rules::Session, seat: u32) -> Img {
     let Some(sf) = race.flow.seats.get(&seat) else { return Img::black(384, 224) };
     let look = sf.pick as usize % rules::pods().len();
@@ -60,7 +56,6 @@ pub fn pods(race: &rules::Session, seat: u32) -> Img {
     if !sf.career.owns_pod(look as u8) { im.text(12, 197, &format!("LOCKED  {}", pod_hint(look as u8)), 'O'); }
     else if sf.ready { im.text(12, 197, "READY  WAITING FOR THE REST", 'y'); }
     else { im.text(12, 197, if race.flow.now / 20 % 2 == 0 { "ENTER  TO RACE" } else { "" }, 'H'); }
-    // Who is ready: one chip a seat, in its colour.
     for (n, (&id, other)) in race.flow.seats.iter().filter(|(_, s)| s.here).enumerate() {
         let x = 376 - (n as i32 + 1) * 14;
         let ink = pods::livery(id).ink;
@@ -73,13 +68,11 @@ pub fn pods(race: &rules::Session, seat: u32) -> Img {
     im
 }
 
-/// The garage: parts to buy and fit, slot by slot, with what each does to the racer.
 pub fn garage_shop(race: &rules::Session, seat: u32) -> Img {
     let Some(sf) = race.flow.seats.get(&seat) else { return Img::black(384, 224) };
     let look = if sf.career.owns_pod(sf.pick) { sf.pick as usize } else { 0 } % rules::pods().len();
     let mut im = super::super::garage::garage_at(look, seat, race.flow.now as f32 * 0.02 + 0.9, race.flow.now, 5.);
     let slot = sf.cursor as usize % career::WORKING_SLOTS;
-    // The slots.
     plate(&mut im, 4, 8, 118, 200);
     shout(&mut im, 10, 12, "GARAGE", 2, 'T');
     purse(&mut im, 118, 30, sf.career.money, 'T');
@@ -91,7 +84,6 @@ pub fn garage_shop(race: &rules::Session, seat: u32) -> Img {
         let worn = parts::part(sf.career.worn(s)).map_or("", |p| p.name);
         im.text(13, y + 10, &worn.to_uppercase(), if s == slot { 'H' } else { 'J' });
     }
-    // The part under the cursor.
     let list = career::wares(slot);
     let at = sf.sub as usize % list.len().max(1);
     let ware = list[at];
@@ -108,7 +100,6 @@ pub fn garage_shop(race: &rules::Session, seat: u32) -> Img {
         else { (format!("{}  YOU HAVE {}", gold(ware.price), gold(sf.career.money)), 'O') };
     im.text(252, 76, &line, ink);
     im.rect(252, 88, 122, 1, 'j');
-    // The racer's numbers, and what this part would do to them.
     let mut with = sf.career.build.clone();
     with[slot] = ware.id.to_string();
     let (now, then) = (career::stats_of(&sf.career.build), career::stats_of(&with));
@@ -117,7 +108,6 @@ pub fn garage_shop(race: &rules::Session, seat: u32) -> Img {
         let d = if worn_now { 0. } else { (then[i] - now[i]) as f32 / 100. };
         bar_at(&mut im, 252, 252 + 40, 96 + i as i32 * 12, labels[i], now[i] as f32 / 100., d, i != 4);
     }
-    // What those numbers do to a pod, in the race's own terms.
     let tune = career::tune_of(&sf.career.build);
     let after = career::tune_of(&with);
     im.rect(252, 160, 122, 1, 'j');
@@ -134,7 +124,6 @@ pub fn garage_shop(race: &rules::Session, seat: u32) -> Img {
     im
 }
 
-/// The records: each course's bests, the time trials by pod, and the career's tallies.
 pub fn records(race: &rules::Session, seat: u32) -> Img {
     let mut im = Img::black(384, 224);
     let Some(sf) = race.flow.seats.get(&seat) else { return im };
@@ -144,13 +133,14 @@ pub fn records(race: &rules::Session, seat: u32) -> Img {
     let ids = rules::courses();
     let tab = sf.tab as usize % ids.len();
     for (i, &id) in ids.iter().enumerate() {
-        let x = 8 + i as i32 * 92;
-        plate(&mut im, x, 28, 88, 14);
-        if i == tab { im.rect(x + 1, 29, 86, 12, 'g'); im.rect(x + 1, 29, 86, 1, 'T'); }
+        let (step, w) = (368 / ids.len() as i32, 368 / ids.len() as i32 - 3);
+        let x = 8 + i as i32 * step;
+        plate(&mut im, x, 28, w, 14);
+        if i == tab { im.rect(x + 1, 29, w - 2, 12, 'g'); im.rect(x + 1, 29, w - 2, 1, 'T'); }
         let n = rules::course(id).name();
         let n = n.strip_prefix("THE ").unwrap_or(n);
-        let short = n.split_whitespace().next().unwrap_or(n);
-        centred(&mut im, x + 44, 32, short, 1, if i == tab { 'H' } else { 'h' });
+        let short = if id == rules::CourseId::Proving { "PROVING" } else { n.split_whitespace().next().unwrap_or(n) };
+        centred(&mut im, x + w / 2, 32, short, 1, if i == tab { 'H' } else { 'h' });
     }
     let id = ids[tab];
     let rec = c.courses.get(&course_key(id)).copied().unwrap_or_default();
@@ -173,7 +163,6 @@ pub fn records(race: &rules::Session, seat: u32) -> Img {
         if !open { lock(&mut im, 100, y - 1, 'j'); }
         else { im.text(120, y, &time_ms(best), if best > 0 { 'H' } else { 'j' }); }
         if best > 0 {
-            // Next to each time, a bar of how close it is to the best of them.
             let top = rules::pods().iter().enumerate().filter_map(|(q, _)| c.trials.get(&career::lap_key(id, q as u8))).copied().min().unwrap_or(best);
             let k = (top as f32 / best as f32).clamp(0., 1.);
             im.rect(190, y, 60, 6, 'g');

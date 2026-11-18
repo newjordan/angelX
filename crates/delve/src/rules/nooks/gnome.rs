@@ -21,59 +21,37 @@
 //! Nobody says what is in the kettle.
 use super::*;
 
-/// The floor of an open delve whose garden this is, and that floor's
-/// guardian, the gnome's lawn ornament.
 pub const DEPTH: u32 = 3;
 pub const FLAMINGO: &str = "lawn-flamingo";
-/// The gnome's cottage (a block) and the cellar door under it, where the
-/// garden's guests are headed (tile points).
 pub const HOUSE: (i32, i32, i32, i32) = (9, 1, 6, 4);
 pub const DOOR: (f32, f32) = (12.0, 5.4);
-/// The copper kettle out back, the barrels, the crates by the wall.
 pub const KETTLE: (i32, i32, i32, i32) = (15, 1, 3, 3);
 pub const BARRELS: (i32, i32, i32, i32) = (18, 1, 4, 2);
 pub const BLOCKS: [(i32, i32, i32, i32); 3] = [HOUSE, KETTLE, BARRELS];
-/// Where a knight stands to take the herbs, the mushrooms, or the gnome's
-/// invitation; where the gnome stands.
 pub const HERBS: (f32, f32) = (4.5, 7.0);
 pub const SHROOMS: (f32, f32) = (19.5, 7.0);
 pub const GNOME: (f32, f32) = (12.0, 6.9);
-/// The little blue folk, keeping to the walls.
 pub const FOLK: [(f32, f32); 4] = [(7.6, 4.6), (17.6, 5.7), (2.6, 11.2), (21.4, 10.6)];
-/// Where the guests come in: the garden's far corners and sides.
 pub const GATES: [(f32, f32); 6] = [(1.6, 12.4), (22.4, 12.4), (1.6, 8.0), (22.4, 8.0), (6.0, 12.6), (18.0, 12.6)];
 
-/// What the herbs and the mushrooms give, percent, for the floor.
 pub const HERB_RATE: u32 = 25;
 pub const SHROOM_DAMAGE: u32 = 25;
-/// How long the mushrooms' strangeness lasts, in ticks.
 pub const SHROOM_TICKS: u32 = 25 * HZ;
-/// The house's health, and what one guest at the door takes from it.
 pub const HOUSE_HP: u32 = 100;
 pub const BITE: u32 = 10;
-/// How near (tiles) a guest gets to the door before it is in.
 pub const IN_REACH: f32 = 1.4;
-/// The four waves: how many of each guest, in the order they come.
 pub const WAVES: [&[(EnemyKind, u8)]; 4] = [
     &[(EnemyKind::Leech, 6)],
     &[(EnemyKind::Leech, 4), (EnemyKind::Biter, 5)],
     &[(EnemyKind::Spiderling, 7), (EnemyKind::Leech, 4)],
     &[(EnemyKind::Biter, 6), (EnemyKind::Spiderling, 5), (EnemyKind::Silkmother, 1)],
 ];
-/// Ticks between guests through the gates, before the first wave, and
-/// between a wave's last guest falling and the next wave.
 pub const SPAWN_EVERY: u32 = HZ * 2 / 3;
 pub const FIRST_WAVE: u32 = 3 * HZ;
 pub const WAVE_REST: u32 = 4 * HZ;
-/// What the room is told the moment the house holds; the fairies' show
-/// (`render::overworld::arena::magic`) keys on it.
 pub const HELD_LINE: &str = "THE HOUSE HELD! THE FAIRIES GRANT EVERY KNIGHT A FAIRY WISH: TIER III, LEGENDARY.";
-/// What the room is told the moment the house falls; the night's sad end
-/// keys on it.
 pub const LOST_LINE: &str = "THEY GOT INTO THE CELLAR. THE PARTY'S OVER.";
 
-/// What the gnome cries as each wave comes through the gates; the wave's
-/// banner keys on it.
 pub const WAVE_LINES: [&str; 4] = [
     "SOMETHING'S AT THE CELLAR DOOR!",
     "MORE OF THEM! THEY SMELL IT!",
@@ -81,56 +59,38 @@ pub const WAVE_LINES: [&str; 4] = [
     "THE BIG ONE'S COMING FOR THE KETTLE!",
 ];
 
-/// A fairy wish's steps up its ladder: a new one lands at its third tier,
-/// with the fourth and fifth still to climb.
 pub const FAIRY_STEPS: u8 = 3;
-/// The most guests remembered at the door at once.
 pub const MOST_GUESTS: usize = 48;
 
-/// Where the party stands.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Party {
-    /// Nobody has stayed a while yet.
     #[default]
     Quiet,
-    /// The guests are coming: hold the door.
     Holding,
-    /// The house held: the fairies paid.
     Held,
-    /// They got into the cellar.
     Lost,
 }
 
-/// The garden's state, kept in the floor's nook.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Garden {
     pub party: Party,
     pub house: u32,
-    /// The wave under way (0 to 3), ticks into it, and how many of it have
-    /// come through the gates.
     pub wave: u8,
     pub wave_t: u32,
     pub sent: u8,
-    /// The guests headed for the cellar, by enemy id.
     pub guests: Vec<u32>,
-    /// What each knight has taken: 1 the herbs, 2 the mushrooms.
     pub took: BTreeMap<u32, u8>,
-    /// Ticks of strangeness left, a knight each.
     pub trips: BTreeMap<u32, u32>,
-    /// The last guest in at the cellar door, and the tick it got there:
-    /// the hatch's bite, drawn (`render::overworld::arena::garden`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bitten: Option<(u64, EnemyKind)>,
 }
 
-/// How many guests a wave sends in all.
 pub fn wave_size(wave: usize) -> u8 {
     WAVES.get(wave).map_or(0, |w| w.iter().map(|&(_, n)| n).sum())
 }
 
-/// The `k`th guest of a wave, by the wave's order.
 fn guest_of(wave: usize, k: u8) -> EnemyKind {
     let mut left = k;
     for &(kind, n) in WAVES[wave] {
@@ -157,16 +117,12 @@ impl Garden {
             && self.trips.keys().all(seat)
     }
 
-    /// While the door is held, the cellar door the guests make for.
     pub fn lure(&self) -> Option<((f32, f32), &[u32])> {
         (self.party == Party::Holding).then(|| ((DOOR.0 * TILE_UNITS, DOOR.1 * TILE_UNITS), self.guests.as_slice()))
     }
 }
 
 impl Run {
-    /// The Lawn Flamingo's place among the run's bosses: a run whose list
-    /// was saved before it came gets it now, at the end, so no other
-    /// boss's place moves.
     pub(crate) fn flamingo(&mut self) -> Option<usize> {
         if let Some(i) = self.bosses.iter().position(|b| b.id == FLAMINGO) {
             return Some(i);
@@ -178,7 +134,6 @@ impl Run {
         Some(self.bosses.len() - 1)
     }
 
-    /// Knight `id` sees the garden strangely: the mushrooms, or the party.
     pub fn tripping(&self, id: u32) -> bool {
         self.nook.as_ref().and_then(|n| n.garden.as_ref()).is_some_and(|g| {
             self.dungeon.rooms.get(self.at).is_some_and(|r| r.kind == RoomKind::GnomeParty)
@@ -186,8 +141,6 @@ impl Run {
         })
     }
 
-    /// Where the garden's guests are headed, and who they are, when a
-    /// party is on in the room the knights stand in.
     pub(crate) fn garden_lure(&self) -> Option<((f32, f32), Vec<u32>)> {
         let nook = self.nook.as_ref().filter(|n| n.room == self.at)?;
         nook.garden.as_ref()?.lure().map(|(at, ids)| (at, ids.to_vec()))
@@ -256,11 +209,8 @@ impl Run {
         nook.garden = Some(g);
     }
 
-    /// One tick of the party: the waves through the gates, the guests at
-    /// the door, and how it ends.
     fn hold_the_door(&mut self, nook: &mut Nook, g: &mut Garden) {
         let door = (DOOR.0 * TILE_UNITS, DOOR.1 * TILE_UNITS);
-        // Guests at the door are in: off the field, out of the house.
         let mut bitten = 0;
         let mut last = None;
         let reach = IN_REACH * TILE_UNITS;
@@ -322,8 +272,6 @@ impl Run {
         }
     }
 
-    /// The house held: every knight standing in the garden gets a fairy
-    /// wish, and the one who did most is crowned.
     fn fairy_wishes_for_the_garden(&mut self, nook: &Nook) {
         for id in self.nook_players() {
             if let Some(hero) = self.players.get_mut(&id) {
@@ -331,7 +279,6 @@ impl Run {
             }
         }
         self.nook_crown(nook);
-        // Fairy dust, and the fairies giggling in chimes.
         self.sounds.push("fairy_wish");
         self.cues.push("fairy_wish".into());
         self.found = Some((self.tick, 0, HELD_LINE.into()));

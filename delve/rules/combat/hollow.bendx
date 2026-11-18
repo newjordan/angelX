@@ -1,4 +1,3 @@
-# crates/delve/src/rules/hollow.rs: the Hollow One, stones round a void.
 import Base
 
 def hollow.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds, Bool):

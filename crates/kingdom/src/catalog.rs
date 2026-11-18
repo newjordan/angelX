@@ -9,17 +9,10 @@ pub type Stock = BTreeMap<String, u32>;
 pub struct Resource {
     pub name: String,
     pub colour: u32,
-    /// Seconds a unit keeps before it goes off, zero for goods that keep.
-    /// Mortar sets, so the mill must stand near the wall.
     #[serde(default)]
     pub shelf: u32,
-    /// A by-product nobody is asked to haul away: when a maker's store of it
-    /// is full the surplus is tipped on the midden, it never blocks the work.
     #[serde(default)]
     pub waste: bool,
-    /// What one unit weighs, in kilograms. A cart carries a tonne, so a cart
-    /// takes ten of the heavy goods (ashlar), twenty sacks, and hundreds of
-    /// nails. Zero means the default of fifty.
     #[serde(default)]
     pub weight: u16,
 }
@@ -35,22 +28,14 @@ pub struct Recipe {
     pub inputs: Stock,
     pub outputs: Stock,
     pub shifts: u16,
-    /// Draws on a finite patch of the hillside: a wood, the field stone.
     #[serde(default)]
     pub patch: Option<Patch>,
-    /// The skill level of the person who must supervise this recipe, when it
-    /// is higher than the building's own (steel wants a master smith).
     #[serde(default)]
     pub level: u8,
 }
-/// A recipe's claim on the land. A batch takes `takes` units from the patch
-/// and cannot run if fewer than `takes` remain, or (for coppicing, which
-/// takes none) if the patch has fallen under `min_percent` of what it began
-/// with. Patches regrow while they are above a quarter.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Patch {
-    /// `wood` or `field`.
     pub kind: String,
     pub takes: u32,
     #[serde(default)]
@@ -86,87 +71,56 @@ pub struct Plan {
     pub power: Option<crate::power::MachinePower>,
     #[serde(default)]
     pub connector: Option<crate::PowerKind>,
-    /// Goods held at each end of this building's loading dock. Zero keeps the
-    /// workshop default: 32 in, 24 out. Yards and depots hold far more.
     #[serde(default)]
     pub buffer: u32,
-    /// Vehicles that can load or unload here at once. Zero means one.
     #[serde(default)]
     pub berths: u8,
-    /// A transfer yard: takes any goods into its store and lines carry them on.
     #[serde(default)]
     pub hub: bool,
-    /// A castle stockyard: takes the goods its castle's bill needs.
     #[serde(default)]
     pub yard: bool,
-    /// A carter's yard: stalls for this many carts, which serve every road the
-    /// yard touches. Zero means it keeps none.
     #[serde(default)]
     pub stalls: u16,
-    /// A quay: where barge lines begin and end.
     #[serde(default)]
     pub quay: bool,
-    /// The trade the building's work needs, and the level of the person who
-    /// supervises it (1 apprentice, 2 journeyman, 3 master).
     #[serde(default)]
     pub trade: String,
     #[serde(default)]
     pub level: u8,
-    /// The tool the work wears out, and how many shifts one lasts. A worn
-    /// tool goes back to a smith; the worn good is `worn-<tool>`.
     #[serde(default)]
     pub tool: String,
     #[serde(default)]
     pub tool_life: u16,
-    /// Goods drawn from the camp every `upkeep_seconds`: a horse gin's fodder.
     #[serde(default)]
     pub upkeep: Stock,
     #[serde(default)]
     pub upkeep_seconds: u16,
-    /// Extra tiles the building runs on to the east: a ropewalk is a long
-    /// straight shed you must find room for.
     #[serde(default)]
     pub span: u8,
-    /// Extra tiles the building runs on to the south (a sawpit is three wide
-    /// and two deep: span 2, depth 1). Its tile is its top-left corner; the
-    /// hillside builds it to this size, the valley as one tile.
     #[serde(default)]
     pub depth: u8,
-    /// Blocks a minute this building lifts up the Great Shaft.
     #[serde(default)]
     pub shaft: u32,
-    /// What working it adds to the Deep's stir.
     #[serde(default)]
     pub smoke: u8,
     #[serde(default)]
     pub noise: u8,
-    /// Percent more stones a mason sets within range of this crane.
     #[serde(default)]
     pub crane: u8,
-    /// Which world may build it. The valley keeps its own works.
     #[serde(default = "yes")]
     pub valley: bool,
     #[serde(default = "yes")]
     pub hillside: bool,
-    /// The plan this one is an upgrade of, in place.
     #[serde(default)]
     pub replaces: Option<String>,
-    /// Seconds a swape's arm takes to lift one good between the two things it
-    /// stands between (a rollerway and a bench, a store, the camp); zero for
-    /// every work that is not a swape.
     #[serde(default)]
     pub swape: u8,
-    /// What a raid must break through to bring this down: a palisade, a wall, a
-    /// tower, a brazier. Zero is not a defence (`defence`).
     #[serde(default)]
     pub hp: u16,
-    /// A watchtower's reach, in tiles, for its archer's arrows; zero is not a tower.
     #[serde(default)]
     pub watch: u8,
-    /// The arrows a tower keeps in its quiver: the roads and rollerways keep it full.
     #[serde(default)]
     pub quiver: u8,
-    /// A brazier: while its fuel lasts it is lit, and the Deep's things come to the light.
     #[serde(default)]
     pub beacon: bool,
 }
@@ -182,7 +136,6 @@ impl Plan {
     }
 }
 
-/// Landscape requirements are content, rather than renderer-specific rules.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Siting {
@@ -192,9 +145,7 @@ pub enum Siting {
     Stone,
     Woodland,
     Riverbank,
-    /// Sand along the river.
     Sand,
-    /// High ground where the wind blows.
     Hilltop,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -217,17 +168,12 @@ pub struct Catalog {
     pub starter: Stock,
     #[serde(default)]
     pub technologies: BTreeMap<String, Technology>,
-    /// The hillside's charters. They live apart from the valley's so the
-    /// valley's Charters page and its numbering are what they always were.
     #[serde(default)]
     pub hillside_technologies: BTreeMap<String, Technology>,
-    /// The hillside game: what is hauled, how castles are paid for, and what
-    /// can be stamped down. All optional so an older catalogue still parses.
     #[serde(default)]
     pub works: Works,
     #[serde(default)]
     pub lines: BTreeMap<String, LineSpec>,
-    /// The pieces a rollerway is laid of, by key (`roller::Piece::key`).
     #[serde(default)]
     pub rollers: BTreeMap<String, PieceSpec>,
     #[serde(default)]
@@ -238,29 +184,20 @@ pub struct Catalog {
     pub castles: BTreeMap<String, CastlePlan>,
     #[serde(default)]
     pub patterns: BTreeMap<String, Pattern>,
-    /// What the hillside founds with, in place of `starter`.
     #[serde(default)]
     pub hillside_starter: Stock,
-    /// The hillside's build menu (the valley's stays `menu`).
     #[serde(default)]
     pub hillside_menu: Vec<String>,
-    /// How much of each good the camp keeps in hand. The camp is the first
-    /// warehouse: it pulls up to these levels from whoever has the goods, and
-    /// producers push to it only while it is under them.
     #[serde(default)]
     pub camp_stock: BTreeMap<String, u32>,
-    /// The trades: who can supervise whom, and who the founders are.
     #[serde(default)]
     pub trades: BTreeMap<String, Trade>,
     #[serde(default)]
     pub founders: Vec<(String, u8)>,
     #[serde(default)]
     pub diet: Diet,
-    /// What each Delve pack gives: the quarry stone and what else comes up.
     #[serde(default)]
     pub geology: BTreeMap<String, Geology>,
-    /// Goods that are deliberately made or used by systems outside this sim
-    /// (siege stores, extension ores). The checker lets these stand.
     #[serde(default)]
     pub reserved: Vec<String>,
 }
@@ -269,12 +206,9 @@ pub struct Catalog {
 #[serde(deny_unknown_fields)]
 pub struct Trade {
     pub name: String,
-    /// Trades whose journeymen can supervise this one at one level lower.
     #[serde(default)]
     pub kin: Vec<String>,
 }
-/// What a person eats at a meal, by how skilled they are. An entry such as
-/// `meat|cheese` is satisfied by either.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Diet {
@@ -287,16 +221,12 @@ pub struct Diet {
 #[serde(deny_unknown_fields)]
 pub struct Geology {
     pub name: String,
-    /// The quarry stone this pack's charter yields.
     pub stone: String,
     #[serde(default)]
     pub also: Vec<String>,
-    /// What the castle looks like built of it.
     pub look: String,
 }
 
-/// A quantity of a castle's bill, in thousandths of the bill's own unit (a
-/// stone, a cubic metre, a kilogram), so bills stay exact integers.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Qty(pub u64);
 impl Serialize for Qty {
@@ -318,55 +248,32 @@ impl<'de> Deserialize<'de> for Qty {
     }
 }
 
-/// Numbers of the works that are not a recipe or a building.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Works {
-    /// Percent of a stone one mason sets in a ten second shift.
     pub mason_credit: u16,
-    /// Tiles (Manhattan) from a stockyard within which a lodge serves it.
     pub lodge_range: u8,
-    /// Scaffold poles that must stand in the yard before masons may climb,
-    /// and the poles a finished lift wears out.
     pub poles_standing: u32,
     pub poles_worn: u32,
-    /// Sets of arch centring that must wait in the yard while a lift holds
-    /// voussoirs, and the sets a finished lift breaks.
     pub centring_standing: u32,
     pub centring_worn: u32,
-    /// The earthworks gang digs this many units per worker per shift.
     pub dig_per_worker: u32,
-    /// Seconds of work at a trade to become apprentice, journeyman, master.
     pub apprentice_xp: u32,
     pub journeyman_xp: u32,
     pub master_xp: u32,
-    /// One qualified supervisor serves this many posts of a trade.
     pub posts_per_supervisor: u8,
-    /// Wages: every this many seconds a journeyman is paid `wage_journeyman`
-    /// coin and a master `wage_master`. Coin is the Delve's gold.
     pub wage_seconds: u32,
     pub wage_journeyman: u32,
     pub wage_master: u32,
-    /// Coin a teacher charges to bring someone one level on in a trade.
     pub tuition: u32,
-    /// Seconds a coat of livery lasts.
     pub livery_seconds: u32,
-    /// The most perishable stock a yard asks for.
     pub perishable_stock: u32,
-    /// Units a shift each healthy patch regrows.
     pub regrow: u32,
-    /// How many stages ahead a yard asks its carts to stock.
     pub lookahead: u8,
-    /// Seconds a welcoming camp waits before the next newcomer walks in.
     pub arrival_seconds: u16,
-    /// People in the founding wagon train (the founders list gives trades to
-    /// the first of them).
     pub founding_people: u8,
-    /// Carts that can pass a road tile at once before the road jams, and the
-    /// percent each extra cart adds to the time a tile takes.
     pub road_lanes: u8,
     pub jam_percent: u16,
-    /// Meals of bread the camp must hold per person before a newcomer is welcomed.
     pub welcome_meals: u8,
 }
 impl Default for Works {
@@ -408,7 +315,6 @@ pub enum LineKind {
     Rope,
     Chute,
     Barge,
-    /// A string of pack mules on a trodden way: no road, no track, small loads.
     Mule,
 }
 impl LineKind {
@@ -425,24 +331,17 @@ impl LineKind {
     }
 }
 
-/// One way of moving goods, all of it data: how much a vehicle carries, how
-/// long a tile takes, how long a berth holds it, and what it costs.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LineSpec {
     pub name: String,
     pub vehicle: String,
     pub capacity: u16,
-    /// Tenths of a second per tile, loaded, along the way that is easy.
     pub speed: u16,
-    /// The same against the grain: a barge against the current. Zero means
-    /// the same as `speed`.
     #[serde(default)]
     pub against: u16,
-    /// Empty vehicles return at once (a chute is gravity and nothing else).
     #[serde(default)]
     pub instant_return: bool,
-    /// Seconds a vehicle holds a berth to load, and again to unload.
     pub dwell: u16,
     #[serde(default)]
     pub tile_cost: Stock,
@@ -451,15 +350,12 @@ pub struct LineSpec {
     pub max_length: u16,
     #[serde(default)]
     pub requires: Vec<String>,
-    /// What each vehicle eats from the camp every `upkeep_seconds`: oxen and
-    /// fodder. A line that cannot be fed stands still.
     #[serde(default)]
     pub upkeep: Stock,
     #[serde(default)]
     pub upkeep_seconds: u16,
 }
 
-/// One piece of a rollerway: what it costs and how fast it moves goods.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PieceSpec {
@@ -467,29 +363,20 @@ pub struct PieceSpec {
     pub cost: Stock,
     #[serde(default)]
     pub requires: Vec<String>,
-    /// How many of the four beats a second it moves goods on, one slot a beat:
-    /// a hand-chain one, a roller two, a geared run four.
     pub beats: u8,
-    /// Labourers it keeps at work: a hand-chain keeps one a tile.
     #[serde(default)]
     pub crew: u8,
 }
 
-/// How a bill line of `angel-castle/v1` becomes chain goods.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BillRule {
     pub resource: String,
-    /// Bill units per one unit of the good, in thousandths.
     pub per: Qty,
-    /// One in `one_in` of the units is `other` instead (voussoirs are one in
-    /// thirty-two of a great tower's cut stone).
     #[serde(default)]
     pub other: Option<String>,
     #[serde(default)]
     pub one_in: u32,
-    /// Stages whose id holds a word are paid in another good: roof timber is
-    /// shingle, not joist.
     #[serde(default)]
     pub overrides: Vec<BillOverride>,
 }
@@ -501,7 +388,6 @@ pub struct BillOverride {
     pub per: Qty,
 }
 
-/// Goods a stage needs beyond its bill, matched by a word in the stage id.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Fixture {
@@ -518,13 +404,10 @@ pub struct CastleStage {
     pub count: u32,
     pub bill: BTreeMap<String, Qty>,
 }
-/// The stage table of a baked `angel-castle/v1` castle: everything the
-/// production game needs from the file, none of the stones.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CastlePlan {
     pub name: String,
-    /// Width and depth of the ground it covers, in tiles, gate facing south.
     pub footprint: (i16, i16),
     pub stages: Vec<CastleStage>,
 }
@@ -532,8 +415,6 @@ impl CastlePlan {
     pub fn stones(&self) -> u32 {
         self.stages.iter().map(|s| s.count).sum()
     }
-    /// Reads the stage table from a whole castle file, or from one that has
-    /// only the table. Anything else in the file is ignored.
     pub fn from_castle_json(name: &str, footprint: (i16, i16), json: &str) -> Result<Self, String> {
         #[derive(Deserialize)]
         struct File {
@@ -567,8 +448,6 @@ impl CastlePlan {
     }
 }
 
-/// A group of buildings, roads, shafts and lines that stamps down as one
-/// command. Coordinates are offsets from the stamp's origin.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Pattern {
@@ -594,7 +473,6 @@ pub struct PatternBuild {
 #[serde(deny_unknown_fields)]
 pub struct PatternLine {
     pub kind: LineKind,
-    /// Indexes into `builds`.
     pub from: usize,
     pub to: usize,
     #[serde(default)]
@@ -613,11 +491,9 @@ impl Catalog {
         catalog.validate()?;
         Ok(catalog)
     }
-    /// A charter of either world.
     pub fn tech(&self, id: &str) -> Option<&Technology> {
         self.technologies.get(id).or_else(|| self.hillside_technologies.get(id))
     }
-    /// Every charter, the valley's first.
     pub fn all_techs(&self) -> impl Iterator<Item = (&String, &Technology)> {
         self.technologies.iter().chain(self.hillside_technologies.iter())
     }
@@ -937,8 +813,6 @@ pub fn catalog() -> &'static Catalog {
     static CATALOG: OnceLock<Catalog> = OnceLock::new();
     CATALOG.get_or_init(|| {
         let text = include_str!("../../../delve/kingdom/frontier.json");
-        // A balance run may try numbers without regenerating the file: `CATALOG_PATCH` is a JSON
-        // object merged over the catalogue (tests only; the game reads the file as it is).
         #[cfg(test)]
         if let Ok(patch) = std::env::var("CATALOG_PATCH") {
             fn merge(into: &mut serde_json::Value, from: serde_json::Value) {

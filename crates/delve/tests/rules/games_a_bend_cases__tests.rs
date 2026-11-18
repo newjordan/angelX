@@ -18,12 +18,10 @@ pub fn dir() -> std::path::PathBuf {
         .expect("set DELVE_CASES to the Bend case directory")
 }
 
-/// How many cases of `name` this process has written.
 pub fn count(name: &str) -> usize {
     SEEN.with(|s| s.borrow().get(name).copied().unwrap_or(0))
 }
 
-/// Append a case; false when `cap` cases of the name are already written.
 pub fn rec_cap<I: Serialize, O: Serialize>(name: &str, input: &I, out: &O, cap: usize) -> bool {
     let n = count(name);
     if n >= cap {

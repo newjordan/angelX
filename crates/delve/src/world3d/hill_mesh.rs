@@ -29,32 +29,23 @@ use angel_stage::set::Shape as SetShape;
 
 use super::blockout::Solid;
 
-/// The first id of a hillside mesh, clear of the chunks' (`0x6000_0000` up), the Keep's
-/// (`works_mesh`, `0x5C00_0000`) and the items' models.
 const FIRST_ID: u32 = 0x5D00_0000;
 
-/// How a mesh is drawn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PartRole {
-    /// Lit, its tones in its vertex colours.
     Plain,
-    /// Lit, as water is (it runs and glints).
     Water,
-    /// Keeps its own colour, undithered, as a fire or a lit window does.
     Accent,
 }
 
-/// One baked mesh, in its own frame, and what it is.
 #[derive(Debug)]
 pub struct Baked {
     pub id: u32,
     pub mesh: Arc<MeshData>,
     pub role: PartRole,
-    /// The box it fills in its own frame, low and high corners.
     pub bounds: ([f32; 3], [f32; 3]),
 }
 
-/// A baked mesh as it stands this frame: moved by `at`.
 #[derive(Clone, Debug)]
 pub struct HillPart {
     pub baked: Arc<Baked>,
@@ -62,7 +53,6 @@ pub struct HillPart {
 }
 
 impl HillPart {
-    /// The box it fills in the kingdom's pixels.
     pub fn bounds(&self) -> ([f32; 3], [f32; 3]) {
         let (lo, hi) = self.baked.bounds;
         (std::array::from_fn(|k| lo[k] + self.at[k]), std::array::from_fn(|k| hi[k] + self.at[k]))
@@ -74,7 +64,6 @@ fn next_id() -> u32 {
     NEXT.fetch_add(1, Ordering::Relaxed)
 }
 
-/// A shape's own mesh, made once.
 fn unit(name: &str) -> Option<Arc<(MeshRef, MeshData)>> {
     static MADE: OnceLock<Mutex<HashMap<String, Option<Arc<(MeshRef, MeshData)>>>>> = OnceLock::new();
     let memory = MADE.get_or_init(Default::default);
@@ -88,7 +77,6 @@ fn unit(name: &str) -> Option<Arc<(MeshRef, MeshData)>> {
     made
 }
 
-/// An empty mesh being added to.
 #[derive(Default)]
 struct Heap {
     mesh: MeshData,
@@ -101,7 +89,6 @@ impl Heap {
         Self { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Self::default() }
     }
 
-    /// `unit` placed as `shape` places it, every vertex `colour`.
     fn add(&mut self, unit: &MeshData, shape: &SetShape, colour: [f32; 4], shift: [f32; 3]) {
         let t = shape.transform();
         let base = self.mesh.positions.len() as u32;
@@ -115,7 +102,6 @@ impl Heap {
                 self.hi[k] = self.hi[k].max(at[k]);
             }
             self.mesh.positions.push(at);
-            // A normal turns by the inverse of the scale, so a squashed block keeps its faces' directions.
             let m = unit.normals.get(i).copied().unwrap_or([0.0, 1.0, 0.0]);
             let s = quat_rotate(t.rotation, [m[0] / t.scale[0].max(1e-4), m[1] / t.scale[1].max(1e-4), m[2] / t.scale[2].max(1e-4)]);
             let len = (s[0] * s[0] + s[1] * s[1] + s[2] * s[2]).sqrt().max(1e-6);
@@ -135,8 +121,6 @@ impl Heap {
     }
 }
 
-/// `solids`, each at its place plus `shift`, baked: their tones (through `tone`) in the vertex colours,
-/// the shining blocks in one mesh, water in another, the rest in a third; those of them there are.
 pub fn bake(solids: &[Solid], shift: [f32; 3], tone: impl Fn(f32) -> f32) -> Vec<Arc<Baked>> {
     let (mut plain, mut water, mut accent) = (Heap::new(), Heap::new(), Heap::new());
     for s in solids {

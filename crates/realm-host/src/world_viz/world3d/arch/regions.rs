@@ -32,8 +32,6 @@ use super::land::{Strip, TerrainOpts, ground_z, terrain_patch_with, tree};
 use super::prim::{self, F_ALL, F_NX, F_NZ, F_PX, F_SIDES, F_SIDES_TOP};
 use super::rng::{Rng, sub_seed};
 
-/// Which region stage to build. The renderer's `Region` maps onto this;
-/// `CastleTown` has no entry because it keeps the shipped court path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Stage {
     Mines,
@@ -44,7 +42,6 @@ pub enum Stage {
 }
 
 impl Stage {
-    /// Dense index, for fixed-size caches and test tables.
     pub const ALL: [Stage; 5] = [
         Stage::Mines,
         Stage::DarkForest,
@@ -74,16 +71,6 @@ impl Stage {
     }
 }
 
-// ── shared shape of a region ──────────────────────────────────────────────
-
-/// Stations of the Mines walk — the authored room grid flattened onto one
-/// gallery.
-///
-/// Rooms become **stations** down the gallery because a mine is a tunnel and a
-/// tunnel is walked along, not wandered around; but there is exactly one
-/// station per chamber, so the two views always agree about where the hero
-/// is. The count is *derived* from the shared navigation grid rather than
-/// re-authored here — one loop, as the Z3 report asked for.
 pub const MINE_ROOMS: (usize, usize) = match crate::world_viz::region_walk::room_grid(
     crate::world_viz::adventure::Region::TheMines,
 ) {
@@ -91,42 +78,26 @@ pub const MINE_ROOMS: (usize, usize) = match crate::world_viz::region_walk::room
     None => panic!("the Mines are the room-locked region; they must have an authored grid"),
 };
 
-/// How many chambers — and therefore how many camera stations — the Mines have.
 pub const MINE_STATIONS: usize = MINE_ROOMS.0 * MINE_ROOMS.1;
 
-/// The gallery, in tiles: length along ±x, half-width, the height the walls
-/// start canting in at, the vault crown, and the height of the timber caps.
 const MINE_LEN: f32 = 40.0;
 const MINE_HALF_W: f32 = 3.4;
 const MINE_SPRING: f32 = 2.05;
 const MINE_ROOF: f32 = 3.25;
 const MINE_CAP: f32 = 2.45;
-/// Centre-to-centre spacing of the timber support frames.
 const MINE_FRAME_PITCH: f32 = 3.2;
 
-/// The great hall, in tiles.
 const KEEP_HX: f32 = 15.0;
 const KEEP_HY: f32 = 6.5;
 const KEEP_WALL: f32 = 5.4;
 const KEEP_RIDGE: f32 = 8.2;
 
-/// Radius of the Dark Forest's clearing — the ring the sampled treeline starts
-/// at. The framing giants stand *inside* it, at [`FOREST_FRAME_R`].
 const CLEARING_R: f32 = 10.5;
-/// Where the giants that frame every forest shot stand. Far enough out that no
-/// mark is inside the four-tile standoff, near enough that their crowns fill
-/// the top corners of the frame instead of sitting on the horizon.
 const FOREST_FRAME_R: f32 = 7.6;
-/// Radius of the Swamp's open water pan, for the same reason.
 const SWAMP_CLEAR_R: f32 = 6.6;
 
-/// How many phases the Swamp's wisps drift through before coming round again.
-/// A loop, not noise: the same phase renders the same bytes, which is what
-/// lets the ride memoize a region frame at all.
 pub const WISP_PHASES: u8 = 4;
 
-/// Half-extent of the ground patch each stage sits on. A camera outside this
-/// stands off the edge of the world and sees haze where the ground should be.
 pub fn stage_extent(stage: Stage) -> f32 {
     match stage {
         Stage::DarkForest | Stage::Swamp => 26.0,
@@ -136,12 +107,8 @@ pub fn stage_extent(stage: Stage) -> f32 {
     }
 }
 
-/// The terrain options a stage displaces its ground with — exposed so a camera
-/// can stand *on* that surface instead of floating at z = 0.
 pub fn stage_terrain(stage: Stage) -> TerrainOpts {
     match stage {
-        // Interiors: a cut floor is flat, and `relief: 0` makes
-        // `stage_ground_z` return exactly 0 for every point in them.
         Stage::Mines | Stage::DragonKeep => TerrainOpts {
             cell: 4.0,
             relief: 0.0,
@@ -156,7 +123,6 @@ pub fn stage_terrain(stage: Stage) -> TerrainOpts {
             river: None,
             water_depth: 0.0,
         },
-        // One wide, shallow, standing sheet of water with a grass margin.
         Stage::Swamp => TerrainOpts {
             cell: 2.9,
             relief: 0.12,
@@ -168,18 +134,10 @@ pub fn stage_terrain(stage: Stage) -> TerrainOpts {
     }
 }
 
-/// Ground height under a point of `stage` built with `seed`.
 pub fn stage_ground_z(stage: Stage, seed: u64, x: f32, y: f32) -> f32 {
     ground_z(seed, x, y, &stage_terrain(stage))
 }
 
-/// The staged mesh for one region.
-///
-/// `danger` (0..=3) is the stall depth: it thins the torches out, the way Z2's
-/// tileset guts its bank-4 pixels at danger 3. `treasures` puts that many
-/// (capped at [`MAX_CHESTS`]) lit chests on the stage's authored plinths.
-/// `phase` (0..[`WISP_PHASES`]) steps the one thing in any region that moves:
-/// the Swamp's will-o'-the-wisps.
 pub fn region_stage(stage: Stage, seed: u64, danger: u8, treasures: u8, phase: u8) -> Mesh {
     let danger = danger.min(3);
     let chests = treasures.min(MAX_CHESTS as u8) as usize;
@@ -193,20 +151,12 @@ pub fn region_stage(stage: Stage, seed: u64, danger: u8, treasures: u8, phase: u
     }
 }
 
-/// Whether a stage's geometry moves with the world clock. Only the Swamp does
-/// — its wisps drift — and only that stage pays a cache slot per phase or a
-/// re-key per bucket.
 pub fn stage_animates(stage: Stage) -> bool {
     stage == Stage::Swamp
 }
 
-/// How many chests a stage can ever show. Three is the point at which a row of
-/// lit boxes stops reading as "loot" and starts reading as a warehouse.
 pub const MAX_CHESTS: usize = 3;
 
-/// Where each stage stands its chests, in stage tiles. Authored, not sampled:
-/// a chest is a lantern in a dark frame, so it has to land where a vantage can
-/// see it and nowhere near enough to a vantage to break the 4-tile standoff.
 fn chest_spots(stage: Stage) -> [(f32, f32); MAX_CHESTS] {
     match stage {
         Stage::Mines => [(-9.5, 2.1), (2.0, -2.2), (13.0, 2.0)],
@@ -217,16 +167,11 @@ fn chest_spots(stage: Stage) -> [(f32, f32); MAX_CHESTS] {
     }
 }
 
-/// Sit a part on the stage's own ground, sunk slightly so no seam shows.
 fn place(out: &mut Mesh, stage: Stage, seed: u64, part: Mesh, x: f32, y: f32, yaw: f32) {
     let z = stage_ground_z(stage, seed, x, y) - 0.12;
     out.merge(part.rotated_z(yaw).translated(v3(x, y, z)));
 }
 
-// ── props ─────────────────────────────────────────────────────────────────
-
-/// A banded strongbox with its lid ajar and the hoard glowing out of it.
-/// **Footprint 1.1 × 0.8, 0.78 tall**, 16 triangles.
 fn chest() -> Mesh {
     let mut m = Mesh::new();
     prim::boxed(
@@ -236,7 +181,6 @@ fn chest() -> Mesh {
         mat::WOOD,
         F_SIDES,
     );
-    // The lid, tipped back off the box, and the light coming out under it.
     prim::rect_panel(
         &mut m,
         v3(-0.55, 0.34, 0.50),
@@ -267,8 +211,6 @@ fn chest() -> Mesh {
     m
 }
 
-/// A torch guttering on a wall face: a stub bracket and a flame, facing `-y`.
-/// The exposed tongue uses the shared local flame ramp.
 fn torch(_hot: bool) -> Mesh {
     let mut m = Mesh::new();
     prim::boxed(
@@ -282,7 +224,6 @@ fn torch(_hot: bool) -> Mesh {
     m
 }
 
-/// A pole-mounted lamp for the gate road. **0.7 × 0.7, 3.0 tall**, 26 tris.
 fn lamp_post() -> Mesh {
     let mut m = Mesh::new();
     prim::prism(&mut m, 0.0, 0.0, 0.0, 2.45, 0.11, 0.08, 5, 0.0, mat::WOOD);
@@ -297,16 +238,13 @@ fn lamp_post() -> Mesh {
     m
 }
 
-/// A drowned tree: a bare leaning trunk with three stubs of branch.
-/// **≤ 2.2 × 2.2, 2.6–4.0 tall**, 44 triangles.
 fn dead_tree(seed: u64) -> Mesh {
-    let mut r = Rng::new(sub_seed(seed, 0x44_45_41_44)); // "DEAD"
+    let mut r = Rng::new(sub_seed(seed, 0x44_45_41_44));
     let mut m = Mesh::new();
     let h = r.range(3.0, 5.0);
     let lean = r.range(0.0, TAU);
     let tilt = r.range(0.10, 0.34);
     let (tx, ty) = (tilt * lean.cos(), tilt * lean.sin());
-    // Trunk as two tapering prisms, the upper one leaning off the lower.
     prim::prism(
         &mut m,
         0.0,
@@ -351,7 +289,6 @@ fn dead_tree(seed: u64) -> Mesh {
     m
 }
 
-/// A will-o'-the-wisp: a cold little lamp floating over the water. 10 tris.
 fn wisp(r: f32) -> Mesh {
     let mut m = Mesh::new();
     prim::cone(&mut m, 0.0, 0.0, 0.0, r * 1.5, r, 5, 0.0, mat::MOONLIGHT);
@@ -359,8 +296,6 @@ fn wisp(r: f32) -> Mesh {
     m
 }
 
-/// A quad of PATH laid on the ground between two points — the winding forest
-/// track and the mine's cart road. 2 triangles per call.
 fn path_span(m: &mut Mesh, stage: Stage, seed: u64, a: (f32, f32), b: (f32, f32), half: f32) {
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
     let len = (dx * dx + dy * dy).sqrt();
@@ -386,7 +321,6 @@ fn path_span(m: &mut Mesh, stage: Stage, seed: u64, a: (f32, f32), b: (f32, f32)
     );
 }
 
-/// Stand `n` chests on the stage's authored plinths.
 fn stand_chests(m: &mut Mesh, stage: Stage, seed: u64, n: usize) {
     let spots = chest_spots(stage);
     for (i, &(x, y)) in spots.iter().take(n.min(MAX_CHESTS)).enumerate() {
@@ -402,34 +336,12 @@ fn stand_chests(m: &mut Mesh, stage: Stage, seed: u64, n: usize) {
     }
 }
 
-// ── The Mines ─────────────────────────────────────────────────────────────
-
-/// A worked gallery: rock walls under a low rock vault, timber support frames
-/// marching away into the dark, a rail line down the middle with a cart on it,
-/// ore glinting in the faces, wall torches, and rubble at the feet.
-///
-/// **An interior.** The first pass built the Mines as an open-cast working so
-/// they could clear the outdoor vista floor's 20 % sky — and the dump came
-/// back reading as *a brick gate under a starry sky*. A mine is a hole in the
-/// ground; roofing it is the identity. The stage is therefore routed through
-/// the interior floors (ink bands, a lit floor band, a light in frame), which
-/// is what the eight staged rooms are already judged by, and the outdoor floor
-/// is left exactly where it is for the stages that are actually outdoors.
-///
-/// **Footprint `MINE_LEN` × 2·`MINE_HALF_W` tiles**, running along ±x, floor
-/// at z = 0, vault at `MINE_ROOF`. The far end is unlit on purpose: fog takes
-/// it, and that black hole at the end of the timbering is the depth cue the
-/// whole frame is built on.
 fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
     let stage = Stage::Mines;
-    let mut r = Rng::new(sub_seed(seed, 0x4D_49_4E_45)); // "MINE"
+    let mut r = Rng::new(sub_seed(seed, 0x4D_49_4E_45));
     let mut m = Mesh::new();
     let half = MINE_LEN * 0.5;
 
-    // ---- floor -------------------------------------------------------------
-    // One lantern-lit slab. `FLOOR` carries the near-bright / far-black depth
-    // ramp on its own (raster.rs `LANTERN_REACH`), which indoors is doing the
-    // work the sky does outdoors.
     prim::quad(
         &mut m,
         v3(-half, -MINE_HALF_W - 0.4, 0.0),
@@ -439,16 +351,11 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
         mat::FLOOR,
     );
 
-    // ---- rock shell --------------------------------------------------------
-    // Cut in 2-tile segments whose width and vault height wander a little, so
-    // the walls read as hewn rock and not as a corridor in a hotel. The wander
-    // is seeded, so it is the same rock every time.
     let segs = (MINE_LEN / 2.0) as usize;
     fn wall(m: &mut Mesh, x0: f32, x1: f32, y0: f32, y1: f32, r: &mut Rng) -> (f32, f32, f32) {
         let z0 = MINE_SPRING + r.jitter(0.12);
         let z1 = MINE_SPRING + r.jitter(0.12);
         let roof = MINE_ROOF + r.jitter(0.10);
-        // Openings are real holes into side workings, not painted doors.
         let opening = y0 < 0.0 && ((x0 >= -12.0 && x1 <= -8.0) || (x0 >= 2.0 && x1 <= 8.0));
         if !opening {
             prim::quad(
@@ -460,7 +367,6 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
                 mat::ROCK,
             );
         }
-        // Haunch canting in to the crown.
         prim::quad(
             m,
             v3(x0, y0, z0),
@@ -478,7 +384,6 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
         let spread1 = MINE_HALF_W + r.jitter(0.30);
         let (cl0, cl1, roof_l) = wall(&mut m, x0, x1, -spread0, -spread1, &mut r);
         let (cr0, cr1, roof_r) = wall(&mut m, x0, x1, spread0, spread1, &mut r);
-        // The crown between the two haunches.
         prim::quad(
             &mut m,
             v3(x0, cl0, roof_l),
@@ -488,7 +393,6 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
             mat::ROCK,
         );
     }
-    // Caps, so neither end of the gallery is a hole into the void.
     for &x in &[-half, half] {
         prim::quad(
             &mut m,
@@ -500,10 +404,6 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
         );
     }
 
-    // ---- timber support frames --------------------------------------------
-    // The one thing that makes a tunnel read as a *mine* at braille scale: a
-    // receding row of verticals with a beam across the top, each pair smaller
-    // than the last, marching into the dark.
     let frames = (MINE_LEN / MINE_FRAME_PITCH) as usize;
     for i in 0..frames {
         let x = -half + 1.4 + MINE_FRAME_PITCH * i as f32;
@@ -526,7 +426,6 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
         );
     }
 
-    // ---- the rail line -----------------------------------------------------
     for side in [-0.55_f32, 0.55] {
         prim::boxed(
             &mut m,
@@ -548,8 +447,6 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
         );
         x += 1.5;
     }
-    // A cart, stopped on the rails in the near-middle distance. It is the one
-    // piece of silhouette between the eye and the black end of the gallery.
     let cart_x = -half + 12.5;
     prim::boxed(
         &mut m,
@@ -578,7 +475,6 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
         );
     }
 
-    // ---- ore in the faces --------------------------------------------------
     for i in 0..18 {
         let x = -half + 1.5 + (MINE_LEN - 3.0) * (i as f32 + 0.5) / 18.0;
         let side = if i % 2 == 0 { -1.0_f32 } else { 1.0 };
@@ -596,11 +492,6 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
         );
     }
 
-    // ---- torches on the timbering -----------------------------------------
-    // Danger guts the lights, the way Z2's tileset halves its bank-4 pixels
-    // when a loop stalls — and the fog comes in to meet them
-    // (`region::fog_distance`), so a deep stall is a gallery you cannot see
-    // the end of.
     let lit = (8usize).saturating_sub(danger as usize * 2).max(2);
     for i in 0..lit {
         let x = -half + 2.4 + (MINE_LEN - 6.0) * (i as f32) / lit.max(1) as f32;
@@ -615,12 +506,9 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
             y,
             if side < 0.0 { 0.0 } else { PI },
         );
-        // The light pool is authored geometry. It stays bounded and avoids
-        // introducing a per-fragment light search to this tiny rasterizer.
         prim::disc(&mut m, x, y * 0.70, 0.022, 1.65, 8, 0.0, mat::TORCH_POOL);
     }
 
-    // ---- rubble at the feet ------------------------------------------------
     for i in 0..14 {
         let x = -half + 1.0 + (MINE_LEN - 2.0) * (i as f32 + 0.3) / 14.0;
         let side = if i % 3 == 0 { -1.0_f32 } else { 1.0 };
@@ -641,9 +529,6 @@ fn mines(seed: u64, danger: u8, chests: usize) -> Mesh {
     m
 }
 
-/// A shallow crystal working, and a wider stairwell down to a lower seam.
-/// The floor really descends below the main gallery; side walls and the far
-/// blue face remain visible through an opening in its rock shell.
 fn mine_working(m: &mut Mesh, x0: f32, x1: f32, descending: bool) {
     let mouth = -MINE_HALF_W;
     let back = if descending { -10.0 } else { -7.8 };
@@ -695,7 +580,6 @@ fn mine_working(m: &mut Mesh, x0: f32, x1: f32, descending: bool) {
             v3(x0, mouth - 5.12, bottom),
             mat::FLOOR,
         );
-        // A hanging winch and chain give the lower level a useful purpose.
         prim::boxed(
             m,
             v3(x0 + 0.1, mouth - 0.25, 1.84),
@@ -720,7 +604,6 @@ fn mine_working(m: &mut Mesh, x0: f32, x1: f32, descending: bool) {
             mat::FLOOR,
         );
     }
-    // Facets against rock read as crystalline ore even at 96 by 72 dots.
     for i in 0..5 {
         let x = x0 + 0.65 + (x1 - x0 - 1.3) * i as f32 / 4.0;
         let y = back + 0.65 + (i % 2) as f32 * 0.5;
@@ -767,16 +650,9 @@ fn mine_working(m: &mut Mesh, x0: f32, x1: f32, descending: bool) {
     );
 }
 
-// ── The Dark Forest ───────────────────────────────────────────────────────
-
-/// A clearing in deep woods: a winding track in from the south, a wall of
-/// trunks all round, a canopy closing over the track beyond the clearing, and
-/// stumps in the open ground.
-///
-/// **Footprint 52 × 52 tiles**, clearing radius 13.
 fn dark_forest(seed: u64, danger: u8, chests: usize) -> Mesh {
     let stage = Stage::DarkForest;
-    let mut r = Rng::new(sub_seed(seed, 0x46_4F_52_53)); // "FORS"
+    let mut r = Rng::new(sub_seed(seed, 0x46_4F_52_53));
     let mut m = Mesh::new();
     let extent = stage_extent(stage);
     m.merge(terrain_patch_with(
@@ -786,9 +662,6 @@ fn dark_forest(seed: u64, danger: u8, chests: usize) -> Mesh {
         &stage_terrain(stage),
     ));
 
-    // ---- the winding track ------------------------------------------------
-    // A sine, not a straight strip: `TerrainOpts::path` only draws bands, and
-    // a road you can see the far end of is not a forest road.
     let track = |t: f32| -> (f32, f32) { (7.5 * (t * 0.145).sin(), t) };
     let mut t = -extent + 1.0;
     while t < extent - 1.0 {
@@ -797,10 +670,6 @@ fn dark_forest(seed: u64, danger: u8, chests: usize) -> Mesh {
         t = next;
     }
 
-    // ---- the treeline -----------------------------------------------------
-    // Rejection-sampled with a hard attempt cap: bounded, and deterministic
-    // because the only entropy is the seeded stream. Nothing inside the
-    // clearing, and nothing standing in the track.
     let mut planted = 0usize;
     let mut attempts = 0usize;
     while planted < 64 && attempts < 1400 {
@@ -826,14 +695,6 @@ fn dark_forest(seed: u64, danger: u8, chests: usize) -> Mesh {
         planted += 1;
     }
 
-    // ---- the giants that frame every shot ---------------------------------
-    // A ring of grown trees standing *inside* the clearing ring, at
-    // `FOREST_FRAME_R`. Every mark stands within 3 tiles of the origin and
-    // looks outward, so two or three of these always land in the left and
-    // right thirds with their crowns across the top of the frame — which is
-    // what makes a shot read as *in the woods* rather than as a meadow with a
-    // hedge at the far end. Far enough out that the nearest is 4.6 tiles from
-    // any eye, so the standoff rail holds without being touched.
     for i in 0..9 {
         let a = TAU * i as f32 / 9.0 + 0.24;
         let d = FOREST_FRAME_R + r.jitter(0.5);
@@ -849,10 +710,6 @@ fn dark_forest(seed: u64, danger: u8, chests: usize) -> Mesh {
         );
     }
 
-    // ---- the canopy closing over the track --------------------------------
-    // Beyond the clearing only. A lid over the clearing itself would take the
-    // sky the outdoor vista floor wants, and the forest is judged by that
-    // floor — it is outdoors, whatever the canopy is doing.
     for i in 0..14 {
         let t = if i % 2 == 0 {
             CLEARING_R + 3.0 + 3.0 * (i / 2) as f32
@@ -875,7 +732,6 @@ fn dark_forest(seed: u64, danger: u8, chests: usize) -> Mesh {
         );
     }
 
-    // ---- stumps in the open ----------------------------------------------
     for i in 0..4 {
         let a = TAU * i as f32 / 4.0 + 0.9;
         let d = r.range(4.5, 9.0);
@@ -897,8 +753,6 @@ fn dark_forest(seed: u64, danger: u8, chests: usize) -> Mesh {
         place(&mut m, stage, seed, stump, x, y, 0.0);
     }
 
-    // ---- fireflies over the clearing --------------------------------------
-    // Danger takes them: a stalled loop's woods go dark.
     let flies = (9usize).saturating_sub(danger as usize * 2).max(2);
     for i in 0..flies {
         let a = TAU * i as f32 / flies.max(1) as f32 + 0.3;
@@ -912,15 +766,9 @@ fn dark_forest(seed: u64, danger: u8, chests: usize) -> Mesh {
     m
 }
 
-// ── The Swamp ─────────────────────────────────────────────────────────────
-
-/// A standing sheet of black water with a grass margin, drowned trees out of
-/// it, and will-o'-the-wisps hanging over the shallows.
-///
-/// **Footprint 52 × 52 tiles**, open water out to radius 16.
 fn swamp(seed: u64, danger: u8, chests: usize, phase: u8) -> Mesh {
     let stage = Stage::Swamp;
-    let mut r = Rng::new(sub_seed(seed, 0x53_57_4D_50)); // "SWMP"
+    let mut r = Rng::new(sub_seed(seed, 0x53_57_4D_50));
     let mut m = Mesh::new();
     let extent = stage_extent(stage);
     m.merge(terrain_patch_with(
@@ -931,18 +779,9 @@ fn swamp(seed: u64, danger: u8, chests: usize, phase: u8) -> Mesh {
     ));
     let water = |x: f32, y: f32| stage_ground_z(stage, seed, x, y);
 
-    // ---- the drowned wood --------------------------------------------------
-    // Sampled in polar coordinates rather than rejection-sampled in the
-    // square: a flat black pan with two sticks on it is not a swamp, and
-    // uniform-in-the-square puts most of its draws in the far corners where
-    // the haze eats them. Polar keeps the wood in the 7–23 tile band, where a
-    // trunk still reads as a trunk, and packs the near end of that band.
     let mut planted = 0usize;
     while planted < 52 {
         let a = r.range(0.0, TAU);
-        // Square-rooting a uniform draw would spread the wood evenly over the
-        // *area*; squaring it does the opposite and crowds the near ring,
-        // which is where a trunk is worth its triangles.
         let t = r.unit() * r.unit();
         let d = SWAMP_CLEAR_R + 0.6 + t * (extent - 3.0 - SWAMP_CLEAR_R);
         place(
@@ -957,12 +796,6 @@ fn swamp(seed: u64, danger: u8, chests: usize, phase: u8) -> Mesh {
         planted += 1;
     }
 
-    // ---- lily pads on the near water --------------------------------------
-    // `GRASS` on purpose, not `FOLIAGE`: the ground materials are the ones the
-    // rider's lantern pools on (raster.rs `lantern_lit`), so a raft of pads a
-    // few tiles off the eye lights up and gives the flat pan a near field. It
-    // also keeps them out of the standoff scan, which is right — a lily pad is
-    // not a wall.
     for i in 0..22 {
         let a = TAU * i as f32 / 22.0 + 0.41;
         let d = r.range(2.6, 11.0);
@@ -979,7 +812,6 @@ fn swamp(seed: u64, danger: u8, chests: usize, phase: u8) -> Mesh {
         );
     }
 
-    // ---- reeds -------------------------------------------------------------
     for i in 0..16 {
         let a = TAU * i as f32 / 16.0 + 0.2;
         let d = r.range(SWAMP_CLEAR_R + 0.4, SWAMP_CLEAR_R + 11.0);
@@ -1003,13 +835,6 @@ fn swamp(seed: u64, danger: u8, chests: usize, phase: u8) -> Mesh {
         place(&mut m, stage, seed, clump, x, y, 0.0);
     }
 
-    // ---- the mist band -----------------------------------------------------
-    // A pale bar of `MOONLIGHT` lying along the far water. There is no
-    // volumetric fog in the rasterizer, so mist has to be *geometry*: a ring
-    // of low tangential slabs out at the fog's own distance, which reads as a
-    // lit band under the horizon exactly the way a real mist bank does. Cheap
-    // — 12 quads — and it is the single thing that turns a black pan into a
-    // swamp at 48 × 18 cells.
     for i in 0..12 {
         let a = TAU * i as f32 / 12.0 + 0.13;
         let d = 19.0 + r.jitter(1.4);
@@ -1027,16 +852,6 @@ fn swamp(seed: u64, danger: u8, chests: usize, phase: u8) -> Mesh {
         );
     }
 
-    // ---- will-o'-the-wisps and what the water does with them --------------
-    // The wisps drift: `phase` walks each one a fifth of a turn around its own
-    // little orbit, so a settled swamp is never a still photograph. It is a
-    // *loop* of `WISP_PHASES` steps, not noise, which is what keeps the frame
-    // memoizable — the same phase renders the same bytes, forever.
-    //
-    // Each one also drops a reflection. There is no mirror in the rasterizer
-    // either, so it is a flat emissive disc lying on the water directly under
-    // the light, slightly wider and dimmer-looking for being seen at a grazing
-    // angle. At dot scale that is exactly what a reflected lamp looks like.
     let lights = (10usize).saturating_sub(danger as usize).max(5);
     let step = TAU * phase as f32 / WISP_PHASES as f32;
     for i in 0..lights {
@@ -1068,27 +883,12 @@ fn swamp(seed: u64, danger: u8, chests: usize, phase: u8) -> Mesh {
     m
 }
 
-// ── The Dragon Keep ───────────────────────────────────────────────────────
-
-/// The great hall the judge holds court in: a colonnade down both sides,
-/// banners on the walls, a red runner leading to a throne dais at the far end,
-/// braziers either side of it, and the dragon on the dais.
-///
-/// **An interior**, for the same reason the Mines are. The first pass built a
-/// roofless ruin so it could clear the outdoor sky floor, and the dump came
-/// back reading as *the castle court with some fires in it* — no hall, no
-/// dragon. A great hall is a roof and two rows of columns; without them there
-/// is nothing to be inside of.
-///
-/// **Footprint 2·`KEEP_HX` × 2·`KEEP_HY` tiles**, floor at z = 0, wall head at
-/// `KEEP_WALL`, ridge at `KEEP_RIDGE`.
 fn dragon_keep(seed: u64, danger: u8, chests: usize) -> Mesh {
     let stage = Stage::DragonKeep;
-    let mut r = Rng::new(sub_seed(seed, 0x4B_45_45_50)); // "KEEP"
+    let mut r = Rng::new(sub_seed(seed, 0x4B_45_45_50));
     let mut m = Mesh::new();
     let (hx, hy) = (KEEP_HX, KEEP_HY);
 
-    // ---- floor, runner, shell ---------------------------------------------
     prim::quad(
         &mut m,
         v3(-hx, -hy, 0.0),
@@ -1097,9 +897,6 @@ fn dragon_keep(seed: u64, danger: u8, chests: usize) -> Mesh {
         v3(-hx, hy, 0.0),
         mat::FLOOR,
     );
-    // The runner: a red road straight to the dais. Narrow on purpose — the
-    // lantern-lit flags either side of it are what carry the room's depth
-    // ramp, and a carpet wall to wall would take that away.
     prim::quad(
         &mut m,
         v3(-hx + 0.5, -1.25, 0.02),
@@ -1117,8 +914,6 @@ fn dragon_keep(seed: u64, danger: u8, chests: usize) -> Mesh {
             v3(-hx, sy * hy, KEEP_WALL),
             mat::STONE,
         );
-        // Open timber ceiling: two slopes to a ridge. The shape that says
-        // "hall" rather than "box".
         prim::quad(
             &mut m,
             v3(-hx, sy * hy, KEEP_WALL),
@@ -1150,7 +945,6 @@ fn dragon_keep(seed: u64, danger: u8, chests: usize) -> Mesh {
         );
     }
 
-    // ---- the colonnade -----------------------------------------------------
     for i in 0..5 {
         let x = -hx + 3.0 + (2.0 * hx - 7.0) * i as f32 / 4.0;
         for side in [-1.0_f32, 1.0] {
@@ -1180,7 +974,6 @@ fn dragon_keep(seed: u64, danger: u8, chests: usize) -> Mesh {
                 0.0,
                 mat::STONE_DARK,
             );
-            // A banner hung on the wall behind each column.
             prim::rect_panel(
                 &mut m,
                 v3(x - 0.75, side * (hy - 0.04), 1.9),
@@ -1193,7 +986,6 @@ fn dragon_keep(seed: u64, danger: u8, chests: usize) -> Mesh {
         }
     }
 
-    // ---- the dais and the throne ------------------------------------------
     for (step, inset) in [(0usize, 0.0_f32), (1, 1.1)] {
         let z0 = step as f32 * 0.38;
         prim::boxed(
@@ -1221,7 +1013,6 @@ fn dragon_keep(seed: u64, danger: u8, chests: usize) -> Mesh {
         mat::STONE_DARK,
     );
 
-    // ---- fire --------------------------------------------------------------
     let fires = (6usize).saturating_sub(danger as usize).max(3);
     for i in 0..fires {
         let x = -hx + 4.5 + (2.0 * hx - 8.0) * i as f32 / fires.max(1) as f32;
@@ -1243,7 +1034,6 @@ fn dragon_keep(seed: u64, danger: u8, chests: usize) -> Mesh {
         prim::cone(&mut brazier, 0.0, 0.0, 0.70, 1.36, 0.36, 5, 0.0, mat::FLAME);
         place(&mut m, stage, seed, brazier, x, side * 3.5, r.jitter(0.5));
     }
-    // Wall torches on the colonnade, so the walls are not black between fires.
     for i in 0..4 {
         let x = -hx + 3.6 + (2.0 * hx - 8.0) * i as f32 / 3.0;
         let side = if i % 2 == 0 { -1.0_f32 } else { 1.0 };
@@ -1258,7 +1048,6 @@ fn dragon_keep(seed: u64, danger: u8, chests: usize) -> Mesh {
         );
     }
 
-    // ---- the dragon --------------------------------------------------------
     m.merge(
         dragon(sub_seed(seed, 0x44_52_47_4E))
             .rotated_z(PI - 0.20)
@@ -1270,16 +1059,14 @@ fn dragon_keep(seed: u64, danger: u8, chests: usize) -> Mesh {
 }
 
 fn dragon(seed: u64) -> Mesh {
-    let mut r = Rng::new(sub_seed(seed, 0x57_59_52_4D)); // "WYRM"
+    let mut r = Rng::new(sub_seed(seed, 0x57_59_52_4D));
     let mut m = Mesh::new();
     let hide = mat::STONE_DARK;
 
-    // Body: three barrels along -x, haunch to shoulder.
     prim::prism(&mut m, 1.7, 0.0, 0.55, 1.95, 1.15, 1.05, 6, 0.3, hide);
     prim::prism(&mut m, 0.2, 0.0, 0.45, 2.15, 1.05, 0.92, 6, 0.0, hide);
     prim::prism(&mut m, -1.3, 0.0, 0.50, 1.95, 0.92, 0.72, 6, 0.2, hide);
 
-    // Neck: two lengths rising forward, then the wedge of a head.
     prim::prism(&mut m, -2.3, 0.0, 1.70, 3.20, 0.62, 0.44, 5, 0.0, hide);
     prim::prism(&mut m, -2.9, 0.0, 3.10, 4.30, 0.44, 0.33, 5, 0.0, hide);
     prim::cone(&mut m, -3.5, 0.0, 4.10, 4.90, 0.42, 5, 0.0, hide);
@@ -1300,11 +1087,9 @@ fn dragon(seed: u64) -> Mesh {
             0.17,
             mat::EMBER,
         );
-        // Horn.
         prim::cone(&mut m, -3.1, side * 0.26, 4.24, 5.10, 0.16, 4, 0.0, hide);
     }
 
-    // Tail: three tapering lengths sweeping back and round.
     let mut x = 2.7;
     let mut y = 0.0;
     let mut a: f32 = 0.35;
@@ -1328,8 +1113,6 @@ fn dragon(seed: u64) -> Mesh {
         a += r.range(0.45, 0.75);
     }
 
-    // Wings: a spar out and up, and one membrane triangle hung off it. Two
-    // triangles per membrane is all the dither can resolve at vista range.
     for side in [-1.0_f32, 1.0] {
         let root = v3(0.4, side * 0.85, 1.95);
         let tip = v3(-1.2, side * 3.9, 4.65);
@@ -1364,7 +1147,6 @@ fn dragon(seed: u64) -> Mesh {
         );
     }
 
-    // Legs.
     for &(lx, lz) in &[(1.9_f32, 1.45_f32), (-0.9, 1.35)] {
         for side in [-1.0_f32, 1.0] {
             prim::prism(&mut m, lx, side * 1.0, 0.0, lz, 0.34, 0.26, 4, 0.4, hide);
@@ -1373,19 +1155,9 @@ fn dragon(seed: u64) -> Mesh {
     m
 }
 
-// ── Homecoming ────────────────────────────────────────────────────────────
-
-/// The castle court exactly as the realm always was, with the gate road lit
-/// for the party walking home: lamp posts down both verges and the loot on the
-/// cobbles inside the gate.
-///
-/// **Footprint 56 × 56 tiles** — the court's own patch, unchanged.
 fn homecoming(seed: u64, danger: u8, chests: usize) -> Mesh {
     let stage = Stage::Homecoming;
     let mut m = court_scene(seed);
-    // Lamps stand 3.2 tiles off the road centre: outside the ride sweep's
-    // corridor (`world3d::ROAD_*` runs x ∈ 0.6..4.6) and well inside the
-    // hamlet, so nothing new comes within a vantage's standoff.
     let lit = (5 - danger as usize).max(2);
     for i in 0..lit {
         let y = -11.5 - 3.2 * i as f32;

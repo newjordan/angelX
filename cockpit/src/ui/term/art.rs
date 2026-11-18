@@ -19,11 +19,6 @@ pub use angel_stage::braille::{
     braille_dot_bit, fit_braille,
 };
 
-// Sized for the largest per-surface working set — a grand-joust ceremony
-// touches 27 images (arena + poses + two sequence loops) — rendered on two
-// concurrent surfaces at different canvas sizes, with headroom for portraits.
-// The FIFO never refreshes on hit, so a working set over capacity evicts hot
-// entries continuously; entries are small (quantized cell grids), so oversize.
 const COLORED_BRAILLE_CACHE_LIMIT: usize = 96;
 const DECODED_IMAGE_CACHE_LIMIT: usize = 24;
 const REGION_BRAILLE_MAX_WIDTH: usize = 180;
@@ -31,13 +26,8 @@ const REGION_BRAILLE_MAX_HEIGHT: usize = 72;
 
 const DMD_DITHER_LEVEL: [u16; 8] = [0, 233, 219, 185, 239, 235, 201, 232];
 
-/// Ink color for one-bit plates: a warm paper-white, restylable at draw time.
-// TODO(noir-wave): drop the allows once the plate pipeline consumes the mono
-// converter from the miniviz draw path.
 pub const MONO_INK: [u8; 3] = [236, 236, 228];
 
-/// Decode, palette-quantize, and ordered-dither an image into colored braille.
-/// Cache dimensions are bucketed so resize drags stay bounded.
 pub fn colored_image_braille(
     image_path: &Path,
     width: usize,
@@ -72,8 +62,6 @@ pub fn colored_image_braille(
     Some(image)
 }
 
-/// Source-pixel rectangle inside a decoded sheet. Runtime crop/fit uses this;
-/// the original file is never shown as a world plate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ImageRegion {
     pub x: u32,
@@ -82,10 +70,6 @@ pub struct ImageRegion {
     pub height: u32,
 }
 
-/// Crop a decoded image, optionally drop dark-neutral panel fill, and convert
-/// the region to colored Braille. Requested cell size is fit proportionally
-/// inside the conversion cap so cache limits never stretch or crop the subject.
-/// Cache key includes path stem + region + fitted size.
 pub fn colored_rgba_region_braille(
     source: &image::RgbaImage,
     cache_stem: u64,
@@ -228,8 +212,6 @@ fn rgba_canvas_to_colored_braille(
         let alpha = f32::from(rgba[3]) / 255.0;
         let luma = (0.299 * f32::from(rgba[0]) + 0.587 * f32::from(rgba[1]) + 0.114 * f32::from(rgba[2])) / 255.0;
         DotSample {
-            // Any inked pixel clears the floor; its own brightness and its
-            // coverage carry the cell's structure.
             luma: (0.12 + 0.88 * luma) * alpha,
             level: alpha * f32::from(DMD_DITHER_LEVEL[index]) / 255.0,
             rgb: [f32::from(rgba[0]), f32::from(rgba[1]), f32::from(rgba[2])],
@@ -240,7 +222,6 @@ fn rgba_canvas_to_colored_braille(
             continue;
         }
         let (cell_x, cell_y) = (i % width, i / width);
-        // The cell's ink is the palette colour most of its lit dots carry.
         let mut palette_votes = [0u8; DMD_PALETTE.len()];
         for local_y in 0..4 {
             for local_x in 0..2 {
@@ -270,11 +251,6 @@ fn rgba_canvas_to_colored_braille(
     }
 }
 
-/// Decode and Atkinson-dither an image into one-bit braille — the classic
-/// Macintosh look. Grayscale with a percentile contrast stretch, then Bill
-/// Atkinson's error diffusion (3/4 of the error propagates, so midtones lift
-/// toward paper-white and shadows pool into solid ink). Every lit cell carries
-/// [`MONO_INK`]; restyle at draw time for scene accents.
 #[allow(dead_code)]
 pub fn mono_image_braille(
     image_path: &Path,
@@ -317,8 +293,6 @@ fn mono_image_braille_uncached(
 ) -> Option<ColoredBrailleImage> {
     let source = decoded_image(image_path)?;
     let (dots_w, dots_h) = ((width * 2) as u32, (height * 4) as u32);
-    // Smooth resample (unlike the colored path's pixel-art Nearest): the
-    // dither needs real midtones to diffuse, not posterized blocks.
     let (source_width, source_height) = source.dimensions();
     if source_width == 0 || source_height == 0 {
         return None;
@@ -340,7 +314,6 @@ fn mono_image_braille_uncached(
         i64::from((dots_h - resized_height) / 2),
     );
 
-    // Grayscale (alpha-weighted) + histogram for the 2% contrast stretch.
     let mut luma = vec![0i32; (dots_w * dots_h) as usize];
     let mut histogram = [0u32; 256];
     for (index, pixel) in canvas.pixels().enumerate() {
@@ -370,7 +343,6 @@ fn mono_image_braille_uncached(
     let (low, high) = (percentile(true), percentile(false));
     let range = (high - low).max(1);
 
-    // Atkinson error diffusion over the stretched luma.
     for value in &mut luma {
         *value = ((*value - low) * 255 / range).clamp(0, 255);
     }
@@ -456,7 +428,6 @@ fn colored_braille_cache() -> &'static Mutex<ColoredBrailleCache> {
     CACHE.get_or_init(|| Mutex::new(ColoredBrailleCache::default()))
 }
 
-/// Warm the bounded image cache before an animation's first terminal frame.
 pub fn preload_colored_image(image_path: &Path) -> bool {
     decoded_image(image_path).is_some()
 }
@@ -556,11 +527,6 @@ fn fit_image_to_canvas(source: &image::RgbaImage, width: u32, height: u32) -> im
     canvas
 }
 
-/// Canonical braille-grid → styled lines conversion: consecutive cells with the
-/// same color (and braille-ness, rendered bold for non-braille glyph overlays)
-/// merge into one span — a String+Span per cell per frame is thousands of
-/// allocations per second at animation rate. Shared by the Realm world and the
-/// loop stage; radial/uniform-styled charts keep their own specialized paths.
 pub(crate) fn grid_lines(grid: &dotmax::BrailleGrid) -> Vec<ratatui::text::Line<'static>> {
     use ratatui::style::{Color, Modifier, Style};
     use ratatui::text::{Line, Span};

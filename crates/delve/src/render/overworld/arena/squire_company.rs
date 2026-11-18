@@ -35,8 +35,6 @@ fn role(kind: Kind) -> (&'static str, &'static str) {
     }
 }
 
-// Thirteen pixels high against the grown knights' seventeen-plus. The hood,
-// bonnet, feather/bow, pavise and bottle read before their colour does.
 const NINJA: [&str; 13] = [
     "....gggg.....",
     "...gJJJjg....",
@@ -123,8 +121,6 @@ fn figure(kind: Kind, colours: &[(char, char)], down: bool) -> Img {
     };
     let im = Img::from_rows(rows).recolor(colours);
     if down {
-        // A body at rest is a low, readable shape, not an upright square
-        // merely rotated inside its old canvas.
         let turned = sprites::quarter_turn(&im);
         let mut prone = Img::new(turned.w, 6);
         for y in 0..6 {
@@ -147,8 +143,6 @@ fn colours(run: &Run, owner: u32) -> &[(char, char)] {
         .map_or_else(|| knights::realm_colours(owner), |h| h.colours())
 }
 
-/// Separate from summoned minions: one little companion per knight, using
-/// the ordinary Img/stand capture path, never a replacement for Beaumains.
 pub(super) fn delve(cv: &mut Img, run: &Run) {
     let mut companions: Vec<_> = run.squire_field.companions.iter().collect();
     companions.sort_by(|(aid, a), (bid, b)| a.actor.y.total_cmp(&b.actor.y).then(aid.cmp(bid)));
@@ -160,8 +154,6 @@ pub(super) fn delve(cv: &mut Img, run: &Run) {
             im = im.flip_h();
         }
         let (x, y) = at(actor.x, actor.y);
-        // Do not blink an entire companion out in a crowded fight. An injured
-        // one has a tiny grey health stitch; an ability moves just its tool ink.
         if !down && companion.effect > 0 {
             im.put(im.w - 2, im.h / 2, 'T');
         }
@@ -174,9 +166,6 @@ pub(super) fn delve(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Three pixels of the very same cloth as the body, with a grey pennant
-/// point. Painted after the crowd: a knight may cover the small body, not its
-/// allegiance. No nameplate, halo, colour cycling or second body recolour.
 pub(super) fn foot_tabs(cv: &mut Img, run: &Run) {
     for (&owner, companion) in &run.squire_field.companions {
         if companion.actor.down() {
@@ -195,8 +184,6 @@ pub(super) fn foot_tabs(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Paper prompts stay on the economy's hit rectangles, but their ink belongs
-/// to Boards, never Ground: standing on an action must not hide its verb.
 fn plate(cv: &mut Img, rect: Plate, label: &str, lit: bool) {
     let (c, r, w, h) = rect;
     let (x, y, w, h) = (
@@ -220,9 +207,6 @@ fn paper(cv: &mut Img, (x, y, w, h): Plate, lit: bool) {
     cv.frame(x, y, w, h, if lit { 'O' } else { 'G' });
 }
 
-/// Only the timber and slate live under actors. All paper, figures printed
-/// on that paper, and prices are drawn together by `yard_notices` on Boards.
-/// Nothing paints in Ector's x<160,y>=160 area.
 pub(super) fn yard_ground(cv: &mut Img, _run: &Run) {
     for p in company::RECRUIT_PLATES {
         let (x, y) = (p.0 * super::TILE, p.1 * super::TILE);
@@ -260,7 +244,6 @@ fn yard_notices(cv: &mut Img, run: &Run, focus: Option<u32>) {
         let (x, y) = (p.0 * super::TILE, p.1 * super::TILE);
         let lit = selected == Some(slot);
         paper(cv, (x + 1, y - 35, 46, 33), lit);
-        // Numbered stock keys connect the top card to RECRUIT n in the panel.
         paper(cv, (x - 9, y - 34, 9, 11), lit);
         cv.text(
             x - 7,
@@ -285,8 +268,6 @@ fn yard_notices(cv: &mut Img, run: &Run, focus: Option<u32>) {
             cv.stamp(&figure(squire.kind, &[], false), x + 4, y - 25);
             cv.text(x + 22, y - 26, &format!("L{}", squire.level), 'H');
             if let Some(price) = company.hire_price(slot) {
-                // A dedicated full-width row; all seven glyph rows clear the
-                // sill. L1 and 110G cannot merge, clip, or be read as L1 10.
                 let price = format!("{price}G");
                 debug_assert!(text_width(&price) <= 40);
                 cv.text(x + (48 - text_width(&price)) / 2, y - 11, &price, 'O');
@@ -300,7 +281,7 @@ fn yard_notices(cv: &mut Img, run: &Run, focus: Option<u32>) {
     }
     for (p, label) in [
         (company::SELECT_PLATE, "PICK"),
-        (company::TRAIN_PLATE, "SPAR"), // a two-tile plate holds four letters
+        (company::TRAIN_PLATE, "SPAR"),
     ] {
         plate(cv, p, label, occupied(p));
     }
@@ -362,8 +343,6 @@ fn roster_lines(run: &Run, name: &str) -> Vec<(String, char)> {
     lines
 }
 
-/// Text is separate from painting so the seat contract, costs, disabled
-/// reasons and verbs have direct tests, not just a pixel hash.
 fn notice(run: &Run, focus: Option<u32>) -> Option<Vec<(String, char)>> {
     let company = &run.home.squire_company;
     let hero = super::shoppers(run, focus).map(|(_, h)| h).find(|h| {
@@ -492,8 +471,6 @@ fn notice(run: &Run, focus: Option<u32>) -> Option<Vec<(String, char)>> {
     Some(lines)
 }
 
-/// Black-paper scroll with pixel-cut corners. Right of the lesson stalls,
-/// only while this screen's owner stands on a company plate.
 pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     if run.room().kind != RoomKind::SquireBarracks {
         return;
@@ -640,7 +617,6 @@ mod tests {
     #[test]
     fn squire_recruit_card_has_separate_complete_level_and_price_rows() {
         let mut run = yard();
-        // Includes the reported SHIELD L1 / 110G, veterans and hall discounts.
         for board in 0..=3 {
             for hall in 0..=3 {
                 run.home.squire_company.board = board;
@@ -668,8 +644,6 @@ mod tests {
                         assert!(text_width(line) <= 186, "{line}");
                         assert_text(&cv, 183, 102 + row as i32 * 9, line, *ink);
                     }
-                    // Exactly this screen's applicant has the warm arrow;
-                    // another player's plate cannot steal the focus marker.
                     for (other, p) in company::RECRUIT_PLATES.iter().enumerate() {
                         assert_eq!(
                             cv.get(p.0 * 16 + 24, p.1 * 16 - 37),
@@ -694,7 +668,6 @@ mod tests {
             .chain(company::UPGRADE_PLATES)
         {
             on_plate(&mut run, 1, p);
-            // Actual room paint order, including ambient folk and the knight.
             let mut cv = Img::new(384, 224);
             super::super::room_paint::room_list(&run, Some(1), true).paint(&mut cv);
             let label = if company::RECRUIT_PLATES.contains(&p) {
@@ -711,8 +684,6 @@ mod tests {
             } else if p == company::SELECT_PLATE {
                 "PICK"
             } else if p == company::TRAIN_PLATE {
-                // The plate holds four letters (`SPAR`, the art pass of
-                // 2026-11-02); the station's long name rides its paper.
                 "SPAR"
             } else {
                 "UP"
@@ -861,8 +832,6 @@ mod tests {
                 }
             }
         }
-        // The lessons are the Yard's; the company has the Barracks
-        // (`squire_rooms`): in the Yard nothing of the company covers them.
         let yard = run.dungeon.rooms.iter().position(|r| r.kind == crate::rules::RoomKind::Yard).unwrap();
         run.enter_for_test(yard);
         on_plate(&mut run, 1, crate::rules::talents::LECTERNS[0]);
@@ -938,15 +907,12 @@ mod tests {
         }
     }
 
-    /// Generated six-seat fights using the paired LOOKs' seed/room/bot intent;
-    /// no synthetic arena, forced separation, HP overrides or removed foes.
     fn fight_at_tick60(seed: u64, floor: u32) -> Run {
         use crate::rules::{
             knights as kits,
             squire_company::{Roster, Squire},
         };
         let mut run = Run::new(seed, 700 + seed, None);
-        // Fresh characters, not a saved realm's gear or training bonuses.
         for id in 2..=6 {
             run.join_seat(id, &format!("K{id}"));
         }

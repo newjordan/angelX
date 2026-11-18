@@ -56,8 +56,6 @@ impl Tool for ScienceTool {
     }
 }
 
-/// Register `science_search`, gated on `ANGEL_SCIENCE_TOOL` (default on). The
-/// sources are free + key-less, so it advertises everywhere without config.
 pub(crate) fn maybe_register_science(r: &mut ToolRegistry) {
     if env_flag("ANGEL_SCIENCE_TOOL", true) {
         r.register(Box::new(ScienceTool));

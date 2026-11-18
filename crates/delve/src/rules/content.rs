@@ -32,59 +32,30 @@ use super::layout::{COLS, Pack, ROWS, RoomKind};
 use super::vfx::{self, Layer};
 use super::{bosses, cards, pastimes, phrasebook, rooms};
 
-/// How tall a figure stands, in pixels at the game's own grain (rung 16,
-/// docs/LADDER.md): the knight, and what a foe must reach. The renderer
-/// stands foes by these (`arena::stature`).
 pub mod stature {
-    /// The knight's height, which every other size is read against.
     pub const KNIGHT: i32 = 16;
-    /// The least a monster stands.
     pub const FOE_MIN: i32 = 10;
-    /// The least a boss stands: a route chief, a camp's leader.
     pub const CHIEF: i32 = KNIGHT * 3 / 2;
-    /// The least the floor's guardian stands.
     pub const GUARDIAN: i32 = KNIGHT * 2;
-    /// Arena pixels to an arena unit: a foe's `size` is its hit radius in
-    /// units.
     pub const UNIT: f32 = 8.0;
-    /// The most a foe's picture is blown up to stand at its stature before
-    /// its pixels read coarser than the knights' beside it.
     pub const MOST_ENLARGED: f32 = 2.0;
-    /// The most a foe's picture may be wider than what strikes it: past
-    /// this, shots pass through what is plainly its body.
     pub const MOST_OVER_STRIKE: f32 = 1.6;
 }
 
-/// The least grade a piece's pictures reach to be at the bar.
 pub const BAR_GRADE: Grade = Grade::Fine;
-/// The least grade a template's pictures reach.
 pub const TEMPLATE_GRADE: Grade = Grade::Masterwork;
-/// A wish's name, so its tiers' cards ("<Name> III") keep to the card's
-/// name.
 pub const WISH_NAME: usize = cards::MAX_NAME - 4;
-/// Ways to say a wish, at the least: the player's words and two more.
 pub const WISH_SAYS: usize = 3;
-/// The widest a pastime's banner line is, in pixels (`ink::text_width`):
-/// its name and the seconds left beside it on the board over the room.
 pub const PASTIME_BANNER: i32 = 200;
-/// A pastime round's length, in seconds: long enough to learn, short
-/// enough to want another go.
 pub const PASTIME_TIME: (u32, u32) = (15, 300);
 
-/// What a piece is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Kind {
-    /// A phrasebook entry: a wish's words, its ladder of tiers, its looks.
     Wish,
-    /// A card a knight finds or is given (`cards`).
     Card,
-    /// A guardian, a chief or a dread: a `.boss` file.
     Foe,
-    /// A hand-drawn room: one quadrant, mirrored both ways (`rooms`).
     Room,
-    /// An effect recipe: `vfx` lines, how a card's magic moves.
     Effect,
-    /// A pastime: one of the kingdom's tiny arcade's games, as its spec.
     Pastime,
 }
 
@@ -102,7 +73,6 @@ impl Kind {
         }
     }
 
-    /// The file extension a piece of this kind is written in.
     pub fn extension(self) -> &'static str {
         match self {
             Kind::Wish => "wish",
@@ -114,36 +84,29 @@ impl Kind {
         }
     }
 
-    /// The kind a file name says, by its extension.
     pub fn of_file(name: &str) -> Option<Kind> {
         let ext = name.rsplit_once('.')?.1.to_ascii_lowercase();
         Kind::ALL.into_iter().find(|k| k.extension() == ext)
     }
 }
 
-/// How far a fault keeps a piece from the game.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Level {
-    /// Under the quality bar: the game takes it, a built-in piece may not.
     Bar,
-    /// The game turns it away (or sets the line aside).
     Refused,
 }
 
-/// One thing wrong, said plainly: what it is, and how to mend it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Fault {
     pub level: Level,
     pub what: String,
 }
 
-/// What the checker made of one piece.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Report {
     pub kind: Kind,
     pub id: String,
     pub faults: Vec<Fault>,
-    /// Its pictures' grade and score (`artistry`), when it has pictures.
     pub grade: Option<(Grade, u32)>,
 }
 
@@ -160,17 +123,14 @@ impl Report {
         self.faults.push(Fault { level: Level::Bar, what: what.into() });
     }
 
-    /// Nothing wrong at all.
     pub fn passes(&self) -> bool {
         self.faults.is_empty()
     }
 
-    /// The game would turn it away.
     pub fn refused(&self) -> bool {
         self.faults.iter().any(|f| f.level == Level::Refused)
     }
 
-    /// The report as a person reads it: a verdict line, then each fault.
     pub fn explain(&self) -> String {
         let graded = self.grade.map_or(String::new(), |(g, s)| format!(", drawn {g} ({s} of 100)"));
         let verdict = if self.passes() {
@@ -192,8 +152,6 @@ impl Report {
     }
 }
 
-/// Check one piece of `kind`, its file's text `text`, under the id `id`
-/// (a file's stem).
 pub fn check(kind: Kind, id: &str, text: &str) -> Report {
     match kind {
         Kind::Wish => wish(id, text, &phrasebook::read(phrasebook::TEXT)),
@@ -205,8 +163,6 @@ pub fn check(kind: Kind, id: &str, text: &str) -> Report {
     }
 }
 
-/// Check a file by its name: its kind from its extension, its id from its
-/// stem. `None` for a name no kind is written in.
 pub fn check_file(name: &str, text: &str) -> Option<Report> {
     let kind = Kind::of_file(name)?;
     let base = name.rsplit(['/', '\\']).next().unwrap_or(name);
@@ -214,8 +170,6 @@ pub fn check_file(name: &str, text: &str) -> Option<Report> {
     Some(check(kind, stem, text))
 }
 
-/// A template must pass with nothing to say, its pictures at
-/// [`TEMPLATE_GRADE`].
 pub fn check_template(name: &str, text: &str) -> Report {
     let mut report = check_file(name, text).unwrap_or_else(|| {
         let mut r = Report::new(Kind::Effect, name);
@@ -240,7 +194,6 @@ fn extensions() -> String {
     Kind::ALL.iter().map(|k| format!(".{}", k.extension())).collect::<Vec<_>>().join(" ")
 }
 
-/// The reviewed templates every new piece starts from: file name and text.
 pub const TEMPLATES: &[(&str, &str)] = &[
     ("wish-worn.wish", include_str!("../../../../cockpit/assets/dungeon/templates/wish-worn.wish")),
     ("wish-shot.wish", include_str!("../../../../cockpit/assets/dungeon/templates/wish-shot.wish")),
@@ -256,22 +209,16 @@ pub const TEMPLATES: &[(&str, &str)] = &[
     ("pastime.pastime", include_str!("../../../../cockpit/assets/dungeon/templates/pastime.pastime")),
 ];
 
-/// The template file `name`'s text.
 pub fn template(name: &str) -> Option<&'static str> {
     TEMPLATES.iter().find(|(n, _)| *n == name).map(|(_, t)| *t)
 }
 
-/// A template as an example to show a model or a person: its piece alone,
-/// the `#` notes at its top aside, ending in one newline.
 pub fn example(name: &str) -> Option<String> {
     let text = template(name)?;
     let body: Vec<&str> = text.lines().skip_while(|l| l.trim().is_empty() || l.trim_start().starts_with('#')).collect();
     Some(format!("{}\n", body.join("\n").trim_end()))
 }
 
-// ─── pictures ────────────────────────────────────────────────────────────────
-
-/// The marks a picture is weakest in, said plainly, for a fault line.
 fn weakest(rows: &[String]) -> String {
     let m = artistry::marks(rows);
     let mut short = [
@@ -287,7 +234,6 @@ fn weakest(rows: &[String]) -> String {
     short.iter().take(2).filter(|(k, _)| *k < 0.8).map(|(_, s)| *s).collect::<Vec<_>>().join("; ")
 }
 
-/// Grade `pictures` into `report`, and fault them under the bar.
 fn grade(report: &mut Report, pictures: &[(String, Vec<String>)]) {
     let drawn: Vec<&(String, Vec<String>)> = pictures.iter().filter(|(_, p)| !p.is_empty()).collect();
     if drawn.is_empty() {
@@ -308,15 +254,10 @@ fn grade(report: &mut Report, pictures: &[(String, Vec<String>)]) {
     }
 }
 
-/// The first frame of a sprite's rows (frames side by side, `|` between).
 fn first_frame(rows: &[String]) -> Vec<String> {
     rows.iter().map(|r| r.split('|').next().unwrap_or("").to_string()).filter(|r| !r.is_empty()).collect()
 }
 
-/// Why a worn look is drawn too big for its place, if it is: `header` is
-/// its `draw` line's words after `draw` (`worn at=left ...`), `rows` its
-/// rows. A worn piece bigger than its place on the knight is squeezed to
-/// fit (`looks::repair`, nearest), which drops rows and columns of it.
 fn oversize(header: &str, rows: &[String]) -> Option<String> {
     let mut words = header.split_whitespace();
     if words.next() != Some("worn") {
@@ -343,10 +284,6 @@ fn oversize(header: &str, rows: &[String]) -> Option<String> {
     })
 }
 
-// ─── wishes ──────────────────────────────────────────────────────────────────
-
-/// Split a phrasebook's text into its entries: each `wish` line and what
-/// follows it up to the next, with the id it names.
 pub fn entries(text: &str) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = Vec::new();
     for line in text.lines() {
@@ -366,8 +303,6 @@ pub fn entries(text: &str) -> Vec<(String, String)> {
     out
 }
 
-/// Check one phrasebook entry against `book` (the delve's own wishes):
-/// what the reader turns away, then the bar.
 fn wish(id: &str, text: &str, book: &[phrasebook::Wish]) -> Report {
     let mut report = Report::new(Kind::Wish, id);
     let (wishes, errors) = phrasebook::read_checked(text);
@@ -400,8 +335,6 @@ fn wish(id: &str, text: &str, book: &[phrasebook::Wish]) -> Report {
             if w.says.len() == 1 { "" } else { "s" }
         ));
     }
-    // Each tier as its card: what the card checker changed is written as
-    // the game will use it, and its recipe ends inside its moments.
     for tier in 0..w.tiers.len() {
         let (_, says) = &w.tiers[tier];
         if says.trim().is_empty() {
@@ -418,7 +351,6 @@ fn wish(id: &str, text: &str, book: &[phrasebook::Wish]) -> Report {
                     }
                 }
             }
-            // The reader has said why already.
             Err(_) => {}
         }
     }
@@ -430,8 +362,6 @@ fn wish(id: &str, text: &str, book: &[phrasebook::Wish]) -> Report {
             report.bar(if *from > 0 { format!("from tier {}, {why}", from + 1) } else { why });
         }
     }
-    // Its words find it: a player who says any of them is granted this
-    // wish, not another the book knows.
     let mut book: Vec<phrasebook::Wish> = book.iter().filter(|b| b.id != w.id).cloned().collect();
     book.push(w.clone());
     for say in &w.says {
@@ -445,8 +375,6 @@ fn wish(id: &str, text: &str, book: &[phrasebook::Wish]) -> Report {
     grade(&mut report, &w.pictures());
     report
 }
-
-// ─── cards ───────────────────────────────────────────────────────────────────
 
 fn card(id: &str, text: &str) -> Report {
     let mut report = Report::new(Kind::Card, id);
@@ -493,8 +421,6 @@ fn card(id: &str, text: &str) -> Report {
     report
 }
 
-// ─── foes ────────────────────────────────────────────────────────────────────
-
 fn foe(id: &str, text: &str) -> Report {
     let mut report = Report::new(Kind::Foe, id);
     let (boss, notes) = match bosses::check(id, text) {
@@ -516,7 +442,6 @@ fn foe(id: &str, text: &str) -> Report {
     if boss.by.trim().is_empty() {
         report.bar("no `by`: who made it");
     }
-    // The two unruly guardians wind up their own (`signatures::charge_ups`).
     if boss.windups.is_empty() && !super::signatures::special(&boss) {
         report.bar("no `windup`: a foe that leads a fight winds up a charge-up anyone can read (charge, slam, beam, leap or inhale), not only volleys");
     }
@@ -527,7 +452,6 @@ fn foe(id: &str, text: &str) -> Report {
     if boss.art.iter().any(|r| r.chars().count() != width) {
         report.bar("its art rows are of different lengths; pad them with `.` to one width");
     }
-    // Where it is inked, and how big it stands.
     let inked: Vec<(usize, usize)> = boss
         .art
         .iter()
@@ -544,8 +468,6 @@ fn foe(id: &str, text: &str) -> Report {
         let (w, h) = ((x1 - x0 + 1) as f32, (y1 - y0 + 1) as f32);
         let (art_w, art_h) = (width.max(1) as f32, boss.art.len().max(1) as f32);
         let strike = boss.radius * 2.0 * stature::UNIT;
-        // As `arena::stature::boss`: as wide as it strikes, and at least
-        // its floor tall; the picture is the whole art block.
         let k = |floor: i32| (strike / art_w.max(art_h)).max(floor as f32 / art_h);
         let guardian = k(stature::GUARDIAN);
         if guardian > stature::MOST_ENLARGED {
@@ -569,10 +491,6 @@ fn foe(id: &str, text: &str) -> Report {
     report
 }
 
-/// Whether the field draws a foe from its file's rows: not a guardian with
-/// art of its own (the library's, `bosses::Art`; the Ripper's, the Mire
-/// King's, the Mother of Spores' bodies), as `arena::stature::boss_figure`
-/// chooses. Its rows are still graded: they are its likeness elsewhere.
 pub fn drawn_from_rows(id: &str) -> bool {
     !(id == super::signatures::RIPPER
         || id == super::swamp::KING
@@ -580,12 +498,7 @@ pub fn drawn_from_rows(id: &str) -> bool {
         || bosses::Art::for_id(id).is_some())
 }
 
-// ─── rooms ───────────────────────────────────────────────────────────────────
-
-/// A room file's quadrant: its rows of `.` `#` `~`; `#` comment lines
-/// (anything with a word in it) aside.
 pub fn quadrant(text: &str) -> Vec<String> {
-    // A row has no spaces and only the marks; a comment has words.
     text.lines()
         .map(str::trim)
         .filter(|l| l.len() > 1 && l.chars().all(|c| matches!(c, '.' | '#' | '~')))
@@ -598,7 +511,6 @@ fn room(id: &str, text: &str) -> Report {
     room_rows(id, &rows.iter().map(String::as_str).collect::<Vec<_>>())
 }
 
-/// Check a quadrant given as its rows.
 pub fn room_rows(id: &str, rows: &[&str]) -> Report {
     let mut report = Report::new(Kind::Room, id);
     if rows.is_empty() {
@@ -624,10 +536,6 @@ pub fn room_rows(id: &str, rows: &[&str]) -> Report {
     report
 }
 
-// ─── effects ─────────────────────────────────────────────────────────────────
-
-/// Why a layer would be cut short, if it would: its life, at the most the
-/// field scales it by, against how long the run keeps its moment.
 fn outlives(l: &Layer) -> Option<String> {
     let (kept, scale) = vfx::kept(l.on)?;
     let most = vfx::fits(l.on)?;
@@ -641,8 +549,6 @@ fn outlives(l: &Layer) -> Option<String> {
     })
 }
 
-/// Read an effect recipe's lines: `vfx <when> <form> ...`, `#` comments
-/// aside. The layers that read, and the faults of those that do not.
 pub fn recipe(text: &str) -> (Vec<Layer>, Vec<Fault>) {
     let mut layers = Vec::new();
     let mut faults = Vec::new();
@@ -682,7 +588,6 @@ fn effect(id: &str, text: &str) -> Report {
     report
 }
 
-/// The bar on a recipe's layers, read already.
 fn effect_layers(report: &mut Report, layers: &[Layer]) {
     if layers.len() > vfx::MOST_LAYERS {
         report.refuse(format!("{} layers: a card's recipe holds at most {}", layers.len(), vfx::MOST_LAYERS));
@@ -703,37 +608,24 @@ fn effect_layers(report: &mut Report, layers: &[Layer]) {
     }
 }
 
-/// Check a recipe already on a card (`card.looks.vfx`, or the one its
-/// words give it).
 pub fn check_recipe(id: &str, recipe: &vfx::Recipe) -> Report {
     let mut report = Report::new(Kind::Effect, id);
     effect_layers(&mut report, &recipe.layers);
     report
 }
 
-// ─── pastimes ────────────────────────────────────────────────────────────────
-
-/// A pastime as its spec says it: the kingdom's arcade's descriptor
-/// (`pastimes::Game`), before a line of its code is written.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Pastime {
-    /// Its banner name, in capitals.
     pub name: String,
-    /// The few words on its board saying how it is played.
     pub how: String,
     pub room: RoomKind,
-    /// Where the knights stand to start it, in arena units.
     pub start: (f32, f32),
-    /// A round's length, in seconds.
     pub time: u32,
-    /// What a round asks to be won.
     pub need: u32,
-    /// What a round pays: `score` (the arcade never pays gold).
     pub pays: String,
 }
 
 impl Pastime {
-    /// A built-in game's spec, as its descriptor says it.
     pub fn of(game: pastimes::Game) -> Pastime {
         Pastime {
             name: game.name().to_string(),
@@ -746,7 +638,6 @@ impl Pastime {
         }
     }
 
-    /// Read a `.pastime` spec.
     pub fn read(text: &str) -> Result<Pastime, Vec<String>> {
         let mut errors = Vec::new();
         let (mut name, mut how, mut room, mut start, mut time, mut need, mut pays) =
@@ -828,7 +719,6 @@ fn pastime(id: &str, text: &str) -> Report {
     }
 }
 
-/// The bar on a pastime's spec.
 pub fn check_pastime(id: &str, p: &Pastime) -> Report {
     let mut report = Report::new(Kind::Pastime, id);
     if p.name.trim().is_empty() || p.name != p.name.to_uppercase() {
@@ -866,10 +756,6 @@ pub fn check_pastime(id: &str, p: &Pastime) -> Report {
     report
 }
 
-// ─── every built-in piece ────────────────────────────────────────────────────
-
-/// Every `.boss` file the game carries, with its id: the population, the
-/// checked catalogue, the garden's flamingo, the Deep's dreads.
 pub fn foe_files() -> Vec<(String, &'static str)> {
     let mut files: Vec<(String, &'static str)> = Vec::new();
     let mut add = |id: &str, raw: &'static str| {
@@ -889,8 +775,6 @@ pub fn foe_files() -> Vec<(String, &'static str)> {
     files
 }
 
-/// Every room quadrant the game lays: each pack's own templates and its
-/// hand-drawn rooms, with a name for each.
 pub fn room_quadrants() -> Vec<(String, Vec<&'static str>)> {
     let mut out = Vec::new();
     for pack in Pack::ALL {
@@ -908,9 +792,6 @@ pub fn room_quadrants() -> Vec<(String, Vec<&'static str>)> {
     out
 }
 
-/// The checker's word on every built-in piece: the phrasebook's wishes, the
-/// book's cards and the recipes they play, every foe, every room, every
-/// pastime.
 pub fn builtin() -> Vec<Report> {
     let mut out = Vec::new();
     let book = phrasebook::read(phrasebook::TEXT);
@@ -919,8 +800,6 @@ pub fn builtin() -> Vec<Report> {
     }
     for (id, raw) in cards::BUILTIN {
         out.push(card(id, raw));
-        // The recipe a card without one of its own is given, from its
-        // words: what the field draws for it.
         if let Ok(checked) = cards::check(id, raw)
             && checked.card.looks.vfx.is_empty()
         {
@@ -941,7 +820,6 @@ pub fn builtin() -> Vec<Report> {
     out
 }
 
-/// Every template's report.
 pub fn templates() -> Vec<Report> {
     TEMPLATES.iter().map(|(name, text)| check_template(name, text)).collect()
 }

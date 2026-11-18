@@ -23,8 +23,6 @@ pub(super) struct DocumentSurface {
 
 impl DocumentSurface {
     pub(super) fn clear(&mut self) {
-        // Keep at most one outstanding reader, even if the operator switches
-        // faster than storage can respond. Its stale result is discarded.
         self.target = None;
         self.ready = None;
         self.scroll = 0;
@@ -113,8 +111,6 @@ fn load_document(source: &MediaSource) -> Result<Document, String> {
         .unwrap_or(text.len());
     let lines_truncated = line_end < text.len();
     let text = &text[..line_end];
-    // Escape control bytes instead of interpreting them as terminal commands;
-    // line breaks and tabs keep the source readable. Content remains evidence.
     let mut displayed = String::with_capacity(text.len());
     for character in text.chars() {
         if (character.is_control() && !matches!(character, '\n' | '\t'))

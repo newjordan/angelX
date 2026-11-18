@@ -9,7 +9,6 @@ use crate::render::viewer::{self, Preferences};
 use crate::rules::nooks::{self, Nook};
 use std::collections::BTreeMap;
 
-/// A garden with the party on and one of each guest on the lawn.
 fn party() -> Run {
     let mut run = Run::new(41, 1, None);
     run.enemies.clear();
@@ -52,7 +51,6 @@ fn a_frame_of_the_party_is_the_same_drawn_twice() {
     assert_eq!(a, b);
 }
 
-/// A picture of coloured stripes with a black square in its middle.
 fn card(w: i32, h: i32) -> Img {
     let mut im = Img::new(w, h);
     for y in 0..h {

@@ -12,10 +12,8 @@
 use super::*;
 use serde::{Deserialize, Serialize};
 
-/// The most an icon is, in pixels, each way.
 pub const SIZE: usize = 12;
 
-/// What a slot holds, for its frame.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Slot {
@@ -27,29 +25,18 @@ pub enum Slot {
     Ult,
 }
 
-/// One icon in the tray.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Icon {
     pub slot: Slot,
     pub key: String,
     pub name: String,
-    /// From resting (0) to ready (1): the cooldown sweep.
     pub fill: f32,
-    /// How many there are, when that means something (bombs).
     pub count: u32,
-    /// The picture: ink rows joined by `/`.
     pub art: String,
-    /// The weapon's plate: whole pips of valour, lit along its top.
     #[serde(default)]
     pub pips: u32,
-    /// A kite shield's plate: its meter along its top (`shield::Wear`),
-    /// what it can still turn, and whether it is knocked aside (the meter
-    /// is then its way back).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wear: Option<(f32, bool)>,
-    /// A wish card's tier when it is one of its ladder's high ones (IV and
-    /// V, `high_tier`): its plate is marked for it. None below, and left
-    /// off the wire.
     #[serde(default, skip_serializing_if = "low")]
     pub high: u8,
 }
@@ -58,8 +45,6 @@ fn low(tier: &u8) -> bool {
     *tier == 0
 }
 
-/// The tier (from 1) of card `id` when it is a wish's fourth or fifth
-/// (`wish-<id>-<tier>`), else none (0).
 pub fn high_tier(id: Option<&str>) -> u8 {
     id.and_then(|id| id.strip_prefix("wish-")?.rsplit_once('-')?.1.parse::<u8>().ok())
         .filter(|&tier| tier >= 4)
@@ -72,12 +57,8 @@ impl Icon {
     }
 }
 
-// ─── the hand-drawn icons ────────────────────────────────────────────────────
-
 const FISTS: &[&str] = &[".tttt..tttt.", "tOttOttOttOt", "tOttOttOttOt", ".tOOt..tOOt.", "..tt....tt..", "..OO....OO.."];
 
-// A Mage's keys (`weave`): the three essences, and the ring that weaves
-// them, its three seats coloured by what was drawn.
 const EMBER: &[&str] = &[
     "............",
     "......R.....",
@@ -244,19 +225,14 @@ const ULT: &[&str] = &[
     ".....SS.....",
 ];
 
-/// An ink, not paper: any of the realm's (`script::INKS`), the dyes too.
 fn opaque(c: char) -> bool {
     super::script::INKS.contains(c)
 }
 
-/// Ink rows fitted into `SIZE` square: left as drawn when they fit, else
-/// shrunk by taking the commonest ink of each patch, so a 16 by 16 card
-/// still reads at 12.
 pub fn fit(rows: &[&str]) -> String {
     fit_to(rows, SIZE)
 }
 
-/// `fit` to some other size: the terminal's cells carry smaller icons.
 pub fn fit_to(rows: &[&str], size: usize) -> String {
     let grid: Vec<Vec<char>> = rows.iter().map(|r| r.chars().collect()).collect();
     let (h, w) = (
@@ -326,8 +302,6 @@ impl Run {
         }
     }
 
-    /// Knight `id`'s tray, in the order of the bottom corner: weapon, guard,
-    /// the spells on their keys, the ultimate, then bombs and the hand.
     pub fn tray(&self, id: u32, keys: &hud::Keys) -> Vec<Icon> {
         let Some(hero) = self.players.get(&id) else {
             return Vec::new();
@@ -355,7 +329,6 @@ impl Run {
                 .map(|name| format!("{name}{}", hud::tier(hero.temper)))
                 .unwrap_or_else(|| hero.weapon.name().to_string()),
             fill: 1.0,
-            // The weapon's count is how often it was tempered.
             count: u32::from(hero.temper),
             art: self.card_icon(hero.arm.as_deref(), weapon_fallback),
             pips: self.pips(id),
@@ -370,8 +343,6 @@ impl Run {
         };
         let fill = match hero.guard {
             cards::Guard::Wall(_) => hero.mana / MAX_MANA,
-            // A shield coloured as far as its meter: what it can still
-            // turn, or how far it has come back from being knocked aside.
             cards::Guard::Shield if hero.shield_wear.down > 0 => hero.shield_wear.back(),
             cards::Guard::Shield => hero.shield_wear.left(hero.max_hp),
             _ => 1.0 - rest as f32 / total.max(1) as f32,
@@ -457,8 +428,6 @@ impl Run {
             };
             out.push(Icon {
                 slot: Slot::Card,
-                // The quaff key drinks the first; the next-card key brings
-                // the second up; the rest wait their turn.
                 key: hud::hand_key(keys, slot).into(),
                 name: c.name.clone(),
                 fill: 1.0,
@@ -474,9 +443,6 @@ impl Run {
 }
 
 impl Run {
-    /// A Mage's spell keys on the tray: the essences on 1–3, and on 4 the
-    /// ring of what is drawn, named for the spell it weaves and filling as
-    /// that spell's cooldown runs out.
     fn weave_icons(&self, hero: &Hero, keys: &hud::Keys, out: &mut Vec<Icon>) {
         use weave::{Essence, SPELLS};
         for (i, essence) in Essence::ALL.into_iter().enumerate() {
@@ -520,8 +486,6 @@ impl Run {
             wear: None,
             high: 0,
         });
-        // The spells known, each its mix in the ring and filling as it comes
-        // ready, then the slots still free (`weave::slots`).
         let ink = |e: Essence| match e {
             Essence::Ember => '@',
             Essence::Frost => '3',

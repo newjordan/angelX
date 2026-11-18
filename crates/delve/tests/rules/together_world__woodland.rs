@@ -1,4 +1,3 @@
-// Extends the existing host/mirror regression; all gameplay uses Run::step.
 fn woodland_adventure_regression(mut run: Run) {
     use super::super::{
         countryside as c,
@@ -6,7 +5,6 @@ fn woodland_adventure_regression(mut run: Run) {
         woodland as wood,
     };
     use crate::rules::{Grid, HERO_RADIUS, Mover};
-    // Every authored woodland road works in both directions for a full party.
     for id in 2..=MAX_PLAYERS {
         run.join_seat(id, "Woodlander");
     }
@@ -32,7 +30,6 @@ fn woodland_adventure_regression(mut run: Run) {
             };
             let party = run.players.len() as f32;
             for (n, h) in run.players.values_mut().enumerate() {
-                // All of them must fit the doorway: it takes the whole party.
                 let offset = (n as f32 - (party - 1.0) / 2.0) * 0.6;
                 (h.x, h.y) = if d % 2 == 0 {
                     (x + offset, y)
@@ -77,7 +74,6 @@ fn woodland_adventure_regression(mut run: Run) {
             assert_eq!(friend.at, run.at);
         }
     }
-    // In-order spatial F actions. A guest records unit intents, not actor IDs.
     run = Run::at_home(31, 1, None, Home::default(), Default::default());
     run.come_to_the_gate();
     run.join("Badger's guest");
@@ -103,7 +99,6 @@ fn woodland_adventure_regression(mut run: Run) {
         run.step(&f);
         assert!(run.valid_snapshot());
     };
-    // The job; then the forage, any order, all three in the maze at once.
     press(&mut run, 0);
     assert_eq!(wood::stage(&run.home.countryside, &run.marks), 1);
     press(&mut run, 3);
@@ -149,7 +144,6 @@ fn woodland_adventure_regression(mut run: Run) {
         take(&mut run, e);
         assert_eq!(run.room().kind, kind);
     }
-    // Old numeric masks and the fixed first four records migrate losslessly.
     let old = serde_json::json!({"built":255,"harbour":3,"forecast":6,"picnic":3,"lamps":7,"relics":7,"survey":7,
         "visited":63,"ramble_paid":true,"games":{"best":[321,0,0,0],"plays":[2,0,0,0],"wins":[1,0,0,0]}});
     let migrated: c::Country = serde_json::from_value(old).unwrap();
@@ -160,7 +154,6 @@ fn woodland_adventure_regression(mut run: Run) {
     assert_eq!(c::PLOTS[2].blocked(&migrated), None);
     assert_eq!(migrated.games.cart, Default::default());
     assert_eq!(migrated.games.best[0], 321);
-    // A missing old woodland topology is restored once, never below the surface.
     run.arrive(room_of(&run.dungeon, RoomKind::Gate).unwrap(), (12.0, 9.5));
     run.dungeon
         .rooms
@@ -168,7 +161,6 @@ fn woodland_adventure_regression(mut run: Run) {
     assert!(raise_world(&mut run.dungeon));
     assert!(!raise_world(&mut run.dungeon));
     assert!(run.wire_copy().dungeon.rooms.iter().any(|r| wood::PLACES.contains(&r.kind)));
-    // Real-input cart win, then held-F failure and departure cleanup.
     let mut game = Run::at_home(31, 1, None, Home::default(), Default::default());
     game.come_to_the_gate();
     game.arrive(
@@ -228,7 +220,6 @@ fn woodland_adventure_regression(mut run: Run) {
     assert!(game.pastimes.round.is_none());
     assert_eq!(game.home.countryside.games.cart.wins, 1);
     assert!(game.found.as_ref().unwrap().2.contains("Grounded"));
-    // Friends cannot drive the owner's cart; owner leaving cancels it safely.
     game.players.get_mut(&1).unwrap().x += 4.0;
     game.step(&BTreeMap::new());
     game.players.get_mut(&1).unwrap().x -= 4.0;

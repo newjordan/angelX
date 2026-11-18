@@ -13,9 +13,7 @@ impl EnvGuard {
     fn set(key: &'static str, value: Option<&str>) -> Self {
         let prev = std::env::var_os(key);
         match value {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             Some(v) => unsafe { std::env::set_var(key, v) },
-            // TODO: Audit that the environment access only happens in single-threaded code.
             None => unsafe { std::env::remove_var(key) },
         }
         Self { key, prev }
@@ -25,9 +23,7 @@ impl EnvGuard {
 impl Drop for EnvGuard {
     fn drop(&mut self) {
         match &self.prev {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             Some(v) => unsafe { std::env::set_var(self.key, v) },
-            // TODO: Audit that the environment access only happens in single-threaded code.
             None => unsafe { std::env::remove_var(self.key) },
         }
     }
@@ -82,7 +78,6 @@ fn treebeard_route_rides_only_on_its_lane() {
         lane_route(),
         Some(crate::agent::harness::book::m_method::TREEBEARD)
     );
-    // The contract's words are the route's pages.
     let pages = crate::agent::harness::book::m_method::TREEBEARD
         .sub()
         .pages

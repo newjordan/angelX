@@ -1,8 +1,3 @@
-"""Minimal FBX *binary* reader (pure python + numpy + zlib), enough for Mixamo:
-the node tree, Model (LimbNode) rest transforms, AnimationCurveNode/AnimationCurve
-keys, the connections between them, and (for skinned files) Geometry vertices,
-polygon indices and Cluster skin weights. Format notes follow the public
-Blender `io_scene_fbx/parse_fbx.py` layout description; no code copied."""
 import struct, zlib
 import numpy as np
 
@@ -95,7 +90,6 @@ def props70(n):
 
 
 def euler_fbx(deg, order=0):
-    """FBX eEulerXYZ (order 0): rotate about X, then Y, then Z -> M = Rz Ry Rx."""
     from .skeleton import rx, ry, rz
     a = np.radians(deg)
     R = {"X": rx(a[0]), "Y": ry(a[1]), "Z": rz(a[2])}
@@ -123,7 +117,7 @@ class Scene:
                     dst in self.objs and self.objs[dst].name == "Model":
                 self.parent[src] = dst
         gs = props70(self.root.find("GlobalSettings")) if self.root.find("GlobalSettings") else {}
-        self.unit = float(gs.get("UnitScaleFactor", [1.0])[0]) / 100.0  # -> metres
+        self.unit = float(gs.get("UnitScaleFactor", [1.0])[0]) / 100.0
 
     def name(self, oid):
         return self.objs[oid].props[1].split("\x00")[0].split("::")[-1]
@@ -153,7 +147,6 @@ class Scene:
         return t, pre, post, lcl, ro
 
     def curves(self, oid):
-        """{'Lcl Rotation': {'X': (times_s, values)}, 'Lcl Translation': {...}}"""
         out = {}
         for src, prop in self.links.get(oid, []):
             n = self.objs.get(src)
@@ -211,6 +204,5 @@ def load_clip(path, name=None, fps=30):
         tc = cur[hk].get("Lcl Translation", {})
         hp.append(np.array([_at(tc.get(a), t, off[hk][j] / sc.unit) for j, a in enumerate("XYZ")]) * sc.unit)
         world.append(G)
-    # Hips may sit under an armature node: carry the parent's world rotation into its rest
     return C.retarget(names, par, off, restR, world, hp, fps,
                       name or os.path.splitext(os.path.basename(path))[0], "fbx:" + os.path.basename(path))

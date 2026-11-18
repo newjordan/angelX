@@ -36,7 +36,6 @@ fn played() -> Run {
     run
 }
 
-/// The host's restore, then three hundred ticks. `Err` is a refusal.
 fn restore_and_step(bytes: &[u8]) -> Result<(), String> {
     let mut run: Run = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
     let _ = run.mend();
@@ -295,8 +294,6 @@ fn seeded(label: &str, base: &Value, failures: &mut Vec<String>) {
     }
 }
 
-/// The cases the host is most likely to meet: a knight outside the room,
-/// health above its max, `at` past the rooms, and indexes into empty lists.
 fn named_damage(label: &str, base: &Value, failures: &mut Vec<String>) {
     let mut far = base.clone();
     let players = far
@@ -391,8 +388,6 @@ fn named_damage(label: &str, base: &Value, failures: &mut Vec<String>) {
     }
 }
 
-/// Stand in every saved room with every body coordinate shoved far outside
-/// it. Mend pulls knights back; anything else must be refused or stepped.
 fn every_room_far(base: &Value, failures: &mut Vec<String>) {
     let rooms = base
         .pointer("/dungeon/rooms")

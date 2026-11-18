@@ -45,7 +45,6 @@ fn too_slow_alone_but_two_knights_drain_it() {
     wait(&mut run, VALVE_OPEN / 2 + 1);
     turn(&mut run, 1, 2);
     assert_eq!(stage(&run.home.countryside, &run.marks), 1, "the fish shut first");
-    // Together: one holds the fish, the other runs boot and duck.
     turn(&mut run, 2, 0);
     turn(&mut run, 1, 1);
     assert_eq!(stage(&run.home.countryside, &run.marks), 4);
@@ -68,7 +67,6 @@ fn whoever_fishes_out_the_bell_wears_the_crown() {
     assert!(run.players[&2].laurel && !run.players[&1].laurel);
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_valve_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_valve_shots() {

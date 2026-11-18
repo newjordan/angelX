@@ -27,7 +27,6 @@ fn record_race_wager_cases() {
         let c = crate::rules::countryside::Country { wager_mask: mask, ..Default::default() };
         kit::rec("race_wagers.next", json!({"country": kit::js(&c)}), json!({"ret": next(&c).map_or(99, |i| i as u32)}));
     }
-    // settle: random countries, treasuries and marks.
     for _ in 0..120 {
         let mut country = crate::rules::countryside::Country::default();
         country.wager_mask = d.below(8) as u8;

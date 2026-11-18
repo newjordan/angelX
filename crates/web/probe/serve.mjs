@@ -1,6 +1,3 @@
-// Test only: serves a built bundle the way angel-serve does ({{asset:NAME}}
-// filled in, the same strict CSP), with no game server behind it, for the
-// `?offline` test page. node probe/serve.mjs <dist-dir> [port]
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';

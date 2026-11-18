@@ -9,8 +9,6 @@
 use super::super::ink::{Img, text_width};
 use crate::rules::{Run, classes};
 
-/// The colours of a stub scene: palette letters (`ink::ink`), never the
-/// signal bank.
 pub(super) struct Look {
     pub name: &'static str,
     pub backdrop: char,
@@ -18,7 +16,6 @@ pub(super) struct Look {
     pub accent: char,
 }
 
-/// The layers (base, fx) of the adventure under way, at the native 384 by 224.
 pub(super) fn layers(run: &Run, focus: Option<u32>) -> Option<(Img, Img)> {
     let (base, mut fx) = scene(run, focus)?;
     super::encounter::panel(&mut fx, run, focus);
@@ -38,7 +35,6 @@ fn scene(run: &Run, focus: Option<u32>) -> Option<(Img, Img)> {
     })
 }
 
-/// The same for the terminal's cell painter.
 pub(super) fn terminal_layers(run: &Run, focus: Option<u32>) -> Option<(Img, Img)> {
     let (base, mut fx) = terminal_scene(run, focus)?;
     super::encounter::panel(&mut fx, run, focus);
@@ -58,10 +54,8 @@ fn terminal_scene(run: &Run, focus: Option<u32>) -> Option<(Img, Img)> {
     })
 }
 
-/// The native scene fitted to a `w` by `h` frame, centred, nearest sample.
 pub(super) fn frame(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Option<Img> {
     let (mut im, over) = scene(run, focus)?;
-    // The frame is the base alone; a random room's card goes on it.
     let mut card = Img::new(384, 224);
     super::encounter::panel(&mut card, run, focus);
     im.stamp(&card, 0, 0);
@@ -83,9 +77,7 @@ pub(super) fn frame(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Option<Img
     Some(out)
 }
 
-/// Every adventure's door on the kingdom map, in the kingdom's own layer.
 pub(super) fn kingdom(im: &mut Img, run: &Run, origin: (i32, i32)) {
-    // Their gates stand on the full plan's map only (`crate::world::plan`).
     if !crate::world::plan::full() {
         return;
     }
@@ -98,19 +90,15 @@ pub(super) fn kingdom(im: &mut Img, run: &Run, origin: (i32, i32)) {
     super::deathmatch::kingdom(im, run, origin);
 }
 
-/// Words on a dark plate, so they read on any ground.
 pub(super) fn label(im: &mut Img, x: i32, y: i32, s: &str, ink: char) {
     im.rect(x - 1, y - 1, text_width(s) + 2, 9, 'k');
     im.text(x, y, s, ink);
 }
 
-/// `s` centred on column `cx`.
 fn centred(im: &mut Img, cx: i32, y: i32, s: &str, ink: char) {
     label(im, cx - text_width(s) / 2, y, s, ink);
 }
 
-/// `s` at `k` times the font's size on a dark plate, left edge at `x`: the
-/// terminal's cells are four pixels wide, so only large words read there.
 fn large(im: &mut Img, x: i32, y: i32, s: &str, ink: char, k: i32) {
     let mut words = Img::new(text_width(s), 7);
     words.text(0, 0, s, ink);
@@ -118,7 +106,6 @@ fn large(im: &mut Img, x: i32, y: i32, s: &str, ink: char, k: i32) {
     im.stamp_times(&words, x, y, k);
 }
 
-/// Letters and digits the font has, in capitals, at most `n` of them.
 fn plain(s: &str, n: usize) -> String {
     s.to_uppercase()
         .chars()
@@ -127,27 +114,21 @@ fn plain(s: &str, n: usize) -> String {
         .collect()
 }
 
-/// The stub stage: a solid backdrop, the name large, "stub adventure" under
-/// it, one labelled box for every seated knight on the knight's own screen
-/// (the viewer's box lit), and what to hold to leave.
 pub(super) fn stub_layers(run: &Run, focus: Option<u32>, look: &Look) -> (Img, Img) {
     let mut im = Img::black(384, 224);
     let fx = Img::new(384, 224);
     im.rect(6, 6, 372, 212, look.backdrop);
     im.frame(6, 6, 372, 212, look.edge);
     im.frame(8, 8, 368, 208, look.edge);
-    // The name, three times the font's size.
     let name = look.name.to_uppercase();
     let mut title = Img::new(text_width(&name), 7);
     title.text(0, 0, &name, look.accent);
     im.stamp_times(&title, (384 - title.w * 3) / 2, 28, 3);
     let sub = "STUB ADVENTURE";
     large(&mut im, 192 - text_width(sub), 54, sub, 'H', 2);
-    // A mark that slides along the rule under the title: the sim is ticking.
     let slide = (run.tick % 180) as i32 * 2;
     im.rect(12, 74, 360, 1, look.edge);
     im.rect(12 + slide, 73, 6, 3, look.accent);
-    // One box per seat at the table, three to a row.
     let seats: Vec<u32> = run
         .players
         .keys()
@@ -174,8 +155,6 @@ pub(super) fn stub_layers(run: &Run, focus: Option<u32>, look: &Look) -> (Img, I
     (im, fx)
 }
 
-/// The adventure's door on the kingdom map: a post and a board in its colour,
-/// its name over it and E under it. Drawn only while its tile is in view.
 pub(super) fn stub_kingdom(im: &mut Img, origin: (i32, i32), entry: (i32, i32), look: &Look) {
     let (x, y) = (entry.0 * 16 + 8 - origin.0, entry.1 * 16 + 8 - origin.1);
     let name = look.name.to_uppercase();

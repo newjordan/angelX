@@ -1,4 +1,3 @@
-// Extend the established failed-save -> checkpoint -> restore -> retry gate.
 fn wetland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     use crate::delve::together_realm::Spoil;
     use crate::delve::together_shooter::{
@@ -84,7 +83,6 @@ fn wetland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     let paid = app.economy().treasury.clone();
     assert!(app.settle_home());
     assert_eq!(app.economy().treasury, paid);
-    // Active crest phase and tenth pad bit survive the real session restart.
     let r = app.realm.dungeon.shooter.edit().unwrap();
     r.arrive(
         world::room_of(&r.dungeon, RoomKind::Millpond).unwrap(),
@@ -92,9 +90,6 @@ fn wetland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     );
     r.step(&BTreeMap::new());
     let mut held = false;
-    // The round's clock starts a second after the walk-in, so the drive
-    // is bounded by the game's whole time, like the delve-side test, and
-    // stops the moment the crest is braced.
     for _ in 0..pastimes::Game::Surf.time() {
         let round = r.pastimes.round.as_ref().unwrap();
         let surf = round.surf.as_ref().unwrap();
@@ -102,8 +97,6 @@ fn wetland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
             break;
         }
         let target = pastimes::WAVE_LEANS[usize::from(round.progress)];
-        // Brace on a published gold frame (the engine merge moved judging
-        // one frame later than the old full-course check).
         let fire = surf.phase >= pastimes::WAVE_TICKS - pastimes::CREST_WINDOW && !held;
         r.step(&BTreeMap::from([(
             1,
@@ -142,8 +135,6 @@ fn wetland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         };
         let surf = round.surf.as_ref().unwrap();
         let target = pastimes::WAVE_LEANS[usize::from(round.progress)];
-        // Brace on a published gold frame (the engine merge moved judging
-        // one frame later than the old full-course check).
         let fire = surf.phase >= pastimes::WAVE_TICKS - pastimes::CREST_WINDOW && !held;
         r.step(&BTreeMap::from([(
             1,
@@ -176,7 +167,6 @@ fn wetland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     fixture.allow_saves();
     assert!(app.settle_home());
     assert_eq!(app.economy().home.countryside.games.surf.wins, 1);
-    // The surf's first win pays its once-only purse, and nothing else moves.
     let mut expected = paid.clone();
     expected.add(crate::delve::together_realm::Spoil::Gold, c::FIRST_WIN_GOLD);
     assert_eq!(app.economy().treasury, expected);

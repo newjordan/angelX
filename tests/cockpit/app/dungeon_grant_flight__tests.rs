@@ -1,7 +1,5 @@
 use super::*;
 
-/// Local flight through the production brief, runner, checker and mend:
-/// a local model as the realm's oracle, three wishes, each answer kept.
 #[test]
 #[ignore]
 fn local_model_dungeon_grant_flight() {

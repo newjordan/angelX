@@ -15,10 +15,6 @@ use super::{UNIT, at};
 use crate::rules::champions::{self, Brew, Champion, RingKind, Thrown};
 use crate::rules::{Hero, Run};
 
-/// The figure's canvas: the body's twenty pixels with room either side
-/// for the great arm's whole sweep (the maul's head stays on the picture
-/// flung out to either side), and headroom over it for a maul raised
-/// overhead.
 const W: i32 = 62;
 const BODY_X: i32 = 21;
 const HEAD: i32 = 13;
@@ -145,8 +141,6 @@ const ALCHEMIST_BACK: [&str; 18] = [
     "....xx.x....x.xx....",
 ];
 
-// The Reaver in his wolf pelt, ginger beard and a fur mantle over bare
-// arms; the Lancer in plate under a tabard of blue and gold.
 const REAVER_FRONT: [&str; 18] = [
     ".....J........J.....",
     ".....hJ......Jh.....",
@@ -228,8 +222,6 @@ const LANCER_BACK: [&str; 18] = [
     "....................",
 ];
 
-// The Phantom Lancer in pale hood and cloth, silver-blue, a faint wisp for a
-// plume; the figure draws a dithered afterimage behind itself (`draw`).
 const PHANTOM_FRONT: [&str; 18] = [
     ".........Qz.........",
     "........zQzz........",
@@ -271,8 +263,6 @@ const PHANTOM_BACK: [&str; 18] = [
     "....................",
 ];
 
-// The Mirage Duelist: slim in midnight blue and gold, a plume on a wide
-// hat and a veil to the eyes, as unlike the Lancers as can be.
 const MIRAGE_FRONT: [&str; 18] = [
     ".........oT.........",
     "........oTTt........",
@@ -314,8 +304,6 @@ const MIRAGE_BACK: [&str; 18] = [
     "....................",
 ];
 
-// Across, facing right: the Hammerer's horn and beard forward, the
-// Butcher's belly before him, the Alchemist's still on his back.
 const HAMMER_SIDE: [&str; 18] = [
     ".......JHHHJ........",
     "......JHiiiHJ..h....",
@@ -486,18 +474,12 @@ fn body(c: Champion, face: Facing) -> &'static [&'static str] {
     }
 }
 
-/// Where the great arm is in its movement.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Grip {
-    /// Carried: the maul on the shoulder, the cleaver up, a flask at the hip.
     Rest,
-    /// Groundslam's wind-up: straight up overhead.
     Overhead,
-    /// The swing, 0 at its start to 1 at its end.
     Swing(f32),
-    /// Brought down hard on the floor before them.
     Down,
-    /// Thrown: the arm flung out along the aim.
     Fling,
 }
 
@@ -506,8 +488,6 @@ fn grip(hero: &Hero, c: Champion) -> Grip {
     if s.windup > 0 {
         return Grip::Overhead;
     }
-    // In the middle of a bound: the axes up for the leap, the lance couched
-    // for a vault or a drive. The lance set while it is braced.
     if s.dash > 0 {
         return if s.dash_kind == champions::Dash::Leap { Grip::Overhead } else { Grip::Fling };
     }
@@ -531,8 +511,6 @@ fn grip(hero: &Hero, c: Champion) -> Grip {
     Grip::Rest
 }
 
-/// The great arm's angle (radians, screen-wise: 0 along the aim, a
-/// negative turn up) for a grip.
 fn angle(c: Champion, g: Grip) -> f32 {
     let deg: f32 = match (c, g) {
         (Champion::Hammerer, Grip::Rest) => -118.0,
@@ -541,7 +519,6 @@ fn angle(c: Champion, g: Grip) -> f32 {
         (Champion::Reaver, Grip::Rest) => -45.0,
         (Champion::Lancer | Champion::PhantomLancer, Grip::Rest) => -84.0,
         (Champion::MirageDuelist, Grip::Rest) => -62.0,
-        // The lance thrusts straight; it never sweeps.
         (Champion::Lancer | Champion::PhantomLancer | Champion::MirageDuelist, Grip::Swing(p)) => -14.0 + 10.0 * p,
         (_, Grip::Overhead) => -92.0,
         (_, Grip::Down) => 36.0,
@@ -555,8 +532,6 @@ fn angle(c: Champion, g: Grip) -> f32 {
     deg.to_radians()
 }
 
-/// Draw a rotated bar of `len` pixels by `wide` from `(x, y)` along `a`:
-/// lit along its upper edge, dark along its lower.
 fn bar(im: &mut Img, (x, y): (f32, f32), a: f32, (from, len): (f32, f32), wide: f32, inks: [char; 3]) {
     let (dx, dy) = (a.cos(), a.sin());
     let (px, py) = (-dy, dx);
@@ -578,11 +553,9 @@ fn bar(im: &mut Img, (x, y): (f32, f32), a: f32, (from, len): (f32, f32), wide: 
     }
 }
 
-/// The great arm itself, from the hand at `(x, y)` along `a`.
 fn arm(im: &mut Img, c: Champion, (x, y): (f32, f32), a: f32, fury: bool) {
     match c {
         Champion::Hammerer => {
-            // An ash haft as long as a man, and an iron head like an anvil.
             bar(im, (x, y), a, (-2.0, 20.0), 2.0, ['O', 'B', 'b']);
             let head = if fury { ['T', 'R', 'p'] } else { ['W', 'i', 'G'] };
             bar(im, (x, y), a, (15.0, 6.5), 10.0, head);
@@ -595,24 +568,18 @@ fn arm(im: &mut Img, c: Champion, (x, y): (f32, f32), a: f32, fury: bool) {
             bar(im, (x, y), a, (7.0, 2.0), 3.0, ['p', 'R', 'p']);
         }
         Champion::Reaver => {
-            // A short haft and a bearded head, its edge bright; red in the
-            // bloodlust.
             bar(im, (x, y), a, (-2.0, 11.0), 2.0, ['O', 'B', 'b']);
             let head = if fury { ['T', 'R', 'p'] } else { ['H', 'i', 'J'] };
             bar(im, (x, y), a, (6.5, 4.0), 7.0, head);
             bar(im, (x, y), a, (10.5, 0.5), 7.0, ['h', 'h', 'h']);
         }
         Champion::Lancer => {
-            // A long ash lance, the round guard at the hand, and a steel
-            // point tapering out past it.
             bar(im, (x, y), a, (-4.0, 18.0), 2.0, ['O', 'B', 'b']);
             bar(im, (x, y), a, (1.5, 2.5), 6.0, ['H', 'i', 'J']);
             bar(im, (x, y), a, (14.0, 4.0), 3.0, ['H', 'i', 'h']);
             bar(im, (x, y), a, (18.0, 3.0), 1.0, ['H', 'H', 'H']);
         }
         Champion::PhantomLancer => {
-            // The Lancer's long lance in ghost-blue: a pale ash shaft, the
-            // guard, a silver point, and a faint copy of it a pixel behind.
             bar(im, (x, y), a, (-4.0, 18.0), 2.0, ['v', 'Q', 'u']);
             bar(im, (x, y), a, (1.5, 2.5), 6.0, ['W', 'V', 'v']);
             bar(im, (x, y), a, (14.0, 4.0), 3.0, ['W', 'V', 'v']);
@@ -624,13 +591,11 @@ fn arm(im: &mut Img, c: Champion, (x, y): (f32, f32), a: f32, fury: bool) {
             }
         }
         Champion::MirageDuelist => {
-            // A slim foil: a gold cup at the hand, a bright thin blade.
             bar(im, (x, y), a, (-3.0, 3.0), 2.0, ['b', 'B', 'x']);
             bar(im, (x, y), a, (0.0, 2.0), 7.0, ['T', 'O', 'o']);
             bar(im, (x, y), a, (2.0, 19.0), 1.0, ['W', 'W', 'V']);
         }
         Champion::Alchemist => {
-            // A lit flask in the fist: the glass, the brew, the wick.
             let (dx, dy) = (a.cos(), a.sin());
             let (fx, fy) = ((x + dx * 3.0).round() as i32, (y + dy * 3.0).round() as i32);
             im.rect(fx - 2, fy - 2, 5, 5, 'R');
@@ -642,8 +607,6 @@ fn arm(im: &mut Img, c: Champion, (x, y): (f32, f32), a: f32, fury: bool) {
     }
 }
 
-/// A champion's figure, facing right when across (the caller flips it for
-/// left), feet on the bottom row and their middle at the canvas's middle.
 pub(super) fn figure(hero: &Hero, c: Champion) -> Img {
     let face = facing(hero.aim_x, hero.aim_y);
     let stride = super::class_looks::stride(hero);
@@ -653,13 +616,10 @@ pub(super) fn figure(hero: &Hero, c: Champion) -> Img {
     draw(c, face, stride, g, fury, windup, hero.champ.fury.max(hero.champ.lust), None)
 }
 
-/// At rest, square on: for the bar and a ghost.
 pub(super) fn standing(c: Champion) -> Img {
     draw(c, Facing::Down, None, Grip::Rest, false, false, 0, None)
 }
 
-/// Head and shoulders for a seat's frame: the body alone, so the crop
-/// finds the head and not the arm held over it.
 pub(super) fn bust(c: Champion) -> Img {
     Img::from_rows(body(c, Facing::Down))
 }
@@ -668,10 +628,7 @@ fn draw(c: Champion, face: Facing, stride: Option<u8>, g: Grip, fury: bool, wind
     let mut im = Img::new(W, HEAD + BODY_H);
     let away = face == Facing::Up;
     let body = Img::from_rows(body(c, face));
-    // A crouch under the wind-up; a bob on the stride.
     let sink = i32::from(windup) * 2 + i32::from(matches!(stride, Some(1 | 3)));
-    // The hand: before the body across, at the right fist square on, the
-    // left away.
     let (hx, hy) = match (face, c) {
         (Facing::Side, Champion::Hammerer) => (13, 11),
         (Facing::Side, Champion::Butcher) => (16, 12),
@@ -687,8 +644,6 @@ fn draw(c: Champion, face: Facing, stride: Option<u8>, g: Grip, fury: bool, wind
     };
     let hand = ((BODY_X + hx) as f32, (HEAD + hy + sink) as f32);
     let a = angle(c, g);
-    // Square on, the arm goes up and out to the fist's side; away, it is
-    // behind the body.
     let a = match face {
         Facing::Side => a,
         Facing::Down => a.clamp(-2.4, 1.2),
@@ -697,25 +652,21 @@ fn draw(c: Champion, face: Facing, stride: Option<u8>, g: Grip, fury: bool, wind
     if away && floating.is_none() {
         arm(&mut im, c, hand, a, fury);
     }
-    // The legs, on their stride.
     let lift = |left: bool| match stride {
         Some(0) => i32::from(left) * 2,
         Some(2) => i32::from(!left) * 2,
         _ => 0,
     };
-    // Across, the legs stand close, one before the other.
     let (near, far) = if face == Facing::Side { (7, 10) } else { (6, 11) };
     for (left, x0) in [(true, BODY_X + near), (false, BODY_X + far)] {
         let top = HEAD + 17;
         let up = lift(left);
-        // The Phantom Lancer's greaves are pale cloth, not leather.
         let (leg, boot) = if c == Champion::PhantomLancer { ('v', 'U') } else { ('B', 'I') };
         im.rect(x0, top - up, 3, 2, leg);
         im.rect(x0, top + 2 - up, 3, 3, boot);
         im.put(if left { x0 - 1 } else { x0 + 3 }, top + 4 - up, boot);
     }
     if c == Champion::PhantomLancer {
-        // The afterimage: a dithered shadow of the body, a stride behind.
         let mut fringe = Img::new(body.w, body.h);
         for y in 0..body.h {
             for x in 0..body.w {
@@ -728,7 +679,6 @@ fn draw(c: Champion, face: Facing, stride: Option<u8>, g: Grip, fury: bool, wind
         im.stamp(&fringe, BODY_X + behind, HEAD + sink);
     }
     im.stamp(&body, BODY_X, HEAD + sink);
-    // The Butcher's chain hangs off his shoulder, the hook at its end.
     if c == Champion::Butcher && face == Facing::Down {
         for k in 0..6 {
             im.put(BODY_X + 1 + k / 3, HEAD + 7 + k * 2 + sink, if k % 2 == 0 { 'h' } else { 'J' });
@@ -736,7 +686,6 @@ fn draw(c: Champion, face: Facing, stride: Option<u8>, g: Grip, fury: bool, wind
         im.rect(BODY_X + 2, HEAD + 18 + sink, 3, 1, 'i');
         im.put(BODY_X + 4, HEAD + 17 + sink, 'i');
     }
-    // The Reaver's other axe, hung at his left hip by its haft.
     if c == Champion::Reaver && face == Facing::Down {
         im.rect(BODY_X + 2, HEAD + 10 + sink, 1, 7, 'B');
         im.rect(BODY_X, HEAD + 14 + sink, 2, 4, 'i');
@@ -744,7 +693,6 @@ fn draw(c: Champion, face: Facing, stride: Option<u8>, g: Grip, fury: bool, wind
         im.put(BODY_X + 2, HEAD + 9 + sink, 'O');
     }
     if fury {
-        // The giant's blood up: a red heat at the edges, flickering.
         let mut glow = im.clone();
         glow.outline_outside(if tick % 6 < 3 { 'R' } else { 'p' });
         glow.stamp(&im, 0, 0);
@@ -753,10 +701,7 @@ fn draw(c: Champion, face: Facing, stride: Option<u8>, g: Grip, fury: bool, wind
     if !away && floating.is_none() {
         arm(&mut im, c, hand, a, fury);
     }
-    // The swing's sweep behind the maul's head.
     if let Some(aim) = floating {
-        // One broadside drawing, pointing right, with its grip retained
-        // through cropping. The live aim turns it, never the body's facing.
         let mut tile = Img::new(W, W);
         arm(&mut tile, c, (W as f32 / 2.0, W as f32 / 2.0), 0.0, fury);
         let mut bounds = (W, W, 0, 0);
@@ -791,10 +736,6 @@ fn draw(c: Champion, face: Facing, stride: Option<u8>, g: Grip, fury: bool, wind
     im
 }
 
-// ─── under and over the figures ──────────────────────────────────────────────
-
-/// Under the figures: the shockwaves and bursts, cracks, the rot, and the
-/// lobbed flasks' shadows.
 pub(super) fn under(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     let f = &run.champions;
@@ -809,7 +750,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
             RingKind::Mend => ('2', 'C'),
             RingKind::Reap => ('7', '8'),
         };
-        // A thick rim and a softer one inside it, broken here and there.
         let thick = if ring.kind == RingKind::Quake { 3.0 } else { 2.0 };
         for i in 0..n {
             let a = i as f32 / n as f32 * std::f32::consts::TAU;
@@ -824,9 +764,7 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
             cv.put(cx + (a.cos() * (r - thick - 2.0)) as i32, cy + (a.sin() * (r - thick - 2.0) * 0.6) as i32, inner);
         }
         match ring.kind {
-            // The floor cracks out from where the maul fell.
             RingKind::Quake => {
-                // Dust thrown up off the rim's front, and the floor split.
                 for k in 0..10 {
                     let a = k as f32 * 0.63 + 0.2;
                     let (x, y) = (cx + (a.cos() * r) as i32, cy + (a.sin() * r * 0.6) as i32 - ring.age as i32 / 3);
@@ -859,8 +797,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
             }
             RingKind::Burst => {}
             RingKind::Reap => {
-                // The two axes' cuts, thrown wide round him, fading as it
-                // spreads: crescents in blood and a bright edge.
                 for k in 0..8 {
                     let a = k as f32 * 0.785 + ring.age as f32 * 0.12;
                     let (mut t, end) = (a - 0.35, a + 0.35);
@@ -874,7 +810,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
             }
         }
     }
-    // A bound kicks up dust where it leaves and along its way.
     for hero in run.players.values().filter(|h| h.hp > 0 && h.champ.dash > 0) {
         let (cx, cy) = at(hero.x, hero.y);
         for k in 0..5 {
@@ -896,15 +831,12 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
                 x0 + (c.dx * along) as i32 - (c.dy * jag as f32) as i32,
                 y0 + (c.dy * along * 0.6) as i32 + (c.dx * jag as f32 * 0.6) as i32,
             );
-            // A molten seam before it goes; split stone after.
             let hot = if erupted { 'p' } else if (s + tick as i32 / 2) % 3 == 0 { '6' } else { 'R' };
             cv.rect(x - 1, y - 1, 3, 3, 'k');
             cv.put(x + 1, y - 2, hot);
             cv.put(x - 1, y + 1, hot);
             cv.put(x, y, hot);
             if erupted && c.age < champions::CRACK_LIFE - 4 && s % 2 == 0 {
-                // Rubble thrown up along it: a jut of rock, lit from the
-                // upper left, rising as it bursts and sinking after.
                 let rise = (c.age - champions::CRACK_ERUPT + 2).min(4) as i32;
                 let sink = (c.age as i32 - (champions::CRACK_LIFE as i32 - 14)).max(0);
                 let h = (6 + (hash(s, 5, 17) % 7) as i32) * rise / 4 - sink;
@@ -923,7 +855,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
     for (_, hero) in run.players.iter().filter(|(_, h)| h.hp > 0 && h.champ.rot > 0) {
         let (cx, cy) = at(hero.x, hero.y);
         let r = champions::ROT_REACH * UNIT;
-        // The stink's edge on the floor, where it stops eating.
         let n = (r * 5.0) as i32;
         for i in 0..n {
             let a = i as f32 / n as f32 * std::f32::consts::TAU + tick as f32 * 0.02;
@@ -932,7 +863,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
             }
             cv.put(cx + (a.cos() * r) as i32, cy + (a.sin() * r * 0.6) as i32, 'm');
         }
-        // Clots of it rolling off him and rising.
         for k in 0..36 {
             let a = k as f32 * 0.9 + tick as f32 * 0.05;
             let d = r * (0.25 + (hash(k, tick as i32 / 6, 3) % 75) as f32 / 100.0);
@@ -949,8 +879,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Over the figures: hammers and hooks in flight, chains, flasks in their
-/// arcs, and the Butcher's grip.
 pub(super) fn over(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     let f = &run.champions;
@@ -958,7 +886,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
         let (x, y) = at(t.x, t.y);
         match t.kind {
             Thrown::Hammer => {
-                // A little maul turning end over end, sparking.
                 let a = t.age as f32 * 0.9;
                 let mut im = Img::new(17, 17);
                 bar(&mut im, (8.0, 8.0), a, (-6.0, 9.0), 2.0, ['O', 'B', 'b']);
@@ -979,7 +906,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
                 let n = ((hx - ox).abs().max((hy - oy).abs()) / 2).max(1);
                 for k in 0..=n {
                     let (lx, ly) = (ox + (hx - ox) * k / n, oy + (hy - oy) * k / n);
-                    // Links, turned alternately: a ring, then one edge on.
                     if k % 2 == 0 {
                         cv.rect(lx - 1, ly - 1, 3, 3, 'h');
                         cv.put(lx, ly, 'g');
@@ -987,7 +913,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
                         cv.rect(lx, ly - 1, 1, 3, 'J');
                     }
                 }
-                // The hook: a great barb turned back on itself.
                 cv.rect(hx - 1, hy - 5, 3, 9, 'i');
                 cv.line(hx - 1, hy - 5, hx - 1, hy + 3, 'W');
                 cv.rect(hx - 1, hy + 3, 7, 2, 'i');
@@ -996,7 +921,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
                 cv.put(hx + 3, hy - 1, 'W');
             }
             Thrown::Axe => {
-                // An axe turning edge over haft, a red smear behind it.
                 let a = t.age as f32 * 1.1;
                 let mut im = Img::new(15, 15);
                 bar(&mut im, (7.0, 7.0), a, (-5.0, 9.0), 2.0, ['O', 'B', 'b']);
@@ -1009,8 +933,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
                 }
             }
             Thrown::Javelin | Thrown::SpiritLance => {
-                // A long shaft along its flight, its point bright, and the air
-                // torn behind it; the spirit lance is pale and leaves a wake.
                 let ghost = t.kind == Thrown::SpiritLance;
                 let l = t.vx.hypot(t.vy).max(0.01);
                 let (ux, uy) = (t.vx / l, t.vy / l * 0.6);
@@ -1036,7 +958,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
                     Brew::Quickfire => ('7', '6'),
                     Brew::Foul => ('A', 'Y'),
                 };
-                // A round-bellied flask turning over in the air, its wick lit.
                 let (fx, fy) = (x, y - 8 - lift);
                 cv.rect(fx - 3, fy - 2, 7, 5, glass);
                 cv.rect(fx - 2, fy - 3, 5, 7, glass);
@@ -1059,7 +980,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
         let (fx, fy) = at(foe.x, foe.y);
         let (hx, hy) = hoist(run, foe);
         let (fx, fy) = (fx + hx, fy + hy);
-        // The chain up to the hook in it, taut, its links lit by turns.
         let l = owner.aim_x.hypot(owner.aim_y).max(0.01);
         let hand = (ox + (owner.aim_x / l * 6.0) as i32, oy - 12);
         let n = ((fx - hand.0).abs().max((fy - 9 - hand.1).abs())).max(1);
@@ -1068,16 +988,9 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
             cv.put(x, y, if k % 3 == 0 { 'h' } else { 'G' });
             cv.put(x, y + 1, 'j');
         }
-        // The cuts, the blood and what it gives him are the ultimate's
-        // own (`ults`); the foe's wounds are its ailment (`ailments`).
     }
 }
 
-/// How far the Butcher's hook has hoisted the monster he holds (a
-/// `Grip`), in pixels: up off the floor on his chain and out along his
-/// aim, swaying, jerked at every cut, and let down again at the end. Only
-/// the figure goes up; its shadow stays where it is held, and what is too
-/// big to hold (a guardian, a dragon, a dummy, a ward) stays on its feet.
 pub(super) fn hoist(run: &Run, e: &crate::rules::Enemy) -> (i32, i32) {
     use super::pfx::ease;
     use crate::rules::EnemyKind;
@@ -1090,15 +1003,12 @@ pub(super) fn hoist(run: &Run, e: &crate::rules::Enemy) -> (i32, i32) {
     let up = ease::out(age / 6.0) * (g.left as f32 / 5.0).min(1.0);
     let l = owner.aim_x.hypot(owner.aim_y);
     let (ax, ay) = if l > 0.01 { (owner.aim_x / l, owner.aim_y / l) } else { (0.0, 1.0) };
-    // The cleaver falls on the tens (`champions::GRIP_EVERY`): a jolt.
     let cut = (run.tick % 10) as f32;
     let jolt = (3.0 - cut).max(0.0);
     let sway = (run.tick as f32 * 0.3).sin();
     (((ax * 6.0 + sway) * up).round() as i32, ((ay * 3.0 - 10.0 + jolt) * up).round() as i32)
 }
 
-/// His attachments belong to the twenty-pixel torso, not the wide canvas
-/// swept by his arm. The same crouch and stride as `draw` move them.
 pub(super) fn fit(hero: &Hero) -> crate::rules::looks::Body {
     let sink = i32::from(hero.champ.windup > 0) * 2
         + i32::from(matches!(super::class_looks::stride(hero), Some(1 | 3)));

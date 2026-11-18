@@ -44,7 +44,6 @@ unsafe impl GlobalAlloc for Counting {
     }
 }
 
-/// (live bytes, bytes asked for, allocations) on this thread so far.
 pub fn now() -> (i64, u64, u64) {
     (LIVE.with(Cell::get), ASKED.with(Cell::get), COUNT.with(Cell::get))
 }
@@ -52,8 +51,6 @@ pub fn now() -> (i64, u64, u64) {
 #[global_allocator]
 static COUNTING: Counting = Counting;
 
-/// Size census for the ignored step bench. Off unless a test asks, so the
-/// other tests keep the allocator they already had.
 static CENSUS: AtomicBool = AtomicBool::new(false);
 const BUCKETS: usize = 28;
 static BUCKET_COUNT: [AtomicU64; BUCKETS] = [const { AtomicU64::new(0) }; BUCKETS];
@@ -121,7 +118,6 @@ pub fn reset_census() {
     }
 }
 
-/// Power-of-two buckets: (lo, count, bytes), then exact sizes at or above 256.
 pub fn census_report() -> (Vec<(u64, u64, u64)>, Vec<(usize, u64, u64)>) {
     let mut buckets = Vec::new();
     for i in 0..BUCKETS {

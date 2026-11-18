@@ -1,17 +1,14 @@
-// Extensions to the pre-existing world host/mirror/save regression entry point.
 fn northern_adventure_regression(mut run: Run) {
     use super::super::{countryside as c, pastimes::{self, Game}};
     use crate::realm::{Spoil, Spoils};
     use super::super::{Grid, HERO_RADIUS, Mover};
     let fire = |id| BTreeMap::from([(id, Input { fire: true, ..Default::default() })]);
-    // The lenses and the clerk answer the interact key.
     let meet = |id| BTreeMap::from([(id, Input { interact: true, ..Default::default() })]);
     run.join_seat(3, "Postage");
     run.join_seat(4, "Stamp");
     run.home.countryside = c::Country::default();
     run.marks.clear();
 
-    // Walk every new road using actual movement, not an arrive() shortcut.
     for &(a, b) in TRAILS.iter().filter(|(a, b)| c::NORTH_PLACES.contains(a) || c::NORTH_PLACES.contains(b)) {
         for (a, b) in [(a, b), (b, a)] {
             let ai = room_of(&run.dungeon, a).unwrap();
@@ -26,7 +23,6 @@ fn northern_adventure_regression(mut run: Run) {
                 2 => (run.room().width()/2.0, run.room().height()-1.9),
                 _ => (1.9, run.room().height()/2.0),
             };
-            // A doorway takes the whole party (`fellowship`): all four walk it.
             for h in run.players.values_mut() {
                 (h.x, h.y) = (x, y);
             }
@@ -45,7 +41,6 @@ fn northern_adventure_regression(mut run: Run) {
         }
     }
 
-    // Wrong-order lenses do nothing. Each teammate may do the next step.
     run.arrive(room_of(&run.dungeon, RoomKind::Observatory).unwrap(), c::FORECAST[4].1);
     run.tick_countryside(&meet(1));
     assert_eq!(c::forecast_stage(&run.home.countryside, &run.marks), 0);
@@ -92,8 +87,6 @@ fn northern_adventure_regression(mut run: Run) {
     c::settle(&mut country, &mut treasury, &request);
     assert_eq!(treasury.get(Spoil::Gold), 0, "no repeated charge");
 
-    // Paid travel holds use the production stair handler. Both directions
-    // arrive safely with four knights, and neutral controls cannot bounce.
     run.home.countryside = country;
     for id in ["observatory-ropeway", "mine-ropeway"] {
         let e = entrance(id);
@@ -110,7 +103,6 @@ fn northern_adventure_regression(mut run: Run) {
     let friend = run.wire_copy();
     assert_eq!(friend.home.countryside, run.home.countryside);
 
-    // Slalom: do not teleport the squire across gates. Use only Input and step.
     run.arrive(room_of(&run.dungeon, RoomKind::Crag).unwrap(), Game::Sled.start());
     let h = run.players.get_mut(&1).unwrap();
     (h.x, h.y) = (Game::Sled.start().0 * TILE_UNITS, Game::Sled.start().1 * TILE_UNITS);

@@ -1,16 +1,13 @@
-// Extends the pre-existing host / mirror / surface regression, not a new gate.
 fn hippodrome_adventure_regression(mut run: Run) {
     use super::super::{countryside as c, hippodrome as h, race_wagers as w, pastimes::{Game, LAP}};
     use crate::realm::{Spoil, Spoils};
     let empty=BTreeMap::new();
     let input=|x,y,fire|BTreeMap::from([(1,Input{aim_x:x,aim_y:y,fire,..Default::default()})]);
-    // The folk, the booth and the plots answer the interact key; the race answers F.
     let meet=|x,y|BTreeMap::from([(1,Input{aim_x:x,aim_y:y,interact:true,..Default::default()})]);
     let go=|r:&mut Run,k,at|r.arrive(room_of(&r.dungeon,k).unwrap(),at);
     run.players.retain(|&id,_|id==1);
     run.home.countryside=c::Country::default();
     run.marks.clear();
-    // Road adjacency, free inspection objectives and four-knight arrival fans.
     for kind in h::PLACES {
         let r=&run.dungeon.rooms[room_of(&run.dungeon,kind).unwrap()];
         assert!(r.kind.in_world());assert!(r.doors.iter().any(|&d|d));
@@ -32,7 +29,6 @@ fn hippodrome_adventure_regression(mut run: Run) {
             for y in fan.1..fan.1+fan.3 {for x in fan.0..fan.0+fan.2 {assert!(matches!(r.tile(x,y),Tile::Floor|Tile::Door|Tile::Stairs),"{kind:?} fan {side} at {x},{y}");}}
         }
     }
-    // Commission gating, unordered collection, live HUD and once-only payment.
     for &(k,p,_) in &h::PARTS {go(&mut run,k,p);run.step(&meet(0,0));}
     assert_eq!(h::progress(&run.home.countryside,&run.marks),(0,0));
     go(&mut run,RoomKind::Wheelwright,h::MECHANIC);run.step(&meet(0,0));
@@ -46,7 +42,6 @@ fn hippodrome_adventure_regression(mut run: Run) {
     assert_eq!((treasury.get(Spoil::Gold),treasury.get(Spoil::Ore)),(85,2));
     let paid=treasury.clone();assert!(!c::settle(&mut country,&mut treasury,&run.marks).0);assert_eq!(treasury,paid);
     run.home.countryside=country;run.marks.clear();
-    // Insufficient build, exact price, two-way authored transport and retries.
     let plot=&c::PLOTS[h::PLOT];let mut build=BTreeMap::from([("country:build:racecoach".into(),1)]);
     c::settle(&mut run.home.countryside,&mut treasury,&build);assert!(!run.home.countryside.has(h::PLOT));
     treasury.add(Spoil::Gold,120);treasury.add(Spoil::Bone,4);treasury.add(Spoil::Ore,2);
@@ -58,8 +53,6 @@ fn hippodrome_adventure_regression(mut run: Run) {
         let e=entrance(id);go(&mut run,e.room,(18.0,8.0));take(&mut run,e);assert_eq!(run.room().kind,k);
     }
     assert_eq!(plot.room,RoomKind::Hippodrome);
-    // Free practice: full actual input journey, neutral rivals, hazards and
-    // owner-only F. Arrows steer the chariot while the knight stays on foot.
     go(&mut run,RoomKind::Hippodrome,Game::Chariot.start());run.step(&empty);
     assert_eq!(run.pastimes.round.as_ref().unwrap().game,Game::Chariot);
     let mut saved_mid=false;let mut hit_cabbage=false;
@@ -90,13 +83,9 @@ fn hippodrome_adventure_regression(mut run: Run) {
     go(&mut run,RoomKind::Hippodrome,Game::Chariot.start());run.step(&empty);
     if run.pastimes.round.is_none(){go(&mut run,RoomKind::Hippodrome,(12.0,7.0));run.step(&empty);go(&mut run,RoomKind::Hippodrome,Game::Chariot.start());run.step(&empty);}
     run.players.get_mut(&1).unwrap().stone=true;run.step(&empty);assert!(run.pastimes.round.is_none());run.players.get_mut(&1).unwrap().stone=false;
-    // Spectator wagers: insufficient funds, paid ticket, interruption/resume,
-    // rejected values, win and loss, saved result, and idempotent settlement.
     go(&mut run,RoomKind::Hippodrome,h::BOOTH);run.home.countryside.wager_mask=0;run.home.countryside.wager_tickets=[0;3];run.marks.clear();run.treasury=Spoils::default();
     run.step(&meet(0,-1));assert!(run.pastimes.wager.is_none());assert!(!run.marks.contains_key(h::WAGER_MARKS[0]));
     run.step(&empty);run.treasury.add(Spoil::Gold,30);
-    // An idle first knight does not monopolize the shared booth, and E here
-    // cannot also pick up the square wheel on the far side of the aisle.
     let friend=run.players[&1].clone();run.players.insert(2,friend);
     run.step(&BTreeMap::from([(2,Input{aim_y:-1,interact:true,..Default::default()})]));
     assert_eq!(run.pastimes.wager_owner,Some(2));
@@ -110,7 +99,6 @@ fn hippodrome_adventure_regression(mut run: Run) {
     go(&mut run,RoomKind::Hippodrome,h::BOOTH);run.step(&meet(1,0));assert_eq!(run.pastimes.wager.as_ref().unwrap().pick,1,"paid selection is locked");
     for _ in 0..w::HEAT_TICKS {run.step(&empty);}
     assert!(run.marks.contains_key(h::WAGER_MARKS[3]));assert!(run.pastimes.wager.is_none());
-    // The run's own draw decides the heat; the finish mark carries it.
     let first=w::finished(0,run.marks[h::WAGER_MARKS[3]]);
     assert_eq!(first,w::winner(w::draw(run.seed,run.raid_id,0)));
     let after_first=20+if first==1 {w::RETURN} else {0};
@@ -133,7 +121,6 @@ fn hippodrome_adventure_regression(mut run: Run) {
 #[test]
 fn wager_heats_are_drawn_from_the_run_not_fixed() {
     use super::super::race_wagers as w;
-    // The same run always draws the same heat; different runs differ.
     let winners: std::collections::BTreeSet<u8> =
         (0..24u64).map(|seed| w::winner(w::draw(seed, 7, 0))).collect();
     assert_eq!(winners.len(), 3, "every rival wins heat one somewhere");
@@ -143,13 +130,11 @@ fn wager_heats_are_drawn_from_the_run_not_fixed() {
             assert!(w::draw(seed, 7, heat) < 3);
         }
     }
-    // The drawn race and its result agree: the winner leads at the line.
     for draw in 0..3 {
         let first = w::winner(draw);
         assert!((0..3).all(|r| r == first
             || w::distance(draw, r, w::HEAT_TICKS) < w::distance(draw, first, w::HEAT_TICKS)));
     }
-    // A finish from an older save settles as the fixed race did.
     assert_eq!(w::finished(1, 1), w::winner(1));
     assert_eq!(w::finished(1, 4), 2);
 }

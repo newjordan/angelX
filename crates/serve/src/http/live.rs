@@ -9,8 +9,6 @@ use std::time::{Duration, Instant};
 pub const MAX_FILE: usize = 2 * 1024 * 1024;
 const MAX_FILES: usize = 256;
 const MAX_BYTES: usize = 64 * 1024 * 1024;
-/// After actual socket delivery, allow bounded clients time to fetch media.
-/// A queued/writing event retains its own lease independently of this window.
 const DELIVERY_WINDOW: Duration = Duration::from_secs(3);
 
 pub struct LiveAsset {
@@ -37,8 +35,6 @@ impl PartialEq for LiveAsset {
 }
 impl Eq for LiveAsset {}
 impl LiveAsset {
-    /// The caller supplies the SHA-256 identity computed by its immutable
-    /// capture. 192 bits fit legacy 64-byte sound names with an extension.
     pub fn prepare(
         identity: &str,
         extension: &str,
@@ -118,7 +114,6 @@ impl std::fmt::Debug for LiveAssets {
     }
 }
 impl LiveAssets {
-    /// Atomic capacity/collision admission, before the caller commits effects.
     pub fn admit(&self, assets: &[Arc<LiveAsset>]) -> io::Result<()> {
         let mut held = self.0.lock().unwrap_or_else(|p| p.into_inner());
         retire(&mut held, Instant::now());

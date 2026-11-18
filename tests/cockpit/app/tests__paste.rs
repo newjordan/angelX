@@ -102,12 +102,6 @@ fn paste_is_refused_once_the_draft_already_reaches_the_cap() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Ctrl-V clipboard ingress
-// ---------------------------------------------------------------------------
-
-/// A real 2x2 PNG on disk for a fake clipboard tool to `cat`, so the bytes go
-/// through the same admission `/see` uses. Removed on drop, panic included.
 struct PngFixture {
     path: PathBuf,
 }
@@ -135,7 +129,6 @@ impl PngFixture {
         Self { path }
     }
 
-    /// `sh -c` argv that copies this PNG to stdout.
     fn read_argv(&self) -> Vec<String> {
         vec!["-c".to_string(), format!("cat {}", self.path.display())]
     }
@@ -155,12 +148,10 @@ fn shell(argv: &[&str]) -> Vec<String> {
     argv.iter().map(|arg| arg.to_string()).collect()
 }
 
-/// A clipboard offering `png` as its only image type (no text behind it).
 fn screenshot_clipboard(png: &PngFixture) -> ClipboardPaste {
     ClipboardPaste::with_local("/bin/sh", vec![png.read_argv()], vec![fail_argv()])
 }
 
-/// A clipboard offering no image type and this text.
 fn text_clipboard(text: &str) -> ClipboardPaste {
     let read = format!("printf '%s' '{text}'");
     ClipboardPaste::with_local(
@@ -170,11 +161,7 @@ fn text_clipboard(text: &str) -> ClipboardPaste {
     )
 }
 
-/// A fake clipboard tool held open until the test opens its gate file, so a read
-/// is genuinely in flight while the test keeps typing. The spin is bounded, so a
-/// panicking test leaves no spinner behind.
 struct GatedFixture {
-    /// Held so the PNG fixture file outlives the script that `cat`s it.
     _png: PngFixture,
     gate: PathBuf,
     argv: Vec<String>,
@@ -206,7 +193,6 @@ impl GatedFixture {
         std::fs::write(&self.gate, b"go").expect("open the gate");
     }
 
-    /// The clipboard the app reads while the gate is closed.
     fn clipboard(&self) -> ClipboardPaste {
         ClipboardPaste::with_local("/bin/sh", vec![self.argv.clone()], vec![fail_argv()])
     }
@@ -232,7 +218,6 @@ fn type_text(app: &mut crate::App, text: &str) {
     }
 }
 
-/// Poll until `probe` answers, then fail loudly instead of hanging.
 fn wait_for<T>(what: &str, mut probe: impl FnMut() -> Option<T>) -> T {
     for _ in 0..600 {
         if let Some(value) = probe() {
@@ -243,7 +228,6 @@ fn wait_for<T>(what: &str, mut probe: impl FnMut() -> Option<T>) -> T {
     panic!("{what} never happened");
 }
 
-/// Drive the real drain path (`App::advance`) until `done`.
 fn advance_until(app: &mut crate::App, what: &str, mut done: impl FnMut(&crate::App) -> bool) {
     for _ in 0..600 {
         app.advance();
@@ -265,7 +249,6 @@ fn stage_one(app: &mut crate::App, what: &str) {
     advance_until(app, what, |app| app.clipboard_paste.staged_len() > before);
 }
 
-/// Operator turns appended after `baseline` (the seed history is not a turn).
 fn sent_turns(app: &crate::App, baseline: usize) -> Vec<&ChatMsg> {
     app.history[baseline..]
         .iter()
@@ -273,7 +256,6 @@ fn sent_turns(app: &crate::App, baseline: usize) -> Vec<&ChatMsg> {
         .collect()
 }
 
-/// Attachments on the oldest accepted operator turn (ownership checks).
 fn accepted_images(app: &crate::App, baseline: usize) -> usize {
     sent_turns(app, baseline)[0].attachments.len()
 }
@@ -282,7 +264,6 @@ fn accepted_image_bytes(app: &crate::App, baseline: usize) -> u64 {
     crate::ui::clipboard::decoded_bytes(&sent_turns(app, baseline)[0].attachments[0])
 }
 
-/// The transcript receipt for the newest clipboard failure.
 fn failure_receipt(app: &crate::App) -> String {
     app.messages
         .iter()
@@ -293,9 +274,6 @@ fn failure_receipt(app: &crate::App) -> String {
         .to_string()
 }
 
-/// The composer caption for the staged images. Asserted without the leading
-/// glyph: a terminal may spend two cells on it, and the count/bytes are the
-/// contract.
 fn expected_chip(app: &crate::App) -> String {
     let bytes = crate::ui::media::format_bytes(app.clipboard_paste.staged_bytes());
     match app.clipboard_paste.staged_len() {
@@ -327,12 +305,10 @@ fn ctrl_v_stages_a_screenshot_that_rides_the_next_turn() {
     );
     assert!(app.thinking.is_none(), "attaching an image is not a turn");
 
-    // The attachment is visible on the composer chrome.
     let painted = render_app_text(&mut app, 120, 40);
     assert!(painted.contains(&expected_chip(&app)), "{painted}");
     assert!(painted.contains("Esc clears"), "{painted}");
 
-    // A question typed after attaching keeps both.
     type_text(&mut app, "what is this?");
     app.submit();
 
@@ -435,7 +411,6 @@ fn a_second_ctrl_v_while_reading_does_not_start_a_second_read() {
         app.clipboard_paste.has_staged()
     });
 
-    // Two reads of the same clipboard would stage two images.
     assert_eq!(app.clipboard_paste.staged_len(), 1);
 }
 
@@ -459,8 +434,6 @@ fn a_missing_clipboard_tool_is_reported_and_recoverable() {
     assert!(receipt.contains("not installed"), "{receipt}");
     assert!(!app.clipboard_paste.has_staged());
 
-    // Recovery is ordinary use: the operator's text still sends, alone, and a
-    // later Ctrl-V against a working tool stages normally (no auto-send).
     type_text(&mut app, "no image after all");
     app.submit();
     let turns = sent_turns(&app, baseline);
@@ -577,7 +550,6 @@ fn a_wedged_clipboard_tool_is_killed_and_reaped() {
     );
     assert!(!app.clipboard_paste.loading(), "Ctrl-V is usable again");
 
-    // The next read is a fresh, bounded read rather than an orphaned retry.
     app.on_key(ctrl_v());
     assert!(app.clipboard_paste.loading());
     advance_until(&mut app, "settle the retry", |app| {
@@ -629,7 +601,6 @@ fn staged_screenshot_survives_local_commands_and_esc_removes_it() {
 
     stage_one(&mut app, "stage the screenshot");
 
-    // A display-only command is not the screenshot's send.
     type_text(&mut app, "/status");
     app.submit();
     assert!(
@@ -637,7 +608,6 @@ fn staged_screenshot_survives_local_commands_and_esc_removes_it() {
         "a local command must not consume the attachment"
     );
 
-    // Esc removes the image while keeping the typed draft.
     type_text(&mut app, "keep my words");
     press(&mut app, KeyCode::Esc);
     assert!(!app.clipboard_paste.has_staged());
@@ -685,8 +655,6 @@ fn an_open_modal_or_focused_shell_keeps_ctrl_v_for_itself() {
     app.input = "draft".to_string();
     app.cursor = app.input.chars().count();
 
-    // A focus flag with no live pane behind it is stale and hands keys back
-    // to the composer, so ownership is proven against a real shell (^G).
     if super::pty_available() {
         let _shell = TestEnvGuard::set("SHELL", "/bin/sh");
         let ctrl_g = KeyEvent::new(KeyCode::Char('g'), KeyModifiers::CONTROL);
@@ -716,7 +684,6 @@ fn an_open_modal_or_focused_shell_keeps_ctrl_v_for_itself() {
         "an open agent menu owns Ctrl-V until it is dismissed"
     );
 
-    // Ctrl-V still belongs to the composer once nothing else owns input.
     app.agent_menu = None;
     app.on_key(ctrl_v());
     advance_until(&mut app, "stage the screenshot", |app| {
@@ -770,8 +737,6 @@ fn an_image_only_message_steers_with_the_default_question() {
 fn a_later_paste_never_retrofits_an_accepted_turn() {
     let _guard = env_lock();
     let mut app = seed_preview_app();
-    // Different raster sizes, so the two screenshots are distinguishable by
-    // their attachment payload and not only by count.
     let first = PngFixture::new_sized("first-image", 2);
     let second = PngFixture::new_sized("second-image", 3);
     app.clipboard_paste = screenshot_clipboard(&first);
@@ -785,7 +750,6 @@ fn a_later_paste_never_retrofits_an_accepted_turn() {
     assert_eq!(accepted_images(&app, baseline), 1);
     assert_eq!(accepted_image_bytes(&app, baseline), first_bytes);
 
-    // A new paste while the turn runs belongs to the *next* message.
     app.clipboard_paste = screenshot_clipboard(&second);
     stage_one(&mut app, "stage the second screenshot");
     let second_bytes = app.clipboard_paste.staged_bytes();
@@ -820,7 +784,7 @@ fn a_canceled_parked_turn_restores_its_images_and_draft() {
     let mut app = seed_preview_app();
     let png = PngFixture::new("cancel");
     app.clipboard_paste = screenshot_clipboard(&png);
-    app.submit_deferral = true; // park the turn so nothing has launched
+    app.submit_deferral = true;
 
     stage_one(&mut app, "stage the screenshot");
     type_text(&mut app, "hold this");
@@ -905,7 +869,6 @@ fn a_project_boundary_drops_staged_screenshots() {
     );
 }
 
-/// Wait for a canceled read's tool to be reaped.
 fn assert_reaped(pid: u32, what: &str) {
     for _ in 0..600 {
         if !crate::ui::clipboard::process_is_running(pid) {
@@ -920,7 +883,6 @@ fn assert_reaped(pid: u32, what: &str) {
 fn clearing_cancels_an_in_flight_read() {
     let _guard = env_lock();
     let mut app = seed_preview_app();
-    // The fake tool is held open by its gate, so only a real cancel ends it.
     let gated = GatedFixture::new("clear-cancel");
     app.clipboard_paste = gated.clipboard();
 
@@ -991,7 +953,6 @@ fn cancel_restores_only_the_pasted_screenshot_not_the_see_attachment() {
         "only the pasted screenshot is staged again; /see is rebuilt from the draft"
     );
 
-    // Resubmitting reconstructs the /see image without duplicating it.
     press(&mut app, KeyCode::Enter);
     let parked = app.pending_turn.as_ref().expect("the turn parked again");
     assert_eq!(

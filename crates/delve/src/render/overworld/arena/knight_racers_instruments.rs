@@ -33,19 +33,17 @@ mod law_proof;
 #[cfg(test)]
 #[path = "knight_racers_game/feel_proof.rs"]
 mod feel_proof;
+#[cfg(test)]
+#[path = "knight_racers_game/port_proof.rs"]
+mod port_proof;
 
 #[cfg(test)]
 pub(super) use camera::chase;
 pub(super) use camera::shot;
-/// The feel marks (plumes, sparks, dust, streaks, the boost's vignette) painted over the raster,
-/// under the instruments.
 pub(super) use fx::draw as feel;
 pub(in super::super) use garage::garage;
 
-/// Paint the instruments and the race's moments for `seat` over the picture.
-/// `depth` is the raster's depth buffer, so a tag never floats over a crest.
 pub(super) fn instruments(im: &mut Img, race: &rules::Session, car: &rules::Car, seat: u32, view: &View3, depth: &[f32]) {
-    // A menu over the race (the title, the modes, the courses) has the screen to itself.
     if ui::overlay(im, race, seat) { return; }
     let clocks = state::observe(race);
     let order = state::standings(race);
@@ -55,5 +53,4 @@ pub(super) fn instruments(im: &mut Img, race: &rules::Session, car: &rules::Car,
     ui::ghost(im, race, car, seat, view, depth);
 }
 
-/// A whole screen that takes the place of the race frame: pod select, garage, records, podium.
 pub(super) fn screens(race: &rules::Session, focus: Option<u32>) -> Option<Img> { ui::full(race, focus) }

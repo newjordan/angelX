@@ -168,7 +168,6 @@ impl Rng {
             ),
         }
     }
-    /// `v` with a few edits: a swapped subtree, a grown or shrunk array, a changed key set.
     fn edit(&mut self, v: &Value) -> Value {
         match v {
             Value::Array(items) if self.below(4) != 0 => {
@@ -336,7 +335,6 @@ impl Fixture {
     fn host(&self) -> System {
         System::watch("resident", self.root.join("worker"), Duration::from_secs(5)).unwrap()
     }
-    /// The worker's journal, one object per request it served, after the prepare.
     fn served(&self) -> Vec<Value> {
         let text = fs::read_to_string(&self.journal).unwrap_or_default();
         text.lines()
@@ -363,7 +361,6 @@ fn start() -> Value {
 fn ok(_: &Value) -> Result<(), String> {
     Ok(())
 }
-/// Applies until the first generation is active; the state it answers.
 fn warm(host: &mut System, state: Value) -> Value {
     let deadline = std::time::Instant::now() + Duration::from_secs(8);
     loop {
@@ -397,7 +394,6 @@ fn a_resident_worker_is_sent_deltas_in_bj1() {
     assert_eq!(f.served()[2]["keys"], json!(["delta", "event"]));
     assert_eq!(f.served()[2]["delta"], json!([]));
 
-    // Nothing changed on the host: nothing is sent but the event.
     let (next, out) = host.apply(state.clone(), json!({"add":2}), ok).unwrap();
     assert_eq!(last_apply(&f)["delta"], json!([]));
     assert_eq!(
@@ -408,7 +404,6 @@ fn a_resident_worker_is_sent_deltas_in_bj1() {
     assert_eq!(out["applies"], 2);
     state = next;
 
-    // The host moved a float, a u64 and an int itself, between ticks.
     state["pos"]["x"] = json!(0.1f32);
     state["tick"] = json!((1u64 << 40) + 5);
     state["neg"] = json!(-5);
@@ -447,7 +442,6 @@ fn any_error_reseeds_the_worker_before_the_next_delta() {
         f.methods().into_iter().rev().take(2).collect::<Vec<_>>() == ["apply", "restore"]
     };
 
-    // Ops that cannot apply; a worker error; a host that refuses the stepped state.
     for bad in 0..3 {
         let result = match bad {
             0 => host.apply(state.clone(), json!({"bad":1}), ok),
@@ -470,7 +464,6 @@ fn any_error_reseeds_the_worker_before_the_next_delta() {
                 .unwrap()
                 .contains(r#""name":"kn"#)
         );
-        // And the delta path is back.
         host.apply(next, json!({"add":1}), ok).unwrap();
         assert_eq!(f.methods().last().unwrap(), "apply");
         assert_eq!(f.methods().iter().rev().nth(1).unwrap(), "apply");

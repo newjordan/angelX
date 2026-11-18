@@ -128,7 +128,6 @@ fn verifier_runs_a_real_cargo_gate_inside_the_mandatory_sandbox() {
             &head,
             &[CommandSpec {
                 label: "cargo",
-                // Compiler scratch belongs to the confined verifier checkout.
                 command: "mkdir -p target/tmp && TMPDIR=\"$PWD/target/tmp\" cargo test --quiet",
                 marker: None,
             }],

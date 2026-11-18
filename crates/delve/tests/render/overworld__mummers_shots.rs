@@ -1,4 +1,3 @@
-// Extends the established write_world_shots exporter: includes HUD collision checks.
 fn mummers_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
     use crate::rules::{Input, mummers as m, countryside as c,
         pastimes::{Game, Halfpipe, LIP_OPEN, FLIGHT_TICKS}, world};
@@ -32,7 +31,6 @@ fn mummers_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
         no_hud_overlap(&r);
         save(&format!("{name}.png"),&native(&r));
     }
-    // Launch through real input, not a fabricated flight state.
     let mut r=run.clone();
     r.arrive(world::room_of(&r.dungeon,RoomKind::Mummers).unwrap(),Game::Halfpipe.start());
     no_hud_overlap(&r);
@@ -61,7 +59,6 @@ fn mummers_world_shots(run: &Run, save: &impl Fn(&str, &Img)) {
     assert_eq!(r.home.countryside.games.halfpipe.wins,1);
     assert!(r.pastimes.round.is_none());
     save("world-halfpipe-medal.png",&native(&r));
-    // Replays and failure are visible and do not turn into multiple awards.
     r.arrive(world::room_of(&r.dungeon,RoomKind::Mummers).unwrap(),(6.0,7.0));
     r.step(&empty);
     r.arrive(world::room_of(&r.dungeon,RoomKind::Mummers).unwrap(),Game::Halfpipe.start());

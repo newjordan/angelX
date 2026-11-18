@@ -36,8 +36,6 @@
                 shooter::world::room_of(&run.dungeon, shooter::RoomKind::SquireBarracks).unwrap(),
                 (12.0, 10.0),
             );
-            // The realm's unrelated surface is authoritative, not this older
-            // run copy. Persisting a company must not replace the whole home.
             run.home.goblins = 0;
             realm.save().unwrap();
             app.dungeon.realm = Some(realm);
@@ -242,7 +240,7 @@
             let cost = f.request(1, action);
             let bytes = std::fs::read(f.path()).unwrap();
             std::fs::remove_file(f.path()).unwrap();
-            std::fs::create_dir(f.path()).unwrap(); // atomic rename must fail
+            std::fs::create_dir(f.path()).unwrap();
             assert!(!f.app.settle_home(), "action {action}");
             assert_eq!(f.gold(), before, "no gold lost for action {action}");
             assert_eq!(f.app.dungeon.realm.as_ref().unwrap().home.squire_company, company);
@@ -276,8 +274,6 @@
             let realm = f.app.dungeon.realm.as_mut().unwrap();
             realm.treasury = Default::default();
             realm.save().unwrap();
-            // The run still sees its old, rich treasury. Only the realm's
-            // live balance can authorize payment.
             f.request(1, action);
             assert!(f.app.settle_home());
             assert_eq!(f.gold(), 0);

@@ -14,14 +14,10 @@ use crate::agent::harness::book::d45_iteration::{BRIEF, BRIEF_BENCHMARK};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Whole-brief ceiling in characters.
 pub(crate) const BRIEF_MAX_CHARS: usize = 7_000;
-/// A loop's first iteration waits this long for its brief, then starts without it.
 pub(crate) const BRIEF_WAIT_SECS: u64 = 20;
-/// Age at which a live run gathers a fresh brief (in the background).
 pub(crate) const BRIEF_REFRESH_MS: u64 = 2 * 60 * 60 * 1000;
 const PROBE_SECS: u64 = 5;
-/// Filesystem entries visited while mapping the workspace.
 const WALK_LIMIT: usize = 20_000;
 const WALK_DEPTH: usize = 3;
 const REPOS_SHOWN: usize = 8;
@@ -32,7 +28,6 @@ const COMMITS_SHOWN: usize = 8;
 const TRACK_TEXT_CHARS: usize = 400;
 const SCORE_TEXT_CHARS: usize = 240;
 
-/// Directories that are build output, caches or vendored environments.
 const SKIP_DIRS: [&str; 12] = [
     ".git",
     "target",
@@ -48,7 +43,6 @@ const SKIP_DIRS: [&str; 12] = [
     ".cache",
 ];
 
-/// Files that say how a project is built, run or benchmarked.
 const ENTRY_POINTS: [&str; 14] = [
     "benchmark.sh",
     "bench.sh",
@@ -66,8 +60,6 @@ const ENTRY_POINTS: [&str; 14] = [
     "go.mod",
 ];
 
-/// Whether loops gather a brief. On by default; `ANGEL_LOOP_BRIEF=0` turns it
-/// off. Unit tests opt in explicitly so they never probe the host.
 pub(crate) fn enabled() -> bool {
     #[cfg(test)]
     {
@@ -79,8 +71,6 @@ pub(crate) fn enabled() -> bool {
     }
 }
 
-/// Gather the brief for `workspace`. Blocking: shell probes and a bounded
-/// filesystem walk. Never fails; an unanswered probe is reported as such.
 pub(crate) fn gather(workspace: &Path) -> String {
     let now = now_secs();
     let walk = walk(workspace);
@@ -93,18 +83,14 @@ pub(crate) fn gather(workspace: &Path) -> String {
     clip(&out, BRIEF_MAX_CHARS)
 }
 
-/// A brief label: its page address on `⠘⠛` (headings, the workspace map).
 fn label(page: char) -> String {
     format!("{}{page}", BRIEF.cells())
 }
 
-/// A benchmark card label: its page address on `⠘⠓`.
 fn card_label(page: char) -> String {
     format!("{}{page}", BRIEF_BENCHMARK.cells())
 }
 
-/// Append `body` under the heading on page `heading` of `⠘⠛`, clipped at a
-/// line boundary to `max` chars so one long section never crowds out the rest.
 fn section(out: &mut String, heading: char, body: &str, max: usize) {
     let body = clip_lines(body.trim_end(), max);
     if body.is_empty() {
@@ -118,8 +104,6 @@ fn section(out: &mut String, heading: char, body: &str, max: usize) {
     out.push_str(&body);
     out.push('\n');
 }
-
-// --- machine -----------------------------------------------------------------
 
 fn machine(workspace: &Path, walk: &Walk) -> String {
     let mut lines = gpu_lines(workspace);
@@ -153,7 +137,6 @@ fn gpu_lines(workspace: &Path) -> Vec<String> {
         workspace,
     );
     if let Some(csv) = query {
-        // `CUDA Version:` on older drivers, `CUDA UMD Version:` on newer ones.
         let cuda = probe("nvidia-smi", &[], workspace).and_then(|table| {
             let (_, rest) = table
                 .split_once("CUDA Version:")
@@ -191,12 +174,6 @@ fn gpu_lines(workspace: &Path) -> Vec<String> {
     vec!["GPU: none reported (nvidia-smi and rocm-smi did not answer)".to_string()]
 }
 
-/// Where a CUDA compiler lives. The PATH answer first, then every usual
-/// install place: `CUDA_HOME`/`CUDA_PATH`, `/usr/local/cuda*`, `/opt/cuda`,
-/// conda, toolkits unpacked under `/tmp` (earlier runs have done that), and
-/// `nvcc`/`ptxas` inside the workspace's own environments. A pip
-/// `nvidia-cuda-nvcc` wheel ships `ptxas` but no `nvcc`; saying so saves the
-/// hunt.
 fn cuda_compiler_lines(workspace: &Path, walk: &Walk) -> Vec<String> {
     let on_path = which("nvcc");
     let mut candidates: Vec<PathBuf> = Vec::new();
@@ -282,8 +259,6 @@ fn cuda_compiler_lines(workspace: &Path, walk: &Walk) -> Vec<String> {
     lines
 }
 
-/// `<dir>/<child>/<tail>` for every child of `dir` whose name starts with
-/// `prefix` (all children for an empty prefix), newest name first.
 fn children_with(dir: impl AsRef<Path>, prefix: &str, tail: &str) -> Vec<PathBuf> {
     let Ok(entries) = std::fs::read_dir(dir.as_ref()) else {
         return Vec::new();
@@ -322,8 +297,6 @@ fn toolchains(workspace: &Path) -> Vec<String> {
         .collect()
 }
 
-/// The first dotted version in a `--version` line (`rustc 1.95.0 (…)`,
-/// `v24.1.0`, `go1.24.1`).
 fn version_token(line: &str) -> Option<String> {
     line.split_whitespace().find_map(|token| {
         let token = token.trim_start_matches(|c: char| !c.is_ascii_digit());
@@ -363,8 +336,6 @@ fn disk_free(workspace: &Path) -> Option<String> {
         .map(str::to_string)
 }
 
-// --- benchmark ---------------------------------------------------------------
-
 fn benchmark(workspace: &Path, walk: &Walk, now: u64) -> String {
     let mut specs: Vec<&WalkEntry> = walk
         .entries
@@ -372,7 +343,6 @@ fn benchmark(workspace: &Path, walk: &Walk, now: u64) -> String {
         .filter(|entry| !entry.dir && entry.depth <= 2 && entry.name() == "benchmark.json")
         .collect();
     specs.sort_by_key(|entry| entry.depth);
-    // Clones of one challenge carry the same spec: one card, with its copies.
     let mut groups: Vec<(String, Vec<PathBuf>)> = Vec::new();
     for spec in specs {
         let text = std::fs::read_to_string(workspace.join(&spec.rel)).unwrap_or_default();
@@ -388,8 +358,6 @@ fn benchmark(workspace: &Path, walk: &Walk, now: u64) -> String {
     out.join("\n")
 }
 
-/// One `benchmark.json` (a board's benchmark spec) as prompt lines;
-/// `copies` are the workspace paths holding this same spec, shallowest first.
 fn benchmark_card(workspace: &Path, copies: &[PathBuf], now: u64) -> Vec<String> {
     let Some(rel) = copies.first() else {
         return Vec::new();
@@ -479,7 +447,6 @@ fn benchmark_card(workspace: &Path, copies: &[PathBuf], now: u64) -> Vec<String>
         }
         let score = field("scorePath");
         if !score.is_empty() {
-            // The newest score file across every copy of this spec.
             let newest = copies
                 .iter()
                 .map(|copy| {
@@ -513,7 +480,6 @@ fn command_text(value: &serde_json::Value) -> Option<String> {
         .collect();
     match parts[..] {
         [] => None,
-        // ["bash", "-lc", "<script>"] reads as the script itself.
         [_, flag, script] if flag.starts_with('-') && flag.ends_with('c') => {
             Some(script.to_string())
         }
@@ -540,13 +506,10 @@ fn display_dir(dir: &Path) -> String {
     }
 }
 
-// --- workspace ---------------------------------------------------------------
-
 struct WalkEntry {
     rel: PathBuf,
     depth: usize,
     dir: bool,
-    /// A directory with its own `.git`.
     repo: bool,
     bytes: u64,
     modified: u64,
@@ -566,8 +529,6 @@ struct Walk {
     truncated: bool,
 }
 
-/// Breadth-first, `WALK_DEPTH` deep, at most `WALK_LIMIT` entries. Hidden and
-/// build/vendor directories are not entered; symlinks are listed, not followed.
 fn walk(root: &Path) -> Walk {
     let mut entries = Vec::new();
     let mut queue = std::collections::VecDeque::from([(PathBuf::new(), 0usize)]);
@@ -630,8 +591,6 @@ fn workspace_map(workspace: &Path, walk: &Walk) -> String {
     }
     lines.push(label('⠓'));
     lines.extend(top_level(walk).into_iter().map(|line| format!("  {line}")));
-    // One line per build file name, with the directories that carry it
-    // (clones of one challenge all carry the same `benchmark.sh`).
     let mut entry_points: Vec<(String, Vec<String>)> = Vec::new();
     for entry in walk
         .entries
@@ -693,9 +652,6 @@ fn root_line(workspace: &Path) -> String {
     format!("{}: git {branch} at {head}{dirty}", workspace.display())
 }
 
-/// Top-level directories, with runs of four or more same-prefix siblings
-/// (`bench-iteration1`, `bench-iteration2`, …) folded into one line. Loose
-/// files are listed when few, else counted by type with the largest named.
 fn top_level(walk: &Walk) -> Vec<String> {
     const LOOSE_FILES_LISTED: usize = 8;
     let top: Vec<&WalkEntry> = walk
@@ -707,8 +663,6 @@ fn top_level(walk: &Walk) -> Vec<String> {
             !(name.starts_with('.') || entry.dir && SKIP_DIRS.contains(&name.as_str()))
         })
         .collect();
-    // `bench-iteration7` → `bench-`, `run12` → `run`: up to and including
-    // the first separator, or up to the first digit.
     let prefix = |name: &str| -> String {
         match name.find(|c: char| c == '-' || c == '_' || c == '.' || c.is_ascii_digit()) {
             Some(at) if name[at..].starts_with(|c: char| c.is_ascii_digit()) => {
@@ -792,8 +746,6 @@ fn top_level(walk: &Walk) -> Vec<String> {
     lines
 }
 
-// --- notes and history -------------------------------------------------------
-
 fn notes(walk: &Walk, now: u64) -> String {
     let mut notes: Vec<&WalkEntry> = walk
         .entries
@@ -837,8 +789,6 @@ fn commits(workspace: &Path) -> String {
     .unwrap_or_default()
 }
 
-// --- helpers -----------------------------------------------------------------
-
 fn probe(program: &str, args: &[&str], cwd: &Path) -> Option<String> {
     crate::platform::workspace_store::capture_repo_probe(program, args, cwd, PROBE_SECS)
 }
@@ -872,7 +822,6 @@ fn size(bytes: u64) -> String {
     }
 }
 
-/// Compact "how long ago" (`just now`, `12 min ago`, `3 h ago`, `2 days ago`).
 pub(crate) fn age(now: u64, then: u64) -> String {
     let secs = now.saturating_sub(then);
     match secs {
@@ -884,7 +833,6 @@ pub(crate) fn age(now: u64, then: u64) -> String {
     }
 }
 
-/// Whole lines of `text` up to `max` chars, noting how many were left out.
 fn clip_lines(text: &str, max: usize) -> String {
     if text.chars().count() <= max {
         return text.to_string();

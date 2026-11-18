@@ -94,8 +94,6 @@ impl Request {
         else { Err("invalid retained ability request".into()) }
     }
 }
-/// Outbox entries can be stale after seat/source changes and remain available
-/// for explicit retirement. Validation never guesses a replacement owner.
 pub fn validate_outbox(requests: &[Request]) -> Result<(), String> {
     if requests.len() > 16 { return Err("too many retained ability requests".into()); }
     for (i, request) in requests.iter().enumerate() {
@@ -169,8 +167,6 @@ impl Run {
         }
         Ok(())
     }
-    /// Called only after the complete batch and instance transition validate.
-    /// All operations are in-memory and infallible inside the game commit lock.
     pub fn apply_ability_commands(&mut self, commands: Vec<(u32, Origin, Command)>) {
         let barred = self.barred();
         for (player, origin, command) in commands {
@@ -242,8 +238,6 @@ impl Run {
                         }
                         match status {
                             Status::Stun { ticks } => {
-                                // Reuse ordinary stun/anti-chain behavior. A pulse
-                                // never shortens a stronger existing hold.
                                 let ticks = if enemy.is_boss() {
                                     ticks.div_ceil(3)
                                 } else {
@@ -429,7 +423,6 @@ mod tests {
         for _ in 0..20 { run.step_sim_for_test(&held); }
         assert_eq!(run.module_casts, vec![first.clone()]);
         assert_eq!(run.players[&1].spell_cooldowns[0], 1);
-        // Even a same-generation definition change is a different intent.
         run.players.get_mut(&1).unwrap().module_spells[0].as_mut().unwrap().mana = 6.0;
         run.step_sim_for_test(&held);
         assert_eq!(run.module_casts.len(), 2);

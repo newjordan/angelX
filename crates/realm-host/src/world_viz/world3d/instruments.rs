@@ -6,8 +6,6 @@ use super::math::{V3, v3};
 use super::mesh::{Mesh, mat};
 use std::f32::consts::TAU;
 
-/// The tower's scrying glass: a solid, faceted lens held by two brass rings.
-/// This is steady room furniture, not a busy indicator or simulated asset.
 pub(super) fn scrying_globe(mesh: &mut Mesh, centre: V3) {
     let (x, y) = (centre.x, centre.y);
     prim::prism(mesh, x, y, 0.0, 0.18, 0.82, 0.72, 8, 0.0, mat::STONE_DARK);
@@ -45,8 +43,6 @@ pub(super) fn scrying_globe(mesh: &mut Mesh, centre: V3) {
                 radius * latitude.sin(),
             )
     };
-    // Ten sides and five latitude bands give a round silhouette even in the
-    // narrow terminal pane, without buying a dense sphere for every frame.
     for band in 0..5 {
         let a = -std::f32::consts::FRAC_PI_2 + band as f32 * std::f32::consts::PI / 5.0;
         let b = a + std::f32::consts::PI / 5.0;
@@ -89,7 +85,6 @@ pub(super) fn telescope(mesh: &mut Mesh, base: V3, muzzle: V3) {
             mat::BRASS,
         );
     }
-    // The objective is an actual dark opening, bounded by a broad brass lip.
     let right = axis.cross(V3::UP).normalize();
     let up = axis.cross(right).normalize();
     prim::poly_fan(
@@ -147,8 +142,6 @@ fn ring(mesh: &mut Mesh, centre: V3, right: V3, up: V3, radius: f32, width: f32)
 }
 
 pub(super) fn council_map(mesh: &mut Mesh) {
-    // A parchment planning board, with a brass bezel and an abstract island.
-    // It is room dressing; actual reports and images occupy the foreground Stage.
     prim::disc(mesh, 0.0, 0.0, 0.925, 1.38, 12, 0.0, mat::PARCHMENT);
     prim::annulus(mesh, 0.0, 0.0, 0.935, 1.30, 1.47, 12, 0.0, mat::BRASS);
     prim::quad(
@@ -172,8 +165,6 @@ pub(super) fn council_map(mesh: &mut Mesh) {
     }
 }
 
-/// A low survey dial on the observatory lawn. Its four brass points and
-/// triangular gnomon are reflected scenery, never live progress or a clock.
 pub(super) fn survey_dial(mesh: &mut Mesh) {
     prim::prism(
         mesh,
@@ -218,8 +209,6 @@ pub(super) fn survey_dial(mesh: &mut Mesh) {
     );
 }
 
-/// A hooded bridge lantern. Steady warm glazing shares the outdoor windows'
-/// lighting; it neither flickers nor schedules another world frame.
 pub(super) fn bridge_lantern(mesh: &mut Mesh) {
     prim::boxed(
         mesh,
@@ -244,9 +233,6 @@ pub(super) fn bridge_lantern(mesh: &mut Mesh) {
     );
 }
 
-/// Tapered tube between two arbitrary points — the one primitive the
-/// architecture library has no equivalent for, because every exterior mass it
-/// builds is axis-aligned and a telescope is not.
 pub(super) fn tube(
     mesh: &mut Mesh,
     from: V3,

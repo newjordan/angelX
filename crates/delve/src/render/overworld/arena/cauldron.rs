@@ -15,21 +15,16 @@ use crate::rules::cards::Card;
 use crate::rules::cauldron::{self, Ask, Brew, Cauldron, Misfire, Outcome, Tier};
 use crate::rules::{HZ, Run};
 
-/// The pot's foot below its floor point, and its sprite's box round the
-/// foot: the sprite is drawn on its own canvas, then laid on the room.
 const FOOT: i32 = 4;
 const BOX_W: i32 = 72;
 const BOX_H: i32 = 64;
-/// Where the foot sits on that canvas.
 const ANCHOR: (i32, i32) = (36, 58);
-/// The brew's surface over the foot.
 const RIM_UP: i32 = 21;
 
 fn age(tick: u64, from: u64) -> u32 {
     tick.saturating_sub(from).min(u64::from(u32::MAX)) as u32
 }
 
-/// How hard the pot boils: a simmer at rest, rolling while a brew cooks.
 fn boil(pot: &Cauldron, tick: u64) -> f32 {
     pot.brews
         .iter()
@@ -48,7 +43,6 @@ fn boil(pot: &Cauldron, tick: u64) -> f32 {
         .fold(0.3, f32::max)
 }
 
-/// The pot's foot in room pixels, with the shake of a brew about to blow.
 fn foot(pot: &Cauldron, tick: u64) -> (i32, i32) {
     let (x, y) = at(pot.x, pot.y);
     let shake = pot.brews.iter().any(|b| {
@@ -59,8 +53,6 @@ fn foot(pot: &Cauldron, tick: u64) -> (i32, i32) {
     (x + dx, y + FOOT)
 }
 
-/// Under the knights: the light on the floor, the pot, its fire, its brew,
-/// its bubbles and steam, and the splash of a card thrown in.
 pub(super) fn under(cv: &mut Img, run: &Run) {
     let Some(pot) = run.cauldron_here() else {
         return;
@@ -77,7 +69,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
     pool(cv, &still, (fx, fy), tick, boil * risen);
     let mut sprite = Img::new(BOX_W, BOX_H);
     draw_pot(&mut sprite, tick, boil);
-    // Rising out of the floor: the pot climbs, cut off at the floor line.
     let eased = 1.0 - (1.0 - risen).powi(2);
     let sink = ((1.0 - eased) * (RIM_UP + 8) as f32).round() as i32;
     let (ox, oy) = (fx - ANCHOR.0, fy - ANCHOR.1 + sink);
@@ -99,8 +90,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Over the knights: the cards in flight, the puff, the new card risen with
-/// its name, confetti and hiccups.
 pub(super) fn over(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32)) {
     let Some(pot) = run.cauldron_here() else {
         return;
@@ -141,8 +130,6 @@ pub(super) fn over(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32)) {
     }
 }
 
-/// The pot's prompt for the seat's own knight: E to brew, the four slots
-/// to pick from, or why not.
 pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool, view: (i32, i32)) {
     let Some(pot) = run.cauldron_here() else {
         return;
@@ -153,7 +140,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool,
     let Some(ask) = run.cauldron_ask(id) else {
         return;
     };
-    // While its own brew shows, the brew speaks for the pot.
     if pot.showing(run.tick).is_some_and(|b| b.knight == id) {
         return;
     }
@@ -195,13 +181,11 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool,
                 let y = py + 3 + i as i32 * 10;
                 let x = if i == 0 || i == lines.len() - 1 { px + (w - text_width(text)) / 2 } else { px + 10 };
                 if *picked {
-                    // A drop of the brew beside what goes in.
                     cv.ellipse((px + 5) as f32 + 0.5, y as f32 + 3.5, 2.0, 2.0, 'A');
                     cv.put(px + 4, y + 2, 'Y');
                 }
                 cv.text(x, y, text, *ink);
             }
-            // The pointer down to the pot.
             for d in 0..2 {
                 cv.put(fx, py + h + d, '6');
             }
@@ -209,7 +193,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool,
     }
 }
 
-/// What the font can say of a name: its letters, digits and plain marks.
 fn say(name: &str) -> String {
     name.to_uppercase()
         .chars()
@@ -218,7 +201,6 @@ fn say(name: &str) -> String {
         .collect()
 }
 
-/// A small plate of lines over the pot.
 fn plate(cv: &mut Img, x: i32, py: i32, lines: &[&str], inks: &[char], view: (i32, i32)) {
     let w = lines.iter().map(|l| text_width(l)).max().unwrap_or(0) + 8;
     let h = lines.len() as i32 * 9 + 3;
@@ -232,9 +214,6 @@ fn plate(cv: &mut Img, x: i32, py: i32, lines: &[&str], inks: &[char], view: (i3
     }
 }
 
-/// The light the pot throws on the floor: the stone it reaches shows,
-/// warm where its fire reaches, the brew's green further out, breathing
-/// with the boil. Only what is still dark is lit: what stands keeps its ink.
 fn pool(cv: &mut Img, still: &Img, (fx, fy): (i32, i32), tick: u64, boil: f32) {
     if boil <= 0.0 {
         return;
@@ -254,9 +233,6 @@ fn pool(cv: &mut Img, still: &Img, (fx, fy): (i32, i32), tick: u64, boil: f32) {
                 continue;
             }
             let under = still.get(x, y).unwrap_or([0, 0, 0]);
-            // The stone's grain, so the light falls on a floor and not on
-            // a screen: clumps of grey stone, of what the fire warms, of
-            // what the brew greens; steps give way in soft blots (`seam`).
             let grain = vnoise(x as f32 / 3.4, y as f32 / 2.6, 91);
             let jitter = (vnoise(x as f32 / 1.2, y as f32 / 1.2, 33) - 0.5) * 1.1;
             let lit = (1.0 - d).powf(1.3) * (0.55 + 0.45 * boil) * (0.8 + 0.4 * grain);
@@ -266,7 +242,6 @@ fn pool(cv: &mut Img, still: &Img, (fx, fy): (i32, i32), tick: u64, boil: f32) {
             if step == 0 {
                 continue;
             }
-            // Warm where the fire reaches, the brew's green beyond.
             let warm = (1.0 - d / 0.5).clamp(0.0, 1.0) > th * 0.8 + 0.1;
             const WARM: [[char; 3]; 4] = [['k', 'n', 'k'], ['n', 'K', 'b'], ['b', 'X', 'I'], ['I', 'g', 'P']];
             const GREEN: [[char; 3]; 4] = [['k', 'f', 'k'], ['f', 'K', 'D'], ['D', 'X', 'F'], ['F', 'g', 'E']];
@@ -284,15 +259,10 @@ fn pool(cv: &mut Img, still: &Img, (fx, fy): (i32, i32), tick: u64, boil: f32) {
     }
 }
 
-/// The pot itself on its canvas, its foot at `ANCHOR`: three stubby legs,
-/// a small fire of two crossed logs under the belly, black iron with a dull
-/// sheen up its left and the fire's red along its underside, a riveted
-/// band, a thick lip, and the brew, rolling, with bubbles and steam.
 fn draw_pot(im: &mut Img, tick: u64, boil: f32) {
     let (ax, ay) = ANCHOR;
     let (cx, base) = (ax as f32 + 0.5, ay);
     let t = tick as u32;
-    // Two logs crossed under it, their ends glowing.
     im.line(ax - 9, base, ax + 8, base - 2, 'b');
     im.line(ax - 9, base - 1, ax + 8, base - 3, 'B');
     im.line(ax - 8, base - 3, ax + 9, base, 'b');
@@ -300,7 +270,6 @@ fn draw_pot(im: &mut Img, tick: u64, boil: f32) {
     for (ex, ey) in [(ax + 8, base - 3), (ax - 8, base - 3), (ax + 9, base)] {
         im.put(ex, ey, if (t / 5 + ex as u32) % 3 == 0 { 'o' } else { 'R' });
     }
-    // The belly.
     let (bcy, brx, bry) = ((base - 12) as f32, 14.5, 10.0);
     for y in (bcy - bry) as i32 - 1..=(bcy + bry) as i32 + 1 {
         for x in (cx - brx) as i32 - 1..=(cx + brx) as i32 + 1 {
@@ -311,14 +280,12 @@ fn draw_pot(im: &mut Img, tick: u64, boil: f32) {
                 continue;
             }
             let ink = if d > 0.86 {
-                // The outline, lit red where the fire is under it.
                 if dy > 0.6 && dx.abs() < 0.45 { 'B' } else if dy > 0.5 && dx.abs() < 0.6 { 'b' } else { 'k' }
             } else if dy > 0.72 && dx.abs() < 0.5 {
                 'b'
             } else if dy > 0.55 && dx.abs() < 0.6 {
                 'n'
             } else if dx < -0.42 && dx > -0.78 && dy > -0.62 && dy < 0.25 {
-                // The sheen: a dull band up the left of the belly.
                 if dx < -0.6 && dy > -0.45 && dy < 0.05 { 'j' } else { 'g' }
             } else if dx < -0.15 && dy < 0.35 {
                 'X'
@@ -330,7 +297,6 @@ fn draw_pot(im: &mut Img, tick: u64, boil: f32) {
             im.put(x, y, ink);
         }
     }
-    // The riveted band round the belly's shoulder.
     for x in (cx - 13.5) as i32..=(cx + 13.5) as i32 {
         let dx = (x as f32 + 0.5 - cx) / 14.5;
         let y = base - 16 + (dx * dx * 2.4).round() as i32;
@@ -341,7 +307,6 @@ fn draw_pot(im: &mut Img, tick: u64, boil: f32) {
             im.put(x, y, if dx < 0.3 { 'J' } else { 'j' });
         }
     }
-    // Three legs, the middle one behind.
     for (lx, front) in [(ax - 10, true), (ax - 1, false), (ax + 8, true)] {
         let h = if front { 5 } else { 3 };
         im.rect(lx, base - h, 3, h, 'K');
@@ -349,7 +314,6 @@ fn draw_pot(im: &mut Img, tick: u64, boil: f32) {
         im.put(lx, base - 1, 'X');
         im.put(lx + 2, base - 1, 'k');
     }
-    // The fire licking up round the belly's foot: tongues that flicker.
     for i in 0..9 {
         let x = ax - 7 + i * 2 - (i % 2);
         let mid = 1.0 - ((i - 4) as f32 / 4.5).abs();
@@ -361,14 +325,12 @@ fn draw_pot(im: &mut Img, tick: u64, boil: f32) {
             im.put(x, base - 1 - k, ink);
         }
         if i % 3 == 1 {
-            // Sparks loosed upward now and then.
             let s = (t + (i as u32) * 7) % 19;
             if s < 6 {
                 im.put(x + (s as i32 % 2), base - 3 - h - s as i32, if s < 3 { 'O' } else { 'r' });
             }
         }
     }
-    // The lip: a thick iron rim, lit along its top, darker inside.
     let ry = (base - RIM_UP) as f32;
     im.ellipse(cx, ry + 0.5, 14.0, 4.6, 'k');
     im.ellipse(cx, ry, 13.4, 4.1, 'g');
@@ -380,7 +342,6 @@ fn draw_pot(im: &mut Img, tick: u64, boil: f32) {
         im.put(x, top.round() as i32, if dx < -0.15 { 'J' } else if dx < 0.5 { 'j' } else { 'g' });
         im.put(x, bottom.round() as i32, if dx < -0.2 { 'G' } else { 'X' });
     }
-    // The brew, a deep green rolling lighter, risen a little with the boil.
     let (lrx, lry) = (11.0, 2.7);
     let ly = ry + 0.6 - boil * 0.6;
     for y in (ly - lry) as i32 - 1..=(ly + lry) as i32 + 1 {
@@ -394,7 +355,6 @@ fn draw_pot(im: &mut Img, tick: u64, boil: f32) {
                 + (y as f32 * 1.9 + x as f32 * 0.3 - tick as f32 * 0.09).cos())
                 * 0.5;
             let ink = if dy < -0.55 {
-                // The far edge, in the lip's shadow.
                 'F'
             } else if swirl > 0.75 - boil * 0.3 {
                 'A'
@@ -408,7 +368,6 @@ fn draw_pot(im: &mut Img, tick: u64, boil: f32) {
             im.put(x, y, ink);
         }
     }
-    // Bubbles: each its own beat, swelling and popping.
     let count = 4 + (boil * 8.0) as i32;
     for b in 0..count {
         let period = 12 + hash(b, 3, 11) % 12;
@@ -432,14 +391,12 @@ fn draw_pot(im: &mut Img, tick: u64, boil: f32) {
                 im.put(bx + 1, by, 'l');
             }
             _ => {
-                // Pop: flecks thrown up.
                 im.put(bx - 1, by - 2, 'y');
                 im.put(bx + 2, by - 3, 'A');
                 im.put(bx, by - 4 - (boil * 2.0) as i32, 'M');
             }
         }
     }
-    // Steam: soft puffs climbing off the brew, drifting and thinning.
     let wisps = 3 + (boil * 4.0) as i32;
     for w in 0..wisps {
         let period = 44 + hash(w, 1, 23) % 24;
@@ -467,7 +424,6 @@ fn draw_pot(im: &mut Img, tick: u64, boil: f32) {
     }
 }
 
-/// Dust thrown up as the pot shoulders out of the floor.
 fn dust(cv: &mut Img, (fx, fy): (i32, i32), age: u32) {
     let t = age as f32 / (cauldron::RISE_TICKS + 8) as f32;
     for i in 0..12 {
@@ -486,9 +442,6 @@ fn dust(cv: &mut Img, (fx, fy): (i32, i32), age: u32) {
     }
 }
 
-/// A small card face for the pot's ingredients and the new spell: a dark
-/// card, a pewter rim (pale brass for a potent brew, old gold for a
-/// perfect one), its drawing in greys.
 fn card_face(card: Option<&Card>, rim: char, (w, h): (i32, i32)) -> Img {
     let mut im = Img::new(w, h);
     im.rect(1, 1, w - 2, h - 2, 'K');
@@ -508,7 +461,6 @@ fn card_face(card: Option<&Card>, rim: char, (w, h): (i32, i32)) -> Img {
         let (ox, oy) = ((w - iw) / 2, 2 + i32::from(h >= 16) + (box_ as i32 - ih) / 2);
         for y in 0..ih {
             for x in 0..iw {
-                // The mean of what this pixel covers.
                 let (x0, x1) = ((x as f32 / k) as u32, (((x + 1) as f32 / k) as u32).min(*pw));
                 let (y0, y1) = ((y as f32 / k) as u32, (((y + 1) as f32 / k) as u32).min(*ph));
                 let (mut lit, mut cover, mut n) = (0.0f32, 0.0f32, 0.0f32);
@@ -544,7 +496,6 @@ fn rim_of(tier: Tier) -> char {
     }
 }
 
-/// The two cards arcing from the brewer into the pot.
 fn in_flight(cv: &mut Img, run: &Run, brew: &Brew, age: u32, (fx, fy): (i32, i32)) {
     let Some(hero) = run.players.get(&brew.knight) else {
         return;
@@ -566,7 +517,6 @@ fn in_flight(cv: &mut Img, run: &Run, brew: &Brew, age: u32, (fx, fy): (i32, i32
     }
 }
 
-/// Green flecks thrown up where a card hits the brew.
 fn splashes(cv: &mut Img, run: &Run, brew: &Brew, (fx, fy): (i32, i32)) {
     let a = age(run.tick, brew.at);
     for (i, &hit) in cauldron::SPLASH.iter().enumerate() {
@@ -584,8 +534,6 @@ fn splashes(cv: &mut Img, run: &Run, brew: &Brew, (fx, fy): (i32, i32)) {
     }
 }
 
-/// The pot boils over: a cloud swelling up off the brew, lobed, lit green
-/// from beneath (pale for a misfire), and eaten away as it thins.
 fn puff(cv: &mut Img, (cx, cy): (i32, i32), age: u32, misfire: bool) {
     let t = age as f32 / 16.0;
     let r = 6.0 + 12.0 * t.sqrt();
@@ -600,7 +548,6 @@ fn puff(cv: &mut Img, (cx, cy): (i32, i32), age: u32, misfire: bool) {
                 if d > 1.0 || (t > 0.4 && bayer(x, y) < (t - 0.4) * 1.9 + d * 0.25) {
                     continue;
                 }
-                // Lit from beneath: the underside brightest.
                 let under = (y as f32 + 0.5 - oy) / lr;
                 let ink = if d > 0.82 {
                     edge
@@ -613,7 +560,6 @@ fn puff(cv: &mut Img, (cx, cy): (i32, i32), age: u32, misfire: bool) {
             }
         }
     }
-    // Flecks of the brew thrown out with it.
     for k in 0..8 {
         let a = -std::f32::consts::PI * (0.1 + 0.8 * k as f32 / 7.0);
         let (x, y) = (cx as f32 + a.cos() * r * 1.15, cy as f32 - 4.0 + a.sin() * r * 0.9 + t * t * 10.0);
@@ -621,21 +567,17 @@ fn puff(cv: &mut Img, (cx, cy): (i32, i32), age: u32, misfire: bool) {
     }
 }
 
-/// The new card rising out of the steam, bobbing, then dissolving.
 fn rising_card(cv: &mut Img, card: Option<&Card>, tier: Tier, (cx, rim): (i32, i32), age: u32) {
-    // The cloud first, then the card up through it.
     const LATE: u32 = 6;
     let rise = cauldron::RISEN - cauldron::PUFF;
     let t = (age.saturating_sub(LATE) as f32 / (rise - LATE) as f32).min(1.0);
     let eased = 1.0 - (1.0 - t).powi(3);
     let bob = if age > rise { ((age - rise) as f32 * 0.2).sin() * 1.2 } else { 0.0 };
     let (w, h) = (19, 26);
-    // From in the brew to well over it.
     let top = rim + 2 - (eased * (h + 24) as f32) as i32 + bob.round() as i32;
     let face = card_face(card, rim_of(tier), (w, h));
     let left = cauldron::SHOWN - cauldron::PUFF - age;
     let fade = (left as f32 / 14.0).min(1.0);
-    // The brew's light caught round its edge.
     let glow = if tier == Tier::Common { 'E' } else { 'l' };
     for y in 1..h - 1 {
         if top + y > rim - 1 {
@@ -648,7 +590,6 @@ fn rising_card(cv: &mut Img, card: Option<&Card>, tier: Tier, (cx, rim): (i32, i
         }
     }
     for y in 0..h {
-        // Still coming out of the brew: what is below the rim is hidden.
         if top + y > rim - 1 {
             break;
         }
@@ -662,15 +603,12 @@ fn rising_card(cv: &mut Img, card: Option<&Card>, tier: Tier, (cx, rim): (i32, i
     }
 }
 
-/// Confetti thrown out of the pot, fluttering down round it to lie on the
-/// floor, then gone.
 fn confetti(cv: &mut Img, (fx, fy): (i32, i32), age: u32, salt: u64) {
     const INKS: [char; 6] = ['7', '4', '2', 'C', 'c', 'Q'];
     let t = age as f32;
     let left = cauldron::SHOWN - cauldron::PUFF - age;
     for i in 0..56 {
         let h = hash(i, salt as i32, 37);
-        // Up and out of the pot, then a slow flutter down.
         let spread = ((h % 1000) as f32 / 500.0 - 1.0) * 30.0;
         let up = 14.0 + (h / 1000 % 14) as f32;
         let ground = (h / 14000 % 16) as f32 - 4.0;
@@ -685,14 +623,12 @@ fn confetti(cv: &mut Img, (fx, fy): (i32, i32), age: u32, salt: u64) {
         let ink = INKS[(h % 6) as usize];
         let (x, y) = (x as i32, y as i32);
         cv.put(x, y, ink);
-        // A flake turning over as it falls: now its face, now its edge.
         if (age / 4 + i as u32) % 3 != 0 {
             cv.put(x + 1, y, ink);
         }
     }
 }
 
-/// Hiccups: a bubble burps up off the knight now and then, rises, and pops.
 fn hiccups(cv: &mut Img, (kx, ky): (i32, i32), age: u32) {
     if age >= cauldron::HICCUP_TICKS {
         return;
@@ -715,7 +651,6 @@ fn hiccups(cv: &mut Img, (kx, ky): (i32, i32), age: u32) {
     }
 }
 
-/// The brew's one line, over its card: the new spell's name, or the misfire.
 fn name_line(cv: &mut Img, brew: &Brew, (fx, fy): (i32, i32), age: u32, view: (i32, i32)) {
     let text = say(&brew.outcome.says());
     let ink = match &brew.outcome {
@@ -731,7 +666,6 @@ fn name_line(cv: &mut Img, brew: &Brew, (fx, fy): (i32, i32), age: u32, view: (i
     let spell = matches!(brew.outcome, Outcome::Spell { .. });
     let w = text_width(&text) + 8;
     let px = in_view_x(fx, w, view, cv.w);
-    // Over the risen card, or over the pot when no card came.
     let py = (fy - RIM_UP - if spell { 66 } else { 30 }).max(view.1 + 2);
     chrome::panel(cv, (px, py, w, 12), Tone::SLATE);
     cv.text(px + 4, py + 3, &text, ink);

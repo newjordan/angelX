@@ -48,34 +48,19 @@ const LOOK: Look = Look {
 
 const W: i32 = 384;
 const H: i32 = 224;
-/// The tone the raster's frame is put on black paper at: the black point, the
-/// white point, the gamma and the floor an ink is lifted to. The realm's own
-/// night look (race3d's) is darker; a canyon has to be read, so it lifts more:
-/// from the black point of nothing, with the white point down at 70, so the
-/// rock's shadowed faces land on a dusk blue and not on black, while the
-/// griffins, which are lit above it, keep their brightness.
 const TONE: (f32, f32, f32, f32) = (0.0, 70.0, 0.8, 100.0);
-/// How far the haze reaches over the first two beats and over the roost's: the
-/// far walls fade into the dusk by this distance, not to black short of it.
 const FOG: (f32, f32) = (110.0, 90.0);
 
 std::thread_local! {
-    /// The moving things' mesh, rebuilt each frame into the same buffer, and
-    /// the world as the eye has it (`cam.rs`).
     static MOVERS: std::cell::RefCell<Mesh> = std::cell::RefCell::new(Mesh::new());
     static STAGED: std::cell::RefCell<Mesh> = std::cell::RefCell::new(Mesh::new());
 }
 
-/// The point of the rail in the world.
 fn at(s: f32, x: f32, z: f32) -> V3 {
     let w = rail::rail().world(s, x, z);
     v3(w[0], w[1], w[2])
 }
 
-/// The chase camera behind `c`'s griffin: back along the rail, a little up,
-/// looking a way down it. It follows the craft across at seven-tenths and
-/// leans against its sideways speed, so it trails and lags a little; a hit
-/// shakes it, and nothing else does.
 fn camera(s: &Session, c: &Craft) -> Cam {
     let su = units(s.craft_s(c));
     let (x, z) = (units(c.x), units(c.z));
@@ -86,14 +71,12 @@ fn camera(s: &Session, c: &Craft) -> Cam {
     let ahead = 12.0 + if s.boss.is_some() { 3.0 } else { 0.0 };
     let (mut ex, mut ez) = ((x - lag_x) * 0.7, z * 0.85 - lag_z * 0.5 + 1.9);
     if c.hurt > 26 && c.down == 0 {
-        // A blow: a few ticks of shake, dying away.
         let k = (c.hurt - 26) as f32 * 0.03;
         let t = s.elapsed as f32;
         ex += (t * 2.9).dsin() * k;
         ez += (t * 3.7).dcos() * k;
     }
     let eye = at(su - back, ex, ez);
-    // The eye swings into a turn a little before the craft gets there.
     let (lead_x, lead_z) = (units(c.vx) * 8.0, units(c.vz) * 6.0);
     let look = at(su + ahead, x * 0.45 + lead_x, z * 0.8 + 0.4 + lead_z);
     let d = look - eye;
@@ -101,9 +84,6 @@ fn camera(s: &Session, c: &Craft) -> Cam {
     Cam::new(eye, d.y.datan2(d.x), d.z.datan2(flat))
 }
 
-/// Which sky: the moon's dusk over the gorge and the causeway, the roost's
-/// smoke, and a warm dawn for the way home (painted over what the raster
-/// leaves bare, `sky.rs`).
 fn sky_of(s: &Session) -> sky::Sky {
     match (s.stage, s.mode) {
         (_, Mode::Victory | Mode::Tally) => sky::Sky::Dawn,
@@ -112,7 +92,6 @@ fn sky_of(s: &Session) -> sky::Sky {
     }
 }
 
-/// The 3D scene alone, as dots, and the depth under it.
 fn dots(s: &Session, seat: u32) -> (Img, Vec<f32>, Cam) {
     let c = s
         .seats
@@ -155,14 +134,10 @@ fn dots(s: &Session, seat: u32) -> (Img, Vec<f32>, Cam) {
     (im, depth, cam)
 }
 
-/// How far a blow has shaken the world, in dots, for `seat`: its own
-/// blows and falls, a bomb's, and the heavy ones of the wing (a lamp, the
-/// Wyrm). The plates stand still.
 fn shaken(s: &Session, seat: u32) -> (i32, i32) {
     use crate::rules::griffinwing::show::What;
     use crate::rules::juice::Weight;
     let now = s.elapsed;
-    // The beacon taking its flame: a great shake as it lights, dying away.
     let ignite = (s.mode == Mode::Victory && s.mode_t >= moments::LIGHT_AT)
         .then(|| (Weight::Crushing, s.mode_t - moments::LIGHT_AT));
     let blows = s.show.fx.iter().filter_map(|f| {
@@ -180,8 +155,6 @@ fn shaken(s: &Session, seat: u32) -> (i32, i32) {
     juice::shake(blows.chain(ignite), u64::from(now))
 }
 
-/// `im` moved by `(dx, dy)`, the edge it uncovers made of the edge's own
-/// last row, so a shake never shows black paper.
 fn shifted(im: &Img, (dx, dy): (i32, i32)) -> Img {
     if (dx, dy) == (0, 0) {
         return im.clone();
@@ -199,7 +172,6 @@ fn shifted(im: &Img, (dx, dy): (i32, i32)) -> Img {
     out
 }
 
-/// The whole picture, for `seat`.
 fn scene(run: &Run, s: &Session, seat: u32) -> Img {
     let (mut im, depth, cam) = dots(s, seat);
     let ctx = hud::Ctx {
@@ -235,8 +207,6 @@ pub(super) fn terminal_layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     layers(run, focus)
 }
 
-/// The door on the walking map: the shell's post and board with a pair of
-/// gold wings on the board.
 pub(super) fn kingdom(im: &mut Img, _run: &Run, origin: (i32, i32)) {
     shell::stub_kingdom(im, origin, rules::ENTRY, &LOOK);
     let (x, y) = (

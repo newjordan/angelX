@@ -19,13 +19,11 @@ fn still() -> &'static Work {
     work("still").unwrap()
 }
 
-/// The middle of `work`'s sign, in arena units.
 fn on(work: &Work) -> (f32, f32) {
     let (c, r, w, h) = work.sign;
     ((c as f32 + w as f32 / 2.0) * TILE_UNITS, (r as f32 + h as f32 / 2.0) * TILE_UNITS)
 }
 
-/// A party of one in the realm, on `work`'s level, at its sign.
 fn at_sign(work: &Work) -> Run {
     let mut r = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
     r.raise_kingdom();
@@ -77,7 +75,6 @@ fn e_held_at_a_sign_in_the_running_game_orders_the_work() {
     assert_eq!(r.room().kind, RoomKind::BomFarms);
     assert_eq!(r.raise_orders, vec![order("bom:still")], "one order for the hold");
     assert!(r.home.bomrekedan.is_empty(), "nothing is built in the run");
-    // Still holding: the order is not placed twice.
     for _ in 0..home::BUY_HOLD * 2 {
         r.step(&BTreeMap::from([(1, e)]));
     }
@@ -91,7 +88,6 @@ fn a_work_ordered_in_a_run_settles_once_through_the_claim() {
     hold_e(&mut r);
     assert_eq!(r.raise_orders, vec![order("bom:still")]);
     assert!(r.questline.pending.iter().any(|(id, c, n)| *id == 1 && c == "bom_work_ordered_still" && *n == 1));
-    // A second hold while the order waits orders nothing more.
     hold_e(&mut r);
     assert_eq!(r.raise_orders.len(), 1);
     assert!(r.bom_work_offer(still()).refused.is_some());
@@ -107,8 +103,6 @@ fn a_work_ordered_in_a_run_settles_once_through_the_claim() {
     assert!(r.raise_orders.is_empty());
     assert_eq!(r.home.bomrekedan.level("still"), 1, "the claim brings it back");
 
-    // At the sign of a built work: counted for the questlines, and the next
-    // level is ordered.
     r.questline.pending.clear();
     hold_e(&mut r);
     assert!(r.questline.pending.iter().any(|(_, c, _)| c == "bom_built_still"));
@@ -123,12 +117,8 @@ fn a_replayed_claim_is_refused_and_builds_nothing_twice() {
     let mut journal = host_commands::Journal::new("session-a".into(), r.raid_id);
     let (claim, result) = settle_claim(&mut r, &mut journal, &home::Home::default(), &rich());
     let done = journal.complete_home(&mut r, &claim, result.clone()).unwrap();
-    // The same claim delivered again (a crash before its receipt): the
-    // committed delivery answers, and nothing is paid or built again.
     assert_eq!(journal.complete_home(&mut r, &claim, result.clone()).unwrap(), done);
     assert_eq!(r.home.bomrekedan.level("still"), 1);
-    // The claim's policy run again on the realm it already paid into would
-    // build a second level: that result is refused for the claim's id.
     let mut home = result.home.clone();
     let mut treasury = result.treasury.clone();
     let again = settle_home(
@@ -142,7 +132,6 @@ fn a_replayed_claim_is_refused_and_builds_nothing_twice() {
     assert!(journal.complete_home(&mut r, &claim, again).is_err());
     assert_eq!(r.home.bomrekedan.level("still"), 1);
     assert_eq!(r.treasury.get(Spoil::Gold), result.treasury.get(Spoil::Gold));
-    // Acknowledged, the orders are gone: the next claim pays for nothing.
     let completed = journal.home_completion(&claim).unwrap().unwrap();
     journal.acknowledge_home(&claim, &completed).unwrap();
     if let Some(next) = journal.claim_home(&mut r).unwrap() {
@@ -162,11 +151,9 @@ fn a_save_from_before_the_works_loads_and_a_bad_record_is_cleaned() {
     }))
     .unwrap();
     assert_eq!(home.bomrekedan.built, BTreeMap::from([("steel-line".to_string(), 1), ("still".to_string(), 3)]));
-    // A record that is no record costs the realm nothing else.
     let home: home::Home = serde_json::from_value(serde_json::json!({ "deepest": 5, "bomrekedan": 7 })).unwrap();
     assert!(home.bomrekedan.is_empty());
     assert_eq!(home.deepest, 5);
-    // And it goes round a save as it was.
     let mut built = home::Home::default();
     built.bomrekedan.built.insert("machine-works".into(), 2);
     let back: home::Home = serde_json::from_str(&serde_json::to_string(&built).unwrap()).unwrap();
@@ -179,12 +166,10 @@ fn the_works_gifts_are_capped() {
     for w in &WORKS {
         works.built.insert(w.id.into(), w.most);
     }
-    // Two Purse works at their top give no more than MOST_GIVEN between them.
     assert_eq!(works.points(Gift::Purse), raisings::MOST_GIVEN);
     assert_eq!(works.points(Gift::Wishes), raisings::MOST_GIVEN);
     let mut r = Run::at_home(3, 1, None, Default::default(), Default::default());
     r.home.bomrekedan = works;
-    // With the kingdom's shrine at its top as well: still at most three.
     r.home.raised = vec![raisings::Raised { plan: "wayside-shrine".into(), tx: 40, ty: 40, level: 3, by: "b".into() }];
     r.descend_for_test();
     let hero = &r.players[&1];
@@ -192,7 +177,6 @@ fn the_works_gifts_are_capped() {
     assert!(hero.invulnerable >= raisings::MOST_GIVEN * raisings::WARD);
     r.raised_gifts(false);
     assert_eq!(r.players[&1].carried.get(Spoil::Gold), raisings::MOST_GIVEN * raisings::PURSE);
-    // One work one level: one point.
     let mut one = Works::default();
     one.built.insert("still".into(), 1);
     assert_eq!(one.points(Gift::Purse), 1);
@@ -208,13 +192,11 @@ fn unknown_work_ids_are_ignored_and_each_settle_keeps_to_its_own() {
     assert!(changed);
     assert_eq!(works.built, BTreeMap::from([("still".to_string(), 1)]));
     assert_eq!(rich().get(Spoil::Gold) - treasury.get(Spoil::Gold), 120);
-    // The kingdom's raisings leave every `bom:` order alone.
     let mut raised = Vec::new();
     let mut kept = rich();
     let (changed, said) = raisings::settle(&mut raised, &mut kept, &[order("bom:still"), order("bom:wayside-shrine")]);
     assert!(!changed && said.is_empty() && raised.is_empty());
     assert_eq!(kept, rich());
-    // A poor realm builds nothing and says why; a work at its top is done.
     let mut poor = Spoils::default();
     let (changed, said) = settle(&mut Works::default(), &mut poor, &[order("bom:platinum-hall")]);
     assert!(!changed);
@@ -240,7 +222,6 @@ fn every_sign_stands_on_walkable_floor_its_stairs_reach() {
                 assert!(entrance_at(w.level, x, y).is_none(), "{} on a plate", w.id);
             }
         }
-        // Walked to from the level's stairs.
         let (cols, rows) = (room.cols as i32, room.rows as i32);
         let mut seen = vec![false; (cols * rows) as usize];
         let mut todo: Vec<(i32, i32)> = DOORS
@@ -260,7 +241,6 @@ fn every_sign_stands_on_walkable_floor_its_stairs_reach() {
             todo.extend([(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]);
         }
         assert!(seen[(r * cols + c) as usize], "{}'s sign is out of reach", w.id);
-        // The two signs of one level are apart.
         for o in WORKS.iter().filter(|o| o.level == w.level && o.id != w.id) {
             let (oc, or, ow, oh) = o.sign;
             assert!(c + sw <= oc || oc + ow <= c || r + sh <= or || or + oh <= r, "{} and {} overlap", w.id, o.id);
@@ -270,15 +250,11 @@ fn every_sign_stands_on_walkable_floor_its_stairs_reach() {
 
 #[test]
 fn no_sign_stands_in_a_teachers_hearing() {
-    // E held on a sign within a teacher's reach would be heard by both: the
-    // order placed and the teacher's cued steps served by the same hold.
     use crate::rules::questline::{TEACHER_REACH, book};
     for w in &WORKS {
         let (c, r, sw, sh) = w.sign;
         for q in book().lines.iter().filter(|q| q.kind() == w.level) {
             let (ax, ay) = (q.at.0 as f32, q.at.1 as f32);
-            // A tile's square [x, x+1) x [y, y+1), against the reach
-            // `tick_teachers` measures (a knight's tile units from the spot).
             let heard = |x: i32, y: i32| {
                 x as f32 <= ax + TEACHER_REACH
                     && (x + 1) as f32 > ax - TEACHER_REACH
@@ -299,7 +275,6 @@ fn a_hold_begun_off_the_sign_or_left_half_done_orders_nothing_early() {
     let mut r = at_sign(still());
     let e = Input { interact: true, ..Default::default() };
     let held = BTreeMap::from([(1, e)]);
-    // Most of a hold on the sign, then a step off it, still holding.
     for _ in 0..home::BUY_HOLD - 1 {
         r.tick_bom_works(&held);
     }
@@ -307,7 +282,6 @@ fn a_hold_begun_off_the_sign_or_left_half_done_orders_nothing_early() {
     assert!(!still().on_sign(off.0, off.1));
     (r.players.get_mut(&1).unwrap().x, r.players.get_mut(&1).unwrap().y) = off;
     r.tick_bom_works(&held);
-    // Back on, still holding: the hold begins again, it does not finish.
     (r.players.get_mut(&1).unwrap().x, r.players.get_mut(&1).unwrap().y) = on(still());
     r.tick_bom_works(&held);
     assert!(r.raise_orders.is_empty(), "one tick on the sign is no hold");
@@ -333,7 +307,6 @@ fn the_works_are_buildouts_jsons() {
         for &(spoil, n) in w.wants {
             assert_eq!(wants[spoil.word()].as_u64(), Some(u64::from(n)), "{} {}", w.id, spoil.word());
         }
-        // Where the file names a gift the game has, it is that one.
         if out["delve_effect"]["exists"] == true {
             assert_eq!(out["delve_effect"]["gift"].as_str(), Some(format!("{:?}", w.gift).as_str()), "{}", w.id);
         }
@@ -353,9 +326,6 @@ fn a_sign_is_drawn_built_and_unbuilt() {
 
 #[test]
 fn a_tap_at_a_built_work_counts_for_its_questline_and_orders_nothing() {
-    // A questline step waits on a work built ("see the still raised"): one
-    // tap at its sign serves it, and costs the treasury nothing; only the
-    // whole hold orders (and pays for) the next level.
     let mut r = at_sign(still());
     r.home.bomrekedan.built.insert("still".into(), 1);
     let e = Input { interact: true, ..Default::default() };
@@ -364,7 +334,6 @@ fn a_tap_at_a_built_work_counts_for_its_questline_and_orders_nothing() {
     assert!(r.questline.pending.iter().any(|(_, c, _)| c == "bom_built_still"));
     assert!(r.raise_orders.is_empty(), "a tap orders nothing");
 
-    // E held down is one press: counted once, not once a tick.
     r.questline.pending.clear();
     for _ in 0..5 {
         r.tick_bom_works(&BTreeMap::from([(1, e)]));
@@ -372,7 +341,6 @@ fn a_tap_at_a_built_work_counts_for_its_questline_and_orders_nothing() {
     let counted = r.questline.pending.iter().filter(|(_, c, _)| c == "bom_built_still").count();
     assert_eq!(counted, 1);
 
-    // A work not yet built counts nothing for the questline on a tap.
     let mut r = at_sign(still());
     r.tick_bom_works(&BTreeMap::from([(1, e)]));
     assert!(!r.questline.pending.iter().any(|(_, c, _)| c == "bom_built_still"));

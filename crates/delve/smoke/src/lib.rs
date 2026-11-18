@@ -23,7 +23,6 @@ thread_local! {
     static DUMP: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
-/// Untimed diagnostic state, for locating a parity mismatch by field.
 pub fn state_json() -> Vec<u8> {
     RUN.with(|r| serde_json::to_vec(r.borrow().as_ref().expect("scene first")).unwrap())
 }
@@ -38,8 +37,6 @@ pub extern "C" fn state_json_len() -> u32 {
     DUMP.with(|d| d.borrow().len() as u32)
 }
 
-/// Both ends of one client's stream: the server's run, what it last sent
-/// and its names; the client's tree and names; the body between them.
 struct Wire {
     run: Run,
     publisher: wire::Publisher,
@@ -50,12 +47,9 @@ struct Wire {
     body: Vec<u8>,
 }
 
-/// The scenes measured: a fresh run's first room, the kingdom, a busy fight.
 pub const SCENES: [&str; 44] = ["first-room", "kingdom", "busy-fight", "cinder-stack", "latch-duel", "mossbell", "brasswake", "rafterwake", "pennon-rush", "cinderjaw", "the-index", "mother-of-spores", "waxen-warden", "the-bone-choir", "crypt-tithe-marshal", "crypt-tax-keeper", "crypt-relic-liege", "iron-tusk-chief", "red-pick-chief", "the-foreman", "late-fee-leviathan", "side-hall", "book-hop", "archive-bellkeeper", "fungal-rootwarden", "fungal-spore-crown", "grinwick", "hellforge-ash-castellan", "hellforge-chain-keeper", "hellforge-free-captain", "hellforge-fuel-reeve", "hellforge-slag-sovereign", "salvage-claimant", "shoggoth-heart", "the-big-ripper", "unknown-memory-warden", "unknown-silence-warden", "forest-road", "drift-course",
-    // The Round Table adventures' stubs (docs/ROUNDTABLE-ADVENTURES.md): four seats each.
     "lanternward", "moonfall", "bannerpeak", "griffinwing", "lightgallop"];
 
-/// The same preparation hook as GameClient::boot, timed outside display frames.
 #[unsafe(no_mangle)]
 pub extern "C" fn warm_entry(kind: u32) {
     if let Some(game) = kind.checked_sub(3).and_then(|n| arena::slot_art::GAMES.get(n as usize)) {
@@ -70,14 +64,12 @@ pub extern "C" fn warm_entry(kind: u32) {
     });
 }
 
-// Keep the captain and its attack effects on screen throughout the measured ticks.
 fn pennon_scene()->Run {
     let mut r=Run::pennon_review_for_test("drop-tell");
     r.pennon.as_mut().unwrap().lanes.get_mut(&1).unwrap().x=1060*angel_delve::rules::pennon::Q;
     r
 }
 
-// A real four-seat replay reaches the Feller; the fixture never invents combat state.
 fn forest_scene() -> Run {
     let mut run=Run::forest_road_for_test();
     for id in 2..=4 { run.join_seat(id,&format!("Knight {id}")); }
@@ -91,7 +83,6 @@ fn forest_scene() -> Run {
     }
 }
 
-// A Round Table adventure's stub with four seats at the table, each from its own fixture.
 fn roundtable_scene(slug: &str) -> Run {
     let mut run = Run::roundtable_for_test(slug).expect("a Round Table adventure");
     for id in 2..=4 { run.join_seat(id, &format!("Knight {id}")); }
@@ -99,7 +90,6 @@ fn roundtable_scene(slug: &str) -> Run {
     run
 }
 
-// Reach a charged corner with the same four driver controllers as the host.
 fn drift_scene() -> Run {
     use angel_delve::rules::race3d::{self, Course};
     let mut run = arena::race3d::testing::racing(Course::Touge, 4);
@@ -112,7 +102,6 @@ fn drift_scene() -> Run {
     }
 }
 
-/// Set up scene `kind` (an index into [`SCENES`]).
 #[unsafe(no_mangle)]
 pub extern "C" fn scene(kind: u32) -> u32 {
     angel_delve::settings::set(angel_delve::settings::Settings::default());
@@ -158,7 +147,6 @@ pub extern "C" fn scene(kind: u32) -> u32 {
     1
 }
 
-/// The same scene with three additional seated clients, outside frame timing.
 #[unsafe(no_mangle)]
 pub extern "C" fn party() {
     RUN.with(|r| {
@@ -168,7 +156,6 @@ pub extern "C" fn party() {
     });
 }
 
-/// Step the scene `ticks` ticks with no one at the keys.
 #[unsafe(no_mangle)]
 pub extern "C" fn step(ticks: u32) {
     RUN.with(|r| {
@@ -189,7 +176,6 @@ pub extern "C" fn step(ticks: u32) {
     });
 }
 
-/// Stage the existing rage warning for the art benchmark, without changing rules.
 #[unsafe(no_mangle)]
 pub extern "C" fn force_rage() {
     RUN.with(|r| {
@@ -203,7 +189,6 @@ pub extern "C" fn force_rage() {
     });
 }
 
-/// Stage the collector's real cast for an active-area frame-cost sample.
 #[unsafe(no_mangle)]
 pub extern "C" fn force_ravage() {
     RUN.with(|r| {
@@ -220,8 +205,6 @@ pub extern "C" fn force_ravage() {
     });
 }
 
-/// Read-only parity evidence, outside every timed frame. Part zero includes
-/// the wire state; the other hashes isolate actors and shot physics.
 #[unsafe(no_mangle)]
 pub extern "C" fn state_hash(part: u32) -> u32 {
     RUN.with(|r| {
@@ -239,20 +222,16 @@ pub extern "C" fn state_hash(part: u32) -> u32 {
             return bytes.into_iter().fold(0x811c_9dc5, fold);
         }
         if matches!(part, 0 | 5 | 6 | 7 | 8) {
-            // Part 6 excludes tune metadata only, for old/off byte comparisons.
             let normalized = (part == 6).then(|| { let mut r=run.clone(); r.tune=Default::default(); r });
             let run = normalized.as_ref().unwrap_or(run);
             let mut tree = wire::Publisher::default().publish(run).expect("parity tree");
             if part == 7 || part == 8 {
-                // OFF compatibility excludes only the six newly added hit-stop knobs.
                 assert_eq!(run.tune.hitstop, 0, "old-schema projection requires hit-stop OFF");
                 assert!(run.hitstop.quiet(), "old-schema projection requires quiet hit-stop");
                 if let Some(Value::Struct(fields)) = tree.field_mut("tune") {
                     const ADDED: &[&str] = &["hitstop", "hitstop_boss_kill", "hitstop_elite_kill", "hitstop_phase", "hitstop_heavy", "hitstop_cooldown"];
                     fields.retain(|(name, _)| !ADDED.contains(&name.as_ref()));
                 }
-                // A disabled new knob makes serde emit an otherwise-default tune.
-                // Restore the old omission only after checking every old value.
                 let defaults = angel_delve::rules::tune::Tune::default();
                 let old_tune = angel_delve::rules::tune::Tune {
                     hitstop: defaults.hitstop,
@@ -270,8 +249,6 @@ pub extern "C" fn state_hash(part: u32) -> u32 {
                 }
             }
             if part == 5 || part == 8 {
-                // Compare the pre-shelf wire schema without dropping any old field.
-                // This projection is only valid for fixtures with no shelf game active.
                 for name in ["cinder", "latch", "brasswake", "rafterwake", "pennon", "mossbell"] {
                     assert!(matches!(tree.field(name), Some(Value::None)));
                 }
@@ -298,13 +275,11 @@ pub extern "C" fn state_hash(part: u32) -> u32 {
     })
 }
 
-/// Disable room hit-stop for pre-change simulation comparisons.
 #[unsafe(no_mangle)]
 pub extern "C" fn hitstop_off() {
     RUN.with(|r| { if let Some(run) = r.borrow_mut().as_mut() { run.tune.hitstop = 0; } });
 }
 
-/// Appearance-free control for cross-platform simulation diagnostics.
 #[unsafe(no_mangle)]
 pub extern "C" fn plain_art() {
     RUN.with(|r| {
@@ -314,7 +289,6 @@ pub extern "C" fn plain_art() {
     });
 }
 
-/// Draw the scene's frame at `w`x`h` for knight 1: a checksum of its pixels.
 #[unsafe(no_mangle)]
 pub extern "C" fn frame(w: u32, h: u32) -> u32 {
     RUN.with(|r| {
@@ -329,8 +303,6 @@ pub extern "C" fn frame(w: u32, h: u32) -> u32 {
     })
 }
 
-/// As `frame`, drawn live (`arena::frame_for_live`), as a client draws:
-/// a torch step's scenery is drawn a stage a frame while the last shows.
 #[unsafe(no_mangle)]
 pub extern "C" fn frame_live(w: u32, h: u32) -> u32 {
     RUN.with(|r| {
@@ -343,8 +315,6 @@ pub extern "C" fn frame_live(w: u32, h: u32) -> u32 {
     })
 }
 
-/// Set up scene `kind` on the wire: the whole first snapshot made and
-/// taken. Its size in bytes.
 #[unsafe(no_mangle)]
 pub extern "C" fn wire_scene(kind: u32) -> u32 {
     let run = match kind {
@@ -397,8 +367,6 @@ pub extern "C" fn wire_scene(kind: u32) -> u32 {
     size
 }
 
-/// The server's half of a tick: step, publish, the patch against what was
-/// sent. Its size in bytes.
 #[unsafe(no_mangle)]
 pub extern "C" fn wire_host() -> u32 {
     WIRE.with(|w| {
@@ -415,8 +383,6 @@ pub extern "C" fn wire_host() -> u32 {
     })
 }
 
-/// The client's half: the patch read and applied, the tree read back into
-/// a run. The run's tick, so nothing is optimised away.
 #[unsafe(no_mangle)]
 pub extern "C" fn wire_client() -> u32 {
     WIRE.with(|w| {

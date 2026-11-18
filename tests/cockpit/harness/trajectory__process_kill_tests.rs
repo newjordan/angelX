@@ -3,7 +3,6 @@ use super::*;
 #[test]
 fn lifecycle_kills_update_only_the_matching_launch() {
     let _lock = crate::tests::env_lock();
-    // Identical command arguments must not collapse two distinct children.
     let args = serde_json::json!({"command":"sleep 300"});
     for id in [900001_u64, 900002] {
         let result = format!("started [{id}] job (pid 42)");

@@ -27,8 +27,6 @@ fn exchanges_large_request_without_pipe_deadlock() {
 #[cfg(unix)]
 fn drains_output_while_sending_request() {
     let _lock = crate::tests::env_lock();
-    // The child fills stdout before reading stdin. Sequential write-then-read
-    // supervision would deadlock when both payloads exceed pipe capacity.
     let input = vec![b'x'; 1024 * 1024];
     let output = run(
         shell("head -c 1048576 /dev/zero; cat"),
@@ -113,8 +111,6 @@ fn successful_worker_stops_descendants_that_closed_output() {
 #[cfg(unix)]
 fn worker_waits_for_descendant_to_finish_output() {
     let _lock = crate::tests::env_lock();
-    // The leader exits first, but its helper finishes the response. Treating
-    // leader exit as completion would silently return a truncated result.
     let output = run(
         shell("printf hello; (sleep 0.1; printf ' world') & exit 0"),
         b"",

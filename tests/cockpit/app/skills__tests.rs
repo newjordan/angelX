@@ -2,9 +2,6 @@ use super::*;
 
 #[test]
 fn list_and_load_from_a_skills_dir() {
-    // Mutates ANGEL_SKILLS_DIR (process-global env) — serialize with every
-    // other env-touching test so the parallel runner can't race the environ
-    // table (harness/tests/skills.rs sets the same var under this lock).
     let _guard = crate::tests::env_lock();
     let tmp = std::env::temp_dir().join(format!("angel_skills_{}", std::process::id()));
     let _ = std::fs::create_dir_all(&tmp);
@@ -27,7 +24,6 @@ fn list_and_load_from_a_skills_dir() {
     }
     std::fs::write(tmp.join("notes.txt"), "ignored").unwrap();
     let old_user = std::env::var_os("ANGEL_SKILLS_DIR");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SKILLS_DIR", &tmp) };
     let workspace = std::env::current_dir().unwrap();
     let names = list_for(&workspace);
@@ -61,9 +57,7 @@ fn list_and_load_from_a_skills_dir() {
 
 fn restore_env(key: &str, old: Option<std::ffi::OsString>) {
     match old {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var(key, v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var(key) },
     }
 }

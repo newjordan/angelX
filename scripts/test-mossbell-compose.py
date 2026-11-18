@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Registration and source-provenance gates for composed Mossbell pieces."""
 import hashlib
 import importlib.util
 import json

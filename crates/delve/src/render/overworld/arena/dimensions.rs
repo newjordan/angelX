@@ -15,22 +15,16 @@
 
 use crate::rules::{Hero, Projectile, Run};
 
-/// The wish tier at and past which a knight's shots stand up wherever
-/// they fly: the third, taught by the power's teacher, never only wished.
 pub const RAISED_TIER: u8 = 3;
 
-/// How a shot stands in the room's space.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Dimension {
-    /// Low over the floor, as the 2D black dungeon has every shot.
     #[default]
     Low,
-    /// Stood up in the room's space: at a knight's chest, larger, rolling.
     Raised,
 }
 
 impl Dimension {
-    /// How high it flies over its point on the floor, in the room's pixels.
     pub fn lift(self) -> f32 {
         match self {
             Dimension::Low => super::shot_meshes::LIFT,
@@ -38,7 +32,6 @@ impl Dimension {
         }
     }
 
-    /// How much larger than its low self it is drawn.
     pub fn scale(self) -> f32 {
         match self {
             Dimension::Low => 1.0,
@@ -46,8 +39,6 @@ impl Dimension {
         }
     }
 
-    /// Turns about its own flight per room pixel it travels: none low; a
-    /// slow roll raised, so its third dimension shows.
     pub fn roll(self) -> f32 {
         match self {
             Dimension::Low => 0.0,
@@ -56,8 +47,6 @@ impl Dimension {
     }
 }
 
-/// The highest tier of any wish knight `hero` holds (`wish-<id>-<tier>`
-/// cards in the deck), 0 for none.
 pub fn wish_tier(hero: &Hero) -> u8 {
     hero.deck
         .iter()
@@ -66,8 +55,6 @@ pub fn wish_tier(hero: &Hero) -> u8 {
         .unwrap_or(0)
 }
 
-/// What decides each shot's dimension in one frame of run `run`, read
-/// once: whether its floor stands up, and which knights were taught.
 pub struct Dimensions {
     deep: bool,
     taught: Vec<u32>,
@@ -81,7 +68,6 @@ impl Dimensions {
         }
     }
 
-    /// How shot `shot` stands in the room's space.
     pub fn shot(&self, shot: &Projectile) -> Dimension {
         let owner = u32::from(shot.traits.owner);
         if !shot.hostile && (self.deep || (owner > 0 && self.taught.contains(&owner))) {
@@ -92,7 +78,6 @@ impl Dimensions {
     }
 }
 
-/// How shot `shot` stands in run `run`'s room ([`Dimensions::shot`]).
 pub fn of_shot(run: &Run, shot: &Projectile) -> Dimension {
     Dimensions::of(run).shot(shot)
 }

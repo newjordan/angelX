@@ -1,17 +1,13 @@
-// Extends the established live-input world journey; not a separate verifier.
 fn windcountry_adventure_regression(mut run: Run) {
     use super::super::{countryside as c, windcountry as w, pastimes::{Game, Trencher, TRENCHER_FLIGHT}, Input, HZ};
     use crate::realm::Spoil;
     use std::collections::BTreeMap;
     let empty = BTreeMap::new();
     let keys = |x, fire| BTreeMap::from([(1, Input { aim_x: x, fire, ..Default::default() })]);
-    // The kitewright, the sail, the levers and the plot answer the interact key.
     let meet = || BTreeMap::from([(1, Input { interact: true, ..Default::default() })]);
     let go = |r: &mut Run, kind, at| r.arrive(room_of(&r.dungeon, kind).unwrap(), at);
     assert_eq!(Game::Trencher.index(), 13);
     assert_eq!(c::PLOTS[w::PLOT].id, "kitepost");
-    // Ordered signals: holding one lever cannot satisfy separated later levers.
-    // A lever answers a press: E comes up between them.
     let press = |r: &mut Run| {
         r.step(&empty);
         r.step(&meet());
@@ -30,7 +26,6 @@ fn windcountry_adventure_regression(mut run: Run) {
     for (i, flag) in w::ORDER.into_iter().enumerate() {
         go(&mut run, RoomKind::SignalHill, w::FLAGS[flag]);
         press(&mut run);
-        // Still holding E at the lever just pulled: no "Wrong flag!".
         for _ in 0..HZ { run.step(&meet()); }
         assert!(!run.found.as_ref().unwrap().2.starts_with("Wrong flag"));
         assert_eq!(w::stage(&run.home.countryside, &run.marks), (i + 3) as u8);
@@ -50,7 +45,6 @@ fn windcountry_adventure_regression(mut run: Run) {
     assert_eq!(treasury, paid);
     run.home.countryside = country;
     run.marks.clear();
-    // Unaffordable orders do not pay or build; the exact price charges once.
     let order = BTreeMap::from([("country:build:kitepost".into(), 1)]);
     c::settle(&mut run.home.countryside, &mut treasury, &order);
     assert!(!run.home.countryside.has(w::PLOT));
@@ -68,14 +62,12 @@ fn windcountry_adventure_regression(mut run: Run) {
         let e = entrance(id); go(&mut run, e.room, (12.0, 7.0)); take(&mut run, e);
         assert_eq!(run.room().kind, kind);
     }
-    // The new separate Score leaves the original fixed-size JSON records readable.
     let old: c::Country = serde_json::from_str(r#"{"games":{"best":[1,2,3,4],"wins":[0,0,0,0],"plays":[1,1,1,1]}}"#).unwrap();
     assert!(old.valid()); assert_eq!(old.games.trencher.plays, 0);
     assert_eq!(old.games.best, [1,2,3,4]);
     go(&mut run, RoomKind::GooseGreen, Game::Trencher.start()); run.step(&empty);
     assert_eq!(run.pastimes.round.as_ref().unwrap().game, Game::Trencher);
     assert_eq!(run.home.countryside.games.trencher.plays, 1);
-    // Holding F across flights never auto-launches another plate.
     run.step(&keys(0, true));
     for _ in 0..TRENCHER_FLIGHT + HZ { run.step(&keys(0, true)); }
     assert_eq!(run.pastimes.round.as_ref().unwrap().mistakes, 1);
@@ -102,7 +94,6 @@ fn windcountry_adventure_regression(mut run: Run) {
     assert!(snapshots > 0); assert!(run.pastimes.round.is_none());
     assert_eq!(run.home.countryside.games.trencher.wins, 1);
     assert_eq!(run.treasury, paid, "replay cannot mint treasury rewards");
-    // Three misses, timeout, leaving the room and losing the owner all end safely.
     go(&mut run, RoomKind::GooseGreen, (12.0, 6.0)); run.step(&empty);
     go(&mut run, RoomKind::GooseGreen, Game::Trencher.start()); run.step(&empty);
     for _ in 0..3 * HZ * 3 {
@@ -134,8 +125,6 @@ fn the_mill_kite_stands_clear_of_the_bakery_and_the_goat_lift_and_keeps_its_own_
     let bakery = c::PLOTS.iter().find(|p| p.id == "bakery").unwrap();
     assert!(!near(w::MILL_KITE, bakery.footprint), "clear of the bakery");
     assert!(!near(w::MILL_KITE, c::LIFT), "not touching the goat lift");
-    // Built lift and kite-post. Most of a hold on the lift, then a step onto
-    // the kite: the kite's hold begins again.
     let mut run = at_the_gate();
     let lift = c::PLOTS.iter().position(|p| p.id == "lift").unwrap();
     run.home.countryside.built |= (1 << lift) | (1 << w::PLOT);

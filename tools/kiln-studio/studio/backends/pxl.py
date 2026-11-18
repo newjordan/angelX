@@ -1,8 +1,3 @@
-"""pxl (~/tools/claude-pxl, or KILN_PXL): a `.px.js` file in, PNGs out.
-
-The source keeps to the realm's inks with `use("realm.hex")`; the studio puts
-a copy of realm.hex beside every source it hands an agent.
-"""
 import json
 import os
 import re
@@ -30,8 +25,6 @@ class PxlBackend(Backend):
         return (True, "pxl at " + paths.PXL) if code == 0 else (False, (err or out).strip()[:300])
 
     def names(self, source):
-        """The assets, the piece first: the one named after the file, then
-        anims, then the rest, in file order."""
         code, out, err = self._pxl("list", str(source))
         if code:
             raise BackendError((err or out).strip()[:2000])
@@ -90,7 +83,6 @@ class PxlBackend(Backend):
         if code:
             code, out, err = self._pxl("describe", str(source), name, cwd=Path(source).parent)
         text = (out or err).strip()
-        # The ink map is the eyes' job; keep pxl's structure and painting steps short.
         return text[:6000]
 
     def compare(self, source, name, ref):
@@ -100,8 +92,6 @@ class PxlBackend(Backend):
         return out.strip()[:6000]
 
     def shot_text(self, source, name):
-        """pxl's own shot: what changed since the last one. Its PNG is the
-        pxl view (16x); the studio's ladder is the one to judge by."""
         code, out, err = self._pxl("shot", str(source), name, "--frames", "all", cwd=Path(source).parent)
         return (out + err).strip()[:2000]
 
@@ -115,7 +105,6 @@ sprite("{name}", {{ w: 64, h: 64, outline: "k", pivot: "bottom" }},
 
 
 def prepare(dirpath):
-    """Put realm.hex beside a pxl source so `use("realm.hex")` finds it."""
     dst = Path(dirpath) / "realm.hex"
     if not dst.exists():
         shutil.copyfile(paths.REALM_HEX, dst)

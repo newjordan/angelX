@@ -18,13 +18,10 @@
 use super::*;
 use crate::ui::chart;
 
-/// Frame text plus a palette-indexed cell map.
 fn write_frame(terminal: &Terminal<TestBackend>, dir: &std::path::Path, name: &str) {
     write_backend(terminal.backend(), dir, name);
 }
 
-/// The same two files, from a backend that already holds the frame — so a
-/// cropped pane is written exactly like a full frame.
 fn write_backend(backend: &TestBackend, dir: &std::path::Path, name: &str) {
     let text = test_backend_text(backend);
     std::fs::write(dir.join(format!("{name}.txt")), &text).unwrap();
@@ -56,16 +53,12 @@ fn write_backend(backend: &TestBackend, dir: &std::path::Path, name: &str) {
     .unwrap();
 }
 
-/// A whole-cockpit frame, drawn by the same compositor the operator sees.
 fn capture_cockpit(app: &mut App, width: u16, height: u16, dir: &std::path::Path, name: &str) {
     let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
     terminal.draw(|frame| ui(frame, app)).unwrap();
     write_frame(&terminal, dir, name);
 }
 
-/// A close-up: draw the whole cockpit, then keep only the pane the operator is
-/// watching. The pane is found by its own title in the rendered frame, so the
-/// crop follows the real layout instead of a hardcoded rectangle.
 fn capture_pane(
     app: &mut App,
     (width, height): (u16, u16),
@@ -79,8 +72,6 @@ fn capture_pane(
     let frame_cells = terminal.backend().buffer().clone();
     let (x0, y0, x1, bottom) = pane_bounds(&frame_cells, title)
         .unwrap_or_else(|| panic!("no pane titled {title:?} in a {width}x{height} frame"));
-    // A close-up reads as one: keep the pane's own width and only as many rows
-    // as the plate window wants, so nothing is squashed into the page.
     let y1 = bottom.min(y0 + rows.saturating_sub(1));
     let mut crop = Terminal::new(TestBackend::new(x1 - x0 + 1, y1 - y0 + 1)).unwrap();
     crop.draw(|frame| {
@@ -94,11 +85,8 @@ fn capture_pane(
     write_frame(&crop, dir, name);
 }
 
-/// The rect of the pane whose top border carries `title`: from the junction
-/// that opens it, right to the frame edge, down to the row that closes it.
 fn pane_bounds(buffer: &ratatui::buffer::Buffer, title: &str) -> Option<(u16, u16, u16, u16)> {
     let area = *buffer.area();
-    // Cell indices, never byte offsets: a box-drawing glyph is three bytes wide.
     let row = |y: u16| -> Vec<String> {
         (0..area.width)
             .map(|x| buffer[(x, y)].symbol().to_string())
@@ -111,8 +99,6 @@ fn pane_bounds(buffer: &ratatui::buffer::Buffer, title: &str) -> Option<(u16, u1
     Some((left, top, area.width - 1, bottom))
 }
 
-/// A frame composed of real renderers (chart, bars, raytracer) inside the
-/// cockpit's own HUD chrome.
 fn capture_panel<F>(width: u16, height: u16, dir: &std::path::Path, name: &str, body: F)
 where
     F: FnOnce(&mut Frame, Rect),
@@ -132,9 +118,6 @@ where
     write_frame(&terminal, dir, name);
 }
 
-/// A chrome frame that *keeps the cockpit around the plate*: the whole
-/// compositor draws first, then a centered panel carries the renderer so the
-/// capture shows where in the TUI the chart lives.
 fn capture_in_cockpit<F>(
     app: &mut App,
     width: u16,
@@ -150,8 +133,6 @@ fn capture_in_cockpit<F>(
         .draw(|frame| {
             ui(frame, app);
             let area = frame.area();
-            // Centered panel: 4-cell margin all around, so surrounding cockpit
-            // chrome (header, transcript edge, HUD) stays visible.
             let panel = ratatui::layout::Rect {
                 x: area.x + 6,
                 y: area.y + 4,
@@ -173,15 +154,10 @@ fn capture_in_cockpit<F>(
     write_frame(&terminal, dir, name);
 }
 
-/// Frame text → `Text`, for renderers that already return their own lines.
 fn as_block<'a>(text: ratatui::text::Text<'a>, title: &'a str) -> ratatui::widgets::Paragraph<'a> {
     ratatui::widgets::Paragraph::new(text).block(crate::ui::hud::hud_block(title))
 }
 
-/// A star-node plot: `ui::chart`'s line path with a ✦ node at each sampled
-/// A star-node plot: `ui::chart`'s braille path with a ✦ node on every eighth
-/// A star-node plot: `ui::chart`'s line path with a ✦ node at each sampled
-/// point — the site's ✦ motif, drawn by the chart renderer's own geometry.
 fn star_series(width_cells: usize) -> ratatui::text::Text<'static> {
     let series: Vec<f32> = (0..96)
         .map(|i| {
@@ -190,8 +166,6 @@ fn star_series(width_cells: usize) -> ratatui::text::Text<'static> {
         })
         .collect();
     let mut text = chart::line_chart(&series, width_cells as u16, 18);
-    // Overprint a node marker at every eighth sample of the same series: the
-    // chart owns the y geometry, the stars just sit on the path.
     let n = series.len();
     let lo = series.iter().cloned().fold(f32::MAX, f32::min);
     let hi = series.iter().cloned().fold(f32::MIN, f32::max);
@@ -212,8 +186,6 @@ fn star_series(width_cells: usize) -> ratatui::text::Text<'static> {
     text
 }
 
-/// A vertical bar chart: one column per label, drawn with dotmax's real
-/// `vblock` primitive, with the label and value under each column.
 fn vbars_block(
     labels: &[(&str, f32)],
     width: usize,
@@ -226,14 +198,13 @@ fn vbars_block(
         Ok(grid) => grid,
         Err(_) => return ratatui::text::Text::raw(""),
     };
-    let bar_cols = 4; // braille dot-columns per bar
-    let pitch = bar_cols + 2; // bar + gap
-    let chart_rows = height.saturating_sub(2); // leave the label/value rows
+    let bar_cols = 4;
+    let pitch = bar_cols + 2;
+    let chart_rows = height.saturating_sub(2);
     for (i, (_label, frac)) in labels.iter().enumerate() {
         let x0 = i * pitch + 1;
         let frac = frac.clamp(0.0, 1.0);
         let filled = (frac * chart_rows as f32).round() as usize;
-        // grow the column from the bottom of the chart region upward
         for r in 0..filled {
             let cell_y = chart_rows - 1 - r;
             for c in 0..bar_cols {
@@ -248,7 +219,6 @@ fn vbars_block(
             let _ = grid.set_char(x0 + j, height - 2, ch);
         }
     }
-    // labels on the bottom row, centered under their bars
     for (i, (label, _)) in labels.iter().enumerate() {
         let x0 = i * pitch + 1;
         let start = x0 + bar_cols.saturating_sub(label.chars().count()) / 2;
@@ -277,7 +247,6 @@ fn frames_capture() {
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     crate::drive::comp_mode::invalidate_cache();
 
-    // ── FIG.01 — the console at work ─────────────────────────────────────
     let mut app = seed_preview_app();
     let id = crate::agent::harness::ToolEventId("frames-read".into());
     app.realm.world
@@ -294,8 +263,6 @@ fn frames_capture() {
     let read = crate::agent::harness::ToolEventId("frames-edit".into());
     app.realm.world
         .note_tool_call_event(read, "edit", "hashline · cockpit.rs");
-    // Seed a real session so the plate shows the console in use, not a cold
-    // shell: two committed turns, a live tool trace, and an in-flight partial.
     use crate::ui::transcript::{Message, Role};
     app.messages.push(Message::new(
         Role::User,
@@ -316,15 +283,9 @@ fn frames_capture() {
     ));
     app.thinking = Some(crate::agent::turn::Thinking::pending_for_test("practice"));
     app.partial = "captures are evidence, so the twelfth point is the one you can check:".into();
-    // Transcript lines spawn on a roll-in animation; settle it so the captured
-    // frame shows the session rather than the empty first tick.
     app.settle_transcript_spawns();
     capture_cockpit(&mut app, 120, 40, &dir, "fig01-console");
 
-    // ── FIG.01b — the harness actually coding: a mid-turn frame ──────────
-    // A second seeded session whose live work is an edit in flight: a tool
-    // trace, a running shell verify, and an answer still streaming. This is
-    // the plate that answers "what does it look like while it codes?"
     let mut coding = seed_preview_app();
     let ev = crate::agent::harness::ToolEventId("frames-code".into());
     coding.world.note_tool_call_event(
@@ -367,10 +328,6 @@ fn frames_capture() {
     coding.settle_transcript_spawns();
     capture_cockpit(&mut coding, 120, 40, &dir, "fig01b-coding");
 
-    // ── FIG.01c — zoomed agent thinking trace ────────────────────────────
-    // The same live turn, zoomed: the reasoning canvas carries a real
-    // thinking stream (reasoning models' private roll), shown live and never
-    // saved to history — this is the pane the operator watches mid-turn.
     let mut zoom = seed_preview_app();
     zoom.reasoning = "reading the chart module first — line_chart maps series → rows by \
         min/max, one braille column per sample.\n\
@@ -389,10 +346,6 @@ fn frames_capture() {
     zoom.settle_transcript_spawns();
     capture_cockpit(&mut zoom, 120, 40, &dir, "fig01c-thinking");
 
-    // ── FIG.02 — the agent thinking panel, zoomed in ─────────────────────
-    // A narrow frame carrying a long reasoning stream: the trace pane is most
-    // of the plate, so the private roll the operator watches mid-turn is
-    // actually readable instead of scaled down to a smear.
     let mut think = seed_preview_app();
     think.reasoning = "reading the chart module first — line_chart maps series → rows by min/max, \
         one braille column per sample.\n\
@@ -419,7 +372,6 @@ fn frames_capture() {
         "fig02-thinking",
     );
 
-    // ── FIG.02 — formations deck ─────────────────────────────────────────
     let mut deck = seed_preview_app();
     deck.messages.push(Message::new(
         Role::User,
@@ -433,9 +385,6 @@ fn frames_capture() {
     deck.open_moa_deck(None);
     capture_cockpit(&mut deck, 120, 40, &dir, "fig02-formations");
 
-    // ── FIG.03 — the loop workshop: engage a loop, set its length, confirm ─
-    // Drawn by the same dialog the operator confirms with. The rounds row ends
-    // in SET CUSTOM and the entry is open on a typed length.
     let mut workshop = crate::drive::loop_dialog::LoopLaunchDialog::new("chart plate", 0, false);
     workshop.begin_custom_length();
     for ch in "137".chars() {
@@ -445,7 +394,6 @@ fn frames_capture() {
     workshop_app.loop_dialog = Some(workshop);
     capture_cockpit(&mut workshop_app, 75, 25, &dir, "fig03-loop");
 
-    // ── FIG.A — star-node plot, inside the cockpit ───────────────────────
     let mut plot_app = seed_preview_app();
     plot_app.settle_transcript_spawns();
     let plot = star_series(96);
@@ -460,7 +408,6 @@ fn frames_capture() {
         },
     );
 
-    // ── FIG.B — vertical bars, inside the cockpit ────────────────────────
     let bars = vbars_block(
         &[
             ("vrfy", 0.92),
@@ -486,7 +433,6 @@ fn frames_capture() {
         },
     );
 
-    // ── FIG.04 — the cockpit's own raytracer ─────────────────────────────
     let cube = crate::stage::raytrace::render(1.7, 74, 22);
     capture_panel(84, 29, &dir, "fig04-raytrace", move |frame, area| {
         frame.render_widget(as_block(cube, "stage · cpu raytracer"), area);

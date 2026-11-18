@@ -1,5 +1,3 @@
-"""CLI: ``python -m spriterig.moves render|check``."""
-
 import argparse
 import json
 from pathlib import Path
@@ -54,13 +52,11 @@ def _pose_image(game_frame, root, scale, box=None):
 
 
 def render_sprite(sprite, moves, out, *, root=None, scale=SCALE):
-    """Write game.json (moves in their slots), a contact sheet and a GIF per move."""
     root = Path(root) if root else repo_root()
     sprite = Path(sprite)
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     rig = _fit(sprite, root)
-    # Later moves overwrite a shared slot in the playable game; the sheet keeps each.
     played = rig
     slot_owner = {}
     built = []
@@ -113,7 +109,6 @@ def render_sprite(sprite, moves, out, *, root=None, scale=SCALE):
 
 
 def render_reel(out, *, root=None, scale=SCALE, names=('frog', 'ogre', 'skeleton')):
-    """Side-by-side reel: each library move played in turn on the named sprites."""
     root = Path(root) if root else repo_root()
     src = root / '.we-out' / 'src'
     out = Path(out)

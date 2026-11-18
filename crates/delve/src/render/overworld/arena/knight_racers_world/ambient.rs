@@ -14,11 +14,8 @@ use crate::render::world3d::math::{V3, v3};
 use crate::render::world3d::mesh::Tri;
 use std::f32::consts::TAU;
 
-/// The cell the drifting particles are scattered in, metres.
 const CELL: f32 = 9.;
 
-/// What drifts: the flake (steady, pale), the two lights of its glints, how many are glints, how
-/// thick it lies near and far, the wind (m/s) and a size.
 struct Air { flake: u8, glint: [u8; 2], glints: f32, near: f32, far: f32, wind: (f32, f32, f32), size: f32 }
 
 pub fn air(out: &mut Vec<Tri>, r: &dyn Route, s: f32, eye: V3, heading: f32, ticks: u32) {
@@ -32,23 +29,23 @@ pub fn air(out: &mut Vec<Tri>, r: &dyn Route, s: f32, eye: V3, heading: f32, tic
             drift(&mut g, eye, heading, ticks, &Air { flake: ASH_FLAKE, glint: [EMBER_BRIGHT, SPARK], glints: if lava { 0.5 } else { 0.32 }, near: 0.24, far: 0.12, wind: (-1.6, 0.7, 1.1), size: 1. });
         }
         2 => {
-            // Motes of crystal dust hang in the dark and turn slowly; here and there one flashes.
             drift(&mut g, eye, heading, ticks, &Air { flake: MOTE, glint: [CYAN_GLOW, VIOLET_GLOW], glints: 0.45, near: 0.3, far: 0.16, wind: (0.5, -0.3, 0.45), size: 0.9 });
         }
         3 => {
             flames(&mut g, r, here, ticks);
             towers(&mut g, r, here, ticks);
             glints(&mut g, r, here, eye, ticks);
-            // Moths and sparks round the lanterns: few, warm, quick.
             drift(&mut g, eye, heading, ticks, &Air { flake: SPRAY, glint: [TORCH, LANTERN_GLINT], glints: 0.85, near: 0.1, far: 0.05, wind: (0.8, 0.6, 0.9), size: 0.8 });
+        }
+        4 => {
+            glints(&mut g, r, here, eye, ticks);
+            drift(&mut g, eye, heading, ticks, &Air { flake: WA_CLOUD, glint: [MOON_GLINT, STAR], glints: 0.35, near: 0.14, far: 0.07, wind: (0.5, 0.25, -0.18), size: 0.75 });
         }
         _ => {}
     }
     out.extend(g.t);
 }
 
-/// The flames of the beat's objects in view (pylons, braziers), tongues of three heights that
-/// jump with the clock, and a spark or two climbing off each.
 fn flames(g: &mut Soup, r: &dyn Route, here: f32, ticks: u32) {
     let beat = trackside::beat_of(r);
     let pitch = trackside::pitch(beat);
@@ -58,7 +55,6 @@ fn flames(g: &mut Soup, r: &dyn Route, here: f32, ticks: u32) {
     let (hot, cool) = if beat == 3 { (TORCH, TORCH_DIM) } else { (EMBER_BRIGHT, FLAME_LICK) };
     let size = if beat == 3 { 0.8 } else { 1. };
     for k in k0.max(0)..=k1 {
-        // The beats run from the line to the lap's end and stop there: the seam has no flames.
         let Some(base) = trackside::flame_base(r, k) else { continue };
         for i in 0..3 {
             let h = hash(k, i, 91);
@@ -76,20 +72,16 @@ fn flames(g: &mut Soup, r: &dyn Route, here: f32, ticks: u32) {
     }
 }
 
-/// A little square of light facing along `up_axis`'s perpendicular, the speck of an ember.
 fn speck(g: &mut Soup, c: V3, r: f32, mat: u8, along: V3) {
     let l = v3(-along.y, along.x, 0.);
     let l = if l.length() < 1e-3 { v3(1., 0., 0.) } else { l.normalize() };
     g.quad(c - l * r - v3(0., 0., r), c + l * r - v3(0., 0., r), c + l * r + v3(0., 0., r), c - l * r + v3(0., 0., r), mat);
 }
 
-/// Embers and ash, scattered through a lattice of cells round the lens and carried on a wind:
-/// each one wraps inside its own cell, so it never leaves the lattice and never pops.
 fn drift(g: &mut Soup, eye: V3, heading: f32, ticks: u32, a: &Air) {
     let t = ticks as f32 / 30.;
     let (fx, fy) = (heading.cos(), heading.sin());
     let (lx, ly) = (-fy, fx);
-    // The box that holds the view's cone: centred 70 m ahead, 90 m a side.
     let (cx, cy) = (eye.x + fx * 70., eye.y + fy * 70.);
     let (i0, i1) = (((cx - 95.) / CELL).floor() as i32, ((cx + 95.) / CELL).ceil() as i32);
     let (j0, j1) = (((cy - 95.) / CELL).floor() as i32, ((cy + 95.) / CELL).ceil() as i32);
@@ -104,18 +96,15 @@ fn drift(g: &mut Soup, eye: V3, heading: f32, ticks: u32, a: &Air) {
                 let h = hash(i * 7 + layer, j * 13 - layer, 0xA5);
                 let density = if ahead < 60. { a.near } else { a.far };
                 if h > density { continue; }
-                // Its place in the cell, carried by the wind and held inside the cell.
-                let (hx, hy, hz) = (hash(i, j, layer as u32 + 11), hash(i, j, layer as u32 + 12), hash(i, j, layer as u32 + 13));
+                let (hx, hy, hz) = (hash(i, j, (layer as u32).wrapping_add(11)), hash(i, j, (layer as u32).wrapping_add(12)), hash(i, j, (layer as u32).wrapping_add(13)));
                 let wind = (a.wind.0 * (1. + 0.75 * hx), a.wind.1 * (1. + 1.1 * hy), a.wind.2 * (1. + 1.2 * hz));
                 let wrap = |v: f32| v.rem_euclid(1.);
                 let (px, py, pz) = (wrap(hx + wind.0 * t / CELL), wrap(hy + wind.1 * t / CELL), wrap(hz + wind.2 * t / CELL));
-                // A particle at the cell's edge would pop across it: it fades out first.
                 if px < 0.06 || px > 0.94 || py < 0.06 || py > 0.94 || pz < 0.06 || pz > 0.94 { continue; }
                 let pos = v3((i as f32 + px) * CELL, (j as f32 + py) * CELL, (layer as f32 + pz) * CELL);
                 let d = ((pos.x - eye.x) * fx + (pos.y - eye.y) * fy).max(1.);
                 let size = (0.1 + d * 0.003 + 0.07 * hash(i, j, 99)) * a.size;
-                let ember = hash(i, j, layer as u32 + 14) < a.glints;
-                // Embers flicker; ash is steady and pale.
+                let ember = hash(i, j, (layer as u32).wrapping_add(14)) < a.glints;
                 if ember {
                     let blink = (t * (3. + 4. * hx) + hy * TAU).sin();
                     if blink < -0.5 { continue; }
@@ -128,9 +117,6 @@ fn drift(g: &mut Soup, eye: V3, heading: f32, ticks: u32, a: &Air) {
     }
 }
 
-
-/// Fire on the drawbridge's towers, where the leap is staged: a great flame at the head of each of
-/// the four, in sight from the whole rampart.
 fn towers(g: &mut Soup, r: &dyn Route, here: f32, ticks: u32) {
     let t = ticks as f32;
     for p in r.pieces().iter().filter(|p| p.kind == Kind::Drawbridge) {
@@ -152,8 +138,6 @@ fn towers(g: &mut Soup, r: &dyn Route, here: f32, ticks: u32) {
     }
 }
 
-/// The moat takes the lanterns of the barrier and gives them back: dashes of warm light on the
-/// water, drawn out toward the eye and shivering, below each lamp where the land falls to water.
 fn glints(g: &mut Soup, r: &dyn Route, here: f32, eye: V3, ticks: u32) {
     let t = ticks as f32;
     let step = 16.;
@@ -161,9 +145,12 @@ fn glints(g: &mut Soup, r: &dyn Route, here: f32, eye: V3, ticks: u32) {
     for k in k0..=k1 {
         let s = k as f32 * step;
         let sink = r.sink(s);
-        if sink <= 0. || style(r.zone(s).0).liquid != Some(WATER) { continue; }
+        let liquid = style(r.zone(s).0).liquid;
+        if sink <= 0. || !matches!(liquid, Some(WATER) | Some(WA_WASH)) { continue; }
+        let wash = liquid == Some(WA_WASH);
         let row = row_on(r, 0, s);
-        let level = row.h - (0.55 * sink).min(super::terrain::WATER_DEEP);
+        let level = row.h - (0.55 * sink).min(if wash { super::terrain::WASH_DEEP } else { super::terrain::WATER_DEEP });
+        let (bright, dim) = if wash { (MOON_GLINT, WA_LANTERN_DIM) } else { (LANTERN_GLINT, TORCH_DIM) };
         for sd in [-1.0f32, 1.0] {
             let edge = row.pt(sd * (row.half(sd) + 2.4), 0.);
             let p = v3(edge.x, edge.y, level + 0.04);
@@ -177,7 +164,7 @@ fn glints(g: &mut Soup, r: &dyn Route, here: f32, eye: V3, ticks: u32) {
                 if ph < -0.35 { continue; }
                 let at = p + d * (1.2 + i as f32 * 1.5 * (1. + len * 0.012)) + side * ((h - 0.5) * 1.4 + 0.25 * ph);
                 let (hl, hw) = (0.8 + 0.6 * h, 0.14 + 0.08 * ph.abs());
-                g.quad(at - d * hl - side * hw, at + d * hl - side * hw, at + d * hl + side * hw, at - d * hl + side * hw, if i % 2 == 0 { LANTERN_GLINT } else { TORCH_DIM });
+                g.quad(at - d * hl - side * hw, at + d * hl - side * hw, at + d * hl + side * hw, at - d * hl + side * hw, if i % 2 == 0 { bright } else { dim });
             }
         }
     }

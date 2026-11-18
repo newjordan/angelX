@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-"""OpenAI-compatible relay: each chat request waits for a hand-written reply.
-
-Request N is written to DIR/N.req.json (the body the model would see, after
-the optional DIRECTIVE is prepended to the system prompt); the relay blocks
-until DIR/N.resp.json holds {"content": "..."} or {"tool_calls": [{"name",
-"arguments"}]}, then answers in the requested (stream or plain) shape.
-"""
 import json
 import os
 import sys

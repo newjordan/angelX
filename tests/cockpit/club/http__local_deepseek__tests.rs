@@ -57,7 +57,6 @@ fn local_serve_gets_its_own_reasoning_back_to_keep_the_live_prefix() {
         .build_body_with_effort(&messages, &[], true, Some("max"))
         .unwrap();
     assert_eq!(body["model"], ALIAS);
-    // Past the self-hosted brevity splice, the history is 1:1.
     let wire = body["messages"]
         .as_array()
         .unwrap()
@@ -66,8 +65,6 @@ fn local_serve_gets_its_own_reasoning_back_to_keep_the_live_prefix() {
         .collect::<Vec<_>>();
     assert_eq!(wire[1]["content"], "");
     assert_eq!(wire[2]["tool_call_id"], "owned-call");
-    // A self-hosted serve re-renders history into its live KV prefix: without
-    // the reasoning it generated, every hop re-prefills the whole context.
     assert_eq!(
         wire[1]["reasoning_content"].as_str(),
         Some("owned-private-reasoning")

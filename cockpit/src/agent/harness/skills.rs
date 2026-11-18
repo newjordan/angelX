@@ -10,12 +10,6 @@ pub(crate) const MAX_SKILL_BODY_BYTES: usize = 64 * 1024;
 const MAX_PLUGIN_METADATA_BYTES: usize = 1024 * 1024;
 pub(crate) const MAX_SKILLS_PER_DIR: usize = 256;
 
-/// Public-safe shipped playbooks are compile-time assets, not an incidental dependency on
-/// the source checkout that built the executable. Public installs contain the
-/// binary without `CARGO_MANIFEST_DIR`; keeping the canonical files embedded
-/// prevents a relocated install from silently losing its entire skill catalog.
-/// A readable filesystem bundle is still scanned later as an overlay, so source
-/// builds retain resource discovery and operators can replace a shipped body.
 pub(crate) const EMBEDDED_SKILL_SOURCES: &[(&str, &str)] = &[
     (
         "benchmark-inference",
@@ -90,30 +84,15 @@ pub(crate) fn embedded_skills() -> Vec<Skill> {
         .collect()
 }
 
-// ---------------------------------------------------------------------------
-// Skills — focused, on-demand playbooks (the Codex/Claude SKILL.md model). The
-// catalog (name + one-line description) rides in the system prompt; the full body
-// is fetched only when the agent calls `skill(name)`, so idle skills cost almost
-// nothing in context.
-// ---------------------------------------------------------------------------
-
-/// One discovered skill loaded from a SKILL.md (or flat `*.md`).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Skill {
     pub name: String,
     pub description: String,
     pub body: String,
-    /// User-authored skills are global by default. Machine-derived project
-    /// skills must carry both fields and are inert outside that exact canonical
-    /// repository. A legacy Habitsmith skill without them fails closed.
     pub(crate) project_scoped: bool,
     pub(crate) project_key: Option<String>,
     pub(crate) project_root: Option<PathBuf>,
-    /// OpenCode-compatible manual-only discovery. The exact skill remains
-    /// callable, but automatic routing and model-facing catalogs omit it.
     pub(crate) manual_only: bool,
-    /// Admitted directory-style skill root. Supporting files are enumerated
-    /// only after an exact load and never read into the skill body.
     pub(crate) base_dir: Option<PathBuf>,
 }
 
@@ -128,17 +107,12 @@ impl Skill {
     }
 }
 
-/// Bounded routing metadata retained by the registry. Full skill bodies remain
-/// solely behind `skill(name)` so task routing does not enlarge the fixed prompt.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SkillSummary {
     name: String,
     description: String,
 }
 
-/// The playbook hint is the `⠥⠉` route around the skill name (data); its words
-/// are `ledger://⠥⠉`, verbatim. Header and sentinel are the same line-anchored
-/// cells, so the block still strips as one span.
 pub(crate) const SKILL_HINT_HEADER: &str = "⠥⠉";
 pub(crate) const SKILL_HINT_SENTINEL: &str = "⠥⠉";
 pub(crate) const MAX_SKILL_AUDIT_ISSUES: usize = 24;
@@ -190,14 +164,6 @@ pub(crate) fn safe_skill_name(name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ':'))
 }
 
-/// Select at most one high-confidence playbook using only deterministic lexical
-/// evidence. A skill must match its *name* (description-only overlap is never
-/// enough), while description overlap merely breaks ties. The returned hint is
-/// bounded and contains no repository-controlled description/body text.
-///
-/// Policy: **prefer no hint over a wrong one.** Weak single-token name hits
-/// (the `hf-model-ops` vs ambient "model" failure, and ambient `plan` / `write`
-/// / `review` / `loop` false positives) are suppressed unless corroborated.
 pub(crate) fn relevant_skill_hint(skills: &[SkillSummary], task: &str) -> Option<String> {
     let name = relevant_skill_name(skills, task)?;
     Some(format!(
@@ -209,15 +175,6 @@ pub(crate) fn relevant_skill_name<'a>(skills: &'a [SkillSummary], task: &str) ->
     skill_router_native::route(skills, task)
 }
 
-/// Discover skills from the compatible harness surfaces available to
-/// `workspace`: bundled angelX skills, repo `.claude/skills`,
-/// `.opencode/skills`, and `.agents/skills`, plugin-bundled skills, compatible
-/// global skill roots, and angelX user skills.
-///
-/// Because angelX's `skill(name)` tool is name-addressed, duplicate names are
-/// merged with later sources winning. Deeper repo scopes beat shallower ones;
-/// within one scope `.agents` beats `.opencode`, which beats `.claude`.
-/// `~/.angelX/skills` remains the final explicit user override.
 pub fn load_skills_for(workspace: &Path) -> Vec<Skill> {
     let scoped = |dir: &Path| {
         cached_skill_scan(dir)
@@ -245,8 +202,6 @@ fn configured_user_skill_dir() -> PathBuf {
 }
 
 fn skill_source_dirs(workspace: &Path) -> Vec<PathBuf> {
-    // Skills angelX ships with — methodology playbooks adapted from the Hermes
-    // library. `ANGEL_BUNDLED_SKILLS_DIR` overrides the crate-local default.
     let bundled = std::env::var_os("ANGEL_BUNDLED_SKILLS_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| crate::platform::runtime_paths::cockpit_dir().join("skills"));
@@ -462,23 +417,17 @@ fn read_bounded_utf8_file(path: &Path, max_bytes: usize) -> Option<String> {
     String::from_utf8(bytes).ok()
 }
 
-/// Merge bundled + user skills, **user wins** on name collision. Sorted by name
-/// (via `BTreeMap`) for a stable catalog. Pure → testable.
 pub(crate) fn merge_skills(bundled: Vec<Skill>, user: Vec<Skill>) -> Vec<Skill> {
     let mut by_name: std::collections::BTreeMap<String, Skill> = std::collections::BTreeMap::new();
     for s in bundled {
         by_name.insert(s.name.clone(), s);
     }
     for s in user {
-        by_name.insert(s.name.clone(), s); // user overrides bundled
+        by_name.insert(s.name.clone(), s);
     }
     by_name.into_values().collect()
 }
 
-/// Discovery, split out from the env lookup so it's testable. Two layouts are
-/// accepted: a folder per skill (`<dir>/<name>/SKILL.md`, the Codex/Claude
-/// convention) and a flat file (`<dir>/<name>.md`). Unreadable entries are
-/// skipped, never fatal. Result is sorted by name for a stable catalog.
 pub(crate) fn load_skills_from(dir: &Path) -> Vec<Skill> {
     scan_skills_from(dir).skills
 }
@@ -559,10 +508,6 @@ fn skill_scan_cache()
     CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
 }
 
-/// Cheaply fingerprint the exact sorted entry prefix the bounded loader can
-/// admit. Directory entry names plus the candidate SKILL.md/file metadata make
-/// ordinary catalog reads avoid reparsing every body, while edits, replacement,
-/// creation, removal, or ordering changes invalidate the cache.
 fn skill_source_signature(dir: &Path) -> Option<SkillSourceSignature> {
     let canonical_dir = dir.canonicalize().ok()?;
     let mut entries = confined_read_dir(dir, Path::new("")).ok()?;
@@ -589,11 +534,6 @@ fn skill_source_signature(dir: &Path) -> Option<SkillSourceSignature> {
                 .as_ref()
                 .and_then(|path| std::fs::symlink_metadata(dir.join(path)).ok())
                 .map(SkillFileSignature::from_metadata);
-            // The loader follows in-source file symlinks. Link metadata alone
-            // misses edits/replacements of the body and intermediate-link
-            // retargets. Track the resolved, confined target without reading
-            // its body; dangling or outbound targets cannot retain an admitted
-            // skill from an earlier scan.
             let resolved_target = file
                 .as_ref()
                 .filter(|metadata| metadata.is_symlink)
@@ -639,7 +579,6 @@ fn cached_skill_scan(dir: &Path) -> SkillScan {
     }
 
     let scan = scan_skills_from(dir);
-    // Never publish a snapshot assembled across a concurrent source mutation.
     let Some(after) = skill_source_signature(dir) else {
         return scan;
     };
@@ -677,7 +616,7 @@ fn scan_skills_from(dir: &Path) -> SkillScan {
     let mut scan = SkillScan::default();
     let mut entries = match confined_read_dir(dir, Path::new("")) {
         Ok(entries) => entries,
-        Err(_) => return scan, // no/unreadable skills dir → no skills
+        Err(_) => return scan,
     };
     scan.available = true;
     entries.sort_by(|left, right| left.name.cmp(&right.name));
@@ -691,7 +630,6 @@ fn scan_skills_from(dir: &Path) -> SkillScan {
             )
         } else if path.extension().and_then(|e| e.to_str()) == Some("md") {
             let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-            // A bare README.md isn't a skill; require a SKILL.md or a named *.md.
             if stem.eq_ignore_ascii_case("readme") {
                 continue;
             }
@@ -764,9 +702,6 @@ fn unsafe_audit_format(character: char) -> bool {
     )
 }
 
-/// Parse a SKILL.md into name/description/body. `---`-delimited frontmatter at the
-/// top supplies `name:` / `description:`; anything missing falls back to
-/// `fallback_name` and the first non-blank, non-heading line of the body.
 pub(crate) fn parse_skill(text: &str, fallback_name: &str) -> Skill {
     let mut name = fallback_name.to_string();
     let mut description = String::new();
@@ -819,9 +754,6 @@ pub(crate) fn parse_skill(text: &str, fallback_name: &str) -> Skill {
             }
         }
     }
-    // Habitsmith has always emitted project-derived instructions. Older drafts
-    // lacked an explicit binding; treating them as global is exactly the leak we
-    // are preventing, so they become scoped-but-unbound and therefore inert.
     project_scoped |= machine_derived_project_skill;
     if description.is_empty() {
         description = body
@@ -836,7 +768,6 @@ pub(crate) fn parse_skill(text: &str, fallback_name: &str) -> Skill {
     let mut body = body.trim().to_string();
     if body.len() > MAX_SKILL_BODY_BYTES {
         truncate_to_char_boundary(&mut body, MAX_SKILL_BODY_BYTES);
-        // The label is its `⠥⠓` page; the cut bytes ride beside it.
         body.push_str(&format!(
             "\n\n{} bytes={MAX_SKILL_BODY_BYTES}",
             crate::agent::harness::book::u_skills::SKILL_TRUNCATED.cells()
@@ -855,8 +786,6 @@ pub(crate) fn parse_skill(text: &str, fallback_name: &str) -> Skill {
     }
 }
 
-/// The compact skills catalog for the workspace-context carrier (empty when
-/// there are none): the `⠥⠁` route and the skill names.
 pub fn skills_catalog(skills: &[Skill]) -> String {
     let visible = skills
         .iter()
@@ -864,23 +793,13 @@ pub fn skills_catalog(skills: &[Skill]) -> String {
     if visible.clone().next().is_none() {
         return String::new();
     }
-    // `⠥⠁`: the catalog's words are its ledger pages; the names are data.
     let mut s = format!("\n\n{}\n", super::book::u_skills::CATALOG.cells());
-    // Names are constrained identifiers. Descriptions can originate in the
-    // repository, user skill directories, or plugin metadata, so never splice
-    // that free-form text into the System-role bootstrap prompt.
     for sk in visible {
         s.push_str(&format!("- `{}`\n", sk.name));
     }
     s
 }
 
-/// Referral card for compact task mode (`ANGEL_TASK_COMPACT_PROMPT`): the
-/// forced catalog lists every skill name up front, which re-prefills on
-/// every hop against cache-less local engines. The referral keeps one line —
-/// *how to ask* — and leaves discovery to the `skill` tool's own name/description
-/// surface (and `relevant_skill_hint`, which already pulls the top match into
-/// the first turn when the task text names a matching domain).
 pub fn skills_referral_card(skills: &[Skill]) -> String {
     let visible = skills
         .iter()
@@ -889,14 +808,9 @@ pub fn skills_referral_card(skills: &[Skill]) -> String {
         return String::new();
     }
     let count = visible.clone().count();
-    // `⠥⠃`: the referral's words are its ledger pages; the count is data.
     format!("\n\n{}\n{count}\n", super::book::u_skills::REFERRAL.cells())
 }
 
-/// `skill(name)` — return a discovered skill's full instructions on demand.
-/// Each load is recorded to the experience ledger (`event:"skill"`, H5 of the
-/// Habitsmith plan) stamped with the workspace the catalog was built for, so
-/// minted skills prove they're used and drift is detectable.
 pub struct SkillTool {
     skills: Vec<Skill>,
     workspace: PathBuf,
@@ -1016,9 +930,6 @@ impl Tool for SkillTool {
             .skills
             .iter()
             .find(|s| s.name == name || s.name.eq_ignore_ascii_case(name));
-        // Experience ledger: which skill loaded, where, and whether the lookup
-        // resolved — Habitsmith's usage/drift signal. Best-effort; never
-        // alters what the model gets back.
         crate::knowledge::experience::record_skill_event(
             &crate::knowledge::experience::SkillExperience {
                 name,

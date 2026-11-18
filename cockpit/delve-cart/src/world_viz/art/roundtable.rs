@@ -35,7 +35,6 @@ pub(crate) fn paint_roundtable_panels(
     }
 }
 
-/// The stub's one line along the top: its name, the clock, who is seated.
 pub(super) fn header(frame: &mut Frame, area: Rect, name: &str, elapsed: u32, seated: usize) {
     if area.width == 0 || area.height == 0 {
         return;

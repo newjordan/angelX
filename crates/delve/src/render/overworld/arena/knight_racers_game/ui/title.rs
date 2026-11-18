@@ -24,14 +24,12 @@ fn title(im: &mut Img, race: &rules::Session, seat: u32) {
     im.rect(0, 128, 384, 1, 'g');
     centred(im, 192, 21, "KNIGHT", 5, 'T');
     centred(im, 192, 61, "RACERS", 5, 'T');
-    // A pennon either side of the line under the name.
     for (x0, dir) in [(40, 1), (344, -1)] {
         for i in 0..6 { im.rect(x0 + dir * i * 4 - if dir < 0 { 3 } else { 0 }, 109 + i / 2, 4, 3 - i / 3, 'R'); }
     }
     centred(im, 192, 108, "THE CUP OF THE ROUND TABLE", 1, 'h');
     if t / 18 % 2 == 0 { centred(im, 192, 148, "PRESS ENTER", 2, 'H'); }
     centred(im, 192, 168, "E  SPACE  ENTER", 1, 't');
-    // The foot: the race behind, and a record to beat.
     plate(im, 0, 186, 384, 29);
     let on = race.course();
     im.text(8, 190, "NOW SHOWING", 't');
@@ -47,7 +45,6 @@ fn title(im: &mut Img, race: &rules::Session, seat: u32) {
     hints(im, "ANY KEY STARTS   HOLD ESC LEAVES");
 }
 
-/// What the highlighted mode is, for the plate beside the list.
 fn detail(race: &rules::Session, seat: u32, cur: usize) -> Vec<(String, char)> {
     let mut v: Vec<(String, char)> = Vec::new();
     let line = |s: &str, ink: char| (s.to_string(), ink);
@@ -58,7 +55,7 @@ fn detail(race: &rules::Session, seat: u32, cur: usize) -> Vec<(String, char)> {
             v.push(line("", 'h'));
             match mode {
                 rules::Mode::Cup => {
-                    v.push(line("3 COURSES, 2 LAPS EACH", 'H'));
+                    v.push((format!("{} COURSES, 2 LAPS EACH", rules::cup().len()), 'H'));
                     v.push((format!("1ST PAYS {}", gold(career::purse(mode, rules::Class::Squire, 1))), 'T'));
                     v.push((format!("CUP PRIZE {}", gold(career::cup_purse(rules::Class::Squire, 1))), 'T'));
                     v.push(line("WIN IT TO OPEN POD", 't'));
@@ -94,7 +91,6 @@ fn detail(race: &rules::Session, seat: u32, cur: usize) -> Vec<(String, char)> {
 fn modes(im: &mut Img, race: &rules::Session, seat: u32) {
     let Some(sf) = race.flow.seats.get(&seat) else { return };
     let cur = sf.cursor as usize % MENU.len();
-    // The list.
     plate(im, 10, 20, 176, 172);
     shout(im, 20, 26, "SELECT", 2, 'T');
     purse(im, 178, 30, sf.career.money, 'T');
@@ -107,7 +103,6 @@ fn modes(im: &mut Img, race: &rules::Session, seat: u32) {
         let ink = if i == cur { 'H' } else if shut { 'j' } else { 'J' };
         shout(im, 24, y, name, 2, ink);
     }
-    // The plate beside it: what the highlighted entry is.
     plate(im, 194, 20, 180, 172);
     shout(im, 202, 26, MENU[cur], 2, 'T');
     im.rect(200, 44, 168, 1, 'j');
@@ -141,7 +136,6 @@ fn classes(im: &mut Img, race: &rules::Session, seat: u32) {
         shout(im, 42, y, class.name(), 2, ink);
         if open {
             for l in wrap(class.blurb(), 44).iter().take(2).enumerate() { im.text(42, y + 17 + l.0 as i32 * 9, l.1, if i == cur { 'h' } else { 'G' }); }
-            // Cups won in this class, as little gold cups; and what it pays.
             for n in 0..h.career.cups[i].min(6) { trophy(im, 330 - n as i32 * 11, y + 1, 'T'); }
             let pay = format!("1ST {}", gold(career::purse(rules::Mode::Cup, *class, 1)));
             im.text(348 - text_w(&pay, 1), y + 22, &pay, if i == cur { 'T' } else { 't' });
@@ -155,7 +149,6 @@ fn classes(im: &mut Img, race: &rules::Session, seat: u32) {
     hints(im, "W S CHOOSE   ENTER OR E PICK   Q BACK");
 }
 
-/// A course's road from above, fitted to a box, the forks dimmer, the line a pale stripe.
 pub fn route(im: &mut Img, id: rules::CourseId, (x, y, w, h): (i32, i32, i32, i32)) {
     let c = rules::course(id);
     let main: Vec<(f32, f32)> = c.line().samples().iter().map(|p| (p.x, p.y)).collect();
@@ -185,24 +178,25 @@ fn courses(im: &mut Img, race: &rules::Session, seat: u32) {
     let (Some(h), Some(me)) = (race.flow.seats.get(&host), race.flow.seats.get(&seat)) else { return };
     let list = flow::choices();
     let cur = h.cursor as usize % list.len();
-    plate(im, 8, 8, 156, 124);
+    plate(im, 8, 8, 284, 124);
     shout(im, 14, 13, "COURSE", 2, 'T');
     for (i, &id) in list.iter().enumerate() {
         let c = rules::course(id);
-        let y = 33 + i as i32 * 24;
-        row(im, 12, y - 2, 148, 22, i == cur);
+        let (col, rowi) = ((i / 3) as i32, (i % 3) as i32);
+        let (x, y) = (12 + col * 140, 33 + rowi * 31);
+        row(im, x, y - 2, 138, 28, i == cur);
         let name = c.name();
         let short = name.strip_suffix(" RUN").unwrap_or(name);
+        let short = short.strip_suffix(" FOUNDRY").unwrap_or(short);
         let short = short.strip_prefix("LANTERNWARD ").unwrap_or(short);
-        im.text(18, y, short, if i == cur { 'H' } else { 'J' });
-        let cup_n = rules::cup().iter().position(|&k| k == id).map_or("PRACTICE".to_string(), |r| format!("CUP {}", r + 1));
-        im.text(18, y + 10, &format!("{} LAPS  {:.1} KM  {}", c.laps(), c.lap() / 1000., cup_n), 't');
+        let short = short.strip_prefix("THE ").unwrap_or(short);
+        im.text(x + 6, y + 1, short, if i == cur { 'H' } else { 'J' });
+        let tag = rules::cup().iter().position(|&k| k == id).map_or(if id == rules::CourseId::Proving { "PRACTICE".to_string() } else { "CIRCUIT".to_string() }, |r| format!("CUP {}", r + 1));
+        im.text(x + 6, y + 13, &format!("{} LAPS {:.1} KM {}", c.laps(), c.lap() / 1000., tag), 't');
     }
-    // The road from above, in a corner.
     let id = list[cur];
     plate(im, 296, 8, 80, 72);
     route(im, id, (296, 8, 80, 72));
-    // Words and records along the foot.
     plate(im, 8, 140, 368, 70);
     let c = rules::course(id);
     im.text(14, 145, c.name(), 'T');
@@ -218,7 +212,7 @@ fn courses(im: &mut Img, race: &rules::Session, seat: u32) {
     im.text(78, 197, &time_ms(rec.race), if rec.race > 0 { 'H' } else { 'j' });
     im.text(230, 186, &format!("RUN {} TIMES", rec.runs), 't');
     im.text(230, 197, &format!("WON {}", rec.wins), 't');
-    if race.flow.host() != Some(seat) { im.text(150, 13, &format!("{} CHOOSES", super::who(race, host)), 'O'); }
+    if race.flow.host() != Some(seat) { im.text(110, 13, &format!("{} CHOOSES", super::who(race, host)), 'O'); }
     note(im, race, host);
     hints(im, "W S CHOOSE   ENTER OR E PICK   Q BACK");
 }

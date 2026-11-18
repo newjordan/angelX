@@ -3,7 +3,6 @@
 //! published for its Unicode placeholders (rowcolumn-diacritics.txt).
 //! https://sw.kovidgoyal.net/kitty/graphics-protocol/#unicode-placeholders
 
-/// Sorted by code point, so a binary search finds an index.
 pub const DIACRITICS: [u32; 297] = [
     0x0305, 0x030D, 0x030E, 0x0310, 0x0312, 0x033D, 0x033E, 0x033F, 0x0346, 0x034A, 0x034B, 0x034C,
     0x0350, 0x0351, 0x0352, 0x0357, 0x035B, 0x0363, 0x0364, 0x0365, 0x0366, 0x0367, 0x0368, 0x0369,
@@ -32,7 +31,6 @@ pub const DIACRITICS: [u32; 297] = [
     0x1D187, 0x1D188, 0x1D189, 0x1D1AA, 0x1D1AB, 0x1D1AC, 0x1D1AD, 0x1D242, 0x1D243, 0x1D244,
 ];
 
-/// The combining mark at `index`, for the writer.
 pub fn mark(index: usize) -> char {
     char::from_u32(DIACRITICS[index]).expect("every table entry is a scalar")
 }
@@ -87,8 +85,6 @@ const LOOKUP: Lookup = {
     }
 };
 
-/// The index of a combining mark, for the reader. `None` when it is not in
-/// the table. One page lookup (64-code blocks), no search.
 #[inline]
 pub const fn index(c: char) -> Option<u16> {
     let code = c as usize;

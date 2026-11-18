@@ -65,7 +65,6 @@ pub struct Company {
     pub rosters: BTreeMap<String, Roster>,
 }
 
-/// The actor uses the same movement, damage and grace as the old allies.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Companion {
     pub squire: Squire,

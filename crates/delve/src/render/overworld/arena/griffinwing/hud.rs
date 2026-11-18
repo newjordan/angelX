@@ -18,7 +18,6 @@ use crate::rules::griffinwing::{
 };
 use crate::rules::{HZ, Run};
 
-/// What the overlay needs to place a thing in the picture.
 pub struct Ctx<'a> {
     pub s: &'a Session,
     pub run: &'a Run,
@@ -31,17 +30,14 @@ impl Ctx<'_> {
     pub fn craft(&self) -> Option<&Craft> {
         self.s.seats.get(&self.seat).map(|x| &x.craft)
     }
-    /// A rail point (fixed point) on the picture: where, and how far.
     pub fn at(&self, s: i32, x: i32, z: i32) -> Option<(f32, f32, f32)> {
         let w = rail::rail().world(units(s), units(x), units(z));
         let p = self.cam.point(v3(w[0], w[1], w[2]));
         raster::project_point(&self.cam.view(), W as usize, H as usize, p)
     }
-    /// How many dots tall a thing `h` units high is at `depth`.
     pub fn tall(&self, h: f32, depth: f32) -> f32 {
         raster::dots_tall(&self.cam.view(), W as usize, H as usize, h, depth)
     }
-    /// Whether the scene leaves this dot showing in front of `depth`.
     pub fn clear(&self, x: i32, y: i32, depth: f32) -> bool {
         if !(0..W).contains(&x) || !(0..H).contains(&y) {
             return false;
@@ -51,8 +47,6 @@ impl Ctx<'_> {
             .is_none_or(|&d| d > depth - 0.25)
     }
 }
-
-// ─── little shapes ──────────────────────────────────────────────────────────
 
 fn disc(im: &mut Img, cx: i32, cy: i32, r: i32, ch: char) {
     for dy in -r..=r {
@@ -76,8 +70,6 @@ fn ring(im: &mut Img, cx: i32, cy: i32, r: i32, ch: char) {
     }
 }
 
-/// Four corner brackets round a box, two dots thick so they survive the
-/// terminal's coarser cells.
 fn brackets(im: &mut Img, cx: i32, cy: i32, half: i32, arm: i32, ch: char) {
     for (sx, sy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] {
         let (x, y) = (cx + sx * half, cy + sy * half);
@@ -88,7 +80,6 @@ fn brackets(im: &mut Img, cx: i32, cy: i32, half: i32, arm: i32, ch: char) {
     }
 }
 
-/// Words on a dark plate, so they read on any ground.
 fn label(im: &mut Img, x: i32, y: i32, s: &str, ink: char) {
     let p = plate_of(x, y, s);
     im.rect(p.x, p.y, p.w, p.h, 'k');
@@ -99,18 +90,15 @@ fn centred(im: &mut Img, cx: i32, y: i32, s: &str, ink: char) {
     label(im, cx - text_width(s) / 2, y, s, ink);
 }
 
-/// The plate `big` lays under words `k` times the font's size.
 fn big_box(cx: i32, y: i32, s: &str, k: i32) -> Box2 {
     let w = text_width(s) * k;
     Box2::new(cx - w / 2 - 3, y - 3, w + 6, 7 * k + 6)
 }
 
-/// The plate `centred` lays under `s`.
 fn centred_box(cx: i32, y: i32, s: &str) -> Box2 {
     plate_of(cx - text_width(s) / 2, y, s)
 }
 
-/// Words `k` times the font's size, on a dark plate, centred on `cx`.
 fn big(im: &mut Img, cx: i32, y: i32, s: &str, ink: char, k: i32) {
     let mut words = Img::new(text_width(s), 7);
     words.text(0, 0, s, ink);
@@ -124,9 +112,6 @@ fn plate(im: &mut Img, x: i32, y: i32, w: i32, h: i32) {
     chrome::panel(im, (x, y, w, h), Tone::SLATE);
 }
 
-// ─── who is who ─────────────────────────────────────────────────────────────
-
-/// A rider's name and the ink it is marked in; a knight's own.
 pub fn who(run: &Run, id: u8) -> (String, char) {
     match (id, gw::rider_name(id)) {
         (7, Some(name)) => (name.into(), '4'),
@@ -146,8 +131,6 @@ pub fn who(run: &Run, id: u8) -> (String, char) {
     }
 }
 
-/// A portrait, 20 by 20: a knight's own face, or a rider's block with its
-/// letter (a labelled placeholder until the art wave paints them).
 fn portrait(im: &mut Img, run: &Run, id: u8, x: i32, y: i32) {
     let (name, ink) = who(run, id);
     im.rect(x, y, 20, 20, 'k');
@@ -169,9 +152,6 @@ fn portrait(im: &mut Img, run: &Run, id: u8, x: i32, y: i32) {
     im.frame(x, y, 20, 20, ink);
 }
 
-// ─── in the world ───────────────────────────────────────────────────────────
-
-/// Speed streaks off the edges of the picture, while the spur is on.
 fn streaks(im: &mut Img, tick: u32) {
     let (cx, cy) = (W / 2, H / 2 - 6);
     for k in 0..30u32 {
@@ -219,7 +199,6 @@ fn bolts(im: &mut Img, c: &Ctx) {
             disc(im, x, y, r, halo);
             disc(im, x, y, (r - 1).max(1), core);
             if matches!(b.shot, Arm::Gloam) {
-                // A cold flame in a dark heart.
                 disc(im, x, y, (r / 2).max(1), 'q');
                 ring(im, x, y, r + 1, 'z');
             }
@@ -233,8 +212,6 @@ fn bolts(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// A pale pip on every foe far off, where its block is a few dots: the
-/// snuffers' own eyes, so a flight can be seen coming.
 fn pips(im: &mut Img, c: &Ctx) {
     for f in &c.s.foes {
         if !f.lockable() || f.kind == Kind::Lamp {
@@ -261,9 +238,6 @@ fn pips(im: &mut Img, c: &Ctx) {
     }
 }
 
-// ─── the floating labels ────────────────────────────────────────────────────
-
-/// How old a flare is, in ticks since it began.
 fn age_of(f: &gw::Flare) -> i32 {
     match f.what {
         Burst::Starfall => 36 - i32::from(f.ticks),
@@ -272,7 +246,6 @@ fn age_of(f: &gw::Flare) -> i32 {
     }
 }
 
-/// A foe that wears a name: in range, lockable, not telling, not locked.
 struct Named<'a> {
     name: &'static str,
     ink: char,
@@ -283,7 +256,6 @@ struct Named<'a> {
     ahead: i32,
 }
 
-/// At most five, the nearest first.
 fn named<'a>(c: &Ctx<'a>) -> Vec<Named<'a>> {
     let me = c.craft().map_or(0, |cr| c.s.craft_s(cr));
     let mut out = Vec::new();
@@ -292,7 +264,6 @@ fn named<'a>(c: &Ctx<'a>) -> Vec<Named<'a>> {
         if f.st == St::Tell || !(gw::dm(80)..=gw::dm(380)).contains(&ahead) || !f.lockable() {
             continue;
         }
-        // A locked foe has its bracket and its number; no name over it.
         if c.craft()
             .is_some_and(|me| me.locks.iter().any(|l| l.foe == f.id))
         {
@@ -330,7 +301,6 @@ fn named<'a>(c: &Ctx<'a>) -> Vec<Named<'a>> {
     out
 }
 
-/// The health bar under a hurt foe that wears a name.
 fn bar_of(n: &Named) -> Option<Box2> {
     let f = n.foe;
     if f.hp >= f.full || f.hp == 0 {
@@ -340,9 +310,6 @@ fn bar_of(n: &Named) -> Option<Box2> {
     Some(Box2::new(n.x - w / 2, n.y + n.half + 3, w, 2))
 }
 
-/// The labels the picture wants: the wing's names over the other craft, the
-/// Wyrm's, the foes', the things on the rail and the words of the moment (a
-/// bolt turned, the gap, the roar). `layout::plan` finds each of them a place.
 pub(super) fn wants(c: &Ctx) -> Vec<Want> {
     let s = c.s;
     let me = c.craft().map_or(0, |cr| s.craft_s(cr));
@@ -358,7 +325,6 @@ pub(super) fn wants(c: &Ctx) -> Vec<Want> {
             reach,
         });
     };
-    // The other craft: a rider's name, another knight's, over its head.
     let craft = |at: Option<(f32, f32, f32)>| -> Option<(i32, i32, f32)> {
         let (x, y, d) = at?;
         let (x, y) = (x.round() as i32, y.round() as i32);
@@ -366,8 +332,6 @@ pub(super) fn wants(c: &Ctx) -> Vec<Want> {
         (d >= 4.0 && on).then_some((x, y, d))
     };
     let lift = |d: f32| ((c.tall(1.6, d) / 2.0) as i32 + 8).clamp(12, 36);
-    // On the way home the wing is marked by its comets, not by names, and the
-    // gates and rings by their lights: only the beacon is called.
     let home = matches!(s.mode, Mode::Victory | Mode::Tally);
     for (&id, seat) in &s.seats {
         if !home && id != c.seat && seat.craft.down == 0 {
@@ -447,15 +411,11 @@ pub(super) fn wants(c: &Ctx) -> Vec<Want> {
         }
         shown += 1;
     }
-    // The beacon is named once, as the way to it opens, and not again while
-    // the wing's comets fly to it.
     if s.mode == Mode::Victory && (20..moments::LIGHT_AT - finish::COMET_TICKS - 2).contains(&s.mode_t) {
         if let Some((x, y, _)) = craft(c.at(s.home + gw::dm(1000), 0, gw::dm(160))) {
             want(Rank::Thing, "BEACON", '5', x, y, 0, 30);
         }
     }
-    // The words of the moment: the Wyrm's gap and its roar, a bolt turned
-    // round and a chain of pops. The newest few; a pile of them is no use.
     if let (Some(b), Some(me)) = (&s.boss, c.craft()) {
         if !over && matches!(b.st, Wyrm::Tell | Wyrm::Coil | Wyrm::Roar) {
             let here = s.craft_s(me) + gw::dm(10);
@@ -491,8 +451,6 @@ pub(super) fn wants(c: &Ctx) -> Vec<Want> {
     out
 }
 
-/// The floating labels, each on its plate, where `layout::plan` put them,
-/// and the health bars of the foes that are hurt.
 fn words(im: &mut Img, c: &Ctx) {
     for n in named(c) {
         if let Some(b) = bar_of(&n) {
@@ -513,9 +471,6 @@ fn words(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// The locked footprints of what is about to land: a ring where each shot
-/// will, a lane for a dive, the Wyrm's gap and its column. They pulse faster
-/// as the tell runs out, and never show for less than forty ticks.
 fn footprints(im: &mut Img, c: &Ctx) {
     let s = c.s;
     let Some(me) = c.craft() else { return };
@@ -549,7 +504,6 @@ fn footprints(im: &mut Img, c: &Ctx) {
             }
             Kind::Bomber | Kind::Wisp => {
                 mark(im, f.fx, f.fz, f.ticks, '7');
-                // The bomber's lane, from where it hangs to the mark.
                 if f.kind == Kind::Bomber {
                     if let (Some(a), Some(b)) =
                         (c.at(f.s, f.x, f.z), c.at(here + gw::dm(10), f.fx, f.fz))
@@ -576,7 +530,6 @@ fn footprints(im: &mut Img, c: &Ctx) {
         }
     }
     if let Some(b) = &s.boss {
-        // Once it has fallen, its footprints go with it.
         let over = matches!(s.mode, Mode::Victory | Mode::Tally);
         if !over && matches!(b.st, Wyrm::Tell | Wyrm::Coil | Wyrm::Roar) {
             let wz = gw::Nums::default().wz();
@@ -625,7 +578,6 @@ fn footprints(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// A locked foe's bracket: its centre, its half size, the locks it holds.
 fn lock_marks(c: &Ctx, me: &Craft) -> Vec<(i32, i32, i32, u8)> {
     let mut out = Vec::new();
     for l in &me.locks {
@@ -641,7 +593,6 @@ fn lock_marks(c: &Ctx, me: &Craft) -> Vec<(i32, i32, i32, u8)> {
     out
 }
 
-/// Where the far and the near reticle fall, and the craft under them.
 type Aim = (
     Option<(f32, f32, f32)>,
     Option<(f32, f32, f32)>,
@@ -664,8 +615,6 @@ fn aim(c: &Ctx, me: &Craft) -> Aim {
     )
 }
 
-/// The first of `tries` (kept in the frame) whose plate lies on none of the
-/// HUD's `fixed` plates; none when every one is taken.
 fn clear_of(text: &str, tries: &[(i32, i32)], fixed: &[Box2]) -> Option<(i32, i32)> {
     let w = text_width(text);
     tries
@@ -674,8 +623,6 @@ fn clear_of(text: &str, tries: &[(i32, i32)], fixed: &[Box2]) -> Option<(i32, i3
         .find(|&(x, y)| !fixed.iter().any(|b| b.hits(&plate_of(x, y, text))))
 }
 
-/// The "x3" count by the far reticle: on its right, or on its left when the
-/// right is the frame's edge or a plate, or under it.
 fn count_at(fx: i32, fy: i32, text: &str, fixed: &[Box2]) -> Option<(i32, i32)> {
     let w = text_width(text);
     clear_of(
@@ -690,7 +637,6 @@ fn count_at(fx: i32, fy: i32, text: &str, fixed: &[Box2]) -> Option<(i32, i32)> 
     )
 }
 
-/// The "READY" under the far reticle, kept inside the frame and off the plates.
 fn ready_at(fx: i32, fy: i32, fixed: &[Box2]) -> Option<(i32, i32)> {
     let w = text_width("READY");
     clear_of(
@@ -700,16 +646,11 @@ fn ready_at(fx: i32, fy: i32, fixed: &[Box2]) -> Option<(i32, i32)> {
     )
 }
 
-/// What the reticle covers: the far and the near ones, the count and the
-/// READY by them, each bracket and its numbers. No label may be laid on it.
 pub(super) fn reticle_boxes(c: &Ctx) -> Vec<Box2> {
     let (brackets, text) = reticle_parts(c);
     brackets.into_iter().chain(text).collect()
 }
 
-/// Where the numbers of a lock's bracket stand: a digit a lock over the
-/// bracket's corner, or under it when the plates have the place above; none
-/// at all when neither is clear (the numbers are the least of the words).
 fn tag_place(x: i32, y: i32, half: i32, k: u8, fixed: &[Box2]) -> Option<Box2> {
     let w = i32::from(k) * 6 + 1;
     let x0 = (x + half - 4).clamp(1, W - 1 - w);
@@ -721,14 +662,10 @@ fn tag_place(x: i32, y: i32, half: i32, k: u8, fixed: &[Box2]) -> Option<Box2> {
     .find(|b| !fixed.iter().any(|f| f.hits(b)))
 }
 
-/// The reticle's words alone (the lock numbers, the count, the READY): what
-/// a banner or a flying number may not lie on. Its rings and brackets are
-/// lines, and the banner may be crossed by them.
 pub(super) fn reticle_text_boxes(c: &Ctx) -> Vec<Box2> {
     reticle_parts(c).1
 }
 
-/// The reticle's rings and brackets, and its words.
 fn reticle_parts(c: &Ctx) -> (Vec<Box2>, Vec<Box2>) {
     let Some(me) = c.craft() else {
         return (Vec::new(), Vec::new());
@@ -771,9 +708,6 @@ fn reticle_parts(c: &Ctx) -> (Vec<Box2>, Vec<Box2>) {
     (lines, text)
 }
 
-/// The reticle: the far one small and exact, the near one wider, a line
-/// down to the craft, a ring that fills as the charge gathers, brackets on
-/// what is locked.
 fn reticles(im: &mut Img, c: &Ctx) {
     let Some(me) = c.craft() else { return };
     if me.down > 0 {
@@ -781,7 +715,6 @@ fn reticles(im: &mut Img, c: &Ctx) {
     }
     let s = c.s;
     let tick = s.elapsed;
-    // The locks.
     let mut n = 0;
     let fixed = fixed_boxes(c);
     for (x, y, half, k) in lock_marks(c, me) {
@@ -800,7 +733,6 @@ fn reticles(im: &mut Img, c: &Ctx) {
     if let (Some(f), Some(nr)) = (far, near) {
         let (fx, fy) = (f.0.round() as i32, f.1.round() as i32);
         let (nx, ny) = (nr.0.round() as i32, nr.1.round() as i32);
-        // The count of locks by the reticle, and the plates it keeps off.
         let count = (n > 0)
             .then(|| {
                 let text = format!("x{n}");
@@ -811,7 +743,6 @@ fn reticles(im: &mut Img, c: &Ctx) {
         if let Some((text, (x, y))) = &count {
             fixed_with_count.push(plate_of(*x, *y, text));
         }
-        // The line from the craft to the reticles, dotted.
         if let Some(cr) = craft {
             let (cx, cy) = (cr.0 as i32, cr.1 as i32);
             for k in 0..16 {
@@ -823,7 +754,6 @@ fn reticles(im: &mut Img, c: &Ctx) {
                 }
             }
         }
-        // The near reticle: four corner ticks. The far one: a ring and a cross.
         brackets(im, nx, ny, 8, 3, '4');
         ring(im, fx, fy, 7, 'k');
         ring(im, fx, fy, 6, ink);
@@ -835,7 +765,6 @@ fn reticles(im: &mut Img, c: &Ctx) {
             im.line(fx + d, fy + 3, fx + d, fy + 10, ink);
         }
         im.rect(fx, fy, 2, 2, 'w');
-        // The charge: an arc about the far reticle, a segment at a time.
         if me.charge > 0 {
             let full = gw::Nums::default().charge.max(1);
             let segs = 24;
@@ -880,8 +809,6 @@ fn reticles(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// A rolling craft's spinning shield: bright while it turns bolts round, dim
-/// for the last few ticks of the roll.
 fn shields(im: &mut Img, c: &Ctx) {
     let s = c.s;
     let reflect = gw::Nums::default().reflect();
@@ -920,14 +847,12 @@ fn shields(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// The picture's flashes, pops and rings.
 fn flares(im: &mut Img, c: &Ctx) {
     let s = c.s;
     for f in &s.fx {
         let age = age_of(f);
         match f.what {
             Burst::Starfall => {
-                // A white-gold star sweeps the screen from its middle.
                 let rays = 20;
                 let reach = 40 + age * 12;
                 for k in 0..rays {
@@ -960,8 +885,6 @@ fn flares(im: &mut Img, c: &Ctx) {
                 let (x, y) = (x.round() as i32, y.round() as i32);
                 let u = c.tall(1.0, d).max(2.0);
                 match f.what {
-                    // A foe's fall, a bolt's landing and a lamp breaking are
-                    // `fx`'s: a burst of the foe's own kind, its debris and smoke.
                     Burst::Pop | Burst::Hit | Burst::Lamp => {}
                     Burst::Turn => {
                         let r = (u * (0.7 + age as f32 * 0.22)) as i32;
@@ -1017,17 +940,10 @@ fn flares(im: &mut Img, c: &Ctx) {
     }
 }
 
-// ─── the HUD ────────────────────────────────────────────────────────────────
-
-/// The shield, the bombs and the spur, top left: the plate they sit on.
 const GAUGES: Box2 = Box2::new(5, 5, 88, 34);
-/// The spur's meter, in the plate.
 const SPUR_BAR: Box2 = Box2::new(66, 28, 22, 4);
-/// The score and the team's, top right: the plate they sit on.
 const SCORE: Box2 = Box2::new(296, 5, 83, 22);
-/// The key strip along the bottom, for the first forty seconds.
 const KEYS_TEXT: &str = "F SHOOT  HOLD F LOCK  SPACE ROLL  E SPUR  Q BRAKE  X BOMB";
-/// A call-out's plate is this tall, and they stack at this pitch.
 const CALL_H: i32 = 25;
 const CALL_PITCH: i32 = 28;
 
@@ -1036,7 +952,6 @@ fn keys_box() -> Box2 {
     Box2::new((W - w) / 2 - 4, H - 12, w + 8, 11)
 }
 
-/// The shield, the bombs and the spur, top left.
 fn gauges(im: &mut Img, c: &Ctx) {
     let Some(me) = c.craft() else { return };
     let tick = c.s.elapsed;
@@ -1058,7 +973,6 @@ fn gauges(im: &mut Img, c: &Ctx) {
     for k in 1..4 {
         im.rect(bx + bw * k / 4, by, 1, 6, 'k');
     }
-    // Starfall, a star each.
     for k in 0..3u8 {
         let (sx, sy) = (11 + i32::from(k) * 9, 26);
         let on = k < me.bombs;
@@ -1072,7 +986,6 @@ fn gauges(im: &mut Img, c: &Ctx) {
             im.put(sx + 3, sy + 3, '6');
         }
     }
-    // The spur's meter: the word ends three dots before it starts.
     im.text(40, 26, "SPUR", 'h');
     im.rect(SPUR_BAR.x, SPUR_BAR.y, SPUR_BAR.w, SPUR_BAR.h, 'g');
     let ink = if me.spent {
@@ -1091,11 +1004,9 @@ fn gauges(im: &mut Img, c: &Ctx) {
     );
 }
 
-/// The score, the hit counter, top right.
 fn score(im: &mut Img, c: &Ctx) {
     let Some(me) = c.craft() else { return };
     plate(im, SCORE.x, SCORE.y, SCORE.w, SCORE.h);
-    // A number that just landed swells the score's plate in gold.
     let bump = moments::bump(c);
     if bump > 0.0 {
         im.frame(SCORE.x, SCORE.y, SCORE.w, SCORE.h, if bump > 0.5 { '6' } else { '4' });
@@ -1111,15 +1022,12 @@ fn score(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// The hit counter under the score: its words, its size, its centre (kept
-/// in the frame however long the chain).
 fn chain_of(c: &Ctx) -> Option<(String, i32, i32)> {
     let me = c.craft()?;
     if me.chain < 2 {
         return None;
     }
     let text = format!("{} HITS", me.chain);
-    // The counter swells while the chain is fresh.
     let k = 1 + i32::from(me.chain_ticks > 66);
     let cx = 332.min(W - 6 - text_width(&text) * k / 2);
     Some((text, k, cx))
@@ -1133,14 +1041,12 @@ fn roster_name(c: &Ctx) -> String {
     )
 }
 
-/// The beat's name over the row of pips, as one box.
 fn roster_box(c: &Ctx) -> Box2 {
     let n = (c.s.seats.len() + c.s.wing.len()) as i32;
     let title = centred_box(W / 2, 6, &roster_name(c));
     title.union(&Box2::new((W - n * 15) / 2, 16, n * 15 - 2, 15))
 }
 
-/// The wing: a pip for each craft, its shield under it, the beat's name.
 fn roster(im: &mut Img, c: &Ctx) {
     let s = c.s;
     let name = roster_name(c);
@@ -1188,8 +1094,6 @@ fn roster(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// The Wyrm's lamps and the lit one's flame.
-/// The panel the lamps sit on, while the Wyrm is up.
 fn wyrm_box(c: &Ctx) -> Option<Box2> {
     let b = c.s.boss.as_ref()?;
     if b.st == Wyrm::Rise || matches!(c.s.mode, Mode::Victory | Mode::Tally) {
@@ -1223,7 +1127,6 @@ fn wyrm_panel(im: &mut Img, c: &Ctx) {
             ring(im, cx, cy, 8, edge);
         }
     }
-    // The lit lamp's flame.
     let lit = b.lamps[usize::from(b.phase.min(2))];
     if let Some(f) = c.s.foes.iter().find(|f| f.id == lit && f.st != St::Broken) {
         im.rect(W / 2 + 22, y + 6, 28, 5, 'g');
@@ -1243,9 +1146,6 @@ fn wyrm_panel(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// The wing's call-outs, newest first: a portrait and a short line on a
-/// plate. They stack up from just over the key strip (whether or not it is
-/// showing, so they do not jump when it goes), each as wide as its words.
 fn call_plates(c: &Ctx) -> Vec<(gw::Call, Box2)> {
     let keys = keys_box();
     c.s.calls
@@ -1264,7 +1164,6 @@ fn call_plates(c: &Ctx) -> Vec<(gw::Call, Box2)> {
         .collect()
 }
 
-/// The wing's call-outs: a portrait and a short line, newest at the bottom.
 fn calls(im: &mut Img, c: &Ctx) {
     for (call, b) in call_plates(c) {
         let fade = call.ticks < 12 && call.ticks % 4 < 2;
@@ -1274,15 +1173,12 @@ fn calls(im: &mut Img, c: &Ctx) {
         plate(im, b.x, b.y, b.w, b.h);
         portrait(im, c.run, call.who, b.x + 3, b.y + 3);
         let (name, ink) = who(c.run, call.who);
-        // The name on its own black plate: a red cloth is dim on the slate.
         label(im, b.x + 27, b.y + 4, &name, ink);
         let me = u32::from(call.who) == c.seat;
         im.text(b.x + 27, b.y + 14, call.line.says(me, call.who <= 6), 'w');
     }
 }
 
-/// A line of words that stands in the middle of the picture: centred on
-/// `cx` at `y`, `k` times the font's size, under a group's name.
 struct Say {
     group: &'static str,
     cx: i32,
@@ -1332,11 +1228,9 @@ impl Say {
     }
 }
 
-/// The retry, a fall, the victory banner.
 fn states(im: &mut Img, c: &Ctx) {
     let s = c.s;
     if s.mode == Mode::Retry {
-        // The picture darkens and says so.
         for y in (0..H).step_by(2) {
             im.rect(0, y, W, 1, 'k');
         }
@@ -1349,7 +1243,6 @@ fn states(im: &mut Img, c: &Ctx) {
         }
     }
     if let Some(me) = c.craft() {
-        // Worn thin: a red edge that breathes.
         if me.shield <= 30 && me.down == 0 && s.elapsed % 24 < 12 {
             for k in 0..3 {
                 im.frame(k, k, W - 2 * k, H - 2 * k, if k == 0 { '7' } else { '8' });
@@ -1362,7 +1255,6 @@ fn keys_shown(s: &Session) -> bool {
     s.elapsed <= 40 * HZ && s.mode == Mode::Play
 }
 
-/// The key strip, small and quiet, for the first forty seconds.
 fn keys(im: &mut Img, c: &Ctx) {
     if !keys_shown(c.s) {
         return;
@@ -1377,14 +1269,11 @@ fn time(ticks: u32) -> String {
     format!("{}:{:02}", secs / 60, secs % 60)
 }
 
-/// The tally's panel: tall enough for a row a knight.
 fn tally_box(s: &Session) -> Box2 {
     let (pw, ph) = (300, 106 + s.seats.len() as i32 * 14);
     Box2::new((W - pw) / 2, 22, pw, ph)
 }
 
-/// The end tally: hits, wingmen saved, time, the medal, and what each knight
-/// did.
 fn tally(im: &mut Img, c: &Ctx) {
     let s = c.s;
     if s.mode != Mode::Tally {
@@ -1400,7 +1289,6 @@ fn tally(im: &mut Img, c: &Ctx) {
         Medal::Silver => 'H',
         Medal::Bronze => 'R',
     };
-    // The medal: a disc on a ribbon, labelled.
     let (mx, my) = (px + 40, py + 54);
     im.rect(mx - 6, my - 28, 4, 14, '7');
     im.rect(mx + 2, my - 28, 4, 14, '1');
@@ -1435,7 +1323,6 @@ fn tally(im: &mut Img, c: &Ctx) {
     if s.retries > 0 {
         label(im, px + 210, py + 52, &format!("FALLS {}", s.retries), '7');
     }
-    // The party's best, and whether this run beat it.
     let (fresh, now, prior) = finish::best_line(s);
     if fresh {
         let blink = s.mode_t / 6 % 2 == 0;
@@ -1446,7 +1333,6 @@ fn tally(im: &mut Img, c: &Ctx) {
         im.text(px + 210, py + 76, &format!("{}%", prior.max(now)), 'i');
     }
     finish::glint(im, (mx, my), s);
-    // What each knight did, the best first, the crown on the one who flew it.
     let crowned = finish::mvp(s);
     let mut order: Vec<_> = s.seats.iter().collect();
     order.sort_by_key(|(id, seat)| (std::cmp::Reverse(seat.craft.pts), **id));
@@ -1471,16 +1357,10 @@ fn tally(im: &mut Img, c: &Ctx) {
     }
 }
 
-/// The health bars of the foes that wear names: no label is laid on them.
 pub(super) fn bar_boxes(c: &Ctx) -> Vec<Box2> {
     named(c).iter().filter_map(bar_of).collect()
 }
 
-/// Every plate and block of words the HUD has up this tick, by name: the
-/// fixed plates, and the banner and the numbers in flight laid clear of them.
-/// They are what `paint` draws, and none may lie on another: the tests hold
-/// them to it, at every seat count, over a whole run. (A fading call-out and
-/// a blinking plate count as up: their place is theirs.)
 pub(super) fn boxes(c: &Ctx) -> Vec<(&'static str, Box2)> {
     let mut out = plates(c);
     if c.s.mode != Mode::Tally {
@@ -1495,15 +1375,12 @@ pub(super) fn boxes(c: &Ctx) -> Vec<(&'static str, Box2)> {
     out
 }
 
-/// The plates and the foes' health bars, as boxes: what the banner keeps off.
 fn flat_plates(c: &Ctx, plates: &[(&'static str, Box2)]) -> Vec<Box2> {
     let mut base: Vec<Box2> = plates.iter().map(|(_, b)| *b).collect();
     base.extend(bar_boxes(c));
     base
 }
 
-/// What the reticle's words and the flying numbers keep off: the plates, the
-/// health bars and the banner, which has its row first.
 fn fixed_boxes(c: &Ctx) -> Vec<Box2> {
     let mut base = flat_plates(c, &plates(c));
     if c.s.mode != Mode::Tally {
@@ -1514,13 +1391,10 @@ fn fixed_boxes(c: &Ctx) -> Vec<Box2> {
     base
 }
 
-/// The fixed plates: the gauges, the score, the roster, the Wyrm's panel,
-/// the calls, the key strip, the words of the middle.
 fn plates(c: &Ctx) -> Vec<(&'static str, Box2)> {
     let s = c.s;
     let mut out = Vec::new();
     if s.mode == Mode::Tally {
-        // The tally has the picture to itself.
         out.push(("tally", tally_box(s)));
         return out;
     }
@@ -1553,10 +1427,6 @@ fn plates(c: &Ctx) -> Vec<(&'static str, Box2)> {
     out
 }
 
-/// The world's own layer: what is drawn on the canyon and moves with it
-/// (a blow's shake shifts it, the screen's plates stand still): the spur's
-/// streaks, the footprints, the pips, the rolls and the shields, the bursts,
-/// the bolts and the reticle.
 pub fn paint_world(im: &mut Img, c: &Ctx) {
     let s = c.s;
     if c.craft().is_some_and(|me| me.boost) {
@@ -1576,15 +1446,11 @@ pub fn paint_world(im: &mut Img, c: &Ctx) {
     reticles(im, c);
 }
 
-/// What stands still over the world: the names, the plates, the banner, the
-/// rims and the tally.
 pub fn paint_screen(im: &mut Img, c: &Ctx) {
     let s = c.s;
-    // The names over the rings and flashes, under the plates.
     words(im, c);
     fx::tell_rim(im, c);
     moments::rims(im, c);
-    // The tally has the picture to itself: the rest of the HUD stands down.
     if s.mode != Mode::Tally {
         gauges(im, c);
         score(im, c);
@@ -1601,7 +1467,6 @@ pub fn paint_screen(im: &mut Img, c: &Ctx) {
     tally(im, c);
 }
 
-/// Everything over the scene, for the viewer's own craft.
 pub fn paint(im: &mut Img, c: &Ctx) {
     paint_world(im, c);
     paint_screen(im, c);

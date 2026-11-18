@@ -1,15 +1,5 @@
 import Base
 
-# The Delve's authored floors (`layout`): the Undercroft and its three halls,
-# Maud's tavern, and the wing Tobbin's crew digs out west of it — where each
-# room stands, what it is built of, and which doorways it opens.
-#
-# Rust keeps the records (`Room`, `Floor`, `Secret`), their serde shapes, the
-# tile enum (ids cross as 0 floor, 1 wall, 2 block, 3 hazard, 4 door, 5 stairs,
-# 6 ledge, 7 bog), the door-lane arithmetic on a native room, and every
-# rendering question. The adapter hands over the authored rectangle tables —
-# inert art data the renderer reads too — and this module owns the layout.
-
 type Rect is Data:
   Rect{col: Nat, row: Nat, w: Nat, h: Nat}
 
@@ -87,8 +77,6 @@ type Dig is Data:
 type Found is Data:
   Found{hit: Bool, at: Nat, x: Nat, y: Nat}
 
-# The room kinds this module names. The adapter maps each id onto its
-# `RoomKind`; a save never sees these numbers.
 def kind_home() -> Nat:
   0n
 
@@ -139,8 +127,6 @@ def negate(+value: Bool) -> Bool:
     case False{}:
       True{}
 
-# `Bool.pick` with the paint order the native fills use: the guard's tile, else
-# the tile painted underneath it.
 def layered(guard: Bool, tile: Nat, +below: Nat) -> Nat:
   Bool.pick(Nat, guard, tile, below)
 
@@ -181,8 +167,6 @@ def is_border(+cols: Nat, +rows: Nat, +col: Nat, +row: Nat) -> Bool:
       || Nat.is_eq(row, (Nat.sub(rows, 1n) : Nat)) : Bool
   )
 
-# The two tiles `Room::open_door(dir)` writes: north and south take the middle
-# columns, east and west the middle rows.
 def lane_mid(+cols: Nat, +col: Nat) -> Bool:
   (
     Nat.is_eq(col, (Nat.sub(Nat.div(cols, 2n), 1n) : Nat))
@@ -444,11 +428,6 @@ def doors_home() -> List<&2, Bool>:
 def doors_loft() -> List<&2, Bool>:
   Con{True{}, Con{True{}, Con{False{}, Con{False{}, Nil{}}}}}
 
-# --- the Undercroft -------------------------------------------------------
-
-# The Home the party starts in with the Winding Stair in it, Dame Fortune's
-# hall east through its door, the Training Yard north of it, and the Trophy
-# Hall south down the runner.
 def layout_undercroft(
   +spots: List<&2, Rect>,
   +bounty: Rect,
@@ -526,8 +505,6 @@ def layout_undercroft(
       }
     }
   }
-
-# --- Maud's tavern --------------------------------------------------------
 
 def has_kind(+kinds: List<&2, Nat>, +kind: Nat) -> Bool:
   match kinds:
@@ -623,11 +600,6 @@ def dig_from(
                 )
               }
 
-# Tobbin's crew digs out Maud's tavern west of the Trophy Hall: the hall's west
-# wall opens and the tavern stands one cell west of it, its east door back into
-# the hall. False if this is not the home floor, if a tavern already stands
-# here, or if the floor has no Trophy Hall. Cells cross biased by 1024, so the
-# tavern this answers with is biased the same way and the adapter decodes both.
 def layout_tavern(
   +depth: Nat,
   +kinds: List<&2, Nat>,
@@ -647,8 +619,6 @@ def layout_tavern(
     tables
   )
 
-# The bellwright's loft west of the tavern, and the siege muster north of it:
-# each a bare room with its own doors, one cell on from the last.
 def layout_tavern_wing(+cell_x: Nat, +cell_y: Nat) -> List<&2, Room>:
   Con{
     room(

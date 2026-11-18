@@ -10,7 +10,6 @@ use angel_gpu::{Core, Draw, Frame, Instance, Stage};
 use angel_stage::{Layer, LayerKind, Placement, Stand};
 
 const STAGE: u32 = 0x00FA_57A4;
-/// The stage, in its own pixels, and the window's pixels to one of them.
 const SIZE: (u32, u32) = (96, 64);
 const SCALE: u32 = 3;
 
@@ -43,7 +42,6 @@ fn gpu() -> Option<Gpu> {
 }
 
 impl Gpu {
-    /// The stage drawn as a window shows it, on black, and read back.
     fn shot(&mut self, layers: Vec<Layer>, impact: f32) -> Vec<u8> {
         let size = (SIZE.0 * SCALE, SIZE.1 * SCALE);
         let texture = self.device.create_texture(&wgpu::TextureDescriptor {
@@ -91,8 +89,6 @@ fn solid(id: u64, rect: [f32; 4], rgba: [f32; 4]) -> Layer {
     Layer::new(id, 0, Placement::Pixels(rect), LayerKind::Solid(rgba))
 }
 
-/// A dark room in black, a flame in its own light on the left, a pale
-/// knight in the dark on the right, a mark on the screen over the flame.
 fn room() -> Vec<Layer> {
     let mut light = Layer::new(4, 0, Placement::Pixels([4.0, 14.0, 36.0, 36.0]), LayerKind::Glow([1.0, 0.55, 0.2, 0.5]));
     light.additive = true;
@@ -100,17 +96,13 @@ fn room() -> Vec<Layer> {
     mark.stand = Stand::Screen;
     vec![
         solid(1, [8.0, 8.0, 80.0, 48.0], [0.12, 0.11, 0.13, 1.0]),
-        // The flame: bright, warm, small.
         solid(2, [20.0, 30.0, 4.0, 4.0], [1.0, 0.85, 0.55, 1.0]),
-        // The knight's steel: as bright, pale, in no light.
         solid(3, [70.0, 30.0, 4.0, 4.0], [0.95, 0.97, 1.0, 1.0]),
         light,
         mark,
     ]
 }
 
-/// The brightest red-and-green a ring of window pixels `r` from (x, y)
-/// holds, beside the thing itself.
 fn ring(pixels: &[u8], (x, y): (u32, u32), r: u32) -> u32 {
     [(x - r, y), (x + r, y), (x, y - r), (x, y + r)].into_iter().map(|(x, y)| {
         let p = at(pixels, x, y);
@@ -129,25 +121,20 @@ fn a_light_blooms_round_itself_and_black_and_the_screen_stay_as_drawn() {
     gpu.core.set_post(true);
     assert!(gpu.core.post());
     let post = gpu.shot(room(), 0.0);
-    // Black (outside the room, in a corner and by its edge) stays black.
     for (x, y) in [(1, 1), (285, 190), (285, 100), (280, 12), (150, 189)] {
         assert_eq!(at(&post, x, y), [0, 0, 0, 255], "black at ({x}, {y})");
     }
-    // Round the flame (its middle at stage (22, 32)) the light spreads.
     let flame = (22 * SCALE, 32 * SCALE);
     let near = 5 * SCALE;
     let (was, now) = (ring(&plain, flame, near), ring(&post, flame, near));
     println!("round the flame: {was} -> {now}");
     assert!(now > was + 6, "the flame blooms: {was} -> {now}");
-    // The knight's steel, as bright but in the dark, does not.
     let steel = (72 * SCALE, 32 * SCALE);
     let (was, now) = (ring(&plain, steel, near), ring(&post, steel, near));
     println!("round the steel: {was} -> {now}");
     assert!(now <= was + 2, "paint in the dark is not a light: {was} -> {now}");
-    // The flame's own heart is not burnt to white.
     let heart = at(&post, flame.0, flame.1);
     assert!(heart[2] < 235, "the flame keeps its colour: {heart:?}");
-    // The screen's mark is exactly as drawn, over the bloom.
     for (x, y) in [(21 * SCALE, 3 * SCALE), (25 * SCALE + 2, 4 * SCALE + 2)] {
         assert_eq!(at(&post, x, y), at(&plain, x, y), "the screen's mark at ({x}, {y})");
     }
@@ -160,7 +147,6 @@ fn the_stage_s_own_changes_are_whole_stage_pixels() {
         println!("no GPU adapter: skipped");
         return;
     };
-    // A room with no light: the vignette, the grain and the dither alone.
     let layers = vec![solid(1, [0.0, 0.0, 96.0, 64.0], [0.3, 0.27, 0.24, 1.0])];
     gpu.core.set_post(true);
     let post = gpu.shot(layers.clone(), 0.0);
@@ -174,7 +160,6 @@ fn the_stage_s_own_changes_are_whole_stage_pixels() {
         }
     }
     assert_eq!(differ, 0, "every stage pixel one colour");
-    // The corners darker than the middle, never black.
     let (corner, middle) = (at(&post, 0, 0), at(&post, 144, 96));
     println!("corner {corner:?} middle {middle:?}");
     assert!(corner[0] < middle[0] && corner[0] > middle[0] / 2, "a vignette: {corner:?} against {middle:?}");
@@ -187,7 +172,6 @@ fn a_hit_splits_the_colours_by_whole_pixels_and_off_is_as_before() {
         println!("no GPU adapter: skipped");
         return;
     };
-    // A white bar right of the middle: hit, its blue goes out and its red in.
     let layers = vec![solid(1, [80.0, 20.0, 4.0, 24.0], [1.0, 1.0, 1.0, 1.0])];
     gpu.core.set_post(true);
     let calm = gpu.shot(layers.clone(), 0.0);
@@ -198,8 +182,6 @@ fn a_hit_splits_the_colours_by_whole_pixels_and_off_is_as_before() {
     let (out, ins) = (at(&hit, outer, y), at(&hit, inner, y));
     assert!(out[2] > 200 && out[0] == 0, "hit, its blue past its edge: {out:?}");
     assert!(ins[0] > 200 && ins[2] == 0, "and its red short of it: {ins:?}");
-    // Off, the stage is drawn as it was before there was a post pass: no
-    // vignette, no split, whatever the impact.
     gpu.core.set_post(false);
     let off = gpu.shot(layers.clone(), 1.0);
     assert_eq!(at(&off, outer, y), [0, 0, 0, 255]);

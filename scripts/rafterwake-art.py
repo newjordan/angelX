@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""Nearest-sample concepts, clean native clusters, and keep reproducible pixel recipes.
-Usage: python scripts/rafterwake-art.py SOURCE_DIRECTORY REVIEW_DIRECTORY
-SOURCE_DIRECTORY contains keeper.png, knight.png and effects.png.
-"""
 from pathlib import Path
 from collections import Counter
 import importlib.util,json,sys
@@ -19,7 +15,6 @@ REC={}
 def clean(im,ramps=RAMPS):
     inks={k:INK[k] for r in ramps for k in r};_,rows=boss.snap(im,inks)
     cells=[list(r) for r in rows]
-    # Erase detached concept debris, then merge tiny tone islands into their material.
     solid={(x,y) for y,r in enumerate(cells) for x,k in enumerate(r) if k!='.'}
     parts=sorted(boss.components(solid),key=len,reverse=True)
     for part in parts[1:]:
@@ -70,7 +65,6 @@ def lights(im,centres):
         fall={p for q in core for p in boss.neighbours(*q)}-core
         for points,c in [(fall,RAMPS[1][1]),(core,RAMPS[1][3])]:
             for xx,yy in points:im.putpixel((xx,yy),INK[c]+(255,))
-    # Only a collar's isolated corner may merge; the shaped core is locked.
     _,rows=boss.snap(im,INKS)
     keep=[(xx,yy) for x,y in centres for xx,yy in [(x,y),(x+1,y),(x-1,y+1),(x,y+1),(x+1,y+1)]]
     rows=boss.despeckle(rows,keep)
@@ -107,7 +101,6 @@ def main(src,review):
     for n,p in enumerate(ks):
         raw=tile(source,n%5,n//5,5,2,(48,48),43)
         if p.startswith('climb'):
-            # Ladder belongs to the scenery, not the body silhouette.
             px=raw.load()
             for x in range(48):
                 for y in range(48):
@@ -125,7 +118,6 @@ def main(src,review):
     for row,p in enumerate(['drop','sweep','dust']):
         ramp=RAMPS[1] if p=='sweep' else RAMPS[0]
         for n in range(4):save(f'fx-{p}-{n}',clean(tile(source,n,row,4,3,(48,32),28),[ramp]),[ramp])
-    # Scenery is authored in the very same four-tone ramps as the bodies.
     a,b,c,e=[INK[k] for k in RAMPS[0]]
     for name,size in [('plank',(24,10)),('ladder',(20,36)),('brick',(24,18)),('post',(14,36))]:
         im=Image.new('RGBA',size);d=ImageDraw.Draw(im)
@@ -143,7 +135,6 @@ def main(src,review):
     (OUT/'native.json').write_text(json.dumps({'inks':INKS,'assets':REC,'eyes':anchors},separators=(',',':'))+'\n')
     for names,prefix,cols in [(list('keeper-'+p for p in poses),'keeper',4),(list('knight-'+p for p in ks),'knights',5),([f'fx-{p}-{n}' for p in ['drop','sweep','dust'] for n in range(4)],'effects',4),(['plank','ladder','brick','post'],'props',4)]:
         for scale in [1,3]:sheet(names,review/f'{prefix}-{scale}x.png',scale,cols)
-    # Minimum edge lightness against actual dark floor, plus occupied height.
     checks=[]
     for name,s in REC.items():
         rows=s['rows'];points={(x,y) for y,r in enumerate(rows) for x,k in enumerate(r) if k!='.'}

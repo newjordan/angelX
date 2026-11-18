@@ -15,9 +15,6 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
-# The source art left the repository on 2026-10-20 for the archive (its
-# README.md says what each folder is); ANGEL_SOURCE_ART names it
-# (default ~/angelX-archive/2026-10-20/source-art).
 SOURCE_ART = Path(os.environ.get('ANGEL_SOURCE_ART') or Path.home()/'angelX-archive/2026-10-20/source-art')
 SOURCE = SOURCE_ART / 'boss-library-src'
 OUTPUT = ROOT / 'cockpit/assets/dungeon/bosses'
@@ -33,7 +30,6 @@ def digest(path):
 def palette():
     text = (ROOT / 'crates/delve/src/render/overworld/ink.rs').read_text()
     bank = text.split('pub const PALETTE: [u32; 75] = [')[1].split('];')[0]
-    # Signal ivory and black cannot become decorative cores or dead contours.
     return [tuple(bytes.fromhex(h)) for h in re.findall(r'0x([0-9a-f]{6})', bank)
             if h != '000000' and min(bytes.fromhex(h)) < 240]
 
@@ -50,7 +46,6 @@ def source(boss, camera, pose):
     path = folder / frame['path']
     assert digest(path) == frame['sha256'], f'crop hash changed: {path}'
     im = Image.open(path).convert('RGBA')
-    # Clear RGB under transparent paper; retain original visible alpha until sampling.
     im.putdata([c if c[3] else (0, 0, 0, 0) for c in im.get_flattened_data()])
     return im
 
@@ -74,11 +69,7 @@ def convert(reference):
             c = reference.getpixel((x, y))
             if c[3] < 128:
                 continue
-            # Source contour and glints enter the same nearest-ink search;
-            # no posterization, dithering, smoothing or global exposure gain.
             pixels[x, y] = min(inks, key=lambda ink: distance(c, ink)) + (255,)
-    # Merge only isolated interior tone flecks. Keep source silhouette, dark
-    # contour, bright glints and all >=3px linear seam features verbatim.
     seen = set()
     for y in range(out.height):
         for x in range(out.width):
@@ -181,7 +172,6 @@ def run(boss, check=False, study=None):
     write(OUTPUT/boss/'library-import.json', (json.dumps(record,indent=2,sort_keys=True)+'\n').encode(), check)
     if study:
         study.mkdir(parents=True, exist_ok=True)
-        # Nine images per sheet; each is the actual sampled grain at 3x.
         sheet = Image.new('RGB', (1510, 1260), (8,11,14)); d = ImageDraw.Draw(sheet)
         for i, method in enumerate(FILTERS):
             for j, height in enumerate((72,96,128)):

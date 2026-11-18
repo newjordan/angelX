@@ -1,14 +1,3 @@
-"""Motion library: procedural curves and keyframe clips. No mocap data, no models.
-
-Every motion is f(t, h) -> pose, t in [0,1), h = sprite height in px.
-Pose keys: bone angles in radians (image coords, y down: positive = clockwise on screen),
-'root' rotates the whole body about the hip, 'root_off' = (dx, dy) px.
-Limb keys use the image side: *_r = image-right limb, *_l = image-left limb. Motions are
-authored for a character facing image-right ("forward" = +x); rig.make_pose_mapper mirrors
-them for left-facing sprites.
-Conventions for a limb hanging down: negative angle swings it forward (+x), positive back.
-Lower leg positive = knee bends (foot goes back). Lower arm negative = elbow bends forward.
-"""
 import numpy as np
 
 TAU = 2 * np.pi
@@ -19,12 +8,7 @@ def ease(x):
     x = np.clip(x, 0, 1)
     return x * x * (3 - 2 * x)
 
-
-# ---------------------------------------------------------------- keyframe engine
 def clip(keys, loop=False):
-    """keys: [(t, {bone: degrees, 'dx': frac_of_h, 'dy': frac_of_h}), ...] sorted by t.
-    Missing bones are 0. Loops use Catmull-Rom (smooth through keys); one-shots use
-    smoothstep between keys and hold the last key."""
     ts = np.array([k[0] for k in keys], float)
     names = sorted({n for _, k in keys for n in k})
     V = np.array([[k.get(n, 0.0) for n in names] for _, k in keys], float)
@@ -64,8 +48,6 @@ def clip(keys, loop=False):
     f.loop = loop
     return f
 
-
-# ---------------------------------------------------------------- procedural loops
 def idle(t, h):
     s = np.sin(TAU * t)
     return {"root_off": (0, 0.012 * h * (1 - np.cos(TAU * t)) / 2), "torso": D(1.5) * s,
@@ -110,8 +92,6 @@ def wave(t, h):
     return {**idle(t, h), "upper_arm_r": -D(150), "lower_arm_r": D(25) * s - D(10),
             "head": D(5) * s * 0.5}
 
-
-# ---------------------------------------------------------------- keyframe clips
 def _attack(side):
     o, s = ("r", "l") if side == "r" else ("l", "r")
     return clip([
@@ -234,7 +214,6 @@ kick = clip([
 for _f in (idle, walk, run, dance, wave):
     _f.loop = True
 
-# name -> (fn, default frames, fps)
 ANIMS = {
     "idle": (idle, 12, 10), "walk": (walk, 12, 12), "run": (run, 10, 14),
     "jump": (jump, 14, 14), "attack_right": (attack_right, 10, 14),
@@ -243,5 +222,5 @@ ANIMS = {
     "crouch": (crouch, 10, 12), "block": (block, 10, 12), "wave": (wave, 12, 12),
     "kick": (kick, 10, 14),
 }
-ANIMS["attack"] = ANIMS["attack_right"]  # v1 name
+ANIMS["attack"] = ANIMS["attack_right"]
 DEFAULT_SET = "idle,walk,run,jump,attack_right,attack_left,cast,hurt,death,celebrate,dance,crouch,block,wave,kick"

@@ -11,9 +11,6 @@ use crate::rules::RoomKind;
 const W: i32 = 64;
 const H: i32 = 48;
 
-/// The landmark for a countryside place, or `None` to keep the plain house.
-/// Drawn at dusk: a building on the map is scenery, so it wears no lamp,
-/// heraldry or bright paint that could read as something happening.
 pub fn landmark(kind: RoomKind) -> Option<Img> {
     let im = match kind {
         RoomKind::Lighthouse => lighthouse(),
@@ -58,8 +55,6 @@ pub fn landmark(kind: RoomKind) -> Option<Img> {
     Some(at_dusk(&im))
 }
 
-/// Whether a countryside place's landmark has a chimney for smoke to rise
-/// from (the rest are yards, fields, stalls and ruins).
 pub fn chimney(kind: RoomKind) -> bool {
     matches!(
         kind,
@@ -73,10 +68,6 @@ pub fn chimney(kind: RoomKind) -> bool {
     )
 }
 
-/// The Lantern Hall (`world::kingdom::HALLS`): a small stone hall on the
-/// town green, the Heartwright's, a bench by its door and her six lanterns
-/// hung dark under the eaves. On the map they stay dark; inside, they burn
-/// as the campaign earns them (`arena::teachers`).
 pub fn lantern_hall() -> Img {
     let mut im = sheet();
     im.stamp(&house(44, 32, Wall::Stone, Roof::Slate, false), 10, 16);
@@ -86,14 +77,12 @@ pub fn lantern_hall() -> Img {
         im.put(x, 30, 'K');
         im.put(x, 31, 'g');
     }
-    // A bench by the door.
     im.rect(56, 42, 7, 1, 'B');
     im.put(57, 43, 'b');
     im.put(61, 43, 'b');
     at_dusk(&im)
 }
 
-/// An anvil on its block, for a forge's yard.
 pub fn anvil() -> Img {
     Img::from_rows(&[
         "jjjjjjjjjjj.",
@@ -124,8 +113,6 @@ fn house(w: i32, h: i32, wall: Wall, roof: Roof, chimney: bool) -> Img {
     })
 }
 
-/// Still water: its corners worn round, the bank's shadow along its top,
-/// short ripples on it and a broken pale line where it laps the near bank.
 fn water(im: &mut Img, x: i32, y: i32, w: i32, h: i32) {
     for yy in y..y + h {
         for xx in x..x + w {
@@ -149,7 +136,6 @@ fn water(im: &mut Img, x: i32, y: i32, w: i32, h: i32) {
     }
 }
 
-/// Clear an ellipse back to nothing (the hole in a wheel).
 fn hollow(im: &mut Img, cx: f32, cy: f32, rx: f32, ry: f32) {
     for y in (cy - ry).floor() as i32..=(cy + ry).ceil() as i32 {
         for x in (cx - rx).floor() as i32..=(cx + rx).ceil() as i32 {
@@ -161,7 +147,6 @@ fn hollow(im: &mut Img, cx: f32, cy: f32, rx: f32, ry: f32) {
     }
 }
 
-/// A post from `top` down to `base`.
 fn post(im: &mut Img, x: i32, top: i32, base: i32) {
     im.line(x, top, x, base, 'r');
     im.line(x + 1, top, x + 1, base, 'B');
@@ -171,7 +156,6 @@ fn steam(im: &mut Img, x: i32, y: i32, seed: u32) {
     im.stamp(&kit::smoke(seed).recolor(&[('i', 'h'), ('h', 'J')]), x, y);
 }
 
-/// A round tree, with apples if `fruit`.
 fn tree(im: &mut Img, cx: i32, base: i32, fruit: bool) {
     im.rect(cx - 1, base - 6, 3, 6, 'I');
     im.ellipse(cx as f32, (base - 11) as f32, 7.0, 6.0, 'E');
@@ -184,7 +168,6 @@ fn tree(im: &mut Img, cx: i32, base: i32, fruit: bool) {
     }
 }
 
-/// A short fence of pales along `y`.
 fn fence(im: &mut Img, x: i32, y: i32, w: i32) {
     im.line(x, y, x + w - 1, y, 'r');
     im.line(x, y + 3, x + w - 1, y + 3, 'B');
@@ -195,9 +178,7 @@ fn fence(im: &mut Img, x: i32, y: i32, w: i32) {
 
 fn lighthouse() -> Img {
     let mut im = sheet();
-    // The keeper's hut at its foot.
     im.stamp(&house(26, 22, Wall::Plaster, Roof::Slate, true), 6, 26);
-    // A tapering tower, banded, with a gallery and a warm lamp.
     for y in 8..46 {
         let half = 5 + (y - 8) / 9;
         let band = (y / 6) % 2 == 0;
@@ -219,7 +200,6 @@ fn lighthouse() -> Img {
 fn sluice() -> Img {
     let mut im = sheet();
     water(&mut im, 0, 36, W, 12);
-    // Two stone piers and the gate between them.
     for x in [8, 46] {
         im.rect(x, 10, 10, 34, 'j');
         im.rect(x + 1, 10, 8, 2, 'G');
@@ -231,7 +211,6 @@ fn sluice() -> Img {
     }
     im.rect(18, 8, 28, 3, 'G');
     im.frame(18, 8, 28, 3, 'x');
-    // The valve wheel on the beam, and the race through the gate.
     im.ellipse(32.0, 5.0, 5.0, 5.0, 'o');
     hollow(&mut im, 32.0, 5.0, 3.5, 3.5);
     for (dx, dy) in [(0, -4), (0, 4), (-4, 0), (4, 0)] {
@@ -249,7 +228,6 @@ fn sluice() -> Img {
 
 fn pigeon_loft() -> Img {
     let mut im = sheet();
-    // A tall dovecote on a post, a cone roof and rows of holes.
     post(&mut im, 30, 28, 46);
     im.rect(16, 12, 32, 18, 'P');
     im.frame(16, 12, 32, 18, 'b');
@@ -263,7 +241,6 @@ fn pigeon_loft() -> Img {
         let half = 3 + y * 17 / 12;
         im.line(32 - half, y, 32 + half, y, if y % 3 == 0 { 'B' } else { 'R' });
     }
-    // Pigeons on the ledges and the ridge.
     let pigeon = kit::raven_perched().recolor(&[('k', 'G'), ('K', 'j'), ('g', 'h'), ('X', 'J')]);
     for (x, y) in [(20, 24), (36, 18), (29, -1), (42, 24)] {
         im.stamp(&pigeon, x, y);
@@ -271,7 +248,6 @@ fn pigeon_loft() -> Img {
     im
 }
 
-/// A diamond kite with its tail.
 fn kite(im: &mut Img, cx: i32, cy: i32, ink: char, trim: char) {
     for dy in -5i32..=5 {
         let half = 4 - dy.abs() * 4 / 5;
@@ -290,14 +266,12 @@ fn kite_shop() -> Img {
     kite(&mut im, 46, 7, 'R', 'T');
     kite(&mut im, 57, 15, 'Q', 'V');
     kite(&mut im, 41, 22, 't', 'B');
-    // Strings back to the shop's eave.
     im.line(30, 22, 46, 13, 'J');
     im.line(34, 24, 57, 21, 'J');
     im.line(36, 26, 41, 28, 'J');
     im
 }
 
-/// A straw butt and its painted face.
 fn butt(im: &mut Img, cx: i32, cy: i32) {
     im.line(cx - 6, cy + 10, cx - 2, cy, 'B');
     im.line(cx + 6, cy + 10, cx + 2, cy, 'B');
@@ -311,7 +285,6 @@ fn archery_butts() -> Img {
     let mut im = sheet();
     butt(&mut im, 14, 30);
     butt(&mut im, 46, 28);
-    // Arrows in the straw, and a shooting line.
     for (x, y) in [(12, 28), (16, 32), (44, 27)] {
         im.line(x, y, x + 5, y - 3, 'h');
         im.put(x + 5, y - 3, 'G');
@@ -323,8 +296,6 @@ fn archery_butts() -> Img {
 
 fn scarecrow() -> Img {
     let mut im = sheet();
-    // Rows of crop: each plant a tuft lit on its top, set a little off its
-    // neighbours, a gap here and there.
     for (row, y) in (28..47).step_by(4).enumerate() {
         for x in (row as i32 % 2..W).step_by(3) {
             let h = hash(x, y, 3);
@@ -337,7 +308,6 @@ fn scarecrow() -> Img {
             im.put(bx + 1, y + 1, 'l');
         }
     }
-    // The scarecrow: cross, straw head, battered hat, ragged coat.
     post(&mut im, 31, 10, 46);
     im.line(18, 18, 45, 18, 'r');
     im.rect(25, 16, 14, 14, 'P');
@@ -353,7 +323,6 @@ fn scarecrow() -> Img {
     im.put(33, 10, 'k');
     im.rect(26, 4, 12, 2, 'b');
     im.rect(28, 1, 8, 4, 'I');
-    // A crow on the arm.
     im.stamp(&kit::raven_perched(), 40, 12);
     im
 }
@@ -361,13 +330,11 @@ fn scarecrow() -> Img {
 fn bathhouse() -> Img {
     let mut im = sheet();
     im.stamp(&house(46, 34, Wall::Plaster, Roof::Tile, false), 2, 14);
-    // A shallow dome over the hot room, and its steam.
     im.ellipse(38.0, 16.0, 9.0, 6.0, 'G');
     im.ellipse(37.0, 14.0, 6.0, 3.5, 'h');
     im.rect(29, 16, 19, 2, 'j');
     steam(&mut im, 30, -2, 3);
     steam(&mut im, 42, 0, 9);
-    // A tub outside the door.
     im.rect(50, 38, 12, 8, 'B');
     im.line(50, 41, 61, 41, 'r');
     im.rect(51, 37, 10, 2, 'U');
@@ -375,7 +342,6 @@ fn bathhouse() -> Img {
     im
 }
 
-/// A bundle of arrows standing in a barrel.
 fn arrows(im: &mut Img, x: i32, base: i32) {
     im.rect(x, base - 8, 9, 8, 'B');
     im.line(x, base - 5, x + 8, base - 5, 'r');
@@ -392,7 +358,6 @@ fn fletchery() -> Img {
     im.stamp(&kit::workshop(Trade::Weaver, false), 2, 3);
     arrows(&mut im, 38, 46);
     arrows(&mut im, 50, 46);
-    // A long bow hung on the wall.
     for y in 0..14 {
         let bend = (7 - (y - 7i32).abs()) / 3;
         im.put(36 - bend, 18 + y, 'R');
@@ -401,7 +366,6 @@ fn fletchery() -> Img {
     im
 }
 
-/// A big white goose, side on.
 fn goose(im: &mut Img, x: i32, y: i32) {
     let g = Img::from_rows(&[
         "......VV....",
@@ -419,7 +383,6 @@ fn goose(im: &mut Img, x: i32, y: i32) {
 
 fn goose_pen() -> Img {
     let mut im = sheet();
-    // A picnic cloth in checks and the pen's fence.
     for y in 30..40 {
         for x in 6..26 {
             im.put(x, y, if (x / 3 + y / 3) % 2 == 0 { 'R' } else { 'T' });
@@ -437,7 +400,6 @@ fn goose_pen() -> Img {
     im
 }
 
-/// A striped awning `w` wide over posts.
 fn awning(im: &mut Img, x: i32, y: i32, w: i32, a: char, b: char) {
     for row in 0..6 {
         for col in x..x + w {
@@ -455,7 +417,6 @@ fn duck_shoot() -> Img {
     post(&mut im, 3, 14, 46);
     post(&mut im, 59, 14, 46);
     im.rect(5, 16, 54, 20, 'b');
-    // A row of tin ducks on the rail, and the counter.
     let duck = Img::from_rows(&[".tt..", "tktOO", "ttt..", "tttt.", ".tt.."]);
     for x in (9..56).step_by(8) {
         im.stamp(&duck, x, 22);
@@ -469,7 +430,6 @@ fn duck_shoot() -> Img {
 
 fn stage() -> Img {
     let mut im = sheet();
-    // A raised stage, curtains drawn back, bunting along the top.
     im.rect(2, 34, 60, 12, 'P');
     im.line(2, 34, 61, 34, 'o');
     for x in (4..60).step_by(6) {
@@ -488,7 +448,6 @@ fn stage() -> Img {
         im.put(x + 1, 8, 'T');
         im.put(x + 2, 7, 'Q');
     }
-    // A mummer's mask hung centre stage.
     im.ellipse(32.0, 20.0, 5.0, 6.0, 'T');
     im.put(30, 19, 'k');
     im.put(34, 19, 'k');
@@ -496,7 +455,6 @@ fn stage() -> Img {
     im
 }
 
-/// An oversized wash vat full of suds.
 fn vat(im: &mut Img, x: i32, y: i32) {
     im.rect(x, y, 18, 12, 'B');
     im.line(x, y + 4, x + 17, y + 4, 'G');
@@ -511,14 +469,12 @@ fn wash_vats() -> Img {
     let mut im = sheet();
     vat(&mut im, 4, 34);
     vat(&mut im, 26, 34);
-    // A washing line with the king's smalls.
     post(&mut im, 46, 6, 46);
     post(&mut im, 61, 6, 46);
     im.line(2, 10, 61, 10, 'J');
     for (x, w, ink) in [(4, 6, 'h'), (13, 5, 'R'), (21, 8, 'T'), (33, 5, 'u'), (51, 6, 'h')] {
         im.rect(x, 11, w, 7, ink);
     }
-    // The royal sock.
     im.rect(40, 11, 3, 6, 'R');
     im.rect(40, 16, 5, 2, 'R');
     post(&mut im, 1, 6, 30);
@@ -528,7 +484,6 @@ fn wash_vats() -> Img {
 fn hedge_maze() -> Img {
     let mut im = sheet();
     im.rect(2, 14, 60, 32, 'F');
-    // Lanes cut through the hedge.
     for (x, y, w, h) in [
         (6, 18, 52, 3),
         (6, 18, 3, 24),
@@ -551,7 +506,6 @@ fn hedge_maze() -> Img {
     }
     im.line(2, 14, 61, 14, 'l');
     im.frame(2, 14, 60, 32, 'D');
-    // A mushroom by the gate.
     im.ellipse(52.0, 9.0, 6.0, 4.0, 'R');
     for (x, y) in [(49, 8), (53, 7), (55, 10)] {
         im.put(x, y, 'T');
@@ -563,7 +517,6 @@ fn hedge_maze() -> Img {
 fn bothy() -> Img {
     let mut im = sheet();
     im.stamp(&house(36, 28, Wall::Dark, Roof::Thatch, true), 2, 20);
-    // The cook's cauldron on its fire.
     im.line(42, 30, 50, 30, 'G');
     im.line(42, 30, 42, 46, 'B');
     im.line(58, 30, 50, 30, 'G');
@@ -579,7 +532,6 @@ fn bothy() -> Img {
     im
 }
 
-/// A log lying end on: rings and bark.
 fn log_end(im: &mut Img, cx: i32, cy: i32) {
     im.ellipse(cx as f32, cy as f32, 4.5, 4.5, 'I');
     im.ellipse(cx as f32, cy as f32, 3.5, 3.5, 'O');
@@ -590,13 +542,11 @@ fn log_end(im: &mut Img, cx: i32, cy: i32) {
 fn timberyard() -> Img {
     let mut im = sheet();
     im.stamp(&house(30, 30, Wall::Timber, Roof::Slate, false), 0, 18);
-    // A stacked log pile, ends out.
     for (row, n) in [(0, 3), (1, 2), (2, 1)] {
         for k in 0..n {
             log_end(&mut im, 38 + row * 4 + k * 9, 42 - row * 8);
         }
     }
-    // A saw-horse with a log on it.
     im.line(54, 38, 58, 46, 'B');
     im.line(58, 38, 54, 46, 'B');
     im.rect(48, 36, 15, 3, 'P');
@@ -608,7 +558,6 @@ fn orchard() -> Img {
     for (cx, base) in [(10, 30), (32, 28), (54, 30), (21, 46), (43, 46)] {
         tree(&mut im, cx, base, true);
     }
-    // A basket of windfalls.
     im.rect(28, 41, 8, 5, 'P');
     im.line(28, 41, 35, 41, 'o');
     for x in [29, 31, 33] {
@@ -620,7 +569,6 @@ fn orchard() -> Img {
 fn old_watch() -> Img {
     let mut im = sheet();
     im.stamp(&kit::ruins(), 0, 2);
-    // A tattered flag still flying off the broken top.
     post(&mut im, 52, 2, 46);
     im.rect(54, 3, 9, 6, 'h');
     im.clear(62, 5);
@@ -641,14 +589,12 @@ fn crag() -> Img {
         1.5,
     );
     im.stamp(&rock, 0, 0);
-    // Snow on the ridge.
     for x in 0..W {
         let top = (0..H).find(|&y| im.get(x, y).is_some());
         if let Some(top) = top {
             im.line(x, top, x, top + 1 + (hash(x, 0, 5) % 2) as i32, 'h');
         }
     }
-    // The brass weather rooster on its rod, and a beacon flame.
     let peak = (0..H).find(|&y| im.get(40, y).is_some()).unwrap_or(10);
     im.line(40, peak - 9, 40, peak, 'h');
     im.rect(38, peak - 12, 5, 3, 'o');
@@ -661,7 +607,6 @@ fn crag() -> Img {
 fn belfry() -> Img {
     let mut im = sheet();
     im.stamp(&kit::tower(26, 46, 12, Top::Cone(Roof::Slate), Wall::Stone), 19, 2);
-    // The open bell chamber, its bell showing.
     im.rect(24, 16, 16, 12, 'k');
     im.ellipse(32.0, 23.0, 5.0, 5.0, 'o');
     im.rect(27, 23, 11, 4, 'o');
@@ -675,7 +620,6 @@ fn aqueduct() -> Img {
     let mut im = sheet();
     im.rect(0, 10, W, 36, 'j');
     im.rect(0, 6, W, 4, 'G');
-    // The water channel along the top, dry at one end.
     im.rect(0, 4, 44, 3, 'Q');
     im.line(0, 4, 43, 4, 'U');
     for x in [6, 27, 48] {
@@ -695,7 +639,6 @@ fn aqueduct() -> Img {
 
 fn priory() -> Img {
     let mut im = sheet();
-    // A cloister wall with its arches, and the chapel behind.
     im.rect(0, 32, W, 14, 'j');
     for x in (2..W).step_by(9) {
         im.rect(x, 36, 6, 10, 'k');
@@ -717,14 +660,12 @@ fn cliffs() -> Img {
         1.5,
     );
     im.stamp(&rock, 0, 18);
-    // The sea below the drop on the right, and a railed overlook on top.
     water(&mut im, 50, 40, 14, 8);
     let top = (0..H).find(|&y| im.get(30, y).is_some()).unwrap_or(20);
     im.line(8, top - 4, 50, top - 4, 'r');
     for x in (8..51).step_by(6) {
         im.line(x, top - 4, x, top, 'B');
     }
-    // A telescope on its tripod.
     im.line(20, top - 12, 26, top - 15, 'o');
     im.line(22, top - 13, 20, top, 'B');
     im.line(22, top - 13, 25, top, 'B');
@@ -733,7 +674,6 @@ fn cliffs() -> Img {
 
 fn salt_pans() -> Img {
     let mut im = sheet();
-    // A grid of shallow pans and their salt heaps.
     for (x, y) in [(0, 26), (16, 26), (0, 37), (16, 37), (32, 37)] {
         im.rect(x, y, 15, 10, 'S');
         im.frame(x, y, 15, 10, 'j');
@@ -753,7 +693,6 @@ fn salt_pans() -> Img {
 
 fn strand() -> Img {
     let mut im = sheet();
-    // Two striped bathing huts on the sand and an upturned boat.
     for (x, a, b) in [(4, 'T', 'u'), (24, 'T', 'R')] {
         for y in 14..40 {
             for col in x..x + 14 {
@@ -768,7 +707,6 @@ fn strand() -> Img {
     im = super::kit::shaded_rim(&im);
     im.ellipse(52.0, 42.0, 10.0, 4.0, 'B');
     im.line(43, 42, 61, 42, 'r');
-    // The chamber pot for the putting game.
     im.rect(44, 30, 6, 5, 'J');
     im.line(43, 30, 50, 30, 'h');
     im
@@ -778,7 +716,6 @@ fn watermill() -> Img {
     let mut im = sheet();
     im.stamp(&house(36, 34, Wall::Stone, Roof::Tile, true), 0, 14);
     water(&mut im, 34, 38, 30, 10);
-    // The wheel turning in the race.
     im.ellipse(48.0, 31.0, 12.0, 12.0, 'B');
     hollow(&mut im, 48.0, 31.0, 10.0, 10.0);
     for k in 0..8 {
@@ -792,7 +729,6 @@ fn watermill() -> Img {
 fn sunken_abbey() -> Img {
     let mut im = sheet();
     im.stamp(&kit::ruins(), 8, 0);
-    // The flood has the lower courses.
     water(&mut im, 0, 36, W, 12);
     for x in 12..54 {
         if hash(x, 1, 2) % 2 == 0 {
@@ -806,7 +742,6 @@ fn quay() -> Img {
     let mut im = sheet();
     water(&mut im, 0, 30, W, 18);
     im.stamp(&kit::docks(), 0, 22);
-    // A boat at the quay and the buckets waiting.
     im.ellipse(46.0, 40.0, 12.0, 4.0, 'B');
     im.line(35, 38, 57, 38, 'r');
     post(&mut im, 46, 20, 38);
@@ -822,13 +757,11 @@ fn quay() -> Img {
 fn causeway() -> Img {
     let mut im = sheet();
     water(&mut im, 0, 34, W, 14);
-    // A low stone causeway on arches.
     im.rect(0, 26, W, 10, 'j');
     im.line(0, 26, 63, 26, 'G');
     for x in (4..W).step_by(14) {
         im.ellipse((x + 4) as f32, 38.0, 5.0, 4.0, 'k');
     }
-    // The troll's toll hut and his sign.
     im.stamp(&house(22, 22, Wall::Dark, Roof::Thatch, false), 38, 6);
     post(&mut im, 14, 10, 26);
     im.rect(8, 10, 14, 7, 'P');
@@ -840,14 +773,12 @@ fn causeway() -> Img {
 fn toll_bridge() -> Img {
     let mut im = sheet();
     water(&mut im, 0, 36, W, 12);
-    // A timber bridge on piles.
     im.rect(0, 30, W, 4, 'R');
     im.line(0, 29, 63, 29, 'o');
     for x in (2..W).step_by(10) {
         im.rect(x, 34, 3, 12, 'B');
     }
     im.line(0, 24, 63, 24, 'P');
-    // The toll booth and its striped barrier.
     im.stamp(&house(20, 24, Wall::Plaster, Roof::Tile, false), 2, 5);
     for x in 24..50 {
         im.put(x, 20, if (x / 3) % 2 == 0 { 'h' } else { 'R' });
@@ -859,8 +790,6 @@ fn toll_bridge() -> Img {
 
 fn flower_fields() -> Img {
     let mut im = sheet();
-    // Rows of flowers, each plant a small tuft with its bloom on top, set
-    // a little off its neighbours, a gap here and there.
     for (row, y) in (18..46).step_by(5).enumerate() {
         for x in (3 + row as i32 % 2..61).step_by(3) {
             let h = hash(x, y, 8);
@@ -880,7 +809,6 @@ fn flower_fields() -> Img {
 
 fn cheese_downs() -> Img {
     let mut im = sheet();
-    // A green rise, a stack of cheeses and a goat with a basket.
     im.ellipse(32.0, 50.0, 34.0, 16.0, 'm');
     for (x, y, w) in [(6, 34, 16), (8, 28, 12), (10, 23, 8)] {
         im.rect(x, y, w, 5, 't');
@@ -898,7 +826,6 @@ fn cheese_downs() -> Img {
     ]);
     im.stamp(&goat, 38, 30);
     im.rect(44, 28, 5, 4, 'P');
-    // The cheese-chuck tee's flag.
     im.line(56, 24, 56, 38, 'h');
     im.rect(57, 24, 5, 4, 'R');
     im
@@ -908,7 +835,6 @@ fn loud_flags() -> Img {
     let mut im = sheet();
     im.ellipse(32.0, 50.0, 32.0, 14.0, 'm');
     im.ellipse(32.0, 50.0, 28.0, 11.0, 'A');
-    // Three tall poles, three big flags.
     for (x, top, a, b) in [(12, 6, 'R', 'T'), (32, 2, 'Q', 'V'), (52, 8, 't', 'B')] {
         post(&mut im, x, top, 44);
         for row in 0..9 {
@@ -928,7 +854,6 @@ fn caravan() -> Img {
     im
 }
 
-/// A cart wheel leaning on a wall.
 fn wheel(im: &mut Img, cx: i32, cy: i32, r: f32) {
     im.ellipse(cx as f32, cy as f32, r, r, 'B');
     hollow(im, cx as f32, cy as f32, r - 1.5, r - 1.5);
@@ -944,7 +869,6 @@ fn wheelwright() -> Img {
     im.stamp(&house(34, 32, Wall::Timber, Roof::Tile, true), 0, 16);
     wheel(&mut im, 44, 38, 8.0);
     wheel(&mut im, 56, 40, 6.0);
-    // And one square wheel, the house speciality.
     im.frame(36, 18, 12, 12, 'B');
     im.line(36, 18, 47, 29, 'o');
     im.line(47, 18, 36, 29, 'o');
@@ -956,14 +880,12 @@ fn windmill() -> Img {
     let mut im = sheet();
     let mill = kit::windmill(0);
     im.stamp(&mill, (W - mill.w) / 2, H - mill.h);
-    // Sacks of flour at its door.
     im.stamp(&kit::sacks(2), 40, 36);
     im
 }
 
 fn hippodrome() -> Img {
     let mut im = sheet();
-    // A rusty stand along the back.
     im.rect(4, 2, 56, 10, 'B');
     for y in (3..12).step_by(3) {
         im.line(5, y, 58, y, 'p');
@@ -972,9 +894,6 @@ fn hippodrome() -> Img {
         im.put(x, 4, 'h');
         im.put(x + 3, 7, 'J');
     }
-    // The oval track, its grass and the spina down the middle: packed dirt
-    // with a wheel rut round it and clods thrown up, a kerb lit on the
-    // north-west and shaded to the south-east, the infield's grass in clumps.
     for y in 0..H {
         for x in 0..W {
             let (dx, dy) = (x as f32 + 0.5 - 32.0, y as f32 + 0.5 - 31.0);
@@ -1014,16 +933,12 @@ fn hippodrome() -> Img {
         im.rect(x - 1, 25, 3, 6, 'G');
         im.put(x, 24, 'h');
     }
-    // A chariot rounding the far turn.
     im.rect(50, 40, 6, 4, 'R');
     im.ellipse(52.0, 45.0, 2.0, 2.0, 'B');
     im.line(56, 41, 61, 41, 'o');
     im
 }
 
-/// The Griffin Eyrie: a crag with a great nest of branches on its top and a
-/// griffin perched on the rim, wings half open; a griffin master's hut at
-/// its foot with a lit doorway.
 fn eyrie() -> Img {
     let mut im = sheet();
     let rock = kit::blob(
@@ -1036,15 +951,12 @@ fn eyrie() -> Img {
         1.5,
     );
     im.stamp(&rock, 0, 0);
-    // The nest: woven branches in a bowl on the summit.
     let top = (0..H).find(|&y| im.get(36, y).is_some()).unwrap_or(12);
     im.ellipse(36.0, top as f32, 11.0, 3.0, 'b');
     for k in 0..12 {
         let x = 26 + k * 2;
         im.line(x, top - 1 + (k % 2), x + 3, top + 1 - (k % 2), if k % 3 == 0 { 'P' } else { 'I' });
     }
-    // The griffin on the rim: tawny body, white head, a gold beak, its
-    // wings half open.
     let (gx, gy) = (34, top - 6);
     im.rect(gx, gy, 6, 4, 'o');
     im.rect(gx + 1, gy + 4, 1, 2, 'O');
@@ -1056,7 +968,6 @@ fn eyrie() -> Img {
     im.line(gx - 6, gy - 4, gx, gy + 1, 'r');
     im.line(gx - 5, gy - 5, gx - 1, gy - 1, 'O');
     im.line(gx - 1, gy + 2, gx - 4, gy + 3, 'o');
-    // The griffin master's hut at the foot, its door lit.
     let hut = house(18, 14, Wall::Stone, Roof::Thatch, false);
     im.stamp(&hut, 6, H - hut.h);
     im

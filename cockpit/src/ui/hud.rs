@@ -27,9 +27,6 @@ pub fn chrome_style() -> Style {
     CHROME_STYLE
 }
 
-/// Circuit node cap that brackets every pane title: `─◇ title ◇─`. The
-/// caps ride the border colour so the title reads as a labelled node on the
-/// chrome trace rather than text pasted over a line.
 pub fn title_cap() -> &'static str {
     if crate::ui::glyphs::ascii_chrome_enabled() {
         "+"
@@ -39,8 +36,6 @@ pub fn title_cap() -> &'static str {
 }
 const TITLE_CAP_STYLE: Style = Style::new().fg(HUD_BLUE);
 
-/// Bracket a non-empty title with the node caps. Empty titles (bare frames)
-/// stay empty so a caption-less box keeps a clean top edge.
 pub fn node_title<'a>(title: impl Into<Line<'a>>) -> Line<'a> {
     let line: Line<'a> = title.into();
     let blank = line.spans.iter().all(|span| span.content.trim().is_empty());
@@ -50,7 +45,6 @@ pub fn node_title<'a>(title: impl Into<Line<'a>>) -> Line<'a> {
     let mut spans = Vec::with_capacity(line.spans.len() + 2);
     spans.push(Span::styled(title_cap(), TITLE_CAP_STYLE));
     let mut inner = line.spans;
-    // Titles arrive space-padded (" shell "); keep exactly one pad each side.
     if let Some(first) = inner.first_mut()
         && !first.content.starts_with(' ')
     {
@@ -99,15 +93,6 @@ where
         .title_style(TITLE_STYLE)
         .title(node_title(title))
 }
-
-// ── Collapsed-border junction repair ────────────────────────────────────────
-// The cockpit's panels overlap by one cell (Layout spacing −1) so neighbors
-// share a single border line instead of stacking two. Each Block still draws
-// plain corners on that shared line; this pass recomputes what every border
-// cell *should* be from the union of all panel rects and rewrites mismatched
-// box-drawing glyphs into proper T-junctions (├ ┤ ┬ ┴ ┼). Only cells already
-// holding a plain box char are touched, so titles, scrollbars and content are
-// never disturbed.
 
 const ARM_U: u8 = 1;
 const ARM_D: u8 = 2;
@@ -171,14 +156,10 @@ fn is_box_char(symbol: &str) -> bool {
 }
 
 thread_local! {
-    // Reusable arm-bit grid so steady-state frames never allocate here.
     static ARMS_SCRATCH: std::cell::RefCell<Vec<u8>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
-/// Repair border junctions where panel boxes share edges. `rects` are the
-/// OUTER (border-inclusive) rects of every bordered panel this frame.
 pub fn merge_panel_borders(buf: &mut Buffer, rects: &[Rect]) {
-    // Bounding box of the border-worthy rects; degenerate rects don't count.
     let (mut bx0, mut by0, mut bx1, mut by1) = (u16::MAX, u16::MAX, 0u16, 0u16);
     for r in rects {
         if r.width < 2 || r.height < 2 {

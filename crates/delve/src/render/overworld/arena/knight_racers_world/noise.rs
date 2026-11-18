@@ -12,7 +12,6 @@ pub fn hash(ix: i32, iy: i32, seed: u32) -> f32 {
 
 fn smooth(t: f32) -> f32 { t * t * (3. - 2. * t) }
 
-/// Smooth value noise in `0..1`.
 pub fn value(x: f32, y: f32, seed: u32) -> f32 {
     let (fx, fy) = (x.floor(), y.floor());
     let (ix, iy) = (fx as i32, fy as i32);
@@ -24,7 +23,6 @@ pub fn value(x: f32, y: f32, seed: u32) -> f32 {
     (a + (b - a) * tx) + ((c + (d - c) * tx) - (a + (b - a) * tx)) * ty
 }
 
-/// Fractal noise in `0..1`, `octaves` deep.
 pub fn fbm(x: f32, y: f32, seed: u32, octaves: u32) -> f32 {
     let (mut sum, mut amp, mut norm, mut f) = (0., 0.5, 0., 1.);
     for o in 0..octaves {

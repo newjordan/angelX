@@ -12,16 +12,11 @@
 use super::*;
 use crate::realm::Spoil;
 
-/// One find in every six draws (the chest roll).
 pub const CHEST_EVERY: u32 = 6;
-/// The chest's draw space: four finds' worth of table turns.
 pub const CHEST_DRAW: u32 = 24;
-/// One find in every three draws (a guardian's fall).
 pub const GUARDIAN_EVERY: u32 = 6;
 pub const GUARDIAN_DRAW: u32 = 12;
 
-/// What the floors of `pack` give up, in the order the draws turn through
-/// them. The shallow floors (and the Swamp) give up nothing.
 pub fn table(pack: Pack) -> &'static [Spoil] {
     match pack {
         Pack::Archive => &[Spoil::Hearthstone, Spoil::Forgeheart, Spoil::Ledgerglass],
@@ -31,8 +26,6 @@ pub fn table(pack: Pack) -> &'static [Spoil] {
     }
 }
 
-/// Whether draw `draw` from `pack`'s floors is a relic, and which. A pure
-/// function of the number: `every` is the table's stride, `draw` the dice.
 pub fn find(pack: Pack, draw: u32, every: u32) -> Option<Spoil> {
     let table = table(pack);
     if table.is_empty() || every == 0 || draw % every != 0 {
@@ -42,8 +35,6 @@ pub fn find(pack: Pack, draw: u32, every: u32) -> Option<Spoil> {
 }
 
 impl Run {
-    /// The deep gives a relic up: into the first living knight's purse, to
-    /// be banked with the rest.
     pub(super) fn relic_find(&mut self, draw: u32, every: u32) {
         let Some(relic) = find(self.dungeon.pack, draw, every) else {
             return;

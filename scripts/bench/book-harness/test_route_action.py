@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Pins route_action.py on a hand-built log: python3 test_route_action.py"""
 import json
 import os
 import tempfile
@@ -24,7 +23,7 @@ def chat_log():
     t4 = {"role": "tool", "tool_call_id": "run_tests", "content": "⡪⠙ again"}
     a5 = {"role": "assistant", "content": None, "tool_calls": [call("loop_research", action="run", compare=True)]}
     turns = [system, user, a1, t1, a2, t2, a3, t3, a4, t4, a5]
-    cuts = [4, 6, 8, 10, 11]  # each request ends on a tool result; the last carries a5
+    cuts = [4, 6, 8, 10, 11]
     return [{"body": {"messages": turns[:n]}} for n in cuts]
 
 
@@ -48,7 +47,7 @@ chat = write(chat_log())
 raised, judged, matched = route_action.tally([chat])
 assert raised == {"⡪⠊": 1, "⡪⠙": 2, "⡪⠛": 1, "⡪⠋": 1}, raised
 assert judged == {"⡪⠊": 1, "⡪⠙": 2, "⡪⠛": 1}, judged
-assert matched == {"⡪⠊": 1, "⡪⠙": 1, "⡪⠛": 1}, matched  # the read_file after ⡪⠙ misses
+assert matched == {"⡪⠊": 1, "⡪⠙": 1, "⡪⠛": 1}, matched
 
 resp = write(responses_log())
 raised, judged, matched = route_action.tally([resp])

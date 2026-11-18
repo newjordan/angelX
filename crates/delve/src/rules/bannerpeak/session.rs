@@ -21,31 +21,21 @@ use crate::rules::{HZ, Hero, Input, MAX_PLAYERS};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// A run never runs past an hour; a longer one is not a run to play.
 pub const LIMIT: u32 = 60 * 60 * HZ;
-/// The banners it takes to open the summit door.
 pub const SUMMIT_BANNERS: u32 = 7;
-/// Ticks all knights stand down before the checkpoint takes them back.
 pub const WIPE_TICKS: u32 = 20;
-/// Ticks a banner select waits before the cursor's choice is taken.
 pub const SELECT_TICKS: u32 = 240;
-/// Ticks of the finale at the Great Pole before the run is done.
 pub const FINALE_TICKS: u32 = 210;
-/// Ticks a banner's name stays on every screen.
 pub const ANNOUNCE_TICKS: u32 = 110;
-/// Ticks of a block's hop, a coin's ping, a smoke puff.
 pub const FX_LIFE: u32 = 14;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Phase {
     Play,
-    /// The course board is up: choose where to go on the mountain.
     Select,
-    /// All eight banners are raised at the Great Pole.
     Finale,
 }
 
-/// A short effect, drawn from the sim so every screen shows the same one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FxKind {
     Coin,
@@ -61,20 +51,17 @@ pub enum FxKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Fx {
     pub k: FxKind,
-    /// Pixels.
     pub x: i32,
     pub y: i32,
     pub t: u32,
 }
 
-/// The banner just raised, shown on every screen for a while.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Announce {
     pub banner: u8,
     pub t: u32,
 }
 
-/// The names on the course board, and the banners they stand for.
 pub const BOARD: [(&str, u8); 6] = [
     ("MARSH FLAG", 2),
     ("MILL RACE", 3),
@@ -83,10 +70,7 @@ pub const BOARD: [(&str, u8); 6] = [
     ("EIGHT SPARKS", 6),
     ("KING CINDER", 7),
 ];
-/// The gate (index into `info().gates`) each board line starts at, but for
-/// the sparks, which start at the first section with one still to find.
 const BOARD_GATE: [usize; 6] = [0, 2, 3, 5, 0, 7];
-/// The banners' names, by number.
 pub const BANNER_NAMES: [&str; 8] = [
     "TOWER TOP",
     "CELLAR",
@@ -102,45 +86,31 @@ pub const BANNER_NAMES: [&str; 8] = [
 pub struct Session {
     pub seats: BTreeMap<u32, Knight>,
     pub elapsed: u32,
-    /// Bit `n` is banner `n` raised.
     pub banners: u8,
-    /// Bit `n` is ring spark `n` gathered.
     pub sparks: u8,
-    /// Bit `n` is gate `n` raised.
     pub gates: u16,
-    /// 0 for the start, else one more than the latest gate.
     pub checkpoint: u8,
-    /// Bit 0: the courtyard's tapestry door is open. Bit 1: the summit door.
     pub doors: u8,
     pub phase: Phase,
     pub phase_t: u32,
-    /// The line of the course board the cursor is on.
     pub cursor: u8,
     pub foes: Vec<Foe>,
     pub items: Vec<Item>,
     pub bolts: Vec<Bolt>,
     pub boulders: Vec<Boulder>,
-    /// King Cinder, on the summit.
     pub boss: Boss,
     pub fx: Vec<Fx>,
-    /// Gold sparks lying on the ground that have been taken (by mark number).
     pub taken: BTreeSet<u16>,
-    /// Tiles a knight has changed: struck blocks, broken floor, opened doors.
     pub changed: BTreeMap<u32, u8>,
     pub announce: Option<Announce>,
-    /// Ticks since every knight was down.
     pub wipe: u32,
-    /// How many seats the foes were provisioned for (never goes down).
     pub scaled: u8,
-    /// The board has been up once on this way in.
     pub seen: bool,
     pub completed: Option<u32>,
-    /// What the picture remembers: marks, calls and weighty blows (`show`).
     #[serde(default, skip_serializing_if = "Show::quiet")]
     pub show: Show,
 }
 
-/// The map as it stands: the fixed tiles with the changed ones over them.
 pub struct View<'a> {
     pub world: &'static World,
     pub changed: &'a BTreeMap<u32, u8>,
@@ -163,7 +133,6 @@ type Rect = (i32, i32, i32, i32);
 fn overlap(a: Rect, b: Rect) -> bool {
     a.0 < b.2 && b.0 < a.2 && a.1 < b.3 && b.1 < a.3
 }
-/// A body's box in whole pixels.
 fn px(b: &Body) -> Rect {
     let (l, t, r, bt) = b.rect();
     (l.div_euclid(Q), t.div_euclid(Q), (r - 1).div_euclid(Q) + 1, bt.div_euclid(Q))
@@ -224,7 +193,6 @@ impl Session {
         }
     }
 
-    /// Where the latest checkpoint stands: its feet, in pixels.
     pub fn station(&self) -> (i32, i32) {
         let i = info();
         let cell = match self.checkpoint {
@@ -234,11 +202,9 @@ impl Session {
         cell_feet(cell)
     }
 
-    /// Sit a knight down at the checkpoint, spread a little by seat.
     fn seat(&mut self, id: u32, joined: u32) {
         let (x, y) = self.station();
         let n = self.seats.len() as i32;
-        // Alternate either side of the post; stay out of the walls.
         let off = ((n + 1) / 2) * 7 * if n % 2 == 0 { 1 } else { -1 };
         let mut x = x + off;
         let g = self.view();
@@ -251,8 +217,6 @@ impl Session {
         self.seats.insert(id, k);
     }
 
-    /// Foes for the seats at the table: the map's own, then more as the table
-    /// fills. Never fewer, and never weaker.
     pub fn provision(&mut self) {
         let seats = self.seats.len().max(1) as u8;
         let first = self.scaled == 0;
@@ -268,7 +232,6 @@ impl Session {
                 'f' => (FoeKind::Capped, was < 2 && now >= 2),
                 _ => continue,
             };
-            // A mid-run extra behind the party is not worth a late arrival.
             let behind = !first && m.x * TILE < station_x;
             if wanted && !behind {
                 self.foes.push(Foe::new(kind, (m.x, m.y), n as u16));
@@ -289,7 +252,6 @@ impl Session {
         self.fx.push(Fx { k, x, y, t: FX_LIFE });
     }
 
-    /// The bounds a save, the wire or a repair holds a session to.
     pub fn valid(&self) -> bool {
         let (wp, hp) = (WIDTH * TILE, HEIGHT * TILE);
         self.seats.len() <= MAX_PLAYERS as usize
@@ -327,7 +289,6 @@ impl Session {
             && (self.phase != Phase::Finale || self.banners == 0xFF)
     }
 
-    /// Mend what a bad save broke: out-of-range things go, the rest stays.
     pub fn repair(&mut self) {
         self.seats.retain(|&id, _| (1..=MAX_PLAYERS).contains(&id));
         self.elapsed = self.elapsed.min(LIMIT);
@@ -381,17 +342,14 @@ impl Session {
         }
     }
 
-    /// Banners raised.
     pub fn count(&self) -> u32 {
         self.banners.count_ones()
     }
 
-    /// Whether the summit door's count is met.
     pub fn door_count(&self) -> u32 {
         (self.banners & 0x7F).count_ones()
     }
 
-    /// The knights standing and playing: not in a bubble or a pit.
     pub fn alive(&self) -> Vec<u32> {
         self.seats
             .iter()
@@ -400,7 +358,6 @@ impl Session {
             .collect()
     }
 
-    /// The gate a ring spark not yet found sends a knight to on the board.
     fn spark_gate(&self) -> usize {
         let i = info();
         let found = (0..i.sparks.len()).find(|&n| self.sparks & (1 << n) == 0);
@@ -414,9 +371,6 @@ impl Session {
         }
     }
 
-    // ------------------------------------------------------------ the tick
-
-    /// One tick for the whole table; the sounds it makes are pushed to `say`.
     pub fn step(
         &mut self,
         inputs: &BTreeMap<u32, Input>,
@@ -425,7 +379,6 @@ impl Session {
         say: &mut Vec<&'static str>,
     ) {
         self.elapsed = (self.elapsed + 1).min(LIMIT);
-        // Seats are whoever is here and awake; a late knight sits at the gate.
         self.seats
             .retain(|id, _| heroes.get(id).is_some_and(|h| !h.away && !h.stone));
         let late: Vec<u32> = heroes
@@ -468,7 +421,6 @@ impl Session {
             }
             Phase::Play => {}
         }
-        // Moving platforms, and each raised shield a friend may stand on.
         let mut now = layout::movers(self.elapsed);
         let mut before = layout::movers(self.elapsed.saturating_sub(1));
         if !self.boss.defeated() {
@@ -505,7 +457,6 @@ impl Session {
         self.step_things(knobs, say);
         self.step_rescue(say);
         self.step_doors(say);
-        // The camera of every seat.
         for k in self.seats.values_mut() {
             let (fx, fy) = k.body.foot();
             let (x, y, face, vx, vy) = match k.bubble {
@@ -516,7 +467,6 @@ impl Session {
                 k.cam = follow(k.cam, x, y, face, vx, vy);
             }
         }
-        // Everyone down at once: the checkpoint takes them back.
         if !self.seats.is_empty() && self.seats.values().all(|k| !k.alive()) {
             self.wipe += 1;
             if self.wipe >= WIPE_TICKS {
@@ -531,7 +481,6 @@ impl Session {
         }
     }
 
-    /// Everyone back at the latest gate, mended a little, the world as it is.
     fn retry(&mut self, say: &mut Vec<&'static str>) {
         let (x, y) = self.station();
         let ids: Vec<u32> = self.seats.keys().copied().collect();
@@ -555,8 +504,6 @@ impl Session {
         say.push("door_open");
     }
 
-    // ------------------------------------------------------------ a knight
-
     #[allow(clippy::too_many_arguments)]
     fn step_knight(
         &mut self,
@@ -572,7 +519,6 @@ impl Session {
         k.cooldown = k.cooldown.saturating_sub(1);
         k.shock = k.shock.saturating_sub(1);
         k.landed = k.landed.saturating_add(1);
-        // A knight in a bubble steers it; the rest of the tick is for friends.
         if let Some(mut b) = k.bubble {
             b.t += 1;
             let (dx, dy) = (i32::from(input.move_x), i32::from(input.move_y));
@@ -581,7 +527,6 @@ impl Session {
             b.x = b.x.clamp(8 * TQ / 16, (WIDTH * TILE - 8) * Q);
             b.y = b.y.clamp(0, (HEIGHT * TILE) * Q);
             if b.t >= BUBBLE_TICKS {
-                // Too long alone: the gate takes the knight back.
                 let (x, y) = self.station();
                 let joined = k.joined;
                 let (coins, score) = (k.coins, k.score);
@@ -599,7 +544,6 @@ impl Session {
             k.prev = bits;
             return;
         }
-        // Out of sight in a pit until the safe ledge takes it back.
         if k.pit > 0 {
             k.pit -= 1;
             if k.pit == 0 {
@@ -619,7 +563,6 @@ impl Session {
         let start = (k.pips, k.size, k.pit, k.bubble.is_some());
         let (mut cmd, bits) = k.cmd(input);
         if k.pose > 0 {
-            // The item-get pose: held still, the world goes on.
             k.pose -= 1;
             cmd = Default::default();
         }
@@ -639,18 +582,14 @@ impl Session {
         if k.pose == 0 {
             self.touch(id, k, bits, was, say);
         }
-        // Landing clears the stomp chain.
         if k.body.ground {
             k.chain = 0;
         }
-        // The last safe footing: still on plain ground, not by a hazard.
         self.note_safe(k);
         k.prev = bits;
         self.note_show(id, k, start);
     }
 
-    /// What the picture should make a fuss of after this knight's tick: dust
-    /// under a running foot, a hurt, a fall, a knight gone down.
     fn note_show(&mut self, id: u32, k: &Knight, start: (u8, Size, u32, bool)) {
         let (pips, size, pit, bubble) = start;
         let now = self.elapsed;
@@ -778,7 +717,6 @@ impl Session {
         }
     }
 
-    /// A head struck the tile `(tx, ty)` from below.
     fn bump(&mut self, id: u32, k: &mut Knight, tx: i32, ty: i32, say: &mut Vec<&'static str>) {
         let t = self.tile(tx, ty);
         let (cx, top) = (tx * TILE + TILE / 2, ty * TILE);
@@ -831,7 +769,6 @@ impl Session {
             }
             _ => return,
         }
-        // Whatever stood on the block is thrown off it.
         for f in &mut self.foes {
             let (l, _, r, b) = f.rect();
             if f.alive() && b == top && l < tx * TILE + TILE && r > tx * TILE {
@@ -858,14 +795,12 @@ impl Session {
             k.pips = (k.pips + 1).min(PIPS);
         }
         if k.coins % 100 == 0 {
-            // A hundred sparks is a reward: the whole pie.
             k.pips = PIPS;
             k.score += 500;
             say.push("wish_grant");
         }
     }
 
-    /// A slam landed at `(x, y)` pixels: the floor cracks, small foes tumble.
     fn slam(
         &mut self,
         _id: u32,
@@ -904,7 +839,6 @@ impl Session {
                 "boss_roar"
             });
         } else if !self.boss.defeated() {
-            // Not the moment: the shock rings off his head.
             let head = self.boss.plank(false);
             if (x - self.boss.x).abs() <= 24 && (y - head.y).abs() <= 3 {
                 say.push("shield_block");
@@ -953,19 +887,15 @@ impl Session {
         }
     }
 
-    // --------------------------------------------------------- what a knight touches
-
     fn touch(&mut self, id: u32, k: &mut Knight, bits: u8, was: i32, say: &mut Vec<&'static str>) {
         let me = px(&k.body);
         let (fx, fy) = k.body.foot();
         let i = info();
         let (wp, hp) = (WIDTH * TILE, HEIGHT * TILE);
-        // Off the bottom of the world.
         if fy > hp + 24 || fx < -8 || fx > wp + 8 {
             self.fall(k, say);
             return;
         }
-        // Water and spikes.
         {
             let g = self.view();
             let deep = (me.0 + 1, me.1, me.2 - 1, me.3 - 4);
@@ -1000,7 +930,6 @@ impl Session {
                 self.after_hit(k);
             }
         }
-        // Gold sparks lying about.
         for (n, &c) in i.coins.iter().enumerate() {
             let n16 = n as u16;
             if self.taken.contains(&n16) {
@@ -1014,7 +943,6 @@ impl Session {
                 self.show.mark(self.elapsed, Kind::Coin, cx, cy, id, 1);
             }
         }
-        // The ring of eight.
         for (n, &c) in i.sparks.iter().enumerate() {
             if self.sparks & (1 << n) != 0 {
                 continue;
@@ -1030,13 +958,11 @@ impl Session {
                 }
             }
         }
-        // Banners lying about.
         for b in 0..8usize {
             if self.banners & (1 << b) != 0 {
                 continue;
             }
             let Some(c) = i.banners[b] else { continue };
-            // The last waits for the crown to fall.
             if b == 7 && !self.crown_down() {
                 continue;
             }
@@ -1045,7 +971,6 @@ impl Session {
                 self.award(b as u8, Some(k), say);
             }
         }
-        // Gates.
         for (n, &c) in i.gates.iter().enumerate() {
             let (cx, cy) = cell_centre(c);
             if overlap(me, (cx - 8, cy - 24, cx + 8, cy + 8)) {
@@ -1060,7 +985,6 @@ impl Session {
                 }
             }
         }
-        // The flagpole.
         let (pcx, pcy) = i.pole;
         let (pole_x, base) = (pcx * TILE + TILE / 2, (pcy + 1) * TILE);
         if k.pole == 0
@@ -1089,7 +1013,6 @@ impl Session {
                 self.show.mark(self.elapsed, Kind::Banner, pole_x, base - height * TILE, 0, 2);
             }
         }
-        // The courtyard's door and the board: E at either.
         if k.use_edge(bits) && k.free() {
             let (ax, ay) = cell_centre(i.arch);
             let near_arch = (fx - ax).abs() < 26 && (fy - ay).abs() < 24;
@@ -1103,7 +1026,6 @@ impl Session {
                 self.open_board(say);
             }
         }
-        // The board shows itself to the first knight to come in from the hub.
         if !self.seen && self.doors & 1 != 0 {
             let (bx, by) = cell_centre(i.board);
             if (fx - bx).abs() < 22 && (fy - by).abs() < 24 {
@@ -1113,7 +1035,6 @@ impl Session {
         self.touch_things(id, k, bits, was, say);
     }
 
-    /// The knight went into a pit or the water: a wedge, and back to the ledge.
     fn fall(&mut self, k: &mut Knight, say: &mut Vec<&'static str>) {
         if k.pit > 0 {
             return;
@@ -1132,7 +1053,6 @@ impl Session {
         }
     }
 
-    /// After a hit that took the last wedge, a bubble.
     fn after_hit(&mut self, k: &mut Knight) {
         if k.pips == 0 {
             self.go_down(k);
@@ -1154,7 +1074,6 @@ impl Session {
         k.pose = 0;
     }
 
-    /// A banner is raised for the whole table.
     pub fn award(&mut self, banner: u8, who: Option<&mut Knight>, say: &mut Vec<&'static str>) {
         if self.banners & (1 << banner) != 0 {
             return;
@@ -1174,7 +1093,6 @@ impl Session {
             let (fx, fy) = k.body.foot();
             self.fx(FxKind::Gleam, fx, fy - 24);
             at = (fx, fy);
-            // Friends standing by when it goes up: the table raised it together.
             together = 1 + self
                 .seats
                 .values()
@@ -1187,12 +1105,9 @@ impl Session {
         }
     }
 
-    /// Whether King Cinder's crown has fallen: his banner may be taken.
     pub fn crown_down(&self) -> bool {
         self.boss.defeated()
     }
-
-    // ------------------------------------------------------------ the board
 
     fn open_board(&mut self, say: &mut Vec<&'static str>) {
         if self.phase != Phase::Play {
@@ -1201,7 +1116,6 @@ impl Session {
         self.phase = Phase::Select;
         self.phase_t = 0;
         self.seen = true;
-        // The line of the first banner not yet raised.
         self.cursor = BOARD
             .iter()
             .position(|&(_, b)| self.banners & (1 << b) == 0)
@@ -1212,8 +1126,6 @@ impl Session {
     fn select_step(&mut self, input_of: &dyn Fn(u32) -> Input, say: &mut Vec<&'static str>) {
         self.phase_t = (self.phase_t + 1).min(LIMIT);
         let mut go = false;
-        // Any seat may move the cursor or take the choice; the lowest seat
-        // that presses wins the tick.
         let ids: Vec<u32> = self.seats.keys().copied().collect();
         for id in ids {
             let i = input_of(id);
@@ -1239,7 +1151,6 @@ impl Session {
             return;
         }
         let line = usize::from(self.cursor);
-        // The summit waits for its door.
         if line == 5 && self.doors & 2 == 0 {
             self.phase_t = 0;
             say.push("mana_empty");
@@ -1316,8 +1227,6 @@ impl Session {
         }
     }
 
-    // ------------------------------------------------------------ doors
-
     fn step_doors(&mut self, say: &mut Vec<&'static str>) {
         if self.doors & 1 == 0 && self.banners & 3 == 3 {
             self.doors |= 1;
@@ -1342,8 +1251,6 @@ impl Session {
         }
     }
 
-    // --------------------------------------------------------- the pole
-
     fn step_pole(&mut self, k: &mut Knight, say: &mut Vec<&'static str>) {
         let (_, pcy) = info().pole;
         let base = (pcy + 1) * TILE * Q;
@@ -1358,7 +1265,6 @@ impl Session {
                 k.pole = k.pole.max(40);
             }
         } else {
-            // Down: let go, face the way on, and walk off to the fanfare.
             if k.pole >= 60 && k.pole < 100 {
                 k.body.face = 1;
                 k.body.x += 560;
@@ -1379,8 +1285,6 @@ impl Session {
         }
     }
 
-    // ------------------------------------------------------ foes and things
-
     fn step_things(&mut self, knobs: &Knobs, say: &mut Vec<&'static str>) {
         let _ = knobs;
         let near: Vec<(i32, i32)> = self
@@ -1389,7 +1293,6 @@ impl Session {
             .filter(|k| k.alive())
             .map(|k| k.body.foot())
             .collect();
-        // A foe whose pop has run its course is gone for good.
         self.foes.retain(|f| f.dead != 1);
         {
             let view = View {
@@ -1417,11 +1320,9 @@ impl Session {
                 self.bolts.remove(n);
             }
         }
-        // Things that fell off the world.
         let limit = (HEIGHT * TILE + 64) * Q;
         self.foes.retain(|f| f.y < limit);
         self.items.retain(|i| i.y < limit);
-        // Bolts meet foes.
         let mut kills = Vec::new();
         for (bn, b) in self.bolts.iter().enumerate() {
             for (fnn, f) in self.foes.iter().enumerate() {
@@ -1443,7 +1344,6 @@ impl Session {
             self.bolts[bn].t = BOLT_LIFE + 1;
         }
         self.bolts.retain(|b| b.t <= BOLT_LIFE);
-        // A cap on the slide flips whatever it meets.
         let mut flipped = Vec::new();
         for it in &self.items {
             if it.kind == ItemKind::Cap && it.cap == CapState::Slide {
@@ -1462,7 +1362,6 @@ impl Session {
                 say.push("kill");
             }
         }
-        // King Cinder, while a knight is on the summit.
         let feet: Vec<(i32, i32)> = self
             .seats
             .values()
@@ -1484,8 +1383,6 @@ impl Session {
         self.step_boulders(&feet, say);
     }
 
-    /// The bell boulders on the snow ledge: they roll down it toward the
-    /// knights on a beat, faster and more of them for a fuller table.
     fn step_boulders(&mut self, feet: &[(i32, i32)], say: &mut Vec<&'static str>) {
         let (lo, hi) = ((SNOW.ox + 6) * TILE, (SNOW.ox + 97) * TILE);
         let seats = self.seats.len().max(1) as u32;
@@ -1502,7 +1399,6 @@ impl Session {
         if someone && self.phase == Phase::Play {
             let phase = self.elapsed % interval;
             let second = seats >= 4 && phase == 80;
-            // The bell tolls shortly before one rolls out.
             if phase == interval - 36 || (seats >= 4 && phase == 80 - 36) {
                 say.push("circle_toll");
             }
@@ -1517,7 +1413,6 @@ impl Session {
         }
     }
 
-    /// A knight meets the foes, the items and the caps.
     fn touch_things(
         &mut self,
         id: u32,
@@ -1528,8 +1423,6 @@ impl Session {
     ) {
         let me = px(&k.body);
         let (fx, _fy) = k.body.foot();
-        // Foes: a stomp, a slam, a dive or a belly slide beats them; a touch
-        // from the side hurts.
         for n in 0..self.foes.len() {
             if !self.foes[n].alive() {
                 continue;
@@ -1538,7 +1431,6 @@ impl Session {
             if !overlap(me, fr) {
                 continue;
             }
-            // From above: the feet were over its head a tick ago.
             let falling = k.body.vy > 0 && was <= (fr.1 + 4) * Q;
             let striking = matches!(k.body.mode, Move::Pound | Move::Dive | Move::Belly);
             if striking || falling {
@@ -1576,7 +1468,6 @@ impl Session {
                 }
             }
         }
-        // Bell boulders: a hit from the side, a springboard from above.
         let floor = layout::SNOW_FLOOR * TILE;
         for n in 0..self.boulders.len() {
             let bx = self.boulders[n].x.div_euclid(Q);
@@ -1591,7 +1482,6 @@ impl Session {
                 }
             }
         }
-        // King Cinder: his waves and embers hurt, and so does his side.
         if self.boss.beat != BossBeat::Dormant && !self.boss.defeated() {
             let mut hurt = false;
             for h in &self.boss.hazards {
@@ -1609,7 +1499,6 @@ impl Session {
                 }
             }
         }
-        // Items.
         let mut gone = Vec::new();
         for n in 0..self.items.len() {
             let it = self.items[n].clone();
@@ -1640,7 +1529,6 @@ impl Session {
         for n in gone.into_iter().rev() {
             self.items.remove(n);
         }
-        // Carried caps ride with their carrier; a long carry wakes it.
         if k.carry {
             let held = self
                 .items
@@ -1649,7 +1537,6 @@ impl Session {
             match held {
                 Some(n) => {
                     if bits & super::knight::B_ACT == 0 {
-                        // Let go: thrown the way the knight faces.
                         let face = k.body.face;
                         let it = &mut self.items[n];
                         it.cap = CapState::Slide;
@@ -1675,7 +1562,6 @@ impl Session {
                 None => k.carry = false,
             }
         }
-        // A lantern flame throws bolts of light.
         if k.size == Size::Flame
             && k.act_edge(bits)
             && k.cooldown == 0
@@ -1696,7 +1582,6 @@ impl Session {
         }
     }
 
-    /// A knight and a cap: kick it, carry it, or stop it.
     fn touch_cap(
         &mut self,
         id: u32,
@@ -1716,7 +1601,6 @@ impl Session {
         match it.cap {
             CapState::Rest => {
                 if on_top {
-                    // Stomp it away.
                     let c = &mut self.items[n];
                     c.cap = CapState::Slide;
                     c.dir = if k.body.face > 0 { 1 } else { -1 };
@@ -1733,7 +1617,6 @@ impl Session {
                     k.carry = true;
                     say.push("shield_up");
                 } else {
-                    // Run into it: it flies off the way you ran.
                     let c = &mut self.items[n];
                     c.cap = CapState::Slide;
                     c.dir = from as i8;
@@ -1759,8 +1642,6 @@ impl Session {
             CapState::Carried => {}
         }
     }
-
-    // ---------------------------------------------------------- the rescue
 
     fn step_rescue(&mut self, say: &mut Vec<&'static str>) {
         let alive: Vec<(u32, (i32, i32, i32, i32), (i32, i32))> = self
@@ -1794,7 +1675,6 @@ impl Session {
                 say.push("wish_grant");
             }
         }
-        // A bubble with no friend near drifts toward the nearest one, slowly.
         for (&id, k) in self.seats.iter_mut() {
             let _ = id;
             if let Some(b) = &mut k.bubble {
@@ -1814,7 +1694,6 @@ impl Session {
 #[path = "../../../tests/rules/bannerpeak_session_bend_cases__tests.rs"]
 pub mod bend_cases_session;
 
-/// How hard a fall or a hurt lands on the picture.
 fn show_weight(down: bool) -> crate::rules::juice::Weight {
     if down {
         crate::rules::juice::Weight::Crushing

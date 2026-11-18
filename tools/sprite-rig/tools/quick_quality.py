@@ -75,7 +75,6 @@ def _silhouette(mask):
                         seen[ny, nx] = True
                         todo.append((ny, nx))
         sizes.append(size)
-    # Fraction of ink in solid 2x2 cells: a line/scattered dots are not a body.
     solid = small[:-1, :-1] & small[1:, :-1] & small[:-1, 1:] & small[1:, 1:]
     mass = np.zeros(small.shape, bool)
     for dy in (0, 1):
@@ -109,19 +108,15 @@ def _anatomy(frame, upright):
         regions['feet'] &= Y >= y0+height*.78
         for name in ('grip', 'off_hand'):
             regions[name] &= (Y >= y0+height*.36) & (Y < y0+height*.84)
-        # Final-facing-right convention: do not accept swapping painted hands.
         regions['grip'] &= X >= x0+width*.45
         regions['off_hand'] &= X <= x0+width*.60
     distances = {name: _distance(frame['anchors'][name], region)
                  for name, region in regions.items()}
-    # A floor socket may legitimately sit in the empty gap BETWEEN the shoes.
-    # Measure against their footprint envelope, not only one painted shoe.
     if upright and (foot_box := _bounds(regions['feet'])):
         fx, fy = frame['anchors']['feet']
         left, top, right, bottom = foot_box
         distances['feet'] = math.hypot(max(left-fx, 0, fx-(right-1)),
                                       max(top-fy, 0, fy-(bottom-1)))
-    # JSON has no Infinity. A missing region is an explicit failure.
     return dict(ok=all(d <= tolerance for d in distances.values()), tolerance=tolerance,
                 distances={k: round(v, 3) if math.isfinite(v) else None
                            for k, v in distances.items()})
@@ -129,8 +124,6 @@ def _anatomy(frame, upright):
 
 def _native(path, pal):
     frames = N.load_native(path, pal)
-    # Old Rust exports called the realm knight 'knight'. Never pick an arbitrary
-    # first kit (e.g. percival), nor demand equality to today's bootstrap fits.
     kit = next((k for k in ('realm', 'knight') if any(f['kit'] == k for f in frames)), None)
     if kit is None:
         raise ValueError('native baseline has no realm (or legacy knight) frames')
@@ -194,8 +187,6 @@ def _measure(game, report):
     _record(report, 'fixed_floor', all(ys and set(ys) == {game['pivot'][1]} for ys in floors.values()),
             floors=floors, pivot_y=game['pivot'][1],
             note='All present idle/walk/run painted bottoms must equal the global pivot y.')
-    # Include complete frame sequences, not just the first frame (often rest).
-    # Compare distinct pixel states independently of ticks, anchors and repeats.
     signatures = {n: frozenset(tuple(f['rows']) for f in fs) for n, fs in game['clips'].items()}
     duplicates = [[a, b] for i, a in enumerate(signatures) for b in list(signatures)[i+1:]
                   if signatures[a] == signatures[b]]
@@ -203,7 +194,6 @@ def _measure(game, report):
     _record(report, 'distinct_clips', not duplicates and not frozen, heuristic=True,
             duplicate_pairs=duplicates, frozen_clips=frozen,
             unique_frames={n: len(s) for n, s in signatures.items()})
-    # Without source, an approximate expansion check can still catch dead effects.
     expansion = {}
     for name in SWINGS:
         if name in game['clips']:
@@ -240,9 +230,6 @@ def _provenance(game, rig, image, root, report):
                     differences.append(f'{name}[{i}].{key}')
     _record(report, 'source_rebuild', not differences, differences=differences,
             note='Exact Q.build comparison of every frame: pixels, ticks, anchors, canvas, pivot.')
-    # A self-consistently broken source socket must not pass merely because its
-    # broken game matches a rebuild. Check the source socket against its named
-    # anatomical mask, not against arbitrary ink elsewhere on the body.
     expected_parts = dict(grip=('hand_f',), off_hand=('hand_b',), head=('head',),
                           back=('back', 'torso'), feet=('foot_f', 'foot_b'))
     source = rig['source']
@@ -301,7 +288,6 @@ def _contacts(game, refs, out, pal, overlays=False):
                     x, y = frame['anchors'][anchor]
                     draw.line((x-2, y, x+2, y), fill=color)
                     draw.line((x, y-2, x, y+2), fill=color)
-            # Ground is always measured from the RAW painted rows, not overlays.
             box = a.getbbox()
             fa = ((box[0]+box[2]-1)//2, box[3]-1)
             fb = tuple(game['pivot'])
@@ -309,9 +295,6 @@ def _contacts(game, refs, out, pal, overlays=False):
         pairs.append(row)
     subjects = [(im.getbbox(), origin) for row in pairs for a, fa, b, fb, _ in row
                 for im, origin in ((a, fa), (b, fb))]
-    # One common origin-relative crop across ALL frames. The rig's global pivot
-    # remains on the groundline: never conceal floor jitter by re-grounding each
-    # frame. Native exports have no global pivot, so use their painted floor.
     left = max(0, *(origin[0]-box[0] for box, origin in subjects))
     right = max(0, *(box[2]-origin[0] for box, origin in subjects))
     above = max(0, *(origin[1]-box[1] for box, origin in subjects))

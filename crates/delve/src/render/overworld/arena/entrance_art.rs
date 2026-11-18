@@ -32,8 +32,6 @@ fn original(run: &Run) -> Img {
 }
 #[derive(PartialEq, Eq)]
 struct Key { layout: u64, room: usize, kind: RoomKind, home: u64 }
-// Settlement plaques belong to the existing room painter. Preserve their
-// whole rectangle, including the border, rather than only the doorway tile.
 fn plaque_bounds(run: &Run) -> Option<(i32, i32, i32, i32)> {
     if !matches!(run.room().kind, RoomKind::Workshop | RoomKind::Muster) { return None; }
     let sign = district_sign(run.room().kind.settlement_label());
@@ -48,8 +46,6 @@ fn bake(run: &Run) -> Img {
         let (nx, ny) = (x, y);
         let tile = run.room().tile(nx/16, ny/16);
         let title = plaque.is_some_and(|(x, y, w, h)| nx >= x && nx < x+w && ny >= y && ny < y+h);
-        // Keep the master at its original coordinates, including its interior
-        // stone joints and lighting. Rule-owned furniture and exits stay above it.
         let source_opening = ((176..208).contains(&nx) && (ny < 48 || ny >= 192))
             || ((80..144).contains(&ny) && (nx < 32 || nx >= 352));
         let c = if title || matches!(tile, Tile::Block | Tile::Hazard | Tile::Ledge)
@@ -68,8 +64,6 @@ pub(super) fn scene(run: &Run) -> Arc<Img> {
     let pose = (run.tick / 6 % 4) as usize;
     let mut cache = SCENES[i].get_or_init(Default::default).lock().unwrap_or_else(|e|e.into_inner());
     if let Some((old, images)) = &*cache {if *old == key {return images[pose].clone();}}
-    // Retain ambient movement from the existing furniture painter. All four
-    // poses are baked on admission; display only selects a cached image.
     let images = std::array::from_fn(|frame| {
         let mut sample = run.clone();sample.tick = frame as u64 * 6;
         Arc::new(bake(&sample))

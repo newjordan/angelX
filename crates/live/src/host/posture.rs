@@ -6,8 +6,6 @@
 //! reading when no live posture was lent to it, so a test and the cockpit's own
 //! tests see exactly what the cockpit would.
 
-/// Parse a boolean flag value: anything but empty / 0 / false / no / off /
-/// disable / disabled is on.
 pub fn parse(raw: Option<&str>) -> bool {
     match raw {
         Some(value) => {
@@ -21,7 +19,6 @@ pub fn parse(raw: Option<&str>) -> bool {
     }
 }
 
-/// Whether any of the Lean / Comp / Turbo variables is on, read now.
 pub fn from_env_uncached() -> bool {
     parse(std::env::var("ANGEL_COMP_MODE").ok().as_deref())
         || parse(std::env::var("ANGEL_TURBO").ok().as_deref())

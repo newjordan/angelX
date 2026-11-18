@@ -221,8 +221,6 @@ fn a_cancelled_turn_interrupts_the_teacher_wait_without_a_timeout() {
     let observed_cancel = match finished_rx.recv_timeout(Duration::from_secs(2)) {
         Ok(observed) => Some(observed),
         Err(_) => {
-            // Prevent a failed forwarding regression from leaving the mock
-            // worker or its global in-flight lease behind after this test.
             release.store(true, Ordering::Release);
             finished_rx.recv_timeout(Duration::from_secs(2)).ok()
         }
@@ -242,7 +240,7 @@ fn a_cancelled_turn_interrupts_the_teacher_wait_without_a_timeout() {
     if ask_finished {
         ask.join().unwrap();
     } else {
-        drop(ask); // A broken wait implementation must not hang the test process.
+        drop(ask);
     }
     let lease_deadline = std::time::Instant::now() + Duration::from_secs(2);
     while TEACHER_ASK_IN_FLIGHT.load(Ordering::Acquire)
@@ -271,8 +269,6 @@ fn a_slow_teacher_is_waited_for_never_timed_out() {
         calls: Arc::clone(&calls),
         release: Arc::clone(&release),
     });
-    // The teacher answers only after a pause; the ask waits for it instead
-    // of giving up on a clock.
     let releaser = {
         let release = Arc::clone(&release);
         std::thread::spawn(move || {
@@ -287,6 +283,12 @@ fn a_slow_teacher_is_waited_for_never_timed_out() {
         &AtomicBool::new(false),
     );
     releaser.join().unwrap();
+    let lease_deadline = std::time::Instant::now() + Duration::from_secs(2);
+    while TEACHER_ASK_IN_FLIGHT.load(Ordering::Acquire)
+        && std::time::Instant::now() < lease_deadline
+    {
+        std::thread::yield_now();
+    }
     assert_eq!(calls.load(Ordering::Acquire), 1);
     assert!(answer.is_some(), "a slow teacher's answer is kept");
     assert!(!TEACHER_ASK_IN_FLIGHT.load(Ordering::Acquire));
@@ -304,8 +306,6 @@ fn a_slow_teacher_is_waited_for_never_timed_out() {
     );
 }
 
-/// The notes a later prompt carries are page addresses on `⠟⠓` / `⠟⠊`; the
-/// operator and the ledger read them recited, the teacher's annotation after.
 #[test]
 fn recovery_notes_are_routes_recited_for_the_operator() {
     use crate::agent::harness::book::{connect::recite, ledger};
@@ -338,7 +338,6 @@ fn recovery_notes_are_routes_recited_for_the_operator() {
     }
 }
 
-/// The teacher's brief is `⠟⠚`; the reply shape and the fault are inline.
 #[test]
 fn the_teacher_is_asked_in_routes() {
     let prompt = teacher_ask_prompt(SessionFault::Timeout, "HTTP 408: request timed out", 7);

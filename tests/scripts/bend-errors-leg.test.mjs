@@ -67,7 +67,6 @@ test('a leg edit that retries a rejected certificate is refused by its law and p
   assert.throws(() => publish(root), /SOME PROOFS FAIL/)
   assert.equal(fs.readFileSync(path.join(root, bend.output), 'utf8'), accepted)
   assert.equal(fs.readFileSync(path.join(root, 'bend-build.json'), 'utf8'), receipt)
-  // A different pace is a legal edit: the laws are about replay, not timing.
   fs.writeFileSync(path.join(root, bend.entry), source.replace('(backoff * step : U32)', '(backoff : U32)'))
   const next = publish(root)
   assert.equal(adapter(root).render(facts({attempt: 1})).delay_ms, 500)

@@ -43,7 +43,6 @@ def main():
     report = {'schema': 'angel.launch-images/v1', 'scope': __doc__,
               'probe_sha256': sha256(Path(__file__)), 'images': images,
               'samples': [], 'complete': False}
-    # Reserve the result without clobbering an earlier experiment.
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open('x') as file:
         file.write('{}\n')
@@ -80,7 +79,6 @@ def main():
                 order = ('baseline', 'candidate') if index % 2 == 0 else ('candidate', 'baseline')
                 for name in order:
                     run(name, case)
-        # A changed target path invalidates the measurement, even if it ran.
         for name, path in paths.items():
             if sha256(path) != images[name]['sha256']:
                 raise RuntimeError(f'{name}: image changed during measurement')

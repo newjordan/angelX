@@ -19,30 +19,17 @@ use crate::intake::{self, Area, Intake, Piece};
 use crate::keys::{MouseProtocolEncoding, MouseProtocolMode};
 use crate::view::{self, Selection};
 
-/// The layer group this session's pictures live in (`set_layer_group`).
 const PICTURE_GROUP: u32 = 0x1e5c;
 
-/// The layer group glass's own dialect lives in, beside the pictures:
-/// its ids are the dialect's own (`glass_dialect::ID_BASE` up), so the
-/// two groups never share a layer id.
 const DIALECT_GROUP: u32 = 0x1e5d;
 
-/// How long a synchronized update (DECSET 2026) may hold the frame back.
 const SYNC_LIMIT: Duration = Duration::from_millis(150);
 
-/// How long a synchronized frame waits for the one before it to be drawn.
 const FRAME_WAIT: Duration = Duration::from_millis(50);
 
 const FRAME_BEGIN: &[u8] = b"\x1b[?2026h";
 const FRAME_END: &[u8] = b"\x1b[?2026l";
 
-/// One frame of flow control for synchronized updates. Each update holds
-/// the screen until it ends, so a program that begins the next update as
-/// soon as one ends (frames sent back to back) would keep every frame
-/// held and the screen would show none of them. A finished frame is owed
-/// a draw, and the next frame's start waits for it, briefly: the program
-/// is held to the pace the screen is drawn at, and every frame it
-/// finishes is seen.
 #[derive(Default)]
 pub struct FrameGate {
     owed: Mutex<bool>,
@@ -50,34 +37,38 @@ pub struct FrameGate {
 }
 
 impl FrameGate {
-    /// A synchronized update ended: its frame is owed a draw.
     fn finished(&self) {
         *lock(&self.owed) = true;
     }
 
-    /// The screen was drawn.
     pub fn drawn(&self) {
         *lock(&self.owed) = false;
         self.drawn.notify_all();
     }
 
-    /// Wait, at most `limit`, for an owed frame to be drawn.
     fn wait(&self, limit: Duration) {
         let owed = lock(&self.owed);
         let _ = self.drawn.wait_timeout_while(owed, limit, |owed| *owed);
     }
 }
 
-/// Where `needle` (an escape sequence) next starts in `bytes` at or
-/// after `from`, found as a whole: escape-dense output (a colour on every
-/// cell) is not stopped at for each escape.
 fn find_escape(bytes: &[u8], needle: &[u8], from: usize) -> Option<usize> {
     memchr::memmem::find(bytes.get(from..)?, needle).map(|p| from + p)
 }
 
-/// Where a read splits for the gate: at each synchronized update's
-/// start (past the read's first byte), so the frame before it can be
-/// drawn before the next begins.
+fn frame_ended(held: &mut usize, piece: &[u8]) -> bool {
+    let n = FRAME_END.len();
+    let take = piece.len().min(n - 1);
+    let mut joined = [0u8; 14];
+    joined[..*held].copy_from_slice(&FRAME_END[..*held]);
+    joined[*held..*held + take].copy_from_slice(&piece[..take]);
+    let joined = &joined[..*held + take];
+    let ended = find_escape(joined, FRAME_END, 0).is_some() || find_escape(piece, FRAME_END, 0).is_some();
+    let tail = if piece.len() >= n - 1 { &piece[piece.len() + 1 - n..] } else { joined };
+    *held = (1..n).rev().find(|&k| tail.ends_with(&FRAME_END[..k])).unwrap_or(0);
+    ended
+}
+
 fn frame_cuts(bytes: &[u8]) -> Vec<usize> {
     let mut cuts = Vec::new();
     let mut at = 1;
@@ -88,19 +79,12 @@ fn frame_cuts(bytes: &[u8]) -> Vec<usize> {
     cuts
 }
 
-/// What reaches the terminal's thread.
 pub enum Msg {
-    /// The window's keys, mouse, paste, focus and size.
     Input(Event),
-    /// The program wrote something; the screen has changed.
     Output,
-    /// The window closed.
     Closed,
 }
 
-/// What one read's worth of pumping produced, beside the screen: the
-/// replies owed to the program, in stream order across the engine and
-/// the intake, and the window effects of the same bytes.
 pub struct Pumped {
     pub replies: Vec<u8>,
     pub title: Option<String>,
@@ -108,11 +92,6 @@ pub struct Pumped {
     pub clipboard: Option<String>,
 }
 
-/// The intake's engine: the alacritty `Term` behind the session's
-/// engine, as the adapters see it. `cursor` reads the grid cursor live,
-/// not `Engine::cursor`, which stays `None` while the program hides the
-/// cursor or the view is scrolled back — and programs often hide the
-/// cursor while they draw pictures.
 struct Adapter<'a> {
     engine: &'a mut Engine,
 }
@@ -126,10 +105,6 @@ impl intake::Engine for Adapter<'_> {
         (rows as u16, cols as u16)
     }
     fn scrolled(&mut self) -> u64 {
-        // The line a picture anchors to is this screen's own count: the
-        // lines that entered history on the primary screen, the lines
-        // that left the top on the alternate screen. The primary count
-        // does not move pictures on the alternate screen.
         if self.engine.alternate_screen() {
             self.engine.alt_scrolled()
         } else {
@@ -144,12 +119,6 @@ impl intake::Engine for Adapter<'_> {
     }
 }
 
-/// One read's worth of the program's output, through the splitter, the
-/// engine and the intake together. Text pieces reach the engine and their
-/// replies go out right away; media pieces settle the engine first, then
-/// reach the intake through the adapter. The replies leave in stream
-/// order: a probe answered by the APC graphics dialect before a DA1 in
-/// the stream is answered in that order, and the other way round too.
 pub fn pump(engine: &mut Engine, intake: &mut Intake, pieces: &[Piece<'_>]) -> Pumped {
     let mut replies = Vec::new();
     let mut title = None;
@@ -175,10 +144,6 @@ pub fn pump(engine: &mut Engine, intake: &mut Intake, pieces: &[Piece<'_>]) -> P
                         .collect(),
                 );
                 engine.set_motion(intake.motion_end(screen));
-                // While nothing in the store hangs on the text, nothing the
-                // text does can move, cover or drop it: the run of text
-                // pieces up to the next media piece goes to the engine as
-                // one feed, and the store hears once what it did.
                 let end = if intake.quiet() { quiet_run(pieces, i) } else { i + 1 };
                 if end == i + 1 {
                     engine.process(text);
@@ -189,9 +154,6 @@ pub fn pump(engine: &mut Engine, intake: &mut Intake, pieces: &[Piece<'_>]) -> P
                     }));
                 }
                 i = end;
-                // Everything the text asked of the window is kept, not only
-                // its replies: a clipboard write (OSC 52, how tmux and
-                // programs over ssh copy), a title, the bell.
                 let effects = engine.take_effects();
                 replies.extend_from_slice(&effects.replies);
                 title = effects.title.or(title);
@@ -201,21 +163,9 @@ pub fn pump(engine: &mut Engine, intake: &mut Intake, pieces: &[Piece<'_>]) -> P
             }
             Piece::Media(media) => {
                 i += 1;
-                // A picture is about to be placed. Until that place finishes,
-                // a scroll the place itself feeds is reported.
                 engine.set_motion(Some(u64::MAX));
-                // The engine settles first: a media piece's escape ends
-                // whatever the engine holds back, and an open
-                // synchronized update is applied so the cursor and count
-                // are the stream's, not stale ones. The frame stays held
-                // until the program's end sequence or glass's limit.
                 engine.settle();
                 replies.extend_from_slice(&engine.take_effects().replies);
-                // What the settled text did (a clear, a screen switch,
-                // writes over an old picture, lines scrolled) reaches the
-                // store before this picture does, as it came first in the
-                // stream: a program that clears and redraws inside one
-                // synchronized update keeps its new picture.
                 tell_the_store(engine, intake);
                 let mut adapter = Adapter { engine };
                 intake.handle(media.clone(), &mut adapter);
@@ -225,10 +175,6 @@ pub fn pump(engine: &mut Engine, intake: &mut Intake, pieces: &[Piece<'_>]) -> P
                 title = effects.title.or(title);
                 bell |= effects.bell;
                 clipboard = effects.clipboard.or(clipboard);
-                // The place's own cursor motion (a sixel walking down the
-                // screen) has already scrolled. The store hears that before
-                // the next text piece decides whether a scroll can move a
-                // picture, so a split read and a whole read agree.
                 tell_the_store(engine, intake);
             }
         }
@@ -241,10 +187,6 @@ pub fn pump(engine: &mut Engine, intake: &mut Intake, pieces: &[Piece<'_>]) -> P
     Pumped { replies, title, bell, clipboard }
 }
 
-/// Where a feed of text pieces that starts at `from` ends: at the next
-/// media piece, after a piece that may switch screens (the engine keeps
-/// the screen a feed began on), or before a reset, which is fed on its
-/// own as it zeroes the count the feed has kept so far.
 fn quiet_run(pieces: &[Piece<'_>], from: usize) -> usize {
     let mut end = from + 1;
     if matches!(&pieces[from], Piece::Text(text) if ends_feed(text)) {
@@ -262,14 +204,10 @@ fn quiet_run(pieces: &[Piece<'_>], from: usize) -> usize {
     end
 }
 
-/// Whether a text piece is RIS.
 fn is_reset(text: &[u8]) -> bool {
     text.starts_with(b"\x1bc")
 }
 
-/// Whether a text piece may switch screens or reset the terminal: a
-/// private mode set or reset naming 47, 1047 or 1049, or RIS. A false
-/// alarm only ends a feed early.
 fn ends_feed(text: &[u8]) -> bool {
     if is_reset(text) {
         return true;
@@ -291,11 +229,6 @@ fn ends_feed(text: &[u8]) -> bool {
     matches!(value, 47 | 1047 | 1049)
 }
 
-/// After the engine has applied bytes, the store hears what they did:
-/// which screen is up, the exact scroll count and history for that screen
-/// (the primary's own while it is up, the alternate's own, from 0 each
-/// time it is entered, while it is), and the engine's events in stream
-/// order.
 fn tell_the_store(engine: &mut Engine, intake: &mut Intake) {
     let now_alternate = engine.alternate_screen();
     if now_alternate && !intake.was_alternate() {
@@ -316,7 +249,6 @@ fn tell_the_store(engine: &mut Engine, intake: &mut Intake) {
     }
 }
 
-/// One engine event, handed to the store in order.
 fn apply_event(intake: &mut Intake, event: EngineEvent) {
     match event {
         EngineEvent::Clear { alternate, scrolled } => {
@@ -360,9 +292,6 @@ fn apply_event(intake: &mut Intake, event: EngineEvent) {
     }
 }
 
-/// Variables another terminal (or the cockpit's shell pane) set, inherited
-/// when glass is started from one: they would tell a program it runs
-/// somewhere it does not. Programs learn what glass takes in by asking it.
 const FOREIGN_PREFIXES: [&str; 5] = ["KITTY_", "ALACRITTY_", "GHOSTTY_", "WEZTERM_", "KONSOLE_"];
 const FOREIGN: [&str; 9] = [
     "WINDOWID",
@@ -371,8 +300,6 @@ const FOREIGN: [&str; 9] = [
     "TMUX",
     "TMUX_PANE",
     "STY",
-    // The shell pane's "stay in this terminal": glass is a window, so an
-    // angelX typed here opens its own (and swallows this one).
     "ANGEL_GLASS",
     "ANGEL_GLASS_TRANSITION",
     "TERM_PROGRAM_VERSION",
@@ -380,29 +307,16 @@ const FOREIGN: [&str; 9] = [
 
 pub struct Session {
     engine: Arc<Mutex<Engine>>,
-    /// The picture intake: what the program's pictures are and where they
-    /// sit, kept beside the engine so both see the same reads.
     intake: Arc<Mutex<Intake>>,
-    /// Where the splitter stands between reads, so a sequence split
-    /// across two reads comes out whole. The reader thread owns it; the
-    /// session holds it only so both live and die together.
     #[allow(dead_code)]
     splitter: Arc<Mutex<intake::Splitter>>,
     writer: Arc<Mutex<Box<dyn Write + Send>>>,
     master: Box<dyn MasterPty + Send>,
     child: Box<dyn Child + Send + Sync>,
-    /// Set by the reader when it signals output, cleared when drawn: one
-    /// `Msg::Output` in flight however much the program writes.
     output: Arc<AtomicBool>,
-    /// Synchronized frames wait here for the one before to be drawn.
     gate: Arc<FrameGate>,
-    /// The showcase request last handed to the window. Frames and
-    /// progress are not part of it, so they never reopen the panel.
     showcase_shown: Mutex<Option<OpenStamp>>,
-    /// Scene picture ids last given to the window, so a removed scene
-    /// is taken down once.
     scene_ids: Mutex<Vec<u32>>,
-    /// Showcase counters already reported to the program.
     event_seen: Mutex<intake::glass_dialect::ShowcaseSeen>,
 }
 
@@ -454,7 +368,6 @@ impl Session {
 
         let child = pair.slave.spawn_command(cmd).map_err(|e| format!("could not start {}: {e}", command.first().map_or("the shell", String::as_str)))?;
         angel_glass::startup::mark("program started");
-        // Close our copy of the slave so the reader sees the end of output.
         drop(pair.slave);
 
         let info = HostInfo {
@@ -465,14 +378,10 @@ impl Session {
         let writer: Arc<Mutex<Box<dyn Write + Send>>> =
             Arc::new(Mutex::new(pair.master.take_writer().map_err(|e| format!("pty writer: {e}"))?));
         let reader = pair.master.try_clone_reader().map_err(|e| format!("pty reader: {e}"))?;
-        // The pty is read on a thread of its own, ahead of the parsing.
         let mut reader = crate::read_ahead::ReadAhead::spawn(reader, pty_fd(pair.master.as_ref()))
             .map_err(|e| format!("pty reader: {e}"))?;
         let output = Arc::new(AtomicBool::new(false));
         let gate = Arc::new(FrameGate::default());
-        // The cell from the start, not only from a resize: a program started
-        // on the window's settled size may never see one, and its pictures
-        // are measured in these cells.
         let mut fresh = Intake::new(angel_glass::LAYER_PICTURES);
         fresh.set_cell((grid.cell_width, grid.cell_height));
         let intake = Arc::new(Mutex::new(fresh));
@@ -489,14 +398,12 @@ impl Session {
             let parse = std::thread::Builder::new().name("pty-parse".into()).spawn(move || {
                 crate::affinity::place_hot_thread();
                 let mut buf = vec![0u8; 64 * 1024];
+                let mut held = 0;
                 'reads: loop {
                     let n = match reader.read(&mut buf) {
                         Ok(0) | Err(_) => break,
                         Ok(n) => n,
                     };
-                    // A read is taken in pieces cut at each synchronized
-                    // frame's start; a frame starting while the one before
-                    // it waits to be drawn waits with it (`FrameGate`).
                     let mut starts = frame_cuts(&buf[..n]);
                     starts.push(n);
                     let mut from = 0;
@@ -506,9 +413,6 @@ impl Session {
                         if piece.starts_with(FRAME_BEGIN) {
                             gate.wait(FRAME_WAIT);
                         }
-                        // One path: read, then pump the read through the
-                        // splitter, the engine and the intake together, and
-                        // write back what the program is owed.
                         let pumped = {
                             let mut pieces = Vec::new();
                             lock(&splitter).split(piece, &mut pieces);
@@ -531,16 +435,10 @@ impl Session {
                         if let Some(text) = pumped.clipboard {
                             host.copy_to_clipboard(&text);
                         }
-                        // A frame that ended here is owed a draw, from now:
-                        // a draw already under way may have missed it.
-                        let ended = find_escape(piece, FRAME_END, 0).is_some();
+                        let ended = frame_ended(&mut held, piece);
                         if ended {
                             gate.finished();
                         }
-                        // One output message in flight, but a frame's end
-                        // always wakes the window: a draw it tried while the
-                        // frame was held was put off, and nothing else would
-                        // bring it back before the gate gives up waiting.
                         let first = !output.swap(true, Ordering::AcqRel);
                         if (first || ended) && tx.send(Msg::Output).is_err() {
                             break 'reads;
@@ -565,14 +463,12 @@ impl Session {
         })
     }
 
-    /// Bytes to the program, as typed.
     pub fn write(&mut self, bytes: &[u8]) {
         let mut writer = lock(&self.writer);
         let _ = writer.write_all(bytes);
         let _ = writer.flush();
     }
 
-    /// Bytes onto the screen, as if the program wrote them.
     pub fn feed(&mut self, bytes: &[u8]) {
         lock(&self.engine).process(bytes);
     }
@@ -595,13 +491,10 @@ impl Session {
         }
     }
 
-    /// The program has exited: everything it drew through the dialect
-    /// goes with it, so the window it leaves behind is the text alone.
     pub fn program_exited(&mut self) {
         lock(&self.intake).expansion.reset();
     }
 
-    /// The program's exit code once it has exited.
     pub fn exit_code(&mut self) -> Option<i32> {
         match self.child.try_wait() {
             Ok(Some(status)) => Some(i32::try_from(status.exit_code()).unwrap_or(1)),
@@ -614,7 +507,6 @@ impl Session {
         self.output.store(false, Ordering::Release);
     }
 
-    /// The screen was drawn: a synchronized frame waiting on it goes on.
     pub fn frame_drawn(&self) {
         self.gate.drawn();
     }
@@ -636,19 +528,12 @@ impl Session {
             frame.set_cursor_position(position);
         }
         drop(engine);
-        // This frame's pictures: any the window has not had yet go up,
-        // and the showings visible in the view become one layer group.
-        // The view's top line is the scroll count less the rows `Term`'s
-        // display offset lifts the view into the scrollback.
         let engine = lock(&self.engine);
         let top = engine.top_line();
         let alternate = engine.alternate_screen();
         drop(engine);
         let view = intake::View { top, rows: area.height, alternate };
         let mut description = lock(&self.intake).describe(view);
-        // Placeholder cells are ordinary text. Ask the store first: build
-        // a cell only when a virtual placement exists, and only for the
-        // cells on screen.
         if lock(&self.intake).has_virtual() {
             let mut engine = lock(&self.engine);
             let (cw, ch) = engine.cell_px();
@@ -697,19 +582,14 @@ impl Session {
             })
             .collect();
         host.set_layer_group(PICTURE_GROUP, layers);
-        // Dropped pictures go after the layers that stopped naming them.
         if !description.freed.is_empty() {
             host.free_pictures(description.freed);
         }
-        // glass's own dialect: its layers beside the intake's pictures,
-        // positioned per frame against the same view.
         {
             let mut intake = lock(&self.intake);
             let layers = intake.expansion.frame(top, area.height, alternate);
             host.set_layer_group(DIALECT_GROUP, layers);
             apply_scenes(&mut intake.expansion, host, &self.scene_ids);
-            // The showcase opens only when the program's request changes,
-            // never once per frame. Frames and progress ride beside it.
             let stamp = open_stamp(&intake);
             let mut shown = lock(&self.showcase_shown);
             if stamp != *shown {
@@ -727,23 +607,18 @@ impl Session {
         }
     }
 
-    /// The cursor's shape (block, underline or bar) as the program set it.
     pub fn cursor_shape(&self) -> crate::view::CursorLook {
         lock(&self.engine).cursor_look()
     }
 
-    /// Whether the program asked for a blinking cursor.
     pub fn cursor_blinking(&self) -> bool {
         lock(&self.engine).cursor_blinking()
     }
 
-    /// Whether the cursor is on the screen: not hidden, and not scrolled
-    /// off the live screen.
     pub fn cursor_shown(&self) -> bool {
         lock(&self.engine).cursor().is_some()
     }
 
-    /// The cursor colour the program set, if it set one.
     pub fn cursor_color(&self) -> Option<[u8; 3]> {
         lock(&self.engine).cursor_color().map(|c| [c.r, c.g, c.b])
     }
@@ -760,8 +635,6 @@ impl Session {
         view::word(engine.cells(), cols, row, col)
     }
 
-    /// Move the view `lines` into the scrollback (negative: back toward the
-    /// live screen). Returns whether it moved.
     pub fn scroll_back(&mut self, lines: isize) -> bool {
         lock(&self.engine).scroll_display(lines)
     }
@@ -778,7 +651,6 @@ impl Session {
         u16::try_from(lock(&self.engine).size().1).unwrap_or(u16::MAX)
     }
 
-    /// The CSI u keyboard dialect's flags, as the program set them.
     pub fn keyboard_flags(&self) -> u8 {
         lock(&self.engine).keyboard_flags()
     }
@@ -803,61 +675,44 @@ impl Session {
         lock(&self.engine).focus_reports()
     }
 
-    /// The program is in a synchronized update.
     pub fn synchronized(&self) -> bool {
         lock(&self.engine).synchronized()
     }
 
-    /// When the next animation frame falls due, in milliseconds on the
-    /// store's clock. `None` when nothing is running: a stopped
-    /// animation, or one whose loops are spent, wakes nothing.
     pub fn animation_deadline(&self) -> Option<u64> {
         lock(&self.intake).animation_deadline()
     }
 
-    /// Advance every animation to `now` (milliseconds). Returns whether
-    /// a showing changed.
     pub fn tick_animations(&self, now: u64) -> bool {
         lock(&self.intake).tick_animations(now)
     }
 
-    /// Keep the animation clock with the window's, without advancing a
-    /// frame. A control that arrives between waits then starts from now.
     pub fn touch_animation_clock(&self, now: u64) {
         lock(&self.intake).set_animation_clock(now);
     }
 
-    /// One display frame of the window, in milliseconds: how often running
-    /// tweens and clips wake it.
     pub fn set_display_frame(&self, ms: u64) {
         lock(&self.intake).set_display_frame(ms);
     }
 
-    /// Hold the frame: a synchronized update has not finished, and has not
-    /// run past its limit.
     pub fn holding_frame(&self) -> bool {
         lock(&self.engine).holding_frame(SYNC_LIMIT)
     }
 
-    /// End a synchronized update whose deadline passed, applying the bytes
-    /// buffered since it opened. Returns whether it ended.
     pub fn end_sync_update(&mut self) -> bool {
         lock(&self.engine).end_sync_update()
     }
 
-    /// The hyperlink open over a cell, if any.
     pub fn link_at(&self, row: u16, col: u16) -> Option<String> {
         lock(&self.engine).link_at(row, col)
     }
 
-    /// The plain-text URL under a cell, if one sits there.
     pub fn url_at(&self, row: u16, col: u16) -> Option<String> {
         let mut engine = lock(&self.engine);
         let cols = u16::try_from(engine.size().1).unwrap_or(u16::MAX);
         view::url_at(engine.cells(), cols, row, col)
     }
 
-    /// Whether Ctrl+click would open a link here.
     pub fn link_or_url_at(&self, row: u16, col: u16) -> Option<String> {
         self.link_at(row, col).or_else(|| self.url_at(row, col))
     }
@@ -865,19 +720,14 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        // The window closed with the program still running: hang up on it,
-        // as closing any terminal does.
         if matches!(self.child.try_wait(), Ok(None)) {
             let _ = self.child.kill();
         }
     }
 }
 
-/// A descriptor of the pty's own, for asking how much it holds.
 fn pty_fd(master: &dyn MasterPty) -> Option<std::os::fd::OwnedFd> {
     let fd = master.as_raw_fd()?;
-    // SAFETY: the master is open and stays open for this call; the
-    // descriptor is only borrowed to duplicate it.
     unsafe { std::os::fd::BorrowedFd::borrow_raw(fd) }.try_clone_to_owned().ok()
 }
 
@@ -893,7 +743,6 @@ mod tests {
 
     #[test]
     fn foreign_variables_are_scrubbed() {
-        // The list is what the reader thread removes; keep it honest.
         assert!(FOREIGN.contains(&"TERM_PROGRAM_VERSION"));
         assert!(FOREIGN_PREFIXES.iter().all(|p| p.ends_with('_')));
     }
@@ -917,7 +766,6 @@ mod tests {
 
     #[test]
     fn startup_queries_are_answered_byte_for_byte() {
-        // Sixel is taken in now, so DA1 says so (`4`).
         assert_eq!(answers(b"\x1b[c"), b"\x1b[?62;4;22c");
         assert_eq!(answers(b"\x1b[3;5H\x1b[6n"), b"\x1b[3;5R");
         assert_eq!(answers(b"\x1b[5n"), b"\x1b[0n");
@@ -953,16 +801,29 @@ mod gate_tests {
         assert_eq!(frame_cuts(read), vec![20]);
         assert_eq!(frame_cuts(b"text only"), Vec::<usize>::new());
         assert_eq!(frame_cuts(b"x\x1b[?2026h"), vec![1]);
-        // A start split across reads is not a cut; the next read's
-        // first byte never is.
         assert_eq!(frame_cuts(b"x\x1b[?20"), Vec::<usize>::new());
         assert_eq!(find_escape(b"ab\x1b[?2026l", FRAME_END, 0), Some(2));
         assert_eq!(find_escape(b"\x1b\x1b[?2026l", FRAME_END, 0), Some(1));
     }
 
-    /// Searching for a frame's escape as a whole finds what stepping from
-    /// escape to escape finds, from every start, in random streams dense
-    /// with escapes and frames.
+    #[test]
+    fn a_frame_end_split_across_reads_is_seen() {
+        let stream = b"a\x1b[?2026\x1b[?2026lq\x1b[?2026h\x1b[?2026l\x1b[?2026";
+        let check = |cuts: &[usize]| {
+            let mut held = 0;
+            for w in cuts.windows(2) {
+                let ends = (w[0]..w[1]).any(|at| stream[..=at].ends_with(FRAME_END));
+                assert_eq!(frame_ended(&mut held, &stream[w[0]..w[1]]), ends, "cuts {cuts:?}");
+            }
+        };
+        for cut in 0..=stream.len() {
+            for next in cut..=stream.len() {
+                check(&[0, cut, next, stream.len()]);
+            }
+        }
+        check(&(0..=stream.len()).collect::<Vec<_>>());
+    }
+
     #[test]
     fn frame_escapes_are_found_as_stepping_finds_them() {
         let stepping = |bytes: &[u8], needle: &[u8], from: usize| {
@@ -988,11 +849,9 @@ mod gate_tests {
     #[test]
     fn a_frame_waits_for_the_draw_it_is_owed_and_no_longer() {
         let gate = Arc::new(FrameGate::default());
-        // Nothing owed: no wait.
         let started = Instant::now();
         gate.wait(Duration::from_secs(5));
         assert!(started.elapsed() < Duration::from_millis(100));
-        // Owed and drawn on another thread: the wait ends with the draw.
         gate.finished();
         let drawer = Arc::clone(&gate);
         let draw = std::thread::spawn(move || {
@@ -1004,7 +863,6 @@ mod gate_tests {
         let waited = started.elapsed();
         draw.join().unwrap();
         assert!(waited >= Duration::from_millis(25) && waited < Duration::from_secs(2), "{waited:?}");
-        // Owed and never drawn: the limit ends it.
         gate.finished();
         let started = Instant::now();
         gate.wait(Duration::from_millis(40));
@@ -1029,7 +887,6 @@ mod pump_tests {
         (engine(), Intake::new(angel_glass::LAYER_PICTURES), intake::Splitter::default())
     }
 
-    /// One stream through pump, as the reader thread would.
     fn pump_bytes(
         engine: &mut Engine,
         intake: &mut Intake,
@@ -1041,14 +898,8 @@ mod pump_tests {
         pump(engine, intake, &pieces)
     }
 
-    /// A tiny APC-graphics picture: direct RGBA, one pixel, transmit and
-    /// put, with a reply asked for.
     const APC_PUT: &[u8] = b"\x1b_Gi=31,s=1,v=1,a=T,f=24;AAAA\x1b\\";
 
-    /// What plain text asks of the window reaches it: a clipboard write
-    /// (OSC 52), a title and the bell, with or without a picture beside
-    /// them. Text once kept only its replies, so tmux's copies, programs'
-    /// titles and the bell all went nowhere.
     #[test]
     fn text_keeps_its_clipboard_title_and_bell() {
         let (mut engine, mut intake, mut splitter) = rig();
@@ -1056,10 +907,8 @@ mod pump_tests {
         assert_eq!(p.clipboard.as_deref(), Some("hi"));
         assert_eq!(p.title.as_deref(), Some("one"));
         assert!(p.bell);
-        // tmux names the clipboard and primary at once (`cp`).
         let p = pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b]52;cp;eW8=\x07");
         assert_eq!(p.clipboard.as_deref(), Some("yo"));
-        // Around a picture, and the latest of each wins.
         let mut stream = b"\x1b]52;c;aGk=\x07\x1b]2;one\x07".to_vec();
         stream.extend_from_slice(APC_PUT);
         stream.extend_from_slice(b"\x1b]52;c;eW8=\x07\x1b]2;two\x07");
@@ -1069,8 +918,6 @@ mod pump_tests {
         assert!(!p.bell);
     }
 
-    /// A tiny deterministic random stream, so the cross-check is
-    /// reproducible when it finds a divergence.
     struct Rng(u64);
     impl Rng {
         fn next(&mut self) -> u64 {
@@ -1084,9 +931,6 @@ mod pump_tests {
         }
     }
 
-    /// Exercise a random stream of text, LF, CR,
-    /// RI, SU, SD, IL, DL, DECSTBM, autowrap and cursor moves, with
-    /// pictures riding the markers' rows.
     #[test]
     fn random_region_streams_do_not_panic() {
         for seed in 0..40u64 {
@@ -1112,12 +956,10 @@ mod pump_tests {
                     }
                     9 => format!("\x1b[{};{}H", 1 + rng.below(6), 1 + rng.below(10)).into_bytes(),
                     10 => {
-                        // autowrap: fill to the last column
                         format!("\x1b[{};{}Hwwwwwwwwwwww", 1 + rng.below(6), 8 + rng.below(2))
                             .into_bytes()
                     }
                     _ => {
-                        // A marker letter and a picture on its row.
                         let at = rng.below(6) as usize;
                         let c = (b'A' + at as u8) as char;
                         markers[at] = c as u8;
@@ -1136,16 +978,12 @@ mod pump_tests {
                 let _ = step;
             }
             engine.scroll_to_bottom();
-            // For every marker letter still on the screen, the picture's
-            // row must equal the marked text's row.
             let rows = engine.size().0 as u16;
             let view = intake::View { top: engine.top_line(), rows, alternate: false };
             let placements = intake.describe(view).placements;
             let cells = engine.cells().to_vec();
             let cols = engine.size().1;
             for p in &placements {
-                // The placement's id order follows its id; find its marker
-                // by id offset from 31: id 31+k rode marker k%6.
                 let _ = p;
             }
             let _ = (cells, cols, markers, rng);
@@ -1156,15 +994,10 @@ mod pump_tests {
     fn alternate_full_screen_scrolls_move_its_pictures() {
         let (mut engine, mut intake, mut splitter) = rig();
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[?1049h");
-        // A picture at the alternate screen's top-left.
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[3;1H");
         pump_bytes(&mut engine, &mut intake, &mut splitter, APC_PUT);
         let at_put = shown(&mut intake, &mut engine, true);
         assert_eq!(at_put, vec![(2.0, 0.0)], "anchored at its text's row");
-        // Four linefeeds carry the cursor from row 2 to the bottom
-        // margin of a six-row screen; each one after that scrolls the
-        // alternate screen by one. After five the count is exact and the
-        // picture stayed on its text's row.
         for _ in 0..5 {
             pump_bytes(&mut engine, &mut intake, &mut splitter, b"\r\n");
         }
@@ -1237,23 +1070,15 @@ mod pump_tests {
     #[test]
     fn a_picture_anchors_to_the_stream_and_moves_with_the_text() {
         let (mut engine, mut intake, mut splitter) = rig();
-        // `a\nb\n` leaves the cursor on row 2 with one line scrolled.
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"a\r\nb\r\n");
         pump_bytes(&mut engine, &mut intake, &mut splitter, APC_PUT);
         let at_put = shown(&mut intake, &mut engine, false);
         assert_eq!(at_put, vec![(2.0, 0.0)], "anchored at count + cursor row");
-        // 100 more lines move it up exactly 100: scrolled back to it, it
-        // shows at its text's row.
         for _ in 0..25 {
             pump_bytes(&mut engine, &mut intake, &mut splitter, b"aaaa\r\nbbbb\r\ncccc\r\ndddd\r\n");
         }
-        // The cursor began on row 2 of a 6-row screen, so 100 more lines
-        // carry it past the bottom edge 97 times: 97 lines left the top.
         assert_eq!(engine.scrolled_off_top(), 97, "the count is exact");
-        // The view is at the live screen, so the picture (100 lines up)
-        // is not in it; lift the view to its line and it shows there.
         assert!(shown(&mut intake, &mut engine, false).is_empty());
-        // Lift the view into the scrollback: the offset grows upward.
         for _ in 0..25 {
             engine.scroll_display(6);
         }
@@ -1267,8 +1092,6 @@ mod pump_tests {
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[?25l");
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[2;3H");
         pump_bytes(&mut engine, &mut intake, &mut splitter, APC_PUT);
-        // The cursor hidden, the picture still anchors at the hidden
-        // cursor's cell: row 1, column 2, zero-based.
         assert_eq!(shown(&mut intake, &mut engine, false), vec![(1.0, 2.0)]);
     }
 
@@ -1284,10 +1107,6 @@ mod pump_tests {
         assert!(engine.holding_frame(Duration::from_millis(150)));
         pump_bytes(&mut engine, &mut intake, &mut splitter, APC_PUT);
         assert!(engine.holding_frame(Duration::from_millis(150)));
-        // The media piece settled the processor's buffer so the picture
-        // anchors in the stream, so DECRQM answers truthfully that the
-        // synchronized update is no longer open — while the frame still
-        // shows as one update.
         assert_eq!(
             pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[?2026$p").replies,
             b"\x1b[?2026;2$y"
@@ -1296,7 +1115,6 @@ mod pump_tests {
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"more");
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[?2026l");
         assert!(!engine.holding_frame(Duration::from_millis(150)));
-        // The picture lands two rows below `x`.
         assert_eq!(shown(&mut intake, &mut engine, false), vec![(2.0, 0.0)]);
     }
 
@@ -1331,19 +1149,14 @@ mod pump_tests {
         assert_eq!(b.replies, b"\x1b[?2;0;100;120S");
         let c = pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[?3;1S");
         assert_eq!(c.replies, b"\x1b[?3;1;0S");
-        // A read that goes on past the query (a probe followed by DA1, as
-        // programs send them) is answered too, and the rest still runs.
         let d = pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[?1;1S\x1b[?25lSome text\x1b[c");
         assert_eq!(d.replies, b"\x1b[?1;0;1024S\x1b[?62;4;22c");
     }
 
-    /// The count stays exact past a full history: the picture was placed
-    /// before the history filled, and the count keeps counting.
     #[test]
     fn the_count_stays_exact_past_a_full_history() {
         let (mut engine, mut intake, mut splitter) = rig();
         pump_bytes(&mut engine, &mut intake, &mut splitter, APC_PUT);
-        // 10 000 lines of history fill, then some more.
         for _ in 0..2_600 {
             pump_bytes(&mut engine, &mut intake, &mut splitter, b"aaaa\r\nbbbb\r\ncccc\r\ndddd\r\n");
         }
@@ -1355,21 +1168,16 @@ mod pump_tests {
     #[test]
     fn clear_removes_every_picture_and_ctrl_l_keeps_history_aligned() {
         let (mut engine, mut intake, mut splitter) = rig();
-        // A marker line, then the picture on its own line.
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"marker\r\n");
         pump_bytes(&mut engine, &mut intake, &mut splitter, APC_PUT);
-        // Push the marker and its picture into history, well above the
-        // screen, so Ctrl+L's push cannot touch them.
         for _ in 0..2 {
             pump_bytes(&mut engine, &mut intake, &mut splitter, b"fill\r\nfill\r\nfill\r\n");
         }
         let rows = engine.size().0 as u16;
-        // Ctrl+L: the screen's pictures go; history keeps its own.
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[H\x1b[2J");
         let on_screen =
             intake.describe(intake::View { top: engine.top_line(), rows, alternate: false });
         assert!(on_screen.placements.is_empty(), "the screen's pictures went");
-        // Scroll back: the marker line is in history with its picture.
         for _ in 0..4 {
             engine.scroll_display(6);
         }
@@ -1379,7 +1187,6 @@ mod pump_tests {
             !back.placements.is_empty(),
             "a picture stayed in history, aligned with its text"
         );
-        // `clear`: nothing at all.
         engine.scroll_to_bottom();
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[H\x1b[2J\x1b[3J");
         let after =
@@ -1400,26 +1207,19 @@ mod pump_tests {
         assert!(after.placements.is_empty(), "RIS removes all pictures");
     }
 
-    /// A sixel picture lives in cells: text over them or an erase on its
-    /// row takes it away. An APC-graphics placement survives both.
     #[test]
     fn in_cell_pictures_die_when_covered_and_apc_survives() {
         let (mut engine, mut intake, mut splitter) = rig();
         intake.set_cell((10, 20));
-        // A sixel one cell tall at this cell size: text over that cell
-        // covers every cell, so the picture goes.
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1bPq#0~\x1b\\");
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\r\n$ ");
         let rows = engine.size().0 as u16;
         let sixel = intake.describe(intake::View { top: 0, rows, alternate: false });
         assert!(!sixel.placements.is_empty(), "the sixel was placed");
-        // Text over its cells removes it whole. The sixel band sits on
-        // row 0 (its cursor moves below the image), so write there.
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[1;1HX");
         let covered = intake.describe(intake::View { top: 0, rows, alternate: false });
         assert!(covered.placements.is_empty(), "text over every cell removed the sixel");
 
-        // EL on one of its rows takes it away too.
         let (mut engine, mut intake, mut splitter) = rig();
         intake.set_cell((10, 20));
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1bPq#0~\x1b\\");
@@ -1433,11 +1233,9 @@ mod pump_tests {
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[HXXXXXX");
         let survived = intake.describe(intake::View { top: 0, rows, alternate: false });
         assert!(!survived.placements.is_empty(), "an APC placement survives text over its cells");
-        // EL on its row does not remove it either.
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[1;1H\x1b[K");
         let after_el = intake.describe(intake::View { top: 0, rows, alternate: false });
         assert!(!after_el.placements.is_empty(), "an APC placement survives EL");
-        // ED 0 does not either.
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[J");
         let after_ed = intake.describe(intake::View { top: 0, rows, alternate: false });
         assert!(!after_ed.placements.is_empty(), "an APC placement survives ED 0");
@@ -1454,12 +1252,8 @@ mod pump_tests {
                 .is_empty()
         );
 
-        // Enter the alternate screen, put a picture, leave: that picture
-        // is gone and the main screen's is still there.
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[?1049h");
 
-        // Another image id: the same id would move the one showing, not
-        // add a second.
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b_Gi=32,s=1,v=1,a=T,f=24;AAAA\x1b\\");
         let alt = intake.describe(intake::View { top: 0, rows, alternate: true });
         assert!(!alt.placements.is_empty(), "the alternate screen holds its picture");
@@ -1468,17 +1262,11 @@ mod pump_tests {
             intake.describe(intake::View { top: engine.top_line(), rows, alternate: false });
         assert!(!main.placements.is_empty(), "the main screen's picture is still there");
 
-        // Enter again: the count starts at 0.
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b[?1049h");
         assert_eq!(engine.alt_scrolled(), 0, "the alternate count starts at 0");
-        // Fill the screen with lines, so its top row is not blank: the
-        // count tells a scroll off the top by the top row changing.
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"one\r\ntwo\r\nthree\r\n");
         assert_eq!(engine.alt_scrolled(), 0, "scrolls that fit on the screen do not count");
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"four\r\nfive\r\nsix\r\nseven\r\n");
-        // Two linefeeds at the bottom margin scroll the alternate screen.
-        // The count is those lines, and the picture that left the top is
-        // gone: the alternate screen keeps no history.
         assert_eq!(engine.alt_scrolled(), 2, "the alternate screen's count is exact");
     }
 
@@ -1486,8 +1274,6 @@ mod pump_tests {
         format!("\x1b_Gi={id},s=1,v=1,a=T,f=24;AAAA\x1b\\").into_bytes()
     }
 
-    /// Pictures inside a scroll region move with its text. Pictures
-    /// outside stay. A picture that leaves the region is cut away.
     #[test]
     fn a_scroll_region_moves_its_pictures_with_the_text() {
         let (mut engine, mut intake, mut splitter) = rig();
@@ -1501,7 +1287,6 @@ mod pump_tests {
         bytes.extend(b"\x1b[6;1HOUT5");
         bytes.extend(b"\x1b[6;9H");
         bytes.extend(tiny_picture(3));
-        // Region rows 2..5 (1-based 3;5). Scroll up one line.
         bytes.extend(b"\x1b[3;5r\x1b[1S");
         pump_bytes(&mut engine, &mut intake, &mut splitter, &bytes);
         let grid = grid_text(&mut engine);
@@ -1518,13 +1303,9 @@ mod pump_tests {
         assert!(pic_rows.contains(&5.0), "the picture below stayed, got {pic_rows:?}");
     }
 
-    /// A picture that scrolls out of a region is cropped at the margin.
     #[test]
     fn a_picture_that_leaves_a_region_is_cropped() {
         let (mut engine, mut intake, mut splitter) = rig();
-        // A sixel two cells tall would need a taller image. Use two
-        // one-cell pictures on consecutive rows inside the region, and
-        // scroll the top one out.
         let mut bytes = Vec::new();
         bytes.extend(b"\x1b[3;1H");
         bytes.extend(tiny_picture(1));
@@ -1538,7 +1319,6 @@ mod pump_tests {
         assert!((shown.placements[0].row - 2.0).abs() < 0.01, "the survivor moved to the top of the region");
     }
 
-    /// One sixel picture, 1x6 px, drawn at the cursor.
     const SIXEL: &[u8] = b"\x1bPq#0;2;100;0;0#0~\x1b\\";
 
     fn lines(n: usize) -> Vec<u8> {
@@ -1552,8 +1332,6 @@ mod pump_tests {
         assert_eq!(engine.scrolled_off_top(), 15);
         engine.process(b"\x1b[3J");
         engine.process(&lines(5));
-        // Rows 0-4 hold text, the cursor sits on the empty row 5: Ctrl+L
-        // pushes five lines, so every line printed is now above the screen.
         engine.process(b"\x1b[H\x1b[2J");
         assert_eq!(engine.scrolled_off_top(), 25);
     }
@@ -1588,8 +1366,6 @@ mod pump_tests {
 
     #[test]
     fn ctrl_l_counts_a_blank_row_with_a_background_as_written() {
-        // `Term` keeps a row of spaces with a background colour when it
-        // pushes the screen into history, so the count must too.
         let mut engine = engine();
         engine.process(b"a\r\nb\r\nc\r\n\x1b[44m\x1b[K\x1b[0m\r\n\x1b[H\x1b[2J");
         assert_eq!(engine.history_size(), 4, "what Term pushed");
@@ -1672,9 +1448,6 @@ mod pump_tests {
 
     #[test]
     fn icats_chunked_stream_is_shown_at_any_read_size() {
-        // `kitten icat --transfer-mode=stream`, captured live: a 128 KiB
-        // first chunk `a=T,q=2,...,m=1` and a last chunk `a=T,q=2` with no
-        // `m`, fed in the read sizes a pty hands over.
         let raw = include_bytes!("intake/testdata/icat-stream-chunked.apc");
         for size in [raw.len(), 65_536, 4096, 1000] {
             let (mut engine, mut intake, mut splitter) = rig();
@@ -1801,7 +1574,6 @@ mod pump_tests {
     fn an_abandoned_multipart_is_dropped_by_a_new_one_and_by_the_budget() {
         let (mut engine, mut intake, mut splitter) = rig();
         intake.set_cell((8, 16));
-        // A new MultipartFile drops the abandoned pieces.
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b]1337;MultipartFile=inline=1\x07\x1b]1337;FilePart=AAAA\x07");
         pump_bytes(&mut engine, &mut intake, &mut splitter, b"\x1b]1337;MultipartFile=inline=0\x07\x1b]1337;FileEnd\x07");
         assert!(shown(&mut intake, &mut engine, false).is_empty());
@@ -1852,7 +1624,6 @@ mod pump_tests {
         (1..=8)
             .filter_map(|n| {
                 let id = crate::intake::MINT_BASE + n;
-                // A minted picture lives in the space of the dialect that sent it.
                 intake
                     .pixels_of(crate::intake::Space::Osc, id)
                     .or_else(|| intake.pixels_of(crate::intake::Space::Apc, id))
@@ -1861,8 +1632,6 @@ mod pump_tests {
             .collect()
     }
 
-    /// `m=1` on a file transmission must not open a chunk: the next direct
-    /// picture still shows.
     #[test]
     fn a_file_transmission_ignores_chunking() {
         let (mut engine, mut intake, mut splitter) = rig();
@@ -1873,10 +1642,6 @@ mod pump_tests {
         assert_eq!(shown(&mut intake, &mut engine, false).len(), 1, "m=1 on t=f must not swallow the next picture");
     }
 
-    /// mpv `--vo=kitty --vo-kitty-use-shm=yes` sends every frame as
-    /// `a=T,t=s,f=24,...,C=1,q=2,m=1` with a shared-memory name that has
-    /// no leading `/`, and never a final chunk. Each frame replaces the
-    /// last picture and placement; the store does not grow.
     #[test]
     fn mpv_shared_memory_frames_replace_without_growing() {
         struct Shm { path: std::ffi::CString }
@@ -1948,8 +1713,6 @@ mod pump_tests {
         buf.into_inner()
     }
 
-    /// TIFF (the still chafa's iterm output carries), WebP and BMP decode
-    /// to the source pixels through OSC 1337 and through `f=100`.
     #[test]
     fn tiff_webp_and_bmp_decode_through_both_dialects() {
         let rgba = [255u8, 0, 0, 255, 0, 255, 0, 255];
@@ -1958,7 +1721,6 @@ mod pump_tests {
             let payload = b64_str(&encoded);
 
             let (mut engine, mut intake, mut splitter) = rig();
-            // chafa's iterm keys: inline, a cell box, no aspect lock, then a TIFF.
             let osc = format!(
                 "\x1b]1337;File=inline=1;width=20;height=5;preserveAspectRatio=0:{payload}\x07"
             );
@@ -1979,7 +1741,6 @@ mod pump_tests {
     }
 }
 
-/// The showcase request as last applied, without the frame or the progress.
 #[derive(Clone, PartialEq)]
 enum OpenStamp {
     Picture { id: u32, seq: u64, fit: angel_glass::Fit },
@@ -2017,9 +1778,6 @@ fn apply_showcase(intake: &intake::Intake, host: &angel_glass::Host, stamp: Opti
             host.showcase(angel_glass::Showing::new("video", (*width, *height), *fit));
         }
         Some(ShowcaseAsk::Chart { marks, fit, picture, .. }) => {
-            // The picture's pixels, then the marks over them, then the
-            // showing. The picture's size is the chart's size. This runs
-            // only when the request's stamp moves.
             if let Some((width, height, rgba, _)) = intake.picture_pixels(ID_BASE + *picture) {
                 host.showcase_frame(width, height, rgba.as_ref().clone());
                 host.showcase_marks(marks.clone());
@@ -2063,7 +1821,6 @@ fn apply_scenes(expansion: &mut intake::glass_dialect::Expansion, host: &angel_g
     }
     *was = now;
     drop(was);
-    // An asset's meshes go up once, when a scene first shows it.
     for (id, mesh) in expansion.take_mesh_uploads() {
         host.upload_mesh(id, mesh.as_ref().clone());
     }

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Compose native room and actual-terminal review sheets; no interpolated pixels."""
 from pathlib import Path
 import importlib.util,sys
 from PIL import Image
@@ -10,8 +9,6 @@ for names,dest in [(['entrance','bottom','middle','climb','jump','fall','land','
 for t in [120,360,480]:
     if (rooms/f'live-{t}-seat-1.png').exists():
         review.sheet([(rooms/f'live-{t}-seat-{i}.png',f'{t//30} S, seat {i}') for i in range(1,5)],root/f'live-{t}-1x.png',4)
-# Stitched from contiguous native viewport strips with a common seed and tick.
-# No sprite or scenery scaling; the room sheets above retain the complete HUD.
 whole=Image.new('RGB',(254,552))
 for cam in [0,144,288,408]:
     im=Image.open(rooms/f'tower-{cam}.png');whole.paste(im.crop((12,38,266,182)),(0,cam))
@@ -40,7 +37,6 @@ if (root/'terminal').exists():
                 changed=[k for k in aa if 35<=k[0]<=60 and 7<=k[1]<=19 and max((abs(boss.lightness(x)-boss.lightness(y)) for x,y in zip(aa[k],bb[k])),default=0)>=7.5]
                 assert len(changed)>=15,(attack,n,len(changed))
                 log.append(f'{attack} stage {n}->{n+1}: {len(changed)} keeper-area cells change by >=7.5 L* (gate 15)')
-                # Isolate the marks left of the figures; pose motion cannot pass this gate.
                 mark_changed=[k for k in aa if 4<=k[0]<=34 and 6<=k[1]<=18
                               and aa[k]!=bb[k]]
                 assert mark_changed,(attack,n,'danger marks did not change in actual cells')

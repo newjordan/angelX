@@ -13,7 +13,6 @@ fn rec(name: &str, input: serde_json::Value, ret: impl serde::Serialize) {
     cases::record(name, input, json!({"ret": ret}));
 }
 
-/// The integer maths of the ride.
 #[test]
 #[ignore]
 fn record_lightgallop_math() {

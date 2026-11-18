@@ -2,8 +2,6 @@
 //! water. The cockpit's `ui::retro_kit` re-exports these two beside its
 //! dither and palette ramps, so every surface shares one texture.
 
-/// Stateless integer hash → [0,1). Same mixing family as dotmax's jittered
-/// dither, so ambient noise across surfaces shares a texture.
 #[inline]
 pub fn hash01(x: i32, y: i32, seed: u64) -> f32 {
     let mut h = seed
@@ -17,8 +15,6 @@ pub fn hash01(x: i32, y: i32, seed: u64) -> f32 {
     ((h >> 40) as f32) / ((1u64 << 24) as f32)
 }
 
-/// Smooth value noise at `(x, y)` — bilinear blend of lattice hashes with a
-/// smoothstep fade. Range [0,1].
 #[inline]
 pub fn value_noise(x: f32, y: f32, seed: u64) -> f32 {
     let xi = x.floor();

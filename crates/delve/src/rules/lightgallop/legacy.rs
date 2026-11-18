@@ -16,7 +16,6 @@ pub fn old(n: &Numbers) -> oracle::Numbers {
     oracle::Numbers { slope: n.slope, loop_min: n.loop_min, spur_cap: n.spur_cap, lock_reach: n.lock_reach, dimming: n.dimming }
 }
 
-/// A session, ridden as the old rules read it.
 pub trait SessionOracle {
     fn drive(&self, id: u32, route: Route, n: &Numbers) -> Input;
     fn drive_as(&self, id: u32, route: Route, n: &Numbers, skill: Skill) -> Input;
@@ -45,7 +44,6 @@ impl SessionOracle for Session {
     }
 }
 
-/// A rider, set down as the old rules set one.
 pub trait RiderOracle {
     fn new_on(t: &Terrain, path: usize, s: i32) -> Rider;
     fn snap_camera(&mut self, px: i32, py: i32);
@@ -62,13 +60,11 @@ impl RiderOracle for Rider {
     }
 }
 
-/// A rider of the old rules standing on the main road at column `x`.
 pub fn old_rider(x: i32) -> oracle::rider::Rider {
     let lvl = oracle::level::level();
     oracle::rider::Rider::new_on(&lvl.terrain, lvl.main, lvl.terrain.paths[lvl.main].s_at_x(x))
 }
 
-/// The old rules' road.
 pub fn old_terrain() -> &'static oracle::terrain::Terrain {
     &oracle::level::level().terrain
 }

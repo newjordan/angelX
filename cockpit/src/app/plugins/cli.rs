@@ -9,7 +9,6 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
-/// Who reads a report: hints name the command they would type.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Surface {
     Shell,
@@ -46,7 +45,6 @@ Plugins install into ~/.angelX/cartridges (ANGEL_PLUGIN_DIR). The registry is
 ANGEL_PLUGIN_REGISTRY: a URL or a file; by default angelX's own.
 ";
 
-/// `angel --plugin ARGS…`; returns the exit status.
 pub(crate) fn main(args: impl IntoIterator<Item = OsString>) -> i32 {
     let args: Vec<String> = match args.into_iter().map(OsString::into_string).collect() {
         Ok(args) => args,
@@ -82,12 +80,9 @@ pub(crate) fn main(args: impl IntoIterator<Item = OsString>) -> i32 {
     }
 }
 
-/// Why a command did not finish.
 #[derive(Debug)]
 pub(crate) enum Failure {
-    /// The words were wrong.
     Usage(String),
-    /// The command ran and failed.
     Failed(String),
 }
 
@@ -97,7 +92,6 @@ impl From<String> for Failure {
     }
 }
 
-/// Split flags from words: `--name value` for `valued`, `--name` otherwise.
 struct Words {
     words: Vec<String>,
     flags: Vec<String>,
@@ -168,7 +162,6 @@ impl Words {
     }
 }
 
-/// Run one `plugin` command and return its report.
 pub(crate) fn run(
     paths: &Paths,
     args: &[String],
@@ -318,8 +311,6 @@ pub(crate) fn run(
             let words = parse(rest, &["print"], &["commit", "repository", "into"])?;
             let dir = words.dir()?;
             progress("fetching the plugin back from its repository, as an install will…");
-            // Writing into a local registry file may name a private repository;
-            // the public registry (a pull request, or --print for one) takes https.
             let public = words.value("into").is_none();
             let prepared = submit::prepare(
                 paths,
@@ -370,7 +361,6 @@ fn git_author() -> String {
         .unwrap_or_default()
 }
 
-/// What `check` says, and whether it passed.
 pub(crate) fn check_report(dir: &Path) -> (String, bool) {
     let load = check::folder(dir, Level::Load);
     let publish = check::folder(dir, Level::Publish);
@@ -431,7 +421,6 @@ fn loaded_note(paths: &Paths, surface: Surface) -> String {
     }
 }
 
-/// The plugins installed here.
 pub(crate) fn list(paths: &Paths, surface: Surface) -> String {
     let found = install::installed(paths);
     if found.is_empty() {
@@ -488,7 +477,6 @@ fn load(paths: &Paths, progress: &dyn Fn(&str)) -> Result<Registry, String> {
     Ok(registry)
 }
 
-/// The registry, or the entries matching every word of `query`.
 pub(crate) fn search(paths: &Paths, query: &str, surface: Surface) -> Result<String, String> {
     let registry = load(paths, &|_| {})?;
     let hits = registry.search(query);
@@ -552,8 +540,6 @@ pub(crate) fn search(paths: &Paths, query: &str, surface: Surface) -> Result<Str
     Ok(lines.join("\n"))
 }
 
-/// The registry's entry for `id`, held to the entry rules before anything is
-/// fetched for it.
 fn entry(registry: &Registry, id: &str, surface: Surface) -> Result<Entry, String> {
     let found = lookup(registry, id, surface)?;
     let problems = found.problems(false);
@@ -588,7 +574,6 @@ fn lookup(registry: &Registry, id: &str, surface: Surface) -> Result<Entry, Stri
     })
 }
 
-/// Fetch a plugin and say what it carries, without installing it.
 pub(crate) fn info(
     paths: &Paths,
     id: &str,
@@ -674,7 +659,6 @@ pub(crate) fn info(
     Ok(lines.join("\n"))
 }
 
-/// A web address for a file of the plugin, where the host has a known shape.
 fn setup_link(entry: &Entry, file: &str) -> String {
     let path = if entry.path.is_empty() {
         file.to_owned()
@@ -821,7 +805,6 @@ fn install_one(
     Ok(lines.join("\n"))
 }
 
-/// Commands and tools this cartridge shares with another plugged-in one.
 fn clashes(config: &crate::agent::harness::cartridges::config::Config) -> Vec<String> {
     let mut found = Vec::new();
     for other in crate::agent::harness::cartridges::all() {

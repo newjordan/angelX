@@ -1,12 +1,3 @@
-// Capture a scoreboard page as an H.264 MP4 and/or a PNG of its final frame.
-// Same pipeline as scripts/release-report/render_scoreboard_mp4.cjs: headless Chromium over the DevTools
-// protocol, PNG frames piped into ffmpeg (libx264, yuv420p, faststart). The page's directory is
-// served on 127.0.0.1 so canvases can read its images (file:// would taint them).
-//
-// Page contract: window.ready (promise), window.DURATION (s), window.renderAt(t) -> key|null
-// (an unchanged non-null key reuses the previous frame), window.renderFinal().
-//
-// usage: node capture.cjs --html dir/page.html --size 1080x1080 [--mp4 out.mp4] [--png final.png] [--fps 30]
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -60,8 +51,8 @@ async function main() {
     `--window-size=${o.w},${o.h}`, 'about:blank',
   ], { stdio: 'ignore' });
   const cleanup = () => {
-    try { chrome.kill(); } catch (e) { /* already gone */ }
-    try { fs.rmSync(profile, { recursive: true, force: true }); } catch (e) { /* best effort */ }
+    try { chrome.kill(); } catch (e) { }
+    try { fs.rmSync(profile, { recursive: true, force: true }); } catch (e) { }
     server.close();
   };
   process.on('exit', cleanup);

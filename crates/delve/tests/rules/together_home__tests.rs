@@ -43,7 +43,6 @@ fn hold(fire: bool) -> BTreeMap<u32, Input> {
     )])
 }
 
-/// Knight one standing on a station's plate.
 fn on_plate(run: &mut Run, station: Station) {
     let spot = SPOTS.iter().find(|s| s.station == station).unwrap();
     let (c, r, w, h) = spot.plate;
@@ -62,7 +61,6 @@ fn a_delve_begins_in_the_undercroft() {
     assert!(run.valid_snapshot());
     assert!(run.at_entrance(), "friends may join at home");
     assert!(run.cues.iter().any(|c| c == "home"));
-    // Nobody arrives standing on the stair or a plate.
     for hero in run.players.values() {
         assert_eq!(home::plate_at(RoomKind::Home, hero.x, hero.y), None);
         let tile = run
@@ -96,7 +94,6 @@ fn holding_e_on_a_plate_orders_once_and_a_tap_orders_nothing() {
         run.step(&hold(true));
     }
     assert_eq!(run.orders.len(), 1, "let go and held again: another");
-    // Off the plate, E meets nothing.
     run.orders.clear();
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (24.0, 20.0);
@@ -112,7 +109,6 @@ fn e_on_a_plate_buys_without_a_shot_and_f_on_a_plate_shoots_without_buying() {
     on_plate(&mut run, Station::Forge);
     let hero = run.players.get_mut(&1).unwrap();
     (hero.aim_x, hero.aim_y) = (1.0, 0.0);
-    // F fires, and only fires: however long it is held, nothing is ordered.
     let fire = BTreeMap::from([(
         1,
         Input {
@@ -128,7 +124,6 @@ fn e_on_a_plate_buys_without_a_shot_and_f_on_a_plate_shoots_without_buying() {
     assert!(run.orders.is_empty(), "F on a plate buys nothing");
     assert_eq!(run.players[&1].buying, 0);
     assert!(shot, "F on a plate is a bow shot");
-    // E meets the plate, and looses nothing.
     run.step(&BTreeMap::new());
     run.projectiles.clear();
     let mut shot = false;
@@ -150,7 +145,6 @@ fn buying_pays_the_price_or_says_what_is_short() {
     assert!(short.contains("need"), "{short}");
     assert_eq!(home.level(Station::Forge), 1, "nothing paid, nothing built");
     assert_eq!(treasury, spoils(&[(Spoil::Gold, 10)]));
-    // A landing needs the floor reached first.
     let mut treasury = rich();
     let locked = home.buy(Station::Map, &mut treasury).unwrap_err();
     assert!(locked.contains("floor 2"), "{locked}");
@@ -180,7 +174,6 @@ fn every_ladder_is_affordable_from_real_runs_and_none_is_free() {
                 ladder.name
             );
         }
-        // Nothing past the first rung is bought before the first floor.
         assert_eq!(ladder.rungs[0].needs.min(2), ladder.rungs[0].needs);
     }
 }
@@ -199,7 +192,6 @@ fn home_cards_follow_what_is_built() {
     assert_eq!(hero.bonus.damage, 16);
     assert_eq!((hero.hp, hero.max_hp), (110, 110));
     assert_eq!(run.book.get("home-edge").unwrap().name, "Tobbin's Edge II");
-    // A rung more: only the difference is added.
     run.rebuild_home(
         built(&[(Station::Forge, 3), (Station::Hearth, 2)], 0),
         Spoils::default(),
@@ -212,7 +204,6 @@ fn home_cards_follow_what_is_built() {
         2,
         "one card a station"
     );
-    // A knight of the company keeps the hearth's warmth on top of their own.
     let galahad = knights::knight("galahad").unwrap();
     run.outfit(1, galahad);
     assert_eq!(run.players[&1].max_hp, 130 + 20);
@@ -350,9 +341,6 @@ fn the_undercroft_survives_a_checkpoint_and_the_mirror() {
     assert_eq!(copy.players[&2].bonus.damage, 16);
 }
 
-/// What a realm save carried while the school kept ranks: each knight's
-/// rank by name, the trials' progress and finished trials, and the gear a
-/// master had handed over.
 const SAVE_WITH_RANKS: &str = r#"{
     "wardrobe": {},
     "knights": {},
@@ -373,9 +361,7 @@ const SAVE_WITH_RANKS: &str = r#"{
 #[test]
 fn a_save_from_the_days_of_ranks_loads_and_lets_the_ranks_go() {
     let home: Home = serde_json::from_str(SAVE_WITH_RANKS).expect("an old save loads");
-    // What else the save held comes through.
     assert_eq!(home.goblins, 7);
-    // The ranks, trials and gear are read past, and are not written back.
     let written = serde_json::to_string(&home).unwrap();
     for gone in ["school", "rank", "master", "crescent-quiver", "archer-novice"] {
         assert!(!written.contains(gone), "{gone} is not kept: {written}");
@@ -386,9 +372,6 @@ fn a_save_from_the_days_of_ranks_loads_and_lets_the_ranks_go() {
 
 #[test]
 fn a_run_saved_with_a_masters_board_open_loads() {
-    // A whole run as it was written with the school in it: the home's
-    // standings, and the run's own board (the reading knight, the class,
-    // those who fell this floor).
     let run = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
     let mut value = serde_json::to_value(&run).unwrap();
     let old_home: serde_json::Value = serde_json::from_str(SAVE_WITH_RANKS).unwrap();

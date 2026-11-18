@@ -1,8 +1,3 @@
-"""Library sanity check. Since v6 the JSON files in library/ are the source of truth
-(equipment.json, bodies.json, loadouts/*.json): edit them directly. This script only validates.
-
-  python -m spriterig.doll.make_library
-"""
 import glob, json, os
 
 LIB = os.path.join(os.path.dirname(__file__), "library")

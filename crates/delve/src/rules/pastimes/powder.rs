@@ -65,14 +65,10 @@ use super::*;
 use crate::rules::MAX_PLAYERS;
 use serde::{Deserialize, Serialize};
 
-/// The courtyard, tiles: 11 wide, 9 tall, origin (6, 2) in room tiles —
-/// the middle of the Colosseum's Powder Keg yard, the bench and its start
-/// mark to the west (`colosseum`).
 pub const W: u8 = 11;
 pub const H: u8 = 9;
 pub const X0: u8 = 6;
 pub const Y0: u8 = 2;
-/// The five numbers (see the brief above).
 pub const FUSE: u8 = 90;
 pub const BLAST: u8 = 3;
 pub const BLAST_CHARM: u8 = 6;
@@ -82,25 +78,15 @@ pub const KEGS: u8 = 1;
 pub const KEGS_CHARM: u8 = 2;
 pub const STOCK: u8 = 8;
 pub const STOCK_CHARM: u8 = 12;
-/// How long the cross of flame stays on screen, in ticks. One of the five
-/// numbers: raised from 10 so the cross can be read.
 pub const FIRE: u8 = 45;
-/// How long a scorch mark lingers after its fire, in ticks.
 pub const SCORCH: u8 = 200;
-/// The shared courtyard's six starts: four corners, then the middle of
-/// the north and east lanes, all clear of bales and posts.
 pub const CORNERS: [(u8, u8); 6] = [(1, 1), (9, 7), (9, 1), (1, 7), (5, 0), (10, 4)];
-/// The stone posts: the classic pillar grid, only in the interior (odd
-/// rows one step in), so the outer ring stays a walkable lane and the four
-/// corners stand clear.
 pub const POSTS: [(u8, u8); 10] = [
     (3, 3), (5, 3), (7, 3),
     (3, 5), (5, 5), (7, 5),
     (3, 7), (5, 7), (7, 7),
     (5, 1),
 ];
-/// The hay bales: every other free interior tile, keeping a lane open at
-/// each corner. Twenty in all, well past the eight needed to win.
 pub const BALES: [(u8, u8); 20] = [
     (2, 2), (4, 2), (6, 2), (8, 2),
     (2, 4), (4, 4), (6, 4), (8, 4),
@@ -109,28 +95,22 @@ pub const BALES: [(u8, u8); 20] = [
     (7, 1), (1, 5), (9, 5), (3, 8),
 ];
 
-/// One lit keg in the shared courtyard.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Keg {
     pub col: u8,
     pub row: u8,
     pub left: u8,
-    /// Whose keg this is (its blast's reach comes from that knight's charm).
     pub owner: u32,
 }
 
-/// One tile of fire while it shows: tile and ticks left.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Flame {
     pub col: u8,
     pub row: u8,
     pub left: u8,
-    /// The arm's direction from the keg (0 E, 1 W, 2 S, 3 N, 4 the keg).
-    /// The tongues are drawn along it.
     pub arm: u8,
 }
 
-/// A scorch mark on a tile where fire has been, fading.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Scorch {
     pub col: u8,
@@ -138,12 +118,10 @@ pub struct Scorch {
     pub left: u8,
 }
 
-/// A charm lying where a bale burned away.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Charm {
     pub col: u8,
     pub row: u8,
-    /// 0 blast, 1 boots, 2 keg.
     pub kind: u8,
 }
 
@@ -157,50 +135,37 @@ impl Charm {
     }
 }
 
-/// One knight in the shared courtyard.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Knight {
     pub id: u32,
-    /// Position, in 256ths of a tile, courtyard-relative.
     pub x: u16,
     pub y: u16,
-    /// True while this knight stands in the heat.
     pub alive: bool,
     pub stock: u8,
-    /// Charms taken: 0 blast, 1 boots, 2 keg.
     pub blast: u8,
     pub boots: bool,
     pub spare: bool,
-    /// Ticks of being caught in a blast, for the soot flash.
     pub soot: u8,
 }
 
 impl Knight {
-    /// The knight's tile, courtyard-relative.
     pub fn tile(&self) -> (u8, u8) {
         ((self.x / 256 % u16::from(W)) as u8, (self.y / 256 % u16::from(H)) as u8)
     }
 }
 
-/// The one shared courtyard every knight in the heat plays in.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Powder {
-    /// The knights standing in this heat.
     pub knights: Vec<Knight>,
     pub kegs: Vec<Keg>,
     pub flames: Vec<Flame>,
     pub scorch: Vec<Scorch>,
     pub charms: Vec<Charm>,
-    /// The bales still standing, tiles `row * W + col`.
     pub bales: Vec<u8>,
-    /// A fixed seed for the charm drops, so all seats agree.
     pub seed: u8,
-    /// How many bales each seat has burned (their progress), by id.
     pub burned: BTreeMap<u32, u8>,
-    /// Chain explosion flash: (ticks, x1, y1, x2, y2) for the two kegs involved.
     #[serde(default)]
     pub chain_flash: Option<(u8, u8, u8, u8, u8)>,
-    /// Chain explosion shockwave: expanding ring between two keg positions.
     #[serde(default)]
     pub chain_shockwave: u8,
 }
@@ -238,7 +203,6 @@ impl Powder {
         }
     }
 
-    /// The seats still standing.
     pub fn alive(&self) -> Vec<u32> {
         self.knights.iter().filter(|k| k.alive).map(|k| k.id).collect()
     }
@@ -257,9 +221,6 @@ impl Powder {
             || self.kegs.iter().any(|k| k.col == col && k.row == row)
     }
 
-    /// Charm drops are seed-fixed on the shared grid: every third bale,
-    /// taken in reading order, from a start the seed picks. All seats see
-    /// the same charms at the same tiles.
     fn drops(&self) -> Vec<u8> {
         let mut v = Vec::new();
         for (i, &t) in self.bales.iter().enumerate() {
@@ -271,8 +232,6 @@ impl Powder {
         v
     }
 
-    /// One 30 Hz tick of the shared courtyard. Returns (sooted ids, a bale
-    /// burned, a blast went off, a charm was picked up by whom).
     pub fn step(
         &mut self,
         inputs: &BTreeMap<u32, crate::rules::Input>,
@@ -281,9 +240,6 @@ impl Powder {
         let mut sooted_ids = Vec::new();
         let mut picked = Vec::new();
         let mut out = (false, false, false);
-        // Knights pass through one another: the glee is the keg, not the
-        // shove. Compute each knight's step against the yard as it stood,
-        // then apply, so no knight is blocked by a friend's mid-tick ghost.
         let mut moves: Vec<(u32, u16, u16)> = Vec::new();
         let mut drops: Vec<(u32, u8, u8)> = Vec::new();
         for k in self.knights.iter() {
@@ -317,8 +273,6 @@ impl Powder {
                         (ny / 256 % u16::from(H)) as u8,
                     );
                     let (tc, tr) = ((x / 256 % u16::from(W)) as u8, (y / 256 % u16::from(H)) as u8);
-                    // A keg just dropped at your feet does not trap you on
-                    // it: you may step off, and only then does it block.
                     let own_feet = (nc, nr) == (tc, tr);
                     let fire_free = !self
                         .flames
@@ -370,7 +324,6 @@ impl Powder {
         for k in self.knights.iter_mut() {
             k.soot = k.soot.saturating_sub(1);
         }
-        // Fuses run.
         let mut boomed: Vec<Keg> = Vec::new();
         for kg in self.kegs.iter_mut() {
             kg.left -= 1;
@@ -395,7 +348,6 @@ impl Powder {
                 .find(|k| k.id == kg.owner)
                 .map(|k| k.blast)
                 .unwrap_or(BLAST);
-            // The burst frame: the whole cross at full reach for an instant.
             let mut arms: Vec<Flame> = vec![Flame {
                 col: kg.col,
                 row: kg.row,
@@ -421,8 +373,6 @@ impl Powder {
                         3
                     };
                     if Self::post(c, r) {
-                        // A stone post stops the arm cold, the trope's hard
-                        // block: flame on the post, nothing beyond.
                         arms.push(Flame {
                             col: c,
                             row: r,
@@ -442,12 +392,10 @@ impl Powder {
                         break;
                     }
                     if self.kegs.iter().any(|k2| k2.col == c && k2.row == r) {
-                        // A chain: the other keg goes off next tick.
                         if let Some(k2) =
                             self.kegs.iter_mut().find(|k2| k2.col == c && k2.row == r)
                         {
                             k2.left = k2.left.min(1);
-                            // Record the chain pair for the shockwave visual.
                             chain_pair = Some((kg.col, kg.row, c, r));
                         }
                         arms.push(Flame {
@@ -466,7 +414,6 @@ impl Powder {
                     });
                 }
             }
-            // Scorch marks where the fire stood; they fade.
             for f in &arms {
                 if !self.scorch.iter().any(|s| s.col == f.col && s.row == f.row) {
                     self.scorch.push(Scorch {
@@ -478,7 +425,6 @@ impl Powder {
             }
             self.flames.extend(arms.iter().copied());
         }
-        // Chain explosion visual: set flash and shockwave when a chain was detected.
         if let Some((x1, y1, x2, y2)) = chain_pair {
             self.chain_flash = Some((6, x1, y1, x2, y2));
             self.chain_shockwave = 6;
@@ -499,9 +445,6 @@ impl Powder {
                 }
             }
         }
-        // Standing fire soots any knight standing in it — your own blast, a
-        // friend's blast, or a flame you walked into. The glee of trapping
-        // a friend lives here.
         let catches: Vec<(u32, bool)> = self
             .knights
             .iter()
@@ -557,7 +500,6 @@ impl Powder {
             s.left -= 1;
         }
         self.scorch.retain(|s| s.left > 0);
-        // Decrement chain explosion visuals.
         self.chain_shockwave = self.chain_shockwave.saturating_sub(1);
         if let Some((ticks, x1, y1, x2, y2)) = self.chain_flash {
             if ticks > 0 {
@@ -607,8 +549,6 @@ fn dr_only(dc: i16, dr: i16) -> (i16, i16) {
 }
 
 impl Run {
-    /// One tick of the shared courtyard, driving the starter's round.
-    /// Returns false when that seat's round is over.
     pub(super) fn tick_kegs(
         &mut self,
         round: &mut Round,
@@ -619,8 +559,6 @@ impl Run {
         let Some(p) = round.powder.as_mut() else {
             return false;
         };
-        // The shared yard stands while any knight of the heat is still in
-        // the room; the round's voice is the first knight still present.
         let Some(owner) = p
             .knights
             .iter()
@@ -638,8 +576,6 @@ impl Run {
         };
         let prev_kegs = p.kegs.len();
         let (sooted, burned, boom, picked) = p.step(inputs, tapped);
-        // Each knight is drawn where they stand in the yard; a sooted knight
-        // goes back to the bench by the start mark to watch.
         for (i, k) in p.knights.iter().enumerate() {
             if let Some(hero) = self.players.get_mut(&k.id) {
                 (hero.x, hero.y) = if k.alive {
@@ -652,16 +588,12 @@ impl Run {
                 };
             }
         }
-        // The yard's sounds are the delve's own: a keg's burst is a bomb's,
-        // a bale's whoosh a vent's fire, a friend sooted a blast's hit.
-        // Keg drop sound: new kegs appeared this tick
         if p.kegs.len() > prev_kegs {
             self.sounds.push("bomb_toss");
         }
         if boom {
             self.sounds.push("bomb");
         }
-        // Chain explosion: stronger screen shake when one keg triggers another.
         if p.chain_shockwave > 0 {
             self.shake = self.shake.max(8);
             self.sounds.push("boss_roar");
@@ -673,7 +605,6 @@ impl Run {
             let _ = id;
             self.sounds.push("spoil_pickup");
         }
-        // Each seat's progress is the bales burned while they stand.
         let prev_progress = round.progress;
         round.progress = p.burned.get(&owner).copied().unwrap_or(0).min(Game::Powder.need());
         if round.progress > prev_progress {
@@ -691,8 +622,6 @@ impl Run {
             };
             self.found = Some((self.tick, 0, format!("Sooted! {who} out of this heat.")));
         }
-        // Last knight standing: everyone else in the heat is done and this
-        // seat is still going. The win is the round's.
         if let Some(heat) = self.pastimes.heat.as_ref() {
             if heat.game == Game::Powder
                 && heat.seats.len() > 1
@@ -716,8 +645,6 @@ impl Run {
             self.found = Some((self.tick, owner, "Out of kegs!".into()));
             return false;
         }
-        // This seat's knight sooted out of the shared yard: their round is
-        // done (a friend's round carries the yard on).
         p.alive().contains(&owner)
     }
 }

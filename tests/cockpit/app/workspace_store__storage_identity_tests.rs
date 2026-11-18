@@ -223,7 +223,6 @@ fn timed_out_identity_probe_is_not_memoized_as_workspace_only() {
     let repo = fixture.0.join("repo");
     let subdir = repo.join("cockpit");
     std::fs::create_dir_all(&subdir).unwrap();
-    // A gitfile routes this first lookup through the bounded subprocess path.
     std::fs::write(repo.join(".git"), "gitdir: /does/not/exist\n").unwrap();
     let bin = fixture.0.join("bin");
     std::fs::create_dir(&bin).unwrap();
@@ -322,7 +321,6 @@ fn real_git_roots_with_trailing_space_and_newline_keep_distinct_identity() {
     assert_ne!(identities[0].key, identities[1].key);
 }
 
-// APFS rejects raw-byte path components before Git can create these roots.
 #[cfg(target_os = "linux")]
 #[test]
 fn real_git_roots_keep_raw_names_distinct_and_do_not_alias_legacy_lossy_keys() {

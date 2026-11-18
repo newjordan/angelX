@@ -1,14 +1,9 @@
 use super::*;
 
-/// The real layout: the workspace is `/parent/repo` and delegated checkouts live
-/// *beside* it under `/parent/.angel-worktrees/…`, which is exactly what makes a
-/// worktree child commute with a writer in the shared checkout.
 fn path(name: &str) -> PathBuf {
     PathBuf::from("/parent").join(name)
 }
 
-/// Disjoint checkouts commute: different worktrees, different refs, different
-/// ports are one wave, and a workspace writer beside them is in it too.
 #[test]
 fn disjoint_children_are_one_wave() {
     let children = vec![
@@ -25,9 +20,6 @@ fn disjoint_children_are_one_wave() {
     assert!(refusal(&children).is_none());
 }
 
-/// A shared resource names its owner: two seats writing the one workspace, two
-/// children on the same ref, and two services on the same port all split into
-/// serialized waves with a receipt.
 #[test]
 fn overlapping_children_are_serialized_and_the_receipt_names_it() {
     let shared_workspace = vec![
@@ -62,8 +54,6 @@ fn overlapping_children_are_serialized_and_the_receipt_names_it() {
     assert!(!plan(&same_port).independent());
 }
 
-/// The gate is derived, not hardcoded: the only difference between "serialize
-/// these seats" and "let them run together" is which resources they declare.
 #[test]
 fn a_worktree_claim_replaces_the_serialization_a_workspace_claim_imposes() {
     let seats = ["seat-1", "seat-2"];
@@ -87,8 +77,6 @@ fn a_worktree_claim_replaces_the_serialization_a_workspace_claim_imposes() {
     assert!(plan(&isolated).independent());
 }
 
-/// A nested claim overlaps: a child owning a directory excludes a child inside
-/// it, so a scratch root and a file under it are serialized.
 #[test]
 fn nested_paths_overlap() {
     let nested = vec![

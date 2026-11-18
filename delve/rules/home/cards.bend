@@ -1,10 +1,3 @@
-# crates/delve/src/rules/cards.rs — the card file checker (`check`), the card
-# as its file (`file`, `definition_file`), and the caps a held deck keeps.
-# A Card is the J value in its serde shape. A `Result<T, E>` here is a J
-# {"Ok": t} / {"Err": e}; a `Result<(), E>` a `Maybe<&2, E>` (None is Ok).
-
-# ---- slug, safe-for-work ----------------------------------------------------
-
 def cards.slug(+name: String) -> String:
   home.util.take_chars(String.reverse(home.util.trim_start_c(String.reverse(cards.slug.go(String.to_list(name), "")), 45)), 32)
 
@@ -39,7 +32,6 @@ def cards.rot13(+w: String) -> String:
 def cards.NOT_FOR_WORK() -> List<&2, String>:
   ["frk", "frkl", "frkhny", "cravf", "cravfrf", "qvpx", "qvpxf", "pbpx", "pbpxf", "fpuybat", "crpxre", "jrvare", "jvrare", "grfgvpyr", "grfgvpyrf", "fpebghz", "onyyfnpx", "ahgfnpx", "obbo", "obbof", "obbovrf", "gvgf", "gvggl", "gvggvrf", "avccyr", "avccyrf", "intvan", "chffl", "pyvg", "fcrez", "frzra", "phz", "wvmm", "betnfz", "ubeal", "rerpgvba", "obare", "qvyqb", "ivoengbe", "pbaqbz", "cbea", "cbeab", "ahqr", "ahqrf", "fgevccre", "ubbxre", "juber", "fyhg", "zvys", "uragnv", "afsj", "nany", "nahf", "ohggubyr", "nffubyr", "cbjreobggbz", "oqfz", "srgvfu", "xvaxl", "yvatrevr", "cnagvrf", "gubat", "travgny", "travgnyf", "znfgheongr", "jnax", "oybjwbo", "unaqwbo", "evzwbo", "shpx", "shpxvat", "shpxre", "zbgureshpxre", "fuvg", "fuvggl", "ohyyfuvg", "ovgpu", "ovgpurf", "phag", "avttre", "avttn", "snttbg", "snt", "ergneq", "ergneqrq", "genaal", "fcvp", "puvax", "xvxr", "qlxr"]
 
-# alphanumeric runs of the text
 def cards.words_of(+s: String) -> List<&2, String>:
   cards.words_of.go(String.to_list(s), "", Nil{})
 
@@ -64,8 +56,6 @@ def cards.not_for_work.go(+ws: List<&2, String>) -> Maybe<&2, String>:
         u => Some{home.util.lower(w)},
         u => cards.not_for_work.go(t))
 
-# ---- script::read (the card file's lines, art and draw blocks) ----------------
-
 def cards.ink_char(+c: Char) -> Bool:
   Bool.or(U32.is_eq(Char.to_u32(c), 46), String.contains("kKZXgjGJhiHfDFEelNmLAMyCYnbIBpPrRoOtTsxSuUvVWqQz0123wa4@56$c987", SCon{c, SNil{}}))
 
@@ -82,7 +72,6 @@ def cards.all_inks(+cs: List<&2, Char>, +bar: Bool) -> Bool:
     case Con{+h, +t}:
       Bool.and(Bool.or(cards.ink_char(h), Bool.and(bar, U32.is_eq(Char.to_u32(h), 124))), cards.all_inks(t, bar))
 
-# {lines: [{n, word, rest}], art: [..], art_blocks, sprites: [{n, header, rows}], text_bytes}
 def cards.script.read(+raw: String) -> J.Val:
   cards.script.go(home.util.lines(raw), 1, home.util.obj([("lines", J.JA{Nil{}}), ("art", J.JA{Nil{}}), ("art_blocks", J.JU{0}), ("sprites", J.JA{Nil{}}), ("text_bytes", J.JU{0}), ("in_art", J.JBool{False{}}), ("in_sprite", J.JBool{False{}})]))
 
@@ -139,11 +128,8 @@ def cards.script.kind(+st: J.Val, +n: U32, +word: String, +rest: String) -> J.Va
       u => J.set(J.set(st, "in_sprite", J.JBool{True{}}), "sprites", J.push(J.get(st, "sprites"), home.util.obj([("n", J.JU{n}), ("header", J.JS{home.util.ascii_lower(home.util.trim(rest))}), ("rows", J.JA{Nil{}})]))),
       u => J.set(st, "lines", J.push(J.get(st, "lines"), home.util.obj([("n", J.JU{n}), ("word", J.JS{word}), ("rest", J.JS{home.util.trim(home.util.before(rest, " #"))})])))))
 
-# script::clean: no control characters, at most `max` chars
 def cards.clean(+text: String, +max: U32) -> String:
   home.util.take_chars(home.util.no_control(text), max)
-
-# ---- check -------------------------------------------------------------------
 
 def cards.MAX_FILE_BYTES() -> U32:
   24576
@@ -163,8 +149,6 @@ def cards.ck.fail(+errors: J.Val) -> J.Val:
 def cards.ck.start() -> J.Val:
   home.util.obj([("errors", J.JA{Nil{}}), ("notes", J.JA{Nil{}}), ("name", J.JNull{}), ("kind", J.JNull{}), ("rarity", J.JS{"common"}), ("text", J.JS{""}), ("by", J.JS{""}), ("drop", J.JNull{}), ("chest", J.JNull{}), ("effects", J.JA{Nil{}}), ("runes", J.JA{Nil{}}), ("plain", J.JNull{}), ("only_in", J.JNull{}), ("guard", J.JNull{}), ("ult", J.JNull{}), ("cooldown", J.JNull{}), ("style", J.JNull{}), ("looks", J.obj())])
 
-# Check one card file. `id` usually comes from the file name. Answers
-# {"Ok": {"card": card, "notes": [..]}} or {"Err": [errors]}.
 def cards.check(+id: String, +raw: String) -> J.Val:
   home.util.ite(J.Val, U32.is_gt(home.util.blen(raw), 24576),
     u => cards.ck.fail(J.JA{[J.JS{"the file is over 24576 bytes with its sprites"}]}),
@@ -194,7 +178,6 @@ def cards.ck.eff(+n: U32, +word: String, +eff: J.Val) -> J.Val:
 def cards.ck.push_eff(+st: J.Val, +n: U32, +word: String, +eff: J.Val) -> J.Val:
   J.set(st, "effects", J.push(J.get(st, "effects"), cards.ck.eff(n, word, eff)))
 
-# The kinds of line a card file has, by its first word.
 def cards.ck.line(+st: J.Val, +n: U32, +word: String, +rest: String) -> J.Val:
   home.util.ite(J.Val, String.eq(word, "name"), u => J.set(st, "name", J.JS{cards.clean(rest, 64)}),
   u => home.util.ite(J.Val, String.eq(word, "text"), u => J.set(st, "text", J.JS{cards.clean(rest, 256)}),
@@ -267,7 +250,6 @@ def cards.ck.arm(+st: J.Val, +n: U32, +lower: String) -> J.Val:
     u => J.set(st, "plain", J.JS{lower}),
     u => cards.ck.err(st, "line " ++ U32.show(n) ++ ": arm `" ++ lower ++ "` — use bow, crossbow, handgonne or notes, or Forge rune lines"))
 
-# `summon N [swarm|guard|turret]`
 def cards.ck.summon(+st: J.Val, +n: U32, +lower: String) -> J.Val:
   cards.ck.summon.args(st, n, home.util.words(lower))
 
@@ -285,7 +267,6 @@ def cards.ck.summon.count(+st: J.Val, +n: U32, +count: Maybe<&2, U32>, +rest: Li
     case Con{+w, +t}:
       cards.ck.summon.done(st, n, count, imps.Behaviour.parse(w), List.is_empty(&2, String, t))
 
-# Behaviour::parse
 def imps.Behaviour.parse(+w: String) -> Maybe<&2, String>:
   home.util.ite(Maybe<&2, String>, home.util.has_name(["swarm", "swarmer", "swarmers"], w), u => Some{"swarm"},
   u => home.util.ite(Maybe<&2, String>, home.util.has_name(["guard", "guards"], w), u => Some{"guard"},
@@ -328,7 +309,6 @@ def cards.ck.ult.found(+st: J.Val, +n: U32, +rest: String, +found: J.Val) -> J.V
     case _:
       home.util.ite(J.Val, J.is_null(J.get(st, "ult")), u => J.set(st, "ult", found), u => cards.ck.err(st, "line " ++ U32.show(n) ++ ": ult appears twice"))
 
-# `guard roll|shield|spin|wall width=N drain=N empower=N`
 def cards.ck.guard(+st: J.Val, +n: U32, +lower: String) -> J.Val:
   cards.ck.guard.kind(st, n, lower, home.util.words(lower))
 
@@ -346,7 +326,6 @@ def cards.ck.guard.which(+st: J.Val, +n: U32, +lower: String, +k: String) -> J.V
   u => home.util.ite(J.Val, String.eq(k, "wall"), u => cards.ck.wall(st, lower),
   u => cards.ck.err(st, "line " ++ U32.show(n) ++ ": guard `" ++ k ++ "` — roll, shield, spin, or wall width=2-8 drain=10-50 empower=0-40")))))
 
-# the value of `key=` among the words, if any
 def cards.ck.kv(+ws: List<&2, String>, +key: String) -> Maybe<&2, String>:
   match ws:
     case Nil{}:
@@ -354,7 +333,6 @@ def cards.ck.kv(+ws: List<&2, String>, +key: String) -> Maybe<&2, String>:
     case Con{+w, +t}:
       home.util.ite(Maybe<&2, String>, String.starts_with(w, key ++ "="), u => Some{String.drop(w, U32.to_nat((home.util.chars(key) + 1 : U32)))}, u => cards.ck.kv(t, key))
 
-# `v.round().max(0.0) as u32` of the number written, else the default
 def cards.ck.num(+raw: Maybe<&2, String>, +default: U32) -> U32:
   match raw:
     case Some{+s}:
@@ -394,7 +372,6 @@ def cards.ck.wall.set(+st: J.Val, +width: U32, +drain: U32, +empower: U32, +floo
 def cards.ck.wall.obj(+width: U32, +drain: U32, +empower: U32) -> J.Val:
   home.util.obj([("wall", home.util.obj([("width", J.JU{width}), ("drain", J.JU{drain}), ("empower", J.JU{empower})]))])
 
-# The spec table's word, or the unknown-word refusal.
 def cards.ck.spec(+st: J.Val, +n: U32, +word: String, +rest: String, +specs: List<&2, CardsSpec>) -> J.Val:
   match specs:
     case Nil{}:
@@ -419,7 +396,6 @@ def cards.ck.spec.value(+st: J.Val, +n: U32, +s: CardsSpec, +rest: String) -> J.
     case CardsSpec{+word, +name, +low, +high, +cap, +hold, +spend}:
       cards.ck.spec.parse(st, n, word, name, low, high, home.util.ite(Maybe<&2, U32>, Bool.and(home.util.is_blank(rest), U32.is_eq(low, high)), u => Some{low}, u => home.util.parse_u32(home.util.trim_end_set(home.util.trim_start_c(rest, 43)))))
 
-# trim_end_matches(['%', 's'])
 def home.util.trim_end_set(+s: String) -> String:
   String.reverse(home.util.trim_start_set(String.reverse(s)))
 
@@ -442,9 +418,6 @@ def cards.ck.spec.set(+st: J.Val, +n: U32, +word: String, +name: String, +low: U
     home.util.ite(J.Val, Bool.not(U32.is_eq(clamped, value)), u => cards.ck.note(st, word ++ " " ++ U32.show(value) ++ " is outside " ++ U32.show(low) ++ "–" ++ U32.show(high) ++ ", clamped to " ++ U32.show(clamped)), u => st),
     n, word, home.util.obj([(name, J.JU{clamped})]))
 
-# ---- the draw blocks ------------------------------------------------------------
-
-# key=value split at the first `=`: (key, value, has `=`)
 def home.util.split_eq(+s: String) -> Sigma<&2, &2, String, _ => Sigma<&2, &2, String, _ => Bool>>:
   home.util.split_eq.go(s, "")
 
@@ -491,7 +464,6 @@ def cards.ck.opts(+h: J.Val, +n: U32, +word: String, +header: String, +parts: Li
 def cards.ck.bad(+h: J.Val, +msg: String) -> J.Val:
   J.set(h, "bad", J.JS{msg})
 
-# set key to v; a second set of the same key is the refusal
 def cards.ck.put(+h: J.Val, +n: U32, +word: String, +key: String, +v: J.Val) -> J.Val:
   home.util.ite(J.Val, J.has(h, key),
     u => cards.ck.bad(h, "line " ++ U32.show(n) ++ ": `" ++ key ++ "=` appears twice on `draw " ++ word ++ "`"),
@@ -549,7 +521,6 @@ def cards.ck.strs.go(+xs: List<&2, J.Val>) -> List<&2, String>:
     case Con{+h, +t}:
       J.str(h) <> cards.ck.strs.go(t)
 
-# a worn piece drawn small is put on the knight at the place named
 def cards.ck.sprite.at(+st: J.Val, +n: U32, +rows: J.Val, +word: String, +h: J.Val) -> J.Val:
   home.util.ite(J.Val, J.has(h, "at"),
     u => cards.ck.sprite.placed(st, n, word, h, looks.Sprite.from_strip("worn", cards.ck.strs(rows))),
@@ -565,7 +536,6 @@ def cards.ck.sprite.placed2(+st: J.Val, +n: U32, +word: String, +h: J.Val, +r: J
     u => cards.ck.sprite.slot(st, n, J.JA{home.util.tail(home.util.jstrs.go(home.util.lines(looks.Sprite.to_block(home.util.obj([("frames", J.get(r, "Ok"))]), "worn"))))}, word, h),
     u => cards.ck.err(st, "line " ++ U32.show(n) ++ ": " ++ J.str(J.get(r, "Err"))))
 
-# skip(1)
 def home.util.tail(+xs: List<&2, J.Val>) -> List<&2, J.Val>:
   match xs:
     case Nil{}:
@@ -590,7 +560,6 @@ def cards.ck.sprite.drawn(+st: J.Val, +n: U32, +h: J.Val, +slot: String, +r: J.V
     u => cards.ck.sprite.fit(st, n, h, slot, J.get(r, "Ok")),
     u => cards.ck.err(st, "line " ++ U32.show(n) ++ ": " ++ J.str(J.get(r, "Err"))))
 
-# the place a sprite sits at: `at`, else `placed`
 def cards.ck.place_of(+h: J.Val) -> J.Val:
   home.util.ite(J.Val, J.has(h, "at"), u => J.get(h, "at"), u => J.get(h, "placed"))
 
@@ -604,7 +573,6 @@ def cards.ck.sprite.fitted(+st: J.Val, +n: U32, +h: J.Val, +slot: String, +sprit
     u => cards.ck.sprite.set(st, h, slot, J.get(r, "Ok")),
     u => cards.ck.err(st, "line " ++ U32.show(n) ++ ": " ++ J.str(J.get(r, "Err"))))
 
-# Sprite{hd, paint, normal, pixel, moves, at, ..sprite} into the looks
 def cards.ck.sprite.set(+st: J.Val, +h: J.Val, +slot: String, +sprite: J.Val) -> J.Val:
   J.set(st, "looks", J.set(J.get(st, "looks"), slot, cards.ck.sprite.dress(h, sprite)))
 
@@ -623,7 +591,6 @@ def cards.ck.sprite.dress(+h: J.Val, +s: J.Val) -> J.Val:
       "moves", J.get(h, "move")),
     "at", cards.ck.place_canon(cards.ck.place_of(h)))
 
-# the sprite as from_strip made it, without the optional parts this overrides
 def cards.ck.clear(+s: J.Val) -> J.Val:
   J.del(J.del(J.del(J.del(J.del(J.del(s, "hd"), "paint"), "normal"), "pixel"), "moves"), "at")
 
@@ -634,8 +601,6 @@ def cards.ck.place_canon(+p: J.Val) -> J.Val:
     case _:
       home.util.jopt(looks.place(J.str(p)))
 
-# ---- the checks that need the whole file -----------------------------------------
-
 def cards.kind_is(+st: J.Val, +k: String) -> Bool:
   String.eq(J.str(J.get(st, "kind")), k)
 
@@ -645,7 +610,6 @@ def cards.kind_in(+st: J.Val, +ks: List<&2, String>) -> Bool:
 def cards.check.finish(+id: String, +art: J.Val, +st: J.Val) -> J.Val:
   cards.fin.kind(cards.fin.text(cards.fin.nsfw(cards.fin.id(cards.fin.name(J.set(J.set(st, "id", J.JS{id}), "art", art))))))
 
-# name: trimmed and cut to 22 characters
 def cards.fin.name(+st: J.Val) -> J.Val:
   cards.fin.name.of(st, J.get(st, "name"))
 
@@ -664,7 +628,6 @@ def cards.fin.name.none(+st: J.Val) -> J.Val:
 def cards.fin.name.cut(+st: J.Val, +name: String) -> J.Val:
   J.set(home.util.ite(J.Val, U32.is_gt(home.util.chars(name), 22), u => cards.ck.note(st, "name cut to 22 characters"), u => st), "name", J.JS{home.util.take_chars(name, 22)})
 
-# A card sent without a file takes its id from its name.
 def cards.fin.id(+st: J.Val) -> J.Val:
   cards.fin.id.of(home.util.ite(J.Val, String.is_empty(J.str(J.get(st, "id"))), u => J.set(st, "id", J.JS{cards.slug(J.str(J.get(st, "name")))}), u => st))
 
@@ -705,13 +668,11 @@ def cards.fin.text(+st: J.Val) -> J.Val:
     u => J.set(cards.ck.note(st, "text cut to 64 characters"), "text", J.JS{home.util.take_chars(J.str(J.get(st, "text")), 64)}),
     u => st)
 
-# No kind: the card is turned away at once.
 def cards.fin.kind(+st: J.Val) -> J.Val:
   home.util.ite(J.Val, J.is_null(J.get(st, "kind")),
     u => cards.ck.fail(J.get(cards.ck.err(st, "the card needs a `kind`: take, hold, play, arm, guard or spell"), "errors")),
     u => cards.fin.hold(st))
 
-# A held card's number counts no higher than the deck may add up to.
 def cards.fin.hold(+st: J.Val) -> J.Val:
   cards.fin.looks(home.util.ite(J.Val, cards.kind_is(st, "hold"), u => cards.fin.hold.go(st, J.items(J.get(st, "effects")), Nil{}), u => st))
 
@@ -743,7 +704,6 @@ def cards.spec_of(+word: String, +specs: List<&2, CardsSpec>) -> Maybe<&2, Cards
     case Con{+s, +t}:
       home.util.ite(Maybe<&2, CardsSpec>, String.eq(cards.spec.word(s), word), u => Some{s}, u => cards.spec_of(word, t))
 
-# An effect J {name: value}'s number (Cast carries none).
 def cards.eff_value(+eff: J.Val) -> U32:
   cards.eff_value.of(J.fields(eff))
 
@@ -763,7 +723,6 @@ def cards.eff_value.v(+v: J.Val) -> U32:
     case _:
       J.u32(v)
 
-# `look <colour> <shape>` off a weapon is the knight's shots' colour and shape.
 def cards.fin.looks(+st: J.Val) -> J.Val:
   cards.fin.slots(home.util.ite(J.Val, Bool.not(cards.kind_is(st, "arm")), u => cards.fin.style(J.set(st, "runes", cards.ck.no_look(J.get(st, "runes"))), J.get(st, "style")), u => st))
 
@@ -796,7 +755,6 @@ def cards.fin.style.set(+st: J.Val, +n: U32, +ws: List<&2, String>) -> J.Val:
 def cards.fin.style.bad(+st: J.Val, +n: U32) -> J.Val:
   cards.ck.err(st, "line " ++ U32.show(n) ++ ": look takes a colour (" ++ home.util.join(forge.COLOURS(), " ") ++ ") and a shape (" ++ home.util.join(forge.SHAPES(), " ") ++ ")")
 
-# What a card shows must be something its kind keeps on the field.
 def cards.fin.slots(+st: J.Val) -> J.Val:
   cards.fin.style_kind(cards.fin.slot(cards.fin.slot(cards.fin.slot(cards.fin.slot(cards.fin.slot(st, "worn"), "shot"), "orbit"), "summon"), "aura"))
 
@@ -826,7 +784,6 @@ def cards.fin.style_kind(+st: J.Val) -> J.Val:
     u => cards.ck.err(st, "`look` does not show on a " ++ J.str(J.get(st, "kind")) ++ " card"),
     u => st))
 
-# A summoning spell recharges no faster than its creatures earn.
 def cards.fin.floor(+es: List<&2, J.Val>, +acc: U32) -> U32:
   match es:
     case Nil{}:
@@ -898,7 +855,6 @@ def cards.ck.notes_add(+st: J.Val, +ns: J.Val) -> J.Val:
 def cards.ck.errs_add(+st: J.Val, +es: List<&2, J.Val>) -> J.Val:
   J.set(st, "errors", J.JA{List.append(&2, J.Val, J.items(J.get(st, "errors")), es)})
 
-# A homemade arm is never slow: its shots fly at least as fast as the stock arms'.
 def cards.fin.speed(+w: J.Val) -> J.Val:
   cards.fin.speed.of(w, J.get(w, "bolt"))
 
@@ -988,7 +944,6 @@ def cards.fin.dups(+st: J.Val, +es: List<&2, J.Val>, +seen: List<&2, String>) ->
         u => cards.fin.dups(cards.ck.err(st, "line " ++ U32.show(J.u32(J.get(e, "n"))) ++ ": " ++ J.str(J.get(e, "word")) ++ " appears twice"), t, J.str(J.get(e, "word")) <> seen),
         u => cards.fin.dups(st, t, J.str(J.get(e, "word")) <> seen))
 
-# The card's art rows.
 def cards.fin.art(+st: J.Val) -> J.Val:
   cards.fin.worn(cards.fin.art.ink(cards.fin.art.size(st)))
 
@@ -1023,7 +978,6 @@ def cards.fin.art.ink(+st: J.Val) -> J.Val:
     u => cards.ck.err(st, "art has no inked pixel; use realm inks (see /dungeon cards)"),
     u => st)
 
-# A worn sprite that names no place takes the one its card's name implies.
 def cards.fin.worn(+st: J.Val) -> J.Val:
   cards.fin.worn.at(st, J.get(J.get(st, "looks"), "worn"))
 
@@ -1043,7 +997,6 @@ def cards.fin.worn.fit(+st: J.Val, +worn: J.Val, +at: String, +r: J.Val) -> J.Va
     u => cards.fin.done(J.set(st, "looks", J.set(J.get(st, "looks"), "worn", J.get(r, "Ok")))),
     u => cards.fin.done(J.set(cards.ck.err(st, J.str(J.get(r, "Err"))), "looks", J.set(J.get(st, "looks"), "worn", J.set(worn, "at", J.JS{at})))))
 
-# Rejected with every error, or the card checked.
 def cards.fin.done(+st: J.Val) -> J.Val:
   home.util.ite(J.Val, Bool.not(U32.is_eq(J.len(J.get(st, "errors")), 0)),
     u => cards.ck.fail(J.get(st, "errors")),
@@ -1079,9 +1032,6 @@ def cards.fin.card.of(+st: J.Val) -> J.Val:
       "ult", J.get(st, "ult")),
     "looks", J.get(st, "looks"))
 
-# ---- Card::file / definition_file --------------------------------------------------
-
-# The word of an effect's serde name: `cast`, `summon` and the spec table's.
 def cards.word_of_name(+name: String) -> String:
   cards.word_of_name.go(name, cards.SPECS())
 
@@ -1092,7 +1042,6 @@ def cards.word_of_name.go(+name: String, +specs: List<&2, CardsSpec>) -> String:
     case Con{CardsSpec{+word, +n, +low, +high, +cap, +hold, +spend}, +t}:
       home.util.ite(String, String.eq(n, name), u => word, u => cards.word_of_name.go(name, t))
 
-# Card::line: one effect as the card line that says it
 def cards.Card.line(+eff: J.Val) -> String:
   cards.Card.line.of(J.fields(eff))
 
@@ -1175,11 +1124,8 @@ def cards.where_text(+pack: J.Val) -> String:
     case _:
       ""
 
-# Complete authored definition for validation and implementation handoff.
 def cards.Card.definition_file(+card: J.Val) -> String:
   cards.arm_text(J.get(card, "arm")) ++ cards.guard_text(J.get(card, "guard")) ++ cards.where_text(J.get(card, "only_in")) ++ cards.Card.file(card)
-
-# ---- caps and the deck's bonus ------------------------------------------------------
 
 def cards.range(+word: String) -> J.Val:
   cards.range.of(cards.spec_of(word, cards.SPECS()))
@@ -1191,7 +1137,6 @@ def cards.range.of(+s: Maybe<&2, CardsSpec>) -> J.Val:
     case None{}:
       J.JNull{}
 
-# The most a knight's held cards may add up to of effect `word`.
 def cards.cap(+word: String) -> U32:
   cards.cap.of(cards.spec_of(word, cards.SPECS()))
 
@@ -1212,7 +1157,6 @@ def cards.index_of(+word: String, +ws: List<&2, String>, +i: U32) -> U32:
     case Con{+h, +t}:
       home.util.ite(U32, String.eq(h, word), u => i, u => cards.index_of(word, t, (i + 1 : U32)))
 
-# The most a knight's wishes add up to of each word, under the card cap.
 def cards.wish_cap(+word: String) -> U32:
   home.util.ite(U32, String.eq(word, "damage"), u => 25,
   u => home.util.ite(U32, Bool.or(String.eq(word, "rate"), String.eq(word, "speed")), u => 20,
@@ -1220,7 +1164,6 @@ def cards.wish_cap(+word: String) -> U32:
   u => home.util.ite(U32, String.eq(word, "burst"), u => 15,
   u => home.util.ite(U32, String.eq(word, "shots"), u => 1, u => U32.min(cards.cap(word), 2))))))
 
-# The most a wish can ever give of held word `word`, or null for other words.
 def cards.wish_most(+word: String) -> J.Val:
   home.util.ite(J.Val, home.util.has_name(cards.WORDS(), word), u => J.JU{U32.min(cards.wish_cap(word), cards.cap(word))}, u => J.JNull{})
 
@@ -1250,7 +1193,6 @@ def cards.empties(+n: U32) -> List<&2, List<&2, F32>>:
     case _:
       Nil{} <> cards.empties((n - 1 : U32))
 
-# the number of earlier cards with this id: how many copies are already held
 def cards.copies(+seen: List<&2, String>, +id: String) -> U32:
   match seen:
     case Nil{}:
@@ -1299,7 +1241,6 @@ def cards.Bonus.effect.go(+families: List<&2, U32>, +name: String, +value: U32, 
       u => cards.Bonus.volley(acc, value),
       u => cards.Bonus.slot(acc, cards.index_of(name, cards.WORDS(), 0), value, wish, worth)))
 
-# a super effect on a wish whose recipe is not yet held
 def cards.Bonus.locked(+name: String, +families: List<&2, U32>) -> Bool:
   cards.Bonus.locked.of(combos.effect_word(name), families)
 
@@ -1344,7 +1285,6 @@ def cards.Bonus.add_sum(+acc: BonusAcc, +i: U32, +x: F32) -> BonusAcc:
     case BonusAcc{+sums, +wished, +volley, +seen}:
       BonusAcc{cards.fset(sums, i, F32.add(cards.fget(sums, i), x)), wished, volley, seen}
 
-# descending insertion sort
 def cards.fsort(+xs: List<&2, F32>) -> List<&2, F32>:
   match xs:
     case Nil{}:
@@ -1359,7 +1299,6 @@ def cards.fsort.ins(+x: F32, +xs: List<&2, F32>) -> List<&2, F32>:
     case Con{+h, +t}:
       home.util.ite(List<&2, F32>, F32.is_ge(x, h), u => x <> (h <> t), u => h <> cards.fsort.ins(x, t))
 
-# strongest whole, next half, next a quarter
 def cards.wish_sum(+v: List<&2, F32>) -> F32:
   match v:
     case Nil{}:
@@ -1384,7 +1323,6 @@ def cards.wish_sum.c(+s: F32, +r: List<&2, F32>) -> F32:
 def cards.fmin(+a: F32, +b: F32) -> F32:
   home.util.ite(F32, F32.is_lt(b, a), u => b, u => a)
 
-# each word's wishes into a share, and the power they come to
 def cards.Bonus.shares(+acc: BonusAcc, +floor: Maybe<&2, U32>) -> J.Val:
   match acc:
     case BonusAcc{+sums, +wished, +volley, +seen}:
@@ -1426,14 +1364,12 @@ def cards.Bonus.budget.over(+share: List<&2, F32>, +power: F32, +sums: List<&2, 
     u => cards.Bonus.capped(cards.Bonus.scale(share, F32.div(budget, power)), sums, volley),
     u => cards.Bonus.capped(share, sums, volley))
 
-# f32::round for a non-negative value
 def cards.round(+x: F32) -> F32:
   cards.round.t(F32.trunc(x), x)
 
 def cards.round.t(+t: F32, +x: F32) -> F32:
   home.util.ite(F32, F32.is_ge(F32.sub(x, t), 0.5), u => F32.add(t, 1.0), u => t)
 
-# `(value as u32).min(cap(word))`
 def cards.Bonus.cap_of(+i: U32, +sums: List<&2, F32>, +share: List<&2, F32>) -> U32:
   cards.Bonus.cap_word(combos.nth_str(cards.WORDS(), i), cards.fget(sums, i), cards.fget(share, i))
 
@@ -1444,7 +1380,6 @@ def cards.Bonus.cap_word(+word: String, +sum: F32, +share: F32) -> U32:
       u => cards.round(F32.add(sum, share)))),
     cards.cap(word))
 
-# value as u32 for a non-negative f32 (saturating)
 def home.util.round_u32.nn(+r: F32) -> U32:
   home.util.ite(U32, F32.is_ge(r, 4294967040.0), u => 4294967295, u => F32.to_u32(r))
 
@@ -1458,7 +1393,6 @@ def cards.Bonus.build(+share: List<&2, F32>, +sums: List<&2, F32>, +volley: U32,
       u => U32.min(Bool.to_u32(F32.is_gt(F32.add(cards.fget(sums, 20), cards.fget(share, 20)), 0.0)), cards.cap("boomerang")),
       u => cards.Bonus.cap_of(i, sums, share)))))
 
-# the words wishes made literal stay off the wire at zero
 def cards.Bonus.put(+o: J.Val, +word: String, +v: U32) -> J.Val:
   home.util.ite(J.Val, Bool.and(U32.is_eq(v, 0), cards.Bonus.optional(word)), u => o, u => J.set(o, word, J.JU{v}))
 
@@ -1490,9 +1424,6 @@ def case.cards.wish_cap(+input: J.Val) -> J.Val:
 def case.cards.wish_most(+input: J.Val) -> J.Val:
   cards.wish_most(J.str(J.get(input, "word")))
 
-# ---- Card helpers and the Book ------------------------------------------------------
-
-# A material card: it carries spoils home and drops on its own roll.
 def cards.Card.is_spoil(+card: J.Val) -> Bool:
   cards.Card.is_spoil.go(J.items(J.get(card, "effects")))
 
@@ -1503,15 +1434,12 @@ def cards.Card.is_spoil.go(+es: List<&2, J.Val>) -> Bool:
     case Con{+e, +t}:
       Bool.or(Bool.or(Bool.or(J.has(e, "bone"), J.has(e, "wax")), Bool.or(J.has(e, "ore"), J.has(e, "gem"))), Bool.or(Bool.or(J.has(e, "ember"), J.has(e, "scale")), cards.Card.is_spoil.go(t)))
 
-# A bottle: a card that mends or wards whoever drinks it.
 def cards.Card.drinks(+card: J.Val) -> Bool:
   Bool.or(cauldron.has_effect(card, "heal"), cauldron.has_effect(card, "ward"))
 
-# Written magic: a spell, or a card that says it is a scroll.
 def cards.Card.scroll(+card: J.Val) -> Bool:
   Bool.or(String.eq(J.str(J.get(card, "kind")), "spell"), String.contains(home.util.ascii_lower(J.str(J.get(card, "id")) ++ " " ++ J.str(J.get(card, "name"))), "scroll"))
 
-# A deep delve sheds the materials of its kin.
 def cards.Card.drops_in(+card: J.Val, +pack: String) -> Bool:
   cards.Card.drops_in.of(J.get(card, "only_in"), pack)
 
@@ -1525,7 +1453,6 @@ def cards.Card.drops_in.of(+only: J.Val, +pack: String) -> Bool:
 def cards.Card.art_rows(+card: J.Val) -> J.Val:
   J.get(card, "art")
 
-# The card with this id in the sorted book, or null.
 def cards.Book.get(+book: J.Val, +id: String) -> J.Val:
   cards.Book.get.go(J.items(J.get(book, "cards")), id)
 
@@ -1536,7 +1463,6 @@ def cards.Book.get.go(+cs: List<&2, J.Val>, +id: String) -> J.Val:
     case Con{+c, +t}:
       home.util.ite(J.Val, String.eq(J.str(J.get(c, "id")), id), u => c, u => cards.Book.get.go(t, id))
 
-# Add or replace a card; false when the book is full (1024 cards).
 def cards.Book.insert(+book: J.Val, +card: J.Val) -> J.Val & Bool:
   cards.Book.insert.go(J.get(book, "revision"), J.items(J.get(book, "cards")), card, Nil{}, book)
 
@@ -1562,7 +1488,6 @@ def cards.Book.insert.full(+book: J.Val, +rev: J.Val, +head: List<&2, J.Val>, +c
 def cards.Book.rebuild(+book: J.Val, +rev: J.Val, +cs: List<&2, J.Val>) -> J.Val:
   J.set(J.set(book, "revision", rev), "cards", J.JA{cs})
 
-# The weighted table of a roll: the card indexes with weight and the weights.
 def cards.Book.table(+cs: List<&2, J.Val>, +pack: String, +mode: U32, +i: U32) -> List<&2, Sigma<&2, &2, U32, _ => U32>>:
   match cs:
     case Nil{}:
@@ -1572,7 +1497,6 @@ def cards.Book.table(+cs: List<&2, J.Val>, +pack: String, +mode: U32, +i: U32) -
         u => (i, cards.Book.weight(c, pack, mode)) <> cards.Book.table(t, pack, mode, (i + 1 : U32)),
         u => cards.Book.table(t, pack, mode, (i + 1 : U32)))
 
-# mode 0 an ordinary drop, 1 the delve's material, 2 a chest's prize
 def cards.Book.weight(+c: J.Val, +pack: String, +mode: U32) -> U32:
   home.util.ite(U32, U32.is_eq(mode, 0),
     u => home.util.ite(U32, Bool.or(cards.Card.is_spoil(c), Bool.not(cards.Card.drops_in(c, pack))), u => 0, u => J.u32(J.get(c, "drop"))),
@@ -1594,7 +1518,6 @@ def cards.Book.index_at(+t: List<&2, Sigma<&2, &2, U32, _ => U32>>, +n: U32) -> 
     case Con{(+i, +w), +r}:
       home.util.ite(U32, U32.is_eq(n, 0), u => i, u => cards.Book.index_at(r, (n - 1 : U32)))
 
-# `roll`: the id picked off the weighted table, if the table is not empty.
 def cards.Book.roll(+book: J.Val, +rng: W.W, +pack: String, +mode: U32) -> W.W & Maybe<&2, String>:
   cards.Book.roll.go(J.items(J.get(book, "cards")), rng, cards.Book.table(J.items(J.get(book, "cards")), pack, mode, 0))
 
@@ -1616,7 +1539,6 @@ def cards.Book.roll_drop(+book: J.Val, +rng: W.W, +pack: String) -> W.W & Maybe<
 def cards.Book.roll_spoil(+book: J.Val, +rng: W.W, +pack: String) -> W.W & Maybe<&2, String>:
   cards.Book.roll(book, rng, pack, 1)
 
-# A chest holds one prize plus two ordinary drops: the generator and the ids.
 def cards.Book.roll_chest(+book: J.Val, +rng: W.W, +pack: String) -> W.W & List<&2, String>:
   cards.Book.roll_chest.prize(book, pack, cards.Book.roll(book, rng, pack, 2))
 
@@ -1641,30 +1563,22 @@ def cards.Book.roll_chest.third(+prize: Maybe<&2, String>, +first: Maybe<&2, Str
 def cards.case.ok(+input: J.Val) -> J.Val:
   input
 
-# Play cards a knight can carry; quaff plays the first.
 def cards.HAND() -> U32:
   4
 
-# Spells a knight can learn; keys 1-4 cast them.
 def cards.SPELL_SLOTS() -> U32:
   4
 
-# home.rs: the party stands at home, at the top of the Winding Stair
 def home.Run.at_home_now(+run: J.Val) -> Bool:
   U32.is_eq(J.u32(J.get(J.get(run, "dungeon"), "depth")), 0)
 
-# `Home::level`: how far up a station's ladder the realm has built (0 unbuilt).
 def home.Home.level(+home: J.Val, +station: String) -> U32:
   J.u32(J.get(J.get(home, "levels"), station))
 
-# ---- yard.rs: Grubbins' stall ---------------------------------------------------
-
-# What a card of each rarity costs at Grubbins' stall, in gold.
 def yard.stall_price(+card: J.Val) -> U32:
   home.util.ite(U32, String.eq(J.str(J.get(card, "rarity")), "common"), u => 60,
     u => home.util.ite(U32, String.eq(J.str(J.get(card, "rarity")), "rare"), u => 150, u => 300))
 
-# The stall's plate a point stands on: 0, 1 or 2, else 9.
 def yard.stall_plate(+x: F32, +y: F32) -> U32:
   home.util.ite(U32, talents.inside(17, 11, 2, 1, x, y), u => 0,
     u => home.util.ite(U32, talents.inside(19, 11, 2, 1, x, y), u => 1,

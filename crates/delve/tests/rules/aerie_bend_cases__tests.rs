@@ -56,7 +56,6 @@ fn in_the(kind: RoomKind, seed: u64, extra: usize) -> Run {
 fn record_aerie() {
     let mut r = Lcg(0xae71_e000_0000_0001);
     let kinds = [RoomKind::Belfry, RoomKind::Aqueduct, RoomKind::Aviary, RoomKind::Rookery];
-    // pigeon_at / flying / progress: pure.
     for seed in 0..12u64 {
         for kind in kinds {
             let run = in_the(kind, seed, 1);
@@ -111,7 +110,6 @@ fn record_aerie() {
         }
         cases::rec_cap("aerie.Pigeons.valid", &json!({"pigeons": jv(&p)}), &p.valid(), 80);
     }
-    // tick_aerie: the whole quest, in each place, with shots and swings and E.
     for seed in 0..40u64 {
         for kind in kinds {
             for extra in [0usize, 1, 3] {
@@ -121,7 +119,6 @@ fn record_aerie() {
                     run.marks.insert(QUEST_MARKS[1 + r.below(3) as usize].into(), 1);
                 }
                 for t in 0..3 * LAP {
-                    // Knights wander near the pigeon's path, the clerk, or a dropped paper.
                     let (px, py) = pigeon_at(run.room(), r.below(3) as usize, run.tick + 1);
                     for &id in &ids {
                         if r.below(5) == 0 {
@@ -168,7 +165,6 @@ fn record_aerie() {
                             170,
                         );
                     }
-                    // Go on from the result so the quest advances.
                     run = c;
                     if t % 90 == 89 && r.below(2) == 0 {
                         run.home.countryside.post = 1;

@@ -1,4 +1,3 @@
-"""Successful descriptor lifecycle accounting uses synthetic strace only."""
 import contextlib
 import importlib.util
 import io

@@ -18,12 +18,9 @@ mod moments;
 mod set;
 pub(super) mod walls;
 
-/// A test's switch to draw the room as it was before the belfry (for the
-/// frame-time bench's other side).
 #[cfg(test)]
 pub(crate) static OFF: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-/// The shoot in the room the party stands in.
 fn here(run: &Run) -> Option<&BatShoot> {
     #[cfg(test)]
     if OFF.load(std::sync::atomic::Ordering::Relaxed) {
@@ -32,9 +29,6 @@ fn here(run: &Run) -> Option<&BatShoot> {
     run.bats.as_ref().filter(|b| b.room == run.at)
 }
 
-/// The milliseconds each part of the belfry takes to draw one frame for
-/// `focus`, for the frame-time bench: the live set and the shots under the
-/// figures, the shots over them, the strip and the moments.
 #[cfg(test)]
 pub(crate) fn profile(run: &Run, focus: Option<u32>) -> [(&'static str, f64); 3] {
     use std::time::Instant;
@@ -54,20 +48,14 @@ pub(crate) fn profile(run: &Run, focus: Option<u32>) -> [(&'static str, f64); 3]
     out
 }
 
-/// Whether the room the party stands in is a belfry (its stone and boards
-/// are laid by `walls`, with the room's scenery).
 pub(super) fn walled(run: &Run) -> bool {
     here(run).is_some()
 }
 
-/// How far down the view the top marks reach, for boards that settle
-/// under them.
 pub(super) fn strip_bottom(run: &Run) -> Option<i32> {
     here(run).map(|_| hud::BOTTOM)
 }
 
-/// The belfry's set, live, over the scenery and under the figures, and the
-/// dust and rings the shots raise on the boards.
 pub(super) fn floor(cv: &mut Img, run: &Run, view: (i32, i32)) {
     let Some(shoot) = here(run) else {
         return;
@@ -76,13 +64,10 @@ pub(super) fn floor(cv: &mut Img, run: &Run, view: (i32, i32)) {
     fx::under(cv, run, shoot, view);
 }
 
-/// Whether room pixel `(x, y)` is near enough the view `view` to be worth
-/// drawing (`pad` pixels of slack for what reaches out of its point).
 fn near((x, y): (i32, i32), (vx, vy): (i32, i32), pad: i32) -> bool {
     x >= vx - pad && x < vx + NATIVE_W + pad && y >= vy - pad && y < vy + NATIVE_H + pad
 }
 
-/// What the shots do, over the figures (room pixels).
 pub(super) fn over(cv: &mut Img, run: &Run, focus: Option<u32>, view: (i32, i32)) {
     let Some(shoot) = here(run) else {
         return;
@@ -90,8 +75,6 @@ pub(super) fn over(cv: &mut Img, run: &Run, focus: Option<u32>, view: (i32, i32)
     fx::over(cv, run, shoot, focus, view);
 }
 
-/// The view's marks: the strip and the table's bar, the moments over the
-/// view; once the minute is out, the live finish and then the loft.
 pub(super) fn screen(over: &mut Img, run: &Run, focus: Option<u32>, origin: (i32, i32)) {
     let Some(shoot) = here(run) else {
         return;
@@ -105,7 +88,6 @@ pub(super) fn screen(over: &mut Img, run: &Run, focus: Option<u32>, origin: (i32
     moments::danger(over, run, shoot, focus, now);
     hud::strip(over, run, shoot, focus);
     moments::fly_ups(over, shoot, focus, origin, now);
-    // Once the minute is out the finish has the screen to itself.
     if shoot.show.ended.is_none() {
         moments::last_seconds(over, shoot);
         moments::callouts(over, run, shoot, focus, now);

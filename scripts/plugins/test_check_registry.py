@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Tests for check-registry.py: python3 scripts/plugins/test_check_registry.py"""
 
 import importlib.util
 import os
@@ -50,7 +49,6 @@ def entry(**changes):
 
 class Digest(unittest.TestCase):
     def test_spec_vector(self):
-        # The same vector cockpit's plugins tests hold the Rust digest to.
         files = [("link", "l", b"a.txt"), ("bin/run", "x", b"#!/bin/sh\necho hi\n"), ("a.txt", "f", b"hello\n")]
         self.assertEqual(cr.digest(files), "d2f3d9d9350d8e1555cc17cf052c71c89c0216c7b813d2407fc69b1a063754f5")
         self.assertEqual(cr.digest([]), "887dd9868d358ebe96f1be0d915f3540bf64d61384c4dc84e7ba4adb0b50d006")
@@ -128,7 +126,6 @@ class Fetched(unittest.TestCase):
         text = "\n".join(problems)
         self.assertIn("digest to", text)
         self.assertIn("version", text)
-        # A tool program that lost its mode, and a missing skill.
         broken = [(p, "f" if p == "bin/hello" else k, d) for p, k, d in files if p != "skills/hello/SKILL.md"]
         problems, _ = cr.plugin_problems("hello", entry(commit=self.commit, sha256=cr.digest(broken)), broken)
         text = "\n".join(problems)

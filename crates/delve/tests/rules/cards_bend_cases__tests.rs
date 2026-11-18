@@ -73,7 +73,6 @@ fn record_card_paint() {
         let request = card_paint::Request { candidates: cands };
         let mut input = to(&request);
         if round % 9 == 4 {
-            // tampered captures
             match m.below(5) {
                 0 => input["candidates"][0]["current"]["id"] = json!("Bad_Id"),
                 1 => input["extra"] = json!(1),
@@ -92,8 +91,6 @@ fn record_card_paint() {
     main.save();
     forged.save();
 }
-
-// ---------------------------------------------------------------------------
 
 const NAMES: &[&str] = &[
     "Frostbriar Orchard", "Thistle Storm", "Cabbage Storm", "Hedge Maze", "Potent Cabbage Storm II",
@@ -181,7 +178,6 @@ fn record_brew() {
     for round in 0..170 {
         let (run, claim) = brew_claim(&mut m);
         let taken = cauldron::taken(&run.book);
-        // The model's answer: a checked card, now and then the very input.
         let card = if m.chance(12) {
             let mut c = claim.work.inputs[m.below(2) as usize].clone();
             if m.chance(50) {
@@ -215,8 +211,6 @@ fn record_brew() {
     main.save();
     looks.save();
 }
-
-// ---------------------------------------------------------------------------
 
 #[test]
 #[ignore]
@@ -268,8 +262,6 @@ fn record_reforge() {
     main.save();
     forged.save();
 }
-
-// ---------------------------------------------------------------------------
 
 const WISHES: &[&str] = &[
     "wish captured-grace | Captured Grace\nsay golden grace\ntier damage 10 :: Grace\n",

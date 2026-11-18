@@ -24,7 +24,6 @@ use angel_delve::render::overworld::arena::{self, stage_frame::StageMaker};
 use angel_delve::rules::{Input, Item, RoomKind, Run, Tile, cards::Book};
 use angel_gpu::{Core, Draw, Frame, Instance, Picture, Stage};
 
-/// The stage's picture id, as the cockpit names the Delve's.
 const STAGE: u32 = 0x00FA_57A4;
 
 fn main() -> ExitCode {
@@ -46,8 +45,6 @@ fn run() -> Result<(), String> {
             "--frames" => frames = words.next().and_then(|w| w.parse().ok()).ok_or(usage)?,
             "--scale" => scale = words.next().and_then(|w| w.parse().ok()).filter(|&s| (1..=8).contains(&s)).ok_or(usage)?,
             "--post" => post = Some(words.next().ok_or(usage)? == "on"),
-            // The last frame drawn with the screen shaking this many ticks
-            // more (a guardian's fall is 12): the post pass's impact.
             "--shake" => shake = words.next().and_then(|w| w.parse().ok()).ok_or(usage)?,
             _ if out.is_none() => out = Some(PathBuf::from(word)),
             other => return Err(format!("`{other}`: {usage}")),
@@ -70,7 +67,6 @@ fn run() -> Result<(), String> {
     for (id, name) in [(2, "Bryn"), (3, "Cass"), (4, "Dain")] {
         run.join_seat(id, name);
     }
-    // Pickups on the floor about the party.
     let book = Book::builtin();
     let (hx, hy) = run.players.values().next().map(|h| (h.x, h.y)).ok_or("no knight")?;
     {
@@ -105,7 +101,6 @@ fn run() -> Result<(), String> {
     let mut by_id: BTreeMap<u32, (usize, usize, (u32, u32))> = BTreeMap::new();
     let mut last = None;
     for k in 0..frames + warm {
-        // Every knight moving and firing, each its own way round.
         let mut inputs = BTreeMap::new();
         for (n, id) in run.players.keys().copied().enumerate() {
             let turn = (k / 20 + n * 2) % 8;
@@ -115,7 +110,6 @@ fn run() -> Result<(), String> {
             inputs.insert(id, Input { aim_x: ax, aim_y: ay, move_x: mx * ((k / 40) % 2) as i8, move_y: my * ((k / 40) % 2) as i8, fire: true, ..Default::default() });
         }
         run.step(&inputs);
-        // Keep the fight going: monsters come back when the room empties.
         let at = run.at;
         if run.dungeon.rooms[at].cleared && k % 120 == 0 {
             run.dungeon.rooms[at].cleared = false;
@@ -224,9 +218,6 @@ impl Gpu {
         Ok(Self { core, device, target: None })
     }
 
-    /// A Delve frame drawn as the window draws its stage, into a texture
-    /// `size` pixels on black: the CPU milliseconds of drawing it, and of
-    /// waiting for the GPU after.
     fn stage(&mut self, mut frame: angel_stage::Frame, size: (u32, u32), now: f64) -> (f64, f64) {
         let t0 = Instant::now();
         for p in std::mem::take(&mut frame.pictures) {

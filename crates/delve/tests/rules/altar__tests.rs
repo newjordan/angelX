@@ -4,7 +4,6 @@ fn e(id: u32) -> BTreeMap<u32, Input> {
     BTreeMap::from([(id, Input { interact: true, ..Default::default() })])
 }
 
-/// Knight `id` stands just south of the altar's lamp, holding wishes.
 fn at_the_lamp(run: &mut Run, id: u32, wishes: u8) {
     let (x, y) = run.wish_altar().expect("an altar in this room");
     let hero = run.players.get_mut(&id).unwrap();
@@ -33,10 +32,8 @@ fn e_at_the_lamp_opens_a_knights_wish_line_once_per_press() {
     assert!(run.near_altar(1));
     run.step(&e(1));
     let first = *run.lamp.rubbed.get(&1).expect("the lamp was rubbed");
-    // Held down, it rubs once.
     run.step(&e(1));
     assert_eq!(run.lamp.rubbed[&1], first);
-    // Let go and pressed again: a newer rub, for the seat to open again.
     run.step(&BTreeMap::new());
     run.step(&e(1));
     assert!(run.lamp.rubbed[&1] > first);
@@ -104,7 +101,6 @@ fn a_grant_lands_on_its_knight_in_the_middle_of_a_fight() {
         .position(|r| r.kind == RoomKind::Fight && !r.great())
         .unwrap();
     run.enter_for_test(fight);
-    // The fight is on: monsters stand and the knight is shooting.
     for _ in 0..30 {
         run.step(&BTreeMap::from([(1, Input { aim_x: 1, fire: true, ..Default::default() })]));
     }
@@ -117,7 +113,6 @@ fn a_grant_lands_on_its_knight_in_the_middle_of_a_fight() {
     assert!(run.players[&1].deck.iter().any(|c| c == "wish-ricochet-1"));
     assert!(run.lamp.wishing.is_empty(), "no longer in flight");
     assert!(run.lamp.flaring(run.tick).is_some_and(|l| l.knight == 1), "the lamp flares");
-    // The knight fights on with it, the room still being fought.
     for _ in 0..10 {
         run.step(&BTreeMap::from([(1, Input { aim_x: 1, fire: true, ..Default::default() })]));
     }
@@ -151,8 +146,6 @@ fn the_altar_is_stone_a_knight_does_not_walk_into_it() {
 
 #[test]
 fn a_knight_walking_into_the_altar_goes_round_it() {
-    // A corner of the stone, not its middle: walking into that end slides
-    // along the edge and comes out beside the altar, never through it.
     let mut run = Run::new(7, 1, None);
     run.open_room_for_test(0);
     run.enemies.clear();
@@ -187,8 +180,6 @@ fn a_knight_walking_into_the_altar_goes_round_it() {
 
 #[test]
 fn a_knight_walking_into_the_middle_of_the_altar_stays_on_the_near_side() {
-    // An open room, straight into the middle of a face: the stone holds.
-    // They stay outside it, on the side they walked in from.
     let mut run = Run::new(7, 1, None);
     run.open_room_for_test(0);
     run.enemies.clear();
@@ -221,8 +212,6 @@ fn a_knight_walking_into_the_middle_of_the_altar_stays_on_the_near_side() {
 
 #[test]
 fn the_altar_is_not_stood_where_its_stone_fills_a_passage() {
-    // A three-tile passage between two chambers. The search begins in the
-    // passage; standing there would seal the far chamber.
     let cols = 30;
     let rows = 20;
     let tiles = vec![Tile::Wall; cols * rows];
@@ -237,7 +226,6 @@ fn the_altar_is_not_stood_where_its_stone_fills_a_passage() {
     carve(&mut room, 8, 22, 2, 7);
     carve(&mut room, 13, 16, 7, 14);
     carve(&mut room, 8, 22, 14, 18);
-    // Anchor (tile(x) - 6, tile(y) - 2) = (14, 10), in the passage.
     let found = spot(&room, Some((41.0, 25.0))).expect("a chamber still has room for the altar");
     let (c, r) = ((found.0 / TILE_UNITS) as i32, (found.1 / TILE_UNITS) as i32 - 1);
     assert!(
@@ -250,8 +238,6 @@ fn the_altar_is_not_stood_where_its_stone_fills_a_passage() {
 fn the_altar_spot_is_chosen_once_and_kept() {
     let mut run = Run::new(7, 1, None);
     let spot = run.wish_altar().unwrap();
-    // The stone stands on this tile. Wall its footprint so a fresh search
-    // would stand the altar somewhere else. The kept spot does not move.
     let (c, r) = ((spot.0 / TILE_UNITS) as i32, (spot.1 / TILE_UNITS) as i32 - 1);
     {
         let room = &mut run.dungeon.rooms[run.at];
@@ -298,7 +284,6 @@ fn a_rub_breathes_and_the_genie_shimmers_up_a_breath_after() {
             genie.push(run.tick);
         }
     }
-    // Once, as the picture has him rise out of the smoke.
     assert_eq!(genie.len(), 1, "{genie:?}");
     assert_eq!(genie[0] - rubbed, altar::GENIE_AT);
 }
@@ -312,12 +297,10 @@ fn a_grant_lands_grander_at_each_tier() {
     run.sounds.clear();
     run.grant(1, &wish).expect("granted");
     assert!(run.sounds.contains(&"wish_land") && !run.sounds.contains(&"wish_grant"), "{:?}", run.sounds);
-    // Climbing on to III in the same breath lands once, at III.
     run.grant(1, &wish).expect("II");
     run.grant(1, &wish).expect("III");
     let landed: Vec<&str> = run.sounds.iter().copied().filter(|s| LAND_SOUNDS.contains(s)).collect();
     assert_eq!(landed, ["wish_land_grand"]);
-    // A later wish lands on its own, even with the last still unheard.
     run.step(&BTreeMap::new());
     run.grant(1, &phrasebook::get("seeker").unwrap()).expect("granted");
     let landed: Vec<&str> = run.sounds.iter().copied().filter(|s| LAND_SOUNDS.contains(s)).collect();

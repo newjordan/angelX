@@ -8,22 +8,18 @@
 use super::super::ink::{Img, hash};
 use crate::rules::{Hero, spectacle::STRUCK};
 
-/// Held flash ticks. A heavy hit holds it a tick longer.
 fn white_ticks(hero: &Hero) -> u32 {
     if hero.struck_big { 5 } else { 4 }
 }
 
-/// Ticks since the hit landed.
 fn age(hero: &Hero) -> u32 {
     STRUCK.saturating_sub(hero.struck)
 }
 
-/// Whether the figure is white this tick: while it is, it never blinks.
 pub(super) fn whiteout(hero: &Hero) -> bool {
     hero.struck > 0 && age(hero) < white_ticks(hero)
 }
 
-/// The exact silhouette with cool shadows and warm hit highlights.
 fn silhouette(im: &Img) -> Img {
     let mut out = Img::new(im.w, im.h);
     for y in 0..im.h {
@@ -37,8 +33,6 @@ fn silhouette(im: &Img) -> Img {
     out
 }
 
-/// The figure as the hit leaves it, and where it stands: `(picture, dx, dy)`
-/// in pixels from where the knight is. Upright and unmoved when not struck.
 pub(super) fn pose(im: &Img, hero: &Hero) -> (Img, i32, i32) {
     if hero.struck == 0 {
         return (im.clone(), 0, 0);
@@ -51,8 +45,6 @@ pub(super) fn pose(im: &Img, hero: &Hero) -> (Img, i32, i32) {
     (bent(im, bend), dx, dy)
 }
 
-/// How far the flinch has thrown the knight: a bend (pixels the top leans),
-/// and the step back.
 fn lean(hero: &Hero) -> (i32, i32, i32) {
     let a = age(hero);
     let ease = 1.0 - (a as f32 / STRUCK as f32);
@@ -64,8 +56,6 @@ fn lean(hero: &Hero) -> (i32, i32, i32) {
     (bend, dx, dy + if a < 8 { 1 } else { 0 })
 }
 
-/// `im` with its upper half pushed sideways `bend` pixels: a knight bent
-/// over from a blow, the feet staying put.
 fn bent(im: &Img, bend: i32) -> Img {
     if bend == 0 {
         return im.clone();
@@ -73,7 +63,6 @@ fn bent(im: &Img, bend: i32) -> Img {
     let mut out = Img::new(im.w + bend.abs(), im.h);
     let base = if bend < 0 { -bend } else { 0 };
     for y in 0..im.h {
-        // Nothing moves below the knees; the head moves the most.
         let share = (im.h - 1 - y).saturating_sub(im.h / 4) as f32 / (im.h as f32 * 0.75);
         let shift = (bend as f32 * share.clamp(0.0, 1.0)).round() as i32;
         for x in 0..im.w {
@@ -85,8 +74,6 @@ fn bent(im: &Img, bend: i32) -> Img {
     out
 }
 
-/// Sparks thrown from the knight's chest at `(x, y)` (their feet), and for a
-/// moment a burst where the blow landed.
 pub(super) fn sparks(cv: &mut Img, hero: &Hero, id: u32, x: i32, y: i32) {
     if hero.struck == 0 {
         return;
@@ -94,7 +81,6 @@ pub(super) fn sparks(cv: &mut Img, hero: &Hero, id: u32, x: i32, y: i32) {
     let a = age(hero) as f32;
     let (cx, cy) = (x as f32, (y - 7) as f32);
     let seed = hash(hero.hp as i32, id as i32, 17);
-    // The burst: a ring of rays at the moment of the blow.
     if a < 3.0 {
         let r = 3.0 + a * 3.0;
         for k in 0..8 {
@@ -113,7 +99,6 @@ pub(super) fn sparks(cv: &mut Img, hero: &Hero, id: u32, x: i32, y: i32) {
     let (dirx, diry) = hero.struck_dir;
     for n in 0..count {
         let h = hash(n, seed as i32, 29);
-        // Thrown out and up, biased the way the blow came from.
         let ang = (h % 628) as f32 / 100.0;
         let speed = 1.6 + ((h >> 10) % 100) as f32 / 40.0;
         let life = 6.0 + ((h >> 18) % 8) as f32;

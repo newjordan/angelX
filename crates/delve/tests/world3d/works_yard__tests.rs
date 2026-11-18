@@ -13,7 +13,6 @@ fn run() -> Run {
     crate::world3d::kingdom::proof_run(&[[133.0 * 16.0, 87.0 * 16.0]])
 }
 
-/// How far a node reaches up (kingdom pixels): half its extent along each of its axes, as turned.
 fn up(n: &Node) -> f32 {
     let t = &n.transform;
     [[1.0f32, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
@@ -23,12 +22,10 @@ fn up(n: &Node) -> f32 {
         .sum()
 }
 
-/// How high above the ground (kingdom pixels) the highest node reaches.
 fn height(nodes: &[Node]) -> f32 {
     nodes.iter().map(|n| n.transform.translation[1] + up(n)).fold(0.0, f32::max)
 }
 
-/// Whether a node is a long piece standing upright: a post or a rung's rail.
 fn upright(n: &Node) -> bool {
     angel_stage::scene::quat_rotate(n.transform.rotation, [1.0, 0.0, 0.0])[1].abs() > 0.8 && n.transform.scale[0] > 2.5 * K
 }
@@ -41,10 +38,8 @@ fn the_crane_stands_the_height_of_its_lift_with_a_pennon_on_top() {
         let base = wl::crane(c, laid, 0.0).expect("a crane");
         let y = of(c, &r, laid, laid + 320, 0.0);
         assert!(!y.nodes.is_empty());
-        // The mast reaches its top, and the pennon over it.
         let tall = height(&y.nodes);
         assert!(tall >= base.top * K, "laid {laid}: the highest node is {tall}, the mast {}", base.top * K);
-        // The mast is a tower, not a stick laid on the ground: a good part of the nodes stand up.
         let posts = y.nodes.iter().filter(|n| upright(n)).count();
         assert!(posts >= 8, "laid {laid}: {posts} upright pieces");
         assert!(y.zone.is_some() && y.lane.is_some());
@@ -56,7 +51,6 @@ fn the_crane_stands_the_height_of_its_lift_with_a_pennon_on_top() {
 fn the_crane_turns_lifts_and_sets_a_stone_where_the_flat_view_does() {
     let c = tower();
     let r = run();
-    // Wherever the cycle is, the stone hangs from the jib's tip once it is off the ground.
     let (mut hung, mut grounded) = (false, false);
     for k in 0..90 {
         let t = k as f32 * 0.1;
@@ -98,11 +92,8 @@ fn the_stack_is_the_yards_own_stock_and_carts_come_while_stone_is_wanted() {
     r.hands.yard.cut = 24;
     let full = of(c, &r, 5000, 5000, 0.0).nodes.len();
     assert!(full > bare + 5, "{bare} -> {full}");
-    // A finished castle has no carts, no stack and no stone on the hook.
     let done = of(c, &r, c.len(), c.len(), 0.0);
     assert!(done.nodes.len() < bare / 2, "{} nodes still", done.nodes.len());
-    // Through a turn of the carts' cycle the yard changes: a cart on the lane, standing at the bay with
-    // hodmen carrying, going out empty.
     let mut counts = std::collections::BTreeSet::new();
     for k in 0..600 {
         r.tick = k * 15;
@@ -136,8 +127,6 @@ fn a_path_is_walked_by_its_length_and_heads_the_way_it_goes() {
     assert_eq!(along(&p, 99.0).0, [4.0, 3.0]);
 }
 
-// ------------------------------------------------------ the sim's yard ----
-
 fn yard_of(cut: u32, carts: Vec<hill::YardCart>) -> KeepYard {
     KeepYard { rect: [147, 96, 149, 96], cut, rough: 0, mortar: 0, timber: 0, can_pay: cut > 0, carts }
 }
@@ -158,7 +147,6 @@ fn what_the_yard_holds_is_what_is_drawn_and_an_empty_yard_is_bare() {
     assert_eq!(few.blocks, 1);
     assert!(few.blocks < many.blocks && many.blocks < most.blocks.max(many.blocks + 1));
     assert_eq!(most.blocks, slots as u32 * 2, "the stack is as tall as its place");
-    // Without the sim it is the Works' own stock, and the old yard's heap and pile stand.
     let stub = held(&r, None, slots);
     assert_eq!((stub.lumps, stub.logs), (3, 3));
 }
@@ -174,22 +162,18 @@ fn the_sims_carts_stand_in_the_bailey_where_the_sim_has_them() {
         pen.out
     };
     assert!(count(&yard_of(40, Vec::new())).is_empty(), "no cart on the way, none in the bailey");
-    // A cart a dozen tiles out is on the lane, one far down the road is not (it is drawn there).
     let on_lane = count(&yard_of(40, vec![cart(0, 6.0, Delivery::Hauling, 0)]));
     assert!(!on_lane.is_empty());
     assert!(count(&yard_of(40, vec![cart(0, 40.0, Delivery::Hauling, 0)])).is_empty());
-    // At its berth the unloading cart has two hodmen to carry its load, while the sim has it unloading.
     let berth = count(&yard_of(40, vec![cart(0, 0.0, Delivery::Unloading, 3)]));
     let waiting = count(&yard_of(40, vec![cart(0, 0.0, Delivery::Waiting, 0)]));
     assert!(berth.len() > waiting.len(), "hodmen at the unloading cart: {} against {}", berth.len(), waiting.len());
-    // Two carts stand one behind the other, not on one spot.
     let spot = |nodes: &[Node]| nodes.iter().map(|n| n.transform.translation[0].round() as i64).max();
     let two = count(&yard_of(40, vec![cart(0, 0.0, Delivery::Unloading, 3), cart(1, 0.0, Delivery::Waiting, 0)]));
     assert!(two.len() > berth.len());
     assert_ne!(spot(&two), spot(&berth), "the second cart stands behind the first");
 }
 
-/// A run with the hillside kingdom founded, rich, and the Keep staked in the sim from the game's wall.
 fn live() -> Run {
     use crate::kingdom::catalog;
     let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
@@ -210,7 +194,6 @@ fn live() -> Run {
     run
 }
 
-/// What the yard stands as, as numbers a comparison can use.
 fn shape(y: &Yard) -> Vec<([i64; 3], [i64; 3])> {
     let q = |v: [f32; 3]| v.map(|x| (x * 100.0).round() as i64);
     y.nodes.iter().map(|n| (q(n.transform.translation), q(n.transform.scale))).collect()
@@ -224,7 +207,6 @@ fn a_stocked_yard_works_the_crane_and_a_dry_one_stands_it_idle() {
     let site = r.keep_live().expect("live");
     let laid = r.sites.keep().expect("a site").laid;
     let yard_id = r.home.industry.sites[&site].yard;
-    // Stocked: the stage in hand's whole bill, the scaffold's poles and an arch's centring, and plenty of dressed stone.
     {
         use crate::kingdom::{catalog, site::stage_needs};
         let c = catalog();
@@ -243,9 +225,7 @@ fn a_stocked_yard_works_the_crane_and_a_dry_one_stands_it_idle() {
     let working_later = of(c, &r, laid, laid + 320, 3.7);
     assert_ne!(shape(&working), shape(&working_later), "the crane turns while the yard can pay");
     assert!(working.lamps.len() >= 3, "the lantern is lit");
-    // The supply stops: the yard is emptied and the masons cannot be paid.
     r.home.industry.buildings.get_mut(&yard_id).expect("the yard").input.clear();
-    // (The view is kept for the sim's revision and second it was read at; a sim that changed would have moved them.)
     r.home.industry.rev += 1;
     let r2 = r.clone();
     let hv = crate::world::hillside::of(&r2).expect("the hillside");
@@ -266,7 +246,6 @@ fn the_carts_the_sim_sends_to_the_keeps_yard_are_read_and_drawn_in_the_bailey_no
     let mut r = live();
     let site = r.keep_live().expect("live");
     let yard_id = r.home.industry.sites[&site].yard;
-    // A carter's yard with a cart, the cart at the stockyard's door bound for it and unloading.
     let carter = {
         let k = &mut r.home.industry;
         k.stock.insert("timber".into(), 600);

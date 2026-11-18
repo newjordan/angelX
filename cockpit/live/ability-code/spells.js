@@ -1,6 +1,3 @@
-// Add an executable ability here without another Rust spell variant. The game
-// port accepts projectiles, healing, movement and area statuses. Instances
-// own their timeline and retain this file's captured generation until done.
 const fairy = require('./fairies.compiled')
 const { $: skillTag, parameters: { $: parametersTag, ...fairyParameters }, ...fairyDefinition } = fairy.definition()
 exports.definitions = {

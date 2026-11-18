@@ -10,9 +10,7 @@ use super::world::*;
 use super::*;
 use std::collections::VecDeque;
 
-/// How near a foe must be for the bot to take it on, in pixels.
 const ENGAGE: i32 = 150;
-/// The bot raises its shield this many ticks before a blow lands.
 const PARRY_LEAD: u16 = 5;
 
 fn sign(v: i32, dead: i32) -> i8 {
@@ -26,7 +24,6 @@ fn sign(v: i32, dead: i32) -> i8 {
 }
 
 impl Session {
-    /// What bot `id` presses this tick.
     pub fn bot_input(&self, id: u32, _hero: &Hero, r: &Rules) -> Input {
         let Some(me) = self.seats.get(&id) else {
             return Input::default();
@@ -53,11 +50,9 @@ impl Session {
         {
             return self.bot_fight(id, me, f, r);
         }
-        // A foe still asleep across the room: wake it.
         if let Some(f) = foe {
             return self.bot_goto(me, (f.x, f.y), 30, false);
         }
-        // A friend on the ground, and nothing about: lift them.
         if let Some(o) = self.seats.values().find(|o| o.id != me.id && o.act == Act::Down) {
             let mut i = self.bot_goto(me, (o.x, o.y), 10, false);
             if dist(o.x - me.x, o.y - me.y) < 18 * Q {
@@ -68,10 +63,6 @@ impl Session {
         self.bot_objective(id, me, r)
     }
 
-    // ----- walking ------------------------------------------------------
-
-    /// The way to walk now to get to tile `to` from where the knight is:
-    /// breadth-first over the tiles a body can enter.
     fn bot_step(&self, me: &Seat, to: (i32, i32)) -> (i8, i8) {
         let p = plan(usize::from(self.room));
         let (w, h) = (p.w(), p.h());
@@ -109,7 +100,6 @@ impl Session {
         if to.0 < 0 || to.1 < 0 || to.0 >= w || to.1 >= h || came[(to.1 * w + to.0) as usize].is_none() {
             return (0, 0);
         }
-        // Back from the goal to the tile after ours.
         let mut at = to;
         while let Some(prev) = came[(at.1 * w + at.0) as usize] {
             if prev == from {
@@ -117,11 +107,9 @@ impl Session {
             }
             at = prev;
         }
-        // Aim for the middle of that tile, so a corner is cut cleanly.
         (sign(middle(at.0) - me.x, Q), sign(middle(at.1) - me.y, Q))
     }
 
-    /// Walk to a point; press E there when `press`.
     fn bot_goto(&self, me: &Seat, to: (i32, i32), reach_px: i32, press: bool) -> Input {
         let mut i = Input::default();
         let d = dist(to.0 - me.x, to.1 - me.y);
@@ -134,8 +122,6 @@ impl Session {
                 i.move_y = sign(to.1 - me.y, Q);
             }
         }
-        // Face it with the arrows, and press E every other tick (a press is
-        // an edge).
         i.aim_x = sign(to.0 - me.x, 3 * Q);
         i.aim_y = sign(to.1 - me.y, 3 * Q);
         if press && d <= (reach_px + 6) * Q {
@@ -143,8 +129,6 @@ impl Session {
         }
         i
     }
-
-    // ----- fighting a snuffer ---------------------------------------------
 
     fn bot_fight(&self, id: u32, me: &Seat, f: &Foe, r: &Rules) -> Input {
         let d = dist(f.x - me.x, f.y - me.y);
@@ -154,7 +138,6 @@ impl Session {
             ..Default::default()
         };
         let reach = (18 + 6) * Q;
-        // The hood: light first, then the blade.
         if f.hooded && f.lit < 12 && self.inv.lantern && me.flame > 5 && d < FLARE_R * Q {
             i.fire = true;
         }
@@ -164,7 +147,6 @@ impl Session {
                 if f.st == Fs::Strike || f.t <= PARRY_LEAD {
                     i.dash = true;
                 } else {
-                    // Out of the line, sideways.
                     let side = (-toward.1, toward.0);
                     let s = if id.is_multiple_of(2) { 1 } else { -1 };
                     i.move_x = sign(side.0 * s, Q / 4);
@@ -180,7 +162,6 @@ impl Session {
                     i.move_y = -sign(toward.1, Q / 4);
                 } else if f.vulnerable() {
                     i.swing = self.elapsed.is_multiple_of(2);
-                    // A little circling keeps it from lunging into the face.
                     if f.st == Fs::Drift {
                         let side = (-toward.1, toward.0);
                         let s = if id.is_multiple_of(2) { 1 } else { -1 };
@@ -190,13 +171,10 @@ impl Session {
                 }
             }
         }
-        // Whatever is not walking faces its foe.
         i.aim_x = sign(f.x - me.x, 4 * Q);
         i.aim_y = sign(f.y - me.y, 4 * Q);
         i
     }
-
-    // ----- the Warden -------------------------------------------------------
 
     fn bot_boss(&self, id: u32, me: &Seat, w: &Warden, r: &Rules) -> Input {
         let seats = self.seats.len() as u32;
@@ -208,7 +186,6 @@ impl Session {
             ..Default::default()
         };
         let exposed = self.boss_exposed();
-        // A snuffer on top of us comes first, unless the heart is open.
         if !exposed
             && let Some(f) = self
                 .foes
@@ -223,7 +200,6 @@ impl Session {
         let lighter = rank < w.need(seats);
         let open_for = w.open_for(self.elapsed, seats);
         let near = w.radius() + 12 * Q;
-        // Be where the job is: lighters at range, strikers at the heart.
         let strike = exposed && (!lighter || open_for > 30) && w.st != Ws::Dying;
         let stand = if strike { near } else { 62 * Q };
         if d > stand + 6 * Q {
@@ -241,12 +217,9 @@ impl Session {
         }
         i.aim_x = sign(hx - me.x, 4 * Q);
         i.aim_y = sign(hy - me.y, 4 * Q);
-        // Light the heart: a tap of the lantern, every so often.
         if !exposed || (lighter && open_for < 24) {
             let mine = w.lit[(id as usize - 1).min(5)];
             let cost = r.flame / BOLT_COST_PARTS;
-            // A light holds the heart for `EXPOSE_TICKS`: a fresh one is thrown
-            // as the last runs low, not before.
             if lighter
                 && me.flame >= cost
                 && self.elapsed.saturating_sub(mine) + 28 > EXPOSE_TICKS
@@ -259,15 +232,12 @@ impl Session {
         if strike && d <= near + 14 * Q {
             i.swing = self.elapsed.is_multiple_of(2);
         }
-        // Its blows.
         let dm = dist(w.x - me.x, w.y - me.y);
         match (w.st, w.atk) {
             (Ws::Strike, Atk::Slam) => {
                 let elapsed = i32::from(SLAM_TICKS - w.t);
                 let ring = (12 + SLAM_SPEED * elapsed) * Q;
-                // The ring is three or four ticks off: up and over.
                 if (6 * Q..=20 * Q).contains(&(dm - ring)) && me.z == 0 && !matches!(me.act, Act::Hop | Act::Roll | Act::Item) {
-                    // Over it: a backflip, locked on.
                     i.interact = self.elapsed.is_multiple_of(2);
                     i.ult = true;
                     i.move_x = 0;
@@ -275,13 +245,10 @@ impl Session {
                     i.swing = false;
                 }
             }
-            // A beam's tell: all but one leave the wedge; that one waits to
-            // parry it.
             (Ws::Tell, Atk::Beam) if rank > 0 => {
                 let mine = angle_of(me.x - w.x, me.y - w.y);
                 let off = turn(w.aim, mine);
                 if off.abs() < BEAM_HALF + 14 && dm < BEAM_LEN * Q {
-                    // Out of it by the nearer edge, round the Warden.
                     let side = if off >= 0 { 1 } else { -1 };
                     let a = w.aim + side * (BEAM_HALF + 24);
                     let target = ((w.x + cos_q(a) * 70), (w.y + sin_q(a) * 70));
@@ -297,8 +264,6 @@ impl Session {
                 let beam = w.aim - BEAM_HALF + BEAM_HALF * 2 * elapsed / i32::from(BEAM_TICKS);
                 let mine = angle_of(me.x - w.x, me.y - w.y);
                 let beams = if w.phase >= 2 { 2 } else { 1 };
-                // The beam sweeps toward larger angles: it is coming when it
-                // is a few degrees behind our bearing.
                 let coming = (0..beams).any(|b| (-10..=14).contains(&turn(beam + 180 * b, mine)));
                 if coming && dm < BEAM_LEN * Q {
                     i.dash = true;
@@ -313,9 +278,6 @@ impl Session {
         i
     }
 
-    // ----- the rooms ----------------------------------------------------------
-
-    /// The nearest of `tiles` to the knight.
     fn bot_nearest(&self, me: &Seat, tiles: &[(i32, i32)]) -> Option<(i32, i32)> {
         tiles
             .iter()
@@ -340,7 +302,6 @@ impl Session {
         };
         match (self.room, self.stage) {
             (0, 0) => {
-                // Nothing awake: walk up to the snuffer.
                 match self
                     .foes
                     .iter()
@@ -353,7 +314,6 @@ impl Session {
             }
             (0, _) => self.bot_exit(me),
             (1, 0) => {
-                // Three braziers, one ember: each fetches a flame, lights one.
                 let unlit: Vec<usize> = (0..self.props.len())
                     .filter(|&j| self.props[j].kind == Pk::Brazier && !self.props[j].lit())
                     .collect();
@@ -376,7 +336,6 @@ impl Session {
                 None => Input::default(),
             },
             (1, 3) => {
-                // South of the cage, the lantern thrown north through the bars.
                 let spot = (middle(24), middle(7));
                 let mut i = self.bot_goto(me, spot, 4, false);
                 i.aim_x = 0;
@@ -392,7 +351,6 @@ impl Session {
             (2, 0) if self.props.iter().any(|p| p.kind == Pk::Gate && p.id == 1 && p.on == 1) => {
                 self.bot_gallery(id, me)
             }
-            // The second knight holds the second plate for the rest.
             (2, 0) if rank == 1 => match self.props.iter().find(|p| p.kind == Pk::Plate && p.id == 1) {
                 Some(p) => self.bot_goto(me, (p.x, p.y), 2, false),
                 None => Input::default(),
@@ -402,7 +360,6 @@ impl Session {
                 let plate = self.props.iter().find(|p| p.kind == Pk::Plate);
                 match (block, plate) {
                     (Some(b), Some(p)) if first && b.tx != p.tx => {
-                        // Behind the block, then east into it.
                         let behind = (b.x - TILE * Q, b.y);
                         if me.x < b.x - 10 * Q && dist(behind.0 - me.x, behind.1 - me.y) > 6 * Q {
                             self.bot_goto(me, behind, 3, false)
@@ -415,7 +372,6 @@ impl Session {
                         }
                     }
                     (_, Some(p)) => {
-                        // The rest wait by the gate for it to rise.
                         self.bot_goto(me, (p.x + TILE * Q, p.y + 2 * TILE * Q), 10, false)
                     }
                     _ => Input::default(),
@@ -424,7 +380,6 @@ impl Session {
             (2, 1) => self.bot_exit(me),
             (2, _) => self.bot_gallery(id, me),
             (3, 0) => {
-                // The dark: head for the nearest snuffer's glow.
                 match self
                     .foes
                     .iter()
@@ -472,7 +427,6 @@ impl Session {
                 _ => self.bot_goto(me, (middle(14), middle(8)), 10, false),
             },
             (3, 4) => {
-                // The carrier opens the Boss Key door; the rest wait.
                 let carrier = matches!(self.inv.boss, Hold::Carried(c, ..) if u32::from(c) == id);
                 let door = plan(3).find(b'M').first().copied().unwrap_or((29, 8));
                 if carrier {
@@ -512,26 +466,19 @@ impl Session {
         }
     }
 
-    /// The Gallery's zone two: one knight stands where the turret's bolt, met
-    /// with a shield in its first ticks, goes to the crystal; the rest keep
-    /// back so the turret picks that one.
     fn bot_gallery(&self, id: u32, me: &Seat) -> Input {
         let ids: Vec<u32> = self.seats.keys().copied().collect();
         let rank = ids.iter().position(|&x| x == id).unwrap_or(0);
         if rank == 1 && self.stage == 0 {
-            // Still holding the second plate.
             if let Some(p) = self.props.iter().find(|p| p.kind == Pk::Plate && p.id == 1) {
                 return self.bot_goto(me, (p.x, p.y), 2, false);
             }
         }
         if rank != 0 {
-            // Wait well back, off the turret's line.
             return self.bot_goto(me, (middle(19), middle(2 + (2 * rank as i32) % 9)), 10, false);
         }
         let spot = (middle(29), middle(5));
         let mut i = self.bot_goto(me, spot, 5, false);
-        // The crystal is up and to the right: lock it, so a parried bolt
-        // flies straight at it.
         let (cx, cy) = self
             .props
             .iter()
@@ -540,8 +487,6 @@ impl Session {
         i.aim_x = sign(cx - me.x, 3 * Q);
         i.aim_y = sign(cy - me.y, 3 * Q);
         if dist(spot.0 - me.x, spot.1 - me.y) < 9 * Q {
-            // At the spot: stand, lock the crystal (a tap of the arrow moves
-            // the lock off the turret), and meet the bolt with the shield.
             i.ult = true;
             i.move_x = 0;
             i.move_y = 0;
@@ -551,14 +496,12 @@ impl Session {
             let (ax, ay) = if on_crystal {
                 (0, 0)
             } else if self.elapsed.is_multiple_of(2) {
-                // The crystal lies above the turret on the screen.
                 (0, -1)
             } else {
                 (0, 0)
             };
             i.aim_x = ax;
             i.aim_y = ay;
-            // A bolt close: up with the shield for its last ticks.
             let near = self.bolts.iter().any(|b| {
                 b.hostile()
                     && dist(b.x - me.x, b.y - me.y) < 15 * Q
@@ -573,7 +516,6 @@ impl Session {
         i
     }
 
-    /// After the Beacon: hold E and leave.
     fn bot_finale(&self) -> Input {
         if self.finale() {
             return Input {

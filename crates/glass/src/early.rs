@@ -27,48 +27,37 @@ use crate::render::cell_rgb;
 use crate::wallpaper::{Layout, Wallpaper};
 use crate::{CursorKind, Snapshot};
 
-/// What the background looks like, as the GPU draws it under everything.
 pub struct Look<'a> {
     pub background: [u8; 3],
     pub opacity: f32,
     pub wallpaper: Option<&'a Wallpaper>,
 }
 
-/// The program's text, laid out as the renderer will lay it out.
 pub struct Text<'a> {
     pub snapshot: &'a Snapshot,
     pub fonts: &'a mut Fonts,
     pub palette: &'a Palette,
-    /// The grid's top-left corner in window pixels.
     pub origin: (u32, u32),
     pub focused: bool,
     pub glyphs: &'a mut Glyphs,
 }
 
-/// The glyphs the early frames have drawn, kept between them: a symbol,
-/// its style and the cells it spans.
 #[derive(Default)]
 pub struct Glyphs(HashMap<(Box<str>, u8, u32), Option<Picture>>);
 
-/// A frame on show, kept until the GPU's frames have replaced it.
 pub struct Frame {
     #[cfg(all(unix, not(target_os = "macos")))]
     _shown: wayland::Shown,
-    /// GPU frames presented since.
     presents: u8,
 }
 
 impl Frame {
-    /// A GPU frame was presented. True once enough have been that this
-    /// buffer is off screen for good and can go.
     pub fn presented(&mut self) -> bool {
         self.presents = self.presents.saturating_add(1);
         self.presents >= 3
     }
 }
 
-/// Show `look`, and `text` over it, in `window`, at the window's size,
-/// now. `None` where it can't be.
 pub fn show(window: &Window, look: &Look<'_>, text: Option<Text<'_>>) -> Option<Frame> {
     let size = window.inner_size();
     if !(1..=16384).contains(&size.width) || !(1..=16384).contains(&size.height) {
@@ -92,11 +81,6 @@ pub fn show(window: &Window, look: &Look<'_>, text: Option<Text<'_>>) -> Option<
     }
 }
 
-/// The background as the GPU draws it: the background colour at the
-/// window's opacity, the image over it where its layout places it (nearest
-/// pixels, as the GPU samples it unless `linear` is set), then the tint
-/// toward the background colour over the whole window. Premultiplied, as
-/// Wayland's ARGB8888 is, in its little-endian byte order (B, G, R, A).
 fn paint(look: &Look<'_>, width: u32, height: u32) -> Vec<u8> {
     let (w, h) = (width as usize, height as usize);
     let alpha = look.opacity.clamp(0.0, 1.0);
@@ -125,7 +109,6 @@ fn paint(look: &Look<'_>, width: u32, height: u32) -> Vec<u8> {
         }
         return out;
     };
-    // Where each window column and row reads the image, if it does.
     let (dst, src) = image.quad((width as f32, height as f32));
     let texels = |count: usize, at: f32, span: f32, from: f32, length: f32, size: u32| -> Vec<Option<usize>> {
         (0..count)
@@ -160,8 +143,6 @@ fn paint(look: &Look<'_>, width: u32, height: u32) -> Vec<u8> {
             pixel.copy_from_slice(&value);
         }
     };
-    // Rows in bands across a few threads: a full-screen window is a few
-    // million pixels, and this is on the way to the first frame.
     let threads = std::thread::available_parallelism().map_or(1, |n| n.get().min(8));
     let band = h.div_ceil(threads).max(1) * w * 4;
     let fill = &fill;
@@ -174,11 +155,6 @@ fn paint(look: &Look<'_>, width: u32, height: u32) -> Vec<u8> {
     out
 }
 
-/// The program's cells over the background, as the GPU draws them:
-/// backgrounds, glyphs (dimmed, hidden, reversed as asked), underlines and
-/// strikes, and the cursor. A ligature, a sprite-drawn box or braille
-/// character, and the text gamma are the GPU's alone; these frames last a
-/// tenth of a second.
 fn draw_text(pixels: &mut [u8], width: u32, height: u32, text: Text<'_>) {
     let Text { snapshot, fonts, palette, origin, focused, glyphs } = text;
     let cell = fonts.cell;
@@ -242,7 +218,6 @@ fn draw_text(pixels: &mut [u8], width: u32, height: u32, text: Text<'_>) {
                     (true, CursorKind::Bar) => canvas.fill(x, y, line * 2, cell.height, cursor, 1.0),
                     (true, CursorKind::Underline) => canvas.fill(x, y + cell.height - line * 2, w, line * 2, cursor, 1.0),
                     _ => {
-                        // Unfocused: the block's outline.
                         canvas.fill(x, y, w, line, cursor, 1.0);
                         canvas.fill(x, y + cell.height - line, w, line, cursor, 1.0);
                         canvas.fill(x, y, line, cell.height, cursor, 1.0);
@@ -255,7 +230,6 @@ fn draw_text(pixels: &mut [u8], width: u32, height: u32, text: Text<'_>) {
     }
 }
 
-/// Premultiplied BGRA pixels, drawn into with "over".
 struct Canvas<'a> {
     pixels: &'a mut [u8],
     width: u32,
@@ -263,7 +237,6 @@ struct Canvas<'a> {
 }
 
 impl Canvas<'_> {
-    /// `rgb` at `alpha` over the rectangle, clipped to the window.
     fn fill(&mut self, x: u32, y: u32, w: u32, h: u32, rgb: Rgb, alpha: f32) {
         let (x1, y1) = ((x + w).min(self.width), (y + h).min(self.height));
         for py in y.min(y1)..y1 {
@@ -273,8 +246,6 @@ impl Canvas<'_> {
         }
     }
 
-    /// A glyph with its top-left at `(x, y)`: a coverage mask in `rgb`, or
-    /// its own premultiplied colours, at `alpha`.
     fn glyph(&mut self, x: i32, y: i32, glyph: &Picture, rgb: Rgb, alpha: f32) {
         for gy in 0..glyph.height {
             let py = y + gy as i32;
@@ -313,8 +284,6 @@ impl Canvas<'_> {
     }
 }
 
-/// The texel `texel` reads in an image `size` wide, as the GPU's sampler
-/// addresses it for `layout`.
 fn address(layout: Layout, texel: i64, size: i64) -> usize {
     let size = size.max(1);
     let at = match layout {
@@ -341,12 +310,10 @@ mod wayland {
     use winit::raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
     use winit::window::Window;
 
-    /// A buffer attached to the window's surface, and what it came through.
     pub struct Shown {
         conn: Connection,
         pool: wl_shm_pool::WlShmPool,
         buffer: wl_buffer::WlBuffer,
-        // Dropped last: the objects above are on it.
         _queue: EventQueue<State>,
     }
 
@@ -376,8 +343,6 @@ mod wayland {
     wayland_client::delegate_noop!(State: wl_shm_pool::WlShmPool);
     wayland_client::delegate_noop!(State: ignore wl_buffer::WlBuffer);
 
-    /// Attach `paint`'s pixels, `width` by `height`, to `window`'s surface
-    /// and commit, on a connection of our own to winit's display.
     pub fn show(window: &Window, width: u32, height: u32, paint: impl FnOnce() -> Vec<u8>) -> Option<Shown> {
         let RawDisplayHandle::Wayland(display) = window.display_handle().ok()?.as_raw() else {
             return None;
@@ -385,14 +350,10 @@ mod wayland {
         let RawWindowHandle::Wayland(surface) = window.window_handle().ok()?.as_raw() else {
             return None;
         };
-        // SAFETY: the display and the surface are winit's, live for as long
-        // as `window` is, and outlive this (the window lets this go first:
-        // `Glass::release`).
         let conn = Connection::from_backend(unsafe { Backend::from_foreign_display(display.display.as_ptr().cast()) });
         let (globals, queue) = registry_queue_init::<State>(&conn).ok()?;
         let qh = queue.handle();
         let shm: wl_shm::WlShm = globals.bind(&qh, 1..=1, ()).ok()?;
-        // SAFETY: as above; the pointer is a live wl_surface proxy.
         let id = unsafe { ObjectId::from_ptr(wl_surface::WlSurface::interface(), surface.surface.as_ptr().cast()) }.ok()?;
         let surface = wl_surface::WlSurface::from_id(&conn, id).ok()?;
         let pixels = paint();
@@ -412,8 +373,6 @@ mod wayland {
         Some(Shown { conn, pool, buffer, _queue: queue })
     }
 
-    /// `pixels` in a file of shared memory: one in the runtime directory
-    /// (a tmpfs), unlinked once open.
     fn memory(pixels: &[u8]) -> Option<std::fs::File> {
         let dir = std::env::var_os("XDG_RUNTIME_DIR")?;
         let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.subsec_nanos());
@@ -430,7 +389,6 @@ mod tests {
     use super::*;
 
     fn wallpaper(layout: Layout, tint: f32) -> Wallpaper {
-        // 2 by 1: red then green, opaque.
         Wallpaper { width: 2, height: 1, rgba: vec![255, 0, 0, 255, 0, 255, 0, 255], layout, tint, linear: false }
     }
 
@@ -452,7 +410,6 @@ mod tests {
         let image = wallpaper(Layout::Centered, 0.5);
         let look = Look { background: [0, 0, 0], opacity: 1.0, wallpaper: Some(&image) };
         let pixels = paint(&look, 4, 1);
-        // Black either side; red then green between, half toward black.
         assert_eq!(at(&pixels, 4, 0, 0), [0, 0, 0, 255]);
         assert_eq!(at(&pixels, 4, 1, 0), [0, 0, 128, 255]);
         assert_eq!(at(&pixels, 4, 2, 0), [0, 128, 0, 255]);
@@ -481,8 +438,6 @@ mod tests {
             return;
         };
         let cell = fonts.cell;
-        // Two columns, one row: a red cell holding a white "M", then the
-        // block cursor on a blank.
         let mut cells = vec![ratatui_core::buffer::Cell::default(); 2];
         cells[0].set_symbol("M").set_fg(Color::White).set_bg(Color::Rgb(200, 0, 0));
         let snapshot = Snapshot { cells, cols: 2, rows: 1, cursor: Some((1, 0)), ..Snapshot::default() };
@@ -493,14 +448,11 @@ mod tests {
         let mut glyphs = Glyphs::default();
         let text = Text { snapshot: &snapshot, fonts: &mut fonts, palette: &palette, origin: (10, 10), focused: true, glyphs: &mut glyphs };
         draw_text(&mut pixels, width, height, text);
-        // The red background's corner, the cursor's block, and the margin
-        // left as the background.
         assert_eq!(at(&pixels, width, 10, 10), [0, 0, 200, 255]);
         let c = palette.cursor;
         assert_eq!(at(&pixels, width, 10 + cell.width, 10), [c[2], c[1], c[0], 255]);
         let b = palette.background;
         assert_eq!(at(&pixels, width, 5, 5), [b[2], b[1], b[0], 255]);
-        // Somewhere in the first cell the glyph lit pixels toward white.
         let lit = (10..10 + cell.height).any(|y| (10..10 + cell.width).any(|x| at(&pixels, width, x, y)[1] > 128));
         assert!(lit, "the glyph drew nothing");
         assert_eq!(glyphs.0.len(), 1, "the glyph is kept for the next frame");

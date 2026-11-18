@@ -1,12 +1,4 @@
 #!/usr/bin/env node
-// Bake wished melee swings as pixelfx strips, fitted to the Delve's inks.
-//
-//     node scripts/delve/meleefx.mjs [/path/to/pixelfx]
-//
-// The code-drawn crescent stays. These strips play on top, one row per aim
-// (east, then clockwise), two ticks a frame, and no longer than the swing.
-// Size is the effect's own option where it has one (radius, reach); nothing
-// here scales or rotates a finished frame. Every pixel is a game ink, opaque.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,8 +35,6 @@ function holdThick(dirs) {
   }
 }
 function seat(dirs, reachPx) {
-  // The effect draws around its own actor, not the hand. Shift each aimed row
-  // toward the origin so the swing sits inside the reach. No scale, no rotate.
   const slack = Math.max(4, reachPx);
   for (const d of dirs) {
     let sx = 0, sy = 0, n = 0, far = 0;

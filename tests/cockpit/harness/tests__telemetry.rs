@@ -34,7 +34,6 @@ fn check_dispatch_timing_without_previews(call_count: usize, yolo: bool) {
                     .map(|index| ToolCall {
                         id: format!("read-{index}"),
                         name: "read_file".into(),
-                        // Parallel case covers both a successful and failed read.
                         args: serde_json::json!({"path": if index == 0 {"one.txt"} else {"missing.txt"}}),
                     })
                     .collect(),
@@ -89,13 +88,8 @@ fn ledger_times_parallel_calls_without_previews() {
     }
 }
 
-// --- telemetry suite ---
-
 #[test]
 fn telemetry_marked_harness_messages_are_dropped_but_user_quotes_survive() {
-    // Harness-authored commentary (marked) rides the live tail but must never
-    // reach the summarizer: render_transcript drops it so it can't be distilled
-    // into a durable "the harness is broken" open-thread.
     let checkpoint = "⠧⠁⠟⠁".to_string();
     let history = vec![
         ChatMsg::user("real user ask: add a feature"),
@@ -121,14 +115,11 @@ fn telemetry_marked_harness_messages_are_dropped_but_user_quotes_survive() {
         !rendered.contains('⠇') && !rendered.contains('⠟'),
         "stamps must not reach the summarizer:\n{rendered}"
     );
-    // Leading whitespace before the mark is still recognized (defensive trim).
     let padded = vec![ChatMsg::harness(format!("  {NOPROGRESS_NUDGE}"))];
     assert!(
         render_transcript(&padded).trim().is_empty(),
         "a whitespace-padded telemetry mark is still dropped"
     );
-    // The same bytes quoted by an actual operator remain their conversation
-    // content, including whitespace; only internal role plus marker is elided.
     for nudge in [
         NOPROGRESS_NUDGE.to_string(),
         MUTATION_THRASH_NUDGE.to_string(),
@@ -143,12 +134,9 @@ fn telemetry_marked_harness_messages_are_dropped_but_user_quotes_survive() {
 
 #[test]
 fn every_harness_nudge_carries_the_telemetry_mark() {
-    // Compile-time-ish pin: if a nudge string loses its mark, it would silently
-    // start leaking into summaries again. Keep them all tagged.
     assert!(NOPROGRESS_NUDGE.starts_with(TELEMETRY_MARK));
     assert!(MUTATION_THRASH_NUDGE.starts_with(TELEMETRY_MARK));
     assert!(PERIPHERAL_FANOUT_NUDGE.starts_with(TELEMETRY_MARK));
     assert!(WATCHER_NOTIFY_MARK.starts_with(TELEMETRY_MARK));
-    // Stamps carry their own mark: the braille cell.
     assert!(book::ledger::is_warpath_message("⠟⠁"));
 }

@@ -1,13 +1,9 @@
 use super::{render_agent_bay, speech_flow_split, treebeard_strip_label, truncate_control_value};
 use crate::agent::harness::{HandleStoreStats, LastRootHiq};
 
-/// The speech flow keeps whole trailing words in flight, settles the rest,
-/// treats a brand-new stream as entirely fresh, and never panics on
-/// multibyte or whitespace-free tails.
 #[test]
 fn speech_flow_split_keeps_whole_words_in_flight() {
     assert_eq!(speech_flow_split("", 24), ("", ""));
-    // Stream opening: everything is still pouring out of the portrait.
     assert_eq!(
         speech_flow_split("first thought", 24),
         ("", "first thought")
@@ -27,17 +23,13 @@ fn speech_flow_split_keeps_whole_words_in_flight() {
         fresh.split_whitespace().count() >= 1
             && format!("{settled}{fresh}") == "the fleet topology needs a single tenant on the b70"
     );
-    // Whitespace-free window splits mid-token instead of stalling.
     let long = format!("prefix {}", "x".repeat(60));
     let (settled, fresh) = speech_flow_split(&long, 24);
     assert!(!fresh.is_empty() && fresh.chars().count() <= 24);
     assert_eq!(format!("{settled}{fresh}"), long);
-    // Multibyte tail stays on char boundaries.
     let uni = "думать 思考 penser réfléchir überlegen";
     let (settled, fresh) = speech_flow_split(uni, 10);
     assert_eq!(format!("{settled}{fresh}"), uni);
-    // Fresh renders on a single row: an explicit newline in the window
-    // must never survive into the in-flight strip.
     let (_, fresh) = speech_flow_split("working downward\ntail marker", 24);
     assert_eq!(fresh, "tail marker");
     assert!(!fresh.contains('\n'));
@@ -143,10 +135,6 @@ fn treebeard_strip_shows_offload_or_handle_pulse() {
     );
 }
 
-/// The App-level sampler feeds the pure precedence ladder: an unfinished
-/// strip entry reads Tool, a pending approval outranks it, a fresh
-/// end-of-turn marker glows and an aged one expires — and the bay caption
-/// paints the blocked word where the operator actually looks.
 #[test]
 fn blocked_approval_owns_the_bay_caption_and_sampler_precedence() {
     use crate::agent::harness::ToolEventId;
@@ -500,9 +488,6 @@ fn host_metrics_spans_keep_borrowed_idle_cow() {
     );
 }
 
-/// The per-frame chrome snapshot must mirror the live bag reads, and the
-/// frozen wrapper (fresh snapshot) must paint the exact same rail as a
-/// `ui`-style shared snapshot.
 #[test]
 fn frame_chrome_snapshot_matches_live_bag_and_paints_identically() {
     use super::{FrameChrome, render_agent_controls, render_agent_controls_in};
@@ -596,10 +581,6 @@ fn agent_control_rail_reuses_chip_strings_across_unchanged_frames() {
     assert_eq!(cached.effort.as_deref(), chrome.effort());
 }
 
-/// The FORMATION chip on the pilot rail follows the formation through the turn:
-/// armed for the next turn, then engaged while the worker runs, then plain
-/// again once the worker settles. The chip cache must not hold a stale word
-/// across those changes.
 #[test]
 fn formation_chip_follows_a_one_shot_through_its_turn() {
     use super::render_agent_controls;
@@ -647,25 +628,19 @@ fn formation_chip_follows_a_one_shot_through_its_turn() {
     );
 }
 
-/// Operator definition: the avatar block is a quarter of the bay's width, and
-/// that width defines the avatar: the height is what the portrait needs to fill
-/// it. Borderless: the block keeps its corner spot with no frame lines.
 #[test]
 fn the_avatar_block_is_a_quarter_of_the_bay_wide_and_as_tall_as_its_portrait() {
     use ratatui::layout::Rect;
     let bay = Rect::new(1, 1, 64, 28);
     let body = Rect::new(1, 3, 64, 26);
-    // A portrait 0.45 rows per column: 15 image columns need 7 rows (ceil).
     let (flow, block) = super::agent_bay_flow_layout(body, bay, true, Some(0.45));
     let block = block.expect("avatar block");
     assert_eq!(block.width, 64 / 4);
     assert_eq!(block.height, 7 + 1, "the image rows plus the gutter row");
     assert_eq!((block.right(), block.bottom()), (bay.right(), bay.bottom()));
     assert_eq!(flow.bottom(), block.y);
-    // Unknown shape: a third of the bay's height.
     let (_, block) = super::agent_bay_flow_layout(body, bay, true, None);
     assert_eq!(block.unwrap().height, 28 / 3);
-    // A tall portrait takes at most half the bay, and never the trace strip.
     let (flow, block) = super::agent_bay_flow_layout(body, bay, true, Some(4.0));
     assert!(flow.height >= 2);
     let block = block.unwrap();
@@ -684,7 +659,6 @@ fn the_avatar_block_is_a_quarter_of_the_bay_wide_and_as_tall_as_its_portrait() {
     let block = app.bay_portrait_area.expect("avatar block drawn");
     let buffer = terminal.backend().buffer();
     assert_eq!(block.width, (width - 2) / 4);
-    // No frame lines: the gutter is blank and the bay's borders run unbroken.
     assert_eq!(buffer[(block.x, block.y)].symbol(), " ");
     assert_eq!(buffer[(block.x + 1, block.y)].symbol(), " ");
     assert_eq!(buffer[(block.x, block.y + 1)].symbol(), " ");
@@ -701,8 +675,6 @@ fn the_avatar_block_is_a_quarter_of_the_bay_wide_and_as_tall_as_its_portrait() {
     assert_eq!((block.right(), block.bottom()), (width - 1, height - 1));
 }
 
-/// Draw the bay until the painted table's encode lands (a worker thread
-/// prepares the Kitty picture), returning every frame's buffer in order.
 #[cfg(test)]
 fn draw_council_until_painted(
     app: &mut crate::app::App,
@@ -766,20 +738,16 @@ fn round_table_paints_the_station_table_with_the_council_on_kitty() {
         rendered.contains('\u{10EEEE}'),
         "the station table is placed through Kitty: {rendered}"
     );
-    // The first placed frame carries the picture itself.
     assert!(
         frames.iter().any(|f| text(f).contains("\x1b_G")),
         "the table picture is transmitted"
     );
     assert!(rendered.contains("Round Table · judge"), "{rendered}");
-    // The roll beside the table names each seat with its state.
     for mark in ["● seat 1", "✓ seat 2", "✗ seat 3"] {
         assert!(rendered.contains(mark), "{mark} missing: {rendered}");
     }
     assert!(!rendered.contains("the council gathers"));
 
-    // A seat coming back changes the picture; the old one stays up while
-    // the new one encodes, so the panel never blanks to the gathering line.
     app.council = crate::ui::viz::council::Council::council_for_test(
         "judge",
         &[SeatState::Returned, SeatState::Returned, SeatState::Failed],
@@ -809,9 +777,6 @@ impl std::io::Write for Sink {
     }
 }
 
-/// `ANGEL_COUNCIL_SHOTS=<dir>`: the Round Table card as Kitty receives it
-/// (`panel-<w>x<h>.ans`, replay with `cat` in a Kitty window) at a few
-/// real bay widths.
 #[test]
 fn write_council_panel_shots() {
     use crate::app::App;
@@ -847,8 +812,6 @@ fn write_council_panel_shots() {
         ),
     ];
     for (name, stage, states) in scenes {
-        // Cells as the operator's Kitty draws them (Berkeley Mono 15 at
-        // scale 1), and a common 10x20.
         for ((width, height), cell) in [
             ((34u16, 14u16), (12u16, 25u16)),
             ((48, 14), (12, 25)),
@@ -857,8 +820,6 @@ fn write_council_panel_shots() {
         ] {
             let mut app = App::preview(Viewer::kitty_cells_for_test(cell));
             app.council = crate::ui::viz::council::Council::council_for_test(stage, &states);
-            // The real terminal path: ratatui's own diff and flush, as
-            // Kitty receives a live session's bytes.
             let sink = Sink::default();
             let mut terminal = ratatui::Terminal::with_options(
                 ratatui::backend::CrosstermBackend::new(sink.clone()),
@@ -882,7 +843,6 @@ fn write_council_panel_shots() {
                 }
                 std::thread::sleep(std::time::Duration::from_millis(5));
             }
-            // A second frame after placement, as the live loop draws on.
             terminal
                 .draw(|frame| render_agent_bay(frame, &mut app, frame.area()))
                 .unwrap();

@@ -13,8 +13,6 @@ struct ChildState {
     cpu: Option<Instant>,
 }
 
-/// Display-only observations. CPU activity is liveness, never a verifier pass
-/// or a completion estimate. Snapshots do no filesystem work on the UI thread.
 #[derive(Clone, Debug)]
 pub(crate) struct ChildSnapshot {
     pub(crate) program: String,
@@ -164,7 +162,6 @@ impl ChildActivity {
             self.setup_until = None;
         }
         let latest = if self.setup_until.is_some() {
-            // Setup work is exempt briefly, but never earns child progress.
             self.last_cpu = None;
             None
         } else {
@@ -219,7 +216,6 @@ pub(crate) fn owned_child_active(owner: usize) -> bool {
         })
 }
 
-/// Setup grace is tracked independently from output/CPU progress and expires.
 pub(crate) fn owned_child_setting_up(owner: usize) -> bool {
     let owner = root_owner(owner);
     entries()
@@ -239,7 +235,6 @@ fn cpu_ticks(leader: u32) -> HashMap<(u32, u64), u64> {
     let mut ticks = HashMap::new();
     let supervised = sandbox_helper_process(leader);
     for (pid, row) in owned_process_activity(leader) {
-        // The supervisor polls waitpid; that overhead is not payload CPU.
         if !(matches!(row.state, 'Z' | 'X') || (supervised && pid == leader)) {
             ticks.insert((pid, row.started), row.cpu);
         }

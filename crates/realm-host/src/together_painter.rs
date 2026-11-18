@@ -55,17 +55,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 
-/// At most this many painters run their quick part at once: a wish each, so
-/// several wishes granted together are painted together (a painter paints
-/// its slots at once and shares the machine's image seats with the others).
 pub const MAX_RUNNING: usize = 8;
 
-/// A line longer than this is junk (four frames of the widest look's rows
-/// fit in it).
 const MAX_LINE: usize = 16 * 1024;
 
-/// The painter to run, if one is set: `ANGEL_WISH_PAINTER`, else
-/// `~/.angelX/wish-painter` when it is executable.
 pub fn command() -> Option<PathBuf> {
     if let Some(named) = std::env::var_os("ANGEL_WISH_PAINTER").filter(|c| !c.is_empty()) {
         return Some(PathBuf::from(named));
@@ -86,28 +79,20 @@ fn executable(path: &Path) -> bool {
     }
 }
 
-/// Where a workspace's painters write: one folder per card.
 pub fn jobs_dir(workspace: &Path) -> PathBuf {
     workspace.join(".angel/dungeon/paint-jobs")
 }
 
-/// Whose source a painting is written into.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Target {
-    /// A learned wish's entry in the workspace's phrasebook, painted at its
-    /// top tier (`top`, from 1), so only the full gift shows the painting.
     Learned {
         phrasebook: PathBuf,
         wish: String,
         top: usize,
     },
-    /// A card file (a reforge): its look for the slot is the painting.
     Card(PathBuf),
 }
 
-/// The slots to paint for `card`, each with its frame count: those it
-/// draws, as drawn. A card that draws none is painted one look: `shot` if
-/// it shoots (an arm, a cast, or any effect on its shots), else `worn`.
 pub fn slots(card: &Card) -> Vec<(Slot, usize)> {
     let drawn: Vec<(Slot, usize)> = Slot::ALL
         .into_iter()
@@ -144,25 +129,17 @@ pub fn slots(card: &Card) -> Vec<(Slot, usize)> {
     vec![(if shoots { Slot::Shot } else { Slot::Worn }, 1)]
 }
 
-/// One painting job: the card it is for, where its painting goes, and what
-/// the painter is told.
 #[derive(Clone, Debug)]
 pub struct Job {
-    /// The card's id (a learned wish's top tier's): it names the job's
-    /// folder and its pictures.
     pub key: String,
     pub target: Target,
-    /// The JSON the painter reads on stdin.
     pub input: String,
-    /// The highest level a knight has reached (1 for a card).
     pub level: usize,
     pub out: PathBuf,
     pub sheets: PathBuf,
     pub paint: PathBuf,
 }
 
-/// The job for painting `card` (the friend's own `words`), its `slots` in
-/// the workspace's folders: a wish of `tiers` levels, reached up to `level`.
 pub fn job(
     workspace: &Path,
     target: Target,
@@ -182,8 +159,6 @@ pub fn job(
         "slots": slots
             .iter()
             .map(|&(slot, frames)| {
-                // The rows as the card shows them: their size, and where
-                // its drawing sits in them, for rows that line up.
                 let shown = card.looks.get(slot);
                 let part_name = (slot == Slot::Worn).then(|| shown.and_then(|s| s.at.as_deref()).unwrap_or("whole"));
                 let part = part_name.and_then(|at| Body::KNIGHT.part(at));
@@ -233,7 +208,6 @@ pub fn job(
 }
 
 impl Job {
-    /// The same job, a knight having reached `level`.
     pub fn at_level(&self, level: usize) -> Job {
         let mut input: serde_json::Value = serde_json::from_str(&self.input).unwrap_or_default();
         let tiers = input["tiers"].as_u64().unwrap_or(1) as usize;
@@ -246,8 +220,6 @@ impl Job {
         }
     }
 
-    /// The job a learned wish was last painted with, from its folder (so a
-    /// restarted host carries on): `key` its top card's id.
     pub fn kept(workspace: &Path, key: &str, target: Target) -> Option<Job> {
         let out = jobs_dir(workspace).join(key);
         let input = std::fs::read_to_string(out.join("job.json")).ok()?;
@@ -268,7 +240,6 @@ impl Job {
 struct Running {
     key: String,
     child: Box<dyn Service>,
-    /// Said by the painter: its quick part is done (`{"background":true}`).
     background: Arc<AtomicBool>,
 }
 
@@ -278,14 +249,10 @@ impl Running {
     }
 }
 
-/// The painters running and those waiting their turn, and the level each
-/// painted wish was last painted for.
 pub struct Painters {
     running: Vec<Running>,
     queue: VecDeque<(PathBuf, Job)>,
-    /// Each painted wish's job (by key), at the level it was last asked for.
     painted: HashMap<String, (PathBuf, Job)>,
-    /// Each painted line applied, from the painters' reader threads.
     tx: mpsc::Sender<Target>,
     rx: mpsc::Receiver<Target>,
 }
@@ -313,13 +280,7 @@ impl std::fmt::Debug for Painters {
 }
 
 impl Painters {
-    /// Paint `job` with `command`, now or when a painter is free. A job
-    /// for a level a knight has already reached goes first.
     pub fn start(&mut self, command: PathBuf, job: Job) {
-        // A card asked again waits for none of its older asks. A reforged
-        // card's older painter stops: none of its lines may land after the
-        // new one's. A wish's earlier painter carries on: the new one picks
-        // up after it (the painter keeps a slot's stages in order).
         self.queue.retain(|(_, queued)| queued.key != job.key);
         if matches!(job.target, Target::Card(_)) {
             self.running.retain_mut(|run| {
@@ -341,15 +302,10 @@ impl Painters {
         self.pump();
     }
 
-    /// The level a painted wish (its top card's id) was last painted for.
     pub fn level(&self, key: &str) -> Option<usize> {
         self.painted.get(key).map(|(_, job)| job.level)
     }
 
-    /// A knight has reached `level` of the painted wish `key`: its painter
-    /// starts again for that level when it is higher than any before.
-    /// `kept` gives its job when this host has not painted it yet (a
-    /// restart). True when a painter was asked.
     pub fn climbed(&mut self, key: &str, level: usize, kept: impl FnOnce() -> Option<(PathBuf, Job)>) -> bool {
         let known = match self.painted.get(key) {
             Some((command, job)) => Some((command.clone(), job.clone())),
@@ -381,7 +337,6 @@ impl Painters {
     }
 
     fn pump(&mut self) {
-        // A painter in the background holds no place.
         while self.running.iter().filter(|r| r.quick()).count() < MAX_RUNNING {
             let Some((command, job)) = self.queue.pop_front() else {
                 return;
@@ -397,8 +352,6 @@ impl Painters {
         }
     }
 
-    /// The sources a painting was written into since last asked (each
-    /// once). Painters that have ended make way for the next.
     pub fn poll(&mut self) -> Vec<Target> {
         let mut painted: Vec<Target> = Vec::new();
         for target in self.rx.try_iter() {
@@ -425,13 +378,10 @@ impl Painters {
         painted
     }
 
-    /// Admission failed before a world commit. Keep the existing completion
-    /// notification for the next poll, without restarting its native painter.
     pub fn retry(&mut self, target: Target) {
         let _ = self.tx.send(target);
     }
 
-    /// Kill every painter and forget the queue.
     pub fn stop(&mut self) {
         self.queue.clear();
         for mut run in std::mem::take(&mut self.running) {
@@ -453,9 +403,7 @@ fn spawn(
     background: Arc<AtomicBool>,
 ) -> std::io::Result<Box<dyn Service>> {
     std::fs::create_dir_all(&job.out)?;
-    // Kept with the pictures, for a restarted host to carry on from.
     std::fs::write(job.out.join("job.json"), &job.input)?;
-    // The painter's own talk goes to its folder, never the terminal.
     let log = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -474,7 +422,6 @@ fn spawn(
     std::thread::Builder::new()
         .name("wish-painter".into())
         .spawn(move || {
-            // Written here, so a painter slow to read never holds the game.
             if let Some(mut stdin) = stdin {
                 let _ = stdin.write_all(job.input.as_bytes());
             }
@@ -504,8 +451,6 @@ fn spawn(
     Ok(child)
 }
 
-/// One line a painter prints: a look for a level, a picture for the top
-/// level, or that it has gone into the background.
 #[derive(serde::Deserialize)]
 struct Said {
     #[serde(default)]
@@ -526,8 +471,6 @@ struct Said {
     background: bool,
 }
 
-/// A slot's painting as written: its picture's name in the sheets folder,
-/// its frames, its motion words and whether it is pixel art.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Paint {
     pub file: String,
@@ -536,21 +479,14 @@ pub struct Paint {
     pub pixel: bool,
 }
 
-/// What a line came to.
 #[derive(Debug, PartialEq, Eq)]
 enum Applied {
-    /// Written into the card's source.
     Written,
-    /// The painter's quick part is done.
     Background,
 }
 
-/// Sources are read, changed and written one painting at a time (and the
-/// sheets folder tidied with them), whichever painter wrote the line.
 static EDITS: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// Write one line into its card's source, or say why not; on any failure
-/// the source is as it was. A picture the source no longer names is let go.
 fn apply(job: &Job, said: &str) -> Result<Applied, String> {
     if said.len() > MAX_LINE {
         return Err("the line is too long".into());
@@ -571,7 +507,6 @@ fn apply(job: &Job, said: &str) -> Result<Applied, String> {
             if !(1..=tiers).contains(&level) {
                 return Err(format!("level {level}: the wish has {tiers}"));
             }
-            // Rows are checked as drawn rows: inks, frames, the slot's size.
             crate::together_shooter::looks::Sprite::from_strip(slot, rows)?;
             Some((level, rows.as_slice()))
         }
@@ -593,7 +528,6 @@ fn apply(job: &Job, said: &str) -> Result<Applied, String> {
             return Err(why);
         }
     };
-    // The card's pictures of this slot that its source no longer names.
     let own = format!("{}-{}-", job.key, slot.word());
     if let Ok(dir) = std::fs::read_dir(&job.sheets) {
         for entry in dir.flatten() {
@@ -606,9 +540,6 @@ fn apply(job: &Job, said: &str) -> Result<Applied, String> {
     Ok(Applied::Written)
 }
 
-/// A painting line's picture, checked and copied into the sheets folder
-/// under the card's own name for it: the painting it makes, and whether
-/// the copy is new.
 fn take_picture(job: &Job, slot: Slot, file: &str, line: &Said) -> Result<(Paint, bool), String> {
     let plain = file
         .chars()
@@ -620,7 +551,6 @@ fn take_picture(job: &Job, slot: Slot, file: &str, line: &Said) -> Result<(Paint
     if !(1..=crate::together_shooter::looks::MAX_FRAMES).contains(&frames) {
         return Err(format!("{frames} frames"));
     }
-    // The motion words: the line's, else the slot's `.move` file.
     let words = match &line.moves {
         Some(words) => words.clone(),
         None => std::fs::read_to_string(job.out.join(format!("{}.move", slot.word())))
@@ -668,9 +598,6 @@ fn take_picture(job: &Job, slot: Slot, file: &str, line: &Said) -> Result<(Paint
     ))
 }
 
-/// Put the slot's painting (a level's look, with its rows, or the top
-/// level's picture) in the job's source, if the source still checks with
-/// it: the source as written.
 fn write_paint(job: &Job, slot: Slot, paint: &Paint, level: Option<(usize, &[String])>) -> Result<String, String> {
     let (path, wish) = match &job.target {
         Target::Learned {
@@ -693,7 +620,6 @@ fn write_paint(job: &Job, slot: Slot, paint: &Paint, level: Option<(usize, &[Str
             if !errors.is_empty() {
                 return Err(errors.join("; "));
             }
-            // Every tier checks, or the wish is not in the book.
             let (book, errors) =
                 phrasebook::read_checked(&format!("{}\n{inlined}", phrasebook::LEARNED));
             if !errors.is_empty() {
@@ -716,14 +642,11 @@ fn write_paint(job: &Job, slot: Slot, paint: &Paint, level: Option<(usize, &[Str
     if shows.is_none() {
         return Err("the painting does not show at its level".into());
     }
-    // Written beside, then put in place: a reader never sees half.
     angel_live::host::workspace_store::write_atomic(path, new.as_bytes())
         .map_err(|e| format!("{}: {e}", path.display()))?;
     Ok(new)
 }
 
-/// A painted card file as the game reads it: its pictures cut into rows,
-/// checked under its file's name.
 pub fn card_from(path: &Path, sheets: &Path, paint: &Path) -> Result<Card, String> {
     let id = path
         .file_stem()
@@ -737,7 +660,6 @@ pub fn card_from(path: &Path, sheets: &Path, paint: &Path) -> Result<Card, Strin
         .map_err(|r| r.errors.join("; "))
 }
 
-/// The lines of the entry `wish <id>` in a phrasebook.
 fn entry(lines: &[&str], id: &str) -> Option<std::ops::Range<usize>> {
     let opens = |line: &str| {
         let mut words = line.split_whitespace();
@@ -757,8 +679,6 @@ fn entry(lines: &[&str], id: &str) -> Option<std::ops::Range<usize>> {
     Some(start..end)
 }
 
-/// One look in a card or entry: its lines, slot, tier (from 1), place,
-/// motion words, and the picture a `sheet` or `paint` line names.
 struct Look {
     lines: std::ops::Range<usize>,
     slot: Slot,
@@ -768,8 +688,6 @@ struct Look {
     file: Option<String>,
 }
 
-/// The `draw`, `sheet` and `paint` looks among `lines[within]`, each with
-/// the rows under it (a `draw`'s, or a `paint` line's own).
 fn looks_in(lines: &[&str], within: std::ops::Range<usize>) -> Vec<Look> {
     let mut out = Vec::new();
     let mut i = within.start;
@@ -787,7 +705,6 @@ fn looks_in(lines: &[&str], within: std::ops::Range<usize>) -> Vec<Look> {
         let Some(slot) = words.next().and_then(Slot::parse) else {
             continue;
         };
-        // The picture's file.
         let file = if draw { None } else { words.next().map(str::to_string) };
         let (mut tier, mut at, mut moves) = (1, None, None);
         for part in words {
@@ -816,8 +733,6 @@ fn looks_in(lines: &[&str], within: std::ops::Range<usize>) -> Vec<Look> {
     out
 }
 
-/// `rows` (a strip, frames side by side with `|`) as `frames` frames: as
-/// they are when they have that many, else their first frame that often.
 fn fit_rows(rows: &[String], frames: usize) -> Vec<String> {
     let have = rows.first().map_or(0, |r| r.split('|').count());
     if have == frames {
@@ -828,19 +743,6 @@ fn fit_rows(rows: &[String], frames: usize) -> Vec<String> {
         .collect()
 }
 
-/// `raw` with `slot`'s painting: for a learned wish (`wish`: its id and
-/// top tier) in its entry, else in the whole card. `key` is the card's id,
-/// which names the painter's own pictures.
-///
-/// A level's look (`level`: its tier and rows) is the painting over its
-/// rows (as many frames as the painting), named for its tier so it is
-/// shown as drawn there and above, until a higher one; the painter's
-/// earlier look at that tier gives way, and the learner's own stays above
-/// it, unseen (the later look of a tier is the one drawn), for its grade.
-/// In a card, it is the slot's only look. A picture alone is the look at
-/// the top tier, its rows cut from it: the slot's look at that tier gives
-/// way to it, keeping its place and, when the painter named none, its
-/// motion words. None when the entry is not there.
 pub fn with_paint(
     raw: &str,
     wish: Option<(&str, usize)>,
@@ -861,7 +763,6 @@ pub fn with_paint(
         .collect();
     let own = format!("{key}-{}-", slot.word());
     let mine = |l: &Look| l.file.as_deref().is_some_and(|f| f.starts_with(&own));
-    // The look in effect at the tier: the last of the highest tier.
     let shown = looks.iter().filter(|l| l.tier <= tier).max_by_key(|l| l.tier);
     let at = shown
         .and_then(|l| l.at.clone())
@@ -877,7 +778,6 @@ pub fn with_paint(
         (Some(_), Some(_)) => mine(l) && l.tier == tier,
     };
     let mut line = format!("paint {} {} frames={}", slot.word(), paint.file, paint.frames);
-    // Preserve the attachment at every painted tier, including owned rows.
     if let Some(at) = at.or_else(|| (slot == Slot::Worn).then(|| {
         let name = lines[range.clone()].iter().find_map(|l| l.strip_prefix("name ").map(str::trim).or_else(|| l.strip_prefix("wish ").and_then(|s| s.split_once('|')).map(|(_, n)| n.trim()))).unwrap_or("");
         crate::together_shooter::looks::default_worn_part(name).to_string()

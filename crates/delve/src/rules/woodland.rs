@@ -10,13 +10,9 @@ use super::countryside::Country;
 use super::{BTreeMap, HZ, Input, Room, RoomKind, Run, Spoil, Spoils, TILE_UNITS, Tile};
 use serde::{Deserialize, Serialize};
 
-/// The mushrooms, in the order an older save picked them.
 pub const MUSHROOMS: [&str; 3] = ["BOOT", "HAT", "BEARD"];
-/// How far the Boot kicks (units).
 const KICK: f32 = 3.0;
 
-/// The forage under way: who carries each mushroom (0 while it still
-/// grows), and whether the Boot has kicked yet.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Forage {
     pub carried: [u32; 3],
@@ -54,9 +50,6 @@ pub const HEDGES: [(usize, usize, usize, usize); 5] = [
     (15, 8, 6, 1),
 ];
 pub const WAGON: (i32, i32, i32, i32) = (19, 10, 2, 1);
-/// The hedge maze's prize: a golden acorn behind the long hedge (tiles).
-/// The first knight to it each outing wears the crown; the realm is paid
-/// once, ever.
 pub const ACORN: (f32, f32) = (18.0, 11.0);
 pub const ACORN_MARK: &str = "country:acorn";
 pub const ACORN_GOLD: u32 = 30;
@@ -157,10 +150,8 @@ impl Run {
         self.found = Some((self.tick, actor, "Mushrooms! BOOT, HAT, BEARD. In the hedge maze.".into()));
     }
 
-    /// The forage: pick in the maze (any order, anyone), carry them home.
     fn tick_forage(&mut self, inputs: &BTreeMap<u32, Input>, s: u8) {
         let kind = self.room().kind;
-        // An older save may already have some in the pot.
         let already = usize::from(s - 1).min(3);
         let mut forage = self.forage.take().unwrap_or_default();
         let pressing = |at: (f32, f32), players: &BTreeMap<u32, super::hero::Hero>| {
@@ -183,10 +174,8 @@ impl Run {
                     continue;
                 };
                 if i == 0 && !forage.kicked {
-                    // The Boot kicks first; a second try picks it.
                     forage.kicked = true;
                     let h = self.players.get_mut(&id).unwrap();
-                    // Away from the Boot; straight back if right on top of it.
                     let (ax, ay) = (h.x - at.0 * TILE_UNITS, h.y - at.1 * TILE_UNITS);
                     let len = ax.hypot(ay);
                     let (ux, uy) = if len < 0.3 { (0.0, 1.0) } else { (ax / len, ay / len) };
@@ -230,7 +219,6 @@ impl Run {
         self.forage = Some(forage);
     }
 
-    /// Soup's on: the knight who picked the most stirs it (the crown).
     fn deputy_stirrer(&mut self, forage: &Forage, giver: u32) {
         let mut picks: BTreeMap<u32, u8> = BTreeMap::new();
         for &id in forage.carried.iter().filter(|&&id| id != 0) {

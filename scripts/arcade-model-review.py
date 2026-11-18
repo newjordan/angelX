@@ -11,8 +11,6 @@ def paste(sheet,a,x,y,z=1):
  a=a.resize((a.width*z,a.height*z),Image.Resampling.NEAREST);sheet.paste(a,(x,y),a if a.mode=='RGBA' else None)
 def label(sheet,xy,s):ImageDraw.Draw(sheet).text(xy,s,font=font,fill=text)
 new=Image.open(ASSETS/'knight/idle-0.png');old=Image.open(ROOT/'crates/delve/tests/fixtures/arcade/stiff-atlas.png').crop((0,0,64,56))
-# The retained renderer export is already 3x. Recover its actual 70px model,
-# omitting only the clipped final expanded scanline, never normalising scale.
 a=Image.open(args.latch).convert('RGB').crop((40,75,201,290));box=ImageChops.difference(a,Image.new('RGB',a.size,bg)).getbbox();latch=a.crop(box);assert latch.width%3==0,(box,latch.size);latch=latch.crop((0,0,latch.width,latch.height//3*3));latch=latch.resize((latch.width//3,latch.height//3),Image.Resampling.NEAREST)
 sheet=Image.new('RGB',(1080,480),bg)
 for i,(name,a) in enumerate([('Rejected stiff model',old),('Acting / same construction',new),('Original Latch renderer',latch)]):
@@ -38,7 +36,6 @@ for j,(st,i,name) in enumerate([('idle',0,'neutral'),('attack',2,'gritted'),('hi
  label(sheet,(x,320),name);paste(sheet,head,x,350);paste(sheet,head,x+45,341,3);paste(sheet,im,x+115,335,3)
 label(sheet,(20,520),'Pose/timing reference: run, slash and back landing are actions, never static model stamps.')
 sheet.save(out/'model-sheet.png')
-# One small review page for the three requested action strips, retaining timing.
 sheet=Image.new('RGB',(1252,620),bg)
 for row,state in enumerate(['run','attack','defeat']):
  label(sheet,(10,row*205+8),state+' / '+str(m['states'][state]['durations_ms'])+' ms')

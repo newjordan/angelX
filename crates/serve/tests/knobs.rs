@@ -33,10 +33,8 @@ impl Command for Nothing {
     fn absorb(&mut self, _older: &Self) {}
 }
 
-/// One knob, `pace`, published in the game's state as a client would read it.
 struct Dial {
     pace: f64,
-    /// The pace the first tick was published with (set before it, from the file).
     first: Option<f64>,
 }
 
@@ -82,7 +80,6 @@ impl GameServer for Dial {
     fn knobs(&self) -> Vec<Knob> {
         vec![
             Knob::new("pace", "dial", "Pace", "PACE (tests)", Side::Server).range(1.0, 10.0, 0.5).default(4.0).at(self.pace),
-            // A client's own knob is never the server's to list or set.
             Knob::new("glow", "dial", "Glow", "GLOW", Side::Client).default(1.0),
         ]
     }
@@ -105,7 +102,6 @@ fn start(dev: bool, tune_file: Option<PathBuf>) -> Server {
     Server::start(Dial::new(), config).unwrap()
 }
 
-/// A socket client: its welcome, then the knob table it is told.
 fn join(server: &Server) -> (WsClient, String) {
     let mut ws = WsClient::connect(&format!("ws://{}/ws", server.addr()), WAIT).unwrap();
     ws.send(&ToServer::Hello { protocol: PROTOCOL, game: "dial", join: KEY, resume: "", name: "Ann", caps: 0 }.to_vec())
@@ -128,7 +124,6 @@ fn next(ws: &mut WsClient) -> Vec<u8> {
     panic!("no message in time");
 }
 
-/// Messages until one `pick` takes, skipping the rest.
 fn until<T>(ws: &mut WsClient, mut pick: impl FnMut(ToClient) -> Option<T>) -> T {
     let until = Instant::now() + WAIT;
     while Instant::now() < until {
@@ -158,7 +153,6 @@ fn every_client_is_told_the_table_and_only_the_host_sets_it_outside_dev_mode() {
     let names: Vec<_> = server.knobs().iter().map(|k| k.name).collect();
     assert_eq!(names, ["snapshot_every", "pace"]);
 
-    // A guest's tune is refused, said so, and told the table again.
     ws.send(&ToServer::Action { kind: knob::action::TUNE, body: &knob::tune_body("pace", 9.0) }.to_vec()).unwrap();
     let said = until(&mut ws, |m| match m {
         ToClient::Notice { text } => Some(text.to_string()),
@@ -171,7 +165,6 @@ fn every_client_is_told_the_table_and_only_the_host_sets_it_outside_dev_mode() {
     });
     assert_eq!(pace_in(&again), 4.0);
 
-    // The host sets it, on its step; everyone is told.
     assert_eq!(server.tune("pace", 7.3), Ok(7.5));
     assert!(server.tune("nope", 1.0).unwrap_err().contains("no knob nope"));
     assert!(server.tune("glow", 2.0).is_err(), "a client knob is no server knob");
@@ -180,7 +173,6 @@ fn every_client_is_told_the_table_and_only_the_host_sets_it_outside_dev_mode() {
         _ => None,
     });
     assert_eq!(pace_in(&told), 7.5);
-    // ...and the game took it: a newcomer's first tick carries it.
     let (mut late, _) = join(&server);
     let tree = until(&mut late, |m| match m {
         ToClient::Snapshot { whole: true, body, .. } => Reader::default().value(&mut Bytes::new(body)).ok(),
@@ -203,7 +195,6 @@ fn in_dev_mode_any_seat_sets_a_knob_and_the_host_connection_always_may() {
     assert_eq!(pace_in(&told), 2.0);
     server.stop();
 
-    // Outside dev mode the host's own in-process connection may.
     let server = start(false, None);
     let local = server.connect_local().unwrap();
     local.send(ToServer::Hello { protocol: PROTOCOL, game: "dial", join: "", resume: "", name: "Host", caps: 0 }.to_vec()).unwrap();
@@ -246,14 +237,12 @@ fn a_tune_file_keeps_what_moved_and_a_restart_starts_with_it() {
     let server = start(false, Some(file.clone()));
     let pace = server.knobs().into_iter().find(|k| k.name == "pace").unwrap();
     assert_eq!((pace.value, pace.default), (8.0, 4.0));
-    // The game had it before its first tick went out.
     let (mut ws, _) = join(&server);
     let first = until(&mut ws, |m| match m {
         ToClient::Snapshot { whole: true, body, .. } => Reader::default().value(&mut Bytes::new(body)).ok(),
         _ => None,
     });
     assert_eq!(first.field("first"), Some(&Value::F64(8.0)));
-    // Snapshots two ticks apart, as kept.
     let mut ticks = Vec::new();
     while ticks.len() < 4 {
         if let Ok(ToClient::Snapshot { tick, .. }) = ToClient::decode(&next(&mut ws)) {

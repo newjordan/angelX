@@ -1,4 +1,3 @@
-"""Regression checks for the replaceable MoA report worker."""
 import json
 from pathlib import Path
 import subprocess

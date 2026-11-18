@@ -43,56 +43,35 @@ use std::sync::Arc;
 
 type KTile = crate::kingdom::Tile;
 
-/// The realm's day, in sim seconds, and when its night falls.
 pub const DAY: u64 = 600;
 pub const DUSK: u64 = 400;
-/// Seconds after dusk before the Deep is judged and the first raider climbs.
 pub const JUDGE_AFTER: u64 = 6;
-/// Ticks between raiders up the shaft.
 pub const COME_EVERY: u64 = 3 * HZ as u64;
-/// The most raiders in a raid.
 pub const RAID_MAX: u8 = 8;
-/// No raid outlasts this many seconds.
 pub const LAST: u64 = 170;
-/// A raider this near (units) a knight fights it; else it marches.
 pub const AGGRO: f32 = 12.0;
-/// How fast a raider marches, units a second.
 pub const PACE: f32 = 4.0;
-/// What a blow of each kind does to a defence, hit points a second.
 pub const BLOW: u16 = 2;
 pub const BOAR_BLOW: u16 = 8;
 pub const SAPPER_BLOW: u16 = 3;
-/// How far a tower's arrow hurts, and how often a tower looses (seconds).
 pub const ARROW_DAMAGE: u32 = 14;
 pub const ARROW_EVERY: u64 = 2;
-/// Goods a thief carries off at a time.
 pub const THIEF_TAKES: u32 = 4;
-/// The lift in hand can be reached to this height, metres (a raider climbs the scaffold).
 pub const SIEGE_Z: f32 = 4.8;
-/// How far from a stone's face a raider reaches, tiles.
 pub const SIEGE_REACH: f32 = 3.0;
-/// Blows to knock a plain stone out of an unfinished wall; a true one takes more.
 pub const STONE_BLOWS: u8 = 2;
 pub const TRUE_BLOWS: u8 = 5;
-/// The most stones a raid brings down (counting what rested on them), the most that are ever out at once, and the first raid's.
 pub const STONE_BUDGET: u8 = 24;
 pub const FIRST_STONES: u8 = 6;
-/// What beating a raid takes off the Deep's stir below.
 pub const RELIEF: u16 = 10;
-/// A thief fleeing is away when it is this near the shaft's mouth, tiles.
 const AWAY: i32 = 2;
-/// The Keep, as a raider's goal.
 const KEEP: u32 = 0;
-/// A fleeing thief's goal, and the goal of a raider that has none yet.
 const FLEE: u32 = u32::MAX;
 const NONE: u32 = u32::MAX - 1;
-/// A field of cheapest ways costs this many ticks before it is made again.
 const FIELD_TICKS: u64 = 45;
 const INF: u32 = u32::MAX;
-/// What goes in a raid's books.
 const MOST: usize = 16;
 
-/// What a raid teaches.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Theme {
@@ -132,52 +111,37 @@ impl Theme {
     }
 }
 
-/// A raid in hand.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Raid {
     pub theme: Theme,
-    /// How many are to come up, how many have.
     pub size: u8,
     pub came: u8,
-    /// The sim second it began, the room it is in and the tick the hillside last saw it.
     pub began: u64,
     pub room: usize,
     pub seen: u64,
-    /// The works the Deep's stir reaches, nearest the shaft first: what the raiders come for. A works
-    /// inside a castle's calm is not among them.
     pub targets: Vec<u32>,
-    /// The raiders' ids.
     pub band: Vec<u32>,
-    /// Each raider's goal: a building's id, [`KEEP`], or [`FLEE`].
     pub goals: BTreeMap<u32, u32>,
-    /// What each thief carries.
     pub loot: BTreeMap<u32, Stock>,
-    /// Stones brought down so far, and the blows each stone has had.
     pub stones: u8,
     pub blows: BTreeMap<u32, u8>,
 }
 
-/// What the Deep has done over the whole game, and the raid in hand.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Watch {
-    /// Raids sent, and beaten.
     pub raids: u16,
     pub beaten: u16,
-    /// The night last judged (its day, plus one).
     pub judged: u64,
     pub on: Option<Raid>,
     #[serde(skip)]
     pub mind: Mind,
 }
 
-/// What the director keeps between ticks: not saved, not sent, never compared.
 #[derive(Clone, Debug, Default)]
 pub struct Mind {
     fields: BTreeMap<u32, (u64, Arc<Field>)>,
-    /// The defence in the way of each raider this tick.
     blocked: BTreeMap<u32, u32>,
-    /// The sim second the books were last read.
     stamp: u64,
 }
 
@@ -205,9 +169,6 @@ impl Watch {
     }
 }
 
-/// How many raiders the Deep sends at a level of stir, the `raids`th time: none while it sleeps; two,
-/// four or six by level; the first raid two whatever the level; a raider more every third raid;
-/// never more than [`RAID_MAX`].
 pub fn raid_size(level: crate::kingdom::Stir, raids: u16) -> Option<u8> {
     use crate::kingdom::Stir;
     let base: u16 = match level {
@@ -219,8 +180,6 @@ pub fn raid_size(level: crate::kingdom::Stir, raids: u16) -> Option<u8> {
     Some(if raids == 0 { 2 } else { (base + raids / 3).min(u16::from(RAID_MAX)) as u8 })
 }
 
-/// One tick of a raider's march toward `goal` (a point, units): a step along it, slid along what is in
-/// the way; a body wedged against stone is walked to the middle of its tile first, which always fits.
 pub(super) fn march(enemy: &mut Enemy, goal: (f32, f32), grid: &Grid) {
     let pace = PACE * DT;
     let from = (enemy.x, enemy.y);
@@ -236,22 +195,16 @@ pub(super) fn march(enemy: &mut Enemy, goal: (f32, f32), grid: &Grid) {
     enemy.dir = (ux, uy);
 }
 
-/// How the realm's day stands: whether it is night, and the seconds till it changes.
 pub fn clock(second: u64) -> (bool, u64) {
     let into = second % DAY;
     if into >= DUSK { (true, DAY - into) } else { (false, DUSK - into) }
 }
 
-// ------------------------------------------------------------- the field ----
-
-/// The cheapest way to a goal from every tile of the room, in tenths of a step.
 #[derive(Debug)]
 pub struct Field {
     w: i32,
     h: i32,
-    /// From each tile, the cost of the way to the goal (not counting the tile's own entering).
     cost: Vec<u32>,
-    /// What entering each tile costs, [`INF`] where a raider cannot.
     entry: Vec<u32>,
 }
 
@@ -265,11 +218,8 @@ impl Field {
     }
 }
 
-/// A defence in the way: the building and what it costs to break through, tenths of a step.
 type Defences = BTreeMap<(i32, i32), (u32, u32)>;
 
-/// What stepping into a tile costs a raider, if it may: floor a step, bog two, a defence what
-/// it will take to break it.
 fn enter(room: &Room, defences: &Defences, x: i32, y: i32) -> Option<u32> {
     if let Some(&(_, cost)) = defences.get(&(x, y)) {
         return Some(cost);
@@ -301,12 +251,10 @@ fn make_field(room: &Room, defences: &Defences, sources: &[(i32, i32)]) -> Field
             if nx < 0 || ny < 0 || nx >= w || ny >= h {
                 continue;
             }
-            // The tile a raider steps from must be one it can stand on (or a defence it breaks).
             if enter(room, defences, nx, ny).is_none() {
                 continue;
             }
             let diagonal = dx != 0 && dy != 0;
-            // The way is entered through (x, y): no cutting a corner of stone.
             if diagonal && (enter(room, defences, x + dx, y).is_none() && !is_source(sources, x + dx, y) || enter(room, defences, x, y + dy).is_none() && !is_source(sources, x, y + dy)) {
                 continue;
             }
@@ -328,9 +276,6 @@ fn is_source(sources: &[(i32, i32)], x: i32, y: i32) -> bool {
     sources.contains(&(x, y))
 }
 
-/// The tile a raider at `(x, y)` steps to next on `field`: the neighbour that costs least to enter and
-/// go on from, if the way on is cheaper than here. (A defence's own entering is its cost: a wall is
-/// stepped into only when that is the cheapest way.)
 pub(super) fn step_of(field: &Field, x: i32, y: i32) -> Option<(i32, i32)> {
     let here = field.at(x, y);
     let mut best: Option<(u32, (i32, i32))> = None;
@@ -340,7 +285,6 @@ pub(super) fn step_of(field: &Field, x: i32, y: i32) -> Option<(i32, i32)> {
         if enter == INF || ahead >= here {
             continue;
         }
-        // No cutting the corner of stone.
         if dx != 0 && dy != 0 && (field.entry(x + dx, y) == INF || field.entry(x, y + dy) == INF) {
             continue;
         }
@@ -360,38 +304,30 @@ fn centre_of((x, y): (i32, i32)) -> (f32, f32) {
     ((x as f32 + 0.5) * TILE_UNITS, (y as f32 + 0.5) * TILE_UNITS)
 }
 
-// ----------------------------------------------------------------- the run ----
-
 impl Run {
-    /// Whether the realm's night is on, and the seconds until it turns.
     pub fn deep_clock(&self) -> (bool, u64) {
         clock(self.home.industry.second)
     }
 
-    /// The raid in hand and how many of its raiders are standing.
     pub fn raid_status(&self) -> Option<(Theme, usize, u8)> {
         let raid = self.kingdom.stir.watch.on.as_ref()?;
         let alive = self.enemies.iter().filter(|e| e.hp > 0 && raid.band.contains(&e.id)).count();
         Some((raid.theme, alive, raid.size))
     }
 
-    /// Whether foe `id` is one of a raid's.
     pub fn is_raider(&self, id: u32) -> bool {
         self.kingdom.stir.watch.on.as_ref().is_some_and(|r| r.band.contains(&id))
     }
 
-    /// Whether `e` is a raider with no knight near it: it marches for the works and does nothing else.
     pub(super) fn raider_marches(&self, e: &Enemy) -> bool {
         self.is_raider(e.id)
             && !self.players.values().any(|h| h.targetable() && (h.x - e.x).hypot(h.y - e.y) <= AGGRO)
     }
 
-    /// Once a tick on the hillside.
     pub(super) fn tick_raids(&mut self) {
         if !self.hill_world() || self.home.industry.is_empty() {
             return;
         }
-        // The party left the hillside and came back: the raid is not here any more.
         let tick = self.tick;
         if let Some(raid) = self.kingdom.stir.watch.on.as_mut() {
             let away = raid.room != self.at || tick > raid.seen + 3 * u64::from(HZ);
@@ -407,7 +343,6 @@ impl Run {
             }
             return;
         }
-        // Raiders come up the shaft.
         if self.tick.is_multiple_of(COME_EVERY) {
             self.come_up();
         }
@@ -417,13 +352,11 @@ impl Run {
         self.raid_second(second);
     }
 
-    /// At dusk, once: does the Deep answer?
     fn judge(&mut self, second: u64) {
         let (day, into) = (second / DAY, second % DAY);
         if into < DUSK + JUDGE_AFTER || self.kingdom.stir.watch.judged == day + 1 {
             return;
         }
-        // Nobody to raid: the night is not judged.
         if !self.players.values().any(|h| !h.absent && h.hp > 0 && !h.stone) {
             return;
         }
@@ -432,7 +365,6 @@ impl Run {
         let k = &self.home.industry;
         let report = k.report(c);
         let lures = k.lures(c, &report);
-        // The stir the works make, and at each works what is left of it after the calm that reaches it.
         let deep = u32::from(self.kingdom.stir.level) / 2;
         let base = k.pressure_with(c, deep, None);
         let raw = base.smoke + base.noise + base.digging;
@@ -471,13 +403,11 @@ impl Run {
         ));
     }
 
-    /// How far a place is from the Great Shaft's mouth, tiles squared.
     fn lure_distance(&self, at: KTile) -> i32 {
         let (sx, sy) = crate::world::wishes::delve_stand();
         (i32::from(at.0) - sx).pow(2) + (i32::from(at.1) - sy).pow(2)
     }
 
-    /// The next raider comes up the shaft.
     fn come_up(&mut self) {
         let Some(raid) = &self.kingdom.stir.watch.on else { return };
         if raid.came >= raid.size || raid.band.len() >= MOST {
@@ -502,7 +432,6 @@ impl Run {
             }
         }
         let Some(id) = self.spawn_body(kind, x, y) else { return };
-        // It knows where it is going the moment it is up.
         let theme = self.kingdom.stir.watch.on.as_ref().map_or(Theme::Fire, |r| r.theme);
         let report = self.home.industry.report(catalog());
         let goal = self.pick_goal(theme, (sx, sy), &report, usize::from(n));
@@ -514,8 +443,6 @@ impl Run {
         self.sounds.push("door_seal");
     }
 
-    /// The raiders' goals this tick, for the foes' turn: where each marches while no knight is
-    /// near. Rebuilds the cheapest-way fields as they go stale.
     pub(super) fn raid_goals(&mut self) -> BTreeMap<u32, Option<(f32, f32)>> {
         let mut out = BTreeMap::new();
         let Some(raid) = &self.kingdom.stir.watch.on else { return out };
@@ -529,7 +456,6 @@ impl Run {
         let mut blocked = BTreeMap::new();
         for (id, x, y) in band {
             let Some(&goal) = goals.get(&id).filter(|g| **g != NONE) else {
-                // No goal yet: it waits where it came up.
                 out.insert(id, None);
                 continue;
             };
@@ -539,7 +465,6 @@ impl Run {
                 continue;
             };
             let Some((nx, ny)) = step_of(&field, tx, ty) else {
-                // Nowhere cheaper than here: it stands at the work.
                 out.insert(id, Some(centre_of((tx, ty))));
                 continue;
             };
@@ -552,7 +477,6 @@ impl Run {
         out
     }
 
-    /// The building of a defence that stands on a room tile.
     fn defence_at(&self, (x, y): (i32, i32)) -> Option<u32> {
         let c = catalog();
         let k = &self.home.industry;
@@ -561,7 +485,6 @@ impl Run {
         k.defence_of(c, id).map(|_| id)
     }
 
-    /// The field of cheapest ways to goal `goal` (a building, the Keep or the shaft's mouth).
     fn field_for(&mut self, goal: u32) -> Option<Arc<Field>> {
         if let Some((at, f)) = self.kingdom.stir.watch.mind.fields.get(&goal)
             && self.tick.saturating_sub(*at) < FIELD_TICKS
@@ -595,7 +518,6 @@ impl Run {
         Some(field)
     }
 
-    /// The open tiles that stand against the Keep's walls: where a siege is laid from.
     fn keep_faces(&self) -> Vec<(i32, i32)> {
         let Some(site) = self.sites.keep() else { return Vec::new() };
         let Some(castle) = site.castle() else { return Vec::new() };
@@ -616,13 +538,10 @@ impl Run {
         out
     }
 
-    /// Picks a goal for raider `id` of theme `theme`, standing at `at`: the nearest of what it
-    /// is after.
     fn pick_goal(&self, theme: Theme, at: (i32, i32), report: &crate::kingdom::Report, n: usize) -> u32 {
         let c = catalog();
         let k = &self.home.industry;
         let mut lures = k.lures(c, report);
-        // Only the works the stir reaches; if none of them is left, whatever is.
         let targets = self.kingdom.stir.watch.on.as_ref().map(|r| r.targets.clone()).unwrap_or_default();
         if lures.iter().any(|l| targets.contains(&l.id)) {
             lures.retain(|l| targets.contains(&l.id));
@@ -630,11 +549,9 @@ impl Run {
         let near = |l: &crate::kingdom::Lure| (i32::from(l.tile.0) - at.0).pow(2) + (i32::from(l.tile.1) - at.1).pow(2);
         let mut sorted: Vec<&crate::kingdom::Lure> = lures.iter().collect();
         sorted.sort_by_key(|l| (near(l), l.id));
-        // Boars go for the Keep's wall while its lift in hand can be reached.
         if theme == Theme::Boars && self.keep_reachable() {
             return KEEP;
         }
-        // Thieves go for a store: the camp when nothing else holds goods.
         if theme == Theme::Thieves {
             let store = sorted.iter().find(|l| k.buildings.get(&l.id).is_some_and(|b| !b.output.is_empty()));
             return store.map_or(1, |l| l.id);
@@ -643,7 +560,6 @@ impl Run {
         sorted.get(n % pool).map_or_else(|| if self.keep_reachable() { KEEP } else { 1 }, |l| l.id)
     }
 
-    /// Whether the Keep's lift in hand is low enough to be reached: an unfinished wall.
     fn keep_reachable(&self) -> bool {
         let Some(site) = self.sites.keep() else { return false };
         let Some(castle) = site.castle() else { return false };
@@ -656,23 +572,19 @@ impl Run {
         })
     }
 
-    /// Once a second while a raid is on: the raiders act, the towers loose, the raid ends.
     fn raid_second(&mut self, second: u64) {
         let c = catalog();
         let report = self.home.industry.report(c);
         self.kingdom.stir.watch.mind.stamp = second;
         let Some(raid) = self.kingdom.stir.watch.on.clone() else { return };
-        // The dawn, or the end of its time: the rest slink back.
         let (night, _) = clock(second);
         if !night || second.saturating_sub(raid.began) > LAST {
             self.end_raid(Some("THE RAIDERS FALL BACK DOWN THE SHAFT: DAWN"));
             return;
         }
         let alive: Vec<u32> = self.enemies.iter().filter(|e| e.hp > 0 && raid.band.contains(&e.id)).map(|e| e.id).collect();
-        // A thief that fell drops what it carried.
         for (id, loot) in &raid.loot {
             if !self.enemies.iter().any(|e| e.hp > 0 && e.id == *id) {
-                // What was taken from the camp is the camp's again, whatever room its stores have.
                 for (good, n) in loot {
                     *self.home.industry.stock.entry(good.clone()).or_default() += *n;
                 }
@@ -687,7 +599,6 @@ impl Run {
             self.raider_acts(id, &raid, &report, second);
         }
         self.towers_loose(&report, second);
-        // Beaten: all are up and none left.
         let Some(raid) = self.kingdom.stir.watch.on.clone() else { return };
         let left = self.enemies.iter().any(|e| e.hp > 0 && raid.band.contains(&e.id));
         if raid.came >= raid.size && !left {
@@ -700,7 +611,6 @@ impl Run {
         }
     }
 
-    /// One raider's second.
     fn raider_acts(&mut self, id: u32, raid: &Raid, report: &crate::kingdom::Report, second: u64) {
         let c = catalog();
         let Some(me) = self.enemies.iter().find(|e| e.id == id && e.hp > 0) else { return };
@@ -709,7 +619,6 @@ impl Run {
             return;
         }
         let at = tile_of(x, y);
-        // A goal, or a new one.
         let mut goal = raid.goals.get(&id).copied().unwrap_or(NONE);
         let stale = goal == NONE
             || (goal != KEEP && goal != FLEE && !self.home.industry.buildings.contains_key(&goal))
@@ -721,7 +630,6 @@ impl Run {
                 r.goals.insert(id, goal);
             }
         }
-        // A thief with its goods runs for the shaft.
         if goal == FLEE {
             let (sx, sy) = crate::world::wishes::delve_stand();
             if (at.0 - sx).abs() <= AWAY && (at.1 - sy).abs() <= AWAY {
@@ -731,7 +639,6 @@ impl Run {
                     r.loot.remove(&id);
                     r.band.retain(|b| *b != id);
                     r.goals.remove(&id);
-                    // The slot is closed: it will not come again.
                     r.size = r.size.max(r.came);
                 }
                 self.found = Some((self.tick, 0, format!("A THIEF SLIPS DOWN THE SHAFT WITH {n} GOODS")));
@@ -741,7 +648,6 @@ impl Run {
         }
         let theme = raid.theme;
         let blow = theme.blow();
-        // Sappers blow what lines they pass: a road, a rollerway or a rail within three tiles.
         if theme == Theme::Sappers && (second + u64::from(id)) % 4 == 0 {
             let t = (at.0 as i16, at.1 as i16);
             if let Some(cut) = self.home.industry.cut_near(c, t, 3) {
@@ -750,7 +656,6 @@ impl Run {
                 return;
             }
         }
-        // A defence in the way is battered.
         let in_the_way = self.kingdom.stir.watch.mind.blocked.get(&id).copied();
         if let Some(did) = in_the_way
             && self.home.industry.defence_of(c, did).is_some()
@@ -758,7 +663,6 @@ impl Run {
             self.batter(did, blow);
             return;
         }
-        // At the goal?
         let field = self.field_for(goal);
         let here = field.as_ref().map_or(INF, |f| f.at(at.0, at.1));
         if here > 14 {
@@ -771,7 +675,6 @@ impl Run {
             }
             return;
         }
-        // A defence that is the goal (a brazier, a tower) is battered, not burnt.
         if self.home.industry.defence_of(c, goal).is_some() {
             self.batter(goal, blow);
             return;
@@ -798,14 +701,12 @@ impl Run {
                     self.found = Some((self.tick, 0, "A THIEF IS AWAY WITH GOODS: CATCH IT BEFORE THE SHAFT".into()));
                     self.sounds.push("hit");
                 } else {
-                    // Nothing to take here: it tries the camp.
                     if let Some(r) = self.kingdom.stir.watch.on.as_mut() {
                         r.goals.insert(id, 1);
                     }
                 }
             }
             Theme::Sappers => {
-                // At the goal with nothing to cut: they batter what is in reach.
                 if let Some(did) = self.nearby_defence(at, 2) {
                     self.batter(did, blow);
                 }
@@ -819,7 +720,6 @@ impl Run {
         }
     }
 
-    /// The nearest defence within `reach` tiles of a tile.
     fn nearby_defence(&self, at: (i32, i32), reach: i32) -> Option<u32> {
         let c = catalog();
         let k = &self.home.industry;
@@ -838,7 +738,6 @@ impl Run {
         best.map(|(_, id)| id)
     }
 
-    /// A raider's blow on defence `id`.
     fn batter(&mut self, id: u32, dmg: u16) {
         let c = catalog();
         let name = self.home.industry.buildings.get(&id).map_or(String::new(), |b| c.plans[&b.plan].name.to_uppercase());
@@ -861,7 +760,6 @@ impl Run {
         self.shake = self.shake.max(6);
     }
 
-    /// A raider batters the Keep's lift in hand: the stone nearest it that it can reach.
     fn siege_blow(&mut self, id: u32, at: (i32, i32)) {
         let Some(raid) = self.kingdom.stir.watch.on.clone() else { return };
         let budget = if raid.stones >= STONE_BUDGET || (self.kingdom.stir.watch.raids <= 1 && raid.stones >= FIRST_STONES) {
@@ -875,7 +773,6 @@ impl Run {
         let Some(castle) = site.castle() else { return };
         let Some(rests) = works::rests(&castle.id) else { return };
         let first = castle.stages[castle.stage_at(site.laid)].first.min(site.laid);
-        // The nearest stone of the lift in hand within reach.
         let (ox, oz) = works::origin_px();
         let me = (at.0 as f32 + 0.5, at.1 as f32 + 0.5);
         let mut best: Option<(f32, u32)> = None;
@@ -907,7 +804,6 @@ impl Run {
         let gone: BTreeSet<u32> = site.lost.iter().copied().collect();
         let fall = rests.held_by(stone, first, site.laid, &gone);
         let n = 1 + fall.len();
-        // Too much would come down, in this raid or with what is out already: this stone holds.
         if usize::from(raid.stones) + n > usize::from(budget) || gone.len() + n > usize::from(STONE_BUDGET) {
             return;
         }
@@ -934,7 +830,6 @@ impl Run {
         ));
     }
 
-    /// The towers loose: each manned, armed tower looses at the nearest raider in its reach.
     fn towers_loose(&mut self, report: &crate::kingdom::Report, second: u64) {
         let c = catalog();
         let towers = self.home.industry.towers(c, report);
@@ -967,13 +862,11 @@ impl Run {
         }
     }
 
-    /// The raid ends, for a proof or a test to call it off.
     #[cfg(any(test, feature = "testing"))]
     pub fn end_raid_for_test(&mut self) {
         self.end_raid(None);
     }
 
-    /// The raid ends: whoever is left slinks back down the shaft, what thieves carried is lost.
     fn end_raid(&mut self, why: Option<&str>) {
         let Some(raid) = self.kingdom.stir.watch.on.take() else { return };
         self.enemies.retain(|e| !raid.band.contains(&e.id));
@@ -984,8 +877,6 @@ impl Run {
         }
     }
 
-    /// Beaten by the Deep's raiders on the hillside: the knights are knocked down, not killed. The
-    /// raiders take their due from the camp's stores and go. True if it was this (and not a wipe).
     pub(super) fn deep_rout(&mut self) -> bool {
         if self.kingdom.stir.watch.on.is_none()
             || self.room().kind != RoomKind::Kingdom

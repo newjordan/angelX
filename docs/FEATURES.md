@@ -1,6 +1,6 @@
 # 12 distinguishing features
 
-Source-backed implementation shortlist. Comparative performance against peer harnesses is documented in [Benchmarks](../README.md#benchmarks).
+Source-backed implementation shortlist. Comparative performance against peer harnesses is documented in the [0.2.7 release notes](RELEASE_0.2.7.md#results).
 
 | # | Feature | Implemented behavior | Source |
 |---|---|---|---|

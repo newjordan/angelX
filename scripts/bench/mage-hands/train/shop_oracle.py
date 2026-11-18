@@ -1,8 +1,3 @@
-"""Persisted training fixture state, independent of Mage/brain assertions.
-
-A later primary-driver live harness can bind these transitions to browser UI
-controls. This module is an oracle, never an inference-time Mage input.
-"""
 from dataclasses import dataclass, field
 
 

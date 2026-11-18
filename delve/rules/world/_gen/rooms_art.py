@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-"""Writes ../rooms_art.bend: the dungeon masters' drawn rooms, from
-cockpit/live/rooms-rules/rooms-art.json (the module's captured answers)."""
 import json, pathlib
 HERE = pathlib.Path(__file__).resolve().parent
 art = json.loads((HERE.parents[3] / "cockpit/live/rooms-rules/rooms-art.json").read_text())
@@ -24,7 +22,6 @@ for p in range(7):
     nxt = f"layout.rooms.small.n{p + 1}(pack)" if p < 6 else "[]"
     out += [f"def layout.rooms.small.n{p}(+pack: U32) -> {T}:", f"  layout.rooms.small.m{p}(U32.is_eq(pack, {p}), pack)", "",
             f"def layout.rooms.small.m{p}(hit: Bool, +pack: U32) -> {T}:", "  match hit:", "    case True{}:", f"      layout.rooms.small.p{p}()", "    case False{}:", f"      {nxt}", ""]
-# sized
 keys = []
 for k, v in art["sized"].items():
     p, w, h = (int(x) for x in k.split(","))

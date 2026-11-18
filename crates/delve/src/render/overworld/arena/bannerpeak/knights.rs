@@ -13,7 +13,6 @@ use crate::rules::bannerpeak::{
 };
 use crate::rules::juice::Weight;
 
-/// Which frame the sim's pose is: the set's name, the frame in it, and whether it faces left.
 fn choose(k: &Knight, tick: u32, seat: u32) -> (&'static str, usize, bool) {
     let b = &k.body;
     let face_left = b.face < 0;
@@ -33,7 +32,6 @@ fn choose(k: &Knight, tick: u32, seat: u32) -> (&'static str, usize, bool) {
         Pose::Spin => ("spin", ((tick / 2) % 4) as usize, face_left),
         Pose::Long => ("long", 0, face_left),
         Pose::Back => ("back", ((tick / 2) % 4) as usize, face_left),
-        // Back to the wall, hands on it: the wall is on the side it clings to.
         Pose::Wall => ("wall", 0, b.wall > 0),
         Pose::Wind => ("wind", 0, face_left),
         Pose::Slam => ("slam", ((tick / 2) % 4) as usize, face_left),
@@ -48,8 +46,6 @@ fn choose(k: &Knight, tick: u32, seat: u32) -> (&'static str, usize, bool) {
     }
 }
 
-/// How the body is squashed (`sx`, `sy`) this tick: flat and wide on a landing, thin and tall as
-/// it leaves the ground and as it falls fast.
 fn squash(s: &Session, seat: u32, k: &Knight, now: u32) -> (f32, f32) {
     let b = &k.body;
     let mut sx = 1.0;
@@ -87,7 +83,6 @@ fn squash(s: &Session, seat: u32, k: &Knight, now: u32) -> (f32, f32) {
     (sx, sy)
 }
 
-/// A hit knight in one flat light for the first ticks after the blow.
 fn struck(s: &Session, seat: u32, now: u32) -> bool {
     s.show.latest(Kind::Hurt, seat).is_some_and(|m| m.age(now) < 3)
 }
@@ -101,7 +96,6 @@ pub(super) fn draw(im: &mut Img, s: &Session, seat: u32, k: &Knight, cam: (i32, 
     if k.pit > 0 {
         return;
     }
-    // A knight in the grace after a hit blinks, as every platformer's does.
     if k.hurt > 0 && tick / 3 % 2 == 0 && k.pose == 0 && !struck(s, seat, tick) {
         return;
     }
@@ -110,7 +104,6 @@ pub(super) fn draw(im: &mut Img, s: &Session, seat: u32, k: &Knight, cam: (i32, 
     if sx < -40 || sx > W + 40 || sy < -60 || sy > H + 60 {
         return;
     }
-    // The shadow of a knight in the air, on whatever is below: a dithered oval that thins as it rises.
     if !k.body.ground {
         if let Some(ground) = ground_below(s, fx, fy) {
             let gy = ground - cam.1;
@@ -128,7 +121,6 @@ pub(super) fn draw(im: &mut Img, s: &Session, seat: u32, k: &Knight, cam: (i32, 
     }
     let big = k.big();
     let (mut name, index, flip) = choose(k, tick, seat);
-    // At the Great Pole the knights cheer: each hops in its own time, the plume up, the shield high.
     let mut lift = 0;
     if s.phase == crate::rules::bannerpeak::session::Phase::Finale && s.phase_t > 24 {
         let t = (s.phase_t + seat * 7) % 22;
@@ -147,16 +139,12 @@ pub(super) fn draw(im: &mut Img, s: &Session, seat: u32, k: &Knight, cam: (i32, 
     if struck(s, seat, tick) {
         sprite = Sprite { img: juice::impact_frame(&sprite.img, 'c'), dx: sprite.dx, dy: sprite.dy };
     }
-    // A big knight leaning into a skid or a turn needs nothing more: the frame has it. A friend a
-    // touch dimmer than you, so you read first on a busy screen.
     art::stamp(im, &sprite, sx, sy - lift);
-    // Extras the frames do not carry.
     let face = i32::from(k.body.face);
     if k.size == Size::Flame {
         lantern(im, sx + face * 11, sy - 16, tick, seat);
     }
     if k.pose > 0 && k.pole == 0 {
-        // The item-get pose: the banner held high in the knight's own hand.
         let col = s.announce.map_or(0, |a| usize::from(a.banner));
         let top = sy - 38 - (if big { 10 } else { 0 });
         im.rect(sx + face * 4, top, 1, 14, 'P');
@@ -164,7 +152,6 @@ pub(super) fn draw(im: &mut Img, s: &Session, seat: u32, k: &Knight, cam: (i32, 
         im.frame(sx + face * 4 + (if face > 0 { 1 } else { -9 }), top, 9, 6, 'k');
         im.put(sx + face * 4 + (if face > 0 { 4 } else { -6 }), top + 2, 'T');
     }
-    // Who it is: a small seat pip floats over a friend; yours has an arrow at the start.
     let head = sy - sprite.img.h.max(18) - 3;
     if mine {
         if s.elapsed < 150 && tick / 8 % 2 == 0 {
@@ -174,7 +161,6 @@ pub(super) fn draw(im: &mut Img, s: &Session, seat: u32, k: &Knight, cam: (i32, 
             im.put(sx, ay + 2, ink);
         }
     } else {
-        // A small diamond in the seat's colour, bobbing: it says who without a word to collide with.
         let py = head - 3 - tri(tick as i32 + seat as i32 * 5, 16) / 4;
         for (dx, dy) in [(0, -2), (-1, -1), (1, -1), (-2, 0), (2, 0), (-1, 1), (1, 1), (0, 2)] {
             im.put(sx + dx, py + dy, 'k');
@@ -186,7 +172,6 @@ pub(super) fn draw(im: &mut Img, s: &Session, seat: u32, k: &Knight, cam: (i32, 
     }
 }
 
-/// The lantern a flame knight carries: a small cage with a flame that never holds still.
 fn lantern(im: &mut Img, x: i32, y: i32, tick: u32, seat: u32) {
     let flick = (tick / 2 + seat) % 3;
     im.rect(x - 2, y, 5, 6, 'k');
@@ -198,15 +183,12 @@ fn lantern(im: &mut Img, x: i32, y: i32, tick: u32, seat: u32) {
     im.put(x, y - 3, 'o');
 }
 
-/// A knight in a bubble: curled up inside it, the bubble thinning as the time runs out, so a
-/// friend can see how long they have.
 fn bubble(im: &mut Img, seat: u32, x: i32, y: i32, t: u32, ink: char, tick: u32) {
     let wob = tri(tick as i32 + seat as i32 * 7, 24) / 6 - 2;
     let y = y + wob;
     if let Some(ball) = art::knight(false, "wind", 0, seat, false) {
         art::stamp(im, &ball, x, y + 9);
     }
-    // The skin: a ring of light with a glint, an ordered dither of paler air inside.
     let left = (330u32.saturating_sub(t)) as f32 / 330.0;
     let urgent = left < 0.25;
     for deg in (0..360).step_by(6) {
@@ -232,21 +214,17 @@ fn bubble(im: &mut Img, seat: u32, x: i32, y: i32, t: u32, ink: char, tick: u32)
     im.put(x - 6, y - 8, 'W');
     im.put(x - 5, y - 8, 'W');
     im.put(x - 6, y - 7, 'W');
-    // Whose it is: the seat's diamond, as over a friend; no digit to stand on other words.
     for (dx, dy) in [(0, -2), (-1, -1), (1, -1), (-2, 0), (2, 0), (-1, 1), (1, 1), (0, 2)] {
         im.put(x + dx, y - 22 + dy, 'k');
     }
     im.rect(x - 1, y - 23, 3, 3, ink);
     im.put(x - 1, y - 23, 'H');
-    // Come and get me: a small mark over the bubble that bobs.
     let b = tri(tick as i32, 20) / 5;
     for (dx, dy) in [(0, 0), (-1, -1), (1, -1), (-2, -2), (2, -2)] {
         im.put(x + dx, y - 31 - b + dy, 'T');
     }
 }
 
-/// The weight a blow near this seat shakes the screen with: a blow of yours, or anything heavy,
-/// or any blow close by.
 pub(super) fn shakes(s: &Session, me: Option<&Knight>, id: u32) -> Vec<(Weight, u32)> {
     let now = s.elapsed;
     let foot = me.map(|k| k.body.foot());

@@ -218,7 +218,6 @@ def summarize(root):
              'training_telemetry_records': len(training),
              'files_sha256': {str(p.relative_to(root)): digest(p) for p in sorted(root.rglob('*'))
                               if p.is_file() and p.name not in ('audit.json', 'results.md')}}
-    # No report is emitted until all checks above have passed.
     (root / 'results.md').write_text('\n'.join(text))
     (root / 'audit.json').write_text(json.dumps(audit, indent=2) + '\n')
     print('\n'.join(text))

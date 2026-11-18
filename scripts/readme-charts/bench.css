@@ -1,5 +1,3 @@
-/* trials — benchmark plots in the cockpit's "measured" panel style: thin square frames
-   with the title set into the border, dot-matrix marks, DOS type. Site tokens only. */
 .bench{
   --b-bg:#050506; --b-ink:#f4f4f7; --b-dim:#a2a2ac; --b-rule:#3a3a44;
   --b-dos:'VT323','Courier New',ui-monospace,monospace;
@@ -32,10 +30,6 @@
 .bench .legend .ax-hero{color:#ffffff;font-weight:600}
 .bench .legend .ax-hero i{box-shadow:0 0 5px rgba(255,255,255,.7),0 0 10px rgba(244,244,247,.4)}
 
-/* angelX: a gentle ambient pulse, just enough to hold the line off the
-   background. Narrow range on purpose — wide swings read as flashing on
-   sparse dot-matrix marks. (filter, not text-shadow: text-shadow is
-   unreliable on SVG <text>.) */
 @keyframes ax-ambient-pulse {
   0%, 100% { filter: drop-shadow(0 0 1.3px rgba(255,255,255,.50)) drop-shadow(0 0 3.5px rgba(244,244,247,.24)); }
   50%      { filter: drop-shadow(0 0 2.0px rgba(255,255,255,.72)) drop-shadow(0 0 6.5px rgba(244,244,247,.40)); }
@@ -52,7 +46,6 @@
   .bench .ax-glow-soft { animation: none; filter: drop-shadow(0 0 1.2px rgba(255,255,255,.5)) drop-shadow(0 0 4px rgba(244,244,247,.26)); }
 }
 
-/* main readouts: heavier than the axis furniture */
 .bench svg text { font-weight: 500; }
 .bench svg .num { font-weight: 700; letter-spacing: .01em; }
 

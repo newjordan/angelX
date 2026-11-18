@@ -1,4 +1,3 @@
-// Presentation only: the native host owns discovery, liveness and identity.
 exports.peerLine = (peer, now) => {
   const age = Math.max(0, now - peer.updated_ms)
   const state = age <= 90_000 ? 'live' : 'stale'

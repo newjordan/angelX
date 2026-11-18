@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Prove that quarantined products cannot leak back into active product code.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -83,9 +82,6 @@ boundary_scan() {
   exit 2
 }
 
-# Use the extracted files themselves as the source of truth. This keeps the
-# check useful in release archives that intentionally contain neither `.git`
-# nor every internal source directory.
 git_checkout=0
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   git_checkout=1

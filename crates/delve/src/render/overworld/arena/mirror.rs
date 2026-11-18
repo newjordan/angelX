@@ -4,8 +4,6 @@ use super::super::ink::{Img, ink, text_width};
 use super::{Painting, Run, TILE, TILE_UNITS, knights, paintings};
 use crate::rules::{Hero, creator as rules};
 
-/// A borrowed original in the common case; a private visual kit otherwise.
-/// In particular, never pass this stand-in back to rules or persistence.
 pub(super) fn visual_hero(hero: &Hero) -> std::borrow::Cow<'_, Hero> {
     let Some(kit) = hero
         .look
@@ -18,14 +16,10 @@ pub(super) fn visual_hero(hero: &Hero) -> std::borrow::Cow<'_, Hero> {
     };
     let mut visual = hero.clone();
     visual.knight = Some((*kit).to_owned());
-    // A class taken at a hall normally wins over the kit. Here it is only ink.
     visual.class = None;
     std::borrow::Cow::Owned(visual)
 }
 
-// All colours are existing pigment ramps, not emissive game-state inks.
-// A look keeps its colour by its number (`creator::COLOURS`), so a new one
-// only ever goes on the end: violet, plum and rose came with the dyes.
 const CLOTH: [[char; 3]; 11] = [
     ['R', 'r', 'P'],
     ['U', 'u', 'S'],
@@ -58,16 +52,12 @@ const HAIR: [[char; 2]; 8] = [
     ['%', ';'],
 ];
 
-/// Repaint the base sprite before wished clothing is laid on it. Face pixels
-/// are small ink-row parts just like the kit's own bare heads; never a font.
 pub(super) fn appearance(mut im: Img, hero: &Hero) -> Img {
     if !hero.look.custom {
         return im;
     }
     let primary = CLOTH[usize::from(hero.look.primary) % CLOTH.len()];
     let trim = CLOTH[usize::from(hero.look.trim) % CLOTH.len()];
-    // Custom base sprites arrive before seat recolouring. Keep skin separate
-    // from cloth, even when a selected cloth ramp also uses warm skin inks.
     let visual = visual_hero(hero);
     let fit = knights::body_of(&visual, &im);
     let (cx, cy) = fit.face.anchor;
@@ -75,8 +65,6 @@ pub(super) fn appearance(mut im: Img, hero: &Hero) -> Img {
     let hair = HAIR[usize::from(hero.look.hair_colour) % HAIR.len()];
     let away = knights::facing(hero.aim_x, hero.aim_y) == knights::Facing::Up;
     let side = knights::facing(hero.aim_x, hero.aim_y) == knights::Facing::Side;
-    // The tiny bare head shares the realm's six ink rows. Hats/hoods above
-    // that socket remain the kit's, and wished head/face art is dressed later.
     let has_face = (cy - 3..=cy + 1).any(|y| {
         (cx - 3..=cx + 3).any(|x| {
             im.get(x, y)
@@ -92,9 +80,6 @@ pub(super) fn appearance(mut im: Img, hero: &Hero) -> Img {
         ('4', trim[1]),
         ('a', trim[2]),
     ]);
-    // Exposed hands and legs use the same skin ramp. Deep leather/wood
-    // pigments stay untouched; only skin adjacent to a light skin pixel is
-    // repainted, so a staff or bow is not mistaken for a long bare arm.
     for y in 0..im.h {
         for x in 0..im.w {
             let Some(c) = original.get(x, y) else {
@@ -125,8 +110,6 @@ pub(super) fn appearance(mut im: Img, hero: &Hero) -> Img {
             }
         }
     }
-    // Preserve a completely closed helm and authored nonhuman wish bodies.
-    // Back views have no face pixels, but the custom realm head is bare too.
     let realm_back = away
         && visual.knight.as_deref() != Some(knights::DWARF)
         && super::class_looks::Look::of(&visual).is_none()
@@ -162,7 +145,6 @@ pub(super) fn appearance(mut im: Img, hero: &Hero) -> Img {
         ('o', skin[0]),
     ]);
     if hero.look.hair == 2 {
-        // A swept fringe has a small lifted lock and an open temple.
         head.put(5, 0, light);
         head.put(6, 1, shade);
         head.put(1, 2, skin[1]);
@@ -220,7 +202,6 @@ fn proportions(hero: &Hero) -> (i32, i32) {
     )
 }
 
-/// Nearest-neighbour ink scaling, including transparency. No new palette.
 fn resized(im: &Img, w: i32, h: i32) -> Img {
     let mut out = Img::new(w.max(1), h.max(1));
     if im.w == 0 || im.h == 0 {
@@ -236,9 +217,6 @@ fn resized(im: &Img, w: i32, h: i32) -> Img {
     out
 }
 
-/// Scale after dressing, so every socket, pixel wish and high-resolution
-/// painting stays attached to the same cosmetic body. Feet stay bottom-aligned
-/// in the existing figure compositor; no collision or combat state is touched.
 pub(super) fn sized(im: Img, mut worn: Vec<Painting>, hero: &Hero) -> (Img, Vec<Painting>) {
     let (sx, sy) = proportions(hero);
     if (sx, sy) == (8, 8) {
@@ -275,7 +253,6 @@ fn scale_painting(p: &mut Painting, sx: f32, sy: f32) {
     p.pose.dy *= sy;
 }
 
-/// The very same sprite selection and wish dressing used on the field.
 fn live(run: &Run, id: u32, hero: &Hero) -> (Img, Vec<Painting>) {
     let struck = super::vfx::struck(run, id);
     let bodied = hero.shape.is_some()
@@ -326,8 +303,6 @@ fn live(run: &Run, id: u32, hero: &Hero) -> (Img, Vec<Painting>) {
     )
 }
 
-/// Draw into a bounded pane. Paintings are noted only when fully inside it:
-/// clipped pixel fallbacks remain visible, but a client PNG cannot escape glass.
 fn reflect(
     cv: &mut Img,
     run: &Run,
@@ -374,8 +349,6 @@ fn reflect(
     }
 }
 
-/// A wall reflection is public scenery, unlike the private creator. The
-/// nearest standing knight wins deterministically; empty glass stays empty.
 pub(super) fn wall(cv: &mut Img, run: &Run) {
     if run.room().kind != crate::rules::RoomKind::Alehouse {
         return;
@@ -427,7 +400,6 @@ fn clipped_text(cv: &mut Img, x: i32, y: i32, width: i32, text: &str, colour: ch
     cv.text(x, y, &shown, colour);
 }
 
-/// A scroll, not a second input state: the selected row determines its window.
 fn row_window(selected: usize, visible: usize, count: usize) -> std::ops::Range<usize> {
     let start = selected
         .saturating_sub(visible / 2)
@@ -469,8 +441,6 @@ pub(super) fn panel(cv: &mut Img, run: &Run, focus: Option<u32>) {
     let preview = (w / 4).clamp(40, 72);
     cv.frame(x + 7, y + 22, preview, h - 49, 'G');
     cv.rect(x + 8, y + 23, preview - 2, h - 51, 'X');
-    // Face the glass in this private view so skin and beard remain visible.
-    // The shared wall still follows the real knight's live aim and animation.
     let mut portrait = hero.clone();
     (portrait.aim_x, portrait.aim_y) = (0.0, 1.0);
     reflect(
@@ -513,7 +483,6 @@ pub(super) fn panel(cv: &mut Img, run: &Run, focus: Option<u32>) {
             if active { 'H' } else { 'h' },
         );
     }
-    // A narrow thumb gives both position and extent, without another label.
     let track = visible as i32 * row_h;
     cv.line(right + 7, top - 2, right + 7, top + track - 3, 'g');
     let thumb = (track * window.len() as i32 / rules::ROWS.len() as i32).max(3);
@@ -558,7 +527,6 @@ mod tests {
     fn every_cloth_and_hair_has_its_name_and_the_old_ones_keep_their_numbers() {
         assert_eq!(CLOTH.len(), rules::COLOURS.len());
         assert_eq!(HAIR.len(), rules::HAIR_COLOURS.len());
-        // As saved looks knew them before the dyes came.
         assert_eq!(
             CLOTH[..8],
             [
@@ -573,7 +541,6 @@ mod tests {
             ]
         );
         assert_eq!(HAIR[..6], [['K', 'g'], ['r', 'P'], ['t', 'o'], ['R', 'B'], ['H', 'h'], ['g', 'K']]);
-        // Violet and plum are purple, rose is pink, and so are the new hairs.
         let purple = |ch: char| {
             let [r, g, b] = ink(ch).unwrap();
             b > r && r > g

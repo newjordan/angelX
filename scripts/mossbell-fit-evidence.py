@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Bounded before/after contacts from native frames and actual cockpit cells."""
 import json
 import sys
 import subprocess

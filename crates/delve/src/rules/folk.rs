@@ -15,60 +15,44 @@ use super::barony::{self, CAMP_GUARDS, CAMP_KING, Court, HALL_GUARDS, SEAT_AT};
 use super::home::Home;
 use super::*;
 
-/// Who someone is, for their figure.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Folk {
     King,
     Student,
     Wizard,
     Guard,
-    /// A miner on his way down, his pick on his shoulder; on his way up,
-    /// a sack of ore on his back.
     Miner,
-    /// A builder: a dressed stone on his shoulder going, empty coming back.
     Builder,
-    /// A carter with the realm's share of the ore, out to market.
     Carter,
     Smith,
 }
 
-/// What a figure is doing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Pose {
     Walk,
-    /// At a task: hammering, setting a stone, dropping a sack.
     Work,
     Idle,
     Seated,
 }
 
-/// One of the folk, where they are this tick.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Figure {
     pub folk: Folk,
-    /// Arena units.
     pub x: f32,
     pub y: f32,
     pub east: bool,
     pub pose: Pose,
-    /// Carrying: a sack, a stone, a full cart.
     pub loaded: bool,
-    /// Ticks into what they are doing, for their stride or their swing.
     pub t: u32,
 }
 
-/// A leg of a route.
 #[derive(Clone, Copy, Debug)]
 enum Step {
-    /// Walk the path (tiles) through `room`, carrying or not.
     Walk(RoomKind, &'static [(f32, f32)], bool),
-    /// Stay at a spot (tiles) for so many ticks.
     Stay(RoomKind, (f32, f32), u32, Pose, bool),
-    /// Out of sight for so many ticks: below, or away to market.
     Away(u32),
 }
 
-/// How fast the folk walk: two tiles a second.
 const PACE: f32 = 2.0 / HZ as f32;
 
 fn path_len(path: &[(f32, f32)]) -> f32 {
@@ -85,7 +69,6 @@ fn ticks(step: &Step) -> u32 {
     }
 }
 
-/// Where a route's walker is `t` ticks into it, if they are in sight.
 fn place(folk: Folk, route: &[Step], t: u32) -> Option<(RoomKind, Figure)> {
     let period: u32 = route.iter().map(ticks).sum();
     let mut t = t % period.max(1);
@@ -144,9 +127,6 @@ fn place(folk: Folk, route: &[Step], t: u32) -> Option<(RoomKind, Figure)> {
     None
 }
 
-// The paths (tiles). The shaft's mouth is at the adit, the stockpile in the
-// yard by the King's camp, the road south through the mine-head's door and
-// on through the gate courtyard to the realm.
 const DOWN_TO_SHAFT: &[(f32, f32)] = &[(9.6, 11.2), (9.6, 7.8), (12.0, 7.8), (12.0, 3.8)];
 const UP_FROM_SHAFT: &[(f32, f32)] = &[(12.0, 3.8), (12.0, 7.8), (9.6, 7.8), (9.6, 11.2)];
 const CART_OUT_HEAD: &[(f32, f32)] = &[(10.4, 11.8), (12.0, 12.4), (12.0, 13.95)];
@@ -154,8 +134,6 @@ const CART_OUT_GATE: &[(f32, f32)] = &[(12.0, 0.05), (12.0, 12.6)];
 const CART_IN_GATE: &[(f32, f32)] = &[(12.0, 12.6), (12.0, 0.05)];
 const CART_IN_HEAD: &[(f32, f32)] = &[(12.0, 13.95), (12.0, 12.4), (10.4, 11.8)];
 
-/// The builders' places along the ruin's south face, and their paths there
-/// from the shaft and back.
 const HALL_SPOTS: [(f32, f32); 5] = [(3.0, 7.7), (7.6, 7.7), (4.4, 7.7), (8.6, 7.7), (2.4, 7.7)];
 const TO_SITE: [&[(f32, f32)]; 5] = [
     &[(12.0, 3.8), (12.0, 7.7), (3.0, 7.7)],
@@ -171,11 +149,8 @@ const FROM_SITE: [&[(f32, f32)]; 5] = [
     &[(8.6, 7.7), (12.0, 7.7), (12.0, 3.8)],
     &[(2.4, 7.7), (12.0, 7.7), (12.0, 3.8)],
 ];
-/// A builder bound for a forge below walks from the camp to the shaft.
 const CAMP_TO_SHAFT: &[(f32, f32)] = &[(8.6, 10.4), (12.0, 10.4), (12.0, 3.8)];
 
-/// Where the smiths stand at the anvils of a forge-hall, and where its
-/// builders work round the furnace (tiles).
 pub const SMITH_SPOTS: [(f32, f32); 2] = [(6.4, 9.2), (17.6, 9.2)];
 pub const FORGE_BUILDERS: [(f32, f32); 5] = [
     (9.4, 7.6),
@@ -185,7 +160,6 @@ pub const FORGE_BUILDERS: [(f32, f32); 5] = [
     (12.0, 7.8),
 ];
 
-/// Everyone's route, and where in it they start.
 fn walkers(home: &Home) -> Vec<(Folk, Vec<Step>, u32)> {
     let b = &home.barony;
     let mut out: Vec<(Folk, Vec<Step>, u32)> = Vec::new();
@@ -200,8 +174,6 @@ fn walkers(home: &Home) -> Vec<(Folk, Vec<Step>, u32)> {
         )],
         0,
     ));
-    // A small cohort is always visible in each common room. Their loops
-    // follow the aisles, with a pause to read before wandering on.
     for (room, path, reading) in [
         (
             RoomKind::CollegeGrounds,
@@ -242,7 +214,6 @@ fn walkers(home: &Home) -> Vec<(Folk, Vec<Step>, u32)> {
         return out;
     }
     let sworn = b.court == Court::Sworn;
-    // The King: at his camp by the ruin, then on his seat.
     out.push((
         Folk::King,
         vec![if sworn {
@@ -252,7 +223,6 @@ fn walkers(home: &Home) -> Vec<(Folk, Vec<Step>, u32)> {
         }],
         0,
     ));
-    // His two guards: at the camp, then either side of the seat.
     let posts = if sworn { HALL_GUARDS } else { CAMP_GUARDS };
     let room = if sworn {
         RoomKind::KingsHall
@@ -266,9 +236,6 @@ fn walkers(home: &Home) -> Vec<(Folk, Vec<Step>, u32)> {
             i as u32 * 17,
         ));
     }
-    // In the gate courtyard, the main way in: the King's man waits by the
-    // signpost for whoever comes; once the workings are his, a miner off
-    // his shift rests by the well.
     out.push((
         Folk::Guard,
         vec![Step::Stay(
@@ -293,7 +260,6 @@ fn walkers(home: &Home) -> Vec<(Folk, Vec<Step>, u32)> {
             9,
         ));
     }
-    // Once the hall stands a sentry keeps its door outside.
     if sworn {
         out.push((
             Folk::Guard,
@@ -307,8 +273,6 @@ fn walkers(home: &Home) -> Vec<(Folk, Vec<Step>, u32)> {
             3,
         ));
     }
-    // Miners down the shaft, porters up it with the ore; with the stockpile
-    // full they rest by the heap (`goods`).
     let miners = b.miners();
     for i in 0..miners {
         let route = if home.goods.mine_full() {
@@ -330,7 +294,6 @@ fn walkers(home: &Home) -> Vec<(Folk, Vec<Step>, u32)> {
         let period: u32 = route.iter().map(ticks).sum();
         out.push((Folk::Miner, route, i * period / miners.max(1)));
     }
-    // Builders while a work goes up: at the ruin, or down to a forge.
     if let Some(def) = b.building() {
         let crew = barony::crew(b).min(5);
         for i in 0..crew as usize {
@@ -350,8 +313,6 @@ fn walkers(home: &Home) -> Vec<(Folk, Vec<Step>, u32)> {
             out.push((Folk::Builder, route, i as u32 * period / crew.max(1)));
         }
     }
-    // A carter with the realm's share, once a forge burns: out through the
-    // gate courtyard to the realm's road, and back.
     if !b.lit.is_empty() {
         out.push((
             Folk::Carter,
@@ -369,20 +330,15 @@ fn walkers(home: &Home) -> Vec<(Folk, Vec<Step>, u32)> {
     out
 }
 
-/// The folk in sight in a room of the world (or a forge-hall below, by
-/// `pack`), this tick.
 pub fn figures(home: &Home, room: RoomKind, pack: Pack, tick: u64) -> Vec<Figure> {
     let mut out = Vec::new();
     if room == RoomKind::Forge {
-        // In a forge-hall: its builders round the furnace while it goes
-        // up, its smiths at the anvils once it burns.
         let b = &home.barony;
         let Some(f) = barony::forge_of(pack) else {
             return out;
         };
         let work = f.work.and_then(barony::work);
         if b.is_lit(f.id) {
-            // The smiths hammer only while the forge works; else they wait.
             let pose = if matches!(home.goods.burn(b, f.id), super::goods::Burn::Working) {
                 Pose::Work
             } else {
@@ -423,7 +379,6 @@ pub fn figures(home: &Home, room: RoomKind, pack: Pack, tick: u64) -> Vec<Figure
             out.push(fig);
         }
     }
-    // Stand the nearer ones in front.
     out.sort_by(|a, b| a.y.total_cmp(&b.y));
     out
 }

@@ -35,7 +35,6 @@ def main():
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open('x') as file:
         file.write('{}\n')
-    # Resolve rustup outside the temporary cwd. No global toolchain mutation.
     rustc = subprocess.check_output(['rustup', 'which', 'rustc'], cwd=ROOT, text=True).strip()
     cc = shutil.which('cc')
     if not cc:
@@ -76,7 +75,6 @@ fn main() {
 ''' % (json.dumps(str(ROOT / 'cockpit/native/build_parallel.rs')), '&' + json.dumps(FLAGS)))
         binary = temp / 'driver'
         subprocess.run([rustc, '--edition=2021', '-O', str(driver), '-o', str(binary)], check=True)
-        # Includes a serial warmup, explicitly excluded from samples.
         warm = temp / 'warm'
         warm.mkdir()
         subprocess.run([str(binary), '1', cc, str(warm), *map(str, SOURCES)], check=True)

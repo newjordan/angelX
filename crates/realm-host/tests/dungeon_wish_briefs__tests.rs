@@ -2,8 +2,6 @@ use super::*;
 
 #[test]
 fn lesson_examples_are_checked_data_with_worn_gear_and_active_summons() {
-    // A fresh phrasebook of our own: the operator's live one at the
-    // repo's root already holds the words this brief is to offer.
     let empty = std::env::temp_dir().join(format!("wish-brief-phrase-{}", std::process::id()));
     std::fs::create_dir_all(&empty).unwrap();
     let book = empty.join("phrasebook.txt");
@@ -13,11 +11,8 @@ fn lesson_examples_are_checked_data_with_worn_gear_and_active_summons() {
     let text = learn_brief("Jordan", "bigger spiked shield", &book, &sheets);
     assert!(text.contains("max_hp 5-40"));
     assert!(text.contains("Never use orbit"));
-    // The player's words, literally: bigger is `size`, fire is `burn`, and
-    // never a plain damage bump; every new word is offered.
     assert!(text.contains("Never answer with a plain damage bump"));
     assert!(text.contains("Jordan's own wish"));
-    // Each at what a wish may give at most (`cards::wish_most`), not the card cap.
     for word in [
         "size 1-2",
         "knock 1-2",
@@ -59,7 +54,6 @@ fn lesson_examples_are_checked_data_with_worn_gear_and_active_summons() {
     let (wishes, errors) = crate::together_shooter::phrasebook::read_checked(&rows);
     assert!(errors.is_empty(), "{errors:?}");
     assert_eq!(wishes.len(), 3);
-    // Five tiers each, as the brief asks: the fourth and fifth a real climb.
     assert!(text.contains("five tiers: a modest first grant, stronger, strong, mighty, then the full gift"));
     assert!(wishes.iter().all(|w| w.tiers.len() == 5), "{:?}", wishes.iter().map(|w| w.tiers.len()).collect::<Vec<_>>());
     assert!(wishes[0].card(0).unwrap().looks.worn.is_some());
@@ -91,7 +85,6 @@ fn reforging_briefs_require_field_looks_and_keep_the_kit_kind() {
     }
 }
 
-/// Exact briefs for review, without running a drafting tool.
 #[test]
 #[ignore]
 fn write_wish_briefs() {
@@ -208,7 +201,6 @@ fn an_unmade_knights_lesson_asks_the_model_to_decide_what_the_wish_bestows() {
     };
     let text = lesson(&ultimate, "a dragon's roar");
     assert!(text.contains("THE ULTIMATE") && text.contains("grand_chord"));
-    // A made knight's lesson is the ordinary one.
     let whole = Making {
         made: true,
         ..ultimate
@@ -264,7 +256,6 @@ fn a_summoners_wish_for_his_dead_tells_the_learner_so_and_nothing_else_changes()
     }
     assert!(dead.contains("for his raised dead, not for himself"));
     assert!(both.contains("for himself and his raised dead alike"));
-    // The note is all that is added, right after the words.
     assert_eq!(dead.replace(&dead_note("Ada", Target::Dead), ""), own);
     assert!(dead.contains(&format!("“{words}”\n\nAda plays the Gravecaller")));
 }

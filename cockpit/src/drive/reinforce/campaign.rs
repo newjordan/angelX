@@ -9,10 +9,6 @@ const RELEASE_SCHEMA: &str = "angel.rlvr.technical-release/v1";
 const CANDIDATE_SCHEMA: &str = "angel.rlvr.frozen-training-proposal/v1";
 const MAX_RELEASE_BYTES: u64 = 1024 * 1024;
 
-/// Single framework-owned persistence authority for a technical release
-/// campaign. Production callers choose an identity, never arbitrary artifact
-/// or ledger paths; selection and audit are consequently forced into one
-/// durable uniqueness domain.
 #[derive(Clone, Debug)]
 pub struct TechnicalCampaignAuthority {
     campaign_id: String,
@@ -68,9 +64,6 @@ impl FrozenTrainingProposal {
     }
 }
 
-/// Root of the durable technical-campaign authorities.
-/// `ANGEL_REINFORCE_AUTHORITY_DIR` overrides it so tests and sandboxed runners
-/// never write the operator's real store.
 pub(crate) fn authority_root() -> PathBuf {
     match std::env::var("ANGEL_REINFORCE_AUTHORITY_DIR") {
         Ok(path) if !path.trim().is_empty() => PathBuf::from(path),
@@ -120,9 +113,6 @@ impl TechnicalCampaignAuthority {
         }
     }
 
-    /// Receipt store for a measured exploration pass: the same authority-owned
-    /// artifact and ledger roots the release path uses, so an exploration
-    /// verdict is run through the identical durable receipt machinery.
     pub(crate) fn exploration_receipt_store(&self) -> ReceiptStoreContext<'_> {
         self.receipt_store()
     }
@@ -303,17 +293,11 @@ impl TechnicalCampaignAuthority {
         Ok(Some((record.report, snapshot.receipt_ledger_head_sha256)))
     }
 
-    /// Return a caller-retainable digest of the complete, validated terminal
-    /// release record. Keeping this value outside the campaign authority lets
-    /// a deployment controller detect whole-authority rollback or replacement
-    /// before accepting a previously published release.
     pub fn release_anchor_sha256(&self) -> Result<String, String> {
         let snapshot = self.validated_terminal_snapshot()?;
         Ok(crate::knowledge::cut::sha256_hex(&snapshot.bytes))
     }
 
-    /// Verify the complete terminal release against an anchor retained by the
-    /// caller outside this authority directory.
     pub fn verify_release_anchor(&self, expected_sha256: &str) -> Result<(), String> {
         if !Self::valid_sha256(expected_sha256) {
             return Err("external release anchor must be a lowercase SHA-256 digest".into());

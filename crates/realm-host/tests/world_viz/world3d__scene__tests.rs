@@ -19,7 +19,6 @@ fn the_court_is_finite_bounded_and_carries_every_staged_material() {
         "the vista needs real architecture, got {} triangles",
         scene.tris.len()
     );
-    // The whole-scene budget from docs/plans/world3d-spec.md.
     assert!(
         scene.tris.len() < 5_000,
         "the stage must stay inside the toy pane's budget, got {}",

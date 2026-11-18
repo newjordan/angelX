@@ -25,7 +25,6 @@ fn party(seats: u32) -> Run {
     r
 }
 
-/// Knight `seat` standing in the air cell `cell`, the camera settled on them.
 fn put(r: &mut Run, seat: u32, cell: (i32, i32)) {
     let s = r.bannerpeak.as_mut().unwrap();
     let k = s.seats.get_mut(&seat).unwrap();
@@ -37,7 +36,6 @@ fn put(r: &mut Run, seat: u32, cell: (i32, i32)) {
     }
 }
 
-/// A named moment of the run, with `seats` knights at the table.
 fn moment(name: &str, seats: u32) -> Run {
     let mut r = party(seats);
     let spots: [(&str, (i32, i32)); 23] = [
@@ -69,13 +67,10 @@ fn moment(name: &str, seats: u32) -> Run {
     let cell = spots.iter().find(|(n, _)| *n == key).map(|&(_, c)| c);
     if let Some(cell) = cell {
         for id in 1..=seats {
-            // Spread the party a little along the ground.
             put(&mut r, id, (cell.0 + (id as i32 - 1) * 2, cell.1));
         }
     }
     let s = r.bannerpeak.as_mut().unwrap();
-    // The wheel's moments name a tick of its turn (270 ticks); two turns in,
-    // so the opening card is long gone.
     s.elapsed = name.split(':').nth(1).and_then(|t| t.parse::<u32>().ok()).map_or(400, |t| 540 + t);
     match name {
         "hub-pole" => s.banners = 0b0111_1111,
@@ -177,8 +172,6 @@ fn moment(name: &str, seats: u32) -> Run {
             }
         }
         "bump" => {
-            // The three rune blocks over the marsh's first stretch, struck at
-            // three different moments of the eight-tick bump.
             for (n, age) in [0u32, 3, 6].into_iter().enumerate() {
                 let (tx, ty) = MARSH.at(10 + n as i32, 9);
                 s.fx.push(crate::rules::bannerpeak::session::Fx {
@@ -190,8 +183,6 @@ fn moment(name: &str, seats: u32) -> Run {
             }
         }
         "flame" => {
-            // The lantern flame item at three moments: a bead rising out of
-            // its block, half risen, and flickering at rest.
             let (fx, fy) = s.seats[&1].body.foot();
             for (n, t) in [1u32, 9, 40].into_iter().enumerate() {
                 let mut item = crate::rules::bannerpeak::foes::Item::new(
@@ -205,8 +196,6 @@ fn moment(name: &str, seats: u32) -> Run {
         }
         "gates" => s.gates = 1,
         n if n.starts_with("wheel-ride") => {
-            // A knight on each of four buckets: the platforms the rules own,
-            // and what the wheel's picture shows under them.
             let buckets: Vec<_> = crate::rules::bannerpeak::layout::movers(s.elapsed)
                 .into_iter()
                 .filter(|m| m.id >= crate::rules::bannerpeak::layout::WHEEL_ID)
@@ -235,7 +224,6 @@ const MOMENTS: [&str; 29] = [
     "pole-slide", "shaft-kick", "bump", "flame", "gates", "wheel-ride", "marsh-hatch", "spikes",
 ];
 
-/// The mill wheel at other ticks of its turn (270 ticks to a turn).
 const WHEEL_TICKS: [u32; 5] = [30, 75, 140, 200, 250];
 
 #[test]
@@ -246,9 +234,6 @@ fn every_moment_draws_on_both_routes_for_every_table() {
             let r = moment(name, seats);
             let (base, fx) = layers(&r, Some(1));
             assert_eq!((base.w, base.h, fx.w, fx.h), (384, 224, 384, 224), "{name}");
-            // The terminal paints its own words over the cells, so the picture
-            // leaves its pixel words out where it has them (the board, the
-            // finale) and is the same picture otherwise.
             let (tbase, _) = terminal_layers(&r, Some(1));
             assert_eq!((tbase.w, tbase.h), (384, 224), "{name}");
             if matches!(*name, "select" | "finale") {
@@ -292,11 +277,6 @@ fn the_door_is_drawn_at_its_tile_only_while_in_view() {
     let _ = info();
 }
 
-
-// ------------------------------------------------------- the painted slots
-
-/// Whether every opaque pixel of `pic`, its anchor on screen `(x, y)`, is on
-/// `screen`.
 fn shows(screen: &Img, pic: &bank::Pic, x: i32, y: i32) -> bool {
     (0..pic.img.h).all(|py| {
         (0..pic.img.w).all(|px| {
@@ -305,8 +285,6 @@ fn shows(screen: &Img, pic: &bank::Pic, x: i32, y: i32) -> bool {
     })
 }
 
-/// The first tile of `kind` in seat 1's view that is clear of the HUD, as the
-/// screen position of its top left corner.
 fn tile_on_screen(r: &Run, kind: Tile) -> Option<(i32, i32)> {
     let s = r.bannerpeak.as_ref().unwrap();
     let cam = s.seats[&1].cam;
@@ -319,7 +297,6 @@ fn tile_on_screen(r: &Run, kind: Tile) -> Option<(i32, i32)> {
 
 #[test]
 fn a_painted_tile_is_stamped_whole_where_the_world_has_it() {
-    // (moment, tile, slot, state): at rest, tick 400.
     let cases = [
         ("hub-start", Tile::Stone, "tiles", "stone"),
         ("snow", Tile::Snow, "tiles", "snow"),
@@ -340,8 +317,6 @@ fn a_painted_tile_is_stamped_whole_where_the_world_has_it() {
 
 #[test]
 fn a_struck_rune_block_flares_and_fades_over_its_eight_ticks() {
-    // Three blocks over the marsh, struck 0, 3 and 6 ticks ago: they show the
-    // bump frames the sheet's own durations pick, lifted as the rules lift.
     let r = moment("bump", 1);
     let s = r.bannerpeak.as_ref().unwrap();
     let cam = s.seats[&1].cam;
@@ -422,12 +397,8 @@ fn the_sheets_ticks_are_the_rules() {
         let s = slots.iter().find(|s| s["id"] == format!("bannerpeak.{slot}")).unwrap();
         s["states"][state].as_array().unwrap().iter().map(|t| t.as_u64().unwrap() as u32).sum()
     };
-    // The lantern kindles over the ticks the item is still rising, and a rune
-    // block's bump is the eight ticks it lifts.
     assert_eq!(ticks("flame", "rise"), foes::RISE);
     assert_eq!(ticks("rune-block", "bump"), 8);
-    // A bank is painted whole or not at all: a prop never changes look when it
-    // changes state.
     for slot in &slots {
         let id = slot["id"].as_str().unwrap().trim_start_matches("bannerpeak.");
         let flags: Vec<bool> =
@@ -442,21 +413,16 @@ fn the_painted_sky_is_under_everything_and_goes_dark_under_the_street() {
     if !sky::paint(&mut day, (0, 0)) {
         return;
     }
-    // Every pixel of it is the palette's own ink, none opaque-black paper.
     assert!((0..224).all(|y| (0..384).all(|x| day.get(x, y).is_some_and(|c| palette_index(c).is_some()))));
-    // A camera in the cellar sees only the flat deep.
     let deep = ink('s').unwrap();
     let mut cellar = Img::black(384, 224);
     sky::paint(&mut cellar, (0, 900));
     assert!((0..224).all(|y| (0..384).all(|x| cellar.get(x, y) == Some(deep))));
-    // Above the street it is the picture: the same at any camera row.
     let mut a = Img::black(384, 224);
     let mut b = Img::black(384, 224);
     sky::paint(&mut a, (0, 100));
     sky::paint(&mut b, (400, 300));
     assert_eq!(a.content_hash(), b.content_hash());
-    // And the stage draws the tiles and the knights over it, never under it:
-    // a whole frame still shows its floor.
     let r = moment("hub-start", 4);
     let screen = layers(&r, Some(1)).0;
     let floor = tile_on_screen(&r, Tile::Stone).expect("floor in view");
@@ -495,7 +461,6 @@ fn write_bannerpeak_review() {
         both.stamp(&fx, 0, 0);
         save(&format!("bannerpeak-{}-terminal-layers", name.replace(':', "-")), &both);
     }
-    // The wheel at five more ticks of its turn, native and three times over.
     for t in WHEEL_TICKS {
         let name = format!("mill-wheel:{t}");
         save(&format!("bannerpeak-wheel-t{t}-native"), &frame_for(&moment(&name, 4), 384, 224, Some(1)));

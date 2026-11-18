@@ -30,7 +30,6 @@ fn on_the_dragons_floor_only_the_guardians_halls_stand_up() {
         assert_eq!(stands_in_mode(Mode::Deep, TRANSITION, kind), guardian, "{kind:?}");
     }
     assert!(stands_in_mode(Mode::Deep, TRANSITION, RoomKind::Pit), "the Pit Tyrant's");
-    // The home is never deep, whatever its rooms are.
     assert!(!stands_in_mode(Mode::Deep, 0, RoomKind::Home));
 }
 
@@ -63,7 +62,6 @@ fn the_kingdom_in_3d_waits_for_the_override() {
     assert_eq!(mode(), Mode::Off);
 }
 
-/// A run taken down to floor `depth`.
 fn run_at(depth: u32) -> Run {
     let mut run = Run::new(9, 1, Some("Friend"));
     while run.dungeon.depth < depth {
@@ -99,15 +97,12 @@ fn the_party_comes_down_into_the_deep_once_to_a_beat_its_clock_plays() {
     let at = run.deep_beat.expect("down into the deep");
     assert_eq!(run.dungeon.depth, DEEP_FLOOR);
     assert_eq!(beat(&run), Some(0.0));
-    // Further down, the deep is already the deep.
     run.descend_for_test();
     assert_eq!(run.deep_beat, Some(at), "one beat, at the way in");
-    // The beat is the clock's: the same tick, the same moment, on any seat.
     run.tick = at + u64::from(HZ);
     assert_eq!(beat(&run), Some(1.0));
     run.tick = at + (BEAT * HZ as f32) as u64;
     assert_eq!(beat(&run), None, "over");
-    // A page drawing it all in 2D has no beat to play.
     run.tick = at;
     set_mode(Mode::Off);
     assert_eq!(beat(&run), None);

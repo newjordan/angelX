@@ -18,7 +18,6 @@ use angel_face::{Cue, Drawing, Goddess, Mind};
 use angel_gpu::{Core, Draw, Frame, Instance, Stage};
 
 const WINDOW: (u32, u32) = (1280, 760);
-/// Her side and lean, as the cockpit places her (`ui/angelface.rs`).
 const SIDE: f32 = 300.0;
 const LEAN: f32 = -0.75;
 const STAGE_ID: u32 = 0x00FA_CE01;
@@ -50,7 +49,6 @@ fn run() -> Result<(), String> {
     let mut gpu = Gpu::new()?;
     let start = 6.0;
     let side = SIDE.round() as u32;
-    // She arrives and settles, then her spectacle.
     let mut t = 0.0f64;
     mind.cue(Cue::Arrive, 0.0);
     while t < start {
@@ -77,7 +75,6 @@ fn run() -> Result<(), String> {
             }
             let scene = drawing.scene(&moment, t);
             let anchors = drawing.anchors(&scene, (side, side));
-            // Her picture leaning out of the bottom right corner.
             let corner = [WINDOW.0 as f32 - 30.0, WINDOW.1 as f32 - 60.0];
             let (sn, cs) = LEAN.sin_cos();
             let neck = [-sn * SIDE * 0.5, cs * SIDE * 0.5];
@@ -161,8 +158,6 @@ impl Gpu {
         Ok(Self { core, device })
     }
 
-    /// Her scene into its picture, then a window-sized stage of `layers`
-    /// over a dark terminal, read back.
     fn shoot(
         &mut self,
         scene: angel_stage::scene::Scene,

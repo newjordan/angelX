@@ -13,14 +13,12 @@ fn road(f: impl FnOnce(&mut Builder)) -> Path {
     b.build()
 }
 
-/// A flat road 3000 pixels long.
 fn flat() -> Terrain {
     Terrain::new(vec![road(|b| {
         b.line(3000, GROUND);
     })])
 }
 
-/// A flat road with a loop of radius `r` standing on it at column 1000.
 fn looped(r: i32) -> Terrain {
     let mut paths = vec![road(|b| {
         b.line(3000, GROUND);
@@ -29,7 +27,6 @@ fn looped(r: i32) -> Terrain {
     Terrain::new(paths)
 }
 
-/// What a body did on a course.
 struct Trace {
     r: Rider,
     ev: Vec<Ev>,
@@ -98,7 +95,6 @@ fn braking_against_the_run_skids_then_turns() {
     assert!(r.gsp < 0 && r.dir == -1, "then he runs the other way: {} {}", r.gsp, r.dir);
 }
 
-/// A road down a 30-degree ramp, level before and after.
 fn ramp() -> Terrain {
     Terrain::new(vec![road(|b| {
         b.line(400, GROUND).line(700, GROUND + 173).line(1100, GROUND + 173);
@@ -108,7 +104,6 @@ fn ramp() -> Terrain {
 #[test]
 fn a_downhill_gives_speed_and_an_uphill_takes_it() {
     let t = ramp();
-    // Running down: well past the pace by the bottom.
     let mut r = rider_at(&t, 60);
     run(&t, &mut r, RIGHT, 70);
     assert_eq!(r.gsp, TOP, "on the flat before the slope");
@@ -118,7 +113,6 @@ fn a_downhill_gives_speed_and_an_uphill_takes_it() {
         fastest = fastest.max(r.gsp);
     }
     assert!(fastest > TOP + 160, "the downhill carries him past the pace: {fastest}");
-    // Running up the same ramp the other way, already at the pace.
     let mut r = rider_at(&t, 1000);
     r.gsp = -TOP;
     r.dir = -1;
@@ -141,7 +135,6 @@ fn a_rider_never_stops_dead_on_a_slope_but_a_gentle_one_holds_him() {
     let mut r = rider_at(&steep, 550);
     run(&steep, &mut r, NONE, 12);
     assert!(r.gsp > 30, "a 35 degree slope slides him: {}", r.gsp);
-    // A gentle rise: 8 degrees.
     let gentle = Terrain::new(vec![road(|b| {
         b.line(400, GROUND).line(1000, GROUND + 84);
     })]);
@@ -152,7 +145,6 @@ fn a_rider_never_stops_dead_on_a_slope_but_a_gentle_one_holds_him() {
 
 #[test]
 fn a_half_pipe_swings_him_up_the_far_wall_and_back() {
-    // A bowl: a quarter circle down, flat, a quarter circle up (radius 60).
     let t = Terrain::new(vec![road(|b| {
         b.line(300, GROUND - 60)
             .arc(300, GROUND - 60, 60, 128, 64, 0)
@@ -178,19 +170,13 @@ fn a_half_pipe_swings_him_up_the_far_wall_and_back() {
     assert!(highest_far < (GROUND - 30) * Q, "up the far wall: {}", highest_far / Q);
 }
 
-/// How a run at a loop ended.
 #[derive(Debug, PartialEq, Eq)]
 enum Outcome {
-    /// Round the loop and out onto the road beyond.
     Through,
-    /// Fell off the loop's wall or ceiling.
     Fell,
-    /// Never made the climb and rolled back out the way he came.
     Back,
 }
 
-/// Start a rider at column `from` with ground speed `speed` and the keys
-/// held, and say what the loop did to him.
 fn at_the_loop(r_loop: i32, from: i32, speed: i32, k: Keys) -> (Outcome, Trace) {
     let t = looped(r_loop);
     let mut r = rider_at(&t, from);
@@ -294,13 +280,10 @@ fn a_spur_makes_the_loop_from_a_short_run_and_a_trot_does_not() {
         }
         (r.x / Q, ev.contains(&Ev::Fell))
     };
-    // Forty pixels of run-up: a trot at the mouth.
     let (x, fell) = go(960, false);
     assert!(fell, "a trot falls off: {x}");
-    // The same forty pixels with the spur held: round and away.
     let (x, fell) = go(960, true);
     assert!(!fell && x > 1300, "the spur makes it: {x} {fell}");
-    // A full gallop from a long run makes it with no spur at all.
     let (x, fell) = go(500, false);
     assert!(!fell && x > 1300, "a gallop holds the wall: {x} {fell}");
 }
@@ -324,7 +307,6 @@ fn a_leap_is_variable_and_forgives_a_late_or_early_press() {
     let (tap, held) = (apex(2), apex(40));
     assert!(held >= 44 && held <= 52, "a held leap: {held}");
     assert!(tap >= 14 && tap < held - 12, "a tap is a hop: {tap}");
-    // Coyote: a press a moment after running off a ledge still leaps.
     let ledge = Terrain::new(vec![road(|b| {
         b.line(300, GROUND);
     })]);
@@ -338,7 +320,6 @@ fn a_leap_is_variable_and_forgives_a_late_or_early_press() {
     ev.clear();
     r.step(Keys { x: 1, jump: true, ..Keys::default() }, &ledge, &n, &mut ev);
     assert!(ev.contains(&Ev::Jump), "coyote: the leap comes");
-    // A press just before landing is kept and leaps on the tick he lands.
     let mut r = rider_at(&t, 100);
     let mut ev = Vec::new();
     r.step(Keys { jump: true, ..Keys::default() }, &t, &n, &mut ev);
@@ -363,7 +344,6 @@ fn down_while_moving_tucks_into_a_roll_that_runs_a_downhill_faster() {
     run(&t, &mut r, RIGHT, 70);
     let ev = run(&t, &mut r, Keys { x: 1, down: true, ..Keys::default() }, 1);
     assert!(r.roll && ev.contains(&Ev::Roll) && r.body().1 == 14, "tucked and small");
-    // A roll and a run side by side down the same ramp.
     let mut a = rider_at(&t, 60);
     let mut b = rider_at(&t, 60);
     run(&t, &mut a, RIGHT, 70);
@@ -372,7 +352,6 @@ fn down_while_moving_tucks_into_a_roll_that_runs_a_downhill_faster() {
     run(&t, &mut a, RIGHT, 70);
     run(&t, &mut b, NONE, 69);
     assert!(b.gsp > a.gsp + 100, "the roll runs the slope faster: {} against {}", b.gsp, a.gsp);
-    // A roll on the flat dies away and the rider stands.
     let f = flat();
     let mut r = rider_at(&f, 100);
     run(&f, &mut r, RIGHT, 70);

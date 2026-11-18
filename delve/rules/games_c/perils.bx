@@ -1,6 +1,3 @@
-# crates/delve/src/rules/perils.rs — the rooms' own dangers: fire jets, gas seeps,
-# ember cracks and crumbling floors. A Peril is {"jet"|"seep"|"crack"|"crumble": {x, y, phase[, across]}}.
-
 def perils.ODDS(+tier: U32) -> U32:
   gc.nth_u([35, 55, 75], tier)
 
@@ -76,7 +73,6 @@ def perils.GAS_HARM() -> U32:
 def perils.FIRE_HARM() -> U32:
   14
 
-# The variant name of a peril: its one object key.
 def perils.Peril.kind(+p: J.Val) -> String:
   perils.kind.go(J.fields(p))
 
@@ -87,11 +83,9 @@ def perils.kind.go(+fs: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> String:
     case Con{(k: String, v: J.Val), t: List<&2, Sigma<&2, &2, String, _ => J.Val>>}:
       k
 
-# The variant's body {x, y, phase[, across]}.
 def perils.Peril.body(+p: J.Val) -> J.Val:
   J.get(p, perils.Peril.kind(p))
 
-# pub fn at(&self) -> (x, y)
 def perils.Peril.at(+p: J.Val) -> F32 & F32:
   (gc.f(perils.Peril.body(p), "x"), gc.f(perils.Peril.body(p), "y"))
 
@@ -110,11 +104,9 @@ def perils.period_of(+k: String) -> U32:
     else:
       gc.pu(String.eq(k, "crack"), perils.CRACK_PERIOD(), perils.CRUMBLE_PERIOD())
 
-# pub fn beat(&self, tick) -> u32: (tick as u32).wrapping_add(phase) % period
 def perils.Peril.beat(+p: J.Val, +tick: W.W) -> U32:
   U32.mod((W.lo32(tick) + perils.Peril.phase(p) : U32), perils.Peril.period(p))
 
-# (from, to) of the warning window and of the striking window.
 def perils.warn_from(+k: String) -> U32:
   if String.eq(k, "jet"):
     perils.JET_WARN()
@@ -145,7 +137,6 @@ def perils.strike_to(+k: String) -> U32:
     else:
       gc.pu(String.eq(k, "crack"), perils.CRACK_END(), perils.CRUMBLE_RUBBLE())
 
-# warning(tick) -> Option<f32>: a value in 0..1, or -1.0 for none.
 def perils.Peril.warning(+p: J.Val, +tick: W.W) -> Maybe<&2, F32>:
   perils.window(perils.Peril.beat(p, tick), perils.warn_from(perils.Peril.kind(p)), perils.warn_to(perils.Peril.kind(p)))
 
@@ -165,7 +156,6 @@ def perils.is_some(+m: Maybe<&2, F32>) -> Bool:
     case Some{v}:
       True{}
 
-# fn strikes(&self, px, py, slack) -> bool
 def perils.Peril.strikes(+p: J.Val, +px: F32, +py: F32, +slack: F32) -> Bool:
   at: F32 & F32 = perils.Peril.at(p)
   (x: F32, y: F32) = at
@@ -184,8 +174,6 @@ def perils.Peril.strikes(+p: J.Val, +px: F32, +py: F32, +slack: F32) -> Bool:
       else:
         Bool.and(F32.is_le(RS.f_abs((px - x : F32)), (perils.CRUMBLE_HALF() + slack : F32)), F32.is_le(RS.f_abs((py - y : F32)), (perils.CRUMBLE_HALF() + slack : F32)))
 
-# fn menu(pack, depth) -> [(kind, weight)]: 0 jet, 1 seep, 2 crack, 3 crumble. Two parallel lists in menu
-# order; a zero weight is never picked, as the caller's filter would have dropped it.
 def perils.menu.kinds(+pack: String) -> List<&2, U32>:
   if String.eq(pack, "crypt"):
     [3, 1, 0]
@@ -235,7 +223,6 @@ def perils.any_weight(+ws: List<&2, U32>) -> Bool:
     case Con{h: U32, t: List<&2, U32>}:
       Bool.or(U32.is_gt(h, 0), perils.any_weight(t))
 
-# fn arm_perils(&mut self)
 def perils.Run.arm_perils(+run: J.Val) -> J.Val:
   r1: J.Val = J.set(run, "works", J.set(J.get(run, "works"), "perils", J.JA{Nil{}}))
   depth: U32 = gc.u(J.get(r1, "dungeon"), "depth")
@@ -258,7 +245,6 @@ def perils.arm.go(+run: J.Val, +room: J.Val, +kind: String, +depth: U32, +tier: 
   else:
     run
 
-# count = 1 + (MOST > 1 && chance(40)) + (depth >= 5 && chance(35))
 def perils.arm.count(+run: J.Val, +room: J.Val, +depth: U32, +tier: U32, +rng: W.W) -> J.Val:
   if U32.is_gt(perils.MOST(tier), 1):
     c: W.W & Bool = loot.Rng.chance(rng, 40)
@@ -285,7 +271,6 @@ def perils.arm.lay(+run: J.Val, +room: J.Val, +depth: U32, +rng: W.W, +count: U3
     laid: J.Val = perils.lay.each(gc.umin(count, 3), room, doors, perils.menu.kinds(pack), ws, rng, J.JA{Nil{}})
     J.set(run, "works", J.set(J.get(run, "works"), "perils", laid))
 
-# the doorway points of the room's open doors, sides 0..4
 def perils.pt(+p: F32 & F32) -> GcPt:
   (x: F32, y: F32) = p
   GcPt{x, y}
@@ -299,7 +284,6 @@ def perils.doors(+room: J.Val, +d: U32) -> List<&2, GcPt>:
     else:
       perils.doors(room, (d + 1 : U32))
 
-# for _ in 0..count: pick a kind, then up to 40 tries to lay it.
 def perils.lay.each(+n: U32, +room: J.Val, +doors: List<&2, GcPt>, +kinds: List<&2, U32>, +ws: List<&2, U32>, +rng: W.W, +laid: J.Val) -> J.Val:
   if U32.is_zero(n):
     laid
@@ -325,7 +309,6 @@ def perils.lay.try(+tries: U32, +room: J.Val, +doors: List<&2, GcPt>, +kind: U32
     (rng3: W.W, across: Bool) = a
     perils.lay.cell(tries, room, doors, kind, rng3, laid, (4 + dc : U32), (4 + dr : U32), across)
 
-# The floor tiles a peril needs are all ground.
 def perils.ground_all(+room: J.Val, +kind: U32, +col: U32, +row: U32, +across: Bool) -> Bool:
   if Bool.or(U32.is_eq(kind, 0), U32.is_eq(kind, 1)):
     perils.ground_box(room, (col - 1 : U32), (row - 1 : U32), 3, 3)
@@ -392,7 +375,6 @@ def perils.Peril.new(+kind: U32, +x: F32, +y: F32, +phase: U32, +across: Bool) -
   else:
     J.set(J.obj(), gc.nth_s(["jet", "seep", "crack", "crumble"], kind), body)
 
-# fn tick_perils(&mut self)
 def perils.Run.tick_perils(+run: J.Val) -> J.Val:
   perils.tick.each(run, gc.tick(run), 0, gc.len(J.items(J.get(J.get(run, "works"), "perils"))))
 
@@ -423,7 +405,6 @@ def perils.hostile_clouds(+cs: List<&2, J.Val>) -> U32:
     case Con{h: J.Val, t: List<&2, J.Val>}:
       (gc.pu(U32.is_zero(gc.u(h, "owner")), 1, 0) + perils.hostile_clouds(t) : U32)
 
-# A seep puffs a cloud at beat SEEP_PUFF while fewer than three hostile clouds drift.
 def perils.tick.seep(+run: J.Val, +p: J.Val, +beat: U32) -> J.Val:
   hostile: U32 = perils.hostile_clouds(J.items(J.get(J.get(run, "works"), "clouds")))
   if Bool.and(U32.is_eq(beat, perils.SEEP_PUFF()), U32.is_lt(hostile, 3)):
@@ -434,7 +415,6 @@ def perils.tick.seep(+run: J.Val, +p: J.Val, +beat: U32) -> J.Val:
   else:
     run
 
-# Cloud { x, y, vx: 0, vy: -0.3, age: GAS_LIFE - SEEP_LIFE, owner: 0, power: 4, tint: 1 }
 def perils.cloud(+x: F32, +y: F32) -> J.Val:
   c0: J.Val = gc.sf(gc.sf(gc.sf(gc.sf(J.obj(), "x", x), "y", y), "vx", 0.0), "vy", F32.neg(0.3))
   gc.su(gc.su(gc.su(gc.su(c0, "age", (skills.GAS_LIFE() - perils.SEEP_LIFE() : U32)), "owner", 0), "power", 4), "tint", 1)

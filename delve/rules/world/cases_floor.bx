@@ -1,6 +1,3 @@
-# Case wrappers for the generation functions (recorded by
-# crates/delve/tests/rules/layout_bend_cases__tests.rs).
-
 def layout.j.cells(+cells: List<&2, LayCell>) -> J.Val:
   J.JA{layout.j.cells.go(cells)}
 
@@ -37,7 +34,6 @@ def layout.j.rows.go(+rows: List<&2, List<&2, LayTile>>) -> List<&2, J.Val>:
     case Con{h: List<&2, LayTile>, t: List<&2, List<&2, LayTile>>}:
       Con{J.JS{layout.quad.glyphs(h)}, layout.j.rows.go(t)}
 
-# A quadrant row back to its characters.
 def layout.quad.glyphs(+row: List<&2, LayTile>) -> String:
   match row as List<&2, LayTile>:
     case Nil{}:

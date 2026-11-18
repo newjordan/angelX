@@ -48,7 +48,6 @@ fn every_chunk_has_something_to_walk_to_and_none_is_crowded() {
             let place = set_pieces().any(|(_, o)| within(o))
                 || geo.sites.iter().any(|s| s.lot.is_some() && within(s.stand))
                 || super::super::houses::footprints().any(|(tx, ty, _, _)| within((tx, ty)))
-                // A waystation is somewhere to walk to.
                 || super::super::waystations::placed().iter().any(|p| within(p.keeper));
             assert!(things <= 12, "chunk ({cx}, {cy}) holds {things} things");
             assert!(camps <= 4, "chunk ({cx}, {cy}) holds {camps} camps");
@@ -76,8 +75,6 @@ fn footpaths_run_from_a_road_to_a_camp_over_open_ground() {
             assert!(matches!(Realm::get().at(x, y), b'.' | b'a' | b's'), "trail on {}", Realm::get().at(x, y) as char);
         }
     }
-    // Every wild camp with a trail: the trail is one piece that touches a
-    // road at one end.
     let wild: Vec<&Camp> = d.camps.iter().filter(|c| c.class == Class::Wild).collect();
     let mut linked = 0;
     for c in &wild {
@@ -126,9 +123,6 @@ fn the_dressing_is_the_same_every_time() {
     let _ = chunk_of((0, 0));
 }
 
-/// Walking the open kingdom, a screen's worth of country round any spot a
-/// knight can stand on holds something to walk to: a cluster, a place, a
-/// castle's wall or a fingerpost.
 #[test]
 fn nearly_every_screen_of_the_open_country_has_something_in_it() {
     let geo = kingdom::geography(&[]);
@@ -138,7 +132,6 @@ fn nearly_every_screen_of_the_open_country_has_something_in_it() {
     pois.extend(set_pieces().map(|(_, (ox, oy))| (ox + SCREEN_W / 2, oy + SCREEN_H / 2)));
     pois.extend(super::super::signs::posts().iter().map(|p| p.at));
     pois.extend(super::super::waystations::placed().iter().map(|p| p.keeper));
-    // A castle is never seen whole: any of its wall in view counts.
     let castles: Vec<(i32, i32, i32, i32)> = super::super::castles::footprints().collect();
     let (mut total, mut empty) = (0, Vec::new());
     for wy in (8..MAP_H - 8).step_by(4) {
@@ -147,8 +140,6 @@ fn nearly_every_screen_of_the_open_country_has_something_in_it() {
                 continue;
             }
             total += 1;
-            // The kingdom's view is 24 x 14 tiles: ask for something in the
-            // 21 x 13 round the spot.
             let walls = castles.iter().any(|&(x, y, w, h)| x <= wx + 10 && x + w > wx - 10 && y <= wy + 6 && y + h > wy - 6);
             if !walls && !pois.iter().any(|&(x, y)| (x - wx).abs() <= 10 && (y - wy).abs() <= 6) {
                 empty.push((wx, wy, biome::at(wx, wy)));
@@ -158,9 +149,6 @@ fn nearly_every_screen_of_the_open_country_has_something_in_it() {
     assert!(empty.len() * 100 <= total, "{} of {total} screens are bare: {empty:?}", empty.len());
 }
 
-/// A screen is never crowded, and never says one thing over and over:
-/// no view's worth of the country holds more than nine things, nor more than
-/// four of one kind.
 #[test]
 fn no_screen_is_crowded_or_repeats_itself() {
     let d = get();

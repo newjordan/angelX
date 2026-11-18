@@ -16,7 +16,6 @@ use crate::world::hillside::{self as hill, Heat, HillView, Rider};
 
 const T: i32 = 16;
 
-/// Whether a tile rectangle `[x0, y0, x1, y1]` is near the view `(origin, size)`.
 fn seen(rect: [i16; 4], origin: (i32, i32), size: (i32, i32)) -> bool {
     let (x0, y0, x1, y1) = (i32::from(rect[0]) * T, i32::from(rect[1]) * T, (i32::from(rect[2]) + 1) * T, (i32::from(rect[3]) + 1) * T);
     x1 > origin.0 - 32 && x0 < origin.0 + size.0 + 32 && y1 > origin.1 - 48 && y0 < origin.1 + size.1 + 96
@@ -27,8 +26,6 @@ fn in_view((x, y): (f32, f32), origin: (i32, i32), size: (i32, i32), slack: i32)
     px > -slack && py > -slack - 40 && px < size.0 + slack && py < size.1 + slack + 40
 }
 
-/// The roads, shafts, leylines and the tracks of tramways, chutes, ropeways and
-/// barges, laid on the ground: flat view only (in 3D they stand as blocks).
 pub(super) fn ground(run: &Run, view: &HillView, origin: (i32, i32), size: (i32, i32)) -> Img {
     let mut im = Img::new(size.0, size.1);
     let frame = hill::frame(run);
@@ -66,7 +63,6 @@ pub(super) fn ground(run: &Run, view: &HillView, origin: (i32, i32), size: (i32,
                     _ => 0,
                 };
             }
-            // A ropeway's pylon stands every fourth tile.
             let pic = klines::line_flat(line.kind, links, line.kind == klines::Kind::Rope && i % 4 == 1, frame);
             tile_at(&mut im, &pic, *t);
         }
@@ -76,7 +72,6 @@ pub(super) fn ground(run: &Run, view: &HillView, origin: (i32, i32), size: (i32,
     im
 }
 
-/// The rail network: track a tile at a time, the lever where it parts, the bay's platform and lantern.
 fn rails(im: &mut Img, run: &Run, view: &HillView, origin: (i32, i32), size: (i32, i32)) {
     if view.rails.is_empty() {
         return;
@@ -99,9 +94,6 @@ fn rails(im: &mut Img, run: &Run, view: &HillView, origin: (i32, i32), size: (i3
     }
 }
 
-/// The rollerways: each tile of the way, the goods riding it and a blinking mark over the head of a jam.
-/// The goods are drawn a second behind the sim and slide forward through the second, a slot for every
-/// beat the tile moved on, so a stream flows and a stood line stands.
 fn belts(im: &mut Img, run: &Run, view: &HillView, origin: (i32, i32), size: (i32, i32)) {
     if view.belts.is_empty() {
         return;
@@ -128,7 +120,6 @@ fn belts(im: &mut Img, run: &Run, view: &HillView, origin: (i32, i32), size: (i3
             for (i, g) in slots.iter().enumerate() {
                 let Some(load) = g else { continue };
                 let (px, py) = kroll::slot_at(dir, i, back);
-                // The first slot's good has come in from behind: not drawn before its tile's edge.
                 let pic = kroll::good_flat(*load);
                 im.stamp(&pic, x + px as i32 - 3, y + py as i32 - 2 - up);
             }
@@ -140,8 +131,6 @@ fn belts(im: &mut Img, run: &Run, view: &HillView, origin: (i32, i32), size: (i3
     }
 }
 
-/// The buildings, in two pictures: what stands behind a knight whose feet are at
-/// `feet` (pixels down the map) and what stands before them.
 pub(super) fn buildings(run: &Run, view: &HillView, origin: (i32, i32), size: (i32, i32), feet: f32) -> (Img, Img) {
     let (mut back, mut front) = (Img::new(size.0, size.1), Img::new(size.0, size.1));
     let frame = hill::frame(run);
@@ -161,11 +150,9 @@ pub(super) fn buildings(run: &Run, view: &HillView, origin: (i32, i32), size: (i
         if b.paused {
             to.text(x + 2, bottom - pic.h + 2, "PAUSED", 'w');
         }
-        // A works the Deep has set alight burns over its whole roof.
         if b.status == Status::Fire {
             to.stamp(&kit::blaze(pic.w, pic.h, frame), x, bottom - pic.h);
         }
-        // A defence the Deep has battered: cracks, and how much of it holds.
         if let Some((left, max)) = b.hurt {
             to.stamp(&kit::cracks(pic.w, pic.h, u32::from(max - left), u32::from(max)), x, bottom - pic.h);
             let bw = pic.w.clamp(10, 24);
@@ -178,8 +165,6 @@ pub(super) fn buildings(run: &Run, view: &HillView, origin: (i32, i32), size: (i
     (back, front)
 }
 
-/// A picture stood in the world: stamped on the ground's picture in the flat
-/// view, stood up as a figure in 3D.
 struct Put<'a> {
     over: &'a mut Img,
     figures: Option<&'a mut Vec<Figure>>,
@@ -191,7 +176,6 @@ impl Put<'_> {
         self.stand_at(im, (ax, ay), shadow, bias, 0);
     }
 
-    /// `lift` pixels off the ground (a mark over a roof, a bucket on its cable).
     fn stand_at(&mut self, im: &Img, (ax, ay): (i32, i32), shadow: bool, bias: f32, lift: i32) {
         let (fx, fy) = (ax - self.origin.0, ay - self.origin.1);
         match self.figures.as_deref_mut() {
@@ -224,16 +208,11 @@ impl Put<'_> {
     }
 }
 
-/// Carts, the buckets, wagons and barges on the lines, and the people.
 pub(super) fn movers(over: &mut Img, run: &Run, view: &HillView, origin: (i32, i32), size: (i32, i32), figures: Option<&mut Vec<Figure>>) {
     let (frame, frac) = (hill::frame(run), hill::frac(run));
-    // In 3D the carts bound for the Keep's yard that are near it stand in the bailey (`world3d::works_yard`): not
-    // here on the road too.
     let drawn_as_blocks = figures.is_some();
     let mut put = Put { over, figures, origin };
     let foot = |p: (f32, f32)| ((p.0 * 16.0) as i32, (p.1 * 16.0) as i32 + 4);
-    // In 3D the hillside already stands carts, wagons and line riders up as blocks
-    // (`world3d::hillside`). A flat figure beside that block shows each one twice.
     if !drawn_as_blocks {
     let relayed: std::collections::BTreeSet<usize> = if crate::world3d::works_yard::shows_real_carts(run) { view.relayed().collect() } else { Default::default() };
     for r in view.carts.iter().enumerate().filter(|(i, _)| !relayed.contains(i)).map(|(_, r)| r) {
@@ -253,14 +232,12 @@ pub(super) fn movers(over: &mut Img, run: &Run, view: &HillView, origin: (i32, i
                 continue;
             }
             let pic = klines::vehicle_flat(line.kind, r.dir, r.load, if r.moving { frame } else { 0 });
-            // A bucket hangs from its cable: a pylon's height up.
             let lift = if line.kind == klines::Kind::Rope { 14 } else { 0 };
             let (fx, fy) = foot(p);
             put.stand(&pic, (fx, fy - lift), line.kind != klines::Kind::Rope, 0.02);
         }
     }
     }
-    // The camp's hands at the party's plans: a labourer carrying, a carpenter raising.
     for (i, w) in view.crews.iter().enumerate() {
         for (k, (rider, trade)) in [(&w.labourer, khands::Trade::Labourer), (&w.carpenter, khands::Trade::Carpenter)].into_iter().enumerate() {
             let p = rider.place(frac);
@@ -287,7 +264,6 @@ pub(super) fn movers(over: &mut Img, run: &Run, view: &HillView, origin: (i32, i
         let pic = klines::vehicle_flat(klines::Kind::Tram, w.rider.dir, w.rider.load, if w.rider.moving { frame } else { 0 });
         let (fx, fy) = foot(p);
         put.stand(&pic, (fx, fy), true, 0.02);
-        // A wagon held up carries a tag, and a jammed one the red ring.
         match w.state {
             crate::kingdom::WagonState::Queued => put.stand_at(&kroll::waiting_flat(frame), (fx, fy), false, 0.04, 12),
             crate::kingdom::WagonState::Jammed => put.stand_at(&kroll::jam_flat(frame), (fx, fy), false, 0.04, 12),
@@ -308,7 +284,6 @@ pub(super) fn movers(over: &mut Img, run: &Run, view: &HillView, origin: (i32, i
     }
 }
 
-/// Teal: it is laid now. Blue: it is laid as a plan for the camp's hands. Red: the land refuses it.
 fn ink_of(v: Verdict) -> char {
     match v {
         Verdict::Fits => '2',
@@ -317,16 +292,12 @@ fn ink_of(v: Verdict) -> char {
     }
 }
 
-/// The ghost on the ground under the focused knight's builder: its footprint, the
-/// piece it would raise (half there, so the ground shows through), the ground a
-/// line has crossed. Marks on the ground, in the flat view and in 3D alike.
 pub(super) fn ghost(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option<u32>, flat: bool) {
     let Some(seat) = focus else { return };
     let Some(g) = run.hill_ghost(seat) else { return };
     let ink = ink_of(g.verdict);
     let (x0, y0) = (i32::from(g.rect.0) * T - origin.0, i32::from(g.rect.1) * T - origin.1);
     let (w, h) = ((i32::from(g.rect.2 - g.rect.0) + 1) * T, (i32::from(g.rect.3 - g.rect.1) + 1) * T);
-    // The footprint: a checker of the verdict's ink, a frame, ticks at the corners.
     for yy in 0..h {
         for xx in 0..w {
             if (xx + yy) % 4 == 0 {
@@ -336,7 +307,6 @@ pub(super) fn ghost(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option
     }
     over.frame(x0, y0, w, h, ink);
     over.frame(x0 + 1, y0 + 1, w - 2, h - 2, ink);
-    // A piece of rollerway or a swape, in its half-tone, facing the way it would be laid.
     if flat && matches!(&g.tool, Tool::Roller(_) | Tool::Plan("swape")) {
         let pic = match &g.tool {
             Tool::Roller(piece) => kroll::piece_flat(*piece, g.dir, false, true, 0),
@@ -351,21 +321,18 @@ pub(super) fn ghost(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option
             }
         }
         over.stamp(&ghosted, x0, y0 + h - pic.h);
-        // The way it faces: an arrow over the tile.
         let (cx, cy) = (x0 + 8, y0 + 8);
         let (dx, dy) = [(0, -1), (1, 0), (0, 1), (-1, 0)][usize::from(g.dir % 4)];
         over.line(cx - dx * 5, cy - dy * 5, cx + dx * 5, cy + dy * 5, 'w');
         over.line(cx + dx * 5, cy + dy * 5, cx + dx * 2 - dy * 3, cy + dy * 2 + dx * 3, 'w');
         over.line(cx + dx * 5, cy + dy * 5, cx + dx * 2 + dy * 3, cy + dy * 2 - dx * 3, 'w');
     }
-    // The piece, in the half-tone of a ghost: only if the flat view is the picture.
     if flat && let Tool::Plan(id) = &g.tool {
         let art = hill::art_of(id);
         if let Some(pic) = kit::flat(art, State::Idle, 0) {
             over.stamp(&halftone(&pic), x0, y0 + h - pic.h);
         }
     }
-    // A patch being copied: its corners, in dashes.
     if let Some((sx0, sy0, sx1, sy1)) = g.select {
         let (rx, ry) = (i32::from(sx0) * T - origin.0, i32::from(sy0) * T - origin.1);
         let (rw, rh) = ((i32::from(sx1 - sx0) + 1) * T, (i32::from(sy1 - sy0) + 1) * T);
@@ -384,18 +351,15 @@ pub(super) fn ghost(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option
             }
         }
     }
-    // A line in the making: the tiles it has crossed.
     for (i, t) in g.path.iter().enumerate() {
         let (tx, ty) = (i32::from(t.0) * T - origin.0, i32::from(t.1) * T - origin.1);
         over.rect(tx + 5, ty + 5, 6, 6, if i % 2 == 0 { '5' } else { '4' });
     }
-    // Where the cursor is: a cross on its tile.
     let (cx, cy) = (i32::from(g.cursor.0) * T - origin.0 + 8, i32::from(g.cursor.1) * T - origin.1 + 8);
     over.line(cx - 3, cy, cx + 3, cy, 'w');
     over.line(cx, cy - 3, cx, cy + 3, 'w');
 }
 
-/// A kit piece in the half-tone of a ghost: every other pixel, so the ground shows through.
 fn halftone(pic: &Img) -> Img {
     let mut ghosted = Img::new(pic.w, pic.h);
     for yy in 0..pic.h {
@@ -408,9 +372,6 @@ fn halftone(pic: &Img) -> Img {
     ghosted
 }
 
-/// The party's plans on the ground, whoever laid them: the footprint in blue while the hands
-/// can take it, amber while the camp lacks the goods, teal as a crew carries and raises it,
-/// the piece in the half-tone of a ghost, its urgency marked, and a bar for the raising.
 pub(super) fn plans(over: &mut Img, run: &Run, view: &HillView, origin: (i32, i32), size: (i32, i32), flat: bool) {
     let tick = run.tick as i32;
     for p in &view.plans {
@@ -433,7 +394,6 @@ pub(super) fn plans(over: &mut Img, run: &Run, view: &HillView, origin: (i32, i3
                 }
             }
         }
-        // A frame that marches while the hands are on their way: dashes, moving.
         for i in 0..(w + h) * 2 {
             let on = (i / 3 + if p.fetched { tick / 4 } else { 0 }) % 2 == 0;
             if !on && p.wait.is_none() {
@@ -451,7 +411,6 @@ pub(super) fn plans(over: &mut Img, run: &Run, view: &HillView, origin: (i32, i3
         }
         if flat && !p.art.is_empty() {
             if let Some(pic) = kit::flat(p.art, State::Idle, 0) {
-                // Rising: the piece stands as high as the hands have got it.
                 let part = p.raising.map_or(pic.h, |f| ((pic.h as f32 * f).ceil() as i32).clamp(2, pic.h));
                 let ghosted = halftone(&pic);
                 let mut shown = Img::new(ghosted.w, part);
@@ -459,7 +418,6 @@ pub(super) fn plans(over: &mut Img, run: &Run, view: &HillView, origin: (i32, i3
                 over.stamp(&shown, x0, y0 + h - part);
             }
         }
-        // What the Deep broke: a splintered cross over the place, for the hands (or a knight) to set right.
         if p.deep {
             let (cx, cy) = (x0 + w / 2, y0 + h / 2);
             let r = (w.min(h) / 3).max(3);
@@ -484,7 +442,6 @@ pub(super) fn plans(over: &mut Img, run: &Run, view: &HillView, origin: (i32, i3
             over.rect(x0 + 2, y0 + h - 4, bw, 3, 'k');
             over.rect(x0 + 2, y0 + h - 4, (bw as f32 * f) as i32, 3, '3');
         } else if p.wait.is_some() && w >= 12 {
-            // Waiting on goods: three dots at its middle.
             for d in 0..3 {
                 over.rect(x0 + w / 2 - 5 + d * 4, y0 + h / 2 - 1, 2, 2, if (tick / 10 + d) % 3 == 0 { 'w' } else { '4' });
             }
@@ -492,16 +449,10 @@ pub(super) fn plans(over: &mut Img, run: &Run, view: &HillView, origin: (i32, i3
     }
 }
 
-/// The flow overlay: arrows between the works that goods lately moved between,
-/// as thick as the throughput, red where something starves and amber where it
-/// backs up (a mark over the works, and its words for the nearest), and the
-/// Clerk of Works' line.
-/// Returns the boxes of the marks and their words in the view's pixels, which the goal's arrow keeps clear of.
 pub(super) fn overlay(over: &mut Img, figures: Option<&mut Vec<Figure>>, run: &Run, view: &HillView, origin: (i32, i32), size: (i32, i32), focus: Option<u32>) -> Vec<(i32, i32, i32, i32)> {
     let mut boxes = Vec::new();
     let feet = focus.and_then(|id| run.players.get(&id)).map(|h| (h.x / TILE_UNITS, h.y / TILE_UNITS));
     if !flowing(run, focus) {
-        // In 3D a bay stands named without the overlay: its plate over it, for the bays near the knight.
         if figures.is_some()
             && let Some(f) = feet
         {
@@ -530,7 +481,6 @@ pub(super) fn overlay(over: &mut Img, figures: Option<&mut Vec<Figure>>, run: &R
             let (ox, oy) = ((-uy * off as f32).round() as i32, (ux * off as f32).round() as i32);
             over.line(fx + ox, fy + oy, tx + ox, ty + oy, ink);
         }
-        // Chevrons running along it, so a flow reads as moving.
         let step = 14.0;
         let phase = (tick as f32 / 3.0) % step;
         let mut s = phase;
@@ -542,9 +492,7 @@ pub(super) fn overlay(over: &mut Img, figures: Option<&mut Vec<Figure>>, run: &R
             s += step;
         }
     }
-    // The marks stand over the works, so a roof does not hide them (in 3D they are figures).
     let mut put = Put { over, figures, origin };
-    // Every bay by its name, on a small plate over its platform.
     bay_plates(&mut put, view, origin, size, None);
     let mut near: Vec<(f32, &hill::Mark)> = Vec::new();
     for m in &view.marks {
@@ -559,7 +507,6 @@ pub(super) fn overlay(over: &mut Img, figures: Option<&mut Vec<Figure>>, run: &R
             near.push(((m.at.0 - f.0).hypot(m.at.1 - f.1), m));
         }
     }
-    // The words of the two nearest, on dark plates over their marks.
     near.sort_by(|a, b| a.0.total_cmp(&b.0));
     let mut plates: Vec<(i32, i32, i32, i32)> = Vec::new();
     for (_, m) in near.into_iter().take(2).filter(|(d, _)| *d < 14.0) {
@@ -568,8 +515,6 @@ pub(super) fn overlay(over: &mut Img, figures: Option<&mut Vec<Figure>>, run: &R
         plate.rect(0, 0, w + 6, 12, 'k');
         plate.frame(0, 0, w + 6, 12, if m.heat == Heat::Starved { '7' } else { '4' });
         plate.text(3, 2, &m.words, 'w');
-        // Over its mark, but never off the view's side, and never on the other mark's words:
-        // raised a line at a time until it is clear.
         let at = ((m.at.0 * 16.0) as i32, (m.at.1 * 16.0) as i32);
         let middle = (at.0 - origin.0).clamp(4 + plate.w / 2, (size.0 - 4 - plate.w / 2).max(4 + plate.w / 2));
         let mut lift = 50;
@@ -588,8 +533,6 @@ pub(super) fn overlay(over: &mut Img, figures: Option<&mut Vec<Figure>>, run: &R
     boxes
 }
 
-/// Every bay by its name, on a small plate over its platform; with `near` (a knight's tile) only the bays
-/// within nine tiles of it.
 fn bay_plates(put: &mut Put, view: &HillView, origin: (i32, i32), size: (i32, i32), near: Option<(f32, f32)>) {
     for r in &view.rails {
         let Some(bay) = &r.bay else { continue };
@@ -607,8 +550,6 @@ fn bay_plates(put: &mut Put, view: &HillView, origin: (i32, i32), size: (i32, i3
     }
 }
 
-/// Whether the ledger (Charters, Claims, People, Works) is open over the world for `focus`:
-/// it covers the view, and the rest of the HUD stands down.
 pub(in super::super) fn ledger_open(run: &Run, focus: Option<u32>) -> bool {
     run.sim_hillside() && focus.and_then(|id| run.kingdom.industry.get(&id)).is_some_and(|b| b.open && b.page != 0)
 }
@@ -617,7 +558,6 @@ fn flowing(run: &Run, focus: Option<u32>) -> bool {
     focus.and_then(|id| run.kingdom.industry.get(&id)).is_some_and(|b| b.overlay && b.open)
 }
 
-/// A mark over a works: a ring of its heat with a bang (red, starved) or a bar of stock (amber, backed up).
 fn mark_img(heat: Heat, tick: i32) -> Img {
     let ink = if heat == Heat::Starved { '7' } else { '4' };
     let mut im = Img::new(15, 15);
@@ -635,8 +575,6 @@ fn mark_img(heat: Heat, tick: i32) -> Img {
     im
 }
 
-/// What the Clerk says when the sim has no complaint to make of the Keep's chain: where the
-/// works begin. Stone is won below first, then quarried, and only then is the Keep fed.
 fn idle_clerk(run: &Run) -> &'static str {
     let k = &run.home.industry;
     if !k.claims.values().any(|c| c.secured) {
@@ -648,14 +586,11 @@ fn idle_clerk(run: &Run) -> &'static str {
     }
 }
 
-/// The Clerk of Works' line, in the screen's marks, while the overlay is on.
 pub(in super::super) fn clerk(ui: &mut Img, run: &Run, view: &HillView, focus: Option<u32>) {
     if !flowing(run, focus) {
         return;
     }
     let said = if view.clerk.is_empty() { format!("CLERK: {}", idle_clerk(run)) } else { format!("CLERK: {}", view.clerk) };
-    // Up to three lines over the builder's plate, each broken at a word to what a line of the
-    // view holds (the plate is as wide as its text, and the text never passes the view's edge).
     let room = NATIVE_W - 20;
     let mut lines: Vec<String> = vec![String::new()];
     for word in said.split_whitespace() {
@@ -670,7 +605,6 @@ pub(in super::super) fn clerk(ui: &mut Img, run: &Run, view: &HillView, focus: O
         }
     }
     if lines.len() > 3 {
-        // More than three lines: the third ends in two dots, not in the view's edge.
         lines.truncate(3);
         let third = lines.last_mut().expect("a line");
         while crate::render::overworld::ink::text_width(third) > room - 12 {
@@ -690,7 +624,6 @@ pub(in super::super) fn clerk(ui: &mut Img, run: &Run, view: &HillView, focus: O
     }
 }
 
-/// The night's plate, at the view's top left: how the realm's day stands, and the raid if one is on.
 pub(super) fn deep_plate(ui: &mut Img, run: &Run, focus: Option<u32>, avoid: &[(i32, i32, i32, i32)]) -> Option<(i32, i32, i32, i32)> {
     if !run.sim_hillside() || !crate::world::plan::tabula() || ledger_open(run, focus) || !run.hill_world() {
         return None;
@@ -698,7 +631,6 @@ pub(super) fn deep_plate(ui: &mut Img, run: &Run, focus: Option<u32>, avoid: &[(
     let (night, left) = run.deep_clock();
     let clock = format!("{} {}:{:02}", if night { "NIGHT. DAWN IN" } else { "DAY. DUSK IN" }, left / 60, left % 60);
     let mut lines: Vec<(String, char)> = vec![(clock, if night { 'z' } else { 'i' })];
-    // What the castle that stands calms: how far, and how much at the camp.
     if let Some(site) = run.sites.keep() {
         let c = crate::kingdom::catalog();
         let calm = run.home.industry.calm_at(c, run.home.industry.camp());
@@ -716,9 +648,6 @@ pub(super) fn deep_plate(ui: &mut Img, run: &Run, focus: Option<u32>, avoid: &[(
     let tw = crate::render::overworld::ink::text_width;
     let w = lines.iter().map(|(l, _)| tw(l)).max().unwrap_or(40) + 10;
     let h = lines.len() as i32 * 9 + 5;
-    // The goal plate and the corner already own the top. Sit under them, and
-    // step down if a tall plate still crosses this band. The card and the
-    // goal's arrow are told this rect, so they stand clear of it.
     let overlaps = |x, y| {
         avoid.iter().any(|&(a, b, aw, ah)| x < a + aw && x + w > a && y < b + ah && y + h > b)
     };
@@ -738,12 +667,8 @@ pub(super) fn deep_plate(ui: &mut Img, run: &Run, focus: Option<u32>, avoid: &[(
     Some(rect)
 }
 
-/// The height of the builder's strip at the view's foot.
 pub(in super::super) const STRIP_H: i32 = 52;
 
-/// The builder's strip, in the screen's marks: the hotbar (nine slots in three banks, the
-/// number keys choosing within the bank in hand), the tool in hand and whether it lays
-/// plans, what the ghost costs and whether the land suits it, and the last thing said.
 pub(super) fn hud(ui: &mut Img, run: &Run, focus: Option<u32>) {
     let Some(seat) = focus else { return };
     let Some(board) = run.kingdom.industry.get(&seat) else { return };
@@ -759,7 +684,6 @@ pub(super) fn hud(ui: &mut Img, run: &Run, focus: Option<u32>) {
     ui.rect(0, top, w, h, 'k');
     ui.frame(0, top, w, h, 'g');
     let tw = crate::render::overworld::ink::text_width;
-    // The hotbar: the bank in hand as three slots, the other banks as tabs (up and down change them).
     let rig = &board.rig;
     let bank = rig.bank();
     let slot_w = 97;
@@ -804,13 +728,10 @@ pub(super) fn hud(ui: &mut Img, run: &Run, focus: Option<u32>) {
     let more = "H CARD  C LEDGER";
     ui.text(NATIVE_W - tw(keys) - 6, top + 18, keys, 'v');
     if let Some(g) = &g {
-        // One line of the strip, never cut off mid-word: too long, it ends in two dots.
         let room = ((NATIVE_W - 12) / crate::render::overworld::ink::GLYPH_ADVANCE) as usize;
         let note: String = if g.note.chars().count() > room { g.note.chars().take(room - 2).collect::<String>() + ".." } else { g.note.clone() };
         ui.text(6, top + 29, &note, ink);
     }
-    // The last thing said, on the foot line, never under the keys at its right and never
-    // the ghost's own note over again.
     let free = ((NATIVE_W - tw(more) - 30) / crate::render::overworld::ink::GLYPH_ADVANCE).max(8) as usize;
     let note_said = g.as_ref().is_some_and(|g| g.note.eq_ignore_ascii_case(&board.message));
     if !note_said {
@@ -821,7 +742,6 @@ pub(super) fn hud(ui: &mut Img, run: &Run, focus: Option<u32>) {
     let _ = Status::Idle;
 }
 
-/// `text` broken at words into lines no wider than `px` pixels.
 fn wrap(text: &str, px: i32) -> Vec<String> {
     let mut lines: Vec<String> = vec![String::new()];
     for word in text.split_whitespace() {
@@ -838,7 +758,6 @@ fn wrap(text: &str, px: i32) -> Vec<String> {
     lines
 }
 
-/// `lines` cut to `n`, the last ending in two dots when more were cut.
 fn cut(mut lines: Vec<String>, n: usize, px: i32) -> Vec<String> {
     if lines.len() > n {
         lines.truncate(n);
@@ -863,9 +782,6 @@ fn tone_ink(t: crate::kingdom::Tone) -> char {
     }
 }
 
-/// The card of what the cursor points at: what it makes, in and out a minute over the last
-/// few, its stock, power and crew, and what it waits for. On a plate at the side of the view
-/// away from the cursor, under the corner blocks. Returns its rectangle.
 pub(super) fn card(ui: &mut Img, run: &Run, focus: Option<u32>, origin: (i32, i32), clear: &[(i32, i32, i32, i32)]) -> Option<(i32, i32, i32, i32)> {
     let seat = focus?;
     let board = run.kingdom.industry.get(&seat)?;
@@ -882,13 +798,10 @@ pub(super) fn card(ui: &mut Img, run: &Run, focus: Option<u32>, origin: (i32, i3
             body.push((if i == 0 { r.label.clone() } else { String::new() }, line, tone_ink(r.tone)));
         }
     }
-    // The side the cursor is not on; on the right it has the view's top (the goal gives way to it),
-    // on the left it goes under the corner block.
     let cursor_x = i32::from(board.tile.0) * T + 8 - origin.0;
     let right = cursor_x < NATIVE_W / 2;
     let x = if right { NATIVE_W - w - 5 } else { 5 };
     let y = if right { 5 } else { clear.iter().filter(|r| r.0 < x + w && x < r.0 + r.2).map(|r| r.1 + r.3 + 4).fold(5, i32::max) };
-    // As many lines as fit above the builder's strip (and the Clerk's lines over it).
     let floor = NATIVE_H - STRIP_H - 2 - 4 - if board.overlay { 38 } else { 0 };
     let fit = (((floor - y - 18) / 9).max(3)) as usize;
     if body.len() > fit {
@@ -914,13 +827,10 @@ pub(super) fn card(ui: &mut Img, run: &Run, focus: Option<u32>, origin: (i32, i3
     Some(rect)
 }
 
-/// What to do now and why it is worth it, always up at the view's top right: the next
-/// milestone's name, how, and why. Returns its rectangle.
 pub(super) fn goal_plate(ui: &mut Img, run: &Run, focus: Option<u32>) -> Option<(i32, i32, i32, i32)> {
     if !run.sim_hillside() || !crate::world::plan::tabula() || ledger_open(run, focus) {
         return None;
     }
-    // The card of what the cursor points at takes the view's top right while it is up.
     if focus.and_then(|id| run.kingdom.industry.get(&id)).is_some_and(|b| b.open && b.page == 0 && b.rig.numbers.as_ref().is_some_and(|n| n.card.is_some())) {
         return None;
     }
@@ -942,7 +852,6 @@ pub(super) fn goal_plate(ui: &mut Img, run: &Run, focus: Option<u32>) -> Option<
         ui.text(rect.0 + 4, rect.1 + 3 + i as i32 * 9, l, *ink);
     }
     if m.need > 0 {
-        // How far along a counted goal is.
         let bar = ((w - 8) as f32 * (m.have.min(m.need) as f32 / m.need as f32)) as i32;
         ui.rect(rect.0 + 4, rect.1 + h - 3, w - 8, 1, 'g');
         ui.rect(rect.0 + 4, rect.1 + h - 3, bar, 1, '3');
@@ -950,14 +859,10 @@ pub(super) fn goal_plate(ui: &mut Img, run: &Run, focus: Option<u32>) -> Option<
     Some(rect)
 }
 
-/// What a flow overlay or a ghost needs of the view this frame.
 pub(super) fn rider_at(r: &Rider, frac: f32) -> (f32, f32) {
     r.place(frac)
 }
 
-/// The ledger over the world: Charters, Claims, People and Works as a panel laid
-/// over the walking view (the desk's pages, kept; the knight is still in the world
-/// behind it). Native-size text, a window of rows round the selection.
 pub(super) fn ledger(ui: &mut Img, run: &Run, focus: Option<u32>) {
     let Some(board) = focus.and_then(|id| run.kingdom.industry.get(&id)) else { return };
     if !board.open || board.page == 0 || !run.sim_hillside() {
@@ -970,7 +875,6 @@ pub(super) fn ledger(ui: &mut Img, run: &Run, focus: Option<u32>) {
     super::hud_log::note("ledger", (px, py, pw, ph));
     ui.rect(px, py, pw, ph, 'k');
     ui.frame(px, py, pw, ph, 'G');
-    // The tabs.
     let tabs = [(1u8, "CHARTERS"), (3, "CLAIMS"), (6, "PEOPLE"), (8, "WORKS"), (build::PAGE_GOALS, "GOALS"), (build::PAGE_PRODUCTION, "OUTPUT"), (build::PAGE_CHOKES, "CHOKES")];
     let mut x = px + 8;
     for (page, name) in tabs {
@@ -1038,7 +942,6 @@ pub(super) fn ledger(ui: &mut Img, run: &Run, focus: Option<u32>) {
             ui.rect(px + 4, y - 2, pw - 8, 12, 'g');
         }
         let name: String = name.chars().take(30).collect();
-        // What the panel's right edge leaves after the column the states start at.
         let state: String = state.chars().take(((pw - 190 - 10) / crate::render::overworld::ink::GLYPH_ADVANCE) as usize).collect();
         ui.text(px + 8, y, &name, if i == selected { 'Y' } else { 'w' });
         ui.text(px + 190, y, &state, *ink);
@@ -1047,7 +950,6 @@ pub(super) fn ledger(ui: &mut Img, run: &Run, focus: Option<u32>) {
     ui.text(px + 8, py + ph - 12, &said, 't');
 }
 
-/// The ledger's goals, output and chokes pages.
 fn screens(ui: &mut Img, run: &Run, board: &crate::rules::industry::Board, (px, py, pw, ph): (i32, i32, i32, i32)) {
     let c = crate::kingdom::catalog();
     let tw = crate::render::overworld::ink::text_width;
@@ -1077,7 +979,6 @@ fn screens(ui: &mut Img, run: &Run, board: &crate::rules::industry::Board, (px, 
                     ui.text(px + pw - tw("DONE") - 8, y, "DONE", 'G');
                 }
             }
-            // What the one selected opens, and what to do.
             if let Some(n) = goals.nodes.get(selected) {
                 let y = py + 20 + rows as i32 * 11 + 3;
                 ui.rect(px + 4, y - 2, pw - 8, 1, 'g');
@@ -1117,8 +1018,6 @@ fn screens(ui: &mut Img, run: &Run, board: &crate::rules::industry::Board, (px, 
                 ui.text(px + 170, y, &g.used_hour.to_string(), '%');
                 ui.text(px + 222, y, &g.now.to_string(), 'z');
             }
-            // The graph of the one selected: a bar a minute for what was made (green) and used
-            // (red), and the camp's stock as a line over them.
             let g = &p.goods[selected];
             let (gx, gy, gw, gh) = (px + 8, py + 106, pw - 16, 82);
             ui.frame(gx, gy, gw, gh, 'g');
@@ -1177,8 +1076,6 @@ fn screens(ui: &mut Img, run: &Run, board: &crate::rules::industry::Board, (px, 
     }
 }
 
-/// The tile of the ground a click at `(x, y)` of the 768 by 448 picture lands on, in the
-/// flat view of seat `seat`'s knight (the native view, two to a pixel).
 pub fn tile_at(run: &Run, seat: u32, x: i32, y: i32) -> Option<(u8, u8)> {
     let origin = camera(run, Some(seat));
     let (px, py) = (origin.0 + x / 2, origin.1 + y / 2);
@@ -1186,9 +1083,6 @@ pub fn tile_at(run: &Run, seat: u32, x: i32, y: i32) -> Option<(u8, u8)> {
     ((0..crate::kingdom::REALM_WIDTH).contains(&(tx as i16)) && (0..crate::kingdom::REALM_HEIGHT).contains(&(ty as i16))).then_some((tx as u8, ty as u8))
 }
 
-/// The hotbar slot (0 to 8) a click at `(x, y)` of the 768 by 448 picture lands on (a slot of the
-/// bank in hand, or a bank's tab, which takes the same place in that bank), or `Err(())` for the
-/// rest of the builder's strip, where nothing is laid.
 pub fn slot_at(x: i32, y: i32, rig: &builder_rig::Rig) -> Result<Option<u8>, ()> {
     let (nx, ny) = (x / 2, y / 2);
     let top = NATIVE_H - STRIP_H - 2;

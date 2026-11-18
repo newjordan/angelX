@@ -1,10 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
 
-# Each law is a closed equality between literal decisions, so its proof only
-# re-runs the same scans: no arithmetic beyond the U32 phrase index is assumed,
-# and nothing is claimed beyond the eleven equalities above.
-
 def Laws.an_empty_command_is_not_a_recursive_listing():
   {==}
 

@@ -22,17 +22,14 @@ pub(crate) const SKILL_LABELS: Route = Route::new(CELL, '⠓');
 pub(crate) const HANDLE_READS: Route = Route::new(CELL, '⠊');
 pub(crate) const TOOL_NOTES: Route = Route::new(CELL, '⠚');
 
-// ⠥⠓ a loaded skill's labels
 pub(crate) const SKILL_TRUNCATED: Page = Page::new(SKILL_LABELS, 1);
 pub(crate) const SKILL_RESOURCES: Page = Page::new(SKILL_LABELS, 2);
 
-// ⠥⠊ reading a parked handle
 pub(crate) const HANDLE_URI: Page = Page::new(HANDLE_READS, 1);
 pub(crate) const HANDLE_SLICE: Page = Page::new(HANDLE_READS, 2);
 pub(crate) const HANDLE_BUDGET: Page = Page::new(HANDLE_READS, 3);
 pub(crate) const HANDLE_WHOLE: Page = Page::new(HANDLE_READS, 4);
 
-// ⠥⠚ the tool library's operator switches
 pub(crate) const ACTIVATION_CAP: Page = Page::new(TOOL_NOTES, 1);
 pub(crate) const CODE_MODE_EFFECTS: Page = Page::new(TOOL_NOTES, 2);
 

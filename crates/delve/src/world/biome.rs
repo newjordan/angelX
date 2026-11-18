@@ -20,7 +20,6 @@ pub enum Biome {
     March,
 }
 
-/// Each chunk's biome, row by row (`docs/KINGDOM-OPEN.md`).
 const CHART: [&[u8; CHUNKS_X as usize]; CHUNKS_Y as usize] = [
     b"GGGHHHHWWC",
     b"GGGHHHWWWC",
@@ -66,7 +65,6 @@ impl Biome {
         }
     }
 
-    /// Its name, as a signpost or the corner of a view writes it.
     pub fn name(self) -> &'static str {
         match self {
             Biome::CastleTown => "Castle Town",
@@ -83,12 +81,10 @@ impl Biome {
         }
     }
 
-    /// Its index in [`Biome::ALL`], for saving.
     pub fn index(self) -> u8 {
         Biome::ALL.iter().position(|&b| b == self).unwrap_or(0) as u8
     }
 
-    /// Every chunk `(cx, cy)` that belongs to it.
     pub fn chunks(self) -> impl Iterator<Item = (i32, i32)> {
         (0..CHUNKS_Y).flat_map(move |cy| {
             (0..CHUNKS_X)
@@ -98,9 +94,6 @@ impl Biome {
     }
 }
 
-/// The biome of chunk `(cx, cy)`; off the chart reads the nearest edge. In
-/// the blank-slate plan the whole country is one biome
-/// (`super::plan::tabula::BIOME`).
 pub fn chunk(cx: i32, cy: i32) -> Biome {
     if super::plan::tabula() {
         return super::plan::tabula::BIOME;
@@ -109,7 +102,6 @@ pub fn chunk(cx: i32, cy: i32) -> Biome {
     Biome::of_letter(CHART[cy as usize][cx as usize])
 }
 
-/// The biome tile `(x, y)` lies in.
 pub fn at(x: i32, y: i32) -> Biome {
     chunk(x.div_euclid(CHUNK_W), y.div_euclid(CHUNK_H))
 }

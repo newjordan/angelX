@@ -7,7 +7,6 @@ fn packed_pixels_read_back_as_they_were_written() {
     im.set(1, 1, [1, 2, 3]);
     im.set(2, 0, BLACK);
     assert_eq!(im.get(1, 1), Some([1, 2, 3]));
-    // Black is a colour, not a hole.
     assert_eq!(im.get(2, 0), Some(BLACK));
     im.clear(1, 1);
     assert_eq!(im.get(1, 1), None);
@@ -50,7 +49,6 @@ fn a_sprite_is_read_once_and_copied_from_the_atlas_after() {
         let other = Img::from_rows(&["7", "8"]);
         assert_eq!(atlas_size().0, held + 1);
         assert_eq!(other, Img::parse_rows(&["7", "8"]));
-        // A sheet that fills starts over and still answers.
         for n in 0..3000 {
             let row = format!("{}", "7".repeat(n % 300 + 1));
             let img = Img::from_rows(&[&row, &row]);

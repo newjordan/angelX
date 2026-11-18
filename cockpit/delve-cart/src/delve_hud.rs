@@ -18,18 +18,14 @@ fn span(text: impl Into<String>, color: Color) -> Span<'static> {
     Span::styled(text.into(), Style::new().fg(color))
 }
 
-/// A bar of `cells` cells with `fill` of it lit: the lit part in `color`,
-/// the rest in stone.
 fn meter(fill: f32, cells: usize, color: Color) -> Vec<Span<'static>> {
     let lit = ((fill.clamp(0.0, 1.0) * cells as f32).ceil() as usize).min(cells);
-    // A sliver of health still shows as one cell, but only at more than none.
     vec![
         span("█".repeat(lit), color),
         span("░".repeat(cells - lit), STONE),
     ]
 }
 
-/// `left` and `right` on one row of `width` cells, the right flush.
 fn row(width: u16, left: Vec<Span<'static>>, right: Vec<Span<'static>>) -> Line<'static> {
     let used: usize = left
         .iter()
@@ -44,10 +40,8 @@ fn row(width: u16, left: Vec<Span<'static>>, right: Vec<Span<'static>>) -> Line<
     Line::from(spans)
 }
 
-/// Cells a key's cap takes, with the space after it.
 const CAP: u16 = 5;
 
-/// A key's cap: gold while the thing is ready, dim while it rests.
 fn cap(key: &str, ready: bool) -> Span<'static> {
     let key = match key {
         "Space" => "Sp",
@@ -59,7 +53,6 @@ fn cap(key: &str, ready: bool) -> Span<'static> {
     span(format!("{cap:<pad$}"), if ready { GOLD } else { DIM })
 }
 
-/// One held thing: its key and name, and how ready it is at the right.
 fn slot_row(slot: &Slot, width: u16, meter_cells: usize) -> Line<'static> {
     let ready = slot.fill >= 1.0;
     let right_width = meter_cells
@@ -86,8 +79,6 @@ fn slot_row(slot: &Slot, width: u16, meter_cells: usize) -> Line<'static> {
     )
 }
 
-/// The hero's health colour: their own while whole, gold bare-headed, ember
-/// in smallclothes (the in-world bar warms the same way).
 fn health_color(hud: &Hud, hero: Color) -> Color {
     match hud.gear {
         0 => hero,
@@ -96,7 +87,6 @@ fn health_color(hud: &Hud, hero: Color) -> Color {
     }
 }
 
-/// The HUD as rows `width` cells wide. `compact` for a short sidebar.
 pub(super) fn lines(
     hud: &Hud,
     hero: Color,
@@ -109,7 +99,6 @@ pub(super) fn lines(
         fit_text(who, width),
         Style::new().fg(hero).add_modifier(Modifier::BOLD),
     )));
-    // Health: a heart, the bar, and the numbers.
     let numbers = format!("{}/{}", hud.hp, hud.max_hp);
     let cells = usize::from(width)
         .saturating_sub(3 + numbers.chars().count())
@@ -129,7 +118,6 @@ pub(super) fn lines(
         )));
     }
     if !compact {
-        // Mail and bombs: how hard a hit lands, and what is left to throw.
         let bombs = format!(
             "{}{}",
             "●".repeat(hud.bombs.min(hud.max_bombs) as usize),
@@ -157,15 +145,12 @@ pub(super) fn lines(
         ),
     ]));
     out.push(slot_row(&hud.guard, width, 4));
-    // Spells: each learned one on its key, with its recharge; the empty
-    // slots stay out of the way.
     for spell in hud.spells.iter().flatten() {
         out.push(slot_row(spell, width, 4));
     }
     if hud.spells.iter().all(Option::is_none) {
         out.push(Line::from(span("spells: none yet", STONE)));
     }
-    // The hand: the quaff key drinks the first card, the rest wait their turn.
     let held: Vec<&Slot> = hud.hand.iter().flatten().collect();
     if let Some((first, rest)) = held.split_first() {
         out.push(Line::from(vec![
@@ -182,7 +167,6 @@ pub(super) fn lines(
     } else if !compact {
         out.push(Line::from(span("no cards in hand", STONE)));
     }
-    // Valour: the pips a skill spends, filled by hits and grazes.
     if !hud.skills.is_empty() {
         let lit = hud.valour.min(3) as usize;
         out.push(Line::from(vec![
@@ -191,7 +175,6 @@ pub(super) fn lines(
             span("◇".repeat(3 - lit), STONE),
         ]));
     }
-    // The skill bar: a row each, or one row of keys in a short sidebar.
     if compact {
         let mut keys = vec![span("skills ", DIM)];
         for slot in &hud.skills {
@@ -214,7 +197,6 @@ pub(super) fn lines(
             span("the Boss Key", GOLD),
         ]));
     }
-    // The ultimate: its name, and the charge as a bar of its own.
     let ready = hud.ult.fill >= 1.0;
     if compact {
         out.push(slot_row(&hud.ult, width, 4));
@@ -283,10 +265,6 @@ pub(super) fn lines(
     out
 }
 
-/// The knight's tray of icons over the bottom-right of the room's cells,
-/// one pixel to a column and two to a row, for the half-block picture (the
-/// picture itself is too small there to carry it); the keys are written as
-/// text beneath. Cells the tray does not touch keep the room's own colours.
 pub(super) fn paint_tray(
     frame: &mut ratatui::Frame,
     room: ratatui::layout::Rect,
@@ -308,7 +286,6 @@ pub(super) fn paint_tray(
     };
     let (w, h) = (img.w, img.h);
     let cell_rows = (h + 1) / 2;
-    // The plates, then a row of keys beneath, against the room's bottom.
     let x0 = i32::from(room.width) - w - 1;
     let y0 = i32::from(room.height) - cell_rows - 1;
     if x0 < 0 || y0 < 0 {
@@ -340,8 +317,6 @@ pub(super) fn paint_tray(
     }
 }
 
-/// Empty delivered plates under the existing cell labels and numbers.
-/// Foreground text is drawn afterward at its original coordinates.
 pub(super) fn paint_chrome(frame: &mut ratatui::Frame, area: ratatui::layout::Rect, name: &'static str) {
     let Some(im) = angel_delve::render::overworld::arena::hud_art::skin(name, i32::from(area.width), i32::from(area.height)*2) else {return;};
     let rgb=|c:[u8;3]| Color::Rgb(c[0],c[1],c[2]);

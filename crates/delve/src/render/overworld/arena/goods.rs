@@ -14,10 +14,6 @@ use crate::rules::goods::{
 use crate::rules::world::{ADIT, SHAFT};
 use crate::rules::{HZ, Run};
 
-// ── The mine-head: the cart on the track, the heap in the yard ───────────
-
-/// An ore cart seen from the end it runs toward: its timber box, iron
-/// bands, the wheels either side on the rails.
 fn mine_cart(loaded: bool) -> Img {
     let mut im = Img::from_rows(&[
         "..bbbbbbbbbbbbbbbbb..",
@@ -46,8 +42,6 @@ fn mine_cart(loaded: bool) -> Img {
     im
 }
 
-/// The track's two rails and its ends, in canvas pixels: the rails run from
-/// the adit's mouth down the road to the yard (`world::mine_head`).
 fn track() -> (i32, i32, i32, i32) {
     let (_, r, _, h) = ADIT;
     let (sc, _, sw, _) = SHAFT;
@@ -55,11 +49,6 @@ fn track() -> (i32, i32, i32, i32) {
     (mx0 + 6, mx1 - 7, (r + h) * TILE, 13 * TILE)
 }
 
-/// The ore carts on the mine-head's track. While the mine digs, a loaded
-/// cart rolls down the rails to the yard, tips, and climbs back empty; a
-/// second runs half a round behind once the heap passes a dozen. With the
-/// stockpile full the cart stands loaded in the yard and does not move;
-/// before any rent day it waits empty at the mouth.
 pub(super) fn ore_carts(cv: &mut Img, run: &Run, tick: u32) {
     if !run.home.barony.holds_workings() {
         return;
@@ -94,9 +83,6 @@ pub(super) fn ore_carts(cv: &mut Img, run: &Run, tick: u32) {
     }
 }
 
-/// The ore heap in the barony's yard: a lump for every piece in the
-/// stockpile, heaped from the middle out, so it grows with the digging and
-/// shrinks as the Ore-Forge smelts it.
 pub(super) fn ore_heap(cv: &mut Img, run: &Run) {
     if !run.home.barony.holds_workings() {
         return;
@@ -106,7 +92,6 @@ pub(super) fn ore_heap(cv: &mut Img, run: &Run) {
         barony::STOCKPILE_AT.0 * 2.0 + 7.0,
         barony::STOCKPILE_AT.1 * 2.0 + 1.0,
     );
-    // A base of timber sleepers the heap sits on.
     cv.rect(sx - 2, sy + 1, 36, 3, 'b');
     cv.line(sx - 2, sy + 1, sx + 33, sy + 1, 'P');
     pile(cv, sx, sy, 32, n, 24, &LUMP, 71);
@@ -114,14 +99,10 @@ pub(super) fn ore_heap(cv: &mut Img, run: &Run) {
 
 const LUMP: [&str; 4] = [".hJR.", "hJRjJ", "JRjJR", ".jJj."];
 
-/// `n` of a sprite heaped on the foot `(x, y)` of a `w` wide bay: a row on
-/// the bottom, each row above one fewer and centred, a little out of true;
-/// never more than fit in `room`.
 fn pile(cv: &mut Img, x: i32, y: i32, w: i32, n: i32, room: i32, rows: &[&str], seed: u32) {
     let item = Img::from_rows(rows);
     let step = (item.w, (item.h - 1).max(1));
     let mut left = n.min(room);
-    // The base is as wide as a heap of this many needs, to the bay's width.
     let widest = (w / step.0).max(1);
     let mut cols = 1;
     while cols * (cols + 1) / 2 < left && cols < widest {
@@ -145,8 +126,6 @@ fn pile(cv: &mut Img, x: i32, y: i32, w: i32, n: i32, room: i32, rows: &[&str], 
     }
 }
 
-// ── A forge-hall's bins ──────────────────────────────────────────────────
-
 fn sprite(good: Good) -> &'static [&'static str] {
     match good {
         Good::Ore => &LUMP,
@@ -168,8 +147,6 @@ fn spoil_sprite(spoil: Spoil) -> &'static [&'static str] {
     }
 }
 
-/// What a bin compartment holds: goods from the stockpile, or a spoil
-/// from the realm's purse.
 #[derive(Clone, Copy)]
 enum Stuff {
     Good(Good),
@@ -199,7 +176,6 @@ impl Stuff {
     }
 }
 
-/// A forge's inputs, in bin order, and the one thing it makes.
 fn stuffs(f: &Forge) -> Option<(Vec<Stuff>, Stuff)> {
     let r = goods::recipe(f.id)?;
     let mut inputs: Vec<Stuff> = r.from.iter().map(|&(g, _)| Stuff::Good(g)).collect();
@@ -207,8 +183,6 @@ fn stuffs(f: &Forge) -> Option<(Vec<Stuff>, Stuff)> {
     Some((inputs, Stuff::Good(r.makes.0)))
 }
 
-/// A timber bin `w` by `h` at `(x, y)`: back boards, then a low front lip
-/// with the grain showing. `worn` leaves it split and bare.
 fn bin(cv: &mut Img, x: i32, y: i32, w: i32, h: i32, worn: bool) {
     cv.rect(x, y, w, h, 'n');
     cv.rect(x + 1, y + 1, w - 2, h - 2, 'b');
@@ -226,7 +200,6 @@ fn bin(cv: &mut Img, x: i32, y: i32, w: i32, h: i32, worn: bool) {
     );
     cv.line(x + 1, y + h - 2, x + w - 2, y + h - 2, 'b');
     if worn {
-        // Split boards: a gap or two in the back.
         for k in 0..3 {
             let gx = x + 4 + (hash(k, y, 41) % (w as u32 - 8)) as i32;
             cv.line(gx, y + 2, gx, y + h - 7, 'n');
@@ -234,9 +207,6 @@ fn bin(cv: &mut Img, x: i32, y: i32, w: i32, h: i32, worn: bool) {
     }
 }
 
-/// A forge-hall's bins: its inputs on the west side, what it makes on the
-/// east, a piece for every piece waiting, the stockpile it is starved of
-/// marked in red.
 pub(super) fn bins(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
     let b = &run.home.barony;
     let Some(f) = barony::forge_of(run.dungeon.pack) else {
@@ -252,7 +222,6 @@ pub(super) fn bins(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
     let (ox, oy, ow, oh) = rect(OUT_BIN);
     bin(cv, ix, iy, iw, ih, !built);
     bin(cv, ox, oy, ow, oh, !built);
-    // A bin in ruin holds nothing.
     if !built {
         return;
     }
@@ -275,8 +244,6 @@ pub(super) fn bins(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
             31 + k as u32,
         );
         if short == Some(s.word()) {
-            // Starved of it: the bay stands empty, a red cross on its back
-            // boards and its lip lined in red.
             let (cx, cy) = (x + bay / 2, iy + ih - 14);
             for d in -2..=2 {
                 cv.put(cx + d, cy + d, '7');
@@ -290,14 +257,12 @@ pub(super) fn bins(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
     }
     let n = out.count(g, &run.treasury) as i32;
     if matches!(out, Stuff::Good(Good::Bell)) {
-        // Bells hang from a beam over the rack.
         cv.rect(ox + 3, oy + 4, ow - 6, 2, 'P');
         for k in 0..n.min(BELLS_HUNG as i32 + 2) {
             let bell = Img::from_rows(sprite(Good::Bell));
             cv.stamp(&bell, ox + 5 + k * 7, oy + 6);
         }
     } else if matches!(out, Stuff::Good(Good::Blade)) {
-        // Blades stand upright in the rack.
         for k in 0..n.min(ARMOURY as i32) {
             let blade = Img::from_rows(sprite(Good::Blade));
             cv.stamp(&blade, ox + 6 + k * 6, oy + oh - 5 - blade.h + 3);
@@ -305,7 +270,6 @@ pub(super) fn bins(cv: &mut Img, run: &Run, lights: &mut Vec<Light>) {
     } else {
         pile(cv, ox + 4, oy + oh - 5, ow - 8, n, 30, out.rows(), 33);
     }
-    // A forge that is working lights its bins a little: warm, soft.
     if matches!(burn, Burn::Working) {
         lights.push(fire(ix + iw / 2, iy + ih, 30.0, 0.22));
         lights.push(fire(ox + ow / 2, oy + oh, 30.0, 0.22));
@@ -316,11 +280,6 @@ fn rect((c, r, w, h): (i32, i32, i32, i32)) -> (i32, i32, i32, i32) {
     (c * TILE, r * TILE, w * TILE, h * TILE)
 }
 
-// ── The fire a forge shows ───────────────────────────────────────────────
-
-/// The ink at one pixel of a forge's mouth, by how it went: full fire
-/// while it works, a low bed of embers while it waits (kindled, banked,
-/// rack full), the black of a cold hearth when it is starved.
 pub(super) fn mouth(burn: &Burn, x: i32, y: i32, depth: i32, tick: u32) -> char {
     match burn {
         Burn::Working => match hash(x, y + (tick / 3) as i32, 99) % 5 {
@@ -329,7 +288,6 @@ pub(super) fn mouth(burn: &Burn, x: i32, y: i32, depth: i32, tick: u32) -> char 
             _ => '7',
         },
         Burn::Kindled | Burn::Banked | Burn::Full => {
-            // Only the bottom of the mouth glows, and it breathes.
             if depth < 5 && hash(x, y + (tick / 12) as i32, 99) % 3 == 0 {
                 if hash(x, y, 98).is_multiple_of(2) {
                     '7'
@@ -350,8 +308,6 @@ pub(super) fn mouth(burn: &Burn, x: i32, y: i32, depth: i32, tick: u32) -> char 
     }
 }
 
-/// How bright the light of a forge's fire is, if it has one, by radius and
-/// strength.
 pub(super) fn glow(burn: &Burn) -> Option<(f32, f32)> {
     match burn {
         Burn::Working => Some((90.0, 0.6)),
@@ -360,9 +316,6 @@ pub(super) fn glow(burn: &Burn) -> Option<(f32, f32)> {
     }
 }
 
-// ── Boards ───────────────────────────────────────────────────────────────
-
-/// How a burning forge stands, in a board's words, with its ink.
 fn state(burn: &Burn) -> (String, char) {
     match burn {
         Burn::Working => ("WORKING".into(), '5'),
@@ -374,14 +327,11 @@ fn state(burn: &Burn) -> (String, char) {
     }
 }
 
-/// The war table's line for a forge that burns.
 pub(super) fn war_state(b: &Barony, g: &Goods, f: &Forge) -> (String, char) {
     let (words, ink) = state(&g.burn(b, f.id));
     (format!("{}: {words}", f.name.to_uppercase()), ink)
 }
 
-/// The war table's lines for the stockpiles and for where the racks' goods
-/// go, for the forges that burn.
 pub(super) fn war_stock(run: &Run) -> Vec<(String, char)> {
     let (b, g, h) = (&run.home.barony, &run.home.goods, &run.home.holdings);
     let mut lines = vec![(
@@ -434,8 +384,6 @@ pub(super) fn war_stock(run: &Run) -> Vec<(String, char)> {
     lines
 }
 
-/// The plate board of a burning forge: how it stands, its recipe, what
-/// waits in its bin and on its rack, and the hold that banks it.
 pub(super) fn forge_board(run: &Run, f: &Forge, buying: u32) -> Img {
     let b = &run.home.barony;
     let g = &run.home.goods;

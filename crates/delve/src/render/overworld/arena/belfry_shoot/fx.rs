@@ -14,18 +14,13 @@ use crate::rules::folly::BatShoot;
 use crate::rules::juice::Weight;
 use crate::rules::{EnemyKind, Run};
 
-/// Ticks a kill's effects last.
 const KILL_LIFE: u32 = 40;
-/// Ticks a strike's effects last.
 const HIT_LIFE: u32 = 20;
 
-/// A bat's middle (room pixels) for a hit recorded at its feet.
 fn middle(h: &Hit) -> (i32, i32) {
     (h.at.0, h.at.1 - 5)
 }
 
-/// A bat's silhouette: the live one if it is still on the wing, else the
-/// room's own bat art.
 fn silhouette(run: &Run, h: &Hit, tick: u32) -> Img {
     match run.enemies.iter().find(|e| e.id == h.bat) {
         Some(e) => figures::foe_figure_with(run, e, tick),
@@ -33,15 +28,12 @@ fn silhouette(run: &Run, h: &Hit, tick: u32) -> Img {
     }
 }
 
-/// On the floor, under the figures: the flock dropping in, a ring of dust
-/// where a bat fell.
 pub(super) fn under(cv: &mut Img, run: &Run, shoot: &BatShoot, view: (i32, i32)) {
     let now = run.tick as u32;
     let tick = run.tick;
     for s in shoot.show.swoops.iter().filter(|s| super::near(s.at, view, 48)) {
         let age = now.saturating_sub(s.born);
         let (x, y) = s.at;
-        // A smear of dark falling out of the rafters, shorter as it lands.
         if age < 8 {
             let len = 30 * (8 - age as i32) / 8;
             for yy in y - 5 - len..y - 5 {
@@ -53,7 +45,6 @@ pub(super) fn under(cv: &mut Img, run: &Run, shoot: &BatShoot, view: (i32, i32))
                 }
             }
         }
-        // Dust and feathers where it lands.
         let mut pen = Pen::new(cv, 160);
         if age < 14 {
             pen.shock((x as f32, y as f32 + 1.0), 3.0 + age as f32 * 1.4, 1.1, 0.45, ramps::SMOKE, age as f32 / 14.0);
@@ -70,7 +61,6 @@ pub(super) fn under(cv: &mut Img, run: &Run, shoot: &BatShoot, view: (i32, i32))
     }
 }
 
-/// Over the figures: flashes, bursts, numbers, tags and stings.
 pub(super) fn over(cv: &mut Img, run: &Run, shoot: &BatShoot, focus: Option<u32>, view: (i32, i32)) {
     let now = run.tick as u32;
     let tick = run.tick;
@@ -116,9 +106,6 @@ pub(super) fn over(cv: &mut Img, run: &Run, shoot: &BatShoot, focus: Option<u32>
     bites(cv, run, shoot, now, view);
 }
 
-/// A bat felled: its silhouette flashes, squashes and is gone; feathers
-/// fly and settle, sparks spit, a ring goes out; the flock's last and a
-/// third in a row are bigger.
 fn kill(cv: &mut Img, run: &Run, h: &Hit, age: u32, (x, y): (i32, i32), seed: u32) {
     let tick = run.tick;
     let big = h.last || h.chain >= 3;
@@ -150,8 +137,6 @@ fn kill(cv: &mut Img, run: &Run, h: &Hit, age: u32, (x, y): (i32, i32), seed: u3
     }
 }
 
-/// Each knight's run of bats: `x3` over their head, its fuse burning down
-/// the two seconds the run has left to go on.
 fn tags(cv: &mut Img, run: &Run, shoot: &BatShoot, now: u32, view: (i32, i32)) {
     let lead = shoot.scores.values().copied().max().unwrap_or(0);
     for (&id, hero) in run.players.iter().filter(|(_, h)| h.hp > 0 && !h.stone) {
@@ -172,15 +157,12 @@ fn tags(cv: &mut Img, run: &Run, shoot: &BatShoot, now: u32, view: (i32, i32)) {
         let tag = juice::big_text_img(&format!("X{n}"), scale, ink, if hot { 'p' } else { 'B' });
         let top = y - 48 - i32::from(fresh) * 2;
         cv.stamp(&tag, x - tag.w / 2, top);
-        // The fuse: a line of the tag's own colour shortening to nothing.
         let w = (22 * left / CHAIN_GAP) as i32;
         cv.rect(x - 11, top + tag.h + 1, 22, 2, 'k');
         cv.rect(x - 11, top + tag.h + 1, w, 2, if left < 20 && now / 3 % 2 == 0 { '7' } else { 'O' });
     }
 }
 
-/// A bite: a red ring where the knight stands and the harm in red over
-/// their head.
 fn bites(cv: &mut Img, run: &Run, shoot: &BatShoot, now: u32, view: (i32, i32)) {
     for b in shoot.show.bites.iter().filter(|b| super::near(b.at, view, 40)) {
         let age = now.saturating_sub(b.born);

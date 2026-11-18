@@ -39,24 +39,15 @@ use angel_stage::scene::{Material as Surface, Props, World};
 use angel_stage::set::{GAME_TILT, Set, ground_mesh_id, place};
 
 const STAGE: u32 = 0x00FA_57A4;
-/// The stage's size in its own pixels, and the window pixels to each: 960 x 540,
-/// the internal size of a 540-row look, so a frame is read 1:1.
 const SIZE: (u32, u32) = (480, 270);
 const SCALE: u32 = 2;
-/// A tile, the gap between neighbours in a row, and between rows.
 const TILE: f32 = 16.0;
 const GAP: f32 = 16.0;
 const STREET: f32 = 20.0;
 
-/// The most pieces of one material a screen is given: seven materials, so a
-/// screen of up to thirty-five, as many of them as fit; and the biggest a
-/// piece may be, in tiles (the great halls would leave no room for a street).
 const PER_MATERIAL: usize = 5;
 const BIGGEST: i32 = 9;
 
-/// How the pieces are laid: by district (a timber yard, a farm, the quarry,
-/// the forges: neighbours alike, streets that merge into a few zones) or mixed
-/// (every neighbour a different material: as many zones as buildings).
 #[derive(Clone, Copy, PartialEq)]
 enum Plan {
     Districts,
@@ -73,17 +64,13 @@ fn main() -> ExitCode {
     }
 }
 
-/// A building laid on the stage.
 struct Placed {
     id: &'static str,
-    /// `[x0, z0, x1, z1]` in the stage's pixels.
     rect: [f32; 4],
     material: Material,
     piece: Arc<Piece>,
 }
 
-/// The kit's plans of each material, at most `PER_MATERIAL` of them, taken at
-/// an even stride through the list by size so small and large ones both come.
 fn by_material() -> Vec<Vec<&'static str>> {
     use angel_delve::render::overworld::works_kit as flat;
     Material::ALL
@@ -101,13 +88,10 @@ fn by_material() -> Vec<Vec<&'static str>> {
         .collect()
 }
 
-/// The works: rows of buildings left to right, a tile between neighbours, a
-/// street between rows, as many as fit of the plan's order.
 fn layout(plan: Plan) -> Result<Vec<Placed>, String> {
     let groups = by_material();
     let order: Vec<&'static str> = match plan {
         Plan::Districts => groups.iter().flatten().copied().collect(),
-        // One of each material in turn, so no two neighbours are alike.
         Plan::Mixed => (0..PER_MATERIAL).flat_map(|k| groups.iter().filter_map(move |g| g.get(k).copied())).collect(),
     };
     let mut out = Vec::new();
@@ -130,9 +114,6 @@ fn layout(plan: Plan) -> Result<Vec<Placed>, String> {
     Ok(out)
 }
 
-/// A place on the map where the stage sees no camp and no other biome: the
-/// view's origin in the kingdom's pixels. The realm's own look then has no
-/// zones of its own, so the zones in a frame are the buildings'.
 fn clear_origin() -> Result<[f32; 2], String> {
     for ty in (4..150).step_by(7) {
         for tx in (4..210).step_by(7) {
@@ -150,14 +131,10 @@ fn view_at(origin: [f32; 2]) -> View {
     View { origin, size: [SIZE.0 as f32, SIZE.1 as f32], knight: None, others: [None; 3], time: 0.0 }
 }
 
-/// How the buildings are dyed in a frame.
 #[derive(Clone, Copy, Debug)]
 enum Dye {
-    /// The one green ramp.
     Off,
-    /// The nearest `n` zones, as a look that kept four did.
     Nearest(usize),
-    /// The budget: `dye_buildings`.
     Budget,
 }
 
@@ -184,12 +161,9 @@ fn look_of(placed: &[Placed], origin: [f32; 2], dye: Dye, rows: u32) -> Look {
     look
 }
 
-/// The set text of the works: grass under it, each building's solids. Also how
-/// many shapes each building made, to tell them apart in the world's nodes.
 fn scene_text(placed: &[Placed], stage: (u32, u32)) -> Result<(String, Vec<usize>), String> {
     let head = format!("set material-ramps\ncamera room {} {}\n", stage.0, stage.1);
     let mut text = head.clone();
-    // Grass well past the view's edges, as the hillside runs on in the game.
     text.push_str(&format!("box grass at {} -4 {} size {} 4 {}\n", stage.0 / 2, stage.1 / 2, stage.0 * 3, stage.1 * 3));
     let mut counts = Vec::new();
     for p in placed {
@@ -206,15 +180,11 @@ fn scene_text(placed: &[Placed], stage: (u32, u32)) -> Result<(String, Vec<usize
     Ok((text, counts))
 }
 
-/// The marker colour of building `b`: flat, apart from every other by a margin
-/// a rounding cannot close.
 fn marker(b: usize) -> [u8; 3] {
     let k = b + 1;
     [(40 + (k % 7) * 28) as u8, (40 + ((k / 7) % 7) * 28) as u8, (40 + ((k / 49) % 5) * 40) as u8]
 }
 
-/// The world of the works for `look` (or, with `markers`, no look and each
-/// building one flat colour).
 fn world_of(placed: &[Placed], look: Option<Look>, markers: bool, stage: (u32, u32)) -> Result<World, String> {
     let (text, counts) = scene_text(placed, stage)?;
     let set = Set::parse(&text).map_err(|e| e.iter().map(|r| r.to_string()).collect::<Vec<_>>().join("; "))?;
@@ -223,7 +193,6 @@ fn world_of(placed: &[Placed], look: Option<Look>, markers: bool, stage: (u32, u
     }
     let (mut floor, mut blocks, mesh) = set.lit_world_nodes(ground_mesh_id(1));
     if markers {
-        // A building's shape ids follow the ground's (shape 0, node id 1).
         let mut first = vec![1usize];
         for c in &counts {
             first.push(first.last().copied().unwrap_or(1) + c);
@@ -285,13 +254,11 @@ fn shots(gpu: &mut Gpu, out: &Path, plan: &str, placed: &[Placed], origin: [f32;
     println!("{} buildings in {} streets (zone-worth boxes); the budget dyes the nearest {budget}", feet.len(), groups.len());
     let kinds: Vec<String> = Material::ALL.iter().map(|m| format!("{m:?} {}", placed.iter().filter(|p| p.material == *m).count())).collect();
     println!("by material: {}", kinds.join(", "));
-    // layout.tsv: the building, its plan, its material, its box on the stage.
     let mut layout = String::from("index\tplan\tmaterial\tx0\tz0\tx1\tz1\n");
     for (i, p) in placed.iter().enumerate() {
         layout.push_str(&format!("{i}\t{}\t{:?}\t{}\t{}\t{}\t{}\n", p.id, p.material, p.rect[0], p.rect[1], p.rect[2], p.rect[3]));
     }
     write(out.join(format!("{plan}-layout.tsv")), layout.as_bytes())?;
-    // Every ramp a pixel may be on: the grass's and each material's, entry by entry.
     let mut ramps = String::new();
     let hex = |r: &[[u8; 3]; 8]| r.iter().map(|c| format!("{:02x}{:02x}{:02x}", c[0], c[1], c[2])).collect::<Vec<_>>().join(" ");
     ramps.push_str(&format!("Grass\t{}\n", hex(&realm_look::HILLSIDE)));
@@ -316,10 +283,6 @@ fn shots(gpu: &mut Gpu, out: &Path, plan: &str, placed: &[Placed], origin: [f32;
     Ok(())
 }
 
-/// A look with `n` zones, each as big as `reach` stage pixels across, piled
-/// over the middle of the stage so every pixel is under many of them (or, with
-/// `off`, far off the stage so none covers a pixel and the shader only weighs
-/// them): the most the shader does for its zones.
 fn crowded(n: usize, origin: [f32; 2], stage: (u32, u32), off: bool) -> Look {
     let reach = stage.0 as f32 * 0.9;
     let mut look = look_of(&[], origin, Dye::Off, 540);
@@ -337,7 +300,6 @@ fn crowded(n: usize, origin: [f32; 2], stage: (u32, u32), off: bool) -> Look {
     look
 }
 
-/// Milliseconds a frame takes, as a line: median, mean, 95th, worst.
 fn report(name: &str, ms: &[f64], base: &mut Option<f64>) {
     let mut sorted = ms.to_vec();
     sorted.sort_by(f64::total_cmp);
@@ -349,12 +311,6 @@ fn report(name: &str, ms: &[f64], base: &mut Option<f64>) {
     println!("{name:<58} {median:7.3} / {mean:7.3} / {p95:7.3} / {:7.3}{delta}", sorted[sorted.len() - 1]);
 }
 
-/// What the zones cost a frame. First the real screen (the thirty-odd
-/// buildings, shadows, the lot) drawn into a 540-row stage: that frame is
-/// the CPU's (a few hundred nodes to encode) and the zones are lost in it.
-/// Then a fill-bound one, to see the shader: a few buildings on a ground the
-/// size of a 4K screen (2160 rows, the most a look draws), where the pixels
-/// are the work.
 fn time(gpu: &mut Gpu, placed: &[Placed], origin: [f32; 2], frames: usize) -> Result<(), String> {
     println!("{frames} frames each, after 20 of warm up; ms a frame: median / mean / 95th / worst");
     println!("--- the screen of {} buildings, a {}x{} stage (540 rows)", placed.len(), 960, 540);
@@ -362,7 +318,6 @@ fn time(gpu: &mut Gpu, placed: &[Placed], origin: [f32; 2], frames: usize) -> Re
     gpu.scale = 1;
     let mut base = None;
     let mut sixteen = look_of(placed, origin, Dye::Budget, 540);
-    // The Keep's slot, filled as `works_site::dye` fills it: a big stone zone.
     sixteen.zones.push(Zone { ramp: works_look::ramp(Material::Stone).to_vec(), at: [380.0, 60.0], half: [60.0, 40.0], radius: 18.0, feather: 22.0 });
     let runs = vec![
         ("0 zones".to_string(), look_of(placed, origin, Dye::Off, 540)),
@@ -375,7 +330,6 @@ fn time(gpu: &mut Gpu, placed: &[Placed], origin: [f32; 2], frames: usize) -> Re
         let ms = gpu.time(&world_of(placed, Some(look), false, gpu.stage)?, frames)?;
         report(&name, &ms, &mut base);
     }
-    // Fill-bound: a handful of buildings, the stage 3840 x 2160, zones scaled to it.
     println!("--- fill-bound: {} buildings, a 3840x2160 stage (2160 rows, 8.3 million pixels)", placed.len().min(6));
     gpu.stage = (3840, 2160);
     let few = &placed[..placed.len().min(6)];
@@ -394,7 +348,6 @@ struct Gpu {
     device: wgpu::Device,
     info: String,
     target: Option<((u32, u32), wgpu::Texture)>,
-    /// The stage's size in its own pixels, and the window pixels to each.
     stage: (u32, u32),
     scale: u32,
 }
@@ -422,7 +375,6 @@ impl Gpu {
         Ok(Self { core, device, info, target: None, stage: SIZE, scale: SCALE })
     }
 
-    /// The size of the picture: the stage times the scale.
     fn shown(&self) -> (u32, u32) {
         (self.stage.0 * self.scale, self.stage.1 * self.scale)
     }
@@ -488,7 +440,6 @@ impl Gpu {
         drawn
     }
 
-    /// The stage with `world`, drawn and read back at the stage's size times the scale.
     fn shoot(&mut self, world: &World, time: f32) -> Result<Vec<u8>, String> {
         let size = self.shown();
         let mut world = world.clone();
@@ -505,10 +456,6 @@ impl Gpu {
         Ok(self.core.read_back(texture, size))
     }
 
-    /// Wall-clock milliseconds a frame of the stage with `world` takes to draw,
-    /// `frames` of them after twenty to settle: each frame's stage is put (a
-    /// new clock, so it is drawn afresh), then timed from the stage's draw to
-    /// the device's last word.
     fn time(&mut self, world: &World, frames: usize) -> Result<Vec<f64>, String> {
         let size = self.shown();
         let view = self.target(size);

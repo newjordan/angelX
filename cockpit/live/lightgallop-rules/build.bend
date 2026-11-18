@@ -2,10 +2,6 @@ import Base
 import ./math.bend as M
 import ./terrain.bend as T
 
-# A path being laid down: pixel coordinates in, 1/256 pixel kept. The points are
-# kept newest first; `build` turns them into a path with its arc lengths, its
-# segment directions and the tree the rules walk.
-
 type V2 is Data:
   V2{x: U32, y: U32}
 
@@ -44,14 +40,11 @@ def last(+b: B) -> V2:
 def new(+kind: U32, +x: U32, +y: U32) -> B:
   B{kind, [V2{(x * 256 : U32), (y * 256 : U32)}]}
 
-# One point on the end, unless the path is already standing on it.
 def push(+b: B, +x: U32, +y: U32) -> B:
   match b:
     case B{kind, pts}:
       Bool.pick(B, Bool.and(M.eq(v_x(last(b)), x), M.eq(v_y(last(b)), y)), b, B{kind, Con{V2{x, y}, pts}})
 
-# The longest a straight run is left before it is cut, in pixels: short pieces
-# keep the blended tangent honest.
 def cut() -> U32:
   24
 
@@ -62,7 +55,6 @@ def line_go(+fuel: Nat, +i: U32, +n: U32, +b: B, +x0: U32, +y0: U32, +dx: U32, +
     case 1n+k:
       line_go(k, (i + 1 : U32), n, push(b, (x0 + M.md(dx, i, n) : U32), (y0 + M.md(dy, i, n) : U32)), x0, y0, dx, dy)
 
-# A straight run to (x, y), in pixels.
 def line(+b: B, +x: U32, +y: U32) -> B:
   +x0 = v_x(last(b))
   +y0 = v_y(last(b))
@@ -79,7 +71,6 @@ def ease_go(+fuel: Nat, +i: U32, +n: U32, +b: B, +x0: U32, +y0: U32, +dx: U32, +
       +s = M.smooth(M.div((i * 4096 : U32), n))
       ease_go(k, (i + 1 : U32), n, push(b, (x0 + M.md(dx, i, n) : U32), (y0 + M.md(dy, s, 4096) : U32)), x0, y0, dx, dy)
 
-# An S-curve to (x, y), flat at both ends: a hill's flank.
 def ease(+b: B, +x: U32, +y: U32) -> B:
   +x0 = v_x(last(b))
   +y0 = v_y(last(b))
@@ -98,13 +89,9 @@ def arc_go(+fuel: Nat, +i: U32, +n: U32, +b: B, +cx: U32, +cy: U32, +r: U32, +a0
       +y = (cy * 256 + M.md((r * 256 : U32), M.sin(a), 4096) : U32)
       arc_go(k, (i + 1 : U32), n, push(b, x, y), cx, cy, r, a0, a1, drift)
 
-# An arc of the circle of radius `r` about (cx, cy), from turn `a0` to turn
-# `a1`, drifting `drift` pixels to the right over its length (a loop's lean).
 def arc(+b: B, +cx: U32, +cy: U32, +r: U32, +a0: U32, +a1: U32, +drift: U32) -> B:
   +n = M.max(M.div(M.abs((a1 - a0 : U32)), 2), 1)
   arc_go(U32.to_nat(n), 1, n, b, cx, cy, r, a0, a1, drift)
-
-# ---- the points become a path ------------------------------------------------
 
 def rev(+xs: List<&2, V2>, +acc: List<&2, V2>) -> List<&2, V2>:
   match xs:
@@ -120,8 +107,6 @@ def seg_len(+h: V2, +rest: List<&2, V2>) -> U32:
     case Con{n, more}:
       M.hyp((v_x(n) - v_x(h) : U32), (v_y(n) - v_y(h) : U32))
 
-# The point `h`, with its arc length and the direction and midpoint of the
-# segment it starts (none at the last point).
 def pt_of(+h: V2, +rest: List<&2, V2>, +cum: U32) -> T.Pt:
   match rest:
     case Nil{}:
@@ -131,7 +116,6 @@ def pt_of(+h: V2, +rest: List<&2, V2>, +cum: U32) -> T.Pt:
       +dy = (v_y(n) - v_y(h) : U32)
       T.Pt{v_x(h), v_y(h), cum, M.unit_x(dx, dy), M.unit_y(dx, dy), (cum + U32.div(M.hyp(dx, dy), 2) : U32)}
 
-# The points with their arc lengths: `cum` is the arc length at the first.
 def pts_go(+xs: List<&2, V2>, +cum: U32) -> List<&2, T.Pt>:
   match xs:
     case Nil{}:
@@ -153,7 +137,6 @@ def last_cum(+xs: List<&2, T.Pt>) -> U32:
     case Con{h, t}:
       Bool.pick(U32, M.eq(count(t), 0), T.pt_cum(h), last_cum(t))
 
-# The depth of the smallest balanced tree with room for `n` points.
 def dgo(+fuel: Nat, +d: Nat, +cap: U32, +n: U32) -> Nat:
   match fuel:
     case 0n:
@@ -200,7 +183,6 @@ def first_x(+t: T.Pts) -> U32:
     case T.Pn{sc, sx, lo, hi}:
       first_x(lo)
 
-# Neighbours joined in pairs, each pair remembering where its right half starts.
 def pair_up(+xs: List<&2, T.Pts>) -> List<&2, T.Pts>:
   match xs:
     case Nil{}:
@@ -226,7 +208,6 @@ def climb(+d: Nat, +xs: List<&2, T.Pts>) -> T.Pts:
 def tree(+xs: List<&2, T.Pt>, +n: U32, +d: Nat) -> T.Pts:
   climb(d, leaves(app(xs, pad(U32.to_nat((U32.shln(1, d) - n : U32))))))
 
-# The path the builder has laid down, with nothing yet linked to it.
 def build(+b: B) -> T.Path:
   +ps = pts_go(rev(b_pts(b), Nil{}), 0)
   +n = count(ps)

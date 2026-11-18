@@ -1,12 +1,4 @@
 #!/usr/bin/env python3
-"""A tiny pixel-art workbench for Lanternward's painted slots.
-
-Parts are masks painted back to front in the realm's inks (`PAL` is read from
-render/overworld/ink.rs, so a character here is the same colour the stage
-draws). A part is lit from the upper left: its up-left rim takes the lit ink,
-its down-right rim the shadow ink, and the middle a dithered fall between.
-`Sprite.finish` outlines the whole silhouette in the darkest ink.
-"""
 import math
 import re
 from pathlib import Path
@@ -33,9 +25,6 @@ BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
 def bayer(x, y):
     return (BAYER[y & 3][x & 3] + 0.5) / 16.0
 
-
-# ---- masks -----------------------------------------------------------------
-
 def ell(cx, cy, rx, ry):
     out = set()
     for y in range(int(cy - ry - 1), int(cy + ry + 2)):
@@ -50,7 +39,6 @@ def rect(x, y, w, h):
 
 
 def poly(pts):
-    """Even-odd scanline fill of a polygon given in pixel coordinates."""
     out = set()
     ys = [p[1] for p in pts]
     for y in range(int(math.floor(min(ys))), int(math.ceil(max(ys))) + 1):
@@ -69,7 +57,6 @@ def poly(pts):
 
 
 def cap(x0, y0, x1, y1, r0, r1=None):
-    """A tapered capsule: a thick line from (x0, y0) to (x1, y1)."""
     r1 = r0 if r1 is None else r1
     out = set()
     steps = max(2, int(math.hypot(x1 - x0, y1 - y0) * 2))
@@ -95,9 +82,6 @@ def shift(mask, dx, dy):
 def mirror(mask, w):
     return {(w - 1 - x, y) for x, y in mask}
 
-
-# ---- the canvas ------------------------------------------------------------
-
 class Sprite:
     def __init__(self, w, h):
         self.w, self.h = w, h
@@ -115,8 +99,6 @@ class Sprite:
             self.px[(x, y)] = ch
 
     def paint(self, mask, ramp, rim=True, fall=True, seed=0, soft=0.0):
-        """Paint `mask` lit from the upper left. `ramp` runs dark to light:
-        [shadow, base, lit] or [shadow, base, lit, high]."""
         mask = self.clip(mask)
         if not mask:
             return
@@ -130,10 +112,9 @@ class Sprite:
             ul2 = (x - 1, y - 1) not in mask
             dr = ((x + 1, y) not in mask) or ((x, y + 1) not in mask)
             dr2 = (x + 1, y + 1) not in mask
-            # how far down and across the part this pixel sits, 0..1
             ty = (y - y0 + 0.5) / (y1 - y0 + 1)
             tx = (x - x0 + 0.5) / (x1 - x0 + 1)
-            v = 0.5 + 0.0 * tx  # 0 dark .. 1 light
+            v = 0.5 + 0.0 * tx
             if fall:
                 v = 0.78 - 0.55 * (0.62 * ty + 0.38 * tx)
             b = bayer(x + seed, y)
@@ -151,7 +132,6 @@ class Sprite:
             self.px[(x, y)] = ch
 
     def edge(self, mask, ch, where="dr"):
-        """Ink the mask's own rim (down-right, or all round) in `ch`."""
         mask = self.clip(mask)
         for (x, y) in mask:
             if where == "all":
@@ -165,7 +145,6 @@ class Sprite:
                     self.px[(x, y)] = ch
 
     def finish(self, outline="k", under="K"):
-        """Outline the silhouette; a darker ink under the feet of it."""
         solid = set(self.px)
         for (x, y) in solid:
             for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
@@ -186,9 +165,6 @@ class Sprite:
         for (x, y), c in other.px.items():
             self.put(x + dx, y + dy, c)
 
-
-# ---- looking ---------------------------------------------------------------
-
 def png(rows, scale=1, bg=(11, 10, 8)):
     from PIL import Image
     h, w = len(rows), max(len(r) for r in rows)
@@ -203,7 +179,6 @@ def png(rows, scale=1, bg=(11, 10, 8)):
 
 
 def sheet(frames, scale=6, cols=8, bg=(21, 29, 40), gap=2):
-    """Contact sheet of frames (lists of rows), on a dusky floor."""
     from PIL import Image
     h, w = len(frames[0]), len(frames[0][0])
     rows = (len(frames) + cols - 1) // cols

@@ -75,9 +75,6 @@ impl App {
         }
     }
 
-    /// The graph module and the Raytrace stage route are one fact in two
-    /// stores (module lifecycle vs scene routing). Every path that changes one
-    /// side goes through here so they cannot drift.
     fn sync_graph_stage(&mut self, active: bool) {
         if active {
             self.scryglass
@@ -122,7 +119,6 @@ impl App {
         self.sync_graph_stage(graph_running);
     }
 
-    /// Toggle the embedded shell pane: spawn it on first use, else flip focus.
     pub(crate) fn toggle_shell(&mut self) {
         if self.shell.is_none() {
             self.spawn_shell_from_last_area();
@@ -138,7 +134,6 @@ impl App {
         }
     }
 
-    /// Check if the embedded shell process has exited; if so, close the pane and return focus.
     pub(crate) fn poll_shell_status(&mut self) {
         if let Some(shell) = self.shell.as_ref()
             && !shell.is_alive()
@@ -147,10 +142,6 @@ impl App {
         }
     }
 
-    /// Drop the shell pane and everything that points at it: its focus, and the
-    /// module host's "shell" (which runs while the pane has focus, so a pane
-    /// that is gone must not leave it listed as active). `notice` is the system
-    /// line for a pane that ended on its own.
     pub(crate) fn close_shell(&mut self, notice: Option<&str>) {
         self.shell = None;
         self.shell_focused = false;
@@ -246,11 +237,7 @@ impl App {
         }
     }
 
-    /// Clipboard geometry is intentionally text-only. The rest of a visible
-    /// agent bay still owns focus and scrolling, but never starts a selection.
     pub(crate) fn interaction_pane_at(&self, x: u16, y: u16) -> Option<crate::ui::mouse::PaneId> {
-        // The full visible mini-viz owns its border, footer, pending and fault
-        // states too. Clipboard geometry remains text-only and separate.
         if self
             .panel_frames
             .get(crate::ui::panels::PanelKind::Artifacts)

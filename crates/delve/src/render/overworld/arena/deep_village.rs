@@ -42,20 +42,12 @@ pub(super) use dread::{figure as dread_figure, lantern_beam as dread_lantern, un
 pub(super) use panel::{screen, signs};
 pub(super) use road::meeting;
 
-/// A people's stone and light, as inks.
 pub(super) struct Look {
-    /// The cavern floor, dark to light.
     pub ground: [char; 4],
-    /// The cavern's rock, dark to light.
     pub rock: [char; 6],
-    /// What the dark glows with: the people's own cool or warm light,
-    /// dim to bright. The last two are lamplight (signal inks).
     pub glow: [char; 4],
-    /// A lit lamp's flame, core and halo.
     pub flame: (char, char),
-    /// The dusk's pools on bare paper.
     pub pool: (char, char),
-    /// Whether its light is fire (warms what it touches).
     pub warm: bool,
 }
 
@@ -93,8 +85,6 @@ pub(super) fn look(culture: Culture) -> Look {
             pool: ('x', 'q'),
             warm: true,
         },
-        // The roost's light is the red of its lanterns, and its stars are
-        // the bats' eyes.
         Culture::Roostfolk => Look {
             ground: ['K', 'X', 'X', 'g'],
             rock: ['k', 'K', 'X', 'g', 'j', 'G'],
@@ -119,7 +109,6 @@ pub(super) fn look(culture: Culture) -> Look {
             pool: ('x', 'S'),
             warm: false,
         },
-        // Salt-light is dawn-coloured: a warm rose over the white.
         Culture::Saltkin => Look {
             ground: ['g', 'G', 'h', 'i'],
             rock: ['G', 'J', 'h', 'i', 'H', 'W'],
@@ -131,12 +120,10 @@ pub(super) fn look(culture: Culture) -> Look {
     }
 }
 
-/// A tile rect in pixels.
 pub(super) fn px_rect((c, r, w, h): (i32, i32, i32, i32)) -> (i32, i32, i32, i32) {
     (c * TILE, r * TILE, w * TILE, h * TILE)
 }
 
-/// A tile point in pixels.
 pub(super) fn px((x, y): (f32, f32)) -> (i32, i32) {
     at(x * 2.0, y * 2.0)
 }
@@ -145,13 +132,10 @@ fn all(_: i32, _: i32) -> bool {
     true
 }
 
-/// The village the party stands in, while it does.
 pub(super) fn village(run: &Run) -> Option<&Village> {
     run.deep.as_ref()?.village.as_ref().filter(|_| run.in_deep_village())
 }
 
-/// What the kept drawing of a village depends on beyond its room: how lit
-/// it is, and what the realm has built in it. Nothing outside a village.
 pub(super) fn print(run: &Run) -> u64 {
     let Some(vl) = village(run) else {
         return 0;
@@ -161,7 +145,6 @@ pub(super) fn print(run: &Run) -> u64 {
     (u64::from(vl.hope) << 8 | built << 16 | vl.culture as u64) << 1 | 1
 }
 
-/// The village's still art, lit for how much hope it holds.
 pub(super) fn scenery(run: &Run) -> Img {
     let room = run.room();
     let (pw, ph) = (room.cols as i32 * TILE, room.rows as i32 * TILE);
@@ -189,19 +172,14 @@ pub(super) fn scenery(run: &Run) -> Img {
     }
     let deeds: Vec<crate::rules::deep::Errand> = town.map_or_else(Vec::new, |t| t.deeds.clone());
     lamp_posts(&mut cv, vl, &lk, &mut lights, deeds.contains(&crate::rules::deep::Errand::Beacons));
-    // The stair on down, and the lift's foot by the light home.
     let (sx, sy) = (v::STAIRS.0 * TILE, v::STAIRS.1 * TILE);
     cv.stamp(&super::sprites::stairs(true), sx, sy);
     lift(&mut cv, &lk, &mut lights);
-    // Masses lifted toward the light as the world above draws them: the
-    // ground stays dark and calm, the houses read first.
     super::dusk_with(&mut cv, &lights, lk.pool, 1.0);
     gloom(&mut cv, &lights, vl.light());
     cv
 }
 
-/// The cavern floor: the people's ground in soft patches, worn paler along
-/// the ways folk walk.
 fn ground(cv: &mut Img, culture: Culture, lk: &Look) {
     let (w, h) = (cv.w, cv.h);
     match culture {
@@ -216,13 +194,11 @@ fn ground(cv: &mut Img, culture: Culture, lk: &Look) {
             let fine = (hash(x, y, 9102) % 100) as f32 / 100.0;
             let t = n * 0.8 + fine * 0.2;
             let i = if t > 0.72 { 3 } else if t > 0.5 { 2 } else if t > 0.3 { 1 } else { 0 };
-            // Sparse marks only: black paper between, as every room keeps.
             if fine < 0.55 || i >= 2 {
                 cv.put(x, y, lk.ground[i]);
             }
         }
     }
-    // The people's own ground: moss and caps, crystal grit, cinders, planks.
     for k in 0..140 {
         let hk = hash(k, 3, 9103 + culture as u32);
         let (x, y) = (TILE + (hk % (w - 2 * TILE) as u32) as i32, v::BACK as i32 * TILE + 4 + ((hk >> 10) % (h as u32 - 6 * TILE as u32)) as i32);
@@ -251,8 +227,6 @@ fn ground(cv: &mut Img, culture: Culture, lk: &Look) {
     }
 }
 
-/// The Emberfolk's floor: channels of slow fire cut across it, from the
-/// falls on the back wall down to the forge-heart, crusted at the edges.
 fn lava_channels(cv: &mut Img, lights: &mut Vec<Light>) {
     let paths: [&[(i32, i32)]; 2] = [&[(96, 114), (110, 168), (150, 198), (230, 234)], &[(410, 114), (400, 168), (360, 198), (340, 234)]];
     for path in paths {
@@ -274,8 +248,6 @@ fn lava_channels(cv: &mut Img, lights: &mut Vec<Light>) {
     }
 }
 
-/// The Lampwick's floor is the lake: black water, its ripples catching
-/// what light there is.
 fn lake_floor(cv: &mut Img) {
     let (w, h) = (cv.w, cv.h);
     for y in (v::BACK as i32 * TILE)..h - TILE {
@@ -290,8 +262,6 @@ fn lake_floor(cv: &mut Img) {
     }
 }
 
-/// The rock round the cavern's sides and south: dark stone, shaded off
-/// into the black.
 fn side_walls(cv: &mut Img, lk: &Look) {
     let (w, h) = (cv.w, cv.h);
     let top = v::BACK as i32 * TILE;
@@ -308,8 +278,6 @@ fn side_walls(cv: &mut Img, lk: &Look) {
     }
 }
 
-/// The plaza round the heart: paving in rings, and the ways out to the
-/// houses, the well and the stair.
 fn plaza(cv: &mut Img, culture: Culture, lk: &Look) {
     let (cx, cy) = (18 * TILE, 15 * TILE + 8);
     let stone = match culture {
@@ -330,7 +298,6 @@ fn plaza(cv: &mut Img, culture: Culture, lk: &Look) {
                 continue;
             }
             if culture == Culture::Chimefolk {
-                // A dais of dry flagstones above the water, worn at its edge.
                 let (fx, fy) = ((x - cx).div_euclid(18), (y - cy).div_euclid(12));
                 let seam = (x - cx).rem_euclid(18) == 0 || (y - cy).rem_euclid(12) == 0;
                 let tone = (hash(fx, fy, 9126) % 3) as usize;
@@ -341,7 +308,6 @@ fn plaza(cv: &mut Img, culture: Culture, lk: &Look) {
                 continue;
             }
             if culture == Culture::Lampwick {
-                // A deck of boards over the water, its edge on posts.
                 let seam = (y - cy).rem_euclid(5) == 0;
                 let n = hash(x / 23 + (y - cy).div_euclid(5) * 7, 0, 9121) % 3;
                 let edge = d > 0.9;
@@ -352,14 +318,12 @@ fn plaza(cv: &mut Img, culture: Culture, lk: &Look) {
             let a = (dy.atan2(dx) * 8.0).floor() as i32;
             let seam = ((d.sqrt() * 9.0).fract() < 0.12) || (hash(a, (d.sqrt() * 9.0) as i32, 9122) % 4 == 0 && (dy.atan2(dx) * 8.0).fract() < 0.08);
             let ink = if seam { stone[0] } else if ring { stone[2] } else { stone[1] };
-            // The root-hall's plaza is trodden earth: its rings show less.
             let sparse = if culture == Culture::Rootkin { hash(x, y, 9123) % 3 == 0 } else { (hash(x, y, 9123) % 5) != 0 };
             if sparse || seam {
                 cv.put(x, y, ink);
             }
         }
     }
-    // Ways out: to the stair, the well, the hall's door.
     let ways: [((i32, i32), (i32, i32)); 4] = [
         ((cx, cy + 60), (cx, 20 * TILE)),
         ((cx - 100, cy + 20), (12 * TILE, 17 * TILE)),
@@ -374,7 +338,6 @@ fn plaza(cv: &mut Img, culture: Culture, lk: &Look) {
             for o in -7..=7 {
                 let (px_, py_) = if flat { (x, y + o) } else { (x + o, y) };
                 if culture == Culture::Lampwick {
-                    // Boardwalk planks across the water.
                     let along = if flat { px_ } else { py_ };
                     let ink = if along.rem_euclid(5) == 0 { 'n' } else if o.abs() == 7 { 'b' } else { ['I', 'B', 'P'][(hash(along / 5, 0, 9125) % 3) as usize] };
                     cv.put(px_, py_, ink);
@@ -387,7 +350,6 @@ fn plaza(cv: &mut Img, culture: Culture, lk: &Look) {
     let _ = lk;
 }
 
-/// The Lampwick's boardwalks out to their houses' doors over the water.
 fn boardwalks(culture: Culture) -> Vec<((i32, i32), (i32, i32))> {
     if culture != Culture::Lampwick {
         return Vec::new();
@@ -403,8 +365,6 @@ fn boardwalks(culture: Culture) -> Vec<((i32, i32), (i32, i32))> {
     walks
 }
 
-/// The lamp posts: each takes fire in its turn as hope grows.
-/// A village whose beacons the party lit below keeps every lamp lit.
 fn lamp_posts(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>, beacons: bool) {
     let lit = if beacons { v::LAMPS.len() } else { vl.lamps_lit() };
     for (i, &spot) in v::LAMPS.iter().enumerate() {
@@ -423,12 +383,10 @@ fn lamp_posts(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>, be
         cv.line(x, y, x, y - 20, post);
         cv.line(x + 1, y, x + 1, y - 20, 'n');
         match vl.culture {
-            // A spore-lamp: a little glowing cap on a stalk.
             Culture::Capfolk => {
                 cv.ellipse(x as f32 + 0.5, (y - 22) as f32, 5.0, 3.0, if on { lk.glow[2] } else { 'q' });
                 cv.line(x - 4, y - 21, x + 5, y - 21, if on { lk.glow[3] } else { 'x' });
             }
-            // A lodestone in a cage of iron.
             Culture::Glimmerkin => {
                 cv.frame(x - 3, y - 27, 8, 8, 'G');
                 cv.rect(x - 2, y - 26, 6, 6, if on { lk.glow[2] } else { 'S' });
@@ -437,7 +395,6 @@ fn lamp_posts(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>, be
                     cv.put(x + 1, y - 24, 'w');
                 }
             }
-            // A brazier bowl on its post.
             Culture::Emberfolk => {
                 cv.rect(x - 4, y - 23, 10, 3, 'X');
                 cv.line(x - 5, y - 24, x + 6, y - 24, 'g');
@@ -447,7 +404,6 @@ fn lamp_posts(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>, be
                     cv.put(x + 2, y - 27, '5');
                 }
             }
-            // A lamplighter's lamp on a crook.
             Culture::Lampwick => {
                 cv.line(x + 1, y - 20, x + 5, y - 22, post);
                 let im = super::super::kit::lantern(on);
@@ -464,8 +420,6 @@ fn lamp_posts(cv: &mut Img, vl: &Village, lk: &Look, lights: &mut Vec<Light>, be
     }
 }
 
-/// The lift up to the light home: a winch on two posts, its rope going up
-/// into the dark.
 fn lift(cv: &mut Img, lk: &Look, lights: &mut Vec<Light>) {
     let (x, y) = px(v::LIFT);
     for side in [-14, 14] {
@@ -479,9 +433,6 @@ fn lift(cv: &mut Img, lk: &Look, lights: &mut Vec<Light>) {
     lights.push(fire(x, y - 8, 40.0, 0.25));
 }
 
-/// The dark the village holds before hope comes: every still pixel taken
-/// further down its bank, less where a light reaches it, none once the
-/// village shines. Lamplight (the signal inks) never dims.
 fn gloom(cv: &mut Img, lights: &[Light], light: f32) {
     let depth = (1.0 - light) * 2.6;
     if depth <= 0.05 {
@@ -509,8 +460,6 @@ fn gloom(cv: &mut Img, lights: &[Light], light: f32) {
     }
 }
 
-/// The village's moving parts over its light: the folk, the star, the
-/// air, the city's wishes.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     let Some(vl) = village(run) else {
         return;

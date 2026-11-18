@@ -1,6 +1,3 @@
-// Thin adapter: the host sends the request and workspace facts as plain JSON,
-// the checked Bend module decides, and the step codes return unchanged. No
-// planning lives here.
 const { step } = require('./verify-plan.compiled.js')
 
 const REQUESTED = { auto: 'Auto', rust: 'Rust', go: 'Go', node: 'Node', python: 'Python' }

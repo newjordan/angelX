@@ -42,8 +42,6 @@ fn route(k: &mut Kingdom, name: &str, from: &str, to: &str, wagons: u16) -> u32 
 fn plank(k: &Kingdom, id: u32) -> u32 {
     k.buildings[&id].output.get("plank").copied().unwrap_or(0)
 }
-/// A second at a time, with the blocks checked every second: a tile holds one wagon, or two on plain track
-/// going opposite ways.
 fn run_checked(k: &mut Kingdom, seconds: usize) {
     for _ in 0..seconds {
         k.advance_second(catalog());
@@ -58,7 +56,6 @@ fn run_checked(k: &mut Kingdom, seconds: usize) {
     assert!(k.valid(catalog()));
 }
 
-/// Two stores a straight track apart, a bay at each end, one wagon between.
 fn straight(len: i16) -> (Kingdom, u32, u32, u32) {
     let mut k = rich();
     let a = depot(&mut k, (160, 96));
@@ -85,7 +82,6 @@ fn a_wagon_runs_a_route_between_two_bays_and_none_of_the_goods_are_lost() {
     let row = k.route_report(c).into_iter().find(|x| x.id == r).unwrap();
     assert_eq!((row.stops, row.wagons), (2, 1));
     assert!(row.per_min > 0 && row.capacity_per_min >= row.per_min, "{row:?}");
-    // A second wagon lifts the flow.
     let before = plank(&k, b);
     k.apply(c, Command::Wagons { route: r, wagons: 2 }).unwrap();
     run_checked(&mut k, 100);
@@ -108,7 +104,6 @@ fn bays_take_the_names_of_what_they_serve_and_a_route_needs_bays_that_exist() {
     assert!(k.apply(c, Command::Bay { tile: (163, 96), name: Some("Again".into()) }).is_err(), "a bay already");
     let stops = vec![Stop { bay: "Warehouse".into(), act: Act::Load, good: None }, Stop { bay: "Nowhere".into(), act: Act::Unload, good: None }];
     assert!(k.apply(c, Command::Route { name: None, stops, wagons: 1 }).is_err());
-    // A refused route costs nothing: the rail between the bays is not joined, so there is no room.
     let horses = k.amount("horse");
     let stops = vec![Stop { bay: "Warehouse".into(), act: Act::Load, good: None }, Stop { bay: "Warehouse 2".into(), act: Act::Unload, good: None }];
     k.apply(c, Command::Route { name: None, stops, wagons: 99 }).unwrap_err();
@@ -121,19 +116,16 @@ fn rail_is_laid_tile_by_tile_and_a_wagon_blocks_it_being_taken_up() {
     let (mut k, _, _, _) = straight(8);
     let wagon_at = k.rails.wagons.values().next().unwrap().tile;
     assert!(k.apply(c, Command::Demolish(wagon_at)).is_err(), "a wagon stands on it");
-    // Taking the bay's tile up takes the bay and its route.
     k.rails.wagons.clear();
     k.apply(c, Command::Demolish((163, 96))).unwrap();
     assert!(k.rails.bays.get("Store A").is_none() && k.rails.routes.is_empty(), "the route has one stop left, so it goes");
     assert!(k.valid(c));
-    // The old tramway command is gone.
     let err = k.apply(c, Command::Line { kind: LineKind::Tram, from: 1, to: 2, path: Vec::new(), vehicles: 1 }).unwrap_err();
     assert!(err.contains("rails are laid tile by tile"), "{err}");
 }
 
 #[test]
 fn two_wagons_meeting_at_a_switch_take_turns_and_never_share_a_tile() {
-    // Two stores feed one: wagons from the north and from the south come to a switch and go east together.
     let mut k = rich();
     let a = depot(&mut k, (160, 90));
     let b = depot(&mut k, (160, 100));
@@ -160,8 +152,6 @@ fn two_wagons_meeting_at_a_switch_take_turns_and_never_share_a_tile() {
 #[test]
 fn two_wagons_pass_on_plain_track_and_meet_head_on_only_where_the_track_is_shut() {
     let c = catalog();
-    // One track between two stores, a route each way and two wagons to a route: they pass one another on
-    // the way, a lane each, and the goods go both ways.
     let mut k = rich();
     let a = depot(&mut k, (160, 96));
     track(&mut k, (163, 96), (176, 96));
@@ -180,9 +170,6 @@ fn two_wagons_pass_on_plain_track_and_meet_head_on_only_where_the_track_is_shut(
 #[test]
 fn a_bay_on_the_main_line_holds_up_what_passes_and_a_bypass_lets_it_round() {
     let c = catalog();
-    // A main line from West to East with a bay in its middle serving a store whose wagon waits there for
-    // goods that come slowly: the wagons of the long route queue behind it. A bypass round the bay's tile
-    // lets them pass.
     let mut k = rich();
     let west = depot(&mut k, (160, 96));
     track(&mut k, (163, 96), (180, 96));
@@ -194,9 +181,7 @@ fn a_bay_on_the_main_line_holds_up_what_passes_and_a_bypass_lets_it_round() {
     k.buildings.get_mut(&west).unwrap().output.insert("plank".into(), 200);
     let _ = mid;
     route(&mut k, "Long", "West", "East", 3);
-    // The middle store's own wagons: they load from a store with nothing to give and stand out their patience.
     route(&mut k, "Short", "Middle", "East", 3);
-    // Wagon-seconds spent waiting on the track, and what reaches the east, over 300 seconds.
     let mut trial = |k: &mut Kingdom| {
         let before = plank(k, east);
         let mut queued = 0u32;
@@ -208,7 +193,6 @@ fn a_bay_on_the_main_line_holds_up_what_passes_and_a_bypass_lets_it_round() {
     };
     let (slow, jammed) = trial(&mut k);
     assert!(jammed > 300, "the long route's wagons wait behind the middle bay: {jammed} wagon-seconds");
-    // A bypass round the bay's tile: the wagons find it by themselves.
     for t in [(169, 95), (170, 95), (171, 95), (172, 95), (173, 95)] {
         rail(&mut k, t);
     }
@@ -268,7 +252,6 @@ fn an_old_tramway_comes_onto_the_network_as_rail_two_bays_and_a_route() {
     let mut k = rich();
     let a = depot(&mut k, (160, 96));
     let b = depot(&mut k, (173, 96));
-    // What a save from before the rails held: a tramway line along twelve tiles of track, two wagons on it.
     let path: Vec<Tile> = (162..=173).map(|x| (x, 96)).collect();
     k.lines.insert(
         1,
@@ -299,8 +282,6 @@ fn an_old_tramway_comes_onto_the_network_as_rail_two_bays_and_a_route() {
     assert!(k.valid(c));
 }
 
-// ---- the one-gesture railway ---------------------------------------------------------
-
 #[test]
 fn a_railway_is_one_gesture_from_one_work_to_another_and_the_goods_ride_it() {
     let c = catalog();
@@ -309,7 +290,6 @@ fn a_railway_is_one_gesture_from_one_work_to_another_and_the_goods_ride_it() {
     let b = depot(&mut k, (174, 100));
     let said = k.apply(c, Command::Railway { from: a, to: b, path: Vec::new(), wagons: 2, good: None }).unwrap();
     assert!(said.contains("railway runs") && said.contains("2 wagons"), "{said}");
-    // The rail, a bay at each work named for it, the route and the wagons: all from the one command.
     assert!(k.rails.cells.len() >= 14, "the rail between them: {}", k.rails.cells.len());
     assert_eq!(k.rails.bays.keys().cloned().collect::<Vec<_>>(), ["Warehouse", "Warehouse 2"]);
     assert_eq!(k.bay_building("Warehouse"), Some(a));
@@ -331,13 +311,11 @@ fn a_railway_that_cannot_be_paid_for_or_would_not_run_changes_nothing() {
     let a = depot(&mut k, (160, 96));
     let b = depot(&mut k, (174, 100));
     let before = (k.stock.clone(), k.rails.clone());
-    // No horses for the wagons: the rail is not laid either.
     k.stock.insert("horse".into(), 0);
     let before = (k.stock.clone(), before.1);
     let err = k.apply(c, Command::Railway { from: a, to: b, path: Vec::new(), wagons: 2, good: None }).unwrap_err();
     assert!(err.contains("wagons need"), "{err}");
     assert_eq!((k.stock.clone(), k.rails.clone()), before, "nothing was laid or paid");
-    // Too many wagons, a swape, the same work twice, a path that does not run beside the works.
     k.stock.insert("horse".into(), 600);
     for (cmd, why) in [
         (Command::Railway { from: a, to: b, path: Vec::new(), wagons: 99, good: None }, "wagons"),
@@ -350,7 +328,6 @@ fn a_railway_that_cannot_be_paid_for_or_would_not_run_changes_nothing() {
         assert!(err.contains(why), "{why}: {err}");
         assert!(k.rails.cells.is_empty() && k.rails.routes.is_empty(), "a refused railway lays nothing");
     }
-    // The charter first.
     let mut young = rich();
     let (x, y) = (depot(&mut young, (160, 96)), depot(&mut young, (174, 100)));
     young.researched.remove("rails");
@@ -384,7 +361,6 @@ fn the_planner_goes_round_what_stands_between_two_works() {
     let mut k = rich();
     let a = depot(&mut k, (160, 96));
     let b = depot(&mut k, (176, 96));
-    // A wall of stores across the straight way.
     for y in (90..=102).step_by(2) {
         depot(&mut k, (168, y));
     }

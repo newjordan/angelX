@@ -36,9 +36,6 @@ pub struct Reply {
     pub result: Result<Value, String>,
 }
 
-/// A pure computation on explicit inputs, served by an already active system.
-/// It cannot migrate state or admit a waiting candidate: those require apply's
-/// checkpoint/validation boundary. Contract versions are advertised at prepare.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Compute {
@@ -75,7 +72,6 @@ pub fn read_frame<T: serde::de::DeserializeOwned>(r: &mut impl Read) -> Result<T
 pub fn write_frame(w: &mut impl Write, body: &impl Serialize) -> Result<(), String> {
     write_bytes(w, &serde_json::to_vec(body).map_err(|e| e.to_string())?)
 }
-/// The frames of a worker that advertised `"codec": "bj1"` (see `crate::bj`).
 fn read_bj<T: serde::de::DeserializeOwned>(r: &mut impl Read) -> Result<T, String> {
     let bytes = read_bytes(r)?;
     let text = std::str::from_utf8(&bytes).map_err(|e| format!("system frame text: {e}"))?;
@@ -86,8 +82,6 @@ fn write_bj(w: &mut impl Write, body: &impl Serialize) -> Result<(), String> {
     write_bytes(w, crate::bj::to_string(&value)?.as_bytes())
 }
 
-/// Worker entry point. stdout belongs exclusively to this protocol; diagnostics
-/// go to stderr. Restore must be side effect free; effects are host-owned.
 pub fn serve(mut dispatch: impl FnMut(&str, Value) -> Result<Value, String>) -> Result<(), String> {
     let (mut input, mut output) = (std::io::stdin().lock(), std::io::stdout().lock());
     loop {
@@ -118,8 +112,6 @@ type Exchange = (Request, bool, mpsc::SyncSender<Result<Reply, String>>);
 const MAX_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
 static CAPTURE_SERIAL: AtomicU64 = AtomicU64::new(0);
 
-/// Owns one worker's immutable executable bytes. The path is unique to this
-/// capture, even when another capture has identical content.
 struct CapturedArtifact {
     path: PathBuf,
     digest: String,
@@ -132,7 +124,6 @@ impl Drop for CapturedArtifact {
     }
 }
 
-/// Shared so a retained artifact lease can outlive its System owner safely.
 struct ArtifactDirectory {
     path: PathBuf,
 }
@@ -179,8 +170,6 @@ impl Worker {
         let mut child = loop {
             match command.spawn() {
                 Ok(child) => break child,
-                // Some overlay filesystems briefly retain a writable reference
-                // after close. Retry only launch (no request has been admitted).
                 Err(e) if e.raw_os_error() == Some(libc::ETXTBSY) && attempts < 5 => {
                     attempts += 1;
                     thread::sleep(Duration::from_millis(20));
@@ -285,14 +274,6 @@ impl Worker {
         }
         reply.result
     }
-    /// One `apply`. A resident worker is sent what changed since the state it
-    /// last answered and answers with ops on the state it was sent; any error
-    /// leaves `resident` empty, so the next call re-seeds the worker first.
-    ///
-    /// With `keep` the state comes back to the caller, so a resident worker's
-    /// copy is a clone of it; without, the state becomes that copy and nothing
-    /// is cloned (the host's step reads no state back, and a state is
-    /// hundreds of kilobytes a tick).
     fn step(
         &mut self,
         mut state: Value,
@@ -346,8 +327,6 @@ impl Worker {
         }
         self.terminated = true;
         self.failed = true;
-        // Kill before reaping: afterwards the PID could belong to another
-        // process group. Termination is idempotent across timeout and Drop.
         #[cfg(unix)]
         unsafe {
             libc::kill(-(self.child.id() as i32), libc::SIGKILL);
@@ -380,8 +359,6 @@ struct Control {
     status: Mutex<Status>,
 }
 
-/// Calls require exclusive access, so handoff happens only between completed
-/// requests. Candidate copying, process launch and prepare run off that path.
 pub struct System {
     active: Option<Worker>,
     pending: Arc<Mutex<Option<Worker>>>,
@@ -395,8 +372,6 @@ impl System {
         Self::watch_with_contracts(id, artifact, timeout, BTreeMap::new())
     }
 
-    /// Required computation contracts are checked before a candidate can retire
-    /// the working process. Legacy workers remain usable by hosts requiring none.
     pub fn watch_with_contracts(
         id: &str,
         artifact: PathBuf,
@@ -448,8 +423,6 @@ impl System {
                         });
                         match result {
                             Ok(Some(worker)) => {
-                                // Coalesce rapid builds to the newest prepared image.
-                                // Retirement stays on the watcher, off the tick path.
                                 let previous = waiting.lock().unwrap().replace(worker);
                                 drop(previous);
                             }
@@ -488,9 +461,6 @@ impl System {
         self.control.status.lock().unwrap().clone()
     }
 
-    /// Runs only on the active generation, between state requests. Explicit
-    /// inputs/results avoid a full checkpoint for pure policy evaluation. The
-    /// caller validates output before committing any externally owned effect.
     pub fn compute(
         &mut self,
         contract: &str,
@@ -526,11 +496,6 @@ impl System {
         result
     }
 
-    /// Returns the next checkpoint and host-directed output. `validate` admits
-    /// both migrated and computed state before ownership changes. On any error,
-    /// the caller's checkpoint remains untouched; requests are never replayed.
-    /// A resident worker is sent only the delta from the state it last answered
-    /// (`Worker::step`); callers still pass and receive whole states.
     pub fn apply(
         &mut self,
         state: Value,
@@ -541,9 +506,6 @@ impl System {
             .map(|(state, output)| (state.unwrap_or(Value::Null), output))
     }
 
-    /// `apply` for a caller that has what it needs of the state once `validate`
-    /// has seen it, and wants only the output: a resident worker's copy of the
-    /// state is the state itself, not a clone of it.
     pub fn apply_discarding(
         &mut self,
         state: Value,
@@ -561,7 +523,6 @@ impl System {
         validate: impl Fn(&Value) -> Result<(), String>,
         keep: bool,
     ) -> Result<(Option<Value>, Value), String> {
-        // A recording reads the state after the step.
         let keep = keep || self.record.is_some();
         let tape = self
             .record
@@ -621,15 +582,9 @@ impl Drop for System {
         }
         self.active.take();
         self.pending.lock().unwrap().take();
-        // The directory is removed by its shared owner only after the last
-        // retained artifact lease has removed its own file.
     }
 }
 
-/// `ANGEL_SYSTEM_RECORD=<dir>`: one JSONL line per successful apply, in
-/// `<dir>/<id>-<pid>-<unix secs>.jsonl`, for replaying a worker offline. The
-/// first line is the `restore` state; an apply whose `before` is the previous
-/// line's state writes null for it. Failing to write is logged once, never fatal.
 struct Record {
     dir: PathBuf,
     id: String,
@@ -665,7 +620,6 @@ impl Record {
             .duration_since(SystemTime::UNIX_EPOCH)
             .map_or(0, |t| t.as_secs());
         let stem = format!("{}-{}-{secs}", self.id, std::process::id());
-        // Two systems of one id in one second must not share a file.
         for n in 0.. {
             let name = if n == 0 {
                 format!("{stem}.jsonl")

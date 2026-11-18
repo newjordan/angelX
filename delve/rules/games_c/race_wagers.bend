@@ -1,5 +1,3 @@
-# crates/delve/src/rules/race_wagers.rs — a finite spectator race card.
-
 def race_wagers.HEAT_TICKS() -> U32:
   300
 
@@ -9,15 +7,12 @@ def race_wagers.STAKE() -> U32:
 def race_wagers.RETURN() -> U32:
   25
 
-# pastimes::RIVALS
 def race_wagers.RIVALS(+i: U32) -> String:
   gc.nth_s(["SIR RATTLE", "GOAT MEATLOAF", "ABBOT OVERDRIVE"], i)
 
-# Heat::draw(): the stored draw, else heat % 3.
 def race_wagers.Heat.draw(+h: J.Val) -> U32:
   gc.ifu(J.is_null(J.get(h, "draw")), _ => U32.mod(gc.u(h, "heat"), 3), _ => gc.u(h, "draw"))
 
-# pub fn draw(seed, raid_id, heat) -> u8
 def race_wagers.draw(+seed: W.W, +raid_id: W.W, +heat: U32) -> U32:
   race_wagers.draw.go(loot.Rng.below(loot.Rng.new(W.xor(W.xor(W.xor(seed, W.rotl(raid_id, 29)), W.rotl(W.of_u32((heat + 1 : U32)), 47)), W.W{30561, 1734701568})), 3))
 
@@ -25,7 +20,6 @@ def race_wagers.draw.go(rv: W.W & U32) -> U32:
   (+r, +v) = rv
   v
 
-# pub fn distance(draw, racer, tick) -> u32
 def race_wagers.distance(+draw: U32, +racer: U32, +tick: U32) -> U32:
   race_wagers.distance.go(U32.mod((racer + 3 - U32.mod(draw, 3) : U32), 3), gc.umin(tick, race_wagers.HEAT_TICKS()))
 
@@ -35,28 +29,23 @@ def race_wagers.speeds(+role: U32) -> List<&2, U32>:
 def race_wagers.distance.go(+role: U32, +tick: U32) -> U32:
   (race_wagers.part(tick, 0, gc.nth_u(race_wagers.speeds(role), 0)) + race_wagers.part(tick, 1, gc.nth_u(race_wagers.speeds(role), 1)) + race_wagers.part(tick, 2, gc.nth_u(race_wagers.speeds(role), 2)) : U32)
 
-# tick.saturating_sub(part * (HEAT_TICKS / 3)).min(HEAT_TICKS / 3) * speed
 def race_wagers.part(+tick: U32, +part: U32, +speed: U32) -> U32:
   (gc.umin(gc.ssub(tick, (part * 100 : U32)), 100) * speed : U32)
 
-# pub fn winner(draw) -> u8: the last of the farthest.
 def race_wagers.winner(+draw: U32) -> U32:
   race_wagers.winner.go(race_wagers.distance(draw, 0, 300), race_wagers.distance(draw, 1, 300), race_wagers.distance(draw, 2, 300))
 
 def race_wagers.winner.go(+d0: U32, +d1: U32, +d2: U32) -> U32:
   gc.pu(Bool.and(U32.is_ge(d2, d0), U32.is_ge(d2, d1)), 2, gc.pu(U32.is_ge(d1, d0), 1, 0))
 
-# pub fn finished(heat, mark) -> u8
 def race_wagers.finished(+heat: U32, +mark: U32) -> U32:
   gc.ifu(Bool.and(U32.is_ge(mark, 2), U32.is_le(mark, 4)), _ => (mark - 2 : U32), _ => race_wagers.winner(U32.mod(heat, 3)))
 
-# pub fn next(country) -> Option<usize>: the first heat not yet in the mask, or 99.
 def race_wagers.next(+country: J.Val) -> U32:
   gc.ifu(Bool.not(gc.has_bit(gc.u(country, "wager_mask"), 0)), _ => 0,
     _ => gc.ifu(Bool.not(gc.has_bit(gc.u(country, "wager_mask"), 1)), _ => 1,
       _ => gc.ifu(Bool.not(gc.has_bit(gc.u(country, "wager_mask"), 2)), _ => 2, _ => 99)))
 
-# fn tick_race_wagers(&mut self, inputs)
 def race_wagers.Run.tick_race_wagers(+run: J.Val, +inputs: J.Val) -> J.Val:
   gc.ifj(Bool.or(Bool.not(String.eq(J.str(J.get(rules.Run.room(run), "kind")), "hippodrome")), Bool.not(J.is_null(J.get(J.get(run, "pastimes"), "round")))),
     _ => race_wagers.clear(run),
@@ -73,7 +62,6 @@ def race_wagers.Run.tick_race_wagers.a(+run: J.Val, +inputs: J.Val, +race: J.Val
     _ => race_wagers.Run.tick_race_wagers.idle(run, inputs),
     _ => race_wagers.Run.tick_race_wagers.running(run, inputs, race))
 
-# A heat under way: the key observed, the clock one tick on, the result at the line.
 def race_wagers.Run.tick_race_wagers.running(+run: J.Val, +inputs: J.Val, +race: J.Val) -> J.Val:
   race_wagers.Run.tick_race_wagers.line(
     race_wagers.pastimes(race_wagers.pastimes(run, "wager", J.JNull{}), "wager_key",
@@ -97,7 +85,6 @@ def race_wagers.Run.tick_race_wagers.next(+run: J.Val, +inputs: J.Val, +heat: U3
     _ => run,
     _ => race_wagers.Run.tick_race_wagers.owner(run, inputs, heat, race_wagers.owner(run, inputs)))
 
-# visitors: knights at the booth, in id order.
 def race_wagers.visitors(+run: J.Val, +ids: List<&2, U32>) -> List<&2, U32>:
   match ids:
     case Nil{}:
@@ -118,7 +105,6 @@ def race_wagers.visiting(+h: J.Val) -> Bool:
 def race_wagers.at_booth(+x: F32, +y: F32) -> Bool:
   F32.is_lt(RS.f_hypot((x - 17.0 * layout.TILE_UNITS() : F32), (y - 4.5 * layout.TILE_UNITS() : F32)), 1.4)
 
-# The lowest-id visitor pressing a valid control, else the first visitor; 0 for none.
 def race_wagers.owner(+run: J.Val, +inputs: J.Val) -> U32:
   race_wagers.owner.go(race_wagers.visitors(run, gc.ids(J.get(run, "players"))), inputs, race_wagers.first(race_wagers.visitors(run, gc.ids(J.get(run, "players")))))
 
@@ -136,7 +122,6 @@ def race_wagers.owner.go(+ids: List<&2, U32>, +inputs: J.Val, +dflt: U32) -> U32
     case Con{+id, +t}:
       gc.ifu(race_wagers.active(gc.seat(inputs, id)), _ => id, _ => race_wagers.owner.go(t, inputs, dflt))
 
-# a valid input pressing interact or any axis
 def race_wagers.active(+i: J.Val) -> Bool:
   gc.ifb(J.is_null(i), _ => False{},
     _ => Bool.and(rules.Input.valid(i), Bool.or(gc.b(i, "interact"), Bool.or(U32.is_ne(gc.u(i, "aim_x"), 0), Bool.or(U32.is_ne(gc.u(i, "aim_y"), 0), Bool.or(U32.is_ne(gc.u(i, "move_x"), 0), U32.is_ne(gc.u(i, "move_y"), 0)))))))
@@ -155,7 +140,6 @@ def race_wagers.Run.tick_race_wagers.seat(+run: J.Val, +inputs: J.Val, +heat: U3
     J.u32(J.nth(J.get(gc.hcountry(run), "wager_tickets"), heat)),
     J.u32(J.get(J.get(run, "marks"), hippodrome.WAGER_MARKS(heat))))
 
-# The pick for the heat: the ticket's, a pending mark's, else the stick moves the pick.
 def race_wagers.Run.tick_race_wagers.tap(+run: J.Val, +heat: U32, +id: U32, +input: J.Val, +tapped: Bool, +ticket: U32, +pending: U32) -> J.Val:
   gc.ifj(U32.is_gt(ticket, 0),
     _ => race_wagers.Run.tick_race_wagers.pay(run, heat, id, tapped, ticket, pending, (ticket - 1 : U32)),
@@ -192,7 +176,6 @@ def race_wagers.Run.tick_race_wagers.book(+run: J.Val, +heat: U32, +id: U32, +pi
 def race_wagers.heat_new(+heat: U32, +pick: U32, +draw: U32) -> J.Val:
   gc.su(gc.su(gc.su(gc.su(J.obj(), "heat", heat), "pick", pick), "elapsed", 0), "draw", draw)
 
-# pub fn settle(country, treasury, marks, news) -> (country, treasury, news)
 def race_wagers.settle(+country: J.Val, +treasury: J.Val, +marks: J.Val, +news: J.Val) -> J.Val & J.Val & J.Val:
   race_wagers.settle.go(0, country, treasury, marks, news)
 

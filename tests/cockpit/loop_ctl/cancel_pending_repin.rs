@@ -79,8 +79,6 @@ fn self_gate_repin_is_rejected_without_changing_hardcoded_acceptance_or_owner() 
                 .iter()
                 .any(|m| m.text.contains("does not re-pin it"))
         );
-        // Retire before delivering the held self-gate green: no integration or
-        // worktree effects are permitted in this ownership control.
         app.loop_command(Some("stop".into()));
         terminal
             .send(VerifyResult {

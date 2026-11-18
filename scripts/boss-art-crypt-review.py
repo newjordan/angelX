@@ -42,7 +42,6 @@ for name in names:
         sheet.paste(Image.open(str(stem)+'-rgb.png'), (10, y+20))
         sheet.paste(cells(Path(str(stem)+'-cells.json')), (790, y+20))
     sheet.save(out / (name+'-before-after.png'))
-    # Every impact has a corresponding actual cell crop. Ten images per sheet.
     sheet = Image.new('RGB', (1540, 410), '#080b0e')
     d = ImageDraw.Draw(sheet)
     for stage in range(5):
@@ -55,7 +54,6 @@ for name in names:
         sheet.paste(cells(Path(str(stem)+'-cells.json'),(72,16,80,20)),(x,284))
     sheet.save(out / (name+'-impact-cells.png'))
 
-    # The default kit uses the same world anchors at half the RGB dimensions.
     layout = json.loads((a.output/'terminal/review-layout.json').read_text())['bosses'][name]
     box = layout['tell']
     native_box = tuple(v//2 for v in box)

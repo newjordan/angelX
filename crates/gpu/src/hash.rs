@@ -2,10 +2,6 @@
 
 use std::collections::HashMap;
 
-/// FxHash, the rustc/Firefox multiplicative hash, for the renderer's own
-/// maps. Std's SipHash is built to resist hostile keys; these maps key on
-/// chars, picture ids and pre-hashed symbols, and the glyph map is
-/// consulted once per cell per frame.
 #[derive(Default)]
 pub struct FxHasher {
     hash: u64,

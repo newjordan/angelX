@@ -107,7 +107,6 @@ fn command(raw: &str, root: &Path, nested: bool) -> Result<Route, String> {
         {
             return Err("cd directory is quarantined".into());
         }
-        // `cd ws/bowling` spelled from the launch directory names the workspace.
         let path = crate::agent::harness::launch_relative_in_workspace(root, Path::new(path))
             .unwrap_or_else(|| Path::new(path).to_path_buf());
         let root = root
@@ -294,15 +293,8 @@ fn command(raw: &str, root: &Path, nested: bool) -> Result<Route, String> {
     })
 }
 
-/// Lines kept from a red run's first diagnostic when the requested tail shows
-/// none: one fixed number, room for a failing test's name, its assertion and
-/// the expected/actual pair in each runner the polyglot cell measured.
 const FIRST_FAILURE_LINES: usize = 30;
 
-/// Where a red run's first diagnostic starts, when the tail the model asked for
-/// carries no diagnostic of its own (a unittest `Ran 31 tests … FAILED
-/// (failures=21)` ending, a cargo `test result: FAILED.` line). `None` when the
-/// tail already shows one, e.g. pytest's `FAILED file::test - …` summary.
 fn first_failure_before_tail(head: &[&str], tail: &[&str]) -> Option<usize> {
     let diagnostic = |line: &&str| {
         let text = line.trim();
@@ -320,11 +312,7 @@ fn first_failure_before_tail(head: &[&str], tail: &[&str]) -> Option<usize> {
 }
 
 impl Route {
-    /// `red`: the routed verifier failed. Its failure detail then reaches the
-    /// model even when the model's own `| tail -N` would cut every diagnostic
-    /// line: the run's first diagnostic block, then the tail exactly as asked.
     pub(super) fn present(&self, text: String, red: bool) -> String {
-        // Preserve the authoritative header even when tail would hide it.
         let header = text.lines().next().unwrap_or("");
         let mut output = if let Some(count) = self.tail {
             let lines = text.lines().collect::<Vec<_>>();
@@ -375,7 +363,6 @@ impl ToolRegistry {
             .cloned()
     }
 
-    /// Consume a routed receipt only after the turn has completed all typed reads.
     pub(crate) fn take_routed_execution(
         &self,
         call: &ToolCall,

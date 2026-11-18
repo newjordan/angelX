@@ -287,8 +287,6 @@ fn main() {
     cold_and_draw();
     contend(2);
     contend(8);
-    // Second pass: each worker's scenery slot is warm. If the lock is only on
-    // the first bake, this wall time stays near one warm frame.
     contend(2);
     contend(8);
     let run = busy(2);

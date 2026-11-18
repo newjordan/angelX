@@ -31,7 +31,6 @@ fn workspace(name: &str) -> std::path::PathBuf {
 
 #[test]
 fn a_two_frame_strip_cuts_into_two_frames_of_realm_inks() {
-    // 384x192: two 12-pixel devils drawn 16 times over, on flat teal.
     let frames = cut(DEVILS, None, 12).unwrap();
     assert_eq!(frames.len(), 2, "the strip's shape says two frames");
     for frame in &frames {
@@ -45,7 +44,6 @@ fn a_two_frame_strip_cuts_into_two_frames_of_realm_inks() {
             "{frame:?}"
         );
     }
-    // The flat background is gone; the gold body and red eyes are kept.
     let a: String = frames[0].concat();
     assert!(a.starts_with(".."), "{:?}", frames[0]);
     assert!(
@@ -58,9 +56,7 @@ fn a_two_frame_strip_cuts_into_two_frames_of_realm_inks() {
         "gold: {:?}",
         frames[0]
     );
-    // Wings up, then down: the frames differ.
     assert_ne!(frames[0], frames[1]);
-    // Asked for one frame, the whole strip is one picture.
     assert_eq!(cut(DEVILS, Some(1), 12).unwrap().len(), 1);
 }
 
@@ -93,8 +89,6 @@ fn a_sheet_is_checked_like_an_avatar() {
 
 #[test]
 fn padding_is_cropped_once_and_frames_keep_the_same_anchor() {
-    // A narrow figure with a wide border: a positive crop offset used to
-    // be added twice during resampling, pulling background into its shape.
     let padded = png(80, 40, |x, y| {
         let x = x % 40;
         if (18..22).contains(&x) && (8..32).contains(&y) {
@@ -148,7 +142,6 @@ fn a_card_naming_a_sheet_loads_with_the_frames_its_picture_makes() {
     let worn = pavise.looks.worn.as_ref().unwrap();
     assert_eq!(pavise.looks.orbit.as_ref().unwrap().frames.len(), 2);
     assert_eq!(worn.size(), (24, 24));
-    // On the shield arm: inked pixels only left of the middle.
     let inked: Vec<usize> = worn.frames[0]
         .iter()
         .flat_map(|r| r.char_indices().filter(|(_, c)| *c != '.').map(|(i, _)| i))
@@ -171,16 +164,13 @@ fn a_bad_sheet_line_says_what_is_wrong() {
     assert!(errors("sheet summon devils.png frames=5\n").contains("1 to 4"));
     assert!(errors("sheet summon devils.png size=100\n").contains("4–16"));
     assert!(errors("sheet art devils.png frames=2\n").contains("single frame"));
-    // A file with no sheet lines passes untouched.
     assert_eq!(inline("name X\n", &dir, &paint_dir(&ws), 16).unwrap(), "name X\n");
-    // Face art from a picture: an `art` block.
     let art = inline("sheet art devils.png\n", &dir, &paint_dir(&ws), 16).unwrap();
     assert!(art.starts_with("art\n"));
     assert_eq!(art.lines().filter(|l| !l.is_empty()).count(), 17);
     let _ = std::fs::remove_dir_all(&ws);
 }
 
-/// A tiny painting: two frames of a gold blob on clear, the second taller.
 fn blob() -> Vec<u8> {
     png(64, 32, |x, y| {
         let (cx, tall) = (x % 32, if x < 32 { 6 } else { 9 });
@@ -210,10 +200,8 @@ fn a_paint_line_is_cut_like_a_sheet_and_kept_by_its_hash() {
         text.contains(&format!("draw shot paint={sha} move=stretch,wiggle\n")),
         "{text}"
     );
-    // The store keeps the picture as it came, under its hash.
     let kept = ws.join(format!(".angel/dungeon/paint/{sha}.png"));
     assert_eq!(std::fs::read(&kept).unwrap(), bytes);
-    // Its rows are the sheet's rows.
     let sheet = inline("sheet shot blob.png frames=2\n", &dir, &paint_dir(&ws), 16).unwrap();
     let rows = |t: &str| {
         t.lines()
@@ -228,7 +216,6 @@ fn a_paint_line_is_cut_like_a_sheet_and_kept_by_its_hash() {
     assert_eq!(shot.paint.as_deref(), Some(sha.as_str()));
     use crate::together_shooter::looks::Move;
     assert_eq!(shot.moves, [Move::Stretch, Move::Wiggle]);
-    // In the phrasebook, from a later tier; through a card file too.
     let (book, errors) = crate::together_files::phrasebook_with_sheets(
         "wish blob | Blob\nsay a blob\ntier damage 5 :: A blob.\ntier damage 10 :: A bigger blob.\npaint worn blob.png frames=2 size=12 at=head tier=2\n",
         &dir,
@@ -241,7 +228,6 @@ fn a_paint_line_is_cut_like_a_sheet_and_kept_by_its_hash() {
     let worn = wishes[0].card(1).unwrap().looks.worn.unwrap();
     assert_eq!(worn.paint.as_deref(), Some(sha.as_str()));
     assert_eq!(worn.size(), (24, 24));
-    // The first grant wears that painting too, downgraded: coarse inks alone.
     let first = wishes[0].card(0).unwrap().looks.worn.unwrap();
     assert_eq!((first.paint.as_deref(), first.hd.as_deref()), (None, None));
     std::fs::write(
@@ -269,7 +255,6 @@ fn a_painting_names_its_normal_map_kept_by_its_hash_beside_it() {
     let dir = ws.join(".angel/dungeon/sheets");
     let bytes = blob();
     std::fs::write(dir.join("blob.png"), &bytes).unwrap();
-    // Every pixel turned a little right, green up.
     let normals = png(64, 32, |_, _| [160, 128, 250, 255]);
     std::fs::write(dir.join("blob_n.png"), &normals).unwrap();
     let (sha, normal_sha) = (angel_live::host::sha256_hex(&bytes), angel_live::host::sha256_hex(&normals));
@@ -286,14 +271,12 @@ fn a_painting_names_its_normal_map_kept_by_its_hash_beside_it() {
     let card = crate::together_shooter::cards::check("blob", &text).unwrap().card;
     let shot = card.looks.shot.unwrap();
     assert_eq!(shot.normal.as_deref(), Some(normal_sha.as_str()));
-    // It is the painting's size, a PNG, in the folder.
     std::fs::write(dir.join("small_n.png"), png(32, 32, |_, _| [128, 128, 255, 255])).unwrap();
     let errors = |raw: &str| inline(raw, &dir, &paint_dir(&ws), 16).unwrap_err().join(" | ");
     assert!(errors("paint shot blob.png frames=2 normal=small_n.png\n").contains("its painting's size, 64×32"));
     assert!(errors("paint shot blob.png normal=nothing_n.png\n").contains("no normal map nothing_n.png"));
     assert!(errors("paint shot blob.png normal=blob_n.webp\n").contains("ending .png"));
     assert!(errors("sheet shot blob.png normal=blob_n.png\n").contains("a sheet line takes"));
-    // A header naming a normal map with no painting is refused.
     let bad = crate::together_shooter::cards::check("x", &format!("name X\nkind hold\ndamage 5\ndraw shot normal={normal_sha}\n.5.\n555\n"));
     assert!(bad.is_err());
     let _ = std::fs::remove_dir_all(&ws);
@@ -311,7 +294,6 @@ fn a_bad_paint_line_says_what_is_wrong() {
     assert!(errors("paint shot blob.png glow=2\n").contains("a paint line takes"));
     assert!(errors("sheet shot blob.png move=bob\n").contains("a sheet line takes"));
     assert!(errors("paint shot\n").contains("a paint line is"));
-    // A painting is a PNG on clear, at most 4 MiB.
     let flat = png(32, 32, |x, _| if x < 16 { [10, 10, 10, 255] } else { [200, 100, 10, 255] });
     std::fs::write(dir.join("flat.png"), flat).unwrap();
     assert!(errors("paint shot flat.png\n").contains("transparent background"));
@@ -319,14 +301,12 @@ fn a_bad_paint_line_says_what_is_wrong() {
     assert!(errors("paint shot fake.png\n").contains("must be a PNG"));
     std::fs::write(dir.join("huge.png"), vec![0u8; MAX_PAINT_BYTES + 1]).unwrap();
     assert!(errors("paint shot huge.png\n").contains("at most 4 MiB"));
-    // A sheet of 2 to 4 MiB may be a painting, not a sheet.
     let mut big = blob();
     let pad = 2 * 1024 * 1024 + 10 - big.len();
     big.extend(std::iter::repeat_n(0u8, pad));
     std::fs::write(dir.join("big.png"), &big).unwrap();
     assert!(errors("sheet shot big.png\n").contains("at most 2 MiB"));
     assert!(inline("paint shot big.png frames=2\n", &dir, &paint_dir(&ws), 16).is_ok());
-    // Nothing that failed was kept.
     let kept: Vec<_> = std::fs::read_dir(paint_dir(&ws)).unwrap().flatten().collect();
     assert_eq!(kept.len(), 1, "only big.png: {kept:?}");
     let _ = std::fs::remove_dir_all(&ws);

@@ -92,13 +92,11 @@ fn falls_below_threshold_and_rises_never_notice() {
             .fold_hop("glm", &reported(1, 10_000, 9_000), 20)
             .is_none()
     );
-    // 90% → 80% is under the 20-point threshold.
     assert!(
         ledger
             .fold_hop("glm", &reported(2, 10_000, 8_000), 20)
             .is_none()
     );
-    // Recovery is never a drop.
     assert!(
         ledger
             .fold_hop("glm", &reported(3, 10_000, 9_500), 20)
@@ -115,13 +113,11 @@ fn zero_threshold_still_requires_an_actual_fall() {
             .fold_hop("glm", &reported(1, 10_000, 9_000), 0)
             .is_none()
     );
-    // Identical rate: no fall, no notice even at threshold 0.
     assert!(
         ledger
             .fold_hop("glm", &reported(2, 10_000, 9_000), 0)
             .is_none()
     );
-    // A 1-point fall does notice at threshold 0 (treated as 1).
     assert!(
         ledger
             .fold_hop("glm", &reported(3, 10_000, 8_900), 0)
@@ -133,7 +129,6 @@ fn zero_threshold_still_requires_an_actual_fall() {
 fn tiny_denominators_are_too_noisy_to_indict_a_breaker() {
     let mut ledger = ClubCacheLedger::default();
     assert!(ledger.fold_hop("glm", &reported(1, 400, 380), 20).is_none());
-    // 95% → 0% but over 400 tokens: numerically meaningless, exempt.
     assert!(ledger.fold_hop("glm", &reported(2, 400, 0), 20).is_none());
     assert_eq!(ledger.drops, 0);
 }
@@ -152,7 +147,6 @@ fn unreported_hops_accumulate_totals_but_never_move_the_baseline() {
     assert_eq!(ledger.hops, 2);
     assert_eq!(ledger.reported_hops, 1);
     assert_eq!(ledger.input, 15_000, "blind tokens still count in totals");
-    // The next reported hop compares against hop 1's 90%, not the blind hop.
     assert!(
         ledger
             .fold_hop("glm", &reported(3, 10_000, 3_000), 20)
@@ -183,8 +177,6 @@ fn usage_row_covers_blind_and_metered_routes() {
             .is_some()
     );
     let row = metered.usage_row("glm");
-    // Legacy counters have no qualified cache convention; raw totals do
-    // not justify a percentage even when every hop reports numbers.
     assert_eq!(
         row,
         "glm · 3 hop(s) (3 reported) · hit n/a · in 30k · read 12k · 2 drop(s) \

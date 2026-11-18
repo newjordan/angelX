@@ -227,7 +227,6 @@ fn outline_handle_mistake_points_to_handle_disclosure() {
         error.contains("`hnd_bs` is an opaque result handle"),
         "got: {error}"
     );
-    // Where to read it is the `⠥⠊` page, the handle beside it as data.
     let page = crate::agent::harness::book::u_skills::HANDLE_URI;
     assert!(
         error.contains(&format!("{} rel=hnd_bs", page.cells())),
@@ -240,22 +239,16 @@ fn outline_handle_mistake_points_to_handle_disclosure() {
 fn locate_exact_then_fuzzy_tiers() {
     let content = "fn f() {\n    let x =  1;\n    a();\n    b();\n    c();\n}\n";
 
-    // Tier 1: exact substring.
     let (s, e, fuzzy) = locate_replacement(content, "    a();").unwrap();
     assert_eq!(&content[s..e], "    a();");
     assert!(!fuzzy);
 
-    // Tier 2: internal whitespace collapsed ("= 1" vs "=  1"), leading indent
-    // still matched so no re-indent.
     let (s, e, fuzzy) = locate_replacement(content, "    let x = 1;").unwrap();
     assert_eq!(&content[s..e], "    let x =  1;");
     assert!(fuzzy);
 
-    // Genuinely absent → error.
     assert!(locate_replacement(content, "    zzz();").is_err());
 
-    // Different leading indent must NOT match (no silent re-indent): the line
-    // exists at 4-space indent; asking at 8 spaces must refuse.
     assert!(locate_replacement(content, "        a();").is_err());
 }
 
@@ -263,20 +256,14 @@ fn locate_exact_then_fuzzy_tiers() {
 fn miss_errors_carry_a_near_miss_report() {
     let content = "fn f() {\n    let x = 1;\n    a();\n    b();\n    c();\n}\n";
 
-    // Indentation-only miss: every line matches after trim → the error
-    // names leading whitespace and shows the authoritative region.
     let err = locate_replacement(content, "	a();\n	b();").unwrap_err();
     assert!(err.contains("LEADING WHITESPACE"), "got: {err}");
     assert!(err.contains("    a();"), "region shown: {err}");
 
-    // Partial-content miss: one line right, one line stale → closest
-    // region with the real lines, and a changed-since-read hint.
     let err = locate_replacement(content, "    b();\n    stale_line();").unwrap_err();
     assert!(err.contains("Closest region"), "got: {err}");
     assert!(err.contains("    c();"), "authoritative line shown: {err}");
 
-    // Nothing matches anywhere → tell the model to re-read (its `⠨⠉` page),
-    // no fake region.
     let err = locate_replacement(content, "    zzz();\n    qqq();").unwrap_err();
     let reread = crate::agent::harness::book::d46_recovery::NO_LINE_MATCHES;
     assert!(err.contains(&reread.cells()), "got: {err}");
@@ -290,8 +277,6 @@ fn stage_on_a_non_hashline_patch_names_its_rule_as_a_page() {
     let tool = ApplyPatchTool {
         root: fixture.0.clone(),
     };
-    // A freeform envelope and a unified diff each refuse stage=true: the fact
-    // stays inline, the rule is its `⠨⠑` page.
     let freeform = tool
         .call(&serde_json::json!({
             "diff": "*** Begin Patch\n*** Add File: a.txt\n+a\n*** End Patch",

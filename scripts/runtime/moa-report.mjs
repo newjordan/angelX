@@ -1,9 +1,5 @@
-// A whole-report projection. The host selects the workspace and sends only
-// fields used by this report; no ledger files or network are accessed here.
 import { readFileSync } from 'node:fs'
 
-// Rust's f64 formatting rounds exact ties to even. Work with the exact IEEE-754
-// rational rather than decimal approximations or JavaScript's ties-away toFixed.
 function fixed(n, places) {
   if (Number.isNaN(n)) return "NaN"
   if (!Number.isFinite(n)) return n < 0 ? "-inf" : "inf"

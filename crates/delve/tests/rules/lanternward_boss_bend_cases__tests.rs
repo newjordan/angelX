@@ -35,7 +35,6 @@ fn record_lanternward_boss() {
                 );
                 rec("lanternward.boss.Warden.heart", json!({"w": jv(w)}), jv(&w.heart()));
             }
-            // The private steps, with the Warden taken out as step_boss does.
             let mut t = s.clone();
             let w = t.boss.take().unwrap();
             if let Some((_, tx, ty, _)) = t.nearest_knight(w.x, w.y)

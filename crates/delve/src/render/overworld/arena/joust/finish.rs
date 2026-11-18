@@ -18,13 +18,10 @@ use super::{crowd, stage};
 use crate::motion::ease;
 use crate::rules::joust::{self, RIVALS, Stage};
 
-/// Ticks the lists hold on the aftermath before the iris, and the iris's own.
 pub(super) const HOLD: u32 = 26;
 pub(super) const FADE: u32 = 14;
-/// Where the podium stands on the canvas.
 const BOX: (i32, i32, i32, i32) = (0, 80, 384, 114);
 
-/// Ticks into the podium, once the iris has closed.
 pub(super) fn age(cx: &Cx) -> Option<u32> {
     (cx.j.stage == Stage::Done && cx.j.t >= HOLD + FADE).then(|| cx.j.t - HOLD - FADE)
 }
@@ -48,7 +45,6 @@ fn cxm_of() -> i32 {
     BOX.0 + BOX.2 / 2
 }
 
-/// A beam of torchlight down onto the winner: a dither, behind the steps.
 fn spot(im: &mut Img, cx: i32, floor: i32, k: f32) {
     for y in 36..floor {
         let half = 20.0 + y as f32 * 0.42;
@@ -61,13 +57,11 @@ fn spot(im: &mut Img, cx: i32, floor: i32, k: f32) {
     }
 }
 
-/// The podium scene for a seat, `e` ticks in.
 pub(super) fn scene(im: &mut Img, cx: &Cx, led: &mut Ledger, e: u32) {
     let j = cx.j;
     let tick = cx.tick;
     *im = stage::backdrop().clone();
     stage::live(im, tick);
-    // The sand goes dark under the steps: night fallen on the lists.
     for y in 100..224 {
         for x in 0..384 {
             if super::super::super::ink::bayer(x, y) < 0.42 {
@@ -76,7 +70,6 @@ pub(super) fn scene(im: &mut Img, cx: &Cx, led: &mut Ledger, e: u32) {
         }
     }
     crowd::draw(im, tick, 1.0, 192);
-    // Fireworks over the stands, three launchers in turn.
     if e >= 6 {
         for (n, (x, top, ramp)) in [(70.0, 14.0, ramps::GOLD), (192.0, 8.0, ramps::EMBER), (314.0, 16.0, ramps::BONE)].into_iter().enumerate() {
             let t = e as i32 - 6 - n as i32 * 15;
@@ -110,7 +103,6 @@ pub(super) fn scene(im: &mut Img, cx: &Cx, led: &mut Ledger, e: u32) {
     ];
     spot(im, cxm_of(), BOX.1 + BOX.3 - 6, ((e as f32 - 6.0) / 12.0).clamp(0.0, 1.0));
     let head = juice::podium(im, BOX, &places, e);
-    // The names and lines under the steps are the kit's: claim their boxes.
     let floor = BOX.1 + BOX.3 - 6;
     let cxm = BOX.0 + BOX.2 / 2;
     for (i, p) in places.iter().enumerate() {
@@ -122,7 +114,6 @@ pub(super) fn scene(im: &mut Img, cx: &Cx, led: &mut Ledger, e: u32) {
             led.claim("podium-line", (x - lw / 2, floor + 13, lw, 7), &p.line);
         }
     }
-    // The winner's laurel, once they have stood a moment.
     if winner.is_some() && e >= 34 {
         let k = (((e - 34) as f32) / 10.0).min(1.0);
         let bob = ((e as f32 * 0.2).sin() * 1.5) as i32;
@@ -139,7 +130,6 @@ pub(super) fn scene(im: &mut Img, cx: &Cx, led: &mut Ledger, e: u32) {
     if e >= 14 {
         juice::confetti(im, (0, 0, 384, 224), e, 9, 120);
     }
-    // The title.
     let me = cx.side();
     let (a, b) = (j.passes.0, j.passes.1);
     let how = |w: u8| -> String {
@@ -160,7 +150,6 @@ pub(super) fn scene(im: &mut Img, cx: &Cx, led: &mut Ledger, e: u32) {
     if e >= 4 {
         led.banner(im, "verdict", 14, &title, &sub, e - 4, 400, Mood::Warm, 3);
     }
-    // The purse, counting up, and the wagers paid.
     if e >= 22 {
         let (x, y) = (312, 104);
         if winner.is_some() && j.purse > 0 {
@@ -181,7 +170,6 @@ pub(super) fn scene(im: &mut Img, cx: &Cx, led: &mut Ledger, e: u32) {
             row += 10;
         }
     }
-    // The realm's record of champions.
     if e >= 30 && j.foe.is_none() {
         let beaten = RIVALS
             .iter()
@@ -190,12 +178,10 @@ pub(super) fn scene(im: &mut Img, cx: &Cx, led: &mut Ledger, e: u32) {
         let line = format!("CHAMPIONS BEATEN {beaten} OF {}", RIVALS.len());
         led.text(im, "record", (cxm - text_width(&line) / 2, 214), &line, 'o');
     }
-    // The way home: a thin bar along the foot.
     let total = joust::VERDICT_TICKS - HOLD - FADE;
     let filled = (384 * e.min(total) / total.max(1)) as i32;
     for x in 0..filled {
         im.put(x, 223, 'o');
     }
-    // The iris opening from the aftermath's black.
     juice::iris(im, (cxm, 120), 1.0 - ease::out((e as f32 / 14.0).min(1.0)), 'k');
 }

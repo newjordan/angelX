@@ -53,7 +53,6 @@ impl Kind {
         }) + 3 * u32::from(level.saturating_sub(1).min(9))
     }
 }
-/// Training milestones shared by combat and the lodge's ability preview.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Ability {
     Flank,
@@ -102,8 +101,6 @@ impl Kind {
             Self::Alchemist => &[(Bombs, 1), (Splash, 2), (Potions, 3)],
         }
     }
-    /// Only abilities this member can actually use, with the next milestones
-    /// available separately through `abilities` for training previews.
     pub fn ability_summary(self, level: u8) -> String {
         self.abilities()
             .iter()
@@ -167,8 +164,6 @@ pub struct Guild {
     pub rosters: BTreeMap<String, Roster>,
 }
 
-/// Normalized *player name*, deliberately not Hero.knight (a class id shared
-/// by different players). Seats and class changes never transfer a roster.
 pub fn owner_key(hero: &Hero) -> String {
     hero.name.trim().to_lowercase()
 }
@@ -181,11 +176,9 @@ impl Guild {
     pub fn is_empty(&self) -> bool {
         self == &Self::default()
     }
-    /// One board per departure, not per floor/room/tick or UI visit.
     pub fn advance_delve(&mut self) {
         self.delves = self.delves.saturating_add(1);
     }
-    /// Driver calls exactly once after rent-day settlement.
     pub fn rent_day(&mut self) {
         self.rent_days = self.rent_days.saturating_add(1);
     }
@@ -250,8 +243,6 @@ impl Guild {
     }
 }
 
-/// Runtime uses the same health/grace/motion body as existing allies, without
-/// occupying Run.hireling or minions. Its kind here is not an AllyKind variant.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Companion {
     pub owner: String,
@@ -262,7 +253,6 @@ pub struct Companion {
     pub support: u32,
     pub mark: Option<u32>,
     pub mark_left: u32,
-    /// Skull being escorted, still pickable by real knights.
     #[serde(default)]
     pub skull: Option<u32>,
     pub floor: u32,
@@ -312,8 +302,6 @@ impl Companion {
             && self.body.max_hp == self.kind().health(self.member.level)
             && (1..=MAX_LEVEL).contains(&self.member.level)
     }
-    /// Shield intercepts damage at its owner's shoulder, after the owner's
-    /// armor. Taking a hit still costs the squire HP; no permanent immunity.
     pub(super) fn guard(&mut self, x: f32, y: f32, damage: u32) -> u32 {
         if self.kind() != Kind::Shieldbearer
             || self.down()
@@ -327,7 +315,6 @@ impl Companion {
     }
 }
 
-/// Pure snapshot for all renderers; seat ink matches existing knight cloth.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct View {
     pub owner: u32,
@@ -370,7 +357,6 @@ impl Run {
             .filter(|h| h.hp > 0 && !h.absent && !h.away)
             .ok_or(Error::NoKnight)?;
         let key = owner_key(hero);
-        // Validate against immutable ledger; a failed payment changes nothing.
         let guild = &self.home.squires_lodge;
         let roster = guild.rosters.get(&key);
         let mut recruit = None;
@@ -481,8 +467,6 @@ impl Run {
             })
             .collect()
     }
-    /// Visible companion bodies are ordinary decoys, not party members. This
-    /// iterator is shared by authoritative foe sight and warning previews.
     pub(super) fn squire_decoys(&self) -> impl Iterator<Item = (f32, f32)> + '_ {
         self.players
             .iter()
@@ -500,8 +484,6 @@ impl Run {
             }
             return;
         }
-        // Reconcile the whole identity at once: presence changes transfer the
-        // existing body, including wounds and every clock, rather than respawn it.
         let barred = self.barred();
         let mut bodies = BTreeMap::new();
         for (&id, h) in &mut self.players {
@@ -527,8 +509,6 @@ impl Run {
             let existing = bodies
                 .remove(&key)
                 .filter(|(_, s)| s.member.id == member.id);
-            // Detached heroes are outside the working set but still own their
-            // bodies globally. Never mint another while that body is away.
             if existing.is_none()
                 && self
                     .exits
@@ -555,7 +535,6 @@ impl Run {
                         .find(|(id, h)| eligible(id, h))
                         .map(|(&id, _)| id)
                 })
-                // With nobody present, keep the dormant body for reconnection.
                 .or_else(|| {
                     existing.as_ref().and_then(|(id, _)| {
                         self.players
@@ -645,8 +624,6 @@ impl Run {
         let owner = &self.players[&seat];
         let owner_at = (owner.x, owner.y);
         let kind = s.kind();
-        // Vanish evades shots and melee. A shield deliberately catches wider
-        // shots; all other squires share the existing hireling's hit grace.
         if s.vanished == 0 {
             for shot in self
                 .projectiles
@@ -704,8 +681,6 @@ impl Run {
         let mut keep = 2.5;
         match kind {
             Kind::Healer => {
-                // A settled reachable skull is a finite errand, ahead of
-                // repeat healing (including its cooldown). No revival here.
                 let escort = kind
                     .unlocked(s.member.level, Ability::Escort)
                     .then(|| self.squire_skull_assist(seat, s))
@@ -810,8 +785,6 @@ impl Run {
                             self.squire_strike(seat, s, i, s.damage());
                             s.body.cooldown = HZ;
                         }
-                        // Trained bash briefly holds and shoves ordinary foes;
-                        // never push a boss through walls or chain-stun it.
                         if kind.unlocked(s.member.level, Ability::Bash)
                             && s.special == 0
                             && !self.enemies[i].is_boss()
@@ -899,8 +872,6 @@ impl Run {
         if way.0 != 0.0 {
             s.body.facing = way.0;
         }
-        // A doorway/large floor can strand a follower; a safe catch-up never
-        // teleports through a barred fight to engage distant monsters.
         if target.is_none() && (s.body.x - owner_at.0).hypot(s.body.y - owner_at.1) > 24.0 {
             (s.body.x, s.body.y) = hireling::beside(&grid, owner_at);
         }
@@ -925,8 +896,6 @@ impl Run {
             })
             .map(|(&id, _)| id)
     }
-    /// Walk a settled skull back to a living owner. The skull stays in the
-    /// ordinary ground ledger, so any real player can still pick it up.
     fn squire_skull_assist(&mut self, seat: u32, s: &mut Companion) -> Option<(f32, f32)> {
         let owner = &self.players[&seat];
         if owner.hp == 0 || owner.carrying_skull.is_some() {

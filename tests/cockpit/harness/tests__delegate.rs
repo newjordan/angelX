@@ -5,15 +5,11 @@
 
 use super::*;
 
-// --- delegate / orchestrator suite ---
-
 #[test]
 fn worktree_git_metadata_becomes_writable_for_confined_shells() {
     use crate::agent::sandbox::SandboxPolicy;
 
     let root = scratch("wt_git_roots");
-    // A linked-worktree layout: main repo .git with worktrees/<name>/commondir
-    // pointing back at the common dir, and the worktree's .git gitfile.
     let common = root.join("repo/.git");
     let gitdir = common.join("worktrees/wt");
     std::fs::create_dir_all(&gitdir).unwrap();
@@ -33,7 +29,6 @@ fn worktree_git_metadata_becomes_writable_for_confined_shells() {
         "the per-worktree gitdir (index, HEAD) must be writable: {roots:?}"
     );
 
-    // A regular repository keeps its .git inside the workspace: nothing extra.
     let plain = root.join("plain");
     std::fs::create_dir_all(plain.join(".git")).unwrap();
     assert!(SandboxPolicy::git_worktree_roots(&plain).is_empty());
@@ -52,7 +47,6 @@ fn orchestrator_prompt_is_the_entry_warpath_and_hygiene_is_in_the_ledger() {
         ledger("⠕⠃").contains("- coder:"),
         "configured routes are ledger evidence"
     );
-    // The type renders the whole prompt it replaces, verbatim.
     let driver = ledger("⠽⠃");
     for taught in [
         "structured tool-call interface",
@@ -70,7 +64,6 @@ fn orchestrator_prompt_is_the_entry_warpath_and_hygiene_is_in_the_ledger() {
     ] {
         assert!(driver.contains(taught), "{taught}:\n{driver}");
     }
-    // Naming the forbidden artifacts hands a degraded model a token to chase.
     let lower = driver.to_ascii_lowercase();
     for banned in ["gauntlet", "health checkup", "repair mode"] {
         assert!(!lower.contains(banned), "must not name '{banned}'");
@@ -78,8 +71,6 @@ fn orchestrator_prompt_is_the_entry_warpath_and_hygiene_is_in_the_ledger() {
     let _ = std::fs::remove_dir_all(&ws);
 }
 
-/// Both delegate seats carry the shared batching advisory, and the seat
-/// contract names no tool the worktree registry does not register.
 #[test]
 fn delegate_prompts_teach_batching_without_naming_unregistered_tools() {
     let _lock = crate::tests::env_lock();
@@ -89,8 +80,6 @@ fn delegate_prompts_teach_batching_without_naming_unregistered_tools() {
             cells.ends_with("⠺⠉⠁"),
             "delegate {mode:?} must carry the shared batching page:\n{cells}"
         );
-        // The seat reads its words off the ledger (its registry carries
-        // `read_file`); what they name must exist there.
         let prompt = super::book::ledger::read(Path::new("."), &cells).unwrap();
         assert!(prompt.contains("Batch independent tool calls"), "{prompt}");
         for unavailable in ["proc_run", "proc_status", "code_mode", "apply_patch"] {
@@ -108,11 +97,6 @@ fn delegate_prompts_teach_batching_without_naming_unregistered_tools() {
         "the observable-command guidance stays for the tools it has:\n{write}"
     );
 }
-
-// A scripted club: first chat → call `reverse`, second chat → final text.
-
-/// Scenario: git_status / git_log parse LIVE git output on the real repo
-/// (not a synthetic fixture) without erroring, surfacing the branch + history.
 
 #[test]
 fn delegate_mode_accepts_review_aliases() {
@@ -154,7 +138,6 @@ fn delegate_worktree_base_is_scoped_per_workspace() {
     );
 }
 
-/// A scripted specialist that writes one file via the `shell` tool.
 struct ScribeClub {
     name: String,
     file: String,
@@ -202,8 +185,6 @@ impl Club for FailingDelegateClub {
         "failing"
     }
     fn chat(&self, _m: &[ChatMsg], _t: &[ToolDef]) -> Result<ClubReply, String> {
-        // Cleanup after an actionable failure, not an ongoing recoverable
-        // outage: routine outages now wait for recovery or cancellation.
         Err("HTTP 401: synthetic delegate failure".to_string())
     }
 }
@@ -272,9 +253,6 @@ fn delegate_skips_a_down_local_instead_of_failing() {
     let _ = std::fs::remove_dir_all(&ws);
 }
 
-/// LIVE end-to-end: drive the real tool-loop against spark (skips cleanly
-/// when the fleet is down, so the suite stays green offline). Proves
-/// HttpClub.chat tool-calling + run_turn dispatch against a real model.
 #[test]
 fn live_spark_drives_the_tool_loop() {
     let _guard = crate::tests::env_lock();
@@ -289,7 +267,7 @@ fn live_spark_drives_the_tool_loop() {
         eprintln!("spark not reachable; skipping live tool-loop test");
         return;
     }
-    let reg = ToolRegistry::with_defaults(); // includes `reverse`
+    let reg = ToolRegistry::with_defaults();
     let mut history = vec![
         ChatMsg::system("You have tools; use them when asked."),
         ChatMsg::user("Use the reverse tool on the text 'hello', then report the result."),
@@ -319,9 +297,6 @@ fn live_spark_drives_the_tool_loop() {
     );
 }
 
-/// LIVE multi-agent: spark (Driver) delegates to turbo over the shared
-/// workspace. Heavy (two real models + worktrees) — opt-in via
-/// ANGEL_LIVE_ORCH=1, and needs ANGEL_BRAIN_KEY for turbo.
 #[test]
 fn live_spark_orchestrates_turbo() {
     let _guard = crate::tests::env_lock();
@@ -369,8 +344,6 @@ fn live_spark_orchestrates_turbo() {
     eprintln!("orchestration answer: {answer}");
     eprintln!("hello.txt integrated: {}", ws.join("hello.txt").exists());
 
-    // Core claim: spark actually delegated to turbo (the delegate tool result
-    // embeds "branch=angel/turbo").
     assert!(
         history
             .iter()
@@ -398,8 +371,6 @@ fn orchestrator_delegates_in_worktrees_and_integrates_serially() {
     let delegate = DelegateTool::new(ws.clone(), roster);
     let integrate = IntegrateTool::new(ws.clone());
 
-    // First specialist works in its worktree; the diff is captured, but the
-    // shared workspace is untouched until we integrate.
     let o1 = delegate
         .run("scribe1", "write note 1", DelegateMode::Write)
         .unwrap();
@@ -419,7 +390,6 @@ fn orchestrator_delegates_in_worktrees_and_integrates_serially() {
         "note.txt present after integrate"
     );
 
-    // Second specialist, serialized through the same workspace.
     let o2 = delegate
         .run("scribe2", "write note 2", DelegateMode::Write)
         .unwrap();
@@ -429,7 +399,6 @@ fn orchestrator_delegates_in_worktrees_and_integrates_serially() {
         "both notes present after serialized integration"
     );
 
-    // Unknown club is a clean error.
     assert!(delegate.run("ghost", "x", DelegateMode::Write).is_err());
 
     let _ = std::fs::remove_dir_all(delegate.worktree_base());
@@ -676,7 +645,6 @@ fn interrupted_write_delegate_preserves_work_and_checkpoint_without_integrating(
             .any(|m| m["role"] == "Tool" && m["tool_call_id"] == "w"),
         "tool result must survive interruption"
     );
-    // A clean, committed candidate is equally recoverable after cancellation.
     let base = run_git(&ws, &["rev-parse", "HEAD"]).unwrap();
     run_git(&worktree, &["add", "candidate.txt"]).unwrap();
     run_git(&worktree, &["commit", "-qm", "preserved candidate"]).unwrap();
@@ -780,5 +748,3 @@ fn delegate_large_document_result_returns_artifact_preview() {
 
     let _ = std::fs::remove_dir_all(&ws);
 }
-
-// --- A1: harness failure nudges are telemetry, excluded from summarizer input ---

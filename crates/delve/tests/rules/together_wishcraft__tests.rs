@@ -1,7 +1,6 @@
 use super::*;
 use crate::rules::feel::testing::{a_foe, bare, fire, frame, quiet, save};
 
-/// An arrow knight 1 looses along +x from `(x, y)`, with these gifts.
 fn arrow(x: f32, y: f32, traits: ShotTraits) -> Projectile {
     Projectile {
         x,
@@ -24,13 +23,10 @@ fn arrow(x: f32, y: f32, traits: ShotTraits) -> Projectile {
     }
 }
 
-/// A calm open room with one foe of `kind` at `(x, y)` and one arrow in
-/// flight toward it.
 fn shot_at(kind: EnemyKind, (x, y): (f32, f32), traits: ShotTraits) -> (Run, u32) {
     let mut run = quiet();
     bare(&mut run);
     let foe = a_foe(&mut run, kind, x, y);
-    // A live monster far off keeps the room a fight (dummies alone clear it).
     a_foe(&mut run, EnemyKind::Skeleton, 44.0, 3.0);
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (8.0, 4.0);
@@ -66,11 +62,9 @@ fn the_new_words_are_card_lines_with_caps_and_add_up_on_the_bonus() {
         (2, 2, 3, 3, 1, 60)
     );
     let rules = cards::hold_effects();
-    // The brief offers each word up to what a wish can give of it.
     for word in ["size 1-2", "knock 1-2", "burn 1-2", "chill 1-2", "poison 1-2", "boomerang 1-1", "velocity 10-40"] {
         assert!(rules.contains(word), "the brief's list offers {word}");
     }
-    // The traits a knight's shot takes from that bonus.
     let traits = ShotTraits::of(&bonus);
     assert_eq!((traits.size, traits.burn, traits.chill, traits.poison), (3, 2, 2, 3));
     assert!(traits.boomerang);
@@ -83,7 +77,6 @@ fn a_bigger_shot_strikes_what_a_plain_one_flies_past_and_is_drawn_bigger() {
         let id = a_foe(&mut run, EnemyKind::Dummy, 30.0, 14.0);
         foe(&run, id).radius()
     };
-    // Just off the arrow's line: a plain arrow misses, a size 2 one hits.
     let at = (30.0, 14.0 + probe + 0.45);
     let (mut plain, a) = shot_at(EnemyKind::Dummy, at, ShotTraits::default());
     let (mut big, b) = shot_at(EnemyKind::Dummy, at, ShotTraits { size: 2, ..Default::default() });
@@ -117,13 +110,11 @@ fn a_knock_wish_shoves_a_monster_further_than_the_plain_arrow() {
 #[test]
 fn burn_chill_and_poison_hits_brand_the_monster_with_its_bane_and_its_slow() {
     let at = (30.0, 14.0);
-    // Burn: Fire Arrows' burn, twice as hot at 2.
     let (mut run, id) = shot_at(EnemyKind::Dummy, at, ShotTraits { burn: 2, ..Default::default() });
     step(&mut run, 8);
     let burn = run.works.banes.iter().find(|b| b.foe == id && b.kind == skills::Bane::Burn);
     let base = run.players[&1].scaled(skills::BURN_BASE);
     assert_eq!(burn.map(|b| b.power), Some(base * 2), "it burns, hotter with N");
-    // Poison: the gas skill's poison, three times over at 3.
     let (mut run, id) = shot_at(EnemyKind::Dummy, at, ShotTraits { poison: 3, ..Default::default() });
     step(&mut run, 8);
     let poison = run.works.banes.iter().find(|b| b.foe == id && b.kind == skills::Bane::Poison);
@@ -132,7 +123,6 @@ fn burn_chill_and_poison_hits_brand_the_monster_with_its_bane_and_its_slow() {
     let hit = foe(&run, id).hp;
     step(&mut run, 2 * HZ);
     assert!(foe(&run, id).hp < hit, "and the poison bites on its beat");
-    // Chill: a monster that walks walks slower.
     let (mut cold, a) = shot_at(EnemyKind::Imp, at, ShotTraits { chill: 1, ..Default::default() });
     let (mut warm, b) = shot_at(EnemyKind::Imp, at, ShotTraits::default());
     step(&mut cold, 8);
@@ -146,7 +136,6 @@ fn burn_chill_and_poison_hits_brand_the_monster_with_its_bane_and_its_slow() {
     let (slow, fast) = (went(&cold, a, from_a), went(&warm, b, from_b));
     assert!(fast > 0.5, "an imp runs ({fast})");
     assert!(slow < fast * 0.8, "a chilled imp crawls: {slow} against {fast}");
-    // A guardian shrugs the chill.
     let mut boss = foe(&cold, a).clone();
     boss.boss = Some(0);
     boss.chilled = 0;
@@ -172,7 +161,6 @@ fn fired_shots_take_their_wishes_as_they_leave_faster_aflame_and_coming_back() {
     let fast = loose(|b| b.velocity = 50);
     let speed = |p: &Projectile| p.vx.hypot(p.vy);
     assert!((speed(&fast) / speed(&plain) - 1.5).abs() < 0.01, "50% faster");
-    // Units it flies before it falls: within a tick's flight of the plain.
     let reach = |p: &Projectile| speed(p) * p.ttl as f32 / HZ as f32;
     let (a, b) = (reach(&fast), reach(&plain));
     assert!((a - b).abs() <= speed(&fast) / HZ as f32, "as far: {a} against {b}");
@@ -209,7 +197,6 @@ fn a_boomerang_flies_out_turns_and_comes_home_and_turns_off_what_it_strikes() {
     assert!(far > 4.0, "it flew out ({far})");
     assert!(turned, "it turned for home");
     assert!(caught, "and came back to the hand");
-    // Off a monster it turns home instead of falling, and lives.
     let (mut run, id) = shot_at(EnemyKind::Dummy, (30.0, 14.0), ShotTraits { boomerang: true, ..Default::default() });
     run.projectiles[0].traits.back = 1;
     run.projectiles[0].traits.out = 60;
@@ -245,10 +232,8 @@ tier size 2 :: Bigger still.\n";
         "for everyone"
     );
     assert!(run.notices.is_empty());
-    // Another knight wished for it after: still Ada's card.
     run.grant(2, &wish).unwrap();
     assert_eq!(run.book.get("wish-bigger-arrows-1").unwrap().by, "Ada");
-    // The sheet: Ada's wishes under their own heading, apart from the stock.
     let shown = crate::client::sheet(&run, 1);
     if std::env::var_os("SHOW_SHEET").is_some() {
         println!("{shown}");
@@ -260,7 +245,6 @@ tier size 2 :: Bigger still.\n";
     assert!(!stock.contains("Bigger Arrows"), "not in the stock list");
     assert!(stock.contains("Triple Volley"));
     assert!(shown.contains("size 1"), "the totals carry the size");
-    // A knight who made none is told how.
     assert!(crate::client::sheet(&run, 2).contains("YOUR WISHES\n  none yet"));
 }
 
@@ -284,7 +268,6 @@ fn the_wishes_learned_on_2026_10_14_check_clean_and_keep_their_promises() {
             "lightning-rounds"
         ]
     );
-    // Below the workspace's line, after the delve's own, as the host reads it.
     let whole = format!("{}\n{}\n{text}", phrasebook::TEXT, phrasebook::LEARNED);
     let (book, errors) = phrasebook::read_checked(&whole);
     assert!(errors.is_empty(), "{errors:?}");
@@ -303,7 +286,6 @@ fn the_wishes_learned_on_2026_10_14_check_clean_and_keep_their_promises() {
             let card = wish.card(tier).unwrap();
             assert!(!card.looks.is_empty(), "{} tier {} shows in play", wish.id, tier + 1);
         }
-        // Only damage on its own would be a stat bump.
         let first = wish.card(0).unwrap();
         assert!(
             !first.effects.iter().all(|e| matches!(e, cards::Effect::Damage(_))),
@@ -311,13 +293,10 @@ fn the_wishes_learned_on_2026_10_14_check_clean_and_keep_their_promises() {
             wish.id
         );
     }
-    // Every card's look is drawn the way the knight would see it.
     let lightning = wishes.iter().find(|w| w.id == "lightning-rounds").unwrap();
     assert!(lightning.card(0).unwrap().looks.shot.is_some(), "lightning is drawn crackling");
 }
 
-/// Frames of a knight firing with each wish, for review:
-/// `ANGEL_ARENA_SHOTS=dir cargo test -p angel-delve write_wishcraft_shots -- --ignored`.
 #[test]
 #[ignore]
 fn write_wishcraft_shots() {
@@ -349,14 +328,10 @@ fn write_wishcraft_shots() {
                 save(&frame(&run), &dir, name);
             }
         }
-        // A second later: what the hits left on the monsters.
         save(&frame(&run), &dir, &format!("{name}_after"));
     }
 }
 
-
-/// Each learned wish of 2026-10-14 at its top tier, a knight firing:
-/// `ANGEL_ARENA_SHOTS=dir cargo test -p angel-delve write_learned_shots -- --ignored`.
 #[test]
 #[ignore]
 fn write_learned_shots() {
@@ -384,24 +359,17 @@ fn write_learned_shots() {
     }
 }
 
-/// A knight's shot loosed on a beat of `beat` ticks, with `size` steps of the
-/// size wish.
 fn beaten(beat: u8, size: u8) -> Projectile {
     arrow(0.0, 0.0, ShotTraits { beat, size, ..Default::default() })
 }
 
 #[test]
 fn a_shot_is_smaller_the_faster_its_arm_fires_and_bigger_the_slower() {
-    // The arms as they stand, ticks between pulls: notes 4, bow 10, stones
-    // 12, crossbow 23, handgonne 25.
     let scales: Vec<f32> = [4u8, 10, 12, 23, 25].iter().map(|&b| beaten(b, 0).scale()).collect();
     assert!(scales.windows(2).all(|w| w[0] < w[1]), "slower is bigger: {scales:?}");
-    // At its reference beat a shot is the base size, about half what it was.
     assert_eq!(beaten(12, 0).scale(), BASE_PCT as f32 / 100.0);
-    // Every one is well under what shots were drawn at, but the slowest.
     assert!(scales[0] < 0.35 && scales[1] < 0.55, "fast shots are small: {scales:?}");
     assert!(scales[3] < 0.8 && scales[4] < 0.8, "even the heavy ones are smaller than they were: {scales:?}");
-    // A bow on a quick draw (half the beat) is smaller than the plain bow.
     assert!(beaten(5, 0).scale() < beaten(10, 0).scale());
 }
 
@@ -432,21 +400,14 @@ fn each_size_step_is_half_again_and_a_monsters_shot_is_never_scaled() {
 
 #[test]
 fn what_is_drawn_is_what_hits_a_small_shot_a_point_and_a_big_one_wide() {
-    // At the base size and under it a shot strikes as a point (the monster
-    // is its target), so a fast needle still connects and a plain bow hits
-    // as it always did.
     for beat in [1u8, 4, 10, 12] {
         assert_eq!(beaten(beat, 0).reach(), 0.0, "beat {beat}");
     }
-    // Over it, it strikes as wide as it looks, a whole scale at a time.
     let (slow, slower) = (beaten(23, 0), beaten(25, 0));
     assert!(slow.reach() > 0.0 && slower.reach() > slow.reach());
     assert_eq!(slow.reach(), HIT_REACH * (slow.scale() - BASE_PCT as f32 / 100.0));
-    // A wished shot strikes about as wide as the size wish always said
-    // (0.3 a step: 0.6 for two).
     assert!((beaten(12, 2).reach() - 0.66).abs() < 1e-5);
     assert!(beaten(12, 1).reach() < beaten(12, 2).reach());
-    // Its body against a prop follows: a small shot comes in closer.
     assert!(patterns::body(&beaten(4, 0)) < patterns::body(&beaten(12, 0)));
     assert_eq!(patterns::body(&beaten(12, 0)), patterns::KNIGHT_BODY);
 }
@@ -463,8 +424,6 @@ fn the_size_is_the_traits_alone_so_every_seat_agrees_and_it_rides_the_wire_cheap
         shot.scale().to_bits(),
         "bit for bit"
     );
-    // A shot with no beat leaves the field off, and one from before it
-    // reads as no beat.
     let plain = serde_json::to_value(ShotTraits::default()).unwrap();
     assert!(plain.get("beat").is_none());
     let old: ShotTraits = serde_json::from_value(plain).unwrap();

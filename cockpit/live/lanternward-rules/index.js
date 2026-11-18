@@ -1,14 +1,6 @@
-// Thin adapter for Lanternward's Bend leg. The session crosses as serde writes
-// it; this packs each record into the words the Bend rules hold (the layout
-// block below is generated from the table in scripts/live/lanternward-fields.mjs)
-// and unpacks the answer the same way. It holds no rule of the game: names to
-// codes, codes to names, nothing else. Rust owns the sounds' words, so an
-// answer carries the sounds as codes.
 const bend = require('./lanternward-rules.compiled.js')
 
-// layout:begin
 const SLOT = {"Seat":{"id":0,"joined":1,"x":2,"y":3,"z":4,"fx":5,"fy":6,"hp":7,"max_hp":8,"gems":9,"bombs":10,"flame":11,"taper":12,"act":13,"t":14,"n":15,"mvx":16,"mvy":17,"pushx":18,"pushy":19,"pusht":20,"step":21,"chain":22,"queued":23,"charge":24,"shield":25,"guard_cd":26,"lock_k":27,"lock_i":28,"lock_t":29,"unlock_t":30,"relock":31,"inv":32,"ward":33,"freeze":34,"swing":35,"lamp":36,"lamp_cd":37,"carry":38,"ctx_k":39,"ctx_i":40,"read_on":41,"read_id":42,"read_t":43,"aimx":44,"aimy":45,"held":46,"safex":47,"safey":48,"camx":49,"camy":50,"rev":51,"beep":52,"item_k":53,"item_n":54},"Foe":{"id":0,"kind":1,"x":2,"y":3,"hp":4,"full":5,"prov":6,"st":7,"t":8,"fx":9,"fy":10,"dk":11,"d0":12,"d1":13,"d2":14,"d3":15,"d4":16,"hooded":17,"lit":18,"flinch":19,"freeze":20,"dead":21,"open":22,"h0":23,"h1":24,"h2":25,"h3":26,"h4":27,"h5":28,"struck":29,"kbx":30,"kby":31,"kbt":32,"n":33},"Warden":{"x":0,"y":1,"hp":2,"full":3,"prov":4,"phase":5,"st":6,"t":7,"atk":8,"n":9,"dk":10,"d0":11,"d1":12,"d2":13,"d3":14,"d4":15,"aim":16,"sweep":17,"l0":18,"l1":19,"l2":20,"l3":21,"l4":22,"l5":23,"h0":24,"h1":25,"h2":26,"h3":27,"h4":28,"h5":29,"struck":30,"dead":31,"start":32,"fx":33,"fy":34,"flinch":35},"Sc":{"elapsed":0,"room":1,"stage":2,"stage_t":3,"shake":4,"flash":5,"exiting":6,"wipe":7,"tries":8,"next_foe":9,"done_on":10,"done_t":11,"paid":12,"seed_hi":13,"seed_lo":14,"cue_on":15,"cue_x":16,"cue_y":17,"cue_t":18,"ban_on":19,"ban_k":20,"ban_n":21,"ban_seat":22,"ban_t":23,"p_map":24,"p_lantern":25,"p_keys":26,"p_cont":27,"hold_k":28,"hold_a":29,"hold_x":30,"hold_y":31,"boss_on":32,"stop":33,"won":34,"ret":35,"ret2":36,"r_lock":37,"r_parry":38,"r_combo":39,"r_flame":40,"r_tell":41,"nseats":42,"ta":43,"tb":44,"tc":45},"Prop":{"kind":0,"tx":1,"ty":2,"id":3,"on":4,"t":5,"x":6,"y":7},"Drop":{"kind":0,"x":1,"y":2,"age":3},"Fx":{"kind":0,"x":1,"y":2,"t":3,"a":4},"Fuse":{"x":0,"y":1,"t":2,"owner":3},"Bolt":{"kind":0,"x":1,"y":2,"vx":3,"vy":4,"ttl":5,"owner":6},"Kept":{"id":0,"gems":1,"bombs":2},"Ix":{"id":0,"mx":1,"my":2,"ax":3,"ay":4,"mask":5},"Strike":{"i":0,"dmg":1,"dk":2,"d0":3,"d1":4,"d2":5,"d3":6,"d4":7},"Nr":{"ok":0,"id":1,"x":2,"y":3,"d":4},"Cx":{"ok":0,"d":1,"c":2,"i":3},"Ct":{"k":0,"i":1},"Pt":{"x":0,"y":1},"Tg":{"ok":0,"a":1,"b":2,"d":3,"kind":4,"id":5}}
-// layout:end
 
 const nil = { $: 'Nil' }
 const cons = values => values.reduceRight((tail, head) => ({ $: 'Con', head, tail }), nil)
@@ -18,7 +10,6 @@ const list = node => {
   return out
 }
 
-// A word: an unsigned 32-bit number; a signed one is the same bits.
 const U = value => (Number.isFinite(value) ? Math.trunc(value) >>> 0 : 0)
 
 const ENUM = {
@@ -39,7 +30,6 @@ const code = (names, name) => {
   return at
 }
 
-// Variants that carry a number: the unit ones are listed with it left out.
 const CTX = ['None', 'Open', 'Read', 'Lift', 'Throw', 'Flame', 'Light', 'Unlock', 'Revive', 'Relight', 'Talk', 'Pull']
 const CTX_UNIT = new Set(['None', 'Throw', 'Flame', 'Relight'])
 const ITEM = ['', 'Map', 'Lantern', 'SmallKey', 'BossKey', 'Container', 'Gems', 'Bombs']
@@ -53,7 +43,6 @@ const DANGER = [
 ]
 const HOLD = ['Unfound', 'Carried', 'Lying', 'Spent']
 
-// What serde writes for a variant, as its name and number (or none).
 const variant = value => {
   if (typeof value === 'string') return [value, undefined]
   const [name] = Object.keys(value)
@@ -123,9 +112,6 @@ const CUSTOM = {
   },
 }
 
-// A record's spec: [json key, kind, ...]. `u` (the default) is a word named
-// like its key, `i` a signed one, `b` a flag, `e` a unit enum, `p` a pair of
-// signed words, `a` an array of unsigned words, anything else a CUSTOM.
 const SEAT = [
   ['id'], ['joined'], ['x', 'i'], ['y', 'i'], ['z', 'i'], ['face', 'p', 'fx', 'fy'], ['hp'], ['max_hp'], ['gems'], ['bombs'],
   ['flame'], ['taper'], ['act', 'e', 'act'], ['t'], ['n'], ['mv', 'p', 'mvx', 'mvy'], ['push', 'p', 'pushx', 'pushy'], ['pusht'],
@@ -199,7 +185,6 @@ const fx = record8(FX, SLOT.Fx)
 const fuse = record8(FUSE, SLOT.Fuse)
 const bolt = record8(BOLT, SLOT.Bolt)
 
-// The session's own numbers, which are not a list of records.
 const scalars = (s, rules) => {
   const S = SLOT.Sc
   const w = new Array(64).fill(0)
@@ -233,7 +218,6 @@ const scalars = (s, rules) => {
   return w
 }
 
-// A session before anything has happened: the rules fill it in.
 const BLANK = {
   seats: {}, elapsed: 0, room: 0, stage: 0, stage_t: 0, props: [], foes: [], bolts: [], drops: [], fx: [], fuses: [], boss: null,
   inv: { map: false, lantern: false, small_keys: 0, boss: 'Unfound', containers: 0 }, banner: null, seed: [0, 0], shake: 0,
@@ -329,7 +313,6 @@ const word = U
 
 module.exports = {
   apiVersion: 1,
-  // Exposed for the harnesses that replay a corpus; not part of the leg.
   codec: { world, session, answer },
   render(input = {}) {
     switch (input.op) {

@@ -1,4 +1,3 @@
-"""Offline renderer regression tests: python3 -m unittest discover -s scripts/delve -p 'test_card_gallery.py'."""
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
@@ -292,7 +291,7 @@ class CardGalleryTests(unittest.TestCase):
         bottle = load_card(directory / 'blackcap-reserve.card', palette)[2]
         self.assertEqual(bottle[8][5:9], 'WYYW')
         clef = load_card(directory / 'crescendo-clef.card', palette)[2]
-        self.assertEqual(clef[9][6], '.')  # Open negative space inside the curl.
+        self.assertEqual(clef[9][6], '.')
 
     def test_eventide_fan_and_widows_toast(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -316,10 +315,10 @@ class CardGalleryTests(unittest.TestCase):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
         fan = load_card(directory / 'eventide-fan.card', palette)[2]
-        self.assertEqual(fan[6][6:9], 'hYh')  # Brass ribs separate the cyan leaves.
+        self.assertEqual(fan[6][6:9], 'hYh')
         toast = load_card(directory / 'widows-toast.card', palette)[2]
-        self.assertEqual(toast[5][4:12], 'RRRRRRRR')  # Red wine beneath brass rim.
-        self.assertEqual(toast[11][6:10], 'hYYh')  # Slender goblet stem.
+        self.assertEqual(toast[5][4:12], 'RRRRRRRR')
+        self.assertEqual(toast[11][6:10], 'hYYh')
 
     def test_ghostlight_lantern_and_kraken_corkscrew(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -343,11 +342,11 @@ class CardGalleryTests(unittest.TestCase):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
         lantern = load_card(directory / 'ghostlight-lantern.card', palette)[2]
-        self.assertEqual(lantern[2][7:9], '..')  # Open carrying handle.
-        self.assertEqual(lantern[7][7:9], 'WW')  # White flame core.
+        self.assertEqual(lantern[2][7:9], '..')
+        self.assertEqual(lantern[7][7:9], 'WW')
         screw = load_card(directory / 'kraken-corkscrew.card', palette)[2]
-        self.assertEqual(screw[2][1:5], 'hYWh')  # Curled left tentacle.
-        self.assertEqual(screw[11][6:10], 'hYWh')  # Alternating screw helix.
+        self.assertEqual(screw[2][1:5], 'hYWh')
+        self.assertEqual(screw[11][6:10], 'hYWh')
 
     def test_abyssal_bellhelm_and_pinwheel_break(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -371,11 +370,11 @@ class CardGalleryTests(unittest.TestCase):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
         helm = load_card(directory / 'abyssal-bellhelm.card', palette)[2]
-        self.assertEqual(helm[7][7:9], 'hh')  # Porthole crossbar.
-        self.assertEqual(helm[14][2:14], 'YYYYYYYYYYYY')  # Flared collar.
+        self.assertEqual(helm[7][7:9], 'hh')
+        self.assertEqual(helm[14][2:14], 'YYYYYYYYYYYY')
         wheel = load_card(directory / 'pinwheel-break.card', palette)[2]
-        self.assertEqual(wheel[1][8], 'W')  # Detached motion spark.
-        self.assertEqual(wheel[7][2:6], 'CCCC')  # Horizontal energy fan.
+        self.assertEqual(wheel[1][8], 'W')
+        self.assertEqual(wheel[7][2:6], 'CCCC')
 
     def test_undertow_anchor_and_stormglass_dial(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -399,11 +398,11 @@ class CardGalleryTests(unittest.TestCase):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
         anchor = load_card(directory / 'undertow-anchor.card', palette)[2]
-        self.assertEqual(anchor[1][7:9], '..')  # Open anchor eye.
-        self.assertEqual(anchor[12][5:11], 'YYYYYY')  # Flared brass crown.
+        self.assertEqual(anchor[1][7:9], '..')
+        self.assertEqual(anchor[12][5:11], 'YYYYYY')
         dial = load_card(directory / 'stormglass-dial.card', palette)[2]
-        self.assertEqual(dial[9][6:9], 'YYY')  # Right-angle clock hand.
-        self.assertEqual(dial[1][9:12], 'CWC')  # Detached storm spark.
+        self.assertEqual(dial[9][6:9], 'YYY')
+        self.assertEqual(dial[1][9:12], 'CWC')
 
     def test_astral_barspoon_and_phoenix_matchbook(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -428,11 +427,11 @@ class CardGalleryTests(unittest.TestCase):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
         spoon = load_card(directory / 'astral-barspoon.card', palette)[2]
-        self.assertEqual(spoon[5][4:6], '..')  # Open spoon bowl.
-        self.assertEqual(spoon[2][10], 'C')  # Detached star.
+        self.assertEqual(spoon[5][4:6], '..')
+        self.assertEqual(spoon[2][10], 'C')
         match = load_card(directory / 'phoenix-matchbook.card', palette)[2]
-        self.assertEqual(match[1][8:11], 'OWO')  # Lit match above booklet.
-        self.assertEqual(match[13][4:11], 'YhYhYhY')  # Striker teeth.
+        self.assertEqual(match[1][8:11], 'OWO')
+        self.assertEqual(match[13][4:11], 'YhYhYhY')
 
     def test_kettle_eclipse_and_corkscrew_comet(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -485,11 +484,11 @@ class CardGalleryTests(unittest.TestCase):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
         fork = load_card(directory / 'last-call-fork.card', palette)[2]
-        self.assertEqual(fork[4][6:8], '..')  # open gap between prongs
-        self.assertEqual(fork[7][5:9], 'WWWW')  # joined bridge
+        self.assertEqual(fork[4][6:8], '..')
+        self.assertEqual(fork[7][5:9], 'WWWW')
         tea = load_card(directory / 'mothwing-tea.card', palette)[2]
-        self.assertEqual(tea[2][11:13], 'hh')  # detached tag
-        self.assertEqual(tea[9][5:8], 'uYu')  # woven sachet
+        self.assertEqual(tea[2][11:13], 'hh')
+        self.assertEqual(tea[9][5:8], 'uYu')
 
     def test_cinder_service_and_moonshine_prism(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -536,11 +535,11 @@ class CardGalleryTests(unittest.TestCase):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
         key = load_card(directory / 'cellar-key.card', palette)[2]
-        self.assertEqual(key[4][3:7], '....')  # open key bow
-        self.assertEqual(key[11][4:9], 'YWWWY')  # separate ward teeth
+        self.assertEqual(key[4][3:7], '....')
+        self.assertEqual(key[11][4:9], 'YWWWY')
         siphon = load_card(directory / 'copperhead-siphon.card', palette)[2]
-        self.assertEqual(siphon[2][10:12], 'CC')  # detached fizz
-        self.assertEqual(siphon[10][3:7], 'CWWC')  # glass reservoir
+        self.assertEqual(siphon[2][10:12], 'CC')
+        self.assertEqual(siphon[10][3:7], 'CWWC')
 
     def test_night_kitchen_drops(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -563,7 +562,7 @@ class CardGalleryTests(unittest.TestCase):
         ladle = load_card(directory / 'last-orders-ladle.card', palette)[2]
         self.assertEqual(ladle[11][3:9], 'ORWWRO')
         comet = load_card(directory / 'coatcheck-comet.card', palette)[2]
-        self.assertEqual(comet[2][3:5], '..')  # open silver hook
+        self.assertEqual(comet[2][3:5], '..')
         self.assertEqual(comet[7][2:9], 'CWWWWWC')
 
     def test_ticket_and_wick_bar_drop_readability(self):
@@ -586,13 +585,13 @@ class CardGalleryTests(unittest.TestCase):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
         ticket = load_card(directory / 'velvet-rope-ticket.card', palette)[2]
-        self.assertEqual(ticket[2][9:12], 'CWC')  # detached blink glint
-        self.assertEqual(ticket[7][7:13], '.hYYYY')  # separated torn stub
-        self.assertEqual(ticket[13][4:11], 'RRRRRRR')  # velvet rope below ticket
+        self.assertEqual(ticket[2][9:12], 'CWC')
+        self.assertEqual(ticket[7][7:13], '.hYYYY')
+        self.assertEqual(ticket[13][4:11], 'RRRRRRR')
         wick = load_card(directory / 'wayfarer-wick.card', palette)[2]
-        self.assertEqual(wick[3][6:10], 'CWWC')  # tapered ghost flame
-        self.assertEqual(wick[8][6:11], 'hWiWh')  # hanging wax drip
-        self.assertEqual(wick[12][2:6], 'Y..Y')  # open brass finger loop
+        self.assertEqual(wick[3][6:10], 'CWWC')
+        self.assertEqual(wick[8][6:11], 'hWiWh')
+        self.assertEqual(wick[12][2:6], 'Y..Y')
 
     def test_bell_and_drowned_crown_readable_materials(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -614,13 +613,13 @@ class CardGalleryTests(unittest.TestCase):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
         bell = load_card(directory / 'zero-hour-bell.card', palette)[2]
-        self.assertEqual(bell[2][6:10], 'Y..Y')  # open suspension loop
-        self.assertEqual(bell[10][2:14], 'YWWYYYYYYYYY')  # flared brass lip
-        self.assertEqual(bell[13][7:9], 'Wh')  # exposed clapper
+        self.assertEqual(bell[2][6:10], 'Y..Y')
+        self.assertEqual(bell[10][2:14], 'YWWYYYYYYYYY')
+        self.assertEqual(bell[13][7:9], 'Wh')
         crown = load_card(directory / 'undertow-crown.card', palette)[2]
-        self.assertEqual(crown[1].count('W'), 3)  # three distinct crown points
-        self.assertEqual(crown[6][6:10], 'h..h')  # broken central opening
-        self.assertEqual(crown[12][5:11], 'CCWCCi')  # detached undertow splash
+        self.assertEqual(crown[1].count('W'), 3)
+        self.assertEqual(crown[6][6:10], 'h..h')
+        self.assertEqual(crown[12][5:11], 'CCWCCi')
 
     def test_watchlight_and_spindle_material_silhouettes(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -642,13 +641,13 @@ class CardGalleryTests(unittest.TestCase):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
         lantern = load_card(directory / 'wake-lantern.card', palette)[2]
-        self.assertEqual(lantern[1][5:11], 'Y....Y')  # open carrying loop
-        self.assertEqual(lantern[8][6:9], 'CWC')  # bright suspended flame
-        self.assertEqual(lantern[6][5:11], '......')  # open chamber
+        self.assertEqual(lantern[1][5:11], 'Y....Y')
+        self.assertEqual(lantern[8][6:9], 'CWC')
+        self.assertEqual(lantern[6][5:11], '......')
         spindle = load_card(directory / 'widows-spindle.card', palette)[2]
-        self.assertEqual(spindle[6][12:15], 'rWr')  # separate barbed thread
-        self.assertEqual(spindle[3][5:8], 'WWY')  # brass flange highlight
-        self.assertEqual(spindle[14][7], 'I')  # exposed iron axle
+        self.assertEqual(spindle[6][12:15], 'rWr')
+        self.assertEqual(spindle[3][5:8], 'WWY')
+        self.assertEqual(spindle[14][7], 'I')
 
     def test_bone_totem_skulls_bound_stake_and_grave_fire(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -777,12 +776,12 @@ class CardGalleryTests(unittest.TestCase):
                          "name   Vestal Censer\nkind   hold\nrarity relic\n"
                          "text   The chapel's own censer, still smoking.\n"
                          "drop   0\nchest  1\nmend   2")
-        self.assertEqual(kind, 'hold')  # aligned headers normalize like single spaces
-        self.assertEqual(rows[7][6:12], 'Y..Y.Y')  # open suspension
-        self.assertEqual(rows[10][3:14], 'YWWYYYYWWWY')  # brass rim
-        self.assertEqual(rows[12][5:10], 'ORWRO')  # incense core
-        self.assertEqual(rows[1][8:11], 'CWC')  # smoke highlight
-        self.assertEqual(rows[14][6:10], 'YYYh')  # tapered bowl
+        self.assertEqual(kind, 'hold')
+        self.assertEqual(rows[7][6:12], 'Y..Y.Y')
+        self.assertEqual(rows[10][3:14], 'YWWYYYYWWWY')
+        self.assertEqual(rows[12][5:10], 'ORWRO')
+        self.assertEqual(rows[1][8:11], 'CWC')
+        self.assertEqual(rows[14][6:10], 'YYYh')
         self.assertFalse(any(c.isdigit() for row in rows for c in row))
         result = audit(list(target.parent.glob('*.card')), palette)
         for signal in ('similar_silhouettes', 'translated_silhouettes'):
@@ -838,10 +837,10 @@ class CardGalleryTests(unittest.TestCase):
                          "name   Barrow Warden\nkind   spell\nrarity rare\n"
                          "text   A barrow knight raises his shield for you and roars foes on.\n"
                          "drop   0\nchest  0\ncooldown 14\nwarden 1")
-        self.assertEqual(rows[2][5:8], 'CKC')  # separated cold eyes
-        self.assertEqual(rows[8][2:5], 'YWh')  # bright shield face
-        self.assertEqual(rows[12][6], '.')  # negative space between legs
-        self.assertEqual(rows[4][13], 'S')  # separate polearm shaft
+        self.assertEqual(rows[2][5:8], 'CKC')
+        self.assertEqual(rows[8][2:5], 'YWh')
+        self.assertEqual(rows[12][6], '.')
+        self.assertEqual(rows[4][13], 'S')
         result = audit(list(target.parent.glob('*.card')), palette)
         for signal in ('similar_silhouettes', 'translated_silhouettes'):
             self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
@@ -867,11 +866,9 @@ class CardGalleryTests(unittest.TestCase):
                 for signal in ('similar_silhouettes', 'translated_silhouettes'):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
-        # Open bow arc, straight string, and a separate horizontal nocked arrow.
         bow = rows_by_name['bow']
         self.assertEqual(bow[7][2:13], 'WWWWWWWWWWC')
         self.assertEqual(bow[5][4:11], 'h....Yh')
-        # Crossbow's upright rail, wide transverse limbs and offset trigger loop.
         crossbow = rows_by_name['crossbow']
         self.assertEqual(crossbow[6], 'hYhhhhYWhYhhhhYh')
         self.assertEqual(crossbow[11][6:11], 'hYhYh')
@@ -896,10 +893,10 @@ class CardGalleryTests(unittest.TestCase):
                 for signal in ('similar_silhouettes', 'translated_silhouettes'):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
-        self.assertEqual(sprites['crescent-quiver'][1][6:11], 'W...W')  # separate arrowheads
-        self.assertEqual(sprites['crescent-quiver'][8][3:5], '..')  # crescent's open interior
-        self.assertEqual(sprites['deeps-harness'][3][7:9], '..')  # neck opening
-        self.assertEqual(sprites['deeps-harness'][7][7:9], 'YY')  # brass clasp
+        self.assertEqual(sprites['crescent-quiver'][1][6:11], 'W...W')
+        self.assertEqual(sprites['crescent-quiver'][8][3:5], '..')
+        self.assertEqual(sprites['deeps-harness'][3][7:9], '..')
+        self.assertEqual(sprites['deeps-harness'][7][7:9], 'YY')
 
     def test_elixir_and_college_orb_materials_and_rules(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -920,10 +917,10 @@ class CardGalleryTests(unittest.TestCase):
                 for signal in ('similar_silhouettes', 'translated_silhouettes'):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
-        self.assertEqual(sprites['elixir'][7][6:9], 'VWV')  # restorative cross
-        self.assertEqual(sprites['elixir'][4][7:9], '..')  # clear glass neck
-        self.assertEqual(sprites['college-orb'][11][5:10], '.....')  # open cradle
-        self.assertEqual(sprites['college-orb'][5][5:7], 'CC')  # captive light
+        self.assertEqual(sprites['elixir'][7][6:9], 'VWV')
+        self.assertEqual(sprites['elixir'][4][7:9], '..')
+        self.assertEqual(sprites['college-orb'][11][5:10], '.....')
+        self.assertEqual(sprites['college-orb'][5][5:7], 'CC')
 
     def test_cleaver_and_storm_hammer_have_authored_materials(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -944,9 +941,9 @@ class CardGalleryTests(unittest.TestCase):
                 for signal in ('similar_silhouettes', 'translated_silhouettes'):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
-        self.assertEqual(sprites['cleaver'][4][4:6], '..')  # blade hanging hole
-        self.assertEqual(sprites['storm-hammer'][6][7:12], 'CW.WC')  # storm rune
-        self.assertEqual(sprites['storm-hammer'][12][12:14], 'CW')  # detached spark
+        self.assertEqual(sprites['cleaver'][4][4:6], '..')
+        self.assertEqual(sprites['storm-hammer'][6][7:12], 'CW.WC')
+        self.assertEqual(sprites['storm-hammer'][12][12:14], 'CW')
 
     def test_defensive_equipment_has_distinct_materials_and_unchanged_rules(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -974,9 +971,9 @@ class CardGalleryTests(unittest.TestCase):
                 for signal in ('similar_silhouettes', 'translated_silhouettes'):
                     self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
                 self.assertFalse(any(str(target) in group for group in result['exact_rendered_duplicates']))
-        self.assertEqual(sprites['body-armour'][7][6:10], 'hYYh')  # gold tabard stripe
-        self.assertEqual(sprites['iron-helm'][9][4:12], '....H...')  # open visor, central nasal
-        self.assertEqual(sprites['gate-aegis'][8][6:10], 'Y..Y')  # open gate within shield
+        self.assertEqual(sprites['body-armour'][7][6:10], 'hYYh')
+        self.assertEqual(sprites['iron-helm'][9][4:12], '....H...')
+        self.assertEqual(sprites['gate-aegis'][8][6:10], 'Y..Y')
 
     def test_horizon_rifle_has_scope_long_barrel_and_open_trigger(self):
         palette = {key: rgb for key, rgb, _ in inks(INK_RS.read_text())}
@@ -985,9 +982,9 @@ class CardGalleryTests(unittest.TestCase):
         _, kind, rows = load_card(target, palette)
         self.assertEqual(kind.strip(), 'arm')
         self.assertEqual([len(row) for row in rows], [16] * 16)
-        self.assertEqual(rows[2], '......hYCCYh....')  # cyan glass in brass scope
-        self.assertEqual(rows[6], '.hYWWWWWWWWWWYh.')  # continuous bright barrel
-        self.assertEqual(rows[8][7:9], '..')  # negative-space trigger opening
+        self.assertEqual(rows[2], '......hYCCYh....')
+        self.assertEqual(rows[6], '.hYWWWWWWWWWWYh.')
+        self.assertEqual(rows[8][7:9], '..')
         self.assertEqual(target.read_text().split('\nart\n')[0].splitlines(), [
             'name Horizon Rifle', 'kind arm', 'rarity relic',
             'text A slow long-range rifle. Every fourth shot is a headshot.',
@@ -1004,9 +1001,9 @@ class CardGalleryTests(unittest.TestCase):
         _, kind, rows = load_card(target, palette)
         self.assertEqual(kind, 'hold')
         self.assertEqual([len(row) for row in rows], [16] * 16)
-        self.assertEqual(rows[6][6:9], 'CWC')  # separate captive blue star
-        self.assertEqual(rows[8][8:10], 'WY')  # two-tone needle
-        self.assertEqual(rows[8][2], 'W')  # west direction mark
+        self.assertEqual(rows[6][6:9], 'CWC')
+        self.assertEqual(rows[8][8:10], 'WY')
+        self.assertEqual(rows[8][2], 'W')
         self.assertEqual(target.read_text().split('\nart\n')[0].splitlines(), [
             'name Abyssal Compass', 'kind hold', 'rarity rare',
             'text A captive blue star steadies the hand that carries it.',
@@ -1023,9 +1020,9 @@ class CardGalleryTests(unittest.TestCase):
         _, kind, rows = load_card(target, palette)
         self.assertEqual(kind, 'hold')
         self.assertEqual([len(row) for row in rows], [16] * 16)
-        self.assertEqual(rows[2], rows[13])  # broad brass spool flanges
-        self.assertEqual(rows[4], '.....hCCWCh.....')  # narrow wound core
-        self.assertEqual(rows[5][2:5], 'WW.')  # detached arc, not a blade
+        self.assertEqual(rows[2], rows[13])
+        self.assertEqual(rows[4], '.....hCCWCh.....')
+        self.assertEqual(rows[5][2:5], 'WW.')
         self.assertEqual(target.read_text().split('\nart\n')[0].splitlines(), [
             'name Arcneedle Spindle', 'kind hold', 'rarity rare',
             'text A storm-surge bobbin: shots pierce one foe and arc to one neighbor at half damage.',
@@ -1042,7 +1039,6 @@ class CardGalleryTests(unittest.TestCase):
         _, kind, rows = load_card(target, palette)
         self.assertEqual(kind, 'play')
         self.assertEqual([len(row) for row in rows], [16] * 16)
-        # Two brass filter canisters flank a cyan mouth valve, with air gaps.
         self.assertEqual(rows[7], 'h77h.h7WW7h.h77h')
         self.assertEqual(rows[9], 'hY7Yh7YYYY7hY7Yh')
         header = target.read_text().split('\nart\n')[0].splitlines()
@@ -1098,7 +1094,6 @@ class CardGalleryTests(unittest.TestCase):
         _, kind, rows = load_card(target, palette)
         self.assertEqual(kind, 'hold')
         self.assertEqual([len(row) for row in rows], [16] * 16)
-        # Detached moon above the asymmetric brass orbital instrument.
         self.assertEqual(rows[1][11:15], 'CWWC')
         self.assertEqual(rows[3][11:15], '....')
         self.assertEqual(rows[7][4:8], 'CWWC')
@@ -1116,9 +1111,9 @@ class CardGalleryTests(unittest.TestCase):
         rows = load_card(target, palette)[2]
         self.assertEqual(len(rows), 16)
         self.assertTrue(all(len(row) == 16 for row in rows))
-        self.assertEqual(rows[1], '.......W........')  # icy canopy finial
-        self.assertEqual(rows[8][8], '.')  # open space beneath scalloped canopy
-        self.assertEqual(rows[14][7:13], 'hYYYYh')  # exposed hooked handle
+        self.assertEqual(rows[1], '.......W........')
+        self.assertEqual(rows[8][8], '.')
+        self.assertEqual(rows[14][7:13], 'hYYYYh')
         result = audit(list(directory.glob('*.card')), palette)
         self.assertFalse(any(str(target) in pair['paths']
                              for pair in result['similar_silhouettes']))
@@ -1136,7 +1131,7 @@ class CardGalleryTests(unittest.TestCase):
         rows = load_card(target, palette)[2]
         self.assertEqual(len(rows), 16)
         self.assertTrue(all(len(row) == 16 for row in rows))
-        self.assertEqual(rows[4][5:7], '..')  # open brass frame, not a filled gem
+        self.assertEqual(rows[4][5:7], '..')
         result = audit(list(directory.glob('*.card')), palette)
         self.assertFalse(any(str(target) in pair['paths']
                              for pair in result['similar_silhouettes']))
@@ -1155,8 +1150,8 @@ class CardGalleryTests(unittest.TestCase):
         self.assertEqual(kind, 'hold')
         self.assertEqual(len(rows), 16)
         self.assertTrue(all(len(row) == 16 for row in rows))
-        self.assertEqual(rows[1][12:14], 'CW')  # detached refracted beam
-        self.assertEqual(rows[9][7:11], '....')  # open optical cradle
+        self.assertEqual(rows[1][12:14], 'CW')
+        self.assertEqual(rows[9][7:11], '....')
         source = target.read_text().split('art\n')[0].splitlines()
         for rule in ('kind hold', 'rarity rare', 'drop 2', 'chest 3',
                      'rate 4', 'max_hp 10'):
@@ -1176,7 +1171,7 @@ class CardGalleryTests(unittest.TestCase):
         self.assertTrue(all(len(row) == 16 for row in rows))
         self.assertEqual(rows[0][10:12], 'AA')
         self.assertEqual(rows[3][7:9], 'AA')
-        self.assertEqual(rows[5][3:5], '..')  # uncorked space above neck
+        self.assertEqual(rows[5][3:5], '..')
         result = audit(list(directory.glob('*.card')), palette)
         self.assertFalse(any(str(target) in pair['paths']
                              for pair in result['similar_silhouettes']))
@@ -1198,10 +1193,10 @@ class CardGalleryTests(unittest.TestCase):
         self.assertEqual(header, "name Viper's Hourglass\nkind hold\nrarity rare\ntext Venom pools in the lower bulb. Shots poison and burst on impact.\ndrop 2\nchest 3\npoison 1\nburst 20\n")
         rows = load_card(target, palette)[2]
         self.assertEqual([len(row) for row in rows], [16] * 16)
-        self.assertEqual(rows[3][4:12], '.i....i.')  # glass separated from brass pillars
-        self.assertEqual(rows[7][7:9], 'G.')  # narrow falling venom, not a solid waist
-        self.assertEqual(rows[11][6:10], 'GGGG')  # lower reservoir
-        self.assertEqual(rows[12][6:10], 'WGGG')  # glass glint on pooled venom
+        self.assertEqual(rows[3][4:12], '.i....i.')
+        self.assertEqual(rows[7][7:9], 'G.')
+        self.assertEqual(rows[11][6:10], 'GGGG')
+        self.assertEqual(rows[12][6:10], 'WGGG')
         result = audit(list(directory.glob('*.card')), palette)
         for signal in ('similar_silhouettes', 'translated_silhouettes'):
             self.assertFalse(any(str(target) in pair['paths'] for pair in result[signal]))
@@ -1330,8 +1325,8 @@ class CardGalleryTests(unittest.TestCase):
         rows = load_card(target, palette)[2]
         self.assertEqual(len(rows), 16)
         self.assertTrue(all(len(row) == 16 for row in rows))
-        self.assertEqual(rows[4][10], 'W')  # linnet eye highlight
-        self.assertEqual(rows[12][6], '.')  # broken bread negative space
+        self.assertEqual(rows[4][10], 'W')
+        self.assertEqual(rows[12][6], '.')
         result = audit(list(directory.glob('*.card')), palette)
         self.assertFalse(any(str(target) in pair['paths']
                              for pair in result['similar_silhouettes']))
@@ -1392,10 +1387,8 @@ class CelestialConsumableArtTests(unittest.TestCase):
                                      for pair in result['similar_silhouettes']))
                 self.assertFalse(any(str(target) in group
                                      for group in result['exact_rendered_duplicates']))
-        # The crescent flask has an open interior, not a round bottle body.
         moon = load_card(directory / 'moonmilk-flask.card', palette)[2]
         self.assertEqual(moon[8][7:11], '....')
-        # Detached storm and diagonal meteor trail remain legible negative space.
         storm = load_card(directory / 'thunderhead-phial.card', palette)[2]
         self.assertEqual(storm[10][8], '.')
         meteor = load_card(directory / 'meteor-cordial.card', palette)[2]

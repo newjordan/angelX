@@ -15,7 +15,6 @@ use super::ground::pool_ink;
 use super::ink::{BANK, BLACK, Img, PALETTE, Rgb, RgbMap, SIGNAL_BANK, bank_colours, bank_of, bayer, every_colour, is_dye, rgb, vnoise};
 use super::map::Realm;
 
-/// A light in world pixels. `fire` lights warm what they touch.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Light {
     pub x: f32,
@@ -25,14 +24,8 @@ pub struct Light {
     pub fire: bool,
 }
 
-/// Dusk ambient level: `1.0` is full daylight, the realm's resting mood sits
-/// just over half.
 pub const DUSK: f32 = 0.58;
-/// How far the ambient wanders across a field, in slow patches: less than
-/// half a step either way, so a calm field holds its step and only a light
-/// carries it to the next.
 pub const DAPPLE: f32 = 0.08;
-/// How many bank steps separate full light from darkness.
 pub const STEPS: f32 = 4.0;
 const CHAIN: usize = 7;
 
@@ -44,7 +37,6 @@ fn d2(p: Rgb, t: [f32; 3]) -> f32 {
     (0..3).map(|i| (p[i] as f32 - t[i]).powi(2)).sum()
 }
 
-/// One step darker inside the colour's own bank; signal inks never move.
 pub fn darker(c: Rgb) -> Rgb {
     if c == BLACK {
         return c;
@@ -65,10 +57,6 @@ pub fn darker(c: Rgb) -> Rgb {
         .unwrap_or(BLACK)
 }
 
-/// Firelight pulls a colour toward timber and structure — never toward
-/// foliage or stone blues, which read as a green cast. A dye keeps its
-/// own: a pink by the fire is still pink, where a brown would say the
-/// fire had dyed it.
 pub fn warm(c: Rgb) -> Rgb {
     if c == BLACK || bank_of(c) == Some(SIGNAL_BANK) || is_dye(c) {
         return c;
@@ -86,32 +74,22 @@ pub fn warm(c: Rgb) -> Rgb {
         .unwrap_or(c)
 }
 
-/// What an ink wears at dusk, `(from, to)`: every signal ink goes to a
-/// plain neighbour, so decoration never wears state, and the bright and
-/// saturated plain inks step one or two down their own bank. Inks not
-/// listed keep their colour. In order: a step's target is never a later
-/// step's source, so a picture swapped through the list never runs on.
 const DUSK_INKS: [(char, char); 30] = [
-    // timber: cream and gold down to oak, orange to umber, bottom first
     ('R', 'P'),
     ('o', 'r'),
     ('O', 'R'),
     ('t', 'o'),
     ('T', 'o'),
-    // structure and stone: the near-whites stop at a quiet grey
     ('H', 'h'),
     ('i', 'h'),
     ('v', 'U'),
     ('V', 'U'),
     ('W', 'v'),
     ('z', 'Q'),
-    // foliage: sunlit leaf down to the realm's own trees
     ('Y', 'M'),
     ('y', 'A'),
-    // the dyes: lilac and blush down to their own lavender and pink
     ('^', ']'),
     ('+', '%'),
-    // signal: lamps, heraldry and cloth to plain dyes
     ('0', 'S'),
     ('1', 'q'),
     ('2', 'U'),
@@ -129,15 +107,10 @@ const DUSK_INKS: [(char, char); 30] = [
     ('7', 'p'),
 ];
 
-/// `ch` at dusk (`DUSK_INKS`): its plain, quieter partner, or itself.
 pub fn dusk_ink(ch: char) -> char {
     DUSK_INKS.iter().find(|(from, _)| *from == ch).map_or(ch, |&(_, to)| to)
 }
 
-/// A finished picture at dusk (`DUSK_INKS`): a building on the kingdom map,
-/// a pavilion, the bunting round a yard. What it shows is scenery, so
-/// nothing in it lights up as if something were happening there. Once per
-/// picture: dusked twice, a step runs on.
 pub fn at_dusk(img: &Img) -> Img {
     img.recolor(&DUSK_INKS)
 }
@@ -168,7 +141,6 @@ fn tables() -> &'static Tables {
     })
 }
 
-/// `c` taken `n` steps down its bank.
 pub fn step_down(c: Rgb, n: usize) -> Rgb {
     match tables().chains.get(&c) {
         Some(chain) => chain[n.min(CHAIN - 1)],
@@ -180,18 +152,8 @@ fn warmed(c: Rgb) -> Rgb {
     tables().warm.get(&c).copied().unwrap_or(c)
 }
 
-/// How sharply a step gives way to the next across its fraction: the blots
-/// of `seam` fill only the middle part of the step, so a broad, calm
-/// change of light reads as one soft-edged patch rather than a field of
-/// blots.
 pub const SEAM_EDGE: f32 = 4.5;
 
-/// Where light gives way from one step to the next: a threshold in `0..1`
-/// for the fractional step at world pixel `(x, y)`. A field of soft blots
-/// some four pixels across (with only a whisper of the ordered dither at
-/// their edges), so the boundary between two steps wanders like light on a
-/// rough surface and a calm field falls into a few grouped patches, never
-/// an all-over checker. One 64-pixel tile, periodic, built once.
 pub fn seam(x: i32, y: i32) -> f32 {
     const N: i32 = 64;
     const CELL: i32 = 4;
@@ -214,11 +176,9 @@ pub fn seam(x: i32, y: i32) -> f32 {
             })
             .collect()
     });
-    // A power-of-two tile: the mask is the euclidean remainder, negatives too.
     field[((y & (N - 1)) * N + (x & (N - 1))) as usize]
 }
 
-/// `(total, firelight)` falling on a world point.
 pub fn light_at(lights: &[Light], x: f32, y: f32) -> (f32, f32) {
     let (mut sum, mut fire) = (0.0, 0.0);
     for li in lights {
@@ -239,8 +199,6 @@ pub fn light_at(lights: &[Light], x: f32, y: f32) -> (f32, f32) {
     (sum, fire)
 }
 
-/// The chain of steps the colour of the last pixel has: a run of one ink (a roof, a lawn, a wall)
-/// looks it up once.
 struct Memo {
     colour: Rgb,
     chain: Option<&'static [Rgb; CHAIN]>,
@@ -254,7 +212,6 @@ impl Memo {
         }
     }
 
-    /// `step_down(self.colour, n)`.
     fn down(&self, n: usize) -> Rgb {
         match self.chain {
             Some(chain) => chain[n.min(CHAIN - 1)],
@@ -263,31 +220,23 @@ impl Memo {
     }
 }
 
-/// The ambient's slow wander across a view, and what it makes of the light on a pixel no light
-/// reaches, both of which belong to the view and nothing else: a window that draws the same view at
-/// every step makes them once (`dusk_over`).
 pub struct DuskField {
     ox: i32,
     oy: i32,
     w: i32,
     h: i32,
     dapple: Vec<f32>,
-    /// For the ambient it was last made at (its bits): the steps a pixel takes where no light falls.
     calm: std::sync::Mutex<Option<(u32, std::sync::Arc<Vec<u8>>)>>,
 }
 
-/// How many steps down a pixel takes at light `level` where the blots of the seam give way at `th`.
 #[inline]
 fn step_count(level: f32, th: f32) -> usize {
-    // One step held across a calm field; where it gives way to the next the boundary wanders in
-    // soft blots (`seam`), never an all-over checker.
     let v = ((1.0 - level) * STEPS).max(0.0);
     let t = ((v.fract() - 0.5) * SEAM_EDGE + 0.5).clamp(0.0, 1.0);
     (v.floor() + if t > th { 1.0 } else { 0.0 }) as usize
 }
 
 impl DuskField {
-    /// The field of the `w` by `h` view whose top-left sits at world pixel `(ox, oy)`.
     pub fn new(ox: i32, oy: i32, w: i32, h: i32) -> DuskField {
         let mut dapple = Vec::with_capacity((w.max(0) * h.max(0)) as usize);
         for y in 0..h {
@@ -300,12 +249,10 @@ impl DuskField {
         DuskField { ox, oy, w, h, dapple, calm: std::sync::Mutex::new(None) }
     }
 
-    /// Whether this is the field of that view.
     fn fits(&self, (ox, oy): (i32, i32), w: i32, h: i32) -> bool {
         (self.ox, self.oy, self.w, self.h) == (ox, oy, w, h)
     }
 
-    /// The steps each pixel takes at `ambient` where no light falls on it (`local` is nothing).
     fn calm(&self, ambient: f32) -> std::sync::Arc<Vec<u8>> {
         use std::sync::Arc;
         let bits = ambient.to_bits();
@@ -331,7 +278,6 @@ impl DuskField {
     }
 }
 
-/// Light a view whose top-left sits at world pixel `(ox, oy)`.
 pub fn dusk(
     cv: &mut Img,
     realm: &Realm,
@@ -342,7 +288,6 @@ pub fn dusk(
     dusk_over(cv, realm, lights, origin, ambient, None);
 }
 
-/// [`dusk`] with the view's [`DuskField`] when it has one kept; without, each pixel works out its own.
 pub fn dusk_over(
     cv: &mut Img,
     realm: &Realm,
@@ -353,7 +298,6 @@ pub fn dusk_over(
 ) {
     let field = field.filter(|f| f.fits((ox, oy), cv.w, cv.h));
     let calm = field.map(|f| f.calm(ambient));
-    // Only lights whose reach touches this view.
     let (w, h) = (cv.w as f32, cv.h as f32);
     let lights: Vec<Light> = lights
         .iter()
@@ -365,9 +309,6 @@ pub fn dusk_over(
                 && li.y - li.r < oy as f32 + h
         })
         .collect();
-    // The lights a row is within reach of, with how far each is from it (what `light_at` works out
-    // first for every light and pixel, and skips a light on): the same lights in the same order, so
-    // every sum is the one `light_at` makes.
     let mut row_lights: Vec<(Light, f32)> = Vec::with_capacity(lights.len());
     let mut memo: Option<Memo> = None;
     for y in 0..cv.h {
@@ -404,8 +345,6 @@ pub fn dusk_over(
                     }
                     let Some(held) = memo.as_ref() else { continue };
                     let at = (y * cv.w + x) as usize;
-                    // No light falls here (`local` and `fire` still nothing): the steps are the
-                    // view's own, kept.
                     if let Some(calm) = calm.as_ref().filter(|_| local == 0.0 && fire == 0.0) {
                         cv.set(x, y, held.down(usize::from(calm[at])));
                         continue;
@@ -418,7 +357,6 @@ pub fn dusk_over(
                     let th = seam(wx, wy);
                     let steps = step_count(level, th);
                     if fire > 0.16 + th * 0.24 {
-                        // Firelight pulls the colour toward timber first, then it steps down.
                         cv.set(x, y, step_down(warmed(c), steps));
                     } else {
                         cv.set(x, y, held.down(steps));
@@ -439,9 +377,6 @@ pub fn dusk_over(
     }
 }
 
-/// How many steps down the rim of a `w` by `h` field takes each pixel, below row `top`: the picture
-/// of a vignette, which depends on the size and nothing else, so a window that draws the same size
-/// every step works it out once.
 fn vignette_steps(w: i32, h: i32, top: i32) -> std::sync::Arc<Vec<u8>> {
     use std::sync::{Arc, Mutex};
     type Held = Vec<((i32, i32, i32), Arc<Vec<u8>>)>;
@@ -473,10 +408,8 @@ fn vignette_steps(w: i32, h: i32, top: i32) -> std::sync::Arc<Vec<u8>> {
     steps
 }
 
-/// Dim the rim of the play field below `top`: the eye settles in the middle.
 pub fn vignette(f: &mut Img, top: i32) {
     let (w, h) = (f.w, f.h);
-    // A field too big for a window's frame (the whole realm, baked once) works its rim out as it goes.
     if i64::from(w) * i64::from(h) > 4_000_000 {
         let (wf, hf) = (w as f32, (h - top) as f32);
         for y in top..h {

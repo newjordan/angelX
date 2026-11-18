@@ -114,7 +114,6 @@ fn all_three_boosts_have_exact_thresholds_sizes_and_durations() {
     for (i, &threshold) in CHARGE_TICKS.iter().enumerate() {
         let mut r = Rider::new(20.0, 0.0, 1);
         r.vs = 12.0;
-        // Third gear runs to 14 and pulls at the plain rate.
         r.drift.gear = 2;
         r.drift.charge = threshold - 1;
         assert_eq!(r.drift.stage(), i);
@@ -216,9 +215,7 @@ fn four_drift_bots_complete_and_replay_byte_for_byte() {
         race.riders.values().all(|r| r.finish.is_some()),
         "bots finish before the race clock"
     );
-    // Gears, pads and the bigger boosts took a lap from 60-90 s to ~50 s.
     assert!(first_laps.iter().all(|t| (40..=80).contains(&t.unwrap())));
-    // Catch-up keeps the field together: home within a few seconds.
     let homes: Vec<u32> = race.riders.values().map(|r| r.finish.unwrap()).collect();
     assert!(homes.iter().max().unwrap() - homes.iter().min().unwrap() <= 5 * HZ, "{homes:?}");
     assert!(stages.iter().all(|&n| n > 0));
@@ -315,7 +312,6 @@ fn space_and_e_at_the_coach_board_before_a_dodge_leaves_the_plate() {
     let room = world::room_of(&run.dungeon, RoomKind::Hippodrome).unwrap();
     let (c, r, _, _) = hippodrome::COACH;
     run.arrive(room, (c as f32 + 0.5, r as f32 + 0.5));
-    // Arrival spreads the party sideways; the driver walks onto the plate.
     let hero = run.players.get_mut(&1).unwrap();
     hero.x = (c as f32 + 0.5) * TILE_UNITS;
     hero.y = (r as f32 + 0.5) * TILE_UNITS;

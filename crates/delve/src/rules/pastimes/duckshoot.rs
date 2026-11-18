@@ -7,8 +7,6 @@ use super::{Game, Round};
 use crate::rules::{Input, MAX_PLAYERS};
 use serde::{Deserialize, Serialize};
 
-/// One rail: lane position in 256ths of a tile from the booth's centre, the
-/// signed slide speed, and the knocked-over clock (0 = standing proud).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Duck {
     pub x: i16,
@@ -17,30 +15,23 @@ pub struct Duck {
 }
 
 pub const LANE: i16 = 1800;
-/// Rails at 14, 20 and 26 tiles out, ducks at chest, chin and crown height.
 pub const RAIL_Y: [f32; 3] = [14.0, 20.0, 26.0];
 pub const RAIL_Z: [f32; 3] = [1.5, 2.2, 2.8];
-/// The counter camera: eye height, canvas focal length (78° across 384px).
 pub const EYE_Z: f32 = 4.5;
 pub const FOCAL: f32 = 237.0;
-/// Each rail's lane-to-screen scale and screen height, fixed by the camera.
 pub const RAIL_K: [i32; 3] = [17, 12, 9];
 pub const RAIL_SY: [i32; 3] = [163, 139, 128];
-/// Hit boxes in pixels: generous near, honest far.
 pub const HIT_W: [i32; 3] = [10, 8, 7];
 pub const HIT_H: [i32; 3] = [12, 10, 9];
-/// A knocked duck lies about while the barker reassures it, then stands.
 pub const DOWN_RESET: u8 = 30;
 pub const MAX_SHOTS: u8 = 40;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DuckShoot {
     pub owner: u32,
-    /// The crosshair, in stage pixels: the same numbers the painter stamps.
     pub ax: i16,
     pub ay: i16,
     pub shots: u8,
-    /// Ticks of muzzle flash left.
     pub flash: u8,
     pub ducks: [Duck; 3],
 }
@@ -89,13 +80,10 @@ impl DuckShoot {
             && round.game == Game::DuckShoot
     }
 
-    /// A rail's lane position on screen: the painter's arithmetic, in ints.
     pub fn screen_x(lane: i16, rail: usize) -> i32 {
         192 + i32::from(lane) * RAIL_K[rail] / 256
     }
 
-    /// One tick: slide the rails, swing the gun, and on a tap, take the shot.
-    /// `Some(rail)` = a duck on that rail is knocked over this tick.
     pub fn step(&mut self, input: Input, tapped: bool) -> Option<usize> {
         let (ax, ay) = (
             if input.aim_x != 0 {
@@ -125,8 +113,6 @@ impl DuckShoot {
                 duck.down = (duck.down + 1).min(DOWN_RESET);
                 if duck.down == DOWN_RESET {
                     duck.down = 0;
-                    // It stands again facing the way it was going, dignity
-                    // intact, at the rail's edge.
                     duck.x = if duck.vx < 0 { LANE } else { -LANE };
                 }
             }

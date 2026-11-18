@@ -11,8 +11,6 @@ pub struct Heat {
     pub heat: u8,
     pub pick: u8,
     pub elapsed: u32,
-    /// How the field runs this heat, drawn from the run's seed when it
-    /// starts; none in a heat saved before the draw (it runs as it did).
     #[serde(default)]
     pub draw: Option<u8>,
 }
@@ -22,14 +20,10 @@ impl Heat {
     }
     pub fn draw(&self) -> u8 { self.draw.unwrap_or(self.heat % 3) }
 }
-/// How heat `heat` of this run is drawn: its own seeded roll, apart from the
-/// run's generator, so the same save always runs the same race.
 pub fn draw(seed: u64, raid_id: u64, heat: u8) -> u8 {
     Rng::new(seed ^ raid_id.rotate_left(29) ^ (u64::from(heat) + 1).rotate_left(47) ^ 0x7761_6765_7200)
         .below(3) as u8
 }
-/// All clients draw the same official race. Heats vary; contestants trade the
-/// lead before the final stretch. The host recomputes results, never trusts F.
 pub fn distance(draw: u8, racer: u8, tick: u32) -> u32 {
     let tick = tick.min(HEAT_TICKS);
     let role = (racer + 3 - draw % 3) % 3;
@@ -39,8 +33,6 @@ pub fn distance(draw: u8, racer: u8, tick: u32) -> u32 {
 pub fn winner(draw: u8) -> u8 {
     (0..3).max_by_key(|&i|distance(draw,i,HEAT_TICKS)).unwrap()
 }
-/// The winner a heat's finish mark records: 2 to 4 name the rival; a 1 from
-/// an older save is the race as it was always run.
 pub fn finished(heat: usize, mark: u32) -> u8 {
     if (2..=4).contains(&mark) { (mark - 2) as u8 } else { winner(heat as u8 % 3) }
 }
@@ -56,8 +48,6 @@ impl Run {
             return;
         }
         if let Some(mut race)=self.pastimes.wager.take() {
-            // Observe releases while the spectacle runs, so the next heat
-            // accepts a fresh tap without requiring an extra idle frame.
             self.pastimes.wager_key=self.pastimes.wager_owner.and_then(|id|inputs.get(&id))
                 .is_some_and(|i|i.valid() && i.interact);
             race.elapsed += 1;
@@ -69,11 +59,7 @@ impl Run {
             return;
         }
         let Some(heat)=next(&self.home.countryside) else {return;};
-        // A completed but not yet saved heat cannot be raced or charged again.
         if self.marks.contains_key(WAGER_MARKS[heat+3]) {return;}
-        // An idle knight at the shared booth must not swallow a friend's
-        // controls. Prefer the lowest-id active visitor; retain deterministic
-        // selection when nobody is pressing a valid control.
         let visitors=||self.players.iter().filter(|(_,h)| h.hp>0 && !h.stone && h.privy==0
             && (h.x-BOOTH.0*TILE_UNITS).hypot(h.y-BOOTH.1*TILE_UNITS)<1.4).map(|(&id,_)|id);
         let owner=visitors().find(|id|inputs.get(id).is_some_and(|i|i.valid()

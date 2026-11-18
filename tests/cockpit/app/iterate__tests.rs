@@ -39,32 +39,24 @@ fn normalize_collapses_cosmetic_differences() {
 
 #[test]
 fn bullet_recognizes_every_marker_and_rejects_non_bullets() {
-    // Dash, star, and the unicode bullet all yield their trimmed content.
     assert_eq!(bullet("- dash item").as_deref(), Some("dash item"));
     assert_eq!(bullet("* star item").as_deref(), Some("star item"));
     assert_eq!(bullet("• unicode item").as_deref(), Some("unicode item"));
-    // Numbered with `.` or `)` separators.
     assert_eq!(bullet("1. first").as_deref(), Some("first"));
     assert_eq!(bullet("42) forty-two").as_deref(), Some("forty-two"));
-    // An empty bullet (marker but no content) is not a finding.
     assert_eq!(bullet("- "), None);
     assert_eq!(bullet("3. "), None);
-    // A bare number with no separator, and plain prose, are not bullets.
     assert_eq!(bullet("3 apples"), None);
     assert_eq!(bullet("just a sentence"), None);
-    // A dash with no trailing space is not a bullet marker.
     assert_eq!(bullet("-no-space"), None);
 }
 
 #[test]
 fn parse_iteration_is_case_insensitive_on_direction_and_lenient_on_findings() {
-    // Lowercase `direction:` header still parses (strip_prefix_ci), and a
-    // FINDINGS header line is never itself captured as a finding.
     let out = "direction: lower header\nFINDINGS:\n1. one\n2) two";
     let (dir, found, _) = parse_iteration_sections(out);
     assert_eq!(dir, "lower header");
     assert_eq!(found, vec!["one".to_string(), "two".to_string()]);
-    // No DIRECTION line at all → empty direction, findings still collected.
     let (dir2, found2, _) = parse_iteration_sections("- only a finding");
     assert_eq!(dir2, "");
     assert_eq!(found2, vec!["only a finding".to_string()]);
@@ -84,11 +76,8 @@ fn parse_iteration_does_not_panic_on_non_ascii_leading_text() {
 
 #[test]
 fn normalize_strips_punctuation_and_empties_punctuation_only() {
-    // Surrounding punctuation is trimmed, case folded, and whitespace collapsed.
     assert_eq!(normalize("  ...Foo   Bar...  "), "foo bar");
     assert_eq!(normalize("**Bold**"), "bold");
-    // A single punctuation-only token collapses to the empty key (no finding).
-    // (trim_matches only strips the ends, so use a token with no inner space.)
     assert_eq!(normalize("!!!---"), "");
     assert_eq!(normalize("   "), "");
 }
@@ -99,9 +88,7 @@ fn finding_claim_strips_the_evidence_tag_for_dedup() {
         finding_claim("the TTL is unbounded [evidence: file:src/a.rs:3]"),
         "the TTL is unbounded"
     );
-    // No tag → the whole trimmed line is the claim.
     assert_eq!(finding_claim("  bare claim  "), "bare claim");
-    // The same claim with two different citations dedups to one key.
     assert_eq!(
         normalize(finding_claim("same claim [evidence: file:a.rs:1]")),
         normalize(finding_claim("Same claim. [evidence: file:b.rs:9]"))
@@ -114,8 +101,6 @@ fn evidence_source_extracts_tag_contents_case_insensitively() {
         evidence_source("c [evidence: file:src/a.rs:3]").unwrap(),
         "file:src/a.rs:3"
     );
-    // The header match is case-insensitive but the returned source keeps
-    // its original casing (paths are case-sensitive on Linux).
     assert_eq!(
         evidence_source("c [EVIDENCE: File:Src/A.rs]").unwrap(),
         "File:Src/A.rs"
@@ -127,7 +112,6 @@ fn evidence_source_extracts_tag_contents_case_insensitively() {
 
 #[test]
 fn has_evidence_tag_admits_named_kinds_and_rejects_the_rest() {
-    // Every enumerated kind with real content is admissible.
     for kind in GROUNDED_EVIDENCE_KINDS {
         let finding = format!("claim [evidence: {kind}some/real/source]");
         assert!(
@@ -135,7 +119,6 @@ fn has_evidence_tag_admits_named_kinds_and_rejects_the_rest() {
             "{kind} with content must be admissible"
         );
     }
-    // Placeholders are not evidence.
     for placeholder in ["none", "N/A", "unknown", "TODO", "<source>"] {
         assert!(
             !has_evidence_tag(
@@ -145,12 +128,10 @@ fn has_evidence_tag_admits_named_kinds_and_rejects_the_rest() {
             "{placeholder} must not count as evidence"
         );
     }
-    // A tag naming no recognized kind is not a checkable citation.
     assert!(!has_evidence_tag(
         "claim [evidence: I am fairly confident]",
         EvidenceRegime::Grounded
     ));
-    // A recognized kind with nothing meaningful after it is not either.
     assert!(!has_evidence_tag(
         "claim [evidence: file:]",
         EvidenceRegime::Grounded
@@ -159,7 +140,6 @@ fn has_evidence_tag_admits_named_kinds_and_rejects_the_rest() {
         "claim [evidence: file:ab]",
         EvidenceRegime::Grounded
     ));
-    // A bare assertion with no tag at all.
     assert!(!has_evidence_tag(
         "the cache is slow",
         EvidenceRegime::Grounded
@@ -178,13 +158,9 @@ fn numbered_one_indexes_each_item() {
 #[test]
 fn curated_prompt_says_none_yet_when_empty() {
     let p = curated_prompt("solve", &[], &[], &[], false, EvidenceRegime::Grounded);
-    // The labels are `⠘⠋` page addresses: Problem, Findings so far ({n}),
-    // Open leads ({n}), Directions already tried, none yet.
     assert!(p.contains("⠘⠋⠃ n=0"), "{p}");
-    // Both the findings and directions sections fall back to "none yet".
     assert_eq!(p.matches("⠘⠋⠑").count(), 2, "{p}");
     assert!(p.contains("⠘⠋⠁\nsolve"), "{p}");
-    // With no open leads the section is omitted entirely, not shown empty.
     assert!(!p.contains("⠘⠋⠉"), "{p}");
 }
 
@@ -200,8 +176,6 @@ fn curated_prompt_shows_open_leads_as_explicitly_unverified() {
     );
     assert!(p.contains("⠘⠋⠉ n=1"), "{p}");
     assert!(p.contains("1. the allocator may be hot"));
-    // The grounded worker reads the lead framing off `⠻⠉`: a lead never reads
-    // as an established finding, and confirming one counts as progress.
     let leads = crate::agent::harness::book::er_loop::OPEN_LEADS;
     assert!(p.contains(&leads.cells()), "{p}");
     let pages = leads.sub().pages.join(" ");

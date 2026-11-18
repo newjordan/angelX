@@ -12,7 +12,6 @@ use crate::rules::{Input, Run, bosses, phrasebook};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-/// The pink dye's inks, deep to pale.
 const PINKS: [char; 5] = ['!', '?', ';', '%', '+'];
 
 #[test]
@@ -21,7 +20,6 @@ fn the_lawn_flamingo_is_pink() {
     let inks: Vec<char> = flamingo.art.iter().flat_map(|r| r.chars()).filter(|&c| c != '.').collect();
     let pink = inks.iter().filter(|c| PINKS.contains(c)).count();
     assert!(pink * 10 >= inks.len() * 7, "{pink} of {} pink", inks.len());
-    // No signal ink dresses it: its colour is cloth, not a cue.
     assert!(inks.iter().all(|&c| !ink::is_signal(ink::ink(c).unwrap())), "{inks:?}");
 }
 
@@ -53,7 +51,6 @@ fn purple_and_pink_words_burn_down_the_dyes() {
     }
 }
 
-/// A wish that is only a colour, its look drawn over the whole body.
 fn colour_wish(name: &str, rows: &[&str]) -> crate::rules::cards::Card {
     let text = format!("name {name}\nkind hold\nmax_hp 10\ndraw worn at=body\n{}\n", rows.join("\n"));
     let card = crate::rules::cards::check("colour", &text).unwrap_or_else(|r| panic!("{:?}", r.errors)).card;
@@ -63,20 +60,15 @@ fn colour_wish(name: &str, rows: &[&str]) -> crate::rules::cards::Card {
 
 #[test]
 fn a_colour_wished_purple_or_pink_wears_its_dye() {
-    // "Bright Pink" drawn before there was a pink, in coral and cream.
     let old = colour_wish("Bright Pink", &[".7777.", "7cccc7", "7c99c7", ".7777."]);
     let ramp = wear::dye_ramp(&old).expect("a pink wish drawn without its pink");
     assert!(ramp.iter().all(|&c| dye_bank(c) == Some(PINK_BANK)));
-    // Drawn in the dye already, it keeps its own drawing.
     assert!(wear::dye_ramp(&colour_wish("Bright Pink", &["%%;;", "++%%"])).is_none());
-    // A pale one keeps the light end, a deep one the dark end.
     let pale = wear::dye_ramp(&colour_wish("Pale Lilac", &["hh"])).unwrap();
     let deep = wear::dye_ramp(&colour_wish("Deep Purple", &["hh"])).unwrap();
     assert!(pale.iter().all(|&c| dye_bank(c) == Some(VIOLET_BANK)) && !pale.contains(&rgb(VIOLET[0])));
     assert!(deep.iter().all(|&c| dye_bank(c) == Some(VIOLET_BANK)) && !deep.contains(&rgb(VIOLET[5])));
-    // A colour that is no dye wears its drawing.
     assert!(wear::dye_ramp(&colour_wish("Bright Green", &["ll"])).is_none());
-    // Over a body, every pixel off the face is the dye.
     let body = Img::from_rows(&["hhhhhhhh", "hhhhhhhh", "JJJJJJJJ", "JJJJJJJJ", "GGGGGGGG", "GGGGGGGG", "jjjjjjjj", "jjjjjjjj"]);
     let fit = crate::rules::looks::Body::human((0, 0), (8, 8));
     let tinted = wear::tinted(&body, &old, fit);
@@ -84,13 +76,10 @@ fn a_colour_wished_purple_or_pink_wears_its_dye() {
     assert!(pinks >= 48, "{pinks} of 64 pink");
 }
 
-// ─── the shots ───────────────────────────────────────────────────────────────
-
 fn save(img: &Img, k: u32, path: &std::path::Path) {
     image::RgbaImage::from_raw(img.w as u32 * k, img.h as u32 * k, img.rgba_scaled(k)).unwrap().save(path).unwrap();
 }
 
-/// The window round arena point `at`, in native pixels.
 fn crop(run: &Run, at: (f32, f32), (w, h): (i32, i32)) -> Img {
     let img = frame_for(run, NATIVE_W, NATIVE_H, Some(1));
     let (ox, oy) = view_origin(run, Some(1));
@@ -100,8 +89,6 @@ fn crop(run: &Run, at: (f32, f32), (w, h): (i32, i32)) -> Img {
     Img::from_view(&img, x0, y0, w, h)
 }
 
-/// Every bank as a strip of swatches, the realm's five over the two dyes,
-/// each ink's character under its colour.
 fn swatches() -> Img {
     const CELL: i32 = 22;
     let banks: [(&str, &str); 7] = [
@@ -126,8 +113,6 @@ fn swatches() -> Img {
     im
 }
 
-/// A fight room with three skeletons east of the knight, who stands west
-/// of the middle facing them, kept on their marks between frames.
 fn range() -> Run {
     let mut run = Run::new(11, 1, Some("Knight"));
     let i = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
@@ -166,7 +151,6 @@ fn step_with(run: &mut Run, input: Input) {
     run.step(&BTreeMap::from([(1, input)]));
 }
 
-/// The wishes the shots grant, in players' words.
 const WISHES: &str = "\
 wish purple-drank-armor | Purple Drank Armor
 say purple drank armor
@@ -227,7 +211,6 @@ fn write_dye_shots() {
     std::fs::create_dir_all(&dir).unwrap();
     save(&swatches(), 3, &dir.join("01-swatches.png"));
 
-    // The Lawn Flamingo beside a knight.
     let mut boss = Run::new(41, 1, None);
     boss.enemies.clear();
     let at = boss.flamingo().unwrap();
@@ -245,7 +228,6 @@ fn write_dye_shots() {
     sheet.stamp(&foe_material::dress(&art, EnemyKind::Boss), 44, 4);
     save(&sheet, 6, &dir.join("02-flamingo-art.png"));
 
-    // Purple drank armour on the knight, and a pink wished over a body.
     let mut run = range();
     grant(&mut run, "purple-drank-armor", 3);
     let (me, _) = marks(&run);
@@ -255,7 +237,6 @@ fn write_dye_shots() {
     grant(&mut run, "bright-pink", 1);
     save(&crop(&run, me, (96, 64)), 6, &dir.join("04-bright-pink.png"));
 
-    // An arcane spell, cast and landing.
     let mut run = range();
     grant(&mut run, "arcane-nova", 1);
     if let Some(slot) = run.players[&1].spells.iter().position(Option::is_some) {
@@ -270,7 +251,6 @@ fn write_dye_shots() {
         }
     }
 
-    // Wished arms in purple and pink words, firing.
     for (id, name) in [("lavender-bolts", "06-lavender-bolts"), ("magenta-hearts", "07-magenta-hearts"), ("purple-drank-armor", "08-purple-drank-shots")] {
         let mut run = range();
         grant(&mut run, id, 3);
@@ -284,7 +264,6 @@ fn write_dye_shots() {
         }
     }
 
-    // The mirror's new cloth and hair on three knights in the tavern.
     let mut r = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
     r.join_seat(3, "Seat 3");
     r.players.retain(|&id, _| id <= 3);
@@ -307,7 +286,6 @@ fn write_dye_shots() {
     r.step(&BTreeMap::new());
     let (x, y) = (r.players[&ids[1]].x, r.players[&ids[1]].y);
     save(&crop(&r, (x, y), (112, 64)), 5, &dir.join("09-mirror-colours.png"));
-    // Every cloth and hair the mirror has, the dyes' last, one knight each.
     let mut sheet = Img::black(11 * 20, 2 * 30);
     let hero = r.players[&ids[0]].clone();
     for n in 0..11u8 {

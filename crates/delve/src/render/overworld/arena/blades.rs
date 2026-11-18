@@ -12,35 +12,24 @@
 use super::super::ink::Img;
 use crate::rules::Hero;
 
-/// What a knight swings: the rules' own reading of the arm
-/// (`rules::melee::Blade`), so a stroke sounds as the arm it draws.
 pub(super) use crate::rules::melee::Blade as Arm;
 
-/// Whether the figure a knight is drawn as already carries its melee arm
-/// in its own strike (a champion, the Swordsman, the Berserker, the
-/// Gravecaller): their swing draws only the slash, never a second blade.
 pub(super) fn drawn_by_body(hero: &Hero) -> bool {
     use super::class_looks::Look;
     crate::rules::champions::of(hero).is_some()
         || matches!(Look::of(hero), Some(Look::Swordsman | Look::Berserker | Look::Gravecaller))
 }
 
-/// One pixel of the arm, kept within the canvas.
 fn dot(cv: &mut Img, (x, y): (f32, f32), ink: char) {
     cv.put(x.round() as i32, y.round() as i32, ink);
 }
 
-/// The arm `arm` from the hand at `hand` toward `dir` (any length), its
-/// tip `len` pixels out, on `cv`. `lit`: the blade catching the light, as
-/// it does mid-swing.
 pub(super) fn draw(cv: &mut Img, arm: Arm, hand: (f32, f32), dir: (f32, f32), len: f32, lit: bool) {
     let n = dir.0.hypot(dir.1);
     if n <= 0.0 || len < 3.0 {
         return;
     }
     let (ux, uy) = (dir.0 / n, dir.1 / n);
-    // Across the arm: `up` is the side facing up the picture, where the
-    // edge catches the light.
     let (mut px, mut py) = (-uy, ux);
     if py > 0.0 || (py == 0.0 && px < 0.0) {
         (px, py) = (-px, -py);
@@ -53,9 +42,6 @@ pub(super) fn draw(cv: &mut Img, arm: Arm, hand: (f32, f32), dir: (f32, f32), le
     let edge = if lit { 'W' } else { 'V' };
     match arm {
         Arm::Sword => {
-            // Pommel and grip behind the hand, the guard across just ahead
-            // of it, then the blade: an edge, a core and a dark flat, to a
-            // bright point.
             let wide = len >= 10.0;
             dot(cv, at(-2.5, 0.0), 'O');
             for t in steps(-1.5, 0.5) {
@@ -75,7 +61,6 @@ pub(super) fn draw(cv: &mut Img, arm: Arm, hand: (f32, f32), dir: (f32, f32), le
             dot(cv, at(len, 0.0), 'W');
         }
         Arm::Spear => {
-            // A long haft, a collar, a leaf point.
             for t in steps(-3.0, len - 3.5) {
                 dot(cv, at(t, 0.0), if (t as i32) % 3 == 0 { 'R' } else { 'r' });
             }
@@ -89,8 +74,6 @@ pub(super) fn draw(cv: &mut Img, arm: Arm, hand: (f32, f32), dir: (f32, f32), le
             dot(cv, at(len + 0.6, 0.0), 'W');
         }
         Arm::Axe => {
-            // The haft, and a bearded head off its far end: the edge is the
-            // head's outer curve, a spike behind.
             for t in steps(-2.0, len) {
                 dot(cv, at(t, 0.0), if (t as i32) % 3 == 0 { 'R' } else { 'r' });
             }
@@ -106,7 +89,6 @@ pub(super) fn draw(cv: &mut Img, arm: Arm, hand: (f32, f32), dir: (f32, f32), le
             dot(cv, at(head - 0.5, 1.2), 'u');
         }
         Arm::Maul => {
-            // A heavy haft, and an iron block across its end, lit on top.
             for t in steps(-2.0, len - 2.0) {
                 dot(cv, at(t, 0.0), 'r');
                 dot(cv, at(t, -0.6), 'B');
@@ -121,7 +103,6 @@ pub(super) fn draw(cv: &mut Img, arm: Arm, hand: (f32, f32), dir: (f32, f32), le
             dot(cv, at(len, 2.5), 'W');
         }
         Arm::Cleaver => {
-            // A short grip, then a slab hanging off one side of the spine.
             for t in steps(-1.5, 1.0) {
                 dot(cv, at(t, 0.0), 'B');
             }

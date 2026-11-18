@@ -5,37 +5,24 @@
 use super::folk::Folk;
 use serde::{Deserialize, Serialize};
 
-/// What a villager is saying to a knight.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Topic {
-    /// Small talk by the part of the day: 0 morning, 1 afternoon, 2 evening, 3 night.
     Hello(u8),
-    /// The ask itself, heard for the first time or again.
     Request,
-    /// They hand something over.
     Give,
-    /// They take something and pay for it.
     Thanks,
-    /// The favour is already done.
     Done,
-    /// Not yet: the reason, by number.
     Nag(u8),
-    /// A proclamation or the verse; by number.
     Cry(u8),
 }
 
-/// What the choice of words may lean on.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Ctx {
-    /// Times the town has been rewound.
     pub loops: u32,
-    /// Favours done beside the speaker's own.
     pub ticks: u32,
-    /// Hours until a pass is ready, if one is being written.
     pub wait_hours: u32,
 }
 
-/// The part of the day an hour of the clock falls in.
 pub fn band(hour: u32) -> u8 {
     match hour {
         6..=11 => 0,
@@ -47,7 +34,6 @@ pub fn band(hour: u32) -> u8 {
 
 pub fn lines(folk: Folk, topic: Topic, ctx: Ctx) -> Vec<String> {
     let v: Vec<&str> = match (folk, topic) {
-        // ---- Mira, who writes the town down --------------------------------
         (Folk::Mira, Topic::Hello(0)) => vec!["GOOD MORNING. I WRITE THE TOWN DOWN.", "YOU WRITE IT DOWN TOO; PRESS Q."],
         (Folk::Mira, Topic::Hello(1)) => vec!["THE LAMPS WAIT FOR DUSK.", "SO DO I. IT IS A GOOD WAIT."],
         (Folk::Mira, Topic::Hello(2)) => vec!["MIND THE WICKS. THE GLOAM LIKES AN OPEN FLAME.", "STAND NEAR A LIGHT AND IT STAYS LIT."],
@@ -77,7 +63,6 @@ pub fn lines(folk: Folk, topic: Topic, ctx: Ctx) -> Vec<String> {
             "NORTH, SOUTH AND THE WELL, ALL AT ONCE.",
             "LIGHT THEM AT MIDNIGHT. THE MOON WILL THINK AGAIN.",
         ],
-        // ---- Pella, who cries the hours ------------------------------------
         (Folk::Pella, Topic::Hello(0)) => vec!["BELLS AT THE HOUR, KNIGHT. I CRY THE REST.", "MIND THE PODIUM; IT HAS OPINIONS."],
         (Folk::Pella, Topic::Hello(1)) => vec!["NOON WAS A GOOD ONE.", "I HAD NO COLD AND THE PIGEONS KEPT QUIET."],
         (Folk::Pella, Topic::Hello(2)) => vec!["DUSK IS MY FAVOURITE CRY.", "EVERYONE LISTENS, AND NOBODY IS LATE."],
@@ -102,7 +87,6 @@ pub fn lines(folk: Folk, topic: Topic, ctx: Ctx) -> Vec<String> {
             "SOMEONE KIND SHOULD SEE TO IT.",
         ],
         (Folk::Pella, Topic::Cry(_)) => vec!["THREE TOWERS, ONE MIDNIGHT.", "THE MOON FALLS AT SIX. WE HAVE LONGER THAN WE FEAR."],
-        // ---- Nessa, who bakes and forges -----------------------------------
         (Folk::Nessa, Topic::Hello(0)) => vec!["BREAD'S UP. THE OVEN IS COLD, THOUGH.", "LONG STORY. MOSTLY DAMP."],
         (Folk::Nessa, Topic::Hello(1)) => vec!["HAMMER OR LADLE, IT IS ALL THE SAME HEAT.", "ONE OF THEM TASTES BETTER."],
         (Folk::Nessa, Topic::Hello(2)) => vec!["BANKING THE OVEN. A LOAF FOR THE ROAD?", "NO? SENSIBLE. THE ROAD HAS ENOUGH LOAVES."],
@@ -123,7 +107,6 @@ pub fn lines(folk: Folk, topic: Topic, ctx: Ctx) -> Vec<String> {
         (Folk::Nessa, Topic::Nag(2)) => vec!["THESE ARE GREEN. THEY WANT TWELVE HOURS", "IN THE HAND TO GO DRY. TRY AGAIN LATER."],
         (Folk::Nessa, Topic::Nag(_)) => vec!["I TAKE KINDLING ON THE SECOND MORNING ONLY,", "BETWEEN HALF PAST EIGHT AND TEN."],
         (Folk::Nessa, Topic::Cry(_)) => vec!["MIND THE FORGE. IT FORGIVES NOBODY."],
-        // ---- Orin, who lost his ink ----------------------------------------
         (Folk::Orin, Topic::Hello(0)) => vec!["MY INK POT... IT WAS RIGHT HERE.", "IT WAS RIGHT HERE YESTERDAY."],
         (Folk::Orin, Topic::Hello(1)) => vec!["A SCRIBE WITHOUT INK IS A MAN WITH OPINIONS.", "I HAVE MANY OPINIONS."],
         (Folk::Orin, Topic::Hello(2)) => vec!["SUPPER! THE BAKER NEVER ASKS WHAT I'VE LOST."],
@@ -151,7 +134,6 @@ pub fn lines(folk: Folk, topic: Topic, ctx: Ctx) -> Vec<String> {
         (Folk::Orin, Topic::Nag(1)) => vec!["THE POT? I BOUGHT ANOTHER, AND A SPARE.", "THE FIRST MORNING WAS THE TIME FOR IT."],
         (Folk::Orin, Topic::Nag(_)) => vec!["THE PASS SMUDGED WHILE IT WAITED.", "A PASS KEEPS ITS INK TWO HOURS, NO MORE."],
         (Folk::Orin, Topic::Cry(_)) => vec!["I SMELL INK. A THEFT, OR A MIRACLE."],
-        // ---- Tovin, who keeps the bridge -----------------------------------
         (Folk::Tovin, Topic::Hello(0)) => vec!["BRIDGE IS DOWN. DON'T LET IT GO UP", "WITH YOU ON IT."],
         (Folk::Tovin, Topic::Hello(1)) => vec!["THE NORTH TOWER'S KEY HANGS ON MY BELT.", "NOT FOR EVERYONE."],
         (Folk::Tovin, Topic::Hello(2)) => vec!["BRIDGE GOES UP AT EIGHT.", "ALWAYS HAS. ALWAYS WILL."],
@@ -165,7 +147,6 @@ pub fn lines(folk: Folk, topic: Topic, ctx: Ctx) -> Vec<String> {
         (Folk::Tovin, Topic::Done) => vec!["THE KEY IS YOURS TO KEEP.", "I'LL KEEP THE BRIDGE TILL EIGHT."],
         (Folk::Tovin, Topic::Nag(_)) => vec!["THE KEYS ARE AIRED ON THE SECOND DAY, AFTER FIVE.", "COME THEN, WITH THE PASS."],
         (Folk::Tovin, Topic::Cry(_)) => vec!["CLOSE UP. THE GLOAM LIKES AN OPEN GATE."],
-        // ---- Aster, who rides with oil -------------------------------------
         (Folk::Aster, Topic::Hello(_)) | (Folk::Aster, Topic::Request) => vec![
             "MY HORSE HAS LOST A SHOE. THE OIL IS HEAVY",
             "AND THE WELL IS FAR. A HORSESHOE, IF YOU HAVE ONE?",
@@ -177,7 +158,6 @@ pub fn lines(folk: Folk, topic: Topic, ctx: Ctx) -> Vec<String> {
         (Folk::Aster, Topic::Cry(_)) => vec!["THE ROAD WAS EMPTY. THE SKY WAS NOT."],
     };
     let mut out: Vec<String> = v.into_iter().map(String::from).collect();
-    // Round again, and they half remember.
     if matches!(topic, Topic::Hello(_)) && ctx.loops > 0 {
         out.push(again(folk).into());
     }
@@ -195,7 +175,6 @@ fn again(folk: Folk) -> &'static str {
     }
 }
 
-/// The words a knight reads for a thing they stand by (not a person).
 pub fn sign(text: Sign) -> &'static str {
     match text {
         Sign::NoInk => "NOTHING IN THE REEDS BUT REEDS.",

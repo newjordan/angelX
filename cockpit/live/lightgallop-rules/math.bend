@@ -1,15 +1,5 @@
 import Base
 
-# Integer arithmetic for the ride, in Bend. Every signed 32-bit number travels
-# as the same bits Rust keeps (a U32 holding the two's complement), so wrapping
-# add, subtract and multiply are the plain U32 ones. A comparison flips the
-# sign bit, then compares unsigned. A product Rust widens to i64 is computed
-# in Nat magnitudes, which hold 2^48 - 1; every one in this game is under 2^46.
-#
-# A choice is its own def (`pk`), because Bend refuses to match a computed
-# value and only a def's parameter can be matched. Both arms of a `pk` are
-# computed, so an arm that is costly or may not exist is a def that matches.
-
 def pk(+t: U32, +f: U32, +c: Bool) -> U32:
   match c:
     case True{}:
@@ -33,8 +23,6 @@ def b2u(+c: Bool) -> U32:
 
 def nz(+a: U32) -> Bool:
   Bool.not(U32.is_eq(a, 0))
-
-# ---- signed 32-bit on two's complement bits -------------------------------
 
 def neg(+a: U32) -> U32:
   (0 - a : U32)
@@ -66,14 +54,12 @@ def max(+a: U32, +b: U32) -> U32:
 def abs(+a: U32) -> U32:
   pk(neg(a), a, isneg(a))
 
-# The sign of a number: -1, 0 or 1.
 def sgn(+a: U32) -> U32:
   pk(4294967295, pk(1, 0, gt(a, 0)), isneg(a))
 
 def clamp(+v: U32, +lo: U32, +hi: U32) -> U32:
   max(lo, min(hi, v))
 
-# A saturating subtract on a number that is never negative.
 def sat(+a: U32, +b: U32) -> U32:
   pk(0, (a - b : U32), (a < b : U32))
 
@@ -83,7 +69,6 @@ def sat1(+a: U32) -> U32:
 def div_go(+negative: Bool, +q: U32) -> U32:
   pk(neg(q), q, negative)
 
-# Rust's `/` truncates toward zero, and `%` carries the dividend's sign.
 def div(+a: U32, +b: U32) -> U32:
   div_go(Bool.xor(isneg(a), isneg(b)), U32.div(abs(a), abs(b)))
 
@@ -93,28 +78,19 @@ def rem(+a: U32, +b: U32) -> U32:
 def rem_euc_go(+r: U32, +m: U32) -> U32:
   pk((r + m : U32), r, isneg(r))
 
-# Rust's `rem_euclid` for a positive modulus: never negative.
 def rem_euc(+a: U32, +m: U32) -> U32:
   rem_euc_go(rem(a, m), m)
 
-# ---- widened intermediates ------------------------------------------------
-
-# `trunc(a * b / d)` for signed 32-bit inputs, the product under 2^48.
 def md(+a: U32, +b: U32, +d: U32) -> U32:
   +p = Nat.mul(U32.to_nat(abs(a)), U32.to_nat(abs(b)))
   +qm = Nat.div(p, Nat.max(1n, U32.to_nat(abs(d))))
   div_go(Bool.xor(Bool.xor(isneg(a), isneg(b)), isneg(d)), U32.from_nat(qm))
 
-# `dx * dx + dy * dy` in 48 bits: the length squared of a vector.
 def len2(+dx: U32, +dy: U32) -> Nat:
   +x = U32.to_nat(abs(dx))
   +y = U32.to_nat(abs(dy))
   Nat.add(Nat.mul(x, x), Nat.mul(y, y))
 
-# Newton's walk over a bounded number of steps: the count is the structural
-# argument the checker follows, and it stops on its own condition exactly as
-# the Rust loop does. Sixty-four steps settle any 48-bit input with room to
-# spare, so the bound never changes an answer.
 def isqrt.go(+steps: Nat, +more: Bool, +n: Nat, +x: Nat, +y: Nat) -> Nat:
   match steps more:
     case 0n _:
@@ -125,7 +101,6 @@ def isqrt.go(+steps: Nat, +more: Bool, +n: Nat, +x: Nat, +y: Nat) -> Nat:
     case 1n+k False{}:
       x
 
-# The integer square root: the largest r with r * r <= n.
 def isqrt(+n: Nat) -> Nat:
   match n:
     case 0n:
@@ -135,15 +110,9 @@ def isqrt(+n: Nat) -> Nat:
     case _:
       isqrt.go(64n, Nat.is_lt(Nat.div(Nat.add(n, 1n), 2n), n), n, n, Nat.div(Nat.add(n, 1n), 2n))
 
-# The length of the vector (dx, dy), as Rust's `isqrt(dx * dx + dy * dy)`.
 def hyp(+dx: U32, +dy: U32) -> U32:
   U32.from_nat(isqrt(len2(dx, dy)))
 
-# ---- the tables ----------------------------------------------------------
-
-# A quarter of a sine wave, 65 steps of 90/64 degrees, in 12 bits. (Each arm adds
-# `z`, which is always zero: the arms stay a chain of tests, since the compiler's
-# table form leaves the module's last line unfinished.)
 def sin_q(+k: U32, +z: U32) -> U32:
   match k:
     case 0:
@@ -279,7 +248,6 @@ def sin_q(+k: U32, +z: U32) -> U32:
     case _:
       4096
 
-# The arctangent of k/64 in brads, for k in 0..=64 (45 degrees is 128).
 def atan_q(+k: U32, +z: U32) -> U32:
   match k:
     case 0:
@@ -415,7 +383,6 @@ def atan_q(+k: U32, +z: U32) -> U32:
     case _:
       128
 
-# The sine of `turns` (1/256 of a circle), in 12 bits.
 def sin(+turns: U32) -> U32:
   +a = rem_euc(turns, 256)
   +k = U32.mod(a, 64)
@@ -427,7 +394,6 @@ def sin(+turns: U32) -> U32:
 def cos(+turns: U32) -> U32:
   sin((turns + 64 : U32))
 
-# The direction of the vector (dx, dy) as a 12-bit unit vector.
 def unit_x(+dx: U32, +dy: U32) -> U32:
   +len = hyp(dx, dy)
   pk(md(dx, 4096, len), 4096, nz(len))
@@ -436,7 +402,6 @@ def unit_y(+dx: U32, +dy: U32) -> U32:
   +len = hyp(dx, dy)
   pk(md(dy, 4096, len), 0, nz(len))
 
-# The first octant's angle for the smaller over the larger.
 def octant(+small: U32, +large: U32) -> U32:
   +r = md(small, 4096, large)
   +k = U32.div(r, 64)
@@ -456,35 +421,24 @@ def atan2_go(+x: U32, +y: U32) -> U32:
   +first = pk((256 - octant(ax, ay) : U32), octant(ay, ax), gt(ay, ax))
   atan_quadrant(first, isneg(x), isneg(y))
 
-# The angle of the vector (x, y) in brads, 0 to 1023, measured on screen (so
-# +y, down, is 256).
 def atan2(+y: U32, +x: U32) -> U32:
   pk(0, atan2_go(x, y), Bool.and(eq(x, 0), eq(y, 0)))
 
-# `to` reached from `from` by the shorter way round, each step at most `slew`,
-# with the rest of the gap eased by `ease`.
 def turn_toward(+from: U32, +to: U32, +ease: U32, +slew: U32) -> U32:
   +gap = (rem_euc((to + 512 - from : U32), 1024) - 512 : U32)
   +step = clamp(div(gap, max(ease, 1)), neg(slew), slew)
   +small = Bool.and(Bool.not(eq(gap, 0)), eq(step, 0))
   rem_euc((from + pk(sgn(gap), step, small) : U32), 1024)
 
-# An S-shaped blend, 0 to 4096 over 0 to 4096, flat at both ends.
 def smooth(+t: U32) -> U32:
   +c = clamp(t, 0, 4096)
   +cc = Nat.mul(U32.to_nat(c), U32.to_nat(c))
   +inner = Nat.sub(12288n, Nat.mul(2n, U32.to_nat(c)))
   U32.from_nat(Nat.div(Nat.mul(cc, inner), 16777216n))
 
-# ---- values too wide for 32 bits --------------------------------------------
-
-# A signed value that does not fit 32 bits rides as a Nat with a bias of 2^46,
-# so the sum of two of them, the difference, and a comparison stay Nat
-# arithmetic. Every such value in this game is under 2^40.
 def zb() -> Nat:
   Nat.mul(16777216n, 4194304n)
 
-# The product of two signed 32-bit values.
 def zmul(+a: U32, +b: U32) -> Nat:
   +m = Nat.mul(U32.to_nat(abs(a)), U32.to_nat(abs(b)))
   Bool.pick(Nat, Bool.xor(isneg(a), isneg(b)), Nat.sub(zb(), m), Nat.add(zb(), m))
@@ -495,12 +449,9 @@ def zadd(+a: Nat, +b: Nat) -> Nat:
 def zsub(+a: Nat, +b: Nat) -> Nat:
   Nat.sub(Nat.add(a, zb()), b)
 
-# The magnitude of a biased value.
 def zmag(+a: Nat) -> Nat:
   Bool.pick(Nat, Nat.is_lt(a, zb()), Nat.sub(zb(), a), Nat.sub(a, zb()))
 
-# `trunc(a * 65536 / b)` for two biased values, held to 0..=65536 (a negative
-# quotient is held to 0): how far along a line from `a` to `a - b` zero lies.
 def zratio(+a: Nat, +b: Nat) -> U32:
   +same = Bool.not(Bool.xor(Nat.is_lt(a, zb()), Nat.is_lt(b, zb())))
   +q = Nat.div(Nat.mul(zmag(a), 65536n), Nat.max(1n, zmag(b)))

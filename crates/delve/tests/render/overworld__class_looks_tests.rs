@@ -40,9 +40,7 @@ fn each_class_picks_its_own_sprite_set() {
         let (run, id) = seated(a.name());
         let hero = &run.players[&id];
         assert_eq!(Look::of(hero), Some(*a), "{} after the hall", a.name());
-        // The arena draws them as their class, not as the knight.
         let drawn = knights::figure_with(hero, id, false);
-        // A class whose kit holds a shield (the Mage's) wears it on the arm.
         let slung = hero.holds_shield() && !a.shielded();
         let face = knights::facing(hero.aim_x, hero.aim_y);
         assert!(same(&drawn, &figure_shielded(*a, face, pose(hero), true, slung).recolor(knights::seat_colours(id))));
@@ -55,7 +53,6 @@ fn each_class_picks_its_own_sprite_set() {
                 "{i} {j}"
             );
         }
-        // No class's silhouette is the knight's.
         let body = Img::from_rows(a.bodies()[0]);
         let shape: Vec<String> = (0..body.h.min(16))
             .map(|y| (0..16).map(|x| if body.get(x, y).is_some() { '#' } else { '.' }).collect())
@@ -108,7 +105,6 @@ fn the_seat_is_the_trim() {
         let one = knights::figure_with(&run.players[&1], 1, false);
         let two = knights::figure_with(&run.players[&2], 2, false);
         assert!(!same(&one, &two), "{}: two seats look alike", look.name());
-        // Only the trim differs: wherever they differ, seat one wears its red.
         let red = [ink('7'), ink('8'), ink('5')];
         for y in 0..one.h {
             for x in 0..one.w {
@@ -131,7 +127,6 @@ fn the_posse_stays_the_realms_knight() {
 
 #[test]
 fn a_held_shield_is_drawn_on_every_knight_when_not_raised() {
-    // 2026-10-19: "if you grab a shield, we should always see the shield".
     let mut posse = Run::new(7, 1, Some("Friend"));
     posse.players.get_mut(&1).unwrap().knight = Some("composer".into());
     let classes = Look::ALL.iter().map(|look| seated(look.name()));
@@ -147,10 +142,8 @@ fn a_held_shield_is_drawn_on_every_knight_when_not_raised() {
             let held = knights::figure_with(hero, id, false);
             let name = Look::of(hero).map_or("the posse", Look::name);
             assert!(!same(&held, &bare), "{name} aiming {ax},{ay}: the shield is not drawn");
-            // A friend's screen reads the knight off the wire and draws the same.
             let mirror = run.wire_copy();
             assert!(same(&knights::figure_with(&mirror.players[&id], id, false), &held), "{name} on a friend's screen");
-            // Thrown, it is off the arm.
             assert!(!same(&knights::figure_with(&run.players[&id], id, true), &held), "{name} thrown");
         }
     }
@@ -163,7 +156,6 @@ fn every_class_rides_and_drives_in_its_own_head() {
         let (head, coat) = saddle(look, 2);
         assert_eq!(head.w, 7, "{}", look.name());
         assert_eq!((coat.w, coat.h), (5, 8), "{}", look.name());
-        // A plain rider, then the class's: the helm and tabard are gone.
         let mut im = Img::new(40, 40);
         im.rect(18, 15, 5, 8, '7');
         dress_rider(&mut im, (20, 22), look, 1);
@@ -198,10 +190,6 @@ fn class_shots_draw_and_others_do_not() {
     assert!(!shot(&mut Img::new(25, 25), (12, 12), (1.0, 0.0), "ember", 3));
 }
 
-/// Every class in every facing, standing, both steps and the strike, then
-/// in each of the four seats' trim: `lineup.png` at six times, and
-/// `lineup-1x.png` at the arena's own size.
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_class_lineup -- --ignored`
 #[test]
 #[ignore]
 fn write_class_lineup() {

@@ -1,9 +1,5 @@
 const seat = require('./seat-order.compiled.js')
 
-// Thin adapter: plain JSON in, the compiled decision out. Rust has already done
-// the text work (alias/label/model equality against the allowlist and against
-// the cheap order names) and the env reads; nothing here orders, filters or
-// compares anything.
 const nil = { $: 'Nil' }
 const cons = (values, shape) => values.reduceRight(
   (tail, value) => ({ $: 'Con', head: shape(value), tail }),

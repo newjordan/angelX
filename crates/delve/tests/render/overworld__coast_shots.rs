@@ -1,4 +1,3 @@
-// Extend the existing write_world_shots exporter: captures are real host ticks.
 fn coastal_world_shots(base: &Run, save: &impl Fn(&str, &Img)) {
     use crate::realm::Spoils;
     use crate::rules::home::Home;
@@ -28,8 +27,6 @@ fn coastal_world_shots(base: &Run, save: &impl Fn(&str, &Img)) {
     let mut quest = base.clone();
     for (i, &(kind, at)) in coast::ERRAND.iter().enumerate() {
         if i == 1 {
-            // The chase: in from the west, the crab dug in at high tide,
-            // out at low tide, then grabbed.
             quest.arrive(world::room_of(&quest.dungeon, kind).unwrap(), (6.0, 7.0));
             quest.tick = u64::from(9 * HZ);
             quest.step(&BTreeMap::new());
@@ -87,7 +84,6 @@ fn coastal_world_shots(base: &Run, save: &impl Fn(&str, &Img)) {
     home.countryside.built |= 128;
     built.rebuild_home(home, purse);
     save("world-beacon-lit.png", &native(&built));
-    // Painting cached state both before and after construction must change.
     let salt = world::room_of(&built.dungeon, RoomKind::Saltworks).unwrap();
     quest.arrive(salt, c::PLOTS[7].at);
     built.arrive(salt, c::PLOTS[7].at);
@@ -120,7 +116,6 @@ fn coastal_world_shots(base: &Run, save: &impl Fn(&str, &Img)) {
     r.step(&BTreeMap::new());
     assert!(r.pastimes.round.is_some());
     save("world-pot-start.png", &native(&r));
-    // The compact 3-line board stops above the highest possible trajectory.
     let mut hud = Img::new(r.room().cols as i32 * 14, r.room().rows as i32 * 14);
     crate::render::overworld::arena::pastimes::boards(&mut hud, &r);
     for y in 46..190 {
@@ -128,8 +123,6 @@ fn coastal_world_shots(base: &Run, save: &impl Fn(&str, &Img)) {
             assert_eq!(hud.get(x, y), None, "pot HUD covers launch arc/target");
         }
     }
-    // Independently exercise the tallest supported angle/charge through real
-    // keys; sprite top including its rim must stay below the HUD bottom y45.
     let mut high = r.clone();
     for _ in 0..25 {
         high.step(&BTreeMap::from([(

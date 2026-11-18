@@ -1,5 +1,3 @@
-# Cases for altar.bend (recorded by altar_bend_cases__tests.rs).
-
 def case.altar.stone_blocks(+input: J.Val) -> J.Val:
   J.JBool{altar.stone_blocks(ga.u(input, "c"), ga.u(input, "r"), ga.u(input, "tc"), ga.u(input, "tr"))}
 

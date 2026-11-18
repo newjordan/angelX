@@ -10,7 +10,6 @@ use crate::rules::moonfall::{
     town::{self, COLS, HOUSES, LAMPS, ROWS, Spot, TILE, Tile},
 };
 
-/// Draw `s` on a dark plate so it reads over any ground.
 pub(super) fn plate(im: &mut Img, x: i32, y: i32, s: &str, ink: char) {
     im.rect(x - 1, y - 1, text_width(s) + 2, 9, 'k');
     im.text(x, y, s, ink);
@@ -24,7 +23,6 @@ fn on_screen(im: &Img, x: i32, y: i32, w: i32, h: i32) -> bool {
     x + w > 0 && x < im.w && y + h > VIEW_Y - 24 && y < VIEW_Y + VIEW_H + 24
 }
 
-/// The ground: every tile in view.
 pub(super) fn tiles(im: &mut Img, s: &Session, cam: Cam, tick: u32, shown: u32) {
     let up = crate::rules::moonfall::clock::bridge_up(shown, s.nums.day);
     let filled = s.world.has(DITCH_FILLED);
@@ -37,15 +35,10 @@ pub(super) fn tiles(im: &mut Img, s: &Session, cam: Cam, tick: u32, shown: u32) 
     }
 }
 
-/// Whether the north bridge's pictures have all arrived: the leaf flat, rising
-/// and upright. Then its tiles are the canal's water and the leaf is stamped
-/// over them (`bridge`), whatever the hour.
 fn bridge_painted() -> bool {
     ["down", "rising", "up"].iter().all(|state| bank::frame("bridge", state, 0).is_some())
 }
 
-/// The bridge's tiles on the map: its first and last column, and the row
-/// below its last (where its hinge is).
 fn bridge_tiles() -> (i32, i32, i32) {
     static AT: std::sync::OnceLock<(i32, i32, i32)> = std::sync::OnceLock::new();
     *AT.get_or_init(|| {
@@ -61,21 +54,12 @@ fn bridge_tiles() -> (i32, i32, i32) {
     })
 }
 
-/// How many ticks the leaf takes to lift or to lower: its three middle
-/// drawings, six ticks each.
 const LIFT: u32 = 18;
 
-/// The picture of the north bridge now. The rules raise it at 20:00 and lower
-/// it at 06:00 (`clock::bridge_up`) and that is when it stands solid or open;
-/// the leaf follows: upright or flat, and for the first eighteen ticks after
-/// the hour it changes the three lifts, going up or coming down. Not at the
-/// loop's first dawn, where it simply lies.
 pub(super) fn bridge_leaf(s: &Session, tick: u32, shown: u32) -> Option<&'static Img> {
     use crate::rules::moonfall::clock;
     let day = u64::from(s.nums.day.max(1));
     let up = clock::bridge_up(shown, s.nums.day);
-    // The tick the rules last changed it: the first at or after 20:00 (840
-    // minutes after dawn) or 06:00 of the calendar day the clock is in.
     let minutes = u64::from(shown) * 1440 / day;
     let hour = minutes - minutes % 1440 + if up { 840 } else { 0 };
     let since = shown - ((hour * day).div_ceil(1440) as u32).min(shown);
@@ -95,7 +79,6 @@ fn speckle(im: &mut Img, tx: i32, ty: i32, sx: i32, sy: i32, ink: char, n: u32, 
 #[allow(clippy::too_many_arguments)]
 fn tile(im: &mut Img, tx: i32, ty: i32, sx: i32, sy: i32, tick: u32, up: bool, filled: bool, painted_bridge: bool) {
     let t = match town::tile(tx, ty) {
-        // The painted leaf lies over the canal.
         Tile::Bridge if painted_bridge => Tile::Water,
         t => t,
     };
@@ -218,13 +201,11 @@ fn look(ch: char) -> Look {
     Look { roof, ridge, wall, trim }
 }
 
-/// Whether it is dark: before seven in the morning or from five in the evening.
 fn dark(s: &Session, shown: u32) -> bool {
     let h = crate::rules::moonfall::clock::stamp(shown, s.nums.day).hour;
     !(7..17).contains(&h)
 }
 
-/// Whether the window of a household is lit: they are up and it is dark.
 fn lit_window(s: &Session, ch: char, shown: u32) -> bool {
     let h = crate::rules::moonfall::clock::stamp(shown, s.nums.day).hour;
     if !dark(s, shown) {
@@ -239,7 +220,6 @@ fn lit_window(s: &Session, ch: char, shown: u32) -> bool {
         _ => None,
     };
     match who {
-        // Awake and out, or at their door: a candle left in the window.
         Some(f) => {
             let fig = crate::rules::moonfall::folk::figure(f, shown, s.nums.day, s.world.shod);
             !(fig.arrived && !fig.visible) || (18..23).contains(&h)
@@ -248,9 +228,6 @@ fn lit_window(s: &Session, ch: char, shown: u32) -> bool {
     }
 }
 
-/// The slot of a building that has painted pictures to come, by its map letter.
-/// The south tower (`Z`) has none yet: its painted door is on the south face
-/// and the stage's door on the north.
 fn painted_slot(ch: char) -> Option<&'static str> {
     match ch {
         'A' => Some("archive"),
@@ -266,12 +243,6 @@ fn painted_slot(ch: char) -> Option<&'static str> {
     }
 }
 
-/// The picture of a building that stands now: its windows lit when the
-/// household is up in the dark (the same rule the block's windows follow), the
-/// night's when it is dark and nobody is up, the day's otherwise. A tower has
-/// no household: its picture is the lit one (the door ajar) when its door is
-/// unlocked, as the block's slits were. Only when all three are painted: a
-/// building never changes style with the hour.
 fn painted_house(s: &Session, ch: char, tick: u32, shown: u32) -> Option<&'static Img> {
     let id = painted_slot(ch)?;
     if ["day", "night", "lit"].iter().any(|state| bank::frame(id, state, 0).is_none()) {
@@ -288,9 +259,6 @@ fn painted_house(s: &Session, ch: char, tick: u32, shown: u32) -> Option<&'stati
     bank::frame(id, state, tick)
 }
 
-/// Where a painted building's top-left corner goes: its bottom on the south
-/// edge of the footprint, its door over the doorstep tile the map keeps under
-/// it (else its middle on the footprint's middle).
 fn painted_corner(hs: &town::House, pic: &Img, x: i32, y: i32) -> (i32, i32) {
     let row = hs.y + hs.h;
     let door = (hs.x..hs.x + hs.w)
@@ -299,15 +267,9 @@ fn painted_corner(hs: &town::House, pic: &Img, x: i32, y: i32) -> (i32, i32) {
     (x + door.unwrap_or(hs.w * TILE / 2) - pic.w / 2, y + hs.h * TILE - pic.h)
 }
 
-/// Where the north tower's flame stands in its painted picture, from the
-/// picture's bottom middle: the mouth of the basket on the roof.
 const TOWER_FLAME: (i32, i32) = (1, -89);
-/// The lock's gem on the painted door, from the same point.
 const TOWER_GEM: (i32, i32) = (3, -17);
 
-/// What the block tower drew on top of itself and the painted one keeps: the
-/// flame in its basket (or the faint glow that asks for it) and the door's
-/// lock, gold when locked and aqua when open.
 fn painted_tower(im: &mut Img, s: &Session, foot: (i32, i32), tick: u32) {
     flame(im, foot.0 + TOWER_FLAME.0, foot.1 + TOWER_FLAME.1, s.flame(0), tick, s.tower_ready(0), 1);
     let unlocked = s.world.has(crate::rules::moonfall::state::NORTH_OPEN);
@@ -319,15 +281,11 @@ pub(super) fn houses(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, t
         let (x, y) = (h.x * TILE - cam.x, h.y * TILE - cam.y + VIEW_Y);
         let (w, hh) = (h.w * TILE, h.h * TILE);
         let pic = painted_house(s, h.ch, tick, shown);
-        // A painted house may stand much taller than its footprint.
         let up = pic.map_or(20, |p| (p.h - hh).max(0) + 20);
         if !on_screen(im, x, y - up, w, hh + up) {
             continue;
         }
-        // The plate's middle and its row: over the footprint for a block, over
-        // the painted picture (which may stand taller) for a painted house.
         let (mut plate_x, mut plate_y) = (x + w / 2, y - 11);
-        // The picture or footprint the plate names.
         let mut anchor = Rect::new(x, y, w, hh);
         match pic {
             None if matches!(h.ch, 'N' | 'Z') => tower(im, s, h.ch, x, y, w, hh, tick),
@@ -340,9 +298,6 @@ pub(super) fn houses(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, t
                 }
                 let top = (0..pic.h).find(|&row| (0..pic.w).any(|col| pic.get(col, row).is_some()));
                 let above = (py + top.unwrap_or(0)).min(y) - 11;
-                // Over the picture, even up in the sky band; a picture that
-                // stands off the top of the screen wears its plate under its
-                // footprint instead of over its roof.
                 (plate_x, plate_y) = (px + pic.w / 2, if above >= 1 { above } else { y + hh + 2 });
                 let top = top.unwrap_or(0);
                 anchor = Rect::new(px, py + top, pic.w, pic.h - top);
@@ -358,11 +313,9 @@ fn house(im: &mut Img, s: &Session, hs: &town::House, cam: Cam, shown: u32) {
     let (ch, x, y) = (hs.ch, hs.x * TILE - cam.x, hs.y * TILE - cam.y + VIEW_Y);
     let (w, h) = (hs.w * TILE, hs.h * TILE);
     let l = look(ch);
-    // A shadow on the ground to the south.
     for k in 0..3 {
         im.rect(x + 2, y + h + k, w, 1, if k == 0 { 'f' } else { 'D' });
     }
-    // The south wall, one tile tall, with its windows and door.
     im.rect(x, y + h - TILE, w, TILE, l.wall);
     im.rect(x, y + h - 2, w, 2, l.trim);
     let lit = lit_window(s, ch, shown);
@@ -372,7 +325,6 @@ fn house(im: &mut Img, s: &Session, hs: &town::House, cam: Cam, shown: u32) {
         im.frame(wx - 1, y + h - 13, 7, 8, 'k');
         wx += 14;
     }
-    // The roof.
     im.rect(x, y, w, h - TILE, l.roof);
     for k in (2..h - TILE).step_by(4) {
         im.rect(x, y + k, w, 1, l.ridge);
@@ -381,11 +333,9 @@ fn house(im: &mut Img, s: &Session, hs: &town::House, cam: Cam, shown: u32) {
     im.rect(x, y + (h - TILE) / 2 - 1, w, 2, l.ridge);
     im.rect(x, y, 1, h - TILE, l.ridge);
     im.rect(x + w - 1, y, 1, h - TILE, l.ridge);
-    // A chimney.
     if ch != 'U' {
         im.rect(x + w - 12, y + 3, 5, 6, 'g');
     }
-    // A door over its step: the door tile south of the wall.
     let row = hs.y + hs.h;
     if let Some(c) = (hs.x..hs.x + hs.w).find(|&c| town::tile(c, row) == Tile::Door) {
         let dx = c * TILE - cam.x + 4;
@@ -397,31 +347,26 @@ fn house(im: &mut Img, s: &Session, hs: &town::House, cam: Cam, shown: u32) {
 
 #[allow(clippy::too_many_arguments)]
 fn tower(im: &mut Img, s: &Session, ch: char, x: i32, y: i32, w: i32, h: i32, tick: u32) {
-    // The south tower's door faces north, over the ditch; the north one's south.
     let up = ch == 'Z';
     im.rect(x, y + h, w, 3, 'D');
     im.rect(x, y, w, h, 'u');
     im.rect(x, y, w, 3, 'v');
     im.rect(x + w - 6, y + 3, 6, h - 3, 'S');
-    // Stones.
     for row in (6..h).step_by(8) {
         im.rect(x, y + row, w, 1, 'S');
         for col in (0..w).step_by(10) {
             im.rect(x + col + (row / 8 % 2) * 5, y + row, 1, 8, 'S');
         }
     }
-    // Battlements.
     for col in (0..w).step_by(8) {
         im.rect(x + col, y - 4, 5, 4, 'v');
         im.rect(x + col, y - 4, 5, 1, 'W');
     }
-    // The flame bowl on the roof.
     let (bx, by) = (x + w / 2, y + h / 2 - 6);
     im.ellipse(bx as f32, by as f32, 9.0, 5.0, 'g');
     im.ellipse(bx as f32, by as f32 - 1.0, 7.0, 3.5, 'j');
     let i = if ch == 'N' { 0 } else { 1 };
     flame(im, bx, by - 2, s.flame(i), tick, s.tower_ready(i), 1);
-    // The door.
     let dy = if up { y + 1 } else { y + h - 14 };
     im.rect(x + w / 2 - 5, dy, 10, 14, 'b');
     im.frame(x + w / 2 - 5, dy, 10, 14, 'k');
@@ -437,13 +382,9 @@ fn tower(im: &mut Img, s: &Session, ch: char, x: i32, y: i32, w: i32, h: i32, ti
     }
 }
 
-/// The painted Moonwell stands on the south edge of the two by two solid tiles
-/// the rules keep under the well: half their height below the well's middle.
 const WELL_FOOT: i32 = 16;
-/// The cold bowl in that picture, from the foot, centre of its mouth.
 const WELL_BOWL: (i32, i32) = (-11, -29);
 
-/// A flame: a lit one dances; a ready bowl glows faint to say "now".
 pub(super) fn flame(im: &mut Img, x: i32, y: i32, lit: bool, tick: u32, ready: bool, scale: i32) {
     if lit {
         let sway = ((tick / 4) % 3) as i32 - 1;
@@ -455,11 +396,8 @@ pub(super) fn flame(im: &mut Img, x: i32, y: i32, lit: bool, tick: u32, ready: b
     }
 }
 
-/// Lamp posts, the crate, the well, the bell, the podium, the pickups.
 pub(super) fn props(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, tick: u32, shown: u32) {
     let to = |px: i32, py: i32| (px - cam.x, py - cam.y + VIEW_Y);
-    // The north bridge: its leaf stands on the south edge of its tiles, its
-    // hinge, over the canal `tile` drew.
     if bridge_painted() {
         let (first, last, below) = bridge_tiles();
         let (bx, by) = to((first + last + 1) * TILE / 2, below * TILE);
@@ -469,8 +407,6 @@ pub(super) fn props(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, ti
             }
         }
     }
-    // The Moonwell: painted when its frames have arrived (bottom centre on the
-    // south edge of its solid tiles), else its ring and water in code.
     let (wx, wy) = to(town::WELL.0, town::WELL.1);
     if on_screen(im, wx - 24, wy - 32, 48, 64) {
         let state = if s.flame(2) {
@@ -483,7 +419,6 @@ pub(super) fn props(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, ti
         if let Some(pic) = bank::frame("moonwell", state, tick) {
             let foot = wy + WELL_FOOT;
             im.stamp(pic, wx - pic.w / 2, foot - pic.h);
-            // The cold bowl glows faint to say "now", as it does in code.
             if !s.flame(2) && s.tower_ready(2) && tick / 10 % 2 == 0 {
                 im.ellipse((wx + WELL_BOWL.0) as f32, (foot + WELL_BOWL.1) as f32, 3.0, 2.0, '4');
             }
@@ -508,11 +443,8 @@ pub(super) fn props(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, ti
             labels.plate(wx, wy + 16, "MOONWELL", 'V', Rect::new(wx - 17, wy - 14, 34, 28));
         }
     }
-    // The Bell post, west of the well.
     let (bx, by) = to(town::BELL_POST.0, town::BELL_POST.1);
     if on_screen(im, bx - 12, by - 38, 24, 48) {
-        // Painted: still on its post until the ritual, then it rings, a damped
-        // swing from the first toll; the block swings a few pixels all through it.
         let ritual = match s.phase {
             crate::rules::moonfall::state::Phase::Rewind { t, .. } => Some(t),
             _ => None,
@@ -526,7 +458,6 @@ pub(super) fn props(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, ti
             None
         };
         if let Some(pic) = pic {
-            // The foot is where the block's posts end.
             im.stamp(pic, bx - pic.w / 2, by + 2 - pic.h);
         } else {
             im.rect(bx - 10, by - 22, 2, 24, 'P');
@@ -538,15 +469,10 @@ pub(super) fn props(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, ti
             im.rect(bx - 7 + swing, by - 9, 14, 2, 't');
             im.put(bx + swing, by - 6, 'k');
         }
-        // The bell's own picture: the banner of the ritual keeps off it.
         let art = Rect::new(bx - 12, by - 36, 24, 38);
         labels.art(art);
         labels.plate(bx, by + 6, "BELL", 'T', art);
     }
-    // Street lanterns: painted when unlit, lit and snuffing have arrived, else
-    // the block. A lit one flickers through its three flames (each a little
-    // out of step with its neighbours); a wisp leaning into it plays the
-    // snuffing drawings over the last eighteen ticks before it goes out.
     let lamps = ["unlit", "lit", "snuffing"].iter().all(|state| bank::frame("lantern", state, 0).is_some());
     for (n, &(tx, ty)) in LAMPS.iter().enumerate() {
         let (lx, ly) = to(tx * TILE + 8, ty * TILE + 14);
@@ -565,7 +491,6 @@ pub(super) fn props(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, ti
                 bank::frame("lantern", "lit", tick + 5 * n as u32)
             };
             if let Some(pic) = pic {
-                // Its foot where the block's post ends.
                 im.stamp(pic, lx - pic.w / 2, ly - pic.h);
             }
             continue;
@@ -586,7 +511,6 @@ pub(super) fn props(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, ti
         }
         im.rect(lx - 5, ly - 28, 10, 2, 'g');
     }
-    // The ink pot and the reed stack.
     let (ix, iy) = to(town::INK_POT.0, town::INK_POT.1);
     if !s.world.has(crate::rules::moonfall::state::INK_TAKEN) && on_screen(im, ix - 8, iy - 8, 16, 16) {
         let known = s.memory.knows(crate::rules::moonfall::ledger::Fact::OrinLost);
@@ -604,7 +528,6 @@ pub(super) fn props(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, ti
         }
         im.rect(rx - 6, ry + 1, 12, 2, 'P');
     }
-    // The crate.
     for &(cx, cy) in &s.world.crates {
         let (x, y) = to(cx * TILE, cy * TILE);
         if on_screen(im, x, y, TILE, TILE) {
@@ -615,14 +538,11 @@ pub(super) fn props(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, ti
             labels.plate(x + TILE / 2, y - 10, "CRATE", 'O', Rect::new(x, y, TILE, TILE));
         }
     }
-    // The herald's podium: painted when idle and cry have arrived (the pennant
-    // hangs limp, and flaps while the herald cries), else the block.
     let (px, py) = to(town::Spot::Podium.px().0, town::Spot::Podium.px().1 + 4);
     if on_screen(im, px - 14, py - 24, 28, 36) {
         let painted = bank::frame("podium", "idle", 0).is_some() && bank::frame("podium", "cry", 0).is_some();
         let state = if s.cry_active(Folk::Pella) { "cry" } else { "idle" };
         if let Some(pic) = bank::frame("podium", state, tick).filter(|_| painted) {
-            // Its bottom on the block's bottom edge.
             im.stamp(pic, px - pic.w / 2, py + 4 - pic.h);
         } else {
             im.rect(px - 9, py - 6, 18, 10, 'o');
@@ -631,7 +551,6 @@ pub(super) fn props(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, ti
         }
         labels.plate(px, py + 7, "PODIUM", 't', Rect::new(px - 13, py - 22, 26, 26));
     }
-    // Gate posts and the road beyond.
     let (gx, gy) = to(35 * TILE, 14 * TILE);
     if on_screen(im, gx, gy - 12, 16, 60) {
         labels.plate(gx - 8 + text_width("EAST GATE") / 2, gy - 12, "EAST GATE", 'T', Rect::new(gx, gy, 16, 48));
@@ -642,7 +561,6 @@ pub(super) fn seat_ink(seat: u32) -> char {
     ['2', '@', 'C', '7', 'z', 'Y'][(seat.max(1) as usize - 1) % 6]
 }
 
-/// Everyone standing in the town, back to front.
 pub(super) fn actors(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, tick: u32, shown: u32, me: u32) {
     enum A<'a> {
         Folk(crate::rules::moonfall::folk::Figure),
@@ -663,7 +581,6 @@ pub(super) fn actors(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, t
         all.push((w.y / town::Q + 6, A::Wisp(i)));
     }
     all.sort_by_key(|(y, _)| *y);
-    // Once the lights hold the knights cheer.
     let party = matches!(s.phase, crate::rules::moonfall::state::Phase::Won { .. }) || s.completed.is_some();
     for (_, a) in all {
         match a {
@@ -674,7 +591,6 @@ pub(super) fn actors(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, t
     }
 }
 
-/// Which way a villager looks for the sprites: left, right, up or down.
 fn slot_of(folk: Folk) -> &'static str {
     match folk {
         Folk::Mira => "mira",
@@ -686,9 +602,6 @@ fn slot_of(folk: Folk) -> &'static str {
     }
 }
 
-/// What a villager is doing, as a sprite state and the tick it plays from:
-/// walking the way they face, at their trade where they stand to do it, or
-/// standing about (a breath and a blink each, out of step with the others).
 pub(super) fn folk_state(s: &Session, fig: &crate::rules::moonfall::folk::Figure, tick: u32) -> (&'static str, u32) {
     let phase = tick + fig.folk.index() as u32 * 9;
     if fig.moving {
@@ -712,7 +625,6 @@ pub(super) fn folk_state(s: &Session, fig: &crate::rules::moonfall::folk::Figure
     }
 }
 
-/// A shadow under the feet, soft on the ground.
 fn shadow(im: &mut Img, x: i32, y: i32, rx: f32) {
     im.ellipse(x as f32, y as f32 - 1.0, rx, 2.0, 'f');
 }
@@ -754,15 +666,11 @@ fn folk_block(im: &mut Img, labels: &mut Layout, s: &Session, fig: &crate::rules
     labels.tag(Kind::Folk, fig.folk.index() as u32, x, y - 35, fig.folk.short(), fig.folk.ink(), body);
 }
 
-/// Where a knight's feet are on the screen.
 pub(super) fn feet_of(k: &Knight, cam: Cam) -> (i32, i32) {
     let (px, py) = k.px();
     (px - cam.x, py - cam.y + VIEW_Y)
 }
 
-/// Dust kicked up behind a walking knight, and a ring of it at a sidestep:
-/// a few grey puffs each left where the foot was, rising and thinning. A
-/// pure function of the stride, so the room and a mirror draw the same.
 fn dust(im: &mut Img, x: i32, y: i32, k: &Knight) {
     if k.down > 0 || (k.stride == 0 && k.roll == 0) {
         return;
@@ -794,7 +702,6 @@ fn dust(im: &mut Img, x: i32, y: i32, k: &Knight) {
     }
 }
 
-/// Whether the dither leaves this pixel of a fading puff.
 fn bayer_keep(x: i32, y: i32, fade: f32) -> bool {
     super::super::super::ink::bayer(x, y) >= fade
 }
@@ -825,7 +732,6 @@ fn knight_block(im: &mut Img, labels: &mut Layout, id: u32, k: &Knight, cam: Cam
         return;
     }
     let ink = seat_ink(id);
-    // The viewer's own number keeps its place first, then the lowest seats.
     let prio = if mine { 0 } else { id };
     if k.down > 0 {
         shadow(im, x, y, 9.0);
@@ -835,7 +741,6 @@ fn knight_block(im: &mut Img, labels: &mut Layout, id: u32, k: &Knight, cam: Cam
         labels.tag(Kind::Knight, prio, x, y - 22, "OUT", 'h', body);
         return;
     }
-    // A hurt knight blinks.
     if k.hurt > 0 && (tick / 3) % 2 == 0 && k.hurt < 80 {
         return;
     }
@@ -843,7 +748,6 @@ fn knight_block(im: &mut Img, labels: &mut Layout, id: u32, k: &Knight, cam: Cam
     shadow(im, x, y, if rolling { 4.0 } else { 6.0 });
     dust(im, x, y, k);
     im.stamp(pic, x - pic.w / 2, y - pic.h + 1);
-    // What is in the hands is held up over the helm, bobbing.
     let mut top = y - 26;
     if k.held != Item::Empty {
         let bob = ((tick / 8) % 2) as i32;
@@ -864,7 +768,6 @@ fn knight_block(im: &mut Img, labels: &mut Layout, id: u32, k: &Knight, cam: Cam
         top = y - 40;
     }
     if mine {
-        // A small pointer over the viewer's own knight, in their house colour.
         let by = top - 4 - (tick / 10 % 2) as i32;
         for (dx, dy) in [(-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (-1, 1), (0, 1), (1, 1), (0, 2)] {
             im.put(x + dx, by + dy, ink);
@@ -891,8 +794,6 @@ fn wisp_block(im: &mut Img, s: &Session, i: usize, cam: Cam, tick: u32) {
     if !on_screen(im, x - 10, y - 20, 20, 30) {
         return;
     }
-    // Where it is going: a few faint dots along the way, so it can be read
-    // and stepped around.
     if w.mode == WispMode::Hunt {
         if let Some(&(_, at)) = s.lights().iter().find(|&&(id, _)| id == w.aim) {
             let (tx, ty) = (at.0 - cam.x, at.1 - cam.y + VIEW_Y);
@@ -915,7 +816,6 @@ fn folk_labelled(im: &mut Img, labels: &mut Layout, s: &Session, fig: &crate::ru
     }
     let ink = fig.folk.ink();
     if fig.folk == Folk::Aster {
-        // A horse, tired when unshod, and its rider.
         let lame = s.world.shod.is_none();
         let bob = if fig.moving { ((tick / 6) % 2) as i32 } else { 0 };
         im.rect(x - 13, y - 12 + bob, 26, 9, 'o');
@@ -934,7 +834,6 @@ fn folk_labelled(im: &mut Img, labels: &mut Layout, s: &Session, fig: &crate::ru
         return;
     }
     let step = if fig.moving { ((tick / 6) % 2) as i32 } else { 0 };
-    // Feet, body, head, with a mark of facing.
     im.rect(x - 4, y - 2, 3, 2 + step, 'k');
     im.rect(x + 1, y - 2, 3, 2 + (1 - step), 'k');
     im.rect(x - 5, y - 14, 10, 12, ink);
@@ -953,7 +852,6 @@ fn folk_labelled(im: &mut Img, labels: &mut Layout, s: &Session, fig: &crate::ru
     let body = Rect::new(x - 6, y - 22, 12, 22);
     labels.body(body);
     labels.tag(Kind::Folk, fig.folk.index() as u32, x, y - 31, fig.folk.short(), ink, body);
-    // A little tell of what they do for a living.
     match fig.folk {
         Folk::Mira => im.rect(x + 6, y - 16, 1, 12, '6'),
         Folk::Pella => im.rect(x + 5, y - 16, 4, 3, '6'),
@@ -971,7 +869,6 @@ fn knight_labelled(im: &mut Img, labels: &mut Layout, id: u32, k: &Knight, cam: 
         return;
     }
     let ink = seat_ink(id);
-    // The viewer's own number keeps its place first, then the lowest seats.
     let prio = if mine { 0 } else { id };
     if k.down > 0 {
         im.rect(x - 8, y - 5, 16, 6, ink);
@@ -981,21 +878,18 @@ fn knight_labelled(im: &mut Img, labels: &mut Layout, id: u32, k: &Knight, cam: 
         labels.tag(Kind::Knight, prio, x, y - 15, "OUT", 'h', body);
         return;
     }
-    // A hurt knight blinks.
     if k.hurt > 0 && (tick / 3) % 2 == 0 && k.hurt < 80 {
         return;
     }
     let rolling = k.roll > 0;
     let stride = if k.stride > 0 { ((k.stride / 5) % 2) as i32 } else { 0 };
     let lift = if rolling { 5 } else { 0 };
-    // A shadow.
     im.rect(x - 5, y - 1, 10, 2, 'f');
     im.rect(x - 4, y - 3 - lift / 2, 3, 3 + stride, 'k');
     im.rect(x + 1, y - 3 - lift / 2, 3, 3 + (1 - stride), 'k');
     let body = y - 15 - lift / 2;
     im.rect(x - 5, body, 10, 12, ink);
     im.frame(x - 5, body, 10, 12, 'k');
-    // The mask changes the helm.
     let helm = match k.mask {
         Mask::Bare => 'h',
         Mask::Swift => 'z',
@@ -1011,7 +905,6 @@ fn knight_labelled(im: &mut Img, labels: &mut Layout, id: u32, k: &Knight, cam: 
         Mask::Stout => im.rect(x - 5, body - 3, 10, 2, 'B'),
         Mask::Bare => {}
     }
-    // Eyes where the knight faces.
     match k.face {
         1 => {}
         2 => im.put(x - 2, body - 4, 'k'),
@@ -1021,7 +914,6 @@ fn knight_labelled(im: &mut Img, labels: &mut Layout, id: u32, k: &Knight, cam: 
             im.put(x + 1, body - 4, 'k');
         }
     }
-    // What is in the hands.
     if k.held != Item::Empty {
         im.rect(x - 3, body - 12, 6, 5, k.held.ink());
         im.frame(x - 3, body - 12, 6, 5, 'k');
@@ -1041,8 +933,6 @@ fn wisp_labelled(im: &mut Img, s: &Session, i: usize, cam: Cam, tick: u32) {
     if !on_screen(im, x - 10, y - 20, 20, 30) {
         return;
     }
-    // Where it is going: a few faint dots along the way, so it can be read
-    // and stepped around.
     if w.mode == WispMode::Hunt {
         if let Some(&(_, at)) = s.lights().iter().find(|&&(id, _)| id == w.aim) {
             let (tx, ty) = (at.0 - cam.x, at.1 - cam.y + VIEW_Y);
@@ -1056,7 +946,6 @@ fn wisp_labelled(im: &mut Img, s: &Session, i: usize, cam: Cam, tick: u32) {
     }
     let bob = ((tick / 6 + i as u32) % 4) as i32 - 1;
     let y = y - 8 + bob;
-    // A pale hood over a wick-stub tail, two eyes.
     im.ellipse(x as f32, y as f32, 6.0, 7.0, '3');
     im.ellipse(x as f32, y as f32 + 1.0, 5.0, 6.0, 'W');
     let tail = (tick / 4 + i as u32) % 3;
@@ -1067,7 +956,6 @@ fn wisp_labelled(im: &mut Img, s: &Session, i: usize, cam: Cam, tick: u32) {
     im.put(x + 2, y, '2');
     match w.mode {
         WispMode::Snuff(t) => {
-            // It leans into the light and pulses.
             if t / 3 % 2 == 0 {
                 im.frame(x - 8, y - 8, 17, 17, '3');
             }
@@ -1079,7 +967,6 @@ fn wisp_labelled(im: &mut Img, s: &Session, i: usize, cam: Cam, tick: u32) {
     }
 }
 
-/// Speech over the villagers who are crying something.
 pub(super) fn cries(labels: &mut Layout, s: &Session, cam: Cam, shown: u32) {
     let Some((who, topic, _)) = s.cry else { return };
     let fig = crate::rules::moonfall::folk::figure(who, shown, s.nums.day, s.world.shod);

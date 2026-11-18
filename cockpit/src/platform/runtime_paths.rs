@@ -8,11 +8,6 @@ pub(crate) use host::resolve_root;
 #[cfg(test)]
 use std::path::Path;
 
-/// Hand this build's compile-time paths (its source folder, absent in a portable
-/// build, and its release identity) to the Kernel's host services, which own the
-/// lookup so the realm host resolves the same root. The first call wins; `main`
-/// installs before any thread starts, and every lookup below installs again so
-/// an entry point that skipped `main` (tests, examples) still sees them.
 pub(crate) fn install() {
     host::install(host::BuildPaths {
         source_cockpit_dir: option_env!("ANGEL_SOURCE_COCKPIT_DIR"),

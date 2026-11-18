@@ -12,11 +12,8 @@ use std::path::PathBuf;
 
 type Keys = BTreeMap<u32, Input>;
 
-/// The names a table of up to six carries: a clean name, the default `You`, a short one, an empty
-/// one, a long one and one with a number in it.
 const NAMES: [&str; 6] = ["Gawain", "You", "Dara", "", "Alexandrina", "Bran 2"];
 
-/// A table of `seats` knights, the round open and waiting out its title.
 pub(super) fn table(seats: u32) -> Run {
     let mut r = Run::rafterwake_for_test();
     for id in 2..=seats {
@@ -33,8 +30,6 @@ pub(super) fn table(seats: u32) -> Run {
     r
 }
 
-/// A knight who plays: seat one plays true, the others hesitate now and then, each in their own
-/// way, so no two towers are the same.
 pub(super) fn hands(r: &Run) -> Keys {
     let Some(s) = r.rafterwake.as_ref() else { return Keys::new() };
     let luck = |id: u32, bucket: u64| {
@@ -56,7 +51,6 @@ fn frame(r: &Run, seat: u32) -> Img {
     super::super::frame_for(r, NATIVE_W, NATIVE_H, Some(seat))
 }
 
-/// The round played through and a while of the finish: calls `each` before every tick.
 fn through(r: &mut Run, mut each: impl FnMut(&Run)) {
     for _ in 0..LENGTH + INTRO + 500 {
         each(r);
@@ -83,7 +77,6 @@ fn save(dir: &std::path::Path, n: u32, seats: &[u32], r: &Run) {
     image::save_buffer(dir.join(format!("f{n:04}.png")), &sheet.rgb_bytes(), sheet.w as u32, sheet.h as u32, image::ColorType::Rgb8).unwrap();
 }
 
-/// Play a table of `seats` and write the frames of the tick window `[from, to)` (30 fps).
 fn reel(root: &std::path::Path, name: &str, seats: u32, show: &[u32], from: u32, to: u32) {
     let dir = root.join(name);
     let _ = std::fs::remove_dir_all(&dir);
@@ -148,13 +141,10 @@ fn rafterwake_timeline() {
     let _ = rules::INTRO;
 }
 
-// ─── the words ───────────────────────────────────────────────────────────────
-
 use super::hud::{self, View, inside, meets};
 use super::moments::Plan;
 use super::stage;
 
-/// How the test spells a knight's name from the viewer's seat.
 fn spelled(r: &Run, id: u32, me: u32) -> String {
     if id == me {
         return "YOU".into();
@@ -163,16 +153,12 @@ fn spelled(r: &Run, id: u32, me: u32) -> String {
     if n.is_empty() || n == "YOU" { format!("KNIGHT {id}") } else { n }
 }
 
-/// Kinds of word that name a knight.
 const NAMES_A_KNIGHT: [&str; 5] = ["card name", "tag", "you", "podium name", "ledger name"];
 
-/// The plan of `me`'s screen now.
 fn plan(r: &Run, me: u32) -> Plan {
     stage::plan_of(&View::new(r, Some(me)))
 }
 
-/// The rules of the words, for every claim on `me`'s screen: nothing meets, everything is in
-/// frame, and `YOU` is only the viewer.
 fn check(r: &Run, me: u32, what: &str) -> Plan {
     let plan = plan(r, me);
     let claims = plan.claims();
@@ -194,7 +180,6 @@ fn check(r: &Run, me: u32, what: &str) -> Plan {
                 }
             }
         }
-        // The word YOU stands for the viewer only.
         if w.who.is_some_and(|id| id != me) {
             assert!(!w.text.split_whitespace().any(|t| t == "YOU"), "{what}: seat {me}: YOU on another knight: {:?}", w.text);
         }
@@ -213,10 +198,8 @@ fn check(r: &Run, me: u32, what: &str) -> Plan {
     plan
 }
 
-/// The endings of banners that name a knight.
 const NAMES_BANNERS: [&str; 5] = ["CLEARED", "AT KEEPER", "LEADS", "FELL", "WINS"];
 
-/// Every line the pen wrote on the whole 384 by 224 screen is one of the claimed boxes.
 fn check_pen(r: &Run, me: u32, what: &str) {
     let (_, said) = said::read(|| stage::frame(r, Some(me)));
     let plan = plan(r, me);
@@ -283,7 +266,6 @@ fn the_title_the_count_and_the_go_show_on_every_seat() {
     assert_eq!(seen, ["1", "2", "3", "GO", "title"].into_iter().collect());
 }
 
-/// The cost of a frame, the old picture against the new, over a four-seat round.
 #[test]
 #[ignore = "measures the picture's cost"]
 fn bench_rafterwake_frame() {
@@ -311,7 +293,6 @@ fn bench_rafterwake_frame() {
 
 #[test]
 fn the_terminal_words_stay_clear_too() {
-    // The cell painter sets each label in four-pixel cells, eight high.
     for seats in 1..=6u32 {
         let mut r = table(seats);
         let mut at = 0;
@@ -334,7 +315,6 @@ fn the_terminal_words_stay_clear_too() {
                 }
                 let yous = words.iter().filter(|(_, _, t)| t.split_whitespace().any(|w| w == "YOU")).count();
                 assert!(yous <= 1, "{seats} seats, seat {me}: YOU more than once: {words:?}");
-                // A rival that carries the default name is never called YOU.
                 for (_, _, t) in &words {
                     assert!(t.split_whitespace().filter(|w| *w == "YOU").count() <= 1);
                 }
@@ -346,7 +326,6 @@ fn the_terminal_words_stay_clear_too() {
 #[test]
 fn the_default_name_is_never_you_on_a_rivals_screen() {
     let mut r = table(3);
-    // Seat two carries the default `You`: seat one's screen calls it KNIGHT 2, its own screen YOU.
     for _ in 0..INTRO + 40 {
         let k = hands(&r);
         r.step(&k);

@@ -41,7 +41,6 @@ fn tick(run: &mut Run) {
     cases::call("cat.Run.tick_tallow", run, json!({}), |r| r.tick_tallow());
 }
 
-/// Hiss, fetch, carry home, follow, over varied floors, items and monsters.
 #[test]
 #[ignore]
 fn record_cat() {
@@ -78,7 +77,6 @@ fn record_cat() {
             tick(&mut run);
         }
     }
-    // Petting: a press, a held key, a far knight, a knight at full health.
     for seed in 1..=6u64 {
         let mut run = with_tallow(seed, 2);
         run.players.get_mut(&1).unwrap().hp = 5;
@@ -98,7 +96,6 @@ fn record_cat() {
             cases::call_inputs("cat.Run.pet_tallow", &mut run, &keys, |r, k| r.pet_tallow(k));
         }
     }
-    // Down the stair, and into a new room.
     for rung in 0..4u8 {
         for seed in 1..=2u64 {
             let mut home = home::Home::default();

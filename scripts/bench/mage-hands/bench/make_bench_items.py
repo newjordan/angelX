@@ -1,8 +1,3 @@
-"""Bench targets from captured pages: unique visible names, stratified by
-size bin x kind (text vs icon-only), fixed seed; split dev/test by app family
-(desktop) or registrable domain (web) so test never leaks into training.
-  python3 -I make_bench_items.py <bench-dir>
-"""
 import collections, hashlib, json, random, sys
 from urllib.parse import urlparse
 
@@ -55,7 +50,7 @@ for src in ("desk", "web"):
         continue
     for p in pages:
         if src == "web" and len(p["elements"]) < 8:
-            continue  # bot wall or blank render
+            continue
         els = [e for e in p["elements"] if (e.get("text") or e.get("label"))]
         for e in els:
             e["name"] = e.get("text") or e.get("label")

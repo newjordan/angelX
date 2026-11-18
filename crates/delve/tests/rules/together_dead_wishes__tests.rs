@@ -7,8 +7,6 @@ use super::*;
 use crate::rules::hireling::testing::{fight_with, foe_at};
 use crate::rules::minions::{GRAVECALLER, RISE};
 
-/// The Gravecaller in an open first-floor fight room, at (12, 12), aiming
-/// east, every spell ready, three wishes held.
 fn gravecaller() -> Run {
     let mut run = fight_with(false, &[]);
     assert!(run.take_up(1, GRAVECALLER));
@@ -27,7 +25,6 @@ fn target(run: &Run) -> Option<Target> {
     run.players[&1].offer.as_ref().and_then(|o| o.target)
 }
 
-/// Raise a minion with spell `slot`, and wait until it has climbed out.
 fn raise(run: &mut Run, slot: u8) {
     run.players.get_mut(&1).unwrap().spell_cooldowns = [0; 4];
     run.step(&BTreeMap::from([(1, Input { cast: slot, aim_x: 1, ..Default::default() })]));
@@ -36,8 +33,6 @@ fn raise(run: &mut Run, slot: u8) {
     }
 }
 
-/// The scroll opened on known wish `id`, turned to `to`, and its first
-/// choice picked.
 fn wish_for(run: &mut Run, id: &str, to: Target) {
     let wish = phrasebook::get(id).unwrap();
     run.offer_wish(1, &wish.name, Some(&wish)).unwrap();
@@ -47,8 +42,6 @@ fn wish_for(run: &mut Run, id: &str, to: Target) {
     run.choose(1, 0).unwrap();
 }
 
-/// A colour wished over the dead's whole bodies: a learned wish's entry,
-/// as the host's learner writes one.
 pub(crate) const BRIGHT_PINK: &str = "wish bright-pink | Bright Pink
 say make my ghouls bright pink | pink ghouls | pink dead
 tier max_hp 10 :: Your dead turn bright pink, and 10 more health.
@@ -70,7 +63,6 @@ fn four_turns_the_wish_from_him_to_his_dead_to_both_and_back() {
     let mut seen = vec![];
     for _ in 0..3 {
         press(&mut run, 4);
-        // Held, it turns nothing more.
         press(&mut run, 4);
         press(&mut run, 0);
         seen.push(target(&run).unwrap());
@@ -98,13 +90,10 @@ fn it_opens_on_his_dead_when_his_words_name_them() {
     run.offer_wish(1, "bright pink", None).unwrap();
     assert_eq!(target(&run), Some(Target::You));
     run.drop_offer(1);
-    // A known wish found in his words keeps only its name: the words say
-    // whom it is for.
     let heavy = phrasebook::get("heavy").unwrap();
     run.offer_wish(1, &heavy.name, Some(&heavy)).unwrap();
     run.heard(1, "my skeletons hit harder");
     assert_eq!(target(&run), Some(Target::Dead));
-    // Words still to be learned go to the host's learner saying so.
     run.drop_offer(1);
     run.offer_wish(1, "make my ghouls bright pink", None).unwrap();
     run.choose(1, 0).unwrap();
@@ -124,14 +113,11 @@ fn a_wish_for_his_dead_strikes_and_mends_through_them_and_not_him() {
     assert_eq!((hero.bonus.damage, hero.max_hp), (damage, max_hp), "none of it on him");
     assert_eq!((hero.dead_gifts.bonus.damage, hero.dead_gifts.hp), (10, 12), "all of it on them");
     assert!(run.notices.iter().any(|n| n.ends_with("'s dead wear Heavy Heads")), "{:?}", run.notices);
-    // The ghoul already up is as hardy as the wish makes it, and mended
-    // with it; one raised now comes up so.
     run.step(&BTreeMap::new());
     let ghoul = &run.minions.raised[0];
     assert_eq!((ghoul.max_hp, ghoul.hp), (90 + 12, 90 + 12));
     raise(&mut run, 2);
     assert_eq!(run.minions.raised[1].max_hp, 240 + 12);
-    // Its claw lands a tenth harder.
     let (gx, gy) = (run.minions.raised[0].x, run.minions.raised[0].y);
     let foe = foe_at(&mut run, EnemyKind::Skeleton, (gx + 1.0, gy), u32::MAX / 2);
     let enemy = run.enemies.iter_mut().find(|e| e.id == foe).unwrap();
@@ -149,7 +135,6 @@ fn a_wish_for_his_dead_strikes_and_mends_through_them_and_not_him() {
         }
     }
     assert_eq!(first, Some(15 * 110 / 100), "the claw's 15, harder by the wish");
-    // A lifesteal wish for them: each blow mends the one that lands it.
     let thirst = phrasebook::read("wish grave-thirst | Grave Thirst\nsay my dead drink blood\ntier vamp 1 :: Your dead mend as they bite.\n").remove(0);
     run.aim_wish(1, &thirst, Target::Dead);
     run.grant(1, &thirst).unwrap();
@@ -184,12 +169,10 @@ fn a_wish_for_both_gives_each_half_rounded_up() {
     assert_eq!(hero.dead_gifts.bonus.damage, 5);
     assert_eq!((hero.max_hp, hero.dead_gifts.hp), (max_hp + 6, 6));
     assert!(run.notices.iter().any(|n| n.ends_with("and their dead wear Heavy Heads")), "{:?}", run.notices);
-    // An odd number rounds up for each: armor 1 is one piece on each.
     let mut run = gravecaller();
     wish_for(&mut run, "iron", Target::Both);
     let hero = &run.players[&1];
     assert_eq!((hero.armor, hero.dead_gifts.bonus.armor), (1, 1));
-    // Turned back to himself, the wish is his whole again.
     let mut run = gravecaller();
     wish_for(&mut run, "breastplate", Target::Both);
     let breastplate = phrasebook::get("breastplate").unwrap();
@@ -269,7 +252,6 @@ fn a_save_and_a_guests_copy_keep_whom_each_wish_was_for() {
     let pink = phrasebook::read(BRIGHT_PINK).remove(0);
     run.aim_wish(1, &pink, Target::Dead);
     run.grant(1, &pink).unwrap();
-    // A scroll left open keeps its toggle too.
     let quick = phrasebook::get("quick").unwrap();
     run.offer_wish(1, &quick.name, Some(&quick)).unwrap();
     run.turn_wish(1);
@@ -281,11 +263,9 @@ fn a_save_and_a_guests_copy_keep_whom_each_wish_was_for() {
     assert_eq!(saved.dead_wishes.get("breastplate"), Some(&Target::Both));
     assert_eq!(saved.dead_gifts, hero.dead_gifts);
     assert_eq!(saved.offer.as_ref().unwrap().target, Some(Target::Both));
-    // Counted again from the save, the same.
     let mut again = saved.clone();
     again.rebonus(&back.book);
     assert_eq!((again.bonus, again.dead_gifts), (hero.bonus, hero.dead_gifts));
-    // A guest's copy over the wire draws the same looks on his dead.
     let tree = crate::wire::publish(&run).unwrap();
     let guest = crate::wire::read(&tree).unwrap();
     assert!(guest.valid_snapshot());
@@ -306,7 +286,6 @@ fn a_knight_who_keeps_no_dead_has_no_toggle() {
     assert!(!run.turn_wish(1));
     run.choose(1, 0).unwrap();
     assert_eq!(run.asked[0].target, Target::You);
-    // Asked for his dead all the same, a wish is his own.
     let heavy = phrasebook::get("heavy").unwrap();
     assert_eq!(run.aim_wish(1, &heavy, Target::Dead), Target::You);
     run.grant(1, &heavy).unwrap();

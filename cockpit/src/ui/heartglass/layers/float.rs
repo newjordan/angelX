@@ -25,29 +25,20 @@ use super::{
 };
 use crate::ui::orrery::segment_rect;
 
-/// The modules' prints, their halos and their names on the hover tab, one
-/// each by `Module::index`; the heart's scanlines.
 const PRINTS: u32 = PICTURES + 0x20;
 const HALOS: u32 = PICTURES + 0x28;
 const NAMES: u32 = PICTURES + 0x30;
 const SCANLINES: u32 = PICTURES + 0x38;
 
-/// The halo's colour: a blue so deep it reads as shade.
 const SHADE: [u8; 3] = [3, 6, 12];
-/// Its strength: hugging the print's marks (a soft outline, so the HUD's
-/// text holds over the text under it), bloomed wide round them, washed
-/// over the module's content, and behind the heart. Never opaque: the
-/// text under it stays readable when looked for.
 const HALO_TIGHT: f32 = 0.66;
 const HALO_SOFT: f32 = 0.26;
 const HALO_WASH: f32 = 0.58;
 const HALO_HEART: f32 = 0.45;
 const HALO_MAX: f32 = 0.84;
 
-/// Layer ids of the floating panel, clear of the plate's.
 const ID: u64 = 1000;
 
-/// What a module's pictures were drawn for.
 #[derive(Clone, Debug, PartialEq)]
 struct PrintKey {
     natural: (f32, f32),
@@ -56,27 +47,17 @@ struct PrintKey {
     view: Option<CloudView>,
 }
 
-/// A module's new size at scale 1, its new scale, and since when.
 type Pending = ((f32, f32), f32, Instant);
 
-/// The floating panel's own state on the thread.
 pub(super) struct Float {
     pub(super) saved: Saved,
     path: std::path::PathBuf,
     grab: Option<Grab>,
-    /// The module the pointer was over last frame: its tab and hide
-    /// button show, and take the pointer.
     hovered: Option<Module>,
-    /// The floating look was drawn last frame (a switch from the plate
-    /// sets the clock's and titles' text afresh, in this look's fonts).
     pub(super) active: bool,
-    /// The zones last handed to the window.
     zones: Vec<Zone>,
     drawn: [Option<PrintKey>; 6],
-    /// A size a module has changed to and since when: its pictures stretch
-    /// until it has held for [`SETTLE`].
     pending: [Option<Pending>; 6],
-    /// The names on the hover tabs, shown size; drawn once.
     names: [(f32, f32); 6],
     scanlines_key: Option<(u32, u32)>,
 }
@@ -98,7 +79,6 @@ impl Float {
         }
     }
 
-    /// Everything goes up again when shown next.
     pub(super) fn forget(&mut self) {
         self.drawn = Default::default();
         self.pending = [None; 6];
@@ -108,7 +88,6 @@ impl Float {
         self.hovered = None;
     }
 
-    /// Give the window its buttons back.
     pub(super) fn release_zones(&mut self, host: &Host) {
         if !self.zones.is_empty() {
             host.set_pointer_zones(GROUP, Vec::new());
@@ -124,7 +103,6 @@ impl Float {
 }
 
 impl Show {
-    /// One frame of the floating HUD.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn frame_float(
         &mut self,
@@ -147,7 +125,6 @@ impl Show {
             self.hide(host);
             return;
         };
-        // The pointer, against the layout as it stood when it acted.
         for event in host.take_pointer_events(GROUP) {
             match event {
                 PointerEvent::Press {
@@ -174,8 +151,6 @@ impl Show {
             return;
         };
         if !self.float.active {
-            // From the plate: its clock and titles are set again in this
-            // look's fonts.
             self.float.active = true;
             self.clock = Default::default();
             self.titles_key = None;
@@ -184,7 +159,6 @@ impl Show {
         self.upload_meshes(host, &cloud);
         self.retry_due();
 
-        // The window's buttons: each module's hide button, grip and body.
         let zones: Vec<Zone> = hud
             .zones(self.float.hovered)
             .into_iter()
@@ -202,8 +176,6 @@ impl Show {
             self.float.zones = zones;
         }
 
-        // Each module's print and halo, when what it shows or its size
-        // changed (a new size once it has held).
         let view = View {
             campaign: campaign.as_deref(),
             cloud: self.view.as_ref(),
@@ -259,10 +231,8 @@ impl Show {
             self.float.pending[i] = None;
         }
 
-        // Everything else here is drawn at the plate's scale.
         self.fonts.small_below = small_below(SCALE);
 
-        // The names on the hover tabs.
         if self.float.names.iter().all(|n| n.0 == 0.0) {
             for module in Module::ALL {
                 if let Some(ink) = plate::label(
@@ -287,7 +257,6 @@ impl Show {
             self.retry_text = Some(Instant::now() + Duration::from_secs(3));
         }
 
-        // The heart's scanlines, once per size.
         if let Some((p, _)) = heart_panel {
             let c = p.local_content();
             let size = ((c.w * SCALE).round() as u32, (c.h * SCALE).round() as u32);
@@ -300,7 +269,6 @@ impl Show {
         self.clock_pictures(host, campaign.as_deref());
         let flare = self.flare_and_banner(host, t, campaign.as_deref());
 
-        // The scene: the heart turning, every frame it shows.
         if let Some((p, _)) = heart_panel {
             let c = p.local_content();
             let k = p.scale;
@@ -331,7 +299,6 @@ impl Show {
         host.set_layer_group(GROUP, layers);
     }
 
-    /// The floating panel's layers for this frame.
     fn float_layers(
         &self,
         hud: &Hud,
@@ -361,7 +328,6 @@ impl Show {
             if self.float.drawn[i].is_none() {
                 continue;
             }
-            // The halo under the text's level, the print over it.
             push(
                 &mut out,
                 0,
@@ -382,7 +348,6 @@ impl Show {
                             );
                         }
                     }
-                    // The heartbeat's trace: the newest beat at the right.
                     let e = plate::ecg_strip(l.title);
                     let samples = ((e.w / 7.0) as usize).clamp(40, 160);
                     let window = (e.w / 150.0).clamp(2.6, 6.0);
@@ -666,8 +631,6 @@ impl Show {
             );
         }
 
-        // The hover chrome: a hairline round the module the pointer is on,
-        // its corners, a tab with its name and hide button, and the grip.
         if let Some((module, grabbed)) = hover
             && let Some(p) = hud.get(module)
         {
@@ -704,7 +667,6 @@ impl Show {
                 push(&mut out, 10, across, LayerKind::Solid(tick));
                 push(&mut out, 10, down, LayerKind::Solid(tick));
             }
-            // The tab: a dark strip, the name, the hide button.
             let tab = p.tab();
             push(
                 &mut out,
@@ -732,7 +694,6 @@ impl Show {
                 );
                 out[n].angle = angle.rem_euclid(std::f32::consts::TAU);
             }
-            // The grip: two short strokes across the corner.
             let (gx, gy) = (o.x + o.w, o.y + o.h);
             for (len, back) in [(12.0f32, 4.0f32), (6.0, 1.5)] {
                 let a = [gx - back - len * 0.707, gy - back];
@@ -751,16 +712,10 @@ impl Show {
     }
 }
 
-/// Text smaller than this (picture pixels, at `scale` pixels a shown
-/// pixel) is set in the window's own font: Share Tech Mono reads well
-/// large and grows thin and faint when small over busy text.
 fn small_below(scale: f32) -> f32 {
     (plate::MEDIUM - 0.5) * scale
 }
 
-/// Where a module's halo darkens beyond its print: the parts that move
-/// over it (the trace, the clock, the stage title) as rects in its own
-/// pixels with a strength, and for the heart, the oval it turns in.
 pub(super) struct Shade {
     pub(super) extras: Vec<([f32; 4], f32)>,
     pub(super) oval: Option<([f32; 2], [f32; 2])>,
@@ -806,16 +761,11 @@ fn shade_for(p: &Placed, l: &super::super::Layout, title: Option<(f32, f32)>) ->
     }
 }
 
-/// A module's halo at `size` (one pixel a shown pixel, at scale `k`):
-/// the coverage of its print `ink`, spread a little and feathered wide,
-/// over a faint wash of its content that fades downward, and for the
-/// heart a soft oval; deep blue shade, never opaque.
 pub(super) fn halo(ink: &Ink, size: (u32, u32), k: f32, shade: &Shade) -> Ink {
     let (w, h) = (size.0.max(1) as usize, size.1.max(1) as usize);
     let (iw, ih) = (ink.0 as usize, ink.1 as usize);
     let mut ink_mask = vec![0f32; w * h];
     if iw > 0 && ih > 0 && ink.2.len() == iw * ih * 4 {
-        // The print's coverage, box-averaged down to shown pixels.
         let (rx, ry) = (iw as f32 / w as f32, ih as f32 / h as f32);
         for y in 0..h {
             let (y0, y1) = (
@@ -852,14 +802,9 @@ pub(super) fn halo(ink: &Ink, size: (u32, u32), k: f32, shade: &Shade) -> Ink {
             }
         }
     };
-    // Any mark at all counts in full: thin text has little coverage, and
-    // its shade must not be thinner for it.
     for v in &mut ink_mask {
         *v = if *v > 0.12 { 1.0 } else { 0.0 };
     }
-    // Tight: each mark swollen two pixels and softened, a band of shade
-    // under each line of print. Soft: swollen further and feathered
-    // wide, the bloom; the parts that move are in it.
     let px = |v: f32| (v * k).round().max(1.0) as usize;
     let mut tight = dilate(&ink_mask, w, h, px(2.0));
     blur(&mut tight, w, h, px(1.5), 2);
@@ -869,7 +814,6 @@ pub(super) fn halo(ink: &Ink, size: (u32, u32), k: f32, shade: &Shade) -> Ink {
     let mut soft = dilate(&ink_mask, w, h, px(4.0));
     blur(&mut soft, w, h, px(9.0), 3);
 
-    // The wash over the content, feathered at its edges, fading down.
     let c = shade.content;
     let mut wash = vec![0f32; w * h];
     fill(&mut wash, [c.x, c.y, c.w, c.h], 1.0);
@@ -902,7 +846,6 @@ pub(super) fn halo(ink: &Ink, size: (u32, u32), k: f32, shade: &Shade) -> Ink {
     (w as u32, h as u32, rgba)
 }
 
-/// The greatest of each `2r + 1` square: every mark swollen by `r`.
 fn dilate(v: &[f32], w: usize, h: usize, r: usize) -> Vec<f32> {
     let mut across = vec![0f32; w * h];
     for y in 0..h {
@@ -924,8 +867,6 @@ fn dilate(v: &[f32], w: usize, h: usize, r: usize) -> Vec<f32> {
     out
 }
 
-/// A box blur of radius `r`, `passes` times each way (three passes are
-/// near enough a Gaussian). Outside the picture is clear.
 fn blur(v: &mut [f32], w: usize, h: usize, r: usize, passes: usize) {
     if r == 0 || w == 0 || h == 0 {
         return;
@@ -965,9 +906,6 @@ fn blur(v: &mut [f32], w: usize, h: usize, r: usize, passes: usize) {
     }
 }
 
-/// The heart's scanlines floating free: a faint dark line every third
-/// shown pixel, strongest in the middle and gone toward the edges, so no
-/// box shows over the text.
 fn lens_lines((w, h): (u32, u32)) -> Ink {
     let mut rgba = vec![0u8; (w * h * 4) as usize];
     for y in 0..h {

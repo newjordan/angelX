@@ -24,14 +24,11 @@ mod moments;
 mod show;
 mod wheel;
 
-/// The wheel's hub, in native pixels.
 fn hub() -> (i32, i32) {
     let (c, r, w, _) = WHEEL_STAND;
     ((c * 2 + w) * TILE / 2, r * TILE + 42)
 }
 
-/// The hall at rest: flags, a medallion before the wheel, the walls and
-/// their braziers, the drapes, the wheel's stand, the benches, the plates.
 pub(super) fn scenery(run: &Run) -> Img {
     let room = run.room();
     let tick = run.tick as u32;
@@ -66,7 +63,6 @@ pub(super) fn scenery(run: &Run) -> Img {
             }
         }
     }
-    // The doorway home, with its two torches.
     for (k, ty) in [(0, 6 * TILE - 6), (1, 8 * TILE + 2)] {
         let im = kit::torch(tick / 4, k);
         cv.stamp(&im, 4, ty);
@@ -103,7 +99,6 @@ pub(super) fn scenery(run: &Run) -> Img {
     cv
 }
 
-/// A round medallion inlaid in the floor before the wheel.
 fn medallion(cv: &mut Img) {
     let (cx, cy) = (hub().0, 9 * TILE + 4);
     for y in cy - 22..cy + 22 {
@@ -130,7 +125,6 @@ fn medallion(cv: &mut Img) {
     }
 }
 
-/// Red drapes hung either side of the wheel, worked in timber reds.
 fn drapes(cv: &mut Img) {
     let (hx, _) = hub();
     for (x0, dir) in [(hx - 64, 1), (hx + 52, -1)] {
@@ -151,10 +145,8 @@ fn drapes(cv: &mut Img) {
                 cv.put(x, y, ink);
             }
         }
-        // The tie-back.
         cv.line(x0 - 1, 60, x0 + 12, 60, 'O');
     }
-    // The valance across the top.
     for x in hx - 66..hx + 66 {
         let scallop = ((x - hx).rem_euclid(12) - 6).abs() / 2;
         for y in 1..6 - scallop {
@@ -163,7 +155,6 @@ fn drapes(cv: &mut Img) {
     }
 }
 
-/// The timber A-frame the wheel turns on.
 fn stand_frame(cv: &mut Img) {
     let (hx, hy) = hub();
     for (dx, ink) in [(-1, 'b'), (0, 'P'), (1, 'b')] {
@@ -174,7 +165,6 @@ fn stand_frame(cv: &mut Img) {
     cv.line(hx - 36, hy + 50, hx + 35, hy + 50, 'P');
 }
 
-/// A plate on the hall's floor: the lever's (a spin) or Fortune's own.
 fn slab(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), lit: bool, station: Option<Station>) {
     let (x, y, pw, ph) = (c * TILE + 1, r * TILE + 1, w * TILE - 2, h * TILE - 2);
     super::super::chrome::floor_plate(cv, (x, y, pw, ph), lit, true);
@@ -188,12 +178,10 @@ fn slab(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), lit: bool, station: Op
     cv.stamp(&mark, x + (pw - mark.w) / 2, y + (ph - mark.h) / 2);
 }
 
-/// The wedges as Fortune's ladder has opened them.
 fn opened(run: &Run) -> Vec<u8> {
     fortune::open_wedges(run.home.level(Station::Wheel))
 }
 
-/// A wedge's colour: muted material inks, neighbours apart.
 fn wedge_ink(mode: Mode) -> (char, char) {
     match mode {
         Mode::LongWayDown => ('u', 'U'),
@@ -213,7 +201,6 @@ fn wedge_ink(mode: Mode) -> (char, char) {
     }
 }
 
-/// A wedge's mark, at its middle.
 fn icon(mode: Mode) -> Img {
     Img::from_rows(match mode {
         Mode::LongWayDown => &[
@@ -255,15 +242,12 @@ fn icon(mode: Mode) -> Img {
         Mode::HollowWalls => &[
             "HHH.HHH", "H.J.H.H", "HHJHHHH", "H.HJ..H", "HHH.JHH", "H.H.H.H", "HHHHHHH",
         ],
-        // Chambers, and the open ways between them.
         Mode::OpenFloors => &[
             "HHH.HHH", "H.H.H.H", "HH...HH", ".......", "HH...HH", "H.H.H.H", "HHH.HHH",
         ],
     })
 }
 
-/// The live hall: the wheel turning, Fortune, the audience, and the plates
-/// knights stand on.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     let st = show::of(run);
@@ -273,12 +257,9 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     }
     let spinning = st.as_ref().is_some_and(|s| s.since.is_none());
     let hanging = st.as_ref().is_some_and(|s| s.beat == Beat::Hang);
-    // How the room takes the wheel once it has landed: a roar for a grand
-    // wedge, a cheer for a fair one, a shrug for the plain road.
     let landed = st.as_ref().and_then(|s| s.since.map(|l| (l, s.luck)));
     let roar = landed.is_some_and(|(l, luck)| luck != Luck::Plain && l < 4 * HZ + 70);
     let shrug = landed.is_some_and(|(l, luck)| luck == Luck::Plain && l < 3 * HZ);
-    // Fortune raises her hand while the wheel turns, and again as it lands.
     let (fx, fy) = at(FORTUNE_AT.0 * 2.0, FORTUNE_AT.1 * 2.0);
     let fortune = if spinning || (roar && (tick / 8).is_multiple_of(2)) {
         Img::from_rows(&FORTUNE_UP)
@@ -287,8 +268,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     };
     let hop = i32::from(roar && (tick / 4).is_multiple_of(2));
     stand(cv, &fortune, fx, fy - hop);
-    // The audience: on their feet while it turns, hands to their faces as it
-    // hangs, and then as the wedge pays.
     let tunics = ['p', 'E', 'u', 'R', 'B', 'q', 'r', 'e'];
     for (b, bench) in BENCHES.iter().enumerate() {
         let (c, r, w, _) = *bench;
@@ -310,14 +289,12 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 };
                 let hair = ['h', 'b', 'n', 'r', 'T'][(hash(id, 3, 79) % 5) as usize];
                 let fan = Img::from_rows(im).recolor(&[('p', tunic), ('O', face), ('h', hair)]);
-                // A roar leaps; a grand one leaps higher.
                 let jump = if roar && cheer { 1 + i32::from(landed.is_some_and(|(_, l)| l == Luck::Grand)) } else { 0 };
                 let lift = i32::from(cheer) * 2 + i32::from(fidget) + jump * 2;
                 cv.stamp(&fan, x, y - fan.h + 3 - lift);
             }
         }
     }
-    // The lever beside its plate: upright, or thrown while the wheel turns.
     let (lc, lr, lw, _) = LEVER;
     let (lx, ly) = ((lc + lw) * TILE + 3, lr * TILE + 14);
     let thrown = spinning;
@@ -350,8 +327,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     coffer(cv, run, reading_coffer);
 }
 
-/// Over everything: Fortune's ledger, the lever's word, the coffer's, and the
-/// spin's own moments. Every box of words is laid through `moments::lay`.
 pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     let on = |p: (i32, i32, i32, i32)| {
         run.players
@@ -371,7 +346,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
         moments::over(cv, run, st, focus);
         moments::faces(cv, run, st);
     }
-    // While the spin is being called, the plates' boards keep quiet.
     let calling = moments::calling(run);
     if let Some((at, tier, label)) = &run.unboxed
         && run.tick.saturating_sub(*at) < 4 * u64::from(HZ)
@@ -442,13 +416,11 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     }
 }
 
-/// Where the top box on the coffer's pedestal sits.
 fn coffer_top() -> (i32, i32) {
     let (c, r, w, _) = COFFER;
     ((c * 2 + w) * TILE / 2, r * TILE + 6)
 }
 
-/// The Herald's coffer: a stone pedestal, the Herald's mark cut in it.
 fn pedestal(cv: &mut Img) {
     let (c, r, w, h) = COFFER;
     let (x, y, pw, ph) = (c * TILE + 4, r * TILE + 8, w * TILE - 8, h * TILE - 8);
@@ -456,7 +428,6 @@ fn pedestal(cv: &mut Img) {
     cv.frame(x, y, pw, ph, 'u');
     cv.line(x + 1, y, x + pw - 2, y, 'V');
     cv.rect(x - 2, y + ph - 3, pw + 4, 3, 'S');
-    // The Herald's mark: a trumpet.
     let (mx, my) = (x + pw / 2, y + ph / 2);
     cv.line(mx - 5, my, mx + 3, my, 'x');
     cv.line(mx + 3, my - 2, mx + 3, my + 2, 'x');
@@ -464,7 +435,6 @@ fn pedestal(cv: &mut Img) {
     cv.put(mx + 4, my + 3, 'x');
 }
 
-/// A loot box of a grade: timber, steel, gold, or something that glows.
 pub(super) fn loot_box(tier: Tier) -> Img {
     let (body, band, lid) = match tier {
         Tier::Bronze => ('r', 'o', 'R'),
@@ -483,8 +453,6 @@ pub(super) fn loot_box(tier: Tier) -> Img {
     im
 }
 
-/// The boxes waiting on the coffer, the top one lifting while a knight
-/// reads it, and a box just opened throwing out what it held.
 fn coffer(cv: &mut Img, run: &Run, reading: bool) {
     let tick = run.tick as u32;
     let (cx, cy) = coffer_top();
@@ -512,7 +480,6 @@ fn coffer(cv: &mut Img, run: &Run, reading: bool) {
     if age > 75.0 {
         return;
     }
-    // The lid flies, and out it comes: coins and gems in arcs.
     let lid = loot_box(*tier);
     let up = (age * 1.4).min(30.0) as i32;
     cv.stamp(&lid, cx - lid.w / 2 + up / 3, cy - 10 - up);
@@ -574,7 +541,6 @@ const FORTUNE_UP: [&str; 17] = [
 
 const FAN: [&str; 6] = ["..hh..", ".hOOh.", ".OOOO.", "..OO..", ".pppp.", "pppppp"];
 
-/// Hands to the face, mouth open: the room as the wheel hangs.
 const FAN_GASP: [&str; 6] = ["..hh..", ".hOOh.", "OOkkOO", ".OOOO.", ".pppp.", "pppppp"];
 
 const FAN_CHEER: [&str; 6] = ["O....O", "OhhhhO", ".hOOh.", ".OOOO.", "..OO..", ".pppp."];

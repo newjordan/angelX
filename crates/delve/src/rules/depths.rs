@@ -10,25 +10,15 @@
 use super::*;
 use layout::Open;
 
-/// The most foes an open floor raises at its start.
 pub const OPEN_FOES: usize = 96;
-/// The most foes awake at once on an open map; the rest wait.
 pub const AWAKE_CAP: usize = 32;
-/// How near a knight in sight wakes a dormant company (units).
 pub const WAKE_REACH: f32 = 16.0;
-/// How far past its chamber's stone a foe may go (units).
 pub const LEASH: f32 = 12.0;
-/// A company with no knight this near dozes off again (units).
 pub const SLEEP_REACH: f32 = 60.0;
-/// How far a scroll's nova reaches on an open map (bombs use `bombs::at`).
 pub const OPEN_BLAST: f32 = 24.0;
-/// A knight's bomb this near the crack brings the wall down.
 pub const OPEN_CRACK_REACH: f32 = 8.0;
-/// The most cards lying about an open map.
 pub const OPEN_ITEMS: usize = 96;
 
-
-/// A floor's leashes, on the stack: chamber index to stone plus `LEASH`.
 pub(super) struct Leashes {
     bounds: [(f32, f32, f32, f32); layout::open::MAX_CHAMBERS],
     n: usize,
@@ -40,8 +30,6 @@ impl Leashes {
     }
 }
 
-/// Chamber stone copied onto the stack so a tick can read it while the
-/// floor itself is borrowed for the fight. Rosters and gates stay put.
 #[derive(Clone, Copy)]
 struct ChamberSnap {
     bounds: (f32, f32, f32, f32),
@@ -93,14 +81,10 @@ fn nearest_snap(chambers: &[ChamberSnap], x: f32, y: f32) -> usize {
 }
 
 impl Run {
-    /// Whether this delve's floors are laid open: the wheel's wedge, or the
-    /// host's switch (the run's own, or the host's now, for a save made
-    /// before it was thrown).
     pub fn wants_open(&self) -> bool {
         self.open_floors || self.mode == fortune::Mode::OpenFloors || crate::settings::get().open_floors
     }
 
-    /// The open map, when the party stands on it.
     pub fn open_here(&self) -> Option<&Open> {
         self.dungeon
             .open
@@ -108,13 +92,10 @@ impl Run {
             .filter(|o| o.map == self.at && self.dungeon.rooms.get(self.at).is_some_and(|r| r.kind == RoomKind::Depths))
     }
 
-    /// The party stands on an open floor's map.
     pub fn open_map(&self) -> bool {
         self.open_here().is_some()
     }
 
-    /// Something fights the party: in a room, anything left in it; on an
-    /// open map, a company awake.
     pub fn fight_on(&self) -> bool {
         if self.open_map() {
             self.enemies.iter().any(|e| e.hp > 0 && !e.dormant && e.kind != EnemyKind::Dummy)
@@ -123,14 +104,10 @@ impl Run {
         }
     }
 
-    /// The moment is a fight: a room's `Phase::Fighting`, or a company
-    /// awake on an open map.
     pub fn fighting(&self) -> bool {
         self.phase == Phase::Fighting || (self.open_map() && self.fight_on())
     }
 
-    /// Where the party steps onto the map: out of the door of the room it
-    /// left, or at the arrival.
     pub(super) fn open_landing(&self, index: usize, came_from: usize) -> Option<(f32, f32)> {
         let open = self.dungeon.open.as_ref().filter(|o| o.map == index)?;
         Some(
@@ -141,14 +118,10 @@ impl Run {
         )
     }
 
-    /// Room for `count` knights round `(x, y)` on the map: each spot clear
-    /// of stone.
     pub fn open_spots(&self, index: usize, at: (f32, f32), count: usize) -> Vec<(f32, f32)> {
         self.open_spots_where(index, at, count, |_, _| true)
     }
 
-    /// As `open_spots`, each spot one `keep` allows (`(x, y)` itself when
-    /// none is).
     fn open_spots_where(
         &self,
         index: usize,
@@ -181,8 +154,6 @@ impl Run {
         out
     }
 
-    /// The party walks onto the map: its companies as they were left (or
-    /// raised, the first time), no door barred, nothing to wait for.
     pub(super) fn enter_open(&mut self, index: usize, first_visit: bool) {
         self.dungeon.rooms[index].visited = true;
         if !self.parked.is_empty() {
@@ -196,7 +167,6 @@ impl Run {
         self.waves = Waves::default();
         self.traps.clear();
         self.rocks.clear();
-        // The dragon's floor, its dragon slain: the light home still burns.
         if let Some(open) = &self.dungeon.open {
             let g = &open.chambers[usize::from(open.guardian)];
             if g.kind == RoomKind::Lair && g.cleared {
@@ -210,16 +180,10 @@ impl Run {
         self.choose_altars();
     }
 
-    /// Raise every chamber's company at its spots, dormant: the room's own
-    /// roster, the floor's extra foes and the party's
-    /// (`stakes::EXTRA_PER_KNIGHT`), more the farther it lies from the
-    /// stairs (`stakes::ramp`), the guardian alone on the first floors
-    /// (`BOSS_ALONE_TO`), within `OPEN_FOES`.
     pub(super) fn populate_open(&mut self) {
         let Some(open) = self.dungeon.open.clone() else {
             return;
         };
-        // Sized for the party as it is now, as a step would size them.
         let before = self.scaled();
         self.rescale_party(before);
         let depth = self.dungeon.depth;
@@ -234,15 +198,12 @@ impl Run {
             .copied()
             .filter(|&(kind, _)| !matches!(kind, EnemyKind::Bat | EnemyKind::Slime | EnemyKind::Spiderling))
             .collect();
-        // The first fight off the stairs, gentle on the first floors
-        // (`stakes::GENTLE_FIRST_TO`): none of the party's gunners in it.
         let first_fight = open
             .chambers
             .iter()
             .filter(|c| c.kind != RoomKind::Start && !c.guarded() && !c.roster.is_empty())
             .map(|c| c.dist)
             .min();
-        // Each chamber's own company, and its extras.
         let mut own: Vec<Vec<EnemyKind>> = Vec::with_capacity(open.chambers.len());
         let mut extra: Vec<usize> = Vec::with_capacity(open.chambers.len());
         for ch in &open.chambers {
@@ -255,7 +216,6 @@ impl Run {
             let n = if roster.is_empty() || ch.kind == RoomKind::Start || alone || ch.kind == RoomKind::Lair {
                 0
             } else {
-                // Hell keeps no gentle room, and every company is a horde.
                 let gentle = depth <= stakes::GENTLE_FIRST_TO && Some(ch.dist) == first_fight && circle == 0;
                 let base = (if guarded { 0 } else { stakes::EXTRA_FOES[index] + hell::horde(circle) })
                     + if gentle { 0 } else { stakes::party_extra(knights) };
@@ -266,8 +226,6 @@ impl Run {
             own.push(roster);
             extra.push(n);
         }
-        // Within the floor's cap: the extras go first, the biggest first,
-        // then the plain rosters' tails; the guardian's own never.
         let total = |own: &[Vec<EnemyKind>], extra: &[usize]| own.iter().map(Vec::len).sum::<usize>() + extra.iter().sum::<usize>();
         while total(&own, &extra) > OPEN_FOES {
             if let Some(i) = (0..extra.len()).filter(|&i| extra[i] > 0).max_by_key(|&i| (extra[i], i)) {
@@ -285,13 +243,10 @@ impl Run {
             .filter(|&i| self.bosses[i].only_in == pack && self.bosses[i].id != nooks::gnome::FLAMINGO && !deep::dread::is(&self.bosses[i]))
             .collect();
         let pick = (mix(self.seed ^ self.raid_id.rotate_left(17)) % guardians.len().max(1) as u64) as usize;
-        // The Gnome's Garden's floor is the Lawn Flamingo's (`nooks::gnome`).
         let flamingo = (self.dungeon.depth == nooks::gnome::DEPTH
             && self.dungeon.rooms.iter().any(|r| r.kind == RoomKind::GnomeParty))
         .then(|| self.flamingo())
         .flatten();
-        // The floor above a village of the Deep: its people's dread holds
-        // the stair (`deep::dread`).
         let dread = self.dread_at();
         for (i, ch) in open.chambers.iter().enumerate() {
             let first = self.enemies.len();
@@ -303,8 +258,6 @@ impl Run {
                 })
             };
             let mut roster = std::mem::take(&mut own[i]);
-            // On the garden's floor the flamingo holds the guardian's
-            // chamber, a lair's dragon gone from it.
             let flamingos = flamingo.is_some() && i == usize::from(open.guardian);
             if flamingos {
                 roster.retain(|&k| k != EnemyKind::Dragon);
@@ -312,7 +265,6 @@ impl Run {
             if (ch.kind == RoomKind::Stairs || flamingos)
                 && let Some(boss) = flamingo.or(dread).or_else(|| guardians.get(pick).copied())
             {
-                // The guardian at its chamber's head, facing the way in.
                 let head = self.open_head(&open, i);
                 let at = self.enemies.len();
                 self.spawn_boss(boss);
@@ -341,7 +293,6 @@ impl Run {
                 let (x, y) = next(self);
                 self.spawn_body(kind, x, y);
             }
-            // Now and then, deep down, one of them a tougher one of its kind.
             if depth >= 3
                 && !ch.guarded()
                 && self.enemies.len() > first
@@ -360,7 +311,6 @@ impl Run {
                 elite.size = Some(elite.kind.radius() * 1.3);
                 elite.fury = elite.fury.saturating_add(1);
             }
-            // A circle's companies are led by champions.
             if !ch.guarded() {
                 self.crown_champions(first);
             }
@@ -373,7 +323,6 @@ impl Run {
             open.populated = true;
             let homes: Vec<u8> = self.enemies.iter().filter_map(|e| e.home).collect();
             for (i, ch) in open.chambers.iter_mut().enumerate() {
-                // Nobody to meet: nothing to pay for.
                 if !homes.contains(&(i as u8)) {
                     ch.cleared = true;
                 }
@@ -381,8 +330,6 @@ impl Run {
         }
     }
 
-    /// A chamber's floor spots for its company, shuffled: open floor in
-    /// its middle, clear of its mouths and doors and of the arrival.
     fn chamber_spots(&mut self, open: &Open, i: usize) -> Vec<(f32, f32)> {
         let ch = &open.chambers[i];
         let room = &self.dungeon.rooms[open.map];
@@ -401,7 +348,6 @@ impl Run {
                 spots.push((px, py));
             }
         }
-        // Shuffle, then keep them apart.
         for k in (1..spots.len()).rev() {
             let j = self.rng.below(k + 1);
             spots.swap(k, j);
@@ -415,7 +361,6 @@ impl Run {
         kept
     }
 
-    /// The head of chamber `i`: its north end, the middle, on open floor.
     fn open_head(&self, open: &Open, i: usize) -> (f32, f32) {
         let ch = &open.chambers[i];
         let room = &self.dungeon.rooms[open.map];
@@ -436,8 +381,6 @@ impl Run {
             .map_or((cx, (y0 + y1) / 2.0), |(c, r)| ((c as f32 + 0.5) * TILE_UNITS, (r as f32 + 0.5) * TILE_UNITS))
     }
 
-    /// Where a monster comes onto the map mid-fight: in the chamber
-    /// nearest the party, on open floor away from the knights.
     pub(super) fn open_spawn_spot(&mut self) -> Option<((f32, f32), u8)> {
         let Some(view) = self.open_view() else {
             return None;
@@ -462,7 +405,6 @@ impl Run {
         Some((spot, i as u8))
     }
 
-    /// The leash rect of chamber `home`: its stone and `LEASH` round it.
     pub(super) fn leashes(&self) -> Leashes {
         let mut bounds = [(0.0, 0.0, 0.0, 0.0); layout::open::MAX_CHAMBERS];
         let Some(open) = self.open_here() else {
@@ -476,10 +418,6 @@ impl Run {
         Leashes { bounds, n }
     }
 
-    /// One tick of the open map, after the kills are settled: the
-    /// homeless take a home, the chambers are charted, companies wake and
-    /// doze, the guardian's chamber seals and opens, and a chamber whose
-    /// company is dead pays.
     pub(super) fn tick_open(&mut self) {
         let Some(view) = self.open_view() else {
             return;
@@ -538,8 +476,6 @@ impl Run {
         {
             self.seal_guardian(id, (x, y));
         }
-        // Nobody left standing inside it (knocked out through its gate,
-        // say): it opens again, and shuts behind the next knight in.
         if gc.sealed
             && !gc.cleared
             && !self.players.values().any(|h| h.hp > 0 && !h.absent && gc.holds(h.x, h.y, 0.0))
@@ -547,7 +483,6 @@ impl Run {
         {
             o.chambers[g].sealed = false;
         }
-        // A company far from every knight dozes off.
         if self.tick.is_multiple_of(u64::from(HZ)) {
             for (i, ch) in chambers.iter().enumerate() {
                 if ch.sealed || ch.cleared {
@@ -562,7 +497,6 @@ impl Run {
                 }
             }
         }
-        // A chamber whose company is dead pays, once.
         for i in 0..view.n {
             let cleared = self.dungeon.open.as_ref().unwrap().chambers[i].cleared;
             if cleared || !view.populated {
@@ -578,8 +512,6 @@ impl Run {
         }
     }
 
-    /// Where the party stands, marked on the chart: a chamber is seen once
-    /// a living knight is in it. The stone is read in place; the roster is not.
     pub(super) fn chart_open(&mut self) {
         let (at, tick) = (self.at, self.tick.max(1));
         let players = &self.players;
@@ -594,7 +526,6 @@ impl Run {
         }
     }
 
-    /// The floor's stone, copied. Enough to ask who is inside; the lists stay.
     fn open_view(&self) -> Option<OpenView> {
         let open = self.open_here()?;
         let mut chambers = [ChamberSnap {
@@ -623,10 +554,6 @@ impl Run {
         })
     }
 
-    /// Chamber `i`'s company wakes (as many as `AWAKE_CAP` lets): a short
-    /// telegraph, then the fight. The first time, the moment is a fight's.
-    /// A big company comes on in waves (`stakes::open_wave`): the rest
-    /// wake as those fighting fall.
     fn wake_chamber(&mut self, i: usize) {
         let mut awake = self.enemies.iter().filter(|e| e.hp > 0 && !e.dormant).count();
         let wave = stakes::open_wave(self.party_len());
@@ -648,15 +575,11 @@ impl Run {
         if woke > 0 && !ch.stirred {
             ch.stirred = true;
             self.room_hurt = false;
-            // A fight closes the window: wishes come between fights.
             self.window = None;
             self.cues.push("room_fight".into());
         }
     }
 
-    /// The guardian's chamber shuts: knight `id` stepped in at `at`. The
-    /// rest of the party is drawn in beside them, as a door would bring
-    /// them, and the guardian wakes.
     fn seal_guardian(&mut self, id: u32, at: (f32, f32)) {
         let Some((map, g, bounds)) = self.dungeon.open.as_ref().map(|o| {
             let g = usize::from(o.guardian);
@@ -683,8 +606,6 @@ impl Run {
             .filter(|(other, h)| **other != id && !holds(h.x, h.y, 0.5))
             .map(|(&other, _)| other)
             .collect();
-        // Drawn in, not out: every spot within its walls, never in the
-        // passage beyond the gate the first knight came through.
         let spots = self.open_spots_where(map, at, outside.len() + 1, |x, y| holds(x, y, HERO_RADIUS));
         for (k, other) in outside.into_iter().enumerate() {
             let spot = spots.get(k + 1).copied().unwrap_or(at);
@@ -712,9 +633,6 @@ impl Run {
         }
     }
 
-    /// Chamber `i`'s company is dead: what a cleared room pays, once. The
-    /// guardian's opens, and on the first floor hallows the party; the
-    /// dragon's opens the way down and the light home.
     fn chamber_clear(&mut self, i: usize) {
         let Some((guardian, kind, rect, bounds)) = self.dungeon.open.as_ref().map(|o| {
             let ch = &o.chambers[i];
@@ -725,8 +643,6 @@ impl Run {
         if let Some(o) = self.dungeon.open.as_mut() {
             o.chambers[i].cleared = true;
             o.chambers[i].sealed = false;
-            // Only a company that was fought is hushed: a quiet chamber
-            // (the arrival, a crossing no one woke) was never loud.
             o.chambers[i].cleared_at = if o.chambers[i].stirred { self.tick.max(1) } else { 0 };
         }
         let holds = |x: f32, y: f32, inset: f32| {
@@ -736,7 +652,6 @@ impl Run {
                 && y >= y0 + TILE_UNITS + inset
                 && y < y1 - TILE_UNITS - inset
         };
-        // The monsters' shots still in the air about it turn to gold.
         self.cancel_shots_where(|p| holds(p.x, p.y, -LEASH));
         self.projectiles.retain(|p| !p.hostile || !holds(p.x, p.y, -LEASH));
         self.close_ledger("clear");
@@ -759,8 +674,6 @@ impl Run {
         self.breather();
         if usize::from(guardian) == i {
             if kind == RoomKind::Stairs && self.dungeon.depth == 1 {
-                // The first floor's guardian guarded a rest: the party is
-                // hallowed where it stands before the descent.
                 self.stairs_held = true;
                 self.hallow();
             }
@@ -773,17 +686,12 @@ impl Run {
             let map = o.map;
             self.dungeon.rooms[map].cleared = all;
         }
-        // The floor's boss fell: a super wish each (`overclass`).
         if usize::from(guardian) == i {
             self.boss_wishes();
-            // And the cauldron rises by the stairs (`cauldron`).
             self.raise_cauldron();
         }
     }
 
-    /// The dragon slain on an open map: as in its lair, the floor reclaimed
-    /// and banked, stairs in its chamber's middle and the light home above
-    /// them, the hell gate beside.
     fn dragon_slain_open(&mut self, rect: (u16, u16, u16, u16)) {
         if let Some(hero) = self.players.values_mut().find(|h| h.hp > 0 && !h.stone) {
             hero.carried.add(Spoil::Scale, 1);
@@ -818,7 +726,6 @@ impl Run {
         self.cues.push("the_deep".into());
     }
 
-    /// The guardian of this open floor still lives: its stairs stay shut.
     pub fn open_guarded(&self) -> bool {
         self.open_here().is_some_and(|o| {
             let g = &o.chambers[usize::from(o.guardian)];
@@ -826,8 +733,6 @@ impl Run {
         })
     }
 
-    /// A knight standing on a door off the map takes the party through it.
-    /// True if it did.
     pub(super) fn open_doors(&mut self) -> bool {
         let Some(open) = self.open_here() else {
             return false;
@@ -855,8 +760,6 @@ impl Run {
         true
     }
 
-    /// How far into the open floor the party stands, in percent: its
-    /// chamber's steps from the arrival over the farthest's.
     pub(super) fn open_progress(&self) -> Option<u32> {
         let open = self.open_here()?;
         let far = open.chambers.iter().map(|c| u32::from(c.dist)).max().unwrap_or(0);
@@ -876,8 +779,6 @@ impl Run {
 
 #[cfg(any(test, feature = "testing"))]
 impl Run {
-    /// Lay floor `depth` open for the party as it is and walk onto it
-    /// (out of the stair's Sanctuary, below the first floor).
     pub fn open_floor_for_test(&mut self, depth: u32) {
         self.open_floors = true;
         let pack = Pack::at(depth, self.first);
@@ -896,11 +797,6 @@ impl Run {
 }
 
 impl Run {
-    /// A chamber won on the first floors' open maps gives a breather
-    /// (`Tune::clear_rest`, docs/FIRST-SESSION.md): every knight standing
-    /// mends a share of their health, as a rest, and hears so on their own
-    /// screen. The first-session bot found a lone beginner walking into the
-    /// next fight on a fifth of their health, and falling there.
     pub(super) fn breather(&mut self) {
         let share = self.tune.clear_rest_at(self.dungeon.depth);
         if share == 0 {
@@ -921,9 +817,6 @@ impl Run {
     }
 }
 
-/// A walk on the open map from `from` toward `to`, for bots and tests: the
-/// next point to head for along the floor, by a breadth-first search over
-/// the tiles a knight can stand on (none if `to` cannot be reached).
 pub fn open_path(room: &Room, from: (f32, f32), to: (f32, f32), barred: bool) -> Option<Vec<(i32, i32)>> {
     let walk = |t: Tile| matches!(t, Tile::Floor | Tile::Stairs) || (t == Tile::Door && !barred);
     let cell = |(x, y): (f32, f32)| ((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32);

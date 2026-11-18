@@ -20,8 +20,6 @@ pub struct Companion {
 pub struct Party {
     pub companions: Vec<Companion>,
     pub offers: BTreeMap<u32, usize>,
-    /// Which action owns a seat's partial hold; ordinary yard counters must
-    /// not carry progress into a different treasury-spending action.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub holds: BTreeMap<u32, usize>,
 }
@@ -56,8 +54,6 @@ enum Command {
     Upgrade(u8),
 }
 
-/// Nine small plates on the north side of the existing Training Yard.
-/// Each building has two daily actions and one improvement plate.
 pub const PLATES: [(i32, i32, i32, i32); 9] = [
     (2, 4, 2, 1),
     (4, 4, 2, 1),
@@ -96,9 +92,6 @@ fn building(i: u8) -> Building {
     }
 }
 
-/// Same authority boundary as holdings and town sales: only the host's
-/// realm settles a request and spends its treasury. Names are JSON strings,
-/// so punctuation in a knight's name cannot turn into another command.
 pub fn settle(realm: &mut activity::Realm<'_>, marks: &BTreeMap<String, u32>) -> activity::Settled {
     let mut result = activity::Settled::default();
     for key in marks.keys().filter(|k| k.starts_with("squire:")) {
@@ -129,8 +122,6 @@ pub fn settle(realm: &mut activity::Realm<'_>, marks: &BTreeMap<String, u32>) ->
     result
 }
 impl Run {
-    /// Companions share their owner's activity and presence, including while
-    /// outside seats are temporarily detached during `step`.
     pub(crate) fn squire_owner_here(&self, owner: u32) -> bool {
         self.players.get(&owner).is_some_and(|h| !h.absent)
             && !self.exits.outside.contains_key(&owner)
@@ -225,8 +216,6 @@ impl Run {
             }
         }
     }
-    /// A room transition carries each selected companion through beside its
-    /// owner. Downed companions recover here, or when the fight is over.
     pub(super) fn hall_squires_follow(&mut self) {
         for (owner, _) in std::mem::take(&mut self.squire_yard_holds) {
             if let Some(h) = self.players.get_mut(&owner) { h.buying = 0; }
@@ -349,9 +338,6 @@ impl Run {
         let kind = c.squire.kind;
         let level = c.squire.level;
         let power = c.squire.power();
-        // Flying shots meet companions in `flight`, in swept entry order.
-        // Beams burn in place: each beam can strike each owner's companion
-        // once, independently of its knight and the companion's hit ward.
         if c.smoke == 0 {
             for shot in self.projectiles.iter_mut().filter(|p| {
                 p.hostile && p.ttl > 0 && !p.traits.path.waiting() && p.traits.path.beam.is_some()
@@ -457,7 +443,6 @@ impl Run {
                     }
                 }
                 Kind::Shield => {
-                    // Stand on the incoming line, between owner and foe.
                     let line = unit(x - heel.0, y - heel.1);
                     goal = (heel.0 + line.0 * 2.0, heel.1 + line.1 * 2.0);
                     if d < 2.7
@@ -498,8 +483,6 @@ impl Run {
                 }
             }
         }
-        // Revival is movement intent, not an ability cooldown. Ordinary
-        // mending may postpone the revive, but must never abandon the skull.
         if kind == Kind::Healer && level >= 3 {
             let from = (c.body.x, c.body.y);
             let fallen = self

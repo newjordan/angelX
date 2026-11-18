@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# e1.sh <route>... — E1: intro / bare / prebook on the two-bug task, n=5 per
-# arm, arm order shuffled within each round; one background chain per route.
-# Labels: e1-<route>-<arm>-<round>.
 set -u
 if (( $# == 0 )); then
   printf 'Usage: %s <route>...\n' "$0" >&2

@@ -1,9 +1,6 @@
 use super::*;
 use crate::render::overworld::{Scene, View, map, render_view};
 
-/// The residents as the renderer used to make them on its first frame,
-/// from the whole paintings: cropped to their solid pixels, resized to
-/// `HEIGHT` nearest-neighbour, put in the plain palette.
 fn from_painting(png: &[u8]) -> Img {
     let source = image::load_from_memory(png).expect("bundled town resident PNG").to_rgba8();
     let (mut left, mut top) = source.dimensions();
@@ -85,7 +82,6 @@ fn residents_are_plain_visible_sprites_and_motion_preferences_hold() {
 
 #[test]
 fn residents_stay_in_town_and_outside_distant_views() {
-    // The Keep's set piece, and the Observatory's far off to the north-west.
     let piece = |ax: i32, ay: i32| {
         let (x, y) = map::screen_origin(ax, ay);
         View { x: x * map::TILE, y: y * map::TILE, w: map::SCREEN_W * map::TILE, h: map::SCREEN_H * map::TILE }

@@ -54,15 +54,12 @@ pub const FIRST: u32 = 42;
 pub const STEP: u32 = 2;
 pub const WINDOW: u32 = 10;
 pub const STRIKES: u8 = 13;
-/// Ticks the bell still glows after a true pull or a clanger.
 pub const FLASH: u8 = 6;
 
-/// Ticks swing `struck` takes, from its start to the beat.
 pub fn interval(struck: u8) -> u32 {
     FIRST - STEP * u32::from(struck.min(STRIKES - 1))
 }
 
-/// Ticks from the peal's start to the start of swing `struck`.
 pub fn elapsed(struck: u8) -> u32 {
     (0..struck.min(STRIKES)).map(interval).sum()
 }
@@ -70,13 +67,9 @@ pub fn elapsed(struck: u8) -> u32 {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Peal {
     pub owner: u32,
-    /// Ticks into the current swing.
     pub phase: u32,
-    /// Strikes already closed (rung true, clanged, or missed).
     pub struck: u8,
-    /// The current strike was pulled on gold; judged at the beat.
     pub rung: bool,
-    /// The current strike was pulled early; judged at the beat.
     pub spoiled: bool,
     #[serde(default)]
     pub ring_flash: u8,
@@ -87,11 +80,9 @@ impl Peal {
     pub fn new(owner: u32) -> Self {
         Self { owner, phase: 0, struck: 0, rung: false, spoiled: false, ring_flash: 0, clang_flash: 0 }
     }
-    /// The current swing's span, for the ring cue's size.
     pub fn span(&self) -> u32 {
         interval(self.struck)
     }
-    /// A pull right now would ring true.
     pub fn in_window(&self) -> bool {
         !self.rung && !self.spoiled && self.phase + WINDOW >= self.span()
     }
@@ -106,11 +97,7 @@ impl Peal {
             && u32::from(round.mistakes) == u32::from(self.struck - round.progress)
             && super::Game::Peal.time() - round.left == elapsed(self.struck) + self.phase
     }
-    /// Some(true): the strike rang true; Some(false): clanged or missed;
-    /// None: the swing is still coming round.
     pub fn step(&mut self, tapped: bool) -> Option<bool> {
-        // F answers the gold in the snapshot the knight just saw. Do not
-        // open the window a tick early by advancing the phase first.
         if tapped && !self.rung && !self.spoiled {
             if self.phase + WINDOW >= self.span() {
                 self.rung = true;

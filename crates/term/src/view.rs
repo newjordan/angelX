@@ -8,26 +8,17 @@ use ratatui_core::style::{Color, Modifier};
 use crate::engine::{Cell, Color as EngineColor, Coord, Engine};
 use alacritty_terminal::term::cell::Flags as F;
 
-/// How the cursor shows, as glass draws it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CursorLook {
-    /// A block: the cell's colours reverse under it.
     Block,
-    /// An underline along the bottom of the cell.
     Underline,
-    /// A bar on the left edge of the cell.
     Beam,
-    /// Not drawn at all.
     Hidden,
 }
 
-/// A stretch of the screen as it reads, from one cell to another (both
-/// included), in the cells shown.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Selection {
-    /// (row, column) where it began.
     pub anchor: (u16, u16),
-    /// (row, column) where it reaches now.
     pub head: (u16, u16),
 }
 
@@ -62,8 +53,6 @@ fn color(color: EngineColor) -> Color {
     }
 }
 
-/// Draw the screen. `hover` is the link under the mouse, when Ctrl is
-/// held: its cells show underlined.
 pub fn paint(
     buf: &mut Buffer,
     area: Rect,
@@ -83,13 +72,11 @@ pub fn paint(
             let Some(source) = cells.get(index) else {
                 continue;
             };
-            // The right half of a wide character is the left half's.
             if source.flags.contains(alacritty_terminal::term::cell::Flags::WIDE_CHAR_SPACER)
                 && !source.flags.contains(alacritty_terminal::term::cell::Flags::WIDE_CHAR)
             {
                 continue;
             }
-            // A placeholder cell is a picture, never a glyph. The background stays.
             let symbol = if source.c == '\0' || source.c == '\u{10EEEE}' { ' ' } else { source.c };
             cell.set_char(symbol);
             cell.fg = color(source.fg);
@@ -99,8 +86,6 @@ pub fn paint(
             modifier.set(Modifier::BOLD, source.flags.contains(F::BOLD));
             modifier.set(Modifier::DIM, source.flags.contains(F::DIM));
             modifier.set(Modifier::ITALIC, source.flags.contains(F::ITALIC));
-            // Every underline style, including curly (SGR 4:3), is an underline.
-            // SGR 58's colour rides the cell so the bar is not stuck on the fg.
             modifier.set(Modifier::UNDERLINED, source.flags.intersects(F::ALL_UNDERLINES));
             modifier.set(Modifier::CROSSED_OUT, source.flags.contains(F::STRIKEOUT));
             let selected = selection.is_some_and(|s| s.contains(row, col));
@@ -119,8 +104,6 @@ pub fn paint(
     }
 }
 
-/// Where the cursor shows, if it does: not while the program hides it, and
-/// not while the view is in the scrollback.
 pub fn cursor(engine: &Engine, area: Rect) -> Option<Position> {
     let (row, col): Coord = engine.cursor()?;
     let (rows, cols) = engine.size();
@@ -131,8 +114,6 @@ pub fn cursor(engine: &Engine, area: Rect) -> Option<Position> {
     Some(Position { x, y })
 }
 
-/// The selected text, as a terminal copies it: trailing blanks trimmed,
-/// rows that wrapped join up, others break into lines.
 pub fn text(cells: &[Cell], cols: u16, selection: &Selection) -> String {
     let ((r0, c0), (r1, c1)) = selection.ordered();
     let mut out = String::new();
@@ -150,9 +131,6 @@ pub fn text(cells: &[Cell], cols: u16, selection: &Selection) -> String {
             }
             col += 1;
         }
-        // A row that the program wrapped carries on to the next; one that
-        // ended breaks the line. Only a row that ends a line has its
-        // trailing blanks trimmed: a wrapped row's blanks are text.
         let wrapped = cell_at(cells, cols, row, cols.saturating_sub(1)).is_some_and(|c| c.flags.contains(F::WRAPLINE));
         out.push_str(if wrapped { &line } else { line.trim_end_matches(' ') });
         if !wrapped && row != r1 {
@@ -166,8 +144,6 @@ pub fn text(cells: &[Cell], cols: u16, selection: &Selection) -> String {
     out
 }
 
-/// The word under a double click: a run of cells that are not blanks or
-/// the punctuation that usually bounds a word, a path or a URL.
 pub fn word(cells: &[Cell], cols: u16, row: u16, col: u16) -> Selection {
     let is_word = |c: char| !c.is_whitespace() && !",│`|\"' ()[]{}<>\t;".contains(c);
     let Some(start) = cell_at(cells, cols, row, col).map(|c| c.c) else {
@@ -187,7 +163,6 @@ pub fn word(cells: &[Cell], cols: u16, row: u16, col: u16) -> Selection {
     Selection { anchor: (row, left), head: (row, right) }
 }
 
-/// The plain URL sitting over a cell, if one does (http, https, file).
 pub fn url_at(cells: &[Cell], cols: u16, row: u16, col: u16) -> Option<String> {
     let mut line = String::new();
     let mut c = 0;
@@ -212,9 +187,6 @@ pub fn url_at(cells: &[Cell], cols: u16, row: u16, col: u16) -> Option<String> {
     None
 }
 
-/// The cell at (row, col) of a flat `rows x cols` grid, when the grid's
-/// width is known: callers pass the engine's, so this only fails off the
-/// edges (a wide character's right half reads as the left's).
 fn cell_at(cells: &[Cell], cols: u16, row: u16, col: u16) -> Option<&Cell> {
     if col >= cols {
         return None;
@@ -256,8 +228,6 @@ mod tests {
 
     #[test]
     fn cjk_and_emoji_copy_once() {
-        // A wide character takes two cells; the copy takes the character
-        // once and skips the null that marks its right half.
         let mut parser = engine("你好🎉🎊".as_bytes());
         let all = Selection { anchor: (0, 0), head: (0, 7) };
         assert_eq!(text_of(&mut parser, &all), "你好🎉🎊");
@@ -265,22 +235,13 @@ mod tests {
 
     #[test]
     fn wrapped_rows_keep_their_trailing_spaces() {
-        // `a` followed by three spaces wraps onto `b`: the spaces are part
-        // of the text, so the copy keeps them. Only a row that ends a line
-        // has its trailing blanks trimmed.
         let mut parser = engine(b"a        bcd");
-        // `a` and eight spaces fill the first row and it wraps: the
-        // spaces are copied as written, not trimmed, because the row
-        // carries on instead of ending a line.
         let all = Selection { anchor: (0, 0), head: (1, 1) };
         assert_eq!(text_of(&mut parser, &all), "a        bcd");
     }
 
     #[test]
     fn selection_stops_at_the_last_column() {
-        // A selection whose head sits past the grid reads to the last
-        // column of the middle rows and no further, instead of spinning up
-        // to the column limit.
         let mut parser = engine(b"ab");
         let wide = Selection { anchor: (0, 0), head: (0, u16::MAX) };
         assert_eq!(text_of(&mut parser, &wide), "ab");
@@ -302,7 +263,6 @@ mod tests {
         let a = &buf[(0, 0)];
         assert_eq!((a.symbol(), a.fg), ("A", Color::Indexed(1)));
         assert!(a.modifier.contains(Modifier::BOLD));
-        // Reversed by the program and selected: shown plain.
         assert!(!buf[(1, 0)].modifier.contains(Modifier::REVERSED));
     }
 

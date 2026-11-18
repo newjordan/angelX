@@ -1,13 +1,4 @@
 #!/usr/bin/env python3
-"""Concatenate Delve's Bend fragments into one program: delve/build/rules.bend.
-
-Fragments (delve/rules/<group>/**/*.bend) hold only types and defs; every def
-becomes @unsafe so order and mutual recursion are free inside the one file. A
-stub (delve/stubs/*.bend) is kept only while no fragment defines its name.
-`case.<name>` wrappers are gathered into `cases.run` for delve/tests/cases.py.
-
-    python3 delve/build.py [--only GROUP ...]
-"""
 import argparse
 import pathlib
 import re
@@ -20,7 +11,6 @@ TOP = re.compile(r"^(def|type)\s", re.M)
 
 
 def blocks(text):
-    """Top-level `def`/`type` blocks with their leading comments."""
     starts = [m.start() for m in TOP.finditer(text)]
     out = []
     for i, s in enumerate(starts):
@@ -49,7 +39,7 @@ def main():
     for g in chosen:
         for f in sorted((rules / g).rglob("*.bend")):
             text = f.read_text()
-            if re.search(r"^import\s", text, re.M):
+            if re.search(r"^import\s+(?!Base\s*$)", text, re.M):
                 errors.append(f"{f}: fragments have no imports")
                 continue
             for b in blocks(text):
@@ -79,13 +69,12 @@ def main():
         if (HERE / "lib" / f"{lib}.bend").is_file():
             head.append(f"import ../lib/{lib}.bend as {alias}")
     (HERE / "build").mkdir(exist_ok=True)
-    (HERE / "build" / "rules.bend").write_text("\n".join(head) + "\n\n" + "\n".join(out))
+    (HERE / "build" / "rules.bend").write_text("\n".join(head) + "\n\n" + "\n".join(sorted(out, key=lambda b: not b.startswith("type"))))
     print(f"delve/build/rules.bend: {len(defined)} defs from {len(chosen)} groups, "
           f"{len(stubbed)} stubs, {len(cases)} case wrappers")
 
 
 def dispatch(cases):
-    """`cases.run(name, input)`: the wrapper named `case.<name>`, by name."""
     lines = ["def cases.run?(+name: String, +input: J.Val) -> J.Val:",
              "  cases.run.n0(String.eq(name, \"" + (cases[0] if cases else "") + "\"), name, input)", ""]
     for i, c in enumerate(cases):

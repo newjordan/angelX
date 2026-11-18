@@ -13,7 +13,6 @@ fn record_knight_racer_cases() {
         let before = kit::js(&s);
         s.join_ids(ids.clone());
         kit::rec("knight_racers.Session.join_ids", json!({"s": before, "ids": ids}), json!({"s": kit::js(&s)}));
-        // Drive the field: a few hundred ticks of mixed keys, a longer burst for some.
         let ticks = if n % 4 == 0 { 1500 } else { 260 };
         let mut every = [0i8; 6];
         for t in 0..ticks {

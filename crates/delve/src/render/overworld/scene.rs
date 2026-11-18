@@ -15,27 +15,22 @@ use super::map::{Place, TILE, place_px};
 use super::outcomes::{self, Echo, Seal};
 use super::View;
 
-/// One tilt at the Lists: two model routes and their running scores.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Joust {
     pub red: String,
     pub blue: String,
     pub red_score: u32,
     pub blue_score: u32,
-    /// Charge progress, `0.0` at the pavilions to `1.0` past the pass.
     pub charge: f32,
 }
 
-/// A repo ward: a district of the realm with its banner.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Ward {
     pub name: String,
-    /// Signal ink for the banner.
     pub banner: char,
     pub lit: bool,
 }
 
-/// What kind of seat a fan-out stage fills, by the stage's name.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SoldierKind {
     Judge,
@@ -61,7 +56,6 @@ impl SoldierKind {
         }
     }
 
-    /// Signal ink: a seat on the field is live state.
     pub fn ink(self) -> char {
         match self {
             SoldierKind::Judge => '3',
@@ -81,14 +75,12 @@ pub enum SoldierState {
     Cut,
 }
 
-/// One seat of the muster — a fan-out stage drawn up on the plaza.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Soldier {
     pub kind: SoldierKind,
     pub state: SoldierState,
 }
 
-/// The sky over the realm, folded from real health.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Weather {
     Fair,
@@ -99,8 +91,6 @@ pub enum Weather {
     Rainbow,
 }
 
-/// How much the map moves: the operator's motion preference. Reduced and
-/// off keep every fact on the map, as a still shape.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Motion {
     Full,
@@ -108,7 +98,6 @@ pub enum Motion {
     Off,
 }
 
-/// The visitor as the map draws him (feet, world pixels).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct VisitorPose {
     pub x: f32,
@@ -117,22 +106,13 @@ pub struct VisitorPose {
     pub facing_left: bool,
 }
 
-/// What the host lays over the realm that the map itself does not know:
-/// the cockpit's graph garden and its visitor's door sign. It paints on the
-/// ground before anything stands there, stages its figures with the
-/// realm's own, and has the last word over the landscape.
 pub trait Overlay: std::fmt::Debug + Send + Sync {
-    /// On the ground, after its marks and before anything stands on it.
     fn paint_ground(&self, cv: &mut Img, view: View);
-    /// Its figures among the realm's own (realm coordinates).
     fn stage(&self, props: &mut Vec<Prop>, cues: &mut Vec<Prop>);
-    /// Over the finished landscape.
     fn paint_top(&self, cv: &mut Img, scene: &Scene, view: View);
-    /// What of it changes the picture, into the scene's key.
     fn key(&self, h: &mut dyn std::hash::Hasher);
 }
 
-/// The knight's pose on the map, in world pixels (feet, centre).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Knight {
     pub x: f32,
@@ -153,78 +133,46 @@ impl Knight {
 
 #[derive(Clone, Debug)]
 pub struct Scene {
-    /// Growth tier `0..=8` (`life::town_tier`).
     pub tier: u32,
-    /// The place where work is happening now, if any.
     pub active: Option<Place>,
-    /// What the knight is doing there, shown in his bubble.
     pub tool: Option<Tool>,
     pub knight: Knight,
-    /// The operator's own figure, while walk mode is on.
     pub visitor: Option<VisitorPose>,
-    /// Where the map camera centres (world pixels); the view grows around it.
     pub camera: (f32, f32),
-    /// Council seats `(seat, robe ink)` while subagents sit at the Round Table.
     pub council: Vec<(usize, char)>,
-    /// `(iteration, max)` while a loop runs at the quintain.
     pub quest: Option<(u32, u32)>,
     pub joust: Option<Joust>,
-    /// Memory healthy: the chapel candle burns.
     pub chapel_lit: bool,
-    /// Fleet heads answering, one per cottage.
     pub cottages: [bool; 3],
-    /// The fleet forge is training.
     pub forge_hot: bool,
     pub wards: Vec<Ward>,
-    /// A fan-out stage's seats, drawn up on the plaza.
     pub muster: Vec<Soldier>,
-    /// The quest region while an adventure has left town.
     pub region: Option<Place>,
     pub weather: Weather,
-    /// A victory being celebrated.
     pub fireworks: bool,
-    /// Another modality framed over the map at a place.
     pub glass: Option<Glass>,
-    /// Companions on the quest, trailing the knight (world pixels, feet).
     pub party: Vec<(f32, f32)>,
-    /// An acceptance gate is judging: the dragon wakes on its keep.
     pub dragon: bool,
-    /// Measurements this session: `(treasures, empty chests)`.
     pub chests: (u32, u32),
-    /// A loop is stalled in the swamp.
     pub wisps: bool,
-    /// Who is out on the roads for calls in flight.
     pub wayfarers: Vec<Wayfarer>,
-    /// What the session's deeds have left in the realm.
     pub record: Record,
-    /// Ticks since the anvil was struck, while its sparks fly.
     pub sparks: Option<u32>,
-    /// Recent public tool receipts, one small lantern per place.
     pub outcomes: Vec<Echo>,
     pub outcome_motion: Motion,
-    /// Research is out: the Observatory's glass sweeps the sky.
     pub stargazing: bool,
-    /// The host's own overlay (the cockpit's graph garden), if any.
     pub overlay: Option<std::sync::Arc<dyn Overlay>>,
     pub school: super::school::SchoolSnapshot,
     pub school_room: Option<super::school::Room>,
-    /// Wishes the party paid for with delve spoils, in the order raised;
-    /// they stand in the wild.
     pub wishes: std::sync::Arc<Vec<crate::realm::Wish>>,
-    /// The Delve's gate is lit: the knight was called, or a delve is on.
     pub delve_lit: bool,
-    /// The party's wishes, as standards by the gate.
     pub delve_boons: u8,
-    /// The March: which houses serve, and their knights on the roads.
     pub march: super::castles::March,
-    /// Ambient light; [`DUSK`] is the realm's resting mood.
     pub ambient: f32,
     pub tick: u32,
 }
 
 impl Scene {
-    /// A stable fingerprint of everything that changes the picture; the
-    /// painter re-encodes only when it moves.
     pub fn key(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -299,7 +247,6 @@ impl Scene {
         h.finish()
     }
 
-    /// A quiet realm: nothing live, the knight home at the keep.
     pub fn resting() -> Scene {
         Scene {
             tier: 0,
@@ -346,8 +293,6 @@ impl Scene {
     }
 }
 
-/// Most of each record the realm shows at once: books in the pile, blades on
-/// the rack, ravens on the Rookery.
 const BOOKS: u32 = 10;
 const BLADES: u32 = 6;
 const RAVENS: u32 = 5;
@@ -355,8 +300,6 @@ const STOOKS: u32 = deeds::STOOKS.len() as u32;
 const SACKS: u32 = 12;
 const CANDLES: u32 = 8;
 
-/// Where research findings shine over the Observatory hill (authored
-/// pixels), in the order they are found.
 const STARS: [(i32, i32); 16] = [
     (186, 10),
     (204, 20),
@@ -376,15 +319,12 @@ const STARS: [(i32, i32); 16] = [
     (236, 30),
 ];
 
-/// A sprite placed by the bottom of its footprint (painter's order).
 pub struct Prop {
     pub x: i32,
     pub base: i32,
     pub img: Img,
 }
 
-/// A staged scene: props to paint, lights to cast, beacons to mark, and
-/// cues (speech bubbles) that always sit on top.
 pub struct Stage {
     pub props: Vec<Prop>,
     pub cues: Vec<Prop>,
@@ -392,7 +332,6 @@ pub struct Stage {
     pub beacons: Vec<(i32, i32, i32, i32)>,
 }
 
-/// Centre an image on a tile footprint with the bottoms level.
 fn on(tx: i32, ty: i32, tw: i32, th: i32, img: Img) -> Prop {
     Prop {
         x: tx * TILE + (tw * TILE - img.w) / 2,
@@ -410,15 +349,12 @@ pub fn stage(scene: &Scene) -> Stage {
     stage_in(scene, None)
 }
 
-/// [`stage`] for a painter that will only show `view`: the March's castle pictures that would not
-/// touch it are not copied into the props. Whatever the view shows is staged exactly as `stage` has it.
 pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
     let mut props = Vec::new();
     let mut lights = Vec::new();
     let mut beacons: Vec<(i32, i32, i32, i32)> = Vec::new();
     let mut cues = Vec::new();
     let tick = scene.tick;
-    // Fires breathe slowly rather than flicker: a few seconds a breath.
     let flicker = |k: u32| 0.92 + 0.08 * (tick as f32 * 0.5 + k as f32 * 2.3).sin();
     let fire = |x: i32, y: i32, r: f32, s: f32| Light {
         x: x as f32,
@@ -428,29 +364,21 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         fire: true,
     };
     let live = |p: Place| scene.active == Some(p);
-    // Marks that sit above everything (stars, the glass's beam), still in
-    // the authored screens' coordinates.
     let mut cues_authored: Vec<Prop> = Vec::new();
 
-    // Everything in this block is written in the authored screens' own
-    // coordinates, the full plan's fourteen set pieces. The blank-slate
-    // plan (`crate::world::plan`) has none of them on the map: it stages its
-    // tiny Keep and its camps in realm coordinates below (`super::castles`).
     'authored: {
     if crate::world::plan::tabula() {
         break 'authored;
     }
 
-    // ── castle town ──
     let seated = &scene.council;
     let mut pavilion = at_place(Place::RoundTable, kit::round_table(seated));
-    pavilion.base += 7; // keep the open roof inside the original town screen
+    pavilion.base += 7;
     props.push(pavilion);
     if !seated.is_empty() {
         lights.push(fire(18 * TILE, 13 * TILE + 2, 30.0, 0.45 * flicker(5)));
     }
     props.push(at_place(Place::Keep, kit::keep(scene.tier)));
-    // The keep is home: its gate torches always burn.
     for (i, x) in [22 * TILE + 14, 22 * TILE + 30].into_iter().enumerate() {
         props.push(Prop {
             x,
@@ -505,7 +433,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
     if reading {
         lights.push(fire(29 * TILE, 19 * TILE - 12, 30.0, 0.45 * flicker(4)));
     }
-    // ── growth: what renown has built ──
     if scene.tier >= 1 {
         props.push(on(26, 20, 2, 1, kit::garden()));
     }
@@ -542,7 +469,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         props.push(on(25, 12, 1, 3, kit::keep_turret()));
     }
 
-    // ── the wider realm ──
     props.push(at_place(Place::Gatehouse, kit::gatehouse()));
     props.push(at_place(
         Place::Observatory,
@@ -560,7 +486,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
     props.push(at_place(Place::Mines, kit::mine_mouth()));
     props.push(at_place(Place::DragonKeep, kit::ruins()));
 
-    // ── the Lists: the loop's quintain and the tournament ──
     let (lx, ly) = (32 * TILE + 48, 11 * TILE + 16);
     props.push(Prop {
         x: lx,
@@ -631,10 +556,8 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
     }
     props.push(on(36, 19, 1, 1, kit::quintain(scene.quest.is_some(), tick)));
 
-    // ── the adventure: the dragon's gate, the mine's chests, the swamp's wisps ──
     if scene.dragon {
         props.push(Prop {
-            // In front of the gate it guards: drawn after the ruins.
             x: 39 * TILE - 12,
             base: 5 * TILE + 1,
             img: kit::dragon(true, tick),
@@ -674,7 +597,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         }
     }
 
-    // ── repo wards ──
     for (i, (ward, (tx, ty))) in scene
         .wards
         .iter()
@@ -715,7 +637,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         }
     }
 
-    // ── the village: the fleet's cottages, and the folk who run errands ──
     for (tx, ty, wall, roof) in [
         (21, 24, Wall::Plaster, Roof::Tile),
         (21, 29, Wall::Timber, Roof::Thatch),
@@ -811,7 +732,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         }),
     ));
 
-    // ── the new southern precinct; the original village above is untouched ──
     for (i, (tx, ty)) in [(17, 34), (20, 34), (25, 34), (28, 34)]
         .into_iter()
         .enumerate()
@@ -841,8 +761,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
     for tx in [17, 25] {
         props.push(on(tx, 43, 5, 0, kit::garden_fence(65)));
     }
-    // Ordinary residents are scenery in plain palette inks; model activity
-    // owns the signal colors, lamplight, travelers and outcome cues.
     for (tx, ty, carrying) in [
         (19, 36, false),
         (27, 36, true),
@@ -865,11 +783,8 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         }
     }
 
-    // ── colosseum and knights' tournament, added beyond the old south edge ──
     let mut arena = kit::colosseum();
     for (i, soldier) in scene.muster.iter().take(8).enumerate() {
-        // Occupants belong inside the arena sprite, above its sandy floor;
-        // independent depth-sorted props would be hidden by the front wall.
         arena.stamp(
             &kit::soldier(*soldier),
             49 + (i % 4) as i32 * 17,
@@ -911,7 +826,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         });
     }
 
-    // ── the muster: a fan-out stage drawn up in ranks on the plaza ──
     let ranks = scene.muster.len().min(18);
     for (i, soldier) in scene.muster.iter().take(ranks).enumerate() {
         let (row, col) = ((i / 6) as i32, (i % 6) as i32);
@@ -925,7 +839,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         });
     }
 
-    // ── a victory lights the town ──
     if scene.fireworks {
         lights.push(Light {
             x: (23 * TILE + 8) as f32,
@@ -936,9 +849,7 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         });
     }
 
-    // ── the session's record, kept where each deed was done ──
     let record = &scene.record;
-    // Pennants hang on the Lists' south fence, one to a post.
     let (lx, ly) = (32 * TILE + 48, 11 * TILE + 16);
     for (i, &passed) in record.pennants.iter().enumerate() {
         props.push(Prop {
@@ -1025,7 +936,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         });
     }
     if let Some(age) = scene.sparks {
-        // In front of the Smithy, so its walls never hide the strike.
         props.push(Prop {
             x: 18 * TILE - 7,
             base: 19 * TILE + 3,
@@ -1035,9 +945,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         lights.push(fire(18 * TILE, 19 * TILE - 6, 30.0, 0.55 * fade));
     }
 
-    // Everything above is written in the authored screens' coordinates:
-    // move it to its place in the realm. The party and the knight below
-    // already live in realm coordinates.
     props.extend(super::clerks::stage(tick, scene.outcome_motion));
     super::school::stage(
         scene.school,
@@ -1066,7 +973,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         b.1 += ry - ay;
     }
 
-    // ── wishes the party paid for, standing in the wild (realm coordinates) ──
     if crate::world::plan::full() {
         super::college::stage(tick, &mut props, &mut lights);
     }
@@ -1079,14 +985,10 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
     );
     super::wishes::stage(&scene.wishes, &mut props, &mut lights, tick);
 
-    // ── the March: the model houses' castles and their knights abroad ──
     super::castles::stage(&scene.march, &mut props, &mut lights, tick, view);
 
-    // ── fingerposts at the biome crossings and the road junctions ──
     super::signs::stage(&mut props);
 
-    // ── receipt lanterns: actual outcomes settle at their place of work ──
-    // These are world coordinates, after the authored-place translation.
     for echo in &scene.outcomes {
         let (tx, ty) = echo.place.stand_world();
         let (x, base) = (tx * TILE + TILE / 2 + 14, (ty + 1) * TILE - 2);
@@ -1111,7 +1013,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         overlay.stage(&mut props, &mut cues);
     }
 
-    // ── the party trails the knight ──
     const ROBES: [char; 4] = ['1', '2', '@', '3'];
     for (i, &(x, y)) in scene.party.iter().take(4).enumerate() {
         let img = kit::squire(ROBES[i]);
@@ -1122,7 +1023,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         });
     }
 
-    // ── deeds on the roads: whoever is out for a call in flight ──
     let frame = tick / 2;
     for w in &scene.wayfarers {
         let img = match w.errand {
@@ -1142,13 +1042,11 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
             img,
         };
         let flying = matches!(w.errand, Errand::Raven | Errand::Owl);
-        // Wings are in the air: nothing on the ground covers them.
         if flying {
             cues.push(prop);
         } else {
             props.push(prop);
         }
-        // Whoever is out on a deed carries light: light means activity.
         if !flying {
             lights.push(Light {
                 x: w.x,
@@ -1158,7 +1056,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
                 fire: false,
             });
         }
-        // The monk's candle.
         if w.errand == Errand::Monk {
             lights.push(Light {
                 x: w.x + if w.facing_left { -3.0 } else { 3.0 },
@@ -1168,7 +1065,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
                 fire: true,
             });
         }
-        // The wagon's lantern burns while its trial runs.
         if (w.errand, w.verdict) == (Errand::Wagon, None) {
             let ahead = if w.facing_left { -3.0 } else { 3.0 };
             lights.push(Light {
@@ -1181,16 +1077,13 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         }
     }
 
-    // ── the knight, and what marks live work ──
     let k = scene.knight;
-    // A step every few pixels walked, so the gait follows the road.
     let bob = if k.walking && ((k.x + k.y) as i32 / 4) % 2 == 1 {
         1
     } else {
         0
     };
     let reading = scene.tool == Some(Tool::Book) && !k.walking;
-    // He wears his house's colours: the castle he serves from.
     let kimg = super::castles::dress(
         &if reading {
             kit::reader()
@@ -1213,7 +1106,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         fire: false,
     });
     if reading {
-        // The reading lantern: a warm pool around him and his pages.
         lights.push(Light {
             x: k.x + 11.0,
             y: k.y - 4.0,
@@ -1229,7 +1121,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
             img: kit::bubble(tool),
         });
     }
-    // ── the visitor: the operator's own knight, walked by hand ──
     if let Some(v) = scene.visitor {
         let bob = i32::from(v.walking && ((v.x + v.y) as i32 / 4) % 2 == 1);
         let figure = if v.facing_left {
@@ -1237,8 +1128,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         } else {
             kit::visitor()
         };
-        // His step lifts the figure, not his footing: level with the knight
-        // he is drawn after him, so walking past he never vanishes behind.
         let mut img = Img::new(figure.w, figure.h + bob);
         img.stamp(&figure, 0, 0);
         props.push(Prop {

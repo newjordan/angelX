@@ -8,7 +8,6 @@ use super::super::overworld::ink::Img;
 use super::super::overworld::material as m;
 use std::sync::OnceLock;
 
-/// The wall faces, in the order the crawl's grid names them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Wall {
     Stone,
@@ -36,7 +35,6 @@ pub const WALLS: [Wall; 10] = [
     Wall::Door,
 ];
 
-/// Every texture the crawl uses.
 pub struct Faces {
     pub walls: Vec<Tex>,
     pub floor: Tex,
@@ -46,8 +44,6 @@ pub struct Faces {
     pub ceiling: Tex,
 }
 
-/// The painted textures, by name (painted from a brief: see
-/// `assets/crawl/NOTES.md`; `assets/crawl/tools` rebuilds them).
 fn painted(name: &str) -> Option<&'static str> {
     Some(match name {
         "wall_stone" => include_str!("../../../../../cockpit/assets/crawl/wall_stone.ink"),
@@ -111,8 +107,6 @@ pub fn faces() -> &'static Faces {
                     Wall::Shelf => lifted(tex("shelf", shelf)),
                     Wall::Door => lifted(tex("door", door)),
                 };
-                // These textures contain drawn objects and authored marks.
-                // Keep book spines, niches, timber frames and door bands sharp.
                 match wall {
                     Wall::Archive | Wall::Shelf | Wall::Door | Wall::Unknown => surface,
                     Wall::Mine => surface.soft_surface_with_details(|x, y| {
@@ -141,8 +135,6 @@ pub fn faces() -> &'static Faces {
         water: tex("water", water),
         lava: tex("lava", lava),
         stairs: tex("stairs", stairs),
-        // The vault: black between ribs, so the braille eye draws only the
-        // ribs instead of a haze of stray dots.
         ceiling: face(|im| {
             for y in 0..32 {
                 for x in 0..32 {
@@ -156,20 +148,14 @@ pub fn faces() -> &'static Faces {
     })
 }
 
-/// The braille eye reads value structure, not tone: a face for the crawl
-/// keeps its stone in the upper-middle of the luminance range, where dots
-/// fill, with black joints between (see `docs/ART-V2.md`).
 const BRAILLE_STONE: &[char] = &['k', 'g', 'j', 'G', 'J', 'h', 'i'];
 
-/// A face drawn by the shared material system.
 fn face(paint: impl Fn(&mut Img)) -> Tex {
     let mut im = Img::black(32, 32);
     paint(&mut im);
     Tex::from_img(&im)
 }
 
-/// A painted face lifted two steps into the band the braille eye fills,
-/// its near-black kept black.
 fn lifted(t: Tex) -> Tex {
     let mut im = Img::new(t.w as i32, t.h as i32);
     for y in 0..t.h {
@@ -183,7 +169,6 @@ fn lifted(t: Tex) -> Tex {
     Tex::from_img(&im)
 }
 
-/// A mine face: rough rock between two timber props under a lintel.
 fn mine_face(im: &mut Img) {
     m::rubble(im, (0, 0, 32, 32), &['k', 'b', 'I', 'B', 'P', 'r', 'o', 'O'], 9, 15);
     m::boards(im, (0, 0, 32, 5), false, 16);
@@ -195,7 +180,6 @@ fn mine_face(im: &mut Img) {
     im.line(0, 5, 31, 5, 'k');
 }
 
-/// A cave face: mossy rough rock, a mushroom glowing at its foot.
 fn fungal_face(im: &mut Img) {
     m::rubble(im, (0, 0, 32, 32), &['k', 'D', 'F', 'E', 'e', 'l', 'm', 'A'], 10, 18);
     let cap = [".2222.", "233332", "..yy..", "..yy.."];
@@ -208,15 +192,12 @@ fn fungal_face(im: &mut Img) {
     }
 }
 
-/// A 16x16 grid filled by `ink(x, y)`.
 fn draw(ink: impl Fn(usize, usize) -> char) -> Vec<String> {
     (0..16)
         .map(|y| (0..16).map(|x| ink(x, y)).collect())
         .collect()
 }
 
-/// Courses of bricks: mortar, face, lit top edge, shadowed bottom edge; a
-/// crack of `ember` through some of them.
 fn bricks([mortar, face, lit, dark]: [char; 4], ember: Option<char>) -> Vec<String> {
     draw(|x, y| {
         let course = y / 4;
@@ -240,7 +221,6 @@ fn bricks([mortar, face, lit, dark]: [char; 4], ember: Option<char>) -> Vec<Stri
     })
 }
 
-/// A crypt wall: bricks with a burial niche and a skull in it.
 fn crypt() -> Vec<String> {
     let mut rows = bricks(['K', 'S', 'u', 'x'], None);
     let skull = ["..hih...", ".iHHHi..", ".HkHkH..", ".iHHHi..", "..hih..."];
@@ -265,8 +245,6 @@ fn crypt() -> Vec<String> {
     rows
 }
 
-
-/// Shelves of books, water-stained low down.
 fn shelf() -> Vec<String> {
     let spines = ['p', 'B', 'q', 'l', 'R', 'S', 'b', 'o'];
     draw(|x, y| {
@@ -303,7 +281,6 @@ fn cached_shelves_keep_the_authored_book_spines_and_shelf_edges() {
     }
 }
 
-/// Black, crossed by a pale lattice, one eye.
 fn unknown() -> Vec<String> {
     draw(|x, y| {
         if (6..=9).contains(&x) && (6..=9).contains(&y) {
@@ -320,7 +297,6 @@ fn unknown() -> Vec<String> {
     })
 }
 
-/// An iron-banded door in a stone frame.
 fn door() -> Vec<String> {
     draw(|x, y| {
         if !(2..=13).contains(&x) || y < 1 {
@@ -358,7 +334,6 @@ fn lava() -> Vec<String> {
     })
 }
 
-/// Steps going down into the dark, seen from above.
 fn stairs() -> Vec<String> {
     draw(|_, y| match y % 4 {
         0 => 'J',
@@ -368,20 +343,14 @@ fn stairs() -> Vec<String> {
     })
 }
 
-
-/// The crawl's hands and standing things, painted from a brief
-/// (see `assets/crawl/sprites/NOTES.md`).
 pub struct Sprites {
-    /// The leading knight's sword hand: at rest, drawn back, mid-swing.
     pub sword: [Tex; 3],
-    /// The other hand's torch, two flickers.
     pub torch: [Tex; 2],
     pub campfire: [Tex; 2],
     pub boulder: Tex,
     pub lectern: Tex,
     pub chest: Tex,
     pub chest_open: Tex,
-    /// A wall sconce's two flickers, and a hanging banner.
     pub sconce: [Tex; 2],
     pub banner: Tex,
 }

@@ -31,7 +31,6 @@ def main():
         parser.error("--compiler-phases is a Cargo-only diagnostic")
     output = args.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
-    # Reserve the result before doing any compilation or changing source.
     with output.open("x") as file:
         file.write("{}\n")
     env = dict(os.environ)
@@ -43,8 +42,6 @@ def main():
     env.update(ANGEL_BUILD_BACKEND=args.backend, ANGEL_BLAZE_MODE="wrapper",
                ANGEL_BIND_SOURCE="0", ANGEL_FAST="1", ANGEL_DEV="0", ANGEL_VIDEO="1",
                ANGEL_GLASS="0", ANGEL_BACKGROUND_BUILD="0", ANGEL_SETUP="0")
-    # A normal (not workspace) wrapper does not create a new Cargo artifact namespace.
-    # Only the host gets this diagnostic; optimization/link flags stay unchanged.
     if args.compiler_phases:
         wrapper = output.with_name(output.stem + "-rustc-wrapper.py")
         with wrapper.open("x") as file:
@@ -100,7 +97,6 @@ os.execv(compiler, [compiler, *args])
             try:
                 stdout, _ = process.communicate(timeout=360)
             except BaseException:
-                # Do not leave Cargo/rustc writing after restoring the source.
                 try:
                     os.killpg(process.pid, signal.SIGKILL)
                 except ProcessLookupError:
@@ -123,7 +119,6 @@ os.execv(compiler, [compiler, *args])
         run("prime", "--version")
         for index in range(3):
             run(f"unchanged-{index}", "--version")
-        # Do not overwrite a concurrent editor's changes.
         if source.read_bytes() != original:
             raise RuntimeError("source changed before probe")
         source.write_bytes(changed)

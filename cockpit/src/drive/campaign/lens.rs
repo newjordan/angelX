@@ -1,6 +1,5 @@
 use super::schema::{CampaignRecord, CampaignStatus, CriterionStatus};
 
-// `⠎⠓` opens and closes the lens; its framing sentences are the ledger pages.
 const LENS_PREFIX: &str = "⠎⠓ ";
 const LENS_SENTINEL: &str = "⠎⠓";
 const MAX_LENS_BYTES: usize = 6 * 1024;

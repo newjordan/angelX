@@ -329,8 +329,6 @@ pub fn probe(
     loadout: &Loadout,
     instantiate: impl Fn(&str) -> Result<Instance, String>,
 ) -> Result<(), String> {
-    // Probe every executable in this loadout against the actual game-port schema,
-    // before the kernel publishes code, state and resources together.
     let mut run = Run::new(1, 1, Some("Two"));
     for player in 3..=angel_delve::rules::MAX_PLAYERS {
         run.join_seat(player, &format!("Probe {player}"));
@@ -366,8 +364,6 @@ pub fn probe(
     }
     Ok(())
 }
-// Cast ownership is deliberately independent of registry admission. A pending
-// or running cast leases the exact source even after a newer source is published.
 #[derive(Clone)]
 struct Source {
     module: String,
@@ -404,9 +400,6 @@ pub struct Group {
     cancelled: Vec<String>,
     pub fault: Option<String>,
 }
-// The cockpit's tests of the live code run the scripts (V8 lives there) and read
-// the casts' bookkeeping, so `sources`, `groups`, `pending`, `started` and
-// `effects` are open.
 #[derive(Default)]
 pub struct Runtime {
     pub media: super::together_media::Media,
@@ -425,7 +418,6 @@ pub struct Runtime {
     pub effects: u64,
 }
 impl Runtime {
-    /// An explicit native presentation assignment wins even when bytes match.
     pub fn retire_motion(&mut self, player: u32) {
         if let Some(intent) = self.motion_intents.get_mut(&player) {
             intent.retire();
@@ -480,9 +472,6 @@ impl Runtime {
                                 accepted.insert(player, previous.clone());
                             }
                         } else {
-                            // Executable/art selection keeps the existing unleased
-                            // behavior. Only graph ownership is refused; never
-                            // substitute the previous occupant's executable source.
                             intent.retire();
                             owner_refused.insert(player);
                             accepted.insert(player, resource);
@@ -573,8 +562,6 @@ impl Runtime {
         self.install(run);
     }
     fn retire(&mut self) {
-        // An uncommitted failed start is still owned by its quarantined
-        // generation. Unrelated source/selection changes must not retry it.
         let pending = &self.pending;
         let owns_pending = |key: &(String, u64)| {
             pending.values().any(|pending| {
@@ -585,8 +572,6 @@ impl Runtime {
             .retain(|key, group| !group.casts.is_empty() || owns_pending(key));
         self.init_faults.retain(|key, _| owns_pending(key));
     }
-    /// Retire work owned by a departed seat incarnation. Already committed
-    /// projectiles, sound leases and visual leases are independent of casts.
     fn fence_seats(&mut self, run: &Run) {
         self.pending.retain(|_, pending| pending.cast.owns_seat(run));
         for group in self.groups.values_mut() {
@@ -645,8 +630,6 @@ impl Runtime {
     }
     pub fn after_step(&mut self, run: &mut Run) {
         self.visuals.advance(run);
-        // A seat can be replaced after before_step and before the frame is
-        // committed. Fence again before dispatching any executable work.
         self.fence_seats(run);
         for (&player, cursor) in &mut self.motion {
             if let Some(graph) = self
@@ -760,7 +743,6 @@ impl Runtime {
                     return Ok(false);
                 }
                 run.validate_ability_commands(&commands)?;
-                // Stage all costs before committing either actor or game data.
                 let mut costs = BTreeMap::<u32, f32>::new();
                 for cast in added.values() {
                     *costs.entry(cast.player).or_default() += cast.definition.mana;
@@ -839,8 +821,6 @@ impl Runtime {
             .get(usize::from(request.slot))
             .and_then(Option::as_deref)
             != Some(request.ability.as_str())
-            // Turbo can advance twice in one rules request. Coalesce its
-            // duplicate slot admission, while rejecting older queued input.
             || request.tick > run.tick || run.tick - request.tick > 1
             || !run
                 .players

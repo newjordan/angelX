@@ -24,8 +24,6 @@
 mod drift;
 pub mod leg;
 pub mod show;
-/// The Ore Cart's and the Griffin Run's tick, which the Bend leg does not carry
-/// (it rolls the Shaft Run alone), and in tests the engine that answers for the leg.
 mod oracle;
 pub use drift::*;
 
@@ -33,53 +31,29 @@ use super::*;
 use std::collections::BTreeSet;
 use std::sync::OnceLock;
 
-/// The title card and its countdown, before anyone moves.
 pub const TITLE: u32 = 3 * HZ;
-/// The longest a race runs; whoever is not home by then is ranked by how
-/// far down they got.
 pub const RACE_TIME: u32 = 90 * HZ;
-/// The finish board stays up this long before the hall comes back.
 pub const PODIUM: u32 = 6 * HZ;
-/// How long a crash keeps a knight out of it (the rope, the righting).
 pub const CRASH: u32 = 45;
-/// A ball's radius.
 pub const BALL_R: f32 = 0.5;
-/// Gold kept for each thing picked up on the way.
 pub const HAUL_GOLD: u32 = 2;
-/// The cart lines, across the gallery.
 pub const LANES: [f32; 3] = [-1.7, 0.0, 1.7];
-/// How far a griffin may stray from the gorge's line, across and up.
 pub const SKY_X: f32 = 4.0;
 pub const SKY_Z: f32 = 2.5;
-/// A griffin's bolt: its pace past the shooter, its life, and the rest
-/// between shots.
 pub const BOLT_PACE: f32 = 32.0;
 pub const BOLT_LIFE: u32 = 24;
 pub const BOLT_REST: u32 = 10;
-/// A bolt in the feathers slows a griffin this long.
 pub const RUFFLE: u32 = HZ;
-/// A burst from a ring or a smashed gargoyle.
 pub const BURST: u32 = 45;
-/// A barrel roll, and the rest before the next.
 pub const ROLL: u32 = 18;
 pub const ROLL_REST: u32 = 45;
-/// Collapsing planks: how long after the first ball passes a rotten plank
-/// it takes to go.
 pub const ROT: u32 = HZ;
-/// How long a rotten plank stays down once it has gone, before it is laid
-/// again (fresh, its clock started by the next ball over it): whoever comes
-/// behind meets planks, not a drift of holes it is roped back before forever.
 pub const REGROW: u32 = 2 * HZ;
-/// Seconds of one tick.
 const DT: f32 = 1.0 / HZ as f32;
-/// The mark a won race leaves (settled into the realm as `race_won`).
 pub const RACE_MARK: &str = "country:race";
-/// The Griffin Eyrie on the surface: the crags either side and the perch
-/// (tiles), and where a knight stands to ask for a practice flight.
 pub const EYRIE_ROCKS: [(i32, i32, i32, i32); 4] =
     [(1, 1, 7, 3), (16, 1, 7, 3), (10, 1, 4, 2), (2, 10, 4, 3)];
 pub const PERCH: (f32, f32) = (12.0, 4.0);
-/// How near the perch E asks for a flight (tiles).
 pub const PERCH_REACH: f32 = 2.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,7 +73,6 @@ impl Course {
             Course::Touge => "THE TORCHLIGHT TOUGE",
         }
     }
-    /// The title card's words, and nothing else.
     pub fn words(self) -> &'static str {
         match self {
             Course::Shaft => "ROLL. DON'T FALL.",
@@ -108,7 +81,6 @@ impl Course {
             Course::Touge => "SLIDE. RELEASE. BOOST.",
         }
     }
-    /// The two keys that matter, each with its one word.
     pub fn keys(self) -> [(&'static str, &'static str); 2] {
         match self {
             Course::Shaft => [("F", "HOP"), ("E", "BRAKE")],
@@ -117,7 +89,6 @@ impl Course {
             Course::Touge => [("SPACE", "DRIFT"), ("S", "BRAKE")],
         }
     }
-    /// Where the finish board says the field ended up.
     pub fn board(self) -> &'static str {
         match self {
             Course::Shaft => "BRANNOC'S ORE-SORTER",
@@ -126,9 +97,6 @@ impl Course {
             Course::Touge => "MOUNTAIN LAURELS",
         }
     }
-    /// The race a floor's hall holds, in turn down the delve from the second
-    /// floor: the Shaft Run, then the Griffin Run under Dragon Keep, then
-    /// the Ore Cart. Every fourth floor from the fifth runs the Touge.
     pub fn of_floor(depth: u32) -> Course {
         if depth >= 5 && depth % 4 == 1 {
             Course::Touge
@@ -138,62 +106,40 @@ impl Course {
     }
 }
 
-/// What the course is made of underfoot at a point.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum Ground {
-    /// Timbered floor between rails.
     Floor,
-    /// A plank bridge over the drop: narrow, no rails.
     Bridge,
-    /// Ore carts cross the way.
     Crossing,
-    /// An iron rail that pulls the ball to it, and speeds it along it.
     Lodestone,
-    /// A water channel that washes a ball side to side.
     Sluice,
-    /// Planks over a drift; the rotten ones go once a ball has passed.
     Collapse,
-    /// The ore-sorter at the bottom, and the finish.
     Sorter,
-    /// Cart rails in the galleries.
     Rails,
-    /// Rails on a trestle over a chasm.
     Trestle,
-    /// The open gorge under the Keep.
     Gorge,
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct Sample {
-    /// The course's middle line at this point, and its heading (drawn only).
     #[serde(skip)]
     pub p: [f32; 3],
     #[serde(skip)]
     pub yaw: f32,
-    /// Height lost per unit along (negative climbs).
     pub slope: f32,
-    /// Heading turned per unit along (positive turns right).
     pub bend: f32,
     pub width: f32,
     pub walls: bool,
     pub ground: Ground,
-    /// Cart lines laid here, a bit per line.
     pub lanes: u8,
-    /// This sample funnels down towards a narrower open stretch: its wall
-    /// is a chute guide, not a bounce, so a fast ball is fed onto the open
-    /// width instead of skipping off it and out past the edge.
     pub funnel: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum ItemKind {
-    /// A gem shard (Shaft) or a gold nugget (Cart), for the first to it.
     Gem,
-    /// A gold ring in the air: a burst for each griffin through it.
     Ring,
-    /// A gargoyle on the wing: shoot it for a burst, never fly into it.
     Gargoyle,
-    /// A timber fallen across a cart line: jump it or leave the line.
     Timber,
 }
 
@@ -205,8 +151,6 @@ pub struct Item {
     pub kind: ItemKind,
 }
 
-/// Something solid in the gorge: a spire from the floor or a rampart
-/// across it, as a box in course space.
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct Block {
     pub s: f32,
@@ -215,7 +159,6 @@ pub struct Block {
     pub z: (f32, f32),
 }
 
-/// A broken rail: a cart on `lane` must be off the ground from `s.0` to `s.1`.
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct Gap {
     pub lane: u8,
@@ -226,12 +169,10 @@ pub struct Gap {
 pub struct Track {
     pub looped: bool,
     pub samples: Vec<Sample>,
-    /// Where the line is.
     pub finish: f32,
     pub items: Vec<Item>,
     pub blocks: Vec<Block>,
     pub gaps: Vec<Gap>,
-    /// Where the rope brings a fallen knight back: the start of each piece.
     pub posts: Vec<f32>,
 }
 
@@ -239,7 +180,6 @@ impl Track {
     pub fn len(&self) -> f32 {
         (self.samples.len() - 1) as f32
     }
-    /// The course at `s`, between its samples.
     pub fn at(&self, s: f32) -> Sample {
         let s = if self.looped { s.rem_euclid(self.len()) } else { s.clamp(0.0, self.len()) };
         let i = (s.floor() as usize).min(self.samples.len() - 2);
@@ -252,20 +192,16 @@ impl Track {
         out.yaw = a.yaw + (b.yaw - a.yaw) * f;
         out
     }
-    /// A point in course space, in the world: `x` to the right of the line
-    /// (as the camera sees it), `z` up from it.
     pub fn world(&self, s: f32, x: f32, z: f32) -> [f32; 3] {
         let at = self.at(s);
         let (sin, cos) = at.yaw.sin_cos();
         [at.p[0] - sin * x, at.p[1] + cos * x, at.p[2] + z]
     }
-    /// The last post at or behind `s`.
     pub fn post(&self, s: f32) -> f32 {
         self.posts.iter().copied().filter(|&p| p <= s).fold(0.0, f32::max)
     }
 }
 
-/// One stretch of a course, as authored.
 #[derive(Clone, Copy)]
 struct Piece {
     len: u16,
@@ -285,15 +221,8 @@ const fn rails(len: u16, turn: f32, drop: f32, lanes: u8, ground: Ground) -> Pie
     Piece { len, turn, drop, width: 5.6, walls: true, ground, lanes }
 }
 
-/// How many samples before a seam into a narrower open stretch the walled
-/// floor funnels down to that width: drawn and held by the same samples, so
-/// the picture never shows floor the ball falls through (`SHAFT`'s bridges).
 pub const SEAM_FUNNEL: f32 = 5.0;
 
-/// Walk the pieces a unit at a time into samples; the posts are where each
-/// piece starts. A walled stretch that ends at a narrower open one funnels
-/// over its last [`SEAM_FUNNEL`] samples, so the ball is guided onto the
-/// open width by a wall it can see, not dropped at an invisible cliff.
 fn lay(pieces: &[Piece]) -> (Vec<Sample>, Vec<f32>) {
     let mut samples = Vec::new();
     let mut posts = Vec::new();
@@ -302,9 +231,6 @@ fn lay(pieces: &[Piece]) -> (Vec<Sample>, Vec<f32>) {
         posts.push(samples.len() as f32);
         let len = f32::from(pc.len);
         let bend = pc.turn.to_radians() / len;
-        // The width this stretch funnels down to at its end: the next
-        // piece's, whenever that is narrower — walled or open, so no seam
-        // in the floor is a cliff the picture does not show.
         let taper_to = pieces
             .get(k + 1)
             .filter(|&next| next.width < pc.width)
@@ -313,8 +239,6 @@ fn lay(pieces: &[Piece]) -> (Vec<Sample>, Vec<f32>) {
             let from_end = f32::from(pc.len - j);
             let funnel = taper_to < pc.width && from_end < SEAM_FUNNEL;
             let width = if funnel {
-                // Flush at the seam: the last sample already sits at the
-                // next width, so no step remains for a ball to skip off.
                 taper_to + (pc.width - taper_to) * ((from_end - 1.0) / (SEAM_FUNNEL - 1.0))
             } else {
                 pc.width
@@ -342,7 +266,6 @@ fn lay(pieces: &[Piece]) -> (Vec<Sample>, Vec<f32>) {
     (samples, posts)
 }
 
-/// The Shaft Run: down a winding mineshaft, about five hundred tiles.
 const SHAFT: [Piece; 19] = [
     piece(14, 0.0, 0.0, 6.0, true, Ground::Floor),
     piece(26, 0.0, 5.0, 5.0, true, Ground::Floor),
@@ -365,8 +288,6 @@ const SHAFT: [Piece; 19] = [
     piece(16, 0.0, 0.0, 6.0, true, Ground::Sorter),
 ];
 
-/// The Ore Cart: the old ore line through the galleries. Bit `i` of the
-/// lanes is line `i` (left, middle, right).
 const CART: [Piece; 18] = [
     rails(16, 0.0, 0.0, 0b111, Ground::Rails),
     rails(24, 0.0, 5.0, 0b111, Ground::Rails),
@@ -388,7 +309,6 @@ const CART: [Piece; 18] = [
     rails(16, 0.0, 0.0, 0b010, Ground::Rails),
 ];
 
-/// The Griffin Run: down the gorge under Dragon Keep and up to its gate.
 const GORGE: [Piece; 10] = [
     piece(40, 0.0, 0.0, 14.0, true, Ground::Gorge),
     piece(60, 50.0, 4.0, 14.0, true, Ground::Gorge),
@@ -406,8 +326,6 @@ fn shaft() -> Track {
     let (samples, posts) = lay(&SHAFT);
     let at = |k: usize, ds: f32| posts[k] + ds;
     let gem = |s: f32, x: f32| Item { s, x, z: 0.45, kind: ItemKind::Gem };
-    // Gem shards sit on the risky lines: the outside of the bends, the
-    // edges of the bridges, beside the lodestone's drop, on rotten planks.
     let items = vec![
         gem(at(1, 14.0), -1.9),
         gem(at(2, 12.0), -2.0),
@@ -472,7 +390,6 @@ fn cart() -> Track {
         timber(at(16, 10.0), 2),
         nugget(at(16, 20.0), 1, false),
     ];
-    // Broken rails: jump them.
     let gap = |lane: u8, s0: f32, len: f32| Gap { lane, s: (s0, s0 + len) };
     let gaps = vec![
         gap(0, at(2, 18.0), 3.0),
@@ -522,8 +439,6 @@ fn gorge() -> Track {
         goyle(at(8, 16.0), 1.0, 1.0),
         ring(at(8, 30.0), 0.0, 1.5),
     ];
-    // Spires up from the gorge floor (pass beside or over them), and the
-    // old ramparts across it (under or over).
     let spire = |s: f32, x0: f32, x1: f32, top: f32| Block { s, len: 1.6, x: (x0, x1), z: (-9.0, top) };
     let rampart = |s: f32, z0: f32, z1: f32| Block { s, len: 1.2, x: (-8.0, 8.0), z: (z0, z1) };
     let blocks = vec![
@@ -543,7 +458,6 @@ fn gorge() -> Track {
     Track { looped: false, samples, finish, items, blocks, gaps: Vec::new(), posts }
 }
 
-/// The course, laid once.
 pub fn track(course: Course) -> &'static Track {
     static TRACKS: [OnceLock<Track>; 4] = [const { OnceLock::new() }; 4];
     match course {
@@ -554,15 +468,10 @@ pub fn track(course: Course) -> &'static Track {
     }
 }
 
-/// Rotten planks in a collapsing drift: every other two-tile plank, by
-/// index from the start of the course.
 pub fn rotten(plank: u16) -> bool {
     plank % 2 == 1
 }
 
-/// The ore carts at the crossings: where each is across the way at race
-/// tick `t` (two carts a crossing, one every four seconds each way, two
-/// seconds to cross; a cart off the way waits at 9 either side).
 pub fn crossing_carts(track: &Track, t: u32) -> Vec<(f32, f32)> {
     let phase = |offset: u32| ((t + offset) % (4 * HZ)) as f32 / (2 * HZ) as f32;
     let x = |p: f32| if p < 1.0 { -4.0 + 8.0 * p } else { 9.0 };
@@ -574,22 +483,15 @@ pub fn crossing_carts(track: &Track, t: u32) -> Vec<(f32, f32)> {
         .collect()
 }
 
-/// What a crash was, for the right picture and the right joke.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Wreck {
     #[default]
     None,
-    /// Off an edge and down the shaft.
     Fall,
-    /// Hit by a crossing ore cart.
     Bonk,
-    /// A cart line ended at its buffer stop with a cart still on it.
     Buffer,
-    /// A cart down a broken rail.
     Gap,
-    /// A cart into a fallen timber.
     Timber,
-    /// A griffin into stone.
     Tumble,
     SpinOut,
 }
@@ -604,30 +506,19 @@ pub struct Rider {
     pub vs: f32,
     pub vx: f32,
     pub vz: f32,
-    /// The cart line it is on (or switching to).
     pub lane: u8,
-    /// How far the ball has rolled (radians) or the wings have beaten.
     pub spin: f32,
-    /// Ticks left of a crash, and what it was.
     pub crash: u32,
     pub wreck: Wreck,
     pub crashes: u16,
-    /// Ticks left knocked silly (a cart's bonk, a bolt in the feathers).
     pub stun: u32,
-    /// Ticks left of a burst.
     pub burst: u32,
-    /// Ticks left of a barrel roll, and of the rest after one.
     pub rolling: u32,
     pub rest: u32,
-    /// Ticks until the next bolt.
     pub reload: u32,
-    /// Gems and nuggets picked up, rings flown and gargoyles smashed.
     pub haul: u16,
-    /// The rings this griffin has flown through, a bit each.
     pub rings: u64,
-    /// The race tick it crossed the line.
     pub finish: Option<u32>,
-    /// F and E as held last tick (bits 0 and 1), for presses.
     pub keys: u8,
 }
 
@@ -670,7 +561,6 @@ impl Rider {
             && self.rest <= ROLL_REST
             && self.reload <= BOLT_REST
     }
-    /// Racing: not crashed and not home.
     pub fn racing(&self) -> bool {
         self.crash == 0 && self.finish.is_none()
     }
@@ -689,27 +579,19 @@ pub struct Bolt {
 pub struct Race3d {
     pub course: Course,
     pub room: usize,
-    /// Ticks since it began (the title card first).
     pub t: u32,
     pub riders: BTreeMap<u32, Rider>,
     pub ante: BTreeMap<u32, u32>,
-    /// Gems and nuggets taken, and gargoyles smashed, by item index.
     pub taken: BTreeSet<u16>,
-    /// Rotten planks a ball has passed: the race tick each began to go.
     pub planks: BTreeMap<u16, u32>,
     pub bolts: Vec<Bolt>,
     pub done: bool,
-    /// The race tick it ended, and the gold each knight took home.
     pub ended: u32,
     pub won: BTreeMap<u32, u32>,
-    /// A free practice flight at the Eyrie: no antes, no pot, no laurel.
     #[serde(default)]
     pub practice: bool,
-    /// A crossroads heat keeps even the Touge to ninety seconds.
     #[serde(default)]
     pub crossroads: bool,
-    /// What the picture remembers of the race (`show.rs`): kept beside it,
-    /// set aside while the module ticks, never part of the rules.
     #[serde(default, skip_serializing_if = "show::Show::quiet")]
     pub show: show::Show,
 }
@@ -741,16 +623,12 @@ impl Race3d {
     pub fn lap(&self, id: u32) -> u32 {
         self.riders.get(&id).map_or(1, |r| (r.s / track(self.course).finish) as u32 + 1).min(DRIFT_LAPS)
     }
-    /// Seconds left on the race clock.
     pub fn left(&self) -> u32 {
         (TITLE + self.time_limit()).saturating_sub(self.t).min(self.time_limit()).div_ceil(HZ)
     }
-    /// While this race owns the screen: the race, then its board.
     pub fn showing(&self) -> bool {
         !self.done || self.t < self.ended + PODIUM
     }
-    /// The field in order: those home by when they got there, then the
-    /// rest by how far down they are.
     pub fn order(&self) -> Vec<u32> {
         let mut ids: Vec<u32> = self.riders.keys().copied().collect();
         ids.sort_by(|a, b| {
@@ -764,18 +642,14 @@ impl Race3d {
         });
         ids
     }
-    /// A knight's place, from one.
     pub fn place(&self, id: u32) -> usize {
         1 + self.order().iter().position(|&r| r == id).unwrap_or(0)
     }
 }
 
-/// Where knight number `k` of the field starts.
 fn grid(course: Course, k: usize) -> (f32, f32, u8) {
     match course {
         Course::Shaft => (2.0 + (k / 2) as f32 * 1.4, if k % 2 == 0 { -1.0 } else { 1.0 }, 1),
-        // Three abreast on the depot's three lines, the fourth behind, and
-        // a fifth and sixth behind that.
         Course::Cart => {
             let (s, lane) = [(6.0, 1u8), (4.5, 0), (4.5, 2), (2.5, 1), (1.0, 0), (1.0, 2)][k % 6];
             (s, LANES[usize::from(lane)], lane)
@@ -785,22 +659,16 @@ fn grid(course: Course, k: usize) -> (f32, f32, u8) {
     }
 }
 
-/// What happened in a tick, for the room's sounds.
 #[derive(Default)]
 struct Noise {
     sounds: Vec<&'static str>,
 }
 
-/// The Ore Cart is off on the play box until its rework is played (the user,
-/// 2026-10-17: "jsut turn off orecart so we dont get stuck"):
-/// `ANGEL_DELVE_ORE_CART=1` brings it back. Tests keep it on.
 fn ore_cart_on() -> bool {
     cfg!(test) || std::env::var_os("ANGEL_DELVE_ORE_CART").is_some_and(|v| v == "1")
 }
 
 impl Run {
-    /// One hall on each floor is the floor's race hall: the seed's pick of
-    /// the halls the follies left.
     pub(super) fn pick_race3d(&mut self) {
         self.race3d = None;
         self.race3d_room = None;
@@ -810,8 +678,6 @@ impl Run {
         self.pick_race3d_hall();
     }
 
-    /// The fixtures' race hall, picked even with the Ore Cart off: the
-    /// cockpit's tests build this crate without `cfg(test)`.
     #[cfg(any(test, feature = "testing"))]
     pub fn race3d_hall_for_test(&mut self) {
         if self.dungeon.depth > 0 && self.race3d_room.is_none() {
@@ -819,7 +685,6 @@ impl Run {
         }
     }
 
-    /// The seed's pick of the halls the follies left.
     fn pick_race3d_hall(&mut self) {
         let camps = |i: usize| {
             self.boss_gates
@@ -833,8 +698,7 @@ impl Run {
                     && !r.great()
                     && !r.cleared
                     && i != self.at
-                    && Some(i) != self.folly_room
-                    && Some(i) != self.gantry_room
+                    && !self.hosts_game(i)
                     && !camps(i)
             })
             .collect();
@@ -846,7 +710,6 @@ impl Run {
         self.race3d_room = Some(halls[pick]);
     }
 
-    /// Into the race hall: the antes go in and the field lines up.
     pub(super) fn start_race3d(&mut self, index: usize) {
         self.start_race3d_course(index, Course::of_floor(self.dungeon.depth));
     }
@@ -860,9 +723,6 @@ impl Run {
         self.open_race3d(index, course, ante, scores, self.crossroads.is_some());
     }
 
-    /// The field lined up on `course` for the knights of `scores`, who have
-    /// anted `ante`. `short` is a host that stakes and pays the race itself
-    /// (the crossroads, a random room): even the Touge keeps to ninety seconds.
     pub(super) fn open_race3d(
         &mut self,
         index: usize,
@@ -902,14 +762,10 @@ impl Run {
         self.cues.push("folly".into());
     }
 
-    /// Whether anybody has won a race yet, in the realm or this run.
     pub fn race_won(&self) -> bool {
         self.home.countryside.race_won || self.marks.contains_key(RACE_MARK)
     }
 
-    /// The Griffin Eyrie: E by the perch and the griffin master saddles a
-    /// griffin for every knight in the yard, for a free flight down the
-    /// gorge. Again as often as you like.
     pub(super) fn tick_eyrie(&mut self) {
         if !self.at_home_now() || self.room().kind != RoomKind::Eyrie || self.race3d_showing() {
             return;
@@ -951,13 +807,10 @@ impl Run {
         self.cues.push("folly".into());
     }
 
-    /// A race is on in the room the party stands in (or its board is up).
     pub fn race3d_showing(&self) -> bool {
         self.race3d.as_ref().is_some_and(|r| r.room == self.at && r.showing())
     }
 
-    /// The race's tick: every knight's keys drive their own ball, cart or
-    /// griffin; the knights themselves stand still in the hall meanwhile.
     pub(super) fn tick_race3d(&mut self, inputs: &BTreeMap<u32, Input>) {
         let Some(mut race) = self.race3d.take() else {
             return;
@@ -971,7 +824,6 @@ impl Run {
             self.race3d = Some(race);
             return;
         }
-        // A knight who sits down mid-race starts from the top.
         let standing: Vec<u32> = self
             .players
             .iter()
@@ -991,12 +843,9 @@ impl Run {
             self.race3d = Some(race);
             return;
         }
-        // What the picture remembers is set aside while the field ticks: the
-        // module never sees it, and `observe` reads what the tick changed.
         let show = std::mem::take(&mut race.show);
         let before = race.clone();
         if race.course == Course::Shaft {
-            // The ball ticks in the module: no answer leaves the race standing.
             if let Ok(ran) = leg::run(&mut race, inputs, &standing) {
                 self.sounds.extend(ran.sounds);
                 if ran.all_home || ran.timed_out {
@@ -1007,9 +856,6 @@ impl Run {
             return;
         }
         if matches!(race.course, Course::Cart | Course::Griffin) {
-            // The Bend leg rolls the Shaft Run alone and hands a cart or a griffin back untouched,
-            // so asked for them the field never left the line (2026-11-10: "griffin run is broken,
-            // on multiplayer it freezes"). They tick natively, as before the leg.
             let (all_home, timed_out, sounds) = oracle::tick(&mut race, inputs, &standing);
             self.sounds.extend(sounds);
             if all_home || timed_out {
@@ -1018,7 +864,6 @@ impl Run {
             self.keep_show(race, show, &before);
             return;
         }
-        // The Touge reads libm's sine and cosine, which the module cannot reproduce: still native.
         let mut noise = Noise::default();
         let ids: Vec<u32> = race.riders.keys().copied().collect();
         for &id in &ids {
@@ -1029,7 +874,6 @@ impl Run {
                 .filter(|i| i.valid() && standing.contains(&id))
                 .unwrap_or_default();
             let mut rider = race.riders[&id].clone();
-            // F pressed this tick, not held, shifts the Touge's box.
             let shift = input.fire && rider.keys & 1 == 0;
             rider.keys = u8::from(input.fire) | u8::from(input.interact) << 1;
             drift::drive(&race, &mut rider, input, shift, &mut noise);
@@ -1040,7 +884,6 @@ impl Run {
             race.riders.insert(id, rider);
         }
         self.sounds.extend(noise.sounds);
-        // Done when everyone still standing is home, or the clock is out.
         let all_home = !race.riders.is_empty() && race.riders.values().all(|r| r.finish.is_some());
         if all_home || race.t >= TITLE + race.time_limit() {
             self.finish_race3d(&mut race);
@@ -1048,9 +891,6 @@ impl Run {
         self.keep_show(race, show, &before);
     }
 
-    /// The tick is over: write down what it changed, put the race back, and
-    /// let the heaviest thing that happened hold the room a moment (the
-    /// realm's own hit-stop: a hard wreck, the first knight home).
     fn keep_show(&mut self, mut race: Race3d, mut show: show::Show, before: &Race3d) {
         show.observe(before, &race);
         let held = show.held(race.t);
@@ -1062,19 +902,15 @@ impl Run {
         }
     }
 
-    /// The board: the first home takes the pot and the laurel, and everyone
-    /// keeps two gold for each thing picked up on the way.
     fn finish_race3d(&mut self, race: &mut Race3d) {
         race.done = true;
         race.ended = race.t;
         let order = race.order();
         let best = order.first().copied();
-        // A race won leaves its mark on the realm.
         if best.and_then(|id| race.riders.get(&id)).is_some_and(|r| r.finish.is_some()) {
             self.marks.insert(RACE_MARK.into(), 1);
         }
         if race.practice {
-            // Nothing staked, nothing paid: the flight is its own reward.
             for &id in race.riders.keys() {
                 race.won.insert(id, 0);
             }
@@ -1112,7 +948,6 @@ impl Run {
     }
 }
 
-/// Knocked out of it: the crash's clock starts and the tally goes up.
 fn wreck(rider: &mut Rider, what: Wreck, noise: &mut Noise) {
     rider.crash = CRASH;
     rider.wreck = what;
@@ -1126,26 +961,18 @@ fn wreck(rider: &mut Rider, what: Wreck, noise: &mut Noise) {
     });
 }
 
-/// How far before the last post the rope sets a knight down: a run-up to
-/// whatever threw them off.
 pub const RUN_UP: f32 = 6.0;
 
-/// How high a fallen timber stands: a cart's wheels must clear it.
 pub const TIMBER_H: f32 = 0.6;
 
-/// Whether line `lane` is laid at `s`.
 pub fn laid(track: &Track, s: f32, lane: u8) -> bool {
     track.at(s).lanes & (1 << lane) != 0
 }
 
-/// Whether line `lane` is broken at `s`.
 pub fn broken(track: &Track, s: f32, lane: u8) -> bool {
     track.gaps.iter().any(|g| g.lane == lane && s >= g.s.0 && s < g.s.1)
 }
 
-/// The engine this crate's own tests tick against: the oracle answers the one
-/// op the shipped leg does, so `Run::tick_race3d` (which calls the leg) plays
-/// the Shaft Run here too.
 #[cfg(test)]
 fn install_oracle() {
     crate::scripted::install_for_test(leg::LEG, oracle::answer);

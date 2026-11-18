@@ -80,7 +80,6 @@ fn assert_panel_bounds(run: &Run, i: usize) {
         p.prompt
     );
     assert!(p.lines.len() <= 8, "overlong panel: {p:?}");
-    // The last text row and progress rail have separate, padded rows.
     assert!(5 + (p.lines.len() as i32 - 1) * 10 + 7 <= im.h - 20);
 }
 
@@ -110,11 +109,9 @@ fn yard_signs_and_dock_clear_all_nine_occupied_plates() {
         expected.stamp(&im, x, y);
         assert_eq!(cv, expected, "only the focused seat's panel may be painted");
     }
-    // Actual body stamps cannot eat even one sign pixel (ELECT / ST regression).
     let mut clean = Img::new(384, 224);
     signs(&mut clean, &run);
     let mut occupied = Img::new(384, 224);
-    // All nine positions are stamped, using the six legal knight looks.
     for i in 0..PLATES.len() {
         let id = i as u32 % 6 + 1;
         on_plate(&mut run, id, i);
@@ -122,7 +119,6 @@ fn yard_signs_and_dock_clear_all_nine_occupied_plates() {
         let (x, y) = at(hero.x, hero.y);
         stand(&mut occupied, &knights::figure(hero, id), x, y);
     }
-    // A walker north of the slabs must not erase the wall directory either.
     stand(
         &mut occupied,
         &knights::figure(&run.players[&1], 1),
@@ -165,7 +161,6 @@ fn station_actions_are_separated_and_fit_the_sign() {
         for word in expected.split(' ') {
             expected_sign.text(x, 13, word, 'i');
             x += text_width(word) + 4;
-            // Each slash and verb has four blank columns before the next glyph.
             if word != "UP" {
                 for xx in x - 4..x {
                     for y in 13..20 {

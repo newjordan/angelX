@@ -1,4 +1,3 @@
-"""Offline regressions for all-attempt seat telemetry and safe chart exports."""
 import importlib.util
 import json
 from pathlib import Path
@@ -184,8 +183,6 @@ class CliTests(unittest.TestCase):
             row["messages"] = [{"content": "private body sentinel"}]
             row["info"]["raw_output"] = "private body sentinel"
             result = self.run_cli(root, [record(row)], "--audit-json", str(audit), "--json", str(chart))
-            # Input is complete even when other fields are missing: only the
-            # measurements the legacy renderer reads constrain chart export.
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(chart.read_text())["seat"], [["js-a", True, 10, 100]])
             data = json.loads(audit.read_text())

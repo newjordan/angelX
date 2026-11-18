@@ -1,7 +1,6 @@
 use super::*;
 use std::sync::Mutex;
 
-/// A store double that records every deposited drawer.
 struct RecordingStore(Mutex<Vec<Drawer>>);
 impl MemoryStore for RecordingStore {
     fn deposit(&self, d: &Drawer) -> Result<String, String> {
@@ -44,8 +43,6 @@ fn empty_report_files_nothing() {
     assert!(store.0.lock().unwrap().is_empty());
 }
 
-/// A store that always rejects deposits — to prove `file` reports failure when
-/// nothing actually lands.
 struct FailingStore;
 impl MemoryStore for FailingStore {
     fn deposit(&self, _d: &Drawer) -> Result<String, String> {
@@ -62,7 +59,6 @@ impl MemoryStore for FailingStore {
 #[test]
 fn file_returns_false_when_the_store_rejects_every_deposit() {
     let lib = Librarian::new(Arc::new(FailingStore));
-    // A perfectly good report, but the store can't take it → nothing filed.
     assert!(!lib.file(&report("a real finding worth keeping")));
 }
 

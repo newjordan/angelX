@@ -31,16 +31,12 @@ fn frames_world_rasters() {
     let court = scene::scene_for(scene::SceneKey::COURT);
 
     let plates = [
-        // The realm seen from the ride's proving vantage: eye at ground level,
-        // looking straight down the court.
         (
             "fig03-world.png",
             view(v3(0.0, 0.0, 0.62), 0.0, 0.0, 1.05),
             1080,
             680,
         ),
-        // The same mesh from a raised, gently tilted vantage — the ride camera
-        // lifted above the ground plane, still looking down the court.
         (
             "figC-world-overhead.png",
             view(v3(0.0, -0.35, 1.9), 0.0, -0.34, 0.98),

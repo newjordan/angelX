@@ -13,7 +13,6 @@ fn key(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::NONE)
 }
 
-/// Hand `app` an ask the way a worker does, and let `advance` put it on the card.
 fn raise(
     app: &mut App,
     inbox: &mpsc::Sender<approval::Request>,
@@ -32,8 +31,6 @@ fn raise(
     answer
 }
 
-/// A live turn with an empty approval inbox. The turn's sender is handed back:
-/// dropping it would read as a vanished worker and end the turn.
 fn app_with_inbox() -> (App, mpsc::Sender<approval::Request>, super::TurnSender) {
     let (mut app, turn) = seed_live_streaming_app(vec![crate::harness::TurnEvent::Token("x".into())]);
     let (inbox, rx) = mpsc::channel();
@@ -57,7 +54,6 @@ fn a_repeated_ask_starts_on_approve_not_on_the_last_ask_s_answer() {
     assert_eq!(first.recv().unwrap(), Decision::ApproveAll);
     assert!(app.pending_approval.is_none());
 
-    // The same tool raises the same words later in the session.
     let second = raise(&mut app, &inbox, "run the same batch?");
     assert!(app.pending_approval.is_some());
     assert_eq!(
@@ -200,7 +196,6 @@ fn the_pointer_stays_on_the_browser_picker_until_it_closes() {
         app.bag = crate::Bag::for_render_test(&[("alpha", &[("model-a", true), ("model-b", true)])]);
         app
     };
-    // Control: with no picker the agent chip opens the route menu.
     let mut control = with_routes();
     control.agent_buttons.push((chip, crate::app::AgentButton::Model));
     control.on_mouse(mouse(MouseEventKind::Down(MouseButton::Left), 1, 0));

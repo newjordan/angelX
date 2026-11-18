@@ -1,6 +1,3 @@
-# The worker's compute contracts by name (delve/main.bend `compute`); each
-# `compute.delve.<contract>` answers {"Ok": result} or {"Err": text}.
-
 def compute.run(+contract: String, +input: J.Val) -> J.Val:
   compute.run.scroll(String.eq(contract, "delve.scroll"), contract, input)
 

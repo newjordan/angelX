@@ -13,7 +13,6 @@ const TOUR_TICKS: u32 = HZ * 30;
 const TURN_ICE: u8 = 3;
 const TURN_DRY: u8 = 1;
 
-/// Scenario helpers: a test sets a cell up or pours a fluid by hand.
 impl Cave {
     fn ignite(&mut self, x: i32, y: i32) {
         if let Some(c) = self.at_mut(x, y) {
@@ -84,8 +83,6 @@ fn turn_ticks(flags: u16, footwear: Footwear) -> u8 {
     if slippery(flags, footwear) { TURN_ICE } else { TURN_DRY }
 }
 
-/// A knight carried over the cells of a row: the slide's rules on their own,
-/// as play applies them a step at a time.
 struct Glide {
     x: i32,
     y: i32,
@@ -197,8 +194,6 @@ struct Segment {
     hold: bool,
 }
 
-/// A scripted walk through the mine, the hollow and the foundry. The knight is
-/// moved; the materials react on their own.
 struct Show {
     cave: Cave,
     tick: u32,
@@ -403,7 +398,6 @@ fn bfs(cave: &Cave, start: (i32, i32), goal: (i32, i32)) -> Option<Vec<(i32, i32
     Some(leg)
 }
 
-/// A scripted tour of the shovel, the blast and the ice across all four regions.
 struct Tour {
     cave: Cave,
     pack: Pack,

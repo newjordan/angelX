@@ -31,49 +31,29 @@
 
 use super::*;
 
-/// The first quiet moment a star may come at: the second room cleared on
-/// a floor. The first one never (a floor's first fight is its own).
 pub const FIRST_MOMENT: usize = 2;
-/// Ticks the room must stay still before the star comes.
 pub const QUIET: u64 = 5 * HZ as u64 / 2;
-/// The star's beats, in ticks from its first glint: it gathers in the
-/// dark, crosses the sky, dives, and comes down (`LANDS`, a little over
-/// four seconds).
 pub const GLINT: u64 = 14;
 pub const DIVE: u64 = 98;
 pub const LANDS: u64 = 124;
-/// How long the banner calls it, from the glint.
 pub const BANNER: u64 = 5 * HZ as u64;
-/// How long the shard lies before it fades, and the fading itself.
 pub const SHARD_LIFE: u64 = 30 * HZ as u64;
 pub const SHARD_FADE: u64 = 3 * HZ as u64;
-/// How near a knight comes to take the shard, in arena units.
 pub const REACH: f32 = 1.9;
-/// How far from every knight a star comes down, in arena units.
 pub const CLEAR_OF_KNIGHTS: f32 = 4.5;
-/// How long a catch, and a star wish's grant, are shown.
 pub const CAUGHT_TICKS: u64 = 2 * HZ as u64;
 pub const GRANT_TICKS: u64 = 5 * HZ as u64 / 2;
-/// The most star wishes' grants remembered at once.
 const MOST_GRANTED: usize = 8;
 
-/// Where the star is in its fall.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Fall {
-    /// In the sky, falling.
     Sky,
-    /// Down, a shard lying where it landed.
     Lying,
-    /// Taken by knight `knight` at `tick`.
     Taken { knight: u32, tick: u64 },
-    /// Faded, nobody's.
     Gone,
 }
 
-/// A shooting star: when it first glinted, the room it crosses, where it
-/// comes down (arena units), the seed its path is drawn from, and where it
-/// is in its fall.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Star {
     pub tick: u64,
@@ -84,35 +64,27 @@ pub struct Star {
 }
 
 impl Star {
-    /// Ticks since it glinted.
     pub fn age(&self, tick: u64) -> u64 {
         tick.saturating_sub(self.tick)
     }
 
-    /// Still in the sky at `tick`.
     pub fn in_sky(&self, tick: u64) -> bool {
         self.fall == Fall::Sky && self.age(tick) < LANDS
     }
 
-    /// It crosses from the left of the view (else the right).
     pub fn from_left(&self) -> bool {
         self.seed & 1 == 0
     }
 }
 
-/// A star wish granted: to whom, when.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Granted {
     pub knight: u32,
     pub tick: u64,
 }
 
-/// The floor's stars: how many have fallen, the tick the next one is due
-/// once the room is still, the star now (or last), and the star wishes
-/// lately granted.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Starfall {
-    /// The floor (depth) these stars fell on.
     #[serde(default)]
     pub floor: u32,
     #[serde(default)]
@@ -126,7 +98,6 @@ pub struct Starfall {
 }
 
 impl Starfall {
-    /// No star has come near: saves and the wire leave it out.
     pub fn omit(v: &Starfall) -> bool {
         v.fell == 0 && v.due.is_none() && v.star.is_none() && v.granted.is_empty()
     }
@@ -146,7 +117,6 @@ impl Starfall {
             })
     }
 
-    /// The star whose shard lies at `tick`, and how far through its life.
     pub fn shard(&self, tick: u64) -> Option<(&Star, f32)> {
         let s = self.star.as_ref().filter(|s| s.fall == Fall::Lying)?;
         let since = s.age(tick).saturating_sub(LANDS);
@@ -154,8 +124,6 @@ impl Starfall {
     }
 }
 
-/// The kinds of room a quiet moment is counted in, and a star may cross:
-/// the halls a party fights and walks through, and an open floor's map.
 fn counted(kind: RoomKind) -> bool {
     matches!(kind, RoomKind::Fight | RoomKind::Treasure | RoomKind::Hall)
 }
@@ -165,9 +133,6 @@ fn open_sky(kind: RoomKind) -> bool {
 }
 
 impl Run {
-    /// This floor's stars: how many (one, or two on a third of floors),
-    /// and the quiet moment each comes at — the second to fourth room
-    /// cleared for the first, two to four rooms on for the second.
     pub fn star_plan(&self) -> (u8, [usize; 2]) {
         let h = mix(self.seed ^ u64::from(self.dungeon.depth).wrapping_mul(0x9e37_79b9_7f4a_7c15) ^ 0x5741_2fa1);
         let count = if h % 3 == 0 { 2 } else { 1 };
@@ -176,16 +141,12 @@ impl Run {
         (count, [first, second])
     }
 
-    /// The quiet moments the party has had on this floor: rooms (and an
-    /// open floor's chambers) cleared, fought or walked into empty.
     pub fn quiet_moments(&self) -> usize {
         let rooms = self.dungeon.rooms.iter().filter(|r| r.visited && r.cleared && counted(r.kind)).count();
         let chambers = self.dungeon.open.as_ref().map_or(0, |o| o.chambers.iter().filter(|c| c.cleared && counted(c.kind)).count());
         rooms + chambers
     }
 
-    /// Whether the sky over the party is still enough for a star: a hall of
-    /// a delve, nothing fighting, no boss awake, no game under way in it.
     fn sky_quiet(&self) -> bool {
         self.dungeon.depth >= 1
             && open_sky(self.room().kind)
@@ -200,8 +161,6 @@ impl Run {
             && self.players.values().any(|h| h.hp > 0 && !h.absent)
     }
 
-    /// A boss awake, or one asleep within a stride of waking near the
-    /// party (an open floor's guardian in its chamber): a fight is coming.
     fn boss_near(&self) -> bool {
         self.enemies.iter().any(|e| {
             e.hp > 0
@@ -211,12 +170,10 @@ impl Run {
         })
     }
 
-    /// Knight `id` holds a star's wish.
     pub fn star_wish_held(&self, id: u32) -> bool {
         self.players.get(&id).is_some_and(|h| h.star_wish)
     }
 
-    /// Knight `id`'s star wish is spent.
     pub(super) fn spend_star_wish(&mut self, id: u32) -> bool {
         let Some(hero) = self.players.get_mut(&id).filter(|h| h.star_wish) else {
             return false;
@@ -228,8 +185,6 @@ impl Run {
         true
     }
 
-    /// Knight `id`'s star wish landed: its moment is drawn over them, and
-    /// the fairies' chimes ring for it.
     pub(super) fn star_wish_granted(&mut self, id: u32) {
         let s = &mut self.starfall;
         if s.granted.len() >= MOST_GRANTED {
@@ -240,8 +195,6 @@ impl Run {
         self.cues.push("star_wish".into());
     }
 
-    /// A new floor: its stars are its own, and a star's wish not said is
-    /// gone with the last one.
     pub(super) fn starfall_new_floor(&mut self) {
         self.starfall = Starfall::default();
         for hero in self.players.values_mut() {
@@ -249,9 +202,6 @@ impl Run {
         }
     }
 
-    /// One tick of the floor's stars: the one falling comes down, its shard
-    /// is taken or fades, its wishes fade once the party has left its sky,
-    /// and in a quiet moment the next one comes.
     pub(super) fn tick_starfall(&mut self, _inputs: &BTreeMap<u32, Input>) {
         if self.dungeon.depth == 0 || (!Starfall::omit(&self.starfall) && self.starfall.floor != self.dungeon.depth) {
             if !Starfall::omit(&self.starfall) || self.players.values().any(|h| h.star_wish) {
@@ -265,9 +215,6 @@ impl Run {
         self.watch_the_sky();
     }
 
-    /// The star now: down at `LANDS`, its shard taken by the first knight
-    /// to touch it or faded at the end of its life, and its wishes gone
-    /// with the party out of its room.
     fn tick_star(&mut self) {
         let Some(star) = self.starfall.star.clone() else {
             return;
@@ -288,7 +235,6 @@ impl Run {
                 self.catch_star(id);
             }
         }
-        // A star's wish is said under its own sky.
         if !here {
             let fading: Vec<u32> = self
                 .players
@@ -311,8 +257,6 @@ impl Run {
         }
     }
 
-    /// The knight touching the shard at `at`, nearest first: standing, and
-    /// with room for one more wish.
     fn shard_toucher(&self, at: (f32, f32)) -> Option<u32> {
         self.players
             .iter()
@@ -323,7 +267,6 @@ impl Run {
             .map(|(id, _)| id)
     }
 
-    /// Knight `id` takes the fallen star: a wish of their own.
     fn catch_star(&mut self, id: u32) {
         let Some(hero) = self.players.get_mut(&id) else {
             return;
@@ -335,16 +278,12 @@ impl Run {
         self.tell(id, "The star is yours: one more wish to hold.");
     }
 
-    /// The floor's next star, if it has one to come: due once the room has
-    /// been still `QUIET` ticks at its quiet moment, put off while anything
-    /// stirs.
     fn watch_the_sky(&mut self) {
         let (count, at) = self.star_plan();
         let fell = usize::from(self.starfall.fell);
         if fell >= usize::from(count) || self.quiet_moments() < at[fell.min(1)] {
             return;
         }
-        // One star at a time: the last one's shard and its catch first.
         if self.starfall.star.as_ref().is_some_and(|s| match s.fall {
             Fall::Sky | Fall::Lying => true,
             Fall::Taken { tick, .. } => self.tick.saturating_sub(tick) < CAUGHT_TICKS,
@@ -366,8 +305,6 @@ impl Run {
         }
     }
 
-    /// A shooting star crosses the room: every knight under it catches its
-    /// wish, and it comes down somewhere they can walk to.
     pub(super) fn star_falls(&mut self) {
         let depth = self.dungeon.depth;
         let seed = (mix(self.seed ^ self.tick.rotate_left(21) ^ u64::from(depth).wrapping_mul(0x51a7)) >> 16) as u32;
@@ -388,10 +325,6 @@ impl Run {
         self.cues.push("starfall".into());
     }
 
-    /// Where a star with `seed` comes down: open floor a few strides from
-    /// the knight nearest the party's middle, on a straight walk from them,
-    /// off the walls and clear of every knight; that knight's own feet
-    /// when the room has no such place.
     fn star_landing(&self, seed: u32) -> (f32, f32) {
         let standing: Vec<(f32, f32)> = self.players.values().filter(|h| h.hp > 0 && !h.absent).map(|h| (h.x, h.y)).collect();
         let n = standing.len().max(1) as f32;
@@ -409,15 +342,12 @@ impl Run {
             for k in 0..12 {
                 let a = a0 + k as f32 * std::f32::consts::TAU / 12.0;
                 let p = (from.0 + a.cos() * r, from.1 + a.sin() * r * 0.75);
-                // Off the walls, and low enough in the room to be seen
-                // under the HUD and the room's top wall.
                 if p.0 < 3.0 * TILE_UNITS || p.0 > w - 3.0 * TILE_UNITS || p.1 < 3.5 * TILE_UNITS || p.1 > h - 4.0 * TILE_UNITS {
                     continue;
                 }
                 if grid.tile_at(p.0, p.1) != Tile::Floor || !grid.clear(p.0, p.1, 1.0, Mover::Hero) {
                     continue;
                 }
-                // Never at a knight's feet: someone walks to it.
                 if standing.iter().any(|k| (k.0 - p.0).hypot(k.1 - p.1) < CLEAR_OF_KNIGHTS) {
                     continue;
                 }
@@ -433,8 +363,6 @@ impl Run {
 
 #[cfg(any(test, feature = "testing"))]
 impl Run {
-    /// A star falls now, wherever the party stands (the shots' and the
-    /// rules' fixtures).
     pub fn star_falls_for_test(&mut self) {
         self.star_falls();
     }

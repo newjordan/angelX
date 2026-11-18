@@ -46,7 +46,6 @@ fn every_paid_level_has_fixed_stats_for_all_five_roles_and_invalid_levels_are_ca
                 let hp = (48 + 16 * trained + 8 * depth) * if kind == Kind::Shield { 2 } else { 1 };
                 assert_eq!((actor.hp, actor.max_hp), (hp, hp), "{kind:?} level {raw}");
                 assert_eq!(actor.power, 6 + 3 * trained + 2 * depth);
-                // Deployment must not repair or rewrite the persistent book.
                 assert_eq!(
                     run.home.squire_company.rosters[&run.players[&1].name].squires[0].level,
                     raw
@@ -140,7 +139,6 @@ fn assert_breathing_room(run: &Run) {
 fn six_companions_separate_from_knights_and_peers_deterministically_without_shoving_owners() {
     let mut run = six_companions();
     let players = serde_json::to_value(&run.players).unwrap();
-    // An exact pile has no geometric direction: ties must still be stable.
     for s in run.squire_field.companions.values_mut() {
         (s.actor.x, s.actor.y) = (12.0, 12.0);
     }
@@ -152,7 +150,6 @@ fn six_companions_separate_from_knights_and_peers_deterministically_without_shov
     assert_breathing_room(&run);
     assert_eq!(run.squires, restored.squires);
     assert_eq!(serde_json::to_value(&run.players).unwrap(), players);
-    // Following a doorway must not permanently recreate the deployment pile.
     run.company_squires_follow();
     for _ in 0..120 {
         run.tick_company_squires();
@@ -179,7 +176,6 @@ fn seed_eleven_floors_three_and_six_keep_six_companions_readable_on_real_ticks()
             room: run.room(),
             barred: run.barred(),
         };
-        // Keep the generated stone: choose a legal pocket, not an open-room fixture.
         let at = (1..run.room().rows - 1)
             .flat_map(|row| {
                 (1..run.room().cols - 1).map(move |col| {
@@ -245,7 +241,6 @@ fn six_companions_keep_breathing_room_while_fighting_beside_their_knights() {
 fn separation_yields_to_walls_barred_doors_and_the_six_tile_leash() {
     for tile in [Tile::Wall, Tile::Block, Tile::Door, Tile::Hazard] {
         let mut run = six_companions();
-        // A vertical barrier beside a pile on legal ground.
         for row in 1..run.room().rows - 1 {
             run.dungeon.rooms[run.at].set(7, row, tile);
         }
@@ -342,7 +337,6 @@ fn deployment_is_one_per_owner_and_leaves_summons_alone() {
         );
         run.players.insert(id, hero);
     }
-    // Even an invalid seventh seat cannot bring a seventh companion.
     let mut seventh = run.players[&1].clone();
     seventh.name = "Seventh".into();
     run.home.squire_company.rosters.insert(

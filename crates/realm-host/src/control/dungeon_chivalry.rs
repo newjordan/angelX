@@ -9,8 +9,6 @@ use angel_delve::rules::host_commands::{Command as GameCommand, Destination, Rep
 const HELP: &str = "/dungeon stable [select Bramble|Cinder|Mist|<herd n>|tend|status|market|buy <n>|sell <n>|breed <a> <b>] · /dungeon tournament [status] · /world visit stables|lists · walk in from the Delve's gate";
 
 impl Session<'_> {
-    /// Open the Delve at the stables or the lists: start a delve if none is
-    /// open (it begins at the gate, next door) and walk the party in.
     pub(crate) fn visit_horsemanship(&mut self, place: Place) -> String {
         if self.dungeon.joined.is_some() {
             return format!(
@@ -96,14 +94,10 @@ impl Session<'_> {
         )
     }
 
-    /// The horse market: today's stock is pure in the stable's service
-    /// record, so the listing a player reads is the listing `buy` sells.
     fn market_of(stable: &crate::chivalry::Stable) -> Vec<crate::chivalry::Horse> {
         stable.todays_market()
     }
 
-    /// Buy, sell and breed in the yard, settled and saved like a plate's
-    /// marks: clone, change, save, and rebuild the live home on success.
     fn horse_trade(&mut self, tail: &[&str]) -> String {
         use crate::together_realm::{Spoil, Spoils};
         if self.dungeon.joined.is_some() {
@@ -205,7 +199,6 @@ impl Session<'_> {
         line
     }
 
-    /// `/dungeon stable …` and `/dungeon tournament …`.
     pub(crate) fn chivalry_command(&mut self, place: Place, tail: &str) -> String {
         let args: Vec<_> = tail.split_whitespace().collect();
         if place == Place::Stables
@@ -228,7 +221,6 @@ impl Session<'_> {
         if self.dungeon.joined.is_some() {
             return "The host's stable is theirs to keep: walk to it in their delve.".into();
         }
-        // The same mark a plate leaves, settled the same way.
         let marks = std::collections::BTreeMap::from([(mark, 1u32)]);
         let mut stable = self.realm().home.stable.clone();
         let said = shooter::joust::settle_stable(&mut stable, &marks);

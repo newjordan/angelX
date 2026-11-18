@@ -1,5 +1,3 @@
-# Cases of the baked data: the whole composed world and the lists layout::info() reads.
-
 def case.bannerpeak.layout.world(+input: J.Val) -> J.Val:
   J.JA{bannerpeak.cases.world.rows(0)}
 
@@ -9,7 +7,6 @@ def bannerpeak.cases.world.rows(+y: U32) -> List<&2, J.Val>:
 def bannerpeak.cases.world.cols(+y: U32, +x: U32) -> List<&2, J.Val>:
   bannerpeak.u.ife(List<&2, J.Val>, U32.is_lt(x, 434), _ => Con{J.JU{bannerpeak.world.World.at(x, y)}, bannerpeak.cases.world.cols(y, (x + 1 : U32))}, _ => Nil{})
 
-# Flat (x, y) pairs as an array of [x, y].
 def bannerpeak.cases.pairs(+xs: List<&2, U32>) -> List<&2, J.Val>:
   match xs:
     case Nil{}:
@@ -45,7 +42,6 @@ def bannerpeak.cases.triples.c(+a: U32, +b: U32, +s: List<&2, U32>) -> List<&2, 
     case Con{+c, +t}:
       Con{J.JA{[J.JU{a}, J.JU{b}, J.JU{c}]}, bannerpeak.cases.triples(t)}
 
-# banners(): (x, y, has) triples as null or [x, y].
 def bannerpeak.cases.banners(+xs: List<&2, U32>) -> List<&2, J.Val>:
   match xs:
     case Nil{}:

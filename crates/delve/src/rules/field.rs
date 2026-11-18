@@ -14,74 +14,47 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Units one wish's structure may keep alive at once.
 pub const MAX_UNITS: u32 = 9;
-/// The quickest a structure may add one: half a second at 30 Hz.
 pub const MIN_EVERY: u32 = 15;
-/// The longest a wished structure may stand: ten minutes of play.
 pub const MAX_LIFETIME: u32 = 10 * 60 * 30;
-/// What a wished structure may be worth, hit for hit.
 pub const MAX_ARMOUR: i64 = 500;
-/// The most mana one casting may take.
 pub const MAX_MANA: u32 = 100;
 
-/// What a wish's structure makes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Unit {
-    /// A blade that walks to the nearest foe.
     #[default]
     Ghoul,
-    /// A blade that stands where it is put.
     Warden,
-    /// A thing that shoots from where it stands.
     Totem,
-    /// A blade that is slow and hard to kill.
     Zombie,
 }
 
-/// What a wish puts on the field: a body, how often it makes a unit, how many
-/// may be alive, and how long it stands.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Field {
-    /// What the wish calls it: "a little barracks".
     pub name: String,
-    /// What one casting of this wish places.
     pub unit: Unit,
-    /// Ticks between one unit and the next.
     pub every: u32,
-    /// Units alive from this structure at once.
     pub cap: u32,
-    /// Ticks the structure stands before it is gone.
     pub life: u32,
-    /// What the structure itself is worth, so foes can break it.
     pub armour: i64,
-    /// What one casting costs from the knight's pool.
     pub mana: u32,
-    /// Ticks before the wish may be cast again.
     pub cooldown: u32,
 }
 
-/// Why a wish's structure never reached the floor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Reject {
     Nameless,
-    /// More units than a floor may hold.
     TooManyUnits,
-    /// A structure that makes units quicker than a breath.
     TooFast,
-    /// A structure that outlasts the floor.
     TooLong,
-    /// A structure no foe could break.
     TooHard,
-    /// More mana than the pool holds.
     TooDear,
     NoCooldown,
 }
 
-/// Whether a wish's structure may be granted at all.
 pub fn check(field: &Field) -> Result<(), Reject> {
     if field.name.trim().is_empty() {
         return Err(Reject::Nameless);
@@ -107,10 +80,6 @@ pub fn check(field: &Field) -> Result<(), Reject> {
     Ok(())
 }
 
-/// Whether a standing structure adds a unit on this tick, and what it adds.
-/// `standing` is the ticks it has been up, `alive` how many of its units are
-/// alive, and `fallen` whether its body has been broken — a broken barracks
-/// makes nothing more, what it made walks on.
 pub fn plan(field: &Field, standing: u32, alive: u32, fallen: bool) -> Option<Unit> {
     if fallen || standing >= field.life {
         return None;
@@ -120,20 +89,16 @@ pub fn plan(field: &Field, standing: u32, alive: u32, fallen: bool) -> Option<Un
         return None;
     }
     let every = field.every.max(MIN_EVERY);
-    // The first unit comes on the first interval, not at once: a wish that
-    // put a barracks down should still cost the fight time.
     if standing == 0 || standing % every != 0 {
         return None;
     }
     Some(field.unit)
 }
 
-/// Ticks a wished structure stands, clamped to what a floor allows.
 pub fn lifetime(field: &Field) -> u32 {
     field.life.clamp(1, MAX_LIFETIME)
 }
 
-/// Units a wished structure may have alive, clamped.
 pub fn cap(field: &Field) -> u32 {
     field.cap.clamp(1, MAX_UNITS)
 }
@@ -197,7 +162,6 @@ mod tests {
         field.life = 10_000_000;
         assert_eq!(cap(&field), MAX_UNITS);
         assert_eq!(lifetime(&field), MAX_LIFETIME);
-        // One unit per allowed interval at most, and never past the cap.
         assert_eq!(plan(&field, 1, 0, false), None, "no quicker than the floor");
         assert_eq!(plan(&field, MIN_EVERY, MAX_UNITS, false), None, "the cap holds");
         assert_eq!(plan(&field, MIN_EVERY, 0, false), Some(field.unit));

@@ -20,7 +20,6 @@ RUNGS = [
     ('r3', 'R3 the monolith', '8 colours, lamps, the ember ramp'),
     ('r4', 'R4 image-like', '768 x 448, 16 colours, the finest weave'),
 ]
-# Rooms in the order the doc takes them; any other after.
 ORDER = ['crypt-fight', 'crypt-passage', 'crypt-bone-chapel', 'crypt-open-floor']
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -37,8 +36,6 @@ except OSError:
 ground, ink, dim = (12, 12, 14), (226, 226, 232), (150, 150, 162)
 
 if args.pairs:
-    # Each lit rung's four shots stand in for the rungs: a "case" is a room
-    # and its rung, a "rung" each way the dials are set.
     RUNGS = [
         ('off', 'both off', 'the cards as drawn, all sharp'),
         ('cards', 'lit cards', 'the figures take the room\'s light'),

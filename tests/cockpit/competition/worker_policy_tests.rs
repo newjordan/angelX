@@ -286,8 +286,6 @@ fn worker_health_leg() -> angel_live::Program {
     crate::agent::harness::live_policy::shipped_leg("worker-health")
 }
 
-// The parity oracle: the decision body the shipped leg replaced. It lives here
-// so production keeps only the features, the input and the contract check.
 fn native_recovery_step(
     phase: &LeasePhaseV1,
 ) -> crate::drive::competition::worker_policy::LiveRecoveryStep {
@@ -392,9 +390,6 @@ fn worker_health_leg_matches_native_for_every_feature_value() {
                     || expected.clone(),
                 );
                 micros.push(started.elapsed().as_nanos() / 1_000);
-                // Without progress the leg answers stale_next 0..=6 and
-                // refuses anything larger, falling back to native. With
-                // progress it resets the counter for any feature value.
                 if !progress && stale + extra > 6 {
                     assert!(matches!(
                         source,

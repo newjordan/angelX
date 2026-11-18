@@ -1,5 +1,4 @@
 //! Existing session status semantics expose unsupported path serialization.
-// APFS rejects invalid UTF-8 components before these filesystem assertions run.
 #![cfg(target_os = "linux")]
 use super::*;
 use std::os::unix::ffi::OsStringExt as _;
@@ -48,8 +47,6 @@ fn invalid_workspace_serialization_preserves_checkpoint_and_publishes_failure() 
     assert_eq!(std::fs::read(session.path()).unwrap(), old);
     assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 1);
     assert_eq!(history[0].content.as_ref(), "new operator must remain live");
-    // Returning to a supported binding is an ordinary successful retry; failure
-    // does not poison the shared writer or falsely overwrite its later status.
     session.bind(&valid);
     session.checkpoint(&history).unwrap();
     assert_eq!(session.save_status(), SessionSaveStatus::Healthy);

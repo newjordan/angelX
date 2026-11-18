@@ -55,14 +55,11 @@ fn walking_through_a_door_and_back() {
 #[test]
 fn each_squire_game_answers_in_its_own_room_and_not_in_the_yard() {
     let mut r = home();
-    // The Academy's actions are its room's.
     go(&mut r, RoomKind::Yard, (12.0, 6.0));
     use crate::rules::squire_academy::Action;
     assert!(r.academy_squire_action(1, Action::Hire(0)).unwrap_err().contains("Academy"), "no Academy business in the Yard");
     go(&mut r, RoomKind::SquireAcademy, ARRIVAL);
     assert!(r.academy_squire_action(1, Action::Hire(0)).is_ok_or_not_the_room(), "the Academy answers in its room");
-    // The Guild's menu opens on its plate in its room, not on the same spot
-    // in the Yard.
     let (c, row, _, _) = crate::rules::squire_guild::PLATES[0];
     for (kind, opens) in [(RoomKind::Yard, false), (RoomKind::SquireGuild, true)] {
         go(&mut r, kind, (c as f32 + 0.5, row as f32 + 0.5));

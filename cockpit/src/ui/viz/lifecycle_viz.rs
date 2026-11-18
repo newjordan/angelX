@@ -34,8 +34,6 @@ const SUCCESS: Rgb = DMD_PALETTE[7];
 
 pub(crate) use crate::telemetry::CeremonyKind;
 
-/// What the cut-in draws for a ceremony. The kind lives below this crate, so
-/// the drawing-side helpers are an extension trait rather than inherent methods.
 trait CeremonyKindExt {
     fn outcome(self) -> Outcome;
     fn backdrop(self) -> &'static str;
@@ -53,9 +51,6 @@ impl CeremonyKindExt for CeremonyKind {
         }
     }
 
-    /// Location plate staging this ceremony (the MANIFEST storyboard):
-    /// arrival at the festival gate, the arena for the grand joust, the
-    /// victory lap, and the quiet lists at dusk for failure and retreat.
     fn backdrop(self) -> &'static str {
         match self.outcome() {
             Outcome::Challenge => "castle_gate.png",
@@ -173,9 +168,6 @@ impl Pose {
     }
 }
 
-/// Theatrical loops from the tourney library intake
-/// (`assets/tourney/library/sequences`). They are authored at the ceremony's
-/// own 12 fps, so the timeline frame indexes sequence frames directly.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Sequence {
     FlagRaise,
@@ -215,8 +207,6 @@ struct SequenceCue {
     frame: usize,
 }
 
-/// Supporting flag/favor beats keep the same red/blue cast on stage. Mounted
-/// identities and strike timing are rendered by the shared cast and effects.
 fn sequence_cue(kind: CeremonyKind, timeline: Timeline) -> Option<SequenceCue> {
     let sequence = match (kind.outcome(), timeline.phase) {
         (Outcome::Challenge, _) => Sequence::FlagRaise,
@@ -231,10 +221,6 @@ fn sequence_cue(kind: CeremonyKind, timeline: Timeline) -> Option<SequenceCue> {
     })
 }
 
-/// The herald's fanfare opens the ceremony (storyboard beat 4): a keyed
-/// character still on the left rail during the entry curtain. The grand joust
-/// skips it — the knight's charge already owns that entry — and retreat
-/// ceremonies keep their quiet field.
 fn draw_herald_fanfare(
     canvas: &mut DotCanvas,
     asset_root: &Path,
@@ -248,8 +234,6 @@ fn draw_herald_fanfare(
     let art_h = canvas.cell_height;
     let cell_h = (art_h * 3 / 5).max(4);
     let cell_w = (cell_h * 2).min(canvas.cell_width.saturating_sub(2).max(2));
-    // A width clamp on narrow-tall panes re-derives height, keeping the
-    // square still square instead of letting it swallow the pane.
     let cell_h = cell_h.min((cell_w / 2).max(1));
     let y = art_h.saturating_sub(cell_h) as i32;
     let path = asset_root.join("library/poses/herald.png");
@@ -258,11 +242,8 @@ fn draw_herald_fanfare(
     }
 }
 
-/// Returns true only when the cue's frame actually landed on the canvas.
 fn draw_sequence_cue(canvas: &mut DotCanvas, asset_root: &Path, cue: SequenceCue) -> bool {
     let art_w = canvas.cell_width;
-    // Supporting cut-in stays in the upper rail; the blue knight owns the
-    // right ground line and must remain visible through the whole ceremony.
     let cell_h = (canvas.cell_height / 3).max(2);
     let cell_w =
         (cell_h * cue.sequence.aspect_x100() * 2 / 100).clamp(2, art_w.saturating_sub(2).max(2));
@@ -319,7 +300,6 @@ pub(crate) fn render(
     )
 }
 
-/// Display-only calibration scene names (`/tourney calibrate <scene>`).
 pub(crate) fn calibration_kind(raw: &str) -> Option<CeremonyKind> {
     match raw.trim().to_ascii_lowercase().as_str() {
         "start" => Some(CeremonyKind::LoopStart),
@@ -327,9 +307,6 @@ pub(crate) fn calibration_kind(raw: &str) -> Option<CeremonyKind> {
         "win" => Some(CeremonyKind::LoopDone),
         "fail" => Some(CeremonyKind::LoopFailed),
         "retreat" => Some(CeremonyKind::LoopStopped),
-        // Display-only previews. service/guardian use the same completion
-        // kinds as a real ceremony so success art can play; start_lifecycle_ceremony
-        // does not mark the goal or loop complete.
         "study" | "dragon" => Some(CeremonyKind::LoopStart),
         "craft" => Some(CeremonyKind::LoopEscalate),
         "perseverance" => Some(CeremonyKind::LoopPaused),
@@ -343,8 +320,6 @@ pub(crate) fn warm_assets() {
     crate::stage::knight_journey::warm();
     let root = default_asset_root();
     <Realm as LoopArtArt>::warm_rider();
-    // Only supporting sequences are active now. Do not decode discarded
-    // mounted packs, then evict useful frames before the first ceremony.
     for sequence in [Sequence::FlagRaise, Sequence::MaidenWave] {
         for frame in 0..sequence.frame_count() {
             let _ = crate::ui::term::art::preload_colored_image(&sequence.frame_path(&root, frame));
@@ -405,7 +380,6 @@ fn render_with_asset_root(
             if let Some(cue) = sequence_cue(kind, timeline) {
                 let _ = draw_sequence_cue(&mut canvas, asset_root, cue);
             }
-            // Keep the place legible, with the paired cast in the foreground.
             for color in canvas.dots.iter_mut().flatten() {
                 *color = color.map(|channel| (u16::from(channel) * 28 / 100) as u8);
             }
@@ -498,8 +472,6 @@ fn default_asset_root() -> PathBuf {
 }
 
 fn draw_arena_layer(canvas: &mut DotCanvas, asset_root: &Path, kind: CeremonyKind) {
-    // The ceremony's location plate stages the scene; the legacy arena plate
-    // backs any missing location, and geometry backs a missing pack entirely.
     for path in [
         asset_root.join("library/plates").join(kind.backdrop()),
         asset_root.join("arena-plate.png"),
@@ -522,7 +494,6 @@ fn draw_arena_layer(canvas: &mut DotCanvas, asset_root: &Path, kind: CeremonyKin
         }
     }
 
-    // Missing/corrupt source fallback: sparse rail, stands, and horizon.
     let w = canvas.dot_width as i32;
     let h = canvas.dot_height as i32;
     let rail_y = (h * 3 / 4).max(1);
@@ -543,9 +514,6 @@ fn draw_ambient_layer(canvas: &mut DotCanvas, timeline: Timeline) {
         Phase::Approach | Phase::Impact => (timeline.frame % 3) as i32 - 1,
         _ => 0,
     };
-    // A low, ordered-dither haze and a few drifting pinpricks bind the newer
-    // DMD ceremony renderer to the cockpit's shared retro art direction.
-    // These stay behind the authored arena plate and never obscure the lane.
     for y in 0..h.max(0) {
         let sink = y as f32 / h.max(1) as f32;
         for x in 0..w.max(0) {
@@ -560,7 +528,6 @@ fn draw_ambient_layer(canvas: &mut DotCanvas, timeline: Timeline) {
             }
         }
     }
-    // Subdued parallax pennants live high and outside the jousting lane.
     for (index, anchor) in [w / 6, w / 3, w * 2 / 3, w * 5 / 6].into_iter().enumerate() {
         let top = 2 + (index % 2) as i32;
         canvas.line(anchor, top, anchor, (h / 4).max(top + 2), STEEL);
@@ -579,7 +546,6 @@ fn draw_ambient_layer(canvas: &mut DotCanvas, timeline: Timeline) {
         );
         canvas.line(tip, top + 2, anchor, top + 3, STEEL);
     }
-    // Deterministic, low-density crowd glints; never a generic particle field.
     let crowd_y = (h * 2 / 3).max(1);
     for x in (3..w.saturating_sub(2)).step_by(9) {
         if ((x as usize + timeline.frame) / 3).is_multiple_of(2) {
@@ -774,8 +740,6 @@ fn draw_rider(
             height: sprite.height(),
         };
         let stem = card.key;
-        // Fit both axes together instead of stretching a square horse across
-        // a wide action lane. The ground remains shared by both companions.
         let fit = (width as f32 * 2.0 / sprite.width() as f32)
             .min(height as f32 * 4.0 / sprite.height() as f32);
         let w = ((sprite.width() as f32 * fit / 2.0).floor() as usize).max(1);
@@ -948,9 +912,6 @@ fn draw_lances(
     }
 }
 
-/// Authored FX stills from `library/fx` — pennants, shield crack, etc.
-/// Drawn as a small right/left inset so they read as gift-bag animation bits
-/// without covering the knight sequence.
 fn draw_fx_stills(
     canvas: &mut DotCanvas,
     asset_root: &Path,
@@ -1070,8 +1031,6 @@ fn draw_compact_pose(canvas: &mut DotCanvas, kind: CeremonyKind) {
 
 const BAYER4: [[u8; 4]; 4] = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
 
-// Hand-corrected fallback dot silhouette: helmet/rider over a four-legged horse.
-// It is bundled into the binary and remains readable even when every PNG is gone.
 const RIDER_DOT_MASK: &[&str] = &[
     "...........cc........",
     "..........cccc.......",
@@ -1151,8 +1110,6 @@ impl DotCanvas {
         height: usize,
         mirror: bool,
     ) {
-        // Match the proportional nearest-neighbor fit used by terminal_art.
-        // Opaque black armor must occlude the backdrop even when it emits no dot.
         let (dw, dh) = (width * 2, height * 4);
         let fit = (dw as f32 / source.width() as f32).min(dh as f32 / source.height() as f32);
         let sw = ((source.width() as f32 * fit).round() as usize).clamp(1, dw);

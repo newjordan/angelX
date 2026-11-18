@@ -61,8 +61,6 @@ fn recipe_at(ts_ms: u64, command: &str, head: Option<&str>, stale: u32) -> Recip
     }
 }
 
-/// 1. Bounded growth: superseded rows (same command, older ts) are compacted
-///    away on the next append, and the row ceiling is enforced.
 #[test]
 fn m05_compaction_drops_superseded_rows_on_append() {
     let _guard = crate::tests::env_lock();
@@ -78,9 +76,6 @@ fn m05_compaction_drops_superseded_rows_on_append() {
             recipe_at(3, "cargo {\"args\":\"check\"}", Some("ccc3333"), 0),
         ],
     );
-    // Append one new recipe: the two older "cargo test" rows are superseded
-    // by the newest stored one; the published snapshot keeps one row per
-    // command plus the new entry.
     let fresh = recipe_at(
         9_000_000_000_000,
         "cargo {\"args\":\"clippy\"}",
@@ -97,7 +92,6 @@ fn m05_compaction_drops_superseded_rows_on_append() {
     let test_rows = rows.iter().filter(|r| r.command.contains("test")).count();
     assert_eq!(test_rows, 1, "superseded rows compacted: {rows:?}");
     assert_eq!(rows.len(), 3);
-    // Readers keep working: the compacted file parses cleanly.
     assert!(
         !storage::load::<Recipe>(&repo_dir.join("recipes.jsonl"))
             .health
@@ -105,8 +99,6 @@ fn m05_compaction_drops_superseded_rows_on_append() {
     );
 }
 
-/// 1b. Entry ceiling: a store larger than MAX_STORE_ROWS is cut to the bound
-/// by one append.
 #[test]
 fn m05_row_ceiling_is_enforced() {
     let _guard = crate::tests::env_lock();
@@ -114,8 +106,6 @@ fn m05_row_ceiling_is_enforced() {
     let workspace = fixture.workspace();
     std::fs::write(workspace.join("Cargo.toml"), "[package]\nname=\"x\"\n").unwrap();
     let repo_dir = fixture.repo_dir(&workspace);
-    // Minimal legacy rows fit below the byte ceiling, so this independently
-    // exercises the entry limit. Reverse timestamps to test newest retention.
     let body = (0..storage::MAX_STORE_ROWS + 200).rev().map(|i| {
         serde_json::json!({"ts_ms":i,"command":format!("cmd-{i:05}"),"env":[],"tool":"","note":""}).to_string() + "\n"
     }).collect::<String>();
@@ -140,8 +130,6 @@ fn m05_row_ceiling_is_enforced() {
     assert!(!after.iter().any(|r| r.command == "cmd-00000"));
 }
 
-/// 2. Corruption classes surface in the health summary: a corrupt line, a
-///    truncated (unterminated) tail, invalid UTF-8, and an IO failure.
 #[test]
 fn m05_health_summary_counts_each_corruption_class() {
     let _guard = crate::tests::env_lock();
@@ -149,12 +137,10 @@ fn m05_health_summary_counts_each_corruption_class() {
     let fixture = Fixture::new("health");
     let workspace = fixture.workspace();
 
-    // Clean store: healthy.
     fixture.store(&workspace, &[recipe_at(1, "cmd-ok", None, 0)]);
     let health = memory_health_in(&fixture.0, &workspace);
     assert!(health.healthy(), "{health:?}");
 
-    // Corrupt line + truncated tail + invalid UTF-8.
     let dir = fixture.repo_dir(&workspace);
     std::fs::write(dir.join("recipes.jsonl"), b"{not json}\n").unwrap();
     std::fs::write(
@@ -167,12 +153,10 @@ fn m05_health_summary_counts_each_corruption_class() {
     assert!(health.incomplete_tail > 0, "hazards tail unterminated");
     assert!(!health.healthy());
 
-    // Invalid UTF-8 row.
     std::fs::write(dir.join("recipes.jsonl"), b"\xff\xfe not utf8\n").unwrap();
     let health = memory_health_in(&fixture.0, &workspace);
     assert_eq!(health.invalid_utf8_rows, 1);
 
-    // IO failure: replace the store with a directory.
     std::fs::remove_file(dir.join("recipes.jsonl")).unwrap();
     std::fs::create_dir(dir.join("recipes.jsonl")).unwrap();
     let health = memory_health_in(&fixture.0, &workspace);
@@ -196,7 +180,6 @@ fn m05_state_changes_expire_and_same_day_execution_refreshes() {
     fixture.store(&workspace, &[recipe.clone()]);
     assert!(matches!(stale_mark(&recipe, &initial), StaleMark::Fresh));
     for i in 1..=RECIPE_STALE_CHANGE_LIMIT {
-        // Content changes under an unchanged HEAD are separate observations.
         let changed = state("abc123", &i.to_string());
         for _ in 0..3 {
             let report =
@@ -275,7 +258,6 @@ fn m05_write_failures_reach_classified_ledger() {
     assert_eq!(report.status, storage::WriteStatus::Busy);
     expose_report(&workspace, "recipes.jsonl", &report);
     lock.unlock().unwrap();
-    // A leftover unlocked lock file is reusable; it is not a stale lease.
     assert_eq!(
         storage::append(&repo, "recipes.jsonl", &[recipe_at(1, "c", None, 0)], None).written,
         1
@@ -375,7 +357,6 @@ fn m05_real_tree_change_revalidation_and_both_card_expiries() {
             }
         }
     }
-    // Replaying old evidence after edits cannot rebind it to the new tree.
     assert_eq!(write_back_from_history(&workspace, &history), (0, 0));
     let refreshed = vec![ChatMsg::assistant_calls(vec![call.clone()]), receipt()];
     assert_eq!(write_back_from_history(&workspace, &refreshed), (1, 0));

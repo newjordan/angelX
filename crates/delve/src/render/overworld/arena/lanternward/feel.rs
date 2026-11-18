@@ -13,8 +13,6 @@ use crate::rules::{
     lanternward::{self as lw, Act, Fk, Fs, Fxk, Lock, Seat, world::{Q, angle_of}},
 };
 
-/// How hard the blow that struck a foe weighed, from what the foe and the
-/// knights about it are doing (the rules' own counters, nothing kept).
 pub(super) fn foe_weight_for(s: &lw::Session, f: &lw::Foe) -> Weight {
     if f.st == Fs::Dying {
         return Weight::Kill;
@@ -40,7 +38,6 @@ pub(super) fn foe_weight_for(s: &lw::Session, f: &lw::Foe) -> Weight {
     }
 }
 
-/// A blow's weight on the Warden, by what the blade did.
 pub(super) fn boss_weight_for(s: &lw::Session, w: &lw::Warden) -> Weight {
     if w.hp == 0 {
         return Weight::Finale;
@@ -53,16 +50,10 @@ pub(super) fn boss_weight_for(s: &lw::Session, w: &lw::Warden) -> Weight {
     if heavy || w.st == lw::Ws::Stagger { Weight::Crushing } else { Weight::Solid }
 }
 
-/// The ticks since a flinch began (0 on the blow), if one is on.
 pub(super) fn hit_age(flinch: u8) -> Option<u32> {
     (flinch > 0).then(|| u32::from(lw::FLINCH_TICKS.saturating_sub(flinch)))
 }
 
-// ----- lock-on --------------------------------------------------------------------
-
-/// Four brackets close on what a knight has locked, a wick-spark floats over
-/// it, and a thin dotted rope runs from the knight to it in the knight's own
-/// view. A friend's lock is two small brackets in the friend's colour.
 pub(super) fn lock_on(im: &mut Img, v: &View) {
     for (&id, k) in &v.s.seats {
         let Some(l) = k.lock else { continue };
@@ -78,14 +69,12 @@ pub(super) fn lock_on(im: &mut Img, v: &View) {
         };
         let age = k.lock_t.min(255);
         let ink = if id == v.id { '6' } else { super::super::knights::seat_cloth(id) };
-        // The brackets close in six ticks, overshoot a pixel and settle.
         let close = (age as f32 / lw::SNAP_TICKS as f32).min(1.0);
         let eased = 1.0 - (1.0 - close) * (1.0 - close);
         let mut r = open as f32 + (held - open) as f32 * eased;
         if age >= lw::SNAP_TICKS && age < lw::SNAP_TICKS + 4 {
             r -= 1.0;
         }
-        // Then a slow breath.
         r += [0.0, 0.0, 1.0, 1.0][(v.tick / 5 % 4) as usize] * f32::from(age >= lw::SNAP_TICKS);
         let r = r.round() as i32;
         let bright = if age < 3 { 'w' } else { ink };
@@ -97,7 +86,6 @@ pub(super) fn lock_on(im: &mut Img, v: &View) {
             }
             let (cx, cy) = (x + sx * r, y + sy * (r * 4 / 5));
             for i in 0..=arm {
-                // the shadow first, so a bracket reads on any floor
                 im.put(cx - sx * i + 1, cy + 1, 'k');
                 im.put(cx + 1, cy - sy * i + 1, 'k');
             }
@@ -107,7 +95,6 @@ pub(super) fn lock_on(im: &mut Img, v: &View) {
             }
         }
         if me {
-            // The take: four ticks fly in from the corners.
             if age < 5 {
                 let d = (open + 6 - age as i32 * 4).max(r + 2);
                 for (sx, sy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] {
@@ -115,10 +102,8 @@ pub(super) fn lock_on(im: &mut Img, v: &View) {
                     im.put(x + sx * (d + 2), y + sy * ((d + 2) * 4 / 5), '6');
                 }
             }
-            // The wick-spark over it.
             let bob = [0, -1, -2, -1][(v.tick / 3 % 4) as usize];
             super::bank::slot_mid(im, "mark", "idle", v.tick / 6, x, y + top + bob - (r - held).max(0) / 2);
-            // A rope of light from the knight's lantern to the lock.
             if let Some(me_k) = v.s.seats.get(&id) {
                 rope(im, (v.x(me_k.x), v.y(me_k.y) - 4), (x, y), r + 3, v.tick);
             }
@@ -126,8 +111,6 @@ pub(super) fn lock_on(im: &mut Img, v: &View) {
     }
 }
 
-/// A dotted rope between two points, a dot in three, drifting toward the
-/// target; it ends short of the brackets and starts clear of the knight.
 fn rope(im: &mut Img, a: (i32, i32), b: (i32, i32), stop: i32, tick: u32) {
     let (dx, dy) = ((b.0 - a.0) as f32, (b.1 - a.1) as f32);
     let len = dx.hypot(dy);
@@ -148,10 +131,6 @@ fn rope(im: &mut Img, a: (i32, i32), b: (i32, i32), stop: i32, tick: u32) {
     }
 }
 
-// ----- the blade ------------------------------------------------------------------
-
-/// The sword's crescent, the spin's ring, the lunge's streak and the plunge's
-/// blade: bright at the head, thinning and cooling behind it.
 pub(super) fn swing_arc(im: &mut Img, k: &Seat, x: i32, y: i32) {
     let face = k.face;
     let base = angle_of(face.0, face.1);
@@ -176,7 +155,6 @@ pub(super) fn swing_arc(im: &mut Img, k: &Seat, x: i32, y: i32) {
                     let t = (thick * (100 - behind * 125 / 100) / 100).max(1);
                     for r in (reach - t)..=reach {
                         let (px, py) = polar(x, y, a, r, 90);
-                        // A dithered tail: the far end of the trail is stipple.
                         let tail = behind > 48 && bayer(px, py) < (behind - 48) as f32 / 40.0;
                         if tail {
                             continue;
@@ -192,13 +170,11 @@ pub(super) fn swing_arc(im: &mut Img, k: &Seat, x: i32, y: i32) {
                         };
                         im.put(px, py, ink);
                     }
-                    // The heavy cut burns gold along its outer edge.
                     if n == 2 && behind < 36 {
                         let (px, py) = polar(x, y, a, reach + 1, 90);
                         im.put(px, py, if behind < 14 { '6' } else { '4' });
                     }
                 }
-                // A flick of sparks at the head of the arc.
                 if progress < 130 && n == 2 {
                     let a = base + sweep * (progress.min(100) - 50) * span / 100;
                     let (px, py) = polar(x, y, a, reach + 3, 90);
@@ -225,7 +201,6 @@ pub(super) fn swing_arc(im: &mut Img, k: &Seat, x: i32, y: i32) {
         Act::Lunge if (lw::LUNGE_WIND..lw::LUNGE_WIND + lw::LUNGE_ACTIVE).contains(&k.t) => {
             let len = 26;
             let (ux, uy) = (face.0 as f32 / Q as f32, face.1 as f32 / Q as f32);
-            // a streak behind the point, then the blade
             for d in 4..len {
                 let (px, py) = ((x as f32 + ux * d as f32).round() as i32, (y as f32 + uy * d as f32).round() as i32);
                 im.put(px, py, if d > len - 7 { 'w' } else { 'W' });
@@ -250,11 +225,7 @@ pub(super) fn swing_arc(im: &mut Img, k: &Seat, x: i32, y: i32) {
     }
 }
 
-// ----- effects --------------------------------------------------------------------
-
-/// Every effect the rules left in the room, drawn from its age.
 pub(super) fn effects(im: &mut Img, v: &View) {
-    // The words thrown up this frame, so two parries side by side never overprint.
     let mut words: Vec<(i32, i32, i32, i32)> = Vec::new();
     for (i, fx) in v.s.fx.iter().enumerate() {
         let (x, y) = (v.x(fx.x), v.y(fx.y));
@@ -330,8 +301,6 @@ pub(super) fn effects(im: &mut Img, v: &View) {
     }
 }
 
-/// A parry: a white flash, a ring and rays, a chime of sparks, and the word
-/// rising off it.
 fn parry(im: &mut Img, v: &View, words: &mut Vec<(i32, i32, i32, i32)>, at: (f32, f32), t: u32, seed: u32, tick: u64) {
     let k = t as f32 / 16.0;
     let mut pen = Pen::new(im, 700);
@@ -356,9 +325,6 @@ fn parry(im: &mut Img, v: &View, words: &mut Vec<(i32, i32, i32, i32)>, at: (f32
     }
 }
 
-/// A word that rises off a spot, kept clear of the top bar, the bars and
-/// hints at the foot, and whatever card is up: it is not drawn where it would
-/// meet other words.
 fn pop_word(im: &mut Img, v: &View, words: &mut Vec<(i32, i32, i32, i32)>, word: &str, at: (i32, i32), age: u32) {
     let at = (at.0, at.1.clamp(66, 172));
     let hop = (crate::motion::ease::out((age as f32 / 7.0).min(1.0)) * 12.0) as i32 + (age as i32 * 3 / 5);
@@ -373,9 +339,6 @@ fn pop_word(im: &mut Img, v: &View, words: &mut Vec<(i32, i32, i32, i32)>, word:
     juice::pop_number(im, word, at, age, 22, 1, 'w');
 }
 
-// ----- small marks ----------------------------------------------------------------
-
-/// Stars wheeling round a dazed head, `n` of them.
 pub(super) fn stars(im: &mut Img, x: i32, y: i32, tick: u32, n: i32, r: i32) {
     for a in 0..n {
         let deg = a * 360 / n + tick as i32 * 14;
@@ -388,7 +351,6 @@ pub(super) fn stars(im: &mut Img, x: i32, y: i32, tick: u32, n: i32, r: i32) {
     }
 }
 
-/// A blinking "!" over a foe about to strike.
 pub(super) fn exclaim(im: &mut Img, x: i32, y: i32, tick: u32) {
     if (tick / 2).is_multiple_of(2) {
         return;
@@ -399,7 +361,6 @@ pub(super) fn exclaim(im: &mut Img, x: i32, y: i32, tick: u32) {
     im.rect(x - 1, y + 7, 3, 2, '7');
 }
 
-/// A small lantern over a hooded snuffer: the light that would burn its hood off.
 pub(super) fn lamp_icon(im: &mut Img, x: i32, y: i32, tick: u32) {
     im.rect(x - 3, y - 2, 7, 10, 'k');
     im.rect(x - 1, y - 1, 3, 1, 'g');
@@ -410,7 +371,6 @@ pub(super) fn lamp_icon(im: &mut Img, x: i32, y: i32, tick: u32) {
     im.rect(x - 1, y + 5, 3, 1, 'X');
 }
 
-/// The turret's barrel, laid over its lid toward the footprint.
 pub(super) fn barrel(im: &mut Img, x: i32, y: i32, face: (i32, i32), hot: bool, recoil: i32) {
     let (ux, uy) = (face.0 as f32 / Q as f32, face.1 as f32 / Q as f32);
     let len = 11 - recoil;
@@ -428,9 +388,6 @@ pub(super) fn barrel(im: &mut Img, x: i32, y: i32, face: (i32, i32), hot: bool, 
     im.put(mx, my, if hot { 'w' } else { 'R' });
 }
 
-/// A friend's flare kindles yours: while one knight flares and another with a
-/// lantern stands within its reach, motes of light drift from the flare to
-/// the friend, and a small ring warms about them both.
 pub(super) fn kindle(im: &mut Img, v: &View) {
     if !v.s.inv.lantern {
         return;

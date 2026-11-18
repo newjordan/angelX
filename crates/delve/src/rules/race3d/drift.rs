@@ -30,51 +30,38 @@ pub const CHARGE_TICKS: [u32; 3] = [18, 42, 72];
 pub const BOOST_SPEED: [f32; 3] = [4.0, 7.0, 11.0];
 pub const BOOST_TICKS: [u32; 3] = [30, 48, 72];
 pub const SPIN_TICKS: u32 = 24;
-/// Five gears, each to its own top speed; the throttle pulls hardest low.
 pub const GEAR_TOP: [f32; 5] = [6.0, 10.0, 14.0, 17.5, DRIFT_TOP];
 pub const GEAR_PULL: [f32; 5] = [1.6, 1.3, 1.0, 0.8, 0.65];
-/// F at or past this share of a gear's revs is a perfect shift: a kick.
 pub const PERFECT_REV: f32 = 0.8;
 pub const KICK_SPEED: f32 = 2.5;
 pub const KICK_TICKS: u32 = 20;
-/// An early shift bogs the engine down a while, pulling at this share.
 pub const BOG_TICKS: u32 = 12;
 const BOG_PULL: f32 = 0.4;
-/// On the limiter this long, the box shifts itself, with no kick.
 pub const LIMITER_TICKS: u32 = 10;
-/// Boost pads on the straights: one every this many tiles of a lap, this
-/// long and this far either side of the crown.
 pub const PAD_EVERY: f32 = 70.0;
 pub const PAD_LEN: f32 = 3.0;
 pub const PAD_HALF: f32 = 2.6;
 pub const PAD_TICKS: u32 = 40;
 pub const PAD_SPEED: f32 = 3.0;
-/// Catch-up: a rider this many tiles behind the leader gets the whole of
-/// it, more top speed and more pull, less the nearer they are.
 pub const CATCH_GAP: f32 = 60.0;
 pub const CATCH_TOP: f32 = 5.0;
 pub const CATCH_PULL: f32 = 0.6;
-/// How fast a ride over its limit eases back, tiles/s each second.
 const EASE: f32 = 6.0;
 const MIN_ANGLE: f32 = 0.12;
 const MIN_SPEED: f32 = 7.0;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Drift {
-    /// Chassis and velocity headings relative to the road, radians.
     pub heading: f32,
     pub travel: f32,
     pub sliding: bool,
     pub charge: u32,
     pub boost: u32,
     pub boost_stage: u8,
-    /// Current corner, last banked corner and whole-race score, degree-ticks.
     pub corner: u32,
     pub last_corner: u32,
     pub score: u32,
     pub corners: u32,
-    /// The gear, 0 to 4 (first to fifth), a perfect shift's kick, an early
-    /// shift's bog and the ticks on the limiter.
     #[serde(default)]
     pub gear: u8,
     #[serde(default)]
@@ -83,7 +70,6 @@ pub struct Drift {
     pub bog: u32,
     #[serde(default)]
     pub limiter: u32,
-    /// The last boost pad run over: its number along the race.
     #[serde(default)]
     pub pad: u32,
 }
@@ -112,13 +98,11 @@ impl Drift {
             && self.bog <= BOG_TICKS
             && self.limiter <= LIMITER_TICKS
     }
-    /// How far up its gear the engine turns at `vs`, 0 to 1.
     pub fn rev(&self, vs: f32) -> f32 {
         let g = usize::from(self.gear.min(4));
         let low = if g == 0 { 0.0 } else { GEAR_TOP[g - 1] * 0.6 };
         ((vs - low) / (GEAR_TOP[g] - low)).clamp(0.0, 1.0)
     }
-    /// One gear up: a kick from the top of the revs, a bog below it.
     fn shift(&mut self, vs: f32, noise: &mut Noise) {
         if self.gear >= 4 {
             return;
@@ -143,9 +127,6 @@ impl Drift {
     }
 }
 
-/// Two half-turns with matching tangents close the circuit exactly. The
-/// paired S-bends precede the hairpins and the long descending sweeper;
-/// the tunnel climbs back to the line. No teleport between laps.
 pub(super) fn touge() -> Track {
     let half = [
         piece(120, 0.0, 0.0, DRIFT_WIDTH, true, Ground::Floor),
@@ -174,8 +155,6 @@ pub(super) fn touge() -> Track {
     }
 }
 
-/// Boost pad under a rider at `s`, `x`: its number along the race, on a
-/// straight of the lap and near the crown of the road.
 pub fn pad_at(t: &Track, s: f32, x: f32) -> Option<u32> {
     let lap = (s / t.len()).floor().max(0.0);
     let k = (s - lap * t.len()) / PAD_EVERY;
@@ -184,13 +163,10 @@ pub fn pad_at(t: &Track, s: f32, x: f32) -> Option<u32> {
         .then(|| lap as u32 * 1000 + k.floor() as u32 + 1)
 }
 
-/// A pad lies at lap distance `start` when the road runs straight over it.
 pub fn pad_lies(t: &Track, start: f32) -> bool {
     start + PAD_LEN < t.len() && [0.0, PAD_LEN * 0.5, PAD_LEN].iter().all(|d| t.at(start + d).bend.abs() < 0.001)
 }
 
-/// Catch-up for a rider at `s`: (more top speed, more pull), by how far
-/// behind the race's leader they run.
 pub fn catch_up(race: &Race3d, s: f32) -> (f32, f32) {
     let lead = race.riders.values().filter(|r| r.finish.is_none()).map(|r| r.s).fold(s, f32::max);
     let k = ((lead - s) / CATCH_GAP).clamp(0.0, 1.0);
@@ -198,7 +174,6 @@ pub fn catch_up(race: &Race3d, s: f32) -> (f32, f32) {
 }
 
 impl Run {
-    /// Space + E at the Hippodrome coach: the same seats and hall stakes.
     pub fn board_drift(&mut self) {
         if self.room().kind != RoomKind::Hippodrome
             || self.race3d_showing()
@@ -265,8 +240,6 @@ pub(super) fn drive(race: &Race3d, r: &mut Rider, input: Input, shift: bool, noi
         d.sliding = true;
     }
     let grip = if d.sliding { SLIDE_GRIP } else { DRIFT_GRIP };
-    // Steering changes the chassis first; the velocity follows with grip.
-    // Road heading changes beneath both, so inertia carries a slide wide.
     let turn = f32::from(input.move_x) * DRIFT_STEER * (r.vs / MIN_SPEED).min(1.0);
     d.heading = (d.heading + turn * DT).clamp(-1.5, 1.5);
     d.travel += (d.heading - d.travel) * (grip * DT).min(1.0);
@@ -294,8 +267,6 @@ pub(super) fn drive(race: &Race3d, r: &mut Rider, input: Input, shift: bool, noi
     d.boost = d.boost.saturating_sub(1);
     d.kick = d.kick.saturating_sub(1);
     d.bog = d.bog.saturating_sub(1);
-    // The box: F shifts up; below a lower gear's pull it drops back by
-    // itself, and on the limiter it goes up by itself.
     if shift {
         d.shift(r.vs, noise);
     }
@@ -320,8 +291,6 @@ pub(super) fn drive(race: &Race3d, r: &mut Rider, input: Input, shift: bool, noi
     } else {
         -1.4
     };
-    // Over the limit (a boost run out, a kick spent) the ride eases back to
-    // it rather than snapping; a brake still bites in full.
     let limit = top + bonus;
     let next = r.vs + a * DT;
     r.vs = if r.vs > limit {
@@ -350,9 +319,6 @@ pub(super) fn drive(race: &Race3d, r: &mut Rider, input: Input, shift: bool, noi
     }
 }
 
-/// The same inputs a seat uses: look ahead for curvature, feed steering
-/// into the bend and correct lateral error, countersteer before a wall.
-/// The controller releases a charged slide before its angle runs away.
 pub fn drift_bot(race: &Race3d, id: u32) -> Input {
     let Some(r) = race.riders.get(&id) else {
         return Input::default();
@@ -378,7 +344,6 @@ pub fn drift_bot(race: &Race3d, id: u32) -> Input {
         } else {
             bend.abs() > 0.006 && r.vs > 10.0 && r.drift.boost == 0
         };
-    // A bot shifts in the top of the revs, and lets F go between shifts.
     let fire = r.drift.gear < 4 && r.drift.rev(r.vs) >= PERFECT_REV + 0.05 && r.keys & 1 == 0;
     Input {
         move_x,

@@ -34,8 +34,8 @@ fn pub_type_name_picks_public_types_only() {
         Some("Bar".to_string())
     );
     assert_eq!(pub_type_name("pub enum E {"), Some("E".to_string()));
-    assert_eq!(pub_type_name("struct Private {"), None); // not pub
-    assert_eq!(pub_type_name("pub fn run() {"), None); // fn, not a type
+    assert_eq!(pub_type_name("struct Private {"), None);
+    assert_eq!(pub_type_name("pub fn run() {"), None);
 }
 
 #[test]
@@ -99,8 +99,6 @@ fn module_source_stamp_changes_with_scanned_source() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-// --- Against the real tree (CARGO_MANIFEST_DIR is always set in tests). ---
-
 #[test]
 fn source_root_finds_this_crate() {
     let _guard = crate::tests::env_lock();
@@ -115,7 +113,6 @@ fn generate_self_model_describes_real_modules() {
     let _guard = crate::tests::env_lock();
     let map = generate_self_model();
     assert!(map.contains("angelX-cockpit"), "names the crate");
-    // The build/test contract is its `⠰⠛` pages, the crate root beside them.
     let contract = crate::agent::harness::book::d56_replies::MAP_COMMANDS;
     assert!(
         map.contains(&contract.cells()),
@@ -150,12 +147,8 @@ fn self_context_is_bounded_and_self_referential() {
     assert!(pages.contains("self_map"));
     assert!(pages.contains("self-modification gate"));
     assert!(pages.contains("not a standing objective"));
-    // The tool modules ride beside `⠝⠓⠓`, never an English label.
     assert!(ctx.contains("\n⠝⠓⠓ "), "{ctx}");
     assert!(!ctx.contains("Tool impls"), "{ctx}");
-    // No self-repair priming: naming the gauntlet/health-checkup is what let a
-    // degraded model chase the forbidden artifact. The self-model must not carry
-    // those nouns.
     let lower = ctx.to_ascii_lowercase();
     assert!(
         !lower.contains("gauntlet"),
@@ -165,7 +158,6 @@ fn self_context_is_bounded_and_self_referential() {
         !lower.contains("health checkup"),
         "self-model must not name a health checkup"
     );
-    // Bounded: the compact injection must not balloon the preamble.
     assert!(
         ctx.len() < 16 * 1024,
         "injection stays bounded: {}",
@@ -175,16 +167,12 @@ fn self_context_is_bounded_and_self_referential() {
 
 #[test]
 fn self_context_disabled_by_env_flag() {
-    // Saved/restored to avoid leaking into other tests in the same process.
     let _guard = crate::tests::env_lock();
     let prev = std::env::var_os("ANGEL_SELF_MODEL");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SELF_MODEL", "0") };
     let ctx = self_context(Path::new(env!("CARGO_MANIFEST_DIR")));
     match prev {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_SELF_MODEL", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_SELF_MODEL") },
     }
     assert_eq!(ctx, "", "ANGEL_SELF_MODEL=0 disables injection");
@@ -232,7 +220,6 @@ fn self_context_reload_preserves_guidance_and_does_not_cache_failure() {
     .unwrap();
     let second = self_context(root.path());
     assert!(second.contains("Changed display group"), "{second}");
-    // An in-flight call keeps the old entry and rules together after a save.
     let pinned = self_map_module().unwrap();
     std::fs::write(
         &rules,
@@ -250,7 +237,6 @@ fn self_context_reload_preserves_guidance_and_does_not_cache_failure() {
     );
     assert!(self_context(root.path()).contains("New display group"));
 
-    // Editing only the entry point must invalidate the same cached context.
     let revised = original.replace(
         "JSON.stringify(project(JSON.parse(readFileSync(0, 'utf8'))))",
         "JSON.stringify({...project(JSON.parse(readFileSync(0, 'utf8'))), compact: 'entry changed\\n'})",
@@ -275,7 +261,6 @@ fn self_context_reload_preserves_guidance_and_does_not_cache_failure() {
     assert!(recovered.contains("Entry & TUI / display"), "{recovered}");
 }
 
-/// Drop the in-process copy so the next `self_context` has to ask the disk.
 fn forget_in_process_context() {
     if let Some(cache) = SELF_CONTEXT_CACHE.get() {
         *cache.lock().unwrap() = None;
@@ -305,7 +290,6 @@ fn self_context_persists_the_worker_report_between_launches() {
     let source_root = workspace_source_root(root.path()).unwrap();
     let entry_path = crate::platform::workspace_store::workspace_json_path_in(&cache_dir, &source_root);
 
-    // The first launch renders and leaves its report behind.
     forget_in_process_context();
     let fresh = self_context(root.path());
     assert!(fresh.contains("Entry & TUI / display"), "{fresh}");
@@ -313,8 +297,6 @@ fn self_context_persists_the_worker_report_between_launches() {
     assert_eq!(entry["root"], source_root.to_str().unwrap());
     assert_eq!(entry["report"]["compact"].as_str().is_some(), true);
 
-    // A later launch over the same sources takes the report from disk instead of
-    // asking the worker: a marker planted in the stored report reaches the prompt.
     let mut planted = entry.clone();
     planted["report"]["compact"] = Value::from("persisted-report-marker\n");
     std::fs::write(&entry_path, serde_json::to_vec(&planted).unwrap()).unwrap();
@@ -326,7 +308,6 @@ fn self_context_persists_the_worker_report_between_launches() {
         "the guidance pages are assembled around the stored report, never stored with it"
     );
 
-    // An edit to a scanned source changes the stamp: the stored report is stale.
     std::fs::write(
         cockpit.join("src/main.rs"),
         "//! Main source, edited.\npub struct Main;\npub struct Added;\n",
@@ -339,7 +320,6 @@ fn self_context_persists_the_worker_report_between_launches() {
     let rewritten: Value = serde_json::from_slice(&std::fs::read(&entry_path).unwrap()).unwrap();
     assert_ne!(rewritten["stamp"], entry["stamp"]);
 
-    // A damaged or foreign entry is ignored, and the render replaces it.
     for damaged in [
         b"not json".to_vec(),
         serde_json::to_vec(&serde_json::json!({"schema":"other/1"})).unwrap(),
@@ -365,7 +345,6 @@ fn self_context_persists_the_worker_report_between_launches() {
         assert!(!recovered.contains("missing the other fields"), "{recovered}");
     }
 
-    // `ANGEL_SELF_MAP_CACHE=0` neither reads nor writes.
     std::fs::remove_file(&entry_path).unwrap();
     let _off = crate::tests::TestEnvGuard::set("ANGEL_SELF_MAP_CACHE", "0");
     forget_in_process_context();
@@ -504,7 +483,6 @@ fn headless_self_map_requires_explicit_pin_and_is_read_only() {
         .unwrap();
     assert!(def.description.contains("Read-only"));
     assert!(def.params["properties"].get("write").is_none());
-    // Registration captures the explicit pin; later ambient changes cannot redirect it.
     unsafe { std::env::remove_var("ANGEL_SELF_SRC") };
     let outline = registry
         .dispatch("self_map", &serde_json::json!({"module": "main"}))
@@ -610,8 +588,6 @@ fn module_outline_never_falls_back_outside_src() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-// --- The Layer-2 gate (pure logic). ---
-
 #[test]
 fn gate_rejects_broken_build() {
     let v = evaluate_gate(
@@ -674,8 +650,6 @@ fn gate_baseline_guard_rejects_pass_count_regression() {
         failed: 0,
         ignored: 0,
     };
-    // All green but fewer passes than the pre-edit baseline → tests were
-    // deleted/disabled to fake a pass; rejected despite reward 1.0.
     let v = evaluate_gate_with_baseline(true, &green, Some(5));
     assert!(
         !v.passed,
@@ -683,12 +657,9 @@ fn gate_baseline_guard_rejects_pass_count_regression() {
         v.summary
     );
     assert!(v.summary.contains("baseline"));
-    // Meeting or beating the baseline is a pass.
     assert!(evaluate_gate_with_baseline(true, &green, Some(3)).passed);
     assert!(evaluate_gate_with_baseline(true, &green, Some(2)).passed);
-    // No baseline → plain gate semantics.
     assert!(evaluate_gate_with_baseline(true, &green, None).passed);
-    // The guard never rescues a red gate.
     let red = TestOutcome {
         passed: 9,
         failed: 1,
@@ -726,8 +697,6 @@ fn fake_cargo_workspace(name: &str, script: &str) -> (PathBuf, String) {
 #[cfg(unix)]
 #[test]
 fn self_gate_drains_noisy_build_before_running_tests() {
-    // Exercise concurrent drain beyond pipe capacity, below the complete
-    // evidence byte cap. Capped builds have separate rejection coverage.
     let _guard = crate::tests::env_lock();
     let (root, path) = fake_cargo_workspace(
         "noisy",

@@ -43,7 +43,6 @@ fn seat_updates_refresh_the_table_and_a_new_stage_replaces_it() {
     assert_eq!(shown.stage, "proposer wave 2");
     assert_eq!(shown.deed, Deed::Council);
 
-    // Two seats come back under a newer sequence of the same stage.
     council.note_activity(&wave(
         6,
         "proposer wave 2",
@@ -58,14 +57,12 @@ fn seat_updates_refresh_the_table_and_a_new_stage_replaces_it() {
         "seats without a published update are still at work"
     );
 
-    // A genuinely new stage replaces the council.
     council.note_activity(&wave(7, "judge", vec!["j1".into()], Vec::new()));
     let shown = council.presentation().expect("judge presents");
     assert_eq!(shown.stage, "judge");
     assert_eq!(shown.deed, Deed::Judge);
     assert_eq!(shown.seats.len(), 1);
 
-    // The stage ending clears the table.
     council.note_activity(&ActivitySnapshot {
         sequence: 8,
         stage: None,

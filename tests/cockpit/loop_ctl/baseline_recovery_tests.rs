@@ -62,7 +62,7 @@ fn persisted_baseline_recaptures_actual_command_and_preserves_active_or_paused_i
                     Some(LoopPending::Baseline(_, _))
                 ));
                 assert!(app.thinking.is_none() && !app.loop_ctl.awaiting_turn);
-                app.loop_arm(); // the live receiver owns the slot
+                app.loop_arm();
                 assert!(app.thinking.is_none());
                 drain_capture(&mut app);
                 assert_eq!(app.loop_ctl.baseline_passed, Some(7));
@@ -96,8 +96,6 @@ fn paused_repin_persists_paused_capture_intent_before_the_worker_completes() {
         assert_eq!(app.loop_ctl.status, LoopStatus::Paused);
         assert_eq!(app.loop_ctl.baseline_passed, Some(7));
 
-        // A restored capture has no receiver from the former process. Another
-        // re-pin must use persisted paused intent instead of assuming Running.
         app.loop_ctl = saved;
         assert!(app.loop_pending.is_none());
         assert_eq!(app.repin_loop_accept_cmd(&command), Some(true));
@@ -189,7 +187,6 @@ fn repeated_missing_candidate_pressure_is_one_directive_per_prompt_after_every_r
                 .to_string();
             assert_eq!(app.loop_ctl.status, LoopStatus::Running);
             assert_eq!(app.loop_ctl.measured_candidates, 0);
-            // `⠘⠑`'s pages (no blocked attempt): one note, its count beside it.
             let note = crate::agent::harness::book::d45_iteration::NO_CANDIDATE;
             assert_eq!(prompt.matches(note).count(), usize::from(iteration >= 3));
             if iteration >= 3 {
@@ -199,8 +196,6 @@ fn repeated_missing_candidate_pressure_is_one_directive_per_prompt_after_every_r
                 lengths.push(prompt.len());
             }
         }
-        // Once the direction window fills, neither old notices nor transcript
-        // messages are injected. The periodic evidence-review block is bounded.
         assert!(lengths.iter().max().unwrap() - lengths.iter().min().unwrap() < 1_024);
         assert!(app.thinking.is_none());
     });

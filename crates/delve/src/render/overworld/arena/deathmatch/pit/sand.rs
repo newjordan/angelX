@@ -5,12 +5,10 @@ use super::{CELL, COLS, ROWS};
 use crate::render::overworld::ink::{hash, vnoise};
 use crate::rules::deathmatch as dm;
 
-/// Decal texels to a world unit.
 const RES: f32 = 16.0;
 const W: usize = (COLS as f32 * CELL * RES) as usize;
 const H: usize = (ROWS as f32 * CELL * RES) as usize;
 
-/// Old blood and scuffs, baked: one byte of each per texel.
 pub(super) struct Decals {
     blood: Vec<u8>,
     scuff: Vec<u8>,
@@ -23,7 +21,6 @@ fn unit(h: u32) -> f32 {
 impl Decals {
     pub(super) fn build(open: &dyn Fn(f32, f32) -> bool) -> Decals {
         let mut d = Decals { blood: vec![0; W * H], scuff: vec![0; W * H] };
-        // Pools where knights fell, far from the first spawn but near the stone.
         let mut made = 0;
         let mut n = 0u32;
         while made < 20 && n < 400 {
@@ -37,7 +34,6 @@ impl Decals {
             d.pool(x, y, r, made as u32);
             made += 1;
         }
-        // Scuffs: boot drags and skids, three short dashes along a gentle curve.
         let mut made = 0;
         let mut n = 0u32;
         while made < 170 && n < 2000 {
@@ -88,7 +84,6 @@ impl Decals {
         }
     }
 
-    /// An irregular pool with spatter round it and sometimes a drag out of it.
     fn pool(&mut self, cx: f32, cy: f32, r: f32, k: u32) {
         let reach = r * 1.7;
         let (x0, x1, y0, y1) = (cx - reach, cx + reach, cy - reach, cy + reach);
@@ -143,8 +138,6 @@ fn mix(a: [f32; 3], b: [f32; 3], t: f32) -> [f32; 3] {
     [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
 }
 
-/// How near a wall (and so how shaded by it) the floor at `(x, y)` is: 0 at
-/// the foot, 1 by the time it is a stride away.
 fn open_ground(solid: &dyn Fn(i32, i32) -> bool, x: f32, y: f32) -> f32 {
     let (cx, cy) = ((x / CELL) as i32, (y / CELL) as i32);
     let (fx, fy) = (x - cx as f32 * CELL, y - cy as f32 * CELL);
@@ -169,7 +162,6 @@ fn open_ground(solid: &dyn Fn(i32, i32) -> bool, x: f32, y: f32) -> f32 {
     (near / 1.2).clamp(0.0, 1.0)
 }
 
-/// The floor's colour in an even light at `(x, y)`: sand, rakes, flags, pads, stains, scuffs.
 fn albedo(solid: &dyn Fn(i32, i32) -> bool, decals: &Decals, x: f32, y: f32) -> [f32; 3] {
     let big = vnoise(x * 0.16, y * 0.16, 0x11);
     let mid = vnoise(x * 0.9, y * 0.9, 0x12);
@@ -179,7 +171,6 @@ fn albedo(solid: &dyn Fn(i32, i32) -> bool, decals: &Decals, x: f32, y: f32) -> 
     let grain = unit(hash((x * 9.0) as i32, (y * 9.0) as i32, 0x14));
     let t = tone * (1.0 - 0.09 * furrow) * (1.0 + (grain - 0.5) * 0.14);
     let mut a = [SAND[0] * t, SAND[1] * t, SAND[2] * t];
-    // Stone under the gates and the dais.
     let front = if x < 24.0 { x - 6.0 } else { 42.0 - x };
     let in_gate = (-0.2..2.8 + 0.9 * vnoise(y * 0.9, 3.0, 0x31)).contains(&front) && (y - 17.0).abs() < 3.3 + 0.5 * vnoise(x, 7.0, 0x32);
     let (dx, dy) = (x - DAIS.0, y - DAIS.1);
@@ -192,7 +183,6 @@ fn albedo(solid: &dyn Fn(i32, i32) -> bool, decals: &Decals, x: f32, y: f32) -> 
     if on_dais {
         stone = 0.92;
     }
-    // A pad under every pickup, the ring picking out what it holds.
     let mut ring = None;
     for &(px, py, kind) in dm::PICKUPS.iter().filter(|p| !matches!(p.2, dm::Pickup::Power)) {
         let pr = (x - px).hypot(y - py);
@@ -209,7 +199,6 @@ fn albedo(solid: &dyn Fn(i32, i32) -> bool, decals: &Decals, x: f32, y: f32) -> 
         }
     }
     if stone > 0.0 {
-        // Flags, with joints; the dais cut with rings and rays.
         let (jx, jy) = ((x * 0.9 + (y * 0.9).floor() * 0.5).fract(), (y * 0.9).fract());
         let joint = if jx < 0.07 || jy < 0.07 { 0.62 } else { 1.0 };
         let id = unit(hash((x * 0.9) as i32, (y * 0.9) as i32, 0x41));
@@ -232,7 +221,6 @@ fn albedo(solid: &dyn Fn(i32, i32) -> bool, decals: &Decals, x: f32, y: f32) -> 
             a = mix(a, c, 0.75);
         }
     }
-    // Blood and scuffs.
     let (blood, scuff) = decals.at(x, y);
     if scuff > 0.0 {
         a = mix(a, [a[0] * 0.62, a[1] * 0.60, a[2] * 0.58], scuff * 0.9);
@@ -243,12 +231,10 @@ fn albedo(solid: &dyn Fn(i32, i32) -> bool, decals: &Decals, x: f32, y: f32) -> 
         let c = mix(dry, fresh, (blood - 0.5).max(0.0) * 1.4);
         a = mix(a, c, (blood * 1.15).min(0.92));
     }
-    // The foot of a wall is in its shade.
     let shade = 0.62 + 0.38 * open_ground(solid, x, y);
     [a[0] * shade, a[1] * shade, a[2] * shade]
 }
 
-/// One resolution of the baked floor.
 struct Level {
     res: f32,
     w: usize,
@@ -256,8 +242,6 @@ struct Level {
     px: Vec<[u8; 3]>,
 }
 
-/// The floor, baked once at 12 dots to the unit, and two blurrier copies for
-/// what lies farther off, so distance never sparkles.
 pub(super) struct Floor {
     levels: [Level; 3],
 }
@@ -305,7 +289,6 @@ impl Floor {
         Floor { levels: [l0, l1, l2] }
     }
 
-    /// The floor's colour at `(x, y)` seen from `depth` away.
     #[inline]
     pub(super) fn at(&self, x: f32, y: f32, depth: f32) -> [f32; 3] {
         let l = &self.levels[if depth < 9.0 { 0 } else if depth < 19.0 { 1 } else { 2 }];
@@ -316,7 +299,6 @@ impl Floor {
     }
 }
 
-/// A knight standing at `(fx, fy)` throws a small shadow on `(x, y)`.
 #[inline]
 pub(super) fn shadowed(x: f32, y: f32, feet: &[(f32, f32)]) -> f32 {
     let mut shade = 1.0;

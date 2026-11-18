@@ -11,7 +11,6 @@ use angel_serve::ws::Message;
 
 const KEY: &str = "PRESENCEKEY";
 
-/// A fight room with foes about the party.
 fn fight() -> Run {
     let mut run = Run::new(3, 9, None);
     let fight = run
@@ -22,8 +21,6 @@ fn fight() -> Run {
         .unwrap();
     run.enter_for_test(fight);
     run.calm_for_test();
-    // Gas still harms monsters while their movement is held. This fixture
-    // isolates seat presence from the room's environmental damage.
     run.works.perils.clear();
     let (x, y) = (run.players[&1].x, run.players[&1].y);
     for (i, kind) in [EnemyKind::Skeleton, EnemyKind::Imp, EnemyKind::Bat, EnemyKind::Flesher]
@@ -46,7 +43,6 @@ fn hosting(watching: bool) -> Controls {
     }
 }
 
-/// The run hosted for two friends behind `KEY`.
 fn hosted(run: Run, watching: bool) -> Sim {
     let mut sim = Sim::from(Some(run));
     sim.host(Door {
@@ -60,8 +56,6 @@ fn hosted(run: Run, watching: bool) -> Sim {
     sim
 }
 
-/// A page's seat: its hello, and from then a command each pump saying the
-/// newest tick it has (or, `stale`, the one it had then).
 struct Friend {
     ws: WsClient,
     seat: Option<u32>,
@@ -69,11 +63,8 @@ struct Friend {
     newest: u32,
     seq: u32,
     held: Input,
-    /// Pressed with the next command only.
     pressed: Input,
-    /// Commands go out (a page in view); none (still loading, hidden).
     sending: bool,
-    /// The tick the commands say was applied, held while set.
     stale: Option<u32>,
 }
 
@@ -110,14 +101,10 @@ impl Friend {
         angel_delve::wire::knight_of(self.seat.expect("seated"))
     }
 
-    /// Its command, if it sends, then what has already arrived.
-    /// Returns whether a command was sent (the server needs a moment to see it).
     fn pump(&mut self) -> bool {
         self.exchange(Duration::from_millis(2), true)
     }
 
-    /// Read whatever is already queued, without sending. A command every
-    /// fast tick trips the server's message rate and it closes the socket.
     fn pull(&mut self) {
         let _ = self.exchange(Duration::ZERO, false);
     }
@@ -157,21 +144,12 @@ impl Friend {
     }
 }
 
-/// Step the hosted run, `ticks` ticks of it, with the friend's news taken in
-/// as the cockpit would (its knight joins).
-///
-/// Short runs sleep one frame per tick, which is what lets a local socket
-/// deliver a walk or a goodbye before the server steps. Long runs (an
-/// unseated knight ageing out, a page that never loads) advance the manual
-/// clock by a frame per tick and only sleep a frame often enough that a
-/// seated friend's command still lands before they would go away.
 fn play(sim: &mut Sim, friends: &mut [&mut Friend], ticks: u32) -> Vec<News> {
     if ticks <= 40 {
         return play_paced(sim, friends, ticks);
     }
     let mut told = Vec::new();
     let mut now = Instant::now();
-    // The first pump only arms the clock.
     sim.pump(now);
     for i in 0..ticks {
         let settle = i % 20 == 0;
@@ -239,7 +217,6 @@ fn run(sim: &Sim) -> &Run {
 fn a_friend_whose_page_never_loads_stands_as_stone_and_cannot_die() {
     let mut sim = hosted(fight(), false);
     let mut page = Friend::open(&sim, "");
-    // Seated, but its page never shows the game: it says nothing more.
     page.sending = false;
     play(&mut sim, &mut [&mut page], 10);
     let knight = page.knight();
@@ -265,16 +242,13 @@ fn a_friend_gone_quiet_turns_to_stone_and_comes_back_on_resuming() {
     let x = run(&sim).players[&knight].x;
     play(&mut sim, &mut [&mut page], 10);
     assert!(run(&sim).players[&knight].x > x, "it walks");
-    // The link goes quiet: a second later the knight is stone.
     page.sending = false;
     play(&mut sim, &mut [&mut page], angel_serve::AWAY_AFTER_TICKS + 5);
     assert!(run(&sim).players[&knight].stone, "stone after a second of nothing");
-    // The socket is gone: the seat is held for a resume, the knight stone.
     let token = page.token.clone();
     drop(page);
     play(&mut sim, &mut [], 15);
     assert!(run(&sim).players[&knight].away);
-    // The same page comes back with its token and plays the same knight.
     let mut back = Friend::open(&sim, &token);
     back.held = Input { move_x: -1, ..Input::default() };
     play(&mut sim, &mut [&mut back], 15);
@@ -295,8 +269,6 @@ fn a_new_room_holds_until_the_page_has_it_and_no_longer_than_the_cap() {
     let rooms: Vec<usize> = (0..run(&sim).dungeon.rooms.len())
         .filter(|&i| run(&sim).dungeon.rooms[i].kind == RoomKind::Fight && i != run(&sim).at)
         .collect();
-    // The page stops taking ticks in (its applied stands still), and the
-    // party goes into another room.
     page.stale = Some(page.newest);
     if let Some(mut r) = sim.as_mut() {
         r.enter_for_test(rooms[0]);
@@ -311,11 +283,8 @@ fn a_new_room_holds_until_the_page_has_it_and_no_longer_than_the_cap() {
         foes,
         "its foes wait"
     );
-    // A page that never shows it holds nobody past the cap.
     play(&mut sim, &mut [&mut page], ARRIVAL_CAP);
     assert_eq!(run(&sim).held, Hold::Open, "the cap lets the room go");
-    // The next room: the page takes its ticks in, and the hold ends as
-    // soon as it has the room.
     page.stale = None;
     play(&mut sim, &mut [&mut page], 10);
     if let Some(mut r) = sim.as_mut() {
@@ -347,7 +316,6 @@ fn a_host_without_a_knight_hosts_friends_and_the_room_waits_when_nobody_plays() 
     let x = run(&sim).players[&knight].x;
     play(&mut sim, &mut [&mut page], 10);
     assert!(run(&sim).players[&knight].x > x, "the friend plays");
-    // The friend goes: nobody is here, and the room waits.
     page.sending = false;
     play(&mut sim, &mut [&mut page], angel_serve::AWAY_AFTER_TICKS + 5);
     assert_eq!(run(&sim).held, Hold::Empty);
@@ -358,7 +326,6 @@ fn a_host_without_a_knight_hosts_friends_and_the_room_waits_when_nobody_plays() 
     assert_eq!(run(&sim).players[&knight].hp, hp);
 }
 
-/// The tree a client of `sim` reads: the newest tick, as published.
 fn sent(sim: &Sim) -> Run {
     angel_delve::wire::read(&angel_delve::wire::publish(run(sim)).unwrap()).unwrap()
 }
@@ -370,15 +337,12 @@ fn a_host_without_a_knight_is_on_no_screen_and_a_friend_who_says_goodbye_leaves(
     let mut b = Friend::open(&sim, "");
     play(&mut sim, &mut [&mut a, &mut b], 20);
     let (ka, kb) = (a.knight(), b.knight());
-    // Two people play: the party is the two of them, and no screen shows
-    // the host's place.
     assert_eq!(run(&sim).party_len(), 2);
     assert!(run(&sim).players[&1].absent);
     let seen = sent(&sim);
     assert_eq!(seen.players.keys().copied().collect::<Vec<_>>(), vec![ka, kb]);
     let two: Vec<u32> = run(&sim).enemies.iter().map(|e| e.max_hp).collect();
     assert!(!two.is_empty());
-    // One says goodbye: their knight leaves the party at once.
     b.ws.send(&ToServer::Bye.to_vec()).unwrap();
     let told = play(&mut sim, &mut [&mut a], 10);
     assert!(told.contains(&News::Left { knight: kb }));
@@ -391,8 +355,6 @@ fn a_host_without_a_knight_is_on_no_screen_and_a_friend_who_says_goodbye_leaves(
 
 #[test]
 fn knights_no_seat_holds_leave_the_party_after_a_while() {
-    // A run a restarted host restored: knights 2 to 4 from before, their
-    // players' seats gone with the old server.
     let mut restored = fight();
     restored.enemies.clear();
     for (id, name) in [(2, "Old Two"), (3, "Old Three"), (4, "Old Four")] {
@@ -418,13 +380,11 @@ fn a_fallen_party_asks_to_go_back_and_the_host_is_told_once() {
     if let Some(mut r) = sim.as_mut() {
         r.phase = Phase::Wiped;
     }
-    // One asks: the board counts down, the host not yet told.
     a.pressed = Input { again: true, ..Input::default() };
     let told = play(&mut sim, &mut [&mut a, &mut b], 10);
     assert!(!told.contains(&News::Again));
     let again = run(&sim).again.clone().expect("the asking is kept");
     assert_eq!(again.asked.iter().copied().collect::<Vec<_>>(), vec![a.knight()]);
-    // The other asks too: the party goes, and the host hears it once.
     b.pressed = Input { again: true, ..Input::default() };
     let told = play(&mut sim, &mut [&mut a, &mut b], 20);
     assert_eq!(told.iter().filter(|n| **n == News::Again).count(), 1);

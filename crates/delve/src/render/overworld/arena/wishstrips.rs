@@ -88,7 +88,6 @@ fn impact(form: Form) -> u32 {
     }
 }
 
-/// East, then clockwise, matching the bake (`k * π/4`).
 fn row_of(dx: f32, dy: f32, n: usize) -> usize {
     if n <= 1 {
         return 0;
@@ -111,8 +110,6 @@ fn frame_of(z: &Zone, strip: &Strip) -> Option<usize> {
     Some(((t * n as f32) as usize).min(n - 1))
 }
 
-/// Stamp the zone's strip on `cv`. False during the telegraph, or if the
-/// strip is missing. A field fades on its last eight ticks.
 pub(crate) fn stand(cv: &mut Img, z: &Zone) -> bool {
     let Some(strip) = strips().get(&key(z.area.form, z.area.element)) else {
         return false;
@@ -196,7 +193,6 @@ mod tests {
     #[test]
     fn strips_cover_every_cast() {
         let manifest = manifest();
-        // Six side-view waves are gone. A missing strip is none, not a panic.
         assert_eq!(manifest.as_object().unwrap().len(), 43);
         for form in Form::ALL {
             for element in Element::ALL {
@@ -224,7 +220,6 @@ mod tests {
                     for x in 0..im.w {
                         let dx = x as f32 + 0.5 - cx;
                         let dy = y as f32 + 0.5 - cy;
-                        // Reach is the ground disc. A pillar stands up out of it.
                         if dx.abs() <= reach + 2.0 && dy > -160.0 && dy < reach + 8.0 && im.get(x, y).is_some() {
                             inside += 1;
                         }
@@ -258,8 +253,6 @@ mod tests {
         assert!(ms < 2.0, "twelve zones took {ms:.3} ms");
     }
 
-    /// The strip is a hero piece on top of the code body, not a replacement.
-    /// Body ink that the strip does not cover must still be there.
     #[test]
     fn nova_body_draws_under_the_strip() {
         let z = zone(Form::Nova, Element::Fire, 14, (12.5, 12.5));
@@ -289,8 +282,6 @@ mod tests {
         );
     }
 
-    /// Contact sheets: seven elements, four ages, level 2, full reach.
-    /// `ANGEL_WISH_ZONE_SHEETS=.we-out`.
     #[test]
     #[ignore]
     fn write_wish_zone_sheets() {
@@ -305,7 +296,6 @@ mod tests {
             let mut sheet = Img::black((label + cell * 4) as i32, cell * 7);
             for (row, element) in Element::ALL.iter().enumerate() {
                 let name = element.word();
-                // A short label in the gutter, same order as the strip sheets.
                 let _ = name;
                 for (col, age) in ages.iter().enumerate() {
                     let mut im = Img::new(cell as i32, cell as i32);

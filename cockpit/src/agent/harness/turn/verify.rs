@@ -1,10 +1,6 @@
 use super::*;
 #[path = "verify_shell.rs"]
 mod verify_shell;
-/// The live leg that owns the verify-before-done decision. Every lexical job
-/// stays in Rust: quoting, control operators, status-bearing segments,
-/// test-runner/build recognition and mutation target paths become the features
-/// below, and the leg combines them into the four answers.
 const VERIFY_POLICY: &str = "verify-policy";
 
 #[derive(serde::Serialize)]
@@ -28,7 +24,6 @@ struct VerifyFeatures {
     anywhere: Vec<SegmentFeature>,
 }
 
-/// The `verify-policy` leg's answer for one tool call.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
 pub(crate) struct VerifyDecision {
     pub(crate) requires_verification: bool,
@@ -114,10 +109,118 @@ fn verify_features(call: &ToolCall) -> VerifyFeatures {
     }
 }
 
-/// Every shell segment of the command, split where `shell_runs_tests_anywhere`
-/// splits it. Missing control positions (backticks, `$(`, comments, unclosed
-/// quotes) fail closed to no segments.
+fn heredoc_delimiter(command: &str, at: usize) -> Option<(String, bool, usize)> {
+    let rest = command.get(at..)?;
+    let (strip_tabs, rest) = match rest.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, rest),
+    };
+    let rest = rest.trim_start_matches([' ', '\t']);
+    let mut delimiter = String::new();
+    let mut chars = rest.char_indices();
+    let mut end = rest.len();
+    while let Some((index, ch)) = chars.next() {
+        match ch {
+            '\'' | '"' => loop {
+                match chars.next()? {
+                    (_, close) if close == ch => break,
+                    (_, inner) => delimiter.push(inner),
+                }
+            },
+            '\\' => delimiter.push(chars.next()?.1),
+            ';' | '|' | '&' | '<' | '>' | '(' | ')' => {
+                end = index;
+                break;
+            }
+            ch if ch.is_whitespace() => {
+                end = index;
+                break;
+            }
+            ch => delimiter.push(ch),
+        }
+    }
+    (!delimiter.is_empty()).then(|| (delimiter, strip_tabs, command.len() - rest.len() + end))
+}
+
+fn heredoc_body_end(command: &str, at: usize, delimiter: &str, strip_tabs: bool) -> Option<usize> {
+    let mut start = at;
+    loop {
+        let rest = command.get(start..)?;
+        let (line, next) = match rest.find('\n') {
+            Some(newline) => (&rest[..newline], start + newline + 1),
+            None => (rest, command.len()),
+        };
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        let line = if strip_tabs {
+            line.trim_start_matches('\t')
+        } else {
+            line
+        };
+        if line == delimiter {
+            return Some(next);
+        }
+        if next == command.len() {
+            return None;
+        }
+        start = next;
+    }
+}
+
+fn without_heredoc_bodies(command: &str) -> Option<std::borrow::Cow<'_, str>> {
+    if !command.contains("<<") {
+        return Some(std::borrow::Cow::Borrowed(command));
+    }
+    let bytes = command.as_bytes();
+    let mut out = String::with_capacity(command.len());
+    let mut pending: Vec<(String, bool)> = Vec::new();
+    let (mut single, mut double, mut escaped) = (false, false, false);
+    let (mut index, mut copied) = (0usize, 0usize);
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if escaped {
+            escaped = false;
+        } else if byte == b'\\' && !single {
+            escaped = true;
+        } else if byte == b'\'' && !double {
+            single = !single;
+        } else if byte == b'"' && !single {
+            double = !double;
+        } else if byte == b'<' && !single && !double && bytes.get(index + 1) == Some(&b'<') {
+            if bytes.get(index + 2) == Some(&b'<') {
+                index += 3;
+                continue;
+            }
+            let (delimiter, strip_tabs, end) = heredoc_delimiter(command, index + 2)?;
+            out.push_str(&command[copied..index]);
+            out.push(' ');
+            pending.push((delimiter, strip_tabs));
+            index = end;
+            copied = end;
+            continue;
+        } else if byte == b'\n' && !single && !double && !pending.is_empty() {
+            out.push_str(&command[copied..=index]);
+            let mut at = index + 1;
+            for (delimiter, strip_tabs) in pending.drain(..) {
+                at = heredoc_body_end(command, at, &delimiter, strip_tabs)?;
+            }
+            index = at;
+            copied = at;
+            continue;
+        }
+        index += 1;
+    }
+    if !pending.is_empty() {
+        return None;
+    }
+    out.push_str(&command[copied..]);
+    Some(std::borrow::Cow::Owned(out))
+}
+
 fn shell_segments_anywhere(command: &str) -> Vec<SegmentFeature> {
+    let Some(command) = without_heredoc_bodies(command) else {
+        return Vec::new();
+    };
+    let command = command.as_ref();
     let Some(positions) = shell_control_positions(command) else {
         return Vec::new();
     };
@@ -139,11 +242,6 @@ fn shell_segments_anywhere(command: &str) -> Vec<SegmentFeature> {
         .collect()
 }
 
-// --- the parity oracle: the verify policy this leg replaced, kept verbatim ---
-//
-// Test builds only. The parity tests compare the shipped leg against these, so
-// the product binary carries no second implementation of the decision.
-
 #[cfg(test)]
 fn verify_policy_native(call: &ToolCall) -> VerifyDecision {
     VerifyDecision {
@@ -154,11 +252,6 @@ fn verify_policy_native(call: &ToolCall) -> VerifyDecision {
     }
 }
 
-/// Whether a successful direct mutation creates behavior that should block an
-/// unsupported completion claim. Known prose/data-only edits have no meaningful
-/// build/test command, so do not spend model hops inventing one. Unknown,
-/// deletion-only, opaque, formatting, integration, and code-mode mutations stay
-/// conservative and require verification.
 #[cfg(test)]
 fn mutation_requires_verification_native(call: &ToolCall) -> bool {
     if !is_mutation_call(call) {
@@ -177,10 +270,6 @@ fn mutation_requires_verification_native(call: &ToolCall) -> bool {
     empty || needs
 }
 
-/// Whether a call is an explicit verification attempt. A red test still
-/// counts as an attempt: after seeing real failure evidence the model may report
-/// the blocker. The policy prevents unsupported completion claims; it does not
-/// loop forever demanding green from a broken environment.
 #[cfg(test)]
 fn is_verification_call_native(call: &ToolCall) -> bool {
     match call.name.as_str() {
@@ -210,8 +299,6 @@ fn is_verification_call_native(call: &ToolCall) -> bool {
     }
 }
 
-/// Progress credit also recognizes builds which do not satisfy the separate
-/// verify-before-done contract. Keep that distinction out of completion gates.
 #[cfg(test)]
 fn is_progress_verifier_call_native(name: &str, args: &Value) -> bool {
     let call = ToolCall {
@@ -238,9 +325,6 @@ fn is_progress_verifier_call_native(name: &str, args: &Value) -> bool {
     shell_pipeline_segments(shell_status_bearing_segment(command)).any(shell_segment_runs_build)
 }
 
-/// Reject answers the features cannot justify, so a bad edit keeps the native
-/// decision instead of steering a turn. Each clause states an invariant the
-/// native functions already hold, without restating how they compute it.
 fn verify_policy_check(
     features: &VerifyFeatures,
 ) -> impl Fn(&VerifyDecision) -> Result<(), String> + '_ {
@@ -296,22 +380,14 @@ fn verify_policy(call: &ToolCall) -> VerifyDecision {
     .0
 }
 
-/// Whether a successful direct mutation creates behavior that should block an
-/// unsupported completion claim. The `verify-policy` leg decides; the generation
-/// shipped in this binary answers when no live one does, and the native body
-/// survives only as the parity oracle.
 pub(crate) fn mutation_requires_verification(call: &ToolCall) -> bool {
     verify_policy(call).requires_verification
 }
 
-/// Whether a call is an explicit verification attempt. A red test still counts
-/// as an attempt.
 pub(crate) fn is_verification_call(call: &ToolCall) -> bool {
     verify_policy(call).is_verification
 }
 
-/// Progress credit also recognizes builds which do not satisfy the separate
-/// verify-before-done contract.
 pub(crate) fn is_progress_verifier_call(name: &str, args: &Value) -> bool {
     verify_policy(&ToolCall {
         id: String::new(),
@@ -321,8 +397,6 @@ pub(crate) fn is_progress_verifier_call(name: &str, args: &Value) -> bool {
     .is_progress_verifier
 }
 
-/// A shell command that runs tests anywhere in it, including where their status
-/// is lost: `tests 2>&1 | tail -6; ls`, `tests || fallback`.
 pub(crate) fn shell_runs_tests_anywhere(call: &ToolCall) -> bool {
     verify_policy(call).runs_tests_anywhere
 }
@@ -339,8 +413,6 @@ pub(crate) fn verification_decision_with(
 pub(crate) fn verification_decision_native(call: &ToolCall) -> VerifyDecision {
     verify_policy_native(call)
 }
-/// Whether one shell segment runs a package build. Builds are progress, never
-/// verify-before-done evidence.
 fn shell_segment_runs_build(segment: &str) -> bool {
     let words: Vec<_> = segment
         .split_whitespace()
@@ -380,14 +452,8 @@ fn ascii_choice(word: &str, options: &[&str]) -> bool {
         .any(|option| word.eq_ignore_ascii_case(option))
 }
 
-/// JavaScript test runners a model calls directly or through a package
-/// launcher. `npm test` covers only the package script, so a direct `npx jest`
-/// was not a test run at all: DeepSeek ran it about 30 times on polyglot-v1
-/// js-forth, and every red run counted as a broken tool instead.
 const JS_TEST_RUNNERS: &[&str] = &["jest", "vitest", "mocha", "ava", "jasmine", "tap"];
 
-/// `jest …`, `npx jest …`, `bunx vitest …`, `pnpm exec mocha …`, `yarn jest …`,
-/// `npm exec -- jest …`, `./node_modules/.bin/jest …`.
 fn runs_js_test_runner(program: &str, words: &[&str]) -> bool {
     let subcommand = words.get(1).copied().unwrap_or("");
     let rest = if ascii_choice(program, &["npx", "bunx", "pnpx"]) {
@@ -426,8 +492,6 @@ fn shell_segment_runs_verifier(segment: &str) -> bool {
     if runs_js_test_runner(program, words) {
         return true;
     }
-    // Match argv in place. `is_verification_call` used to lowercase the
-    // whole command on every hop; mixed-case `CARGO TEST` still counts.
     if program.eq_ignore_ascii_case("cargo") {
         words
             .get(1)
@@ -531,9 +595,6 @@ fn shell_segment_runs_verifier(segment: &str) -> bool {
     }
 }
 
-/// True when a shell list contains an asynchronous `&` control operator rather
-/// than `&&` or an `&>` / `>&` redirection. The scanner respects simple shell
-/// quoting/escaping; an ampersand printed as data is not process control.
 fn shell_has_async_control(command: &str) -> bool {
     let Some(positions) = shell_control_positions(command) else {
         return true;
@@ -549,9 +610,6 @@ fn shell_has_async_control(command: &str) -> bool {
     })
 }
 
-/// Byte offsets of unquoted shell control characters. This deliberately models
-/// only the lexical property the verifier gate needs; it is not a shell parser.
-/// Unclosed quotes fail closed by returning no status-bearing segment later.
 fn shell_control_positions(command: &str) -> Option<Vec<usize>> {
     let bytes = command.as_bytes();
     let mut positions = Vec::new();
@@ -570,28 +628,13 @@ fn shell_control_positions(command: &str) -> Option<Vec<usize>> {
         match byte {
             b'\'' if !double => single = !single,
             b'"' if !single => double = !double,
-            // Command/process substitution has its own nested shell grammar;
-            // treating an inner separator as top-level can launder a verifier
-            // behind an outer successful command. This lightweight gate does
-            // not parse nesting, so fail closed on every unquoted form.
             b'`' if !single => return None,
-            // `$()` remains active inside double quotes; treating its inner
-            // separators as top-level would let an outer successful command
-            // launder a failed verifier. Process substitution is active only
-            // while unquoted. Any other unquoted grouping is likewise outside
-            // this deliberately small lexer, including function definitions.
             b'$' if !single && bytes.get(index + 1) == Some(&b'(') => return None,
             b'<' | b'>' if !single && !double && bytes.get(index + 1) == Some(&b'(') => {
                 return None;
             }
             b'(' | b')' | b'{' | b'}' if !single && !double => return None,
-            // Here-doc bodies have their own quoting and line-consumption
-            // rules. An apparent `; cargo test` inside the body is data, not a
-            // status-bearing command, so reject the construct conservatively.
             b'<' if !single && !double && bytes.get(index + 1) == Some(&b'<') => return None,
-            // A shell comment suppresses every apparent command after `#` on
-            // that line. Reject unquoted comments rather than duplicate the
-            // shell's token-boundary grammar in this evidence classifier.
             b'#' if !single && !double => return None,
             b';' | b'\n' | b'\r' | b'|' | b'&' if !single && !double => positions.push(index),
             _ => {}
@@ -604,11 +647,6 @@ fn shell_control_positions(command: &str) -> Option<Vec<usize>> {
     }
 }
 
-/// Return the final non-empty sequential shell-list segment. Bash reports only
-/// this segment's status across `;` and newline boundaries: `cargo test; echo
-/// done` reports `echo`, while `echo prep; cargo test` reports the test. Within
-/// the returned segment, `&&` and a pipefail pipeline preserve an earlier
-/// verifier failure and are therefore observable.
 fn shell_status_bearing_segment(command: &str) -> &str {
     let Some(positions) = shell_control_positions(command) else {
         return "";
@@ -628,26 +666,56 @@ fn shell_status_bearing_segment(command: &str) -> &str {
     command.get(..end).unwrap_or("")
 }
 
-/// A shell command that runs tests anywhere in it, including where their
-/// status is lost: `tests 2>&1 | tail -6; ls`, `tests || fallback`. Not
-/// evidence of green, but evidence that the model's latest run may be.
-/// Parity oracle for [`shell_runs_tests_anywhere`].
 #[cfg(test)]
 fn shell_runs_tests_anywhere_native(call: &ToolCall) -> bool {
     if call.name != "shell" {
         return false;
     }
     let command = crate::agent::tools::shell::shell_command_arg(&call.args).unwrap_or("");
-    verify_shell::classify(command, 1)
+    without_heredoc_bodies(command).is_some_and(|command| verify_shell::classify(&command, 1))
 }
 
 fn shell_command_runs_verifier(command: &str) -> bool {
     verify_shell::classify(command, 0)
 }
 
-/// Unquoted members of a status-bearing pipeline/mandatory-AND expression.
-/// The lexical scanner owns separator recognition for every verifier path so a
-/// quoted `| cargo test` or `& cargo test` can never manufacture evidence.
+/// Whether a shell command invokes a test runner anywhere, whatever wraps it: `timeout`, an
+/// environment prefix, a subshell, a loop, a pipeline, a memory-cap wrapper. Deliberately
+/// looser than the status-bearing classifier: it never decides that verification passed,
+/// only whether a non-zero exit was a red test or a call that failed to run.
+pub(crate) fn mentions_test_run(command: &str) -> bool {
+    let Some(command) = without_heredoc_bodies(command) else {
+        return false;
+    };
+    let words: Vec<&str> = command
+        .split(|c: char| c.is_whitespace() || matches!(c, ';' | '|' | '&' | '(' | ')' | '{' | '}'))
+        .filter(|word| !word.is_empty())
+        .collect();
+    let program = |word: &'_ str| -> String {
+        word.rsplit('/').next().unwrap_or(word).to_ascii_lowercase()
+    };
+    words.windows(2).any(|pair| {
+        let name = program(pair[0]);
+        if name == "cargo" || name.ends_with("-cargo") {
+            matches!(pair[1], "test" | "nextest" | "check" | "clippy")
+        } else if matches!(
+            name.as_str(),
+            "go" | "npm" | "pnpm" | "yarn" | "bun" | "deno" | "dotnet" | "swift" | "zig" | "mix" | "gradle" | "mvn"
+        ) {
+            pair[1] == "test"
+        } else if matches!(name.as_str(), "make" | "ninja") {
+            matches!(pair[1], "test" | "check")
+        } else {
+            false
+        }
+    }) || words.iter().any(|word| {
+        matches!(
+            program(word).as_str(),
+            "pytest" | "ctest" | "tox" | "nox" | "rspec" | "jest" | "vitest" | "phpunit"
+        )
+    })
+}
+
 fn shell_pipeline_segments(segment: &str) -> impl Iterator<Item = &str> {
     let mut start = 0usize;
     shell_control_positions(segment)
@@ -662,15 +730,6 @@ fn shell_pipeline_segments(segment: &str) -> impl Iterator<Item = &str> {
         })
 }
 
-/// Whether one green result is enough completion evidence for the unchanged
-/// workspace. Formatting and lint-only checks remain useful but do not suppress
-/// a later build/test. Tests, type/build checks, and package builds do.
-/// A `cargo test` invocation that exercises the full suite. A positional
-/// filter (`cargo test raycast`, `cargo test -- name`) or `--ignored` runs a
-/// deliberate slice — targeted evidence, never proof the tree is green, and
-/// never grounds to guillotine a run that still has distinct gates pending
-/// (the first sol dogfood run lost its fixture check, full suite, and commit
-/// to a filtered green arming the post-green guard).
 fn cargo_test_is_full(words: &[&str]) -> bool {
     const TARGETING_FLAGS: &[&str] = &[
         "--ignored",
@@ -698,14 +757,6 @@ fn cargo_test_is_full(words: &[&str]) -> bool {
     })
 }
 
-/// Only the adapter-owned first line carries coverage authority. Diagnostics
-/// and path names below it may contain arbitrary strings, including markers.
-/// A verifier result that names a *known* coverage gap: the typed check ran,
-/// the changed-path inventory was established, and the selected targets left
-/// some of those paths uncompiled (`coverage=incomplete`). Unknown coverage —
-/// no git, an opaque shell earlier, missing dep-info — is not a gap; the
-/// receipt already tells the model to report the scope limitation, and holding
-/// the completion gate on it only burns nudges (2026-09-07).
 pub(crate) fn verification_result_has_known_gap(result: &str) -> bool {
     let header = result.lines().next().unwrap_or("");
     header.split("; ").any(|part| part == "coverage=incomplete")
@@ -713,11 +764,6 @@ pub(crate) fn verification_result_has_known_gap(result: &str) -> bool {
 
 pub(crate) fn verification_is_completion_sufficient(call: &ToolCall) -> bool {
     match call.name.as_str() {
-        // The dedicated tools are the harness's own curated gates and keep
-        // their standing contract. Raw `cargo check` below is different: a
-        // model-chosen compile probe proves the tree builds, not that the
-        // task is done — one arming the wrap-up guard cut run11 off
-        // mid-ladder.
         "run_tests" => call
             .args
             .get("args")
@@ -735,23 +781,11 @@ pub(crate) fn verification_is_completion_sufficient(call: &ToolCall) -> bool {
                 Some(&"test") => cargo_test_is_full(&words[1..]),
                 _ => false,
             }),
-        // A raw shell result proves the shell's final status, not the identity
-        // of the executable that produced it. PATH shims, imported bash
-        // functions, BASH_ENV, and user-controlled absolute paths can all make
-        // a verifier-looking command return zero without running that verifier.
-        // Keep shell checks as useful verification attempts, but never let them
-        // arm durable-green completion state until the tool boundary can return
-        // a typed receipt for an actually pinned direct executable.
         "shell" => false,
         _ => false,
     }
 }
 
-/// Merge the operator interrupt with an absolute turn deadline for one
-/// blocking provider/tool operation. Long-running implementations already
-/// honor an `AtomicBool`; this gives them one cooperative signal without
-/// mutating the operator-owned flag or leaving a watchdog alive after the
-/// operation returns.
 pub(crate) fn with_turn_deadline_cancel<R>(
     operator_cancel: &AtomicBool,
     deadline: Option<Instant>,
@@ -771,8 +805,6 @@ pub(crate) fn with_turn_deadline_cancel<R>(
                 crate::agent::tools::proc::transfer_owned(self.0, self.1);
             }
         }
-        // Dispatch can launch background work under this operation-local flag.
-        // Rebind it before the flag disappears, including early return/unwind.
         let _process_owner = ProcessOwnerTransfer(
             &effective_cancel as *const _ as usize,
             operator_cancel as *const _ as usize,
@@ -813,21 +845,10 @@ pub(crate) fn with_turn_deadline_cancel<R>(
     })
 }
 
-/// Outcome quality for a verifier result. This is intentionally distinct from
-/// "the tool returned": several verifier tools return a useful red report as an
-/// `Ok`, while older/generic command adapters may omit the process status. Only
-/// `Passed` is suitable as durable green evidence.
-/// A passing verifier is completion evidence only after the agent has changed
-/// the workspace. A baseline-green suite on an unchanged checkout proves the
-/// starting point is healthy, not that the requested repair was implemented.
 pub(crate) fn is_completion_green(outcome: VerificationOutcome, mutation_seen: bool) -> bool {
     mutation_seen && outcome == VerificationOutcome::Passed
 }
 
-/// Whether this result is strong enough to release the edit-scoped
-/// verify-before-done gate. A definite raw-shell failure still lets the model
-/// disclose a blocker, but an untyped zero exit cannot: it is inconclusive
-/// precisely because the shell has not proved which verifier executable ran.
 pub(super) fn verification_attempt_releases_gate(
     call: &ToolCall,
     outcome: VerificationOutcome,
@@ -848,9 +869,6 @@ fn labeled_count(result: &str, label: &str) -> Option<usize> {
     })
 }
 
-/// Classify a verifier without trusting model prose or equating dispatch success
-/// with a green build. `None` means the call was not an accepted verification
-/// attempt (including an approval denial).
 pub(crate) fn verification_outcome(call: &ToolCall, result: &str) -> Option<VerificationOutcome> {
     if !is_verification_call(call)
         || result.starts_with("action capsule denied")
@@ -864,9 +882,6 @@ pub(crate) fn verification_outcome(call: &ToolCall, result: &str) -> Option<Veri
     if result.starts_with("verification inconclusive:") {
         return Some(VerificationOutcome::Inconclusive);
     }
-    // Typed verifier adapters own these headers. Later attribution may contain
-    // arbitrary filenames/argv such as "9 passed" or "0 errors"; it must not
-    // turn an unsupported runner or empty suite into green evidence.
     let typed_summary = matches!(call.name.as_str(), "run_tests" | "check" | "lint");
     let verdict_text = if typed_summary {
         result.lines().next().unwrap_or("")
@@ -892,10 +907,6 @@ pub(crate) fn verification_outcome(call: &ToolCall, result: &str) -> Option<Veri
     if ascii_contains_ignore_case(verdict_text, "timed out") {
         return Some(VerificationOutcome::Failed);
     }
-    // The fallback still executes custom project runners, but their counts
-    // are observations, not an authenticated verifier verdict. This also
-    // covers the previous numeric-reward + `(unlabeled: ...)` format and YOLO
-    // receipts; neither may become a green task event or a Caddy recipe.
     if typed_summary && ascii_contains_ignore_case(verdict_text, "unlabeled") {
         return Some(VerificationOutcome::Inconclusive);
     }
@@ -924,10 +935,6 @@ pub(crate) fn verification_outcome(call: &ToolCall, result: &str) -> Option<Veri
             }
         }
         "shell" => {
-            // ShellTool converts a trustworthy non-zero shell status into a
-            // dispatch error, handled above. A zero status is still not green
-            // verifier evidence: the string command carries no typed proof of
-            // the executable identity (function/PATH/BASH_ENV shadowing).
             VerificationOutcome::Inconclusive
         }
         "cargo" => {
@@ -977,9 +984,6 @@ pub(crate) fn verification_outcome(call: &ToolCall, result: &str) -> Option<Veri
 }
 
 pub(crate) fn turn_event_outcome(call: &ToolCall, result: &str, denied: bool) -> ToolOutcome {
-    // Only recognized dispatch headers describe execution. Successful output
-    // may discuss cancellation, print test names, or explain what to do "if
-    // interrupted"; scanning that body fabricated cancelled/panicked events.
     let header = result.lines().next().unwrap_or("").trim();
     let header = header.trim_start_matches("tool error: ");
     let starts = |prefix: &str| {
@@ -1048,13 +1052,9 @@ pub(crate) fn turn_event_outcome(call: &ToolCall, result: &str, denied: bool) ->
 #[cfg(test)]
 pub(crate) fn looks_like_deferred_action_only(answer: &str) -> bool {
     let text = answer.trim();
-    // GLM and other deliberators dump multi-KB "plans" with zero tools; the old
-    // 700-char cap let those through and burned whole days of wall clock.
     if text.is_empty() || text.len() > 4_000 {
         return false;
     }
-    // Scan in place so a text-only hop does not copy the whole answer
-    // just to hunt "I'll analyze" / "submitted".
     const INTENT: &[&str] = &[
         "let me ",
         "i'll ",

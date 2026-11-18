@@ -13,20 +13,14 @@ use crate::palette::{Ink, Palette};
 use crate::recipe::Recipe;
 use crate::render::{self, Frame};
 
-/// A part as drawn at one grain.
 #[derive(Clone, Debug, Default)]
 pub struct Seen {
-    /// Pixels it shows (its fill and the lines drawn on it).
     pub px: u32,
-    /// Its box, `(x, y, w, h)`.
     pub bounds: Option<(u32, u32, u32, u32)>,
-    /// Its inks, most used first.
     pub inks: Vec<(Ink, u32)>,
-    /// Its mean depth where it shows.
     pub depth: f32,
 }
 
-/// What each part shows in a frame, by part index.
 pub fn seen(frame: &Frame, parts: usize) -> Vec<Seen> {
     let r = &frame.raster;
     let mut out = vec![Seen::default(); parts];
@@ -61,7 +55,6 @@ pub fn seen(frame: &Frame, parts: usize) -> Vec<Seen> {
     out
 }
 
-/// Inks a frame uses, most first.
 pub fn inks(frame: &Frame) -> Vec<(Ink, u32)> {
     let mut m: BTreeMap<Ink, u32> = BTreeMap::new();
     for &i in &frame.raster.ink {
@@ -74,7 +67,6 @@ pub fn inks(frame: &Frame) -> Vec<(Ink, u32)> {
     v
 }
 
-/// Ink keys, most used first.
 pub fn keys(inks: &[(Ink, u32)], most: usize) -> String {
     let p = Palette::realm();
     inks.iter().take(most).map(|(i, _)| p.key(*i)).collect()
@@ -84,12 +76,10 @@ fn boxed(b: Option<(u32, u32, u32, u32)>) -> String {
     b.map_or("-".into(), |(x, y, w, h)| format!("{x},{y} {w}x{h}"))
 }
 
-/// Pixels that differ between two frames of one size.
 pub fn changed(a: &Frame, b: &Frame) -> u32 {
     a.raster.ink.iter().zip(&b.raster.ink).filter(|(x, y)| x != y).count() as u32
 }
 
-/// The recipe as text.
 pub fn describe(recipe: &Recipe) -> String {
     let src = &recipe.src;
     let p = Palette::realm();

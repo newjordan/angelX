@@ -6,8 +6,6 @@
 
 use super::*;
 
-// --- output_timed / sandbox exec / sealed-env suite -------------------------
-
 #[test]
 fn sandboxed_relative_policy_keeps_workspace_identity_after_chdir() {
     let _guard = crate::tests::env_lock();
@@ -60,11 +58,6 @@ fn sandboxed_relative_policy_keeps_workspace_identity_after_chdir() {
 
 #[test]
 fn output_timed_kills_hung_command() {
-    // `output_timed` drops the timeout entirely when YOLO is live, and
-    // `yolo::enabled()` reads the process-global `ANGEL_YOLO`. Several tests set
-    // it to `1` process-wide, so without serializing here this test
-    // intermittently runs its `sleep 5` with no timeout at all and reports the
-    // hang as a clean completion. Same hazard `harness::tests::hooks` guards.
     let _guard = crate::tests::env_lock();
     let _yolo_off = EnvGuard::set("ANGEL_YOLO", "0");
     let mut cmd = Command::new("sleep");
@@ -236,6 +229,37 @@ fn output_timed_keeps_terminal_summary_after_noisy_output() {
 }
 
 #[test]
+fn the_shell_tool_returns_a_whole_page_of_output() {
+    let policy = SandboxPolicy::permissive();
+    let script = "i=0; while [ $i -lt 300 ]; do printf 'line %03d of a document the model asked to read\\n' $i; i=$((i+1)); done";
+    let excerpt = run_sandboxed_observed("sh", &["-c", script], None, &policy).unwrap();
+    assert!(
+        excerpt
+            .output
+            .contains(&crate::agent::harness::book::d467_receipts::MIDDLE_BYTES.cells()),
+        "the general runner keeps its short excerpt"
+    );
+    assert!(!excerpt.output.contains("line 150 of"));
+
+    let whole = run_shell_tool_observed("sh", &["-c", script], None, &policy, None).unwrap();
+    assert_eq!(whole.exit, Some(0));
+    assert_eq!(whole.output.lines().count(), 300, "every line comes back");
+    assert!(whole.output.contains("line 150 of"));
+    assert!(
+        !whole
+            .output
+            .contains(&crate::agent::harness::book::d467_receipts::MIDDLE_BYTES.cells()),
+        "no middle cut under the tool ceiling: {}",
+        &whole.output[..200]
+    );
+
+    let flood = "i=0; while [ $i -lt 4000 ]; do printf 'line %04d of a very long listing that runs past the ceiling\\n' $i; i=$((i+1)); done";
+    let bounded = run_shell_tool_observed("sh", &["-c", flood], None, &policy, None).unwrap();
+    assert!(bounded.output.len() <= 70 * 1024, "the shared tool ceiling still bounds it");
+    assert!(bounded.output.contains("line 0000 of") && bounded.output.contains("line 3999 of"));
+}
+
+#[test]
 fn sandboxed_observation_keeps_stderr_tail_after_noisy_stdout() {
     let policy = SandboxPolicy::permissive();
     let observation = run_sandboxed_observed(
@@ -276,14 +300,6 @@ fn sandboxed_observation_keeps_stderr_tail_after_noisy_stdout() {
 
 #[test]
 fn output_timed_does_not_hang_on_pipe_holding_grandchild() {
-    // Regression for the 3-hour hang: `sh` backgrounds a `sleep` that inherits
-    // the stdout pipe and keeps it open, then exits. Pre-fix, read_to_end
-    // blocked at EOF until the sleep finished (or forever). The process-group
-    // kill must close the inherited pipe so we return promptly with the output.
-    //
-    // Serialized and pinned YOLO-off for the same reason as
-    // `output_timed_kills_hung_command`: a concurrent test setting `ANGEL_YOLO=1`
-    // removes the timeout this regression depends on.
     let _guard = crate::tests::env_lock();
     let _yolo_off = EnvGuard::set("ANGEL_YOLO", "0");
     let mut cmd = Command::new("sh");
@@ -300,6 +316,59 @@ fn output_timed_does_not_hang_on_pipe_holding_grandchild() {
         "the direct child exited cleanly — not a timeout"
     );
     assert!(String::from_utf8_lossy(&out.stdout).contains("done"));
+}
+
+#[test]
+fn a_command_is_told_when_its_background_work_is_stopped() {
+    let _guard = crate::tests::env_lock();
+    let _yolo_off = EnvGuard::set("ANGEL_YOLO", "0");
+    let root = scratch("stopped_background_notice");
+    std::fs::create_dir_all(&root).unwrap();
+    let policy = SandboxPolicy {
+        writable_roots: vec![root.clone()],
+        allow_network: false,
+        enforce: true,
+        mandatory: true,
+        sealed_reads: Vec::new(),
+        deny_reads: Vec::new(),
+    };
+
+    let left_behind = run_sandboxed_observed(
+        "sh",
+        &[
+            "-c",
+            "(sleep 30 >/dev/null 2>&1 &); (sleep 31 >/dev/null 2>&1 &); echo started",
+        ],
+        Some(&root),
+        &policy,
+    )
+    .expect("command with background work must launch");
+    assert_eq!(left_behind.exit, Some(0), "{}", left_behind.output);
+    assert!(left_behind.output.contains("started"), "{}", left_behind.output);
+    assert!(
+        left_behind
+            .output
+            .contains("2 background processes this command started were still running")
+            && left_behind.output.contains("(sleep)"),
+        "stopped background work went unreported: {}",
+        left_behind.output
+    );
+
+    let waited = run_sandboxed_observed(
+        "sh",
+        &["-c", "sleep 0.05 & wait; echo finished | cat"],
+        Some(&root),
+        &policy,
+    )
+    .expect("command that waits must launch");
+    let _ = std::fs::remove_dir_all(&root);
+    assert_eq!(waited.exit, Some(0), "{}", waited.output);
+    assert!(waited.output.contains("finished"), "{}", waited.output);
+    assert!(
+        !waited.output.contains("background process"),
+        "work that finished inside the command was reported as stopped: {}",
+        waited.output
+    );
 }
 
 #[test]
@@ -320,9 +389,6 @@ fn yolo_preserves_background_descendants_after_the_shell_exits() {
     assert!(!timed_out, "YOLO removes even a caller-supplied deadline");
     assert_eq!(String::from_utf8_lossy(&out.stdout), "launched");
 
-    // The parent deliberately creates an empty marker before it exits. Wait for
-    // the descendant's payload rather than pathname existence: create and write
-    // are separate observable states even on a local filesystem.
     let deadline = Instant::now() + Duration::from_secs(5);
     let mut observed = None;
     loop {

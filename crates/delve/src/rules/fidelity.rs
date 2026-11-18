@@ -18,20 +18,14 @@
 
 use crate::ink::ink;
 
-/// How much of a drawing a level shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Step {
-    /// Two by two, three inks: hard to make out.
     Coarse,
-    /// Its own grain, four inks: flat shading.
     Plain,
-    /// As drawn.
     Drawn,
 }
 
 impl Step {
-    /// The step of tier `tier` (from 0) of a ladder of `tiers`: the last is
-    /// always drawn whole.
     pub fn of(tier: usize, tiers: usize) -> Step {
         if tier + 1 >= tiers {
             return Step::Drawn;
@@ -51,8 +45,6 @@ impl Step {
     }
 }
 
-/// The most saturation and brightness (HSV, out of 1) a wish's own colours
-/// show at `step`; none once it is drawn whole.
 pub fn cap(step: Step) -> Option<(f32, f32)> {
     match step {
         Step::Coarse => Some((0.35, 0.55)),
@@ -61,8 +53,6 @@ pub fn cap(step: Step) -> Option<(f32, f32)> {
     }
 }
 
-/// `rgb` with its saturation and brightness held under `(s, v)`, its hue
-/// kept.
 pub fn capped(rgb: [u8; 3], (s_max, v_max): (f32, f32)) -> [u8; 3] {
     let hi = f32::from(*rgb.iter().max().unwrap_or(&0));
     let lo = f32::from(*rgb.iter().min().unwrap_or(&0));
@@ -72,19 +62,15 @@ pub fn capped(rgb: [u8; 3], (s_max, v_max): (f32, f32)) -> [u8; 3] {
     let (v, s) = (hi / 255.0, (hi - lo) / hi);
     let (v2, s2) = (v.min(v_max), s.min(s_max));
     rgb.map(|c| {
-        // Each channel's place between the colour's lowest and highest.
         let f = if hi > lo { (f32::from(c) - lo) / (hi - lo) } else { 1.0 };
         (v2 * (1.0 - s2 * (1.0 - f)) * 255.0).round().clamp(0.0, 255.0) as u8
     })
 }
 
-/// A picture's rows (frames side by side, `|` between) at `step`: each
-/// frame on its own, every row its own length.
 pub fn rows<S: AsRef<str>>(rows: &[S], step: Step) -> Vec<String> {
     rows_with(rows, step, &[])
 }
 
-/// As [`rows`], for a sprite colouring inks of its own (`pal`).
 fn rows_with<S: AsRef<str>>(rows: &[S], step: Step, pal: &[(char, [u8; 3])]) -> Vec<String> {
     if step == Step::Drawn {
         return rows.iter().map(|r| r.as_ref().to_string()).collect();
@@ -106,14 +92,6 @@ fn rows_with<S: AsRef<str>>(rows: &[S], step: Step, pal: &[(char, [u8; 3])]) -> 
     out.into_iter().map(|r| r.join("|")).collect()
 }
 
-/// A card file's block (`art` or `draw <slot>`, its rows after) at `step`:
-/// its first line, and the lines that are not rows, kept as they are
-/// (`art` and `look` are spelt in inks). Only a drawing shown as drawn
-/// keeps its painting: below that the header loses its `paint=` (and its
-/// `normal=` and `pixel`), and its inks show (its `move=` stays). Shown
-/// plain, a painted drawing keeps its painting as `hd=`, which a window
-/// shows deep enough down (`paintings::HD_FLOOR`); shown coarse it is inks
-/// alone.
 pub fn block(text: &str, step: Step) -> String {
     if step == Step::Drawn {
         return text.to_string();
@@ -142,12 +120,10 @@ pub fn block(text: &str, step: Step) -> String {
     text_out
 }
 
-/// A `draw` header with its `pal=` colours held to `step`'s [`cap`].
 fn powered(header: &str, step: Step) -> String {
     let Some(limit) = cap(step) else {
         return header.to_string();
     };
-    // Only the `pal=` word changes; the rest is kept to the letter.
     let Some(word) = header.split_whitespace().find(|w| w.starts_with("pal=")) else {
         return header.to_string();
     };
@@ -158,8 +134,6 @@ fn powered(header: &str, step: Step) -> String {
     header.replacen(word, &format!("pal={}", super::looks::pal_words(&held)), 1)
 }
 
-/// A `draw` header without its `paint=`, `normal=` and `pixel`: with `hd`,
-/// its `paint=` kept as `hd=` (`pixel` is only a `paint=`'s, so it goes).
 fn unpainted(header: &str, hd: bool) -> String {
     let painted = |w: &str| {
         w.starts_with("paint=") || w.starts_with("normal=") || w.starts_with("hd=") || w == "pixel"
@@ -180,9 +154,6 @@ fn unpainted(header: &str, hd: bool) -> String {
         .join(" ")
 }
 
-/// One frame at `step`: its inks narrowed to the step's commonest, then for
-/// a coarse one each two-by-two square to its commonest (an ink over black
-/// paper on a tie, so the silhouette holds).
 fn frame_at(frame: &[Vec<char>], step: Step, pal: &[(char, [u8; 3])]) -> Vec<Vec<char>> {
     let Some(keep) = step.inks() else {
         return frame.to_vec();
@@ -194,7 +165,6 @@ fn frame_at(frame: &[Vec<char>], step: Step, pal: &[(char, [u8; 3])]) -> Vec<Vec
             None => counts.push((c, 1)),
         }
     }
-    // Commonest first; a tie to the ink that came first, so it replays.
     counts.sort_by(|a, b| b.1.cmp(&a.1));
     let kept: Vec<char> = counts.iter().take(keep).map(|(c, _)| *c).collect();
     let mapped: Vec<Vec<char>> = frame
@@ -233,13 +203,11 @@ fn frame_at(frame: &[Vec<char>], step: Step, pal: &[(char, [u8; 3])]) -> Vec<Vec
     out
 }
 
-/// `c`, or the kept ink nearest it in colour.
 #[cfg(test)]
 fn nearest(c: char, kept: &[char]) -> char {
     nearest_in(c, kept, &[])
 }
 
-/// As `nearest`, the sprite's own inks by the colours `pal` gives them.
 fn nearest_in(c: char, kept: &[char], pal: &[(char, [u8; 3])]) -> char {
     if c == '.' || kept.contains(&c) {
         return c;

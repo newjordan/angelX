@@ -4,8 +4,6 @@ use super::*;
 use angel_delve::rules::wish_jobs::Outcome;
 
 impl Session<'_> {
-    /// Admission refusal is visible on the same pick, after durable capture.
-    /// A failed checkpoint retains the identified lesson for the normal retry.
     pub(super) fn retire_cancelled_wishes(&mut self) {
         let mut still = Vec::new();
         for mut lesson in std::mem::take(&mut self.dungeon.forge.learning) {
@@ -54,8 +52,6 @@ impl Session<'_> {
                 return Err(format!("{}: original library name changed before publication", wish.name));
             }
         }
-        // Replace only this ID; other concurrent runner results and operator
-        // entries survive. Publication is serialized on the native owner.
         let mut text = String::new();
         let mut omit = false;
         for line in old.lines() {
@@ -86,8 +82,6 @@ impl Session<'_> {
             let over = lesson.returned || lesson.asked.elapsed() > LEARN_TIME;
             if lesson.answer.is_none() && lesson.failed.is_none() && over {
                 let deck = self.dungeon.wish_deck(lesson.player);
-                // Compatibility: externally authored entries may satisfy a
-                // waiting request. Capture the selected definition once.
                 let book = crate::together_shooter::phrasebook::book();
                 let learned = lesson
                     .learned_id
@@ -142,9 +136,6 @@ impl Session<'_> {
         }
         let done = lesson.completed.as_ref().expect("terminal wish");
         let persisted = if let Some(link) = self.dungeon.shooter.link() {
-            // The server runs on its own threads: the saves and the wish's
-            // publication run off the frame, and the lesson is delivered on
-            // the frame that finds them done.
             match lesson.saving.as_ref().map(super::Saving::done) {
                 Some(None) => return false,
                 Some(Some((acknowledged, saved))) => {

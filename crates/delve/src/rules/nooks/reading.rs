@@ -4,11 +4,8 @@
 //! and the best reader is crowned.
 use super::*;
 
-/// The lecterns (tiles): two rows of four.
 pub const LECTERNS: [(i32, i32); 8] = [(5, 4), (9, 4), (14, 4), (18, 4), (5, 9), (9, 9), (14, 9), (18, 9)];
-/// Shelves along the north wall, clear of the north doorway.
 const SHELVES: [(i32, i32, i32, i32); 2] = [(2, 1, 7, 1), (15, 1, 7, 1)];
-/// How many books bite, the coin in a page, the bite.
 pub const MIMICS: u32 = 3;
 pub const PAGE_GOLD: u32 = 4;
 pub const BITE: u32 = 10;
@@ -27,12 +24,10 @@ pub fn blocks() -> Vec<(i32, i32, i32, i32)> {
     LECTERNS.iter().map(|&(c, r)| (c, r, 1, 1)).chain(SHELVES).collect()
 }
 
-/// Where a reader stands at lectern `i` (tiles): just south of it.
 pub fn stand(i: usize) -> (f32, f32) {
     (LECTERNS[i].0 as f32 + 0.5, LECTERNS[i].1 as f32 + 1.6)
 }
 
-/// Which books bite, from the floor's own shape (no dice).
 pub fn mimics(floor: &Floor) -> u16 {
     let shape = floor
         .rooms

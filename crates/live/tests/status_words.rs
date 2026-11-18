@@ -26,7 +26,6 @@ const FLEET_READING: [(&str, SubmissionPhase); 24] = [
     ("error", Rejected),
     ("cancelled", Rejected),
     ("canceled", Rejected),
-    // Not words the board is known to send as these: nothing settles on them.
     ("superseded", Unknown),
     ("scoring", Unknown),
     ("", Unknown),
@@ -45,7 +44,6 @@ fn the_fleet_row_reads_each_status_word_as_it_always_has() {
     assert_eq!(SubmissionPhase::from_status("promotion  failed"), Unknown);
 }
 
-/// How the slot watcher reads the same words: waiting, or settled one of three ways.
 const SLOT_READING: [(&str, SlotOutcome); 24] = [
     ("queued", SlotOutcome::InFlight),
     ("pending", SlotOutcome::InFlight),
@@ -85,8 +83,6 @@ fn the_slot_watcher_reads_each_status_word_as_it_always_has() {
     assert_eq!(SlotOutcome::from_status("accepted."), SlotOutcome::InFlight);
 }
 
-/// The two readings are two tables only because four words are read
-/// differently. This is the whole list; resolving one is one edit to the row.
 #[test]
 fn the_two_readings_differ_on_exactly_these_words() {
     let as_slot = |phase: SubmissionPhase| match phase {

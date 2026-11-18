@@ -14,18 +14,11 @@ use std::io::{self, Read};
 use std::os::fd::{AsRawFd, OwnedFd};
 use std::sync::mpsc::{self, Receiver, Sender};
 
-/// The most one hand-off holds.
 const CHUNK: usize = 16 * 1024;
-/// Hand-offs in flight: how far reading may run ahead of parsing.
 const AHEAD: usize = 2;
-/// The most one pty read returns: a hand-off keeps reading only while it
-/// has room for a whole one.
 const PTY_READ: usize = 4096;
 
-/// The parsing side: reads come out of here, in order, exactly as the
-/// pty gave them, and the end of the pty is the end of these.
 pub struct ReadAhead {
-    /// Hand-offs, each with how much of it was read.
     full: Receiver<(Vec<u8>, usize)>,
     empty: Sender<Vec<u8>>,
     current: Vec<u8>,
@@ -34,14 +27,9 @@ pub struct ReadAhead {
 }
 
 impl ReadAhead {
-    /// Start reading `reader` on a thread of its own. `fd` (the pty's own
-    /// descriptor, duplicated) says whether more is waiting; without it
-    /// every read is handed on by itself.
     pub fn spawn(mut reader: Box<dyn Read + Send>, fd: Option<OwnedFd>) -> io::Result<Self> {
         let (full_tx, full) = mpsc::channel::<(Vec<u8>, usize)>();
         let (empty, empty_rx) = mpsc::channel::<Vec<u8>>();
-        // Each hand-off is filled once and keeps its length, so a reused
-        // one is read into as it is, not cleared again.
         for _ in 0..AHEAD {
             let _ = empty.send(vec![0; CHUNK]);
         }
@@ -73,14 +61,11 @@ impl ReadAhead {
     }
 }
 
-/// Whether the pty holds bytes not read yet.
 fn waiting(fd: Option<&OwnedFd>) -> bool {
     let Some(fd) = fd else {
         return false;
     };
     let mut n: libc::c_int = 0;
-    // SAFETY: FIONREAD writes one int through the pointer, which points
-    // at `n`; the descriptor is owned and open.
     let r = unsafe { libc::ioctl(fd.as_raw_fd(), libc::FIONREAD, &mut n as *mut libc::c_int) };
     r == 0 && n > 0
 }
@@ -117,11 +102,8 @@ mod tests {
     use std::io::Write;
     use std::os::fd::FromRawFd;
 
-    /// A pty pair in raw mode, as the program's side and glass's.
     fn pty() -> (std::fs::File, std::fs::File) {
         let (mut master, mut slave) = (0, 0);
-        // SAFETY: openpty fills the two descriptors; the termios is a
-        // plain struct cfmakeraw fills before it is applied.
         unsafe {
             assert_eq!(libc::openpty(&mut master, &mut slave, std::ptr::null_mut(), std::ptr::null(), std::ptr::null()), 0);
             let mut tio: libc::termios = std::mem::zeroed();
@@ -132,8 +114,6 @@ mod tests {
         }
     }
 
-    /// Every byte the program writes comes out once, in order, however it
-    /// is written, and the program's side closing ends the reads.
     #[test]
     fn reading_ahead_gives_every_byte_in_order_then_the_end() {
         let (master, mut slave) = pty();
@@ -150,7 +130,6 @@ mod tests {
                 at = end;
                 size = size * 7 % 9001 + 1;
             }
-            // Keep the program's side open until everything is read.
             slave
         });
         let mut got = Vec::new();

@@ -1,6 +1,3 @@
-# kiln-fx: kiln-studio's way to render a kiln effect recipe until `kiln render`
-# (crates/kiln, feature `cli`) lands. Its own workspace and lockfile; built
-# into its own target/ (with CARGO_TARGET_DIR set elsewhere, point KILN_FX at it).
 [package]
 name = "kiln-studio-fx"
 version = "0.1.0"

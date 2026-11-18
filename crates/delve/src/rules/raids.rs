@@ -23,7 +23,6 @@
 use super::holdings::{self, Deed, Family, Holding, SLOTS};
 use super::*;
 
-/// A raid being fought: whose hall, which room of the floor, how strong.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RaidFight {
     pub key: String,
@@ -38,20 +37,13 @@ impl RaidFight {
     }
 }
 
-/// Where raiders come in (tiles): the open middle of a hall, clear of its
-/// bays and its table.
 pub const RAID_SPOTS: [(i32, i32); 8] = [(4, 6), (19, 6), (4, 8), (19, 8), (7, 7), (16, 7), (9, 9), (14, 9)];
-/// A chapel's mend every so often, a tavern's thrown bone and a range's arrow:
-/// how often, how hard, how far they reach (units).
 pub const CHAPEL: (u64, u32) = (90, 4);
 pub const STOOL: (u64, u32, f32) = (60, 18, 14.0);
 pub const ARROW: (u64, u32, f32) = (45, 12, 20.0);
-/// A castle's bays hang as a tapestry in its hall: its top-left corner
-/// (native pixels), and each bay's pitch.
 pub const TAPESTRY: (i32, i32) = (35, 113);
 pub const TAPESTRY_PITCH: i32 = 30;
 
-/// The holding whose hall the party stands in, by its key.
 pub fn hall_key(run: &Run) -> Option<String> {
     match run.room().kind {
         RoomKind::Holding => holdings::held_floor(&run.home.holdings, run.dungeon.pack).map(|h| h.key.clone()),
@@ -60,7 +52,6 @@ pub fn hall_key(run: &Run) -> Option<String> {
     }
 }
 
-/// Bay `i`'s front, where its defence comes from (units).
 pub fn bay_spot(run: &Run, i: usize) -> (f32, f32) {
     if run.room().kind == RoomKind::Holding {
         let (c, r, w, h) = holdings::bay(i).1;
@@ -79,7 +70,6 @@ pub fn lost_mark(key: &str) -> String {
     format!("holdings:raid:lost:{key}")
 }
 
-/// The standing rooms of `family` at a holding, by bay.
 fn standing(held: &Holding, family: Family) -> Vec<(usize, &'static holdings::RoomDef)> {
     held.rooms
         .iter()
@@ -92,8 +82,6 @@ fn standing(held: &Holding, family: Family) -> Vec<(usize, &'static holdings::Ro
 }
 
 impl Run {
-    /// The raid in the hall the party stands in: begun on the way in, its
-    /// bays' defences while it lasts, freed when the last raider falls.
     pub(super) fn tick_raid(&mut self) {
         if let Some(fight) = &self.holding_raid
             && fight.room != self.at
@@ -130,8 +118,6 @@ impl Run {
 
     fn start_raid(&mut self, key: &str, held: &Holding) {
         let bought = standing(held, Family::Trade).len() as u32;
-        // A band still on the road sends its vanguard: the first raid's
-        // strength.
         let vanguard = held.raid == 0;
         let level = held.raid.max(1);
         let n = super::crown::raiders(level, bought);
@@ -153,7 +139,6 @@ impl Run {
             let kind = roster[k % roster.len()];
             self.spawn_body(kind, (c as f32 + 0.5) * TILE_UNITS, (r as f32 + 0.5) * TILE_UNITS);
         }
-        // The forge arms the party.
         for (_, def) in standing(held, Family::Forge) {
             for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
                 match def.id {
@@ -177,8 +162,6 @@ impl Run {
         }
     }
 
-    /// The bays fight: the chapel mends, the tavern hurls bones, the range
-    /// looses arrows.
     fn defend(&mut self, held: &Holding, fight: &RaidFight) {
         let t = self.tick.saturating_sub(fight.started);
         if t > 0 && t.is_multiple_of(CHAPEL.0) {
@@ -237,9 +220,6 @@ impl Run {
         }
     }
 
-    /// Beaten in a castle's hall at home: the knights are knocked down, not
-    /// killed. The raiders sack a room and stay; the party gets up sore.
-    /// True if it was this (and not a wipe).
     pub(super) fn raid_rout(&mut self) -> bool {
         let Some(fight) = self.holding_raid.clone() else {
             return false;

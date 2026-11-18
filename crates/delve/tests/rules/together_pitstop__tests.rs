@@ -12,7 +12,6 @@ fn fire() -> Input {
     }
 }
 
-/// A run standing in a floor-two Sanctuary, the knight at the privy's door.
 fn at_the_door() -> Run {
     let mut run = Run::new(0, 1, Some("Matt"));
     run.descend_for_test();
@@ -28,7 +27,6 @@ fn at_the_door() -> Run {
     run
 }
 
-/// Whether pressing next tick lands the marker in `band` of the middle.
 fn lands(run: &Run, band: f32) -> bool {
     let stop = run.players[&1].pit.stop.as_ref().unwrap();
     let phase = (stop.phase + 2.0 / Stop::period(stop.straps)).rem_euclid(2.0);
@@ -36,7 +34,6 @@ fn lands(run: &Run, band: f32) -> bool {
     (marker - 0.5).abs() <= band
 }
 
-/// Play a strap stage perfectly: press on the middle, let go between.
 fn strap_cleanly(run: &mut Run) {
     let stage = run.players[&1].pit.stop.as_ref().unwrap().stage;
     let mut down = false;
@@ -54,7 +51,6 @@ fn strap_cleanly(run: &mut Run) {
     panic!("the straps never came undone");
 }
 
-/// Let the stop run until its stage is `stage`, with no input.
 fn wait_for(run: &mut Run, stage: Stage) {
     for _ in 0..1000 {
         if run.players[&1]
@@ -93,7 +89,6 @@ fn a_full_stop_runs_every_stage_and_keeps_the_time() {
     strap_cleanly(&mut run);
     assert_eq!(run.players[&1].gear, 2, "armour off, in smallclothes");
     wait_for(&mut run, Stage::Choose);
-    // Still holding the stick the way they were walking: no choice yet.
     for _ in 0..4 {
         run.step(&input(Input {
             move_x: 1,
@@ -130,7 +125,6 @@ fn a_full_stop_runs_every_stage_and_keeps_the_time() {
     assert!(entry.best > POOP_TICKS, "the time includes the seat");
     assert!(run.found.as_ref().unwrap().2.contains("privy"));
     assert!(run.cues.iter().any(|c| c.starts_with("privy_")));
-    // Once a Sanctuary.
     for _ in 0..HZ {
         run.step(&BTreeMap::new());
     }
@@ -147,7 +141,6 @@ fn a_fumbled_strap_costs_time_and_a_clean_one_does_not() {
     };
     let mut run = at_the_door();
     run.step(&BTreeMap::new());
-    // Hit the first strap at the very end of the bar: a miss, hands locked.
     for _ in 0..200 {
         let stop = run.players[&1].pit.stop.as_ref().unwrap();
         if stop.marker() < 0.04 && stop.lock == 0 {
@@ -334,14 +327,12 @@ fn leaving_a_floor_unrelieved_costs_a_quarter_but_never_the_last_point() {
     assert_eq!(run.players[&1].hp, 75, "a quarter of full health");
     assert_eq!(run.players[&2].hp, 1, "never the last point");
     assert!(run.cues.iter().any(|c| c == "unwashed_toll"));
-    // Fallen knights are not docked, and a relieved one is not either.
     run.players.get_mut(&1).unwrap().hp = 0;
     run.players.get_mut(&2).unwrap().hp = 60;
     run.players.get_mut(&2).unwrap().relieved = Some((run.dungeon.depth, 3));
     run.unwashed_toll();
     assert_eq!(run.players[&1].hp, 0);
     assert_eq!(run.players[&2].hp, 60);
-    // A visit on another floor does not count for this one.
     run.players.get_mut(&2).unwrap().relieved = Some((run.dungeon.depth + 1, 3));
     run.unwashed_toll();
     assert_eq!(run.players[&2].hp, 35);
@@ -349,16 +340,12 @@ fn leaving_a_floor_unrelieved_costs_a_quarter_but_never_the_last_point() {
 
 #[test]
 fn the_stairs_take_the_toll_and_one_knights_stop_spares_the_party() {
-    // Nobody went: the stairs mend ten after the toll, and the Sanctuary
-    // two tenths: 60 - 25 + 10 + 20 for each.
     let mut run = Run::new(0, 1, Some("Matt"));
     for hero in run.players.values_mut() {
         hero.hp = 60;
     }
     run.descend_for_test();
     assert_eq!((run.players[&1].hp, run.players[&2].hp), (65, 65));
-    // One knight went: it counts for the party, so nobody is docked:
-    // 60 + 10 + 20 for both.
     let mut run = Run::new(0, 1, Some("Matt"));
     let depth = run.dungeon.depth;
     run.players.get_mut(&2).unwrap().relieved = Some((depth, 0));
@@ -560,7 +547,6 @@ fn two_stalls_race_while_the_next_pair_strip_and_queue() {
             .count(),
         2
     );
-    // Existing owners retain admission even if a queued stop has a larger clock.
     assert_eq!(
         run.pit_admissions(),
         std::collections::BTreeSet::from([1, 2])
@@ -600,7 +586,6 @@ fn a_seats_window_is_private_and_the_result_closes_without_moving() {
     }
     let mut local = crate::render::overworld::ink::Img::new(384, 224);
     let mut guest = local.clone();
-    // Verify the actual final frame overlay, separately from world occupancy.
     crate::render::overworld::arena::privy_panel_for_test(&mut local, &run, Some(1));
     crate::render::overworld::arena::privy_panel_for_test(&mut guest, &run, Some(2));
     assert!(local.get(16, 13).is_some());
@@ -687,7 +672,6 @@ fn legacy_results_default_to_no_party_record() {
     assert!(!result.party_record);
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test privy_popup_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_privy_popup_shots() {
@@ -714,7 +698,6 @@ fn write_privy_popup_shots() {
         }
         run.step(&BTreeMap::new());
     }
-    // Six distinct hop frames and the first successful toss at its apex.
     for i in 0..6 {
         save(&run, &format!("02_hop_{i}"), 1);
         for _ in 0..4 {
@@ -777,7 +760,6 @@ fn write_privy_popup_shots() {
         Quality::Disaster,
     ] {
         run = before_grades.clone();
-        // Exercise the same board/result transaction as a real completed stop.
         run.pit_events(vec![(
             1,
             Event::Done {
@@ -841,7 +823,6 @@ fn write_privy_popup_shots() {
     save(&race, "15_queue_seat_3", 3);
     race.players.get_mut(&1).unwrap().pit.stop = None;
     save(&race, "16_outside_seat", 1);
-    // A calm arena view checks both narrow stall signs without the pop-up.
     race.tick += 8 * HZ as u64;
     race.hallowed = None;
     race.found = None;
@@ -852,7 +833,6 @@ fn write_privy_popup_shots() {
     }
     race.players.get_mut(&4).unwrap().pit.stop = None;
     save(&race, "17_two_occupied", 1);
-    // An offline contact sheet of every exported frame, with filename captions.
     let cols = 4u32;
     let cell_w = 768u32;
     let cell_h = 470u32;
@@ -885,7 +865,6 @@ fn a_finished_stop_scratches_a_line_on_the_wall_that_stays() {
     strap_cleanly(&mut run);
     assert_eq!(run.home.privy_wall.len(), 1, "{:?}", run.home.privy_wall);
     assert!(run.valid_snapshot());
-    // The wall keeps its last eight lines.
     for i in 0..12 {
         run.home.privy_wall.push(format!("LINE {i}"));
         if run.home.privy_wall.len() > WALL {
@@ -893,7 +872,6 @@ fn a_finished_stop_scratches_a_line_on_the_wall_that_stays() {
         }
     }
     assert_eq!(run.home.privy_wall.len(), WALL);
-    // It travels with the home record into the next delve.
     let next = Run::at_home(5, 1, None, run.home.clone(), Default::default());
     assert_eq!(next.home.privy_wall, run.home.privy_wall);
 }

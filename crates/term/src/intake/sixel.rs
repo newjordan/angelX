@@ -83,8 +83,6 @@ fn host() -> &'static native_module::ReloadHost<Generation> {
         )
     })
 }
-// Allocations are zero-filled and owned by Rust's byte allocator. The module
-// transfers the final buffer; intermediates are returned through `release`.
 extern "C" fn allocate(size: usize) -> *mut u8 {
     if size == 0 || size > MAX_IMAGE_BYTES {
         return std::ptr::null_mut();
@@ -140,7 +138,6 @@ fn decode(generation: &Generation, data: &[u8], aspect: u32, transparent: bool) 
     })
 }
 
-/// Hand one DCS sixel body (parameters, `q`, data) to this dialect.
 pub fn handle(body: &[u8], canvas: &mut dyn Canvas) {
     let q = body.iter().position(|&b| b == b'q').unwrap_or(body.len());
     let params: Vec<u32> = String::from_utf8_lossy(&body[..q])
@@ -172,7 +169,6 @@ mod tests {
 
     #[test]
     fn decoder_matches_original_raster_and_colour_goldens() {
-        // Hashes and dimensions were captured from the previous Rust decoder.
         let cases: &[(&[u8], u32, u32, u64)] = &[
             (b"q", 1, 12, 12760369135919440133),
             (b"0;1q~", 1, 12, 12760369135919440133),
@@ -279,9 +275,8 @@ mod tests {
 
     #[test]
     fn the_imagemagick_fixture_decodes_exactly() {
-        // ImageMagick's sixel of the 320x160 gradient, live-captured.
         let six = include_bytes!("testdata/gradient-320x160.six");
-        let body = &six[2..six.len() - 2]; // strip ESC P and ST
+        let body = &six[2..six.len() - 2];
         let mut canvas = Record::new();
         handle(body, &mut canvas);
         let pictures = canvas.pictures;
@@ -296,11 +291,6 @@ mod tests {
 
     #[test]
     fn bands_crossing_the_growth_edges_lose_no_rows() {
-        // No raster attribute: bands whose bottoms cross every height
-        // the geometric growth steps through (8, 16, 32, 64, 128 and
-        // 256 rows). The default 2:1 aspect makes one band twelve
-        // device rows; twenty-four bands reach 288 rows, past every
-        // power-of-two step the growth takes.
         let mut body = Vec::new();
         body.extend_from_slice(b"0;1;0q");
         body.extend_from_slice(b"#0;2;255;0;0");
@@ -315,8 +305,6 @@ mod tests {
         let mut canvas = Record::new();
         handle(&body, &mut canvas);
         let picture = &canvas.pictures[0];
-        // The trailing `-` opens a band no code lands in, so the picture
-        // ends at the last drawn band's bottom: twenty-three of them.
         assert_eq!(picture.height, 276);
         assert_eq!(picture.rgba.len(), picture.width as usize * 276 * 4);
         for y in 0..276 {

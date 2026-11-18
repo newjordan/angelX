@@ -15,8 +15,6 @@ use super::campaign::{
     Best, Board, Budget, Campaign, Cloud, Event, Group, Mark, Phase, Point, Quest, Stage,
 };
 
-/// The demo's lineage groups: the documented palette (docs/HEARTGLASS.md)
-/// with each group's cardiac flag, as the test fixtures carry it.
 const GROUPS: [(&str, [u8; 3], bool); 9] = [
     ("myocardium", [255, 64, 88], true),
     ("endocardium", [64, 224, 255], true),
@@ -29,7 +27,6 @@ const GROUPS: [(&str, [u8; 3], bool); 9] = [
     ("other", [200, 200, 210], false),
 ];
 
-/// A small deterministic generator: no clock, no global state.
 struct Rng(u64);
 
 impl Rng {
@@ -49,8 +46,6 @@ impl Rng {
     }
 }
 
-/// A made-up heart-ish stage: a tube of cells bent like a C, `n` of them,
-/// the same shape the reader's tests generate.
 fn tube(label: &str, predicted: bool, board: &str, n: usize, seed: u64) -> Stage {
     let mut rng = Rng(seed | 1);
     let points = (0..n)
@@ -78,7 +73,6 @@ fn tube(label: &str, predicted: bool, board: &str, n: usize, seed: u64) -> Stage
     }
 }
 
-/// The demo cloud: three observed stages growing, one predicted.
 pub(crate) fn cloud() -> Cloud {
     Cloud {
         groups: GROUPS
@@ -97,7 +91,6 @@ pub(crate) fn cloud() -> Cloud {
     }
 }
 
-/// A demo board with an invented rising history ending near `ours`.
 fn board(
     now: i64,
     key: &str,
@@ -160,8 +153,6 @@ fn board(
     }
 }
 
-/// The demo campaign at `now` (Unix seconds): five invented boards, all
-/// above their (invented) 10th-place lines, clearly a demonstration.
 pub(crate) fn campaign(now: i64) -> Campaign {
     Campaign {
         updated: Some(now),

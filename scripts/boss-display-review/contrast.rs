@@ -21,8 +21,6 @@ fn write_floor_contrast() {
             .find(|boss| boss.id == *id)
             .unwrap()
             .clone();
-        // A generated guardian's great hall, with the boss's own pack. The
-        // older display study used a small fight room with its pack replaced.
         run.dungeon = crawl_floor(2, definition.only_in, 17);
         let at = run
             .dungeon
@@ -72,7 +70,6 @@ fn write_floor_contrast() {
             enemy.seen_hp = enemy.hp;
             enemy.dread = if pose == "windup" { 19 } else { 0 };
             assert_eq!(enemy.ring_warning().is_some(), pose == "windup");
-            // Review source materials between the existing rage heat flashes.
             while run.enemies[0].flashing(run.tick) {
                 run.tick += 1;
             }
@@ -87,8 +84,6 @@ fn write_floor_contrast() {
                     "painting changed simulation"
                 );
                 let mut floor = run.clone();
-                // Preserve position and the shaded receiver. Only the body,
-                // its nameplate and warning are hidden for the paired floor.
                 floor.enemies[0].dread = 0;
                 arena::boss_floor_review(|| capture(&dir, &format!("{name}-floor"), &floor, modern));
                 let (vx, vy) = arena::view_origin(&run, Some(1));

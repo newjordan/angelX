@@ -220,9 +220,6 @@ print('network-denied-unix-retained')
     );
     assert!(!allowed.join("reviewer-must-not-write").exists());
 
-    // The parent launcher exits after the managed command reaches readiness.
-    // A delayed write then proves that detached jobs survive parent exit;
-    // killing their owned process group must still reap every descendant.
     let detached_script = r#"
 import pathlib,sys,time
 base=pathlib.Path(sys.argv[1])
@@ -482,8 +479,6 @@ subprocess.run(['/bin/sh','-c','printf child-ok > child-result'], cwd=root, chec
 assert (root/'child-result').read_text() == 'child-ok'
 print('large-workspace-write-and-confinement-ok')
 "#;
-    // Leave backend selection at its ordinary default: discovering external
-    // aliases must select and successfully execute the protected path itself.
     for profile in [
         policy(root.clone(), true),
         policy(root.clone(), false),
@@ -512,8 +507,6 @@ print('large-workspace-write-and-confinement-ok')
             .env("ANGEL_TEST_ROUNDTRIP", "spaces, quotes: \" and Unicode λ")
             .env("ANGEL_TEST_PRELOAD_MARKER", root.join("preload-runs"))
             .env("LD_PRELOAD", &preload);
-        // Mirror SSH's 1,024 soft limit on the GPU hosts without modifying the
-        // multithreaded test runner. Only async-signal-safe libc calls here.
         unsafe {
             worker.pre_exec(|| {
                 let mut limit = libc::rlimit {
@@ -625,17 +618,11 @@ fn sealed_posture_mounts_a_private_writable_tmp() {
         .windows(4)
         .position(|a| a == tmp_mount)
         .expect("the sealed root is a bare tmpfs and must still offer a writable /tmp");
-    // A policy that explicitly grants /tmp must bind host /tmp over ours, so
-    // the private mount has to come first.
     let writable = sealed.iter().position(|arg| arg == "--bind-fd").unwrap();
     assert!(tmp < writable, "private /tmp must precede writable roots");
-    // `--remount-ro /` seals the root afterwards; /tmp is a separate mount and
-    // the remount is not recursive, so it stays writable.
     let seal = sealed.iter().position(|arg| arg == "--remount-ro").unwrap();
     assert!(tmp < seal, "private /tmp must be mounted before the seal");
 
-    // `--ro-bind / /` promises read-all: a private /tmp there would hide the
-    // host's from the payload, so that posture must not gain this mount.
     let permissive = plan(&policy(root, true));
     assert!(
         !permissive.windows(4).any(|a| a == tmp_mount),
@@ -652,8 +639,6 @@ fn sealed_tmp_is_writable_from_a_read_only_cwd_and_is_not_host_tmp() {
     std::fs::create_dir(&root).unwrap();
     let marker = std::env::temp_dir().join(format!("angel-host-tmp-{}", std::process::id()));
     std::fs::write(&marker, "host").unwrap();
-    // `cd /` puts the payload on a read-only cwd: the shape that made gcc
-    // abort once libiberty fell back to "./" for its resolution file.
     let script = format!(
         "set -e; cd /; : > /tmp/probe; test ! -e {}; echo sealed-tmp-ok",
         marker.display()

@@ -14,20 +14,13 @@
 
 use std::time::Duration;
 
-/// How long the cursor shows in one blink.
 pub const ON: Duration = Duration::from_millis(530);
-/// How long the cursor hides in one blink.
 pub const OFF: Duration = Duration::from_millis(530);
-/// How long the cursor stays steady after a key or output, before the
-/// blink resumes.
 pub const PAUSE: Duration = Duration::from_millis(500);
 
-/// The blink, as a clock the window drives with injected time.
 #[derive(Clone, Debug)]
 pub struct CursorBlink {
-    /// When the current on phase began, or will begin after a pause.
     phase_at: Duration,
-    /// Steady (visible, not blinking) until this time.
     steady_until: Duration,
 }
 
@@ -42,19 +35,11 @@ impl CursorBlink {
         Self::default()
     }
 
-    /// A key was typed or output arrived. The cursor stays steady, then
-    /// the blink resumes on the on phase.
     pub fn activity(&mut self, now: Duration) {
         self.steady_until = now.saturating_add(PAUSE);
         self.phase_at = self.steady_until;
     }
 
-    /// Whether the cursor is drawn at `now`.
-    ///
-    /// `blinking` is what the program asked for. `shown` is whether the
-    /// cursor is on the screen (not hidden, not scrolled away). `focused`
-    /// is the window's focus when glass knows it; `None` means it does
-    /// not, and the blink runs.
     pub fn visible(&self, now: Duration, blinking: bool, shown: bool, focused: Option<bool>) -> bool {
         if !shown {
             return false;
@@ -65,10 +50,6 @@ impl CursorBlink {
         self.on_at(now)
     }
 
-    /// How long until the next change in what [`Self::visible`] returns,
-    /// when the loop should wake for a blink edge. `None` unless the
-    /// cursor is shown and blinking and the window is not known to be
-    /// unfocused — the loop does not wake for a blink otherwise.
     pub fn next_wake(
         &self,
         now: Duration,
@@ -80,8 +61,6 @@ impl CursorBlink {
             return None;
         }
         if now < self.steady_until {
-            // Steady through the pause, then the resumed on phase. The
-            // next change is the off edge, not the end of the pause.
             return Some(self.steady_until.saturating_add(ON).saturating_sub(now));
         }
         let elapsed = now.saturating_sub(self.phase_at).as_millis();
@@ -128,17 +107,12 @@ mod tests {
     fn activity_holds_steady_then_resumes_on() {
         let mut blink = CursorBlink::new();
         blink.activity(ms(200));
-        // Off phase of the old cycle would have been 530; activity holds it.
         assert!(blink.visible(ms(400), true, true, Some(true)));
         assert!(blink.visible(ms(699), true, true, Some(true)));
-        // Pause ends at 700; the on phase runs another 530 ms.
         assert!(blink.visible(ms(700), true, true, Some(true)));
         assert!(blink.visible(ms(1229), true, true, Some(true)));
         assert!(!blink.visible(ms(1230), true, true, Some(true)));
-        // The wake is the off edge, not the end of the pause (no redraw
-        // while it stays visible).
         assert_eq!(blink.next_wake(ms(200), true, true, Some(true)), Some(ms(1030)));
-        // A second key restarts the pause.
         blink.activity(ms(800));
         assert!(blink.visible(ms(1299), true, true, Some(true)));
         assert!(!blink.visible(ms(800 + 500 + 530), true, true, Some(true)));
@@ -149,7 +123,6 @@ mod tests {
         let blink = CursorBlink::new();
         assert!(blink.visible(ms(800), true, true, Some(false)));
         assert!(blink.next_wake(ms(800), true, true, Some(false)).is_none());
-        // Unknown focus still blinks: glass only holds still when it knows.
         assert!(!blink.visible(ms(800), true, true, None));
         assert!(blink.next_wake(ms(800), true, true, None).is_some());
     }

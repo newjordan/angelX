@@ -18,8 +18,6 @@ fn classifies_common_paths() {
 
 #[test]
 fn parse_porcelain_and_renames() {
-    // Build porcelain without `\` line continuations (they strip leading
-    // whitespace and would collapse ` M` into `M `).
     let porc = [
         "M  staged.rs",
         " M unstaged.rs",

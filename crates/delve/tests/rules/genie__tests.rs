@@ -8,7 +8,6 @@ fn cast(n: u8) -> Input {
     Input { cast: n, ..Default::default() }
 }
 
-/// A run whose knight 1 holds `plain` wishes and `great` super ones.
 fn holding(plain: u8, great: u8) -> Run {
     let mut run = Run::new(4, 2, Some("Matt"));
     let hero = run.players.get_mut(&1).unwrap();
@@ -36,8 +35,6 @@ fn the_scrolls_choices_are_the_same_for_the_same_seed_and_stay_on_the_ladder() {
                 let w = phrasebook::get(choice.wish.as_deref().unwrap()).unwrap();
                 let tier = w.next_tier(&a.players[&1].deck).unwrap();
                 let top = (tier + usize::from(choice.steps)).min(w.tiers.len()) - 1;
-                // Every card a choice can grant is a tier of the ladder the
-                // card checker passed.
                 for t in tier..=top {
                     assert!(w.card(t).is_ok(), "{} tier {t}", w.id);
                 }
@@ -79,7 +76,6 @@ fn a_seed_changes_the_genies_mind_and_every_pick_stays_under_the_wish_caps() {
 #[test]
 fn each_pick_seals_what_it_says() {
     let volley = phrasebook::get("volley").unwrap();
-    // As you said: one step, the knight's wish spent.
     let mut run = holding(2, 0);
     run.offer_wish(1, "volley", Some(&volley)).unwrap();
     run.choose(1, 0).unwrap();
@@ -87,7 +83,6 @@ fn each_pick_seals_what_it_says() {
     assert_eq!(run.players[&1].wishes, 1);
     assert!(run.players[&1].offer.is_none());
 
-    // Bolder: two steps, for a third of the knight's health.
     let mut run = holding(1, 0);
     let (hp, max) = (run.players[&1].hp, run.players[&1].max_hp);
     run.offer_wish(1, "volley", Some(&volley)).unwrap();
@@ -105,7 +100,6 @@ fn each_pick_seals_what_it_says() {
     }
     assert_eq!(run.players[&1].wishes, 0);
 
-    // The genie's deal: the wish, and his tip; the gauge stays where it was.
     let mut run = holding(1, 0);
     run.offer_wish(1, "volley", Some(&volley)).unwrap();
     let deal = run.players[&1].offer.clone().unwrap().choices[2].clone();
@@ -122,13 +116,10 @@ fn each_pick_seals_what_it_says() {
     }
     assert_eq!(run.genie.freedom, 0, "his deal fills none of his freedom");
 
-    // Esc rolls it up: nothing spent.
     let mut run = holding(1, 0);
     run.offer_wish(1, "volley", Some(&volley)).unwrap();
     assert!(run.drop_offer(1));
     assert_eq!(run.players[&1].wishes, 1);
-    // A super wish with no step past two (tier III is a teacher's): save
-    // some, one step now and a plain wish kept.
     let mut run = holding(0, 1);
     run.offer_wish(1, "volley", Some(&volley)).unwrap();
     let offer = run.players[&1].offer.clone().unwrap();
@@ -147,7 +138,6 @@ fn the_number_keys_pick_on_the_scroll_and_cast_nothing_while_held() {
     run.step(&press(1, cast(1)));
     assert!(run.players[&1].offer.is_none(), "1 picked");
     assert!(run.players[&1].deck.contains(&volley.card_id(0)));
-    // Still held: taken by the scroll, not a spell.
     let held = press(1, cast(1));
     let out = run.offer_inputs(&held).unwrap_or(held);
     assert_eq!(out[&1].cast, 0);
@@ -157,7 +147,6 @@ fn the_number_keys_pick_on_the_scroll_and_cast_nothing_while_held() {
     let again = press(1, cast(1));
     let out = run.offer_inputs(&again).unwrap_or(again);
     assert_eq!(out[&1].cast, 1, "let go and pressed again: the spell key again");
-    // The menu key rolls a scroll up, for its own knight only.
     run.join_seat(2, "Ada");
     run.players.get_mut(&2).unwrap().wishes = 1;
     run.offer_wish(1, "volley", Some(&volley)).unwrap();
@@ -180,7 +169,6 @@ fn the_gauge_fills_by_grade_and_tier_and_a_super_wish_counts_double() {
     let mut run = holding(1, 1);
     run.offer_wish(1, "volley", Some(&volley)).unwrap();
     run.choose(1, 0).unwrap();
-    // A super wish: two steps, to tier II, doubled.
     assert_eq!(run.genie.freedom, genie::freedom_of(None, 1, true));
     let mut run = holding(1, 0);
     run.offer_wish(1, "volley", Some(&volley)).unwrap();
@@ -233,7 +221,6 @@ fn a_save_keeps_the_gauge_the_freed_genie_and_an_open_scroll_and_old_saves_load(
     let back: Run = serde_json::from_value(saved.clone()).unwrap();
     assert_eq!(back.genie, run.genie);
     assert_eq!(back.players[&1].offer, run.players[&1].offer);
-    // A save from before the genie: no gauge, no scroll, and it loads.
     let mut old = saved;
     old.as_object_mut().unwrap().remove("genie");
     for hero in old["players"].as_object_mut().unwrap().values_mut() {
@@ -242,15 +229,12 @@ fn a_save_keeps_the_gauge_the_freed_genie_and_an_open_scroll_and_old_saves_load(
     let back: Run = serde_json::from_value(old).unwrap();
     assert!(back.genie.quiet());
     assert!(back.players[&1].offer.is_none());
-    // An untouched genie changes nothing on the wire.
     let quiet = holding(2, 0);
     assert!(!serde_json::to_string(&quiet).unwrap().contains("\"genie\""));
 }
 
 #[test]
 fn a_wish_on_unknown_words_survives_the_save_and_the_grant_still_lands() {
-    // A plain wish, and a super one. Both are spent at the scroll and wait
-    // in the save for the host to teach them; a restart must not lose either.
     let mut freedoms = [0u32; 2];
     for (i, (plain, great)) in [(1u8, 0u8), (0, 1)].into_iter().enumerate() {
         let mut run = holding(plain, great);
@@ -270,8 +254,6 @@ fn a_wish_on_unknown_words_survives_the_save_and_the_grant_still_lands() {
         assert_eq!(back.asked, run.asked, "a restart still has the words to teach");
         assert_eq!(back.players[&1].wishes, 0, "the wish stays spent until it lands");
         assert_eq!(back.players[&1].great_wishes, 0);
-        // The host's angelX has written the words: the grant lands on the
-        // restored run, sealed as the choice that was saved.
         let wish = phrasebook::get("volley").unwrap();
         let asked = back.asked.remove(0);
         let name = back.grant(asked.knight, &wish).unwrap();
@@ -311,8 +293,6 @@ fn knight_notice(events: &[crate::wire::Event], id: u32) -> String {
         .join("\n")
 }
 
-/// A known spell wish the scroll cannot grant (every slot taken) spends
-/// nothing, and the knight who wished hears why on their own screen.
 #[test]
 fn a_refused_spell_wish_tells_the_knight_why() {
     let mut run = holding(1, 0);
@@ -334,9 +314,6 @@ fn a_refused_spell_wish_tells_the_knight_why() {
     );
 }
 
-/// A super wish's first step lands; the next cannot (the book is full).
-/// The step that did not go through comes back as a plain wish, and the
-/// knight hears why.
 #[test]
 fn a_second_step_that_cannot_land_gives_the_wish_back_and_says_why() {
     let mut run = holding(0, 1);
@@ -416,7 +393,6 @@ fn picking_a_wish_upgrade_offers_then_grants_one_next_tier_for_one_wish() {
 #[test]
 fn wish_upgrades_disable_full_ladders_and_every_pick_without_a_wish() {
     let mut run = holding(1, 0);
-    // Deep enough for a ladder's fifth (`overclass::top_tier`).
     run.dungeon.depth = crate::rules::FLOORS;
     let wish = phrasebook::get("firebolt").unwrap();
     for _ in &wish.tiers {
@@ -456,23 +432,16 @@ fn learned_wish_upgrade_lines_survive_a_save_without_a_local_phrasebook_entry() 
     assert_eq!(restored.upgrades(1), run.upgrades(1), "the host restores missing ladder text");
 }
 
-/// The numeral a choice's line says it grants for `name`: "Ricochet IV",
-/// "Ricochet V + 30 gold", "Ricochet III, and keep a wish".
 fn numeral_in(gives: &str, name: &str) -> usize {
     let after = gives.strip_prefix(name).unwrap_or_else(|| panic!("{gives} is {name}")).trim_start();
     let numeral: String = after.chars().take_while(|c| matches!(c, 'I' | 'V')).collect();
     ["I", "II", "III", "IV", "V"].iter().position(|n| *n == numeral).unwrap_or_else(|| panic!("{gives}"))
 }
 
-/// The tier (from 0) knight 1 holds of `wish`, if any.
 fn held_tier(run: &Run, wish: &phrasebook::Wish) -> Option<usize> {
     (0..wish.tiers.len()).rev().find(|&t| run.players[&1].deck.contains(&wish.card_id(t)))
 }
 
-/// The scroll offers what the grant gives, on every floor: each choice's
-/// line names the tier its pick lands, a ladder's fourth and fifth only
-/// deep enough down (`overclass::top_tier`), and Bolder and a super wish
-/// reach the fifth there. A ladder at its floor's top is not offered.
 #[test]
 fn the_scroll_offers_what_the_grant_gives_up_to_the_fifth_on_every_floor() {
     let heavy = phrasebook::get("heavy").unwrap();
@@ -517,9 +486,6 @@ fn the_scroll_offers_what_the_grant_gives_up_to_the_fifth_on_every_floor() {
     assert_eq!(reached_five.len(), 2, "Bolder and a super wish both reach V: {reached_five:?}");
 }
 
-/// A super wish one step from its floor's top lands that step and gives a
-/// plain wish back, as at a ladder's top; on the floor below the fifth it
-/// waits, and Dragon Keep's floor gives it.
 #[test]
 fn a_super_wish_at_its_floors_top_keeps_a_plain_wish_and_the_fifth_waits_for_the_deep() {
     let ricochet = phrasebook::get("ricochet").unwrap();
@@ -549,8 +515,6 @@ fn a_super_wish_at_its_floors_top_keeps_a_plain_wish_and_the_fifth_waits_for_the
     assert!(run.genie.last.as_ref().is_some_and(|s| s.cheer && s.line.ends_with("Ricochet V")), "the ladder's top: he cheers");
 }
 
-/// The gauge counts the tier a wish reached, the fifth the most, and never
-/// past its whole.
 #[test]
 fn the_freedom_gauge_counts_the_fifth_and_stays_whole() {
     use artistry::Grade;
@@ -574,9 +538,6 @@ fn the_freedom_gauge_counts_the_fifth_and_stays_whole() {
     assert!(run.genie.ready(), "a deep delve's great wishes fill it");
 }
 
-/// An old save's learned wish, written to three tiers and held at its
-/// third with the scroll open on it, loads, keeps its open offer as it was
-/// captured, and climbs on to the fifth from the same phrasebook text.
 #[test]
 fn an_old_saves_three_tier_learned_wish_loads_and_climbs_to_the_fifth() {
     let text = format!(
@@ -587,7 +548,6 @@ draw shot\n.2.......jW.\n22ooooooojWW\n.2.......jW.\n",
     );
     let climbed = phrasebook::read(&text).remove(0);
     assert_eq!(climbed.tiers.len(), 5);
-    // The ladder as the save knew it: three tiers, captured whole.
     let old = climbed.written();
     let mut run = holding(3, 0);
     run.dungeon.depth = crate::rules::FLOORS;
@@ -596,13 +556,11 @@ draw shot\n.2.......jW.\n22ooooooojWW\n.2.......jW.\n",
     run.offer_wish(1, &old.name, Some(&old)).unwrap();
     assert_eq!(run.ladders["bigger-arrows"].1.len(), 3);
     let saved = serde_json::to_value(&run).unwrap();
-    // Loaded where the workspace's phrasebook has the same three tiers.
     let _book = phrasebook::scoped(phrasebook::prepare_scoped(text.clone(), Vec::new()));
     let mut back: Run = serde_json::from_value(saved).expect("old saves still load");
     crate::rules::scrolls::validate_run(&back).expect("its open scroll is still its own");
     back.choose(1, 0).unwrap();
     assert_eq!(held_tier(&back, &climbed), Some(2), "the open scroll grants what it offered");
-    // The host refreshes the ladder text it carries for every seat.
     back.remember_ladders(&phrasebook::book());
     assert_eq!(back.ladders["bigger-arrows"].1.len(), 5);
     let up = back.upgrades(1).into_iter().find(|u| u.name == "Bigger Arrows").unwrap();
@@ -622,9 +580,6 @@ draw shot\n.2.......jW.\n22ooooooojWW\n.2.......jW.\n",
     assert!(back.upgrades(1).iter().any(|u| u.name == "Bigger Arrows" && u.next.is_none()));
 }
 
-/// A fairy wish spent through the scroll on a new wish lands three steps
-/// up, at its third tier of five, Legendary; the fourth and fifth are
-/// still to climb.
 #[test]
 fn a_fairy_wish_through_the_scroll_lands_at_the_third_of_five_legendary() {
     let breastplate = phrasebook::get("breastplate").unwrap();
@@ -641,11 +596,6 @@ fn a_fairy_wish_through_the_scroll_lands_at_the_third_of_five_legendary() {
     assert_eq!(run.upgrades(1).iter().find(|u| u.name == "Breastplate").and_then(|u| u.next), Some(3));
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_wish_tier_shots -- --ignored`:
-/// the scroll deep enough down for the fifth (As you said IV, Bolder V),
-/// its seal at the top, five knights in a row wearing a Great Helm and a
-/// Breastplate at tiers I to V with a Firebolt V on the bar, and the card
-/// pictures of three ladders at every tier, the fourth and fifth framed.
 #[test]
 #[ignore]
 fn write_wish_tier_shots() {
@@ -664,7 +614,6 @@ fn write_wish_tier_shots() {
         img
     };
     let ricochet = phrasebook::get("ricochet").unwrap();
-    // The scroll, on Dragon Keep's floor, a knight at Ricochet III.
     let mut bolder = (0..32u64)
         .find_map(|seed| {
             let mut run = Run::new(seed, 2, Some("Matt"));
@@ -690,7 +639,6 @@ fn write_wish_tier_shots() {
     sealed.choose(1, n).unwrap();
     sealed.step(&BTreeMap::new());
     save(&frame(&sealed), "b-sealed-ricochet-v");
-    // Five knights, tiers I to V of the same two pieces, and a Firebolt V.
     let mut run = Run::new(7, 3, Some("One"));
     run.dungeon.depth = crate::rules::FLOORS;
     for id in 2..=5 {
@@ -722,7 +670,6 @@ fn write_wish_tier_shots() {
         }
     }
     save(&frame(&run), "c-knights-tier-i-to-v");
-    // The cards' pictures, I to V, four times their size.
     let ladders = ["ricochet", "firebolt", "great-helm"];
     let (cell, k) = (22, 4);
     let mut sheet = crate::render::overworld::ink::Img::new(5 * cell * k, ladders.len() as i32 * cell * k);

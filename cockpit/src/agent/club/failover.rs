@@ -9,31 +9,14 @@ pub(crate) use preferences::{baseline_preferences, test_preferences};
 
 type GatedClub = (Arc<dyn Club>, Option<Arc<AtomicBool>>);
 
-// ---------------------------------------------------------------------------
-// Bag — a set of clubs with one in hand
-// ---------------------------------------------------------------------------
-
-/// An ordered failover chain of clubs. Tries the primary; if it errors *before
-/// emitting any output* (endpoint down, connect timeout, a fatal status like a
-/// key-less 401), it transparently falls through to the next club — the eager
-/// failover Hermes ships — so one dead endpoint doesn't sink the turn. A stream
-/// that has already emitted tokens can't be replayed, so a mid-stream failure
-/// surfaces as-is; a user cancel is honored immediately and never treated as a
-/// failure to route around. Reports the primary's label so the UI is unchanged.
 pub struct FallbackClub {
     label: String,
     chain: Vec<Arc<dyn Club>>,
-    /// Index-parallel to `chain`: the prober-maintained availability bit for
-    /// links that have one (`None` = always try). A dead LAN box used to cost
-    /// its full connect-timeout × retries inside the chain walk even though the
-    /// prober already knew it was down (refreshed every ~5s for free).
     gates: Vec<Option<Arc<AtomicBool>>>,
     resolved: Mutex<Option<RouteIdentity>>,
 }
 
 impl FallbackClub {
-    /// Ungated chain — every link is always tried. Production builds the gated
-    /// form via [`Self::with_gates`]; tests exercising pure walk order use this.
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn new(chain: Vec<Arc<dyn Club>>) -> Self {
         let gates = vec![None; chain.len()];
@@ -54,10 +37,6 @@ impl FallbackClub {
         }
     }
 
-    /// The chain filtered by live availability bits. If the prober currently
-    /// marks *everything* down (a stale sweep, a cold start), fall back to the
-    /// whole chain — the bits are an optimization, never a brick. This is the
-    /// oracle the `seat-order` leg is checked against: test builds only.
     #[cfg(test)]
     fn live_chain(&self) -> Vec<&Arc<dyn Club>> {
         let live: Vec<&Arc<dyn Club>> = self
@@ -74,7 +53,6 @@ impl FallbackClub {
         }
     }
 
-    /// The leg's parity oracle: test builds only.
     #[cfg(test)]
     fn compatible_chat_chain(
         &self,
@@ -110,17 +88,12 @@ impl FallbackClub {
         }
     }
 
-    /// The per-link features a walk decision is made from: gate presence and
-    /// position, and the detected metadata `compatible_chat_chain` consults.
     fn walk_input(
         &self,
         chat: bool,
         messages: &[ChatMsg],
         tools: &[ToolDef],
     ) -> serde_json::Value {
-        // Only the links this walk can reach are worth a probe, exactly as
-        // before: an unreachable link reports whatever is already cached, so a
-        // shut gate costs nothing and the native read pattern is unchanged.
         let open: Vec<bool> = (0..self.chain.len())
             .map(|index| {
                 self.gates
@@ -165,10 +138,6 @@ impl FallbackClub {
         })
     }
 
-    /// The chain positions this walk will attempt, as decided by the
-    /// `seat-order` leg (newest live generation, else the shipped one): a
-    /// generation that names an attempt outside the chain, or out of order,
-    /// keeps the shipped walk.
     fn walk_plan(
         &self,
         chat: bool,
@@ -178,8 +147,6 @@ impl FallbackClub {
         self.walk_plan_decided(chat, messages, tools).0
     }
 
-    /// The same decision with its source, so a test can see which generation
-    /// answered when no live one was offered.
     fn walk_plan_decided(
         &self,
         chat: bool,
@@ -196,16 +163,12 @@ impl FallbackClub {
         (plan.plan, source)
     }
 
-    /// The plan's club handles, for the walk and its transition notes.
     fn plan_chain(&self, plan: &[usize]) -> Vec<&Arc<dyn Club>> {
         plan.iter()
             .filter_map(|&index| self.chain.get(index))
             .collect()
     }
 
-    /// A failed attempt: note the transition and ask the `seat-order` leg which
-    /// link is next. `abort` carries the attempt's own error back untouched —
-    /// the stream already spoke, or the user cancelled.
     fn after_failure<E>(
         &self,
         chain: &[&Arc<dyn Club>],
@@ -217,8 +180,6 @@ impl FallbackClub {
     ) -> Walk<E> {
         let decided = self.next_step(step, chain.len(), streaming, emitted, cancelled);
         if decided.abort {
-            // A partially streamed reply or a cancel surfaces this attempt's own
-            // error, unprefixed: it is not a chain failure to route around.
             return Walk::Stop(Err(failure));
         }
         Self::note_transition(chain, step, &failure);
@@ -233,7 +194,6 @@ impl FallbackClub {
         }
     }
 
-    /// Today's walk, unchanged, as the leg's parity oracle: test builds only.
     #[cfg(test)]
     fn walk_plan_native(
         &self,
@@ -256,11 +216,6 @@ impl FallbackClub {
             .collect()
     }
 
-    /// Which link to try after a failure, as decided by the `seat-order` leg:
-    /// continue with `next`, stop and report the last failure, or abort the
-    /// attempt's own error because the stream already spoke or the user
-    /// cancelled. A generation that does not move forward inside the plan keeps
-    /// the shipped step.
     fn next_step(
         &self,
         step: usize,
@@ -301,14 +256,10 @@ impl Club for FallbackClub {
         &self.label
     }
 
-    /// Per-club knobs address the primary, for the same reason its metadata is
-    /// the one reported: it is the club that answers unless the chain moves.
     fn env_namespace(&self) -> Option<&str> {
         self.chain.first().and_then(|c| c.env_namespace())
     }
 
-    /// Report the primary's metadata — compaction budgets against whichever club
-    /// would actually answer first, and the UI label is already the primary's.
     fn metadata(&self) -> Option<Metadata> {
         self.chain.first().and_then(|c| c.metadata())
     }
@@ -332,10 +283,6 @@ impl Club for FallbackClub {
             .unwrap_or(&[])
     }
 
-    /// Validate the effort on the primary first; only if it accepts
-    /// (returns Some) broadcast that canonical value to every remaining chain
-    /// member. A rejection anywhere else is ignored — members keep their own
-    /// state and only the primary's answer is authoritative.
     fn set_reasoning_effort(&self, requested: &str) -> Option<String> {
         let canonical = self.chain.first()?.set_reasoning_effort(requested)?;
         for club in self.chain.iter().skip(1) {
@@ -437,9 +384,6 @@ impl Club for FallbackClub {
         last
     }
 
-    /// Mirror of [`Club::chat`] threading a seat's per-call effort request to
-    /// whichever chain member actually answers — a failed-over seat keeps its
-    /// roster effort instead of silently reverting to the member's own state.
     fn chat_with_effort(
         &self,
         messages: &[ChatMsg],
@@ -508,8 +452,6 @@ impl Club for FallbackClub {
             let club = chain[step];
             let mut emitted = false;
             let mut wrapped = |d: StreamDelta| {
-                // Only visible content counts as a committed partial reply (a club
-                // that streamed only reasoning then failed can still fall through).
                 if matches!(d, StreamDelta::Content(_)) {
                     emitted = true;
                 }
@@ -521,8 +463,6 @@ impl Club for FallbackClub {
                     return Ok(v);
                 }
                 Err(e) => {
-                    // A partially-streamed reply can't be replayed onto the next
-                    // club, and a cancel isn't a failure worth routing around.
                     let cancelled = cancel.load(Ordering::Relaxed);
                     match self.after_failure(&chain, step, e, true, emitted, cancelled) {
                         Walk::Retry { error, next } => {
@@ -619,10 +559,6 @@ impl Club for FallbackClub {
     }
 }
 
-// Baseline intelligence and cheap-profile orders live in one versioned
-// preference generation. Native validation permits reordering only, so the
-// cheap pool and its explicit spend boundary cannot grow through an override.
-
 fn cheap_link_allowed(entry: &(String, Arc<dyn Club>, Arc<AtomicBool>)) -> bool {
     let Ok(raw) = std::env::var("ANGEL_SOTA_MOA_CHEAP_LINKS") else {
         return true;
@@ -651,16 +587,13 @@ fn link_matches(entry: &(String, Arc<dyn Club>, Arc<AtomicBool>), wanted: &str) 
             .is_some_and(|model| model.eq_ignore_ascii_case(wanted))
 }
 
-/// The live policy leg that seats links and steps the failover walk.
 const SEAT_ORDER_LEG: &str = "seat-order";
 
-/// The seating/walk decision the `seat-order` leg returns: link positions.
 #[derive(Clone, serde::Deserialize)]
 struct SeatPlan {
     plan: Vec<usize>,
 }
 
-/// One after-failure step, decided by the `seat-order` leg.
 #[derive(Clone, serde::Deserialize)]
 struct AdvanceStep {
     proceed: bool,
@@ -668,19 +601,14 @@ struct AdvanceStep {
     abort: bool,
 }
 
-/// What a failed attempt means for the chain walk.
 enum Walk<E> {
-    /// Try the link at `next`; `error` is what the chain reports if nothing else answers.
     Retry {
         error: Result<E, String>,
         next: usize,
     },
-    /// Stop the walk and surface `error`: the chain is exhausted, the stream
-    /// already spoke, or the user cancelled.
     Stop(Result<E, String>),
 }
 
-/// The context a chat's tool schemas and messages owe the model, in tokens.
 fn required_tokens(messages: &[ChatMsg], tools: &[ToolDef]) -> usize {
     messages
         .iter()
@@ -696,8 +624,6 @@ fn required_tokens(messages: &[ChatMsg], tools: &[ToolDef]) -> usize {
             .sum::<usize>()
 }
 
-/// What a loaded generation may return: positions inside the chain, once each,
-/// and in walk order when the decision is a plan.
 fn seat_plan_check(plan: &Vec<usize>, limit: usize, ordered: bool) -> Result<(), String> {
     let mut previous = None;
     for (position, &index) in plan.iter().enumerate() {
@@ -726,10 +652,6 @@ fn advance_check(decision: &AdvanceStep, step: usize, plan_len: usize) -> Result
     Ok(())
 }
 
-/// The per-link features a seating decision is made from. Both text questions
-/// stay here: which cheap-order slots a link matches, and whether the allowlist
-/// admits it. Links sharing an alias share a group id, which is the seating's
-/// case-insensitive de-duplication.
 #[cfg(test)]
 const SOTA_MOA_CHEAP_FALLBACK_ORDER: &[&str] = &[
     "deepseek-v4-flash",
@@ -787,10 +709,6 @@ fn seat_order_input_with(links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)], pre
     })
 }
 
-/// The cheap-profile seating, decided by the `seat-order` leg. Rust keeps the
-/// club objects, their availability gates and the two text questions (which
-/// cheap-order slots a link's alias/label/live model name matches, and whether
-/// the allowlist admits it); the leg owns the order and the de-duplication.
 pub(crate) fn ordered_cheap_links(
     links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
 ) -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> {
@@ -816,8 +734,6 @@ fn ordered_cheap_links_with(
         .collect()
 }
 
-/// Today's seating as chain positions, which is what the leg returns: the
-/// parity oracle for [`ordered_cheap_links`], test builds only.
 #[cfg(test)]
 fn ordered_cheap_plan_native(links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)]) -> Vec<usize> {
     let mut ordered: Vec<usize> = Vec::new();
@@ -870,9 +786,6 @@ fn cheap_role_with_fallbacks(
     Arc::new(FallbackClub::with_gates(chain, gates))
 }
 
-/// Configured proposer-only seats requested for SOTA-MoA breadth
-/// (`ANGEL_SOTA_MOA_EXTRA_PROPOSERS`, off by default). Explicit seats still obey
-/// provider opt-in and the cheap allowlist.
 pub(crate) fn extra_sota_proposers(
     links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
 ) -> Vec<GatedClub> {
@@ -944,8 +857,6 @@ pub(crate) fn pick_sota_role<T: AsRef<str>>(
     Arc::clone(&links[0].1)
 }
 
-/// Build the SOTA wrapper over the configured links: the smartest-first
-/// formation and its failover order, or the explicit `cheap` cost profile.
 pub(crate) fn sota_moa_club(
     links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
 ) -> Option<Arc<dyn Club>> {
@@ -1006,9 +917,6 @@ pub(crate) fn sota_moa_club(
             pick_sota_role(links, "ANGEL_SOTA_MOA_AGG_CLUB", &preferences.standard),
         )
     };
-    // Normal mode carries every configured SOTA link in intelligence order.
-    // Cheap mode carries only its bounded Gemma/OpenRouter/LongCat pool, so a
-    // failed free route cannot silently escalate into frontier/token-plan spend.
     let fallbacks = sota_moa_fallbacks(cheap, &role_links, links);
     if fallbacks.is_empty() && env_flag("ANGEL_SOTA_MOA_STRICT_ROUTES", false) {
         eprintln!(
@@ -1042,9 +950,6 @@ pub(crate) fn sota_moa_club(
     ))
 }
 
-/// Build the stage failover bench. Strict routes are an evaluator/campaign
-/// contract: a failed assigned seat must surface as a failure instead of being
-/// credited to another provider or model behind the same logical formation.
 pub(crate) fn sota_moa_fallbacks(
     cheap: bool,
     role_links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],

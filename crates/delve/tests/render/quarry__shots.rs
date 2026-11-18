@@ -31,8 +31,6 @@ fn swinging() -> BTreeMap<u32, Input> {
     BTreeMap::from([(1, Input { swing: true, move_x: 0, aim_x: 1, ..Default::default() })])
 }
 
-/// A floor of `pack` at `depth` with a seam in a cleared, open room, the
-/// knight standing `from` units left of it.
 fn face_run(pack: Pack, depth: u32, from: f32) -> (Run, Deposit) {
     let mut run = Run::new(511, 7, None);
     run.first = if pack == Pack::Crypt { Pack::Crypt } else { Pack::Cavern };
@@ -47,7 +45,6 @@ fn face_run(pack: Pack, depth: u32, from: f32) -> (Run, Deposit) {
     run.dungeon.rooms[room].cleared = true;
     run.phase = Phase::Exploring;
     run.calm_for_test();
-    // A review arena with no incidental obstacles, as the claim fixtures have.
     for y in 1..run.room().rows - 1 {
         for x in 1..run.room().cols - 1 {
             if matches!(run.room().tile(x as i32, y as i32), layout::Tile::Block | layout::Tile::Hazard | layout::Tile::Bog) {
@@ -60,12 +57,10 @@ fn face_run(pack: Pack, depth: u32, from: f32) -> (Run, Deposit) {
     (h.x, h.y) = (d.x - from, d.y + 1.0);
     h.aim_x = 1.0;
     h.aim_y = 0.0;
-    // The proof is of the stone, not of the fights: the knight is not hurt.
     h.invulnerable = HZ * 600;
     (run, d)
 }
 
-/// A seam the party has won and put a mine on, its sentries down.
 fn won_face(pack: Pack, depth: u32, from: f32) -> (Run, Deposit) {
     let (mut run, d) = face_run(pack, depth, from);
     run.step(&BTreeMap::new());
@@ -78,7 +73,6 @@ fn won_face(pack: Pack, depth: u32, from: f32) -> (Run, Deposit) {
     (run, d)
 }
 
-/// Win the seam and put a mine on it, finished, so its camp works the face.
 fn win_and_work(run: &mut Run, d: &Deposit) {
     run.discover_frontier_claim(d);
     run.home.industry.secure(&d.id);
@@ -92,8 +86,6 @@ fn win_and_work(run: &mut Run, d: &Deposit) {
             break;
         }
     }
-    // The proof is of the camp, not of how fast builders are: a mine that is
-    // still going up is finished for the picture.
     for b in k.buildings.values_mut() {
         b.construction = 0;
     }
@@ -106,7 +98,6 @@ fn win_and_work(run: &mut Run, d: &Deposit) {
 fn write_quarry_proof() {
     let dest = out();
     let mut log = String::new();
-    // ── A rock face on every pack's floor, won and worked ────────────────
     for (name, pack, depth) in [
         ("mines-limestone", Pack::Cavern, 3u32),
         ("crypt-flint", Pack::Crypt, 1),
@@ -125,8 +116,6 @@ fn write_quarry_proof() {
             frame(run, &dir, *n);
             *n += 1;
         };
-        // The party comes up to a seam it has not won: its name, what it is
-        // good for, and what holds it.
         let to = |run: &Run| (run.players[&1].x - d.x).hypot(run.players[&1].y - d.y);
         let toward = |run: &Run| if run.players[&1].x < d.x { 1 } else { -1 };
         let mut t = 0;
@@ -143,7 +132,6 @@ fn write_quarry_proof() {
                 shoot(&run, &mut n);
             }
         }
-        // The sentries and the guardian fall; the seam is won and a mine put on it.
         for e in &mut run.enemies {
             e.hp = 0;
         }
@@ -152,7 +140,6 @@ fn write_quarry_proof() {
         win_and_work(&mut run, &d);
         let seam = d.seam;
         log += &format!("{name}: {} on floor {depth}, yields {:?}, cut at {}/shift\n", seam.name(), seam.yields(), seam.rate());
-        // Up to the face, then swings until a block parts, then away with it.
         let mut t = 0;
         while to(&run) > 2.6 && t < 200 {
             run.step(&walk(toward(&run), 0));
@@ -178,7 +165,6 @@ fn write_quarry_proof() {
         }
     }
 
-    // ── The block, from the face to the stockyard ────────────────────────
     let (mut run, d) = won_face(Pack::Cavern, 3, 2.0);
     let free = run.ground_pace_of(1).unwrap();
     let dir = dest.join("carry");
@@ -191,7 +177,6 @@ fn write_quarry_proof() {
         }
     }
     assert_eq!(run.block_of(1), Some("limestone"));
-    // Slowly, with the block on his back, away from the face.
     let x0 = run.players[&1].x;
     for t in 0..40 {
         run.step(&walk(-1, 0));
@@ -202,7 +187,6 @@ fn write_quarry_proof() {
     }
     let moved = x0 - run.players[&1].x;
     log += &format!("carry: 40 ticks with a block walked {moved:.2} units; free pace {free:.3}, loaded {:.3}\n", run.ground_pace_of(1).unwrap());
-    // The stair, then the surface and the yard.
     let block = run.players[&1].block.clone();
     let mut up = Run::at_home(41, 1, None, Default::default(), Default::default());
     up.walk_kingdom(Some(crate::world::wishes::delve_stand()));
@@ -232,7 +216,6 @@ fn write_quarry_proof() {
     log += &format!("yard: {:?} after the carry, hauled {}\n", up.home.stockyard.stone, up.home.stockyard.hauled);
     assert_eq!(up.home.stockyard.count("limestone"), 1, "{log}");
 
-    // ── The shaft head at each tier, a knight at the winch ───────────────
     let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
     run.walk_kingdom(Some(crate::world::wishes::delve_stand()));
     run.home.industry.start(catalog());
@@ -263,7 +246,6 @@ fn write_quarry_proof() {
         log += &format!("shaft: {} lifts {} a minute, the yard holds {}\n", tier.name(), tier.throughput(), tier.capacity());
     }
 
-    // ── The field guide, a page for each stone ───────────────────────────
     let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
     run.walk_kingdom(Some(crate::world::kingdom::keep_stand()));
     run.step(&BTreeMap::from([(1, Input { cast: 4, ..Default::default() })]));
@@ -274,12 +256,10 @@ fn write_quarry_proof() {
         frame(&run, &dest.join("guide"), sel);
     }
 
-    // ── Saved and reloaded: the same picture, the same yard ──────────────
     let (mut run, d) = won_face(Pack::Crypt, 2, 2.0);
     for _ in 0..80 {
         run.step(&swinging());
     }
-    // Let the swing's own flourish (a checkpoint does not keep it) pass.
     for _ in 0..60 {
         run.step(&BTreeMap::new());
     }

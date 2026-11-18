@@ -130,9 +130,6 @@ impl App {
     }
 }
 
-/// Folder arguments name folders in the session's workspace, not wherever the
-/// cockpit process happens to stand: `check`, `link` and `submit` take the
-/// workspace itself when given none, `new <id>` makes `<workspace>/<id>`.
 pub(crate) fn anchor_folders(words: &mut Vec<String>, workspace: &Path) {
     let Some(command) = words.first().cloned() else {
         return;
@@ -145,7 +142,6 @@ pub(crate) fn anchor_folders(words: &mut Vec<String>, workspace: &Path) {
             workspace.join(path).display().to_string()
         }
     };
-    // The positional words after the command, skipping flags and their values.
     let valued = ["--commit", "--repository", "--into"];
     let mut positional = Vec::new();
     let mut at = 1;

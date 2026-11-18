@@ -1,4 +1,3 @@
-"""Release exports require actual catalog coverage and observed score/timing."""
 import contextlib
 import copy
 import hashlib
@@ -191,6 +190,49 @@ class ReleaseReportTests(unittest.TestCase):
         self.assertEqual(captured[0]["models"][0]["attempts"], [[1, 2], [0, 3]])
         self.assertEqual(captured[0]["models"][0]["total_s"], 5)
         self.assertEqual(captured[0], captured[1])
+
+    def test_cell_line_formats_finite_numeric_wall_cap_scalars(self):
+        for cap in (0, 600, 0.0, 0.25, 600.0, 600.125):
+            with self.subTest(cap=repr(cap)):
+                data = {"cell": {"wall_cap_s": cap, "attempts_per_task": 1, "home": "fresh"}, "models": []}
+                self.assertTrue(report.cell_line(data).startswith(f"{cap} s wall · one attempt"))
+
+    def test_float_wall_caps_survive_trace_build_and_html_rendering(self):
+        for cap in (0.0, 0.25, 600.0, 600.125):
+            with self.subTest(cap=cap):
+                records = [record("js-a"), record("py-b", score=0, wall=3)]
+                for item in records:
+                    item["traces"][0]["info"]["agent_exit"]["wall_cap"]["secs"] = cap
+                self.write(records)
+                data = self.build()
+                self.assertIsInstance(data["cell"]["wall_cap_s"], float)
+                self.assertEqual(data["cell"]["wall_cap_s"], cap)
+                self.assertIn(f"{cap} s wall", report.render_report(data, "", None))
+                self.assertIn(f"{cap} s limit", report.render_post(data))
+
+    def test_cell_line_preserves_empty_and_multiple_wall_caps(self):
+        for caps, expected in (([], "wall "), ([60, 600], "wall 60 s/600 s"),
+                               ([0.25, 600.0], "wall 0.25 s/600.0 s")):
+            with self.subTest(caps=caps):
+                data = {"cell": {"wall_cap_s": caps, "attempts_per_task": 1, "home": "fresh"}, "models": []}
+                self.assertTrue(report.cell_line(data).startswith(expected + " · one attempt"))
+
+    def test_offline_no_video_cli_writes_reports_for_float_wall_cap(self):
+        records = [record("js-a"), record("py-b", score=0, wall=3)]
+        for item in records:
+            item["traces"][0]["info"]["agent_exit"]["wall_cap"]["secs"] = 0.25
+        self.write(records)
+        out = self.bench / "published"
+        with mock.patch.object(report, "load_board", return_value=self.board), \
+             mock.patch.object(report, "font_css", return_value=""), \
+             mock.patch.object(report, "find_logo", return_value=None), \
+             mock.patch.object(report.subprocess, "run", side_effect=AssertionError("renderer process")), \
+             contextlib.redirect_stdout(io.StringIO()):
+            report.main(["--bench-root", str(self.bench), "--out", str(out), "--no-video"])
+        self.assertEqual(sorted(path.name for path in out.iterdir()), ["models.json", "post.txt", "report.html"])
+        self.assertEqual(json.loads((out / "models.json").read_text())["cell"]["wall_cap_s"], 0.25)
+        self.assertIn("0.25 s wall", (out / "report.html").read_text())
+        self.assertIn("0.25 s limit", (out / "post.txt").read_text())
 
 
 if __name__ == "__main__":

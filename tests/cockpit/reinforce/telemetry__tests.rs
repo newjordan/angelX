@@ -1,8 +1,5 @@
 use super::*;
 
-/// The snapshot is a process-global; other reinforce tests may publish
-/// concurrently. Retry the whole sequence until our source survives the
-/// read-back so the assertion is about our own writes.
 fn with_own_run(assertions: impl Fn(RlSnapshot)) {
     for _ in 0..16 {
         begin("telemetry-test", 2);
@@ -58,8 +55,6 @@ fn run_sequence_accumulates_structural_state() {
                 .iter()
                 .any(|event| event.label.contains("promotion · promoted"))
         );
-        // Structural-only: no event may carry task or prompt text — the
-        // only free-form field is the opaque case id.
         assert!(
             snapshot
                 .events
@@ -87,8 +82,6 @@ fn case_slot_updates_in_place() {
     if let Some(snapshot) = current()
         && snapshot.source == "telemetry-upsert"
     {
-        // Concurrent suites may append their own cases to the global
-        // snapshot; the upsert contract is only about OUR case id.
         let mine: Vec<_> = snapshot
             .cases
             .iter()
@@ -116,8 +109,6 @@ fn event_timeline_stays_bounded() {
     }
 }
 
-/// Same retry as `with_own_run`: the snapshot is process-global, so run until
-/// the snapshot read back carries our own source.
 fn phase_after(source: &str, run: impl Fn()) -> RlPhase {
     for _ in 0..16 {
         run();

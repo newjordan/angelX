@@ -17,15 +17,12 @@ use crate::num;
 use crate::recipe::{Cut, Part, ShapeKind};
 use crate::rig::Xf;
 
-/// A surface under a model point: its depth (larger is nearer) and its
-/// normal, of unit length.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Hit {
     pub z: f32,
     pub n: [f32; 3],
 }
 
-/// A tapered capsule: a sphere swept from `a` (radius `ra`) to `b` (`rb`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Seg {
     pub a: [f32; 3],
@@ -43,22 +40,18 @@ enum Form {
     Flat { poly: Vec<[f32; 2]>, z: f32 },
 }
 
-/// A part's shape, posed.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Solid {
     form: Form,
     cut: Option<Cut>,
     xf: Xf,
-    /// The box round it in its own space, `[x0, y0, x1, y1]`.
     own: [f32; 4],
 }
 
-/// Default slab thickness and bevel, in game pixels.
 pub const SLAB_THICK: f32 = 0.5;
 pub const SLAB_BEVEL: f32 = 0.3;
 
 impl Solid {
-    /// A part's shape (the recipe checked it), posed by `xf`.
     pub fn of(part: &Part, xf: Xf) -> Solid {
         let p2 = |v: &Vec<Vec<f32>>| v.iter().map(|p| [p[0], p[1]]).collect::<Vec<_>>();
         let form = match part.shape {
@@ -114,8 +107,6 @@ impl Solid {
         Solid { form, cut: part.cut, xf, own }
     }
 
-    /// The box round it in model space, `[x0, y0, x1, y1]`; empty when
-    /// `x0 > x1`.
     pub fn bounds(&self) -> [f32; 4] {
         let [x0, y0, x1, y1] = self.own;
         if x0 > x1 || y0 > y1 {
@@ -129,7 +120,6 @@ impl Solid {
         b
     }
 
-    /// The surface under model point `(x, y)`, if any.
     pub fn hit(&self, x: f32, y: f32) -> Option<Hit> {
         let [u, v] = self.xf.unapply([x, y]);
         if let Some(cut) = self.cut {
@@ -143,8 +133,6 @@ impl Solid {
         Some(Hit { z: h.z + self.xf.tz, n: [nx, ny, h.n[2]] })
     }
 
-    /// A tube's axis in model space, posed: its points and radii, end to
-    /// end; none for other shapes.
     pub fn axis(&self) -> Option<Vec<([f32; 3], f32)>> {
         let Form::Tube { segs } = &self.form else { return None };
         let at = |p: [f32; 3]| {
@@ -156,7 +144,6 @@ impl Solid {
         Some(out)
     }
 
-    /// Whether it is lit (a flat is not).
     pub fn is_lit(&self) -> bool {
         !matches!(self.form, Form::Flat { .. })
     }
@@ -253,7 +240,6 @@ fn form_hit(form: &Form, x: f32, y: f32) -> Option<Hit> {
             if *bevel > 0.0 {
                 let (d, [ox, oy]) = edge(poly, x, y);
                 if d < *bevel {
-                    // A quarter round from the face down to the edge.
                     let s = (bevel - d) / bevel;
                     let c = (1.0 - s * s).max(0.0).sqrt();
                     z -= bevel * (1.0 - c);
@@ -266,14 +252,10 @@ fn form_hit(form: &Form, x: f32, y: f32) -> Option<Hit> {
     }
 }
 
-/// The front of a tapered capsule under `(x, y)`: the nearest point on the
-/// swept spheres, found in closed form.
 fn seg_hit(s: &Seg, x: f32, y: f32) -> Option<Hit> {
     let d = [s.b[0] - s.a[0], s.b[1] - s.a[1], s.b[2] - s.a[2]];
     let dr = s.rb - s.ra;
     let (ex, ey) = (x - s.a[0], y - s.a[1]);
-    // A cheap miss: farther from the segment's line in the plane than its
-    // widest radius.
     let len2 = d[0] * d[0] + d[1] * d[1];
     let t0 = if len2 > 0.0 { ((ex * d[0] + ey * d[1]) / len2).clamp(0.0, 1.0) } else { 0.0 };
     let (px, py) = (ex - t0 * d[0], ey - t0 * d[1]);
@@ -281,14 +263,11 @@ fn seg_hit(s: &Seg, x: f32, y: f32) -> Option<Hit> {
     if px * px + py * py > rmax * rmax {
         return None;
     }
-    // g(t) = r(t)^2 - |e - t d_xy|^2, the squared half-chord of the sphere at t.
     let qa = dr * dr - len2;
     let qb = 2.0 * s.ra * dr + 2.0 * (ex * d[0] + ey * d[1]);
     let qc = s.ra * s.ra - (ex * ex + ey * ey);
     let g = |t: f32| qa * t * t + qb * t + qc;
     let front = |t: f32| s.a[2] + t * d[2] + g(t).max(0.0).sqrt();
-    // Where z(t) = a.z + t d.z + sqrt(g(t)) stands still:
-    // 4A(A - dz^2) t^2 + 4B(A - dz^2) t + B^2 - 4 dz^2 C = 0.
     let k = qa - d[2] * d[2];
     let (a2, a1, a0) = (4.0 * qa * k, 4.0 * qb * k, qb * qb - 4.0 * d[2] * d[2] * qc);
     let mut ts = [0.0f32, 1.0, f32::NAN, f32::NAN];
@@ -320,8 +299,6 @@ fn seg_hit(s: &Seg, x: f32, y: f32) -> Option<Hit> {
     Some(Hit { z, n: unit([(x - c[0]) / r, (y - c[1]) / r, (z - c[2]) / r]) })
 }
 
-/// A Catmull-Rom tube through `pts`, its radius running from `r0` to `r1`,
-/// as capsules about a quarter of a game pixel long.
 fn stroke(pts: &[[f32; 3]], r0: f32, r1: f32) -> Vec<Seg> {
     let n = pts.len();
     let at = |i: isize| pts[i.clamp(0, n as isize - 1) as usize];
@@ -344,7 +321,6 @@ fn stroke(pts: &[[f32; 3]], r0: f32, r1: f32) -> Vec<Seg> {
             samples.push(p);
         }
     }
-    // Radii by length along the stroke.
     let mut along = vec![0.0f32];
     for w in samples.windows(2) {
         let l = ((w[1][0] - w[0][0]).powi(2) + (w[1][1] - w[0][1]).powi(2) + (w[1][2] - w[0][2]).powi(2)).sqrt();
@@ -358,7 +334,6 @@ fn stroke(pts: &[[f32; 3]], r0: f32, r1: f32) -> Vec<Seg> {
     (0..samples.len() - 1).map(|i| Seg { a: samples[i], ra: r(i), b: samples[i + 1], rb: r(i + 1) }).collect()
 }
 
-/// Whether `(x, y)` is inside a polygon (non-zero winding).
 fn inside(poly: &[[f32; 2]], x: f32, y: f32) -> bool {
     let mut wind = 0i32;
     for i in 0..poly.len() {
@@ -375,7 +350,6 @@ fn inside(poly: &[[f32; 2]], x: f32, y: f32) -> bool {
     wind != 0
 }
 
-/// How far `(x, y)` is from a polygon's edge, and the way out from it.
 fn edge(poly: &[[f32; 2]], x: f32, y: f32) -> (f32, [f32; 2]) {
     let mut best = (f32::INFINITY, [0.0, 0.0]);
     for i in 0..poly.len() {
@@ -431,7 +405,6 @@ mod tests {
         assert!((a.z - 2.0).abs() < 1e-4, "{a:?}");
         assert!((b.z - 1.0).abs() < 0.02, "{b:?}");
         assert!(s.hit(12.0, 9.5).is_none() && s.hit(4.0, 9.5).is_some());
-        // Tilted toward the viewer, the tube is r / cos(tilt) above its axis.
         let t = solid(r#"{ "id": "a", "shape": "capsule", "from": [4, 8, 0], "to": [12, 8, 4], "r": [1], "mat": "m" }"#);
         let mid = t.hit(8.0, 8.0).unwrap();
         assert!((mid.z - (2.0 + 5f32.sqrt() / 2.0)).abs() < 1e-3, "{mid:?}");
@@ -464,7 +437,6 @@ mod tests {
     fn posing_moves_the_shape_exactly() {
         let mut s = solid(r#"{ "id": "a", "shape": "capsule", "from": [8, 8, 0], "to": [8, 2, 0], "r": [1], "mat": "m" }"#);
         s.xf = Xf::turn_about(90.0, [8.0, 8.0]);
-        // Up turned clockwise is right.
         assert!(s.hit(13.0, 8.0).is_some() && s.hit(8.0, 3.0).is_none());
         let n = s.hit(13.0, 8.9).unwrap().n;
         assert!(n[1] > 0.5, "{n:?}");

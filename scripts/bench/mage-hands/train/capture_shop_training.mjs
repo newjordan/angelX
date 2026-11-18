@@ -1,6 +1,3 @@
-// Capture actual local fake-shop transitions for hands-only labels. No model calls.
-// No public-site navigation. Fetch interception rejects non-fixture requests.
-// node capture_shop_training.mjs NEW_DIRECTORY [train|heldout]
 import {spawn} from 'node:child_process';
 import {existsSync, mkdirSync, writeFileSync} from 'node:fs';
 import {resolve, join} from 'node:path';
@@ -14,8 +11,6 @@ if(!output || existsSync(output))throw Error('A new immutable output directory i
 mkdirSync(join(output,'shots'),{recursive:true});
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const splitFor=g=>{const b=parseInt(hash('mage-regime-v2:'+g).slice(0,8),16)%10;return b<7?'train':b<9?'validation':'test';};
-// Same predeclared combinations and deterministic splits in both modes.
-// Heldout collection never relabels a workflow or adds it to training.
 const scenarios=[];
 for(const item of ['blue-l-shirt','silver-mug','cedar-bag']) {
   for(const qty of [2,3,4])for(const shipping of ['standard','express']) {

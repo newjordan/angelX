@@ -1,8 +1,5 @@
-"""Native core, outlined warm chunks, thick rays and overlapping smoke lobes."""
 from PIL import Image, ImageDraw
 
-# A directional hot plane open to the upper-left, rather than a concentric
-# bright ring trapped inside a darker circular core.
 CORE = [
     '....gggg....', '..gggggghh..', '.ggggggghhh.',
     'gggggggghhhh','ggggggghhhhh','.gggghhhhhh.',
@@ -52,8 +49,6 @@ def rays(state,i):
               [(41,24),(53,35),(57,46),(46,60),(32,61)],
               [(39,31),(48,40),(51,50),(39,58)]][i]
         core=[(23,38),(28,42),(34,44),(28,47),(23,51),(19,46),(20,42)]
-    # Four-pixel ink envelope around a two-pixel honey/ember stroke. Draw all
-    # envelopes first so crossing rays have one warm connected nucleus.
     for end in ends:d.line([centre,end],fill='#322b2b',width=4)
     for end in ends:d.line([centre,end],fill='#d77b39' if i==2 else '#d8a95e',width=2)
     d.polygon(core,fill='#a34828',outline='#22303a',width=1)
@@ -71,7 +66,6 @@ def polish(canvas,state,i):
     a=canvas.copy();d=ImageDraw.Draw(a)
     if state=='explosion' and i in [2,3,4]:
         ox,oy=[(26,33),(25,31),(26,30)][i-2]
-        # Flatten the source's internal ring before laying the new hot plane.
         for y in range(oy-2,oy+12):
             for x in range(ox-3,ox+15):
                 if a.getpixel((x,y))[:3] in [(226,203,139),(216,169,94)]:

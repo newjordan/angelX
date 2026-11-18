@@ -49,11 +49,9 @@ fn the_panel_hides_on_small_grids_and_fits_large_ones() {
     assert_eq!(Panel::for_grid(Grid { width: 1440, height: 525 }), None);
     let grid = Grid { width: 1440, height: 1000 };
     let panel = Panel::for_grid(grid).expect("a roomy window floats one");
-    // Anchored top right, two cells in and below the header, clamped tall and wide.
     assert!((panel.x + panel.w - (1440.0 - 24.0)).abs() < 1e-4);
     assert!((panel.y - 110.0).abs() < 1e-4);
     assert!(panel.w <= 38.0 * 12.0 && panel.h <= 17.0 * 25.0);
-    // The content sits inside the plate, clear of the chrome.
     let content = panel.content();
     assert!(content.x > panel.x && content.y > panel.y);
     assert!(content.x + content.w < panel.x + panel.w);
@@ -65,13 +63,10 @@ fn a_leaned_rect_keeps_its_size_and_turns_its_centre() {
     let centre = [50.0, 10.0];
     let rect = [46.0, 6.0, 8.0, 4.0];
     let ([x, y, w, h], angle) = tilted_rect(rect, centre);
-    // The quad is centred where the rect's centre lands, at its own size:
-    // the window turns it about that centre by `angle`.
     let want = leaned_point([rect[0] + rect[2] / 2.0, rect[1] + rect[3] / 2.0], centre);
     assert!((x + w / 2.0 - want[0]).abs() < 1e-4 && (y + h / 2.0 - want[1]).abs() < 1e-4);
     assert_eq!(angle, crate::ui::orrery::TILT);
     assert_eq!((w, h), (rect[2], rect[3]), "a lean never resizes a rect");
-    // A rect centred on the panel leans in place: its centre stays.
     let square = [centre[0] - 5.0, centre[1] - 5.0, 10.0, 10.0];
     let ([x, y, w, h], _) = tilted_rect(square, centre);
     assert!((x + w / 2.0 - centre[0]).abs() < 1e-4 && (y + h / 2.0 - centre[1]).abs() < 1e-4);
@@ -79,8 +74,6 @@ fn a_leaned_rect_keeps_its_size_and_turns_its_centre() {
 
 #[test]
 fn a_lean_in_cells_turns_in_pixels() {
-    // A cell is 12 x 25 px: turning a cell rect's centre in cell units
-    // would skew it; in pixels it lands where the pixel lean puts it.
     let unit = (12.0, 25.0);
     let centre = [20.0, 10.0];
     let rect = [30.0, 12.0, 4.0, 2.0];
@@ -125,14 +118,12 @@ fn depths_follow_chains_ignore_outsiders_and_survive_cycles() {
         node("d", &["ghost"], GraphNodePhase::Pending),
     ];
     assert_eq!(node_depths(&nodes), vec![0, 1, 2, 0]);
-    // A cycle is bounded, not a stack overflow, and stays finite.
     let cycle = vec![
         node("x", &["y"], GraphNodePhase::Running),
         node("y", &["x"], GraphNodePhase::Running),
     ];
     let depths = node_depths(&cycle);
     assert_eq!(depths.len(), 2);
-    // The shown cap holds: a crowd of orphans all land at depth 0.
     let crowd: Vec<GraphNodeSnap> = (0..MAX_NODES + 3)
         .map(|i| node(&format!("n{i}"), &[], GraphNodePhase::Pending))
         .collect();
@@ -155,12 +146,9 @@ fn positions_stay_inside_content_and_rows_spread() {
             "inside the content: {p:?}"
         );
     }
-    // Two roots share the top row either side of its middle; their
-    // dependent sits below them.
     assert!((at[0][1] - at[1][1]).abs() < 1e-4, "same row");
     assert!(at[2][1] > at[0][1] + 10.0, "below");
     assert!(at[0][0] < at[1][0], "spread across the row");
-    // Deterministic: the same nodes give the same constellation.
     assert_eq!(node_positions(&nodes, content), at);
 }
 
@@ -184,11 +172,8 @@ fn the_idle_ribbon_keeps_to_the_content() {
 #[test]
 fn the_panel_recedes_above_its_centre() {
     let centre = [50.0, 12.0];
-    // The centre itself is unmoved by depth.
     let at = crate::ui::orrery::deep_point(centre, centre);
     assert!((at[0] - centre[0]).abs() < 1e-4 && (at[1] - centre[1]).abs() < 1e-4);
-    // A point above the centre draws nearer the centre and no further
-    // out than its plain lean; one below draws larger, not smaller.
     let above = [50.0, 5.0];
     let deep = crate::ui::orrery::deep_point(above, centre);
     let lean = crate::ui::orrery::leaned_point(above, centre);
@@ -197,7 +182,6 @@ fn the_panel_recedes_above_its_centre() {
     let deep_below = crate::ui::orrery::deep_point(below, centre);
     let lean_below = crate::ui::orrery::leaned_point(below, centre);
     assert!(deep_below[1] > lean_below[1], "drawn lower still: nearer");
-    // Depth scales rects: the same rect further up the panel is smaller.
     let (high, _) = crate::ui::orrery::deep_rect([46.0, 2.0, 8.0, 4.0], centre);
     let (low, _) = crate::ui::orrery::deep_rect([46.0, 18.0, 8.0, 4.0], centre);
     assert!(low[2] > high[2] && low[3] > high[3], "nearer rows draw larger");
@@ -230,8 +214,6 @@ mod glass {
             node("c", &["a"], GraphNodePhase::Failed),
             node("d", &["b", "c"], GraphNodePhase::Running),
         ];
-        // A crowd past the node cap, three woven deps each so the edges
-        // blow past their own cap and it bites.
         for i in 0..MAX_NODES + 10 {
             nodes.push(node(&format!("n{i}"), &["a", "b", "c"], GraphNodePhase::Pending));
         }
@@ -248,17 +230,13 @@ mod glass {
         for layer in &drawn {
             assert!(layer.clone().sanitized().is_some(), "sound: {:?}", layer.id);
         }
-        // The same moment is the same panel.
         assert_eq!(layers(1.0, grid, Some(&busy)), drawn);
-        // Idle and hidden are sound too.
         let idle = layers(1.0, grid, None);
         assert!(!idle.is_empty() && idle.len() <= MAX_LAYERS);
         for layer in &idle {
             assert!(layer.clone().sanitized().is_some());
         }
         assert!(layers(1.0, Grid { width: 480, height: 500 }, Some(&busy)).is_empty());
-        // The edge cap bites on a woven crowd: every shown crowd node
-        // names three deps, far past the cap.
         let beams = drawn
             .iter()
             .filter(|l| matches!(l.kind, angel_glass::LayerKind::Solid([_, _, _, a]) if l.z == 5 && a < 0.6))

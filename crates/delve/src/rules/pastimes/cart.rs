@@ -121,7 +121,6 @@ impl Run {
             round.score_popup_y = 7;
             self.sounds.push("spoil_pickup");
         }
-        // Landing sound: cart touches down (air_left was 1, now becomes 0)
         if cart.air_left == 1 {
             self.sounds.push("rock_land");
         }

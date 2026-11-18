@@ -7,7 +7,6 @@ use super::campaign::{self, Campaign, parse_board};
 use super::plate::{self, CloudView, Ink, Style, Typeset, View};
 use super::{Grid, Layout};
 
-/// A character is a solid block of ink `size / 2` wide.
 struct Blocks;
 
 impl Typeset for Blocks {
@@ -54,7 +53,6 @@ fn campaign() -> Campaign {
     parse_board(json.as_bytes()).unwrap()
 }
 
-/// The plate's pixel at shown point `p` of `layout`, at the scale drawn.
 fn at(ink: &Ink, layout: &Layout, p: [f32; 2], scale: f32) -> [u8; 4] {
     let x = ((p[0] - layout.panel.x) * scale) as u32;
     let y = ((p[1] - layout.panel.y) * scale) as u32;
@@ -62,8 +60,6 @@ fn at(ink: &Ink, layout: &Layout, p: [f32; 2], scale: f32) -> [u8; 4] {
     [ink.2[i], ink.2[i + 1], ink.2[i + 2], ink.2[i + 3]]
 }
 
-/// The demo plate's frame, to look at (text is the stand-in blocks):
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angelX-cockpit --bin angel write_demo_plate_shot -- --ignored`
 #[test]
 #[ignore]
 fn write_demo_plate_shot() {
@@ -104,7 +100,6 @@ fn the_plate_is_its_panel_at_twice_the_size() {
             )
         );
         assert_eq!(ink.2.len(), (ink.0 * ink.1 * 4) as usize);
-        // Clear glass between the marks: most of the plate is see-through.
         let clear = ink.2.chunks(4).filter(|p| p[3] == 0).count();
         assert!(clear * 2 > (ink.0 * ink.1) as usize, "{clear} clear pixels");
     }
@@ -123,19 +118,16 @@ fn a_boards_marks_land_where_its_scores_are() {
     let domain = plate::domain(Some(&c));
     let hx = plate::track(l.rows[2]);
     let x = |v: f64| plate::score_x(v, domain, hx.x0, hx.x1);
-    // Our official bar, solid rose, between the floor and our score.
     let bar = at(&ink, &l, [(x(50.0) + x(62.0)) / 2.0, hx.y], 2.0);
     assert!(
         bar[3] > 200 && bar[0] > 200 && bar[1] < 120,
         "the bar is solid rose: {bar:?}"
     );
-    // Past our score, inside the proxy's ghost, it is faint.
     let ghost = at(&ink, &l, [(x(62.0) + x(64.0)) / 2.0 + 2.0, hx.y - 3.0], 2.0);
     assert!(
         ghost[3] > 0 && ghost[3] < 120,
         "the proxy is a ghost: {ghost:?}"
     );
-    // The leader's mark is gold above the rail, the team's violet below.
     let gold = at(&ink, &l, [x(72.0), hx.y - 11.0], 2.0);
     assert!(
         gold[0] > 200 && gold[1] > 150 && gold[2] < 120,
@@ -146,11 +138,9 @@ fn a_boards_marks_land_where_its_scores_are() {
         violet[2] > 200 && violet[0] > 120 && violet[1] < 160,
         "team violet: {violet:?}"
     );
-    // A board with no scores has a bare rail at the same place.
     let ei = plate::track(l.rows[3]);
     let bare = at(&ink, &l, [(x(50.0) + x(62.0)) / 2.0, ei.y], 2.0);
     assert!(bare[0] < 100, "no bar on a board with no score: {bar:?}");
-    // One budget pip lit (one of two left), one hollow.
     let lit = at(&ink, &l, [hx.right + 6.0, hx.y], 2.0);
     let used = at(&ink, &l, [hx.right + 16.0, hx.y], 2.0);
     assert!(lit[3] > 200 && lit[0] > 200, "a lit pip: {lit:?}");
@@ -168,7 +158,6 @@ fn the_score_range_holds_everything_known_rounded_to_fives() {
     c.boards[0].ve_leader = Some(91.3);
     c.boards[1].ve_partner = Some(38.2);
     assert_eq!(plate::domain(Some(&c)), (35.0, 95.0));
-    // A rail clamps what is off its ends.
     assert_eq!(plate::score_x(10.0, (45.0, 80.0), 100.0, 200.0), 100.0);
     assert_eq!(plate::score_x(99.0, (45.0, 80.0), 100.0, 200.0), 200.0);
     assert_eq!(plate::score_x(62.5, (45.0, 80.0), 100.0, 200.0), 150.0);
@@ -193,7 +182,6 @@ fn the_clock_counts_down_and_says_how_old_the_ticker_is() {
     assert_eq!(plate::ago(42), "42s ago");
     assert_eq!(plate::ago(7 * 60 + 5), "7m ago");
     assert_eq!(plate::ago(-5), "now");
-    // Nothing to count: empty strings, no picture.
     let mut quiet = c.clone();
     quiet.phase = campaign::Phase::default();
     quiet.events.clear();
@@ -213,10 +201,8 @@ fn long_text_is_cut_to_fit_with_an_ellipsis() {
     let mut print = plate::Print::new(l.panel, 2.0, &mut blocks);
     let style = Style::new(plate::TINY, plate::INK);
     let at = [l.panel.x + 10.0, l.panel.y + 10.0];
-    // 40 characters at 6.25 px each would be 250 px; it gets at most 100.
     let w = print.text_fit(&"x".repeat(40), at, style, 100.0, 0.0);
     assert!(w <= 100.0 && w > 80.0, "{w}");
-    // Text that fits is set whole (the blocks round to whole pixels).
     assert!(
         (print.text_fit("short", at, style, 100.0, 0.0) - 5.0 * plate::TINY * 0.5).abs() <= 0.5
     );
@@ -257,7 +243,6 @@ fn a_predicted_stage_names_its_boards_tag() {
             ],
         }],
     };
-    // The key lists only the lineages that are cardiac somewhere.
     let view = CloudView::of(&cloud);
     assert_eq!(
         view.lineages,
@@ -269,9 +254,6 @@ fn a_predicted_stage_names_its_boards_tag() {
     assert!(title.0 > 0 && title.1 > 0);
 }
 
-/// The plate's pictures as they were before the floating HUD split its
-/// drawing into modules: the plate is the operator's chosen look, so any
-/// change to a pixel of it is a change to that look, and must be meant.
 #[test]
 fn the_plate_draws_exactly_as_it_did() {
     fn fnv(ink: &Ink) -> u64 {

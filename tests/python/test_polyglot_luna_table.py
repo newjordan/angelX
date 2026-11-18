@@ -1,4 +1,3 @@
-"""Offline direct-seat table checks for coverage, clocks and repeated attempts."""
 import importlib.util
 import json
 from pathlib import Path

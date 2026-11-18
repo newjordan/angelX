@@ -105,7 +105,6 @@ fn wait_reply(replies: &Arc<Mutex<Vec<u8>>>, token: &str) -> Result<String, Stri
         std::thread::sleep(Duration::from_millis(2));
     }
 }
-/// PNG frames keep larger video textures off the PTY's raw-RGB bandwidth path.
 struct Media {
     frames: Vec<Vec<u8>>,
 }
@@ -210,9 +209,6 @@ fn envelope(camera: &str, nodes: &[String]) -> String {
         nodes.join(",")
     )
 }
-/// One world, three adjoining orthographic crops. Each 640x900 crop is
-/// rendered at 1280x1800, so the complete 1920x900 stage is really 2x.
-/// All crops share orientation, size, geometry, clip times and depth ordering.
 fn camera(t: f32, tile: usize) -> (String, f32) {
     let angle = -0.10 + 0.14 * ease(t, 4.0, 9.0) + 110.0f32.to_radians() * ease(t, 19.0, 5.8);
     let height = 4.18 - 0.18 * ease(t, 3.5, 9.0) + 0.06 * ease(t, 24.0, 2.0);
@@ -234,13 +230,11 @@ fn panel_nodes(nodes: &mut Vec<String>, t: f32, which: usize, angle: f32, warm: 
     let entry = spring(t, begin, 1.1);
     let leave = ease(t, 26.0 + which as f32 * 0.25, 0.85);
     let visible = warm || (t >= begin && leave < 1.0);
-    // The cards occupy the same world/depth buffer as the figures.
     let at = [
         [-2.15, 2.05, -3.45],
         [2.15, 2.05, -3.70],
         [-2.10, 1.15, -3.30],
     ][which];
-    // Shallow travelling rear arcs preserve parallax without crossing faces.
     let drift = 0.32 * (angle * 1.1).sin() * if which == 1 { -1.0 } else { 1.0 };
     let x = at[0] + drift;
     let (sn, cs) = angle.sin_cos();
@@ -296,8 +290,6 @@ fn world(t: f32, tile: usize, warm: bool) -> String {
         } else {
             0.0
         };
-        // Leave along camera right/left after the orbit, fully offscreen
-        // before visibility clears. World X would carry the flankers inward.
         let departure = if i == 1 {
             -8.5
         } else if i == 2 {
@@ -361,8 +353,6 @@ fn send_scenes(t: f32, warm: bool, token: bool) {
         );
     }
 }
-/// During 20..22 s every original clip receives the identical playhead,
-/// from 0 to .8 seconds, inside even the shortest supplied walking clip.
 fn playhead(t: f32, i: usize) -> f32 {
     if t < 20.0 {
         (t - [3.5, 6.1, 7.5][i]).max(0.0)
@@ -569,7 +559,6 @@ fn run() -> Result<(), String> {
     picture(101, &delve, 0);
     picture(102, &hero, 0);
     op("picture;id=103;f=24;s=640;v=360", Some(&cover.stdout));
-    // Prewarm actual geometry/pipelines before the recorder's delayed start.
     send_scenes(22.0, true, true);
     for tile in 0..3 {
         wait_reply(&replies, &format!("stage{tile}"))?;
@@ -640,7 +629,6 @@ fn run() -> Result<(), String> {
         }
         if (3.5..28.8).contains(&t) {
             send_scenes(t, false, false);
-            // Native continuous playback outside the exact 2 s common-time cue.
             for (i, begin) in [210, 366, 450].iter().enumerate() {
                 if frame == *begin {
                     resume_node(i, 0.0);
@@ -678,7 +666,6 @@ fn run() -> Result<(), String> {
     let all = String::from_utf8_lossy(&replies.lock().unwrap()).replace('\x1b', "^[");
     writeln!(report, "{all}").unwrap();
     std::fs::write(log, report).map_err(|e| e.to_string())?;
-    // Hold until the recorder is closed, including a little launch jitter.
     std::thread::sleep(Duration::from_secs(4));
     Ok(())
 }

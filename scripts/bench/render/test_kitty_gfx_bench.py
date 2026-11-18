@@ -1,18 +1,9 @@
 #!/usr/bin/env python3
-"""Durable checks for the Board A Kitty harness: the PNG encoder must
-produce bytes a real decoder accepts, the pixel formula must match the
-glass bench byte for byte (same constant asserted in stream-bench.rs),
-and percentiles must be the order statistics they claim to be.
-
-Run: python3 -m pytest scripts/bench/render/test_kitty_gfx_bench.py
-     (or plain python3; plain asserts, no framework needed)
-"""
 import struct
 import zlib
 
 from kitty_gfx_bench import frame_bytes, percentiles, png_bytes
 
-# frame_bytes(4, 2, n=1, seed=7): the cross-language constant.
 FRAME_4X2 = [
     10, 5, 1, 255, 11, 5, 0, 255, 12, 5, 3, 255, 13, 5, 2, 255,
     10, 6, 0, 255, 11, 6, 1, 255, 12, 6, 2, 255, 13, 6, 3, 255,
@@ -21,7 +12,6 @@ FRAME_4X2 = [
 
 def test_frame_formula_constant():
     assert list(frame_bytes(4, 2, 1, 7)) == FRAME_4X2
-    # Frames must differ: a renderer may skip unchanged uploads.
     assert frame_bytes(8, 8, 0, 1) != frame_bytes(8, 8, 1, 1)
 
 

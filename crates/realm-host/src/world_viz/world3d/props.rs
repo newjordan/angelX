@@ -12,8 +12,6 @@ use std::sync::{Arc, OnceLock};
 use super::math::{V3, v3};
 use super::mesh::{Mesh, mat};
 
-/// The props a scene places, by name. Props no scene uses yet live as files in
-/// `assets/realm/props/library/`, checked by the tests but not compiled in.
 pub const PROPS: &[(&str, &str)] = &[
     (
         "dragon_skull",
@@ -29,7 +27,6 @@ pub const PROPS: &[(&str, &str)] = &[
     ),
 ];
 
-/// The material id an asset's `usemtl` word stands for.
 pub fn material(word: &str) -> Option<u8> {
     Some(match word {
         "stone" => mat::STONE,
@@ -57,8 +54,6 @@ pub fn material(word: &str) -> Option<u8> {
     })
 }
 
-/// Parse a prop. Unknown lines are skipped; a face naming a vertex that does
-/// not exist, or a material word that does not exist, is an error.
 pub fn parse(text: &str) -> Result<Mesh, String> {
     let mut points: Vec<V3> = Vec::new();
     let mut mesh = Mesh::new();
@@ -93,7 +88,6 @@ pub fn parse(text: &str) -> Result<Mesh, String> {
                 let first = corner(index[0])?;
                 for pair in index[1..].windows(2) {
                     let tri = [first, corner(pair[0])?, corner(pair[1])?];
-                    // A sliver a decimator left behind has no facing to shade.
                     if (tri[1] - tri[0]).cross(tri[2] - tri[0]).length() < 1e-6 {
                         continue;
                     }
@@ -103,8 +97,6 @@ pub fn parse(text: &str) -> Result<Mesh, String> {
             _ => {}
         }
     }
-    // Sculpted tongues keep their authored shapes. Map their local volume
-    // onto the flame ramp once, without a glazing lattice or live shading work.
     let flames: Vec<V3> = mesh
         .tris
         .iter()
@@ -143,9 +135,6 @@ pub fn parse(text: &str) -> Result<Mesh, String> {
     Ok(mesh)
 }
 
-/// Surface coordinates for a face of a sculpted mesh: projected onto the axis
-/// plane it faces most, at the generators' scale of about one per tile, so
-/// ashlar and grain patterns land on it the way they land on a wall.
 fn surface_uv(tri: [V3; 3]) -> [[f32; 2]; 3] {
     let normal = (tri[1] - tri[0]).cross(tri[2] - tri[0]);
     let (ax, ay, az) = (normal.x.abs(), normal.y.abs(), normal.z.abs());
@@ -160,9 +149,6 @@ fn surface_uv(tri: [V3; 3]) -> [[f32; 2]; 3] {
     })
 }
 
-/// Finish the three placed sculptures once, before their cached copies are
-/// transformed. A small curvature-aware relaxation rounds decimator kinks;
-/// feet, extrema, sharp horns and deep creases stay pinned. No face is added.
 fn sculpt(mut mesh: Mesh, name: &str) -> Mesh {
     use std::collections::BTreeMap;
     let key = |p: V3| [p.x.to_bits(), p.y.to_bits(), p.z.to_bits()];
@@ -198,8 +184,6 @@ fn sculpt(mut mesh: Mesh, name: &str) -> Mesh {
             }
         }
     }
-    // Average only faces within a rounded plane. Sharp material seams retain
-    // their facing, while the skull and armour lose the paper-facet glare.
     let source = mesh.tris.clone();
     for tri in &mut mesh.tris {
         let geometric = (tri.v[1] - tri.v[0]).cross(tri.v[2] - tri.v[0]).normalize();
@@ -222,7 +206,6 @@ fn sculpt(mut mesh: Mesh, name: &str) -> Mesh {
     mesh
 }
 
-/// A bundled prop by name, parsed once.
 pub fn prop(name: &str) -> Option<Arc<Mesh>> {
     static CACHE: OnceLock<Vec<(&'static str, Arc<Mesh>)>> = OnceLock::new();
     let cache = CACHE.get_or_init(|| {
@@ -237,7 +220,6 @@ pub fn prop(name: &str) -> Option<Arc<Mesh>> {
         .map(|(_, mesh)| Arc::clone(mesh))
 }
 
-/// A copy of a bundled prop turned `yaw` radians and standing at `at`.
 pub fn placed(name: &str, at: V3, yaw: f32, scale: f32) -> Option<Mesh> {
     let mesh = prop(name)?;
     Some(

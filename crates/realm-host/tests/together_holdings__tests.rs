@@ -29,7 +29,6 @@ fn holdings_are_saved_with_the_realm_and_a_bad_record_resets_alone() {
     std::fs::create_dir_all(&dir).unwrap();
     let rewards = dir.join("island.json");
     let path = rewards.with_extension("realm.json");
-    // An older realm: no holdings at all.
     std::fs::write(&path, r#"{"treasury":{"gold":5},"home":{"deepest":3}}"#).unwrap();
     let mut realm = Realm::beside(Some(&rewards));
     assert_eq!(realm.home.holdings, Holdings::default());
@@ -38,7 +37,6 @@ fn holdings_are_saved_with_the_realm_and_a_bad_record_resets_alone() {
     realm.save().unwrap();
     let again = Realm::beside(Some(&rewards));
     assert_eq!(again.home.holdings, h);
-    // A broken holdings record costs the holdings, never the realm.
     std::fs::write(
         &path,
         r#"{"treasury":{"gold":5},"home":{"deepest":3,"holdings":{"owned":7,"stores":"lots"}}}"#,

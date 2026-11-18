@@ -16,11 +16,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT/'crates/delve/assets/arcade'
-# The source art left the repository on 2026-10-20 for the archive (its
-# README.md says what each folder is); ANGEL_SOURCE_ART names it
-# (default ~/angelX-archive/2026-10-20/source-art).
 SOURCE_ART = Path(os.environ.get('ANGEL_SOURCE_ART') or Path.home()/'angelX-archive/2026-10-20/source-art')
-# The only extra pigments: six cloth reds, two ember oranges.
 EXTRA = ['38212d','61303b','853d43','ad4e49','cc6854','dc8768','a34828','d77b39']
 RAMPS = {
     'bandage': ['7a7c72','94968c','b0b2a8'],
@@ -53,8 +49,6 @@ def parts(points):
         yield part
 
 def cut(source,index,kind):
-    # Fixed equal-cell layout is retained with the source, not detected from
-    # current PNG content. Flood neutral-grey paper; do not key dark pigments.
     w,h=source.size; col,row=index%6,index//6
     ys=[0,257,520,750,940,h] if kind=='fx' else [i*h//5 for i in range(6)]
     box=(col*w//6,ys[row],(col+1)*w//6,ys[row+1])
@@ -78,8 +72,6 @@ def clean(a,ramps):
     inks=[rgb(h) for h in CONTOUR+sum([RAMPS[r] for r in ramps],[]) + ['be914b']]
     px={p:min(inks,key=lambda c:sum((c[k]-a.getpixel(p)[k])**2 for k in range(3)))
         for y in range(a.height) for x in range(a.width) if a.getpixel(p:=(x,y))[3]>127}
-    # Every exterior sample is the same readable indigo; internal contours from
-    # the source survive. Tiny clusters become a neighbouring material mass.
     edge={p for p in px if any(q not in px for q in ns(p))}
     for p in edge:px[p]=rgb(CONTOUR[0])
     for _ in range(4):
@@ -94,7 +86,6 @@ def clean(a,ramps):
                     for p in group:changes[p]=ink
         if not changes:break
         px.update(changes)
-    # Tiny detached islands are paper, not particle texture.
     for group in list(parts(px)):
         if len(group)<4:
             for p in group:del px[p]
@@ -151,8 +142,6 @@ def write_frame(a,folder,name,materials,extra=None):
         colours=set(map(rgb,RAMPS[material]));points={(x,y) for y in range(a.height) for x in range(a.width) if a.getpixel((x,y))[:3] in colours and a.getpixel((x,y))[3]}
         group=max(parts(points),key=len)
         if material=='cloth':
-            # Belt and baldric split the coat's connected mask, but remain
-            # within the same authored material region; exclude the plume.
             top=min(y for x,y in group)-5;group={p for p in points if p[1]>=top}
         box=[min(x for x,y in group),min(y for x,y in group),max(x for x,y in group)+1,max(y for x,y in group)+1]
         regions.append({'name':'helmet' if material=='steel' else 'surcoat','material':material,'minimum_tones':minimum,'box':box})
@@ -201,16 +190,13 @@ def review(out):
                 if zoom==1:
                     strip.save(out/f'{kit}-{state}-strip.png')
                     gif[0].save(out/f'{kit}-{state}.gif',save_all=True,append_images=gif[1:],duration=s['durations_ms'],loop=0,disposal=2)
-            # Explosion's twelve frames need two rows at 3x to keep <1800.
             if sheet.width>=1800:
-                # Individual strips are native size; split expanded review.
                 for row,(state,s) in enumerate(m['states'].items()):
                     if state!='explosion':continue
                     strip=Image.open(out/f'{kit}-{state}-strip.png');a=Image.new('RGB',(1252,2*(h*3+25)),'#080b0e');ad=ImageDraw.Draw(a)
                     for half in range(2):
                         crop=strip.crop((half*6*w,0,min((half+1)*6*w,strip.width),h));ad.text((8,half*(h*3+25)+3),f'{state} {half*6}+',font=font,fill='#b0b2a8');a.paste(crop.resize((crop.width*3,h*3),Image.Resampling.NEAREST),(90,half*(h*3+25)+20))
                     if state=='explosion':a.save(out/f'{kit}-{state}-3x.png')
-                # Other FX fit a separate 3x sheet.
                 sheet=sheet.crop((0,h*3+35,1252,sheet.height))
             sheet.save(out/f'{kit}-sheet-{zoom}x.png')
     m=json.loads((ASSETS/'knight/manifest.json').read_text());im=Image.open(ASSETS/'knight/idle-0.png');sheet=Image.new('RGB',(1000,240),'#080b0e');d=ImageDraw.Draw(sheet)

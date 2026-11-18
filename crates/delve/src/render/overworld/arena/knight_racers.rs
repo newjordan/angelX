@@ -15,11 +15,9 @@ use crate::render::world3d::mesh::{Mesh, mat};
 use crate::render::world3d::raster::{self, View3, Firelight, Backdrop};
 use std::f32::consts::{PI, TAU};
 const LOOK: Look = Look { name: rules::NAME, backdrop: 'F', edge: 'y', accent: 'T' };
-// Hardcore palette mapped onto the game's semantic materials:
-// black iron -> STONE_DARK, steel -> ARMOR, Excalibur Blue -> CRYSTAL / CLOTH_BLUE, exhaust -> FLAME / EMBER.
 const IRON: u8 = mat::STONE_DARK;
 const STEEL: u8 = mat::ARMOR;
-const GUN: u8 = mat::HORSE_GREY; // the engines' gunmetal, darker than a knight's steel
+const GUN: u8 = mat::HORSE_GREY;
 const BLUE: u8 = mat::CRYSTAL;
 const LAVA: u8 = mat::EMBER;
 const LAVA_HOT: u8 = mat::FLAME;
@@ -39,7 +37,6 @@ fn cuboid(m: &mut Mesh, lo: V3, hi: V3, k: u8) {
     m.push_quad(p(t, f, f), p(t, t, f), p(t, t, t), p(t, f, t), k);
 }
 
-/// n-gon prism along +x from x0 to x1, centred (y,z), radii r0 -> r1.
 fn barrel(m: &mut Mesh, [x0, x1]: [f32; 2], [y, z]: [f32; 2], [r0, r1]: [f32; 2], n: usize, k: u8, caps: bool) {
     let ring = |x: f32, r: f32, i: usize| {
         let a = i as f32 / n as f32 * TAU + PI / n as f32;
@@ -56,8 +53,6 @@ fn barrel(m: &mut Mesh, [x0, x1]: [f32; 2], [y, z]: [f32; 2], [r0, r1]: [f32; 2]
     }
 }
 
-/// A pool of the racer's light on the floor under `c`: two nested ellipses, so
-/// it falls off in steps (see `pool`, which dims whatever lies flat on the floor).
 fn glow_pool(m: &mut Mesh, c: V3, [rx, ry]: [f32; 2], k: u8) {
     for (w, z) in [(1.0f32, 0.03), (0.62, 0.05)] {
         let at = |i: usize| c + v3(rx * w * (i as f32 / 12.0 * TAU).cos(), ry * w * (i as f32 / 12.0 * TAU).sin(), z);
@@ -65,7 +60,6 @@ fn glow_pool(m: &mut Mesh, c: V3, [rx, ry]: [f32; 2], k: u8) {
     }
 }
 
-/// Four-sided cone from a ring at `base` (radius r) to a tip.
 fn spike(m: &mut Mesh, base: V3, tip: V3, r: f32, k: u8) {
     let ax = (tip - base).normalize();
     let u = ax.cross(if ax.z.abs() > 0.9 { v3(1.0, 0.0, 0.0) } else { V3::UP }).normalize();
@@ -81,9 +75,8 @@ fn spike(m: &mut Mesh, base: V3, tip: V3, r: f32, k: u8) {
 
 fn skull(m: &mut Mesh, c: V3, s: f32, face: f32) {
     cuboid(m, c + v3(-s, -s, 0.0), c + v3(s, s, 1.6 * s), mat::BONE);
-    cuboid(m, c + v3(-0.6 * s, -s, -0.6 * s), c + v3(0.6 * s, s, 0.0), mat::BONE); // jaw
+    cuboid(m, c + v3(-0.6 * s, -s, -0.6 * s), c + v3(0.6 * s, s, 0.0), mat::BONE);
     for dx in [-0.45f32, 0.45] {
-        // eye sockets glow lava
         cuboid(m, c + v3((dx - 0.22) * s, 0.95 * face * s, 0.7 * s), c + v3((dx + 0.22) * s, 1.05 * face * s, 1.1 * s), LAVA);
     }
 }
@@ -97,8 +90,6 @@ fn chain(m: &mut Mesh, a: V3, b: V3) {
     }
 }
 
-/// A wave's rate, nudged so it fits a whole number of times into `period`
-/// (none: as it is). A track that loops (`play.rs`) closes on itself unseen.
 fn rate(w: f32, period: f32) -> f32 {
     if period > 0.0 { (w * period / TAU).round().max(1.0) * TAU / period } else { w }
 }
@@ -106,11 +97,9 @@ fn rate(w: f32, period: f32) -> f32 {
 fn lap() -> f32 { worldkit::route::current().lap() }
 const SCALE: f32 = 0.82;
 fn pose(s: f32) -> (f32, f32, f32) { worldkit::route::current().pose(s) }
-/// The world around the road, as seen from a car at `s`: built by `worldkit`.
 fn world(s: f32) -> Mesh { worldkit::build(worldkit::route::current(), s) }
 
 fn point(s: f32, y: f32, z: f32) -> V3 { worldkit::point(worldkit::route::current(), s, y, z) }
-/// The race's painted materials: the pods' own, and the land's (see `worldkit::palette`).
 fn race_palette() -> &'static raster::Painted { worldkit::palette::painted() }
 
 pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
@@ -122,11 +111,14 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     };
     let shot = instruments::shot(s, car, seat);
     let view = shot.view;
-    // The lens leans into a bend for as long as this frame is drawn (the instruments' projections lean with it).
     let _lean = raster::roll(shot.roll);
     let mut movers = Mesh::new();
+    for c in s.cars.values() {
+        pods::scorch(&mut movers, s, c, view.pos);
+    }
+    let lead = s.order().first().copied().filter(|&id| pods::leads(s, id));
     for (&other, c) in &s.cars {
-        pods::add(&mut movers, s, other, c, view.pos);
+        pods::add_led(&mut movers, s, other, c, view.pos, lead == Some(other));
     }
     let track = world(car.d);
     let tunnel = s.course().stretch(car.d.rem_euclid(s.course().lap())) == rules::Stretch::Tunnel;
@@ -135,8 +127,6 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     let fog = worldkit::fog_for(look);
     let (rgba, depth) = raster::render_meshes_painted(&[&track, &movers], &view, 384, 224, lighting, fog, Backdrop::Haze(worldkit::haze(look)), Some(pods::palette()));
     let mut im = dots_with(rgba.as_raw(), 384, 224, (0., 82., 0.65, 150.));
-    // Paint only untouched backdrop samples: the course/pods retain real
-    // z-buffer silhouettes against the layered desert horizon.
     for y in 18..175 { for x in 0..384 {
         if !depth[(y * 384 + x) as usize].is_finite() {
             let ridge = 88. + 13. * (x as f32 * 0.025 + pose(car.d).2).sin() + 5. * (x as f32 * 0.073).sin();
@@ -169,9 +159,6 @@ mod podracer_gauntlet {
         let counts: Vec<_> = [0., 80., 320., 600., 850.].into_iter().map(|d| world(d).tris.len()).collect();
         let lo = *counts.iter().min().unwrap();
         let hi = *counts.iter().max().unwrap();
-        // Sections differ (open dune vs cavern vault). A doubled window was the
-        // old bug — pillars emitted from zero and growing by a lap. Three times
-        // still catches that, and allows the cavern to be denser than the dune.
         assert!(hi < lo * 3, "local mesh grew around lap: {counts:?}");
         let mut run = Run::roundtable_for_test("knight_racers").unwrap();
         let car = run.knight_racers.as_mut().unwrap().cars.get_mut(&1).unwrap();
@@ -189,7 +176,6 @@ mod podracer_gauntlet {
     #[test]
     fn rendered_six_seat_podracer_gauntlet() {
         let mut run = Run::roundtable_for_test("knight_racers").unwrap();
-        // The proving circuit: six cars driven flat out with no steering get round it.
         let mut race = rules::Session::blank_on(rules::CourseId::Proving);
         race.join_ids(1..=6);
         run.knight_racers = None;
@@ -208,7 +194,6 @@ mod podracer_gauntlet {
             let (im, _) = layers(&run, Some(1));
             let rgba = im.rgba_bytes();
             assert_eq!(rgba.len(), 384 * 224 * 4);
-            // A non-empty course and pod below the header, not just passing HUD text.
             let lit = (25..170).flat_map(|y| (30..295).map(move |x| (x,y)))
                 .filter(|&(x,y)| im.get(x,y).is_some_and(|c| c[0].max(c[1]).max(c[2]) > 40)).count();
             assert!(lit > 1000, "{name}: race view is blank/dark ({lit})");
@@ -228,7 +213,6 @@ mod podracer_gauntlet {
         assert_eq!(race.cars[&1].impact, 12);
         run.knight_racers = Some(race.clone());
         if let Some(out) = &out { let (im, _) = layers(&run, Some(1)); image::save_buffer(out.join("06-wall.png"), &im.rgba_bytes(), 384, 224, image::ColorType::Rgba8).unwrap(); }
-        // 2026-11-07: six pods held flat out with no lift now cook their engines and blow them (the racer's law), each costing a few seconds: they still finish, later.
         while !race.finished && race.ticks < 24000 { race.step(&drive); assert!(race.valid()); }
         assert!(race.finished, "six seats must finish the race, progress {:?}", race.cars.iter().map(|(id, c)| (id, c.d, c.finish)).collect::<Vec<_>>());
         run.knight_racers = Some(race.clone());

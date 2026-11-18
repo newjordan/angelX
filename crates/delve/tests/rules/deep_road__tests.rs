@@ -33,7 +33,6 @@ fn calm(run: &mut Run, ticks: u64) {
     }
 }
 
-/// A party of `seats` on floor `floor` of the Deep, laid fresh.
 fn road_run(seats: u32, floor: u32) -> Run {
     let mut run = Run::new(41, 1, None);
     for id in 2..=seats {
@@ -55,7 +54,6 @@ fn meeting_mut(run: &mut Run) -> &mut road::Meeting {
     run.deep.as_mut().unwrap().meeting.as_mut().unwrap()
 }
 
-/// The meeting made a `kind` of `people`'s, as the floor would lay one.
 fn force(run: &mut Run, kind: road::Kind, people: Culture) {
     let m = meeting_mut(run);
     m.kind = kind;
@@ -67,7 +65,6 @@ fn force(run: &mut Run, kind: road::Kind, people: Culture) {
     m.foes.clear();
 }
 
-/// Knight 1 beside the meeting, in its room, nothing else in the room.
 fn go(run: &mut Run) {
     let room = the_meeting(run).room;
     if run.at != room {
@@ -85,7 +82,6 @@ fn beside(run: &mut Run, id: u32) {
     put(run, id, (x, y + 1.0));
 }
 
-/// Knight `id` speaks with the meeting and goes on to what it asks.
 fn speak(run: &mut Run, id: u32) {
     beside(run, id);
     press(run, id);
@@ -108,7 +104,6 @@ fn give(run: &mut Run, id: u32, spoil: Spoil, n: u32) {
     run.players.get_mut(&id).unwrap().carried.add(spoil, n);
 }
 
-/// An open errand of `errand` from the village whose chapter `floor` is in.
 fn ask(run: &mut Run, floor: u32, errand: Errand, need: u16) -> usize {
     let village = chapter(floor) * CHAPTER;
     let culture = run.home.deep.culture_at(village);
@@ -178,8 +173,6 @@ fn the_six_turn_through_a_stretch_and_a_shrine_never_stands_at_a_dreads_stair() 
             }
         }
     }
-    // And laid on the floors themselves: the floor above a village never
-    // lays one.
     for floor in [9, 19, 29] {
         for raid in 0..12u64 {
             let mut run = Run::new(41, 1, None);
@@ -222,7 +215,6 @@ fn a_lost_patrol_shares_light_for_gold_and_lights_a_lamp_for_the_errand() {
     assert!(the_meeting(&run).settled());
     let said = run.found.clone().unwrap().2;
     assert!(said.contains("ERRAND +1") && said.contains("FAVOUR WITH THE EMBERFOLK +2"), "{said}");
-    // Spoken to again, they say what is done.
     beside(&mut run, 1);
     press(&mut run, 1);
     assert!(run.road_view(1).unwrap().words.contains("YOUR LIGHT IS IN OUR BRAZIER"));
@@ -241,7 +233,6 @@ fn a_patrol_asks_a_price_the_party_may_not_have() {
     assert!(!the_meeting(&run).settled(), "no gold, no light");
     assert_eq!(favour(&run, Culture::Capfolk), 0);
     assert!(run.found.clone().unwrap().2.contains("NEED 50 GOLD"));
-    // And taking their gems costs them, not the party.
     key(&mut run, 1, 2);
     assert_eq!(gems(&run, 1), road::TAKEN_GEMS);
     assert_eq!(favour(&run, Culture::Capfolk), -2);
@@ -259,7 +250,6 @@ fn seeing_a_patrol_to_the_stair_is_a_real_fight_and_pays_when_it_is_won() {
     assert!(!m.foes.is_empty(), "something came after them");
     assert!(run.enemies.iter().any(|e| e.hp > 0), "and it is in the room");
     assert!(run.enemies.len() >= road::PURSUERS, "{} foes", run.enemies.len());
-    // Nobody talks while it lasts.
     press(&mut run, 1);
     assert!(run.road_view(1).is_none());
     assert_eq!(favour(&run, Culture::Glimmerkin), 0, "nothing is paid before the fight is won");
@@ -280,7 +270,6 @@ fn leaving_the_room_in_the_middle_of_a_fight_puts_the_choice_back() {
     speak(&mut run, 1);
     key(&mut run, 1, 3);
     assert_eq!(the_meeting(&run).stage, road::Stage::Fighting);
-    // Out of the room: what rose falls back with it.
     run.enter_for_test(0);
     calm(&mut run, 2);
     let m = the_meeting(&run);
@@ -301,21 +290,17 @@ fn a_caravan_sells_each_ware_once_and_takes_a_gem() {
     assert!(view.answers[0].starts_with("1: A GIFT FOR"), "{:?}", view.answers);
     assert_eq!(view.answers[2], "3: SELL A GEM (NO GEM)", "{:?}", view.answers);
     assert_eq!(view.answers[1], "2: A DRAUGHT OF DEEP-HONEY (40 GOLD)");
-    // A gift for the village ahead, carried.
     key(&mut run, 1, 1);
     assert_eq!(gold(&run, 1), 200 - road::GIFT);
     let cargo = run.deep.as_ref().unwrap().cargo.clone();
     assert_eq!(cargo, vec![road::Cargo { parcel: road::Parcel::Gift, from: Culture::Saltkin }]);
-    // Not twice.
     key(&mut run, 1, 1);
     assert_eq!(gold(&run, 1), 200 - road::GIFT, "sold once");
     assert_eq!(run.deep.as_ref().unwrap().cargo.len(), 1);
-    // A draught mends a hurt knight.
     run.players.get_mut(&1).unwrap().hp = 10;
     key(&mut run, 1, 2);
     assert_eq!(gold(&run, 1), 200 - road::GIFT - road::DRAUGHT);
     assert_eq!(run.players[&1].hp, 10 + run.players[&1].max_hp * road::MEND_PERCENT / 100, "half their health back");
-    // A gem sold for what a gem is worth.
     give(&mut run, 1, Spoil::Gem, 1);
     let before = gold(&run, 1);
     key(&mut run, 1, 3);
@@ -372,7 +357,6 @@ fn the_hermit_lights_his_lamp_for_the_right_answer_and_the_dark_answers_a_wrong_
 
 #[test]
 fn the_hermits_calm_does_not_reach_a_dread_already_risen() {
-    // On the floor of the dread's own stair it is up already: no claim.
     let mut run = road_run(1, 19);
     force(&mut run, road::Kind::Hermit, Culture::Capfolk);
     run.deep.as_mut().unwrap().stir = 2;
@@ -392,7 +376,6 @@ fn the_riddles_are_each_three_answers_with_one_right() {
         assert!(all.iter().all(|a| a.len() <= 24), "short enough for a line: {all:?}");
         assert!(wrong.iter().all(|w| *w != right));
     }
-    // The right answer's place is the meeting's own, and moves.
     let places: std::collections::BTreeSet<u8> = (0..24u64)
         .map(|raid| {
             let mut run = Run::new(41, 1, None);
@@ -413,14 +396,12 @@ fn captives_wait_in_their_cage_until_a_knight_comes_and_their_captors_must_fall(
     run.enter_for_test(room);
     run.enemies.clear();
     let (x, y) = the_meeting(&run).tile_point();
-    // Far off, they stay quiet.
     put(&mut run, 1, (3.0, 3.0));
     put(&mut run, 2, (3.5, 3.0));
     calm(&mut run, 3);
     if ((x - 3.0) * TILE_UNITS).hypot((y - 3.0) * TILE_UNITS) > road::RISE_REACH + 2.0 {
         assert_eq!(the_meeting(&run).stage, road::Stage::Waiting);
     }
-    // Close, the captors rise: real foes, in the room.
     put(&mut run, 1, (x, y + 2.0));
     put(&mut run, 2, (x + 1.0, y + 2.0));
     calm(&mut run, 2);
@@ -428,7 +409,6 @@ fn captives_wait_in_their_cage_until_a_knight_comes_and_their_captors_must_fall(
     let raised = the_meeting(&run).foes.len();
     assert!(raised >= road::CAPTORS, "{raised} captors");
     assert!(run.enemies.iter().filter(|e| e.hp > 0).count() >= raised);
-    // They cannot be spoken to while captors stand.
     press(&mut run, 1);
     assert!(run.road_view(1).is_none());
     kill_foes(&mut run);
@@ -442,8 +422,6 @@ fn captives_wait_in_their_cage_until_a_knight_comes_and_their_captors_must_fall(
 
 #[test]
 fn captors_rise_in_the_real_production_path_too() {
-    // The same, through `enter` (its guardian economy in force), not the
-    // test helper that sets it aside.
     let mut run = road_run(1, 15);
     force(&mut run, road::Kind::Captives, Culture::Roostfolk);
     let room = the_meeting(&run).room;
@@ -459,7 +437,6 @@ fn captors_rise_in_the_real_production_path_too() {
 
 #[test]
 fn freed_captives_pay_dig_or_carry_word_ahead() {
-    // Their purse, each knight.
     let mut run = road_run(2, 15);
     force(&mut run, road::Kind::Captives, Culture::Rootkin);
     meeting_mut(&mut run).stage = road::Stage::Open;
@@ -473,7 +450,6 @@ fn freed_captives_pay_dig_or_carry_word_ahead() {
     assert_eq!(favour(&run, Culture::Rootkin), 3);
     assert!(the_meeting(&run).talks.is_empty(), "the other knight's talk closes with it");
 
-    // Their help, when no errand wants a relic: they tend the knights.
     let mut run = road_run(1, 15);
     force(&mut run, road::Kind::Captives, Culture::Rootkin);
     meeting_mut(&mut run).stage = road::Stage::Open;
@@ -485,7 +461,6 @@ fn freed_captives_pay_dig_or_carry_word_ahead() {
     assert!(run.players[&1].hp > 10, "mended");
     assert_eq!(favour(&run, Culture::Rootkin), 2);
 
-    // Their help, when an errand wants a relic.
     let mut run = road_run(1, 15);
     let gather = ask(&mut run, 15, Errand::Gather, 6);
     force(&mut run, road::Kind::Captives, Culture::Rootkin);
@@ -497,7 +472,6 @@ fn freed_captives_pay_dig_or_carry_word_ahead() {
     assert_eq!(run.home.deep.missions[gather].have, 1);
     assert_eq!(favour(&run, Culture::Rootkin), 2);
 
-    // Word to the village ahead.
     let mut run = road_run(1, 15);
     force(&mut run, road::Kind::Captives, Culture::Rootkin);
     meeting_mut(&mut run).stage = road::Stage::Open;
@@ -510,7 +484,6 @@ fn freed_captives_pay_dig_or_carry_word_ahead() {
 
 #[test]
 fn a_drowned_shrine_offers_a_hard_choice() {
-    // The hoard: rich now, and the dread of the village ahead wakes stronger.
     let mut run = road_run(2, 13);
     force(&mut run, road::Kind::Shrine, Culture::Chimefolk);
     go(&mut run);
@@ -524,7 +497,6 @@ fn a_drowned_shrine_offers_a_hard_choice() {
     assert_eq!(run.deep.as_ref().unwrap().stir, 1);
     assert!(run.road_notes().iter().any(|n| n.contains("IS STIRRED")), "{:?}", run.road_notes());
 
-    // An offering: poorer, mended, and a stirred dread settles.
     let mut run = road_run(1, 13);
     force(&mut run, road::Kind::Shrine, Culture::Chimefolk);
     run.deep.as_mut().unwrap().stir = 2;
@@ -538,7 +510,6 @@ fn a_drowned_shrine_offers_a_hard_choice() {
     assert_eq!(favour(&run, Culture::Chimefolk), 2);
     assert_eq!(run.deep.as_ref().unwrap().stir, 1, "one step calmer");
 
-    // The bell: a fight, then a gem each and the shrine's relic.
     let mut run = road_run(1, 13);
     let gather = ask(&mut run, 13, Errand::Gather, 6);
     force(&mut run, road::Kind::Shrine, Culture::Chimefolk);
@@ -583,7 +554,6 @@ fn an_envoy_sent_home_and_captives_let_out_leave_the_room() {
     go(&mut run);
     speak(&mut run, 1);
     key(&mut run, 1, 3);
-    // Still there a moment, to be spoken to.
     beside(&mut run, 1);
     press(&mut run, 1);
     assert!(run.road_view(1).is_some());
@@ -604,7 +574,6 @@ fn an_envoy_sent_home_and_captives_let_out_leave_the_room() {
     assert!(the_meeting(&run).gone(run.tick));
     press(&mut run, 1);
     assert!(run.road_view(1).is_none());
-    // A caravan, a hermit, a shrine, a patrol stay where they are.
     for kind in [road::Kind::Caravan, road::Kind::Hermit, road::Kind::Shrine, road::Kind::Patrol] {
         let mut run = road_run(1, 13);
         force(&mut run, kind, Culture::Rootkin);
@@ -690,7 +659,6 @@ fn a_village_of_friends_lights_a_step_more_and_pays_more_and_a_wary_one_holds_ba
     assert_eq!(friend, plain + 1, "friends: a step more");
     assert_eq!(wary, plain - 1, "wary: the star's own light is held back");
     assert!(run.deep.as_ref().unwrap().village.as_ref().unwrap().news.contains("KNOWS YOUR NAME"));
-    // The elder says so too, and a wary village's says that.
     let elder = |favour: i8| {
         let mut run = road_run(1, 19);
         let ahead = run.home.deep.culture_at(20);
@@ -705,7 +673,6 @@ fn a_village_of_friends_lights_a_step_more_and_pays_more_and_a_wary_one_holds_ba
     assert!(elder(road::FRIEND).starts_with("WE KNOW YOU FROM THE ROAD"));
     assert!(elder(road::WARY).starts_with("THE ROAD HAS TOLD US OF YOU, AND NOT KINDLY"));
     assert!(!elder(0).contains("FROM THE ROAD") && !elder(0).contains("TOLD US OF YOU"), "a people with no opinion say nothing of it");
-    // Errands pay friends more.
     let mut run = road_run(1, 15);
     let village = 10;
     let culture = run.home.deep.culture_at(village);
@@ -716,7 +683,6 @@ fn a_village_of_friends_lights_a_step_more_and_pays_more_and_a_wary_one_holds_ba
     run.count_errand(m, 1, 15);
     assert_eq!(gold(&run, 1), before + purse(15) + road::FRIEND_PURSE);
     assert!(run.found.clone().unwrap().2.contains("FRIENDS PAY MORE"));
-    // Not friends, no more.
     let mut run = road_run(1, 15);
     run.home.deep.towns.push(Town::new(village, culture));
     let m = ask(&mut run, 15, Errand::Gather, 1);
@@ -753,7 +719,6 @@ fn a_stirred_dread_is_more_and_angrier_inside_the_checkers_bounds() {
             assert!(b.hp <= 900 && b.rage <= 0.6 && b.windups[0].every >= 150);
             assert_eq!(b.windups.len(), base.windups.len());
         }
-        // No stir, no change.
         let mut same = dread::boss(culture, 3);
         dread::awaken(&mut same, 0);
         assert_eq!(same, base);
@@ -779,20 +744,15 @@ fn the_road_stirs_the_dread_that_waits_at_the_next_stair() {
 
 #[test]
 fn an_old_save_with_no_road_in_it_reads_and_the_road_leaves_a_clean_save_alone() {
-    // A Descent saved before the road existed.
     let old = r#"{"floor":13,"signs":[]}"#;
     let d: Descent = serde_json::from_str(old).unwrap();
     assert!(d.meeting.is_none() && d.cargo.is_empty() && d.stir == 0);
-    // A chronicle with no ledger in it.
     let c: Chronicle = serde_json::from_str(r#"{"wheel":3,"deepest":12}"#).unwrap();
     assert!(c.road.is_empty() && c.valid());
-    // An empty ledger leaves a save as it was.
     let json = serde_json::to_string(&Chronicle { wheel: 3, deepest: 12, ..Chronicle::default() }).unwrap();
     assert!(!json.contains("road"), "{json}");
-    // A bare descent saves none of the road.
     let v = serde_json::to_string(&Descent { floor: 20, ..Default::default() }).unwrap();
     assert!(!v.contains("meeting") && !v.contains("cargo") && !v.contains("stir"), "{v}");
-    // A village saved before the road's news reads.
     let before = r#"{"floor":10,"culture":"capfolk","arrived":5,"hope":2}"#;
     let village: Village = serde_json::from_str(before).unwrap();
     assert!(village.boon == 0 && !village.cold && village.news.is_empty());
@@ -840,13 +800,11 @@ fn walking_off_ends_a_talk_and_two_knights_answer_one_meeting_once() {
     speak(&mut run, 1);
     speak(&mut run, 2);
     assert_eq!(the_meeting(&run).talks.len(), 2);
-    // Walk off: the talk is gone.
     let (x, y) = the_meeting(&run).tile_point();
     put(&mut run, 2, (x + 9.0, y + 9.0));
     calm(&mut run, 2);
     assert_eq!(the_meeting(&run).talks.len(), 1);
     speak(&mut run, 2);
-    // Both answer the same tick: it settles once.
     run.step(&BTreeMap::from([(1, Input { cast: 1, ..Default::default() }), (2, Input { cast: 3, ..Default::default() })]));
     run.step(&BTreeMap::new());
     assert!(the_meeting(&run).settled());
@@ -888,7 +846,6 @@ fn the_tracker_says_what_the_road_holds() {
 
 #[test]
 fn the_trackers_road_lines_are_short_enough_to_stay_off_the_minimap() {
-    // The longest town names, with every parcel and every notice up.
     for floor in [19u32, 89, 169] {
         for wheel in 1..=8u32 {
             let mut run = Run::new(41, 1, None);
@@ -933,8 +890,6 @@ fn the_meetings_work_on_open_floors_too() {
     speak(&mut run, 1);
     key(&mut run, 1, 1);
     assert!(the_meeting(&run).settled());
-    // A fight on the map: its foes keep to their chamber, and the talk
-    // is held back until they are down.
     let mut run = open_run(15);
     force(&mut run, road::Kind::Shrine, Culture::Capfolk);
     go(&mut run);
@@ -948,7 +903,6 @@ fn the_meetings_work_on_open_floors_too() {
 
 #[test]
 fn the_road_from_the_winding_stair_to_the_first_village_is_an_adventure_start_to_end() {
-    // Down the Winding Stair onto the Deep Road, the way a party goes.
     let mut home = deep_home();
     home.landing = ROAD;
     let mut run = Run::at_home(4, 1, None, home, Default::default());
@@ -956,7 +910,6 @@ fn the_road_from_the_winding_stair_to_the_first_village_is_an_adventure_start_to
     assert_eq!(run.floor(), ROAD);
     assert!(run.deep.as_ref().unwrap().meeting.is_some(), "something on the very first floor");
     assert!(run.valid_snapshot());
-    // Meet it: an envoy's letter, whatever it is, taken along.
     let ahead = run.home.deep.culture_at(CHAPTER);
     let rival = super::cultures::WHEEL[(super::cultures::WHEEL.iter().position(|&c| c == ahead).unwrap() + 1) % 8];
     force(&mut run, road::Kind::Envoy, rival);
@@ -964,7 +917,6 @@ fn the_road_from_the_winding_stair_to_the_first_village_is_an_adventure_start_to
     speak(&mut run, 1);
     key(&mut run, 1, 1);
     assert_eq!(run.deep.as_ref().unwrap().cargo.len(), 1);
-    // Floor 8 holds none, floor 9 (the dread's stair) one more.
     run.descend_for_test();
     assert_eq!(run.floor(), ROAD + 1);
     assert!(run.deep.as_ref().unwrap().meeting.is_none());
@@ -973,7 +925,6 @@ fn the_road_from_the_winding_stair_to_the_first_village_is_an_adventure_start_to
     assert_eq!(run.floor(), 9);
     assert!(run.deep.as_ref().unwrap().meeting.is_some());
     assert_ne!(the_meeting(&run).kind, road::Kind::Shrine);
-    // The village at the bottom takes the delivery as its star lands.
     run.descend_for_test();
     assert_eq!(run.floor(), CHAPTER);
     assert!(run.in_deep_village());
@@ -987,16 +938,12 @@ fn the_road_from_the_winding_stair_to_the_first_village_is_an_adventure_start_to
 
 #[test]
 fn the_first_gate_is_kept() {
-    // The Deep opens below the Unknown only: a realm that has not stood on
-    // its floor has no landing on the road.
     let mut home = Home { deepest: DEEPEST - 1, ..Home::default() };
     home.levels.insert(Station::Map, 4);
     assert!(!home.deep_road());
     assert!(!home.landings().contains(&ROAD));
     assert!(deep_home().landings().contains(&ROAD));
 }
-
-// ─── shots ───────────────────────────────────────────────────────────────────
 
 fn shot_dir(name: &str) -> Option<std::path::PathBuf> {
     let dir = std::path::PathBuf::from(std::env::var_os("ANGEL_ARENA_SHOTS")?).join(name);
@@ -1010,12 +957,10 @@ fn save_img(dir: &std::path::Path, img: &crate::render::overworld::Img, name: &s
     std::fs::write(dir.join(format!("{name}.ppm")), out).unwrap();
 }
 
-/// What knight 1 sees.
 fn save(dir: &std::path::Path, run: &Run, name: &str) {
     save_img(dir, &crate::render::overworld::arena::frame_for(run, 768, 448, Some(1)), name);
 }
 
-/// The room round the meeting, close: a `w` by `h` window on it.
 fn close(dir: &std::path::Path, run: &Run, size: (i32, i32), name: &str) {
     let (x, y) = the_meeting(run).point();
     let whole = crate::render::overworld::arena::whole_room_for_test(run);
@@ -1024,14 +969,10 @@ fn close(dir: &std::path::Path, run: &Run, size: (i32, i32), name: &str) {
     save_img(dir, &crate::render::overworld::Img::from_view(&whole, ox, oy, size.0, size.1), name);
 }
 
-/// Whether the shots asked for (`DEEP_SHOTS`, a comma list; all if unset)
-/// include `part`.
 fn wanted(part: &str) -> bool {
     std::env::var("DEEP_SHOTS").map_or(true, |list| list.split(',').any(|p| p.trim() == part))
 }
 
-/// A party on floor `floor` with a `kind` of `people`'s, ready to be seen:
-/// the floor's plate and dare put away, the knights past hurt, beside it.
 fn scene(seats: u32, floor: u32, kind: road::Kind, people: Culture, open: bool) -> Run {
     let mut run = Run::new(41, 1, None);
     for id in 2..=seats {
@@ -1049,7 +990,6 @@ fn scene(seats: u32, floor: u32, kind: road::Kind, people: Culture, open: bool) 
     run.skip_floor_plate(2);
     run.dare = None;
     if kind == road::Kind::Captives {
-        // The captors rise when a knight comes near: stand well off.
         run.enter_for_test(the_meeting(&run).room);
         run.enemies.clear();
         put(&mut run, 1, (3.0, 3.0));
@@ -1078,7 +1018,6 @@ fn every_meeting_of_every_people_is_drawn_and_the_talk_is_put_up_as_a_board() {
             assert_ne!(frame(&run).content_hash(), frame(&bare).content_hash(), "{kind:?} of {culture:?} is drawn");
         }
     }
-    // Every kind's talk puts its speaker's name up, with a portrait beside it.
     for kind in road::Kind::ALL {
         let mut run = scene(1, 13, kind, Culture::Capfolk, false);
         if kind == road::Kind::Captives {
@@ -1098,7 +1037,6 @@ fn every_meeting_of_every_people_is_drawn_and_the_talk_is_put_up_as_a_board() {
     assert!(words.contains(&"CAPTAIN RIVET"), "{words:?}");
     assert!(words.iter().any(|w| w.starts_with("SHARE YOUR LIGHT")), "{words:?}");
     assert!(words.iter().any(|w| w.contains("ON THIS FLOOR: A LOST PATROL")), "the tracker names it: {words:?}");
-    // And a settled meeting is not on the tracker, nor its talk on the board.
     meeting_mut(&mut run).stage = road::Stage::Settled;
     meeting_mut(&mut run).choice = Some(2);
     meeting_mut(&mut run).talks.clear();
@@ -1109,7 +1047,6 @@ fn every_meeting_of_every_people_is_drawn_and_the_talk_is_put_up_as_a_board() {
 #[test]
 fn what_a_meeting_shows_is_its_state() {
     let frame = |run: &Run| crate::render::overworld::arena::frame_for(run, 768, 448, Some(1)).content_hash();
-    // A patrol's lamp burns only once a light was shared.
     let cold = scene(1, 13, road::Kind::Patrol, Culture::Emberfolk, false);
     let mut shared = cold.clone();
     meeting_mut(&mut shared).stage = road::Stage::Settled;
@@ -1119,7 +1056,6 @@ fn what_a_meeting_shows_is_its_state() {
     meeting_mut(&mut taken).choice = Some(2);
     assert_ne!(frame(&cold), frame(&shared), "a shared light is lit");
     assert_ne!(frame(&shared), frame(&taken));
-    // A cage with its captives, and one standing open and empty.
     let mut caged = scene(1, 15, road::Kind::Captives, Culture::Glimmerkin, false);
     let (x, y) = the_meeting(&caged).tile_point();
     put(&mut caged, 1, (x, y + 2.0));
@@ -1128,7 +1064,6 @@ fn what_a_meeting_shows_is_its_state() {
     meeting_mut(&mut freed).choice = Some(1);
     meeting_mut(&mut freed).at = Some(0);
     assert_ne!(frame(&caged), frame(&freed));
-    // A shrine's water: the hoard taken, the offering made.
     let shrine = scene(1, 13, road::Kind::Shrine, Culture::Chimefolk, false);
     let mut plundered = shrine.clone();
     meeting_mut(&mut plundered).stage = road::Stage::Settled;
@@ -1138,18 +1073,12 @@ fn what_a_meeting_shows_is_its_state() {
     meeting_mut(&mut offered).choice = Some(2);
     assert_ne!(frame(&shrine), frame(&plundered));
     assert_ne!(frame(&plundered), frame(&offered));
-    // A caravan's wares, sold, leave the cloth.
     let caravan = scene(1, 15, road::Kind::Caravan, Culture::Saltkin, false);
     let mut sold = caravan.clone();
     meeting_mut(&mut sold).sold = 0b011;
     assert_ne!(frame(&caravan), frame(&sold));
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_deep_road_shots -- --ignored`:
-/// each meeting of the road, in its states, close and as a knight sees it,
-/// with its talk board; the tracker; a village taking delivery.
-/// `DEEP_SHOTS` (a comma list: patrol, caravan, hermit, captives, shrine,
-/// envoy, boards, tracker, delivery, peoples) draws only those.
 #[test]
 #[ignore]
 fn write_deep_road_shots() {

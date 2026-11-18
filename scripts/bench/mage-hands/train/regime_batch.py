@@ -1,6 +1,3 @@
-"""CPU-testable minibatch/loss helpers. No model, provider, or CUDA setup."""
-
-
 def collate_samples(samples, pad_token_id):
     import torch
     if not samples:
@@ -33,7 +30,6 @@ def collate_samples(samples, pad_token_id):
 
 
 def answer_loss_sum(hidden, labels, lm_head):
-    """Predict only answer tokens at their causal predecessors, never pad/prompt."""
     import torch.nn.functional as F
     if hidden.shape[:2] != labels.shape:
         raise ValueError('hidden/label sequence shapes disagree')
@@ -42,13 +38,11 @@ def answer_loss_sum(hidden, labels, lm_head):
     tokens = int(mask.sum())
     if tokens == 0:
         raise ValueError('no answer tokens')
-    # Avoid projecting the thousands of image/prompt tokens into the vocabulary.
     logits = lm_head(hidden[:, :-1][mask]).float()
     return F.cross_entropy(logits, shifted[mask], reduction='sum'), tokens
 
 
 def finish_accumulation(optimizer, params, answer_tokens, max_grad_norm=1.0):
-    """Apply a token-mean update, including a short last window; never discard it."""
     import torch
     if answer_tokens <= 0:
         raise ValueError('answer_tokens must be positive')
@@ -69,11 +63,6 @@ def finish_accumulation(optimizer, params, answer_tokens, max_grad_norm=1.0):
 
 def train_epoch(batches, loss_on, optimizer, params, accumulation_steps, deadline,
                 log, max_grad_norm=1.0, clock=None, before_step=None):
-    """One pass of genuine minibatches, with a token-normalized short final step.
-
-    loss_on returns (summed causal answer loss, number of answer tokens).
-    A normal deadline/exhaustion flushes pending work; an error aborts, not steps.
-    """
     import time
     import torch
     if type(accumulation_steps) is not int or accumulation_steps < 1:

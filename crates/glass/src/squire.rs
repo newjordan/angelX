@@ -11,7 +11,6 @@ use crate::graphics::Picture;
 use crate::layer::{LAYER_PICTURES, Layer, LayerKind, Placement};
 
 pub(crate) const SHEET: u32 = LAYER_PICTURES + 0xA4;
-/// The retinue's sheets: a formation's other houses, one each.
 pub(crate) const RETINUE_SHEETS: u32 = LAYER_PICTURES + 0xB0;
 pub(crate) const MOST_RETINUE: usize = 3;
 
@@ -27,9 +26,7 @@ pub(crate) enum Frame {
     Kick,
     Sit,
     Hop,
-    /// Sitting, shins kicked forward.
     SitSwing,
-    /// Sitting, an arm up in greeting.
     SitWave,
 }
 
@@ -51,9 +48,6 @@ const FRAMES: [Frame; 9] = [
     Frame::SitWave,
 ];
 
-/// Authored squire art, sitting clips and optional card-state tracks.
-/// The showcase retains its entrance/exit machinery; card actor policy is
-/// prepared from the live module and sampled against the existing card clock.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "remote", derive(serde::Serialize, serde::Deserialize))]
 pub struct ShowcaseSquireClip {
@@ -61,8 +55,6 @@ pub struct ShowcaseSquireClip {
     pub frames: Vec<Vec<u8>>,
     pub idle: Vec<ClipStep>,
     pub wave: Vec<ClipStep>,
-    /// Version-two module-owned card actor choreography. Legacy packs retain
-    /// their authored idle/wave as a neutral card fallback.
     #[cfg_attr(feature = "remote", serde(default, skip_serializing_if = "Option::is_none"))]
     pub card: Option<crate::CardMotion>,
 }
@@ -74,8 +66,6 @@ pub struct ClipStep {
     pub millis: u16,
 }
 
-/// Exact prepared resource identity. Revision numbers are scoped to a resource
-/// and can repeat across providers or generations.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "remote", derive(serde::Serialize, serde::Deserialize))]
 pub struct ShowcaseClipIdentity {
@@ -89,9 +79,6 @@ pub struct ShowcaseClipIdentity {
 impl ShowcaseSquireClip {
     const MAX_PACK_BYTES: usize = 1024 * 1024;
 
-    /// Parse a bounded squire resource from a caller-owned module pack.
-    /// Glass validates the generic contract but chooses neither a pack path
-    /// nor a default authored clip; callers install the prepared lease.
     pub fn from_json_bytes(bytes: &[u8]) -> Result<Self, String> {
         if bytes.len() > Self::MAX_PACK_BYTES {
             return Err("squire clip exceeds 1024 KiB".into());
@@ -257,8 +244,6 @@ impl ShowcaseSquireClip {
     }
 }
 
-/// A house's colours, as its knights wear them: the field on plume and
-/// tabard, the charge on the emblem (docs/CASTLES.md).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "remote", derive(serde::Serialize, serde::Deserialize))]
 pub struct Livery {
@@ -267,8 +252,6 @@ pub struct Livery {
     pub charge: [u8; 3],
 }
 
-/// A transparent sheet keeps layout and animation geometry stable while no
-/// authored clip is available. Pixel art itself comes from the live resource.
 pub(crate) fn placeholder_sheet(id: u32) -> Picture {
     let (w, h) = (W * FRAMES.len(), H * 2);
     Picture {
@@ -281,7 +264,6 @@ pub(crate) fn placeholder_sheet(id: u32) -> Picture {
     }
 }
 
-/// Where he is and what he is doing: his top-left in window pixels.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Pose {
     pub at: [f32; 2],
@@ -289,15 +271,12 @@ pub(crate) struct Pose {
     pub left: bool,
 }
 
-/// The entrance, in seconds since the panel opened: walking in, the
-/// wind-up, the kick (the panel pops at [`IMPACT`]), the hop to the roof.
 pub(crate) const WALK_END: f32 = 0.42;
 const WINDUP_END: f32 = 0.52;
 pub(crate) const IMPACT: f32 = 0.55;
 const KICK_END: f32 = 0.66;
 pub(crate) const INTRO_END: f32 = 0.98;
 
-/// His size on screen: a whole number of window pixels per sprite pixel.
 pub(crate) fn pixel(scale: f32) -> f32 {
     (3.0 * scale).round().max(2.0)
 }
@@ -306,22 +285,15 @@ pub(crate) fn size(px: f32) -> [f32; 2] {
     [W as f32 * px, H as f32 * px]
 }
 
-/// Where he kicks from: his toe (the last column) on the panel's
-/// bottom-left corner.
 fn kick_spot(rect: [f32; 4], px: f32) -> [f32; 2] {
     let [x, y, _, h] = rect;
     [x - (W as f32 - 1.0) * px, y + h - H as f32 * px]
 }
 
-/// His seat on the panel's roof, `seat_x` from its left: the seat row
-/// (the hips, 15) on the top edge, legs over the front.
 pub(crate) fn seat(rect: [f32; 4], seat_x: f32, px: f32) -> [f32; 2] {
     [rect[0] + seat_x, rect[1] - 16.0 * px]
 }
 
-/// A squire of the retinue, `place` places behind the lead (0 is the
-/// lead himself): he sets off a little later, lines up behind, and where
-/// the lead kicks he jumps for joy; then he hops up to his own seat.
 pub(crate) fn follow(t: f32, rect: [f32; 4], seat_x: f32, px: f32, scale: f32, place: usize) -> Pose {
     let t = t - 0.12 * place as f32;
     let mut kick = kick_spot(rect, px);
@@ -354,11 +326,9 @@ pub(crate) fn follow(t: f32, rect: [f32; 4], seat_x: f32, px: f32, scale: f32, p
     }
     let roof = seat(rect, seat_x, px);
     if t < INTRO_END {
-        // An arc up to the roof, higher than the roof by a little.
         let k = (t - KICK_END) / (INTRO_END - KICK_END);
         let peak = roof[1].min(kick[1]) - 40.0 * scale;
         let x = kick[0] + (roof[0] - kick[0]) * k;
-        // A parabola through kick (k=0), peak and roof (k=1).
         let a = kick[1];
         let c = roof[1];
         let y = (1.0 - k) * (1.0 - k) * a + 2.0 * (1.0 - k) * k * (2.0 * peak - (a + c) / 2.0) + k * k * c;
@@ -367,8 +337,6 @@ pub(crate) fn follow(t: f32, rect: [f32; 4], seat_x: f32, px: f32, scale: f32, p
     Pose { at: roof, frame: Frame::Sit, left: false }
 }
 
-/// The exit, in seconds since the panel began to close, over `rect` as
-/// it slides: up on his feet on the roof, walking it away.
 pub(crate) fn exit(t: f32, rect: [f32; 4], seat_x: f32, px: f32) -> Pose {
     let [x, y, _, _] = rect;
     let frame = if t < 0.06 {
@@ -385,12 +353,10 @@ pub(crate) fn exit(t: f32, rect: [f32; 4], seat_x: f32, px: f32) -> Pose {
     }
 }
 
-/// On his feet on the roof, `seat_x` from its left.
 pub(crate) fn roof_stand(rect: [f32; 4], seat_x: f32, px: f32) -> [f32; 2] {
     [rect[0] + seat_x, rect[1] - H as f32 * px]
 }
 
-/// How long a wave lasts, and each arm's swing in it.
 pub(crate) fn layer(id: u64, sheet: u32, pose: Pose, px: f32, opacity: f32) -> Layer {
     let index = FRAMES.iter().position(|&f| f == pose.frame).unwrap_or(0) as f32;
     let row = if pose.left { H as f32 } else { 0.0 };
@@ -439,7 +405,6 @@ mod tests {
         let px = 3.0;
         let kick = follow(IMPACT, rect, 300.0, px, 1.0, 0);
         assert_eq!(kick.frame, Frame::Kick);
-        // The toe (the last column) is on the corner's x, his feet on its bottom.
         assert_eq!(kick.at[0] + (W as f32 - 1.0) * px, rect[0]);
         assert_eq!(kick.at[1] + H as f32 * px, rect[1] + rect[3]);
         let sat = follow(5.0, rect, 300.0, px, 1.0, 0);
@@ -447,9 +412,7 @@ mod tests {
         assert_eq!(sat.at, seat(rect, 300.0, px));
         let start = follow(0.0, rect, 300.0, px, 1.0, 0);
         assert!(start.at[0] < kick.at[0], "he walks in from the left");
-        // The hop lands where he sits.
         let landing = follow(INTRO_END - 1e-4, rect, 300.0, px, 1.0, 0);
-        // The retinue lines up behind and never kicks.
         let behind = follow(IMPACT + 0.12, rect, 250.0, px, 1.0, 1);
         assert!(behind.at[0] < kick.at[0] && behind.frame != Frame::Kick);
         assert_eq!(follow(9.0, rect, 250.0, px, 1.0, 1).at, seat(rect, 250.0, px));

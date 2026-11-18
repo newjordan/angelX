@@ -23,16 +23,12 @@ use std::sync::mpsc::{Receiver, SyncSender, sync_channel};
 
 use crate::agent::club::{ChatMsg, ChatRole, Club};
 
-/// Credential nouns that mark a line as sensitive (the house denylist).
 const DENY: [&str; 5] = ["key", "token", "secret", "auth", "password"];
-/// Sender-side channel capacity; a slow disk drops copies, never blocks.
 const CHANNEL_CAP: usize = 8;
-/// How many recent context digests the writer remembers for dedupe.
 const DEDUPE_WINDOW: usize = 4096;
 
 pub(crate) struct BarrelCfg {
     pub(crate) enabled: bool,
-    /// Lowercased club labels allowed as teachers; empty = capture nothing.
     pub(crate) teachers: Vec<String>,
     pub(crate) dir: PathBuf,
     pub(crate) max_bytes: u64,
@@ -40,8 +36,6 @@ pub(crate) struct BarrelCfg {
 
 impl BarrelCfg {
     pub(crate) fn from_env() -> Self {
-        // Exact-string arming (the conductor/forge-latch posture): anything
-        // but a literal "1" leaves capture off.
         let enabled = std::env::var("ANGEL_BARREL")
             .map(|v| v.trim() == "1")
             .unwrap_or(false);
@@ -68,8 +62,6 @@ impl BarrelCfg {
         }
     }
 
-    /// A club is an armed teacher when either its own label or its resolved
-    /// route driver appears in the allowlist (case-insensitive).
     fn teacher_armed(&self, label: &str, resolved_driver: &str) -> bool {
         let l = label.to_ascii_lowercase();
         let d = resolved_driver.to_ascii_lowercase();
@@ -89,10 +81,6 @@ struct Job {
 static SENDER: OnceLock<SyncSender<Job>> = OnceLock::new();
 static DROPPED_BACKPRESSURE: AtomicU64 = AtomicU64::new(0);
 
-/// Hot-path entry, called from the turn loop's answer exit with the final-hop
-/// history (pre-answer) and the answer separately, so the record never
-/// duplicates the answer inside its own context. Best-effort and test-silent,
-/// like the experience ledger: it can never fail or slow a turn.
 pub(crate) fn capture_answer(club: &dyn Club, workspace: &Path, history: &[ChatMsg], answer: &str) {
     if cfg!(test) {
         return;
@@ -128,8 +116,6 @@ pub(crate) fn capture_answer(club: &dyn Club, workspace: &Path, history: &[ChatM
 fn writer_loop(rx: Receiver<Job>) {
     let mut state = WriterState::default();
     while let Ok(job) = rx.recv() {
-        // Re-read config per job so a live env change (re-arm, cap bump)
-        // takes effect without a restart.
         let cfg = BarrelCfg::from_env();
         process_job(&cfg, job, &mut state);
     }
@@ -179,10 +165,6 @@ fn process_job(cfg: &BarrelCfg, job: Job, state: &mut WriterState) {
     write_status(cfg, state, job.ts);
 }
 
-/// Serialize the message history to the barrel's context shape: role +
-/// redacted content, tool calls as (name, redacted args), tool_call_id
-/// passthrough, attachments reduced to a count (media never enters the
-/// barrel).
 fn context_value(history: &[ChatMsg]) -> (serde_json::Value, usize) {
     let mut redacted = 0usize;
     let msgs: Vec<serde_json::Value> = history
@@ -228,10 +210,6 @@ fn role_str(role: &ChatRole) -> &'static str {
     }
 }
 
-/// A line is dropped when it names a credential noun AND carries an
-/// assignment/bearer shape (`KEY=…`, `token: …`, `Authorization: Bearer …`).
-/// Over-redaction is the accepted trade: barrel data feeds training, so a
-/// shredded line is always safer than a leaked one.
 fn line_is_sensitive(line: &str) -> bool {
     let l = line.to_ascii_lowercase();
     if !DENY.iter().any(|w| l.contains(w)) {
@@ -240,9 +218,6 @@ fn line_is_sensitive(line: &str) -> bool {
     l.contains('=') || l.contains(':') || l.contains("bearer")
 }
 
-/// The house redactor: drop credential-bearing lines, report how many. Shared
-/// with The Cut's authored manifest (`cut.rs`) — one redactor, one denylist, so
-/// a rule tightened here tightens everywhere captured text is written to disk.
 pub(crate) fn redact_text(text: &str) -> (String, usize) {
     let mut count = 0usize;
     let redactor = crate::platform::secrets::Redactor::new();
@@ -269,7 +244,6 @@ fn digest_of(context: &serde_json::Value, answer: &str) -> u64 {
     h.finish()
 }
 
-/// Session-scoped dedupe over a bounded window of recent context digests.
 fn remember(state: &mut WriterState, digest: u64) -> bool {
     if state.seen.contains(&digest) {
         return false;
@@ -284,9 +258,6 @@ fn remember(state: &mut WriterState, digest: u64) -> bool {
     true
 }
 
-/// Civil date (UTC) from a unix timestamp, no chrono dependency
-/// (Howard Hinnant's civil_from_days). Shared with The Cut, which shards its
-/// manifest by the same day boundary.
 pub(crate) fn utc_yyyymmdd(ts: u64) -> String {
     let z = (ts / 86_400) as i64 + 719_468;
     let era = z.div_euclid(146_097);
@@ -304,9 +275,6 @@ fn shard_files(dir: &Path) -> Vec<(PathBuf, u64)> {
     shard_files_named(dir, "barrel-")
 }
 
-/// Day shards under `dir` with the given name prefix, oldest first
-/// (lexicographic = chronological for the `<prefix>YYYYMMDD.jsonl` names both
-/// the barrel and The Cut use), paired with their sizes.
 pub(crate) fn shard_files_named(dir: &Path, prefix: &str) -> Vec<(PathBuf, u64)> {
     let mut out = Vec::new();
     if let Ok(rd) = std::fs::read_dir(dir) {
@@ -340,10 +308,6 @@ fn append_capped(cfg: &BarrelCfg, shard: &Path, line: &str, state: &mut WriterSt
     )
 }
 
-/// Append one line to a day shard under a hard *total* size cap: at cap the
-/// oldest closed shard is evicted first, and today's shard is never evicted —
-/// the new record drops instead, so a live writer can never lose the file it is
-/// appending to. The barrel's discipline, shared with The Cut's manifest.
 pub(crate) fn append_capped_shard(
     dir: &Path,
     prefix: &str,
@@ -404,9 +368,6 @@ fn append_capped_directory(
                 total = total.saturating_sub(bytes);
                 shards.remove(0);
             }
-            // Only today's shard is left (or the dir is empty and the record
-            // alone exceeds the cap): drop the new capture, never the live
-            // shard.
             _ => return Append::DroppedCap,
         }
     }
@@ -419,9 +380,6 @@ fn append_capped_directory(
     }
 }
 
-/// Small status artifact for `/still` and the Node tick — counters only,
-/// never record content. Written via tmp+rename so readers never see a
-/// partial file.
 fn write_status(cfg: &BarrelCfg, state: &WriterState, ts: u64) {
     let shards = shard_files(&cfg.dir);
     let total: u64 = shards.iter().map(|(_, n)| n).sum();
@@ -451,13 +409,6 @@ fn now_secs() -> u64 {
         .map(|d| d.as_secs())
         .unwrap_or(0)
 }
-
-// ─── /still — the operator surface (AS4) ────────────────────────────────────
-// Rust never parses shards: it reads only the two small status artifacts —
-// writer-status.json (written by this module's thread) and
-// ~/.angelX/still/status.json (written by scripts/runtime/still-tick.mjs) — the
-// conductor read-side pattern. Zero interactive-prompt injection: this text
-// renders only when the operator types /still.
 
 pub(crate) fn run(arg: Option<&str>) -> String {
     match arg.map(str::trim).unwrap_or("") {
@@ -496,7 +447,6 @@ fn age_str(now: u64, ts: u64) -> String {
 
 fn status_text_in(cfg: &BarrelCfg, still_dir: &Path, now: u64) -> String {
     let mut out = String::from("angel's share status\n");
-    // Arming line — capture is the cockpit's half, so env is authoritative here.
     if !cfg.enabled {
         out.push_str("  capture: disarmed (set ANGEL_BARREL=1 + ANGEL_BARREL_TEACHERS to pour)\n");
     } else if cfg.teachers.is_empty() {
@@ -507,7 +457,6 @@ fn status_text_in(cfg: &BarrelCfg, still_dir: &Path, now: u64) -> String {
             cfg.teachers.join(", ")
         ));
     }
-    // Barrel line — the writer thread's counters.
     match read_json(&cfg.dir.join("writer-status.json")) {
         Some(w) => {
             let n = |k: &str| w[k].as_u64().unwrap_or(0);
@@ -531,7 +480,6 @@ fn status_text_in(cfg: &BarrelCfg, still_dir: &Path, now: u64) -> String {
             cfg.dir.display()
         )),
     }
-    // Still line + gap trend — the Node tick's export.
     let status_path = still_dir.join("status.json");
     match read_json(&status_path) {
         Some(s) => {

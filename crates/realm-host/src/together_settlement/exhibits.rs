@@ -39,8 +39,6 @@ const NAMED_MANIFESTS: &str = ".angelX/settlement-exhibits";
 const MAX_SOURCE: u64 = 64 * 1024;
 pub(super) const MAX_EXHIBITS: usize = 32;
 
-/// Validate the entire supplied name before any filesystem access. In particular,
-/// never accept a path, extension, whitespace, or a second command token.
 pub fn manifest_path(name: Option<&str>) -> Result<String, String> {
     match name {
         None => Ok(MANIFEST.into()),
@@ -164,10 +162,6 @@ fn identity(site: &str, loop_id: &str, key: &str) -> String {
     )
 }
 
-/// Walk descriptors with O_NOFOLLOW at EVERY component, including root.
-/// Do not canonicalize-and-open (a symlink swap could escape between them).
-/// Never chmod or recursively enumerate user files. Reject hard links, special
-/// files and another owner's files too; reads are bounded even during growth.
 fn read_source(root: &Path, source: &str, cap: u64) -> Result<Vec<u8>, String> {
     use std::{
         ffi::CString,
@@ -202,7 +196,6 @@ fn read_source(root: &Path, source: &str, cap: u64) -> Result<Vec<u8>, String> {
             | libc::O_NOFOLLOW
             | libc::O_NONBLOCK
             | if directory { libc::O_DIRECTORY } else { 0 };
-        // SAFETY: descriptor and C string are live; fd ownership is transferred once.
         let fd = unsafe { libc::openat(file.as_raw_fd(), name.as_ptr(), flags) };
         if fd < 0 {
             return Err("source unavailable (missing, inaccessible, or symlink)".into());
@@ -230,8 +223,6 @@ fn read_source(root: &Path, source: &str, cap: u64) -> Result<Vec<u8>, String> {
 fn place(site: &Site) -> Result<Marker, String> {
     let dungeon = crate::world_viz::crawl::dungeon::Dungeon::of(&site.floor);
     let start = crate::world_viz::crawl::party::spot(&dungeon, 0);
-    // Prefer the real completed workshop/stockpile; before construction the
-    // research stand belongs in the Hall. Never put it in unexcavated rock.
     let mut rooms: Vec<_> = site
         .floor
         .rooms
@@ -246,7 +237,6 @@ fn place(site: &Site) -> Result<Marker, String> {
         let r = &site.floor.rooms[room];
         for row in (2..r.rows - 2).rev() {
             for col in 2..r.cols - 2 {
-                // Keep centre crossings clear and leave a walkable approach.
                 if site
                     .exhibits
                     .iter()
@@ -275,7 +265,6 @@ fn place(site: &Site) -> Result<Marker, String> {
                         continue;
                     }
                     let p = crawl_cell(&site.floor, &dungeon, room, stand);
-                    // The candidate itself may not cut off the approach.
                     let mut floor = site.floor.clone();
                     floor.rooms[room].set(col, row, Tile::Block);
                     let blocked = crate::world_viz::crawl::dungeon::Dungeon::of(&floor);
@@ -305,7 +294,6 @@ pub fn crawl_cell(
     at: (usize, usize),
 ) -> (i32, i32) {
     let hall = &dungeon.halls[room];
-    // Halls' min/max are the room's inside wall; offset includes the border.
     debug_assert!(room < floor.rooms.len());
     (hall.min.0 + at.0 as i32 - 1, hall.min.1 + at.1 as i32 - 1)
 }
@@ -343,7 +331,6 @@ impl Site {
     pub fn exhibit_markers(&self) -> Vec<Marker> {
         self.exhibits.iter().map(|e| e.marker.clone()).collect()
     }
-    /// The site as a new run admits it (`Run::enter_settlement`).
     pub fn admission(&self) -> angel_delve::rules::exhibits::Admission<'_> {
         angel_delve::rules::exhibits::Admission {
             id: &self.id,
@@ -429,12 +416,7 @@ impl Site {
     }
 }
 
-/// Given to real loop workers once a saved site exists. Not every turn is a
-/// research result: omit the manifest rather than manufacture a report/claim.
 pub fn worker_contract(site_id: &str, loop_id: &str, iteration: usize) -> String {
-    // Hash the framed pair, not raw IDs or a concatenation: safe even for
-    // punctuation/Unicode IDs, unambiguous across sites and loops. A 128-bit
-    // prefix leaves room for the full usize iteration within the 64-byte limit.
     let pair = serde_json::to_vec(&(site_id, loop_id)).unwrap();
     let name = format!("research-{}-{iteration}", &digest(&pair)[..32]);
     let manifest = manifest_path(Some(&name)).expect("bounded generated manifest name");

@@ -30,7 +30,6 @@ fn scans_diff3_base() {
 
 #[test]
 fn ignores_markers_not_at_column_zero_style() {
-    // Prefix must be exact; `<<<<<<<x` without space is not a marker.
     let text = "code // <<<<<<< not a marker\nreal\n";
     assert!(scan_text_for_conflicts(text).is_empty());
 }

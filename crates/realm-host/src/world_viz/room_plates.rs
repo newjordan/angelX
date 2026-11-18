@@ -58,8 +58,6 @@ impl World {
         }
     }
 
-    /// The same entered painting and pose, sampled from its approved source
-    /// for native image protocols. Ordinary terminal fallback keeps its plate.
     pub fn ambient_detail_frame(
         &self,
         motion: crate::telemetry::MotionMode,

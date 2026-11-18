@@ -1,22 +1,4 @@
-# Griffinwing's rules, in Bend: Moonfall Pass, the on-rails co-op flight shooter of the Delve
-# (crates/delve/src/rules/griffinwing keeps the session's types, its saves and its wire).
-#
-# One call per game tick. The session comes in as a flat frame of 32-bit words (the layout section
-# below is the table of where each field lives; crates/delve/src/rules/griffinwing/words.rs is the
-# other side of it), `index.js` lays the words into `Mem`, and the next session goes back out the
-# same way with the tick's sounds and who left the tally. Every number is a whole number on the
-# 30 Hz sim, 256 to the unit, so nothing here is a float: a signed value is its two's-complement
-# word (+ - * need no care; the comparisons, the division and the clamps are the signed ones in
-# the numbers section), and what is wider than a word (a squared length, a product) goes through
-# exact Nat arithmetic. A second op, `bot`, answers what a scripted knight presses.
-#
-# `Mem` is a persistent binary trie of 2^13 words, so a read costs no threading and a write is a
-# new `Mem`. Bend matches only on parameters, so every `if` is a helper that matches a Bool and
-# every loop counts a Nat down.
 import Base
-
-
-# ===== numbers =====
 
 def ng(+a: U32) -> U32: U32.sub(0, a)
 
@@ -39,23 +21,18 @@ def sg(+a: U32) -> U32: pk(neg_p(a), 4294967295, pk(z(a), 0, 1))
 def pb(+c: Bool, +a: Bool, +b: Bool) -> Bool: Bool.pick(Bool, c, a, b)
 def b2u(+c: Bool) -> U32: pk(c, 1, 0)
 
-# unsigned saturating subtraction, min and max
 def ssub(+a: U32, +b: U32) -> U32: pk(U32.is_ge(a, b), U32.sub(a, b), 0)
 
 def umn(+a: U32, +b: U32) -> U32: pk(U32.is_lt(a, b), a, b)
 def umx(+a: U32, +b: U32) -> U32: pk(U32.is_gt(a, b), a, b)
 
-# a / b and a % b truncated toward zero, like Rust's on i32
 def sdv(+a: U32, +b: U32) -> U32:
   +q = U32.div(ab(a), ab(b))
   pk(neg_p(U32.xor(a, b)), ng(q), q)
 
-# n tenths of a unit as fixed point, and its negative
 def dm(+n: U32) -> U32: sdv(U32.mul(n, 256), 10)
 
 def dn(+n: U32) -> U32: ng(dm(n))
-
-# ----- exact wide arithmetic on Nat (a JS integer, exact to 2^48) -----
 
 def nt(+a: U32) -> Nat: U32.to_nat(a)
 
@@ -65,7 +42,6 @@ def sq(+a: U32) -> Nat:
   +n = nt(ab(a))
   Nat.mul(n, n)
 
-# floor(sqrt(n)): a float guess, then exact integer steps up and down
 def isq_up(+k: Nat, +g: Nat, +n: Nat) -> Nat:
   match k:
     case 0n:
@@ -89,40 +65,31 @@ def isqrt(+n: Nat) -> Nat:
   +g = F32.to_nat(F32.sqrt(f))
   isq_down(4n, isq_up(4n, g, n), n)
 
-# the length of (a, b, c), rounded down
 def norm3(+a: U32, +b: U32, +c: U32) -> U32: un(isqrt(Nat.add(Nat.add(sq(a), sq(b)), sq(c))))
 
 def flat(+ax: U32, +az: U32, +bx: U32, +bz: U32) -> U32: norm3(0, U32.sub(ax, bx), U32.sub(az, bz))
 
-# v * len / m toward zero, for m > 0
 def sc1(+v: U32, +len: U32, +m: U32) -> U32:
   +q = un(Nat.div(Nat.mul(nt(ab(v)), nt(ab(len))), nt(m)))
   pk(neg_p(U32.xor(v, len)), ng(q), q)
 
-# a vector scaled to length `len`: its three parts, straight ahead for a zero vector
 def scs(+v: U32, +len: U32, +m: U32) -> U32: pk(z(m), len, sc1(v, len, m))
 
 def scx(+v: U32, +len: U32, +m: U32) -> U32: pk(z(m), 0, sc1(v, len, m))
 
-# the signed product a*b, as its positive and its negative magnitude
 def ppart(+a: U32, +b: U32) -> Nat: Bool.pick(Nat, neg_p(U32.xor(a, b)), 0n, Nat.mul(nt(ab(a)), nt(ab(b))))
 
 def npart(+a: U32, +b: U32) -> Nat: Bool.pick(Nat, neg_p(U32.xor(a, b)), Nat.mul(nt(ab(a)), nt(ab(b))), 0n)
 
-# the square of how far point part wv lies from the segment part dv * t / l2
 def off(+dv: U32, +wv: U32, +t: Nat, +l2: Nat) -> Nat:
   +q = un(Nat.div(Nat.mul(nt(ab(dv)), t), l2))
   sq(U32.sub(wv, pk(neg_p(dv), ng(q), q)))
-
-# ===== memory: the frame as a persistent quad trie of 2^14 words =====
 
 type Mem is Data:
   Z{}
   Leaf{v: U32}
   Node{a: Mem, b: Mem, c: Mem, d: Mem}
 
-# the index is held MSB-aligned: its top two bits choose the branch at this level, and the two flags
-# carry them (top bit, second bit) so that a level is one match and one tail call
 def rd_go(+d: Nat, +m: Mem, +i: U32, +h: Bool, +l: Bool) -> U32:
   match d m h l:
     case _ Z{} _ _:
@@ -150,7 +117,6 @@ def rd(+m: Mem, +i: U32) -> U32:
 
 def g_num_window(+m: Mem) -> U32: rd(m, 41)
 
-# the steer box's half width and half height
 def wx(+m: Mem) -> U32: dm(g_num_window(m))
 
 def wz(+m: Mem) -> U32: sdv(U32.mul(dm(g_num_window(m)), 5), 8)
@@ -163,11 +129,9 @@ def near_dw(+dx: U32, +dy: U32, +dz: U32, +wx: U32, +wy: U32, +wz: U32, +r: U32)
   +e = Nat.add(Nat.add(off(dx, wx, t, l2), off(dy, wy, t, l2)), off(dz, wz, t, l2))
   Nat.is_le(e, Nat.mul(nt(r), nt(r)))
 
-# whether the segment a to b passes within r of p
 def near(+ax: U32, +ay: U32, +az: U32, +bx: U32, +by: U32, +bz: U32, +px: U32, +py: U32, +pz: U32, +r: U32) -> Bool:
   near_dw(U32.sub(bx, ax), U32.sub(by, ay), U32.sub(bz, az), U32.sub(px, ax), U32.sub(py, ay), U32.sub(pz, az), r)
 
-# a triangle wave through -amp..=amp over `period` ticks
 def tri(+t: U32, +period: U32, +amp: U32) -> U32:
   +p = umx(period, 2)
   +k = U32.mod(t, p)
@@ -208,7 +172,6 @@ def wr(+m: Mem, +i: U32, +v: U32) -> Mem:
   +j = U32.shln(i, 18n)
   wr_go(7n, m, j, v, U32.is_ge(j, 2147483648), U32.is_ge(U32.and(j, 1073741824), 1073741824))
 
-# copy n words from `from` to `to`, first word first: for a move toward lower addresses
 def cpw(+n: Nat, +m: Mem, +from: U32, +to: U32) -> Mem:
   match n:
     case 0n:
@@ -218,7 +181,6 @@ def cpw(+n: Nat, +m: Mem, +from: U32, +to: U32) -> Mem:
 
 def pkm(+c: Bool, +a: Mem, +b: Mem) -> Mem: Bool.pick(Mem, c, a, b)
 
-# ===== layout: where each field lives in the word frame (`index.js` lays the session out in this order) =====
 def SEATS() -> U32: 128
 
 def SEAT_W() -> U32: 51
@@ -524,8 +486,6 @@ def set_bo_mark_z(+m: Mem, +b: U32, +k: U32, +v: U32) -> Mem: wr(m, (b + 10 + (k
 def SEAT_CRAFT() -> U32: 2
 def WING_CRAFT() -> U32: 3
 
-# ===== the names of things (enum indices; Rust owns the words) =====
-
 def K_WISP() -> U32: 0
 
 def K_KITE() -> U32: 1
@@ -614,8 +574,6 @@ def SND_ROCK_LAND() -> U32: 20
 def SND_BOSS_RISE() -> U32: 21
 def SND_BOSS_ROAR() -> U32: 22
 
-# ===== the numbers of the game =====
-
 def PACE() -> U32: 85
 
 def Q() -> U32: 256
@@ -634,14 +592,12 @@ def TALLY_HOLD() -> U32: 45
 def RISE() -> U32: 75
 def HURT() -> U32: 36
 
-# where the counts of the tables live
 def CA_FOES() -> U32: 30
 
 def CA_PROPS() -> U32: 31
 def CA_BOLTS() -> U32: 32
 def CRAFT_R() -> U32: dm(10)
 
-# what each kind of foe is: its body, its health and what it is worth
 def kind5(+k: U32, +a: U32, +b: U32, +c: U32, +d: U32, +e: U32) -> U32:
   pk(eq(k, 0), a, pk(eq(k, 1), b, pk(eq(k, 2), c, pk(eq(k, 3), d, e))))
 
@@ -649,12 +605,9 @@ def k_radius(+k: U32) -> U32: kind5(k, dm(9), dm(8), dm(16), dm(12), dm(16))
 def k_health(+k: U32) -> U32: kind5(k, 20, 20, 60, 40, 120)
 def k_worth(+k: U32) -> U32: kind5(k, 10, 20, 60, 40, 500)
 
-# the rail's first point of a beat, and where the formation is
 def origin(+stage: U32) -> U32: pk(eq(stage, 0), 0, pk(eq(stage, 1), 153000, 357000))
 
 def anchor(+m: Mem) -> U32: U32.add(origin(mn(g_stage(m), 2)), U32.mul(g_t(m), 85))
-
-# ===== places in the frame =====
 
 def seat_b(+id: U32) -> U32: U32.add(SEATS(), U32.mul(U32.sub(id, 1), SEAT_W()))
 
@@ -667,7 +620,6 @@ def prop_b(+i: U32) -> U32: U32.add(PROPS(), U32.mul(i, PROP_W()))
 def call_b(+i: U32) -> U32: U32.add(CALLS(), U32.mul(i, 3))
 def fx_b(+i: U32) -> U32: U32.add(FXS(), U32.mul(i, FX_W()))
 
-# the knights seated, and who is still at the table
 def seated(+m: Mem, +id: U32) -> Bool: nz(st_present(m, seat_b(id)))
 
 def count_seats(+n: Nat, +m: Mem, +id: U32) -> U32:
@@ -677,12 +629,8 @@ def count_seats(+n: Nat, +m: Mem, +id: U32) -> U32:
     case 1n+p:
       U32.add(b2u(seated(m, id)), count_seats(p, m, U32.add(id, 1)))
 
-# how many knights fly: the pressure on the foes (a table with nobody at it is one's worth)
 def pressure(+m: Mem) -> U32: cl(count_seats(6n, m, 1), 1, 6)
 
-# ===== the session's little lists =====
-
-# a fresh id for a foe: the one in hand is taken, the next is put by
 def bump_ids(+m: Mem) -> Mem:
   +id = g_ids(m)
   set_g_ids(m, pk(ge(id, 60000), 1, U32.add(id, 1)))
@@ -701,11 +649,9 @@ def sound_put(+m: Mem, +name: U32, +ok: Bool) -> Mem:
     case False{}:
       m
 
-# a sound is cued once a tick, and twelve at most
 def sound(+m: Mem, +name: U32) -> Mem:
   sound_put(m, name, Bool.and(lt(g_n_snd(m), 12), Bool.not(snd_has(nt(g_n_snd(m)), m, 0, name))))
 
-# shift a table down one row from row `i`: rows i+1.. move to i..
 def drop_row(+m: Mem, +base: U32, +w: U32, +n: U32, +i: U32) -> Mem:
   cpw(nt(ssub(U32.mul(U32.sub(n, 1), w), U32.mul(i, w))), m, U32.add(base, U32.mul(U32.add(i, 1), w)), U32.add(base, U32.mul(i, w)))
 
@@ -734,7 +680,6 @@ def say_go(+m: Mem, +who: U32, +line: U32, +dup: Bool) -> Mem:
     case False{}:
       say_full(m, who, line, ge(g_n_calls(m), 4))
 
-# a rider's short shout, shown as a portrait for a moment: the same line is not said twice in a row
 def say(+m: Mem, +who: U32, +line: U32) -> Mem: say_go(m, who, line, call_has(nt(g_n_calls(m)), m, 0, line))
 
 def spark_ticks(+what: U32) -> U32: pk(eq(what, 9), 36, pk(eq(what, 6), 40, pk(eq(what, 3), 8, 14)))
@@ -750,12 +695,8 @@ def spark_full(+m: Mem, +what: U32, +s: U32, +x: U32, +z: U32, +n: U32, +full: B
     case False{}:
       spark_push(m, what, s, x, z, n)
 
-# a flash, a pop or a ring for the stage to draw
 def spark(+m: Mem, +what: U32, +s: U32, +x: U32, +z: U32, +n: U32) -> Mem: spark_full(m, what, s, x, z, n, ge(g_n_fx(m), 48))
 
-# ===== the wing, the craft and who is flying =====
-
-# the wing's index with this id, 99 if none
 def wing_of(+n: Nat, +m: Mem, +k: U32, +id: U32) -> U32:
   match n:
     case 0n:
@@ -763,7 +704,6 @@ def wing_of(+n: Nat, +m: Mem, +k: U32, +id: U32) -> U32:
     case 1n+p:
       pk(eq(w_id(m, wing_b(k)), id), k, wing_of(p, m, U32.add(k, 1), id))
 
-# the first of the riders still flying, else Aster who leads the wing
 def voice_go(+n: Nat, +m: Mem, +k: U32) -> U32:
   match n:
     case 0n:
@@ -773,21 +713,15 @@ def voice_go(+n: Nat, +m: Mem, +k: U32) -> U32:
 
 def voice(+m: Mem) -> U32: voice_go(nt(g_n_wing(m)), m, 0)
 
-# a craft by the id a bolt or a foe holds: its record's base (0: none)
 def craft_of(+m: Mem, +id: U32) -> U32:
   +k = wing_of(nt(g_n_wing(m)), m, 0, id)
   pk(Bool.and(ge(id, 1), le(id, 6)), pk(seated(m, id), seat_c(id), 0), pk(lt(k, 4), wing_c(k), 0))
 
 def cr_s(+m: Mem, +cb: U32) -> U32: U32.add(anchor(m), c_back(m, cb))
 
-# whether a craft is flying: a rider that is lost is not
 def cr_flying(+m: Mem, +id: U32, +cb: U32) -> Bool:
   Bool.and(z(c_down(m, cb)), pb(le(id, 6), True{}, z(w_lost(m, U32.sub(cb, WING_CRAFT())))))
 
-# ===== lists: retaining rows =====
-
-# keep the rows `keep` accepts, in order, moving the rest of the table down over the gaps; the new
-# count is written to word `ca`. `keep` reads the row by its index.
 def retain_go(~keep: @+m: Mem -> @+i: U32 -> Bool, +n: Nat, +k: Bool, +m: Mem, +base: U32, +w: U32, +i: U32, +j: U32, +ca: U32) -> Mem:
   match n k:
     case 0n _:
@@ -801,18 +735,14 @@ def retain_go(~keep: @+m: Mem -> @+i: U32 -> Bool, +n: Nat, +k: Bool, +m: Mem, +
 def retain(~keep: @+m: Mem -> @+i: U32 -> Bool, +m: Mem, +base: U32, +w: U32, +n: U32, +ca: U32) -> Mem:
   retain_go(~keep, nt(n), keep(m, 0), m, base, w, 0, 0, ca)
 
-# ===== foes =====
-
 def f_alive(+m: Mem, +fb: U32) -> Bool: Bool.and(gt(f_hp(m, fb), 0), ne(f_st(m, fb), S_BROKEN()))
 
-# whether a lock may take it: alive, in the open and (a lamp) with its shield open
 def f_lockable(+m: Mem, +fb: U32) -> Bool:
   +st = f_st(m, fb)
   Bool.and(f_alive(m, fb), Bool.not(Bool.or(eq(st, S_HIDE()), Bool.or(eq(st, S_SHUT()), eq(st, S_FLEE())))))
 
 def f_radius(+m: Mem, +fb: U32) -> U32: k_radius(f_kind(m, fb))
 
-# the foe with this id: its row's index (99: none)
 def foe_idx(+n: Nat, +m: Mem, +i: U32, +id: U32) -> U32:
   match n:
     case 0n:
@@ -822,7 +752,6 @@ def foe_idx(+n: Nat, +m: Mem, +i: U32, +id: U32) -> U32:
 
 def foe_by_id(+m: Mem, +id: U32) -> U32: foe_idx(nt(g_n_foes(m)), m, 0, id)
 
-# the same, for a foe that is also alive
 def foe_idx_alive(+n: Nat, +m: Mem, +i: U32, +id: U32) -> U32:
   match n:
     case 0n:
@@ -851,11 +780,8 @@ def spawn_put(+m: Mem, +kind: U32, +s: U32, +x: U32, +z: U32, +vs: U32, +vx: U32
       +m6 = set_f_phase(set_f_mode(set_f_flash(m5, b, 0), b, mode), b, phase)
       set_g_reg(beat_offer(set_g_n_foes(bump_ids(m6), U32.add(g_n_foes(m), 1)), k_worth(kind)), 0, g_ids(m))
 
-# put a foe on the rail, its health provisioned for the knights at the table: its id (0: none) is left in reg 0
 def spawn_foe(+m: Mem, +kind: U32, +s: U32, +x: U32, +z: U32, +vs: U32, +vx: U32, +vz: U32, +st: U32, +mode: U32, +phase: U32) -> Mem:
   spawn_put(m, kind, s, x, z, vs, vx, vz, st, mode, phase, lt(g_n_foes(m), 40))
-
-# ===== bolts =====
 
 def bolt_put(+m: Mem, +shot: U32, +owner: U32, +s: U32, +x: U32, +z: U32, +vs: U32, +vx: U32, +vz: U32, +dmg: U32, +life: U32, +aim: U32, +src: U32, +delay: U32, +full: U32, +ok: Bool) -> Mem:
   match ok:
@@ -873,9 +799,6 @@ def bolt_put(+m: Mem, +shot: U32, +owner: U32, +s: U32, +x: U32, +z: U32, +vs: U
 def push_bolt(+m: Mem, +shot: U32, +owner: U32, +s: U32, +x: U32, +z: U32, +vs: U32, +vx: U32, +vz: U32, +dmg: U32, +life: U32, +aim: U32, +src: U32, +delay: U32, +full: U32) -> Mem:
   bolt_put(m, shot, owner, s, x, z, vs, vx, vz, dmg, life, aim, src, delay, full, lt(g_n_bolts(m), 160))
 
-# ===== who is where =====
-
-# whether some kite hangs on this craft (unless the foes are set aside, as while they take their turn)
 def latched_go(+n: Nat, +m: Mem, +i: U32, +id: U32) -> Bool:
   match n:
     case 0n:
@@ -885,12 +808,10 @@ def latched_go(+n: Nat, +m: Mem, +i: U32, +id: U32) -> Bool:
 
 def latched(+m: Mem, +id: U32) -> Bool: Bool.and(z(g_reg(m, 7)), latched_go(nt(g_n_foes(m)), m, 0, id))
 
-# a craft that is flying and has nothing hanging on it
 def free_craft(+m: Mem, +id: U32) -> Bool:
   +cb = craft_of(m, id)
   Bool.and(nz(cb), Bool.and(cr_flying(m, id, cb), Bool.not(latched(m, id))))
 
-# the `want`th rider (in the wing's order) that is free: its id, 0 if none
 def nth_rider(+n: Nat, +m: Mem, +k: U32, +want: U32) -> U32:
   match n:
     case 0n:
@@ -922,7 +843,6 @@ def count_knights(+n: Nat, +m: Mem, +id: U32) -> U32:
     case 1n+p:
       U32.add(b2u(Bool.and(seated(m, id), free_craft(m, id))), count_knights(p, m, U32.add(id, 1)))
 
-# the first knight at the table in the air at all
 def first_flying(+n: Nat, +m: Mem, +id: U32) -> U32:
   match n:
     case 0n:
@@ -930,15 +850,12 @@ def first_flying(+n: Nat, +m: Mem, +id: U32) -> U32:
     case 1n+p:
       pk(Bool.and(seated(m, id), z(c_down(m, seat_c(id)))), id, first_flying(p, m, U32.add(id, 1)))
 
-# who a hunting kite goes for: a rider not yet latched, else a knight not yet latched, else anyone
-# flying. The same hunter always finds the same victim. 0: nobody.
 def victim_pick(+m: Mem, +hunter: U32, +nr: U32, +nk: U32) -> U32:
   pk(nz(nr), nth_rider(4n, m, 0, U32.mod(hunter, nr)),
      pk(nz(nk), nth_knight(6n, m, 1, U32.mod(hunter, nk)), first_flying(6n, m, 1)))
 
 def victim(+m: Mem, +hunter: U32) -> U32: victim_pick(m, hunter, count_riders(nt(g_n_wing(m)), m, 0), count_knights(6n, m, 1))
 
-# the knights in the air, in turn: who a turret or the Wyrm fires at (a seat's id; 0: nobody)
 def nth_flying(+n: Nat, +m: Mem, +id: U32, +want: U32) -> U32:
   match n:
     case 0n:
@@ -957,8 +874,6 @@ def count_flying(+n: Nat, +m: Mem, +id: U32) -> U32:
 def TURNED() -> U32: 60
 def V_TURN() -> U32: dm(24)
 
-# ===== a foe falls =====
-
 def seat_ok(+m: Mem, +id: U32) -> Bool: Bool.and(Bool.and(ge(id, 1), le(id, 6)), seated(m, id))
 
 def turn_put(+m: Mem, +bi: U32, +by: U32, +ti: U32) -> Mem:
@@ -974,12 +889,10 @@ def turn_put(+m: Mem, +bi: U32, +by: U32, +ti: U32) -> Mem:
   +m3 = pkm(seat_ok(m2, by), set_c_pts(m2, seat_c(by), U32.add(c_pts(m2, seat_c(by)), 25)), m2)
   sound(spark(set_g_beat_pts(m3, U32.add(g_beat_pts(m3), 25)), B_TURN(), bl_s(m, bb), bl_x(m, bb), bl_z(m, bb), by), SND_SHIELD_BLOCK())
 
-# the lamp that is lit now: its foe's id (0: no Wyrm)
 def lit_lamp(+m: Mem) -> U32:
   +b = BOSSB()
   pk(nz(g_boss(m)), rd(m, U32.add(U32.add(b, 5), mn(bo_phase(m, b), 2))), 0)
 
-# a gate or a ring flown through
 def take_gate(+m: Mem, +cb: U32, +boosting: Bool, +welcome: Bool) -> Mem:
   match welcome:
     case True{}:
@@ -996,10 +909,6 @@ def take(+m: Mem, +id: U32, +pb: U32, +boosting: Bool) -> Mem:
   +m1 = pkm(eq(p_thing(m, pb), T_GATE()), take_gate(m, cb, boosting, nz(p_phase(m, pb))), sound(set_c_shield(m, cb, umn(U32.add(c_shield(m, cb), MEND()), SHIELD())), SND_SHIELD_UP()))
   spark(m1, B_GATE(), p_s(m, pb), p_x(m, pb), p_z(m, pb), id)
 
-# ===== a rolling craft's shield turns a bolt round =====
-
-# the nearest of the foes a bolt may be turned on or homed on, from point (ps, px, pz): row index, 99 for none.
-# `min_s`/`max_s` bound how far ahead of the point it may be (max_s < 0: no bound); lamps are left out.
 def near_go(+n: Nat, +m: Mem, +i: U32, +ps: U32, +px: U32, +pz: U32, +lo_s: U32, +hi_s: U32, +best: U32, +bd: U32) -> U32:
   match n:
     case 0n:
@@ -1017,8 +926,6 @@ def turn_target(+m: Mem, +bb: U32, +ps: U32, +px: U32, +pz: U32) -> U32:
   +near = near_go(nt(g_n_foes(m)), m, 0, ps, px, pz, 1, 2147483647, 99, 0)
   pk(lt(by_src, 99), by_src, pk(lt(lamp, 99), lamp, near))
 
-# a rolling craft's shield turns a bolt round: it is the roller's now, faster, and heads for what
-# fired it (or the Wyrm's lit lamp)
 def turn(+m: Mem, +bi: U32, +by: U32) -> Mem:
   +cb = seat_c(by)
   turn_put(m, bi, by, turn_target(m, bolt_b(bi), cr_s(m, cb), c_x(m, cb), c_z(m, cb)))
@@ -1026,19 +933,13 @@ def turn(+m: Mem, +bi: U32, +by: U32) -> Mem:
 def target_pick(+m: Mem, +turn: U32, +cnt: U32) -> U32: pk(z(cnt), 0, nth_flying(6n, m, 1, U32.mod(turn, cnt)))
 def target(+m: Mem, +turn: U32) -> U32: target_pick(m, turn, count_flying(6n, m, 1))
 
-# a bolt from o that meets the formation's plane at `to` as the rail brings the plane to it,
-# closing at `closing` a tick: how many ticks it takes
 def plane_ticks(+m: Mem, +os: U32, +closing: U32) -> U32: mx(sdv(mx(U32.sub(os, anchor(m)), dm(40)), mx(closing, 1)), 1)
 
-# the marks a turret's shot lands on: a pair side by side, and a pair more to each side for every three
-# knights beyond the first. Mark i (across, up).
 def mark_x(+fx: U32, +i: U32) -> U32:
   +d = U32.add(dm(8), U32.mul(U32.shr(i), dm(20)))
   pk(z(U32.and(i, 1)), U32.sub(fx, d), U32.add(fx, d))
 
 def mark_count(+seats: U32) -> U32: U32.add(2, U32.mul(2, U32.div(ssub(seats, 1), 3)))
-
-# ===== a craft is struck =====
 
 def drain_if(+m: Mem, +cb: U32, +amount: U32, +ok: Bool) -> Mem:
   match ok:
@@ -1047,7 +948,6 @@ def drain_if(+m: Mem, +cb: U32, +amount: U32, +ok: Bool) -> Mem:
     case False{}:
       m
 
-# a drip from a latched kite: no spare moment, no flash
 def drain(+m: Mem, +id: U32, +amount: U32) -> Mem:
   +cb = craft_of(m, id)
   drain_if(m, cb, amount, Bool.and(nz(cb), pb(le(id, 6), z(c_down(m, cb)), z(w_lost(m, U32.sub(cb, WING_CRAFT()))))))
@@ -1059,8 +959,6 @@ def say_if(+m: Mem, +who: U32, +line: U32, +c: Bool) -> Mem:
     case False{}:
       m
 
-# a craft's shield takes a blow. A knight is spared for a moment after one; a rider is only worn down
-# (by what latches on). Reg 0 holds whether it landed.
 def hurt_seat(+m: Mem, +id: U32, +cb: U32, +dmg: U32) -> Mem:
   +s = cr_s(m, cb)
   +x = c_x(m, cb)
@@ -1113,8 +1011,6 @@ def kill_saved(+m: Mem, +on: U32, +by: U32, +lat: Bool) -> Mem:
       +m1 = say(set_g_beat_saved(m, U32.add(g_beat_saved(m), 1)), on, L_THANKS())
       pk_seat_saved(m1, by, seat_ok(m1, by))
 
-# a foe pops into cold smoke and a spark of returned light. A kite that had latched on is a rescue; a
-# knight's chain of pops is counted, and pays more the longer it runs.
 def kill_a(+m: Mem, +kind: U32, +st: U32, +on: U32, +s: U32, +x: U32, +zz: U32, +by: U32) -> Mem:
   +worth = k_worth(kind)
   +lat = eq(st, S_LATCHED())
@@ -1128,7 +1024,6 @@ def kill(+m: Mem, +fi: U32, +by: U32) -> Mem:
   +fb = foe_b(fi)
   kill_a(foe_remove(m, fi), f_kind(m, fb), f_st(m, fb), f_on(m, fb), f_s(m, fb), f_x(m, fb), f_z(m, fb), by)
 
-# a lamp's flame is out: points, a flash, and the Wyrm reels (the Wyrm's tick sees it)
 def break_seat(+m: Mem, +by: U32, +ok: Bool) -> Mem:
   match ok:
     case True{}:
@@ -1152,14 +1047,11 @@ def hit_go(+m: Mem, +fi: U32, +by: U32, +alive: Bool, +lamp: Bool) -> Mem:
     case False{} False{}:
       set_g_reg(kill(m, fi, by), 0, 1)
 
-# a foe takes `dmg` from `by`; reg 0 holds whether it fell
 def hit_foe(+m: Mem, +fi: U32, +dmg: U32, +by: U32) -> Mem:
   +fb = foe_b(fi)
   +hp = ssub(f_hp(m, fb), dmg)
   +m1 = set_f_flash(set_f_hp(m, fb, hp), fb, 5)
   hit_go(m1, fi, by, gt(hp, 0), eq(f_kind(m1, fb), K_LAMP()))
-
-# ===== Starfall =====
 
 def STARFALL() -> U32: 120
 
@@ -1185,12 +1077,9 @@ def sf_loop(+fuel: Nat, +m: Mem, +i: U32, +by: U32, +live: Bool, +hits: Bool) ->
       +i2 = pk(eq(g_reg(m2, 0), 1), i, U32.add(i, 1))
       sf_loop(p, m2, i2, by, lt(i2, g_n_foes(m2)), sf_hits(m2, i2))
 
-# every hostile bolt is cleared, and everything small on the way is struck for what it can bear
 def starfall(+m: Mem, +by: U32, +s_c: U32) -> Mem:
   +m1 = retain(~not_hostile, sound(spark(m, B_STARFALL(), s_c, 0, 0, by), SND_BOMB()), BOLTS(), BOLT_W(), g_n_bolts(m), CA_BOLTS())
   sf_loop(U32.to_nat(U32.add(U32.mul(2, g_n_foes(m1)), 1)), m1, 0, by, lt(0, g_n_foes(m1)), sf_hits(m1, 0))
-
-# ===== the foes' tick =====
 
 def HUNT_V() -> U32: dm(10)
 
@@ -1199,11 +1088,9 @@ def GLOAM() -> U32: 25
 def SPARK() -> U32: 10
 def RAM() -> U32: 35
 
-# the foe's move along its way
 def f_move(+m: Mem, +fb: U32) -> Mem:
   set_f_z(set_f_x(set_f_s(m, fb, U32.add(f_s(m, fb), f_vs(m, fb))), fb, U32.add(f_x(m, fb), f_vx(m, fb))), fb, U32.add(f_z(m, fb), f_vz(m, fb)))
 
-# a shooting wisp: a short tell, then a slow spark
 def wisp_tell(+m: Mem, +fb: U32, +to: U32, +ahead_ok: Bool) -> Mem:
   match ahead_ok:
     case False{}:
@@ -1234,7 +1121,6 @@ def arm_fly(+m: Mem, +fb: U32) -> Mem:
   +m2 = fly_turn(m1, fb, flip)
   fly_aim(m2, fb, Bool.and(eq(f_mode(m2, fb), 3), eq(f_kind(m2, fb), K_WISP())))
 
-# a plane shot's three parts (across, up) for a bolt from (os, ox, oz) to (tx, tz)
 def spit(+m: Mem, +shot: U32, +s: U32, +x: U32, +zz: U32, +tx: U32, +tz: U32, +closing: U32, +dmg: U32, +life: U32, +src: U32) -> Mem:
   +ticks = plane_ticks(m, s, closing)
   push_bolt(m, shot, 0, s, x, zz, U32.sub(PACE(), closing), sdv(U32.sub(tx, x), ticks), sdv(U32.sub(tz, zz), ticks), dmg, life, 0, src, 0, 0)
@@ -1276,7 +1162,6 @@ def arm_turret_rest(+m: Mem, +fb: U32) -> Mem:
   +to = target(m1, U32.add(f_id(m1, fb), f_phase(m1, fb)))
   turret_rest_go(m1, fb, to, Bool.and(Bool.and(z(ticks), nz(to)), Bool.and(ge(ahead, dm(150)), le(ahead, dm(560)))))
 
-# a turret fires on its locked marks
 def fire_marks(+n: Nat, +m: Mem, +fb: U32, +i: U32) -> Mem:
   match n:
     case 0n:
@@ -1325,13 +1210,10 @@ def rise_again(+m: Mem) -> Mem:
   +b = BOSSB()
   set_bo_nmarks(set_bo_ticks(set_bo_st(m, b, W_RISE()), b, RISE_T()), b, 0)
 
-# ===== the Gloam Wyrm: three lamps in cold-light shields, three phases =====
-
 def HEAD() -> U32: dm(340)
 
 def FRONT() -> U32: dm(40)
 
-# the lamps' places about the head
 def lamp_x(+k: U32) -> U32: kind5(k, dn(45), dm(45), 0, 0, 0)
 
 def HIGH() -> U32: dm(12)
@@ -1353,12 +1235,10 @@ def rise_new(+m: Mem) -> Mem:
   +m3 = set_bo_seq(set_bo_atk(set_bo_col(set_bo_side(set_bo_gap(set_bo_nmarks(m2, b, 0), b, 0), b, 1), b, 0), b, 0), b, 0)
   sound(say(m3, voice(m3), L_WYRM()), SND_BOSS_RISE())
 
-# the Wyrm rises out of the roost (or, after a fall, is back in its place, its lamps as they were)
 def rise(+m: Mem) -> Mem:
   +m1 = set_g_cp(m, BOSS_AT())
   pkm(nz(g_boss(m1)), rise_again(m1), rise_new(m1))
 
-# it rises over the ridge, then dives down the locked lane
 def arm_bomber_tell(+m: Mem, +fb: U32) -> Mem:
   +rise = lt(f_z(m, fb), U32.add(mx(f_fz(m, fb), dm(10)), dm(24)))
   +m1 = set_f_z(m, fb, pk(rise, U32.add(f_z(m, fb), dm(1)), f_z(m, fb)))
@@ -1377,7 +1257,6 @@ def hunt_end(+m: Mem, +fb: U32, +tx: U32, +ty: U32, +tz: U32, +d0: U32, +d1: U32
       +m1 = set_f_vz(set_f_vx(set_f_vs(m, fb, v0), fb, v1), fb, v2)
       set_f_z(set_f_x(set_f_s(m1, fb, U32.add(f_s(m, fb), v0)), fb, U32.add(f_x(m, fb), v1)), fb, U32.add(f_z(m, fb), v2))
 
-# a kite going for its victim: it picks one, closes, and latches onto the tail
 def hunt_close(+m: Mem, +fb: U32, +vs: U32, +vx: U32, +vz: U32) -> Mem:
   +tx = U32.sub(vs, LATCH_BACK())
   +ty = vx
@@ -1407,7 +1286,6 @@ def arm_hunt(+m: Mem, +fb: U32) -> Mem:
   +cb = craft_of(m, on)
   hunt_held(m, fb, Bool.and(nz(on), Bool.and(nz(cb), cr_flying(m, on, cb))))
 
-# a latched kite hangs on its victim's tail, draining its shield, until it is shot, or shaken off by a roll
 def hang_go(+m: Mem, +fb: U32, +vs: U32, +vx: U32, +vz: U32, +drip: Bool) -> Mem:
   +m1 = set_f_z(set_f_x(set_f_s(m, fb, U32.sub(vs, LATCH_BACK())), fb, vx), fb, U32.add(vz, dm(4)))
   +ticks = U32.mod(U32.add(f_ticks(m1, fb), 1), 9996)
@@ -1432,7 +1310,6 @@ def arm_hang(+m: Mem, +fb: U32) -> Mem:
   +rolling = Bool.and(seat_ok(m, on), nz(c_roll(m, seat_c(on))))
   hang_pick(m, fb, cb, z(cb), Bool.or(Bool.not(cr_flying(m, on, cb)), rolling))
 
-# a hit stops the foe a moment where it is, each foe by itself: the hit lands
 def step_foe_go(+m: Mem, +fb: U32, +skip: Bool, +code: Nat) -> Mem:
   match skip code:
     case True{} _:
@@ -1481,15 +1358,11 @@ def step_foes_loop(+n: Nat, +m: Mem, +i: U32) -> Mem:
     case 1n+p:
       step_foes_loop(p, step_foe(m, foe_b(i)), U32.add(i, 1))
 
-# those that have gone by, or fled out of sight, are gone
 def foe_keep(+m: Mem, +i: U32) -> Bool:
   +fb = foe_b(i)
   +a = anchor(m)
   Bool.or(eq(f_kind(m, fb), K_LAMP()), Bool.and(gt(f_hp(m, fb), 0), Bool.and(gt(f_s(m, fb), U32.sub(a, dm(300))), lt(f_s(m, fb), U32.add(a, dm(1500))))))
 
-# ===== dive-bombers meet craft =====
-
-# scratch past the session's words: whether a bolt died, the segment it flew, the bombers that rammed
 def DEAD() -> U32: SCRATCH()
 
 def SEG() -> U32: U32.add(SCRATCH(), 160)
@@ -1510,7 +1383,6 @@ def set_seg(+m: Mem, +i: U32, +ok: U32, +fs: U32, +fx: U32, +fz: U32, +ts: U32, 
   +b = seg_b(i)
   wr(wr(wr(wr(wr(wr(wr(m, b, ok), U32.add(b, 1), fs), U32.add(b, 2), fx), U32.add(b, 3), fz), U32.add(b, 4), ts), U32.add(b, 5), tx), U32.add(b, 6), tz)
 
-# the first knight (by seat) whose craft the diving bomber at row fb meets this tick: 0 for none
 def ram_hit(+m: Mem, +id: U32, +fb: U32) -> Bool:
   +cb = seat_c(id)
   Bool.and(Bool.and(seated(m, id), z(c_down(m, cb))),
@@ -1550,17 +1422,13 @@ def ram_apply(+n: Nat, +m: Mem, +k: U32) -> Mem:
       +m1 = hurt_craft(m, rd(m, U32.add(SPENT(), U32.add(U32.mul(k, 2), 1))), RAM())
       ram_apply(p, pkm(eq(g_reg(m1, 0), 1), ram_pop(m1, fid), m1), U32.add(k, 1))
 
-# a bomber that was thrown at a craft: a blow for the knight, and the bomber is spent
 def bombers_ram(+m: Mem) -> Mem:
   +m1 = ram_scan(nt(g_n_foes(m)), wr(m, SPENT_N(), 0), 0)
   ram_apply(nt(rd(m1, SPENT_N())), m1, 0)
 
-# the foes' tick: flights, tells, latching, dives
 def step_foes(+m: Mem) -> Mem:
   +m1 = set_g_reg(step_foes_loop(nt(g_n_foes(m)), set_g_reg(m, 7, 1), 0), 7, 0)
   bombers_ram(retain(~foe_keep, m1, FOES(), FOE_W(), g_n_foes(m1), CA_FOES()))
-
-# ===== a friendly bolt lands =====
 
 def OPEN() -> U32: 150
 
@@ -1570,7 +1438,6 @@ def SPARK_R() -> U32: dm(5)
 def BOLT_R() -> U32: dm(5)
 def REFLECT_R() -> U32: dm(26)
 
-# only a charged starburst breaks an open lamp
 def land_star(+m: Mem, +fi: U32, +bi: U32, +at_s: U32, +at_x: U32, +at_z: U32, +full: Bool) -> Mem:
   match full:
     case True{}:
@@ -1608,15 +1475,12 @@ def land_pick(+m: Mem, +fi: U32, +bi: U32, +lamp: Bool, +active: Bool) -> Mem:
       +bb = bolt_b(bi)
       hit_foe(spark(m, B_HIT(), f_s(m, fb), f_x(m, fb), f_z(m, fb), 0), fi, pk(eq(bl_shot(m, bb), A_TURNED()), TURNED(), bl_dmg(m, bb)), bl_owner(m, bb))
 
-# a friendly bolt lands on foe fi
 def land(+m: Mem, +fi: U32, +bi: U32) -> Mem:
   +fb = foe_b(fi)
   +bb = bolt_b(bi)
   +lamp = eq(f_kind(m, fb), K_LAMP())
   +active = Bool.and(nz(g_boss(m)), eq(lit_lamp(m), f_id(m, fb)))
   land_pick(m, fi, bi, lamp, active)
-
-# ===== a hostile bolt against the knights =====
 
 def reflecting(+m: Mem, +cb: U32) -> Bool:
   Bool.and(nz(c_roll(m, cb)), U32.is_lt(U32.sub(c_roll_len(m, cb), c_roll(m, cb)), umx(ssub(g_num_roll(m), 10), 8)))
@@ -1643,12 +1507,9 @@ def hostile_loop(+n: Nat, +m: Mem, +bi: U32, +id: U32, +r: U32, +a: Bool, +h: Bo
     case 1n+p False{} False{}:
       hostile_loop(p, m, bi, U32.add(id, 1), r, hostile_a(m, bi, U32.add(id, 1), r), hostile_h(m, bi, U32.add(id, 1), r))
 
-# whether the bolt flies on (reg 0)
 def hostile_bolt(+m: Mem, +bi: U32) -> Mem:
   +r = pk(eq(bl_shot(m, bolt_b(bi)), A_GLOAM()), GLOAM_R(), SPARK_R())
   hostile_loop(6n, m, bi, 1, r, hostile_a(m, bi, 1, r), hostile_h(m, bi, 1, r))
-
-# ===== a friendly bolt against the foes and the hostile sparks =====
 
 def fr_hit(+m: Mem, +bi: U32, +i: U32) -> Bool:
   +fb = foe_b(i)
@@ -1657,7 +1518,6 @@ def fr_hit(+m: Mem, +bi: U32, +i: U32) -> Bool:
     Bool.and(Bool.or(Bool.not(Bool.and(eq(bl_shot(m, bb), A_STAR()), nz(bl_aim(m, bb)))), eq(f_id(m, fb), bl_aim(m, bb))),
       near(sg_fs(m, bi), sg_fx(m, bi), sg_fz(m, bi), sg_ts(m, bi), sg_tx(m, bi), sg_tz(m, bi), f_s(m, fb), f_x(m, fb), f_z(m, fb), U32.add(f_radius(m, fb), BOLT_R()))))
 
-# the foe a friendly bolt hits first: the one it passes nearest to its start
 def best_foe(+n: Nat, +m: Mem, +bi: U32, +i: U32, +best: U32, +bd: U32) -> U32:
   match n:
     case 0n:
@@ -1668,7 +1528,6 @@ def best_foe(+n: Nat, +m: Mem, +bi: U32, +i: U32, +best: U32, +bd: U32) -> U32:
       +take = Bool.and(fr_hit(m, bi, i), Bool.or(eq(best, 99), lt(d, bd)))
       best_foe(p, m, bi, U32.add(i, 1), pk(take, i, best), pk(take, d, bd))
 
-# the first hostile spark the bolt passes through
 def spark_hit(+n: Nat, +m: Mem, +bi: U32, +j: U32) -> U32:
   match n:
     case 0n:
@@ -1697,14 +1556,10 @@ def friendly_pick(+m: Mem, +bi: U32, +i: U32, +hit: Bool) -> Mem:
       +j = spark_hit(nt(g_n_bolts(m)), m, bi, 0)
       friendly_spark_pick(m, j, lt(j, 99))
 
-# whether the bolt flies on (reg 0)
 def friendly_bolt(+m: Mem, +bi: U32) -> Mem:
   +i = best_foe(nt(g_n_foes(m)), m, bi, 0, 99, 0)
   friendly_pick(m, bi, i, lt(i, 99))
 
-# ===== the bolts' tick: they fly and home, then land =====
-
-# a starburst and a turned bolt close on their body
 def home_to(+m: Mem, +bi: U32, +fi: U32) -> Mem:
   +bb = bolt_b(bi)
   +fb = foe_b(fi)
@@ -1715,7 +1570,6 @@ def home_to(+m: Mem, +bi: U32, +fi: U32) -> Mem:
   +len = norm3(d0, d1, d2)
   set_bl_vz(set_bl_vx(set_bl_vs(m, bb, U32.add(bl_vs(m, bb), sdv(U32.sub(scs(d0, speed, len), bl_vs(m, bb)), 3))), bb, U32.add(bl_vx(m, bb), sdv(U32.sub(scx(d1, speed, len), bl_vx(m, bb)), 3))), bb, U32.add(bl_vz(m, bb), sdv(U32.sub(scx(d2, speed, len), bl_vz(m, bb)), 3)))
 
-# its body is gone: on to the nearest ahead
 def home_seek(+m: Mem, +bi: U32) -> Mem:
   +bb = bolt_b(bi)
   +ti = near_go(nt(g_n_foes(m)), m, 0, bl_s(m, bb), bl_x(m, bb), bl_z(m, bb), dm(20), dm(500), 99, 0)
@@ -1746,7 +1600,6 @@ def fly_bolt(+m: Mem, +bi: U32) -> Mem:
   +nz_ = U32.add(zz, bl_vz(m, bb))
   set_seg(set_bl_life(set_bl_z(set_bl_x(set_bl_s(m, bb, ns), bb, nx), bb, nz_), bb, ssub(bl_life(m, bb), 1)), bi, 1, s, x, zz, ns, nx, nz_)
 
-# a released starburst waits at its craft's muzzle for its turn
 def wait_bolt(+m: Mem, +bi: U32, +ok: Bool) -> Mem:
   match ok:
     case False{}:
@@ -1808,8 +1661,6 @@ def step_bolts(+m: Mem) -> Mem:
   +m1 = bolt_lands(nt(g_n_bolts(m)), bolt_moves(nt(g_n_bolts(m)), m, 0), 0)
   retain(~bolt_keep, m1, BOLTS(), BOLT_W(), g_n_bolts(m1), CA_BOLTS())
 
-# ===== the craft in the air =====
-
 def K_FIRE() -> U32: 1
 
 def K_DASH() -> U32: 2
@@ -1836,7 +1687,6 @@ def ROLL_REST() -> U32: 12
 def ROLL_V() -> U32: 84
 def TAP_WINDOW() -> U32: 9
 
-# a seat's place in the formation: across and up
 def slot_x(+id: U32) -> U32: pk(ge(id, 6), 0, kind5(U32.sub(id, 1), 0, dn(22), dm(22), dn(40), dm(40)))
 
 def slot_z(+id: U32) -> U32: pk(ge(id, 6), dm(12), kind5(U32.sub(id, 1), 0, dn(4), dn(4), dn(8), dn(8)))
@@ -1850,23 +1700,18 @@ def k_bomb(+m: Mem, +id: U32) -> Bool: nz(key_at(m, id, 6))
 def k_interact(+m: Mem, +id: U32) -> Bool: nz(key_at(m, id, 7))
 def k_swing(+m: Mem, +id: U32) -> Bool: nz(key_at(m, id, 8))
 
-# the keys as bits, for the next tick's presses
 def key_bits(+m: Mem, +id: U32) -> U32:
   U32.or(U32.or(U32.or(b2u(k_fire(m, id)), U32.shln(b2u(k_dash(m, id)), 1n)), U32.or(U32.shln(b2u(k_bomb(m, id)), 2n), U32.shln(b2u(k_interact(m, id)), 3n))), U32.shln(b2u(k_swing(m, id)), 4n))
 
-# a seat's bit
 def bit(+id: U32) -> U32: U32.shln(1, U32.to_nat(U32.sub(umn(umx(id, 1), 8), 1)))
 
-# whether a key is down now and was not held last tick
 def edge(+m: Mem, +id: U32, +bit: U32, +on: Bool) -> Bool: Bool.and(on, z(U32.and(c_keys(m, seat_c(id)), bit)))
 
-# the timers wind down
 def fly_timers(+m: Mem, +cb: U32) -> Mem:
   +m1 = set_c_rest(set_c_cool(set_c_hurt(m, cb, ssub(c_hurt(m, cb), 1)), cb, ssub(c_cool(m, cb), 1)), cb, ssub(c_rest(m, cb), 1))
   +ct = ssub(c_chain_ticks(m1, cb), 1)
   set_c_tap_ticks(set_c_chain(set_c_chain_ticks(m1, cb, ct), cb, pk(z(ct), 0, c_chain(m1, cb))), cb, ssub(c_tap_ticks(m1, cb), 1))
 
-# a knight who is down falls and, when the time comes, rises again at the formation
 def fly_up(+m: Mem, +id: U32, +cb: U32) -> Mem:
   set_c_roll(set_c_hurt(set_c_shield(set_c_vz(set_c_vx(set_c_z(set_c_x(m, cb, slot_x(id)), cb, slot_z(id)), cb, 0), cb, 0), cb, 60), cb, 60), cb, 0)
 
@@ -1876,7 +1721,6 @@ def fly_down(+m: Mem, +id: U32) -> Mem:
   +m1 = set_c_nlocks(set_c_charge(set_c_held(set_c_ds(set_c_down(m, cb, d), cb, PACE()), cb, 0), cb, 0), cb, 0)
   pkm(z(d), fly_up(m1, id, cb), m1)
 
-# a second tap of a direction is a roll that way: reg 1 holds whether this tick is one
 def tap_go(+m: Mem, +cb: U32, +mxv: U32, +hit: Bool) -> Mem:
   match hit:
     case True{}:
@@ -1906,7 +1750,6 @@ def fly_roll(+m: Mem, +id: U32, +double: Bool) -> Mem:
   +m1 = pkm(go, roll_start(m, id, cb), m)
   set_c_roll(m1, cb, ssub(c_roll(m1, cb), 1))
 
-# the reins: the craft's speed toward where the stick points, then its place held inside the window
 def fly_reins(+m: Mem, +id: U32) -> Mem:
   +cb = seat_c(id)
   +tx = U32.mul(k_move_x(m, id), V_X())
@@ -1925,7 +1768,6 @@ def fly_reins(+m: Mem, +id: U32) -> Mem:
   +lift = U32.add(c_lift(m, cb), sdv(U32.sub(sdv(U32.mul(vz2, Q()), V_Z()), c_lift(m, cb)), 4))
   set_c_lift(set_c_bank(set_c_vz(set_c_vx(set_c_z(set_c_x(m, cb, x2), cb, z2), cb, vx2), cb, vz2), cb, bank), cb, lift)
 
-# the spur on a short meter, and the brake
 def fly_spur(+m: Mem, +id: U32) -> Mem:
   +cb = seat_c(id)
   +sp = umx(g_num_spur(m), 1)
@@ -1947,7 +1789,6 @@ def fly_reticle(+m: Mem, +id: U32) -> Mem:
   +cb = seat_c(id)
   set_c_rz(set_c_rx(m, cb, cl(U32.add(c_rx(m, cb), U32.mul(k_aim_x(m, id), RET_V())), ng(RX_MAX()), RX_MAX())), cb, cl(U32.sub(c_rz(m, cb), U32.mul(k_aim_y(m, id), RET_V())), ng(RZ_MAX()), RZ_MAX()))
 
-# a tap: two bolts, side by side, both to where the reticle points
 def tap_bolt(+m: Mem, +id: U32, +cb: U32, +s_c: U32, +side: U32) -> Mem:
   +fs = U32.add(s_c, dm(12))
   +fx = U32.add(c_x(m, cb), U32.mul(side, dm(4)))
@@ -1961,9 +1802,6 @@ def tap_bolt(+m: Mem, +id: U32, +cb: U32, +s_c: U32, +side: U32) -> Mem:
 def tap(+m: Mem, +id: U32, +cb: U32, +s_c: U32) -> Mem:
   sound(tap_bolt(tap_bolt(m, id, cb, s_c, ng(1)), id, cb, s_c, 1), SND_SHOT_BOLT())
 
-# ----- the lock: everything the reticle sweeps over while F is held -----
-
-# the lock this foe holds on the craft: its index in the craft's list, 99 for none
 def lock_idx(+n: Nat, +m: Mem, +cb: U32, +k: U32, +id: U32) -> U32:
   match n:
     case 0n:
@@ -1978,7 +1816,6 @@ def lock_total(+n: Nat, +m: Mem, +cb: U32, +k: U32) -> U32:
     case 1n+p:
       U32.add(c_lock_n(m, cb, k), lock_total(p, m, cb, U32.add(k, 1)))
 
-# a lock is kept while its foe is still lockable and in reach: reg 1 holds the craft, reg 2 its place on the rail
 def lock_keep(+m: Mem, +k: U32) -> Bool:
   +cb = g_reg(m, 1)
   +fi = foe_by_id(m, c_lock_foe(m, cb, k))
@@ -1986,7 +1823,6 @@ def lock_keep(+m: Mem, +k: U32) -> Bool:
   +ds = U32.sub(f_s(m, fb), g_reg(m, 2))
   Bool.and(lt(fi, 99), Bool.and(f_lockable(m, fb), Bool.and(ge(ds, LOCK_MIN()), le(ds, U32.add(LOCK_MAX(), dm(40))))))
 
-# a foe the reticle sweeps over takes a bracket (or a lamp, held on, a second and a third)
 def lock_new(+m: Mem, +cb: U32, +fb: U32, +s: U32, +x: U32, +zz: U32) -> Mem:
   +k = c_nlocks(m, cb)
   +total = U32.add(lock_total(nt(k), m, cb, 0), 1)
@@ -2024,13 +1860,10 @@ def lock_foes(+n: Nat, +m: Mem, +cb: U32, +i: U32, +s_c: U32) -> Mem:
         le(flat(U32.sub(f_x(m, fb), c_x(m, cb)), U32.sub(f_z(m, fb), c_z(m, cb)), ax, az), U32.add(f_radius(m, fb), LOCK_R())))
       lock_foes(p, lock_foe_go(m, cb, fb, lock_idx(nt(c_nlocks(m, cb)), m, cb, 0, f_id(m, fb)), hit), cb, U32.add(i, 1), s_c)
 
-# everything the reticle sweeps over while F is held is locked: a bracket on each, snapping on
 def acquire(+m: Mem, +cb: U32, +s_c: U32) -> Mem:
   +m1 = retain(~lock_keep, set_g_reg(set_g_reg(m, 1, cb), 2, s_c), U32.add(cb, 21), 2, c_nlocks(m, cb), U32.add(cb, 20))
   +m2 = lock_foes(nt(g_n_foes(m1)), set_g_reg(m1, 4, 0), cb, 0, s_c)
   pkm(z(g_reg(m2, 4)), set_c_dwell(m2, cb, 0), m2)
-
-# ----- letting go: a starburst for every lock, a chain of pops two ticks apart, homing on their bodies -----
 
 def spread_vx(+k: U32) -> U32: kind5(U32.mod(k, 6), ng(70), 70, 0, ng(40), pk(eq(U32.mod(k, 6), 4), 40, 0))
 
@@ -2059,8 +1892,6 @@ def release(+m: Mem, +id: U32, +cb: U32, +s_c: U32) -> Mem:
   +full = ge(c_charge(m, cb), ch)
   +dmg = U32.add(16, U32.div(U32.mul(20, umn(c_charge(m, cb), ch)), umx(ch, 1)))
   release_end(release_locks(nt(c_nlocks(m, cb)), m, id, cb, s_c, 0, 0, dmg, b2u(full)), cb, lock_total(nt(c_nlocks(m, cb)), m, cb, 0))
-
-# ----- the fire key -----
 
 def fire_held(+m: Mem, +id: U32, +cb: U32, +s_c: U32, +over: Bool) -> Mem:
   match over:
@@ -2105,8 +1936,6 @@ def fly_fire(+m: Mem, +id: U32) -> Mem:
   +hold = Bool.and(z(c_roll(m, cb)), k_fire(m, id))
   fly_fire_go(m, id, cb, s_c, hold, edge(m, id, K_FIRE(), True{}), Bool.and(Bool.not(hold), nz(c_held(m, cb))))
 
-# Starfall: the kills it makes are scored on the craft as it stood before this tick (reg 5, 6: its chain and
-# the chain's clock then), and the knight's own tally, flown on a copy, is put back over them
 def bomb_go(+m: Mem, +id: U32, +cb: U32, +s_c: U32) -> Mem:
   +chain = c_chain(m, cb)
   +ct = c_chain_ticks(m, cb)
@@ -2121,7 +1950,6 @@ def fly_bomb(+m: Mem, +id: U32) -> Mem:
   +cb = seat_c(id)
   pkm(Bool.and(Bool.and(edge(m, id, K_BOMB(), k_bomb(m, id)), gt(c_bombs(m, cb), 0)), z(c_roll(m, cb))), bomb_go(m, id, cb, cr_s(m, cb)), m)
 
-# one knight's tick in the air
 def fly_live(+m: Mem, +id: U32) -> Mem:
   +m1 = fly_double(m, id)
   +m2 = fly_roll(m1, id, eq(g_reg(m1, 1), 1))
@@ -2137,8 +1965,6 @@ def fly_go(+m: Mem, +id: U32, +down: Bool) -> Mem:
 def fly(+m: Mem, +id: U32) -> Mem:
   +m1 = fly_timers(set_g_reg(set_g_reg(m, 5, c_chain(m, seat_c(id))), 6, c_chain_ticks(m, seat_c(id))), seat_c(id))
   fly_go(m1, id, nz(c_down(m1, seat_c(id))))
-
-# ===== the wing: formation flying with a little drift, a bolt now and then at what is nearest ahead =====
 
 def rider_x(+k: U32) -> U32: kind5(k, dn(30), dm(30), 0, dn(62), dn(62))
 
@@ -2182,7 +2008,6 @@ def wing_one(+m: Mem, +k: U32) -> Mem:
   +fire = ssub(w_fire(m1, wb), 1)
   wing_fire(set_w_fire(m1, wb, fire), k, wb, cb, z(fire))
 
-# falling away, out of the picture
 def wing_lost(+m: Mem, +k: U32) -> Mem:
   +cb = wing_c(k)
   set_c_z(m, cb, mx(U32.sub(c_z(m, cb), 20), dn(110)))
@@ -2202,8 +2027,6 @@ def wing_loop(+n: Nat, +m: Mem, +k: U32) -> Mem:
       wing_loop(p, wing_go(m, k, nz(w_lost(m, wing_b(k)))), U32.add(k, 1))
 
 def wing_fly(+m: Mem) -> Mem: wing_loop(nt(g_n_wing(m)), m, 0)
-
-# ===== after the beat's blows: a craft with no shield falls and rises again a moment later =====
 
 def let_go(+n: Nat, +m: Mem, +i: U32, +id: U32) -> Mem:
   match n:
@@ -2253,14 +2076,11 @@ def ROAR_T() -> U32: 26
 def BLOW() -> U32: 35
 def lamp_id(+m: Mem, +k: U32) -> U32: rd(m, U32.add(U32.add(BOSSB(), 5), k))
 
-# a kite that hunts a wingman and latches onto its tail
 def spawn_hunter(+m: Mem, +side: U32) -> Mem:
   spawn_foe(m, K_KITE(), U32.sub(U32.add(anchor(m), LEAD()), dm(40)), U32.mul(side, dm(90)), dm(40), 0, 0, 0, S_HUNT(), 1, 0)
 
-# how long the Wyrm rests between attacks: shorter the more knights fly and the later the phase
 def rest(+m: Mem, +phase: U32) -> U32: umx(U32.sub(U32.sub(64, U32.mul(4, U32.sub(pressure(m), 1))), U32.mul(8, phase)), 34)
 
-# the head holds its place ahead and sways; each lamp follows it
 def lamp_follow(+m: Mem, +k: U32) -> Mem:
   +b = BOSSB()
   +fi = foe_by_id(m, lamp_id(m, k))
@@ -2277,7 +2097,6 @@ def head_holds(+m: Mem) -> Mem:
 
 def owned(+m: Mem, +i: U32) -> Bool: nz(bl_owner(m, bolt_b(i)))
 
-# the lit lamp is out: the Wyrm reels (or, the last lamp, dies); whatever it spat is gone
 def reel(+m: Mem) -> Mem:
   +b = BOSSB()
   +m1 = sound(set_bo_nmarks(retain(~owned, m, BOLTS(), BOLT_W(), g_n_bolts(m), CA_BOLTS()), b, 0), SND_BOSS_ROAR())
@@ -2286,7 +2105,6 @@ def reel(+m: Mem) -> Mem:
 def attack_pat(+phase: U32, +seq: U32) -> U32:
   pk(eq(phase, 0), 0, pk(eq(phase, 1), pk(z(U32.mod(seq, 2)), 1, 0), kind5(U32.mod(seq, 4), 2, 0, 1, 0, 0)))
 
-# an attack's footprints are locked and shown for the tell's ticks
 def mark_push(+m: Mem, +x: U32, +zz: U32) -> Mem:
   +b = BOSSB()
   +k = bo_nmarks(m, b)
@@ -2331,7 +2149,6 @@ def begin_tell(+m: Mem) -> Mem:
   +b = BOSSB()
   pkm(z(target(m, 0)), set_bo_ticks(set_bo_st(m, b, W_IDLE()), b, 30), begin_atk(m, bo_atk(m, b)))
 
-# the Wyrm's spit: a Gloam bolt for each locked mark, from its mouth, each owing its return to the lit lamp
 def spit_marks(+n: Nat, +m: Mem, +k: U32, +lit: U32) -> Mem:
   match n:
     case 0n:
@@ -2348,7 +2165,6 @@ def to_idle(+m: Mem) -> Mem:
   +b = BOSSB()
   set_bo_nmarks(set_bo_ticks(set_bo_st(m, b, W_IDLE()), b, rest(m, bo_phase(m, b))), b, 0)
 
-# the coils sweep the window, the roar is a column of cold light: a craft they catch is struck
 def sweep_seat(+m: Mem, +id: U32, +coil: Bool) -> Mem:
   +b = BOSSB()
   +cb = seat_c(id)
@@ -2370,7 +2186,6 @@ def hunters_loop(+n: Nat, +m: Mem, +k: U32) -> Mem:
     case 1n+p:
       hunters_loop(p, spawn_hunter(m, pk(z(U32.mod(k, 2)), ng(1), 1)), U32.add(k, 1))
 
-# one tick of each state of the Wyrm
 def boss_rise_st(+m: Mem) -> Mem:
   +b = BOSSB()
   +t = ssub(bo_ticks(m, b), 1)
@@ -2448,7 +2263,6 @@ def boss_go(+m: Mem, +out: Bool) -> Mem:
     case False{}:
       boss_state(m, nt(bo_st(m, BOSSB())))
 
-# the Wyrm's tick
 def step_boss_live(+m: Mem) -> Mem:
   +b = BOSSB()
   +m1 = head_holds(m)
@@ -2465,8 +2279,6 @@ def boss_present(+m: Mem, +on: Bool) -> Mem:
 
 def step_boss(+m: Mem) -> Mem: boss_present(m, nz(g_boss(m)))
 
-# ===== the script's acts =====
-
 def prop_room(+m: Mem) -> Bool: lt(g_n_props(m), 40)
 
 def prop_put(+m: Mem, +thing: U32, +s: U32, +x: U32, +zz: U32, +w: U32, +h: U32, +len: U32, +phase: U32, +ok: Bool) -> Mem:
@@ -2479,14 +2291,11 @@ def prop_put(+m: Mem, +thing: U32, +s: U32, +x: U32, +zz: U32, +w: U32, +h: U32,
       +m2 = set_p_phase(set_p_taken(set_p_len(set_p_h(set_p_w(m1, b, w), b, h), b, len), b, 0), b, phase)
       set_g_reg(set_g_n_props(m2, U32.add(g_n_props(m), 1)), 0, 1)
 
-# a thing that stays where it is on the rail: reg 0 holds whether there was room for it
 def push_prop(+m: Mem, +thing: U32, +s: U32, +x: U32, +zz: U32, +w: U32, +h: U32, +len: U32, +phase: U32) -> Mem:
   prop_put(m, thing, s, x, zz, w, h, len, phase, prop_room(m))
 
-# a centred spread: the kth of count, in half steps
 def spreadk(+k: U32, +count: U32) -> U32: U32.sub(U32.mul(2, k), U32.sub(count, 1))
 
-# how many of a wave there are: more knights at the table means more of each wave, never less
 def wave(+m: Mem, +n: U32, +plus: U32) -> U32: U32.add(n, sdv(U32.mul(U32.sub(pressure(m), 1), plus), 2))
 
 def wisp_dx(+shape: Nat, +k: U32, +sp: U32) -> U32:
@@ -2527,7 +2336,6 @@ def wisps_loop(+n: Nat, +m: Mem, +k: U32, +count: U32, +shape: U32, +x: U32, +zz
       +far = U32.add(anchor(m), LEAD())
       wisps_loop(p, spawn_foe(m, K_WISP(), U32.add(far, wisp_ds(nt(shape), k, sp)), U32.add(dm(x), wisp_dx(nt(shape), k, sp)), U32.add(dm(zz), wisp_dz(nt(shape), k, sp)), ng(15), wisp_vx(nt(shape), k), 0, S_FLY(), mode, U32.and(U32.mul(k, 7), 255)), U32.add(k, 1), count, shape, x, zz, mode)
 
-# every flier already shooting, and not yet ticking, is given its first count
 def shooters(+n: Nat, +m: Mem, +i: U32) -> Mem:
   match n:
     case 0n:
@@ -2578,8 +2386,6 @@ def act_arch(+m: Mem, +rel: U32, +x: U32, +zz: U32, +w: U32, +h: U32) -> Mem:
 def act_shutter(+m: Mem, +rel: U32, +phase: U32) -> Mem:
   push_prop(m, T_SHUTTER(), U32.add(origin(mn(g_stage(m), 2)), rel), 0, 0, 0, 0, dm(30), phase)
 
-# (a row is its word plus `o & 0`, so that the compiler lays the rows out as a chain of tests and not as a constant table: the build adapter
-# reads a module that ends in its exports, which a table in front of them is not; `o` is always 0)
 def word(+v: U32, +o: U32) -> U32: U32.add(v, U32.and(o, 0))
 
 def ev_lo(+c: Nat, +o: U32) -> U32:
@@ -2730,7 +2536,6 @@ def ev_hi(+c: Nat, +o: U32) -> U32:
     case 134n: word(655360, o)
     case _: word(0, o)
 
-# the kth signed byte of event c (a first)
 def evb(+c: Nat, +k: U32) -> U32:
   +v = pk(U32.is_lt(k, 4), ev_lo(c, 0), ev_hi(c, 0))
   +x = U32.and(U32.shrn(v, U32.to_nat(U32.mul(8, U32.mod(k, 4)))), 255)
@@ -2814,15 +2619,8 @@ def ev_at(+c: Nat, +o: U32) -> U32:
     case 134n: word(480, o)
     case _: word(0, o)
 
-# ===== the three beats' scripts: what appears, and when, along the rail =====
-# An event of beat `stage` (0 Thunderhead Run, 1 the Ruined Causeway, 2 the Wyrm's Roost) is row stage*64 + i, in the order the beat plays
-# (sorted by its tick). `ev_at` is the tick; `ev_lo` and `ev_hi` hold six signed bytes a..f (a first) and the kind above them:
-# kind 0 wisps (n, plus, shape, x, z, mode), 1 convoy (n, plus, from, z), 2 hunter (side), 3 turret (x, z), 4 ridge (x, bombers, plus),
-# 5 gate (x, z), 6 ring (x, z), 7 arch (x, z, w, h), 8 shutter (phase), 9 say (line), 10 the Wyrm. A prop stands where the rail brings it
-# to the formation at its own arrival tick, which is `LEAD_TICKS` after the event.
 def LEAD_TICKS() -> U32: 192
 
-# a prop's place on the rail: where the rail brings it at its arrival tick
 def ev_rel(+c: Nat) -> U32: U32.mul(U32.add(ev_at(c, 0), LEAD_TICKS()), PACE())
 
 def act_go(+m: Mem, +kind: Nat, +c: Nat) -> Mem:
@@ -2856,7 +2654,6 @@ def script_due(+m: Mem, +st: U32) -> Bool:
   +i = g_next(m)
   Bool.and(U32.is_lt(i, ev_count(st)), U32.is_le(ev_at(nt(U32.add(U32.mul(st, 64), i)), 0), g_t(m)))
 
-# run the events that are due
 def script_go(+n: Nat, +m: Mem, +st: U32, +due: Bool) -> Mem:
   match n due:
     case 0n _:
@@ -2871,7 +2668,6 @@ def script_go(+n: Nat, +m: Mem, +st: U32, +due: Bool) -> Mem:
 
 def run_script(+m: Mem) -> Mem: script_go(40n, m, mn(g_stage(m), 2), script_due(m, mn(g_stage(m), 2)))
 
-# the number of events that fall before the tick `cp`: where a beat's script stands when it comes back to it
 def resume_go(+n: Nat, +st: U32, +i: U32, +cp: U32) -> U32:
   match n:
     case 0n:
@@ -2880,8 +2676,6 @@ def resume_go(+n: Nat, +st: U32, +i: U32, +cp: U32) -> U32:
       pk(U32.is_lt(ev_at(nt(U32.add(U32.mul(st, 64), i)), 0), cp), U32.add(1, resume_go(p, st, U32.add(i, 1), cp)), 0)
 
 def resume(+st: U32, +cp: U32) -> U32: resume_go(nt(ev_count(st)), st, 0, cp)
-
-# ===== the warm fly-through after the Wyrm: a procession of gold gates and hearth rings, lit for the way home =====
 
 def victory_loop(+n: Nat, +m: Mem, +k: U32) -> Mem:
   match n:
@@ -2893,19 +2687,15 @@ def victory_loop(+n: Nat, +m: Mem, +k: U32) -> Mem:
 
 def victory_gates(+m: Mem) -> Mem: victory_loop(9n, m, 0)
 
-# ===== the things on the rail =====
-
 def SHUTTER_PERIOD() -> U32: 150
 
 def SHUTTER_MIN() -> U32: dm(5)
 def SCRAPE() -> U32: 15
 
-# a shutter's half gap at tick t: open and closing and opening again over its cycle
 def shutter_gap(+m: Mem, +pb: U32, +t: U32) -> U32:
   +k = U32.add(tri(U32.add(t, p_phase(m, pb)), SHUTTER_PERIOD(), 1000), 1000)
   U32.add(SHUTTER_MIN(), sdv(U32.mul(U32.sub(U32.add(wx(m), dm(10)), SHUTTER_MIN()), k), 2000))
 
-# rock met: a blow, and the craft is spared a moment
 def scrape(+m: Mem, +id: U32, +s: U32, +x: U32, +zz: U32) -> Mem:
   +m1 = hurt_craft(m, id, SCRAPE())
   pkm(eq(g_reg(m1, 0), 1), sound(spark(m1, B_SCRAPE(), s, x, zz, id), SND_ROCK_LAND()), m1)
@@ -2971,12 +2761,9 @@ def prop_keep(+m: Mem, +i: U32) -> Bool:
   +pb = prop_b(i)
   gt(U32.add(p_s(m, pb), p_len(m, pb)), U32.sub(anchor(m), dm(300)))
 
-# props and the knights who cross them
 def step_props(+m: Mem) -> Mem:
   +m1 = props_seats(6n, m, 1)
   retain(~prop_keep, m1, PROPS(), PROP_W(), g_n_props(m1), CA_PROPS())
-
-# ===== the calls, flashes and counters wind down =====
 
 def calls_dec(+n: Nat, +m: Mem, +i: U32) -> Mem:
   match n:
@@ -3007,9 +2794,6 @@ def tick_lists(+m: Mem) -> Mem:
   +m2 = retain(~fx_keep, fx_dec(nt(g_n_fx(m1)), m1, 0), FXS(), FX_W(), g_n_fx(m1), 35)
   flash_dec(nt(g_n_foes(m2)), m2, 0)
 
-# ===== seating and the wing =====
-
-# a fresh craft at its slot, shield full and three bombs
 def craft_new(+m: Mem, +cb: U32, +x: U32, +zz: U32) -> Mem:
   +m1 = set_c_rz(set_c_rx(set_c_ds(set_c_back(set_c_lift(set_c_bank(set_c_vz(set_c_vx(set_c_z(set_c_x(m, cb, x), cb, zz), cb, 0), cb, 0), cb, 0), cb, 0), cb, 0), cb, PACE()), cb, 0), cb, 0)
   +m2 = set_c_rest(set_c_dir(set_c_roll_len(set_c_roll(set_c_down(set_c_hurt(set_c_shield(m1, cb, SHIELD()), cb, 0), cb, 0), cb, 0), cb, 0), cb, 1), cb, 0)
@@ -3018,7 +2802,6 @@ def craft_new(+m: Mem, +cb: U32, +x: U32, +zz: U32) -> Mem:
   +m5 = set_c_chain_ticks(set_c_chain(set_c_last_x(set_c_tap_ticks(set_c_tap_dir(set_c_keys(m4, cb, 0), cb, 0), cb, 0), cb, 0), cb, 0), cb, 0)
   set_c_gates(set_c_saved(set_c_hits(set_c_pts(m5, cb, 0), cb, 0), cb, 0), cb, 0)
 
-# seat a knight at the formation, unhurt for a moment
 def sit(+m: Mem, +id: U32, +joined: U32) -> Mem:
   +cb = seat_c(id)
   +sb = seat_b(id)
@@ -3038,7 +2821,6 @@ def muster_seats(+n: Nat, +m: Mem, +id: U32) -> Mem:
       +m2 = pkm(Bool.and(here, Bool.not(seat)), sound(say(sit(m1, id, g_elapsed(m1)), id, L_JOIN()), SND_PLAY_CARD()), m1)
       muster_seats(p, m2, U32.add(id, 1))
 
-# foes provisioned for the seats now flying: a seat that sits down scales the beat up by its share
 def provision_one(+m: Mem, +fb: U32, +now: U32) -> Mem:
   +was = umx(f_seats(m, fb), 1)
   +hp = un(Nat.div(Nat.mul(nt(f_hp(m, fb)), nt(now)), nt(was)))
@@ -3052,7 +2834,6 @@ def provision(+n: Nat, +m: Mem, +i: U32, +now: U32) -> Mem:
       +fb = foe_b(i)
       provision(p, pkm(U32.is_lt(f_seats(m, fb), now), provision_one(m, fb, now), m), U32.add(i, 1), now)
 
-# the wing: riders fill the seats nobody sits in, up to four
 def wing_add(+n: Nat, +m: Mem) -> Mem:
   match n:
     case 0n:
@@ -3064,21 +2845,17 @@ def wing_add(+n: Nat, +m: Mem) -> Mem:
       +m1 = craft_new(m, cb, rider_x(k), rider_z(k))
       wing_add(p, set_g_n_wing(set_w_fire(set_w_lost(set_w_id(set_c_back(m1, cb, rider_back(k)), wb, U32.add(7, k)), wb, 0), wb, U32.mul(12, k)), U32.add(k, 1)))
 
-# the number of seats (not clamped)
 def pressure_seats(+m: Mem) -> U32: count_seats(6n, m, 1)
 
 def fill_wing(+m: Mem) -> Mem:
   +want = ssub(4, pressure_seats(m))
   wing_add(nt(ssub(want, g_n_wing(m))), set_g_n_wing(m, umn(g_n_wing(m), want)))
 
-# who is at the table now, seated and stood up, and the foes' health provisioned for the seats flying
 def muster(+m: Mem) -> Mem:
   +m1 = muster_seats(6n, m, 1)
   fill_wing(provision(nt(g_n_foes(m1)), m1, 0, pressure(m1)))
 
 def pre(+m: Mem) -> Mem: muster(set_g_elapsed(m, umn(U32.add(g_elapsed(m), 1), LIMIT())))
-
-# ===== the beat's end, a wipe, or the Wyrm's fall =====
 
 def LEN0() -> U32: 1800
 
@@ -3116,7 +2893,6 @@ def mend_wing(+n: Nat, +m: Mem, +k: U32) -> Mem:
     case 1n+p:
       mend_wing(p, set_c_shield(set_w_lost(m, wing_b(k), 0), wing_c(k), umn(U32.add(c_shield(m, wing_c(k)), 40), SHIELD())), U32.add(k, 1))
 
-# the next beat flies on from where this one ends, the party mended a little and a bomb richer
 def next_beat(+m: Mem) -> Mem:
   +m1 = set_g_next(set_g_cp(set_g_t(set_g_stage(beat_clear(bank_add(m)), U32.add(g_stage(m), 1)), 0), 0), 0)
   +m2 = sound(say(m1, voice(m1), pk(eq(g_stage(m1), 1), L_RUINS(), L_ROOST())), SND_PLAY_CARD())
@@ -3142,12 +2918,9 @@ def end_go(+m: Mem, +wipe: Bool, +over: Bool, +dying: Bool) -> Mem:
     case False{} False{} False{}:
       m
 
-# the beat's end, a wipe, or the Wyrm's fall
 def end_beat(+m: Mem) -> Mem:
   +st = g_stage(m)
   end_go(m, Bool.and(nz(count_seats(6n, m, 1)), all_down(6n, m, 1)), Bool.and(lt(st, 2), U32.is_ge(g_t(m), pk(z(st), LEN0(), LEN1()))), Bool.and(eq(st, 2), dying_done(m)))
-
-# ===== a beat starts over from its checkpoint =====
 
 def keep_lamp(+m: Mem, +i: U32) -> Bool: eq(f_kind(m, foe_b(i)), K_LAMP())
 
@@ -3179,14 +2952,12 @@ def restart_boss(+m: Mem) -> Mem:
   +b = BOSSB()
   pkm(nz(g_boss(m)), set_bo_nmarks(set_bo_ticks(set_bo_st(m, b, W_IDLE()), b, 60), b, 0), m)
 
-# the beat's foes are gone and its script runs again from there; what was banked stays, as do the Wyrm's lamps
 def restart(+m: Mem) -> Mem:
   +m1 = set_g_n_fx(set_g_n_calls(set_g_n_bolts(set_g_n_props(set_g_next(set_g_t(beat_clear(set_g_retries(m, umn(U32.add(g_retries(m), 1), 255))), g_cp(m)), resume(g_stage(m), g_cp(m))), 0), 0), 0), 0)
   +m2 = restart_boss(retain(~keep_lamp, m1, FOES(), FOE_W(), g_n_foes(m1), CA_FOES()))
   +m3 = set_g_mode_t(set_g_mode(restart_wing(nt(g_n_wing(m2)), restart_seats(6n, m2, 1), 0), M_PLAY()), 0)
   say(m3, voice(m3), L_HELLO())
 
-# the Wyrm is down and the fly-through is over: the medal, and the tally
 def medal_of(+m: Mem) -> U32:
   +all = umx(g_bank_offered(m), 1)
   +pct = U32.sub(U32.sub(un(Nat.div(Nat.mul(nt(g_bank_base(m)), 100n), nt(all))), U32.mul(5, g_retries(m))), U32.mul(4, g_bank_lost(m)))
@@ -3195,11 +2966,6 @@ def medal_of(+m: Mem) -> U32:
 def finish(+m: Mem) -> Mem:
   +m1 = bank_add(m)
   sound(set_g_mode_t(set_g_mode(set_g_medal(beat_clear(m1), medal_of(m1)), M_TALLY()), 0), SND_PLAY_CARD())
-
-# ===== a bot's hands: what a scripted knight presses to fly Griffinwing =====
-# It reads only what a player can see and presses only the buttons a player has. It works in a few
-# words of scratch past the session (the answer, nine words: move x, move y, aim x, aim y, fire, dash,
-# bomb, interact, swing) and leaves the session alone.
 
 def BOT() -> U32: U32.add(SCRATCH(), 1400)
 
@@ -3230,14 +2996,12 @@ def V_K2() -> U32: 37
 def HOLD_AT_BOT() -> U32: 7
 def bv_b(+m: Mem, +k: U32) -> Bool: nz(bv(m, k))
 
-# a steady scatter in -span..=span from a knight, a tick and a salt
 def noise(+id: U32, +t: U32, +salt: U32, +span: U32) -> U32:
   +h0 = U32.xor(U32.xor(U32.mul(id, 2654435761), U32.mul(t, 2246822507)), U32.mul(salt, 3266489909))
   +h1 = U32.mul(U32.xor(h0, U32.shrn(h0, 15n)), 739982445)
   +h2 = U32.xor(h1, U32.shrn(h1, 13n))
   U32.sub(U32.mod(h2, U32.add(U32.mul(2, span), 1)), span)
 
-# whether this knight is one of the rollers: the even seats, and any knight at all when no even seat flies
 def even_flying(+n: Nat, +m: Mem, +id: U32) -> Bool:
   match n:
     case 0n:
@@ -3247,7 +3011,6 @@ def even_flying(+n: Nat, +m: Mem, +id: U32) -> Bool:
 
 def reflector(+m: Mem, +id: U32) -> Bool: Bool.or(z(U32.mod(id, 2)), Bool.not(even_flying(6n, m, 1)))
 
-# the soonest hostile bolt that will pass near this craft's plane: ticks to it, where it will cross, whether it is a Gloam
 def thr_one(+m: Mem, +i: U32, +cb: U32, +s_c: U32) -> Mem:
   +bb = bolt_b(i)
   +shot = bl_shot(m, bb)
@@ -3267,7 +3030,6 @@ def thr_loop(+n: Nat, +m: Mem, +i: U32, +cb: U32, +s_c: U32) -> Mem:
     case 1n+p:
       thr_loop(p, thr_one(m, i, cb, s_c), U32.add(i, 1), cb, s_c)
 
-# while the lit lamp is shut, the soonest of the Wyrm's spits that is owed to it
 def icp_one(+m: Mem, +i: U32, +lit: U32, +s_c: U32) -> Mem:
   +bb = bolt_b(i)
   +t = mx(sdv(U32.sub(bl_s(m, bb), s_c), mx(U32.sub(PACE(), bl_vs(m, bb)), 1)), 0)
@@ -3289,7 +3051,6 @@ def intercept(+m: Mem, +s_c: U32) -> Mem:
   +lit = lit_lamp(m)
   pkm(Bool.and(nz(g_boss(m)), shut_lit(m, lit)), icp_loop(nt(g_n_bolts(m)), m, 0, lit, s_c), m)
 
-# four ways out of the point (ox, oz): those the steer box allows, the one that ends farthest from it
 def room_pick(+m: Mem, +cb: U32, +ox: U32, +oz: U32, +k: U32) -> U32:
   +dx = kind5(k, dm(40), dn(40), 0, 0, 0)
   +dz = kind5(k, 0, 0, dm(30), dn(30), 0)
@@ -3297,7 +3058,6 @@ def room_pick(+m: Mem, +cb: U32, +ox: U32, +oz: U32, +k: U32) -> U32:
 
 def want_set(+m: Mem, +x: U32, +zz: U32) -> Mem: set_bv(set_bv(set_bv(m, V_WANT(), 1), V_WX(), x), V_WZ(), zz)
 
-# the last of the best (max_by_key keeps the last of equals): writes the chosen way to the want
 def room_from(+m: Mem, +cb: U32, +ox: U32, +oz: U32) -> Mem:
   +d0 = room_pick(m, cb, ox, oz, 0)
   +d1 = room_pick(m, cb, ox, oz, 1)
@@ -3312,7 +3072,6 @@ def room_from(+m: Mem, +cb: U32, +ox: U32, +oz: U32) -> Mem:
   +dz = kind5(k3, 0, 0, dm(30), dn(30), 0)
   want_set(m, cl(U32.add(c_x(m, cb), dx), ng(wx(m)), wx(m)), cl(U32.add(c_z(m, cb), dz), ng(wz(m)), wz(m)))
 
-# a footprint locked on this craft (a turret's, a bomber's lane): the place to be instead
 def foot_marks(+n: Nat, +m: Mem, +fb: U32, +i: U32, +cb: U32) -> Mem:
   match n:
     case 0n:
@@ -3341,7 +3100,6 @@ def foot_foes(+n: Nat, +m: Mem, +i: U32, +cb: U32) -> Mem:
 
 def footprint_away(+m: Mem, +cb: U32) -> Mem: foot_foes(nt(g_n_foes(m)), m, 0, cb)
 
-# the Wyrm's coil wants the gap, its roar wants the column left
 def corridor_go(+m: Mem, +cb: U32, +atk: Nat) -> Mem:
   match atk:
     case 1n:
@@ -3357,7 +3115,6 @@ def boss_corridor(+m: Mem, +cb: U32) -> Mem:
   +st = bo_st(m, BOSSB())
   pkm(Bool.and(nz(g_boss(m)), Bool.or(eq(st, W_TELL()), Bool.or(eq(st, W_COIL()), eq(st, W_ROAR())))), corridor_go(m, cb, nt(bo_atk(m, BOSSB()))), m)
 
-# the next thing on the rail to thread or take
 def prop_want(+m: Mem, +pb: U32, +id: U32, +cb: U32, +s_c: U32) -> Mem:
   +th = p_thing(m, pb)
   +d = U32.sub(p_s(m, pb), s_c)
@@ -3381,7 +3138,6 @@ def props_want(+n: Nat, +m: Mem, +i: U32, +id: U32, +cb: U32, +s_c: U32) -> Mem:
       +d = U32.sub(p_s(m, pb), s_c)
       props_want(p, pkm(Bool.and(Bool.not(bv_b(m, V_WANT())), Bool.and(ge(d, 0), le(d, dm(300)))), prop_want(m, pb, id, cb, s_c), m), U32.add(i, 1), id, cb, s_c)
 
-# a friend with a kite on their tail, level with this knight: drop back until the chaser is in front
 def chaser_one(+m: Mem, +i: U32, +id: U32, +s_c: U32, +found: Bool) -> Bool:
   +fb = foe_b(i)
   Bool.and(Bool.and(eq(f_st(m, fb), S_LATCHED()), Bool.and(le(f_on(m, fb), 6), Bool.and(ne(f_on(m, fb), id), nz(f_on(m, fb))))), Bool.not(found))
@@ -3394,7 +3150,6 @@ def chaser_loop(+n: Nat, +m: Mem, +i: U32, +id: U32, +s_c: U32, +found: Bool, +b
       +hit = chaser_one(m, i, id, s_c, found)
       chaser_loop(p, m, U32.add(i, 1), id, s_c, Bool.or(found, hit), pb(hit, lt(U32.sub(f_s(m, foe_b(i)), s_c), dm(30)), brake))
 
-# what a bot presses to move: where it wants to be, the buttons of the roll
 def steer(+from: U32, +to: U32, +dead: U32) -> U32: pk(le(ab(U32.sub(to, from)), dead), 0, sg(U32.sub(to, from)))
 
 def bot_move(+m: Mem, +id: U32, +cb: U32) -> Mem:
@@ -3405,7 +3160,6 @@ def bot_move(+m: Mem, +id: U32, +cb: U32) -> Mem:
 
 def not_dash(+m: Mem, +cb: U32) -> U32: b2u(z(U32.and(c_keys(m, cb), K_DASH())))
 
-# the lockable foes (what a player can see and a lock would take), and what the reticle seeks
 def lk_ok(+m: Mem, +fb: U32, +s_c: U32) -> Bool:
   +near_ = pk(eq(f_st(m, fb), S_LATCHED()), dm(15), dm(40))
   +ds = U32.sub(f_s(m, fb), s_c)
@@ -3441,7 +3195,6 @@ def scan_loop(+n: Nat, +m: Mem, +i: U32, +cb: U32, +s_c: U32, +held: Bool) -> Me
 
 def noise_t(+m: Mem, +id: U32, +div: U32, +salt: U32, +span: U32) -> U32: noise(id, U32.div(g_t(m), div), salt, span)
 
-# the reticle seeks its target, or comes home
 def bot_aim(+m: Mem, +id: U32, +cb: U32, +s_c: U32, +ti: U32, +novice: Bool) -> Mem:
   +fb = foe_b(ti)
   +ds = mx(U32.sub(f_s(m, fb), s_c), dm(30))
@@ -3459,7 +3212,6 @@ def bot_aim_pick(+m: Mem, +id: U32, +cb: U32, +s_c: U32, +novice: Bool) -> Mem:
   +ti = bv(m, V_TARGET())
   pkm(lt(ti, 99), bot_aim(m, id, cb, s_c, ti, novice), bot_home(m, cb))
 
-# the hands on the fire key
 def bot_fire(+m: Mem, +id: U32, +cb: U32, +novice: Bool) -> Mem:
   +total = lock_total(nt(c_nlocks(m, cb)), m, cb, 0)
   +lamp_o = lt(bv(m, V_LAMP()), 99)
@@ -3483,19 +3235,16 @@ def bot_shoot(+m: Mem, +id: U32, +cb: U32, +s_c: U32, +novice: Bool) -> Mem:
   +ti = pk(lt(bv(m1, V_LAT()), 99), bv(m1, V_LAT()), pk(lt(bv(m1, V_LAMP()), 99), bv(m1, V_LAMP()), bv(m1, V_TARGET())))
   bot_fire(bot_aim_pick(set_bv(m1, V_TARGET(), ti), id, cb, s_c, novice), id, cb, novice)
 
-# the roll: down on the key when the last tick did not hold it, and sideways away from the threat
 def bot_roll(+m: Mem, +cb: U32) -> Mem:
   +side = pk(Bool.and(bv_b(m, V_TOK()), ge(bv(m, V_TPX()), c_x(m, cb))), ng(1), 1)
   +m1 = wr(m, U32.add(BOT(), 5), not_dash(m, cb))
   pkm(Bool.and(bv_b(m, V_ONME()), Bool.not(bv_b(m, V_TOK()))), m1, wr(m1, BOT(), side))
 
-# where to be: round what is coming, through a gate, away from a footprint, to the middle of an opening
 def bot_want(+m: Mem, +id: U32, +cb: U32, +s_c: U32, +novice: Bool) -> Mem:
   +m1 = pkm(Bool.not(bv_b(m, V_WANT())), footprint_away(m, cb), m)
   +m2 = pkm(Bool.not(bv_b(m1, V_WANT())), boss_corridor(m1, cb), m1)
   pkm(Bool.not(bv_b(m2, V_WANT())), props_want(nt(g_n_props(m2)), m2, 0, id, cb, s_c), m2)
 
-# the threat or the Wyrm's spit decides: roll into it, step out of its way, or neither
 def bot_react(+m: Mem, +id: U32, +cb: U32, +novice: Bool) -> Mem:
   +idle = Bool.and(z(c_rest(m, cb)), z(c_roll(m, cb)))
   +t = bv(m, V_TT())
@@ -3543,10 +3292,7 @@ def bot_go(+m: Mem, +id: U32, +novice: Bool, +alive: Bool) -> Mem:
     case True{}:
       bot_mode(m, id, novice, eq(g_mode(m), M_TALLY()), Bool.or(eq(g_mode(m), M_RETRY()), nz(c_down(m, seat_c(id)))))
 
-# what knight `id` presses this tick: nine words at the start of the bot's scratch
 def bot(+m: Mem, +id: U32, +novice: Bool) -> Mem: bot_go(bot_zero(48n, m, 0), id, novice, seated(m, id))
-
-# ===== one tick =====
 
 def fly_seats(+n: Nat, +m: Mem, +id: U32) -> Mem:
   match n:
@@ -3555,7 +3301,6 @@ def fly_seats(+n: Nat, +m: Mem, +id: U32) -> Mem:
     case 1n+p:
       fly_seats(p, pkm(seated(m, id), fly(m, id), m), U32.add(id, 1))
 
-# the keys of this tick stand for the next one's presses
 def keys_seats(+n: Nat, +m: Mem, +id: U32) -> Mem:
   match n:
     case 0n:
@@ -3565,7 +3310,6 @@ def keys_seats(+n: Nat, +m: Mem, +id: U32) -> Mem:
 
 def leave_push(+m: Mem, +id: U32) -> Mem: set_g_n_leave(set_g_leave(m, g_n_leave(m), id), U32.add(g_n_leave(m), 1))
 
-# the tally holds, then a fresh press of E leaves
 def leave_seats(+n: Nat, +m: Mem, +id: U32) -> Mem:
   match n:
     case 0n:
@@ -3600,7 +3344,6 @@ def tick_mode(+m: Mem, +mode: Nat) -> Mem:
     case _:
       home_tick(m)
 
-# one tick: the seats are whoever is here and awake; then the beat
 def tick_after(+m: Mem) -> Mem: keys_seats(6n, tick_mode(m, nt(g_mode(m))), 1)
 
 def tick(+m: Mem) -> Mem: tick_after(pre(m))

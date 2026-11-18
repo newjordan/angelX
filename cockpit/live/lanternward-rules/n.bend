@@ -1,13 +1,5 @@
-# Lanternward's numbers. The adventure is whole numbers on the 30 Hz step: a
-# position is pixels times Q, an angle is a whole degree. Bend's U32 is the
-# two's-complement word, so a signed i32 is that word read with the sign bit
-# biased; the one signed i64 (a squared length) is a hi/lo pair.
-#
-# Bend only matches on parameters, so a choice between two values is a mask or
-# `Bool.pick`, never a match on a computed flag.
 import Base
 
-# a < b, signed.
 def slt(+a: U32, +b: U32) -> Bool:
   U32.is_lt(U32.xor(a, 2147483648), U32.xor(b, 2147483648))
 
@@ -29,44 +21,34 @@ def smax(+a: U32, +b: U32) -> U32:
 def sclamp(+x: U32, +lo: U32, +hi: U32) -> U32:
   smin(smax(x, lo), hi)
 
-# -a, wrapping at the smallest word.
 def sneg(+a: U32) -> U32:
   U32.sub(0, a)
 
 def sabs(+a: U32) -> U32:
   Bool.pick(U32, slt(a, 0), sneg(a), a)
 
-# Every bit, when a's sign bit is set: the mask a condition applies.
 def mask(+a: U32) -> U32: U32.sub(0, U32.shrn(a, 31n))
 
-# a >> 12, arithmetic: the sign bit fills in the top twelve.
 def sar12(+a: U32) -> U32: U32.or(U32.shrn(a, 12n), U32.mul(U32.shrn(a, 31n), 4293918720))
 
-# v unless `m` is every bit, then -v: the branchless if.
 def cond_neg(+v: U32, +m: U32) -> U32:
   U32.sub(U32.xor(v, m), m)
 
-# `a` when `m` is every bit, else `b`.
 def cond(+m: U32, +a: U32, +b: U32) -> U32:
   U32.or(U32.and(m, a), U32.and(U32.not(m), b))
 
-# `c` as the U32 1 or 0.
 def flag(c: Bool) -> U32:
   Bool.to_u32(c)
 
-# a / b and a % b, truncated toward zero like Rust's `/` and `%`.
 def sdiv(+a: U32, +b: U32) -> U32:
   cond_neg(U32.div(sabs(a), sabs(b)), mask(U32.xor(a, b)))
 
 def srem(+a: U32, +b: U32) -> U32:
   cond_neg(U32.mod(sabs(a), sabs(b)), mask(a))
 
-# a.rem_euclid(b) for a positive b: the remainder that is never negative.
 def rem_euclid(+a: U32, +b: U32) -> U32:
   +r = srem(a, b)
   U32.sub(r, U32.and(mask(r), sneg(b)))
-
-# ----- u64 as hi/lo, for lengths only -------------------------------------
 
 type U64 is Data:
   U64{+hi: U32, +lo: U32}
@@ -102,7 +84,6 @@ def u64_sub(+a: U64, +b: U64) -> U64:
       +borrow = flag(U32.is_lt(alo, blo))
       U64{U32.sub(U32.sub(ahi, bhi), borrow), U32.sub(alo, blo)}
 
-# a & m, both limbs: the mask a u64 condition applies to its value.
 def u64_andm(+a: U64, +m: U32) -> U64:
   match a:
     case U64{hi, lo}:
@@ -118,13 +99,11 @@ def u64_shr2(+a: U64) -> U64:
     case U64{hi, lo}:
       U64{U32.shrn(hi, 2n), U32.or(U32.shrn(lo, 2n), U32.shln(U32.and(hi, 3), 30n))}
 
-# a, or its two's complement when m is every bit.
 def u64_cneg(+a: U64, +m: U32) -> U64:
   match a:
     case U64{hi, lo}:
       u64_add(U64{U32.xor(hi, m), U32.xor(lo, m)}, U64{0, flag(U32.is_ne(m, 0))})
 
-# a * b for two words, as the 64-bit product.
 def mul32(+a: U32, +b: U32) -> U64:
   +al = U32.and(a, 65535)
   +ah = U32.shrn(a, 16n)
@@ -140,15 +119,9 @@ def mul32(+a: U32, +b: U32) -> U64:
     U32.or(U32.and(p, 65535), U32.shln(U32.and(mid, 65535), 16n))
   }
 
-# The square of a signed word, as a u64.
 def sq(+a: U32) -> U64:
   mul32(sabs(a), sabs(a))
 
-# The square root of a 64-bit number, rounded down, by the restoring
-# bit-by-bit method: no division, and the one choice is a mask, so the walk is
-# a single tail call. Every length squared here stays under 2^48, so the walk
-# starts at 2^50 with room to spare and runs exactly one step per even power
-# down to 2^0: a step past zero would halve the answer again.
 def isqrt_go(+fuel: Nat, +n: U64, +res: U64, +bit: U64) -> U32:
   match fuel:
     case 0n:
@@ -167,10 +140,6 @@ def isqrt_go(+fuel: Nat, +n: U64, +res: U64, +bit: U64) -> U32:
 def isqrt_slow(+n: U64) -> U32:
   isqrt_go(32n, n, u64_zero(), U64{1073741824, 0})
 
-# The square root of a 64-bit number, rounded down: an f32 estimate, which is
-# within a few of the answer for every length this adventure squares, then exact
-# steps either way (r*r > n is too far, (r+1)*(r+1) <= n is not far enough) until
-# neither holds. The fuel only bounds the walk; the estimate never needs it all.
 def u64_gt(+a: U64, +b: U64) -> Bool:
   Bool.not(u64_ge(b, a))
 
@@ -200,7 +169,6 @@ def isqrt_fast(fast: Bool, +n: U64) -> U32:
     case False{}:
       isqrt_slow(n)
 
-# The estimate holds to a few under 2^50; past that the restoring walk is exact.
 def isqrt(+n: U64) -> U32:
   match n:
     case U64{hi, _}:
@@ -211,9 +179,6 @@ def u64_shl1(a: U64) -> U64:
     case U64{hi, lo}:
       U64{U32.or(U32.shl(hi), U32.shrn(lo, 31n)), U32.shl(lo)}
 
-# a / d for a 64-bit dividend and a word divisor, by the restoring method over
-# the dividend's bits. The quotient is the low word, which is every quotient
-# this adventure asks for: a scaled direction's numerator over its length.
 def udiv_go(fuel: Nat, rem: U32, a: U64, q: U32, +d: U32) -> U32:
   match fuel:
     case 0n:

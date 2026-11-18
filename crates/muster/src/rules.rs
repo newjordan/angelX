@@ -10,56 +10,38 @@ use angel_net::input::{Hands, button};
 pub const GAME: &str = "muster";
 pub const TICK_HZ: u32 = 20;
 pub const SNAPSHOT_HZ: u32 = 20;
-/// Positions are in sixteenths of a pixel: slow walking is smooth, and a
-/// position fits 16 bits across the field.
 pub const SUB: i32 = 16;
-/// The field is this many pixels square.
 pub const FIELD_PX: i32 = 4096;
-/// The field in sub-pixels; a position is 0..FIELD.
 pub const FIELD: i32 = FIELD_PX * SUB;
-/// Seats: everyone gets a knight.
 pub const SEATS: u32 = 256;
-/// The client draws this many pixels.
 pub const VIEW_W: u32 = 320;
 pub const VIEW_H: u32 = 180;
 
-/// Sub-pixels a tick at full stick: 3.5 pixels, 70 a second.
 pub const KNIGHT_SPEED: i32 = 56;
-/// A stick nearer the middle than this is let go (a thumb resting on glass).
 pub const DEAD_ZONE: i32 = 16;
-/// A wave lasts this many ticks.
 pub const WAVE_TICKS: u8 = 15;
-/// A knight lifts its own banner from this close.
 pub const REACH: i32 = 24 * SUB;
 pub const SHEEP: u32 = 60;
 
-/// Entity ids: a knight is its seat; sheep and banners above.
 pub const SHEEP_BASE: u32 = 1000;
 pub const BANNER_BASE: u32 = 2000;
 pub const KIND_KNIGHT: u16 = 1;
 pub const KIND_SHEEP: u16 = 2;
 pub const KIND_BANNER: u16 = 3;
 
-/// Interest: the view, plus this much so a thing is held before it walks
-/// on screen, plus `KEEP_PX` more before it is let go. Cells of the grid
-/// are `CELL_PX` across.
 pub const MARGIN_PX: i32 = 32;
 pub const KEEP_PX: i32 = 48;
 pub const CELL_PX: i32 = 128;
 
-/// Command buttons (the muster's own bits, not `input::button`'s).
 pub const WAVE: u8 = 1;
 pub const BANNER: u8 = 2;
 
-/// Event kinds: the first byte of each event, then the seat.
 pub const EV_WAVE: u8 = 1;
 pub const EV_PLANT: u8 = 2;
 pub const EV_LIFT: u8 = 3;
-/// Then the name.
 pub const EV_JOIN: u8 = 4;
 pub const EV_LEAVE: u8 = 5;
 
-/// One seat's command for one tick: the stick and two buttons, 4 bytes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct MusterCmd {
     pub x: i8,
@@ -123,7 +105,6 @@ impl Facing {
     }
 }
 
-/// What a step did besides moving.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Deed {
     Wave,
@@ -131,7 +112,6 @@ pub enum Deed {
     Lift,
 }
 
-/// A knight as both halves know it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Knight {
     pub x: i32,
@@ -139,7 +119,6 @@ pub struct Knight {
     pub facing: Facing,
     pub walking: bool,
     pub carrying: bool,
-    /// Ticks of waving left.
     pub wave: u8,
 }
 
@@ -148,8 +127,6 @@ impl Knight {
         Knight { x, y, carrying: true, ..Knight::default() }
     }
 
-    /// One tick of `cmd`. `banner` is where this knight's own banner
-    /// stands, if planted. At most one deed a tick: a banner before a wave.
     pub fn step(&mut self, cmd: &MusterCmd, banner: Option<(i32, i32)>) -> Option<Deed> {
         let axis = |s: i8| -> i32 {
             let s = i32::from(s);
@@ -159,7 +136,6 @@ impl Knight {
         let len2 = i64::from(dx * dx + dy * dy);
         let max2 = i64::from(KNIGHT_SPEED * KNIGHT_SPEED);
         if len2 > max2 {
-            // A diagonal goes no faster than straight.
             let len = len2.isqrt() as i32;
             dx = dx * KNIGHT_SPEED / len;
             dy = dy * KNIGHT_SPEED / len;
@@ -197,8 +173,6 @@ impl Knight {
         None
     }
 
-    /// Five bytes: x, y (16 bits each), then facing, walking, carrying and
-    /// the wave's ticks left packed in one.
     pub fn state(&self) -> [u8; 5] {
         let [x0, x1] = (self.x as u16).to_le_bytes();
         let [y0, y1] = (self.y as u16).to_le_bytes();
@@ -219,14 +193,12 @@ impl Knight {
     }
 }
 
-/// A sheep or banner's place and pose: x, y, then facing and walking.
 pub fn place_state(x: i32, y: i32, facing: Facing, walking: bool) -> [u8; 5] {
     let [x0, x1] = (x as u16).to_le_bytes();
     let [y0, y1] = (y as u16).to_le_bytes();
     [x0, x1, y0, y1, facing as u8 | u8::from(walking) << 2]
 }
 
-/// (x, y, facing, walking) from `place_state`'s bytes.
 pub fn read_place(b: &[u8]) -> Option<(i32, i32, Facing, bool)> {
     let &[x0, x1, y0, y1, pose] = b else { return None };
     Some((
@@ -237,8 +209,6 @@ pub fn read_place(b: &[u8]) -> Option<(i32, i32, Facing, bool)> {
     ))
 }
 
-/// Where a seat's knight first stands: a sunflower spiral around the
-/// muster point, 22 pixels apart, so a crowd starts in one view.
 pub fn spawn_point(seat: u32) -> (i32, i32) {
     const GOLDEN_ANGLE: f64 = 2.399_963_229_728_653;
     const SPACING_PX: f64 = 22.0;
@@ -248,7 +218,6 @@ pub fn spawn_point(seat: u32) -> (i32, i32) {
     ((centre + r * a.cos() * f64::from(SUB)) as i32, (centre + r * a.sin() * f64::from(SUB)) as i32)
 }
 
-/// A knight's colour, by seat: 16 that tell apart on a dark field.
 pub const PALETTE: [u32; 16] = [
     0xFFC0504D, 0xFF4F81BD, 0xFF9BBB59, 0xFF8064A2, 0xFFF79646, 0xFF4BACC6, 0xFFD4B84A, 0xFFC77CA8, 0xFF7F9FB5,
     0xFFA9714B, 0xFF6FB98F, 0xFFB5525E, 0xFF6474C8, 0xFFC9C36A, 0xFF8FB0D9, 0xFFD98F6A,
@@ -282,7 +251,6 @@ mod tests {
         let mut edge = Knight::new(0, FIELD - 1);
         edge.step(&MusterCmd { x: -127, y: 127, ..Default::default() }, None);
         assert_eq!((edge.x, edge.y), (0, FIELD - 1));
-        // A resting thumb does not walk.
         let mut still = Knight::new(5, 5);
         still.step(&MusterCmd { x: 10, y: -12, ..Default::default() }, None);
         assert!(!still.walking);

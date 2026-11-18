@@ -62,7 +62,6 @@ fn saved_session_recovers_its_exact_published_generation() {
         workspace.path(),
     );
     session.save(&history).unwrap();
-    // Exit checkpoint reuse must notice a change to local-only book metadata.
     bind_generation(&mut history, &digest).unwrap();
     session.checkpoint_for_exit(&history).unwrap();
     assert_ne!(
@@ -224,7 +223,6 @@ fn compaction_restores_the_inventory_even_when_all_old_signals_disappeared() {
     assert!(state.prepare(&mut history, &route("a")));
     let carried = history.last().unwrap().content.clone();
     assert!(carried.contains("⡫⠉") && carried.contains("⠧⠉"));
-    // Session restore starts from the compact history, not process-global state.
     let mut restored = Continuity::new(&history);
     assert!(!restored.prepare(&mut history, &route("a")));
     assert!(restored.prepare(&mut history, &route("b")));

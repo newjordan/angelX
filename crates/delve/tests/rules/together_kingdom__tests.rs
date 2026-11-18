@@ -362,9 +362,6 @@ fn together_exits_kingdom_return_cancels_joust() {
     );
 }
 
-/// The whole kingdom as a newcomer meets it, one plate per place:
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_kingdom_tour -- --ignored`.
-/// Plates land in `<dir>/tour/` as PPM, named by order and place.
 #[test]
 #[ignore]
 fn write_kingdom_tour() {
@@ -384,7 +381,6 @@ fn write_kingdom_tour() {
             run.step(&BTreeMap::new());
         }
     };
-    // A first floor down: where it starts, and each room kind on it.
     let mut floor = Run::new(41, 1, None);
     settle(&mut floor);
     save(&floor, "002-floor1-start");
@@ -396,7 +392,6 @@ fn write_kingdom_tour() {
         settle(&mut f);
         save(&f, &format!("003-floor1-{index:02}-{kind:?}"));
     }
-    // Tallow, just scratched behind the ears.
     let mut purr = Run::new(41, 1, None);
     purr.enemies.clear();
     let (hx, hy) = (purr.players[&1].x, purr.players[&1].y);
@@ -440,7 +435,6 @@ fn write_kingdom_tour() {
         r.walk_kingdom(Some((x, y + 1)));
         settle(&mut r);
         save(&r, &format!("06{i}-{thing:?}"));
-        // And the moment it is used.
         r.kingdom.moments.used.insert(i as u8, r.tick.saturating_sub(8));
         use crate::rules::trinkets::Thing;
         match thing {
@@ -468,7 +462,6 @@ fn write_kingdom_tour() {
         let name: String = site.name.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
         save(&r, &format!("1{i:02}-site-{name}"));
     }
-    // Inside every place the kingdom's doors open on.
     for (i, site) in geo.sites.iter().enumerate() {
         if matches!(site.room, RoomKind::RealmHall) {
             continue;
@@ -506,7 +499,6 @@ fn every_countryside_place_stands_in_its_own_region() {
             assert!(region.holds(lot.tx, lot.ty), "{kind:?} was built outside {}", region.name);
         }
     }
-    // Regions' names never sit on a building or a door.
     for (name, (x, y)) in geography::regions() {
         for site in &geo.sites {
             assert!(site.lot.is_none_or(|l| !l.contains(x, y)), "{name} is lettered on {}", site.name);
@@ -519,8 +511,6 @@ fn every_countryside_place_stands_in_its_own_region() {
 fn the_kingdom_points_a_newcomer_to_the_delve_then_somewhere_new() {
     let mut r = run();
     assert_eq!(r.kingdom_goal(1).unwrap().name, "The Delve", "first, the Delve");
-    // Back from a delve, a race already won (else the Griffin Eyrie is the
-    // goal): the nearest place not yet stepped into.
     r.home.deepest = 2;
     r.home.countryside.race_won = true;
     let first = r.kingdom_goal(1).unwrap();
@@ -531,7 +521,6 @@ fn the_kingdom_points_a_newcomer_to_the_delve_then_somewhere_new() {
     r.leave_kingdom_place();
     let next = r.kingdom_goal(1).unwrap();
     assert_ne!(next.stand, first.stand, "a place seen is not pointed at again");
-    // Off the surface there is no goal marker.
     let gate = world::room_of(&r.dungeon, RoomKind::Gate).unwrap();
     r.enter_for_test(gate);
     assert!(r.kingdom_goal(1).is_none());
@@ -542,7 +531,6 @@ fn a_knight_trots_twice_as_fast_along_a_kingdom_road() {
     let r = run();
     let geo = geography::geography(&r.kingdom.wishes);
     let (w, h) = (r.room().cols as i32, r.room().rows as i32);
-    // A straight east-west stretch of road, and a stretch of open ground.
     let stretch = |road: bool| {
         (2..h - 2).flat_map(|y| (2..w - 12).map(move |x| (x, y))).find(|&(x, y)| {
             (0..10).all(|k| {
@@ -558,7 +546,6 @@ fn a_knight_trots_twice_as_fast_along_a_kingdom_road() {
         let hero = r.players.get_mut(&1).unwrap();
         (hero.x, hero.y) = ((x as f32 + 0.5) * TILE_UNITS, (y as f32 + 0.5) * TILE_UNITS);
         let start = hero.x;
-        // The pace a browser seat's picture is stamped with, to slide by.
         let stamped = r.ground_pace_of(1).unwrap() * 10.0 * DT;
         for _ in 0..10 {
             r.step(&BTreeMap::from([(1, Input { move_x: 1, ..Default::default() })]));
@@ -575,11 +562,6 @@ fn a_knight_trots_twice_as_fast_along_a_kingdom_road() {
     assert!(road > field * 1.8, "road {road} vs field {field}");
 }
 
-/// The kingdom's layout at a glance: the whole map (and again with its
-/// 24x16 chunks ruled), a tile chart of every site, lot and road, a walk
-/// shot of each biome from its open green, a few fingerposts and finds as
-/// a knight comes up to them, and the town's own places, all as PNG:
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_kingdom_layout -- --ignored`.
 #[test]
 #[ignore]
 fn write_kingdom_layout() {
@@ -645,8 +627,6 @@ fn write_kingdom_layout() {
         }
         png(&format!("{name}.png"), &arena::frame(&r, 768, 448));
     };
-    // Each biome from its open green, a moment after coming into it (its
-    // name still in the corner).
     for (i, region) in geography::REGIONS.iter().enumerate() {
         let (x, y) = geography::regions()[i].1;
         let at = (0..12)
@@ -657,15 +637,12 @@ fn write_kingdom_layout() {
         shoot(at, &format!("biome-{i:02}-{name}"), 20);
         assert!(Biome::ALL.contains(&region.biome));
     }
-    // Fingerposts as a knight comes up to them.
     for (i, p) in signs::posts().iter().enumerate().step_by(7) {
         shoot((p.road.0, p.road.1 + 1), &format!("post-{i:02}"), 4);
     }
-    // Finds, a knight beside each of a few.
     for (i, f) in finds::finds(41).iter().enumerate().step_by(3) {
         shoot((f.at.0 + 1, f.at.1), &format!("find-{i:02}-{:?}", f.kind), 4);
     }
-    // Standing in the town's own places: each shows its own name once.
     for name in ["Keep", "Village", "Colosseum", "Artisan Quarter", "Knights Tournament", "Delve"] {
         let site = geo.sites.iter().find(|s| s.name == name).unwrap();
         let name: String = name.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
@@ -673,12 +650,6 @@ fn write_kingdom_layout() {
     }
 }
 
-/// The kingdom's density at a glance, for the dressing pass: the whole map
-/// (and ruled into its chunks), one walk shot at the middle of every chunk
-/// (`census-<row>-<col>.png`), a shot at the camps of each biome with a
-/// knight beside them and a find where one stands there, and close-ups of
-/// the atlas at each kind of cluster, as PNG:
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_kingdom_density -- --ignored`.
 #[test]
 #[ignore]
 fn write_kingdom_density() {
@@ -721,7 +692,6 @@ fn write_kingdom_density() {
         }
         png(&format!("{name}.png"), &arena::frame(&r, 768, 448));
     };
-    // The numbers: clusters and things by biome, the footpaths, the finds.
     let d = dressing::get();
     let mut sheet = String::new();
     for b in biome::Biome::ALL {
@@ -743,25 +713,21 @@ fn write_kingdom_density() {
         sheet.push_str(&format!("find {i:>2} {:?} {:?} {:?} trail {}\n", f.kind, f.at, f.biome, d.trail(f.at.0, f.at.1)));
     }
     std::fs::write(dir.join("dressing.txt"), sheet).unwrap();
-    // A view's worth at the middle of every chunk.
     for cy in 0..map::CHUNKS_Y {
         for cx in 0..map::CHUNKS_X {
             let at = floor_near((cx * map::CHUNK_W + map::CHUNK_W / 2, cy * map::CHUNK_H + map::CHUNK_H / 2));
             shoot(at, &format!("census-{cy:02}-{cx:02}"), 2);
         }
     }
-    // Each biome: its camps, a knight beside them.
     for b in biome::Biome::ALL {
         let name: String = b.name().chars().filter(|c| c.is_ascii_alphanumeric()).collect();
         for (k, c) in d.camps.iter().filter(|c| c.biome == b).step_by(3).take(4).enumerate() {
             shoot((c.at.0 + 2, c.at.1 + 2), &format!("camp-{name}-{k}"), 4);
         }
     }
-    // A knight beside each find of the run, to see it among its dressing.
     for (i, f) in finds::finds(41).iter().enumerate() {
         shoot((f.at.0 + 2, f.at.1 + 1), &format!("find-{i:02}-{:?}", f.kind), 4);
     }
-    // The most crowded view of all: the 24 x 14 tiles with the most things.
     let (mut peak, mut at) = (0, (0, 0));
     for wy in (7..map::MAP_H - 7).step_by(2) {
         for wx in (12..map::MAP_W - 12).step_by(2) {
@@ -772,7 +738,6 @@ fn write_kingdom_density() {
         }
     }
     shoot(floor_near(at), "crowded-peak", 2);
-    // Close-ups of the atlas at each kind of cluster, three times over.
     let mut seen = std::collections::BTreeSet::new();
     for c in &d.camps {
         if !seen.insert((c.biome, c.story)) {
@@ -793,7 +758,6 @@ fn write_kingdom_density() {
     }
 }
 
-/// Knight `id` stood at the stand of the kingdom's place of kind `kind`.
 fn stand_at(r: &mut Run, id: u32, kind: RoomKind) {
     let geo = geography::geography(&r.kingdom.wishes);
     let site = geo.sites.iter().find(|s| s.room == kind).unwrap();
@@ -801,7 +765,6 @@ fn stand_at(r: &mut Run, id: u32, kind: RoomKind) {
     (h.x, h.y) = ((site.stand.0 as f32 + 0.5) * 2.0, (site.stand.1 as f32 + 0.7) * 2.0);
 }
 
-/// One tick with knight 1 doing `one` and knight 2 doing `two`.
 fn tick(r: &mut Run, one: Option<Input>, two: Input) {
     let mut inputs = BTreeMap::from([(2, two)]);
     if let Some(one) = one {
@@ -820,8 +783,6 @@ fn e() -> Input {
 
 #[test]
 fn together_kingdom_a_place_left_closes_behind_its_last_knight_not_an_away_one() {
-    // The host's knight stands idle (its player at their code) while a
-    // friend goes into the ranch, comes out, and tries the college.
     let mut r = run();
     for _ in 0..super::AWAY_TICKS {
         tick(&mut r, None, aim());
@@ -850,15 +811,12 @@ fn together_kingdom_a_knight_waiting_outside_is_told_where_the_party_is_until_it
     assert_eq!(r.room().kind, RoomKind::Ranch);
     tick(&mut r, Some(aim()), aim());
     tick(&mut r, Some(aim()), Input { leave_activity: true, ..Default::default() });
-    // The host plays on inside: the friend waits at the ranch's door.
     assert_eq!(r.room().kind, RoomKind::Ranch);
     assert!(r.exits.outside.contains_key(&2));
     let view = r.view_for_seat(2).unwrap();
     let waiting = view.kingdom.waiting.clone().expect("the friend's view says the party is inside");
     assert_eq!(waiting.place, "Horse Ranch");
     assert!(r.view_for_seat(1).is_none_or(|v| v.kingdom.waiting.is_none()));
-    // The host goes back to their code: once they are away, the ranch
-    // closes and the party is whole in the kingdom.
     for _ in 0..super::AWAY_TICKS {
         tick(&mut r, None, aim());
     }
@@ -871,7 +829,6 @@ fn together_kingdom_a_knight_waiting_outside_is_told_where_the_party_is_until_it
 fn together_kingdom_one_knight_holding_e_holds_no_one_elses_door() {
     let mut r = run();
     stand_at(&mut r, 2, RoomKind::Ranch);
-    // Knight 1 holds E away from every door, as a stuck key or pad would.
     tick(&mut r, Some(e()), aim());
     tick(&mut r, Some(e()), aim());
     tick(&mut r, Some(e()), e());
@@ -888,7 +845,6 @@ fn together_kingdom_e_held_through_a_door_opens_nothing_until_let_go() {
     r.leave_kingdom_place();
     assert_eq!(r.room().kind, RoomKind::Kingdom);
     stand_at(&mut r, 2, RoomKind::Ranch);
-    // Still down from the press that went in: nothing.
     tick(&mut r, None, e());
     tick(&mut r, None, e());
     assert_eq!(r.room().kind, RoomKind::Kingdom);
@@ -904,7 +860,6 @@ fn coming_into_a_biome_names_it_small_in_the_corner_and_it_fades() {
     r.step(&BTreeMap::new());
     let (town, _) = r.kingdom.entered[&1];
     assert_eq!(town, Biome::CastleTown.index());
-    // Walk knight 1 into the Fen: the corner names it, in knight 1's view.
     let geo = geography::geography(&r.kingdom.wishes);
     let fen = (0..geo.room.rows as i32)
         .flat_map(|y| (0..geo.room.cols as i32).map(move |x| (x, y)))
@@ -931,7 +886,6 @@ fn coming_into_a_biome_names_it_small_in_the_corner_and_it_fades() {
     assert!(!changed.is_empty(), "the name shows");
     let corner = |x: i32, y: i32| y < 20 && (x < 140 || x >= arena::NATIVE_W - 140);
     assert!(changed.iter().all(|&(x, y)| corner(x, y)), "only in a top corner: {:?}", changed.last());
-    // Three seconds on, it has gone.
     for _ in 0..3 * crate::rules::HZ {
         r.step(&BTreeMap::new());
     }
@@ -941,12 +895,6 @@ fn coming_into_a_biome_names_it_small_in_the_corner_and_it_fades() {
     assert_eq!(later.rgba_bytes(), arena::frame_for(&gone, arena::NATIVE_W, arena::NATIVE_H, Some(1)).rgba_bytes());
 }
 
-// ===========================================================================
-// PARTY CHECK (test-only, UNCOMMITTED): the live save through the new code,
-// and the open kingdom walked. Env: LIVE_SESSION=<session.json>.
-// ===========================================================================
-
-/// Steps from `from` over floor to every tile (-1: not reached).
 fn pc_dist(room: &Room, from: (i32, i32)) -> Vec<i32> {
     let (cols, rows) = (room.cols as i32, room.rows as i32);
     let mut d = vec![-1; (cols * rows) as usize];
@@ -972,8 +920,6 @@ fn pc_tile(h: &Hero) -> (i32, i32) {
     ((h.x / TILE_UNITS) as i32, (h.y / TILE_UNITS) as i32)
 }
 
-/// Walk knight `id` on foot to tile `goal`, by the shortest way over floor,
-/// each axis on its own as a keyboard does. Ticks taken, or why not.
 fn pc_follow(run: &mut Run, id: u32, goal: (i32, i32), max_ticks: u32) -> Result<u32, String> {
     let hero = &run.players[&id];
     let goal_units = ((goal.0 as f32 + 0.5) * TILE_UNITS, (goal.1 as f32 + 0.5) * TILE_UNITS);
@@ -1015,9 +961,6 @@ fn pc_place(run: &mut Run, id: u32, tile: (i32, i32)) {
     h.camera = Some((h.x, h.y - 1.0));
 }
 
-/// The open kingdom walked: every biome, post, find and place reachable on
-/// foot from the Keep (Castle Town), and walked to.
-/// `cargo test -p angel-delve --lib party_check_kingdom_walk -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn party_check_kingdom_walk() {
@@ -1033,7 +976,6 @@ fn party_check_kingdom_walk() {
     let mut fails: Vec<String> = Vec::new();
     println!("PCK,map,{cols}x{rows},keep,{keep:?},sites,{}", geo.sites.len());
     let (mut floor, mut reach) = (0, 0);
-    // Per biome: floor tiles, reached, the farthest reached tile.
     let mut far: BTreeMap<u8, ((i32, i32), i32)> = BTreeMap::new();
     let mut tally: BTreeMap<u8, (u32, u32)> = BTreeMap::new();
     for y in 0..rows {
@@ -1066,7 +1008,6 @@ fn party_check_kingdom_walk() {
             fails.push(format!("biome {}: only {r} of {t} floor tiles reachable", b.name()));
         }
     }
-    // Chunks (24x16 tiles) with nothing reachable.
     let (cw, ch) = (cols / 10, rows / 11);
     let mut dead_chunks = 0;
     for cy in 0..11 {
@@ -1082,7 +1023,6 @@ fn party_check_kingdom_walk() {
     if dead_chunks > 0 {
         fails.push(format!("{dead_chunks} chunks have nothing reachable"));
     }
-    // Places.
     let mut targets: Vec<(String, (i32, i32))> = Vec::new();
     for s in &geo.sites {
         if at(s.stand) < 0 {
@@ -1095,7 +1035,6 @@ fn party_check_kingdom_walk() {
     if at(gate) < 0 {
         fails.push("the delve entrance (the gate) is unreachable".into());
     }
-    // Fingerposts: a reachable floor tile within two of each.
     let posts = signs::posts();
     let mut worst_post = 0;
     for p in posts {
@@ -1116,7 +1055,6 @@ fn party_check_kingdom_walk() {
         }
     }
     println!("PCK,posts,{},worst-gap,{worst_post}", posts.len());
-    // Finds, for the run's seed and a spread of others.
     let mut seeds: Vec<u64> = vec![base.seed, 41, 1];
     seeds.extend(0..12u64);
     seeds.sort();
@@ -1141,7 +1079,6 @@ fn party_check_kingdom_walk() {
             targets.push((format!("biome {} (farthest)", b.name()), *t));
         }
     }
-    // On foot, with a knight: place it at the Keep and walk it.
     let (mut ok, mut slowest) = (0, (0u32, String::new()));
     for (label, goal) in &targets {
         let mut w = base.clone();
@@ -1152,7 +1089,6 @@ fn party_check_kingdom_walk() {
                 if t > slowest.0 {
                     slowest = (t, label.clone());
                 }
-                // A find answers E at its tile.
                 if label.starts_with("find ") {
                     let before = w.found.clone();
                     w.step(&BTreeMap::new());
@@ -1166,7 +1102,6 @@ fn party_check_kingdom_walk() {
         }
     }
     println!("PCK,walked,{ok},of,{},slowest-ticks,{},{}", targets.len(), slowest.0, slowest.1);
-    // The delve entrance opens on foot.
     {
         let mut w = base.clone();
         pc_place(&mut w, 1, keep);
@@ -1188,9 +1123,6 @@ fn party_check_kingdom_walk() {
     assert!(fails.is_empty(), "{} failures", fails.len());
 }
 
-/// A party of four coming into the kingdom, by every way a run comes: nobody
-/// is stuck at their spawn, and each can walk to the gate and to the far
-/// reaches.
 #[test]
 #[ignore]
 fn party_check_kingdom_spawn() {
@@ -1246,9 +1178,6 @@ fn party_check_kingdom_spawn() {
     assert!(fails.is_empty());
 }
 
-/// The live save, loaded as the host restores one (`Saved` in
-/// `cockpit/src/app/control/dungeon_session.rs`), and then played on.
-/// `LIVE_SESSION=<session.json> cargo test -p angel-delve --lib party_check_live_session -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn party_check_live_session() {
@@ -1310,16 +1239,12 @@ fn party_check_live_session() {
         println!("PCL,live-seed,{},finds {},unreachable {lost},posts {},unreachable {post_lost}", run.seed, all.len(), posts.len());
         assert_eq!((all.len(), lost, post_lost), (crate::world::finds::COUNT, 0, 0));
     }
-    // The wire a client reads: the freeze of 10-17 came from here.
     let tree = crate::wire::publish(&run).unwrap();
     let back = crate::wire::read(&tree).unwrap();
     println!("PCL,wire,drawable,{}", crate::wire::drawable(&back));
     assert!(crate::wire::drawable(&back));
-    // A save of it reads back.
     let again: Run = serde_json::from_slice(&serde_json::to_vec(&run).unwrap()).unwrap();
     assert!(again.valid_snapshot());
-    // Friends take the seats the host leaves; the party plays: stands, walks
-    // to the gate and far into the country, enters the delve's gate.
     for (id, n) in [(2, "Wren"), (3, "Bors"), (4, "Ysolde")] {
         run.join_seat(id, n);
     }
@@ -1350,8 +1275,6 @@ fn party_check_live_session() {
     w.step(&BTreeMap::from([(2, Input { interact: true, ..Default::default() })]));
     println!("PCL,gate-door,{:?}", w.room().kind);
     assert_eq!(w.room().kind, RoomKind::Gate);
-    // Four minutes of play, standing, then pacing: still a valid save and a
-    // drawable wire.
     for (mode, walk) in [("stand", false), ("pace", true)] {
         let mut w = run.clone();
         for t in 0..4 * 60 * HZ {
@@ -1376,10 +1299,6 @@ fn party_check_live_session() {
     }
 }
 
-/// Old saves in other places, made from the live run: a party out in the
-/// legacy-size kingdom at various spots, and one inside each kind of place
-/// with its return door on the old map. Each must migrate onto the new map
-/// somewhere the kingdom can be walked from.
 #[test]
 #[ignore]
 fn party_check_legacy_saves() {
@@ -1387,7 +1306,6 @@ fn party_check_legacy_saves() {
     let (lw, lh) = crate::world::map::LEGACY_MAP;
     let legacy = || Room::kingdom(vec![Tile::Floor; (lw * lh) as usize], lw as usize, lh as usize);
     let mut fails: Vec<String> = Vec::new();
-    // Out on the old surface, at assorted old tiles.
     let spots = [(1, 1), (5, 5), (56, 60), (100, 110), (111, 120), (3, 118), (110, 2), (48, 14)];
     for &(sx, sy) in &spots {
         let mut r = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
@@ -1399,7 +1317,6 @@ fn party_check_legacy_saves() {
         for h in r.players.values_mut() {
             (h.x, h.y) = ((sx as f32 + 0.5) * TILE_UNITS, (sy as f32 + 0.5) * TILE_UNITS);
         }
-        // As the server writes and reads it.
         let mut loaded: Run = serde_json::from_slice(&serde_json::to_vec(&r).unwrap()).unwrap();
         let pre = loaded.valid_snapshot();
         crate::rules::world::raise_world(&mut loaded.dungeon);
@@ -1424,7 +1341,6 @@ fn party_check_legacy_saves() {
             fails.push(format!("surface save at {:?}: valid before {pre}, after {post}", (sx, sy)));
         }
     }
-    // Inside a place, the door home on the old map.
     let geo = geography::geography(&[]);
     for (si, site) in geo.sites.iter().enumerate() {
         let mut r = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
@@ -1466,9 +1382,6 @@ fn party_check_legacy_saves() {
 
 #[test]
 fn together_kingdom_a_fresh_party_at_the_delve_goes_in_on_e_where_its_sign_says_enter() {
-    // A box's fresh run: a watching host (knight 1's place empty), the
-    // run begun at the Delve's door, friends joining beside it as their
-    // pages load, each stone until it plays.
     let mut r = Run::at_home(41, 1, None, Default::default(), Default::default());
     r.walk_kingdom(None);
     r.set_absent(1, true);
@@ -1487,10 +1400,7 @@ fn together_kingdom_a_fresh_party_at_the_delve_goes_in_on_e_where_its_sign_says_
     let geo = map::geography(&r.kingdom.wishes);
     let ada = &r.players[&2];
     assert!(ada.stone, "a friend just arrived stands as stone until it plays");
-    // Where a friend lands, the footer says ENTER for the Delve's door
-    // (`door_at`, which the sign asks)...
     assert_eq!(door_at(&geo, ada.x, ada.y), Some(gate));
-    // ...and E there, with no step first, takes the party in.
     r.step(&BTreeMap::from([(2, e())]));
     if r.room().kind == RoomKind::Kingdom {
         r.step(&BTreeMap::from([(2, e())]));

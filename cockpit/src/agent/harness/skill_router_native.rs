@@ -97,7 +97,6 @@ extern "C" fn alphanumeric(value: u32) -> i32 {
 extern "C" fn whitespace(value: u32) -> i32 {
     char::from_u32(value).is_some_and(char::is_whitespace) as i32
 }
-// Outer None signals a broken module; inner None is a valid no-match result.
 fn do_route(g: &Generation, skills: &[SkillSummary], task: &str) -> Option<Option<usize>> {
     let entries: Vec<_> = skills
         .iter()

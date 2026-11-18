@@ -50,7 +50,6 @@ fn competition_garden_keeps_only_sequential_typed_measurements() {
             })).unwrap();
         assert!(garden.competition_measurement(&format!("test-{i}"), &measurement, i as u64 + 2).unwrap());
     }
-    // The same receipt never plots twice (the research view re-feeds it on every refresh).
     let again: crate::telemetry::Measurement =
         serde_json::from_value(serde_json::json!({
             "value": "99", "baseline": "10", "dataset": "diagnostic",
@@ -67,7 +66,6 @@ fn competition_garden_keeps_only_sequential_typed_measurements() {
     let before = garden.competition_points;
     assert!(garden.competition_status("test-6: timed out · unverified · no score"));
     assert_eq!(garden.competition_points, before);
-    // A repeated status (every Yukon poll) is not a change.
     assert!(!garden.competition_status("test-6: timed out · unverified · no score"));
 }
 fn apply(

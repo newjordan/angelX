@@ -1,4 +1,3 @@
-"""Load a sprite, key out background, split into humanoid parts by silhouette heuristics."""
 import json
 import numpy as np
 from PIL import Image
@@ -10,7 +9,7 @@ PARTS = ["head", "torso", "upper_arm_b", "lower_arm_b", "upper_arm_f", "lower_ar
 def load_sprite(path, key_tol=24):
     im = np.asarray(Image.open(path).convert("RGBA")).copy()
     a = im[..., 3]
-    if a.min() == 255:  # opaque: key out the corner colour
+    if a.min() == 255:
         bg = im[0, 0, :3].astype(int)
         d = np.abs(im[..., :3].astype(int) - bg).sum(-1)
         im[..., 3] = np.where(d <= key_tol, 0, 255).astype(np.uint8)
@@ -18,7 +17,6 @@ def load_sprite(path, key_tol=24):
 
 
 def segment(rgba, override=None):
-    """Return (labels HxW int8 with -1 = empty, joints dict name->(x,y))."""
     m = rgba[..., 3] > 16
     ys, xs = np.nonzero(m)
     y0, y1 = ys.min(), ys.max() + 1
@@ -29,13 +27,11 @@ def segment(rgba, override=None):
     neck = y0 + H * fr.get("neck", 0.24)
     hip = y0 + H * fr.get("hip", 0.56)
     knee = y0 + H * fr.get("knee", 0.78)
-    # torso half width: median half-width of rows in the middle torso band
     band = m[int(y0 + H * 0.32):int(y0 + H * 0.5)]
     hw = []
     for row in band:
         xx = np.nonzero(row)[0]
         if len(xx):
-            # contiguous run containing cx
             c = int(round(cx))
             l = c
             while l > 0 and row[l - 1]: l -= 1
@@ -51,14 +47,13 @@ def segment(rgba, override=None):
     P = {n: i for i, n in enumerate(PARTS)}
     lab[m & (Y < neck)] = P["head"]
     body = m & (Y >= neck) & (Y < hip)
-    side = X < cx  # image-left = "back" limb (drawn behind)
+    side = X < cx
     arm = body & (np.abs(X - cx) > thw + 0.5)
     lab[body & ~arm] = P["torso"]
     lab[arm & side & (Y < elbow_y)] = P["upper_arm_b"]
     lab[arm & side & (Y >= elbow_y)] = P["lower_arm_b"]
     lab[arm & ~side & (Y < elbow_y)] = P["upper_arm_f"]
     lab[arm & ~side & (Y >= elbow_y)] = P["lower_arm_f"]
-    # anything below the hip that is far out sideways is still arm (hands hanging low)
     low = m & (Y >= hip)
     lowarm = low & (np.abs(X - cx) > thw + 0.5)
     lab[lowarm & side] = P["lower_arm_b"]
@@ -87,11 +82,9 @@ def segment(rgba, override=None):
         "foot_b": (legx(-1), float(y1)), "foot_f": (legx(1), float(y1)),
     }
     J.update({k: tuple(v) for k, v in o.get("joints", {}).items()})
-    # optional explicit part boxes: {"head": [x0,y0,x1,y1], ...} applied in order
     for name, (bx0, by0, bx1, by1) in o.get("parts", {}).items():
         sel = m & (X >= bx0) & (X < bx1) & (Y >= by0) & (Y < by1)
         lab[sel] = P[name]
-    # optional polygons: {"lower_arm_f": [[x,y], ...], ...} painted in order (last wins)
     polys = o.get("polys", {})
     items = polys.items() if isinstance(polys, dict) else polys
     if items:

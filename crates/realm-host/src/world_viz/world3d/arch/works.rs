@@ -26,18 +26,8 @@ use super::super::mesh::{Mesh, mat};
 use super::prim::{self, F_PZ, F_SIDES_TOP};
 use super::rng::{Rng, sub_seed};
 
-/// Smithy. **Footprint ~5.6 × 4.2 tiles** — a 3.7 × 3.4 shed centred on the
-/// origin plus a timber stack hanging off the **+x** end, so the mesh spans
-/// x −2.2..3.5 — **~4.4 tiles tall** to the chimney cap. Ground at z = 0, the
-/// **open front faces −y**.
-///
-/// Battered plinth → three stone walls with a dark inner lining → open front →
-/// steep gabled ROOF with a fascia'd eave → a hearth block with an arched
-/// EMBER throat, its breast corbelling into a chimney that pierces the roof →
-/// an anvil on a WOOD stump with a spark cap and a pool of firelight on the
-/// floor → three courses of stacked timber outside.
 pub fn forge(seed: u64) -> Mesh {
-    let mut r = Rng::new(sub_seed(seed, 0x46_4F_52_47)); // "FORG"
+    let mut r = Rng::new(sub_seed(seed, 0x46_4F_52_47));
     let mut m = Mesh::new();
 
     let hx = 1.85_f32;
@@ -47,7 +37,6 @@ pub fn forge(seed: u64) -> Mesh {
     let z_ridge = z_eave + 1.05 + r.jitter(0.06);
     let right = v3(1.0, 0.0, 0.0);
 
-    // ---- shed --------------------------------------------------------------
     prim::battered(
         &mut m,
         0.0,
@@ -60,7 +49,6 @@ pub fn forge(seed: u64) -> Mesh {
         hy,
         mat::STONE_DARK,
     );
-    // Three walls only: the −y face is the working mouth.
     prim::boxed(
         &mut m,
         v3(-hx, -hy, z_sill),
@@ -68,9 +56,6 @@ pub fn forge(seed: u64) -> Mesh {
         mat::STONE,
         prim::F_PY | prim::F_NX | prim::F_PX,
     );
-    // Triangles are double-sided, so without this lining the *inside* of the
-    // back wall shades as a moonlit face and the mouth reads as a lit alcove.
-    // The dark lining is what makes the fire the brightest thing in the shed.
     prim::rect_panel(
         &mut m,
         v3(-hx + 0.05, hy - 0.06, z_sill),
@@ -94,16 +79,6 @@ pub fn forge(seed: u64) -> Mesh {
     for &sx in &[-1.0_f32, 1.0] {
         prim::gable_end(&mut m, sx * hx, 0.0, hy, z_eave, z_ridge, mat::STONE);
     }
-    // **Timber**, not slate, and that is a silhouette decision before it is a
-    // material one. From the Smithy's mark the forge stands nine tiles out
-    // with the castle's south-east drum thirteen tiles behind it, and a ROOF
-    // plane shades to within a few values of moonlit STONE — so the shed's
-    // roof and the drum's shaft arrived as one undifferentiated grey mass and
-    // the hero lost its outline. WOOD's warm brown separates by *hue as well
-    // as value* against every stone mass in the realm, it is the one roof of
-    // its kind here (identity for free), and it is the right roof to have
-    // over a fire. The deeper eave and heavier fascia give the same edge a
-    // hard dark line to sit on.
     prim::gable_roof(
         &mut m,
         0.0,
@@ -116,8 +91,6 @@ pub fn forge(seed: u64) -> Mesh {
         0.0,
         mat::WOOD,
     );
-    // A slate ridge cap over the timber. Real on a working roof, and it keeps
-    // one hard cool line along the very top of the mass where it meets sky.
     prim::boxed(
         &mut m,
         v3(-(hx + 0.28), -0.13, z_ridge - 0.06),
@@ -126,9 +99,6 @@ pub fn forge(seed: u64) -> Mesh {
         F_SIDES_TOP,
     );
 
-    // ---- the fire ----------------------------------------------------------
-    // Off-centre, so the mouth is not a symmetric doorway and the chimney
-    // breaks the ridge somewhere other than the middle.
     let hearth_x = -0.75_f32;
     prim::boxed(
         &mut m,
@@ -166,7 +136,6 @@ pub fn forge(seed: u64) -> Mesh {
         mat::STONE_DARK,
         F_SIDES_TOP,
     );
-    // Firelight pooling on the floor in front of the hearth.
     prim::quad(
         &mut m,
         v3(hearth_x - 0.82, -0.35, z_sill + 0.03),
@@ -176,7 +145,6 @@ pub fn forge(seed: u64) -> Mesh {
         mat::EMBER,
     );
 
-    // ---- the anvil ---------------------------------------------------------
     let (ax, ay) = (0.88_f32, -0.58_f32);
     prim::prism(
         &mut m,
@@ -205,8 +173,6 @@ pub fn forge(seed: u64) -> Mesh {
         v3(ax - 0.26, ay + 0.17, 1.06),
         mat::EMBER,
     );
-    // Sparks off the hammer: single hot dots once the Bayer screen has had
-    // them, which is exactly what a spark should be.
     for i in 0..3 {
         let s = 0.13 + r.range(0.0, 0.05);
         prim::rect_panel(
@@ -224,9 +190,6 @@ pub fn forge(seed: u64) -> Mesh {
         );
     }
 
-    // A small rear service door joins the dry-bank district lane while the
-    // open working mouth still faces the original Smithy camera. The river's
-    // coarse wet cells make a front-door road here discontinuous.
     prim::rect_panel(
         &mut m,
         v3(0.50, hy + 0.02, z_sill),
@@ -246,7 +209,6 @@ pub fn forge(seed: u64) -> Mesh {
         mat::WINDOW,
     );
 
-    // ---- stacked timber ----------------------------------------------------
     for &(inset, z0, z1) in &[
         (0.00_f32, 0.00_f32, 0.42_f32),
         (0.08, 0.42, 0.80),
@@ -265,21 +227,8 @@ pub fn forge(seed: u64) -> Mesh {
     m
 }
 
-/// Star-tower. **Footprint 5.2 × 5.2 tiles** (the podium; the drum is 3.6
-/// across and the dome oversails it to 3.6), **~7.0 tiles tall** to the dome
-/// finial and ~7.6 to the tip of the sighting tube. Centred on the origin,
-/// ground at z = 0, **slit, sighting tube and door all face −y**.
-///
-/// Stepped podium → battered drum with punched WINDOW slots → corbelled
-/// gallery and parapet → a **ten-facet dome** in two rings and a cap → a warm
-/// WINDOW slit prised open down the face of it → a WOOD sighting tube run out
-/// through the slit.
-///
-/// The facets are the whole point: ten flat planes take the moon as ten
-/// distinct values, so the dome carries a hard lit/unlit split no cone-capped
-/// turret in the court can produce, and it reads as *observatory* at a glance.
 pub fn observatory(seed: u64) -> Mesh {
-    let mut r = Rng::new(sub_seed(seed, 0x4F_42_53_56)); // "OBSV"
+    let mut r = Rng::new(sub_seed(seed, 0x4F_42_53_56));
     let mut m = Mesh::new();
 
     let sides = 10usize;
@@ -287,14 +236,10 @@ pub fn observatory(seed: u64) -> Mesh {
     let z_podium = 0.45_f32;
     let z_drum = 4.72 + r.jitter(0.15);
     let z_gallery = z_drum + 0.52;
-    // A hemisphere sampled at 0, 0.36, 0.70, 1.0 of its rise. The court is
-    // full of cone-capped drums, so the dome has to be visibly *round* —
-    // sampled any steeper it reads as a fifth turret from across the meadow.
     let z_ring = z_gallery + 0.62;
     let z_shoulder = z_ring + 0.58;
     let z_tip = z_shoulder + 0.52;
 
-    // ---- podium ------------------------------------------------------------
     prim::battered(
         &mut m,
         0.0,
@@ -315,7 +260,6 @@ pub fn observatory(seed: u64) -> Mesh {
         F_PZ,
     );
 
-    // ---- drum --------------------------------------------------------------
     prim::prism(
         &mut m,
         0.0,
@@ -352,7 +296,6 @@ pub fn observatory(seed: u64) -> Mesh {
         mat::STONE,
     );
 
-    // Punched slots up the shaft, staggered so the drum reads as turning.
     for i in 0..3 {
         let a = rot + PI * 0.75 + (i as f32) * (TAU / 3.0) + r.jitter(0.10);
         let out = v3(a.cos(), a.sin(), 0.0);
@@ -379,7 +322,6 @@ pub fn observatory(seed: u64) -> Mesh {
         mat::DOOR,
     );
 
-    // ---- the dome ----------------------------------------------------------
     let (r_low, r_mid, r_high) = (1.80_f32, 1.62_f32, 1.14_f32);
     prim::prism(
         &mut m,
@@ -417,8 +359,6 @@ pub fn observatory(seed: u64) -> Mesh {
         mat::ROOF,
     );
 
-    // The slit: a warm sliver prised straight down the −y face, proud of the
-    // dome by 0.03 so it never z-fights the facet behind it.
     let slit = 0.21_f32;
     prim::quad(
         &mut m,
@@ -437,9 +377,6 @@ pub fn observatory(seed: u64) -> Mesh {
         mat::WINDOW,
     );
 
-    // The sighting tube, run out through the slit and up at ~40°. Built from
-    // explicit quads because it is the one thing in this library that is not
-    // axis-aligned or a body of revolution about +z.
     let base = v3(0.0, -0.55, z_gallery + 0.15);
     let tip = v3(0.0, -2.42, z_tip + 0.55);
     let axis = (tip - base).normalize();

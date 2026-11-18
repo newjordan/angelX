@@ -38,7 +38,6 @@ fn write_tavern_quality_review() {
     (hero.x, hero.y) = (x * TILE_UNITS, y * TILE_UNITS);
     save("wall-seat", seat_scene(&rack, w, h, Some(1)).compose());
 
-    // Warm the exact path before measuring. No PNG work inside render timing.
     for id in 1..=6 { std::hint::black_box(seat_scene(&run, w, h, Some(id)).compose()); }
     let samples = 24;
     let mut render = 0;
@@ -81,8 +80,6 @@ fn write_tavern_quality_review() {
     std::fs::write(dir.join(format!("{label}-metrics.csv")), &text).unwrap();
     println!("{text}");
 
-    // Actual browser transport: one publication, six private seat trees,
-    // warm connection dictionaries and swept, moving knight courses.
     let mut moving = run.clone();
     let mut publisher = crate::wire::Publisher::default();
     let mut writers: Vec<_> = (0..6).map(|_| angel_net::doc::wire::Writer::default()).collect();

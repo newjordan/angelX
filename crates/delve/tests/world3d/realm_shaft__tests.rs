@@ -2,7 +2,6 @@ use super::*;
 use crate::world3d::kit::Face;
 use crate::world3d::realm_mono::Mono;
 
-/// The Delve gate's footprint as the tabula plan has it, three tiles square.
 fn mono() -> Mono {
     Mono::on([0.0, 0.0, 48.0, 48.0], Face::South, 7)
 }
@@ -41,7 +40,6 @@ fn the_machines_are_different_and_grow() {
             assert_ne!(lines[i], lines[j], "{:?} and {:?} look alike", Tier::ALL[i], Tier::ALL[j]);
         }
     }
-    // Only the ley lift carries its own light.
     for tier in Tier::ALL {
         let (_, s) = built(tier);
         assert_eq!(!s.lamps.is_empty(), tier == Tier::LeyLift, "{tier:?}");
@@ -57,10 +55,6 @@ fn the_head_is_deterministic() {
     }
 }
 
-/// The five heads on a stand of rock, as a flat isometric sheet: a plain
-/// painter's-algorithm proof of the geometry, written by an ignored test to
-/// `ANGEL_SHAFT_KIT` (default `/tmp/shaft-kit`). The game's own 3D window is
-/// the GPU's; this shows what the pieces are without it.
 #[cfg(feature = "renderer")]
 #[test]
 #[ignore = "writes the kit sheet"]
@@ -82,7 +76,6 @@ fn write_kit_sheet() {
             _ => [0x90, 0x90, 0x90],
         }
     }
-    // Isometric: x right-down, z left-down, y up. Scale s pixels a unit.
     let project = |x: f32, y: f32, z: f32, s: f32| -> (f32, f32) { ((x - z) * 0.866 * s, (x + z) * 0.5 * s - y * s) };
     fn poly(img: &mut image::RgbImage, pts: &[(f32, f32)], c: [u8; 3]) {
         let (x0, x1) = pts.iter().fold((f32::MAX, f32::MIN), |a, p| (a.0.min(p.0), a.1.max(p.0)));
@@ -113,7 +106,6 @@ fn write_kit_sheet() {
     for (n, tier) in Tier::ALL.into_iter().enumerate() {
         let (m, _) = built(tier);
         let mut pieces = m.pieces.clone();
-        // The crown the head stands on.
         pieces.push(crate::world3d::realm_mono::Piece::new("box", angel_stage::set::Kind::Rock, [24.0, TOP - 14.0, 22.0], [34.0, 14.0, 30.0]));
         pieces.sort_by(|a, b| (a.at[0] + a.at[2] + a.at[1] * 0.01).total_cmp(&(b.at[0] + b.at[2] + b.at[1] * 0.01)));
         let (ox, oy) = (panel as f32 * n as f32 + panel as f32 / 2.0, 250.0 + (TOP - 14.0) * s * 0.0);
@@ -129,7 +121,6 @@ fn write_kit_sheet() {
             let (y0, y1) = (p.at[1], p.at[1] + p.size[1]);
             let base = colour(p.kind);
             let shade = |k: f32| [(base[0] as f32 * k) as u8, (base[1] as f32 * k) as u8, (base[2] as f32 * k) as u8];
-            // The two faces that face the eye (the +x and +z sides) and the top.
             let side = |a: (f32, f32), b: (f32, f32), k: f32, sheet: &mut image::RgbImage| {
                 poly(sheet, &[at(a.0, y0, a.1), at(b.0, y0, b.1), at(b.0, y1, b.1), at(a.0, y1, a.1)], shade(k));
             };
@@ -141,9 +132,6 @@ fn write_kit_sheet() {
     sheet.save(std::path::Path::new(&dest).join("01-kit-tiers.png")).unwrap();
 }
 
-/// The head over the gate is the run's own: it stands at the tier the shaft has
-/// been raised to (the realm's chunks stand none), a different machine at each,
-/// in the chunk the gate's heap is in.
 #[test]
 fn the_head_over_the_gate_stands_at_the_tier_the_run_has_raised_the_shaft_to() {
     use crate::world3d::{chunks, kingdom, lots};

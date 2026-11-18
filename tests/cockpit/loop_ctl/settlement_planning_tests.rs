@@ -90,7 +90,6 @@ fn settlement_planning_persists_frontiers_before_restart_and_catches_up_from_com
     fixture.map(&st.task, "q.changed", true);
     let current = planning::input(&fixture.0, &st.task).unwrap().unwrap();
     assert_ne!(current.map_sha256, frozen[&1].map_sha256);
-    // Even an accidental second call cannot rewrite a captured iteration.
     st.snapshot_settlement_plan();
     assert_eq!(st.settlement_plans, frozen);
     save_checkpoint(&st).unwrap();
@@ -98,7 +97,6 @@ fn settlement_planning_persists_frontiers_before_restart_and_catches_up_from_com
     assert_eq!(loaded.settlement_plans, frozen);
     assert_eq!(loaded.durable_settlement_events().unwrap().plans, frozen);
 
-    // A mutable live snapshot is not the confirmed restart checkpoint.
     st.settlement_plans = (1..=6).map(|n| (n, current.clone())).collect();
     let mut world = World::new(77);
     world.sync_settlement(&st.summary(), "Miner", true);
@@ -155,7 +153,6 @@ fn settlement_planning_legacy_checkpoint_is_not_relabelled_when_a_map_appears() 
     assert!(st.settlement_plans.is_empty());
     save_checkpoint(&st).unwrap();
     fixture.map(&st.task, "q.later", true);
-    // Routine checkpoint publication and load never derive historical plans.
     save_checkpoint(&st).unwrap();
     let mut loaded = load_for(&fixture.0).unwrap();
     assert!(loaded.settlement_plans.is_empty());
@@ -239,7 +236,6 @@ fn settlement_planning_unavailable_map_and_invalid_provenance_cannot_expand_auth
     assert!(!st.settlement_plans.contains_key(&99));
     assert!(!st.settlement_plans.contains_key(&1));
     let mut store = together_settlement::Store::beside(None, 77, "Miner").unwrap();
-    // The third in-memory row is uncommitted; only the confirmed two rows work.
     store.sync_with_plans(&st.summary(), false, &durable.plans).unwrap();
     assert_eq!(store.site.work, 2);
 }

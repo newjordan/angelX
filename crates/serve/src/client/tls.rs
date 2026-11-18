@@ -26,7 +26,6 @@ use std::net::{Shutdown, TcpStream};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::Instant;
 
-/// Bytes read off the socket, and plaintext taken out of the session, at a time.
 const RAW: usize = 16 * 1024;
 
 fn config(roots: RootCertStore) -> Arc<ClientConfig> {
@@ -36,8 +35,6 @@ fn config(roots: RootCertStore) -> Arc<ClientConfig> {
         .expect("ring offers TLS 1.2 and 1.3")
         .with_root_certificates(roots)
         .with_no_client_auth();
-    // A WebSocket upgrade is HTTP/1.1: say so, so a door that also speaks
-    // HTTP/2 answers in the one this client speaks.
     config.alpn_protocols = vec![b"http/1.1".to_vec()];
     Arc::new(config)
 }
@@ -64,7 +61,6 @@ fn lock(session: &Session) -> MutexGuard<'_, ClientConnection> {
     session.lock().unwrap_or_else(|p| p.into_inner())
 }
 
-/// The TLS handshake on a connected socket, done by `deadline`.
 pub(super) fn handshake(stream: TcpStream, host: &str, trust: &Trust, deadline: Instant) -> io::Result<(ReadHalf, WriteHalf)> {
     let name = ServerName::try_from(host.to_string()).map_err(|_| bad("the link's host is not a name TLS can check"))?;
     let mut conn = ClientConnection::new(trusted(trust)?, name).map_err(|e| bad(&format!("TLS: {e}")))?;
@@ -87,13 +83,10 @@ pub(super) struct ReadHalf {
     session: Session,
     raw: Vec<u8>,
     plain: Vec<u8>,
-    /// The server said it is done (TLS's close_notify).
     ended: bool,
 }
 
 impl ReadHalf {
-    /// As `ReadWire::fill`: at most `max` bytes off the socket within
-    /// `wait`, their plaintext handed to `sink`.
     pub(super) fn fill(&mut self, max: usize, wait: std::time::Duration, sink: &mut dyn FnMut(&[u8])) -> io::Result<usize> {
         if self.ended {
             return Err(io::Error::new(ErrorKind::UnexpectedEof, "the server closed the connection"));
@@ -129,7 +122,6 @@ impl ReadHalf {
                 }
             }
         }
-        // What the session must answer (a key update) goes now.
         while conn.wants_write() {
             conn.write_tls(&mut &self.stream)?;
         }
@@ -156,7 +148,6 @@ impl WriteHalf {
         Ok(())
     }
 
-    /// Tell the server this side is done, then stop writing.
     pub(super) fn shutdown(&mut self) {
         let mut conn = lock(&self.session);
         conn.send_close_notify();

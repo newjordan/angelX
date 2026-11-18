@@ -4,11 +4,7 @@
 //! Pure and deterministic: the cute town-name generator, fnv1a, district
 //! hashing/banner colors, and the scenery roll — no World state.
 
-/// Cute deterministic town name: two seed-picked syllables + a fusion suffix.
 pub fn town_name(seed: u64) -> String {
-    // An Arthurian castle-name generator: head + connective + tail, seed-indexed
-    // so every project keeps the same realm name forever. Already capitalized
-    // (the heads are), and never hyphenated — e.g. Camelot, Tingel, Astermere.
     let h = crate::identity::TOWN_HEAD[(seed % 12) as usize];
     let m = crate::identity::TOWN_MID[((seed / 12) % 6) as usize];
     let t = crate::identity::TOWN_TAIL[((seed / 72) % 8) as usize];
@@ -33,8 +29,6 @@ pub fn district_hash(seed: u64, name: &str) -> u64 {
     hash
 }
 
-/// Bright, moderately saturated ink remains readable over the muted map
-/// ramps, while palette selection remains wholly deterministic.
 pub fn district_banner_color(hash: u64) -> (u8, u8, u8) {
     const BANNERS: [(u8, u8, u8); 8] = [
         (244, 114, 182),

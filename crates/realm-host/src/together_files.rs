@@ -11,10 +11,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime};
 
-/// A card file from `dir` (a workspace's `.angel/dungeon/cards/` or
-/// `reforged/`) with its `sheet` and `paint` pictures, from the `sheets/`
-/// beside it, cut into sprite rows (paintings kept in the `paint/` store
-/// beside it, the workspace's).
 pub fn card_with_sheets(raw: &str, dir: &Path) -> Result<String, Vec<String>> {
     let up = dir.parent().unwrap_or(dir);
     together_sheets::inline(
@@ -25,7 +21,6 @@ pub fn card_with_sheets(raw: &str, dir: &Path) -> Result<String, Vec<String>> {
     )
 }
 
-/// Capture resolved cards without borrowing the live catalogue.
 pub fn capture_cards(dir: &Path) -> (Vec<cards::Card>, Vec<String>) {
     let mut book = cards::Book {
         revision: 0,
@@ -35,7 +30,6 @@ pub fn capture_cards(dir: &Path) -> (Vec<cards::Card>, Vec<String>) {
     (book.cards, report)
 }
 
-/// Capture each boss's checked immutable definition and original checked source.
 pub fn capture_bosses(
     dir: &Path,
 ) -> (
@@ -87,7 +81,6 @@ pub fn capture_bosses(
     (captured, report)
 }
 
-/// Read every `*.card` in `dir` into `book`. Returns one line per file.
 pub fn load_cards(dir: &Path, book: &mut cards::Book) -> Vec<String> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
@@ -124,8 +117,6 @@ pub fn load_cards(dir: &Path, book: &mut cards::Book) -> Vec<String> {
     report
 }
 
-/// Read every `*.boss` in `dir` into `bosses`: a workspace's own guardian
-/// takes its delve's place. Returns one line per file.
 pub fn load_bosses(dir: &Path, list: &mut Vec<bosses::Boss>) -> Vec<String> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
@@ -157,11 +148,6 @@ pub fn load_bosses(dir: &Path, list: &mut Vec<bosses::Boss>) -> Vec<String> {
     report
 }
 
-/// Poll only on the host, not on a mirror. Book membership does not mean
-/// a spell reached a slot: another watcher or reload may have inserted it.
-/// Unchanged cards do nothing unless the host can equip the missing spell;
-/// malformed/part-written cards are retried on the next poll. Manual
-/// reload remains the line-numbered error-reporting path.
 #[cfg(any(test, feature = "testing"))]
 pub fn hot_load_spells(run: &mut crate::together_shooter::Run, dir: &Path) -> usize {
     read_spells(dir)
@@ -170,8 +156,6 @@ pub fn hot_load_spells(run: &mut crate::together_shooter::Run, dir: &Path) -> us
         .count()
 }
 
-/// The spell cards in `dir` as `hot_load_spells` takes them, read with no
-/// run held: their ids and text, sheets cut into rows.
 pub fn read_spells(dir: &Path) -> Vec<(String, String)> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
@@ -202,8 +186,6 @@ pub fn read_spells(dir: &Path) -> Vec<(String, String)> {
     spells
 }
 
-/// What the phrasebook was last read from: the workspace, both files'
-/// times, and the sheets beside them.
 type Seen = (
     PathBuf,
     Option<SystemTime>,
@@ -211,10 +193,8 @@ type Seen = (
     Vec<(PathBuf, u64, Option<SystemTime>)>,
 );
 
-/// The files behind the phrasebook in play, as last read.
 static SEEN: Mutex<Option<Seen>> = Mutex::new(None);
 
-/// Where the delve's own phrasebook lives on disk, to read it live.
 fn own_path() -> Option<PathBuf> {
     [
         std::env::var_os("ANGEL_RESOURCE_DIR")
@@ -226,15 +206,11 @@ fn own_path() -> Option<PathBuf> {
     .find(|p| p.is_file())
 }
 
-/// Read the phrasebook again if either file changed since last time: the
-/// game takes new wishes while it runs. True when the book changed.
 pub fn refresh_phrasebook(workspace: &Path) -> bool {
     let own = own_path();
     let mine = workspace.join(".angel/dungeon/phrasebook.txt");
     let stamp = |p: &Path| std::fs::metadata(p).and_then(|m| m.modified()).ok();
     let sheets = together_sheets::dir(workspace);
-    // A sheet may arrive after its entry, or be repainted without changing
-    // the phrasebook. Retry it when the pictures change too.
     let mut pictures: Vec<_> = std::fs::read_dir(&sheets)
         .into_iter()
         .flatten()
@@ -260,8 +236,6 @@ pub fn refresh_phrasebook(workspace: &Path) -> bool {
         .unwrap_or_else(|| phrasebook::TEXT.to_string());
     let mut errors = Vec::new();
     if let Ok(more) = std::fs::read_to_string(&mine) {
-        // The workspace's pictures are cut into sprite rows here, so the
-        // book in play (and a friend's copy) is plain checked text.
         let (more, why) =
             phrasebook_with_sheets(&more, &sheets, &together_sheets::paint_dir(workspace));
         errors.extend(why);
@@ -279,9 +253,6 @@ pub fn refresh_phrasebook(workspace: &Path) -> bool {
     changed
 }
 
-/// Resolve pictures entry by entry. An unreadable sheet rejects its whole
-/// wish, so it cannot be granted without the look it promised; other
-/// entries remain available. These errors are sent back to the lesson.
 pub fn phrasebook_with_sheets(
     raw: &str,
     sheets: &Path,
@@ -327,7 +298,6 @@ pub fn phrasebook_with_sheets(
     (text, errors)
 }
 
-/// Append the playtest's new ratings to `path`, a JSON line each.
 pub fn append_votes(path: &Path, changes: &[votes::Change]) -> std::io::Result<()> {
     if changes.is_empty() {
         return Ok(());
@@ -350,8 +320,6 @@ pub fn append_votes(path: &Path, changes: &[votes::Change]) -> std::io::Result<(
     file.flush()
 }
 
-/// Idempotently append a Journal-owned export. Each row ID is stable across
-/// restart and retry, so an uncertain successful append cannot duplicate it.
 pub fn append_vote_batch(
     path: &Path,
     batch: &angel_delve::rules::host_commands::playtest::VoteBatch,
@@ -411,10 +379,6 @@ pub fn append_vote_batch(
         .map_err(std::io::Error::other)
 }
 
-/// The campaign's board (`together_shooter::campaign`): the `vec`
-/// cartridge's `board.json`, in `$ANGEL_VEC_HOME`, else `~/.angelX/vec/`.
-/// Only read, never written: the cartridge is its one writer. A test build
-/// reads no board unless one is handed to it.
 pub fn campaign_board() -> Option<PathBuf> {
     if cfg!(any(test, feature = "testing")) {
         return None;
@@ -435,9 +399,6 @@ pub fn campaign_board() -> Option<PathBuf> {
         .clone()
 }
 
-/// The board's counts, read whole and bounded. A board that is missing,
-/// not a plain file, over `campaign::MAX_BYTES` or unreadable reads as
-/// zeros, like one that is malformed (`Campaign::parse`).
 pub fn read_campaign(path: &Path) -> campaign::Campaign {
     read_board(path).map_or_else(campaign::Campaign::default, |bytes| campaign::Campaign::parse(&bytes))
 }
@@ -450,8 +411,6 @@ fn read_board(path: &Path) -> Option<Vec<u8>> {
     }
     let mut open = std::fs::OpenOptions::new();
     open.read(true);
-    // A board swapped for a pipe between the look and the open must not
-    // hang the service.
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
@@ -466,12 +425,8 @@ fn read_board(path: &Path) -> Option<Vec<u8>> {
     (bytes.len() <= campaign::MAX_BYTES).then_some(bytes)
 }
 
-/// How often the delve's service looks at the campaign's board at most.
 pub const CAMPAIGN_POLL: Duration = Duration::from_secs(1);
 
-/// What the board looked like when last read: its modified time, length
-/// and file (the cartridge renames a new one into place), or `None` when
-/// it was missing.
 type Stamp = Option<(Option<SystemTime>, u64, u64)>;
 
 fn stamp(path: &Path) -> Stamp {
@@ -483,21 +438,15 @@ fn stamp(path: &Path) -> Stamp {
     Some((meta.modified().ok(), meta.len(), file))
 }
 
-/// The campaign's board, watched for the delve's service: looked at no
-/// more than once a `CAMPAIGN_POLL`, and read again only when its stamp
-/// changed (or its path did).
 #[derive(Default)]
 pub struct CampaignWatch {
     path: Option<PathBuf>,
     looked: Option<Instant>,
-    /// The stamp last read, `None` before the first read.
     read: Option<Stamp>,
     campaign: campaign::Campaign,
 }
 
 impl CampaignWatch {
-    /// The counts as the board at `path` says them, when it is time to look
-    /// (`None` between looks). No board, no counts.
     pub fn poll(&mut self, path: Option<&Path>, now: Instant) -> Option<campaign::Campaign> {
         if self.path.as_deref() != path {
             *self = CampaignWatch {

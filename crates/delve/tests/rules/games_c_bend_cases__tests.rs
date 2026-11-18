@@ -15,12 +15,10 @@ pub fn dir() -> std::path::PathBuf {
     std::env::var_os("DELVE_CASES").map(Into::into).expect("set DELVE_CASES to the Bend case directory")
 }
 
-/// How many cases of `name` this process has written.
 pub fn count(name: &str) -> usize {
     COUNT.lock().unwrap().get_or_insert_with(Default::default).get(name).copied().unwrap_or(0)
 }
 
-/// Append one case.
 pub fn rec(name: &str, input: Value, output: Value) {
     let dir = dir();
     std::fs::create_dir_all(&dir).unwrap();
@@ -33,17 +31,14 @@ pub fn rec(name: &str, input: Value, output: Value) {
     *COUNT.lock().unwrap().get_or_insert_with(Default::default).entry(name.to_string()).or_insert(0) += 1;
 }
 
-/// A value as JSON.
 pub fn js<T: Serialize>(v: &T) -> Value {
     serde_json::to_value(v).unwrap()
 }
 
-/// The Run as the rules worker holds it.
 pub fn state(run: &Run) -> Value {
     runtime_state::capture_for_rules(run).unwrap().run
 }
 
-/// The named top-level keys of an object.
 pub fn pick(v: &Value, keys: &BTreeSet<String>) -> Value {
     let mut out = Map::new();
     if let Value::Object(m) = v {
@@ -56,14 +51,11 @@ pub fn pick(v: &Value, keys: &BTreeSet<String>) -> Value {
     Value::Object(out)
 }
 
-/// The top-level keys whose values differ (or appear in one only).
 pub fn changed(a: &Value, b: &Value) -> BTreeSet<String> {
     let (Value::Object(a), Value::Object(b)) = (a, b) else { return BTreeSet::new() };
     a.keys().chain(b.keys()).filter(|k| a.get(*k) != b.get(*k)).cloned().collect()
 }
 
-/// A method of Run: the Run (only the keys it reads and the keys it changes, so a case stays small)
-/// and the named extra arguments go in; the Run comes out beside the return value when there is one.
 pub fn call<R: Serialize>(name: &str, run: &mut Run, reads: &[&str], extra: Value, f: impl FnOnce(&mut Run) -> R) {
     let before = state(run);
     let ret = serde_json::to_value(f(run)).unwrap();
@@ -83,7 +75,6 @@ pub fn call<R: Serialize>(name: &str, run: &mut Run, reads: &[&str], extra: Valu
     rec(name, Value::Object(input), Value::Object(output));
 }
 
-/// A tiny deterministic generator for the recorders' choices.
 pub struct Dice(pub u64);
 impl Dice {
     pub fn next(&mut self) -> u64 {
@@ -100,7 +91,6 @@ impl Dice {
     pub fn chance(&mut self, percent: u64) -> bool {
         self.below(100) < percent
     }
-    /// A key axis: -1, 0 or 1.
     pub fn axis(&mut self) -> i8 {
         self.below(3) as i8 - 1
     }

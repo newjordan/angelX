@@ -1,4 +1,3 @@
-// Extends the existing blocked-save/checkpoint/restart/idempotent-retry entry point.
 fn aerie_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     use crate::delve::together_realm::Spoil;
     use crate::delve::together_shooter::{
@@ -94,14 +93,12 @@ fn aerie_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     let paid = app.economy().treasury.clone();
     assert!(app.settle_home());
     assert_eq!(app.economy().treasury, paid);
-    // Eleventh pad bit and airborne ball survive the real private session restore.
     let r = app.realm.dungeon.shooter.edit().unwrap();
     r.arrive(
         world::room_of(&r.dungeon, RoomKind::Belfry).unwrap(),
         Game::Volley.start(),
     );
     r.step(&BTreeMap::new());
-    // The serve is the game's own key: F, not the interact key.
     r.step(&BTreeMap::from([(
         1,
         Input {

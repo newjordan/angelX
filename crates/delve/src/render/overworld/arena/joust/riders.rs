@@ -13,48 +13,29 @@ use super::{Colours, Coat, destrier};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 
-/// The canvas a mounted rider is built on: the destrier's 52 by 46 at
-/// `(0, HORSE_Y)`, room above it for a plume and a high lance, and to the
-/// right of it for the lance's reach.
 pub(super) const W: i32 = 66;
 pub(super) const H: i32 = 56;
 pub(super) const HORSE_Y: i32 = 10;
-/// Where the horse's body stands in the canvas (its middle), and where its
-/// hooves meet the ground.
 pub(super) const BODY_X: i32 = 26;
 pub(super) const HOOF_Y: i32 = 52;
 
-/// How a rider sits and what he carries.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(super) struct Pose {
-    /// The gallop's frame, or none standing.
     pub gait: Option<u32>,
-    /// The lance's height: 0 low, 4 high (the dip passes through the rest).
     pub aim: u8,
-    /// The shield: 0 down over the chest, 2 up by the helm.
     pub guard: u8,
-    /// The lance is a stump.
     pub broken: bool,
-    /// The laurel on the helm.
     pub crowned: bool,
-    /// No rider in the saddle.
     pub riderless: bool,
-    /// The far lane: the lance reaches down across the tilt.
     pub far: bool,
-    /// The wind's phase for pennon and plume, 0 to 3.
     pub wind: u8,
-    /// The lance raised in salute.
     pub salute: bool,
-    /// The knight's lance is couched: it is set, a glint on its tip.
     pub couched: bool,
 }
 
-/// A rider built once: facing east and west, and the dithered, dimmed
-/// echoes of him that a fast charge leaves behind.
 pub(super) struct Built {
     pub east: Img,
     pub west: Img,
-    /// Echoes at three strengths, facing east and west.
     pub ghosts: [[Img; 3]; 2],
 }
 
@@ -95,7 +76,6 @@ fn cache() -> &'static Mutex<HashMap<String, Arc<Built>>> {
     C.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// The rider on his horse, built or kept.
 pub(super) fn mounted(coat: Coat, barding: (char, char), col: Colours, pose: Pose) -> Arc<Built> {
     let class = col.class.map_or(0, |(_, seat)| seat);
     let key = format!(
@@ -119,7 +99,6 @@ fn build(coat: Coat, barding: (char, char), col: Colours, pose: Pose) -> Img {
     let horse = destrier(coat, pose.gait, Some(barding));
     out.stamp(&horse, 0, HORSE_Y);
     if pose.riderless {
-        // The stirrups swing empty and the reins trail.
         let by = 29 + HORSE_Y;
         out.line(24, by - 12, 27, by - 6, 'v');
         out.line(36, by - 14, 41, by - 10, 'o');
@@ -134,32 +113,25 @@ fn build(coat: Coat, barding: (char, char), col: Colours, pose: Pose) -> Img {
     out
 }
 
-/// The lance's tip, relative to the saddle, for a height 0 to 4.
 fn tip_for(pose: Pose, reach: i32) -> (i32, i32) {
     let a = i32::from(pose.aim.min(4));
     if pose.salute {
         return (reach / 2, -26);
     }
     if pose.far {
-        // Pointing down across the tilt at the near rider.
         (reach, 8 - a * 3)
     } else {
-        // Pointing up across it at the far rider.
         (reach, -6 - a * 3)
     }
 }
 
-/// The knight: helm and plume, tabard, the arm that holds the lance, the
-/// lance with its vamplate, coronel and pennon, and the shield before him.
 fn knight(im: &mut Img, (sx, sy): (i32, i32), col: Colours, pose: Pose) {
     let wave = i32::from(pose.wind % 4);
-    // Torso.
     for y in sy - 7..=sy {
         for x in sx - 2..sx + 3 {
             im.put(x, y, if (x + y) % 4 == 0 { col.field } else { col.tabard });
         }
     }
-    // The helm in the hero's steel: lit along its crown, navy at its back.
     for y in sy - 13..sy - 7 {
         for x in sx - 2..sx + 4 {
             let ink = if y == sy - 13 {
@@ -174,13 +146,11 @@ fn knight(im: &mut Img, (sx, sy): (i32, i32), col: Colours, pose: Pose) {
             im.put(x, y, ink);
         }
     }
-    // The visor's slit and breaths.
     im.put(sx + 1, sy - 10, 's');
     im.put(sx + 2, sy - 10, 's');
     im.put(sx + 3, sy - 10, 's');
     im.put(sx + 3, sy - 9, 'k');
     if !pose.crowned {
-        // The plume streams back in the wind.
         let tail = [(-3, -14), (-4, -14), (-5, -13), (-6, -13)];
         for (i, (dx, dy)) in tail.iter().enumerate() {
             let lift = if (i as i32 + wave) % 2 == 0 { 0 } else { 1 };
@@ -195,7 +165,6 @@ fn knight(im: &mut Img, (sx, sy): (i32, i32), col: Colours, pose: Pose) {
         super::super::class_looks::dress_rider(im, (sx, sy), look, seat);
     }
     if pose.crowned {
-        // The winner's laurel crown on the helm.
         for (x, ink) in (sx - 2..sx + 3).zip(['5', '4', '5', '4', '5']) {
             im.put(x, sy - 14, ink);
         }
@@ -203,10 +172,7 @@ fn knight(im: &mut Img, (sx, sy): (i32, i32), col: Colours, pose: Pose) {
             im.put(x, sy - 15, '6');
         }
     }
-    // The leg in the stirrup.
     im.line(sx, sy + 1, sx + 1, sy + 6, 'v');
-    // The lance under the arm, out past the horse's head: a line of timber
-    // with the vamplate at the grip, a steel coronel and a pennon.
     let reach = if pose.broken { 10 } else { 30 };
     let grip = (sx - 5, sy - 1);
     let (tx, ty) = tip_for(pose, reach);
@@ -214,7 +180,6 @@ fn knight(im: &mut Img, (sx, sy): (i32, i32), col: Colours, pose: Pose) {
     for k in 0..2 {
         im.line(grip.0, grip.1 + k, tip.0, tip.1 + k, 'T');
     }
-    // The arm and the vamplate.
     let (ax, ay) = (sx + 4, sy - 2 + (tip.1 - sy + 6) / 8);
     im.line(sx + 1, sy - 4, ax, ay, 'v');
     im.rect(ax - 1, ay - 1, 3, 3, 'W');
@@ -227,12 +192,10 @@ fn knight(im: &mut Img, (sx, sy): (i32, i32), col: Colours, pose: Pose) {
         im.put(tip.0 + 1, tip.1, 'W');
         im.put(tip.0 + 2, tip.1, 'H');
         if pose.couched {
-            // Set: a glint on the coronel.
             im.put(tip.0 + 3, tip.1, 'w');
             im.put(tip.0 + 2, tip.1 - 1, 'w');
             im.put(tip.0 + 2, tip.1 + 1, 'w');
         }
-        // The pennon, a swallowtail in the plume's colour, rippling.
         let px = tip.0 - 9;
         let py = grip.1 + (tip.1 - grip.1) * (px - grip.0) / (tip.0 - grip.0).max(1) + 1;
         for k in 0..6 {
@@ -245,8 +208,6 @@ fn knight(im: &mut Img, (sx, sy): (i32, i32), col: Colours, pose: Pose) {
             }
         }
     }
-    // The shield before him, rimmed in steel: by the helm, at his chest or
-    // between, where he guards.
     let top = match pose.guard {
         2 => sy - 13,
         1 => sy - 9,
@@ -275,8 +236,6 @@ fn knight(im: &mut Img, (sx, sy): (i32, i32), col: Colours, pose: Pose) {
     }
 }
 
-/// `im` turned `deg` degrees about its middle, nearest neighbour, on a
-/// canvas big enough for any turn.
 pub(super) fn turned(im: &Img, deg: f32) -> Img {
     let r = ((im.w * im.w + im.h * im.h) as f32).sqrt().ceil() as i32;
     let side = r + 1;
@@ -287,7 +246,6 @@ pub(super) fn turned(im: &Img, deg: f32) -> Img {
     for y in 0..side {
         for x in 0..side {
             let (dx, dy) = (x as f32 - o, y as f32 - o);
-            // Back to the source: the inverse turn.
             let (sx, sy) = (dx * c + dy * s + cx, -dx * s + dy * c + cy);
             if let Some(p) = im.get(sx.round() as i32, sy.round() as i32) {
                 out.set(x, y, p);
@@ -297,12 +255,8 @@ pub(super) fn turned(im: &Img, deg: f32) -> Img {
     out
 }
 
-/// A knight flung from the saddle, facing east: helm (or a bare head once it
-/// has come off), tabard, arms thrown out, legs kicking, the shield on his
-/// arm. 16 by 24.
 pub(super) fn flung(col: Colours, helm: bool, kick: bool) -> Img {
     let mut im = Img::new(16, 24);
-    // Head.
     if helm {
         im.rect(5, 0, 7, 7, 'V');
         im.line(5, 0, 11, 0, 'W');
@@ -316,18 +270,15 @@ pub(super) fn flung(col: Colours, helm: bool, kick: bool) -> Img {
         im.put(9, 3, 'k');
         im.line(7, 6, 9, 6, 'p');
     }
-    // Torso in the tabard, and the gorget.
     for y in 7..16 {
         for x in 4..12 {
             im.put(x, y, if (x + y) % 4 == 0 { col.field } else { col.tabard });
         }
     }
     im.line(4, 7, 11, 7, 'v');
-    // Arms flung out, the shield still on one.
     im.line(3, 8, 0, 3, 'v');
     im.line(12, 8, 15, 4, 'v');
     im.rect(14, 1, 2, 3, 'W');
-    // Legs.
     if kick {
         im.line(5, 16, 1, 19, 'v');
         im.line(10, 16, 15, 19, 'v');
@@ -343,7 +294,6 @@ pub(super) fn flung(col: Colours, helm: bool, kick: bool) -> Img {
     im
 }
 
-/// The helm, loose: 5 by 5, its slit turning as it rolls.
 pub(super) fn helm_img(turn: u32) -> Img {
     let mut im = Img::new(5, 5);
     im.rect(0, 0, 5, 5, 'V');
@@ -356,7 +306,6 @@ pub(super) fn helm_img(turn: u32) -> Img {
     im
 }
 
-/// The stands' red of a hurt rider: a sprite washed in one light ink.
 pub(super) fn tint(im: &Img, c: char) -> Img {
     let mut out = im.clone();
     let Some(rgb) = ink(c) else { return out };

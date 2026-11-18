@@ -2,47 +2,10 @@
 
 use super::*;
 
-// ---------------------------------------------------------------------------
-// Best-of-N perf sampling — the foundational_terminal_* budgets below.
-//
-// WHY THIS EXISTS. Do not "simplify" it back into a single timed run.
-//
-// `cargo test` runs the suite across parallel threads, so ONE wall-clock sample
-// measures machine load, not code: a draw that genuinely costs 2ms is observed
-// at 60ms whenever the scheduler preempts it mid-frame because five other tests
-// are hammering the same cores. Measured one-shot, these budgets failed roughly
-// half the time on unchanged code.
-//
-// That is not cosmetic noise. The Conductor's code rung gates autonomous work on
-// "any test fail = reject" (docs/plans/conductor.md, Layer-2 gate semantics,
-// mirrored by tools/self_model.rs). A perf test that flakes therefore rejects
-// valid autonomous work at random — the coder looks broken while working
-// perfectly — and it trains humans and agents alike to wave red away, which is
-// how a real regression ships unnoticed.
-//
-// The fix keeps the perf signal rather than discarding it (raising the budgets
-// or #[ignore]-ing them would discard it): take N samples and assert on the
-// MINIMUM. The minimum is the least-contended observation, i.e. the closest
-// available estimate of the uncontended cost. A genuine regression blows the
-// budget on EVERY sample and still fails; only a loaded box — which blows it on
-// SOME samples — is forgiven.
-//
-// Rules for callers, both load-bearing:
-//   1. Setup is not timed. Build the App/Bag/Viewer outside the sample closure,
-//      or rebuild it inside and start the clock after it.
-//   2. Every sample must re-run the SAME code path. If the op is one-shot — a
-//      key that consumes the approval modal, an `advance()` that drains a turn's
-//      events, a `submit()` that fills the single turn slot — rebuild that
-//      precondition per sample (`best_of_one_shot` / the `arm` and `prep`
-//      arguments below). Otherwise samples 2..N measure a cheap no-op, the
-//      minimum collapses to that no-op, and the budget stops meaning anything.
-//   Env vars stay set/removed OUTSIDE the sampling loops, so repeating a body
-//   under `env_lock()` can neither deadlock nor double-set/double-remove them.
 const PERF_SAMPLES: usize = 5;
 const PERF_BUDGET: Duration = Duration::from_millis(50);
 const STARTUP_BUDGET: Duration = Duration::from_millis(100);
 
-/// The least-contended of `n` timed samples. See the note above.
 fn best_of(n: usize, mut sample: impl FnMut() -> Duration) -> Duration {
     (0..n.max(1))
         .map(|_| sample())
@@ -50,24 +13,12 @@ fn best_of(n: usize, mut sample: impl FnMut() -> Duration) -> Duration {
         .expect("at least one sample")
 }
 
-/// Time one region. The clock starts after the caller's setup, and stops before
-/// any teardown the caller does with the result.
 fn timed(op: impl FnOnce()) -> Duration {
     let t0 = Instant::now();
     op();
     t0.elapsed()
 }
 
-/// Off the clock: let any turn this sample started actually land.
-///
-/// `Thinking::spawn` detaches a worker thread, and that worker calls
-/// `log_trajectory`, which reads process-global env (`ANGEL_TRAJECTORY_LOG`) at
-/// whatever moment it happens to finish. A worker still running after its test
-/// releases `env_lock()` can therefore scribble a row into the file the NEXT
-/// env-holding test is counting — an observed cross-test flake. Draining the
-/// turn here keeps every worker's side effects inside this test's env_lock
-/// window. No-op for scenarios with no live turn (the seeded ones hand `advance`
-/// a disconnected channel, which clears `thinking` on the first call).
 fn settle_turn(app: &mut App) {
     let deadline = Instant::now() + Duration::from_secs(5);
     while app.thinking.is_some() && Instant::now() < deadline {
@@ -76,9 +27,6 @@ fn settle_turn(app: &mut App) {
     }
 }
 
-/// Best-of-N for a ONE-SHOT op: each sample rebuilds `scenario` (untimed) and
-/// times a single `op` against that fresh precondition. Hands back the last
-/// scenario so the caller can keep asserting on it.
 fn best_of_one_shot(
     n: usize,
     mut scenario: impl FnMut() -> App,
@@ -89,9 +37,9 @@ fn best_of_one_shot(
     for _ in 0..n.max(1) {
         let mut app = scenario();
         let elapsed = timed(|| op(&mut app));
-        settle_turn(&mut app); // clock has stopped; see the note above
+        settle_turn(&mut app);
         best = Some(best.map_or(elapsed, |b: Duration| b.min(elapsed)));
-        last = Some(app); // the previous sample's App drops here, off the clock
+        last = Some(app);
     }
     (
         best.expect("at least one sample"),
@@ -116,7 +64,6 @@ fn assert_best_of_under(name: &str, budget: Duration, sample: impl FnMut() -> Du
     assert_best_under(name, budget, best_of(PERF_SAMPLES, sample));
 }
 
-/// Best-of-N of a one-shot op, asserted; returns the last scenario.
 fn assert_one_shot_under(
     name: &str,
     budget: Duration,
@@ -129,18 +76,12 @@ fn assert_one_shot_under(
 }
 
 fn assert_draw_under_50ms(name: &str, app: &mut App, width: u16, height: u16) {
-    // A draw is repeatable: re-rendering the same frame takes the same path, so
-    // the sample is the draw itself. `draw_once` builds its backend before it
-    // starts the clock, so the sample is the `ui()` frame and nothing else.
     assert_best_of_under(name, PERF_BUDGET, || {
         draw_once(app, width, height).expect("draw")
     });
 }
 
 fn assert_image_ready_under_50ms(name: &str, app: &mut App, width: u16, height: u16) {
-    // Liveness, not a budget: the preview is encoded on a background thread, and
-    // a loaded box may take a while to hand it over. Generous on purpose — the
-    // perf claim is the render-ready draw below, which is what gets sampled.
     let deadline = Instant::now() + Duration::from_secs(5);
     while !app.viewer.preview_ready() {
         draw_once(app, width, height).expect("draw");
@@ -175,9 +116,6 @@ fn assert_shell_draw_under_50ms(name: &str, app: &mut App, width: u16, height: u
     );
 }
 
-/// A local slash command, sampled best-of-N on one App. `prep` re-establishes
-/// the precondition before each timed sample (untimed): `/hide` needs something
-/// shown, or samples 2..N would time an already-hidden no-op.
 fn assert_submit_under_50ms(name: &str, app: &mut App, prep: &[&str], input: &str) {
     assert_best_of_under(name, PERF_BUDGET, || {
         for cmd in prep {
@@ -191,10 +129,6 @@ fn assert_submit_under_50ms(name: &str, app: &mut App, prep: &[&str], input: &st
     });
 }
 
-/// A turn-starting submit is one-shot: it fills the single turn slot, so a
-/// second submit into the same App would take the cheap steer path instead
-/// (`App::submit`'s busy gate). Each sample therefore gets a fresh App, built
-/// with the input already in the composer so only `submit()` is on the clock.
 fn assert_fresh_submit_under_50ms(name: &str, scenario: impl FnMut() -> App) {
     assert_one_shot_under(name, PERF_BUDGET, scenario, |app| app.submit());
 }
@@ -218,10 +152,6 @@ fn assert_key_under_50ms(
     assert_key_armed_under_50ms(name, app, |_| {}, code, modifiers);
 }
 
-/// A key press whose precondition is consumed by the press itself (`y` answers
-/// the approval modal and the modal is gone). `arm` rebuilds that precondition
-/// before each sample, untimed — without it, samples 2..N would time a plain
-/// character insert and the minimum would no longer measure the approval path.
 fn assert_key_armed_under_50ms(
     name: &str,
     app: &mut App,
@@ -237,9 +167,6 @@ fn assert_key_armed_under_50ms(
     });
 }
 
-/// `advance()` is one-shot: it drains the turn's event queue, so a second
-/// advance on the same App would time an empty queue. Each sample rebuilds the
-/// pending turn (untimed) and times a single drain.
 fn assert_advance_under_50ms(name: &str, scenario: impl FnMut() -> App) {
     assert_one_shot_under(name, PERF_BUDGET, scenario, |app| app.advance());
 }
@@ -251,12 +178,8 @@ fn foundational_terminal_shell_entry_under_50ms() {
         eprintln!("skipping: no PTY access in this environment");
         return;
     }
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("SHELL", "/bin/sh") };
 
-    // One-shot: Ctrl-G on an App that already has a shell just toggles focus and
-    // never pays for the PTY spawn — which is the thing under budget. So every
-    // sample gets a fresh App (built off the clock) and times the first Ctrl-G.
     let mut app =
         assert_one_shot_under("shell-entry-toggle", PERF_BUDGET, seed_preview_app, |app| {
             app.on_key(ratatui::crossterm::event::KeyEvent::new(
@@ -273,7 +196,6 @@ fn foundational_terminal_shell_entry_under_50ms() {
     }
     std::thread::sleep(Duration::from_millis(20));
     assert_draw_under_50ms("shell-output-draw", &mut app, 120, 40);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("SHELL") };
 }
 
@@ -284,7 +206,6 @@ fn shell_pane_tracks_render_area_during_resize_sweep() {
         eprintln!("skipping: no PTY access in this environment");
         return;
     }
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("SHELL", "/bin/sh") };
 
     let mut app = seed_preview_app();
@@ -302,7 +223,6 @@ fn shell_pane_tracks_render_area_during_resize_sweep() {
         assert_shell_draw_under_50ms(name, &mut app, width, height);
     }
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("SHELL") };
 }
 
@@ -310,13 +230,10 @@ fn shell_pane_tracks_render_area_during_resize_sweep() {
 fn foundational_terminal_startup_under_100ms() {
     let _guard = env_lock();
     let _protocol = TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "kitty");
+    let _mcp = TestEnvGuard::set("ANGEL_MCP_CONFIG", "/nonexistent/mcp.json");
 
-    // Prime lazy process caches before measuring the complete bootstrap.
     drop(App::new(Bag::practice_for_test(), Viewer::new()));
 
-    // Here the setup IS the measurement, so the whole bootstrap repeats. It is
-    // safely re-runnable: each App is dropped after the clock stops, and the env
-    // var is set/removed outside the loop (never double-set under `env_lock`).
     const STARTUP_SAMPLES: usize = 10;
     let best = best_of(STARTUP_SAMPLES, || {
         let t0 = Instant::now();
@@ -363,10 +280,8 @@ fn profile_verifier_registry_capture() {
 #[test]
 fn foundational_terminal_preview_dump_under_50ms() {
     let _guard = env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_IMAGE_PROTOCOL", "kitty") };
 
-    // The dump is a pure render: every sample runs the identical path.
     let mut dumped = String::new();
     let best = best_of(PERF_SAMPLES, || {
         let t0 = Instant::now();
@@ -381,21 +296,18 @@ fn foundational_terminal_preview_dump_under_50ms() {
     );
     assert_best_under("preview-dump-render", PERF_BUDGET, best);
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_IMAGE_PROTOCOL") };
 }
 
 #[test]
 fn foundational_terminal_surfaces_draw_under_50ms() {
     let _guard = env_lock();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_IMAGE_PROTOCOL", "kitty") };
     let session_dir = std::env::temp_dir().join(format!(
         "angelX-terminal-command-perf-{}",
         std::process::id()
     ));
     let _ = std::fs::remove_dir_all(&session_dir);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_SESSION_DIR", &session_dir) };
 
     let png = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/agents/apollo-neutral.png");
@@ -433,7 +345,6 @@ fn foundational_terminal_surfaces_draw_under_50ms() {
     }
 
     if pty_available() {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var("SHELL", "/bin/sh") };
         let mut shell_resize_app = seed_preview_app();
         shell_resize_app.on_key(ratatui::crossterm::event::KeyEvent::new(
@@ -447,7 +358,6 @@ fn foundational_terminal_surfaces_draw_under_50ms() {
         ] {
             assert_shell_draw_under_50ms(name, &mut shell_resize_app, width, height);
         }
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var("SHELL") };
     } else {
         eprintln!("skipping shell-resize sweep: no PTY access in this environment");
@@ -479,8 +389,6 @@ fn foundational_terminal_surfaces_draw_under_50ms() {
     ] {
         assert_draw_under_50ms(name, &mut artifact_app, width, height);
     }
-    // These local commands are all idempotent — re-running one takes the same
-    // path — except `/hide`, which needs an image on screen to have work to do.
     assert_submit_under_50ms("command-media-page", &mut artifact_app, &[], "/media");
     assert_submit_under_50ms("command-open-image", &mut artifact_app, &[], "/open 1");
     assert_submit_under_50ms(
@@ -527,15 +435,11 @@ fn foundational_terminal_surfaces_draw_under_50ms() {
         "parse-hear-small-audio",
         &format!("/hear \"{}\" Transcribe this.", audio_path.display()),
     );
-    // Turn-starting submit: fresh App per sample (the composer is filled off the
-    // clock), so every sample times a real turn spawn and not the steer path.
     assert_fresh_submit_under_50ms("submit-plain-message", || {
         let mut app = seed_practice_only_app();
         app.input = "check cockpit responsiveness".to_string();
         app
     });
-    // …and the advance that picks the practice reply up: the scenario (submit,
-    // then let the worker land) is rebuilt per sample, off the clock.
     assert_advance_under_50ms("advance-practice-reply", || {
         let mut app = seed_practice_only_app();
         app.input = "check cockpit responsiveness".to_string();
@@ -577,8 +481,6 @@ fn foundational_terminal_surfaces_draw_under_50ms() {
         ratatui::crossterm::event::KeyModifiers::NONE,
     );
 
-    // Each advance sample re-seeds its pending turn (untimed) — an advance on an
-    // already-drained App would time an empty queue, not the event batch.
     assert_advance_under_50ms("advance-event-batch", || {
         seed_advancing_app(
             vec![
@@ -644,9 +546,7 @@ fn foundational_terminal_surfaces_draw_under_50ms() {
         assert_draw_under_50ms(name, &mut image_app, width, height);
     }
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_IMAGE_PROTOCOL") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_SESSION_DIR") };
     let _ = std::fs::remove_dir_all(session_dir);
 }

@@ -19,11 +19,8 @@ use std::thread;
 use std::time::Duration;
 
 const WAIT: Duration = Duration::from_secs(5);
-/// How often the door looks each way.
 const DOOR_POLL: Duration = Duration::from_millis(2);
 
-/// A TLS door to `to`, with a certificate for `localhost`: its address,
-/// the certificate (DER) to trust, and its connections, to cut.
 struct Door {
     addr: SocketAddr,
     cert: Vec<u8>,
@@ -64,7 +61,6 @@ impl Door {
     }
 }
 
-/// One connection through the door: TLS on the outside, plain to the server.
 fn terminate(config: Arc<ServerConfig>, client: TcpStream, to: SocketAddr) {
     let Ok(mut server) = TcpStream::connect(to) else { return };
     client.set_read_timeout(Some(DOOR_POLL)).unwrap();
@@ -111,7 +107,6 @@ fn a_wss_socket_joins_through_a_tls_door_whose_certificate_it_trusts() {
     ws.send(&hello()).unwrap();
     let Some(Message::Binary(first)) = ws.recv(WAIT).unwrap() else { panic!("no answer") };
     assert!(matches!(ToClient::decode(&first), Ok(ToClient::Welcome(w)) if w.seat.is_some()));
-    // Snapshots follow, a whole one first, and pings are answered under TLS.
     let mut snapshots = 0;
     while snapshots < 10 {
         if let Some(Message::Binary(b)) = ws.recv(WAIT).unwrap()
@@ -128,15 +123,12 @@ fn a_wss_socket_joins_through_a_tls_door_whose_certificate_it_trusts() {
 fn certificates_are_verified_against_the_roots_and_the_name() {
     let server = start();
     let door = Door::start(server.addr());
-    // The public roots do not know a certificate made here.
     let url = format!("wss://localhost:{}/ws", door.addr.port());
     let refused = WsClient::connect_trusting(&url, WAIT, &Trust::Public).err().expect("refused");
     assert!(refused.to_string().contains("UnknownIssuer"), "{refused}");
-    // A trusted certificate for another name: the link's host is checked.
     let by_ip = format!("wss://127.0.0.1:{}/ws", door.addr.port());
     let refused = WsClient::connect_trusting(&by_ip, WAIT, &Trust::Only(vec![door.cert.clone()])).err().expect("refused");
     assert!(refused.to_string().contains("not valid for name"), "{refused}");
-    // And plain ws:// to a TLS door does not get through.
     assert!(WsClient::connect(&format!("ws://localhost:{}/ws", door.addr.port()), Duration::from_secs(2)).is_err());
     server.stop();
 }
@@ -152,7 +144,6 @@ fn a_native_link_plays_over_an_https_link_and_comes_back_through_it() {
     let playing = |l: &NativeLink<Headless>| *l.status() == LinkStatus::Playing && l.runtime().seat().is_some();
     assert!(frames_until(&mut native, &clock, WAIT, playing), "{:?}", native.status());
     let seat = native.runtime().seat();
-    // Commands go up through TLS and are answered.
     native.hands().stick(Some((127, 0)));
     assert!(frames_until(&mut native, &clock, WAIT, |l| {
         let m = l.runtime().game().unwrap().muster();
@@ -166,12 +157,6 @@ fn a_native_link_plays_over_an_https_link_and_comes_back_through_it() {
     server.stop();
 }
 
-/// A public `wss://` server, by hand: `cargo test -p angel-bots --test tls
-/// -- --ignored`. It needs the network, so it is never part of a run. The
-/// certificate verifies against the compiled-in roots and the upgrade is
-/// accepted; with no roots at all it is refused. (Public echo servers
-/// greet in text, which the game's binary-only protocol refuses, so the
-/// echo itself is not checked.)
 #[test]
 #[ignore]
 fn a_public_wss_server_verifies_against_the_compiled_in_roots() {

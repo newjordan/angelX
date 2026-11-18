@@ -1,8 +1,5 @@
 use super::*;
 
-/// An open first-floor room of the Crypt, emptied and calmed, knight one on
-/// the left, and a Hollow One holding still in the far corner (keeping the
-/// fight on, and keeping any hole open).
 fn with_a_hollow() -> (Run, u32) {
     let mut run = Run::new(4, 1, None);
     run.begin_in(Pack::Crypt);
@@ -20,9 +17,6 @@ fn with_a_hollow() -> (Run, u32) {
     let hollow = run.enemies.last_mut().unwrap();
     (hollow.stage, hollow.timer) = (1, 0);
     let id = hollow.id;
-    // Re-pinned 2026-11-02: the Crypt's art-pack scenery grows pillars where
-    // the old fixture stood; find clear floor on the room's left instead,
-    // or a wedged knight cannot walk at all.
     let mut clear = None;
     'find: for gx in 2..8 {
         for gy in 3..20 {
@@ -38,7 +32,6 @@ fn with_a_hollow() -> (Run, u32) {
     (run, id)
 }
 
-/// A hole opened by Hollow One `owner` at `(x, y)`, its warning done.
 fn open(run: &mut Run, owner: u32, (x, y): (f32, f32), warned: bool) {
     let owner_hp = run.enemies.iter().find(|e| e.id == owner).unwrap().hp;
     run.holes.push(Hole {
@@ -67,7 +60,6 @@ fn a_hole_warns_then_drags_a_knight_in() {
     let (mut run, id) = with_a_hollow();
     let start = run.players[&1].x;
     let sy = run.players[&1].y;
-    // The hole opens five units to the knight's right, on clear floor.
     open(&mut run, id, (start + 5.0, sy), false);
     still(&mut run, HOLE_WARN - 2);
     assert_eq!(run.players[&1].x, start, "only a warning so far");

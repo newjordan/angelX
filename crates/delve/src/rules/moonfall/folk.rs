@@ -67,7 +67,6 @@ impl Folk {
             Self::Aster => "LANTERN RIDER",
         }
     }
-    /// The ink of their block and their portrait.
     pub fn ink(self) -> char {
         match self {
             Self::Mira => 'V',
@@ -80,26 +79,18 @@ impl Folk {
     }
 }
 
-/// One thing a villager does at one place: from half-hour `at` after the
-/// first dawn they are at `spot`.
 #[derive(Clone, Copy, Debug)]
 pub struct Stop {
     pub at: u32,
     pub spot: Spot,
-    /// Behind the door: not seen once they have arrived.
     pub inside: bool,
-    /// Hurrying (the way home when the Gloam draws near).
     pub fast: bool,
-    /// The routine line it writes in the Ledger, or `NONE`.
     pub routine: u8,
-    /// The street lantern they light on arriving.
     pub lamp: Option<u8>,
 }
 
 pub const NONE: u8 = 255;
 
-/// Half-hours since dawn of the first day for `hour:half` of day 1 (hours
-/// past midnight count on: 24 is midnight, 30 the next dawn).
 const fn h(hour: u32, half: u32) -> u32 {
     (hour - 6) * 2 + half
 }
@@ -120,8 +111,6 @@ const fn lamp(at: u32, spot: Spot, n: u8, note: &'static str) -> Entry {
     Entry { at, spot, inside: false, lamp: Some(n), note }
 }
 
-/// A day of one villager's routine, with the line the Ledger keeps for each
-/// stop (empty: nothing is written).
 fn day_of(folk: Folk) -> Vec<Entry> {
     match folk {
         Folk::Mira => vec![
@@ -168,7 +157,6 @@ fn day_of(folk: Folk) -> Vec<Entry> {
             e(h(13, 0), Spot::BridgePost, false, "WATCHES THE BRIDGE"),
             e(h(20, 0), Spot::HutDoor, true, "RAISES THE BRIDGE AT EIGHT"),
         ],
-        // Aster rides in on the second day only (`program`).
         Folk::Aster => vec![],
     }
 }
@@ -178,20 +166,15 @@ pub fn routine_text(folk: Folk, id: u8) -> &'static str {
     day.get(usize::from(id)).map_or("", |s| s.note)
 }
 
-/// A villager's stop is "worth a line" in the Ledger when it names one.
 pub fn routine_time(folk: Folk, id: u8) -> Option<u32> {
     day_of(folk).get(usize::from(id)).map(|s| s.at % 48)
 }
 
-/// A whole program: the day's routine three times over, with the second
-/// day's iron cart for the forge, and Aster's one evening.
 pub fn program(folk: Folk) -> Vec<Stop> {
     let mut out = Vec::new();
     for d in 0..clock::DAYS {
         let mut day = day_of(folk);
         if folk == Folk::Nessa && d == 1 {
-            // The iron cart comes at dawn on the second day: the forge from
-            // half past six, all day.
             day[1].spot = Spot::ForgeAt;
             day[1].note = "MEETS THE IRON CART AT THE FORGE";
         }
@@ -200,8 +183,6 @@ pub fn program(folk: Folk) -> Vec<Stop> {
                 at: entry.at + d * 48,
                 spot: entry.spot,
                 inside: entry.inside,
-                // The third evening everyone hurries home before the
-                // Third Midnight.
                 fast: d == 2 && entry.inside && entry.at >= h(19, 0),
                 routine: if entry.note.is_empty() { NONE } else { i as u8 },
                 lamp: entry.lamp,
@@ -227,7 +208,6 @@ pub fn aster_text(id: u8) -> &'static str {
     }
 }
 
-/// One leg of a villager's day: when they set out, when they arrive.
 #[derive(Clone, Debug)]
 pub struct Leg {
     pub depart: u32,
@@ -237,20 +217,15 @@ pub struct Leg {
     pub inside: bool,
     pub routine: u8,
     pub lamp: Option<u8>,
-    /// The tick the stop is nominally for (they should be there by then).
     pub at: u32,
-    /// Q-pixels a tick on this leg.
     pub pace: i32,
 }
 
-/// Folk walk 1.5 pixels a tick; a hurrying one 2.4.
 pub const PACE_Q: i32 = 384;
 pub const HURRY_Q: i32 = 614;
 
-/// Every villager's legs for a day of `day` ticks.
 pub struct Timetable {
     pub legs: [Vec<Leg>; 6],
-    /// When each villager can be seen, as ticks `[from, to)`, in order.
     pub seen: [Vec<(u32, u32)>; 6],
 }
 
@@ -325,7 +300,6 @@ fn build(day: u32) -> Timetable {
     Timetable { legs, seen }
 }
 
-/// The timetable for a day length (cached: a pure function of it).
 pub fn timetable(day: u32) -> Arc<Timetable> {
     static CACHE: OnceLock<Mutex<BTreeMap<u32, Arc<Timetable>>>> = OnceLock::new();
     if let Some(t) = CACHE.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner()).get(&day) {
@@ -340,24 +314,19 @@ pub fn timetable(day: u32) -> Arc<Timetable> {
     made
 }
 
-/// A villager, as the knights can see them this tick.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Figure {
     pub folk: Folk,
-    /// Pixels.
     pub x: i32,
     pub y: i32,
     pub visible: bool,
     pub moving: bool,
-    /// 0 south, 1 north, 2 west, 3 east.
     pub face: u8,
-    /// The leg they are on, and the routine line it earns once arrived.
     pub leg: usize,
     pub arrived: bool,
     pub routine: u8,
 }
 
-/// Where along `route` the walker is after `travelled` Q-pixels.
 fn along(route: &[(i32, i32)], travelled: i32) -> ((i32, i32), u8) {
     let mut left = travelled / town::Q;
     let mut face = 0;
@@ -378,8 +347,6 @@ fn along(route: &[(i32, i32)], travelled: i32) -> ((i32, i32), u8) {
     (*route.last().unwrap_or(&(0, 0)), face)
 }
 
-/// Where `folk` is at `clock`. Aster, once shod at `shod`, rides to the
-/// well and then home along a program of his own (`aster_after_shoe`).
 pub fn figure(folk: Folk, clock: u32, day: u32, shod: Option<u32>) -> Figure {
     let table = timetable(day);
     let legs = &table.legs[folk.index()];
@@ -396,7 +363,6 @@ pub fn figure(folk: Folk, clock: u32, day: u32, shod: Option<u32>) -> Figure {
     } else {
         (leg.spot.px(), if leg.spot == Spot::EastGate { 3 } else { 0 })
     };
-    // Aster is off the road until he rides in, and off it again once gone.
     let on_stage = folk != Folk::Aster || (legs[1].depart <= clock && clock < legs[2].arrive);
     Figure {
         folk,
@@ -411,8 +377,6 @@ pub fn figure(folk: Folk, clock: u32, day: u32, shod: Option<u32>) -> Figure {
     }
 }
 
-/// Aster after his horse is shod at `t`: from the gate to the well's east
-/// side, there until 22:00, then out of the east gate again.
 fn aster_after_shoe(clock: u32, day: u32, t: u32) -> Figure {
     let there = town::route(Spot::EastGate, Spot::WellEast);
     let travel = (i64::from(length(&there)) * i64::from(town::Q) / i64::from(PACE_Q)) as u32;
@@ -443,19 +407,15 @@ fn aster_after_shoe(clock: u32, day: u32, t: u32) -> Figure {
     }
 }
 
-/// The tick Aster stands at the well once he has been shod at `shod`.
 pub fn aster_at_well(shod: u32) -> u32 {
     let there = town::route(Spot::EastGate, Spot::WellEast);
     shod + (i64::from(length(&there)) * i64::from(town::Q) / i64::from(PACE_Q)) as u32
 }
 
-/// Every villager now.
 pub fn everyone(clock: u32, day: u32, shod: Option<u32>) -> Vec<Figure> {
     CAST.iter().map(|&f| figure(f, clock, day, shod)).collect()
 }
 
-/// How far into each day's dawn-to-dawn cycle lantern `n` is lit: the tick
-/// the lamplighter reaches it (the same every day).
 pub fn lamp_lit_at(n: u8, day: u32) -> Option<u32> {
     let table = timetable(day);
     table.legs[Folk::Mira.index()]
@@ -539,7 +499,6 @@ mod tests {
         let eve = figure(Folk::Aster, clock::ticks(D, h(17, 1) + 48), D, None);
         assert!(eve.visible && eve.arrived);
         assert_eq!((eve.x, eve.y), Spot::EastGate.px());
-        // Shod, he is at the well some while later.
         let shod = clock::ticks(D, h(17, 0) + 48);
         let well = figure(Folk::Aster, aster_at_well(shod) + 5, D, Some(shod));
         assert_eq!((well.x, well.y), Spot::WellEast.px());
@@ -565,8 +524,6 @@ mod tests {
 mod table {
     use super::*;
 
-    /// `cargo test -p angel-delve print_the_schedules -- --ignored --nocapture`:
-    /// the legs of every day, for the brief.
     #[test]
     #[ignore = "prints the schedules"]
     fn print_the_schedules() {

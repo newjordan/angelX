@@ -80,8 +80,6 @@ fn assignment(word: &str) -> bool {
         .is_some_and(|ch| ch == '_' || ch.is_ascii_alphabetic())
         && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
 }
-/// Avoid an FFI call for the common, simple test command with an environment
-/// prefix. It is enabled only for the built-in generation.
 fn fast_assignment_cargo(command: &str) -> Option<bool> {
     if !command
         .as_bytes()
@@ -137,9 +135,6 @@ fn fast_assignment_cargo(command: &str) -> Option<bool> {
                 && words.iter().any(|w| w.eq_ignore_ascii_case("--check")))
     }))
 }
-/// 0 = status-bearing verifier, 1 = test anywhere, 2 = status-bearing build.
-/// Invalid native results use the embedded implementation; failure there is
-/// conservative and cannot manufacture a verification receipt.
 pub(super) fn classify(command: &str, mode: i32) -> bool {
     if mode != 1 && command.contains("||") {
         return false;

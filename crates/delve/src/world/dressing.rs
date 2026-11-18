@@ -25,51 +25,40 @@ use std::collections::BinaryHeap;
 use std::cmp::Reverse;
 use std::sync::OnceLock;
 
-/// What can stand in a cluster.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Item {
-    // Greenwood
     FallenLog,
     StumpAxe,
     MushroomRing,
     Hide,
     Woodpile,
-    // The Highlands
     Cairn,
     Fold,
     Scree,
     WatchStub,
-    // The Wastes
     Bones,
     BurntCart,
     AshPit,
-    // The Coast
     Boat,
     Nets,
     Driftwood,
     TidePool,
-    // The Fen
     Punt,
     EelTraps,
     Reeds,
     StiltHut,
-    // The farm country
     Stooks,
     Scarecrow,
     Stile,
     Hives,
-    // The Tilt-Yards
     Rail,
     LanceRack,
-    // The Fairground
     Wagon,
     Bunting,
     Barrels,
-    // The March
     BurntPost,
     Milestone,
     Cross,
-    // Castle Town
     Barrow,
     Trough,
     Stocks,
@@ -79,7 +68,6 @@ pub enum Item {
 }
 
 impl Item {
-    /// Every kind of thing there is.
     pub const ALL: [Item; 38] = [
         Item::FallenLog,
         Item::StumpAxe,
@@ -121,8 +109,6 @@ impl Item {
         Item::Garden,
     ];
 
-    /// Whether this thing may stand on terrain `t`: open meadow, ash and
-    /// shore for all; marsh for the Fen's; crop strips for the field's.
     fn stands_on(self, t: u8) -> bool {
         match t {
             b'.' | b'a' | b's' => true,
@@ -132,7 +118,6 @@ impl Item {
         }
     }
 
-    /// Tiles a wide thing takes either side of its foot.
     pub fn reach(self) -> i32 {
         match self {
             Item::Fold | Item::Boat | Item::Nets | Item::FallenLog | Item::Wagon | Item::Rail | Item::Punt | Item::Garden => 1,
@@ -184,8 +169,6 @@ impl Item {
     }
 }
 
-/// One thing standing: what, on which tile (its foot), and whether it is
-/// drawn turned about.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Piece {
     pub item: Item,
@@ -195,13 +178,10 @@ pub struct Piece {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Class {
-    /// A clearing with a footpath to the road; a find may stand in it.
     Wild,
-    /// A thing or two beside a road.
     Road,
 }
 
-/// One cluster: its centre (a wild camp's bay), the biome, the story told.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Camp {
     pub at: (i32, i32),
@@ -210,24 +190,18 @@ pub struct Camp {
     pub story: &'static str,
 }
 
-/// Everything the realm is dressed with.
 pub struct Dressing {
-    /// Every thing, back to front (by the row its foot stands on).
     pub pieces: Vec<Piece>,
     pub camps: Vec<Camp>,
-    /// The tiles of every footpath.
     pub trails: Vec<bool>,
-    /// Which wild camp's clearing each tile lies in (its index + 1), or 0.
     bays: Vec<u16>,
 }
 
 impl Dressing {
-    /// Whether tile `(x, y)` is a footpath.
     pub fn trail(&self, x: i32, y: i32) -> bool {
         x >= 0 && y >= 0 && x < MAP_W && y < MAP_H && self.trails[(y * MAP_W + x) as usize]
     }
 
-    /// The camp whose clearing tile `(x, y)` lies in, if any.
     pub fn bay_at(&self, x: i32, y: i32) -> Option<&Camp> {
         if x < 0 || y < 0 || x >= MAP_W || y >= MAP_H {
             return None;
@@ -236,12 +210,9 @@ impl Dressing {
     }
 }
 
-/// The realm's dressing, worked out once.
 pub fn get() -> &'static Dressing {
     static DRESSING: OnceLock<Dressing> = OnceLock::new();
     DRESSING.get_or_init(|| {
-        // The blank-slate plan (`super::plan`) has no camps, clusters or
-        // footpaths: the hillside is bare.
         if super::plan::tabula() {
             let n = (MAP_W * MAP_H) as usize;
             return Dressing { pieces: Vec::new(), camps: Vec::new(), trails: vec![false; n], bays: vec![0; n] };
@@ -253,7 +224,6 @@ pub fn get() -> &'static Dressing {
 struct Story {
     name: &'static str,
     class: Class,
-    /// Each thing and its tile, from the camp's centre.
     items: &'static [(Item, i8, i8)],
 }
 
@@ -265,9 +235,7 @@ const fn way(name: &'static str, items: &'static [(Item, i8, i8)]) -> Story {
     Story { name, class: Class::Road, items }
 }
 
-/// Each biome's stories, in `Biome::ALL` order.
 const STORIES: [&[Story]; 11] = [
-    // Castle Town
     &[
         way("market barrows", &[(Item::Barrow, 0, 0), (Item::Trough, 3, 1)]),
         way("the stocks", &[(Item::Stocks, 0, 0), (Item::Barrow, -3, 1)]),
@@ -275,14 +243,12 @@ const STORIES: [&[Story]; 11] = [
         way("a market stall", &[(Item::Stall, 0, 0), (Item::Sacks, 3, 1), (Item::Barrow, -3, 1)]),
         way("a town garden", &[(Item::Garden, 0, 0), (Item::Barrels, 3, 1)]),
     ],
-    // Greenwood
     &[
         wild("woodcutter's camp", &[(Item::StumpAxe, -3, 0), (Item::FallenLog, 3, 1), (Item::Woodpile, 3, -2)]),
         wild("mushroom glade", &[(Item::MushroomRing, -3, 1), (Item::FallenLog, 3, 0), (Item::StumpAxe, -2, -2)]),
         wild("hunter's hide", &[(Item::Hide, 3, -1), (Item::FallenLog, -3, 1), (Item::MushroomRing, 2, 2)]),
         way("a felled tree", &[(Item::StumpAxe, 0, 0), (Item::Woodpile, 3, 1)]),
     ],
-    // The Highlands
     &[
         wild("cairns", &[(Item::Cairn, -3, 0), (Item::Cairn, 3, 1), (Item::Scree, 0, 2)]),
         wild("shepherd's fold", &[(Item::Fold, -4, 1), (Item::Scree, 3, -1), (Item::Cairn, 3, 2)]),
@@ -290,7 +256,6 @@ const STORIES: [&[Story]; 11] = [
         wild("prospector's dig", &[(Item::Barrow, -3, 0), (Item::Scree, 3, 1), (Item::Woodpile, 0, -2)]),
         way("a waymarker cairn", &[(Item::Cairn, 0, 0), (Item::Scree, 3, 1)]),
     ],
-    // The Wastes
     &[
         wild("bone field", &[(Item::Bones, -3, 1), (Item::Bones, 3, 0), (Item::Scree, 0, 2)]),
         wild("burnt cart", &[(Item::BurntCart, -3, 0), (Item::AshPit, 3, 1), (Item::Bones, 2, -2)]),
@@ -300,7 +265,6 @@ const STORIES: [&[Story]; 11] = [
         way("a roadside heap of bones", &[(Item::Bones, 0, 0), (Item::Scree, 3, 1)]),
         way("a charred post", &[(Item::BurntPost, 0, 0), (Item::AshPit, 3, 1)]),
     ],
-    // The Coast
     &[
         wild("beached boat", &[(Item::Boat, -3, 1), (Item::Driftwood, 3, 0), (Item::TidePool, 1, 2)]),
         wild("net-menders", &[(Item::Nets, -3, 0), (Item::Boat, 3, 1), (Item::Driftwood, 0, -2)]),
@@ -308,14 +272,12 @@ const STORIES: [&[Story]; 11] = [
         wild("crab pots", &[(Item::EelTraps, -3, 0), (Item::Nets, 3, 1), (Item::Barrels, 0, 2)]),
         way("a drying net", &[(Item::Nets, 0, 0), (Item::Driftwood, 3, 1)]),
     ],
-    // The Fen
     &[
         wild("sunken punt", &[(Item::Punt, -3, 1), (Item::EelTraps, 3, 0), (Item::Reeds, 2, -2)]),
         wild("stilt hut", &[(Item::StiltHut, -3, -1), (Item::EelTraps, 3, 1), (Item::Reeds, 0, 2)]),
         wild("reed cutters", &[(Item::Reeds, -3, 0), (Item::Reeds, 3, 1), (Item::Punt, 0, -2)]),
         way("eel traps", &[(Item::EelTraps, 0, 0), (Item::Reeds, 3, 1)]),
     ],
-    // The Tilt-Yards
     &[
         wild("the horse lines", &[(Item::Rail, -3, 1), (Item::LanceRack, 3, 0), (Item::Trough, 0, -2)]),
         wild("a paddock end", &[(Item::Rail, -3, 0), (Item::Rail, 3, 1), (Item::Barrels, 0, 2)]),
@@ -323,7 +285,6 @@ const STORIES: [&[Story]; 11] = [
         way("hitching rail", &[(Item::Rail, 0, 0), (Item::LanceRack, 3, 0)]),
         way("spare lances", &[(Item::LanceRack, 0, 0), (Item::Rail, 3, 1)]),
     ],
-    // The Fairground
     &[
         wild("packed-up wagon", &[(Item::Wagon, -3, 0), (Item::Barrels, 3, 1), (Item::Bunting, 2, -2)]),
         wild("bunting poles", &[(Item::Bunting, -3, 0), (Item::Bunting, 3, 0), (Item::Barrels, 0, 2)]),
@@ -331,7 +292,6 @@ const STORIES: [&[Story]; 11] = [
         way("stacked barrels", &[(Item::Barrels, 0, 0), (Item::Bunting, 3, 0)]),
         way("a fair barrow", &[(Item::Barrow, 0, 0), (Item::Sacks, 3, 1)]),
     ],
-    // Wind Country
     &[
         wild("hay field", &[(Item::Stooks, -3, 0), (Item::Stooks, 3, 1), (Item::Stile, 0, 2)]),
         wild("bee garden", &[(Item::Hives, -3, 0), (Item::Stile, 3, 1), (Item::Stooks, 0, -2)]),
@@ -339,7 +299,6 @@ const STORIES: [&[Story]; 11] = [
         wild("sheep pen", &[(Item::Fold, -4, 1), (Item::Stile, 3, 0), (Item::Stooks, 3, 2)]),
         way("hay stooks", &[(Item::Stooks, 0, 0), (Item::Stile, 3, 1)]),
     ],
-    // Longbow Country
     &[
         wild("bee garden", &[(Item::Hives, -3, 0), (Item::Stile, 3, 1), (Item::Stooks, 0, -2)]),
         wild("scarecrow", &[(Item::Scarecrow, -3, 0), (Item::Stooks, 3, 0), (Item::Stile, 0, 2)]),
@@ -347,7 +306,6 @@ const STORIES: [&[Story]; 11] = [
         wild("fowler's corner", &[(Item::Hide, 3, -1), (Item::Stile, -3, 1), (Item::Stooks, 0, 2)]),
         way("a stile", &[(Item::Stile, 0, 0), (Item::Stooks, 3, 1)]),
     ],
-    // The March
     &[
         wild("burnt watch post", &[(Item::BurntPost, -3, 0), (Item::Cairn, 3, 1), (Item::Cross, 0, -2)]),
         wild("wayside cross", &[(Item::Cross, -3, 0), (Item::Milestone, 3, 1), (Item::Cairn, 0, 2)]),
@@ -360,7 +318,6 @@ const STORIES: [&[Story]; 11] = [
     ],
 ];
 
-/// How many wild camps and waysides a chunk of each biome is asked for.
 fn quota(b: Biome) -> (usize, usize) {
     match b {
         Biome::CastleTown => (0, 2),
@@ -370,23 +327,14 @@ fn quota(b: Biome) -> (usize, usize) {
     }
 }
 
-/// The tiles a thing may shift to when the story's own is taken: its own,
-/// then each way round it.
 const SLOTS: [(i32, i32); 13] =
     [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1), (2, 0), (-2, 0), (0, 2), (0, -2)];
 
-/// No two wild camps nearer than this (tiles); wayside things may stand
-/// closer.
 const SPACING: i32 = 9;
 const WAY_SPACING: i32 = 8;
-/// How far (tiles, across and down) from a spot something to walk to must
-/// be: about the half of a screen either way, a little less.
 const GAP: (i32, i32) = (10, 6);
-/// No view of 24 x 14 tiles holds more things than this, nor more of one
-/// kind than [`SAME`].
 const CROWD: usize = 9;
 const SAME: usize = 4;
-/// A trail longer than this is not laid.
 const TRAIL_MAX: u32 = 34;
 
 fn idx(x: i32, y: i32) -> usize {
@@ -401,7 +349,6 @@ fn chebyshev(a: (i32, i32), b: (i32, i32)) -> i32 {
     (a.0 - b.0).abs().max((a.1 - b.1).abs())
 }
 
-/// Steps from each tile to the nearest road, up to 8.
 fn road_steps(geo: &Geography) -> Vec<u8> {
     let mut near = vec![8u8; (MAP_W * MAP_H) as usize];
     let mut frontier: Vec<(i32, i32)> = (0..MAP_H)
@@ -426,8 +373,6 @@ fn road_steps(geo: &Geography) -> Vec<u8> {
     near
 }
 
-/// Where nothing may stand: set pieces, lots, doors, castles, the College,
-/// the Delve's gate, fingerposts, the regions' names and the roads' verges.
 fn keep_out(geo: &Geography) -> Vec<bool> {
     let mut no = vec![false; (MAP_W * MAP_H) as usize];
     let mut mark = |x0: i32, y0: i32, x1: i32, y1: i32| {
@@ -441,7 +386,6 @@ fn keep_out(geo: &Geography) -> Vec<bool> {
         mark(ox - 2, oy - 2, ox + SCREEN_W + 2, oy + SCREEN_H + 2);
     }
     for site in &geo.sites {
-        // A door keeps three tiles clear all round: well over two.
         mark(site.stand.0 - 3, site.stand.1 - 3, site.stand.0 + 4, site.stand.1 + 4);
         if let Some(l) = site.lot {
             mark(l.tx - 3, l.ty - 3, l.tx + l.tw + 3, l.ty + l.th + 4);
@@ -486,7 +430,6 @@ struct Planner<'a> {
 }
 
 impl Planner<'_> {
-    /// Open ground a thing of `item`'s kind may stand on at `(x, y)`.
     fn open(&self, item: Option<Item>, x: i32, y: i32) -> bool {
         inside(x, y)
             && !self.no[idx(x, y)]
@@ -499,16 +442,12 @@ impl Planner<'_> {
             }
     }
 
-    /// Try to raise `story` with its centre at `at`; the pieces if enough
-    /// of its things find open ground.
     fn raise(&self, story: &Story, at: (i32, i32), mirror: bool, far: u8) -> Option<Vec<Piece>> {
         let wild = story.class == Class::Wild;
         if !self.open(None, at.0, at.1) {
             return None;
         }
         if wild {
-            // The bay: three tiles each way, all open, and a spot a find
-            // may stand on.
             if !self.spots[idx(at.0, at.1)] {
                 return None;
             }
@@ -526,7 +465,6 @@ impl Planner<'_> {
         for (k, &(item, dx, dy)) in story.items.iter().enumerate() {
             let dx = if mirror { -i32::from(dx) } else { i32::from(dx) };
             let reach = item.reach();
-            // Where the story has it, else the nearest open ground to that.
             for (ox, oy) in SLOTS {
                 let (x, y) = (at.0 + dx + ox, at.1 + i32::from(dy) + oy);
                 let clear = (!wild || chebyshev((x, y), at) >= 2 + reach)
@@ -562,9 +500,6 @@ impl Planner<'_> {
 }
 
 impl Planner<'_> {
-    /// Raise one cluster of `class` for biome `home` with its centre at
-    /// `at` if any of the biome's stories of that class fits there, and
-    /// no other camp of its class stands within the class's spacing.
     fn place(&mut self, out: &mut (Vec<Camp>, Vec<Piece>), home: Biome, at: (i32, i32), class: Class, far: u8) -> bool {
         let gap = if class == Class::Wild { SPACING } else { WAY_SPACING };
         if out.0.iter().any(|c| chebyshev(c.at, at) < gap) {
@@ -580,10 +515,6 @@ impl Planner<'_> {
         for s in 0..stories.len() {
             let story = stories[(first + s) % stories.len()];
             if let Some(raised) = self.raise(story, at, mirror, far) {
-                // Never a crowd, never one thing over and over: no view's worth
-                // of country is to hold more than [`CROWD`] things, or [`SAME`]
-                // of a kind, with these in it.
-                // Every view that would take one of the new things.
                 let (x0, x1) = (raised.iter().map(|p| p.at.0).min().unwrap_or(at.0), raised.iter().map(|p| p.at.0).max().unwrap_or(at.0));
                 let (y0, y1) = (raised.iter().map(|p| p.at.1).min().unwrap_or(at.1), raised.iter().map(|p| p.at.1).max().unwrap_or(at.1));
                 let near: Vec<&Piece> =
@@ -626,14 +557,11 @@ fn build(geo: &Geography) -> Dressing {
     };
     let mut out: (Vec<Camp>, Vec<Piece>) = (Vec::new(), Vec::new());
     let in_chunk = |at: (i32, i32), cx: i32, cy: i32| at.0 / CHUNK_W == cx && at.1 / CHUNK_H == cy;
-    // Two rounds: what each chunk is asked for, then once more for any
-    // chunk still bare, with more tries.
     for (round, tries) in [(0, 160u32), (1, 400)] {
         for cy in 0..CHUNKS_Y {
             for cx in 0..CHUNKS_X {
                 let home = biome::chunk(cx, cy);
                 let (x0, y0) = (cx * CHUNK_W, cy * CHUNK_H);
-                // A chunk with a set piece already has its own place.
                 if set_pieces().any(|(_, (ox, oy))| in_chunk((ox, oy), cx, cy)) {
                     continue;
                 }
@@ -642,7 +570,6 @@ fn build(geo: &Geography) -> Dressing {
                 let wants = if round == 0 {
                     [(Class::Wild, want_wild), (Class::Road, want_way)]
                 } else if have(&out, Class::Wild) + have(&out, Class::Road) == 0 {
-                    // Bare: any one cluster will do.
                     [(Class::Wild, 1), (Class::Road, 1)]
                 } else {
                     continue;
@@ -660,9 +587,6 @@ fn build(geo: &Geography) -> Dressing {
             }
         }
     }
-    // Last, the gaps: wherever a screen's worth of walkable country round a
-    // spot holds nothing to walk to (no cluster, no place, no fingerpost),
-    // a cluster goes in near it, anywhere off the roads.
     let mut fixed: Vec<(i32, i32)> = geo.sites.iter().map(|s| s.stand).collect();
     fixed.extend(set_pieces().map(|(_, (ox, oy))| (ox + SCREEN_W / 2, oy + SCREEN_H / 2)));
     fixed.extend(super::castles::footprints().map(|(x, y, w, h)| (x + w / 2, y + h / 2)));
@@ -702,13 +626,8 @@ fn build(geo: &Geography) -> Dressing {
     Dressing { pieces, camps, trails, bays }
 }
 
-/// A footpath from each wild camp to the nearest road: one tile wide,
-/// wandering over open ground, joining one already laid when it meets it.
 fn trails(p: &Planner<'_>, camps: &[Camp]) -> Vec<bool> {
     let mut laid = vec![false; (MAP_W * MAP_H) as usize];
-    // Where a trail may not run: a thing's tile, another camp's bay, a lot
-    // and its door, a castle, the College and the gate (a tile wider than
-    // where a thing may not stand, since the road's verge is crossed).
     let mut shut = vec![false; (MAP_W * MAP_H) as usize];
     let mut close = |x0: i32, y0: i32, x1: i32, y1: i32| {
         for y in y0.max(0)..y1.min(MAP_H) {
@@ -745,7 +664,6 @@ fn trails(p: &Planner<'_>, camps: &[Camp]) -> Vec<bool> {
         if !inside(x, y) || shut[idx(x, y)] || p.geo.room.tile(x, y) != Tile::Floor {
             return true;
         }
-        // A thing's tile or another camp's bay, but not the camp's own.
         p.claimed[idx(x, y)] && chebyshev(own, (x, y)) > 1
     };
     for camp in camps.iter().filter(|c| c.class == Class::Wild) {
@@ -762,7 +680,6 @@ fn trails(p: &Planner<'_>, camps: &[Camp]) -> Vec<bool> {
             if cost > TRAIL_MAX * 12 {
                 break;
             }
-            // Arrived: beside a road, or on a trail already laid.
             let by_road = at != start
                 && [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|&(dx, dy)| kingdom::is_road(p.geo, (at.0 + dx, at.1 + dy)));
             if by_road || (laid[idx(at.0, at.1)] && chebyshev(at, start) > 2) {
@@ -778,8 +695,6 @@ fn trails(p: &Planner<'_>, camps: &[Camp]) -> Vec<bool> {
                 if !matches!(ground, b'.' | b'a' | b's') {
                     continue;
                 }
-                // Wandering: each tile has its own small price, trodden
-                // ground is cheap.
                 let step = if laid[idx(n.0, n.1)] { 3 } else { 10 + hash(n.0, n.1, 820) % 6 };
                 let c = cost + step;
                 if c < best[idx(n.0, n.1)] {

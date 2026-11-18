@@ -16,7 +16,6 @@ fn finished_paint_retries_admission_without_restarting_jobs_or_rewriting_spells(
     std::fs::write(&path, source.replace("00", "11")).unwrap();
     let target = painter::Target::Card(path.clone());
     app.realm.dungeon.painters.retry(target.clone());
-    // The completion is retained while there is no world to admit it into.
     app.watch_painters();
     assert_eq!(app.realm.dungeon.painters.running(), 0);
     let mut run = crate::delve::together_shooter::Run::new(0, 9, None);
@@ -30,7 +29,6 @@ fn finished_paint_retries_admission_without_restarting_jobs_or_rewriting_spells(
     assert_eq!(painted.by, "Original maker");
     assert_eq!(painted.cooldown, 5);
     assert_eq!(run.players[&1].spell_cooldowns[0], 71);
-    // A later file edit is an executable definition change, not painter policy.
     std::fs::write(
         &path,
         source.replace("nova 10", "nova 99").replace("00", "22"),

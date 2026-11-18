@@ -7,19 +7,15 @@
 
 use super::*;
 
-/// From a body's middle to its feet (and to its head).
 pub const FOOT: f32 = 1.0;
 const HALF_W: f32 = 0.45;
 const GRAVITY: f32 = 95.0;
 const JUMP: f32 = 31.0;
-/// The second jump, in the air, is a little weaker.
 const AIR_JUMP: f32 = 28.0;
 const FALL_MAX: f32 = 40.0;
 const AIR_JUMPS: u8 = 1;
-/// Ticks a dropped knight passes through planks.
 const DROP: u32 = 8;
 const PIT_HURT: u32 = 20;
-/// How fast walkers fall, per tick.
 const WALKER_FALL: f32 = 0.8;
 
 impl Grid<'_> {
@@ -27,7 +23,6 @@ impl Grid<'_> {
         self.tile_at(x, y)
     }
 
-    /// Stone to a body moving sideways or rising.
     fn solid(&self, x: f32, y: f32) -> bool {
         match self.tile_side(x, y) {
             Tile::Wall | Tile::Block => true,
@@ -36,7 +31,6 @@ impl Grid<'_> {
         }
     }
 
-    /// A body centred at `(x, y)` overlaps stone.
     fn body_blocked(&self, x: f32, y: f32) -> bool {
         [-HALF_W, HALF_W].into_iter().any(|dx| {
             [-FOOT + 0.05, 0.0, FOOT - 0.05]
@@ -45,8 +39,6 @@ impl Grid<'_> {
         })
     }
 
-    /// Feet moving down from `from` to `to`: the top they land on, if one
-    /// lies between. Planks hold only feet that come from above them.
     fn landing(&self, x: f32, from: f32, to: f32, through_planks: bool) -> Option<f32> {
         let top = (to / TILE_UNITS).floor() * TILE_UNITS;
         if from > top + 0.001 || to < top {
@@ -61,7 +53,6 @@ impl Grid<'_> {
             })
     }
 
-    /// Something to stand on right under feet at `feet`.
     fn underfoot(&self, x: f32, feet: f32, through_planks: bool) -> bool {
         self.landing(x, feet, feet + 0.02, through_planks).is_some()
     }
@@ -71,9 +62,6 @@ impl Grid<'_> {
     }
 }
 
-/// One knight's step side-on: `dx` across (running or rolling), then the
-/// jump, the fall and the landing. Returns true when the knight fell in a
-/// pit this step.
 pub(super) fn walk(hero: &mut Hero, input: &Input, grid: &Grid, dx: f32, rolling: bool) -> bool {
     let jump = input.move_y < 0;
     if jump && !hero.jump_held && !rolling {
@@ -88,7 +76,6 @@ pub(super) fn walk(hero: &mut Hero, input: &Input, grid: &Grid, dx: f32, rolling
     hero.jump_held = jump;
     hero.dropping = hero.dropping.saturating_sub(1);
     if input.move_y > 0 && hero.grounded && !grid.underfoot(hero.x, hero.y + FOOT, true) {
-        // Standing on a plank, not stone: down drops through it.
         hero.dropping = DROP;
         hero.grounded = false;
     }
@@ -96,7 +83,6 @@ pub(super) fn walk(hero: &mut Hero, input: &Input, grid: &Grid, dx: f32, rolling
         hero.x += dx;
     }
     if rolling {
-        // The roll runs flat; gravity waits for it to end.
         hero.vy = 0.0;
     } else {
         hero.vy = (hero.vy + GRAVITY * DT).min(FALL_MAX);
@@ -122,7 +108,6 @@ pub(super) fn walk(hero: &mut Hero, input: &Input, grid: &Grid, dx: f32, rolling
             .into_iter()
             .any(|ex| grid.solid(hero.x + ex, head))
         {
-            // A bonk: the head meets stone and the rise ends.
             hero.y = ((head / TILE_UNITS).floor() + 1.0) * TILE_UNITS + FOOT;
             hero.vy = 0.0;
         } else {
@@ -137,8 +122,6 @@ pub(super) fn walk(hero: &mut Hero, input: &Input, grid: &Grid, dx: f32, rolling
     }
     let feet = hero.y + FOOT;
     if grid.pit(hero.x, feet) {
-        // The grace after a fall covers the next one: holding on toward
-        // the pit costs one bite, not five.
         if hero.invulnerable == 0 {
             hero.hp = hero.hp.saturating_sub(PIT_HURT);
         }
@@ -150,7 +133,6 @@ pub(super) fn walk(hero: &mut Hero, input: &Input, grid: &Grid, dx: f32, rolling
         hero.invulnerable = hero.invulnerable.max(HZ);
         return true;
     }
-    // Firm footing: both feet on something, for a pit to put you back on.
     if hero.grounded
         && [-HALF_W, HALF_W]
             .into_iter()
@@ -161,8 +143,6 @@ pub(super) fn walk(hero: &mut Hero, input: &Input, grid: &Grid, dx: f32, rolling
     false
 }
 
-/// A walker side-on: it keeps the ground it walks on, falls off what it
-/// walks past, and a pit is the end of it.
 pub(super) fn fall(enemy: &mut Enemy, grid: &Grid) {
     let feet = enemy.y + FOOT;
     match grid.landing(enemy.x, feet, feet + WALKER_FALL, false) {
@@ -174,8 +154,6 @@ pub(super) fn fall(enemy: &mut Enemy, grid: &Grid) {
     }
 }
 
-/// The ground under column `x`: the top of the highest stone or plank
-/// below `from`, as a body's middle standing on it.
 pub(super) fn stand_on(room: &Room, x: f32, from: f32) -> f32 {
     let col = (x / TILE_UNITS).floor() as i32;
     let mut row = (from / TILE_UNITS).floor() as i32;
@@ -189,13 +167,10 @@ pub(super) fn stand_on(room: &Room, x: f32, from: f32) -> f32 {
 }
 
 impl Run {
-    /// Whether the party stands in a side-on room.
     pub fn side_on(&self) -> bool {
         matches!(self.room().kind, RoomKind::Ledge | RoomKind::Wanted)
     }
 
-    /// Into a side-on hall: the party comes in at its low west doorway, on
-    /// the ground, falling still.
     pub(super) fn arrive_side_on(&mut self) {
         let room = &self.dungeon.rooms[self.at];
         let door_row = (0..room.rows as i32)
@@ -219,8 +194,6 @@ impl Run {
         }
     }
 
-    /// A monster's place side-on: walkers on a ledge or the ground well
-    /// away from the door, fliers in the open air above.
     pub(super) fn perch(&mut self, flies: bool) -> (f32, f32) {
         let room = &self.dungeon.rooms[self.at];
         let (cols, rows) = (room.cols, room.rows);
@@ -234,7 +207,6 @@ impl Run {
                 }
                 continue;
             }
-            // A standing place: the first stone or plank under open air.
             let start = (1 + self.rng.below(rows - 3)) as f32 * TILE_UNITS;
             let y = stand_on(room, x, start);
             let feet = y + FOOT;

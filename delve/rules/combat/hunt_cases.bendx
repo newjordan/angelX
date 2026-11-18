@@ -1,4 +1,3 @@
-# Cases recorded from the Rust original (tests/rules/hunt_bend_cases__tests.rs).
 import Base
 
 def cb.leaf_out(enemy: Enemy, shots: J.Val, deeds: Deeds, done: Bool) -> J.Val:

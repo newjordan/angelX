@@ -24,14 +24,12 @@ fn main() -> ExitCode {
     }
 }
 
-/// The stills: a name, where the knight is, how the eye follows, the clock.
 fn stills() -> Vec<(&'static str, Walker, Follow, f32)> {
     let on_road = |z: f32| {
         let x = monolith::road_x(z);
         let ahead = monolith::road_x(z - 2.0);
         Walker { x, z, heading: (ahead - x).atan2(2.0) }
     };
-    // `MONOLITH_FOLLOW=back,up,fov,orbit` tries another eye.
     let near = std::env::var("MONOLITH_FOLLOW")
         .ok()
         .and_then(|v| {
@@ -75,7 +73,6 @@ fn run() -> Result<(), String> {
             "--walk" => walk = true,
             "--fps" => fps = args.next().and_then(|v| v.parse().ok()).ok_or("--fps N")?,
             "--every" => every = args.next().and_then(|v| v.parse().ok()).ok_or("--every K")?,
-            // The walk's frames as raw RGBA on stdout, for ffmpeg.
             "--pipe" => pipe = true,
             other => return Err(format!("unknown argument {other}")),
         }

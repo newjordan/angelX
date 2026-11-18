@@ -2,9 +2,6 @@ import Base
 import ./LAWS.bend as Laws
 import ./bannerpeak-rules.bend as Peak
 
-# Each law is a closed equality over literals, so its proof only re-runs the
-# same reduction: no arithmetic and no world is assumed beyond the baked rows.
-
 def Laws.the_side_of_the_map_is_stone():
   {==}
 

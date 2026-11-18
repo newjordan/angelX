@@ -28,7 +28,6 @@ pub enum Outcome {
     Failed,
 }
 
-/// Bounded provenance, not an authorization, proof certificate, or reward.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Input {
@@ -107,7 +106,7 @@ pub fn choose(site: &Site, room: usize, input: &Input) -> Result<Plan, String> {
     let reserved: BTreeSet<_> = site.floor.rooms[..4]
         .iter()
         .map(|room| room.cell)
-        .chain([(home.0 - 1, home.1 + 1)]) // the separately paid tavern
+        .chain([(home.0 - 1, home.1 + 1)])
         .collect();
     let occupied: BTreeSet<_> = site.floor.rooms.iter().map(|room| room.cell).collect();
     let origin = (home.0 - 1, home.1);
@@ -135,8 +134,6 @@ pub fn choose(site: &Site, room: usize, input: &Input) -> Result<Plan, String> {
             if !bounded(target) || reserved.contains(&target) || occupied.contains(&target) {
                 continue;
             }
-            // The shared search counts rock as expensive and existing mining
-            // galleries as cheap. Only an adjacent connected front is cut.
             let Some(route) = shortest_path(
                 (WIDTH * WIDTH) as usize,
                 index(origin),

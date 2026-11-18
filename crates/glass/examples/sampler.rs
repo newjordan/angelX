@@ -108,7 +108,6 @@ fn paint(buf: &mut Buffer, tick: u32) {
         plain.fg(Color::LightYellow),
     );
     y += 2;
-    // A braille ring and a half-block gradient: the realm's two pictures.
     let (bw, bh) = (40u16, 8u16);
     for cy in 0..bh {
         let mut row = String::new();
@@ -163,7 +162,6 @@ fn main() {
         loop {
             terminal
                 .draw(|frame| {
-                    // Paint a fixed card, then show what fits the window.
                     let mut card = Buffer::empty(Rect::new(0, 0, 100, 48));
                     paint(&mut card, tick);
                     let area = frame.area().intersection(card.area);

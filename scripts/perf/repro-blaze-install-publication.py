@@ -53,8 +53,6 @@ def main():
         env = dict(os.environ, CARGO_HOME=str(home), BLAZE_ARCHIVE=str(archive),
                    BLAZE_NO_TOOLCHAIN="1", RUSTUP_AUTO_INSTALL="0")
         env.pop("BLAZE_VERSION", None)
-        # A tripwire catches even attempted downloads. Actual local archive path
-        # must not call curl/wget, even if the machine happens to be online.
         tripwires = work / "tripwires"
         tripwires.mkdir()
         for name in ("curl", "wget"):
@@ -90,8 +88,6 @@ def main():
         report["repeat_metadata_changed"] = all(first["installed"][name] != second["installed"][name] for name in IMAGES)
         for name in IMAGES:
             (bin_dir / name).write_text("#!/bin/sh\necho old-generation\n")
-        # Fault-inject exactly one rename failure after three earlier programs
-        # publish. These are inert local scripts, never the installed compiler.
         real_mv = shutil.which("mv")
         mv = tripwires / "mv"
         mv.write_text('#!/bin/sh\ncase "$*" in *ra-jit-rustc*) echo injected-publication-failure >&2; exit 93;; esac\nexec ' + json.dumps(real_mv) + ' "$@"\n')

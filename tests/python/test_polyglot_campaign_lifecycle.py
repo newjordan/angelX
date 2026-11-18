@@ -1,5 +1,3 @@
-"""Campaign cancellation forwards through route chains without stale PID signals."""
-
 import importlib.util
 import os
 from pathlib import Path

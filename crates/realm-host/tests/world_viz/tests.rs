@@ -29,7 +29,6 @@ fn world_generation_is_deterministic_and_playable() {
     let c = World::new(8);
     assert_ne!(a.tiles, c.tiles, "different seeds → different islands");
 
-    // Every building sits on the map with a distinct position.
     assert_eq!(a.buildings.len(), 8);
     for (i, &(_, p)) in a.buildings.iter().enumerate() {
         assert!(p.0 < WORLD_W && p.1 < WORLD_H);
@@ -214,9 +213,6 @@ fn tool_traffic_drives_the_avatar() {
     w.note_tool_call("recall", "past decisions");
     assert_eq!(w.target, Building::Chapel);
 
-    // Walking: ticks converge on the target and stop there. Pin the camera
-    // wide so the chapel's close-range vignette (§6 M5) doesn't keep the
-    // loop animating — this asserts the *walk* settled, not the camera.
     w.camera.mode = CameraMode::Wide;
     let target = w.building_pos(Building::Chapel);
     for _ in 0..(WORLD_W + WORLD_H) * 4 {
@@ -225,7 +221,6 @@ fn tool_traffic_drives_the_avatar() {
     assert_eq!(w.avatar, target);
     assert!(!w.animating());
 
-    // Turn end sends the avatar home.
     w.turn_ended(true);
     assert_eq!(w.target, Building::Keep);
     assert!(w.animating());
@@ -250,7 +245,6 @@ fn storms_and_errors_track_system_health() {
     }
     assert!(w.recent_errors < 3, "passing calls clear the errors");
 
-    // Compaction is a chapel vigil.
     w.note_notice("context compaction: folded 12 messages");
     assert_eq!(w.target, Building::Chapel);
 }
@@ -293,11 +287,9 @@ fn the_quintain_absorbs_the_loop() {
     );
     assert!(!w.loop_active);
 
-    // A loop starts: the quintain turns.
     w.note_loop(true, 1, false, false, Some(budget(12_000, 2_000_000)));
     assert_eq!((w.loop_active, w.loop_iteration), (true, 1));
 
-    // The resting knight rides to the quintain and settles — the cue to expand.
     for _ in 0..(WORLD_W + WORLD_H) * 2 {
         w.tick();
         if w.visiting_quintain() {
@@ -309,11 +301,9 @@ fn the_quintain_absorbs_the_loop() {
         "knight settles at the quintain between rounds"
     );
 
-    // Escalation storms the town on its rising edge.
     w.note_loop(true, 1, true, false, Some(budget(12_000, 2_000_000)));
     assert_eq!(w.weather_label(), "storm", "escalation storms the town");
 
-    // The loop ends: the quintain stops and stops drawing the knight to it.
     w.note_loop(false, 0, false, true, None);
     assert!(!w.loop_active);
     assert!(!w.visiting_quintain());
@@ -329,17 +319,12 @@ fn creatures_blink_and_talk() {
             .collect()
     }
     let mut w = World::new(42);
-    // Park the knight at the Round Table: council chat = a talking face. Pin
-    // the camera wide so the close-range Round Table vignette (§6 M5) does
-    // not keep `animating()` true — this asserts the walk settled.
     w.camera.mode = CameraMode::Wide;
     w.note_tool_call("delegate", "council");
     for _ in 0..(WORLD_W + WORLD_H) * 4 {
         w.tick();
     }
     assert!(!w.animating(), "settled at the Round Table");
-    // Across a blink/talk window the dot field must visibly change even
-    // though nothing is walking.
     let first = flat(&w.render(46, 14));
     let mut changed = false;
     for _ in 0..90 {
@@ -372,8 +357,6 @@ fn town_names_are_cute_and_stable() {
 
 #[test]
 fn road_band_is_a_centre_cross_not_a_slab() {
-    // A path tile at close range is a half-tile cross through its centre —
-    // the centre row/column are road, the corners are open ground.
     assert!(on_road_band(3.5, 7.5), "dead centre is road");
     assert!(on_road_band(3.1, 7.5), "vertical centre band is road");
     assert!(on_road_band(3.5, 7.1), "horizontal centre band is road");
@@ -421,25 +404,23 @@ fn close_zoom_survives_size_and_zoom_matrix() {
         (200, 80),
     ] {
         for step in 0..=12u32 {
-            let zoom = 1.0 + step as f32 * 0.25; // 1.0 ..= 4.0 in 0.25 steps
+            let zoom = 1.0 + step as f32 * 0.25;
             let mut w = World::new(3);
             w.note_tool_call("shell", "git push");
             for _ in 0..20 {
                 w.tick();
             }
             w.set_zoom_for_test(zoom);
-            let _ = w.render(width, height); // must not panic or shear
+            let _ = w.render(width, height);
         }
     }
 }
 
 #[test]
 fn vignettes_do_not_spin_the_loop_when_wide() {
-    // A smithy vignette rides the arrived state, but only animates at close
-    // zoom — pinned wide, animating() still reaches false (§6 M5).
     let mut w = World::new(7);
     w.camera.mode = CameraMode::Wide;
-    w.note_tool_call("write_file", "x"); // Smithy
+    w.note_tool_call("write_file", "x");
     for _ in 0..600 {
         w.tick();
     }
@@ -449,7 +430,6 @@ fn vignettes_do_not_spin_the_loop_when_wide() {
     );
 }
 
-/// Drive the knight to its target and confirm arrival (bounded ticks).
 fn walk_to_target(w: &mut World) {
     for _ in 0..(WORLD_W + WORLD_H) * 4 {
         if w.avatar == w.dest() {
@@ -463,16 +443,14 @@ fn walk_to_target(w: &mut World) {
 #[test]
 fn auto_camera_punches_in_after_settling() {
     let mut w = World::new(7);
-    w.note_tool_call("read_file", "src/main.rs"); // → Scriptorium
+    w.note_tool_call("read_file", "src/main.rs");
     walk_to_target(&mut w);
-    // Not yet: a couple of settled ticks stays wide (hysteresis).
     w.tick();
     w.tick();
     assert_eq!(
         w.camera.zoom_target, Z_WIDE,
         "still wide before SETTLE_TICKS"
     );
-    // Sit arrived past the settle threshold → punch in.
     for _ in 0..SETTLE_TICKS + 2 {
         w.tick();
     }
@@ -485,14 +463,13 @@ fn auto_camera_punches_in_after_settling() {
 #[test]
 fn new_target_pulls_the_camera_out_immediately() {
     let mut w = World::new(7);
-    w.note_tool_call("read_file", "src/main.rs"); // Scriptorium
+    w.note_tool_call("read_file", "src/main.rs");
     walk_to_target(&mut w);
     for _ in 0..SETTLE_TICKS + 4 {
         w.tick();
     }
     assert_eq!(w.camera.zoom_target, Z_CLOSE, "settled close");
-    // A new tool target reassigns dest(); the very next tick pulls out.
-    w.note_tool_call("write_file", "src/lib.rs"); // Smithy (elsewhere)
+    w.note_tool_call("write_file", "src/lib.rs");
     w.tick();
     assert_eq!(
         w.camera.zoom_target, Z_WIDE,
@@ -502,8 +479,6 @@ fn new_target_pulls_the_camera_out_immediately() {
 
 #[test]
 fn easing_converges_so_the_loop_can_idle() {
-    // MANDATORY (invariant 5): once motion + camera settle, animating() must
-    // return false, or the event loop spins on the fast tick forever.
     let mut w = World::new(7);
     w.note_tool_call("read_file", "src/main.rs");
     for _ in 0..600 {
@@ -527,8 +502,6 @@ fn small_pane_never_leaves_wide() {
         w.tick();
     }
     assert!(w.camera.zoom > 2.0, "camera punched in internally");
-    // But a 20×6 pane pins wide (§5.1). Proof: the render ignores the close
-    // zoom — it matches a render taken with the camera forced fully wide.
     let auto_small = flat_render(&w, 20, 6);
     w.camera.zoom = Z_WIDE;
     let wide_small = flat_render(&w, 20, 6);
@@ -557,7 +530,7 @@ fn avatar_vis_lags_then_settles() {
     for _ in 0..(WORLD_W + WORLD_H) * 4 {
         w.tick();
         if !w.avatar_vis_settled() {
-            lagged = true; // visual position trails the integer avatar
+            lagged = true;
         }
         if w.avatar == w.dest() && w.avatar_vis_settled() {
             break;
@@ -815,7 +788,6 @@ fn completed_turns_credit_one_renown_while_streak_stays_atmospheric() {
     assert_eq!(w.renown, 3, "a failed turn earns nothing");
 }
 
-/// A2: hidden-stage turn end clears work without renown/streak presentation tax.
 #[test]
 fn turn_ended_hidden_stage_clears_work_without_renown() {
     let mut w = World::new(7);
@@ -888,10 +860,6 @@ fn each_turn_credits_at_most_one_verifier_and_one_research_bonus() {
 
 #[test]
 fn working_on_science_files_is_not_a_discovery() {
-    // The word "science" in tool ARGS (e.g. hacking on science.rs in this
-    // very repo) must not route to the Observatory — only the tool NAME
-    // carries that meaning. Otherwise every `grep … science.rs` success
-    // would mint a false Discovery payout.
     let mut w = World::new(9);
     w.note_tool_call("shell", "grep -n reward src/science.rs");
     assert_ne!(w.target, Building::Observatory, "args alone must not route");
@@ -903,10 +871,8 @@ fn working_on_science_files_is_not_a_discovery() {
 #[test]
 fn a_science_result_at_the_observatory_mints_a_discovery() {
     let mut w = World::new(9);
-    // A science tool routes the knight to the Observatory...
     w.note_tool_call("science_search", "graph neural networks");
     assert_eq!(w.target, Building::Observatory);
-    // ...and its first successful result earns the one research award.
     w.note_tool_result("science_search", "◇ synthesis · 12 works");
     assert_eq!(w.renown, 3);
     assert_eq!((w.xp, w.coins), (0, 0));
@@ -978,8 +944,6 @@ fn weather_tracks_session_health() {
     let mut w = World::new(3);
     assert_eq!(w.weather_label(), "", "fair skies say nothing");
 
-    // A gray run rains on the town; the first green after it hangs a
-    // rainbow (and the rain dries out with it).
     w.turn_ended(false);
     assert!(!w.raining(), "one gray turn is not a run");
     w.turn_ended(false);
@@ -989,22 +953,18 @@ fn weather_tracks_session_health() {
     assert_eq!(w.weather_label(), "rainbow");
     assert!(!w.raining(), "recovery dries the town out");
 
-    // Clouds gather when the loop budget runs thin — and clear when the
-    // loop puts the lance away.
     let mut w = World::new(3);
     w.note_loop(true, 1, false, false, Some(budget(80, 100)));
     assert_eq!(w.weather_label(), "clouds");
     w.note_loop(false, 0, false, true, None);
     assert_ne!(w.weather_label(), "clouds");
 
-    // A quota storm outranks everything.
     w.note_notice("quota exhausted, failing over");
     w.turn_ended(false);
     w.turn_ended(false);
     assert_eq!(w.weather_label(), "storm");
 }
 
-/// The sky word at the head of `/world weather`.
 fn reported_sky(w: &World) -> String {
     let report = w.weather_report();
     report
@@ -1014,8 +974,6 @@ fn reported_sky(w: &World) -> String {
         .to_string()
 }
 
-/// The stage JSON string, the `/world weather` report and the weather the map
-/// draws must name one sky. `want` is the JSON string ("" for a quiet sky).
 fn assert_one_sky(w: &World, want: &str, map: overworld::scene::Weather) {
     assert_eq!(w.weather_label(), want, "stage JSON weather");
     if !want.is_empty() {
@@ -1078,8 +1036,6 @@ fn thin_budget_clouds_outrank_the_drizzle_beneath() {
 fn quiet_session_sky_still_names_the_living_weather() {
     use overworld::scene::Weather as Map;
     let mut w = World::new(3);
-    // Living clouds and the clearing after green are not session weather: the
-    // stage JSON stays silent for them and the report names them.
     w.weather_state_for_test(life::Weather::Fair, 2, 0);
     assert_one_sky(&w, "", Map::Fair);
     assert_eq!(reported_sky(&w), "clouds");
@@ -1113,21 +1069,17 @@ fn renown_v2_migrates_and_persists_without_losing_legacy_fields() {
     ));
     let _ = std::fs::remove_file(&path);
 
-    // A missing or corrupt file reads as a fresh start, never a crash.
     let fresh = World::load_rewards(&path);
     assert_eq!((fresh.renown, fresh.xp, fresh.coins), (0, 0, 0));
     std::fs::write(&path, "not json").unwrap();
     assert_eq!(World::load_rewards(&path).renown, 0);
 
-    // Legacy XP/coin state migrates in memory and is not rewritten by read.
     std::fs::write(&path, r#"{"xp":140,"coins":9,"extra":"kept-on-read"}"#).unwrap();
     let legacy_before = std::fs::read_to_string(&path).unwrap();
     let migrated = World::load_rewards(&path);
     assert_eq!((migrated.renown, migrated.xp, migrated.coins), (23, 140, 9));
     assert_eq!(std::fs::read_to_string(&path).unwrap(), legacy_before);
 
-    // The next credited event atomically writes schema v2 and mirrors
-    // renown into legacy prosperity while keeping rollback fields intact.
     let mut w = World::new(7);
     w.rewards_path = Some(path.clone());
     w.renown = migrated.renown;
@@ -1144,8 +1096,6 @@ fn renown_v2_migrates_and_persists_without_losing_legacy_fields() {
 
     let _ = std::fs::remove_file(&path);
 }
-
-// ─── the village: the fleet mirrored into the town ──────────────────────
 
 use crate::village::{ForgeSnapshot, VillagePulse, VillageState};
 
@@ -1172,7 +1122,6 @@ fn the_forge_mirrors_training_and_promotions_celebrate_permanently() {
     let path = dir.join("village.json");
     let mut w = village_world(Some(path.clone()));
 
-    // Before any pulse the buildings are dark and the report says so.
     assert!(
         w.village_report().contains("DARK"),
         "{}",
@@ -1180,7 +1129,6 @@ fn the_forge_mirrors_training_and_promotions_celebrate_permanently() {
     );
     assert!(!w.overworld_scene().forge_hot);
 
-    // Training lights the smithy.
     w.note_village(forge_pulse(ForgeSnapshot {
         training: true,
         dataset_total: 10,
@@ -1189,8 +1137,6 @@ fn the_forge_mirrors_training_and_promotions_celebrate_permanently() {
     assert!(w.overworld_scene().forge_hot);
     assert!(w.village_report().contains("LIT"));
 
-    // The adapter advancing = a promotion: fireworks, renown, and a
-    // PERMANENT smithy upgrade persisted to disk.
     let renown_before = w.renown;
     w.note_village(forge_pulse(ForgeSnapshot {
         dataset_total: 12,
@@ -1206,7 +1152,6 @@ fn the_forge_mirrors_training_and_promotions_celebrate_permanently() {
     assert_eq!(saved.dataset_total, 12, "granary level persists");
     assert!(w.village_report().contains("adapter v1"));
 
-    // The same adapter again is NOT a new celebration.
     for _ in 0..60 {
         w.tick();
     }
@@ -1216,7 +1161,6 @@ fn the_forge_mirrors_training_and_promotions_celebrate_permanently() {
     }));
     assert!(w.tick >= w.firework_until, "no re-celebration for old news");
 
-    // The workstation going silent darkens the forge; the saved state is untouched.
     w.note_village(VillagePulse::default());
     assert!(w.village_report().contains("DARK"));
     assert_eq!(
@@ -1241,12 +1185,10 @@ fn a_failed_gate_is_a_soot_puff_not_doom() {
         "gentle: no error is counted"
     );
     assert_ne!(w.weather_label(), "storm", "no storm for a failed gate");
-    // Bounded: the beat settles so the event loop can idle (invariant 5).
     for _ in 0..300 {
         w.tick();
     }
     assert!(!w.animating(), "the soot window closes");
-    // The same failed gate reported again does not re-puff (edge, not level).
     let settled = w.tick;
     w.note_village(forge_pulse(ForgeSnapshot {
         gate_pass: Some(false),
@@ -1274,8 +1216,6 @@ fn village_chatter_is_kept_briefly() {
 fn a_world_without_a_village_reports_and_renders_as_before() {
     let w = World::new(7);
     assert!(w.village_report().contains("no village"));
-    // The wide fixtures above are the real guard; this is the cheap smoke:
-    // no village glyphs appear on a bare world's map.
     let full = flat(&w.render(WORLD_W as u16, (WORLD_H + 1) as u16));
     assert!(!full.contains('⚅'), "no cottages without a village");
 }
@@ -1312,8 +1252,6 @@ fn muster_seat_states_recolor_the_ranks() {
     );
     assert_eq!(w.muster[3].ink, formed_ink);
 
-    // An empty state vector (fresh publish) leaves the formation as formed,
-    // and a longer-than-muster vector must not panic.
     w.form_muster("proposer wave 3", 2);
     w.apply_muster_states(&[]);
     assert_eq!(w.muster[0].glyph, formed_glyph);
@@ -1326,8 +1264,6 @@ fn note_loop_adapter_emits_iteration_and_stall_into_the_quest() {
     let mut w = World::new(11);
     assert_eq!(w.quest().region(), Region::CastleTown);
 
-    // The turn_io LoopMirror owns LoopStarted; direct note_loop callers still
-    // reach the quest through the adapter's Iteration/Stall edges.
     w.note_adventure(AdventureEvent::LoopStarted {
         kind: LoopKind::Competition,
         task: "win the podrace".to_string(),
@@ -1337,7 +1273,6 @@ fn note_loop_adapter_emits_iteration_and_stall_into_the_quest() {
     w.note_loop(true, 1, false, false, Some(budget(1_000, 2_000_000)));
     assert_eq!(w.quest().iteration(), 1, "iteration edge reaches the quest");
 
-    // Rising agitation is deep danger; falling clears the fog.
     w.note_loop(true, 2, true, false, Some(budget(1_000, 2_000_000)));
     assert_eq!(w.quest().danger().level(), 3);
     w.note_loop(true, 3, false, false, Some(budget(1_000, 2_000_000)));
@@ -1364,7 +1299,6 @@ fn cinematic_key_tracks_the_quest_state() {
         "identical worlds key equal"
     );
 
-    // A region change re-keys the frame.
     a.note_adventure(start(LoopKind::Competition));
     assert_ne!(
         a.cinematic_key(),
@@ -1374,7 +1308,6 @@ fn cinematic_key_tracks_the_quest_state() {
     b.note_adventure(start(LoopKind::Competition));
     assert_eq!(a.cinematic_key(), b.cinematic_key());
 
-    // Loot re-keys too, and a different region differs from loot alone.
     a.note_adventure(AdventureEvent::Measured { improved: true });
     assert_ne!(a.cinematic_key(), b.cinematic_key(), "treasure re-keys");
     b.note_adventure(AdventureEvent::Stall { level: 2 });
@@ -1382,7 +1315,6 @@ fn cinematic_key_tracks_the_quest_state() {
     assert_eq!(b.quest().region(), Region::Swamp);
     assert_eq!(a.quest().region(), Region::TheMines);
 
-    // Static room plates do not repaint for invisible outdoor quest changes.
     let mut c = World::new(12);
     let mut d = World::new(12);
     c.interior = Some(Building::Smithy);
@@ -1474,7 +1406,6 @@ fn the_hearth_save_lands_off_the_frame_thread() {
         assert!(std::time::Instant::now() < deadline, "the background save never landed");
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
-    // A credit's save after it is newer and wins, whatever order the disk sees.
     w.renown = 42;
     w.save_rewards();
     std::thread::sleep(std::time::Duration::from_millis(50));

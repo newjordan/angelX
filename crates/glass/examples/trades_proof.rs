@@ -24,7 +24,6 @@ use angel_delve::world::works;
 use angel_delve::world3d::{self, kingdom};
 use angel_gpu::{Core, Draw, Frame, Instance, Picture, Stage};
 
-/// The stage's picture id, as the cockpit names the Delve's.
 const STAGE: u32 = 0x00FA_57A4;
 
 fn main() -> ExitCode {
@@ -41,7 +40,6 @@ fn feet(tile: (f32, f32)) -> [f32; 2] {
     [tile.0 * 16.0, tile.1 * 16.0 + 6.0]
 }
 
-/// A castle's point (metres) as a realm tile.
 fn tile_of(p: [f32; 2]) -> (f32, f32) {
     (works::ORIGIN.0 as f32 + p[0] / 1.5, works::ORIGIN.1 as f32 - p[1] / 1.5)
 }
@@ -50,28 +48,23 @@ fn castle() -> &'static works::Castle {
     works::castle(works::KEEP).expect("the great tower")
 }
 
-/// The map tile a point of the castle's frame (metres) lies in.
 fn tile_at(p: [f32; 2]) -> (i32, i32) {
     (works::ORIGIN.0 + (p[0] / 1.5).floor() as i32, works::ORIGIN.1 + (-p[1] / 1.5).floor() as i32)
 }
 
-/// The middle of a tile, in the castle's frame.
 fn middle_of(t: (i32, i32)) -> [f32; 2] {
     [((t.0 - works::ORIGIN.0) as f32 + 0.5) * 1.5, -((t.1 - works::ORIGIN.1) as f32 + 0.5) * 1.5]
 }
 
-/// Whether a knight can stand on tile `t` with `laid` stones up.
 fn open(laid: u32, t: (i32, i32)) -> bool {
     let (x0, y0, w, h) = castle().tiles();
     t.0 >= x0 && t.1 >= y0 && t.0 < x0 + w && t.1 < y0 + h && !castle().blocked(t.0, t.1, laid)
 }
 
-/// Open ground within `reach` metres of `p`, the nearest to `toward`.
 fn spot_near(laid: u32, p: [f32; 2], reach: f32, toward: [f32; 2]) -> [f32; 2] {
     spot_apart(laid, p, reach, toward, &[])
 }
 
-/// [`spot_near`], at least two metres from every spot in `apart`.
 fn spot_apart(laid: u32, p: [f32; 2], reach: f32, toward: [f32; 2], apart: &[[f32; 2]]) -> [f32; 2] {
     let (tx, ty) = tile_at(p);
     let mut best: Option<([f32; 2], f32)> = None;
@@ -92,7 +85,6 @@ fn spot_apart(laid: u32, p: [f32; 2], reach: f32, toward: [f32; 2], apart: &[[f3
     best.map_or(p, |(m, _)| m)
 }
 
-/// A way on foot from `a` to `b`: the middles of open tiles, found breadth first.
 fn path(laid: u32, a: [f32; 2], b: [f32; 2]) -> Vec<[f32; 2]> {
     use std::collections::{HashMap, VecDeque};
     let (from, to) = (tile_at(a), tile_at(b));
@@ -121,8 +113,6 @@ fn path(laid: u32, a: [f32; 2], b: [f32; 2]) -> Vec<[f32; 2]> {
     out
 }
 
-/// A knight who walks a path to its end, a waypoint at a time (`at` is the
-/// waypoint they are on); true when they are there.
 fn walk(run: &Run, id: u32, way: &[[f32; 2]], at: &mut usize) -> (Input, bool) {
     while *at < way.len() {
         let last = *at + 1 == way.len();
@@ -135,8 +125,6 @@ fn walk(run: &Run, id: u32, way: &[[f32; 2]], at: &mut usize) -> (Input, bool) {
     (Input::default(), true)
 }
 
-/// A run with knights at `at` (castle metres), the Keep `laid` stones up, the
-/// bays raised well ahead so the masons are not kept waiting.
 fn site_run(at: &[[f32; 2]], laid: u32) -> Run {
     let feets: Vec<[f32; 2]> = at.iter().map(|&p| feet(tile_of(p))).collect();
     let mut run = kingdom::proof_run(&feets);
@@ -149,7 +137,6 @@ fn site_run(at: &[[f32; 2]], laid: u32) -> Run {
     run
 }
 
-/// The keys of a knight walking to `to` (castle metres); true when they are there.
 fn steer(run: &Run, id: u32, to: [f32; 2], stop: f32) -> (Input, bool) {
     let h = &run.players[&id];
     let (tx, ty) = hands::units(to);
@@ -161,9 +148,6 @@ fn steer(run: &Run, id: u32, to: [f32; 2], stop: f32) -> (Input, bool) {
     (Input { move_x: sign(dx), move_y: sign(dy), ..Default::default() }, false)
 }
 
-/// What a setter who knows the timing does: `tap_off` ticks late on the plumb
-/// and the level (0 is dead on the mark, a few more is merely good, a lot is
-/// a miss).
 fn setter_keys(run: &Run, id: u32, tap_off: (u64, u64)) -> Input {
     let now = run.tick + 1;
     let press = match run.hands.seats.get(&id).and_then(|h| h.work) {
@@ -181,7 +165,6 @@ fn setter_keys(run: &Run, id: u32, tap_off: (u64, u64)) -> Input {
     Input { swing: press, ..Default::default() }
 }
 
-/// A knight striking every perfect beat of what they work at.
 fn strike_keys(run: &Run, id: u32) -> Input {
     let now = run.tick + 1;
     let press = match run.hands.seats.get(&id).and_then(|h| h.work) {
@@ -196,7 +179,6 @@ fn usage() -> String {
     "usage: trades_proof <outdir> [--scale N] (learn | cut | carry | set | wheel)".into()
 }
 
-/// Frames of a scene: a frame every `every` ticks, flat and in 3D, into `dir`.
 struct Reel<'a> {
     gpu: &'a mut Gpu,
     dir: PathBuf,
@@ -244,7 +226,6 @@ fn run() -> Result<(), String> {
     arena::draw_parts_outside(true);
     arena::props_meshes(true);
     let mut reel = Reel { gpu: &mut gpu, dir, scale, every: 2, n: 0, ticks: 0 };
-    // A frame every few ticks: the slower scenes are shown at a coarser step.
     reel.every = match scene.as_str() {
         "set" | "wheel" => 4,
         _ => 3,
@@ -261,8 +242,6 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
-/// A knight walks to a teacher of Bomrekedan, is offered the setter's trade,
-/// holds E for the lesson and has the mallet in hand.
 fn learn(reel: &mut Reel) -> Result<(), String> {
     let school = trades::SCHOOLS.iter().position(|s| s.power == "bomrekedan:ratfolk").expect("a school");
     let teacher = trades::SCHOOLS[school].at;
@@ -270,7 +249,6 @@ fn learn(reel: &mut Reel) -> Result<(), String> {
     for _ in 0..6 {
         reel.tick(&mut run, &[])?;
     }
-    // Walk to the teacher's side.
     let stand = [teacher[0], teacher[1] + 1.1];
     for _ in 0..400 {
         let (keys, there) = steer(&run, 1, stand, 0.6);
@@ -279,13 +257,11 @@ fn learn(reel: &mut Reel) -> Result<(), String> {
             break;
         }
     }
-    // Wait for the trade they want to be offered, then ask for it.
     let wanted = Trade::Setter;
     for _ in 0..400 {
         let key = run.trade_key(1).expect("a key");
         let reading = run.trades();
         let offered = hands::offer(school, run.tick, |t| reading.holds(&key, t));
-        // At the start of its turn, so the lesson is not cut short.
         if offered == Some(wanted) && run.tick % trades::OFFER_TICKS == 0 {
             break;
         }
@@ -304,7 +280,6 @@ fn learn(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// A banker mason cuts rough blocks at the bench, blow on the beat.
 fn cut(reel: &mut Reel) -> Result<(), String> {
     let bench = angel_delve::world::works_life::BANKERS[1];
     let mut run = site_run(&[[bench[0] + 0.4, bench[1] + 3.0]], 1_837);
@@ -332,7 +307,6 @@ fn cut(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// Knight 1 walks (a way on open ground) to `to`, the hired hands at rest.
 fn walk_to(reel: &mut Reel, run: &mut Run, to: [f32; 2], within: u32) -> Result<(), String> {
     let laid = run.sites.keep().expect("a site").laid;
     let way = path(laid, metres_of(run, 1), to);
@@ -351,15 +325,10 @@ fn walk_to(reel: &mut Reel, run: &mut Run, to: [f32; 2], within: u32) -> Result<
     Err(format!("the knight did not come to {to:?}: at {:?}", metres_of(run, 1)))
 }
 
-/// A hodman takes a stone off the yard's heap, carries it slowly to the wall,
-/// climbs the scaffold with it and sets it down; then a load of mortar from
-/// the tub; then another stone.
 fn carry(reel: &mut Reel) -> Result<(), String> {
-    // A course in the open before the gate: the stones before it are inside the walls.
     let laid = 1_843;
     let wall = hands::stone_at(castle(), laid);
     let yard = angel_delve::world::works_life::YARD;
-    // Open ground by the heap and by the tub, and the nearest open ground to the wall.
     let pick = spot_near(laid, yard, 2.2, [yard[0] - 3.0, yard[1] - 6.0]);
     let tub = spot_near(laid, hands::TUB, 1.8, [hands::TUB[0] - 2.0, hands::TUB[1] + 2.0]);
     let drop = spot_near(laid, wall, 3.8, pick);
@@ -375,7 +344,6 @@ fn carry(reel: &mut Reel) -> Result<(), String> {
     }
     for (what, from) in [(Carry::Stone, pick), (Carry::Mortar, tub), (Carry::Stone, pick)] {
         walk_to(reel, &mut run, from, 600)?;
-        // E at the heap or the tub: a load on the hod.
         reel.tick(&mut run, &[(1, Input { interact: true, ..Default::default() })])?;
         for _ in 0..8 {
             run.hands.yard.acc = [0; 8];
@@ -384,7 +352,6 @@ fn carry(reel: &mut Reel) -> Result<(), String> {
         if run.hands.seats[&1].carry != what {
             return Err(format!("no {what:?} on the hod (the knight {:?}, said {:?})", metres_of(&run, 1), run.hands.seats[&1].said));
         }
-        // The walk: slow, under the weight; the climb; the load set down.
         walk_to(reel, &mut run, drop, 1_200)?;
         for _ in 0..hands::CLIMB + 30 {
             run.hands.yard.acc = [0; 8];
@@ -406,14 +373,11 @@ fn carry(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// Where knight `id` stands, in the castle's frame.
 fn metres_of(run: &Run, id: u32) -> [f32; 2] {
     let h = &run.players[&id];
     hands::metres((h.x, h.y))
 }
 
-/// Three knights set a course together: each stone one of theirs, the tally
-/// rising.
 fn set(reel: &mut Reel) -> Result<(), String> {
     let laid = 1_837;
     let c = castle();
@@ -435,7 +399,6 @@ fn set(reel: &mut Reel) -> Result<(), String> {
     let start = run.sites.keep().expect("a site").laid;
     for _ in 0..900 {
         let laid_now = run.sites.keep().expect("a site").laid;
-        // The hods keep the course in stone and the tub in mortar, off the film.
         run.hands.yard.course = run.hands.yard.course.max(8);
         run.hands.yard.mortar = run.hands.yard.mortar.max(12);
         run.hands.yard.acc = [0; 8];
@@ -445,8 +408,6 @@ fn set(reel: &mut Reel) -> Result<(), String> {
             let here = metres_of(&run, id);
             let in_reach = (here[0] - stone[0]).hypot(here[1] - stone[1]) <= hands::REACH_WALL - 0.4;
             if in_reach || run.hands.seats[&id].work.is_some() {
-                // Hands at the course: the play is the timing; knight 1 is
-                // dead on, 2 a little loose, 3 now and then wide of it.
                 let off = match (id, laid_now % 5) {
                     (1, _) => (0, 0),
                     (2, _) => (2, 1),
@@ -455,7 +416,6 @@ fn set(reel: &mut Reel) -> Result<(), String> {
                 };
                 keys.push((id, setter_keys(&run, id, off)));
             } else {
-                // Walk along the course to where the next stone can be reached.
                 let apart: Vec<[f32; 2]> = (1..=3u32).filter(|&o| o != id).map(|o| metres_of(&run, o)).collect();
                 let spot = spot_apart(laid_now, stone, 4.2, here, &apart);
                 let way = path(laid_now, here, spot);
@@ -479,7 +439,6 @@ fn set(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// A hodman walks the treadwheel and the crane brings a stone round.
 fn wheel(reel: &mut Reel) -> Result<(), String> {
     let laid = 1_500;
     let c = castle();
@@ -503,7 +462,6 @@ fn wheel(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// A frame of `run` at the stage's size, flat (`on` false) or in 3D, to `<name>.png`.
 fn frame_png(gpu: &mut Gpu, out: &Path, name: &str, run: &angel_delve::rules::Run, on: bool, scale: u32, held: bool) -> Result<(), String> {
     let (w, h) = arena::seat_size();
     world3d::set_enabled(on);
@@ -554,9 +512,6 @@ impl Gpu {
         }
     }
 
-    /// A Delve frame as a stage, drawn into a texture `size` pixels as the
-    /// window draws a stage in its cells, on black, and (when `read`) read
-    /// back; else waited for.
     fn stage(&mut self, mut frame: angel_stage::Frame, size: (u32, u32), read: bool) -> Vec<u8> {
         self.upload(std::mem::take(&mut frame.pictures));
         self.core.set_stage(

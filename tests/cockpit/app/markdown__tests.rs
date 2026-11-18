@@ -31,18 +31,13 @@ fn paragraphs_have_one_separator_and_no_outer_blank_rows() {
 
 #[test]
 fn render_memo_matches_uncached_and_is_stable_on_hit() {
-    // The cache must be transparent: the first (miss) and second (hit) call,
-    // and a direct uncached render, all produce identical Lines. Use a doc
-    // with headings, a list, and a code fence so the walk is non-trivial.
     let md = "# Title\n\nsome *text* and `code`.\n\n- a\n- b\n\n```rust\nfn x() {}\n```\n";
     let direct = render_uncached(md, 72);
-    let miss = render(md, 72); // populates the cache
-    let hit = render(md, 72); // served from the cache
+    let miss = render(md, 72);
+    let hit = render(md, 72);
     assert_eq!(*miss, direct, "cached miss must equal uncached render");
     assert_eq!(*hit, direct, "cached hit must equal uncached render");
-    // A hit shares the cached allocation instead of deep-cloning the Lines.
     assert!(Arc::ptr_eq(&miss, &hit), "hit must reuse the cached Arc");
-    // A different width is a distinct key — must not return the width-72 lines.
     let narrow = render(md, 20);
     assert_eq!(*narrow, render_uncached(md, 20));
 }
@@ -54,11 +49,8 @@ fn render_partial_shares_one_render_and_skips_the_lru() {
     let b = render_partial(md, 60);
     assert_eq!(*a, render_uncached(md, 60));
     assert!(Arc::ptr_eq(&a, &b), "same text+width must reuse the slot");
-    // Growing text (the streaming case) re-renders without LRU churn.
     let grown = format!("{md} plus more");
     assert_eq!(*render_partial(&grown, 60), render_uncached(&grown, 60));
-    // The slot never entered the shared LRU: a subsequent `render` of the
-    // same text is a fresh Arc, not the partial slot's.
     assert!(!Arc::ptr_eq(
         &render(&grown, 60),
         &render_partial(&grown, 60)
@@ -68,7 +60,6 @@ fn render_partial_shares_one_render_and_skips_the_lru() {
 #[test]
 fn heading_bold() {
     let lines = render_lines("# Title");
-    // H1 gets a █ prefix
     assert!(lines.iter().any(|l| l.contains("Title")));
 }
 
@@ -91,7 +82,6 @@ fn ordered_list() {
 fn code_block_with_lang() {
     let md = "```rust\nfn main() {}\n```";
     let lines = render_lines(md);
-    // Should have a border + the code content
     assert!(lines.iter().any(|l| l.contains("fn main()")));
 }
 
@@ -149,11 +139,6 @@ fn code_frames_labels_and_rows_stay_inside_terminal_cell_width() {
 
 #[test]
 fn code_block_text_is_readable_not_black() {
-    // Regression: with syntax highlighting off (the default) or an
-    // unrecognized language token (e.g. `shell`), code blocks fell back to
-    // syntect's Style::default(), whose unset foreground (alpha 0) mapped to
-    // Rgb(0,0,0) — an invisible black-on-dark bar. The command text must now
-    // render with a visible (non-black) foreground.
     for md in ["```shell\ntailscale status\n```", "```\nplain code\n```"] {
         let lines = render(md, 80);
         let code_line = lines
@@ -337,7 +322,6 @@ fn empty_string() {
 
 #[test]
 fn render_plain_does_not_parse_markdown() {
-    // `render_plain` must keep `#`/`-`/`*` literal (system messages, user echoes).
     let lines = render_plain("# not a heading\n- not a bullet", EMPTY_STYLE);
     assert_eq!(lines.len(), 2);
     assert_eq!(lines[0].spans[0].content.as_ref(), "# not a heading");
@@ -365,14 +349,12 @@ fn strikethrough_content_survives() {
 
 #[test]
 fn inline_html_passes_through_as_text() {
-    // No ENABLE_HTML option is needed — pulldown emits Html events by default.
     let flat = render_lines("a <span>raw</span> tag").join("\n");
     assert!(flat.contains("raw"), "html inner text kept:\n{flat}");
 }
 
 #[test]
 fn hard_break_splits_a_paragraph_line() {
-    // Two trailing spaces before the newline = a hard break → two lines.
     let lines = render_lines("line one  \nline two");
     assert!(lines.iter().any(|l| l == "line one"));
     assert!(lines.iter().any(|l| l == "line two"));
@@ -398,9 +380,6 @@ fn table_rows_get_cell_separators() {
 
 #[test]
 fn cache_evicts_lru_entries_beyond_capacity_and_stays_correct() {
-    // Render far more than RENDER_CACHE_CAP distinct documents to force eviction,
-    // then re-render the very first one: it must still be correct (a re-render),
-    // never a stale or wrong-keyed result.
     let first = "doc number 0 unique body";
     let first_lines = render_uncached(first, 40);
     assert_eq!(*render(first, 40), first_lines);
@@ -413,7 +392,6 @@ fn cache_evicts_lru_entries_beyond_capacity_and_stays_correct() {
             "doc {i} rendered correctly"
         );
     }
-    // The first doc was evicted long ago; rendering it again re-derives it.
     assert_eq!(
         *render(first, 40),
         first_lines,
@@ -421,9 +399,6 @@ fn cache_evicts_lru_entries_beyond_capacity_and_stays_correct() {
     );
 }
 
-/// Scenario: a realistic document (heading, lists, fenced code, table,
-/// strikethrough, blockquote, link) renders at every width without panicking,
-/// and the content survives.
 #[test]
 fn scenario_realistic_document_renders_across_widths() {
     let doc = "# Title\n\nIntro with **bold**, *italic*, ~~struck~~ and a [link](http://x).\n\n\
@@ -431,7 +406,6 @@ fn scenario_realistic_document_renders_across_widths() {
             | Col A | Col B |\n|------|------|\n| 1 | two |\n\n> a blockquote\n";
     for width in [1usize, 4, 8, 20, 40, 80, 200] {
         let lines = render(doc, width);
-        // width 1 may legitimately produce few lines, but never a panic.
         let _ = lines;
     }
     let flat = render_lines(doc).join("\n");

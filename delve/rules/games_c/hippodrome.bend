@@ -1,5 +1,3 @@
-# crates/delve/src/rules/hippodrome.rs — the kingdom's chariot circuit.
-
 def hippodrome.PLACES(+i: U32) -> String:
   gc.nth_s(["hippodrome", "wheelwright", "toll_bridge"], i)
 
@@ -12,14 +10,12 @@ def hippodrome.QUEST_MARKS(+i: U32) -> String:
 def hippodrome.WAGER_MARKS(+i: U32) -> String:
   gc.nth_s(["country:wager:0", "country:wager:1", "country:wager:2", "country:wager:finish:0", "country:wager:finish:1", "country:wager:finish:2"], i)
 
-# The shared booth and the mechanic stand (tile coordinates).
 def hippodrome.MECHANIC() -> F32 & F32:
   (5.0, 9.5)
 
 def hippodrome.BOOTH() -> F32 & F32:
   (17.0, 4.5)
 
-# PARTS[i] = (kind, at, name).
 def hippodrome.PARTS.kind(+i: U32) -> String:
   hippodrome.PLACES(i)
 
@@ -29,7 +25,6 @@ def hippodrome.PARTS.at(+i: U32) -> F32 & F32:
 def hippodrome.PARTS.name(+i: U32) -> String:
   gc.nth_s(["SQUARE WHEEL", "GOAT-PROOF AXLE", "TOLL RECEIPT"], i)
 
-# The quest's stage and parts from the country's record and the marks.
 def hippodrome.progress(+country: J.Val, +marks: J.Val) -> U32 & U32:
   hippodrome.progress.a(gc.u(country, "axle"), gc.u(country, "axle_parts"), marks)
 
@@ -45,7 +40,6 @@ def hippodrome.parts_bits(+marks: J.Val) -> U32:
 def hippodrome.progress.c(+stage: U32, +parts: U32, +marks: J.Val) -> U32 & U32:
   (gc.pu(Bool.and(U32.is_eq(stage, 1), Bool.and(U32.is_eq(parts, 7), J.has(marks, "country:axle:deliver"))), 2, stage), parts)
 
-# The kinds' blocked rectangles (col, row, w, h) and the stair patch.
 def hippodrome.shape(+room: J.Val) -> J.Val:
   hippodrome.shape.stairs(hippodrome.shape.rects(room, J.str(J.get(room, "kind"))), J.str(J.get(room, "kind")))
 
@@ -58,7 +52,6 @@ def hippodrome.shape.rects(+room: J.Val, +kind: String) -> J.Val:
         _ => hippodrome.rect(hippodrome.rect(hippodrome.rect(hippodrome.rect(hippodrome.rect(room, 3, 2, 6, 3), 15, 2, 6, 3), 8, 9, 2, 3), 14, 10, 2, 2), 3, 11, 4, 1),
         _ => room)))
 
-# room.set(x, y, Tile::Block) over y in r..r+h, x in c..c+w.
 def hippodrome.rect(+room: J.Val, +c: U32, +r: U32, +w: U32, +h: U32) -> J.Val:
   hippodrome.rect.rows(room, c, r, w, (r + h : U32), TileBlock{})
 
@@ -79,7 +72,6 @@ def hippodrome.shape.stairs(+room: J.Val, +kind: String) -> J.Val:
       _ => hippodrome.rect.rows(room, 19, 10, 2, 11, TileStairs{}),
       _ => room))
 
-# Is knight `h` within 1.4 of the tile spot `at`?
 def hippodrome.near(+h: J.Val, +at: F32 & F32) -> Bool:
   hippodrome.near.go(gc.f(h, "x"), gc.f(h, "y"), at)
 
@@ -87,11 +79,9 @@ def hippodrome.near.go(+hx: F32, +hy: F32, at: F32 & F32) -> Bool:
   (ax, ay) = at
   F32.is_lt(RS.f_hypot((hx - ax * layout.TILE_UNITS() : F32), (hy - ay * layout.TILE_UNITS() : F32)), 1.4)
 
-# Which place of PLACES this kind is, or 3.
 def hippodrome.place(+kind: String) -> U32:
   gc.pu(String.eq(kind, "hippodrome"), 0, gc.pu(String.eq(kind, "wheelwright"), 1, gc.pu(String.eq(kind, "toll_bridge"), 2, 3)))
 
-# fn tick_hippodrome(&mut self, inputs)
 def hippodrome.Run.tick_hippodrome(+run: J.Val, +inputs: J.Val) -> J.Val:
   hippodrome.Run.tick_hippodrome.a(run, inputs, J.str(J.get(rules.Run.room(run), "kind")))
 
@@ -103,7 +93,6 @@ def hippodrome.Run.tick_hippodrome.b(+run: J.Val, +inputs: J.Val, +kind: String,
     _ => run,
     _ => hippodrome.Run.tick_hippodrome.c(hippodrome.visit(run, i), inputs, kind))
 
-# players.values().any(|h| h.hp > 0 && !h.stone && h.privy == 0)
 def hippodrome.anyone(+hs: List<&2, J.Val>) -> Bool:
   match hs:
     case Nil{}:
@@ -111,7 +100,6 @@ def hippodrome.anyone(+hs: List<&2, J.Val>) -> Bool:
     case Con{+h, +t}:
       Bool.or(Bool.and(U32.is_gt(gc.u(h, "hp"), 0), Bool.and(Bool.not(gc.b(h, "stone")), U32.is_zero(gc.u(h, "privy")))), hippodrome.anyone(t))
 
-# if race_visited & (1<<i) == 0 { marks.insert(VISIT_MARKS[i], 1) }
 def hippodrome.visit(+run: J.Val, +i: U32) -> J.Val:
   gc.ifj(Bool.not(gc.has_bit(gc.u(gc.hcountry(run), "race_visited"), i)),
     _ => gc.mark(run, hippodrome.VISIT_MARKS(i), 1),
@@ -131,7 +119,6 @@ def hippodrome.Run.tick_hippodrome.e(+run: J.Val, +inputs: J.Val, +kind: String,
     _ => run,
     _ => hippodrome.Run.tick_hippodrome.go(run, inputs, kind, stage, parts, gc.ids(J.get(run, "players"))))
 
-# The first knight with an action wins it; the loop breaks there.
 def hippodrome.Run.tick_hippodrome.go(+run: J.Val, +inputs: J.Val, +kind: String, +stage: U32, +parts: U32, +ids: List<&2, U32>) -> J.Val:
   match ids:
     case Nil{}:
@@ -144,20 +131,17 @@ def hippodrome.Run.tick_hippodrome.step(+run: J.Val, +inputs: J.Val, +kind: Stri
     _ => hippodrome.Run.tick_hippodrome.go(run, inputs, kind, stage, parts, t),
     _ => hippodrome.Run.tick_hippodrome.act(run, inputs, kind, stage, parts, id, t, hippodrome.action(h, kind, stage, parts)))
 
-# Alive (hp > 0, not stone, not in the privy) and a valid input pressing interact.
 def hippodrome.pressing(+h: J.Val, +input: J.Val) -> Bool:
   Bool.and(U32.is_gt(gc.u(h, "hp"), 0), Bool.and(Bool.not(gc.b(h, "stone")), Bool.and(U32.is_zero(gc.u(h, "privy")), hippodrome.pressing.input(input))))
 
 def hippodrome.pressing.input(+input: J.Val) -> Bool:
   gc.ifb(J.is_null(input), _ => False{}, _ => Bool.and(rules.Input.valid(input), gc.b(input, "interact")))
 
-# The action number (0 accept, 1..3 parts, 4 deliver) or 99 for none.
 def hippodrome.action(+h: J.Val, +kind: String, +stage: U32, +parts: U32) -> U32:
   gc.ifu(Bool.and(String.eq(kind, "wheelwright"), Bool.and(hippodrome.near(h, hippodrome.MECHANIC()), Bool.or(U32.is_zero(stage), U32.is_eq(parts, 7)))),
     _ => gc.pu(U32.is_zero(stage), 0, 4),
     _ => gc.ifu(U32.is_eq(stage, 1), _ => hippodrome.action.pos(h, kind, parts, 0), _ => 99))
 
-# PARTS.iter().position(k == kind && near(at)).filter(parts & (1<<i) == 0).map(i+1)
 def hippodrome.action.pos(+h: J.Val, +kind: String, +parts: U32, +i: U32) -> U32:
   gc.ifu(U32.is_ge(i, 3),
     _ => 99,
@@ -173,7 +157,6 @@ def hippodrome.Run.tick_hippodrome.act(+run: J.Val, +inputs: J.Val, +kind: Strin
 def hippodrome.said(+action: U32) -> String:
   gc.ps(U32.is_eq(action, 0), "Wanted: SQUARE WHEEL, AXLE, RECEIPT.", gc.ps(U32.is_eq(action, 4), "Coach fixed! The goat signed it off.", "Recovered " ++ hippodrome.PARTS.name((action - 1 : U32)) ++ ". The wheelwright denies responsibility."))
 
-# pub fn settle(country, treasury, marks, news) -> (country, treasury, news).
 def hippodrome.settle(+country: J.Val, +treasury: J.Val, +marks: J.Val, +news: J.Val) -> J.Val & J.Val & J.Val:
   hippodrome.settle.visits(country, treasury, marks, news, 0)
 

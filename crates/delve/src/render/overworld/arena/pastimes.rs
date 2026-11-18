@@ -9,16 +9,12 @@ use crate::rules::{
     pastimes::{self, Game},
 };
 
-/// One glyph onto the canvas without a heap `String`, for the per-frame
-/// pad/flag/gate labels the arcade draws every tick.
 fn glyph1(cv: &mut Img, x: i32, y: i32, c: char, ink: char) {
     let mut buf = [0u8; 4];
     cv.text(x, y, c.encode_utf8(&mut buf), ink);
 }
 
 fn ring(cv: &mut Img, x: i32, y: i32, radius: f32, ink: char) {
-    // The 40 unit vectors are fixed; a ring only scales them by `radius`, so
-    // compute the trig once rather than 40 sin+cos per ring per frame.
     static UNIT: std::sync::OnceLock<[(f32, f32); 40]> = std::sync::OnceLock::new();
     let unit = UNIT.get_or_init(|| {
         std::array::from_fn(|n| {
@@ -68,7 +64,6 @@ pub(super) fn scenery(cv: &mut Img, kind: RoomKind) {
         RoomKind::Fairground => {
             for (k, (c, r, w)) in [(3, 1, 5), (17, 1, 4)].into_iter().enumerate() {
                 let (x, y) = (c * TILE, r * TILE);
-                // A stall: striped awning over a boarded counter.
                 m::block(
                     cv,
                     (x + 3, y + 12, w * TILE - 6, 18),
@@ -94,7 +89,6 @@ pub(super) fn scenery(cv: &mut Img, kind: RoomKind) {
                 }
                 cv.line(x, y + 15, x + w * TILE - 1, y + 15, 'n');
             }
-            // Bunting well above the playable slalom.
             for x in (2 * TILE..22 * TILE).step_by(20) {
                 cv.line(x, 3 * TILE, x + 10, 3 * TILE + 5, 'P');
                 cv.line(x + 10, 3 * TILE + 5, x + 20, 3 * TILE, 'P');
@@ -111,7 +105,6 @@ pub(super) fn scenery(cv: &mut Img, kind: RoomKind) {
             }
         }
         RoomKind::Riverbank => {
-            // The quay's landing stage over the river, on piles.
             m::boards(cv, (9 * TILE + 2, TILE, 6 * TILE - 4, 3 * TILE), true, 120);
             for x in [9 * TILE + 2, 15 * TILE - 4] {
                 for y in (TILE + 4..4 * TILE).step_by(12) {
@@ -121,7 +114,6 @@ pub(super) fn scenery(cv: &mut Img, kind: RoomKind) {
             for x in (9 * TILE + 2..15 * TILE - 2).step_by(2) {
                 cv.put(x, 4 * TILE, 'f');
             }
-            // Wash lines and drying socks along the quay, outside the course.
             for x in [3 * TILE, 9 * TILE] {
                 cv.line(x, 4 * TILE - 6, x, 4 * TILE + 8, 'P');
             }
@@ -146,8 +138,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     for game in Game::ALL.into_iter().filter(|g| g.room() == kind) {
         let (tx, ty) = game.start();
         let (x, y) = at(tx * 2.0, ty * 2.0);
-        // At rest a pad is a quiet dark ring, readable, never lit; the
-        // amber lamp only while its round is on.
         let (ring_ink, letter_ink) = if active.is_some_and(|r| r.game == game) {
             ('4', '4')
         } else {
@@ -162,15 +152,9 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     {
         let (tx, ty) = Game::Peal.start();
         let (x, y) = at(tx * 2.0, ty * 2.0);
-        // The rope up to the ringer's bell (drawn the tax bells' way), and
-        // the ring that closes on the bell as the beat comes: gold while a
-        // pull rings true, green once rung, red on a clanger. The ring's
-        // size is the time left in the swing.
         let by = y - 3 * TILE;
         let sway = (((peal.phase as f32 / peal.span() as f32) * std::f32::consts::TAU).sin() * 3.0) as i32;
         let bell_ink = if peal.clang_flash > 0 { 'R' } else { 'O' };
-        // A timber A-frame carries the practice bell; the rope runs from
-        // the bell's mouth down to the ringer's hands at the pad.
         cv.line(x - 8, by - 8, x - 15, y + 4, 'P');
         cv.line(x + 8, by - 8, x + 15, y + 4, 'P');
         cv.line(x - 8, by - 8, x + 8, by - 8, 'P');
@@ -225,7 +209,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             14.0,
             if round.hazard_left > 0 { 'g' } else { 'O' },
         );
-        // Basket, goat body, cloven feet and officious horns.
         cv.rect(x - 5, y - 3, 10, 5, 'o');
         for c in [-3, 0, 3] {
             cv.line(x + c, y - 3, x + c, y + 1, 'O');
@@ -248,22 +231,16 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     }
     if let Some(round) = active.filter(|r| r.game == Game::Powder) {
         if let Some(p) = &round.powder {
-            // ONE shared courtyard for every knight in the heat: flagstone
-            // floor, stone posts on every other tile the way the trope has
-            // them, bales on the rest, lanes open at each corner. Each
-            // painter cell is half a tile.
             let at_tile = |c: u8, r: u8| {
                 at(
                     f32::from(pastimes::POWDER_X0 + c) * 2.0,
                     f32::from(pastimes::POWDER_Y0 + r) * 2.0,
                 )
             };
-            // The flagstone floor of its own: big pale slabs, cracks dark.
             for r in 0..pastimes::POWDER_H {
                 for c in 0..pastimes::POWDER_W {
                     let (x, y) = at_tile(c, r);
                     let slab = ((u32::from(c) * 7 + u32::from(r) * 13) % 3) as i32;
-                    // Tonal, so the bales, kegs and fire read first.
                     cv.rect(x, y, 16, 16, if slab == 0 { 'G' } else { 'j' });
                     if (u32::from(c) + u32::from(r)) % 4 == 0 {
                         cv.put(x + 8, y + 8, 'g');
@@ -272,7 +249,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                     cv.line(x + 15, y, x + 15, y + 15, 'g');
                 }
             }
-            // Scorch marks where fire has been, fading to grey.
             for s in &p.scorch {
                 let (x, y) = at_tile(s.col, s.row);
                 let pale = s.left < pastimes::FIRE;
@@ -280,7 +256,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 cv.rect(x + 3, y + 3, 10, 10, ink);
                 cv.put(x + 8, y + 8, ink);
             }
-            // The stone posts: on every other tile, mossy stubs.
             for &(c, r) in pastimes::POWDER_POSTS.iter() {
                 let (x, y) = at_tile(c, r);
                 cv.rect(x + 4, y + 2, 8, 12, 'S');
@@ -289,13 +264,11 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 cv.put(x + 9, y + 2, 'l');
                 cv.line(x + 3, y + 13, x + 12, y + 13, '5');
             }
-            // The hay bales.
             for (i, &t) in p.bales.iter().enumerate() {
                 let (c, r) = (t % pastimes::POWDER_W, t / pastimes::POWDER_W);
                 let (x, y) = at_tile(c, r);
                 m::hay(cv, x + 8, y + 12, 9.5, 300 + i as u32);
             }
-            // The charms, bobbing on their pins.
             for c in &p.charms {
                 let (x, y) = at_tile(c.col, c.row);
                 let bob = [0, 1, 2, 1]
@@ -312,14 +285,10 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 cv.put(x + 8, y + 4 - bob, 'W');
                 cv.line(x + 8, y + 10, x + 8, y + 14, pin);
             }
-            // The knights of the heat, each a small figure with their soot
-            // flash when a blast catches them.
             for k in &p.knights {
                 let (x, y) = at_tile(k.tile().0, k.tile().1);
                 let sub = (k.x % 256, k.y % 256);
                 let (x, y) = (x + sub.0 as i32 / 32, y + sub.1 as i32 / 32);
-                // A standing knight is drawn as themself (the rules walk
-                // them with their yard knight); only the soot flash here.
                 if k.soot == 0 {
                     continue;
                 }
@@ -332,19 +301,14 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                     cv.put(x + 11, y - 2, 'k');
                 }
             }
-            // The kegs: twice the size, a fuse spark that shortens as the
-            // fuse burns.
             for k in &p.kegs {
                 let (x, y) = at_tile(k.col, k.row);
-                // A black powder keg with iron hoops.
                 cv.ellipse(x as f32 + 8.0, (y + 12) as f32, 14.0, 6.0, '5');
                 cv.rect(x - 4, y + 4, 24, 16, '5');
                 cv.line(x - 4, y + 9, x + 19, y + 9, '3');
                 cv.line(x - 4, y + 14, x + 19, y + 14, '3');
                 cv.rect(x - 5, y + 2, 26, 3, '5');
                 cv.rect(x - 2, y - 4, 6, 6, 'R');
-                // The fuse: long at the drop, a stub at the boom. The spark
-                // rides its tip.
                 let burn = 1.0 - f32::from(k.left) / f32::from(pastimes::FUSE);
                 let fuse_len = (12.0 * (1.0 - burn)) as i32;
                 cv.line(x + 1, y - 4, x + 1 + fuse_len, y - 12, '3');
@@ -355,15 +319,10 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                     cv.put(sx - 1, sy - 1, 'O');
                 }
             }
-            // The cross of fire: a burst frame, flame tongues along the
-            // arms, white-hot early, ember red late, on screen a full
-            // second and a half (FIRE = 45).
             for f in &p.flames {
                 let (x, y) = at_tile(f.col, f.row);
                 let hot = f.left > pastimes::FIRE - 6;
                 let warm = f.left > pastimes::FIRE / 2;
-                // Signal inks: orange round a yellow heart while hot, red
-                // round orange as it burns, ember round red at the last.
                 let ink = if hot {
                     '@'
                 } else if warm {
@@ -371,7 +330,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 } else {
                     '8'
                 };
-                // The burst frame: a starburst where the keg stood.
                 if f.arm == 4 && f.left > pastimes::FIRE - 4 {
                     for (dx, dy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)] {
                         cv.put(x + 8 + dx * 9, y + 8 + dy * 9, '6');
@@ -380,7 +338,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                     cv.rect(x + 1, y + 1, 14, 14, '@');
                     cv.rect(x + 4, y + 4, 8, 8, '6');
                 }
-                // The arm's own tile of flame, with tongues flickering.
                 cv.rect(x + 2, y + 2, 12, 12, ink);
                 let heart = if hot {
                     '6'
@@ -390,7 +347,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                     '7'
                 };
                 cv.rect(x + 5, y + 4, 6, 7, heart);
-                // Tongues licking up off every tile, flickering.
                 let lick = (run.tick + u64::from(f.col) * 5 + u64::from(f.row) * 7) % 3;
                 cv.rect(x + 4 + lick as i32 * 2, y - 2, 2, 4, ink);
                 cv.rect(x + 9 - lick as i32, y - 1, 2, 3, ink);
@@ -417,12 +373,10 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                     _ => {}
                 }
             }
-            // Chain explosion visual: bright flash at both keg positions + connecting line.
             if let Some((ticks, x1, y1, x2, y2)) = p.chain_flash {
                 if ticks > 0 {
                     let (px1, py1) = at_tile(x1, y1);
                     let (px2, py2) = at_tile(x2, y2);
-                    // Bright flash at both keg positions.
                     let flash_ink = if ticks > 4 {
                         'W'
                     } else if ticks > 2 {
@@ -434,7 +388,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                     cv.rect(px2 + 2, py2 + 2, 12, 12, flash_ink);
                     cv.put(px1 + 8, py1 + 8, '9');
                     cv.put(px2 + 8, py2 + 8, '9');
-                    // Connecting line between the two positions.
                     let line_ink = if ticks > 3 { 'Y' } else { 'O' };
                     let dx = px2 - px1;
                     let dy = py2 - py1;
@@ -448,15 +401,12 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                     }
                 }
             }
-            // Chain shockwave: expanding ring between the two keg positions.
             if p.chain_shockwave > 0 {
                 if let Some((_, x1, y1, x2, y2)) = p.chain_flash {
                     let (px1, py1) = at_tile(x1, y1);
                     let (px2, py2) = at_tile(x2, y2);
-                    // Center point between the two kegs.
                     let cx = (px1 + px2) / 2 + 8;
                     let cy = (py1 + py2) / 2 + 8;
-                    // Expanding ring, fading out.
                     let alpha = p.chain_shockwave as f32 / 6.0;
                     let radius = 8.0 + (6.0 - p.chain_shockwave as f32) * 3.0;
                     let ring_ink = if alpha > 0.6 {
@@ -467,7 +417,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                         '@'
                     };
                     ring(cv, cx, cy, radius, ring_ink);
-                    // Inner bright ring on first few ticks.
                     if p.chain_shockwave > 4 {
                         ring(cv, cx, cy, radius * 0.6, 'W');
                     }
@@ -483,8 +432,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             cv.line(x, ly, x + 6, ly, 'g');
             cv.line(x, by, x + 6, by, 'g');
         }
-        // The hurdles themselves stand in the crowd (`pastimes::crowd`) so
-        // a window tilts them with the lane and shrinks them with distance.
         let current = active.filter(|r| r.game == Game::Hobbyhorse);
         if let Some(round) = current {
             for (&id, rider) in &round.riders {
@@ -502,18 +449,17 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 } else {
                     0
                 };
-                // A hobbyhorse: stick, crossbar, horse-head silhouette.
                 let hx = x + 8;
                 let hy = y - 2 - lift;
-                cv.line(hx, hy + 2, hx, hy + 14, 'n'); // brown stick
-                cv.line(hx - 3, hy + 8, hx + 3, hy + 8, 'n'); // crossbar
-                cv.ellipse(hx as f32, (hy - 4) as f32, 3.0, 2.0, 'h'); // tan muzzle
-                cv.line(hx - 2, hy - 6, hx - 2, hy - 2, 'R'); // red mane
-                cv.put(hx + 1, hy - 3, 'k'); // nostril
-                cv.line(hx - 1, hy - 6, hx - 2, hy - 8, 'h'); // left ear
-                cv.line(hx + 1, hy - 6, hx + 2, hy - 8, 'h'); // right ear
-                cv.put(hx, hy - 5, 'k'); // eye
-                cv.line(hx + 2, hy - 4, hx + 3, hy - 4, 'o'); // mouth
+                cv.line(hx, hy + 2, hx, hy + 14, 'n');
+                cv.line(hx - 3, hy + 8, hx + 3, hy + 8, 'n');
+                cv.ellipse(hx as f32, (hy - 4) as f32, 3.0, 2.0, 'h');
+                cv.line(hx - 2, hy - 6, hx - 2, hy - 2, 'R');
+                cv.put(hx + 1, hy - 3, 'k');
+                cv.line(hx - 1, hy - 6, hx - 2, hy - 8, 'h');
+                cv.line(hx + 1, hy - 6, hx + 2, hy - 8, 'h');
+                cv.put(hx, hy - 5, 'k');
+                cv.line(hx + 2, hy - 4, hx + 3, hy - 4, 'o');
                 if lift > 0 {
                     ring(cv, x, y - lift, 12.0, 'o');
                 }
@@ -521,32 +467,23 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         }
     }
     if kind == RoomKind::Crag {
-        // The six gates stand in the crowd (`pastimes::crowd`), each at
-        // its own row of the hill; the sled itself stays with the rider.
         let current = active.filter(|r| r.game == Game::Sled);
         if let Some(sled) = current.and_then(|r| r.sled.as_ref()) {
             let (x, y) = at(sled.x as f32 / 128.0, sled.y as f32 / 128.0);
-            // Sled runners with curved fronts.
             cv.line(x - 5, y, x - 3, y + 3, 's');
             cv.line(x - 3, y + 3, x + 3, y + 3, 's');
             cv.line(x + 5, y, x + 3, y + 3, 's');
             cv.line(x + 3, y + 3, x - 3, y + 3, 's');
-            // Sled body as parallelogram (leaning posture).
             cv.line(x - 3, y - 8, x + 3, y - 8, 'u');
             cv.line(x - 4, y - 2, x + 2, y - 2, 'u');
             cv.line(x - 3, y - 8, x - 4, y - 2, 'u');
             cv.line(x + 3, y - 8, x + 2, y - 2, 'u');
-            // Round head.
             cv.ellipse(x as f32, (y - 11) as f32, 3.0, 3.0, 'h');
-            // Bright visor.
             cv.line(x - 2, y - 11, x + 2, y - 11, '2');
-            // Arms gripping reins.
             cv.line(x - 4, y - 6, x - 7, y - 3, 'h');
             cv.line(x + 2, y - 6, x + 5, y - 3, 'h');
-            // Orange scarf trailing behind.
             cv.line(x + 3, y - 10, x + 7, y - 9, 'O');
             cv.line(x + 7, y - 9, x + 10, y - 10, 'O');
-            // Motion blur line behind sled.
             cv.line(x + 8, y - 5, x + 12, y - 5, 'j');
         }
     }
@@ -566,7 +503,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
         let (tx, ty) = pastimes::nuisance(round.game, run.tick);
         let (x, y) = at(tx * 2.0, ty * 2.0);
         if round.game == Game::Broadsheet || round.game == Game::Washtub {
-            // Goose/royal duck: long neck, white belly, aggressively orange bill.
             cv.rect(x - 5, y - 5, 10, 6, 'h');
             cv.line(x + 3, y - 5, x + 3, y - 12, '9');
             cv.rect(x + 2, y - 13, 5, 4, '9');
@@ -585,11 +521,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The arcade's standing course markers join the room's crowd so a window
-/// tilts them with the floor and shrinks them with distance: Barrel flags,
-/// Washtub rings (their tile recomputes each tick) and the Turnip ball
-/// (feet on the ring, the bounce baked into its sprite). More games follow
-/// the same shape as they are pulled through.
 pub(super) fn crowd<'a>(
     crowd: &mut Vec<(f32, u8, (f32, f32), Box<dyn FnOnce(&mut Img) + 'a>)>,
     run: &'a Run,
@@ -699,9 +630,6 @@ pub(super) fn crowd<'a>(
         ));
     }
     if kind == RoomKind::Causeway {
-        // Six hurdles stand along the riding lane at the lane's foot, so a
-        // window leans them with the ground and a knight riding past reads
-        // as passing in front. The lane itself stays in scenery.
         let current = active.filter(|r| r.game == Game::Hobbyhorse);
         let foot = pastimes::RIDING_LANE.1 * 2.0;
         for (i, &fence) in pastimes::HURDLES.iter().enumerate() {
@@ -744,9 +672,6 @@ pub(super) fn crowd<'a>(
         }
     }
     if kind == RoomKind::Crag {
-        // A Sled gate stands in its own row of the hill, alternating near
-        // and far, so each is tilted and scaled by its own depth. The
-        // slope and the sled itself stay flat (slope = floor, sled = rider).
         let current = active.filter(|r| r.game == Game::Sled);
         for (i, (gx, gy)) in pastimes::SLED_GATES.into_iter().enumerate() {
             let ink = if current.is_some_and(|r| usize::from(r.progress) == i) {
@@ -787,9 +712,6 @@ pub(super) fn crowd<'a>(
         }
     }
     if kind == RoomKind::Timberyard {
-        // The four jump-logs stand at the lane's foot so a window leans
-        // them and shrinks them with distance; the cart itself moves with
-        // the rider and stays in `woodland::cart_figures`.
         let foot = 10.0 * 2.0;
         for (i, &log) in pastimes::CART_LOGS.iter().enumerate() {
             let x_px = log * TILE;
@@ -827,18 +749,11 @@ pub(super) fn crowd<'a>(
     }
 }
 
-/// The arcade plaques, in a scrying glass rather than a sign: ink black
-/// under a steel rim (`chrome::Tone::GLASS`), lit along the top by a single
-/// diagonal specular streak so they read as frosted, not flat. Same 5x7 hand
-/// as `home::board`, so text metrics stay put.
 fn glass_board(lines: &[(String, char)]) -> Img {
     let w = lines.iter().map(|(s, _)| text_width(s)).max().unwrap_or(0) + 10;
     let h = lines.len() as i32 * 9 + 5;
     let mut im = Img::new(w + 1, h + 1);
     super::super::chrome::panel(&mut im, (0, 0, w, h), super::super::chrome::Tone::GLASS);
-    // The streak: a shallow diagonal across the upper-left of the panel,
-    // one pixel thick, drawn in the tone's own steel so it never overlights
-    // the letters that come after it.
     for x in 2..(w - 2).max(2) {
         let y = 1 + (x / 3).min(2);
         if y < h - 2 {
@@ -864,7 +779,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
     if super::mummers::travel_near(run) {
         return;
     }
-    // The race circuit has its own controls, spectator card and quest board.
     if kind_is_hippodrome(run) {
         return;
     }
@@ -872,7 +786,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         return;
     }
     let kind = run.room().kind;
-    // The ledgers share a corner: survey while idle, game while playing.
     if run.pastimes.round.is_none() && super::countryside::survey_near(run).is_some() {
         return;
     }
@@ -902,8 +815,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         .filter(|r| r.game == Game::Volley)
     {
         if let Some(v) = &r.volley {
-            // One top strip, never a four-line board across the serve lane.
-            // The bell order lives on the court; the HUD only keeps score.
             let x = 4;
             let y = 13;
             let w = 244;
@@ -919,7 +830,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             return;
         }
     }
-    // The intro screen: controls and objective, shown while players are invulnerable.
     if let Some(round) = &run.pastimes.round {
         if round.intro_ticks > 0 {
             let board = intro_board(round.game);
@@ -934,13 +844,11 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         .filter(|g| g.room() == kind)
         .enumerate()
     {
-        // While a game is on, only its own board shows.
         if playing.is_some_and(|g| g != game) {
             continue;
         }
         let record = &run.home.countryside.games;
         let active = run.pastimes.round.as_ref().filter(|r| r.game == game);
-        // Games played under the top board keep it to three lines.
         let up_top = matches!(
             game,
             Game::Sled
@@ -991,7 +899,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             cv.h - board.h - super::tray::max_height(run, cv.w - 8) - 16
         };
         cv.stamp(&board, x, y);
-        // Floating score popup: rises and fades over 8 ticks.
         if let Some(r) = active.filter(|r| {
             r.score_popup > 0 && !r.score_popup_text.is_empty() && r.game != Game::Volley
         }) {
@@ -999,7 +906,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             let rise = (8 - popup) as i32 * 2;
             let px = x + board.w / 2 - (r.score_popup_text.len() as i32 * 3);
             let py = y - 8 - rise;
-            // Bright ink for first 4 ticks, then fading to grey.
             let ink = if popup > 4 {
                 'O'
             } else if popup > 2 {
@@ -1012,7 +918,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The letter on a game's start ring.
 fn pad_letter(game: Game) -> char {
     match game {
         Game::Broadsheet => 'P',
@@ -1033,13 +938,11 @@ fn pad_letter(game: Game) -> char {
         Game::Longbow => 'A',
         Game::Powder => 'K',
         Game::Gander => 'G',
-        // S for the Siege Trail; G stays Gander Joust's.
         Game::Siege => 'S',
         Game::Peal => 'R',
     }
 }
 
-/// How to play, in two or three words.
 fn how(game: Game) -> &'static str {
     match game {
         Game::Broadsheet => "POST GOLD BOXES",
@@ -1065,7 +968,6 @@ fn how(game: Game) -> &'static str {
     }
 }
 
-/// The intro screen: a title, the goal, the controls, and a "press F" hint.
 fn intro_board(game: Game) -> Img {
     let (goal, keys): (&str, [&str; 3]) = match game {
         Game::Broadsheet => (
@@ -1170,7 +1072,6 @@ fn intro_board(game: Game) -> Img {
     glass_board(&lines)
 }
 
-/// The one thing to do right now, where a game has a moment.
 fn live_cue(game: Game, r: &crate::rules::pastimes::Round) -> Option<String> {
     match game {
         Game::Surf => {
@@ -1235,17 +1136,8 @@ fn kind_is_hippodrome(run: &Run) -> bool {
     run.room().kind == RoomKind::Hippodrome
 }
 
-/// The Gander Joust hall, side-on: stone ledges with moss and torches over
-/// a tar pit, drawn in the realm inks the way the other side-on halls are
-/// (rock for stone, coursed faces, torchlight). The riders are twice their
-/// old size so a player reads them at a glance; each knight in their own
-/// colour, a wing frame on every flap, the lance tipping down when diving.
-/// Unhorsed riders drop an egg that rolls on the ledge; the tar's hand
-/// rises for a low rider, in four frames.
 fn gander_hall(cv: &mut Img, run: &Run) {
     use crate::rules::pastimes::{GANDER_LEDGES as LEDGES, GANDER_TAR_ROW as TAR_ROW};
-    // The ledges: stone in the side-on kit — a lit top, a coursed face
-    // below with joints half drawn, moss along the lip (foliage bank).
     for &(x0, x1, row) in LEDGES.iter() {
         let (px, w, py) = (x0 * TILE, (x1 - x0 + 1) * TILE, row * TILE);
         cv.rect(px, py, w, TILE, 'j');
@@ -1270,8 +1162,6 @@ fn gander_hall(cv: &mut Img, run: &Run) {
             }
         }
     }
-    // The tar pit: black glass with a slow skin, wall to wall below the
-    // ledges.
     for row in TAR_ROW..(run.room().rows as i32 - 1) {
         cv.rect(
             TILE,
@@ -1288,7 +1178,6 @@ fn gander_hall(cv: &mut Img, run: &Run) {
             cv.put(x + 1, TAR_ROW * TILE + 4, 'g');
         }
     }
-    // Torches on the back wall, above the ledges — the side-on kit's own.
     let tick = run.tick as u32;
     for x in [4, 12, 19] {
         let (tx, ty) = (x * TILE + 6, 3 * TILE);
@@ -1310,7 +1199,6 @@ fn gander_hall(cv: &mut Img, run: &Run) {
         return;
     };
     let count = g.tally.len();
-    // The eggs: white, rolling on their ledge; a crack as hatching nears.
     for e in &g.eggs {
         let (x, y) = (e.x * TILE / 256, e.row * TILE);
         cv.ellipse(x as f32, y as f32 - 2.0, 3.0, 3.0, 'i');
@@ -1321,21 +1209,17 @@ fn gander_hall(cv: &mut Img, run: &Run) {
     }
     for (i, rider) in g.riders.iter().enumerate() {
         if rider.down > 0 && i >= count {
-            // A felled rival: rings on the tar where it went in.
             let (x, y) = (rider.x * TILE / 256, TAR_ROW * TILE + 4);
             for r in [3, 6, 9] {
                 ring(cv, x, y, r as f32, 'K');
             }
             continue;
         }
-        // Twice the old size: the goose reads at a glance.
         let (x, y) = (rider.x * TILE / 256, rider.y * TILE / 256);
         let face = rider.face as i32;
         let wing = (run.tick as i32 / 4 + i as i32 * 3) % 6 < 3;
         let tumbling = rider.stun > 0;
         let knight = i < count;
-        // Each knight in their own colour — the same ink the standings
-        // board uses for their seat. Rivals stay crow-dark.
         let trim = if knight {
             super::knights::seat_mark(i as u32 + 1)
         } else {
@@ -1359,7 +1243,6 @@ fn gander_hall(cv: &mut Img, run: &Run) {
         cv.rect(nx - 2, ny - 4, 5, 6, trim);
         cv.line(nx + face * 3, ny, nx + face * 10, ny + 2, bill);
         cv.put(nx + face * 3, ny - 2, 'k');
-        // The wings: a frame on every flap, up then down.
         let spread = if wing && !tumbling { -8 } else { 6 };
         cv.line(x - face * 4, y - 12, x - face * 14, y - 12 + spread, trim);
         cv.line(x + face * 2, y - 12, x + face * 12, y - 12 + spread, trim);
@@ -1367,7 +1250,6 @@ fn gander_hall(cv: &mut Img, run: &Run) {
         if !tumbling {
             cv.rect(x - 6, y - 28, 11, 10, helm);
             cv.put(x + face * 4, y - 24, 'k');
-            // The lance: level on the cruise, tipping down on the dive.
             let tip = if rider.dy > 32 { 8 } else { 2 };
             cv.line(x + face * 10, y - 24, x + face * 24, y - 24 + tip, 'o');
             cv.put(x + face * 24, y - 24 + tip, 'u');
@@ -1375,20 +1257,16 @@ fn gander_hall(cv: &mut Img, run: &Run) {
             cv.rect(x - 6, y - 36, 11, 10, helm);
         }
     }
-    // The tar's hand: rising for a low rider, four frames — knuckles,
-    // wrist, spread fingers, then closed on the rider and sinking.
     if let Some(hand) = &g.hand {
         let (x, base) = (hand.x * TILE / 256, TAR_ROW * TILE);
         match hand.frame {
             1 => {
-                // Knuckles just breaking the skin.
                 cv.ellipse(x as f32, base as f32 + 1.0, 7.0, 3.0, 'K');
                 for k in -3..=3 {
                     cv.put(x + k * 2, base - k.abs() / 2, 'g');
                 }
             }
             2 => {
-                // The wrist: a broad dark mass with knuckle ridges.
                 cv.ellipse(x as f32, base as f32 - 3.0, 8.0, 6.0, 'K');
                 for k in -2i32..=2 {
                     cv.put(x + k * 3, base - 8, 'X');
@@ -1396,7 +1274,6 @@ fn gander_hall(cv: &mut Img, run: &Run) {
                 }
             }
             3 | 4 => {
-                // Fingers spread wide (then curling), the forearm behind.
                 for h in 0..16 {
                     cv.rect(x - 3, base - h, 6, 1, 'k');
                 }

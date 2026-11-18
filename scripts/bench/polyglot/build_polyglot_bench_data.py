@@ -170,8 +170,6 @@ def build_data(data, provenance=None):
             rs = [r for r in rows if r["model"] == model and r["harness"] == harness]
             if not rs:
                 continue
-            # Keep export order within a run: it is execution order, and a
-            # resumed (pickup) segment restarts task_index at 0.
             rs.sort(key=lambda r: r["run"])
             runs = sorted({r["run"] for r in rs})
             attempts = [

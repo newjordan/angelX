@@ -1,8 +1,3 @@
-"""Analyze the offline bench (results.jsonl): hit rates with Wilson 95% CIs,
-exact McNemar tests for paired arms, run-to-run noise, strata, and verdicts
-on the pre-registered hypotheses. Writes analysis.json.
-  python3 -I analyze.py <bench-dir>
-"""
 import collections, json, math, statistics, sys
 
 root = sys.argv[1]
@@ -21,7 +16,6 @@ def wilson(k, n, z=1.96):
 
 
 def mcnemar(a, b):
-    """Exact two-sided McNemar on paired booleans: (b-only, a-only, p)."""
     only_a = sum(1 for x, y in zip(a, b) if x and not y)
     only_b = sum(1 for x, y in zip(a, b) if y and not x)
     n = only_a + only_b
@@ -77,7 +71,6 @@ for src in ("desk", "web", "all"):
     out["noise"][src] = {"hit_flips": flips, "n": len(rs), "flip_rate": round(flips / len(rs), 3),
                          "same_point": sum(m < 1 for m in moved), "median_move_px": round(statistics.median(moved), 1) if moved else None}
 
-# Pre-registered hypotheses.
 o, pr = out["overall"], out["paired"]
 def pts(src, a, b):
     return round(100 * (o[src][b]["rate"] - o[src][a]["rate"]), 1) if src in o else None

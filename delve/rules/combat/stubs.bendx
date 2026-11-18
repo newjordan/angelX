@@ -1,10 +1,4 @@
 # bendx-out: ../../stubs/combat.bend
-# Names the combat group calls that other groups own. Each is the faithful
-# Rust behaviour where the port needs it to prove its own cases, so a stub
-# here is only a fallback: the build keeps it while no fragment defines the
-# name, and drops it the moment the owner lands the real one.
-
-# --- rules.rs: mix
 
 def rules.mix(x: W.W) -> W.W:
   h: W.W = W.xor(x, W.shr(x, 33))
@@ -12,9 +6,6 @@ def rules.mix(x: W.W) -> W.W:
   h = W.xor(h, W.shr(h, 33))
   h = W.mul(h, W.W{3301882366, 444984403})
   W.xor(h, W.shr(h, 33))
-
-
-# --- wishcraft.rs: how a knight's shot is sized
 
 def wishcraft.Projectile.sized(shot: Projectile) -> Bool:
   Bool.and(Bool.and(Bool.not(shot.hostile), U32.is_gt(shot.traits.owner, 0)), Bool.not(shot.traits.borrowed))
@@ -35,8 +26,6 @@ def wishcraft.Projectile.reach(shot: Projectile) -> F32:
   if Bool.not(wishcraft.Projectile.sized(shot)):
     return (wishcraft.SIZE_REACH() * cb.f(RS.u_min(shot.traits.size, 3)) : F32)
   (wishcraft.HIT_REACH() * RS.f_max((wishcraft.Projectile.scale(shot) - (cb.f(wishcraft.BASE_PCT()) / 100.0 : F32) : F32), 0.0) : F32)
-
-# --- desperate.rs: a boss's last stand
 
 def desperate.last_stand(enemy: Enemy, target: (F32, F32)?, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds):
   d: F32 = desperate.Enemy.desperation(enemy)
@@ -68,8 +57,6 @@ def desperate.last_stand(enemy: Enemy, target: (F32, F32)?, shots: J.Val, deeds:
           shots = J.push(shots, desperate.bolt(enemy, angle, 4.5, 10, "orb"))
       return (enemy, shots, deeds)
 
-# --- the hunters' (flesher, silkmother), the hexer's and the lich's steps
-
 def hunters.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, deeds: Deeds) -> (Enemy, Deeds, Bool):
   (enemy, deeds, False{})
 
@@ -82,8 +69,6 @@ def lich.act(enemy: J.Val, heroes: J.Val, room: J.Val, barred: Bool, shots: J.Va
 def outlaw.act(enemy: Enemy, boss: Boss, heroes: J.Val, room: Room, barred: Bool, seed: W.W, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds):
   (enemy, shots, deeds)
 
-# --- peasant.rs: Scarecrows taunt this room while standing, else the knights are seen
-
 def peasant.sights(tick: W.W, scarecrows: J.Val, enemy: Enemy, knights: J.Val, images: J.Val) -> J.Val:
   out: J.Val = J.JA{Nil{}}
   for d: J.Val in J.items(scarecrows):
@@ -92,8 +77,6 @@ def peasant.sights(tick: W.W, scarecrows: J.Val, enemy: Enemy, knights: J.Val, i
   if U32.is_eq(J.len(out), 0):
     return press.sights(enemy, knights, images)
   out
-
-# --- tune.rs: a foe's step stretched or shortened by the room's pace
 
 def tune.foe_step(enemy: Enemy, fx: F32, fy: F32, pace: F32, room: Room, barred: Bool) -> Enemy:
   dx: F32 = (enemy.x - fx : F32)
@@ -110,15 +93,11 @@ def tune.foe_step(enemy: Enemy, fx: F32, fy: F32, pace: F32, room: Room, barred:
   enemy.y = (fy + dy * pace : F32)
   enemy
 
-# --- wishcraft.rs: a chilled monster's step
-
 def wishcraft.slow(enemy: Enemy, fx: F32, fy: F32, room: Room, barred: Bool) -> Enemy:
   if U32.is_eq(enemy.chilled, 0):
     return enemy
   enemy.chilled = (enemy.chilled - 1 : U32)
   tune.foe_step(enemy, fx, fy, 0.6, room, barred)
-
-# --- skills.rs: foes cannot walk through a standing barricade
 
 def skills.shove(enemy: Enemy, barricades: J.Val) -> Enemy:
   for w: J.Val in J.items(barricades):
@@ -148,17 +127,11 @@ def skills.shove(enemy: Enemy, barricades: J.Val) -> Enemy:
         enemy.y = (py + uy * reach : F32)
   enemy
 
-# --- ledge.rs: a walker side-on keeps the ground it walks on (not yet ported)
-
 def ledge.fall(enemy: Enemy, room: Room, barred: Bool) -> Enemy:
   enemy
 
-# --- hireling.rs
-
 def hireling.ROAR_REACH() -> F32:
   7.0
-
-# --- stakes.rs: a deep floor's extra shots in a fan
 
 def stakes.fan_out(fury: U32, shots: [J.Val], from: U32) -> [J.Val]:
   fired: [Projectile] = Nil{}
@@ -181,15 +154,14 @@ def stakes.fan_out(fury: U32, shots: [J.Val], from: U32) -> [J.Val]:
         out = List.append(&2, J.Val, out, [copy])
   out
 
-# --- rules.rs
+def presence.Run.holding(run: Run) -> Bool:
+  Bool.not(String.eq(J.str(J.get(run, "held")), "open"))
 
 def rules.Run.foes_left(run: Run) -> Bool:
   for e: Enemy in J.items(run.enemies):
     if Bool.not(String.eq(e.kind, "dummy")):
       return True{}
   False{}
-
-# --- the default ShotTraits (rules.rs), which core's desperate.bolt builds shots with
 
 def projectile.ShotTraits.default() -> J.Val:
   patterns.ShotTraits.default()

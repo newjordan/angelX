@@ -59,7 +59,6 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
     let Some(me) = s.seats.get(&me_id).map(|seat| &seat.knight) else {
         return;
     };
-    // What the Ledger has written, for the table.
     let mut row = 1;
     for &(note, _) in s.news.iter().rev().take(2) {
         line(frame, row, format!(" {}", note_text(note)), warm);
@@ -68,8 +67,6 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
     if let Some((note, _)) = me.note {
         line(frame, row, format!(" {}", note_text(note)), warm);
     }
-    // The picture's own clock bar is too fine for four-pixel cells: the foot
-    // of the screen is text (the shell keeps the last row for "hold Esc").
     let h = area.height;
     if h >= 8 {
         let status = {
@@ -313,7 +310,6 @@ mod tests {
                         '\u{2584}' => put(&mut img, px, py + ch / 2, cw, ch / 2, fg),
                         '\u{2588}' => put(&mut img, px, py, cw, ch, fg),
                         ' ' => {}
-                        // Letters: a block, so the eye can tell where text sits.
                         _ => put(&mut img, px + 1, py + 3, cw - 2, ch - 6, fg),
                     }
                 }

@@ -17,7 +17,6 @@ fn main() -> Result<(), String> {
     let text = std::fs::read_to_string(input).map_err(|e| format!("{input}: {e}"))?;
     let castle = Castle::from_json(plan, &text)?;
     let bytes = castle.encode();
-    // What the game reads must be what was baked.
     let back = Castle::decode(&bytes)?;
     if back != castle {
         let first = castle.stones.iter().zip(&back.stones).position(|(a, b)| a != b);

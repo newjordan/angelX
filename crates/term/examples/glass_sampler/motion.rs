@@ -13,9 +13,7 @@ use std::f32::consts::{PI, TAU};
 use std::fmt::Write as _;
 use std::ops::{Add, Mul, Neg, Sub};
 
-/// Inline vertices across one envelope (`glass_scene`'s cap).
 pub const MAX_VERTICES: usize = 4096;
-/// Inline indices across one envelope.
 pub const MAX_INDICES: usize = 12288;
 
 const GOLDEN: f32 = 2.399_963;
@@ -76,7 +74,6 @@ impl V3 {
         self.dot(self).sqrt()
     }
 
-    /// Unit length. A zero vector comes back as +Y, never NaN.
     pub fn norm(self) -> V3 {
         let len = self.len();
         if len > 1e-8 {
@@ -132,8 +129,6 @@ pub fn smooth(e0: f32, e1: f32, x: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
-/// The sampler's neon ramp, cyclic in `t`: hot pink, violet, cyan, mint,
-/// amber, and round again.
 pub fn neon(t: f32) -> Rgb {
     const STOPS: [Rgb; 5] = [
         [1.00, 0.20, 0.60],
@@ -149,13 +144,11 @@ pub fn neon(t: f32) -> Rgb {
     mix(STOPS[i], STOPS[(i + 1) % STOPS.len()], f)
 }
 
-/// A colour as the dialect's `rrggbb`.
 pub fn hex(c: Rgb) -> String {
     let byte = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
     format!("{:02x}{:02x}{:02x}", byte(c[0]), byte(c[1]), byte(c[2]))
 }
 
-/// A small integer hash in 0..1, for stars and grain that stay put.
 pub fn hash(n: u32) -> f32 {
     let mut x = n.wrapping_mul(0x9E37_79B9) ^ 0x85EB_CA6B;
     x ^= x >> 16;
@@ -166,8 +159,6 @@ pub fn hash(n: u32) -> f32 {
     (x & 0x00FF_FFFF) as f32 / 16_777_216.0
 }
 
-/// The camera an envelope carries, so the window's projection and the
-/// CPU's shading agree on where the eye is.
 #[derive(Clone, Copy, Debug)]
 pub struct Cam {
     pub eye: V3,
@@ -193,14 +184,11 @@ impl Cam {
     }
 }
 
-/// Triangles with their colour baked per vertex.
 #[derive(Default)]
 pub struct Mesh {
     pos: Vec<V3>,
     col: Vec<Rgba>,
     tris: Vec<[u32; 3]>,
-    /// Pulled toward the eye when sorting, so a line's core is drawn after
-    /// its halo at the same depth.
     bias: Vec<f32>,
 }
 
@@ -219,8 +207,6 @@ impl Mesh {
         (self.pos.len() - 1) as u32
     }
 
-    /// A triangle wound so its face looks along `toward`: the window culls
-    /// back faces, counter-clockwise in front.
     pub fn tri(&mut self, a: u32, b: u32, c: u32, toward: V3, bias: f32) {
         let (pa, pb, pc) = (self.pos[a as usize], self.pos[b as usize], self.pos[c as usize]);
         let n = (pb - pa).cross(pc - pa);
@@ -232,13 +218,11 @@ impl Mesh {
         self.bias.push(bias);
     }
 
-    /// `a b c d` in order round a quad.
     pub fn quad(&mut self, q: [u32; 4], toward: V3, bias: f32) {
         self.tri(q[0], q[1], q[2], toward, bias);
         self.tri(q[0], q[2], q[3], toward, bias);
     }
 
-    /// Farthest first, for a node the window blends.
     pub fn sort(&mut self, cam: &Cam) {
         let mut order: Vec<(f32, [u32; 3], f32)> = self
             .tris
@@ -255,8 +239,6 @@ impl Mesh {
         self.bias = order.iter().map(|o| o.2).collect();
     }
 
-    /// A line through `points` (place, colour, width), turned to face the
-    /// eye all along. Alpha in a point's colour fades the line there.
     pub fn ribbon(&mut self, cam: &Cam, points: &[(V3, Rgba, f32)], bias: f32) {
         if points.len() < 2 {
             return;
@@ -278,7 +260,6 @@ impl Mesh {
         }
     }
 
-    /// A line lying in the plane whose normal is `up`, seen from that side.
     pub fn strip(&mut self, points: &[(V3, Rgba, f32)], up: V3, bias: f32) {
         if points.len() < 2 {
             return;
@@ -299,8 +280,6 @@ impl Mesh {
         }
     }
 
-    /// A soft round light facing the eye: bright in the middle, gone at
-    /// `r`. `segments` is how round it is.
     #[allow(clippy::too_many_arguments)]
     pub fn glow(&mut self, cam: &Cam, c: V3, r: f32, color: Rgb, alpha: f32, segments: u32, bias: f32) {
         let segments = segments.max(3);
@@ -324,7 +303,6 @@ impl Mesh {
         }
     }
 
-    /// A small star: a centre and a fading rim of four.
     pub fn star(&mut self, cam: &Cam, c: V3, r: f32, color: Rgb, alpha: f32) {
         let (right, up) = (cam.right(), cam.up());
         let toward = cam.eye - c;
@@ -339,8 +317,6 @@ impl Mesh {
         }
     }
 
-    /// A sphere wound outward, each vertex coloured by `shade(point,
-    /// normal)`.
     pub fn sphere(&mut self, c: V3, r: f32, segments: u32, rings: u32, shade: impl Fn(V3, V3) -> Rgba) {
         let base = self.pos.len() as u32;
         for j in 0..=rings {
@@ -364,10 +340,6 @@ impl Mesh {
         }
     }
 
-    /// A tube round the closed `curve`, `sides` round, wound outward. Its
-    /// frame is carried along the curve and the twist it gathers is spread
-    /// back over the loop, so no seam shows. `shade` takes the point, its
-    /// normal and how far round the curve it is, 0..1.
     pub fn tube(&mut self, curve: &[V3], radius: f32, sides: u32, shade: impl Fn(V3, V3, f32) -> Rgba) {
         let n = curve.len();
         if n < 3 {
@@ -383,8 +355,6 @@ impl Mesh {
             normal = (normal - t * normal.dot(t)).norm();
             normals.push(normal);
         }
-        // The frame carried once round, back at the start, against where it
-        // began: that angle is spread over the loop.
         let back = (normal - t0 * normal.dot(t0)).norm();
         let first = normals[0];
         let twist = t0.cross(first).dot(back).atan2(first.dot(back));
@@ -418,7 +388,6 @@ impl Mesh {
     }
 }
 
-/// A scene envelope, written by hand: numbers kept short, every one finite.
 pub struct Envelope {
     json: String,
     nodes: usize,
@@ -439,10 +408,6 @@ impl Envelope {
         Self { json, nodes: 0, vertices: 0, indices: 0 }
     }
 
-    /// One node holding `mesh` with its colours as baked. A tint alpha just
-    /// under one is what makes the window blend a node. A mesh that would
-    /// take the envelope past the window's caps is left out, so the rest
-    /// still draws rather than the whole scene being refused.
     pub fn mesh(&mut self, id: u32, mesh: &Mesh, blend: bool) {
         if mesh.tris.is_empty()
             || self.vertices + mesh.vertices() > MAX_VERTICES
@@ -521,7 +486,6 @@ fn turn(a: f32, b: f32, angle: f32) -> (f32, f32) {
     (a * c - b * s, a * s + b * c)
 }
 
-/// A far shell of stars round the origin, fixed by `seed`.
 fn starfield(mesh: &mut Mesh, cam: &Cam, count: u32, radius: f32, seed: u32) {
     for i in 0..count {
         let y = hash(seed + i * 3) * 2.0 - 1.0;
@@ -534,12 +498,6 @@ fn starfield(mesh: &mut Mesh, cam: &Cam, count: u32, radius: f32, seed: u32) {
     }
 }
 
-// -------------------------------------------------------------- tesseract --
-
-/// A hypercube turning through the fourth dimension, its 32 edges neon
-/// lines (a wide faint halo, a glow and a hot core), its 16 corners soft
-/// lights and its 24 faces faint glass, under a far shell of stars. Nearer
-/// in the fourth dimension is bigger and pinker.
 pub fn tesseract(t: f32) -> Vec<u8> {
     let cam = Cam { eye: v3(0.0, 0.7, 6.2), target: v3(0.0, 0.0, 0.0), fov: 0.72 };
     let mut corners = [(V3::default(), 0.0f32, 0.0f32); 16];
@@ -606,12 +564,9 @@ pub fn tesseract(t: f32) -> Vec<u8> {
     env.finish()
 }
 
-/// How far each of the tesseract's turns has gone at `t`, for a readout.
 pub fn tesseract_angles(t: f32) -> [f32; 3] {
     [(t * 0.52) % TAU, (t * 0.21) % TAU, (t * 0.33 + 0.4) % TAU]
 }
-
-// ------------------------------------------------------------------- knot --
 
 const KNOT_STEPS: usize = 112;
 
@@ -621,8 +576,6 @@ fn torus_knot(u: f32) -> V3 {
     v3(r * (2.0 * phi).cos(), -(3.0 * phi).sin() * 1.15, r * (2.0 * phi).sin()) * 0.64
 }
 
-/// Glass: see-through face on, opaque and bright at the grazing edge, a
-/// hot specular, and a hue that slides with the angle (thin-film colour).
 fn glass_shade(p: V3, n: V3, u: f32, eye: V3, t: f32) -> Rgba {
     let view = (eye - p).norm();
     let facing = n.dot(view).max(0.0);
@@ -641,10 +594,6 @@ fn glass_shade(p: V3, n: V3, u: f32, eye: V3, t: f32) -> Rgba {
     rgba(rgb.map(|v| v.clamp(0.0, 1.0)), alpha.clamp(0.0, 1.0))
 }
 
-/// A trefoil of glass tubing with a hot neon filament inside, two orbit
-/// rings with comets, and sparks running along the glass. The filament is
-/// opaque, so the glass in front of it blends over it and the glass behind
-/// it is hidden, pixel by pixel.
 pub fn knot(t: f32) -> Vec<u8> {
     let cam = Cam { eye: v3(0.0, 0.4, 6.6), target: v3(0.0, 0.0, 0.0), fov: 0.70 };
     let turn = |p: V3| p.rot_y(t * 0.42).rot_x(0.55 + 0.18 * (t * 0.37).sin());
@@ -686,12 +635,8 @@ pub fn knot(t: f32) -> Vec<u8> {
     env.finish()
 }
 
-// ------------------------------------------------------------------- city --
-
 const CITY: usize = 12;
 
-/// The city's column heights at `t`: a ripple out from the middle and a
-/// cross wave over it.
 fn city_height(i: usize, j: usize, t: f32) -> f32 {
     let x = i as f32 - (CITY as f32 - 1.0) / 2.0;
     let z = j as f32 - (CITY as f32 - 1.0) / 2.0;
@@ -701,9 +646,6 @@ fn city_height(i: usize, j: usize, t: f32) -> f32 {
     0.18 + 2.1 * ripple + 0.55 * cross
 }
 
-/// An equaliser city: 144 columns riding a wave, lit from a key with their
-/// tops shining, risen through a sheet of tinted glass that fades at its
-/// edges, over a glowing floor grid, the camera circling.
 pub fn city(t: f32) -> Vec<u8> {
     let angle = 0.65 + t * 0.16;
     let cam = Cam {
@@ -725,8 +667,6 @@ pub fn city(t: f32) -> Vec<u8> {
             let rim = mix(base, WHITE, 0.25 + 0.5 * level.powf(2.0));
             let face = scale(base, 0.35 + 0.35 * level);
             let up = v3(0.0, 1.0, 0.0);
-            // The top: a bright rim round a darker inset, so each column
-            // reads as a lit tile.
             let inset = half * 0.62;
             let ring = |r: f32| {
                 [v3(x - r, h, z - r), v3(x + r, h, z - r), v3(x + r, h, z + r), v3(x - r, h, z + r)]
@@ -805,8 +745,6 @@ pub fn city(t: f32) -> Vec<u8> {
     env.finish()
 }
 
-// ----------------------------------------------------------------- orrery --
-
 struct Planet {
     orbit: f32,
     size: f32,
@@ -830,7 +768,6 @@ fn planet_at(planet: &Planet, t: f32) -> (V3, f32) {
     (v3(a.cos() * planet.orbit, 0.0, a.sin() * planet.orbit).rot_x(planet.tilt), a)
 }
 
-/// What a planet is made of at the normal `n`.
 fn albedo(look: u8, n: V3) -> Rgb {
     let lat = n.y;
     match look {
@@ -855,10 +792,6 @@ fn albedo(look: u8, n: V3) -> Rgb {
     }
 }
 
-/// A sun with its corona, six planets lit from it (day side, night side
-/// and a rim of atmosphere), a moon, a ringed giant whose ring is
-/// translucent, and orbits drawn as lines that brighten into a comet tail
-/// behind each planet, under far stars. The camera drifts.
 pub fn orrery(t: f32) -> Vec<u8> {
     let swing = 0.35 * (t * 0.11).sin();
     let cam = Cam {
@@ -943,15 +876,10 @@ pub fn orrery(t: f32) -> Vec<u8> {
     env.finish()
 }
 
-// ------------------------------------------------------------------ cloud --
-
-/// How long the cloud holds a shape, and how long it takes to become the
-/// next.
 pub const CLOUD_HOLD: f32 = 1.5;
 pub const CLOUD_MOVE: f32 = 1.0;
 const CLOUD_SHAPES: usize = 5;
 
-/// The cloud's shape names, in order.
 pub const CLOUD_NAMES: [&str; CLOUD_SHAPES] = ["sphere", "torus", "trefoil", "double helix", "galaxy"];
 
 fn shape_point(shape: usize, i: usize, n: usize) -> V3 {
@@ -996,10 +924,6 @@ fn shape_point(shape: usize, i: usize, n: usize) -> V3 {
     }
 }
 
-/// Point `i` of `n` at `t` seconds. The cloud holds a sphere, a torus, a
-/// trefoil, a double helix and a spiral galaxy in turn, easing and swirling
-/// from one into the next, and the whole of it turns. The second value is
-/// the point's place on the palette, the third which shape is held.
 pub fn cloud(i: usize, n: usize, t: f32) -> (V3, f32, usize) {
     let span = CLOUD_HOLD + CLOUD_MOVE;
     let k = (t / span).floor().max(0.0) as usize;
@@ -1014,8 +938,6 @@ pub fn cloud(i: usize, n: usize, t: f32) -> (V3, f32, usize) {
     (p, i as f32 / n as f32, held)
 }
 
-/// Where the seven solids of the ring are at `t`: across (-1..1), up
-/// (-1..1) and how near (-1 far .. 1 near).
 pub fn ring(i: usize, t: f32) -> (f32, f32, f32) {
     let a = t * 0.55 + i as f32 * TAU / 7.0;
     (a.cos(), a.sin() * 0.55, a.sin())
@@ -1031,9 +953,6 @@ mod tests {
         indices: usize,
     }
 
-    /// Reads an envelope back as the window would and checks what the
-    /// wire refuses: unknown shape, a colour outside 0..1, an index past its
-    /// mesh, the caps across the envelope.
     fn read(bytes: &[u8]) -> Counted {
         let value: serde_json::Value = serde_json::from_slice(bytes).expect("an envelope is JSON");
         assert_eq!(value["v"], 1);
@@ -1071,7 +990,6 @@ mod tests {
 
     #[test]
     fn every_scene_stays_under_the_envelope_caps_all_the_way_through() {
-        // Every mesh made it in: the envelope leaves out one past the caps.
         let builders: [(&str, fn(f32) -> Vec<u8>, usize); 4] =
             [("tesseract", tesseract, 1), ("knot", knot, 2), ("city", city, 2), ("orrery", orrery, 2)];
         for (name, build, nodes) in builders {
@@ -1132,8 +1050,6 @@ mod tests {
         let sides = 6;
         mesh.tube(&curve, 0.2, sides as u32, |_, n, _| rgba([n.x.abs(), n.y.abs(), n.z.abs()], 1.0));
         assert!(mesh.pos.iter().all(|p| p.x.is_finite() && p.y.is_finite() && p.z.is_finite()));
-        // Across the seam (last ring to first) vertex k meets vertex k, as
-        // it does between any two neighbouring rings: no turn is left over.
         let matched = |from: usize, to: usize, k: usize| {
             let p = mesh.pos[from * sides + k];
             (0..sides)

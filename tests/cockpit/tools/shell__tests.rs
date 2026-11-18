@@ -218,10 +218,6 @@ fn bootstrap_install_write_denials_are_recognized_without_guessing_network_failu
     ));
 }
 
-/// Run `command` exactly the way the tool does and return the ledger row it
-/// would produce: `(exit, verdict, reason)`. Goes through [`ShellTool::observe`]
-/// so a regression in shell selection is caught by these tests rather than by
-/// six months of silently false evidence.
 fn row(dir: &Path, command: &str) -> (Option<i32>, &'static str, Option<&'static str>) {
     let tool = ShellTool::in_dir(dir.to_path_buf());
     let (obs, shell) = tool.observe(command).expect("shell ran");
@@ -271,9 +267,6 @@ fn shell_tool_honors_registry_cancel_authority() {
     let error = registry
         .dispatch_with_cancel(
             "shell",
-            // `sleep 2 & wait`: under the sleep guard's 10s bar, so the only
-            // thing that can stop it is the registry cancel token firing
-            // mid-run (the guard rejects longer sleeps outright now).
             &serde_json::json!({"command": "sleep 2 & wait"}),
             Some(cancel.as_ref()),
         )
@@ -289,11 +282,8 @@ fn shell_tool_honors_registry_cancel_authority() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// Write a crate at `dir` that does not compile, and return its path.
 fn broken_crate(dir: &Path) {
     std::fs::create_dir_all(dir.join("src")).unwrap();
-    // `[workspace]` detaches it from any enclosing workspace; no dependencies,
-    // so `cargo check` needs no network.
     std::fs::write(
         dir.join("Cargo.toml"),
         "[package]\nname = \"brokencrate\"\nversion = \"0.1.0\"\nedition = \"2021\"\n[workspace]\n",
@@ -306,20 +296,11 @@ fn broken_crate(dir: &Path) {
     .unwrap();
 }
 
-/// The bug, in the exact shape agents write it. A broken build behind a
-/// `| tail -20` recorded `tail`'s 0 — a PASS — for the entire history of the
-/// ledger. It must now be a failure, and it must never again be a pass.
 #[test]
 fn a_broken_build_behind_a_pipe_is_not_a_pass() {
-    // Neighboring self-gate tests temporarily put a fake cargo on PATH.
-    // Keep all invocations here bound to the real compiler environment.
     let _env = crate::tests::env_lock();
     let dir = scratch("brokencrate");
     broken_crate(&dir);
-    // A `CARGO_TARGET_DIR` inherited from whoever ran the suite (a shared
-    // cache outside the sandbox's writable roots) turns every build below
-    // into a `.cargo-lock` permission denial, so the "broken" verdict would
-    // come from the sandbox, not the compiler. Keep the build in the crate.
     let target = dir.join("target");
     let _target = crate::tests::TestEnvGuard::set("CARGO_TARGET_DIR", target.to_str().unwrap());
     let _build_target = crate::tests::TestEnvGuard::unset("CARGO_BUILD_TARGET_DIR");
@@ -329,15 +310,12 @@ fn a_broken_build_behind_a_pipe_is_not_a_pass() {
         "cargo check --offline --manifest-path {}",
         manifest.display()
     );
-    // Ground truth: unpiped, this build fails (cargo exits 101).
-    // --manifest-path pins the check to this scratch crate.
     let (bare_exit, bare_verdict, _) = row(&dir, &check);
     if bare_exit.is_none() || bare_verdict == VERDICT_NONE {
-        return; // no usable cargo in this environment — nothing to assert
+        return;
     }
     assert_eq!(bare_verdict, VERDICT_FAIL, "the crate really is broken");
 
-    // The real-world case, verbatim.
     let (exit, verdict, _) = row(&dir, &format!("{check} 2>&1 | tail -20"));
     assert_ne!(
         verdict, VERDICT_PASS,
@@ -349,13 +327,9 @@ fn a_broken_build_behind_a_pipe_is_not_a_pass() {
     );
     assert_eq!(exit, bare_exit, "the pipeline reports cargo's own status");
 
-    // `| head -N` truncates, but cargo (like every Rust binary) ignores
-    // SIGPIPE, so the build verdict survives that too.
     let (_, verdict, _) = row(&dir, &format!("{check} 2>&1 | head -5"));
     assert_ne!(verdict, VERDICT_PASS, "still not a pass through `| head`");
 
-    // And the same pipelines over a crate that DOES build must still pass —
-    // the fix must not manufacture failures.
     std::fs::write(dir.join("src/main.rs"), "fn main() { println!(\"ok\"); }\n").unwrap();
     for cmd in [check.as_str(), &format!("{check} 2>&1 | tail -20")] {
         assert_eq!(row(&dir, cmd).1, VERDICT_PASS, "{cmd} on a good crate");
@@ -363,14 +337,10 @@ fn a_broken_build_behind_a_pipe_is_not_a_pass() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// `pipefail` is on, so an early stage's failure reaches the record instead of
-/// being masked by whatever happened to run last.
 #[test]
 fn a_failing_stage_is_not_masked_by_a_succeeding_one() {
     let _env = crate::tests::env_lock();
     let dir = scratch("pipefail");
-    // The canonical shape: the thing under judgement fails, the plumbing
-    // after it succeeds. Under plain `sh` every one of these recorded a 0.
     for cmd in [
         "false | true",
         "exit 3 | cat",
@@ -433,10 +403,6 @@ fn a_command_not_found_names_the_missing_program_and_its_sibling() {
         "the hint must name the missing program: {err}"
     );
     assert!(err.contains("host runtimes:"), "{err}");
-    // The measured 2026-09-07 case: `python` on a python3-only host. The
-    // child PATH carries the runtime shim, so the command that used to exit
-    // 127 now runs python3 — and the hint text for the bare name still
-    // names the sibling when asked directly.
     if crate::platform::workspace_lang::resolve_on_path("python").is_none()
         && crate::platform::workspace_lang::resolve_on_path("python3").is_some()
     {
@@ -466,7 +432,6 @@ fn lifecycle_signal_killed_shell_returns_failed_inconclusive_receipt() {
     let error = tool
         .call(&serde_json::json!({"command":"kill -KILL $$"}))
         .unwrap_err();
-    // The kill is `⡨⠉⠃` inside its bracket, the signal beside it.
     assert!(
         error.contains("[⡨⠉⠃ reason=signal:SIGKILL signal=9]"),
         "{error}"
@@ -523,15 +488,8 @@ fn a_no_verdict_exit_is_labelled_without_becoming_a_false_failure() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The blast radius, pinned. `pipefail` faithfully reports a producer killed
-/// by its own consumer closing the pipe — which is plumbing, not a verdict.
-/// These must be recorded as an explicit non-verdict, NOT as a failure: the
-/// point of the fix is to stop laundering one process's status into another's,
-/// and inventing a build failure out of `head(1)` would be the same sin.
 #[test]
 fn a_stage_killed_by_sigpipe_yields_no_verdict_not_a_failure() {
-    // Other tests point PATH and HOME at fixtures under this lock; a shell
-    // spawned meanwhile would not find bash.
     let _env = crate::tests::env_lock();
     let dir = scratch("sigpipe");
     for cmd in ["yes | head -1", "seq 1 200000 | head -2"] {
@@ -540,15 +498,12 @@ fn a_stage_killed_by_sigpipe_yields_no_verdict_not_a_failure() {
         assert_eq!(verdict, VERDICT_NONE, "`{cmd}` is not a failing command");
         assert_eq!(reason, Some("sigpipe"));
     }
-    // Commands that simply succeed through a pipe are untouched by all this.
     for cmd in ["echo hi | tail -20", "true | true", "ls | wc -l"] {
         assert_eq!(row(&dir, cmd).1, VERDICT_PASS, "{cmd}");
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The shell we resolve must actually propagate pipeline failure; if it ever
-/// silently degrades to a POSIX `sh`, the ledger says so instead of lying.
 #[test]
 fn the_resolved_shell_reports_whether_it_can_be_trusted() {
     let _env = crate::tests::env_lock();
@@ -559,7 +514,6 @@ fn the_resolved_shell_reports_whether_it_can_be_trusted() {
              will correctly record `no_verdict`, but the execution fix is inert",
         shell.program
     );
-    // The claim on the tin is the claim in the record.
     let dir = scratch("trust");
     assert_eq!(row(&dir, "false | true").1, VERDICT_FAIL);
     let _ = std::fs::remove_dir_all(&dir);
@@ -637,22 +591,15 @@ fn t06c_stdin_eof_and_signal_names() {
         let started = std::time::Instant::now();
         let out = tool.call(&serde_json::json!({"command":"cat && python3 -c 'import sys; assert sys.stdin.read() == \"\"' && echo stdin-eof"})).unwrap();
         assert!(out.contains("stdin-eof"), "{out}");
-        // `call` has waited for the child status and drained its output.
-        // This marker is emitted only after both readers observe EOF;
-        // scheduler latency (including cold helper startup) is not EOF.
         assert_eq!(out.lines().filter(|line| *line == "stdin-eof").count(), 1);
         eprintln!(
             "T06C_STDIN_RECEIPT yolo={yolo} eof=true elapsed_ms={}",
             started.elapsed().as_millis()
         );
     }
-    // Only signals that never dump core: the sandbox re-raises its child's
-    // signal, so a SEGV here lands in systemd-coredump as a desktop crash
-    // report. The SIGSEGV name has its own test in exec.
     for signal in ["TERM", "KILL", "PIPE"] {
         let args = serde_json::json!({"command":format!("kill -{signal} $$")});
         let error = tool.call(&args).unwrap_err();
-        // The kill is `⡨⠉⠃` inside its bracket, the signal beside it.
         assert!(
             error.contains(&format!("[⡨⠉⠃ reason=signal:SIG{signal} signal=")),
             "{error}"
@@ -683,7 +630,6 @@ fn shell_guidance_and_real_denials_do_not_police_legitimate_commands() {
     let dir = scratch("flow01-guidance");
     let tool = ShellTool::in_dir(dir.clone());
     let def = tool.def();
-    // The guidance is the pages of shell's section; the schema names it.
     let pages = crate::agent::harness::book::sh_shell::PRIMARY.subs[0]
         .pages
         .join(" ");
@@ -752,7 +698,6 @@ fn shell_guidance_and_real_denials_do_not_police_legitimate_commands() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// An already-fired cancel is reported before the command is spawned.
 #[test]
 fn turn_shell_fired_cancel_returns_before_spawn() {
     use std::sync::atomic::AtomicBool;
@@ -764,8 +709,6 @@ fn turn_shell_fired_cancel_returns_before_spawn() {
     let dir = scratch("sleep-guard-cancel");
     let tool = ShellTool::in_dir(dir.clone());
     let fired = AtomicBool::new(true);
-    // A fired token returns the cancellation error before spawn: exactly the
-    // "runner observes the cancel" behavior the old comment promised.
     let out2 = tool.call_with_cancel(&serde_json::json!({"command": "sleep 1"}), Some(&fired));
     assert_eq!(out2.unwrap_err(), "execution cancelled before spawn");
     let _ = std::fs::remove_dir_all(&dir);

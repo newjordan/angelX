@@ -29,7 +29,6 @@ use crate::recipe::Recipe;
 use crate::render::{self, Frame};
 use crate::rig::QUICK_RIG_SOCKETS;
 
-/// How bad a lint is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Level {
@@ -38,7 +37,6 @@ pub enum Level {
     Error,
 }
 
-/// One finding.
 #[derive(Clone, Debug, Serialize)]
 pub struct Lint {
     pub level: Level,
@@ -50,12 +48,10 @@ pub struct Lint {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frame: Option<u32>,
     pub message: String,
-    /// The pixels it is about (at most a dozen), at its grain.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub at: Vec<[u32; 2]>,
 }
 
-/// Every finding for a recipe.
 #[derive(Clone, Debug, Serialize)]
 pub struct Report {
     pub name: String,
@@ -65,7 +61,6 @@ pub struct Report {
 }
 
 impl Report {
-    /// The report as text, one lint a line, worst first.
     pub fn text(&self) -> String {
         let mut s = String::new();
         for l in &self.lints {
@@ -96,7 +91,6 @@ impl Report {
     }
 }
 
-/// A moment to check: the still, or a clip's frame.
 struct Moment<'a> {
     clip: Option<&'a str>,
     frame: Option<u32>,
@@ -108,8 +102,6 @@ fn lint(level: Level, code: &'static str, m: &Moment, message: String, at: Vec<[
     Lint { level, code, grain: Some(m.grain.0), clip: m.clip.map(str::to_string), frame: m.frame, message, at: at.into_iter().take(12).collect() }
 }
 
-/// Check a recipe: the still at grains 1, 2 and 4, and every clip's frames
-/// at grains 1 and 4.
 pub fn check(recipe: &Recipe) -> Report {
     let mut lints = Vec::new();
     let mut moments = Vec::new();
@@ -148,7 +140,6 @@ pub fn check(recipe: &Recipe) -> Report {
     Report { name: recipe.src.name.clone(), errors, warnings, lints }
 }
 
-/// Palette, lone pixels, jaggies, floor contact and sockets in one moment.
 fn pixels(recipe: &Recipe, m: &Moment, lints: &mut Vec<Lint>) {
     let r = &m.f.raster;
     let p = Palette::realm();
@@ -161,7 +152,6 @@ fn pixels(recipe: &Recipe, m: &Moment, lints: &mut Vec<Lint>) {
     if !off.is_empty() {
         lints.push(lint(Level::Error, "palette", m, format!("{} pixels in no realm ink", off.len()), off));
     }
-    // Lone pixels.
     let mut lone = Vec::new();
     let mut figure = 0u32;
     for y in 0..h {
@@ -173,8 +163,6 @@ fn pixels(recipe: &Recipe, m: &Moment, lints: &mut Vec<Lint>) {
             if mark(x, y) != Mark::Fill {
                 continue;
             }
-            // A speck: inside one part's surface, and no neighbour shares
-            // its ink. A one-pixel part (a gem, an eye) is a detail, not a speck.
             let (ink, part) = (r.ink[i], r.part[i]);
             let mut same = false;
             let mut inside = true;
@@ -195,7 +183,6 @@ fn pixels(recipe: &Recipe, m: &Moment, lints: &mut Vec<Lint>) {
     if lone.len() > allowed {
         lints.push(lint(Level::Warning, "lone", m, format!("{} specks, lone pixels inside a surface (more than {allowed})", lone.len()), lone));
     }
-    // Nubs on the silhouette, and doubled L-corners of lines.
     let mut jag = Vec::new();
     for y in 0..h {
         for x in 0..w {
@@ -221,12 +208,10 @@ fn pixels(recipe: &Recipe, m: &Moment, lints: &mut Vec<Lint>) {
     if jag.len() > allowed {
         lints.push(lint(Level::Warning, "jaggy", m, format!("{} nubs or doubled corners (more than {allowed})", jag.len()), jag));
     }
-    // Floor contact: the lowest figure row stands on the pivot's row.
     if let Some((_, y, _, bh)) = r.bounds() {
         let g = m.grain.px();
         let floor = ((recipe.src.pivot[1] * g).ceil() as i32 - 1).max(0);
         let low = (y + bh - 1) as i32;
-        // At grain 2 and up the outline is the row under the feet.
         let slack = if m.grain == Grain::GAME { 0 } else { 1 };
         if low < floor - slack || low > floor + 1 {
             let how = if low < floor { "above" } else { "below" };
@@ -239,7 +224,6 @@ fn pixels(recipe: &Recipe, m: &Moment, lints: &mut Vec<Lint>) {
             ));
         }
     }
-    // Sockets on the canvas.
     for (name, [x, y]) in &m.f.sockets {
         let [w, h] = recipe.src.canvas;
         if *x < 0.0 || *y < 0.0 || *x >= w as f32 || *y >= h as f32 {
@@ -248,8 +232,6 @@ fn pixels(recipe: &Recipe, m: &Moment, lints: &mut Vec<Lint>) {
     }
 }
 
-/// The silhouette at grain 1 against grain 4's, the figure's size, and the
-/// parts lost.
 fn silhouette(recipe: &Recipe, moments: &[Moment], lints: &mut Vec<Lint>) {
     let (Some(g1), Some(g4)) = (
         moments.iter().find(|m| m.clip.is_none() && m.grain == Grain::GAME),
@@ -263,7 +245,6 @@ fn silhouette(recipe: &Recipe, moments: &[Moment], lints: &mut Vec<Lint>) {
     {
         lints.push(lint(Level::Error, "silhouette", g1, format!("the figure is {w}x{h} at grain 1: too small to read"), Vec::new()));
     }
-    // Grain 4's fill, voted down to grain 1 by half its samples.
     let (mut both, mut either) = (0u32, 0u32);
     let mut strays = Vec::new();
     for y in 0..a.h {
@@ -317,11 +298,7 @@ fn silhouette(recipe: &Recipe, moments: &[Moment], lints: &mut Vec<Lint>) {
     }
 }
 
-/// Parts that shimmer: moved by less than a quarter of a pixel between two
-/// frames (or not at all), yet their pixels change where what they meet did
-/// not move.
 fn jitter(recipe: &Recipe, moments: &[Moment], lints: &mut Vec<Lint>) {
-    // Each part's box in its own space, to measure how far a move takes it.
     let own: Vec<[f32; 4]> = recipe.src.parts.iter().map(|p| crate::shape::Solid::of(p, crate::rig::Xf::ID).bounds()).collect();
     for name in recipe.src.clips.keys() {
         for g in [1u8, 4] {
@@ -331,7 +308,6 @@ fn jitter(recipe: &Recipe, moments: &[Moment], lints: &mut Vec<Lint>) {
             }
             for i in 0..frames.len() {
                 let (a, b) = (&frames[i].f, &frames[(i + 1) % frames.len()].f);
-                // How far each part moves, in this grain's pixels.
                 let far: Vec<f32> = (0..a.moves.len())
                     .map(|k| {
                         let [x0, y0, x1, y1] = own[k];
@@ -360,7 +336,6 @@ fn jitter(recipe: &Recipe, moments: &[Moment], lints: &mut Vec<Lint>) {
                         if (pa == id) == (pb == id) {
                             continue;
                         }
-                        // Covered or uncovered by something that moved, or at a line.
                         let other = if pa == id { pb } else { pa };
                         if !unmoved(other) || a.marks[px].is_line() || b.marks[px].is_line() {
                             continue;

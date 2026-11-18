@@ -1,5 +1,3 @@
-# crates/delve/src/rules/knight_racers.rs — one lap on the 864-unit oval, shared by six seats.
-
 def knight_racers.LAP() -> F32:
   864.0
 
@@ -9,7 +7,6 @@ def knight_racers.BEND() -> F32:
 def knight_racers.PI() -> F32:
   3.1415927
 
-# STRAIGHT = (LAP - 2.0 * PI * BEND) / 2.0
 def knight_racers.STRAIGHT() -> F32:
   ((knight_racers.LAP() - (2.0 * knight_racers.PI() * knight_racers.BEND() : F32) : F32) / 2.0 : F32)
 
@@ -19,7 +16,6 @@ def knight_racers.GRID.d(+slot: U32) -> F32:
 def knight_racers.GRID.y(+slot: U32) -> F32:
   gc.nth_f([F32.neg(3.6), 3.6, F32.neg(3.6), 3.6, F32.neg(3.6), 3.6], slot)
 
-# pub fn pose(s) -> (x, y, heading)
 def knight_racers.pose(+s0: F32) -> F32 & F32 & F32:
   s: F32 = RS.f_rem_euclid(s0, knight_racers.LAP())
   arc: F32 = (knight_racers.PI() * knight_racers.BEND() : F32)
@@ -45,14 +41,12 @@ def knight_racers.curve(+s0: F32) -> F32:
   else:
     0.0
 
-# Car::grid(slot)
 def knight_racers.Car.grid(+slot: U32) -> J.Val:
   c0: J.Val = gc.sf(J.obj(), "d", knight_racers.GRID.d(slot))
   c1: J.Val = gc.sf(c0, "y", knight_racers.GRID.y(slot))
   c2: J.Val = gc.sf(gc.sf(c1, "v", 0.0), "vy", 0.0)
   gc.snull(gc.sf(c2, "boost", 1.0), "finish")
 
-# Session::new(players) and join_ids(ids)
 def knight_racers.Session.new(+players: J.Val) -> J.Val:
   s0: J.Val = gc.sb(gc.su(J.set(J.obj(), "cars", J.obj()), "ticks", 0), "finished", False{})
   knight_racers.Session.join_ids(s0, gc.ids(players))
@@ -70,7 +64,6 @@ def knight_racers.all_finished(+cars: List<&2, J.Val>) -> Bool:
     case Con{h, t}:
       Bool.and(Bool.not(J.is_null(J.get(h, "finish"))), knight_racers.all_finished(t))
 
-# The ids in 1..=MAX_PLAYERS, first six (the input is a sorted set of ids).
 def knight_racers.valid_ids(+ids: List<&2, U32>, +n: U32) -> List<&2, U32>:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -84,7 +77,6 @@ def knight_racers.valid_ids(+ids: List<&2, U32>, +n: U32) -> List<&2, U32>:
       else:
         knight_racers.valid_ids(t, n)
 
-# cars.retain(in ids); then the missing ones take their grid slot.
 def knight_racers.cars_for(+old: J.Val, +ids: List<&2, U32>, +unused: U32) -> J.Val:
   match ids as List<&2, U32>:
     case Nil{}:
@@ -93,7 +85,6 @@ def knight_racers.cars_for(+old: J.Val, +ids: List<&2, U32>, +unused: U32) -> J.
       car: J.Val = gc.seat(old, id)
       J.set(knight_racers.cars_for(old, t, 0), gc.key(id), gc.pj(J.is_null(car), knight_racers.Car.grid(gc.ssub(id, 1)), car))
 
-# Session::step(inputs)
 def knight_racers.Session.step(+s: J.Val, +inputs: J.Val) -> J.Val:
   if gc.b(s, "finished"):
     knight_racers.Session.reset(s, inputs)
@@ -107,7 +98,6 @@ def knight_racers.Session.step(+s: J.Val, +inputs: J.Val) -> J.Val:
       cars: J.Val = knight_racers.drive(J.int_fields(J.get(s1, "cars")), inputs, time, J.obj())
       gc.sb(J.set(s1, "cars", cars), "finished", Bool.and(Bool.not(J.is_null(J.get(cars, "1"))), knight_racers.all_finished(gc.vals(cars))))
 
-# A finished race: E from any car's seat resets the whole field.
 def knight_racers.Session.reset(+s: J.Val, +inputs: J.Val) -> J.Val:
   if knight_racers.any_interact(gc.ids(J.get(s, "cars")), inputs):
     gc.sb(gc.su(J.set(s, "cars", knight_racers.regrid(gc.ids(J.get(s, "cars")))), "ticks", 0), "finished", False{})
@@ -135,7 +125,6 @@ def knight_racers.drive(+cars: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +inp
     case Con{(id: String, car: J.Val), t: List<&2, Sigma<&2, &2, String, _ => J.Val>>}:
       knight_racers.drive(t, inputs, time, J.set(acc, id, knight_racers.Car.step(car, gc.seat(inputs, gc.id(id)), time)))
 
-# One car's physics for the tick (a car that has finished is left alone).
 def knight_racers.Car.step(+c: J.Val, +input: J.Val, +time: F32) -> J.Val:
   if Bool.not(J.is_null(J.get(c, "finish"))):
     c
@@ -191,11 +180,9 @@ def knight_racers.Car.advance(+c: J.Val, +time: F32, +boost: F32, +v: F32, +vy: 
   else:
     gc.sf(c1, "d", d)
 
-# fn knight_racers_showing(&self)
 def knight_racers.Run.knight_racers_showing(+run: J.Val) -> Bool:
   Bool.and(String.eq(J.str(J.get(rules.Run.room(run), "kind")), "forest"), Bool.not(J.is_null(J.get(run, "knight_racers"))))
 
-# pub fn start_knight_racers(&mut self)
 def knight_racers.Run.start_knight_racers(+run: J.Val) -> J.Val:
   if String.eq(J.str(J.get(rules.Run.room(run), "kind")), "forest"):
     r1: J.Val = J.set(run, "forest", forest.Forest.leave(J.get(run, "forest")))
@@ -204,7 +191,6 @@ def knight_racers.Run.start_knight_racers(+run: J.Val) -> J.Val:
   else:
     run
 
-# fn tick_knight_racers(&mut self, inputs)
 def knight_racers.Run.tick_knight_racers(+run: J.Val, +inputs: J.Val) -> J.Val:
   if J.is_null(J.get(run, "knight_racers")):
     run

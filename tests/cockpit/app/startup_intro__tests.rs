@@ -14,8 +14,6 @@ fn startup_intro_rises_once_holds_and_fades_without_restarting() {
         intro.sample(now + Duration::from_secs(2), MotionMode::Full),
         Some((24, None, 0, 255))
     );
-    // After the rise the sword holds; the water keeps flowing: the late-clip
-    // frames cycle while the blade frame stays pinned.
     let (held, flow_a, _, _) = intro
         .sample(now + Duration::from_secs(50), MotionMode::Full)
         .unwrap();
@@ -26,9 +24,6 @@ fn startup_intro_rises_once_holds_and_fades_without_restarting() {
         .sample(now + Duration::from_secs(51), MotionMode::Full)
         .unwrap();
     assert!(RIPPLE.contains(&flow_b.unwrap().frame));
-    // The cycle closes on a dissolve rather than the 6.3-level jump a hard wrap
-    // left: the last late-clip frame melts into the first over SEAM ticks, then
-    // the cycle restarts on that first frame outright.
     let cycle = RIPPLE.len() as u128;
     assert_eq!(
         Flow::at(0),
@@ -77,12 +72,6 @@ fn startup_intro_rises_once_holds_and_fades_without_restarting() {
     assert!(intro.sample(now, MotionMode::Full).is_none());
 }
 
-/// The clip's waterline and hand live in the frame's lower rows, so a prepared
-/// canvas has to carry them on the pane floor. In a wide pane the fit is
-/// height-limited and the anchor cannot be told apart from a centered one; in a
-/// narrow pane (mini-viz, a tall bay) it can — a centered Y floated the blade
-/// into the middle of the pane with a dead strip underneath, which is what read
-/// as a hard cut through the water instead of a surface resting on the floor.
 #[test]
 fn startup_intro_anchors_the_waterline_to_the_pane_floor() {
     let atlas = decode_atlas(ATLAS).unwrap();
@@ -97,15 +86,8 @@ fn startup_intro_anchors_the_waterline_to_the_pane_floor() {
             .expect("frame carries ink");
         (first, last, height)
     };
-    // A height-limited pane carries no fit slack at all, so whatever blank rows
-    // sit under the water there are the clip's own tail — its floor. Every other
-    // geometry has to reproduce that same gap; a centered Y adds half the slack
-    // on top of it, which is the dead strip the operator saw.
     let (_, baseline_last, baseline_h) = extent(72, 32);
     let floor_gap = baseline_h - 1 - baseline_last;
-    // The crop ends where the clip's ink ends (`CROP_H`), so the clip's own
-    // tail is at most the levels curve eating the faintest rows: on the pane
-    // floor means on the floor, not a dead strip the height of a text row.
     assert!(
         floor_gap <= 4,
         "the settled frame leaves {floor_gap} blank dot rows under the water; the crop should end at the ink"
@@ -118,9 +100,6 @@ fn startup_intro_anchors_the_waterline_to_the_pane_floor() {
             "waterline must sit on the pane floor: {gap} blank rows under the ink against the \
              clip's own {floor_gap} ({columns}x{rows})"
         );
-        // Mirror of prepare()'s own fit, so this can tell "bottom-anchored" apart
-        // from "centered" instead of only "some ink somewhere": the spare height
-        // has to be above the blade, which is why the case has to be width-limited.
         let crop_w = (FRAME_W - 140 * 2) as f32;
         let scale = (columns as f32 * 2.0 / crop_w).min(height as f32 / CROP_H as f32);
         let fitted_h = (CROP_H as f32 * scale).round().max(1.0) as u32;
@@ -274,7 +253,6 @@ fn startup_intro_real_content_and_prefilled_drafts_never_flash_art() {
 #[test]
 fn startup_intro_actual_clip_is_braille_fitted_and_fades_without_dot_shimmer() {
     let atlas = decode_atlas(ATLAS).unwrap();
-    // A settled frame with no flow: the still case the fade assertions cover.
     let still = |opacity| Key {
         scene: Scene::Sword,
         frame: 59,
@@ -294,8 +272,6 @@ fn startup_intro_actual_clip_is_braille_fitted_and_fades_without_dot_shimmer() {
                 .iter()
                 .all(|c| ('\u{2800}'..='\u{28ff}').contains(&c.glyph))
         );
-        // The fade now drops dimmer dots instead of dimming ink, so the faded
-        // frame keeps a subset of the raised frame's glyphs and pure white ink.
         let raised_lit = raised
             .cells
             .iter()
@@ -327,7 +303,6 @@ fn startup_intro_actual_clip_is_braille_fitted_and_fades_without_dot_shimmer() {
                     .count()
                     > 10
             );
-            // Letterboxing preserves the sword tip and the waterline.
             assert!(raised.cells[..w].iter().all(|c| c.glyph == '\u{2800}'));
         }
     }
@@ -357,7 +332,6 @@ fn startup_mountain_is_a_low_rising_contour_with_a_compact_summit_wizard() {
         let settled = compose_mountain(WIZARD_SETTLE, columns, rows, 255).unwrap();
         let lit = |cell: &&ColoredBrailleCell| cell.glyph != NO_DOTS;
         assert!(settled.cells.iter().filter(lit).count() > ridge.cells.iter().filter(lit).count());
-        // Below the low contour there is no floor, wireframe or back face.
         assert!(
             settled.cells[(rows - 1) * columns..]
                 .iter()
@@ -488,9 +462,6 @@ fn startup_intro_fine_transport_owns_separate_ids_and_transparent_dots() {
                     .starts_with('\u{10eeee}')
             );
             assert_eq!(buffer.cell((1, 2)).unwrap().symbol(), " ");
-            // The transported pixels are the animation: the generated dots on
-            // a transparent background, so the terminal composites the sword
-            // over the pane instead of over a plate uploaded behind it.
             let upload = buffer
                 .cell((0, 0))
                 .unwrap()
@@ -517,9 +488,6 @@ fn startup_intro_fine_transport_owns_separate_ids_and_transparent_dots() {
     assert!(intro.surfaces[0].current.is_none() && intro.worker.is_none());
 }
 
-/// Terminals without fine-dot transport get the Braille fallback. It paints
-/// white ink and nothing else: cells the sword never reaches keep whatever the
-/// pane painted there, and no cell carries a background under the dots.
 #[test]
 fn startup_intro_braille_fallback_paints_only_white_dots() {
     let mut intro = StartupIntro {
@@ -691,8 +659,6 @@ fn startup_intro_full_cockpit_wires_empty_shell_and_never_replays_after_draft() 
         std::thread::sleep(Duration::from_millis(5));
     }
     assert!(app.startup_intro.visible);
-    // Entering an actual room must retain the world even before typing;
-    // only the still-empty agent shell keeps the launch ceremony.
     app.realm.world
         .settle_at_for_test(crate::delve::world_viz::Building::Keep);
     assert!(app.realm.world.enter_interior());
@@ -717,8 +683,6 @@ fn startup_intro_full_cockpit_wires_empty_shell_and_never_replays_after_draft() 
     assert!(!app.startup_intro.visible);
 }
 
-/// Visual proof sheet of the production renderer, saved the way the terminal
-/// receives it: dots on transparency. Private output only.
 #[test]
 #[ignore = "writes a visual proof sheet from the production renderer"]
 fn startup_intro_export_dotmax_proof() {
@@ -754,7 +718,6 @@ fn startup_intro_export_dotmax_proof() {
             geometry.grid_height,
         )
         .unwrap();
-        // The proof carries the transported pixels: dots on transparency.
         let raster = geometry.rasterize_on(&dots, TRANSPARENT).unwrap();
         imageops::overlay(
             &mut sheet,
@@ -828,10 +791,6 @@ fn startup_intro_export_dotmax_proof() {
         .save(std::path::Path::new(&dir).join("mountain-sequence-proof.png"))
         .unwrap();
 
-    // Timing proof: the actual sword and miniviz renderers sampled from the
-    // same 12 fps clock. The smaller right frame is bottom-aligned, matching
-    // its role as the cockpit's compact world window rather than a second
-    // full-size presentation panel.
     let sword = DotGeometry::new(56, 20, (8, 16), 2).unwrap();
     let ticks = [0, 16, 32, HOLD, HOLD + WIZARD_WALK_TICKS / 2, WIZARD_SETTLE];
     let row_height = sword.height.max(mini.height);
@@ -876,10 +835,6 @@ fn startup_intro_export_dotmax_proof() {
         .unwrap();
 }
 
-/// Visual proof of the ambient loop: every tick of two cycles, as PNGs, so the
-/// seam and the hand/hilt isolation can be seen rather than argued. Ignored by
-/// default — it writes a frame sequence, it asserts nothing. Each frame is the
-/// transported pixels: dots on transparency, never a plate behind them.
 #[test]
 #[ignore = "writes a visual proof sequence from the production renderer"]
 fn startup_intro_export_water_flow_proof() {
@@ -893,7 +848,6 @@ fn startup_intro_export_water_flow_proof() {
             scene: Scene::Sword,
             frame: HOLD,
             flow: Some(Flow::at(tick)),
-            // Past the handoff: the flow is fully in charge of the water.
             water: 255,
             opacity: 255,
             size: Size::new(geometry.width as u16, geometry.height as u16),
@@ -915,21 +869,14 @@ fn startup_intro_export_water_flow_proof() {
     }
 }
 
-/// Sideways slack the band leaves in its pane: left, then right.
 fn band_slack(area: Rect, band: Rect) -> (u16, u16) {
     (band.x - area.x, area.x + area.width - (band.x + band.width))
 }
 
-/// The intro band: one rule — never compose a surface wider than the dots that
-/// can carry the art — plus a centring and a floor lock. The crop is nearly
-/// square, so a wider pane never bought a wider blade; it only grew the canvas,
-/// the fine-dot raster and the Braille grid the same blade was carried in, which
-/// is what read as the width pixelating the clip.
 #[test]
 fn startup_intro_band_clamps_width_centres_and_stands_on_the_floor() {
     let fill = |rows: usize| (rows * 4 * CROP_W as usize / CROP_H as usize / 2) as u16;
     let cases = [
-        // (pane, expected width, why)
         (
             Rect::new(0, 0, 200, 20),
             fill(20),
@@ -950,7 +897,6 @@ fn startup_intro_band_clamps_width_centres_and_stands_on_the_floor() {
             fill(10),
             "narrower pane, still the fit",
         ),
-        // Degenerate rows still yield a small band rather than a zero one.
         (Rect::new(4, 4, 30, 1), fill(1), "one row"),
     ];
     for (pane, width, why) in cases {
@@ -965,13 +911,11 @@ fn startup_intro_band_clamps_width_centres_and_stands_on_the_floor() {
             band.width <= fill(usize::from(pane.height)).max(1),
             "{why}: never wider than the art can fill"
         );
-        // Centred, to within the odd column the split cannot share.
         let (left, right) = band_slack(pane, band);
         assert!(
             left.abs_diff(right) <= 1,
             "{why}: slack {left}/{right} is not a centring"
         );
-        // Floor lock: the band is the pane's rows, so its foot is the pane's foot.
         assert_eq!(band.y, pane.y, "{why}: top held");
         assert_eq!(band.height, pane.height, "{why}: the rows are untouched");
         assert_eq!(
@@ -979,34 +923,21 @@ fn startup_intro_band_clamps_width_centres_and_stands_on_the_floor() {
             pane.y + pane.height,
             "{why}: foot of the band is the foot of the pane"
         );
-        // Banding a band is a no-op, so a banded caller and this rule cannot
-        // disagree about the rectangle.
         assert_eq!(intro_band(band), band, "{why}: not idempotent");
     }
-    // A zero-area pane is handed back untouched rather than turned into a
-    // one-column band at the origin.
     let empty = Rect::new(9, 9, 0, 40);
     assert_eq!(intro_band(empty), empty);
     assert_eq!(intro_band(Rect::new(9, 9, 40, 0)), Rect::new(9, 9, 40, 0));
 }
 
-/// The render boundary, not just the helper: the Sword clip is banded before the
-/// geometry is derived, so the composed canvas, the fine-dot raster and the
-/// declared cell rect are one width, and nothing paints outside the band. A
-/// narrower rect declared over a wider raster is what squeezed the clip.
 #[test]
 fn startup_intro_sword_draws_only_inside_its_band() {
     let pane = Rect::new(0, 0, 120, 24);
     let band = intro_band(pane);
     assert!(band.width < pane.width, "this pane must actually clamp");
-    // Banded before the geometry, exactly as the transcript pane does it.
     let geometry = DotGeometry::new(band.width, band.height, (8, 16), 2).unwrap();
-    // The raster is the band's pixels, cell for cell: no wider canvas exists for
-    // the transport to squeeze into the band.
     assert_eq!(geometry.width, u32::from(band.width) * 8);
     let mut intro = StartupIntro {
-        // Settled: the blade has landed and the water is in, so the band's floor
-        // is the waterline rather than an empty early rise frame.
         started: Some(Instant::now() - Duration::from_secs(90)),
         ..Default::default()
     };
@@ -1042,14 +973,11 @@ fn startup_intro_sword_draws_only_inside_its_band() {
         }
     }
     assert!(inked > 0, "the settled clip painted nothing to check");
-    // The band is the aspect-fill width for its rows, so the fitted clip fills it
-    // rather than letterboxing inside it.
     let band_area = usize::from(band.width) * usize::from(band.height);
     assert!(
         inked * 10 >= band_area * 9,
         "the clip fills only {inked}/{band_area} of its band"
     );
-    // Floor lock: the waterline is the last row of the band, edge to edge.
     assert_eq!(
         floor_inked,
         usize::from(band.width),

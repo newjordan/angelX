@@ -12,7 +12,6 @@ use super::{region, scene};
 use crate::world_viz::{Quest, RealmActivity, World};
 use crate::telemetry::MotionMode;
 
-/// Ten display samples per second on the existing 40 Hz world clock.
 pub const FRAME_TICKS: u64 = 4;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -25,8 +24,6 @@ pub enum Work {
     Dispatch,
 }
 
-/// Quantised, finite presentation state. It can be rendered/replayed without
-/// a World, process, file, model, or independent clock.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Playback {
     pub travel: u16,
@@ -44,8 +41,6 @@ impl Playback {
     }
 }
 
-/// Only inputs the expedition actually draws. Town movement, atlas readiness,
-/// and village lights must neither invalidate this frame nor load an asset.
 pub fn frame_key(quest: &Quest, playback: Playback) -> u64 {
     let mut key = std::collections::hash_map::DefaultHasher::new();
     quest.region().hash(&mut key);
@@ -61,10 +56,7 @@ pub fn frame_key(quest: &Quest, playback: Playback) -> u64 {
 }
 
 impl World {
-    /// Operator visits and entered rooms take precedence over automatic travel.
     pub fn live_adventure_view(&self) -> bool {
-        // A promoted record's guardian keeps the pane until it falls, even
-        // if the loop is home by then.
         (region::stage_for(self.quest().region()).is_some() || self.record_fight_on())
             && self.overworld_view_label().is_none()
             && !self.inside_interior()
@@ -84,8 +76,6 @@ impl World {
             (to + marks.len() - 1) % marks.len()
         };
         let distance = if stage == Stage::Mines && to == 0 {
-            // A new circuit enters at the mouth; it never reverses the full
-            // gallery at walking speed when the authored station wraps.
             1.8
         } else {
             ((marks[to].eye.0 - marks[from].eye.0).powi(2)
@@ -128,8 +118,6 @@ fn smooth(value: f32) -> f32 {
     value * value * (3.0 - 2.0 * value)
 }
 
-/// Travel is local to a real iteration boundary. Once arrived, a restrained
-/// breathing camera observes the current work instead of endlessly advancing.
 pub fn camera(
     stage: Stage,
     quest: &Quest,
@@ -168,8 +156,6 @@ pub fn camera(
     let sway = phase.sin() * 0.035;
     let mut pos = a.pos + (b.pos - a.pos) * t + v3(0.0, sway * 0.3, 0.0);
     if stage == Stage::Mines {
-        // Operator parallax stays on the walking ledge: the cart occupies
-        // y <= 0.72 and its near face must never swallow a panned camera.
         pos.y = pos.y.clamp(0.95, 1.55);
     }
     View3 {
@@ -180,7 +166,6 @@ pub fn camera(
     }
 }
 
-/// A box beam between arbitrary points, used for limbs and tool handles.
 fn beam(mesh: &mut Mesh, from: V3, to: V3, radius: f32, material: u8) {
     let axis = (to - from).normalize();
     let reference = if axis.z.abs() < 0.9 {
@@ -212,8 +197,6 @@ fn beam(mesh: &mut Mesh, from: V3, to: V3, radius: f32, material: u8) {
     );
 }
 
-/// One small knight in world units, facing +x. It is real depth-tested
-/// geometry, so beams, carts and walls can naturally occlude the party.
 fn knight(playback: Playback, companion: bool) -> Mesh {
     let mut mesh = Mesh::new();
     let stride = if playback.moving {
@@ -250,7 +233,6 @@ fn knight(playback: Playback, companion: bool) -> Mesh {
         mat::ARMOR,
     );
     prim::disc(&mut mesh, 0.0, 0.0, 1.06, 0.28, 6, 0.0, mat::ARMOR);
-    // Broad pauldrons, a tapered cloak and a peaked helm survive dot scale.
     for side in [-1.0, 1.0] {
         prim::prism(
             &mut mesh,
@@ -373,7 +355,6 @@ fn knight(playback: Playback, companion: bool) -> Mesh {
             0.075,
             mat::ARMOR,
         );
-        // A small field anvil gives an active write/build pose a surface.
         prim::boxed(
             &mut mesh,
             v3(0.52, -0.58, 0.0),
@@ -407,8 +388,6 @@ fn knight(playback: Playback, companion: bool) -> Mesh {
     mesh
 }
 
-/// Walking positions stay on the gallery ledge, clear of the parked cart,
-/// support posts and far wall. Looking around never drags the cast with it.
 fn party_position(stage: Stage, camera: View3, forward: f32, member: u8) -> V3 {
     let (ahead, side) = match member {
         0 => (4.8, -0.45),
@@ -428,9 +407,6 @@ fn party_position(stage: Stage, camera: View3, forward: f32, member: u8) -> V3 {
     v3(x, y, arch::stage_ground_z(stage, scene::SCENE_SEED, x, y))
 }
 
-/// The live seam needs only display controls, not a newly sampled town map.
-/// Region staging deliberately ignores the legacy map parameter; empty Vecs
-/// keep this adapter allocation-free before the actual bounded scene render.
 pub fn render_controls(
     stage: Stage,
     quest: &Quest,
@@ -460,8 +436,6 @@ pub fn render_controls(
     render(stage, quest, &map, &view, yaw, playback, dimensions)
 }
 
-/// Uses the retained region mesh plus a bounded live cast. No unbounded scene
-/// cache: one frame's transformed actors are released with that frame.
 pub fn render(
     stage: Stage,
     quest: &Quest,
@@ -481,7 +455,6 @@ pub fn render(
         region::wisp_phase(stage, u64::from(playback.phase) / 4),
     ))
     .clone();
-    // The cast count follows the actual party. Solo work has one knight.
     let forward = if stage == Stage::Mines {
         0.0
     } else {

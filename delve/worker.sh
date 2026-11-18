@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# worker.sh <out> — build the rules program from its fragments and compile the
-# native Delve rules worker (docs/architecture/delve-in-bend.md).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 python3 "$here/build.py"

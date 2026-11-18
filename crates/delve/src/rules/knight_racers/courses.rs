@@ -8,10 +8,10 @@ pub fn build(id: CourseId) -> Course {
         CourseId::Emberfall => super::emberfall::build(id),
         CourseId::Glassway => super::glassway::build(id),
         CourseId::Moatwalk => super::moatwalk::build(id),
+        CourseId::Moonward => super::moonward::build(id),
+        CourseId::Sunfall => sunfall(CourseId::Sunfall),
     }
 }
-
-// ---- Course 0: the old Lanternward circuit --------------------------------
 
 #[derive(Clone, Copy)]
 struct Seg { len: f32, kappa: f32, wall: f32, kind: Stretch, name: &'static str }
@@ -38,9 +38,6 @@ fn walk(segs: &[Seg]) -> (f32, f32, f32) {
     (x, y, th)
 }
 
-/// Close the prefix with one straight and one constant-radius sweeper.
-/// Heading is already fixed by the sweeper's angle, so length and radius
-/// are the two unknowns that bring the centerline back to the origin.
 fn solve_close(prefix: &[Seg], right: bool) -> Option<(f32, f32, f32)> {
     let (x, y, th) = walk(prefix);
     let thn = th.rem_euclid(TAU);
@@ -60,9 +57,16 @@ fn shape_of(kind: Stretch) -> Shape {
     match kind { Stretch::Open | Stretch::Bowl => Shape::OPEN, Stretch::Canyon => Shape::CANYON, Stretch::Tunnel => Shape::TUNNEL }
 }
 
-fn proving(id: CourseId) -> Course {
+fn proving(id: CourseId) -> Course { circuit(id, false) }
+
+fn sunfall(id: CourseId) -> Course { circuit(id, true) }
+
+const LEAP_AT: f32 = 386.;
+const LEAP_RISE: f32 = 4.2;
+
+fn circuit(id: CourseId, full: bool) -> Course {
     let seg = |len, kappa, wall, kind, name| Seg { len, kappa, wall, kind, name };
-    let prefix = vec![
+    let mut prefix = vec![
         seg(560., 0., 12.8, Stretch::Open, "KEEPWARD STRAIGHT"),
         seg(arc(110., 85.), 1. / 110., 11.0, Stretch::Canyon, "SUN BEND"),
         seg(100., 0., 11.2, Stretch::Open, "RIDGE"),
@@ -72,8 +76,13 @@ fn proving(id: CourseId) -> Course {
         seg(120., 0., 11.0, Stretch::Open, "SLAG RUN"),
         seg(arc(32., 140.), 1. / 32., 7.9, Stretch::Canyon, "SKULL TURN"),
         seg(160., 0., 12.2, Stretch::Open, "RUINS"),
-        seg(arc(70., 45.), -1. / 70., 10.4, Stretch::Canyon, "GATE BEND"),
     ];
+    if full {
+        prefix.push(seg(arc(44., 55.), 1. / 44., 6.9, Stretch::Canyon, "THE CHUTE"));
+        prefix.push(seg(96., 0., 11.4, Stretch::Open, "THE FORGE"));
+        prefix.push(seg(arc(90., 65.), -1. / 90., 11.6, Stretch::Bowl, "MERIDIAN"));
+    }
+    prefix.push(seg(arc(70., 45.), -1. / 70., 10.4, Stretch::Canyon, "GATE BEND"));
     let (straight, radius, ang) = solve_close(&prefix, true)
         .or_else(|| solve_close(&prefix, false))
         .expect("proving circuit must close");
@@ -90,8 +99,8 @@ fn proving(id: CourseId) -> Course {
     let starts: Vec<f32> = segs.iter().scan(0., |acc, s| { let here = *acc; *acc += s.len; Some(here) }).collect();
     let at = |name: &str| starts[segs.iter().position(|s| s.name == name).unwrap()];
     let lap: f32 = segs.iter().map(|s| s.len).sum();
+    let leap_at = at("KEEPWARD STRAIGHT") + LEAP_AT;
 
-    // Half-width of the racing surface: each section's wall, blended over 18 m at the joins.
     let wall = |s: f32| -> f32 {
         let s = s.rem_euclid(lap);
         let mut acc = 0.;
@@ -112,13 +121,13 @@ fn proving(id: CourseId) -> Course {
         }
         12.
     };
-    // Road height closes on itself so the lap seam is level.
     let height = |s: f32| -> f32 {
         let u = s.rem_euclid(lap);
         let wave = 3.4 * (u / lap * TAU).sin() + 1.3 * (u / lap * TAU * 2.).sin();
         let drop_in = ((u - 800.) / 55.).clamp(0., 1.);
         let drop_out = (1. - (u - 1000.) / 70.).clamp(0., 1.);
-        wave - 4.4 * drop_in * drop_out
+        let crest = if full { let d = (u - leap_at).abs().min(lap - (u - leap_at).abs()); LEAP_RISE * (-(d * d) / (2. * 15. * 15.)).exp() } else { 0. };
+        wave - 4.4 * drop_in * drop_out + crest
     };
     let pose = |s: f32| -> (f32, f32, f32, f32) {
         let s = s.rem_euclid(lap);
@@ -139,7 +148,6 @@ fn proving(id: CourseId) -> Course {
         let s = i as f32 * step;
         let (x, y, th, kappa) = pose(s);
         let w = wall(s);
-        // The first renderer banked by the bend; keep that, now as the road's own roll.
         Sample { x, y, th, k: kappa, z: height(s), g: 0., bank: (kappa * 18.).clamp(-0.28, 0.28), wl: w, wr: w }
     }).collect();
     let (_, _, end_th, _) = pose(lap - 1e-3);
@@ -151,7 +159,7 @@ fn proving(id: CourseId) -> Course {
         zones.push(Zone { s0: starts[i], s1: starts[i] + sg.len, biome, stretch: sg.kind, name: sg.name, shape: shape_of(sg.kind) });
     }
     let slag = |s: f32, y: f32, hl: f32, hw: f32| Hazard::block(HazardKind::Slag, s, y, hl, hw);
-    let hazards = vec![
+    let mut hazards = vec![
         slag(at("KEEPWARD STRAIGHT") + 170., 7.1, 2.3, 1.25),
         slag(at("KEEPWARD STRAIGHT") + 330., -7.0, 2.3, 1.25),
         slag(at("KEEPWARD STRAIGHT") + 470., 6.6, 2.1, 1.15),
@@ -161,22 +169,39 @@ fn proving(id: CourseId) -> Course {
         slag(at("RETURN") + 80., 7.2, 2.3, 1.25),
         slag(at("RETURN") + straight * 0.55, -6.8, 2.3, 1.25),
     ];
-    let strips = vec![
+    let mut strips = vec![
         Strip { s0: at("KEEPWARD STRAIGHT") + 60., s1: at("KEEPWARD STRAIGHT") + 150., half_w: 3.1, y: 0. },
         Strip { s0: at("RUINS") + 18., s1: at("RUINS") + 78., half_w: 2.8, y: 0. },
         Strip { s0: at("RETURN") + 24., s1: at("RETURN") + 120., half_w: 3.2, y: 0. },
     ];
     let piece = |kind, s0, s1, side, seed| Piece { kind, s0, s1, side, seed };
-    let pieces = vec![
+    let mut pieces = vec![
         piece(PieceKind::Grandstand, 20., 140., -1., 3),
         piece(PieceKind::Tunnel, at("CAVERN"), at("CAVERN") + 80., 0., 1),
         piece(PieceKind::Foundry, at("SLAG RUN"), at("SLAG RUN") + 120., 1., 2),
         piece(PieceKind::Arch, at("THE BOWL"), at("THE BOWL") + 6., 0., 4),
     ];
+    let mut crests = Vec::new();
+    if full {
+        hazards.push(slag(at("THE CHUTE") + 22., 1.6, 1.6, 0.9));
+        hazards.push(slag(at("THE FORGE") + 34., -5.8, 2.2, 1.2));
+        hazards.sort_by(|a, b| a.s.total_cmp(&b.s));
+        strips.push(Strip { s0: at("MERIDIAN") + 14., s1: at("MERIDIAN") + 78., half_w: 3.0, y: 0. });
+        strips.sort_by(|a, b| a.s0.total_cmp(&b.s0));
+        pieces.push(piece(PieceKind::Banners, at("THE CHUTE"), at("THE CHUTE") + 44. * 55. * PI / 180., 0., 5));
+        pieces.push(piece(PieceKind::ForgeArches, at("THE FORGE") + 6., at("THE FORGE") + 90., 0., 6));
+        pieces.push(piece(PieceKind::Obelisks, at("MERIDIAN"), at("MERIDIAN") + 90. * 65. * PI / 180., 0., 7));
+        crests.push(leap_at);
+    }
+    pieces.push(piece(PieceKind::PitLane, at("KEEPWARD STRAIGHT") + 150., at("KEEPWARD STRAIGHT") + 372., 1., 8));
     let landmarks = starts.iter().skip(1).copied().collect();
+    let (name, blurb) = if full {
+        ("SUNFALL", "The Proving Run's road, run the long way: the chute, the forge's brick arches and the meridian's obelisks, and a crest on the straight that sends a fast pod flying.")
+    } else {
+        ("LANTERNWARD PROVING RUN", "The old circuit: one long straight, a cavern and a bowl. The short practice run.")
+    };
     Course::new(Spec {
-        id, name: "LANTERNWARD PROVING RUN",
-        blurb: "The old circuit: one long straight, a cavern and a bowl. The short practice run.",
-        laps: 2, line, zones, hazards, strips, pieces, forks: Vec::new(), gaps: Vec::new(), landmarks,
+        id, name, blurb,
+        laps: 2, line, zones, hazards, strips, pieces, forks: Vec::new(), gaps: Vec::new(), crests, landmarks,
     })
 }

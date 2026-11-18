@@ -1,10 +1,6 @@
-// Pool surfaces. World pixels and the run tick only: nothing here is written
-// on the wire. Included into `cave_paint`, so names resolve there.
-
 #[cfg(feature = "testing")]
 use std::cell::Cell as Flag;
 
-/// Before-shots in the proof ask for the flat fluid squares. A live seat never sets this.
 #[cfg(feature = "testing")]
 thread_local! {
     static FLAT_POOLS: Flag<bool> = const { Flag::new(false) };
@@ -26,8 +22,6 @@ pub(crate) fn pools_flat() -> bool {
     }
 }
 
-/// The proof steps a cave the change log cannot keep (fire, steam, integrity)
-/// and asks the seat to paint that cell state. Empty unless a proof set it.
 #[cfg(feature = "testing")]
 thread_local! {
     static PAINT_OVER: RefCell<Option<Vec<Cell>>> = const { RefCell::new(None) };
@@ -104,12 +98,9 @@ fn lava_cooling(cave: &Cave, wx: i32, wy: i32, cell: &Cell) -> bool {
 }
 
 fn lava_pool(cave: &Cave, wx: i32, wy: i32, cell: &Cell, tick: u32) -> char {
-    // Molten gold channels between dark crust plates, a red rim where crust meets melt.
-    // Scale 4 so even a one- or two-cell pool carries several plates.
     let seed = cave.seed.max(1);
     let n = blob(wx, wy, tick, 4, seed ^ 0x1a7a);
     if lava_cooling(cave, wx, wy, cell) {
-        // Cooling: the plates grow and darken into a glassy crust, the melt sinks to dull red.
         if hash(wx, wy, 7) % 41 == 0 {
             return 'U';
         }
@@ -127,7 +118,6 @@ fn lava_pool(cave: &Cave, wx: i32, wy: i32, cell: &Cell, tick: u32) -> char {
     if n > 0.46 {
         return '7';
     }
-    // the melt: gold, a few hotter flecks that move with the drift
     if hash(wx - drift_px(tick), wy, 5) % 23 == 0 {
         return '5';
     }

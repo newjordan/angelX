@@ -15,8 +15,6 @@ use std::time::{Duration, Instant};
 
 const TICK: Duration = Duration::from_millis(25);
 const PREVIEW_BYTES: usize = 4096;
-/// Body idle bound for tool HTTP fetches (web pages, APIs). Tool transport only:
-/// model streams have no such bound.
 const TOOL_BODY_STALL: Duration = Duration::from_secs(45);
 
 #[derive(Clone)]
@@ -35,8 +33,6 @@ impl Default for Context {
     }
 }
 impl Context {
-    /// Whether the enclosing tool has been cancelled or its deadline elapsed.
-    /// Request-scoped application workers use the same authority as HTTP.
     pub(crate) fn interrupted(&self) -> bool {
         self.deadline.is_some_and(|deadline| Instant::now() >= deadline)
             || self.cancelled.load(Ordering::Acquire)
@@ -63,7 +59,6 @@ pub(crate) fn with_deadline<R>(deadline: Option<Instant>, operation: impl FnOnce
     ctx.deadline = deadline;
     with_context(ctx, operation)
 }
-/// Tighten a tool's network budget without extending its enclosing deadline.
 pub(crate) fn with_timeout<R>(timeout: Duration, operation: impl FnOnce() -> R) -> R {
     let mut ctx = context();
     let deadline = Instant::now() + timeout;
@@ -269,10 +264,6 @@ impl Body {
     fn start(wire: WireRequest) -> io::Result<Self> {
         let started = Instant::now();
         let ctx = context();
-        // Keep the helper on this process's exact running image. A live rebuild
-        // can unlink the launch path, making current_exe() end in " (deleted)";
-        // stripping that suffix would instead execute a different build with a
-        // potentially different private wire protocol. procfs retains the image.
         #[cfg(target_os = "linux")]
         let executable = std::path::PathBuf::from("/proc/self/exe");
         #[cfg(not(target_os = "linux"))]
@@ -282,10 +273,6 @@ impl Body {
         cmd.arg("--tool-http-helper");
         #[cfg(test)]
         {
-            // Derived from `module_path!()`, not spelled out: a stale literal
-            // matches zero tests, so the child serves nothing, every fixture
-            // request fails as a transport error, and `deadline_interrupts_headers`
-            // hangs on `server.join()` while holding the process-wide env lock.
             let filter = format!(
                 "{}::tests::http_child_entry",
                 module_path!()
@@ -356,7 +343,6 @@ impl Body {
             finished: false,
             marker_read: false,
         };
-        // The watchdog also covers a blocked request-body pipe write.
         serde_json::to_writer(stdin, &wire).map_err(|e| reader.error(io::Error::other(e)))?;
         Ok(reader)
     }
@@ -382,7 +368,6 @@ impl Body {
     }
     fn frame(&mut self) -> io::Result<(u8, Vec<u8>)> {
         let mut header = [0; 5];
-        // The Rust test harness writes a preamble; child entry emits a marker.
         if !self.marker_read {
             self.marker_read = true;
             let mut matched = 0;

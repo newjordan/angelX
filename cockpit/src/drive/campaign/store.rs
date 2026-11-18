@@ -39,7 +39,6 @@ impl Drop for CampaignLease {
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;
-            // SAFETY: CampaignLease owns this descriptor until Drop returns.
             let _ = unsafe { libc::flock(self.file.as_raw_fd(), libc::LOCK_UN) };
         }
     }
@@ -111,7 +110,6 @@ impl CampaignStore {
         #[cfg(unix)]
         {
             use std::os::unix::fs::OpenOptionsExt;
-            // Inspect the opened descriptor without waiting for a FIFO peer.
             options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
         }
         let mut file = options
@@ -148,7 +146,6 @@ impl CampaignStore {
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;
-            // SAFETY: `file` owns a live descriptor for the lease lifetime.
             let result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
             if result != 0 {
                 let error = std::io::Error::last_os_error();
@@ -256,9 +253,6 @@ impl CampaignStore {
             .map_err(|error| format!("append {}: {error}", self.events_path.display()))
     }
 
-    /// Persist a bounded campaign-owned snapshot of the linked swarm proof.
-    /// Campaign state references this immutable relative path and real SHA-256,
-    /// never an unchecked model-supplied artifact path.
     pub(crate) fn save_proof_snapshot(
         &self,
         run_id: &str,
@@ -318,8 +312,6 @@ impl CampaignStore {
         Ok((relative, crate::knowledge::cut::sha256_hex(&body)))
     }
 
-    /// Store one immutable alignment attempt separately from the technical
-    /// swarm proof. The response digest makes retries append-only.
     pub(crate) fn save_alignment_snapshot(
         &self,
         run_id: &str,

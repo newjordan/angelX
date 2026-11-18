@@ -47,7 +47,7 @@ def final_request(label, out_dir=Path("out")):
 def payload_for(route, last):
     _, _, model, extra = ROUTES[route]
     messages = copy.deepcopy(last["messages"])
-    if route == "deepseek-flash":  # thinking mode wants each assistant turn's reasoning back
+    if route == "deepseek-flash":
         for m in messages:
             if m.get("role") == "assistant":
                 m.setdefault("reasoning_content", "")
@@ -80,8 +80,6 @@ def request_usage(route, body, key):
                 measured = reply.get("usage")
                 if not isinstance(measured, dict):
                     measured = None
-                # Invalid JSON numbers cannot discard the whole receipt when
-                # the caller serializes its result with allow_nan=False.
                 json.dumps(measured, allow_nan=False)
         except urllib.error.HTTPError as error:
             status, error_class = error.code, type(error).__name__
@@ -89,7 +87,7 @@ def request_usage(route, body, key):
             try:
                 error.close()
             except (OSError, ValueError):
-                pass  # Retain the observed HTTP failure even if close fails.
+                pass
         except (OSError, ValueError, http.client.HTTPException) as error:
             error_class = type(error).__name__
         if error_class is not None:
@@ -98,8 +96,6 @@ def request_usage(route, body, key):
                          "error_class": error_class, "usage": measured})
         usage, terminal_error, observed_status = measured, error_class, status
         if retry:
-            # Retain the original three attempts and five-second backoff,
-            # including its final exhausted backoff; no new retry conditions.
             time.sleep(5)
             continue
         break

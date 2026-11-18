@@ -30,7 +30,6 @@ fn halls(run: &Run) -> Vec<usize> {
         .collect()
 }
 
-/// The parts of a run `side_on` and `arrive_side_on` and `perch` read.
 fn slim(run: &Run) -> Value {
     json!({
         "at": run.at,
@@ -56,7 +55,6 @@ fn record_ledge() {
     for seed in 0..60u64 {
         for extra in [0usize, 1, 3] {
             let mut run = party(seed, extra);
-            // Floor 1 .. 3: every side-on hall of each.
             for depth in 0..3 {
                 if depth > 0 {
                     run.descend_for_test();
@@ -74,7 +72,6 @@ fn record_ledge() {
                         200,
                     );
                     for _ in 0..90 {
-                        // Each knight's step, with a random key, on a copy.
                         for &id in &ids {
                             if cases::count("ledge.walk") >= 700 || r.below(10) != 0 {
                                 continue;
@@ -132,7 +129,6 @@ fn record_ledge() {
                             hero.hp = hero.max_hp;
                         }
                     }
-                    // stand_on on this room's columns.
                     let room = run.room().clone();
                     for _ in 0..4 {
                         let x = (r.below(room.cols as u32 * 100) as f32) / 100.0 * TILE_UNITS;
@@ -144,7 +140,6 @@ fn record_ledge() {
                             300,
                         );
                     }
-                    // arrive_side_on and perch from the hall's door.
                     let mut arrive = run.clone();
                     let before = slim(&arrive);
                     arrive.arrive_side_on();
@@ -172,7 +167,6 @@ fn record_ledge() {
             }
         }
     }
-    // The kinds that are not halls answer false.
     for seed in 0..10u64 {
         let run = Run::new(seed, 1, None);
         cases::rec_cap("ledge.Run.side_on", &json!({"run": slim(&run)}), &run.side_on(), 220);

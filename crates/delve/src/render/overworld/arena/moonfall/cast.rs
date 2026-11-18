@@ -7,7 +7,6 @@ use super::super::super::ink::Img;
 use super::art_data::{SETS, Set};
 use std::{collections::BTreeMap, sync::OnceLock};
 
-/// One animation: its frames, how long each lasts, and the slot's canvas.
 pub(super) struct Anim {
     pub frames: Vec<Img>,
     pub ticks: &'static [u32],
@@ -18,7 +17,6 @@ impl Anim {
         self.ticks.iter().sum::<u32>().max(1)
     }
 
-    /// The frame showing `tick` ticks in, the animation looping.
     pub(super) fn at(&self, tick: u32) -> &Img {
         let mut time = tick % self.total();
         let mut index = 0;
@@ -29,14 +27,11 @@ impl Anim {
         &self.frames[index.min(self.frames.len() - 1)]
     }
 
-    /// Frame number `index`, held on the last when it runs past.
     pub(super) fn index(&self, index: usize) -> &Img {
         &self.frames[index.min(self.frames.len() - 1)]
     }
 }
 
-/// A seat's house colour: shadow, base and light, in the realm's inks. The
-/// base is the seat's own ink (`ground::seat_ink`).
 pub(super) fn house(seat: u32) -> [char; 3] {
     match (seat.max(1) as usize - 1) % 6 {
         0 => ['0', '2', '3'],
@@ -93,8 +88,6 @@ fn bank() -> &'static Bank {
     })
 }
 
-/// The state of `kind` ("idle", "walk" or "roll") facing `face` (0 south, 1
-/// north, 2 west, 3 east, as the rules count it).
 pub(super) fn facing(kind: &str, face: u8) -> &'static str {
     match (kind, face) {
         ("walk", 1) => "walk-up",
@@ -112,12 +105,10 @@ pub(super) fn facing(kind: &str, face: u8) -> &'static str {
     }
 }
 
-/// A villager's, the wisp's, Aster's or an item's animation.
 pub(super) fn anim(slot: &'static str, state: &'static str) -> Option<&'static Anim> {
     bank().get(&(slot, state, 0))
 }
 
-/// A knight's animation in `seat`'s house colour, wearing `mask`.
 pub(super) fn knight(mask: crate::rules::moonfall::state::Mask, state: &'static str, seat: u32) -> Option<&'static Anim> {
     use crate::rules::moonfall::state::Mask;
     let slot = match mask {
@@ -128,7 +119,6 @@ pub(super) fn knight(mask: crate::rules::moonfall::state::Mask, state: &'static 
     bank().get(&(slot, state, (seat.max(1) - 1) % 6 + 1))
 }
 
-/// The frame of a villager's, the wisp's, Aster's or an item's `state` at `tick`.
 pub(super) fn frame(slot: &'static str, state: &'static str, tick: u32) -> Option<&'static Img> {
     anim(slot, state).map(|a| a.at(tick))
 }

@@ -49,8 +49,6 @@ impl RouteEvidence {
             .unwrap_or(0)
     }
 
-    /// Laplace-smoothed clean-completion rate in basis points. This is only an
-    /// operational ranking signal; it says nothing about answer correctness.
     pub(crate) fn operational_score(&self) -> Option<u32> {
         (self.samples >= OPERATIONAL_PICK_MIN_SAMPLES)
             .then(|| ((self.clean_answers + 1) * 10_000) / (self.samples + 2))
@@ -67,9 +65,6 @@ impl RouteEvidence {
             .unwrap_or(0)
     }
 
-    /// 95% Wilson lower confidence bound for explicit user usefulness labels,
-    /// in basis points. Unlike a raw percentage, this rewards evidence depth:
-    /// five useful labels do not outrank twenty equally-perfect labels.
     pub(crate) fn explicit_quality_score(&self) -> Option<u32> {
         let samples = self.user_quality_samples();
         if samples < USER_QUALITY_PICK_MIN_SAMPLES {
@@ -114,9 +109,6 @@ impl RouteEvidenceSnapshot {
                 }
         });
         exact.or_else(|| {
-            // Legacy/non-model clubs can still contribute when their driver is
-            // the concrete route label. Never smear an old `openai` row across
-            // every modern cached OpenAI model.
             self.routes.iter().find(|row| {
                 row.model.is_none()
                     && row.driver.eq_ignore_ascii_case(driver)
@@ -125,8 +117,6 @@ impl RouteEvidenceSnapshot {
         })
     }
 
-    /// Reflect a just-recorded label immediately in the open deck. A later
-    /// disk reload replaces this snapshot, so this cannot double-count.
     pub(crate) fn apply_user_verdict(
         &mut self,
         route: &crate::agent::club::RouteIdentity,
@@ -173,10 +163,6 @@ fn route_matches(row: &RouteEvidence, key: &RouteKey) -> bool {
         && row.effort == key.effort
 }
 
-/// Best sufficiently-observed reachable route for operational reliability,
-/// with enough context reserve for another useful turn. Unknown windows remain
-/// eligible; trusted windows at 80%+ do not. This never mutates the Bag or
-/// makes an answer-quality claim; the operator still confirms with Enter.
 pub(crate) fn operational_pick_for_context(
     snapshot: &RouteEvidenceSnapshot,
     choices: &[RouteChoice],
@@ -198,10 +184,6 @@ pub(crate) fn operational_pick_for_context(
         .map(|(index, _, _)| index)
 }
 
-/// Best sufficiently-labelled reachable route by explicit user usefulness,
-/// with the same context reserve as the operational channel. Quality evidence
-/// never overrides a known inability to carry the current thread safely. `q`
-/// may move the UI cursor here, but selection still requires Enter.
 pub(crate) fn quality_pick_for_context(
     snapshot: &RouteEvidenceSnapshot,
     choices: &[RouteChoice],
@@ -223,8 +205,6 @@ pub(crate) fn quality_pick_for_context(
         .map(|(index, _, _)| index)
 }
 
-/// Best sufficiently-observed reasoning level for one concrete route. This is
-/// operational evidence only and never mutates the backend-owned effort.
 pub(crate) fn operational_effort_pick(
     snapshot: &RouteEvidenceSnapshot,
     choice: &RouteChoice,
@@ -241,8 +221,6 @@ pub(crate) fn operational_effort_pick(
         .map(|(index, _, _)| index)
 }
 
-/// Best sufficiently-labelled reasoning level by explicit user usefulness.
-/// Kept separate from operational completion evidence by construction.
 pub(crate) fn quality_effort_pick(
     snapshot: &RouteEvidenceSnapshot,
     choice: &RouteChoice,
@@ -369,9 +347,6 @@ pub(crate) fn parse_recent_jsonl(raw: &str, truncated: bool) -> RouteEvidenceSna
             continue;
         };
         if record.get("kind").and_then(serde_json::Value::as_str) == Some("route_verdict") {
-            // Only explicit user labels enter this channel. Future automated
-            // graders must get their own provenance and score, not masquerade
-            // as the operator's judgment.
             if record.get("source").and_then(serde_json::Value::as_str) != Some("user") {
                 continue;
             }

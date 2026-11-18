@@ -25,7 +25,6 @@ use angel_delve::world::houses::{HouseId, Serving};
 use crate::telemetry::MotionMode;
 use angel_delve::world::kingdom::step_cost;
 
-/// The overworld map moves as the cockpit does.
 fn overworld_motion(mode: MotionMode) -> angel_delve::render::overworld::Motion {
     use angel_delve::render::overworld::Motion;
     match mode {
@@ -35,20 +34,15 @@ fn overworld_motion(mode: MotionMode) -> angel_delve::render::overworld::Motion 
     }
 }
 
-/// Walking pace in world pixels per world tick (the world ticks at 40 Hz).
 const PACE: f32 = 1.5;
-/// The camera's dead zone, half-width and half-height in map pixels, and
-/// how far above his feet the camera looks (his middle, not his boots).
 const DEAD_X: f32 = 40.0;
 const DEAD_Y: f32 = 28.0;
 const FOCUS_LIFT: f32 = 8.0;
 
-/// Move the camera just enough to keep `focus` inside the dead zone.
 pub fn follow(cam: (f32, f32), focus: (f32, f32)) -> (f32, f32) {
     follow_within(cam, focus, (DEAD_X, DEAD_Y))
 }
 
-/// [`follow`] with a dead zone of its own, half-width and half-height.
 pub(super) fn follow_within(
     cam: (f32, f32),
     focus: (f32, f32),
@@ -66,44 +60,28 @@ pub(super) fn follow_within(
     (axis(cam.0, focus.0, dead_x), axis(cam.1, focus.1, dead_y))
 }
 
-/// Trail samples kept, and the samples between companions (about 13 px).
 const TRAIL: usize = 64;
 const FOLLOW_GAP: usize = 9;
 
-/// Where the knight is headed: a place, or a spot of his own (a delve's gate).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Goal {
     Place(Place),
     Spot((i32, i32)),
 }
 
-/// The knight's walk across the realm.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Walker {
     x: f32,
     y: f32,
     goal: Goal,
     path: VecDeque<(i32, i32)>,
-    /// Where he has just been, newest first — the party walks in his steps.
     trail: VecDeque<(f32, f32)>,
-    /// Where the map camera looks. It holds still while the knight moves
-    /// inside a dead zone and follows him out of it; it never zooms.
     cam: (f32, f32),
-    /// Pixels per tick for the current journey.
     stride: f32,
-    /// What the map shows: the pose published each world tick.
     shown: Shown,
-    /// Who is serving, as last noted: the knight's house and its retinue.
     serving: Serving,
-    /// A house has served since this walker began: a change of club sends
-    /// the relieved knight home rather than vanishing him.
     served: bool,
-    /// Knights of other houses on the roads.
     riders: Vec<Rider>,
-    /// The city watch: guards of the serving house patrolling between the
-    /// Keep gate and their own castle gate while a turn runs. They keep the
-    /// turn sentinel's hours (`harness/sentinel.rs`): posted only while
-    /// work is actually running, stood down the moment it ends.
     watch: Vec<WatchGuard>,
     watch_house: Option<HouseId>,
 }
@@ -114,12 +92,9 @@ struct Shown {
     cam: (f32, f32),
     party: Vec<(f32, f32)>,
     riders: Vec<RiderPose>,
-    /// The city watch, published apart from `riders`: those are knights of
-    /// *other* houses, the watch wears the serving house's own colours.
     watch: Vec<RiderPose>,
 }
 
-/// A knight of another house out on the roads.
 #[derive(Clone, Debug, PartialEq)]
 struct Rider {
     house: HouseId,
@@ -127,7 +102,6 @@ struct Rider {
     y: f32,
     path: VecDeque<(i32, i32)>,
     stride: f32,
-    /// Riding with the lead (toward this aim), or home to his castle.
     aim: Option<(i32, i32)>,
     facing_left: bool,
 }
@@ -156,14 +130,12 @@ impl Rider {
         self.aim.is_none()
     }
 
-    /// Set out for `goal` along the cheapest road.
     fn set_out(&mut self, goal: (i32, i32)) {
         let path = route(self.tile(), goal);
         self.stride = (path.len() as f32 * TILE as f32 / 160.0).max(PACE);
         self.path = path.into();
     }
 
-    /// One world tick along his path.
     fn ride(&mut self) {
         let mut stride = self.stride;
         while stride > 0.0 {
@@ -199,7 +171,6 @@ impl Rider {
     }
 }
 
-/// One guard of the city watch, and the gate he is currently making for.
 #[derive(Clone, Debug, PartialEq)]
 struct WatchGuard {
     rider: Rider,
@@ -233,13 +204,11 @@ impl Default for Walker {
     }
 }
 
-/// Where a figure stands on a tile: its middle, two pixels above the bottom.
 pub(super) fn feet((tx, ty): (i32, i32)) -> (f32, f32) {
     ((tx * TILE + TILE / 2) as f32, ((ty + 1) * TILE - 2) as f32)
 }
 
 impl Walker {
-    /// Is he on his way somewhere (or still showing his last steps)?
     pub fn moving(&self) -> bool {
         !self.path.is_empty() || self.shown.knight.walking
     }
@@ -248,17 +217,14 @@ impl Walker {
         self.goal != Goal::Place(goal) || !self.path.is_empty() || self.shown.knight.walking
     }
 
-    /// He stands at `spot`, done walking.
     pub fn standing_at(&self, spot: (i32, i32)) -> bool {
         self.goal == Goal::Spot(spot) && self.path.is_empty() && !self.shown.knight.walking
     }
 
-    /// One world tick toward `goal`; a new goal reroutes from where he stands.
     pub fn toward(&mut self, goal: Place) {
         self.toward_goal(Goal::Place(goal));
     }
 
-    /// One world tick toward a spot that is not a place.
     pub fn toward_spot(&mut self, spot: (i32, i32)) {
         self.toward_goal(Goal::Spot(spot));
     }
@@ -271,7 +237,6 @@ impl Walker {
                 Goal::Spot(spot) => spot,
             };
             self.path = route(self.tile(), tile).into();
-            // Long journeys ride faster: no trip takes much over four seconds.
             self.stride = (self.path.len() as f32 * TILE as f32 / 160.0).max(PACE);
         }
         let before = (self.x, self.y);
@@ -302,17 +267,14 @@ impl Walker {
         self.tick_watch();
     }
 
-    /// The point the map camera centres on.
     pub fn camera(&self) -> (f32, f32) {
         self.cam
     }
 
-    /// The knight as the map last published him.
     pub fn shown_knight(&self) -> Knight {
         self.shown.knight
     }
 
-    /// Publish the current pose to the map.
     pub fn publish(&mut self) {
         self.shown = Shown {
             knight: self.knight(),
@@ -323,33 +285,25 @@ impl Walker {
         };
     }
 
-    /// Who is serving, as last noted.
     pub fn serving(&self) -> &Serving {
         &self.serving
     }
 
-    /// The knights of other houses, as the map last published them.
     pub fn shown_riders(&self) -> &[RiderPose] {
         &self.shown.riders
     }
 
-    /// The city watch, as the map last published it.
     pub fn shown_watch(&self) -> &[RiderPose] {
         &self.shown.watch
     }
 
-    /// Stand somewhere new: a knight of another house has taken the field.
     fn arrive_at(&mut self, (x, y): (f32, f32)) {
         (self.x, self.y) = (x, y);
         self.path.clear();
         self.trail.clear();
-        // Forget the goal so the next step routes afresh from here.
         self.goal = Goal::Spot((-1, -1));
     }
 
-    /// Note who is serving. A new lead house sends its own knight out of its
-    /// castle while the relieved one rides home; houses a formation seats
-    /// ride out to join him, and ride home when unseated.
     pub fn serve(&mut self, now: &Serving) {
         if *now == self.serving {
             return;
@@ -366,8 +320,6 @@ impl Walker {
                 home.set_out(castles::stand(old));
                 self.riders.push(home);
             }
-            // A seated knight already on the road takes the lead from where
-            // he rides; otherwise the new lead rides out of his own gate.
             let start = match now.lead {
                 Some(lead) => match self.riders.iter().position(|r| r.house == lead) {
                     Some(i) => {
@@ -379,7 +331,6 @@ impl Walker {
                 None => feet(Place::Keep.stand_world()),
             };
             self.arrive_at(start);
-            // The old lead, still seated, rides on in the retinue.
             if self.served
                 && let Some(old) = before.lead
                 && now.seated.contains(&old)
@@ -388,7 +339,6 @@ impl Walker {
             }
             self.served |= now.lead.is_some();
         }
-        // Unseated houses ride home; newly seated ones ride out to the lead.
         for r in &mut self.riders {
             if !r.homebound() && !now.seated.contains(&r.house) {
                 r.aim = None;
@@ -402,7 +352,6 @@ impl Walker {
             match self.riders.iter_mut().find(|r| r.house == house) {
                 Some(r) => {
                     if r.homebound() {
-                        // Turned back on the road: riding with the lead again.
                         r.aim = Some((-1, -1));
                     }
                 }
@@ -415,10 +364,6 @@ impl Walker {
         }
     }
 
-    /// Post (or stand down) the city watch for the serving state: two
-    /// guards of the lead house, one setting out from each gate, walking
-    /// the road between the Keep and the lead's castle in opposite
-    /// directions. On duty only while a turn is running.
     fn post_watch(&mut self, now: &Serving) {
         let duty = if now.turn { now.lead } else { None };
         if duty == self.watch_house {
@@ -435,14 +380,11 @@ impl Walker {
         for (from, dest) in [(keep_gate, castle_gate), (castle_gate, keep_gate)] {
             let mut rider = Rider::at(lead, feet(from));
             rider.set_out(dest);
-            // A patrol keeps a walking pace however long the road is;
-            // `set_out` would otherwise scale the stride to the journey.
             rider.stride = PACE;
             self.watch.push(WatchGuard { rider, dest });
         }
     }
 
-    /// One world tick for the watch: at a gate, turn and walk the road back.
     fn tick_watch(&mut self) {
         let Some(lead) = self.watch_house else { return };
         let keep_gate = Place::Keep.stand_world();
@@ -463,7 +405,6 @@ impl Walker {
         }
     }
 
-    /// The tile the lead is headed for.
     fn goal_tile(&self) -> (i32, i32) {
         match self.goal {
             Goal::Place(place) => place.stand_world(),
@@ -471,9 +412,6 @@ impl Walker {
         }
     }
 
-    /// One world tick for the knights of other houses: the retinue rides to
-    /// wherever the lead is headed and draws up behind him; the relieved
-    /// ride home and are gone at their gates.
     fn tick_riders(&mut self) {
         let goal = self.goal_tile();
         let retinue = self.riders.iter().filter(|r| !r.homebound()).count();
@@ -484,7 +422,6 @@ impl Walker {
                 .iter()
                 .any(|r| r.aim.is_some_and(|aim| aim != goal))
         {
-            // Draw up on the ground nearest the lead's goal, one tile each.
             let spots = muster(goal, retinue);
             let mut spot = spots.into_iter();
             for r in self.riders.iter_mut().filter(|r| !r.homebound()) {
@@ -501,8 +438,6 @@ impl Walker {
             .retain(|r| !(r.homebound() && r.path.is_empty()));
     }
 
-    /// Where `n` companions stand: at intervals along his trail, or in a
-    /// short file behind him before he has walked anywhere.
     pub fn followers(&self, n: usize) -> Vec<(f32, f32)> {
         (1..=n)
             .map(|i| match self.trail.get(i * FOLLOW_GAP) {
@@ -534,8 +469,6 @@ impl Walker {
     }
 }
 
-/// Cheapest tile route from `from` to `to`, excluding `from`. Falls back to
-/// the goal alone (a straight walk) if the map leaves no way through.
 pub fn route(from: (i32, i32), to: (i32, i32)) -> Vec<(i32, i32)> {
     if from == to {
         return Vec::new();
@@ -588,8 +521,6 @@ pub fn route(from: (i32, i32), to: (i32, i32)) -> Vec<(i32, i32)> {
     path
 }
 
-/// The `n` open tiles nearest `goal` by road, nearest first, the goal
-/// itself left to the lead: where a retinue draws up around him.
 pub(super) fn muster(goal: (i32, i32), n: usize) -> Vec<(i32, i32)> {
     let idx = |(x, y): (i32, i32)| (y * MAP_W + x) as usize;
     let inside = |(x, y): (i32, i32)| x >= 0 && y >= 0 && x < MAP_W && y < MAP_H;
@@ -626,7 +557,6 @@ pub(super) fn muster(goal: (i32, i32), n: usize) -> Vec<(i32, i32)> {
     out
 }
 
-/// The map's place for a building of the live world.
 pub fn place_of_building(b: Building) -> Place {
     match b {
         Building::Keep => Place::Keep,
@@ -640,7 +570,6 @@ pub fn place_of_building(b: Building) -> Place {
     }
 }
 
-/// The HUD item for a kind of work.
 pub fn tool_for(activity: RealmActivity) -> Option<Tool> {
     match activity {
         RealmActivity::Forge => Some(Tool::Hammer),
@@ -654,7 +583,6 @@ pub fn tool_for(activity: RealmActivity) -> Option<Tool> {
     }
 }
 
-/// Where an adventure's region sits on the map.
 pub fn region_place(region: Region) -> Option<Place> {
     match region {
         Region::CastleTown => None,
@@ -666,7 +594,6 @@ pub fn region_place(region: Region) -> Option<Place> {
     }
 }
 
-/// The nearest signal ink to a banner colour.
 fn signal_ink(rgb_banner: (u8, u8, u8)) -> char {
     const INKS: [char; 15] = [
         '0', '1', '2', '3', 'w', 'a', '4', '@', '5', '6', '$', 'c', '9', '8', '7',
@@ -685,11 +612,8 @@ fn signal_ink(rgb_banner: (u8, u8, u8)) -> char {
     best.1
 }
 
-/// Council robes, one per seat in order of arrival.
 const ROBES: [char; 6] = ['1', '2', '@', '5', '3', '7'];
 
-/// Day clock to ambient: the approved dusk mood is the brightest the realm
-/// gets; night sinks below it.
 pub fn ambient_for(daylight: f32) -> f32 {
     let t = ((daylight - 0.55) / 0.45).clamp(0.0, 1.0);
     DUSK - 0.14 * (1.0 - t)
@@ -699,8 +623,6 @@ impl World {
     pub fn graph_knight_travelling(&self) -> bool {
         self.graph_destination && self.overworld.travelling_to(Place::Fields)
     }
-    /// Look at a district without redirecting the knight or changing work.
-    /// Resolve names only when the operator asks, never on the render path.
     pub fn visit_overworld(&mut self, name: &str) -> Option<&'static str> {
         let normalize = |text: &str| {
             text.chars()
@@ -716,7 +638,6 @@ impl World {
             self.visit_scrying_tower();
             return Some(super::super::ambient::SCRYING_TOWER_LABEL);
         }
-        // A house's castle in the March, by family or castle name.
         if let Some(id) = angel_delve::world::houses::find(&name) {
             let (x, y, w, h) = castles::footprint(id);
             if self.visiting_scrying_tower() {
@@ -781,8 +702,6 @@ impl World {
         Some(place.label())
     }
 
-    /// Toggle the current expedition's map without changing its destination.
-    /// Other visits and entered rooms retain their explicit operator choice.
     pub fn toggle_adventure_map(&mut self) -> bool {
         let Some(place) = region_place(self.quest().region()) else {
             return false;
@@ -808,7 +727,6 @@ impl World {
         self.school_room = None;
     }
 
-    /// Mirror actual evidence counts. Rendering never fetches, trains or acts.
     pub fn note_school(&mut self, snapshot: super::school::SchoolSnapshot) {
         self.school = snapshot;
     }
@@ -821,14 +739,10 @@ impl World {
         self.school_room.is_some() || self.overworld_view_label() == Some(Place::School.label())
     }
 
-    /// The place the pixel knight walks to: the quest's region while an
-    /// adventure is out, the quintain at the Lists between loop rounds,
-    /// otherwise the landmark the work is happening in.
     pub fn overworld_goal(&self) -> Place {
         if self.graph_destination {
             return Place::Fields;
         }
-        // A trial is fought at the Lists: he rides out to see the verdict.
         if !self.loop_active && self.overworld_deeds.trial_underway() {
             return Place::Lists;
         }
@@ -843,20 +757,14 @@ impl World {
         place_of_building(self.target)
     }
 
-    /// Called to the Delve, the knight has reached its gate and waits there.
     pub fn at_delve_gate(&self) -> bool {
         self.delve_called && self.overworld.standing_at(super::wishes::delve_stand())
     }
 
-    /// Note who is serving: the lead house's knight rides out of its castle,
-    /// and the houses a formation seats ride with him.
     pub fn note_serving(&mut self, serving: &Serving) {
         self.overworld.serve(serving);
     }
 
-    /// Where the serving knight rests: his own castle's gate, once no turn,
-    /// loop, trial or call has him out. The stub route has no castle; its
-    /// knight keeps the Keep.
     pub fn overworld_home(&self) -> Option<(i32, i32)> {
         let serving = self.overworld.serving();
         let lead = serving.lead?;
@@ -868,11 +776,9 @@ impl World {
         resting.then(|| castles::stand(lead))
     }
 
-    /// Advance the pixel knight one world tick.
     pub fn tick_overworld(&mut self) {
         self.overworld_deeds.step(self.tick);
         if self.delve_called {
-            // Called to the Delve: he walks to its gate and waits there.
             self.overworld.toward_spot(super::wishes::delve_stand());
         } else if let Some(home) = self.overworld_home() {
             self.overworld.toward_spot(home);
@@ -880,18 +786,14 @@ impl World {
             let goal = self.overworld_goal();
             self.overworld.toward(goal);
         }
-        // Every tick: a pose shown on alternate ticks walks in uneven steps
-        // at any frame rate that isn't a multiple of twenty.
         self.overworld.publish();
         self.tick_visitor();
     }
 
-    /// Everything the pixel map shows, read from the live world.
     pub fn overworld_scene(&self) -> Scene {
         self.overworld_scene_moving(MotionMode::Full)
     }
 
-    /// [`World::overworld_scene`], moving as the operator's `motion` asks.
     pub fn overworld_scene_moving(&self, motion: MotionMode) -> Scene {
         let mut s = Scene::resting();
         s.outcome_motion = overworld_motion(motion);
@@ -904,9 +806,6 @@ impl World {
             s.tool = Some(Tool::Sword);
         }
         s.wayfarers = self.overworld_deeds.wayfarers();
-        // The blank-slate map (`angel_delve::world::plan`) has no road, rookery
-        // or fields for a deed to walk between, and every place's stand is the
-        // Keep's: its traffic would pile up there. The record still counts.
         if angel_delve::world::plan::tabula() {
             s.wayfarers.clear();
         }
@@ -1029,8 +928,6 @@ impl World {
 }
 
 impl World {
-    /// The glass picture for `sequence`, rendered by `paint` only when the
-    /// source frame changed since the map last asked.
     fn glass_picture(&self, sequence: u64, paint: impl FnOnce() -> Img) -> std::sync::Arc<Img> {
         if let Some((key, img)) = self.overworld_glass.borrow().as_ref()
             && *key == sequence
@@ -1042,7 +939,6 @@ impl World {
         img
     }
 
-    /// The arrival glass: the place's authored painting.
     pub fn overworld_plate_glass(&self, building: Building) -> Glass {
         let place = place_of_building(building);
         let sequence = 0x9_1a7e ^ building as u64;
@@ -1068,13 +964,8 @@ impl World {
         }
     }
 
-    /// The travel glass: the Dotmax ride from the saddle, heading for
-    /// `destination`. It steps at the map's own pace.
     pub fn overworld_ride_glass(&self, destination: Building) -> Glass {
         let place = place_of_building(destination);
-        // Keyed on the journey and the tick: the banded raster paints a
-        // glass-sized 3D frame well under a millisecond, so the ride moves
-        // on every world tick instead of every sixth.
         let sequence = {
             use std::hash::{Hash, Hasher};
             let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -1108,7 +999,6 @@ impl World {
     }
 }
 
-/// A two-seat fan-out stage, fought at the Lists.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Duel {
     stage_id: u64,
@@ -1118,9 +1008,6 @@ pub struct Duel {
 }
 
 impl World {
-    /// Mirror the published fan-out stage onto the Lists: exactly two seats
-    /// is a duel; a seat coming back with a result scores for its label in
-    /// the session tally. Any other stage ends the duel; the tally stays.
     pub fn note_duel(
         &mut self,
         stage_id: u64,
@@ -1156,7 +1043,6 @@ impl World {
     }
 }
 
-/// A muster seat's state, kept beside its braille glyph.
 pub fn soldier_state(state: &crate::telemetry::SeatState) -> SoldierState {
     use crate::telemetry::SeatState;
     match state {

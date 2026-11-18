@@ -1,16 +1,4 @@
 #!/usr/bin/env bash
-# Guards the plug boundary from both sides (docs/CARTRIDGES.md, "Working on
-# each side"). "Core" is cockpit/src minus cockpit/src/delve and
-# cockpit/src/console.
-#   1. The core's `feature = "delve"` gates stay at or under GATE_LIMIT.
-#   2. The core names the game (angel_delve::, angel_realm_host::,
-#      crate::delve::) only in the files of ALLOWED_NAMING. Comment lines are
-#      ignored.
-#   3. Non-test code under cockpit/src/delve is re-exports only: `use`
-#      lines, attributes, comments and `#[cfg(test)]` module declarations.
-#      The Delve's code is the angel-delve-cart crate (cockpit/delve-cart),
-#      which cannot reach the cockpit. Test files are `*_tests.rs`,
-#      `realm_test_support.rs` and `tests.rs`.
 set -euo pipefail
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$root"

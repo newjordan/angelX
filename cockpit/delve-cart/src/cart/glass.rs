@@ -28,23 +28,15 @@ fn host(console: &dyn Console) -> Option<&'static angel_glass::Host> {
     console.host()?.downcast_ref()
 }
 
-/// The layer group the Delve's thrown things travel in.
 #[cfg(feature = "glass")]
 const LIFTED_GROUP: u32 = 0x4C49_4654;
 
-/// How much higher toward the camera a thrown thing rises in the window than
-/// its arc in the picture: it grows as it comes up, its shadow stays down.
 #[cfg(feature = "glass")]
 const LIFT: f32 = 3.0;
 
-/// The layer group the Old Delve's knight portrait travels in.
 #[cfg(feature = "glass")]
 const PORTRAIT_GROUP: u32 = 0x504F_5254;
 
-/// The chosen knight on the Old Delve's screen, drawn by the window: square
-/// pixels at the window's own density in `area`, breathing, a warm glow
-/// behind and its shadow on the ground. False outside the window, where the
-/// caller paints its cells.
 pub(crate) fn portrait(
     console: &dyn Console,
     sprite: &crate::world_viz::overworld::Img,
@@ -54,8 +46,6 @@ pub(crate) fn portrait(
     if let Some(host) = host(console) {
         use angel_glass::{Layer, LayerKind, Placement};
         let (w, h) = (sprite.w.max(1) as u32, sprite.h.max(1) as u32);
-        // One picture per look: hash the packed sprite words first so cached
-        // frames never allocate or unpack an RGBA buffer.
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         (w, h, sprite.words()).hash(&mut hasher);
@@ -81,7 +71,6 @@ pub(crate) fn portrait(
         }
         let (x, y) = (f32::from(area.x), f32::from(area.y));
         let (aw, ah) = (f32::from(area.width), f32::from(area.height));
-        // A warm halo behind, wider than the knight, lower than the head.
         let mut glow = Layer::new(
             0,
             -1,
@@ -103,13 +92,9 @@ pub(crate) fn portrait(
     false
 }
 
-/// How far the portrait rises with each breath, in window pixels.
 #[cfg(feature = "glass")]
 const PORTRAIT_BREATH_PX: f32 = 10.0;
 
-/// The Delve's thrown things as layers over the game picture placed in
-/// `placed` cells (a `frame` of pixels): each one at its ground point,
-/// lifted along its arc, its shadow on the ground.
 pub(crate) fn lifted(
     console: &dyn Console,
     things: &[crate::world_viz::overworld::arena::Lifted],
@@ -138,11 +123,6 @@ pub(crate) fn lifted(
     let _ = (console, things, frame, placed, tilt);
 }
 
-/// One layer per thrown thing over the game picture placed in `placed`
-/// cells (a `frame` of pixels, `cell_height` pixels to a row): its sprite at
-/// the picture's scale, centred on its ground point, lifted along its arc.
-/// On a tilted floor (`tilt`) the ground point and the size follow the floor.
-/// `sprite` names each one's picture and its size.
 #[cfg(feature = "glass")]
 fn lifted_layers(
     things: &[crate::world_viz::overworld::arena::Lifted],
@@ -160,10 +140,7 @@ fn lifted_layers(
     };
     use angel_glass::{Layer, LayerKind, Placement};
     let (fw, fh) = (frame.0.max(1) as f32, frame.1.max(1) as f32);
-    // The picture is a seat's whole screen: the party's band over the room,
-    // the HUD's band under it.
     let tall = (NATIVE_H + BAND_H + HUD_H) as f32;
-    // Window pixels per native picture pixel.
     let scale = f32::from(placed.height) * f32::from(cell_height) / tall;
     things
         .iter()
@@ -203,13 +180,10 @@ mod tests {
         BAND_H, HUD_H, Lifted, LiftedKind, NATIVE_H, NATIVE_W,
     };
 
-    /// A seat's whole screen, native pixels tall.
     const TALL: f32 = (NATIVE_H + BAND_H + HUD_H) as f32;
 
     #[test]
     fn a_bomb_mid_flight_sits_on_its_ground_point_and_is_lifted() {
-        // A seat's picture at twice native size (the band over the room)
-        // placed 96 × 28 cells from (10, 2).
         let placed = ratatui::layout::Rect::new(10, 2, 96, 28);
         let bomb = Lifted {
             kind: LiftedKind::Bomb,
@@ -226,11 +200,9 @@ mod tests {
         let angel_glass::Placement::Cells([x, y, w, h]) = layer.placement else {
             panic!("cells");
         };
-        // Centred on the picture's middle: column 10 + 48, row 2 + 14.
         assert!((x + w / 2.0 - 58.0).abs() < 1e-4 && (y + h / 2.0 - 16.0).abs() < 1e-4);
         assert!((w - 4.0 / NATIVE_W as f32 * 96.0).abs() < 1e-5);
         assert!((h - 4.0 / TALL * 28.0).abs() < 1e-5);
-        // Top of the arc: 26 native pixels, at the window's scale, times LIFT.
         let scale = 28.0 * 25.0 / TALL;
         assert!((layer.height - 26.0 * scale * LIFT).abs() < 1e-3);
         assert_eq!(layer.kind, angel_glass::LayerKind::Picture(7));
@@ -251,8 +223,6 @@ mod tests {
     }
 }
 
-/// A thrown thing's sprite as a window picture, uploaded the first time it
-/// is needed.
 #[cfg(feature = "glass")]
 fn lifted_picture(
     host: &angel_glass::Host,
@@ -288,20 +258,14 @@ fn lifted_picture(
     id
 }
 
-/// The size of each thrown thing's uploaded sprite, by picture id.
 #[cfg(feature = "glass")]
 static SPRITE_SIZES: std::sync::LazyLock<
     std::sync::Mutex<std::collections::HashMap<u32, (u32, u32)>>,
 > = std::sync::LazyLock::new(Default::default);
 
-/// The Delve's stage: its cells name it, so its id fits the placeholder's
-/// 24 bits, and is a multiple of four, which the viewer's own pictures
-/// never are (`dot_image_id`).
 #[cfg(feature = "glass")]
 const STAGE: u32 = 0x00FA_57A4;
 
-/// The stage's maker (what it has sent), and whether the stage was drawn
-/// this frame and is up at all.
 #[cfg(feature = "glass")]
 #[derive(Default)]
 struct StageState {
@@ -314,40 +278,18 @@ struct StageState {
 static STAGE_STATE: std::sync::LazyLock<std::sync::Mutex<StageState>> =
     std::sync::LazyLock::new(Default::default);
 
-/// HD art for the Delve (docs/RENDER_FOUNDATION.md, step 6; docs/WORLD-TIERS.md,
-/// "HD art packs"): a pack (`arena::hd_pack`), a folder of drawings and its
-/// manifest, `pack.json`, each drawing a look of the game's (a sprite's, a
-/// room kit's tile's: `arena::look_key`, sixteen hex digits) at its scale
-/// (4 unless the pack says). The window draws a sprite's drawing in that
-/// sprite's place and size, and a room whose kit the pack has tiles for is
-/// composed of them, finer, in its still art's place; a look the pack has
-/// no drawing of keeps its inks. Loose `<look>.png` drawings (the older
-/// pack) are read too. A drawing may have its normal map beside it,
-/// `<name>_n.png` (its size, green up; docs/WORLD-TIERS.md "Normal maps");
-/// without one, one is made from the drawing. `ANGEL_GLASS_ART` names the
-/// folder (default `~/.angelX/art/delve`), read once as the window opens.
-/// `ANGEL_GLASS_ART_EXPORT` names a folder where each look the game shows
-/// is saved once at its own size, listed in `looks.jsonl`, for the art
-/// pipeline to redraw.
 #[cfg(feature = "glass")]
 #[derive(Default)]
 struct ArtPack {
-    /// The drawings sent up so far, by look.
     art: crate::world_viz::overworld::arena::hd_pack::HdArt,
     export: Option<std::path::PathBuf>,
     exported: std::collections::HashSet<u64>,
-    /// The workspace's wished looks, laid over the pack as they land
-    /// (`hd_pack::LooksWatch`, docs/LADDER.md "A wished look").
     looks: Option<crate::world_viz::overworld::arena::hd_pack::LooksWatch>,
     looks_polled: Option<std::time::Instant>,
 }
 
-/// The folder the host composes the workspace's wished looks in
-/// (`together_looker::looks_dir`), once it has said.
 static LOOKS_DIR: std::sync::Mutex<Option<std::path::PathBuf>> = std::sync::Mutex::new(None);
 
-/// The host says where the workspace's wished looks are composed: the
-/// window watches `pack.json` there and lays it over its HD pack.
 pub(crate) fn set_looks_dir(dir: std::path::PathBuf) {
     *LOOKS_DIR.lock().unwrap_or_else(|e| e.into_inner()) = Some(dir);
 }
@@ -358,8 +300,6 @@ static ART: std::sync::LazyLock<std::sync::Mutex<ArtPack>> =
 
 #[cfg(feature = "glass")]
 impl ArtPack {
-    /// The pack named by the environment, read and installed for the
-    /// room's art; what it left out goes to the log.
     fn from_environment() -> Self {
         use crate::world_viz::overworld::arena::hd_pack;
         let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
@@ -387,9 +327,6 @@ impl ArtPack {
         }
     }
 
-    /// About twice a second: the folder of wished looks, if the host has
-    /// said where it is, looked at again and laid over the pack when it
-    /// changed. A new pack makes the drawer send its pictures again.
     fn watch_looks(&mut self) {
         let now = std::time::Instant::now();
         if self.looks_polled.is_some_and(|at| now.duration_since(at) < std::time::Duration::from_millis(500)) {
@@ -405,9 +342,6 @@ impl ArtPack {
         looks.refresh(now);
     }
 
-    /// The window picture of `body`'s HD drawing, sent up the first time it
-    /// is asked for, with its normal map when lit cards turn by them; `None`
-    /// when the pack has none.
     fn hd(
         &mut self,
         host: &angel_glass::Host,
@@ -430,7 +364,6 @@ impl ArtPack {
         id
     }
 
-    /// Save a look the game showed, once, for the art pipeline.
     fn export(&mut self, body: &crate::world_viz::overworld::arena::Body) {
         let Some(dir) = &self.export else {
             return;
@@ -461,10 +394,6 @@ impl ArtPack {
     }
 }
 
-/// Where the Delve's paintings come from (docs/DELVE.md, "Paintings"): the
-/// host's own paint store, and, for a seat joined to another host, that
-/// host's door (`/paint/<sha256>.png`), fetched into a cache of this
-/// machine's own.
 #[derive(Default, Clone)]
 struct PaintSource {
     dir: Option<std::path::PathBuf>,
@@ -474,21 +403,14 @@ struct PaintSource {
 static PAINT_SOURCE: std::sync::LazyLock<std::sync::Mutex<PaintSource>> =
     std::sync::LazyLock::new(Default::default);
 
-/// The host's paint store (`together_sheets::paint_dir`): its paintings
-/// are read from there.
 pub(crate) fn set_paint_dir(dir: std::path::PathBuf) {
     PAINT_SOURCE.lock().unwrap().dir = Some(dir);
 }
 
-/// The socket of the host a seat has joined: the paintings this machine
-/// does not keep are fetched from beside it.
 pub(crate) fn set_paint_host(url: &str, trust: &angel_serve::client::Trust) {
     PAINT_SOURCE.lock().unwrap().host = Some((url.to_string(), trust.clone()));
 }
 
-/// A painting's bytes, by its hash: from the host's store, this machine's
-/// cache (`~/.angelX/cache/paint`), or the host's door, kept in the cache.
-/// Anything not that hash's is not it.
 #[cfg(feature = "glass")]
 fn painting_bytes(sha: &str, source: &PaintSource) -> Option<Vec<u8>> {
     use angel_live::host::sha256_hex;
@@ -530,9 +452,6 @@ fn painting_bytes(sha: &str, source: &PaintSource) -> Option<Vec<u8>> {
     Some(bytes)
 }
 
-/// A painting as the window has it: being read and cut, sent up (cut at
-/// `side`, all the painting has when `whole`), or not to be had (tried
-/// again after a while).
 #[cfg(feature = "glass")]
 enum Painted {
     Loading {
@@ -551,9 +470,6 @@ enum Painted {
     },
 }
 
-/// A painting read and cut off the frame: its hash, the side asked for,
-/// and the frames cut (their side), if it could be, with each frame's
-/// normal map when cards are lit by them (`card_normals`).
 #[cfg(feature = "glass")]
 type PaintCut = (
     String,
@@ -562,18 +478,12 @@ type PaintCut = (
     Option<Vec<Vec<u8>>>,
 );
 
-/// Whether the window's lit cards turn by their normal maps
-/// (docs/WORLD-TIERS.md, "Normal maps"): a painting's and an HD drawing's
-/// are made, or read, only then.
 #[cfg(feature = "glass")]
 fn card_normals() -> bool {
     angel_delve::world3d::rooms_lit_look::lit_cards_on()
         && angel_delve::world3d::rooms_lit_look::card_normals_on()
 }
 
-/// The window's paintings: each one's frames, flipped and not, sent up
-/// once at about twice the size it is shown (textures have no smaller
-/// copies to draw from), read and cut on a thread of its own.
 #[cfg(feature = "glass")]
 #[derive(Default)]
 struct Paintings {
@@ -582,10 +492,8 @@ struct Paintings {
     done: std::sync::Arc<std::sync::Mutex<Vec<PaintCut>>>,
 }
 
-/// The most paintings read at once.
 #[cfg(feature = "glass")]
 const PAINT_LOADS: usize = 4;
-/// How long a painting that could not be had waits to be tried again.
 #[cfg(feature = "glass")]
 const PAINT_RETRY: std::time::Duration = std::time::Duration::from_secs(15);
 
@@ -595,8 +503,6 @@ static PAINTINGS: std::sync::LazyLock<std::sync::Mutex<Paintings>> =
 
 #[cfg(feature = "glass")]
 impl Paintings {
-    /// The window picture of `p`'s frame, flipped or not, shown `scale`
-    /// window pixels to a room pixel; `None` until it is read and sent up.
     fn picture(
         &mut self,
         host: &angel_glass::Host,
@@ -622,8 +528,6 @@ impl Paintings {
                 frames,
                 whole,
             }) => {
-                // Shown bigger than it was cut for: cut again, drawn as it
-                // was meanwhile.
                 if whole || side <= had + had / 2 {
                     return picture(slot, frames);
                 }
@@ -660,8 +564,6 @@ impl Paintings {
             std::sync::Arc::clone(&self.done),
         );
         let source = PAINT_SOURCE.lock().unwrap().clone();
-        // Its normal map's hash, when cards turn by them; the art pixels
-        // its square spans, for one made from it.
         let normal = card_normals().then(|| p.normal.clone());
         let art = p.rect[2].max(p.rect[3]).max(1.0);
         let cache_key = key.clone();
@@ -676,15 +578,12 @@ impl Paintings {
                             .to_rgba8();
                     let (w, h) = image.dimensions();
                     (w <= 2048 && h <= 2048).then_some(())?;
-                    // Pixel art in hard blocks, anything else averaged down.
                     let (side, cut) = if subject {
                         paintings::cut_subject(image.as_raw(), (w, h), frames, side)?
                     } else {
                         paintings::cut_as(pixel, image.as_raw(), (w, h), frames, side)?
                     };
                     if let Some(normal) = &normal {
-                        // Its own map where it names one that reads and cuts;
-                        // else one made from it.
                         let authored = normal
                             .as_ref()
                             .filter(|_| !subject)
@@ -724,7 +623,6 @@ impl Paintings {
         shown.and_then(|(_, frames)| picture(slot, frames))
     }
 
-    /// The paintings read and cut since, sent up.
     fn sent(&mut self, host: &angel_glass::Host) {
         use crate::world_viz::overworld::arena::paintings;
         let done = std::mem::take(&mut *self.done.lock().unwrap());
@@ -748,7 +646,6 @@ impl Paintings {
                                 cols: 0,
                                 rows: 0,
                             });
-                            // Its normal map beside it, mirrored with it.
                             if let Some(map) = normals.as_ref().and_then(|n| n.get(f)) {
                                 host.upload_picture(angel_glass::graphics::Picture {
                                     id: angel_stage::normals::picture_of(paintings::picture(
@@ -774,7 +671,6 @@ impl Paintings {
                         whole: side < asked,
                     }
                 }
-                // Drawn as it was, if it was.
                 None => match shown {
                     Some((side, frames)) => Painted::Ready {
                         slot,
@@ -793,9 +689,6 @@ impl Paintings {
     }
 }
 
-/// The Delve's frame in parts, drawn by the window into the `placed` cells
-/// of `area` (docs/RENDER_FOUNDATION.md, "The game pipeline"): the Delve
-/// makes the stage (`arena::stage_frame`), the window draws it.
 pub(crate) fn stage(
     console: &dyn Console,
     scene: &std::sync::Arc<crate::world_viz::overworld::arena::RoomScene>,
@@ -806,7 +699,6 @@ pub(crate) fn stage(
     #[cfg(feature = "glass")]
     if let Some(host) = host(console) {
         let mut state = STAGE_STATE.lock().unwrap();
-        // Window pixels to a room pixel, for the size a painting is shown.
         let grid = host.grid_size();
         let scale = f32::from(placed.width) * grid.cell_width as f32 / scene.view.0.max(1) as f32;
         let frame = state.maker.make_with(

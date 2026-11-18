@@ -19,7 +19,6 @@ use crate::agent::mcp::{McpComposition, ServerSpec};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-/// A tool that declares a precondition of its own — the `Tool::requires` path.
 struct SpecTool {
     name: String,
     requires: Vec<Key>,
@@ -69,8 +68,6 @@ fn classified(log: &[(String, Classification)], name: &str) -> Classification {
         .unwrap_or_else(|| panic!("{name} declared no spec: {log:?}"))
 }
 
-// --- derivation -------------------------------------------------------------
-
 #[test]
 fn a_tool_is_advertised_only_while_its_declared_spec_holds() {
     let _lock = crate::tests::env_lock();
@@ -114,8 +111,6 @@ fn the_three_way_classification_drives_the_advertisement() {
     let lease = registry.bind_provider("mcp:video");
     assert!(advertised(&registry, "video_probe"));
 
-    // A retune under the live provider: same identity, different value. Neutral
-    // by §3.4/Def 27, and the memo proof is that nothing is rebuilt.
     let generation = registry.tool_activation_generation();
     let before = registry.defs_arc();
     let retune = {
@@ -139,9 +134,6 @@ fn the_three_way_classification_drives_the_advertisement() {
         "and reuses the advertised set verbatim instead of rebuilding it"
     );
 
-    // An unrelated key is neutral *for this tool* by independence, even though the
-    // store did move: another tool could have declared that key, so the memo is
-    // keyed on the store while this tool's advertisement stays put.
     let unrelated = {
         let store = activations.store();
         let mut store = store.lock().unwrap_or_else(|e| e.into_inner());
@@ -176,7 +168,6 @@ fn a_replaced_provider_is_a_change_even_when_the_value_is_equal() {
     let first = registry.bind_provider("svc:clock");
     let generation = registry.tool_activation_generation();
 
-    // The same provider, replaced by one that provides an equal value: §5.1.3.
     let change = {
         let store = activations.store();
         let mut store = store.lock().unwrap_or_else(|e| e.into_inner());
@@ -262,8 +253,6 @@ fn a_withdrawn_provider_leaves_no_schema_behind_in_the_turn() {
         "the activated schema is advertised for the next request"
     );
 
-    // Withdraw the provider mid-turn: the derived set must follow, and the
-    // activation invariant must hold at every hop.
     let log = lease.release();
     assert_eq!(classified(&log, "fetch_page"), Classification::Deactivating);
     let defs = turn_defs(&registry);
@@ -274,7 +263,6 @@ fn a_withdrawn_provider_leaves_no_schema_behind_in_the_turn() {
     assert_eq!(registry.activated_schema_failures(&defs), 0);
     assert!(registry.tool_activations().snapshot().is_empty());
 
-    // The intent is remembered: when the provider comes back, so does the schema.
     let lease = registry.bind_provider("mcp:web");
     assert!(
         registry.tool_activations().admits("fetch_page"),
@@ -301,9 +289,6 @@ fn a_lease_releases_once_however_it_is_fired() {
     assert_eq!(lease.key().as_str(), "capability:export");
     assert!(advertised(&registry, "export"));
 
-    // The lease composes with the registration path: its inverse fires the same
-    // release, and the once-only guard makes the second path a no-op rather than
-    // a double release.
     let inverse = lease.as_disposable();
     assert!(inverse.fire());
     assert!(!advertised(&registry, "export"));
@@ -313,11 +298,6 @@ fn a_lease_releases_once_however_it_is_fired() {
     );
 }
 
-// --- the live provider ------------------------------------------------------
-
-/// A stdio MCP server with no SDK dependency: it records its own pid, then
-/// answers `initialize` / `tools/list` / `tools/call`. Same fixture the provider
-/// lifecycle tests use, so the pid is observable from outside the process.
 const MOCK_SERVER: &str = r#"
 echo $$ > "$MCP_PID_FILE"
 while IFS= read -r line; do
@@ -356,9 +336,6 @@ fn wait_for_reaped(pid: u32, budget: Duration) -> bool {
     !Path::new(&format!("/proc/{pid}")).exists()
 }
 
-/// Register a live server's tools exactly the way `bootstrap::install_mcp_tools`
-/// does: bind the provider, then track each tool against the scope whose
-/// teardown releases that binding before it lets the process go.
 fn install_live_provider(
     registry: &mut ToolRegistry,
     composition: McpComposition,
@@ -423,8 +400,6 @@ fn a_live_provider_withdrawal_retracts_schemas_without_a_restart() {
         "pong"
     );
 
-    // Drop the provider mid-session: the derivation must follow in the same turn,
-    // and the process must go with it.
     let drop_started = Instant::now();
     assert_eq!(
         registry.unregister_prefix("mockmcp__"),
@@ -447,7 +422,6 @@ fn a_live_provider_withdrawal_retracts_schemas_without_a_restart() {
         "dropping a provider must not orphan its child"
     );
 
-    // Re-add: a fresh process, a searchable tool, no cockpit restart.
     let readd_started = Instant::now();
     let (compositions, notes) = crate::agent::mcp::discover_compositions(
         &[mock_spec("mockmcp", &pid_file)],
@@ -473,8 +447,6 @@ fn a_live_provider_withdrawal_retracts_schemas_without_a_restart() {
     let _ = registry.unregister_prefix("mockmcp__");
 }
 
-/// A provider-scoped registration must not discard what the tool declares about
-/// itself: the provider's liveness and the tool's own key are both required.
 #[test]
 fn a_provider_scoped_registration_keeps_the_tools_own_requirement() {
     let _lock = crate::tests::env_lock();
@@ -487,7 +459,6 @@ fn a_provider_scoped_registration_keeps_the_tools_own_requirement() {
         false,
     );
 
-    // Provider live, the tool's own capability missing: still not advertised.
     let provider = registry.bind_provider("mcp:files");
     assert!(
         !advertised(&registry, "export"),
@@ -496,14 +467,11 @@ fn a_provider_scoped_registration_keeps_the_tools_own_requirement() {
     let capability = registry.bind_coeffect(Key::capability("export"));
     assert!(advertised(&registry, "export"));
 
-    // Capability live, provider gone: withdrawn anyway, in the same turn.
     provider.release();
     assert!(!advertised(&registry, "export"));
     capability.release();
 }
 
-/// T1's discipline applied to a provider: the lease *is* the release, so the last
-/// hand to hold it takes the provider out of `Σ` even without an explicit call.
 #[test]
 fn a_lease_dropped_without_release_still_unloads_its_provider() {
     let _lock = crate::tests::env_lock();

@@ -1,4 +1,3 @@
-// Uses the pre-existing blocked-realm/private-checkpoint regression entry point.
 fn mummers_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     use crate::delve::together_realm::Spoil;
     use crate::delve::together_shooter::{Input, RoomKind, Run, countryside as c, mummers as m,
@@ -60,7 +59,6 @@ fn mummers_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     assert_eq!(app.economy().treasury,before);
     fixture.allow_saves();
     assert!(app.settle_home());
-    // The half-pipe medal's 80, the plot's 110, and the game's first-win purse.
     assert_eq!(app.economy().treasury.get(Spoil::Gold),before.get(Spoil::Gold)+80-110+c::FIRST_WIN_GOLD);
     assert_eq!(app.economy().treasury.get(Spoil::Bone),before.get(Spoil::Bone)-3);
     assert_eq!(app.economy().treasury.get(Spoil::Wax),before.get(Spoil::Wax));
@@ -69,12 +67,9 @@ fn mummers_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     let paid = app.economy().treasury.clone();
     assert!(app.settle_home());
     assert_eq!(app.economy().treasury,paid);
-    // Save the twelfth start-pad bit and a real airborne rotation.
     let r = app.realm.dungeon.shooter.edit().unwrap();
     r.arrive(world::room_of(&r.dungeon,RoomKind::Mummers).unwrap(),Game::Halfpipe.start());
     r.step(&empty);
-    // The round's clock starts a second after the walk-in, so the drive
-    // is bounded by the game's whole time and stops at the lip.
     for _ in 0..Game::Halfpipe.time() {
         let h=r.pastimes.round.as_ref().unwrap().halfpipe.as_ref().unwrap();
         if h.flight>0 { break; }

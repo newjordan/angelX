@@ -55,8 +55,6 @@ def prepare(args):
     catalog_path = bench / "tasks-polyglot-v1.json"
     catalog = json.loads(catalog_path.read_text())
     selected = shared.select_tasks(catalog, 1, [])
-    # Predeclared stress cases from the existing loop-prone cohort. Keep them
-    # labelled; they are not a representative estimate of the full 136 tasks.
     selected += [next(row for row in catalog if row["name"] == name)
                  for name in ("py-react", "py-transpose")]
     fixtures = shared.snapshot_fixtures(bench, output, selected)
@@ -113,9 +111,6 @@ def environment(bench, output, manifest, execute):
     agent_path = f"{bench}/toolbin:/usr/local/bin:/usr/bin:/bin"
     key = "dry-run-placeholder"
     if execute:
-        # Match the established run-cell.sh credential boundary. The value is
-        # never written to manifests or command lines; the agent gets only its
-        # evaluator proxy credential, in a fresh HOME.
         key = subprocess.check_output([
             "bash", "-c",
             'source "$HOME/.config/host_env/api_keys.sh" >/dev/null 2>&1; printf %s "${!1:-}"',
@@ -215,8 +210,6 @@ def main():
     for name in manifest["order"]:
         status = run_cell(bench, output, manifest, name, env, args.execute)
         if status != 0:
-            # Preserve an infrastructure failure before spending another cell;
-            # task failures are normally scored by the evaluator with exit 0.
             return status
     return 0
 

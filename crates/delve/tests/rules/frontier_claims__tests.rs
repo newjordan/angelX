@@ -30,7 +30,6 @@ fn frontier_claims_full_ledger_notice_is_once_per_seam_and_room_entry() {
     run.at = room;
     assert!(!run.discover_frontier_claim(&d));
     assert_eq!(run.notices.len(), 2);
-    // A checkpoint discards only transient notice suppression, never claims.
     let mut run: Run = serde_json::from_str(&serde_json::to_string(&run).unwrap()).unwrap();
     let n = run.notices.len();
     assert!(!run.discover_frontier_claim(&d));
@@ -99,8 +98,6 @@ fn frontier_claims_retirement_keeps_death_ledgers_and_never_repeats_loot() {
     assert!(run.home.industry.valid(catalog()) && run.kingdom.valid());
     assert_eq!(run.marks, marks, "retirement emits no new reward marks");
     let mut run: Run = serde_json::from_str(&serde_json::to_string(&run).unwrap()).unwrap();
-    // Marks are a transient delivery queue, deliberately omitted by a Run
-    // checkpoint. Rediscovery must not mint fresh events after restoration.
     let marks = run.marks.clone();
     run.dungeon.depth = depth;
     assert!(run.discover_frontier_claim(&d));

@@ -24,16 +24,11 @@ use angel_stage::scene::{
 
 use crate::layer::LAYER_PICTURES;
 
-/// The picture the scene is drawn into, which a layer then places.
 pub const SCENE_ID: u32 = LAYER_PICTURES + 0x80;
-/// The knight's sprite.
 pub const KNIGHT_ID: u32 = LAYER_PICTURES + 0x81;
 
-/// The reference's internal height, in pixels.
 pub const ROWS: u32 = 540;
 
-/// The measured ramp, dark to light: the reference's indigos, with its pale
-/// highlight as the top step.
 pub const RAMP: [[u8; 3]; 7] = [
     [0x1e, 0x24, 0x31],
     [0x2d, 0x35, 0x55],
@@ -44,14 +39,10 @@ pub const RAMP: [[u8; 3]; 7] = [
     [0x8a, 0x93, 0xc7],
 ];
 
-/// The one warm accent: the moon's glints on the water.
 pub const MOON: [u8; 3] = [0xf2, 0xe4, 0x8e];
 
-/// The knight's sprite, committed with the Delve's art.
 const KNIGHT_PNG: &[u8] = include_bytes!("../assets/knight-run.png");
 
-/// The scene's look at `rows` internal rows: the ramp, the moon, a 4x4 Bayer
-/// dither, fog toward the dark end.
 pub fn look(rows: u32) -> Look {
     Look {
         ramp: RAMP.to_vec(),
@@ -63,7 +54,6 @@ pub fn look(rows: u32) -> Look {
     }
 }
 
-/// The knight's sprite as straight RGBA: `(width, height, pixels)`.
 pub fn knight_sprite() -> Option<(u32, u32, Vec<u8>)> {
     let mut decoder = png::Decoder::new(std::io::Cursor::new(KNIGHT_PNG));
     decoder.set_transformations(png::Transformations::normalize_to_color8());
@@ -77,18 +67,12 @@ pub fn knight_sprite() -> Option<(u32, u32, Vec<u8>)> {
     Some((info.width, info.height, buffer))
 }
 
-// ---------------------------------------------------------------- helpers ----
-
-/// A surface of luminance `l` (a grey: the look reads brightness only).
 fn tone(l: f32) -> Material {
     Material::color([l, l, l, 1.0])
 }
 
-/// The brightness each face of a box has, in the cube's face order (+X, -X,
-/// +Y, -Y, +Z, -Z): light from above, to the right and in front.
 const FACE_LIGHT: [f32; 6] = [0.62, 0.50, 1.0, 0.30, 0.82, 0.40];
 
-/// A box of luminance `l` on its lit face, each face lit by its own share.
 fn lit_box(id: u64, parent: u64, at: [f32; 3], scale: [f32; 3], l: f32) -> Node {
     let mut node = Node::new(id, MeshRef::Cube, tone(l));
     node.parent = Some(parent);
@@ -104,7 +88,6 @@ fn flat(id: u64, parent: u64, mesh: MeshRef, at: [f32; 3], scale: [f32; 3], l: f
     node
 }
 
-/// A number in 0..1 that looks arbitrary and is the same every time.
 fn hash01(n: u32) -> f32 {
     let mut x = n.wrapping_mul(0x9E37_79B1) ^ 0x85EB_CA6B;
     x ^= x >> 15;
@@ -126,13 +109,10 @@ fn cross(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
     [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
 }
 
-/// A camera at `eye` looking at `target`, +Y up: its transform turns -Z
-/// toward the target.
 pub fn look_at(eye: [f32; 3], target: [f32; 3]) -> Transform {
     let f = normalize(sub(target, eye));
     let r = normalize(cross(f, [0.0, 1.0, 0.0]));
     let u = cross(r, f);
-    // The turn whose columns are right, up and back (-forward).
     let b = [-f[0], -f[1], -f[2]];
     let (m00, m01, m02) = (r[0], u[0], b[0]);
     let (m10, m11, m12) = (r[1], u[1], b[1]);
@@ -154,19 +134,13 @@ pub fn look_at(eye: [f32; 3], target: [f32; 3]) -> Transform {
     Transform { translation: eye, rotation: quat_normalize(q), scale: [1.0; 3] }
 }
 
-/// How far the shore's line is turned from straight across the view, in
-/// radians: the water's edge climbs to the right.
 const YAW: f32 = 0.58;
 
-/// A shore-space point (x along the shore, y up, z toward the sea) in the
-/// world.
 fn world(p: [f32; 3]) -> [f32; 3] {
     let (s, c) = YAW.sin_cos();
     [p[0] * c + p[2] * s, p[1], -p[0] * s + p[2] * c]
 }
 
-/// The slow camera: a drift of a few units a minute over the shore, never
-/// still, never quick.
 pub fn camera(t: f32) -> Camera {
     let eye = [
         -4.0 + 6.0 * (t * 0.045).sin(),
@@ -178,21 +152,16 @@ pub fn camera(t: f32) -> Camera {
     Camera {
         transform: look_at(eye, target),
         projection: Projection::Perspective { fov_y: 42.0_f32.to_radians(), near: 0.5, far: 220.0 },
-        // The sky is the fog's own colour, so the far water has no seam.
         clear: Some([r, g, b, 1.0]),
     }
 }
 
-/// Where the knight is at `t`: along the water's edge in shore space, and
-/// whether it is going toward +x (the sprite runs to the right).
 fn knight_walk(t: f32) -> (f32, bool) {
-    // A slow pace: 0.55 units a second over 24 units there and 24 back.
     let span = 24.0;
     let lap = (t * 0.55) % (2.0 * span);
     if lap < span { (-17.0 + lap, true) } else { (7.0 - (lap - span), false) }
 }
 
-/// The shore at `t` seconds, looked at through [`look`] at `rows` rows.
 pub fn scene(t: f32, rows: u32) -> Scene {
     let mut nodes: Vec<Node> = Vec::with_capacity(320);
     let mut next = 1u64;
@@ -201,21 +170,16 @@ pub fn scene(t: f32, rows: u32) -> Scene {
         next += 1;
         n
     };
-    // The whole shore hangs from one turned place, so its line is diagonal.
     let root = id();
     let mut shore = Node::empty(root);
     shore.transform = Transform::from_rotation_axis_angle([0.0, 1.0, 0.0], YAW);
     nodes.push(shore);
 
-    // The sea: bands of falling brightness out from the edge, the way a
-    // shoal deepens, each a plane a hair above the one beyond it.
     for (z0, z1, l, y) in [(0.0, 3.2, 0.52, 0.045), (3.2, 10.0, 0.46, 0.03), (10.0, 24.0, 0.41, 0.015), (24.0, 340.0, 0.37, 0.0)] {
         nodes.push(flat(id(), root, MeshRef::Plane, [0.0, y, (z0 + z1) / 2.0], [900.0, 1.0, z1 - z0], l));
     }
-    // The sand, darker than the water, with a wet band at the edge.
     nodes.push(flat(id(), root, MeshRef::Plane, [0.0, 0.2, -170.0], [900.0, 1.0, 340.0], 0.165));
     nodes.push(flat(id(), root, MeshRef::Plane, [0.0, 0.215, -1.6], [900.0, 1.0, 3.2], 0.235));
-    // Foam: long thin strips on the edge, drifting slowly.
     for i in 0..7u32 {
         let h = [hash01(i * 3), hash01(i * 3 + 1), hash01(i * 3 + 2)];
         let len = 7.0 + 15.0 * h[0];
@@ -224,7 +188,6 @@ pub fn scene(t: f32, rows: u32) -> Scene {
         nodes.push(flat(id(), root, MeshRef::Plane, [x, 0.06, z], [len, 1.0, 0.28 + 0.4 * h[2]], 0.62));
     }
 
-    // The seawall: a run of boxes, with dark pillars standing over it.
     for i in -12i32..=12 {
         let h = 2.6 + 0.9 * hash01((i + 100) as u32);
         nodes.push(lit_box(id(), root, [i as f32 * 6.0, 0.2 + h / 2.0, -38.0], [6.1, h, 3.2], 0.37));
@@ -234,7 +197,6 @@ pub fn scene(t: f32, rows: u32) -> Scene {
         nodes.push(lit_box(id(), root, [x, 0.2 + 4.8, -40.5], [1.7, 9.6, 1.7], 0.15));
     }
 
-    // The ribs: arches of boxes, leaning, some broken, standing on the sand.
     for i in 0..9u32 {
         let h = [hash01(i * 7 + 200), hash01(i * 7 + 201), hash01(i * 7 + 202), hash01(i * 7 + 203)];
         let x = -27.0 + 4.6 * i as f32 + 1.8 * (h[0] - 0.5);
@@ -254,7 +216,6 @@ pub fn scene(t: f32, rows: u32) -> Scene {
         };
         nodes.push(place);
         let segments = 9;
-        // A broken arch stops short.
         let used = if h[3] > 0.7 { 6 } else { segments };
         let point = |k: usize| {
             let a = std::f32::consts::PI * k as f32 / segments as f32;
@@ -277,7 +238,6 @@ pub fn scene(t: f32, rows: u32) -> Scene {
             nodes.push(seg);
         }
     }
-    // The spine: a row of vertebrae shrinking away along the sand.
     for k in 0..14u32 {
         let s = 1.5 - 0.07 * k as f32;
         nodes.push(lit_box(
@@ -288,18 +248,14 @@ pub fn scene(t: f32, rows: u32) -> Scene {
             0.50,
         ));
     }
-    // The beached shape: a long low mound, a lighter shoulder, a dark shadow
-    // round its foot.
     nodes.push(flat(id(), root, MeshRef::Sphere { segments: 32 }, [-14.0, 0.24, -4.6], [14.5, 0.07, 6.6], 0.10));
     nodes.push(flat(id(), root, MeshRef::Sphere { segments: 32 }, [-14.0, 0.7, -5.0], [12.5, 3.6, 5.8], 0.43));
     nodes.push(flat(id(), root, MeshRef::Sphere { segments: 32 }, [-16.2, 1.9, -5.8], [7.2, 2.0, 3.2], 0.56));
 
-    // The moon on the water: accent strips, each coming and going.
     let moon = Material { accent: true, ..tone(0.9) };
     for i in 0..72u32 {
         let h = [hash01(i * 5 + 300), hash01(i * 5 + 301), hash01(i * 5 + 302), hash01(i * 5 + 303)];
         let along = (i as f32 + h[0]) / 72.0;
-        // A path out from the shore that widens.
         let z = 1.6 + 17.0 * along * along.sqrt();
         let x = -10.0 + 7.0 * along + (h[1] - 0.5) * (4.0 + 12.0 * along);
         let wave = (t * (0.5 + 0.9 * h[2]) + h[3] * std::f32::consts::TAU).sin();
@@ -317,9 +273,6 @@ pub fn scene(t: f32, rows: u32) -> Scene {
         nodes.push(node);
     }
 
-    // The knight, a billboard: upright, turned to face the camera, standing at
-    // the water's edge and walking along it. Placed in the world, not the
-    // shore's turned place, so it can face the camera however the shore lies.
     let (x, rightward) = knight_walk(t);
     let step = (t * 5.2).sin().abs();
     let foot = world([x, 0.25 + 0.08 * step, 0.9]);
@@ -349,13 +302,10 @@ pub fn scene(t: f32, rows: u32) -> Scene {
     let mut knight = Node::new(id(), MeshRef::Quad, sprite);
     knight.transform = Transform {
         translation: [foot[0], foot[1] + height / 2.0, foot[2]],
-        // Turned to the camera; going the other way, shown from behind, which
-        // is the sprite mirrored.
         rotation: quat_axis_angle([0.0, 1.0, 0.0], face + if rightward { 0.0 } else { std::f32::consts::PI }),
         scale: [width, height, 1.0],
     };
     nodes.push(knight);
-    // Its shadow on the sand.
     let shadow = world([x, 0.0, 0.9]);
     let mut dark = flat(id(), root, MeshRef::Sphere { segments: 16 }, [0.0; 3], [1.5, 0.03, 0.55], 0.09);
     dark.parent = None;
@@ -378,10 +328,8 @@ mod tests {
         assert_eq!(l.ramp.len(), 7);
         assert_eq!(l.accent, vec![MOON]);
         assert_eq!((l.dither, l.pixel_rows), (Dither::Bayer4, 540));
-        // Fog toward the dark end, over a long reach.
         let fog = l.fog.expect("fog");
         assert!(fog.color <= 1 && fog.end > fog.start);
-        // The ramp rises in brightness (the quantizer holds it so anyway).
         let levels = l.ramp_levels();
         assert!(levels.windows(2).all(|w| w[0] < w[1]), "{levels:?}");
     }
@@ -400,7 +348,6 @@ mod tests {
             for k in 0..3 {
                 assert!((forward[k] - want[k]).abs() < 1e-4, "{eye:?} -> {target:?}: {forward:?} vs {want:?}");
             }
-            // The camera stays level: its right is horizontal.
             let right = quat_rotate(t.rotation, [1.0, 0.0, 0.0]);
             assert!(right[1].abs() < 1e-4);
             assert_eq!(t.translation, eye);
@@ -412,7 +359,6 @@ mod tests {
         let (w, h, rgba) = knight_sprite().expect("decodes");
         assert_eq!((w, h), (39, 44));
         assert_eq!(rgba.len(), (w * h * 4) as usize);
-        // Transparent round the figure, opaque in it.
         assert_eq!(rgba[3], 0);
         assert!(rgba.chunks(4).filter(|p| p[3] == 255).count() > 400);
         assert!(rgba.chunks(4).all(|p| p[3] == 0 || p[3] == 255), "a cutout, no soft edges");
@@ -428,7 +374,6 @@ mod tests {
             assert!(s.look.as_ref().is_some_and(|l| l.validate().is_ok()));
             let placed = s.world_matrices();
             assert!(placed.iter().all(Option::is_some), "every node can be placed at t {t}");
-            // Ids are taken once each.
             let mut ids: Vec<u64> = s.nodes.iter().map(|n| n.id).collect();
             ids.sort_unstable();
             ids.dedup();
@@ -479,7 +424,6 @@ mod tests {
         for step in 1..4000 {
             let t = step as f32 * 0.05;
             let now = knight_walk(t);
-            // Never quicker than a walk: under a unit a second.
             if now.1 == last.1 {
                 assert!((now.0 - last.0).abs() / 0.05 < 1.0);
             } else {
@@ -500,9 +444,6 @@ mod tests {
         assert_ne!(scene(12.5, ROWS).camera, scene(40.0, ROWS).camera);
     }
 
-    /// The shore drawn by the core on a real GPU (skipped with no adapter):
-    /// every pixel is a ramp colour or the moon, the moon shows, and the
-    /// knight's sprite is in it. `ANGEL_SHORE_PNG=dir` also saves frames.
     #[test]
     fn it_draws_on_a_real_gpu_in_ramp_colours_and_the_moon() {
         use std::collections::HashSet;

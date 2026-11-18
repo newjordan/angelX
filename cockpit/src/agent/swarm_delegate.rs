@@ -26,13 +26,12 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
 
-/// Where a delegator asked to run a test.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Placement {
     Local,
-    Remote(String), // host label
-    Peer(String),   // network agent name/mailbox
-    Phone(String),  // model key or category alias, e.g. "math" / "flash"
+    Remote(String),
+    Peer(String),
+    Phone(String),
 }
 
 impl Placement {
@@ -45,8 +44,6 @@ impl Placement {
         }
     }
 
-    /// Exact coalescing scope for the approval gate. An approve-all for one
-    /// host, peer, or model must never authorize a different destination.
     pub fn approval_scope(&self) -> crate::agent::approval::ApprovalScope {
         match self {
             Placement::Local => crate::agent::approval::ApprovalScope::SelfTest,
@@ -60,14 +57,11 @@ impl Placement {
         }
     }
 
-    /// Local runs in the landlock sandbox (cheap, safe) → auto. Everything else
-    /// reaches off the box (network / external API / another agent) → gate it.
     pub fn needs_approval(&self) -> bool {
         !matches!(self, Placement::Local)
     }
 }
 
-/// A test request parsed out of a delegator's draft.
 #[derive(Clone, Debug)]
 pub struct TestRequest {
     pub claim: String,
@@ -76,20 +70,14 @@ pub struct TestRequest {
     pub why: String,
 }
 
-/// The outcome of routing + running one request.
 pub struct TestResult {
     pub request: TestRequest,
-    pub verdict: &'static str, // pass | fail | timeout | denied | error | second-opinion | phoned
+    pub verdict: &'static str,
     pub detail: String,
 }
 
-// ---------------------------------------------------------------------------
-// Parsing the `swarm-test` block out of a draft
-// ---------------------------------------------------------------------------
-
 const FENCE: &str = "```swarm-test";
 
-/// Extract every `swarm-test` block from a draft. Tolerant of surrounding prose.
 pub fn parse_requests(text: &str) -> Vec<TestRequest> {
     let mut out = Vec::new();
     let mut rest = text;
@@ -104,8 +92,6 @@ pub fn parse_requests(text: &str) -> Vec<TestRequest> {
     out
 }
 
-/// Remove the `swarm-test` blocks from a draft so the synthesis never echoes the
-/// raw request (it gets the executed *evidence* instead).
 pub fn strip_blocks(text: &str) -> String {
     let mut out = String::new();
     let mut rest = text;
@@ -124,9 +110,6 @@ pub fn strip_blocks(text: &str) -> String {
     out.trim().to_string()
 }
 
-/// Preserve first-seen order while collapsing identical requests from many
-/// delegator drafts. Without this, a consensus claim can consume the entire
-/// test budget by running the same command concurrently several times.
 pub fn dedupe_requests(requests: Vec<TestRequest>, max: usize) -> Vec<TestRequest> {
     if max == 0 {
         return Vec::new();
@@ -169,8 +152,6 @@ fn parse_block(body: &str) -> Option<TestRequest> {
         }
     }
     let placement = parse_placement(&where_)?;
-    // A phone consultation can use the claim itself as its question (the runner
-    // already supports this). Executable placements still require a command.
     if cmd.is_empty() && (!matches!(&placement, Placement::Phone(_)) || claim.trim().is_empty()) {
         return None;
     }
@@ -183,7 +164,7 @@ fn parse_block(body: &str) -> Option<TestRequest> {
 }
 
 fn parse_placement(s: &str) -> Option<Placement> {
-    let s = s.split('#').next().unwrap_or(s).trim(); // drop trailing comments
+    let s = s.split('#').next().unwrap_or(s).trim();
     if let Some(h) = s.strip_prefix("remote:") {
         let h = h.trim();
         (!h.is_empty()).then(|| Placement::Remote(h.to_string()))
@@ -195,17 +176,10 @@ fn parse_placement(s: &str) -> Option<Placement> {
     } else if s == "local" {
         Some(Placement::Local)
     } else {
-        // A typo in an off-box placement must never silently become a local
-        // shell execution. Drop the malformed request instead.
         None
     }
 }
 
-// ---------------------------------------------------------------------------
-// The approver / router ("angel")
-// ---------------------------------------------------------------------------
-
-/// Programs allowed to *start* a local command (after path-stripping).
 const LOCAL_ALLOW: &[&str] = &[
     "cargo",
     "rustc",
@@ -247,7 +221,6 @@ const LOCAL_ALLOW: &[&str] = &[
     "uname",
 ];
 
-/// Tighter allowlist for remote hosts (no landlock out there).
 const REMOTE_ALLOW: &[&str] = &[
     "cargo",
     "rustc",
@@ -268,7 +241,6 @@ const REMOTE_ALLOW: &[&str] = &[
     "true",
 ];
 
-/// Programs that are never allowed, matched as whitespace/operator-delimited tokens.
 const BAD_PROGRAMS: &[&str] = &[
     "rm",
     "rmdir",
@@ -308,7 +280,6 @@ const BAD_PROGRAMS: &[&str] = &[
     "truncate",
 ];
 
-/// Substrings that are never allowed anywhere in a command.
 const BAD_PATTERNS: &[&str] = &[
     "sudo",
     ":(){",
@@ -330,15 +301,11 @@ const BAD_PATTERNS: &[&str] = &[
     " >> /",
 ];
 
-/// The router/approver, configured from env.
 pub struct Router {
-    /// Scratch dir for local tests (writes confined here; default under $TMPDIR).
     workspace: PathBuf,
     remote_enabled: bool,
     peer_enabled: bool,
     phone_enabled: bool,
-    /// Command run (via `sh -c`) to hand a request to a peer agent. Operator-set,
-    /// never model-controlled; the model only fills `$SWARM_PEER_AGENT`/`_PROMPT`.
     peer_cmd: String,
     timeout: Duration,
 }
@@ -358,17 +325,13 @@ impl Router {
             peer_enabled: truthy_env("ANGEL_SWARM_PEER"),
             phone_enabled: truthy_env("ANGEL_SWARM_PHONE"),
             peer_cmd: std::env::var("ANGEL_SWARM_PEER_CMD").unwrap_or_else(|_| {
-                // Best-guess default for robusty/mq9; override to match your CLI.
                 "robusty-mq9-request send \"$SWARM_PEER_AGENT\" \"$SWARM_PEER_PROMPT\"".to_string()
             }),
             timeout: Duration::from_secs(secs.max(1)),
         }
     }
 
-    /// Auto-approval: validate the request against policy.
     fn approve(&self, req: &TestRequest) -> Result<(), String> {
-        // Phone is a model-API consult, not command execution — skip the command
-        // policy; just require the flag and a resolvable target.
         if let Placement::Phone(target) = &req.placement {
             if !self.phone_enabled {
                 return Err("phone disabled (set ANGEL_SWARM_PHONE=1)".to_string());
@@ -424,7 +387,6 @@ impl Router {
         }
     }
 
-    /// Approve + run a single request, returning a verdict either way.
     pub fn run(&self, req: &TestRequest) -> TestResult {
         if let Err(reason) = self.approve(req) {
             return TestResult {
@@ -445,9 +407,6 @@ impl Router {
         if let Err(e) = std::fs::create_dir_all(&self.workspace) {
             return self.errored(req, format!("create workspace: {e}"));
         }
-        // Unless explicitly disabled (ANGEL_SANDBOX=0), writes are confined to
-        // the scratch dir + /tmp — NOT $HOME or the repo. Disarmed (the
-        // default), the delegate runs unconfined like every write-mode agent.
         let policy = SandboxPolicy {
             writable_roots: vec![self.workspace.clone(), PathBuf::from("/tmp")],
             allow_network: true,
@@ -479,11 +438,6 @@ impl Router {
     }
 
     fn run_peer(&self, req: &TestRequest, agent: &str) -> TestResult {
-        // The peer agent gets the claim + proposed test and renders a verdict; we
-        // don't run the command ourselves. peer_cmd is operator-controlled. The
-        // peer is out of process, with no channel for the ledger reader, so it
-        // hears the consult's pages (`⠐⠊⠁…⠐⠊⠙`) recited, the claim and the test
-        // as data.
         use crate::agent::harness::book::{connect::recite, d3_roles::pages, d5_frames};
         let page = |n: usize| recite(&pages(d5_frames::CONSULTS, [n]));
         let prompt = format!(
@@ -516,7 +470,6 @@ impl Router {
         }
     }
 
-    /// The "sota phone": consult a model API for a sub-problem / second opinion.
     fn run_phone(&self, req: &TestRequest, target: &str) -> TestResult {
         let Some((url, model, key)) = phone_target(target) else {
             return self.errored(req, format!("unknown phone target '{target}'"));
@@ -526,9 +479,6 @@ impl Router {
         } else {
             req.cmd.as_str()
         };
-        // `⠐⠊⠑⠐⠊⠋`, then the claim and the question after their labels
-        // (`⠐⠊⠛`, `⠐⠊⠓`). The phoned model is connected: offered the ledger
-        // reader alone, so it can read them.
         use crate::agent::harness::book::{connect, d3_roles::pages, d5_frames::CONSULTS};
         let context = if req.claim.trim().is_empty() {
             String::new()
@@ -552,7 +502,6 @@ impl Router {
         }
     }
 
-    /// Spawn `cmd`, capture, and turn the exit status into a verdict.
     fn finish(&self, req: &TestRequest, cmd: Command, prefix: &str) -> TestResult {
         match run_capture(cmd, self.timeout) {
             Ok((out, timed)) => TestResult {
@@ -579,8 +528,6 @@ impl Router {
     }
 }
 
-/// Format executed results into an evidence block injected into the synthesis:
-/// `⠐⠚`, then each result as data; a request with no claim is `⠐⠚⠙`.
 pub fn evidence_block(results: &[TestResult]) -> String {
     let mut s = format!(
         "{}\n",
@@ -608,13 +555,6 @@ pub fn evidence_block(results: &[TestResult]) -> String {
     s
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/// Every executable in a shell chain/pipeline must be allowlisted. The old
-/// first-token check let `cargo test; arbitrary-program` and `env arbitrary`
-/// through because only `cargo`/`env` was inspected.
 fn programs_allowed(cmd: &str, allow: &[&str]) -> bool {
     let Some(segments) = shell_segments(cmd) else {
         return false;
@@ -635,8 +575,6 @@ fn command_position(words: &[String]) -> Option<usize> {
     }
     if words.get(i).is_some_and(|w| basename(w) == "env") {
         i += 1;
-        // Keep the useful `env K=V command` form, but reject env flags: option
-        // arity is platform-specific and ambiguity is an allowlist bypass.
         if words.get(i).is_some_and(|w| w.starts_with('-')) {
             return None;
         }
@@ -647,9 +585,6 @@ fn command_position(words: &[String]) -> Option<usize> {
     words.get(i).map(|_| i)
 }
 
-/// Remote execution has no landlock on the destination. `python -c` turns an
-/// otherwise narrow executable allowlist into arbitrary code, so reject the
-/// obvious inline-code modes there while retaining script/module test runs.
 fn uses_inline_interpreter(cmd: &str) -> bool {
     shell_segments(cmd).is_some_and(|segments| {
         segments.iter().any(|words| {
@@ -681,13 +616,7 @@ fn is_assignment(word: &str) -> bool {
         && chars.all(|c| c == '_' || c.is_ascii_alphanumeric())
 }
 
-/// Minimal quote-aware shell lexer for command boundaries. It does not try to
-/// execute or fully parse shell syntax; it only extracts each command's words
-/// across `;`, `&&`, `||`, pipes, newlines, and grouping delimiters.
 fn shell_segments(cmd: &str) -> Option<Vec<Vec<String>>> {
-    // Command substitution is execution hidden inside an otherwise harmless
-    // token (`echo `program`` / `echo $(program)`). The outer command alone is
-    // not enough to validate it, so fail closed before lexing.
     if cmd.contains('`') || cmd.contains("$(") {
         return None;
     }
@@ -738,14 +667,11 @@ fn shell_segments(cmd: &str) -> Option<Vec<Vec<String>>> {
                 }
                 finish_segment(&mut word, &mut words, &mut segments);
             }
-            // `2>&1` is a redirection token, not a background command boundary.
             '&' if word.ends_with('>') || word.ends_with('<') => word.push(c),
             '&' if chars.peek() == Some(&'&') => {
                 chars.next();
                 finish_segment(&mut word, &mut words, &mut segments);
             }
-            // Background jobs can outlive the shell and turn a quick `pass` into
-            // a false verdict. Delegated tests must remain foreground/bounded.
             '&' => return None,
             _ => word.push(c),
         }
@@ -757,7 +683,6 @@ fn shell_segments(cmd: &str) -> Option<Vec<Vec<String>>> {
     Some(segments)
 }
 
-/// A disallowed pattern or program token in `cmd`, if any.
 fn dangerous(cmd: &str) -> Option<String> {
     let lc = cmd.to_ascii_lowercase();
     for pat in BAD_PATTERNS {
@@ -774,8 +699,6 @@ fn dangerous(cmd: &str) -> Option<String> {
     None
 }
 
-/// Map a fleet host label to an explicitly configured `user@host` SSH target.
-/// Remote execution has no compiled username or endpoint fallback.
 fn ssh_target(host: &str) -> Option<String> {
     let up = host.to_ascii_uppercase().replace('-', "_");
     std::env::var(format!("ANGEL_SWARM_SSH_{up}"))
@@ -784,21 +707,13 @@ fn ssh_target(host: &str) -> Option<String> {
         .filter(|target| !target.is_empty())
 }
 
-/// Resolve a phone target (model key or category alias) → (base_url, model, key).
-/// Category aliases map to a fleet model; any key is overridable via
-/// `ANGEL_PHONE_<KEY>_URL/_MODEL/_KEY` (falling back to the Bag's `ANGEL_<KEY>_*`),
-/// so external SOTA APIs are wired purely by env. Unknown + unconfigured → None.
 fn phone_target(key: &str) -> Option<(String, String, Option<String>)> {
-    // The default / first phone is DeepSeek — a strong external SOTA second
-    // opinion. Category aliases map to the model best at that "bit" of problem.
     let key = match key.trim() {
         "" | "default" | "sota" | "deep" | "ds" | "math" => "deepseek",
         "flash" | "fast" | "quick" => "deepseek-flash",
         k => k,
     };
     let up = key.to_ascii_uppercase().replace('-', "_");
-    // (base_url, model, key-env-var). DeepSeek (external SOTA) is the default;
-    // any other key is wired by its ANGEL_PHONE_<KEY>_URL env.
     let builtin: Option<(Option<&str>, &str, Option<&str>)> = match key {
         "deepseek" => Some((
             Some("https://api.deepseek.com/v1"),
@@ -810,9 +725,6 @@ fn phone_target(key: &str) -> Option<(String, String, Option<String>)> {
             "deepseek-flash",
             Some("DEEPSEEK_API_KEY"),
         )),
-        // The local box carries no endpoint or model id: its URL comes from
-        // ANGEL_PHONE_LOCAL_URL or ANGEL_LOCAL_URL, and the empty model follows
-        // the endpoint's live `/models`.
         "local" => Some((None, "", None)),
         _ => None,
     };
@@ -855,7 +767,6 @@ fn fmt_output(out: &std::process::Output, timed: bool, prefix: &str) -> String {
     format!("(exit {code}) {}", s.trim())
 }
 
-/// char-safe truncation.
 fn truncate(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
         s.to_string()
@@ -865,9 +776,6 @@ fn truncate(s: &str, max: usize) -> String {
     }
 }
 
-/// Run `cmd` with a kill-on-timeout deadline, draining pipes in threads so a full
-/// pipe can't deadlock. Incomplete output cannot establish a test verdict or
-/// become a completed peer opinion.
 fn run_capture(cmd: Command, timeout: Duration) -> Result<(std::process::Output, bool), String> {
     let capture = crate::agent::harness::exec::output_timed_captured(cmd, Some(timeout))?;
     if capture.timed_out {
@@ -897,10 +805,6 @@ fn truthy_env(key: &str) -> bool {
         Err(_) => false,
     }
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/swarm_delegate__tests.rs"]

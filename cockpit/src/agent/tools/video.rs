@@ -19,8 +19,6 @@ const MAX_CLIPS: usize = 32;
 const MAX_CLIP_SECONDS: f64 = 3600.0;
 const MAX_TIMELINE_SECONDS: f64 = 7200.0;
 
-/// Resolve a caller-supplied media path against the workspace, rejecting
-/// anything that escapes it (symlinks included once the file exists).
 fn confined_path(workspace: &Path, raw: &str) -> Result<PathBuf, String> {
     if raw.trim().is_empty() {
         return Err("path must not be empty".to_string());
@@ -30,7 +28,6 @@ fn confined_path(workspace: &Path, raw: &str) -> Result<PathBuf, String> {
     } else {
         workspace.join(raw)
     };
-    // Normalize `..` without requiring the file to exist.
     let mut norm = PathBuf::new();
     for comp in joined.components() {
         match comp {
@@ -58,20 +55,13 @@ fn seconds(v: &Value, key: &str) -> Result<f64, String> {
         .ok_or_else(|| format!("'{key}' must be a number (seconds)"))
 }
 
-/// Render the common ffmpeg `-filter_complex` for a timeline of clips with
-/// optional crossfades, plus the audio chain. Shared by `video_cut`'s call
-/// path and its unit tests.
-///
-/// Each clip: `{path, in, out}`. `fade` is the xfade duration in seconds
-/// (0 = hard cuts via concat). Returns `(filter_graph, video_label,
-/// audio_label)` or an error describing the invalid timeline.
 fn build_timeline_filter(
     clips: &[(String, f64, f64)],
     fade: f64,
     width: u32,
     height: u32,
     fps: u32,
-    audio: Option<(&str, f64)>, // (music path, audio fade-out tail seconds)
+    audio: Option<(&str, f64)>,
 ) -> Result<String, String> {
     if clips.is_empty() {
         return Err("timeline needs at least one clip".to_string());
@@ -95,8 +85,6 @@ fn build_timeline_filter(
         if t + dur > MAX_TIMELINE_SECONDS {
             return Err(format!("timeline exceeds {MAX_TIMELINE_SECONDS}s"));
         }
-        // Scale+pad normalizes mixed-res sources; settb aligns timebases so
-        // xfade/concat don't reject the pair (the classic 1/24 vs 1/12288).
         g.push_str(&format!(
             "[{i}:v]trim={tin}:{tout},setpts=PTS-STARTPTS,fps={fps},\
              scale={width}:{height}:force_original_aspect_ratio=decrease,\
@@ -108,10 +96,6 @@ fn build_timeline_filter(
     }
     let total = offsets.last().copied().unwrap_or(0.0);
     if fade > 0.0 && clips.len() > 1 {
-        // Chain xfades. Each xfade offset = cumulative output length before
-        // the join minus the fade duration. offsets[i] already bakes in the
-        // fade-overlap math (each iteration subtracts one fade), so the join
-        // that appends clip i+1 starts at offsets[i] - fade.
         let mut prev = String::from("v0");
         for i in 1..clips.len() {
             let label = if i + 1 == clips.len() {
@@ -135,24 +119,17 @@ fn build_timeline_filter(
         let inputs: String = (0..clips.len()).map(|i| format!("[v{i}]")).collect();
         g.push_str(&format!("{inputs}concat=n={}:v=1:a=0[vout];", clips.len()));
     }
-    // Final pixel-format normalize for broad player compat.
     g.push_str("[vout]format=yuv420p[vfinal];");
     if let Some((_, tail)) = audio {
-        // Audio length follows the video timeline; fade the tail.
         let fade_start = (total - tail).max(0.0);
         g.push_str(&format!(
             "[{}:a]atrim=0:{total:.3},asetpts=PTS-STARTPTS,\
              afade=t=out:st={fade_start:.3}:d={tail:.3}[aout]",
-            clips.len() // music is the input right after the clips
+            clips.len()
         ));
     }
-    // Strip the trailing ';' introduced between segments.
     Ok(g.trim_end_matches(';').to_string())
 }
-
-// ---------------------------------------------------------------------------
-// video_probe — ffprobe metadata for a media file.
-// ---------------------------------------------------------------------------
 
 pub(crate) struct VideoProbeTool {
     workspace: PathBuf,
@@ -211,10 +188,6 @@ impl Tool for VideoProbeTool {
     }
 }
 
-// ---------------------------------------------------------------------------
-// video_beats — beat/onset/energy analysis of a music track.
-// ---------------------------------------------------------------------------
-
 pub(crate) struct VideoBeatsTool {
     workspace: PathBuf,
     policy: SandboxPolicy,
@@ -226,9 +199,6 @@ impl VideoBeatsTool {
         Self { workspace, policy }
     }
 
-    /// The analysis worker ships as a sibling file so it stays lintable Python
-    /// instead of an escaping-prone embedded string. Resolved relative to the
-    /// crate manifest at build time.
     fn worker_path() -> PathBuf {
         crate::platform::runtime_paths::cockpit_dir().join("src/agent/tools/video_beats_worker.py")
     }
@@ -280,10 +250,6 @@ impl Tool for VideoBeatsTool {
         )
     }
 }
-
-// ---------------------------------------------------------------------------
-// video_cut — render a beat-synced EDL via ffmpeg.
-// ---------------------------------------------------------------------------
 
 pub(crate) struct VideoCutTool {
     workspace: PathBuf,
@@ -381,7 +347,6 @@ impl Tool for VideoCutTool {
             None => None,
         };
 
-        // Output geometry: explicit, else probe the first clip.
         let (mut w, mut h) = (
             args["width"].as_u64().unwrap_or(0) as u32,
             args["height"].as_u64().unwrap_or(0) as u32,
@@ -410,7 +375,6 @@ impl Tool for VideoCutTool {
                 return Err("could not determine output size; pass width/height".to_string());
             }
         }
-        // yuv420p demands even dimensions.
         w &= !1;
         h &= !1;
 
@@ -475,10 +439,6 @@ impl Tool for VideoCutTool {
         Ok(format!("rendered {out_raw} ({}s)\n{}", verify.trim(), run))
     }
 }
-
-// ---------------------------------------------------------------------------
-// video_contact_sheet — tiled frame grid for director review.
-// ---------------------------------------------------------------------------
 
 pub(crate) struct VideoContactSheetTool {
     workspace: PathBuf,
@@ -549,8 +509,6 @@ impl Tool for VideoContactSheetTool {
         if dur <= 0.0 {
             return Err(format!("could not probe duration of {raw}"));
         }
-        // fps=frames/duration samples evenly across the file; drawtext stamps
-        // each tile with its source timestamp; tile arranges the grid.
         let filter = format!(
             "fps={frames}/{dur:.3},\
              drawtext=text='%{{pts\\:hms}}':x=8:y=8:fontsize=20:fontcolor=white:box=1:boxcolor=black@0.6,\
@@ -580,10 +538,6 @@ impl Tool for VideoContactSheetTool {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Registration
-// ---------------------------------------------------------------------------
-
 pub(crate) fn maybe_register_video_tools(
     r: &mut crate::agent::harness::ToolRegistry,
     workspace: PathBuf,
@@ -597,12 +551,6 @@ pub(crate) fn maybe_register_video_tools(
     }
 }
 
-// ---------------------------------------------------------------------------
-// video_look — machine eyes: frames + question → a vision club.
-// ---------------------------------------------------------------------------
-
-/// Evenly spaced frame timestamps across a clip, inset 0.25s from both ends.
-/// `None` when the duration is unknown/too short to be meaningful.
 fn even_frame_times(dur: f64, n: usize) -> Option<Vec<f64>> {
     if dur <= 0.5 || n == 0 {
         return None;
@@ -615,20 +563,6 @@ fn even_frame_times(dur: f64, n: usize) -> Option<Vec<f64>> {
     )
 }
 
-/// The missing half of the editing loop: extract frames from a video (or take
-/// a ready-made image like a `video_contact_sheet` tile) and ask a vision
-/// club about them. The reply is text for the calling agent — framing,
-/// palette, continuity, which take reads best — so the *model* is the eyes
-/// and the human directs taste instead of being the sensor.
-///
-/// Backend resolution order:
-///   1. `ANGEL_VISION_URL` + `ANGEL_VISION_MODEL` (+ optional
-///      `ANGEL_VISION_KEY`) — any OpenAI-compatible vision endpoint
-///      (llama.cpp gemma3/llava, vLLM, LM Studio, Kimi, …).
-///   2. Kimi env (`ANGEL_KIMI_URL` + `ANGEL_KIMI_KEY` + `ANGEL_KIMI_MODEL`)
-///      when present — the route this toolset was born on.
-///   3. Signed-in Codex with a configured model advertising image input.
-///   4. Hard error naming the available configuration options.
 pub(crate) struct VideoLookTool {
     backend: crate::agent::tools::vision::VisionBackend,
     workspace: PathBuf,
@@ -659,7 +593,7 @@ impl Tool for VideoLookTool {
                           existing image, e.g. a contact sheet) to a vision club with a \
                           question, and get back a textual read — framing, palette, continuity, \
                           which take reads best. Backend: ANGEL_VISION_URL/ANGEL_VISION_MODEL, else the \
-                          Kimi env route. ⠫⠋"
+                          in-hand image model or signed-in Codex. ⠫⠋"
                 .to_string(),
             params: serde_json::json!({
                 "type": "object",

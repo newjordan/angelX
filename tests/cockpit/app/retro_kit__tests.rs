@@ -8,7 +8,6 @@ fn dither_extremes_and_coverage() {
             assert!(dither(x, y, 1.0), "full luminance must always light");
         }
     }
-    // Mid grey lights about half the matrix — the whole point of Bayer.
     let lit = (0..8)
         .flat_map(|y| (0..8).map(move |x| (x, y)))
         .filter(|&(x, y)| dither(x, y, 0.5))
@@ -26,7 +25,6 @@ fn ramps_run_dark_to_bright() {
         luma(lo) < luma(hi),
         "ramp must brighten from t=0 to t=1: {lo:?} vs {hi:?}"
     );
-    // Out-of-range samples clamp instead of panicking.
     assert_eq!(ramp.sample(-1.0), lo);
     assert_eq!(ramp.sample(2.0), hi);
 }
@@ -57,6 +55,5 @@ fn noise_is_deterministic_and_in_range() {
         assert_eq!(a, b, "same input must give same noise");
         assert!((0.0..=1.0).contains(&a));
     }
-    // Different seeds decorrelate.
     assert_ne!(value_noise(3.3, 4.4, 1), value_noise(3.3, 4.4, 2));
 }

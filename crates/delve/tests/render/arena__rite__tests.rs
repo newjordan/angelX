@@ -28,7 +28,6 @@ fn home_of(rites: Vec<Rite>) -> Home {
     home
 }
 
-/// The courtyard as a run stands in it: the host alone, come out of the inn.
 fn yard(home: Home) -> Run {
     let mut run = Run::at_home(41, 1, Some("Friend"), home, Default::default());
     run.naked_start = true;
@@ -49,7 +48,6 @@ fn griffin(home: Home) -> Run {
     run
 }
 
-/// The whole room at once, the camera's crop taken off.
 fn whole(run: &Run) -> Img {
     let mut cv = (*scenery_cached(run)).clone();
     cv.stamp(&room_layer(run, None, true), 0, 0);
@@ -79,10 +77,8 @@ fn an_empty_wall_draws_nothing_and_a_weapon_hangs_with_its_makers_tag() {
     assert_eq!(pieces.len(), 1);
     let (a, b) = (whole(&empty), whole(&run));
     assert!(differs(&a, &b) > 200, "the rail, the weapon and its tag are drawn");
-    // Everything it draws is inside the rail's own box and the tag under it, in the courtyard.
     let tag = rite_wall::tag_at(&pieces[0]);
     assert!(tag.1 + 8 < b.h && RAIL.0 - PEG_STEP < tag.0 && tag.0 < RAIL.0 + PEG_STEP * PEGS as i32);
-    // Not in any other room.
     let elsewhere = griffin(home_of(vec![rite_of("Ada", blade("Oathmark"), 1)]));
     assert!(rite_wall::shown(&elsewhere).is_empty());
 }
@@ -111,7 +107,6 @@ fn folk_and_heroes_stand_in_their_rooms_with_their_makers_and_nowhere_else() {
     assert!(differs(&whole(&bar), &whole(&plain_bar)) > 150, "the barman is drawn in the Griffin");
     let (court, plain_court) = (yard(home_of(rites)), yard(Home::default()));
     assert!(differs(&whole(&court), &whole(&plain_court)) > 300, "the pilgrim and the hero are drawn in the courtyard");
-    // A knight beside the barman is told who made him and that E speaks to him.
     let mut bar = bar;
     let at = crate::rules::made::placed(&bar, RoomKind::Alehouse, bar.tick)[0].at;
     place(&mut bar, 1, (at.0 + 0.5, at.1));
@@ -140,8 +135,6 @@ fn a_made_friend_and_a_made_foe_are_drawn_from_the_creators_own_figures() {
     assert!(lit(&im) && im.h > 20, "the made foe is its figure under a health bar and its name");
 }
 
-// ─── the rite's film ────────────────────────────────────────────────────────
-
 fn film_dir(name: &str) -> Option<std::path::PathBuf> {
     let dir = std::path::PathBuf::from(std::env::var_os("ANGEL_ARENA_SHOTS")?).join(name);
     let _ = std::fs::remove_dir_all(&dir);
@@ -153,8 +146,6 @@ fn keys(ids: &[u32]) -> BTreeMap<u32, Input> {
     ids.iter().map(|&id| (id, Input { aim_x: 1, ..Default::default() })).collect()
 }
 
-/// A film: frames of seat 1's view as the client composes it, the Creator over it while its
-/// session is open, the rite's invitation over it while the rite is owed.
 struct Reel {
     dir: std::path::PathBuf,
     n: usize,
@@ -188,7 +179,6 @@ impl Reel {
         self.n += 1;
     }
 
-    /// `frames` frames, two ticks apiece (fifteen to the second).
     fn play(&mut self, run: &mut Run, frames: usize) {
         for _ in 0..frames {
             run.step(&keys(&self.ids));
@@ -207,7 +197,6 @@ impl Reel {
         self.play(run, hold);
     }
 
-    /// Walk knight `id` to `to` (tiles) at `speed` units a frame.
     fn walk(&mut self, run: &mut Run, id: u32, to: (f32, f32), speed: f32) {
         loop {
             let h = &run.players[&id];
@@ -226,7 +215,6 @@ impl Reel {
         }
     }
 
-    /// The page the Creator is on, with `choice` taken from the role page, then through to Life, sealed.
     fn make(&mut self, run: &mut Run, role: Role, wish: &str) {
         self.session.open(run.tick, "Bors");
         self.play(run, 14);
@@ -245,7 +233,6 @@ impl Reel {
         assert!(self.session.granted.is_some(), "sealed: {:?}", self.session.issue);
     }
 
-    /// What the seat sends its host, and what the host does with it: brought to life for the realm.
     fn bring_to_life(&mut self, run: &mut Run) -> String {
         let made = if let Some(w) = self.session.sealed_weapon.is_some().then(|| self.session.weapon.clone()) {
             Made::Weapon(w)
@@ -274,7 +261,6 @@ fn write_creator_rite_films() {
     let Some(dir) = film_dir("creator-rite") else { return };
     let root = dir.parent().unwrap().join("creator-rite");
     let _ = root;
-    // 1. A newcomer arrives in the bar; the Creator pops up; they make a barman.
     let mut run = newcomer();
     assert!(run.owes_rite(1) && run.room().kind == RoomKind::Alehouse);
     let mut reel = Reel::new(dir.join("barman"), &run);
@@ -288,10 +274,8 @@ fn write_creator_rite_films() {
     reel.play(&mut run, 20);
     reel.walk(&mut run, 1, (at.0 + 1.5, at.1 + 3.5), 0.6);
     reel.walk(&mut run, 1, (at.0 + 1.0, at.1 + 1.2), 0.4);
-    // E beside him: he speaks.
     run.step(&BTreeMap::from([(1, Input { interact: true, ..Input::default() })]));
     reel.play(&mut run, 60);
-    // 2. Then a minion, met later on a delve floor.
     let mut reel = Reel::new(dir.join("minion"), &run);
     std::fs::create_dir_all(&reel.dir).unwrap();
     reel.play(&mut run, 12);
@@ -299,7 +283,6 @@ fn write_creator_rite_films() {
     let line = reel.bring_to_life(&mut run);
     eprintln!("{line}");
     reel.play(&mut run, 10);
-    // 3. Then a weapon on the wall.
     let mut reel3 = Reel::new(dir.join("weapon"), &run);
     std::fs::create_dir_all(&reel3.dir).unwrap();
     reel3.play(&mut run, 10);
@@ -312,7 +295,6 @@ fn write_creator_rite_films() {
     reel3.play(&mut run, 20);
     reel3.walk(&mut run, 1, (22.0, 11.8), 0.6);
     reel3.play(&mut run, 50);
-    // The minion is met when the party goes down: the first room of the first floor.
     let mut reel2 = Reel::new(dir.join("minion-delve"), &run);
     std::fs::create_dir_all(&reel2.dir).unwrap();
     run.rite = true;

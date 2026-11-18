@@ -11,20 +11,16 @@ use super::*;
 use crate::together_shooter::genie::{self, Take};
 use angel_delve::render::genie as art;
 
-/// Paper, ink and the rolls, from the realm palette's timber.
 const PAPER: Color = Color::Rgb(0xe2, 0xcb, 0x8b);
 const PAPER_SHADE: Color = Color::Rgb(0xd8, 0xa9, 0x5e);
 const INK: Color = Color::Rgb(0x1a, 0x0e, 0x07);
 const INK_SOFT: Color = Color::Rgb(0x68, 0x46, 0x29);
 const INK_RED: Color = Color::Rgb(0x58, 0x2b, 0x13);
-/// Ink gone faint: a ladder that cannot be climbed now.
 const INK_FAINT: Color = Color::Rgb(0x9c, 0x80, 0x55);
 const ROLL: Color = Color::Rgb(0xa9, 0x76, 0x39);
 const KNOB: Color = Color::Rgb(0x58, 0x2b, 0x13);
 const BLACK: Color = Color::Rgb(0, 0, 0);
 
-/// What the scroll shows of the knight besides their wish: the wishes
-/// held and granted, the genie's gauge, and the genie himself.
 pub(crate) struct Scroll {
     pub(crate) held: String,
     pub(crate) granted: String,
@@ -32,19 +28,15 @@ pub(crate) struct Scroll {
     pub(crate) free: bool,
     pub(crate) hint: &'static str,
     pub(crate) tick: u64,
-    /// The identity start's question to a knight still unmade, and what an
-    /// answer looks like (`identity::Making::heading`).
     pub(crate) ask: Option<(String, &'static str)>,
 }
 
-/// The scroll's side of knight `id` in `run`.
 pub(crate) fn scroll_of(run: &Run, id: u32) -> Option<Scroll> {
     let hero = run.players.get(&id)?;
     let mut held = format!("{} wish{}", hero.wishes, if hero.wishes == 1 { "" } else { "es" });
     if hero.great_wishes > 0 {
         held.push_str(&format!(" + {} super", hero.great_wishes));
     }
-    // Caught under a shooting star (`starfall`).
     if hero.star_wish {
         held.push_str(" + a star's");
     }
@@ -65,7 +57,6 @@ pub(crate) fn scroll_of(run: &Run, id: u32) -> Option<Scroll> {
     })
 }
 
-/// One line of ink on the paper.
 fn ink(frame: &mut Frame, x: u16, y: u16, w: u16, text: &str, style: Style) {
     frame.render_widget(
         Paragraph::new(fit_text(text, w)).style(style.bg(PAPER)),
@@ -82,8 +73,6 @@ fn centred(frame: &mut Frame, area: Rect, y: u16, text: &str, style: Style) {
     );
 }
 
-/// Parchment over `area` with a roll along its top and its foot, knobs
-/// at their ends; the rows between, inset, for the words.
 fn paper(frame: &mut Frame, area: Rect) -> Rect {
     frame.render_widget(Clear, area);
     let buf = frame.buffer_mut();
@@ -95,7 +84,6 @@ fn paper(frame: &mut Frame, area: Rect) -> Rect {
             let (top, foot) = (y == area.y, y + 1 == area.bottom());
             let (top2, foot2) = (y == area.y + 1, y + 2 == area.bottom());
             if end && (top || top2 || foot || foot2) {
-                // The knobs.
                 cell.set_char(if top || foot2 { '▄' } else { '▀' }).set_fg(KNOB).set_bg(BLACK);
             } else if end {
                 cell.set_char(' ').set_bg(BLACK);
@@ -108,7 +96,6 @@ fn paper(frame: &mut Frame, area: Rect) -> Rect {
             } else if foot {
                 cell.set_char('▀').set_fg(ROLL).set_bg(BLACK);
             } else {
-                // Shaded toward the torn sides.
                 let side = x == area.x + 1 || x + 2 == area.right();
                 cell.set_char(' ').set_bg(if side { PAPER_SHADE } else { PAPER });
             }
@@ -117,8 +104,6 @@ fn paper(frame: &mut Frame, area: Rect) -> Rect {
     Rect::new(area.x + 3, area.y + 2, area.width.saturating_sub(6), area.height.saturating_sub(4))
 }
 
-/// The genie in half-blocks at `area`'s foot, his clear pixels the black
-/// world.
 fn genie_cells(frame: &mut Frame, area: Rect, img: &Img) {
     let cols = (img.w as u16).min(area.width);
     let rows = ((img.h as u16).div_ceil(2)).min(area.height);
@@ -141,7 +126,6 @@ fn genie_cells(frame: &mut Frame, area: Rect, img: &Img) {
     }
 }
 
-/// The gauge's line: its name, the bar, how full.
 fn gauge(frame: &mut Frame, x: u16, y: u16, w: u16, s: &Scroll) {
     let label = if s.free { "The genie is free " } else { "Free the genie " };
     let count = format!(" {}/{}", s.freedom, genie::FREEDOM);
@@ -158,8 +142,6 @@ fn gauge(frame: &mut Frame, x: u16, y: u16, w: u16, s: &Scroll) {
     frame.render_widget(Paragraph::new(line).style(Style::new().bg(PAPER)), Rect::new(x, y, w, 1));
 }
 
-/// Where the scroll and the genie go in `room`: the genie's column at the
-/// left, the paper beside it, `h` rows tall, centred.
 fn place(room: Rect, h: u16) -> Option<(Rect, Rect)> {
     let w = room.width.saturating_sub(4).min(78);
     let h = h.min(room.height);
@@ -172,7 +154,6 @@ fn place(room: Rect, h: u16) -> Option<(Rect, Rect)> {
     Some((Rect::new(x, y, genie_w, h), Rect::new(x + genie_w, y, w - genie_w, h)))
 }
 
-/// Held ladders, two per page so their next-tier lines have room.
 fn upgrade_rows(frame: &mut Frame, inner: Rect, y: u16, wish: &Wish) {
     use crate::UPGRADES_PER_PAGE;
     let bold = |c: Color| Style::new().fg(c).add_modifier(Modifier::BOLD);
@@ -199,15 +180,10 @@ fn upgrade_rows(frame: &mut Frame, inner: Rect, y: u16, wish: &Wish) {
     }
 }
 
-/// The scroll while a wish is written or picked: the ladders held to climb,
-/// the words, the known wishes to pick from, and the wishes held, the gauge
-/// and the genie.
 pub(crate) fn reforge_box(frame: &mut Frame, room: Rect, wish: &Wish) {
     use crate::UPGRADES_PER_PAGE;
     let ups = wish.upgrades.len().min(UPGRADES_PER_PAGE) as u16;
     let block = 2 + 2 * ups + u16::from(wish.upgrade_note.is_some()) + u16::from(wish.upgrades.len() > UPGRADES_PER_PAGE);
-    // Give the held ladders and typed line room before the optional book
-    // and gauge, including in an 80-column terminal.
     let side = if room.height >= 15 + block { u16::from(wish.scroll.is_some()) * 3 } else { 0 };
     let list = wish.known.len().min(usize::from(room.height.saturating_sub(13 + block + side))).min(8) as u16;
     let Some((genie, area)) = place(room, 12 + block + list + u16::from(list > 0) + side) else {
@@ -229,7 +205,6 @@ pub(crate) fn reforge_box(frame: &mut Frame, room: Rect, wish: &Wish) {
         };
         centred(frame, inner, y, &format!("Any wish, for {weapon} {guard} (Tab), or a known one"), Style::new().fg(INK_SOFT));
     } else if let Some((ask, hint)) = wish.scroll.as_ref().and_then(|s| s.ask.as_ref()) {
-        // A knight still a shape: the scroll asks who they are.
         centred(frame, inner, y, ask, Style::new().fg(INK_RED).add_modifier(Modifier::BOLD));
         centred(frame, inner, y + 1, hint, Style::new().fg(INK_SOFT));
     } else {
@@ -279,8 +254,6 @@ pub(crate) fn reforge_box(frame: &mut Frame, room: Rect, wish: &Wish) {
     }
 }
 
-/// The scroll the host's run opened for knight `id`: its choices, the
-/// wish just sealed, or the genie freed (every knight sees that).
 pub(crate) fn offer_box(frame: &mut Frame, room: Rect, run: &Run, id: u32) {
     let Some(mood) = art::mood(run, id) else {
         return;
@@ -336,8 +309,6 @@ pub(crate) fn offer_box(frame: &mut Frame, room: Rect, run: &Run, id: u32) {
                     );
                     y += 2;
                 }
-                // A summoner's scroll says whom the wish is for, and 4
-                // turns it (`dead_wishes`).
                 if let Some(on) = offer.target {
                     use crate::together_shooter::dead_wishes::Target;
                     let mut spans = vec![ratatui::text::Span::styled(" For: ", Style::new().fg(INK_SOFT))];

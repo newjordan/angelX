@@ -33,51 +33,22 @@ pub use guest::{Guest, Shots};
 
 pub use flight::{Course, LONGEST_TURN, SLIP, SLIP_SPEED};
 
-/// The game's name in `Hello` and `Welcome`.
 pub const GAME: &str = "delve";
 
-/// The party's seats on the engine: one a knight.
 pub const SEATS: u32 = MAX_PLAYERS;
 
-/// The knight seat `seat` plays.
 pub const fn knight_of(seat: u32) -> u32 {
     seat + 1
 }
 
-/// The seat that plays knight `knight`, if a seat does.
 pub fn seat_of(knight: u32) -> Option<u32> {
     (1..=SEATS).contains(&knight).then(|| knight - 1)
 }
 
-/// The run's fields only the server keeps: the dice and the next id. A
-/// client never steps the rules, so it never needs them, and they are never
-/// sent (they would let a player read the dice ahead). They read back as
-/// their defaults (`Run`'s `serde(default)`). The run's seed is sent: the
-/// renderer places the merchant's camp and each room's pots by it
-/// (`Run::merchant_camp`, `Run::pots_of`). An open floor's companies kept
-/// while the party is in a side room (`Run::parked`) are the server's too:
-/// nobody sees them until the party is back among them. The floor's tally
-/// is the server's as it is counted: a client is sent its results. Words a
-/// knight spent a wish on, waiting for the host to teach them (`Run::asked`),
-/// are the server's too: a client never teaches them, and a restart reads
-/// them from the save, not from the wire.
 pub const PRIVATE: [&str; 6] = ["rng", "next_id", "parked", "floor_tally", "asked", "ledger"];
 
-/// The run's fields its saves leave out (`serde(skip)`) that the renderer
-/// reads: the marks since the realm last settled (the countryside's and the
-/// holdings' stages are drawn from them), the shards of broken pots, and the
-/// campaign the heart questline mirrors (the sheet and the Lantern Hall's
-/// lanterns are drawn from it), and the finishers of the monsters just felled
-/// (`rules::gore`; a seat that predates them ignores the field and draws the
-/// ordinary death). The tree carries them beside the run's own
-/// fields, and `read` puts them back, so a save's format is unchanged.
 pub const DRAWN: [&str; 5] = ["marks", "pot_shards", "campaign", "gore", "module_visuals"];
 
-/// The run as the tick's tree, built once for every seat: everything the
-/// renderer reads (`DRAWN` included), nothing in `PRIVATE`, and what moves
-/// by rule as where it started (`reckon`, `flight`). Built afresh, its
-/// shots with no ids and each on a course from where it is now: a host
-/// publishing tick after tick keeps a `Publisher`.
 pub fn publish(run: &Run) -> Result<Value, value::Error> {
     let _scope = crate::rules::scrolls::public_scope();
     let mut fields = Vec::new();
@@ -101,18 +72,12 @@ pub fn publish(run: &Run) -> Result<Value, value::Error> {
     Ok(tree)
 }
 
-/// The tree's field of the run's shots.
 const SHOTS: &str = "projectiles";
 
-/// The knights nobody's at all (`leave_out_absent`), as the bytes a field's
-/// shape depends on.
 fn absent_of(run: &Run) -> Vec<u8> {
     run.players.iter().filter(|(_, h)| h.absent).flat_map(|(&id, _)| id.to_le_bytes()).collect()
 }
 
-/// Field `name` of the run's tree as sent rather than as the run holds it:
-/// without the knights nobody's at (`leave_out_absent`), and what runs a
-/// tick at a time as the tick it began or ends (`reckon`).
 fn shape(name: &str, value: &mut Value, tick: u64, absent: &[u8]) {
     match name {
         "players" | "exits" if !absent.is_empty() => leave_out_absent(name, value, absent),
@@ -122,8 +87,6 @@ fn shape(name: &str, value: &mut Value, tick: u64, absent: &[u8]) {
     }
 }
 
-/// What a field's shape depends on beside the field (`shape`): the knights
-/// nobody's at. (The monsters and the feel are built every tick.)
 fn shape_key(name: &str, absent: &[u8]) -> Vec<u8> {
     match name {
         "players" | "exits" => absent.to_vec(),
@@ -131,9 +94,6 @@ fn shape_key(name: &str, absent: &[u8]) -> Vec<u8> {
     }
 }
 
-/// The fields after the run's own: `DRAWN`, and the room's 3D item, theme
-/// and chunks while there are any; each kept from `last` (the last tree)
-/// when unchanged.
 fn finish(tree: &mut Value, run: &Run, last: Option<&Value>) -> Result<(), value::Error> {
     let kept = |name: &str, value: Value| -> Value {
         match last {
@@ -147,8 +107,6 @@ fn finish(tree: &mut Value, run: &Run, last: Option<&Value>) -> Result<(), value
         (Cow::Borrowed(DRAWN[2]), kept(DRAWN[2], value::to_value(&run.campaign)?)),
         (Cow::Borrowed(DRAWN[3]), kept(DRAWN[3], value::to_value(&run.gore)?)),
     ];
-    // Immutable graph identities cache the expensive sprite data. Instances
-    // carry birth ticks, so animation needs no per-frame graph/age update.
     if !run.module_visuals.is_empty() {
         let previous = last.and_then(|last| match last.get() {
             Value::Struct(fields) => fields.iter().find(|(name, _)| name == DRAWN[4]).map(|(_, value)| value),
@@ -156,8 +114,6 @@ fn finish(tree: &mut Value, run: &Run, last: Option<&Value>) -> Result<(), value
         });
         more.push((Cow::Borrowed(DRAWN[4]), kept(DRAWN[4], visual_tree(&run.module_visuals, previous)?)));
     }
-    // What the last tree sent as the room's item, as it stands there
-    // (shared).
     let last_item = last.and_then(|l| match l.get() {
         Value::Struct(fields) => fields.iter().find(|(n, _)| n == WORLD_ITEM).map(|(_, v)| v),
         _ => None,
@@ -211,17 +167,8 @@ fn visual_tree(
     ])))
 }
 
-/// The tree's field holding the lit set of the room on show (`world_item`).
 pub const WORLD_ITEM: &str = "world3d";
 
-/// The room on show's lit set (`world3d::rooms_lit`), for a page across a
-/// wire, which has no asset folder for a place's landmark: its dressing's
-/// id, its key and its set's text, no plate (a page makes an open floor's
-/// pieces itself, from the run's tiles). Only while the room stands up in
-/// 3D; the tree's delta sends it again only when the room changes.
-///
-/// `last` is what the last tick sent (a host's `Publisher`): sent again as
-/// it was while the set's key is the same, its text not copied again.
 fn world_item(run: &Run, last: Option<&Value>) -> Option<Value> {
     let field = |name: &'static str, value: Value| (Cow::Borrowed(name), value);
     if !crate::world3d::room::stands_here(run) {
@@ -239,20 +186,9 @@ fn world_item(run: &Run, last: Option<&Value>) -> Option<Value> {
     ]))
 }
 
-/// The tree's field holding the kingdom's chunks near any knight's view
-/// (`world_chunks`), and the one saying which are near which knight; a
-/// seat's tree keeps only its own knight's (`seat_tree`), and not the second.
 pub const WORLD_CHUNKS: &str = "world3d_chunks";
 pub const WORLD_NEAR: &str = "world3d_near";
 
-/// The kingdom's chunks near each knight's view, for a page across a wire
-/// (`world3d::kingdom`, "A page across a wire"): a map of chunk number to
-/// its key and its set's text (the realm, lit: no plates, docs/REALM-MONOLITH.md),
-/// the chunks near any knight; and a map of knight to the
-/// numbers of the chunks near it, the nearest its view's middle first (the
-/// order a seat is sent them in, `pace`). Only while the world is drawn in
-/// 3D and the party is out in the kingdom. Each entry is the same blob from
-/// tick to tick, so the tree's delta sends a chunk once, when it comes near.
 fn world_chunks(run: &Run) -> Option<(Value, Value)> {
     use crate::world3d::kingdom;
     if !crate::world3d::enabled() || run.room().kind != crate::rules::RoomKind::Kingdom {
@@ -280,7 +216,6 @@ fn world_chunks(run: &Run) -> Option<(Value, Value)> {
     Some((Value::Map(entries), Value::Map(near)))
 }
 
-/// A chunk as a tree carries it, made once a chunk's key (its blobs shared).
 fn chunk_value(chunk: &crate::world3d::kingdom::Chunk) -> Value {
     type Kept = std::sync::Mutex<Vec<(u64, Value)>>;
     static KEPT: Kept = std::sync::Mutex::new(Vec::new());
@@ -290,7 +225,6 @@ fn chunk_value(chunk: &crate::world3d::kingdom::Chunk) -> Value {
         return value.clone();
     }
     let field = |name: &'static str, value: Value| (Cow::Borrowed(name), value);
-    // Set text only: the page fills it lit itself.
     let value = Value::Struct(vec![field("key", Value::U(chunk.key)), field("set", Value::Bytes(chunk.text.as_bytes().into()))]);
     if let Ok(mut kept) = KEPT.lock() {
         if kept.len() >= crate::world3d::kingdom::COUNT {
@@ -301,9 +235,6 @@ fn chunk_value(chunk: &crate::world3d::kingdom::Chunk) -> Value {
     value
 }
 
-/// The chunks a tree carries (`world_chunks`) kept, and only those, so the
-/// kingdom can be drawn in 3D where no asset folder is; none when it
-/// carries none. How many it carries.
 pub fn take_world_chunks(tree: &Value) -> usize {
     let registry = crate::world3d::kingdom::chunks();
     let Some(Value::Map(entries)) = tree.field(WORLD_CHUNKS) else {
@@ -324,9 +255,6 @@ pub fn take_world_chunks(tree: &Value) -> usize {
     kept.len()
 }
 
-/// The lit room's set a tree carries (`world_item`) kept, so a place's
-/// landmark is drawn where no asset folder is: false when it carries none,
-/// or one that does not read.
 pub fn take_world_item(tree: &Value) -> bool {
     let Some(item) = tree.field(WORLD_ITEM) else {
         return false;
@@ -337,8 +265,6 @@ pub fn take_world_item(tree: &Value) -> bool {
     crate::world3d::rooms_lit::receive(*key, set)
 }
 
-/// A knight nobody's at all (`Hero::absent`: the place of a host who plays
-/// no knight) is no part of the party any screen shows: it is not sent.
 fn leave_out_absent(name: &str, value: &mut Value, absent: &[u8]) {
     let gone = |key: &Value| {
         key.as_id()
@@ -353,20 +279,6 @@ fn leave_out_absent(name: &str, value: &mut Value, absent: &[u8]) {
     }
 }
 
-/// The tick's tree built from the last one, published every tick by the
-/// host's one `Publisher`:
-///
-/// - each field of the run is built again only when it changed, keeping
-///   every unchanged part, and every part is shared between the trees
-///   (`kept`), so a seat's view and a client's diff cost what changed;
-/// - each shot in flight carries an `id` that stays with it, so a list of
-///   shots is sent by id, and is sent when it is loosed and when its flight
-///   leaves its course, not every tick (`flight`);
-/// - each foe is sent the same way: on a course while it walks a straight
-///   line or stands, and its timer as the tick it counts from (`foes`);
-/// - each knight is sent the same way: on a course while that step still
-///   lands, a counter or a cooldown as the tick it counts from, and a field
-///   at its serde default left out (`knights`).
 #[derive(Default)]
 pub struct Publisher {
     fields: kept::Fields,
@@ -376,8 +288,6 @@ pub struct Publisher {
     last: Option<Value>,
 }
 
-/// How far from where its course has it a shot may be found and still be
-/// itself: a curving shot turns, a bouncing one comes off a wall.
 pub const SAME_SHOT: f32 = flight::SAME_SHOT;
 
 impl Publisher {
@@ -424,21 +334,14 @@ impl Publisher {
                 fields.push((Cow::Borrowed(flight::AIM), self.flights.aim_sent()));
             }
         }
-        // The tick's tree is shared whole too: each seat sent it as it
-        // stands holds it for nothing, and the seats sent the same two
-        // trees in a row are sent one patch (`angel_serve::rep`).
         let tree = Value::shared(tree);
         self.last = Some(tree.clone());
         Ok(tree)
     }
 }
 
-/// A tick past this is not a session a seat can fly or draw. The closed form
-/// of a course that far out is not finite, and drawing it does not finish.
 const LONGEST_TICK: u64 = crate::rules::runtime_state::MAX_TICK;
 
-/// A tree from the wire read back into a run, `DRAWN` included and what
-/// `reckon`, `flight`, `foes` and `knights` sent as its start brought to the tick.
 pub fn read(tree: &Value) -> Result<Run, value::Error> {
     let tick = tree.field("tick").and_then(Value::as_id).unwrap_or(0);
     if tick > LONGEST_TICK {
@@ -484,26 +387,17 @@ pub fn read(tree: &Value) -> Result<Run, value::Error> {
     for monster in &mut run.enemies {
         monster.age = (run.tick as u32).wrapping_sub(monster.age);
     }
-    // `shot_stone` indexes the room. A damaged tree is refused here, not
-    // panicked inside the stop.
     if !room_can_stop_shot(&run) {
         return Err(serde::de::Error::custom("the room cannot stop a shot"));
     }
-    // The first pass flew shots through open air so the room could be
-    // read. Place them again on its stone, the same stop the host uses
-    // when it decides a course still holds.
     if let Some(shots) = tree.field(SHOTS) {
         let placed = flight::shots_at(shots, tick, &marks, &|from, to, body| run.shot_stone(from, to, body), &aim);
         run.projectiles = value::from_value(&placed)?;
     }
-    // An old save has no altar spot. Pick it once, the search the host
-    // would have stood when the room was entered.
     run.choose_altars();
     Ok(run)
 }
 
-/// A monster's age (one a tick), sent as the tick it was born: it is sent
-/// when it comes, not every tick.
 fn reckon_ages(enemies: &mut Value, tick: u64) {
     if let Value::Seq(monsters) = enemies.get_mut() {
         for monster in monsters {
@@ -514,10 +408,6 @@ fn reckon_ages(enemies: &mut Value, tick: u64) {
     }
 }
 
-/// The lists of what fades a tick at a time (`feel`: impacts, tracers,
-/// puffs and the rest), each one's life sent as the tick it ends: an effect
-/// is sent when it comes, and the list moves up when the oldest go
-/// (`angel_net::doc::delta::Patch::SeqShift`).
 const FADES: [&str; 11] = ["ranged", "impacts", "tracers", "puffs", "deaths", "blocks", "glints", "takes", "bolts", "swings", "hits"];
 
 fn reckon_feel(feel: &mut Value, tick: u64) {
@@ -533,7 +423,6 @@ fn reckon_feel(feel: &mut Value, tick: u64) {
     }
 }
 
-/// `reckon_feel` undone, on a copy.
 fn unreckon_feel(feel: &Value, tick: u64) -> Value {
     let mut feel = feel.get().clone();
     for list in FADES {
@@ -555,31 +444,16 @@ fn set(item: &mut Value, name: &str, to: Value) {
     }
 }
 
-/// Whether `shot_stone` can run on this run. It indexes the room's grid and,
-/// on an open floor, the guardian's chamber. A bad index, a zero side, or a
-/// short tile list panics inside the stop; the seat refuses the tree instead.
 fn room_can_stop_shot(run: &Run) -> bool {
     crate::rules::session::frame::room_can_stop_shot(run)
 }
 
-/// Whether a run read from the wire can be drawn. The pure owner uses the
-/// same predicate before publishing, without a dependency on the wire codec.
 pub fn drawable(run: &Run) -> bool {
     crate::rules::session::frame::drawable(run)
 }
 
-/// What of the tick's tree `seat` is sent (`None`: a watcher, who sees the
-/// party's room).
-///
-/// - Another knight's own heat (`pastimes.heats`) is that knight's alone.
-/// - A seat standing outside the party's room (`exits.outside`) is sent
-///   none of the shots flying in that room, and none of the games played
-///   there (`activity::all`, those under way).
-///
-/// Everything else is the tree as published, borrowed.
 pub fn seat_tree(tree: &Value, seat: Option<u32>) -> Cow<'_, Value> {
     let knight = seat.map(knight_of);
-    // The kingdom's chunks in 3D: only those near this seat's knight.
     if tree.field(WORLD_NEAR).is_some() {
         let mut view = tree.clone();
         let near: Vec<Value> = match (view.field(WORLD_NEAR), knight) {
@@ -591,10 +465,8 @@ pub fn seat_tree(tree: &Value, seat: Option<u32>) -> Cow<'_, Value> {
                     _ => None,
                 })
                 .unwrap_or_default(),
-            // A seat that plays no knight is near none.
             _ => Vec::new(),
         };
-        // In the knight's order, the nearest its view first (`pace`).
         if let Some(Value::Map(chunks)) = view.field_mut(WORLD_CHUNKS) {
             let mut mine = Vec::with_capacity(near.len());
             for index in &near {
@@ -616,8 +488,6 @@ pub fn seat_tree(tree: &Value, seat: Option<u32>) -> Cow<'_, Value> {
         .is_some_and(|heats| heats.iter().any(|(key, _)| !mine(key)));
     let outside = map_of(tree.field("exits").and_then(|e| e.field("outside")))
         .is_some_and(|outside| outside.iter().any(|(key, _)| mine(key)));
-    // The numbers made for a seat (its card, its production screen, its list of chokes) are
-    // that seat's alone: the builder boards of the others go without.
     let others_numbers = map_of(tree.field("kingdom").and_then(|k| k.field("industry")))
         .is_some_and(|boards| boards.iter().any(|(key, b)| !mine(key) && b.field("rig").is_some_and(|r| r.field("numbers").is_some())));
     if !others_heats && !outside && !others_numbers {
@@ -645,8 +515,6 @@ pub fn seat_tree(tree: &Value, seat: Option<u32>) -> Cow<'_, Value> {
         {
             *shots = Value::Seq(Vec::new());
         }
-        // The games in the party's room are not this seat's to see. Only a
-        // game under way (`Some`) is taken out, so the run still reads.
         for name in activity::all().flat_map(|a| a.fields.iter()) {
             if let Some(game) = view.slot_mut(name)
                 && matches!(game.get(), Value::Some(_))
@@ -658,20 +526,8 @@ pub fn seat_tree(tree: &Value, seat: Option<u32>) -> Cow<'_, Value> {
     Cow::Owned(view)
 }
 
-/// The most bytes of the kingdom's chunks one snapshot adds to what a seat
-/// holds (`pace`). A painted chunk is its plate and patches, 0.9 to 1.4 MB;
-/// sixteen are near one view, 18 MB with every chunk painted, and a client
-/// reads no message over `angel_net::proto::MAX_SERVER_MESSAGE` (8 MB): the
-/// page refused the snapshot a knight came out into the kingdom with, and
-/// its host held every one after it, the page never having read it.
 pub const CHUNK_BYTES_A_SNAPSHOT: usize = 2 << 20;
 
-/// `seat_tree` as this snapshot sends it to a client holding `held` (`None`:
-/// nothing yet): the kingdom's chunks it holds kept, and of those new to it
-/// (or sent again with a new key) as many as `CHUNK_BYTES_A_SNAPSHOT` takes
-/// in the seat's order, the nearest its view first, at least one; the rest
-/// in the snapshots after (`angel_serve::rep::DocView::pace`). A chunk held
-/// back that the client holds an older key of stays as it holds it.
 pub fn pace<'a>(view: Cow<'a, Value>, held: Option<&Value>) -> Cow<'a, Value> {
     let Some(Value::Map(entries)) = view.field(WORLD_CHUNKS) else {
         return view;
@@ -708,7 +564,6 @@ pub fn pace<'a>(view: Cow<'a, Value>, held: Option<&Value>) -> Cow<'a, Value> {
     Cow::Owned(view)
 }
 
-/// What a chunk's entry (`chunk_value`) costs to send: its blobs.
 fn chunk_bytes(chunk: &Value) -> usize {
     match chunk {
         Value::Struct(fields) => fields
@@ -730,39 +585,17 @@ fn map_of(value: Option<&Value>) -> Option<&[(Value, Value)]> {
     }
 }
 
-/// Who hears an event.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Hear {
-    /// Everyone in the party's room, and the watchers: the run's own
-    /// sounds. A seat standing outside the room does not hear them.
     Party,
-    /// Every seat and watcher.
     All,
-    /// One knight's seat alone.
     Knight(u32),
 }
 
-/// Something a tick made for the clients to play or show. Sent in the
-/// tick's `Events`, each one these bytes:
-///
-/// | bytes | what |
-/// |---|---|
-/// | 1 | the kind: 1 a sound, 2 a line spoken, 3 a notice |
-/// | 1 (+ varint) | who hears it: 0 the party's room, 1 everyone, 2 one knight (then the knight) |
-/// | text | a sound: its name (`hit`, `knights/a_cheer_1`) |
-/// | text, text, text | a line: the speaker's id (`blaise`), their name as shown, the words |
-/// | text | a notice: the words |
-///
-/// Text is a varint length then UTF-8.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
-    /// One of the run's sounds (`Run::sounds`, the knights' chatter
-    /// included).
     Sound { hear: Hear, name: String },
-    /// A line the host's chorus speaks for a moment (`Run::cues`), shown as
-    /// a subtitle.
     Say { hear: Hear, who: String, name: String, words: String },
-    /// A line about the game to show.
     Notice { hear: Hear, text: String },
 }
 
@@ -772,8 +605,6 @@ const NOTICE: u8 = 3;
 const HEAR_PARTY: u8 = 0;
 const HEAR_ALL: u8 = 1;
 const HEAR_KNIGHT: u8 = 2;
-/// The longest a sound's name, a speaker's id or name, and the words of a
-/// line or notice may be.
 const MAX_NAME: usize = 64;
 const MAX_WORDS: usize = 512;
 
@@ -840,11 +671,6 @@ impl Event {
         Ok(event)
     }
 
-    /// The shell's line for this event, as heard by `knight` (`None`: a
-    /// watcher) standing where `run` has them: `sfx <name>`, `say <words>`
-    /// or `notice <words>`, or nothing when it is not theirs to hear. A
-    /// sound's folders become dashes (`knights/a_cheer_1` is the bundle's
-    /// `knights-a_cheer_1`), since the bundle's files sit in one folder.
     pub fn line(&self, knight: Option<u32>, run: Option<&Run>) -> Option<String> {
         let heard = match self.hear() {
             Hear::All => true,
@@ -862,17 +688,11 @@ impl Event {
     }
 }
 
-/// A sound's name as the bundle names its file: folders become dashes, and
-/// a hook whose own take is still to come plays its stand-in (`STAND_INS`).
 pub fn sound_file(name: &str) -> String {
     let name = STAND_INS.iter().find(|(hook, _)| *hook == name).map_or(name, |(_, take)| *take);
     name.replace('/', "-")
 }
 
-/// Sounds the rules name before their own take is made, each with the
-/// shipped take it plays meanwhile (`cockpit/assets/dungeon/sfx`): the
-/// shoulder ride's climb (a leather grip), hop (boots landing), throw (a
-/// toss) and slam (a short blast thump; `rules::shoulders`).
 pub const STAND_INS: &[(&str, &str)] = &[
     ("shoulder_climb", "hand_grab"),
     ("shoulder_hop", "roll"),
@@ -880,19 +700,14 @@ pub const STAND_INS: &[(&str, &str)] = &[
     ("shoulder_slam", "hit_blast"),
 ];
 
-/// A music track's name as the bundle names its file (`music-crypt`).
 pub fn music_file(track: &str) -> String {
     format!("music-{track}")
 }
 
-/// The run's sounds this tick, taken out of it, as events the party's room
-/// hears (`Run::sounds`; the cues stay for the host's chorus), then those
-/// for one knight alone (`Run::seat_sounds`).
 pub fn take_sounds(run: &mut Run) -> Vec<Event> {
     crate::rules::session::frame::take_sounds(run).into_iter().map(portable_signal).collect()
 }
 
-/// Lines taken once by the shared pure rules drain, adapted to the public wire.
 pub fn take_notices(run: &mut Run) -> Vec<Event> {
     crate::rules::session::frame::take_notices(run).into_iter().map(portable_signal).collect()
 }
@@ -905,7 +720,6 @@ fn portable_signal(signal: crate::rules::session::frame::Signal) -> Event {
     }
 }
 
-/// Text cut to at most `max` bytes, between characters.
 fn clip(text: &str, max: usize) -> &str {
     if text.len() <= max {
         return text;
@@ -917,7 +731,6 @@ fn clip(text: &str, max: usize) -> &str {
     &text[..end]
 }
 
-/// A line the shell splits on newlines keeps to one.
 fn one_line(text: &str) -> Cow<'_, str> {
     if text.contains(['\n', '\r']) {
         Cow::Owned(text.replace(['\n', '\r'], " "))
@@ -926,27 +739,10 @@ fn one_line(text: &str) -> Cow<'_, str> {
     }
 }
 
-/// What the welcome carries for the client, before its first snapshot:
-/// what the host sets once for the whole session (`crate::settings`).
-///
-/// | bytes | what |
-/// |---|---|
-/// | varint | `PARAMS_VERSION` |
-/// | varint | flags: bit 0, unused (it chose the second art kit, cut 2026-10-20, before version 2); bit 1, draw every room in 3D (`world3d`); bit 2, stand the deep floors up in 3D (`deep3d`); bit 3, the first floor as the Atari board (`atari`, experimental) |
-///
-/// A client refuses a version it does not know (the page is out of date)
-/// and flags it does not know (a newer host).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Params {
-    /// Every room drawn in 3D, the kingdom too (`world3d::room::Mode::Always`).
     pub world3d: bool,
-    /// The deep floors stand up in 3D, the upper ones 2D
-    /// (`world3d::room::Mode::Deep`): which floor a seat stands on comes
-    /// with each snapshot, so the host and every page agree room by room.
     pub deep3d: bool,
-    /// The first floor drawn as the Atari board (`ANGEL_DELVE_ATARI=1`,
-    /// experimental; `render::overworld::arena::atari`). Sent only when on,
-    /// so a host without it welcomes an older page as before.
     pub atari: bool,
 }
 
@@ -956,12 +752,10 @@ const DEEP3D: u64 = 4;
 const ATARI: u64 = 8;
 
 impl Params {
-    /// The params for the host's settings now (and its `world3d` mode).
     pub fn of(_settings: crate::settings::Settings) -> Params {
         Params::with_mode(crate::world3d::room::mode())
     }
 
-    /// The params for 3D mode `mode`.
     pub fn with_mode(mode: crate::world3d::room::Mode) -> Params {
         use crate::world3d::room::Mode;
         Params {
@@ -971,7 +765,6 @@ impl Params {
         }
     }
 
-    /// The 3D mode these params carry: every room, the deep floors, or none.
     pub fn mode(&self) -> crate::world3d::room::Mode {
         use crate::world3d::room::Mode;
         if self.world3d {

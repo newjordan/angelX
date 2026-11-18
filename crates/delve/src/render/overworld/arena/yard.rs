@@ -12,7 +12,6 @@ use crate::rules::yard::{
 use crate::rules::{EnemyKind, Run, Tile};
 use crate::render::overworld::light::Light;
 
-/// The yard at rest.
 pub(super) fn scenery(run: &Run) -> Img {
     let room = run.room();
     let tick = run.tick as u32;
@@ -25,7 +24,6 @@ pub(super) fn scenery(run: &Run) -> Img {
             if !matches!(room.tile(x / TILE, y / TILE), Tile::Floor | Tile::Door) {
                 continue;
             }
-            // Straw on the flags.
             let ink = if hash(x / 2, y, 131).is_multiple_of(90) {
                 Some(if (x + y) % 3 == 0 { 'O' } else { 'o' })
             } else {
@@ -53,7 +51,6 @@ pub(super) fn scenery(run: &Run) -> Img {
             }
         }
     }
-    // Archery butts and blade racks on the north wall.
     for bx in [56, 152, 232, 328] {
         butt(&mut cv, bx, 2);
     }
@@ -61,7 +58,6 @@ pub(super) fn scenery(run: &Run) -> Img {
         let rack = kit::blade_rack(3);
         cv.stamp(&rack, rx, 4);
     }
-    // The way back down, with torches.
     for (k, tx) in [(0, 166), (1, 214)] {
         let im = kit::torch(tick / 4, k);
         cv.stamp(&im, tx, ph - 13);
@@ -78,13 +74,10 @@ pub(super) fn scenery(run: &Run) -> Img {
     super::lessons::furniture(&mut cv);
     dusk(&mut cv, &lights, ('x', 'I'));
     super::squires::scenery(&mut cv, run);
-    // The doors to the squires' rooms along the north wall (`squire_rooms`).
     super::squire_rooms::yard_doors(&mut cv);
     cv
 }
 
-/// The Squires Guild's plates, in its own room off the Yard
-/// (`squire_rooms`), each bright while a knight's menu stands on it.
 pub(super) fn guild_plates(cv: &mut Img, run: &Run) {
     for (i, plate) in crate::rules::squire_guild::PLATES.iter().copied().enumerate() {
         let lit = run.squire_guild.menus.values().any(|menu| menu.plate == i);
@@ -95,12 +88,10 @@ pub(super) fn guild_plates(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The Squires Guild's board, in its own room.
 pub(super) fn guild_board(cv: &mut Img, run: &Run, focus: Option<u32>) {
     squire_board(cv, run, focus);
 }
 
-/// An archery butt: straw rings on a stand.
 fn butt(cv: &mut Img, x: i32, y: i32) {
     for (r, ink) in [(6.0, 'o'), (4.5, 'B'), (3.0, 'O'), (1.5, 'r')] {
         cv.ellipse(x as f32 + 6.0, y as f32 + 6.0, r, r, ink);
@@ -113,12 +104,9 @@ fn stall_middle() -> (i32, i32) {
     ((c * 2 + w) * TILE / 2, (r * 2 + h) * TILE / 2)
 }
 
-/// Grubbins' stall: a timber counter under a striped awning. Shut with a
-/// sign until a goblin has come back to keep it.
 fn stall(cv: &mut Img, open: bool) {
     let (c, r, w, h) = STALL;
     let (x, y, pw, ph) = (c * TILE, r * TILE, w * TILE, h * TILE);
-    // The awning, striped.
     for yy in y - 10..y + 2 {
         for xx in x - 2..x + pw + 2 {
             let stripe = ((xx - x).div_euclid(6)) % 2 == 0;
@@ -141,7 +129,6 @@ fn stall(cv: &mut Img, open: bool) {
     }
 }
 
-/// A plate before the stall, bright while a knight stands on it.
 fn slab(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), lit: bool) {
     let (x, y, pw, ph) = (c * TILE + 1, r * TILE + 1, w * TILE - 2, h * TILE - 2);
     super::super::chrome::floor_plate(cv, (x, y, pw, ph), lit, true);
@@ -149,8 +136,6 @@ fn slab(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), lit: bool) {
     cv.ellipse((x + pw / 2) as f32, (y + ph / 2) as f32, 2.5, 2.5, coin);
 }
 
-/// The live yard: Grubbins and his wares, each quintain's count, and the
-/// plates knights stand on.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     super::squires::yard(cv, run);
     let tick = run.tick as u32;
@@ -165,7 +150,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             &GRUBBINS
         });
         stand(cv, &im, gx, gy);
-        // His wares on the counter, one above each plate.
         for (i, plate) in STALL_PLATES.iter().enumerate() {
             let Some(id) = run.stall.get(i).filter(|c| !c.is_empty()) else {
                 continue;
@@ -181,7 +165,6 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             }
         }
     }
-    // Each quintain's count: the damage it took in the last second.
     for dummy in run.enemies.iter().filter(|e| e.kind == EnemyKind::Dummy) {
         let dps = dummy.dir.1.round() as u32;
         if dps == 0 {
@@ -195,13 +178,11 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     let _ = QUINTAINS;
 }
 
-/// Over everything: the ware a knight is reading.
 pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     super::squires::board(cv, run, focus);
     if run.home.goblins == 0 {
         return;
     }
-    // The seat's own knight's plate and hold bar (`shoppers`).
     let reading = super::shoppers(run, focus)
         .filter(|(_, h)| h.hp > 0)
         .find_map(|(id, h)| stall_plate(h.x, h.y).map(|i| (id, i)));
@@ -235,7 +216,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
         format!("{price} GOLD"),
         if have >= price { 'H' } else { '7' },
     ));
-    // Room for HOLD E and its bar.
     lines.push(("                ".to_string(), 'h'));
     let mut board = home::board(&lines);
     let label = "HOLD E";
@@ -246,7 +226,6 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     let bh = crate::rules::home::BUY_HOLD;
     let fill = (buying.min(bh) * (bar_w as u32 - 2) / bh) as i32;
     super::super::chrome::meter(&mut board, (after + 4, row + 1, bar_w, 5), fill, super::super::ink::ink('5').unwrap_or_default());
-    // Beside the stall, so Grubbins stays in sight.
     let (_, r, _, _) = STALL_PLATES[item];
     let x = (STALL.0 * TILE - board.w - 8).max(2);
     cv.stamp(&board, x, (r * TILE - board.h).max(2));
@@ -290,8 +269,6 @@ fn squire_board(cv: &mut Img, run: &Run, focus: Option<u32>) {
     cv.stamp(&board, (c * TILE + w * TILE / 2 - board.w / 2).clamp(0, (cv.w - board.w).max(0)), (r * TILE + TILE + 4).min((cv.h - board.h).max(0)));
 }
 
-/// Grubbins: a goblin in a feathered hat and a waistcoat he insists he
-/// bought, a purse at his belt.
 const GRUBBINS: [&str; 15] = [
     ".....T........",
     "....pT........",

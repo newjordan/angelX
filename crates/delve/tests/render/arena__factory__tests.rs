@@ -441,7 +441,6 @@ fn factory_placement_scope_restores_after_panic_and_culls_offscreen_points() {
             frame_for(&run, NATIVE_W, NATIVE_H, Some(1)).content_hash()
         )
     });
-    // Apply failures are atomic, including missing heroes and non-equipment.
     let before = serde_json::to_string(&run).unwrap();
     assert!(
         catalog
@@ -493,7 +492,6 @@ fn factory_compiled_equipment_survives_existing_save_shapes_and_selects_authored
                 factory::equipped_attack_clip(&restored_hero, &restored_book),
                 Some(attack.clip())
             );
-            // A same-id edited card is not checked factory equipment anymore.
             let mut card = card.clone();
             let mut changed = restored_book;
             card.text.push('!');

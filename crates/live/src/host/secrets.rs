@@ -27,35 +27,23 @@ use regex::Regex;
 use std::borrow::Cow;
 use std::sync::OnceLock;
 
-/// Shortest environment value treated as a credential. Shorter values are
-/// far more likely to be words (`ANGEL_META_MAX_TOKENS=4096`) than keys, and
-/// replacing them would shred ordinary prose.
 pub const MIN_SECRET_LEN: usize = 12;
 
-/// Marker written in place of a value of unknown provenance.
 pub const REDACTED: &str = "«redacted»";
 
 fn shape_patterns() -> &'static [Regex] {
     static SHAPES: OnceLock<Vec<Regex>> = OnceLock::new();
     SHAPES.get_or_init(|| {
         [
-            // OpenAI / DeepSeek / Anthropic-style prefixed keys.
             r"\bsk-[A-Za-z0-9_-]{16,}",
-            // z.ai / BigModel: 32 hex, a dot, an alphanumeric suffix.
             r"\b[0-9a-f]{32}\.[A-Za-z0-9]{12,}\b",
-            // GitHub personal / OAuth / app tokens.
             r"\bgh[pousr]_[A-Za-z0-9]{30,}\b",
             r"\bgithub_pat_[A-Za-z0-9_]{20,}\b",
-            // Hugging Face and Google API credentials.
             r"\bhf_[A-Za-z0-9]{20,}\b",
             r"\bAIza[A-Za-z0-9_-]{30,}\b",
-            // Slack.
             r"\bxox[abpr]-[A-Za-z0-9-]{10,}",
-            // AWS access key ids.
             r"\bAKIA[0-9A-Z]{16}\b",
-            // JWTs (three base64url segments, first starts with `{"`).
             r"\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}(?:\.[A-Za-z0-9_-]{10,})?",
-            // PEM private-key blocks, serialized (`\n`) or raw.
             r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----",
         ]
         .iter()
@@ -77,8 +65,6 @@ fn assignment_pattern() -> &'static Regex {
     })
 }
 
-/// Credential fields, not telemetry such as `max_tokens`, `cache_key` or
-/// `auth_enabled`. Non-string values retain their original types.
 fn credential_field(name: &str) -> bool {
     let name = name.to_ascii_lowercase().replace('-', "_");
     matches!(
@@ -106,9 +92,6 @@ fn credential_field(name: &str) -> bool {
         )
 }
 
-/// True if a variable name looks like it holds a credential — never recorded,
-/// even if it somehow appears in the catalog. Case-insensitive substring match
-/// on the standard secret markers (`.angel.env` holds live API keys).
 pub fn is_secret_name(name: &str) -> bool {
     let up = name.to_ascii_uppercase();
     ["KEY", "TOKEN", "SECRET", "AUTH", "PASSWORD"]
@@ -116,9 +99,6 @@ pub fn is_secret_name(name: &str) -> bool {
         .any(|p| up.contains(p))
 }
 
-/// `(NAME, value)` for every secret-named environment variable whose value is
-/// long enough to be a credential, longest value first so a key that embeds
-/// another key's value is replaced whole.
 pub fn secret_values() -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = std::env::vars_os()
         .filter_map(|(name, value)| Some((name.into_string().ok()?, value.into_string().ok()?)))
@@ -126,7 +106,6 @@ pub fn secret_values() -> Vec<(String, String)> {
             value.len() >= MIN_SECRET_LEN
                 && is_secret_name(name)
                 && !value.starts_with("«redacted")
-                // `ANGEL_*_KEY_FILE` names a path, not a key.
                 && !value.starts_with(['/', '~', '.'])
         })
         .collect();
@@ -134,13 +113,10 @@ pub fn secret_values() -> Vec<(String, String)> {
     out
 }
 
-/// Replace known credential values and secret-shaped strings in `text`.
-/// Returns the input untouched (no allocation) when nothing matches.
 pub fn redact_str(text: &str) -> Cow<'_, str> {
     Redactor::new().redact_str(text)
 }
 
-/// One credential snapshot for a complete record or multiline capture.
 pub struct Redactor {
     values: Vec<(String, String)>,
 }
@@ -158,9 +134,6 @@ impl Redactor {
 }
 
 fn redact_with_values<'a>(text: &'a str, values: &[(String, String)]) -> Cow<'a, str> {
-    // Tool output and chat content can themselves be encoded JSON. Decode that
-    // layer before matching, preserving the original bytes when nothing changes.
-    // Parsing a string unwraps one strictly smaller JSON encoding each time.
     if matches!(
         text.trim_start().as_bytes().first(),
         Some(b'{' | b'[' | b'"')
@@ -192,7 +165,6 @@ fn redact_with_values<'a>(text: &'a str, values: &[(String, String)]) -> Cow<'a,
         out = Cow::Owned(
             assignment_pattern()
                 .replace_all(&out, |caps: &regex::Captures<'_>| {
-                    // Keep existing markers stable so repeated staging is idempotent.
                     if caps[0].contains("«redacted") || caps[0].ends_with('…') {
                         caps[0].to_string()
                     } else {
@@ -205,8 +177,6 @@ fn redact_with_values<'a>(text: &'a str, values: &[(String, String)]) -> Cow<'a,
     out
 }
 
-/// Redact decoded strings without changing numbers, booleans, arrays, nulls or
-/// record field names. Environment values are captured once per record.
 pub fn redact_value(value: &mut serde_json::Value) -> usize {
     redact_value_with(value, &secret_values(), false)
 }
@@ -250,7 +220,6 @@ pub fn to_redacted_vec(value: &(impl serde::Serialize + ?Sized)) -> serde_json::
     serde_json::to_vec(&value)
 }
 
-/// Pretty sibling of [`to_redacted_vec`] for human-readable state files.
 pub fn to_redacted_vec_pretty(
     value: &(impl serde::Serialize + ?Sized),
 ) -> serde_json::Result<Vec<u8>> {
@@ -259,9 +228,6 @@ pub fn to_redacted_vec_pretty(
     serde_json::to_vec_pretty(&value)
 }
 
-/// Scrub credentials in a persistence payload. JSON is walked with
-/// [`redact_value`]; pretty layout is kept when the input already contained a
-/// newline. Non-JSON UTF-8 goes through [`redact_str`]. Binary is unchanged.
 pub fn redact_bytes(bytes: &[u8]) -> Vec<u8> {
     if let Ok(mut value) = serde_json::from_slice::<serde_json::Value>(bytes) {
         if redact_value(&mut value) == 0 {
@@ -283,13 +249,10 @@ pub fn redact_bytes(bytes: &[u8]) -> Vec<u8> {
     }
 }
 
-/// Owned sibling of [`redact_str`] for error strings and line-oriented sinks.
 pub fn redact_error(text: &str) -> String {
     redact_str(text).into_owned()
 }
 
-/// Exact-body stores reject sensitive records rather than altering the bytes
-/// their content hashes certify. Parse JSON before inspecting escaped strings.
 pub fn contains_secret(text: &str) -> bool {
     if let Ok(mut value) = serde_json::from_str(text) {
         redact_value(&mut value) > 0

@@ -23,7 +23,6 @@ fn idle() -> BTreeMap<u32, Input> {
     BTreeMap::new()
 }
 
-/// How many pixels of the frame are lit.
 fn lit(run: &Run, seat: u32) -> usize {
     frame_for(run, 384, 224, Some(seat)).rgb_bytes().chunks(3).filter(|p| p.iter().any(|&c| c > 24)).count()
 }
@@ -45,7 +44,6 @@ fn every_arcade_game_raises_its_stage_draws_it_and_gives_the_hall_back() {
         assert!(lit(&run, 1) > 3000, "{game:?}: the stage is drawn ({} pixels)", lit(&run, 1));
         assert!(lit(&run, 2) > 3000, "{game:?}: and on the second seat");
         assert!(run.valid_snapshot(), "{game:?}");
-        // Played to its end with no one winning: the stake is lost, the hall comes back.
         let mut n = 0;
         while run.encounter.is_some() && n < Kind::Arcade(game).cap() + encounter::PAYOUT_TICKS + 600 {
             run.step(&idle());
@@ -55,7 +53,6 @@ fn every_arcade_game_raises_its_stage_draws_it_and_gives_the_hall_back() {
             }
         }
         assert!(run.encounter.is_none(), "{game:?}: over after {n} ticks");
-        // How long an idle table holds the room: the round, the payout card and no more.
         println!("{game:?}: an idle table's round and card last {n} ticks ({}s)", n / HZ);
         assert!(n >= encounter::PAYOUT_TICKS + 30, "{game:?}: the round ended before it began ({n} ticks)");
         assert_eq!(run.room().kind, RoomKind::Hall, "{game:?}: the hall is back");
@@ -73,7 +70,6 @@ fn a_won_round_pays_in_order_and_a_lost_one_costs_the_ante() {
     let (mut run, _) = open(2, Kind::Arcade(Game::Cheese));
     run.step(&idle());
     let banked = run.bank.len();
-    // Knight two wins the round, knight one's runs out.
     let heat = run.pastimes.heat.take().unwrap();
     run.pastimes.round = None;
     run.pastimes.heats.clear();
@@ -87,7 +83,6 @@ fn a_won_round_pays_in_order_and_a_lost_one_costs_the_ante() {
     assert_eq!(run.bank.len(), banked + 1);
     assert_eq!(end.paid[&2], crossroads::gold(0) + 20, "the purse and both antes");
     assert!(run.players[&2].laurel && !run.players[&1].laurel);
-    // Nobody wins: the stake is lost.
     let (mut run, _) = open(1, Kind::Arcade(Game::Cheese));
     run.step(&idle());
     let gold = run.players[&1].carried.get(Spoil::Gold);

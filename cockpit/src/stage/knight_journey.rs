@@ -59,13 +59,10 @@ impl Scene {
     }
 }
 
-/// Slash-command names that preview a knight-journey sheet (not jousting).
 pub(crate) fn is_journey_calibration_name(raw: &str) -> bool {
     Scene::parse(raw).is_some()
 }
 
-/// Ceremony kinds that may show service/guardian. Stopped/failed/cleared never
-/// qualify; only independently verified goal/loop completion does.
 const fn is_verified_success(kind: CeremonyKind) -> bool {
     matches!(kind, CeremonyKind::GoalDone | CeremonyKind::LoopDone)
 }
@@ -77,9 +74,6 @@ pub(crate) fn scene_for(kind: CeremonyKind, label: &str) -> Option<Scene> {
     if is_verified_success(kind) {
         return Some(scene_for_kind(kind));
     }
-    // Task labels are arbitrary operator text. A non-success kind may still
-    // preview a named activity sheet (study/craft/…); it must never unlock
-    // service/guardian from the words in the label.
     if let Some(scene) = named_scene(label)
         && !scene.is_success()
     {
@@ -126,7 +120,6 @@ fn named_scene(label: &str) -> Option<Scene> {
     lower.split('·').map(str::trim).find_map(Scene::parse)
 }
 
-/// Art rows only. Status rows stay in `lifecycle_viz` so motion chrome matches.
 pub(crate) fn try_art(
     kind: CeremonyKind,
     label: &str,
@@ -142,8 +135,6 @@ pub(crate) fn try_art(
     ))
 }
 
-/// The same consumed art as `try_art`, before terminal text serialization.
-/// Fine-dot transport consumes this grid and leaves status text at normal size.
 pub(crate) fn try_image(
     kind: CeremonyKind,
     label: &str,
@@ -269,7 +260,6 @@ fn fit_cell_box(
     let avail_h = pane_h.saturating_sub(margin.saturating_mul(2)).max(1);
     let src_w = src_w.max(1) as f32;
     let src_h = src_h.max(1) as f32;
-    // Braille cells are 2×4 dots. Equal pitch ⇒ cell_w / cell_h = 2 * src_w / src_h.
     let aspect = 2.0 * src_w / src_h;
     let mut cell_h = avail_h;
     let mut cell_w = ((cell_h as f32 * aspect).round() as usize).max(1);
@@ -279,7 +269,6 @@ fn fit_cell_box(
             .max(1)
             .min(avail_h);
     }
-    // Refit width after row rounding; keeping the old width stretches narrow panes.
     cell_w = ((cell_h as f32 * aspect).round() as usize)
         .min(avail_w)
         .max(1);

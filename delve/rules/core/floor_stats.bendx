@@ -1,8 +1,3 @@
-# crates/delve/src/rules/floor_stats.rs — a floor's results: what each knight did on it,
-# the honours it earned, and the wish that did the most. A `Tally` is its J object
-# {began, knights: {id: Line}, wishes: [Wished], pace: {id: [dealt, fought]}, purse: {id: gold}}.
-# u128 sums are done in u64 words: exact while damage x ticks x 100 stays under 2^64.
-
 def floor_stats.Line.default() -> J.Val:
     l: J.Val = J.obj()
     l = core.set_u(l, "kills", 0)
@@ -15,14 +10,12 @@ def floor_stats.Line.default() -> J.Val:
     l = core.set_u(l, "gold", 0)
     return core.set_u(l, "fought", 0)
 
-# The aim in percent, if any shots were loosed.
 def floor_stats.Line.aim(l: J.Val) -> U32?:
     shots: U32 = core.u(l, "shots")
     if U32.is_zero(shots):
         return None{}
     return Some{U32.min(U32.div((U32.min(core.u(l, "hits"), shots) * 100 : U32), shots), 100)}
 
-# `tally.knights[id]`, or an empty line.
 def floor_stats.Tally.line(tally: J.Val, id: U32) -> J.Val:
     l: J.Val = J.get(J.get(tally, "knights"), U32.show(id))
     if J.is_null(l):
@@ -32,17 +25,14 @@ def floor_stats.Tally.line(tally: J.Val, id: U32) -> J.Val:
 def floor_stats.Tally.set_line(tally: J.Val, id: U32, l: J.Val) -> J.Val:
     return J.set(tally, "knights", J.set(J.get(tally, "knights"), U32.show(id), l))
 
-# `line.<key> += n`, saturating.
 def floor_stats.Tally.bump(tally: J.Val, id: U32, key: String, n: U32) -> J.Val:
     l: J.Val = floor_stats.Tally.line(tally, id)
     return floor_stats.Tally.set_line(tally, id, core.set_u(l, key, core.uadd(core.u(l, key), n)))
 
-# `pace` of a knight: (damage, fought ticks).
 def floor_stats.Tally.pace_of(tally: J.Val, id: U32) -> (W.W, W.W):
     p: J.Val = J.get(J.get(tally, "pace"), U32.show(id))
     return (W.of_j(J.nth(p, 0)), W.of_j(J.nth(p, 1)))
 
-# One knight's dealt damage counted, and whether they stood in a fight.
 def floor_stats.Tally.count(tally: J.Val, id: U32, dealt: U32, fighting: Bool) -> J.Val:
     fought: U32 = Bool.to_u32(fighting)
     l: J.Val = floor_stats.Tally.line(tally, id)
@@ -52,7 +42,6 @@ def floor_stats.Tally.count(tally: J.Val, id: U32, dealt: U32, fighting: Bool) -
     (pd: W.W, pt: W.W) = floor_stats.Tally.pace_of(tally, id)
     pace: J.Val = J.JA{[W.to_j(W.add_u32(pd, dealt)), W.to_j(W.add_u32(pt, fought))]}
     tally = J.set(tally, "pace", J.set(J.get(tally, "pace"), U32.show(id), pace))
-    # The latest wish this knight made takes the damage from here on.
     ws: [J.Val] = J.items(J.get(tally, "wishes"))
     n: U32 = U32.from_nat(List.length(&2, J.Val, ws))
     i: U32 = n
@@ -66,7 +55,6 @@ def floor_stats.Tally.count(tally: J.Val, id: U32, dealt: U32, fighting: Bool) -
             break
     return tally
 
-# A wish named for a knight: joins the last one if it is still settling.
 def floor_stats.Tally.wished(tally: J.Val, id: U32, name: String) -> J.Val:
     pace: J.Val = J.get(J.get(tally, "pace"), U32.show(id))
     pace = core.or_else(pace, J.JA{[J.JU{0}, J.JU{0}]})
@@ -105,12 +93,9 @@ def floor_stats.Tally.new_delve(tally: J.Val, tick: W.W) -> J.Val:
     t = J.set(t, "pace", J.obj())
     return J.set(t, "purse", core.or_else(J.get(tally, "purse"), J.obj()))
 
-
-# i64 as two's complement words: positive means above zero.
 def core.i64_pos(x: W.W) -> Bool:
     return Bool.and(Bool.not(W.is_zero(x)), U32.is_lt(W.hi32(x), 2147483648))
 
-# `Wished::impact`: (extra damage over the old pace, gain in percent), if measured.
 def floor_stats.Wished.impact(w: J.Val) -> (W.W, W.W)?:
     bd: W.W = W.of_j(J.nth(J.get(w, "before"), 0))
     bt: W.W = W.of_j(J.nth(J.get(w, "before"), 1))
@@ -122,7 +107,6 @@ def floor_stats.Wished.impact(w: J.Val) -> (W.W, W.W)?:
     gain: W.W = W.sub(W.div(W.mul(W.mul(ad, bt), W.of_u32(100)), W.mul(bd, at)), W.of_u32(100))
     return Some{(W.sub(ad, expected), gain)}
 
-# The wish's name: its words joined.
 def floor_stats.Wished.name(w: J.Val) -> String:
     names: [J.Val] = J.items(J.get(w, "names"))
     n: U32 = U32.from_nat(List.length(&2, J.Val, names))
@@ -136,7 +120,6 @@ def floor_stats.Wished.name(w: J.Val) -> String:
         i = (i + 1 : U32)
     return out
 
-# `Hero::shown_name`: the player's name, or the knight's when it is a placeholder.
 def knights.Hero.shown_name(h: J.Val) -> String:
     name: String = core.s(h, "name")
     if Bool.or(String.is_empty(String.trim(name)), knights.unnamed(String.trim(name))):
@@ -147,7 +130,6 @@ def knights.Hero.shown_name(h: J.Val) -> String:
                 return name
     return name
 
-# "you", "host" (any case) and "Knight <n>" stand for no name at all.
 def knights.unnamed(p: String) -> Bool:
     lower: String = String.to_lower(p)
     if Bool.or(String.eq(lower, "you"), String.eq(lower, "host")):
@@ -160,7 +142,6 @@ def knights.unnamed(p: String) -> Bool:
                 return False{}
     return False{}
 
-# `Results::of`'s rows: one per knight that is here.
 def floor_stats.rows(tally: J.Val, players: [(String, J.Val)]) -> [J.Val]:
     rows: [J.Val] = []
     for (k: String, h: J.Val) in players:
@@ -173,7 +154,6 @@ def floor_stats.rows(tally: J.Val, players: [(String, J.Val)]) -> [J.Val]:
             rows = List.append(&2, J.Val, rows, [r])
     return rows
 
-# The value an honour ranks on, for a row: None when the row cannot take it.
 def floor_stats.honour_value(kind: String, l: J.Val) -> W.W?:
     if String.eq(kind, "most_kills"):
         return Some{W.of_u32(core.u(l, "kills"))}
@@ -195,7 +175,6 @@ def floor_stats.honour_value(kind: String, l: J.Val) -> W.W?:
         return Some{W.of_u32(core.u(l, "raised"))}
     return Some{W.of_u32(core.u(l, "gold"))}
 
-# The best value among rows (> 0), if any.
 def floor_stats.best(kind: String, rows: [J.Val]) -> W.W?:
     best: W.W = W.zero()
     found: Bool = False{}
@@ -211,7 +190,6 @@ def floor_stats.best(kind: String, rows: [J.Val]) -> W.W?:
         return Some{best}
     return None{}
 
-# Each honour goes to whoever tops it, ties shared; the "most" honours only in a party.
 def floor_stats.award(kind: String, rows: [J.Val], party: U32, alone: Bool) -> [J.Val]:
     if Bool.and(U32.is_lt(party, 2), Bool.not(alone)):
         return rows
@@ -230,13 +208,11 @@ def floor_stats.award(kind: String, rows: [J.Val], party: U32, alone: Bool) -> [
         case None{}:
             return rows
 
-# `share`: part of a whole, in thousandths.
 def floor_stats.share(part: U32, whole: W.W) -> W.W:
     if W.is_zero(whole):
         return W.zero()
     return W.div(W.mul(W.of_u32(part), W.of_u32(1000)), whole)
 
-# The row of the knight with the biggest share of the floor, or None.
 def floor_stats.mvp(rows: [J.Val]) -> U32?:
     kills: W.W = W.zero()
     damage: W.W = W.zero()
@@ -255,7 +231,6 @@ def floor_stats.mvp(rows: [J.Val]) -> U32?:
         score: W.W = W.add(W.add(floor_stats.share(core.u(l, "kills"), kills), floor_stats.share(core.u(l, "damage"), damage)), W.div_u32(floor_stats.share(core.u(l, "raised"), raised), 2))
         id: U32 = core.u(r, "id")
         d: U32 = core.u(l, "damage")
-        # (score, damage, Reverse(id)): the biggest score, then damage, then the lowest id.
         better: Bool = False{}
         if W.gt(score, best_score):
             better = True{}
@@ -273,7 +248,6 @@ def floor_stats.mvp(rows: [J.Val]) -> U32?:
         return Some{best_id}
     return None{}
 
-# `impact(tally, players)`: the wish that did the most, as an Impact object, or null.
 def floor_stats.impact(tally: J.Val, players: J.Val) -> J.Val:
     best_extra: W.W = W.zero()
     best_gain: W.W = W.zero()
@@ -287,7 +261,6 @@ def floor_stats.impact(tally: J.Val, players: J.Val) -> J.Val:
                 case Some{pair: (W.W, W.W)}:
                     (extra: W.W, gain: W.W) = pair
                     if Bool.and(core.i64_pos(extra), core.i64_pos(gain)):
-                        # max_by_key keeps the last of equal keys
                         if Bool.or(J.is_null(best), W.ge(extra, best_extra)):
                             best = w
                             best_extra = extra
@@ -316,7 +289,6 @@ def floor_stats.impact_of(w: J.Val, players: J.Val, damage: J.Val, gain: J.Val) 
     i = J.set(i, "damage", damage)
     return J.set(i, "gain", gain)
 
-# `Results::of`: the tally closed.
 def floor_stats.Results.of(tally: J.Val, players: J.Val, depth: U32, end: String, tick: W.W) -> J.Val:
     rows: [J.Val] = floor_stats.rows(tally, J.int_fields(players))
     party: U32 = U32.from_nat(List.length(&2, J.Val, rows))
@@ -343,7 +315,6 @@ def floor_stats.Results.of(tally: J.Val, players: J.Val, depth: U32, end: String
     r = J.set(r, "at", W.to_j(tick))
     return core.set_u(r, "stood", 0)
 
-# Count what each knight dealt this tick (`dealt`: {id: damage}) and the gold they picked up.
 def floor_stats.Run.tally_floor(run: J.Val, dealt: J.Val) -> J.Val:
     if Bool.or(U32.is_zero(rules.Run.floor(run)), Bool.not(rules.Run.active(run))):
         return run

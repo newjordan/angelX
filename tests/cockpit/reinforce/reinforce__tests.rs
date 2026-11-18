@@ -14,9 +14,6 @@ fn evidence(output: &str) -> EvaluatorEvidence {
 }
 
 fn verifier_process_output(output: &str) -> Result<std::process::Output, String> {
-    // Absolute path: under a full parallel suite the process PATH can be
-    // briefly hostile while other tests mutate env, and "printf" alone
-    // then fails with ENOENT. The binary itself is standard on Linux.
     std::process::Command::new("/usr/bin/printf")
         .args(["%s", output])
         .output()
@@ -45,9 +42,7 @@ fn reverse_reward_is_dense_and_exact() {
     let (_, e) = reverse_task(4, 7);
     assert_eq!(reverse_reward_score(&e, &e), 1.0, "exact = ceiling");
     assert_eq!(reverse_reward_score("nonsense words", &e), 0.0);
-    // reasoning/prose prefix is tolerated (trailing K digit tokens are scored).
     assert_eq!(reverse_reward_score(&format!("the answer is {e}"), &e), 1.0);
-    // corrupt one of 4 positions → dense partial reward (0.75).
     let mut toks: Vec<String> = e.split_whitespace().map(String::from).collect();
     toks[0] = ((toks[0].parse::<u8>().unwrap() + 1) % 10).to_string();
     let r = reverse_reward_score(&toks.join(" "), &e);
@@ -56,12 +51,7 @@ fn reverse_reward_is_dense_and_exact() {
 
 #[test]
 fn reinforce_control_metrics_track_known_quality() {
-    // The control: drive evaluate_batch with a synthetic policy of KNOWN
-    // quality and confirm the RLVR metrics follow it — solve_rate tracks the
-    // fraction correct, and the GRPO "learning signal" (advantage spread) is
-    // present only in the productive middle band, not when pinned all-pass /
-    // all-fail.
-    let cfg = ReinforceConfig::default(); // success_threshold = 1.0
+    let cfg = ReinforceConfig::default();
 
     let run = |q: f32| {
         let (expected, cands) = control_group(q, 6, 8, 1);
@@ -91,7 +81,6 @@ fn reinforce_control_metrics_track_known_quality() {
     );
 }
 
-/// Reward = the candidate's output parsed as a number (tests drive scores).
 struct NumReward;
 impl Reward for NumReward {
     fn score(&self, input: RewardInput<'_>) -> Result<f32, String> {
@@ -103,7 +92,6 @@ impl Reward for NumReward {
     }
 }
 
-/// Always returns a fixed score — for testing reward composition.
 struct ConstReward(f32);
 impl Reward for ConstReward {
     fn score(&self, _input: RewardInput<'_>) -> Result<f32, String> {
@@ -557,8 +545,6 @@ fn evaluator_execution_rejects_timeout_truncation_and_source_mutation() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// A club that always answers "done" — exercises run_turn without tools
-/// (relies on Club::chat's default, which wraps respond as Text).
 struct DoneClub;
 impl Club for DoneClub {
     fn respond(&self, _p: &str) -> Result<String, String> {
@@ -571,18 +557,12 @@ impl Club for DoneClub {
 
 #[test]
 fn coding_eval_drives_and_scores() {
-    // Serialized against every other env-mutating test that drives
-    // `ANGEL_RL_REWARD`: in a parallel run each would observe the other's
-    // value between its own set and restore.
     let _guard = crate::tests::env_lock();
     let reg = crate::agent::harness::ToolRegistry::new();
     let club = DoneClub;
-    // Ensure the default RLVR path.
     let prev_rl = std::env::var_os("ANGEL_RL_REWARD");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_RL_REWARD") };
 
-    // Passing verification → full reward.
     let rep = run_coding_eval(
         &club,
         &reg,
@@ -593,11 +573,9 @@ fn coding_eval_drives_and_scores() {
     assert_eq!(rep.answer, "done");
     assert_eq!(rep.test.passed, 4);
     assert_eq!(rep.reward, 1.0);
-    // Coding evals are the RLVR faucet: always report Hi/Q root view.
     assert!(rep.root_trajectory.get("fingerprint").is_some());
     assert!(rep.harness_treatment.get("handle_store").is_some());
 
-    // Half the tests fail → half reward (verifiable, not a judge guess).
     let rep2 = run_coding_eval(
         &club,
         &reg,
@@ -608,9 +586,7 @@ fn coding_eval_drives_and_scores() {
     assert!((rep2.reward - 0.5).abs() < 1e-6, "reward {}", rep2.reward);
 
     match prev_rl {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(v) => unsafe { std::env::set_var("ANGEL_RL_REWARD", v) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_RL_REWARD") },
     }
 }
@@ -652,7 +628,6 @@ fn lint_reward_scores_from_clippy_output() {
 #[test]
 fn code_health_blends_tests_and_lint() {
     let c = CompositeReward::code_health();
-    // all tests pass + clean lint → 1.0
     let clean = "test result: ok. 3 passed; 0 failed; 0 ignored;\n    Finished in 0.2s";
     let clean_evidence = evidence(clean);
     assert!(
@@ -665,7 +640,6 @@ fn code_health_blends_tests_and_lint() {
         c.score(RewardInput::EvaluatorEvidence(&clean_evidence))
             .unwrap()
     );
-    // tests pass + 1 warning → 0.8*1.0 + 0.2*0.5 = 0.9
     let warn = "test result: ok. 3 passed; 0 failed; 0 ignored;\nwarning: unused variable";
     let warn_evidence = evidence(warn);
     assert!(
@@ -686,9 +660,7 @@ fn composite_reward_blends_weighted() {
     let c = CompositeReward::new()
         .with(Box::new(ConstReward(1.0)), 3.0)
         .with(Box::new(ConstReward(0.0)), 1.0);
-    // weighted average: (1.0*3 + 0.0*1) / 4 = 0.75
     assert!((c.score(RewardInput::CandidateOutput("anything")).unwrap() - 0.75).abs() < 1e-6);
-    // an empty composite is an error, not a silent zero.
     assert!(
         CompositeReward::new()
             .score(RewardInput::CandidateOutput("x"))
@@ -710,7 +682,7 @@ fn staleness_budget_rejects_old_candidates() {
         staleness_budget: 16,
         ..Default::default()
     };
-    let cands = vec![cand(0, 100, "1.0"), cand(100, 100, "2.0")]; // gap 100 vs 0
+    let cands = vec![cand(0, 100, "1.0"), cand(100, 100, "2.0")];
     let (rolls, m) = evaluate_batch(&NumReward, 100, &cfg, cands);
     assert_eq!(
         m.rejected_stale, 1,
@@ -726,7 +698,6 @@ fn straggler_is_pruned() {
         staleness_budget: 1000,
         ..Default::default()
     };
-    // medians ~10ms; the 500ms one is a straggler (> 2x median).
     let cands = vec![cand(0, 10, "1.0"), cand(0, 10, "1.0"), cand(0, 500, "1.0")];
     let (_r, m) = evaluate_batch(&NumReward, 0, &cfg, cands);
     assert_eq!(m.rejected_straggler, 1);
@@ -753,7 +724,6 @@ fn zero_advantage_is_detected() {
         staleness_budget: 1000,
         ..Default::default()
     };
-    // All rewards equal → no advantage → skip the optimizer step.
     let cands = vec![cand(0, 10, "1.0"), cand(0, 10, "1.0"), cand(0, 10, "1.0")];
     let (_r, m) = evaluate_batch(&NumReward, 0, &cfg, cands);
     assert!(m.advantage_variance < 1e-6);
@@ -767,12 +737,11 @@ fn varied_rewards_have_learning_signal() {
         success_threshold: 1.0,
         ..Default::default()
     };
-    // Mixed solve/fail with spread → productive middle band.
     let cands = vec![
-        cand(0, 10, "2.0"), // solve
-        cand(0, 10, "0.0"), // fail
-        cand(0, 10, "1.0"), // solve (>= threshold)
-        cand(0, 10, "0.5"), // fail
+        cand(0, 10, "2.0"),
+        cand(0, 10, "0.0"),
+        cand(0, 10, "1.0"),
+        cand(0, 10, "0.5"),
     ];
     let (_r, m) = evaluate_batch(&NumReward, 0, &cfg, cands);
     assert!(m.advantage_variance > 0.0);
@@ -788,10 +757,9 @@ fn dispatch_count_oversamples() {
         oversample: 0.6,
         ..Default::default()
     };
-    assert_eq!(cfg.dispatch_count(), 13); // ceil(8 * 1.6)
+    assert_eq!(cfg.dispatch_count(), 13);
 }
 
-/// A generator that returns fixed outputs (reward = output as number).
 struct VecGen(Vec<String>);
 impl Generator for VecGen {
     fn generate(&self, _p: &str, _t: &str, version: u64, _n: usize) -> Vec<Candidate> {
@@ -818,7 +786,7 @@ fn reinforce_promotes_a_real_change_once_not_repeated_noops() {
     let cfg = ReinforceConfig {
         group_size: 2,
         staleness_budget: 1000,
-        success_threshold: 5.0, // solve rate 0.5 → learning signal
+        success_threshold: 5.0,
         ..Default::default()
     };
     let rep = run_reinforce_unchecked_for_ablation(
@@ -838,8 +806,6 @@ fn reinforce_promotes_a_real_change_once_not_repeated_noops() {
     assert_eq!(rep.rounds[0].best_reward, 6.0);
 }
 
-/// LIVE end-to-end: one reinforce round with spark as generator + judge +
-/// reflector. Explicitly opt in with --ignored and ANGEL_LIVE_REINFORCE=1.
 #[test]
 #[ignore = "live model request; requires ANGEL_LIVE_REINFORCE=1 and ANGEL_SPARK_URL"]
 fn live_reinforce_one_round() {
@@ -869,10 +835,10 @@ fn live_reinforce_one_round() {
     };
     let cfg = ReinforceConfig {
         group_size: 2,
-        oversample: 0.0, // keep the live call count small (2 gen + 2 judge + 1 reflect)
+        oversample: 0.0,
         staleness_budget: 1000,
         success_threshold: 6.0,
-        straggler_factor: 100.0, // don't prune on the first noisy timings
+        straggler_factor: 100.0,
     };
     let rep = run_reinforce_unchecked_for_ablation(
         &r#gen,
@@ -900,7 +866,6 @@ fn live_reinforce_one_round() {
 
 #[test]
 fn reinforce_skips_when_zero_advantage() {
-    // All rewards equal → no advantage → no optimizer step, prompt unchanged.
     let r#gen = VecGen(vec!["5".into(), "5".into(), "5".into()]);
     let cfg = ReinforceConfig {
         group_size: 2,
@@ -922,8 +887,6 @@ fn reinforce_skips_when_zero_advantage() {
     assert_eq!(rep.rounds.last().unwrap().version, 0);
 }
 
-/// A generator where the reflected prompt looks useful on the training
-/// batch but regresses the private validation task.
 struct RegressingGateGen;
 impl Generator for RegressingGateGen {
     fn generate(&self, prompt: &str, task: &str, version: u64, n: usize) -> Vec<Candidate> {
@@ -1099,9 +1062,7 @@ fn parse_score_finds_first_number_with_prose_and_decimals() {
     assert_eq!(parse_score("7"), Some(7.0));
     assert_eq!(parse_score("I'd rate this a 8 out of 10"), Some(8.0));
     assert_eq!(parse_score("score: 9.5/10"), Some(9.5));
-    // Only the first decimal point is consumed; the rest stops the token.
     assert_eq!(parse_score("4.25.15"), Some(4.25));
-    // No digits at all → None.
     assert_eq!(parse_score("no number here"), None);
     assert_eq!(parse_score(""), None);
 }
@@ -1116,7 +1077,6 @@ fn acceptance_rate_guards_zero_and_variance_handles_small_sets() {
         ..Default::default()
     };
     assert!((some.acceptance_rate() - 0.75).abs() < 1e-6);
-    // variance is defined as 0 for <2 samples; >0 for a real spread.
     assert_eq!(variance(std::iter::empty::<f32>()), 0.0);
     assert_eq!(variance([5.0f32].into_iter()), 0.0);
     assert!(variance([0.0f32, 1.0].into_iter()) > 0.0);
@@ -1129,11 +1089,10 @@ fn dispatch_count_oversamples_and_ceils() {
         oversample: 0.25,
         ..Default::default()
     };
-    // 8 * 1.25 = 10
     assert_eq!(cfg.dispatch_count(), 10);
     let cfg2 = ReinforceConfig {
         group_size: 3,
-        oversample: 0.1, // 3 * 1.1 = 3.3 → ceil 4
+        oversample: 0.1,
         ..Default::default()
     };
     assert_eq!(cfg2.dispatch_count(), 4);
@@ -1142,7 +1101,7 @@ fn dispatch_count_oversamples_and_ceils() {
 #[test]
 fn evaluate_batch_all_stale_yields_zero_solve_rate_and_no_signal() {
     let cfg = ReinforceConfig {
-        staleness_budget: 0, // current_version 5 vs policy 0 → stale
+        staleness_budget: 0,
         ..Default::default()
     };
     let cands = vec![cand(0, 5, "1"), cand(0, 5, "2"), cand(0, 5, "3")];
@@ -1157,7 +1116,6 @@ fn evaluate_batch_all_stale_yields_zero_solve_rate_and_no_signal() {
     assert!(!m.has_learning_signal());
 }
 
-/// A club that echoes one canned reply — drives the club-backed actors.
 struct SayClub(String);
 impl Club for SayClub {
     fn respond(&self, _p: &str) -> Result<String, String> {
@@ -1170,7 +1128,6 @@ impl Club for SayClub {
 
 #[test]
 fn club_generator_maps_text_calls_and_errors() {
-    // Text reply → that text; the generator requests no tools.
     let r#gen = ClubGenerator {
         club: Arc::new(SayClub("an answer".into())),
     };
@@ -1179,8 +1136,6 @@ fn club_generator_maps_text_calls_and_errors() {
     assert!(cands.iter().all(|c| c.output == "an answer"));
     assert!(cands.iter().all(|c| c.policy_version == 7));
 
-    // An erroring club surfaces a "(generation error: …)" output, not a panic.
-    // (The default Club::chat wraps respond, so an Err propagates through.)
     struct ErrClub;
     impl Club for ErrClub {
         fn respond(&self, _p: &str) -> Result<String, String> {
@@ -1212,7 +1167,6 @@ fn judge_reward_parses_score_and_errors_on_none() {
         6.0
     );
     assert_eq!(good.label(), "judge");
-    // A reply with no number is an error (not silently zero).
     let bad = JudgeReward {
         judge: Arc::new(SayClub("no idea".into())),
         task: "t".into(),
@@ -1231,14 +1185,12 @@ fn club_reflector_returns_the_clubs_new_prompt() {
 
 #[test]
 fn composite_default_is_empty_and_zero_weights_error() {
-    // Default == new() == no components → score is an error.
     assert!(
         CompositeReward::default()
             .score(RewardInput::CandidateOutput("x"))
             .is_err()
     );
     assert_eq!(CompositeReward::new().label(), "composite");
-    // All-zero weights → a distinct error, not a divide-by-zero.
     let z = CompositeReward::new().with(Box::new(ConstReward(1.0)), 0.0);
     let err = z.score(RewardInput::CandidateOutput("x")).unwrap_err();
     assert!(err.contains("weights sum to zero"), "got: {err}");
@@ -1256,9 +1208,6 @@ fn reverse_reward_empty_expected_is_zero_and_control_label() {
 
 #[test]
 fn reward_from_env_resolves_code_health_test_and_lint() {
-    // Serialized: this test mutates process-global environment that other
-    // tests also read or write. Without the lock they interleave and each
-    // observes the other's value between its own set and restore.
     let _guard = crate::tests::env_lock();
     let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "code_health");
     assert_eq!(reward_from_env().label(), "composite");
@@ -1266,7 +1215,6 @@ fn reward_from_env_resolves_code_health_test_and_lint() {
     assert_eq!(reward_from_env().label(), "tests");
     let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "lint");
     assert_eq!(reward_from_env().label(), "lint");
-    // A retired or unknown key falls through to the default.
     let _reward = crate::tests::TestEnvGuard::set("ANGEL_RL_REWARD", "popcorn_peer");
     assert_eq!(reward_from_env().label(), "composite");
     let _reward = crate::tests::TestEnvGuard::unset("ANGEL_RL_REWARD");

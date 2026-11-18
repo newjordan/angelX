@@ -19,8 +19,6 @@ fn every_castle_stands_on_march_meadow_with_a_road_at_its_gate() {
         let (sx, sy) = stand(id);
         assert!(crate::world::kingdom::is_road(&geo, (sx, sy)), "{id:?} gate has no road");
     }
-    // Off the grid: never two castles side by side, and never a row of
-    // them at one height.
     let sites: Vec<(i32, i32, i32, i32)> = houses::ids().map(footprint).collect();
     for (i, a) in sites.iter().enumerate() {
         for b in &sites[i + 1..] {
@@ -42,7 +40,6 @@ fn an_idle_castle_flies_nothing_and_a_serving_one_flies_its_banner() {
             h.key
         );
         let up = sprite(h, true, 0);
-        // The house's colours fly at dusk: plain dyes, never signal inks.
         let field = super::super::ink::ink(dusk_ink(h.field)).unwrap();
         let charge = super::super::ink::ink(dusk_ink(h.charge)).unwrap();
         assert!(!super::super::ink::is_signal(field), "{} banner field glows", h.key);

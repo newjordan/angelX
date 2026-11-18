@@ -34,7 +34,6 @@ pub(super) fn step(run: &Run, id: u32) -> (f32, f32) {
     else {
         return (0.0, 0.0);
     };
-    // A visual step, not free movement or extra reach. Return on recovery.
     let n = match age(s) {
         0..=2 => 0.12,
         3..=4 => 0.16,
@@ -56,7 +55,6 @@ pub(super) fn recoil(run: &Run, foe: u32) -> (f32, f32) {
     else {
         return (0.0, 0.0);
     };
-    // A heavy blow throws it back further; both shudder as they land.
     let heavy = if h.tier == Tier::Heavy { 1.0 } else { 0.6 };
     let n = match h.age() {
         0..=1 => 0.14,
@@ -76,7 +74,6 @@ pub(super) fn tracked(run: &Run, foe: u32) -> bool {
         .any(|h| h.foe == foe && h.ttl > 0)
 }
 
-/// A monster just struck solid flashes pale for the frame of contact.
 pub(super) fn body(run: &Run, foe: u32, im: &Img) -> Img {
     if !run.feel.melee.hits.iter().any(|h| {
         h.foe == foe && matches!(h.tier, Tier::Heavy | Tier::Medium) && h.age() <= 1
@@ -94,15 +91,10 @@ pub(super) fn body(run: &Run, foe: u32, im: &Img) -> Img {
     out
 }
 
-/// The inks of a crescent, brightest first: cold steel, or a finisher's
-/// gold.
 const STEEL: [char; 5] = ['W', 'V', 'z', 'Q', 'q'];
 const GOLD: [char; 5] = ['W', 'T', 't', 'O', 'R'];
 const STONE: [char; 5] = ['V', 'v', 'U', 'u', 'S'];
 
-/// A sweep of the slash: about `centre`, starting at angle `from` and
-/// turning `turn` radians (signed) over the whole stroke, the band between
-/// `inner` and `outer` pixels out.
 #[derive(Clone, Copy)]
 struct Sweep {
     centre: (f32, f32),
@@ -118,16 +110,11 @@ impl Sweep {
     }
 }
 
-/// The crescent of `sweep` from `tail` to `head` (shares of the stroke):
-/// thin at the tail, full and bright toward the head, its front rounded,
-/// its inner edge breaking into air. `fade` (0 fresh, 1 gone) thins it.
 fn crescent(cv: &mut Img, sweep: &Sweep, tail: f32, head: f32, fade: f32, inks: &[char; 5]) {
     let span = head - tail;
     if span <= 0.0 || fade >= 1.0 {
         return;
     }
-    // Fading, the band thins to its bright rim and darkens, rather than
-    // breaking into a sieve.
     let band = ((sweep.outer - sweep.inner) * (1.0 - fade * 0.75)).max(1.0);
     let n = (sweep.turn.abs() * span * sweep.outer * 1.8).ceil() as i32 + 2;
     for i in 0..=n {
@@ -141,7 +128,6 @@ fn crescent(cv: &mut Img, sweep: &Sweep, tail: f32, head: f32, fade: f32, inks: 
             let q = d as f32 / thick;
             let r = sweep.outer - d as f32;
             let (x, y) = ((sweep.centre.0 + c * r).round() as i32, (sweep.centre.1 + s * r).round() as i32);
-            // The inner edge breaks into air.
             if q > 0.5 && bayer(x, y) < (q - 0.5) * 2.2 {
                 continue;
             }
@@ -165,8 +151,6 @@ fn crescent(cv: &mut Img, sweep: &Sweep, tail: f32, head: f32, fade: f32, inks: 
     }
 }
 
-/// A short bright streak along `theta` from `a` to `b` pixels out: the
-/// blade's own blur where it passes.
 fn streak(cv: &mut Img, centre: (f32, f32), theta: f32, a: f32, b: f32, ink: char) {
     let (c, s) = (theta.cos(), theta.sin());
     let n = (b - a).ceil().max(1.0) as i32;
@@ -176,16 +160,10 @@ fn streak(cv: &mut Img, centre: (f32, f32), theta: f32, a: f32, b: f32, ink: cha
     }
 }
 
-/// An angle the short way round, within a half turn of none.
 fn wrap(a: f32) -> f32 {
     a.sin().atan2(a.cos())
 }
 
-/// How a stroke's slash stands at each tick of its life: how far the head
-/// has come, how far the tail, how far out (a share of the way from the
-/// blade to the full reach), and how faded. The first tick a seat sees is
-/// the stroke's second (its first is the tick it struck), and that is the
-/// slash at its widest: the frame a hold of the room's time stands on.
 fn timeline(a: u8) -> Option<(f32, f32, f32, f32)> {
     Some(match a {
         0 => (0.6, 0.0, 0.6, 0.0),
@@ -197,8 +175,6 @@ fn timeline(a: u8) -> Option<(f32, f32, f32, f32)> {
     })
 }
 
-/// Where the blade itself is along its sweep at each tick: a little behind
-/// the slash's head while it runs, then carried through.
 fn steel_at(a: u8) -> f32 {
     match a {
         0 => 0.45,
@@ -227,8 +203,6 @@ pub(super) fn swing(cv: &mut Img, run: &Run, id: u32) {
     };
     let a = age(s);
     let hero = run.players.get(&id);
-    // The figure's own strike carries some arms; the rest are drawn here,
-    // in the sweep.
     let arm = hero.map_or(Arm::of_stroke(s.stroke), Arm::of);
     let steel = !hero.is_some_and(blades::drawn_by_body);
     let way = s.dy.atan2(s.dx);
@@ -236,8 +210,6 @@ pub(super) fn swing(cv: &mut Img, run: &Run, id: u32) {
     let origin = (ox as f32, oy as f32 - 7.0);
     let reach = s.reach * UNIT;
     let blade = crate::rules::melee::blade(s.reach) * UNIT;
-    // The steel as drawn is the blade's visible part; the slash takes it
-    // from there to the stroke's full reach.
     let held = (blade * 0.62).clamp(9.0, 17.0);
     let finish = s.combo == 3;
     match s.stroke {
@@ -254,11 +226,7 @@ pub(super) fn swing(cv: &mut Img, run: &Run, id: u32) {
             let ring = s.arc >= 300.0;
             let inks = if finish { &GOLD } else { &STEEL };
             let outer = held + 2.0 + (reach - held - 2.0) * out;
-            // A band no wider than the stroke deserves: a finisher's the
-            // fullest.
             let inner = (held * 0.82).max(outer - if finish { 12.0 } else { 9.0 });
-            // Two axes come round together from either side; a lone blade
-            // sweeps one way, the backhand the other.
             let signs: &[f32] = if s.stroke == Stroke::Chain && !ring {
                 &[1.0, -1.0]
             } else if s.combo == 2 {
@@ -279,21 +247,18 @@ pub(super) fn swing(cv: &mut Img, run: &Run, id: u32) {
                 if steel && a <= 3 {
                     let hand = (origin.0 + theta.cos() * 2.0, origin.1 + theta.sin() * 2.0);
                     if a >= 1 && arm == Arm::Sword && signs.len() == 1 {
-                        // Where the blade was a tick ago, dim.
                         let was = sweep.angle(steel_at(a - 1));
                         blades::draw(cv, arm, hand, (was.cos(), was.sin()), held, false);
                     }
                     blades::draw(cv, arm, hand, (theta.cos(), theta.sin()), held, true);
                 }
                 if ring && steel && a <= 3 {
-                    // The second of the pair, opposite.
                     let back = theta + PI;
                     let hand = (origin.0 + back.cos() * 2.0, origin.1 + back.sin() * 2.0);
                     blades::draw(cv, arm, hand, (back.cos(), back.sin()), held, true);
                 }
             }
             if finish && (1..=3).contains(&a) {
-                // The finisher's glint, out on the slash's edge.
                 let p = (origin.0 + way.cos() * outer, origin.1 + way.sin() * outer);
                 let r = 4 - i32::from(a.saturating_sub(1));
                 for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
@@ -308,7 +273,6 @@ pub(super) fn swing(cv: &mut Img, run: &Run, id: u32) {
     super::meleestrips::over_swing(cv, run, s, a, (ox, oy - 7), reach);
 }
 
-/// The Hammerer's ground slam: the maul up and then down on the floor.
 fn slam(cv: &mut Img, s: &Swing, a: u8, origin: (i32, i32)) {
     if a < 5 {
         let end = (origin.0 + (s.dx * 9.0) as i32, origin.1 + 7);
@@ -319,7 +283,6 @@ fn slam(cv: &mut Img, s: &Swing, a: u8, origin: (i32, i32)) {
     }
 }
 
-/// A punch: the fist out and back.
 fn fist(cv: &mut Img, s: &Swing, a: u8, origin: (i32, i32), r: f32) {
     if a >= 7 {
         return;
@@ -335,14 +298,10 @@ fn fist(cv: &mut Img, s: &Swing, a: u8, origin: (i32, i32), r: f32) {
     cv.rect(end.0 - 2, end.1 - 2, 4, 3, 'T');
 }
 
-/// A heavy stroke from above: the arm comes over and down onto the floor
-/// ahead, and the blow runs out across the ground in a crescent of dust and
-/// grit to the stroke's full reach and width.
 #[allow(clippy::too_many_arguments)]
 fn overhead(cv: &mut Img, s: &Swing, a: u8, origin: (f32, f32), held: f32, reach: f32, arm: Arm, steel: bool) {
     let way = s.dy.atan2(s.dx);
     let side = if s.dx < 0.0 { -1.0 } else { 1.0 };
-    // Over the top: from straight up, round to the way it was aimed.
     let up = -FRAC_PI_2;
     let turn = {
         let t = wrap(way - up);
@@ -362,20 +321,17 @@ fn overhead(cv: &mut Img, s: &Swing, a: u8, origin: (f32, f32), held: f32, reach
             blades::draw(cv, arm, hand, (theta.cos(), theta.sin()), held, true);
         }
     }
-    // The blow across the ground, from where the head came down.
     if (1..=6).contains(&a) {
         let feet = (origin.0, origin.1 + 7.0);
         let arc = s.arc.to_radians();
         let out = [0.0, 0.55, 0.85, 1.0, 1.06, 1.1, 1.13][usize::from(a)];
         let fade = [0.0, 0.0, 0.0, 0.1, 0.35, 0.6, 0.82][usize::from(a)];
         let outer = held + (reach - held) * out;
-        // Two rings of the shock, the second a step behind the first.
         for (sign, back, band) in [(1.0, 0.0, 5.0), (-1.0, 6.0, 3.0)] {
             let r = (outer - back).max(held);
             let wave = Sweep { centre: feet, from: way - sign * arc / 2.0, turn: sign * arc, inner: r - band, outer: r };
             crescent(cv, &wave, 0.0, 1.0, fade, &STONE);
         }
-        // Grit thrown up off the front of it.
         for g in 0..9 {
             let t = way + (g as f32 / 8.0 - 0.5) * arc;
             let r = outer + 2.0 + (hash(g, i32::from(a), s.owner) % 3) as f32;
@@ -386,8 +342,6 @@ fn overhead(cv: &mut Img, s: &Swing, a: u8, origin: (f32, f32), held: f32, reach
     }
 }
 
-/// A thrust: the arm drives straight out along the aim, and its slash runs
-/// on past the point as a narrow fan to the stroke's full reach.
 #[allow(clippy::too_many_arguments)]
 fn thrust(cv: &mut Img, s: &Swing, a: u8, origin: (f32, f32), held: f32, reach: f32, arm: Arm, steel: bool) {
     let way = s.dy.atan2(s.dx);
@@ -400,7 +354,6 @@ fn thrust(cv: &mut Img, s: &Swing, a: u8, origin: (f32, f32), held: f32, reach: 
     };
     let tip = held * drive + 3.0;
     let outer = tip + (reach - tip) * out;
-    // The fan, swept across in an instant, from one side to the other.
     let fan = Sweep { centre: origin, from: way - arc / 2.0, turn: arc, inner: tip, outer };
     crescent(cv, &fan, 0.0, 1.0, fade, &STEEL);
     if a <= 3 {
@@ -450,7 +403,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
                 }
             }
         }
-        // Directional dust and stone chips, without moving a hitbox.
         if !matches!(h.tier, Tier::Blocked | Tier::Turned) && age < 6 {
             for k in 0..4 {
                 let t = age as f32;
@@ -495,7 +447,6 @@ fn spark(cv: &mut Img, run: &Run, h: &Hit) {
             cv.put(x, y, '$');
         }
     }
-    // A heavy blow throws a spray of steel-bright chips out the far side.
     if a <= 3 && strength == 3 {
         for k in 0..(strength * 2) {
             let t = way + (k as f32 - strength as f32 + 0.5) * 0.32;
@@ -507,7 +458,6 @@ fn spark(cv: &mut Img, run: &Run, h: &Hit) {
             }
         }
     }
-    // Thin rings lose segments as they dissolve; blocked contact is a half-ring.
     if a <= 4 && strength > 1 {
         for k in 0..24 {
             if a > 2 && k % 3 == 0 {
@@ -565,12 +515,8 @@ fn spark(cv: &mut Img, run: &Run, h: &Hit) {
     super::meleestrips::over_hit(cv, run, h, (hx, hy - 7));
 }
 
-/// The word a turned bullet calls.
 const PARRY: &str = "PARRY!";
 
-/// A bullet turned off the blade: a bright star where steel met it, a ring
-/// opening out of it, and the word rising over it. A cue, so the signal's
-/// own white and sea-glass.
 fn ting(cv: &mut Img, h: &Hit) {
     let a = i32::from(h.age());
     let (x, y) = at(h.x, h.y);
@@ -601,12 +547,6 @@ fn ting(cv: &mut Img, h: &Hit) {
     word(cv, h, (x, y));
 }
 
-/// The word over a turned bullet, on the shared clock: each letter a fifth
-/// of a tick behind the last (the whole word is up by the frame a hold of
-/// the room's time stands on) springs up from under its line, past it and back
-/// (`ease::back`), white as it lands and sea-glass after; the word drifts
-/// up as it holds, then lifts away through the dither (never a blink). A
-/// dark rim, so it reads over anything.
 fn word(cv: &mut Img, h: &Hit, (x, y): (i32, i32)) {
     use super::super::ink::{GLYPH_ADVANCE, bayer};
     use crate::motion::{ease, share};
@@ -644,8 +584,6 @@ fn word(cv: &mut Img, h: &Hit, (x, y): (i32, i32)) {
     }
 }
 
-/// A turned bullet on its way home: a gold wake behind it and a glint about
-/// it, so a knight sees whose it is now.
 fn turned(cv: &mut Img, run: &Run) {
     for shot in run.projectiles.iter().filter(|p| p.traits.turned && !p.hostile && p.ttl > 0) {
         let (x, y) = at(shot.x, shot.y);

@@ -363,8 +363,6 @@ fn browser_incremental_copy_receives_squire_changes_without_unknown_fallback() {
     assert_eq!(guest.stats().2, "");
 }
 
-// Review regressions deliberately exercise Run::step: helper-only ticks miss
-// flight/aftermath ordering, cooldowns, and the yard's shared hold counter.
 fn review_combat(kind: Kind, level: u8) -> Run {
     let mut r = fight(kind, level);
     fixtures::foe_at(&mut r, EnemyKind::Slime, (28.0, 20.0), 10_000);
@@ -453,7 +451,6 @@ fn review_beam_warns_then_strikes_each_companion_once() {
             r.step(&BTreeMap::new());
         }
         assert_eq!(r.squire_hall.companions[0].body.hp, hp, "warning hurt {kind:?}");
-        // Hold the companion on the line, including beyond its hit ward.
         for _ in 0..55 {
             let c = &mut r.squire_hall.companions[0];
             c.body.x = 12.0;
@@ -651,7 +648,6 @@ fn yard_hall_and_countryside_plate_holds_complete_independently() {
     }
     assert_eq!(hall.marks.keys().filter(|k| k.starts_with("squire:")).count(), 1);
 
-    // The countryside squires keep the Yard itself (`squire_rooms`).
     let mut country = review_yard();
     let yard = country.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Yard).unwrap();
     country.enter_for_test(yard);
@@ -684,18 +680,18 @@ fn review_yard_partial_hold_cancels_on_release_exit_or_action_change() {
         match cancellation {
             0 => {
                 r.step(&BTreeMap::new());
-            } // release on the plate
+            }
             1 | 2 => {
                 let h = r.players.get_mut(&1).unwrap();
                 h.x = 20.0;
-                h.y = 18.0; // no plate, lectern or stall
+                h.y = 18.0;
                 if cancellation == 1 {
                     r.step(&BTreeMap::new());
                 } else {
                     review_hold(&mut r, 1);
                 }
             }
-            _ => {} // move directly to another action without releasing
+            _ => {}
         }
         review_plate(&mut r, 1);
         review_hold(&mut r, 1);
@@ -756,7 +752,7 @@ fn review_inactive_owners_are_not_enemy_sights_or_projectile_guards() {
             }
             _ => {
                 r.players.remove(&1);
-            } // stale/older checkpoint
+            }
         }
         assert_eq!(r.squire_hall.decoys(&r).count(), 0);
         let without_companions = {

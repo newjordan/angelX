@@ -2,7 +2,6 @@ use super::*;
 use crate::rules::claim_bosses::{self, Guardian};
 use crate::rules::stockyard::{BLOCK_PACE, Stockyard};
 
-/// A closed room on the Mines' first floor with a seam the party has won.
 fn won() -> (Run, industry::Deposit) {
     let (mut run, d) = claim_bosses::tests::fixture(Guardian::Ironroot);
     run.home.industry.secure(&d.id);
@@ -13,7 +12,6 @@ fn won() -> (Run, industry::Deposit) {
 fn swinging() -> BTreeMap<u32, Input> {
     BTreeMap::from([(1, Input { swing: true, ..Default::default() })])
 }
-/// Hold the sword down until `n` swings have begun.
 fn swing(run: &mut Run, n: u32) {
     let mut seen = 0;
     for _ in 0..n * 40 {
@@ -27,7 +25,6 @@ fn swing(run: &mut Run, n: u32) {
         }
     }
 }
-/// Every seat's keys up, so the next press is a fresh one.
 fn release(run: &mut Run) {
     let up: BTreeMap<u32, Input> = run.players.keys().map(|&id| (id, Input::default())).collect();
     run.step(&up);
@@ -93,7 +90,6 @@ fn a_face_gives_a_dozen_blocks_and_is_worked_out() {
     swing(&mut run, 4);
     assert!(run.players[&1].block.is_none(), "worked out for this expedition");
     assert!(run.kingdom.stir.valid());
-    // A new expedition opens the face again.
     run.kingdom.stir.new_expedition();
     assert!(run.kingdom.stir.cut.is_empty());
 }
@@ -105,17 +101,14 @@ fn a_friend_takes_the_block_and_the_party_chains_it_along() {
     at(&mut run, 1, d.x, d.y);
     at(&mut run, 2, d.x + 2.0, d.y + 1.0);
     run.players.get_mut(&1).unwrap().block = Some("limestone".into());
-    // Too far to reach: nothing passes.
     at(&mut run, 2, d.x + 6.0, d.y);
     run.step(&BTreeMap::from([(2, Input { interact: true, ..Default::default() })]));
     assert!(run.players[&1].block.is_some() && run.players[&2].block.is_none());
-    // Beside them, a fresh press of E takes it.
     at(&mut run, 2, d.x + 2.0, d.y + 1.0);
     release(&mut run);
     run.step(&BTreeMap::from([(2, Input { interact: true, ..Default::default() })]));
     assert!(run.players[&1].block.is_none(), "it left their back");
     assert_eq!(run.block_of(2), Some("limestone"));
-    // And back again: a chain, not a one-way gift.
     release(&mut run);
     run.step(&BTreeMap::from([(1, Input { interact: true, ..Default::default() })]));
     assert_eq!(run.block_of(1), Some("limestone"));
@@ -163,9 +156,7 @@ fn a_fallen_knight_loses_the_block_and_the_stair_head_takes_one_going_down() {
     run.players.get_mut(&1).unwrap().hp = 0;
     run.step(&BTreeMap::new());
     assert!(run.players[&1].block.is_none(), "dead men carry nothing");
-    // Going down from home with one in hand: the porters stock it.
     let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
-    // (The Archive's quarry stone is `freestone` now: `slate` is the slater's roofing in the sim's catalogue.)
     run.players.get_mut(&1).unwrap().block = Some("freestone".into());
     run.stock_blocks_at_the_stair();
     assert!(run.players[&1].block.is_none());
@@ -183,7 +174,6 @@ fn the_block_and_the_yard_survive_a_save_and_the_wire() {
     assert_eq!(back.block_of(1), Some("limestone"));
     assert_eq!(back.home.stockyard, run.home.stockyard);
     assert_eq!(back.kingdom.stir, run.kingdom.stir);
-    // A block of a stone that is not one is not a valid run.
     let mut bad = back.clone();
     bad.players.get_mut(&1).unwrap().block = Some("moon-cheese".into());
     assert!(!bad.valid_snapshot());

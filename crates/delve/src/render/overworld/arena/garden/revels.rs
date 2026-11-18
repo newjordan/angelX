@@ -20,24 +20,17 @@ use super::{Party, g, guests};
 use crate::rules::{HZ, Run};
 use std::f32::consts::{PI, TAU};
 
-/// The most motes the garden paints under its figures, and over them.
 const UNDER: u32 = 1500;
 const OVER: u32 = 2600;
 
-/// Each lantern colour's light.
 const GLOW: [Ramp; 5] = [ramps::HOLY, ramps::FROST, ramps::NATURE, ramps::EMBER, ramps::BONE];
 
-/// Confetti and fireworks: the party's colours.
 const PARTY: [Ramp; 5] = [ramps::GOLD, ramps::GENIE, ramps::ROSE, ramps::NATURE, ramps::FROST];
 
 fn tick_of(run: &Run) -> u32 {
     run.tick as u32
 }
 
-// ─── under the figures ───────────────────────────────────────────────────────
-
-/// Under everyone who stands: the lanterns' light, the mushroom bed, the
-/// kettle, the cottage's notes, the hatch and the house's wounds.
 pub(super) fn under(cv: &mut Img, run: &Run, garden: Option<&g::Garden>) {
     let party = garden.map_or(Party::Quiet, |gd| gd.party);
     let mut pen = Pen::new(cv, UNDER);
@@ -55,8 +48,6 @@ pub(super) fn under(cv: &mut Img, run: &Run, garden: Option<&g::Garden>) {
     }
 }
 
-/// A glow round every lit lantern, pulsing with the party; when the house
-/// falls, a curl of smoke off each as it goes out.
 fn lantern_glow(pen: &mut Pen, run: &Run, party: Party) {
     let tick = tick_of(run);
     let mid = (super::STRING - 1) as f32 / 2.0;
@@ -83,9 +74,6 @@ fn lantern_glow(pen: &mut Pen, run: &Run, party: Party) {
     }
 }
 
-/// The mushroom bed breathing: a cold light that swells and settles under
-/// its caps, the caps lighting one after the next across the bed, and
-/// spores going up off them, twinkling.
 fn mushrooms(pen: &mut Pen, tick: u64) {
     let t = tick as f32;
     let (x, y) = super::px(g::SHROOMS);
@@ -112,9 +100,6 @@ fn mushrooms(pen: &mut Pen, tick: u64) {
     }
 }
 
-/// The kettle at its work: steam curling off its lid, a bead at the tap
-/// that swells, lets go and drops into the jug, and now and then a glint
-/// off the jug.
 fn kettle(pen: &mut Pen, tick: u64) {
     let (cx, cy) = super::pot();
     let t = tick as u32;
@@ -129,7 +114,6 @@ fn kettle(pen: &mut Pen, tick: u64) {
         let m = Mote { i: k, at: (x, y), vel: (0.3, -0.5), k: kf, seed: s };
         pfx::mote(pen, &m, Shape::Smoke, ramps::SMOKE, 2, tick);
     }
-    // The drip: the tap is over the jug's mouth.
     let (dx, tap, mouth) = super::drip();
     let a = t % 40;
     if a < 22 {
@@ -150,8 +134,6 @@ fn kettle(pen: &mut Pen, tick: u64) {
     pen.twinkle(((jx - 2) as f32, (jy - 3) as f32), 2.0, (t % 110) as f32 / 18.0, ramps::HOLY);
 }
 
-/// Notes out of the cottage while the party's on: out of its windows,
-/// its chimney and its door, swaying up over the roof.
 fn notes(pen: &mut Pen, tick: u64) {
     let (x, y, w, _) = super::px_rect(g::HOUSE);
     let mouths = [(x + 19, y + 32), (x + w - 19, y + 32), (x + w - 18, y - 4), (x + w / 2, y + 52)];
@@ -175,9 +157,6 @@ fn notes(pen: &mut Pen, tick: u64) {
     }
 }
 
-/// The house near gone: cracks across its plaster (more the lower it
-/// is), and at the last its windows guttering, its walls rattling and
-/// straw shaken down off its thatch.
 fn wounds(pen: &mut Pen, run: &Run, gd: &g::Garden) {
     let (x, y, w, h) = super::px_rect(g::HOUSE);
     let tick = tick_of(run);
@@ -195,13 +174,11 @@ fn wounds(pen: &mut Pen, run: &Run, gd: &g::Garden) {
     if gd.house * 10 > g::HOUSE_HP * 3 {
         return;
     }
-    // The windows gutter.
     if (tick / 3).is_multiple_of(5) {
         for wx in [x + 12, x + w - 26] {
             pen.cv.rect(wx + 2, y + 32, 10, 6, 'a');
         }
     }
-    // The walls rattle: motion marks either side of it.
     let jig = (tick / 2 % 2) as i32;
     for k in 0..5 {
         let my = y + 28 + k * 9;
@@ -210,7 +187,6 @@ fn wounds(pen: &mut Pen, run: &Run, gd: &g::Garden) {
         pen.put(x + w - 2 + jig, my + 3, 'h');
         pen.put(x + w - 2 + jig, my + 4, 'h');
     }
-    // Straw shaken down off the thatch.
     for k in 0..7u32 {
         let n = tick + k * 5;
         let a = (n % 26) as f32;
@@ -223,9 +199,6 @@ fn wounds(pen: &mut Pen, run: &Run, gd: &g::Garden) {
     }
 }
 
-/// The cellar hatch: flung up on its hinge as a guest gets in, its back
-/// end going down into the dark, and banged shut again; hanging open for
-/// good once they have all got in.
 fn hatch(pen: &mut Pen, run: &Run, gd: &g::Garden) {
     let (hx, hy) = super::hatch();
     let bite = gd.bitten.map(|(when, kind)| (run.tick.saturating_sub(when) as f32, kind)).filter(|&(a, _)| a < 16.0);
@@ -240,14 +213,12 @@ fn hatch(pen: &mut Pen, run: &Run, gd: &g::Garden) {
     if let Some((a, kind)) = bite {
         guests::going_in(cv, kind, (hx, hy), a);
     }
-    // The lid, up on its back edge: shorter the higher it stands.
     let top = hy - 2 - lift.round() as i32;
     let deep = (6 - lift.round() as i32).max(2);
     cv.rect(hx - 10, top, 21, deep, 'r');
     cv.frame(hx - 10, top, 21, deep, 'b');
     cv.line(hx, top, hx, top + deep - 1, 'b');
     if gd.party == Party::Lost {
-        // What they left on the step.
         for k in 0..6 {
             let s = hash(k, 7, 0xc12);
             cv.put(hx - 12 + (s % 25) as i32, hy + 4 + (s >> 8) as i32 % 3, if k % 2 == 0 { 'o' } else { 'T' });
@@ -255,9 +226,6 @@ fn hatch(pen: &mut Pen, run: &Run, gd: &g::Garden) {
     }
 }
 
-// ─── the gnome's things ──────────────────────────────────────────────────────
-
-/// The gnome's mug where he dropped it, on its side, its foam run out.
 pub(super) fn spilt_mug(cv: &mut Img, x: i32, y: i32) {
     cv.rect(x, y - 3, 4, 3, 'o');
     cv.line(x, y - 3, x + 3, y - 3, 'O');
@@ -268,10 +236,6 @@ pub(super) fn spilt_mug(cv: &mut Img, x: i32, y: i32) {
     cv.put(x + 6, y - 1, 'T');
 }
 
-/// Balloons tied to the eaves while the party's on, bobbing; when the
-/// house falls the air goes out of each in turn, and off it zips about
-/// the cottage, smaller and smaller, its breath trailing, and drops to lie
-/// limp in the grass by the walls.
 pub(super) fn balloons(cv: &mut Img, run: &Run, party: Party) {
     if party == Party::Quiet {
         return;
@@ -294,14 +258,12 @@ pub(super) fn balloons(cv: &mut Img, run: &Run, party: Party) {
             let (c, size) = if party == Party::Lost {
                 let a = gone.map_or(f32::MAX, |a| a - i as f32 * 5.0).max(0.0);
                 if a >= ZIP {
-                    // Lying limp in the grass.
                     cv.rect(rest.0, rest.1, 4, 2, shade);
                     cv.put(rest.0 + 1, rest.1, body);
                     cv.put(rest.0 + 2, rest.1 - 1, shade);
                     cv.line(rest.0 + 4, rest.1 + 1, rest.0 + 8, rest.1 + 2, 'J');
                     continue;
                 }
-                // Its breath going out behind it.
                 for j in 1..5 {
                     let back = zip(home, rest, i, (a - j as f32 * 1.2).max(0.0));
                     if (run.tick as i32 + j) % 2 == 0 {
@@ -329,11 +291,8 @@ pub(super) fn balloons(cv: &mut Img, run: &Run, party: Party) {
     }
 }
 
-/// The ticks a balloon takes to zip about and drop.
 const ZIP: f32 = 34.0;
 
-/// Where balloon `i` is `a` ticks after its air began to go: up and off
-/// in loops about where it was tied, then down to where it will lie.
 fn zip(home: (f32, f32), rest: (i32, i32), i: usize, a: f32) -> (f32, f32) {
     let seed = i as f32 * 2.1;
     let fly = (a / 22.0).min(1.0);
@@ -349,12 +308,6 @@ fn zip(home: (f32, f32), rest: (i32, i32), i: usize, a: f32) -> (f32, f32) {
     (top.0 + (rest.0 as f32 - top.0) * k, top.1 + (rest.1 as f32 - top.1) * k)
 }
 
-// ─── over the figures ────────────────────────────────────────────────────────
-
-/// Over everything that stands: the fairies, the queen's dust, what the
-/// guests leave, the bite's splinters and its word, the house's bar, the
-/// party's start and its end, the moments a knight takes something, and,
-/// while there is room to read them, the banners and the gnome's bubble.
 pub(super) fn over(cv: &mut Img, run: &Run, garden: Option<&g::Garden>, legible: bool) {
     let party = garden.map_or(Party::Quiet, |gd| gd.party);
     let mut pen = Pen::new(cv, OVER);
@@ -386,8 +339,6 @@ pub(super) fn over(cv: &mut Img, run: &Run, garden: Option<&g::Garden>, legible:
     }
 }
 
-/// Where fairy `k` of `n` is at tick `t`: round the cottage, never quite
-/// straight, with a hiccup of a dip now and then and, less often, a loop.
 fn fairy_at(k: u32, n: u32, t: f32) -> (f32, f32) {
     let (hx, hy) = super::fairy_home();
     let kf = k as f32;
@@ -405,9 +356,6 @@ fn fairy_at(k: u32, n: u32, t: f32) -> (f32, f32) {
     (hx as f32 + a.cos() * 78.0 + lx, hy as f32 + a.sin() * 26.0 + wob + hic + ly)
 }
 
-/// The fairies round the cottage, each with a sparkling trail; more of
-/// them once the party's on. When the house falls they sit on the thatch
-/// with their wings down.
 fn fairies(pen: &mut Pen, run: &Run, party: Party) {
     let tick = run.tick as f32;
     if party == Party::Lost {
@@ -415,7 +363,6 @@ fn fairies(pen: &mut Pen, run: &Run, party: Party) {
         for k in 0..3 {
             let (fx, fy) = (x + 20 + k * (w - 40) / 2, y + 12 + (k % 2) * 4);
             pen.cv.stamp(&super::fairy(1), fx - 3, fy - 3);
-            // A sigh, now and then.
             let a = (run.tick as i32 + k * 31) % 80;
             if a < 12 {
                 pen.light(fx + 3 + a / 4, fy - 4 - a / 3, 'h');
@@ -441,8 +388,6 @@ fn fairies(pen: &mut Pen, run: &Run, party: Party) {
     }
 }
 
-/// The blue folk with a knight near: a bead of sweat down the cap, and an
-/// innocent little whistle.
 fn shifty(pen: &mut Pen, run: &Run) {
     let tick = tick_of(run);
     for (i, &spot) in g::FOLK.iter().enumerate() {
@@ -468,8 +413,6 @@ fn shifty(pen: &mut Pen, run: &Run) {
     }
 }
 
-/// The gnome's mug going up: a glint off it and its foam slopping over,
-/// every time he cheers (`garden::GNOME_CHEERS`).
 fn cheers(pen: &mut Pen, run: &Run) {
     let beat = (run.tick % 72) as f32;
     if beat >= 14.0 {
@@ -482,8 +425,6 @@ fn cheers(pen: &mut Pen, run: &Run) {
     foam.each(beat, |m| pfx::mote(pen, &m, Shape::Droplet, ramps::BONE, 1, run.tick));
 }
 
-/// The party starting: confetti thrown up off the gnome and a ring of
-/// gold opening on the grass round him.
 fn party_starts(pen: &mut Pen, run: &Run) {
     let Some((age, _, line)) = super::said(run, 60) else { return };
     if !line.starts_with("STAY A WHILE") {
@@ -498,8 +439,6 @@ fn party_starts(pen: &mut Pen, run: &Run) {
     confetti(pen, run.tick, (run.tick as u32).wrapping_sub(age as u32), ((gx + 4) as f32, (gy - 18) as f32), a, if pen.calm { 18 } else { 40 });
 }
 
-/// Confetti thrown from `at`, `age` ticks ago, seeded by `seed`: bits of
-/// every party colour, tumbling down.
 fn confetti(pen: &mut Pen, tick: u64, seed: u32, at: (f32, f32), age: f32, n: u32) {
     let spray = Spray { seed, n, at, angle: -PI / 2.0, spread: 2.6, speed: (1.8, 4.2), life: (34.0, 56.0), drag: 0.06, gravity: 0.08, squash: 1.0, stagger: 0.15 };
     spray.each(age, |m| {
@@ -510,8 +449,6 @@ fn confetti(pen: &mut Pen, tick: u64, seed: u32, at: (f32, f32), age: f32, n: u3
     });
 }
 
-/// A guest got in: splinters and crumbs off the hatch, a red ring of the
-/// bite, and its word over the hatch.
 fn bite(pen: &mut Pen, run: &Run, gd: &g::Garden, legible: bool) {
     let Some((when, _)) = gd.bitten else { return };
     let age = run.tick.saturating_sub(when);
@@ -536,17 +473,12 @@ fn bite(pen: &mut Pen, run: &Run, gd: &g::Garden, legible: bool) {
     }
 }
 
-/// The house's bar over its roof while the door is held: a little house,
-/// then a pip for every bite it has left in it, green, then gold, then red
-/// and blinking. The pip a bite just took flashes as it goes, and the bar
-/// jolts.
 fn house_bar(cv: &mut Img, run: &Run, gd: &g::Garden) {
     let (x, y, w, _) = super::px_rect(g::HOUSE);
     let since = gd.bitten.map_or(u64::MAX, |(t, _)| run.tick.saturating_sub(t));
     let jolt = if since < 8 { [2, -2, 1, -1, 1, 0, -1, 0][since as usize] } else { 0 };
     let (bx, by, bw, bh) = (x + 10 + jolt, y - 13, w - 20, 11);
     chrome::panel(cv, (bx, by, bw, bh), chrome::Tone::HEALTH);
-    // The little house.
     let (ix, iy) = (bx + 3, by + 2);
     for (dy, row) in ["..7..", ".777.", "77777", ".iTi.", ".ipi."].iter().enumerate() {
         for (dx, c) in row.chars().enumerate() {
@@ -583,9 +515,6 @@ fn house_bar(cv: &mut Img, run: &Run, gd: &g::Garden) {
     }
 }
 
-/// The house held: rockets up off the lawn bursting in every party
-/// colour, confetti over the cottage, and the door lit, before the
-/// fairies come out with their wish (`magic`).
 fn victory(pen: &mut Pen, run: &Run) {
     let Some(age) = super::ended(run, Party::Held).filter(|&a| a < 90) else { return };
     let a = age as f32;
@@ -594,7 +523,6 @@ fn victory(pen: &mut Pen, run: &Run) {
     if a < 30.0 {
         pen.glow((hx as f32, (hy - 8) as f32), 24.0, 0.7, ramps::HOLY, 1.0 - a / 30.0);
     }
-    // Up off the lawn, bursting over the garden.
     let rockets = [((70, 178), 0.0, (104, 96)), ((314, 178), 5.0, (284, 92)), ((192, 186), 10.0, (192, 132)), ((122, 182), 15.0, (140, 128)), ((262, 182), 20.0, (244, 124))];
     for (k, &((fx, fy), delay, (tx, ty))) in rockets.iter().enumerate() {
         let t = a - delay;
@@ -605,7 +533,6 @@ fn victory(pen: &mut Pen, run: &Run) {
         let from = (fx as f32, fy as f32);
         let top = (tx as f32, ty as f32);
         if t < 10.0 {
-            // Up it goes, a spark trailing.
             let k = ease::out(t / 10.0);
             let p = (from.0 + (top.0 - from.0) * k, from.1 + (top.1 - from.1) * k);
             pen.streak(p, (top.0 - from.0, top.1 - from.1), 6.0, ramps::EMBER, 0.2);
@@ -623,8 +550,6 @@ fn victory(pen: &mut Pen, run: &Run) {
     confetti(pen, run.tick, 0xc0ff, ((x + w / 2) as f32, (y + 14) as f32), a, if pen.calm { 20 } else { 48 });
 }
 
-/// The house fell: a small grey cloud comes over the gnome and rains on
-/// him, for as long as the night is lost.
 fn gloom(pen: &mut Pen, run: &Run) {
     let (gx, gy) = super::gnome_spot(Party::Lost);
     let age = super::ended(run, Party::Lost).map_or(60.0, |a| a as f32);
@@ -652,17 +577,9 @@ fn gloom(pen: &mut Pen, run: &Run) {
     }
 }
 
-// ─── a knight's moment ───────────────────────────────────────────────────────
-
-/// Herbs and spices, tied in a bunch.
 const HERB_ICON: [&str; 9] = ["...y.A...", "..yAyMy..", ".yAYAyMyA", "AyMyAYAy.", ".MyAyMyA.", "..rtttr..", "...lml...", "..l.m.l..", ".l..m..l."];
-/// A mushroom from the bed.
 const SHROOM_ICON: [&str; 9] = ["...qqqq...", ".qqzWzzqq.", "qzzzzzWzzq", "qzWzzzzzWq", "qqzzzWzzqq", ".qqqqqqqq.", "....HiH...", "....HiH...", "...HHHHH.."];
 
-/// A knight who just took the herbs or the mushrooms: a puff and a swirl
-/// about their head, and over it, in a little thought of its own, a
-/// picture of what they took. The herbs make them sneeze; the mushrooms
-/// go round them in a helix as the room starts to turn.
 fn moments(pen: &mut Pen, run: &Run, legible: bool) {
     let Some((age, who, line)) = super::said(run, 76) else { return };
     let herbs = line.starts_with("LOCALLY GROWN");
@@ -684,7 +601,6 @@ fn moments(pen: &mut Pen, run: &Run, legible: bool) {
             let ramp = [ramps::EMBER, ramps::GOLD, ramps::NATURE, ramps::FIRE][m.i as usize % 4];
             pfx::mote(pen, &m, if m.i % 5 == 0 { Shape::Petal } else { Shape::Dot }, ramp, 2, run.tick);
         });
-        // And then the spice gets them.
         if (24.0..48.0).contains(&a) {
             let sneeze = Spray { seed: s ^ 0xac, n: few(12), at: (head.0 + 4.0, head.1 + 4.0), angle: 0.25, spread: 1.1, speed: (1.8, 3.4), life: (8.0, 15.0), drag: 0.1, gravity: 0.1, squash: 1.0, stagger: 0.0 };
             sneeze.each(a - 24.0, |m| pfx::mote(pen, &m, Shape::Dot, if m.i % 2 == 0 { ramps::GOLD } else { ramps::EMBER }, 1, run.tick));
@@ -729,8 +645,6 @@ fn moments(pen: &mut Pen, run: &Run, legible: bool) {
     thought(pen.cv, &Img::from_rows(icon), ((head.0 + sway).round() as i32, (head.1 - 3.0 - up).round() as i32), fade);
 }
 
-/// `icon` in a little round thought, its tail down to `(x, y)`, faded
-/// away through the dither by `fade` (0 whole, 1 gone).
 fn thought(cv: &mut Img, icon: &Img, (x, y): (i32, i32), fade: f32) {
     if fade >= 1.0 {
         return;
@@ -754,15 +668,10 @@ fn thought(cv: &mut Img, icon: &Img, (x, y): (i32, i32), fade: f32) {
     }
 }
 
-// ─── words ───────────────────────────────────────────────────────────────────
-
-/// `text` centred on `x` from row `y`, in `fill` with a rim of `rim` all
-/// round, so it reads on anything.
 fn outlined(cv: &mut Img, text: &str, (x, y): (i32, i32), fill: char, rim: char) {
     outlined_at(cv, text, (x - text_width(text) / 2, y), fill, rim);
 }
 
-/// As `outlined`, from its left edge; returns where the next would go.
 fn outlined_at(cv: &mut Img, text: &str, (x, y): (i32, i32), fill: char, rim: char) -> i32 {
     for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
         cv.text(x + dx, y + dy, text, rim);
@@ -770,8 +679,6 @@ fn outlined_at(cv: &mut Img, text: &str, (x, y): (i32, i32), fill: char, rim: ch
     cv.text(x, y, text, fill)
 }
 
-/// `text` at twice its size centred on `x`, its top at `y`: each letter
-/// in `fill` over a drop of `shade`, raised or sunk by `drop(i)`.
 fn big(cv: &mut Img, text: &str, (x, y): (i32, i32), (fill, shade): (char, char), drop: impl Fn(usize) -> i32) {
     let mut cx = x - text_width(text);
     let mut letter = Img::new(6, 8);
@@ -788,7 +695,6 @@ fn big(cv: &mut Img, text: &str, (x, y): (i32, i32), (fill, shade): (char, char)
     }
 }
 
-/// Who comes through the gates in wave `w`.
 fn who_comes(w: usize) -> String {
     use crate::rules::EnemyKind as K;
     g::WAVES[w]
@@ -804,12 +710,8 @@ fn who_comes(w: usize) -> String {
         .join(" + ")
 }
 
-/// The row the garden's banners stand on: low over the lawn, under the
-/// knights' feet as they mostly stand, clear of the house and its roof.
 const BANNER: i32 = 154;
 
-/// The banner low over the lawn: each wave as it comes in, the house
-/// held, the party over.
 fn banner(cv: &mut Img, run: &Run, party: Party) {
     if let Some((age, _, line)) = super::said(run, 84)
         && let Some(w) = g::WAVE_LINES.iter().position(|l| *l == line)
@@ -833,9 +735,6 @@ fn banner(cv: &mut Img, run: &Run, party: Party) {
     }
 }
 
-/// A banner `age` ticks into its `life`, its top at row `y`: in from the
-/// left past its mark and back, held, and away to the right. A sad one
-/// does not leave; its letters sag one after the next instead.
 #[allow(clippy::too_many_arguments)]
 fn sign(cv: &mut Img, a: f32, life: f32, y: i32, title: &str, sub: &str, inks: (char, char), tone: chrome::Tone, sad: bool) {
     let slide = if a < 14.0 {
@@ -854,7 +753,6 @@ fn sign(cv: &mut Img, a: f32, life: f32, y: i32, title: &str, sub: &str, inks: (
             let k = ((a - 16.0 - i as f32 * 3.0) / 18.0).clamp(0.0, 1.0);
             (ease::out(k) * (2.0 + (i % 3) as f32)).round() as i32
         } else if a < 24.0 {
-            // The letters land one after the next.
             let k = ((a - i as f32 * 0.8) / 8.0).clamp(0.0, 1.0);
             ((1.0 - ease::spring(k)) * -4.0).round() as i32
         } else {
@@ -864,8 +762,6 @@ fn sign(cv: &mut Img, a: f32, life: f32, y: i32, title: &str, sub: &str, inks: (
     cv.text(x + (w - sw) / 2, y + if sad { 26 } else { 21 }, sub, 'h');
 }
 
-/// What the gnome says, from the room's line: his own words without the
-/// numbers (the board has those), and, for the fairies' line, his cheer.
 fn gnome_says(line: &str) -> Option<&str> {
     if line.chars().any(|c| c.is_ascii_lowercase()) {
         return None;
@@ -883,8 +779,6 @@ fn gnome_says(line: &str) -> Option<&str> {
     })
 }
 
-/// `text` broken at its spaces into rows of no more than `most` letters,
-/// three at most.
 fn wrap(text: &str, most: usize) -> Vec<&str> {
     let mut rows = Vec::with_capacity(3);
     let (mut start, mut end) = (0, 0);
@@ -900,8 +794,6 @@ fn wrap(text: &str, most: usize) -> Vec<&str> {
     rows
 }
 
-/// What the gnome just said, in a bubble off to one side of him, its tail
-/// to his hat, for three seconds.
 fn bubble(cv: &mut Img, run: &Run) {
     let Some((age, who, line)) = super::said(run, u64::from(HZ) * 3) else { return };
     let Some(words) = gnome_says(line) else { return };
@@ -910,8 +802,6 @@ fn bubble(cv: &mut Img, run: &Run) {
     let h = rows.len() as i32 * 9 + 4;
     let (gx, gy) = super::gnome_spot(super::here(run).map_or(Party::Quiet, |gd| gd.party));
     let pop = if age < 4 { 2 - age as i32 / 2 } else { 0 };
-    // Off to the side away from the knight it was said to, so it covers
-    // neither of them.
     let left = run.players.get(&who).is_some_and(|h| at(h.x, h.y).0 > gx);
     let x0 = if left { (gx - 6 - w).max(3) } else { (gx + 6).min(cv.w - w - 3) };
     let y0 = gy - 26 - h + pop;

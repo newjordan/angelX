@@ -48,26 +48,15 @@ use super::rooms_lit_look::{Activity, Tone};
 use crate::render::overworld::Img;
 use crate::rules::{Pack, Room, RoomKind, Tile};
 
-/// The generator's version: a lit room's key holds it, so a page never
-/// keeps a set made by another.
 pub const VERSION: u64 = 7;
-/// How many rooms' answers ([`lit_for`]) are kept.
 const KEPT: usize = 8;
-/// How many open floors' pieces are kept made.
 const PIECES_KEPT: usize = 64;
-/// How many set texts a page keeps of those its host sent.
 const RECEIVED_KEPT: usize = 8;
 
-// ------------------------------------------------------------ the room ----
-
-/// A room stood up lit: its tone and its pieces.
 pub struct Lit {
     pub tone: Tone,
-    /// The room as it is laid, its dressing and the generator's version.
     pub key: u64,
-    /// Its dressing's id.
     pub id: &'static str,
-    /// Its pieces across and down: one for a room, more for an open floor.
     pub grid: (i32, i32),
     room: Room,
     dressing: Dressing,
@@ -81,40 +70,22 @@ impl std::fmt::Debug for Lit {
     }
 }
 
-/// One piece of a lit room: a set of its own (a room's whole, or a chunk
-/// of an open floor's map), in the room's own stage pixels.
 pub struct Piece {
     pub cell: (i32, i32),
-    /// The room's tiles it stands for: column, row, width, height.
     pub tiles: Rect,
     pub key: u64,
-    /// Its set's text: the shapes, the ground, the lamps, and its flames as
-    /// `# flame` lines the set leaves to the frame.
     pub text: Arc<str>,
     pub set: Set,
-    /// Its flames (torches, braziers: `# flame` lines), drawn each frame as
-    /// the room's activity says, in their own colour.
     pub flames: Vec<Shape>,
-    /// What glows rather than flickers (`# coals` lines: a hearth's bed; `#
-    /// lava` lines: lava), drawn each frame lit warm by its own lamps.
     pub coals: Vec<Shape>,
     pub lava: Vec<Shape>,
-    /// Its water (`# water` lines), drawn each frame darker than the set's
-    /// own water kind, so it runs on its ramp instead of sitting at the top
-    /// of it.
     pub water: Vec<Shape>,
-    /// Which of the set's lamps light lava, which burns whatever the room
-    /// is doing.
     pub steady: Vec<bool>,
-    /// The box its blocks fill on the room's stage, low and high corners.
     pub bounds: ([f32; 3], [f32; 3]),
     made: OnceLock<(Vec<Node>, Vec<Node>, Option<Arc<MeshData>>)>,
 }
 
 impl Piece {
-    /// Its set's world, lit and toned (`Set::lit_world_nodes`), unplaced:
-    /// what lies on the floor (its ground first), what stands, and its
-    /// ground's mesh (uploaded as `ground_mesh_id(key)`). Made once.
     pub fn nodes(&self) -> &(Vec<Node>, Vec<Node>, Option<Arc<MeshData>>) {
         self.made.get_or_init(|| {
             let (floor, blocks, mesh) = self.set.lit_world_nodes(ground_mesh_id(self.key));
@@ -122,30 +93,24 @@ impl Piece {
         })
     }
 
-    /// Its lamps as a look lights with them, unplaced.
     pub fn lamps(&self) -> Vec<Lamp> {
         self.set.look_lamps()
     }
 }
 
 impl Lit {
-    /// Its room's size in its own stage pixels.
     pub fn stage(&self) -> (f32, f32) {
         (self.room.cols as f32 * TILE, self.room.rows as f32 * TILE)
     }
 
-    /// Whether it is an open floor's map, stood up in pieces.
     pub fn open(&self) -> bool {
         self.grid != (1, 1)
     }
 
-    /// The room it stands for.
     pub fn room(&self) -> &Room {
         &self.room
     }
 
-    /// Piece `cell`, made the first time it is asked for; `None` off the
-    /// grid or when its set does not read.
     pub fn piece(&self, (cx, cz): (i32, i32)) -> Option<Arc<Piece>> {
         if !(0..self.grid.0).contains(&cx) || !(0..self.grid.1).contains(&cz) {
             return None;
@@ -154,15 +119,10 @@ impl Lit {
         slot.get_or_init(|| self.make_piece((cx, cz))).clone()
     }
 
-    /// Every piece.
     pub fn every_piece(&self) -> Vec<Arc<Piece>> {
         (0..self.grid.1).flat_map(|cz| (0..self.grid.0).map(move |cx| (cx, cz))).filter_map(|c| self.piece(c)).collect()
     }
 
-    /// The pieces near a view of `[x0, z0, x1, z1]` (the room's stage
-    /// pixels): every piece of a room; of an open floor those the view
-    /// overlaps, made when first asked for, and a ring round them, of which
-    /// at most [`RING_A_CALL`] not yet made are made a call.
     pub fn near(&self, view: [f32; 4]) -> Vec<Arc<Piece>> {
         if !self.open() {
             return self.every_piece();
@@ -190,16 +150,12 @@ impl Lit {
 
     fn make_piece(&self, cell: (i32, i32)) -> Option<Arc<Piece>> {
         if !self.open() {
-            // A one-screen room: the text its host sent, when a page was
-            // sent it; else made here.
             let text = received(self.key).unwrap_or_else(|| room_text(&self.room, &self.dressing, true, None).into());
             return piece_of_text(cell, (0, 0, self.room.cols as i32, self.room.rows as i32), self.key, text);
         }
         type Kept = Mutex<VecDeque<(u64, Arc<Piece>)>>;
         static KEPT_PIECES: Kept = Mutex::new(VecDeque::new());
         let (tiles, crop) = piece_rects(&self.room, true, cell);
-        // Kept by its own tiles and the ring round them (a gate shutting
-        // elsewhere keeps it), its dressing and the generator's version.
         let mut key = 0x9E37_79B9_7F4A_7C15 ^ VERSION;
         for &byte in self.dressing.id.as_bytes() {
             key = (key ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3);
@@ -214,9 +170,6 @@ impl Lit {
         for v in [crop.0, crop.1, crop.2, crop.3, tiles.0, tiles.1, tiles.2, tiles.3] {
             mix(v as u64);
         }
-        // The ground round its edge is the map's (the tiles a corner looks
-        // at), and its rock rises as far as the map's floor north of it lets
-        // it (`rooms_lit_mass::CORE_REACH` tiles).
         for r in (crop.1 - super::rooms_lit_mass::CORE_REACH)..(crop.1 + crop.3 + 1) {
             for c in (crop.0 - 1)..(crop.0 + crop.2 + 1) {
                 mix(self.room.tile(c, r) as u64);
@@ -238,8 +191,6 @@ impl Lit {
         Some(piece)
     }
 
-    /// The text of its one piece, for a page across a wire (`None` for an
-    /// open floor, whose pieces a page makes itself).
     pub fn text(&self) -> Option<Arc<str>> {
         if self.open() {
             return None;
@@ -249,7 +200,6 @@ impl Lit {
 
 }
 
-/// A piece made of set text `text`: `None` when it does not read.
 fn piece_of_text(cell: (i32, i32), tiles: Rect, key: u64, text: Arc<str>) -> Option<Arc<Piece>> {
     let set = Set::parse(&text)
         .map_err(|why| tracing::warn!("world3d: a lit room's set does not read: {:?}", why.first()))
@@ -270,8 +220,6 @@ fn piece_of_text(cell: (i32, i32), tiles: Rect, key: u64, text: Arc<str>) -> Opt
     Some(Arc::new(Piece { cell, tiles, key, text, set, flames, coals, lava, water, steady, bounds, made: OnceLock::new() }))
 }
 
-/// The shapes text `text` holds under comment `prefix`, read as shapes of
-/// the same set.
 fn lines_of(text: &str, set: &Set, prefix: &str) -> Vec<Shape> {
     let mut body = String::new();
     let (w, h) = set.camera.size();
@@ -284,16 +232,11 @@ fn lines_of(text: &str, set: &Set, prefix: &str) -> Vec<Shape> {
     Set::parse(&body).map(|s| s.shapes).unwrap_or_default()
 }
 
-/// The comments a flame's, a bed of coals' and lava's lines are written
-/// under: the frame draws them, not the set.
 const FLAME: &str = "# flame ";
 const COALS: &str = "# coals ";
 const LAVA: &str = "# lava ";
 const WATER: &str = "# water ";
 
-/// The tone water is drawn with in a lit room: below the set's water kind's
-/// (`Kind::Water`, 0.5, the kingdom's rivers under the sky), so a pool in a
-/// dark room runs on the middle of its ramp, banded and glinting.
 pub const WATER_TONE: f32 = 0.3;
 
 fn bounds_of(set: &Set, (c, r, w, h): Rect) -> ([f32; 3], [f32; 3]) {
@@ -308,12 +251,6 @@ fn bounds_of(set: &Set, (c, r, w, h): Rect) -> ([f32; 3], [f32; 3]) {
     (lo, hi)
 }
 
-// ------------------------------------------------------------ the rooms ----
-
-/// The number a lit room is kept under: the room as it is laid, its
-/// dressing, its delve, and the generator's version. The same on a host and
-/// on a page in a browser (FNV-1a over fixed-width words, not the standard
-/// hasher, whose `usize` is the build's own width).
 fn key_of(room: &Room, dressing: &Dressing) -> u64 {
     let mut key = 0xcbf2_9ce4_8422_2325u64 ^ VERSION.rotate_left(41);
     let mut mix = |v: u64| {
@@ -344,9 +281,6 @@ fn key_of(room: &Room, dressing: &Dressing) -> u64 {
     key
 }
 
-/// Room `room` (on a floor of `pack`) stood up lit: `None` for a room never
-/// drawn so (the kingdom, the side-on halls). Kept for the last few rooms
-/// asked about.
 pub fn lit_for(room: &Room, pack: Pack) -> Option<Arc<Lit>> {
     type Kept = Mutex<VecDeque<(u64, Arc<Lit>)>>;
     static KEPT_ROOMS: Kept = Mutex::new(VecDeque::new());
@@ -382,19 +316,13 @@ pub fn lit_for(room: &Room, pack: Pack) -> Option<Arc<Lit>> {
     Some(lit)
 }
 
-/// How far a lit delve's own lamps reach in 3D, of what its tone throws
-/// (`rooms_lit_look::Tone::lamp_gain`): pools, not a wash over the stone.
 pub const DEEP_LAMP_REACH: f32 = 0.95;
 
-/// The set texts a page was sent (`receive`), by key.
 fn received_texts() -> &'static Mutex<VecDeque<(u64, Arc<str>)>> {
     static RECEIVED: Mutex<VecDeque<(u64, Arc<str>)>> = Mutex::new(VecDeque::new());
     &RECEIVED
 }
 
-/// Keep a lit room's set text its host sent (`wire::take_world_item`): a
-/// page with no asset folder draws its landmark so. False when it does not
-/// read.
 pub fn receive(key: u64, text: &str) -> bool {
     if Set::parse(text).is_err() {
         return false;
@@ -414,11 +342,6 @@ fn received(key: u64) -> Option<Arc<str>> {
     received_texts().lock().ok()?.iter().find(|(k, _)| *k == key).map(|(_, t)| Arc::clone(t))
 }
 
-/// A solid's line in a room's set. In a delve (docs/WORLD-3D.md, "Deeper
-/// floors") the top of what stands, a wall or a pillar, a shelf or a tomb,
-/// is a step lighter than its faces: the light catches its edge, so a
-/// party reads what stands in its way against the floor, which the same
-/// light lies on. The class's ceiling (docs/BRAND.md) still holds it.
 fn capped(s: &Solid, dungeon: bool) -> String {
     let line = blockout::line(s);
     if !dungeon || s.shape != blockout::Shape::Box || s.size[1] < CAP_HEIGHT {
@@ -434,17 +357,11 @@ fn capped(s: &Solid, dungeon: bool) -> String {
     }
 }
 
-/// The tones a lit delve's set gives the kinds the brand guide has darkest
-/// (`Kind::tone` has them at 13, 12 and 14).
 const DEEP_TONES: [(&str, u8); 3] = [("foliage", 24), ("trunk", 20), ("hedge", 22)];
 
-/// How high a solid stands before its top is lit as a cap, and how much
-/// lighter the cap is than its kind's tone.
 const CAP_HEIGHT: f32 = 5.0;
 const CAP_LIFT: f32 = 1.9;
 
-/// The landmark a place's room stands (`blockout::landmark`), when the room
-/// is laid as its item's own: an item built over keeps none.
 fn landmark_of(room: &Room, dressing: &Dressing) -> Option<String> {
     let item = super::pilot::all().iter().find(|i| i.id() == dressing.id)?;
     if !matches!(item.source, super::pilot::Source::Place(_)) || !super::fit::same_tiles(&item.room(), room) {
@@ -453,13 +370,6 @@ fn landmark_of(room: &Room, dressing: &Dressing) -> Option<String> {
     blockout::landmark(dressing.id)
 }
 
-// ------------------------------------------------------------- the text ----
-
-/// The lit set of `room` dressed `dressing`: its blockout made monolithic,
-/// its ground, its lamps and its flames. Of a whole room (`piece` none),
-/// with its landmark when `landmark`; of an open floor's piece, the blockout
-/// of its tiles and the map's ring round them (`crop`), cut back to its own
-/// tiles (`tiles`), placed on the map.
 pub fn room_text(room: &Room, dressing: &Dressing, landmark: bool, piece: Option<(Rect, Rect)>) -> String {
     let (tiles, crop) = piece.unwrap_or(((0, 0, room.cols as i32, room.rows as i32), (0, 0, room.cols as i32, room.rows as i32)));
     let cut = if piece.is_some() { crop_room(room, crop) } else { room.clone() };
@@ -479,7 +389,6 @@ pub fn room_text(room: &Room, dressing: &Dressing, landmark: bool, piece: Option
             groups.push(Group::new(Role::Prop, "braziers on an open floor's walls", braziers));
         }
     }
-    // What stands, placed on the map; what burns apart.
     let dungeon = matches!(dressing.setting, Setting::Dungeon(_));
     let origin = [crop.0 as f32 * TILE, crop.1 as f32 * TILE];
     let keep = blockout::px((tiles.0 - crop.0, tiles.1 - crop.1, tiles.2, tiles.3));
@@ -523,9 +432,6 @@ pub fn room_text(room: &Room, dressing: &Dressing, landmark: bool, piece: Option
     let _ = writeln!(out, "# from the room as the game lays it, tiles {},{} {}x{}.", tiles.0, tiles.1, tiles.2, tiles.3);
     let _ = writeln!(out, "camera room {} {}", num(w), num(h));
     if dungeon {
-        // The growth of the deep (a mushroom's cap and stalk) stands in a
-        // lit delve at the middle of the mass class (docs/BRAND.md), not the
-        // bottom of it, so it reads against the floor.
         for (kind, tone) in DEEP_TONES {
             let _ = writeln!(out, "tone {kind} {tone}");
         }
@@ -544,7 +450,6 @@ pub fn room_text(room: &Room, dressing: &Dressing, landmark: bool, piece: Option
     let _ = writeln!(out, "\n# where something burns");
     let fires: Vec<Solid> = flames.iter().chain(&coals).cloned().collect();
     let mut lamps = lamps_of(&fires, &lava);
-    // Out of doors, a lit window warms the ground before it: people are in.
     if matches!(dressing.setting, Setting::Outdoor { .. } | Setting::Courtyard { .. }) {
         for s in groups.iter().flat_map(|g| &g.solids).filter(|s| s.kind == Kind::Window) {
             let at = [s.at[0] + origin[0], s.at[1], s.at[2] + origin[1]];
@@ -557,7 +462,6 @@ pub fn room_text(room: &Room, dressing: &Dressing, landmark: bool, piece: Option
             lamps.push(Lamp { at, reach: 34.0, strength: 0.5 });
         }
     }
-    // The way down is lit.
     let stairs: Vec<Option<()>> = (tiles.1..tiles.1 + tiles.3)
         .flat_map(|r| (tiles.0..tiles.0 + tiles.2).map(move |c| (c, r)))
         .map(|(c, r)| (room.tile(c, r) == Tile::Stairs).then_some(()))
@@ -572,18 +476,10 @@ pub fn room_text(room: &Room, dressing: &Dressing, landmark: bool, piece: Option
     out
 }
 
-/// How far down a pit goes, and the water, lava and spores' beds; how high
-/// the ground rises under what stands on blocked tiles (a dais, below a
-/// boot: `blockout::LOW`).
 const PIT: f32 = 36.0;
 const BED: f32 = 9.0;
 const DAIS: f32 = 3.0;
 
-/// The ground of tiles `tiles` of `room` dressed `d`: a height field a
-/// quarter of a tile apart (a half for a great room), at the floor line but
-/// where every tile a corner touches is a hazard (sunk to its bed, a pit
-/// deep), each corner toned as what its tiles' floor is, darker at the foot
-/// of what stands.
 pub fn ground_line(room: &Room, d: &Dressing, (c0, r0, w, h): Rect) -> String {
     let step = if w * h <= 30 * 18 { TILE / 4.0 } else { TILE / 2.0 };
     let per = (TILE / step) as i32;
@@ -594,7 +490,6 @@ pub fn ground_line(room: &Room, d: &Dressing, (c0, r0, w, h): Rect) -> String {
             Tile::Hazard if pit => 0.0,
             Tile::Hazard => 10.0,
             Tile::Bog => Kind::Mud.tone() * 100.0 * ground_scale(d),
-            // The way down: a landing brighter than the floor.
             Tile::Stairs => Kind::Path.tone() * 100.0,
             Tile::Wall | Tile::Block => ground_tone(d, c, r) * 0.7,
             _ => ground_tone(d, c, r),
@@ -607,7 +502,6 @@ pub fn ground_line(room: &Room, d: &Dressing, (c0, r0, w, h): Rect) -> String {
     for j in 0..=rows {
         for i in 0..=cols {
             let (x, z) = ((c0 * per + i) as f32 * step, (r0 * per + j) as f32 * step);
-            // The tiles the corner touches, those in the room.
             let (ca, cb) = (((x - 0.01) / TILE).floor() as i32, ((x + 0.01) / TILE).floor() as i32);
             let (ra, rb) = (((z - 0.01) / TILE).floor() as i32, ((z + 0.01) / TILE).floor() as i32);
             let mut touch = Vec::with_capacity(4);
@@ -619,7 +513,6 @@ pub fn ground_line(room: &Room, d: &Dressing, (c0, r0, w, h): Rect) -> String {
                 }
             }
             let sunk = !touch.is_empty() && touch.iter().all(|&(c, r)| room.tile(c, r) == Tile::Hazard);
-            // What stands on blocked tiles stands on a dais of the ground.
             let raised = !touch.is_empty() && touch.iter().all(|&(c, r)| room.tile(c, r) == Tile::Block);
             let depth = if raised {
                 DAIS
@@ -633,12 +526,10 @@ pub fn ground_line(room: &Room, d: &Dressing, (c0, r0, w, h): Rect) -> String {
             heights.push(depth);
             let mut tone = touch.iter().map(|&(c, r)| tile_tone(c, r)).sum::<f32>() / touch.len().max(1) as f32;
             if !sunk {
-                // Flags and earth vary a little, tile by tile and across.
                 let (tc, tr) = ((x / TILE).floor() as i32, (z / TILE).floor() as i32);
                 let v = crate::render::overworld::ink::hash(tc, tr, 0x5107) % 5;
                 let n = crate::render::overworld::ink::vnoise(x / 56.0, z / 44.0, 0x51);
                 tone *= 0.96 + 0.02 * v as f32 + 0.08 * (n - 0.5);
-                // Darker at the foot of what stands: a tile's width round it.
                 let near = (-1..=1).flat_map(|dr| (-1..=1).map(move |dc| (dc, dr))).any(|(dc, dr)| {
                     let (c, r) = (((x + dc as f32 * step * 1.5) / TILE).floor() as i32, ((z + dr as f32 * step * 1.5) / TILE).floor() as i32);
                     (0..room.cols as i32).contains(&c) && (0..room.rows as i32).contains(&r) && blocked(c, r)
@@ -667,25 +558,13 @@ pub fn ground_line(room: &Room, d: &Dressing, (c0, r0, w, h): Rect) -> String {
     out
 }
 
-/// A delve's floor is not lit evenly: spill falls from each door along a lane
-/// toward the room's heart, brightest at the door and dimming as it goes, its
-/// edge crisp, and the floor darkens toward the walls, so the fight sits in
-/// the light and the rim falls away (light = activity). A lane is this much
-/// brighter than the floor beside it at its door, this many tiles wide, its
-/// soft edge starting this much of the way out from its middle, and dimming
-/// by this much toward the room's heart.
 const LANE_GAIN: f32 = 0.70;
 const LANE_WIDTH: f32 = 2.5;
 const LANE_EDGE: f32 = 0.8;
 const LANE_FADE: f32 = 0.7;
-/// The floor loses this much toward the rim, from this much of the way out
-/// from the room's middle (1 is the middle of a wall; a corner is 1.41).
 const RIM_DARK: f32 = 0.45;
 const RIM_FROM: f32 = 0.30;
 
-/// The door tiles' middles of a delve room whose floor is lit by them: the
-/// whole room of a delve (a piece of an open floor's map has no middle of
-/// its own), none otherwise.
 fn floor_doors(room: &Room, d: &Dressing, (c0, r0, w, h): Rect) -> Option<Vec<(f32, f32)>> {
     let whole = (c0, r0, w, h) == (0, 0, room.cols as i32, room.rows as i32);
     if !whole || !matches!(d.setting, Setting::Dungeon(_)) {
@@ -700,9 +579,6 @@ fn floor_doors(room: &Room, d: &Dressing, (c0, r0, w, h): Rect) -> Option<Vec<(f
     )
 }
 
-/// What floor point `(x, z)` of `room` has its tone scaled by, for the light
-/// that falls from `doors` and the dark of the rim: more than 1 in a lane,
-/// less toward the walls, 1 for nothing of either.
 fn floor_light(room: &Room, doors: &[(f32, f32)], x: f32, z: f32) -> f32 {
     let smooth = |a: f32, b: f32, v: f32| {
         let t = ((v - a) / (b - a)).clamp(0.0, 1.0);
@@ -712,7 +588,6 @@ fn floor_light(room: &Room, doors: &[(f32, f32)], x: f32, z: f32) -> f32 {
     let (cx, cz) = (w / 2.0, h / 2.0);
     let out = (((x - cx) / (w / 2.0)).powi(2) + ((z - cz) / (h / 2.0)).powi(2)).sqrt();
     let mut k = 1.0 - RIM_DARK * smooth(RIM_FROM, 1.2, out);
-    // The nearest lane: each door to the room's middle.
     let mut lane: Option<(f32, f32)> = None;
     for &(dx, dz) in doors {
         let (ex, ez) = (cx - dx, cz - dz);
@@ -728,13 +603,6 @@ fn floor_light(room: &Room, doors: &[(f32, f32)], x: f32, z: f32) -> f32 {
     k
 }
 
-/// An open floor's map is lit from its passages. Each passage opens on its
-/// chamber through a mouth, a gap in the wall line, and spill falls from it:
-/// a lane this much brighter than the floor beside it at the mouth, this many
-/// tiles long into the chamber, dimming by this much along it, its edge
-/// crisp, and this many tiles back down the passage. The floor darkens toward
-/// every wall by this much, from half a tile of it to this many tiles out, so
-/// a chamber's middle is the light and its passages are dark.
 const MOUTH_GAIN: f32 = 0.70;
 const MOUTH_REACH: f32 = 8.0;
 const MOUTH_FADE: f32 = 0.70;
@@ -742,40 +610,24 @@ const MOUTH_BACK: f32 = 3.0;
 const WALL_DARK: f32 = 0.45;
 const WALL_NEAR: f32 = 0.5;
 const WALL_FAR: f32 = 5.0;
-/// A mouth is a gap of this many tiles along a wall line.
 const MOUTH_WIDTH: std::ops::RangeInclusive<i32> = 2..=8;
-/// Braziers burn on an open floor: one on each jamb of a mouth (but the near
-/// wall's), one along a long wall every this many tiles, one on this many in
-/// a hundred of what stands on blocked tiles, a wall's flame this high over
-/// the floor.
 const SCONCE_EVERY: i32 = 12;
 const PILLAR_SHARE: u32 = 20;
 const BRAZIER_TOP: f32 = 24.0;
 
-/// A way into a chamber of an open floor's map: a gap in the wall line of a
-/// few tiles, a passage's mouth (or a doorway), where light falls from.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Mouth {
-    /// The middle of the gap on the chamber's side of the wall line.
     at: [f32; 2],
-    /// The way into the chamber, a unit step along an axis.
     into: [i32; 2],
-    /// Half the gap's width, in px.
     half: f32,
-    /// The wall tiles either side of the gap (its jambs).
     jambs: [(i32, i32); 2],
 }
 
-/// The mouths of `map` whose gap starts in tiles `within`: a run of
-/// walkable tiles (or doorways) along a wall line, walls at both its ends, the
-/// chamber wider than the gap on one side of it and a passage (or nothing
-/// but a doorway's own tiles) on the other.
 fn mouths(map: &Room, (c0, r0, w, h): Rect) -> Vec<Mouth> {
     let walk = |c: i32, r: i32| blockout::walkable(map.tile(c, r));
     let wall = |c: i32, r: i32| map.tile(c, r) == Tile::Wall;
     let door = |c: i32, r: i32| map.tile(c, r) == Tile::Door;
     let mut out = Vec::new();
-    // Gaps along a row: the chamber is south of it (a mouth looking south) or north.
     for r in r0..r0 + h {
         let mut c = c0;
         while c < c0 + w {
@@ -800,7 +652,6 @@ fn mouths(map: &Room, (c0, r0, w, h): Rect) -> Vec<Mouth> {
             c = e;
         }
     }
-    // Gaps down a column: the chamber is east of it (a mouth looking east) or west.
     for c in c0..c0 + w {
         let mut r = r0;
         while r < r0 + h {
@@ -828,21 +679,17 @@ fn mouths(map: &Room, (c0, r0, w, h): Rect) -> Vec<Mouth> {
     out
 }
 
-/// The light of an open floor's map: spill from its mouths, dark toward its
-/// walls.
 struct OpenLight<'a> {
     map: &'a Room,
     mouths: Vec<Mouth>,
 }
 
 impl OpenLight<'_> {
-    /// What floor point `(x, z)`'s tone is scaled by.
     fn at(&self, x: f32, z: f32) -> f32 {
         let smooth = |a: f32, b: f32, v: f32| {
             let t = ((v - a) / (b - a)).clamp(0.0, 1.0);
             t * t * (3.0 - 2.0 * t)
         };
-        // The nearest wall, no further than the dark reaches.
         let (c, r) = ((x / TILE).floor() as i32, (z / TILE).floor() as i32);
         let span = WALL_FAR.ceil() as i32 + 1;
         let mut near = WALL_FAR * TILE;
@@ -856,7 +703,6 @@ impl OpenLight<'_> {
             }
         }
         let dark = WALL_DARK * (1.0 - smooth(WALL_NEAR * TILE, WALL_FAR * TILE, near));
-        // The brightest lane there is at this point.
         let mut lane = 0.0f32;
         for m in &self.mouths {
             let (px, pz) = (x - m.at[0], z - m.at[1]);
@@ -873,9 +719,6 @@ impl OpenLight<'_> {
     }
 }
 
-/// The light of tiles `tiles` of `room` dressed `d`: a delve's open map is
-/// lit from its mouths and dark toward its walls; none for a room, a place or
-/// a chunk of the kingdom.
 fn open_light<'a>(room: &'a Room, d: &Dressing, (c0, r0, w, h): Rect) -> Option<OpenLight<'a>> {
     if room.kind != RoomKind::Depths || !matches!(d.setting, Setting::Dungeon(_)) {
         return None;
@@ -884,11 +727,6 @@ fn open_light<'a>(room: &'a Room, d: &Dressing, (c0, r0, w, h): Rect) -> Option<
     Some(OpenLight { map: room, mouths: mouths(room, (c0 - reach, r0 - reach, w + 2 * reach, h + 2 * reach)) })
 }
 
-/// The braziers of an open floor's piece `tiles` (the blockout of `groups`
-/// cut from `crop`), a bowl and its flame each, in the crop's own pixels:
-/// on top of the wall at each jamb of a mouth and along a long wall now and
-/// then, never on a wall that looks on the camera, and on some of what
-/// stands on blocked tiles.
 fn open_braziers(map: &Room, d: &Dressing, tiles: Rect, crop: Rect, groups: &[Group]) -> Vec<Solid> {
     if map.kind != RoomKind::Depths || !matches!(d.setting, Setting::Dungeon(_)) {
         return Vec::new();
@@ -902,7 +740,6 @@ fn open_braziers(map: &Room, d: &Dressing, tiles: Rect, crop: Rect, groups: &[Gr
             Solid::new(blockout::Shape::Cone, Kind::Fire, [x, y + 3.0, z], [6.0, 7.8, 6.0]),
         ]
     };
-    // The walls beside the mouths of the piece and a margin round it.
     let jambs: Vec<(i32, i32)> = mouths(map, (c0 - 8, r0 - 8, w + 16, h + 16)).into_iter().filter(|m| m.into != [0, -1]).flat_map(|m| m.jambs).collect();
     let mut wanted: Vec<(i32, i32)> = jambs.iter().copied().filter(|&(c, r)| inside(c, r)).collect();
     for r in r0..r0 + h {
@@ -910,7 +747,6 @@ fn open_braziers(map: &Room, d: &Dressing, tiles: Rect, crop: Rect, groups: &[Gr
             if map.tile(c, r) != Tile::Wall || jambs.iter().any(|&(jc, jr)| (jc - c).abs().max((jr - r).abs()) < 6) {
                 continue;
             }
-            // A wall looking south (its floor to the south), west or east, each along a slant of its own.
             let slant = if walk(c, r + 1) {
                 c + 5 * r
             } else if walk(c + 1, r) {
@@ -929,7 +765,6 @@ fn open_braziers(map: &Room, d: &Dressing, tiles: Rect, crop: Rect, groups: &[Gr
     for (c, r) in wanted {
         out.extend(brazier((c - crop.0) as f32 * TILE + TILE / 2.0, (r - crop.1) as f32 * TILE + TILE / 2.0, BRAZIER_TOP));
     }
-    // What stands on a blocked tile: the highest of what stands over it.
     let mut stands: Vec<(i32, i32, f32, [f32; 2])> = Vec::new();
     for s in groups.iter().filter(|g| g.role == Role::Prop).flat_map(|g| &g.solids) {
         let [x0, z0, x1, z1] = s.footprint();
@@ -954,8 +789,6 @@ fn open_braziers(map: &Room, d: &Dressing, tiles: Rect, crop: Rect, groups: &[Gr
     out
 }
 
-/// The tone (0 to 100) of the floor of tile `(c, r)`: its ground kind's
-/// (`Kind::tone`), as the generator lays its ground.
 fn ground_tone(d: &Dressing, c: i32, r: i32) -> f32 {
     let kind = match d.setting {
         Setting::Indoor | Setting::Hall => Kind::Floor,
@@ -983,8 +816,6 @@ fn ground_tone(d: &Dressing, c: i32, r: i32) -> f32 {
     kind.tone() * 100.0 * ground_scale(d)
 }
 
-/// How much of its kind's tone a room's floor has: [`GROUND_TONE`], but a
-/// delve below Dragon Keep, which is lit low, keeps [`DEEP_GROUND_TONE`].
 fn ground_scale(d: &Dressing) -> f32 {
     match d.setting {
         Setting::Dungeon(Pack::Hellforge) => GROUND_TONE,
@@ -993,16 +824,9 @@ fn ground_scale(d: &Dressing) -> f32 {
     }
 }
 
-/// The ground under the room's masses is darker than the kind's own tone:
-/// the floor is the dark field what stands and the knights read against.
 pub const GROUND_TONE: f32 = 0.72;
-/// A delve's own (Dragon Keep's keeps [`GROUND_TONE`]): the floor is the
-/// field what stands reads against, but not so dark the field is the void.
 pub const DEEP_GROUND_TONE: f32 = 0.84;
 
-/// The lamps of flames `flames` and lava `lava`: a lamp over each flame
-/// (flames within a hand of each other one lamp), its reach by its size; a
-/// lamp every few tiles along a lava pool.
 pub fn lamps_of(flames: &[Solid], lava: &[Solid]) -> Vec<Lamp> {
     let mut lamps: Vec<(Lamp, f32)> = Vec::new();
     for f in flames {
@@ -1033,7 +857,6 @@ fn pool_rect(s: &Solid) -> [f32; 4] {
     s.footprint()
 }
 
-/// How far a flame `size` across lights.
 fn lamp_reach(size: f32) -> f32 {
     if size >= 12.0 {
         104.0
@@ -1044,19 +867,12 @@ fn lamp_reach(size: f32) -> f32 {
     }
 }
 
-// ----------------------------------------------------------- the frame ----
-
-/// A deep ember: the crust of lava and of a bed of coals, an accent.
 pub use super::rooms_lit_look::EMBER_DEEP;
 
-/// A colour kept as it is (an accent of the room's look).
 fn accent([r, g, b]: [u8; 3]) -> Material {
     Material { accent: true, ..Material::color([f32::from(r) / 255.0, f32::from(g) / 255.0, f32::from(b) / 255.0, 1.0]) }
 }
 
-/// The cracks of fire across bed `bed` (its top), a few to a tile, each
-/// showing for a part of every few seconds at `t` (none at all when `t` is
-/// 0: a quiet bed's few still cracks).
 fn cracks(bed: &Shape, seed: u32, t: f32) -> Vec<Shape> {
     let Some(mesh) = angel_stage::shapes::by_name("box") else {
         return Vec::new();
@@ -1074,7 +890,6 @@ fn cracks(bed: &Shape, seed: u32, t: f32) -> Vec<Shape> {
         if lx <= 0.5 || lz <= 0.5 {
             continue;
         }
-        // Each crack shows for part of its own cycle.
         let phase = ((v >> 24) & 0xFF) as f32 / 255.0;
         if t > 0.0 && ((t * 0.35 + phase).fract() > 0.7) {
             continue;
@@ -1089,15 +904,9 @@ fn cracks(bed: &Shape, seed: u32, t: f32) -> Vec<Shape> {
     out
 }
 
-/// The flames of `pieces` as a frame draws them, unplaced: full and
-/// flickering while the room burns, low embers that only the lamps warm
-/// once it is quiet. Ids of their own.
 pub fn flame_nodes(pieces: &[Arc<Piece>], activity: Activity, t: f32, fire: [u8; 3]) -> Vec<Node> {
     let mut out = Vec::new();
     for (p, piece) in pieces.iter().enumerate() {
-        // Beds of coals and lava: a deep ember crust, cracked with fire that
-        // comes and goes; coals sink to a dark crust with the room, lava
-        // burns on.
         let beds = piece.coals.iter().map(|s| (s, activity == Activity::Cleared)).chain(piece.lava.iter().map(|s| (s, false)));
         let mut n = 0u64;
         let mut push = |out: &mut Vec<Node>, mesh, transform, material| {
@@ -1124,7 +933,6 @@ pub fn flame_nodes(pieces: &[Arc<Piece>], activity: Activity, t: f32, fire: [u8;
             let material = match activity {
                 Activity::Cleared => {
                     shape.size[1] *= 0.35;
-                    // Embers: a warm-lit stone, not a light of its own.
                     Material::lit([0.55, 0.55, 0.55, 1.0], 0.0)
                 }
                 _ => {
@@ -1140,33 +948,18 @@ pub fn flame_nodes(pieces: &[Arc<Piece>], activity: Activity, t: f32, fire: [u8;
     out
 }
 
-/// How many of what burns in flight (an ember, a fireball, a blast) light
-/// a lit room as lamps, of its look's eight.
 pub const SPARKS: usize = 3;
 
-/// A lit room on a stage, as a frame hands it to a window and a page.
 pub struct Staged {
-    /// What lies on the floor (each piece's ground first), what stands, and
-    /// the flames, placed on the stage.
     pub floor: Vec<Node>,
     pub blocks: Vec<Node>,
     pub flames: Vec<Node>,
-    /// The pieces' grounds, to upload (`ground_mesh_id` of each key).
     pub meshes: Vec<(u32, Arc<MeshData>)>,
-    /// The pieces drawn, in the order their nodes are: key and set text.
     pub sets: Vec<(u64, Arc<str>)>,
-    /// The look it is drawn through.
     pub look: angel_stage::look::Look,
 }
 
 impl Lit {
-    /// The room on a stage: its set's pixel `p` at `p * scale + offset`,
-    /// the stage `view` pixels big showing `rect` of the room's stage
-    /// (`[x0, z0, x1, z1]`), only the pieces `seen` says are in sight (the
-    /// box each fills, on the stage); burning as `moment` says, the knight's
-    /// chest (`moment.chest`, the room's own pixels, `zoom` times as big on
-    /// the stage) kept in sight; `sparks` (what burns in flight, the room's
-    /// own pixels, the strongest first) lighting it before its own lamps.
     pub fn staged(
         &self,
         (scale, offset): (f32, [f32; 3]),
@@ -1204,8 +997,6 @@ impl Lit {
         let centre = [view.0 / 2.0, 0.0, view.1 / 2.0];
         let reach = view.0.hypot(view.1);
         let chest = moment.chest.map(|[x, y, z]| [x * zoom + offset[0], y * zoom, z * zoom + offset[2]]);
-        // As the party first comes down into the deep, the room's lamps come
-        // up one after another from the party out (`room::beat`).
         if moment.rise < 1.0 {
             let from = chest.unwrap_or(centre);
             let far = |l: &Lamp| (l.at[0] - from[0]).hypot(l.at[2] - from[2]);
@@ -1214,18 +1005,12 @@ impl Lit {
                 lamp.strength *= super::room::lamp_up(moment.rise, far(lamp) / farthest);
             }
         }
-        // What burns in flight lights the room first (the room's own pixels).
         let sparks: Vec<Lamp> = sparks
             .iter()
             .take(SPARKS)
             .map(|l| Lamp { at: [l.at[0] * zoom + offset[0], l.at[1] * zoom, l.at[2] * zoom + offset[2]], reach: l.reach * zoom, ..*l })
             .collect();
         let mut look = super::rooms_lit_look::look(self.tone, &lamps, moment.time, centre, reach, chest);
-        // A delve keeps the dungeon's dark in 3D (docs/WORLD-3D.md, "Deeper
-        // floors"): its key and ambient are low (`Tone::key`) and its lamps
-        // throw pools, but the floor, the walls and what stands in the room
-        // read against one another, so a party sees what it walks into;
-        // coming down into the deep the key rises with the lamps.
         if matches!(self.tone, Tone::Delve(_))
             && let Some(sun) = &mut look.sun
         {
@@ -1242,14 +1027,7 @@ impl Lit {
     }
 }
 
-// -------------------------------------------------------- the terminal ----
-
 impl Lit {
-    /// The room as a page that draws no scenes shows it (a terminal), `size`
-    /// pixels big: from above, each tile the tone of what stands tallest on
-    /// it (its ground's where nothing does), lit from above, put on the
-    /// room's ramp by a 4 x 4 Bayer dither, warmed round its lamps; a pit
-    /// black, a flame its own colour. Kept.
     pub fn picture(&self, size: (i32, i32)) -> Img {
         if let Ok(kept) = self.picture.lock()
             && let Some((s, img)) = kept.as_ref()
@@ -1269,8 +1047,6 @@ impl Lit {
         let (warm_ramp, flame) = (self.tone.warm(), self.tone.flame());
         let (cols, rows) = (self.room.cols as i32, self.room.rows as i32);
         let pieces = self.every_piece();
-        // What stands tallest over each tile: its top and kind; and what
-        // glows on it (coals, lava).
         let mut tops: Vec<Option<(f32, Kind)>> = vec![None; (cols * rows).max(0) as usize];
         let mut glows = vec![false; (cols * rows).max(0) as usize];
         let mut wet = vec![false; (cols * rows).max(0) as usize];
@@ -1293,7 +1069,6 @@ impl Lit {
         let luma = |c: [u8; 3]| (0.2126 * f32::from(c[0]) + 0.7152 * f32::from(c[1]) + 0.0722 * f32::from(c[2])) / 255.0;
         let levels: Vec<f32> = ramp.iter().map(|&c| luma(c)).collect();
         let bayer = |x: i32, y: i32| angel_stage::look::bayer4()[(y & 3) as usize][(x & 3) as usize] as f32 / 16.0 + 1.0 / 32.0;
-        // A level on the ramp, between its two nearest entries by the dither.
         let pick = |level: f32, x: i32, y: i32| -> usize {
             let i = levels.iter().rposition(|&l| l <= level).unwrap_or(0);
             if i + 1 >= levels.len() {
@@ -1344,14 +1119,10 @@ impl Lit {
                         *px = flame;
                         continue;
                     }
-                    // What stands: its tone, lit from above, the taller
-                    // brighter.
                     Some((top, kind)) if top > angel_stage::set::FLOOR_TOP => kind.tone() * (0.72 + (top / 120.0).min(0.35)),
                     _ if self.room.tile(c, r) == Tile::Hazard && pit => continue,
                     Some((_, kind)) => kind.tone() * 0.5,
                     None => {
-                        // The floor: dark, in the shadow of what stands to
-                        // its south-west (the key light is there).
                         let shade = (1..=3).any(|d| {
                             let (dx, dz) = (sx - 5.0 * d as f32, sz + 5.0 * d as f32);
                             top_at((dx / TILE).floor() as i32, (dz / TILE).floor() as i32) > 5.0 * d as f32
@@ -1367,17 +1138,9 @@ impl Lit {
     }
 }
 
-// ------------------------------------------------- dressings and pieces ----
-
-/// An open floor's piece: a kingdom chunk's tiles.
 pub const PIECE: (i32, i32) = (crate::world::map::CHUNK_W, crate::world::map::CHUNK_H);
-/// How many of the ring round a view's pieces not yet made are made a call.
 pub const RING_A_CALL: usize = 2;
 
-/// Of `shapes` (a set's, in the room's pixels), what stands over tile
-/// `(c, r)`: of the shapes over the tile's middle (a round one over its
-/// round footprint) that cover a quarter of a tile at least (not a torch on
-/// a wall), the one whose top is highest.
 pub fn over_tile(shapes: &[Shape], (c, r): (i32, i32)) -> Option<&Shape> {
     let (x, z) = ((c as f32 + 0.5) * TILE, (r as f32 + 0.5) * TILE);
     shapes
@@ -1395,14 +1158,10 @@ pub fn over_tile(shapes: &[Shape], (c, r): (i32, i32)) -> Option<&Shape> {
         .max_by(|a, b| (a.at[1] + a.size[1]).total_cmp(&(b.at[1] + b.size[1])))
 }
 
-/// The rooms of the company's home wing that no item is: interiors. (A
-/// `Hall` is a stone passage between chambers, at home as below.)
 fn at_home(kind: RoomKind) -> bool {
     matches!(kind, RoomKind::Stockpile | RoomKind::Muster | RoomKind::Workshop | RoomKind::Quarters | RoomKind::RealmHall)
 }
 
-/// Whether item `item` was made from a room of `room`'s kind (whatever its
-/// delve): a place, a nook, the Sanctuary, the vault, the forge-hall.
 fn kin(item: &pilot::Item, room: &Room) -> bool {
     match item.source {
         Source::Place(kind) | Source::Nook(kind) => kind == room.kind,
@@ -1413,14 +1172,12 @@ fn kin(item: &pilot::Item, room: &Room) -> bool {
     }
 }
 
-/// Whether every rectangle dressing `d` names lies in `room`.
 fn fits_in(d: &Dressing, room: &Room) -> bool {
     let (cols, rows) = (room.cols as i32, room.rows as i32);
     let inside = |&(c, r, w, h): &Rect| c >= 0 && r >= 0 && c + w <= cols && r + h <= rows;
     d.props.iter().all(|(rect, _)| inside(rect)) && d.roads.iter().all(inside) && d.paved.iter().all(inside)
 }
 
-/// The id of the dressing of a room of setting `setting` no item is.
 fn generic_id(setting: Setting) -> &'static str {
     match setting {
         Setting::Dungeon(Pack::Crypt) => "plain-crypt",
@@ -1436,11 +1193,6 @@ fn generic_id(setting: Setting) -> &'static str {
     }
 }
 
-/// What room `room` (on a floor of `pack`) is dressed as: the dressing of
-/// the item made from a room of its kind, in this floor's stone when that is
-/// a delve's; else an interior for a room of the company's home, a chamber
-/// of its delve for any other. `None` for a room not drawn so: the kingdom,
-/// and the side-on halls.
 pub fn dressing_for(room: &Room, pack: Pack) -> Option<Dressing> {
     if matches!(room.kind, RoomKind::Kingdom | RoomKind::Ledge | RoomKind::Wanted) {
         return None;
@@ -1455,9 +1207,6 @@ pub fn dressing_for(room: &Room, pack: Pack) -> Option<Dressing> {
     Some(Dressing { id: generic_id(setting), title: "A room with no item of its own, its own blockout", setting, ..Dressing::BASE })
 }
 
-/// Piece `cell`'s tiles of room `room` (all of them but on an open floor),
-/// and the tiles its blockout is cut from: the same, or (`open`) those and a
-/// tile of the map round them where the map goes on.
 pub fn piece_rects(room: &Room, open: bool, (cx, cz): (i32, i32)) -> (Rect, Rect) {
     let (cols, rows) = (room.cols as i32, room.rows as i32);
     if !open {
@@ -1469,7 +1218,6 @@ pub fn piece_rects(room: &Room, open: bool, (cx, cz): (i32, i32)) -> (Rect, Rect
     ((c0, r0, w, h), (x0, y0, (c0 + w + 1).min(cols) - x0, (r0 + h + 1).min(rows) - y0))
 }
 
-/// Tiles `rect` of `room` as a room of their own.
 pub fn crop_room(room: &Room, (c0, r0, w, h): Rect) -> Room {
     let mut tiles = Vec::with_capacity((w * h).max(0) as usize);
     for r in r0..r0 + h {
@@ -1482,10 +1230,6 @@ pub fn crop_room(room: &Room, (c0, r0, w, h): Rect) -> Room {
     cut
 }
 
-/// A blockout's solid `s` cut back to footprint `keep` (`[x0, z0, x1,
-/// z1]`): a box square to the room down to what of it lies inside, any
-/// other solid whole when its foot's middle does; `None` when nothing of it
-/// does (an open floor's piece).
 pub fn cut_solid(s: &blockout::Solid, keep: [f32; 4]) -> Option<blockout::Solid> {
     const EPS: f32 = 0.25;
     if s.shape == blockout::Shape::Box {

@@ -21,16 +21,12 @@ use super::{GraphNodeSpec, GraphSpec};
 use crate::agent::club::Club;
 use serde::{Deserialize, Serialize};
 
-/// Leaders and subtasks are capped so one planner reply cannot become an
-/// unbounded wave of metered seats.
 pub(crate) const MAX_LEADERS: usize = 6;
 pub(crate) const MAX_SUBTASKS_PER_LEADER: usize = 6;
 const ROLE_CAP: usize = 80;
 const TEXT_CAP: usize = 2_000;
 
-/// Default seat for leaders and the root synthesis (Sonnet-class).
 pub(crate) const DEFAULT_LEADER_CLUB: &str = "anthropic";
-/// Default seat for subtasks (Haiku-class).
 pub(crate) const DEFAULT_WORKER_CLUB: &str = "anthropic-fast";
 
 pub(crate) fn leader_club_default() -> String {
@@ -51,11 +47,8 @@ fn env_or(name: &str, default: &str) -> String {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum LeaderState {
-    /// As the planner drafted it.
     Drafted,
-    /// The operator changed the role/mandate; subtasks are stale.
     Revised,
-    /// Subtasks were regenerated against the current role.
     Regenerated,
 }
 
@@ -64,7 +57,6 @@ pub(crate) struct Subtask {
     pub id: String,
     pub prompt: String,
     pub club: String,
-    /// none | read_only | code | research
     pub tools: String,
 }
 
@@ -90,12 +82,10 @@ pub(crate) struct AttackPlan {
     pub objective: String,
     pub synth_club: String,
     pub leaders: Vec<Leader>,
-    /// Bumped on every edit; approval is bound to one revision.
     pub revision: u64,
     pub approved_revision: Option<u64>,
 }
 
-/// Where a selection cursor can sit in the chart.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum NodeRef {
     Root,
@@ -110,8 +100,6 @@ impl AttackPlan {
             .collect()
     }
 
-    /// Launch needs a non-empty plan, nothing stale, and approval of exactly
-    /// the current revision.
     pub(crate) fn launch_blocker(&self) -> Option<String> {
         if self.leaders.is_empty() {
             return Some("the plan has no leaders".to_string());
@@ -133,8 +121,6 @@ impl AttackPlan {
         None
     }
 
-    /// Revise a leader's role (and optionally its mandate). A real change
-    /// marks the subtree stale and withdraws approval; a no-op edit does not.
     pub(crate) fn revise_leader(
         &mut self,
         index: usize,
@@ -164,8 +150,6 @@ impl AttackPlan {
         Ok(true)
     }
 
-    /// Re-point a leader or subtask at another club (tier swap). Does not
-    /// stale the subtree: the work is unchanged, only who does it.
     pub(crate) fn set_club(&mut self, node: NodeRef, club: &str) -> Result<(), String> {
         let club = club.trim();
         if club.is_empty() {
@@ -191,7 +175,6 @@ impl AttackPlan {
         Ok(())
     }
 
-    /// Install regenerated subtasks for one leader.
     pub(crate) fn apply_subtasks(
         &mut self,
         index: usize,
@@ -236,9 +219,6 @@ impl AttackPlan {
             .sum::<usize>()
     }
 
-    /// Compile the approved tree into a runnable graph: subtasks (no deps) →
-    /// leader (depends on its subtasks, synthesizes + checks) → root (depends
-    /// on every leader, folds the final answer).
     pub(crate) fn to_graph_spec(&self) -> Result<GraphSpec, String> {
         if let Some(blocker) = self.launch_blocker() {
             return Err(blocker);
@@ -328,10 +308,6 @@ fn node(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Planner contract (JSON in, typed tree out)
-// ---------------------------------------------------------------------------
-
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct SubtaskDraft {
     pub prompt: String,
@@ -402,8 +378,6 @@ pub(crate) fn regenerate_prompt(plan: &AttackPlan, index: usize) -> Option<Strin
     ))
 }
 
-/// Pull the first balanced JSON object out of a model reply (fences, preamble
-/// and trailing prose tolerated).
 pub(crate) fn extract_json_object(reply: &str) -> Option<&str> {
     let start = reply.find('{')?;
     let bytes = reply.as_bytes();
@@ -498,7 +472,6 @@ fn build_subtasks(leader_id: &str, drafts: Vec<SubtaskDraft>, worker_club: &str)
         .collect()
 }
 
-/// Draft a fresh plan with one planner call.
 pub(crate) fn plan_with(
     planner: &dyn Club,
     objective: &str,
@@ -509,7 +482,6 @@ pub(crate) fn plan_with(
     parse_plan(objective, &reply, leader_club, worker_club)
 }
 
-/// Regenerate one revised leader's subtasks with one planner call.
 pub(crate) fn regenerate_with(
     planner: &dyn Club,
     plan: &mut AttackPlan,
@@ -525,12 +497,6 @@ fn cap(text: &str, max_chars: usize) -> String {
     text.chars().take(max_chars).collect()
 }
 
-// ---------------------------------------------------------------------------
-// Layout + spline geometry (pure; the chart widget draws these)
-// ---------------------------------------------------------------------------
-
-/// A laid-out node: center in abstract chart units (x grows right, y grows
-/// down; root row 0, leaders row 1, subtasks row 2).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Placed {
     pub node: NodeRef,
@@ -538,10 +504,6 @@ pub(crate) struct Placed {
     pub y: f64,
 }
 
-/// Genealogy layout: subtasks get evenly spaced leaf slots, each leader sits
-/// centered over its children, the root centered over its leaders. Returns
-/// nodes plus parent→child edges as index pairs into the node list. Width is
-/// normalized to `[0, 1]`; rows sit at y = 0, 0.5, 1.
 pub(crate) fn layout(plan: &AttackPlan) -> (Vec<Placed>, Vec<(usize, usize)>) {
     let leaves: usize = plan.leaders.iter().map(|l| l.subtasks.len().max(1)).sum();
     let slot = |k: f64| {
@@ -591,9 +553,6 @@ pub(crate) fn layout(plan: &AttackPlan) -> (Vec<Placed>, Vec<(usize, usize)>) {
     (nodes, edges)
 }
 
-/// A genealogy-chart spline from parent (above) to child (below): a cubic
-/// Bézier whose control points drop vertically from each end, so the curve
-/// leaves the parent straight down and enters the child straight down.
 pub(crate) fn spline(from: (f64, f64), to: (f64, f64), samples: usize) -> Vec<(f64, f64)> {
     let samples = samples.max(2);
     let mid_y = (from.1 + to.1) / 2.0;

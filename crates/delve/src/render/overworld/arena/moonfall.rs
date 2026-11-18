@@ -20,11 +20,9 @@ mod labels;
 mod moments;
 mod sky;
 
-/// The town's window: below the sky band, above the clock bar.
 pub(super) const VIEW_Y: i32 = 36;
 pub(super) const VIEW_H: i32 = 156;
 
-/// The corner of the town in view, in pixels.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Cam {
     pub x: i32,
@@ -39,16 +37,12 @@ fn camera(focus: (i32, i32)) -> Cam {
     }
 }
 
-/// What a seat sees, and where every word over it stands.
 #[cfg_attr(not(test), allow(dead_code))]
 struct Scene {
     base: Img,
     fx: Img,
-    /// The labels drawn over the town, settled (`labels`).
     labels: Vec<labels::Placed>,
-    /// The words left out for want of a place.
     left_out: Vec<(labels::Kind, String)>,
-    /// The rectangles they keep out of, and whether each hides what it covers.
     keep: Vec<(labels::Rect, bool)>,
 }
 
@@ -61,8 +55,6 @@ fn scene(run: &Run, focus: Option<u32>) -> Scene {
     scene_drawn(run, focus, true)
 }
 
-/// The words a frame settles, without the paint that goes on after them.
-/// Label checks read only those words, the keep-outs and what was left out.
 #[cfg(test)]
 fn scene_words(run: &Run, focus: Option<u32>) -> Scene {
     scene_drawn(run, focus, false)
@@ -85,14 +77,11 @@ fn scene_drawn(run: &Run, focus: Option<u32>, paint_over: bool) -> Scene {
         return Scene { base: im, fx, labels: Vec::new(), left_out: Vec::new(), keep: Vec::new() };
     };
     let mut cam = camera(me.px());
-    // A touch jolts the screen, and so does the bell, the moon, a new dawn and the lights holding.
     let (jx, jy) = moments::jolt(s, me, tick + me_id * 7);
     cam.x += jx;
     cam.y += jy;
     sky::sky(&mut im, s, shown, tick);
     let band = im.clone();
-    // Words are asked for as the town is drawn and settled once it is:
-    // `labels` says where each stands.
     let mut words = labels::Layout::default();
     ground::tiles(&mut im, s, cam, tick, shown);
     ground::props(&mut im, &mut words, s, cam, tick, shown);
@@ -117,8 +106,6 @@ fn scene_drawn(run: &Run, focus: Option<u32>, paint_over: bool) -> Scene {
     if !paint_over {
         return Scene { base: im, fx, labels: placed, left_out, keep };
     }
-    // Over the sky's light and the moon, so they read at any hour; not over
-    // the moon's wipe, which hides the whole town.
     if !sky::disc(s, shown).4 {
         labels::draw(&mut im, &placed);
     }
@@ -151,7 +138,6 @@ pub(super) fn terminal_layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     layers(run, focus)
 }
 
-/// The door on the walking map: a post with a bell hung from it.
 pub(super) fn kingdom(im: &mut Img, _run: &Run, origin: (i32, i32)) {
     let (x, y) = (rules::ENTRY.0 * 16 + 8 - origin.0, rules::ENTRY.1 * 16 + 8 - origin.1);
     let name = rules::NAME.to_uppercase();
@@ -165,7 +151,6 @@ pub(super) fn kingdom(im: &mut Img, _run: &Run, origin: (i32, i32)) {
     im.rect(x - 4, y - 8, 9, 6, 'O');
     im.rect(x - 5, y - 2, 11, 2, 't');
     im.put(x, y + 1, 'k');
-    // The pale moon face above the post.
     im.ellipse(x as f32, y as f32 - 18.0, 4.0, 4.0, 'V');
     im.put(x - 2, y - 19, '7');
     im.put(x + 2, y - 19, '7');

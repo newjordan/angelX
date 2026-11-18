@@ -20,33 +20,25 @@ pub const B_BOMB: u8 = 32;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Act {
     Free,
-    /// A slash: `Seat::n` is which of the three.
     Slash,
     Lunge,
     Spin,
     Roll,
-    /// A hop: `Seat::n` is 0 side, 1 back, 2 forward.
     Hop,
-    /// The jump attack coming down.
     Plunge,
     Hurt,
-    /// Holding an item overhead.
     Item,
     Down,
-    /// Over a pit and going down.
     Fall,
 }
 
-/// What a lock holds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Lock {
     Foe(u8),
     Prop(u8),
-    /// The Warden's lamp-heart.
     Boss,
 }
 
-/// What the context button would do just now.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Ctx {
     None,
@@ -90,39 +82,28 @@ pub enum Carry {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Seat {
-    /// Which seat this is.
     pub id: u8,
-    /// The tick of the run this knight sat down at (0: from the start).
     pub joined: u32,
     pub x: i32,
     pub y: i32,
-    /// Height off the ground while hopping, in `Q` pixels.
     pub z: i32,
     pub face: (i32, i32),
-    /// Quarter hearts.
     pub hp: u32,
     pub max_hp: u32,
     pub gems: u32,
     pub bombs: u32,
-    /// Ticks of flare left in the lantern.
     pub flame: u32,
-    /// Ticks left of an ember's flame carried to a brazier.
     pub taper: u32,
     pub act: Act,
     pub t: u32,
     pub n: u8,
-    /// Where the act carries the body each tick, in `Q` pixels.
     pub mv: (i32, i32),
-    /// A blow's push, a few ticks.
     pub push: (i32, i32),
     pub pusht: u8,
-    /// The next slash in the chain, and ticks left to start it.
     pub step: u8,
     pub chain: u32,
     pub queued: bool,
-    /// Ticks the sword button has been held.
     pub charge: u32,
-    /// Ticks the shield has been up (1 on the first), 0 when down.
     pub shield: u32,
     pub guard_cd: u32,
     pub lock: Option<Lock>,
@@ -130,32 +111,24 @@ pub struct Seat {
     pub unlock_t: u32,
     pub relock: u32,
     pub inv: u32,
-    /// Ticks left of the blink a hit leaves.
     pub ward: u32,
-    /// The knight's own hit-stop: a blade that landed holds its owner.
     pub freeze: u32,
     pub swing: u32,
     pub lamp: u32,
     pub lamp_cd: u32,
     pub carry: Carry,
     pub ctx: Ctx,
-    /// Sign being read, and how long it stays up.
     pub read: Option<(u8, u32)>,
-    /// The aim keys last tick, to catch a fresh press (cycling a lock).
     pub aim: (i8, i8),
     pub held: u8,
     pub safe: (i32, i32),
     pub cam: (i32, i32),
-    /// Revive progress while down.
     pub rev: u32,
-    /// Ticks the knight has been in no one's way: for the beep.
     pub beep: u32,
-    /// The item held up, while `Act::Item`.
     pub item: Option<Item>,
 }
 
 impl Seat {
-    /// Whether every number is one a save or the wire may carry.
     pub fn valid(&self, id: u32, elapsed: u32, w: i32, h: i32) -> bool {
         u32::from(self.id) == id
             && self.joined <= elapsed
@@ -197,7 +170,6 @@ impl Seat {
             && self.read.is_none_or(|(_, t)| t <= READ_TICKS)
     }
 
-    /// Standing and awake: can be hurt, can hurt, can be a foe's target.
     pub fn up(&self) -> bool {
         self.hp > 0 && self.act != Act::Down
     }
@@ -206,7 +178,6 @@ impl Seat {
         self.lamp >= FLARE_AFTER && self.flame > 0 && self.act != Act::Down
     }
 
-    /// Fully wound for the spin.
     pub fn charged(&self) -> bool {
         self.charge >= CHARGE_TICKS
     }

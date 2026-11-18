@@ -19,9 +19,6 @@
 use super::bosses::Pattern;
 use super::*;
 
-/// The hall, row by row, from the west. `#` stone, `=` plank, `D` the one
-/// doorway, `.` air: balconies at either end, awnings under them, a beam
-/// over the middle, crates for cover and barrels to leap.
 pub const STAGE: [&str; ROWS] = [
     "################################################",
     "#..............................................#",
@@ -39,31 +36,20 @@ pub const STAGE: [&str; ROWS] = [
     "################################################",
 ];
 
-/// Where the outlaw stands, as `(column, row of the surface it stands on)`.
 pub const GROUND_WEST: (i32, i32) = (9, 11);
 pub const GROUND_EAST: (i32, i32) = (39, 11);
 pub const BALCONY_WEST: (i32, i32) = (8, 6);
 pub const BALCONY_EAST: (i32, i32) = (40, 6);
 pub const BEAM: (i32, i32) = (23, 8);
-/// The crates' middles (arena units across), for taking cover behind.
 const CRATES: [f32; 2] = [32.0, 64.0];
-/// How far from a crate's middle the outlaw crouches.
 const COVER_SIDE: f32 = 3.4;
 
-/// The poster is up this long, and the knights stand untouched while it is.
 pub const POSTER: u32 = 3 * HZ + 10;
-/// The fall: how long the outlaw takes to die and the bounty to be counted.
 pub const FALL: u32 = 2 * HZ + 20;
-/// The bounty offered: a base and so much a floor, rounded to fifty. Each
-/// knight standing carries home `BOUNTY_GOLD` gold besides, and the score
-/// takes the whole.
 pub const BOUNTY_BASE: u32 = 400;
 pub const BOUNTY_PER_FLOOR: u32 = 300;
 pub const BOUNTY_GOLD: u32 = 2;
 
-/// Its states and how long each lasts (a range, picked by the dice of the
-/// moment): strafing on the ground, leaping, perched, in cover, calling
-/// minions, taunting.
 pub const HOLD: u8 = 0;
 pub const STRAFE: u8 = 1;
 pub const LEAP: u8 = 2;
@@ -77,24 +63,16 @@ const COVER_FOR: (u32, u32) = (100, 40);
 pub const CALL_FOR: u32 = 70;
 pub const TAUNT_FOR: u32 = 48;
 pub const LEAP_FOR: u32 = 28;
-/// The apex of a leap above the straight line between its ends.
 const LEAP_ARC: f32 = 4.6;
-/// Its stride on the ground, before the boss file's own pace.
 const WALK: f32 = 3.2;
-/// How near it likes to keep to a knight when strafing.
 const KEEP: f32 = 13.0;
-/// A tell shows this many ticks before a volley.
 pub const TELL: u32 = 12;
-/// Minions: the calls it has in a fight, how many come at a call, how many
-/// may stand at once, and how long the rope shows before one drops.
 const CALLS: u8 = 2;
 const CALLED: usize = 2;
 const MINIONS_UP: usize = 4;
 pub const ROPE: u32 = 24;
-/// The minion is dropped from here (arena units down from the top).
 const CEILING: f32 = 3.0;
 
-/// One minion on its rope.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Rope {
     pub x: f32,
@@ -102,7 +80,6 @@ pub struct Rope {
     pub kind: EnemyKind,
 }
 
-/// The outlaw's death throes.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Fall {
     pub x: f32,
@@ -112,11 +89,8 @@ pub struct Fall {
     pub bounty: u32,
 }
 
-/// The showdown as it stands: who is wanted, the poster's tick, the ropes,
-/// the death throes.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Showdown {
-    /// The tick the poster went up (the hall entered with the outlaw alive).
     pub began: Option<u64>,
     pub boss: Option<u8>,
     pub bounty: u32,
@@ -134,12 +108,10 @@ impl Showdown {
     }
 }
 
-/// Whether `enemy` is the hall's outlaw, steering itself (gravity and all).
 pub(super) fn own_gravity(enemy: &Enemy, grid: &Grid) -> bool {
     grid.room.kind == RoomKind::Wanted && enemy.boss.is_some()
 }
 
-/// The bounty offered for an outlaw on floor `depth`.
 pub fn bounty(boss: &Boss, depth: u32) -> u32 {
     let raw = BOUNTY_BASE + BOUNTY_PER_FLOOR * depth + boss.hp / 4;
     raw / 50 * 50
@@ -152,7 +124,6 @@ fn anchor((col, row): (i32, i32), radius: f32) -> (f32, f32) {
     )
 }
 
-/// A pick among `n` by the dice of the moment.
 fn pick(h: u64, n: usize) -> usize {
     (h % n.max(1) as u64) as usize
 }
@@ -161,7 +132,6 @@ fn span((base, spread): (u32, u32), h: u64) -> u32 {
     base + (h >> 20) as u32 % spread.max(1)
 }
 
-/// The outlaw's step: its posts, its leaps and its shots.
 pub(super) fn act(
     enemy: &mut Enemy,
     boss: &Boss,
@@ -189,13 +159,11 @@ pub(super) fn act(
     let state = enemy.stage;
     match state {
         HOLD => {
-            // Posing for the poster: back in its spot, one foot up.
             let (x, y) = anchor(GROUND_EAST, r);
             (enemy.x, enemy.y) = (x, y);
             return;
         }
         STRAFE => {
-            // Keep a gun's distance: close when far, back off when near.
             let gap = enemy.x - tx;
             let want = if gap.abs() > KEEP + 3.0 {
                 -gap.signum()
@@ -211,7 +179,6 @@ pub(super) fn act(
         }
         PERCH => {
             if enemy.timer >= span(PERCH_FOR, h) {
-                // Down from the perch: to the ground, or across.
                 let across = pick(h >> 8, 10) < 3;
                 let (col, row) = if across {
                     if enemy.x < room.width() / 2.0 {
@@ -246,7 +213,6 @@ pub(super) fn act(
             }
         }
         _ => {
-            // LEAP: along an arc from where it left to where it lands.
             let t = (enemy.timer as f32 / LEAP_FOR as f32).min(1.0);
             let (x0, y0) = (enemy.origin_x, enemy.origin_y);
             let (x1, y1) = enemy.dir;
@@ -274,7 +240,6 @@ pub(super) fn act(
     desperate::last_stand(enemy, target, shots, deeds);
 }
 
-/// Along the ground by `dir` (-1, 0 or 1) at `speed`, stopping at stone.
 fn walk(enemy: &mut Enemy, grid: &Grid, dir: f32, speed: f32) {
     if dir == 0.0 {
         return;
@@ -292,13 +257,11 @@ fn set_leap(enemy: &mut Enemy, to: (f32, f32)) {
     enemy.timer = 0;
 }
 
-/// What it does next after strafing.
 fn choose(enemy: &mut Enemy, room: &Room, tx: f32, h: u64) {
     let r = enemy.radius();
     let roll = pick(h >> 10, 100);
     match roll {
         0..=34 => {
-            // Up to a balcony, the nearer one to a knight on that side.
             let (col, row) = if tx < room.width() / 2.0 {
                 BALCONY_WEST
             } else {
@@ -308,7 +271,6 @@ fn choose(enemy: &mut Enemy, room: &Room, tx: f32, h: u64) {
         }
         35..=49 => set_leap(enemy, anchor(BEAM, r)),
         50..=74 => {
-            // Behind the crate that stands between it and the nearest knight.
             let crate_x = CRATES
                 .iter()
                 .copied()
@@ -330,7 +292,6 @@ fn choose(enemy: &mut Enemy, room: &Room, tx: f32, h: u64) {
     }
 }
 
-/// The states an outlaw shoots in.
 pub(super) fn shooting(stage: u8) -> bool {
     matches!(stage, STRAFE | PERCH | COVER)
 }
@@ -339,8 +300,6 @@ pub(super) fn pattern_pace(stage: u8) -> u32 {
     if stage == COVER { 2 } else { 1 }
 }
 
-/// Fire what its file gives it on their beats, in the states that shoot:
-/// strafing and perched at the full pace, in cover at half.
 fn fire(
     enemy: &mut Enemy,
     boss: &Boss,
@@ -358,7 +317,6 @@ fn fire(
     let spin = age as f32 * 0.035 + (seed % 17) as f32 * 0.1;
     for (index, attack) in boss.attacks.iter().enumerate() {
         if matches!(attack.pattern, Pattern::Ravage | Pattern::Named(_)) {
-            // A named pattern is fired with the monsters' (`patterns`).
             continue;
         }
         let every = if raging {
@@ -410,8 +368,6 @@ fn fire(
     }
 }
 
-/// How close the outlaw's next volley is, from 0 (not yet) to 1 (now), for
-/// the tell drawn on it.
 pub fn tell(enemy: &Enemy, boss: &Boss) -> f32 {
     if !matches!(enemy.stage, STRAFE | PERCH | COVER) {
         return 0.0;
@@ -439,15 +395,12 @@ pub fn tell(enemy: &Enemy, boss: &Boss) -> f32 {
 }
 
 impl Run {
-    /// Raise the hall's outlaw as the party walks in, and put up its poster.
     pub(super) fn raise_outlaw(&mut self) {
         self.sync_works();
         if self.room().kind != RoomKind::Wanted || self.room().cleared {
             return;
         }
         let pack = self.dungeon.pack;
-        // Not one of this floor's chiefs or its apex, if the pack has another,
-        // nor a signature boss: those are kept for the stairs.
         let used: Vec<u8> = self
             .boss_gates
             .as_ref()
@@ -501,7 +454,6 @@ impl Run {
         self.sounds.push("boss_rise");
     }
 
-    /// Whether the poster is up now.
     pub fn poster_up(&self) -> bool {
         self.room().kind == RoomKind::Wanted
             && self
@@ -511,9 +463,6 @@ impl Run {
                 .is_some_and(|at| self.tick.saturating_sub(at) < u64::from(POSTER))
     }
 
-    /// The outlaw has fallen: its company runs, the fall is recorded and
-    /// the bounty paid, once. The hall's tick calls it, and so does the
-    /// reaping of the dead, so a blow landed later in the tick still pays.
     pub(super) fn pay_outlaw(&mut self) {
         if self.room().kind != RoomKind::Wanted || self.works.outlaw.paid {
             return;
@@ -548,8 +497,6 @@ impl Run {
         self.fx.push(Fx::Shake(20));
     }
 
-    /// The Wanted hall's tick: ropes drop minions, the poster guards the
-    /// knights, the outlaw's fall is recorded and the bounty paid.
     pub(super) fn tick_outlaw(&mut self) {
         if self.room().kind != RoomKind::Wanted {
             return;
@@ -606,14 +553,12 @@ impl Run {
                     }
                     self.cues.push("outlaw_call".into());
                 } else if let Some(e) = self.enemies.iter_mut().find(|e| e.boss.is_some()) {
-                    // Nothing left to call: it taunts instead.
                     e.stage = TAUNT;
                     e.timer = 0;
                 }
             }
             _ => {}
         }
-        // Ropes pay out: the minion drops in from above.
         let mut landed: Vec<(f32, EnemyKind)> = Vec::new();
         for rope in &mut self.works.outlaw.ropes {
             rope.left = rope.left.saturating_sub(1);

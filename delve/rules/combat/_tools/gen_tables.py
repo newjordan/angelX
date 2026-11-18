@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""Rust enum tables -> Bend.
-
-    gen_tables.py ENUM_RS_FILE ENUM_NAME TYPE_PREFIX  FN_RS_FILE:fn[:ret][:argname] ...
-
-Writes (stdout) the ADT for ENUM_NAME (snake_case serde names), its `of` and
-`name` converters, and, for each listed Rust function whose body is a
-`match <arg> { Kind::A | Kind::B => value, ... }` (or a `matches!(...)`), a Bend
-def `<module>.<Enum>.<fn>(+k: String) -> RET` that answers the table's value.
-RET is guessed from the Rust signature (f32 F32, u32/usize/u8/i32 U32, bool Bool,
-&str String).
-"""
 import re
 import sys
 import pathlib
@@ -61,7 +50,6 @@ def value(v, ret, consts):
             return "F32.neg(%s)" % v[1:]
     if re.fullmatch(r"\d+", v):
         return v
-    # const references and arithmetic
     expr = re.sub(r"\b(?:super|crate::rules)::HZ\b", "rules.HZ()", v)
     expr = re.sub(r"\bHZ\b", "rules.HZ()", expr)
     expr = re.sub(r"\b([a-z_]+)::([A-Z][A-Z_0-9]*)\b", lambda m: "%s.%s()" % (m.group(1), m.group(2)), expr)
@@ -76,7 +64,6 @@ def main():
     tname = prefix.capitalize() + enum
     out = []
     out.append("type %s is Data:\n%s" % (tname, "\n".join("  %s.%s{}" % (ctor, v) for v in variants)))
-    # of: chain over string equality
     out.append("def %s.%s.of(+s: String) -> %s:\n  %s.%s.of.n0(s)" % (mod, enum, tname, mod, enum))
     for i, v in enumerate(variants):
         nxt = "%s.%s{}" % (ctor, variants[0]) if i + 1 == len(variants) else "%s.%s.of.n%d(s)" % (mod, enum, i + 1)

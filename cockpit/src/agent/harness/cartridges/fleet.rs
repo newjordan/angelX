@@ -7,7 +7,6 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-/// Between sweeps, unless the cartridge sets `fleet_interval_secs`.
 pub(crate) const POLL_INTERVAL: Duration = Duration::from_secs(45);
 
 pub(crate) use crate::telemetry::SubmissionPhase;
@@ -87,8 +86,6 @@ impl FleetState {
     }
 }
 
-
-/// Start one sweep of `cartridge`'s fleet on its own thread.
 pub(crate) fn spawn_poll(
     cartridge: &'static super::Cartridge,
 ) -> mpsc::Receiver<Result<FleetSnapshot, String>> {
@@ -105,9 +102,6 @@ pub(crate) fn spawn_poll(
     rx
 }
 
-/// A config-only cartridge's sweep: `command`'s stdout is one snapshot. It
-/// runs in the session's directory with `ANGEL_CARTRIDGE_DIR` naming the
-/// cartridge's folder.
 pub(crate) fn sweep_command(
     command: &str,
     folder: Option<&std::path::Path>,

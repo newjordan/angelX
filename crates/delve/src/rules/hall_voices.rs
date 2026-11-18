@@ -13,37 +13,23 @@ use super::alehouse::{self as a, House, PATRONS};
 use super::bazaar::{self, STALL};
 use super::*;
 
-/// How long a spoken line stays up: a little over three seconds.
 pub const CALL_TICKS: u64 = 100;
-/// The lines up at once.
 pub const MOST_CALLS: usize = 6;
-/// The most letters in a spoken line.
 pub const MOST_LETTERS: usize = 64;
-/// The most letters of a knight's name a line carries.
 const NAME_LETTERS: usize = 12;
-/// How long a stoked hearth leaps: two seconds.
 pub const STOKE_TICKS: u64 = 60;
-/// How long a place's name stays up after the party comes into it.
 pub const TITLE_TICKS: u64 = 3 * HZ as u64;
-/// The bar's aisle, where the keeper greets (tiles: left, top, right,
-/// bottom): the strip before his counter, the taps in it.
 const BAR_AISLE: (f32, f32, f32, f32) = (13.0, 6.0, 29.0, 7.6);
 
-/// Who says a line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Voice {
-    /// The keeper behind the bar.
     Keeper,
-    /// The fence in the corner.
     Fence,
-    /// The patron of `PATRONS[i]`, on their bench.
     Patron(u8),
-    /// The vendor of bazaar stall `i`.
     Vendor(u8),
 }
 
 impl Voice {
-    /// The room the speaker stands in.
     pub fn room(self) -> RoomKind {
         match self {
             Voice::Keeper | Voice::Fence => RoomKind::Alehouse,
@@ -52,7 +38,6 @@ impl Voice {
         }
     }
 
-    /// Where the speaker's feet are (tiles).
     pub fn feet(self) -> (f32, f32) {
         match self {
             Voice::Keeper => a::KEEPER_AT,
@@ -71,7 +56,6 @@ impl Voice {
     }
 }
 
-/// One line said in the hall: when, by whom, the words.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Call {
     pub at: u64,
@@ -85,19 +69,15 @@ impl Call {
     }
 }
 
-/// A knight's name as a line carries it.
 fn name_of(hero: &Hero) -> String {
     hero.name.to_uppercase().chars().take(NAME_LETTERS).collect()
 }
 
-/// Whether `(x, y)` (arena units) stands in the keeper's aisle.
 fn at_the_bar(x: f32, y: f32) -> bool {
     let (c, r) = (x / TILE_UNITS, y / TILE_UNITS);
     (BAR_AISLE.0..BAR_AISLE.2).contains(&c) && (BAR_AISLE.1..BAR_AISLE.3).contains(&r)
 }
 
-/// The keeper's greeting for a knight: their calling if they have taken
-/// one up, else a word by their seat.
 fn greeting(hero: &Hero, id: u32) -> String {
     let name = name_of(hero);
     match a::patron_of(hero) {
@@ -111,8 +91,6 @@ fn greeting(hero: &Hero, id: u32) -> String {
 }
 
 impl Run {
-    /// `voice` says `text` over its head. A speaker has one line up at a
-    /// time; the oldest of too many goes.
     pub fn call(&mut self, voice: Voice, text: impl AsRef<str>) {
         let text: String = text.as_ref().to_uppercase().chars().take(MOST_LETTERS).collect();
         let calls = &mut self.alehouse.calls;
@@ -123,12 +101,10 @@ impl Run {
         }
     }
 
-    /// Whether `voice` has a line up now.
     pub fn speaking(&self, voice: Voice) -> bool {
         self.alehouse.calls.iter().any(|c| c.voice == voice && self.tick.saturating_sub(c.at) < CALL_TICKS)
     }
 
-    /// The lines up now in the room the party stands in.
     pub fn calls_up(&self) -> impl Iterator<Item = &Call> {
         let kind = self.room().kind;
         self.alehouse
@@ -137,8 +113,6 @@ impl Run {
             .filter(move |c| c.voice.room() == kind && self.tick.saturating_sub(c.at) < CALL_TICKS)
     }
 
-    /// One tick of the hall's talk: spent lines go, and the keeper greets,
-    /// one knight at a time, whoever has come to his bar.
     pub(super) fn tick_voices(&mut self) {
         let tick = self.tick;
         self.alehouse.calls.retain(|c| tick.saturating_sub(c.at) < CALL_TICKS);
@@ -156,8 +130,6 @@ impl Run {
         }
     }
 
-    /// The patron beside bench `i`, still seated, who raises a mug to the
-    /// knight who took `i` up; the keeper if no one sits near.
     pub(super) fn toast_pick(&mut self, id: u32, i: usize) {
         let Some(hero) = self.players.get(&id) else { return };
         let (name, label) = (name_of(hero), PATRONS[i].label.to_uppercase());
@@ -178,7 +150,6 @@ impl Run {
         }
     }
 
-    /// What the keeper calls when knight `id` has paid for pour `i`.
     pub(super) fn call_pour(&mut self, id: u32, i: usize) {
         let Some(hero) = self.players.get(&id) else { return };
         let name = name_of(hero);
@@ -190,10 +161,8 @@ impl Run {
         self.call(Voice::Keeper, line);
     }
 
-    /// A vendor, or the fence, says who bought what.
     pub(super) fn call_sale(&mut self, id: u32, slot: u8, ware: &str) {
         let Some(hero) = self.players.get(&id) else { return };
-        // The ware is cut to fit before "SOLD. NO REFUNDS." is, never after.
         let name = name_of(hero);
         let room = MOST_LETTERS.saturating_sub(name.chars().count() + ": ".len() + " SOLD. NO REFUNDS.".len());
         let ware: String = ware.to_uppercase().chars().take(room).collect();
@@ -203,8 +172,6 @@ impl Run {
         self.call(voice, line);
     }
 
-    /// The party has come into a room of the world: its name is up for a
-    /// moment, and the keeper greets afresh whoever comes to his bar.
     pub(super) fn note_arrival(&mut self) {
         self.alehouse.came = self.tick;
         if self.room().kind == RoomKind::Alehouse {
@@ -212,15 +179,11 @@ impl Run {
         }
     }
 
-    /// How long ago the party came into the room it stands in, while its
-    /// name is still up.
     pub fn title_age(&self) -> Option<u64> {
         let age = self.tick.saturating_sub(self.alehouse.came);
         (age < TITLE_TICKS).then_some(age)
     }
 
-    /// The name the room shows on coming into it, and a line of what is
-    /// true of it now: the tavern, the bazaar and the Delve's gate.
     pub fn place_title(&self) -> Option<(&'static str, String)> {
         match self.room().kind {
             RoomKind::Alehouse => {
@@ -236,15 +199,12 @@ impl Run {
         }
     }
 
-    /// E at the hearth: it leaps.
     pub(super) fn stoke_hearth(&mut self) {
         self.alehouse.stoked = self.tick;
     }
 }
 
 impl House {
-    /// How high the stoked hearth is leaping at `tick`, from 1.0 down to
-    /// 0.0 as it settles; 0.0 when it was never stoked or has settled.
     pub fn stoke(&self, tick: u64) -> f32 {
         if self.stoked == 0 {
             return 0.0;

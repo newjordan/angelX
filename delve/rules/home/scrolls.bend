@@ -1,11 +1,3 @@
-# crates/delve/src/rules/scrolls.rs and scrolls/policy.rs — the wish scroll's
-# retained-source checks and the `delve.scroll` policy (`Request::evaluate`).
-# A Result<(), String> is a `Maybe<&2, String>`: None is Ok, Some(text) the Err.
-# A Request, Offer, Choice or Entry is the J value in its serde shape.
-
-# ---- scrolls.rs ------------------------------------------------------------
-
-# One choice of a retained view is well formed (`valid_view`).
 def scrolls.valid_choice(+c: J.Val, +great: Bool, +n: U32) -> Bool:
   +wish = J.get(c, "wish")
   +take = J.str(J.get(c, "take"))
@@ -60,8 +52,6 @@ def scrolls.valid_view.go(+offer: J.Val, +n: U32) -> Bool:
   Bool.and(home.util.rng(n, 1, 3),
     scrolls.valid_choices(J.items(J.get(offer, "choices")), J.bool(J.get(offer, "great")), n)))))
 
-# ---- scrolls/policy.rs: Entry -----------------------------------------------
-
 def scrolls.policy.id_chars(+s: String) -> Bool:
   match s:
     case SNil{}:
@@ -83,11 +73,9 @@ def scrolls.policy.Entry.valid(+e: J.Val) -> Bool:
 def scrolls.policy.Entry.card_id(+e: J.Val, +tier: U32) -> String:
   "wish-" ++ J.str(J.get(e, "id")) ++ "-" ++ U32.show((tier + 1 : U32))
 
-# The next tier of the ladder the deck has not reached, if any.
 def scrolls.policy.Entry.next_tier(+e: J.Val, +deck: J.Val) -> Maybe<&2, U32>:
   scrolls.policy.Entry.next_tier.fin(scrolls.policy.Entry.top(e, deck, home.util.len(J.items(J.get(e, "tiers")))), home.util.len(J.items(J.get(e, "tiers"))))
 
-# 0 when no tier is held, else the highest held tier + 1
 def scrolls.policy.Entry.top(+e: J.Val, +deck: J.Val, +t: U32) -> U32:
   match t:
     case 0:
@@ -105,7 +93,6 @@ def scrolls.policy.Entry.top.if(held: Bool, +e: J.Val, +deck: J.Val, +t: U32) ->
 def scrolls.policy.Entry.next_tier.fin(+next: U32, +len: U32) -> Maybe<&2, U32>:
   home.util.ite(Maybe<&2, U32>, U32.is_lt(next, len), u => Some{next}, u => None{})
 
-# The ask a Making has open first, as its word (none when it is whole).
 def scrolls.policy.made(+m: J.Val) -> Bool:
   Bool.or(J.bool(J.get(m, "made")), Bool.and(U32.is_ge(J.len(J.get(m, "parts")), 1), Bool.and(J.bool(J.get(m, "weapon")), J.bool(J.get(m, "ultimate")))))
 
@@ -131,7 +118,6 @@ def scrolls.policy.question(+ask: String) -> String:
   Bool.pick(String, String.eq(ask, "body"), "What are you?",
     Bool.pick(String, String.eq(ask, "weapon"), "What do you fight with?", "What is your ultimate?"))
 
-# Making::heading
 def scrolls.policy.heading(+m: J.Val) -> J.Val:
   scrolls.policy.heading.of(scrolls.policy.first_ask(m))
 
@@ -142,7 +128,6 @@ def scrolls.policy.heading.of(+a: Maybe<&2, String>) -> J.Val:
     case None{}:
       J.JNull{}
 
-# `making.is_none_or(|m| m.asks().first() == entry.answers)`
 def scrolls.policy.Entry.fits(+e: J.Val, +making: J.Val) -> Bool:
   match making:
     case J.JNull{}:
@@ -157,8 +142,6 @@ def scrolls.policy.same_ask(+a: Maybe<&2, String>, +b: J.Val) -> Bool:
     case None{}:
       J.is_null(b)
 
-# ---- scrolls/policy.rs: Request::validate -----------------------------------
-
 def scrolls.policy.spells_ok(+xs: List<&2, J.Val>) -> Bool:
   match xs:
     case Nil{}:
@@ -166,7 +149,6 @@ def scrolls.policy.spells_ok(+xs: List<&2, J.Val>) -> Bool:
     case Con{+s, +t}:
       Bool.and(Bool.and(home.util.blen_le(J.str(J.get(s, "id")), 128), Bool.and(home.util.blen_le(J.str(J.get(s, "name")), 1024), U32.is_le(J.u32(J.get(s, "tier")), 2))), scrolls.policy.spells_ok(t))
 
-# every whim is valid, unlearned, and has an id not seen before
 def scrolls.policy.whims_ok(+xs: List<&2, J.Val>, +seen: List<&2, String>) -> Bool:
   match xs:
     case Nil{}:
@@ -220,10 +202,6 @@ def scrolls.policy.Request.valid(+req: J.Val) -> Bool:
   Bool.and(scrolls.policy.whims_ok(J.items(J.get(req, "whims")), Nil{}),
     U32.is_le(home.util.jlen(req), 1048576))))))))))))
 
-# ---- scrolls/policy.rs: Request::validate_result ------------------------------
-
-# The spell a choice names is held at the tier it climbs from, or the wish
-# is one the capture carries.
 def scrolls.policy.choice_bad(+req: J.Val, +c: J.Val) -> Bool:
   scrolls.policy.choice_bad.of(req, c, J.get(c, "wish"))
 
@@ -260,7 +238,6 @@ def scrolls.policy.any_bad(+req: J.Val, +cs: List<&2, J.Val>) -> Bool:
     case Con{+c, +t}:
       Bool.or(scrolls.policy.choice_bad(req, c), scrolls.policy.any_bad(req, t))
 
-# `result` is the ResultValue as serialised: {"Ok": decision} or {"Err": text}.
 def scrolls.policy.Request.validate_result(+req: J.Val, +result: J.Val) -> Maybe<&2, String>:
   home.util.ite(Maybe<&2, String>, J.has(result, "Ok"),
     u => scrolls.policy.Request.validate_result.ok(req, result, J.get(result, "Ok")),
@@ -294,8 +271,6 @@ def scrolls.policy.Request.result_ok(+req: J.Val, +result: J.Val, +decision: J.V
   Bool.and(Bool.not(scrolls.policy.any_bad(req, J.items(J.get(offer, "choices")))),
     U32.is_le(home.util.jlen(result), 32768))))))))))
 
-# ---- scrolls/policy.rs: Request::decide ---------------------------------------
-
 def scrolls.policy.numeral(+tier: U32) -> String:
   Bool.pick(String, U32.is_eq(tier, 0), "I",
   Bool.pick(String, U32.is_eq(tier, 1), "II",
@@ -303,11 +278,9 @@ def scrolls.policy.numeral(+tier: U32) -> String:
   Bool.pick(String, U32.is_eq(tier, 3), "IV",
   Bool.pick(String, U32.is_eq(tier, 4), "V", "+")))))
 
-# max(max_hp / BLOOD_PRICE, 1)
 def scrolls.policy.price(+max_hp: U32) -> U32:
   U32.max(U32.div(max_hp, 3), 1)
 
-# `genie::frees`
 def genie.frees(+words: String) -> Bool:
   genie.frees.go(home.util.lower(words))
 
@@ -315,7 +288,6 @@ def genie.frees.go(+w: String) -> Bool:
   Bool.and(String.contains(w, "genie"),
     Bool.or(String.contains(w, "free"), Bool.or(String.contains(w, "freedom"), Bool.or(String.contains(w, "release"), Bool.or(String.contains(w, "let him go"), Bool.or(String.contains(w, "let the genie go"), Bool.or(String.contains(w, "liberat"), Bool.or(String.contains(w, "unchain"), String.contains(w, "unshackle")))))))))
 
-# `dead_wishes::named`
 def dead_wishes.named(+words: String) -> Bool:
   dead_wishes.named.go(" " ++ home.util.join(home.util.words(String.from_list(dead_wishes.named.plain(String.to_list(home.util.lower(words))))), " ") ++ " ")
 
@@ -336,7 +308,6 @@ def dead_wishes.named.any(+ws: List<&2, String>, +plain: String) -> Bool:
     case Con{+w, +t}:
       Bool.or(String.contains(plain, " " ++ w ++ " "), dead_wishes.named.any(t, plain))
 
-# `rules::mix`
 def scrolls.policy.mix(+h: W.W) -> W.W:
   +a = W.xor(h, W.shr(h, 33))
   +b = W.mul(a, W.W{4283543511, 3981806797})
@@ -369,7 +340,6 @@ def scrolls.policy.Request.decide(+req: J.Val) -> J.Val:
     u => home.util.err("No wishes held: each floor brings two, and its boss a super wish."),
     u => scrolls.policy.Request.decide.upgrade(req, scrolls.policy.Request.upgrade_spell(J.str(J.get(req, "said")), J.items(J.get(f, "spells")))))
 
-# The captured spell an "upgrade <name>" wish names, or null.
 def scrolls.policy.Request.upgrade_spell(+said: String, +spells: List<&2, J.Val>) -> J.Val:
   scrolls.policy.Request.upgrade_spell.cut(home.util.cut(home.util.trim(said), 8), spells)
 
@@ -422,7 +392,6 @@ def scrolls.policy.Request.decide.upgrade.offer(+req: J.Val, +spell: J.Val, +tie
       "Your own magic grows with you.", J.get(f, "tick"), J.JNull{}, J.JNull{}),
     scrolls.policy.price(J.u32(J.get(f, "max_hp"))))
 
-# A knight still unmade wishes only themselves, with plain wishes.
 def scrolls.policy.Request.decide.making(+req: J.Val) -> J.Val:
   scrolls.policy.Request.decide.making.of(req, J.get(J.get(req, "facts"), "making"))
 
@@ -464,7 +433,6 @@ def scrolls.policy.Request.decide.unmade.free(+req: J.Val, +making: J.Val, +ask:
     case False{}:
       scrolls.policy.Request.decide.free(req, making)
 
-# The genie's freedom is asked for, with no wish named and no making open.
 def scrolls.policy.Request.decide.free(+req: J.Val, +making: J.Val) -> J.Val:
   +great = Bool.and(Bool.not(U32.is_eq(J.u32(J.get(J.get(req, "facts"), "great_wishes")), 0)), J.is_null(making))
   home.util.ite(J.Val, Bool.and(genie.frees(J.str(J.get(req, "said"))), Bool.and(J.is_null(J.get(req, "known")), J.is_null(making))),
@@ -492,14 +460,12 @@ def scrolls.policy.Request.freedom.great(+f: J.Val, great: Bool) -> J.Val:
           "You'd... really do that? For me?", J.get(f, "tick"), J.JNull{}, J.JNull{}),
         scrolls.policy.price(J.u32(J.get(f, "max_hp"))))
 
-# A summoner's scroll asks whom it is for, his dead first when the words name them.
 def scrolls.policy.Request.target(+req: J.Val) -> J.Val:
   home.util.ite(J.Val, J.bool(J.get(J.get(req, "facts"), "summoner")),
     u => home.util.ite(J.Val, Bool.or(dead_wishes.named(J.str(J.get(req, "said"))), dead_wishes.named(J.str(J.get(req, "heard")))),
       u => J.JS{"dead"}, u => J.JS{"you"}),
     u => J.JNull{})
 
-# roll = mix(seed ^ player.rotate_left(29) ^ sealed.wrapping_mul(0x9e3779b9))
 def scrolls.policy.Request.roll(+f: J.Val) -> W.W:
   scrolls.policy.mix(W.xor(W.xor(W.of_j(J.get(f, "seed")), W.rotl(W.of_u32(J.u32(J.get(f, "player"))), 29)), W.mul(W.of_u32(J.u32(J.get(J.get(f, "genie"), "sealed"))), W.of_u32(2654435769))))
 
@@ -520,11 +486,9 @@ def scrolls.policy.Request.decide.ladder.tier(+req: J.Val, +making: J.Val, +grea
     case None{}:
       home.util.err(J.str(J.get(known, "name")) ++ " is already granted in full")
 
-# min(tier + steps, len) - 1
 def scrolls.policy.reach(+tier: U32, +steps: U32, +len: U32) -> U32:
   (U32.min((tier + steps : U32), len) - 1 : U32)
 
-# What a take gives, as the scroll writes it.
 def scrolls.policy.gives(+l: J.Val, +name: String, +tier: U32, +steps: U32) -> String:
   match l:
     case J.JNull{}:
@@ -534,8 +498,6 @@ def scrolls.policy.gives(+l: J.Val, +name: String, +tier: U32, +steps: U32) -> S
     case _:
       J.str(J.get(l, "name")) ++ " " ++ scrolls.policy.numeral(scrolls.policy.reach(tier, steps, J.len(J.get(l, "tiers"))))
 
-# The whims that fit: not the wish asked, answering the open question, with
-# the step to climb.
 def scrolls.policy.Request.whim.fits(+ws: List<&2, J.Val>, +deck: J.Val, +asked: J.Val, +steps: U32, +making: J.Val) -> List<&2, J.Val>:
   match ws:
     case Nil{}:
@@ -557,7 +519,6 @@ def scrolls.policy.Entry.climbs.of(+t: Maybe<&2, U32>, +steps: U32, +len: U32) -
     case None{}:
       False{}
 
-# fits[(roll >> 17) % fits.len()], or null when nothing fits
 def scrolls.policy.Request.whim(+req: J.Val, +deck: J.Val, +asked: J.Val, +steps: U32, +roll: W.W, +making: J.Val) -> J.Val:
   scrolls.policy.Request.whim.pick(scrolls.policy.Request.whim.fits(J.items(J.get(req, "whims")), deck, asked, steps, making), roll)
 
@@ -567,7 +528,6 @@ def scrolls.policy.Request.whim.pick(+fits: List<&2, J.Val>, +roll: W.W) -> J.Va
 def scrolls.policy.Request.decide.build(+req: J.Val, +making: J.Val, +great: Bool, +roll: W.W, +target: J.Val, +name: String, +l: J.Val, +tier: U32) -> J.Val:
   scrolls.policy.Request.decide.whims(req, making, great, roll, target, name, l, tier, (1 + Bool.to_u32(great) : U32))
 
-# The genie's whim: a step further when a wish has the step, else as strong.
 def scrolls.policy.Request.decide.whims(+req: J.Val, +making: J.Val, +great: Bool, +roll: W.W, +target: J.Val, +name: String, +l: J.Val, +tier: U32, +steps: U32) -> J.Val:
   +asked = J.get(l, "id")
   +deck = J.get(J.get(req, "facts"), "deck")
@@ -580,7 +540,6 @@ def scrolls.policy.Request.decide.whims.pick(+req: J.Val, +making: J.Val, +great
     home.util.ite(J.Val, J.is_null(more), u => same, u => more),
     home.util.ite(U32, J.is_null(more), u => steps, u => (steps + 1 : U32)))
 
-# `other` is the whim (null when none), `wsteps` the steps it climbs.
 def scrolls.policy.Request.decide.mid(+req: J.Val, +making: J.Val, +great: Bool, +roll: W.W, +target: J.Val, +name: String, +l: J.Val, +tier: U32, +steps: U32, +other: J.Val, +wsteps: U32) -> J.Val:
   +f = J.get(req, "facts")
   +price = scrolls.policy.price(J.u32(J.get(f, "max_hp")))

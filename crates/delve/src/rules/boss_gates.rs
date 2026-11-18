@@ -90,7 +90,6 @@ impl Gates {
             return true;
         }
         if kind == EnemyKind::Boss {
-            // A chief's camp is led by an elite (`keyring`), not a boss.
             at == self.guardian && self.guardian_boss.is_some() && boss == self.guardian_boss
         } else {
             kind == EnemyKind::Dragon && self.depth == super::FLOORS && at == self.guardian
@@ -161,16 +160,11 @@ pub(super) fn reachable(floor: &Floor, sealed: usize) -> Vec<bool> {
 
 impl Run {
     pub(super) fn populate_boss_gates(&mut self) {
-        // The floor above a village of the Deep keeps its people's dread at
-        // the stair (`deep::dread`), on an open floor too.
         let dread = self.ready_dread().map(|i| i as u8);
-        // Open floors keep no camps yet (docs/OPEN-FLOORS.md, phase B).
         if self.dungeon.open.is_some() {
             self.boss_gates = None;
             return;
         }
-        // Upgrade encounters only when generating a floor, never during save
-        // admission. A workspace's complete pack override keeps its choice.
         if self
             .bosses
             .iter()
@@ -263,9 +257,6 @@ impl Run {
             key
         ))
     }
-    /// The gate in plain words, for the sidebar: the chiefs that hold the
-    /// stair and how many are slain, who stands here, the Boss Key, and the
-    /// camps.
     pub fn boss_gate_plain(&self) -> Vec<String> {
         let Some(g) = self.boss_gates.as_ref() else {
             return Vec::new();
@@ -295,8 +286,6 @@ impl Run {
         out.extend(g.economy.plain(self.at));
         out
     }
-    /// Short, separate projection keeps faction/resource and aftermath readable
-    /// on compact terminals and browser guests, not lost at the end of a notice.
     pub fn boss_support_line(&self) -> Option<String> {
         let g = self.boss_gates.as_ref()?;
         Some(g.economy.line(self.at))
@@ -312,7 +301,7 @@ impl Run {
     pub(super) fn valid_boss_gates_with_id_limit(&self, allocated_id: u32) -> bool {
         let Some(g) = &self.boss_gates else {
             return true;
-        }; // absent legacy state stays active
+        };
         if !g.within_bounds(self.dungeon.rooms.len())
             || !self.dungeon.valid_secret()
             || g.depth != self.dungeon.depth
@@ -348,8 +337,6 @@ impl Run {
         {
             return false;
         }
-        // Reconstruct genesis independently of mutable progress. Geometry, pack,
-        // roster identities and initial budgets cannot be forged by a host delta.
         if g.geography.len() != self.dungeon.rooms.len() {
             return false;
         }
@@ -361,7 +348,6 @@ impl Run {
             }
             let mut doors = room.doors;
             if let Some(secret) = floor.secret.filter(|s| s.found && s.host == i) {
-                // Bombing the one declared secret wall is not a new political edge.
                 if secret.side >= 4 {
                     return false;
                 }
@@ -472,8 +458,6 @@ impl Run {
                 }
             }
             if e.camp_slot.is_none()
-                // The Wanted hall, a holding's raiders and a lost hall's
-                // set-piece keep their own company, not the floor's provision.
                 && !matches!(self.room().kind, RoomKind::Wanted | RoomKind::Holding | RoomKind::DwarfHall)
                 && !self.admitted_claim_guardian(e)
                 && !self.admitted_ore_sentry(e)
@@ -543,8 +527,7 @@ impl Run {
             .iter()
             .filter(|e| e.kind == EnemyKind::Boss && !self.admitted_claim_guardian(e))
             .collect();
-        let optional_pit = self.room().kind == RoomKind::Pit; // native Pit Tyrant is not a graph boss
-        // The Wanted hall's outlaw and company are its own, not the floor's.
+        let optional_pit = self.room().kind == RoomKind::Pit;
         let optional_pit = optional_pit || self.room().kind == RoomKind::Wanted;
         if !optional_pit
             && (bosses.len() != usize::from(expected.is_some())

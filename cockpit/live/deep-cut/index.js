@@ -1,6 +1,3 @@
-// The deep-cut direction leg. Eligibility, scoring and the pick happen in
-// deep-cut.bend; this adapter only translates the plain JSON contract, and the
-// native allocator still validates whatever comes back.
 const leg = require('./deep-cut.compiled')
 
 const KINDS = {

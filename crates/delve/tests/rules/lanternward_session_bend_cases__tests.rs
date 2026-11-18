@@ -15,8 +15,6 @@ fn rec(name: &str, input: Value, out: Value) {
     cases::rec_cap(name, &input, &out, CAP);
 }
 
-/// One phase on `t`: record `{s, r}` before and `{s, ev}` after, when `qual`
-/// and on the name's stride.
 fn phase(name: &str, qual: bool, k: usize, t: &mut Session, r: &Rules, f: impl FnOnce(&mut Session, &mut Events)) {
     let rec_it = qual && take(name, k) && cases::count(name) < CAP;
     let before = if rec_it { Some(json!({"s": jv(&*t), "r": rj(r)})) } else { None };
@@ -27,7 +25,6 @@ fn phase(name: &str, qual: bool, k: usize, t: &mut Session, r: &Rules, f: impl F
     }
 }
 
-/// The step, mirrored phase by phase so each can be recorded.
 fn mirror(t: &mut Session, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32, Hero>, r: &Rules) {
     let mut ev = Events::default();
     t.elapsed = (t.elapsed + 1).min(LIMIT);
@@ -78,7 +75,6 @@ fn mirror(t: &mut Session, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32,
     phase("lanternward.stage.Session.age", true, 30, t, r, |t, _| t.age());
 }
 
-/// A session a bad save could hand over: the `which`th kind of damage.
 fn damage(s: &mut Session, which: u64) {
     match which % 24 {
         0 => s.elapsed = LIMIT + 5,
@@ -149,7 +145,6 @@ fn record_lanternward_session() {
         let mut dmg = Lcg(seed + 11);
         drive(seats, seed, limit, 7, |f| {
             let (s, heroes, inputs, r) = (f.s, f.heroes, f.inputs, f.r);
-            // The whole step.
             if take("lanternward.Session.step", 9) && cases::count("lanternward.Session.step") < CAP {
                 let mut t = s.clone();
                 let ev = t.step(inputs, heroes, r);
@@ -159,10 +154,8 @@ fn record_lanternward_session() {
                     json!({"s": jv(&t), "ev": evj(&ev)}),
                 );
             }
-            // Its phases, in order.
             let mut t = s.clone();
             mirror(&mut t, inputs, heroes, r);
-            // The bot's keys, a knight at a time.
             for (&id, h) in heroes.iter() {
                 if s.seats.contains_key(&id) && take("lanternward.bot.Session.bot_input", 3) && cases::count("lanternward.bot.Session.bot_input") < CAP {
                     rec(
@@ -172,7 +165,6 @@ fn record_lanternward_session() {
                     );
                 }
             }
-            // Bounds, and the mending of a broken session.
             if take("lanternward.Session.finale", 40) {
                 rec("lanternward.Session.finale", json!({"s": jv(s)}), json!(s.finale()));
             }
@@ -189,11 +181,9 @@ fn record_lanternward_session() {
                 bad.repair();
                 rec("lanternward.Session.repair", json!({"s": before}), json!({"s": jv(&bad)}));
             }
-            // Public helpers on the live state.
             small(f, n);
         });
     }
-    // Session::new: a table, with and without absent players.
     for (i, &(seats, seed, _)) in TABLES.iter().enumerate() {
         let mut run = Run::lanternward_for_test();
         for id in 2..=seats {
@@ -224,7 +214,6 @@ fn record_lanternward_session() {
     }
 }
 
-/// The public helpers, called on the live state.
 fn small(f: &Frame, n: usize) {
     let (s, r) = (f.s, f.r);
     let mut g = Lcg(f.tick as u64 * 7919 + n as u64 + f.seed);
@@ -290,7 +279,6 @@ fn small(f: &Frame, n: usize) {
         let rad = [4 * Q, 5 * Q][g.below(2) as usize];
         rec("lanternward.foes.Session.nudge", json!({"s": jv(s), "x": x, "y": y, "r": rad}), jv(&s.nudge(x, y, rad)));
     }
-    // Rolls, scatter, shatter, gates, fx, drops: on a copy each.
     if take("lanternward.props.Session.roll", 5) {
         let mut t = s.clone();
         let n = [1u32, 6, 100, 7][g.below(4) as usize];
@@ -325,7 +313,6 @@ fn small(f: &Frame, n: usize) {
             rec("lanternward.props.Session.set_gate", json!({"s": jv(s), "id": id, "open": open}), json!({"s": jv(&u), "changed": changed}));
         }
     }
-    // Blows on a knight, and on a foe, from a nearby point.
     if take("lanternward.blow.Session.blow", 3) {
         for (&id, _) in s.seats.iter().take(2) {
             for (kind, name) in [(Hit::Melee, "Melee"), (Hit::Low, "Low"), (Hit::Bolt, "Bolt")] {
@@ -373,7 +360,6 @@ fn small(f: &Frame, n: usize) {
         u.reset_boss_phase();
         rec("lanternward.boss.Session.reset_boss_phase", json!({"s": jv(s)}), json!({"s": jv(&u)}));
     }
-    // Retry and entering rooms.
     if take("lanternward.stage.Session.retry", 60) {
         let mut u = s.clone();
         let mut ev = Events::default();
@@ -387,7 +373,6 @@ fn small(f: &Frame, n: usize) {
             json!({"s": jv(&u)}),
         );
     }
-    // Spawning, provisioning, granting.
     if take("lanternward.foes.Session.spawn_foe", 20) {
         let mut u = s.clone();
         u.spawn_foe(Fk::Turret, x, y, true);

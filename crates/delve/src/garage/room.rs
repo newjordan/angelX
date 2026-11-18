@@ -18,25 +18,15 @@ use super::shop;
 use crate::rules::{HZ, Input};
 use std::collections::BTreeMap;
 
-/// Fixed-point: this many units of position to a world unit.
 pub const UNIT: i32 = 64;
-/// How far a walking knight goes in a tick, in fixed-point: about five a second.
 const STEP: i32 = 11;
-/// The same on a diagonal.
 const STEP_DIAG: i32 = 8;
-/// How many knights the shop takes: one to a lift.
 pub const SEATS: usize = 6;
-/// How long a swap plays: the old part lifts off, the new one drops in,
-/// sparks, and the bars settle.
 pub const SWAP_TICKS: u32 = HZ * 6 / 5;
-/// The tick of a swap at which the new part lands.
 pub const LAND_TICK: u32 = SWAP_TICKS * 11 / 20;
-/// How long the stat changes stay up after a swap.
 pub const DELTA_TICKS: u32 = HZ * 3;
-/// A knight is this far from a wall at the nearest.
 const MARGIN: f32 = 0.8;
 
-/// What a knight is about to take: the part their feet are at.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Pick {
     pub slot: Slot,
@@ -44,14 +34,11 @@ pub struct Pick {
     pub part: &'static Part,
 }
 
-/// A swap playing out on a lift.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SwapAnim {
-    /// The slot that changed; none when the whole racer was changed.
     pub slot: Option<Slot>,
     pub from: &'static Part,
     pub to: &'static Part,
-    /// Ticks since it began.
     pub age: u32,
     pub before: Stats,
     pub after: Stats,
@@ -62,18 +49,13 @@ pub struct Seat {
     pub id: u32,
     pub name: String,
     pub bay: usize,
-    /// Position in fixed-point, `UNIT` to a world unit.
     pub x: i32,
     pub y: i32,
-    /// Which way they face, in radians about +z (0 is +x).
     pub yaw: f32,
-    /// Ticks spent walking, for the stride.
     pub stride: u32,
     pub build: Build,
-    /// The racer before the last change, to put back.
     pub undo: Option<Build>,
     pub swap: Option<SwapAnim>,
-    /// The stat change of the last swap, kept on show for a while.
     pub shown: Option<(Stats, u32)>,
     pub pick: Option<Pick>,
     pressed: u8,
@@ -89,16 +71,12 @@ impl Seat {
     }
 }
 
-/// What happened in a tick, for the host to save, say or sound.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
     Joined { seat: u32, bay: usize },
     Left { seat: u32 },
-    /// A part went on a racer, and the ledger has it.
     Swapped { seat: u32, swap: Swap },
-    /// A whole racer was put on (a starting racer, an undo).
     Refit { seat: u32 },
-    /// The knight tried to take a part they already wear.
     Already { seat: u32, slot: Slot },
 }
 
@@ -121,8 +99,6 @@ impl Shop {
         self.seats.iter().find(|s| s.id == id)
     }
 
-    /// A knight walks in and is given a lift, the middle ones first. None
-    /// when the shop is full, or the seat is already in.
     pub fn join(&mut self, id: u32, name: &str, ledger: &Ledger) -> Option<usize> {
         if self.seats.len() >= SEATS || self.seat(id).is_some() {
             return None;
@@ -153,9 +129,6 @@ impl Shop {
         self.seats.len() != n
     }
 
-    /// One tick. Each seat's input moves its knight and may take a part; a
-    /// swap is written into `ledger` at once, and returned for the host to
-    /// save (`Store::save_if_dirty`).
     pub fn step(&mut self, inputs: &BTreeMap<u32, Input>, ledger: &mut Ledger) -> Vec<Event> {
         let mut events = vec![];
         self.tick += 1;
@@ -205,7 +178,6 @@ fn walk(seat: &mut Seat, input: &Input) {
     seat.stride = if moved { seat.stride + 1 } else { 0 };
 }
 
-/// Move by (dx, dy) fixed-point unless a wall or a thing is in the way.
 fn go(seat: &mut Seat, dx: i32, dy: i32) -> bool {
     if dx == 0 && dy == 0 {
         return false;
@@ -224,7 +196,6 @@ fn go(seat: &mut Seat, dx: i32, dy: i32) -> bool {
     free
 }
 
-/// The part a knight's feet are at, if any: the nearest cell of any rack.
 fn pick(seat: &Seat) -> Option<Pick> {
     let (x, y) = seat.pos();
     shop::stations()
@@ -255,7 +226,6 @@ fn take(seat: &mut Seat, ledger: &mut Ledger, events: &mut Vec<Event>) {
     }
 }
 
-/// Make the racer `to`, remembering the one it was.
 fn refit(seat: &mut Seat, ledger: &mut Ledger, to: Build, events: &mut Vec<Event>) {
     let from = seat.build.clone();
     if from == to {

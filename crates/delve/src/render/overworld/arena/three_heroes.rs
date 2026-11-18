@@ -25,8 +25,6 @@ const SCOUT: [&str; 18] = [
     "....bbb..bbb........",
     "....................",
 ];
-// A single foliage ramp for hood and cloak; leather is a continuous belt
-// and boots, not alternating red/blue/green checks across every cloth row.
 const RANGER: [&str; 18] = [
     ".........C..........",
     "........Cl..........",
@@ -94,8 +92,6 @@ fn draw(kit: &str, face: Facing, cast: bool, stride: Option<u8>, charging: bool)
         _ => &MAGE,
     };
     let mut im = Img::from_rows(rows);
-    // Away-facing keeps the same original coat but has no face; the side
-    // profile narrows the visible face beneath each kit's own headgear.
     if face == Facing::Up {
         im.rect(6, 4, 5, 2, if kit == "cinderheart" { 'r' } else { 'B' });
     }
@@ -111,8 +107,6 @@ fn draw(kit: &str, face: Facing, cast: bool, stride: Option<u8>, charging: bool)
     match kit {
         "farwatch" => {
             if cast {
-                // Shoulder the stock, raise BOTH elbows, and aim above the
-                // idle waist line. The barrel is diagonal, not just slid up.
                 im.rect(5, 8, 7, 4, 'B');
                 im.line(5, 8, 8, 9, 'O');
                 im.line(7, 9, 11, 6, 't');
@@ -120,7 +114,6 @@ fn draw(kit: &str, face: Facing, cast: bool, stride: Option<u8>, charging: bool)
                 im.line(8, 10, 16, 4, 'B');
                 im.line(9, 10, 17, 4, 'O');
                 im.line(9, 9, 17, 3, 'I');
-                // A compact, solid flash, separated from the hat and face.
                 im.line(16, 3, 19, 3, '5');
                 im.line(18, 1, 18, 5, '6');
                 im.rect(17, 2, 2, 3, 'w');
@@ -157,8 +150,6 @@ fn draw(kit: &str, face: Facing, cast: bool, stride: Option<u8>, charging: bool)
             im.put(x + 1, 4, 'W');
             im.line(10, 10, x, if cast { 6 } else { 11 }, 't');
             if cast {
-                // The free hand rises clear of the robe: a cast is a pose,
-                // not only a few sparks on an otherwise idle staff.
                 im.line(5, 10, 2, 7, 'B');
                 im.line(4, 9, 1, 6, 'R');
                 im.rect(0, 4, 3, 3, 't');
@@ -172,9 +163,6 @@ fn draw(kit: &str, face: Facing, cast: bool, stride: Option<u8>, charging: bool)
         }
     }
     if kit == "farwatch" {
-        // The scout's coat, hat and boots in slate rather than the hall's
-        // plank browns, so she reads on the tavern floor; copper is her sash
-        // and trim.
         im = im.recolor(&[('B', 'x'), ('O', 'u'), ('b', 's'), ('7', 'O')]);
     }
     im
@@ -182,7 +170,6 @@ fn draw(kit: &str, face: Facing, cast: bool, stride: Option<u8>, charging: bool)
 
 pub(super) fn under(cv: &mut Img, run: &Run) {
     for z in &run.heroes.zones {
-        // A Mage's sleet is its squall, and a Mage's fire burns (`spellfx`).
         if z.kind == heroes::ZoneKind::Frost {
             continue;
         }
@@ -225,14 +212,12 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
         cv.line(ax, ay - 8, bx, by - 8, if b.fire { 'R' } else { 'Q' });
         cv.line(ax, ay - 9, bx, by - 9, if b.fire { 'O' } else { 'W' });
     }
-    // The Mage's spells where they were cast, and Sleet's squall.
     for z in run.heroes.zones.iter().filter(|z| z.kind == heroes::ZoneKind::Frost) {
         super::spellfx::sleet(cv, (z.x, z.y), run.tick);
     }
     for c in &run.heroes.casts {
         super::spellfx::cast(cv, c);
     }
-    // The Last Light's mark is drawn with the ultimate (`ults`).
     for h in run.players.values() {
         let (x, y) = at(h.x, h.y);
         if h.hero_kit.windrun > 0 {
@@ -252,8 +237,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
         for n in 0..h.hero_kit.stacks.min(5) {
             cv.put(x - 4 + n as i32 * 2, y - 22, 'O');
         }
-        // A Mage's essences circle above them (`weave`), each in its colour:
-        // what key 4 will weave is there to read before it is cast.
         let n = h.weave.orbs.len();
         for (k, essence) in h.weave.orbs.iter().enumerate() {
             let t = run.tick as f32 * 0.08 + k as f32 * std::f32::consts::TAU / n.max(1) as f32;
@@ -263,7 +246,6 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
                 crate::rules::weave::Essence::Frost => ('1', '2', '3'),
                 crate::rules::weave::Essence::Storm => (')', ']', '^'),
             };
-            // A lit orb, five across: its rim, its body, a bright heart.
             for (dx, dy) in [(-1, -2), (0, -2), (1, -2), (-2, -1), (-2, 0), (-2, 1), (2, -1), (2, 0), (2, 1), (-1, 2), (0, 2), (1, 2)] {
                 cv.put(ox + dx, oy + dy, rim);
             }

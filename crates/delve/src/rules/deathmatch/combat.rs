@@ -4,7 +4,6 @@ use super::*;
 use cards::Effect;
 use serde_json::json;
 
-/// What a knight's arms did this tick, for the leg to settle the ward and the flash.
 #[derive(Default)]
 struct Acted {
     card: bool,
@@ -37,7 +36,6 @@ impl Field {
             return false;
         }
         let (dx, dy) = ((x - self.x).abs(), (y - self.y).abs());
-        // The east gap is a door wide enough for a rolling knight.
         let side = (dx - self.radius).abs() < r + 0.25 && dy < self.radius + r && !(x > self.x && dy < 1.2 - r);
         side || ((dy - self.radius).abs() < r + 0.25 && dx < self.radius + r)
     }
@@ -69,7 +67,6 @@ impl Session {
             .collect();
         self.strike_ranked(owner, damage, targets);
     }
-    /// Strike the `(distance, id, way)` rivals nearest first, each at its rank's share.
     fn strike_ranked(&mut self, owner: u32, damage: u32, mut targets: Vec<(f32, u32, (f32, f32))>) {
         targets.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
         for (rank, (_, id, way)) in targets.into_iter().enumerate() {
@@ -134,9 +131,6 @@ impl Session {
             traits: ShotTraits { owner: id as u8, burst, stun, ..ShotTraits::of(&h.bonus) },
         });
     }
-    /// A knight's arms for the tick. The leg says whether they may act (`armed`, if the
-    /// turn's answer still stands) and what acting does to the spawn ward and the
-    /// muzzle flash; the kit does the rest.
     pub(super) fn attack(
         &mut self,
         id: u32,
@@ -293,8 +287,6 @@ impl Session {
         }
         for effect in &card.effects {
             match *effect {
-                // The colosseum has no ground to burn: an area is one stroke
-                // on the rivals it would reach (`zones`).
                 Effect::Area(area) => {
                     let (centre, reach, damage) = super::zones::duel_stroke(&area, at, aim, damage);
                     self.area(id, centre, reach, damage);
@@ -490,7 +482,6 @@ impl Session {
                         && p.traits.stun > 0
                         && champions::of(&self.fighters[&owner].hero) == Some(champions::Champion::Butcher);
                     let caster = (self.fighters[&owner].hero.x, self.fighters[&owner].hero.y);
-                    // What the hit adds (stun, chill, burn, burst, chain, leech, cloud) is the leg's.
                     let (target, from_owner) = (&self.fighters[&id], &self.fighters[&owner]);
                     let land = json!({ "stun_t": p.traits.stun, "chill_t": p.traits.chill, "chill_unit": lich::CHILL, "fire": p.traits.fire, "poison": p.traits.poison, "burst": p.traits.burst, "chain": p.traits.chain, "mend": p.traits.mend, "fart": p.traits.fart, "damage": p.damage, "vamp": from_owner.hero.bonus.vamp, "owner_alive": from_owner.alive(), "fart_wait": from_owner.fart_wait, "stun": target.stun, "chilled": target.hero.chilled });
                     let l = leg::ask("landed", json!({ "land": land }))?;

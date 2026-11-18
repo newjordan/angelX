@@ -22,43 +22,28 @@ use crate::rules::{BTreeMap, HZ, Hero, Input, MAX_PLAYERS};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-/// A run never runs past an hour; a longer one is not a run to play.
 pub const LIMIT: u32 = 60 * 60 * HZ;
-/// A popped foe re-forms after this many ticks if no knight is near.
 pub const REFORM: u16 = 180;
-/// The warden's hits for one knight; each more knight adds one.
 pub const WARDEN_BASE: u8 = 3;
-/// Ticks the warden shrugs off blows after one lands (shared by all).
 pub const WARDEN_INV: u8 = 22;
-/// Ticks the warden's fall is shown for.
 pub const WARDEN_FALL: u16 = 90;
 
-/// One knight at the table.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Seat {
-    /// The tick of the run this knight sat down at (0: from the start).
     pub joined: u32,
     pub rider: Rider,
 }
 
-/// The end of the ride: what the party scored and how it ranks.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Tally {
-    /// The tick the tally began, for the numbers to tick up from.
     pub at: u32,
-    /// The pack's time (the last bell), in ticks.
     pub time: u32,
-    /// Sparks gathered, the pack's average.
     pub sparks: u32,
-    /// The longest lance-lock chain any knight made.
     pub chain: u32,
-    /// Lantern posts lit by the pack.
     pub posts: u32,
     pub falls: u32,
     pub points: u32,
-    /// 0 C, 1 B, 2 A, 3 S.
     pub rank: u8,
-    /// The knight who rode best (the laurel).
     pub best: u32,
     pub scores: BTreeMap<u32, u32>,
 }
@@ -67,38 +52,27 @@ pub struct Tally {
 pub struct Session {
     pub seats: BTreeMap<u32, Seat>,
     pub elapsed: u32,
-    /// The front of the Dimming, 1/256 pixel along the road.
     pub dim: i32,
-    /// Lantern posts lit, a bit each; and when each was (tick + 1).
     pub posts: u32,
     pub post_t: Vec<u32>,
-    /// The most knights who have sat down; foes are woken for this many.
     pub provisioned: u32,
     pub foes: Vec<FoeState>,
-    /// When each spring and pad last fired (tick + 1), for the picture.
     pub spring_t: Vec<u32>,
     pub pad_t: Vec<u32>,
     pub warden_inv: u8,
-    /// The tick the first bell rang, if it has.
     pub bell_t: Option<u32>,
     pub tally: Option<Tally>,
-    /// The purse has been paid for this ride.
     pub paid: bool,
-    /// A knight asked to ride again at the tally.
     pub again: bool,
-    /// What the picture remembers of the moments just ridden (`show.rs`). The
-    /// module never sees it.
     #[serde(default, skip_serializing_if = "Show::quiet")]
     pub show: Show,
 }
 
-/// The knights who can ride: here, awake and not turned to stone.
 fn seated(heroes: &BTreeMap<u32, Hero>) -> Vec<u32> {
     heroes.iter().filter(|(_, h)| !h.away && !h.stone).map(|(&id, _)| id).collect()
 }
 
 impl Session {
-    /// A fresh ride for the knights at the table, as the module lays it out.
     pub fn new(players: &BTreeMap<u32, Hero>) -> Option<Session> {
         #[derive(Deserialize)]
         struct Fresh {
@@ -107,15 +81,11 @@ impl Session {
         ask::<Fresh>(json!({ "op": "start", "present": seated(players) })).map(|f| f.session).filter(Session::valid)
     }
 
-    /// Which act the road is in at column `x` (pixels).
     pub fn act_at(x: i32) -> usize {
         let a = level().acts;
         (0..4).rev().find(|&n| x >= a[n]).unwrap_or(0)
     }
 
-    /// One tick: the module seats whoever is here and awake, runs every
-    /// knight, the foes and the Dimming, and answers the next session and the
-    /// sounds the tick made. An answer the save would refuse is not taken.
     pub fn step(&mut self, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32, Hero>, n: &Numbers) -> Vec<&'static str> {
         #[derive(Deserialize)]
         struct Tick {
@@ -129,7 +99,6 @@ impl Session {
                 let mut show = std::mem::take(&mut self.show);
                 let old = std::mem::replace(self, tick.session);
                 show.observe(&old, self);
-                // The picture's own notes are never worth refusing a ride over.
                 self.show = if show.valid(self.elapsed) { show } else { Show::default() };
                 tick.sounds.iter().filter_map(|&i| SOUNDS.get(i).copied()).collect()
             }
@@ -137,8 +106,6 @@ impl Session {
         }
     }
 
-    /// What a bot presses for knight `id`: the high rails for the odd seats,
-    /// the valley for the even, riding well.
     pub fn bot_input(&self, id: u32, _hero: &Hero) -> Input {
         #[derive(Deserialize)]
         struct Pressed {

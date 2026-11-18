@@ -9,13 +9,10 @@ license.workspace = true
 publish.workspace = true
 
 [lib]
-# A raw wasm module for node (no bindgen), and the native timer's library.
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# The fixtures' scenes (a busy fight, the kingdom) are the art kit's own.
 angel-delve = { path = "..", features = ["testing"] }
-# The wire's trees and patches, as a client takes them.
 angel-net = { path = "../../net" }
 serde_json = "1"
 

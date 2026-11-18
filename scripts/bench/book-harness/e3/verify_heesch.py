@@ -1,10 +1,3 @@
-"""E3 /loop verifier, run from a heesch checkout: green only when
-heesch_verify accepts submission/best.heesch with hc_verified >= 5, the
-challenge's first survivor (the class record is 4), on a shape it reports as a
-proven non-tiler. A tiler has a witness for every corona count, so a witness
-alone proves nothing. Witness check only (about 0.05 s): the proof gate
-(tools/prove.py --check) is not run, so a shape outside the census stays red
-here until its proof is checked separately."""
 import json
 import subprocess
 import sys

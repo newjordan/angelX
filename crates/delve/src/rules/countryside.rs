@@ -44,8 +44,6 @@ const FORECAST_MARKS: [&str; 6] = [
     "country:forecast:4",
     "country:forecast:5",
 ];
-/// A clerk, a brass rooster, three constellation lenses, then the clerk again.
-/// Lenses are separated so holding E at one cannot solve the whole puzzle.
 pub const FORECAST: [(RoomKind, (f32, f32)); 6] = [
     (RoomKind::Rookery, (6.0, 9.0)),
     (RoomKind::Crag, (19.0, 4.5)),
@@ -92,7 +90,6 @@ pub fn forecast_stage(country: &Country, marks: &BTreeMap<String, u32>) -> u8 {
     }
     stage
 }
-/// An ordered errand, not another set of interchangeable visit flags.
 pub const PICNIC: [(RoomKind, (f32, f32)); 3] = [
     (RoomKind::Causeway, (20.5, 4.0)),
     (RoomKind::Priory, (5.0, 9.0)),
@@ -107,20 +104,13 @@ pub fn picnic_stage(country: &Country, marks: &BTreeMap<String, u32>) -> u8 {
     stage
 }
 
-/// Finite whitelist for the private checkpoint intent journal. These marks
-/// settle idempotently; ordinary kill counters remain transient.
-/// The Firefly Grove's feats, settled into the realm at save.
 pub const GROVE_MARKS: [&str; 2] = ["country:fireflies", "country:song"];
 
-/// A surface game's first win, by its index in `pastimes::Game::ALL`.
 pub fn game_mark(index: usize) -> String {
     format!("country:game:{index}")
 }
-/// What a surface game's first win pays the realm, once.
 pub const FIRST_WIN_GOLD: u32 = 25;
 
-/// Each surface game's first win, paid into the realm once (beside the
-/// errands' `settle`, so their purses stay their own).
 pub fn settle_games(
     country: &mut Country,
     treasury: &mut Spoils,
@@ -179,11 +169,9 @@ pub fn intent_key(key: &str) -> bool {
             .iter()
             .any(|p| key == format!("country:build:{}", p.id))
 }
-/// Intent values are bounded per action, including a private wager selection.
 pub fn intent_valid(key:&str, value:u32)->bool {
     if !intent_key(key) || value==0 {return false;}
     if super::hippodrome::WAGER_MARKS[..3].contains(&key) {(1..=3).contains(&value)}
-    // A finish names its winner, 2 to 4; an older save wrote 1.
     else if super::hippodrome::WAGER_MARKS[3..].contains(&key) {(1..=4).contains(&value)}
     else if key.starts_with("country:build:") || key.starts_with("country:squire:") {value <= super::MAX_PLAYERS}
     else {value==1}
@@ -268,45 +256,30 @@ pub struct Country {
     pub relics_paid: bool,
     pub lamps: u8,
     pub lamps_paid: bool,
-    /// Expansion masks never change the original eight visit bits.
     pub west_visited: u8,
     pub survey: u8,
     pub survey_paid: bool,
     pub east_visited: u8,
-    /// 0: seek ticket, 1: seek hamper, 2: return to abbot, 3: delivered.
     pub picnic: u8,
     pub picnic_paid: bool,
     pub north_visited: u8,
-    /// 0: clerk, 1: rooster, 2..4: lenses, 5: return forecast, 6: delivered.
     pub forecast: u8,
     pub forecast_paid: bool,
-    /// The Firefly Grove's two once-only purses: all eight lanterns, and the
-    /// woodland's song.
     pub fireflies_paid: bool,
     pub song_paid: bool,
-    /// Each surface game's first win pays the realm once (bit per game;
-    /// u32: seventeen games and room for more, old u16 saves load as-is).
     pub games_paid: u32,
-    /// Somebody has won a race (a race hall's or the Eyrie's practice
-    /// flight); until then Maud and the gold arrow send knights to the
-    /// Griffin Eyrie.
     pub race_won: bool,
-    /// The hedge maze's golden acorn has paid its gold.
     pub acorn_paid: bool,
     pub coast_visited: u8,
-    /// Keeper, low-tide parcel, keeper again.
     pub harbour: u8,
     pub harbour_paid: bool,
     pub wood_visited: u8,
-    /// Soup commission, three absurd mushrooms in order, then deliver.
     pub soup: u8,
     pub soup_paid: bool,
     pub wet_visited: u8,
-    /// Brother Bucket, FISH/BOOT/DUCK valves, bell, Brother Bucket again.
     pub sluice: u8,
     pub sluice_paid: bool,
     pub aerie_visited: u8,
-    /// 0: uncommissioned, 1: recover minutes in any order, 2: delivered.
     pub post: u8,
     pub minutes: u8,
     pub post_paid: bool,
@@ -319,34 +292,21 @@ pub struct Country {
     pub wind_visited: u8,
     pub signal: u8,
     pub signal_paid: bool,
-    /// Longbow country's places seen, and the scarecrow's wardrobe: 0 not
-    /// asked, 1 clothes being found, 2 dressed; the pieces found; paid.
     pub bow_visited: u8,
     pub wardrobe: u8,
     pub clothes: u8,
     pub wardrobe_paid: bool,
-    /// Three finite spectator heats; never an infinite treasury faucet.
     pub wager_mask: u8,
     pub wager_tickets: [u8; 3],
     pub games: super::pastimes::Records,
-    /// Times Humphrey the Risen has been felled; his grudge (and bulk)
-    /// grow with it.
     #[serde(default)]
     pub humphrey_felled: u8,
-    /// Ticks until he claws into the party's room again; 0 and a live world
-    /// means he is due right now.
     #[serde(default)]
     pub humphrey_dig: u32,
-    /// The Swamp of Horrors: the notice by the plate read, and the white
-    /// horse: 0 penned in the Mire King's hall, 1 freed and waiting at the
-    /// ranch for room in the herd, 2 in the herd (`swamp::settle`).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub swamp_heard: bool,
     #[serde(default, skip_serializing_if = "super::is_zero")]
     pub white_horse: u8,
-    /// The named keeper of each built plot, by plot id: who lives and
-    /// works at what the realm raised. Given once, at the raising (or
-    /// at the first settle after, for an older realm), and kept.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub keepers: BTreeMap<String, String>,
 }
@@ -429,14 +389,10 @@ impl Country {
             && self.white_horse <= 2
     }
 
-    /// The original six-place reward and inn requirement survive expansion.
     pub fn core_visits(&self) -> u32 {
         (self.visited & 63).count_ones()
     }
 
-    /// Built plots whose keeper sends a sack to the holdings'
-    /// granary each rent day: the bakery's loaves, the bothy's
-    /// soup, the harbour's catch.
     pub fn larders(&self) -> u32 {
         LARDERS
             .iter()
@@ -454,9 +410,6 @@ impl Country {
 }
 
 impl Country {
-    /// Mend what a bad save broke, one field at a time: a broken field is
-    /// clamped or set from the progress that depends on it, and the rest is
-    /// kept. The names of the fields mended.
     pub fn repair(&mut self) -> Vec<&'static str> {
         let mut mended = Vec::new();
         macro_rules! mend {
@@ -467,7 +420,6 @@ impl Country {
                 }
             };
         }
-        // Stray bits and stages past their end.
         macro_rules! mask {
             ($field:ident, $bits:expr) => {
                 mend!(self.$field & !$bits != 0, stringify!($field), self.$field &= $bits)
@@ -520,8 +472,6 @@ impl Country {
             self.games.repair();
             mended.push("games");
         }
-        // A keeper for a plot that does not stand (or no plot at all)
-        // is a name without a home: strike it from the roll.
         let keepers_before = self.keepers.len();
         let built = self.built;
         self.keepers.retain(|id, name| {
@@ -532,8 +482,6 @@ impl Country {
         if self.keepers.len() != keepers_before {
             mended.push("keepers");
         }
-        // Later progress vouches for what it needed: a paid reward or a
-        // built plot means its job was done.
         let lamps_lit = self.lamps != 0 || self.lamps_paid || self.has(3);
         mend!(lamps_lit && !self.has(1), "built", self.built |= 1 << 1);
         mend!(lamps_lit && self.relics & 2 == 0, "relics", self.relics |= 2);
@@ -596,15 +544,11 @@ impl Country {
     }
 }
 
-/// Bad optional surface data cannot discard a treasury or the cellar, nor
-/// the rest of the countryside: a field that will not read is left at its
-/// default, and broken progress is mended field by field.
 pub fn deserialize<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Country, D::Error> {
     let value = serde_json::Value::deserialize(d)?;
     Ok(load(value))
 }
 
-/// A saved countryside, read and mended field by field.
 pub fn load(value: serde_json::Value) -> Country {
     let serde_json::Value::Object(mut fields) = value else {
         if !value.is_null() {
@@ -733,8 +677,6 @@ impl Plot {
     }
 }
 
-/// Plots that feed people: their keepers send a sack a rent day to
-/// the holdings' granary (`Country::larders`).
 pub const LARDERS: [&str; 3] = ["bakery", "bothy", "harbour"];
 
 pub const PLOTS: [Plot; 15] = [
@@ -901,8 +843,6 @@ fn fill(room: &mut Room, (c, r, w, h): (i32, i32, i32, i32), tile: Tile) {
     }
 }
 
-/// Obstacle silhouettes agree with scenery and leave all four door approaches
-/// connected. Building sites reserve their footprint before anything is paid.
 pub fn room(mut room: Room) -> Room {
     match room.kind {
         RoomKind::Village => {
@@ -923,7 +863,6 @@ pub fn room(mut room: Room) -> Room {
         }
         RoomKind::Riverbank => {
             fill(&mut room, (1, 1, 22, 3), Tile::Hazard);
-            // Leave room for a four-knight arrival fan, not just one rider.
             fill(&mut room, (9, 1, 6, 3), Tile::Floor);
             fill(&mut room, QUAY_FERRY, Tile::Stairs);
             fill(&mut room, QUAY_BARGE, Tile::Stairs);
@@ -945,11 +884,9 @@ pub fn room(mut room: Room) -> Room {
             }
         }
         RoomKind::Marsh => {
-            // The east doorway's four-knight fan grazes row four.
             fill(&mut room, (1, 1, 22, 3), Tile::Hazard);
             fill(&mut room, (1, 10, 11, 3), Tile::Hazard);
             fill(&mut room, MARSH_FERRY, Tile::Stairs);
-            // The plate down into the Swamp of Horrors.
             fill(&mut room, super::swamp::PLATE, Tile::Stairs);
         }
         RoomKind::Downs => {
@@ -957,7 +894,6 @@ pub fn room(mut room: Room) -> Room {
             fill(&mut room, (16, 1, 4, 2), Tile::Block);
         }
         RoomKind::Cliffs => {
-            // Rail the sea; leave a broad dry road to the southern door.
             for c in [1, 15] {
                 fill(&mut room, (c, 11, 8, 2), Tile::Hazard);
                 fill(&mut room, (c, 10, 8, 1), Tile::Block);
@@ -965,7 +901,6 @@ pub fn room(mut room: Room) -> Room {
             fill(&mut room, LIFT, Tile::Stairs);
         }
         RoomKind::Causeway => {
-            // Shallow water north and south; a broad, dry sporting causeway.
             fill(&mut room, (2, 1, 7, 3), Tile::Hazard);
             fill(&mut room, (15, 1, 7, 2), Tile::Hazard);
             fill(&mut room, (2, 11, 7, 2), Tile::Hazard);
@@ -991,11 +926,9 @@ pub fn room(mut room: Room) -> Room {
             fill(&mut room, ROPEWAY, Tile::Stairs);
         }
         RoomKind::Eyrie => {
-            // Crags either side of the griffins' perch, and the perch.
             for rect in super::race3d::EYRIE_ROCKS {
                 fill(&mut room, rect, Tile::Block);
             }
-            // The yard gate, back down to the kingdom's road.
             room.open_door(2);
         }
         _ => {}
@@ -1017,8 +950,6 @@ pub fn room(mut room: Room) -> Room {
 }
 
 impl Run {
-    /// The knights (a bit each) whose E went down this tick, for the new
-    /// rooms: a press, never a hold.
     fn rooms_pressed(&mut self, inputs: &BTreeMap<u32, Input>) -> u8 {
         let held = self
             .players
@@ -1031,7 +962,6 @@ impl Run {
     }
 
     pub(super) fn tick_countryside(&mut self, inputs: &BTreeMap<u32, Input>) {
-        // Arrived where someone sent the party: the arrow's work is done.
         if self.kingdom.moments.errand == Some(self.room().kind) {
             self.kingdom.moments.errand = None;
         }
@@ -1045,11 +975,8 @@ impl Run {
         let pressed = self.rooms_pressed(inputs);
         self.tick_bowcountry(pressed);
         self.tick_town(inputs, pressed);
-        // In the fort below the Greenwood, E beside one of its people.
         self.tick_bomrekedan_people(pressed);
         self.tick_race_wagers(inputs);
-        // Humphrey the Risen is retired: the surface stays free of zombies,
-        // and any still standing from an older save are cleared away.
         self.enemies.retain(|e| e.kind != EnemyKind::Risen);
         let kind = self.room().kind;
         let living = self
@@ -1152,7 +1079,6 @@ impl Run {
                     (h.x - relic.at.0 * TILE_UNITS).hypot(h.y - relic.at.1 * TILE_UNITS) < 1.35
                 })
             {
-                // Pending marks latch pickups until the host saves them.
                 let mark = RELIC_MARKS[i];
                 if !self.marks.contains_key(mark) {
                     self.marks.insert(mark.into(), 1);
@@ -1186,8 +1112,6 @@ impl Run {
                 }
             }
         }
-        // A plot already built takes no more orders, and none while an
-        // arcade round is playing.
         let arcade = self.pastimes.round.is_some();
         let buyer = PLOTS
             .iter()
@@ -1218,8 +1142,6 @@ impl Run {
             self.build_hold = None;
             return;
         }
-        // Marking is a request, never a local spend. A continued hold cannot
-        // place another order, including after a refused payment.
         if self.players[&id].buy_spent {
             return;
         }
@@ -1237,8 +1159,6 @@ impl Run {
     }
 }
 
-/// Shared with the host save transaction. All rewards are first-time world
-/// objectives; revisits and festival replays can never farm the treasury.
 pub fn settle(
     country: &mut Country,
     treasury: &mut Spoils,
@@ -1375,9 +1295,5 @@ pub fn settle(
             plot.says
         ));
     }
-    // No backfill here: plots an older realm raised before keepers
-    // were named stay unnamed in the save, and the board derives
-    // their keeper (`villagers::keeper_name`) when it paints. A
-    // settle that grants nothing must change nothing.
     (*country != before || sold, news)
 }

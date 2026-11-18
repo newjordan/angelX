@@ -7,7 +7,6 @@ pub use angel_delve::world::houses::*;
 
 use angel_plug::feed::AgentKey;
 
-/// The profile key each house answers for, by the house's key.
 const AGENTS: [(&str, AgentKey); 16] = [
     ("sol", AgentKey::Codex),
     ("luna", AgentKey::Luna),
@@ -27,8 +26,6 @@ const AGENTS: [(&str, AgentKey); 16] = [
     ("astra", AgentKey::Astra),
 ];
 
-/// The house a portrait key belongs to; the stub and unknown routes have none
-/// (their knight is the Keep's own).
 pub fn of_agent(key: AgentKey) -> Option<HouseId> {
     AGENTS
         .iter()

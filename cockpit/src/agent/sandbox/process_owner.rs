@@ -7,13 +7,9 @@ use std::time::{Duration, Instant};
 
 #[path = "process_owner/children.rs"]
 mod children;
-// The tiny sandbox binary shares this module but needs only the command trait.
 #[allow(unused_imports)]
 pub(crate) use children::{Child, ChildClaim, OwnedCommandExt, claim_spawn};
 
-/// One process-death payload shared by foreground and background tools.
-/// Unknown external senders are explicitly unknown; observed signals do not
-/// prove who sent them.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct KillReceipt {
     pub(crate) signal: Option<i32>,
@@ -56,21 +52,14 @@ impl KillReceipt {
 
 static SIGNAL: AtomicI32 = AtomicI32::new(0);
 static ACTIVE_GRAPH_RUNS: AtomicUsize = AtomicUsize::new(0);
-/// Where a signal's exit happens. By default the reaper thread exits; the GPU
-/// window (`ui::glass`) must end the process from its own thread, after it has
-/// let go of the driver, so it routes the exit there.
 #[cfg(target_os = "linux")]
 static EXIT_ROUTE: std::sync::OnceLock<fn(i32)> = std::sync::OnceLock::new();
 
-/// Send a signal's exit through `route`, which ends the process with the code.
 #[cfg(target_os = "linux")]
 pub(crate) fn route_exit(route: fn(i32)) {
     let _ = EXIT_ROUTE.set(route);
 }
 
-/// Keep the exit reaper from discarding an active graph's cancellation receipt.
-/// The graph observes the signal and uses its existing cooperative wind-down;
-/// dropping the last guard releases ordinary process shutdown after persistence.
 pub(crate) struct GraphSignalGuard;
 
 pub(crate) fn defer_exit_for_graph() -> GraphSignalGuard {
@@ -88,9 +77,6 @@ impl Drop for GraphSignalGuard {
     }
 }
 
-/// An eventfd the exit reaper sleeps on, so a signal wakes it at once instead
-/// of it polling the flag every few milliseconds. `-1` until the cockpit's
-/// reaper is installed; the sandbox helper never sets it.
 #[cfg(target_os = "linux")]
 static REAPER_WAKE: AtomicI32 = AtomicI32::new(-1);
 
@@ -99,8 +85,6 @@ extern "C" fn on_signal(signal: i32) {
     SIGNAL.store(signal, Ordering::Release);
     let wake = REAPER_WAKE.load(Ordering::Relaxed);
     if wake >= 0 {
-        // SAFETY: write(2) is async-signal-safe; errno is put back for the code
-        // this handler interrupted.
         unsafe {
             let errno = *libc::__errno_location();
             let one = 1u64;
@@ -110,13 +94,11 @@ extern "C" fn on_signal(signal: i32) {
     }
 }
 
-/// Sleep up to `wait`, or until a signal has been delivered.
 #[cfg(target_os = "linux")]
 fn reaper_sleep(wait: Duration) {
     reaper_sleep_on(REAPER_WAKE.load(Ordering::Relaxed), wait);
 }
 
-/// [`reaper_sleep`] on a given wake descriptor (`-1`: a plain short sleep).
 #[cfg(target_os = "linux")]
 fn reaper_sleep_on(wake: i32, wait: Duration) {
     if wake < 0 {
@@ -129,8 +111,6 @@ fn reaper_sleep_on(wake: i32, wait: Duration) {
         revents: 0,
     };
     let millis = wait.as_millis().saturating_add(1).min(1_000) as libc::c_int;
-    // SAFETY: one valid pollfd; the eventfd is non-blocking, so draining it
-    // cannot wait.
     unsafe {
         if libc::poll(&mut probe, 1, millis) > 0 {
             let mut count = 0u64;
@@ -141,12 +121,7 @@ fn reaper_sleep_on(wake: i32, wait: Duration) {
 
 #[cfg(target_os = "linux")]
 fn install() -> std::io::Result<()> {
-    // SAFETY: prctl changes only this process. The handler performs one atomic
-    // store and one write(2) to an eventfd; allocation, locks, waiting and
-    // other IO happen outside signal context.
     unsafe {
-        // Fail before launching work if this host cannot support identity-pinned
-        // cleanup; otherwise a denied pidfd syscall could strand the reaper.
         let fd = libc::syscall(libc::SYS_pidfd_open, libc::getpid(), 0) as i32;
         if fd < 0 {
             return Err(std::io::Error::last_os_error());
@@ -167,9 +142,6 @@ fn install() -> std::io::Result<()> {
             return Err(std::io::Error::last_os_error());
         }
         for signal in [libc::SIGINT, libc::SIGTERM, libc::SIGHUP] {
-            // A closed terminal (SIGHUP) takes the same orderly path as SIGTERM,
-            // so owned jobs are reaped instead of outliving the cockpit; a
-            // hangup the launcher chose to ignore (`nohup`) stays ignored.
             if signal == libc::SIGHUP {
                 let mut current: libc::sigaction = std::mem::zeroed();
                 if libc::sigaction(signal, std::ptr::null(), &mut current) == 0
@@ -189,14 +161,9 @@ fn install() -> std::io::Result<()> {
     Ok(())
 }
 
-/// Persistent services registered to outlive this process
-/// (`proc_run persistent=true`, operator-enabled only). Each entry is a
-/// session leader's (pid, starttime); shutdown cleanup spares that whole
-/// session subtree. Empty in every ordinary run.
 #[cfg(target_os = "linux")]
 static PERSISTENT_SPARED: std::sync::Mutex<Vec<(i32, u64)>> = std::sync::Mutex::new(Vec::new());
 
-/// The kernel starttime identity of `pid`, when readable.
 #[cfg(target_os = "linux")]
 fn process_starttime(pid: i32) -> Option<u64> {
     let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
@@ -207,8 +174,6 @@ fn process_starttime(pid: i32) -> Option<u64> {
         .and_then(|s| s.parse::<u64>().ok())
 }
 
-/// Register a just-launched persistent session leader so shutdown cleanup
-/// leaves its session alone. Starttime-pinned: a reused pid is never spared.
 #[cfg(target_os = "linux")]
 pub(crate) fn spare_persistent(pid: u32) {
     if let Some(start) = process_starttime(pid as i32)
@@ -250,9 +215,6 @@ fn descendants() -> Vec<(i32, u64)> {
             }
         }
     }
-    // A spared root keeps its identity only while its starttime matches;
-    // its session id (== leader pid) spares members reparented to us after
-    // the leader exits.
     let spared_sessions: Vec<i32> = spared.iter().map(|&(pid, _)| pid).collect();
     let is_spared = |pid: i32, session: i32, start: u64| {
         spared.contains(&(pid, start)) || spared_sessions.contains(&session)
@@ -277,8 +239,86 @@ fn descendants() -> Vec<(i32, u64)> {
         .collect()
 }
 
-/// Pin identity across the /proc-to-signal interval. A PID reused after the
-/// snapshot must never turn cleanup into a signal to another worker's process.
+/// Names of owned descendants that are still running. An exit nobody has collected yet is
+/// not running work.
+#[cfg(target_os = "linux")]
+fn running_descendants() -> Vec<String> {
+    descendants()
+        .into_iter()
+        .filter_map(|(pid, _)| {
+            let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+            let (head, fields) = stat.rsplit_once(')')?;
+            if fields.split_whitespace().next() == Some("Z") {
+                return None;
+            }
+            Some(
+                head.split_once('(')
+                    .map_or_else(String::new, |(_, name)| name.to_string()),
+            )
+        })
+        .collect()
+}
+
+/// What the reader of a command's result is told when work it left in the background was
+/// stopped as the command returned. `None` when nothing was left running.
+#[cfg(target_os = "linux")]
+pub(crate) fn stopped_background_notice(names: &[String]) -> Option<String> {
+    if names.is_empty() {
+        return None;
+    }
+    let mut shown: Vec<&str> = Vec::new();
+    let mut more = false;
+    for name in names.iter().map(String::as_str).filter(|name| !name.is_empty()) {
+        if shown.contains(&name) {
+            continue;
+        }
+        if shown.len() == 4 {
+            more = true;
+            break;
+        }
+        shown.push(name);
+    }
+    let mut named = shown.join(", ");
+    if more {
+        named.push_str(", …");
+    }
+    let (count, were) = if names.len() == 1 {
+        ("1 background process".to_string(), "was")
+    } else {
+        (format!("{} background processes", names.len()), "were")
+    };
+    let named = if named.is_empty() {
+        String::new()
+    } else {
+        format!(" ({named})")
+    };
+    Some(format!(
+        "angel: {count} this command started {were} still running when it returned and {were} \
+         stopped{named}. Work started with `&` ends with the command: wait for it in the same \
+         command (`wait`) or run it in the foreground.\n"
+    ))
+}
+
+/// A command owns its processes until it returns; whatever it left running is stopped by
+/// `cleanup`. Say so on the command's own stderr first, so the result does not read as if the
+/// work were still going.
+#[cfg(target_os = "linux")]
+fn report_stopped_background() {
+    // The tail of a pipeline or a process substitution is on its way out, not background
+    // work: give it a moment to finish before counting.
+    let settle = Instant::now() + Duration::from_millis(100);
+    let mut running = running_descendants();
+    while !running.is_empty() && Instant::now() < settle {
+        std::thread::sleep(Duration::from_millis(10));
+        running = running_descendants();
+    }
+    if let Some(notice) = stopped_background_notice(&running) {
+        unsafe {
+            libc::write(2, notice.as_ptr().cast(), notice.len());
+        }
+    }
+}
+
 #[cfg(target_os = "linux")]
 fn signal_owned(pid: i32, start: u64, signal: i32) {
     let fd = unsafe { libc::syscall(libc::SYS_pidfd_open, pid, 0) } as i32;
@@ -310,10 +350,6 @@ fn signal_owned(pid: i32, start: u64, signal: i32) {
     }
 }
 
-/// True when persistent services were registered and every direct child
-/// of this process belongs to a spared session (or no direct child with a
-/// readable identity is unspared). Used only to let shutdown finish while
-/// spared daemons keep running under the adopting init.
 #[cfg(target_os = "linux")]
 fn only_spared_remain() -> bool {
     let spared: Vec<(i32, u64)> = PERSISTENT_SPARED
@@ -361,30 +397,20 @@ fn only_spared_remain() -> bool {
     true
 }
 
-/// Called only at process shutdown or in the dedicated helper. Direct-child
-/// waiters in the cockpit may race this final reap, but no turn continues after
-/// cockpit shutdown. Helpers have exactly one waiter (this thread).
 #[cfg(target_os = "linux")]
 pub(crate) fn cleanup() {
     children::stop_reaping();
     let grace = Instant::now() + Duration::from_millis(250);
     loop {
-        // ECHILD proves the subreaper owns no remaining descendants. Test
-        // that kernel fact before enumerating every process on the host.
         let waited = unsafe { libc::waitpid(-1, std::ptr::null_mut(), libc::WNOHANG) };
         if waited < 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ECHILD) {
             break;
         }
         let owned = descendants();
         if owned.is_empty() {
-            // Registered persistent services stay behind on purpose: when
-            // every direct child left is a spared session, there is nothing
-            // left to own even though waitpid will never prove ECHILD.
             if only_spared_remain() {
                 break;
             }
-            // A child can fork/reparent between /proc rows. ECHILD, rather than
-            // an empty snapshot, proves this subreaper has nothing left to own.
             let waited = unsafe { libc::waitpid(-1, std::ptr::null_mut(), libc::WNOHANG) };
             if waited < 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ECHILD) {
                 break;
@@ -396,14 +422,11 @@ pub(crate) fn cleanup() {
         for &(pid, start) in owned.iter().rev() {
             signal_owned(pid, start, signal);
         }
-        // Reap adopted descendants too, including zombies with a new session.
         while unsafe { libc::waitpid(-1, std::ptr::null_mut(), libc::WNOHANG) } > 0 {}
         std::thread::sleep(Duration::from_millis(10));
     }
 }
 
-/// Main-process installation, before any tool can spawn. atexit also covers
-/// explicit std::process::exit paths that skip Rust destructors.
 pub(crate) fn initialize() -> std::io::Result<()> {
     #[cfg(target_os = "linux")]
     {
@@ -414,7 +437,6 @@ pub(crate) fn initialize() -> std::io::Result<()> {
         unsafe {
             libc::atexit(at_exit);
         }
-        // SAFETY: plain syscall; the descriptor lives for the process.
         let wake = unsafe { libc::eventfd(0, libc::EFD_NONBLOCK | libc::EFD_CLOEXEC) };
         REAPER_WAKE.store(wake, Ordering::Relaxed);
         std::thread::Builder::new()
@@ -426,13 +448,8 @@ pub(crate) fn initialize() -> std::io::Result<()> {
                     if signal != 0 && ACTIVE_GRAPH_RUNS.load(Ordering::Acquire) == 0 {
                         if let Some(route) = EXIT_ROUTE.get() {
                             route(128 + signal);
-                            // The route exits from its own thread. If that
-                            // thread is stuck, end anyway, but without exit
-                            // handlers: they tear the GPU driver down under
-                            // it. Owned jobs are still reaped first.
                             std::thread::sleep(Duration::from_secs(2));
                             cleanup();
-                            // SAFETY: ends the process; nothing runs after.
                             unsafe { libc::_exit(128 + signal) };
                         }
                         std::process::exit(128 + signal);
@@ -441,9 +458,6 @@ pub(crate) fn initialize() -> std::io::Result<()> {
                         children::reap_unclaimed();
                         next_reap = Instant::now() + Duration::from_millis(250);
                     }
-                    // A signal wakes the reaper. A signal held back by a
-                    // running graph is looked at again every 10 ms, as before;
-                    // otherwise nothing is due until the next reap.
                     reaper_sleep(if SIGNAL.load(Ordering::Acquire) != 0 {
                         Duration::from_millis(10)
                     } else {
@@ -455,25 +469,10 @@ pub(crate) fn initialize() -> std::io::Result<()> {
     Ok(())
 }
 
-/// Fork only in the fresh, single-threaded sandbox helper, before confinement.
-/// The parent remains a subreaper until the command and every descendant exit.
-/// The child returns to install the policy and exec the actual command.
-///
-/// `detached` is the trusted lifecycle already read by the helper entrypoint.
-/// Ordinary attached commands start a new session so they are not bound to a
-/// private parent terminal. Detached owners keep the established process group
-/// so group cancellation still reaps namespace descendants.
 pub(crate) fn supervise(detached: bool) -> std::io::Result<()> {
     #[cfg(target_os = "linux")]
     {
         install()?;
-        // An attached helper belongs to the process that spawned it and waits
-        // on it. If that process dies without its own cleanup (SIGKILL, a
-        // crash), the helper is reparented; the wait loop below sees that and
-        // reaps its tree through the cancellation path. A detached helper is
-        // meant to outlive its launcher (the subreaping cockpit adopts it), so
-        // its reparenting is not a death. (PR_SET_PDEATHSIG would follow the
-        // spawning *thread*, which can end while the process lives on.)
         let owner = (!detached).then(|| unsafe { libc::getppid() });
         let parent = unsafe { libc::getpid() };
         let child = unsafe { libc::fork() };
@@ -484,16 +483,9 @@ pub(crate) fn supervise(detached: bool) -> std::io::Result<()> {
             unsafe {
                 libc::signal(libc::SIGINT, libc::SIG_DFL);
                 libc::signal(libc::SIGTERM, libc::SIG_DFL);
-                // The helper is already the process-group leader (`process_group(0)`).
-                // This command child is not, so setsid can detach it from the
-                // cockpit controlling terminal. Calling setsid on the helper
-                // itself would fail with EPERM. Detached work must remain in
-                // that owner group; do not create a new session for it.
                 if !detached && libc::setsid() < 0 {
                     return Err(std::io::Error::last_os_error());
                 }
-                // Close the parent-death race before exec. The cockpit is also
-                // a subreaper if the supervisor itself is killed externally.
                 if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL, 0, 0, 0) < 0 {
                     return Err(std::io::Error::last_os_error());
                 }
@@ -503,9 +495,6 @@ pub(crate) fn supervise(detached: bool) -> std::io::Result<()> {
             }
             return Ok(());
         }
-        // Readiness only: waitpid below remains the exit-status authority.
-        // If this readiness descriptor cannot open, keep bounded sleeps.
-        // The existing install preflight still requires pidfd cleanup support.
         let exit_fd = unsafe { libc::syscall(libc::SYS_pidfd_open, child, 0) } as i32;
         let mut status = 0;
         loop {
@@ -534,8 +523,6 @@ pub(crate) fn supervise(detached: bool) -> std::io::Result<()> {
                     events: libc::POLLIN,
                     revents: 0,
                 };
-                // Preserve the cancellation ceiling even if a signal lands
-                // just before poll; readiness can wake earlier than 5 ms.
                 let ready = unsafe { libc::poll(&mut descriptor, 1, 5) };
                 if (ready < 0
                     && std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted)
@@ -551,6 +538,9 @@ pub(crate) fn supervise(detached: bool) -> std::io::Result<()> {
             unsafe { libc::close(exit_fd) };
         }
         let interrupted = SIGNAL.load(Ordering::Acquire);
+        if !detached && interrupted == 0 && libc::WIFEXITED(status) {
+            report_stopped_background();
+        }
         cleanup();
         let signal = if interrupted != 0 {
             interrupted
@@ -574,15 +564,7 @@ pub(crate) fn supervise(detached: bool) -> std::io::Result<()> {
     }
     #[cfg(not(target_os = "linux"))]
     {
-        // Without the Linux fork there is no child to setsid, so an attached
-        // command would keep the cockpit's controlling terminal: a password,
-        // host-key or credential prompt would draw over the cockpit through
-        // /dev/tty and then stop on SIGTTIN until the tool timeout. TIOCNOTTY
-        // from a process that is not a session leader drops /dev/tty for it
-        // and its descendants, as setsid does on Linux.
         if !detached {
-            // SAFETY: a private descriptor in the single-threaded helper; open
-            // and TIOCNOTTY do not read or write the terminal.
             unsafe {
                 let fd = libc::open(c"/dev/tty".as_ptr(), libc::O_RDWR | libc::O_CLOEXEC);
                 if fd >= 0 {
@@ -595,8 +577,6 @@ pub(crate) fn supervise(detached: bool) -> std::io::Result<()> {
     }
 }
 
-// Keep the existing cleanup policy separate from the clock read so its exact
-// escalation boundary is deterministic in the lifecycle contract tests.
 #[cfg(target_os = "linux")]
 fn cleanup_signal(now: Instant, grace: Instant) -> i32 {
     if now < grace {

@@ -83,38 +83,22 @@ use super::room_scene::Body;
 mod looks;
 pub use looks::LooksWatch;
 
-/// The pack's manifest, in its folder.
 pub const MANIFEST: &str = "pack.json";
-/// A drawing's pixels across one of its look's, unless the pack or the
-/// entry says otherwise: 64 to a tile.
 pub const DEFAULT_SCALE: u32 = 4;
-/// The window pictures of HD drawings start here (their normal maps at
-/// `normals::picture_of`), clear of the stage's own and of the paintings.
 pub const HD_PICTURES: u32 = LAYER_PICTURES + 0x0010_0000;
-/// The most drawings a drawer keeps pictures for.
 pub const MAX_DRAWINGS: u32 = 0x0010_0000;
-/// The biggest drawing read, a side: past it a texture would not take it.
 const MAX_SIDE: u32 = 4096;
 
-/// A named drawing (`figure_keys`): the drawing, its pixels to one of the
-/// game's (its rung's sixteenth), where its feet are in its own pixels
-/// (turned over with it), and the dress it was drawn in, if it says one.
 #[derive(Clone, Debug)]
 pub struct NamedDrawing {
     pub drawing: Drawing,
     pub scale: u32,
     pub pivot: [i32; 2],
     pub dress: Option<String>,
-    /// It is the body alone (`covers: body`), drawn under what the figure
-    /// carries; else the whole figure, over it.
     pub body: bool,
-    /// Its pixels are still to come (a page's pack, `Pack::from_manifest`):
-    /// the file they are in, in the pack's folder, its feet as the
-    /// manifest says them, and whether it is that file turned over.
     pub pending: Option<Pending>,
 }
 
-/// A named drawing a page has yet to fetch (`Pack::put_file`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Pending {
     pub file: String,
@@ -122,10 +106,6 @@ pub struct Pending {
     pub flip: bool,
 }
 
-/// A drawing as a drawer places it: its picture, and its rect in the room's
-/// pixels (a look's drawing in its sprite's rect, a named one by its feet);
-/// `body`: it is the body alone, in place of the figure's bare body
-/// (`figure_keys::Named::bare`) and under what it carries.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Placed {
     pub id: u32,
@@ -133,9 +113,6 @@ pub struct Placed {
     pub body: bool,
 }
 
-/// One drawing, as read: straight RGBA, its size, its scale (none for a
-/// loose `<look>.png`, which is whatever its size is to its look's), and
-/// its normal map when it ships one (the drawing's size, tidied).
 #[derive(Clone, Debug)]
 pub struct Drawing {
     pub name: String,
@@ -147,8 +124,6 @@ pub struct Drawing {
 }
 
 impl Drawing {
-    /// Whether this drawing is of a look `w` by `h` at the game's grain:
-    /// its size is the look's times its scale (a loose one, any size).
     pub fn fits(&self, (w, h): (u32, u32)) -> bool {
         match self.scale {
             Some(s) => (self.width, self.height) == (w * s, h * s),
@@ -156,23 +131,16 @@ impl Drawing {
         }
     }
 
-    /// The drawing's pixels to one of a look `w` wide (its scale, or for a
-    /// loose one what its width makes it).
     pub fn grain(&self, w: u32) -> f32 {
         self.scale.map_or(self.width as f32 / w.max(1) as f32, |s| s as f32)
     }
 }
 
-/// A pack, read: each look's drawing, and what was wrong with the entries
-/// that were left out.
 pub struct Pack {
     scale: u32,
     drawings: HashMap<u64, Drawing>,
-    /// The named drawings, by key, each rung's (`figure_keys`).
     named: HashMap<String, Vec<NamedDrawing>>,
     warnings: Vec<String>,
-    /// A number of its own: what was made from another pack (a drawer's
-    /// pictures, a room kit's tiles) is made again from this one.
     generation: u64,
 }
 
@@ -190,20 +158,14 @@ struct Manifest {
 struct Entry {
     #[serde(default)]
     look: Option<String>,
-    /// A figure's name (`figure_keys`), for a named drawing.
     #[serde(default)]
     key: Option<String>,
-    /// The rung it is drawn for (32, 64, 128): its scale, a sixteenth of it.
     #[serde(default)]
     rung: Option<u32>,
-    /// Its feet, in its own pixels.
     #[serde(default)]
     pivot: Option<[i32; 2]>,
-    /// What the figure carries in it (`figure_keys`); none, whatever.
     #[serde(default)]
     dress: Option<String>,
-    /// `body`: the body alone, under what the figure carries; `whole` (the
-    /// default): the figure.
     #[serde(default)]
     covers: Option<String>,
     #[serde(default)]
@@ -222,13 +184,11 @@ struct Entry {
     normal: Option<String>,
 }
 
-/// A look's key from its sixteen hex digits.
 pub fn parse_look(text: &str) -> Option<u64> {
     (text.len() == 16).then(|| u64::from_str_radix(text, 16).ok()).flatten()
 }
 
 impl Pack {
-    /// A pack of these drawings, by look, at `scale`.
     pub fn of(scale: u32, drawings: impl IntoIterator<Item = (u64, Drawing)>) -> Self {
         Self {
             scale: scale.max(1),
@@ -239,16 +199,10 @@ impl Pack {
         }
     }
 
-    /// The pack in folder `dir`: its manifest's entries, then any loose
-    /// `<look>.png` none of them names. An entry that cannot be drawn (no
-    /// file, not a PNG, the wrong size, a path out of the folder) is left
-    /// out and said in `warnings`. `None` when the folder has neither.
     pub fn open(dir: &Path) -> Option<Self> {
         let mut warnings = Vec::new();
         let mut drawings = HashMap::new();
         let mut named: HashMap<String, Vec<NamedDrawing>> = HashMap::new();
-        // A file many named entries share (a still standing for every frame
-        // of a clip, a facing and its mirror) is read once.
         let mut read: PngCache = HashMap::new();
         let mut scale = DEFAULT_SCALE;
         let manifest = dir.join(MANIFEST);
@@ -258,7 +212,6 @@ impl Pack {
                 Ok(m) => {
                     scale = m.scale.filter(|&s| (1..=16).contains(&s)).unwrap_or(DEFAULT_SCALE);
                     for entry in m.art {
-                        // A file an entry names is never also read loose.
                         files.insert(drawing_path(dir, &entry));
                         let said = entry.name.clone().or_else(|| entry.key.clone()).or_else(|| entry.look.clone()).unwrap_or_default();
                         if entry.key.is_some() {
@@ -279,7 +232,6 @@ impl Pack {
                 Err(why) => warnings.push(format!("{MANIFEST}: {why}")),
             }
         }
-        // The loose drawings, named by their look alone.
         if let Ok(read) = std::fs::read_dir(dir) {
             for path in read.flatten().map(|e| e.path()) {
                 let Some(look) = path.file_stem().and_then(|s| s.to_str()).and_then(parse_look) else {
@@ -306,8 +258,6 @@ impl Pack {
         Some(pack)
     }
 
-    /// This pack with these named drawings added, by key (a pack made in
-    /// code: tests, a page's).
     pub fn with_named(mut self, named: impl IntoIterator<Item = (String, NamedDrawing)>) -> Self {
         for (key, drawing) in named {
             self.named.entry(key).or_default().push(drawing);
@@ -315,12 +265,6 @@ impl Pack {
         self
     }
 
-    /// A pack from its manifest alone (`pack.json`'s text), every named
-    /// drawing's pixels to come: a page's, which has no folder to read, so
-    /// it fetches each file the first time a figure on its screen asks for
-    /// it (`HdArt::wanted`, the host's `/hd/<file>`) and hands it over
-    /// (`put_file`). Its look entries and loose drawings are left out (a
-    /// room kit's tiles are the window's alone).
     pub fn from_manifest(json: &str) -> Result<Self, String> {
         let m: Manifest = serde_json::from_str(json).map_err(|e| e.to_string())?;
         let mut pack = Self::of(m.scale.filter(|&s| (1..=16).contains(&s)).unwrap_or(DEFAULT_SCALE), []);
@@ -333,10 +277,6 @@ impl Pack {
         Ok(pack)
     }
 
-    /// The pixels of `file` come, straight RGBA `size`: every named drawing
-    /// of it takes them (turned over where it is the mirror). One that
-    /// cannot (the wrong size, its feet outside) is left out. Whether any
-    /// took them.
     pub fn put_file(&mut self, file: &str, size: (u32, u32), rgba: &[u8]) -> bool {
         let mut took = false;
         for drawings in self.named.values_mut() {
@@ -359,34 +299,24 @@ impl Pack {
         took
     }
 
-    /// `file` could not be fetched: its drawings are left out.
     pub fn file_failed(&mut self, file: &str) {
         for drawings in self.named.values_mut() {
             drawings.retain(|d| d.pending.as_ref().is_none_or(|p| p.file != file));
         }
     }
 
-    /// Whether `file` is one its named drawings wait for.
     pub fn waits_for(&self, file: &str) -> bool {
         self.named.values().flatten().any(|d| d.pending.as_ref().is_some_and(|p| p.file == file))
     }
 
-    /// How many named drawings it has, every rung of every key.
     pub fn named_len(&self) -> usize {
         self.named.values().map(Vec::len).sum()
     }
 
-    /// The keys it has named drawings of.
     pub fn keys(&self) -> impl Iterator<Item = &str> {
         self.named.keys().map(String::as_str)
     }
 
-    /// The drawing of the figure named `key` in `dress`, at a scale of at
-    /// most `max_scale` (its rung's): the finest whole figure of its own
-    /// dress, else the finest of its body alone (what it carries stays the
-    /// game's), else the finest whole figure drawn for any dress. `None`:
-    /// the figure is matched by its look. `bodies`: whether a body alone
-    /// may stand in (the figure has its bare body to take the place of).
     pub fn named_for(&self, key: &str, dress: &str, max_scale: u32, bodies: bool) -> Option<&NamedDrawing> {
         let all = self.named.get(key)?;
         let finest = |fits: &dyn Fn(&NamedDrawing) -> bool| all.iter().filter(|d| d.scale <= max_scale && fits(d)).max_by_key(|d| d.scale);
@@ -395,11 +325,6 @@ impl Pack {
             .or_else(|| finest(&|d| !d.body && d.dress.is_none()))
     }
 
-    /// The key this pack draws `named` by, at a rung that allows drawings of
-    /// at most `max_scale`: the figure's own facing's when it faces up or down
-    /// and the pack has a drawing for that (`Named::faced_key`, `.../u`,
-    /// `.../d`), else its key as the rig draws it (`.../r`, `.../l`). A pack
-    /// with no `u` or `d` entries draws every figure as it always did.
     pub fn key_for(&self, named: &super::figure_keys::Named, max_scale: u32) -> Arc<str> {
         if let Some(faced) = named.faced_key()
             && self.named_for(&faced, &named.dress, max_scale, named.bare.is_some()).is_some()
@@ -409,19 +334,14 @@ impl Pack {
         named.key.clone()
     }
 
-    /// Whether this pack has a drawing for `named`, as `named_picture` finds
-    /// it at a rung that allows drawings of at most `max_scale`.
     pub fn draws(&self, named: &super::figure_keys::Named, max_scale: u32) -> bool {
         self.named_for(&self.key_for(named, max_scale), &named.dress, max_scale, named.bare.is_some()).is_some()
     }
 
-    /// Whether it has a named drawing of any figure of this clip (`die`,
-    /// `hurt`, ...): what is worth asking `draws` about frame by frame.
     pub fn has_clip(&self, clip: &str) -> bool {
         self.named.iter().any(|(key, drawings)| !drawings.is_empty() && super::figure_keys::parts(key).is_some_and(|p| p[2] == clip))
     }
 
-    /// Its drawings' pixels across one of their looks', unless one says.
     pub fn scale(&self) -> u32 {
         self.scale
     }
@@ -438,31 +358,23 @@ impl Pack {
         self.generation
     }
 
-    /// What was left out as it was read, a line an entry.
     pub fn warnings(&self) -> &[String] {
         &self.warnings
     }
 
-    /// The drawing of look `look`, if there is one.
     pub fn get(&self, look: u64) -> Option<&Drawing> {
         self.drawings.get(&look)
     }
 
-    /// The drawing of look `look`, `w` by `h` at the game's grain, if the
-    /// pack has one of the right size.
     pub fn drawing_for(&self, look: u64, size: (u32, u32)) -> Option<&Drawing> {
         self.get(look).filter(|d| d.fits(size))
     }
 
-    /// The drawing of look `look`, `w` by `h`, at exactly `scale`: what a
-    /// room's tiles are composed of.
     pub fn drawing_at(&self, look: u64, size: (u32, u32), scale: u32) -> Option<&Drawing> {
         self.drawing_for(look, size).filter(|d| d.scale == Some(scale))
     }
 }
 
-/// Where an entry's drawing is: its `file`, else `<name>.png`, else
-/// `<look>.png`, in the folder.
 fn drawing_path(dir: &Path, entry: &Entry) -> PathBuf {
     if entry.key.is_some() {
         return named_path(dir, entry);
@@ -475,16 +387,13 @@ fn drawing_path(dir: &Path, entry: &Entry) -> PathBuf {
     dir.join(file)
 }
 
-/// A path the manifest names stays in the folder: no root, no `..`.
 fn inside(path: &str) -> bool {
     let p = Path::new(path);
     !p.is_absolute() && p.components().all(|c| matches!(c, std::path::Component::Normal(_) | std::path::Component::CurDir))
 }
 
-/// PNGs read as a pack opens, by path.
 type PngCache = HashMap<PathBuf, Result<(u32, u32, Vec<u8>), String>>;
 
-/// A named entry: its key, and its drawing, scale, feet and dress.
 fn read_named(dir: &Path, entry: &Entry, read: &mut PngCache) -> Result<(String, NamedDrawing), String> {
     let (key, mut named) = named_entry(entry)?;
     let path = named_path(dir, entry);
@@ -499,8 +408,6 @@ fn read_named(dir: &Path, entry: &Entry, read: &mut PngCache) -> Result<(String,
 }
 
 impl NamedDrawing {
-    /// Its pixels, come: straight RGBA, `size`, as the file has them (turned
-    /// over here when it is the mirror), and its normal map if it has one.
     fn fill(&mut self, (width, height): (u32, u32), mut rgba: Vec<u8>, normals: Option<Vec<u8>>) -> Result<(), String> {
         let Some(pending) = self.pending.take() else {
             return Ok(());
@@ -522,7 +429,6 @@ impl NamedDrawing {
     }
 }
 
-/// A named entry as its manifest says it, its pixels to come.
 fn named_entry(entry: &Entry) -> Result<(String, NamedDrawing), String> {
     let key = entry.key.clone().unwrap_or_default();
     if !super::figure_keys::is_key(&key) {
@@ -554,14 +460,10 @@ fn named_entry(entry: &Entry) -> Result<(String, NamedDrawing), String> {
     Ok((key, NamedDrawing { drawing, scale, pivot: [0, 0], dress: entry.dress.clone(), body, pending: Some(pending) }))
 }
 
-/// A named entry's file in the pack's folder: its `file`, else
-/// `<name>.png`, else `<key>.png`.
 fn named_file(entry: &Entry) -> String {
     entry.file.clone().or_else(|| entry.name.as_ref().map(|n| format!("{n}.png"))).unwrap_or_else(|| format!("{}.png", entry.key.as_deref().unwrap_or_default()))
 }
 
-/// Where a named entry's drawing is: its `file`, else `<name>.png`, else
-/// `<key>.png`, in the folder.
 fn named_path(dir: &Path, entry: &Entry) -> PathBuf {
     dir.join(named_file(entry))
 }
@@ -601,14 +503,11 @@ fn read_entry(dir: &Path, entry: &Entry, pack_scale: u32) -> Result<(u64, Drawin
     Ok((look, Drawing { name, width, height, rgba, scale: Some(scale), normals }))
 }
 
-/// `<stem>_n.png` beside a drawing.
 fn normal_beside(path: &Path) -> PathBuf {
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
     path.with_file_name(format!("{stem}_n.png"))
 }
 
-/// A drawing's normal map, if it has one its size: mirrored with it (red
-/// turned over), tidied.
 fn read_normals(path: &Path, size: (u32, u32), flip: bool) -> Option<Vec<u8>> {
     let (w, h, mut map) = read_png(path).ok().filter(|(w, h, _)| (*w, *h) == size)?;
     if flip {
@@ -618,7 +517,6 @@ fn read_normals(path: &Path, size: (u32, u32), flip: bool) -> Option<Vec<u8>> {
     Some(map)
 }
 
-/// A PNG as straight RGBA, no bigger than a texture takes.
 fn read_png(path: &Path) -> Result<(u32, u32, Vec<u8>), String> {
     let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let img = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png)
@@ -631,7 +529,6 @@ fn read_png(path: &Path) -> Result<(u32, u32, Vec<u8>), String> {
     Ok((w, h, img.into_raw()))
 }
 
-/// Straight RGBA turned over left to right.
 pub fn mirrored(rgba: &[u8], (w, h): (u32, u32)) -> Vec<u8> {
     let (w, h) = (w as usize, h as usize);
     let mut out = vec![0u8; rgba.len()];
@@ -644,8 +541,6 @@ pub fn mirrored(rgba: &[u8], (w, h): (u32, u32)) -> Vec<u8> {
     out
 }
 
-// ------------------------------------------------------------ installed ----
-
 #[cfg(not(test))]
 static INSTALLED: std::sync::RwLock<Option<Arc<Pack>>> = std::sync::RwLock::new(None);
 #[cfg(test)]
@@ -653,9 +548,6 @@ thread_local! {
     static INSTALLED: std::cell::RefCell<Option<Arc<Pack>>> = const { std::cell::RefCell::new(None) };
 }
 
-/// Put `pack` where the room's art reaches it (a room kit's tiles are
-/// composed of it), and the drawers' `HdArt` that follow it; `None` takes
-/// it away. Read once, by the window, as it opens.
 pub fn install(pack: Option<Arc<Pack>>) {
     #[cfg(not(test))]
     {
@@ -665,8 +557,6 @@ pub fn install(pack: Option<Arc<Pack>>) {
     INSTALLED.with(|p| *p.borrow_mut() = pack);
 }
 
-/// The pack put in place (`install`), if any. None in a browser: a page has
-/// no folder to read one from.
 pub fn installed() -> Option<Arc<Pack>> {
     #[cfg(not(test))]
     return INSTALLED.read().unwrap_or_else(|e| e.into_inner()).clone();
@@ -674,53 +564,28 @@ pub fn installed() -> Option<Arc<Pack>> {
     return INSTALLED.with(|p| p.borrow().clone());
 }
 
-/// The scale the installed pack composes a room kit's tiles at (3 and up:
-/// at 2 the second kit has its own), if a pack is installed.
 pub fn room_scale() -> Option<i32> {
     installed().map(|p| p.scale() as i32).filter(|&s| s >= 3)
 }
 
-// ---------------------------------------------------------- the drawer ----
-
-/// A drawer's HD pictures (a window's, a page's): the picture of each look
-/// a pack has a drawing of, its pixels sent with the first frame that names
-/// it, as a page's paintings are (`paintings::PagePaintings`). It follows
-/// the installed pack (`picture`), or is handed one (`picture_from`).
 #[derive(Default)]
 pub struct HdArt {
-    /// The pack the pictures are of: another, and they are made again.
     generation: u64,
-    /// Each look asked for: its picture, or none.
     looks: HashMap<u64, Option<u32>>,
-    /// Each name asked for, in its dress, at its finest scale: its picture
-    /// and how it lands (its size, scale and feet), or none.
     named: HashMap<(std::sync::Arc<str>, std::sync::Arc<str>, u32), Option<(u32, [u32; 3], [i32; 2], bool)>>,
     next: u32,
-    /// The finest scale a drawing is shown at, whatever a figure's rung
-    /// allows (a page shown at four of its pixels to the game's has no use
-    /// for eight); none, no cap.
     pub max_scale: Option<u32>,
-    /// The files of drawings a figure asked for whose pixels have not come
-    /// (a page's pack): for the page to fetch (`wanted`), each asked once.
     wanted: std::collections::VecDeque<String>,
     asked: std::collections::HashSet<String>,
-    /// Send each drawing's normal map with it (`normals::picture_of`): its
-    /// own, or one made from it at its grain, for a window that lights
-    /// cards by them.
     pub normals: bool,
 }
 
 impl HdArt {
-    /// The picture of `body`'s drawing in the installed pack, and where it
-    /// lands; its pixels go in `pictures` the first time. `None`: the
-    /// sprite keeps its inks.
     pub fn picture(&mut self, body: &Body, pictures: &mut Vec<Picture>) -> Option<Placed> {
         let pack = installed()?;
         self.picture_from(&pack, body, pictures)
     }
 
-    /// `picture`, from `pack`: by the body's name first (its rung's finest
-    /// drawing, `Pack::named_for`), then by its look.
     pub fn picture_from(&mut self, pack: &Pack, body: &Body, pictures: &mut Vec<Picture>) -> Option<Placed> {
         if pack.generation != self.generation {
             self.forget();
@@ -741,28 +606,22 @@ impl HdArt {
         id.map(|id| Placed { id, rect, body: false })
     }
 
-    /// A named body's drawing, landed by its feet on the body's.
     fn named_picture(&mut self, pack: &Pack, named: &super::figure_keys::Named, body: &Body, pictures: &mut Vec<Picture>) -> Option<Placed> {
         let most = named.rung.scale().min(self.max_scale.unwrap_or(u32::MAX));
         if most < 2 {
             return None;
         }
-        // Up or down, by the pack's own drawing of that facing if it has one;
-        // else by the key the rig draws it by, as a pack without them always did.
         let key = pack.key_for(named, most);
         let ask = (key.clone(), named.dress.clone(), most);
         let got = match self.named.get(&ask) {
             Some(&got) => got,
             None => {
-                // Not come yet (a page's pack): asked for, and the figure
-                // keeps its inks until it comes.
                 if let Some(pending) = pack.named_for(&key, &named.dress, most, named.bare.is_some()).and_then(|d| d.pending.as_ref()) {
                     if self.asked.insert(pending.file.clone()) {
                         self.wanted.push_back(pending.file.clone());
                     }
                     return None;
                 }
-                // A body alone needs the figure's bare body to stand in for.
                 let got = pack
                     .named_for(&key, &named.dress, most, named.bare.is_some())
                     .and_then(|d| Some((self.send(&d.drawing, d.scale as f32, pictures)?, [d.drawing.width, d.drawing.height, d.scale], d.pivot, d.body)));
@@ -785,24 +644,16 @@ impl HdArt {
         })
     }
 
-    /// The next file of a drawing a figure asked for that has not come, for
-    /// a page to fetch and hand to its pack (`Pack::put_file`).
     pub fn wanted(&mut self) -> Option<String> {
         self.wanted.pop_front()
     }
 
-    /// A drawing's picture, its pixels (and its normal map, when the
-    /// drawer sends them) put in `pictures`: drawn at `grain` of its
-    /// pixels to one of the game's. `None` when the drawer has no room.
     fn send(&mut self, d: &Drawing, grain: f32, pictures: &mut Vec<Picture>) -> Option<u32> {
         if self.next >= MAX_DRAWINGS {
             return None;
         }
         let id = HD_PICTURES + self.next;
         self.next += 1;
-        // Its signal inks (a knight's mark, a foe's eyes) a step under
-        // opaque, as a sprite's card has them (`stage_frame::card_rgba`):
-        // a lit look leaves them as drawn.
         let mut rgba = d.rgba.clone();
         for px in rgba.chunks_exact_mut(4) {
             if px[3] == 255 && crate::render::overworld::ink::is_signal([px[0], px[1], px[2]]) {
@@ -817,8 +668,6 @@ impl HdArt {
         Some(id)
     }
 
-    /// The drawer lost its pictures: each goes again the next time a frame
-    /// names it.
     pub fn forget(&mut self) {
         self.looks.clear();
         self.named.clear();

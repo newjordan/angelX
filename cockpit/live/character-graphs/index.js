@@ -1,4 +1,3 @@
-// Ordered edges and phase policy belong to this replaceable pack.
 const edge = (to, when, phase = 'preserve') => ({ to, when, phase })
 const options = { adventure: { initial: 'rest', states: {
   rest: { steps: [{ frame: 0, ticks: 12 }], transitions: [edge('attack', { attacking: true }, 'restart'), edge('guard', { shielding: true }), edge('walk', { moving: true })] },

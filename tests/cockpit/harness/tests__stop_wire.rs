@@ -8,7 +8,6 @@
 
 use super::*;
 
-/// (stop_reason, interrupted, deadline_reached, max_hops_reached)
 type Wire = (String, bool, bool, bool);
 
 fn w(stop_reason: &str, interrupted: bool, deadline: bool, max_hops: bool) -> Wire {
@@ -32,7 +31,6 @@ fn wire(result: &Result<TurnOutcome, TurnFailure>) -> Wire {
     }
 }
 
-/// The task JSON for `result`, reduced to the five values evaluators key on.
 fn envelope_wire(
     result: Result<TurnOutcome, TurnFailure>,
     history: &[ChatMsg],
@@ -71,8 +69,6 @@ fn envelope_wire(
     )
 }
 
-/// Every knob a bare turn reads, pinned off, so the only thing that ends the
-/// turn is what the test sets up.
 fn quiet() -> Vec<EnvGuard> {
     vec![
         EnvGuard::set("ANGEL_BACKPLANE", "0"),
@@ -101,7 +97,6 @@ fn quiet() -> Vec<EnvGuard> {
     ]
 }
 
-/// Answers `answer` on the first hop.
 struct TextClub(&'static str);
 impl Club for TextClub {
     fn label(&self) -> &str {
@@ -115,7 +110,6 @@ impl Club for TextClub {
     }
 }
 
-/// Calls the `reverse` tool every hop, after `pause`.
 struct CallsClub {
     pause: Duration,
     hops: AtomicUsize,
@@ -138,7 +132,6 @@ impl Club for CallsClub {
     }
 }
 
-/// Fails every provider call with a plain transport error.
 struct ErrClub;
 impl Club for ErrClub {
     fn label(&self) -> &str {
@@ -171,8 +164,6 @@ fn run(
     )
 }
 
-/// Assert the in-memory value and the task JSON agree with `memory` and
-/// (`status`, `wire`) respectively. Most paths show the same wire both places.
 fn assert_wire(
     result: Result<TurnOutcome, TurnFailure>,
     history: &[ChatMsg],
@@ -278,7 +269,6 @@ fn provider_error_reads_false_false_false_on_all_three_paths() {
     let _env = quiet();
     let _no_retry = EnvGuard::set("ANGEL_PROVIDER_RETRIES", "0");
 
-    // Site 1: the provider call itself fails.
     let mut history = vec![ChatMsg::user("hello")];
     let result = run(&ErrClub, &mut history, &AtomicBool::new(false), Some(4));
     assert!(result.is_err());
@@ -289,7 +279,6 @@ fn provider_error_reads_false_false_false_on_all_three_paths() {
         "error",
     );
 
-    // Site 2: the formation budget knob does not parse, before any request.
     {
         let _bad = EnvGuard::set("ANGEL_FORMATION_TOKEN_BUDGET", "plenty");
         let mut history = vec![ChatMsg::user("hello")];
@@ -313,7 +302,6 @@ fn provider_error_reads_false_false_false_on_all_three_paths() {
         );
     }
 
-    // Site 3: the conversation carries a book generation that cannot bind.
     {
         let mut message = ChatMsg::user("hello");
         message.book_memory = Some(Arc::new(
@@ -352,7 +340,6 @@ fn capture_failure_reads_false_false_false_before_the_first_request() {
     let _env = quiet();
     let _required = EnvGuard::set("ANGEL_HARNESS_ROLLOUT_REQUIRED", "1");
 
-    // Capture is off but required.
     let mut history = vec![ChatMsg::user("hello")];
     let result = run(
         &TextClub("hi"),
@@ -368,7 +355,6 @@ fn capture_failure_reads_false_false_false_before_the_first_request() {
         "error",
     );
 
-    // Capture is on but its store cannot start.
     let output = scratch("stop-wire-capture");
     let blocked_root = output.join("not-a-directory");
     std::fs::write(&blocked_root, b"not a directory").unwrap();
@@ -394,8 +380,6 @@ fn capture_failure_reads_false_false_false_before_the_first_request() {
     let _ = std::fs::remove_dir_all(output);
 }
 
-/// Swaps the rollout store's `runs` directory for a symlink, so every later
-/// journal append is refused and a required capture fails mid-turn.
 struct SabotageClub {
     output: PathBuf,
     reply: Result<&'static str, &'static str>,
@@ -430,7 +414,6 @@ fn capture_failure_reads_false_false_false_when_capture_breaks_mid_turn() {
     let _no_retry = EnvGuard::set("ANGEL_PROVIDER_RETRIES", "0");
     let _required = EnvGuard::set("ANGEL_HARNESS_ROLLOUT_REQUIRED", "1");
     let _mode = EnvGuard::set("ANGEL_HARNESS_ROLLOUTS", "local");
-    // An answer whose capture broke while the model was thinking.
     let output = scratch("stop-wire-capture-answer");
     let _dir = EnvGuard::set("ANGEL_HARNESS_ROLLOUT_DIR", output.to_str().expect("utf-8"));
     let club = SabotageClub {
@@ -457,7 +440,6 @@ fn capture_failure_reads_false_false_false_when_capture_breaks_mid_turn() {
     );
     let _ = std::fs::remove_dir_all(output);
 
-    // A provider failure whose capture broke: the capture failure replaces it.
     let output = scratch("stop-wire-capture-failure");
     let _dir = EnvGuard::set("ANGEL_HARNESS_ROLLOUT_DIR", output.to_str().expect("utf-8"));
     let club = SabotageClub {
@@ -494,7 +476,6 @@ fn checkpoint_failure_reads_false_false_false_on_both_paths() {
     registry.set_workspace(dir);
     let events = mpsc::channel::<TurnEvent>().0;
 
-    // The first checkpoint, before the provider request, fails.
     let mut history = vec![ChatMsg::user("hello")];
     let result = run_turn_steered_checkpointed_observed(
         &TextClub("hi"),
@@ -519,7 +500,6 @@ fn checkpoint_failure_reads_false_false_false_on_both_paths() {
         "error",
     );
 
-    // The request checkpoint passes; the tool-intent checkpoint fails.
     let calls = AtomicUsize::new(0);
     let club = CallsClub {
         pause: Duration::ZERO,
@@ -622,10 +602,6 @@ fn execution_blocked_reads_false_false_false() {
 
 #[test]
 fn a_kill_cancel_leaves_an_interrupt_reading_true_false_false() {
-    // The helper drives a real owned process and an operator cancel. Case
-    // (true, false): the model answers after the cancel; (true, true): the
-    // provider fails after the cancel (the loop turns that error into the
-    // hop-boundary interrupt). Both end as the same four values.
     assert_eq!(
         assert_lifecycle_proc_envelope(true, false),
         w("interrupt", true, false, false)
@@ -644,8 +620,6 @@ fn an_answer_with_no_kill_stays_an_answer() {
     );
 }
 
-/// The idle watchdog, landing on a turn that exits through a returned outcome:
-/// the hop-boundary interrupt it provoked keeps its `interrupted: true`.
 #[test]
 fn idle_timeout_on_a_returned_outcome_reads_true_false_false() {
     let _lock = crate::tests::env_lock();
@@ -657,7 +631,6 @@ fn idle_timeout_on_a_returned_outcome_reads_true_false_false() {
         "ANGEL_TRAJECTORY_DIR",
         trajectories.to_str().expect("utf-8 path"),
     );
-    /// Asks for a tool that blocks until the turn's cancel flag is raised.
     struct Silent;
     impl Club for Silent {
         fn label(&self) -> &str {
@@ -725,10 +698,6 @@ fn idle_timeout_on_a_returned_outcome_reads_true_false_false() {
         "stopped",
     );
 
-    // The trajectory record is written inside the loop, before the watchdog's
-    // verdict is stamped on the result, so it keeps the loop's own reason:
-    // `interrupt`. The task JSON above says `idle_timeout`. Pinned as is; the
-    // operator decides whether the two should agree.
     let log =
         std::fs::read_to_string(trajectories.join(format!("session-{}.jsonl", std::process::id())))
             .expect("the turn wrote a trajectory record");
@@ -741,9 +710,6 @@ fn idle_timeout_on_a_returned_outcome_reads_true_false_false() {
     let _ = std::fs::remove_dir_all(trajectories);
 }
 
-/// The same watchdog, landing on a turn whose interrupt a required-capture
-/// failure replaced with a failure: `interrupted` reads false. One stop
-/// reason, two values; recorded for the operator, not resolved here.
 #[test]
 fn idle_timeout_over_a_capture_failure_reads_false_false_false() {
     let _lock = crate::tests::env_lock();
@@ -754,8 +720,6 @@ fn idle_timeout_over_a_capture_failure_reads_false_false_false() {
     let _mode = EnvGuard::set("ANGEL_HARNESS_ROLLOUTS", "local");
     let output = scratch("stop-wire-idle-capture");
     let _dir = EnvGuard::set("ANGEL_HARNESS_ROLLOUT_DIR", output.to_str().expect("utf-8"));
-    /// Waits for the idle watchdog's cancel, breaks the capture store, then
-    /// fails the provider call.
     struct Stalled {
         output: PathBuf,
     }

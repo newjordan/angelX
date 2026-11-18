@@ -1,18 +1,4 @@
 #!/usr/bin/env node
-// Render the Mage's weave spells with pixelfx and fit them to the Delve's inks.
-//
-//     node scripts/delve/spellfx.mjs [/path/to/pixelfx]
-//
-// pixelfx (https://github.com/patch-gg/pixelfx) is the argument, else $PIXELFX
-// (a checkout of it; required when no argument is given). Each spell is played at the game's rate (15 frames a
-// second, two ticks a frame), sized to the spell's reach in the game (8 pixels
-// a world unit), and written to `crates/delve/assets/spellfx/<name>.png`: one
-// row of frames, or eight rows for a spell cast along the aim (right, then
-// clockwise). Every pixel is one of the game's inks and opaque: colour under
-// half its alpha is dropped, light adds onto the colour it falls on, and a glow
-// with no colour under it stays only where it is bright, so a spell reads as
-// hard pixels on any floor with no dithered haze. `spellfx.json` holds each strip's frame size, origin (the floor point
-// the spell stands on) and frame count.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,12 +17,6 @@ const { encodePNG } = await init(PFX);
 
 const STEAM = ["#1c1c24", "#2e2e38", "#45464f", "#5f616b", "#7d808a", "#9ea1aa", "#c2c5cc", "#eef0f2"];
 
-// name: the pixelfx effect, its options, the stretch of it played (seconds),
-// `aim` for a spell that is cast along the Mage's aim, `top` rows cut off the
-// top, `sink` pixels the picture stands lower than its origin, `glow` the
-// light's weight on colour and `halo` the brightness a light needs to show
-// with no colour under it. Reaches are the game's: Hoarfrost 7 units, Static
-// Ward 6, Wildfire 10, Scald 9, a burning patch 3.
 const SPELLS = {
   sunfall: { fx: "fire/meteor", from: 0, to: 1.8 },
   hoarfrost: { fx: "ice/frost-nova", opts: { reach: 56 }, from: 0.2, to: 2.6 },

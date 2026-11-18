@@ -3,8 +3,6 @@ use fortune::Mode;
 use keyring::Door;
 use std::collections::BTreeMap;
 
-/// A run on floor `depth` of the Crypt, the party at the entrance, its
-/// gates made.
 pub(super) fn on_floor(depth: u32, seed: u64) -> Run {
     let mut run = Run::new(seed, 17, None);
     let pack = Pack::at(depth, Pack::Crypt);
@@ -24,7 +22,6 @@ fn doorways(run: &Run, room: usize) -> Vec<usize> {
         .collect()
 }
 
-/// Every room visited: the whole floor known (but for a vault unfound).
 fn visit_all(run: &mut Run) {
     for room in &mut run.dungeon.rooms {
         room.visited = true;
@@ -48,8 +45,6 @@ fn the_party_stands_in_a_visited_room_and_the_doorways_show_what_lies_beyond() {
                     "seed {seed} depth {depth} room {id}"
                 );
             }
-            // Nothing else: a room not through a doorway of a visited room is
-            // not on the map at all.
             assert_eq!(
                 map.nodes.len(),
                 1 + beyond.len(),
@@ -63,15 +58,12 @@ fn the_party_stands_in_a_visited_room_and_the_doorways_show_what_lies_beyond() {
 #[test]
 fn a_room_seen_is_an_outline_that_hides_what_it_is() {
     let mut run = on_floor(2, 5);
-    // The exit room with a treasure, a guardian, whatever: seen from the
-    // doorway it is only a place.
     for room in doorways(&run, 0) {
         let node = run.floor_map(Some(1)).node(room).cloned().unwrap();
         assert_eq!(node.state, NodeState::Seen);
         assert_eq!(node.kind, NodeKind::Unknown);
         assert!(node.icons.is_empty());
     }
-    // Stood in, it is known.
     let next = doorways(&run, 0)[0];
     run.dungeon.rooms[next].visited = true;
     let node = run.floor_map(Some(1)).node(next).cloned().unwrap();
@@ -83,12 +75,10 @@ fn a_room_seen_is_an_outline_that_hides_what_it_is() {
 fn rooms_beyond_the_seen_rooms_stay_hidden_until_one_is_visited() {
     let mut run = on_floor(1, 3);
     let near = doorways(&run, 0);
-    // A room two doorways away and not beside the start.
     let far = (0..run.dungeon.rooms.len())
         .find(|i| *i != 0 && !near.contains(i))
         .expect("a floor is more than a room and its neighbours");
     assert!(run.floor_map(Some(1)).node(far).is_none());
-    // Visiting a neighbour reveals the doorways of that one.
     let step = near[0];
     run.dungeon.rooms[step].visited = true;
     let map = run.floor_map(Some(1));
@@ -98,8 +88,6 @@ fn rooms_beyond_the_seen_rooms_stay_hidden_until_one_is_visited() {
             "room {id} is through a doorway of room {step}"
         );
     }
-    // Every node on the map is the party's, seen from it, or through one
-    // doorway of a visited room, never further.
     for node in &map.nodes {
         if node.state == NodeState::Seen {
             assert!(
@@ -117,7 +105,6 @@ fn rooms_beyond_the_seen_rooms_stay_hidden_until_one_is_visited() {
 fn a_room_a_knight_has_stood_in_is_visited_even_if_never_marked() {
     let mut run = on_floor(1, 9);
     let beyond = doorways(&run, 0)[0];
-    // A knight waiting outside, in a room the floor's flags forgot.
     run.dungeon.rooms[beyond].visited = false;
     run.join_seat(2, "Wren");
     let spot = (6.0, 6.0);
@@ -140,7 +127,6 @@ fn a_secret_vault_is_not_on_the_map_until_its_wall_is_blown() {
         .find_map(|run| run.dungeon.secret.map(|s| (run, s)))
         .expect("some floor hides a vault");
     visit_all(&mut run);
-    // Even a vault the floor's flags call visited is no part of the map.
     run.dungeon.rooms[secret.vault].visited = true;
     let map = run.floor_map(Some(1));
     assert!(
@@ -154,7 +140,6 @@ fn a_secret_vault_is_not_on_the_map_until_its_wall_is_blown() {
         "and no doorway leads to it"
     );
     assert!(map.node(secret.host).is_some());
-    // Blown, it is a doorway of a visited room.
     run.dungeon.rooms[secret.vault].visited = false;
     assert!(run.dungeon.open_secret());
     let map = run.floor_map(Some(1));
@@ -167,7 +152,6 @@ fn a_secret_vault_is_not_on_the_map_until_its_wall_is_blown() {
             .iter()
             .any(|l| (l.a, l.b) == (secret.host.min(secret.vault), secret.host.max(secret.vault)))
     );
-    // Entered, it is marked a vault.
     run.dungeon.rooms[secret.vault].visited = true;
     let node = run.floor_map(Some(1)).node(secret.vault).cloned().unwrap();
     assert_eq!(node.kind, NodeKind::Vault);
@@ -180,10 +164,8 @@ fn the_guardian_and_the_sanctuary_are_marked_once_visited() {
         let mut run = on_floor(2, seed);
         let gates = run.boss_gates.clone().expect("floor two has gates");
         let map = run.floor_map(Some(1));
-        // Floor two opens in a sanctuary.
         assert!(map.node(0).unwrap().icons.contains(&Icon::Sanctuary));
         assert_eq!(map.node(0).unwrap().kind, NodeKind::Sanctuary);
-        // The guardian's room, unvisited, is not marked.
         if let Some(node) = map.node(gates.guardian) {
             assert!(node.icons.is_empty(), "a room not stood in shows no icons");
         }
@@ -196,7 +178,6 @@ fn the_guardian_and_the_sanctuary_are_marked_once_visited() {
         if gates.guardian_boss.is_some() {
             assert_eq!(guardian.icons[0], Icon::Guardian, "the skull comes first");
         }
-        // Once it falls, the skull goes and the stairs stay.
         run.boss_gates.as_mut().unwrap().guardian_defeated = true;
         let after = run
             .floor_map(Some(1))
@@ -241,7 +222,6 @@ fn route_chiefs_are_marked_only_where_the_party_has_been() {
             .icons
             .contains(&Icon::Chief)
     );
-    // Slain, it is marked no more.
     run.boss_gates.as_mut().unwrap().leaders[0].defeated = true;
     assert!(
         !run.floor_map(Some(1))
@@ -396,7 +376,7 @@ fn a_marker_stands_inside_its_node_where_the_knight_stands_in_the_room() {
     let (w, h) = (run.room().width(), run.room().height());
     run.players.get_mut(&1).unwrap().x = w * 0.25;
     run.players.get_mut(&1).unwrap().y = h * 0.75;
-    run.players.get_mut(&2).unwrap().x = w * 5.0; // out of the room, or nearly
+    run.players.get_mut(&2).unwrap().x = w * 5.0;
     run.players.get_mut(&2).unwrap().y = -3.0;
     let map = run.floor_map(Some(1));
     let node = map.node(run.at).unwrap();
@@ -420,8 +400,6 @@ fn a_knight_waiting_outside_is_marked_in_the_room_they_wait_in() {
     let mut run = on_floor(1, 14);
     run.join_seat(2, "Wren");
     let outer = doorways(&run, 0)[0];
-    // The party plays on in a hall off the floor; the knight waits at the
-    // entry room.
     run.dungeon.rooms[outer].visited = true;
     run.at = outer;
     run.exits.outside.insert(
@@ -439,8 +417,6 @@ fn a_knight_waiting_outside_is_marked_in_the_room_they_wait_in() {
         outer
     );
     assert_eq!(map.party.iter().find(|m| m.knight == 2).unwrap().node, 0);
-    // A party member's own view leaves the one outside out of its players;
-    // the exits still place them.
     let view = run.view_for_seat(1).expect("a view with a knight outside");
     assert!(!view.players.contains_key(&2));
     let map = view.floor_map(Some(1));
@@ -484,7 +460,6 @@ fn links_join_nodes_that_are_on_the_map_and_run_edge_to_edge() {
             );
             assert!(on(&b.rect, link.to), "link ends on room {}'s edge", link.b);
         }
-        // The floor is one piece: every known room is joined.
         let mut reached = std::collections::BTreeSet::from([0usize]);
         loop {
             let before = reached.len();
@@ -539,7 +514,6 @@ fn every_floor_of_every_mode_maps_into_a_whole_map() {
                 );
                 assert!(map.party.iter().all(|m| found.contains(&m.node)));
                 assert_eq!(map.depth, depth);
-                // Whatever the mode, a vault stays out of it until found.
                 if let Some(secret) = run.dungeon.secret.filter(|s| !s.found) {
                     assert!(!found.contains(&secret.vault), "{mode:?} floor {depth}");
                 }

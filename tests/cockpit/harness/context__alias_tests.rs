@@ -30,8 +30,6 @@ fn absent_aliased_goal_store_does_not_poison_future_fallback_reads() {
         let _goal = crate::tests::TestEnvGuard::set("ANGEL_GOAL_FILE", file.to_str().unwrap());
         assert!(!store.exists());
         assert!(crate::drive::goal::load_for(&workspace).is_none());
-        // Exercise the same canonical fallback used by non-Linux confined reads.
-        // Linux's descriptor implementation alone would hide this cache defect.
         let _ = safe_path(&store, "goal.json");
         let mut goal = crate::drive::goal::Goal::new("restore only this project's goal");
         crate::drive::goal::save_for(&mut goal, &workspace).unwrap();

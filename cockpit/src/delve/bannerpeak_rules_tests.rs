@@ -27,14 +27,12 @@ mod tests {
         json!({"op": "boss", "elapsed": elapsed, "seats": seats, "feet": feet, "boss": boss})
     }
 
-    /// The leg's answer for one tick of King Cinder.
     fn bent(boss: &Boss, feet: &[(i32, i32)], seats: u8, elapsed: u32) -> Boss {
         let answer: Value = angel_delve::scripted::step("bannerpeak-rules", &ask(boss, feet, seats, elapsed))
             .expect("the leg answers a boss tick");
         serde_json::from_value(answer["boss"].clone()).expect("the leg's boss is a boss")
     }
 
-    /// The oracle's answer for the same tick.
     fn native(boss: &Boss, feet: &[(i32, i32)], seats: u8, elapsed: u32) -> Boss {
         let mut out = boss.clone();
         oracle::step(&mut out, feet, seats, elapsed);
@@ -50,8 +48,6 @@ mod tests {
         )
     }
 
-    /// Feet walking about the summit, so a fight is driven by movement and not
-    /// only by the clock: three knights and a leader circling the arena.
     fn feet(seats: u8, tick: u32) -> Vec<(i32, i32)> {
         let left = (392 + 6) * 16;
         let right = (392 + 34) * 16;
@@ -76,8 +72,6 @@ mod tests {
                 let shown = bent(&boss, &at, seats, tick);
                 assert_eq!(shown, native(&boss, &at, seats, tick), "seats {seats} tick {tick} {:?}", was);
                 boss = shown;
-                // Every tick, a slam at the crown, at either edge of its box and
-                // well off it: the leg's plate and the oracle's plate agree.
                 for (x, y) in [
                     (boss.x, floor() - boss.head),
                     (boss.x + 23, floor() - boss.head + 3),
@@ -125,7 +119,6 @@ mod tests {
             b.beat = Beat::Wince;
             b.head = HEAD_DOWN;
             if crown == 1 {
-                // Rage mended the crown for two seats; a third sits down.
                 assert_eq!(b.plates, 2);
                 b.seated(2, 3);
                 assert_eq!(b.plates, 3, "a seat that sits down adds a plate");
@@ -195,8 +188,6 @@ mod tests {
         assert_eq!(Boss::new(6).plates, 6);
     }
 
-    /// The hazards a tick raises are the hazards the oracle raises, field for
-    /// field: a wave's speed, an ember column's box, a warning's count.
     #[test]
     fn every_raised_hazard_matches_the_oracle() {
         crate::agent::harness::live_policy::install_scripted_rules();
@@ -221,9 +212,6 @@ mod tests {
         }
     }
 
-    /// The adapter in `boss.rs` sends what it was given: the same feet, the same
-    /// seats, the same tick number as the test's own wire, and applies what comes
-    /// back. This is the seam the tick-level test cannot see.
     #[test]
     fn the_adapter_sends_the_feet_and_the_seats_it_was_given() {
         crate::agent::harness::live_policy::install_scripted_rules();
@@ -235,7 +223,6 @@ mod tests {
                 through_boss.step(&at, seats, tick);
                 through_wire = bent(&through_wire, &at, seats, tick);
                 assert_eq!(through_boss, through_wire, "seats {seats} tick {tick}");
-                // And a slam through the adapter lands where the wire's does.
                 let (x, y) = (through_wire.x, floor() - through_wire.head);
                 let hit = through_boss.slam(x, y);
                 let (want, after) = bent_slam(&through_wire, x, y);
@@ -244,9 +231,6 @@ mod tests {
         }
     }
 
-    /// What one tick costs at the whole table: the leg's call, its marshalling
-    /// and its answer, timed the way the frame times everything (HZ = 30 is a
-    /// 33.3 ms frame).
     #[test]
     fn a_tick_at_four_seats_costs_what_the_frame_allows() {
         crate::agent::harness::live_policy::install_scripted_rules();
@@ -280,8 +264,6 @@ mod tests {
         assert!(median < frame / 10.0, "a tick may not eat a tenth of the frame");
     }
 
-    /// A hazard list is a list: the leg never loses one it kept, and the cap on
-    /// what a fight carries is the oracle's own shape.
     #[test]
     fn a_long_fight_keeps_only_hazards_that_are_still_doing_something() {
         crate::agent::harness::live_policy::install_scripted_rules();

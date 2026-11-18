@@ -1,7 +1,5 @@
 use super::SeatState;
 
-/// Both tests mutate the process-global stage; serialize them so the
-/// parallel test runner can't interleave a `clear` into an assertion.
 static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 fn serial() -> std::sync::MutexGuard<'static, ()> {
@@ -55,7 +53,6 @@ fn seat_updates_merge_into_the_snapshot_and_bump_seq() {
         Some("proposer wave 2 · 1/3 back · ")
     );
 
-    // A repeat of the same state is a no-op — no seq churn.
     super::stage_seat_update(1, SeatState::Returned);
     assert_eq!(super::current().unwrap().seq, s1.seq);
 
@@ -68,16 +65,13 @@ fn seat_updates_merge_into_the_snapshot_and_bump_seq() {
     );
     assert_eq!(s2.returned(), 1, "only Returned counts as back");
 
-    // Out-of-roster updates are dropped without a bump.
     super::stage_seat_update(9, SeatState::Returned);
     assert_eq!(super::current().unwrap().seq, s2.seq);
 
-    // No live stage: the update is a no-op, not a resurrection.
     super::clear();
     super::stage_seat_update(0, SeatState::Returned);
     assert!(super::current().is_none());
 
-    // A fresh publish resets every seat to implicit Running.
     super::stage("judge", vec!["j1".into()]);
     assert!(super::current().unwrap().seat_states.is_empty());
     assert!(

@@ -19,7 +19,6 @@ pub fn probe(sm: &Sample) {
             .any(|(x, y)| (x - fx).abs() < 340 && (y - fy).abs() < 260)
     };
     for (n, f) in s.foes.iter().enumerate() {
-        // the real near flag, and a forced one: a far foe stands still, a near one walks
         for near in [near_of(f), true] {
             let mut f2 = f.clone();
             f2.step(&view, near);
@@ -125,7 +124,6 @@ pub fn probe(sm: &Sample) {
             30,
         );
     }
-    // a bolt thrown by hand along the ground, and one from the wild: the bounce and the wall
     if sm.tick % 2 == 0 {
         for k in s.seats.values().take(1) {
             let face = k.body.face as i32;
@@ -147,7 +145,6 @@ pub fn probe(sm: &Sample) {
             );
         }
     }
-    // every map foe made, and an item made
     if sm.tick == 0 {
         for (n, m) in info().foes.iter().enumerate() {
             let kind = match m.k {

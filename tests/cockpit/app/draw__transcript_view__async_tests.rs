@@ -87,9 +87,6 @@ fn cold_and_appended_giant_messages_yield_then_show_the_actual_tail() {
 
 #[test]
 fn selected_pixels_survive_async_resize_and_appended_content() {
-    // The frozen body is the transcript above the idle tool strip; pin the
-    // layout mode so a parallel test's ANGEL_COMP_MODE toggle cannot resize
-    // the body mid-draw.
     let _lock = crate::tests::env_lock();
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let mut app = app();
@@ -110,10 +107,6 @@ fn selected_pixels_survive_async_resize_and_appended_content() {
         terminal
             .draw(|frame| {
                 render_transcript(frame, &mut app, frame.area());
-                // Selection extraction uses the Frame before backend diffing.
-                // TestBackend omits hidden wide-glyph continuation cells during
-                // flush, so their post-flush styles are not a visible-pixel oracle.
-                // The idle Dotmax row is chrome, outside selected prose.
                 let body = Rect::new(1, 1, 24, painted.area.height);
                 for y in 0..body.height {
                     for x in 0..body.width {
@@ -163,9 +156,6 @@ fn giant_reader_anchor_is_preserved_when_the_complete_resize_index_publishes() {
 #[test]
 #[ignore = "quiet optimized host input/frame qualification; every sample is retained"]
 fn oversized_transcript_worst_input_frame_budget() {
-    // The existing cockpit input budget is 50 ms. Include one draw that may
-    // already own the UI thread when the key arrives, actual key dispatch, and
-    // the following transcript paint. Do not select a best sample or average.
     let budget = Duration::from_millis(50);
     for scenario in [
         "cold",

@@ -23,13 +23,8 @@ use crate::probe::Probe;
 use crate::render::Renderer;
 use crate::{Host, LockExt, Shared, Snapshot, UserEvent, clipboard, graphics, input};
 
-/// The assumed display rate when the monitor does not say: 60 a second.
 const FALLBACK_MILLIHERTZ: u32 = 60_000;
 
-/// (one display frame, how recent a present lets an animation ride on
-/// it) for a monitor refresh rate. The ride window is most of one
-/// frame; both were hard-coded 60 Hz values until the scorecard
-/// pointed out they are simply wrong on a faster display.
 fn cadence(millihertz: Option<u32>) -> (Duration, Duration) {
     let mhz = millihertz
         .filter(|m| (24_000..=480_000).contains(m))
@@ -38,7 +33,6 @@ fn cadence(millihertz: Option<u32>) -> (Duration, Duration) {
     (frame, frame.mul_f64(0.9))
 }
 
-/// The cadence of the monitor `window` is on right now.
 fn window_cadence(window: &Window) -> (Duration, Duration) {
     cadence(
         window
@@ -47,28 +41,13 @@ fn window_cadence(window: &Window) -> (Duration, Duration) {
     )
 }
 
-/// What a requested redraw does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum RedrawPlan {
-    /// Present now.
     Draw,
-    /// A cockpit frame presented within this display frame; the
-    /// animation rides on it and asks again one display frame later.
     Ride,
-    /// Nothing is waiting on a present.
     Nothing,
 }
 
-/// Decide a redraw: an owed change, unpublished layers, or an overdue
-/// frame presents at once; a bare animation rides a frame the cockpit
-/// just presented instead of presenting twice in one display frame.
-/// Whether compositor-owned motion needs another frame. Renderer-owned
-/// transitions, slides and stage layers count, and so does every
-/// window layer `Layer::animating` claims (breathing, flicker, motes and
-/// turning primitives): the next-frame request after a present and the
-/// redraw decision must agree on this, or the chain dies after one
-/// frame and the wall-clock phases jump at whatever rate the cockpit
-/// happens to redraw.
 fn animation_wants_frame(renderer_animating: bool, layers: &[Layer]) -> bool {
     renderer_animating || layers.iter().any(Layer::animating)
 }
@@ -96,15 +75,11 @@ fn redraw_plan(
 
 type App<T> = Box<dyn FnOnce(Host) -> T + Send>;
 
-/// Open the window and run `app` on its own thread with the [`Host`].
-/// Returns what `app` returns once it does; the window closes with it.
 pub fn run<T, F>(options: Options, app: F) -> Result<T, String>
 where
     T: Send + 'static,
     F: FnOnce(Host) -> T + Send + 'static,
 {
-    // The GPU, the fonts and the background image get going while the
-    // window system is reached and the window opens.
     let preparing = crate::render::Preparing::start(&options);
     let event_loop = EventLoop::<UserEvent>::with_user_event()
         .build()
@@ -170,9 +145,6 @@ where
     }
 }
 
-/// `ANGEL_GLASS_DEMO=lob`: a bomb lobbed across the window over the
-/// cockpit, rising toward the camera with its shadow on the ground, again
-/// and again. The layer sink's height, shown.
 fn lob_demo(host: &Host) {
     let id = crate::layer::LAYER_PICTURES + 1;
     host.upload_picture(graphics::Picture {
@@ -183,7 +155,6 @@ fn lob_demo(host: &Host) {
         cols: 0,
         rows: 0,
     });
-    // One lob: flight time, peak height, size; then a pause.
     const FLIGHT: f32 = 1.4;
     const PEAK: f32 = 360.0;
     const SIZE: f32 = 48.0;
@@ -211,15 +182,11 @@ fn lob_demo(host: &Host) {
     }
 }
 
-/// `ANGEL_GLASS_DEMO=slide`: a stage whose scene changes every so often,
-/// each new one sliding in from the next side round (right, below, left,
-/// above), shown over the cockpit. The stage's slide, shown.
 fn slide_demo(host: &Host) {
     const STAGE: u32 = crate::layer::LAYER_PICTURES + 0x50;
     const SCENES: [u32; 2] = [STAGE + 1, STAGE + 2];
     const SIZE: (u32, u32) = (96, 56);
     const EVERY: f32 = 1.5;
-    // Two scenes: warm and cool checks with a bar across, so a slide reads.
     for (i, &id) in SCENES.iter().enumerate() {
         let mut rgba = Vec::with_capacity((SIZE.0 * SIZE.1 * 4) as usize);
         for y in 0..SIZE.1 {
@@ -276,14 +243,6 @@ fn slide_demo(host: &Host) {
     }
 }
 
-/// `ANGEL_GLASS_DEMO=blast`: the full multimedia blast over the cockpit
-/// (`blast.rs`) — a 3D-warped video stream, raycast primitives, sine line
-/// formations across the z axis, everything drifting like a screensaver.
-/// Streams four pictures and replaces one layer group every frame, and
-/// reports its own generation cost every five seconds, so the scene is a
-/// measurement as much as a show. Pair with `ANGEL_GLASS_STATS=1`.
-/// `ANGEL_GLASS_BLAST_X=N` (1..=64) repeats the line formation N times
-/// over, for finding how many layers the compositor can carry.
 fn blast_demo(host: &Host) {
     use crate::blast;
     const GROUP: u32 = 0xB1A5_7E57;
@@ -337,10 +296,6 @@ fn blast_demo(host: &Host) {
     }
 }
 
-/// `ANGEL_GLASS_DEMO=cube`: a floating, turning cube with a different test
-/// picture on each of its six faces (`cube.rs`), drawn by the renderer's 3D
-/// pipeline into a picture and shown over the cockpit as a lifted layer with
-/// its shadow on the ground, as the blast's layers are.
 fn cube_demo(host: &Host) {
     use crate::cube;
     for i in 0..6u32 {
@@ -376,11 +331,6 @@ fn cube_demo(host: &Host) {
     }
 }
 
-/// `ANGEL_GLASS_DEMO=shore`: a night shoreline in the world's look
-/// (`shore.rs`), filling the window under the cockpit's text. The scene is
-/// drawn at the look's internal size (540 rows, or `ANGEL_GLASS_SHORE_ROWS`)
-/// and the layer that shows it enlarges it by nearest, so each art pixel is
-/// several window pixels, as in the reference.
 fn shore_demo(host: &Host) {
     use crate::shore;
     if let Some((width, height, rgba)) = shore::knight_sprite() {
@@ -407,7 +357,6 @@ fn shore_demo(host: &Host) {
             continue;
         }
         host.set_scene(shore::SCENE_ID, shore::scene(t, rows), (w, h));
-        // Below the text: negative z.
         host.set_layer(Layer::new(
             u64::MAX - 4,
             -10,
@@ -418,7 +367,6 @@ fn shore_demo(host: &Host) {
     }
 }
 
-/// A round iron bomb with a lit fuse, 32 × 32, straight alpha.
 fn bomb_sprite() -> Vec<u8> {
     let mut rgba = vec![0u8; 32 * 32 * 4];
     for y in 0..32 {
@@ -429,7 +377,6 @@ fn bomb_sprite() -> Vec<u8> {
             let i = (y * 32 + x) * 4;
             let mut px = [0u8; 4];
             if d <= 12.5 {
-                // Iron, lit from the top left.
                 let light =
                     (1.0 - ((dx + 5.0).powi(2) + (dy + 5.0).powi(2)).sqrt() / 18.0).clamp(0.0, 1.0);
                 let v = 28.0 + 70.0 * light * light;
@@ -448,10 +395,8 @@ fn bomb_sprite() -> Vec<u8> {
 
 struct Glass<T> {
     options: Options,
-    /// The renderer's slow parts, under way since `run` began.
     preparing: Option<crate::render::Preparing>,
     host: Host,
-    /// The cockpit's input. Dropped when the window closes.
     keys: Option<Sender<Event>>,
     app: Option<App<T>>,
     thread: Option<JoinHandle<T>>,
@@ -468,75 +413,38 @@ struct Glass<T> {
     probe: Option<Arc<Probe>>,
     error: Option<String>,
     stats: Option<Stats>,
-    /// The cockpit's first frame has had its assembly transition.
     assembled: bool,
     last_present: Instant,
-    /// A change only the window draws (focus) still needs a frame.
     redraw_owed: bool,
-    /// Layers changed since the last present. Their present waits for
-    /// the redraw cycle (or the cockpit frame already on its way), so a
-    /// layer set handed over mid-draw is never shown against the
-    /// previous frame's cells.
     layers_dirty: bool,
-    /// When an animation frame that rode on the cockpit's is due again.
     animation_due: Option<Instant>,
-    /// Key-press instants awaiting their frame, for the stats key-hop
-    /// trace. Only filled while stats are on.
     key_queue: VecDeque<Instant>,
-    /// The current monitor's display cadence (frame, ride window),
-    /// re-read when the window opens or its scale changes.
     cadence: (Duration, Duration),
-    /// The floating panel over everything (`showcase.rs`).
     showcase: crate::showcase::Popup,
-    /// The pointer in window pixels.
     pointer: [f32; 2],
-    /// The left button went down on the showcase: its release is the
-    /// showcase's too, wherever it happens.
     showcase_press: bool,
-    /// The left button went down in a producer's pointer zone
-    /// (`Host::set_pointer_zones`): its moves and release are that
-    /// producer's.
     zone_press: Option<ZonePress>,
     cursor: winit::window::CursorIcon,
-    /// `ANGEL_GLASS_RECORD`: the film being made of this window.
     recorder: Option<crate::record::Recorder>,
-    /// The background drawn on the CPU while the GPU opens (`early.rs`),
-    /// and the size it was drawn at.
     early: Option<crate::early::Frame>,
     early_size: (u32, u32),
-    /// The glyphs the early frames drew, kept between them.
     early_glyphs: crate::early::Glyphs,
-    /// With the early frame on show: when the cockpit starts if the
-    /// compositor has not given the window another size by then.
     cockpit_due: Option<Instant>,
 }
 
-/// A press in a pointer zone, held.
 #[derive(Clone, Copy, Debug)]
 struct ZonePress {
     group: u32,
     kind: crate::ZoneKind,
     from: [f32; 2],
-    /// It has wandered past the click's slop: a drag, not a click.
     dragged: bool,
 }
-/// How long the cockpit waits, after the early frame maps the window, for
-/// the compositor to settle the window's size (a tiling compositor sends
-/// the size it tiles to a few milliseconds after the map; a floating
-/// window keeps the size it asked for, and nothing comes).
 const SETTLE: Duration = Duration::from_millis(50);
 
-/// `ANGEL_GLASS_STATS=1`: every two seconds, one stderr line with the frames
-/// presented, their render times and the pictures uploaded.
-/// `ANGEL_GLASS_STATS_RAW=path` also appends each window's raw presented
-/// frame times there, one JSON array a line, for bench analysis that needs
-/// the series rather than a percentile someone else chose.
 struct Stats {
     since: Instant,
     frames: Vec<Duration>,
-    /// Per frame: build, acquire, submit, present.
     parts: Vec<[Duration; 4]>,
-    /// Per key with a frame: (key → render start, key → present end).
     key_hops: Vec<(Duration, Duration)>,
     upload_bytes: usize,
     upload: Duration,
@@ -558,7 +466,6 @@ impl Stats {
             })
     }
 
-    /// Picture pixels handed to the GPU, and what applying them cost.
     fn uploads(&mut self, bytes: usize, took: Duration) {
         self.upload_bytes += bytes;
         self.upload += took;
@@ -572,7 +479,6 @@ impl Stats {
             return;
         }
         if let Some(path) = &self.raw {
-            // Before the percentile sort: the series keeps its order.
             use std::io::Write as _;
             let mut line = String::from("[");
             for (i, d) in self.frames.iter().enumerate() {
@@ -677,19 +583,13 @@ impl<T: Send + 'static> Glass<T> {
                 .map_err(|e| format!("cannot open a window: {e}"))?,
         );
         crate::startup::mark("window");
-        // Sized for the grid asked for before anything is drawn, as the
-        // fonts measure it (a tiling compositor sizes it its own way).
         let preparing = self.preparing.as_mut().ok_or("the window already opened")?;
         let (width, height) =
             preparing.pixels_for(&self.options, window.scale_factor() as f32, self.options.columns, self.options.rows)?;
         let _ = window.request_inner_size(PhysicalSize::new(width, height));
-        // The monitor's frame, for a cockpit that starts before the GPU.
         self.cadence = window_cadence(&window);
         self.host.shared.frame_nanos.store(self.cadence.0.as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
         self.window = Some(window);
-        // The GPU takes longest to open. Meanwhile the window shows its
-        // background drawn on the CPU, and takes the size the compositor
-        // gives it; the renderer is made once the GPU is open.
         self.show_early();
         crate::startup::mark("early frame");
         if self.early.is_some() {
@@ -706,8 +606,6 @@ impl<T: Send + 'static> Glass<T> {
         Ok(())
     }
 
-    /// Draw the background on the CPU at the window's size, while there
-    /// is no renderer yet.
     fn show_early(&mut self) {
         let (Some(window), Some(preparing)) = (&self.window, self.preparing.as_mut()) else {
             return;
@@ -718,8 +616,6 @@ impl<T: Send + 'static> Glass<T> {
             opacity: self.options.background_opacity,
             wallpaper,
         };
-        // With the program running, its cells too, where the renderer will
-        // put them: the padding, then half the space whole cells leave.
         let grid = *self.host.shared.grid.lock_recover();
         let text = fonts.filter(|_| self.app.is_none() && grid.cols > 0).map(|fonts| {
             let pad = (self.options.padding * window.scale_factor() as f32).round();
@@ -738,7 +634,6 @@ impl<T: Send + 'static> Glass<T> {
                 glyphs: &mut self.early_glyphs,
             }
         });
-        // The new buffer is committed before the old one goes.
         if let Some(frame) = crate::early::show(window, &look, text) {
             self.early = Some(frame);
             let size = window.inner_size();
@@ -746,8 +641,6 @@ impl<T: Send + 'static> Glass<T> {
         }
     }
 
-    /// Start the cockpit before the GPU is open, on the grid the window
-    /// holds now as the fonts measure it. True if it started.
     fn start_cockpit_early(&mut self) -> Result<bool, String> {
         self.cockpit_due = None;
         if self.app.is_none() || self.renderer.is_some() {
@@ -759,8 +652,6 @@ impl<T: Send + 'static> Glass<T> {
         Ok(true)
     }
 
-    /// The grid for the window's size, before there is a renderer to
-    /// measure it; the cockpit, once running, hears of a change.
     fn early_regrid(&mut self) -> Result<(), String> {
         let (Some(window), Some(preparing)) = (&self.window, self.preparing.as_mut()) else {
             return Ok(());
@@ -774,7 +665,6 @@ impl<T: Send + 'static> Glass<T> {
         Ok(())
     }
 
-    /// The cockpit, and the probe that watches it.
     fn start_cockpit(&mut self) -> Result<(), String> {
         self.start_app()?;
         if let (Some(probe), Some(keys)) = (&self.probe, &self.keys) {
@@ -783,8 +673,6 @@ impl<T: Send + 'static> Glass<T> {
         Ok(())
     }
 
-    /// Make the renderer once the GPU is open, draw the first frame with
-    /// it, then start the cockpit.
     fn finish_open(&mut self) -> Result<(), String> {
         let window = Arc::clone(self.window.as_ref().ok_or("the window is not open")?);
         let preparing = self.preparing.take().ok_or("the renderer was already made")?;
@@ -803,17 +691,11 @@ impl<T: Send + 'static> Glass<T> {
         );
         self.cockpit_due = None;
         if self.app.is_none() {
-            // The cockpit is running on the grid measured before the GPU
-            // opened: it hears if the renderer's differs.
             self.renderer = Some(renderer);
             self.regrid();
             self.draw(true);
             crate::startup::mark("first frame");
         } else {
-            // Without an early frame the cockpit (a terminal's program with
-            // it) starts after this first frame: a tiling compositor
-            // settles the window's size only once the window is mapped,
-            // and the size it gave before then is a guess.
             *self.host.shared.grid.lock_recover() = renderer.grid_size();
             self.renderer = Some(renderer);
             self.draw(true);
@@ -824,17 +706,14 @@ impl<T: Send + 'static> Glass<T> {
         Ok(())
     }
 
-    /// Start the cockpit on its own thread.
     fn start_app(&mut self) -> Result<(), String> {
         let app = self.app.take().ok_or("the cockpit already ran")?;
         let host = self.host.clone();
         self.thread = Some(
             std::thread::Builder::new()
                 .name("cockpit".into())
-                // The terminal cockpit runs on the main thread's stack.
                 .stack_size(64 << 20)
                 .spawn(move || {
-                    // The window closes with the cockpit, even when it panics.
                     struct ExitOnDrop(Host);
                     impl Drop for ExitOnDrop {
                         fn drop(&mut self) {
@@ -850,8 +729,6 @@ impl<T: Send + 'static> Glass<T> {
         Ok(())
     }
 
-    /// `ANGEL_GLASS_DEMO=1` puts one translucent quad above the text;
-    /// `ANGEL_GLASS_SHOT=path.png` saves a frame after a delay.
     fn environment_extras(&self) {
         if std::env::var("ANGEL_GLASS_DEMO").is_ok_and(|v| v == "1") {
             let grid = self.host.grid_size();
@@ -884,9 +761,6 @@ impl<T: Send + 'static> Glass<T> {
             std::thread::spawn(move || blast_demo(&host));
         }
         if let Some(dir) = std::env::var_os("ANGEL_GLASS_BLAST_FILM") {
-            // Film the live scene (the blast, normally) at 30 frames a
-            // second through the same capture path as a still, then:
-            //   ffmpeg -framerate 30 -i frame-%03d.png blast.mp4
             let seconds: f64 = std::env::var("ANGEL_GLASS_BLAST_FILM_SECONDS")
                 .ok()
                 .and_then(|v| v.parse().ok())
@@ -948,18 +822,14 @@ impl<T: Send + 'static> Glass<T> {
         }
     }
 
-    /// A frame owed a redraw shows within this long.
     fn overdue(&self) -> bool {
         self.last_present.elapsed() >= Duration::from_millis(50)
     }
 
-    /// Present the latest frame. Without `force`, only when there is a new one.
     fn draw(&mut self, force: bool) {
         let Some(renderer) = self.renderer.as_mut() else {
             return;
         };
-        // Capture before uploads replace any picture referenced by the old
-        // frame. Screen identity travels with the published cells.
         let (fresh, handoff) = {
             let mut slot = self.host.shared.slot.lock_recover();
             let fresh = slot.fresh;
@@ -971,16 +841,10 @@ impl<T: Send + 'static> Glass<T> {
             (fresh, handoff)
         };
         if handoff { renderer.start_handoff(); }
-        // Pictures handed over go up before the frame draws. A showcase
-        // frame arriving after this asks for its own wake-up.
         self.host
             .shared
             .showcase_frame_waiting
             .store(false, std::sync::atomic::Ordering::Release);
-        // Frees are taken before the uploads: a producer frees only after
-        // it uploaded what replaces a picture and set the layers naming
-        // that, so both are here too. A freed texture is lent to the next
-        // upload of its size.
         let freed = std::mem::take(&mut *self.host.shared.freed_pictures.lock_recover());
         if !freed.is_empty() {
             renderer.free(freed);
@@ -1011,7 +875,6 @@ impl<T: Send + 'static> Glass<T> {
         if !fresh && !force {
             return;
         }
-        // The first frame with content assembles itself.
         if !self.assembled && fresh && self.current.cells.iter().any(|c| c.symbol() != " ") {
             self.assembled = true;
             renderer.start_transition();
@@ -1045,9 +908,6 @@ impl<T: Send + 'static> Glass<T> {
             }
             if let Some(stats) = &mut self.stats {
                 if fresh {
-                    // Discard keys whose frame never came (or came
-                    // without fresh cells): they would poison the
-                    // next key's hop with their own age.
                     while self
                         .key_queue
                         .front()
@@ -1065,8 +925,6 @@ impl<T: Send + 'static> Glass<T> {
                 stats.frame(took, renderer.timing);
             }
         }
-        // Compositor-owned motion keeps the frames coming on its own,
-        // at the animation pace the redraw handler metes out.
         if animation_wants_frame(
             renderer.animating() || self.showcase.animating(),
             &self.layers,
@@ -1082,7 +940,6 @@ impl<T: Send + 'static> Glass<T> {
         }
     }
 
-    /// Fit the grid to the window; tell the cockpit when the cell count changed.
     fn regrid(&mut self) {
         let Some(renderer) = &self.renderer else {
             return;
@@ -1101,8 +958,6 @@ impl<T: Send + 'static> Glass<T> {
             event_loop.exit();
             return;
         }
-        // The cockpit's reader sees the window closed and it quits the way it
-        // quits when its terminal goes away.
         self.keys = None;
     }
 
@@ -1125,7 +980,6 @@ impl<T: Send + 'static> Glass<T> {
             }
             return;
         }
-        // Escape closes the showcase before the cockpit hears it.
         if event.state == ElementState::Pressed
             && event.logical_key
                 == winit::keyboard::Key::Named(winit::keyboard::NamedKey::Escape)
@@ -1135,7 +989,6 @@ impl<T: Send + 'static> Glass<T> {
             self.draw(true);
             return;
         }
-        // Any key ends a transition; the key still goes to the cockpit.
         if event.state == ElementState::Pressed
             && let Some(renderer) = self.renderer.as_mut()
             && renderer.animating()
@@ -1178,8 +1031,6 @@ impl<T: Send + 'static> Glass<T> {
     }
 
     fn mouse(&self, kind: MouseEventKind) {
-        // The cells as displayed. The card lies flat on its own cells, so
-        // the cockpit reads them as they are (`App::setup_mouse`).
         let (column, row) = self.mouse_cell;
         self.send(Event::Mouse(MouseEvent {
             kind,
@@ -1193,7 +1044,6 @@ impl<T: Send + 'static> Glass<T> {
         self.pointer = [position.x as f32, position.y as f32];
         *self.host.shared.pointer.lock_recover() = Some(self.pointer);
         if let Some(press) = self.zone_press.as_mut() {
-            // A drag in a zone is its producer's alone.
             let (dx, dy) = (
                 self.pointer[0] - press.from[0],
                 self.pointer[1] - press.from[1],
@@ -1271,14 +1121,11 @@ impl<T: Send + 'static> Glass<T> {
         }
     }
 
-    /// The window's size in pixels.
     fn window_px(&self) -> (f32, f32) {
         let grid = self.host.grid_size();
         (grid.width_px as f32, grid.height_px as f32)
     }
 
-    /// A button over the showcase, or the release of one pressed on it,
-    /// is the showcase's alone. True when it took the event.
     fn showcase_button(&mut self, state: ElementState, button: winit::event::MouseButton) -> bool {
         if !self.showcase.is_open() && !self.showcase_press {
             return false;
@@ -1289,9 +1136,6 @@ impl<T: Send + 'static> Glass<T> {
                 let asked = (self.host.showcase_steps(), self.host.showcase_copies());
                 let taken = self.showcase.press(self.pointer, window, &self.host);
                 self.showcase_press = taken;
-                // An arrow asked for another showing, or the copy button
-                // for a copy: wake the cockpit's loop now (it answers
-                // there) rather than on its next idle tick.
                 if (self.host.showcase_steps(), self.host.showcase_copies()) != asked {
                     self.send(Event::FocusGained);
                 }
@@ -1314,7 +1158,6 @@ impl<T: Send + 'static> Glass<T> {
         taken
     }
 
-    /// A pointer event for the producer of `group`'s zones.
     fn zone_event(&self, group: u32, event: crate::PointerEvent) {
         let mut events = self.host.shared.zone_events.lock_recover();
         if events.len() >= crate::zones::MAX_EVENTS {
@@ -1323,7 +1166,6 @@ impl<T: Send + 'static> Glass<T> {
         events.push((group, event));
     }
 
-    /// The pointer zone under the pointer, if the showcase is not over it.
     fn zone_under(&self) -> Option<(u32, usize, crate::Zone)> {
         if self.showcase.is_open()
             && self.showcase.spot(self.pointer) != crate::showcase::Spot::Outside
@@ -1333,10 +1175,6 @@ impl<T: Send + 'static> Glass<T> {
         crate::zones::zone_at(&self.host.shared.zones.lock_recover(), self.pointer)
     }
 
-    /// A left press in a pointer zone, and that press's release, are the
-    /// zone's producer's. A press and release that never dragged in a
-    /// `Move` zone then reach the cockpit as a click there, as they would
-    /// have without the zone. True when it took the event.
     fn zone_button(&mut self, state: ElementState, button: winit::event::MouseButton) -> bool {
         use winit::event::MouseButton::Left;
         match (state, button, self.zone_press) {
@@ -1384,8 +1222,6 @@ impl<T: Send + 'static> Glass<T> {
         }
     }
 
-    /// The pointer's look: the showcase's over it, a hand over a pointer
-    /// zone, the default elsewhere.
     fn update_cursor(&mut self) {
         use winit::window::CursorIcon;
         let over = self.showcase.grabbing()
@@ -1413,18 +1249,14 @@ impl<T: Send + 'static> Glass<T> {
         }
     }
 
-    /// Drop the renderer (surface, device) before the window it draws into.
     fn release(&mut self) {
         self.early = None;
         self.renderer = None;
         self.window = None;
     }
 
-    /// `ANGEL_GLASS_FILM`: the assembly transition at 30 frames a second, as
-    /// numbered PNGs, for review.
     fn film(&mut self, dir: &std::path::Path) {
         let _ = std::fs::create_dir_all(dir);
-        // Thirty frames a second, so the film plays at the transition's speed.
         let frames = (crate::transition::DURATION * 30.0).round() as u32;
         for i in 0..=frames {
             let seconds = crate::transition::DURATION * i as f32 / frames as f32;
@@ -1443,7 +1275,6 @@ impl<T: Send + 'static> Glass<T> {
         eprintln!("GLASS: filmed {} frames into {}", frames + 1, dir.display());
     }
 
-    /// One frame of the film, if its tick still wants one.
     fn record_frame(&mut self, started: Instant) {
         let (Some(recorder), Some(renderer)) = (self.recorder.as_mut(), self.renderer.as_mut()) else {
             return;
@@ -1467,9 +1298,7 @@ impl<T: Send + 'static> Glass<T> {
     }
 }
 
-/// Save captured RGBA (premultiplied) as a PNG (straight alpha).
 fn write_png(path: &std::path::Path, width: u32, height: u32, mut pixels: Vec<u8>) {
-    // PNG wants straight alpha.
     for p in pixels.chunks_exact_mut(4) {
         let a = u16::from(p[3]);
         if a > 0 && a < 255 {
@@ -1498,7 +1327,6 @@ fn write_png(path: &std::path::Path, width: u32, height: u32, mut pixels: Vec<u8
 
 impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
-        // An animation frame that rode on the cockpit's is due: ask again.
         if matches!(cause, winit::event::StartCause::ResumeTimeReached { .. })
             && self.animation_due.is_some_and(|due| Instant::now() >= due)
         {
@@ -1510,11 +1338,7 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
         }
     }
 
-    /// The showcase's squire moves now and then while it sits (a leg
-    /// swing, a wave): wake for his next move, and only then.
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        // The compositor gave no other size in time: the cockpit starts on
-        // the one the window has.
         if let Some(due) = self.cockpit_due {
             if Instant::now() < due {
                 event_loop.set_control_flow(winit::event_loop::ControlFlow::WaitUntil(due));
@@ -1550,7 +1374,6 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
         match event {
             UserEvent::Frame if self.renderer.is_none() && self.early.is_some() => {
-                // The program's frame before the GPU is open: drawn early.
                 let fresh = {
                     let mut slot = self.host.shared.slot.lock_recover();
                     let fresh = slot.fresh;
@@ -1566,13 +1389,6 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
             }
             UserEvent::Frame => self.draw(false),
             UserEvent::Pictures => self.draw(true),
-            // Layers are handed over mid-draw (the Delve's thrown things,
-            // the map's dock): presenting here would show them against
-            // the previous frame's cells, then present again at the
-            // flush — two presents a frame, the first one wrong. Ask
-            // for a redraw instead: the frame on its way presents them
-            // with its own cells, and a layers-only change (a demo's
-            // thread) presents on the redraw that follows.
             UserEvent::Layers => {
                 self.layers_dirty = true;
                 if let Some(window) = &self.window {
@@ -1640,8 +1456,6 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
         }
     }
 
-    /// Let go of the GPU and the window while the display connection is
-    /// still open; the event loop closes it after this returns.
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
         self.release();
     }
@@ -1653,10 +1467,6 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
                 if let Some(renderer) = self.renderer.as_mut() {
                     renderer.resize(size.width, size.height);
                 } else if self.early.is_some() && (size.width, size.height) != self.early_size {
-                    // Before the GPU is open: the background again at the
-                    // new size, and the grid for it. The first new size
-                    // after the early frame mapped the window is the
-                    // compositor's own, and the cockpit starts on it.
                     self.show_early();
                     let started = self.start_cockpit_early().and_then(|started| {
                         if !started {
@@ -1683,12 +1493,9 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 if let Some(renderer) = self.renderer.as_mut() {
                     renderer.set_scale(scale_factor as f32);
-                    // The showcase's chrome, drawn again for the new scale.
                     let pictures = self.showcase.rescale(scale_factor as f32);
                     renderer.apply(pictures);
                 }
-                // A scale change usually means a new monitor; its
-                // refresh rate comes with it.
                 if let Some(window) = &self.window {
                     self.cadence = window_cadence(window);
                     self.host.shared.frame_nanos.store(self.cadence.0.as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
@@ -1710,10 +1517,6 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
                     self.cadence.1,
                 ) {
                     RedrawPlan::Draw => self.draw(true),
-                    // A frame from the cockpit was presented within this
-                    // display frame (a game at 60 a second): the animation
-                    // rides on it rather than presenting again, and asks
-                    // again a display frame after it (a timer, not a spin).
                     RedrawPlan::Ride => {
                         let due = self.last_present + self.cadence.0;
                         self.animation_due = Some(due);
@@ -1729,10 +1532,6 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
                 } else {
                     Event::FocusLost
                 });
-                // The cockpit answers focus with a frame, which shows the
-                // cursor change; draw here only if it hasn't by the next
-                // compositor frame. A second present now would take that
-                // frame from the cockpit's.
                 self.redraw_owed = true;
                 if let Some(window) = &self.window {
                     window.request_redraw();
@@ -1784,11 +1583,6 @@ mod tests {
 
     #[test]
     fn unpublished_layers_draw_on_the_redraw_not_on_arrival() {
-        // A layer set handed over mid-draw waits for the redraw cycle:
-        // the plan presents it then, even though a present just
-        // happened and nothing is animating. (Presenting on arrival
-        // showed new layers against the previous frame's cells, then
-        // presented again at the flush — the gameplay flicker.)
         assert_eq!(
             redraw_plan(false, true, false, false, JUST_NOW, RIDES),
             RedrawPlan::Draw
@@ -1821,11 +1615,6 @@ mod tests {
 
     #[test]
     fn every_autonomous_layer_kind_keeps_the_frame_chain_alive() {
-        // The regression: the post-present next-frame request only knew
-        // breathing layers, so a turning primitive (the object dock),
-        // flicker or motes advanced only when the cockpit happened to
-        // redraw — smooth while typing, skipping frames while idle,
-        // because their phases run on the wall clock.
         let still = Layer::new(1, 0, Placement::Cells([0.0, 0.0, 1.0, 1.0]), LayerKind::Solid([1.0; 4]));
         assert!(!animation_wants_frame(false, std::slice::from_ref(&still)));
         assert!(animation_wants_frame(true, &[]), "renderer-owned motion");
@@ -1876,7 +1665,6 @@ mod tests {
         assert_eq!(frame, Duration::from_nanos(6_944_444));
         let (frame, _) = cadence(Some(120_000));
         assert_eq!(frame, Duration::from_nanos(8_333_333));
-        // Unknown and implausible rates fall back to 60.
         assert_eq!(cadence(None).0, cadence(Some(60_000)).0);
         assert_eq!(cadence(Some(0)).0, cadence(Some(60_000)).0);
         assert_eq!(cadence(Some(9_999_999)).0, cadence(Some(60_000)).0);

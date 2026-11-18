@@ -103,7 +103,6 @@ fn ghoul(card: &cards::Card, tick: u64, body: &Img) -> (Img, Vec<Painting>) {
     }
 }
 
-// Baseline placement from 9e0c0adf2, confined to this ignored shot harness.
 fn old_anchor(at: &str) -> (i32, i32) {
     match at {
         "head" => (12, 7),
@@ -275,8 +274,6 @@ fn write_wish_fit_shots() {
                 image.height(),
                 crop.span
             ));
-            // Match host loading: legacy painter rows inherit the learner's
-            // part, then share the same subject fit as local rows.
             let at = if baseline() {
                 "body"
             } else {
@@ -341,8 +338,6 @@ fn write_wish_fit_shots() {
                     let x = col as i32 * cw;
                     let y = 28 + row * ch;
                     sheet.text(x + 2, y + 2, &format!("{label} f{f}"), 'J');
-                    // Left: ink rows. Right: the actual painting via the same
-                    // common-frame alpha crop as the window's paint cache.
                     sheet.stamp(&im, x + 32 - im.w / 2, y + ch - 5 - im.h);
                     if let Some(png) = &picture {
                         let mut hd = if paints.is_empty() {

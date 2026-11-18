@@ -53,7 +53,7 @@ fn put_returns_bounded_receipt_without_body() {
 #[test]
 fn disclose_is_capped_and_offsetable() {
     let mut store = HandleStore::new();
-    let body = "abcdefghijklmnopqrstuvwxyz0123456789".repeat(4); // 144 bytes
+    let body = "abcdefghijklmnopqrstuvwxyz0123456789".repeat(4);
     let receipt = store
         .put(
             &body,
@@ -100,8 +100,6 @@ fn disclose_snaps_a_byte_offset_inside_utf8_back_to_the_character_boundary() {
         )
         .unwrap();
 
-    // Byte 2 is the continuation byte of `é`; disclosure must include the
-    // complete character and report the actual byte offset of that slice.
     let first = store
         .disclose(receipt.handle.as_str(), 2, 2, limits(), 2)
         .unwrap();
@@ -206,7 +204,6 @@ fn root_trajectory_collapses_bulk_and_preserves_strategy() {
 
     let short = root_trajectory(&history);
 
-    // Longer bulk, same tool order → same strategy tokens for calls.
     history[3].content = "y".repeat(50_000).into();
     let long = root_trajectory(&history);
 
@@ -224,7 +221,6 @@ fn root_trajectory_collapses_bulk_and_preserves_strategy() {
     assert_eq!(short.tool_hops, long.tool_hops);
     assert!(short.bulk_tool_results >= 1);
 
-    // Handle-backed receipts classify as handle, not bulk.
     history[3].content = format!(
         "{TOOL_AGED_MARK}: read_file|a.rs (5000 bytes) handle=hnd_1{}",
         crate::agent::harness::compact::AGED_TAIL
@@ -232,7 +228,6 @@ fn root_trajectory_collapses_bulk_and_preserves_strategy() {
     .into();
     let handled = root_trajectory(&history);
     assert_eq!(handled.handle_receipts, 1);
-    // The small "ok" write result remains a bulk token; the large read does not.
     assert_eq!(handled.bulk_tool_results, 1);
     assert!(handled.tokens.iter().any(|t| t == "tool:handle"));
     assert!(
@@ -267,7 +262,7 @@ fn trajectory_similarity_is_high_for_isomorphic_strategies() {
     assert!((sim.token_levenshtein_sim - 1.0).abs() < 1e-9);
 
     let mut c = a.clone();
-    c.tokens[2] = "tool:bulk:xxl".into(); // bulk instead of handle
+    c.tokens[2] = "tool:bulk:xxl".into();
     let sim2 = trajectory_similarity(&a, &c);
     assert!(sim2.token_levenshtein_sim < 1.0);
     assert!(sim2.jaccard_3gram < 1.0);
@@ -451,8 +446,6 @@ fn inspection_identity_for_offload_skips_when_cannot_park() {
     );
 }
 
-/// Local env guard so this module's tests do not depend on harness::tests
-/// private helpers beyond `env_lock`.
 struct EnvGuard {
     key: &'static str,
     old: Option<std::ffi::OsString>,
@@ -461,8 +454,6 @@ struct EnvGuard {
 impl EnvGuard {
     fn set(key: &'static str, value: &str) -> Self {
         let old = std::env::var_os(key);
-        // SAFETY: tests hold env_lock when mutating process env.
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var(key, value) };
         Self { key, old }
     }
@@ -471,10 +462,8 @@ impl EnvGuard {
 impl Drop for EnvGuard {
     fn drop(&mut self) {
         if let Some(old) = &self.old {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::set_var(self.key, old) };
         } else {
-            // TODO: Audit that the environment access only happens in single-threaded code.
             unsafe { std::env::remove_var(self.key) };
         }
     }

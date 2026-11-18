@@ -25,8 +25,6 @@ fn table(seats: u32) -> Run {
     r
 }
 
-/// Each seat's hands: knight one plays it straight, knight two blunders into
-/// the first breach, the rest start a little later.
 fn hands(run: &Run, clumsy: bool) -> BTreeMap<u32, Input> {
     let Some(s) = run.pennon.as_ref() else { return BTreeMap::new() };
     if s.hold > 0 || s.left == 0 {
@@ -63,7 +61,6 @@ struct Marks {
     end: u32,
 }
 
-/// Play a table through and note when the moments came.
 fn mark(seats: u32) -> Marks {
     let mut r = table(seats);
     let mut m = Marks::default();
@@ -132,7 +129,6 @@ fn shot(run: &Run, seats: &[u32], dir: &Path, n: u32) {
     image::save_buffer(dir.join(format!("f{n:04}.png")), &sheet.rgb_bytes(), sheet.w as u32, sheet.h as u32, image::ColorType::Rgb8).unwrap();
 }
 
-/// Replay the same table and keep the frames of the windows `(name, from, to, seats)`.
 fn film(reel: &Reel, seats: u32, windows: &[(&str, u32, u32, Vec<u32>)]) {
     let mut r = table(seats);
     let dirs: Vec<PathBuf> = windows.iter().map(|w| reel.dir(w.0)).collect();
@@ -176,7 +172,6 @@ fn write_pennon_reel() {
             ("finish", back(m.finish, 20), m.end + 54 + 210, vec![1, 2]),
         ],
     );
-    // The clock running out, five seconds from the horn.
     let mut r = table(4);
     {
         let s = r.pennon.as_mut().unwrap();
@@ -197,7 +192,6 @@ fn write_pennon_reel() {
         let k = hands(&r, false);
         r.step(&k);
     }
-    // One knight alone, and a table of six.
     for (name, seats) in [("solo", 1u32), ("six", 6)] {
         let m = mark(seats);
         film(&reel, seats, &[(name, 0, m.go + 160, if seats == 1 { vec![1] } else { vec![1, 6] })]);
@@ -206,8 +200,6 @@ fn write_pennon_reel() {
     }
 }
 
-/// The clock: a mid-round screen drawn at four seats, the quickest of five
-/// draws of each of sixty ticks, the mean of those.
 #[test]
 #[ignore = "times the screen"]
 fn pennon_frame_time() {
@@ -216,7 +208,6 @@ fn pennon_frame_time() {
         let k = hands(&r, false);
         r.step(&k);
     }
-    // Warm the caches (the art, the scenery) before the clock starts.
     let _ = frame_for(&r, 384, 224, Some(1));
     let mut best = Vec::new();
     for _ in 0..60 {

@@ -1,5 +1,3 @@
-"""Offline token-prefix accounting and CLI checks without tokenizer downloads."""
-
 import json
 from pathlib import Path
 import shutil
@@ -26,8 +24,6 @@ class TokenAccountingTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         for name in ("accounting.mjs", "analyze.mjs", "curve.mjs"):
             shutil.copy2(SOURCE / name, self.root / name)
-        # These packages replace only the external tokenizer boundary. The
-        # production counting/prefix/CLI code is used unchanged.
         for name in ("deepseek_v4", "gpt4o", "qwen3", "llama3_1"):
             package = self.root / "node_modules/@lenml" / ("tokenizer-" + name)
             package.mkdir(parents=True)

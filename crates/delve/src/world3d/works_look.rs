@@ -37,46 +37,23 @@ use super::works_site;
 #[path = "../../tests/world3d/works_look__tests.rs"]
 mod tests;
 
-/// What a building is mostly made of, which is the colour it reads as.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Material {
-    /// Planks and posts: sheds, mills, cranes, carts.
     Timber,
-    /// Cut stone and rock: quarries, walls, towers.
     Stone,
-    /// Fired clay: the brick kilns and what is built of their brick.
     Brick,
-    /// Straw and hay: a farm's roofs and fields.
     Thatch,
-    /// Iron, lead and slate: the smiths and the ley engines.
     Iron,
-    /// Limewash and plaster: houses, lime, the windmill's tower. On the
-    /// hillside's ladder the nearest to white is a pale, nearly neutral grey.
     Whitewash,
-    /// Dug works: pits, ponds, the clamp.
     Earth,
 }
 
 impl Material {
-    /// Every material, for the tests and the sheets.
     pub const ALL: [Material; 7] =
         [Material::Timber, Material::Stone, Material::Brick, Material::Thatch, Material::Iron, Material::Whitewash, Material::Earth];
 }
 
-/// What each plan is mostly made of, in one place. The flat kit has a
-/// `Mat` a plan (`render::overworld::works_kit`: stone, timber, brick,
-/// earth) for what its construction piles up; this is the finer choice of what
-/// the finished building looks like from the camera, so a works reads as many
-/// things and not one mass:
-/// - the smiths, the bloomery, the lead works and the ley engines are iron
-///   (their hot, dark, metal look), not the stone their walls are;
-/// - the kilns and the bakery are brick (a warm red-brown); the lime kiln,
-///   the slaking works and the mills' towers are limewashed, as lime is white;
-/// - a farm's roofs and fields, the rope walk and the weaving shed are straw;
-/// - a cottage is a whitewashed house, a hut thatched;
-/// - pits, ponds, the clamp and the tanyard are earth.
 const TABLE: &[(&str, Material)] = &[
-    // The stone and the quarry.
     ("field-quarry", Material::Stone),
     ("rubble-pit", Material::Earth),
     ("claim-quarry", Material::Stone),
@@ -89,13 +66,11 @@ const TABLE: &[(&str, Material)] = &[
     ("caravanserai", Material::Stone),
     ("wall", Material::Stone),
     ("castle-yard", Material::Stone),
-    // The lime, the mortar and the sand.
     ("lime-kiln", Material::Whitewash),
     ("slaking-pit", Material::Earth),
     ("sand-pit", Material::Earth),
     ("mortar-mill", Material::Timber),
     ("intake", Material::Timber),
-    // Wood.
     ("woodsman-camp", Material::Timber),
     ("sawpit", Material::Timber),
     ("carpentry", Material::Timber),
@@ -103,7 +78,6 @@ const TABLE: &[(&str, Material)] = &[
     ("retting-pond", Material::Earth),
     ("ropewalk", Material::Thatch),
     ("clamp", Material::Earth),
-    // Food and cloth.
     ("farmstead", Material::Thatch),
     ("pasture", Material::Thatch),
     ("vineyard", Material::Thatch),
@@ -114,7 +88,6 @@ const TABLE: &[(&str, Material)] = &[
     ("brewery", Material::Timber),
     ("tanyard", Material::Earth),
     ("weaving-shed", Material::Thatch),
-    // Fire and metal.
     ("ashery", Material::Earth),
     ("glassworks", Material::Brick),
     ("bloomery", Material::Iron),
@@ -122,18 +95,15 @@ const TABLE: &[(&str, Material)] = &[
     ("smithy", Material::Iron),
     ("lead-works", Material::Iron),
     ("forge", Material::Iron),
-    // Brick.
     ("clay-pit", Material::Earth),
     ("brick-kiln", Material::Brick),
     ("brick-cottage", Material::Brick),
     ("brick-wall", Material::Brick),
     ("brick-gate", Material::Brick),
-    // What stands against the Deep.
     ("palisade", Material::Timber),
     ("wood-gate", Material::Timber),
     ("watchtower", Material::Timber),
     ("brazier", Material::Iron),
-    // Halls and the commons.
     ("lodge", Material::Whitewash),
     ("ditch-gang", Material::Earth),
     ("depot", Material::Timber),
@@ -142,7 +112,6 @@ const TABLE: &[(&str, Material)] = &[
     ("cottage", Material::Whitewash),
     ("warehouse", Material::Timber),
     ("camp", Material::Timber),
-    // Power and the ley.
     ("treadwheel-crane", Material::Timber),
     ("hod-gang", Material::Timber),
     ("great-crane", Material::Timber),
@@ -156,7 +125,6 @@ const TABLE: &[(&str, Material)] = &[
     ("mana-engine", Material::Iron),
     ("conduit", Material::Iron),
     ("enchanter", Material::Stone),
-    // The shafts that lift from the Delve: plain tackle, then the ley's.
     ("shaft-hand", Material::Timber),
     ("shaft-windlass", Material::Timber),
     ("shaft-gin", Material::Timber),
@@ -164,23 +132,13 @@ const TABLE: &[(&str, Material)] = &[
     ("shaft-ley", Material::Iron),
 ];
 
-/// What plan `plan_id` is mostly made of ([`TABLE`]). A plan the table does
-/// not know (the sim's older ids) is timber, the commonest.
 pub fn material_of(plan_id: &str) -> Material {
-    // The stretches of line laid on the ground (`world3d::hillside`) are not plans: a road, rails, a
-    // ropeway, a chute, a rollerway and a mule's way are all timber, the warm brown the realm's works are drawn in.
     if matches!(plan_id, "road-run" | "tram-run" | "chute-run" | "rope-run" | "mule-run" | "roller-run") {
         return Material::Timber;
     }
     TABLE.iter().find(|(id, _)| *id == plan_id).map_or(Material::Timber, |&(_, m)| m)
 }
 
-// ------------------------------------------------------------ the ramps ----
-
-/// The hue a material leans its ramp to, and how coloured it goes: chroma per
-/// unit of brightness (capped at the brand's `ENV_CHROMA`, so the dim entries
-/// stay dim and the light ones are the most coloured). The stone's is
-/// `works_site::stone_ramp`.
 fn lean_of(m: Material) -> ([u8; 3], f32) {
     match m {
         Material::Timber => ([160, 100, 56], 1.0),
@@ -188,22 +146,11 @@ fn lean_of(m: Material) -> ([u8; 3], f32) {
         Material::Brick => ([176, 64, 56], 1.0),
         Material::Thatch => ([210, 184, 64], 1.0),
         Material::Iron => ([88, 118, 156], 0.8),
-        // Nearly neutral and a little cool: the ladder has no brighter step to
-        // make it white with, and a warm grey is the limestone's own.
         Material::Whitewash => ([200, 210, 214], 0.10),
-        // A dusty loam: the stone's brightness with a red-brown lean, a good
-        // deal less coloured than the timber or the brick. The ladder leaves
-        // this corner of the colour wheel crowded; the stone, the timber and the
-        // brick are each about 0.04 of it away.
         Material::Earth => ([178, 89, 71], 0.32),
     }
 }
 
-/// A ramp of hue `hue`, entry for entry as bright as the hillside's (the
-/// eight-step ladder holds, docs/BRAND.md): the colour's lean from grey,
-/// `ratio` of each entry's brightness in chroma and never over the guide's,
-/// kept inside what a colour can be at that brightness (as
-/// `realm_look::cloth_ramp`, with the chroma chosen instead of the cloth's).
 fn leaned(hue: [u8; 3], ratio: f32) -> [[u8; 3]; 8] {
     let u = hue.map(|c| f32::from(c) / 255.0);
     let own = luma(hue);
@@ -223,8 +170,6 @@ fn leaned(hue: [u8; 3], ratio: f32) -> [[u8; 3]; 8] {
     })
 }
 
-/// Material `m`'s ramp, dark to light: the hillside's brightness ladder, entry
-/// for entry, in the material's hue.
 pub fn ramp(m: Material) -> [[u8; 3]; 8] {
     static RAMPS: OnceLock<[[[u8; 3]; 8]; 7]> = OnceLock::new();
     let all = RAMPS.get_or_init(|| {
@@ -240,30 +185,18 @@ pub fn ramp(m: Material) -> [[u8; 3]; 8] {
     all[index]
 }
 
-// ------------------------------------------------------------ the zones ----
-
-/// How far past a building's footprint its dye fades out (kingdom pixels):
-/// a few, so the ground round it keeps the grass. (The camps' tents: 8.)
 pub const FEATHER: f32 = 4.0;
-/// How far apart two buildings of one material may stand to be one zone: two
-/// tiles.
 pub const MERGE_GAP: f32 = 32.0;
-/// How much bigger than the footprints it holds a merged zone's box may be.
 pub const MERGE_SLACK: f32 = 1.5;
-/// The most zones the buildings may have: all but the Keep's. (What is left
-/// in a look is [`dye_buildings`]'s to fit.)
 pub const BUILDING_ZONES: usize = ZONE_MAX - KEEP_ZONES;
 
-/// A building as the look sees it: where it stands and what it is made of.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Footprint {
-    /// `[x0, z0, x1, z1]` in the kingdom's pixels (16 a tile).
     pub rect: [f32; 4],
     pub material: Material,
 }
 
 impl Footprint {
-    /// Plan `plan_id`'s building on `rect`.
     pub fn of(plan_id: &str, rect: [f32; 4]) -> Self {
         Self { rect, material: material_of(plan_id) }
     }
@@ -277,8 +210,6 @@ fn bound(a: [f32; 4], b: [f32; 4]) -> [f32; 4] {
     [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])]
 }
 
-/// How far apart two boxes stand: the larger of the gaps along each axis (0
-/// when they touch or overlap).
 fn gap(a: [f32; 4], b: [f32; 4]) -> f32 {
     let dx = (a[0] - b[2]).max(b[0] - a[2]).max(0.0);
     let dz = (a[1] - b[3]).max(b[1] - a[3]).max(0.0);
@@ -289,20 +220,12 @@ fn overlap(a: [f32; 4], b: [f32; 4]) -> f32 {
     area([a[0].max(b[0]), a[1].max(b[1]), a[2].min(b[2]), a[3].min(b[3])])
 }
 
-/// A box of buildings of one material: the box that holds them and the sum of
-/// their footprints.
 struct Group {
     rect: [f32; 4],
     sum: f32,
     material: Material,
 }
 
-/// The streets near `view`: the buildings in sight (the view and
-/// [`SEEN_BEYOND`] round it) merged where neighbours of one material stand
-/// within [`MERGE_GAP`] and the box that holds them is at most [`MERGE_SLACK`]
-/// times their footprints (and covers no building of another material), each
-/// as its material and its box `[x0, z0, x1, z1]` in the kingdom's pixels; the
-/// nearest the view's middle first.
 pub fn street_groups(view: &View, buildings: &[Footprint]) -> Vec<(Material, [f32; 4])> {
     let [ox, oz] = view.origin;
     let centre = [ox + view.size[0] / 2.0, oz + view.size[1] / 2.0];
@@ -317,8 +240,6 @@ pub fn street_groups(view: &View, buildings: &[Footprint]) -> Vec<(Material, [f3
         })
         .map(|b| Group { rect: b.rect, sum: area(b.rect), material: b.material })
         .collect();
-    // Merge the pair whose box is the tightest round what it holds, until none
-    // may be.
     loop {
         let mut best: Option<(f32, usize, usize)> = None;
         for i in 0..groups.len() {
@@ -332,7 +253,6 @@ pub fn street_groups(view: &View, buildings: &[Footprint]) -> Vec<(Material, [f3
                 if ratio > MERGE_SLACK || best.is_some_and(|(r, ..)| r <= ratio) {
                     continue;
                 }
-                // Never a box that covers a building of another material.
                 if buildings.iter().any(|o| o.material != a.material && usable(o) && overlap(union, o.rect) > 1.0) {
                     continue;
                 }
@@ -345,17 +265,11 @@ pub fn street_groups(view: &View, buildings: &[Footprint]) -> Vec<(Material, [f3
         a.rect = bound(a.rect, b.rect);
         a.sum += b.sum;
     }
-    // The nearest the view's middle (to the box, not its middle: a long street
-    // is near wherever it passes).
     let away = |r: [f32; 4]| (r[0] - centre[0]).max(centre[0] - r[2]).max(0.0).hypot((r[1] - centre[1]).max(centre[1] - r[3]).max(0.0));
     groups.sort_by(|a, b| away(a.rect).total_cmp(&away(b.rect)));
     groups.into_iter().map(|g| (g.material, g.rect)).collect()
 }
 
-/// The zones that dye the buildings near `view`: its [`street_groups`], the
-/// nearest at most [`BUILDING_ZONES`] of them; the farthest first, so the
-/// nearest lies over them (as `realm_look::camp_zones`). Each is as tight as
-/// its box: radius 0 and a [`FEATHER`].
 pub fn building_zones(view: &View, buildings: &[Footprint]) -> Vec<Zone> {
     let [ox, oz] = view.origin;
     let mut groups = street_groups(view, buildings);
@@ -373,15 +287,9 @@ pub fn building_zones(view: &View, buildings: &[Footprint]) -> Vec<Zone> {
         .collect()
 }
 
-/// Dye the look over the buildings near `view` ([`building_zones`]), after the
-/// biomes' and the camps' zones (`realm_look::look`) and before the Keep's
-/// (`works_site::dye`, which pushes its zone last): the buildings take what
-/// room the look has left, less the Keep's slot, the nearest the view's middle
-/// first. Their zones lie over the camps' cloth and under the Keep.
 pub fn dye_buildings(look: &mut Look, view: &View, buildings: &[Footprint]) {
     let room = ZONE_MAX.saturating_sub(KEEP_ZONES).saturating_sub(look.zones.len());
     let mut zones = building_zones(view, buildings);
-    // The farthest are first: those are what give way.
     zones.drain(..zones.len().saturating_sub(room));
     look.zones.extend(zones);
 }

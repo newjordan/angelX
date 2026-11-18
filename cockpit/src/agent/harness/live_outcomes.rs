@@ -7,9 +7,7 @@ use super::*;
 const ENVELOPE: &str = "[live-module/v1]";
 
 pub(super) struct Binding {
-    /// The root as `/reload status` prints it.
     shown: PathBuf,
-    /// The root edits are matched against.
     root: PathBuf,
     board: Arc<angel_live::Board>,
 }
@@ -26,7 +24,6 @@ impl ToolRegistry {
             });
     }
 
-    /// The module root this session's loader watches, when one is running.
     pub(crate) fn live_root(&self) -> Option<PathBuf> {
         self.live_binding().map(|binding| binding.shown.clone())
     }
@@ -38,8 +35,6 @@ impl ToolRegistry {
             .clone()
     }
 
-    /// Open a watch, before the write, on every live module a file tool is
-    /// about to change. Other tools and paths outside the root open nothing.
     pub(super) fn live_watch(
         &self,
         name: &str,
@@ -72,8 +67,6 @@ impl ToolRegistry {
         Some((Arc::clone(&binding.board), watch))
     }
 
-    /// Append what the loader made of this call's edit, and any verdict that
-    /// settled since an earlier one, to a successful result.
     pub(super) fn live_attach(
         &self,
         watch: Option<(Arc<angel_live::Board>, u64)>,
@@ -106,7 +99,6 @@ impl ToolRegistry {
         result
     }
 
-    /// Verdicts no tool result has carried yet, for the next turn's context.
     pub(crate) fn take_live_outcomes(&self) -> Option<String> {
         let binding = self.live_binding()?;
         let outcomes = binding.board.take();

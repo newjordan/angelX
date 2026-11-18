@@ -30,7 +30,6 @@ fn collect_with(
         .as_array()
         .filter(|paths| !paths.is_empty() && paths.len() <= 8)
         .ok_or("include_source requires 1-8 discovered file paths")?;
-    // Validate the entire request before any filesystem access, including probes.
     let mut paths: Vec<PathBuf> = Vec::new();
     for raw in raw_paths {
         let raw = raw
@@ -64,8 +63,6 @@ fn collect_with(
                 .case_insensitive(ignore_case)
                 .build()
                 .map_err(|error| error.to_string())?;
-            // Unlike ASCII byte indexing, these boundaries preserve Unicode
-            // identifiers and names containing namespace separators or '$'.
             let reference = RegexBuilder::new(&format!(
                 r"(?:^|[^\p{{L}}\p{{N}}_:$]){}(?:$|[^\p{{L}}\p{{N}}_:$])",
                 regex::escape(name)
@@ -81,8 +78,6 @@ fn collect_with(
     let mut source_bytes = 0;
     let mut truncated = false;
     let mut unread_files = 0;
-    // Reserve an equal share for each file so an early large definition cannot
-    // consume every later file's context. Unused shares are intentionally bounded.
     let per_file_budget = budget / paths.len();
     for path in paths {
         let bytes = match read(&path) {
@@ -94,8 +89,6 @@ fn collect_with(
             }
             Err(_) => {
                 unread_files += 1;
-                // Descriptor errors may contain unbounded platform text; the
-                // explicit status avoids treating an unread file as no matches.
                 files.push(json!({"path": path, "status": "unreadable"}));
                 continue;
             }
@@ -130,8 +123,6 @@ fn collect_with(
                 }
             }
         }
-        // Definitions first; round-robin names before second hits. Merge all
-        // overlapping windows, retaining the best priority of their anchors.
         let mut ranges = Vec::new();
         for group in [&definitions, &references] {
             for occurrence in 0..HITS_PER_KIND {
@@ -171,8 +162,6 @@ fn collect_with(
             let share = remaining / (window_count - index);
             let mut start = original_start;
             let mut prefix_bytes: usize = lines[start..anchor].iter().map(|line| line.len()).sum();
-            // Preserve the matching line before spending a limited window on
-            // preceding comments. Later disjoint anchors also retain a share.
             while start < anchor
                 && (prefix_bytes > share / 4
                     || prefix_bytes + lines[anchor].len().min(share) > share)
@@ -205,9 +194,6 @@ fn collect_with(
         let matches = names
             .iter()
             .enumerate()
-            // A multi-file query otherwise repeats mostly empty rows. The
-            // requested names live once in the envelope; omitted rows in a
-            // successfully read file mean zero lexical matches, not unknown.
             .filter(|(i, _)| counts[*i] != [0, 0])
             .map(|(i, name)| {
                 json!({

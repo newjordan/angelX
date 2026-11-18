@@ -1,4 +1,3 @@
-# crates/delve/src/rules/cover.rs: how much of the screen the party's own shots may cover.
 import Base
 
 def cover.counted(p: Projectile) -> Bool:
@@ -14,7 +13,6 @@ def cover.view(room: Room) -> F32:
   screen: F32 = (cb.f(layout.COLS()) * layout.TILE_UNITS() * cb.f(layout.ROWS()) * layout.TILE_UNITS() : F32)
   RS.f_max(RS.f_min((layout.Room.width(room) * layout.Room.height(room) : F32), screen), 1.0)
 
-# The share of the view the party's counted shots cover, in percent.
 def cover.covered(shots: J.Val, view: F32) -> F32:
   total: F32 = RS.f_neg(0.0)
   for p: Projectile in J.items(shots):
@@ -22,7 +20,6 @@ def cover.covered(shots: J.Val, view: F32) -> F32:
       total = (total + cover.area(p) : F32)
   (total * 100.0 / view : F32)
 
-# Hold the party's shots to their life and their bounces. Answers (shots, retired).
 def cover.hold(shots: J.Val, view: F32) -> (J.Val, U32):
   out: J.Val = J.JA{Nil{}}
   for p: Projectile in J.items(shots):
@@ -34,7 +31,6 @@ def cover.hold(shots: J.Val, view: F32) -> (J.Val, U32):
     return cover.retire(out, view, cover.PARTY_COVER())
   (out, 0)
 
-# Retire the oldest counted shots until the party's share fits the budget.
 def cover.retire(shots: J.Val, view: F32, share: F32) -> (J.Val, U32):
   budget: F32 = (share * view / 100.0 : F32)
   total: F32 = RS.f_neg(0.0)

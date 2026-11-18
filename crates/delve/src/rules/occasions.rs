@@ -24,22 +24,14 @@ use super::holdings::{room_def, Holding, ROOM_LABOUR, SLOTS};
 use super::villagers::{Trade, Villager, MOOD_LEAVES};
 use serde::{Deserialize, Serialize};
 
-/// Sacks in the granary from which the village holds a feast.
 pub const FEAST_AT: u32 = 30;
-/// Sacks a feast eats.
 pub const FEAST_SACKS: u32 = 3;
-/// Souls it takes to make a feast.
 pub const FEAST_FOLK: usize = 3;
-/// How much happier a feast leaves everybody.
 pub const FEAST_CHEER: i8 = 2;
-/// A mood this low throws a tantrum: the last step before walking away.
 pub const TANTRUM_AT: i8 = MOOD_LEAVES + 1;
-/// Lines the tavern board keeps.
 pub const TIDINGS: usize = 4;
-/// The longest a line on it runs.
 pub const TIDING_LEN: usize = 150;
 
-/// What soured the one who threw it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Cause {
@@ -62,19 +54,14 @@ impl Cause {
     }
 }
 
-/// What a tantrum broke.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Broke {
-    /// A course of the room in this bay.
     Course(u8),
-    /// A sack of the granary's.
     Sack,
-    /// There was nothing left to break.
     Nothing,
 }
 
-/// How a soul died.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Dying {
@@ -93,7 +80,6 @@ impl Dying {
     }
 }
 
-/// What a holding's last rent day made of its village.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Occasion {
@@ -114,13 +100,10 @@ impl Occasion {
     }
 }
 
-/// Whether a soul is too frail to live through an empty granary.
 pub fn frail(f: &Villager) -> bool {
     f.trade == Trade::Child || f.age >= super::villagers::ELDER
 }
 
-/// The village feasts, if the granary is full enough and everyone at the
-/// table is fed. The sacks come out of the granary; the line says so.
 pub fn feast(w: &mut Holding, stores: &mut u32, name: &str) -> Option<String> {
     if w.occasion.is_some()
         || w.raid > 0
@@ -138,9 +121,6 @@ pub fn feast(w: &mut Holding, stores: &mut u32, name: &str) -> Option<String> {
     Some(format!("The granary is full: {name} holds a feast, {FEAST_SACKS} sacks eaten"))
 }
 
-/// The first soul at `TANTRUM_AT` throws a tantrum. `cause` names what
-/// soured them, from the day's state. The thing broken comes out of the
-/// holding or the granary; the line says which.
 pub fn tantrum(w: &mut Holding, stores: &mut u32, name: &str, cause: impl Fn(usize, &Villager) -> Cause) -> Option<String> {
     if w.occasion.is_some() {
         return None;
@@ -165,19 +145,15 @@ pub fn tantrum(w: &mut Holding, stores: &mut u32, name: &str, cause: impl Fn(usi
         }
         None => (Broke::Nothing, "finds nothing left to break".to_string()),
     };
-    // Venting ends it for the day; the cause stands, and so will the next.
     w.folk[n].mood += 1;
     w.occasion = Some(Occasion::Tantrum { who: who.clone(), cause, broke });
     Some(format!("{who} the {} is {} and throws a tantrum at {name}: {what}", trade.word(), cause.word()))
 }
 
-/// The village mourns `who`, who died `dying`.
 pub fn mourn(w: &mut Holding, who: &str, trade: Trade, dying: Dying) {
     w.occasion = Some(Occasion::Mourning { who: who.to_string(), trade, dying });
 }
 
-/// A tiding for the tavern's board: the ledger's line, upper-cased and
-/// cut to the board's width.
 pub fn tiding(line: &str) -> String {
     line.to_uppercase().chars().take(TIDING_LEN).collect()
 }

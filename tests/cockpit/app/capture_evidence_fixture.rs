@@ -63,7 +63,7 @@ os._exit(0)
         }
         self.cleaned = true;
         let Ok(receipt) = std::fs::read_to_string(&self.marker) else {
-            return; // Final isolated FixtureCleanup owns any failed setup.
+            return;
         };
         let pids = receipt
             .split_whitespace()
@@ -82,8 +82,6 @@ os._exit(0)
                 .ok()
         });
         if parent == Some(std::process::id()) {
-            // This live, adopted fixture descendant still belongs to our
-            // isolated subreaper. Never signal a stale numeric identity.
             unsafe { libc::kill(*descendant, libc::SIGKILL) };
         }
         ServiceFixture::assert_reaped(*leader);

@@ -21,8 +21,6 @@ fn goal_message(objective: &str) -> ChatMsg {
     ))
 }
 
-/// Every engagement shape the trigger has to answer: each launch phrase, each
-/// competitive goal word, and the near misses that must stay disarmed.
 fn engagement_table() -> Vec<Vec<ChatMsg>> {
     let mut table: Vec<Vec<ChatMsg>> = Vec::new();
     for phrase in launch_phrases() {
@@ -37,13 +35,10 @@ fn engagement_table() -> Vec<Vec<ChatMsg>> {
     table.push(Vec::new());
     table.push(vec![ChatMsg::user("")]);
     table.push(vec![ChatMsg::user("   ")]);
-    // The launch phrase in an assistant message is not the operator arming it.
     table.push(vec![
         ChatMsg::user("keep going"),
         ChatMsg::assistant("competition mode engaged"),
     ]);
-    // Anti-sticky: the previous turn's phrase does not survive a new steer, but a
-    // competitive standing goal does.
     table.push(vec![
         ChatMsg::user("run the competition-loop"),
         goal_message("place a winning submission on the board"),
@@ -61,12 +56,10 @@ fn engagement_table() -> Vec<Vec<ChatMsg>> {
         ChatMsg::assistant("done"),
         ChatMsg::user("hey pro, how goes?"),
     ]);
-    // Uppercase and path-like near misses: only the launch vocabulary counts.
     table.push(vec![ChatMsg::user("FIRE NOW")]);
     table.push(vec![ChatMsg::user("run PodRace please")]);
     table.push(vec![ChatMsg::user("look at src/competition_loop/parser.rs")]);
     table.push(vec![ChatMsg::user("the leaderboard page looks nice")]);
-    // A goal block with no competitive word is not intent to compete.
     table.push(vec![
         ChatMsg::user("carry on"),
         goal_message("ship the parser refactor"),
@@ -78,9 +71,6 @@ fn engagement_table() -> Vec<Vec<ChatMsg>> {
     table
 }
 
-/// The shell commands the inventory scan has to answer: recursive listings, the
-/// legal and illegal `git show` forms, the inventory command table, and cheap
-/// board reads that must stay legal.
 fn shell_table() -> Vec<&'static str> {
     vec![
         "",
@@ -141,8 +131,6 @@ fn shell_table() -> Vec<&'static str> {
     ]
 }
 
-/// The shipped leg and the native scans agree on every engagement shape, and the
-/// leg is the one that answered.
 #[test]
 fn live_competition_mode_leg_matches_native_engagement() {
     let _guard = crate::tests::env_lock();
@@ -179,8 +167,6 @@ fn live_competition_mode_leg_matches_native_engagement() {
     eprintln!("competition-mode leg engaged {engaged} of {checked} turns, refused {disarmed}");
 }
 
-/// Every shell verdict — recursive listing, `git show` form and whole-command
-/// thrash — is the same decision on both legs.
 #[test]
 fn live_competition_mode_leg_matches_native_shell_inventory() {
     let _guard = crate::tests::env_lock();
@@ -229,8 +215,6 @@ fn live_competition_mode_leg_matches_native_shell_inventory() {
     );
 }
 
-/// A throwaway policy module, so a deliberately out-of-contract leg can be
-/// pinned without touching the shipped one.
 fn temporary_policy_leg(id: &str, render: &str) -> angel_live::Program {
     let root = std::env::temp_dir().join(format!(
         "angel-competition-mode-leg-{}-{id}",
@@ -258,9 +242,6 @@ fn temporary_policy_leg(id: &str, render: &str) -> angel_live::Program {
         .unwrap_or_else(|| panic!("fixture leg {id} did not publish"))
 }
 
-/// A leg that reports a phrase the turn never matched, and a leg whose verdict
-/// does not decode, are both refused: the native body answers and the caller can
-/// still tell where the answer came from.
 #[test]
 fn live_competition_mode_leg_falls_back_when_a_leg_breaks_contract() {
     let _guard = crate::tests::env_lock();
@@ -293,8 +274,6 @@ fn live_competition_mode_leg_falls_back_when_a_leg_breaks_contract() {
     );
 }
 
-/// One decision costs microseconds, so routing through the leg cannot move a
-/// turn's budget.
 #[test]
 fn competition_mode_leg_decisions_stay_microseconds() {
     let _guard = crate::tests::env_lock();
@@ -340,8 +319,6 @@ fn competition_mode_leg_decisions_stay_microseconds() {
     );
 }
 
-/// With no live generation offered, the shipped module still answers the shell
-/// and `ls` questions and the receipt says where the answer came from.
 #[test]
 fn a_turn_with_no_live_generation_uses_the_shipped_competition_leg() {
     let (hit, source) = shell_decided(None, "git log --oneline");
@@ -350,7 +327,6 @@ fn a_turn_with_no_live_generation_uses_the_shipped_competition_leg() {
         matches!(source, LegSource::Shipped { .. }),
         "{source:?} did not name the shipped leg"
     );
-    // Callers hand the scan a lowercased command, as the shell scan does.
     let (hit, source) = ls_decided(None, &"ls -laR".to_ascii_lowercase());
     assert!(hit, "the shipped scan still calls a recursive listing thrash");
     assert!(

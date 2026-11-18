@@ -13,7 +13,6 @@ fn secs(s: &Session, what: &str) -> String {
     s.secs(what).map_or("-".into(), |t| format!("{t:.0}"))
 }
 
-/// Everything a session logged, as JSON.
 pub fn report(s: &Session) -> serde_json::Value {
     let hz = HZ as f32;
     serde_json::json!({
@@ -80,8 +79,6 @@ fn first_session_sim() {
     let film_dir = std::env::var_os("FS_FILM").map(std::path::PathBuf::from);
     let every: u64 = std::env::var("FS_FILM_EVERY").ok().and_then(|s| s.parse().ok()).unwrap_or(2);
     let seeds = seeds();
-    // One after another: the renderer's caches are shared, and threads
-    // drawing at once wait on each other far longer than they save.
     let sessions: Vec<Session> = seeds
         .iter()
         .enumerate()
@@ -162,8 +159,6 @@ fn a_line_teaches_the_keys_it_names() {
     assert_eq!(keycap("R"), None);
 }
 
-/// Seconds from the session's first arrival on floor 1 to when `line` was
-/// first up and first read.
 fn after_arrival(s: &Session, line: &str) -> (Option<f32>, Option<f32>) {
     let hz = HZ as f32;
     let Some(arrival) = s.places.iter().find(|(_, p)| p.contains("floor 1")).map(|(t, _)| *t as f32 / hz) else {
@@ -173,13 +168,6 @@ fn after_arrival(s: &Session, line: &str) -> (Option<f32>, Option<f32>) {
     (shown.map(|v| v.first as f32 / hz - arrival), shown.and_then(|v| v.read).map(|t| t as f32 / hz - arrival))
 }
 
-/// A beginner's first floor, as the first session measured it on
-/// 2026-10-29 and as it was fixed: the floor's wish sign is up long enough
-/// to read as the party arrives (it waited under the title card and the
-/// dare), Fortune's dare comes after it, and a beginner who has not found
-/// the wish key is told it in the first calm moment. Fortune's dare is the
-/// card low in the left corner now (378367f44): its second line, whichever
-/// of the six dares the floor drew.
 #[test]
 fn a_beginner_reads_the_first_floors_wish_sign_and_is_told_the_wish_key() {
     let s = play(1, Beginner::default(), 45, None);

@@ -17,15 +17,12 @@ use super::folly::{BAT_TIME, BatShoot};
 use super::juice::Weight;
 use super::*;
 
-/// Ticks each kind of moment stays on the books for its effects.
 pub const HIT_LIFE: u32 = 26;
 pub const BITE_LIFE: u32 = 30;
 pub const SPAWN_LIFE: u32 = 20;
 pub const TOLL_LIFE: u32 = 64;
 pub const SHOUT_LIFE: u32 = super::juice::CALL_LIFE;
-/// Bats felled this near together (ticks) run on as one combo.
 pub const CHAIN_GAP: u32 = 2 * HZ;
-/// The table's bats between tolls of the bell.
 pub const TOLL_EVERY: u16 = 10;
 
 const MOST_HITS: usize = 18;
@@ -35,9 +32,6 @@ const MOST_SHOUTS: usize = 6;
 const MOST_TOLLS: usize = 4;
 const MOST_FLOCKS: usize = 8;
 
-/// A bat struck or felled: by whom (`who` 0: nobody), where it was and where
-/// the blow came from (room pixels), what it took, how it weighed, and for a
-/// kill its place in the knight's run and whether it was the flock's last.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Hit {
     pub who: u8,
@@ -58,7 +52,6 @@ impl Hit {
     }
 }
 
-/// A knight bitten: where they stood (room pixels) and what it took.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Bite {
     pub who: u8,
@@ -67,34 +60,24 @@ pub struct Bite {
     pub born: u32,
 }
 
-/// A bat dropped from the rafters: where (room pixels) and when.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Swoop {
     pub at: (i32, i32),
     pub born: u32,
 }
 
-/// What a banner calls. Words are the picture's.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Cry {
-    /// The first bat of the night.
     First,
-    /// A knight felled n bats within `CHAIN_GAP` of each other.
     Chain(u8),
-    /// A whole flock down.
     Flock,
-    /// A knight took the lead.
     Lead,
-    /// The bell tolled for the n-th ten bats of the table.
     Toll(u8),
-    /// Half the minute gone.
     Half,
-    /// The last ten seconds.
     Last,
 }
 
 impl Cry {
-    /// How loudly it is shown: the banner with the higher rank stays on top.
     pub fn rank(self) -> u8 {
         match self {
             Cry::First => 2,
@@ -108,7 +91,6 @@ impl Cry {
     }
 }
 
-/// A banner called for a knight (`who` 0: for the whole room) at a tick.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Shout {
     pub cry: Cry,
@@ -116,8 +98,6 @@ pub struct Shout {
     pub born: u32,
 }
 
-/// How the shoot ended: when (run tick), who took it, the pot and the
-/// winner's harm.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ended {
     pub at: u32,
@@ -132,24 +112,14 @@ pub struct BatShow {
     pub bites: Vec<Bite>,
     pub swoops: Vec<Swoop>,
     pub shouts: Vec<Shout>,
-    /// The ticks the bell tolled, newest last.
     pub tolls: Vec<u32>,
-    /// Each knight's run of bats: the tick of the last and the count.
     pub combo: BTreeMap<u32, (u32, u16)>,
-    /// The longest run each knight made.
     pub best: BTreeMap<u32, u16>,
-    /// Bats each knight felled.
     pub felled: BTreeMap<u32, u16>,
-    /// Bats the whole table felled.
     pub team: u16,
-    /// The knight now ahead on their own.
     pub lead: Option<u8>,
-    /// The bats of each recent flock still on the wing: the flock's number
-    /// and their ids.
     pub flocks: Vec<(u16, Vec<u32>)>,
-    /// Each knight's health at the last look, to tell a bite.
     pub hp: BTreeMap<u32, u32>,
-    /// Which of the clock's calls have been made.
     pub called: u8,
     pub ended: Option<Ended>,
 }
@@ -178,7 +148,6 @@ impl BatShow {
             && self.combo.keys().chain(self.best.keys()).chain(self.felled.keys()).chain(self.hp.keys()).all(seat)
     }
 
-    /// Let go what is old at `now`.
     pub fn tick(&mut self, now: u32) {
         self.hits.retain(|h| h.age(now) < HIT_LIFE.max(48));
         self.bites.retain(|b| now.saturating_sub(b.born) < BITE_LIFE);
@@ -187,7 +156,6 @@ impl BatShow {
         self.tolls.retain(|&t| now.saturating_sub(t) < TOLL_LIFE);
     }
 
-    /// Call a banner (the loudest stays on top when they come together).
     pub fn shout(&mut self, now: u32, cry: Cry, who: u32) {
         if self.shouts.len() >= MOST_SHOUTS {
             self.shouts.remove(0);
@@ -195,7 +163,6 @@ impl BatShow {
         self.shouts.push(Shout { cry, who: who as u8, born: now });
     }
 
-    /// A flock dropped from the rafters: `bats` are their ids and places.
     pub fn flock(&mut self, now: u32, number: u16, bats: &[(u32, (i32, i32))]) {
         if bats.is_empty() {
             return;
@@ -219,9 +186,7 @@ impl BatShow {
         self.hits.push(hit);
     }
 
-    /// A bat struck but still on the wing: how hard it weighed.
     pub fn struck(&mut self, now: u32, who: u32, bat: u32, at: (i32, i32), from: (i32, i32), lost: u32, max: u32) -> Weight {
-        // A bat is small: a solid blow is as hard as it weighs.
         let weight = Weight::of(lost, max, false, false).min(Weight::Solid);
         self.push_hit(Hit {
             who: who as u8,
@@ -238,9 +203,6 @@ impl BatShow {
         weight
     }
 
-    /// A bat felled by `who` (0: nobody's). Counts the knight's run, the
-    /// flock and the table, makes the calls, and says how hard it weighed:
-    /// a kill lands solid; a third in a row or a flock's last holds the room.
     pub fn felled(&mut self, now: u32, who: u32, bat: u32, at: (i32, i32), from: (i32, i32), lost: u32) -> Weight {
         let mut chain = 0;
         if who != 0 {
@@ -263,7 +225,6 @@ impl BatShow {
             self.toll(now);
             self.shout(now, Cry::Toll((self.team / TOLL_EVERY).min(255) as u8), 0);
         }
-        // Its flock's last bat, felled by anyone, ends the flock.
         let mut last = false;
         if let Some(i) = self.flocks.iter().position(|(_, ids)| ids.contains(&bat)) {
             self.flocks[i].1.retain(|&id| id != bat);
@@ -289,18 +250,14 @@ impl BatShow {
         weight
     }
 
-    /// A knight bitten.
     pub fn bitten(&mut self, now: u32, who: u32, at: (i32, i32), lost: u32) {
         if self.bites.len() >= MOST_BITES {
             self.bites.remove(0);
         }
         self.bites.push(Bite { who: who as u8, at, lost: lost.min(255) as u8, born: now });
-        // A bite breaks the run.
         self.combo.remove(&who);
     }
 
-    /// The tally changed: call a change of lead (a few bats in, out of a
-    /// tie, taken from another's hands), and the clock's two calls.
     pub fn standings(&mut self, now: u32, scores: &BTreeMap<u32, u32>, left: u32) {
         let top = scores.values().copied().max().unwrap_or(0);
         let leaders: Vec<u32> = scores.iter().filter(|&(_, &n)| n == top && top > 0).map(|(&id, _)| id).collect();
@@ -323,7 +280,6 @@ impl BatShow {
         }
     }
 
-    /// The bell tolls (the start and the end of the minute, each ten bats).
     pub fn toll(&mut self, now: u32) {
         if self.tolls.len() >= MOST_TOLLS {
             self.tolls.remove(0);
@@ -331,24 +287,20 @@ impl BatShow {
         self.tolls.push(now);
     }
 
-    /// The bats still flying when the minute ends scatter: nobody's.
     pub fn scatter(&mut self, now: u32, bats: &[(u32, (i32, i32))]) {
         for &(bat, at) in bats {
             self.push_hit(Hit { who: 0, bat, at, from: at, lost: 0, weight: Weight::Graze, kill: true, chain: 0, last: false, born: now });
         }
     }
 
-    /// The shoot is over: who took it, the pot, the most harm.
     pub fn finish(&mut self, now: u32, winner: u32, pot: u32, most: u32) {
         self.ended = Some(Ended { at: now, winner: winner as u8, pot, most });
     }
 
-    /// Ticks since the shoot ended at `now`, while it is the show.
     pub fn since_end(&self, now: u32) -> Option<u32> {
         self.ended.map(|e| now.saturating_sub(e.at))
     }
 
-    /// The knight's run of bats now: none once it has gone cold.
     pub fn run_of(&self, who: u32, now: u32) -> u16 {
         self.combo
             .get(&who)
@@ -358,11 +310,6 @@ impl BatShow {
 }
 
 impl Run {
-    /// Read the tick's blows off the bats' health (a drop since last tick
-    /// is a hit, a bat at nothing is felled; the last hurt is whose it was),
-    /// and the bites off the knights': record them in the shoot's show, and
-    /// hold the room for the heaviest. Called from the shoot's own tick, so
-    /// before the dead are cleared (`settle_kills`).
     pub(super) fn bats_watch(&mut self, shoot: &mut BatShoot) {
         let now = self.tick as u32;
         let px = |x: f32, y: f32| ((x / TILE_UNITS * 16.0) as i32, (y / TILE_UNITS * 16.0) as i32);
@@ -374,8 +321,6 @@ impl Run {
             .map(|e| (e.id, e.x, e.y, e.hp, e.seen_hp, e.max_hp, e.wits.foe))
             .collect();
         bats.sort_by_key(|b| b.0);
-        // Only a kill shakes the picture: four knights wound a bat a dozen
-        // times a second.
         let mut shaken = Weight::Graze;
         for (id, x, y, hp, seen, max, foe) in bats {
             let who = if shoot.scores.contains_key(&foe) { foe } else { 0 };
@@ -389,7 +334,6 @@ impl Run {
                 shoot.show.struck(now, who, id, at, from, seen - hp, max);
             }
         }
-        // Bites: a knight's health lower than it was.
         let looks: Vec<(u32, u32, f32, f32)> = self.players.iter().map(|(&id, h)| (id, h.hp, h.x, h.y)).collect();
         for (id, hp, x, y) in looks {
             let was = shoot.show.hp.insert(id, hp).unwrap_or(hp);
@@ -398,8 +342,6 @@ impl Run {
             }
         }
         shoot.show.standings(now, &shoot.scores, shoot.left());
-        // The bell: a toll of ten rocks the room, a held breath for the
-        // flock's last bat or a third in a row.
         let tolled = shoot.show.tolls.last() == Some(&now);
         if tolled {
             self.sounds.push("circle_toll");

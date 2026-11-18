@@ -2,7 +2,7 @@ use super::*;
 
 fn idle_loop_app(root: &Path) -> (crate::App, Arc<std::sync::atomic::AtomicUsize>) {
     let (mut app, held, calls) = held_app(root);
-    app.thinking = None; // fixture channels have no running foreground worker
+    app.thinking = None;
     drop(held);
     app.loop_ctl.awaiting_turn = false;
     (app, calls)
@@ -61,7 +61,6 @@ fn baseline_stop_resume_preserves_owner_until_terminal_settlement() {
         app.loop_arm();
         assert!(app.loop_pending.is_some());
         assert_eq!(calls.load(Ordering::SeqCst), 0);
-        // Sender success proves this exact old receiver survived stop/resume.
         terminal
             .send(999)
             .expect("old baseline receiver remains owned until settlement");

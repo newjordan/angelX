@@ -30,91 +30,50 @@ use std::num::NonZeroU64;
 use angel_stage::look::{Look, ZONE_MAX, unit_rgb};
 use bytemuck::{Pod, Zeroable};
 
-/// The mask's format: the first 8-bit channel is 1 where an accent was
-/// drawn (0.5 where the pixel is final), the second how far the pixel is
-/// out of the depth of field's focus.
 pub(crate) const MASK_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rg8Unorm;
 
-/// Internal target sets kept: one per size drawn lately.
 const TARGETS_KEPT: usize = 2;
 
-/// What `look.wgsl`'s `Look` is: the ramp with each entry's luminance, the
-/// accents, the counts, the sizes.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 pub(crate) struct LookUniform {
-    /// rgb 0..1, and the entry's luminance (never falling) in w.
     pub ramp: [[f32; 4]; 16],
     pub accent: [[f32; 4]; 4],
-    /// Ramp entries, accents, Bayer bits per coordinate, 0.
     pub counts: [u32; 4],
-    /// The internal size, then the output's.
     pub sizes: [f32; 4],
-    /// The depth of field's widest blur in internal pixels (0: none).
     pub dof: [f32; 4],
 }
 
-/// The shadow map's side, in texels.
 pub(crate) const SHADOW_TEXELS: u32 = 2048;
 
-/// The shadow map's format.
 pub(crate) const SHADOW_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
-/// What mesh.wgsl's `SceneLook` is: the eye, the fog, the fog's colour, and
-/// for a look that lights its scene (`Look::lights`) its sun, shadow, ramps,
-/// lamps and zones.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 pub(crate) struct SceneLookUniform {
-    /// xyz: the eye; w: 1 when the look lights the scene.
     pub eye: [f32; 4],
-    /// Start, end, 1 when there is fog, the clock in seconds.
     pub fog: [f32; 4],
-    /// rgb: the fog's colour; w: which ramp entry it is.
     pub fog_color: [f32; 4],
-    /// xyz: toward the sun (unit), w: its strength.
     pub sun: [f32; 4],
-    /// x: the ambient, y: one shadow texel's side in uv, z: 1 with a water
-    /// ramp, w: the height the sky's light rises over (0: none).
     pub sun_more: [f32; 4],
-    /// World to the shadow map's clip space.
     pub shadow: [[f32; 4]; 4],
-    /// Ramp entries, zones, Bayer bits per coordinate, accents.
     pub counts: [u32; 4],
-    /// 1 with a warm ramp, 1 with shadows, lamps, 1 with a sun.
     pub flags: [u32; 4],
-    /// The ramp, rgb 0..1.
     pub ramp: [[f32; 4]; 16],
-    /// The warm ramp, rgb 0..1.
     pub warm: [[f32; 4]; 16],
     pub accent: [[f32; 4]; 4],
-    /// Each lamp in two: xyz where, w its reach; then x its strength.
     pub lamps: [[f32; 4]; 32],
-    /// Each zone in two: x and z of its middle, its radius, its feather;
-    /// then its box's half width and depth. [`ZONE_MAX`] zones.
     pub zones: [[f32; 4]; 2 * ZONE_MAX],
-    /// Each zone's ramp, 16 entries a zone.
     pub zone_ramps: [[f32; 4]; 16 * ZONE_MAX],
-    /// The water's ramp, rgb 0..1.
     pub water: [[f32; 4]; 16],
-    /// Each point kept in sight: xyz, w the opening's radius (0: none).
     pub reveal: [[f32; 4]; 4],
-    /// x: world units in a metre.
     pub units: [f32; 4],
-    /// How figures' cards are lit: least, most, warm, rim (all 0: not);
-    /// then how much farther the lamps reach them, and how far a card's
-    /// normal map turns its pixels.
     pub cards: [f32; 4],
     pub cards_more: [f32; 4],
-    /// The depth of field: the nearest and farthest depths kept sharp, the
-    /// spread, 1 when there is one.
     pub dof: [f32; 4],
-    /// A point's depth along the camera in world units: `xyz . p + w`.
     pub depth_row: [f32; 4],
 }
 
-/// The post pass's uniform for a look (already normalized), drawn at
-/// `internal` pixels into an output of `output` pixels.
 pub(crate) fn look_uniform(look: &Look, internal: (u32, u32), output: (u32, u32)) -> LookUniform {
     let mut uniform = LookUniform::zeroed();
     let levels = look.ramp_levels();
@@ -134,19 +93,12 @@ pub(crate) fn look_uniform(look: &Look, internal: (u32, u32), output: (u32, u32)
     uniform
 }
 
-/// A camera's depth along its own axis, in world units, as a row over a
-/// point (`[a, b, c, d]`: `a x + b y + c z + d`): its clip space's `w`, over
-/// the length of how fast `w` grows. For a stage camera that is how far up
-/// the floor from the eye a point is; for a perspective one, its depth in
-/// view. None when the matrix has no depth.
 pub(crate) fn depth_row(view_proj: &angel_stage::scene::Mat4) -> Option<[f32; 4]> {
     let row = [view_proj[0][3], view_proj[1][3], view_proj[2][3], view_proj[3][3]];
     let length = (row[0] * row[0] + row[1] * row[1] + row[2] * row[2]).sqrt();
     (length.is_finite() && length > 1e-12).then(|| row.map(|v| v / length))
 }
 
-/// The mesh pipeline's per-scene uniform for a look and an eye, and the
-/// camera's depth row (`depth_row`) for its depth of field.
 pub(crate) fn scene_look_uniform(look: &Look, eye: [f32; 3], depth: Option<[f32; 4]>) -> SceneLookUniform {
     let mut uniform = SceneLookUniform::zeroed();
     let lights = look.lights();
@@ -233,8 +185,6 @@ pub(crate) fn scene_look_uniform(look: &Look, eye: [f32; 3], depth: Option<[f32;
     uniform
 }
 
-/// A colour and a mask texture of one internal size, and the post pass's group
-/// that reads them.
 struct Targets {
     size: (u32, u32),
     color: wgpu::TextureView,
@@ -243,41 +193,25 @@ struct Targets {
     last_used: u64,
 }
 
-/// What the look pass keeps between frames, made when a scene with a look is
-/// first drawn, so a host with none pays nothing for it.
 pub(crate) struct LookState {
-    /// Group 3 of the mesh pipeline: the scene's eye and fog, its lights,
-    /// and the sun's shadow map with the sampler that compares against it.
     pub(crate) scene_layout: wgpu::BindGroupLayout,
     pub(crate) scene_group: wgpu::BindGroup,
     scene_buffer: wgpu::Buffer,
-    /// Group 3 of the shadow pipeline: the same buffer, without the map it
-    /// is drawing into.
     pub(crate) shadow_layout: wgpu::BindGroupLayout,
     pub(crate) shadow_group: wgpu::BindGroup,
-    /// The shadow map: one texel until a sun with shadows asks for it.
     shadow_map: wgpu::TextureView,
     shadow_size: u32,
     shadow_sampler: wgpu::Sampler,
-    /// The depth-only pipeline that draws the shadow map: indexed by
-    /// `double_sided`.
     pub(crate) shadow: Option<[wgpu::RenderPipeline; 2]>,
-    /// The depth-only pipeline that draws a lit scene's depth with its
-    /// reveal's openings left out (`DepthUse::Revealed`).
     pub(crate) reveal_depth: Option<[wgpu::RenderPipeline; 2]>,
     post_layout: wgpu::BindGroupLayout,
     post: wgpu::RenderPipeline,
     post_buffer: wgpu::Buffer,
-    /// The mesh pipeline for the internal targets: indexed by `double_sided`.
     pub(crate) mesh: Option<[wgpu::RenderPipeline; 2]>,
-    /// The pipelines that draw a world's cards lit by its look, at the
-    /// view's size (`fs_card`): indexed as the plain ones are, `blended * 2
-    /// + double_sided`.
     pub(crate) cards: Option<[wgpu::RenderPipeline; 4]>,
     targets: Vec<Targets>,
 }
 
-/// A shadow map `side` texels square, drawn into and then read.
 fn shadow_texture(device: &wgpu::Device, side: u32) -> wgpu::TextureView {
     device
         .create_texture(&wgpu::TextureDescriptor {
@@ -312,8 +246,6 @@ fn scene_group(
 }
 
 impl LookState {
-    /// The shadow map at its full size, made the first time a sun with
-    /// shadows is drawn (the scene's group then names it).
     pub(crate) fn shadow_map(&mut self, device: &wgpu::Device) -> wgpu::TextureView {
         if self.shadow_size != SHADOW_TEXELS {
             self.shadow_map = shadow_texture(device, SHADOW_TEXELS);
@@ -374,8 +306,6 @@ impl LookState {
         };
         let scene_buffer = buffer("glass-look-scene", scene_size);
         let post_buffer = buffer("glass-look-post", post_size);
-        // Comparing a depth against the map, the four nearest texels
-        // filtered: the hardware's own soft edge, one texel wide.
         let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("glass-look-shadow"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -417,8 +347,6 @@ impl LookState {
             bind_group_layouts: &[Some(&post_layout)],
             immediate_size: 0,
         });
-        // Opaque pixels replace; the clear pixels are transparent and add
-        // nothing: the same blend as everything else the core draws.
         let premultiplied = wgpu::BlendComponent {
             src_factor: wgpu::BlendFactor::One,
             dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
@@ -469,17 +397,10 @@ impl LookState {
         }
     }
 
-    /// This scene's look, eye and depth row into group 3's buffer, ahead of
-    /// the submission that uses them: for a scene drawn through its look
-    /// (`begin`), and for a world's cards lit by it (`fs_card`), which are
-    /// not.
     pub(crate) fn write_scene(&self, queue: &wgpu::Queue, look: &Look, eye: [f32; 3], depth: Option<[f32; 4]>) {
         queue.write_buffer(&self.scene_buffer, 0, bytemuck::bytes_of(&scene_look_uniform(look, eye, depth)));
     }
 
-    /// The internal colour and mask views of `size`, made when missing (the
-    /// least recently used size goes when there are too many), with this
-    /// scene's uniforms written ahead of the submission that uses them.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn begin(
         &mut self,
@@ -541,9 +462,6 @@ impl LookState {
         (color, mask)
     }
 
-    /// Record the post pass: the internal targets of `size` quantized into
-    /// `view`. The view is cleared to nothing first when `clear` is set, and
-    /// drawn over when it is not.
     pub(crate) fn post_pass(
         &self,
         encoder: &mut wgpu::CommandEncoder,
@@ -591,16 +509,9 @@ mod tests {
 
     #[test]
     fn the_uniforms_are_what_the_shaders_declare() {
-        // look.wgsl: 16 + 4 vec4s, a vec4<u32>, two vec4<f32>s.
         assert_eq!(std::mem::size_of::<LookUniform>(), 16 * 16 + 4 * 16 + 16 + 16 + 16);
-        // mesh.wgsl: five vec4s, a matrix, two vec4<u32>s, then the ramps,
-        // accents, lamps, zones (two vec4s each, 16 of them), the zones'
-        // ramps (16 vec4s each), the water's and the reveal, the units, the
-        // cards (two), the depth of field and its row.
         assert_eq!(ZONE_MAX, 16, "mesh.wgsl declares its zone arrays for sixteen");
         assert_eq!(std::mem::size_of::<SceneLookUniform>(), (5 + 4 + 2 + 16 + 16 + 4 + 32 + 2 * 16 + 16 * 16 + 16 + 4 + 1 + 4) * 16);
-        // Well inside what a uniform buffer may be on every backend (the
-        // browser's WebGL2 floor is 16 KiB).
         assert!(std::mem::size_of::<SceneLookUniform>() <= 8 << 10, "{}", std::mem::size_of::<SceneLookUniform>());
         assert_eq!(std::mem::size_of::<LookUniform>() % 16, 0);
     }
@@ -611,18 +522,15 @@ mod tests {
         let u = look_uniform(&l, (960, 540), (1920, 1080));
         assert_eq!(u.counts, [3, 1, 2, 0]);
         assert_eq!(u.sizes, [960.0, 540.0, 1920.0, 1080.0]);
-        // Each entry's colour, with its luminance from the reference.
         let levels = l.ramp_levels();
         for (i, level) in levels.iter().enumerate() {
             let [r, g, b] = unit_rgb(l.ramp[i]);
             assert_eq!(u.ramp[i], [r, g, b, *level]);
         }
         assert!(u.ramp[0][3] < u.ramp[1][3] && u.ramp[1][3] < u.ramp[2][3]);
-        // The rest is empty; the accent is its colour.
         assert_eq!(u.ramp[3], [0.0; 4]);
         assert_eq!(u.accent[0][..3], unit_rgb([0xf0, 0xe0, 0x88]));
         assert_eq!(u.accent[1], [0.0; 4]);
-        // No dither is no bits; the finer weave is three.
         let mut none = l.clone();
         none.dither = Dither::None;
         assert_eq!(look_uniform(&none, (8, 8), (8, 8)).counts[2], 0);
@@ -650,7 +558,6 @@ mod tests {
         l.sun = Some(Sun { toward: [0.0, 1.0, 0.0], strength: 1.0, ambient: 0.2, shadow: None, rise: 0.0 });
         l.cards = Some(Cards::ROOM);
         l.dof = Some(Dof::room(vec![[0.0, 0.0, 100.0], [0.0, 0.0, 160.0]]));
-        // A stage camera's depth row, before it is made a unit: w = 2 - z / 450.
         let m: angel_stage::scene::Mat4 = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, -1.0 / 450.0], [0.0, 0.0, 0.0, 2.0]];
         let row = depth_row(&m).unwrap();
         assert!((row[2] + 1.0).abs() < 1e-6 && (row[3] - 900.0).abs() < 1e-3, "{row:?}");
@@ -661,7 +568,6 @@ mod tests {
         assert!((u.dof[0] - (740.0 - margin)).abs() < 1e-2 && (u.dof[1] - (800.0 + margin)).abs() < 1e-2, "{:?}", u.dof);
         assert_eq!(u.dof[3], 1.0);
         assert_eq!(look_uniform(&l, (8, 8), (8, 8)).dof[0], Dof::room(Vec::new()).radius);
-        // No depth, or nothing to focus on: no blur.
         assert_eq!(scene_look_uniform(&l, [0.0; 3], None).dof, [0.0; 4]);
         l.dof = Some(Dof::room(Vec::new()));
         assert_eq!(scene_look_uniform(&l, [0.0; 3], Some(row)).dof, [0.0; 4]);
@@ -682,7 +588,6 @@ mod tests {
         l.zones = (0..ZONE_MAX).map(zone).collect();
         let u = scene_look_uniform(&l, [0.0; 3], None);
         assert_eq!(u.counts[1], ZONE_MAX as u32);
-        // Every zone, the fifth to the sixteenth too: its place and its ramp.
         for k in 0..ZONE_MAX {
             let z = zone(k);
             assert_eq!(u.zones[2 * k], [z.at[0], z.at[1], 0.5, 3.0], "zone {k}");
@@ -693,7 +598,6 @@ mod tests {
             assert_eq!(u.zone_ramps[k * 16 + 3], [0.0; 4], "zone {k}: the entries past its ramp are empty");
         }
         assert_eq!(u.zone_ramps.len(), 16 * ZONE_MAX);
-        // More than the cap never writes past the arrays: the first sixteen go.
         l.zones = (0..ZONE_MAX + 3).map(zone).collect();
         let u = scene_look_uniform(&l, [0.0; 3], None);
         assert_eq!(u.counts[1], ZONE_MAX as u32);

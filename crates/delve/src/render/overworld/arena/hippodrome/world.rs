@@ -9,29 +9,21 @@ use super::art;
 use crate::rules::chariot::{LANE_TILES, TRACKS, Track, pos_on};
 use std::sync::OnceLock;
 
-/// Pixels of road either side of the centre line, and where the wall, the first tier and the
-/// last tier of the stands lie from it.
 const TREAD: f32 = 28.0;
 const WALL: f32 = 36.0;
 const STANDS: f32 = 64.0;
-/// Rows of spectators stand this far out from the road's middle.
 const ROWS: [f32; 3] = [43.0, 51.0, 59.0];
 
-/// Black paper round the course's country: the camera may ride out past its edge, and what it
-/// finds there is dark field and trees that fall away to nothing.
 pub(super) const PAD: i32 = 200;
 
-/// One spectator's place in the stands.
 #[derive(Clone, Copy)]
 pub(super) struct Seat {
     pub x: i32,
     pub y: i32,
     pub seed: u32,
-    /// Paces along the course the seat is nearest.
     pub at: f32,
 }
 
-/// A post on the wall: a torch or a pennant.
 #[derive(Clone, Copy)]
 pub(super) struct Post {
     pub x: i32,
@@ -42,12 +34,10 @@ pub(super) struct Post {
 
 pub(super) struct World {
     pub map: Img,
-    /// The whole course on a small plate, and where the map's origin and scale fall on it.
     pub mini: Img,
     pub mini_xf: (f32, f32, f32),
     pub crowd: Vec<Seat>,
     pub posts: Vec<Post>,
-    /// The line: its centre, and the way the course runs there.
     pub line: (f32, f32, f32, f32),
 }
 
@@ -61,7 +51,6 @@ fn rgb(c: char) -> [u8; 3] {
     ink(c).unwrap_or([0, 0, 0])
 }
 
-/// The field: darkest at the map's edge, in dithered patches of two greens.
 fn ground(map: &mut Img) {
     let (w, h) = (map.w, map.h);
     let tones = ['f', 'D', 'F', 'E'].map(rgb);
@@ -79,7 +68,6 @@ fn ground(map: &mut Img) {
             }
         }
     }
-    // Tufts of grass, here and there.
     for y in (0..h).step_by(3) {
         for x in (0..w).step_by(3) {
             let j = hash(x, y, 313);
@@ -100,7 +88,6 @@ fn bake(course: &Track) -> World {
         let (x, y) = pos_on(course, d, lane);
         (x * TILE as f32 + PAD as f32, y * TILE as f32 + PAD as f32)
     };
-    // How far every pixel is from the road's middle, by the nearest of the points along it.
     let step = 4.0;
     let n = (course.lap / step) as i32;
     let centres: Vec<(f32, f32)> = (0..n).map(|k| px(k as f32 * step, 0.0)).collect();
@@ -120,8 +107,6 @@ fn bake(course: &Track) -> World {
             }
         }
     }
-    // Bands out from the middle: the dirt, its packed edge, the rumble strip's bed, the wall, and
-    // the stands in tiers going up and away.
     let (dirt, packed, edge, rutted) = (rgb('I'), rgb('B'), rgb('b'), rgb('n'));
     let (pebble, pale) = (rgb('P'), rgb('r'));
     let (tier_a, tier_b, tier_lip, tier_dark) = (rgb('b'), rgb('n'), rgb('I'), rgb('Z'));
@@ -157,7 +142,6 @@ fn bake(course: &Track) -> World {
             } else if d < WALL + 1.5 {
                 wall
             } else {
-                // Tiers three pixels deep, each lit along its lip.
                 let t = (d - WALL - 1.5) / 3.0;
                 let k = t.floor() as i32;
                 let frac = t - t.floor();
@@ -172,7 +156,6 @@ fn bake(course: &Track) -> World {
             map.set(x, y, c);
         }
     }
-    // The rumble strips: blocks in red and tan along both edges of the dirt.
     let kerb = TREAD + 2.0;
     let mut d = 0.0f32;
     let mut k = 0;
@@ -185,7 +168,6 @@ fn bake(course: &Track) -> World {
         d += 6.0;
         k += 1;
     }
-    // The ruts the wheels have worn, and the dashes down the middle.
     let mut d = 0.0f32;
     while d < course.lap {
         for lane in [-0.62f32, 0.4] {
@@ -198,7 +180,6 @@ fn bake(course: &Track) -> World {
         }
         d += 1.5;
     }
-    // The line across the road, in squares.
     let (lx, ly) = px(0.0, 0.0);
     let (tx, ty) = {
         let (ax, ay) = px(-3.0, 0.0);
@@ -216,7 +197,6 @@ fn bake(course: &Track) -> World {
             }
         }
     }
-    // Trees and rocks beyond the stands, wherever the hash puts them.
     for ty in 0..(mh / TILE) {
         for tx in 0..(mw / TILE) {
             let j = hash(tx * 3, ty * 5, 97);
@@ -239,7 +219,6 @@ fn bake(course: &Track) -> World {
             }
         }
     }
-    // The stands' people: three rows either side, wherever the nearest road is this one.
     let mut crowd = Vec::new();
     let mut posts = Vec::new();
     let mut d = 0.0f32;
@@ -273,9 +252,7 @@ fn bake(course: &Track) -> World {
         d += 8.0;
         idx += 1;
     }
-    // Far rows first, so a nearer figure covers the one behind it.
     crowd.sort_by_key(|s| (s.y, s.x));
-    // The minimap's plate, with the course on it in dots.
     let (bw, bh) = (92, 54);
     let scale = ((bw - 8) as f32 / course.map.0).min((bh - 8) as f32 / course.map.1);
     let (ox, oy) = ((bw as f32 - course.map.0 * scale) / 2.0, (bh as f32 - course.map.1 * scale) / 2.0);
@@ -288,13 +265,11 @@ fn bake(course: &Track) -> World {
     World { map, mini, mini_xf: (ox, oy, scale), crowd, posts, line: (lx, ly, tx, ty) }
 }
 
-/// A window `w` by `h` of the baked country at `(x, y)`.
 pub(super) fn window(world: &World, x: i32, y: i32, w: i32, h: i32) -> Img {
     let (mw, mh) = (world.map.w, world.map.h);
     if x >= 0 && y >= 0 && x + w <= mw && y + h <= mh {
         return Img::from_view(&world.map, x, y, w, h);
     }
-    // Past the map's edge is black paper.
     let (x0, y0, x1, y1) = (x.max(0), y.max(0), (x + w).min(mw), (y + h).min(mh));
     let mut out = Img::new(w, h);
     if x1 > x0 && y1 > y0 {
@@ -303,8 +278,6 @@ pub(super) fn window(world: &World, x: i32, y: i32, w: i32, h: i32) -> Img {
     out
 }
 
-/// What the crowd is doing: `roar` is where the roar began (paces along the course) and how many
-/// ticks ago; `heat` is how much of the field is in a fight, 0 to 1, to lift every arm a little.
 #[derive(Clone, Copy)]
 pub(super) struct Mood {
     pub roar: Option<(f32, u32)>,
@@ -312,8 +285,6 @@ pub(super) struct Mood {
     pub lap: f32,
 }
 
-/// The crowd in the window (`cam` its corner), as the mood says: swaying in place, arms up when
-/// the roar reaches them, bobbing at the top of the jump, a few waving a pennant in a yard's cloth.
 pub(super) fn draw_crowd(layer: &mut Img, world: &World, cam: (i32, i32), now: u32, mood: &Mood, cloths: &[char]) {
     const COATS: [char; 8] = ['g', 'j', 'G', 'B', 'S', 'x', 'P', 'r'];
     const SKINS: [char; 4] = ['o', 't', 'r', 'P'];
@@ -332,7 +303,6 @@ pub(super) fn draw_crowd(layer: &mut Img, world: &World, cam: (i32, i32), now: u
             let t = age as f32 - gap / 14.0;
             if (0.0..60.0).contains(&t) {
                 pose = 2;
-                // The jump: up and down in a short wave, each figure out of step with the next.
                 let beat = (t as u32 + s.seed % 4) % 8;
                 if beat < 4 {
                     pose = 3;
@@ -345,7 +315,6 @@ pub(super) fn draw_crowd(layer: &mut Img, world: &World, cam: (i32, i32), now: u
         let warm = s.seed % 13 == 0;
         let coat = if warm { 'O' } else { COATS[(s.seed >> 3) as usize % COATS.len()] };
         art::paint_spectator(layer, sx - 3, sy - 9 - lift, coat, SKINS[(s.seed >> 7) as usize % SKINS.len()], CAPS[(s.seed >> 11) as usize % CAPS.len()], pose);
-        // A few carry a pennant in a yard's cloth, waving as the arms go.
         if s.seed % 9 == 0 && !cloths.is_empty() {
             let cloth = cloths[(s.seed >> 5) as usize % cloths.len()];
             let up = pose >= 2;
@@ -357,7 +326,6 @@ pub(super) fn draw_crowd(layer: &mut Img, world: &World, cam: (i32, i32), now: u
     }
 }
 
-/// The torches and the pennants on the wall.
 pub(super) fn draw_posts(layer: &mut Img, world: &World, cam: (i32, i32), now: u32, cloths: &[char]) {
     let (w, h) = (layer.w, layer.h);
     for p in &world.posts {
@@ -368,13 +336,11 @@ pub(super) fn draw_posts(layer: &mut Img, world: &World, cam: (i32, i32), now: u
         layer.rect(sx, sy - 14, 1, 15, 'b');
         layer.put(sx, sy - 14, 'B');
         if p.torch {
-            // The flame: two tongues that gutter out of step, and an ember above.
             let f = hash(p.x, p.y, now / 2) % 5;
             layer.rect(sx - 1, sy - 19, 3, 4, 'R');
             layer.rect(sx - 1 + (f % 2) as i32, sy - 21, 2, 3, '@');
             layer.put(sx, sy - 18, '6');
             layer.put(sx - 1 + (f % 3) as i32, sy - 23 - (f / 3) as i32, 'o');
-            // A pool of warm light on the stands.
             for dy in -5..=5i32 {
                 for dx in -9..=9i32 {
                     let k = (dx * dx) as f32 / 81.0 + (dy * dy) as f32 / 25.0;

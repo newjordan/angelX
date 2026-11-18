@@ -12,23 +12,17 @@ use std::collections::BTreeMap;
 use angel_net::knob::{Knob, Side};
 use serde::{Deserialize, Serialize};
 
-/// The rules' tuned numbers. Defaults are the code's constants.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Tune {
-    /// A knight's walking pace, units a second (`HERO_SPEED`).
     pub hero_speed: f32,
-    /// Shared room hit-stop: enabled, durations and cooldown in transport ticks.
     pub hitstop: u32,
     pub hitstop_boss_kill: u32,
     pub hitstop_elite_kill: u32,
     pub hitstop_phase: u32,
     pub hitstop_heavy: u32,
     pub hitstop_cooldown: u32,
-    /// A minion's best finisher (`gore`): off by default, since a real hold
-    /// stands the rules' time still.
     pub hitstop_finisher: u32,
-    /// A knight's blow that lands solid, and one that kills (`melee`).
     pub hitstop_melee: u32,
     pub hitstop_melee_kill: u32,
     pub cinder_fall: u32,
@@ -61,68 +55,34 @@ pub struct Tune {
     pub moss_bounce: u32,
     pub moss_gravity: u32,
     pub moss_flipper: u32,
-    /// The Round Table adventures' five numbers each, in
-    /// `roundtable::ADVENTURES` order (their own modules name and bound them).
     pub roundtable: [[u32; 5]; 5],
 
-    /// The kingdom's roads multiply it (`kingdom::ROAD_PACE`).
     pub road_pace: f32,
-    /// A roll's speed out of the tuck (`ROLL_SPEED`).
     pub roll_speed: f32,
-    /// How often knights attack, in percent: 200 attacks twice as often.
     pub fire_rate: u32,
-    /// Knights' shots fly at this times their speed.
     pub shot_speed: f32,
-    /// Every monster's step, times this.
     pub foe_pace: f32,
-    /// Monsters' bullets that fly, in percent: 50 lets every other one go
-    /// (the operator, 2026-10-24: "50% less bullets but faster from the
-    /// enemies ... the bullethell needs to feel fast and crispy").
     pub foe_shots: u32,
-    /// Monsters' bullets fly at this times their speed.
     pub foe_shot_speed: f32,
-    /// What monsters deal, in percent.
     pub foe_hit: u32,
-    /// Monsters' health, in percent. Never below 100: a party that finds
-    /// it too easy gets more pressure, never weaker foes.
     pub foe_health: u32,
-    /// A room's monsters, in percent of its roster: more join, never fewer.
     pub foe_count: u32,
-    /// How much of the way to its knight the kingdom camera eases a tick.
     pub camera_follow: f32,
-    /// After a hit, how long a knight can't be hurt again, in seconds
-    /// (`HIT_WARD` ticks): it blinks while it lasts.
     pub hit_ward: f32,
-    /// The first floors' breather (docs/FIRST-SESSION.md): the share of
-    /// their health, in percent, every knight standing mends when a
-    /// chamber's company falls, on floors down to `clear_rest_floors`
-    /// (`CLEAR_REST`, `CLEAR_REST_FLOORS`).
     pub clear_rest: u32,
     pub clear_rest_floors: u32,
-    /// How long Fortune's dare waits, in seconds, as the party arrives on a
-    /// floor: behind its title card and its wish sign, one board at a time
-    /// (`DARE_AFTER`).
     pub dare_after: f32,
 }
 
-/// A chamber's company put down on the first floor mends every knight
-/// standing this share of their health, in percent: measured 2026-10-29,
-/// a lone beginner walked into the next chamber on a fifth of their health
-/// and fell there three times in ten minutes (`first_session`).
 pub const CLEAR_REST: u32 = 30;
 pub const CLEAR_REST_FLOORS: u32 = 1;
-/// Seconds Fortune's dare waits as the party arrives: behind the floor's
-/// title card (1.8 s) and its wish sign (3 s). Measured 2026-10-29, the
-/// three came up on the same tick, and the wish's sign went unread.
 pub const DARE_AFTER: f32 = 5.0;
 
 use super::kingdom::{CAMERA_FOLLOW, ROAD_PACE};
 use super::{HERO_SPEED, HZ, ROLL_SPEED};
 use super::hero::HIT_WARD;
 
-/// The longest ward after a hit the panel may set, in seconds.
 const HIT_WARD_MOST: f32 = 2.5;
-/// The longest the dare may wait behind the wish sign, in seconds.
 const DARE_AFTER_MOST: f32 = 10.0;
 
 impl Default for Tune {
@@ -188,7 +148,6 @@ impl Default for Tune {
     }
 }
 
-/// A float as the panel shows it: six decimals, so 0.22 is not 0.2199999988.
 fn shown(v: f32) -> f64 {
     (f64::from(v) * 1e6).round() / 1e6
 }
@@ -198,7 +157,6 @@ impl Tune {
         *self == Tune::default()
     }
 
-    /// Every knob, where it stands.
     pub fn knobs(&self) -> Vec<Knob> {
         let d = Tune::default();
         let server = |name, group, label, constant| Knob::new(name, group, label, constant, Side::Server);
@@ -311,7 +269,6 @@ impl Tune {
         knobs
     }
 
-    /// Set one knob (already held to its bounds and step): whether it is one.
     pub fn set(&mut self, name: &str, value: f64) -> bool {
         let f = value as f32;
         let pct = value.round().max(0.0) as u32;
@@ -377,12 +334,10 @@ impl Tune {
         true
     }
 
-    /// The ward after a hit, in ticks: `HIT_WARD` at its default.
     pub fn hit_ward_ticks(&self) -> u32 {
         (self.hit_ward * HZ as f32).round().max(0.0) as u32
     }
 
-    /// A cooldown of `ticks` at this attack rate: the same number at 100%.
     pub fn cooldown(&self, ticks: u32) -> u32 {
         if self.fire_rate == 100 || ticks == 0 {
             ticks
@@ -391,13 +346,10 @@ impl Tune {
         }
     }
 
-    /// A share in percent scaled by a percent knob: the same at 100%.
     pub fn percent(share: u32, knob: u32) -> u32 {
         if knob == 100 { share } else { share * knob / 100 }
     }
 
-    /// Whether every number a run reads is a number: what a run read off a
-    /// save or a wire must be before it plays.
     pub fn valid(&self) -> bool {
         [self.hero_speed, self.road_pace, self.roll_speed, self.shot_speed, self.foe_pace, self.foe_shot_speed, self.camera_follow]
             .iter()
@@ -448,16 +400,11 @@ impl Tune {
             && (0.0..=DARE_AFTER_MOST).contains(&self.dare_after)
     }
 
-    /// What a chamber won on floor `depth` mends a knight, in percent of
-    /// their health (`clear_rest`).
     pub fn clear_rest_at(&self, depth: u32) -> u32 {
         if (1..=self.clear_rest_floors).contains(&depth) { self.clear_rest } else { 0 }
     }
 }
 
-/// A monster's step this tick longer or shorter by the pace knob: from
-/// where it stood to where its own move put it, scaled. A move farther
-/// than this in a tick (a leap, a burrow, a blink) stays as it was.
 const LONGEST_STEP: f32 = 1.0;
 
 pub(super) fn foe_step(enemy: &mut Enemy, from: (f32, f32), pace: f32, grid: &Grid) {
@@ -467,17 +414,13 @@ pub(super) fn foe_step(enemy: &mut Enemy, from: (f32, f32), pace: f32, grid: &Gr
         return;
     }
     if pace > 1.0 {
-        // On from where it got to, through the walls' rules.
         let mover = if enemy.kind.flies() { Mover::Flier } else { Mover::Walker };
         (enemy.x, enemy.y) = grid.slide((enemy.x, enemy.y), (dx * (pace - 1.0), dy * (pace - 1.0)), enemy.radius(), mover);
     } else {
-        // Part of the way it went, which was open.
         (enemy.x, enemy.y) = (from.0 + dx * pace, from.1 + dy * pace);
     }
 }
 
-/// The monsters a room's roster gains at `count` percent: its own kinds in
-/// turn, never a guardian, a dragon or a pit tyrant.
 pub(super) fn more_foes(roster: &[EnemyKind], count: u32) -> Vec<EnemyKind> {
     if count <= 100 {
         return Vec::new();
@@ -491,15 +434,10 @@ pub(super) fn more_foes(roster: &[EnemyKind], count: u32) -> Vec<EnemyKind> {
     kinds.iter().copied().cycle().take(if kinds.is_empty() { 0 } else { extra }).collect()
 }
 
-/// After the knights' step: the attack-rate knob on each cooldown a knight
-/// set this tick (`cooled` held them before it), and the shot-speed knob
-/// on the knights' shots fired in it.
 pub(super) fn tune_knights(players: &mut BTreeMap<u32, Hero>, tune: &Tune, cooled: &[(u32, u32)], shots: &mut [Projectile]) {
     for &(id, before) in cooled {
         if let Some(hero) = players.get_mut(&id) {
             let now = hero.fire_cooldown;
-            // Fired: a cooldown set where it ran out (it counts down by one
-            // a tick otherwise, or stands while the knight is held).
             if now != before && now > before.saturating_sub(1) {
                 hero.fire_cooldown = tune.cooldown(now);
             }

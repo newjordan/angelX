@@ -1,5 +1,3 @@
-"""Offline failure receipts for the benchmark's loopback provider proxy."""
-
 import errno
 import importlib.util
 import json
@@ -66,8 +64,6 @@ class ProxyTests(unittest.TestCase):
         self.fail(f"proxy did not retain {count} receipt(s)")
 
     def test_refused_upstream_retains_post_and_probe_failures(self):
-        # Reserve the upstream address so another test cannot acquire it.
-        # Inject refusal at connect, independently of OS refusal backoff.
         refused = socket.socket()
         self.addCleanup(refused.close)
         refused.bind(("127.0.0.1", 0))
@@ -80,7 +76,6 @@ class ProxyTests(unittest.TestCase):
                 raise ConnectionRefusedError(errno.ECONNREFUSED, "Connection refused")
             return create_connection(address, *args, **kwargs)
 
-        # The client-to-proxy socket, handler, and receipt writer stay live.
         with mock.patch("socket.create_connection", side_effect=refuse_reserved_upstream):
             for request in (self.request(), self.url.replace("chat/completions", "models")):
                 with self.assertRaises(urllib.error.HTTPError) as failure:
@@ -189,8 +184,6 @@ class ProxyTests(unittest.TestCase):
         for request, suffix in ((self.request(), ""),
                                 (self.url.replace("chat/completions", "models"), ".get")):
             with self.subTest(suffix=suffix):
-                # Headers/body may already have reached the client before the
-                # bad EOF is discovered. The retained receipt must refuse it.
                 with urllib.request.urlopen(request, timeout=2) as response:
                     self.assertEqual(response.read(), body)
                 receipt = self.receipts(suffix=suffix)[0]

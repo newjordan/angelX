@@ -36,7 +36,6 @@ def main():
     parser.add_argument("--candidate-first", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
-    # All artifacts are exclusive: never overwrite an earlier result.
     with output.open("x") as file:
         file.write("{}\n")
     variants = {
@@ -80,8 +79,6 @@ def main():
                 owned[key] = data
 
     def inventory():
-        # Bind generated inputs to this library's rustc dep-info, never to the
-        # newest output left behind by an unrelated feature/profile invocation.
         metadata = list((ROOT / "cockpit/target/fast/deps").glob("libangel_web_bundle-*.rmeta"))
         assert len(metadata) == 1, "multiple metadata variants: use a qualified target directory"
         rmeta = metadata[0]
@@ -92,8 +89,6 @@ def main():
         assert len(generated) == 1 and "\\" not in generated[0], "ambiguous dep-info path"
         codepath = Path(generated[0])
         code = codepath.read_text()
-        # include_str! index and include_bytes! table remain the complete inputs
-        # of embedded(), regardless of whether they are function-local or static.
         assets = {}
         for name, source in re.findall(r'\("([^"\n]+)", include_bytes!\("([^"\n]+)"\)\)', code):
             stored = Path(source).read_bytes()

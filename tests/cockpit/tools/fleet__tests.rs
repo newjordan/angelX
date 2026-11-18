@@ -12,7 +12,6 @@ fn nvidia_csv_formats_per_gpu_lines() {
 
 #[test]
 fn nvidia_csv_omits_na_fields_on_unified_memory_parts() {
-    // Real GB10 output: no dedicated VRAM or power limit.
     let csv = "0, NVIDIA GB10, 580.159.03, 0, [N/A], [N/A], 61, 21.41, [N/A]";
     let out = format_nvidia_csv(csv);
     assert_eq!(
@@ -28,12 +27,8 @@ fn nvidia_csv_passes_through_unparseable_text() {
 
 #[test]
 fn clip_head_tail_total_contract() {
-    // Small text untouched.
     assert_eq!(clip_head_tail("hello", 100, ""), "hello");
-    // max = 0 terminates with empty output.
     assert_eq!(clip_head_tail("abc", 0, ""), "");
-    // Keep the input larger than every tested budget so marker assertions
-    // exercise clipping, while the small-text assertion covers passthrough.
     let text = format!("h{}t", "…".repeat(4000));
     let marker_len = format!("…[truncated; snipped {} bytes]", text.len()).len();
     for max in 0..=marker_len + 80 {
@@ -52,7 +47,6 @@ fn clip_head_tail_total_contract() {
             );
         }
     }
-    // 2/3/4-byte codepoints cut at every boundary: valid UTF-8, both ends kept.
     for cp in ["é", "…", "🦀"] {
         let big = cp.repeat(4000);
         let out = clip_head_tail(&big, 1000, "");
@@ -61,7 +55,6 @@ fn clip_head_tail_total_contract() {
         assert!(out.starts_with(cp) && out.ends_with(cp));
         assert!(out.contains("snipped "));
     }
-    // Note surfaces inside the marker.
     let out = clip_head_tail(&"a".repeat(50_000), 16_000, "full output remained live");
     assert!(out.len() <= 16_000);
     assert!(out.contains("full output remained live"));
@@ -87,8 +80,6 @@ fn clip_head_tail_never_introduces_replacements_after_lossy() {
 
 #[test]
 fn run_recon_truncates_with_marker() {
-    // Focused production behavior: large recon output is head/tail clipped
-    // and marked, small output passes through untouched.
     let big = run_recon("printf", &[&"x".repeat(20_000)], 15).unwrap();
     assert!(big.len() <= 12_000);
     assert!(big.contains("…[truncated; snipped "));

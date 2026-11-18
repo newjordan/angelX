@@ -14,29 +14,21 @@ use angel_stage::scene::{
 
 use crate::layer::LAYER_PICTURES;
 
-/// The picture the scene is drawn into, which a layer then places.
 pub const SCENE_ID: u32 = LAYER_PICTURES + 0x70;
-/// The six face pictures: this id and the five after it.
 pub const FACE_ID: u32 = LAYER_PICTURES + 0x71;
-/// A face picture's side, in pixels.
 pub const FACE_SIDE: u32 = 128;
-/// The scene's texture, in pixels: twice the size it is shown at, so the
-/// edges that the layer shrinks it by are smoothed.
 pub const TARGET: (u32, u32) = (768, 768);
-/// The size the layer shows it at, before it is lifted.
 pub const SHOWN: f32 = 384.0;
 
-/// A face's colour: tonal, each one easy to tell from the rest.
 const COLOURS: [[u8; 3]; 6] = [
-    [178, 62, 58],  // 1  red
-    [208, 132, 52], // 2  orange
-    [74, 150, 84],  // 3  green
-    [56, 148, 156], // 4  teal
-    [66, 100, 188], // 5  blue
-    [136, 82, 170], // 6  violet
+    [178, 62, 58],
+    [208, 132, 52],
+    [74, 150, 84],
+    [56, 148, 156],
+    [66, 100, 188],
+    [136, 82, 170],
 ];
 
-/// The digits 1 to 6, five columns by seven rows, one string a row.
 const DIGITS: [[&str; 7]; 6] = [
     ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."],
     [".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"],
@@ -46,27 +38,21 @@ const DIGITS: [[&str; 7]; 6] = [
     [".###.", "#....", "#....", "####.", "#...#", "#...#", ".###."],
 ];
 
-/// Face `i`'s picture: its colour with a frame, a corner mark so a turned
-/// picture reads, and its number (`i + 1`) large in the middle. Straight RGBA,
-/// [`FACE_SIDE`] square.
 pub fn face_picture(i: usize) -> Vec<u8> {
     let side = FACE_SIDE as usize;
     let [r, g, b] = COLOURS[i % 6];
     let digit = &DIGITS[i % 6];
     let mut rgba = Vec::with_capacity(side * side * 4);
-    // The digit: each of its cells a 12 pixel block, centred.
     let block = 12usize;
     let (left, top) = ((side - 5 * block) / 2, (side - 7 * block) / 2);
     for y in 0..side {
         for x in 0..side {
             let edge = x.min(y).min(side - 1 - x).min(side - 1 - y);
             let mut px = if edge < 4 {
-                // The frame: the colour, darker.
                 [r / 2, g / 2, b / 2]
             } else {
                 [r, g, b]
             };
-            // A mark in the top left corner, so the picture's top reads.
             if (8..22).contains(&x) && (8..22).contains(&y) {
                 px = [236, 232, 220];
             }
@@ -80,9 +66,6 @@ pub fn face_picture(i: usize) -> Vec<u8> {
     rgba
 }
 
-/// The scene at `t` seconds: the cube turning and tilting, bobbing a little,
-/// under a camera that leaves the rest of the picture clear (transparent), so
-/// the layer that shows it floats the cube over whatever is behind.
 pub fn scene(t: f32) -> Scene {
     let spin = Transform::from_rotation_axis_angle([0.0, 1.0, 0.0], t * 0.9);
     let tilt = Transform::from_rotation_axis_angle([1.0, 0.0, 0.0], 0.45 + 0.5 * (t * 0.37).sin());
@@ -156,14 +139,10 @@ mod tests {
             let i = (y * FACE_SIDE as usize + x) * 4;
             [face[i], face[i + 1], face[i + 2]]
         };
-        // Away from the mark and the number: the face's blue; the frame darker.
         assert_eq!(at(60, 14), COLOURS[4]);
         assert_eq!(at(1, 60), COLOURS[4].map(|c| c / 2));
-        // The corner mark.
         assert_eq!(at(14, 14), [236, 232, 220]);
-        // The 5's top bar: the digit's first row is all on.
         assert_eq!(at(64, 22 + 6), [236, 232, 220]);
-        // Not in the bottom right corner.
         assert_eq!(at(110, 110), COLOURS[4]);
     }
 
@@ -171,9 +150,7 @@ mod tests {
     fn the_cube_turns_and_bobs_with_the_clock() {
         let (a, b) = (scene(0.0), scene(1.0));
         assert_ne!(a.nodes[0].transform, b.nodes[0].transform);
-        // Nothing but the clock moves it.
         assert_eq!(scene(2.5), scene(2.5));
-        // It stays inside the camera's sight whatever the time.
         for step in 0..200 {
             let s = scene(step as f32 * 0.37);
             let aspect = TARGET.0 as f32 / TARGET.1 as f32;

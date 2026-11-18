@@ -24,7 +24,6 @@ fn main() -> ExitCode {
     }
 }
 
-/// A still: its name, the cues and when, and the moment shot.
 struct Still {
     name: &'static str,
     cues: Vec<(f64, Cue)>,
@@ -258,7 +257,6 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
-/// The track's weights `t` seconds in, for a line that began at `from`.
 fn speech_at(
     track: Option<&Track>,
     from: Option<f64>,
@@ -270,7 +268,6 @@ fn speech_at(
     track.sample((t - from) as f32, channels)
 }
 
-/// Premultiplied RGBA laid over a dark terminal's background, opaque.
 fn over_terminal(rgba: &[u8]) -> Vec<u8> {
     let bg = [8.0f32, 10.0, 14.0];
     let mut out = rgba.to_vec();

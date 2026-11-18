@@ -48,7 +48,6 @@ use super::super::ink::Img;
 use super::quick_rig::{self, Clip, Rig};
 use crate::rules::resolution::Rung;
 
-/// A figure's name, as it was stamped (`room_scene::Body::named`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Named {
     pub key: Arc<str>,
@@ -56,16 +55,10 @@ pub struct Named {
     pub pivot: [i32; 2],
     pub rung: Rung,
     pub bare: Option<Arc<Img>>,
-    /// `u` or `d` when the knight faces up or down (the way `facing` says
-    /// it; none at the sides): the facing a pack may draw it by, before the
-    /// key's own (`faced_key`). It does not turn over with the figure: a
-    /// knight seen from behind is the same drawing on either hand.
     pub vertical: Option<char>,
 }
 
 impl Named {
-    /// The same figure turned over left to right in a picture `width` wide:
-    /// its facing the other way, its feet mirrored (`x = w - 1 - x`).
     pub fn mirrored(&self, width: i32) -> Self {
         let key = match self.key.rsplit_once('/') {
             Some((base, "r")) => format!("{base}/l"),
@@ -80,16 +73,11 @@ impl Named {
         }
     }
 
-    /// The key a pack may draw this figure by when it faces up or down: its
-    /// key with the facing part `u` or `d`; none at the sides.
     pub fn faced_key(&self) -> Option<String> {
         let (base, _) = self.key.rsplit_once('/')?;
         self.vertical.map(|v| format!("{base}/{v}"))
     }
 
-    /// The same figure bent over by a blow (`strike::pose`) into a picture of
-    /// another width, its feet where the upright picture's are: the bare body
-    /// is the upright picture's and goes, so only a whole drawing is asked for.
     pub fn bent(&self, from_width: i32, to_width: i32) -> Self {
         Self {
             pivot: [self.pivot[0] + to_width / 2 - from_width / 2, self.pivot[1]],
@@ -99,7 +87,6 @@ impl Named {
     }
 }
 
-/// A clip's name, as the rig's JSON and a key say it.
 pub fn clip_name(clip: Clip) -> &'static str {
     match clip {
         Clip::Idle => "idle",
@@ -118,11 +105,6 @@ pub fn clip_name(clip: Clip) -> &'static str {
     }
 }
 
-/// The design a knight's rig is, for its key: a seat's knight by its
-/// design's name (`quick_rig::Design::name`), the old knight (`knight.json`,
-/// which a design that fails to read falls back to) as `realm`. A rig the
-/// game does not know by name (a wished one) has none, and its figures are
-/// not named.
 pub fn design_of(rig: &Rig) -> Option<&'static str> {
     if quick_rig::knight().is_some_and(|k| std::ptr::eq(k, rig)) {
         return Some("realm");
@@ -133,8 +115,6 @@ pub fn design_of(rig: &Rig) -> Option<&'static str> {
         .map(quick_rig::Design::name)
 }
 
-/// The colours part of a key: a seat's own, or a company's by a hash of
-/// its pairs.
 pub fn colours_part(seat: u32, company: &[(char, char)]) -> String {
     if company.is_empty() {
         return format!("seat{seat}");
@@ -149,21 +129,16 @@ pub fn colours_part(seat: u32, company: &[(char, char)]) -> String {
     format!("colours-{:08x}", hash as u32)
 }
 
-/// A knight's key, facing as the rig draws it (`r`).
 pub fn knight_key(design: &str, clip: Clip, frame: usize, colours: &str) -> String {
     format!("knight/{design}/{}/{frame}/{colours}/r", clip_name(clip))
 }
 
-/// The parts of a key, if it is one: `(kind, design, clip, frame, colours,
-/// facing)`; the facing is `r` or `l`, or `u` or `d` for a figure drawn facing
-/// up or down.
 pub fn parts(key: &str) -> Option<[&str; 6]> {
     let mut it = key.split('/');
     let out = [it.next()?, it.next()?, it.next()?, it.next()?, it.next()?, it.next()?];
     (it.next().is_none() && out.iter().all(|p| !p.is_empty()) && matches!(out[5], "r" | "l" | "u" | "d")).then_some(out)
 }
 
-/// Whether `key` is a well-formed figure key (what a pack entry may name).
 pub fn is_key(key: &str) -> bool {
     parts(key).is_some_and(|p| {
         p.iter().all(|s| s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_'))

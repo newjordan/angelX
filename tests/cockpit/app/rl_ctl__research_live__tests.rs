@@ -229,7 +229,6 @@ fn model_free_observer_admits_only_executed_typed_checks() {
         live.pending[0]["id"], live.pending[1]["id"],
         "reused provider call IDs still describe separate executions"
     );
-    // Pure admission test: avoid starting the optional worker during Drop.
     live.pending.clear();
 }
 
@@ -300,8 +299,6 @@ fn steady_evidence_is_quiet_but_compaction_restores_current_context() {
     assert_eq!(history.len(), 2);
     live.poll(&root, &mut history, false);
     assert_eq!(history.len(), 2, "no repeated cue or model call");
-    // Recreating the observer at the next turn does not spend the same card
-    // again, including when it originally arrived with a historical warning.
     history[1].content = history[1].content.replacen("⚠⡫⠁", "⚠⡫⠁⡫⠉", 1).into();
     let (send, _) = mpsc::channel();
     let mut next = LiveResearch::new(&root, "fixture", None, "fixture", send);

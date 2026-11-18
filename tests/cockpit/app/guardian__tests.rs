@@ -66,8 +66,6 @@ fn candidate() -> Candidate {
     }
 }
 
-/// The clock every expiry test reasons against. Claim ages are explicit
-/// literals below, never wall-clock arithmetic.
 const NOW_MS: u128 = 1_750_000_000_000;
 
 fn set_mtime_ms(path: &Path, modified_ms: u128) {
@@ -94,8 +92,6 @@ fn put_claim(peer_dir: &Path, instance: &str, guardian: &str, claimed_ms: u128, 
     set_mtime_ms(&path, mtime_ms);
 }
 
-/// Wait for a child without sleeping. A joined waiter plus a bounded
-/// `recv_timeout` leaves the child killable by pid if the test hangs.
 fn wait_bounded(
     child: std::process::Child,
     timeout: Duration,
@@ -123,8 +119,6 @@ fn wait_bounded(
     }
 }
 
-/// A filter that matches nothing still exits successfully; the harness
-/// output must prove the one child test actually ran and passed.
 fn assert_single_test_passed(log_path: &Path, test_name: &str) {
     let log = std::fs::read_to_string(log_path).unwrap();
     assert!(log.contains("running 1 test"), "child ran the wrong filter: {log}");
@@ -160,13 +154,9 @@ fn put_record(peer_dir: &Path, instance: &str, old_session: &str) {
 #[test]
 fn only_dead_session_holders_with_local_workspaces_are_candidates() {
     let peers = vec![
-        // Breathing: never a candidate.
         heartbeat("live-1", "turn", Some("s-live"), "/work/a", T0),
-        // Dead with a session and a workspace here: the candidate.
         heartbeat("dead-1", "turn", Some("s-dead"), "/work/a", T0 - STALE - 1),
-        // Dead but sessionless: nothing to resurrect.
         heartbeat("dead-2", "idle", None, "/work/a", T0 - STALE - 1),
-        // Dead with a session, but its checkout is not on this rig.
         heartbeat(
             "dead-3",
             "turn",
@@ -174,7 +164,6 @@ fn only_dead_session_holders_with_local_workspaces_are_candidates() {
             "/work/elsewhere",
             T0 - STALE - 1,
         ),
-        // Dead guardian: giants do not resurrect giants.
         heartbeat(
             "dead-4",
             "guardian-sleeping",
@@ -182,7 +171,6 @@ fn only_dead_session_holders_with_local_workspaces_are_candidates() {
             "/work/a",
             T0 - STALE - 1,
         ),
-        // Dead, but already answered.
         heartbeat("dead-5", "turn", Some("s-done"), "/work/a", T0 - STALE - 1),
     ];
     let candidates = select_candidates(
@@ -201,7 +189,6 @@ fn only_dead_session_holders_with_local_workspaces_are_candidates() {
 fn a_live_holder_of_the_same_session_blocks_resurrection() {
     let peers = vec![
         heartbeat("dead-1", "turn", Some("s-1"), "/work/a", T0 - STALE - 1),
-        // The supposedly-dead session is alive under a new instance.
         heartbeat("live-2", "turn", Some("s-1"), "/work/a", T0),
     ];
     let candidates = select_candidates(&peers, T0, STALE, |_| true, |_, _| false);
@@ -220,7 +207,6 @@ fn claim_is_won_by_exactly_one_guardian() {
     };
     assert!(try_claim(&fixture.0, &candidate, "guardian-a", "rig-a").unwrap());
     assert!(!try_claim(&fixture.0, &candidate, "guardian-b", "rig-b").unwrap());
-    // Even the winner cannot double-claim its own fresh claim.
     assert!(!try_claim(&fixture.0, &candidate, "guardian-a", "rig-a").unwrap());
 }
 
@@ -279,7 +265,6 @@ fn read_records_lists_every_record_newest_first() {
     write_record(&fixture.0, &make("dead-old", 10, true)).unwrap();
     write_record(&fixture.0, &make("dead-new", 30, false)).unwrap();
     write_record(&fixture.0, &make("dead-mid", 20, true)).unwrap();
-    // Heartbeats and claims in the same directory are not records.
     std::fs::write(fixture.0.join("some-peer.json"), "{}").unwrap();
     std::fs::write(fixture.0.join("dead-old.claim.json"), "{}").unwrap();
     let records = read_records(&fixture.0);
@@ -350,7 +335,6 @@ fn the_claim_ttl_is_thirty_minutes() {
 fn an_expired_claim_without_an_outcome_is_stolen_but_a_fresh_one_is_not() {
     let fixture = Fixture::new();
     let candidate = candidate();
-    // 29m59s is still inside the window: the slow guardian owns it.
     put_claim(
         &fixture.0,
         "dead-1",
@@ -364,7 +348,6 @@ fn an_expired_claim_without_an_outcome_is_stolen_but_a_fresh_one_is_not() {
         Some("slow-guardian")
     );
 
-    // 30m01s with no record: the claimant is presumed dead too.
     put_claim(
         &fixture.0,
         "dead-1",
@@ -391,7 +374,6 @@ fn a_torn_claim_older_than_the_ttl_is_recovered_but_a_fresh_torn_one_is_not() {
     let fixture = Fixture::new();
     let candidate = candidate();
     let path = fixture.0.join("dead-1.claim.json");
-    // A guardian that died between create_new and its body write leaves this.
     std::fs::write(&path, b"{\"guardian_instance\":\"half").unwrap();
     set_mtime_ms(&path, NOW_MS - 1_799_000);
     assert!(!try_claim_at(&fixture.0, &candidate, "other-guardian", "rig-b", NOW_MS).unwrap());
@@ -434,7 +416,6 @@ fn a_record_without_a_claim_answers_the_same_death_but_not_a_later_one() {
     assert!(!try_claim_at(&fixture.0, &candidate(), "guardian", "rig", NOW_MS).unwrap());
     assert!(!fixture.0.join("dead-1.claim.json").exists());
 
-    // The same instance dying later in a different session is a new death.
     let later = Candidate {
         session_id: "s-2".to_string(),
         ..candidate()
@@ -456,7 +437,6 @@ fn a_record_for_another_session_does_not_fence_a_stale_claim() {
         NOW_MS - 1_801_000,
         NOW_MS - 1_801_000,
     );
-    // The record answers s-1; the candidate is the instance's later death.
     put_record(&fixture.0, "dead-1", "s-1");
     let later = Candidate {
         session_id: "s-2".to_string(),

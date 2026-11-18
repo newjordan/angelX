@@ -30,7 +30,6 @@ use angel_delve::world3d::{self, kingdom};
 use angel_gpu::{Core, Draw, Frame, Instance, Picture, Stage};
 use angel_stage::set::Kind;
 
-/// The stage's picture id, as the cockpit names the Delve's.
 const STAGE: u32 = 0x00FA_57A4;
 
 fn main() -> ExitCode {
@@ -43,21 +42,16 @@ fn main() -> ExitCode {
     }
 }
 
-/// A place to shoot: its name, where the knights stand (the first is the
-/// one the view follows), and what the party has built.
 struct Place {
     name: String,
     feet: Vec<[f32; 2]>,
     wishes: Vec<angel_delve::realm::Wish>,
 }
 
-/// The middle of chunk `(cx, cz)`, nudged by `(dx, dz)` pixels.
 fn mid(cx: i32, cz: i32, dx: f32, dz: f32) -> [f32; 2] {
     [(cx as f32 + 0.5) * kingdom::STAGE.0 + dx, (cz as f32 + 0.5) * kingdom::STAGE.1 + dz]
 }
 
-/// The nearest tile a knight walks to kingdom point `at` (its middle's
-/// foot), searching outward a tile at a time.
 fn walkable_near(at: [f32; 2]) -> [f32; 2] {
     let land = kingdom::land();
     let (c, r) = ((at[0] / 16.0).floor() as i32, (at[1] / 16.0).floor() as i32);
@@ -76,7 +70,6 @@ fn walkable_near(at: [f32; 2]) -> [f32; 2] {
     at
 }
 
-/// A place's stand (the tile before its door), a knight's feet on it.
 fn stand(t: (i32, i32)) -> [f32; 2] {
     [t.0 as f32 * 16.0 + 8.0, t.1 as f32 * 16.0 + 13.0]
 }
@@ -99,9 +92,7 @@ fn places() -> Vec<Place> {
         at("highlands-delve-gate", vec![walkable_near(mid(3, 2, 150.0, 40.0))]),
         at("colosseum", vec![walkable_near(mid(5, 5, 0.0, 70.0))]),
         at("behind-building", vec![behind(3, 2, &stone), walkable_near(mid(3, 2, -60.0, 60.0))]),
-        // On a bridge over the Kingsriver, the Highlands into the Tilt-Yards.
         at("kingsriver-bridge", vec![[2248.0, 760.0]]),
-        // A biome's border: Castle Town into the Tilt-Yards (chunks 4,3 and 5,3).
         at("biome-border", vec![walkable_near([5.0 * kingdom::STAGE.0 - 4.0, 3.5 * kingdom::STAGE.1])]),
     ];
     if let Some((feet, _, _)) = kingdom::road_over_a_border() {
@@ -110,10 +101,6 @@ fn places() -> Vec<Place> {
     out
 }
 
-/// The blank-slate realm's loop (`angel_delve::world::plan`): the spawn before
-/// the tiny Keep, the Keep from its west flank, each camp with a knight at
-/// its fire, and the Delve's gate. A knight a tile from each stand, as the
-/// flat shots do.
 fn tabula_places() -> Vec<Place> {
     use angel_delve::world::plan::tabula as t;
     let at = |name: String, tile: (f32, f32)| Place {
@@ -135,20 +122,14 @@ fn tabula_places() -> Vec<Place> {
     out
 }
 
-/// The catalog's wishes the lots' shots build, all beside the Village.
 const BUILT: [&str; 4] = ["tavern", "wayside-shrine", "fellowship-stone", "beacon-tower"];
 
-/// What a run stands that no chunk's set has (`world3d::lots`): the
-/// catalog's wishes built beside the Village, seen from before each pair of
-/// lots with a knight at the door and one behind, and a few of the run's
-/// finds with a knight by each.
 fn lot_places() -> Vec<Place> {
     use angel_delve::world::finds::Kind as F;
     let wishes = world3d::lots::proof_wishes(&BUILT, "village");
     let lots = angel_delve::world::wishes::lots(&wishes);
     let mut out = Vec::new();
     let px = |t: i32| t as f32 * 16.0;
-    // Two lots side by side: a knight at one's door, one behind the other.
     for (name, a, b) in [("lots-tavern-shrine", 1, 0), ("lots-stone-tower", 2, 3)] {
         let (Some(a), Some(b)) = (lots[a], lots[b]) else { continue };
         let door = [px(a.tx) + px(a.tw) / 2.0 + 10.0, px(a.ty + a.th) + 6.0];
@@ -160,13 +141,11 @@ fn lot_places() -> Vec<Place> {
     for (name, kind) in [("find-stones", F::Stones), ("find-campfire", F::Campfire), ("find-cave", F::Cave), ("find-hermit", F::Hermit), ("find-ruin", F::Ruin), ("find-shrine", F::Shrine)] {
         let Some((_, find)) = finds.iter().find(|(_, f)| f.kind == kind) else { continue };
         let (x, y) = (px(find.at.0) + 8.0, px(find.at.1 + 1));
-        // One before it to the side, one just behind it.
         out.push(Place { name: name.into(), feet: vec![[x + 28.0, y + 8.0], [x - 10.0, y - 15.0]], wishes: Vec::new() });
     }
     out
 }
 
-/// The shots side by side, flat then 3D, a row a place, at half their size.
 fn contact(path: &Path, shots: &[(Vec<u8>, Vec<u8>)], size: (u32, u32)) -> Result<(), String> {
     let (w, h) = (size.0 / 2, size.1 / 2);
     let gap = 8;
@@ -180,7 +159,6 @@ fn contact(path: &Path, shots: &[(Vec<u8>, Vec<u8>)], size: (u32, u32)) -> Resul
             let (ox, oy) = (gap + col as u32 * (w + gap), gap + row as u32 * (h + gap));
             for y in 0..h {
                 for x in 0..w {
-                    // The average of the 2 x 2 under it.
                     let mut sum = [0u32; 4];
                     for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
                         let i = (((2 * y + dy) * size.0 + 2 * x + dx) * 4) as usize;
@@ -220,8 +198,6 @@ fn run() -> Result<(), String> {
         }
     }
     let mut gpu = Gpu::new()?;
-    // As the cockpit's window has the Delve: its frames in parts, its
-    // pickups and shots as shapes.
     arena::draw_parts_outside(true);
     arena::props_meshes(true);
     if walk {
@@ -265,7 +241,6 @@ fn run() -> Result<(), String> {
                         }
                     }
                     "onlyzone" => {
-                        // Only the last (nearest) zone, all else the base.
                         if let Some(l) = world.look.as_mut() {
                             let last = l.zones.pop();
                             l.zones = last.into_iter().collect();
@@ -313,10 +288,6 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
-/// A knight walking east along the kingdom's middle across three chunk
-/// borders (from chunk 2's middle to chunk 5's), two pixels a frame, its
-/// camera on it: each frame made (the scene and the stage, the CPU's part)
-/// and drawn by the GPU (waited for), flat and in 3D.
 fn walk_across(gpu: &mut Gpu) -> Result<(), String> {
     let (w, h) = arena::seat_size();
     let size = (w * 3, h * 3);
@@ -392,9 +363,6 @@ impl Gpu {
         }
     }
 
-    /// A Delve frame as a stage, drawn into a texture `size` pixels as the
-    /// window draws a stage in its cells, on black, and (when `read`) read
-    /// back; else waited for.
     fn stage(&mut self, mut frame: angel_stage::Frame, size: (u32, u32), read: bool) -> Vec<u8> {
         self.upload(std::mem::take(&mut frame.pictures));
         self.core.set_stage(

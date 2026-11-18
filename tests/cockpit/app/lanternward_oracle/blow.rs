@@ -5,17 +5,14 @@ use super::foes::*;
 use super::world::*;
 use super::*;
 
-/// How a blow comes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Hit {
     Melee,
     Bolt,
     Beam,
-    /// Along the ground: a body in the air clears it.
     Low,
 }
 
-/// What came of it for the knight.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Blow {
     Hit,
@@ -25,7 +22,6 @@ pub enum Blow {
 }
 
 impl Session {
-    /// A blow lands on knight `id`, from `from`, for `dmg` quarter hearts.
     pub(super) fn blow(
         &mut self,
         id: u32,
@@ -99,8 +95,6 @@ impl Session {
         Blow::Hit
     }
 
-    /// A blade, a bolt or a blast on foe `i`. True when it hurt (a blade
-    /// passes through a hooded snuffer; nothing hurts the turret).
     pub(super) fn hurt_foe(&mut self, i: usize, dmg: u32, from: (i32, i32), ev: &mut Events) -> bool {
         let f = &mut self.foes[i];
         if !f.alive() {
@@ -114,7 +108,6 @@ impl Session {
                 return false;
             }
             Fk::Snuffer if !f.vulnerable() => {
-                // The hood: the blade passes through shadow.
                 ev.sound("step_ash");
                 self.fx(Fxk::Ring, x, y, 8);
                 return false;
@@ -154,8 +147,6 @@ impl Session {
         true
     }
 
-    /// Light on foe `i`: a snuffer's hood burns off for a while, and it
-    /// takes a little.
     fn light_foe(&mut self, i: usize, ev: &mut Events) {
         let f = &mut self.foes[i];
         if f.kind != Fk::Snuffer || !f.alive() {
@@ -172,13 +163,11 @@ impl Session {
         ev.sound("hit_magic");
     }
 
-    /// Fly every bolt one tick.
     pub(super) fn step_bolts(&mut self, r: &Rules, ev: &mut Events) {
         for i in 0..self.bolts.len() {
             if self.bolts[i].ttl == 0 {
                 continue;
             }
-            // Fast bolts go in two half steps so none skips a body.
             for _ in 0..2 {
                 if self.bolts[i].ttl == 0 {
                     break;
@@ -201,7 +190,6 @@ impl Session {
             self.bolt_ends(i, ev);
             return;
         }
-        // Things that stand in the way.
         for j in 0..self.props.len() {
             let q = &self.props[j];
             if !q.blocks(px, py) || q.lets_bolts() {
@@ -299,7 +287,6 @@ impl Session {
         }
     }
 
-    /// A bolt is done: a pot breaks, light flickers, iron goes out.
     fn bolt_ends(&mut self, i: usize, ev: &mut Events) {
         let b = &mut self.bolts[i];
         b.ttl = 0;
@@ -315,9 +302,6 @@ impl Session {
         }
     }
 
-    /// A shield turns an iron bolt: back where the knight's lock holds, else
-    /// where the shield faces. A parry sends it bright and quick; a late
-    /// block sends it back dim and short.
     fn turn_bolt(&mut self, i: usize, id: u32, parried: bool, ev: &mut Events) {
         let Some(k) = self.seats.get(&id) else { return };
         let aim = k
@@ -339,8 +323,6 @@ impl Session {
         let _ = ev;
     }
 
-    /// Bombs: tick the fuses; a burst opens cracked walls, breaks pots and
-    /// grass and hurts the Gloam, never the knights.
     pub(super) fn step_fuses(&mut self, ev: &mut Events) {
         for f in &mut self.fuses {
             f.t = f.t.saturating_sub(1);

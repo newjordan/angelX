@@ -16,7 +16,6 @@ use ratatui::{
 };
 use serde_json::Value;
 
-/// Where the room goes inside the expanded view, or `None` when too small.
 fn room_rect(area: Rect) -> Option<Rect> {
     let inner = Block::default().borders(Borders::ALL).inner(area);
     (area.width >= 80 && area.height >= 24).then(|| {
@@ -29,8 +28,6 @@ fn room_rect(area: Rect) -> Option<Rect> {
     })
 }
 
-/// The view in cells. Returns whether the controls are live.
-// Keep joined-screen inputs explicit at the existing UI composition boundary.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn render(
     frame: &mut Frame,
@@ -84,7 +81,6 @@ pub(crate) fn render(
         _ => "",
     };
     let header = if state["floor"].as_u64() == Some(0) {
-        // Home: the host's Undercroft (or its halls).
         format!("The Undercroft    {phase}")
     } else {
         format!(
@@ -103,7 +99,6 @@ pub(crate) fn render(
     );
     let (status, status_color) = match joined.error() {
         Some(error) => (error, Color::Rgb(0xa8, 0x34, 0x1f)),
-        // macOS Terminal draws neither pictures nor full colour.
         None if std::env::var("TERM_PROGRAM").is_ok_and(|p| p == "Apple_Terminal") => (
             format!(
                 "Connected to {} · you are P{me} · Terminal.app can't draw the delve: open it in Kitty, Ghostty or WezTerm",
@@ -123,11 +118,9 @@ pub(crate) fn render(
         status_color,
     );
 
-    // The room in cells; the terminal's image path paints over it when it can.
     if let Some((page, selected)) = cards {
         cards_screen(frame, joined, &state, room, page, selected);
     } else if !native {
-        // Cells, unless the terminal's own picture is placed over them.
         joined.with_latest(|run| super::shooter_viz::paint_picture_ui(frame, room, run, picture, Some(me)));
     }
 
@@ -146,9 +139,6 @@ pub(crate) fn render(
         let color = hero_color(id);
         let you = if id == me { " (you)" } else { "" };
         let who = format!("P{id} {}{you}", knight["name"].as_str().unwrap_or(""));
-        // The host's own HUD, the same on every screen.
-        // The picture carries the party along its top and the skills bar
-        // along its foot; the cells say it only where there is no picture.
         if native {
             hud_rows.push(ratatui::text::Line::from(ratatui::text::Span::styled(
                 who,
@@ -178,7 +168,6 @@ pub(crate) fn render(
         hud_rows.push(ratatui::text::Line::default());
     }
     if state.get("boss_gates").is_some_and(|g| !g.is_null()) {
-        // The chiefs and the camps in plain words, then the map and its key.
         let plain = joined
             .with_latest(|run| run.boss_gate_plain())
             .unwrap_or_default();
@@ -252,8 +241,6 @@ pub(crate) fn render(
     true
 }
 
-/// This seat's cards and the host's book. The friend's pages skip the
-/// host's realm page: page 0 is theirs, the rest are the book.
 fn cards_screen(
     frame: &mut Frame,
     joined: &Joined,
@@ -302,7 +289,6 @@ fn cards_screen(
     super::shooter_viz::cards_of(frame, &book, Some(mine), area, page, selected);
 }
 
-/// The host's name as its invitation address shows it.
 fn host_name(joined: &Joined) -> String {
     joined
         .state()

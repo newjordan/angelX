@@ -1,7 +1,3 @@
-# crates/delve/src/rules/lanternward/stage.rs — the rooms, one after another:
-# what each asks of the party, the way through, the fallen and the retry.
-
-# Where seat `id` starts in this room: its own mark, wrapping: [x, y].
 def lanternward.stage.Session.start_of(+s: J.Val, +id: U32) -> J.Val:
   lanternward.stage.start_of.marks(lanternward.world.Plan.find(ga.u(s, "room"), 64), id)
 
@@ -20,8 +16,6 @@ def lanternward.stage.start_of.nth(+marks: List<&2, U32>, n: Nat) -> J.Val:
     case Con{+h, +t} 1n+p:
       lanternward.stage.start_of.nth(t, p)
 
-# The party goes into room `room`: its things stand, its foes wait, and every
-# seat is at its start (the fallen on their feet again).
 def lanternward.stage.Session.enter_room(+s: J.Val, +room: U32) -> J.Val:
   lanternward.stage.enter_room.seats(
     ga.ids(J.get(s, "seats")),
@@ -47,7 +41,6 @@ def lanternward.stage.enter_room.seat.at(+at: J.Val, +k: J.Val, +s: J.Val, +id: 
   +k4 = ga.su(Bool.pick(J.Val, U32.is_eq(ga.u(k3, "hp"), 0), ga.su(k3, "hp", RS.u_min(12, ga.u(k3, "max_hp"))), k3), "inv", 60)
   lanternward.blow.put_seat(s, id, k4)
 
-# The foes (and the Warden) a room opens with.
 def lanternward.stage.Session.provision_room(+s: J.Val, +room: U32) -> J.Val:
   lanternward.stage.provision_room.go(room, s, RS.u_max(lanternward.seat_count(s), 1))
 
@@ -64,7 +57,6 @@ def lanternward.stage.provision_room.go(+room: U32, +s: J.Val, +seats: U32) -> J
     case _:
       s
 
-# `for (tx, ty) in marks.take(n) { spawn_foe(kind, middle(tx), middle(ty), hooded) }`.
 def lanternward.stage.spawn_at(+s: J.Val, +marks: List<&2, U32>, +n: U32, +kind: String, +hooded: Bool) -> J.Val:
   match marks:
     case Nil{}:
@@ -76,7 +68,6 @@ def lanternward.stage.spawn_at(+s: J.Val, +marks: List<&2, U32>, +n: U32, +kind:
           s),
         t, RS.u_sat_sub(n, 1), kind, hooded)
 
-# The Warden stands on the first W mark.
 def lanternward.stage.provision_room.boss(+marks: List<&2, U32>, +s: J.Val, +seats: U32) -> J.Val:
   match marks:
     case Nil{}:
@@ -84,7 +75,6 @@ def lanternward.stage.provision_room.boss(+marks: List<&2, U32>, +s: J.Val, +sea
     case Con{+m, +t}:
       ga.sv(s, "boss", lanternward.boss.Warden.new(lanternward.world.middle(lanternward.world.packed_x(m)), lanternward.world.middle(lanternward.world.packed_y(m)), seats))
 
-# The arena's lamps burn until the Gloam falls.
 def lanternward.stage.provision_room.lamps(+s: J.Val, +i: U32) -> J.Val:
   lanternward.stage.provision_room.lamps.go(U32.is_lt(i, lanternward.len(s, "props")), s, i)
 
@@ -103,13 +93,11 @@ def lanternward.stage.set_on(yes: Bool, +s: J.Val, +i: U32) -> J.Val:
     case False{}:
       s
 
-# The Lamp Hall's wave: the Gloam answers the Lantern.
 def lanternward.stage.Session.spawn_wave(+s: J.Val) -> J.Val:
   lanternward.stage.spawn_at(
     s, lanternward.world.Plan.find(1, 83),
     RS.u_min((2 + U32.div((RS.u_max(lanternward.seat_count(s), 1) - 1 : U32), 2) : U32), 4), "Snuffer", False{})
 
-# The index of the first prop of this kind and id, or null.
 def lanternward.stage.prop_of.go(+ps: List<&2, J.Val>, +kind: String, +id: U32, +i: U32) -> J.Val:
   match ps:
     case Nil{}:
@@ -128,7 +116,6 @@ def lanternward.stage.prop_of.hit(hit: Bool, +t: List<&2, J.Val>, +kind: String,
 def lanternward.stage.Session.prop_of(+s: J.Val, +kind: String, +id: U32) -> J.Val:
   lanternward.stage.prop_of.go(ga.items(s, "props"), kind, id, 0)
 
-# Whether the prop of this kind and id exists and has `on == 1`.
 def lanternward.stage.prop_on(+s: J.Val, +kind: String, +id: U32) -> Bool:
   lanternward.stage.prop_on.go(lanternward.stage.Session.prop_of(s, kind, id), s)
 
@@ -139,7 +126,6 @@ def lanternward.stage.prop_on.go(+i: J.Val, +s: J.Val) -> Bool:
     case _:
       U32.is_eq(lanternward.eu(s, "props", J.u32(i), "on"), 1)
 
-# The position [x, y] of the prop at index `i`, or [0, 0] for none.
 def lanternward.stage.prop_pos(+s: J.Val, +i: J.Val) -> J.Val:
   match i:
     case J.JNull{}:
@@ -147,7 +133,6 @@ def lanternward.stage.prop_pos(+s: J.Val, +i: J.Val) -> J.Val:
     case _:
       ga.pair_i(lanternward.eu(s, "props", J.u32(i), "x"), lanternward.eu(s, "props", J.u32(i), "y"))
 
-# Every prop of this kind is lit (and there is at least one).
 def lanternward.stage.all_lit.go(+ps: List<&2, J.Val>, +kind: String, +any: Bool) -> Bool:
   match ps:
     case Nil{}:
@@ -172,7 +157,6 @@ def lanternward.stage.foes_down.go(+fs: List<&2, J.Val>) -> Bool:
 def lanternward.stage.Session.foes_down(+s: J.Val) -> Bool:
   lanternward.stage.foes_down.go(ga.items(s, "foes"))
 
-# Whether the way on is open.
 def lanternward.stage.Session.exit_open(+s: J.Val) -> Bool:
   lanternward.stage.exit_open.go(ga.u(s, "room"), ga.u(s, "stage"))
 
@@ -189,10 +173,6 @@ def lanternward.stage.exit_open.go(+room: U32, +stage: U32) -> Bool:
     case _:
       False{}
 
-# ---- the things in the room ----
-
-# Positions that press a plate: knights on the ground, then every block (a
-# flat list x, y, x, y, ...).
 def lanternward.stage.weights.seats(+ids: List<&2, U32>, +seats: J.Val) -> List<&2, U32>:
   match ids:
     case Nil{}:
@@ -212,7 +192,6 @@ def lanternward.stage.weights.blocks(+ps: List<&2, J.Val>) -> List<&2, U32>:
         Con{ga.u(p, "x"), Con{ga.u(p, "y"), lanternward.stage.weights.blocks(t)}},
         lanternward.stage.weights.blocks(t))
 
-# Positions of the knights holding a flare.
 def lanternward.stage.flares(+ids: List<&2, U32>, +seats: J.Val) -> List<&2, U32>:
   match ids:
     case Nil{}:
@@ -222,7 +201,6 @@ def lanternward.stage.flares(+ids: List<&2, U32>, +seats: J.Val) -> List<&2, U32
         Con{ga.u(ga.at(seats, id), "x"), Con{ga.u(ga.at(seats, id), "y"), lanternward.stage.flares(t, seats)}},
         lanternward.stage.flares(t, seats))
 
-# Whether any (x, y) pair in the flat list lies within `reach` of (px, py).
 def lanternward.stage.any_near(+xs: List<&2, U32>, +px: U32, +py: U32, +reach: U32) -> Bool:
   match xs:
     case Nil{}:
@@ -253,8 +231,6 @@ def lanternward.stage.j32s(+xs: List<&2, J.Val>) -> List<&2, U32>:
     case Con{+h, +t}:
       Con{J.u32(h), lanternward.stage.j32s(t)}
 
-# One tick of the things in the room. `$weights` and `$flares` ride in `s`;
-# a sigil found leaves its place in `$revealed`.
 def lanternward.stage.Session.tick_props(+s: J.Val) -> J.Val:
   lanternward.stage.tick_props.reveal(
     lanternward.stage.tick_props.loop(
@@ -283,7 +259,6 @@ def lanternward.stage.tick_props.kind(+kind: String, +s: J.Val, +i: U32) -> J.Va
           Bool.pick(J.Val, String.eq(kind, "Fissure"), lanternward.es(s, "props", i, "t", RS.u_sat_sub(lanternward.eu(s, "props", i, "t"), 1)),
             s)))))
 
-# A brazier gutters: its flame counts down and puffs out unless lit for good.
 def lanternward.stage.tick_props.brazier(burning: Bool, +s: J.Val, +i: U32) -> J.Val:
   match burning:
     case False{}:
@@ -300,7 +275,6 @@ def lanternward.stage.tick_props.brazier.out(puff: Bool, +s: J.Val, +i: U32) -> 
     case True{}:
       lanternward.sound(lanternward.props.Session.fx(s, "Puff", lanternward.eu(s, "props", i, "x"), lanternward.eu(s, "props", i, "y"), 0), "step_ash")
 
-# A plate is pressed by a knight on the ground or a block on it.
 def lanternward.stage.tick_props.plate(+s: J.Val, +i: U32) -> J.Val:
   lanternward.stage.tick_props.plate.set(
     lanternward.eu(s, "props", i, "on"),
@@ -317,7 +291,6 @@ def lanternward.stage.tick_props.plate.sound(changed: Bool, +now: U32, +s: J.Val
     case True{}:
       lanternward.sound(s, Bool.pick(String, U32.is_eq(now, 1), "wall_up", "step_stone"))
 
-# A block slides a pixel a tick toward where it was pushed, then settles.
 def lanternward.stage.tick_props.block(+s: J.Val, +i: U32) -> J.Val:
   lanternward.stage.tick_props.block.go(U32.is_gt(lanternward.eu(s, "props", i, "on"), 0), s, i)
 
@@ -360,7 +333,6 @@ def lanternward.stage.tick_props.block.snap(+x: U32, +y: U32, +s: J.Val, +i: U32
       "props", i, "on", 0),
     "rock_land")
 
-# A sigil under a flare fills; unlit it fades. Found, it names its place.
 def lanternward.stage.tick_props.sigil(dark: Bool, +s: J.Val, +i: U32) -> J.Val:
   match dark:
     case False{}:
@@ -386,7 +358,6 @@ def lanternward.stage.tick_props.sigil.found(done: Bool, +s: J.Val, +i: U32) -> 
     case True{}:
       ga.sv(lanternward.es(s, "props", i, "on", 1), "$revealed", ga.pair_i(lanternward.eu(s, "props", i, "x"), lanternward.eu(s, "props", i, "y")))
 
-# A sigil found opens what it was hiding.
 def lanternward.stage.tick_props.reveal(+s: J.Val) -> J.Val:
   lanternward.stage.tick_props.reveal.go(ga.v(s, "$revealed"), J.del(J.del(J.del(s, "$weights"), "$flares"), "$revealed"))
 
@@ -399,8 +370,6 @@ def lanternward.stage.tick_props.reveal.go(+at: J.Val, +s: J.Val) -> J.Val:
         lanternward.props.Session.solved(lanternward.props.Session.set_gate(s, 2, True{}), ga.nu(at, 0), ga.nu(at, 1)),
         "door_open")
 
-# A gate that closed or a block that slid over a body puts it out on the
-# nearest open ground: nobody is walled in.
 def lanternward.stage.Session.unstick(+s: J.Val) -> J.Val:
   lanternward.stage.unstick.ids(ga.ids(J.get(s, "seats")), s)
 
@@ -427,9 +396,6 @@ def lanternward.stage.unstick.go(stuck: Bool, +s: J.Val, +id: U32) -> J.Val:
 def lanternward.stage.unstick.set(+p: J.Val, +s: J.Val, +id: U32) -> J.Val:
   lanternward.blow.put_seat(s, id, ga.si(ga.si(ga.at(J.get(s, "seats"), id), "x", ga.nu(p, 0)), "y", ga.nu(p, 1)))
 
-# ---- what each room asks ----
-
-# What each room asks, and what it gives.
 def lanternward.stage.Session.tick_stage(+s: J.Val) -> J.Val:
   lanternward.stage.tick_stage.exit(
     lanternward.stage.tick_stage.room(ga.u(s, "room"), ga.su(s, "stage_t", RS.u_min((ga.u(s, "stage_t") + 1 : U32), 108000))))
@@ -454,7 +420,6 @@ def lanternward.stage.stair(done: Bool, +s: J.Val) -> J.Val:
     case True{}:
       lanternward.stage.Session.open_exit(ga.su(s, "stage", 1))
 
-# The way on: stand in it.
 def lanternward.stage.tick_stage.exit(+s: J.Val) -> J.Val:
   lanternward.stage.tick_stage.exit.go(
     Bool.and(U32.is_eq(ga.u(s, "exiting"), 0), Bool.and(lanternward.stage.Session.exit_open(s), U32.is_lt(ga.u(s, "room"), 4))),
@@ -500,7 +465,6 @@ def lanternward.stage.tick_stage.exit.leave(done: Bool, +s: J.Val) -> J.Val:
     case True{}:
       lanternward.sound(lanternward.stage.Session.enter_room(s, (ga.u(s, "room") + 1 : U32)), "descend")
 
-# The exit gate swings open. (`set_gate` leaves whether any changed in `$ret`.)
 def lanternward.stage.Session.open_exit(+s: J.Val) -> J.Val:
   lanternward.stage.open_exit.go(lanternward.props.Session.set_gate(s, 0, True{}))
 
@@ -521,7 +485,6 @@ def lanternward.stage.open_exit.at(+g: J.Val, +s: J.Val) -> J.Val:
     case _:
       lanternward.sound(lanternward.props.Session.solved(s, ga.u(g, "x"), ga.u(g, "y")), "door_open")
 
-# The Lamp Hall: braziers, the Lantern, the Gloam's wave, the great brazier.
 def lanternward.stage.Session.stage_lamp_hall(+s: J.Val) -> J.Val:
   lanternward.stage.lamp_hall.go(ga.u(s, "stage"), s)
 
@@ -538,7 +501,6 @@ def lanternward.stage.lamp_hall.go(+stage: U32, +s: J.Val) -> J.Val:
     case _:
       s
 
-# Three braziers, all alight at once, from one ember.
 def lanternward.stage.lamp_hall.braziers(lit: Bool, +s: J.Val) -> J.Val:
   match lit:
     case False{}:
@@ -553,7 +515,6 @@ def lanternward.stage.lamp_hall.braziers.at(+at: J.Val, +s: J.Val) -> J.Val:
       J.del(lanternward.props.Session.set_gate(s, 1, True{}), "$ret"), ga.nu(at, 0), ga.nu(at, 1)),
     "door_open")
 
-# The niche stands open; the Lantern is in the chest.
 def lanternward.stage.lamp_hall.chest(open: Bool, +s: J.Val) -> J.Val:
   match open:
     case False{}:
@@ -575,7 +536,6 @@ def lanternward.stage.lamp_hall.great(lit: Bool, +s: J.Val) -> J.Val:
     case True{}:
       lanternward.stage.Session.open_exit(ga.su(s, "stage", 4))
 
-# The Arrow Gallery: two plates and a crystal.
 def lanternward.stage.plate_held(+ps: List<&2, J.Val>, +id: U32) -> Bool:
   match ps:
     case Nil{}:
@@ -605,8 +565,6 @@ def lanternward.stage.Session.stage_gallery(+s: J.Val) -> J.Val:
 def lanternward.stage.gallery.go(+plate: Bool, +crystal: Bool, +was: Bool, +s: J.Val) -> J.Val:
   lanternward.stage.gallery.gate(Bool.or(plate, crystal), was, crystal, lanternward.props.Session.set_gate(s, 1, Bool.or(plate, crystal)))
 
-# The plate-gate holds open only while it is held, or for good once the
-# crystal has woken.
 def lanternward.stage.gallery.gate(+want: Bool, +was: Bool, +crystal: Bool, +s: J.Val) -> J.Val:
   lanternward.stage.gallery.after(
     Bool.and(ga.b(s, "$ret"), Bool.xor(want, was)), want, crystal, J.del(s, "$ret"))
@@ -645,8 +603,6 @@ def lanternward.stage.gallery.open(go: Bool, +s: J.Val) -> J.Val:
     case True{}:
       lanternward.stage.Session.open_exit(ga.su(s, "stage", 1))
 
-# The Key Vault: the dark beaten, the key chest, the small key's door, the
-# boss key.
 def lanternward.stage.Session.stage_vault(+s: J.Val) -> J.Val:
   lanternward.stage.vault.boss(lanternward.stage.vault.go(ga.u(s, "stage"), s))
 
@@ -670,8 +626,6 @@ def lanternward.stage.vault.step(yes: Bool, +to: U32, +s: J.Val) -> J.Val:
     case True{}:
       ga.su(s, "stage", to)
 
-# The vault's key chest is not there until the dark is beaten; the spark the
-# last snuffer gave back lights the vault's braziers for good.
 def lanternward.stage.vault.dark(done: Bool, +s: J.Val) -> J.Val:
   match done:
     case False{}:
@@ -693,14 +647,9 @@ def lanternward.stage.vault.boss(+s: J.Val) -> J.Val:
   lanternward.stage.vault.step(
     Bool.and(lanternward.stage.any_on(ga.items(s, "props"), "Boss", 4294967295), U32.is_ge(ga.u(s, "stage"), 4)), 5, s)
 
-# ---- drops ----
-
-# Drops: hearts mend, gems and bombs are kept, the Boss Key is carried.
 def lanternward.stage.Session.pickups(+s: J.Val) -> J.Val:
   lanternward.stage.pickups.drops(lanternward.stage.pickups.lying(lanternward.stage.pickups.follow(s)), 0)
 
-# The Boss Key follows its carrier; a carrier who falls or leaves puts it
-# down where they stood.
 def lanternward.stage.pickups.follow(+s: J.Val) -> J.Val:
   lanternward.stage.pickups.follow.go(lanternward.tag_is(ga.v(ga.v(s, "inv"), "boss"), "Carried"), s)
 
@@ -724,7 +673,6 @@ def lanternward.stage.pickups.follow.up(up: Bool, +id: U32, +s: J.Val) -> J.Val:
       ga.sv(s, "inv", ga.sv(ga.v(s, "inv"), "boss",
         lanternward.variant("Lying", J.JA{[J.nth(lanternward.payload(ga.v(ga.v(s, "inv"), "boss")), 1), J.nth(lanternward.payload(ga.v(ga.v(s, "inv"), "boss")), 2)]})))
 
-# The first knight (by seat) standing on a lying key picks it up.
 def lanternward.stage.pickups.lying(+s: J.Val) -> J.Val:
   lanternward.stage.pickups.lying.go(lanternward.tag_is(ga.v(ga.v(s, "inv"), "boss"), "Lying"), s)
 
@@ -738,7 +686,6 @@ def lanternward.stage.pickups.lying.go(lying: Bool, +s: J.Val) -> J.Val:
           ga.nu(lanternward.payload(ga.v(ga.v(s, "inv"), "boss")), 0), ga.nu(lanternward.payload(ga.v(ga.v(s, "inv"), "boss")), 1)),
         s)
 
-# The first up knight within pick-up reach of (x, y): the seat id, or null.
 def lanternward.stage.first_near(+ids: List<&2, U32>, +seats: J.Val, +x: U32, +y: U32) -> J.Val:
   match ids:
     case Nil{}:
@@ -819,7 +766,6 @@ def lanternward.stage.pickups.heart(mend: Bool, +id: U32, +old: Bool, +s: J.Val,
               RS.u_min((ga.u(ga.at(J.get(s, "seats"), id), "hp") + 4 : U32), ga.u(ga.at(J.get(s, "seats"), id), "max_hp")))),
           "potion"), i)
 
-# A heart container: the finder takes it as a granted item, the stage moves on.
 def lanternward.stage.pickups.container(+s: J.Val, +id: U32) -> J.Val:
   ga.su(
     lanternward.kit.put_k(
@@ -829,8 +775,6 @@ def lanternward.stage.pickups.container(+s: J.Val, +id: U32) -> J.Val:
       id),
     "stage", RS.u_max(ga.u(s, "stage"), 3))
 
-# A taken or aged-out drop is swap_removed (the last drop takes its place);
-# else the next drop.
 def lanternward.stage.pickups.drop.end(+gone: Bool, +s: J.Val, +i: U32) -> J.Val:
   match gone:
     case True{}:
@@ -842,10 +786,6 @@ def lanternward.stage.pickups.swap_remove(+s: J.Val, +i: U32) -> J.Val:
   ga.sv(s, "drops",
     J.truncate(J.set_nth(J.get(s, "drops"), i, J.nth(J.get(s, "drops"), (lanternward.len(s, "drops") - 1 : U32))), (lanternward.len(s, "drops") - 1 : U32)))
 
-# ---- the fallen ----
-
-# The fallen: a friend holding E gets them up; a long wait brings them to the
-# next brazier on their own.
 def lanternward.stage.Session.revive_pass(+s: J.Val) -> J.Val:
   lanternward.stage.revive.each(ga.ids(J.get(s, "seats")), s)
 
@@ -865,7 +805,6 @@ def lanternward.stage.revive.one(down: Bool, +s: J.Val, +d: U32) -> J.Val:
         lanternward.stage.revive.helpers(ga.ids(J.get(s, "seats")), J.get(s, "seats"), d, ga.u(ga.at(J.get(s, "seats"), d), "x"), ga.u(ga.at(J.get(s, "seats"), d), "y")),
         s, d)
 
-# Other knights standing, free, holding E beside the fallen.
 def lanternward.stage.revive.helpers(+ids: List<&2, U32>, +seats: J.Val, +d: U32, +x: U32, +y: U32) -> U32:
   match ids:
     case Nil{}:
@@ -915,7 +854,6 @@ def lanternward.stage.revive.stand.go(+auto: Bool, +s: J.Val, +d: U32) -> J.Val:
         lanternward.props.Session.fx(s, "Light", ga.u(ga.at(J.get(s, "seats"), d), "x"), ga.u(ga.at(J.get(s, "seats"), d), "y"), 0),
         "potion")
 
-# Carried to the room's resting brazier.
 def lanternward.stage.revive.carry(+start: J.Val, +s: J.Val, +d: U32) -> J.Val:
   lanternward.sound(
     lanternward.props.Session.fx(
@@ -924,8 +862,6 @@ def lanternward.stage.revive.carry(+start: J.Val, +s: J.Val, +d: U32) -> J.Val:
       "Light", ga.nu(start, 0), ga.nu(start, 1), 0),
     "potion")
 
-# ---- the wipe and the retry ----
-
 def lanternward.stage.all_down.go(+ids: List<&2, U32>, +seats: J.Val) -> Bool:
   match ids:
     case Nil{}:
@@ -933,7 +869,6 @@ def lanternward.stage.all_down.go(+ids: List<&2, U32>, +seats: J.Val) -> Bool:
     case Con{+id, +t}:
       Bool.and(Bool.not(lanternward.kit.Seat.up(ga.at(seats, id))), lanternward.stage.all_down.go(t, seats))
 
-# Every knight down: a breath, then the party is back at the room's start.
 def lanternward.stage.Session.tick_wipe(+s: J.Val) -> J.Val:
   lanternward.stage.tick_wipe.go(
     Bool.and(U32.is_gt(lanternward.seat_count(s), 0), lanternward.stage.all_down.go(ga.ids(J.get(s, "seats")), J.get(s, "seats"))), s)
@@ -956,8 +891,6 @@ def lanternward.stage.tick_wipe.retry(go: Bool, +s: J.Val) -> J.Val:
     case False{}:
       s
 
-# Back to the room's start: hearts full, foes as the encounter opened, every
-# solved thing still solved.
 def lanternward.stage.Session.retry(+s: J.Val) -> J.Val:
   lanternward.stage.retry.room(
     lanternward.stage.retry.key(
@@ -980,7 +913,6 @@ def lanternward.stage.retry.seat(+at: J.Val, +s: J.Val, +id: U32) -> J.Val:
   lanternward.blow.put_seat(s, id,
     ga.su(ga.su(k3, "inv", 60), "flame", Bool.pick(U32, ga.b(ga.v(s, "inv"), "lantern"), lanternward.R(s, "flame"), 0)))
 
-# Carried keys are put down at the start.
 def lanternward.stage.retry.key(+s: J.Val) -> J.Val:
   lanternward.stage.retry.key.go(lanternward.tag_is(ga.v(ga.v(s, "inv"), "boss"), "Carried"), s)
 
@@ -1014,8 +946,6 @@ def lanternward.stage.retry.by(+room: U32, +stage: U32, +s: J.Val) -> J.Val:
       lanternward.stage.Session.spawn_wave(s),
       Bool.pick(J.Val, U32.is_eq(room, 4), lanternward.boss.Session.reset_boss_phase(s), s)))
 
-# ---- ageing ----
-
 def lanternward.stage.fx_life(+kind: String) -> U32:
   Bool.pick(U32, lanternward.NAME_IN(kind, ["Puff", "Light"]), 16,
     Bool.pick(U32, lanternward.NAME_IN(kind, ["Spark", "Tick"]), 8,
@@ -1035,7 +965,6 @@ def lanternward.stage.age.fx.keep(+age: U32, +f: J.Val, +t: List<&2, J.Val>) -> 
   Bool.pick(List<&2, J.Val>, U32.is_lt(age, lanternward.stage.fx_life(ga.s(f, "kind"))),
     Con{ga.su(f, "t", age), lanternward.stage.age.fx(t)}, lanternward.stage.age.fx(t))
 
-# The tick's leftovers age out.
 def lanternward.stage.Session.age(+s: J.Val) -> J.Val:
   lanternward.stage.age.banner(
     lanternward.stage.age.cue(

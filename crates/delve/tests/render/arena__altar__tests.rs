@@ -27,7 +27,6 @@ fn the_start_room_draws_its_altar() {
     assert_ne!(with, without, "the altar is drawn where it stands");
 }
 
-/// A party of `n` in a fresh run's first room.
 fn party(n: u32) -> Run {
     let mut run = Run::new(11, 3, Some("Ada"));
     for k in 3..=n {
@@ -40,17 +39,12 @@ fn party(n: u32) -> Run {
         hero.wishes = 3;
     }
     run.floor_plates.clear();
-    // Past the arrival's grace, so no knight blinks out of a shot.
     for _ in 0..90 {
         run.step(&BTreeMap::new());
     }
     run
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve write_wish_altar_shots -- --ignored`:
-/// the altar in the first room with a knight at the lamp, the lamp smoking
-/// over wishes in flight, a fight with wishes in flight over two knights'
-/// heads, the grant landing on one mid-fight, and the lamp's flare.
 #[test]
 #[ignore]
 fn write_wish_altar_shots() {
@@ -72,7 +66,6 @@ fn write_wish_altar_shots() {
             run.step(&BTreeMap::new());
         }
     };
-    // 1. The first room: the party, and Ada at the lamp.
     let mut run = party(4);
     assert_eq!(run.room().kind, RoomKind::Start);
     let (ax, ay) = run.wish_altar().unwrap();
@@ -85,16 +78,13 @@ fn write_wish_altar_shots() {
     ada.y = ay + 3.0;
     step(&mut run, 20);
     save("1-altar-and-lamp", &super::super::frame_for(&run, 2 * NATIVE_W, 2 * NATIVE_H, Some(1)));
-    // E at the lamp: the lamp is rubbed (the seat opens its wish line).
     run.step(&BTreeMap::from([(1, Input { interact: true, ..Default::default() })]));
     assert!(run.lamp.rubbed.contains_key(&1));
-    // 2. Three wishes in the runners' hands: the lamp smokes.
     run.lamp_sent(1, "my arrows turn into fireballs");
     run.lamp_sent(2, "a frog that fights beside me");
     run.lamp_sent(3, "a shield made of ice");
     step(&mut run, 9);
     save("2-lamp-smoking-wishes-in-flight", &super::super::frame_for(&run, 2 * NATIVE_W, 2 * NATIVE_H, Some(1)));
-    // 3. Into a fight, two wishes still coming: smoke over their heads.
     let fight = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
     run.enter_for_test(fight);
     let fire = BTreeMap::from([
@@ -103,7 +93,6 @@ fn write_wish_altar_shots() {
         (3, Input { aim_y: -1, fire: true, ..Default::default() }),
         (4, Input { aim_x: 1, aim_y: 1, fire: true, ..Default::default() }),
     ]);
-    // The party fights from the middle of the room.
     let (mx, my) = (run.room().width() / 2.0, run.room().height() * 0.62);
     for (i, hero) in run.players.values_mut().enumerate() {
         hero.x = mx + (i as f32 - 1.5) * 2.5 * TILE_UNITS;
@@ -117,7 +106,6 @@ fn write_wish_altar_shots() {
         run.step(&fire);
     }
     save("3-fighting-with-wishes-in-flight", &super::super::frame_for(&run, 2 * NATIVE_W, 2 * NATIVE_H, Some(1)));
-    // 4. Ada's lands mid-fight.
     let wish = crate::rules::phrasebook::get("ricochet").unwrap();
     let name = run.grant(1, &wish).unwrap();
     run.lamp_landed(1, "my arrows turn into fireballs", &name);
@@ -129,7 +117,6 @@ fn write_wish_altar_shots() {
         run.step(&fire);
     }
     save("4-grant-lands-mid-fight", &super::super::frame_for(&run, 2 * NATIVE_W, 2 * NATIVE_H, Some(1)));
-    // 5. Back at a lamp the moment a grant lands: the flare.
     let mut run = party(2);
     let (ax, ay) = run.wish_altar().unwrap();
     let ada = run.players.get_mut(&1).unwrap();
@@ -142,9 +129,6 @@ fn write_wish_altar_shots() {
     save("5-lamp-flare-at-a-grant", &super::super::frame_for(&run, 2 * NATIVE_W, 2 * NATIVE_H, Some(1)));
 }
 
-/// `ANGEL_WISH_SNAPSHOT=<file> cargo test -p angel-delve write_wish_altar_snapshot -- --ignored`:
-/// a fresh run's first room with the first knight at the lamp holding three
-/// wishes, for the development host's `--snapshot` (browser proof shots).
 #[test]
 #[ignore]
 fn write_wish_altar_snapshot() {
@@ -163,7 +147,6 @@ fn write_wish_altar_snapshot() {
     hero.y = ay + 3.0;
     hero.wishes = 3;
     hero.invulnerable = 0;
-    // Sturdy enough to stand through a proof against the room's archers.
     hero.max_hp = 900;
     hero.hp = 900;
     std::fs::write(path, serde_json::to_vec(&run).unwrap()).unwrap();

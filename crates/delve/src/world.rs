@@ -21,7 +21,6 @@ pub mod wishes;
 pub mod waystations;
 
 pub use castles::castles;
-// The works as the renderer draws them; only the renderer and world3d read it.
 #[cfg(feature = "renderer")]
 pub mod hillside;
 pub mod works;

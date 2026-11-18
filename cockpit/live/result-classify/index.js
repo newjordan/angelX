@@ -1,6 +1,3 @@
-// Thin adapter for the result-classify leg. The host reduces a tool result or a
-// provider reply to the flags and the exit code below and checks whatever comes
-// back; result-classify.bend owns the combination. No scanning lives here.
 const leg = require('./result-classify.compiled')
 
 const bool = (input, key) => {

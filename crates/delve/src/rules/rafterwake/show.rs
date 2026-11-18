@@ -8,49 +8,33 @@ use crate::rules::MAX_PLAYERS;
 use crate::rules::juice::Weight;
 use serde::{Deserialize, Serialize};
 
-/// Ticks a mark stays on the books for its effects.
 pub const MARK_LIFE: u32 = 44;
-/// Ticks a call stays up.
 pub const CALL_LIFE: u32 = 72;
-/// Calls of one kind from one knight wait this long.
 pub const CALL_WAIT: u32 = 90;
 const MOST_MARKS: usize = 16;
 const MOST_CALLS: usize = 4;
 
-/// What happened.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Kind {
-    /// Boots left a plank or a rung.
     Hop,
-    /// Boots came down; `hard` after a fall of more than a deck and a half.
     Land { hard: bool },
-    /// A hand took a rung.
     Catch,
-    /// The knight's best deck rose to `deck`.
     Top { deck: u8 },
-    /// The knight went down: `cause` 0 off the scaffold, 1 the keeper, 2 a brick.
     Fall { cause: u8 },
-    /// The knight came back on its deck.
     Rise,
-    /// The keeper took a hit; `left` is what it has left (0 when it is felled).
     Strike { left: u8 },
-    /// The keeper's attack came down: a sweep or a drop.
     Slam { sweep: bool },
-    /// A brick burst on the planks.
     Brick,
-    /// The landing chain reached a round number.
     Chain { n: u16 },
 }
 
 impl Kind {
-    /// Ticks a mark of this kind stays on the books.
     pub fn life(self) -> u32 {
         match self {
             Kind::Hop | Kind::Catch | Kind::Land { .. } | Kind::Chain { .. } => 26,
             _ => MARK_LIFE,
         }
     }
-    /// How a mark weighs, for the kit's shake, freeze and flash.
     pub fn weight(self) -> Weight {
         match self {
             Kind::Strike { left: 0 } => Weight::Finale,
@@ -63,25 +47,21 @@ impl Kind {
     }
 }
 
-/// A thing that happened, where and when (tower pixels, the feet).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Mark {
     pub kind: Kind,
     pub x: i32,
     pub y: i32,
-    /// The way the knight faced: 1 right, -1 left.
     pub dir: i8,
     pub born: u32,
 }
 
 impl Mark {
-    /// Ticks since it happened at `now`.
     pub fn age(&self, now: u32) -> u32 {
         now.saturating_sub(self.born)
     }
 }
 
-/// One tower's marks.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Show {
     pub marks: Vec<Mark>,
@@ -97,7 +77,6 @@ impl Show {
                 (-64..=320).contains(&m.x) && (-128..=700).contains(&m.y) && [-1, 1].contains(&m.dir)
             })
     }
-    /// Let go what is old at `now`.
     pub fn tick(&mut self, now: u32) {
         self.marks.retain(|m| m.age(now) < m.kind.life());
     }
@@ -113,33 +92,24 @@ impl Show {
             born: now,
         });
     }
-    /// The newest mark that `pick` takes.
     pub fn latest<T>(&self, pick: impl Fn(&Mark) -> Option<T>) -> Option<T> {
         self.marks.iter().rev().find_map(pick)
     }
-    /// The heaviest weight of the marks born at `now`.
     pub fn heaviest(&self, now: u32) -> Option<Weight> {
         self.marks.iter().filter(|m| m.born == now).map(|m| m.kind.weight()).max()
     }
 }
 
-/// What the whole table hears.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Cry {
-    /// A knight took the lead.
     Lead,
-    /// A knight was first to the keeper's deck.
     Keeper,
-    /// A knight brought the keeper down.
     Slain,
-    /// The crew bell rang for the `n`th time.
     Bell(u8),
-    /// A knight went down.
     Fell,
 }
 
 impl Cry {
-    /// How loud: the call with the higher rank stays on top.
     pub fn rank(self) -> u8 {
         match self {
             Cry::Slain => 9,
@@ -164,18 +134,13 @@ impl Call {
     }
 }
 
-/// The table's calls and what they were judged against.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Calls {
     pub list: Vec<Call>,
-    /// Who is ahead now, if one knight is alone in front (and has climbed).
     pub leader: Option<u32>,
-    /// The first knight on the keeper's deck, and the first to bring it down.
     pub first_keeper: Option<u32>,
     pub first_slain: Option<u32>,
-    /// The tick of the last lead call.
     pub lead_at: Option<u32>,
-    /// The last tick each knight's fall was called.
     pub fells: Vec<(u32, u32)>,
 }
 
@@ -203,7 +168,6 @@ impl Calls {
         }
         self.list.push(Call { cry, who, born: now });
     }
-    /// A fall of `id` at `now`, called if it has been a while since the last.
     pub fn fell(&mut self, id: u32, now: u32) {
         let due = match self.fells.iter_mut().find(|(who, _)| *who == id) {
             Some(at) => {
@@ -222,8 +186,6 @@ impl Calls {
             self.call(Cry::Fell, id, now);
         }
     }
-    /// The standings after a tick, `(id, score)`: a knight alone ahead who was not before has
-    /// taken the lead, if the margin is a deck's worth and the last call has settled.
     pub fn standings(&mut self, now: u32, points: &[(u32, u32)]) {
         let mut sorted = points.to_vec();
         sorted.sort_by_key(|&(id, p)| (std::cmp::Reverse(p), id));

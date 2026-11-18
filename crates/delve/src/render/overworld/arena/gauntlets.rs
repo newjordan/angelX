@@ -19,24 +19,16 @@ use crate::rules::gauntlets::{
 use crate::rules::{Run, TILE_UNITS, Tile};
 use std::f32::consts::TAU;
 
-/// Pixels a tile.
 const T: i32 = 16;
-/// How high over a bridge along the screen its axes' beam runs, in pixels.
 const GANTRY: i32 = 58;
-/// A lantern's light, and a danger's.
 const LANTERN: Rgb = [196, 128, 52];
 const HOT: Rgb = [210, 82, 30];
-/// How long a pendulum's arm is, in units, and how high its pivot hangs.
 const ARM: f32 = 4.2;
 
-/// The baked floor under the room, to light: the dungeon kit's still
-/// picture, where it draws this room.
 fn floor_of(run: &Run) -> Option<std::sync::Arc<dungeon_art::Scene>> {
     dungeon_art::supported(run).then(|| dungeon_art::scene(run))
 }
 
-/// Warm light on the black: the stone shows where it falls, the gorge
-/// stays dark. `power` is how strong it is at its middle.
 fn pool(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, (cx, cy): (i32, i32), radius: i32, warm: Rgb, power: f32) {
     if radius <= 0 || power <= 0.0 {
         return;
@@ -55,7 +47,6 @@ fn pool(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, (cx, cy): (
             }
             let a = (1.0 - d2 / r2).powi(2) * power;
             let Some(under) = cv.get(x, y).or_else(|| floor.and_then(|f| f.base.get(x, y))) else {
-                // No kit picture under it: a sparse warm dither stands in.
                 if a > bayer(x, y) * 1.6 {
                     cv.set(x, y, warm.map(|v| (v as f32 * 0.22 * a.min(1.0)) as u8));
                 }
@@ -67,12 +58,10 @@ fn pool(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, (cx, cy): (
     }
 }
 
-/// A spike plate lies on tile `(c, r)`: its own drawing stays as it is.
 fn plated(run: &Run, c: i32, r: i32) -> bool {
     run.traps.iter().any(|t| matches!(*t, crate::rules::Trap::Spikes { col, row, .. } if (col..col + 2).contains(&c) && (row..row + 2).contains(&r)))
 }
 
-/// Darken what is under a soft ellipse: a shadow cast down from above.
 fn shade(cv: &mut Img, floor: Option<&dungeon_art::Scene>, (cx, cy): (i32, i32), rx: i32, ry: i32, depth: f32) {
     for y in cy - ry..=cy + ry {
         for x in cx - rx..=cx + rx {
@@ -89,8 +78,6 @@ fn shade(cv: &mut Img, floor: Option<&dungeon_art::Scene>, (cx, cy): (i32, i32),
     }
 }
 
-/// Warm dither: `amount` (0 to 1) of the pixels of a rectangle glow, the
-/// hottest in its middle.
 fn ember_rect(cv: &mut Img, x0: i32, y0: i32, w: i32, h: i32, amount: f32, tick: u32) {
     for y in y0..y0 + h {
         for x in x0..x0 + w {
@@ -109,8 +96,6 @@ fn ember_rect(cv: &mut Img, x0: i32, y0: i32, w: i32, h: i32, amount: f32, tick:
     }
 }
 
-// ─── the gorge and the bridge ────────────────────────────────────────────────
-
 fn span(g: &Gauntlet) -> Option<(f32, f32, f32, bool)> {
     match *g {
         Gauntlet::Bridge { from, to, line, upright } => Some((from, to, line, upright)),
@@ -118,8 +103,6 @@ fn span(g: &Gauntlet) -> Option<(f32, f32, f32, bool)> {
     }
 }
 
-/// The gorge: black falling away below a lit lip, a cliff face under each
-/// near edge, the bridge's timbers where it spans, a mote of mist below.
 fn gorge(cv: &mut Img, run: &Run, from: f32, to: f32, line: f32, upright: bool) {
     let room = run.room();
     let t = run.tick as u32;
@@ -136,7 +119,6 @@ fn gorge(cv: &mut Img, run: &Run, from: f32, to: f32, line: f32, upright: bool) 
                 continue;
             }
             let (x0, y0) = (c * T, r * T);
-            // What stands at each side: firm floor, the bridge, more gorge.
             let north = !pit(c, r - 1) && room.tile(c, r - 1) != Tile::Wall;
             let north_bridge = bridge(c, r - 1);
             let south = !pit(c, r + 1) && room.tile(c, r + 1) != Tile::Wall;
@@ -147,14 +129,11 @@ fn gorge(cv: &mut Img, run: &Run, from: f32, to: f32, line: f32, upright: bool) 
             for yy in 0..T {
                 for xx in 0..T {
                     let (x, y) = (x0 + xx, y0 + yy);
-                    // The void: near black, a breath of cold far down.
                     let deep = hash(x / 2, y / 2, 17) % 97 == 0;
                     let mut c3: Rgb = if deep { [9, 10, 16] } else { [2, 2, 4] };
                     if north_bridge && yy < 4 {
-                        // The bridge's own timber, its stringer seen from the side.
                         c3 = if yy == 0 { [74, 44, 22] } else if yy < 3 { [40, 22, 12] } else { [18, 10, 6] };
                     } else if north && yy < 7 {
-                        // The cliff under the near edge, darkening as it falls.
                         let k = 1.0 - yy as f32 / 7.0;
                         let grain = (hash(x, y / 2, 5) % 3) as f32;
                         c3 = if yy == 0 { [92, 90, 82] } else { [((26.0 + grain * 3.0) * k) as u8 + 2, ((24.0 + grain * 3.0) * k) as u8 + 2, ((24.0 + grain * 2.0) * k) as u8 + 4] };
@@ -165,13 +144,11 @@ fn gorge(cv: &mut Img, run: &Run, from: f32, to: f32, line: f32, upright: bool) 
                         c3 = [44, 44, 40];
                     }
                     if south && yy == T - 1 {
-                        // The far lip, lit from above.
                         c3 = [60, 60, 54];
                     }
                     cv.set(x, y, c3);
                 }
             }
-            // A drifting mote of mist, now and then.
             let m = hash(c, r, 3);
             if m % 5 == 0 {
                 let drift = ((t / 7 + m) % (T as u32)) as i32;
@@ -181,7 +158,6 @@ fn gorge(cv: &mut Img, run: &Run, from: f32, to: f32, line: f32, upright: bool) 
     }
 }
 
-/// The planks across the bridge, a rope rail each side on its posts.
 fn planks(cv: &mut Img, run: &Run, from: f32, to: f32, line: f32, upright: bool) {
     let (a0, a1) = ((from * UNIT) as i32, (to * UNIT) as i32);
     let mid = (line * UNIT) as i32;
@@ -190,14 +166,12 @@ fn planks(cv: &mut Img, run: &Run, from: f32, to: f32, line: f32, upright: bool)
     for along in a0..a1 {
         let plank = along.div_euclid(4);
         let gap = along.rem_euclid(4) == 3;
-        // Old timber in the dark: the lanterns show its grain.
         let wood = match hash(plank, 7, 21) % 4 {
             0 => [50, 29, 13],
             1 => [58, 34, 16],
             2 => [44, 26, 12],
             _ => [62, 38, 18],
         };
-        // Some planks sit a little proud or sag; a few are missing a corner.
         for k in -half..half {
             let (x, y) = if upright { (mid + k, along) } else { (along, mid + k) };
             let edge = k == -half || k == half - 1;
@@ -214,7 +188,6 @@ fn planks(cv: &mut Img, run: &Run, from: f32, to: f32, line: f32, upright: bool)
             cv.set(x, y, c3);
         }
     }
-    // The rope rails, and a post every two tiles.
     for side in [-1, 1] {
         let rail = mid + side * (half - 1);
         for along in a0..a1 {
@@ -235,7 +208,6 @@ fn planks(cv: &mut Img, run: &Run, from: f32, to: f32, line: f32, upright: bool)
     }
 }
 
-/// An iron lantern on a post, burning.
 fn lantern(cv: &mut Img, (x, y): (i32, i32), tick: u32, seed: i32) {
     for h in 0..9 {
         cv.set(x, y - h, [30, 22, 16]);
@@ -253,7 +225,6 @@ fn lantern(cv: &mut Img, (x, y): (i32, i32), tick: u32, seed: i32) {
     }
 }
 
-/// Where a bridge's lanterns stand: on the landings, at its corners.
 fn lanterns(from: f32, to: f32, line: f32, upright: bool) -> [(f32, f32); 2] {
     let side = BRIDGE_HALF + 0.5;
     if upright {
@@ -263,9 +234,6 @@ fn lanterns(from: f32, to: f32, line: f32, upright: bool) -> [(f32, f32); 2] {
     }
 }
 
-// ─── the axe ─────────────────────────────────────────────────────────────────
-
-/// Where the pendulum hangs from and where its blade is, on screen.
 fn pendulum(g: &Gauntlet, tick: u64) -> ((i32, i32), (i32, i32), f32) {
     let Gauntlet::Axe { x, y, upright, .. } = *g else { return ((0, 0), (0, 0), 0.0) };
     let off = AXE_REACH * g.swing(tick);
@@ -274,20 +242,14 @@ fn pendulum(g: &Gauntlet, tick: u64) -> ((i32, i32), (i32, i32), f32) {
     let (gx, gy) = at(bx, by);
     let (px, py) = at(x, y);
     if upright {
-        // Across the screen: a true arc, rising at either end.
         let lift = ((height + 1.0) * UNIT) as i32;
         ((px, py - ((ARM + 1.0) * UNIT) as i32), (gx, gy - lift), height)
     } else {
-        // Toward and away from the eye: it rises as it swings, and its
-        // shadow tells where it is.
         let lift = ((height * 0.6 + 1.0) * UNIT) as i32;
         ((px, py - GANTRY), (gx, gy - lift), height)
     }
 }
 
-/// What the axes hang from. Over a bridge across the screen: one beam the
-/// length of the gorge, high over it, on a post at each end. Over a bridge
-/// up the screen: a gallows over the bridge at each axe.
 fn gantry(cv: &mut Img, run: &Run) {
     let beam = |cv: &mut Img, x0: i32, x1: i32, y: i32| {
         for x in x0..=x1 {
@@ -303,7 +265,6 @@ fn gantry(cv: &mut Img, run: &Run) {
             cv.put(x + 1, y, 'I');
             cv.put(x + 2, y, 'n');
         }
-        // An iron band near its foot.
         cv.put(x, y1 - 3, 'g');
         cv.put(x + 1, y1 - 3, 'X');
         cv.put(x + 2, y1 - 3, 'X');
@@ -331,15 +292,12 @@ fn gantry(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The shadow under a blade, and the warm strip across the bridge where it
-/// is about to come down.
 fn axe_floor(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, g: &Gauntlet) {
     let Gauntlet::Axe { x, y, upright, .. } = *g else { return };
     let tick = run.tick;
     let t = tick as u32;
     let half = (BRIDGE_HALF * UNIT) as i32;
     let (px, py) = at(x, y);
-    // The track across the bridge: warm as the blade comes, hot as it cuts.
     let heat = if g.low(tick) { 1.0 } else { g.warning(tick).unwrap_or(0.0) * 0.8 };
     if heat > 0.0 {
         let (x0, y0, w, h) = if upright { (px - half, py - 2, 2 * half, 5) } else { (px - 2, py - half, 5, 2 * half) };
@@ -355,25 +313,20 @@ fn axe_floor(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, g: &Ga
     shade(cv, floor, (gx, gy), (9.0 * size) as i32 + 2, (3.0 * size) as i32 + 1, 0.75 * size);
 }
 
-/// The pendulum: its iron mount, the haft, and the crescent blade, a warm
-/// glint along its edge as it comes down.
 fn axe_air(cv: &mut Img, run: &Run, g: &Gauntlet) {
     let tick = run.tick;
     let ((px, py), (bx, by), _) = pendulum(g, tick);
     let low = g.low(tick);
     let warn = g.warning(tick).unwrap_or(0.0);
-    // The blade's afterimage while it cuts: two faint arcs behind it.
     if low {
         for back in [2u64, 1] {
             let (_, (ox, oy), _) = pendulum(g, tick.saturating_sub(back));
             crescent(cv, (px, py), (ox, oy), if back == 2 { Some('8') } else { Some('7') }, false);
         }
     }
-    // The mount: a dark iron bracket, a ring through it.
     for (dx, dy, ch) in [(-3, -1, 'X'), (-2, -1, 'g'), (-1, -1, 'g'), (0, -1, 'g'), (1, -1, 'g'), (2, -1, 'g'), (3, -1, 'X'), (-2, 0, 'K'), (-1, 0, 'X'), (0, 0, 'j'), (1, 0, 'X'), (2, 0, 'K'), (-1, 1, 'K'), (0, 1, 'G'), (1, 1, 'K')] {
         cv.put(px + dx, py + dy, ch);
     }
-    // The haft, two pixels, lit on one side.
     let (dx, dy) = ((bx - px) as f32, (by - py) as f32);
     let len = dx.hypot(dy).max(1.0);
     let (nx, ny) = (-dy / len, dx / len);
@@ -382,8 +335,6 @@ fn axe_air(cv: &mut Img, run: &Run, g: &Gauntlet) {
     crescent(cv, (px, py), (bx, by), None, low || warn > 0.5);
 }
 
-/// A crescent blade at `blade`, hung from `pivot`, its edge away from it:
-/// solid steel, or only its edge in `ghost` ink.
 fn crescent(cv: &mut Img, pivot: (i32, i32), blade: (i32, i32), ghost: Option<char>, glint: bool) {
     let (dx, dy) = ((blade.0 - pivot.0) as f32, (blade.1 - pivot.1) as f32);
     let len = dx.hypot(dy).max(1.0);
@@ -398,7 +349,6 @@ fn crescent(cv: &mut Img, pivot: (i32, i32), blade: (i32, i32), ghost: Option<ch
         for x in blade.0 - 13..=blade.0 + 13 {
             let (fx, fy) = (x as f32, y as f32);
             if !inside(fx, fy) {
-                // A dark rim round the steel, so it stands off any floor.
                 if ghost.is_none() && [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)].iter().any(|(ox, oy)| inside(fx + ox, fy + oy)) {
                     cv.put(x, y, 'k');
                 }
@@ -428,23 +378,17 @@ fn crescent(cv: &mut Img, pivot: (i32, i32), blade: (i32, i32), ghost: Option<ch
         }
     }
     if ghost.is_none() {
-        // The socket the haft goes into.
         cv.put(blade.0 - (ux * 2.0) as i32, blade.1 - (uy * 2.0) as i32, 'g');
         cv.put(blade.0 - (ux * 3.0) as i32, blade.1 - (uy * 3.0) as i32, 'X');
     }
 }
 
-// ─── the hammer ──────────────────────────────────────────────────────────────
-
-/// The plate it lands on, its shadow growing, and the glow under it before
-/// it falls; cracks and dust after.
 fn hammer_floor(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, g: &Gauntlet) {
     let Gauntlet::Hammer { x, y, .. } = *g else { return };
     let tick = run.tick;
     let t = tick as u32;
     let (x0, y0) = at(x - HAMMER_HALF, y - HAMMER_HALF);
     let w = (2.0 * HAMMER_HALF * UNIT) as i32;
-    // The strike plate: dark iron, its rim and its rivets.
     for yy in 0..w {
         for xx in 0..w {
             let rim = xx == 0 || yy == 0 || xx == w - 1 || yy == w - 1;
@@ -456,8 +400,6 @@ fn hammer_floor(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, g: 
     for (rx, ry) in [(4, 4), (w - 5, 4), (4, w - 5), (w - 5, w - 5)] {
         cv.set(x0 + rx, y0 + ry, [70, 68, 62]);
     }
-    // Its edge is marked hot, always: this square of floor is not to be
-    // stood on lightly.
     for k in (1..w - 1).step_by(4) {
         for (ex, ey) in [(k, 1), (k, w - 2), (1, k), (w - 2, k)] {
             cv.put(x0 + ex, y0 + ey, '7');
@@ -470,7 +412,6 @@ fn hammer_floor(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, g: 
     }
     let since = g.beat(tick).wrapping_sub(HAMMER_SLAM);
     if since < 10 {
-        // Cracks out from under it, and dust kicked out of its sides.
         for k in 0..8 {
             let a = k as f32 / 8.0 * TAU + 0.3;
             let reach = 3 + (hash(k, x0, 3) % 5) as i32;
@@ -487,9 +428,6 @@ fn hammer_floor(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, g: 
     }
 }
 
-/// The stamper itself: an iron block on chains, high in the dark (a ghost
-/// of itself) until it comes down; shuddering and hot at the seam as it
-/// warns.
 fn hammer_air(cv: &mut Img, run: &Run, g: &Gauntlet) {
     let Gauntlet::Hammer { x, y, .. } = *g else { return };
     let tick = run.tick;
@@ -503,14 +441,12 @@ fn hammer_air(cv: &mut Img, run: &Run, g: &Gauntlet) {
     let bottom = y0 + w - lift;
     let (front, top) = (10, 18);
     let left = x0 + jitter;
-    // The chains up into the dark.
     for cx in [left + 6, left + w - 7] {
         for cy in (0..bottom - front - top).rev().take(30) {
             cv.put(cx, cy, if cy.rem_euclid(4) < 2 { 'g' } else { 'X' });
         }
     }
     if drop <= 0.0 && warn.is_none() {
-        // Up in the dark: only the iron yoke it hangs from shows.
         let y = bottom - front - top;
         for xx in 3..w - 3 {
             cv.put(left + xx, y, 'X');
@@ -527,7 +463,6 @@ fn hammer_air(cv: &mut Img, run: &Run, g: &Gauntlet) {
                 continue;
             }
             let ink = if yy < top {
-                // The top face: worn iron, lighter at its near edge.
                 if xx == 0 || xx == w - 1 || yy == 0 {
                     'X'
                 } else if yy == top - 1 {
@@ -542,7 +477,6 @@ fn hammer_air(cv: &mut Img, run: &Run, g: &Gauntlet) {
                     'g'
                 }
             } else {
-                // The front face, and its hot seam as it warns.
                 let seam = yy == top + front / 2;
                 if xx == 0 || xx == w - 1 || yy == front + top - 1 {
                     'k'
@@ -560,8 +494,6 @@ fn hammer_air(cv: &mut Img, run: &Run, g: &Gauntlet) {
     }
 }
 
-// ─── the boulder ─────────────────────────────────────────────────────────────
-
 fn boulder_floor(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, g: &Gauntlet) {
     let Gauntlet::Boulder { from, to, y, .. } = *g else { return };
     let tick = run.tick;
@@ -572,7 +504,6 @@ fn boulder_floor(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, g:
     let cy = (y * UNIT) as i32;
     let r = (BOULDER_RADIUS * UNIT) as i32;
     let rumble = g.warning(tick);
-    // The worn lane: two ruts, polished where the light finds them.
     for x in x0..=x1 {
         for side in [-1, 1] {
             let ry = cy + side * (r - 2);
@@ -583,8 +514,6 @@ fn boulder_floor(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, g:
             }
         }
     }
-    // Chevrons down its length, pointing the way it rolls: dim embers at
-    // rest, lit one after another from the mouth as it rumbles.
     let lit_to = rumble.map_or(-1.0, |w| w * 1.15);
     let count = ((x1 - x0) / 16).max(1);
     for k in 0..count {
@@ -600,8 +529,6 @@ fn boulder_floor(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, g:
             }
         }
     }
-    // The mouth in the wall it comes out of: a dark arch, its keystones
-    // pale, the boulder's face just showing inside; hot as it rumbles.
     let wx = if west { 0 } else { (run.room().cols as i32 - 1) * T };
     let (top, bot) = (cy - r - 4, cy + r + 1);
     for yy in top..=bot {
@@ -626,7 +553,6 @@ fn boulder_floor(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, g:
         }
     }
     if rumble.is_some() {
-        // Grit trickling from the lintel.
         for p in 0..4u32 {
             let fall = ((t + p * 5) % 10) as i32;
             let x = wx + if west { T + 1 + p as i32 } else { -2 - p as i32 };
@@ -636,7 +562,6 @@ fn boulder_floor(cv: &mut Img, run: &Run, floor: Option<&dungeon_art::Scene>, g:
     if let Some((bx, by)) = g.boulder(tick) {
         let (sx, sy) = at(bx, by);
         shade(cv, floor, (sx, sy + r - 3), r + 2, 4, 0.85);
-        // Grit kicked up behind it.
         let back = if west { -1 } else { 1 };
         for k in 0..12 {
             let d = (hash(k, t as i32, 6) % 20) as i32;
@@ -660,7 +585,6 @@ fn boulder_air(cv: &mut Img, run: &Run, g: &Gauntlet) {
         for x in -ri..=ri {
             let (fx, fy) = (x as f32 + 0.5, y as f32 + 0.5);
             let d = fx.hypot(fy);
-            // A rough stone, not a ball: its outline is knobbled.
             let ang = fy.atan2(fx);
             let knob = ((hash(((ang + 3.2) * 2.2) as i32, 1, 77) % 3) as f32 - 1.0) * 0.8;
             let edge = r + knob;
@@ -696,7 +620,6 @@ fn boulder_air(cv: &mut Img, run: &Run, g: &Gauntlet) {
             cv.put(cx + x, cy + y - 3, ink);
         }
     }
-    // Sparks where it grinds the floor, thrown back from its foot.
     let back = if from < to { -1 } else { 1 };
     for k in 0..8 {
         let n = hash(k, t as i32, 13);
@@ -706,8 +629,6 @@ fn boulder_air(cv: &mut Img, run: &Run, g: &Gauntlet) {
     }
 }
 
-// ─── the saw ─────────────────────────────────────────────────────────────────
-
 fn saw_floor(cv: &mut Img, run: &Run, g: &Gauntlet) {
     let Gauntlet::Saw { a, b, .. } = *g else { return };
     let tick = run.tick;
@@ -715,8 +636,6 @@ fn saw_floor(cv: &mut Img, run: &Run, g: &Gauntlet) {
     let (ax, ay) = at(a.0, a.1);
     let (bx, by) = at(b.0, b.1);
     let upright = (ax - bx).abs() < (ay - by).abs();
-    // The slot: a black groove between two iron lips, a dull ember down
-    // its middle, an iron cap at each end.
     let steps = (ax - bx).abs().max((ay - by).abs()).max(1);
     for k in -5..=steps + 5 {
         let s = k as f32 / steps as f32;
@@ -745,7 +664,6 @@ fn saw_floor(cv: &mut Img, run: &Run, g: &Gauntlet) {
     }
     let ((sx, sy), rest) = g.saw_at(tick);
     let (cx, cy) = at(sx, sy);
-    // The slot ahead of it glows where it is about to run.
     let ((nx, ny), _) = g.saw_at(tick + 10);
     let (tx, ty) = at(nx, ny);
     let heat = if rest.is_some() { 0.45 + 0.5 * rest.unwrap_or(0.0) } else { 0.85 };
@@ -772,8 +690,6 @@ fn saw_air(cv: &mut Img, run: &Run, g: &Gauntlet) {
     let r = SAW_RADIUS * UNIT + 1.0;
     let spin = t as f32 * 0.7;
     let ri = r as i32 + 2;
-    // The whirling disc, seen from above: steel teeth round a blurred
-    // face, a dark hub.
     for y in -ri..=ri {
         for x in -ri..=ri {
             let (fx, fy) = (x as f32 + 0.5, (y as f32 + 0.5) * 1.15);
@@ -799,8 +715,6 @@ fn saw_air(cv: &mut Img, run: &Run, g: &Gauntlet) {
             cv.put(cx + x, cy + y, ink);
         }
     }
-    // Sparks thrown off where it bites the slot: a fan of them, a burst
-    // while it revs.
     let ((nx, ny), _) = g.saw_at(tick + 1);
     let (dx, dy) = (nx - sx, ny - sy);
     let moving = dx.abs() + dy.abs() > 1.0e-4;
@@ -820,10 +734,6 @@ fn saw_air(cv: &mut Img, run: &Run, g: &Gauntlet) {
     }
 }
 
-// ─── layers ──────────────────────────────────────────────────────────────────
-
-/// The warm lights the gauntlets carry onto the floor, in room pixels:
-/// where, how far, how strong.
 pub(super) fn lights(run: &Run) -> Vec<(i32, i32, i32, f32, Rgb)> {
     let tick = run.tick;
     let t = tick as u32;
@@ -873,8 +783,6 @@ pub(super) fn lights(run: &Run) -> Vec<(i32, i32, i32, f32, Rgb)> {
     out
 }
 
-/// Under the figures: the gorge and the bridge, lanterns' and dangers'
-/// light, shadows, plates, lanes, slots and every warning.
 pub(super) fn under(cv: &mut Img, run: &Run) {
     if run.works.gauntlets.is_empty() {
         return;
@@ -894,7 +802,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
         match g {
             Gauntlet::Bridge { from, to, line, upright } => {
                 planks(cv, run, *from, *to, *line, *upright);
-                // Light the planks themselves from the lanterns.
                 for (x, y) in lanterns(*from, *to, *line, *upright) {
                     pool(cv, run, floor, at(x, y), 40, LANTERN, 0.35);
                 }
@@ -915,8 +822,6 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
     }
 }
 
-/// Over the figures: the axes, the hammers, the boulder and the saws, the
-/// nearer ones over the farther.
 pub(super) fn over(cv: &mut Img, run: &Run) {
     let mut order: Vec<&Gauntlet> = run.works.gauntlets.iter().filter(|g| !matches!(g, Gauntlet::Bridge { .. })).collect();
     order.sort_by(|a, b| a.at().1.total_cmp(&b.at().1));

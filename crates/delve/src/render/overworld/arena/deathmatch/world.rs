@@ -7,7 +7,6 @@ use crate::render::overworld::ink::{Img, bayer, hash};
 use crate::render::world3d::{math::v3, raster::{self, View3}};
 use crate::rules::deathmatch as dm;
 
-/// Where the braziers stand: open flags beside the pillars.
 pub(super) const BRAZIERS: [(f32, f32); 4] = [(7., 13.), (41., 13.), (7., 23.), (41., 23.)];
 
 const FLAMES: [[&str; 7]; 3] = [
@@ -23,15 +22,12 @@ fn brazier(ticks: u32, k: usize) -> Img {
     Img::from_rows(&rows)
 }
 
-/// The braziers: a halo dithered round each flame, embers climbing off it,
-/// then the brazier itself, standing in the stone's depth like any figure.
 pub(super) fn braziers(small: &mut Img, depth: &[f32], view: &View3, ticks: u32) {
     let (w, h) = (small.w, small.h);
     for (k, &(x, y)) in BRAZIERS.iter().enumerate() {
         let Some((fx, fy, fd)) = raster::project_point(view, w as usize, h as usize, v3(x, y, 0.)) else { continue };
         let tall = raster::dots_tall(view, w as usize, h as usize, 1.0, fd);
         let flick = 0.8 + 0.2 * ((hash(k as i32, (ticks / 2) as i32, 7) & 0xff) as f32 / 255.0);
-        // The halo sits on the flame's heart, and only over what is behind it.
         let (cx, cy) = (fx, fy - tall * 1.25);
         let reach = tall * 1.15 * flick;
         for py in (cy - reach) as i32..=(cy + reach) as i32 {
@@ -50,7 +46,6 @@ pub(super) fn braziers(small: &mut Img, depth: &[f32], view: &View3, ticks: u32)
                 }
             }
         }
-        // Embers: a handful of motes climbing off the bowl, each on its own clock.
         for n in 0..5u32 {
             let life = 44 + (hash(k as i32, n as i32, 0xe1) & 15);
             let age = (ticks + n * 13 + k as u32 * 7) % life;
@@ -71,13 +66,10 @@ pub(super) fn braziers(small: &mut Img, depth: &[f32], view: &View3, ticks: u32)
     }
 }
 
-/// Where a pickup hangs: it bobs a hand's breadth and turns on its place.
 pub(super) fn bob(ticks: u32, k: usize) -> f32 {
     0.12 + 0.07 * ((ticks as f32 * 0.14) + k as f32 * 1.7).sin()
 }
 
-/// A pickup's sparkles: a twinkle that comes and goes beside it, drawn on
-/// the grey picture at its projected `(px, py)`.
 pub(super) fn sparkle(small: &mut Img, px: f32, py: f32, ticks: u32, k: usize) {
     let mut pen = Pen::new(small, 60);
     for n in 0..2u32 {
@@ -87,8 +79,6 @@ pub(super) fn sparkle(small: &mut Img, px: f32, py: f32, ticks: u32, k: usize) {
     }
 }
 
-/// How long ago pickup `k` was taken, if it was just now: a pop for the
-/// first dozen ticks, and a glint in the last few before it is back.
 pub(super) fn taken(s: &dm::Session, k: usize) -> Option<u32> {
     let wait = s.pickups[k];
     (wait > dm::PICKUP_REST.saturating_sub(14)).then(|| dm::PICKUP_REST - wait)

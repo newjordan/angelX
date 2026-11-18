@@ -11,7 +11,5 @@
 
 use super::*;
 
-/// How much round-free lingering in one room before he claws in.
 pub const FOLLOW: u32 = 8 * HZ;
-/// Compost time after he is felled.
 pub const RISE_AGAIN: u32 = 45 * HZ;

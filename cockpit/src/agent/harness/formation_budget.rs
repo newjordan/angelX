@@ -6,7 +6,6 @@ use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-/// Minimum share used for sizing; an allocation never denies admission.
 pub(crate) const SHARE_FLOOR: u64 = 1024;
 
 #[derive(Clone)]
@@ -17,7 +16,6 @@ struct State {
     start: Instant,
     reserved: u64,
     spent: u64,
-    /// Nodes/seats not yet admitted. Share math divides remaining by this count.
     unstarted: u64,
     exhaustion_reason: Option<&'static str>,
     calls: Vec<Value>,
@@ -35,7 +33,6 @@ thread_local! {
     static ROLE: RefCell<String> = RefCell::new("single".into());
 }
 
-/// A graph worker carries its absolute deadline across every provider attempt.
 pub(crate) struct RequestWallScope(Option<Instant>);
 impl RequestWallScope {
     pub(crate) fn enter(deadline: Instant) -> Self {
@@ -51,7 +48,6 @@ impl Drop for RequestWallScope {
     }
 }
 pub(crate) fn request_wall_remaining() -> Option<Duration> {
-    // Formation wall allocations are observations, not provider deadlines.
     REQUEST_WALL.with(|slot| {
         slot.borrow()
             .map(|deadline| deadline.saturating_duration_since(Instant::now()))
@@ -162,11 +158,9 @@ impl Budget {
             .tokens
             .map(|limit| limit.saturating_sub(state.spent.saturating_add(state.reserved)))
     }
-    /// Remaining graph nodes or hop seats that have not reserved yet.
     pub(crate) fn set_unstarted(&self, n: u64) {
         self.0.lock().unwrap_or_else(|e| e.into_inner()).unstarted = n.max(1);
     }
-    /// Output tokens this caller may take: min(provider cap, max(floor, remaining/unstarted)).
     pub(crate) fn share_output(&self, provider_cap: u64) -> Option<u64> {
         let state = self.0.lock().unwrap_or_else(|e| e.into_inner());
         let available = state
@@ -196,8 +190,6 @@ impl Budget {
         self.reserve_fitted(route, prompt, max_output, max_output)
     }
 
-    /// Preserve the caller's output intent across HTTP wire-cap fitting. A
-    /// dynamically reduced cap is not an operator's explicit small request.
     pub(crate) fn reserve_fitted(
         &self,
         route: &str,
@@ -211,8 +203,6 @@ impl Budget {
             .map(|limit| limit.saturating_sub(state.spent.saturating_add(state.reserved)));
         let want = prompt.saturating_add(max_output);
         let share = available.map(|available| SHARE_FLOOR.max(available / state.unstarted.max(1)));
-        // Preserve share sizing for large requests, but never shrink below the
-        // prompt plus a useful output floor. Explicit small wants are admitted.
         let amount = if state.unstarted > 1 || requested_output > SHARE_FLOOR {
             share.map_or(want, |share| {
                 want.min(share.max(prompt.saturating_add(max_output.min(SHARE_FLOOR))))
@@ -262,7 +252,6 @@ impl Budget {
             amount,
         })
     }
-    /// Close accounting at the owning turn boundary, including detached workers.
     fn finish(&self) {
         let pending = {
             let mut state = self.0.lock().unwrap_or_else(|e| e.into_inner());
@@ -294,9 +283,6 @@ impl Budget {
             "reservation_denial":state.reservation_denial,
             "charged":state.spent,
             "untracked_provider":state.untracked_provider,
-            // Accounting law: an attempt whose usage never arrived makes the TOTAL unknown (never a
-            // partial number presented as the whole). The reported subset and the count of
-            // unreported attempts travel beside it so reducers can show "known ≥ X (n unreported)".
             "spent":(!state.untracked_provider).then(|| state.calls.iter().try_fold(0_u64, |sum, call| sum.checked_add(call["spent"].as_u64()?))).flatten(),
             "paid_spent":(!state.untracked_provider).then(|| state.calls.iter().try_fold(0_u64, |sum, call| sum.checked_add(call["paid_spent"].as_u64()?))).flatten(),
             "paid_spent_reported":(!state.untracked_provider).then(|| {
@@ -324,8 +310,6 @@ impl Budget {
     }
 }
 
-// JSON integers cover ordinary allocations; retain exact decimal text at the
-// signed JSON boundary instead of wrapping a large negative remainder.
 fn remaining_value(state: &State) -> Value {
     state.tokens.map_or(Value::Null, |limit| {
         let remaining = i128::from(limit) - i128::from(state.spent) - i128::from(state.reserved);
@@ -333,7 +317,6 @@ fn remaining_value(state: &State) -> Value {
     })
 }
 
-// Opt-in numeric accounting only: never log prompts, credentials, or response bodies.
 fn trace_budget(event: &str, receipt: &Value) {
     if std::env::var("ANGEL_GRAPH_BUDGET_TRACE").as_deref() == Ok("1") {
         eprintln!(
@@ -383,8 +366,6 @@ impl Reservation {
             .flatten();
         let remaining_before = remaining_value(&state);
         state.reserved = state.reserved.saturating_sub(self.amount);
-        // Unobserved attempts may have been billed: retain the whole reservation
-        // as an estimate instead of claiming their usage was zero.
         let charge = actual.unwrap_or(self.amount);
         state.accounting_overflowed |= state.spent.checked_add(charge).is_none();
         state.spent = state.spent.saturating_add(charge);
@@ -414,8 +395,6 @@ impl Reservation {
         call["settled_reason"] = json!(reason);
         call["end_ms"] = json!(end_ms);
         call["spent"] = json!(actual);
-        // C06 paid input excludes cache reads. Cache writes remain paid input;
-        // generated output already includes reasoning under the usage contract.
         call["paid_spent"] = json!(actual.and_then(|_| {
             prompt
                 .sum

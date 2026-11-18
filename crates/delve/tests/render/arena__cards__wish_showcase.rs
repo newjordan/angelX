@@ -53,7 +53,6 @@ fn wish_showcase_export() {
         let h = r.players.get_mut(&1).unwrap();
         (h.x, h.y, h.aim_x, h.aim_y) = (12.0, 14.0, 1.0, 0.0);
         h.invulnerable = 100_000;
-        // Climb the ladder as far as the floor lets a knight.
         let mut granted = Vec::new();
         let mut refused = None;
         for _ in 0..wish.tiers.len() {
@@ -86,16 +85,12 @@ fn wish_showcase_export() {
                 ..Default::default()
             };
             r.step(&BTreeMap::from([(1, input)]));
-            // Targets, not a fight: the demons hold their ground, stay up
-            // and fire nothing, so the frame shows the wish alone.
             r.projectiles.retain(|p| !p.hostile);
             for (e, &(x, y)) in r.enemies.iter_mut().zip(&spots) {
                 (e.x, e.y) = (x, y);
                 e.hp = e.hp.max(1).max(e.max_hp / 2);
             }
         };
-        // After the grant's flourish has passed: two seconds in, then
-        // another second and a bit.
         for t in 0..60 {
             fight(&mut r, t);
         }

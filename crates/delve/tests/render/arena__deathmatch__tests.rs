@@ -4,7 +4,6 @@ fn scene() -> Run {
     for id in 2..=6 {
         r.join_seat(id, &format!("Knight {id}"));
     }
-    // The round seats everyone the town door's room holds; no tick (the leg) is needed to draw it.
     r.deathmatch = Some(dm::Session::new(&r.players, &r.book));
     let s = r.deathmatch.as_mut().unwrap();
     s.ticks = dm::TITLE + 60;
@@ -128,11 +127,6 @@ fn write_deathmatch_shots() {
     );
 }
 
-// --- the proof harness: a real scripted match -------------------------------
-// `cargo test -p angel-delve --lib --features bend-engine --release? ...`
-// drives the real `Run` (the Bend leg answers) with scripted seats, renders
-// chosen windows to PNG frames and writes `events.txt`. Ignored: it writes files.
-
 fn bot_inputs(r: &Run) -> std::collections::BTreeMap<u32, crate::rules::Input> {
     use crate::rules::Input;
     let Some(s) = r.deathmatch.as_ref() else {
@@ -177,7 +171,6 @@ fn bot_inputs(r: &Run) -> std::collections::BTreeMap<u32, crate::rules::Input> {
     out
 }
 
-/// The real leg: the shipped Bend generation answers `deathmatch-rules`.
 fn real_leg() {
     #[cfg(feature = "bend-engine")]
     crate::scripted::install_for_test("deathmatch-rules", angel_live::shipped::engine);
@@ -193,7 +186,6 @@ fn bot_match(seats: u32) -> Run {
     for (i, kit) in kits.iter().enumerate().take(seats as usize) {
         r.take_up(i as u32 + 1, kit);
     }
-    // A pot to play for: a tenth of each knight's gold goes in.
     for (id, h) in r.players.iter_mut() {
         h.name = format!("Knight {id}");
         h.carried.add(crate::realm::Spoil::Gold, 500);
@@ -202,12 +194,6 @@ fn bot_match(seats: u32) -> Run {
     r
 }
 
-/// Plays a real six-seat bot match through the Bend leg and writes what the
-/// focus seat sees, one PNG per transport tick (holds included), `events.txt`
-/// (kills, holds, calls by transport tick), and with `DM_MONTAGE=a-b` a 3x2
-/// sheet of every seat for that range of ticks. `DM_SCOUT=1` plays without
-/// drawing, to find the winner and the windows first. `DM_RANGE=a-b` limits
-/// the focus frames to that range of transport ticks.
 #[test]
 #[ignore = "drives a real match and writes PNG frames: set DELVE_DEATHMATCH_MATCH to the output directory"]
 fn write_deathmatch_match() {
@@ -281,8 +267,6 @@ fn write_deathmatch_match() {
     eprintln!("frames {frame}, montage {sheet_n}, median render {med:.2} ms, winner at {won_at:?}");
 }
 
-// --- the juice, drawn ----------------------------------------------------------------
-
 fn struck_scene() -> Run {
     use crate::rules::juice::{Blow, Weight};
     let mut r = scene();
@@ -307,7 +291,6 @@ fn blows_and_calls_change_what_each_seat_sees() {
     assert_ne!(a.content_hash(), calm, "the striker sees the blow");
     assert_ne!(a.content_hash(), b.content_hash());
     assert_ne!(b.content_hash(), c.content_hash(), "the struck seat's view differs from a bystander's");
-    // A bystander still sees the call banner; every frame is the screen's size.
     assert!([&a, &b, &c].iter().all(|im| (im.w, im.h) == (384, 224)));
 }
 #[test]
@@ -370,22 +353,17 @@ fn the_juice_state_rides_the_wire_and_validates() {
     assert!(s.valid());
     let back: dm::Session = serde_json::from_slice(&serde_json::to_vec(s).unwrap()).unwrap();
     assert_eq!(serde_json::to_vec(&back).unwrap(), serde_json::to_vec(s).unwrap());
-    // A snapshot from before the kit existed still loads, with a quiet book.
     let mut old: serde_json::Value = serde_json::to_value(scene().deathmatch.as_ref().unwrap()).unwrap();
     old.as_object_mut().unwrap().remove("show");
     let loaded: dm::Session = serde_json::from_value(old).unwrap();
     assert!(loaded.show.quiet());
 }
 
-/// Film only (Knights Wish film, 2026-11-04): the round a tick a frame from
-/// seat 1's eyes, everyone moving and firing.
-/// `KW_DM_FILM=<dir> cargo test kw_deathmatch_film -- --ignored`
 #[test]
 #[ignore = "film export"]
 fn kw_deathmatch_film() {
     let dir = &std::path::PathBuf::from(std::env::var_os("KW_DM_FILM").expect("set KW_DM_FILM"));
     std::fs::create_dir_all(dir).unwrap();
-    // The round's ticks are the Bend leg's: install it as the proof harness does.
     real_leg();
     let mut r = scene();
     r.deathmatch.as_mut().unwrap().ticks = dm::TITLE - 40;
@@ -400,7 +378,6 @@ fn kw_deathmatch_film() {
             p.3 -= 1;
             let mut i = crate::rules::Input { move_x: p.0, move_y: p.1, aim_x: p.2, fire: rnd() % 4 != 0, ..Default::default() };
             if id == 1 {
-                // seat 1 sweeps slowly right, then left, walking on, firing in bursts
                 i.move_x = 0; i.move_y = -1; i.aim_x = if (t / 70) % 2 == 0 { 1 } else { -1 }; i.fire = (t / 9) % 3 != 2;
             }
             inputs.insert(id, i);

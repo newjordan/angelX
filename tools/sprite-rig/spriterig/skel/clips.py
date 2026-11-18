@@ -1,10 +1,3 @@
-"""Clips in the shared skeleton: per frame, a local rotation per Mixamo bone plus
-the Hips translation. Sources:
-  * procedural: the 15 sprite-rig motions, lifted into 3D (sagittal-plane turns)
-  * BVH (Mixamo 'BVH' download, or any mocap BVH with Mixamo-ish names)
-  * glTF/GLB animation channels (node names matched to Mixamo names)
-  * FBX: not parsed here (no pure-python FBX reader worth trusting); see DESIGN.md.
-Imports are retargeted onto our rest pose, so a T-pose source drives an I-pose rig."""
 import glob, json, os, re, struct
 import numpy as np
 from . import skeleton as S
@@ -15,14 +8,13 @@ B = len(S.NAMES)
 
 class Clip:
     def __init__(self, name, rot, hips, fps=30, loop=True, source="procedural"):
-        self.name, self.rot, self.hips = name, rot, hips   # [T,B,3,3], [T,3] (m, delta from rest)
+        self.name, self.rot, self.hips = name, rot, hips
         self.fps, self.loop, self.source = fps, loop, source
 
     def __len__(self):
         return len(self.rot)
 
     def sample(self, t):
-        """t in seconds -> (local [B,3,3], hips [3]); nearest frame (cheap, stable for sprites)."""
         n = len(self)
         i = int(round(t * self.fps))
         i = i % n if self.loop else min(max(i, 0), n - 1)
@@ -39,17 +31,12 @@ class Clip:
         m = json.loads(str(z["meta"]))
         return Clip(m["name"], z["rot"].astype(float), z["hips"].astype(float), m["fps"], m["loop"], m["source"])
 
-
-# ------------------------------------------------------------------ procedural
-# 2D sprite-rig poses are sagittal: an angle in the side view. Lifted to 3D they are
-# turns about the character's +X (its left-right axis); signs line up because a
-# positive 2D angle swings a hanging limb backward and Rx(+a) swings -Y toward -Z.
 LIFT = {"torso": ["Spine", "Spine1"], "head": ["Head"],
         "upper_arm_r": ["RightArm"], "lower_arm_r": ["RightForeArm"],
         "upper_arm_l": ["LeftArm"], "lower_arm_l": ["LeftForeArm"],
         "upper_leg_r": ["RightUpLeg"], "lower_leg_r": ["RightLeg"],
         "upper_leg_l": ["LeftUpLeg"], "lower_leg_l": ["LeftLeg"], "root": ["Hips"]}
-SPRITE_H = 64.0  # the procedural motions are authored against a sprite height
+SPRITE_H = 64.0
 
 
 ONESHOT = {"jump", "attack", "attack_right", "attack_left", "cast", "hurt", "death", "kick"}
@@ -67,7 +54,7 @@ def procedural(name, frames=None, fps=None):
         for key, bones in LIFT.items():
             a = float(p.get(key, 0.0))
             if key == "torso":
-                a = a / 2  # shared by two spine bones
+                a = a / 2
             for b in bones:
                 rot[k, S.INDEX[b]] = S.rx(a)
         dx, dy = p.get("root_off", (0.0, 0.0))
@@ -78,10 +65,7 @@ def procedural(name, frames=None, fps=None):
 def procedural_set(names=None):
     return {n: procedural(n) for n in (names or A.DEFAULT_SET.split(","))}
 
-
-# ------------------------------------------------------------------ retarget
 def _arc(a, b):
-    """Shortest rotation taking unit vector a to b."""
     a = a / (np.linalg.norm(a) + 1e-12)
     b = b / (np.linalg.norm(b) + 1e-12)
     v, c = np.cross(a, b), float(a @ b)
@@ -96,11 +80,7 @@ def _arc(a, b):
 
 
 def retarget(src_names, src_parent, src_offset, src_rest_rot, frames_world_rot, hips_pos, fps, name, src="bvh"):
-    """Source world rotations per frame -> our locals. For each bone we keep the
-    source's posed direction: G_ours = G_src · Rrest_src⁻¹ · A, with A taking our rest
-    bone direction onto the source's rest direction (absorbs T-pose vs I-pose)."""
     idx = {S.bare(n): i for i, n in enumerate(src_names)}
-    # source rest world rotations + positions
     Rr = [None] * len(src_names)
     Xr = np.zeros((len(src_names), 3))
     for i in range(len(src_names)):
@@ -134,8 +114,6 @@ def retarget(src_names, src_parent, src_offset, src_rest_rot, frames_world_rot, 
         hips[t, 1] = (hips_pos[t][1] - Xr[hip_i][1]) * scale
     return Clip(name, rot, hips, fps, True, src)
 
-
-# ------------------------------------------------------------------ BVH
 def load_bvh(path, name=None):
     txt = open(path).read()
     head, motion = txt.split("MOTION", 1)
@@ -187,7 +165,6 @@ def load_bvh(path, name=None):
 
 
 def save_bvh(clip, path):
-    """Writes a clip as a Mixamo-named BVH (cm, ZXY) — round-trip tests and hand-off."""
     ch = {i: [c for c in range(B) if S.PARENT[c] == i] for i in range(B)}
     out = ["HIERARCHY"]
 
@@ -222,14 +199,11 @@ def save_bvh(clip, path):
 
 
 def zxy_degrees(m):
-    """Inverse of euler('ZXY'): m = Rz(z) Rx(x) Ry(y)."""
     x = np.arcsin(np.clip(m[2, 1], -1, 1))
     z = np.arctan2(-m[0, 1], m[1, 1])
     y = np.arctan2(-m[2, 0], m[2, 2])
     return np.degrees([z, x, y])
 
-
-# ------------------------------------------------------------------ glTF / GLB
 def read_glb(path):
     f = open(path, "rb").read()
     n = struct.unpack("<I", f[12:16])[0]
@@ -269,7 +243,7 @@ def load_glb_anim(path, which=0, fps=30):
     for i, nd in enumerate(nodes):
         for c in nd.get("children", []):
             parent[c] = i
-    order = []  # parents first
+    order = []
     seen = set()
 
     def visit(i):
@@ -293,7 +267,6 @@ def load_glb_anim(path, which=0, fps=30):
         tmax = max(tmax, tt[-1])
     T = max(int(tmax * fps) + 1, 1)
     world, hp = [], []
-    # reindex so parents come first
     pos = {n: k for k, n in enumerate(order)}
     nm = [names[i] for i in order]
     par = [pos[parent[i]] if parent[i] >= 0 else -1 for i in order]
@@ -316,8 +289,6 @@ def load_glb_anim(path, which=0, fps=30):
 
 
 def load_folder(folder, in_place=False):
-    """Every clip Frosty drops in a folder. BVH and GLB/glTF-binary import today;
-    FBX/DAE are listed so the caller can say what to re-export."""
     clips, skipped = {}, []
     for p in sorted(glob.glob(os.path.join(folder, "*"))):
         ext = os.path.splitext(p)[1].lower()
@@ -334,9 +305,9 @@ def load_folder(folder, in_place=False):
                 clips[name] = fbx.load_clip(p, name)
             elif ext == ".dae":
                 skipped.append((p, "Collada import is TODO: use FBX Binary or BVH"))
-        except Exception as e:  # keep going; report
+        except Exception as e:
             skipped.append((p, repr(e)))
-    if in_place:  # strip root travel (X/Z), keep the hips bob
+    if in_place:
         for c in clips.values():
             c.hips[:, [0, 2]] = 0
     return clips, skipped

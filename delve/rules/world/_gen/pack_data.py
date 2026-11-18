@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-"""Writes ../pack_data.bx: the packs' rosters and room templates, copied from
-crates/delve/src/rules/layout.rs (rosters and TEMPLATE consts)."""
 import re, pathlib
 HERE = pathlib.Path(__file__).resolve().parent
 src = (HERE.parents[3] / "crates/delve/src/rules/layout.rs").read_text()
@@ -50,7 +48,6 @@ for n, pack in enumerate(packs):
         ind += "  "
 out.append("")
 
-# Templates: quadrant rows.
 consts = re.findall(r"\nconst (\w+): Template = \[\n(.*?)\n\];", src, re.S)
 for name, rows in consts:
     rs = re.findall(r'"([^"]*)"', rows)

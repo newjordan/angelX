@@ -19,7 +19,6 @@ use crate::rules::{
     deep::{Culture, Village, cultures::WISHKEEPER, village as v},
 };
 
-/// A people's figure: its rows, and the row its eyes are on.
 fn rows(culture: Culture) -> (&'static [&'static str], usize) {
     match culture {
         Culture::Capfolk => (
@@ -98,8 +97,6 @@ fn rows(culture: Culture) -> (&'static [&'static str], usize) {
             ],
             3,
         ),
-        // A bat-rider: a leather cap with goggles on its brim, a scarf, a
-        // cloak cut like folded wings.
         Culture::Roostfolk => (
             &[
                 "...bbbbbb...",
@@ -119,8 +116,6 @@ fn rows(culture: Culture) -> (&'static [&'static str], usize) {
             ],
             4,
         ),
-        // One of the root-kin: bark for skin, leaves for hair, twig arms
-        // and root toes.
         Culture::Rootkin => (
             &[
                 "...l.AA.l...",
@@ -140,8 +135,6 @@ fn rows(culture: Culture) -> (&'static [&'static str], usize) {
             ],
             4,
         ),
-        // A ringer: a tall pointed hood, a long robe with a rope belt, a
-        // handbell in hand.
         Culture::Chimefolk => (
             &[
                 ".....SS.....",
@@ -161,7 +154,6 @@ fn rows(culture: Culture) -> (&'static [&'static str], usize) {
             ],
             4,
         ),
-        // A salter: a white headscarf, salt in the beard, a smock and belt.
         Culture::Saltkin => (
             &[
                 "...iiiiii...",
@@ -184,7 +176,6 @@ fn rows(culture: Culture) -> (&'static [&'static str], usize) {
     }
 }
 
-/// How speaker `who` of a people is coloured: their cap, hood or tunic.
 fn colours(culture: Culture, who: usize) -> &'static [(char, char)] {
     match (culture, who % 6) {
         (Culture::Capfolk, 0) => &[('A', 'J')],
@@ -238,18 +229,14 @@ fn colours(culture: Culture, who: usize) -> &'static [(char, char)] {
     }
 }
 
-/// A figure of `culture`, coloured for `who`; looking up, or shortened to
-/// a child.
 pub(super) fn figure(culture: Culture, who: usize, up: bool, child: bool) -> Img {
     coloured(culture, colours(culture, who), up, child)
 }
 
-/// A figure of `culture` in colours `pairs`; looking up, or a child.
 fn coloured(culture: Culture, pairs: &[(char, char)], up: bool, child: bool) -> Img {
     let (base, eyes) = rows(culture);
     let mut out: Vec<String> = base.iter().map(|r| r.to_string()).collect();
     if up {
-        // The eyes go up a row: they look at the dark overhead.
         let (row, above) = (out[eyes].clone(), out[eyes - 1].clone());
         let skin = row.chars().find(|&c| c != '.' && c != 'K').unwrap_or('T');
         out[eyes - 1] = row
@@ -260,7 +247,6 @@ fn coloured(culture: Culture, pairs: &[(char, char)], up: bool, child: bool) -> 
         out[eyes] = row.chars().map(|c| if c == 'K' { skin } else { c }).collect();
     }
     if child {
-        // A child: the same, with less of the middle.
         let drop = [eyes + 2, eyes + 4];
         out = out.into_iter().enumerate().filter(|(i, _)| !drop.contains(i)).map(|(_, r)| r).collect();
     }
@@ -268,7 +254,6 @@ fn coloured(culture: Culture, pairs: &[(char, char)], up: bool, child: bool) -> 
     Img::from_rows(&refs).recolor(pairs)
 }
 
-/// `im` taken `steps` down its banks: a figure in the dark.
 fn dimmed(im: &Img, steps: usize) -> Img {
     if steps == 0 {
         return im.clone();
@@ -284,15 +269,10 @@ fn dimmed(im: &Img, steps: usize) -> Img {
     out
 }
 
-/// Ease in and out, `0..=1`.
 use crate::motion::ease::both as ease;
 
-/// Where a figure at home spot `home` stands now, tick `since` after the
-/// star fell: out to the ring round the landing and back again.
 fn gathered(home: (i32, i32), slot: usize, slots: usize, since: u64) -> ((i32, i32), bool) {
     let (lx, ly) = px(v::LANDING);
-    // Two arcs either side of where it came down, between the hall and
-    // the heart, the nearer a little lower.
     let side = if slot % 2 == 0 { -1 } else { 1 };
     let rank = (slot / 2) as f32 / (slots / 2).max(1) as f32;
     let ring = (lx + side * (34 + (rank * 74.0) as i32), ly + 6 - (rank * 10.0) as i32);
@@ -313,7 +293,6 @@ pub(super) fn all(cv: &mut Img, run: &Run, vl: &Village) {
     let cheering = run.tick < vl.cheer;
     let dark = ((1.0 - vl.light()) * 2.2).round() as usize;
     let (lx, _) = px(v::LANDING);
-    // The six who speak.
     for (who, &spot) in v::SPEAKERS.iter().enumerate() {
         let home = px(spot);
         let (pos, walking) = if gathering { gathered(home, who, 9, since) } else { (home, false) };
@@ -334,20 +313,16 @@ pub(super) fn all(cv: &mut Img, run: &Run, vl: &Village) {
         };
         stand(cv, &im, pos.0, pos.1 - hop);
         accessory(cv, vl.culture, who, pos, hop, toward < pos.0, tick);
-        // A knight in conversation with them: a word over their head.
         if run.deep.as_ref().and_then(|d| d.village.as_ref()).is_some_and(|vg| vg.talks.values().any(|t| usize::from(t.who) == who)) {
             bubble(cv, pos.0, pos.1 - im.h - 6 - hop, tick);
         } else if !falling && !gathering {
             near_prompt(cv, run, (pos.0, pos.1 + 34), if who == WISHKEEPER { "WISH FOR THE CITY" } else { "TALK" });
         }
     }
-    // The one the party found below and sent home, with whoever asked.
     let found = run.home.deep.town(vl.floor).is_some_and(|t| t.deeds.contains(&crate::rules::deep::Errand::Rescue));
     if found && !gathering && !falling {
         reunion(cv, run, vl, dark);
     }
-    // Their children: hiding by the doors in the dark, out round the
-    // heart once it is bright enough to play.
     let (hx, hy) = px((18.0, 16.4));
     for k in 0..5usize {
         let play = vl.hope >= 4 && !falling;
@@ -367,11 +342,6 @@ pub(super) fn all(cv: &mut Img, run: &Run, vl: &Village) {
     }
 }
 
-/// The one sent home and whoever asked for them. The first time the party
-/// is back to see it, the one sent home comes out of the great hall's door
-/// and runs to them, and the two hold on while hearts go up; after that
-/// they stand together at the asker's door, and wave to a knight who
-/// comes near.
 fn reunion(cv: &mut Img, run: &Run, vl: &Village, dark: usize) {
     let tick = run.tick as u32;
     let giver = run
@@ -385,15 +355,12 @@ fn reunion(cv: &mut Img, run: &Run, vl: &Village, dark: usize) {
     let beside = (gx + if gx > 288 { 11 } else { -11 }, gy + 1);
     let door = px((v::SPEAKERS[0].0 - 2.4, v::SPEAKERS[0].1 + 0.3));
     let (pos, pose) = match vl.reunion.map(|t| run.tick as i64 - t as i64) {
-        // Waiting at the hall's door, looking about for them.
         Some(age) if age < 0 => (door, Lost::Looking),
-        // Running to them.
         Some(age) if age < v::RUN_HOME as i64 => {
             let f = ease(age as f32 / v::RUN_HOME as f32);
             let at = (door.0 + ((beside.0 - door.0) as f32 * f) as i32, door.1 + ((beside.1 - door.1) as f32 * f) as i32);
             (at, Lost::Running)
         }
-        // Holding on.
         Some(age) if age < (v::RUN_HOME + v::REUNION) as i64 => ((beside.0 + if beside.0 > gx { -4 } else { 4 }, beside.1), Lost::Hugging((age - v::RUN_HOME as i64) as u32)),
         _ => (beside, Lost::Home),
     };
@@ -406,7 +373,6 @@ fn reunion(cv: &mut Img, run: &Run, vl: &Village, dark: usize) {
     };
     stand(cv, &im, pos.0, pos.1 - hop);
     if let Lost::Hugging(t) = pose {
-        // Hearts going up from the two of them.
         for k in 0..5u32 {
             let life = 40;
             let a = (t + k * 9) % life;
@@ -420,7 +386,6 @@ fn reunion(cv: &mut Img, run: &Run, vl: &Village, dark: usize) {
     }
 }
 
-/// A little heart over someone glad, `fading` as it goes up.
 fn heart(cv: &mut Img, x: i32, y: i32, fading: bool) {
     let ink = if fading { 'c' } else { '7' };
     cv.put(x - 1, y, ink);
@@ -433,41 +398,24 @@ fn heart(cv: &mut Img, x: i32, y: i32, fading: bool) {
     }
 }
 
-/// How one of the village's own stands, lost below or home again.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Lost {
-    /// Sat hugging their knees in the dark, nobody near.
     Huddled,
-    /// Up on their feet, an arm in the air: a knight is near.
     Waving,
-    /// Found: both arms up, glad.
     Glad,
-    /// Home again, at the hall's door, looking about.
     Looking,
-    /// Running to whoever asked for them.
     Running,
-    /// Holding on to them, so many ticks in.
     Hugging(u32),
-    /// Home, and cleaned up.
     Home,
 }
 
-/// One of the village's own as they were found below: smaller than the
-/// six, bedraggled (dirt on them, a torn hem, a bandage round the head)
-/// and carrying the thing the one who asked said they would have: the
-/// capling's red cap, the delver's blue lamp, the apprentice's hammer, the
-/// lamplighter's pole, the rider's goggles up on her cap, the seedling's
-/// stone, the chorister's open mouth, the salter's rake. Home again they
-/// are clean, and only the thing is left.
 pub(super) fn lost_figure(culture: Culture, pose: Lost, tick: u32) -> Img {
     let base = coloured(culture, lost_colours(culture), matches!(pose, Lost::Glad | Lost::Looking), true);
     let bedraggled = !matches!(pose, Lost::Home);
     let (bw, bh) = (base.w, base.h);
     let huddled = pose == Lost::Huddled;
-    // Room round the figure for arms and what they carry.
     let (pad, top) = (7, 6);
     let mut im = Img::new(bw + pad * 2, bh + top);
-    // Huddled, only the head and shoulders show over the knees.
     let eyes = rows(culture).1 as i32;
     let shown = if huddled { (eyes + 3).min(bh) } else { bh };
     let lift = if huddled { bh - shown - 4 } else { 0 };
@@ -481,7 +429,6 @@ pub(super) fn lost_figure(culture: Culture, pose: Lost, tick: u32) -> Img {
     let ox = pad;
     let oy = top + lift;
     if bedraggled {
-        // Dirt and wear: pixels taken a step darker, a torn hem, a patch.
         for y in 0..bh {
             for x in 0..bw {
                 if let Some(c) = im.get(x + ox, y + oy).filter(|_| super::super::super::ink::hash(x, y, 9550 + culture as u32) % 6 == 0 && y > 2) {
@@ -496,7 +443,6 @@ pub(super) fn lost_figure(culture: Culture, pose: Lost, tick: u32) -> Img {
         }
         im.put(ox + 4, oy + bh / 2 + 1, 'b');
         im.put(ox + 5, oy + bh / 2 + 1, 'b');
-        // A bandage round the head.
         for x in 3..9 {
             if im.get(x + ox, oy + 2).is_some() {
                 im.put(x + ox, oy + 2, if x % 2 == 0 { 'H' } else { 'i' });
@@ -507,7 +453,6 @@ pub(super) fn lost_figure(culture: Culture, pose: Lost, tick: u32) -> Img {
     let hand = |up: bool| if up { (oy - 3, oy - 5) } else { (mid, mid + 2) };
     match pose {
         Lost::Huddled => {
-            // Knees drawn up, arms round them, feet tucked under.
             let ky = oy + shown;
             im.rect(ox + 2, ky, 8, 3, 'b');
             im.line(ox + 2, ky, ox + 9, ky, 'I');
@@ -530,12 +475,10 @@ pub(super) fn lost_figure(culture: Culture, pose: Lost, tick: u32) -> Img {
         }
         Lost::Looking | Lost::Home => {}
     }
-    // What they carry.
     let (cx, cy) = (ox + bw + 1, mid);
     match culture {
         Culture::Capfolk => {}
         Culture::Glimmerkin => {
-            // His blue lamp, still lit.
             im.line(cx, cy - 1, cx, cy + 2, 'G');
             im.rect(cx - 1, cy + 2, 3, 3, 'z');
             im.put(cx, cy + 3, '3');
@@ -551,7 +494,6 @@ pub(super) fn lost_figure(culture: Culture, pose: Lost, tick: u32) -> Img {
             im.rect(ox + 2, oy - 3, 3, 3, if bedraggled { 'g' } else { '5' });
         }
         Culture::Roostfolk => {
-            // Her goggles up on her cap, one lens cracked.
             im.put(ox + 4, oy, 'z');
             im.put(ox + 7, oy, if bedraggled { 'K' } else { 'z' });
         }
@@ -568,8 +510,6 @@ pub(super) fn lost_figure(culture: Culture, pose: Lost, tick: u32) -> Img {
     im
 }
 
-/// The one lost's own colours: the capling's red cap, a delver's grey, a
-/// rider's brown, a seedling's young green.
 fn lost_colours(culture: Culture) -> &'static [(char, char)] {
     match culture {
         Culture::Capfolk => &[('A', 'l')],
@@ -583,12 +523,10 @@ fn lost_colours(culture: Culture) -> &'static [(char, char)] {
     }
 }
 
-/// Where child `k` keeps to in the dark: by the doors.
 fn child_home(k: usize) -> (f32, f32) {
     [(7.6, 10.8), (11.2, 10.8), (27.0, 10.9), (6.8, 16.9), (29.0, 16.8)][k % 5]
 }
 
-/// What a speaker carries: the elder's staff, the wishkeeper's light.
 fn accessory(cv: &mut Img, culture: Culture, who: usize, (x, y): (i32, i32), hop: i32, left: bool, tick: u32) {
     let side = if left { -7 } else { 6 };
     match who {
@@ -596,7 +534,6 @@ fn accessory(cv: &mut Img, culture: Culture, who: usize, (x, y): (i32, i32), hop
             cv.line(x + side, y - hop, x + side, y - 18 - hop, 'B');
             cv.put(x + side, y - 19 - hop, 'O');
             if culture == Culture::Capfolk {
-                // Old Morel's beard.
                 cv.rect(x - 2, y - 7 - hop, 4, 3, 'H');
             }
         }
@@ -613,7 +550,6 @@ fn accessory(cv: &mut Img, culture: Culture, who: usize, (x, y): (i32, i32), hop
     }
 }
 
-/// A speech bubble: three dots, the last blinking.
 pub(super) fn bubble(cv: &mut Img, x: i32, y: i32, tick: u32) {
     cv.rect(x - 7, y - 4, 15, 8, 'W');
     cv.frame(x - 8, y - 5, 17, 10, 'h');
@@ -626,8 +562,6 @@ pub(super) fn bubble(cv: &mut Img, x: i32, y: i32, tick: u32) {
     }
 }
 
-/// Speaker `who`'s portrait for the conversation board: their figure at
-/// three times size, eyes forward.
 pub(super) fn portrait(culture: Culture, who: usize) -> Img {
     let im = figure(culture, who, false, false);
     let k = 3;

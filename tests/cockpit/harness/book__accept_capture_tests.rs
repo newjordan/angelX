@@ -43,9 +43,6 @@ fn task_accept_incomplete_output_fixture() {
                 "test result: ok. 1 passed; 0 failed\n",
             );
             let mut runs = 0;
-            // Exercise actual pipe capture and the acceptance evidence consumer
-            // directly. The public sandbox path has its own descendant cleanup
-            // and can legitimately complete both pipes before capture returns.
             let result = run_task_accept_with(|| {
                 runs += 1;
                 let command = if earlier_pass && runs == 1 {

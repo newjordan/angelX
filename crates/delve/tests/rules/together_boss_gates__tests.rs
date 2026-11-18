@@ -9,7 +9,6 @@ fn reloaded(run: &Run) -> Run {
     loaded
 }
 
-/// The elite at the head of the chief's camp here, with the Boss Key.
 fn carrier(run: &Run) -> &Enemy {
     run.enemies
         .iter()
@@ -53,7 +52,6 @@ fn boss_gates_profiles_have_checked_independent_leaders_and_reachable_resource_s
                 g.economy.profile,
                 boss_population::profile(&run.dungeon, run.seed, run.raid_id)
             );
-            // One chief a floor, mid-floor; the guardian holds the stairs.
             assert_eq!(g.leaders.len(), 1);
             assert!(g.leaders[0].prerequisite);
             assert_eq!(
@@ -81,7 +79,6 @@ fn boss_gates_profiles_have_checked_independent_leaders_and_reachable_resource_s
                 assert!(!def.attacks.is_empty() || def.phases.is_some());
                 assert!((300..=900).contains(&def.hp));
                 run.enter(l.room, Some(2));
-                // No boss: the camp's toughest, an elite, carries the key.
                 assert!(!run.enemies.iter().any(|e| e.is_boss()));
                 let elite = carrier(&run);
                 assert!(elite.elite && elite.boss.is_none());
@@ -164,8 +161,6 @@ fn boss_gates_stairs_lair_threshold_are_absent_before_prerequisites_and_allow_re
         assert!(run.boss_gate_line().unwrap().contains("retreat"));
         let items = run.room().items.len();
         let score = run.score;
-        // All damage sources act on enemies, so a sealed guardian has no HP
-        // target, and an empty sealed lair cannot issue a clear/reward.
         run.phase = Phase::Fighting;
         run.step(&BTreeMap::new());
         assert!(!run.room().cleared);
@@ -230,7 +225,6 @@ fn boss_gates_all_and_any_handle_defeat_order_and_roundtrip() {
                 }
                 run = reloaded(&run);
             }
-            // Cues are tick-local, while access/progress persist across travel.
             assert!(run.boss_gates.as_ref().unwrap().unlocked());
             run.enter(g.guardian, Some(2));
             finish_room(&mut run);
@@ -285,7 +279,7 @@ fn boss_gates_visits_ordinary_clears_and_removal_without_death_do_not_count() {
     run.step(&BTreeMap::new());
     assert!(!run.boss_gates.as_ref().unwrap().leaders[0].defeated);
     assert!(run.enemies.iter().any(|e| run.carries_key(e)));
-    run.enemies.clear(); // not a zero-HP kill; must not clear the chief's room
+    run.enemies.clear();
     run.step(&BTreeMap::new());
     assert!(!run.room().cleared);
     assert_eq!(run.boss_gates.as_ref().unwrap().leaders, g.leaders);
@@ -319,7 +313,7 @@ fn boss_gates_last_leader_death_with_wipe_reentry_and_replay_do_not_duplicate_re
         !run.valid_snapshot(),
         "a replayed key carrier cannot be an active snapshot"
     );
-    run.settle_kills(); // replay after the corpse was removed
+    run.settle_kills();
     assert_eq!(run.room().items.len(), items);
     assert_eq!(run.score, score);
     run.players.get_mut(&1).unwrap().hp = 100;
@@ -485,8 +479,6 @@ fn boss_gates_malformed_graphs_and_active_snapshots_are_rejected() {
     let mut run = base.clone();
     let gate = run.boss_gates.as_ref().unwrap().guardian;
     run.enter(gate, Some(2));
-    // Production emission now refuses a locked guardian. Deliberately inject
-    // an unadmitted raw body to test snapshot rejection rather than a no-op.
     assert!(run.spawn_at(EnemyKind::Skeleton, 10.0, 10.0).is_none());
     run.spawn_body(EnemyKind::Skeleton, 10.0, 10.0);
     rejected(run);
@@ -547,7 +539,6 @@ fn boss_gates_giants_feast_keeps_native_boss_scaling_and_normal_giant_mobs() {
     let mut run = on_floor(2, 10, Mode::GiantsFeast);
     let w = run.boss_gates.as_ref().unwrap().leaders[0].clone();
     run.enter(w.room, Some(2));
-    // The chief's camp: giant mobs, its key carrier an elite giant.
     let slot = carrier(&run).camp_slot;
     for e in &run.enemies {
         let giant = e.kind.hp() * 9 / 5;
@@ -558,7 +549,6 @@ fn boss_gates_giants_feast_keeps_native_boss_scaling_and_normal_giant_mobs() {
         }
     }
     assert!(run.valid_snapshot());
-    // The floor's one boss keeps its native scaling.
     kill_leader(&mut run, 0);
     let gate = run.boss_gates.as_ref().unwrap().guardian;
     let apex = run.boss_gates.as_ref().unwrap().guardian_boss.unwrap();
@@ -567,9 +557,6 @@ fn boss_gates_giants_feast_keeps_native_boss_scaling_and_normal_giant_mobs() {
     let scaled = u64::from(run.bosses[usize::from(apex)].hp) * u64::from(run.guardian_toughness()) / 100
         * u64::from(run.boss_health())
         / 100;
-    // Re-pinned 2026-11-02: native scaling at the operator's boss tuning, a
-    // guardian standing at 70% of its scaled health (`Run::spawn_boss`),
-    // times the party; no giant's multiplier on top.
     let native = (scaled * 70 / 100).max(1) as u32 * run.party_len().max(1) as u32;
     assert_eq!(boss.max_hp, native);
     assert!(run.valid_snapshot());
@@ -608,7 +595,7 @@ fn boss_gates_native_wire_copies_carry_progress() {
     guest = host.wire_copy();
     assert!(guest.guardian_locked());
     kill_leader(&mut host, 0);
-    host.enter(gate, Some(2)); // guest may miss the chief's last tick entirely
+    host.enter(gate, Some(2));
     guest = host.wire_copy();
     assert_eq!(guest.boss_gates, host.boss_gates);
     assert!(crate::wire::drawable(&guest));
@@ -665,7 +652,6 @@ fn boss_ecology_terrain_yields_change_support_but_not_the_ramp_or_the_one_chief(
             }
         }
     }
-    // Fixtures deliberately change support terrain, not a random label or name.
     let a = boss_population::populate(&sparse, &mut run.bosses, run.seed, run.raid_id, run.mode)
         .unwrap();
     let b =
@@ -685,8 +671,6 @@ fn boss_ecology_terrain_yields_change_support_but_not_the_ramp_or_the_one_chief(
                 .map(|c| u16::from(c.base_budget))
                 .sum::<u16>()
     );
-    // The fight rooms muster by the floor's ramp, rich beds or bare; the
-    // richer brood feeds the guardian's escort.
     let fights = |g: &BossGateState| -> Vec<u8> {
         g.economy
             .camps
@@ -715,10 +699,6 @@ fn boss_ecology_supported_structures_have_distinct_density_and_rosters() {
             / g.economy.camps.len();
         densities.push(mean);
         run.enter(g.leaders[0].room, Some(2));
-        // The chief's camp is led by its key carrier, an elite, never a boss
-        // (the floor's one boss is its guardian). On the first floors the
-        // carrier stands alone: its company is booked gone and rides with
-        // it as its hoard; below, the company stands in the room.
         assert!(run.enemies.iter().all(|e| !e.is_boss()), "no boss in a chief's camp");
         let minions: Vec<EnemyKind> = if depth <= BOSS_ALONE_TO {
             let camp = run.boss_gates.as_ref().unwrap().economy.camp(g.leaders[0].room).unwrap();
@@ -752,12 +732,10 @@ fn boss_ecology_supported_structures_have_distinct_density_and_rosters() {
 #[test]
 fn boss_ecology_alone_guardian_keeps_its_whole_hoard_when_the_party_leaves_and_returns() {
     for depth in [1, 2] {
-        // A floor whose guardian is a boss of the pack's catalogue.
         let mut run = (0..64)
             .map(|seed| on_floor(depth, seed, Mode::LongWayDown))
             .find(|r| r.boss_gates.as_ref().unwrap().guardian_boss.is_some())
             .expect("a floor with a guardian boss");
-        // The route's leaders fallen: the guardian's room opens.
         for leader in &mut run.boss_gates.as_mut().unwrap().leaders {
             leader.defeated = true;
         }
@@ -765,9 +743,6 @@ fn boss_ecology_alone_guardian_keeps_its_whole_hoard_when_the_party_leaves_and_r
         run.enter(room, Some(2));
         run.enter(0, Some(0));
         run.enter(room, Some(2));
-        // On the first floors the guardian stands alone; its company is
-        // booked gone and rides with it as spoils, however often the party
-        // comes and goes.
         assert!(run.enemies.iter().all(|e| e.camp_slot.is_none()), "floor {depth}");
         let guardian = run.enemies.iter().find(|e| e.is_boss()).expect("the guardian");
         if let Some(camp) = run.boss_gates.as_ref().unwrap().economy.camp(room) {
@@ -805,13 +780,12 @@ fn boss_gates_snapshots_refuse_an_out_of_range_laid_size_or_hoard() {
 
 #[test]
 fn boss_ecology_chief_real_death_cuts_its_camps_off_once_and_keeps_the_ramp() {
-    // Below the first floors, where the carrier's company stands with it.
     let mut run = on_floor(4, 41, Mode::LongWayDown);
     let g = run.boss_gates.clone().unwrap();
     let l = g.leaders[0].clone();
     run.enter(l.room, Some(2));
     let before = run.boss_gates.as_ref().unwrap().economy.clone();
-    run.settle_kills(); // living chief and mere entry are not a political event
+    run.settle_kills();
     assert_eq!(run.boss_gates.as_ref().unwrap().economy, before);
     let slot = carrier(&run).camp_slot;
     let ordinary = run
@@ -858,8 +832,6 @@ fn boss_ecology_chief_real_death_cuts_its_camps_off_once_and_keeps_the_ramp() {
     run = reloaded(&run);
     run.enter(l.room, Some(2));
     assert!(!run.enemies.iter().any(|e| e.camp_slot == slot || e.is_boss()));
-    // Cut off once: the faction stays lost and the camps keep their books
-    // (what a summoner had called retires on the way back in).
     let again = &run.boss_gates.as_ref().unwrap().economy;
     assert_eq!(again.factions, after.factions);
     assert_eq!(again.camps, after.camps);
@@ -1032,8 +1004,6 @@ fn boss_ecology_rarity_and_all_supported_pack_routes_across_both_starting_packs(
     let mut apex = 0;
     for seed in 0..32 {
         for depth in 1..=DEEPEST {
-            // `on_floor` does not depend on the starting pack. Build it once
-            // and clone; the second floor still uses that run's rng.
             let base = on_floor(depth, seed, Mode::LongWayDown);
             for first in [Pack::Crypt, Pack::Cavern] {
                 let mut run = base.clone();
@@ -1046,7 +1016,6 @@ fn boss_ecology_rarity_and_all_supported_pack_routes_across_both_starting_packs(
                 apex += usize::from(g.guardian_boss.is_some());
                 assert_eq!(g.guardian_boss.is_none(), depth == FLOORS);
                 assert!(run.valid_snapshot());
-                // The floor's one chief opens the stair, ANY or ALL alike.
                 assert!(!run.boss_gates.as_ref().unwrap().unlocked());
                 kill_leader(&mut run, 0);
                 assert!(run.boss_gates.as_ref().unwrap().unlocked());
@@ -1204,7 +1173,7 @@ fn boss_ecology_native_dragon_light_home_still_admits_won_state() {
     }
     let guardian = run.boss_gates.as_ref().unwrap().guardian;
     run.enter(guardian, Some(2));
-    let guest = reloaded(&run); // full init before Dragon death, no light
+    let guest = reloaded(&run);
     assert!(guest.light.is_none());
     finish_room(&mut run);
     assert_eq!(run.phase, Phase::Exploring);
@@ -1214,7 +1183,7 @@ fn boss_ecology_native_dragon_light_home_still_admits_won_state() {
     let light = run.light.unwrap();
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = light;
-    run.step_sim_for_test(&BTreeMap::new()); // real travel consumes the exit into Won
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.phase, Phase::Won);
     assert!(run.valid_snapshot());
     guest = run.wire_copy();
@@ -1364,9 +1333,6 @@ fn floor_spot(run: &Run) -> (f32, f32) {
 
 #[test]
 fn boss_ecology_actual_raising_brood_kills_wipes_and_reentry_exhaust_shared_provision() {
-    // Checked leaders don't have a summon attack in the .boss vocabulary.
-    // Native raisers/brood use act -> Deeds -> apply_deeds -> spawn_staged;
-    // repeated producer admission is itself paid, not an unbounded loophole.
     for (kind, add, beat) in [
         (EnemyKind::Necromancer, EnemyKind::Skeleton, 60),
         (EnemyKind::Silkmother, EnemyKind::Spiderling, 90),
@@ -1382,7 +1348,6 @@ fn boss_ecology_actual_raising_brood_kills_wipes_and_reentry_exhaust_shared_prov
         for cycle in 0..usize::from(allowance) + 3 {
             let spot = floor_spot(&host);
             let producer = host.spawn_at(kind, spot.0, spot.1);
-            // This is real combat stepping, not a synthetic journal emission.
             if let Some(id) = producer {
                 let e = host.enemies.iter_mut().find(|e| e.id == id).unwrap();
                 e.age = TELEGRAPH;
@@ -1397,7 +1362,7 @@ fn boss_ecology_actual_raising_brood_kills_wipes_and_reentry_exhaust_shared_prov
             host.players.get_mut(&1).unwrap().invulnerable = 1000;
             host.step(&BTreeMap::new());
             assert!(crate::wire::drawable(&host.wire_copy()));
-            host = reloaded(&host); // active producer AND adds are admitted on load
+            host = reloaded(&host);
             let adds: Vec<_> = host
                 .enemies
                 .iter()
@@ -1426,12 +1391,11 @@ fn boss_ecology_actual_raising_brood_kills_wipes_and_reentry_exhaust_shared_prov
                 corpse.hp = 0;
                 replay.push(corpse);
             }
-            host.step(&BTreeMap::new()); // normal settlement/rewards, producer remains alive
+            host.step(&BTreeMap::new());
             rewarded += host.score - score;
             assert_eq!(host.wire_copy().boss_gates, host.boss_gates);
             assert!(host.enemies.iter().any(|e| host.carries_key(e)));
             assert!(!host.boss_gates.as_ref().unwrap().leaders[0].defeated);
-            // Replayed corpses must neither reward, split nor debit again.
             let before = (host.score, host.room().items.len(), host.boss_gates.clone());
             host.enemies.extend(replay.iter().cloned());
             host.settle_kills();
@@ -1447,7 +1411,7 @@ fn boss_ecology_actual_raising_brood_kills_wipes_and_reentry_exhaust_shared_prov
                 let hero = host.players.get_mut(&1).unwrap();
                 hero.hp = hero.max_hp;
             }
-            host.enter(leader.room, Some(2)); // surviving checked leader is recreated
+            host.enter(leader.room, Some(2));
             assert_eq!(host.wire_copy().boss_gates, host.boss_gates);
         }
         let economy = &host.boss_gates.as_ref().unwrap().economy;
@@ -1469,8 +1433,6 @@ fn boss_ecology_actual_raising_brood_kills_wipes_and_reentry_exhaust_shared_prov
             host.enter(leader.room, Some(2));
         }
         assert_eq!((host.score, host.boss_gates.clone()), exhausted);
-        // Provision is not an encounter requirement: the live leader is still
-        // killable and the room/prerequisite completes with zero provision.
         finish_room(&mut host);
         assert!(host.boss_gates.as_ref().unwrap().leaders[0].defeated);
         assert!(host.room().cleared);
@@ -1505,7 +1467,6 @@ fn boss_ecology_descendant_identity_replay_save_and_mirror_are_finite() {
         .find(|e| e.kind == EnemyKind::Slime)
         .unwrap()
         .clone();
-    // Ensure the split spots are valid while retaining the root's camp identity.
     let spot = floor_spot(&host);
     let e = host.enemies.iter_mut().find(|e| e.id == root.id).unwrap();
     (e.x, e.y, e.hp) = (spot.0, spot.1, 0);
@@ -1518,7 +1479,7 @@ fn boss_ecology_descendant_identity_replay_save_and_mirror_are_finite() {
         "the two halves, past what the deep room already held"
     );
     assert_eq!(host.wire_copy().boss_gates, host.boss_gates);
-    host = reloaded(&host); // living halves have journal identities, no camp slots
+    host = reloaded(&host);
     let mut child = host
         .enemies
         .iter()
@@ -1547,7 +1508,7 @@ fn boss_ecology_descendant_identity_replay_save_and_mirror_are_finite() {
     assert_eq!(host.wire_copy().boss_gates, host.boss_gates);
     host = reloaded(&host);
     let at = host.at;
-    host.enter(at, Some(2)); // discard living descendants, no refund/recreation
+    host.enter(at, Some(2));
     assert_eq!(host.wire_copy().boss_gates, host.boss_gates);
     assert!(!host.enemies.iter().any(|e| e.kind == EnemyKind::Slime));
     assert_eq!(host.boss_gates.as_ref().unwrap().economy.spawn_spent, baseline + 4);
@@ -1581,8 +1542,6 @@ fn boss_ecology_failed_emissions_and_exhausted_native_pit_do_not_softlock() {
         "failed bodies never debit or journal"
     );
     run.enemies = original;
-    // A paid slime root can outlive the rest of the allowance. Exhaustion
-    // must suppress its descendants without preventing Pit completion.
     let slime = run.spawn_at(EnemyKind::Slime, spot.0, spot.1).unwrap();
     let economy = &run.boss_gates.as_ref().unwrap().economy;
     let remaining = economy.spawn_allowance - economy.spawn_spent;
@@ -1687,7 +1646,7 @@ fn boss_ecology_poisoned_secrets_are_invalid_and_a_genuine_discovery_reaches_cli
             assert!(!stored.dungeon.open_secret());
             assert_eq!(serde_json::to_vec(&stored).unwrap(), before);
         }
-        host.blast_wall(None); // genuine production discovery
+        host.blast_wall(None);
         assert!(host.dungeon.secret.unwrap().found);
         assert!(host.valid_snapshot());
         let view = host.wire_copy();
@@ -1700,7 +1659,6 @@ fn boss_ecology_poisoned_secrets_are_invalid_and_a_genuine_discovery_reaches_cli
             view.dungeon.neighbour(secret.host, secret.side),
             Some(secret.vault)
         );
-        // Production traversal through the newly opened doorway is projected.
         finish_room(&mut host);
         let (x, y) = hazards::doorway(host.room(), secret.side).0;
         let hero = host.players.get_mut(&1).unwrap();

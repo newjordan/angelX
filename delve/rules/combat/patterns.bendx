@@ -1,5 +1,3 @@
-# crates/delve/src/rules/patterns.rs, the emitters. Shots are the state's
-# Projectile objects; an Aim is an object of the fields of Rust's `Aim`.
 import Base
 
 def cb.TAU() -> F32:
@@ -16,7 +14,6 @@ def patterns.ShotTraits.default() -> Traits:
   t.path = patterns.Path.default()
   t
 
-# A hostile pattern shot with a path and default traits.
 def patterns.Projectile.fresh(x: F32, y: F32, vx: F32, vy: F32, hostile: Bool, kind: String, damage: U32, ttl: U32, traits: Traits) -> Projectile:
   p: Projectile = cb.lit("{\"look\":null,\"pierce\":0,\"last_hit\":null,\"empowered\":false}")
   p.x = x
@@ -50,7 +47,6 @@ def patterns.Aim.guardian_or(aim: Aim, base: U32) -> U32:
 def patterns.Aim.count_of(aim: Aim, base: U32, per: U32) -> U32:
   (patterns.Aim.guardian_or(aim, base) + per * RS.u_min(aim.step, patterns.MOST_STEP()) : U32)
 
-# A number from 0 to 1, the same for the same volley and `k`.
 def patterns.Aim.roll(aim: Aim, k: U32) -> F32:
   h: W.W = W.xor(W.xor(aim.salt, W.mul(W.of_u32(aim.count), W.W{0, 2654435769})), W.shl(W.of_u32(k), 40))
   (cb.f(W.rem_u32(rules.mix(h), 10000)) / 10000.0 : F32)
@@ -81,11 +77,9 @@ def patterns.Aim.make(src: (F32, F32), at: (F32, F32), pace: (F32, F32), room: J
   a.shield_line = shield_line
   a
 
-# i as f32 / (n - 1).max(1) as f32 - 0.5
 def patterns.frac(i: U32, n: U32) -> F32:
   ((cb.f(i) / cb.f(RS.u_max((n - 1 : U32), 1)) : F32) - 0.5 : F32)
 
-# (i as f32 - (n - 1) as f32 / 2.0)
 def patterns.centred(i: U32, n: U32) -> F32:
   (cb.f(i) - (cb.f((n - 1 : U32)) / 2.0 : F32) : F32)
 
@@ -107,7 +101,6 @@ def patterns.has_u(xs: [U32], v: U32) -> Bool:
         return True{}
       return patterns.has_u(t, v)
 
-# How far a line from `from` runs before stone.
 def patterns.reach(room: J.Val, barred: Bool, fx: F32, fy: F32, angle: F32) -> F32:
   ux: F32 = F32.cos(angle)
   uy: F32 = F32.sin(angle)
@@ -133,16 +126,11 @@ def patterns.beam(aim: Aim, angle: F32, sweep: F32, warn: U32, burn: U32) -> Pro
   shot.ttl = (warn + burn + 1 : U32)
   shot
 
-# A guardian's charged beam: a warning line for `warn` ticks from `from`, then
-# a burn of `burn` ticks that sweeps `arc` radians starting at `angle`.
 def patterns.charged_beam(room: J.Val, barred: Bool, src: (F32, F32), angle: F32, arc: F32, warn: U32, burn: U32, kind: String, damage: U32) -> Projectile:
   burn = RS.u_max(burn, 2)
   aim: Aim = patterns.Aim.make(src, src, (0.0, 0.0), room, barred, 0, W.zero(), 0, kind, damage, None{}, False{})
   patterns.beam(aim, angle, (arc / cb.f((burn - 1 : U32)) : F32), warn, burn)
 
-# Where a lob thrown from `from` at `spot` comes down: no further than
-# LOB_REACH, inside the room, on open ground (drawn back toward the thrower
-# off stone); None if there is nowhere.
 def patterns.landing(aim: Aim, fx: F32, fy: F32, sx: F32, sy: F32) -> (F32, F32)?:
   dx: F32 = (sx - fx : F32)
   dy: F32 = (sy - fy : F32)
@@ -160,8 +148,6 @@ def patterns.landing(aim: Aim, fx: F32, fy: F32, sx: F32, sy: F32) -> (F32, F32)
     r = (r - 0.5 : F32)
   None{}
 
-# The angles of a gap ring's shots: a turning ring with the slots inside
-# GAP_HALF of the gap's middle left out.
 def patterns.gap_ring(aim: Aim) -> [F32]:
   n: U32 = patterns.Aim.count_of(aim, patterns.GAP_RING_0(), patterns.GAP_RING_1())
   gap: F32 = (patterns.Aim.line(aim) + (patterns.Aim.roll(aim, 6) - 0.5 : F32) * 2.0 * patterns.GAP_SWING() : F32)
@@ -174,14 +160,9 @@ def patterns.gap_ring(aim: Aim) -> [F32]:
       out = a <> out
   List.reverse(&2, F32, out)
 
-# How many shots of an n-slot wall the shield line's second wall leaves out.
 def patterns.thinned(n: U32) -> U32:
   ((RS.u_sat_sub(n, patterns.WALL_GAP()) * patterns.PAVISE_THINS() + 50 : U32) / 100 : U32)
 
-# A wall's spots: n slots a unit apart across the line at the shooter, slot
-# `gap` and the next left out; `thin` more left out evenly along it, each a
-# chink a slot wide (never an end, nor beside the gap, nor beside another);
-# and any in stone left out.
 def patterns.wall(aim: Aim, n: U32, gap: U32, thin: U32) -> [(F32, F32)]:
   line: F32 = patterns.Aim.line(aim)
   px: F32 = F32.neg(F32.sin(line))
@@ -212,7 +193,6 @@ def patterns.wall(aim: Aim, n: U32, gap: U32, thin: U32) -> [(F32, F32)]:
 def patterns.wall.open(i: U32, gap: U32) -> Bool:
   Bool.or(U32.is_lt(i, gap), U32.is_ge(i, (gap + patterns.WALL_GAP() : U32)))
 
-# The first open spot in from the left (or right) wall on row y.
 def patterns.edge(aim: Aim, y: F32, left: Bool, w: F32) -> F32?:
   end: U32 = RS.i_mul(RS.f_as_i32((w / 2.0 : F32)), 2)
   if U32.is_lt(end, 2):
@@ -225,7 +205,6 @@ def patterns.edge(aim: Aim, y: F32, left: Bool, w: F32) -> F32?:
       return Some{Bool.pick(F32, left, (x + 0.3 : F32), (x - 0.3 : F32))}
   None{}
 
-# One volley of `emitter`, into `shots`.
 def patterns.emit(emitter: String, aim: Aim, shots: J.Val) -> J.Val:
   if U32.is_ge(J.len(shots), rules.MAX_PROJECTILES()):
     return shots
@@ -439,7 +418,6 @@ def patterns.emit(emitter: String, aim: Aim, shots: J.Val) -> J.Val:
 def patterns.flower_offsets() -> [(F32, F32)]:
   [(F32.neg(0.09), patterns.FLOWER_2()), (0.0, (patterns.FLOWER_2() + 1.2 : F32)), (0.09, patterns.FLOWER_2())]
 
-# Then::Aim(speed) and Then::Burst(n, speed) as serde writes them.
 def patterns.then_aim(speed: F32) -> J.Val:
   o: J.Val = J.obj()
   o = J.set(o, "aim", J.of_f32(speed))
@@ -450,8 +428,6 @@ def patterns.then_burst(n: U32, speed: F32) -> J.Val:
   o = J.set(o, "burst", J.JA{[J.of_u32(n), J.of_f32(speed)]})
   o
 
-# The first y down from the top of the room, on the half-unit grid, where
-# a drop's body is not stopped.
 def patterns.rain_y(aim: Aim, x: F32) -> F32?:
   for k0: U32 in cb.range(11):
     y: F32 = (cb.f((k0 + 1 : U32)) * 0.5 : F32)
@@ -459,14 +435,12 @@ def patterns.rain_y(aim: Aim, x: F32) -> F32?:
       return Some{y}
   None{}
 
-# Equal to Path::default()?
 def patterns.Path.is_default(path: Path) -> Bool:
   Bool.and(Bool.and(Bool.and(U32.is_eq(path.age, 0), U32.is_eq(path.wait, 0)), Bool.and(Bool.not(path.held), Bool.not(path.mark))),
     Bool.and(Bool.and(Bool.and(F32.is_eq(path.accel, 0.0), F32.is_eq(path.top, 0.0)), Bool.and(F32.is_eq(path.turn, 0.0), F32.is_eq(path.seek, 0.0))),
       Bool.and(Bool.and(F32.is_eq(path.wave, 0.0), F32.is_eq(path.wave_rate, 0.0)),
         Bool.and(Bool.and(U32.is_eq(path.fuse, 0), J.eq(path.then, J.JS{"nothing"})), Bool.and(J.is_null(path.beam), String.eq(path.form, "plain"))))))
 
-# The knight (id, x, y) nearest (x, y): the first of equals.
 def patterns.nearest(knights: J.Val, x: F32, y: F32) -> (F32, F32)?:
   best: (F32, F32)? = None{}
   bd: F32 = 0.0
@@ -484,9 +458,6 @@ def patterns.nearest(knights: J.Val, x: F32, y: F32) -> (F32, F32)?:
           bd = d
   best
 
-# A pattern shot's step before it moves: its wait, its speed, its turns, its
-# weave and its fuse. Bursts go into `pops`. Answers (bullet, pops, hold): hold
-# is Steer::Hold, else the shot flies. A shot with an empty path is left as it was.
 def patterns.steer(bullet: Projectile, knights: J.Val, pops: J.Val) -> (Projectile, J.Val, Bool):
   path: Path = bullet.traits.path
   if U32.is_gt(path.wait, 0):
@@ -562,7 +533,6 @@ def patterns.steer(bullet: Projectile, knights: J.Val, pops: J.Val) -> (Projecti
     bullet.traits.path = path
   (bullet, pops, False{})
 
-# A shot's family, from what its path does.
 def patterns.family(shot: Projectile) -> String:
   path: Path = shot.traits.path
   if String.eq(path.form, "dart"):
@@ -587,7 +557,6 @@ def patterns.family(shot: Projectile) -> String:
     return "hook"
   "plain"
 
-# How far past a knight's body `shot` strikes.
 def patterns.girth(shot: Projectile) -> F32:
   form: String = shot.traits.path.form
   if String.eq(form, "dart"):
@@ -613,8 +582,6 @@ def patterns.body(shot: Projectile) -> F32:
     return 0.0
   patterns.BODY()
 
-# Where a lob comes down, and how high it is now (units): its shadow's spot
-# run on to its landing at its ground speed.
 def patterns.lob_flight(shot: Projectile) -> ((F32, F32), F32)?:
   path: Path = shot.traits.path
   if Bool.or(Bool.not(String.eq(path.form, "lob")), U32.is_eq(path.fuse, 0)):
@@ -650,14 +617,11 @@ def patterns.HEAD_STEP(i: U32) -> U32:
     case _:
       return 0
 
-# The thickness a volley gets on this floor, with this many knights, from an
-# elite or not.
 def patterns.Sight.step(depth: U32, heads: U32, elite: Bool) -> U32:
   floor: U32 = patterns.DEPTH_STEP((RS.u_clamp(depth, 1, 6) - 1 : U32))
   hs: U32 = patterns.HEAD_STEP(RS.u_min(heads, 4))
   RS.u_min((floor + hs + Bool.to_u32(elite) : U32), patterns.MOST_STEP())
 
-# Index of the knight nearest (x, y), and its spot: the first of equals.
 def patterns.nearest_ix(knights: J.Val, x: F32, y: F32) -> (U32, F32, F32)?:
   best: (U32, F32, F32)? = None{}
   bd: F32 = 0.0
@@ -675,9 +639,6 @@ def patterns.nearest_ix(knights: J.Val, x: F32, y: F32) -> (U32, F32, F32)?:
           bd = d
   best
 
-# A monster's volley this tick, if its signature's beat has come; a guardian's
-# from its `.boss` file's named patterns and phases. The Sight is flattened:
-# knights (spots), paces, pack, depth, heads. Answers (enemy, shots).
 def patterns.volley(enemy: Enemy, knights: J.Val, paces: J.Val, pack: String, depth: U32, heads: U32, room: Room, barred: Bool, seed: W.W, bosses: J.Val, shots: J.Val) -> (Enemy, J.Val):
   match (patterns.nearest_ix(knights, enemy.x, enemy.y) : (U32, F32, F32)?):
     case None{}:
@@ -716,7 +677,6 @@ def patterns.volley.go(enemy: Enemy, knights: J.Val, paces: J.Val, pack: String,
     return patterns.volley.boss(enemy, boss, (fx, fy), at, pace, room, barred, salt, step, shield_line, wanted, shots)
   patterns.volley.plain(enemy, pack, depth, (fx, fy), at, pace, room, barred, salt, step, shield_line, shots)
 
-# A guardian's volley: its file's named attacks and its phases chain.
 def patterns.volley.boss(enemy: Enemy, boss: Boss, src: (F32, F32), at: (F32, F32), pace: (F32, F32), room: Room, barred: Bool, salt: W.W, step: U32, shield_line: Bool, wanted: Bool, shots: J.Val) -> (Enemy, J.Val):
   if Bool.and(wanted, Bool.not(outlaw.shooting(enemy.stage))):
     return (enemy, shots)
@@ -773,7 +733,6 @@ def patterns.volley.size(emitter: String, wanted: Bool) -> U32?:
     return None{}
   Some{patterns.Emitter.guardian_count(emitter)}
 
-# A monster's own signature volley.
 def patterns.volley.plain(enemy: Enemy, pack: String, depth: U32, src: (F32, F32), at: (F32, F32), pace: (F32, F32), room: Room, barred: Bool, salt: W.W, step: U32, shield_line: Bool, shots: J.Val) -> (Enemy, J.Val):
   if Bool.or(Bool.and(String.eq(enemy.kind, "slime"), U32.is_ne(enemy.stage, 0)), Bool.or(Bool.and(String.eq(enemy.kind, "hollow"), U32.is_eq(enemy.stage, 1)), Bool.and(String.eq(enemy.kind, "pit_tyrant"), U32.is_ne(enemy.stage, 0)))):
     return (enemy, shots)

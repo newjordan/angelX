@@ -9,7 +9,6 @@
 use super::countryside::Country;
 use super::{BTreeMap, HZ, Input, Room, RoomKind, Run, Spoil, Spoils, TILE_UNITS, Tile};
 
-/// How long a turned valve stays open before its spring shuts it.
 pub const VALVE_OPEN: u32 = 6 * HZ;
 pub const VALVES: [&str; 3] = ["FISH", "BOOT", "DUCK"];
 
@@ -120,10 +119,7 @@ impl Run {
         }));
     }
 
-    /// The sluice: valves turned open, springs shutting them, and the
-    /// drain when all three stand open together.
     fn tick_valves(&mut self, inputs: &BTreeMap<u32, Input>, s: u8) {
-        // An older save may have turned some for good.
         let already = usize::from(s - 1).min(3);
         let mut open = self.valves.take().unwrap_or([0; 3]);
         for (i, left) in open.iter_mut().enumerate().skip(already) {

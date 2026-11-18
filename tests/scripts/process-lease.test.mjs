@@ -10,8 +10,10 @@ import {
   PROCESS_LEASE_SCHEMA,
   acquireProcessLease,
   classifyProcessLeaseOwner,
+  holdProcessLease,
   processStartToken,
   releaseProcessLease,
+  renewProcessLease,
 } from '../../lib/control/process-lease.mjs'
 
 function fixturePaths() {
@@ -22,6 +24,258 @@ function fixturePaths() {
     compatibilityPath: join(root, 'lock'),
   }
 }
+
+function failStagedWrite(t, target, operation) {
+  const error = new Error(`injected ${operation} failure`)
+  const open = fs.openSync
+  const original = fs[operation]
+  let stagedFd
+  let injected = false
+  const openMock = t.mock.method(fs, 'openSync', function (path, ...args) {
+    const fd = open.call(this, path, ...args)
+    if (typeof path === 'string' && path.startsWith(`${target}.`) && path.endsWith('.tmp')) {
+      stagedFd = fd
+    }
+    return fd
+  })
+  const faultMock = t.mock.method(fs, operation, function (...args) {
+    const matches = operation === 'renameSync' ? args[1] === target : args[0] === stagedFd
+    if (!injected && matches) {
+      injected = true
+      if (operation === 'closeSync') original.apply(this, args)
+      throw error
+    }
+    return original.apply(this, args)
+  })
+  return {
+    error,
+    restore() {
+      faultMock.mock.restore()
+      openMock.mock.restore()
+      assert.equal(injected, true, 'the requested staging fault was exercised')
+    },
+  }
+}
+
+for (const operation of ['writeFileSync', 'fsyncSync', 'closeSync', 'renameSync']) {
+  for (const destination of ['owner', 'compatibility']) {
+    test(`renewal cleans staging after ${destination} ${operation} failure`, (t) => {
+      const paths = fixturePaths()
+      try {
+        const nowMs = Date.now()
+        const lease = acquireProcessLease({ ...paths, nowMs })
+        assert.equal(lease.acquired, true)
+        const target = destination === 'owner'
+          ? join(paths.leaseDir, 'owner.json')
+          : paths.compatibilityPath
+        const prior = fs.readFileSync(target, 'utf8')
+        const fault = failStagedWrite(t, target, operation)
+        try {
+          assert.throws(
+            () => renewProcessLease({ ...paths, owner: lease.owner, nowMs: nowMs + 1 }),
+            (error) => error === fault.error,
+          )
+        } finally {
+          fault.restore()
+        }
+        assert.equal(fs.readFileSync(target, 'utf8'), prior, 'failed staging preserves its target')
+        assert.deepEqual(fs.readdirSync(paths.leaseDir), ['owner.json'])
+        assert.deepEqual(fs.readdirSync(paths.root).sort(), ['lock', 'lock.lease'])
+        const retry = renewProcessLease({ ...paths, owner: lease.owner, nowMs: nowMs + 2 })
+        assert.equal(retry.renewed, true)
+        assert.equal(retry.owner.heartbeat_at_ms, nowMs + 2)
+        assert.equal(releaseProcessLease({ ...paths, owner: lease.owner }), true)
+        assert.deepEqual(fs.readdirSync(paths.root), [])
+      } finally {
+        fs.rmSync(paths.root, { recursive: true, force: true })
+      }
+    })
+  }
+
+  for (const priority of ['background', 'foreground']) {
+    test(`${priority} acquisition cleans staging after ${operation} failure`, (t) => {
+      const paths = fixturePaths()
+      try {
+        const target = priority === 'foreground'
+          ? `${paths.leaseDir}.foreground`
+          : paths.compatibilityPath
+        const fault = failStagedWrite(t, target, operation)
+        try {
+          assert.throws(
+            () => acquireProcessLease({ ...paths, priority }),
+            (error) => error === fault.error,
+          )
+        } finally {
+          fault.restore()
+        }
+        assert.deepEqual(fs.readdirSync(paths.root), [])
+        const retry = acquireProcessLease({ ...paths, priority })
+        assert.equal(retry.acquired, true)
+        assert.equal(releaseProcessLease({ ...paths, owner: retry.owner }), true)
+      } finally {
+        fs.rmSync(paths.root, { recursive: true, force: true })
+      }
+    })
+  }
+}
+
+test('a staging-name collision never removes a file this caller did not create', () => {
+  const paths = fixturePaths()
+  try {
+    const token = 'collision-fixture'
+    const temporary = `${paths.leaseDir}.foreground.${token}.tmp`
+    fs.writeFileSync(temporary, 'not owned by this caller')
+    assert.throws(
+      () => acquireProcessLease({ ...paths, priority: 'foreground', token }),
+      { code: 'EEXIST' },
+    )
+    assert.equal(fs.readFileSync(temporary, 'utf8'), 'not owned by this caller')
+    assert.deepEqual(fs.readdirSync(paths.root), ['lock.lease.foreground.collision-fixture.tmp'])
+  } finally {
+    fs.rmSync(paths.root, { recursive: true, force: true })
+  }
+})
+
+test('release still refuses unknown lease-directory entries', () => {
+  const paths = fixturePaths()
+  try {
+    const lease = acquireProcessLease(paths)
+    const unknown = join(paths.leaseDir, 'unrelated.tmp')
+    fs.writeFileSync(unknown, 'do not delete')
+    assert.throws(
+      () => releaseProcessLease({ ...paths, owner: lease.owner }),
+      /refusing to reclaim process lease with unknown entries/u,
+    )
+    assert.equal(fs.readFileSync(unknown, 'utf8'), 'do not delete')
+    fs.unlinkSync(unknown)
+    assert.equal(releaseProcessLease({ ...paths, owner: lease.owner }), true)
+  } finally {
+    fs.rmSync(paths.root, { recursive: true, force: true })
+  }
+})
+
+for (const phase of ['entry', 'handoff']) {
+  for (const destination of ['owner', 'compatibility']) {
+    test(`helper releases its acquired lease after ${phase} ${destination} renewal fails`, async (t) => {
+      const paths = fixturePaths()
+      let fault
+      let called = false
+      try {
+        const lease = acquireProcessLease({ ...paths, criticalSection: true })
+        const target = destination === 'owner'
+          ? join(paths.leaseDir, 'owner.json')
+          : paths.compatibilityPath
+        if (phase === 'entry') fault = failStagedWrite(t, target, 'fsyncSync')
+        try {
+          await assert.rejects(holdProcessLease(() => {
+            called = true
+            fault = failStagedWrite(t, target, 'fsyncSync')
+            return 'finished'
+          }, { ...paths, lease }), (error) => error === fault.error)
+        } finally {
+          fault.restore()
+        }
+        assert.equal(called, phase === 'handoff')
+        assert.deepEqual(fs.readdirSync(paths.root), [])
+        const next = acquireProcessLease(paths)
+        assert.equal(next.acquired, true)
+        assert.equal(releaseProcessLease({ ...paths, owner: next.owner }), true)
+      } finally {
+        fs.rmSync(paths.root, { recursive: true, force: true })
+      }
+    })
+  }
+}
+
+test('helper also releases an automatically acquired lease when entry renewal fails', async (t) => {
+  const paths = fixturePaths()
+  try {
+    const fault = failStagedWrite(t, join(paths.leaseDir, 'owner.json'), 'fsyncSync')
+    try {
+      await assert.rejects(holdProcessLease(() => {
+        assert.fail('protected work must not start after entry renewal failed')
+      }, paths), (error) => error === fault.error)
+    } finally {
+      fault.restore()
+    }
+    assert.deepEqual(fs.readdirSync(paths.root), [])
+  } finally {
+    fs.rmSync(paths.root, { recursive: true, force: true })
+  }
+})
+
+for (const callbackError of [new Error('protected work failed'), undefined]) {
+  test(`helper preserves a ${callbackError === undefined ? 'falsy' : 'normal'} callback error if handoff fails`, async (t) => {
+    const paths = fixturePaths()
+    let fault
+    try {
+      try {
+        await assert.rejects(holdProcessLease(() => {
+          fault = failStagedWrite(t, paths.compatibilityPath, 'renameSync')
+          throw callbackError
+        }, paths), (error) => error === callbackError)
+      } finally {
+        fault.restore()
+      }
+      assert.deepEqual(fs.readdirSync(paths.root), [])
+    } finally {
+      fs.rmSync(paths.root, { recursive: true, force: true })
+    }
+  })
+}
+
+test('helper releases a rejected stale lease, but never its successor', async () => {
+  const paths = fixturePaths()
+  const noWork = () => assert.fail('protected work must not start with a rejected lease')
+  try {
+    const nowMs = Date.now()
+    const lease = acquireProcessLease({ ...paths, nowMs, heartbeatMs: 10, staleAfterMs: 50 })
+    const refused = await holdProcessLease(noWork, { ...paths, lease, nowMs: nowMs + 50 })
+    assert.equal(refused.acquired, false)
+    assert.equal(refused.reason, 'stale-heartbeat')
+    assert.deepEqual(fs.readdirSync(paths.root), [])
+
+    const prior = acquireProcessLease({ ...paths, nowMs, heartbeatMs: 10, staleAfterMs: 50 })
+    const successor = acquireProcessLease({ ...paths, nowMs: nowMs + 50 })
+    assert.equal(successor.acquired, true)
+    const replaced = await holdProcessLease(noWork, { ...paths, lease: prior, nowMs: nowMs + 50 })
+    assert.equal(replaced.acquired, false)
+    assert.equal(replaced.reason, 'owner-token-mismatch')
+    assert.equal(JSON.parse(fs.readFileSync(paths.compatibilityPath)).token, successor.owner.token)
+    assert.equal(releaseProcessLease({ ...paths, owner: successor.owner }), true)
+  } finally {
+    fs.rmSync(paths.root, { recursive: true, force: true })
+  }
+})
+
+test('helper reports release failure instead of reporting completed cleanup', async (t) => {
+  const paths = fixturePaths()
+  const releaseError = new Error('injected release failure')
+  const unlink = fs.unlinkSync
+  let injected = false
+  let mock
+  let owner
+  try {
+    try {
+      await assert.rejects(holdProcessLease((lease) => {
+        owner = lease.owner
+        mock = t.mock.method(fs, 'unlinkSync', function (path) {
+          if (!injected && path === paths.compatibilityPath) {
+            injected = true
+            throw releaseError
+          }
+          return unlink.call(this, path)
+        })
+      }, paths), (error) => error === releaseError)
+    } finally {
+      mock.mock.restore()
+    }
+    assert.equal(injected, true)
+    assert.equal(releaseProcessLease({ ...paths, owner }), true)
+  } finally {
+    fs.rmSync(paths.root, { recursive: true, force: true })
+  }
+})
 
 test('owner classification distinguishes a live incarnation, death, PID reuse, and remote TTL', () => {
   const nowMs = 10_000
@@ -274,7 +528,6 @@ test('a fresh contender winning the reclaim publish gap is reported as contentio
   }
 })
 
-// Logical timestamps make expiry boundaries reproducible without scheduler sleeps.
 test('renewal extends heartbeat expiry, but a stale live owner cannot renew or release its successor', async () => {
   const { renewProcessLease } = await import('../../lib/control/process-lease.mjs')
   const paths = fixturePaths()
@@ -339,7 +592,6 @@ test('helper renews, protects live critical sections, then hands off without int
         await new Promise((resolve) => setTimeout(resolve, 80))
         const owner = JSON.parse(fs.readFileSync(join(paths.leaseDir, 'owner.json')))
         assert.ok(owner.heartbeat_at_ms > lease.owner.heartbeat_at_ms)
-        // Simulate event-loop suspension while protected work remains alive.
         assert.equal(
           acquireProcessLease({ ...paths, nowMs: Date.now() + 1000, priority: 'foreground' })
             .acquired,

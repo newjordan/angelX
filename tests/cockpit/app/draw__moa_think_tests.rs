@@ -66,8 +66,6 @@ fn think_picker_on_a_ladder_less_route_shows_the_na_line() {
     );
 }
 
-/// Full-board render proof: a ladder-less route's picker shows the n/a
-/// line, and a staged effort is worn by its seat node in the graph.
 #[test]
 fn formation_board_renders_na_picker_and_staged_seat_effort() {
     let _lock = crate::tests::env_lock();
@@ -75,10 +73,9 @@ fn formation_board_renders_na_picker_and_staged_seat_effort() {
     app.bag = crate::agent::club::Bag::for_reasoning_render_test();
     app.open_moa_deck(None);
     app.select_moa_card(crate::agent::formations::FormationId::Duel);
-    // Ladder-less seat: the practice route declares no reasoning levels.
     {
         let deck = app.moa_deck.as_mut().unwrap();
-        assert!(deck.select_slot(2)); // J1
+        assert!(deck.select_slot(2));
         let practice = deck
             .models()
             .iter()
@@ -96,7 +93,6 @@ fn formation_board_renders_na_picker_and_staged_seat_effort() {
         "{screen}"
     );
 
-    // Stage a level on the ladder route; the J1 seat node wears it.
     {
         let deck = app.moa_deck.as_mut().unwrap();
         let sol = deck

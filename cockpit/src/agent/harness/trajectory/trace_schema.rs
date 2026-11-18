@@ -17,9 +17,6 @@ pub(super) fn defaults(record: &mut Value) {
     record["verifier"] = json!([]);
     record["artifacts"] = json!([]);
     record["lease"] = json!({"kind":null,"host":null,"seat":null,"lease_id":null});
-    // Cost placeholders keep basis/source/model explicit so every record is
-    // schema-valid before the real usage-based binding runs; the basis
-    // explains the nulls rather than fabricating zeroes.
     record["cost"] = json!({"paid":null,"cached":null,"currency":null,"price_date":null,
         "basis":"unreported-usage","source":"no-usage-yet","model":null});
     record["workspace_state"] = unbound("unbound");
@@ -30,15 +27,10 @@ fn unbound(reason: &str) -> Value {
         "head_tree":"unbound","start_tree_sha256":"unbound","start_dirty_paths_sha256":"unbound"})
 }
 
-/// Read the working tree, never mutate the Git index. Content digests are over
-/// sorted length-delimited path/type/content-digest entries, including untracked
-/// nonignored files. Symlinks hash link text and are never followed.
 pub(crate) fn workspace_state(workspace: Option<&Path>) -> Value {
     workspace_state_inner(workspace, None)
 }
 
-/// Optional startup indexing only: an exhausted walk never supplies a complete
-/// tree identity and never cancels a turn or its verifier.
 pub(crate) fn startup_workspace_state(workspace: &Path) -> Value {
     let budget_ms = std::env::var("ANGEL_STARTUP_WALK_MS")
         .ok()
@@ -70,8 +62,6 @@ fn workspace_state_inner(workspace: Option<&Path>, deadline: Option<Instant>) ->
     let Some(root) = workspace else {
         return unbound("unbound");
     };
-    // One probe: its output, and whether it could not run at all (deadline,
-    // timeout, overflow, io) as opposed to Git answering "no".
     let git = |args: &[&str]| -> (Option<Vec<u8>>, bool) {
         let mut command = std::process::Command::new("git");
         command
@@ -80,11 +70,7 @@ fn workspace_state_inner(workspace: Option<&Path>, deadline: Option<Instant>) ->
             .arg("-C")
             .arg(root)
             .args(args);
-        // P04b: the startup deadline bounds every probe; R04e: an unavailable probe
-        // (timeout/overflow/io) is reported as partial evidence and the turn continues.
         if let Some(end) = deadline {
-            // Startup index: the whole-tree deadline bounds the probe and the larger
-            // capture allowance admits tracked path lists from big repositories.
             let remaining = end.saturating_duration_since(Instant::now());
             if remaining.is_zero() {
                 return (None, true);
@@ -112,19 +98,13 @@ fn workspace_state_inner(workspace: Option<&Path>, deadline: Option<Instant>) ->
     };
     let (inside, inside_failed) = git(&["rev-parse", "--is-inside-work-tree"]);
     if inside.is_none() {
-        // One reason string for every unavailable probe (deadline or not): the
-        // partial notice and the receipts key on it.
         return unbound(if inside_failed {
             "workspace identity probe unavailable"
         } else {
             "not a git repo"
         });
     }
-    // The active workspace contract excludes quarantines at Git's pathspec layer.
     let paths = [".", ":(exclude)off-limits/**"];
-    // Four read-only views of one tree, run together: the identity costs the
-    // slowest probe rather than their sum (it is taken at start-up and again
-    // for each record written at the end).
     let ((head, head_failed), (head_tree, _), (names, _), (dirty, _)) =
         std::thread::scope(|scope| {
             let head = scope.spawn(|| git(&["rev-parse", "HEAD"]));
@@ -158,8 +138,6 @@ fn workspace_state_inner(workspace: Option<&Path>, deadline: Option<Instant>) ->
             )
         });
     let Some(head) = head else {
-        // An unborn HEAD is a valid negative (fresh repository); only an
-        // unavailable probe is reported as such.
         return unbound(if head_failed {
             "workspace identity probe unavailable"
         } else {
@@ -198,7 +176,6 @@ thread_local! {
     static START_STATE: std::cell::RefCell<Option<Value>> = const { std::cell::RefCell::new(None) };
 }
 
-/// Restore outer turns on nested execution and clear the snapshot on every exit.
 pub(crate) struct WorkspaceStartScope(Option<Value>);
 
 impl WorkspaceStartScope {
@@ -223,7 +200,6 @@ impl Drop for WorkspaceStartScope {
 }
 
 pub(super) fn attach_start(state: &mut Value) {
-    // head_tree belongs to START, even if a tool committed a new HEAD.
     state["head_tree"] = json!("unbound");
     START_STATE.with(|cell| {
         if let Some(start) = cell.borrow().as_ref() {
@@ -273,7 +249,6 @@ fn expired(deadline: Option<Instant>) -> bool {
     deadline.is_some_and(|end| Instant::now() >= end)
 }
 
-// None denotes a cooperative deadline; errors remain unavailable evidence.
 fn file_digest(path: &Path, deadline: Option<Instant>) -> std::io::Result<Option<String>> {
     use std::fmt::Write;
     let mut file = std::fs::File::open(path)?;

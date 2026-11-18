@@ -30,45 +30,27 @@ use super::votes::{Action, Command as Vote};
 use angel_net::cmd::Command;
 use angel_net::codec::{Bytes, put_varint};
 
-/// One seat's command for one tick.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct DelveCmd {
-    /// The keys down at the sample.
     pub held: Input,
-    /// What went down since the sample before, even if let go since.
     pub pressed: Input,
 }
 
-/// The two-bit code of an axis that does not exist (-1..=1 are 0..=2).
 const NO_AXIS: u8 = 3;
-/// The flag bits, in order from bit 0.
 const FLAGS: usize = 12;
-/// After the flags: the slots byte follows, a vote follows.
 const HAS_SLOTS: u64 = 1 << FLAGS;
 const HAS_VOTE: u64 = 1 << (FLAGS + 1);
-/// Optional game-local sample tick, inside the existing command body.
 const HAS_LATCH_TICK: u64 = 1 << (FLAGS + 2);
-// Keep the existing slot, vote and sample bits stable.
 const LEAVE_HELD: u64 = 1 << (FLAGS + 3);
-/// The ride key (`Input::ride`, `shoulders`).
 const RIDE: u64 = 1 << (FLAGS + 4);
-/// The next-card key (`Input::cycle`, `Hero::cycle_hand`).
 const CYCLE: u64 = 1 << (FLAGS + 5);
 const TEAM: u64 = 1 << (FLAGS + 6);
-/// Optional creator action; absent keeps all existing command bytes unchanged.
 const HAS_MIRROR: u64 = 1 << (FLAGS + 7);
 const HAS_BUILDER: u64 = 1 << (FLAGS + 8);
-/// Bits a slot value takes in the slots varint (`play`, `cast`, `skill`
-/// are each at most 5).
 const SLOT_BITS: u32 = 3;
-/// The longest a command's bytes can be: two inputs of an axes byte, a
-/// three-byte flags varint, a two-byte slots varint, a ten-byte serial, an
-/// action byte, a ten-byte optional Latch sample tick, a mirror action byte,
-/// and at most four optional builder bytes.
 pub const MAX_BYTES: usize = 2 * (1 + 3 + 2 + 10 + 1 + 10 + 1 + 4);
 
 impl DelveCmd {
-    /// What the step sees: `held` with `pressed` laid over it.
     pub fn input(&self) -> Input {
         lay_over(self.held, &self.pressed)
     }
@@ -78,9 +60,6 @@ impl DelveCmd {
         put_input(out, &self.pressed);
     }
 
-    /// A command's bytes, or `None` when they are not one: a cut-off or
-    /// overlong body, an axis or flag that does not exist, or an input the
-    /// rules would refuse (`Input::valid`).
     pub fn decode(bytes: &[u8]) -> Option<DelveCmd> {
         if bytes.len() > MAX_BYTES {
             return None;
@@ -120,8 +99,6 @@ impl Command for DelveCmd {
     }
 }
 
-/// `under` with every field `over` sets laid on top: a flag set in either,
-/// an axis or slot `over` gives, `over`'s vote if it has one.
 pub(super) fn lay_over(under: Input, over: &Input) -> Input {
     let axis = |u: i8, o: i8| if o != 0 { o } else { u };
     let slot = |u: u8, o: u8| if o != 0 { o } else { u };
@@ -296,8 +273,6 @@ fn read_input(b: &mut Bytes) -> Option<Input> {
     })
 }
 
-/// A ballot action as one byte: the six moves, then clear and untried,
-/// then a rating of n stars as 8 + n.
 fn action_code(action: Action) -> u8 {
     match action {
         Action::Toggle => 0,
@@ -308,7 +283,6 @@ fn action_code(action: Action) -> u8 {
         Action::Right => 5,
         Action::Clear => 6,
         Action::Untried => 7,
-        // `Input::valid` keeps n to 1..=5 on both ends.
         Action::Rate(n) => 8u8.saturating_add(n),
     }
 }

@@ -41,7 +41,6 @@ fn drag(app: &mut App, start: (u16, u16), end: (u16, u16)) {
         start.0,
         start.1,
     ));
-    // Multiple drag events must not accidentally start a Stage camera gesture.
     for point in [start, end] {
         app.on_mouse(mouse_ev(
             MouseEventKind::Drag(MouseButton::Left),
@@ -170,13 +169,9 @@ fn resize_rebinds_copy_and_highlight_to_current_origin_in_both_panes() {
         let copied = app.pending_clipboard.take().unwrap();
         app.selection = None;
         let before = paint(&mut app, 220, 56);
-        // Selection affects transcript reader anchoring; compare the payload
-        // with the actual copy frame, not a later unselected redraw. Highlight
-        // changes modifiers only, so buffer symbols remain the exact oracle.
         assert_eq!(copied, mouse::extract_text_in(&after, &selected, current));
         assert_highlight(&before, &after, &selected);
 
-        // Also exercise mouse-side rebinding against a newly rendered registry.
         let mut stale = mouse::Selection::new(origin, old, old.x, old.y);
         stale.extend(old.right() - 1, old.bottom() - 1);
         app.selection = Some(stale);
@@ -291,8 +286,6 @@ fn fullscreen_transcript_fills_body_to_sidebar_with_toolstrip_excluded() {
             "shell",
             "PANE_TOOL_ONLY",
         );
-        // Layout work yields after a 2 ms frame budget. This is a settled
-        // geometry proof, so do not assume all 80 messages fit in one tick.
         let rendered = (0..=app.messages.len())
             .find_map(|_| {
                 let frame = paint(&mut app, width, 48);
@@ -302,7 +295,7 @@ fn fullscreen_transcript_fills_body_to_sidebar_with_toolstrip_excluded() {
         let frame = app.panel_frames.get(panels::PanelKind::Transcript).unwrap();
         let inner = mouse::inner_border(frame);
         let prose = app.panes.rect_of(mouse::PaneId::Transcript).unwrap();
-        let strip_h = 2; // running tool: status row + loading bar, no note
+        let strip_h = 2;
         let strip_text = (inner.x..inner.right())
             .map(|x| {
                 rendered
@@ -368,8 +361,6 @@ fn agent_chrome_scrolls_and_focuses_its_pane_without_becoming_copyable() {
     let _ = paint(&mut app, 160, 52);
     let text = app.panes.rect_of(mouse::PaneId::AgentBay).unwrap();
     let frame = app.panel_frames.get(panels::PanelKind::AgentBay).unwrap();
-    // The rail, reasoning label and bottom-right portrait are interaction
-    // targets, but never clipboard sources.
     for point in [
         (text.right(), text.y),
         (text.x, text.y - 1),
@@ -483,8 +474,6 @@ fn miniviz_world_owns_chrome_zoom_drag_and_never_scrolls_transcript() {
         "gestures must not scroll the transcript"
     );
     paint(&mut app, 144, 44);
-    // Transcript reflow may legitimately rebase its scroll on resize; that
-    // is not wheel leakage. The gesture must nevertheless be gone.
     assert!(app.scryglass_drag.is_none());
     assert_eq!(app.input, "unsubmitted draft");
     assert!(app.selection.is_none());

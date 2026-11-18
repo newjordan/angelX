@@ -1,7 +1,3 @@
-# crates/delve/src/rules/griffinwing/combat.rs, continued: what a hit does
-# (hit_foe, kill, break_lamp), Starfall, and the bolts' tick.
-
-# A foe takes `dmg` from `by`; whether it fell. {"s", "r": bool}.
 def griffinwing.combat.Session.hit_foe(+s: J.Val, +fi: U32, +dmg: U32, +by: U32) -> J.Val:
   griffinwing.combat.Session.hit_foe.struck(
     gw.put_item(s, "foes", fi,
@@ -17,13 +13,9 @@ def griffinwing.combat.Session.hit_foe.struck(+s: J.Val, +fi: U32, +by: U32) -> 
         _ => griffinwing.combat.Session.kill(s, fi, by)),
       J.JBool{True{}}))
 
-# `seats.get_mut(&by)`'s craft changed by `f`, or the session at0 it is.
 def gw.seat_has(+s: J.Val, +by: U32) -> Bool:
   ga.has_key(J.get(s, "seats"), by)
 
-# A foe pops into cold smoke and a spark of returned light. A kite that had
-# latched on is a rescue; a knight's chain of pops is counted, and pays more
-# the longer it runs.
 def griffinwing.combat.Session.kill(+s: J.Val, +fi: U32, +by: U32) -> J.Val:
   griffinwing.combat.Session.kill.a(gw.remove(s, "foes", fi), gw.item(s, "foes", fi), by)
 
@@ -44,7 +36,6 @@ def griffinwing.combat.Session.kill.a(+s: J.Val, +f: J.Val, +by: U32) -> J.Val:
       ga.sv(s, "beat", gw.addu(J.get(s, "beat"), "kills", 1)),
       f, by, griffinwing.types.Kind.worth(ga.s(f, "kind"))))
 
-# The base is banked at the worth, not at the bonus.
 def griffinwing.combat.Session.kill.b(+s: J.Val, +f: J.Val, +by: U32, +gain: U32) -> J.Val:
   griffinwing.combat.Session.kill.c(
     ga.sv(s, "beat", gw.addu(J.get(s, "beat"), "base", griffinwing.types.Kind.worth(ga.s(f, "kind")))),
@@ -73,8 +64,6 @@ def griffinwing.combat.Session.kill.e(+s: J.Val, +f: J.Val, +by: U32, +gain: U32
 def griffinwing.combat.Session.kill.fin(+s: J.Val, +by: U32, +chain: U32) -> J.Val:
   gw.ifj(U32.is_eq(chain, 5), _ => griffinwing.Session.say(s, by, "Chain"), _ => s)
 
-# A lamp's flame is out: points, a flash, and the Wyrm reels (the Wyrm's tick
-# sees it).
 def griffinwing.combat.Session.break_lamp(+s: J.Val, +fi: U32, +by: U32) -> J.Val:
   griffinwing.combat.Session.break_lamp.a(
     gw.put_item(s, "foes", fi, ga.su(gw.sets(gw.item(s, "foes", fi), "st", "Broken"), "hp", 0)),
@@ -93,8 +82,6 @@ def griffinwing.combat.Session.break_lamp.a(+s: J.Val, +f: J.Val, +by: U32) -> J
 def griffinwing.combat.Session.break_lamp.beat(+s: J.Val) -> J.Val:
   ga.sv(s, "beat", gw.addu(gw.addu(gw.addu(J.get(s, "beat"), "pts", 500), "base", 500), "kills", 1))
 
-# Starfall: every hostile bolt is cleared, and everything small on the way is
-# struck for what it can bear.
 def griffinwing.combat.Session.starfall(+s: J.Val, +by: U32, +s_c: U32, +x: U32, +z: U32) -> J.Val:
   griffinwing.combat.Session.starfall.sweep(
     ga.sv(
@@ -102,7 +89,6 @@ def griffinwing.combat.Session.starfall(+s: J.Val, +by: U32, +s_c: U32, +x: U32,
       "bolts", J.JA{griffinwing.combat.Session.starfall.clear(ga.items(s, "bolts"))}),
     0, by, griffinwing.Session.anchor(s))
 
-# bolts.retain(|b| !matches!(b.shot, Spark | Gloam))
 def griffinwing.combat.Session.starfall.clear(+bs: List<&2, J.Val>) -> List<&2, J.Val>:
   match bs:
     case Nil{}:
@@ -126,16 +112,11 @@ def griffinwing.combat.Session.starfall.foe(+s: J.Val, +i: U32, +by: U32, +ancho
 def griffinwing.combat.Session.starfall.hit(+r: J.Val, +i: U32, +by: U32, +anchor: U32) -> J.Val:
   griffinwing.combat.Session.starfall.sweep(gw.out_s(r), gw.ifu(J.bool(gw.out_r(r)), _ => i, _ => (i + 1 : U32)), by, anchor)
 
-# ─── the bolts' tick ────────────────────────────────────────────────────────
-
-# The bolts fly and home, then land.
 def griffinwing.combat.Session.step_bolts(+s: J.Val, +n: J.Val) -> J.Val:
   griffinwing.combat.Session.step_bolts.land(
     griffinwing.combat.Session.step_bolts.move(s, 0, gw.len(s, "bolts"), griffinwing.Session.anchor(s), J.JA{[]}, J.JA{[]}),
     n, griffinwing.Session.anchor(s))
 
-# First pass: each bolt waits at its muzzle or homes and moves. The workspace
-# {"s", "segs": null or [from, to] per bolt, "dead": bool per bolt}.
 def griffinwing.combat.Session.step_bolts.move(+s: J.Val, +i: U32, +count: U32, +anchor: U32, +segs: J.Val, +dead: J.Val) -> J.Val:
   gw.ifj(U32.is_lt(i, count),
     _ => griffinwing.combat.Session.step_bolts.move.next(s, i, count, anchor, segs, dead,
@@ -150,11 +131,9 @@ def griffinwing.combat.Session.step_bolts.one(+s: J.Val, +b: J.Val, +anchor: U32
     _ => griffinwing.combat.Session.step_bolts.wait(b, griffinwing.flight.Session.craft_at(s, ga.u(b, "owner"))),
     _ => griffinwing.combat.Session.step_bolts.fly(s, griffinwing.combat.Session.step_bolts.home(s, b)))
 
-# {"b", "seg", "dead"}
 def gw.bolt_out(+b: J.Val, +seg: J.Val, +dead: Bool) -> J.Val:
   J.set(J.set(J.set(J.obj(), "b", b), "seg", seg), "dead", J.JBool{dead})
 
-# A released starburst waits at its craft's muzzle for its turn.
 def griffinwing.combat.Session.step_bolts.wait(+b: J.Val, +at: J.Val) -> J.Val:
   gw.ifj(Bool.and(gw.at_some(at), gw.at_ok(at)),
     _ => gw.bolt_out(
@@ -162,13 +141,11 @@ def griffinwing.combat.Session.step_bolts.wait(+b: J.Val, +at: J.Val) -> J.Val:
       J.JNull{}, False{}),
     _ => gw.bolt_out(b, J.JNull{}, True{}))
 
-# Homing: a starburst and a turned bolt close on their body.
 def griffinwing.combat.Session.step_bolts.home(+s: J.Val, +b: J.Val) -> J.Val:
   gw.ifj(Bool.and(U32.is_ne(ga.u(b, "aim"), 0), Bool.or(gw.isn(b, "shot", "Star"), gw.isn(b, "shot", "Turned"))),
     _ => griffinwing.combat.Session.step_bolts.home2(s, b, griffinwing.combat.Session.step_bolts.body(ga.items(s, "foes"), ga.u(b, "aim"))),
     _ => b)
 
-# The live foe with this id: [s, x, z] or null.
 def griffinwing.combat.Session.step_bolts.body(+fs: List<&2, J.Val>, +id: U32) -> J.Val:
   match fs:
     case Nil{}:
@@ -190,8 +167,6 @@ def griffinwing.combat.Session.step_bolts.steer(+b: J.Val, +want: GwV3) -> J.Val
     "vx", (ga.u(b, "vx") + gw.div((gw.v3b(want) - ga.u(b, "vx") : U32), 3) : U32)),
     "vz", (ga.u(b, "vz") + gw.div((gw.v3c(want) - ga.u(b, "vz") : U32), 3) : U32))
 
-# Its body is gone: on to the nearest ahead (lockable, not a lamp, within
-# dm(20)..=dm(500) ahead of the bolt); the first of equals wins. The foe id, or 0.
 def griffinwing.combat.Session.step_bolts.next_aim(+fs: List<&2, J.Val>, +b: J.Val, +best: J.Val, +bd: U32) -> U32:
   match fs:
     case Nil{}:
@@ -208,7 +183,6 @@ def griffinwing.combat.Session.step_bolts.next_aim2(+f: J.Val, +t: List<&2, J.Va
     _ => griffinwing.combat.Session.step_bolts.next_aim(t, b, J.JU{ga.u(f, "id")}, d),
     _ => griffinwing.combat.Session.step_bolts.next_aim(t, b, best, bd))
 
-# The move: from, then on its velocity; a tick of life gone.
 def griffinwing.combat.Session.step_bolts.fly(+s: J.Val, +b0: J.Val) -> J.Val:
   griffinwing.combat.Session.step_bolts.fly2(b0,
     ga.su(ga.si(ga.si(ga.si(b0, "s", (ga.u(b0, "s") + ga.u(b0, "vs") : U32)), "x", (ga.u(b0, "x") + ga.u(b0, "vx") : U32)), "z", (ga.u(b0, "z") + ga.u(b0, "vz") : U32)),
@@ -219,13 +193,11 @@ def griffinwing.combat.Session.step_bolts.fly2(+b0: J.Val, +b: J.Val) -> J.Val:
     J.JA{[J.of_i32(ga.u(b0, "s")), J.of_i32(ga.u(b0, "x")), J.of_i32(ga.u(b0, "z")), J.of_i32(ga.u(b, "s")), J.of_i32(ga.u(b, "x")), J.of_i32(ga.u(b, "z"))]},
     False{})
 
-# Second pass: each bolt lands on what its swept path meets.
 def griffinwing.combat.Session.step_bolts.land(+w: J.Val, +n: J.Val, +anchor: U32) -> J.Val:
   griffinwing.combat.Session.step_bolts.retain(
     griffinwing.combat.Session.step_bolts.hits(J.get(w, "s"), 0, gw.len(J.get(w, "s"), "bolts"), J.get(w, "segs"), J.get(w, "dead"), n),
     anchor)
 
-# {"s", "dead"}
 def griffinwing.combat.Session.step_bolts.hits(+s: J.Val, +i: U32, +count: U32, +segs: J.Val, +dead: J.Val, +n: J.Val) -> J.Val:
   gw.ifj(U32.is_lt(i, count),
     _ => griffinwing.combat.Session.step_bolts.hit(s, i, count, segs, dead, n, J.nth(segs, i)),
@@ -245,7 +217,6 @@ def griffinwing.combat.Session.step_bolts.hit2(+s: J.Val, +i: U32, +count: U32, 
       i, count, segs, n,
       griffinwing.combat.Session.friendly_bolt(s, b, ga.nu(seg, 0), ga.nu(seg, 1), ga.nu(seg, 2), ga.nu(seg, 3), ga.nu(seg, 4), ga.nu(seg, 5), dead)))
 
-# A hostile bolt flew (or not): bolts[i] = its turned self.
 def griffinwing.combat.Session.step_bolts.hit3(+i: U32, +count: U32, +segs: J.Val, +dead: J.Val, +n: J.Val, +r: J.Val) -> J.Val:
   griffinwing.combat.Session.step_bolts.hits(
     gw.put_item(J.get(r, "s"), "bolts", i, J.get(r, "b")), (i + 1 : U32), count, segs,
@@ -256,7 +227,6 @@ def griffinwing.combat.Session.step_bolts.hit4(+i: U32, +count: U32, +segs: J.Va
     J.get(r, "s"), (i + 1 : U32), count, segs,
     gw.ifj(J.bool(J.get(r, "r")), _ => J.get(r, "dead"), _ => J.set_nth(J.get(r, "dead"), i, J.JBool{True{}})), n)
 
-# bolts.retain(|b| !dead[k] && b.life > 0 && anchor - dm(80) <= b.s <= anchor + dm(1200))
 def griffinwing.combat.Session.step_bolts.retain(+w: J.Val, +anchor: U32) -> J.Val:
   ga.sv(J.get(w, "s"), "bolts", J.JA{griffinwing.combat.Session.step_bolts.keep(ga.items(J.get(w, "s"), "bolts"), ga.items(w, "dead"), anchor)})
 
@@ -273,14 +243,10 @@ def griffinwing.combat.Session.step_bolts.keep(+bs: List<&2, J.Val>, +dead: List
         _ => Con{b, griffinwing.combat.Session.step_bolts.keep(t, dt, anchor)},
         _ => griffinwing.combat.Session.step_bolts.keep(t, dt, anchor))
 
-# A friendly bolt against the foes and the hostile sparks; whether it flies on.
-# {"s", "r", "dead"}.
 def griffinwing.combat.Session.friendly_bolt(+s: J.Val, +b: J.Val, +fs: U32, +fx: U32, +fz: U32, +ts: U32, +tx: U32, +tz: U32, +dead: J.Val) -> J.Val:
   griffinwing.combat.Session.friendly_bolt.land(s, b, fs, fx, fz, ts, tx, tz, dead,
     griffinwing.combat.Session.friendly_bolt.best(ga.items(s, "foes"), b, fs, fx, fz, ts, tx, tz, 0, J.JNull{}, 0))
 
-# The foe the bolt lands on: its index, or null. `best` and `bd` carry the
-# nearest so far (the first of equals wins).
 def griffinwing.combat.Session.friendly_bolt.best(+fs: List<&2, J.Val>, +b: J.Val, +fs0: U32, +fx: U32, +fz: U32, +ts: U32, +tx: U32, +tz: U32, +k: U32, +best: J.Val, +bd: U32) -> J.Val:
   match fs:
     case Nil{}:
@@ -309,8 +275,6 @@ def griffinwing.combat.Session.friendly_bolt.land(+s: J.Val, +b: J.Val, +fs: U32
     _ => griffinwing.combat.Session.friendly_bolt.spark(s, dead,
       griffinwing.combat.Session.friendly_bolt.shoot(ga.items(s, "bolts"), dead, fs, fx, fz, ts, tx, tz, 0)))
 
-# A bolt shoots a snuffer's spark out of the air: the first live Spark the path
-# meets, its index or null.
 def griffinwing.combat.Session.friendly_bolt.shoot(+bs: List<&2, J.Val>, +dead: J.Val, +fs: U32, +fx: U32, +fz: U32, +ts: U32, +tx: U32, +tz: U32, +j: U32) -> J.Val:
   match bs:
     case Nil{}:
@@ -330,7 +294,6 @@ def griffinwing.combat.Session.friendly_bolt.spark(+s: J.Val, +dead: J.Val, +hit
       "r", J.JBool{False{}}),
       "dead", J.set_nth(dead, J.u32(hit), J.JBool{True{}})))
 
-# A friendly bolt lands on foe `i`.
 def griffinwing.combat.Session.land(+s: J.Val, +i: U32, +b: J.Val) -> J.Val:
   gw.ifj(gw.isn(gw.item(s, "foes", i), "kind", "Lamp"),
     _ => griffinwing.combat.Session.land.lamp(s, i, b,
@@ -361,14 +324,11 @@ def griffinwing.combat.Session.land.lamp2(+s: J.Val, +i: U32, +b: J.Val, +active
           griffinwing.Session.spark(gw.put_item(s, "foes", i, ga.su(f, "flash", 4)), "Hit", ga.u(f, "s"), ga.u(f, "x"), ga.u(f, "z"), 0),
           "clang"))))
 
-# A hostile bolt against the knights: a roll's shield turns it round, a bare
-# craft takes it. {"s", "b", "r": whether it flies on}.
 def griffinwing.combat.Session.hostile_bolt(+s: J.Val, +b: J.Val, +fs: U32, +fx: U32, +fz: U32, +ts: U32, +tx: U32, +tz: U32, +n: J.Val) -> J.Val:
   griffinwing.combat.Session.hostile_bolt.each(s, b, fs, fx, fz, ts, tx, tz, n,
     gw.ifu(gw.isn(b, "shot", "Gloam"), _ => griffinwing.combat.GLOAM_R(), _ => griffinwing.combat.SPARK_R()),
     griffinwing.combat.Session.hostile_bolt.crafts(s, ga.ids(J.get(s, "seats")), griffinwing.Nums.reflect(n)))
 
-# (id, craft_s, x, z, reflecting, hurt > 0) of each knight flying.
 def griffinwing.combat.Session.hostile_bolt.crafts(+s: J.Val, +ids: List<&2, U32>, +reflect: U32) -> List<&2, J.Val>:
   match ids:
     case Nil{}:
@@ -393,14 +353,10 @@ def griffinwing.combat.Session.hostile_bolt.each(+s: J.Val, +b: J.Val, +fs: U32,
             "b", b), "r", J.JBool{False{}}),
           _ => griffinwing.combat.Session.hostile_bolt.each(s, b, fs, fx, fz, ts, tx, tz, n, r, t)))
 
-# A rolling craft's shield turns a bolt round: it is the roller's now, faster,
-# and heads for what fired it (or the Wyrm's lit lamp). {"s", "b", "r": true}.
 def griffinwing.combat.Session.turn(+s: J.Val, +b: J.Val, +by: U32, +at0: U32, +ax: U32, +az: U32) -> J.Val:
   griffinwing.combat.Session.turn.go(s, b, by, at0,
     griffinwing.combat.Session.turn.target(s, b, at0, ax, az))
 
-# The id the bolt heads for, or null: what fired it (if alive), else the lit
-# lamp (if alive), else the nearest lockable foe ahead that is not a lamp.
 def griffinwing.combat.Session.turn.target(+s: J.Val, +b: J.Val, +at0: U32, +ax: U32, +az: U32) -> J.Val:
   griffinwing.combat.Session.turn.target2(s, b, at0, ax, az, griffinwing.combat.Session.turn.alive(ga.items(s, "foes"), ga.u(b, "src")))
 
@@ -417,7 +373,6 @@ def griffinwing.combat.Session.turn.target3(+s: J.Val, +at0: U32, +ax: U32, +az:
     _ => lamp,
     _ => griffinwing.combat.Session.turn.nearest(ga.items(s, "foes"), at0, ax, az, J.JNull{}, 0))
 
-# The id of the foe with this id if it is alive, else null.
 def griffinwing.combat.Session.turn.alive(+fs: List<&2, J.Val>, +id: U32) -> J.Val:
   match fs:
     case Nil{}:
@@ -442,7 +397,6 @@ def griffinwing.combat.Session.turn.nearest2(+f: J.Val, +t: List<&2, J.Val>, +at
     _ => griffinwing.combat.Session.turn.nearest(t, at0, ax, az, J.JU{ga.u(f, "id")}, d),
     _ => griffinwing.combat.Session.turn.nearest(t, at0, ax, az, best, bd))
 
-# The foe with this id (any state), or null.
 def griffinwing.combat.Session.turn.find(+fs: List<&2, J.Val>, +id: U32) -> J.Val:
   match fs:
     case Nil{}:
@@ -464,7 +418,6 @@ def griffinwing.combat.Session.turn.aimed(+b: J.Val, +f: J.Val) -> J.Val:
 def griffinwing.combat.Session.turn.vel(+b: J.Val, +v: GwV3) -> J.Val:
   ga.si(ga.si(ga.si(b, "vs", gw.v3a(v)), "vx", gw.v3b(v)), "vz", gw.v3c(v))
 
-# The roller scores; the beat too; a flash and a sound.
 def griffinwing.combat.Session.turn.done(+s: J.Val, +by: U32, +b: J.Val) -> J.Val:
   J.set(J.set(J.set(J.obj(), "s",
     griffinwing.Session.sound(

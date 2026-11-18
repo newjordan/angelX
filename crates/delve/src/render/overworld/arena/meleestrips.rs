@@ -80,8 +80,6 @@ pub(super) fn look_word(colour: &str) -> Option<&'static str> {
     LOOKS.iter().copied().find(|w| colour.eq_ignore_ascii_case(w))
 }
 
-/// The wish colour on the weapon in hand. `pal=` recolors the card's sprite
-/// inks; it does not name a strip. The knight's own sword has no forged look.
 pub(super) fn weapon_look(run: &Run, owner: u32) -> Option<&'static str> {
     let hero = run.players.get(&owner)?;
     if let Some(weapon) = hero.forged.as_ref() {
@@ -123,7 +121,6 @@ fn stamp_inside(cv: &mut Img, im: &Img, at: (i32, i32), ox: i32, oy: i32, reach:
     }
 }
 
-/// The looked weapon's strip, over the code swing. No-op without a wish look.
 pub(super) fn over_swing(cv: &mut Img, run: &Run, s: &Swing, age: u8, origin: (i32, i32), reach_px: f32) {
     let Some(look) = weapon_look(run, s.owner) else {
         return;
@@ -146,7 +143,6 @@ pub(super) fn over_swing(cv: &mut Img, run: &Run, s: &Swing, age: u8, origin: (i
     stamp_inside(cv, im, origin, strip.ox, strip.oy, reach_px);
 }
 
-/// A hit-spark strip when a looked swing still covers the contact.
 pub(super) fn over_hit(cv: &mut Img, run: &Run, h: &Hit, at: (i32, i32)) {
     let Some(look) = run.feel.melee.swings.iter().find_map(|s| {
         let look = weapon_look(run, s.owner)?;
@@ -167,7 +163,6 @@ pub(super) fn over_hit(cv: &mut Img, run: &Run, h: &Hit, at: (i32, i32)) {
     let Some(im) = strip.frames.get(row).and_then(|r| r.get(frame)) else {
         return;
     };
-    // The spark is a contact, not a reach claim. Keep it on the contact point.
     let reach = (im.w.max(im.h) as f32) * 0.5;
     stamp_inside(cv, im, at, strip.ox, strip.oy, reach);
 }
@@ -267,7 +262,6 @@ mod tests {
         let mut a = Img::black(160, 120);
         let mut b = Img::black(160, 120);
         super::super::melee::swing(&mut a, &run, 1);
-        // The same call is the code path: no look, so the strip is not consulted.
         super::super::melee::swing(&mut b, &run, 1);
         assert_eq!(a.rgba_bytes(), b.rgba_bytes());
         let hash = fnv(&a.rgba_bytes());
@@ -323,7 +317,6 @@ mod tests {
         h
     }
 
-    /// Review sheets: `ANGEL_MELEE_SHEETS=.we-out cargo test -- --ignored write_melee_sheets`.
     #[test]
     #[ignore]
     fn write_melee_sheets() {

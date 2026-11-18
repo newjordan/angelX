@@ -26,16 +26,8 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-/// One tracked background process. It runs while `exit` is `None` and has
-/// ended once `exit` is set: by [`ProcEntry::poll`] when the process ends on
-/// its own, by `proc_stop` when a stop ends it. The independent reaper then
-/// reports the end once: `completion_reported`, or `pending_completion` while
-/// the notice queue is full.
 struct ProcEntry {
     owner: usize,
-    /// A stop was requested (`proc_stop`, a turn's end, the cockpit's exit).
-    /// Set before the signal goes out, so it can be true while `exit` is still
-    /// `None` if the stop's own wait failed; the next poll records the end.
     cancelled: bool,
     kill: Option<sandbox::process_owner::KillReceipt>,
     project_root: PathBuf,
@@ -46,29 +38,17 @@ struct ProcEntry {
     log: PathBuf,
     started: Instant,
     child: JobChild,
-    /// How the process ended; `None` while it runs. The only record of a job's
-    /// end: its label, exit code and receipt fields all derive from it.
     exit: Option<JobExit>,
     completion_reported: bool,
-    // Submission attribution belongs to the launching turn, not the reaper thread.
     submit_context: Option<SubmissionContext>,
     log_pumps: Vec<std::thread::JoinHandle<()>>,
     pending_completion: Option<ProcCompletion>,
     notification_workspace: PathBuf,
-    /// First log-pump failure, retained so status never presents a partial log
-    /// as complete. The pump keeps draining after this is set so a logging
-    /// failure cannot back-pressure or SIGPIPE the managed process.
     log_warning: Arc<Mutex<Option<String>>>,
-    /// Running receipt backing this entry (`None` when disabled or failed).
-    /// Replaced by a retained terminal receipt when the independent reaper
-    /// observes completion; not removed merely because a model asked status.
     receipt: Option<PathBuf>,
     confinement: String,
 }
 
-/// How a job's process is owned: spawned by `proc_run`, or handed over by a
-/// foreground shell call that ran past its limit, whose waiter thread still
-/// owns the child and reports its exit here ([`hand_off`]).
 enum JobChild {
     Spawned(Child),
     HandedOff {
@@ -128,33 +108,20 @@ struct SubmissionContext {
     output: Arc<Mutex<crate::agent::tools::submit_identity::DispatchCapture>>,
 }
 
-/// How a background job's process ended. The first one recorded is final.
-/// Its text (`Display`) is what status calls, completion notices and terminal
-/// receipts carry, and what a later cockpit reads back from disk to adopt the
-/// job, so the words must not drift.
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum JobExit {
-    /// The process ran to its own end with this status.
     Exited(i32),
-    /// A signal nobody here sent ended it.
     Signaled(i32),
-    /// The wait itself failed, so how it ended is unknown.
     WaitFailed(String),
-    /// A stop ended it: SIGTERM, then SIGKILL once the grace ran out. `code`
-    /// is the status the process chose when it handled SIGTERM itself.
     Stopped { code: Option<i32>, escalated: bool },
 }
 
-/// What a terminal receipt says about a finished job, derived in one place so
-/// its fields cannot disagree.
 struct JobOutcome {
     status: &'static str,
     ok: bool,
     verification: &'static str,
 }
 
-/// An earlier cockpit's terminal receipt carries only the exit text; a clean
-/// exit is the one it adopts as a success.
 fn is_clean_label(label: &str) -> bool {
     label == "exited 0"
 }
@@ -183,8 +150,6 @@ impl JobExit {
         }
     }
 
-    /// Only a clean exit reads as success in `proc_status`; a stop never does,
-    /// whatever status the process chose on its way out.
     fn is_clean(&self) -> bool {
         matches!(self, Self::Exited(0))
     }
@@ -228,8 +193,6 @@ impl std::fmt::Display for JobExit {
 }
 
 impl ProcEntry {
-    /// Reap if exited. The one place a process's own end is recorded: `None`
-    /// while it runs.
     fn poll(&mut self) -> Option<&JobExit> {
         if self.exit.is_none() {
             match self.child.try_wait() {
@@ -253,7 +216,6 @@ impl ProcEntry {
         self.exit.as_ref()
     }
 
-    /// [`Self::poll`] as the label status calls print.
     fn state(&mut self) -> String {
         self.poll()
             .map_or_else(|| "running".to_string(), ToString::to_string)
@@ -264,7 +226,6 @@ impl ProcEntry {
     }
 }
 
-/// Literal process outcome, never a verifier or competition success claim.
 #[derive(Clone, Debug)]
 pub(crate) struct ProcCompletion {
     pub(crate) id: u64,
@@ -277,9 +238,6 @@ pub(crate) struct ProcCompletion {
 }
 
 impl ProcCompletion {
-    /// Headless file tools cannot open the host-side capture path. Keep that
-    /// operator diagnostic in the normal UI message, and give task models the
-    /// supported process-log tool directly instead of an unusable file target.
     pub(crate) fn task_message(&self) -> String {
         let warning = if self.persistence_error.is_some() {
             "; terminal receipt persistence failed"
@@ -306,8 +264,6 @@ impl ProcCompletion {
         )
     }
 
-    /// The loop's copy of [`Self::message`]: the facts, then the directions
-    /// as `⠪⠊` page addresses with their values.
     pub(crate) fn loop_message(&self) -> String {
         format!(
             "background process [{}] {} {}{}. {} id={} log={}",
@@ -334,8 +290,6 @@ fn completion_notices() -> &'static Mutex<BTreeMap<PathBuf, VecDeque<ProcComplet
     NOTICES.get_or_init(|| Mutex::new(BTreeMap::new()))
 }
 
-/// UI-safe: one nonblocking lock and at most `limit` in-memory notices. The
-/// caller supplies its already-canonical workspace; no path or log IO here.
 pub(crate) fn take_completions(workspace: &Path, limit: usize) -> Vec<ProcCompletion> {
     let Ok(mut projects) = completion_notices().try_lock() else {
         return Vec::new();
@@ -351,8 +305,6 @@ pub(crate) fn take_completions(workspace: &Path, limit: usize) -> Vec<ProcComple
     notices
 }
 
-/// Keep one bounded, independent reaper for all proc_run children. In
-/// particular it keeps running after a model answers or the UI changes folder.
 fn ensure_completion_reaper() -> Result<(), String> {
     static REAPER: OnceLock<Result<(), String>> = OnceLock::new();
     REAPER
@@ -495,8 +447,6 @@ fn reap_completion_batch(cursor: &mut u64) {
             ));
         }
     }
-    // An exact captured receipt remains usable when a descendant holds a pipe
-    // open. Otherwise await EOF before classifying the process's final output.
     for (command, workspace, exit, log, model, turn, capture, warning) in submissions {
         let _model = crate::agent::harness::run_identity::LiveModelScope::enter(model);
         let _turn = crate::agent::harness::run_identity::LiveTurnScope::enter(turn);
@@ -515,7 +465,6 @@ fn reap_completion_batch(cursor: &mut u64) {
             record_log_warning(&warning, format!("submission journal error: {error}"));
         }
     }
-    // Filesystem work never holds the process table or notice queue lock.
     for (workspace, mut completion, running_receipt, body) in finished {
         if let Some(path) = &completion.receipt {
             let result = serde_json::to_vec_pretty(&body)
@@ -534,9 +483,6 @@ fn reap_completion_batch(cursor: &mut u64) {
             }
         }
         if !enqueue_completion(&workspace, &completion) {
-            // Backpressure retains one outcome in its existing process entry.
-            // Its terminal receipt is already durable, and no queued result is
-            // evicted to make room for a different workspace's burst.
             if let Ok(mut procs) = table().lock()
                 && let Some(entry) = procs.get_mut(&completion.id)
             {
@@ -546,23 +492,16 @@ fn reap_completion_batch(cursor: &mut u64) {
     }
 }
 
-/// Stop only children launched with this turn's cancellation identity. The
-/// pointer is an opaque key, never dereferenced or retained beyond turn cleanup.
 pub(crate) fn stop_owned(owner: usize) {
     stop_owned_for(owner, "owner_reap");
 }
 
-/// A provider-only steer must not become cancellation of background work.
-/// Conservative on contention; never block the cockpit waiting for the table.
 pub(crate) fn background_work_pending() -> bool {
     table().try_lock().map_or(true, |entries| {
         entries.values().any(|entry| entry.exit.is_none())
     })
 }
 
-/// Headless finalization must not silently discard this task's live jobs.
-/// Scope both the turn identity and workspace; unrelated cockpit jobs never
-/// delay a task. Contention is conservatively pending and retried by caller.
 pub(crate) fn owned_work_pending(owner: usize, workspace: &Path) -> bool {
     table().try_lock().map_or(true, |mut entries| {
         entries.values_mut().any(|entry| {
@@ -574,9 +513,6 @@ pub(crate) fn owned_work_pending(owner: usize, workspace: &Path) -> bool {
     })
 }
 
-/// A deadline flag lives for one operation, while its background children
-/// belong to the enclosing turn. Transfer completed entries too: their kill
-/// receipts must survive until the turn consumes them.
 pub(crate) fn transfer_owned(from: usize, to: usize) {
     for entry in table().lock().unwrap().values_mut() {
         if entry.owner == from {
@@ -611,9 +547,6 @@ pub(crate) fn stop_owned_for(owner: usize, reason: &str) {
     }
 }
 
-/// Read deaths on the turn thread, independently of the UI notification queue.
-/// Release the opaque owner key so a later stack address reuse cannot inherit
-/// an earlier turn's outcomes.
 pub(crate) fn take_owned_kills(owner: usize) -> Vec<(u64, sandbox::process_owner::KillReceipt)> {
     let mut procs = table().lock().unwrap();
     let mut kills = Vec::new();
@@ -626,7 +559,6 @@ pub(crate) fn take_owned_kills(owner: usize) -> Vec<(u64, sandbox::process_owner
     kills
 }
 
-/// Final background receipts are flushed before the process-wide exit reap.
 pub(crate) fn stop_all_owned() {
     let owners: std::collections::BTreeSet<_> = table()
         .lock()
@@ -644,10 +576,6 @@ fn table() -> &'static Mutex<BTreeMap<u64, ProcEntry>> {
     TABLE.get_or_init(|| Mutex::new(BTreeMap::new()))
 }
 
-/// Count of tracked background jobs that have not exited yet. The turn loop's
-/// poll-repeat latch treats "a spawned job is still running" as intervening
-/// work in progress, so a legitimate rig/build wait is never classified as a
-/// spin (the unattended-loop failure class of BUG-0005).
 pub(crate) fn live_job_count() -> usize {
     table()
         .lock()
@@ -660,9 +588,6 @@ pub(crate) fn live_job_count() -> usize {
 }
 
 fn next_id(cancel: Option<&std::sync::atomic::AtomicBool>) -> Result<u64, String> {
-    // Separate native sessions share receipt/log storage. A per-process
-    // AtomicU64 gave two real concurrent board jobs handle215 in the same
-    // repository. Reserve durably under an inter-process lock before spawn.
     let directory = proc_dir();
     std::fs::create_dir_all(&directory).map_err(|e| format!("process ID directory: {e}"))?;
     let lock = std::fs::OpenOptions::new()
@@ -710,12 +635,9 @@ fn next_id(cancel: Option<&std::sync::atomic::AtomicBool>) -> Result<u64, String
         &counter,
         format!("{next}\n").as_bytes(),
     )?;
-    // Closing the lock file releases flock, including every early error path.
     Ok(id)
 }
 
-/// First handle id above every receipt on disk, so a daemon adopted from a
-/// previous session never shares an id with one spawned in this session.
 fn first_free_id() -> u64 {
     load_receipts()
         .iter()
@@ -724,8 +646,6 @@ fn first_free_id() -> u64 {
         .map_or(1, |m| m.saturating_add(1))
 }
 
-/// Log directory for background processes (`ANGEL_PROC_DIR`, default
-/// `~/.angelX/proc`).
 fn proc_confinement_label() -> String {
     if crate::platform::yolo::enabled() {
         "yolo-command-authority".into()
@@ -749,8 +669,6 @@ pub(crate) fn proc_dir() -> PathBuf {
     PathBuf::from(home).join(".angelX").join("proc")
 }
 
-/// A filesystem-safe short name derived from the user-supplied label (or the
-/// command's first word). Pure → testable.
 pub(crate) fn sanitize_name(raw: &str) -> String {
     let cleaned: String = raw
         .trim()
@@ -772,7 +690,6 @@ pub(crate) fn sanitize_name(raw: &str) -> String {
     }
 }
 
-/// Last `n` lines of `text`, joined. Pure → testable.
 pub(crate) fn tail_lines(text: &str, n: usize) -> String {
     let lines: Vec<&str> = text.lines().collect();
     let start = lines.len().saturating_sub(n);
@@ -784,8 +701,6 @@ fn read_log_tail(path: &PathBuf, n: usize) -> String {
 }
 
 fn read_log_output(path: &PathBuf, n: usize, contains: Option<&str>) -> String {
-    // Keep ordinary snapshots small; filtered diagnostics can inspect a larger
-    // bounded window without granting workspace access to host log paths.
     let window: u64 = if contains.is_some() {
         8 * 1024 * 1024
     } else {
@@ -853,8 +768,6 @@ fn log_name(name: &OsStr) -> std::io::Result<CString> {
 
 fn open_log_at(directory: &File, name: &OsStr, flags: i32) -> std::io::Result<File> {
     let name = log_name(name)?;
-    // SAFETY: both descriptors/names remain live through openat. On success,
-    // this function takes unique ownership of the returned descriptor.
     let fd = unsafe {
         libc::openat(
             directory.as_raw_fd(),
@@ -870,8 +783,6 @@ fn open_log_at(directory: &File, name: &OsStr, flags: i32) -> std::io::Result<Fi
     }
 }
 
-/// Pin every directory component instead of following a replaced store path.
-/// New store directories, like their log files, are private from creation.
 fn open_log_directory(path: &Path, create: bool) -> std::io::Result<File> {
     use std::path::Component;
     let mut directory = File::open(if path.is_absolute() { "/" } else { "." })?;
@@ -890,7 +801,6 @@ fn open_log_directory(path: &Path, create: bool) -> std::io::Result<File> {
         let next = match open_log_at(&directory, name, libc::O_RDONLY | libc::O_DIRECTORY) {
             Err(error) if create && error.kind() == std::io::ErrorKind::NotFound => {
                 let c_name = log_name(name)?;
-                // SAFETY: mkdirat receives a live directory FD and NUL-terminated name.
                 if unsafe { libc::mkdirat(directory.as_raw_fd(), c_name.as_ptr(), 0o700) } < 0 {
                     let error = std::io::Error::last_os_error();
                     if error.kind() != std::io::ErrorKind::AlreadyExists {
@@ -909,8 +819,6 @@ fn open_log_directory(path: &Path, create: bool) -> std::io::Result<File> {
             "process log directory has another owner",
         ));
     }
-    // Existing directories retain their permissions. Only mkdirat-created
-    // directories receive mode 0700; a configured parent is never chmodded.
     Ok(directory)
 }
 
@@ -938,7 +846,6 @@ fn open_log_file(directory: &File, name: &OsStr, create: bool) -> std::io::Resul
 fn log_stat_at(directory: &File, name: &OsStr) -> std::io::Result<libc::stat> {
     let name = log_name(name)?;
     let mut info = std::mem::MaybeUninit::<libc::stat>::uninit();
-    // SAFETY: fstatat initializes the entire stat buffer when it returns success.
     if unsafe {
         libc::fstatat(
             directory.as_raw_fd(),
@@ -964,7 +871,6 @@ fn private_log_stat(info: &libc::stat) -> bool {
 fn check_log_name(directory: &File, name: &OsStr, file: &File) -> std::io::Result<()> {
     let named = log_stat_at(directory, name)?;
     let opened = file.metadata()?;
-    // dev_t is signed i32 on Apple and u64 on Linux; MetadataExt uses u64.
     #[allow(clippy::unnecessary_cast)]
     let same_identity = (named.st_dev as u64, named.st_ino as u64) == (opened.dev(), opened.ino());
     if !private_log_stat(&named) || !same_identity {
@@ -1029,8 +935,6 @@ impl RotatingLog {
             }
             let from = log_name(&self.name)?;
             let to = log_name(&rotated)?;
-            // SAFETY: both names and the pinned directory FD remain valid.
-            // renameat replaces the directory entry without following it.
             if unsafe {
                 libc::renameat(
                     self.directory.as_raw_fd(),
@@ -1090,7 +994,7 @@ fn pump_log(
                     capture.observe(stream, &chunk[..read]);
                 }
                 if !logging {
-                    continue; // Keep draining and capturing after a log write failure.
+                    continue;
                 }
                 match log.lock() {
                     Ok(mut log) => {
@@ -1130,12 +1034,6 @@ fn fmt_uptime(d: Duration) -> String {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Receipts — spawn records persisted under proc_dir()/receipts/ so a cockpit
-// restart can explain and adopt the daemons it orphaned instead of losing them.
-// ---------------------------------------------------------------------------
-
-/// Receipt persistence gate (`ANGEL_PROC_RECEIPTS`, default on).
 fn receipts_enabled() -> bool {
     env_flag("ANGEL_PROC_RECEIPTS", true)
 }
@@ -1144,11 +1042,6 @@ pub(crate) fn receipts_dir() -> PathBuf {
     proc_dir().join("receipts")
 }
 
-/// One on-disk spawn receipt (`receipts_dir()/<id>-<pid>.json`). Written at
-/// spawn, removed once the exit is observed (reap, `proc_stop`, or a status
-/// call that finds the process gone). `starttime_ticks` holds the native
-/// process birth identity (Linux boot ticks or macOS epoch microseconds),
-/// guarding against a recycled pid masquerading as a running daemon.
 struct Receipt {
     id: u64,
     pid: u32,
@@ -1161,7 +1054,6 @@ struct Receipt {
     started_unix: u64,
     starttime_ticks: u64,
     exit: Option<String>,
-    /// Where this receipt lives on disk (for removal).
     path: PathBuf,
 }
 
@@ -1172,29 +1064,21 @@ fn now_unix() -> u64 {
         .unwrap_or(0)
 }
 
-/// `(state, starttime)` from `/proc/<pid>/stat`: field 3 (single-char state)
-/// and field 22 (starttime in clock ticks since boot). Parses after the last
-/// `)` so a comm containing spaces or parens cannot shift the fields.
 #[cfg(target_os = "linux")]
 fn proc_stat_fields(pid: u32) -> Option<(char, u64)> {
     let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
     let rest = stat.rsplit_once(')')?.1;
     let mut fields = rest.split_whitespace();
     let state = fields.next()?.chars().next()?;
-    // After state (field 3), starttime (field 22) is 19 fields further on.
     let starttime = fields.nth(18)?.parse().ok()?;
     Some((state, starttime))
 }
 
-/// Native process identity without launching a status subprocess on each
-/// wait tick. Old macOS receipts with identity zero remain unverifiable.
 #[cfg(target_os = "macos")]
 fn proc_stat_fields(pid: u32) -> Option<(char, u64)> {
     let pid_arg = i32::try_from(pid).ok()?;
     let mut info = std::mem::MaybeUninit::<libc::proc_bsdinfo>::uninit();
     let size = std::mem::size_of::<libc::proc_bsdinfo>() as i32;
-    // SAFETY: proc_pidinfo receives an aligned buffer of the advertised size;
-    // inspect it only after the kernel reports the full structure written.
     let written = unsafe {
         libc::proc_pidinfo(
             pid_arg,
@@ -1228,11 +1112,8 @@ fn proc_stat_fields(_pid: u32) -> Option<(char, u64)> {
     None
 }
 
-/// True only when the receipt's pid exists, is not a zombie/dead slot, and its
-/// native birth identity matches the one recorded at spawn (pid-reuse guard).
 fn receipt_alive(receipt: &Receipt) -> bool {
     if receipt.exit.is_some() || receipt.starttime_ticks == 0 {
-        // Starttime was unreadable at spawn — never claim a live match.
         return false;
     }
     match proc_stat_fields(receipt.pid) {
@@ -1256,7 +1137,6 @@ fn write_receipt(
     let body = serde_json::json!({
         "id": id,
         "pid": pid,
-        // process_group(0) at spawn → the child leads its own group, pgid == pid.
         "pgid": pid,
         "name": name,
         "command": command,
@@ -1291,8 +1171,6 @@ fn receipt_from_value(v: &Value, path: PathBuf) -> Option<Receipt> {
     })
 }
 
-/// Every parseable receipt on disk (all projects). Unreadable or malformed
-/// files are skipped, never fatal — receipts are best-effort recovery state.
 fn load_receipts() -> Vec<Receipt> {
     let mut receipts = Vec::new();
     let directories = [receipts_dir(), proc_dir().join("completions")];
@@ -1328,7 +1206,6 @@ fn remove_receipt(path: &Path) {
     }
 }
 
-/// This project's receipt for `id`, if one exists on disk.
 fn find_receipt(
     id: u64,
     identity: &crate::platform::workspace_store::RepoIdentity,
@@ -1344,8 +1221,6 @@ fn find_receipt(
                     "process handle {id} is ambiguous across stored receipts; no process selected"
                 ));
             }
-            // A terminal receipt can briefly coexist with the running receipt
-            // for the same child during publication. Prefer its known outcome.
             if prior.exit.is_some() {
                 continue;
             }
@@ -1355,9 +1230,6 @@ fn find_receipt(
     Ok(found)
 }
 
-/// This project's receipts with no matching live-table entry — daemons spawned
-/// by a previous cockpit session (or dropped from the table). A receipt whose
-/// id AND pid match a live entry is the live entry's own record, not an orphan.
 fn orphaned_receipts(
     identity: &crate::platform::workspace_store::RepoIdentity,
     live: &BTreeMap<u64, ProcEntry>,
@@ -1369,24 +1241,13 @@ fn orphaned_receipts(
         .collect()
 }
 
-// ---------------------------------------------------------------------------
-// proc_run
-// ---------------------------------------------------------------------------
-
 pub(crate) struct ProcRunTool {
-    /// Default working directory for spawned processes (the workspace).
     workspace: PathBuf,
 }
 
-/// A cancelled setup has not published a job yet. Retain the direct launcher's
-/// claimed identity through group/direct signals, then wait outside that guard.
-/// A reaped launcher or global shutdown refuses signalling rather than using a
-/// numeric PID whose private group identity is no longer pinned.
 fn cancel_proc_setup(child: &mut Child) -> String {
     let retired = child
         .with_unreaped_identity(|pid| {
-            // SAFETY: sandbox::command created this private group; the claim
-            // guard excludes cleanup/reaping through both signal operations.
             unsafe { libc::killpg(pid, libc::SIGKILL) };
             if unsafe { libc::kill(pid, libc::SIGKILL) } == 0 {
                 Ok(())
@@ -1410,12 +1271,6 @@ impl ProcRunTool {
     }
 }
 
-/// Whether this run may launch services that outlive the Angel process.
-/// Off unless the operator explicitly enables it
-/// (`ANGEL_PROC_PERSISTENT_SERVICES=1`): the launch deliberately escapes
-/// sandbox-helper containment, which is exactly what post-exit
-/// verification tasks need and exactly what ordinary turns must not do
-/// by accident.
 fn persistent_services_enabled() -> bool {
     env_flag("ANGEL_PROC_PERSISTENT_SERVICES", false)
 }
@@ -1424,10 +1279,6 @@ fn persistent_shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 
-/// Launch `command` detached into its own session, outside the sandbox
-/// helper's subreaper containment, so it survives this process's exit.
-/// The launcher shell exits immediately; the service is untracked from
-/// then on (stop it via shell `kill <pid>`).
 fn run_persistent_service(command: &str, name: &str, cwd: &Path) -> Result<String, String> {
     if !persistent_services_enabled() {
         return Err(
@@ -1467,11 +1318,8 @@ fn run_persistent_service(command: &str, name: &str, cwd: &Path) -> Result<Strin
         .and_then(|line| line.trim().parse().ok())
         .unwrap_or(0);
     std::thread::sleep(Duration::from_millis(150));
-    // SAFETY: signal 0 only probes existence of the just-launched pid.
     let alive = pid > 0 && unsafe { libc::kill(pid as libc::pid_t, 0) } == 0;
     if alive {
-        // Exempt this session from Angel's shutdown descendant cleanup;
-        // plain detached daemons otherwise die at cockpit exit.
         #[cfg(target_os = "linux")]
         sandbox::process_owner::spare_persistent(pid);
         Ok(format!(
@@ -1493,8 +1341,6 @@ fn run_persistent_service(command: &str, name: &str, cwd: &Path) -> Result<Strin
 
 impl Tool for ProcRunTool {
     fn workspace_write_scope_is_opaque(&self, _args: &Value) -> bool {
-        // A retained background process can write ignored files after launch.
-        // Status/stop observers deliberately do not acquire this capability.
         true
     }
 
@@ -1516,9 +1362,6 @@ impl Tool for ProcRunTool {
         if cancel.is_some_and(|c| c.load(Ordering::Acquire)) {
             return Err("process launch cancelled before spawn".into());
         }
-        // `script` is accepted as a compatibility alias: model-authored calls
-        // (notably from code_mode) keep sending the wrong vocabulary, and the
-        // command is unambiguous when `command` is absent.
         let command = args["command"]
             .as_str()
             .or_else(|| args["script"].as_str())
@@ -1526,8 +1369,6 @@ impl Tool for ProcRunTool {
         if command.trim().is_empty() {
             return Err("'command' must not be empty".to_string());
         }
-        // Board submissions carry the harness's own attribution (see
-        // `submit_identity`); this is the second way a submit can be run.
         let stamped_cwd = args["cwd"].as_str().map(PathBuf::from);
         let stamped = crate::agent::tools::submit_identity::stamp(
             command,
@@ -1573,8 +1414,6 @@ impl Tool for ProcRunTool {
             .map(PathBuf::from)
             .unwrap_or_else(|| self.workspace.clone());
         cmd.current_dir(&cwd);
-        // Own process group so proc_stop can reap the whole tree, and so the
-        // turn can address this job independently of concurrent tool groups.
         cmd.process_group(0);
         let sandbox_status = sandbox::status::attach(&mut cmd)
             .map_err(|error| format!("sandbox status channel: {error}"))?;
@@ -1597,8 +1436,6 @@ impl Tool for ProcRunTool {
             "stderr",
             submission_output.clone(),
         );
-        // Wait only for helper setup, never for the background command. A
-        // dedicated channel distinguishes setup errors from nested bwrap output.
         #[cfg(target_os = "linux")]
         let sandbox_receipt = loop {
             if cancel.is_some_and(|flag| flag.load(Ordering::Acquire)) {
@@ -1630,9 +1467,6 @@ impl Tool for ProcRunTool {
             return Err(format!("outer sandbox helper failed: {error}"));
         }
         let pid = child.id();
-        // Persist the spawn receipt so a cockpit restart can adopt (or at
-        // least explain) this daemon. Failure to persist must never fail the
-        // spawn — but it must be said, not swallowed.
         let (receipt, mut receipt_note) = if receipts_enabled() {
             match write_receipt(id, pid, &name, command, &log, &identity) {
                 Ok(path) => (Some(path), String::new()),
@@ -1709,20 +1543,12 @@ impl Tool for ProcRunTool {
     }
 }
 
-/// A foreground call handed to the job table.
 pub(crate) struct HandOff {
     pub(crate) id: u64,
     pub(crate) log: PathBuf,
-    /// Appends the call's further output to the job's log.
     pub(crate) sink: Arc<dyn Fn(&[u8]) + Send + Sync>,
 }
 
-/// File a still-running foreground shell call as a background job, so the
-/// usual `proc_status`/`proc_wait`/`proc_stop` and the completion receipt
-/// (`⠏⠃`/`⠏⠉`) apply to it. `exit` is the call's waiter channel (the waiter
-/// keeps the child and reaps it); `already` is the output so far, written
-/// first to the log. On failure the channel comes back so the call can keep
-/// waiting as before. Nothing is signalled here.
 pub(crate) fn hand_off(
     workspace: &Path,
     command: &str,
@@ -1797,10 +1623,6 @@ pub(crate) fn hand_off(
     Ok(HandOff { id, log, sink })
 }
 
-// ---------------------------------------------------------------------------
-// proc_status
-// ---------------------------------------------------------------------------
-
 pub(crate) struct ProcStatusTool {
     workspace: PathBuf,
 }
@@ -1834,8 +1656,6 @@ impl Tool for ProcStatusTool {
             }
         };
         if let Some(id) = args["id"].as_u64() {
-            // wait_ms is accepted so old callers do not error, then dropped.
-            // Parking here froze thinking for up to 60s per hop.
             let requested_wait_ms = args["wait_ms"].as_u64().unwrap_or(0);
             let n = args["tail_lines"].as_u64().unwrap_or(40).clamp(1, 400) as usize;
             let found = {
@@ -1865,8 +1685,6 @@ impl Tool for ProcStatusTool {
                     })
             };
             let Some(snapshot) = found else {
-                // Not in the live table — perhaps a daemon from a previous
-                // cockpit session, findable through its on-disk receipt.
                 return adopted_status(id, &identity, n, requested_wait_ms, contains);
             };
             let mut tail = match contains {
@@ -1929,9 +1747,6 @@ impl Tool for ProcStatusTool {
                 entry.command
             ));
         }
-        // Merge receipts with no live entry: daemons from a previous cockpit
-        // session. Starttime-verified survivors are adopted; dead ones are
-        // reported as failures with retained evidence and their last log lines.
         if receipts_enabled() {
             for receipt in orphaned_receipts(&identity, &procs) {
                 if let Some(exit) = &receipt.exit {
@@ -1970,7 +1785,6 @@ impl Tool for ProcStatusTool {
             lines.join("\n")
         };
         if !receipts_enabled() {
-            // The gate must speak: previous-session daemons are being skipped.
             out.push_str(
                 "\n(receipts off: ANGEL_PROC_RECEIPTS=0 — daemons from previous sessions are \
                  not tracked)",
@@ -1980,10 +1794,7 @@ impl Tool for ProcStatusTool {
     }
 }
 
-/// Trailer on a still-running snapshot so the model keeps its logic chain
-/// instead of parking the turn on `wait_ms`.
 fn snapshot_running_trailer(requested_wait_ms: u64) -> String {
-    // The facts stay; what to do meanwhile is the `⠏⠑` pages.
     let route = crate::agent::harness::book::p_processes::PROC_RUNNING.cells();
     if requested_wait_ms == 0 {
         format!("\nstill running\n{route}")
@@ -1992,11 +1803,6 @@ fn snapshot_running_trailer(requested_wait_ms: u64) -> String {
     }
 }
 
-/// Single-id `proc_status` resolution through an on-disk receipt, for a daemon
-/// the live table does not know (spawned by a previous cockpit session).
-/// Snapshot only — the same non-blocking contract as the live path. A dead
-/// daemon is reported as vanished and its receipt cleared, so the report
-/// happens exactly once.
 fn adopted_status(
     id: u64,
     identity: &crate::platform::workspace_store::RepoIdentity,
@@ -2052,10 +1858,6 @@ fn adopted_status(
     }
 }
 
-// ---------------------------------------------------------------------------
-// proc_stop
-// ---------------------------------------------------------------------------
-
 pub(crate) struct ProcStopTool {
     workspace: PathBuf,
 }
@@ -2086,9 +1888,6 @@ impl ProcStopTool {
         let Some(entry) = procs.get_mut(&id).filter(|entry| {
             entry.project_root == identity.root && entry.project_key == identity.key
         }) else {
-            // Not in the live table — perhaps adopted from a previous cockpit
-            // session. Release the table lock: the adopted stop can wait out a
-            // grace period and must not block the other proc tools.
             drop(procs);
             return adopted_stop(id, &identity);
         };
@@ -2112,7 +1911,6 @@ impl ProcStopTool {
             )
         });
         let pgid = entry.pid as libc::pid_t;
-        // SAFETY: plain signal syscalls from the parent; no shared state.
         unsafe {
             libc::killpg(pgid, libc::SIGTERM);
         }
@@ -2144,16 +1942,10 @@ impl ProcStopTool {
             entry.log.display()
         );
         entry.exit = Some(exit);
-        // The independent reaper persists and notifies this terminal state.
         Ok(text)
     }
 }
 
-/// `proc_stop` for a daemon known only by its on-disk receipt (adopted from a
-/// previous cockpit session). Same SIGTERM → grace → SIGKILL contract as the
-/// live path, addressed at the receipt's process group; liveness is judged by
-/// the starttime-verified `/proc` check since there is no child handle to
-/// `wait()` on. The receipt is removed once the process is confirmed gone.
 fn adopted_stop(
     id: u64,
     identity: &crate::platform::workspace_store::RepoIdentity,
@@ -2180,8 +1972,6 @@ fn adopted_stop(
             receipt.log.display()
         ));
     }
-    // SAFETY: plain signal syscalls from the parent; the starttime check above
-    // guards against signalling a recycled pid's process group.
     unsafe {
         libc::killpg(receipt.pgid, libc::SIGTERM);
     }
@@ -2199,7 +1989,6 @@ fn adopted_stop(
         std::thread::sleep(Duration::from_millis(50));
     };
     if escalated {
-        // Bounded confirmation poll — no child handle to reap.
         let deadline = Instant::now() + Duration::from_secs(2);
         while receipt_alive(&receipt) && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(50));
@@ -2218,9 +2007,6 @@ fn adopted_stop(
     ))
 }
 
-/// Explicit bounded waiting is separate from the always-immediate status tool.
-/// Real proof tasks otherwise substitute multi-minute shell sleeps, missing
-/// compiler failures and consuming their deadline without reacting to exits.
 struct ProcWaitTool {
     workspace: PathBuf,
 }
@@ -2262,9 +2048,6 @@ impl Tool for ProcWaitTool {
             let running = match running {
                 Some(running) => running,
                 None => {
-                    // Resumed jobs live in receipts, not this session's table.
-                    // Resolve once, then poll the pinned PID/starttime without
-                    // rescanning the receipt store on every wait tick.
                     if adopted.is_none() && receipts_enabled() {
                         adopted = find_receipt(id, &identity)?;
                     }
@@ -2274,18 +2057,12 @@ impl Tool for ProcWaitTool {
             if !running || started.elapsed() >= Duration::from_secs(30) {
                 break;
             }
-            // Never retain the process table lock while waiting. The reaper,
-            // stop tool and completion delivery must continue independently.
             std::thread::sleep(Duration::from_millis(100));
         }
-        // Reuse normal workspace/receipt lookup, bounded logs and exit-error
-        // classification. Unknown or foreign handles never become success.
         ProcStatusTool::new(self.workspace.clone()).call(args)
     }
 }
 
-/// Register the `proc_*` background-process tools, gated on `ANGEL_PROC_TOOLS`
-/// (default on). `workspace` becomes the default cwd for spawned processes.
 pub(crate) fn maybe_register_proc_tools(r: &mut ToolRegistry, workspace: Option<PathBuf>) {
     if env_flag("ANGEL_PROC_TOOLS", true) {
         let workspace = workspace

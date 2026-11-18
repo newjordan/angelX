@@ -10,10 +10,6 @@
 //! the works in the order a player would and says what it raised.
 use crate::*;
 
-/// The plans of the first chain, with the tile each is raised nearest to, the
-/// recipe it is set to, and how urgently the carts serve it (0 low, 1 normal, 2
-/// high): the lime comes before the stone, because mortar is what the wall
-/// waits longest on and the Great Shaft lifts little by hand.
 const WORKS: &[(&str, Tile, &str, u8)] = &[
     ("claim-quarry", (149, 89), "", 2),
     ("lime-kiln", (150, 76), "burn-lime-coal", 2),
@@ -35,22 +31,16 @@ const WORKS: &[(&str, Tile, &str, u8)] = &[
     ("cottage", (150, 98), "", 1),
 ];
 
-/// What the script raised, by what it is, and what it has yet to do.
 #[derive(Clone, Debug, Default)]
 pub struct Chain {
     pub raised: Vec<(String, u32)>,
     pub carters: Option<u32>,
-    /// Whether the carts have been bought for the yard.
     pub carted: bool,
 }
 
-/// Carts the first chain keeps at its carter's yard.
 pub const CARTS: u16 = 8;
 
 impl Chain {
-    /// What a player does between jobs, once a second: buy the carts when the
-    /// carter's yard stands, and every ten seconds send a hand with no post to
-    /// the teachers for the trade a post without a crew wants.
     pub fn tend(&mut self, c: &Catalog, k: &mut Kingdom) {
         if let Some(yard) = self.carters.filter(|_| !self.carted)
             && k.buildings.get(&yard).is_some_and(|b| b.construction == 0)
@@ -63,8 +53,6 @@ impl Chain {
         }
     }
 
-    /// One lesson, if a finished post has no crew for want of its trade and a
-    /// hand stands idle: the first such post, the first such hand.
     fn school(&mut self, c: &Catalog, k: &mut Kingdom) {
         let report = k.report(c);
         let rules = crate::population::Rules::of(c, true);
@@ -97,8 +85,6 @@ impl Chain {
     }
 }
 
-/// The nearest ground to `near` a building of `plan` may stand on: clear, off the
-/// roads, outside the Keep's walls, and where the plan's rules allow.
 pub fn ground_for(c: &Catalog, k: &Kingdom, plan: &str, near: Tile) -> Option<Tile> {
     for r in 0i16..90 {
         for dy in -r..=r {
@@ -122,7 +108,6 @@ pub fn ground_for(c: &Catalog, k: &Kingdom, plan: &str, near: Tile) -> Option<Ti
     None
 }
 
-/// Raise one building: build, join to the roads, set its recipe. Returns its id.
 pub fn raise_one(c: &Catalog, k: &mut Kingdom, plan: &str, near: Tile, recipe: &str) -> Result<u32, String> {
     let tile = ground_for(c, k, plan, near).ok_or_else(|| format!("no ground for a {plan}"))?;
     k.apply(c, Command::Build { plan: plan.into(), tile })?;
@@ -134,10 +119,8 @@ pub fn raise_one(c: &Catalog, k: &mut Kingdom, plan: &str, near: Tile, recipe: &
     Ok(id)
 }
 
-/// The first chain, for the claim `claim` (already won and secured in `k`).
 pub fn raise(c: &Catalog, k: &mut Kingdom, claim: &str) -> Result<Chain, String> {
     let mut chain = Chain::default();
-    // The carters first: nothing is carried without them.
     chain.carters = Some(raise_one(c, k, "carters-yard", (142, 99), "")?);
     for &(plan, near, recipe, priority) in WORKS {
         let id = raise_one(c, k, plan, near, recipe)?;

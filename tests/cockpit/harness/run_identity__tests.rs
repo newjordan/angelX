@@ -137,7 +137,6 @@ fn run_identity_http_route_switch_updates_receipts_preserving_origin() {
         assert_eq!(attempts[0]["identity"]["effort"], wire_effort(&wire));
     }
     server.join().unwrap();
-    // A parallel synthesized answer has no single certified answering seat.
     select_answer_route(&Default::default());
     let identity = current_for_turn().unwrap();
     assert_eq!(identity.model.id, "unbound");
@@ -166,7 +165,6 @@ fn bend_leg(id: &str, digest: &str, source: &str, output: &str) -> LiveLeg {
     }
 }
 
-/// Publishes the empty set again so a test never leaks legs into another.
 struct LiveGuard;
 impl Drop for LiveGuard {
     fn drop(&mut self) {
@@ -191,7 +189,6 @@ fn live_set_hashes_content_not_generation_counters_or_directory() {
         vec![leg("tool-router", 2, "cc"), leg("agent", 1, "bb")],
     );
     assert_ne!(base.sha256, edited.sha256);
-    // A candidate that never activated runs no code, so it changes nothing.
     let mut failed = leg("policy", 0, "");
     failed.error = Some("syntax error".into());
     let with_failed = LiveSet::new(
@@ -285,7 +282,6 @@ fn a_leg_change_moves_the_combined_identity_and_never_the_binary() {
     assert_ne!(combined[0], combined[1]);
     assert_ne!(combined[1], combined[2]);
     assert_ne!(combined[0], combined[2]);
-    // The same legs under another binary are another identity.
     assert_ne!(
         combined_sha256(&bound, &one),
         combined_sha256(&unbound, &one)
@@ -438,8 +434,6 @@ fn run_identity_preserves_running_image_after_path_replacement() {
     let executable = root.join("fixture-runner");
     let source = std::env::current_exe().unwrap();
     let expected = executable_sha256(Path::new("/proc/self/exe")).unwrap();
-    // Never replace the suite's image. This test owns only the new link/copy and
-    // the fixture unlinks it before writing replacement bytes at its pathname.
     if std::fs::hard_link(&source, &executable).is_err() {
         std::fs::copy(&source, &executable).unwrap();
     }
@@ -540,8 +534,6 @@ fn run_identity_effective_budgets_and_wire_controls() {
 #[test]
 fn run_identity_carries_sealed_sandbox_when_active() {
     let _env = crate::tests::env_lock();
-    // Sealed activation is process-permanent (OnceLock), so the active
-    // branch runs in a forked test binary of exactly this test.
     if !cfg!(target_os = "linux") {
         eprintln!(
             "SKIP run_identity_carries_sealed_sandbox_when_active: sealed requires Linux Landlock + bwrap; unsupported on {}",
@@ -618,7 +610,6 @@ fn run_identity_http_resolves_requested_none_to_wire_low() {
             Some("none"),
         )
         .unwrap();
-    // Exercise the real request builder without sending a request or opening a socket.
     assert_eq!(body["reasoning_effort"], "low");
     let id = capture(
         Model {

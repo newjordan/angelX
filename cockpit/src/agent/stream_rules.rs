@@ -37,8 +37,6 @@ pub(crate) struct StreamRules {
 }
 
 impl StreamRules {
-    /// Snapshot the current file once per streaming request. In-flight retries
-    /// retain their original set even if another request observes an edit.
     pub(crate) fn global() -> Arc<StreamRules> {
         static CACHE: OnceLock<Mutex<RulesCache>> = OnceLock::new();
         let mut cache = CACHE
@@ -59,9 +57,6 @@ impl StreamRules {
         }
     }
 
-    /// The first rule (by declaration order) whose pattern matches `text` and
-    /// whose index is not already in `fired`. `fired` lets the caller avoid
-    /// re-tripping a rule it already injected, which bounds the retry loop.
     pub(crate) fn first_new_match(
         &self,
         text: &str,
@@ -90,8 +85,6 @@ impl Default for StreamRules {
 
 impl RulesCache {
     fn snapshot(&mut self, source: Option<&Path>) -> Arc<StreamRules> {
-        // A different configured path is a different policy, not a replacement
-        // of the previous file. Do not carry rules across that boundary.
         if self.source.as_deref() != source {
             self.source = source.map(Path::to_path_buf);
             self.accepted = None;
@@ -124,8 +117,6 @@ fn read_bounded_rules(path: &Path) -> Option<String> {
     }
     let mut options = std::fs::OpenOptions::new();
     options.read(true);
-    // A configured path may be replaced with a FIFO between metadata and open.
-    // Never wait for a writer while holding the process-wide cache lock.
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
@@ -153,8 +144,6 @@ fn rules_source() -> Option<PathBuf> {
     Some(Path::new(&home).join(".angelX").join("stream_rules.json"))
 }
 
-/// At startup preserve the legacy behavior of skipping malformed entries. Once
-/// a file has been accepted, every replacement must validate as a whole.
 #[cfg(test)]
 fn parse_rules(json: &str) -> Vec<StreamRule> {
     parse_candidate(json, false).unwrap_or_default()

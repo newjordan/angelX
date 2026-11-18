@@ -1,7 +1,5 @@
 use super::*;
 
-/// Delegates to the crate-wide test env lock (process env is global — a
-/// module-local lock can't serialize against other modules' env tests).
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     crate::tests::env_lock()
 }
@@ -242,7 +240,6 @@ fn retired_loading_layout_rows_deserialize_but_cannot_restore_a_web_module() {
     let dir = std::env::temp_dir().join(format!("angel-legacy-layout-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_LAYOUT_DIR", &dir) };
     let profile = LayoutProfile {
         name: "legacy".to_string(),
@@ -272,7 +269,6 @@ fn retired_loading_layout_rows_deserialize_but_cannot_restore_a_web_module() {
     host.activate(&side).unwrap();
     assert_eq!(host.state("side"), Some(ModuleState::Active));
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_LAYOUT_DIR") };
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -282,7 +278,6 @@ fn layout_persistence_roundtrips_module_state() {
     let _guard = env_lock();
     let dir = std::env::temp_dir().join(format!("angel-layout-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_LAYOUT_DIR", &dir) };
 
     let mut host = ModuleHost::from_manifests(vec![
@@ -305,20 +300,15 @@ fn layout_persistence_roundtrips_module_state() {
         WindowRect::new(3, 4, 30, 12)
     );
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_LAYOUT_DIR") };
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A saved layout records what was asked for. A module whose declared feed this
-/// host has been told is gone comes back suspended, not resurrected — the reason
-/// the restore path moves intent and then derives instead of assigning state.
 #[test]
 fn a_restored_layout_cannot_resurrect_a_module_whose_feed_is_declined() {
     let _guard = env_lock();
     let dir = std::env::temp_dir().join(format!("angel-layout-feed-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_LAYOUT_DIR", &dir) };
 
     let manifests = || {
@@ -341,7 +331,6 @@ fn a_restored_layout_cannot_resurrect_a_module_whose_feed_is_declined() {
     );
     assert_eq!(restored.state("core"), Some(ModuleState::Active));
 
-    // Declaring the feed present afterwards brings it up, still with no restart.
     restored.declare_data_source("viewer", true);
     assert_eq!(restored.state("image"), Some(ModuleState::Active));
 
@@ -355,7 +344,6 @@ fn layout_reconciliation_normalizes_runtime_state_focus_and_z_order() {
     let dir = std::env::temp_dir().join(format!("angel-layout-reconcile-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_LAYOUT_DIR", &dir) };
 
     let profile = LayoutProfile {
@@ -467,7 +455,6 @@ fn layout_reconciliation_normalizes_runtime_state_focus_and_z_order() {
     assert_eq!(host.z_order, before_z_order);
     assert_eq!(host.next_z, before_next_z);
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_LAYOUT_DIR") };
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -479,9 +466,6 @@ fn module_with_sources(id: &str, activation: ModuleActivation, sources: &[&str])
     }
 }
 
-/// A declared feed that goes away suspends exactly its dependents; declaring it
-/// again brings them back with no restart — and never mentioning a source leaves
-/// it unknown, which does not disable anything.
 #[test]
 fn declining_a_declared_source_suspends_exactly_its_dependents() {
     let mut host = ModuleHost::from_manifests(vec![
@@ -514,8 +498,6 @@ fn declining_a_declared_source_suspends_exactly_its_dependents() {
     assert_eq!(moved, vec![(ModuleId::new("image"), ModuleState::Active)]);
 }
 
-/// An unavailable feed is named when a module is asked to open: the refusal is the
-/// receipt, and intent is untouched, so the module is still dormant afterwards.
 #[test]
 fn activating_a_module_with_a_declined_source_refuses_and_names_the_feed() {
     let mut host = ModuleHost::from_manifests(vec![
@@ -534,8 +516,6 @@ fn activating_a_module_with_a_declined_source_refuses_and_names_the_feed() {
     assert_eq!(host.state("image"), Some(ModuleState::Active));
 }
 
-/// One feed, two dependents: sharing a source couples exactly those modules and
-/// nothing else — the `viewer` shape `image` and `artifacts` declare.
 #[test]
 fn a_shared_source_suspends_both_of_its_dependents_only() {
     let mut host = ModuleHost::from_manifests(vec![
@@ -558,8 +538,6 @@ fn a_shared_source_suspends_both_of_its_dependents_only() {
     assert_eq!(host.state("artifacts"), Some(ModuleState::Active));
 }
 
-/// Availability moves the state; it does not rewrite intent. A module the operator
-/// stopped stays stopped across an outage and its return.
 #[test]
 fn an_outage_does_not_resurrect_a_stopped_module() {
     let mut host = ModuleHost::from_manifests(vec![
@@ -583,11 +561,6 @@ fn an_outage_does_not_resurrect_a_stopped_module() {
     assert_eq!(host.state("image"), Some(ModuleState::Active));
 }
 
-/// Order independence (§3.4): changes to distinct keys commute, and a repeated key
-/// converges on its last value — so a script whose permutations all *finish* with
-/// the same value per key reaches the same statuses in every order. (Reordering a
-/// script that ends on different values for one key is a different script; the fixed
-/// suffix below is what makes the orders comparable.)
 #[test]
 fn declaration_scripts_converge_in_every_order() {
     fn script(order: &[u8]) -> Vec<(String, ModuleState)> {
@@ -606,8 +579,6 @@ fn declaration_scripts_converge_in_every_order() {
             };
             host.declare_data_source(source, false);
         }
-        // A fixed suffix, in a fixed order: every permutation of the prefix ends
-        // with the same value in `Σ` for every key, so the statuses must agree.
         host.declare_data_source("harness", false);
         host.declare_data_source("harness", true);
         ["core", "image", "graph"]
@@ -617,10 +588,7 @@ fn declaration_scripts_converge_in_every_order() {
     }
 
     let expected = vec![
-        // `harness` was turned off and on again by the fixed suffix: the last
-        // value wins, and the outage in between leaves no trace.
         ("core".to_string(), ModuleState::Active),
-        // `viewer` is still declined, and no order of the prefix may lose that.
         ("image".to_string(), ModuleState::Suspended),
         ("graph".to_string(), ModuleState::Suspended),
     ];
@@ -637,13 +605,6 @@ fn declaration_scripts_converge_in_every_order() {
     }
 }
 
-/// The shipped manifests are the real data this leg runs on: `artifacts` (startup)
-/// and `image` (on-demand) both name the `viewer` feed, and no other module does.
-/// A host told the viewer feed is gone suspends exactly `artifacts`, refuses to open
-/// `image` by naming the feed, and leaves the surfaces whose feeds it was never told
-/// about (`core`'s harness/session/transcript, `agent`'s bag/overwatch/agent-profile,
-/// `graph`'s dotmax) exactly as they were. Declaring the feed back restores both with
-/// no restart.
 #[test]
 fn the_shipped_manifests_couple_image_and_artifacts_through_the_viewer_feed() {
     let mut host = ModuleHost::from_default_manifests().unwrap();

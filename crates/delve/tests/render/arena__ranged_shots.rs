@@ -132,7 +132,6 @@ fn write_ranged_shots() {
             }
             save(&format!("{label}-weapons-{phase:02}"), &run);
         }
-        // Close-range release, wall, flesh, shield, and charged-shot beats.
         for phase in [0u8, 2, 5, 10, 17] {
             run.projectiles.clear();
             run.feel = Default::default();
@@ -555,8 +554,6 @@ fn muzzle_uses_release_class_not_the_nearest_knights_weapon() {
     run.players.get_mut(&1).unwrap().weapon = crate::rules::Weapon::Handgonne;
     let mut powder = Img::new(200, 200);
     assert!(super::muzzle(&mut powder, &run, &puff));
-    // The event still belongs to the powder shot even when an overlapping
-    // knight's pose (or a weapon swap) makes a bow the nearest held arm.
     run.players.get_mut(&1).unwrap().weapon = crate::rules::Weapon::Bow;
     let mut crowded = Img::new(200, 200);
     assert!(super::muzzle(&mut crowded, &run, &puff));

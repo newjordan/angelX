@@ -1,5 +1,3 @@
-"""Publish a complete relay JSON file before manual readers can open it."""
-
 import json
 import os
 from pathlib import Path

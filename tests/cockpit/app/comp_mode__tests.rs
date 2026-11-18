@@ -70,16 +70,6 @@ fn stage_world_mirrors_skip_hidden_and_comp_without_slowing_default() {
     );
 }
 
-// --- `/turbo`'s race cadence --------------------------------------------------
-//
-// Two switches, not one. Lean mode (`set`) is the render and tooling posture the
-// HUD reports. The race cadence is `ANGEL_COMPETITION_MODE`, which the turn
-// classifier, the schema picker and the caddy board read each turn. `/turbo
-// podrace` and `/turbo handoff` raise both; `/turbo off` has to lower both.
-
-/// A process with no lean or race posture exported, and the loop's and goal's
-/// state files kept off the operator's disk. Dropping it lowers whatever `/turbo`
-/// raised, then puts the environment back.
 struct StandardProcess {
     _guards: Vec<crate::tests::TestEnvGuard>,
     files: [std::path::PathBuf; 2],
@@ -176,8 +166,6 @@ fn turbo_rich_alias_also_lowers_the_race_cadence() {
     assert!(competition_flag().is_none());
 }
 
-/// What the race cadence does while it is up, so lowering it later cannot
-/// change any of it.
 #[test]
 fn turbo_podrace_keeps_the_race_cadence_while_it_is_on() {
     let _guard = crate::tests::env_lock();
@@ -187,8 +175,6 @@ fn turbo_podrace_keeps_the_race_cadence_while_it_is_on() {
     let mut app = crate::seed_preview_app();
     app.toggle_comp(Some("podrace"));
 
-    // Every turn is a race turn whatever the operator typed, and the trigger
-    // names the flag that armed it.
     for text in ["", "hello", "please fix the parser"] {
         assert_eq!(
             turn_trigger(text),
@@ -197,8 +183,6 @@ fn turbo_podrace_keeps_the_race_cadence_while_it_is_on() {
         );
     }
     assert!(crate::agent::harness::competition_mode_active(&[]));
-    // A race turn advertises the essential schemas, and its deadline comes from
-    // the competition knob; an ordinary turn does neither.
     assert!(crate::agent::harness::use_essential_schemas(false, true));
     assert_eq!(
         crate::agent::harness::configured_turn_deadline_secs_for(true),
@@ -208,13 +192,11 @@ fn turbo_podrace_keeps_the_race_cadence_while_it_is_on() {
         crate::agent::harness::configured_turn_deadline_secs_for(false),
         0
     );
-    // Lean mode rides along and the HUD says so.
     assert!(enabled());
     assert!(status_text().contains("⚡ TURBO / COMP MODE ON"));
     assert_eq!(competition_flag().as_deref(), Some("1".as_ref()));
 }
 
-/// Lean mode alone is not the race: only podrace and handoff raise the flag.
 #[test]
 fn turbo_on_loop_and_flash_never_raise_the_race_cadence() {
     let _guard = crate::tests::env_lock();
@@ -228,8 +210,6 @@ fn turbo_on_loop_and_flash_never_raise_the_race_cadence() {
     }
 }
 
-/// An operator who exports the flag at launch opted in for the whole process:
-/// `/turbo off` brings back what launch had, not the absence of the flag.
 #[test]
 fn a_flag_exported_at_launch_outlives_turbo_off() {
     let _guard = crate::tests::env_lock();
@@ -265,8 +245,6 @@ fn a_flag_exported_off_at_launch_comes_back_off() {
     assert_eq!(turn_trigger("hello"), None);
 }
 
-/// Podrace and handoff share one raise: raising twice must not mistake the
-/// first raise for the operator's own value.
 #[test]
 fn raising_the_race_cadence_twice_still_restores_launch() {
     let _guard = crate::tests::env_lock();
@@ -277,14 +255,11 @@ fn raising_the_race_cadence_twice_still_restores_launch() {
     assert_eq!(competition_flag().as_deref(), Some("1".as_ref()));
     set(false);
     assert!(competition_flag().is_none());
-    // Nothing is left to restore: a second `off` leaves a later export alone.
     let _later = crate::tests::TestEnvGuard::set("ANGEL_COMPETITION_MODE", "1");
     set(false);
     assert_eq!(competition_flag().as_deref(), Some("1".as_ref()));
 }
 
-/// The comp seat starts its race with `/loop podrace`. That path neither reads
-/// nor writes the race flag, and `/turbo off` leaves its loop running.
 #[test]
 fn loop_podrace_runs_without_the_flag_and_survives_turbo_off() {
     let _guard = crate::tests::env_lock();

@@ -1,4 +1,3 @@
-"""Own org.a11y.Bus on this (private) session bus and hand out AT_SPI_BUS_ADDRESS."""
 import os
 from gi.repository import Gio, GLib
 

@@ -59,13 +59,11 @@ fn kills_and_moments_count_toward_the_board() {
     assert!(done.is_empty());
     let have: Vec<u32> = home.bounties.iter().map(|p| p.have).collect();
     assert_eq!(have, [23, 1, 0]);
-    // The last two skeletons: paid, and off the board.
     let done = home.work_bounties(&marks(&[(&slay_mark(EnemyKind::Skeleton), 5)]), 1);
     assert_eq!(done.len(), 1);
     assert_eq!(done[0].id, "bones");
     assert_eq!(home.bounties.len(), 2);
     assert_eq!(home.bounties_paid.get("bones"), Some(&1));
-    // Wren pins another, not the one just paid.
     assert_eq!(home.pin_bounties().len(), 1);
     assert_eq!(home.bounties.len(), PINNED);
     assert!(home.bounties.iter().all(|p| p.id != "bones"));
@@ -87,7 +85,6 @@ fn floors_and_cleared_rooms_count_when_they_happen() {
             have: 1,
         },
     ];
-    // Exploration jobs carry ordinary progress across delves.
     assert!(home.work_bounties(&BTreeMap::new(), 3).is_empty());
     assert_eq!(home.bounties[1].have, 1);
     let done = home.work_bounties(&marks(&[("cue:flawless", 2)]), 4);
@@ -109,7 +106,6 @@ fn the_board_grows_with_the_floors_reached() {
             for pinned in &home.bounties {
                 seen.insert(pinned.id.clone());
             }
-            // Finish the oldest on the board, as a delve would.
             let first = bounty(&home.bounties[0].id).unwrap();
             let (mut did, mut depth) = (BTreeMap::new(), 0);
             match first.goal {
@@ -191,7 +187,6 @@ fn tonights_moments_pay_on_wrens_board() {
             .collect(),
         ..Home::default()
     };
-    // The cues as the run calls them: a vault, Snibbet, five runes.
     let mut run_marks = BTreeMap::new();
     for cue in [
         "secret_found",
@@ -210,7 +205,6 @@ fn tonights_moments_pay_on_wrens_board() {
         .map(|b| b.id)
         .collect();
     assert_eq!(done, ["vault", "hush", "runes"]);
-    // And a fallen hexer counts toward the witch hunt.
     home.bounties = vec![Pinned {
         id: "witches".into(),
         have: 4,

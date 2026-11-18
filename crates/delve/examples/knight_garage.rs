@@ -23,7 +23,6 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::io::BufWriter;
 
-/// The terminal frame: 120 by 40 cells, as the race's.
 const CELLS: (usize, usize) = (120, 40);
 const PITCH: usize = 5;
 const DOT: usize = 4;
@@ -66,7 +65,6 @@ fn png(img: &RgbImage, path: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// The pixel frame, each pixel `k` squares on a side.
 fn pixels(v: &View, k: u32) -> RgbImage {
     let (w, h) = (v.w, v.h);
     let mut img = RgbImage::new(w as u32, h as u32);
@@ -76,7 +74,6 @@ fn pixels(v: &View, k: u32) -> RgbImage {
     image::imageops::resize(&img, w as u32 * k, h as u32 * k, image::imageops::FilterType::Nearest)
 }
 
-/// The cells painted as a terminal would, each dot a lit square.
 fn term_png(cells: &[Cell]) -> RgbImage {
     let (cw, ch) = (2 * PITCH, 4 * PITCH);
     let mut out = RgbImage::new((CELLS.0 * cw) as u32, (CELLS.1 * ch) as u32);
@@ -99,7 +96,6 @@ fn term_png(cells: &[Cell]) -> RgbImage {
     out
 }
 
-/// Put a seat at a rack's cell, facing it.
 fn stand(s: &mut Shop, id: u32, slot: Slot, cell: usize) {
     let st = shop::station(slot);
     let (x, y) = st.stand_at(cell);
@@ -109,7 +105,6 @@ fn stand(s: &mut Shop, id: u32, slot: Slot, cell: usize) {
     seat.yaw = (-st.out.1).atan2(-st.out.0);
 }
 
-/// Put a seat at its own lift's door.
 fn home(s: &mut Shop, id: u32) {
     let seat = s.seats.iter_mut().find(|k| k.id == id).expect("a seat");
     let (x, y) = shop::bay_door(seat.bay);
@@ -151,14 +146,12 @@ fn run(a: &Args) -> Result<(), Box<dyn Error>> {
     let mut ledger = Ledger::new();
     let none = BTreeMap::new();
 
-    // 1. the empty shop
     let mut shop = Shop::new();
     for _ in 0..4 {
         shop.step(&none, &mut ledger);
     }
     f.save(&shop, None, "01_empty_shop", true)?;
 
-    // 2. knights at their racks, each looking at a part
     let names = ["Sir Kay", "Dame Ysolde", "Bors", "Lady Enid", "Percival", "Dame Gwen"];
     for (i, n) in names.iter().take(4).enumerate() {
         shop.join(i as u32 + 1, n, &ledger);
@@ -171,10 +164,8 @@ fn run(a: &Args) -> Result<(), Box<dyn Error>> {
         shop.step(&none, &mut ledger);
     }
     f.save(&shop, Some(1), "02_knights_at_racks", true)?;
-    // the same room from another knight's side of the panel
     f.save(&shop, Some(2), "02b_chariot_rack", false)?;
 
-    // 3. a swap, frame by frame: Sir Kay takes the engine he stands at
     let take = BTreeMap::from([(1, Input { interact: true, ..Default::default() })]);
     shop.step(&take, &mut ledger);
     for (i, step) in [4usize, 5, 5, 5, 5, 6, 8].into_iter().enumerate() {
@@ -185,7 +176,6 @@ fn run(a: &Args) -> Result<(), Box<dyn Error>> {
     }
     eprintln!("sir kay's racer is now {} (stats {:?})", shop.seat(1).map_or(String::new(), |s| s.build.part(Slot::Engine).name.to_string()), shop.seat(1).map(|s| s.build.stats()));
 
-    // 4. a full house: six knights, six builds, every lift occupied
     for (i, n) in names.iter().enumerate().skip(4) {
         shop.join(i as u32 + 1, n, &ledger);
     }
@@ -202,14 +192,12 @@ fn run(a: &Args) -> Result<(), Box<dyn Error>> {
         seat.shown = None;
         home(&mut shop, id);
     }
-    // a few are walking, one is at the benches
     stand(&mut shop, 3, Slot::Trim, 4);
     stand(&mut shop, 5, Slot::Exhaust, 2);
     for _ in 0..30 {
         shop.step(&none, &mut ledger);
     }
     f.save(&shop, Some(5), "04_full_bays", true)?;
-    // the same, in the arcade's grain
     let was = f.view.look;
     f.view.look = Look::Arcade;
     f.save(&shop, Some(5), "04_full_bays_arcade", false)?;

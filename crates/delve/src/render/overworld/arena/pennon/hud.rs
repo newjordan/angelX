@@ -12,23 +12,16 @@ use crate::motion::ease;
 use crate::rules::pennon::{Lane, Q, Session, WIDTH, show::HOLD};
 use crate::rules::{HZ, Run};
 
-/// The world's window on the canvas: rows `VIEW_TOP..VIEW_BOTTOM`.
 pub(super) const VIEW_TOP: i32 = 14;
 pub(super) const VIEW_BOTTOM: i32 = 202;
-/// Screen row of a world row: the walkway (`FLOOR`) stands on `FLOOR + OY`.
 pub(super) const OY: i32 = 52;
-/// Where the rail runs along the top strip.
 const RAIL: (i32, i32) = (46, 300);
 
 #[cfg(test)]
 thread_local! {
-    /// Every box of words drawn this frame (tests only): no two may meet and
-    /// none may leave the picture.
     pub(super) static CLAIMS: std::cell::RefCell<Vec<(&'static str, (i32, i32, i32, i32), String)>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
-/// Note a box of words on this frame, for the tests that look for words
-/// meeting.
 pub(super) fn claim(what: &'static str, rect: (i32, i32, i32, i32), text: &str) {
     #[cfg(test)]
     CLAIMS.with(|c| c.borrow_mut().push((what, rect, text.to_string())));
@@ -36,20 +29,15 @@ pub(super) fn claim(what: &'static str, rect: (i32, i32, i32, i32), text: &str) 
     let _ = (what, rect, text);
 }
 
-/// As `claim`, for words the kit draws with a two-pixel edge round them: the
-/// letters are what must stay clear, not the edge.
 pub(super) fn claim_big(what: &'static str, (x, y, w, h): (i32, i32, i32, i32), text: &str) {
     claim(what, (x + 1, y + 1, w - 2, h - 2), text);
 }
 
-/// Forget the frame's claims (tests, before a draw).
 #[cfg(test)]
 pub(super) fn forget() {
     CLAIMS.with(|c| c.borrow_mut().clear());
 }
 
-/// The small words of a frame: drawn into the picture, or handed to the
-/// terminal to write itself.
 #[derive(Default)]
 pub(super) struct Words {
     pub list: Vec<(i32, i32, String, char)>,
@@ -72,9 +60,6 @@ impl Words {
     }
 }
 
-/// How the seat `me` calls a knight, at most `take` letters: `YOU` for
-/// themselves and only themselves; any other knight by their own name (`KNIGHT
-/// n` for one who still carries the default `You`, or none).
 pub(super) fn called(run: &Run, id: u32, me: Option<u32>, take: usize) -> String {
     if Some(id) == me {
         return "YOU".into();
@@ -85,8 +70,6 @@ pub(super) fn called(run: &Run, id: u32, me: Option<u32>, take: usize) -> String
     }
     full.chars().take(take.max(1)).collect()
 }
-
-// ─── the strip's small pictures ──────────────────────────────────────────────
 
 fn glass() -> Img {
     Img::from_rows(&["OOOOO", ".ttt.", "..t..", "..t..", ".ttt.", "OOOOO"])
@@ -108,7 +91,6 @@ fn crown() -> Img {
     Img::from_rows(&["O.O.O", "OOOOO", "o555o"])
 }
 
-/// A pennon on the rail: a pole and a cloth, lit while it flies.
 fn flag(captain: bool, lit: bool) -> Img {
     match (captain, lit) {
         (true, true) => Img::from_rows(&["O", "O", "OOO", "OOOO", "OOO", "O", "O", "O"]),
@@ -118,9 +100,6 @@ fn flag(captain: bool, lit: bool) -> Img {
     }
 }
 
-// ─── the layout ──────────────────────────────────────────────────────────────
-
-/// One knight's chip in the bottom strip.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Chip {
     pub id: u32,
@@ -130,25 +109,19 @@ pub(super) struct Chip {
     pub name: usize,
 }
 
-/// The bottom strip's top edge: one row of chips for four knights, two for
-/// five or six.
 pub(super) fn strip_top(seats: usize) -> i32 {
     if seats > 4 { NATIVE_H - 28 } else { NATIVE_H - 22 }
 }
 
-/// Where the number of a chip sits: right-aligned to the chip's edge.
 fn score_x(c: &Chip, text: &str) -> i32 {
     c.x + c.w - 7 - text_width(text)
 }
 
-/// The chips, left to right in seat order, fitted to the strip.
 pub(super) fn chips(ids: &[u32]) -> Vec<Chip> {
     let n = ids.len().max(1) as i32;
     let cols = if n > 4 { (n + 1) / 2 } else { n };
     let w = (NATIVE_W - 8) / cols;
     let top = strip_top(ids.len());
-    // The pip and the shield take 13, the number four digits and two to
-    // spare; the name gets the rest of the chip.
     let name = (((w - 13 - 25 - 4) + 1) / 6).clamp(1, 12) as usize;
     ids.iter()
         .enumerate()
@@ -159,7 +132,6 @@ pub(super) fn chips(ids: &[u32]) -> Vec<Chip> {
         .collect()
 }
 
-/// Where a knight's flying score lands: just over its number.
 pub(super) fn anchor(ids: &[u32], id: u32) -> (i32, i32) {
     chips(ids)
         .iter()
@@ -167,13 +139,10 @@ pub(super) fn anchor(ids: &[u32], id: u32) -> (i32, i32) {
         .map_or((NATIVE_W / 2, strip_top(ids.len()) - 9), |c| (c.x + c.w - 7 - 12, strip_top(ids.len()) - 9))
 }
 
-/// A world column on the rail.
 fn rail_x(wx: i32) -> i32 {
     RAIL.0 + wx.clamp(0, WIDTH) * (RAIL.1 - RAIL.0) / WIDTH
 }
 
-/// The top strip: the clock, the rail with every knight's pip and the
-/// pennons of this knight's lane, and the pot.
 pub(super) fn top(im: &mut Img, s: &Session, d: &Lane, focus: u32, words: &mut Words, now: u32) {
     chrome::panel(im, (0, 0, NATIVE_W, 14), chrome::Tone::SLATE);
     let secs = s.left.div_ceil(HZ);
@@ -183,7 +152,6 @@ pub(super) fn top(im: &mut Img, s: &Session, d: &Lane, focus: u32, words: &mut W
     im.stamp(&glass(), 6, 4);
     let clock = if s.hold > 0 { (crate::rules::pennon::LENGTH / HZ).to_string() } else { secs.to_string() };
     words.say("clock", 14, 4, &clock, if blink { '7' } else if low { 'R' } else { 'O' });
-    // The rail: a groove, the lane's pennons, then the knights' pips.
     let (a, b) = RAIL;
     im.rect(a, 6, b - a, 3, 's');
     im.rect(a, 7, b - a, 1, 'x');
@@ -205,12 +173,10 @@ pub(super) fn top(im: &mut Img, s: &Session, d: &Lane, focus: u32, words: &mut W
             im.rect(x, 6, 1, 3, ink);
         }
     }
-    // The pot, with a coin.
     let pot = format!("{}G", crate::rules::pennon::GOLD_PER_SEAT * s.lanes.len() as u32);
     let px = NATIVE_W - 6 - text_width(&pot);
     im.stamp(&coin(), px - 7, 5);
     words.say("pot", px, 4, &pot, 'O');
-    // The table's rally: three pips toward the next ward for all.
     let rallied = s.show.calls.iter().any(|c| matches!(c.cry, crate::rules::pennon::show::Cry::Rally) && c.age(s.show.t) < 14);
     let filled = if rallied { 3 } else { s.show.felled % crate::rules::pennon::show::RALLY_EVERY };
     let x0 = px - 7 - 4 - 3 * 6 - 8;
@@ -222,8 +188,6 @@ pub(super) fn top(im: &mut Img, s: &Session, d: &Lane, focus: u32, words: &mut W
     }
 }
 
-/// The bottom strip: a chip for each knight, the leader crowned, a shield
-/// lit for the knights who hold a ward and a red tick for each fall.
 pub(super) fn bottom(im: &mut Img, run: &Run, s: &Session, focus: u32, words: &mut Words) {
     let ids: Vec<u32> = s.lanes.keys().copied().collect();
     let top = strip_top(ids.len());
@@ -232,7 +196,6 @@ pub(super) fn bottom(im: &mut Img, run: &Run, s: &Session, focus: u32, words: &m
     for (n, chip) in chips(&ids).into_iter().enumerate() {
         let Some(l) = s.lanes.get(&chip.id) else { continue };
         let you = chip.id == focus;
-        // A hairline between chips, so a number reads with its own name.
         if chip.x > 4 && n > 0 {
             im.rect(chip.x - 3, chip.y - 4, 1, 14, 'g');
         }
@@ -267,8 +230,6 @@ pub(super) fn bottom(im: &mut Img, run: &Run, s: &Session, focus: u32, words: &m
     }
 }
 
-/// The captain's bar under the top strip: three stretches, one for each of
-/// his armour; the chip just lost shows pale for a moment.
 pub(super) fn captain(im: &mut Img, d: &Lane, last: Option<u32>) {
     let Some(f) = d.foes.get(3).filter(|f| f.hp > 0 && f.attack > 0) else { return };
     let (x, y, w, h) = (122, 17, 140, 5);
@@ -295,8 +256,6 @@ pub(super) fn captain(im: &mut Img, d: &Lane, last: Option<u32>) {
     im.stamp(&flag(true, true), x - 7, y - 2);
 }
 
-/// The run of hits, big, at the top left: it swells when it grows and the
-/// last one shatters and falls when the knight does.
 pub(super) fn combo(im: &mut Img, d: &Lane, grown: Option<u32>, lost: Option<(u32, u32)>) {
     if d.chain >= 2 && d.down == 0 {
         let big = grown.is_some_and(|a| a < 5);
@@ -304,7 +263,6 @@ pub(super) fn combo(im: &mut Img, d: &Lane, grown: Option<u32>, lost: Option<(u3
         let at = (6, 20);
         im.stamp(&t, at.0, at.1);
         claim_big("combo", (at.0, at.1, t.w, t.h), &format!("X{}", d.chain));
-        // The run's fuse: five pips toward the next call.
         let into = (d.chain % 5) as i32;
         for k in 0..5 {
             im.rect(at.0 + 2 + k * 5, at.1 + 28, 4, 2, if k < into { 'O' } else { 's' });
@@ -318,7 +276,6 @@ pub(super) fn combo(im: &mut Img, d: &Lane, grown: Option<u32>, lost: Option<(u3
     }
 }
 
-/// The keys, for a knight's first moments: a cap and a word each.
 pub(super) fn keys(im: &mut Img, words: &mut Words, y: i32) {
     let rows: [(&str, &str); 4] = [("E", "JUMP"), ("F", "SHOOT"), ("ARROWS", "AIM"), ("S", "DUCK")];
     let cap = |k: &str| text_width(k) + 6;
@@ -334,9 +291,6 @@ pub(super) fn keys(im: &mut Img, words: &mut Words, y: i32) {
     }
 }
 
-/// The world column at the left of this knight's window: the knight a third
-/// in. A knight who has broken the siege watches the front-runner still
-/// running: the window drifts over to them.
 pub(super) fn camera(s: &Session, d: &Lane) -> i32 {
     let at = |x: i32| (x - 140).clamp(0, WIDTH - NATIVE_W);
     let own = at(d.x / Q);
@@ -347,7 +301,6 @@ pub(super) fn camera(s: &Session, d: &Lane) -> i32 {
     own + ((at(lead) - own) as f32 * k) as i32
 }
 
-/// Whether a lane has nothing struck yet: the prompts still help.
 pub(super) fn green(d: &Lane) -> bool {
     d.foes.iter().all(|f| f.hp == if f.captain { 18 } else { 3 }) && d.falls == 0
 }

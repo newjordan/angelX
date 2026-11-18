@@ -11,7 +11,6 @@ use crate::rules::bannerpeak::{
     show::Kind,
 };
 
-/// The purse as the player sees it: coins still in the air are not counted yet.
 fn shown_coins(s: &Session, id: u32, k: &Knight) -> u32 {
     let flying = s
         .show
@@ -22,7 +21,6 @@ fn shown_coins(s: &Session, id: u32, k: &Knight) -> u32 {
     k.coins.saturating_sub(flying)
 }
 
-/// A small eight-pointed star, `lit` or banked.
 fn star(im: &mut Img, x: i32, y: i32, lit: bool, glint: bool) {
     let (c, e) = if lit { ('6', '5') } else { ('X', 'g') };
     im.put(x, y, if glint { 'w' } else { c });
@@ -41,7 +39,6 @@ pub(super) fn draw(im: &mut Img, s: &Session, id: u32, tick: u32) {
     im.rect(0, 0, W, 19, 'k');
     im.rect(0, 19, W, 1, 'g');
     let Some(k) = me else { return };
-    // The purse: a coin that swells when one lands.
     let landed = s
         .show
         .marks
@@ -55,12 +52,10 @@ pub(super) fn draw(im: &mut Img, s: &Session, id: u32, tick: u32) {
     let n = format!("{}", shown_coins(s, id, k));
     let text = juice_text(&n, if landed > 0.0 { 'T' } else { '6' });
     im.stamp(&text, 18, 4 - i32::from(landed > 0.3));
-    // The pie of wedges.
     pie(im, 56, 9, k.pips);
     if k.size != Size::Small {
         im.text(68, 5, if k.size == Size::Flame { "FLAME" } else { "BIG" }, 'O');
     }
-    // The eight banners: the newest climbs into its place and blinks once.
     let bx = 112;
     let fresh = s.announce.map(|a| (usize::from(a.banner), ANNOUNCE_TICKS.saturating_sub(a.t)));
     for n in 0..8usize {
@@ -78,7 +73,6 @@ pub(super) fn draw(im: &mut Img, s: &Session, id: u32, tick: u32) {
         }
     }
     im.text(bx + 100, 5, &format!("{}/8", s.count()), 'H');
-    // The ring of sparks: eight small stars.
     let spark_x = 244;
     let newest = s.show.marks.iter().filter(|m| m.kind == Kind::Spark).map(|m| m.age(s.elapsed)).min();
     for n in 0..8 {
@@ -86,7 +80,6 @@ pub(super) fn draw(im: &mut Img, s: &Session, id: u32, tick: u32) {
         let glint = lit && newest.is_some_and(|a| a < 10) && tick / 2 % 2 == 0 && n == s.sparks.count_ones() as i32 - 1;
         star(im, spark_x + n * 8 + 4, 9, lit, glint);
     }
-    // The seats: a shield each in the seat's colour, its wedges beside it.
     if s.seats.len() > 1 {
         for (n, (&seat, kn)) in s.seats.iter().enumerate() {
             let x = 316 + (n as i32 % 3) * 22;
@@ -99,7 +92,6 @@ pub(super) fn draw(im: &mut Img, s: &Session, id: u32, tick: u32) {
             im.text(x + 8, y, &if down { "O".to_string() } else { format!("{}", kn.pips) }, if down { 'z' } else { 'h' });
         }
     }
-    // The keys, for the first seconds only: four short pairs, none of them an "or".
     if s.elapsed < 420 {
         let fade = if s.elapsed > 360 { (s.elapsed - 360) as f32 / 60.0 } else { 0.0 };
         let mut line = Img::new(W, 11);
@@ -117,7 +109,6 @@ fn juice_text(s: &str, ink: char) -> Img {
     t
 }
 
-/// A round gold coin, swelling a pixel when one lands in it.
 fn purse(im: &mut Img, cx: i32, cy: i32, swell: f32) {
     let r = 5 + i32::from(swell > 0.4);
     for dy in -r..=r {
@@ -138,7 +129,6 @@ fn purse(im: &mut Img, cx: i32, cy: i32, swell: f32) {
             im.put(cx + dx, cy + dy, ink);
         }
     }
-    // A small crescent struck on its face.
     for (dx, dy) in [(0, -2), (-1, -1), (-1, 0), (-1, 1), (0, 2)] {
         im.put(cx + dx, cy + dy, 'a');
     }

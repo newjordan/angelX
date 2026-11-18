@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Offline regression checks for benchmark evidence coverage."""
 import copy
 import importlib.util
 import json
@@ -128,6 +127,32 @@ class CohortTests(unittest.TestCase):
         self.assertFalse(got["complete"])
         self.assertTrue(any("observed model/sampling" in issue for issue in got["issues"]))
         self.assertEqual(got["arms"]["on"]["tasks"], 2)
+
+    def test_conflicting_task_identity_invalidates_cohort_without_a_paired_gain_or_loss(self):
+        for baseline_score, candidate_score in ((0, 1), (1, 0)):
+            with self.subTest(scores=(baseline_score, candidate_score)):
+                off = trace_fixture()
+                off["task"] = {"data": {"name": "task"}}
+                off["nodes"][0]["message"]["content"] = "ordinary input"
+                off["rewards"]["technical_outcome"]["score"] = baseline_score
+                self.put_trace("r1-off", off)
+                on = trace_fixture()
+                on["task"] = {"data": {"name": "different-task"}}
+                on["rewards"]["technical_outcome"]["score"] = candidate_score
+                self.put_trace("r1-on", on)
+                got = summary.summarize(self.root)
+                self.assertFalse(got["complete"])
+                self.assertIn("r1-on: cohort is incomplete", got["issues"])
+                self.assertFalse(got["cells"]["r1-on"]["coverage"]["cohort_complete"])
+                row = got["cells"]["r1-on"]["rows"][0]
+                self.assertIsNone(row["task"])
+                self.assertEqual(row["identity_conflict"], {"record": "task", "trace": "different-task"})
+                self.assertEqual(row["score"], candidate_score)
+                self.assertEqual(got["arms"]["on"]["tasks"], 2)
+                self.assertEqual(got["arms"]["on"]["scored"], 2)
+                self.assertEqual(got["comparisons"][0]["jointly_scored_tasks"], 0)
+                self.assertEqual(got["comparisons"][0]["solve_gains"], [])
+                self.assertEqual(got["comparisons"][0]["solve_losses"], [])
 
     def test_missing_grading_integrity_is_not_validated_as_success(self):
         trace = trace_fixture()

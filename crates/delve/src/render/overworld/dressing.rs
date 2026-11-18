@@ -14,12 +14,10 @@ use super::{TILE, View};
 use crate::world::dressing::{self, Item};
 use std::sync::OnceLock;
 
-/// Dark where the thing turns from the light, a coloured contour.
 fn rim(im: Img) -> Img {
     kit::shaded_rim(&im)
 }
 
-/// A shadow of `w` pixels along the foot of a thing.
 fn shadow(im: &mut Img, x: i32, y: i32, w: i32) {
     for dx in 0..w {
         if hash(x + dx, y, 61) % 4 != 0 {
@@ -28,7 +26,6 @@ fn shadow(im: &mut Img, x: i32, y: i32, w: i32) {
     }
 }
 
-/// Stones set round an ellipse, each by `stone(x, y, k)`.
 fn round(cx: f32, cy: f32, rx: f32, ry: f32, n: i32, mut stone: impl FnMut(i32, i32, i32)) {
     let mut at: Vec<(i32, i32, i32)> = (0..n)
         .map(|k| {
@@ -44,8 +41,6 @@ fn round(cx: f32, cy: f32, rx: f32, ry: f32, n: i32, mut stone: impl FnMut(i32, 
 
 fn fallen_log() -> Img {
     let mut im = Img::new(40, 13);
-    // The trunk: lit along its back, shadowed underneath, broken at the
-    // left, its cut end showing its rings at the right.
     for x in 2..34 {
         let top = 2 + i32::from(x < 6) * 2 + i32::from(x < 4) - i32::from(hash(x, 0, 62) % 9 == 0);
         let bottom = 9 - i32::from(x < 4);
@@ -59,7 +54,6 @@ fn fallen_log() -> Img {
     im.ellipse(34.0, 6.0, 3.0, 4.4, 'P');
     im.ellipse(34.0, 6.0, 2.0, 3.2, 'r');
     im.ellipse(34.0, 6.0, 1.0, 1.6, 'o');
-    // Moss along the back, snapped branch stubs.
     for x in [8, 9, 10, 17, 18, 24, 25, 26] {
         im.put(x, 2, 'l');
         if x % 2 == 0 {
@@ -89,14 +83,12 @@ fn stump_axe() -> Img {
     im.ellipse(8.0, 9.0, 5.8, 2.6, 'r');
     im.ellipse(8.0, 9.0, 3.6, 1.6, 'o');
     im.ellipse(8.0, 9.0, 1.6, 0.8, 'r');
-    // The axe, sunk in the top: a haft and a dull blade.
     im.line(9, 8, 17, 1, 'P');
     im.line(10, 8, 18, 1, 'r');
     im.rect(15, 0, 6, 4, 'G');
     im.rect(15, 0, 6, 1, 'J');
     im.rect(19, 1, 2, 3, 'j');
     im.put(20, 3, 'h');
-    // Chips round the foot.
     for (x, y) in [(17, 16), (19, 17), (15, 18), (21, 18)] {
         im.rect(x, y, 2, 1, 'r');
     }
@@ -122,8 +114,6 @@ fn mushroom_ring() -> Img {
 
 fn hide() -> Img {
     let mut im = Img::new(30, 26);
-    // Forked posts, a ridge pole, and a screen of cut brush with a slit to
-    // watch through.
     im.rect(2, 3, 3, 22, 'P');
     im.rect(25, 3, 3, 22, 'P');
     im.rect(2, 3, 1, 22, 'r');
@@ -187,8 +177,6 @@ fn cairn() -> Img {
 
 fn fold() -> Img {
     let mut im = Img::new(56, 28);
-    // A dry-stone ring seen from the south: the far wall behind, the near
-    // wall low with a gap for the flock, a couple of sheep within.
     let (cx, cy, rx, ry) = (28.0f32, 14.0f32, 24.0f32, 8.0f32);
     let mut stones: Vec<(i32, i32, u32)> = Vec::new();
     for k in 0..40 {
@@ -234,8 +222,6 @@ fn scree() -> Img {
 }
 
 fn watch_stub() -> Img {
-    // A slate tower broken down to a ragged stump: courses of stone with
-    // offset joints, a dark doorway, rubble round the foot.
     let (w, h) = (26, 38);
     let mut im = Img::new(w + 12, h + 4);
     for x in 0..w {
@@ -261,11 +247,9 @@ fn watch_stub() -> Img {
         }
         im.put(x + 6, top, 'U');
     }
-    // The doorway and a window slit.
     im.rect(6 + 9, h - 14, 8, 14, 'k');
     im.rect(6 + 9, h - 15, 8, 1, 'S');
     im.rect(6 + 12, h - 28, 2, 5, 'k');
-    // Rubble.
     for (x, y) in [(1, 38), (4, 36), (31, 38), (34, 36), (8, 39), (27, 40)] {
         im.rect(x, y - 1, 4, 3, if (x + y) % 2 == 0 { 'u' } else { 'S' });
         im.rect(x, y - 1, 4, 1, 'U');
@@ -276,7 +260,6 @@ fn watch_stub() -> Img {
 
 fn bones() -> Img {
     let mut im = Img::new(40, 19);
-    // The ribs of something large half under the ground, a skull beside.
     im.line(2, 12, 28, 12, 'J');
     im.line(2, 13, 28, 13, 'G');
     im.line(2, 14, 28, 14, 'g');
@@ -288,7 +271,6 @@ fn bones() -> Img {
             im.put(x + bend + 1, 12 - k, 'G');
         }
     }
-    // The skull, jaw open, and a few long bones.
     im.ellipse(33.0, 11.0, 4.0, 3.4, 'J');
     im.rect(30, 12, 8, 3, 'J');
     im.rect(35, 14, 4, 2, 'G');
@@ -308,8 +290,6 @@ fn bones() -> Img {
 
 fn burnt_cart() -> Img {
     let mut im = Img::new(42, 26);
-    // A cart burnt to its frame: charred bed, hoops with the canvas gone,
-    // one wheel standing, one down, a broken shaft.
     im.rect(5, 13, 28, 5, 'g');
     im.rect(5, 13, 28, 1, 'j');
     im.rect(5, 17, 28, 1, 'Z');
@@ -341,7 +321,6 @@ fn ash_pit() -> Img {
     let mut im = Img::new(28, 14);
     im.ellipse(14.0, 8.0, 12.0, 4.6, 'g');
     im.ellipse(14.0, 8.0, 9.6, 3.4, 'k');
-    // Streaks of ash and a half-burnt log across it.
     for (x, y, w) in [(7, 8, 5), (15, 9, 4), (12, 6, 3), (19, 7, 3)] {
         im.rect(x, y, w, 1, 'X');
     }
@@ -357,8 +336,6 @@ fn ash_pit() -> Img {
 
 fn boat() -> Img {
     let mut im = Img::new(54, 22);
-    // An upturned clinker hull on the sand: its strakes lapped, a keel
-    // along its back, both ends lifted, an oar lying beside.
     let (cx, rx, base) = (27.0f32, 24.0f32, 19);
     for x in 2..52 {
         let t = (x as f32 + 0.5 - cx) / rx;
@@ -386,8 +363,6 @@ fn boat() -> Img {
 
 fn nets() -> Img {
     let mut im = Img::new(44, 30);
-    // Two poles and a net hung between them to dry, sagging, with cork
-    // floats along its head and weights along its foot.
     for x in [3, 38] {
         im.rect(x, 2, 3, 26, 'P');
         im.rect(x, 2, 1, 26, 'r');
@@ -447,8 +422,6 @@ fn tide_pool() -> Img {
 
 fn punt() -> Img {
     let mut im = Img::new(46, 19);
-    // A flat-bottomed punt gone down in the marsh to its gunwales: water
-    // about it, its bow lifted, a pole still standing in the mud.
     im.ellipse(23.0, 13.0, 22.0, 5.2, 'x');
     im.ellipse(23.0, 13.5, 17.5, 3.6, 's');
     for x in 6..40 {
@@ -476,8 +449,6 @@ fn punt() -> Img {
 
 fn eel_traps() -> Img {
     let mut im = Img::new(30, 15);
-    // Two wicker pots lying on their sides, their mouths narrowing to a
-    // dark funnel, roped to a stake.
     for (x, y, salt) in [(2, 3, 74u32), (15, 5, 75)] {
         im.ellipse((x + 6) as f32, (y + 4) as f32, 6.5, 4.2, 'P');
         for k in 0..30 {
@@ -520,17 +491,14 @@ fn reeds() -> Img {
 
 fn stilt_hut() -> Img {
     let mut im = Img::new(34, 42);
-    // Water about the stilts.
     im.ellipse(17.0, 37.0, 16.0, 4.2, 'x');
     im.ellipse(17.0, 37.5, 12.0, 2.6, 's');
-    // Four stilts, the hut leaning a little to the right, cross-braced.
     for (x, lean) in [(7, 0), (11, 0), (23, 1), (27, 1)] {
         im.line(x, 24, x + lean, 38, 'P');
         im.line(x + 1, 24, x + 1 + lean, 38, 'I');
     }
     im.line(8, 30, 24, 33, 'b');
     im.line(24, 30, 8, 34, 'b');
-    // The platform and the hut, each row of the wall a step further over.
     im.rect(4, 22, 28, 3, 'B');
     im.rect(4, 22, 28, 1, 'r');
     for row in 0..14 {
@@ -538,7 +506,6 @@ fn stilt_hut() -> Img {
         im.rect(8 + shift, 8 + row, 18, 1, if row % 3 == 2 { 'b' } else { 'I' });
     }
     im.rect(14 + 1, 14, 5, 8, 'k');
-    // The thatch.
     for row in 0..9 {
         let w = 6 + row * 2;
         let x = 17 + 1 - w / 2 + (9 - row) / 4;
@@ -547,7 +514,6 @@ fn stilt_hut() -> Img {
             im.put(x + dx, row + 1, if n == 0 { 'm' } else if n < 3 { 'N' } else { 'E' });
         }
     }
-    // A ladder up to it, a fish rack at the side.
     im.line(2, 25, 5, 37, 'P');
     im.line(5, 25, 8, 37, 'P');
     for y in (27..37).step_by(3) {
@@ -590,7 +556,6 @@ fn scarecrow() -> Img {
     let mut im = Img::new(22, 32);
     im.line(11, 9, 11, 30, 'P');
     im.line(12, 9, 12, 30, 'I');
-    // Arms along a cross-pole in a patched coat, straw at the cuffs.
     im.rect(1, 12, 20, 2, 'P');
     im.rect(5, 12, 12, 10, 'j');
     for y in 13..21 {
@@ -611,7 +576,6 @@ fn scarecrow() -> Img {
     }
     im.put(1, 14, 'r');
     im.put(20, 14, 'o');
-    // A sack head, stitched, under a floppy hat.
     im.ellipse(11.5, 7.0, 3.6, 3.6, 'J');
     im.put(10, 6, 'k');
     im.put(13, 6, 'k');
@@ -619,7 +583,6 @@ fn scarecrow() -> Img {
     im.rect(6, 4, 12, 1, 'b');
     im.rect(8, 0, 8, 4, 'B');
     im.put(14, 3, 'b');
-    // A crow on one arm.
     im.rect(16, 9, 4, 3, 'k');
     im.put(20, 9, 'k');
     im.put(21, 10, 'o');
@@ -630,8 +593,6 @@ fn scarecrow() -> Img {
 
 fn stile() -> Img {
     let mut im = Img::new(38, 17);
-    // A dry-stone wall with a gap, steps of through-stones stepping up its
-    // face on each side.
     for (x0, w) in [(0, 14), (24, 14)] {
         for y in 4..15 {
             for x in x0..x0 + w {
@@ -646,7 +607,6 @@ fn stile() -> Img {
     im.rect(11, 11, 6, 1, 'g');
     im.rect(21, 7, 6, 2, 'J');
     im.rect(21, 9, 6, 1, 'g');
-    // The step in the gap and a post to hold.
     im.rect(15, 13, 8, 2, 'G');
     im.rect(18, 1, 3, 13, 'P');
     im.rect(18, 1, 1, 13, 'r');
@@ -657,7 +617,6 @@ fn stile() -> Img {
 
 fn hives() -> Img {
     let mut im = Img::new(32, 20);
-    // Three skeps on a plank bench.
     im.rect(1, 11, 30, 2, 'B');
     im.rect(1, 11, 30, 1, 'r');
     for x in [3, 27] {
@@ -687,7 +646,6 @@ fn rail() -> Img {
         im.rect(1, y, 36, 2, 'B');
         im.rect(1, y, 36, 1, 'r');
     }
-    // A horseshoe nailed up, a rope looped through.
     im.put(3, 8, 'J');
     im.put(5, 8, 'J');
     im.put(4, 9, 'J');
@@ -709,7 +667,6 @@ fn lance_rack() -> Img {
     }
     im.rect(3, 14, 28, 2, 'B');
     im.rect(3, 14, 28, 1, 'r');
-    // Lances in the rack, one snapped, one with a torn pennon.
     for (x0, x1, top) in [(9, 13, 0), (16, 19, 11), (23, 25, 2)] {
         im.line(x0, 30, x1, top, 'P');
         im.line(x0 + 1, 30, x1 + 1, top, 'r');
@@ -729,8 +686,6 @@ fn lance_rack() -> Img {
 
 fn wagon() -> Img {
     let mut im = Img::new(50, 34);
-    // A fair's wagon packed up: its hood laced shut in grey canvas, a band
-    // of faded stripes along it, shafts down on the ground.
     let (cx, rx) = (26.0f32, 20.0f32);
     for x in 6..46 {
         let t = (x as f32 + 0.5 - cx) / rx;
@@ -781,7 +736,6 @@ fn bunting() -> Img {
         im.rect(x, 3, 1, 40, 'r');
         im.rect(x - 1, 2, 5, 1, 'B');
     }
-    // Dark flags on a sagging line.
     let flags = ['p', 'N', 'S', 'r', 'p', 'E', 'u'];
     for x in 6..37 {
         let sag = (6.0 * (1.0 - ((x as f32 - 21.0) / 15.0).powi(2))) as i32;
@@ -800,8 +754,6 @@ fn bunting() -> Img {
 
 fn burnt_post() -> Img {
     let mut im = Img::new(24, 42);
-    // A watch post burnt to a split pole: its platform gone to stubs, the
-    // rungs of the ladder charred, ash heaped at its foot.
     im.rect(9, 5, 5, 35, 'g');
     im.rect(9, 5, 1, 35, 'j');
     im.rect(13, 6, 1, 34, 'Z');
@@ -825,8 +777,6 @@ fn burnt_post() -> Img {
 
 fn milestone() -> Img {
     let mut im = Img::new(20, 16);
-    // A low waymarker, its face cut slanting back, a plate let into it
-    // with the miles counted in notches.
     for x in 3..17 {
         let top = 3 + (17 - x) / 4;
         for y in top..14 {
@@ -860,7 +810,6 @@ fn cross() -> Img {
     im.rect(3, 9, 13, 1, 'J');
     im.rect(8, 3, 3, 3, 'G');
     im.put(8, 3, 'J');
-    // Weathering and ivy up the foot.
     im.line(8, 14, 10, 16, 'X');
     for (x, y) in [(8, 19), (9, 18), (8, 17), (7, 22), (10, 21), (9, 20)] {
         im.put(x, y, if (x + y) % 2 == 0 { 'E' } else { 'F' });
@@ -890,8 +839,6 @@ fn trough() -> Img {
 
 fn stocks() -> Img {
     let mut im = Img::new(32, 24);
-    // Two posts and a hinged board bored for heads and hands; a few old
-    // splats of rotten fruit on the ground, and no one in them.
     for x in [3, 24] {
         im.rect(x, 4, 5, 18, 'P');
         im.rect(x, 4, 1, 18, 'r');
@@ -956,7 +903,6 @@ fn build_sprite(item: Item) -> Img {
     }
 }
 
-/// Every thing's sprite, plain and turned about, drawn once.
 fn sprites() -> &'static Vec<(Item, Img, Img)> {
     static SPRITES: OnceLock<Vec<(Item, Img, Img)>> = OnceLock::new();
     SPRITES.get_or_init(|| {
@@ -971,15 +917,11 @@ fn sprites() -> &'static Vec<(Item, Img, Img)> {
     })
 }
 
-/// The sprite of `item`, turned about or not.
 pub fn sprite(item: Item, flip: bool) -> &'static Img {
     let (_, plain, turned) = sprites().iter().find(|(i, _, _)| *i == item).expect("every item has a sprite");
     if flip { turned } else { plain }
 }
 
-/// The ink of the trodden clearing at world pixel `(wx, wy)` for the bay
-/// centred on world pixel `(cx, cy)`, or `None` for bare paper: a loose oval
-/// of worn ground, thinning to nothing at its edge.
 pub fn bay(wx: i32, wy: i32, (cx, cy): (i32, i32)) -> Option<char> {
     let (dx, dy) = ((wx - cx) as f32 / 27.0, (wy - (cy + 3)) as f32 / 16.0);
     let wobble = (vnoise(wx as f32 / 9.0, wy as f32 / 7.0, 80) - 0.5) * 0.45;
@@ -999,12 +941,9 @@ pub fn bay(wx: i32, wy: i32, (cx, cy): (i32, i32)) -> Option<char> {
     })
 }
 
-/// Stamp every thing in `view` onto the landscape `cv`, back to front,
-/// except those standing on ground the party has cleared for a wish.
 pub fn paint(cv: &mut Img, view: View, hidden: &dyn Fn(i32, i32) -> bool) {
     for p in &dressing::get().pieces {
         let (x, y) = p.at;
-        // Anything within a sprite's width of the view might show.
         let (px, base) = (x * TILE + TILE / 2, y * TILE + TILE - 2);
         if px < view.x - 56 || px > view.x + view.w + 56 || base < view.y || base > view.y + view.h + 48 {
             continue;

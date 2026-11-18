@@ -1,8 +1,6 @@
 import Base
 import ./LAWS.bend as Laws
 
-# The laws are closed statements; each proof only has to discharge the one
-# quantified slot, and the verdict itself is the statement.
 def Laws.no_links_seat_nothing(slot):
   {==}
 

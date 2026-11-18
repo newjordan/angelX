@@ -23,7 +23,6 @@ fn hold(fire: bool) -> BTreeMap<u32, Input> {
     )])
 }
 
-/// A run in Fortune's hall with knight one on the lever.
 fn at_the_lever(seed: u64, level: u8) -> Run {
     let mut run = Run::at_home(seed, 1, None, home_with_wheel(level), Spoils::default());
     run.enter_for_test(1);
@@ -55,7 +54,6 @@ fn fortunes_hall_is_east_of_the_undercroft() {
         "the Undercroft, Fortune's hall, the yard, the Trophy Hall"
     );
     assert!(run.valid_snapshot());
-    // Walk out of the Undercroft's east door.
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (run.dungeon.rooms[0].width() - 0.3, 14.0);
     run.step(&BTreeMap::new());
@@ -80,12 +78,10 @@ fn the_wheel_spins_once_a_delve_and_lands_on_an_open_wedge() {
         assert_eq!(run.mode, Mode::WHEEL[usize::from(spin.wedge)]);
         assert_eq!(run.mode.rung(), 0);
         assert!(run.cues.iter().any(|c| c.starts_with("wheel:")));
-        // At rest, the pointer is over the winning wedge.
         let rest = spin.angle(run.tick).rem_euclid(std::f32::consts::TAU);
         let w = std::f32::consts::TAU / Mode::WHEEL.len() as f32;
         let under = ((std::f32::consts::TAU - rest).rem_euclid(std::f32::consts::TAU) / w) as u8;
         assert_eq!(under, spin.wedge);
-        // Once a delve.
         pull(&mut run);
         assert_eq!(run.spin.unwrap().started, spin.started);
     }
@@ -100,7 +96,6 @@ fn the_spin_winds_back_runs_slows_hangs_on_the_neighbour_and_drops_into_its_wedg
         pull(&mut run);
         let spin = run.spin.unwrap();
         let rest = spin.angle_at(SPIN_TICKS);
-        // The pointer sits on wedge `at` where the wheel has turned `a`.
         let under = |a: f32| (((std::f32::consts::TAU - a.rem_euclid(std::f32::consts::TAU)) / w) as usize) % Mode::WHEEL.len();
         assert_eq!(under(rest), usize::from(spin.wedge));
         assert_eq!(spin.beat(0), Beat::Wind);
@@ -108,9 +103,7 @@ fn the_spin_winds_back_runs_slows_hangs_on_the_neighbour_and_drops_into_its_wedg
         assert_eq!(spin.beat(WIND + RUN), Beat::Hang);
         assert_eq!(spin.beat(WIND + RUN + HANG), Beat::Drop);
         assert_eq!(spin.beat(WIND + RUN + HANG + DROP), Beat::Landed);
-        // It winds back first.
         assert!(spin.angle_at(WIND - 1) < spin.from, "{seed}: the wheel winds back");
-        // Then it only goes forward, slowing, to a hang a hair short of the peg.
         let mut last = spin.angle_at(WIND);
         for n in WIND + 1..WIND + RUN + HANG {
             let a = spin.angle_at(n);
@@ -121,14 +114,11 @@ fn the_spin_winds_back_runs_slows_hangs_on_the_neighbour_and_drops_into_its_wedg
         assert_eq!(under(hang), usize::from(spin.neighbour()), "{seed}: the near miss sits on the neighbour");
         assert!(rest - hang > 0.5 * w && rest - hang < 0.7 * w, "{seed}: it hangs short of the peg");
         assert!(spin.speed(WIND + RUN).abs() < 0.01 && spin.speed(WIND + RUN + 10).abs() < 0.01, "{seed}: it stands while it hangs");
-        // The pegs click slower and slower as it runs down.
         let clicks: Vec<u32> = (WIND..WIND + RUN).filter(|&n| spin.clicked(n)).collect();
         let gaps: Vec<u32> = clicks.windows(2).map(|p| p[1] - p[0]).collect();
         let tail = &gaps[gaps.len() - 5..];
         assert!(tail[3] + tail[4] > tail[0] + tail[1] + 4, "{seed}: {tail:?}");
-        // Every tick is the same every time (a friend's mirror draws what the host does).
         assert_eq!(spin.angle(spin.started + 77), spin.angle_at(77));
-        // And a left-behind wheel is at rest.
         let mut left = spin;
         left.settled = true;
         assert_eq!(left.angle(spin.started + 3), rest);
@@ -159,7 +149,6 @@ fn every_wedge_is_called_in_two_or_three_plain_words() {
             assert_eq!(line, line.to_uppercase());
             assert!(!line.contains('/') && line.len() <= 18, "{mode:?}: {line:?}");
         }
-        // A wedge that pays more is a grand or a fair one, never the plain road.
         if mode.pay().is_some() {
             assert_ne!(mode.luck(), Luck::Plain, "{mode:?}");
         }
@@ -171,7 +160,6 @@ fn every_wedge_is_called_in_two_or_three_plain_words() {
 
 #[test]
 fn fortunes_ladder_opens_the_wild_wedges() {
-    // Open Floors is on the wheel from the first rung.
     assert_eq!(fortune::open_wedges(0).len(), 5);
     assert_eq!(fortune::open_wedges(1).len(), 7);
     assert_eq!(fortune::open_wedges(2).len(), 9);
@@ -204,7 +192,6 @@ fn fortunes_plate_orders_her_next_rung() {
     assert!(run.spin.is_none(), "the plate is not the lever");
 }
 
-/// A delve under `mode`, down the stair onto floor one.
 fn delve(mode: Mode) -> Run {
     let mut run = Run::at_home(5, 1, Some("Friend"), Home::default(), Spoils::default());
     run.mode = mode;
@@ -224,7 +211,6 @@ fn giants_are_bigger_tougher_and_generous() {
     );
     assert!(g.radius() > p.radius() * 1.3);
     assert!(g.max_hp > p.max_hp * 3 / 2);
-    // A party leaving keeps the giant's share, as with any monster.
     giants.leave(2);
     let g = giants.enemies.last().unwrap();
     assert_eq!(g.max_hp, EnemyKind::Skeleton.hp() * 9 / 5);
@@ -266,10 +252,8 @@ fn the_collapse_brings_the_ceiling_down_after_its_time() {
     }
     assert!(!run.rocks.is_empty(), "rocks fall past the floor's time");
     assert!(run.cues.iter().any(|c| c == "collapse"));
-    // The stairs reset the clock.
     run.descend_for_test();
     assert_eq!(run.collapse_in(), Some(Mode::collapse_secs(2)));
-    // Other delves never collapse.
     assert_eq!(delve(Mode::LongWayDown).collapse_in(), None);
 }
 
@@ -304,7 +288,6 @@ fn hold_the_stair_is_a_horde_in_one_great_hall() {
     let mut run = run;
     run.enter_for_test(1);
     assert_eq!(run.waves.total, 5, "a horde's waves on floor one");
-    // The last floor is the lair, with waves of its own.
     run.descend_for_test();
     run.descend_for_test();
     assert_eq!(run.dungeon.rooms[1].kind, RoomKind::Lair);
@@ -380,7 +363,6 @@ fn rune_rush_wells_a_rune_in_every_fight_and_another_once_it_is_taken() {
         run.enter_for_test(room);
         assert!(run.rune.is_some(), "a rune in every fight");
     }
-    // Take it; a fresh one comes while the fight goes on.
     run.calm_for_test();
     let rune = run.rune.unwrap();
     while run.tick < rune.at {

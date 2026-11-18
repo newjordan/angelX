@@ -1,27 +1,5 @@
 import Base
 
-# What the board reducer does with one persisted observation: ignore it as a
-# duplicate, ignore it as stale, ask for a full refresh because the sequence
-# gapped, refuse it as a conflict, or replace the canonical board.
-#
-# Rust keeps the journal, the adapter, the raw hashes, the canonical board and
-# every `Result`; it hands this record the revision numbers, the set membership
-# it already computed and the state flags a disposition reads, and reads back
-# one verdict. The native rule in
-# `cockpit/src/drive/competition/board_reducer.rs` stays as the fallback and as
-# the parity oracle. Restated here, it is applied in this order:
-#
-#   1. `conflict`  the observed competition differs from the identified one
-#   2. `duplicate` this observation id was already applied
-#   3. `stale`     a delta at or below the canonical sequence, or a full
-#                  snapshot below it
-#   4. `gap`       a delta after a pending refresh, after a skipped sequence,
-#                  or against an empty board
-#   5. `replace`   anything else
-#
-# `sequence` is a u64 in Rust and U32 here, so a sequence travels as two halves
-# and every comparison below is lexicographic on (hi, lo).
-
 type Obs is Data:
   Obs{identity_conflict: Bool, duplicate: Bool, full_snapshot: Bool, has_prior: Bool, prior_hi: U32, prior_lo: U32, has_incoming: Bool, incoming_hi: U32, incoming_lo: U32, refresh_pending: Bool, has_board: Bool}
 
@@ -32,8 +10,6 @@ type Verdict is Data:
   Gap{}
   Replace{}
 
-# The feature record carries booleans already, so the leg combines them with
-# these three connectives rather than matching on a computed value.
 def and(+a: Bool, +b: Bool) -> Bool:
   match a:
     case True{}:
@@ -55,8 +31,6 @@ def negate(+value: Bool) -> Bool:
     case False{}:
       True{}
 
-# Lexicographic on (hi, lo): the high half decides unless it ties, and then the
-# low half decides. Rust already reduced each half to one comparison.
 def first(+hi_wins: Bool, +hi_same: Bool, +lo_wins: Bool) -> Bool:
   match hi_wins:
     case True{}:
@@ -77,7 +51,6 @@ def lex_le(+a_hi: U32, +a_lo: U32, +b_hi: U32, +b_lo: U32) -> Bool:
 def lex_gt(+a_hi: U32, +a_lo: U32, +b_hi: U32, +b_lo: U32) -> Bool:
   first(U32.is_gt(a_hi, b_hi), U32.is_eq(a_hi, b_hi), U32.is_gt(a_lo, b_lo))
 
-# A full snapshot may be repeated at the canonical sequence; a delta may not.
 def stale(
   +full_snapshot: Bool,
   +has_prior: Bool,
@@ -111,7 +84,6 @@ def stepped(+lo: U32, +wraps: Bool) -> U32:
     case False{}:
       (lo + 1 : U32)
 
-# The low half of `prior.saturating_add(1)`: the increment wraps to zero.
 def next_lo(+lo: U32) -> U32:
   stepped(lo, U32.is_eq(lo, 4294967295))
 
@@ -122,12 +94,9 @@ def carried(+hi: U32, +carry: Bool) -> U32:
     case False{}:
       hi
 
-# The high half of `prior.saturating_add(1)`: it carries only from a full low
-# half.
 def next_hi(+hi: U32, +lo: U32) -> U32:
   carried(hi, U32.is_eq(lo, 4294967295))
 
-# `incoming > prior.saturating_add(1)`: a saturated prior has nothing above it.
 def skipped(
   +has_prior: Bool,
   +prior_hi: U32,
@@ -149,7 +118,6 @@ def skipped(
     )
   )
 
-# Only a delta can show a gapped sequence: a full snapshot rebuilds the board.
 def gap(
   +full_snapshot: Bool,
   +has_prior: Bool,

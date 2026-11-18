@@ -22,14 +22,10 @@ use super::super::ink::{Img, bayer, hash, text_width};
 use crate::motion::{self, Spring, ease};
 use crate::rules::juice::Weight;
 
-/// How a banner is inked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Tone {
-    /// Cream on amber: the usual call.
     Warm,
-    /// Grey steel: a quiet call for another knight's moment.
     Steel,
-    /// Blood: danger, a streak ended.
     Hot,
 }
 
@@ -43,9 +39,6 @@ impl Tone {
     }
 }
 
-// ─── impact ──────────────────────────────────────────────────────────────────
-
-/// The screen's shake for blows `(weight, age)`: the strongest of them.
 pub(crate) fn shake(blows: impl IntoIterator<Item = (Weight, u32)>, tick: u64) -> (i32, i32) {
     blows
         .into_iter()
@@ -57,8 +50,6 @@ pub(crate) fn shake(blows: impl IntoIterator<Item = (Weight, u32)>, tick: u64) -
         .unwrap_or((0, 0))
 }
 
-/// The impact frame: every opaque pixel of `sprite` in the ink `ink`, its
-/// black outline kept, so a struck figure reads as one bright silhouette.
 pub(crate) fn impact_frame(sprite: &Img, ink: char) -> Img {
     let mut out = sprite.clone();
     let Some(c) = super::super::ink::ink(ink) else { return out };
@@ -72,11 +63,6 @@ pub(crate) fn impact_frame(sprite: &Img, ink: char) -> Img {
     out
 }
 
-/// A struck sprite squashed wide and low, then stretched tall and thin, then
-/// settling (`age` ticks since the blow). The result keeps the feet at its
-/// bottom edge; its canvas is `grow` times as tall as the sprite, and the
-/// caller stands it `grow` times as tall in the world so the pixels keep
-/// their size. `amount` is 0 for none; a crushing blow is about 0.4.
 pub(crate) fn squash_stretch(sprite: &Img, age: u32, amount: f32) -> (Img, f32) {
     let t = age as f32;
     let k = amount * motion::math::exp(-t * 0.26) * motion::math::cos(t * 0.95);
@@ -96,8 +82,6 @@ pub(crate) fn squash_stretch(sprite: &Img, age: u32, amount: f32) -> (Img, f32) 
     (out, grow)
 }
 
-/// How far a struck body is knocked back along the blow, in world units,
-/// `age` ticks after it landed: a lurch that eases home.
 pub(crate) fn lurch(weight: Weight, age: u32) -> f32 {
     let reach = match weight {
         Weight::Graze => 0.0,
@@ -108,9 +92,6 @@ pub(crate) fn lurch(weight: Weight, age: u32) -> f32 {
     reach * motion::math::exp(-(age as f32) * 0.3)
 }
 
-/// The spark of a blow at `at` (`age` ticks old, `weight` heavy): a star at
-/// the instant of contact, sparks thrown and falling, and for the heavy
-/// blows a ring of dust on the floor.
 pub(crate) fn impact_burst(im: &mut Img, at: (f32, f32), age: u32, seed: u32, weight: Weight, tick: u64) {
     let (n, len, speed) = match weight {
         Weight::Graze => (7, 6.0, 2.4),
@@ -123,7 +104,6 @@ pub(crate) fn impact_burst(im: &mut Img, at: (f32, f32), age: u32, seed: u32, we
     if age < 7 {
         pfx::rays(&mut pen, at, 8, len, 1.0, seed as f32 * 0.37, ramps::GOLD, age as f32 / 7.0);
     }
-    // The instant of contact: a hot disc that is gone in two ticks.
     if age < 2 {
         let r = 2 + weight as i32 * 2 - age as i32;
         for dy in -r..=r {
@@ -142,8 +122,6 @@ pub(crate) fn impact_burst(im: &mut Img, at: (f32, f32), age: u32, seed: u32, we
     }
 }
 
-/// A knight going down at `at`: shards and smoke thrown wide, embers, a few
-/// dark drops and a shock ring.
 pub(crate) fn death_burst(im: &mut Img, at: (f32, f32), age: u32, seed: u32, tick: u64) {
     let mut pen = Pen::new(im, 1400);
     let a = age as f32;
@@ -163,8 +141,6 @@ pub(crate) fn death_burst(im: &mut Img, at: (f32, f32), age: u32, seed: u32, tic
     }
 }
 
-/// The mark of a blow you landed, at the crosshair: four ticks that flick
-/// in and out; a kill's are long and warm.
 pub(crate) fn hitmarker(im: &mut Img, c: (i32, i32), age: u32, kill: bool) {
     if age >= 7 {
         return;
@@ -179,8 +155,6 @@ pub(crate) fn hitmarker(im: &mut Img, c: (i32, i32), age: u32, kill: bool) {
     }
 }
 
-/// A number thrown up off a struck knight at `at`: it hops, then drifts up
-/// and dissolves. `scale` 1 for a scratch, 2 for a big one.
 pub(crate) fn pop_number(im: &mut Img, text: &str, at: (i32, i32), age: u32, life: u32, scale: i32, fill: char) {
     if age >= life {
         return;
@@ -192,10 +166,6 @@ pub(crate) fn pop_number(im: &mut Img, text: &str, at: (i32, i32), age: u32, lif
     im.stamp(&num, at.0 - num.w / 2, at.1 - hop - num.h);
 }
 
-// ─── text ────────────────────────────────────────────────────────────────────
-
-/// `s` in the 5x7 font `scale` times as big, `fill` inside a two-pixel edge
-/// (`edge` then black), as its own picture.
 pub(crate) fn big_text_img(s: &str, scale: i32, fill: char, edge: char) -> Img {
     let mut small = Img::new(text_width(s).max(1), 7);
     small.text(0, 0, s, 'h');
@@ -213,13 +183,11 @@ pub(crate) fn big_text_img(s: &str, scale: i32, fill: char, edge: char) -> Img {
     out
 }
 
-/// `s` centred on `cx` at row `y`, the same way up.
 pub(crate) fn big_text(im: &mut Img, cx: i32, y: i32, s: &str, scale: i32, fill: char, edge: char) {
     let t = big_text_img(s, scale, fill, edge);
     im.stamp(&t, cx - t.w / 2, y);
 }
 
-/// Take `k` (0 to 1) of `im`'s pixels away, by the ordered dither.
 pub(crate) fn dissolve(im: &mut Img, k: f32) {
     if k <= 0.0 {
         return;
@@ -233,19 +201,11 @@ pub(crate) fn dissolve(im: &mut Img, k: f32) {
     }
 }
 
-// ─── moments ─────────────────────────────────────────────────────────────────
-
-/// A banner `age` ticks into its `life`: it slams in big and settles to its
-/// size, light rails run out either side of it, a line of small words sits
-/// under it, and it slides up and dissolves at the end. `y` is the row of
-/// its top at rest; `cap` the biggest scale it may rest at (3 for the call
-/// of the moment, 2 for a second one under it).
 pub(crate) fn banner(im: &mut Img, y: i32, title: &str, sub: &str, age: u32, life: u32, tone: Tone, cap: i32) {
     if age >= life {
         return;
     }
     let (fill, edge, flash) = tone.inks();
-    // The biggest whole scale that fits the width, never above 3.
     let rest = ((im.w - 24) / text_width(title).max(1)).clamp(1, cap.max(1));
     let slam = (3 - age as i32).max(0);
     let scale = (rest + slam).min(176 / text_width(title).max(1)).max(rest);
@@ -255,7 +215,6 @@ pub(crate) fn banner(im: &mut Img, y: i32, title: &str, sub: &str, age: u32, lif
     let mut text = big_text_img(title, scale, if age < 3 { flash } else { fill }, edge);
     dissolve(&mut text, out);
     let (x, top) = (im.w / 2 - text.w / 2, y - lift - (scale - rest) * 3);
-    // The rails: two dithered bars of light running out from the middle.
     let grow = ease::out((age as f32 / 8.0).min(1.0));
     let half = (((text.w / 2 + 8) as f32) * grow) as i32;
     for (row, inks) in [(y - 5 - lift, ['o', 'R']), (y + 7 * rest + 8 - lift, ['R', 'o'])] {
@@ -276,9 +235,6 @@ pub(crate) fn banner(im: &mut Img, y: i32, title: &str, sub: &str, age: u32, lif
     }
 }
 
-/// One beat of a countdown (a digit or a word) `age` ticks into its `life`:
-/// it drops in huge, springs to size, a shock ring leaves it, and it
-/// shrinks away. `at` is the centre. `go` rings it twice and runs rays.
 pub(crate) fn countdown(im: &mut Img, at: (i32, i32), label: &str, age: u32, life: u32, go: bool) {
     if age >= life {
         return;
@@ -303,10 +259,6 @@ pub(crate) fn countdown(im: &mut Img, at: (i32, i32), label: &str, age: u32, lif
     im.stamp(&t, at.0 - t.w / 2, at.1 - t.h / 2);
 }
 
-/// A figure flying from `from` to `to` over `life` ticks (a score to the
-/// HUD): it arcs up first, then dives home, small and warm. Draws nothing
-/// before it begins or after it lands (`age >= life`, which is also when
-/// the HUD should pulse).
 pub(crate) fn fly_up(im: &mut Img, text: &str, from: (i32, i32), to: (i32, i32), age: u32, life: u32, fill: char) {
     if age >= life {
         return;
@@ -315,21 +267,16 @@ pub(crate) fn fly_up(im: &mut Img, text: &str, from: (i32, i32), to: (i32, i32),
     let (x, y) = motion::arc((from.0 as f32, from.1 as f32), (to.0 as f32, to.1 as f32), 26.0, ease::both(t));
     let img = big_text_img(text, 1 + i32::from(t < 0.5), fill, 'B');
     im.stamp(&img, x as i32 - img.w / 2, y as i32 - img.h / 2);
-    // A few sparks trail it.
     for k in 1..4 {
         let (tx, ty) = motion::arc((from.0 as f32, from.1 as f32), (to.0 as f32, to.1 as f32), 26.0, ease::both((t - k as f32 * 0.05).max(0.0)));
         im.put(tx as i32, ty as i32, ['@', 'o', 'R'][k as usize - 1]);
     }
 }
 
-/// How far a pulse of `age` ticks has swelled, 0 to 1 and gone: for a HUD
-/// number that bumps when a flying score lands.
 pub(crate) fn bump(age: u32, life: u32) -> f32 {
     if age >= life { 0.0 } else { ease::bump(age as f32 / life as f32) }
 }
 
-/// A dithered iris of ink `fill` closing over the picture from its edges to
-/// `centre` (`k` 0 open, 1 shut) or, going the other way, opening.
 pub(crate) fn iris(im: &mut Img, centre: (i32, i32), k: f32, fill: char) {
     if k <= 0.0 {
         return;
@@ -345,8 +292,6 @@ pub(crate) fn iris(im: &mut Img, centre: (i32, i32), k: f32, fill: char) {
     }
 }
 
-/// The danger of a blow taken, as a dithered rim of `fill` along the edges of
-/// a `(x, y, w, h)` box, `k` (0 to 1) how strong, `depth` pixels deep.
 pub(crate) fn vignette(im: &mut Img, (bx, by, bw, bh): (i32, i32, i32, i32), k: f32, depth: i32, fill: char) {
     if k <= 0.0 {
         return;
@@ -365,10 +310,6 @@ pub(crate) fn vignette(im: &mut Img, (bx, by, bw, bh): (i32, i32, i32, i32), k: 
     }
 }
 
-// ─── finish ──────────────────────────────────────────────────────────────────
-
-/// A fall of paper in the realm's warm and grey inks over the box `(x, y, w,
-/// h)` at `tick`: `n` pieces, each its own speed, sway and flutter.
 pub(crate) fn confetti(im: &mut Img, (bx, by, bw, bh): (i32, i32, i32, i32), tick: u32, seed: u32, n: u32) {
     const INKS: [char; 8] = ['t', 'T', 'O', 'i', 'h', 'R', 'c', '@'];
     for i in 0..n {
@@ -391,8 +332,6 @@ pub(crate) fn confetti(im: &mut Img, (bx, by, bw, bh): (i32, i32, i32, i32), tic
     }
 }
 
-/// A firework `age` ticks after it was fired from `(x, base)`: a streak
-/// rises to `(x, top)`, bursts into sparks that fall, and fades.
 pub(crate) fn firework(im: &mut Img, x: f32, base: f32, top: f32, age: u32, seed: u32, ramp: Ramp, tick: u64) {
     const RISE: f32 = 14.0;
     let a = age as f32;
@@ -412,49 +351,32 @@ pub(crate) fn firework(im: &mut Img, x: f32, base: f32, top: f32, age: u32, seed
     }
 }
 
-/// One of the three on a podium.
 pub(crate) struct Place {
     pub sprite: Img,
     pub name: String,
     pub line: String,
 }
 
-/// A box on the canvas: `(x, y, w, h)`.
 pub(crate) type Rect = (i32, i32, i32, i32);
 
-/// The steps' heights (first, second, third) and the tick each starts to rise.
 const STEP_HEIGHTS: [i32; 3] = [58, 40, 28];
 const STEP_START: [u32; 3] = [16, 8, 0];
-/// The size each step's rank digit would like; it is cut down until it fits
-/// its own step's face, so the low step never gets the high step's digit.
 const RANK_SCALE: [i32; 3] = [5, 4, 4];
-/// A step's width, and the gap between steps.
 const STEP_W: i32 = 84;
 const STEP_GAP: i32 = 4;
-/// The most letters a name or a score line may have under a step: the steps
-/// stand `STEP_W + STEP_GAP` apart, and the longest words must stay clear of
-/// the next step's words. Longer ones are cut and end in a full stop.
 const MOST_LETTERS: usize = 13;
-/// Rows the words under the steps take below the floor line.
 const WORDS_BELOW: i32 = 22;
 
-/// Where one step's words sit on the canvas, as the boxes the letters (and
-/// the one-pixel ring the fill wears) really cover, so a test or a ledger of
-/// claims can see that none meets another. The words are already cut to fit.
 pub(crate) struct Stand {
-    /// The rank digit, at the size that fits the step.
     pub rank: Rect,
     pub rank_scale: i32,
-    /// The name under the step, and the score line under the name.
     pub name: Rect,
     pub name_text: String,
     pub line: Rect,
     pub line_text: String,
-    /// The tick of the scene from which the name and line are drawn.
     pub words_at: u32,
 }
 
-/// `s`, cut to `MOST_LETTERS` with a full stop when it was longer.
 fn fitted(s: &str) -> String {
     if s.chars().count() <= MOST_LETTERS {
         s.to_string()
@@ -463,9 +385,6 @@ fn fitted(s: &str) -> String {
     }
 }
 
-/// The box of `s` as `big_text_img(s, 1, ..)` stamped centred on `cx` with
-/// its top at `top`, kept inside a canvas `frame_w` wide: the stamped
-/// picture's own corner, then the letters and their ring.
 fn words_box(s: &str, cx: i32, top: i32, frame_w: i32) -> Rect {
     let glyphs = text_width(s).max(1);
     let img_w = glyphs + 4;
@@ -473,14 +392,10 @@ fn words_box(s: &str, cx: i32, top: i32, frame_w: i32) -> Rect {
     (x + 1, top + 1, glyphs + 2, 7 + 2)
 }
 
-/// Where the words of a podium on the box `area` stand, for as many of
-/// `places` as the podium shows (three), on a canvas of `frame` size. Each
-/// is the full-grown step's; the rise only reveals them.
 pub(crate) fn podium_stands((fw, fh): (i32, i32), (bx, by, bw, bh): Rect, places: &[Place]) -> Vec<Stand> {
     let floor = by + bh - 6;
     let cx = bx + bw / 2;
     let xs = [cx, cx - STEP_W - STEP_GAP, cx + STEP_W + STEP_GAP];
-    // The words need `WORDS_BELOW` rows under the floor: lift them if the box is low.
     let below = (floor + WORDS_BELOW).min(fh) - WORDS_BELOW;
     places
         .iter()
@@ -488,7 +403,6 @@ pub(crate) fn podium_stands((fw, fh): (i32, i32), (bx, by, bw, bh): Rect, places
         .enumerate()
         .map(|(i, p)| {
             let mut scale = RANK_SCALE[i];
-            // Picture 6 rows into the face, 7 rows per size and the edge, 2 rows to spare.
             while scale > 1 && 6 + 7 * scale + 4 > STEP_HEIGHTS[i] - 2 {
                 scale -= 1;
             }
@@ -508,15 +422,6 @@ pub(crate) fn podium_stands((fw, fh): (i32, i32), (bx, by, bw, bh): Rect, places
         .collect()
 }
 
-/// A podium on the box `(x, y, w, h)` (at least 264 wide; leave 16 rows under
-/// it for the words): the first place in the middle on the tallest step, the
-/// second at their left, the third at their right. Steps rise in turn (third,
-/// second, first), each knight dropping onto theirs; `age` runs from the
-/// first tick of the scene. Every rank digit is sized to fit its step, and
-/// every name and score line is cut and placed (`podium_stands`) so it stays
-/// clear of the digits, of its neighbours and of the canvas edge. Returns the
-/// top-centre of the first step's knight, where a crown or a confetti gun
-/// belongs.
 pub(crate) fn podium(im: &mut Img, area: Rect, places: &[Place], age: u32) -> (i32, i32) {
     let (bx, by, bw, bh) = area;
     let floor = by + bh - 6;
@@ -524,7 +429,6 @@ pub(crate) fn podium(im: &mut Img, area: Rect, places: &[Place], age: u32) -> (i
     let spots = [(cx, 0usize), (cx - STEP_W - STEP_GAP, 1), (cx + STEP_W + STEP_GAP, 2)];
     let stands = podium_stands((im.w, im.h), area, places);
     let mut crown = (cx, floor - STEP_HEIGHTS[0]);
-    // Back to front: the lower steps first, the winner's last.
     for &(x, i) in spots.iter().rev() {
         let (Some(p), Some(stand)) = (places.get(i), stands.get(i)) else { continue };
         let rise = ease::out(((age as f32 - STEP_START[i] as f32) / 18.0).clamp(0.0, 1.0));
@@ -550,12 +454,10 @@ pub(crate) fn podium(im: &mut Img, area: Rect, places: &[Place], age: u32) -> (i
                 im.put(xx, yy, ink);
             }
         }
-        // The rank, big and dark on the step's face, at the size that fits it.
         if h + 2 >= STEP_HEIGHTS[i] {
             let rank = big_text_img(&(i + 1).to_string(), stand.rank_scale, if i == 0 { 'O' } else { 'G' }, 'g');
             im.stamp(&rank, stand.rank.0 - 1, stand.rank.1 - 1);
         }
-        // The knight: stands on the step after it has risen.
         let drop = ((1.0 - ease::out(((age as f32 - STEP_START[i] as f32 - 12.0) / 12.0).clamp(0.0, 1.0))) * 70.0) as i32;
         if age as f32 >= STEP_START[i] as f32 + 8.0 {
             let tall = if i == 0 { 68.0 } else { 56.0 };

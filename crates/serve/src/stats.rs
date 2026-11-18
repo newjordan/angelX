@@ -7,7 +7,6 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 use std::time::{Duration, Instant};
 
-/// Exact below this many nanoseconds, then 16 buckets an octave (about 6%).
 const LINEAR: u64 = 32;
 const PER_OCTAVE: usize = 16;
 const BUCKETS: usize = LINEAR as usize + (64 - 5) * PER_OCTAVE;
@@ -21,7 +20,6 @@ fn bucket(ns: u64) -> usize {
     LINEAR as usize + (msb - 5) * PER_OCTAVE + mantissa
 }
 
-/// The top of a bucket, in nanoseconds: percentiles read high, never low.
 fn bucket_top(i: usize) -> u64 {
     if i < LINEAR as usize {
         return i as u64;
@@ -31,7 +29,6 @@ fn bucket_top(i: usize) -> u64 {
     (((16 + mantissa + 1) << (msb - 4)) - 1).min(u128::from(u64::MAX)) as u64
 }
 
-/// Durations, counted into buckets without a lock.
 pub struct Histo {
     counts: Box<[AtomicU64]>,
     sum: AtomicU64,
@@ -55,7 +52,6 @@ impl Histo {
     }
 }
 
-/// A histogram's reading.
 #[derive(Clone, Debug, Default)]
 pub struct Counts {
     counts: Vec<u64>,
@@ -88,8 +84,6 @@ impl Counts {
     }
 }
 
-/// A distribution: in milliseconds for times, bytes a second for rates.
-/// Times are read from buckets about 6% wide, rounded up.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Spread {
     pub n: u64,
@@ -111,18 +105,14 @@ impl Spread {
     }
 }
 
-/// One connection's counters, kept by its writer.
 #[derive(Default)]
 pub struct ConnCounters {
     pub bytes: AtomicU64,
     pub snapshots: AtomicU64,
-    /// Snapshot ticks it never got because its writer was busy writing.
     pub skipped: AtomicU64,
-    /// Snapshot ticks held back because its client had not applied enough.
     pub held: AtomicU64,
 }
 
-/// Why connections ended or were turned away, as counted.
 #[derive(Default)]
 pub struct Counters {
     pub http: AtomicU64,
@@ -130,18 +120,13 @@ pub struct Counters {
     pub joined: AtomicU64,
     pub resumed: AtomicU64,
     pub rejected: AtomicU64,
-    /// Frames that broke the protocol or a limit.
     pub violations: AtomicU64,
-    /// Closed after `SILENT_CLOSE` without a frame.
     pub silent: AtomicU64,
-    /// Turned away at the door: too many connections not yet in.
     pub busy: AtomicU64,
-    /// Ticks whose events aged out before a held-back writer sent them.
     pub events_lost: AtomicU64,
     pub write_errors: AtomicU64,
 }
 
-/// Everything the server counts.
 #[derive(Default)]
 pub struct Telemetry {
     pub tick: Histo,
@@ -150,13 +135,10 @@ pub struct Telemetry {
     pub encode: Histo,
     pub ticks: AtomicU64,
     pub counters: Counters,
-    /// What the seats' command queues did (`angel_net::cmd`).
     pub inputs: Mutex<angel_net::cmd::Counts>,
-    /// (id, counters, connected at) of every live connection.
     pub conns: Mutex<Vec<(u64, std::sync::Arc<ConnCounters>, Instant)>>,
 }
 
-/// A reading of every counter, at one moment.
 #[derive(Clone, Debug)]
 pub struct Totals {
     at: Instant,
@@ -167,7 +149,6 @@ pub struct Totals {
     ticks: u64,
     counters: [u64; 10],
     inputs: angel_net::cmd::Counts,
-    /// (id, bytes, snapshots, skipped, held, connected at)
     conns: Vec<(u64, u64, u64, u64, u64, Instant)>,
     pub players: u32,
     pub spectators: u32,
@@ -214,9 +195,6 @@ impl Telemetry {
 }
 
 impl Totals {
-    /// What happened between `earlier` and this reading. Per-client rates
-    /// count the connections alive at this reading, over the part of the
-    /// span each was connected.
     pub fn since(&self, earlier: &Totals) -> Stats {
         let secs = self.at.duration_since(earlier.at).as_secs_f64();
         let mut bytes = Vec::new();
@@ -275,21 +253,16 @@ impl Totals {
     }
 }
 
-/// What the server did over a span, for the cockpit and the log.
 #[derive(Clone, Debug, Default)]
 pub struct Stats {
     pub secs: f64,
     pub ticks: u64,
-    /// The whole tick: commands taken, the step, publishing, waking the
-    /// writers. Milliseconds.
     pub tick: Spread,
     pub step: Spread,
     pub publish: Spread,
-    /// One client's snapshot, built and framed by its writer. Milliseconds.
     pub encode: Spread,
     pub players: u32,
     pub spectators: u32,
-    /// Bytes a second each connected client was sent.
     pub client_bytes: Spread,
     pub client_snapshots: Spread,
     pub skipped: u64,
@@ -304,8 +277,6 @@ pub struct Stats {
     pub busy: u64,
     pub events_lost: u64,
     pub write_errors: u64,
-    /// The seats' command queues: ticks taken, guessed (and of those wrong),
-    /// commands late, ticks waited, commands drained and folded.
     pub inputs: angel_net::cmd::Counts,
 }
 

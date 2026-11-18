@@ -111,7 +111,6 @@ fn paintings_disappear_into_black_before_the_canvas_edges() {
     }
 }
 
-/// Offline native and terminal frames, including a native cache timing sample.
 #[test]
 #[ignore]
 fn write_floor_plate_shots() {
@@ -136,7 +135,6 @@ fn write_floor_plate_shots() {
             );
         }
     }
-    // Measure warmed caches without adding a wall-time assertion to CI.
     let mut timings =
         String::from("Cached 384x224 painting, debug test build, 200 frames per destination\n");
     for &(kind, depth) in &DESTINATIONS {
@@ -169,7 +167,6 @@ fn write_floor_plate_shots() {
 
 #[test]
 fn delivered_plates_fill_the_native_grain_and_keep_the_original_titles() {
-    // The swamp's plate is painted here; no plate is delivered for it.
     for &(kind, depth) in DESTINATIONS.iter().filter(|(k, _)| *k != Kind::Swamp) {
         let im = delivered(kind,depth).expect("reviewed plate embedded");
         assert_eq!((im.w,im.h),(W,H));

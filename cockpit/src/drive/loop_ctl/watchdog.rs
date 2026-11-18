@@ -30,31 +30,20 @@ use crate::agent::harness::book::st_connected;
 use crate::agent::harness::{Release, clear_release, request_release};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// Quiet time before the soft check.
 const CHECK_SECS: u64 = 30 * 60;
-/// Quiet time before a reviewer is dispatched.
 const REVIEW_SECS: u64 = 60 * 60;
-/// A reviewer that has not answered by then is replaced by the fixed rule.
 const REVIEW_DEADLINE_SECS: u64 = 5 * 60;
-/// After a release, how long to wait for any harness event before the turn
-/// is restarted.
 pub(crate) const RELEASE_GRACE_SECS: u64 = 2 * 60;
-/// `wait` verdicts a quiet stretch takes before the fixed rule decides: a
-/// reviewer that keeps waiting must not rebuild the 20-hour wedge.
 const MAX_WAITS: usize = 2;
-/// Watchdog records kept on the loop.
 const MAX_RECORDS: usize = 20;
-/// The in-flight call's args, as the facts show them.
 const FACT_ARGS_CHARS: usize = 400;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct WatchdogLimits {
-    /// `0` = no soft check.
     pub(crate) check_secs: u64,
     pub(crate) review_secs: u64,
 }
 
-/// The configured limits; `None` when the watchdog is off.
 pub(crate) fn watchdog_limits() -> Option<WatchdogLimits> {
     let review_secs = env_u64("ANGEL_LOOP_WATCHDOG_REVIEW_SECS", REVIEW_SECS);
     (review_secs > 0).then(|| WatchdogLimits {
@@ -63,26 +52,20 @@ pub(crate) fn watchdog_limits() -> Option<WatchdogLimits> {
     })
 }
 
-/// One watchdog step, as the loop file keeps it.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WatchdogRecord {
     pub ts_ms: u64,
-    /// Finished iterations when the step was taken.
     pub iteration: usize,
-    /// `check`, `review`, `escalate` or `resumed`.
     pub kind: String,
-    /// How long the harness had been quiet.
     pub quiet_secs: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verdict: Option<String>,
-    /// Who chose the verdict: the reviewer's label, or `fixed rule`.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub by: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub detail: String,
 }
 
-/// A harness remedy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Verdict {
     Wait,
@@ -102,7 +85,6 @@ impl Verdict {
     }
 }
 
-/// The verdict on the reviewer's last `verdict:` line, if it has one.
 pub(crate) fn parse_verdict(text: &str) -> Option<Verdict> {
     let decorations: &[char] = &['`', '*', '_', '.', ' '];
     text.lines().rev().find_map(|line| {
@@ -121,9 +103,6 @@ pub(crate) fn parse_verdict(text: &str) -> Option<Verdict> {
     })
 }
 
-/// The fixed rule, when no reviewer verdict is to be had: hand a running call
-/// to the background; with no call running, or after a release that did not
-/// free the turn, restart it.
 pub(crate) fn fallback_verdict(call_running: bool, released_before: bool) -> Verdict {
     if call_running && !released_before {
         Verdict::HandOff
@@ -132,7 +111,6 @@ pub(crate) fn fallback_verdict(call_running: bool, released_before: bool) -> Ver
     }
 }
 
-/// What the watchdog does this frame for a stretch quiet `quiet_secs`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum WatchdogDue {
     Nothing,
@@ -164,19 +142,14 @@ pub(crate) fn watchdog_due(
     WatchdogDue::Nothing
 }
 
-/// The watch over the in-flight iteration (runtime only).
 #[derive(Default)]
 pub(crate) struct LoopWatch {
-    /// The quiet stretch being watched: the turn's last event.
     stretch: Option<Instant>,
-    /// The turn's root owner, for its release requests.
     owner: usize,
     limits: WatchdogLimits,
     checked: bool,
-    /// Quiet seconds at which the next review is due.
     next_review_secs: u64,
     released_at: Option<Instant>,
-    /// Verdicts taken in this stretch, oldest first.
     actions: Vec<String>,
     review: Option<ReviewPending>,
 }
@@ -195,8 +168,6 @@ impl Drop for ReviewPending {
 }
 
 impl crate::App {
-    /// Watch the in-flight loop iteration. Returns the reason when the turn is
-    /// to be restarted; the caller retires it and the loop retries.
     pub(crate) fn loop_watchdog(&mut self, thinking: &Thinking) -> Option<String> {
         if self.loop_ctl.status != LoopStatus::Running || !self.loop_ctl.awaiting_turn {
             return None;
@@ -313,8 +284,6 @@ impl crate::App {
         };
         let owner = Arc::as_ptr(&thinking.cancel) as usize;
         let Some(book_catalog) = crate::agent::harness::book::catalog::for_owner(owner) else {
-            // A reviewer must not consult a different book generation while
-            // the foreground turn is preparing or has already finished.
             self.loop_watch.next_review_secs = quiet.saturating_add(1);
             return None;
         };
@@ -331,7 +300,6 @@ impl crate::App {
         let cancel = Arc::new(AtomicBool::new(false));
         let worker_cancel = Arc::clone(&cancel);
         let (send, rx) = std::sync::mpsc::channel();
-        // A thread that cannot spawn drops `send`; that reads as no answer.
         let _ = std::thread::Builder::new()
             .name("loop-watchdog-review".into())
             .spawn(move || {
@@ -387,8 +355,6 @@ impl crate::App {
         }
     }
 
-    /// Carry out `chosen` (a verdict and who gave it), or the fixed rule when
-    /// there is none.
     fn loop_watchdog_apply(
         &mut self,
         quiet: u64,
@@ -450,8 +416,6 @@ impl crate::App {
         None
     }
 
-    /// What the iteration is blocked on, as data for the transcript, the loop
-    /// file and the reviewer.
     fn loop_watchdog_facts(&self, thinking: &Thinking, quiet: u64) -> String {
         let st = &self.loop_ctl;
         let owner = Arc::as_ptr(&thinking.cancel) as usize;
@@ -541,8 +505,6 @@ impl crate::App {
         });
         let overflow = records.len().saturating_sub(MAX_RECORDS);
         records.drain(..overflow);
-        // Like the heartbeat: publish the live tool-call count in the
-        // persisted copy only.
         let settled = self.loop_ctl.tool_calls_total;
         self.loop_ctl.tool_calls_total = settled.saturating_add(self.tool_strip.snapshot().calls);
         save(&self.loop_ctl);
@@ -550,7 +512,6 @@ impl crate::App {
     }
 }
 
-/// The reviewer's reason: its first non-empty line that is not the verdict.
 fn reason_line(text: &str) -> String {
     let mut reason = text
         .lines()

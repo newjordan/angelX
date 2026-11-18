@@ -70,43 +70,26 @@
 
 use super::*;
 
-/// One flap's kick up (1/256 tile a tick).
 pub const FLAP_KICK: i32 = 52;
-/// The pull down each tick, and the fastest the goose may fall or climb.
 pub const GRAVITY: i32 = 14;
 pub const FALL_MAX: i32 = 96;
 pub const RISE_MAX: i32 = 48;
-/// Steering: the lean a tick of left/right adds, and the cruise cap.
 pub const WALK: i32 = 28;
 pub const CRUISE_X: i32 = 72;
-/// Ticks off the saddle after a clack, and in the tar's grip.
 pub const STUN: u8 = 9;
 pub const TAR_STUN: u8 = 6;
-/// Ticks a felled rival is down before its wave returns.
 pub const RESPAWN: u32 = 20;
-/// Unhorsings to take the heat early.
 pub const NEED: u8 = 8;
-/// The hall: ledges (x0, x1, row) and the tar's surface row, all tiles.
 pub const LEDGES: [(i32, i32, i32); 3] = [(4, 9, 4), (12, 18, 6), (7, 13, 8)];
 pub const TAR_ROW: i32 = 11;
-/// The highest a rider climbs (1/256 tile): under the gallery's rail, and
-/// the top of a rider's valid range.
 pub const CEILING: i32 = 2 * 256 + 128;
-/// The hall's walls, in tiles.
 pub const WALL_X: (i32, i32) = (1, 22);
-/// When each rival wave first arrives (ticks into the round), the lane it
-/// holds and the side it enters from.
 pub const WAVES: [(u32, i32, i32); 3] = [(30, 5, 21), (240, 7, 2), (450, 6, 12)];
-/// How long an unhorsed rider's egg waits before it hatches a rival.
 pub const HATCH: u32 = 150;
 
-/// A rider: a seated knight (who 0, `seat` their id) or a rival
-/// (who 1..=3, seat 0). Fixed-point 1/256 tile.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GanderRider {
-    /// 0 for a seated knight, 1..=3 for a rival wave.
     pub who: u8,
-    /// The rider's seat (their colour on screen); 0 for a rival.
     pub seat: u8,
     pub x: i32,
     pub y: i32,
@@ -114,10 +97,7 @@ pub struct GanderRider {
     pub dy: i32,
     pub face: i8,
     pub stun: u8,
-    /// Which rival this rider last clashed with (0: none), so a pass
-    /// resolves once and shoves apart instead of re-triggering.
     pub clash: u8,
-    /// Ticks before a felled rival's wave returns.
     pub down: u32,
     pub lane: i32,
 }
@@ -172,15 +152,11 @@ impl GanderRider {
     }
 }
 
-/// An unhorsed rider's egg, rolling on a ledge.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GanderEgg {
-    /// Its x, fixed point; y is the ledge row it sits on (`row`).
     pub x: i32,
     pub row: i32,
-    /// Direction it rolls (1 or -1).
     pub dir: i8,
-    /// Ticks until it hatches (0: it hatched — see `hatched`).
     pub left: u32,
 }
 impl GanderEgg {
@@ -192,11 +168,9 @@ impl GanderEgg {
     }
 }
 
-/// The tar's hand, mid-grab: where it rose and how far.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GanderHand {
     pub x: i32,
-    /// 1..=4: the frame of the rise (4 is closing on the rider).
     pub frame: u8,
 }
 impl GanderHand {
@@ -205,20 +179,12 @@ impl GanderHand {
     }
 }
 
-/// The one hall every seat in the heat rides together.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Gander {
-    /// The seats riding, first the starter; matches `Heat::seats`.
     pub seats: Vec<u32>,
-    /// Riders 0..seats.len() are the knights, in seat order; then the
-    /// three rival waves.
     pub riders: Vec<GanderRider>,
-    /// Each seat's unhorsing count (its rider's `who` is 0; a rival's is
-    /// its index past the knights).
     pub tally: Vec<u8>,
-    /// Eggs on the ledges (at most three: one per ledge).
     pub eggs: Vec<GanderEgg>,
-    /// The tar's hand, mid-grab (at most one at a time).
     pub hand: Option<GanderHand>,
 }
 impl Gander {
@@ -241,7 +207,6 @@ impl Gander {
         let _ = 0;
         g
     }
-    /// The first knight's rider (the starter's).
     pub fn rider(&self) -> &GanderRider {
         &self.riders[0]
     }
@@ -269,8 +234,6 @@ impl Gander {
 }
 
 impl Run {
-    /// One tick of THE hall, for every seat at once. False once the round
-    /// is over (need reached); the caller handles the clock separately.
     pub(super) fn tick_gander(
         &mut self,
         r: &mut Round,
@@ -290,13 +253,8 @@ impl Run {
         if r.gander.as_ref().unwrap().tally.iter().any(|&t| t >= r.game.need()) {
             return true;
         }
-        // The hall is taken out of the round while it ticks, so the tick
-        // may read the round (mistakes, sounds) and write the hall freely.
         let mut gander = r.gander.take().unwrap();
-        // Physics for every rider: flaps, lean, gravity, ledges.
         for i in 0..count + 3 {
-            // A tumble is short: the stun runs down a tick at a time, and
-            // the goose is back under the rider when it is spent.
             gander.riders[i].stun = gander.riders[i].stun.saturating_sub(1);
             let mut clash_at = None;
             if gander.riders[i].clash != 0 {
@@ -306,7 +264,6 @@ impl Run {
                 }
             }
             let knight = gander.riders[i].who == 0;
-            // A clash against a felled rider is spent: clear it at once.
             if clash_at.is_some_and(|c| c.1) {
                 gander.riders[i].clash = 0;
             }
@@ -322,9 +279,6 @@ impl Run {
                 }
                 continue;
             }
-            // The flaps: a knight's own key edge, a rival's hunger for its
-            // lane (a rival hunts the nearest knight now, not only the
-            // first).
             let target_x = if knight {
                 gander.riders[i].x
             } else {
@@ -342,8 +296,6 @@ impl Run {
             };
             gander.riders[i].dy = (gander.riders[i].dy + GRAVITY).clamp(-RISE_MAX, FALL_MAX);
             if flap {
-                // A press wins its whole tick: the goose leaves the stone
-                // at the full kick, gravity collecting from the next.
                 gander.riders[i].dy = gander.riders[i].dy.min(-FLAP_KICK);
                 if knight { self.sounds.push("swing"); }
             }
@@ -363,12 +315,10 @@ impl Run {
             gander.riders[i].x =
                 (gander.riders[i].x + gander.riders[i].dx).clamp(WALL_X.0 * 256, WALL_X.1 * 256);
             gander.riders[i].y += gander.riders[i].dy;
-            // The hall has a roof: under the gallery rail a climb stops.
             if gander.riders[i].y < CEILING {
                 gander.riders[i].y = CEILING;
                 gander.riders[i].dy = gander.riders[i].dy.max(0);
             }
-            // And a floor: the tar's skin holds a sunk rider for its hand.
             if gander.riders[i].y > TAR_ROW * 256 {
                 gander.riders[i].y = TAR_ROW * 256;
                 gander.riders[i].dy = 0;
@@ -376,7 +326,6 @@ impl Run {
             if gander.riders[i].dx != 0 {
                 gander.riders[i].face = gander.riders[i].dx.signum() as i8;
             }
-            // Ledges: land when falling across one, and rest while on it.
             if gander.riders[i].dy > 0 {
                 for &(x0, x1, row) in LEDGES.iter() {
                     let top = row * 256;
@@ -390,14 +339,10 @@ impl Run {
                     }
                 }
             } else if gander.riders[i].dy == GRAVITY && gander.riders[i].resting_on().is_some() {
-                // Standing on the ledge: gravity is held at bay while the
-                // goose is walked along it.
                 gander.riders[i].y = gander.riders[i].resting_on().unwrap();
                 gander.riders[i].dy = 0;
             }
         }
-        // The tar's hand: it rises for any rider who sinks too low, in
-        // four frames, and pulls the rider down. Only one hand at a time.
         {
             let grabbed = gander
                 .riders
@@ -407,12 +352,10 @@ impl Run {
                 .map(|(i, k)| (i, k.who == 0, k.x));
             match (grabbed, gander.hand.as_mut()) {
                 (Some((i, is_knight, _)), Some(h)) => {
-                    // The rise is under way: keep after the same rider.
                     if h.frame < 4 {
                         h.frame += 1;
                     }
                     if h.frame == 4 {
-                        // Closed: the rider goes down into the tar.
                         gander.hand = None;
                         self.tar_takes(&mut gander, r, i, is_knight);
                     }
@@ -422,7 +365,6 @@ impl Run {
                     self.sounds.push("hero_hurt");
                 }
                 (None, Some(h)) => {
-                    // The rider escaped the reach: the hand sinks.
                     h.frame = h.frame.saturating_sub(1);
                     if h.frame == 0 {
                         gander.hand = None;
@@ -431,9 +373,6 @@ impl Run {
                 (None, None) => {}
             }
         }
-        // The clacks: every pair of riders, knights and rivals alike. The
-        // higher lance unhorses the lower; a friend's lance counts the
-        // same as a rival's. A pair resolves once (clash), then separates.
         let mut clacks: Vec<(usize, usize)> = Vec::new();
         for a in 0..count + 3 {
             if gander.riders[a].stun > 0 || gander.riders[a].down > 0 || gander.riders[a].clash != 0
@@ -453,11 +392,9 @@ impl Run {
                     clacks.push((a, b));
                 }
             }
-            // (a's clash flag is only set below, so no re-scan is needed.)
         }
         clacks.sort_unstable();
         for &(a, b) in &clacks {
-            // Resolve every pair on the same positions they were found at.
             if gander.riders[a].clash != 0 || gander.riders[b].clash != 0 {
                 continue;
             }
@@ -469,22 +406,18 @@ impl Run {
             let winner = if above { Some(a) } else if below { Some(b) } else { None };
             match winner {
                 Some(w) if gander.riders[w].who == 0 => {
-                    // A knight's lance came down on a friend or a rival.
                     self.clack(&mut gander, r, w, if w == a { b } else { a });
                 }
                 Some(w) => {
-                    // A rival's lance came down on the other rider.
                     let v = if w == a { b } else { a };
                     if gander.riders[v].who == 0 {
                         self.unhorse_knight(&mut gander, r, v);
                     } else {
-                        // Rival on rival: the lower one goes down, no score.
                         self.felled(&mut gander, v);
                         gander.riders[v].down = RESPAWN;
                     }
                 }
                 None => {
-                    // Level pass: both geese shove apart, once.
                     gander.riders[a].clash = b as u8;
                     gander.riders[b].clash = a as u8;
                     gander.riders[a].dx = -(gander.riders[a].dx.signum() * 48).clamp(-CRUISE_X, CRUISE_X);
@@ -492,7 +425,6 @@ impl Run {
                 }
             }
         }
-        // A spent clash clears once the pair separates.
         for i in 0..count + 3 {
             let c = gander.riders[i].clash;
             if c != 0
@@ -504,8 +436,6 @@ impl Run {
                 gander.riders[i].clash = 0;
             }
         }
-        // The eggs: roll along their ledge; touch one for a bonus clack,
-        // let it hatch for a rival. At most three eggs (one per ledge).
         let mut hatch: Option<i32> = None;
         for k in (0..gander.eggs.len()).rev() {
             let e = &mut gander.eggs[k];
@@ -519,8 +449,6 @@ impl Run {
                 hatch = Some(k as i32);
                 continue;
             }
-            // A rider touches the egg (any knight or rival touching counts:
-            // the egg was dropped for the knights to fight over).
             let touched = gander
                 .riders
                 .iter()
@@ -543,8 +471,6 @@ impl Run {
         }
         if let Some(k) = hatch {
             let e = gander.eggs.remove(k as usize);
-            // Hatched: a rival rider enters the hall where the egg lay.
-            // Reuse whichever rival slot is down (or the first, if none).
             let slot = (count..count + 3).find(|&i| gander.riders[i].down > 0).unwrap_or(count);
             gander.riders[slot].x = e.x.clamp(WALL_X.0 * 256, WALL_X.1 * 256);
             gander.riders[slot].y = (e.row - 2).max(2) * 256;
@@ -558,8 +484,6 @@ impl Run {
             self.sounds.push("clang");
             self.found = Some((self.tick, 0, "AN EGG HATCHED! A RIVAL RIDES.".into()));
         }
-        // Every knight rides in the sim too: their own screen shows them
-        // aboard, not standing on the marsh floor.
         let riders: [(u32, i32, i32); MAX_PLAYERS as usize] = std::array::from_fn(|i| {
             gander
                 .seats
@@ -583,8 +507,6 @@ impl Run {
         true
     }
 
-    /// A knight's lance came down on another rider: it scores, and the
-    /// felled rider (friend or rival) drops an egg on the ledge below.
     fn clack(&mut self, gander: &mut Gander, r: &mut Round, w: usize, v: usize) {
         let seat = u32::from(gander.riders[w].seat);
         gander.tally[w] = gander.tally[w].saturating_add(1).min(r.game.need());
@@ -592,11 +514,9 @@ impl Run {
         r.score_popup_text = "CLACK!".to_string();
         r.score_popup_x = (gander.riders[w].x / 256) as i32;
         r.score_popup_y = (gander.riders[w].y / 256) as i32;
-        // The pair resolves once, then separates.
         gander.riders[w].clash = v as u8;
         gander.riders[v].clash = w as u8;
         if gander.riders[v].who == 0 {
-            // A friend: unhorsed, a tumble, back on a ledge.
             gander.riders[v].stun = STUN;
             gander.riders[v].dy = 0;
         } else {
@@ -608,7 +528,6 @@ impl Run {
         self.felled(gander, v);
     }
 
-    /// A rival's lance came down on a knight: a mistake, and an egg.
     fn unhorse_knight(&mut self, gander: &mut Gander, r: &mut Round, v: usize) {
         let seat = u32::from(gander.riders[v].seat);
         gander.riders[v].stun = STUN;
@@ -621,8 +540,6 @@ impl Run {
         self.felled(gander, v);
     }
 
-    /// The tar's hand closed on a rider: pull it down (a knight lifts back
-    /// onto the middle ledge; a rival goes down until its wave returns).
     fn tar_takes(&mut self, gander: &mut Gander, r: &mut Round, i: usize, is_knight: bool) {
         if is_knight {
             gander.riders[i].stun = TAR_STUN;
@@ -640,8 +557,6 @@ impl Run {
         }
     }
 
-    /// A rider leaves the saddle: if the fall is over a ledge, an egg
-    /// drops and rolls there; one egg per ledge at a time.
     fn felled(&mut self, gander: &mut Gander, v: usize) {
         let (x, y) = (gander.riders[v].x, gander.riders[v].y);
         let ledge = LEDGES.iter().copied().find(|&(x0, x1, row)| {

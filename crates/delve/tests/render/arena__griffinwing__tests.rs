@@ -22,11 +22,6 @@ fn a_run_draws_the_flight_in_three_d_for_each_seat() {
 use crate::rules::Input;
 use crate::rules::griffinwing::{Arm, Kind, St, Thing, Wyrm};
 
-// ─── the layout: no words on words ──────────────────────────────────────────
-
-/// A bots' run at `seats` seats; every `every` ticks of its first `ticks`,
-/// each seat's HUD context (its camera, the sim, no scene behind it: the
-/// layout does not look at the scene) is handed to `look`.
 fn watch(seats: u32, ticks: u32, every: u32, mut look: impl FnMut(u32, &hud::Ctx)) {
     let mut r = Run::griffinwing_for_test();
     for id in 2..=seats {
@@ -64,8 +59,6 @@ fn the_names_keep_off_the_hud_the_reticle_and_one_another_at_every_seat_count() 
         watch(seats, 9_000, 7, |seat, c| {
             samples += 1;
             let at = format!("{seats} seats, seat {seat}, beat {} t {}", c.s.stage, c.s.t);
-            // The floating labels: in the frame, none on another, none on the
-            // HUD or the reticle.
             let hud = hud::boxes(c);
             let reticle = hud::reticle_boxes(c);
             let plan = layout::plan(c);
@@ -94,7 +87,6 @@ fn the_names_keep_off_the_hud_the_reticle_and_one_another_at_every_seat_count() 
         });
     }
     assert!(samples > 500, "{samples} pictures looked at");
-    // Keeping off is not hiding: nearly every label the stage wanted is up.
     assert!(
         placed * 10 >= wanted * 8,
         "{placed} of {wanted} labels found a place"
@@ -130,16 +122,13 @@ fn a_name_that_cannot_be_laid_clear_is_left_out_not_laid_on_another() {
         near: 0,
         reach: 40,
     };
-    // Two names wanted at the one point: the second is moved off the first.
     let mut p = Placer::new(Vec::new());
     assert!(p.place(&want("KNIGHT 3", 192, 100)));
     assert!(p.place(&want("KNIGHT 2", 192, 100)));
     assert!(!p.placed[0].plate.hits(&p.placed[1].plate));
-    // A point whose every place is taken: the name is dropped.
     let mut p = Placer::new(vec![layout::FRAME]);
     assert!(!p.place(&want("KNIGHT 2", 192, 100)));
     assert_eq!((p.placed.len(), p.dropped), (0, 1));
-    // A name at the frame's edge is slid in, not cut off.
     let mut p = Placer::new(Vec::new());
     assert!(p.place(&want("KNIGHT 6", 4, 100)));
     assert!(p.placed[0].plate.within(&layout::FRAME));
@@ -179,11 +168,6 @@ fn the_opening_banner_stands_clear_of_the_key_strip_and_every_plate() {
     assert_eq!(seen, 4);
 }
 
-/// The busiest pictures of a whole run, at every seat count: every plate of
-/// words the picture has up (the HUD's, the banner, a number in flight, the
-/// floating names, the reticle's own brackets and counts) lies in the 384 by
-/// 224 frame and on no other, tick by tick. The run is a bots' run, so every
-/// kind of moment comes: volleys, chains, rescues, lamps, the Wyrm, the beacon.
 #[test]
 fn the_banner_the_numbers_and_the_words_keep_off_one_another_on_the_busiest_frames() {
     use layout::FRAME;
@@ -209,8 +193,6 @@ fn the_banner_the_numbers_and_the_words_keep_off_one_another_on_the_busiest_fram
             for (i, (a, ba)) in all.iter().enumerate() {
                 assert!(ba.within(&FRAME), "{at}: {a} {ba:?} leaves the 384x224 frame");
                 for (b, bb) in &all[i + 1..] {
-                    // The reticle's own brackets, counts and READY are laid by
-                    // the reticle, round one aim; they are one thing.
                     if a == "reticle" && b == "reticle" {
                         continue;
                     }
@@ -219,7 +201,6 @@ fn the_banner_the_numbers_and_the_words_keep_off_one_another_on_the_busiest_fram
             }
         });
     }
-    // The run does call things and fly numbers, or this proves nothing.
     assert!(banners > 100, "{banners} pictures with a banner up");
     assert!(flyers > 20, "{flyers} numbers in flight");
     assert!(busiest.0 >= 9, "busiest was only {busiest:?}");
@@ -255,10 +236,6 @@ fn the_tally_has_the_picture_to_itself() {
     assert!(boxes[0].1.within(&layout::FRAME), "six rows fit the frame");
 }
 
-// ─── the canyon is read ─────────────────────────────────────────────────────
-
-/// How much of the canyon's rock and floor (the dots the scene covers, not
-/// the sky) is black, and the mean value of it, through seat 1's camera.
 fn canyon_look(stage: u8, t: u32) -> (f32, f32) {
     let mut r = Run::griffinwing_for_test();
     r.step(&BTreeMap::new());
@@ -287,10 +264,6 @@ fn canyon_look(stage: u8, t: u32) -> (f32, f32) {
 
 #[test]
 fn the_canyon_reads_at_every_beat_and_is_not_a_black_wall() {
-    // A dusk canyon, not a lit one: some of it may sink into shadow, never
-    // most of it, and what is lit must have a value to be seen by. (Before
-    // the canyon was lifted, the gorge was 40 to 50 percent black, the
-    // approach 62 and the roost 83, with a mean value of 16 to 38.)
     for (name, stage, t, black, mean) in [
         ("gorge, early", 0u8, 60u32, 0.25, 50.0),
         ("gorge, middle", 0, 700, 0.25, 50.0),
@@ -313,10 +286,8 @@ fn the_canyon_reads_at_every_beat_and_is_not_a_black_wall() {
     }
 }
 
-/// Where a picture is wanted: a name, and what must be true of the run.
 type Want = (&'static str, fn(&Session) -> bool);
 
-/// The moments to look at, each the first time it is so.
 fn wants() -> Vec<Want> {
     vec![
         ("01-title", |s| s.stage == 0 && s.t == 40),
@@ -386,7 +357,6 @@ fn wants() -> Vec<Want> {
     ]
 }
 
-/// The pictures of the bots' run at `seats` seats, written to `dir`.
 fn shoot(dir: &std::path::Path, seats: u32, tag: &str) {
     use super::super::frame_for;
     let save = |name: &str, img: &Img| {
@@ -436,7 +406,6 @@ fn shoot(dir: &std::path::Path, seats: u32, tag: &str) {
         for k in taken.into_iter().rev() {
             todo.remove(k);
         }
-        // Force a wipe once, mid second beat, to look at the retry.
         if !wiped && !shot_retry && s.stage == 1 && s.t == 400 {
             wiped = true;
             let g = r.griffinwing.as_mut().unwrap();
@@ -517,8 +486,6 @@ fn write_griffinwing_canyon() {
     }
 }
 
-/// Moments the bots do not make: a kite on a rider's tail, a craft down, the
-/// spur, Starfall, a roll, a thin shield, a full table's tally.
 #[test]
 #[ignore = "writes Griffinwing's scripted review pictures"]
 fn write_griffinwing_scenes() {
@@ -549,7 +516,6 @@ fn write_griffinwing_scenes() {
             r.step(&BTreeMap::from([(1, i)]));
         }
     };
-    // A kite latched onto a rider, shown the moment after.
     let mut r = fresh(1);
     r.griffinwing.as_mut().unwrap().hunter_for_test(-1);
     for _ in 0..300 {
@@ -566,7 +532,6 @@ fn write_griffinwing_scenes() {
     }
     tick(&mut r, 20, Input::default());
     save("latched", &frame_for(&r, 384, 224, Some(1)));
-    // The spur: speed streaks, the meter running down.
     let mut r = fresh(1);
     tick(&mut r, 90, Input::default());
     tick(
@@ -578,7 +543,6 @@ fn write_griffinwing_scenes() {
         },
     );
     save("boost", &frame_for(&r, 384, 224, Some(1)));
-    // Starfall.
     let mut r = fresh(1);
     {
         let s = r.griffinwing.as_mut().unwrap();
@@ -598,7 +562,6 @@ fn write_griffinwing_scenes() {
     );
     tick(&mut r, 5, Input::default());
     save("starfall", &frame_for(&r, 384, 224, Some(1)));
-    // A roll, and a craft that is down.
     let mut r = fresh(2);
     tick(&mut r, 100, Input::default());
     tick(
@@ -616,7 +579,6 @@ fn write_griffinwing_scenes() {
     tick(&mut r, 12, Input::default());
     save("down-seat2", &frame_for(&r, 384, 224, Some(2)));
     save("down-seen-by-1", &frame_for(&r, 384, 224, Some(1)));
-    // A thin shield.
     let mut r = fresh(1);
     r.griffinwing
         .as_mut()
@@ -636,7 +598,6 @@ fn write_griffinwing_scenes() {
         .hurt = 0;
     tick(&mut r, 100, Input::default());
     save("low-shield", &frame_for(&r, 384, 224, Some(1)));
-    // The second and third beats' cards, at a full table.
     for (name, stage) in [("card-causeway", 1u8), ("card-roost", 2)] {
         let mut r = fresh(6);
         let s = r.griffinwing.as_mut().unwrap();
@@ -644,7 +605,6 @@ fn write_griffinwing_scenes() {
         s.t = 30;
         save(name, &frame_for(&r, 384, 224, Some(1)));
     }
-    // A full table at the tally.
     let mut r = fresh(6);
     {
         let s = r.griffinwing.as_mut().unwrap();
@@ -672,8 +632,6 @@ fn write_griffinwing_scenes() {
     save("tally-six", &frame_for(&r, 384, 224, Some(1)));
 }
 
-/// Consecutive frames, for looking at motion: the camera's lag, the flicker,
-/// the sky. `ANGEL_ARENA_SHOTS=<dir> cargo test write_griffinwing_strip -- --ignored`.
 #[test]
 #[ignore = "writes a strip of consecutive frames"]
 fn write_griffinwing_strip() {
@@ -703,8 +661,6 @@ fn write_griffinwing_strip() {
     }
 }
 
-// ─── the painted sky ────────────────────────────────────────────────────────
-
 fn sky_view(heading: f32, pitch: f32) -> crate::render::world3d::raster::View3 {
     crate::render::world3d::raster::View3 {
         pos: crate::render::world3d::math::v3(0.0, 0.0, 0.0),
@@ -714,7 +670,6 @@ fn sky_view(heading: f32, pitch: f32) -> crate::render::world3d::raster::View3 {
     }
 }
 
-/// A depth buffer with a wall of near scene over the lower left.
 fn wall_depth() -> Vec<f32> {
     let mut depth = vec![f32::INFINITY; (W * H) as usize];
     for y in 80..H {
@@ -747,8 +702,6 @@ fn the_painted_sky_is_laid_only_where_the_scene_left_the_sky() {
 #[test]
 fn the_painted_sky_is_the_bands_own_inks_and_turns_with_the_camera() {
     let depth = vec![f32::INFINITY; (W * H) as usize];
-    // The band's own inks, and the same under the stage's dark layer (a fifth,
-    // snapped to the palette's plain inks) when there is one.
     let ink_set = |names: &[&str]| -> std::collections::BTreeSet<[u8; 3]> {
         let mut set = std::collections::BTreeSet::new();
         for n in names {
@@ -786,10 +739,6 @@ fn the_painted_sky_is_the_bands_own_inks_and_turns_with_the_camera() {
     }
 }
 
-// ─── the painted canyon is this scene's alone ───────────────────────────────
-
-/// Rock, stone, dark stone, bone and road side by side, drawn by the shared
-/// table (`render_meshes`) and not by Griffinwing's.
 fn shared_wall() -> (crate::render::world3d::mesh::Mesh, crate::render::world3d::raster::View3) {
     use crate::render::world3d::{math::v3, mesh::{Mesh, mat}};
     let mut mesh = Mesh::new();
@@ -817,7 +766,6 @@ fn painting_the_canyon_leaves_the_shared_material_table_alone() {
         render_meshes(&[m], &view, 96, 72, Firelight::STEADY, 52.0, Backdrop::Night).0
     };
     let before = shared(&mesh);
-    // Griffinwing's own frames, at every beat, through its painted surfaces.
     for stage in 0..3u8 {
         let painted = paint::painted(stage).expect("the canyon textures are painted whole");
         let (mine, _) = render_meshes_painted(
@@ -841,14 +789,11 @@ fn painting_the_canyon_leaves_the_shared_material_table_alone() {
         s.stage = stage;
         let _ = dots(s, 1);
     }
-    // Afterwards the shared table still draws what it drew.
     assert_eq!(before.as_raw(), shared(&mesh).as_raw());
 }
 
 #[test]
 fn only_griffinwing_hands_the_rasteriser_painted_surfaces() {
-    // Every other 3D drawer (bar Knight Racer) calls `render_meshes` or `render_scene*`, which
-    // run the shared table. A scene that wants its own must say so by name.
     fn walk(dir: &std::path::Path, hits: &mut Vec<String>) {
         for e in std::fs::read_dir(dir).unwrap().flatten() {
             let path = e.path();
@@ -865,10 +810,6 @@ fn only_griffinwing_hands_the_rasteriser_painted_surfaces() {
     let mut hits = Vec::new();
     walk(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"), &mut hits);
     hits.sort();
-    // Knight Racer is the other scene that names it: its track and riders are
-    // painted with their own surfaces too (`knight_racers.rs`), and since the
-    // full game (2026-11-07) its garage, its proof reel and its world shots do
-    // the same. Every hit past the raster itself is Griffinwing's or Knight Racer's.
     let racer = |h: &String| h.contains("/arena/knight_racers");
     assert_eq!(hits.len(), 6, "{hits:?}");
     assert!(hits.iter().any(|h| h.ends_with("arena/griffinwing.rs")), "{hits:?}");
@@ -879,10 +820,6 @@ fn only_griffinwing_hands_the_rasteriser_painted_surfaces() {
     );
 }
 
-// ─── the set pieces, near and far ───────────────────────────────────────────
-
-/// A run at `stage` with one prop stood `dist` units ahead of seat 1's craft
-/// (and `x`, `z` units across and up), nothing else in the air.
 fn with_piece(
     stage: u8,
     thing: Thing,
@@ -935,7 +872,6 @@ fn write_griffinwing_pieces() {
             let r = with_piece(0, thing, dist, (0.0, 2.0), (w, 0.0), 0);
             save(&format!("{name}-{:03}", dist as i32), &frame_for(&r, 384, 224, Some(1)));
         }
-        // The terminal's cells (192 by 112 dots, four to a dot here).
         for dist in [45.0f32, 28.0, 18.0] {
             let r = with_piece(0, thing, dist, (0.0, 2.0), (w, 0.0), 0);
             let cells = frame_for(&r, 192, 112, Some(1));
@@ -949,7 +885,6 @@ fn write_griffinwing_pieces() {
             }
             save(&format!("{name}-cells-{:03}", dist as i32), &up);
         }
-        // Off to one side: the ring turned from the eye.
         for (tag, x) in [("left", -8.0f32), ("right", 8.0)] {
             let r = with_piece(0, thing, 22.0, (x, 2.0), (w, 0.0), 0);
             save(&format!("{name}-{tag}"), &frame_for(&r, 384, 224, Some(1)));
@@ -973,7 +908,6 @@ fn write_griffinwing_beacon() {
             .unwrap();
     };
     for dist in [150.0f32, 100.0, 60.0, 35.0] {
-        // Dark, before the Wyrm falls: the roost's own beacon 560 units on.
         let mut r = Run::griffinwing_for_test();
         r.step(&BTreeMap::new());
         let g = r.griffinwing.as_mut().unwrap();
@@ -985,7 +919,6 @@ fn write_griffinwing_beacon() {
         let back = g.seats[&1].craft.back as f32 / 256.0;
         g.t = ((560.0 - dist - back) * 256.0 / 85.0) as u32;
         save(&format!("beacon-unlit-{:03}", dist as i32), &frame_for(&r, 384, 224, Some(1)));
-        // Lit, for the way home: 100 units past `home`.
         let mut r = Run::griffinwing_for_test();
         r.step(&BTreeMap::new());
         let g = r.griffinwing.as_mut().unwrap();
@@ -1002,9 +935,6 @@ fn write_griffinwing_beacon() {
     }
 }
 
-/// How far from the ring's middle, in world units, the first dot the piece
-/// painted lies along the ray at `angle` (0 to the right, a quarter turn up),
-/// or `None` if it painted nothing along it.
 fn first_painted(
     (with, without): (&Img, &Img),
     (px, py): (f32, f32),
@@ -1049,9 +979,6 @@ fn a_painted_gate_and_ring_stand_at_the_sims_radius_and_leave_the_hole_clear() {
         let p = &s.props[0];
         let (px, py, d) = ctx.at(p.s, p.x, p.z).expect("the piece is in view");
         let k = ctx.tall(1.0, d);
-        // The hole: along rays that miss a lantern, the first dot the piece
-        // paints is at the sim's radius less the tenth of a unit a painted
-        // piece may look smaller by, to within a quarter unit.
         let offset = if between { std::f32::consts::FRAC_PI_8 } else { 0.0 };
         let radii: Vec<f32> = (0..16)
             .filter_map(|i| {
@@ -1065,8 +992,6 @@ fn a_painted_gate_and_ring_stand_at_the_sims_radius_and_leave_the_hole_clear() {
             (hole - expect).abs() < 0.25,
             "{thing:?}: the hole is {hole:.2} units, the sim's radius less a tenth is {expect}: {radii:?}"
         );
-        // Nothing is drawn in the middle of it, and the band stops about where
-        // the rules stop counting a pass (the radius and a craft's own).
         assert!(radii.iter().all(|&r| r > 0.5 * w), "{thing:?}: the middle is clear: {radii:?}");
     }
 }
@@ -1102,20 +1027,17 @@ fn a_painted_piece_is_hidden_by_whatever_stands_nearer_in_the_scene() {
     set::blit(&mut behind, &vec![5.0; (W * H) as usize], &piece);
     assert!(open.pixels().any(|c| c != [0, 0, 0]), "painted where nothing stands in front");
     assert!((0..H).all(|y| (0..W).all(|x| behind.get(x, y).is_none())), "nothing is painted over a nearer scene");
-    // And the clear middle of a ring shows what is beyond it.
     assert!(open.get(192, 112).is_none(), "the hole is clear");
 }
 
 #[test]
 fn the_beacon_flame_follows_the_sheets_own_ticks_and_the_set_pieces_leave_no_blocks() {
     let frame = |t: u32| bank::at("beacon", "lit", t).expect("the beacon is painted") as *const _;
-    // lit is four frames of eight ticks.
     assert_eq!(frame(0), frame(7));
     assert_ne!(frame(7), frame(8));
     assert_ne!(frame(8), frame(16));
     assert_ne!(frame(16), frame(24));
     assert_eq!(frame(0), frame(32));
-    // A painted gate, ring or beacon is not also built in the 3D scene.
     let mut r = with_piece(0, Thing::Gate, 20.0, (0.0, 2.0), (2.0, 0.0), 0);
     let s = r.griffinwing.as_ref().unwrap();
     let mut with = crate::render::world3d::mesh::Mesh::new();
@@ -1127,11 +1049,6 @@ fn the_beacon_flame_follows_the_sheets_own_ticks_and_the_set_pieces_leave_no_blo
     assert_eq!(with.tris.len(), without.tris.len());
 }
 
-// ─── the cost of the picture ────────────────────────────────────────────────
-
-/// How long a frame of the flight takes to draw, and a tick to run, over a
-/// bots' run of four knights: the same run before and after the juice.
-/// `ANGEL_GW_TIMES=<file> cargo test -p angel-delve --lib griffinwing_frame_times -- --ignored`
 #[test]
 #[ignore = "times the flight's frames"]
 fn griffinwing_frame_times() {
@@ -1180,10 +1097,6 @@ fn griffinwing_frame_times() {
     .unwrap();
 }
 
-// ─── the proof: moments of a whole run, as frames ───────────────────────────
-
-/// A bots' run of `seats` knights, a step at a time, until it ends or has run
-/// `limit` steps; `each` sees the run after every step.
 fn fly(seats: u32, limit: u32, mut each: impl FnMut(&Run)) {
     let mut r = Run::griffinwing_for_test();
     for id in 2..=seats {
@@ -1200,11 +1113,6 @@ fn fly(seats: u32, limit: u32, mut each: impl FnMut(&Run)) {
     }
 }
 
-/// `ANGEL_GW_PROOF=<dir> cargo test -p angel-delve --lib write_griffinwing_proof -- --ignored`
-/// writes `<dir>/<moment>/f0000.png ...` (every second step, seats 1 and 2
-/// side by side) for the moments of a four-knight bots' run: the start, a
-/// volley, a kill, a blow taken, a rescue, a roll, a lamp, the Wyrm, the
-/// beacon and the tally. `scripts` turn them into GIFs.
 #[test]
 #[ignore = "writes the proof frames"]
 fn write_griffinwing_proof() {
@@ -1213,7 +1121,6 @@ fn write_griffinwing_proof() {
         return;
     };
     let dir = std::path::PathBuf::from(dir);
-    // The first pass finds when each moment comes.
     let mut at: BTreeMap<&str, u32> = BTreeMap::new();
     fly(4, 14_000, |r| {
         let Some(s) = r.griffinwing.as_ref() else {
@@ -1253,7 +1160,6 @@ fn write_griffinwing_proof() {
         }
     });
     eprintln!("moments: {at:?}");
-    // (name, steps before the moment, steps after)
     let windows: [(&str, u32, u32); 12] = [
         ("start", 0, 0),
         ("ride", 0, 0),
@@ -1310,11 +1216,6 @@ fn write_griffinwing_proof() {
     }
 }
 
-/// `ANGEL_GW_PROOF=<dir> cargo test -p angel-delve --lib write_griffinwing_finale_proof -- --ignored`
-/// writes `<dir>/<reel>/f0000.png ...` (every second step, seat 1's screen) for
-/// the Wyrm fight and the beacon's finale of a four-knight bots' run: the rise,
-/// each attack's tell, a lamp going out, the fall, and the way home to the lit
-/// beacon.
 #[test]
 #[ignore = "writes the finale proof frames"]
 fn write_griffinwing_finale_proof() {
@@ -1323,8 +1224,6 @@ fn write_griffinwing_finale_proof() {
         return;
     };
     let dir = std::path::PathBuf::from(dir);
-    // The guide lines the motion is drawn along, over the shots (off for the
-    // proof that is shown).
     guide::set(std::env::var_os("ANGEL_GW_GUIDES").is_some());
     let mut at: BTreeMap<String, u32> = BTreeMap::new();
     fly(4, 14_000, |r| {
@@ -1354,7 +1253,6 @@ fn write_griffinwing_finale_proof() {
         }
     });
     eprintln!("moments: {at:?}");
-    // (reel, from, to) in run ticks.
     let get = |k: &str| at.get(k).copied();
     let mut wanted: Vec<(String, u32, u32)> = Vec::new();
     let mut want = |name: &str, from: Option<u32>, before: u32, after: u32| {
@@ -1400,10 +1298,6 @@ fn write_griffinwing_finale_proof() {
     }
 }
 
-/// `ANGEL_GW_PROOF=<dir> cargo test -p angel-delve --lib write_griffinwing_wyrm_sheet -- --ignored`
-/// writes `<dir>/wyrm-<state>.png`: the Wyrm in each of its poses (rising,
-/// resting, each tell, the sweep, the roar, reeling, dying part by part and
-/// the wreck), seat 1's screen, for the eye.
 #[test]
 #[ignore = "writes the Wyrm's poses"]
 fn write_griffinwing_wyrm_sheet() {
@@ -1432,7 +1326,6 @@ fn write_griffinwing_wyrm_sheet() {
     }
     assert!(r.griffinwing.as_ref().unwrap().boss.is_some(), "the bots reach the Wyrm");
     let save = |r: &Run, name: &str| {
-        // The 3D scene alone (no plates), then the whole screen.
         let (scene, _, _) = dots(r.griffinwing.as_ref().unwrap(), 1);
         image::save_buffer(
             dir.join(format!("scene-{name}.png")),
@@ -1452,7 +1345,6 @@ fn write_griffinwing_wyrm_sheet() {
         )
         .unwrap();
     };
-    // (name, state, ticks left, attack, side, lamps out, ticks since the fall (when falling))
     let poses: [(&str, Wyrm, u32, u8, i8, usize, Option<u32>); 20] = [
         ("01-rise", Wyrm::Rise, 45, 0, 1, 0, None),
         ("02-idle", Wyrm::Idle, 30, 0, 1, 0, None),
@@ -1488,7 +1380,6 @@ fn write_griffinwing_wyrm_sheet() {
             b.gap = if side > 0 { -30 * 25 } else { 30 * 25 };
             b.col = 0;
         }
-        // The lamps, in the order they stand.
         let mut k = 0;
         for f in s.foes.iter_mut().filter(|f| f.kind == Kind::Lamp) {
             f.st = if k < out { St::Broken } else { St::Shut };

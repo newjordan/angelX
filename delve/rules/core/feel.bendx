@@ -1,29 +1,20 @@
-# crates/delve/src/rules/feel.rs — how the arms feel: sparks, stuck shafts, smoke, deaths, a room's
-# end in coins. `Run::feel` is its object; the ten visual vectors are left out of it while empty
-# (`skip_serializing_if = "Vec::is_empty"`), the ledger fields are always written.
-
-# The host's `feel_ledger` setting (it rides on the run as `$settings`).
 def feel.ledger_on(run: J.Val) -> Bool:
     return core.b(J.get(run, "$settings"), "feel_ledger")
 
-# A visual vector of the feel, empty when absent.
 def feel.vec(f: J.Val, key: String) -> [J.Val]:
     return J.items(J.get(f, key))
 
-# The vector back in the feel: left out when empty.
 def feel.put(f: J.Val, key: String, xs: [J.Val]) -> J.Val:
     if U32.is_zero(U32.from_nat(List.length(&2, J.Val, xs))):
         return J.del(f, key)
     return J.set(f, key, J.JA{xs})
 
-# Push onto a capped vector, the oldest dropping off the front at the cap.
 def feel.push_front_cap(f: J.Val, key: String, cap: U32, item: J.Val) -> J.Val:
     xs: [J.Val] = feel.vec(f, key)
     if U32.is_ge(U32.from_nat(List.length(&2, J.Val, xs)), cap):
         xs = List.drop(&2, J.Val, xs, 1n)
     return feel.put(f, key, List.append(&2, J.Val, xs, [item]))
 
-# `credit`: owned damage noted; the monster's first wound noted when the ledger is kept.
 def feel.Feel.credit(f: J.Val, ledger: Bool, owner: U32, foe: U32, damage: U32, tick: W.W) -> J.Val:
     if Bool.or(U32.is_zero(owner), U32.is_zero(damage)):
         return f
@@ -37,7 +28,6 @@ def feel.Feel.credit(f: J.Val, ledger: Bool, owner: U32, foe: U32, damage: U32, 
 def feel.Run.credit(run: J.Val, owner: U32, foe: U32, damage: U32) -> J.Val:
     return J.set(run, "feel", feel.Feel.credit(J.get(run, "feel"), feel.ledger_on(run), owner, foe, damage, W.of_j(J.get(run, "tick"))))
 
-# A spark where a shot struck, in the shot's colour, and the way it was going.
 def feel.Feel.impact(f: J.Val, x: F32, y: F32, kind: String, wx: F32, wy: F32) -> J.Val:
     if U32.is_ge(U32.from_nat(List.length(&2, J.Val, feel.vec(f, "impacts"))), feel.IMPACTS()):
         return f
@@ -51,7 +41,6 @@ def feel.Feel.impact(f: J.Val, x: F32, y: F32, kind: String, wx: F32, wy: F32) -
     i = core.set_f(i, "dy", dy)
     return feel.put(f, "impacts", List.append(&2, J.Val, feel.vec(f, "impacts"), [i]))
 
-# An arrow or bolt stuck in the stone, pointing the way it flew.
 def feel.Feel.stick(f: J.Val, x: F32, y: F32, vx: F32, vy: F32, kind: String) -> J.Val:
     (dx: F32, dy: F32) = rules.unit(vx, vy)
     s: J.Val = J.obj()
@@ -127,7 +116,6 @@ def feel.Feel.death(f: J.Val, x: F32, y: F32, kind: String) -> J.Val:
     d = core.set_s(d, "kind", kind)
     return feel.put(f, "deaths", List.append(&2, J.Val, feel.vec(f, "deaths"), [d]))
 
-# A knight's block: a shot turned by a shield.
 def feel.Feel.block(f: J.Val, knight: U32, ax: F32, ay: F32, ox: F32, oy: F32, wx: F32, wy: F32, kind: String, weight: U32) -> J.Val:
     (dx: F32, dy: F32) = rules.unit(wx, wy)
     (nx: F32, ny: F32) = rules.unit(ox, oy)
@@ -144,7 +132,6 @@ def feel.Feel.block(f: J.Val, knight: U32, ax: F32, ay: F32, ox: F32, oy: F32, w
     b = core.set_u(b, "ttl", feel.BLOCK_TICKS())
     return feel.push_front_cap(f, "blocks", feel.BLOCKS(), b)
 
-# A room ends: its pictures and its ledger clear.
 def feel.Feel.clear_room(f: J.Val) -> J.Val:
     for k: String in ["impacts", "stuck", "tracers", "puffs", "deaths", "blocks", "glints", "takes", "bolts"]:
         f = J.del(f, k)
@@ -154,7 +141,6 @@ def feel.Feel.clear_room(f: J.Val) -> J.Val:
     f = J.set(f, "blows", J.JA{Nil{}})
     return J.set(f, "echoes", J.JA{Nil{}})
 
-# One tick of a vector's `ttl` running down, the spent dropped; `drift` moves puffs.
 def feel.age_vec(xs: [J.Val], puffs: Bool) -> [J.Val]:
     out: [J.Val] = []
     for p: J.Val in xs:
@@ -162,18 +148,15 @@ def feel.age_vec(xs: [J.Val], puffs: Bool) -> [J.Val]:
         p = core.set_u(p, "ttl", ttl)
         if puffs:
             if core.b(p, "smoke"):
-                # Smoke drifts on the way the ball went, and rises.
                 p = core.set_f(p, "x", (core.f(p, "x") + ((core.f(p, "dx") * 1.5 : F32) * rules.DT() : F32) : F32))
                 p = core.set_f(p, "y", (core.f(p, "y") + (((core.f(p, "dy") * 1.5 : F32) * rules.DT() : F32) - (0.6 * rules.DT() : F32) : F32) : F32))
             elif U32.is_gt(core.u(p, "dust"), 0):
-                # Dust rolls on a little the way the knight went.
                 p = core.set_f(p, "x", (core.f(p, "x") + ((core.f(p, "dx") * 0.9 : F32) * rules.DT() : F32) : F32))
                 p = core.set_f(p, "y", (core.f(p, "y") + ((core.f(p, "dy") * 0.9 : F32) * rules.DT() : F32) : F32))
         if U32.is_gt(ttl, 0):
             out = List.append(&2, J.Val, out, [p])
     return out
 
-# One tick of the visuals fading.
 def feel.Feel.fade(f: J.Val) -> J.Val:
     f = feel.put(f, "impacts", feel.age_vec(feel.vec(f, "impacts"), False{}))
     f = feel.put(f, "tracers", feel.age_vec(feel.vec(f, "tracers"), False{}))
@@ -184,7 +167,6 @@ def feel.Feel.fade(f: J.Val) -> J.Val:
     f = feel.put(f, "takes", feel.age_vec(feel.vec(f, "takes"), False{}))
     return feel.put(f, "bolts", feel.age_vec(feel.vec(f, "bolts"), False{}))
 
-# A map {id: n} with n added to id's entry.
 def feel.add_to(m: J.Val, id: U32, n: U32) -> J.Val:
     return core.set_u(m, U32.show(id), core.uadd(core.u(m, U32.show(id)), n))
 
@@ -236,7 +218,6 @@ def feel.Tally.default() -> J.Val:
         t = core.set_u(t, k, 0)
     return t
 
-# Every hostile shot `near` catches turns to a coin (as many as there is room for).
 def feel.Run.cancel_shots_where(run: J.Val, mask: [Bool]) -> J.Val:
     f: J.Val = J.get(run, "feel")
     coins: [J.Val] = feel.vec(f, "coins")
@@ -268,7 +249,6 @@ def feel.Run.cancel_shots(run: J.Val) -> J.Val:
         mask = List.append(&2, Bool, mask, [True{}])
     return feel.Run.cancel_shots_where(run, mask)
 
-# Coins fly home to the nearest standing knight, and are caught.
 def feel.Run.fly_coins(run: J.Val) -> J.Val:
     f: J.Val = J.get(run, "feel")
     coins: [J.Val] = feel.vec(f, "coins")
@@ -278,7 +258,6 @@ def feel.Run.fly_coins(run: J.Val) -> J.Val:
     caught: [U32] = []
     for coin: J.Val in coins:
         coin = core.set_u(coin, "age", core.uadd(core.u(coin, "age"), 1))
-        # the nearest standing knight (the first of equals)
         best: U32 = 0
         best_d: F32 = 0.0
         found: Bool = False{}
@@ -298,7 +277,6 @@ def feel.Run.fly_coins(run: J.Val) -> J.Val:
         elif F32.is_lt(best_d, feel.COIN_CATCH()):
             caught = List.append(&2, U32, caught, [best])
         else:
-            # A short hop up before it turns home.
             speed: F32 = (feel.COIN_SPEED() * RS.f_min((RS.u_as_f32(core.u(coin, "age")) / 10.0 : F32), 1.0) : F32)
             step: F32 = RS.f_min((speed * rules.DT() : F32), best_d)
             (ux: F32, uy: F32) = rules.unit((bx - core.f(coin, "x") : F32), (by - core.f(coin, "y") : F32))
@@ -319,7 +297,6 @@ def feel.Run.fly_coins(run: J.Val) -> J.Val:
         run = core.push_sound(run, "spoil_pickup")
     return run
 
-# The room ends: coins left lie in the nearest standing knight's purse.
 def feel.Run.bank_coins(run: J.Val) -> J.Val:
     coins: [J.Val] = feel.vec(J.get(run, "feel"), "coins")
     run = J.set(run, "feel", feel.put(J.get(run, "feel"), "coins", []))
@@ -373,9 +350,7 @@ def feel.Run.skill_synergy(run: J.Val, id: U32, which: U32) -> J.Val:
         run = feel.Run.synergy(run, id, "Fire Arrows", "fire_arrows")
     return run
 
-# Burns, ricochets and powder kegs the shots set off.
 def feel.Run.land_synergies(run: J.Val, burns: J.Val, turned: J.Val, kegs: J.Val) -> J.Val:
-    # A `burn N` wish burns N times as hot as Fire Arrows.
     for b: J.Val in J.items(burns):
         owner: U32 = J.u32(J.nth(b, 1))
         base: U32 = skills.BURN_BASE()
@@ -385,7 +360,6 @@ def feel.Run.land_synergies(run: J.Val, burns: J.Val, turned: J.Val, kegs: J.Val
         run = J.set(run, "works", J.set(J.get(run, "works"), "banes", skills.afflict(J.get(J.get(run, "works"), "banes"), J.u32(J.nth(b, 0)), "burn", power, owner)))
     for owner: J.Val in J.items(turned):
         run = feel.Run.synergy(run, J.u32(owner), "Ricochet", "ricochet")
-    # Kegs by index, the highest first.
     order: [J.Val] = feel.sort_desc(J.items(kegs))
     for k: J.Val in order:
         i: U32 = J.u32(J.nth(k, 0))
@@ -397,7 +371,6 @@ def feel.Run.land_synergies(run: J.Val, burns: J.Val, turned: J.Val, kegs: J.Val
             run = feel.Run.synergy(run, J.u32(J.nth(k, 1)), "Powder Keg", "powder_keg")
     return run
 
-# [idx, owner] pairs sorted by idx, largest first (stable).
 def feel.sort_desc(xs: [J.Val]) -> [J.Val]:
     out: [J.Val] = []
     for x: J.Val in xs:
@@ -422,7 +395,6 @@ def feel.remove_nth(a: J.Val, i: U32) -> J.Val:
         n = (n + 1 : U32)
     return J.JA{out}
 
-# A knight's shot by its kind: how far a hit pushes a monster.
 def feel.knock(kind: String) -> F32:
     if String.eq(kind, "arrow"):
         return 0.1

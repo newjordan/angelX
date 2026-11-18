@@ -5,9 +5,6 @@
 use super::*;
 use std::collections::BTreeMap;
 
-/// A run standing in a straight passage of floor `depth` (north to south
-/// when `upright`), nothing in it, the knight warded off, the passage as
-/// the floor built it with no gauntlet laid yet.
 fn passage(upright: bool, depth: u32) -> Run {
     let want = if upright { [true, false, true, false] } else { [false, true, false, true] };
     for seed in 0..400u64 {
@@ -29,7 +26,6 @@ fn passage(upright: bool, depth: u32) -> Run {
     panic!("no straight passage on any floor tried");
 }
 
-/// The same passage with its bridge and axes laid.
 fn bridged(upright: bool, depth: u32) -> Run {
     let mut run = passage(upright, depth);
     let tier = (depth.min(3) - 1) as usize;
@@ -53,7 +49,6 @@ fn axes(run: &Run) -> Vec<Gauntlet> {
     run.works.gauntlets.iter().copied().filter(|g| matches!(g, Gauntlet::Axe { .. })).collect()
 }
 
-/// A phase that puts a cycle of `period` at `beat` on the run's next tick.
 fn phase_for(run: &Run, period: u32, beat: u32) -> u32 {
     let next = (run.tick + 1) % u64::from(period);
     ((u64::from(beat) + u64::from(period) - next) % u64::from(period)) as u32
@@ -84,11 +79,8 @@ fn idle(run: &mut Run, ticks: u32) {
     }
 }
 
-/// The beat of a depth-one swing at which the blade, heading out, passes
-/// the edge of the bridge (a knight standing there is struck on this beat).
 const EDGE_BEAT: u32 = 7;
 
-/// One axe alone over the bridge's middle, at `beat` of its swing next tick.
 fn one_axe(run: &mut Run, beat: u32) -> Gauntlet {
     let (from, to, line, upright) = bridge_of(run);
     let period = AXE_PERIOD[0];
@@ -100,8 +92,6 @@ fn one_axe(run: &mut Run, beat: u32) -> Gauntlet {
     axe
 }
 
-// ─── the axe bridge ──────────────────────────────────────────────────────────
-
 #[test]
 fn a_bridged_passage_is_a_gorge_but_for_its_bridge_and_its_landings_and_stays_whole() {
     for upright in [false, true] {
@@ -111,7 +101,6 @@ fn a_bridged_passage_is_a_gorge_but_for_its_bridge_and_its_landings_and_stays_wh
         assert!(layout::connected(room), "doorway to doorway, over the bridge");
         let pits = room.tiles_for_test().iter().filter(|&&t| t == Tile::Hazard).count();
         assert!(pits > 60, "a real gorge: {pits} tiles");
-        // The bridge is firm all the way; a step off it is the gorge.
         let mut along = from + 0.5;
         while along < to {
             let on = if upright { (line, along) } else { (along, line) };
@@ -121,7 +110,6 @@ fn a_bridged_passage_is_a_gorge_but_for_its_bridge_and_its_landings_and_stays_wh
             assert_eq!(tile(off), Tile::Hazard, "upright {upright} at {along}");
             along += 1.0;
         }
-        // Each doorway keeps firm ground in front of it.
         for d in 0..4 {
             if room.doors[d] {
                 let ((x, y), (ix, iy)) = hazards::doorway(room, d);
@@ -152,9 +140,7 @@ fn an_axe_is_high_at_the_ends_of_its_swing_and_comes_down_only_over_the_bridge()
             assert!((by - y).abs() >= BRIDGE_HALF - 0.3, "high over the gorge at the ends");
         }
     }
-    // Twice a cycle, a little under half the time each.
     assert!(lows > period as usize / 4 && lows < period as usize, "{lows}");
-    // The shadow warns for a good half second before every descent.
     for t in 1..u64::from(period) * 2 {
         if axe.low(t) && !axe.low(t - 1) {
             let warned = (1..=15).all(|k| t >= k && axe.warning(t - k).is_some());
@@ -168,8 +154,6 @@ fn an_axe_throws_a_knight_the_way_it_swings_and_the_ward_carries_them_through_th
     let mut run = bridged(false, 1);
     let axe = one_axe(&mut run, 0);
     let Gauntlet::Axe { x, y, .. } = axe else { unreachable!() };
-    // The blade comes down from the north (swing -1 to 0 at beat 0... it
-    // crosses the middle heading south at beat 0).
     place(&mut run, 1, (x, y));
     let hp = run.players[&1].hp;
     run.step(&BTreeMap::new());
@@ -179,7 +163,6 @@ fn an_axe_throws_a_knight_the_way_it_swings_and_the_ward_carries_them_through_th
     assert!(((hero.y - y) - heading * AXE_KNOCK).abs() < 0.3, "thrown {} along the swing", hero.y - y);
     assert!((hero.x - x).abs() < 0.01, "not along the bridge");
     assert!(run.room().tile((hero.x / TILE_UNITS) as i32, (hero.y / TILE_UNITS) as i32) == Tile::Floor, "kept to the middle, still on the bridge");
-    // The blade swings back through while the ward holds: nothing more.
     let after = run.players[&1].hp;
     let ward = run.players[&1].invulnerable;
     assert!(ward > 0);
@@ -193,12 +176,9 @@ fn a_knight_struck_at_the_edge_goes_over_and_comes_back_on_the_footing_they_set_
     let (from, _, line, _) = bridge_of(&run);
     let axe = one_axe(&mut run, 0);
     let Gauntlet::Axe { x, y, .. } = axe else { unreachable!() };
-    // They set out from the west landing...
     place(&mut run, 1, (from - 2.0, line));
     run.step(&BTreeMap::new());
     let footing = run.players[&1].footing.expect("firm ground remembered");
-    // ...and stand at the bridge's southern edge as the blade comes down
-    // heading south, reaching them this tick.
     let axe = one_axe(&mut run, EDGE_BEAT);
     let heading = axe.heading(run.tick + 1);
     assert_eq!(heading, 1.0);
@@ -219,26 +199,21 @@ fn a_knight_struck_at_the_edge_goes_over_and_comes_back_on_the_footing_they_set_
 #[test]
 fn a_fall_with_no_footing_lands_at_the_bridges_nearer_end_and_a_fallen_knight_stays_reachable() {
     let mut run = bridged(true, 1);
-    // Two knights, so one falling is not the party's end.
     run.join_seat(2, "Wren");
     let (from, to, line, _) = bridge_of(&run);
     let axe = one_axe(&mut run, EDGE_BEAT);
     let Gauntlet::Axe { x, y, .. } = axe else { unreachable!() };
     let heading = axe.heading(run.tick + 1);
     place(&mut run, 1, (x + heading * (BRIDGE_HALF - HERO_RADIUS - 0.05), y));
-    // Nearly spent: the blow takes what is left, and the body lies on the
-    // bridge, not in the gorge.
     run.players.get_mut(&1).unwrap().hp = 3;
     run.step(&BTreeMap::new());
     let hero = &run.players[&1];
     assert_eq!(hero.hp, 0);
     assert!(run.room().tile((hero.x / TILE_UNITS) as i32, (hero.y / TILE_UNITS) as i32).ground(), "a body where a friend can reach it");
-    // Another knight, with no footing kept, goes over and lands at an end.
     let axe = one_axe(&mut run, EDGE_BEAT);
     let heading = axe.heading(run.tick + 1);
     place(&mut run, 2, (x + heading * (BRIDGE_HALF - HERO_RADIUS - 0.05), y));
     run.players.get_mut(&2).unwrap().footing = None;
-    // Skip the footing kept this tick: they stand on the span.
     run.step(&BTreeMap::new());
     let hero = &run.players[&2];
     assert!(hero.hp > 0);
@@ -256,7 +231,6 @@ fn an_axe_sweeps_a_monster_clean_off_the_bridge_into_the_gorge() {
     run.step(&BTreeMap::new());
     assert!(run.enemies.iter().all(|e| e.id != id || e.hp == 0), "over the edge");
     assert!(run.feats.contains(&"mind_the_gap"));
-    // A guardian is too big to sweep: it stands, and takes the cut.
     let mut run = bridged(false, 1);
     let axe = one_axe(&mut run, 0);
     let Gauntlet::Axe { x, y, .. } = axe else { unreachable!() };
@@ -266,8 +240,6 @@ fn an_axe_sweeps_a_monster_clean_off_the_bridge_into_the_gorge() {
     assert!(e.hp > 0 && e.hp < 10_000);
     assert_eq!((e.x, e.y), (x, y));
 }
-
-// ─── the hammer row ──────────────────────────────────────────────────────────
 
 fn hammered(upright: bool) -> Run {
     let mut run = passage(upright, 3);
@@ -287,13 +259,11 @@ fn hammers_stand_across_the_whole_passage_in_gates_that_fall_one_after_another()
             let Gauntlet::Hammer { x, y, .. } = *g else { unreachable!() };
             let along = if upright { y } else { x };
             gates.entry(along.to_bits()).or_default().push((x, y));
-            // Its footprint is all passage floor.
             for (dx, dy) in [(-1.5, -1.5), (1.5, -1.5), (-1.5, 1.5), (1.5, 1.5)] {
                 assert!(room.tile(((x + dx) / TILE_UNITS) as i32, ((y + dy) / TILE_UNITS) as i32).ground());
             }
         }
         assert!(gates.len() >= 2, "more than one gate (upright {upright})");
-        // A gate covers the passage's width: no way round its hammers.
         for hammers in gates.values() {
             let span = hammers.len() as f32 * 2.0 * HAMMER_HALF;
             let legs = run.hall_legs();
@@ -330,7 +300,6 @@ fn a_hammer_shudders_before_it_falls_and_throws_whoever_stands_under_it_clear() 
     let e = run.enemies.iter().find(|e| e.id == id).unwrap();
     assert!(e.hp < 10_000, "a monster too");
     assert!(x - e.x >= HAMMER_HALF, "and out it goes, the other way");
-    // While it lies on the floor, nobody walks into it.
     let walk = BTreeMap::from([(1, Input { move_x: -1, ..Default::default() })]);
     for _ in 0..3 {
         run.step(&walk);
@@ -338,9 +307,6 @@ fn a_hammer_shudders_before_it_falls_and_throws_whoever_stands_under_it_clear() 
     }
 }
 
-// ─── the boulder run ─────────────────────────────────────────────────────────
-
-/// A cleared fight room with bare floor and nothing in it.
 fn hall_room() -> Run {
     let mut run = Run::new(4, 1, None);
     let room = run.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
@@ -366,7 +332,6 @@ fn a_boulder_rumbles_then_rolls_its_lane_and_throws_knights_and_monsters_aside()
     place(&mut run, 1, (mid, y + 0.4));
     let id = foe(&mut run, EnemyKind::Skeleton, (from + mid) / 2.0, y - 0.3);
     let hp = run.players[&1].hp;
-    // The rumble: no boulder yet, and the lane says so.
     for _ in 0..BOULDER_WARN {
         run.step(&BTreeMap::new());
         assert!(boulder.boulder(run.tick).is_none());
@@ -388,7 +353,6 @@ fn a_boulder_rumbles_then_rolls_its_lane_and_throws_knights_and_monsters_aside()
     let e = run.enemies.iter().find(|e| e.id == id).unwrap();
     assert!(e.hp < 10_000, "monsters too");
     assert!((e.y - y).abs() >= BOULDER_RADIUS, "thrown aside");
-    // It bursts on the far stone, and the next one waits for its rumble.
     idle(&mut run, 4);
     assert!(boulder.boulder(run.tick).is_none());
 }
@@ -434,15 +398,12 @@ fn a_boulder_lane_comes_out_of_solid_wall_and_never_passes_a_doorway() {
     assert!(laid > 20, "lanes are found: {laid}");
 }
 
-// ─── the saw rail ────────────────────────────────────────────────────────────
-
 #[test]
 fn a_saw_revs_at_each_end_runs_its_rail_and_bites_what_it_meets() {
     let mut run = hall_room();
     assert!(run.lay_saw(0, &mut Rng::new(9)));
     let saw = run.works.gauntlets[0];
     let Gauntlet::Saw { a, b, speed, .. } = saw else { unreachable!() };
-    // The whole cycle: rev at a, run to b, rev at b, run back.
     let cycle = 2 * (((b.0 - a.0).hypot(b.1 - a.1) / speed).ceil() as u32 + SAW_REST);
     let saw = Gauntlet::Saw { a, b, speed, phase: phase_for(&run, cycle, 0) };
     run.works.gauntlets = vec![saw];
@@ -454,7 +415,6 @@ fn a_saw_revs_at_each_end_runs_its_rail_and_bites_what_it_meets() {
     }
     assert_eq!(revs, 2 * SAW_REST as usize, "it revs at both ends");
     assert!(SAW_REST as f32 / HZ as f32 >= 0.5, "a half-second rev before it sets off");
-    // A knight standing on the rail's middle is bitten and thrown off it.
     let mid = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
     place(&mut run, 1, mid);
     let hp = run.players[&1].hp;
@@ -467,8 +427,6 @@ fn a_saw_revs_at_each_end_runs_its_rail_and_bites_what_it_meets() {
     assert!(to_segment((hero.x, hero.y), a, b) >= SAW_KNOCK - 0.05, "thrown off the rail");
     assert!(run.enemies.iter().find(|e| e.id == id).unwrap().hp < 10_000, "monsters too");
 }
-
-// ─── where they are laid ─────────────────────────────────────────────────────
 
 #[test]
 fn gauntlets_come_by_depth_and_pack_never_touch_the_dice_and_leave_passages_whole() {
@@ -511,7 +469,6 @@ fn gauntlets_come_by_depth_and_pack_never_touch_the_dice_and_leave_passages_whol
                         assert!(matches!(g, Gauntlet::Boulder { .. } | Gauntlet::Saw { .. }));
                     }
                 }
-                // Laying it twice lays the same: a mirror and a return agree.
                 let first = run.works.gauntlets.clone();
                 let tiles = run.room().tiles_for_test().to_vec();
                 run.arm_gauntlets();
@@ -541,7 +498,6 @@ fn no_gauntlet_on_an_open_floor_in_the_swamp_or_in_a_follys_passage() {
     run.open_floor_for_test(2);
     run.arm_gauntlets();
     assert!(run.works.gauntlets.is_empty());
-    // A passage a game is played in (the folly, the gantry, a race) keeps to it.
     for upright in [false, true] {
         let run = passage(upright, 2);
         for game in 0..3 {
@@ -556,17 +512,10 @@ fn no_gauntlet_on_an_open_floor_in_the_swamp_or_in_a_follys_passage() {
             assert!(run.works.gauntlets.is_empty());
         }
     }
-    // And a room without one is written as it always was.
     let run = passage(false, 2);
     assert!(!serde_json::to_string(&run).unwrap().contains("gauntlets"));
 }
 
-// ─── crossing ────────────────────────────────────────────────────────────────
-
-/// Walk knight `id` from one end of the passage to the other: along it,
-/// keeping to its middle line. With `wait`, hold back while the next
-/// danger ahead is down or warning. True if they reach the far landing
-/// within `secs`; and how many falls on the way.
 fn cross(run: &mut Run, id: u32, upright: bool, line: f32, goal: f32, wait: bool, secs: u32) -> (bool, u32) {
     let mut falls = 0;
     for _ in 0..secs * HZ {
@@ -581,14 +530,11 @@ fn cross(run: &mut Run, id: u32, upright: bool, line: f32, goal: f32, wait: bool
         let ahead = (goal - along).signum();
         let mut go = ahead as i8;
         if wait {
-            // The next danger within a few steps ahead: wait it out.
             let tick = run.tick + 1;
             let threat = run.works.gauntlets.iter().any(|g| {
                 let (gx, gy) = g.at();
                 let ga = if upright { gy } else { gx };
                 let d = (ga - along) * ahead;
-                // Wait at the edge of its reach, never inside it: once in,
-                // keep going.
                 let (reach, ahead_ticks) = match g {
                     Gauntlet::Axe { .. } => (AXE_EDGE + HERO_RADIUS + 0.2, 11),
                     Gauntlet::Hammer { .. } => (HAMMER_HALF + HERO_RADIUS + 0.2, 15),
@@ -651,7 +597,6 @@ fn a_bot_that_waits_for_its_moment_crosses_untouched_at_any_depth() {
             assert_eq!(run.players[&1].hp, hp, "timed right, never touched (upright {upright} depth {depth})");
         }
     }
-    // The hammer row too.
     for upright in [false, true] {
         let mut run = hammered(upright);
         let legs = run.hall_legs();
@@ -685,8 +630,6 @@ fn a_bot_that_walks_straight_through_the_hammers_makes_it_too() {
         }
     }
 }
-
-// ─── the wire ────────────────────────────────────────────────────────────────
 
 #[test]
 fn a_friends_mirror_sees_every_blade_boulder_and_hammer_where_the_host_does() {
@@ -733,7 +676,6 @@ fn a_save_from_before_gauntlets_loads_and_lays_its_passages_on_entry() {
     assert!(back.works.gauntlets.is_empty());
     let works: works::Works = serde_json::from_str(r#"{"perils": []}"#).unwrap();
     assert!(works.gauntlets.is_empty() && works.valid());
-    // A mirrored list that is not finite is refused.
     let mut bad = run.works.clone();
     bad.gauntlets.push(Gauntlet::Axe { x: f32::NAN, y: 0.0, upright: false, period: 60, phase: 0 });
     assert!(!bad.valid());

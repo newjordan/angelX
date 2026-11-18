@@ -25,15 +25,12 @@ thread_local! {
     static BEFORE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
-/// Whether the screen is drawn as it was before the juice (the bench's baseline).
 pub(super) fn before() -> bool {
     BEFORE.with(std::cell::Cell::get)
 }
 
 const NAMES: [&str; 6] = ["You", "Knight 2", "Cedric", "Dara", "You", "Wolfgang Amadeus"];
 
-/// A round with `seats` knights, opened by knight one pressing E at the kiln. Some knights still
-/// carry the default `You`, and one has a name too long for any box.
 fn table(seats: u32) -> Run {
     let mut r = Run::cinder_for_test();
     if seats == 1 {
@@ -52,7 +49,6 @@ fn table(seats: u32) -> Run {
     r
 }
 
-/// Every seat's bot, each acting once in `every[seat]` ticks (a seat with 0 sits still).
 fn bots(r: &Run, t: u32, every: &[u32]) -> Keys {
     let Some(s) = r.cinder.as_ref().filter(|s| s.left > 0) else { return Keys::new() };
     s.boards
@@ -64,8 +60,6 @@ fn bots(r: &Run, t: u32, every: &[u32]) -> Keys {
         .collect()
 }
 
-/// Every box of words on seat `id`'s screen: the lines of the 5x7 font the pen wrote on the screen,
-/// and the pixels of every layer the kit drew words on.
 fn boxes(r: &Run, id: u32) -> (Vec<(String, Rect)>, said::Said) {
     let ((_, claims), said) = said::read(|| hud::claimed(|| scene::layers(r, Some(id))));
     let mut out: Vec<(String, Rect)> = said
@@ -78,7 +72,6 @@ fn boxes(r: &Run, id: u32) -> (Vec<(String, Rect)>, said::Said) {
     (out, said)
 }
 
-/// No two boxes meet, none leaves the 384 by 224 screen, and `YOU` names only the seat looking.
 fn assert_clear(r: &Run, id: u32, what: &str) {
     let (boxes, said) = boxes(r, id);
     for (i, (a, ra)) in boxes.iter().enumerate() {
@@ -102,7 +95,6 @@ fn assert_clear(r: &Run, id: u32, what: &str) {
                 "{what} seat {id}: YOU LEAD for a knight who is not leading"
             ),
             "YOU CRACKED IT" => assert!(s.won && s.order.first() == Some(&id), "{what} seat {id}: YOU CRACKED IT for another's win"),
-            // A line of the table under the podium: its place, who, and their cracks.
             other if other.contains(" YOU ") => {
                 let place: usize = other.split(' ').next().and_then(|n| n.parse().ok()).unwrap_or(0);
                 assert_eq!(s.order.iter().position(|&w| w == id).map(|p| p + 1), Some(place), "{what} seat {id}: {other:?} is not this seat's line");
@@ -113,7 +105,6 @@ fn assert_clear(r: &Run, id: u32, what: &str) {
     assert!(yous <= 1, "{what} seat {id}: YOU drawn {yous} times");
 }
 
-/// The words of a seat are never `YOU` for another seat, in a tile or a toast or on the podium.
 #[test]
 fn you_names_only_the_seat_looking() {
     let r = table(6);
@@ -161,8 +152,6 @@ fn walk(seats: u32, every: &[u32], what: &str, extra: usize) {
 #[test]
 fn the_words_never_meet_and_every_prompt_sits_inside_the_screen_at_one_to_six_seats() {
     for seats in 1..=6u32 {
-        // Quick hands: somebody cracks the kiln. Slow and idle hands: the clock runs out, one knight
-        // sits still and her stack climbs to the lid.
         walk(seats, &[3, 5, 4, 6, 7, 5], "fast", 0);
         walk(seats, &[36, 0, 24, 40, 30, 28], "slow", 0);
     }
@@ -171,7 +160,6 @@ fn the_words_never_meet_and_every_prompt_sits_inside_the_screen_at_one_to_six_se
 #[test]
 fn the_last_five_seconds_the_toasts_and_the_podium_are_all_seen_and_clear() {
     let mut r = table(4);
-    // Time almost out, one knight a few cracks short, and the others a chain apart.
     let s = r.cinder.as_mut().unwrap();
     s.left = 6 * 30;
     for (n, b) in s.boards.values_mut().enumerate() {
@@ -217,7 +205,6 @@ fn a_storm_of_calls_marks_and_long_names_still_leaves_every_word_clear() {
     for id in 1..=6 {
         assert_clear(&r, id, "storm");
     }
-    // The end screen with six seats and the longest names, at every beat of it.
     let s = r.cinder.as_mut().unwrap();
     s.left = 0;
     s.won = true;
@@ -261,8 +248,6 @@ fn a_chain_is_staged_and_its_marks_ride_the_wire_and_the_picture_draws_them() {
     assert!(called, "the table heard the chain");
 }
 
-/// Lay a board that must chain `links` times when the first pair is dropped in its first column, and
-/// drop it. Returns the longest chain the board ran.
 fn staged_chain(r: &mut Run, id: u32, links: u8) -> u8 {
     let s = r.cinder.as_mut().unwrap();
     let b = s.boards.get_mut(&id).unwrap();
@@ -298,13 +283,10 @@ fn staged_chain(r: &mut Run, id: u32, links: u8) -> u8 {
         }
         probe.step(Input::default(), &tune);
     }
-    // The drop itself: E, held for one tick.
     r.step(&Keys::from([(id, Input { interact: true, ..Default::default() })]));
     most
 }
 
-/// Where a frame's time goes, over a bot's round: the picture as it is, five draws of each frame and
-/// the quickest taken, the box being what it is.
 #[test]
 #[ignore = "measures the picture's cost"]
 fn cinder_frame_time() {
@@ -332,7 +314,6 @@ fn cinder_frame_time() {
         n += 1;
     }
     BEFORE.with(|b| b.set(false));
-    // The heaviest pictures: six seats mid-round, and the end screen with the kiln cracked.
     let mut six = table(6);
     for t in 0..400u32 {
         six.step(&bots(&six, t, &[6, 7, 5, 8, 9, 6]));
@@ -372,8 +353,6 @@ fn cinder_frame_time() {
     println!("cinder frame over {n} frames: before mean {} us worst {} us; after mean {} us worst {} us; ratio {:.2}", mean(0), worst[0], mean(1), worst[1], mean(1) as f64 / mean(0).max(1) as f64);
 }
 
-// ─── the proof reels ─────────────────────────────────────────────────────────
-
 fn save(dir: &std::path::Path, n: u32, im: &Img) {
     image::save_buffer(dir.join(format!("f{n:04}.png")), &im.rgb_bytes(), im.w as u32, im.h as u32, image::ColorType::Rgb8).unwrap();
 }
@@ -382,7 +361,6 @@ fn reel_only(name: &str) -> bool {
     std::env::var("REEL_ONLY").map_or(true, |o| o.split(',').any(|x| x == name))
 }
 
-/// A window of `ticks` of seat one's screen (a frame every step, 30 fps), after `lead` unseen steps.
 fn window(root: &std::path::Path, name: &str, r: &mut Run, lead: u32, ticks: u32, mut keys: impl FnMut(&Run, u32) -> Keys) {
     let dir = root.join(name);
     let _ = std::fs::remove_dir_all(&dir);
@@ -406,7 +384,6 @@ fn write_cinder_reel() {
     let quiet = |_: &Run, _: u32| Keys::new();
 
     if reel_only("before") {
-        // The screen as it was, on the same table and the same bots, for the comparison.
         BEFORE.with(|b| b.set(true));
         let mut r = table(4);
         window(&root, "before", &mut r, 0, 240, |r, t| bots(r, t, &[24, 20, 26, 22]));
@@ -500,7 +477,6 @@ fn write_cinder_reel() {
     }
 }
 
-/// `staged_chain`, for the reel: the board that must chain, dropped, and what it ran.
 fn staged_chain_probe(r: &mut Run, id: u32, links: u8) -> u8 {
     staged_chain(r, id, links)
 }

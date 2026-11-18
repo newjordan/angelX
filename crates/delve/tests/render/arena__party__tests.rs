@@ -2,7 +2,6 @@ use super::super::*;
 use crate::rules::{Input, RoomKind};
 use std::collections::BTreeMap;
 
-/// Three knights in the first fight of the floor, `ticks` into it.
 fn party_of_three(seed: u64, ticks: u32) -> Run {
     let mut run = Run::new(seed, 1, Some("Friend"));
     run.join_seat(3, "Wren");
@@ -34,15 +33,12 @@ fn a_seat_screen_is_the_band_over_the_room() {
     assert_eq!((band_rows(h), hud_rows(h), view_rows(h)), (BAND_H, HUD_H, NATIVE_H));
     let whole = seat_frame(&run, w, h, Some(1));
     assert_eq!((whole.w, whole.h), (w, h));
-    // Below the band, the room's frame exactly as a seat's view draws it:
-    // with nothing over it.
     let room = in_seat(|| frame_for(&run, w, NATIVE_H, Some(1)));
     for y in 0..NATIVE_H {
         for x in 0..w {
             assert_eq!(whole.get(x, y + BAND_H), room.get(x, y), "room pixel {x},{y}");
         }
     }
-    // Under the view, the HUD's band exactly.
     let hud = hud_band(&run, Some(1));
     for y in 0..HUD_H {
         for x in 0..w {
@@ -55,8 +51,6 @@ fn a_seat_screen_is_the_band_over_the_room() {
 #[test]
 fn nothing_lies_over_a_seats_view() {
     let run = party_of_three(11, 60);
-    // A terminal's frame lays the skills bar over its view's foot; a
-    // seat's view is the room alone, the bar in the band under it.
     let terminal = frame_for(&run, NATIVE_W, NATIVE_H, Some(1));
     let seat = in_seat(|| frame_for(&run, NATIVE_W, NATIVE_H, Some(1)));
     let foot = |im: &Img| (NATIVE_H - 30..NATIVE_H).flat_map(|y| (0..NATIVE_W).map(move |x| (x, y))).filter(|&(x, y)| im.get(x, y) != terminal.get(x, y)).count();
@@ -82,7 +76,6 @@ fn a_seat_screen_in_parts_composes_to_its_frame() {
     }
 }
 
-/// Where card `i` of `n` begins in the band.
 fn card_x(i: i32) -> i32 {
     4 + i * 96
 }
@@ -98,15 +91,12 @@ fn every_knight_has_a_card_and_the_seat_its_own() {
         let x = card_x(i);
         assert!(inked(x, x + 92) > 500, "card {i} is drawn");
     }
-    // Past the third card, black paper.
     assert_eq!(inked(card_x(3), NATIVE_W), 0);
-    // The seat's own frame is rimmed in brass, the others not.
     let brass = |i: i32| band.get(card_x(i) + 4, 1) == Some(super::super::super::chrome::BRASS_RIM[0]);
     assert!(brass(1));
     assert!(!brass(0) && !brass(2));
 }
 
-/// The band's rows of a seat's screen, as `(x, y, pixel)` words.
 fn band_words(screen: &Img) -> Vec<Option<super::super::super::ink::Rgb>> {
     (0..BAND_H).flat_map(|y| (0..screen.w).map(move |x| (x, y))).map(|(x, y)| screen.get(x, y)).collect()
 }
@@ -117,7 +107,6 @@ fn knights_in_other_rooms_keep_their_cards_in_every_seats_band() {
     let other = (0..run.dungeon.rooms.len()).find(|&i| i != run.at).expect("another room");
     let ids: Vec<u32> = run.players.keys().copied().collect();
     assert_eq!(ids.len(), 3);
-    // One knight waits in another room, one is fallen out there, one stays.
     for &id in &ids[1..] {
         let entry = crate::rules::exits::Entry { at: other, party: BTreeMap::from([(id, (1.0, 1.0))]) };
         run.exits.outside.insert(id, entry);
@@ -137,7 +126,6 @@ fn knights_in_other_rooms_keep_their_cards_in_every_seats_band() {
         let scene = party::lift_with(scene_for(&view, w, h - band_rows(h), Some(focus)), &view, Some(focus), &map);
         assert!(band_words(&scene.compose()) == band_words(&full), "seat {focus}: the window's parts hold the same band");
     }
-    // Every card is drawn, and the brass rim is the seat's own.
     let band = party::band_of(&run.view_for_seat(ids[0]).unwrap(), Some(ids[0]), Some(&run.players));
     for i in 0..3 {
         let x = card_x(i);
@@ -154,7 +142,6 @@ fn a_bust_is_the_knights_own_head_and_shoulders_enlarged() {
     let (id, hero) = run.players.iter().next().unwrap();
     let figure = super::super::knights::portrait(hero, *id);
     let band = party::band(&run, None);
-    // Every pixel of the bust is a figure's pixel, in blocks of two.
     let (bx, by) = (card_x(0) + 1, 2);
     let mut seen = 0;
     for y in (0..20).step_by(2) {
@@ -181,10 +168,8 @@ fn health_and_mana_are_held_in_the_frame() {
     let teal = super::super::super::ink::ink('2').unwrap();
     let blue = super::super::super::ink::ink('z').unwrap();
     let x = card_x(0);
-    // The health along the frame's foot, half of it lit.
     let lit = (x + 1..x + 27).filter(|&px| band.get(px, 22) == Some(teal)).count();
     assert_eq!(lit, 13);
-    // The mana down its right side, a quarter of it lit from the foot.
     let lit = (2..22).filter(|&py| band.get(x + 25, py) == Some(blue)).count();
     assert_eq!(lit, 5);
     assert_eq!(band.get(x + 25, 21), Some(blue));
@@ -194,7 +179,6 @@ fn health_and_mana_are_held_in_the_frame() {
 fn a_fallen_knight_has_no_bar_and_its_card_says_so() {
     let mut run = party_of_three(11, 10);
     run.players.get_mut(&1).unwrap().hp = 0;
-    // No plates in the fallen knight's band; a standing friend's has them.
     let plates = |id: u32| {
         let hud = hud_band(&run, Some(id));
         (8..HUD_H - 8).flat_map(|y| (6..150).map(move |x| (x, y))).filter(|&(x, y)| hud.get(x, y).is_some()).count()
@@ -205,7 +189,6 @@ fn a_fallen_knight_has_no_bar_and_its_card_says_so() {
     let ember = super::super::super::ink::ink('7').unwrap();
     let words = (card_x(0) + 28..card_x(0) + 92).flat_map(|x| (14..22).map(move |y| (x, y))).filter(|&(x, y)| band.get(x, y) == Some(ember)).count();
     assert!(words > 20, "FALLEN is written on the card");
-    // The health bar is empty and the bust grey.
     let x = card_x(0);
     let teal = super::super::super::ink::ink('2').unwrap();
     assert!((x + 1..x + 27).all(|px| band.get(px, 22) != Some(teal)));
@@ -221,8 +204,6 @@ fn the_bar_stays_on_the_palette_and_clear_of_the_band() {
     assert!(whole.pixels().all(|c| c == super::super::super::ink::BLACK || super::super::super::ink::palette_index(c).is_some()));
 }
 
-/// A run with knights in seats 1 to `n`, and the first seat the host's
-/// empty one when `host_absent`; every knight a long name.
 fn party_of(n: u32, host_absent: bool) -> Run {
     let mut run = Run::new(11, 1, Some("Bartholomew"));
     for id in 3..=n {
@@ -238,14 +219,10 @@ fn party_of(n: u32, host_absent: bool) -> Run {
     run
 }
 
-/// The band's cards for `n` knights: where each begins and ends.
 fn spans(n: i32) -> Vec<(i32, i32)> {
     (0..n).map(|i| (super::card_x(i, n), super::card_x(i, n) + super::card_width(n))).collect()
 }
 
-/// That every card of a band of `n` is drawn, whole, inside its own span:
-/// nothing of one card on the paper between it and the next, nor past the
-/// band's margins.
 fn assert_cards_fit(run: &Run, n: i32, focus: Option<u32>) {
     let band = party::band(run, focus);
     let spans = spans(n);
@@ -256,7 +233,6 @@ fn assert_cards_fit(run: &Run, n: i32, focus: Option<u32>) {
         assert!(to <= NATIVE_W - 4, "card {i} ends before the margin: {to}");
         let inked = (from..to).flat_map(|x| (0..BAND_H - 1).map(move |y| (x, y))).filter(|&(x, y)| band.get(x, y).is_some()).count();
         assert!(inked > 300, "card {i} of {n} is drawn ({inked})");
-        // The paper between two cards stays black.
         if let Some(&(next, _)) = spans.get(i + 1) {
             assert!(to <= next, "card {i} of {n} overlaps the next ({to} past {next})");
             for x in to..next {
@@ -264,7 +240,6 @@ fn assert_cards_fit(run: &Run, n: i32, focus: Option<u32>) {
             }
         }
     }
-    // Nothing before the first card or after the last.
     for x in (0..spans[0].0).chain(spans[spans.len() - 1].1..NATIVE_W) {
         assert!(!column_inked(x), "{n} cards: ink at {x} outside them");
     }
@@ -274,12 +249,10 @@ fn assert_cards_fit(run: &Run, n: i32, focus: Option<u32>) {
 fn five_friends_with_the_host_absent_fill_the_band_with_five_whole_cards() {
     let run = party_of(6, true);
     let n = party::band(&run, Some(2));
-    // The absent host has no card.
     let shown = run.players.values().filter(|h| !h.absent).count();
     assert_eq!(shown, 5);
     assert_cards_fit(&run, 5, Some(2));
     drop(n);
-    // Roomier than six, and no wider than the four it was.
     assert!(super::card_width(5) > super::card_width(6));
     assert!(super::card_width(5) < super::card_width(4));
 }
@@ -295,8 +268,6 @@ fn six_knights_fill_the_band_with_six_whole_cards() {
 
 #[test]
 fn the_longest_words_stay_inside_the_narrowest_card() {
-    // Everyone fallen: FALLEN (or its short form) on every card. Then
-    // everyone away, in stone, and on a vigil.
     for n in [5u32, 6] {
         for state in 0..4 {
             let mut run = party_of(6, n == 5);
@@ -315,8 +286,6 @@ fn the_longest_words_stay_inside_the_narrowest_card() {
 
 #[test]
 fn six_cards_count_their_wishes_in_diamonds() {
-    // Six across, WISH and its count will not fit: a gold diamond for each
-    // wish held, a hollow one for none, and the own card's key beside them.
     let mut run = party_of(6, false);
     let wishes = [2u8, 0, 3, 1, 0, 3];
     for (hero, &n) in run.players.values_mut().zip(&wishes) {
@@ -328,12 +297,10 @@ fn six_cards_count_their_wishes_in_diamonds() {
         let from = super::card_x(i as i32, 6) + super::FRAME_W;
         let to = super::card_x(i as i32, 6) + super::card_width(6);
         let row = |y: i32, c| (from..to).filter(|&x| band.get(x, y) == c).count();
-        // The diamonds' tips, one a wish, on the row under the name.
         assert_eq!(row(16, tip), usize::from(n), "card {i}");
         assert_eq!(row(16, hollow) > 0, n == 0, "card {i}");
     }
     assert_cards_fit(&run, 6, Some(1));
-    // Four across still say it in words.
     let mut four = party_of(4, false);
     four.players.values_mut().for_each(|h| h.wishes = 2);
     let band = party::band(&four, Some(1));
@@ -351,7 +318,6 @@ fn a_band_of_up_to_four_is_laid_out_as_it_was() {
             assert_eq!(super::card_x(i, n), 4 + i * (super::card_width(n) + 4));
         }
     }
-    // Four across were 91 wide, 4 apart.
     assert_eq!(super::card_width(4), 91);
 }
 
@@ -365,7 +331,6 @@ fn six_seats_wear_six_different_colours() {
             assert!(d > 80 * 80, "seats {} and {} wear alike ({:?} {:?})", a + 1, b + 1, cloth[a], cloth[b]);
         }
     }
-    // The knights themselves, each a different figure for its seat.
     let run = party_of(6, false);
     let figures: Vec<Img> = run.players.iter().map(|(&id, h)| super::super::knights::portrait(h, id)).collect();
     for a in 0..6 {
@@ -376,7 +341,6 @@ fn six_seats_wear_six_different_colours() {
             assert!(!same, "seats {} and {} are drawn alike", a + 1, b + 1);
         }
     }
-    // A seat's mark on a board or a card is its cloth (gold for the first).
     assert_eq!(super::super::knights::seat_mark(1), '5');
     for id in 2..=6 {
         assert_eq!(super::super::knights::seat_mark(id), super::super::knights::seat_cloth(id));
@@ -384,7 +348,6 @@ fn six_seats_wear_six_different_colours() {
     assert_eq!(party::seat_ink(5), super::super::knights::seat_cloth(5));
 }
 
-/// Knight 1 of a party of three holding `hand`.
 fn holding(hand: &[&str]) -> Run {
     let mut run = party_of_three(11, 60);
     run.players.get_mut(&1).unwrap().hand = hand.iter().map(|id| id.to_string()).collect();
@@ -394,8 +357,6 @@ fn holding(hand: &[&str]) -> Run {
 #[test]
 fn the_hand_plates_a_page_drags_are_where_the_band_draws_the_cards() {
     let ours = holding(&["potion", "holy-water", "thunder-scroll"]);
-    // The same cards the other way round: only the pictures in the first
-    // and last plates differ, every key and place as it was.
     let swapped = holding(&["thunder-scroll", "holy-water", "potion"]);
     for k in [1, 2] {
         let (w, h) = (NATIVE_W * k, (NATIVE_H + BAND_H + HUD_H) * k);
@@ -420,14 +381,12 @@ fn the_hand_plates_a_page_drags_are_where_the_band_draws_the_cards() {
             }
         }
         assert!(hit[0] > 0 && hit[2] > 0 && hit[1] == 0, "at {k}x: {hit:?}");
-        // Each plate within the HUD's band, left to right, none over another.
         for pair in plates.windows(2) {
             let ((_, (x0, _, w0, _)), (_, (x1, _, _, _))) = (pair[0], pair[1]);
             assert!(x0 + w0 <= x1, "{plates:?}");
         }
         assert!(plates.iter().all(|&(_, (_, y, _, ph))| y >= top && y + ph <= h));
     }
-    // Under a fallen knight's band, or a watcher's, there is nothing to drag.
     let mut fallen = ours.clone();
     fallen.players.get_mut(&1).unwrap().hp = 0;
     assert!(party::hand_plates(&fallen, Some(1), NATIVE_W, NATIVE_H + BAND_H + HUD_H).is_empty());
@@ -436,10 +395,6 @@ fn the_hand_plates_a_page_drags_are_where_the_band_draws_the_cards() {
     assert!(party::hand_plates(&empty, Some(1), NATIVE_W, NATIVE_H + BAND_H + HUD_H).is_empty());
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve write_hand_shots --
-/// --ignored`: a seat holding three cards, its whole screen at a browser's
-/// size, and the HUD's band at 8x with the plates a page drags (`hand_plates`)
-/// outlined in gold over it.
 #[test]
 #[ignore]
 fn write_hand_shots() {
@@ -482,9 +437,6 @@ fn write_hand_shots() {
     save("hand-band-plates-8x", &band, 8);
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_party_shots -- --ignored`: a
-/// party of three in a fight as each seat sees it, at native size, at a
-/// browser's size and in a window's; then with one fallen and one away.
 #[test]
 #[ignore]
 fn write_party_shots() {
@@ -515,11 +467,6 @@ fn write_party_shots() {
     save("party-band-8x", &party::band(&run, Some(2)), 8);
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve write_integration_shots
-/// -- --ignored`: the merged lines at a seat's whole screen, the party's band
-/// over the room: a Bard singing in a fight, each knight's wish on its card,
-/// a library guardian standing alone on the second floor, and the entrance
-/// rooms at home.
 #[test]
 #[ignore]
 fn write_integration_shots() {
@@ -538,8 +485,6 @@ fn write_integration_shots() {
             .save(dir.join(format!("{name}.png")))
             .unwrap();
     };
-    // A Bard (seat 1) in the first fight, its notes streaming, then its
-    // Lullaby sung.
     let mut run = party_of_three(5, 40);
     run.outfit(1, knights::knight("bard").unwrap());
     run.players.get_mut(&1).unwrap().ult_charge = ults::ULT_FULL;
@@ -554,8 +499,6 @@ fn write_integration_shots() {
         run.step_sim_for_test(&inputs);
     }
     save("bard-fight", &run);
-    // The wish on each knight's card: a cleared room's window, one knight's
-    // wish spent.
     let mut run = party_of_three(7, 10);
     for _ in 0..8 {
         run.clear_for_test();
@@ -565,7 +508,6 @@ fn write_integration_shots() {
     }
     let _ = run.grant(2, &phrasebook::get("volley").unwrap());
     save("wish-band", &run);
-    // A library guardian on the second floor, alone in its room.
     let alone = (0..64u64).find_map(|seed| {
         let mut run = Run::new(seed, 1, Some("Friend"));
         run.join_seat(3, "Wren");
@@ -578,8 +520,6 @@ fn write_integration_shots() {
         (run.dungeon.depth == 2 && run.enemies.len() == 1 && boss_art::library_registered(art)).then_some(run)
     });
     let mut run = alone.expect("a library guardian on floor two");
-    // The party a few strides below it, so the camera has it in view, and
-    // the floor's opening boards gone by.
     let (bx, by) = run.enemies.iter().find(|e| e.is_boss()).map(|e| (e.x, e.y)).unwrap();
     for (k, hero) in run.players.values_mut().enumerate() {
         (hero.x, hero.y) = (bx - 4.0 + 4.0 * k as f32, by + 7.0);
@@ -593,17 +533,12 @@ fn write_integration_shots() {
         run.step_sim_for_test(&aim);
     }
     save("library-guardian-floor2", &run);
-    // The entrance rooms at home: the Dented Anvil's smithy and the muster
-    // house.
     save("entrance-smithy", &Run::latch_for_test());
     let mut run = Run::rafterwake_for_test();
     run.floor_plates.clear();
     save("entrance-workshop", &run);
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_six_seat_shots -- --ignored`:
-/// the band for five friends (the host absent) and for six knights, at 8x,
-/// and a six-seat fight as the first seat sees it.
 #[test]
 #[ignore]
 fn write_six_seat_shots() {
@@ -644,10 +579,6 @@ fn write_six_seat_shots() {
     save("five-band-8x", &party::band(&five, Some(2)), 8);
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve write_shield_bar_shots
-/// -- --ignored`: a knight's kite shield raised and worn, then knocked
-/// aside, at a seat's whole screen and its HUD's band at 6x: the meter on
-/// the guard's plate and under the knight.
 #[test]
 #[ignore]
 fn write_shield_bar_shots() {
@@ -697,11 +628,6 @@ fn write_shield_bar_shots() {
     save("shield-knocked-aside-band-6x", &band(&whole), 6);
 }
 
-/// The Fairground's Barrel round is a pastime room, and its six course
-/// flags now stand among the crowd by their feet (`pastimes::crowd`). A
-/// window tilts them with the room, and the terminal composes the same
-/// pixels flat: `seat_scene(…).compose()` equals `seat_frame(…)` byte
-/// for byte, and each flag arrives as a `Figure` with its own depth.
 #[test]
 fn a_fairground_barrel_round_composes_to_its_frame_and_stands_its_flags_up() {
     use crate::rules::home::Home;
@@ -713,7 +639,6 @@ fn a_fairground_barrel_round_composes_to_its_frame_and_stands_its_flags_up() {
     run.come_to_the_gate();
     let fair = world::room_of(&run.dungeon, Game::Barrel.room()).unwrap();
     run.arrive(fair, Game::Barrel.start());
-    // A friend waits by the stall so only the starter arms the round.
     let friend = run.players.get_mut(&3).unwrap();
     (friend.x, friend.y) = (21.0, 11.5);
     run.step(&BTreeMap::new());
@@ -728,18 +653,12 @@ fn a_fairground_barrel_round_composes_to_its_frame_and_stands_its_flags_up() {
         parts.compose().words() == whole.words(),
         "a Barrel room's parts put back its frame"
     );
-    // Each of the six course flags stands among the figures on its own
-    // depth; none of them is baked into the room's floor plane any more.
     let flags_at = |d: f32| parts.figures.iter().filter(|f| (f.depth - d).abs() < 0.001).count();
     for &(_, ty) in FLAGS.iter() {
         assert!(flags_at(ty * 2.0) > 0, "a flag stands at depth {}", ty * 2.0);
     }
 }
 
-/// The Riverbank's Washtub rings drift every tick — `pastimes::wake` — so
-/// each ring's crowd depth is recomputed on the frame. Same contract as
-/// Barrel: parts compose to the flat frame byte-for-byte, and each ring
-/// arrives as a `Figure` at the tile's own depth.
 #[test]
 fn a_riverbank_washtub_round_composes_to_its_frame_and_stands_its_rings_up() {
     use crate::rules::home::Home;
@@ -772,10 +691,6 @@ fn a_riverbank_washtub_round_composes_to_its_frame_and_stands_its_rings_up() {
     }
 }
 
-/// The Fairground's Turnip ball has its feet on the ring but its bounce
-/// baked into the sprite — the crowd entry stands the whole thing at the
-/// ring tile's depth (`ty * 2.0`), so the picture leans with the room the
-/// same way a Barrel flag does while the ball still rises and falls.
 #[test]
 fn a_fairground_turnip_round_composes_to_its_frame_and_stands_its_ball_up() {
     use crate::rules::home::Home;
@@ -806,10 +721,6 @@ fn a_fairground_turnip_round_composes_to_its_frame_and_stands_its_ball_up() {
     assert!(ball_at > 0, "the turnip stands at depth {}", ty * 2.0);
 }
 
-/// The Causeway's six Hobbyhorse hurdles stand along the riding lane at
-/// its foot (`RIDING_LANE.1`). Each is a Figure now, all at that same
-/// depth so they scale with the room's tilt as a row; the lane dashes and
-/// the rider's own hobbyhorse stay with the flat scene.
 #[test]
 fn a_causeway_hobbyhorse_round_composes_to_its_frame_and_stands_its_hurdles_up() {
     use crate::rules::home::Home;
@@ -840,10 +751,6 @@ fn a_causeway_hobbyhorse_round_composes_to_its_frame_and_stands_its_hurdles_up()
     assert!(at_foot >= 6, "six hurdles stand at the lane's foot ({at_foot})");
 }
 
-/// The Crag's six Sled gates alternate near and far down the hillside, so
-/// a window leans them each by their own row's depth. Same contract as
-/// Barrel: parts compose to the frame byte-for-byte, and every gate's
-/// row shows up as a distinct figure depth.
 #[test]
 fn a_crag_sled_round_composes_to_its_frame_and_stands_its_gates_up() {
     use crate::rules::home::Home;
@@ -876,10 +783,6 @@ fn a_crag_sled_round_composes_to_its_frame_and_stands_its_gates_up() {
     }
 }
 
-/// The Timberyard's four jump-logs stand at the lane's foot (row 10), so
-/// a window leans them as the cart passes between. Cart itself stays flat
-/// (the moving rider). All four logs share that foot depth; the check is
-/// that no fewer than four figures stand there.
 #[test]
 fn a_timberyard_cart_round_composes_to_its_frame_and_stands_its_logs_up() {
     use crate::rules::home::Home;
@@ -910,12 +813,6 @@ fn a_timberyard_cart_round_composes_to_its_frame_and_stands_its_logs_up() {
     assert!(at_foot >= 4, "four logs stand at the lane's foot ({at_foot})");
 }
 
-/// Tier 2's vertical slice: a Fairground DuckShoot round takes the canvas
-/// for itself (a `three.rs` pinhole stage). Its parts (`stage::parts`) lay
-/// the CPU backdrop on the view's floor and the cartridge HUD on the view's
-/// screen — with the frame's tilt pinned to `0.0` (`pastime_scene` in
-/// `stage_frame`) so the pinhole render is not tipped twice. The parity is
-/// that Glass composes to the same pixels the flat path paints.
 #[test]
 fn a_fairground_duckshoot_stage_goes_out_in_parts_and_composes_to_its_frame() {
     use crate::rules::home::Home;
@@ -941,9 +838,6 @@ fn a_fairground_duckshoot_stage_goes_out_in_parts_and_composes_to_its_frame() {
         parts.compose().words() == whole.words(),
         "a take-over stage's parts put back its frame"
     );
-    // The scaffold is real: the stage goes out as a backdrop laid under
-    // the marks (`under` is set, `over` empty, no ground) rather than as
-    // one flat picture wrapped by `RoomScene::flat`.
     assert!(!parts.is_flat(), "the stage went out in parts, not as one picture");
     assert!(parts.under.is_some(), "the CPU backdrop is a laid-under layer");
     assert!(parts.over.is_none(), "the stage paints nothing over it");
@@ -959,11 +853,6 @@ fn a_fairground_duckshoot_stage_goes_out_in_parts_and_composes_to_its_frame() {
     );
 }
 
-/// Tier 3's particles: a downed duck throws a spark burst at its own screen
-/// rect, seen by a GPU window only. The CPU `RoomScene::compose()` does not
-/// read `emitters`, so parts-to-frame parity is unaffected; this test drives
-/// the runtime until a duck goes down and asserts both that the burst is
-/// there AND that the parity invariant still holds over the whole window.
 #[test]
 fn a_duckshoot_duck_that_goes_down_throws_sparks_and_keeps_its_frame() {
     use crate::render::overworld::arena::room_scene::Motes;
@@ -984,9 +873,6 @@ fn a_duckshoot_duck_that_goes_down_throws_sparks_and_keeps_its_frame() {
         Some(Game::DuckShoot),
         "the pad armed a DuckShoot round"
     );
-    // Down a rail's duck by hand so the burst is guaranteed on the very next
-    // frame — the shot-to-hit dance is the rules' concern, and already
-    // covered there; here we only need the render-side wiring.
     run.pastimes.round.as_mut().unwrap().duckshoot.as_mut().unwrap().ducks[1].down = 1;
     let parts = seat_scene(&run, w, h, Some(1));
     let whole = seat_frame(&run, w, h, Some(1));
@@ -1008,12 +894,6 @@ fn a_duckshoot_duck_that_goes_down_throws_sparks_and_keeps_its_frame() {
     assert!(e.rect[2] > 0.0 && e.rect[3] > 0.0, "burst rect has size");
 }
 
-/// Tier 3's drop-shadow plumbing: an active course marker (the Barrel's
-/// "next" flag) is emitted as a `Figure` with `height > 0.0`, so a Glass
-/// window draws a shadow under it. The lift is invisible to the CPU paths
-/// (`expand()` and `RoomScene::compose()` do not read `height`) so the
-/// parity gate stays green either way — this test just checks the plumbing
-/// reaches the figure.
 #[test]
 fn a_fairground_barrel_round_lifts_its_next_flag_off_the_deck() {
     use crate::rules::home::Home;
@@ -1045,11 +925,6 @@ fn a_fairground_barrel_round_lifts_its_next_flag_off_the_deck() {
     assert!(glowing >= 1, "the next flag adds light on the compositor ({glowing} glowing)");
 }
 
-/// Halfpipe is the plan's next take-over stage. If its room happens to be
-/// NATIVE-sized it goes out in parts and stays byte-exact; if not, it takes
-/// today's flat path — which must still compose to its own frame. The
-/// assertion is on the parity, not the split; the split is opportunistic
-/// (`takeover_parts`).
 #[test]
 fn a_mummers_halfpipe_round_still_composes_to_its_frame() {
     use crate::rules::home::Home;
@@ -1078,11 +953,6 @@ fn a_mummers_halfpipe_round_still_composes_to_its_frame() {
     );
 }
 
-/// Tier 3's particles on the Halfpipe: a landed trick (or a lip launch)
-/// throws a spark burst at the skater's own screen rect, seen by a GPU
-/// window only. The CPU `compose` does not read `emitters`, so parity is
-/// unaffected; this drives the runtime to `trick_sparkle > 0` and asserts
-/// both that a burst is there AND that the parts still put back the frame.
 #[test]
 fn a_mummers_halfpipe_landing_throws_sparks_and_keeps_its_frame() {
     use crate::render::overworld::arena::room_scene::Motes;
@@ -1122,11 +992,6 @@ fn a_mummers_halfpipe_landing_throws_sparks_and_keeps_its_frame() {
     );
 }
 
-/// Tier 2's third take-over: a Pasture Siege round fires, and the shot in
-/// the air is stood up as a lifted, glowing `Figure` so a GPU window
-/// shadows the arc. The split is opportunistic — the sprite only lifts once
-/// it clears the engine and the keep — but parity holds on every frame,
-/// whether the shot lifts that tick or stays baked into the backdrop.
 #[test]
 fn a_pasture_siege_round_stands_its_shot_up_and_composes_to_its_frame() {
     use crate::rules::home::Home;
@@ -1144,7 +1009,6 @@ fn a_pasture_siege_round_stands_its_shot_up_and_composes_to_its_frame() {
         Some(Game::Siege),
         "the pad armed a Siege round"
     );
-    // March the trail: one event, then mourn, until the walls.
     for _ in 0..(pastimes::EVENT_WAIT + pastimes::MOURN + 4) {
         run.tick_pastimes(&BTreeMap::new());
     }
@@ -1152,8 +1016,6 @@ fn a_pasture_siege_round_stands_its_shot_up_and_composes_to_its_frame() {
         run.pastimes.round.as_ref().unwrap().siege.as_ref().unwrap().fighting,
         "the first castle begins"
     );
-    // Dial aim and power to the top, one step a tick, then loose. The seat
-    // that owns the engine takes the controls (owner 2 here).
     let dials = BTreeMap::from([(
         2u32,
         Input { aim_y: 1, move_x: 1, ..Default::default() },
@@ -1163,8 +1025,6 @@ fn a_pasture_siege_round_stands_its_shot_up_and_composes_to_its_frame() {
     }
     let fire = BTreeMap::from([(2u32, Input { fire: true, ..Default::default() })]);
     run.tick_pastimes(&fire);
-    // Step the shot up into open sky; parity is the invariant, the lift is
-    // opportunistic and must show at least once along the arc.
     let mut lifted = 0;
     for _ in 0..14 {
         run.tick_pastimes(&BTreeMap::new());

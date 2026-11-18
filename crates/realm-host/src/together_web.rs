@@ -18,19 +18,11 @@ use angel_serve::ClientBundle;
 
 include!(concat!(env!("OUT_DIR"), "/delve_web.rs"));
 
-/// What the host lends the page: where a shipped folder sits and how a
-/// missing file is said.
 pub struct Places {
-    /// The shipped folder `place` (relative to the repository, as
-    /// `cockpit/assets/dungeon/music`), under the first root that has it.
     pub resource: fn(place: &str) -> Option<PathBuf>,
-    /// Say that a shipped file is missing: to the log, and to stderr when
-    /// that is not the screen the cockpit draws on.
     pub missing: fn(line: &str),
 }
 
-/// The page for a hosted delve's server with the music found where the
-/// package ships it (`together_audio`), or `None` in a build without one.
 pub fn shipped() -> Option<ClientBundle> {
     bundle(&Places {
         resource: crate::together_audio::resource,
@@ -38,7 +30,6 @@ pub fn shipped() -> Option<ClientBundle> {
     })
 }
 
-/// The page for a hosted delve's server, or `None` in a build without one.
 pub fn bundle(places: &Places) -> Option<ClientBundle> {
     let (index, files) = BUNDLE?;
     let mut files: Vec<(String, Vec<u8>, String)> = files
@@ -70,9 +61,6 @@ pub fn bundle(places: &Places) -> Option<ClientBundle> {
     })
 }
 
-/// Every file in `dir` as `<prefix><file>`, added to `files`; their entries
-/// in the sounds manifest (`"name":"{{asset:name.ext}}"`), in name order. A
-/// file the page could not name, or that cannot be read, is left out.
 fn add_folder(
     dir: &Path,
     prefix: &str,
@@ -116,12 +104,8 @@ fn add_folder(
 #[cfg(test)]
 mod tests;
 
-/// Admit one browser generation without reading directories or compressing on
-/// the session frame. Lookup configuration is fixed now; source bytes become
-/// immutable only inside the worker, before the first page can be served.
 pub fn shipped_prepared() -> std::io::Result<Option<angel_serve::http::PreparedAssets>> {
     if BUNDLE.is_none() { return Ok(None); }
-    // The tests of a process share its two generations: whoever admits one holds `tests::browser_capacity()`.
     #[cfg(test)]
     assert!(crate::tests::capacity_held(), "a test that admits a browser generation holds `tests::browser_capacity()`");
     crate::lend_source_tree();
@@ -187,10 +171,8 @@ fn capture_with_hook(roots: &[PathBuf], cancel: &std::sync::atomic::AtomicBool, 
         folders.push((dir.clone(), source_stamp(std::fs::metadata(&dir)?)?));
         let mut paths = Vec::new();
         for (i, entry) in entries.enumerate() {
-            // Bound directory traversal too, including rejected/non-file entries.
             check(i + 1, 0, total)?;
             let Ok(entry) = entry else { continue; };
-            // Match shipped bundle policy: symlinks to regular files count.
             if entry.path().is_file() { paths.push(entry.path()); }
         }
         paths.sort();
@@ -222,9 +204,6 @@ fn capture_with_hook(roots: &[PathBuf], cancel: &std::sync::atomic::AtomicBool, 
             files.push((file, bytes, mime));
         }
     }
-    // A changed directory or read source never publishes a mixed manifest.
-    // This detects ordinary writes/replacements during capture; publishers that
-    // deliberately restore metadata must use an immutable version directory.
     for (path, stamp) in observed {
         if source_stamp(std::fs::metadata(path)?)? != stamp { return Err(std::io::Error::other("browser source changed during capture")); }
     }

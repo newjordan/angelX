@@ -16,10 +16,6 @@ use super::*;
 
 pub type Inputs = BTreeMap<u32, Input>;
 
-/// The parts of the host's realm a game pays into at the save: the
-/// Undercroft as built, the treasury, and what the realm has won. The host
-/// lends them (`settle_all`); the realm itself, and its save, are the
-/// host's.
 pub struct Realm<'a> {
     pub home: &'a mut home::Home,
     pub treasury: &'a mut Spoils,
@@ -27,8 +23,6 @@ pub struct Realm<'a> {
     pub raids_won: u32,
 }
 
-/// What settling a game into the realm did: whether the realm changed, and
-/// what is said about it (cue, line).
 #[derive(Default)]
 pub struct Settled {
     pub changed: bool,
@@ -37,28 +31,17 @@ pub struct Settled {
 
 pub struct Activity {
     pub name: &'static str,
-    /// Whether it is under way in this run now.
     pub on: fn(&Run) -> bool,
-    /// A ride's tick: it plays, then gives the keys the rest of the tick
-    /// sees (None: everyone's, as they came). Only called while `on`.
     pub ride: Option<fn(&mut Run, &Inputs) -> Option<Inputs>>,
-    /// Everything else's tick, at its place in the step; a game whose state
-    /// is absent does nothing.
     pub tick: fn(&mut Run, &Inputs),
-    /// It is over: its state cleared.
     pub end: fn(&mut Run),
-    /// Ended when a knight's view leaves its room (`Run::clear_activity`).
     pub ends_outside: bool,
-    /// What it pays into the realm at the save.
     pub settle: Option<fn(&mut Realm<'_>, &BTreeMap<String, u32>) -> Settled>,
-    /// The `Run` fields that hold it.
     pub fields: &'static [&'static str],
 }
 
 fn idle(_: &mut Run, _: &Inputs) {}
 
-/// Rides take the keys of the knights they seat. The first one under way
-/// rides this tick.
 pub static RIDES: &[Activity] = &[
     Activity {
         name: "Pennon Rush", on: |run| run.room().kind == RoomKind::Muster,
@@ -76,16 +59,10 @@ pub static RIDES: &[Activity] = &[
             Settled { changed, said: if changed { vec![("forest".into(), "Siege campaign begun. Old Oak stands by the Dark Forest.".into())] } else { vec![] } }
         }), fields: &["forest_road"],
     },
-    // The Round Table adventures: each its own entry, in its own module.
-    // Lanternward
     lanternward::ACTIVITY,
-    // Moonfall
     moonfall::ACTIVITY,
-    // Bannerpeak
     bannerpeak::ACTIVITY,
-    // Griffinwing
     griffinwing::ACTIVITY,
-    // Lightgallop
     lightgallop::ACTIVITY,
     knight_racers::ACTIVITY,
     deathmatch::ACTIVITY,
@@ -148,18 +125,15 @@ pub static RIDES: &[Activity] = &[
         ends_outside: true,
         settle: Some(|realm, marks| {
             let mut settled = Settled::default();
-            // The stables and the lists: the saddled mount, the tending, bouts.
             settled.said = joust::settle_stable(&mut realm.home.stable, marks);
             settled.changed = marks
                 .keys()
                 .any(|m| m.starts_with("joust:") || m.starts_with("stable:"));
-            // The horse market's pens: paid from the realm's own purse.
             settled.said.extend(joust::settle_market(
                 &mut realm.home.stable,
                 realm.treasury,
                 marks,
             ));
-            // The lists' lost entries and wagers: paid from the realm's purse.
             let lists = joust::settle_lists(realm.treasury, marks);
             settled.changed |= !lists.is_empty();
             settled.said.extend(lists);
@@ -173,8 +147,6 @@ pub static RIDES: &[Activity] = &[
         ride: Some(|run, inputs| {
             run.tick_hippodrome_race(inputs);
             if run.race3d_showing() { return Some(BTreeMap::new()); }
-            // Every driver's keys are the race's: the one who boarded and
-            // each friend at the reins of a rival team.
             run.chariot.as_ref().map(|c| {
                 let seated: Vec<u32> = c.seats().into_iter().map(|(seat, _)| seat).collect();
                 joust::reins_all(inputs, &seated)
@@ -184,7 +156,6 @@ pub static RIDES: &[Activity] = &[
         end: |run| run.chariot = None,
         ends_outside: true,
         settle: Some(|realm, marks| {
-            // A herd horse's record, and its purse.
             let (said, purse) = chariot::settle_chariot(&mut realm.home.stable, marks);
             let mut changed = !said.is_empty();
             if purse > 0 {
@@ -200,7 +171,6 @@ pub static RIDES: &[Activity] = &[
     Activity {
         name: "a race hall",
         on: Run::race3d_showing,
-        // The keys drive the race, and the knights stand still in the hall.
         ride: Some(|run, inputs| {
             run.tick_race3d(inputs);
             Some(BTreeMap::new())
@@ -213,8 +183,6 @@ pub static RIDES: &[Activity] = &[
     },
 ];
 
-/// The follies and the room's own small games, ticked in this order where
-/// the step reaches them.
 pub static FOLLIES: &[Activity] = &[
     Activity {
         name: "the wish altar",
@@ -316,9 +284,6 @@ pub static FOLLIES: &[Activity] = &[
         settle: None,
         fields: &[],
     },
-    // A hall's dealt game (`encounter`): its clock and purse tick in the step
-    // (`Run::tick_encounter`), after the game's own, so this only registers
-    // it for the wire and the settle.
     Activity {
         name: "a room's game",
         on: |run| run.encounter.is_some(),
@@ -341,7 +306,6 @@ pub static FOLLIES: &[Activity] = &[
     },
 ];
 
-/// A place's own game, found by its room: the first whose `on` holds.
 const fn place(
     name: &'static str,
     on: fn(&Run) -> bool,
@@ -363,8 +327,6 @@ fn in_room(run: &Run, kind: RoomKind) -> bool {
     run.room().kind == kind
 }
 
-/// The Undercroft's rooms (`Run::tick_home`): the first whose room the party
-/// stands in plays, and the stair's own landing plays when none does.
 pub static HOME_ROOMS: &[Activity] = &[
     place("Fortune's wheel", |run| in_room(run, RoomKind::Fortune), |run, inputs| {
         run.tick_fortune(inputs)
@@ -403,10 +365,8 @@ pub static HOME_ROOMS: &[Activity] = &[
     }),
 ];
 
-/// The world's rooms (`Run::tick_world`), every one that is on, in order.
 pub static WORLD: &[Activity] = &[
     place("the kingdom", |_| true, |run, inputs| run.tick_kingdom(inputs)),
-    // The Deep's raids on the works, at night (`deep_raid`).
     place("the Deep's raids", |run| run.room().kind == RoomKind::Kingdom, |run, _| run.tick_raids()),
     place("the stables", |run| in_room(run, RoomKind::Stables), |run, inputs| {
         run.tick_stables(inputs)
@@ -418,14 +378,11 @@ pub static WORLD: &[Activity] = &[
         run.tick_countryside(inputs)
     }),
     place("the pastimes", |_| true, |run, inputs| run.tick_pastimes(inputs)),
-    // The works' signs on Bomrekedan's levels (`world::bomrekedan::works`).
     place("the works of Bomrekedan", |run| world::bomrekedan::is_level(run.room().kind), |run, inputs| {
         run.tick_bom_works(inputs)
     }),
 ];
 
-/// The realm's standing places, ticked every step in this order, and what
-/// they pay into the realm at the save.
 pub static PLACES: &[Activity] = &[
     Activity {
         settle: Some(|realm, marks| squires::settle(&mut realm.home.squires, realm.treasury, marks)),
@@ -445,19 +402,14 @@ pub static PLACES: &[Activity] = &[
         settle: Some(super::reclaim::settle),
         ..place("the reclaiming", |_| true, |run, inputs| run.tick_reclaim(inputs))
     },
-    // The forges' fires banked and stoked, and the goods they make.
     Activity {
         settle: Some(super::goods::settle),
         ..place("the forges", |_| true, |run, inputs| run.tick_goods(inputs))
     },
-    // The safe room's brazier and the weapons locker (`freedom`).
     place("the wishing spots", |run| run.freedom_spot().is_some(), |run, inputs| run.tick_freedom(inputs)),
-    // A shooting star over a quiet room, and its fallen shard (`starfall`).
     place("the falling stars", |run| run.starfall.star.is_some(), |run, inputs| run.tick_starfall(inputs)),
     Activity {
         settle: Some(|realm, marks| {
-            // The Court of Deeds: holdings bought, built, staffed, chartered
-            // and their rents collected, from the realm's own purse.
             let yards = realm.home.stable.yards.clone();
             let reclaimed = realm.reclaimed.clone();
             let mut changed = holdings::note_realm(&mut realm.home.holdings, &reclaimed, &yards);
@@ -473,7 +425,6 @@ pub static PLACES: &[Activity] = &[
     place("Labyrinth College", |_| true, |run, inputs| run.tick_college(inputs)),
     Activity {
         settle: Some(|realm, marks| {
-            // The horse ranch: a herd mare brought to Helios, the fee, the roll.
             let raids = realm.raids_won;
             let (changed, said) = ranch::settle(
                 &mut realm.home.ranch,
@@ -491,8 +442,6 @@ pub static PLACES: &[Activity] = &[
     },
     Activity {
         settle: Some(|realm, marks| {
-            // The Swamp of Horrors: the notice read, and the white horse
-            // into the herd once she is out of the pen.
             let (changed, said) = swamp::settle(
                 &mut realm.home.countryside,
                 &mut realm.home.stable,
@@ -512,7 +461,6 @@ pub static PLACES: &[Activity] = &[
     },
 ];
 
-/// Every registered game and place.
 pub fn all() -> impl Iterator<Item = &'static Activity> {
     RIDES
         .iter()
@@ -523,29 +471,23 @@ pub fn all() -> impl Iterator<Item = &'static Activity> {
 }
 
 impl Run {
-    /// The ride under way, if any, plays its tick; the keys the rest of the
-    /// step sees.
     pub(super) fn ride(&mut self, inputs: &Inputs) -> Option<Inputs> {
         let ride = RIDES.iter().find(|a| (a.on)(self))?;
         (ride.ride?)(self, inputs)
     }
 
-    /// The follies' ticks, in order.
     pub(super) fn tick_follies(&mut self, inputs: &Inputs) {
         for folly in FOLLIES {
             (folly.tick)(self, inputs);
         }
     }
 
-    /// The realm's places' ticks, in order.
     pub(super) fn tick_places(&mut self, inputs: &Inputs) {
         for place in PLACES {
             (place.tick)(self, inputs);
         }
     }
 
-    /// The Undercroft room the party stands in plays; true when one did
-    /// (the stair's landing plays otherwise).
     pub(super) fn tick_home_room(&mut self, inputs: &Inputs) -> bool {
         match HOME_ROOMS.iter().find(|a| (a.on)(self)) {
             Some(room) => {
@@ -556,7 +498,6 @@ impl Run {
         }
     }
 
-    /// Every one of the world's games that is on, in order.
     pub(super) fn tick_world_games(&mut self, inputs: &Inputs) {
         for game in WORLD {
             if (game.on)(self) {
@@ -565,20 +506,17 @@ impl Run {
         }
     }
 
-    /// End every game that ends when a view leaves its room.
     pub(super) fn end_outside_activities(&mut self) {
         for activity in all().filter(|a| a.ends_outside) {
             (activity.end)(self);
         }
     }
 
-    /// The names of the games under way now.
     pub fn activities_on(&self) -> Vec<&'static str> {
         all().filter(|a| (a.on)(self)).map(|a| a.name).collect()
     }
 }
 
-/// Settle every game into the realm, in registry order.
 pub fn settle_all(realm: &mut Realm<'_>, marks: &BTreeMap<String, u32>) -> Settled {
     let mut all_settled = Settled::default();
     for settle in all().filter_map(|a| a.settle) {

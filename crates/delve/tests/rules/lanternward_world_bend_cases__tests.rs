@@ -17,7 +17,6 @@ impl Lcg {
     }
 }
 
-/// A coordinate of every magnitude the game meets: tiny, a room's worth, huge.
 fn coord(g: &mut Lcg, i: usize) -> i32 {
     match i % 5 {
         0 => g.range(-4, 4) as i32,
@@ -43,7 +42,6 @@ fn record_lanternward_world() {
         cases::rec("lanternward.world.isqrt", &json!({"n": n}), &isqrt(n));
         let shift = g.range(0, 4) as usize;
         let (dx, dy) = (coord(&mut g, i), coord(&mut g, i + shift));
-        // the sum of two squares stays under i64::MAX in the game
         let (dx, dy) = (dx / 2, dy / 2);
         cases::rec("lanternward.world.dist", &json!({"dx": dx, "dy": dy}), &dist(dx, dy));
         cases::rec("lanternward.world.unit", &json!({"dx": dx, "dy": dy}), &unit(dx, dy));

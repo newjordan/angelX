@@ -6,7 +6,6 @@ use crate::agent::harness::live_policy::{self, LegSource};
 
 const HEAD_CHARS: usize = 2000;
 
-/// The user message the turn answers, fixed for every hop of the turn.
 pub(super) struct TaskHead {
     head: String,
     len: usize,
@@ -21,20 +20,15 @@ impl TaskHead {
     }
 }
 
-/// What the turn has seen so far, as the leg's cheap per-hop facts.
 pub(super) struct Hop {
     pub(super) index: usize,
     pub(super) friction: bool,
     pub(super) tool_errors: u64,
     pub(super) failed_checks: usize,
-    /// The last hop's verifier came back red.
     pub(super) red: bool,
-    /// The silent-repeat guard spoke after the last hop.
     pub(super) stuck: bool,
 }
 
-/// The verifier reds the leg has already been told about, so a red is a fact
-/// for the one hop after it and the next hop returns to the native effort.
 #[derive(Default)]
 pub(super) struct RedSeen(usize);
 
@@ -51,9 +45,6 @@ struct Choice {
     effort: Option<String>,
 }
 
-/// The effort for the coming request: `native` (`None` leaves the seat's own
-/// configured effort), unless the live leg chose a different accepted level.
-/// A seat with no effort levels is never consulted.
 pub(super) fn decide(
     registry: &ToolRegistry,
     club: &dyn Club,
@@ -98,8 +89,6 @@ pub(super) fn decide(
     (effort, Some(source))
 }
 
-/// The receipt strings: the source with its generation prefix, and the reason
-/// a live generation was set aside.
 pub(super) fn receipt(source: &LegSource) -> (String, Option<String>) {
     let prefix = |digest: &str| digest.chars().take(8).collect::<String>();
     match source {

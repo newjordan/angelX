@@ -1,9 +1,3 @@
-// The wire decoder's fuzz check: stage.js reads frames from a socket,
-// so every byte is untrusted. Mutations of a valid frame (and pure
-// garbage) must fail closed — draw() returns false or draws, never
-// throws — and structurally lying headers must be refused.
-//
-//   node crates/web/probe/stage-fuzz.mjs
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -59,8 +53,6 @@ check('npics lies high', frame({ npicsOverride: 5 }), false);
 check('nquads lies high', frame({ nquadsOverride: 100000 }), false);
 check('zero-size picture', frame({ pics: [[5, 0, 1, []]] }), false);
 
-// Mutations: any bit of a valid frame may flip on the wire. Whatever
-// still parses must draw; whatever does not must refuse. Never throw.
 const valid = frame({ pics: [[5, 2, 2, [...Array(16).keys()]]], nquads: 2 });
 let state = 0x2545f491;
 const rnd = () => { state = (Math.imul(state, 1103515245) + 12345) >>> 0; return state / 4294967296; };

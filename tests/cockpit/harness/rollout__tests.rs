@@ -590,8 +590,6 @@ fn ordinary_tool_schema_metadata_is_captured_without_cross_field_secret_matches(
     assert_eq!(captured[0]["params"], definitions[0].params);
     assert_eq!(captured[0]["description"], definitions[0].description);
 
-    // Structured/escaped transport credentials still trigger rejection, and
-    // exact identity survives rejection. These are owned dummy credentials.
     for text in [
         "https://fixture-user:fixture-pass@localhost/path",
         "curl --token fixture-value",
@@ -660,8 +658,6 @@ fn secret_tool_schema_remains_excluded_and_auditable_without_storing_body() {
                 detail_sha256: None,
             }
         );
-        // Recorder and independent audit must agree even when only the schema
-        // contains a secret. Excluded evidence still needs an auditable receipt.
         audit_store_rollout_receipt(&store, &id, &project().repo_key).unwrap();
         assert!(export_store_rollout_v2(&store, &id, &project().repo_key).is_err());
         std::fs::remove_dir_all(root).unwrap();
@@ -1223,8 +1219,6 @@ fn task_reward_ownership_probe(task: bool, provider_error: bool) {
         }
         fn chat(&self, _: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
             let external = crate::agent::harness::eval_owns_label();
-            // cfg(test) disables post-write auto-verification. Exercise its exact
-            // recorder attachment seam in the real task thread's ownership scope.
             let store = RolloutStore::new(self.root.clone());
             let mut recorder =
                 RolloutRecorder::start_for_test(store.clone(), CaptureMode::Local, project())
@@ -1431,8 +1425,6 @@ fn auxiliary_body_free_receipt_preserves_sealed_coverage_and_rejects_manifest_re
                 0,
                 "the supported writer must preserve the sealed manifest"
             );
-            // Owned tamper fixture: bypass the immutable writer and recompute
-            // the manifest's own digest. Journal binding must still reject it.
             manifest.manifest_sha256 = None;
             manifest.manifest_sha256 = Some(crate::knowledge::cut::sha256_hex(
                 &serde_json::to_vec(&manifest).unwrap(),
@@ -1549,7 +1541,6 @@ fn coding_eval_reward_requires_current_passed_typed_receipt_and_exports() {
             name: "run_tests".into(),
             args: serde_json::json!({}),
         };
-        // A prior pass must not survive a later failed/inconclusive verifier.
         recorder.observe_task_verifier(
             &call,
             ToolOutcome {
@@ -1615,7 +1606,6 @@ fn coding_eval_reward_requires_current_passed_typed_receipt_and_exports() {
             );
             assert_eq!(evidence.task_binding_sha256, binding.binding_sha256);
             assert_eq!(audit.manifest.eligibility, TrainingEligibility::Eligible);
-            // Tampering with the task subject must not pass evidence validation.
             let other = TaskRolloutBindingV1::new(
                 Some("other".into()),
                 None,
@@ -1634,9 +1624,6 @@ fn coding_eval_reward_requires_current_passed_typed_receipt_and_exports() {
     }
 }
 
-/// What a persisted rollout records for each turn stop reason. Flags are
-/// passed through as given; only `kind` and the infrastructure marker are
-/// derived, and every reason without its own kind lands on `policy_guard`.
 #[test]
 fn termination_kind_for_every_stop_reason_is_pinned() {
     let table = [

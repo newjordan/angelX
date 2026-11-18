@@ -1,25 +1,7 @@
 use super::*;
-/// Prefix for harness-authored runtime commentary (error/spin/churn/false-start
-/// nudges) that is pushed into live history. Live turns see these messages in the
-/// tail, but the compaction summarizer must not — transient failure chatter must
-/// never become a durable "open thread" that later reads as evidence the harness
-/// is broken. [`render_transcript`] drops any message whose (whitespace-trimmed)
-/// content starts with this mark. Baked into the nudge consts below so the pushed
-/// message carries it; the tests pin every nudge string against it.
 pub(crate) const TELEMETRY_MARK: &str = "[harness-telemetry] ";
-/// The boundary a metered-input receipt reports: whole millions of tokens.
 const SOTA_INPUT_MILESTONE_TOKENS: u64 = 1_000_000;
 
-// -- The authored leg -------------------------------------------------------
-//
-// Every decision below is the `reasoning` leg: `cockpit/live/reasoning`
-// (`reasoning.bend`) when a hot generation is active, else the generation
-// compiled into this binary. The Rust ladder that used to answer these is the
-// parity oracle in this module's tests and nothing else. Rust keeps only the
-// text work (which model identities are GLM-locked) and hands the leg numbers,
-// booleans and the seat's own level list.
-
-/// The shipped Bend leg that answers every decision below.
 const LEG: &str = "reasoning";
 
 #[derive(serde::Deserialize)]
@@ -37,8 +19,6 @@ struct Budget {
     expired: bool,
 }
 
-/// The contract a milestone answer must satisfy: `None` or a whole-million
-/// boundary.
 fn milestone_check(milestone: &Milestone) -> Result<(), String> {
     match milestone.tokens {
         Some(tokens) if tokens == 0 || tokens % SOTA_INPUT_MILESTONE_TOKENS != 0 => {
@@ -48,10 +28,6 @@ fn milestone_check(milestone: &Milestone) -> Result<(), String> {
     }
 }
 
-/// The contract an effort answer must satisfy: `None` or a level this seat
-/// accepts. `pin` is the configured wire spelling the ladder passes through
-/// untouched, admitted only on the hops that can answer it (intake and
-/// friction), so a clean hop cannot pin itself there.
 fn effort_check<'a>(
     levels: &'a [String],
     pin: Option<&'a str>,
@@ -67,8 +43,6 @@ fn effort_check<'a>(
     }
 }
 
-/// The adaptive ladder through the leg. A seat with no effort levels is never
-/// consulted: no rung exists to choose.
 pub(crate) fn adaptive_effort(club: &dyn Club, hop: usize, has_friction: bool) -> Option<String> {
     let levels = club.reasoning_levels();
     if levels.is_empty() {
@@ -91,8 +65,6 @@ pub(crate) fn adaptive_effort(club: &dyn Club, hop: usize, has_friction: bool) -
     choice.effort
 }
 
-/// The locked-seat burn demotion through the leg. Which model identities are
-/// GLM-locked is text work and stays here as one boolean feature.
 pub(crate) fn burn_demotion(
     club: &dyn Club,
     cumulative_reasoning: u64,
@@ -119,7 +91,6 @@ pub(crate) fn burn_demotion(
     choice.effort
 }
 
-/// The metered-input milestone through the leg.
 pub(crate) fn input_milestone(previous: u64, current: u64) -> Option<u64> {
     let input = serde_json::json!({
         "op": "milestone",
@@ -131,8 +102,6 @@ pub(crate) fn input_milestone(previous: u64, current: u64) -> Option<u64> {
     milestone.tokens
 }
 
-/// The turn's wall-clock budget through the leg. Both booleans are in contract,
-/// so the check admits either answer.
 pub(crate) fn budget_expired(elapsed_secs: u64, budget_secs: usize) -> bool {
     let input = serde_json::json!({
         "op": "budget",
@@ -144,8 +113,6 @@ pub(crate) fn budget_expired(elapsed_secs: u64, budget_secs: usize) -> bool {
     answer.expired
 }
 
-/// The native ladder the shipped leg must reproduce; other test modules still
-/// ask it directly for their own ladders.
 #[cfg(test)]
 pub(crate) use self::tests::{
     crossed_sota_input_milestone, resolve_adaptive_reasoning_effort, turn_expired,

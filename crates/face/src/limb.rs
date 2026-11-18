@@ -13,32 +13,23 @@ use angel_stage::scene::{
 use crate::glb::{GPrimitive, Gltf};
 use crate::model::{Joint, rest_worlds};
 
-/// Which limb.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum LimbKind {
     Arm,
     Leg,
 }
 
-/// A limb, posed, at rest length, in its own frame: +X from root to tip,
-/// +Y up across it (the thumb's side, the front of the leg), +Z toward the
-/// eye.
 #[derive(Clone, Debug)]
 pub struct Limb {
     pub kind: LimbKind,
     pub mesh: MeshData,
-    /// Where its stretchable length ends (the wrist, the ankle), and where
-    /// its tip is (the index fingertip, the toe), along X.
     pub reach: f32,
     pub tip: f32,
-    /// The farthest it reaches across X: half the strip it needs.
     pub radius: f32,
 }
 
-/// How long a stretch of the root dissolves (meters).
 const ROOT_FADE: f32 = 0.09;
 
-/// The joints of each limb, root first, and its wrist (or ankle) and tip.
 struct Chain {
     joints: &'static [&'static str],
     root: &'static str,
@@ -93,7 +84,6 @@ fn unit(v: [f32; 3]) -> [f32; 3] {
     let l = dot(v, v).sqrt().max(1e-9);
     [v[0] / l, v[1] / l, v[2] / l]
 }
-/// `v` with its part along `along` (a unit vector) taken out, made unit.
 fn across(v: [f32; 3], along: [f32; 3]) -> [f32; 3] {
     let k = dot(v, along);
     unit([
@@ -114,7 +104,6 @@ fn smooth(x: f32) -> f32 {
     x * x * (3.0 - 2.0 * x)
 }
 
-/// A joint's world rotation at rest: its chain's rotations composed.
 fn rest_rotation(joints: &[Option<Joint>], mut i: usize) -> [f32; 4] {
     let mut chain = Vec::new();
     while let Some(j) = joints.get(i).and_then(|j| j.as_ref()) {
@@ -129,9 +118,6 @@ fn rest_rotation(joints: &[Option<Joint>], mut i: usize) -> [f32; 4] {
     })
 }
 
-/// Cut `kind` from the avatar's meshes (`sources`: the body, and what it
-/// wears over the parts the body leaves out: MPFB deletes the skin under
-/// clothes, so a leg is the trousers' and a foot the body's).
 pub fn cut(
     file: &Gltf,
     sources: &[&GPrimitive],
@@ -149,12 +135,7 @@ pub fn cut(
     let at = |name: &str| -> Option<[f32; 3]> {
         rest.get(node(name)?)?.map(|m| [m[3][0], m[3][1], m[3][2]])
     };
-    // Its pose: each turn a world-axis rotation in the rest frame, the
-    // joint's local rotation then conj(W_parent) * turn * W_joint (turns so
-    // made compose down a chain as they should).
     let mut turns: Vec<(usize, [f32; 4])> = Vec::new();
-    // Turn joint `name` by `angle` so its bone (toward `next`) swings
-    // toward `toward`.
     let curl =
         |name: &str, toward: [f32; 3], angle: f32, next: &str| -> Option<(usize, [f32; 4])> {
             let dir = unit(sub(at(next)?, at(name)?));
@@ -182,7 +163,6 @@ pub fn cut(
                 ];
                 turns.extend(curl(&names[0], palm, angles[0], &names[1]));
                 turns.extend(curl(&names[1], palm, angles[1], &names[2]));
-                // The last joint has no child: it bends as the one before it.
                 let dir = unit(sub(at(&names[2])?, at(&names[1])?));
                 turns.push((
                     node(&names[2])?,
@@ -190,7 +170,6 @@ pub fn cut(
                 ));
             }
             turns.extend(curl("LeftHandIndex1", palm, 0.06, "LeftHandIndex2"));
-            // The wrist turned so the pointing finger runs on along the arm.
             let finger = unit(sub(at("LeftHandIndex3")?, at("LeftHandIndex1")?));
             let arm = unit(sub(hand, at("LeftArm")?));
             let bend = dot(finger, arm).clamp(-1.0, 1.0).acos();
@@ -242,7 +221,6 @@ pub fn cut(
             .map(|m| [m[3][0], m[3][1], m[3][2]])
     };
 
-    // Its vertices: those the limb's joints pull most.
     let members: Vec<usize> = chain.joints.iter().filter_map(|n| node(n)).collect();
     let mine = |body: &GPrimitive, v: usize| -> bool {
         let (j, w) = (body.joints.get(v), body.weights.get(v));
@@ -255,7 +233,6 @@ pub fn cut(
             .is_some_and(|n| members.contains(n))
     };
 
-    // Its frame, posed: X from root to wrist (ankle), Y up across it.
     let root = posed_at(chain.root)?;
     let x = unit(sub(posed_at(chain.end)?, root));
     let y = match kind {
@@ -312,7 +289,6 @@ pub fn cut(
             ));
         }
     }
-    // Its root dissolves from where its mesh begins.
     let start = mesh
         .positions
         .iter()
@@ -333,7 +309,6 @@ pub fn cut(
         eprintln!("angelface: her {kind:?} has no triangles of its own");
         return None;
     }
-    // The whole of it, then the band that dissolves (when it has one).
     mesh.groups = vec![(0, solid.len() as u32)];
     if !band.is_empty() {
         mesh.groups.push((solid.len() as u32, band.len() as u32));
@@ -364,9 +339,6 @@ pub fn cut(
 }
 
 impl Limb {
-    /// The limb stretched so its tip lies at `tip` (meters from its root):
-    /// its length between root and wrist (ankle) drawn out, the hand
-    /// (foot) beyond kept as it is. Never shorter than at rest.
     pub fn stretched(&self, tip: f32) -> MeshData {
         let k = (1.0 + (tip - self.tip) / self.reach.max(1e-3)).max(1.0);
         let mut mesh = self.mesh.clone();
@@ -384,7 +356,6 @@ impl Limb {
         mesh
     }
 
-    /// Its tip once stretched to `tip`: `tip`, or its rest tip if longer.
     pub fn tip_at(&self, tip: f32) -> f32 {
         tip.max(self.tip)
     }

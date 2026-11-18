@@ -11,14 +11,11 @@ const CELL: f32 = 24.0;
 #[derive(Clone, Copy, Debug)]
 pub struct Sample { pub x: f32, pub y: f32, pub s: f32, pub h: f32, pub wl: f32, pub wr: f32, pub th: f32 }
 
-/// The road nearest a world point.
 #[derive(Clone, Copy, Debug)]
 pub struct Near {
     pub s: f32,
     pub dist: f32,
-    /// Road height there.
     pub h: f32,
-    /// Half-width of the road on the point's own side.
     pub edge: f32,
 }
 
@@ -40,7 +37,6 @@ impl RoadIndex {
             cells.entry(Self::cell(x, y)).or_default().push(k as u32);
             samples.push(Sample { x, y, s, h: r.height(s), wl, wr, th });
         }
-        // The forks too: the land must lie under their roads as it lies under the main one.
         for (i, f) in r.forks().iter().enumerate() {
             let n = (((f.s1 - f.s0) / SPACING).ceil() as usize).max(2);
             for k in 0..=n {
@@ -55,7 +51,6 @@ impl RoadIndex {
 
     fn cell(x: f32, y: f32) -> (i32, i32) { ((x / CELL).floor() as i32, (y / CELL).floor() as i32) }
 
-    /// The nearest road within `reach` metres (rounded up to whole cells), if any.
     pub fn nearest(&self, x: f32, y: f32, reach: f32) -> Option<Near> {
         let (cx, cy) = Self::cell(x, y);
         let rings = (reach / CELL).ceil() as i32;
@@ -78,7 +73,6 @@ impl RoadIndex {
     }
 }
 
-/// The index of `r`, built once per course.
 pub fn of(r: &dyn Route) -> &'static RoadIndex {
     static ALL: OnceLock<Mutex<HashMap<u32, &'static RoadIndex>>> = OnceLock::new();
     let mut all = ALL.get_or_init(Default::default).lock().unwrap();

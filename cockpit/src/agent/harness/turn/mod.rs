@@ -24,10 +24,6 @@ use tools_in_flight::ToolsInFlight;
 pub(crate) use reasoning::*;
 pub(crate) use verify::*;
 
-/// The unproductive streak never ends a turn: it gives the model a notice.
-/// Returns the hop count at which the notice fires (0 = never).
-/// Unproductive hops at which the redirect is given (`⠇⠛⠉`): the 0.1.6 task
-/// value of `ANGEL_UNPRODUCTIVE_STREAK_STOP`, whose stop is gone.
 pub(crate) const UNPRODUCTIVE_REDIRECT_HOPS: usize = 16;
 
 fn configured_unproductive_escalate(metered_sota: bool, competition: bool) -> usize {
@@ -35,9 +31,6 @@ fn configured_unproductive_escalate(metered_sota: bool, competition: bool) -> us
     env_usize("ANGEL_UNPRODUCTIVE_STREAK_ESCALATE", 8)
 }
 
-/// Build the one compact telemetry snapshot written at each turn exit. A
-/// constructor macro keeps the field mapping centralized without turning an
-/// expanding metrics record into a long positional function interface.
 macro_rules! turn_counters {
     (
         $markup_replies:expr_2021,
@@ -113,8 +106,6 @@ pub fn run_turn(
         .map_err(|failure| failure.message)
 }
 
-/// Machine-readable reason a turn stopped. The ordinary [`run_turn`] API keeps
-/// returning only answer/error strings; headless evaluators use this metadata.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum TurnStopReason {
     Answer,
@@ -146,9 +137,6 @@ impl TurnStopReason {
     }
 }
 
-/// The three booleans that ride beside `stop_reason` on a turn's result, in the
-/// task JSON and in the persisted records. `stop_reason` is the authority; these
-/// are its projection, kept for readers that predate it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct StopFlags {
     pub(crate) interrupted: bool,
@@ -165,11 +153,6 @@ impl StopFlags {
 }
 
 impl TurnStopReason {
-    /// The one table: the flags every constructor in this file reports for
-    /// this reason. `interrupted` means the turn was cut short rather than
-    /// answered or failed. `None` for `IdleTimeout`, which no constructor
-    /// builds: the idle watchdog re-labels a turn that was already ending some
-    /// other way, and the flags stay that turn's (see [`Retag::IdleTimeout`]).
     pub(crate) fn flags(self) -> Option<StopFlags> {
         let flags = |interrupted, deadline_reached, max_hops_reached| {
             Some(StopFlags {
@@ -192,18 +175,9 @@ impl TurnStopReason {
     }
 }
 
-/// A late verdict the turn wrapper stamps over a turn that already ended. Both
-/// change the reason and keep part of what the ended turn reported, so each
-/// says exactly which part.
 #[derive(Clone, Copy, Debug)]
 enum Retag {
-    /// An owned process was killed for the operator's cancel: the turn reads
-    /// as an interrupt. `interrupted` becomes true; the deadline and max-hops
-    /// flags stay as the ended turn had them.
     OperatorKill,
-    /// The idle watchdog fired. Every flag stays as the ended turn had it, so
-    /// `interrupted` is true when the turn came back as a stopped outcome and
-    /// false when it came back as a failure (a cancelled provider wait).
     IdleTimeout,
 }
 
@@ -233,15 +207,12 @@ pub(crate) struct TurnOutcome {
     pub(crate) stop_notice: Option<String>,
     pub(crate) stop_reason: TurnStopReason,
     pub(crate) hops: usize,
-    /// The three flags project `stop_reason` (see [`TurnStopReason::flags`]).
     pub(crate) interrupted: bool,
     pub(crate) deadline_reached: bool,
     pub(crate) max_hops_reached: bool,
     pub(crate) acceptance: Option<TaskAcceptanceTelemetry>,
     pub(crate) rollout_id: Option<String>,
     pub(crate) timing: Option<TaskTimingTelemetry>,
-    /// One entry per dispatched tool call (hop, tool, exec, err, class, verify,
-    /// ms, bytes) — the same ledger the trajectory record carries.
     pub(crate) tools: Vec<serde_json::Value>,
 }
 
@@ -260,9 +231,6 @@ pub(crate) struct TaskAcceptanceTelemetry {
     pub(crate) last_post_result: Option<&'static str>,
     pub(crate) terminal_passed: bool,
     pub(crate) completion_source: &'static str,
-    /// Present only when a media/rendered requirement is in force. Independent
-    /// of `terminal_passed` (unit/build/accept_cmd evidence). Model prose and
-    /// arbitrary repo JSON cannot promote this field.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) rendered_output: Option<RenderedOutputAcceptance>,
 }
@@ -322,12 +290,6 @@ fn rendered_requirement_active() -> bool {
     env_flag("ANGEL_TASK_RENDERED_REQUIREMENT", false)
 }
 
-/// Wall-time split for one turn: how long the harness waited on the model vs
-/// executed tools, with the remainder attributed to harness overhead
-/// (compaction, recon, verification, waits). Rides the headless task receipt
-/// so speed work can measure the split per run instead of guessing. Provider
-/// retry backoff sleeps count as model wait; `model_retry_ms`/`model_retries`
-/// split that retry slice out of `model_ms`.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub(crate) struct TaskTimingTelemetry {
     pub(crate) schema: &'static str,
@@ -353,16 +315,9 @@ pub(crate) struct TaskTimingTelemetry {
     pub(crate) residual_ms: u128,
     pub(crate) overlap_ms: u128,
     pub(crate) spans: serde_json::Value,
-    /// Every model and provider call sample so far: the receipt's one part
-    /// that grows with the turn. Shared, so the per-hop snapshots the ledger
-    /// and the retained copy hold do not each deep-copy it.
     pub(crate) calls: std::sync::Arc<serde_json::Value>,
 }
 
-/// Running per-turn totals behind [`TaskTimingTelemetry`]. Batch wall time is
-/// accumulated whole (parallel/segmented members are timed as one span so
-/// concurrent calls never double-count); only serially dispatched calls are
-/// timed individually for the longest-call figures.
 #[derive(Default)]
 pub(crate) struct TaskTimingAccumulator {
     background: background::Meter,
@@ -412,8 +367,6 @@ impl TaskTimingAccumulator {
         self.retry_pending = false;
     }
 
-    // Turn spans use turn-relative milliseconds; model-call samples subtract
-    // that call's start. Missing answer deltas stay null, including tool-only calls.
     fn note_answer(&mut self, elapsed: u128) {
         self.first_answer.get_or_insert(elapsed);
         self.call_first_answer.get_or_insert(elapsed);
@@ -429,17 +382,11 @@ impl TaskTimingAccumulator {
         self.call_last_delta = Some(elapsed);
     }
 
-    /// One completed await on the model (request send → final token). In-hop
-    /// provider retries each count: every attempt is real model wait time.
     pub(crate) fn note_model_wait(&mut self, waited: Duration) {
         self.model_ms = self.model_ms.saturating_add(waited.as_millis());
         self.model_calls = self.model_calls.saturating_add(1);
     }
 
-    /// One provider-retry backoff sleep between attempts. The wait belongs to
-    /// the model (the turn is idle waiting on the provider to become
-    /// retryable), so it lands in `model_ms` — with the retry slice and count
-    /// split out so receipts can show waits caused by retries.
     pub(crate) fn note_model_retry_wait(&mut self, waited: Duration) {
         self.model_ms = self.model_ms.saturating_add(waited.as_millis());
         self.model_retry_ms = self.model_retry_ms.saturating_add(waited.as_millis());
@@ -447,13 +394,10 @@ impl TaskTimingAccumulator {
         self.retry_pending = true;
     }
 
-    /// One dispatched tool batch's wall time.
     pub(crate) fn note_tool_batch(&mut self, waited: Duration) {
         self.tool_ms = self.tool_ms.saturating_add(waited.as_millis());
     }
 
-    /// One serially dispatched tool call's wall time: keeps the longest single
-    /// call, with its name, alongside the batch totals.
     pub(crate) fn note_tool_call(&mut self, name: &str, waited: Duration) {
         let ms = waited.as_millis();
         if ms > self.tool_max_ms {
@@ -462,8 +406,6 @@ impl TaskTimingAccumulator {
         }
     }
 
-    /// One tool result folded back into history: counts executed calls
-    /// (denied/suppressed batches never started) and dispatch-level errors.
     pub(crate) fn note_tool_result(&mut self, executed: bool, errored: bool) {
         if executed {
             self.tool_calls = self.tool_calls.saturating_add(1);
@@ -473,8 +415,6 @@ impl TaskTimingAccumulator {
         }
     }
 
-    /// Final receipt block. `other_ms` derives by saturating subtraction from
-    /// the turn's own elapsed figure, so it can never underflow.
     pub(crate) fn finish(&self, turn_elapsed_ms: u128) -> TaskTimingTelemetry {
         let mut result = TaskTimingTelemetry {
             schema: "angel-task-timing/v2",
@@ -557,8 +497,6 @@ impl TaskTimingTelemetry {
     }
 }
 
-/// The provider's words for a kept cut-off reply (`mark_truncated` closes the
-/// text with `[response incomplete: …]`), so the output-cap note quotes them.
 fn cut_off_reason(text: &str) -> String {
     text.trim_end()
         .strip_suffix(']')
@@ -571,8 +509,6 @@ fn cut_off_reason(text: &str) -> String {
         )
 }
 
-/// Wall attribution for concurrent tools, preserving raw durations separately.
-/// Cumulative integer apportionment avoids per-member rounding drift.
 fn tool_wall_shares(durations: &[u128], batch_ms: u128) -> Vec<u128> {
     let sum: u128 = durations.iter().sum();
     if sum <= batch_ms {
@@ -659,7 +595,6 @@ pub(crate) struct TurnFailure {
     pub(crate) message: String,
     pub(crate) stop_reason: TurnStopReason,
     pub(crate) hops: usize,
-    /// The three flags project `stop_reason` (see [`TurnStopReason::flags`]).
     pub(crate) interrupted: bool,
     pub(crate) deadline_reached: bool,
     pub(crate) max_hops_reached: bool,
@@ -668,7 +603,6 @@ pub(crate) struct TurnFailure {
 }
 
 impl TurnFailure {
-    /// A failure with the flags the table gives `stop_reason`.
     fn new(message: String, stop_reason: TurnStopReason, hops: usize) -> Self {
         let flags = stop_reason.flags().unwrap_or(StopFlags::NONE);
         Self {
@@ -683,7 +617,6 @@ impl TurnFailure {
         }
     }
 
-    /// Replace the reason with one the table fixes, and its flags with it.
     fn restamp(&mut self, stop_reason: TurnStopReason) {
         let flags = stop_reason.flags().unwrap_or(StopFlags::NONE);
         self.stop_reason = stop_reason;
@@ -747,7 +680,6 @@ fn task_acceptance_snapshot(
     })
 }
 
-/// [`run_turn`] with truthful stop metadata for non-interactive evaluators.
 pub(crate) fn run_turn_observed(
     club: &dyn Club,
     registry: &ToolRegistry,
@@ -761,8 +693,6 @@ pub(crate) fn run_turn_observed(
     )
 }
 
-/// A native delegate owns its task identity; it must not inherit a parent
-/// task's environment binding or discard the child's terminal rollout ID.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn run_delegate_turn_observed(
     club: &dyn Club,
@@ -796,10 +726,6 @@ struct TaskCaptureContext<'a> {
     requested_driver: Option<&'a str>,
 }
 
-/// Headless tasks have no App::advance consumer for proc_run completions: a
-/// finished job reaches the model as a `⠏` warpath at the hop boundary, its
-/// receipt in the ledger. Returns whether any failed or ended without a known
-/// exit (`⠏⠉`); a clean exit never buys another model hop.
 fn deliver_job_completions(
     registry: &ToolRegistry,
     history: &mut Vec<ChatMsg>,
@@ -826,7 +752,6 @@ fn deliver_job_completions(
     book::p_processes::any_failed(&finished)
 }
 
-/// Headless task turn with an immutable task-to-rollout identity binding.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn run_task_turn_observed(
     club: &dyn Club,
@@ -838,8 +763,6 @@ pub(crate) fn run_task_turn_observed(
     task_binding: &TaskRolloutBindingV1,
     requested_driver: Option<&str>,
 ) -> Result<TurnOutcome, TurnFailure> {
-    // The headless task contract delegates scoring to its external evaluator.
-    // In-task Cut checks remain evidence, but cannot claim this rollout's label.
     let _external_reward_owner = EvalLabelScope::new();
     run_turn_steered_observed(
         club,
@@ -857,11 +780,6 @@ pub(crate) fn run_task_turn_observed(
     )
 }
 
-/// [`run_turn`] with a mid-run steer queue: user notes typed while the turn is
-/// in flight are drained at each hop boundary and injected as framed user
-/// messages, so the model sees the guidance in its next request without the
-/// turn being interrupted (see [`crate::agent::steer`]). `None` — sub-agents, bounded
-/// delegate tasks, `--task` mode — behaves exactly as before.
 #[allow(clippy::too_many_arguments)]
 #[cfg(test)]
 pub fn run_turn_steered(
@@ -880,10 +798,6 @@ pub fn run_turn_steered(
     .map_err(|failure| failure.message)
 }
 
-/// Interactive turn variant that durably records the exact model request and
-/// model-emitted tool intent immediately before each external dispatch. A
-/// failed checkpoint stops before the provider or any tool in that batch can
-/// execute.
 #[allow(clippy::too_many_arguments)]
 #[cfg(test)]
 pub(crate) fn run_turn_steered_checkpointed(
@@ -911,9 +825,6 @@ pub(crate) fn run_turn_steered_checkpointed(
     .map_err(|failure| failure.message)
 }
 
-/// Checkpointed interactive turn with the machine-readable stop reason intact.
-/// Long-running controllers use this to distinguish a normal answer from a
-/// policy boundary such as a deadline, hop ceiling, or pro-tier request.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn run_turn_steered_checkpointed_observed(
     club: &dyn Club,
@@ -938,16 +849,6 @@ pub(crate) fn run_turn_steered_checkpointed_observed(
     )
 }
 
-/// One user turn, with the model self-report escalation ladder around it.
-///
-/// Unarmed (`ANGEL_NEEDS_PRO` unset, or armed with no usable seat) this is a
-/// single [`NeedsProTier::Off`] run and nothing about the turn changes. Armed
-/// with a resolvable seat, the fast attempt carries the escalation contract; if
-/// the model leads its reply with the marker that attempt is discarded — no
-/// answer surfaced, nothing about it left in history — and the same turn is
-/// re-run once on the named seat. Exactly one escalation per user turn: the
-/// second run is served at [`NeedsProTier::Pro`], where the marker is stripped
-/// rather than obeyed, so the ladder cannot cycle.
 type HistoryCheckpoint<'a> = &'a dyn Fn(&[ChatMsg]) -> Result<(), String>;
 
 #[allow(clippy::too_many_arguments)]
@@ -975,7 +876,6 @@ fn run_turn_steered_observed(
     let _phase = crate::agent::turn::phase::Scope::enter();
     crate::agent::turn::phase::mark("harness_start");
     let effective_cancel = AtomicBool::new(cancel.load(Ordering::Acquire));
-    // Keep nested turn/process observations attached to the operator's turn.
     let _owner_link = super::exec::link_child_owner(&effective_cancel, cancel);
     let done = AtomicBool::new(false);
     let timed_out = AtomicBool::new(false);
@@ -997,8 +897,6 @@ fn run_turn_steered_observed(
                     Err(mpsc::RecvTimeoutError::Disconnected) => break,
                     Err(mpsc::RecvTimeoutError::Timeout) => {}
                 }
-                // Defer the idle clock during bounded helper setup, separately
-                // from child CPU/output progress. This does not credit the ledger.
                 if super::exec::owned_child_active(owner)
                     || super::exec::owned_child_setting_up(owner)
                 {
@@ -1006,8 +904,6 @@ fn run_turn_steered_observed(
                 }
                 if !effective_cancel.load(Ordering::Acquire)
                     && idle.is_some_and(|limit| {
-                        // Let a due tool-idle escalation settle its owned child
-                        // and return a recoverable failure before turn cancellation.
                         let grace = if tools.any()
                             && super::exec::tool_idle_timeout()
                                 .is_some_and(|tool_limit| tool_limit <= limit)
@@ -1082,8 +978,6 @@ fn run_turn_steered_observed(
         let _ = watcher.join();
         let kills = crate::agent::tools::proc::take_owned_kills(owner);
         crate::agent::harness::trajectory::note_proc_kills(&kills);
-        // A cancelled provider wait can return an error rather than an outcome.
-        // The process kill remains the authoritative cancellation receipt.
         if kills.iter().any(|(_, kill)| kill.reason == "cancelled") {
             match &mut result {
                 Ok(outcome) => outcome.retag(Retag::OperatorKill),
@@ -1116,8 +1010,6 @@ fn run_turn_steered_observed(
         }
         result
     });
-    // Empty/system-only public calls use the embedded baseline. If they
-    // created a conversation, preserve that choice for its next turn.
     if book::continuity::generation_digest(history).is_none() {
         book::continuity::mark_legacy(history);
     }
@@ -1136,9 +1028,6 @@ fn run_turn_steered_observed_inner(
     task_capture: Option<TaskCaptureContext<'_>>,
     history_checkpoint: Option<HistoryCheckpoint<'_>>,
 ) -> Result<TurnOutcome, TurnFailure> {
-    // One cumulative allowance spans the whole root turn, including a
-    // needs-pro rerun. Seat threads install this same handle before recursively
-    // entering `run_turn`, so nested fan-out cannot mint a fresh budget.
     let _descendant_budget = DescendantBudgetScope::enter_root();
     crate::agent::turn::phase::mark("seat_resolution");
     let Some(pro) = resolve_seat(club, registry, history, events) else {
@@ -1210,11 +1099,6 @@ fn publish_slot_telemetry(
 }
 
 #[allow(clippy::too_many_arguments)]
-/// Treebeard digests rolling through one turn (see
-/// [`super::compactor::drain_late`]). The driver's turn picks up the previous
-/// turn's leftovers and leaves its own in the registry, whichever way it ends;
-/// a bounded delegate seat shares the registry but never touches the stash,
-/// and its leftovers simply go unread.
 struct RollingDigests<'a> {
     registry: &'a ToolRegistry,
     owner: bool,
@@ -1266,10 +1150,6 @@ fn run_turn_tiered(
     task_capture: Option<TaskCaptureContext<'_>>,
     history_checkpoint: Option<HistoryCheckpoint<'_>>,
 ) -> Result<TurnOutcome, TurnFailure> {
-    // YOLO bypasses approvals, confinement, and effect restrictions. It never
-    // changes the caller's behavioral completion/runaway policy: an operator
-    // asking for unrestricted machine access has not asked the model to ignore
-    // hop, progress, verification, or deadline contracts.
     let _live_model = super::run_identity::LiveModelScope::enter(None);
     let _live_turn =
         super::run_identity::LiveTurnScope::enter(super::run_identity::live_turn().or_else(|| {
@@ -1312,8 +1192,6 @@ fn run_turn_tiered(
         registry.current_workspace(),
         || {
             let mut route = club.route_identity();
-            // The task envelope binds the caller's driver selector, which may
-            // differ from the club's display label (e.g. glm vs glm-5.3-flash).
             if let Some(driver) = task_capture.and_then(|capture| capture.requested_driver) {
                 route.driver = driver.to_string();
             }
@@ -1343,28 +1221,14 @@ fn run_turn_tiered(
             0,
         ));
     }
-    // New turn → clear the per-turn approval cache (approve-all decisions from a
-    // previous turn don't carry over). Inert unless an approval gate fires.
     crate::agent::approval::reset_turn();
-    // Tier contract for the self-report ladder. Installed into the leading
-    // system run (never the tail) as a fixed string, so it stays on the cached
-    // prefix; `Off` — the default — touches nothing.
     match tier {
         NeedsProTier::Off => {}
         NeedsProTier::Fast => install_contract(history, FAST_TIER_CONTRACT),
         NeedsProTier::Pro => install_contract(history, PRO_TIER_CONTRACT),
     }
-    // Size the advertised tool schemas to the in-hand model's window. A small
-    // local model (e.g. an 8K llama.cpp) can't afford every full schema + the
-    // system prompt — the request overflows on schemas alone, before any
-    // conversation, and compaction can't help (it only trims history). On a tight
-    // window we advertise just the essential read/edit/shell/search/memory loop;
-    // the rest stay dispatchable by name. Probes the window once (cached).
     crate::agent::turn::phase::mark("model_metadata");
     let ctx_window = club.metadata().map(|m| m.context_window).filter(|&c| c > 0);
-    // Schema lean is additional: local unbounded interactive keeps the full
-    // advertised set. Metered roots and bounded / competition / comp-mode use
-    // the compact core, with a sticky hidden-tool bubble chosen once here.
     crate::agent::turn::phase::mark("context_assembly");
     let competition_trigger = competition_mode_trigger_live(history);
     let competition = competition_trigger.is_some();
@@ -1381,20 +1245,11 @@ fn run_turn_tiered(
     }
     let turn_budget = configured_turn_deadline_secs_for(competition);
     let task_pace = configured_task_pace(history);
-    // Budget-fraction overwatch (observe-first; see `sentinel.rs`). A turn
-    // with no configured budget never arms it.
     let mut sentinel = super::sentinel::Sentinel::from_env(turn_budget);
     let sentinel_artifacts = super::sentinel::configured_artifacts();
     let sentinel_liveness_cmd = super::sentinel::configured_liveness_cmd();
     let sentinel_exact_dirs = super::sentinel::configured_exact_dirs();
     let mut sentinel_gate_blocks = 0u8;
-    // A byte-exact provider prefix cache renders the tool schemas ahead of the
-    // whole conversation, so a tool set that changes at a new user turn
-    // re-reads everything uncached (DeepSeek: every /loop iteration and every
-    // follow-up, measured 2026-09-29). On such a seat a turn keeps the
-    // activations earlier turns made, and the bubble is seeded once per
-    // session: later turns add a tool only when the model searches for one.
-    // DeepSeek's own harness keeps its catalogue fixed for the cache.
     registry.pin_live_policies();
     let prefix_cached = club.prompt_cache_capable();
     if !prefix_cached {
@@ -1456,8 +1311,6 @@ fn run_turn_tiered(
         .gauge
         .pending_skill_hints
         .swap(0, Ordering::Relaxed);
-    // Whether the language server is wired this session (ANGEL_LSP) — gates the
-    // post-edit self-correct below. Computed once: a name lookup, no LSP spawn.
     let lsp_postcheck =
         env_flag("ANGEL_POST_EDIT_DIAGNOSTICS", true) && registry.has_tool("lsp_diagnostics");
     let mut hop: usize = 0;
@@ -1471,8 +1324,6 @@ fn run_turn_tiered(
         .unwrap_or_default();
     let effort_task = effort_leg::TaskHead::new(task);
     let (research_task, research_verify) = registry.rl().research_objective(task);
-    // Append scoped research data behind the conversation's stable system
-    // prefix. Fresh /loop and Deli prompts already carry the same map cue.
     let map_context = if registry.has_tool("labyrinth") {
         crate::drive::labyrinth::context(registry.current_workspace(), &research_task)
     } else {
@@ -1497,22 +1348,9 @@ fn run_turn_tiered(
         events.clone(),
     );
     let task_active = std::env::var("ANGEL_TASK_ACTIVE").is_ok_and(|value| value == "1");
-    // The book's detectors for this turn (`harness/book/`).
     let mut loops = book::l_loops::Loops::from_env();
-    // Tool-call scavenging (opt-in): recover a call the model stranded in its
-    // answer text with an empty structured `tool_calls` array.
     let toolcall_scavenge = env_flag("ANGEL_TOOLCALL_SCAVENGE", false);
-    // History hygiene: opt-in hard cap on conversation length so an unbounded
-    // multi-day loop can't grow the request body without bound. 0 = unbounded.
     let history_cap = env_usize("ANGEL_HISTORY_MAX_MSGS", 0);
-    // Rolling tool-aging and deduplication cadence under cache-stable mode.
-    // Flushes held inspection rewrites periodically so long turns never balloon
-    // into 100k+ token request bodies.
-    // A provider that publishes its own harness's compaction policy (DeepSeek)
-    // keeps history append-only between compactions: its harness prunes tool
-    // results only once compaction qualifies, and a held rewrite re-reads the
-    // whole prefix uncached (39,530 and 44,011 tokens in a live DeepSeek loop,
-    // 2026-09-29). An operator's cadence still wins.
     let rolling_rewrite_hops = if std::env::var_os("ANGEL_ROLLING_REWRITE_HOPS").is_none()
         && club.provider_compaction_budget().is_some()
     {
@@ -1520,29 +1358,15 @@ fn run_turn_tiered(
     } else {
         env_usize("ANGEL_ROLLING_REWRITE_HOPS", 12)
     };
-    // Auto-compaction: target budget above which the oldest turns are summarized
-    // (not just evicted). 0 means "use the built-in 333k policy" unless
-    // ANGEL_NO_AUTOCOMPACT disables it. Protect a token-sized recent tail by
-    // default: message counts are a poor cost proxy for tool-heavy coding turns.
-    // The token target is capped to half the active budget so small-window models
-    // always leave a useful compactable region. Setting it to 0 restores the
-    // legacy message-count policy.
     let context_budget = env_usize("ANGEL_CONTEXT_BUDGET_TOKENS", 0);
     let compact_keep = env_usize("ANGEL_COMPACT_KEEP_RECENT", 12).max(2);
     let compact_keep_token_target = env_usize("ANGEL_COMPACT_KEEP_RECENT_TOKENS", 20_000);
-    // Resolve the *effective* budget once per turn: an explicit env value wins,
-    // otherwise budget against the in-hand club's real context window (probed
-    // from the backend, cached). This is what makes compaction fire at the
-    // model's true limit instead of a guess. Probe happens here, once.
     let mut effective_budget = compaction_budget(club, context_budget);
     let mut compact_keep_tokens = if compact_keep_token_target == 0 {
         0
     } else {
         compact_keep_token_target.min(effective_budget / 2)
     };
-    // Diagnostic (opt-in via ANGEL_DEBUG_CTX=1): surface what the in-hand club's
-    // context window was detected as, and the resulting compaction budget, so the
-    // truthful-budget wiring is verifiable live in one message.
     if std::env::var("ANGEL_DEBUG_CTX")
         .map(|v| v == "1")
         .unwrap_or(false)
@@ -1558,41 +1382,20 @@ fn run_turn_tiered(
             club.label()
         )));
     }
-    // Auto-recall: on the first turn against a live palace, prime the context with
-    // the most relevant long-term notes for this project — so a resumed (or new)
-    // session starts already aware of past decisions instead of waiting for the
-    // model to think to call `recall`. Once per run (`ANGEL_AUTO_RECALL=0` off).
     let cache_stable = cache_stable_mode(club);
     crate::agent::turn::phase::mark("knowledge_broker");
     refresh_knowledge_broker_with_prefix(registry, history, effective_budget, &defs, cache_stable);
     crate::agent::turn::phase::mark("auto_recall");
     maybe_auto_recall(registry, history, effective_budget, &defs, events);
-    // Lifecycle hooks (PreToolUse/PostToolUse), loaded once from config. Empty
-    // unless ~/.angelX/hooks.json exists, so default dispatch is unchanged.
     crate::agent::turn::phase::mark("hooks_load");
     let hooks = Hooks::load();
-    // This reads a small local mode once, never calls a model, and only becomes
-    // active for the interactive root registry.
     let action_capsule_mode = mode_for(registry);
-    // Wall-clock turn budget: a safety net for long *unattended* runs (deli/swarm
-    // research, automated drivers) so a runaway multi-hop turn can't grind for
-    // hours unnoticed. 0 = off for ordinary chat; competition turns default to a
-    // hard wall so agents cannot "think" for a day without submitting.
-    // Checked at hop boundaries and mirrored into the cancellation token for
-    // each blocking provider/tool operation. Cooperative implementations such
-    // as streaming HTTP and the process-owning shell therefore stop at the
-    // same wall instead of overrunning it until their independent timeout.
     let turn_start = std::time::Instant::now();
-    // Carry the already configured turn wall into nested graph/provider calls.
     let _request_wall = (turn_budget > 0).then(|| {
         super::formation_budget::RequestWallScope::enter(
             turn_start + std::time::Duration::from_secs(turn_budget as u64),
         )
     });
-    // Wall-time split for the headless task receipt: model waits vs tool
-    // execution vs harness overhead, accumulated across the whole hop loop and
-    // finalized once at the turn's exit seam. Scoped to this tier's own turn
-    // (`turn_start`), so a needs-pro rerun's receipt covers the pro hop loop.
     let mut timing = TaskTimingAccumulator::default();
     let _background_scope = timing.background.enter(turn_start);
     let turn_deadline = (turn_budget > 0)
@@ -1605,18 +1408,8 @@ fn run_turn_tiered(
     crate::agent::harness::trajectory::note_timing_origin(turn_start);
     crate::agent::harness::trajectory::note_turn_session(&registry.session_id);
     if let Some(trigger) = competition_trigger {
-        // Once per competition turn: engage the loop at the resolved pace
-        // (`⠅⠁…` rapid, `⠅⠃…` deep). Competition awareness and rapid
-        // submission cadence are separate contracts; deep work must never
-        // inherit the latter merely because the standing goal mentions a
-        // leaderboard.
         let raises =
             book::k_competition::engage_for_workspace(task_pace, registry.current_workspace());
-        // The persisted evidence is inline data beside the route stamps. A
-        // warpath-only message would record it in the process-local ledger but
-        // never expose the brief to the model. Re-emit once per competition turn
-        // so a new receipt/frontier cache is not hidden by an older same-route
-        // history entry.
         let entry = book::advice_turn(registry.current_workspace(), &raises, false);
         history.push(ChatMsg::harness(entry));
         let policy = match task_pace {
@@ -1655,7 +1448,6 @@ fn run_turn_tiered(
     );
     let time_to_first_mutation_ms = std::cell::Cell::new(None::<u64>);
     let time_to_green_ms = std::cell::Cell::new(None::<u64>);
-    // Hops where every call errored at dispatch (`⠭⠁` on the third).
     let mut errors = book::x_execution::ErrorStreak::default();
     let preturn_code_mode = registry.take_preturn_code_mode_metrics();
     let code_mode_calls = std::cell::Cell::new(preturn_code_mode.calls);
@@ -1668,13 +1460,6 @@ fn run_turn_tiered(
     let mut duplicate_inspection_bytes_saved = 0u64;
     let aged_inspection_results = std::cell::Cell::new(0usize);
     let aged_inspection_bytes_saved = std::cell::Cell::new(0u64);
-    // Cache-stable mode (default-on, see `cache_stable_mode`): tool-result aging and
-    // tool-argument shrinking both rewrite history in place, which invalidates a
-    // byte-exact provider prefix cache from that message on. Under the mode both
-    // passes are held back so this turn's prefix only ever grows, and they run
-    // only at a compaction boundary instead.
-    // Hops whose deferred rewrites are still held; any boundary that actually
-    // rewrote history resets it, so the count never claims flushed hops.
     let deferred_rewrite_hops = std::cell::Cell::new(0usize);
     let eager_offload_results = std::cell::Cell::new(0usize);
     let eager_offload_bytes_saved = std::cell::Cell::new(0u64);
@@ -1686,16 +1471,10 @@ fn run_turn_tiered(
     let tool_argument_strings_shrunk = std::cell::Cell::new(0usize);
     let tool_argument_bytes_saved = std::cell::Cell::new(0u64);
     let adaptive_reasoning = env_flag("ANGEL_ADAPTIVE_REASONING", false);
-    // An explicit operator policy may demote locked GLM seats after a reasoning
-    // budget. By default sustained thought keeps the selected effort intact.
     let glm_reasoning_burn = std::cell::Cell::new(0u64);
     let glm_burn_limit = super::context::env_usize("ANGEL_GLM_THINKING_BURN", 0) as u64;
-    // True when the previous hop ended in a plain answer (no tool calls): a
-    // submit resets the runaway-thinking burn counter.
     let glm_last_hop_answered = std::cell::Cell::new(false);
     let mut green_verify_achieved = false;
-    // The hop advisories of 0.1.6 (`⠼`, and `⡅` in a competition): each is a
-    // route with its own turn, given under the condition 0.1.6 gave it.
     let mut green_verify_nudge_emitted = false;
     let post_edit_review = book::d3456_advisories::post_edit_review_enabled();
     let mut post_edit_logic_reviewed = false;
@@ -1708,8 +1487,6 @@ fn run_turn_tiered(
     let mut prewrite_calls = 0usize;
     let mut first_write_attempted = false;
     let mut first_write_nudge_emitted = false;
-    // A bounded turn that has edited keeps a reserve of hops for its final
-    // mile; a task turn defaults it, as the 0.1.6 task defaults did.
     let final_mile_hops = if research_turn {
         0
     } else {
@@ -1723,35 +1500,18 @@ fn run_turn_tiered(
         )
     };
     let mut final_mile_active = false;
-    // The model's last passing test run and the workspace it passed on. At its
-    // first stop the run is repeated on the unchanged code: one pass can be
-    // luck. A failed re-run is `⠧⠑`.
     let mut last_green_run: Option<book::v_verification::GreenRun> = None;
-    // The harness-added test run of the last response passed in full
-    // (`ANGEL_TASK_END_AT_GREEN`): its summary line, and the hop it ran in.
     let end_at_green = super::task_mode::end_at_green();
     let mut autotest_green: Option<String> = None;
     let mut autotest_hop_failed: usize = usize::MAX;
     let confirm_green_runs = book::v_verification::confirm_green_extra_runs(competition);
     let confirm_green_on_chance =
         book::v_verification::confirm_green_by_chance(task_active, competition);
-    // Files the model edited with file tools this turn, for the chance check
-    // (which also asks Git what changed, whatever wrote it).
     let mut edited_paths: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
-    // The model's last red test run and the workspace it failed on. A task-mode
-    // answer on that same code carries `⠧⠁` to the stop checkpoint.
-    // Task mode only: the run ends on its answer and nobody is there to say
-    // "keep going"; interactive answers go to a person; competition never
-    // re-opens answers. polyglot-v1: gpt-6-luna answered "tests still fail" on
-    // five tasks with 74-94% of its 600 s left, and solved all five when re-run
-    // at higher effort. Grok 4.7 un-skipped `grep.spec.js` in 5 of 6 js-grep
-    // runs; the runs that passed restored it on their own.
     let track_task_facts = task_active && !competition;
     let mut last_red_run: Option<book::v_verification::RedRun> = None;
     let mut red_streak = book::v_verification::RedStreak::default();
     let mut failed_checks = 0usize;
-    // A red, and a silent repeat, each lift a thinking-off seat for one hop
-    // through the effort leg.
     let mut red_seen = effort_leg::RedSeen::default();
     let mut silence = silence_guard::SilenceGuard::default();
     let task_wall_secs = if turn_budget > 0 {
@@ -1759,44 +1519,26 @@ fn run_turn_tiered(
     } else {
         env_usize("ANGEL_TASK_WALL_SECS", 0)
     };
-    // Test files that came with the task are its contract. A task-mode answer
-    // with one of them changed carries `⠧⠛`; files already changed before
-    // this turn are not the model's doing.
     let tests_changed_at_start = if track_task_facts {
         book::v_verification::changed_test_files(registry.current_workspace()).unwrap_or_default()
     } else {
         Vec::new()
     };
-    // A task that declares its editable surface (a board's benchmark.json, or
-    // ANGEL_TASK_EDITABLE_PATHS_JSON) gets `⠧⠓` on edits outside it: those
-    // changes are not part of what is evaluated.
     let edit_scope = book::v_verification::task_edit_scope(registry.current_workspace());
     let mut edit_scope_noted: std::collections::HashSet<String> = std::collections::HashSet::new();
-    // Paths that look like tests created/rewritten this turn — green checks that
-    // only name these basenames leave the edits `⠧⠋`.
     let mut self_authored_test_basenames: std::collections::HashSet<String> =
         std::collections::HashSet::new();
     let self_authored_verify_guard = env_flag("ANGEL_SELF_AUTHORED_VERIFY_GUARD", false);
     let mut verification_needed = false;
-    // Where the model last ran a test of any kind (`⠧⠋` when it moved since).
     let mut untested = book::v_verification::Untested::default();
-    // Timed cues (`⠺`): hygiene at the turn's first tool result, then cues
-    // as the model's own actions make them relevant (`⠺`).
     let mut cues = book::w_workflow::Cues::default();
     let mut attempted_opaque_generation = 0;
     let unverified_completion_claims = std::cell::Cell::new(0usize);
-    // The once-per-turn stop checkpoint (`⠟`).
     let mut checkpoint = book::q_stop::Checkpoint::default();
-    // Loop evidence raised this turn (`⠇…`, `⠭⠁`), carried to the checkpoint.
     let mut loop_facts: Vec<book::Raise> = Vec::new();
-    // Competition slots already announced to the model (`⠅⠉`).
     let mut watcher_announced: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut mutation_seen = false;
     let mut hooks_serial_notice_sent = false;
-    // Tool names are not proof of workspace state: shell, MCP, code mode, or a
-    // nested integration can edit without presenting as a direct write call.
-    // Compare the real Git-backed state at finalization and after verifiers so
-    // an opaque edit still reads as `⠥` at the stop checkpoint.
     let fingerprint_started = Instant::now();
     let initial_workspace_fingerprint = workspace_fingerprint(registry.current_workspace());
     super::trajectory::note_task_startup_phase(
@@ -1804,66 +1546,32 @@ fn run_turn_tiered(
         fingerprint_started.elapsed().as_millis(),
     );
     let mut verification_attempt_workspace_fingerprint = None;
-    // A successful direct prose-only edit still changes the Git fingerprint,
-    // but has no meaningful runtime verifier. Remember the exact post-edit
-    // state so the opaque-write fallback does not undo the classifier.
     let mut prose_only_workspace_fingerprint = None;
-    // A provider-side 413/context-length rejection is deterministic for the
-    // current payload. Rebuild once after forced compaction instead of spending
-    // the generic retry budget on the same bytes. The cap is per turn and small
-    // by design: a broken summarizer or giant protected prompt cannot loop.
     let max_overflow_recoveries = env_usize("ANGEL_CONTEXT_OVERFLOW_RECOVERIES", 1).min(2);
     let mut overflow_recoveries = 0usize;
     let mut infeasible_context_notice_sent = false;
     let session_recovery_budget = max_session_recoveries();
     let mut session_recoveries = 0usize;
     let request_overflows = std::cell::Cell::new(0usize);
-    // W5: dispatch-level tool errors split into four bounded classes so the
-    // ledger can prove whether the schema class died. Cell so the shared
-    // `write_exp` closure and the dispatch loop can both see it.
     let tool_errors_by_class =
         std::cell::Cell::new(crate::knowledge::experience::ToolErrorClasses::default());
-    // A7: provider retry knobs are process-lifetime for a turn — hoist out of
-    // the per-hop loop so multi-hop turns do not re-parse env every hop. The
-    // budget is `None` when the knob is unset: the L01 unattended policy rides
-    // out a recoverable outage without an implicit count, while an explicit
-    // integer (including `0`) keeps the bounded policy.
     let provider_retries = provider_retry_budget();
     let provider_retry_backoff_ms = env_usize("ANGEL_PROVIDER_RETRY_BACKOFF_MS", 500);
     let evaluate_max_hops_workspace = env_flag("ANGEL_EVALUATE_MAX_HOPS_WORKSPACE", false);
-    // Replies that printed raw tool markup instead of calling a tool.
     let mut markup_replies = 0usize;
     let mut action_capsule_metrics = ActionCapsuleMetrics::default();
-    // Experience ledger: record this turn's config + outcome at whichever exit
-    // it takes. Snapshot the driver's cumulative token counters up front so the
-    // per-turn spend is a delta, and resolve the driver `path` tag once. The
-    // write is best-effort and test-silent (`crate::knowledge::experience`), so it can
-    // never fail a turn. `write_exp` is called at every exit below with the stop
-    // reason and the anti-spin counters as they stand.
     crate::agent::turn::phase::mark("experience_path");
     let exp_path = crate::knowledge::experience::driver_path();
     let tok_before = club
         .token_usage()
         .map(|u| (u.total_input, u.total_output))
         .unwrap_or((0, 0));
-    // Per-turn metered input is telemetry, never a termination budget. Count
-    // every actual provider attempt (including retries) and prefer provider
-    // counters when available; the already-computed local request size is the
-    // conservative fallback for usage-blind backends.
     let mut metered_input_accounted = 0u64;
     let truncation_before = club.truncation_usage();
     let cache_before = club.cache_usage();
     let effort_gate_before = club.effort_gate_usage();
-    // Per-hop cache ledger (perf-cache-ledger): measurement-only. Each provider
-    // call below snapshots the club's cumulative cache/token counters so its
-    // own hop gets an attributable hit rate, and `hop_breakers` collects the
-    // known prefix breakers that ran since the prior request (defs delta,
-    // aging/dedup receipts, compaction splice, steer injection…) so a hit-rate
-    // drop can name its cause. Requests are never mutated on this path.
     let hop_cache_ledger = crate::agent::turn::cache_hop_ledger_enabled();
     let mut hop_breakers: Vec<&'static str> = Vec::new();
-    // Reuse last hop's schema set while tool_search activations are idle —
-    // the common multi-hop path. Activations bump a generation on change.
     let mut prev_activation_gen = registry.tool_activation_generation();
     let mut prev_defs_fingerprint = crate::agent::turn::defs_fingerprint(&defs);
     let mut cached_tool_schema_tokens = estimate_tool_tokens(&defs);
@@ -1882,10 +1590,6 @@ fn run_turn_tiered(
             .token_usage()
             .map(|u| (u.total_input, u.total_output))
             .unwrap_or(tok_before);
-        // Distinguish "usage-known zero" (the club reports usage accounting
-        // but this turn moved no counters) from "no data" (a usage-blind
-        // backend, which must not silently read as a free turn). See
-        // docs/telemetry/token-efficiency.md P1.
         let tokens = if club.token_usage().is_some() {
             vec![(
                 club.label().to_string(),
@@ -1897,9 +1601,6 @@ fn run_turn_tiered(
         };
         let truncation_after = club.truncation_usage();
         let cache_after = club.cache_usage();
-        // Gates must speak: if any club on this route withheld a requested
-        // reasoning effort or learned a backend rejection during the turn,
-        // voice the reason once instead of letting the strip pass silently.
         let effort_gate_after = club.effort_gate_usage();
         let gate_moved = effort_gate_after.withheld > effort_gate_before.withheld
             || effort_gate_after.rejections > effort_gate_before.rejections;
@@ -1992,17 +1693,8 @@ fn run_turn_tiered(
             registry.current_workspace(),
         );
     };
-    // The Cut's machine verdicts for this turn (docs/plans/the-cut.md, T2),
-    // folded at the post-write seam below and read at every exit as this
-    // rollout's REWARD — the label `~/.angelX/trajectories` has never carried, and
-    // without which the forge can only imitate its teacher
-    // (`crate::knowledge::cut::turn_reward` documents the semantics). A turn that wrote no
-    // source earns no verdict and stays unlabeled, exactly as before.
     let mut verdicts = crate::knowledge::cut::TurnVerdicts::default();
     let mut post_write_verification = crate::knowledge::cut::PostWriteVerification::default();
-    // Optional deterministic completion gate for headless action harnesses.
-    // It is armed only when the command is red before the first model call;
-    // otherwise an already-green fixture could short-circuit without work.
     let mut accept_baseline_ms = 0;
     let mut accept_post_checks = 0;
     let mut accept_post_ms = 0;
@@ -2013,8 +1705,6 @@ fn run_turn_tiered(
     let task_accept_requested = std::env::var("ANGEL_TASK_ACCEPT_CMD")
         .ok()
         .filter(|command| {
-            // The root task owns this hook. Delegates have their own verifier
-            // contracts and must not run the parent's hook in their worktree.
             !registry.external_evaluator_only
                 && crate::agent::harness::lane::subcall_depth() == 0
                 && !command.trim().is_empty()
@@ -2057,10 +1747,6 @@ fn run_turn_tiered(
     }
     macro_rules! prepare_rollout_seal {
         () => {{
-            // Turn completion is append-only too: continuation requests can
-            // reuse this prefix. Actual savings are collected at compaction.
-            // The held count covers hops still unflushed; a boundary receipt is
-            // reported even when the boundary itself already flushed everything.
             let boundary_savings = aged_inspection_results.get() > 0
                 || tool_argument_shrinks.get() > 0
                 || duplicate_inspection_results > 0;
@@ -2101,9 +1787,6 @@ fn run_turn_tiered(
     macro_rules! observed_outcome {
         ($outcome:expr_2021, $source:expr_2021) => {{
             let mut outcome = $outcome;
-            // Most answers close scaffolds in the Text arm, where failures can
-            // still be repaired. Deterministic early-completion paths must not
-            // bypass that final obligation either.
             if outcome.stop_reason == TurnStopReason::Answer {
                 let notes = with_turn_deadline_cancel(cancel, turn_deadline, |verify_cancel| {
                     finish_post_write_verification(
@@ -2225,12 +1908,6 @@ fn run_turn_tiered(
             return Err(failure);
         }};
     }
-    // The unproductive streak never ends a turn. At 0.1.6 it spoke to the model
-    // at eight unproductive hops and again, as a redirect, at sixteen, before
-    // it stopped the turn; the stop is gone and the two stamps of `⠇⠛` remain,
-    // each its own turn under the warning sign with the count and the last
-    // verifier beside it. A stretch that goes on earns the notice, then the
-    // redirect, again.
     let unproductive_redirect = if task_active && !competition {
         UNPRODUCTIVE_REDIRECT_HOPS
     } else {
@@ -2243,8 +1920,6 @@ fn run_turn_tiered(
                 streak_escalate,
                 unproductive_redirect,
             );
-            // The redirect is the later word: when both fall on one hop the
-            // model is given it, not the notice it already met.
             if let Some(turn) = redirect.clone().or_else(|| notice.clone()) {
                 history.push(ChatMsg::harness(format!(
                     "{}{turn}",
@@ -2256,20 +1931,11 @@ fn run_turn_tiered(
     }
     let mut rolling_digests = RollingDigests::enter(registry, max_hops.is_none());
     'turn: loop {
-        // Soft interrupt takes priority: bail at the hop boundary with the
-        // conversation preserved. Never a cap — the user is in control.
         if cancel.load(Ordering::Relaxed) {
             let note = format!(
                 "⛔ interrupted after {hop} hop(s) — conversation kept; \
                  send another message to steer or resume."
             );
-            // Deliberately UNLABELED (`None`), and the only exit that is. Every
-            // other stop is a function of the policy's own behavior — it
-            // answered, it spun, it thrashed, it ran out of hops — so the state
-            // it left the build in is its own. This one is a human hitting stop
-            // at a moment of their choosing, which can land one hop before the
-            // fix. Scoring that 0.0 would punish the model for a repair it was
-            // never allowed to attempt.
             crate::agent::harness::trajectory::note_task_timing(
                 &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
             );
@@ -2344,10 +2010,6 @@ fn run_turn_tiered(
                 "tool loop hit the {max}-hop runaway guard without answering \
                      (remove the positive ANGEL_MAX_HOPS override or set ANGEL_MAX_HOPS=0 for unbounded)"
             );
-            // Preserve the incomplete rollout for audit/training parity
-            // with every other guarded stop. The stop note is the record's
-            // answer field only; history remains untouched and all prior
-            // assistant tool calls already have their tool results.
             crate::agent::harness::trajectory::note_task_timing(
                 &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
             );
@@ -2366,14 +2028,7 @@ fn run_turn_tiered(
                     action_capsule_metrics,
                 ),
             );
-            // Benchmark/evaluator callers must be able to score the real
-            // workspace even when the policy exhausts its horizon. This
-            // opt-in preserves a truthful stopped/max_hops envelope while
-            // avoiding an infrastructure-shaped process failure that drops
-            // the cohort row. Ordinary task and interactive callers retain
-            // the historical structured error by default.
             if research_turn {
-                // The answer's reader cannot read the ledger: `⠟⠛⠃`'s page.
                 let answer =
                     research::draft(history).unwrap_or_else(|| book::q_stop::NO_DRAFT.to_string());
                 observed_outcome!(
@@ -2398,16 +2053,8 @@ fn run_turn_tiered(
         let _phase_hop = crate::agent::turn::phase::Hop;
         let _progress_hop = crate::agent::harness::trajectory::begin_progress_hop();
         if hop == 1 {
-            // The turn boundary itself rewrites the request tail: new user
-            // input. Aging remains deferred until compaction even across turns.
             hop_breakers.push("turn boundary");
         }
-        // Mid-run steering: the user typed while this turn was in flight —
-        // deliver the note(s) at this hop boundary so the model sees the
-        // guidance in the very next request without the turn being
-        // interrupted. Always positioned after the previous hop's tool
-        // results (never between a tool-call batch and its results, which
-        // would break pairing).
         crate::agent::turn::phase::mark("steer_drain");
         if let Some(q) = steers {
             let queued = q.drain();
@@ -2423,9 +2070,6 @@ fn run_turn_tiered(
                 history.push(msg);
             }
         }
-        // Treebeard digests that landed after their receipts were sent join
-        // the tail here, beside any steer: after the previous hop's tool
-        // results, never between a call batch and its results.
         if !rolling_digests.pending.is_empty() {
             let late = super::compactor::drain_late(history, &mut rolling_digests.pending);
             if late.landed > 0 {
@@ -2446,11 +2090,6 @@ fn run_turn_tiered(
                 )));
             }
         }
-        // `tool_search` can surface hidden schemas during the previous hop.
-        // Rebuild only when activations moved so those tools become real
-        // structured provider definitions on the next hop; stable hops reuse
-        // the prior set (byte-identical wire JSON + zero rebuild/hash/token
-        // estimate cost).
         crate::agent::turn::phase::mark("hop_context");
         let activation_gen = registry.tool_activation_generation();
         if activation_gen != prev_activation_gen {
@@ -2480,9 +2119,6 @@ fn run_turn_tiered(
         );
         tool_schema_peak_count.set(tool_schema_peak_count.get().max(defs.len()));
         tool_schema_peak_tokens.set(tool_schema_peak_tokens.get().max(cached_tool_schema_tokens));
-        // Trim the oldest complete turns if the conversation has outgrown the
-        // hygiene cap, then summarize older turns if it's over the token budget,
-        // before we build the next request body.
         let argument_shrink = if cache_stable {
             ToolArgumentShrink::default()
         } else {
@@ -2506,9 +2142,6 @@ fn run_turn_tiered(
         if argument_shrink.calls > 0 {
             hop_breakers.push("tool-arg shrink");
         }
-        // Hold inspection rewrites until compaction or the configured rolling
-        // boundary. Setting the cadence to zero retains strict append-only
-        // prefixes for cache/cost comparison.
         let dedup = if cache_stable {
             InspectionDedup::default()
         } else {
@@ -2541,25 +2174,14 @@ fn run_turn_tiered(
         if history.len() < history_len_before_prune {
             hop_breakers.push("history prune");
         }
-        // Compaction is layered: land a finished background pass first (zero
-        // dead air — the summarizer ran while the previous hops flowed), run
-        // the synchronous compactor only as emergency overflow (no early pass
-        // in flight, or usage blew past the +10% hard ceiling while one ran),
-        // then arm the next early pass at ~80% of budget. Only the unbounded
-        // driver owns the background pass — bounded delegate seats share this
-        // registry and keep the pure sync path.
         let bg_owner = max_hops.is_none();
         if bg_owner {
-            // A landed splice replaces a history prefix with its summary note,
-            // so the message count moving is a faithful landed-splice signal.
             let history_len_before_splice = history.len();
             try_splice_bg_compact(registry, history, events);
             if history.len() != history_len_before_splice {
                 hop_breakers.push("compaction splice");
             }
         }
-        // History may have been rewritten above — recompute the rolling token
-        // estimate once for the rest of the hop (budget, gauge, fit).
         let history_rewritten = argument_shrink.calls > 0
             || dedup.results > 0
             || aging.results > 0
@@ -2572,9 +2194,6 @@ fn run_turn_tiered(
         } else {
             hist_tokens.observe(history)
         };
-        // The default local fallback is cheap enough to run as soon as the
-        // budget is crossed. Only the explicit synchronous-model mode keeps
-        // the old +10% grace period to avoid racing two model summaries.
         let bg_defer = crate::agent::compaction::sync_compaction_uses_model()
             && bg_owner
             && bg_compact_inflight(registry)
@@ -2585,9 +2204,6 @@ fn run_turn_tiered(
             && effective_budget > 0
             && hist_tok + cached_tool_schema_tokens > effective_budget
         {
-            // Age full tool bodies at the compact boundary *before* the
-            // summarizer parks/replaces the window; otherwise compaction
-            // stores emptied stubs and aging has nothing left to measure.
             let aged = age_tool_results_at_boundary(history);
             aged_inspection_results.set(aged_inspection_results.get().saturating_add(aged.results));
             aged_inspection_bytes_saved.set(
@@ -2598,18 +2214,12 @@ fn run_turn_tiered(
             if aged.results > 0 || aged.excerpts_dropped > 0 {
                 hop_breakers.push("tool-aging boundary");
                 hist_tokens.recompute(history);
-                // This boundary rewrote held bytes, so nothing is held now.
                 deferred_rewrite_hops.set(0);
             }
         }
-        // Decide with the same estimators `maybe_compact_for_turn` uses, not the
-        // rolling gauge alone, so this gate can never skip a compaction the
-        // pass itself would consider due.
         let compaction_used = estimate_tokens(history) + estimate_tool_tokens(&defs);
         let over_budget_for_compaction =
             effective_budget > 0 && compaction_used > effective_budget;
-        // A model-backed compaction request still enters the pass under budget;
-        // the pass keeps its own budget guard for the summary itself.
         let model_compaction_requested = crate::agent::compaction::sync_compaction_uses_model();
         if !bg_defer && !over_budget_for_compaction && !model_compaction_requested {
             crate::agent::harness::compact::speak_cache_budget_lift(events);
@@ -2633,18 +2243,6 @@ fn run_turn_tiered(
         let rolling_flush = cache_stable
             && rolling_rewrite_hops > 0
             && deferred_rewrite_hops.get() >= rolling_rewrite_hops.max(4);
-        // A rolling flush pays the whole held prefix again as a cache miss on
-        // the next request. On a byte-exact provider prefix cache (the rust30
-        // wire cohort: three tasks re-billed 4,096–12,288 tokens exactly at
-        // hops 12 and 24) that penalty is paid in tokens *and* first-token
-        // latency, for savings that only matter when the request body is
-        // actually large. Gate the cadence flush on a body-size floor: short
-        // turns keep their cache-warm prefix and never pay the rewrite. The
-        // floor defaults to a sixth of the live compaction budget so a
-        // small-window seat still flushes before its body balloons, and an
-        // operator keeps the old behavior with
-        // `ANGEL_ROLLING_REWRITE_MIN_TOKENS=0`; compaction/prune breakers above
-        // still flush immediately.
         let rolling_rewrite_min_tokens = env_usize("ANGEL_ROLLING_REWRITE_MIN_TOKENS", 24_000);
         let rolling_rewrite_min_tokens = if rolling_rewrite_min_tokens > 0 {
             rolling_rewrite_min_tokens.min(effective_budget / 6)
@@ -2682,25 +2280,11 @@ fn run_turn_tiered(
             duplicate_inspection_bytes_saved =
                 duplicate_inspection_bytes_saved.saturating_add(deduped.bytes_saved);
             hist_tokens.recompute(history);
-            // Splice/sync-compaction/prune/rolling-flush rewrote the prefix: the held hops
-            // have been flushed and their passes just ran here.
             deferred_rewrite_hops.set(0);
             if rolling_flush {
                 hop_breakers.push("rolling boundary flush");
             }
         }
-        // A protected recent tail can itself exceed a small model's window:
-        // compaction intentionally refuses to summarize those fresh messages.
-        // Fit only their oldest tool payloads as a last local safeguard, with an
-        // explicit rerun marker when tool trimming can actually reach the
-        // target. An infeasible protected/schema floor preserves evidence;
-        // provider hard limits still govern admission. This never adds a
-        // tool/model hop or changes call pairing.
-        // Root (C03g review): the emergency context-fit trim stays on under
-        // cache-stable too — it only fires when the request is still over budget
-        // after the compact boundary, and an overflowed request costs more than
-        // one rare prefix-cache miss. Bulk reduction under the default is the
-        // boundary (age_tool_results_at_boundary + compaction) above.
         let context_fit = if over_budget_for_compaction {
             fit_tool_results_to_budget(history, effective_budget, &defs)
         } else {
@@ -2727,8 +2311,6 @@ fn run_turn_tiered(
                 effective_budget,
             );
         if bg_owner && bg_defer && !bg_due {
-            // The deferred sync path was skipped, so this boundary still owns
-            // the one-shot lift notice the background entry would have drained.
             crate::agent::harness::compact::speak_cache_budget_lift(events);
         }
         if bg_due {
@@ -2745,8 +2327,6 @@ fn run_turn_tiered(
         if task_capture.is_some() {
             deliver_job_completions(registry, history, events);
         }
-        // Publish the live token gauge for the `get_context_remaining` tool —
-        // count the tool schemas too, so "remaining" reflects the whole request.
         let hist_tok = hist_tokens.observe(history);
         registry
             .gauge
@@ -2756,9 +2336,6 @@ fn run_turn_tiered(
             .gauge
             .budget_tokens
             .store(effective_budget, Ordering::Relaxed);
-        // Submission watcher: one independent probe per hop, and only once a
-        // real slot is in play. Ordinary coding hops do not open a status
-        // source or scan for terminal rows.
         let watch_notify = if slot_watcher.slot_id().is_some() {
             if watch_source.is_none() {
                 watch_source = open_configured_status_source(registry.current_workspace());
@@ -2788,25 +2365,10 @@ fn run_turn_tiered(
                 &notify,
             )));
         }
-        // Stream the reply: forward each text delta to the UI as it arrives, and
-        // let the club check `cancel` between chunks for a prompt mid-reply stop.
-        //
-        // Provider CLIs and gateways can occasionally fail before sending an
-        // answer (empty stdout, transient transport reset, auth refresh race).
-        // That used to surface as a dead-looking TUI turn and skipped the
-        // experience ledger because `?` returned before the outcome path. Retry
-        // while no answer text/tool call was emitted. Private reasoning alone is
-        // not an answer and has performed no action, so it is safe to discard and
-        // retry. A known incomplete HTTP stream may also replay: no tools
-        // were dispatched, and SuppressPartial retracts its speculative text.
         let mut provider_attempt = 0usize;
-        // provider_retries / provider_retry_backoff_ms captured once per turn (A7).
         let mut empty_reply_noted = false;
         let output_cap_notes = std::cell::Cell::new(0usize);
         let notes_workspace = registry.current_workspace().to_path_buf();
-        // A reply that failed before it could act: `⠭⠉` output cap, `⠭⠙` all
-        // reasoning, `⠭⠑` empty. A reply cut off at a fixed cap comes back
-        // identical on a plain re-send; the route makes the retry different.
         let mut note_failed_reply =
             |error: &str, reasoning_only: bool, history: &mut Vec<ChatMsg>| {
                 let Some(route) = book::x_execution::failed_reply(error, reasoning_only) else {
@@ -2826,8 +2388,6 @@ fn run_turn_tiered(
                     &notes_workspace,
                     &[book::Raise::new(route, error.to_string())],
                 );
-                // The provider's own words for the cut-off ride beside the
-                // stamp, as they did at 0.1.6.
                 if route != book::x_execution::EMPTY {
                     note.push_str(&format!("\n({error})"));
                 }
@@ -2837,9 +2397,6 @@ fn run_turn_tiered(
         let red_hop = red_seen.take(failed_checks);
         let stuck_hop = silence.take_wake();
         let reply = loop {
-            // The write and its full green test run are both in the history:
-            // stop here as the model would, through the same stop checks,
-            // without asking it for a closing message.
             if let Some(line) = autotest_green.take() {
                 let notice = super::task_mode::completion_notice(&line, &edited_paths);
                 let _ = events.send(TurnEvent::Notice(
@@ -2847,22 +2404,12 @@ fn run_turn_tiered(
                 ));
                 break crate::agent::club::ClubReply::Text(notice);
             }
-            // A retry backoff can cross the existing turn deadline. Settle at
-            // the owned boundary before opening another provider request.
             if cancel.load(Ordering::Acquire)
                 || budget_expired(turn_start.elapsed().as_secs(), turn_budget)
             {
                 continue 'turn;
             }
-            // Preflight and the provider must see one calibration generation.
             let calibration = crate::agent::club::model_defaults::pin_request();
-            // Preflight every actual provider attempt, including in-hop
-            // retries. Provider counters are preferred after a call (and can
-            // expose internal fan-out); the local request estimate is the
-            // conservative fallback when a backend reports no usage.
-            // Add reactive evidence and any real legend handoff before fitting
-            // and checkpointing the exact provider request. Quiet turns only
-            // update local metadata; they gain no message or prompt tokens.
             let before_advice = history.len();
             let handoff = book_continuity.prepare(history, &club.resolved_route_identity());
             live_research.poll(registry.current_workspace(), history, handoff);
@@ -2897,29 +2444,13 @@ fn run_turn_tiered(
             );
             let mut emitted_answer = false;
             let mut emitted_reasoning = false;
-            // Friction = a hop whose every tool call errored, or an anti-spin
-            // fingerprint that actually repeated (`spin >= 2`). `spin == 1` is
-            // merely the first read-only batch of the turn — every normal
-            // read-then-edit task has one — and treating it as friction pinned
-            // `high` on every hop after the first (arena, 2026-09-05).
             let has_friction = errors.streak() > 0 || loops.spin() >= 2;
-            // Explicit opt-in only. The former locked-GLM auto-arm flipped the
-            // rung between hops (low → high), and z.ai keys its prefix cache on
-            // the effort value: every flip re-prefilled the whole prompt
-            // (measured: cached 0 after each flip, 3712/3771 when the rung
-            // held). One rung per turn — the club's idle rung (Flash `auto`,
-            // glm-5.3 `low`) or the operator pin — is both cheaper and cache-
-            // stable. Reasoning-budget demotion below is also operator opt-in.
             let adaptive_armed = adaptive_reasoning;
-            // `hop` is 1-based here (bumped at the top of the iteration); the
-            // ladder's "hop 0 = intake at full effort" contract is 0-based.
             let mut effective_effort = if adaptive_armed {
                 adaptive_effort(club, hop.saturating_sub(1), has_friction)
             } else {
                 None
             };
-            // When explicitly configured, reasoning-budget demotion outranks
-            // the adaptive baseline. No implicit budget lowers chosen effort.
             if let Some(demotion) = burn_demotion(
                 club,
                 glm_reasoning_burn.get(),
@@ -2928,7 +2459,6 @@ fn run_turn_tiered(
             ) {
                 effective_effort = Some(demotion);
             }
-            // The turn's pinned effort leg may answer another accepted level.
             let (leg_effort, leg_source) = effort_leg::decide(
                 registry,
                 club,
@@ -2947,9 +2477,6 @@ fn run_turn_tiered(
             crate::agent::harness::trajectory::note_effort_leg(
                 leg_source.as_ref().map(effort_leg::receipt),
             );
-            // This is the harness-owned policy-call boundary. Capture after all
-            // history/schema transforms and immediately before the provider call.
-            // The recorder has no API for private reasoning or provider headers.
             crate::agent::turn::phase::mark("policy_identity");
             let rollout_attempt =
                 match rollout_recorder.begin_policy_attempt(history, &defs, || {
@@ -2965,8 +2492,6 @@ fn run_turn_tiered(
                         None
                     }
                 };
-            // Hop-ledger snapshot: taken per attempt so a retried request's
-            // sample covers only the attempt that actually answered.
             let hop_cache_before = hop_cache_ledger.then(|| {
                 (
                     club.cache_usage(),
@@ -3002,15 +2527,11 @@ fn run_turn_tiered(
             timing.call_last_delta = None;
             timing.call_max_idle_ms = 0;
             let mut provider_not_started = false;
-            // A connected seat inside this call (a mixture stage) reads this
-            // workspace's ledger.
             let _ledger = book::connect::enter(registry.current_workspace());
             let retained_before = club.truncation_usage().retained_partials;
             let result = with_turn_deadline_cancel(cancel, turn_deadline, |effective_cancel| {
                 crate::agent::turn::phase::mark("bind_run_identity");
                 club.bind_run_identity(effective_effort.as_deref())?;
-                // Check after checkpointing/preflight and identity binding too:
-                // those can consume the remaining wall before transport starts.
                 if effective_cancel.load(Ordering::Acquire)
                     || turn_deadline.is_some_and(|deadline| {
                         let remaining = deadline.saturating_duration_since(Instant::now());
@@ -3072,8 +2593,6 @@ fn run_turn_tiered(
                     }),
                 }
             });
-            // Every provider attempt (first try and in-hop retries alike) is
-            // real time spent waiting on the model.
             crate::agent::harness::trajectory::end_model_request();
             crate::agent::turn::phase::mark("stream_done");
             let model_end_ms = turn_start.elapsed().as_millis();
@@ -3107,16 +2626,6 @@ fn run_turn_tiered(
                     let _ = events.send(TurnEvent::SpendMilestone { input_tokens });
                 }
             }
-            // Providers outside the HTTP adapter must obey the same answer
-            // contract. Cancellation is handled at the owned turn boundary.
-            //
-            // A cut-off reply is not an answer: the provider stopped the model,
-            // the model did not stop. Links that keep cut-off prose hand it back
-            // as text, and without a tool call it ended the turn (DeepSeek
-            // repeating its system prompt to the output cap twice, polyglot-v1
-            // js-transpose: 2 of 60 hops). It takes the output-cap path the
-            // other links take: retracted, noted as `⠭⠉`, sent again. Once
-            // those notes are spent the cut-off prose stands, as it did.
             let cut_off = club.truncation_usage().retained_partials > retained_before
                 && output_cap_notes.get() < book::x_execution::OUTPUT_CAP_LIMIT;
             let result = result.and_then(|reply| match reply {
@@ -3156,8 +2665,6 @@ fn run_turn_tiered(
                     }
                     glm_last_hop_answered
                         .set(matches!(reply, crate::agent::club::ClubReply::Text(_)));
-                    // Track reasoning for the optional operator budget.
-                    // ANGEL_GLM_THINKING_BURN defaults to 0 (disabled).
                     if let Some(burn) = club
                         .token_usage()
                         .map(|u| u.last_reasoning)
@@ -3177,10 +2684,6 @@ fn run_turn_tiered(
                         record_rollout_error!("policy response", error);
                     }
                     drop(calibration);
-                    // Fold this hop's cache economics into the per-route
-                    // ledger. `reported` is a read-accounting delta, so a
-                    // cache-blind backend records totals without faking a 0%
-                    // rate; a genuine hit-rate drop names its breakers.
                     if let Some((cache_snap, input_snap)) = hop_cache_before {
                         let cache_now = club.cache_usage();
                         let input_now = club
@@ -3207,10 +2710,6 @@ fn run_turn_tiered(
                         }
                     }
                     if budget_expired(turn_start.elapsed().as_secs(), turn_budget) {
-                        // A completed research reply is evidence we already have.
-                        // Retain it before settling at the deadline boundary; do
-                        // not execute late tool calls or manufacture an answer
-                        // from an incomplete stream or private reasoning.
                         if research_turn
                             && let crate::agent::club::ClubReply::Text(answer) = &reply
                             && !answer.trim().is_empty()
@@ -3226,29 +2725,15 @@ fn run_turn_tiered(
                     break reply;
                 }
                 Err(err) => {
-                    // A cancelled operation belongs to the turn's stop boundary,
-                    // even if the provider reports its partial stream as an error.
-                    // Do not classify that failed attempt as retryable in the rollout.
                     let attempt_cancelled = || {
                         cancel.load(Ordering::Acquire)
                             || budget_expired(turn_start.elapsed().as_secs(), turn_budget)
                     };
-                    // Every no-terminal-event stream death is retryable, not only
-                    // the ones the transport happened to label
-                    // `INCOMPLETE_STREAM_ERR`: a stall observed mid-answer used to
-                    // be fatal on its first occurrence while the identical fault
-                    // behind keep-alives recovered, purely by error string.
                     let incomplete_stream = is_recoverable_stream_error(&err);
-                    // Streamed private reasoning and no answer text: a cut-off
-                    // here means the reply was spent thinking.
                     let reasoning_only_reply = emitted_reasoning && !emitted_answer;
                     if incomplete_stream && !attempt_cancelled() {
                         trajectory::note_stream_cut(hop);
                     }
-                    // One disposition drives the rollout ledger, the retry gate,
-                    // and the terminal message, so the receipt can never claim a
-                    // retryability the loop did not honor. A permanent failure
-                    // outranks the recoverable spelling even when both match.
                     let retry_allowed = !attempt_cancelled()
                         && retryable_provider_failure(&err, emitted_answer, incomplete_stream);
                     if let Err(capture_error) = rollout_recorder.fail_policy_attempt(
@@ -3266,14 +2751,8 @@ fn run_turn_tiered(
                         }
                         continue 'turn;
                     }
-                    // Once every output-cap note is spent, a re-send is the same
-                    // request against the same cap and fails the same way (GLM
-                    // polyglot-v1 py-two-bucket: about three minutes of reasoning
-                    // per cut-off, until the wall ran out).
                     let output_cap_exhausted = book::x_execution::is_output_cap_truncation(&err)
                         && output_cap_notes.get() >= book::x_execution::OUTPUT_CAP_LIMIT;
-                    // Classified once: the class, the replay and its wait come
-                    // from one decision, native or the pinned live `errors` leg.
                     let failure = decide_failure(
                         registry,
                         &err,
@@ -3317,18 +2796,12 @@ fn run_turn_tiered(
                         let fitted = fit_tool_results_to_budget(history, recovery_budget, &defs);
                         let after = context_tokens(history, &defs);
                         if (compacted || fitted > 0) && after < before {
-                            // Provider truth outranks our stale/unknown metadata
-                            // for the rest of this turn. Keep the recovered
-                            // ceiling so later hops compact before repeating the
-                            // same oversized request.
                             effective_budget = effective_budget.min(recovery_budget);
                             compact_keep_tokens = if compact_keep_token_target == 0 {
                                 0
                             } else {
                                 compact_keep_token_target.min(effective_budget / 2)
                             };
-                            // The rebuilt retry sends a rewritten history: a
-                            // known prefix breaker for its own hop sample.
                             hop_breakers.push("overflow compaction");
                             overflow_recoveries += 1;
                             if emitted_reasoning {
@@ -3377,9 +2850,6 @@ fn run_turn_tiered(
                             note_failed_reply(&err, reasoning_only_reply, history);
                             continue;
                         }
-                        // Recovery notes are harness diagnostics, never an
-                        // answer. Seal the same failure ledger/envelope as an
-                        // exhausted cloud request, including local-seat deaths.
                         stop_after_session_recovery = true;
                     }
                     if !cancel.load(Ordering::Relaxed)
@@ -3388,14 +2858,8 @@ fn run_turn_tiered(
                     {
                         provider_attempt = provider_attempt.saturating_add(1);
                         if emitted_reasoning || emitted_answer {
-                            // Retries replace an incomplete reasoning trace; do
-                            // not leave the failed attempt looking live in the UI.
                             let _ = events.send(TurnEvent::SuppressPartial);
                         }
-                        // An empty 200 can be deterministic: a greedy local
-                        // backend fed identical bytes fails identically. One
-                        // transient re-prompt changes the token stream so the
-                        // retry is not a pure replay.
                         note_failed_reply(&err, reasoning_only_reply, history);
                         let failure_stage = if incomplete_stream {
                             "provider stream incomplete"
@@ -3413,8 +2877,6 @@ fn run_turn_tiered(
                             "{failure_stage}; {retry_plan}: {err}{}",
                             leg_note(&failure.leg)
                         )));
-                        // Give a struggling backend a beat before the retry,
-                        // sliced so a user cancel still lands promptly.
                         let backoff_started = Instant::now();
                         let backoff = Duration::from_millis(u64::from(failure.verdict.delay_ms));
                         let slice = Duration::from_millis(50);
@@ -3423,18 +2885,8 @@ fn run_turn_tiered(
                             std::thread::sleep(slice.min(backoff - waited));
                             waited += slice;
                         }
-                        // The backoff sleep is model wait time too: the turn
-                        // is idle waiting on the provider between attempts, so
-                        // it lands in `model_ms` (and leaves `other_ms`)
-                        // rather than masquerading as harness overhead. The
-                        // retry slice and count split out for the receipt.
                         timing.note_model_retry_wait(backoff_started.elapsed());
                         if cancel.load(Ordering::Relaxed) {
-                            // Re-enter the owned hop boundary instead of
-                            // issuing one last provider call after Esc landed
-                            // during backoff. Some simple/custom clubs use the
-                            // default streaming implementation and do not
-                            // observe `cancel` themselves.
                             continue 'turn;
                         }
                         continue;
@@ -3449,8 +2901,6 @@ fn run_turn_tiered(
                     crate::agent::harness::trajectory::note_stop_reason(
                         TurnStopReason::ProviderError,
                     );
-                    // Seal the progress ledger even when no model answer exists.
-                    // Failed transport never earns a verifier reward or answer.
                     log_trajectory(club, history, "", hop, false, None);
                     eprintln!(
                         "[turn] {} provider call failed on hop {hop} after {} retry attempt(s): {err}{}",
@@ -3471,10 +2921,6 @@ fn run_turn_tiered(
                             action_capsule_metrics,
                         ),
                     );
-                    // Name the real reason this hop stopped retrying: the caller
-                    // reads this line as the recovery receipt, so a retry count
-                    // that never ran must not be blamed for a permanent error or
-                    // for text that had already been streamed.
                     let retry_disposition = if stop_after_session_recovery {
                         "not retried: the long-session recovery latch owned this fault".to_string()
                     } else if is_permanent_provider_error(&err) {
@@ -3517,10 +2963,6 @@ fn run_turn_tiered(
         };
         let _reply_model =
             super::run_identity::LiveModelScope::enter(club.resolved_route_identity().model);
-        // Scavenge (opt-in): a reasoning model can finish a hop with an empty
-        // `tool_calls` array while the call itself sits in the answer text. Only
-        // the accumulated assistant text is available here — private reasoning
-        // is streamed to the UI, never retained — so that is what is scanned.
         let reply = match reply {
             crate::agent::club::ClubReply::Text(answer)
                 if toolcall_scavenge && !defs.is_empty() =>
@@ -3534,8 +2976,6 @@ fn run_turn_tiered(
                         .map(|call| call.name.as_str())
                         .collect::<Vec<_>>()
                         .join(", ");
-                    // The text was streamed as if it were the answer; retract it
-                    // before the recovered calls dispatch.
                     let _ = events.send(TurnEvent::SuppressPartial);
                     let _ = events.send(TurnEvent::Notice(format!(
                         "scavenge: recovered {names} call{} from prose",
@@ -3548,19 +2988,10 @@ fn run_turn_tiered(
         };
         match reply {
             crate::agent::club::ClubReply::Text(answer) => {
-                // The answer's own reasoning, for a route that replays it
-                // (DeepSeek's thinking mode wants every reasoned turn back).
                 let answer_reasoning = crate::agent::club::take_pending_tool_reasoning();
-                // Self-report escalation: the marker is a control token, not an
-                // answer, so it is read before any answer policy sees the text.
-                // Inert at `Off`, which is every unarmed turn.
                 let answer = match read_self_report(&answer, tier) {
                     SelfReport::None => answer,
                     SelfReport::Escalate(reason) => {
-                        // The marker streamed as if it were the answer: retract
-                        // it, and leave history untouched so the escalation seat
-                        // is handed exactly the request this seat declined —
-                        // nothing about the aborted attempt goes upstream.
                         let _ = events.send(TurnEvent::SuppressPartial);
                         write_exp(
                             "needs_pro",
@@ -3593,13 +3024,6 @@ fn run_turn_tiered(
                         rest
                     }
                 };
-                // Stop checkpoint (`book/q_stop.rs`). Every measurement the harness
-                // owns still runs here — post-write verification, the pinned
-                // acceptance command, the confirming re-run, background-job state —
-                // but none of them can deny the answer. Their findings are stop
-                // facts; the first answer that carries any is shown them once as a
-                // warpath ending in `⠟⠁`, and every later answer stands, save one
-                // stop for a failed confirming re-run (`⠧⠑`).
                 let mut stop_facts: Vec<book::Raise> = Vec::new();
                 let mut add_fact = |raise: book::Raise| {
                     if raise.available()
@@ -3626,13 +3050,9 @@ fn run_turn_tiered(
                         final_check_notes.join("\n\n"),
                     ));
                 }
-                // A long provider call can race a background build's exit:
-                // deliver the completions, and a failed one is a fact.
                 if task_capture.is_some() && deliver_job_completions(registry, history, events) {
                     add_fact(book::Raise::new(book::p_processes::FAILED, None));
                 }
-                // A headless answer shuts down its process registry; jobs the
-                // task still owns stop with it. Say so; never wait on them.
                 let proc_owner = cancel as *const AtomicBool as usize;
                 let proc_workspace = &registry.workspace_boundary().canonical_root;
                 if task_capture.is_some()
@@ -3640,7 +3060,6 @@ fn run_turn_tiered(
                 {
                     add_fact(book::Raise::new(book::p_processes::LIVE, None));
                 }
-                // Raw tool markup in a text answer: nothing in it ran.
                 if !defs.is_empty() && crate::agent::club::contains_raw_tool_markup(&answer) {
                     markup_replies += 1;
                     add_fact(book::Raise::new(book::x_execution::MARKUP, None));
@@ -3659,8 +3078,6 @@ fn run_turn_tiered(
                         }
                         _ => false,
                     };
-                // The evaluator-pinned acceptance command is measured, never a
-                // veto: red is `⠧⠃`, flaky `⠧⠑`, green is recorded.
                 if let Some(command) = task_accept_cmd.as_deref() {
                     let last_result = accept_last_post_result.or(accept_baseline_result);
                     let reuse_unchanged_red = current_acceptance_workspace.is_some()
@@ -3715,9 +3132,6 @@ fn run_turn_tiered(
                         add_fact(fact);
                     }
                 }
-                // One pass can be luck: repeat the model's last green run on the
-                // unchanged code at its stop. Once `⠧⠑` has had its stop the
-                // answer stands, so the re-run would buy nothing.
                 let confirm_runs = if confirm_green_runs > 0 {
                     confirm_green_runs
                 } else if confirm_green_on_chance
@@ -3740,7 +3154,6 @@ fn run_turn_tiered(
                 {
                     let green = last_green_run.take().expect("checked above");
                     let label = book::v_verification::run_label(&green.call);
-                    // A substitute runner has not run yet: it owes one more run.
                     let runs = confirm_runs + usize::from(green.substitute);
                     match book::v_verification::confirm_green_run(
                         registry,
@@ -3771,8 +3184,6 @@ fn run_turn_tiered(
                         }
                     }
                 }
-                // A test file that came with the task was changed: a pass that
-                // leans on that change says nothing about the code.
                 if track_task_facts
                     && task_accept_cmd.is_none()
                     && let Some(fact) = book::v_verification::tests_edited_fact(
@@ -3782,7 +3193,6 @@ fn run_turn_tiered(
                 {
                     add_fact(fact);
                 }
-                // The model's own last test run on this exact code was red.
                 if track_task_facts
                     && task_accept_cmd.is_none()
                     && let Some(red) = last_red_run.as_ref().filter(|red| {
@@ -3803,8 +3213,6 @@ fn run_turn_tiered(
                 {
                     add_fact(fact);
                 }
-                // An answer that claims progress with no edit (armed like 0.1.6:
-                // an operator opt-in, with a first-write limit).
                 let workspace_changed =
                     match (initial_workspace_fingerprint, current_workspace_fingerprint) {
                         (Some(initial), Some(current)) => current != initial,
@@ -3816,7 +3224,6 @@ fn run_turn_tiered(
                 for raise in &loop_facts {
                     add_fact(book::Raise::new(raise.route, None));
                 }
-                // Research turns end on their own answer, unchecked.
                 let left = (!research_turn)
                     .then(|| {
                         book::q_stop::task_budget_left(
@@ -3827,12 +3234,6 @@ fn run_turn_tiered(
                         )
                     })
                     .flatten();
-                // Sentinel delivery gate (opt-in `ANGEL_SENTINEL=intervene`
-                // with named artifacts and/or a liveness command): unlike
-                // the stop facts below, a missing *named deliverable* or a
-                // dead server withholds the answer — bounded to
-                // GATE_MAX_BLOCKS rounds — because in a budgeted task the
-                // workspace is graded after this process exits.
                 if sentinel.intervene_armed() {
                     let missing = super::sentinel::missing_artifact_paths(
                         &sentinel_artifacts,
@@ -3849,9 +3250,6 @@ fn run_turn_tiered(
                         )
                     });
                     let liveness_failed = liveness.as_ref().is_some_and(|proof| !proof.passed);
-                    // An endpoint served by an Angel-owned `proc_run` job
-                    // dies with this process, before any post-exit check:
-                    // liveness passing through such a job proves nothing.
                     let owned_service_pending = sentinel_liveness_cmd.is_some()
                         && crate::agent::tools::proc::owned_work_pending(
                             proc_owner,
@@ -3925,8 +3323,6 @@ fn run_turn_tiered(
                         continue;
                     }
                 }
-                // Markup with nothing changed is a call that failed to parse,
-                // not an answer: it does not stand after the first stop.
                 if let Some((cells, shown)) = checkpoint.engage_with(
                     registry.current_workspace(),
                     &stop_facts,
@@ -3937,9 +3333,6 @@ fn run_turn_tiered(
                         &shown.iter().map(|raise| raise.route).collect::<Vec<_>>(),
                     );
                     crate::agent::harness::trajectory::note_escalation(hop, "stop_checkpoint");
-                    // The streamed answer is not final yet: retract it from the
-                    // live pane, keep it in the model tail as the claim the
-                    // checkpoint is about.
                     let _ = events.send(TurnEvent::SuppressPartial);
                     history.push(ChatMsg::assistant_with_reasoning(answer, answer_reasoning));
                     history.push(ChatMsg::harness(book::q_stop::stop_turn(
@@ -3959,13 +3352,10 @@ fn run_turn_tiered(
                         book::names(&stop_facts)
                     )));
                 }
-                // The ledger still records an unverified claim shipping.
                 if verification_outstanding {
                     unverified_completion_claims
                         .set(unverified_completion_claims.get().saturating_add(1));
                 }
-                // Optional final-answer advisor (ANGEL_ADVISOR=1|final|hops).
-                // SwarmClub may already have annotated; skip if so.
                 let answer = apply_final_advisor(club, registry, history, answer);
                 let answer = if research_turn {
                     let rendered = research::finalize(&answer);
@@ -3976,10 +3366,6 @@ fn run_turn_tiered(
                 } else {
                     answer
                 };
-                // Angel's Share: barrel the final-hop context + answer when
-                // this club is an armed teacher (default-off, non-blocking —
-                // see barrel.rs). Called before the answer is pushed so the
-                // captured context never duplicates it.
                 crate::agent::harness::trajectory::note_research_answer(&answer);
                 crate::agent::harness::trajectory::note_task_answer();
                 crate::knowledge::barrel::capture_answer(
@@ -4031,8 +3417,6 @@ fn run_turn_tiered(
             }
             crate::agent::club::ClubReply::Calls(mut calls) => {
                 super::task_mode::append_test_after_write(&mut calls, hop);
-                // Routes this hop raises; they ride the tail of its last tool
-                // result as one warpath, never a message of their own.
                 let mut raised: Vec<book::Raise> = Vec::new();
                 cues.observe_calls(calls.iter().map(|call| call.name.as_str()));
                 if let Some(origin) = research_origin.as_deref() {
@@ -4044,13 +3428,8 @@ fn run_turn_tiered(
                         }
                     }
                 }
-                // Provider-private reasoning is a one-reply handoff. Consume it
-                // before call-ID normalization and attach it only to this exact
-                // live assistant message; serde deliberately skips it.
                 let private_reasoning = crate::agent::club::take_pending_tool_reasoning();
                 let tool_content = crate::agent::club::take_pending_tool_content();
-                // The silent-repeat guard sees the batch as issued with its text;
-                // its note rides after the results (`silence_guard.rs`).
                 let silence_note = silence.observe(tool_content.as_deref(), &calls);
                 let responses_replay = crate::agent::club::take_pending_responses_replay();
                 let repaired_call_ids = normalize_tool_call_ids(&mut calls, history, hop);
@@ -4082,9 +3461,6 @@ fn run_turn_tiered(
                 if calls.iter().any(|c| c.id.starts_with("prose_")) {
                     let _ = events.send(TurnEvent::SuppressPartial);
                 }
-                // Loop detectors see the batch as issued (`book/l_loops.rs`). A
-                // pure competition board wait/poll does not count: its outcome
-                // can change under the same call.
                 let loop_batch = loops.before_dispatch(
                     &calls,
                     book::l_loops::anti_spin_counts_batch(
@@ -4096,8 +3472,6 @@ fn run_turn_tiered(
                     &mut raised,
                 );
                 raised.extend(mutation_thrash.observe(&calls));
-                // Measure actual file state for potentially mutating batches;
-                // successful opaque shell diagnostics alone are not progress.
                 let progress_bytes_before =
                     trajectory::mutation_byte_snapshot(registry.current_workspace(), &calls);
                 let progress_workspace_before = calls
@@ -4110,10 +3484,6 @@ fn run_turn_tiered(
                 let acceptance_workspace_before = task_accept_cmd
                     .as_ref()
                     .and_then(|_| workspace_evidence_sha256(registry.current_workspace()));
-                // Action capsules inspect only already-parsed arguments. The
-                // preview never calls a model, reads a file, shells out, or
-                // enters model history. In approve mode one decision covers
-                // the whole model-emitted batch, avoiding modal-per-file drag.
                 let action_batch = if action_capsule_mode.active() {
                     let capsule_started = Instant::now();
                     let batch = ActionBatch::from_calls(
@@ -4127,8 +3497,6 @@ fn run_turn_tiered(
                     }
                     batch
                 } else {
-                    // Do not even walk the batch on the default path. The only
-                    // remaining work is the existing footprint scheduler below.
                     None
                 };
                 let deny_actions = if let Some(batch) = &action_batch {
@@ -4141,9 +3509,6 @@ fn run_turn_tiered(
                             ),
                             &batch.approval_prompt(),
                         );
-                        // UI wait is intentionally not mixed into local
-                        // preflight overhead: the ledger can distinguish a
-                        // cheap preview from an operator deliberation.
                         action_capsule_metrics.note_approval_wait(wait_started.elapsed());
                         let denied = matches!(decision, crate::agent::approval::Decision::Deny);
                         if denied {
@@ -4160,23 +3525,6 @@ fn run_turn_tiered(
                 } else {
                     false
                 };
-                // Parallel tool calls: when the model batches tools whose
-                // filesystem footprints don't conflict, run them concurrently — the
-                // Codex (parallel.rs read/write gate) + Hermes (path-overlap) win.
-                // Read-only batches parallelize as before; additionally, writes to
-                // *disjoint* paths run together (a write never races a read that
-                // could observe it). Effectful/conflicting calls form strict serial
-                // barriers; safe consecutive runs on either side still parallelize.
-                // Results are pushed to `history` in call order regardless, so each
-                // tool_call_id pairs correctly.
-                // An approval modal must never race another prompt; observe
-                // mode retains the existing disjoint-write parallelism.
-                // The parallel/segmented dispatchers have no view of the storm
-                // map, so a batch carrying a suppressed duplicate runs serially.
-                // Hook commands are arbitrary side effects (locks, ledgers,
-                // approvals, external counters) that the filesystem footprint
-                // planner cannot see. A configured hook therefore makes the
-                // whole emitted batch a serial barrier.
                 crate::agent::turn::phase::mark("tool_checkpoint");
                 if let Some(checkpoint) = history_checkpoint {
                     let mut durable_prefix = history.clone();
@@ -4208,11 +3556,6 @@ fn run_turn_tiered(
                         );
                     }
                 }
-                // Gates must speak: a configured lifecycle hook disables every
-                // parallel/segmented dispatch path below. That is a deliberate
-                // ordering guarantee, but left silent it reads as "the harness
-                // got slow" (2026-08-15: a *-matcher PostToolUse hook serialized
-                // every session for hours before anyone found it).
                 if !hooks.is_empty() && calls.len() > 1 && !hooks_serial_notice_sent {
                     hooks_serial_notice_sent = true;
                     let _ = events.send(TurnEvent::Notice(
@@ -4222,7 +3565,7 @@ fn run_turn_tiered(
                 }
                 let parallel = hooks.is_empty()
                     && parallel_allowed(action_capsule_mode, registry.workspace_boundary(), &calls);
-                let hooks = &hooks; // a Copy reference the move-closures can share
+                let hooks = &hooks;
                 let action_batch_ref = action_batch.as_ref();
                 let sandbox_receipts = std::sync::Mutex::new(vec![None; calls.len()]);
                 let mut dispatch_one = |index: usize, call: &ToolCall, gate: &AtomicBool| {
@@ -4296,8 +3639,6 @@ fn run_turn_tiered(
                         dispatch_elapsed = Some(elapsed);
                         result
                     };
-                    // Every dispatched call has timing, including headless and
-                    // YOLO turns. Action previews only control the UI receipt.
                     if let Some((preview, elapsed)) = preview.zip(dispatch_elapsed) {
                         let _ = events.send(TurnEvent::Notice(
                             preview.receipt(&result, elapsed.as_millis()),
@@ -4314,8 +3655,6 @@ fn run_turn_tiered(
                     let _ = events.send(TurnEvent::ToolResult {
                         id: ToolEventId(call.id.clone()),
                         name: call.name.clone(),
-                        // Conversation projects the bounded capsule reason; trace
-                        // keeps the dispatch diagnostic available in full.
                         summary: if result.starts_with("tool error:") {
                             result.clone()
                         } else {
@@ -4323,9 +3662,6 @@ fn run_turn_tiered(
                         },
                         outcome,
                     });
-                    // `present` cards and hands screenshots ride the same
-                    // Stage envelope: the operator watches desktop/browser
-                    // actions land in the Scryglass preview.
                     let presents_to_stage = call.name == "present"
                         || (matches!(call.name.as_str(), "desktop" | "browser")
                             && call.args.get("action").and_then(Value::as_str)
@@ -4394,8 +3730,6 @@ fn run_turn_tiered(
                                 .collect()
                         }
                     });
-                // Batch wall time (serial, segmented, or parallel) so
-                // concurrent members never double-count into `tool_ms`.
                 let dispatch_wall = tool_wait_started.elapsed();
                 let tool_shares = tool_wall_shares(
                     &results
@@ -4407,17 +3741,15 @@ fn run_turn_tiered(
                 timing.last_tool_end = Some(turn_start.elapsed().as_millis());
                 let cycle_observation = loops.cycle_observation(&loop_batch, &calls, &results);
                 loops.observe_outcome(&loop_batch, &calls, &results);
-                // Track the consecutive-error streak before the results are capped
-                // into history: a hop where every call errored at dispatch. A red
-                // test run is a verdict, not a dispatch error.
                 let all_errored = !results.is_empty()
                     && results
                         .iter()
                         .zip(calls.iter())
-                        .all(|((result, _, _), call)| is_dispatch_failure(call, result));
+                        .all(|((result, _, _), call)| {
+                            is_dispatch_failure(call, result)
+                                && !classify::is_red_test_shell_run(call, result)
+                        });
                 let error_streak = errors.observe(all_errored);
-                // Classify every dispatch-level failure into the bounded
-                // schema/exec/timeout/other buckets for the experience ledger.
                 for (result, _, outcome) in results.iter() {
                     timing.note_tool_result(
                         !matches!(
@@ -4432,15 +3764,9 @@ fn run_turn_tiered(
                         tool_errors_by_class.set(classes);
                     }
                 }
-                // Ledger snapshot after this hop's results are counted, so a
-                // record written at any later exit seam carries this hop.
                 crate::agent::harness::trajectory::note_task_timing(
                     &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
                 );
-                // Calls have now been fully dispatched, so move them into
-                // history instead of cloning their potentially huge JSON args
-                // before dispatch. Results still follow immediately in the
-                // original order, preserving the provider tool-call protocol.
                 let call_history_index = history.len();
                 let mut assistant =
                     ChatMsg::assistant_calls_full(calls, private_reasoning, tool_content);
@@ -4450,9 +3776,6 @@ fn run_turn_tiered(
                 let mut cycle_state_changed_this_hop = false;
                 let mut execution_blocked = None;
                 post_write_verification.begin_batch();
-                // The Treebeard compactor, resolved at the hop's first parked
-                // result; its digests run beside the rest of the batch. The
-                // overseer (the same helper, any lane) reads a handed-off job.
                 let mut compactor: Option<Option<Arc<dyn Club>>> = None;
                 let mut overseer: Option<Option<Arc<dyn Club>>> = None;
                 let mut digesting = Vec::new();
@@ -4464,11 +3787,6 @@ fn run_turn_tiered(
                     {
                         action_capsule_metrics.note_execution(elapsed);
                     }
-                    // Post-write self-correct: after a successful file edit, surface
-                    // what the machine already knows about it — the language server's
-                    // errors for that file, and whether the project still builds —
-                    // inline, so the model fixes it this turn instead of moving on.
-                    // The same seam stamps the outcome onto The Cut's manifest.
                     let (call_id, result) = {
                         let call = &history[call_history_index].tool_calls[call_index];
                         let mut observers = PostWriteObservers {
@@ -4554,9 +3872,6 @@ fn run_turn_tiered(
                     }
 
                     {
-                        // Trajectory ledger entry for this call. Verifier verdicts
-                        // are re-derived only for verifier calls (a cheap name
-                        // match gates it), so non-verifier hops pay nothing.
                         let errored = is_error_result(&result);
                         let verify = (started
                             && tool_outcome.verification != VerificationOutcome::NotApplicable)
@@ -4616,9 +3931,6 @@ fn run_turn_tiered(
                         }
                     }
                     if succeeded && is_mutation_call(call) {
-                        // Meta notes / living-handoff are bookkeeping: they do not
-                        // arm mutation_seen or clear first-write (competition agents
-                        // were "progressing" by rewriting LIVING_HANDOFF only).
                         if is_product_mutation_call(call) {
                             successful_mutation_this_hop = true;
                             cycle_state_changed_this_hop = true;
@@ -4643,9 +3955,6 @@ fn run_turn_tiered(
                             }
                         }
                     } else if succeeded && is_dependency_mutation_call(call) {
-                        // go get / npm install / cargo add change the tree even
-                        // when no file tool was used; first-write + no-edit guards
-                        // treat this as real progress.
                         mutation_seen = true;
                         cycle_state_changed_this_hop = true;
                         first_write_attempted = true;
@@ -4660,13 +3969,6 @@ fn run_turn_tiered(
                                 .set(Some(turn_start.elapsed().as_millis() as u64));
                         }
                     }
-                    // A real verifier attempt, including a red test or missing
-                    // local dependency, is enough to let the model disclose the
-                    // blocker. Record where the attempt occurred so a later
-                    // opaque mutation makes it stale. Outcome quality is tracked
-                    // separately; this fingerprint never claims the tree is green.
-                    // Self-authored-only green checks do not clear the gate —
-                    // they are recorded for a post-hop nudge instead.
                     if registry.mutation_targets.is_opaque() {
                         green_verify_achieved = false;
                     }
@@ -4676,21 +3978,14 @@ fn run_turn_tiered(
                             .map(|entry| entry.outcome.verification)
                             .or_else(|| verification_outcome(call, &result))
                     {
-                        // A real negative verifier invalidates the completion claim,
-                        // even if an earlier compile passed on these bytes. Keep
-                        // repair calls available; failure is not new green evidence.
                         if outcome == VerificationOutcome::Failed {
                             green_verify_achieved = false;
-                            // A red on the code un-stales the advisory for the
-                            // next green.
                             green_verify_nudge_emitted = false;
                             failed_checks += 1;
                         }
                         if let Some(raise) = red_streak.observe(outcome) {
                             raised.push(raise);
                         }
-                        // A shell test that exits zero is not typed green, but
-                        // it is what the model saw: the finish cue's fact.
                         if outcome == VerificationOutcome::Passed
                             || (call.name == "shell"
                                 && outcome == VerificationOutcome::Inconclusive)
@@ -4702,15 +3997,6 @@ fn run_turn_tiered(
                                 .unwrap_or(call.name.as_str());
                             cues.observe_clean_run(command);
                         }
-                        // Remember a red verdict and the code it ran on. A later
-                        // test run that did not come back red replaces it, so
-                        // `⠧⠁` only ever carries the model's latest run. A
-                        // shell run that exits 0 is Inconclusive, not Passed;
-                        // keeping the red record through it would have denied
-                        // seven GLM answers on polyglot-v1 whose last run was
-                        // green. A call that is not a test run (NotApplicable)
-                        // and a runner that never started (exit 127, a timeout)
-                        // say nothing about the code.
                         if track_task_facts {
                             match outcome {
                                 VerificationOutcome::Passed | VerificationOutcome::Inconclusive => {
@@ -4739,37 +4025,23 @@ fn run_turn_tiered(
                                 &self_authored_test_basenames,
                             );
                         if weak_self_authored {
-                            // Keep verification_needed: the edits stay `⠧⠋`.
                             weak_verification_pending = true;
                         } else if verification_attempt_releases_gate(call, outcome)
                             && (outcome == VerificationOutcome::Failed
                                 || !verification_result_has_known_gap(&result))
                         {
-                            // A real attempt releases the gate unless the receipt
-                            // names a known gap (a selected target that skipped a
-                            // changed file). Unknown coverage — no git, an earlier
-                            // opaque shell — is not a gap; `attempted_opaque_generation`
-                            // below is what re-arms the gate on a *later* opaque edit.
                             verification_needed = false;
                             attempted_opaque_generation =
                                 registry.mutation_targets.opaque_generation();
                             verification_attempt_workspace_fingerprint = call_fingerprint.get();
-                            // Only a full-strength verifier counts as a completion
-                            // green: a filtered slice going green is progress,
-                            // not proof.
                             if is_completion_green(outcome, mutation_seen)
                                 && verification_is_completion_sufficient(call)
                             {
                                 green_verify_achieved = true;
                             }
                         } else {
-                            // Keep verification_needed armed. Raw shell
-                            // success is supplemental evidence until the
-                            // execution boundary can attest a pinned argv.
                         }
                     }
-                    // Opt-in: a green that only ran tests this turn wrote is not
-                    // a test of the code, so it leaves the edits `⠧⠋`.
                     let self_authored_only = self_authored_verify_guard
                         && verification_outcome(call, &result) == Some(VerificationOutcome::Passed)
                         && verification_targets_self_authored(call, &self_authored_test_basenames);
@@ -4783,10 +4055,6 @@ fn run_turn_tiered(
                     {
                         untested.note_attempt(call_fingerprint.get());
                     }
-                    // `tests | tail; ls` or `tests || fallback` runs the tests
-                    // too, but angelX cannot read a verdict from it. Once it
-                    // exits 0 the earlier red run is no longer the model's
-                    // latest word on the code (GLM py-book-store, polyglot-v1).
                     if track_task_facts && succeeded && shell_runs_tests_anywhere(call) {
                         last_red_run = None;
                     }
@@ -4816,8 +4084,6 @@ fn run_turn_tiered(
                         } else if book::v_verification::test_run_behind_fallback(call)
                             && registry.has_tool("run_tests")
                         {
-                            // `./test || ctest` can read green while the test
-                            // failed; confirm with angelX's own runner instead.
                             last_green_run = Some(book::v_verification::GreenRun {
                                 call: ToolCall {
                                     id: "confirm_green".into(),
@@ -4829,13 +4095,6 @@ fn run_turn_tiered(
                             });
                         }
                     }
-                    // Universal ceiling: cap every result before it enters the
-                    // conversation, so an uncapped tool (git_diff, find_files,
-                    // delegate/integrate, MCP/peer…) can't dump unbounded text
-                    // into the context window. The live UI event above already
-                    // showed the full (summarized) result; only the model's copy
-                    // is capped. Treebeard/HiQ then eagerly parks large eligible
-                    // inspection bulk under a handle so root history stays LID.
                     let routing = registry
                         .take_routed_execution(call, &result)
                         .map(|entry| entry.receipt);
@@ -4954,8 +4213,6 @@ fn run_turn_tiered(
                         .or(overseer.as_ref().and_then(Option::as_ref))
                         .map(|helper| helper.label().to_string())
                         .unwrap_or_default();
-                    // Never wait: what has landed rides its receipt now; the
-                    // rest rolls and joins the tail when it lands.
                     let (landed, rolling) =
                         super::compactor::attach_ready(history, std::mem::take(&mut digesting));
                     rolling_digests.pending.extend(rolling);
@@ -4979,7 +4236,6 @@ fn run_turn_tiered(
                         }
                     )));
                 }
-                // The hop's stamps ride the tail of its last tool result.
                 let last_tool_index = history.len() - 1;
                 timing.note_tool_batch(tool_wait_started.elapsed());
                 timing.tool_member_ms += tool_shares.iter().sum::<u128>();
@@ -5000,10 +4256,6 @@ fn run_turn_tiered(
                             .is_some_and(|after| before != after)
                     });
                 crate::agent::harness::trajectory::note_progress_hop(progress_mutated);
-                // Sentinel: render budget-fraction facts (notice-only unless
-                // intervention is armed, and even then at most the one
-                // existing first-write advisory, latched with its own block
-                // below). Full policy in `super::sentinel`.
                 {
                     let missing_paths = super::sentinel::missing_artifact_paths(
                         &sentinel_artifacts,
@@ -5039,9 +4291,6 @@ fn run_turn_tiered(
                                 ),
                             ));
                         }
-                        // Edits landed somewhere, but not at the named
-                        // deliverables: name them while half the budget
-                        // remains, instead of a first-write prompt.
                         if matches!(verdict, super::sentinel::Verdict::Drift { .. })
                             && sentinel.intervene_armed()
                             && !missing_paths.is_empty()
@@ -5079,9 +4328,6 @@ fn run_turn_tiered(
                     &mut raised,
                 );
                 handle_unproductive_streak!();
-                // Stop before another paid model hop. Finish pairing the entire
-                // dispatched batch first; unrelated successful calls cannot
-                // erase a failed execution prerequisite.
                 if let Some(note) = execution_blocked {
                     crate::agent::harness::trajectory::note_task_timing(
                         &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
@@ -5117,10 +4363,6 @@ fn run_turn_tiered(
                         &notify,
                     )));
                 }
-                // Close the hop's manifest rows. Writes the postcheck above never
-                // claimed (a `code_mode` script's inner edits, which dispatch
-                // through the same registry but aren't tool calls of this loop)
-                // land here, unstamped — a row is never held across a hop.
                 crate::knowledge::cut::sweep();
                 let acceptance_workspace_after = task_accept_cmd
                     .as_ref()
@@ -5133,15 +4375,11 @@ fn run_turn_tiered(
                         (Some(before), Some(after)) => before != after,
                         _ => successful_mutation_this_hop,
                     };
-                // The hop advisories (`⠼`, `⡅`), in the order 0.1.6 gave them.
-                // A green that only ran the model's own tests is weak, once.
                 if weak_verification_pending && !weak_verification_told {
                     weak_verification_told = true;
                     raised.push(book::Raise::new(book::d3456_advisories::WEAK, None));
                 }
                 weak_verification_pending = false;
-                // A full verifier passed on changed code: use it as evidence and
-                // finish what remains. In a competition, bank the candidate.
                 if green_verify_achieved && !green_verify_nudge_emitted {
                     green_verify_nudge_emitted = true;
                     raised.push(book::Raise::new(
@@ -5153,7 +4391,6 @@ fn run_turn_tiered(
                         None,
                     ));
                 }
-                // The armed inspection budget is spent and nothing was edited.
                 if first_write_limit > 0 && !first_write_attempted {
                     if successful_mutation_this_hop {
                         first_write_attempted = true;
@@ -5168,8 +4405,6 @@ fn run_turn_tiered(
                             && prewrite_calls >= first_write_limit
                             && !first_write_nudge_emitted
                         {
-                            // Once per turn: repeating the directive before and
-                            // after every later call crowds out the evidence.
                             first_write_nudge_emitted = true;
                             raised.push(book::Raise::new(
                                 if competition && task_pace == TaskPace::Rapid {
@@ -5184,8 +4419,6 @@ fn run_turn_tiered(
                         }
                     }
                 }
-                // A mutation after the green stales it: the verifier proved a
-                // tree that no longer exists.
                 if green_verify_achieved && successful_mutation_this_hop {
                     if competition {
                         raised.push(book::Raise::new(
@@ -5196,14 +4429,10 @@ fn run_turn_tiered(
                     green_verify_achieved = false;
                     green_verify_nudge_emitted = false;
                 }
-                // The first successful edit of the turn: review it before
-                // testing, once.
                 if post_edit_review && successful_mutation_this_hop && !post_edit_logic_reviewed {
                     post_edit_logic_reviewed = true;
                     raised.push(book::Raise::new(book::d3456_advisories::POST_EDIT, None));
                 }
-                // The final mile. Inspection alone while a verifier is owed hears
-                // the last sentence again, as its own page; the calls still run.
                 if book::d3456_advisories::rejects_inspection(
                     final_mile_active,
                     verification_needed,
@@ -5250,8 +4479,6 @@ fn run_turn_tiered(
                             turn_start.elapsed().as_millis() as u64,
                         );
                         time_to_green_ms.set(Some(turn_start.elapsed().as_millis() as u64));
-                        // The answer's reader cannot read the ledger:
-                        // `⠟⠛⠁`'s page, the hop count in place.
                         let mut answer = book::q_stop::ACCEPTED.replace("{hop}", &hop.to_string());
                         let notes =
                             with_turn_deadline_cancel(cancel, turn_deadline, |verify_cancel| {
@@ -5298,9 +4525,6 @@ fn run_turn_tiered(
                         );
                         observed_outcome!(TurnOutcome::answer(answer, hop), "accept_cmd");
                     } else if let Some(fact) = proof.fact() {
-                        // The model just saw its own run go green; the pinned
-                        // acceptance says the green does not hold (`⠧⠑`), or is
-                        // red (`⠧⠃`).
                         let _ = events.send(TurnEvent::Notice(proof.summary.clone()));
                         if fact.route == book::v_verification::FLAKY {
                             raised.push(fact);
@@ -5310,8 +4534,6 @@ fn run_turn_tiered(
                 raised.extend(error_streak);
                 raised.extend(cues.take());
                 loops.latch(&mut raised, progress_mutated);
-                // A resumed conversation may predate a newly added route or
-                // page. Do not emit an address its pinned book cannot resolve.
                 raised.retain(book::Raise::available);
                 for raise in &raised {
                     if raise.route.primary == book::l_loops::CELL
@@ -5320,13 +4542,6 @@ fn run_turn_tiered(
                         loop_facts.push(raise.clone());
                     }
                 }
-                // The hop's routes: an advisory (`book::VOICED`) and a loop route
-                // (`⠇`) each ride a turn of their own; the rest ride the tail of
-                // the last tool result as one warpath. Inside the result a model
-                // reads a cue as more output: replayed at DeepSeek loop points, no
-                // cue there broke a loop (0/26, stamp through full English), while
-                // `⛔⠇⠁` as its own turn broke 11/26 for 7 tokens. The advice of
-                // 0.1.6 was always its own turn, and it said what to do.
                 if !raised.is_empty() && history[last_tool_index].role == ChatRole::Tool {
                     let (looped, rest): (Vec<_>, Vec<_>) = raised
                         .iter()
@@ -5342,7 +4557,6 @@ fn run_turn_tiered(
                         message.content = format!("{}\n{cells}", message.content).into();
                         shown.push_str(&cells);
                     }
-                    // A warning leads with the sign; guidance is bare cells.
                     let (warnings, guidance): (Vec<_>, Vec<_>) = voiced
                         .into_iter()
                         .partition(|raise| book::is_warning(raise.route));
@@ -5377,7 +4591,6 @@ fn run_turn_tiered(
                 crate::agent::harness::trajectory::note_hop_stamps(
                     &raised.iter().map(|raise| raise.route).collect::<Vec<_>>(),
                 );
-                // Plain words, its own turn after the hop's results and routes.
                 if let Some(note) = silence_note {
                     crate::agent::harness::trajectory::note_escalation(hop, "silent-repeat");
                     let _ = events.send(TurnEvent::Notice(note.clone()));
@@ -5392,11 +4605,6 @@ pub(crate) fn configured_turn_deadline_secs() -> usize {
     env_usize("ANGEL_TURN_DEADLINE_SECS", 0)
 }
 
-/// Wall-clock budget for one turn. Explicit `ANGEL_TURN_DEADLINE_SECS` always
-/// wins. Competition turns do **not** invent a default kill clock — overnight
-/// handoff/podrace loops must not die at an arbitrary 20-minute wall. Operators
-/// who want a wall set `ANGEL_TURN_DEADLINE_SECS` or
-/// `ANGEL_COMPETITION_TURN_DEADLINE_SECS` explicitly.
 pub(crate) fn configured_turn_deadline_secs_for(competition: bool) -> usize {
     if std::env::var_os("ANGEL_TURN_DEADLINE_SECS").is_some() {
         return env_usize("ANGEL_TURN_DEADLINE_SECS", 0);
@@ -5407,7 +4615,6 @@ pub(crate) fn configured_turn_deadline_secs_for(competition: bool) -> usize {
     0
 }
 
-/// Last operator/user task text for advisor prompts.
 fn last_user_task(history: &[ChatMsg]) -> String {
     history
         .iter()
@@ -5417,7 +4624,6 @@ fn last_user_task(history: &[ChatMsg]) -> String {
         .unwrap_or_default()
 }
 
-/// Final-answer advisor gate for ordinary (and swarm-pre-annotated) turns.
 fn apply_final_advisor(
     club: &dyn Club,
     registry: &ToolRegistry,
@@ -5432,7 +4638,6 @@ fn apply_final_advisor(
     }
     let task = last_user_task(history);
     registry.auxiliary.utility_entered("advisor");
-    // The reviewer is connected: its brief is `⠌⠊`, read through the ledger.
     match crate::agent::advisor::review(club, registry.current_workspace(), &task, &answer) {
         Ok(reply) => {
             match crate::agent::advisor::annotate(&crate::agent::advisor::parse_verdict(&reply)) {
@@ -5444,11 +4649,6 @@ fn apply_final_advisor(
     }
 }
 
-/// Work the first tool call would otherwise pay for, started as the process's
-/// first model request goes out so it overlaps the wait for the answer: the
-/// toolchain digests held at start-up are released, and the result classifier
-/// (a V8 policy leg whose first evaluation builds its isolate) is run once.
-/// Later hops and later turns find both already done.
 fn warm_beside_first_request() {
     static FIRST: std::sync::Once = std::sync::Once::new();
     FIRST.call_once(|| {
@@ -5468,28 +4668,6 @@ struct PostWriteObservers<'a> {
     verification: &'a mut crate::knowledge::cut::PostWriteVerification,
 }
 
-/// The post-write seam: everything the machine can say about a mutation the
-/// instant it lands, folded back into the tool result the model is about to read
-/// — and stamped onto The Cut's manifest (docs/plans/the-cut.md, T2).
-///
-/// Two checks, cheapest first:
-/// 1. the language server's errors for the edited file ([`maybe_lsp_postcheck`],
-///    unchanged — gated on `ANGEL_LSP`);
-/// 2. the project's *verify* command — `cargo check`, `node --check`, `tsc
-///    --noEmit`, never a test run — run under a hard timeout
-///    ([`crate::knowledge::cut::PostWriteVerification`]). On by default; `ANGEL_CUT_VERIFY=0` opts out.
-///
-/// Only a *failure* reaches the model — its data on the result, `⠧⠉` on the
-/// warpath: a passing verify would spend context to say nothing. The verdict is recorded either way, so the manifest
-/// carries a machine label on every write — the label density the whole plan
-/// turns on — while the turn only pays tokens when angel actually broke the
-/// build. This is also where the manifest row gets the facts only the loop knows
-/// (the hop, the resolved model).
-///
-/// The same verdict is folded into `verdicts`, which is what the turn's
-/// trajectory row is finally *rewarded* on ([`crate::knowledge::cut::TurnVerdicts`]). One
-/// verify, three consumers: the model reads it, the manifest records it, and the
-/// forge trains on it.
 fn post_write_verdict(
     registry: &ToolRegistry,
     club: &dyn Club,
@@ -5502,13 +4680,9 @@ fn post_write_verdict(
     if registry.external_evaluator_only {
         return (result, None);
     }
-    // A failed or denied call authored nothing — there is nothing to check and
-    // nothing to record.
     if is_error_result(&result) || result.starts_with("action capsule denied") {
         return (result, None);
     }
-    // A target spelled from the launch directory (`ws/bowling/bowling.py`) is
-    // checked where the write landed, not reported missing.
     let targets = crate::knowledge::cut::mutation_targets(&call.name, &call.args)
         .into_iter()
         .map(|target| {
@@ -5521,7 +4695,7 @@ fn post_write_verdict(
         })
         .collect::<Vec<_>>();
     if targets.is_empty() {
-        return (result, None); // not a mutation tool
+        return (result, None);
     }
     let receipt_len = result.len();
     let result = maybe_lsp_postcheck(
@@ -5564,7 +4738,6 @@ fn post_write_verdict(
             }
         }
     }
-    // The machine's own words ride the result as data; the route is `⠧⠉`.
     let lsp = result[receipt_len..].trim().to_string();
     let mut data = Vec::new();
     if !lsp.is_empty() {
@@ -5637,9 +4810,6 @@ fn diagnostic_error_lines(diagnostics: &str) -> Vec<&str> {
         .collect()
 }
 
-/// Exact UTF-8-safe prefix cap for diagnostic feedback. Unlike the universal
-/// tool cap this must be a hard upper bound because it is injected *in addition*
-/// to the edit receipt and can cover several files in one patch.
 fn cap_post_edit_diagnostics(text: String, max_bytes: usize) -> String {
     if text.len() <= max_bytes {
         return text;
@@ -5658,11 +4828,6 @@ fn cap_post_edit_diagnostics(text: String, max_bytes: usize) -> String {
     format!("{}{marker}", &text[..end])
 }
 
-/// After a successful mutation, append the language server's *errors* for the
-/// changed files to the same tool result so the model can repair them on its
-/// next inference. It reuses `lsp_diagnostics`, but hot-path calls never spawn a
-/// cold server and have a short per-file deadline. LSP unavailability is counted
-/// and remains non-destructive: the successful mutation receipt stays exact.
 pub(crate) fn maybe_lsp_postcheck(
     registry: &ToolRegistry,
     enabled: bool,

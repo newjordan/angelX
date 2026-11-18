@@ -1,7 +1,3 @@
-"""Dashboard datasets for the fine-tune A/B (ab_analysis.json) and the live
-fine-tuned bench (live_analysis-angel-live-tuned.json), into dash/data/.
-  python3 -I build_ab_datasets.py <bench-dir>
-"""
 import json, os, sys
 
 root = sys.argv[1]

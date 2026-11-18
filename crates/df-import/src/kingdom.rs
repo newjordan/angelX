@@ -13,18 +13,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
-/// Larger than this is more than the game shows at once; it is kept anyway
-/// and reported.
 pub const MAX_W: usize = 168;
 pub const MAX_H: usize = 108;
-/// Room around the fortress's outermost dug, built or furnished tile.
 pub const PAD: i32 = 2;
-/// How far the surface level looks down for the ground under open sky.
 pub const SKY_DEPTH: i32 = 8;
-/// The most levels the game plays; the surface entrance is always one.
 pub const MAX_LEVELS: usize = 8;
-/// Functions (indexes into `FUNCTIONS`) that always get a level: the forges
-/// (the steel line) and the barracks.
 pub const MUST_KEEP: &[usize] = &[2, 11];
 
 #[derive(Clone, Copy, Debug)]
@@ -45,7 +38,6 @@ impl Crop {
         }
     }
 
-    /// The note on a crop larger than the game shows at once.
     fn size_note(&self) -> String {
         if self.w > MAX_W || self.h > MAX_H {
             format!(" (larger than {MAX_W} x {MAX_H}; kept)")
@@ -55,12 +47,10 @@ impl Crop {
     }
 }
 
-/// A DF staircase tile: up/down, up or down.
 fn is_stair(shape: u8) -> bool {
     matches!(shape, b'X' | b'<' | b'>')
 }
 
-/// An export `pos` as (x, y, z); -1 for what is missing.
 fn pos_of(p: Option<&Value>) -> (i32, i32, i32) {
     let c = |k: &str| p.and_then(|p| int_of(p, k)).unwrap_or(-1) as i32;
     (c("x"), c("y"), c("z"))
@@ -83,7 +73,6 @@ struct Location {
     profession: Option<String>,
 }
 
-/// The religion (an entity) a temple is dedicated to.
 struct Religion {
     entity: Option<i64>,
     name: Option<String>,
@@ -94,9 +83,6 @@ fn locations(root: &Value) -> BTreeMap<i64, Location> {
     let mut out = BTreeMap::new();
     for l in arr(root, "locations") {
         let Some(id) = int_of(l, "id") else { continue };
-        // deity_type 0: `deity` is a historical figure. 1: `religion` is an
-        // entity (an older exporter wrote a wrong figure as `deity` here, so
-        // `deity` is read only for 0).
         let deity_type = int_of(l, "deity_type");
         let deity = l.get("deity").filter(|_| deity_type == Some(0)).and_then(|d| str_of(d, "name_english"));
         let religion = l.get("religion").filter(|r| deity_type == Some(1) && r.is_object()).map(|r| Religion {
@@ -130,8 +116,6 @@ fn location_kind(t: &str) -> String {
     }
 }
 
-/// The place kind of a building, or None when it is furniture rather than a
-/// place.
 fn place_kind(b: &Building, locs: &BTreeMap<i64, Location>) -> Option<String> {
     match b.kind.as_str() {
         "Civzone" => {
@@ -167,7 +151,6 @@ fn place_kind(b: &Building, locs: &BTreeMap<i64, Location>) -> Option<String> {
 
 const FOOD_SHOPS: &[&str] = &["Still", "Kitchen", "Farmers", "Butchers", "Fishery", "Quern", "Millstone", "Tanners"];
 
-/// (slug, display name) of each level function, in tie-break order.
 const FUNCTIONS: &[(&str, &str)] = &[
     ("the-dormitories", "The Dormitories"),
     ("the-workshops", "The Workshops"),
@@ -186,7 +169,6 @@ const FUNCTIONS: &[(&str, &str)] = &[
     ("the-stores", "The Stores"),
 ];
 
-/// Which function a building argues for, and how strongly.
 fn function_vote(b: &Building, locs: &BTreeMap<i64, Location>) -> Option<(usize, u32)> {
     if b.is("Civzone") {
         if let Some(l) = b.location_id.and_then(|i| locs.get(&i)) {
@@ -291,8 +273,6 @@ fn draw_order(b: &Building) -> u8 {
     }
 }
 
-/// A workshop's solid parts: the back (top) row and the middle of a 3x3, or
-/// the middle tile of any other size.
 fn shop_solid(b: &Building, x: i32, y: i32) -> bool {
     let (w, h) = (b.x2 - b.x1 + 1, b.y2 - b.y1 + 1);
     if w == 3 && h == 3 {
@@ -310,8 +290,6 @@ struct Ctx<'a> {
 }
 
 impl Ctx<'_> {
-    /// DF draws a tree's trunk as a wall of tree material; its `T` tiles are
-    /// branches, twigs and canopy, which hang over open air.
     fn is_trunk(&self, z: i32, x: i32, y: i32) -> bool {
         self.ex.shape(z, x, y) == b'#' && self.ex.mat(z, x, y) == b'p'
     }
@@ -324,8 +302,6 @@ impl Ctx<'_> {
         if z != self.surface_z {
             return (b'~', b' ');
         }
-        // The surface level is a hillside: under open sky (or canopy), show
-        // the ground below, so the upper world is one walkable map.
         for d in 1..=SKY_DEPTH {
             let zz = z - d;
             let t = self.ex.shape(zz, x, y);
@@ -357,8 +333,6 @@ impl Ctx<'_> {
             b'T' => self.air(z, x, y),
             b'~' | b'O' => (b'~', b' '),
             b' ' => self.air(z, x, y),
-            // DF stairs and ramps are plain floor; the game's own links are
-            // chosen afterwards (`choose_links`) and only they are `>`.
             _ => (b'.', b' '),
         }
     }
@@ -380,8 +354,6 @@ impl Ctx<'_> {
         }
     }
 
-    /// The layer the unrevealed rock of a level most likely is: the commonest
-    /// of soil, stone and flux among its revealed natural walls.
     fn fill_class(&self, z: i32) -> u8 {
         let Some(g) = self.ex.grids.get(&z) else { return b'r' };
         let mut n: BTreeMap<u8, usize> = BTreeMap::new();
@@ -458,7 +430,6 @@ fn render(ctx: &Ctx, z: i32, crop: Crop, bs: &[&Building]) -> Rendered {
     Rendered { tiles, dress, rock }
 }
 
-/// Wall the outermost ring of a level.
 fn wall_border(r: &mut Rendered) {
     let h = r.tiles.len();
     for (cy, (trow, drow)) in r.tiles.iter_mut().zip(r.dress.iter_mut()).enumerate() {
@@ -472,8 +443,6 @@ fn wall_border(r: &mut Rendered) {
     }
 }
 
-/// Wall every walkable tile the level's links cannot reach. Returns how many
-/// were walled, and whether the links themselves are in separate regions.
 fn wall_unreached(r: &mut Rendered, rects: &[Rect]) -> (usize, bool) {
     let seeds: Vec<(i32, i32)> = rects.iter().flat_map(|a| links::cells(*a)).collect();
     let split = match rects.first() {
@@ -494,8 +463,6 @@ fn wall_unreached(r: &mut Rendered, rects: &[Rect]) -> (usize, bool) {
             }
         }
     }
-    // A statue, trunk or hole with no walkable tile around it is now inside
-    // solid ground: wall it too.
     let (h, w) = (r.tiles.len(), r.tiles.first().map_or(0, |t| t.len()));
     let mut lone = Vec::new();
     for cy in 0..h {
@@ -534,7 +501,6 @@ fn opt<T: Serialize>(m: &mut Map<String, Value>, k: &str, v: Option<T>) {
     }
 }
 
-/// What a person does in the kingdom, in the building game's words.
 fn job_from_position(code: &str) -> &'static str {
     match code {
         "MANAGER" | "BOOKKEEPER" | "BROKER" => "clerk",
@@ -677,7 +643,6 @@ fn job_from_skill(s: &str) -> Option<&'static str> {
     })
 }
 
-/// Place kinds a home job works at, to find the level that is its district.
 fn job_places(job: &str) -> &'static [&'static str] {
     match job {
         "mason" => &["workshop:masons"],
@@ -780,7 +745,6 @@ fn value_words(values: &[Value]) -> Vec<String> {
         .collect()
 }
 
-/// The modded races of "Additional Races", by the mod's name.
 const MODDED: &[(&str, &str)] = &[
     ("Additional Races. Gnolls", "GNOLL"),
     ("Additional Races. Naga", "NAGA"),
@@ -836,8 +800,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         by_z.entry(b.z).or_default().push(b);
     }
 
-    // 1. Which levels qualify (built, or dug), and which are kept: the
-    //    surface entrance and the ones with the most fortress content.
     let mut stats: BTreeMap<i32, ZStat> = BTreeMap::new();
     for (&z, g) in &ex.grids {
         let mut s = ZStat { buildings: by_z.get(&z).map_or(0, |v| v.len()), ..Default::default() };
@@ -855,8 +817,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         }
         stats.insert(z, s);
     }
-    // The surface, where the upper world comes in: the trade depot's level
-    // (one the export has tiles for), else the highest level with stairs.
     let surface_z = ex
         .buildings
         .iter()
@@ -872,8 +832,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         .collect();
     let content = |z: i32| -> u32 {
         let votes: u32 = by_z.get(&z).into_iter().flatten().filter_map(|b| function_vote(b, &locs)).map(|(_, w)| w).sum();
-        // Every building counts a little, so a richly furnished hall outranks
-        // a sparse one of the same function.
         votes + stats[&z].buildings as u32 / 4
     };
     let mut ranked: Vec<(u32, i32)> =
@@ -884,9 +842,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
     for &(_, z) in ranked.iter().take(MAX_LEVELS - 1) {
         playable.insert(z);
     }
-    // The building game's industries must have a level each, whatever their
-    // content score: the best-ranked level of each such function is kept
-    // too, and the crop grows to hold them.
     let function_of = |z: i32| level_function(by_z.get(&z).map(|v| v.as_slice()).unwrap_or(&[]), &locs);
     let mut extra: BTreeSet<i32> = BTreeSet::new();
     for &f in MUST_KEEP {
@@ -907,7 +862,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         lines.push(format!("dropped z{z} {f} (content {c}, {} buildings)", stats[&z].buildings));
     }
 
-    // 2. One crop for every level, so stairs line up.
     let (mut x0, mut y0, mut x1, mut y1) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
     let mut grow = |x: i32, y: i32| {
         x0 = x0.min(x);
@@ -948,8 +902,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
     let crop = Crop { x0, y0, w: (x1 - x0 + 1) as usize, h: (y1 - y0 + 1) as usize };
     lines.push(format!("crop: x {x0}..{x1} y {y0}..{y1} = {} x {} tiles{}", crop.w, crop.h, crop.size_note()));
 
-    // 3. Names, from each level's dominant function, numbered top-down when
-    //    several levels share one.
     let zs_top_down: Vec<i32> = playable.iter().rev().copied().collect();
     let mut base_names: BTreeMap<i32, (String, String)> = BTreeMap::new();
     for &z in &zs_top_down {
@@ -982,7 +934,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
     }
     let slug_of = |z: i32| names.get(&z).map(|n| n.0.clone());
 
-    // 4. The levels: render, border, links, entrance, one walkable region.
     let ctx = Ctx { ex: &ex, surface_z, cls: &cls, legend: &legend };
     let mut rend: BTreeMap<i32, Rendered> = BTreeMap::new();
     for &z in &zs_top_down {
@@ -998,13 +949,8 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
     };
     let center = (crop.w as i32 / 2, crop.h as i32 / 2);
     let mut used: BTreeMap<i32, Vec<Rect>> = BTreeMap::new();
-    // (to z, rect on this level, shares the DF staircase with the other end,
-    //  deep stair)
     let mut link_list: BTreeMap<i32, Vec<(i32, Rect, bool, bool)>> = BTreeMap::new();
-    // Pairs with the fewest shared stair tiles choose first, so a narrow
-    // real shaft is not taken by a neighbour's link on the wide main stair.
     let masks: BTreeMap<i32, Vec<Vec<bool>>> = zs_top_down.iter().map(|&z| (z, stair_mask(z))).collect();
-    // The stair tiles of pair k (level k and the one below it) in common.
     let commons: Vec<Vec<Vec<bool>>> = zs_top_down
         .windows(2)
         .map(|p| {
@@ -1019,7 +965,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         let (a, b) = (zs_top_down[k], zs_top_down[k + 1]);
         let (ma, mb) = (&masks[&a], &masks[&b]);
         let common = &commons[k];
-        // A link must open onto the level's floor, not a stair sealed in rock.
         let fits = |z: i32, r: Rect| {
             links::all_floor(&rend[&z].tiles, r)
                 && !used.get(&z).into_iter().flatten().any(|u| links::overlaps(*u, r))
@@ -1044,9 +989,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
                 (ra, rb, false)
             }
         };
-        // A shaft: the DF stairs run unbroken through every level between
-        // the two ends at one of the link's tiles. Otherwise the link is a
-        // "deep stair", the game's shortcut where the fort has none.
         let shaft = aligned
             && links::cells(ra).iter().any(|&(x, y)| {
                 (b + 1..a).all(|zz| ex.shape(zz, crop.x0 + x, crop.y0 + y) == b'X')
@@ -1072,8 +1014,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
             }
         }
     }
-    // The entrance from the upper world: a 3x3 of clear floor on the surface
-    // nearest the trade depot, reachable from the level's stairs.
     let top = surface_z;
     let anchor = ex
         .buildings
@@ -1109,10 +1049,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         }
     }
 
-    // 5. Crop again, to what can be walked to below the surface (outdoor
-    //    slopes and pockets were just walled) plus the surface's own links
-    //    and entrance, padded the same way. The open hillside of the
-    //    surface beyond that is cut off.
     let (mut bx0, mut by0, mut bx1, mut by1) = (usize::MAX, usize::MAX, 0usize, 0usize);
     let mut take = |cx: usize, cy: usize| {
         bx0 = bx0.min(cx);
@@ -1160,7 +1096,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
     }
     let entrance = shift(entrance);
     let crop = Crop { x0: crop.x0 + nx0 as i32, y0: crop.y0 + ny0 as i32, w: nx1 - nx0 + 1, h: ny1 - ny0 + 1 };
-    // The cut may have severed some of the surface: wall what is now cut off.
     for &z in &zs_top_down {
         let rects = used.get(&z).cloned().unwrap_or_default();
         let (n, s) = wall_unreached(rend.get_mut(&z).unwrap(), &rects);
@@ -1277,7 +1212,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         let counts: BTreeMap<&str, usize> =
             counts.into_iter().filter(|(k, v)| *v > 0 || *k == "beds" || *k == "workshops").collect();
 
-        // Seams: what the walls are made of, in the crop.
         let mut classes: BTreeMap<String, u64> = BTreeMap::new();
         let mut minerals: BTreeMap<String, u64> = BTreeMap::new();
         for cy in 0..crop.h {
@@ -1352,7 +1286,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
             walled.get(&z).copied().unwrap_or(0),
         ));
     }
-    // Level files from an earlier run that this run did not write.
     if let Ok(rd) = fs::read_dir(&levels_dir) {
         let mut stale: Vec<_> = rd
             .filter_map(|e| e.ok())
@@ -1366,7 +1299,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         }
     }
 
-    // 5. Places.
     let citizens = arr(root, "citizens");
     let mut name_of_unit: BTreeMap<i64, String> = BTreeMap::new();
     for c in citizens {
@@ -1388,9 +1320,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         json: Map<String, Value>,
     }
     let mut places: Vec<Place> = Vec::new();
-    // Every place id given so far: a location's first zone takes the
-    // location's slug, its others (and a second location of the same name)
-    // add their building id.
     let mut taken: BTreeSet<String> = BTreeSet::new();
     let mut unreachable_places = 0usize;
     for &z in playable.iter().rev() {
@@ -1446,8 +1375,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
             if b.unfinished {
                 m.insert("unfinished".into(), json!(true));
             }
-            // Reachable: a tile of it, or one beside it, is walkable floor
-            // that survived the flood fill.
             let tl = &rend[&z].tiles;
             let walk = |x: i32, y: i32| crop.local(x, y).is_some_and(|(cx, cy)| links::walkable(tl[cy][cx]));
             let reachable =
@@ -1460,7 +1387,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         }
     }
 
-    // Bedroom blocks: rooms that touch, by row of rooms.
     let mut blocks = Vec::new();
     for &z in playable.iter().rev() {
         let idx: Vec<usize> = (0..places.len()).filter(|&i| places[i].z == z && places[i].kind == "bedroom").collect();
@@ -1537,7 +1463,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         unreachable_places
     ));
 
-    // Where each kind of work is done: level with the most such places.
     let district_of = |job: &str| -> Option<String> {
         if job == "miner" {
             return playable
@@ -1545,7 +1470,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
                 .rev()
                 .filter(|z| names[z].0.starts_with("the-mines"))
                 .max_by(|a, b| stats[a].floors.cmp(&stats[b].floors).then(a.cmp(b)))
-                // No mine level kept: the deepest level, nearest the dug rock.
                 .or_else(|| playable.iter().next())
                 .and_then(|z| slug_of(*z));
         }
@@ -1562,7 +1486,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         n.into_iter().max_by(|a, b| a.1.cmp(&b.1).then(a.0.cmp(&b.0))).and_then(|(z, _)| slug_of(z))
     };
 
-    // 6. Artifacts.
     let mut artifacts = Vec::new();
     for a in arr(root, "artifacts") {
         let mut m = Map::new();
@@ -1577,7 +1500,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         }
         if let Some(p) = a.get("pos") {
             let (x, y, z) = pos_of(Some(p));
-            // slug_of names only the playable levels.
             match (slug_of(z), crop.local(x, y)) {
                 (Some(l), Some((cx, cy))) => {
                     m.insert("level".into(), json!(l));
@@ -1593,7 +1515,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         artifacts.push(Value::Object(m));
     }
 
-    // kingdom.json
     let fort = root.get("fortress").cloned().unwrap_or(Value::Null);
     let place_values: Vec<Value> = places.iter().map(|p| Value::Object(p.json.clone())).collect();
     let kingdom = json!({
@@ -1624,7 +1545,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         "wealth": root.get("wealth"),
     });
 
-    // 7. People.
     let mut cit_by_id: BTreeMap<i64, &Value> = BTreeMap::new();
     for c in citizens {
         if let Some(id) = int_of(c, "id") {
@@ -1653,8 +1573,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
             continue;
         }
         let cit = cit_by_id.get(&id).copied();
-        // Skills: the citizen record has every skill with its experience;
-        // the folk record only those at level 3 and up.
         let src = cit.unwrap_or(p);
         let mut skills: Vec<(i64, i64, String)> = arr(src, "skills")
             .iter()
@@ -1694,8 +1612,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
             "skills".into(),
             json!(skills.iter().take(5).map(|s| json!({"skill": s.2.to_lowercase(), "level": s.0})).collect::<Vec<_>>()),
         );
-        // Where they stand, when it is on a playable level (slug_of names
-        // only those) inside the crop.
         let stand = slug_of(z).zip(crop.local(x, y));
         match &stand {
             Some((l, (cx, cy))) => {
@@ -1732,7 +1648,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         "people": people,
     });
 
-    // 8. Races.
     let wr = root.get("world_races").cloned().unwrap_or(Value::Null);
     let groups = arr(&folk, "groups");
     let mut fort_races: BTreeMap<String, (String, BTreeMap<String, i64>)> = BTreeMap::new();
@@ -1855,7 +1770,6 @@ pub fn run(input_dir: &Path, kingdom_dir: &Path, game_dir: &Path) -> Result<Summ
         "intelligent_race_names": all_names,
     });
 
-    // 9. Resources.
     let ore_names: BTreeSet<String> = ex
         .prospect
         .get("Ores")

@@ -25,7 +25,6 @@ fn provider_retry_cases<T: serde::de::DeserializeOwned>(group: &str, expected: u
     serde_json::from_value(values.clone()).expect("valid provider retry cases")
 }
 
-// The full classifier input corpus stays editable without rebuilding the binary.
 fn board_classification_cases<T: serde::de::DeserializeOwned>(
     group: &str,
     expected: usize,
@@ -232,7 +231,6 @@ impl Club for BlockedSandboxClub {
     }
 }
 
-// This subprocess status-channel fixture depends on the Linux memfd backend.
 #[cfg(target_os = "linux")]
 #[test]
 fn failed_native_sandbox_stops_before_next_request_despite_successful_batch_peer() {
@@ -241,8 +239,6 @@ fn failed_native_sandbox_stops_before_next_request_despite_successful_batch_peer
     let _accept = EnvGuard::unset("ANGEL_TASK_ACCEPT_CMD");
     let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    // Simulate an outer helper's dedicated status channel. Candidate stderr
-    // alone is explicitly insufficient to classify this failure.
     struct FailedHelper;
     impl Tool for FailedHelper {
         fn name(&self) -> &str {
@@ -432,8 +428,6 @@ fn sandbox_fallback_notice_and_envelope_are_bound_to_the_call() {
     assert_eq!(received.try_iter().filter(|event| matches!(event, TurnEvent::Notice(text) if text.contains("→ Landlock-only confinement"))).count(), 1);
 }
 
-// --- run_turn / post-edit / first-write / spin suite ------------------------
-
 struct RedAcceptanceClaimClub {
     calls: AtomicUsize,
 }
@@ -496,8 +490,6 @@ fn red_task_acceptance_is_a_stop_fact_shown_once_then_the_answer_stands() {
     )
     .expect("red acceptance never becomes a harness stop");
 
-    // The red acceptance is measured, never a veto: one checkpoint carries it
-    // with the deli route, and the model's next answer stands.
     assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
     assert_eq!(club.calls.load(Ordering::SeqCst), 2);
     let receipt = outcome.acceptance.expect("acceptance telemetry");
@@ -528,10 +520,6 @@ fn red_task_acceptance_is_a_stop_fact_shown_once_then_the_answer_stands() {
 
 #[test]
 fn run_turn_dispatches_tools_then_answers() {
-    // Builds the default registry (reads tool-gating env like
-    // ANGEL_TOOL_SEARCH_ACTIVE_MAX / ANGEL_TOOL_SCHEMA_PROFILE), so hold the
-    // shared env lock — otherwise a concurrent profile-setting test leaks into
-    // this turn's tool activation and flakes the parallel runner.
     let _guard = crate::tests::env_lock();
     let _skill_hint = EnvGuard::set("ANGEL_SKILL_HINT", "0");
     let _first_write = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
@@ -551,9 +539,6 @@ fn run_turn_dispatches_tools_then_answers() {
     )
     .unwrap();
     assert_eq!(answer, "done: olleh");
-    // Protocol integrity: user → tool result → final answer. Broker/system
-    // context may add harness/system rows under other env; don't require a
-    // brittle total non-harness count (flaked 6 vs 4 under parallel suite).
     assert_eq!(
         history.iter().filter(|m| m.role == ChatRole::User).count(),
         1
@@ -699,7 +684,6 @@ fn multi_hop_checkpoint_tracks_each_provider_request_and_tool_intent() {
         requests: Mutex::new(Vec::new()),
     };
     let registry = ToolRegistry::with_defaults();
-    // Harness context may follow operator input before the first request.
     let mut history = vec![
         ChatMsg::user("reverse hello"),
         ChatMsg::harness("checkpoint fixture context"),
@@ -854,8 +838,6 @@ fn failed_request_checkpoint_prevents_provider_dispatch() {
         None,
         &|prefix| {
             checkpoints.fetch_add(1, Ordering::SeqCst);
-            // The turn binds the book generation onto the history before the
-            // checkpoint; everything else must arrive as supplied.
             assert!(crate::agent::harness::book::continuity::generation_digest(prefix).is_some());
             let mut checkpointed = serde_json::to_value(&prefix[..2]).unwrap();
             for message in checkpointed.as_array_mut().unwrap() {
@@ -878,9 +860,6 @@ fn failed_request_checkpoint_prevents_provider_dispatch() {
 #[test]
 fn run_turn_records_each_real_policy_call_in_order_when_local_capture_is_enabled() {
     let _guard = crate::tests::env_lock();
-    // Pin hop-shaping env so parallel suite load cannot inject skill-hint /
-    // first-write / competition / verify / deferred / empty-reply retries that
-    // inflate attempt count (flaked 4 vs 2 under harness gate load).
     let _skill_hint = EnvGuard::set("ANGEL_SKILL_HINT", "0");
     let _first_write = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
     let _competition = EnvGuard::unset("ANGEL_COMPETITION_MODE");
@@ -924,8 +903,6 @@ fn run_turn_records_each_real_policy_call_in_order_when_local_capture_is_enabled
         serde_json::from_slice(&std::fs::read(run_dir[0].join("manifest.json")).unwrap()).unwrap();
     assert_eq!(manifest["schema"], "angel-harness-rollout/v1");
     assert_eq!(manifest["status"], "finalized");
-    // ScriptedClub: one tool hop + one final text hop. Protocol kinds matter more
-    // than an exact attempt count if a single empty-reply retry ever races.
     let attempts = manifest["attempts"].as_array().unwrap();
     assert!(
         (2..=3).contains(&attempts.len()),
@@ -1122,12 +1099,7 @@ fn run_turn_advertises_discovered_tool_on_the_immediately_following_hop() {
 
 #[test]
 fn ranged_read_file_stays_one_local_tool_hop() {
-    // `run_turn` consults process-wide completion/action settings. Serialize
-    // with tests that temporarily override those variables so this remains a
-    // one-hop file-read assertion under the parallel test runner.
     let _guard = crate::tests::env_lock();
-    // A8: suite load can leave skill/verify/first-write/deferred governors
-    // armed and force extra model hops (flake: hops 4 vs 2). Pin them off.
     let _max_hops_env = EnvGuard::unset("ANGEL_MAX_HOPS");
     let _spin = EnvGuard::unset("ANGEL_SPIN_LIMIT");
     let _first_write = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
@@ -1224,8 +1196,6 @@ fn ranged_read_file_stays_one_local_tool_hop() {
 fn action_capsule_observe_is_ui_only_and_does_not_add_a_model_hop() {
     let _guard = crate::tests::env_lock();
     let _mode = EnvGuard::set("ANGEL_ACTION_CAPSULES", "observe");
-    // This test isolates the capsule's hop behavior. The completion-policy
-    // tests separately prove that a mutation earns one final verification hop.
     let _verification = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
 
     struct CountingWrite(Arc<AtomicUsize>);
@@ -1518,18 +1488,11 @@ fn post_edit_diagnostic_reaches_next_provider_request_without_an_extra_tool_hop(
     );
 }
 
-/// The default budget is the L01 unbounded policy, so this pins the real
-/// contract — a transient failure before visible output retries in the same hop
-/// and recovers, announced once — rather than a retry *count* that no operator
-/// configured.
 #[test]
 fn run_turn_default_provider_budget_recovers_a_transient_failure_in_hop() {
     let _guard = crate::tests::env_lock();
     let _retries = EnvGuard::unset("ANGEL_PROVIDER_RETRIES");
     let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
-    // Provider transport retries stay inside one hop; pin governors other suite
-    // tests may arm so a parallel load cannot steal the recovery into an
-    // extra hop / runaway stop (suite flake: 2-hop guard without answering).
     let _max_hops_env = EnvGuard::unset("ANGEL_MAX_HOPS");
     let _spin = EnvGuard::unset("ANGEL_SPIN_LIMIT");
     let _first_write = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
@@ -1569,8 +1532,6 @@ fn run_turn_default_provider_budget_recovers_a_transient_failure_in_hop() {
     };
     let mut history = vec![ChatMsg::user("hello")];
     let (event_tx, event_rx) = mpsc::channel();
-    // Headroom: recovery is one hop with an in-hop retry. Some(2) was tight
-    // under env-governor bleed and failed the runaway guard without answering.
     let answer = run_turn(
         &club,
         &ToolRegistry::with_defaults(),
@@ -1582,7 +1543,6 @@ fn run_turn_default_provider_budget_recovers_a_transient_failure_in_hop() {
     .expect("transport failure should recover inside hop budget");
 
     assert_eq!(answer, "recovered");
-    // Exactly one failure + one recovery call (retries stay in-hop).
     assert_eq!(
         club.calls.load(Ordering::SeqCst),
         2,
@@ -1618,10 +1578,6 @@ fn run_turn_default_provider_budget_recovers_a_transient_failure_in_hop() {
     );
 }
 
-/// A routine recoverable outage must not end a productive turn because an
-/// implicit count ran out: with no operator setting, four consecutive cuts ride
-/// out in the same hop and the fifth attempt answers. The old implicit default
-/// of one retry died on the second cut.
 #[test]
 fn run_turn_default_retries_ride_out_more_cuts_than_the_old_implicit_one() {
     let _guard = crate::tests::env_lock();
@@ -1699,9 +1655,6 @@ fn run_turn_default_retries_ride_out_more_cuts_than_the_old_implicit_one() {
     );
 }
 
-/// A stream severed after the model already streamed partial prose is an
-/// incomplete stream like any other missing terminal event: it must retry once
-/// even under an explicit budget of one, and the retracted partial never lands.
 #[test]
 fn run_turn_retries_a_severed_stream_after_partial_prose() {
     let _guard = crate::tests::env_lock();
@@ -1785,8 +1738,6 @@ fn run_turn_retries_a_severed_stream_after_partial_prose() {
     );
 }
 
-/// An explicit operator setting stays exact: `0` means one attempt, and the
-/// failure receipt names that setting instead of an implicit deadline.
 #[test]
 fn run_turn_explicit_zero_provider_retries_fails_with_the_real_reason() {
     let _guard = crate::tests::env_lock();
@@ -1847,10 +1798,6 @@ fn run_turn_explicit_zero_provider_retries_fails_with_the_real_reason() {
     );
 }
 
-/// A cut that carries half a tool call must discard it and replay the hop: the
-/// replayed attempt is the only one that dispatches, and it dispatches exactly
-/// once. A second dispatch of the same call, or a call assembled from severed
-/// arguments, would be a duplicate execution.
 #[test]
 fn run_turn_partial_tool_call_is_never_dispatched_twice() {
     let _guard = crate::tests::env_lock();
@@ -1884,8 +1831,6 @@ fn run_turn_partial_tool_call_is_never_dispatched_twice() {
             on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
         ) -> Result<ClubReply, String> {
             match self.calls.fetch_add(1, Ordering::SeqCst) {
-                // The transport's discard error: prose plus a half-assembled
-                // call that must never reach the registry.
                 0 => {
                     on_delta(crate::agent::club::StreamDelta::Content("discard-partial"));
                     Err(format!(
@@ -1946,13 +1891,9 @@ fn run_turn_partial_tool_call_is_never_dispatched_twice() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
-/// A permanent account/configuration failure outranks the recoverable-stream
-/// spelling. A wrapped error that carries both a rejected credential and stall
-/// context must stay actionable instead of looping on the stall word alone.
 #[test]
 fn run_turn_permanent_error_with_stall_context_is_not_retried() {
     let _guard = crate::tests::env_lock();
-    // Non-zero so the assertion observes attempt counts, not a hang.
     let _retries = EnvGuard::set("ANGEL_PROVIDER_RETRIES", "3");
     let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
     let _teacher = EnvGuard::set("ANGEL_TEACHER_WATCH", "0");
@@ -1968,7 +1909,6 @@ fn run_turn_permanent_error_with_stall_context_is_not_retried() {
     const MIXED: &str = "HTTP 401 Unauthorized: invalid api key; upstream reported \
                          stream stalled: server kept the connection alive but sent no data \
                          for 60s";
-    // The disposition itself: recoverable text must not launder a permanent error.
     assert!(
         !retryable_provider_failure(MIXED, false, true),
         "a permanent error may not be retried even in the incomplete-stream class"
@@ -2026,9 +1966,6 @@ fn run_turn_permanent_error_with_stall_context_is_not_retried() {
     );
 }
 
-/// A cut on a later hop must not cost the turn the tool work already committed:
-/// the replay re-sends the identical history (same committed tool result) and the
-/// completed call executes exactly once.
 #[test]
 fn run_turn_stream_cut_replay_preserves_completed_tool_work() {
     let _guard = crate::tests::env_lock();
@@ -2237,7 +2174,6 @@ fn run_turn_does_not_retry_permanent_provider_failures() {
         }
     }
 
-    // Retry veto headers and rejected TLS certificates remain permanent.
     for error in provider_retry_cases::<String>("permanent", 15)
         .iter()
         .map(String::as_str)
@@ -2297,8 +2233,6 @@ fn run_turn_reprompts_once_on_empty_reply_retry() {
     let _guard = crate::tests::env_lock();
     let _retries = EnvGuard::set("ANGEL_PROVIDER_RETRIES", "2");
     let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
-    // Empty-reply retries stay inside a single hop; pin governors that other
-    // suite tests may leave armed so this assertion is not load-order flaky.
     let _max_hops_env = EnvGuard::unset("ANGEL_MAX_HOPS");
     let _spin = EnvGuard::unset("ANGEL_SPIN_LIMIT");
     let _first_write = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
@@ -2307,9 +2241,6 @@ fn run_turn_reprompts_once_on_empty_reply_retry() {
     let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
     let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
 
-    // An empty 200 can repeat deterministically on identical bytes, so the
-    // retry must not be a pure replay: the harness injects one transient
-    // re-prompt, and the club must see it on the retried request.
     struct EmptyThenOkClub {
         calls: AtomicUsize,
         retry_saw_reprompt: AtomicBool,
@@ -2351,8 +2282,6 @@ fn run_turn_reprompts_once_on_empty_reply_retry() {
     };
     let mut history = vec![ChatMsg::user("hello")];
     let (event_tx, _event_rx) = mpsc::channel();
-    // Headroom: two empty provider failures + one recovery are same-hop retries.
-    // Some(2) was tight when other env governors interacted under parallel load.
     let answer = run_turn(
         &club,
         &ToolRegistry::with_defaults(),
@@ -2523,7 +2452,6 @@ fn run_turn_retries_after_reasoning_only_then_provider_failure() {
     let _guard = crate::tests::env_lock();
     let _retries = EnvGuard::set("ANGEL_PROVIDER_RETRIES", "3");
     let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
-    // Same parallel-suite governor bleed as the transport-retry case.
     let _max_hops_env = EnvGuard::unset("ANGEL_MAX_HOPS");
     let _spin = EnvGuard::unset("ANGEL_SPIN_LIMIT");
     let _first_write = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
@@ -2599,11 +2527,6 @@ fn run_turn_retries_after_reasoning_only_then_provider_failure() {
 #[test]
 fn run_turn_steered_injects_queued_note_at_the_next_hop_boundary() {
     let _guard = crate::tests::env_lock();
-    // Simulates the user typing while the model works: the steer is pushed
-    // DURING hop 1 (while "the model" is busy issuing a tool call), so it must
-    // be injected at the next hop boundary — after that hop's tool results —
-    // and be visible in the request that produces the final answer, without
-    // the turn being interrupted.
     struct MidRunSteerClub {
         hops: AtomicUsize,
         steers: Arc<crate::agent::steer::SteerQueue>,
@@ -2617,7 +2540,6 @@ fn run_turn_steered_injects_queued_note_at_the_next_hop_boundary() {
         }
         fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
             if self.hops.fetch_add(1, Ordering::SeqCst) == 0 {
-                // The user types while this hop is in flight.
                 self.steers.push(ChatMsg::user("also check the tests"));
                 Ok(ClubReply::Calls(vec![ToolCall {
                     id: "c1".into(),
@@ -2654,11 +2576,8 @@ fn run_turn_steered_injects_queued_note_at_the_next_hop_boundary() {
         Some(&steers),
     )
     .unwrap();
-    // The model saw the role-separated steer in its next request…
     assert_eq!(answer, "steered: true");
     assert!(steers.is_empty(), "queue is drained once consumed");
-    // …the framing and untouched User note sit after the hop's tool result
-    // (pairing intact)…
     let context_at = history
         .iter()
         .position(|m| {
@@ -2677,7 +2596,6 @@ fn run_turn_steered_injects_queued_note_at_the_next_hop_boundary() {
         context_at > tool_at && steer_at > context_at,
         "steer context and note must land after the hop's tool results"
     );
-    // …and the UI got a delivery notice for the activity trace.
     let mut delivered = false;
     while let Ok(ev) = event_rx.try_recv() {
         if let TurnEvent::Notice(n) = ev {
@@ -2796,9 +2714,6 @@ fn run_turn_retries_repeated_recon_preambles_without_erasing_status_prose() {
 #[test]
 fn run_turn_stamps_raw_tool_markup_at_the_stop_checkpoint() {
     let _guard = crate::tests::env_lock();
-    // The live failure: a text "answer" carrying an unexecuted tool-call
-    // wrapper plus invented results. The checkpoint shows `⠭⠃` once; the model
-    // takes it from there.
     struct MarkupClub {
         hops: AtomicUsize,
     }
@@ -2850,8 +2765,6 @@ fn run_turn_stamps_raw_tool_markup_at_the_stop_checkpoint() {
 #[test]
 fn run_turn_parallel_read_only_batch_preserves_order() {
     let _guard = crate::tests::env_lock();
-    // Two read-only tools batched in one turn take the parallel path; results
-    // must still land in call order so each tool_call_id pairs correctly.
     struct TwoCalls {
         hops: AtomicUsize,
     }
@@ -3163,7 +3076,6 @@ fn run_turn_anti_spin_restamps_a_lasting_repeat_and_never_stops() {
         }
     }
     let mut history = vec![ChatMsg::user("go")];
-    // No harness stop exists for repetition: only the caller's hop cap ends it.
     let out = run_turn(
         &Stuck,
         &ToolRegistry::with_defaults(),
@@ -3174,9 +3086,6 @@ fn run_turn_anti_spin_restamps_a_lasting_repeat_and_never_stops() {
     );
     let error = out.unwrap_err();
     assert!(error.contains("8-hop runaway guard"), "got: {error}");
-    // Seven straight repeats: named at the first, then every second hop, each
-    // time as its own turn after the result, and each turn new: the route,
-    // then the pages of `⠇⠓` in order.
     assert_eq!(
         loop_turn_texts(&history),
         ["⛔⠇⠁", "⛔⠇⠓⠁", "⛔⠇⠓⠃", "⛔⠇⠓⠉"],
@@ -3198,8 +3107,6 @@ fn run_turn_anti_spin_restamps_a_lasting_repeat_and_never_stops() {
             ))),
         "the loop turn is the sign and the stamp, no prose"
     );
-    // The silent-repeat guard's plain-words note is its own turn: one per
-    // three silent repeats (hops 3 and 6 of 7), bounded per turn.
     let notes = history
         .iter()
         .filter(|m| m.role == ChatRole::Harness && m.content.contains("times in a row"))
@@ -3207,7 +3114,6 @@ fn run_turn_anti_spin_restamps_a_lasting_repeat_and_never_stops() {
     assert_eq!(notes, 2, "{history:?}");
 }
 
-/// A8: anti-spin identity is canonical JSON — key order cannot dodge the guard.
 #[test]
 fn anti_spin_signature_is_stable_under_json_key_order() {
     let a = ToolCall {
@@ -3218,7 +3124,6 @@ fn anti_spin_signature_is_stable_under_json_key_order() {
     let b = ToolCall {
         id: "2".into(),
         name: "read_file".into(),
-        // Same fields, different map insertion order in the object literal…
         args: serde_json::json!({"offset": 1, "path": "src/main.rs"}),
     };
     assert_eq!(
@@ -3233,8 +3138,6 @@ fn anti_spin_signature_is_stable_under_json_key_order() {
     );
 }
 
-/// Hop-loop anti-spin hashes args in place. Key order is stable; megabyte
-/// write bodies do not inflate the identity.
 #[test]
 fn anti_spin_batch_fingerprint_skips_storm_string_join() {
     let a = ToolCall {
@@ -3288,8 +3191,6 @@ fn anti_spin_batch_fingerprint_skips_storm_string_join() {
     );
 }
 
-/// Ordinary write hops must not canonicalize megabyte bodies for anti-spin.
-/// Distinct payloads still fingerprint differently.
 #[test]
 fn toolcall_storm_signature_hashes_mutation_payloads() {
     let body_a = "fn main() { /* leaderboard board submit */ }\n".repeat(4_000);
@@ -3330,8 +3231,6 @@ fn toolcall_storm_signature_hashes_mutation_payloads() {
     );
 }
 
-/// 0-1 key objects skip the hop-loop key-sort Vec. Multi-key objects still
-/// fingerprint independently of insertion order.
 #[test]
 fn payload_fingerprint_skips_key_sort_for_tiny_objects() {
     assert!(!payload_object_needs_key_sort(0));
@@ -3374,8 +3273,6 @@ fn payload_fingerprint_skips_key_sort_for_tiny_objects() {
     );
 }
 
-/// Storm/anti-spin must hash write bodies in place. Display-serializing the
-/// JSON string (quotes + escapes) is the leftover megabyte hop-loop tax.
 #[test]
 fn payload_fingerprint_hashes_string_bodies_in_place() {
     let body = "fn main() { /* leaderboard board submit */ }\n".repeat(4_000);
@@ -3414,8 +3311,6 @@ fn payload_fingerprint_hashes_string_bodies_in_place() {
     );
 }
 
-/// A8: product paths that only *prefix* a board marker must still burn first-write
-/// and must not count as legal board wait (or anti-spin exemption).
 #[test]
 fn board_marker_token_boundary_rejects_product_path_launder() {
     let product_reads = [
@@ -3460,7 +3355,6 @@ fn board_marker_token_boundary_rejects_product_path_launder() {
             "product recon must still count as spin: {name}"
         );
     }
-    // Real board digests stay wait/poll (and skip anti-spin).
     for (name, args) in [
         (
             "read_file",
@@ -3491,7 +3385,6 @@ fn board_marker_token_boundary_rejects_product_path_launder() {
             "pure board wait must not count as spin: {name}"
         );
     }
-    // Product mutation paths that embed the marker are still first-write progress.
     assert!(!is_meta_note_mutation_path("src/living_handoff_parser.rs"));
     assert!(!is_meta_note_mutation_path(
         "crates/board_tip_util/src/lib.rs"
@@ -3500,7 +3393,6 @@ fn board_marker_token_boundary_rejects_product_path_launder() {
     assert!(is_meta_note_mutation_path("/tmp/living-handoff.md"));
 }
 
-/// A8: pure board wait/poll must not advance anti-spin (first-write × competition).
 #[test]
 fn anti_spin_does_not_count_pure_competition_board_wait() {
     let board = ToolCall {
@@ -3549,10 +3441,6 @@ fn anti_spin_does_not_count_pure_competition_board_wait() {
     assert!(!anti_spin_counts_batch(mutation, outcome, wait, burns));
 }
 
-/// Scenario: an agent that keeps re-reading files already in context (churn)
-/// trips the no-progress nudge — end-to-end through run_turn, not just
-/// classify_hop. Alternating two REAL files keeps anti-spin (consecutive
-/// identical) and the error breaker (reads succeed) from firing first.
 #[test]
 fn yolo_turn_no_progress_nudges_on_reread_churn() {
     let _guard = crate::tests::env_lock();
@@ -3570,11 +3458,8 @@ fn yolo_turn_no_progress_nudges_on_reread_churn() {
         fn chat(&self, _m: &[ChatMsg], _t: &[ToolDef]) -> Result<ClubReply, String> {
             let n = self.hop.fetch_add(1, Ordering::Relaxed);
             if n >= 14 {
-                // Finite regression path: the former YOLO bypass would reach
-                // this unsupported answer without ever emitting the nudge.
                 return Ok(ClubReply::Text("late answer".into()));
             }
-            // Two real, workspace-local files so read_file succeeds.
             let path = if n.is_multiple_of(2) {
                 "Cargo.toml"
             } else {
@@ -3588,8 +3473,6 @@ fn yolo_turn_no_progress_nudges_on_reread_churn() {
         }
     }
     let mut history = vec![ChatMsg::user("go")];
-    // The club never answers, so the turn ends at the max_hops runaway guard
-    // (an Err by design); we assert on `history`, which run_turn fills in place.
     let _ = run_turn(
         &ReReader {
             hop: AtomicUsize::new(0),
@@ -3600,7 +3483,6 @@ fn yolo_turn_no_progress_nudges_on_reread_churn() {
         Some(12),
         &mpsc::channel::<TurnEvent>().0,
     );
-    // Reads must have succeeded (else the error breaker, not no-progress, runs).
     let read_ok = history
         .iter()
         .filter(|m| m.role == ChatRole::Tool)
@@ -3786,8 +3668,6 @@ fn repeated_poll_default_stamps_glm_timestamp_treadmill_with_paired_history() {
     }
     let dispatches = Arc::new(AtomicUsize::new(0));
     let mut registry = ToolRegistry::new();
-    // A workspace of its own: in the checkout, any other test's write there
-    // reads as this turn's progress and clears the poll window.
     registry.set_workspace(scratch("repeated_poll_treadmill"));
     registry.register(Box::new(TimestampPoll(dispatches.clone())));
     let club = AlternatingPoll(AtomicUsize::new(0));
@@ -3801,9 +3681,6 @@ fn repeated_poll_default_stamps_glm_timestamp_treadmill_with_paired_history() {
         &mpsc::channel().0,
     )
     .unwrap_err();
-    // The treadmill is observed, not stopped: every poll the model chose runs,
-    // the eighth matching one raises a `repeat` stamp, and only the caller's
-    // hop cap ends the turn.
     assert_eq!(failure.stop_reason, TurnStopReason::MaxHops);
     assert_eq!(club.0.load(Ordering::Relaxed), 20);
     assert_eq!(dispatches.load(Ordering::Relaxed), 20);
@@ -4055,11 +3932,7 @@ fn run_turn_suppresses_exact_repeated_inspection_before_next_request() {
     let _handles = crate::tests::TestEnvGuard::set("ANGEL_HANDLE_STORE", "0");
     let _dedup = EnvGuard::set("ANGEL_TOOL_RESULT_DEDUP", "1");
     let _floor = EnvGuard::set("ANGEL_TOOL_RESULT_DEDUP_MIN_BYTES", "1");
-    // Inspection/dedup owns its input; the test binary may be invoked outside
-    // Cargo's package directory (for example an adjacent pinned qualification).
     let root = scratch("repeated_inspection");
-    // Dedup deliberately keeps small outputs when its receipt would cost more
-    // than the original. Supply enough real file content to exercise elision.
     let manifest = format!(
         "[package]\nname = \"inspection-fixture\"\nversion = \"0.0.0\"\n{}",
         "# deterministic inspection payload\n".repeat(32)
@@ -4104,7 +3977,6 @@ fn run_turn_suppresses_exact_repeated_inspection_before_next_request() {
             assert!(!results[1].content.contains(TOOL_DUPLICATE_MARK));
             assert!(results[1].content.contains("[package]"));
             if self.cache_stable {
-                // The straight repeat's bytes match; `⛔⠇⠁` follows as a turn.
                 assert_eq!(
                     book::ledger::without_warpaths(&results[0].content),
                     book::ledger::without_warpaths(&results[1].content)
@@ -4152,10 +4024,6 @@ fn competition_goal_and_fire_imperatives_keep_cadence_armed() {
     let _pace = EnvGuard::set("ANGEL_TASK_PACE", "rapid");
     let _resolved_pace = EnvGuard::unset("ANGEL_TASK_PACE_RESOLVED");
 
-    // 2026-08-15 flock incident: a mid-run operator steer with no launch
-    // phrase used to DISARM the cadence — the message demanding action was
-    // exactly what reverted the turn to ungoverned conversation mode. The
-    // standing goal is durable operator intent and keeps it armed.
     let goal_ctx = "⠝⠊\n\
         ⠗⠃\n\
         ⠗⠃⠃ \"place winning submission on the board relentlessly\"\n\
@@ -4169,7 +4037,6 @@ fn competition_goal_and_fire_imperatives_keep_cadence_armed() {
     assert_eq!(competition_mode_trigger(&steered), Some("competition-goal"));
     assert!(competition_mode_active(&steered));
 
-    // A bare operator fire imperative arms the cadence with no goal at all.
     let fire = vec![ChatMsg::user("stop overthinking and FIRE NOW")];
     assert_eq!(competition_mode_trigger(&fire), Some("fire now"));
     let mixed = vec![ChatMsg::user("Please run the Competition-Loop now")];
@@ -4179,8 +4046,6 @@ fn competition_goal_and_fire_imperatives_keep_cadence_armed() {
         "mixed-case launch phrases still match without a lowercase copy"
     );
 
-    // A non-competitive goal must not arm anything: the anti-sticky contract
-    // for ordinary conversation stays intact.
     let calm_goal = "⠝⠊\n\
         ⠗⠃\n\
         ⠗⠃⠃ \"refactor the parser for clarity\"\n\
@@ -4213,7 +4078,6 @@ fn deep_competition_keeps_context_without_arming_submission_cadence() {
     let engage = k_competition::engage(pace);
     assert_eq!(engage[0].route, k_competition::DEEP);
     let deep = k_competition::DEEP.sub();
-    // Operator law 2026-09-11: deep pace still ships a gate-passing candidate.
     assert!(deep.ideas.contains("are never instructions to submit"));
     assert!(deep.ideas.contains("passes the local gate is submitted"));
     assert!(
@@ -4222,7 +4086,6 @@ fn deep_competition_keeps_context_without_arming_submission_cadence() {
             .action
             .contains("never wrap builds")
     );
-    // Standing status is never a reply template: no world card to re-fill every message.
     assert!(deep.ideas.contains("Report only new results"));
     assert!(
         k_competition::RAPID
@@ -4306,11 +4169,6 @@ fn meta_note_mutations_are_not_first_write_progress() {
             "new": "b"
         }),
     };
-    // Live A8 receipt (Turbo iter 77): after two post-budget recon denials,
-    // Grok wrote a placeholder below the candidate's nested `.scratch` and the
-    // direct write incorrectly disarmed first-write. The owner `.scratch` that
-    // contains a real worktree must remain legal; only the nested artifact is
-    // bookkeeping.
     let scratch_probe = ToolCall {
         id: "4".into(),
         name: "write_file".into(),
@@ -4358,7 +4216,6 @@ fn meta_note_mutations_are_not_first_write_progress() {
         "pathless mutation stays historical first-write yes"
     );
     assert_eq!(mutation_arg_path(&pathless.args), None);
-    // A4: basename markers must not substring-match product files.
     for product in [
         "src/footnotes.md",
         "docs/endnotes.md",
@@ -4382,7 +4239,6 @@ fn meta_note_mutations_are_not_first_write_progress() {
             "product mutation must count as first-write progress: {product}"
         );
     }
-    // Relative angel notes store (no leading slash) is still bookkeeping.
     for meta in [
         ".angelX/notes/session.txt",
         ".angelX/handoff/tip.txt",
@@ -4393,7 +4249,6 @@ fn meta_note_mutations_are_not_first_write_progress() {
             "angel notes/handoff store must be meta: {meta}"
         );
     }
-    // Exact board basenames stay meta.
     for meta in [
         "notes.md",
         "note.md",
@@ -4405,8 +4260,6 @@ fn meta_note_mutations_are_not_first_write_progress() {
     }
 }
 
-/// First-write classify matches product vs meta paths in place.
-/// Mixed-case board names stay bookkeeping; `src\\kernel.cu` still counts.
 #[test]
 fn mutation_call_has_product_path_matches_in_place() {
     assert_eq!(
@@ -4498,10 +4351,8 @@ fn competition_wait_and_board_state_do_not_burn_first_write_budget() {
     assert!(!is_free_form_recon(&handoff));
     assert!(is_competition_board_state_call(&tip));
     assert!(!is_free_form_recon(&tip));
-    // Free-form recon still burns the budget.
     assert!(is_free_form_recon(&thrash));
     assert!(is_free_form_recon(&src));
-    // Wide find that only *mentions* living handoff still burns.
     let sneak = ToolCall {
         id: "6".into(),
         name: "shell".into(),
@@ -4515,7 +4366,6 @@ fn competition_wait_and_board_state_do_not_burn_first_write_budget() {
     );
 }
 
-/// A7: single-pass hop flags match the prior multi-`any` classification.
 #[test]
 fn hop_budget_flags_match_per_call_predicates() {
     let calls = vec![
@@ -4552,8 +4402,6 @@ fn hop_budget_flags_match_per_call_predicates() {
     assert!(mutation && outcome && wait && burns);
 }
 
-/// Default hops skip competition hay. Slot / competition still classify;
-/// board wait keeps anti-spin immunity only on that path.
 #[test]
 fn hop_budget_flags_for_loop_skips_hay_on_ordinary_hops() {
     assert!(!hop_budget_classify_applied(false, false));
@@ -4600,9 +4448,6 @@ fn hop_budget_flags_for_loop_skips_hay_on_ordinary_hops() {
     );
 }
 
-/// Ordinary hops must not serialize write/patch bodies to hunt for
-/// competition markers. Product text mentioning leaderboard/handoff is
-/// not a submit or board wait; hay stays path-sized.
 #[test]
 fn hop_budget_flags_skip_mutation_payload_scan() {
     assert!(is_competition_payload_key("write_file", "content"));
@@ -4679,9 +4524,6 @@ fn hop_budget_flags_skip_mutation_payload_scan() {
     assert!(!patch_hay.contains(&"x".repeat(32)));
 }
 
-/// Classify hops borrow a single remaining path. Mixed-case
-/// `LIVING_HANDOFF.md` still classifies as board wait; write bodies stay
-/// out of the hay.
 #[test]
 fn competition_call_text_borrows_single_path() {
     let read = ToolCall {
@@ -4748,8 +4590,6 @@ fn competition_call_text_borrows_single_path() {
     );
 }
 
-/// Classify hops borrow a single apply_patch target from the diff header.
-/// Multi-file patches still build a hay; hunk bodies stay out.
 #[test]
 fn competition_call_text_borrows_apply_patch_path() {
     let hunk = "fn main() { /* leaderboard submissions board submit */ }\n".repeat(4_000);
@@ -4812,9 +4652,6 @@ fn competition_call_text_borrows_apply_patch_path() {
     assert!(multi_hay.contains("src/b.rs"));
 }
 
-/// Classify hops borrow a lowercase shell command, and a command whose
-/// only uppercase is in a path (`cat LIVING_HANDOFF.md`). Mixed-case
-/// program words still fold so `SUBMIT` counts as outcome.
 #[test]
 fn competition_call_text_borrows_lowercase_shell() {
     assert!(!classify_shell_hay_needs_lower("board submit --note x"));
@@ -4863,8 +4700,6 @@ fn competition_call_text_borrows_lowercase_shell() {
     );
 }
 
-/// Classify hops borrow the tool name. Mixed-case `SHELL` still classifies
-/// as a submit outcome; the name is not lowercased into a new String.
 #[test]
 fn competition_call_text_borrows_tool_name() {
     let call = ToolCall {
@@ -4886,12 +4721,8 @@ fn competition_call_text_borrows_tool_name() {
     );
 }
 
-/// A4 adversarial: content-search thrash that only *mentions* a board path must
-/// still burn first-write budget (was limited to `grep -r` / `rg` / `find`).
 #[test]
 fn competition_board_state_does_not_launder_grep_recon() {
-    // Long-form and combined short recursive ls (bare `ls -r` substring used
-    // to miss `-laR` / `-lR` / `-1R` clusters).
     let cases = board_classification_cases::<String>("grep_recon_cases", 15);
     for cmd in cases {
         let call = ToolCall {
@@ -4908,7 +4739,6 @@ fn competition_board_state_does_not_launder_grep_recon() {
             "search thrash must burn first-write budget: {cmd}"
         );
     }
-    // Legal digests stay wait/poll.
     let legal = board_classification_cases::<String>("grep_recon_legal", 3);
     for cmd in legal {
         let call = ToolCall {
@@ -4924,8 +4754,6 @@ fn competition_board_state_does_not_launder_grep_recon() {
     }
 }
 
-/// A4 adversarial: apply_patch that only touches living-handoff / board notes
-/// must not count as first-write progress (paths used to be empty → historical yes).
 #[test]
 fn apply_patch_meta_note_only_is_not_first_write_progress() {
     let meta_unified = ToolCall {
@@ -4978,15 +4806,12 @@ fn apply_patch_meta_note_only_is_not_first_write_progress() {
         is_product_mutation_call(&mixed),
         "mixed meta+core patch is still progress"
     );
-    // Meta patches are bookkeeping — not recon thrash and not product progress.
     assert!(
         !is_free_form_recon(&meta_unified),
         "meta-only patch must not burn first-write inspection budget"
     );
 }
 
-/// Hop-loop classify walks apply_patch headers in place. A megabyte product
-/// hunk must not be copied into mutation_targets or competition hay.
 #[test]
 fn apply_patch_classify_skips_hunk_bodies() {
     let hunk = "fn main() { /* leaderboard submissions board submit living_handoff.md */ }\n"
@@ -5039,8 +4864,6 @@ fn apply_patch_classify_skips_hunk_bodies() {
     assert!(!hay.contains("leaderboard"));
 }
 
-/// A4 adversarial: git inventory/history that only *names* a board path must
-/// not launder as competition wait/poll.
 #[test]
 fn competition_board_state_does_not_launder_git_inventory() {
     let cases = board_classification_cases::<String>("git_inventory_cases", 6);
@@ -5061,7 +4884,6 @@ fn competition_board_state_does_not_launder_git_inventory() {
         let (_, _, wait, burns) = hop_budget_flags(std::slice::from_ref(&call));
         assert!(!wait && burns, "hop flags for: {cmd}");
     }
-    // Legal digests stay wait/poll.
     let legal = board_classification_cases::<String>("git_inventory_legal", 3);
     for cmd in legal {
         let call = ToolCall {
@@ -5077,12 +4899,8 @@ fn competition_board_state_does_not_launder_git_inventory() {
     }
 }
 
-/// A4 adversarial: `git shortlog` / `rev-list` / `reflog` that only *name* a
-/// board path laundered as competition wait (history inventory, not a tip digest).
-/// Full-binary content search (`ripgrep`/`ugrep`) must also burn first-write.
 #[test]
 fn competition_board_state_does_not_launder_git_history_inventory() {
-    // Full search binary names (not only `rg ` / `grep ` prefixes).
     let cases = board_classification_cases::<String>("git_history_inventory_cases", 12);
     for cmd in cases {
         let call = ToolCall {
@@ -5105,7 +4923,6 @@ fn competition_board_state_does_not_launder_git_history_inventory() {
             "recon must still count as spin: {cmd}"
         );
     }
-    // Content digests stay wait/poll.
     let legal = board_classification_cases::<String>("git_history_inventory_legal", 4);
     for cmd in legal {
         let call = ToolCall {
@@ -5121,9 +4938,6 @@ fn competition_board_state_does_not_launder_git_history_inventory() {
     }
 }
 
-/// A8 adversarial: `git diff` / `git status` that only *name* a board path used
-/// to miss the git inventory thrash list (ls-files/blame/log only) and launder
-/// as competition wait — skipping first-write burn and anti-spin counts.
 #[test]
 fn competition_board_state_does_not_launder_git_diff_status() {
     let cases = board_classification_cases::<String>("git_diff_status_cases", 7);
@@ -5148,7 +4962,6 @@ fn competition_board_state_does_not_launder_git_diff_status() {
             "git diff/status recon must still count as spin: {cmd}"
         );
     }
-    // Content digests stay wait/poll (`git show` is a tip read, not inventory).
     let legal = board_classification_cases::<String>("git_diff_status_legal", 3);
     for cmd in legal {
         let call = ToolCall {
@@ -5169,7 +4982,6 @@ fn competition_board_state_does_not_launder_git_diff_status() {
     }
 }
 
-/// A4 adversarial: native grep/find_files tools must not launder recon as board wait.
 #[test]
 fn competition_board_state_does_not_launder_native_recon_tools() {
     let cases =
@@ -5191,7 +5003,6 @@ fn competition_board_state_does_not_launder_native_recon_tools() {
         let (_, _, wait, burns) = hop_budget_flags(std::slice::from_ref(&call));
         assert!(!wait && burns, "hop flags for {name}");
     }
-    // read_file of the board remains a legal digest.
     let digest = ToolCall {
         id: "d".into(),
         name: "read_file".into(),
@@ -5199,7 +5010,6 @@ fn competition_board_state_does_not_launder_native_recon_tools() {
     };
     assert!(is_competition_board_state_call(&digest));
     assert!(!is_free_form_recon(&digest));
-    // Shell digests still legal wait.
     let tip = ToolCall {
         id: "s".into(),
         name: "shell".into(),
@@ -5209,9 +5019,6 @@ fn competition_board_state_does_not_launder_native_recon_tools() {
     assert!(!is_free_form_recon(&tip));
 }
 
-/// A8 adversarial: native git_diff / git_status / git_log tools must not launder
-/// as competition board wait when args only *name* a handoff path — same class
-/// as shell `git diff|status|log` thrash (first-write burn + anti-spin count).
 #[test]
 fn competition_board_state_does_not_launder_native_git_inventory() {
     let cases =
@@ -5237,7 +5044,6 @@ fn competition_board_state_does_not_launder_native_git_inventory() {
             "native git inventory must still count as spin: {name}"
         );
     }
-    // Legal digests stay wait/poll.
     let digest = ToolCall {
         id: "d".into(),
         name: "read_file".into(),
@@ -5254,9 +5060,6 @@ fn competition_board_state_does_not_launder_native_git_inventory() {
     assert!(!is_free_form_recon(&show));
 }
 
-/// A8 adversarial: `git show --stat` / pathspec forms and `git whatchanged` that
-/// only *name* a board path used to launder as competition wait (legal tip read
-/// is only `git show REV:path` blob syntax). Must burn first-write and count as spin.
 #[test]
 fn competition_board_state_does_not_launder_git_show_inventory() {
     let cases = board_classification_cases::<String>("git_show_inventory_cases", 11);
@@ -5281,7 +5084,6 @@ fn competition_board_state_does_not_launder_git_show_inventory() {
             "git show inventory must still count as spin: {cmd}"
         );
     }
-    // Pure blob digests stay wait/poll.
     let legal = board_classification_cases::<String>("git_show_inventory_legal", 5);
     for cmd in legal {
         let call = ToolCall {
@@ -5302,8 +5104,6 @@ fn competition_board_state_does_not_launder_git_show_inventory() {
     }
 }
 
-/// A4 adversarial: LSP workspace/symbol search must not launder as board wait
-/// when the query or path only *mentions* a handoff marker.
 #[test]
 fn competition_board_state_does_not_launder_lsp_recon() {
     let cases =
@@ -5325,7 +5125,6 @@ fn competition_board_state_does_not_launder_lsp_recon() {
         let (_, _, wait, burns) = hop_budget_flags(std::slice::from_ref(&call));
         assert!(!wait && burns, "hop flags for {name}");
     }
-    // Legal board digests stay wait/poll.
     let digest = ToolCall {
         id: "d".into(),
         name: "read_file".into(),
@@ -5335,8 +5134,6 @@ fn competition_board_state_does_not_launder_lsp_recon() {
     assert!(!is_free_form_recon(&digest));
 }
 
-/// A8 adversarial: path/prose substrings must not launder recon as competition
-/// wait (first-write budget + anti-starvation interaction).
 #[test]
 fn competition_outcome_ignores_score_path_and_validating_prose() {
     let score_src = ToolCall {
@@ -5390,7 +5187,6 @@ fn competition_outcome_ignores_score_path_and_validating_prose() {
         !is_competition_outcome_call(&validating_write),
         "prose 'validating' in a product edit is not a board poll"
     );
-    // Product mutation is first-write progress (does not burn inspection budget).
     assert!(is_product_mutation_call(&validating_write));
     assert!(!is_competition_outcome_call(&submit_form));
     assert!(is_free_form_recon(&submit_form));
@@ -5563,8 +5359,6 @@ fn turn_deadline_cancels_an_in_flight_provider_without_retrying_it() {
             partial,
         };
         let operator_cancel = AtomicBool::new(false);
-        // Deadline latency must not include fingerprinting the developer's
-        // whole checkout during turn preflight.
         let mut registry = ToolRegistry::new();
         registry.set_workspace(scratch("turn_deadline_in_flight_provider"));
         let started = Instant::now();
@@ -5755,7 +5549,6 @@ fn loop_detectors_stamp_tool_results_and_offer_deli_at_the_stop() {
     let _env = [
         EnvGuard::set("ANGEL_SKILL_HINT", "0"),
         EnvGuard::set("ANGEL_ADVISOR", "0"),
-        // The operator's own Caddy store would add its recipes as a source page.
         EnvGuard::set("ANGEL_CADDY", "0"),
     ];
     struct Repeated {
@@ -5805,7 +5598,6 @@ fn loop_detectors_stamp_tool_results_and_offer_deli_at_the_stop() {
             &mpsc::channel::<TurnEvent>().0,
         )
         .unwrap();
-        // Loop evidence reaches the stop: one checkpoint, then the answer stands.
         assert_eq!(answer, "The fixture completed.");
         assert_eq!(club.hops.load(Ordering::Relaxed), 8, "failures={failures}");
         let tool_stamps = |route: &str| {
@@ -5814,14 +5606,12 @@ fn loop_detectors_stamp_tool_results_and_offer_deli_at_the_stop() {
                 .filter(|m| m.role == ChatRole::Tool && tool_routed(m, route))
                 .count()
         };
-        // Five straight repeats: named at the first, then every second hop.
         assert_eq!(
             loop_turn_texts(&history),
             ["⛔⠇⠁", "⛔⠇⠓⠁", "⛔⠇⠓⠃"],
             "failures={failures}: {history:?}"
         );
         assert_eq!(tool_stamps("⠇⠁"), 0, "failures={failures}: {history:?}");
-        // The error streak is an advisory: its own turn, never the result's tail.
         assert_eq!(tool_stamps("⠭⠁"), 0, "failures={failures}: {history:?}");
         assert_eq!(
             advisory_turns(&history, "⠭⠁"),
@@ -5934,8 +5724,6 @@ fn tool_cycle_detector_is_bounded_and_outcome_sensitive() {
     assert_ne!(first, changed_result, "changing tool evidence is progress");
 }
 
-/// Cycle identity hashes args in place (same as hop-loop anti-spin). Key
-/// order is stable; megabyte write bodies do not rebuild storm strings.
 #[test]
 fn tool_batch_cycle_observation_hashes_calls_in_place() {
     let passed = ToolOutcome {
@@ -5982,8 +5770,6 @@ fn tool_batch_cycle_observation_hashes_calls_in_place() {
     );
 }
 
-/// Default hops hash the batch once for anti-spin and reuse that fingerprint
-/// for cycle identity. Recompute must match; a different fp must not.
 #[test]
 fn tool_batch_cycle_observation_reuses_anti_spin_fingerprint() {
     let passed = ToolOutcome {
@@ -6019,17 +5805,11 @@ fn tool_batch_cycle_observation_reuses_anti_spin_fingerprint() {
     );
 }
 
-// --- residual run_turn guards (folded from parent) -----------------------
-
 #[test]
 fn yolo_turn_stamps_consecutive_tool_errors_and_keeps_going() {
     let _guard = crate::tests::env_lock();
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    // The operator's own Caddy store would add its recipes as a source page.
     let _caddy = EnvGuard::set("ANGEL_CADDY", "0");
-    // A club that calls read_file on a fresh missing path each hop: every call
-    // errors at dispatch and the args change, so anti-spin never fires — only
-    // the error detector sees it, and it never stops the turn.
     use std::sync::atomic::AtomicUsize;
     struct Erroring {
         n: AtomicUsize,
@@ -6157,10 +5937,6 @@ fn run_turn_gives_up_after_max_hops() {
         trajectory_dir.join(format!("session-{}.jsonl", std::process::id())),
     )
     .unwrap();
-    // ANGEL_TRAJECTORY_LOG is process-global: unrelated parallel turn tests may
-    // append to the same per-process JSONL while this wiring proof is active.
-    // Select this test's structured runaway record instead of assuming it owns
-    // the final line.
     let record: Value = log
         .lines()
         .filter_map(|line| serde_json::from_str::<Value>(line).ok())
@@ -6172,8 +5948,6 @@ fn run_turn_gives_up_after_max_hops() {
         })
         .expect("3-hop runaway trajectory record");
     assert_eq!(record["interrupted"], true);
-    // Turn ledger: one entry per dispatched call, the timing split, no usage
-    // (this club reports no token counters, so the delta is omitted, not zero).
     let tools = record["tools"]
         .as_array()
         .expect("trajectory record carries the per-call tool ledger");
@@ -6205,8 +5979,6 @@ fn run_turn_gives_up_after_max_hops() {
     assert!(record["store_rotations"].is_array());
     assert_eq!(record["timing"]["tool_calls"], 3);
     assert!(record["timing"]["model_calls"].as_u64().unwrap() >= 3);
-    // Usage follows the driver's accounting view: a club without counters is
-    // reported as an untracked source rather than omitted.
     if let Some(usage) = record.get("usage") {
         assert!(usage.is_object(), "{usage}");
     }
@@ -6218,7 +5990,6 @@ fn run_turn_gives_up_after_max_hops() {
             .contains("3-hop runaway guard")
     );
 
-    // The legacy API remains an error string for existing callers.
     let legacy = run_turn(
         &Loopy,
         &ToolRegistry::with_defaults(),
@@ -6352,8 +6123,6 @@ fn yolo_spinning_turn_runs_to_the_models_own_answer() {
     )
     .expect("repetition never becomes a harness stop");
 
-    // Twenty identical batches, one `repeat` stamp, one stop checkpoint; the
-    // model's second answer stands.
     assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
     assert_eq!(outcome.hops, 22);
     assert_eq!(outcome.answer, "late answer");
@@ -6362,9 +6131,6 @@ fn yolo_spinning_turn_runs_to_the_models_own_answer() {
 #[test]
 fn run_turn_soft_interrupt_stops_unbounded_loop() {
     let _guard = crate::tests::env_lock();
-    // A club that loops on tool calls forever — mirrors nex2's unbounded
-    // extended-reasoning style. With max_hops = None, only the soft
-    // interrupt (not a cap) ends it.
     struct Loopy;
     impl Club for Loopy {
         fn respond(&self, _p: &str) -> Result<String, String> {
@@ -6381,8 +6147,6 @@ fn run_turn_soft_interrupt_stops_unbounded_loop() {
             }]))
         }
     }
-    // Pre-tripped flag: the first hop boundary bails immediately, so the
-    // unbounded loop terminates deterministically with Ok (not an error).
     let cancel = AtomicBool::new(true);
     let mut history = vec![ChatMsg::user("go")];
     let out = run_turn(
@@ -6397,10 +6161,6 @@ fn run_turn_soft_interrupt_stops_unbounded_loop() {
     assert!(out.contains("interrupted"), "got: {out}");
 }
 
-// --- opt-in tool-call repair: scavenge + duplicate-call storm ---------------
-
-/// Counting probe registered under an *essential* tool name so it survives the
-/// bounded-task schema filter and is actually offered to the club.
 struct CountingProbe {
     name: &'static str,
     calls: Arc<AtomicUsize>,
@@ -6461,8 +6221,6 @@ impl Club for MalformedCallIdClub {
                 name: "read_file".to_string(),
                 args: serde_json::json!({"case": 3}),
             },
-            // A valid provider ID resembling the generated namespace must be
-            // preserved and force the index-zero repair onto a safe suffix.
             ToolCall {
                 id: "angel_h1_call_0".to_string(),
                 name: "read_file".to_string(),
@@ -6534,8 +6292,6 @@ fn run_turn_repairs_blank_and_duplicate_tool_call_ids_before_dispatch() {
     assert_eq!(unique.len(), call_ids.len());
     assert!(call_ids.iter().all(|id| !id.trim().is_empty()));
 
-    // Exercise the completed-call compaction walk: its pending-call map is
-    // keyed by these IDs, so duplicate normalization must survive this seam.
     let _ = shrink_completed_tool_arguments(&mut history, 0, 1);
     let result_ids = history
         .iter()
@@ -6566,8 +6322,6 @@ fn run_turn_repairs_blank_and_duplicate_tool_call_ids_before_dispatch() {
     );
 }
 
-/// A model that finishes a hop with an EMPTY structured `tool_calls` array while
-/// the call itself sits in the answer text (the DeepSeek-reasoner failure mode).
 struct StrandedCall {
     text: &'static str,
     hops: AtomicUsize,
@@ -6589,7 +6343,6 @@ impl Club for StrandedCall {
     }
 }
 
-/// Returns (probe executions, final answer, notices).
 fn run_stranded_turn(text: &'static str) -> (usize, String, Vec<String>) {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut registry = ToolRegistry::new();
@@ -6657,9 +6410,6 @@ fn armed_scavenge_recovers_a_stranded_call_and_speaks() {
 fn armed_scavenge_leaves_an_unoffered_tool_name_as_prose() {
     let _guard = crate::tests::env_lock();
     let _armed = EnvGuard::set("ANGEL_TOOLCALL_SCAVENGE", "1");
-    // Parallel suite can leave skill/verify/first-write governors armed; those
-    // force an extra hop so the scripted club's second "done" becomes the
-    // answer instead of the stranded prose.
     let _max_hops_env = EnvGuard::unset("ANGEL_MAX_HOPS");
     let _spin = EnvGuard::unset("ANGEL_SPIN_LIMIT");
     let _first_write = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
@@ -6678,8 +6428,6 @@ fn armed_scavenge_leaves_an_unoffered_tool_name_as_prose() {
     assert!(!notices.iter().any(|text| text.starts_with("scavenge:")));
 }
 
-/// Re-issues one `grep` call: the same call three times (the second with its
-/// argument keys reordered), then a different one, then the answer.
 struct StormRepeater {
     hops: AtomicUsize,
 }
@@ -6707,7 +6455,6 @@ impl Club for StormRepeater {
     }
 }
 
-/// Returns (probe executions, history, emitted events).
 fn run_storm_turn() -> (usize, Vec<ChatMsg>, Vec<TurnEvent>) {
     let calls = Arc::new(AtomicUsize::new(0));
     let mut registry = ToolRegistry::new();
@@ -6764,9 +6511,6 @@ fn armed_storm_detector_stamps_the_third_identical_call_and_runs_it() {
     let _window = EnvGuard::set("ANGEL_TOOLCALL_STORM_WINDOW", "6");
     let (executions, history, _events) = run_storm_turn();
     assert_eq!(executions, 4, "a storm is observed, never suppressed");
-    // The reordered-keys repeat at hop 1 is the same batch, so anti-spin
-    // claims the loop first (`⠇⠁`); the storm's third sighting at hop 2 is
-    // the loop's quiet hop, and hop 3 ends it: one `⠇` per hop, paced.
     assert_eq!(loop_turns(&history, "⠇⠁"), 1, "{history:?}");
     assert_eq!(loop_turns(&history, "⠇⠃"), 0, "{history:?}");
     assert!(
@@ -6800,16 +6544,10 @@ fn storm_signatures_ignore_key_order_and_age_out_of_the_window() {
     assert_eq!(storm.observe(std::slice::from_ref(&reordered)), vec![2]);
     assert_eq!(storm.observe(std::slice::from_ref(&other)), vec![1]);
     assert_eq!(storm.observe(std::slice::from_ref(&other)), vec![2]);
-    // Two hops of something else pushed the earlier sightings out of the window.
     assert_eq!(storm.observe(std::slice::from_ref(&a)), vec![1]);
-    // Duplicates inside one batch count against each other too.
     assert_eq!(storm.observe(&[a.clone(), a.clone()]), vec![2, 3]);
 }
 
-// --- needs-pro: model self-report escalation --------------------------------
-
-/// Answers with a fixed text on every hop and keeps every request it was
-/// handed, so a test can assert what the tier ladder put in front of each seat.
 struct TierClub {
     label: &'static str,
     answer: &'static str,
@@ -6852,8 +6590,6 @@ impl Club for TierClub {
     }
 }
 
-/// One bounded turn served by `fast`, with `roster` behind the registry so a
-/// named escalation seat can resolve. Returns (answer, history, notices).
 fn needs_pro_turn(
     fast: &TierClub,
     roster: Vec<Arc<dyn Club>>,
@@ -7178,7 +6914,6 @@ fn adaptive_reasoning_effort_downgrades_on_clean_execution_and_escalates_on_fric
         }
     }
 
-    // 1. OpenAI-style levels: ["none", "low", "medium", "high"]
     let openai = MockReasoningClub {
         levels: vec!["none".into(), "low".into(), "medium".into(), "high".into()],
         effort: Some("high".into()),
@@ -7199,7 +6934,6 @@ fn adaptive_reasoning_effort_downgrades_on_clean_execution_and_escalates_on_fric
         "friction/error escalates back to high effort"
     );
 
-    // 2. GLM/Qwen style levels: ["none", "high"]
     let glm = MockReasoningClub {
         levels: vec!["none".into(), "high".into()],
         effort: Some("high".into()),
@@ -7219,7 +6953,6 @@ fn adaptive_reasoning_effort_downgrades_on_clean_execution_and_escalates_on_fric
         "binary thinking models re-enable thinking on errors"
     );
 
-    // 3. Non-reasoning model: []
     let non_reasoning = MockReasoningClub {
         levels: vec![],
         effort: None,
@@ -7254,8 +6987,6 @@ fn provider_recovery_empty_success_reply_is_retried_and_fails() {
     struct EmptyProvider(AtomicUsize);
     impl Club for EmptyProvider {
         fn label(&self) -> &str {
-            // Exercise the ordinary cloud retry policy; unknown labels route
-            // through the separate local-seat teacher-watch recovery policy.
             "glm"
         }
         fn respond(&self, _: &str) -> Result<String, String> {
@@ -7519,8 +7250,6 @@ fn provider_death_fixture_with_transport(
     let server_stop = Arc::clone(&stop);
     let body = body.to_owned();
     let server = std::thread::spawn(move || {
-        // Keep the selected EOF shape alive until the owned turn finishes.
-        // Expiring mid-retry silently changes EOF into connection refusal.
         while !server_stop.load(Ordering::SeqCst) {
             let mut socket = match listener.accept() {
                 Ok((socket, _)) => socket,
@@ -7555,8 +7284,6 @@ fn provider_death_fixture_with_transport(
                 }
             }
             if request.starts_with(b"GET ") {
-                // The real HttpClub resolves local context/capabilities before
-                // its chat request. These metadata probes have no request body.
                 let body =
                     r#"{"n_ctx":131072,"data":[{"id":"glm-5.3-flash","context_length":131072}]}"#;
                 write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
@@ -7568,8 +7295,6 @@ fn provider_death_fixture_with_transport(
                 if attempt == 0 {
                     let body = "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"read-first\",\"type\":\"function\",\"function\":{\"name\":\"read_file\",\"arguments\":\"{\\\"path\\\":\\\"fixture.txt\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\ndata: [DONE]\n\n";
                     if matches!(shape, PostHopDeath::ConnectionRefused) {
-                        // Close admission before the client sees the successful
-                        // tool reply; the next request must be refused.
                         drop(listener);
                         write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
                         return;
@@ -7788,14 +7513,10 @@ fn provider_death_fixture_with_transport(
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// Model-free R03 soak: each hop changes its shell arguments while the
-/// verifier keeps returning a stalled result. Neither tool mutates the tree.
 #[test]
 fn r03_changing_unproductive_actions_are_stamped_with_stalled_verifier() {
     let _guard = crate::tests::env_lock();
     let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
-    // Interactive, no harness stop: only the caller's hop cap ends this
-    // dialogue, whatever another test left in the environment.
     let _interactive = EnvGuard::unset("ANGEL_TASK_ACTIVE");
     let _experience = EnvGuard::set("ANGEL_EXPERIENCE", "0");
     let _atlas = EnvGuard::set("ANGEL_ATLAS", "0");
@@ -7847,8 +7568,6 @@ fn r03_changing_unproductive_actions_are_stamped_with_stalled_verifier() {
                 ToolCall {
                     id: format!("verify-{hop}"),
                     name: "run_tests".into(),
-                    // Different filters force real stalled attempts instead of a cached
-                    // verifier replay (which correctly is not a dispatch error).
                     args: serde_json::json!({"filter":format!("case_{hop}")}),
                 },
             ]))
@@ -7890,8 +7609,6 @@ fn r03_changing_unproductive_actions_are_stamped_with_stalled_verifier() {
         0,
         "the error streak is its own turn, not the result's tail"
     );
-    // Ten hops of every call failing: the advice at the third, the cascade at
-    // the sixth (the count starts again), the advice again at the ninth.
     assert_eq!(advisory_turns(&history, "⠭⠁"), 2);
     assert_eq!(advisory_turns(&history, "⠼⠓"), 1);
     let tools = trajectory::tool_ledger_snapshot();
@@ -8000,12 +7717,9 @@ fn dispatch_receipt_errors_are_stamped_and_never_stop() {
         10
     );
     let (mut app, _sender) = crate::tests::seed_live_streaming_app(events.clone());
-    // advance() drains at most STREAM_EVENTS_PER_FRAME events per tick.
     for _ in 0..16 {
         app.advance();
     }
-    // The conversation carries no receipt rows: the tool strip's herald and
-    // ledger show each action and its failure reason. `/trace` keeps them.
     assert!(
         !app.messages
             .iter()
@@ -8027,8 +7741,6 @@ fn dispatch_receipt_errors_are_stamped_and_never_stop() {
     std::fs::remove_dir_all(workspace).unwrap();
 }
 
-/// Changing successful no-ops evade identical-action and error guards. These
-/// dialogues exercise the progress ledger's independent escalation boundary.
 #[test]
 fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
     let _guard = crate::tests::env_lock();
@@ -8083,8 +7795,6 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
             let hop = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
             assert!(hop <= 61, "dialogue failed to terminate");
             if hop == 9 {
-                // The streak notice (`⠇⠛⠃`) is the model's to hear: its own turn
-                // under the warning sign, the count and the verifier beside it.
                 assert!(history.iter().any(|m| {
                     m.role == ChatRole::Harness
                         && m.content.as_ref() == "⛔⠇⠛⠃ streak=8 last=not_run"
@@ -8101,18 +7811,10 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
                     "probe"
                 }
                 .into(),
-                // A different case each hop, named by letter: changing
-                // actions, not a renumbered repeat of one.
                 args: serde_json::json!({"case": char::from(b'a' + (hop % 26) as u8).to_string()}),
             }]))
         }
     }
-    // The unproductive streak never ends a turn: no env knob, mode, or streak
-    // length can. Every case runs to the scripted answer. The model hears the
-    // notice at the eighth unproductive hop and, in a task turn outside a
-    // competition, the redirect at the sixteenth (0.1.6 stopped the turn there;
-    // the stop is gone, the count starts again). Elsewhere the notice repeats at
-    // every multiple of eight while the streak lasts.
     for (task, competition, progress_at, expected_hops, expected_turns) in [
         (
             "1",
@@ -8149,7 +7851,6 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
             "0",
             10,
             21,
-            // A verifier run at hop 10 restarts the streak; it reaches eight again at 18.
             vec!["⛔⠇⠛⠃ streak=8 last=not_run", "⛔⠇⠛⠃ streak=8 last=failed"],
         ),
     ] {
@@ -8203,7 +7904,6 @@ fn r03b_unproductive_dialogues_escalate_stop_and_reset() {
         assert_eq!(escalations[0]["hop"], 8);
         assert_eq!(escalations[0]["streak"], 8);
         assert_eq!(escalations[0]["last_verifier"], "not_run");
-        // Each turn the model heard is also a tray notice.
         let notices: Vec<_> = rx
             .try_iter()
             .filter_map(|e| match e {
@@ -8361,8 +8061,6 @@ fn run_turn_research_sources_answers_and_circular_anti_spin() {
                     .any(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠎⠁")
             );
             let hop = self.calls.fetch_add(1, Ordering::SeqCst);
-            // The unproductive stop redirects twice before it ends the turn
-            // (3 x 16 hops), so a circular search runs past 48 hops.
             if hop == if self.circular { 60 } else { self.sources } {
                 return Ok(ClubReply::Text(self.answer.into()));
             }
@@ -8468,13 +8166,8 @@ fn run_turn_research_sources_answers_and_circular_anti_spin() {
         let progress = trajectory::progress_ledger_snapshot();
         assert_eq!(progress["research_turn"], true);
         if circular {
-            // The first search adds a source; the repeats add nothing, but the
-            // streak can no longer stop the turn: it runs to the scripted
-            // hop cap with the advisory notice delivered.
             assert_eq!(outcome.stop_reason, TurnStopReason::MaxHops);
             assert_eq!(outcome.hops, 60);
-            // A research turn's streak is page ⠇⠛⠁ (no new sources), never
-            // the verifier page ⠇⠛⠃.
             let sources_page =
                 format!("{}⠁ ", crate::agent::harness::book::l_loops::STREAK.cells());
             assert!(rx.try_iter().any(|e| matches!(e, TurnEvent::Notice(n) if n.starts_with(&sources_page) && !n.contains("last="))));
@@ -8724,8 +8417,6 @@ fn run_turn_r06_edit_run_lane_and_read_only_streaks() {
                     < 60
             );
         } else {
-            // The streak can no longer stop the turn: every lane runs to the
-            // scripted answer; the notice fires but nothing terminates.
             assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
         }
         println!(
@@ -8741,8 +8432,6 @@ fn run_turn_r06_edit_run_lane_and_read_only_streaks() {
 #[test]
 fn run_turn_r06_busy_child_survives_turn_idle() {
     let _guard = crate::tests::env_lock();
-    // The default is a fast CPU-only regression; the qualification command
-    // selects 1200 seconds and periodic output with a 60-second turn idle clock.
     let seconds = std::env::var("ANGEL_T_R06_BUSY_SECS")
         .ok()
         .and_then(|s| s.parse::<u64>().ok())
@@ -9002,7 +8691,6 @@ fn run_turn_research_at_wall_without_draft_stops_at_the_deadline() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
-/// Runs `make` once, then claims completion on every later call.
 struct FlakyGreenClub {
     calls: AtomicUsize,
 }
@@ -9049,8 +8737,6 @@ fn confirm_green_fixture(name: &str, makefile: &str) -> PathBuf {
     root
 }
 
-/// A minimal `shell` for turn tests: runs the command in its root, and a
-/// non-zero exit is a tool error, as with the real shell tool.
 struct RootShell(PathBuf);
 
 impl Tool for RootShell {
@@ -9109,10 +8795,6 @@ fn run_confirm_green_turn(root: &Path) -> (TurnOutcome, Vec<ChatMsg>, usize) {
     (outcome, history, club.calls.load(Ordering::SeqCst))
 }
 
-/// A test run that passed once is re-run on the unchanged code before "done"
-/// is accepted. A pass that does not hold denies the completion with the
-/// failing output (polyglot-v1 cpp-robot-name passed about one run in four); a
-/// stable pass is confirmed and accepted.
 #[test]
 fn a_green_that_does_not_hold_is_a_flaky_fact_with_the_failing_output_in_the_ledger() {
     let _guard = crate::tests::env_lock();
@@ -9155,7 +8837,6 @@ fn is_flaky_checkpoint(message: &ChatMsg) -> bool {
         && has_route(first_line(&message.content), "⠧⠑")
 }
 
-/// Writes `robot.cpp`, runs `make` once, then claims completion.
 struct WriteThenMakeClub {
     calls: AtomicUsize,
     source: &'static str,
@@ -9187,8 +8868,6 @@ impl Club for WriteThenMakeClub {
 }
 
 fn run_chance_turn(name: &str, source: &'static str) -> (Vec<ChatMsg>, usize) {
-    // `make` passes on its first run and fails after, like a test that
-    // passes by luck.
     let root = confirm_green_fixture(
         name,
         "all:\n\t@if [ -f .ran ]; then echo 'REQUIRE( names.count(robot.name()) == 0 ) failed'; exit 1; fi; touch .ran\n",
@@ -9215,10 +8894,6 @@ fn run_chance_turn(name: &str, source: &'static str) -> (Vec<ChatMsg>, usize) {
     (history, club.calls.load(Ordering::SeqCst))
 }
 
-/// In task mode with `ANGEL_CONFIRM_GREEN_RUNS` unset, a green is re-run only
-/// when the code the model wrote draws on chance. polyglot-v1 cpp-robot-name:
-/// Grok 4.7 shipped a generator that failed about one run in two, accepted on
-/// a single green in 5 of 14 angelX runs.
 #[test]
 fn a_green_on_code_that_draws_on_chance_is_confirmed_by_default() {
     let _guard = crate::tests::env_lock();
@@ -9274,9 +8949,6 @@ fn chance_markers_are_read_from_edited_source_not_tests() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// The chance check reads every source file Git sees changed or new, not only
-/// what the file tools wrote: a shell here-doc, `sed -i` or a generator writes
-/// code too. Tests and unchanged files stay out.
 #[test]
 fn chance_markers_are_read_from_any_writer_through_git() {
     let root = confirm_green_fixture("chance_any_writer", "all:\n\t@true\n");
@@ -9312,9 +8984,6 @@ fn chance_markers_are_read_from_any_writer_through_git() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// Writes `robot.cpp` and runs `make` in one shell here-doc, answers, runs
-/// `make` again, then answers on every later call: Sonnet 5.5 on polyglot-v1
-/// cpp-robot-name.
 struct HeredocThenMakeClub {
     calls: AtomicUsize,
 }
@@ -9345,17 +9014,11 @@ impl Club for HeredocThenMakeClub {
     }
 }
 
-/// The model's green is confirmed even after another fact spent the stop
-/// checkpoint, and a failed re-run gets its one stop. Here the here-doc's
-/// verdict is unreadable, so its answer meets `⠧⠋`; the model's next `make`
-/// passes on luck (its second run), the confirming re-run fails, and `⠧⠑`
-/// reaches the model once before the answer stands.
 #[test]
 fn a_lucky_green_after_a_spent_checkpoint_still_meets_its_flaky_rerun() {
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
     let _task = EnvGuard::set("ANGEL_TASK_ACTIVE", "1");
-    // Passes on its first two runs and fails after.
     let root = confirm_green_fixture(
         "chance_heredoc",
         "all:\n\t@n=$$(cat .runs 2>/dev/null || echo 0); n=$$((n+1)); echo $$n > .runs; \
@@ -9413,8 +9076,6 @@ fn confirm_green_is_opt_in() {
     assert_eq!(confirm_green_extra_runs(true), 5, "capped at 5");
 }
 
-/// The command shapes Grok 4.7 used on cpp-robot-name: a test run with a
-/// fallback that can mask its failure.
 #[test]
 fn test_runs_behind_a_fallback_are_recognised() {
     let shell = |command: &str| ToolCall {
@@ -9434,7 +9095,6 @@ fn test_runs_behind_a_fallback_are_recognised() {
     }
 }
 
-/// Stands in for run_tests: always red.
 struct RedRunTests;
 
 impl Tool for RedRunTests {
@@ -9453,7 +9113,6 @@ impl Tool for RedRunTests {
     }
 }
 
-/// Runs a masked test command once, then claims completion on every later call.
 struct MaskedGreenClub {
     calls: AtomicUsize,
 }
@@ -9479,8 +9138,6 @@ impl Club for MaskedGreenClub {
     }
 }
 
-/// A green that rests on a fallback-masked command is confirmed with angelX's
-/// own run_tests; when that is red, the stop checkpoint carries `flaky`.
 #[test]
 fn a_masked_green_is_confirmed_with_run_tests() {
     let _guard = crate::tests::env_lock();
@@ -9518,7 +9175,6 @@ fn a_masked_green_is_confirmed_with_run_tests() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// First reply is cut off at the output cap; the retry answers.
 struct CappedOnceClub {
     calls: AtomicUsize,
 }
@@ -9538,9 +9194,6 @@ impl Club for CappedOnceClub {
     }
 }
 
-/// A reply cut off at a fixed output cap is not re-sent blind: the model is told
-/// before the retry, so the retry is a different request (polyglot-v1
-/// rust-decimal on DeepSeek re-sent the same capped request 25 times).
 #[test]
 fn an_output_cap_cut_off_tells_the_model_before_the_retry() {
     let _guard = crate::tests::env_lock();
@@ -9581,8 +9234,6 @@ fn an_output_cap_cut_off_tells_the_model_before_the_retry() {
     assert!(!is_output_cap_truncation("openai responses: HTTP 500"));
 }
 
-/// Streams private reasoning and is cut off at the output cap `cut_offs`
-/// times, then answers.
 struct ThinkingCappedClub {
     calls: AtomicUsize,
     cut_offs: usize,
@@ -9633,10 +9284,6 @@ fn run_thinking_capped(cut_offs: usize) -> (usize, Result<TurnOutcome, TurnFailu
     (club.calls.load(Ordering::SeqCst), outcome, history)
 }
 
-/// A reply spent entirely on reasoning is told to stop deliberating and act,
-/// not to split a large tool call it never made (GLM-5.3-Flash polyglot-v1
-/// py-two-bucket: two 8,192-token replies of pure reasoning, about three
-/// minutes each).
 #[test]
 fn a_reasoning_only_cut_off_is_told_to_act() {
     let _guard = crate::tests::env_lock();
@@ -9667,8 +9314,6 @@ fn a_reasoning_only_cut_off_is_told_to_act() {
     );
 }
 
-/// With retries unbounded, output-cap cut-offs still stop once every note is
-/// spent: the next re-send is the same request against the same cap.
 #[test]
 fn output_cap_cut_offs_stop_once_the_notes_are_spent() {
     let _guard = crate::tests::env_lock();
@@ -9695,10 +9340,6 @@ fn output_cap_cut_offs_stop_once_the_notes_are_spent() {
     );
 }
 
-/// A link that keeps cut-off prose (`keep_truncated`): the first `cut_offs`
-/// replies stream the system prompt's opening again and again until the output
-/// cap, come back as kept text and count as retained partials, as the HTTP club
-/// does; then the model acts and answers.
 struct EchoCappedClub {
     calls: AtomicUsize,
     cut_offs: usize,
@@ -9765,10 +9406,6 @@ fn run_echo_capped(cut_offs: usize) -> (usize, TurnOutcome, Vec<ChatMsg>) {
     (club.calls.load(Ordering::SeqCst), outcome, history)
 }
 
-/// A kept cut-off reply is not the answer: it takes the output-cap path, so the
-/// model is asked again without its cut-off text in the history (DeepSeek
-/// polyglot-v1 js-transpose: two echoes of the system prompt to the output cap
-/// stood as the answer, 2 of 60 hops).
 #[test]
 fn a_kept_cut_off_reply_is_asked_again() {
     let _guard = crate::tests::env_lock();
@@ -9803,8 +9440,6 @@ fn a_kept_cut_off_reply_is_asked_again() {
     );
 }
 
-/// Once the output-cap notes are spent, a kept cut-off reply stands as it did
-/// before: the link keeps cut-off prose rather than fail the turn.
 #[test]
 fn a_kept_cut_off_reply_stands_once_the_notes_are_spent() {
     let _guard = crate::tests::env_lock();
@@ -9823,8 +9458,6 @@ fn a_kept_cut_off_reply_stands_once_the_notes_are_spent() {
     );
 }
 
-/// A Board benchmark.json declares the editable surface (both schemas), and the
-/// operator can set it directly.
 #[test]
 fn task_edit_scope_reads_the_env_then_benchmark_json() {
     let _guard = crate::tests::env_lock();
@@ -9867,8 +9500,6 @@ fn task_edit_scope_reads_the_env_then_benchmark_json() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// Edits outside the declared scope get one note per path per turn; edits inside
-/// it, and turns without a scope, get none.
 #[test]
 fn edits_outside_the_edit_scope_are_noted_once() {
     let root = PathBuf::from("/ws/task");
@@ -9914,9 +9545,6 @@ fn edits_outside_the_edit_scope_are_noted_once() {
     );
 }
 
-// --- polyglot-v1 root causes: storm window, red verdicts, red completions ---
-
-/// Plays a fixed list of moves, then answers "done".
 enum Move {
     Call(ToolCall),
     Say(&'static str),
@@ -9970,8 +9598,6 @@ fn write_call(path: &str, content: &str) -> Move {
     ))
 }
 
-/// Stands in for run_tests with the real runner's red format: red until the
-/// workspace has a `fixed` file, green after.
 struct Suite {
     root: PathBuf,
     runs: Arc<AtomicUsize>,
@@ -10001,7 +9627,6 @@ impl Tool for Suite {
     }
 }
 
-/// A plain file writer, so edits change real bytes in the workspace.
 struct Writer(PathBuf);
 
 impl Tool for Writer {
@@ -10043,7 +9668,6 @@ fn root_turn_env() -> Vec<EnvGuard> {
     ]
 }
 
-/// Does this tool result end with a warpath carrying `route`?
 fn tool_routed(message: &ChatMsg, route: &str) -> bool {
     message.role == ChatRole::Tool
         && message
@@ -10053,7 +9677,6 @@ fn tool_routed(message: &ChatMsg, route: &str) -> bool {
             .is_some_and(|line| book::ledger::is_warpath_line(line) && has_route(line, route))
 }
 
-/// Loop turns (`⛔` then the loop route's cells) in `history` carrying `route`.
 fn loop_turns(history: &[ChatMsg], route: &str) -> usize {
     history
         .iter()
@@ -10066,8 +9689,6 @@ fn loop_turns(history: &[ChatMsg], route: &str) -> usize {
         .count()
 }
 
-/// Every loop turn's text in `history`, in order (`⛔` then a `⠇` route; the
-/// other advisories that lead with the sign are not loop turns).
 fn loop_turn_texts(history: &[ChatMsg]) -> Vec<String> {
     let loop_sign = format!("{}{}", book::l_loops::WARNING, book::l_loops::CELL);
     let streak_sign = format!(
@@ -10086,8 +9707,6 @@ fn loop_turn_texts(history: &[ChatMsg]) -> Vec<String> {
         .collect()
 }
 
-/// Advisory turns in `history` carrying `route`: its own harness message, the
-/// warning sign first when the route is a warning, the stamps on its first line.
 fn advisory_turns(history: &[ChatMsg], route: &str) -> usize {
     history
         .iter()
@@ -10100,7 +9719,6 @@ fn advisory_turns(history: &[ChatMsg], route: &str) -> usize {
         .count()
 }
 
-/// Stop checkpoints in `history` whose warpath carries `route`.
 fn checkpoints_with(history: &[ChatMsg], route: &str) -> usize {
     history
         .iter()
@@ -10112,7 +9730,6 @@ fn checkpoints_with(history: &[ChatMsg], route: &str) -> usize {
         .count()
 }
 
-/// A Git workspace, so the turn can tell whether code changed since a test run.
 fn root_fixture(name: &str) -> PathBuf {
     let root = scratch(name);
     let git = |args: &[&str]| {
@@ -10132,8 +9749,6 @@ fn root_fixture(name: &str) -> PathBuf {
     root
 }
 
-/// Runs `script` in `root` with the suite and writer registered. Returns the
-/// outcome, the history, and how many times the suite ran.
 fn run_root_turn(root: &Path, script: &Script) -> (TurnOutcome, Vec<ChatMsg>, usize) {
     let runs = Arc::new(AtomicUsize::new(0));
     let mut registry = ToolRegistry::new();
@@ -10156,9 +9771,6 @@ fn run_root_turn(root: &Path, script: &Script) -> (TurnOutcome, Vec<ChatMsg>, us
     (outcome, history, runs.load(Ordering::SeqCst))
 }
 
-/// The same call after an edit reads different code, so it is not a
-/// duplicate. polyglot-v1: 35 of 37 storm suppressions came right after an
-/// edit, and gpt-6-luna gave up on js-food-chain when its re-run was refused.
 #[test]
 fn the_storm_window_restarts_when_the_workspace_changes() {
     let test = tc("run_tests", json!({}));
@@ -10197,8 +9809,6 @@ fn a_call_after_an_edit_in_the_same_batch_is_counted_afresh() {
     );
 }
 
-/// Edit → test → edit → test → edit → test with the guard armed: every test
-/// run executes, because each one follows a change.
 #[test]
 fn an_armed_storm_guard_lets_each_test_run_after_an_edit_through() {
     let _guard = crate::tests::env_lock();
@@ -10245,7 +9855,6 @@ fn a_red_verifier_verdict_is_not_a_dispatch_failure() {
                   pin another runner with `runner` or use `shell`\nTests: 2 failed, 47 passed";
     assert!(is_red_verifier_run(&tc("run_tests", json!({})), runner));
 
-    // Runs that never reached a verdict are still dispatch failures.
     for (call, result) in [
         (
             shell("cargo test"),
@@ -10280,9 +9889,6 @@ fn a_red_verifier_verdict_is_not_a_dispatch_failure() {
     ));
 }
 
-/// A model re-running a red suite is looking at its own failing tests, not
-/// hitting a broken tool. polyglot-v1 rust-decimal: DeepSeek V4.1 Flash was
-/// stopped at 67 s of 600 s and told to fix a path while its tests were red.
 #[test]
 fn red_test_runs_are_not_dispatch_errors_and_are_stamped_red_once() {
     let _guard = crate::tests::env_lock();
@@ -10309,8 +9915,6 @@ fn red_test_runs_are_not_dispatch_errors_and_are_stamped_red_once() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// Task mode: "done" while the last test run on the same code is red meets the
-/// stop checkpoint once, with the failure in the ledger; the model fixes it.
 #[test]
 fn a_completion_on_red_code_meets_the_stop_checkpoint_once() {
     let _guard = crate::tests::env_lock();
@@ -10339,8 +9943,6 @@ fn a_completion_on_red_code_meets_the_stop_checkpoint_once() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// A model that is truly stuck can still report: after one checkpoint its
-/// answer stands.
 #[test]
 fn a_red_completion_stands_after_one_checkpoint() {
     let _guard = crate::tests::env_lock();
@@ -10360,7 +9962,6 @@ fn a_red_completion_stands_after_one_checkpoint() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// The check applies only to the code the red run saw, and only in task mode.
 #[test]
 fn a_red_completion_is_accepted_after_an_edit_or_outside_task_mode() {
     let _guard = crate::tests::env_lock();
@@ -10375,8 +9976,6 @@ fn a_red_completion_is_accepted_after_an_edit_or_outside_task_mode() {
     ]);
     let (outcome, history, _) = run_root_turn(&root, &script);
     assert_eq!(outcome.stop_reason, TurnStopReason::Answer);
-    // New code, so the red run no longer describes it; the edit itself is
-    // unverified, which is the only fact the checkpoint carries.
     assert_eq!(script.chats(), 4);
     assert_eq!(checkpoints_with(&history, "⠧⠁"), 0);
     assert_eq!(checkpoints_with(&history, "⠧⠋"), 1);
@@ -10395,7 +9994,6 @@ fn a_red_completion_is_accepted_after_an_edit_or_outside_task_mode() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// run_tests answering from a fixed list; the last answer repeats.
 struct ScriptedSuite {
     answers: Vec<Result<&'static str, &'static str>>,
     next: AtomicUsize,
@@ -10419,7 +10017,6 @@ impl Tool for ScriptedSuite {
     }
 }
 
-/// A shell whose every command exits 0.
 struct GreenShell;
 
 impl Tool for GreenShell {
@@ -10440,8 +10037,6 @@ impl Tool for GreenShell {
 
 const SCRIPTED_RED: &str = "python3 -m unittest discover -v failed (exit 1)\nFAILED (errors=1)";
 
-/// Task mode: a red run_tests, then `next`, then "All tests pass." Returns how
-/// many model calls the turn took (3 = no checkpoint) and whether one carried `red`.
 fn red_then(
     name: &str,
     second: Result<&'static str, &'static str>,
@@ -10476,12 +10071,6 @@ fn red_then(
     (script.chats(), denied)
 }
 
-/// A red run followed by a run that did not fail, on the same code, is not red
-/// code. angelX's runner reports a pytest pass without a pinned pytest as
-/// Inconclusive rather than Passed, and `tests || fallback` or `tests | tail;
-/// ls` carries no verdict; each must still replace the red record. polyglot-v1
-/// GLM py-beer-song (and five other GLM passes), GLM py-book-store and Grok
-/// py-robot-name ended exactly this way.
 #[test]
 fn a_run_that_did_not_fail_after_a_red_one_is_not_denied() {
     let _guard = crate::tests::env_lock();
@@ -10511,8 +10100,6 @@ fn a_run_that_did_not_fail_after_a_red_one_is_not_denied() {
     }
 }
 
-/// Only a test run replaces the red record: listing files after a red run
-/// says nothing about the code, so "done" on it still carries `red`.
 #[test]
 fn a_command_that_is_not_a_test_run_keeps_the_red_record() {
     let _guard = crate::tests::env_lock();
@@ -10527,8 +10114,6 @@ fn a_command_that_is_not_a_test_run_keeps_the_red_record() {
     assert_eq!(chats, 4, "one checkpoint, then the answer stands");
 }
 
-/// A Git workspace shaped like polyglot-v1 js-grep: a source file and a spec
-/// with skipped tests.
 fn spec_fixture(name: &str) -> PathBuf {
     let root = scratch(name);
     let git = |args: &[&str]| {
@@ -10572,10 +10157,6 @@ fn run_spec_turn(root: &Path, moves: Vec<Move>) -> (Script, Vec<ChatMsg>) {
     (script, history)
 }
 
-/// Task mode: "done" with a test file that came with the task changed meets
-/// the checkpoint once, however the change was made (here a shell `sed -i`, as
-/// Grok 4.7 did on polyglot-v1 js-grep); after the model restores it, "done"
-/// stands.
 #[test]
 fn a_completion_with_a_changed_task_test_meets_the_checkpoint_once() {
     let _guard = crate::tests::env_lock();
@@ -10607,7 +10188,6 @@ fn a_completion_with_a_changed_task_test_meets_the_checkpoint_once() {
     );
     let _ = std::fs::remove_dir_all(root);
 
-    // Source-only edits, and a model that insists, each cost at most one step.
     let root = spec_fixture("test_edit_source_only");
     let (script, history) = run_spec_turn(
         &root,
@@ -10643,8 +10223,6 @@ fn a_completion_with_a_changed_task_test_meets_the_checkpoint_once() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-/// Interactive sessions and test files already changed before the turn are
-/// left alone.
 #[test]
 fn test_edits_are_only_questioned_in_task_mode_and_for_the_models_own_changes() {
     let _guard = crate::tests::env_lock();
@@ -10710,10 +10288,6 @@ fn a_stop_checkpoint_needs_budget_to_act_on() {
     assert!(task_budget_left(10, None, 450, 600).is_some());
 }
 
-// --- the 0.1.6 advisories, ported into the book: each is its own turn, given
-// under the condition it had at 0.1.6, and introduced in its own words ---
-
-/// A tool that only reads, so inspection is free-form recon.
 struct Peek;
 
 impl Tool for Peek {
@@ -10736,8 +10310,6 @@ fn peek_call(n: usize) -> Move {
     Move::Call(tc("read_file", json!({"path": "lib.rs", "offset": n})))
 }
 
-/// `run_root_turn` with the suite, the writer and a reader, a hop cap of the
-/// caller's choosing, and the turn's result kept whole.
 fn run_advisory_turn(
     root: &Path,
     script: &Script,
@@ -10763,8 +10335,6 @@ fn run_advisory_turn(
     (outcome, history)
 }
 
-/// Own-turn harness messages that are exactly `cells` (guidance) or `⛔cells`
-/// (a warning).
 fn own_turns(history: &[ChatMsg], cells: &str) -> usize {
     history
         .iter()
@@ -10776,7 +10346,6 @@ fn own_turns(history: &[ChatMsg], cells: &str) -> usize {
         .count()
 }
 
-/// The legend's introductions for `history`, joined: what the model reads.
 fn legend(history: &[ChatMsg]) -> String {
     book::introduction::introductions(history, None)
         .into_iter()
@@ -10785,7 +10354,6 @@ fn legend(history: &[ChatMsg]) -> String {
         .join("\n")
 }
 
-/// The stamp rides no tool result's tail.
 fn never_on_a_tail(history: &[ChatMsg], route: &str) {
     assert!(
         !history
@@ -10809,16 +10377,11 @@ fn the_first_edit_earns_the_post_edit_review_once_as_its_own_turn() {
     outcome.expect("the turn answers");
     assert_eq!(own_turns(&history, "⠼⠊"), 1, "{history:?}");
     never_on_a_tail(&history, "⠼⠊");
-    // Guidance, not a warning: bare cells, right after the edit's result.
     let at = history
         .iter()
         .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠼⠊")
         .unwrap();
     assert_eq!(history[at - 1].role, ChatRole::Tool);
-    // The model reads the advice in its own words at first sight. The fixed
-    // wording says it is advice and never tells it to finish: on 2026-10-16 a
-    // loop model read the old page as the operator ordering one verifier and
-    // a stop, and ended an overnight run.
     let english = legend(&history);
     assert!(
         english.contains(
@@ -10834,7 +10397,6 @@ fn the_first_edit_earns_the_post_edit_review_once_as_its_own_turn() {
         english.contains("Do not invent new tests as proof"),
         "{english}"
     );
-    // Off by the operator: never.
     let _off = EnvGuard::set("ANGEL_POST_EDIT_LOGIC_REVIEW", "0");
     let script = Script::new(vec![write_call("lib.rs", "pub fn sub() { 3 }\n")]);
     let (_, history) = run_advisory_turn(&root, &script, 30);
@@ -10907,7 +10469,6 @@ fn a_competition_banks_its_green_and_warns_when_the_candidate_changes() {
         english.contains("Check whether candidate code, inputs, or the evaluator changed. Reuse the existing receipt when only notes or unrelated files changed; rerun only the affected required check."),
         "{english}"
     );
-    // The engage warpath speaks in the 0.1.6 posture's own words.
     assert!(english.contains("COMPETITION CHALLENGE PACE"), "{english}");
     assert!(
         english.contains("Never wrap builds, engine boots, or benchmarks in `timeout`"),
@@ -10934,13 +10495,11 @@ fn the_final_mile_is_told_once_and_inspection_alone_hears_its_last_sentence() {
         .iter()
         .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠼⠃")
         .unwrap();
-    // Seven hops in of ten: three remain.
     let hops_before = history[..first]
         .iter()
         .filter(|m| m.role == ChatRole::Assistant && !m.tool_calls.is_empty())
         .count();
     assert_eq!(hops_before, 7, "{history:?}");
-    // A hop of inspection alone while a verifier is owed hears the last sentence.
     assert!(own_turns(&history, "⠼⠃⠑") >= 1, "{history:?}");
     let english = legend(&history);
     assert!(
@@ -10951,7 +10510,6 @@ fn the_final_mile_is_told_once_and_inspection_alone_hears_its_last_sentence() {
         english.contains("⠼⠃⠑ Do not spend the remaining calls re-reading known context."),
         "{english}"
     );
-    // An unbounded turn has no horizon: none of it.
     let script = Script::new(vec![
         write_call("lib.rs", "pub fn sub() { 2 }\n"),
         peek_call(0),
@@ -11005,7 +10563,6 @@ fn an_armed_inspection_budget_spent_without_an_edit_is_told_once() {
         legend(&history)
             .contains("⠼⠉ ACTIONABLE CANDIDATE PROGRESS. Inspection has not yet produced")
     );
-    // An edit first spends nothing: no advice.
     let script = Script::new(vec![
         write_call("lib.rs", "pub fn sub() { 1 }\n"),
         peek_call(0),
@@ -11015,7 +10572,6 @@ fn an_armed_inspection_budget_spent_without_an_edit_is_told_once() {
     ]);
     let (_, history) = run_advisory_turn(&root, &script, 30);
     assert_eq!(own_turns(&history, "⠼⠉"), 0);
-    // Unarmed (the default): never.
     let _unarmed = EnvGuard::set("ANGEL_FIRST_WRITE_CALLS", "0");
     let script = Script::new(vec![
         peek_call(0),
@@ -11066,7 +10622,6 @@ fn an_answer_with_no_edit_meets_the_no_edit_advice_at_the_checkpoint_when_armed(
     assert!(
         legend(&history).contains("⠼⠙ NO WORKSPACE MUTATION. You claimed progress or completion")
     );
-    // Without the operator's arming, or after an edit: nothing.
     let _off = EnvGuard::set("ANGEL_NO_EDIT_ANSWER_GUARD", "0");
     let script = Script::new(vec![Move::Say("The bug is already fixed.")]);
     let (_, history) = run_advisory_turn(&root, &script, 30);
@@ -11092,7 +10647,6 @@ fn a_green_that_ran_only_the_models_own_tests_is_weak_once() {
     assert_eq!(own_turns(&history, "⠼⠑"), 1, "{history:?}");
     never_on_a_tail(&history, "⠼⠑");
     assert!(legend(&history).contains("⠼⠑ WEAK VERIFICATION. The green check only ran tests"));
-    // Unarmed (the default): never.
     let _off = EnvGuard::set("ANGEL_SELF_AUTHORED_VERIFY_GUARD", "0");
     let script = Script::new(vec![
         write_call("test_mine.py", "assert True\n"),
@@ -11139,7 +10693,6 @@ fn the_same_edit_issued_three_times_is_mutation_thrash_once() {
         .count();
     assert_eq!(edits_before, 3);
     assert!(legend(&history).contains("⠼⠋ MUTATION THRASH. You re-issued the same edit signature"));
-    // Three different edits are not thrash.
     let script = Script::new(vec![
         write_call("lib.rs", "pub fn sub() { 1 }\n"),
         write_call("lib.rs", "pub fn sub() { 2 }\n"),
@@ -11182,7 +10735,6 @@ fn four_edits_under_docs_and_none_in_the_code_is_peripheral_fan_out_once() {
         "at the fourth"
     );
     assert!(legend(&history).contains("⠼⠛ PERIPHERAL FAN-OUT. Several edits landed under docs/"));
-    // One edit in the code, and the fan-out has its source.
     let script = Script::new(vec![
         write_call("lib.rs", "pub fn sub() { 1 }\n"),
         docs(1),
@@ -11229,7 +10781,6 @@ fn a_failing_run_at_the_checkpoint_carries_its_output_and_the_budget_beside_the_
         "the failing run, inline: {}",
         checkpoint.content
     );
-    // The sentences of 0.1.6's completion denial arrive through the legend.
     let english = legend(&history);
     assert!(
         english.contains(
@@ -11281,8 +10832,6 @@ fn three_failing_runs_give_the_verification_recovery_advice_in_its_own_words() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-// H01: real HTTP admission counts are distinct from physical loopback POSTs.
-// Preregistered at artifacts/harness-research/20261015-local/H01/.
 fn h01_controls() -> Vec<EnvGuard> {
     [
         ("ANGEL_HTTP_RETRIES", "1"),
@@ -11329,8 +10878,6 @@ fn h01_permanent_endpoint_configuration() {
         eprintln!(
             "H01 case={endpoint} admitted_http_attempts={attempts} physical_sends=0 terminal=ProviderError"
         );
-        // URL parsing/scheme rejection happens before connecting; this is not
-        // a server-observed send counter and must never be reported as one.
         if attempts != 1 {
             failures.push((endpoint, attempts));
         }
@@ -11408,7 +10955,6 @@ fn h01_loopback_retry_controls() {
                         }
                     }
                 }
-                // HttpClub retains model discovery; those probes are not POST sends.
                 if request.starts_with(b"GET ") {
                     let body = r#"{"data":[{"id":"h01-fixture"}]}"#;
                     write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();

@@ -19,14 +19,10 @@ use angel_net::entity::{Interest, Viewer, World};
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex};
 
-/// One tick in entity mode.
 pub struct EntityTick {
     pub world: World,
     pub globals: Value,
-    /// Each seat's interest, by seat; `None` while the seat has nothing in
-    /// the world yet.
     pub seats: Vec<Option<Interest>>,
-    /// What a watcher sees (and a seat with no interest yet).
     pub watch: Interest,
 }
 
@@ -36,7 +32,6 @@ impl EntityTick {
     }
 }
 
-/// Entity replication, within `angel_net::entity::BUDGET` a snapshot.
 pub struct EntityRep;
 
 impl Replicate for EntityRep {
@@ -56,20 +51,12 @@ impl Replicate for EntityRep {
     }
 }
 
-/// One tick in document mode: the state as a tree.
 pub struct DocTick {
     pub tree: Value,
 }
 
-/// What of the tree a client may see (the Delve: the seat's room).
 pub trait DocView: Send + Sync + 'static {
     fn view<'a>(&self, tree: &'a Value, seat: Option<u32>) -> Cow<'a, Value>;
-    /// What of `view` this snapshot sends a client that holds `held` (`None`:
-    /// nothing yet, the snapshot is whole). A view may hold back some of what
-    /// it would add, to come in the snapshots after, so no one snapshot is
-    /// more than a client reads (`angel_net::proto::MAX_SERVER_MESSAGE`):
-    /// what it held back is new to the client again next time. All of it,
-    /// unless a game says otherwise.
     fn pace<'a>(&self, view: Cow<'a, Value>, _held: Option<&Value>) -> Cow<'a, Value> {
         view
     }
@@ -78,15 +65,9 @@ pub trait DocView: Send + Sync + 'static {
     }
 }
 
-/// The last patch worked out between two shared trees (`Value::Shared`),
-/// and the two: each seat of a party in one room is sent the tick's tree as
-/// it stands, and was sent the last tick's, so the seats after the first are
-/// sent its patch rather than each working one out (`patch_between`).
 type LastPatch = Option<(Arc<Value>, Arc<Value>, Option<Patch>)>;
 static LAST_PATCH: Mutex<LastPatch> = Mutex::new(None);
 
-/// What turns `old` into `new` (`diff`): the last patch again when it was
-/// between these very two trees.
 fn patch_between(old: &Value, new: &Value) -> Option<Patch> {
     let (Value::Shared(a), Value::Shared(b)) = (old, new) else {
         return diff(old, new);
@@ -105,7 +86,6 @@ fn patch_between(old: &Value, new: &Value) -> Option<Patch> {
     patch
 }
 
-/// Every client sees the whole tree.
 pub struct Everything;
 
 impl DocView for Everything {
@@ -114,10 +94,8 @@ impl DocView for Everything {
     }
 }
 
-/// Document replication, filtered by `V`.
 pub struct DocRep<V: DocView>(pub V);
 
-/// What a document-mode client holds.
 #[derive(Default)]
 pub struct DocViewer {
     last: Option<Value>,
@@ -162,7 +140,6 @@ mod tests {
     use angel_net::doc::delta::apply;
     use angel_net::doc::wire::Reader;
 
-    /// A party game that hides each seat's secret from the others.
     struct OwnSecret;
 
     impl DocView for OwnSecret {
@@ -204,7 +181,6 @@ mod tests {
         assert_eq!(held.field("gold"), Some(&Value::U(5)));
     }
 
-    /// A game that sends a map's new entries one a snapshot.
     struct OneNew;
 
     impl DocView for OneNew {

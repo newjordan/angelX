@@ -30,9 +30,7 @@ use angel_delve::rules::resolution::{self, Rule, Rung};
 use angel_delve::rules::{Pack, RoomKind, Rng, Run, layout};
 use angel_gpu::{Core, Draw, Frame, Instance, Picture, Stage};
 
-/// The stage's picture id, as the cockpit names the Delve's.
 const STAGE: u32 = 0x00FA_57A4;
-/// How far apart the knights stand, in the room's pixels.
 const APART: f32 = 30.0;
 
 fn main() -> ExitCode {
@@ -45,8 +43,6 @@ fn main() -> ExitCode {
     }
 }
 
-/// The Crypt's first fight room, four seats in it standing in a row, idle,
-/// facing right (or left), nothing else alive.
 fn four_knights(left: bool, stride: f32, swing: u32) -> Option<Run> {
     for seed in 3..11u64 {
         let floor = layout::floor_party(1, Pack::Crypt, 4, &mut Rng::new(seed));
@@ -115,7 +111,6 @@ fn run() -> Result<(), String> {
     for rung in Rung::ALL {
         resolution::set_rule(Some(Rule::Fixed(rung)));
         let scene = Arc::new(arena::in_seat(|| arena::scene_for(&run, NATIVE_W, NATIVE_H, Some(1))));
-        // Where the knights stand on the view, for the cut-out.
         let named: Vec<_> = scene.figures.iter().flat_map(|f| &f.bodies).filter_map(|b| Some((b, b.named.as_ref()?))).collect();
         let mut art = hd_pack::HdArt::default();
         art.normals = lit;
@@ -153,8 +148,6 @@ fn run() -> Result<(), String> {
         }
         let pixels = gpu.stage(frame, size);
         write_png(&out.join(format!("room-{}.png", rung.px())), size, &pixels)?;
-        // The four knights cut out: from the first's left to the last's
-        // right, head room over them.
         let (cx, cy) = scene.camera;
         let xs = named.iter().map(|(b, _)| b.x as f32 - cx);
         let x0 = xs.clone().fold(f32::INFINITY, f32::min) - 4.0;
@@ -172,7 +165,6 @@ fn run() -> Result<(), String> {
         rows.push(((cw, ch), cropped));
     }
     resolution::set_rule(None);
-    // A row a rung, the rung's pixels on its left.
     let width = rows.iter().map(|((w, _), _)| *w).max().unwrap_or(1);
     let height: u32 = rows.iter().map(|((_, h), _)| *h + 4).sum();
     let mut sheet = vec![0u8; (width * height * 4) as usize];
@@ -216,8 +208,6 @@ impl Gpu {
         Ok(Self { core, device })
     }
 
-    /// A Delve frame as a stage, drawn into a texture `size` pixels as the
-    /// window draws a stage in its cells, on black, and read back.
     fn stage(&mut self, frame: angel_stage::Frame, size: (u32, u32)) -> Vec<u8> {
         for p in frame.pictures {
             self.core.upload(Picture { id: p.id, width: p.width, height: p.height, rgba: p.rgba, cols: 0, rows: 0 });

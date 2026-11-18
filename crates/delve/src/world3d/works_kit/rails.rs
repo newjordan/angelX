@@ -21,27 +21,20 @@ use crate::render::overworld::ink::hash;
 use crate::render::overworld::works_kit::Load;
 use crate::world3d::blockout::{Shape, Solid};
 
-/// How high the ropeway's cable runs at a tower, pixels (a tile is 16).
 pub const CABLE: f32 = 40.0;
 
-/// How far the cable has sagged at each tile of a span of four, from the tower to the next.
 const SAG: [f32; 4] = [0.0, 2.6, 4.2, 2.6];
 
-/// The tiles of a ropeway between one tower and the next.
 pub const SPAN: u32 = 4;
 
 fn tile_builder(frame: u32) -> W {
     W { w: 16.0, d: 16.0, seed: 3, t: frame, work: true, solids: Vec::new(), lamps: Vec::new() }
 }
 
-/// One tile of laid line, its own frame. `links` are the sides it joins
-/// (`N | E | S | W`); `post` a tower on a ropeway or a mooring post on a
-/// barge's lane; `span` how far along the ropeway's span the tile is, `0` at a tower.
 pub(super) fn line(kind: LineKind, links: u8, post: bool, span: u32, frame: u32) -> Vec<Solid> {
     let mut b = tile_builder(frame);
     let (n, e, s, w) = (links & 1 != 0, links & 2 != 0, links & 4 != 0, links & 8 != 0);
     let along_x = e || w || links == 0;
-    // The arms as rectangles over the tile: the middle square and each joined side.
     let arm = |half: f32| {
         let mut v = vec![([8.0 - half, 8.0 + half], [8.0 - half, 8.0 + half])];
         if n {
@@ -60,13 +53,10 @@ pub(super) fn line(kind: LineKind, links: u8, post: bool, span: u32, frame: u32)
     };
     match kind {
         LineKind::Cart => {
-            // A road of packed earth worn into the grass: its crown the brightest ground, a rut
-            // in it for each wheel, a verge of stones and tufts along its edges.
             for (x, z) in arm(4.6) {
                 b.bx(Kind::Road, x, [0.0, 1.4], z);
             }
             for (x, z) in arm(4.6) {
-                // The ruts run with the arm: dark grooves a little inside its edges.
                 if x[1] - x[0] > z[1] - z[0] {
                     for off in [-2.4f32, 2.4] {
                         b.bx(Kind::Mud, x, [1.4, 1.8], [8.0 + off - 0.5, 8.0 + off + 0.5]);
@@ -79,7 +69,6 @@ pub(super) fn line(kind: LineKind, links: u8, post: bool, span: u32, frame: u32)
             }
             for k in 0..7 {
                 let v = hash(k, links as i32, 31);
-                // A stone or a tuft by the edge of an open side.
                 let side = (v % 4) as u8;
                 let t = 1.5 + ((v >> 3) % 13) as f32;
                 let (x, z) = match side {
@@ -94,8 +83,6 @@ pub(super) fn line(kind: LineKind, links: u8, post: bool, span: u32, frame: u32)
             }
         }
         LineKind::Tram => {
-            // Gravel ballast, sleepers across it every four pixels, two bright rails along it,
-            // a buffer where the way ends.
             for (x, z) in arm(4.2) {
                 b.bx(Kind::Sand, x, [0.0, 1.2], z);
             }
@@ -123,7 +110,6 @@ pub(super) fn line(kind: LineKind, links: u8, post: bool, span: u32, frame: u32)
                     across(&mut b, false, at);
                 }
             }
-            // Rails: each joined arm's pair, run three pixels into the middle so a corner is mitred.
             for off in [-2.6f32, 2.6] {
                 let (lo, hi) = (8.0 + off - 0.5, 8.0 + off + 0.5);
                 if lone {
@@ -142,7 +128,6 @@ pub(super) fn line(kind: LineKind, links: u8, post: bool, span: u32, frame: u32)
                     b.bx(Kind::Road, [lo, hi], [2.2, 3.4], [5.0, 16.0]);
                 }
             }
-            // A buffer stop where only one side joins.
             if links.count_ones() == 1 {
                 let (bx, bz) = match links {
                     1 => ([3.5, 12.5], [0.4, 1.8]),
@@ -166,25 +151,20 @@ pub(super) fn line(kind: LineKind, links: u8, post: bool, span: u32, frame: u32)
                     b.bx(Kind::Floor, [x[1] - 1.0, x[1]], [6.0, 8.0], z);
                 }
             }
-            // Trestles under it: two legs and a cross brace, a pair at each end of the tile.
             for (lx, lz) in [(4.0f32, 4.0f32), (12.0, 12.0)] {
                 b.bx(Kind::Trunk, [lx - 0.7, lx + 0.7], [0.0, 5.0], [lz - 0.7, lz + 0.7]);
                 b.bx(Kind::Trunk, [lx - 2.6, lx + 2.6], [2.4, 3.2], [lz - 0.5, lz + 0.5]);
             }
         }
         LineKind::Rope => {
-            // The cable sags between towers: each half of the tile at its own height.
             let h = |k: u32| CABLE - SAG[(k % SPAN) as usize];
             let (here, before, after) = (h(span), h(span + SPAN - 1), h(span + 1));
             for (k, (x, z)) in arm(0.35).into_iter().enumerate() {
-                // The middle at the tile's own height, the arm toward the tile's start (its north or
-                // west) between that and the span before it, the arm toward its end the span after.
                 let first = x[0] < 8.0 - 0.5 || z[0] < 8.0 - 0.5;
                 let y = if k == 0 { here } else if first { (before + here) / 2.0 } else { (here + after) / 2.0 };
                 b.bx(Kind::Road, x, [y - 0.5, y + 0.6], z);
             }
             if post {
-                // A tower: two legs braced to an A, a cross arm over them with a sheave at each end, a footing.
                 let top = CABLE;
                 for (lx, lz) in [(5.2f32, 6.2f32), (10.8, 6.2), (5.2, 9.8), (10.8, 9.8)] {
                     b.bx(Kind::Path, [lx - 0.6, lx + 0.6], [1.0, top - 3.0], [lz - 0.6, lz + 0.6]);
@@ -197,16 +177,12 @@ pub(super) fn line(kind: LineKind, links: u8, post: bool, span: u32, frame: u32)
                 }
                 b.bx(Kind::Road, [3.0, 13.0], [top - 3.2, top - 1.8], [6.4, 9.6]);
                 b.bx(Kind::Path, [6.0, 10.0], [top - 1.8, top - 0.2], [7.0, 9.0]);
-                // The sheave the cable runs over.
                 b.wheel(Kind::Metal, 8.0, top - 0.6, 8.0, 1.8, 0.5, 4, 1.2);
                 b.bx(Kind::Stone, [3.8, 12.2], [0.0, 1.6], [4.8, 11.2]);
-                // The counterweight hung under the arm, a block on a chain.
                 b.bx(Kind::Rock, [6.8, 9.2], [top - 9.0, top - 5.5], [7.2, 8.8]);
             }
         }
         LineKind::Barge => {
-            // The lane of water between banks: a bank's edge of posts and a mooring post, and
-            // ripples that travel with the frame.
             for (x, z) in arm(6.0) {
                 b.bx(Kind::Water, x, [0.0, 0.4], z);
             }
@@ -220,8 +196,6 @@ pub(super) fn line(kind: LineKind, links: u8, post: bool, span: u32, frame: u32)
             }
         }
         LineKind::Mule => {
-            // A trodden way: a narrow strip of scuffed earth, lower and duller than the cart road (no
-            // crown, no ruts), hoof-prints along it, a stone or a tuft by its edge.
             for (x, z) in arm(2.8) {
                 b.bx(Kind::Path, x, [0.0, 0.8], z);
             }
@@ -244,8 +218,6 @@ pub(super) fn line(kind: LineKind, links: u8, post: bool, span: u32, frame: u32)
     b.solids
 }
 
-/// Wheel `a` radians turned: a rim of `n` blocks with one dark one that shows it turn, spokes as
-/// short rows of blocks (the near side only), a hub. Standing on edge, facing the front, centre `(cx, cy, cz)`.
 fn cartwheel(b: &mut W, cx: f32, cy: f32, cz: f32, r: f32, a: f32, n: u32, spokes: bool) {
     let block = (r * 0.38).clamp(0.9, 1.5);
     for k in 0..n {
@@ -264,8 +236,6 @@ fn cartwheel(b: &mut W, cx: f32, cy: f32, cz: f32, r: f32, a: f32, n: u32, spoke
     b.bx(Kind::Metal, [cx - 0.9, cx + 0.9], [(cy - 0.9).max(0.0), cy + 0.9], [cz - 1.0, cz + 1.0]);
 }
 
-/// An ox walking east, its rump at `x0`: body, hump, head and horns, four legs in diagonal
-/// pairs that swing with the step, a tail, the yoke over its neck.
 fn ox(b: &mut W, x0: f32, step: u32) {
     b.bx(Kind::Mud, [x0, x0 + 11.0], [4.8, 9.6], [-2.8, 2.8]);
     b.bx(Kind::Mud, [x0 + 6.5, x0 + 11.5], [9.6, 11.4], [-2.4, 2.4]);
@@ -278,13 +248,9 @@ fn ox(b: &mut W, x0: f32, step: u32) {
         b.bx(Kind::Trunk, [lx, lx + 1.8], [lift, 4.9], [lz, lz + 1.2]);
     }
     b.bx(Kind::Trunk, [x0 - 1.4, x0 + 0.1], [4.6, 8.8], [-0.3, 0.3]);
-    // The yoke across the neck and its bows.
     b.bx(Kind::Floor, [x0 + 10.6, x0 + 12.0], [10.4, 11.4], [-4.6, 4.6]);
 }
 
-/// A carrier seen from afar, in the same frame: the same silhouette and the same load in a few blocks
-/// (a works with many carts on its roads draws them so, `hillside`): a body, wheels as strips, an ox
-/// as its body, head and two pairs of legs.
 fn far(b: &mut W, kind: LineKind, load: Option<Load>) {
     let step = b.t;
     match kind {
@@ -353,18 +319,14 @@ fn far(b: &mut W, kind: LineKind, load: Option<Load>) {
     }
 }
 
-/// A carrier on a line, its own frame: along x, 0 to its length, middle z 0. `near` is the whole
-/// carrier; not near, [`far`]'s few blocks.
 pub(super) fn vehicle(kind: LineKind, dir: Dir, load: Option<Load>, frame: u32, near: bool) -> Vec<Solid> {
     let mut b = W { w: 16.0, d: 16.0, seed: 5, t: frame, work: true, solids: Vec::new(), lamps: Vec::new() };
-    // A wheel goes round once in a loop of eight steps, the pace of a cart on its road.
     let a = b.turn();
     if !near {
         far(&mut b, kind, load);
     } else {
     match kind {
         LineKind::Cart => {
-            // The bed and its low sides on stakes, a tail board, the axle, two wheels, the pole to the ox's yoke.
             b.bx(Kind::Floor, [0.0, 12.0], [3.2, 4.4], [-3.4, 3.4]);
             for z in [-3.6f32, 2.8] {
                 b.bx(Kind::Wood, [0.0, 12.0], [4.4, 6.4], [z, z + 0.8]);
@@ -384,7 +346,6 @@ pub(super) fn vehicle(kind: LineKind, dir: Dir, load: Option<Load>, frame: u32, 
             }
         }
         LineKind::Tram => {
-            // An iron frame on two bogies, a timber bed, low sides on stakes, buffers, a brake.
             b.bx(Kind::Metal, [0.0, 22.0], [2.6, 3.6], [-3.6, 3.6]);
             b.bx(Kind::Floor, [0.5, 21.5], [3.6, 4.8], [-3.4, 3.4]);
             for z in [-3.6f32, 2.8] {
@@ -408,7 +369,6 @@ pub(super) fn vehicle(kind: LineKind, dir: Dir, load: Option<Load>, frame: u32, 
             }
         }
         LineKind::Rope => {
-            // A carriage on the cable (two sheaves in a frame), a hanger, a bucket that sways.
             let sway = (b.turn().sin() * 1.2).round();
             b.bx(Kind::Metal, [0.6, 7.4], [CABLE - 2.0, CABLE + 1.4], [-1.2, 1.2]);
             cartwheel(&mut b, 2.0, CABLE + 0.4, 0.0, 1.6, a, 4, false);
@@ -423,7 +383,6 @@ pub(super) fn vehicle(kind: LineKind, dir: Dir, load: Option<Load>, frame: u32, 
             }
         }
         LineKind::Chute => {
-            // A sled on runners, a bed with a back and sides, a rope ring at the front.
             b.bx(Kind::Trunk, [0.0, 16.0], [0.0, 1.0], [-2.8, -1.8]);
             b.bx(Kind::Trunk, [0.0, 16.0], [0.0, 1.0], [1.8, 2.8]);
             b.bx(Kind::Floor, [0.5, 15.5], [1.0, 2.0], [-3.0, 3.0]);
@@ -437,8 +396,6 @@ pub(super) fn vehicle(kind: LineKind, dir: Dir, load: Option<Load>, frame: u32, 
             }
         }
         LineKind::Barge => {
-            // A river barge: a flat hull with a bow and a stern, gunwales, a mast with its sail furled on
-            // the yard, a steering oar, a coil of rope; a bow wave. It rides up and down a little.
             let bob = (b.turn().sin()).round() * 0.4;
             b.bx(Kind::Wood, [4.0, 50.0], [bob, 4.2 + bob], [-5.6, 5.6]);
             b.wedge(Kind::Wood, [50.0, 58.0], [-5.6, 5.6], bob, 4.2);
@@ -447,11 +404,9 @@ pub(super) fn vehicle(kind: LineKind, dir: Dir, load: Option<Load>, frame: u32, 
                 b.bx(Kind::Floor, [2.0, 54.0], [4.2 + bob, 5.8 + bob], [z, z + 1.0]);
             }
             b.bx(Kind::Floor, [-1.0, 0.0], [4.2 + bob, 5.6 + bob], [-5.2, 5.2]);
-            // The mast, the yard across it, the furled sail along it.
             b.bx(Kind::Trunk, [30.0, 31.2], [4.2 + bob, 26.0 + bob], [-0.6, 0.6]);
             b.bx(Kind::Trunk, [30.2, 31.0], [22.0 + bob, 23.0 + bob], [-6.0, 6.0]);
             b.bx(Kind::Cloth, [30.0, 31.2], [20.6 + bob, 22.0 + bob], [-5.2, 5.2]);
-            // The steering oar and a coil of rope at the stern.
             b.bx(Kind::Floor, [-9.0, 3.0], [3.0 + bob, 4.0 + bob], [-0.5, 0.5]);
             b.bx(Kind::Floor, [-9.6, -8.6], [1.0 + bob, 4.6 + bob], [-1.2, 1.2]);
             b.cyl(Kind::Thatch, 6.0, 3.2, 1.6, 4.2 + bob, 1.0);
@@ -459,16 +414,12 @@ pub(super) fn vehicle(kind: LineKind, dir: Dir, load: Option<Load>, frame: u32, 
                 b.heap(load, 40.0, 0.0, 16.0, 4.2 + bob, 9.0);
                 b.heap(load, 18.0, 0.0, 14.0, 4.2 + bob, 7.0);
             }
-            // The bow wave, flat on the water and pale, travelling with the step.
             let w = (frame % 4) as f32;
             for z in [-5.0f32, 4.0] {
                 b.bx(Kind::Plaster, [55.0 + w, 58.0 + w], [0.2, 0.7], [z, z + 1.0]);
             }
         }
         LineKind::Mule => {
-            // A pack mule walking east, its rump at x 0: grey where the ox is dark, slighter, with long ears
-            // and a pale muzzle; a blanket over its back, a wicker pannier slung either side, the load over
-            // them. Four slim legs in diagonal pairs that swing with the step, a tail.
             b.bx(Kind::Rock, [0.0, 11.0], [5.4, 10.0], [-2.4, 2.4]);
             b.bx(Kind::Rock, [9.6, 13.2], [8.2, 12.6], [-1.6, 1.6]);
             b.bx(Kind::Rock, [12.6, 16.4], [8.6, 11.6], [-1.4, 1.4]);
@@ -493,7 +444,6 @@ pub(super) fn vehicle(kind: LineKind, dir: Dir, load: Option<Load>, frame: u32, 
         }
     }
     }
-    // Facing: a vehicle is built heading east; west is its mirror, north and south its quarter turns.
     let turn = match dir {
         Dir::East => 0.0,
         Dir::West => 180.0,

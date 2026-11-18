@@ -10,10 +10,8 @@ use crate::rules::griffinwing::rail::{self, Rail};
 use crate::rules::griffinwing::trig::Det;
 use std::sync::OnceLock;
 
-/// How long a chunk is, in units.
 pub const CH: f32 = 40.0;
 
-/// How wide the lit lip along each cliff's top edge is, in units.
 const RIM: f32 = 1.2;
 
 fn p(r: &Rail, s: f32, x: f32, z: f32) -> V3 {
@@ -21,8 +19,6 @@ fn p(r: &Rail, s: f32, x: f32, z: f32) -> V3 {
     v3(w[0], w[1], w[2])
 }
 
-/// A surface lying along the rail from `s0` to `s1`, across `x0..x1`, at
-/// height `z`.
 fn floor(m: &mut Mesh, r: &Rail, s0: f32, s1: f32, x0: f32, x1: f32, z: f32, material: u8) {
     m.push_quad(
         p(r, s0, x0, z),
@@ -33,7 +29,6 @@ fn floor(m: &mut Mesh, r: &Rail, s0: f32, s1: f32, x0: f32, x1: f32, z: f32, mat
     );
 }
 
-/// A face standing along the rail at `x`, from `z0` to `z1`.
 fn wall(m: &mut Mesh, r: &Rail, s0: f32, s1: f32, x: f32, z0: f32, z1: f32, material: u8) {
     m.push_quad(
         p(r, s0, x, z0),
@@ -44,7 +39,6 @@ fn wall(m: &mut Mesh, r: &Rail, s0: f32, s1: f32, x: f32, z0: f32, z1: f32, mate
     );
 }
 
-/// A box from its centre and three half-axes.
 pub fn cuboid(m: &mut Mesh, c: V3, a: V3, b: V3, h: V3, material: u8) {
     let corner = |i: f32, j: f32, k: f32| c + a * i + b * j + h * k;
     let faces = [
@@ -70,8 +64,6 @@ pub fn cuboid(m: &mut Mesh, c: V3, a: V3, b: V3, h: V3, material: u8) {
     }
 }
 
-/// A box set square to the rail at `s`: centred at `(x, z)` across and up,
-/// `half` its half-extents along, across and up.
 pub fn block(m: &mut Mesh, r: &Rail, s: f32, x: f32, z: f32, half: (f32, f32, f32), material: u8) {
     let at = r.at(s);
     let (sin, cos) = at.yaw.dsin_cos();
@@ -86,7 +78,6 @@ pub fn block(m: &mut Mesh, r: &Rail, s: f32, x: f32, z: f32, half: (f32, f32, f3
     );
 }
 
-/// A hoop of `n` flat quads round `c`, in the plane of `r_axis` and `u_axis`.
 pub fn hoop(
     m: &mut Mesh,
     c: V3,
@@ -111,7 +102,6 @@ pub fn hoop(
     }
 }
 
-/// A diamond: a lamp, a shard.
 pub fn diamond(m: &mut Mesh, c: V3, r: f32, turn: f32, material: u8) {
     let (s, co) = turn.dsin_cos();
     let a = v3(co * r, s * r, 0.0);
@@ -125,7 +115,6 @@ pub fn diamond(m: &mut Mesh, c: V3, r: f32, turn: f32, material: u8) {
     }
 }
 
-/// A steady scatter in 0 to 1 from two whole numbers.
 pub fn scatter(a: i32, b: u32) -> f32 {
     let mut h = (a as u32).wrapping_mul(0x9E37_79B1) ^ b.wrapping_mul(0x85EB_CA6B);
     h ^= h >> 15;
@@ -136,25 +125,18 @@ pub fn scatter(a: i32, b: u32) -> f32 {
     (h & 0xffff) as f32 / 65535.0
 }
 
-/// The open storm gorge of the first beat: a river of cloud far below, cliffs
-/// stepping up either side, spires standing out of the deep.
 fn gorge(m: &mut Mesh, r: &Rail, s: f32, e: f32, half: f32) {
     let k = (s / 4.0) as i32;
     floor(m, r, s, e, -half, half, -14.0, mat::WATER);
-    // A sheet of moonlit mist drifting in the deep, in dashes: they are what
-    // streams by below.
     if k % 3 == 0 {
         let w = 2.0 + scatter(k, 21) * 5.0;
         let c = (scatter(k, 22) - 0.5) * half;
         floor(m, r, s, s + 3.4, c - w, c + w, -12.5, mat::MOONLIGHT);
     }
     for side in [-1.0f32, 1.0] {
-        // Strata: bands of stone and shadow up the cliff, which change from
-        // slice to slice so the wall has a grain going by.
         let bands = [(-14.0, -7.0), (-7.0, -1.0), (-1.0, 3.5), (3.5, 6.0)];
         for (b, &(z0, z1)) in bands.iter().enumerate() {
             let pick = scatter(k * 4 + b as i32, 31 + side as u32);
-            // The top band is always lit stone: the wall's pale crest.
             let material = if pick > 0.66 || b == bands.len() - 1 {
                 mat::STONE
             } else if pick > 0.3 {
@@ -164,8 +146,6 @@ fn gorge(m: &mut Mesh, r: &Rail, s: f32, e: f32, half: f32) {
             };
             wall(m, r, s, e, side * half, z0, z1, material);
         }
-        // The lip of the ledge, in lit stone: the canyon's near edge, a pale
-        // line running down to the horizon.
         floor(m, r, s, e, side * half, side * (half + RIM), 6.0, mat::STONE);
         floor(m, r, s, e, side * (half + RIM), side * (half + 4.0), 6.0, mat::ROCK);
         wall(m, r, s, e, side * (half + 4.0), 6.0, 16.0, mat::STONE_DARK);
@@ -182,8 +162,6 @@ fn gorge(m: &mut Mesh, r: &Rail, s: f32, e: f32, half: f32) {
     }
 }
 
-/// The ruined causeway: a chasm, stone cliffs hung with lit windows, a broken
-/// road on its arches below.
 fn causeway(m: &mut Mesh, r: &Rail, s: f32, e: f32, half: f32) {
     floor(m, r, s, e, -half, half, -18.0, mat::WATER);
     for side in [-1.0f32, 1.0] {
@@ -200,14 +178,12 @@ fn causeway(m: &mut Mesh, r: &Rail, s: f32, e: f32, half: f32) {
             mat::STONE_DARK,
         );
     }
-    // The road, with its missing planks.
     let k = (s / 4.0) as i32;
     if scatter(k, 7) > 0.28 {
         floor(m, r, s, e, -3.2, 3.2, -6.0, mat::PATH);
     }
 }
 
-/// The roost's approach and hollow: bare rock, bone ribs, embers in the cracks.
 fn roost(m: &mut Mesh, r: &Rail, s: f32, e: f32, half: f32, looks: u8) {
     let drop = if looks == rail::ROOST { -16.0 } else { -14.0 };
     floor(m, r, s, e, -half, half, drop, mat::ROCK);
@@ -226,7 +202,6 @@ fn roost(m: &mut Mesh, r: &Rail, s: f32, e: f32, half: f32, looks: u8) {
         );
     }
     let k = (s / 4.0) as i32;
-    // Channels of lava glowing in the floor.
     if k % 2 == 0 {
         for side in [-1.0f32, 1.0] {
             floor(
@@ -241,7 +216,6 @@ fn roost(m: &mut Mesh, r: &Rail, s: f32, e: f32, half: f32, looks: u8) {
             );
         }
     }
-    // Cracks of ember down the walls.
     if scatter(k, 3) > 0.6 {
         let side = if scatter(k, 4) > 0.5 { 1.0f32 } else { -1.0 };
         wall(
@@ -257,7 +231,6 @@ fn roost(m: &mut Mesh, r: &Rail, s: f32, e: f32, half: f32, looks: u8) {
     }
 }
 
-/// The way out: open sky over a sea of cloud, low far cliffs.
 fn exit(m: &mut Mesh, r: &Rail, s: f32, e: f32, half: f32) {
     floor(m, r, s, e, -half * 1.6, half * 1.6, -16.0, mat::WATER);
     for side in [-1.0f32, 1.0] {
@@ -265,7 +238,6 @@ fn exit(m: &mut Mesh, r: &Rail, s: f32, e: f32, half: f32) {
     }
 }
 
-/// The things that stand along the canyon, every so often.
 fn furniture(m: &mut Mesh, r: &Rail, s0: f32, s1: f32) {
     let first = (s0 / 8.0).ceil() as i32;
     let last = (s1 / 8.0).ceil() as i32;
@@ -276,8 +248,6 @@ fn furniture(m: &mut Mesh, r: &Rail, s0: f32, s1: f32) {
         let side = if k % 2 == 0 { 1.0f32 } else { -1.0 };
         match at.look {
             rail::GORGE => {
-                // Spires out of the cloud, every few units, standing off the
-                // window: they are the parallax.
                 if k % 3 == 0 {
                     let h = scatter(k, 11);
                     let x = side * (half - 2.0 - h * 2.0);
@@ -300,12 +270,10 @@ fn furniture(m: &mut Mesh, r: &Rail, s0: f32, s1: f32) {
                         (1.0 + h * 0.6, 1.0 + h * 0.4, 0.4),
                         mat::STONE_DARK,
                     );
-                    // A brazier lit on its top, now and then.
                     if k % 9 == 0 {
                         block(m, r, s, x, top + 1.1, (0.3, 0.3, 0.3), mat::FIRE);
                     }
                 }
-                // Buttresses jutting from the cliffs, in every size.
                 if k % 2 == 1 {
                     let h = scatter(k, 13);
                     let x = -side * (half - 0.8 - h * 1.2);
@@ -321,9 +289,6 @@ fn furniture(m: &mut Mesh, r: &Rail, s0: f32, s1: f32) {
                 }
             }
             rail::CAUSEWAY => {
-                // Lanterns on the walls, windows lit in the stone, and every
-                // so often a tower with a banner and a broken arch over the
-                // canyon.
                 if k % 2 == 0 {
                     block(
                         m,
@@ -370,7 +335,6 @@ fn furniture(m: &mut Mesh, r: &Rail, s0: f32, s1: f32) {
                     );
                 }
                 if k % 9 == 4 {
-                    // A broken arch over the canyon.
                     for sd in [-1.0f32, 1.0] {
                         block(
                             m,
@@ -401,7 +365,6 @@ fn furniture(m: &mut Mesh, r: &Rail, s0: f32, s1: f32) {
                         mat::STONE_DARK,
                     );
                 }
-                // The road's arches below.
                 if k % 2 == 0 {
                     for sd in [-1.0f32, 1.0] {
                         block(m, r, s, sd * 3.0, -12.0, (0.6, 0.5, 6.0), mat::STONE_DARK);
@@ -409,7 +372,6 @@ fn furniture(m: &mut Mesh, r: &Rail, s0: f32, s1: f32) {
                 }
             }
             rail::APPROACH | rail::ROOST => {
-                // Bone ribs arching over the way, braziers on columns.
                 if k % 2 == 0 {
                     let n = 9;
                     for i in 0..n {
@@ -495,7 +457,6 @@ fn build(k: usize) -> Mesh {
     m
 }
 
-/// The canyon, a chunk at a time.
 pub fn chunks() -> &'static [Mesh] {
     static CHUNKS: OnceLock<Vec<Mesh>> = OnceLock::new();
     CHUNKS.get_or_init(|| {
@@ -504,8 +465,6 @@ pub fn chunks() -> &'static [Mesh] {
     })
 }
 
-/// The chunks that can be in sight from `s` units along: a little behind and
-/// well ahead.
 pub fn near(s: f32) -> impl Iterator<Item = &'static Mesh> {
     let all = chunks();
     let a = (((s - 12.0).max(0.0)) / CH) as usize;

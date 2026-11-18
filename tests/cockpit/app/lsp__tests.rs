@@ -105,8 +105,6 @@ time.sleep(30)
     let observed = receiver.recv_timeout(Duration::from_millis(500));
     let completed = observed.is_ok();
     let elapsed = started.elapsed();
-    // The old implementation can still be waiting on rx here; release it
-    // before every join/assertion so the fixture remains bounded on failure.
     drop(held);
     let result =
         observed.unwrap_or_else(|_| receiver.recv_timeout(Duration::from_secs(2)).unwrap());
@@ -184,7 +182,7 @@ fn assert_blocked_write_obeys_deadline(notification: bool) {
     let error = result.expect_err("a full stdin pipe must time out");
     let after = client.request("workspace/after-partial-write", json!({}));
     let pipe_closed = client.stdin.lock().unwrap().is_none();
-    drop(client); // Drop kills and waits on the single owned sleep process.
+    drop(client);
     assert!(!rescued, "write required fixture watchdog cleanup: {error}");
     assert!(
         elapsed < Duration::from_secs(1),
@@ -271,15 +269,12 @@ time.sleep(30)
         .lock()
         .unwrap()
         .recv_timeout(Duration::from_secs(2));
-    // A regression can leave the reader holding stdin's mutex in write_all.
-    // Close/reap the owned peer before inspecting that mutex, bounding failure
-    // cleanup as well as the successful deadline path.
     {
         let mut child = client.child.lock().unwrap();
         let _ = child.retire();
     }
     let pipe_closed = client.stdin.lock().unwrap().is_none();
-    drop(client); // Also unblocks the reader if this regression ever hangs.
+    drop(client);
     assert!(
         matches!(observed, Err(mpsc::RecvTimeoutError::Disconnected)),
         "{observed:?}"
@@ -406,11 +401,11 @@ fn frame_roundtrips_through_reader() {
     let a = json!({ "jsonrpc": "2.0", "id": 1, "result": { "ok": true } });
     let b = json!({ "jsonrpc": "2.0", "method": "textDocument/publishDiagnostics" });
     let mut bytes = build_frame(&a);
-    bytes.extend(build_frame(&b)); // two concatenated frames
+    bytes.extend(build_frame(&b));
     let mut cur = Cursor::new(bytes);
     assert_eq!(read_frame(&mut cur).unwrap(), Some(a));
     assert_eq!(read_frame(&mut cur).unwrap(), Some(b));
-    assert_eq!(read_frame(&mut cur).unwrap(), None); // EOF
+    assert_eq!(read_frame(&mut cur).unwrap(), None);
 }
 
 #[test]
@@ -435,7 +430,7 @@ fn read_frame_tolerates_extra_headers() {
 
 #[test]
 fn doc_action_opens_then_changes_with_bumped_version() {
-    assert_eq!(doc_action(None), DocAction::Open); // never seen -> open
+    assert_eq!(doc_action(None), DocAction::Open);
     assert_eq!(doc_action(Some(1)), DocAction::Change { version: 2 });
     assert_eq!(doc_action(Some(2)), DocAction::Change { version: 3 });
 }
@@ -444,7 +439,7 @@ fn doc_action_opens_then_changes_with_bumped_version() {
 fn match_response_correlates_and_surfaces_errors() {
     let ok = json!({ "jsonrpc": "2.0", "id": 5, "result": { "v": 1 } });
     assert_eq!(match_response(&ok, 5), Some(Ok(json!({"v": 1}))));
-    assert_eq!(match_response(&ok, 6), None); // wrong id
+    assert_eq!(match_response(&ok, 6), None);
     let notif = json!({ "jsonrpc": "2.0", "method": "log" });
     assert_eq!(match_response(&notif, 5), None);
     let err = json!({ "jsonrpc": "2.0", "id": 5, "error": { "message": "boom" } });
@@ -453,9 +448,6 @@ fn match_response_correlates_and_surfaces_errors() {
 
 #[test]
 fn match_response_ignores_server_request_with_colliding_id() {
-    // A server→client REQUEST has an id AND a method. Even when its id equals
-    // our pending request id, it must NOT be taken as our response (the bug
-    // this guards: returning Null for the request's missing `result`).
     let server_req = json!({ "jsonrpc": "2.0", "id": 5, "method": "window/workDoneProgress/create",
                     "params": { "token": "t" } });
     assert_eq!(match_response(&server_req, 5), None);
@@ -464,8 +456,8 @@ fn match_response_ignores_server_request_with_colliding_id() {
 #[test]
 fn is_server_request_needs_id_and_method() {
     assert!(is_server_request(&json!({ "id": 1, "method": "x" })));
-    assert!(!is_server_request(&json!({ "method": "x" }))); // notification
-    assert!(!is_server_request(&json!({ "id": 1, "result": {} }))); // response
+    assert!(!is_server_request(&json!({ "method": "x" })));
+    assert!(!is_server_request(&json!({ "id": 1, "result": {} })));
 }
 
 #[test]
@@ -549,19 +541,12 @@ fn unprovisioned_rustup_proxy_does_not_auto_enable_lsp() {
     std::fs::write(&rustup, "#!/bin/sh\nexit 1\n").unwrap();
     std::fs::set_permissions(&rustup, std::fs::Permissions::from_mode(0o700)).unwrap();
     symlink("rustup", dir.join("rust-analyzer")).unwrap();
-    // The fakes must resolve FIRST, but the system dirs must stay on PATH:
-    // env_lock serializes env mutators, yet reader tests that spawn real
-    // binaries (git, cargo, rust-analyzer) do not all hold it — a PATH
-    // with no fallback starves them mid-run (the intermittent full-suite
-    // flakes). Same fallback discipline as cargo_tool's hostile-PATH test.
     let path_with_fallback = format!("{}:/usr/local/bin:/usr/bin:/bin", dir.to_str().unwrap());
     let _path = crate::tests::TestEnvGuard::set("PATH", &path_with_fallback);
 
     reset_command_on_path_cache();
     assert!(!command_on_path("rust-analyzer"));
 
-    // Atomic replace: a plain truncate+write lets a racing exec observe a
-    // half-written script (the intermittent flake this pins shut).
     let tmp = dir.join("rustup.next");
     std::fs::write(&tmp, "#!/bin/sh\nexit 0\n").unwrap();
     std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o700)).unwrap();
@@ -584,9 +569,9 @@ fn parse_lsp_config_reads_and_drops_commandless() {
     s.sort_by(|a, b| a.name.cmp(&b.name));
     assert_eq!(s.len(), 2, "command-less server dropped: {s:?}");
     let rust = s.iter().find(|x| x.name == "rust").unwrap();
-    assert_eq!(rust.extensions, vec!["rs"]); // leading dot stripped
+    assert_eq!(rust.extensions, vec!["rs"]);
     let zig = s.iter().find(|x| x.name == "zig").unwrap();
-    assert_eq!(zig.language_id, "zig"); // defaulted to the key
+    assert_eq!(zig.language_id, "zig");
 }
 
 #[test]
@@ -598,7 +583,6 @@ fn parse_lsp_config_tolerates_garbage() {
 
 #[test]
 fn user_config_overrides_default_by_name() {
-    // Build the merge by hand (load_servers reads env/HOME; this tests the rule).
     let mut servers = default_servers();
     let user = parse_lsp_config(
         r#"{"servers":{"rust":{"command":"my-ra","extensions":["rs","rsx"],"languageId":"rust"}}}"#,
@@ -682,10 +666,6 @@ while True:
     std::fs::remove_dir_all(root).unwrap();
 }
 
-/// A minimal LSP server in POSIX sh: Content-Length framing, replies to
-/// initialize (advertising pull), pushes one error on didOpen, answers a pull
-/// `textDocument/diagnostic` clean, and serves fixed definition/references/
-/// hover results so the navigation tools can be exercised end-to-end.
 const MOCK_LSP: &str = r#"
 emit() { printf 'Content-Length: %s\r\n\r\n%s' "${#1}" "$1"; }
 cr=$(printf '\r'); len=0
@@ -747,9 +727,6 @@ fn process_start_count(counter: &Path) -> usize {
     std::fs::read(counter).map_or(0, |starts| starts.len())
 }
 
-/// Full protocol over real stdio pipes, deterministic (no real server):
-/// handshake → pull-capability → cold didOpen+push (error) → warm
-/// didChange+pull (clean).
 #[test]
 fn mock_full_protocol_push_then_pull() {
     let client = LspClient::spawn(&mock_server(), Duration::from_secs(5)).expect("spawn");
@@ -757,7 +734,6 @@ fn mock_full_protocol_push_then_pull() {
     assert!(client.supports_pull(), "mock advertised diagnosticProvider");
 
     let uri = "file:///mock.rs";
-    // cold: first open -> push diagnostics
     assert_eq!(
         client.sync_doc(uri, "plaintext", "broken").unwrap(),
         DocAction::Open
@@ -770,7 +746,6 @@ fn mock_full_protocol_push_then_pull() {
         "got: {}",
         format_diagnostics("mock.rs", &push)
     );
-    // warm: change -> pull (empty/clean), version bumped, no respawn
     assert_eq!(
         client.sync_doc(uri, "plaintext", "fixed").unwrap(),
         DocAction::Change { version: 2 }
@@ -1016,8 +991,6 @@ fn dead_cached_server_is_evicted_and_next_request_respawns_once() {
 
 #[test]
 fn warm_client_survives_a_cd_into_a_subdirectory_of_its_index_root() {
-    // The `/cd` registry rebuild re-lists LSP tools on the SAME warm
-    // analyzer when the new workspace lies inside the old index root.
     let root = std::env::temp_dir().join(format!("angel-lsp-reuse-{}", std::process::id()));
     let sub = root.join("sub");
     std::fs::create_dir_all(&sub).unwrap();
@@ -1084,7 +1057,6 @@ fn resolve_is_pinned_to_the_ctx_workspace_not_the_pool_index_root() {
     std::fs::create_dir_all(&sub).unwrap();
     std::fs::write(sub.join("inside.rs"), "fn x() {}\n").unwrap();
     let ctx = mock_ctx(root.clone());
-    // Spawn at the parent root so the pool's index root is `root`.
     let _ = ctx
         .pool
         .get_or_spawn(&ctx.servers[0], &ctx.resolve_root)
@@ -1096,7 +1068,6 @@ fn resolve_is_pinned_to_the_ctx_workspace_not_the_pool_index_root() {
         timeout: ctx.timeout,
         settle: ctx.settle,
     });
-    // Relative paths resolve against the NEW workspace, not the index root.
     let resolved = rebound
         .resolve("inside.rs")
         .expect("resolve in the new workspace");
@@ -1105,8 +1076,6 @@ fn resolve_is_pinned_to_the_ctx_workspace_not_the_pool_index_root() {
         resolved.starts_with(&sub_canon),
         "resolved={resolved:?} sub={sub_canon:?}"
     );
-    // A sibling outside the new workspace is rejected even though it lies
-    // inside the pool's index root — the boundary pins to the resolve root.
     std::fs::write(root.join("sibling.rs"), "fn y() {}\n").unwrap();
     assert!(
         rebound
@@ -1158,10 +1127,6 @@ fn request_timeout_override_is_a_real_deadline() {
     );
 }
 
-/// An LspCtx whose only server is the sh mock (so pick_server routes `.rs` to
-/// it), with the resolve root at `root`. Short settle so the cold
-/// ensure_ready barrier is fast. The pool is a fresh local one so tests
-/// never share warm state with each other.
 fn mock_ctx(root: PathBuf) -> Arc<LspCtx> {
     Arc::new(LspCtx {
         pool: Arc::new(LspPool::new(Duration::from_secs(5))),
@@ -1172,9 +1137,6 @@ fn mock_ctx(root: PathBuf) -> Arc<LspCtx> {
     })
 }
 
-/// Navigation tools end-to-end over the mock: definition (single Location),
-/// references (array), hover (markup) — exercises position resolution,
-/// with_doc, and the formatters over real stdio pipes.
 #[test]
 fn mock_nav_definition_references_hover() {
     let dir = std::env::temp_dir().join(format!("angel-lsp-nav-{}", std::process::id()));
@@ -1223,7 +1185,6 @@ fn mock_nav_definition_references_hover() {
         "got:\n{s}"
     );
 
-    // workspace/symbol over the now-warm mock client (no path to route by).
     let ws = LspWorkspaceSymbolTool { ctx };
     let w = ws
         .call(&json!({ "query": "Foo" }))
@@ -1240,7 +1201,6 @@ fn mock_nav_definition_references_hover() {
 fn workspace_symbol_with_no_warm_server_is_a_friendly_note() {
     let ctx = mock_ctx(std::env::temp_dir());
     let ws = LspWorkspaceSymbolTool { ctx };
-    // Nothing warmed the pool → a hint, not an error.
     let out = ws.call(&json!({ "query": "Foo" })).expect("ok");
     assert!(out.contains("no language server is warm"), "got:\n{out}");
 }
@@ -1252,7 +1212,6 @@ fn is_dead_client_only_flags_connection_failures() {
         "lsp rust: lsp write: Broken pipe (os error 32)"
     ));
     assert!(is_dead_client("lsp open_docs poisoned"));
-    // logic / timeout / server errors are NOT dead-client
     assert!(!is_dead_client("tool error: symbol `x` not found in file"));
     assert!(!is_dead_client(
         "lsp rust timed out on textDocument/definition"
@@ -1263,11 +1222,9 @@ fn is_dead_client_only_flags_connection_failures() {
 #[test]
 fn tool_err_prefixes_once() {
     assert_eq!(tool_err("boom".into()), "tool error: boom");
-    assert_eq!(tool_err("tool error: boom".into()), "tool error: boom"); // not doubled
+    assert_eq!(tool_err("tool error: boom".into()), "tool error: boom");
 }
 
-/// A logic error (symbol not found) must surface cleanly AND leave the warm
-/// server cached — re-indexing on a user mistake would be an own-goal.
 #[test]
 fn nav_logic_error_keeps_warm_server() {
     let dir = std::env::temp_dir().join(format!("angel-lsp-warm-{}", std::process::id()));
@@ -1301,11 +1258,6 @@ fn nav_logic_error_keeps_warm_server() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
-/// End-to-end against real rust-analyzer: a temp crate with a type error must
-/// yield ≥1 error diagnostic. The SECOND call reuses the warm cached server
-/// (didChange path) and must still see the (now-fixed) file as clean — proving
-/// the pool + sync_doc reuse works. Slow + depends on the binary, so ignored
-/// by default — run with `--ignored`.
 #[test]
 #[ignore = "spawns real rust-analyzer; slow. run with --ignored"]
 fn live_rust_analyzer_reports_type_error() {
@@ -1324,12 +1276,9 @@ fn live_rust_analyzer_reports_type_error() {
     )
     .unwrap();
     let main_rs = src.join("main.rs");
-    // `let x: u32 = "s";` — a guaranteed type error.
     std::fs::write(&main_rs, "fn main() { let _x: u32 = \"s\"; }\n").unwrap();
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_LSP", "1") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("ANGEL_LSP_TIMEOUT", "90") }; // headroom for cold indexing under load
+    unsafe { std::env::set_var("ANGEL_LSP_TIMEOUT", "90") };
     let ctx = Arc::new(LspCtx::new(dir.clone()));
     let diag = LspDiagnosticsTool {
         ctx: Arc::clone(&ctx),
@@ -1337,15 +1286,12 @@ fn live_rust_analyzer_reports_type_error() {
     let path = main_rs.to_str().unwrap();
     let arg = json!({ "path": path });
 
-    // Cold call: waits for rust-analyzer to index, then sees the type error (push).
     let first = diag.call(&arg).expect("first run");
     assert!(
         first.contains("error"),
         "expected a type error, got:\n{first}"
     );
 
-    // Fix the file and re-run: the second call REUSES the cached server
-    // (didChange + pull, no respawn) and reports clean.
     std::fs::write(&main_rs, "fn main() { let _x: u32 = 1; }\n").unwrap();
     assert_eq!(
         ctx.pool.state.lock().unwrap().clients.len(),
@@ -1358,7 +1304,6 @@ fn live_rust_analyzer_reports_type_error() {
         "fixed file should be clean (warm pull), got:\n{second}"
     );
 
-    // Navigation over the now-warm server: hover on the typed binding.
     let hover = LspNavTool {
         kind: NavKind::Hover,
         ctx: Arc::clone(&ctx),

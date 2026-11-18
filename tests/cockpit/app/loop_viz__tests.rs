@@ -105,8 +105,6 @@ fn render_preserves_requested_dimensions() {
     assert!(flatten(&text).chars().any(|ch| ch != '\u{2800}'));
 }
 
-/// Manual art-review dump — see retro_kit::gallery.
-/// Run with: ANGELX_GALLERY_DIR=... cargo test -- --ignored loop_gallery
 #[test]
 #[ignore = "manual gallery dump for art review"]
 fn loop_gallery() {
@@ -197,7 +195,6 @@ fn hammertime_assets_flip_between_frames() {
     assert_eq!(hammertime_asset(0.0), "assets/loop/hammertime-a.png");
     assert_eq!(hammertime_asset(0.3), "assets/loop/hammertime-b.png");
     assert_eq!(hammertime_asset(0.6), "assets/loop/hammertime-a.png");
-    // Twin is phase-shifted and uses the mirrored plate.
     assert_eq!(
         hammertime_twin_asset(0.0),
         "assets/loop/hammertime-a-flip.png"
@@ -275,8 +272,6 @@ fn authored_hammer_plates_exist_on_disk() {
 
 #[test]
 fn video_strip_is_optional_and_ping_pongs_when_present() {
-    // No strip installed → soft None (cartoon lead still paints).
-    // When present, the cycle is forward + reverse without repeating ends.
     let Some(first) = mascot_frame(0.0) else {
         return;
     };
@@ -291,7 +286,6 @@ fn video_strip_is_optional_and_ping_pongs_when_present() {
     let n = frames.len();
     assert!(n > 10, "expected a real dance cycle, got {n} frames");
     let half = (n + 2) / 2;
-    // Ends of the ping-pong: last plate is frame 001 (not 000).
     assert!(frames[half.min(n - 1)].exists() || n > 0);
 }
 
@@ -505,7 +499,6 @@ fn an_in_flight_slot_weaves_a_constellation_and_a_verdict_clears_it() {
         "the bar stays on the trench palette"
     );
 
-    // No flight clock, a verdict, or no room: the plain line, exactly.
     assert_eq!(
         slot_line(&in_flight, None, 3.5, 64),
         submission_slot_line(&in_flight, 64)

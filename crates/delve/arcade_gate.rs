@@ -80,7 +80,6 @@ pub fn image_gate(
             errors.push(format!("contour: open at {},{}", p.0, p.1));
         }
     }
-    // Only named straight 2–3px features exempt tiny pigment clusters.
     let mut tagged = HashSet::new();
     for f in spec["features"].as_array().into_iter().flatten() {
         let points: HashSet<Point> = f["pixels"]
@@ -128,7 +127,6 @@ pub fn image_gate(
             errors.push("fleck: detached alpha island".into());
         }
     }
-    // Repeated AB/BA tiles fail. A single cel corner is not a texture.
     let checker = |x, y| {
         let a = pixels.get(&(x, y));
         let b = pixels.get(&(x + 1, y));
@@ -229,7 +227,6 @@ fn region_points(region: &Value, solid: &HashSet<Point>) -> HashSet<Point> {
         HashSet::new()
     }
 }
-/// Drawing floors apply to native knight pixels, before grade or seat swapping.
 pub fn knight_image_floor(im: &RgbaImage, spec: &Value) -> Vec<String> {
     let mut errors = Vec::new();
     let pixels: HashMap<Point, Rgb> = im
@@ -274,8 +271,6 @@ pub fn knight_image_floor(im: &RgbaImage, spec: &Value) -> Vec<String> {
     for f in spec["silhouette_features"].as_array().into_iter().flatten() {
         let points = tagged_points(&f["pixels"]);
         let name = f["name"].as_str().unwrap_or("");
-        // Tips must be named, drawn, short and exposed. A whole ragged edge
-        // cannot be tagged away as a feature.
         if !["sword tip", "plume tip", "shield point", "boot joint"].contains(&name)
             || points.is_empty()
             || points.len() > 3
@@ -337,8 +332,6 @@ pub fn knight_image_floor(im: &RgbaImage, spec: &Value) -> Vec<String> {
             }
         }
     }
-    // A fold can turn; a repeated complementary 4x4 cloth tile is a weave
-    // texture. This catches both the old diamonds and two-pixel checkers.
     let cloth: HashSet<_> = ["61303b", "853d43", "ad4e49", "cc6854", "dc8768"]
         .into_iter()
         .map(rgb)
@@ -386,7 +379,6 @@ pub fn knight_image_floor(im: &RgbaImage, spec: &Value) -> Vec<String> {
     errors.dedup();
     errors
 }
-/// Contrast is checked after every seat mapping, before the unchanged grade.
 pub fn seat_floor(im: &RgbaImage, bank: &Value) -> Vec<String> {
     let cloth: Vec<_> = bank["ramps"]["cloth"]
         .as_array()
@@ -414,8 +406,6 @@ pub fn seat_floor(im: &RgbaImage, bank: &Value) -> Vec<String> {
             }
         }
     }
-    // L is the existing integer RGB luma used throughout this drawing
-    // contract. Compare visible material means, never contour or empty space.
     let steel: HashSet<_> = bank["ramps"]["steel"]
         .as_array()
         .unwrap()
@@ -462,8 +452,6 @@ pub fn seat_floor(im: &RgbaImage, bank: &Value) -> Vec<String> {
                 seat + 1
             ));
         }
-        // Steel hands are neutral; brass is the chromatic hand trim. Require
-        // a real hue interval from that trim, not a same-orange value shift.
         let avg: Rgb = std::array::from_fn(|j| {
             (mapped.iter().map(|c| u32::from(c[j])).sum::<u32>() / mapped.len().max(1) as u32) as u8
         });
@@ -477,8 +465,6 @@ pub fn seat_floor(im: &RgbaImage, bank: &Value) -> Vec<String> {
     }
     errors
 }
-/// Apply the same contrast/hue floor to the actual authored coat mask, so
-/// plume/shield samples cannot conceal a coat that merges with the steel.
 pub fn seat_coat_floor(im: &RgbaImage, spec: &Value, bank: &Value) -> Vec<String> {
     let solid: HashSet<_> = im
         .enumerate_pixels()
@@ -742,7 +728,6 @@ pub fn animation_floor(manifest: &Value, kit: &str) -> Vec<String> {
     failures
 }
 
-// The library's asset tests use the same validator without Cargo output.
 #[allow(dead_code)]
 pub fn validate(root: &Path) -> Result<(), String> {
     validate_watched(root, |_| {})

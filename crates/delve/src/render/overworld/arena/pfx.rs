@@ -18,33 +18,20 @@
 use super::super::ink::{Img, Rgb, bayer, hash, ink};
 use std::f32::consts::{PI, TAU};
 
-// ─── timing ──────────────────────────────────────────────────────────────────
-
-/// Easing curves and an effect's beat sheet: the motion foundation's own
-/// (`crate::motion`), so the magic kit times its effects as the rest of
-/// the game does.
 pub(crate) use crate::motion::{Beats, ease};
 
-// ─── colour ──────────────────────────────────────────────────────────────────
-
-/// Six inks from hottest to darkest: a core, its burn, the body, the rim,
-/// the cooling, and what it dies to on black.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Ramp(pub [char; 6]);
 
 impl Ramp {
-    /// The ink `k` (0 the core, 1 the dark) of the way down.
     pub fn at(&self, k: f32) -> char {
         self.0[((k.clamp(0.0, 0.999)) * 6.0) as usize]
     }
 
-    /// Step `i` (0 the core).
     pub fn step(&self, i: usize) -> char {
         self.0[i.min(5)]
     }
 
-    /// `at`, dithered between neighbouring steps by the world pixel, so a
-    /// falloff is a gradient and not a staircase.
     pub fn dithered(&self, k: f32, x: i32, y: i32) -> char {
         let f = k.clamp(0.0, 1.0) * 5.0;
         let i = f.floor();
@@ -52,16 +39,11 @@ impl Ramp {
         self.0[step.min(5)]
     }
 
-    /// Every ink `by` steps down: the same ramp, cooler, for a far layer.
     pub fn cooler(&self, by: usize) -> Ramp {
         Ramp(std::array::from_fn(|i| self.0[(i + by).min(5)]))
     }
 }
 
-/// The realm's magics in its own inks. The arcane, the void and a brew
-/// burn down the violet dye (a white-hot core for the arcane, a pale lilac
-/// for a brew, the void sinking from amethyst to the dark), and a rose
-/// down the pink, from cream through blush to wine.
 pub(crate) mod ramps {
     use super::Ramp;
     pub const FIRE: Ramp = Ramp(['9', '6', '@', 'R', 'p', 'B']);
@@ -85,27 +67,18 @@ pub(crate) mod ramps {
     pub const EARTH: Ramp = Ramp(['T', 'O', 'o', 'P', 'I', 'b']);
 }
 
-/// How bright an ink is, for a glow that must never dim what it lands on.
 pub(crate) fn lum(c: Rgb) -> u32 {
     299 * u32::from(c[0]) + 587 * u32::from(c[1]) + 114 * u32::from(c[2])
 }
 
-/// A share in `0..1` hashed from `(a, b, s)`.
 pub(crate) fn unit(a: i32, b: i32, s: u32) -> f32 {
     (hash(a, b, s) & 0xffff) as f32 / 65536.0
 }
 
-// ─── the pen ─────────────────────────────────────────────────────────────────
-
-/// A canvas and the motes it has left to paint. Every shape goes through
-/// it, so no frame paints more than its budget however much magic is in
-/// the air; and under the calm-screen preference it paints softer.
 pub(crate) struct Pen<'a> {
     pub cv: &'a mut Img,
     left: u32,
     pub calm: bool,
-    /// Keep what is drawn: light lands only on bare paper, so a burst
-    /// thrown up off a knight goes behind them and never swallows them.
     pub keep: bool,
 }
 
@@ -114,13 +87,10 @@ impl<'a> Pen<'a> {
         Pen { cv, left: budget, calm: crate::render::viewer::calm(), keep: false }
     }
 
-    /// Motes left.
     pub fn left(&self) -> u32 {
         self.left
     }
 
-    /// Whether something is already drawn at `(x, y)`: a figure the light
-    /// should go behind.
     pub fn has(&self, x: i32, y: i32) -> bool {
         self.cv.get(x, y).is_some()
     }
@@ -131,15 +101,12 @@ impl<'a> Pen<'a> {
         room
     }
 
-    /// `ch` at `(x, y)`, over whatever is there.
     pub fn put(&mut self, x: i32, y: i32, ch: char) {
         if self.take() {
             self.cv.put(x, y, ch);
         }
     }
 
-    /// `ch` at `(x, y)` where it brightens what is there: light adds, so a
-    /// glow passing over a knight leaves the knight.
     pub fn light(&mut self, x: i32, y: i32, ch: char) {
         let Some(c) = ink(ch) else { return };
         if self.cv.get(x, y).is_some_and(|was| self.keep || lum(was) >= lum(c)) {
@@ -150,17 +117,12 @@ impl<'a> Pen<'a> {
         }
     }
 
-    /// `ch` at `(x, y)` only on bare paper: smoke and wakes that go behind
-    /// everything already drawn.
     pub fn under(&mut self, x: i32, y: i32, ch: char) {
         if self.cv.get(x, y).is_none() && self.take() {
             self.cv.put(x, y, ch);
         }
     }
 
-    /// A glow: a bright core, a halo ramping down the inks, its edge
-    /// dithered away to bare paper so the floor still shows through.
-    /// `squash` flattens it onto the floor (1 round, 0.5 a floor pool).
     pub fn glow(&mut self, (cx, cy): (f32, f32), r: f32, squash: f32, ramp: Ramp, power: f32) {
         let power = if self.calm { power * 0.55 } else { power };
         if power <= 0.02 || r < 0.5 {
@@ -179,8 +141,6 @@ impl<'a> Pen<'a> {
                 if i < 0.07 || (i < 0.32 && bayer(x, y) > (i - 0.07) / 0.25) {
                     continue;
                 }
-                // The halo goes behind what is drawn; only the hot core
-                // burns over it, so a glow never swallows a figure.
                 if i < 0.8 && self.cv.get(x, y).is_some() {
                     continue;
                 }
@@ -189,9 +149,6 @@ impl<'a> Pen<'a> {
         }
     }
 
-    /// A ring of radius `r` (squashed by `squash` up and down), `thick`
-    /// pixels each side of its line, brightest on the line and falling
-    /// away; `fade` (0 to 1) dims and dissolves it.
     pub fn ring(&mut self, (cx, cy): (f32, f32), r: f32, thick: f32, squash: f32, ramp: Ramp, fade: f32) {
         let fade = fade.clamp(0.0, 1.0);
         if fade >= 1.0 || r <= 0.0 {
@@ -217,8 +174,6 @@ impl<'a> Pen<'a> {
         }
     }
 
-    /// A shockwave: a dark wake inside a bright edge, so the floor seems
-    /// to bend as it passes.
     pub fn shock(&mut self, c: (f32, f32), r: f32, thick: f32, squash: f32, ramp: Ramp, fade: f32) {
         let (cx, cy) = c;
         let inner = (r - thick * 2.5).max(0.0);
@@ -241,7 +196,6 @@ impl<'a> Pen<'a> {
         self.ring(c, r, thick, squash, ramp, fade);
     }
 
-    /// A line in `ch` from `a` to `b`, lit (`light`).
     pub fn line(&mut self, a: (f32, f32), b: (f32, f32), ch: char) {
         let (dx, dy) = (b.0 - a.0, b.1 - a.1);
         let n = dx.abs().max(dy.abs()).ceil().max(1.0) as i32;
@@ -251,8 +205,6 @@ impl<'a> Pen<'a> {
         }
     }
 
-    /// A spark: its head at `at`, a streak `len` pixels back along `dir`
-    /// cooling down `ramp`; `k` (0 to 1) how far through its life.
     pub fn streak(&mut self, at: (f32, f32), dir: (f32, f32), len: f32, ramp: Ramp, k: f32) {
         let l = dir.0.hypot(dir.1).max(1e-4);
         let (ux, uy) = (dir.0 / l, dir.1 / l);
@@ -268,8 +220,6 @@ impl<'a> Pen<'a> {
         }
     }
 
-    /// A four-pointed twinkle at `at`, `size` arms at its height; `phase`
-    /// 0 to 1 is its life: it swells, holds a moment and goes.
     pub fn twinkle(&mut self, at: (f32, f32), size: f32, phase: f32, ramp: Ramp) {
         if !(0.0..1.0).contains(&phase) {
             return;
@@ -290,10 +240,6 @@ impl<'a> Pen<'a> {
         }
     }
 
-    /// A rune circle: an outer ring drawn on clockwise as `open` goes 0 to
-    /// 1, an inner one counter to it, a star of `sides` points between
-    /// them once it is half open, and runes round the band; turned by
-    /// `rot`, dissolving by `fade`.
     #[allow(clippy::too_many_arguments)]
     pub fn glyph(&mut self, (cx, cy): (f32, f32), r: f32, squash: f32, rot: f32, open: f32, sides: u32, ramp: Ramp, fade: f32, seed: u32) {
         if r < 2.0 || fade >= 1.0 {
@@ -302,7 +248,6 @@ impl<'a> Pen<'a> {
         let open = open.clamp(0.0, 1.0);
         let shown = |x: i32, y: i32| bayer(x, y) >= fade;
         let lit = |k: f32| (k + fade * 0.6).min(1.0);
-        // The outer ring, drawn on.
         let n = (TAU * r * 1.1) as i32;
         for i in 0..n {
             let t = i as f32 / n as f32;
@@ -315,7 +260,6 @@ impl<'a> Pen<'a> {
                 self.light(x, y, ramp.at(lit(if i % 7 == 0 { 0.0 } else { 0.25 })));
             }
         }
-        // The inner ring, the other way.
         let ri = r * 0.72;
         let m = (TAU * ri) as i32;
         for i in 0..m {
@@ -329,7 +273,6 @@ impl<'a> Pen<'a> {
                 self.light(x, y, ramp.at(lit(0.45)));
             }
         }
-        // The star, its lines growing out of their points.
         let grow = ((open - 0.45) / 0.55).clamp(0.0, 1.0);
         if grow > 0.0 && sides >= 3 {
             let skip = if sides >= 5 { 2 } else { 1 };
@@ -350,7 +293,6 @@ impl<'a> Pen<'a> {
                 }
             }
         }
-        // The runes round the band, each a little mark of its own.
         if open > 0.3 && r >= 6.0 {
             let rr = r * 0.86;
             let count = (sides * 2).max(6);
@@ -370,13 +312,10 @@ impl<'a> Pen<'a> {
         }
     }
 
-    /// A bolt of lightning from `a` to `b`: jagged by `jag` pixels, a
-    /// white core with a coloured flank, forking once off its middle.
     pub fn arc(&mut self, a: (f32, f32), b: (f32, f32), seed: u32, jag: f32, ramp: Ramp, fade: f32) {
         let mut pts = [(0.0f32, 0.0f32); 17];
         bolt_points(&mut pts, a, b, seed, jag);
         self.polyline(&pts, ramp, fade, true);
-        // The fork: off the middle, a shorter run toward one side.
         let m = pts[8];
         let (dx, dy) = (b.0 - a.0, b.1 - a.1);
         let side = if hash(seed as i32, 3, 0xa5) & 1 == 0 { 1.0 } else { -1.0 };
@@ -407,10 +346,6 @@ impl<'a> Pen<'a> {
         }
     }
 
-    /// A tendril of smoke out of `base`: puffs let go from `emit.0` to
-    /// `emit.1` ticks, each rising `rise` pixels over its `life`, curling
-    /// `curl` pixels side to side and swelling as it thins through the
-    /// dither; behind everything already drawn.
     #[allow(clippy::too_many_arguments)]
     pub fn wisp(&mut self, base: (f32, f32), age: f32, emit: (f32, f32), life: f32, rise: f32, curl: f32, ramp: Ramp, seed: u32) {
         let phase = unit(seed as i32, 1, 0x3b) * TAU;
@@ -442,8 +377,6 @@ impl<'a> Pen<'a> {
         }
     }
 
-    /// A ribbon along `pts`, head first: thick and hot at its head,
-    /// thinning and dotted toward its tail.
     pub fn ribbon(&mut self, pts: &[(f32, f32)], ramp: Ramp, width: f32) {
         let len = pts.len().max(2) as f32;
         for (i, w) in pts.windows(2).enumerate() {
@@ -473,7 +406,6 @@ impl<'a> Pen<'a> {
     }
 }
 
-/// Little runes, three by three: the marks round a rune circle's band.
 const RUNES: [[[bool; 3]; 3]; 8] = {
     const O: bool = false;
     const X: bool = true;
@@ -489,8 +421,6 @@ const RUNES: [[[bool; 3]; 3]; 8] = {
     ]
 };
 
-/// A jagged run from `a` to `b` into `pts`, by midpoint displacement:
-/// worst in the middle, pinned at both ends.
 fn bolt_points(pts: &mut [(f32, f32); 17], a: (f32, f32), b: (f32, f32), seed: u32, jag: f32) {
     pts[0] = a;
     pts[16] = b;
@@ -513,16 +443,8 @@ fn bolt_points(pts: &mut [(f32, f32); 17], a: (f32, f32), b: (f32, f32), seed: u
     }
 }
 
-// ─── sprays ──────────────────────────────────────────────────────────────────
-
-/// The most motes one spray throws.
 pub(crate) const MOST_MOTES: u32 = 48;
 
-/// A spray of motes thrown from one point: `n` of them along `angle`,
-/// `spread` radians wide, each at a speed and a life of its own between
-/// the bounds (pixels a tick, ticks), slowed by `drag`, pulled by
-/// `gravity` (pixels a tick a tick; less than nothing floats up), flattened
-/// by `squash` onto the floor, and let go `stagger` ticks apart.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Spray {
     pub seed: u32,
@@ -538,24 +460,20 @@ pub(crate) struct Spray {
     pub stagger: f32,
 }
 
-/// One mote of a spray as it is now.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Mote {
     pub i: u32,
     pub at: (f32, f32),
     pub vel: (f32, f32),
-    /// How far through its life, 0 to 1.
     pub k: f32,
     pub seed: u32,
 }
 
 impl Spray {
-    /// A spray thrown every way at once.
     pub fn round(seed: u32, n: u32, at: (f32, f32), speed: (f32, f32), life: (f32, f32)) -> Spray {
         Spray { seed, n, at, angle: 0.0, spread: TAU, speed, life, drag: 0.12, gravity: 0.0, squash: 1.0, stagger: 0.0 }
     }
 
-    /// Each mote alive `age` ticks after the throw.
     pub fn each(&self, age: f32, mut f: impl FnMut(Mote)) {
         for i in 0..self.n.min(MOST_MOTES) {
             let u = |s: u32| unit(i as i32, self.seed as i32, s);
@@ -583,7 +501,6 @@ impl Spray {
     }
 }
 
-/// The shapes a mote may take.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Shape {
     Spark,
@@ -603,11 +520,9 @@ pub(crate) enum Shape {
     Ember,
 }
 
-/// The eighth note a song's mote is drawn as, four by five.
 const NOTE: [&str; 5] = ["..##", "..#.", "..#.", "###.", "##.."];
 const HEART: [&str; 3] = ["#.#", "###", ".#."];
 
-/// Draw mote `m` as `shape` in `ramp`, `size` 1 to 3, at `tick`.
 pub(crate) fn mote(pen: &mut Pen, m: &Mote, shape: Shape, ramp: Ramp, size: u8, tick: u64) {
     let (x, y) = (m.at.0.round() as i32, m.at.1.round() as i32);
     let k = m.k;
@@ -697,7 +612,6 @@ pub(crate) fn mote(pen: &mut Pen, m: &Mote, shape: Shape, ramp: Ramp, size: u8, 
             pen.light(x + dx, y + dy, ramp.at(0.35 + k * 0.6));
         }
         Shape::Fly => {
-            // A fly never goes straight: a jitter a tick about its line.
             let jx = (hash(m.seed as i32, t as i32, 0xf1) % 3) as i32 - 1;
             let jy = (hash(m.seed as i32, t as i32, 0xf2) % 3) as i32 - 1;
             let (x, y) = (x + jx, y + jy);
@@ -736,7 +650,6 @@ pub(crate) fn mote(pen: &mut Pen, m: &Mote, shape: Shape, ramp: Ramp, size: u8, 
             }
         }
         Shape::Smoke => {
-            // A puff: round from the start, swelling and thinning.
             let r = 1.4 + k * (1.5 + f32::from(size));
             let ri = r.ceil() as i32;
             let fill = 0.15 + 0.85 * (1.0 - k).powf(0.8);
@@ -751,8 +664,6 @@ pub(crate) fn mote(pen: &mut Pen, m: &Mote, shape: Shape, ramp: Ramp, size: u8, 
     }
 }
 
-/// A star burst: `n` rays from `c`, each `len` pixels at its longest,
-/// shooting out with an overshoot and drawing back as `k` goes 0 to 1.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn rays(pen: &mut Pen, c: (f32, f32), n: u32, len: f32, squash: f32, rot: f32, ramp: Ramp, k: f32) {
     if k >= 1.0 {

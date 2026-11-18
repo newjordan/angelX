@@ -69,7 +69,6 @@ fn courtyard(seats: u32) -> Run {
     run
 }
 
-/// The inn's front in the courtyard's picture (top-left, pixels).
 fn inn_at() -> (i32, i32) {
     let (dc, dr, dw, dh) = alehouse::COURTYARD_DOOR;
     (dc * TILE + dw * TILE / 2 - 48, (dr + dh) * TILE - 80)
@@ -90,17 +89,14 @@ fn a_keepers_line_is_drawn_and_goes_when_its_moment_is_up() {
     run_for(&mut run, 30);
     let bare = whole(&run);
     run.call(Voice::Keeper, "EVENING, FRIEND. WHAT'LL IT BE?");
-    // Ten ticks in: up on its plate.
     run.alehouse.calls[0].at -= 10;
     let spoken = whole(&run);
     assert!(!same(&bare, &spoken), "a plate by the keeper");
-    // On a seat's screen as well.
     let mut quiet = run.clone();
     quiet.alehouse.calls.clear();
     place(&mut run, 1, alehouse::TAPS[1]);
     place(&mut quiet, 1, alehouse::TAPS[1]);
     assert!(!same(&seat_img(&run, 1), &seat_img(&quiet, 1)));
-    // Past its moment the hall is the hall as it was.
     run.tick += CALL_TICKS;
     quiet.tick += CALL_TICKS;
     assert_eq!(run.calls_up().count(), 0);
@@ -140,13 +136,11 @@ fn the_dragons_eye_turns_to_the_nearest_knight() {
     run_for(&mut run, TITLE_TICKS + 10);
     let (x0, y0) = inn_at();
     let eye = |run: &Run| crop(&whole(run), x0 + 38, y0 + 26, 14, 10);
-    // A knight to the west of the eye, then one to the east of it.
     place(&mut run, 1, (alehouse::COURTYARD_FRONT.0 - 4.0, alehouse::COURTYARD_FRONT.1));
     let west = eye(&run);
     place(&mut run, 1, (alehouse::COURTYARD_FRONT.0 + 4.0, alehouse::COURTYARD_FRONT.1));
     let east = eye(&run);
     assert!(!same(&west, &east), "the slit turns after them");
-    // No one near: a dimmer eye than a watching one.
     place(&mut run, 1, (1.5, 1.5));
     let idle = eye(&run);
     assert!(!same(&idle, &west));
@@ -164,17 +158,14 @@ fn write_hall_voices_shots() {
             .save(dir.join(format!("{name}.png")))
             .unwrap();
     };
-    // Arrival: the tavern's name in the corner, the party at the door.
     let mut run = start(4);
     run_for(&mut run, 25);
     save("voices-01-arrival-tavern", &seat_img(&run, 1), 3);
-    // The keeper greets the first knight at his bar by name.
     let mut run = start(2);
     run_for(&mut run, 100);
     place(&mut run, 2, alehouse::TAPS[1]);
     run_for(&mut run, 18);
     save("voices-02-keeper-greets", &seat_img(&run, 2), 3);
-    // A calling taken up: the next bench toasts its knight.
     let mut run = start(2);
     run_for(&mut run, 100);
     let mage = alehouse::PATRONS.iter().find(|p| p.kit == "scryglass").unwrap().at;
@@ -182,7 +173,6 @@ fn write_hall_voices_shots() {
     press(&mut run, 2);
     run_for(&mut run, 12);
     save("voices-03-toast", &seat_img(&run, 2), 3);
-    // A pour paid for: the purse on the board, then the keeper's call.
     let mut run = start(2);
     run_for(&mut run, 100);
     run.alehouse.greeted = u32::MAX;
@@ -192,7 +182,6 @@ fn write_hall_voices_shots() {
     hold(&mut run, 2);
     run_for(&mut run, 8);
     save("voices-05-pour-called", &seat_img(&run, 2), 3);
-    // The hearth, banked, then stoked.
     let mut run = start(1);
     run_for(&mut run, 100);
     let (c, r, w, h) = alehouse::HEARTH;
@@ -204,7 +193,6 @@ fn write_hall_voices_shots() {
     run_for(&mut run, 14);
     save("voices-08-hearth-stoked-later", &hearth(&run), 5);
     save("voices-09-hearth-seat", &seat_img(&run, 1), 3);
-    // The bazaar: its name on coming in, and a sale called by the vendor.
     let mut run = start(2);
     let to = world::room_of(&run.dungeon, crate::rules::RoomKind::Bazaar).unwrap();
     run.arrive(to, bazaar::ARRIVAL);
@@ -218,8 +206,6 @@ fn write_hall_voices_shots() {
     hold(&mut run, 2);
     run_for(&mut run, 8);
     save("voices-12-sale-called", &seat_img(&run, 2), 3);
-    // The courtyard: its name on arrival and the dragon snorting at the
-    // party; the head close, watching, idle and blinking.
     let mut run = courtyard(2);
     run_for(&mut run, 22);
     save("voices-13-arrival-courtyard", &seat_img(&run, 1), 3);

@@ -11,7 +11,6 @@ use crate::rules::rafterwake::{Beat, Lane, Q, TOP, ladder, planks};
 use crate::rules::Run;
 use std::sync::OnceLock;
 
-/// The window's backdrop: the loft, dimmed, with the scaffold's posts, 278 wide and the tower tall.
 fn backdrop() -> &'static Img {
     static BG: [OnceLock<Img>; 2] = [const { OnceLock::new() }, const { OnceLock::new() }];
     BG[usize::from(super::super::slot_art::enabled())].get_or_init(|| {
@@ -22,7 +21,6 @@ fn backdrop() -> &'static Img {
             for y in 0..620 {
                 for x in 0..WIN.2 {
                     if let Some([r, g, b]) = source.get(x + shift, y) {
-                        // Dim, cool and dark at the foot, warm and lit up in the belfry.
                         let high = 1.0 - y as f32 / 620.0;
                         let f = 0.34 + 0.22 * high;
                         let tone = |v: u8, t: f32| ((f32::from(v) * f * t).min(255.0)) as u8;
@@ -41,7 +39,6 @@ fn backdrop() -> &'static Img {
     })
 }
 
-/// A rival's picture: the knight's own sprite, a little dimmer, in a dithered rim of its cloth.
 fn ghost(sprite: &Img, cloth: char) -> Img {
     let rim = crate::render::overworld::ink::ink(cloth).unwrap_or([200, 200, 200]);
     let mut out = Img::new(sprite.w, sprite.h);
@@ -65,7 +62,6 @@ fn ghost(sprite: &Img, cloth: char) -> Img {
     out
 }
 
-/// A chevron over the deck to climb to, bobbing.
 fn chevron(world: &mut Img, x: i32, y: i32, now: u32) {
     const ROWS: [&str; 4] = ["#.....#", ".#...#.", "..#.#..", "...#..."];
     let bob = [0, 1, 2, 1][(now / 4 % 4) as usize];
@@ -80,8 +76,6 @@ fn chevron(world: &mut Img, x: i32, y: i32, now: u32) {
     }
 }
 
-/// Which lane's keeper picture and flash apply: copy of the old pose choice, for the keeper's
-/// body at its place.
 fn keeper_body(run: &Run, d: &Lane) -> (Img, Img) {
     let a = super::art();
     let k = &d.keeper;
@@ -160,7 +154,6 @@ fn keeper_body(run: &Run, d: &Lane) -> (Img, Img) {
     (keeper.body.clone(), keeper.details.clone())
 }
 
-/// The tower in the window's own pixels: everything that stands in the loft.
 fn world(v: &View, plan: &Plan) -> Img {
     let (run, s, d, now) = (v.run, v.s, v.d, v.now);
     let cam = v.cam();
@@ -190,7 +183,6 @@ fn world(v: &View, plan: &Plan) -> Img {
             }
         }
     }
-    // The deck to climb to next.
     let to = d.checkpoint + 1;
     if to <= 12 && d.down == 0 && d.finish.is_none() && v.intro().is_none() && v.elapsed() > 6 {
         let p = ps[to];
@@ -199,7 +191,6 @@ fn world(v: &View, plan: &Plan) -> Img {
             chevron(&mut w, px(x), py(p.y) - 22, now);
         }
     }
-    // The brick's mark and the brick.
     if d.brick_tell > 0 || d.brick_burst > 0 {
         super::danger(&mut w, d.brick, cam + 38, 0, false, (30 - d.brick_tell) * 4 / 30);
         let y = if d.brick_tell > 0 { d.brick.y + ((30 - d.brick_tell) as i32 * 50 / 30) } else { d.brick.y + d.brick.h - 18 };
@@ -207,7 +198,6 @@ fn world(v: &View, plan: &Plan) -> Img {
             w.stamp(&a.all["brick"], px(d.brick.x + 2), py(y));
         }
     }
-    // The keeper.
     let k = &d.keeper;
     if py(TOP) > 0 && py(TOP - 128) < WIN.3 {
         let tell_length = 33 - k.stage() as u32 * 4;
@@ -226,7 +216,6 @@ fn world(v: &View, plan: &Plan) -> Img {
         let _ = grow;
         w.stamp(&body, px(k.x) - body.w / 2, py(TOP) - body.h);
         if k.hp > 0 || d.show.marks.iter().any(|m| matches!(m.kind, crate::rules::rafterwake::show::Kind::Strike { .. })) {
-            // Six pips of health over its head; the one just lost flashes.
             let top = py(TOP) - body.h - 8;
             let lost = d.show.marks.iter().filter_map(|m| match m.kind {
                 crate::rules::rafterwake::show::Kind::Strike { left } if m.age(now) < 8 => Some(usize::from(left)),
@@ -253,7 +242,6 @@ fn world(v: &View, plan: &Plan) -> Img {
             }
         }
     }
-    // The other knights: shadows of what each seat is doing on its own copy of the tower.
     let intro = v.intro().is_some() || v.elapsed() < 30;
     let mut feet: Vec<(u32, i32, i32)> = Vec::new();
     for (&id, lane) in &s.lanes {
@@ -285,7 +273,6 @@ fn world(v: &View, plan: &Plan) -> Img {
         let g = ghost(&sprite, hud::cloth(id));
         w.stamp(&g, sx - 24, sy - 48);
     }
-    // The viewer's own knight, squashed and stretched by what it does.
     let near_keeper = (d.x / Q - k.x).abs() < 48 && (d.y / Q - TOP).abs() < 80;
     if !(d.hurt > 0 && d.down == 0 && now / 2 % 2 == 0) {
         let mut sprite = super::knight(run, v.me, usize::from(d.pose), d.dir, near_keeper);
@@ -298,7 +285,6 @@ fn world(v: &View, plan: &Plan) -> Img {
         }
         let _ = grow;
         w.stamp(&sprite, px(d.x / Q) - sprite.w / 2, py(d.y / Q) - sprite.h);
-        // A marker in the viewer's cloth over its head, so no rival is ever taken for it.
         if d.finish.is_none() && v.intro().is_none() {
             let bob = [0, 1, 1, 0][(now / 5 % 4) as usize];
             let (mx, my) = (px(d.x / Q), py(d.y / Q) - 54 + bob);
@@ -321,7 +307,6 @@ fn world(v: &View, plan: &Plan) -> Img {
     w
 }
 
-/// An arrow at the window's edge for a rival out of view.
 fn arrow(w: &mut Img, x: i32, y: i32, up: bool, cloth: char) {
     for r in 0..4 {
         let row = if up { r } else { 3 - r };
@@ -334,13 +319,11 @@ fn arrow(w: &mut Img, x: i32, y: i32, up: bool, cloth: char) {
     }
 }
 
-/// Whether a tell is closing on the knight right now.
 fn tell_on_knight(d: &Lane) -> bool {
     let (x, y) = (d.x / Q, d.y / Q);
     (d.keeper.beat == Beat::Tell && d.keeper.hp > 0 && d.keeper.danger.contains(x, y)) || (d.brick_tell > 0 && d.brick.contains(x, y))
 }
 
-/// What the screen of `v` claims now, without painting it.
 pub(super) fn plan_of(v: &View) -> Plan {
     match finish::since(v) {
         Some(t) if t >= finish::SHUT => finish::plan(v, t - finish::SHUT),
@@ -348,7 +331,6 @@ pub(super) fn plan_of(v: &View) -> Plan {
     }
 }
 
-/// The screen of seat `focus` in a round that is on.
 pub(super) fn frame(run: &Run, focus: Option<u32>) -> (Img, Plan) {
     let v = View::new(run, focus);
     let ended = finish::since(&v);
@@ -365,7 +347,6 @@ pub(super) fn frame(run: &Run, focus: Option<u32>) -> (Img, Plan) {
     let mut over = Img::new(WIN.2, WIN.3);
     fx::rim(&mut over, c, tell_on_knight(v.d));
     if v.s.bell > 0 {
-        // The bell's warm rim, a ring of gold dither round the window.
         let k = 0.18 + 0.1 * ((v.now / 4 % 2) as f32);
         juice::vignette(&mut over, (0, 0, WIN.2, WIN.3), k, 8, 'o');
     }

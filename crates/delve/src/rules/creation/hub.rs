@@ -1,7 +1,6 @@
 //! The one wish scroll's front page. Six rows, and which words belong on which.
 //! A wish typed on the wrong row is named, not bent into a kind that row cannot make.
 
-/// One thing a wish can make, in the order the scroll offers them (1..6).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HubRow {
     Power = 0,
@@ -21,13 +20,11 @@ pub const ROWS: [HubRow; 6] = [
     HubRow::Weapon,
 ];
 
-/// The six-row hub opens in play only when this switch is exactly `1`.
 pub fn enabled() -> bool {
     std::env::var("ANGEL_WISH_HUB").ok().as_deref() == Some("1")
 }
 
 impl HubRow {
-    /// Every row, in the order the scroll offers them.
     pub const ALL: [Self; 6] = ROWS;
 
     pub fn from_index(n: usize) -> Option<Self> {
@@ -38,7 +35,6 @@ impl HubRow {
         self as usize
     }
 
-    /// The key the redirect offers: row 0 is PRESS 1.
     pub fn press(self) -> char {
         char::from(b'1' + self as u8)
     }
@@ -76,12 +72,10 @@ impl HubRow {
         }
     }
 
-    /// The row's own name, and the need line, as one short column of lettering.
     pub fn label(self) -> String {
         format!("{}  {}", self.title(), self.need())
     }
 
-    /// Why this row is shut, in a few words.
     pub fn grey(self, gate: WishGate) -> &'static str {
         match self {
             Self::Power => "NO WISH HELD",
@@ -97,7 +91,6 @@ impl HubRow {
         }
     }
 
-    /// The genie's one short line beside the stage for this row.
     pub fn quip(self, gate: WishGate) -> &'static str {
         if !gate.open(self) {
             return match self {
@@ -124,20 +117,13 @@ impl HubRow {
     }
 }
 
-/// What this knight may open right now.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct WishGate {
-    /// Holds a wish (or a free one) to spend on a power.
     pub power: bool,
-    /// Standing in a Sanctuary.
     pub sanctuary: bool,
-    /// That Sanctuary's reforge is still unspent.
     pub reforge: bool,
-    /// At the tavern mirror, wishing a look.
     pub look: bool,
-    /// Makings already sealed, of six.
     pub made: u8,
-    /// Wishes this knight holds (plain, super, fairy, star), for the scroll to show.
     pub wishes: u8,
 }
 
@@ -153,7 +139,6 @@ impl WishGate {
         }
     }
 
-    /// The row T lands on: a held wish, else a Sanctuary, else the mirror.
     pub fn fitting(self) -> HubRow {
         if self.power {
             HubRow::Power
@@ -166,7 +151,6 @@ impl WishGate {
         }
     }
 
-    /// "WISHES 2", for beside A POWER while a wish is held.
     pub fn wishes_label(self) -> Option<String> {
         (self.wishes > 0).then(|| format!("WISHES {}", self.wishes))
     }
@@ -196,9 +180,7 @@ fn offer(kind: Kind) -> HubRow {
 
 fn allows(row: HubRow, kind: Kind) -> bool {
     match row {
-        // A power is a spell, a summon, a shot or a guard. Not a creature, a person or a wall weapon.
         HubRow::Power => matches!(kind, Kind::Spell | Kind::Summon | Kind::Shot | Kind::Guard),
-        // A Sanctuary reforge is offence or defence: a weapon or a guard. Not a minion or a summon.
         HubRow::Reforge => matches!(kind, Kind::Weapon | Kind::Guard),
         HubRow::Look => matches!(kind, Kind::Look),
         HubRow::Creature => matches!(kind, Kind::Creature),
@@ -207,12 +189,10 @@ fn allows(row: HubRow, kind: Kind) -> bool {
     }
 }
 
-/// The row that can make these words, when the words name a kind.
 pub fn named_row(words: &str) -> Option<HubRow> {
     named(words).map(offer)
 }
 
-/// One line when `words` name a kind `from` cannot make. None when they fit, or name nothing.
 pub fn redirect_line(from: HubRow, words: &str) -> Option<String> {
     let kind = named(words)?;
     if allows(from, kind) {
@@ -222,7 +202,6 @@ pub fn redirect_line(from: HubRow, words: &str) -> Option<String> {
     Some(format!("THAT IS A {}: PRESS {}", row.kind_word(), row.press()))
 }
 
-/// A Sanctuary reforge must not be sent for these words.
 pub fn blocks_reforge(words: &str) -> bool {
     redirect_line(HubRow::Reforge, words).is_some()
 }
@@ -243,7 +222,6 @@ fn named(text: &str) -> Option<Kind> {
     if ws.is_empty() {
         return None;
     }
-    // Role words before the phrasebook, so "crab minions" is a creature even beside "summon".
     if has(
         &ws,
         &[
@@ -311,7 +289,6 @@ fn named(text: &str) -> Option<Kind> {
     ) {
         return Some(Kind::Weapon);
     }
-    // A creature's name with no role word still names a creature ("a crab"), not a reforge.
     if has(
         &ws,
         &[
@@ -356,7 +333,6 @@ mod tests {
         assert!(mirror.open(HubRow::Look));
         assert_eq!(mirror.fitting(), HubRow::Look);
 
-        // A held wish wins over a Sanctuary, as T's fitting row.
         let both = WishGate { power: true, reforge: true, sanctuary: true, ..shut };
         assert_eq!(both.fitting(), HubRow::Power);
 
@@ -376,10 +352,8 @@ mod tests {
         assert!(blocks_reforge("crab minions"));
         assert!(blocks_reforge("summon a storm"));
         assert!(blocks_reforge("a hero of the village"));
-        // Offence and defence stay on the reforge row.
         assert!(!blocks_reforge("a heavier sword"));
         assert!(!blocks_reforge("a round shield"));
-        // A power row keeps a spell and a summon, and will not swallow a creature.
         assert!(redirect_line(HubRow::Power, "fire bolt").is_none() || named_row("fire bolt") == Some(HubRow::Power));
         assert_eq!(
             redirect_line(HubRow::Power, "three minions").as_deref(),

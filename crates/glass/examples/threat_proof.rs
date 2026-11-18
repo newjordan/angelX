@@ -104,7 +104,6 @@ impl Reel {
     }
 }
 
-/// A rich hillside at the dusk of a day, the Keep staked, a knight at `tile` who cannot be felled.
 fn hill(tile: (f32, f32)) -> Run {
     let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
     run.walk_kingdom(None);
@@ -148,7 +147,6 @@ fn report(run: &Run, what: &str) {
     println!("{what}: raid {:?} fires {} worn {} cuts {} tally {:?} lost stones {}", run.raid_status(), k.havoc.fires.len(), k.havoc.worn.len(), k.havoc.cuts.len(), k.havoc.tally, run.sites.keep().map_or(0, |s| s.lost.len()));
 }
 
-/// The new works alone, as a camp would raise them.
 fn pieces(reel: &mut Reel) -> Result<(), String> {
     let mut run = hill((150.0, 100.0));
     run.home.industry.stock.insert("timber".into(), 900);
@@ -165,7 +163,6 @@ fn pieces(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// A first raid at night: two imps climb the Great Shaft, march for the kiln and set it alight.
 fn raid(reel: &mut Reel) -> Result<(), String> {
     let c = catalog();
     let mut run = hill((146.5, 97.5));
@@ -193,7 +190,6 @@ fn raid(reel: &mut Reel) -> Result<(), String> {
     Ok(())
 }
 
-/// A ring of stone wall round a brazier, a watchtower by it with its quiver: five imps come at it.
 fn wall(reel: &mut Reel) -> Result<(), String> {
     let c = catalog();
     let mut run = hill((162.0, 108.0));
@@ -225,7 +221,6 @@ fn wall(reel: &mut Reel) -> Result<(), String> {
     reel.wait(&mut run, 3)
 }
 
-/// Warboars at the Keep's wall: stones knocked out of the lift in hand.
 fn siege(reel: &mut Reel) -> Result<(), String> {
     let mut run = hill((140.0, 90.0));
     raise(&mut run, "brazier", (136, 99))?;

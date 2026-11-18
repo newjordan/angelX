@@ -5,12 +5,9 @@
 //! knight in the room has their arm tempered a step.
 use super::*;
 
-/// The forge and its two bellows (tiles), and where each handle is worked.
 pub const FORGE: (i32, i32, i32, i32) = (9, 1, 6, 3);
 pub const BLOCKS: [(i32, i32, i32, i32); 3] = [FORGE, (4, 2, 3, 2), (17, 2, 3, 2)];
 pub const HANDLES: [(f32, f32); 2] = [(5.5, 5.0), (18.5, 5.0)];
-/// Heat a pump adds, the full forge, the heat that wakes the imps, and
-/// how often the forge cools a step while nobody pumps.
 pub const PUMP: u32 = 8;
 pub const HEAT_FULL: u32 = 100;
 pub const HEAT_IMPS: u32 = 50;

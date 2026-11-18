@@ -1,7 +1,3 @@
-# crates/delve/src/rules/fortune.rs — Dame Fortune's Wheel: the delve's game modes.
-# A `Mode` is its snake_case word (the serde spelling), a String.
-
-# The wheel's wedges, clockwise from the top.
 def fortune.Mode.wheel(i: U32) -> String:
     if U32.is_eq(i, 0):
         return "long_way_down"
@@ -89,7 +85,6 @@ def fortune.Mode.says(word: String) -> String:
         return "no doors between fights: explore"
     return "the delve as it always was"
 
-# How far up Fortune's ladder the wedge sits.
 def fortune.Mode.rung(word: String) -> U32:
     if Bool.or(String.eq(word, "collapse"), String.eq(word, "glass_jaw")):
         return 1
@@ -101,7 +96,6 @@ def fortune.Mode.rung(word: String) -> U32:
         return 4
     return 0
 
-# What the mode pays: (times, over).
 def fortune.Mode.spoils(word: String) -> (U32, U32):
     if Bool.or(String.eq(word, "lights_out"), String.eq(word, "giants_feast")):
         return (3, 2)
@@ -114,7 +108,6 @@ def fortune.Mode.spoils(word: String) -> (U32, U32):
 def fortune.Mode.collapse_secs(depth: U32) -> U32:
     return (120 + 30 * depth : U32)
 
-# The wedges a level of Fortune's ladder opens.
 def fortune.open_wedges(level: U32) -> [U32]:
     out: [U32] = []
     i: U32 = 0
@@ -124,15 +117,12 @@ def fortune.open_wedges(level: U32) -> [U32]:
         i = (i + 1 : U32)
     return out
 
-# Turbo: down in the delve, one tick in four comes free, so every three steps
-# of play run four ticks of the delve.
 def fortune.Run.turbo(run: J.Val) -> Bool:
     return Bool.and(fortune.Run.turbo_on(run), U32.is_eq(W.rem_u32(W.of_j(J.get(run, "tick")), 4), 3))
 
 def fortune.Run.turbo_on(run: J.Val) -> Bool:
     return Bool.and(String.eq(core.s(run, "mode"), "turbo"), U32.is_ne(rules.Run.floor(run), 0))
 
-# Glass Jaw: the knights hit and are hit twice as hard.
 def fortune.Run.harden(run: J.Val) -> J.Val:
     glass: Bool = String.eq(core.s(run, "mode"), "glass_jaw")
     players: J.Val = J.get(run, "players")
@@ -140,7 +130,6 @@ def fortune.Run.harden(run: J.Val) -> J.Val:
         players = J.set(players, k, core.set_b(h, "glass", glass))
     return J.set(run, "players", players)
 
-# No second winds at all (the Pit's Talisman aside).
 def fortune.Run.iron(run: J.Val) -> J.Val:
     if Bool.not(String.eq(core.s(run, "mode"), "ironman")):
         return run
@@ -149,7 +138,6 @@ def fortune.Run.iron(run: J.Val) -> J.Val:
         players = J.set(players, k, core.set_u(h, "winds", 0))
     return J.set(run, "players", players)
 
-# All Random: every knight's ultimate comes half charged.
 def fortune.Run.half_charge(run: J.Val) -> J.Val:
     if Bool.not(String.eq(core.s(run, "mode"), "all_random")):
         return run
@@ -158,7 +146,6 @@ def fortune.Run.half_charge(run: J.Val) -> J.Val:
         players = J.set(players, k, core.set_u(h, "ult_charge", U32.max(core.u(h, "ult_charge"), U32.div(ults.ULT_FULL(), 2))))
     return J.set(run, "players", players)
 
-# `ticks` ticks from now, a Fx::Shake event pushed.
 def core.push_shake(run: J.Val, ticks: U32) -> J.Val:
     return J.set(run, "fx", J.push(J.get(run, "fx"), J.set(J.obj(), "Shake", J.JU{ticks})))
 
@@ -168,7 +155,6 @@ def core.push_cue(run: J.Val, cue: String) -> J.Val:
 def core.push_sound(run: J.Val, sound: String) -> J.Val:
     return J.set(run, "sounds", J.push(J.get(run, "sounds"), J.JS{sound}))
 
-# The Collapse: the tick this floor falls in; rocks come down on the living.
 def fortune.Run.tick_collapse(run: J.Val) -> J.Val:
     if Bool.or(Bool.not(String.eq(core.s(run, "mode"), "collapse")), home.Run.at_home_now(run)):
         return run
@@ -210,7 +196,6 @@ def fortune.Run.tick_collapse(run: J.Val) -> J.Val:
     run = J.set(run, "rng", W.to_j(rng3))
     return J.set(run, "rocks", J.push(J.get(run, "rocks"), rock))
 
-# Whether the Collapse is coming, and in how many seconds.
 def fortune.Run.collapse_in(run: J.Val) -> U32?:
     if Bool.or(J.is_null(J.get(run, "collapse_at")), Bool.not(String.eq(core.s(run, "mode"), "collapse"))):
         return None{}

@@ -21,27 +21,21 @@ use super::hireling::{AllyKind, Hireling};
 use super::rite::{self, Kind, Rite};
 use super::*;
 
-/// Who made a made thing in the world, and which it is.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Tag {
-    /// Its place in the realm's record (`Home::rites`).
     pub rite: u32,
     pub by: String,
     pub name: String,
 }
 
-/// What the world has noted of the makings: the floor they were last met on
-/// and how many made foes it has, and who last heard a folk's line.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct State {
-    /// The floor last met (its depth and raid), and the foes met on it.
     #[serde(default)]
     pub floor: u64,
     #[serde(default)]
     pub foes: u8,
     #[serde(default)]
     pub boss: bool,
-    /// Knight -> the tick they last heard a made thing speak, and its place in the record.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub said: BTreeMap<u32, (u64, u32)>,
 }
@@ -51,7 +45,6 @@ impl State {
         *self == Self::default()
     }
 
-    /// Whether the record's `rite` is speaking now, and the tick it began.
     pub fn speaking(&self, rite: usize, tick: u64) -> Option<u64> {
         self.said
             .values()
@@ -61,30 +54,22 @@ impl State {
     }
 }
 
-/// How long a line shows over the one who said it, and how near a knight
-/// must be (tiles) and how often E may speak to the same one.
 pub const SAID_TICKS: u64 = 4 * HZ as u64;
 pub const REACH: f32 = 2.6;
 const AGAIN: u64 = 3 * HZ as u64 / 2;
 
-/// A made thing of the world's people, standing in a room.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Placed {
-    /// Its place in the record.
     pub rite: usize,
     pub kind: Kind,
-    /// Where it is, in tiles of the room, and which way it faces (-1 or 1).
     pub at: (f32, f32),
     pub facing: f32,
     pub walking: bool,
 }
 
-/// Where the makings stand: in the Griffin's taproom, tiles.
 const GRIFFIN_SPOTS: [(f32, f32); MOST_SPOTS] = [(5.0, 11.6), (8.5, 12.6), (19.0, 11.4), (22.5, 12.0)];
-/// In the courtyard's lawn, tiles.
 const YARD_SPOTS: [(f32, f32); MOST_SPOTS] = [(5.5, 10.8), (8.0, 9.4), (10.0, 11.8), (3.5, 8.8)];
 const MOST_SPOTS: usize = rite::MOST_FOLK;
-/// How far a wanderer paces about its spot, tiles, and how fast.
 const PACE: f32 = 1.6;
 
 fn room_post(kind: RoomKind) -> Option<Post> {
@@ -95,8 +80,6 @@ fn room_post(kind: RoomKind) -> Option<Post> {
     }
 }
 
-/// The people the record puts in this room at `tick`: its folk at their post
-/// (the newest few of each place), and in the courtyard its heroes walking.
 pub fn placed(run: &Run, kind: RoomKind, tick: u64) -> Vec<Placed> {
     let Some(post) = room_post(kind) else {
         return Vec::new();
@@ -129,14 +112,12 @@ fn stand(spot: (f32, f32), rite: usize, kind: Kind, calling: &Calling, tick: u64
         let facing = if k % 2 == 0 { 1.0 } else { -1.0 };
         return Placed { rite, kind, at: spot, facing, walking: false };
     }
-    // Paces to and fro along its spot, each on its own beat.
     let phase = (tick as f32 / (HZ as f32 * 2.2)) + k as f32 * 0.37;
     let swing = (phase * std::f32::consts::TAU).sin();
     let slope = (phase * std::f32::consts::TAU).cos();
     Placed { rite, kind, at: (spot.0 + swing * PACE, spot.1), facing: if slope >= 0.0 { 1.0 } else { -1.0 }, walking: true }
 }
 
-/// What a made foe fights as: what its recipe is good at.
 fn foe_kind(c: &Creation) -> EnemyKind {
     let s = c.stats();
     let caster = s.magic > s.melee || !c.spells.is_empty();
@@ -149,7 +130,6 @@ fn foe_kind(c: &Creation) -> EnemyKind {
 }
 
 impl Run {
-    /// E near one of the world's made people makes it speak.
     pub(super) fn talk_to_made(&mut self, inputs: &BTreeMap<u32, Input>) {
         if self.home.rites.is_empty() {
             return;
@@ -188,12 +168,9 @@ impl Run {
             self.made.said.insert(id, (tick, rite));
             self.cues.push("made_speaks".into());
         }
-        // The notes of those who have gone quiet are dropped.
         self.made.said.retain(|_, (at, _)| tick.saturating_sub(*at) < 8 * SAID_TICKS);
     }
 
-    /// What the made thing in the record at `rite` says: a folk's line, a
-    /// hero's greeting.
     pub fn made_line(&self, rite: usize) -> Option<String> {
         let r = self.home.rites.kept.get(rite)?;
         Some(match r.kind {
@@ -202,9 +179,6 @@ impl Run {
         })
     }
 
-    /// A delve floor's first fighting room (or its first room): the realm's
-    /// makings turn up. A minion joins the party as its ally when that place
-    /// is free; a monster or boss is among the room's foes.
     pub(super) fn meet_made(&mut self, index: usize, first_visit: bool) {
         if self.home.rites.is_empty() || self.dungeon.depth == 0 || !first_visit {
             return;
@@ -237,7 +211,6 @@ impl Run {
         };
         let at = super::hireling::beside(&grid, lead.1);
         let mut ally = Hireling::minion(AllyKind::Hound, 0, self.dungeon.depth, at, lead.0);
-        // A little friend: its recipe's health, nothing more.
         let hp = u32::from(c.stats().hp).clamp(20, 80);
         (ally.hp, ally.max_hp) = (hp, hp);
         ally.made = Some(Tag { rite: n as u32, by: r.knight.clone(), name: r.name.clone() });

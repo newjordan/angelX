@@ -19,7 +19,6 @@ pub(crate) fn runtime(club: Arc<dyn Club>) -> campaign::CampaignRuntime {
     }
 }
 
-/// Resolve the configured concrete route without a fallback to practice.
 pub(crate) fn configured_club(
     driver: Option<&str>,
     model: Option<&str>,

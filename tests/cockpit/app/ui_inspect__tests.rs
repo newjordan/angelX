@@ -664,7 +664,6 @@ fn formation_app() -> (App, crate::agent::formations::MoaEngagement) {
     (app, engagement)
 }
 
-/// The inspector's formation phase words stay as they are.
 #[test]
 fn formation_phase_words_for_each_armed_state_are_pinned() {
     let _guard = crate::tests::env_lock();
@@ -679,9 +678,6 @@ fn formation_phase_words_for_each_armed_state_are_pinned() {
     assert_eq!(formation_semantics(&app)["phase"], "next-turn");
 }
 
-/// A one-shot formation is consumed when its turn starts, but the formation
-/// is what the turn runs on until the worker settles. The inspector must say
-/// so rather than "idle".
 #[test]
 fn formation_phase_says_engaged_while_a_one_shot_formation_runs() {
     let _guard = crate::tests::env_lock();
@@ -698,8 +694,6 @@ fn formation_phase_says_engaged_while_a_one_shot_formation_runs() {
     assert_eq!(formation_semantics(&app)["phase"], "idle");
 }
 
-/// A session staged behind the running one-shot is the only roster still
-/// held; the inspector names it and does not report it as the engaged one.
 #[test]
 fn formation_inspector_names_the_session_staged_behind_a_running_one_shot() {
     let _guard = crate::tests::env_lock();

@@ -7,18 +7,13 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// Process-wide latch so tools (which lack `App`) honor `/solo` without env races.
 static SOLO_LATCH: AtomicBool = AtomicBool::new(false);
 
-/// Arm/disarm solo from `/solo` (also mirrored into `ANGEL_SOLO` for child tools).
 pub fn set_solo_mode(on: bool) {
     SOLO_LATCH.store(on, Ordering::Relaxed);
     if on {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var("ANGEL_SOLO", "1") };
     } else {
-        // Prefer explicit off so tools reading env alone still see the latch.
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var("ANGEL_SOLO", "0") };
     }
 }
@@ -36,8 +31,6 @@ pub fn solo_mode_active() -> bool {
     }
 }
 
-/// Consults may use configured remote seats unless the operator disables them
-/// or enables solo mode.
 pub fn allow_sota_consult() -> bool {
     if solo_mode_active() {
         return false;
@@ -51,13 +44,10 @@ pub fn allow_sota_consult() -> bool {
     }
 }
 
-/// True if this label is a paid/remote SOTA seat that solo mode forbids.
 pub fn is_outbound_sota_label(label: &str) -> bool {
     crate::agent::club::is_sota_label(label)
 }
 
-/// Reject **outbound** SOTA targets when policy forbids them.
-/// `self_label` is the in-hand club — consulting yourself is never outsourcing.
 #[cfg(test)]
 pub fn deny_sota_if_blocked(label: &str) -> Result<(), String> {
     deny_sota_if_blocked_except(label, None)

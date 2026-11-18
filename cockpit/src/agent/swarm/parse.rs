@@ -6,11 +6,6 @@ use super::*;
 use crate::agent::harness::book::d3_roles::pages;
 use crate::agent::harness::book::d5_frames::{GUIDANCE, LABELS, MERGE, SYNTHESIS};
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/// Split a conversation into (merged system text, non-system messages).
 pub(crate) fn split_system(history: &[ChatMsg]) -> (String, Vec<ChatMsg>) {
     let mut sys = String::new();
     let mut rest = Vec::new();
@@ -27,7 +22,6 @@ pub(crate) fn split_system(history: &[ChatMsg]) -> (String, Vec<ChatMsg>) {
     (sys, rest)
 }
 
-/// Prepend `primary`, then fold in the conversation's own system prompt (if any).
 pub(crate) fn compose(primary: &str, base_sys: &str) -> String {
     if base_sys.trim().is_empty() {
         primary.to_string()
@@ -36,26 +30,10 @@ pub(crate) fn compose(primary: &str, base_sys: &str) -> String {
     }
 }
 
-/// Whether stage calls are shaped for provider prefix caching (default yes;
-/// `ANGEL_MOA_CACHE_ALIGN=0` restores the legacy stage-prompt-first shape).
 pub(crate) fn cache_align_enabled() -> bool {
     env_flag_or("ANGEL_MOA_CACHE_ALIGN", true)
 }
 
-/// Assemble one stage call as `(system, messages)`.
-///
-/// Cache-aligned (default): the system slot carries only the conversation's own
-/// stable `base_sys` (or nothing, when a stage passes `""`), and the stage or
-/// persona instruction rides at the END, folded into the trailing task message.
-/// Every call then opens with the byte-identical `[system][conversation...]`
-/// prefix that provider prefix caches key on (DeepSeek/OpenAI-compatible
-/// provider caches, vLLM APC / llama.cpp locally) — so the re-sent history becomes a
-/// cache hit across the fan-out, across stages, and across turns, instead of a
-/// full-price cold prefill on every call.
-///
-/// Legacy (`ANGEL_MOA_CACHE_ALIGN=0`): the stage prompt leads the system slot
-/// (`compose(stage_sys, base_sys)`), byte-identical to the historical shape —
-/// no prefix ever repeats between two calls.
 pub(crate) fn stage_parts(
     stage_sys: &str,
     base_sys: &str,
@@ -65,7 +43,6 @@ pub(crate) fn stage_parts(
     stage_parts_at(cache_align_enabled(), stage_sys, base_sys, ctx, task)
 }
 
-/// [`stage_parts`] with the alignment mode explicit (testable without env).
 pub(crate) fn stage_parts_at(
     aligned: bool,
     stage_sys: &str,
@@ -94,26 +71,14 @@ pub(crate) fn stage_parts_at(
     }
 }
 
-/// Char budget for the conversation context sent to score-only stages (judge,
-/// critic, chooser, verifier). The default keeps the newest ~24,000 chars —
-/// score seats re-read the whole history on every call, which is where most
-/// MoA input spend hides. `ANGEL_MOA_AUX_CONTEXT_CHARS=0` is the explicit
-/// full-history opt-in.
 pub(crate) fn aux_context_chars() -> usize {
     env_usize("ANGEL_MOA_AUX_CONTEXT_CHARS", 24_000)
 }
 
-/// Bounded conversation tail for score-only stages: the newest messages that fit
-/// the budget, newest-inclusive — the final message (the problem, or the
-/// delegate evidence right behind it) always survives, tail-kept with a leading
-/// marker line when it alone busts the budget, so the most recent user ask and
-/// tool results are what a scorer sees. Answer-producing stages keep the full
-/// conversation.
 pub(crate) fn aux_context(rest: &[ChatMsg]) -> Vec<ChatMsg> {
     aux_context_at(rest, aux_context_chars())
 }
 
-/// [`aux_context`] with the budget explicit (testable without env).
 pub(crate) fn aux_context_at(rest: &[ChatMsg], budget: usize) -> Vec<ChatMsg> {
     if budget == 0 {
         return rest.to_vec();
@@ -148,10 +113,6 @@ pub(crate) fn aux_context_at(rest: &[ChatMsg], budget: usize) -> Vec<ChatMsg> {
     kept
 }
 
-/// The engaged formation's display name — written by the roster deck when it
-/// arms a formation (`Formation::apply_sota_env`), cleared on disengage — so
-/// the MoA ledgers can attribute a turn's economics to the formation that
-/// spent them. `None` when no formation owns the process.
 pub(crate) fn engaged_formation_name() -> Option<String> {
     std::env::var("ANGEL_SOTA_MOA_FORMATION")
         .ok()
@@ -159,9 +120,6 @@ pub(crate) fn engaged_formation_name() -> Option<String> {
         .filter(|v| !v.is_empty())
 }
 
-/// Convert a full Angel transcript into plain chat messages for text-only MoA
-/// worker calls. Providers still validate tool protocol fields even when
-/// `tools=[]`, so stale or duplicated tool IDs from earlier turns must be prose.
 pub(crate) fn text_only_history(history: &[ChatMsg]) -> Vec<ChatMsg> {
     history.iter().map(text_only_message).collect()
 }
@@ -221,9 +179,6 @@ fn text_only_message(m: &ChatMsg) -> ChatMsg {
     message
 }
 
-/// Number a set of texts as `### Head N` blocks for embedding in a prompt, each
-/// bounded to `max_chars` (0 = unbounded) so a giant draft can't flood a stage's
-/// input tokens.
 pub(crate) fn numbered_bounded(items: &[String], head: &str, max_chars: usize) -> String {
     items
         .iter()
@@ -271,11 +226,6 @@ pub(crate) fn moa_draft_max_chars() -> usize {
         .or_else(|_| std::env::var("ANGEL_SWARM_DRAFT_MAX_CHARS"))
         .ok()
         .and_then(|v| v.trim().parse().ok())
-        // Default: each draft a stage copies into its payload is bounded to
-        // 12k chars (tail trimmed with a marker) — the aggregator fan-out
-        // multiplies every draft by every seat, so one unbounded draft
-        // dominates a turn's input spend. Explicit `0` via env unbounds it;
-        // route context still decides when hierarchical reduction is needed.
         .unwrap_or(12_000)
 }
 
@@ -286,9 +236,6 @@ pub(crate) fn moa_final_target_chars() -> usize {
         .unwrap_or(0)
 }
 
-/// The final synthesis task: `⠐⠙` whole — the synthesis with its untargeted
-/// output guidance — or, with a target length, its first three pages and the
-/// targeted guidance `⠐⠋`, the target beside it.
 fn final_synthesis() -> String {
     match moa_final_target_chars() {
         0 => SYNTHESIS.cells(),
@@ -310,9 +257,6 @@ pub(crate) fn bound_moa_draft(text: &str, max_chars: usize) -> String {
     format!("{head}\n\n{} omitted={omitted}", pages(LABELS, [4]))
 }
 
-/// The aggregator's task text: a synthesis instruction carrying the numbered
-/// drafts to fuse. Intermediate layers synthesize *concise* material (kept
-/// fast); only the final layer writes the full user-facing answer.
 #[cfg(test)]
 pub(crate) fn agg_task(drafts: &[String], concise: bool) -> String {
     agg_task_with_cap(drafts, concise, moa_draft_max_chars())
@@ -323,8 +267,6 @@ pub(crate) fn agg_task_with_cap(
     concise: bool,
     per_draft_chars: usize,
 ) -> String {
-    // An intermediate merge is `⠐⠑`'s first three pages; the final answer is
-    // the synthesis. The response count rides beside its label, `⠐⠛⠁`.
     let instruction = if concise {
         pages(MERGE, 1..=3)
     } else {
@@ -344,8 +286,6 @@ pub(crate) fn agg_task_weighted(
     per_draft_chars: usize,
 ) -> String {
     let total: usize = drafts.iter().map(|(_, w)| *w).sum();
-    // A weighted merge is `⠐⠑` whole — it holds conflicts open — and the
-    // final answer is the synthesis. The counts ride beside `⠐⠛⠃`.
     let instruction = if concise {
         MERGE.cells()
     } else {
@@ -360,8 +300,6 @@ pub(crate) fn agg_task_weighted(
     )
 }
 
-/// Keep the non-empty successful drafts, dropping workers that errored or
-/// returned blank.
 pub(crate) fn keep_text(results: Vec<Result<String, String>>) -> Vec<String> {
     collect_text(results).drafts
 }
@@ -432,15 +370,6 @@ pub(crate) fn compact_error(err: &str, max_chars: usize) -> String {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Near-duplicate detection — local text similarity, zero model calls
-// ---------------------------------------------------------------------------
-
-/// Jaccard threshold above which two drafts count as the same answer.
-/// The default (0.92) collapses near-identical drafts — proposers that
-/// converged add nothing to the mixture while every surviving copy costs real
-/// tokens in judge/synthesis payloads — and lets the free chooser skip fire
-/// when all candidates agree. `ANGEL_MOA_DEDUP_SIM=0` disables it.
 pub(crate) fn dedup_similarity() -> f64 {
     std::env::var("ANGEL_MOA_DEDUP_SIM")
         .ok()
@@ -448,7 +377,6 @@ pub(crate) fn dedup_similarity() -> f64 {
         .unwrap_or(0.92)
 }
 
-/// Lowercased word 3-gram shingle set, hashed for cheap set ops.
 fn shingles(text: &str) -> std::collections::HashSet<u64> {
     use std::hash::{Hash, Hasher};
     let words: Vec<String> = text
@@ -466,11 +394,9 @@ fn shingles(text: &str) -> std::collections::HashSet<u64> {
         .collect()
 }
 
-/// Whether two drafts are near-identical: word-3-gram Jaccard at or above
-/// `threshold`. Texts too short to shingle fall back to normalized equality.
 pub(crate) fn near_identical_at(a: &str, b: &str, threshold: f64) -> bool {
     if threshold <= 0.0 {
-        return false; // dedup disabled
+        return false;
     }
     let (sa, sb) = (shingles(a), shingles(b));
     if sa.is_empty() || sb.is_empty() {
@@ -482,13 +408,10 @@ pub(crate) fn near_identical_at(a: &str, b: &str, threshold: f64) -> bool {
     union > 0.0 && inter / union >= threshold
 }
 
-/// [`near_identical_at`] with the env-configured threshold.
 pub(crate) fn near_identical(a: &str, b: &str) -> bool {
     near_identical_at(a, b, dedup_similarity())
 }
 
-/// Whether every candidate is near-identical to the first — when they all
-/// converged, any pick is the same answer and a chooser call buys nothing.
 pub(crate) fn all_near_identical(candidates: &[String]) -> bool {
     let threshold = dedup_similarity();
     candidates
@@ -497,11 +420,6 @@ pub(crate) fn all_near_identical(candidates: &[String]) -> bool {
         .unwrap_or(true)
 }
 
-/// Collapse near-duplicate drafts, keeping the first of each group (stable
-/// persona order). Every duplicate that survives to a later stage costs real
-/// tokens in judge/synthesis payloads while adding nothing to the mixture —
-/// this drops them with pure local compute, no model calls. O(n²) pairwise on
-/// a fan-out of ≤6 drafts.
 pub(crate) fn collapse_near_duplicates(drafts: Vec<String>) -> Vec<String> {
     let threshold = dedup_similarity();
     if threshold <= 0.0 {
@@ -516,7 +434,6 @@ pub(crate) fn collapse_near_duplicates(drafts: Vec<String>) -> Vec<String> {
     kept
 }
 
-/// First two numbers on a line → `(index, score)`, e.g. `"2: 8.5"` → `(2, 8.5)`.
 pub(crate) fn first_two_numbers(line: &str) -> Option<(usize, f64)> {
     let mut nums: Vec<String> = Vec::new();
     let mut cur = String::new();
@@ -541,9 +458,6 @@ pub(crate) fn first_two_numbers(line: &str) -> Option<(usize, f64)> {
     Some((idx, score))
 }
 
-/// Parse one reviewer's score sheet into `(draft_index, score)` pairs: 0-based,
-/// in range, and the first score per draft wins (a reviewer who double-scores a
-/// draft doesn't get two votes).
 pub(crate) fn parse_scores(text: &str, n_drafts: usize) -> Vec<(usize, f64)> {
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
@@ -555,7 +469,6 @@ pub(crate) fn parse_scores(text: &str, n_drafts: usize) -> Vec<(usize, f64)> {
     out
 }
 
-/// Pull up to `max` numeric runs (digits / `.`) from a line, in order.
 pub(crate) fn scan_numbers(line: &str, max: usize) -> Vec<f64> {
     let mut nums = Vec::new();
     let mut cur = String::new();
@@ -581,10 +494,6 @@ pub(crate) fn scan_numbers(line: &str, max: usize) -> Vec<f64> {
     nums
 }
 
-/// Parse one reviewer's per-dimension sheet — `index` then one 0–10 score per
-/// [`JUDGE_DIMS`] entry, in that order — into `(draft_index, weighted_composite)`.
-/// A line missing any dimension is skipped; first row per draft wins (a reviewer
-/// who double-scores a draft doesn't get two votes), matching `parse_scores`.
 pub(crate) fn parse_dim_scores(text: &str, n_drafts: usize) -> Vec<(usize, f64)> {
     let want = JUDGE_DIMS.len();
     let mut seen = std::collections::HashSet::new();
@@ -608,10 +517,6 @@ pub(crate) fn parse_dim_scores(text: &str, n_drafts: usize) -> Vec<(usize, f64)>
     out
 }
 
-/// Fuse a panel of reviewers into one ranking: each draft is scored by its
-/// *median* across the reviewers that scored it, then sorted strongest-first.
-/// Ties keep draft order (the input is grouped by ascending index), so the
-/// result is deterministic regardless of reviewer arrival order.
 pub(crate) fn median_rank(reviews: &[Vec<(usize, f64)>]) -> Vec<(usize, f64)> {
     let mut by_draft: std::collections::BTreeMap<usize, Vec<f64>> =
         std::collections::BTreeMap::new();
@@ -628,7 +533,6 @@ pub(crate) fn median_rank(reviews: &[Vec<(usize, f64)>]) -> Vec<(usize, f64)> {
     ranked
 }
 
-/// Median of a score list (empty → 0.0, but panel callers never pass empty).
 pub(crate) fn median(mut scores: Vec<f64>) -> f64 {
     if scores.is_empty() {
         return 0.0;
@@ -642,7 +546,6 @@ pub(crate) fn median(mut scores: Vec<f64>) -> f64 {
     }
 }
 
-/// First run of digits in `text` parsed as a number.
 pub(crate) fn first_int(text: &str) -> Option<usize> {
     let mut cur = String::new();
     for ch in text.chars() {
@@ -655,7 +558,6 @@ pub(crate) fn first_int(text: &str) -> Option<usize> {
     cur.parse().ok()
 }
 
-/// Whether the verifier signalled the answer is clean.
 pub(crate) fn is_ok(v: &str) -> bool {
     let t = v.trim().to_ascii_uppercase();
     t == "OK"
@@ -673,8 +575,6 @@ pub(crate) fn env_usize(key: &str, default: usize) -> usize {
         .unwrap_or(default)
 }
 
-/// Truthy-env flag with an explicit default (so `MAX` can default a knob on while
-/// an explicit `=0`/`false` still turns it off).
 pub(crate) fn env_flag_or(key: &str, default: bool) -> bool {
     match std::env::var(key) {
         Ok(v) => {
@@ -689,7 +589,6 @@ pub(crate) fn default_search_url() -> String {
     "http://127.0.0.1:8888/search".to_string()
 }
 
-/// Which personas are allowed to request verifying tests when delegation is on.
 pub(crate) fn is_delegator(key: &str) -> bool {
     matches!(
         key.split('+').next().unwrap_or(key),

@@ -1,8 +1,6 @@
 use super::*;
 use std::thread;
 
-/// Spawn a fake UI that answers each incoming request from a scripted list of
-/// decisions (in order), recording how many requests it actually received.
 fn fake_ui(b: &Broker, script: Vec<Decision>) -> std::sync::Arc<std::sync::atomic::AtomicUsize> {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -84,16 +82,13 @@ fn scope_labels_are_typed_single_line_and_bounded() {
 fn yolo_global_ask_approves_without_a_ui() {
     let _guard = crate::tests::env_lock();
     let previous = std::env::var_os("ANGEL_YOLO");
-    // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_YOLO", "1") };
     assert_eq!(
         ask(ApprovalScope::RemoteHost("spark".into()), "run it"),
         Decision::Approve
     );
     match previous {
-        // TODO: Audit that the environment access only happens in single-threaded code.
         Some(value) => unsafe { std::env::set_var("ANGEL_YOLO", value) },
-        // TODO: Audit that the environment access only happens in single-threaded code.
         None => unsafe { std::env::remove_var("ANGEL_YOLO") },
     }
 }
@@ -110,14 +105,11 @@ fn approve_and_deny_pass_through() {
 #[test]
 fn approve_all_coalesces_same_scope_without_reprompting() {
     let b = Broker::default();
-    // The fake UI would only answer ONE request (then Deny). If coalescing
-    // works, the 2nd/3rd asks never reach the UI.
     let count = fake_ui(&b, vec![Decision::ApproveAll]);
     let scope = ApprovalScope::PhoneModel("math".into());
     assert_eq!(b.ask(scope.clone(), "agent 1"), Decision::Approve);
     assert_eq!(b.ask(scope.clone(), "agent 2"), Decision::Approve);
     assert_eq!(b.ask(scope, "agent 3"), Decision::Approve);
-    // give the UI thread a beat to have logged anything it received
     thread::sleep(Duration::from_millis(20));
     assert_eq!(
         count.load(std::sync::atomic::Ordering::SeqCst),
@@ -154,9 +146,9 @@ fn reset_clears_approve_all() {
     let count = fake_ui(&b, vec![Decision::ApproveAll, Decision::ApproveAll]);
     let scope = ApprovalScope::ActionBatch("sha256:a".into());
     assert_eq!(b.ask(scope.clone(), "a"), Decision::Approve);
-    assert_eq!(b.ask(scope.clone(), "b"), Decision::Approve); // cached
+    assert_eq!(b.ask(scope.clone(), "b"), Decision::Approve);
     b.reset();
-    assert_eq!(b.ask(scope, "c"), Decision::Approve); // prompts again after reset
+    assert_eq!(b.ask(scope, "c"), Decision::Approve);
     thread::sleep(Duration::from_millis(20));
     assert_eq!(
         count.load(std::sync::atomic::Ordering::SeqCst),

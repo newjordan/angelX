@@ -21,7 +21,6 @@ fn rows(rows: &[&str]) -> Img {
     Img::from_rows(rows)
 }
 
-/// A figure drawn as its left half, mirrored: the dwarf stands square on.
 fn mirrored(halves: &[&str]) -> Img {
     let full: Vec<String> = halves
         .iter()
@@ -34,15 +33,10 @@ fn mirrored(halves: &[&str]) -> Img {
     rows(&refs)
 }
 
-/// The way a raised shield faces on the screen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Facing {
-    /// Across: held out toward the side the knight faces (drawn facing
-    /// right; the figure is flipped for left).
     Side,
-    /// Toward the viewer: the shield covers the knight's front.
     Down,
-    /// Away: the shield is held ahead, behind the knight on the screen.
     Up,
 }
 
@@ -54,8 +48,6 @@ pub(super) fn facing(ax: f32, ay: f32) -> Facing {
     }
 }
 
-// ─── the realm's knight ──────────────────────────────────────────────────────
-
 fn view_of(facing: Facing) -> View {
     match facing {
         Facing::Down => View::Toward,
@@ -64,15 +56,10 @@ fn view_of(facing: Facing) -> View {
     }
 }
 
-/// Where the knight is in their stride, as a step of the hero's drawing:
-/// 0 standing, then a foot planted, passing, the other foot, passing.
 pub(super) fn stride_step(hero: &Hero) -> u8 {
     class_looks::stride(hero).map_or(0, |phase| phase + 1)
 }
 
-/// What the knight has in hand, and whether it is in its strike: the
-/// blade while it swings, else the arm they carry (a forged blade is a
-/// sword), drawn or fired while it rearms.
 fn held_of(hero: &Hero) -> (Held, bool) {
     use crate::rules::Weapon;
     let blade = hero.forged.as_ref().is_some_and(|w| w.melee.is_some());
@@ -92,10 +79,6 @@ fn held_of(hero: &Hero) -> (Held, bool) {
     (held, held != Held::Nothing && (hero.fire_cooldown > 0 || hero.swing > 0))
 }
 
-/// The realm's knight as health, gear and aim leave them: helm on or off,
-/// in harness or smallclothes, the shield on the arm (owned or held,
-/// unless it is thrown or raised: `figure_with` brings it round), on their
-/// stride, with what they hold.
 fn realm_body(hero: &Hero, thrown: bool, floating: bool) -> Img {
     let stage = hero.gear.min(2);
     let (held, strike) = held_of(hero);
@@ -110,18 +93,11 @@ fn realm_body(hero: &Hero, thrown: bool, floating: bool) -> Img {
     })
 }
 
-/// Whether a knight is drawn by the code rig (so their tool is in the rig's
-/// hand), and not by a look or an identity that carries its own.
 pub(super) fn rig_drawn(hero: &Hero, seat: u32) -> bool {
     default_rig(hero, seat).is_some()
 }
 
-// Quick rigs deliberately opt out of authored identities and missing-gear
-// stages. Those paths carry their own silhouettes, helmets and save semantics.
-// A plain knight is drawn as their seat's design (`quick_rig::Design`).
 fn default_rig(hero: &Hero, seat: u32) -> Option<&'static Rig> {
-    // A code-drawn knight picked at the pub is that seat's plain knight,
-    // whichever seat picked it.
     let picked = hero.knight.as_deref().and_then(crate::rules::knights::plain_seat);
     if hero.avatar.is_some()
         || hero.shape.is_some()
@@ -142,8 +118,6 @@ fn default_rig(hero: &Hero, seat: u32) -> Option<&'static Rig> {
     quick_rig::seat_knight(picked.unwrap_or(seat))
 }
 
-/// Gameplay's countdowns give one-shot origins without storing animation in a
-/// Hero. Locomotion uses distance travelled; casts use their event age.
 pub(super) fn rig_sample<'a>(rig: &'a Rig, hero: &Hero, tick: u64, casting: bool) -> Sample<'a> {
     rig_sample_at(
         rig,
@@ -154,8 +128,6 @@ pub(super) fn rig_sample<'a>(rig: &'a Rig, hero: &Hero, tick: u64, casting: bool
     )
 }
 
-// Cards/forge runes have names and melee arcs, but no typed animation class.
-// Prefer a recognized equipped-card label, then the forge label, then geometry.
 fn melee_clip(hero: &Hero, book: Option<&crate::rules::cards::Book>) -> Clip {
     if hero.arm.as_deref() == Some("prospectors-pick") {
         return Clip::Overhead;
@@ -203,7 +175,6 @@ fn melee_clip(hero: &Hero, book: Option<&crate::rules::cards::Book>) -> Clip {
         })
 }
 
-/// One authoritative sample for the live image and all its attachments.
 pub(super) fn rig_sample_event<'a>(
     rig: &'a Rig,
     hero: &Hero,
@@ -214,8 +185,6 @@ pub(super) fn rig_sample_event<'a>(
     rig_sample_at(rig, hero, tick, cast_age, melee_clip(hero, Some(book)))
 }
 
-/// How many ticks the Die clip of a seat's own knight plays: how long a
-/// fallen knight is drawn falling (`figures`) before it is bones.
 pub(super) fn die_ticks(seat: u32) -> Option<u64> {
     quick_rig::seat_knight(seat).map(|rig| rig.duration(Clip::Die))
 }
@@ -246,14 +215,10 @@ fn rig_sample_at<'a>(
             false,
         );
     }
-    // The six-tick hit flash is not the attack period. Keep anticipation,
-    // contact and recovery on the same cooldown, including slow heavy arms.
     if !hero.sword && (hero.swing > 0 || hero.fire_cooldown > 0) {
         if let Some(m) = hero
             .forged
             .as_ref()
-            // A hybrid snapshot has no last-fired mode after swing expires.
-            // Do not claim a ranged shot is a melee attack in that case.
             .filter(|w| w.bolt.is_none() || hero.swing > 0)
             .and_then(|w| w.melee)
         {
@@ -271,7 +236,6 @@ fn rig_sample_at<'a>(
         }
     }
     if hero.swing > 0 {
-        // A tool of a trade comes down, a blade slashes.
         let clip = if hero.tool != 0 { Clip::Overhead } else { Clip::Slash };
         return rig.action(
             clip,
@@ -297,12 +261,9 @@ fn rig_sample_at<'a>(
             .map_or(hero.weapon.arms().cooldown, |b| b.every);
         let rate = 100 + hero.bonus.rate + hero.boon.rate + hero.hero_kit.attack_rate();
         let total = (base * 100 / rate * hero.curio_wait() / 100).max(1);
-        // Runtime sheets and old looks use the gameplay rearm period; the
-        // integer countdown stays stable across redraws and client mirrors.
         return rig.action(clip, hero.fire_cooldown, total, false);
     }
     if hero.stride > 0.0 && hero.stride.is_finite() {
-        // One exported cycle per gameplay stride; no frame-rate dependent state.
         let fast = (100 + hero.bonus.speed) as f32 / 100.0 * hero.curio_pace();
         let clip = if hero.hero_kit.windrun > 0 || hero.flee_ticks > 0 || fast >= 1.35 {
             Clip::Run
@@ -315,8 +276,6 @@ fn rig_sample_at<'a>(
     rig.sample(Clip::Idle, tick, Playback::Loop, false)
 }
 
-// Odd, symmetric staging pins the exported pivot to the arena's centre column
-// even for even-width or off-centre source canvases. Headroom accommodates gear.
 fn stage(sample: &Sample<'_>) -> (i32, i32, i32) {
     let [w, _] = sample.image_size();
     let [px, _] = sample.pivot();
@@ -336,15 +295,12 @@ pub(super) fn staged_fit(sample: &Sample<'_>) -> Body {
 
 fn rig_fit(sample: &Sample<'_>, hero: &Hero) -> Body {
     let mut fit = staged_fit(sample);
-    // Match native cape depth: aiming away reveals the cape over the torso.
     fit.back.under = hero.aim_y >= 0.0;
     fit
 }
 
 fn knight_fit(sample: &Sample<'_>, hero: &Hero) -> Body {
     let mut fit = rig_fit(sample, hero);
-    // The built-in knight is a native 16px character. Its idle ink bounds
-    // exclude empty armour/hat space; they must not shrink ordinary gear.
     let native = crate::rules::looks::profile("realm_right");
     for (part, reference) in [
         (&mut fit.head, native.head),
@@ -361,9 +317,6 @@ fn knight_fit(sample: &Sample<'_>, hero: &Hero) -> Body {
         part.bottom = reference.bottom;
         part.stretch = reference.stretch;
     }
-    // The shield sits outside the fist, as on the native knight. Its even
-    // footprint straddles a socket pixel; choose the other inside edge when
-    // mirrored so odd rig staging retains the native arm's 12px round-trip.
     fit.left.anchor.0 -= native.left.size.0 / 4;
     if hero.aim_x < -0.3 {
         fit.left.anchor.0 += 1;
@@ -402,7 +355,6 @@ fn rig_art_sample(
     let mut im = staged_image(sample);
     let fit = rig_fit(sample, hero);
     let (held, _) = held_of(hero);
-    // Keep old equipment paintings, but place their contact pixels at sockets.
     if !thrown && (hero.owned.shield || hero.holds_shield()) {
         let facing = facing(hero.aim_x, hero.aim_y);
         let (shield, contact) = if hero.shielding {
@@ -432,8 +384,6 @@ fn rig_art_sample(
     }
     let a = fit.right.anchor;
     if native_weapon && let Some((tool, load)) = super::kingdom::tools::of(hero.tool) {
-        // A knight at a trade has its tool in hand, not their arm: it rides up
-        // and out at rest and follows the rig's hand through a stroke.
         let (_, dx, top) = stage(sample);
         let tip = sample.anchors().tip;
         let (mut tx, mut ty) = ((tip[0] + dx - a.0) as f32, (tip[1] + top - a.1) as f32);
@@ -446,18 +396,12 @@ fn rig_art_sample(
     } else if native_weapon
         && (held == Held::Sword || hero.forged.as_ref().is_some_and(|w| w.melee.is_some()))
     {
-        // The arm itself along the rig's grip-to-tip: blade, guard and
-        // grip, or an axe's, a maul's, a spear's head. While the stroke
-        // is young the sweep draws it out in the slash (`melee`).
         let sweeping = hero.swing >= if hero.sword { 6 } else { 4 };
         if !sweeping {
             let (_, dx, top) = stage(sample);
             let tip = sample.anchors().tip;
             let arm = super::blades::Arm::of(hero);
             let spear = arm == super::blades::Arm::Spear;
-            // It goes where the rig's hand sends it; but an arm the rig
-            // lets hang at rest or on the march is carried up and a little
-            // forward instead, clear of the body, where its edge shows.
             let (mut tx, mut ty) = ((tip[0] + dx - a.0) as f32, (tip[1] + top - a.1) as f32);
             if ty > 0.0 && matches!(sample.clip, Clip::Idle | Clip::Walk | Clip::Run) {
                 let out = (a.0 - im.w / 2).signum() as f32;
@@ -468,8 +412,6 @@ fn rig_art_sample(
         }
     } else if native_weapon {
         let equipment = if held == Held::Bow {
-            // The quick-rig knights are smaller than the legacy canvas. Keep
-            // the string behind the wooden curve and the grip on the fist.
             Some((rows(&["g.r.", "g..r", "r.Vr", "g..r", "g.r."]), (0, 2)))
         } else { realm::clock_equipment(held, held_of(hero).1) };
         if let Some((art, grip)) = equipment {
@@ -488,14 +430,10 @@ fn rig_art_sample(
     im
 }
 
-/// What a rig knight carries over its body, as `rig_art_sample` stamps it,
-/// for its name's dress (`figure_keys`): the arm in hand, the shield and the
-/// way it faces, a hat; `bare` for none.
 fn dress_of(hero: &Hero, thrown: bool, native_weapon: bool, struck: Struck) -> String {
     let mut parts: Vec<String> = Vec::new();
     let (held, _) = held_of(hero);
     if native_weapon && (held == Held::Sword || hero.forged.as_ref().is_some_and(|w| w.melee.is_some())) {
-        // While the stroke is young the sweep draws the arm (`melee`).
         if hero.swing >= if hero.sword { 6 } else { 4 } {
             parts.push("sweep".into());
         } else {
@@ -550,8 +488,6 @@ fn wished_rig<'a>(
     {
         return None;
     }
-    // Only the newest whole-body sheet owns the body. An earlier registered
-    // sheet must not jump over a newer, ordinary legacy wish.
     let sprite = hero
         .worn(book)
         .into_iter()
@@ -560,29 +496,21 @@ fn wished_rig<'a>(
     quick_rig::sprite_rig(sprite).map(|rig| (sprite, rig))
 }
 
-/// Inspect the body actually selected by composition, not its hidden base.
 fn with_selected_rig<T>(
     hero: &Hero,
     book: &crate::rules::cards::Book,
     f: impl FnOnce(&Rig) -> T,
 ) -> Option<T> {
-    // A newer ordinary whole sheet supersedes both an old registration and
-    // the underlying default knight, including its roll and pivot metadata.
     if hero
         .worn(book)
         .into_iter()
         .any(|s| s.at.as_deref().is_none_or(|at| at == "whole"))
     {
-        // Share composition's identity guards as well as its newest-sheet rule.
         return wished_rig(hero, book).as_ref().map(|(_, rig)| f(rig));
     }
-    // Ordinary equipment does not replace the body or its animation metadata.
-    // These callers measure geometry only (canvas, pivot, staging, whether a
-    // roll is authored), which every seat's design shares with the first.
     default_rig(hero, 1).map(f)
 }
 
-/// The selected live body's capability, including ordinary worn equipment.
 #[cfg(test)]
 pub(super) fn rigged_roll(hero: &Hero, book: &crate::rules::cards::Book) -> bool {
     with_selected_rig(hero, book, |r| r.has(Clip::Roll)).unwrap_or(false)
@@ -610,14 +538,11 @@ pub(super) fn rolled_hero(
     }
 }
 
-/// Contact point in the actual composed canvas. Transform this point along
-/// with pixels when tumbling/tossing; stone preserves it unchanged.
 pub(super) fn rig_pivot(hero: &Hero, book: &crate::rules::cards::Book, im: &Img) -> [i32; 2] {
     with_selected_rig(hero, book, |rig| {
         let sample = rig_sample(rig, hero, 0, false);
         let (w, _, top) = stage(&sample);
         if im.w >= w && im.h >= rig.canvas()[1] + top {
-            // wear::dressed pads sides symmetrically and only above the body.
             [im.w / 2, im.h - rig.canvas()[1] + rig.pivot()[1]]
         } else {
             [im.w / 2, im.h - 1]
@@ -626,8 +551,6 @@ pub(super) fn rig_pivot(hero: &Hero, book: &crate::rules::cards::Book, im: &Img)
     .unwrap_or([im.w / 2, im.h - 1])
 }
 
-/// Rotate pixels and their contact together. Non-rig legacy pictures retain
-/// their historical bottom-centre placement after a tumble changes dimensions.
 pub(super) fn tossed_figure(
     im: &Img,
     hero: &Hero,
@@ -654,8 +577,6 @@ pub(super) fn tossed_at(im: &Img, pivot: Option<[i32; 2]>, turns: u32) -> (Img, 
     (turned, pivot)
 }
 
-/// Kingdom's legacy even-width art uses a fractional half; rig staging is
-/// odd and pins the authored pivot to the arena's truncated centre column.
 pub(super) fn rig_centre(hero: &Hero, book: &crate::rules::cards::Book, width: i32) -> f32 {
     with_selected_rig(hero, book, |_| (width / 2) as f32).unwrap_or(width as f32 / 2.0)
 }
@@ -664,11 +585,6 @@ pub(super) fn rig_floor_offset(hero: &Hero, book: &crate::rules::cards::Book) ->
     with_selected_rig(hero, book, |r| r.canvas()[1] - 1 - r.pivot()[1]).unwrap_or(0)
 }
 
-// ─── the dwarf ───────────────────────────────────────────────────────────────
-
-/// Dame Thrudi, square on: a horned iron cap, a braided ginger beard to the
-/// belt, an axe in each fist. Stage 1 trades the cap for her own hair; stage 2
-/// leaves her bare-armed in her smallclothes, beard and axes kept.
 fn dwarf_body(stage: u8, axes: bool) -> Img {
     let head: [&str; 4] = match stage {
         0 => ["....T...", "....TiHH", ".HH..iHh", "HWWi.Jjj"],
@@ -693,7 +609,6 @@ fn dwarf_body(stage: u8, axes: bool) -> Img {
     halves.extend(legs);
     let mut im = mirrored(&halves);
     if !axes {
-        // The spin draws them: clear the hafts and blades at her sides.
         for y in 0..16 {
             for x in (0..4).chain(12..16) {
                 im.clear(x, y);
@@ -703,10 +618,6 @@ fn dwarf_body(stage: u8, axes: bool) -> Img {
     im
 }
 
-// ─── the raised shield ───────────────────────────────────────────────────────
-
-/// The shield held to the front: the knight's own, brought round, gold rim
-/// lit along its top and darker where it turns from the light.
 fn shield_front() -> Img {
     rows(&[
         "64444444",
@@ -719,7 +630,6 @@ fn shield_front() -> Img {
     ])
 }
 
-/// Held out to the right, three-quarters on.
 fn shield_side() -> Img {
     rows(&[
         ".6444.",
@@ -733,8 +643,6 @@ fn shield_side() -> Img {
     ])
 }
 
-/// Held ahead, away from the viewer: its back, the wooden boards and the
-/// strap, wide and low behind the figure to show at its shoulders.
 fn shield_far() -> Img {
     rows(&[
         ".a44444444a.",
@@ -746,9 +654,6 @@ fn shield_far() -> Img {
     ])
 }
 
-/// A raised shield just struck (`rules::shield`): how far the blow knocks
-/// it back on the screen, in pixels, as the figure is drawn facing right,
-/// and how bright its rim flashes (0 none, 2 the tick it lands).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Struck {
     pub dx: i32,
@@ -756,8 +661,6 @@ pub struct Struck {
     pub flash: u8,
 }
 
-/// A shield's rim in its flash: gold or steel lit a step or two up its
-/// ramp. The field keeps its seat's colours.
 fn flashed(shield: &Img, flash: u8) -> Img {
     match flash {
         0 => shield.clone(),
@@ -766,8 +669,6 @@ fn flashed(shield: &Img, flash: u8) -> Img {
     }
 }
 
-/// The shield up toward `facing`, over `body`, a figure drawn without its
-/// shield at rest; knocked and flashing when it was just `struck`.
 pub(super) fn raised(body: &Img, facing: Facing, struck: Struck) -> Img {
     let mut im = body.clone();
     let (dx, dy) = (struck.dx, struck.dy);
@@ -788,8 +689,6 @@ pub(super) fn raised(body: &Img, facing: Facing, struck: Struck) -> Img {
     im
 }
 
-/// Colours a seat's knight wears when the company gave none: red, blue,
-/// green, gold, sea-green and ivory, a seat each (six, `MAX_PLAYERS`).
 pub(super) fn seat_colours(id: u32) -> &'static [(char, char)] {
     match id {
         1 => &[],
@@ -801,8 +700,6 @@ pub(super) fn seat_colours(id: u32) -> &'static [(char, char)] {
     }
 }
 
-/// The ink a seat is marked in, as its knight's cloth: a notch on a card, a
-/// pip on a scoreboard, a tag over a rider.
 pub(super) fn seat_cloth(id: u32) -> char {
     match id {
         1 => '7',
@@ -814,15 +711,10 @@ pub(super) fn seat_cloth(id: u32) -> char {
     }
 }
 
-/// A seat's pip on a board or the map: the cloth's ink, but for the first
-/// seat, whose pip is gold.
 pub(super) fn seat_mark(id: u32) -> char {
     if id == 1 { '5' } else { seat_cloth(id) }
 }
 
-/// The seat's colours on the realm's knight. The gold seat's field is the
-/// rim's own gold, so there the rim (and the gold of buckle and hilt) goes
-/// to bronze first: the shield's field stands off its rim and stays gold.
 pub(super) fn realm_colours(id: u32) -> &'static [(char, char)] {
     match id {
         4 => &[('4', 'a'), ('7', '4'), ('8', 'a'), ('5', 'c')],
@@ -830,32 +722,24 @@ pub(super) fn realm_colours(id: u32) -> &'static [(char, char)] {
     }
 }
 
-/// The dwarf's kit id.
 pub const DWARF: &str = "ironbraid";
 
-/// A knight of the company as the portrait shows them: whole, at rest.
 pub fn of_kit(id: Option<&str>, colours: &[(char, char)]) -> Img {
-    // A code-drawn knight waits at the pub as it will play: its seat's rig
-    // at rest, in its colours.
     if let Some(rig) = id
         .and_then(crate::rules::knights::plain_seat)
         .and_then(quick_rig::seat_knight)
     {
         let sample = rig.sample(Clip::Idle, 0, Playback::Loop, false);
         let image = sample.image();
-        // Cut at the feet: a bench stands a figure by its bottom row.
         let mut standing = Img::new(image.w, sample.pivot()[1] + 1);
         standing.stamp(&image, 0, 0);
         return standing.recolor(colours);
     }
     if super::three_heroes::owns(id) { return super::three_heroes::standing(id.unwrap()).recolor(colours); }
     if super::pack_heroes::owns(id) { return super::pack_heroes::standing(id.unwrap()); }
-    // A champion as their body alone, near the size of a class's figure,
-    // for a portrait's frame; the tavern stands them up whole.
     if let Some(c) = id.and_then(crate::rules::champions::Champion::of_kit) {
         return super::champions::bust(c);
     }
-    // A kit that is a class stands as its class, in the first seat's trim.
     if let Some(look) = id.and_then(Look::of_kit) {
         return class_looks::figure(look, Facing::Down, Pose::Stand, true);
     }
@@ -866,9 +750,6 @@ pub fn of_kit(id: Option<&str>, colours: &[(char, char)]) -> Img {
     }
 }
 
-/// A knight standing square on for a bezel or a ghost: their shape while
-/// they wish themselves into being, their class if they have one, else the
-/// realm's knight in their colours.
 pub(super) fn portrait(hero: &Hero, id: u32) -> Img {
     if !hero.look.custom { return portrait_original(hero, id); }
     let visual = super::mirror::visual_hero(hero);
@@ -897,7 +778,6 @@ fn portrait_original(hero: &Hero, id: u32) -> Img {
         return super::champions::bust(c).recolor(seat_colours(id));
     }
     match Look::of(hero) {
-        // The Gravecaller's bust is his hood, not the headstone over it.
         Some(look) => class_looks::figure(look, Facing::Down, Pose::Stand, look != Look::Gravecaller)
             .recolor(seat_colours(id)),
         None if hero.colours().is_empty() => super::sprites::knight(id),
@@ -905,28 +785,18 @@ fn portrait_original(hero: &Hero, id: u32) -> Img {
     }
 }
 
-/// An untimed native hero (portraits and existing attachment callers), in the
-/// colours of their seat, at the
-/// stage of dress their health leaves them, with their shield (if they
-/// hold one up) toward its aim. `None` for a hero drawn another way.
 pub fn figure(hero: &Hero, id: u32) -> Img {
     figure_with(hero, id, false)
 }
 
-/// As `figure`, with the shield thrown (`thrown`): the arm is bare and
-/// nothing can be raised.
 pub fn figure_with(hero: &Hero, id: u32, thrown: bool) -> Img {
     figure_struck(hero, id, thrown, Struck::default())
 }
 
-/// As `figure_with`, a raised shield knocked and flashing when it was just
-/// `struck`.
 pub fn figure_struck(hero: &Hero, id: u32, thrown: bool, struck: Struck) -> Img {
     figure_casting(hero, id, thrown, struck, false)
 }
 
-/// As `figure_struck`, mid-cast when `casting`: a class's figure is in its
-/// strike (the Gravecaller's staff raised over his head).
 pub fn figure_casting(hero: &Hero, id: u32, thrown: bool, struck: Struck, casting: bool) -> Img {
     let visual = super::mirror::visual_hero(hero);
     let im = if hero.look.custom && (super::three_heroes::owns(visual.knight.as_deref()) || super::pack_heroes::owns(visual.knight.as_deref())) {
@@ -939,9 +809,6 @@ pub fn figure_casting(hero: &Hero, id: u32, thrown: bool, struck: Struck, castin
     super::mirror::appearance(im, hero)
 }
 
-/// Timed quick-rig body entry. `tick` is authoritative render time, not the
-/// wall clock. Live arena composition uses `dressed_frame`; untimed
-/// `figure`/`body_of` callers retain the native profile contract.
 pub(super) fn figure_at(
     hero: &Hero,
     id: u32,
@@ -1005,15 +872,8 @@ fn legacy_timed(hero: &Hero, id: u32, thrown: bool, struck: Struck, casting: boo
     hatted(im, hero)
 }
 
-/// A knight of a class, as that class: facing the aim, on their stride or
-/// in their strike, in the seat's trim. A class keeps its look as health
-/// fails (the knight's helmet and tabard stay the knight's); the health bar
-/// says how they fare.
 fn class_figure(hero: &Hero, id: u32, thrown: bool, look: Look, struck: Struck, casting: bool, tick: Option<u64>) -> Img {
     let face = facing(hero.aim_x, hero.aim_y);
-    // A shield held is always drawn: on the arm, or brought round to the
-    // aim while it is up. The Shieldmaiden's is her held thing; any other
-    // class wears the knight's own beside what they carry.
     let shield = !thrown && (hero.holds_shield() || (look.shielded() && hero.owned.shield));
     let raising = shield && hero.shielding;
     let held = if look.shielded() {
@@ -1034,9 +894,6 @@ fn class_figure(hero: &Hero, id: u32, thrown: bool, look: Look, struck: Struck, 
         None => class_looks::figure_shielded(look, face, pose, held, slung),
     };
     if raising {
-        // The shield, brought round to the aim: hers steel-rimmed like the
-        // one on her arm, the knight's own gold. Its foot stays on the
-        // body's, however tall the class stands.
         let off = (im.w - 16) / 2;
         let (dx, dy) = (struck.dx, struck.dy + im.h - 16);
         let rim: &[(char, char)] = if look.shielded() { STEEL_RIM } else { &[] };
@@ -1055,16 +912,10 @@ fn class_figure(hero: &Hero, id: u32, thrown: bool, look: Look, struck: Struck, 
     if hero.look.custom { im } else { im.recolor(seat_colours(id)) }
 }
 
-/// The Shieldmaiden's kite shield is rimmed in steel where the knight's is
-/// gold.
 const STEEL_RIM: &[(char, char)] = &[('6', 'W'), ('4', 'v'), ('a', 'u')];
 
-/// What a game against friends left on the knight's helm: the winner's gold
-/// crown, or the game's booby prize until they win one back.
 fn hat(hero: &Hero) -> Option<Img> {
     use crate::rules::pastimes::Game;
-    // Each in its own material, lit from the upper left like the knight:
-    // the lit edge a step up its ramp, the far edge its darkest step.
     if hero.laurel {
         return Some(rows(&[
             "..6..6..6...",
@@ -1098,14 +949,12 @@ fn hat(hero: &Hero) -> Option<Img> {
             "..tTtooooor.",
             "..rooooorrr.",
         ]),
-        // An apple on the helm, an arrow clean through it.
         Game::Longbow => rows(&[
             "......e.....",
             "....@778....",
             "roo777778otT",
             "....7788....",
         ]),
-        // A war-goose rearing, wings out; a knight's helm above the bill.
         Game::Gander => rows(&[
             ".....99.....",
             "..59h9hO....",
@@ -1117,7 +966,6 @@ fn hat(hero: &Hero) -> Option<Img> {
             "..m.ml.l.E..",
             ".mlllllEEE..",
         ]),
-        // The belfry's spare bell, worn clapper-down until won back.
         Game::Peal => rows(&[
             ".....77.....",
             "....7777....",
@@ -1134,7 +982,6 @@ fn hat(hero: &Hero) -> Option<Img> {
     })
 }
 
-/// The knight with their hat on, standing on the same feet.
 fn hatted(im: Img, hero: &Hero) -> Img {
     let Some(hat) = hat(hero) else {
         return im;
@@ -1146,11 +993,6 @@ fn hatted(im: Img, hero: &Hero) -> Img {
     out
 }
 
-// ─── the identity start's shapes ─────────────────────────────────────────────
-
-/// A shape's inks, dark to light: its outline, its fill and the edge the
-/// light catches (upper left, as the knights are lit). One hue a seat, the
-/// seats' own cloths: red, blue, green, gold, sea-green and ivory.
 fn shape_inks(shape: Shape) -> [char; 3] {
     match shape {
         Shape::Square => ['8', '7', 'R'],
@@ -1162,8 +1004,6 @@ fn shape_inks(shape: Shape) -> [char; 3] {
     }
 }
 
-/// Whether the point `(u, v)` (each -1 to 1 across the shape's box, v
-/// down) is inside `shape`.
 fn inside(shape: Shape, u: f32, v: f32) -> bool {
     match shape {
         Shape::Square => u.abs() <= 0.86 && v.abs() <= 0.86,
@@ -1175,7 +1015,6 @@ fn inside(shape: Shape, u: f32, v: f32) -> bool {
             v.abs() <= h + 0.04 && u.abs() <= 1.02 - v.abs() / 3f32.sqrt()
         }
         Shape::Star => {
-            // Five points, one up: inside the outer ring's star polygon.
             let (outer, inner) = (1.16, 0.5);
             let points: Vec<(f32, f32)> = (0..10)
                 .map(|k| {
@@ -1198,9 +1037,6 @@ fn inside(shape: Shape, u: f32, v: f32) -> bool {
     }
 }
 
-/// `shape` on a `side`-pixel square: a dark outline, its fill, and the
-/// light along its upper left edge (`lit`; an emblem small enough to be a
-/// mark is drawn flat).
 pub fn shape_img(shape: Shape, side: i32, lit: bool) -> Img {
     let [outline, fill, light] = shape_inks(shape);
     let half = side as f32 / 2.0;
@@ -1231,25 +1067,12 @@ pub fn shape_img(shape: Shape, side: i32, lit: bool) -> Img {
     im
 }
 
-/// A knight still a shape, as the arena draws them: the shape standing on
-/// the figure's feet, rising a pixel with each stride, its shield (a
-/// guard wished or found) raised to the aim when it is up. The parts
-/// wished go on over it (`dressed`), and once a body is wished the shape's
-/// mark goes on its chest (`emblem`).
 pub fn shape_figure(hero: &Hero, shape: Shape, thrown: bool, struck: Struck) -> Img {
     shape_struck(hero, shape, false, thrown, struck)
 }
 
-/// The shape's side as a torso: a little smaller than a knight, centred
-/// where a knight's chest is, so a head wished goes on above it, arms at
-/// its sides and feet below.
 pub const SHAPE_SIDE: i32 = 12;
 
-/// As `shape_figure`, with a body wished (`bodied`) or not: the shape
-/// stays, the body wished is worn over it and the shape's mark goes on its
-/// chest (`emblem`), so a whole body drawn over the shape still shows whose
-/// it is. (Letting the shape give way left a knight smaller for wishing a
-/// body: a body drawn small at its place is smaller than the shape.)
 pub fn shape_struck(hero: &Hero, shape: Shape, _bodied: bool, thrown: bool, struck: Struck) -> Img {
     let mut im = Img::new(16, 16);
     let lift = i32::from(matches!(stride_step(hero), 1 | 3));
@@ -1260,43 +1083,29 @@ pub fn shape_struck(hero: &Hero, shape: Shape, _bodied: bool, thrown: bool, stru
     im
 }
 
-/// A knight being made as the arena draws them, before what they wear.
 pub fn identity_figure(hero: &Hero, shape: Shape, bodied: bool, thrown: bool, struck: Struck) -> Img {
     hatted(shape_struck(hero, shape, bodied, thrown, struck), hero)
 }
 
-/// A shape's mark on the chest of the body wished over it: the shape
-/// small, on the dressed figure `im` whose feet are its bottom row.
 pub fn emblem(im: &mut Img, shape: Shape) {
     let mark = shape_img(shape, 5, false);
     im.stamp(&mark, im.w / 2 - 3, im.h - 16 + 7);
 }
 
-// ─── what cards put on the field ─────────────────────────────────────────────
-
-/// A frame of a card's sprite, as an image.
 pub fn frame_img(rows: &[String]) -> Img {
     let refs: Vec<&str> = rows.iter().map(String::as_str).collect();
     Img::from_rows(&refs)
 }
 
-/// A wish sprite's frame at `tick`, its own inks (`pal=`) in their colours.
 pub fn sprite_img(sprite: &Sprite, tick: u64) -> Img {
     let refs: Vec<&str> = sprite.frame(tick).iter().map(String::as_str).collect();
     Img::from_rows_pal(&refs, &sprite.pal)
 }
 
-/// The sprites a knight wears, over their body, oldest under newest: each
-/// frame centred on the figure. The canvas grows for what stands proud of
-/// the figure at the sides and above; below the feet is cut, so the knight
-/// stands where they stood.
 pub fn dress(body: &Img, worn: &[&Sprite], tick: u64) -> Img {
     dressed(body, worn, tick, 0).0
 }
 
-/// As `dress`, each piece moving by its motion words a step `phase` out
-/// of another knight's; with the paintings of the pieces that have them,
-/// in the dressed picture's pixels (`paintings`).
 pub fn dressed(body: &Img, worn: &[&Sprite], tick: u64, phase: u32) -> (Img, Vec<super::Painting>) {
     dressed_as(body, crate::rules::looks::profile("knight"), worn, tick, phase)
 }
@@ -1305,10 +1114,6 @@ pub fn dressed_as(body: &Img, fit: Body, worn: &[&Sprite], tick: u64, phase: u32
     super::wear::dressed(body, fit, worn, tick, phase)
 }
 
-/// Rig-only composition: preserve native fitting/motion for every other slot,
-/// but turn right-slot art about its existing Part contact. Unlike native
-/// dressing, a swung weapon may extend below the feet: the returned pivot
-/// records actual body padding, never the bottom of that weapon's rectangle.
 pub(super) fn dressed_rig(
     body: &Img,
     fit: Body,
@@ -1394,7 +1199,6 @@ fn dressed_rig_aimed(
         let (mut moved, offset) = pose.apply(&im, local_pivot);
         let right = original.at.as_deref().and_then(crate::rules::looks::place) == Some("right");
         if !right {
-            // Keep the unchanged native floor contract for hats/capes/shields.
             origin.1 -= (origin.1 + offset.1 + moved.h - body.h).max(0);
         }
         let mut at = [origin.0 + offset.0, origin.1 + offset.1];
@@ -1411,17 +1215,12 @@ fn dressed_rig_aimed(
             p.pixel = true;
         }
         if right {
-            // Contact is exactly Part::origin's inverse, including bottom=true.
-            // Motion words run first in source space; rig rotation runs last.
             let orientation = quick_rig::WeaponOrientation::new(
                 [part.anchor.0 - at[0], part.anchor.1 - at[1]],
                 [part.anchor.0, part.anchor.1],
                 super::kingdom_gear::carry_tip(original, sample.clip, part.anchor, tip),
             );
             if let Some(p) = &mut paint {
-                // Pose::place already accounts for authored motion, including
-                // its own pivot. Rotate that resulting rectangle's centre
-                // around the same pixel-centre contact as the hard inks.
                 let (rect, angle) = p.placed();
                 let centre = orientation.point([
                     rect[0] + rect[2] / 2.0 - at[0] as f32 - 0.5,
@@ -1492,14 +1291,11 @@ fn dressed_rig_aimed(
     }
 }
 
-/// The figure's own attachment coordinates, independent of its weapon's
-/// reach, hat padding and staff headroom.
 pub fn body_of(hero: &Hero, figure: &Img) -> Body {
     let visual = super::mirror::visual_hero(hero);
     body_at(&visual, figure, 0, false, 1)
 }
 
-/// `seat` picks the design whose sockets a rigged figure is fitted by.
 fn body_at(hero: &Hero, figure: &Img, tick: u64, casting: bool, seat: u32) -> Body {
     if let Some(rig) = default_rig(hero, seat) {
         let sample = rig_sample(rig, hero, tick, casting);
@@ -1518,8 +1314,6 @@ fn body_at(hero: &Hero, figure: &Img, tick: u64, casting: bool, seat: u32) -> Bo
         let native = super::champions::figure(hero, crate::rules::champions::of(hero).unwrap());
         let shift = ((figure.w - native.w) / 2, figure.h - native.h);
         let mut fit = crate::rules::looks::profile(profile).shifted(animated.bounds[0], animated.bounds[1]);
-        // The champion owns its arm animation; do not fork that animation
-        // into the authoring tool or edit the parallel champion-arms work.
         fit.right.anchor = animated.right.anchor;
         fit.left.anchor = animated.left.anchor;
         return fit.shifted(shift.0, shift.1);
@@ -1539,8 +1333,6 @@ fn body_at(hero: &Hero, figure: &Img, tick: u64, casting: bool, seat: u32) -> Bo
     fit
 }
 
-/// Dress the hero, including a whole-body colour wish that follows the
-/// existing silhouette rather than replacing it with a rectangular swatch.
 pub(super) fn dressed_hero(
     body: &Img,
     hero: &Hero,
@@ -1560,8 +1352,6 @@ pub(super) fn dressed_hero(
     )
 }
 
-/// Compatibility entry for callers without a cast event: `casting` starts
-/// at anticipation, rather than guessing an origin from the world tick.
 pub(super) fn dressed_casting(
     body: &Img,
     hero: &Hero,
@@ -1585,15 +1375,11 @@ pub(super) fn dressed_casting(
     )
 }
 
-/// One live frame, including its contact point after equipment padding.
 pub(super) struct DressedFrame {
     pub image: Img,
     pub paints: Vec<super::Painting>,
     pub pivot: Option<[i32; 2]>,
     pub authored_roll: bool,
-    /// What the frame is, when it is the rig's own knight as a seat wears
-    /// it (`figure_keys`): its key, dress and feet, at the game's rung
-    /// until the caller, who knows the run, says the knight's.
     pub named: Option<super::figure_keys::Named>,
 }
 
@@ -1622,8 +1408,6 @@ pub(super) fn dressed_event(
     (frame.image, frame.paints)
 }
 
-/// Sample exactly once; the body and every socket use that timed sample.
-/// Legacy body construction is lazy, never a throwaway for a rigged hero.
 pub(super) fn dressed_frame(
     fallback: impl FnOnce() -> Img,
     hero: &Hero,
@@ -1651,8 +1435,6 @@ pub(super) fn dressed_frame(
     let rig = wished.as_ref().map(|(_, r)| r.as_ref()).or(default);
     if let Some(rig) = rig {
         let sample = rig_sample_event(rig, hero, book, tick, cast_age);
-        // A worn right sprite is the weapon, not a second blade laid over
-        // the procedural grip-to-tip placeholder.
         let native_weapon = !worn
             .iter()
             .any(|s| s.at.as_deref().and_then(crate::rules::looks::place) == Some("right"));
@@ -1689,15 +1471,10 @@ pub(super) fn dressed_frame(
                 && super::factory::equipped_attack_clip(hero, book).is_none())
                 .then_some((hero.aim_x, hero.aim_y)),
         );
-        // The rig's own knight in a seat's colours, wearing nothing over
-        // it: named, so a pack can draw it by what it is (`figure_keys`).
         if let (None, true, None, Some(seat), Some(design), Some(pivot)) =
             (&wished, rest.is_empty(), &tinted, seat, super::figure_keys::design_of(rig), frame.pivot)
         {
             let colours = super::figure_keys::colours_part(seat, hero.colours());
-            // The body before what it carries: its pixels in the same
-            // canvas, in the same colours (nothing worn: the frame is the
-            // rig's image as `rig_art_sample` stamped it).
             let bare = staged_image(&sample).recolor(if hero.colours().is_empty() {
                 realm_colours(seat)
             } else {
@@ -1709,7 +1486,6 @@ pub(super) fn dressed_frame(
                 pivot,
                 rung: crate::rules::resolution::Rung::BASE,
                 bare: ((bare.w, bare.h) == (frame.image.w, frame.image.h)).then(|| std::sync::Arc::new(bare)),
-                // Facing up or down the room: a pack may draw it so.
                 vertical: match facing(hero.aim_x, hero.aim_y) {
                     Facing::Up => Some('u'),
                     Facing::Down => Some('d'),
@@ -1755,15 +1531,10 @@ pub(super) fn dressed_frame(
     }
 }
 
-/// A knight who brought their own picture: the sprite at the arena's
-/// sixteen pixels, with a held shield on the arm, brought round when it is
-/// raised (the picture carries no shield of its own to take off).
 pub fn avatar_figure(hero: &Hero, pixels: &[[u8; 4]], thrown: bool) -> Img {
     avatar_struck(hero, pixels, thrown, Struck::default())
 }
 
-/// As `avatar_figure`, a raised shield knocked and flashing when it was
-/// just `struck`.
 pub fn avatar_struck(hero: &Hero, pixels: &[[u8; 4]], thrown: bool, struck: Struck) -> Img {
     let mut im = Img::new(16, 16);
     for y in 0..16 {
@@ -1784,8 +1555,6 @@ pub fn avatar_struck(hero: &Hero, pixels: &[[u8; 4]], thrown: bool, struck: Stru
     im
 }
 
-/// A summoned creature drawn by no card: a small horned imp for a swarm, a
-/// lantern for a guard, a little bolt-thrower for a turret. Two frames.
 pub fn imp_default(behaviour: Behaviour, tick: u64) -> Img {
     let up = (tick / 6) % 2 == 0;
     match behaviour {
@@ -1809,12 +1578,6 @@ pub fn imp_default(behaviour: Behaviour, tick: u64) -> Img {
     }
 }
 
-// ─── the spin ────────────────────────────────────────────────────────────────
-
-/// The dwarf's axes in their spin, round the point `(x, y)` in native
-/// pixels (her middle). Two axes opposite each other turn through the
-/// reach of the cut, each trailing a band that fades behind it, and the
-/// circle they cover lights as each cuts.
 pub fn spin_marks(cv: &mut Img, x: i32, y: i32, left: u32, reach_px: f32) {
     let age = spin::TICKS.saturating_sub(left);
     let turn = age as f32 * 0.9;
@@ -1826,7 +1589,6 @@ pub fn spin_marks(cv: &mut Img, x: i32, y: i32, left: u32, reach_px: f32) {
             y + (a.sin() * radius * squash).round() as i32,
         )
     };
-    // The circle they cover: faint, and bright where a cut has just landed.
     let cutting = spin::sweeping(age);
     for k in 0..72 {
         let a = k as f32 / 72.0 * std::f32::consts::TAU;
@@ -1837,7 +1599,6 @@ pub fn spin_marks(cv: &mut Img, x: i32, y: i32, left: u32, reach_px: f32) {
     }
     for axe in 0..2 {
         let base = turn + axe as f32 * std::f32::consts::PI;
-        // The trail: a band two thick, brightest at the head.
         const FADE: [char; 7] = ['c', 'V', 'U', 'u', 'S', 'x', 's'];
         for (n, ink) in FADE.iter().enumerate() {
             for back in 0..2 {
@@ -1848,7 +1609,6 @@ pub fn spin_marks(cv: &mut Img, x: i32, y: i32, left: u32, reach_px: f32) {
                 }
             }
         }
-        // The haft from her fist, two wide.
         let (c, s) = (base.cos(), base.sin() * squash);
         for k in 4..(r as i32 - 1) {
             let (px, py) = (
@@ -1858,8 +1618,6 @@ pub fn spin_marks(cv: &mut Img, x: i32, y: i32, left: u32, reach_px: f32) {
             cv.put(px, py, 'B');
             cv.put(px + 1, py, 'r');
         }
-        // The head: a blade across the haft, its edge forward, wider at the
-        // cutting edge than where it meets the wood.
         let (hx, hy) = at(base, r);
         let (px, py) = (-s, c);
         for (back, half, ink) in [
@@ -1881,12 +1639,6 @@ pub fn spin_marks(cv: &mut Img, x: i32, y: i32, left: u32, reach_px: f32) {
     }
 }
 
-// ─── the shadow ──────────────────────────────────────────────────────────────
-
-/// A knight's contact shadow on the floor, under feet at native `(x, y)`:
-/// a short navy pool, the row under the feet a little narrower, its ends
-/// broken by the ordered dither so it lies soft. Drawn before the figure,
-/// which stands over it; on black paper it is all but black.
 pub(super) fn shadow(cv: &mut Img, x: i32, y: i32) {
     use super::super::ink::bayer;
     for (dy, half) in [(0, 5), (1, 4)] {
@@ -1900,11 +1652,6 @@ pub(super) fn shadow(cv: &mut Img, x: i32, y: i32) {
     }
 }
 
-// ─── the roll ────────────────────────────────────────────────────────────────
-
-/// The knight tucked and tumbling with `left` ticks of the roll to go: a
-/// full circle along the roll, the legs folded up under the body so the
-/// knight turns over as a ball, not a plank.
 pub(super) fn rolled(im: &Img, left: u32) -> Img {
     let quarter = (10 - left.min(10)) * 4 / 10;
     let mut turned = tucked(im);
@@ -1914,8 +1661,6 @@ pub(super) fn rolled(im: &Img, left: u32) -> Img {
     turned
 }
 
-/// `im` with its lower half folded up: the head and shoulders whole, every
-/// other row below them.
 fn tucked(im: &Img) -> Img {
     let keep: Vec<i32> = (0..im.h / 2).chain((im.h / 2..im.h).step_by(2)).collect();
     let mut out = Img::new(im.w, keep.len() as i32);
@@ -1929,13 +1674,10 @@ fn tucked(im: &Img) -> Img {
     out
 }
 
-// ─── the flung gear ──────────────────────────────────────────────────────────
-
 fn helmet() -> Img {
     realm::helmet()
 }
 
-/// The dwarf's horned cap, and her mail with its belt.
 fn horned_cap() -> Img {
     rows(&["T......T", "TiHHHHiT", ".iHhhHi.", ".JjjjjJ."])
 }
@@ -1950,7 +1692,6 @@ fn mail_shirt() -> Img {
     ])
 }
 
-/// The harness and tabard, off over the head.
 fn tabard() -> Img {
     rows(&[
         "xVWv.vVvx",
@@ -1962,12 +1703,8 @@ fn tabard() -> Img {
     ])
 }
 
-/// What flew off as health failed, in the air for `gear::POP_TICKS`: the
-/// helmet pops straight up and back, the tabard after it the other way.
-/// `(x, y)` is the figure's feet; `away` is -1 or 1, the side it flies to.
 pub(super) fn flung(cv: &mut Img, hero: &Hero, x: i32, y: i32, away: i32) {
     let dwarf = hero.knight.as_deref() == Some(DWARF);
-    // A class keeps its look: nothing of it flies off.
     if hero.pop == 0 || Look::of(hero).is_some() {
         return;
     }
@@ -1986,7 +1723,6 @@ pub(super) fn flung(cv: &mut Img, hero: &Hero, x: i32, y: i32, away: i32) {
         for _ in 0..(((age - delay) / 3) % 4) {
             turned = super::sprites::quarter_turn(&turned);
         }
-        // It rests, then goes: blink out over the last few ticks.
         if t > 0.8 && (age / 2) % 2 == 0 {
             return None;
         }
@@ -2016,8 +1752,6 @@ pub(super) fn flung(cv: &mut Img, hero: &Hero, x: i32, y: i32, away: i32) {
     }
 }
 
-/// Six desperate poses and six waddle steps, using the cast's own face and
-/// palette. Kit pieces follow their flight timestamps, rather than health.
 pub(super) fn pit_figure(hero: &Hero, id: u32, tick: u32) -> Img {
     use crate::rules::pitstop::{FLIGHT_TICKS, Grade, Quality, Stage};
     let stop = hero.pit.stop.as_ref();
@@ -2096,7 +1830,6 @@ pub(super) fn pit_figure(hero: &Hero, id: u32, tick: u32) -> Img {
         im.line(15, 11, 7, 7, 'O');
         im.put(8, 7, 't');
         im.put(12, 7, 't');
-        // A loose strap tangles around the elbows.
         im.line(3, 12, 7, 15, 'P');
         im.line(7, 15, 16, 8, 'P');
     } else if running {
@@ -2166,8 +1899,6 @@ pub(super) fn pit_figure(hero: &Hero, id: u32, tick: u32) -> Img {
 mod hero_sheet;
 
 pub(super) fn floating_equipment(body: Img, hero: &Hero, tick: u64, id: u32) -> Img {
-    // The registered painting is attached by dressed_frame. Legacy bodies
-    // must not add their old generic bow/sword underneath that same hand.
     if hero.arm.as_deref().is_some_and(|id| crate::rules::kingdom_gear::item(id).is_some()) {
         return body;
     }

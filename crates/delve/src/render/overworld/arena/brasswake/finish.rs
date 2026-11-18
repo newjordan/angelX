@@ -14,7 +14,6 @@ const PRIZE_Y: i32 = 206;
 const KEYS_Y: i32 = 216;
 const TITLE_Y: i32 = 8;
 
-/// Ticks since the round ended.
 pub(super) fn age(run: &Run, s: &Session) -> u32 {
     (run.tick as u32).saturating_sub(s.done)
 }
@@ -23,7 +22,6 @@ fn secs(t: u32) -> String {
     format!("{}.{:02} S", t / HZ, (t % HZ) * 100 / HZ)
 }
 
-/// The title the round ended under.
 pub(super) fn title(s: &Session) -> &'static str {
     if s.won { "BREWERY CLEARED" } else { "SHIFT FINISHED" }
 }
@@ -32,7 +30,6 @@ fn podium_xs() -> [i32; 3] {
     [W / 2, W / 2 - 88, W / 2 + 88]
 }
 
-/// Where the podium's names and lines are drawn (the kit's own placement), for the claims.
 fn podium_boxes(run: &Run, s: &Session) -> Vec<(&'static str, Rect)> {
     let mut out = Vec::new();
     for (i, &who) in s.order.iter().take(3).enumerate() {
@@ -76,7 +73,6 @@ pub(super) fn words(run: &Run, s: &Session, id: u32) -> Vec<Word> {
     out
 }
 
-/// Every box on the end screen: the title, the podium's names and lines, the words.
 pub(super) fn boxes(run: &Run, s: &Session, id: u32) -> Vec<(&'static str, Rect)> {
     let a = age(run, s);
     let mut out = vec![("title", moments::banner_rect_at(TITLE_Y, title(s), "", a, 2))];
@@ -85,13 +81,11 @@ pub(super) fn boxes(run: &Run, s: &Session, id: u32) -> Vec<(&'static str, Rect)
     out
 }
 
-/// The end screen over `room`, the brewery as the knight last saw it.
 pub(super) fn paint(room: &Img, run: &Run, s: &Session, id: u32, sprite: &dyn Fn(u32) -> Img, with_text: bool) -> Img {
     let a = age(run, s);
     let tick = run.tick;
     let mut im = Img::black(W, hud::H);
     im.stamp(room, 0, 0);
-    // The room, dimmed to a stage by an ordered dither.
     for y in hud::TOP..hud::BOTTOM {
         for x in 0..W {
             if bayer(x, y) < 0.5 {
@@ -100,7 +94,6 @@ pub(super) fn paint(room: &Img, run: &Run, s: &Session, id: u32, sprite: &dyn Fn
         }
     }
     im.rect(0, 33, W, 1, 'S');
-    // Fireworks over the aisle, five at a time, each on its own beat.
     for i in 0..5u32 {
         let beat = (a as i32 - i as i32 * 15).rem_euclid(96) as u32;
         let x = 40.0 + (hud::W as f32 - 80.0) * ((i * 37 + 11) % 100) as f32 / 100.0;
@@ -118,7 +111,6 @@ pub(super) fn paint(room: &Img, run: &Run, s: &Session, id: u32, sprite: &dyn Fn
         .collect();
     let crown = juice::podium(&mut im, (0, 34, W, 134), &places, a);
     if a > 30 && !places.is_empty() {
-        // The crown settles on the winner's helm and bobs; a glint crosses it.
         let drop = ((1.0 - ((a as f32 - 30.0) / 10.0).clamp(0.0, 1.0)) * 24.0) as i32;
         let bob = if a > 44 { ((a / 8) % 2) as i32 } else { 0 };
         let crown_img = Img::from_rows(&[

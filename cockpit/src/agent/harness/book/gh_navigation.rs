@@ -12,7 +12,6 @@ use super::{Primary, Route, Sub};
 
 pub(crate) const CELL: char = '⠣';
 
-// The compile-time fallback uses the same catalog shipped for runtime reloads.
 const CATALOG: &str = include_str!("../../../../book/gh_navigation.tsv");
 
 const fn catalog_pages<const N: usize>(route: u8) -> [&'static str; N] {

@@ -1,8 +1,6 @@
 use super::*;
 use std::collections::BTreeMap;
 
-/// A calm, empty fight with knight 1 standing at (24, 14), aiming `aim`,
-/// a kite shield on the guard key, at full health with no grace.
 fn guarded(aim: (f32, f32)) -> Run {
     let mut run = Run::new(1, 1, None);
     let room = run
@@ -48,16 +46,12 @@ fn monster_shot(kind: Shot, at: (f32, f32), velocity: (f32, f32), damage: u32) -
     }
 }
 
-/// What came of one shot: the blocks it left (counted the tick each was
-/// new), the health lost, and the last place it was seen in flight.
 struct Outcome {
     blocks: Vec<feel::Block>,
     lost: u32,
     last: (f32, f32),
 }
 
-/// Fly `shot` at knight 1 until it is gone, the shield raised or not,
-/// keeping the knight where they stand.
 fn fly(run: &mut Run, shot: Projectile, raised: bool) -> Outcome {
     let full = run.players[&1].hp;
     let mut last = (shot.x, shot.y);
@@ -82,8 +76,6 @@ fn fly(run: &mut Run, shot: Projectile, raised: bool) -> Outcome {
     }
 }
 
-/// A shot coming in toward the knight's middle from `bearing` degrees off
-/// the aim, `offset` across its line.
 fn incoming(run: &Run, bearing: f32, offset: f32, speed: f32) -> ((f32, f32), (f32, f32)) {
     let hero = &run.players[&1];
     let base = hero.aim_y.atan2(hero.aim_x) + bearing.to_radians();
@@ -111,7 +103,6 @@ fn a_shot_from_the_front_dies_at_the_shield_face() {
                 let d = bx.hypot(by);
                 assert!((d - shield::SHIELD_REACH).abs() < 0.02, "{case}: stopped at the face ({d})");
                 assert!(bx * hero.aim_x + by * hero.aim_y > 0.0, "{case}: in front");
-                // In flight it was never inside the knight.
                 let seen = (out.last.0 - c.0).hypot(out.last.1 - c.1);
                 assert!(seen > HERO_RADIUS + 0.16, "{case}: last seen {seen} from the middle");
                 assert!(
@@ -167,9 +158,6 @@ fn every_kind_of_monster_shot_is_stopped_at_the_face() {
 
 #[test]
 fn a_raised_shield_never_lets_through_what_it_stopped_before() {
-    // Before, a shot was turned when it reached the body coming within the
-    // arc of the aim. Every such shot is still turned, wherever it meets
-    // the shield, and wherever across the body it was going.
     let cos = shield::SHIELD_ARC.to_radians().cos();
     let mut cases = 0;
     for aim in [(1.0, 0.0), (1.0, 1.0), (0.0, -1.0)] {
@@ -208,7 +196,6 @@ fn the_block_is_left_once_for_each_shot_stopped() {
     let mut blocks = 0;
     let mut clangs = 0;
     for n in 0..5 {
-        // Each to a shield unworn: five in a row would knock it aside.
         run.players.get_mut(&1).unwrap().shield_wear = shield::Wear::default();
         let (at, v) = incoming(&run, (n as f32 - 2.0) * 20.0, 0.0, 12.0);
         run.projectiles.push(monster_shot(Shot::Wisp, at, v, 12));
@@ -223,7 +210,6 @@ fn the_block_is_left_once_for_each_shot_stopped() {
     assert_eq!(blocks, 5);
     assert_eq!(clangs, 5);
     assert_eq!(run.players[&1].hp, run.players[&1].max_hp);
-    // And then it fades.
     for _ in 0..feel::BLOCK_TICKS {
         run.step(&keys(true));
     }
@@ -292,8 +278,6 @@ fn a_beam_stops_at_a_raised_shield_and_spares_the_knight_behind() {
 
 #[test]
 fn every_path_a_shot_takes_asks_the_shield_the_same() {
-    // The shots' loop, the beams and the bash all go through `shield`; no
-    // copy of the facing rule is left anywhere else.
     for (name, source) in [
         ("rules.rs", include_str!("../../src/rules.rs")),
         ("hero.rs", include_str!("../../src/rules/hero.rs")),
@@ -310,7 +294,6 @@ fn every_path_a_shot_takes_asks_the_shield_the_same() {
     assert!(include_str!("../../src/rules/flight.rs").contains("shield::meets("));
     assert!(include_str!("../../src/rules/patterns.rs").contains("shield::turns("));
     assert!(include_str!("../../src/rules/critters.rs").contains("shield::turns("));
-    // And the two questions agree: what `turns` faces, `meets` stops.
     let mut hero = Hero::new("Knight", 24.0, 14.0);
     (hero.aim_x, hero.aim_y, hero.shielding) = (1.0, 0.0, true);
     for step in -20..=20 {
@@ -323,9 +306,6 @@ fn every_path_a_shot_takes_asks_the_shield_the_same() {
     }
 }
 
-/// One shot of `damage` from straight ahead, the guard key held: whether
-/// the shield turned it, the health it cost, and whether it clanged as
-/// the shield was knocked aside.
 fn shoot(run: &mut Run, damage: u32) -> (bool, u32, bool) {
     let full = run.players[&1].hp;
     let (at, v) = incoming(run, 0.0, 0.0, 12.0);
@@ -350,14 +330,11 @@ fn shoot(run: &mut Run, damage: u32) -> (bool, u32, bool) {
 
 #[test]
 fn a_kite_shield_turns_a_third_of_its_knights_health_and_is_knocked_aside() {
-    // A pavise's rule (`critters::GUARD_BREAK`): 34 in a hundred-health
-    // knight's, 37.4 in a 110's, 44.2 in a 130's.
     assert_eq!(shield::Wear::most(100), 3_400);
     assert_eq!(shield::Wear::most(110), 3_740);
     assert_eq!(shield::Wear::most(130), 4_420);
     let mut run = guarded((1.0, 0.0));
     assert_eq!(run.players[&1].max_hp, 100);
-    // Twelve, twenty-four: worn, and the meter shows it.
     for n in 1..=2 {
         assert_eq!(shoot(&mut run, 12), (true, 0, false), "shot {n}");
         let hero = &run.players[&1];
@@ -365,14 +342,12 @@ fn a_kite_shield_turns_a_third_of_its_knights_health_and_is_knocked_aside() {
         let left = hero.shield_wear.left(hero.max_hp);
         assert!((left - (1.0 - n as f32 * 12.0 / 34.0)).abs() < 1e-3, "{left}");
     }
-    // Thirty-six: turned, and the shield knocked aside with a clang.
     assert_eq!(shoot(&mut run, 12), (true, 0, true), "the third is turned as it breaks");
     let hero = &run.players[&1];
     assert!(!hero.shielding, "it drops");
     assert_eq!(hero.shield_wear.worn, 0, "its wear gone with it");
     assert_eq!(hero.shield_wear.left(hero.max_hp), 0.0);
     assert!(hero.shield_wear.down > shield::SHIELD_DOWN - 2, "{}", hero.shield_wear.down);
-    // Down: the key held raises nothing, and what comes meets the knight.
     let (turned, lost, _) = shoot(&mut run, 12);
     assert!(!turned && lost > 0, "through a shield knocked aside: {lost}");
 }
@@ -390,8 +365,6 @@ fn a_shield_knocked_aside_stays_down_as_long_as_a_pavises_then_comes_back_unworn
         ticks += 1;
         assert!(ticks <= 3 * HZ, "never came back");
     }
-    // The tick it was knocked aside counted down the shot's flight, so
-    // from the next it is a second at most.
     assert!((shield::SHIELD_DOWN - 2..=shield::SHIELD_DOWN).contains(&ticks), "{ticks}");
     let hero = &run.players[&1];
     assert!(hero.shield_wear.fresh(), "back unworn: {:?}", hero.shield_wear);
@@ -402,9 +375,7 @@ fn a_shield_knocked_aside_stays_down_as_long_as_a_pavises_then_comes_back_unworn
 fn a_shields_wear_holds_through_a_volley_and_drains_between_them() {
     let mut run = guarded((1.0, 0.0));
     let most = shield::Wear::most(100);
-    // Shots a little apart, as a volley comes: no mending between them.
     shoot(&mut run, 6);
-    // The next is loosed with half the calm left, and lands inside it.
     for _ in 0..shield::SHIELD_CALM / 2 {
         run.step(&keys(true));
     }
@@ -412,14 +383,12 @@ fn a_shields_wear_holds_through_a_volley_and_drains_between_them() {
     shoot(&mut run, 6);
     let worn = run.players[&1].shield_wear.worn;
     assert_eq!(worn, 1_200, "a volley's shots add up");
-    // Left alone: a second's calm, then drained, the key held or not.
     for t in 0..shield::SHIELD_CALM {
         run.step(&keys(t % 2 == 0));
         assert_eq!(run.players[&1].shield_wear.worn, worn, "calm at {t}");
     }
     run.step(&keys(false));
     assert!(run.players[&1].shield_wear.worn < worn, "draining");
-    // From its most to nothing in two seconds.
     let hero = run.players.get_mut(&1).unwrap();
     hero.shield_wear = shield::Wear { worn: most - 1, ..shield::Wear::default() };
     for _ in 0..shield::SHIELD_MEND {
@@ -430,7 +399,6 @@ fn a_shields_wear_holds_through_a_volley_and_drains_between_them() {
 
 #[test]
 fn a_pavises_bash_and_a_beam_wear_the_shield_too() {
-    // A bash turned counts its twenty; a beam its share of its shot.
     let mut hero = Hero::new("Knight", 24.0, 14.0);
     hero.guard = cards::Guard::Shield;
     hero.shielding = true;
@@ -438,7 +406,6 @@ fn a_pavises_bash_and_a_beam_wear_the_shield_too() {
     assert_eq!(hero.shield_wear.worn, 2_000);
     assert!(hero.shield_turned(14));
     assert!(!hero.shielding);
-    // Another guard has no meter.
     let mut rolled = Hero::new("Knight", 24.0, 14.0);
     rolled.guard = cards::Guard::Roll;
     assert!(!rolled.shield_turned(500));

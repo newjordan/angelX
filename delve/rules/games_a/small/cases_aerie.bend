@@ -1,5 +1,3 @@
-# Cases for aerie.bend (recorded by aerie_bend_cases__tests.rs).
-
 def case.aerie.pigeon_at(+input: J.Val) -> J.Val:
   cx.aerie.xy(aerie.pigeon_at(J.get(input, "room"), ga.u(input, "i"), W.of_j(J.get(input, "tick"))))
 

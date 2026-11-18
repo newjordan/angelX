@@ -7,14 +7,12 @@ fn firing(ids: &[u32]) -> BTreeMap<u32, Input> {
         .collect()
 }
 
-/// A party of two on its first floor, the stairs below it open.
 fn first_floor() -> Run {
     let mut run = Run::at_home(4, 2, Some("Matt"), Default::default(), Default::default());
     run.descend_for_test();
     run
 }
 
-/// The floor's guardian and its prerequisites behind the party.
 fn stairs_open(run: &mut Run) {
     run.clear_prerequisites_for_test();
     if let Some(g) = &mut run.boss_gates {
@@ -53,7 +51,6 @@ fn a_floors_tally_counts_across_its_rooms_and_starts_over_on_the_next_floor() {
         shots = now;
         run.clear_for_test();
     }
-    // A blow dealt and one taken, as the tick counts them.
     run.tally_floor(&BTreeMap::from([(2, 30)]));
     assert!(run.floor_tally.knights[&2].damage >= 30);
     let fought = run.floor_tally.knights[&1].fought;
@@ -80,13 +77,9 @@ fn the_wish_that_lifted_its_knights_pace_most_is_the_floors_most_impactful() {
             tally.count(id, if t == 0 { damage } else { 0 }, true);
         }
     };
-    // Each fought ten seconds at 30 a second before wishing.
     for id in 1..=3 {
         fight(&mut tally, id, 300, 10 * u64::from(HZ));
     }
-    // Knight 1 makes two wishes together and doubles their pace; knight 2
-    // lifts theirs by a third; knight 3 deals a great deal, but at the
-    // pace they kept before.
     tally.wished(1, "Twin Bolts");
     tally.wished(1, "Bounce");
     tally.wished(2, "Fork");
@@ -100,8 +93,6 @@ fn the_wish_that_lifted_its_knights_pace_most_is_the_floors_most_impactful() {
     assert_eq!((top.damage, top.gain), (300, Some(100)), "300 over the old pace: twice as fast");
     assert_eq!(top.name, run.players[&1].shown_name());
 
-    // Wishes made before any fight cannot be measured: the one held while
-    // its knight dealt the most is named for that, and nothing more.
     let mut fresh = Tally::default();
     fresh.wished(2, "Fork");
     fresh.wished(3, "Bigger Arrows");
@@ -126,8 +117,6 @@ fn honours_go_to_whoever_tops_them_and_the_mvp_holds_the_biggest_share() {
     assert_eq!(honours(2), vec![Honour::HardestHitter, Honour::Untouched, Honour::DeepPockets]);
     assert_eq!(honours(3), vec![Honour::Lifesaver]);
     assert_eq!(results.row(1).unwrap().line.aim(), Some(75));
-    // Shares: 1 holds 9 of 14 kills and 4 of 14 in damage, 2 holds 9 of
-    // 14 in damage and 3 of the kills, 3 the only raising, at half.
     assert_eq!(results.mvp, Some(1), "the biggest share of the floor's work");
     *tally.line(3) = Line { raised: 2, kills: 4, damage: 300, ..tally.knights[&3] };
     let raised = Results::of(&tally, &run.players, 2, End::Cleared, 900);
@@ -154,7 +143,6 @@ fn the_results_open_the_next_floors_plate_for_each_seat_and_a_press_or_a_fight_c
     assert!(run.results_showing(Some(2)).is_none());
     assert_eq!(run.floor_plate(Some(2)).and_then(|p| p.title()).map(|t| t.age), Some(0), "the floor's own title follows");
 
-    // A fight breaking out while the results show cuts them short.
     let mut run = first_floor();
     stairs_open(&mut run);
     run.descend();
@@ -196,7 +184,6 @@ fn a_fallen_party_sees_its_last_floor_after_the_verdict_stands_a_moment() {
     assert_eq!(run.results_showing(Some(1)).map(|(_, age)| age), Some(11), "every step the verdict stands counts");
     let stood = run.floor_results.as_ref().unwrap().stood;
     assert_eq!(Results { stood, ..results }, run.floor_results.clone().unwrap(), "the run's end is closed once");
-    // A new delve starts with no deeds and no results.
     let mut home = Run::at_home(4, 2, Some("Matt"), Default::default(), Default::default());
     home.deeds = vec!["first_delve".into()];
     home.descend();
@@ -220,7 +207,6 @@ fn old_saves_load_without_the_floors_tally_its_results_or_a_plates_results() {
     assert_eq!(old.floor_tally, Tally::default());
     assert_eq!(old.floor_results, None);
     assert_eq!(old.floor_plate(Some(1)).map(|p| (p.results, p.length())), Some((0, DURATION)));
-    // And the tally never goes down the wire: its results do.
     let tree = crate::wire::publish(&run).unwrap();
     let back = crate::wire::read(&tree).unwrap();
     assert_eq!(back.floor_tally, Tally::default());

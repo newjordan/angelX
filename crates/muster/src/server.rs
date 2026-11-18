@@ -8,13 +8,10 @@ use angel_net::entity::{Interest, Table};
 use angel_serve::{EntityRep, EntityTick, Events, GameServer, Rates};
 use std::borrow::Cow;
 
-/// Sheep run from a knight this close, and run this much faster than they walk.
 const FLEE_PX: i32 = 40;
 const SHEEP_WALK: i32 = 10;
 const SHEEP_RUN: i32 = 40;
-/// Sheep start within this far of the muster point.
 const FLOCK_PX: i32 = 700;
-/// How long a sheep grazes, and walks, in ticks (from..from+span).
 const GRAZE: (u32, u32) = (40, 120);
 const AMBLE: (u32, u32) = (20, 40);
 
@@ -29,7 +26,6 @@ struct Sheep {
     x: i32,
     y: i32,
     facing: Facing,
-    /// Sub-pixels a tick; zero while grazing.
     dx: i32,
     dy: i32,
     timer: u32,
@@ -67,7 +63,6 @@ impl MusterServer {
         server
     }
 
-    /// A small deterministic generator, for the sheep.
     fn next(&mut self) -> u32 {
         self.rng ^= self.rng << 13;
         self.rng ^= self.rng >> 17;
@@ -297,7 +292,6 @@ mod tests {
         let mut events = Events::default();
         cmds[0] = Some(MusterCmd { pressed: BANNER, ..Default::default() });
         server.step(1, &cmds, &mut events);
-        // Walk off a little, come back, lift it.
         cmds[0] = Some(MusterCmd { x: 127, ..Default::default() });
         server.step(2, &cmds, &mut events);
         cmds[0] = Some(MusterCmd { pressed: BANNER, ..Default::default() });
@@ -320,7 +314,6 @@ mod tests {
         let (sx, sy) = (server.sheep[0].x, server.sheep[0].y);
         let mut events = Events::default();
         server.join(0, "Gwen", &mut events);
-        // Put the knight just left of the sheep.
         server.seats[0].as_mut().unwrap().knight = Knight::new(sx - 10 * SUB, sy);
         let mut cmds = vec![None; SEATS as usize];
         cmds[0] = Some(MusterCmd::default());

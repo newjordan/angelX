@@ -1,4 +1,3 @@
-// MT2 proof. Ignored unless ANGEL_MT2_PROOF=1. Writes only under .lane-out/mt2.
 use crate::rules::caves::world::{
     Cell, Cave, FL_ASH, FL_FUNGUS, FL_GRASS, FL_ICE, FL_WALL, FL_WOOD, FLUID_ACID, FLUID_LAVA,
     FLUID_NONE, FLUID_WATER, REFREEZE_TICKS,

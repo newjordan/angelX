@@ -170,8 +170,6 @@ fn native_video_stage_paints_real_mp4_pixels_without_owning_the_composer() {
         std::env::var("ANGEL_NATIVE_VIDEO_PROTOCOL").unwrap_or_else(|_| "halfblocks".into());
     assert!(matches!(protocol.as_str(), "halfblocks" | "iterm2"));
     let _protocol = crate::tests::TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", &protocol);
-    // Manual rich-content review can supply an existing MP4; it is never
-    // overwritten or removed by this test. CI uses the controlled color.
     let supplied = std::env::var_os("ANGEL_NATIVE_VIDEO_FIXTURE");
     let path = supplied
         .as_ref()
@@ -264,7 +262,6 @@ fn native_video_stage_paints_real_mp4_pixels_without_owning_the_composer() {
     };
     assert!(std::sync::Arc::ptr_eq(&frame, &again));
     assert_eq!(frame.identity.generation, again.identity.generation);
-    // A card switch cannot borrow the previous decoder's frame before a draw.
     let original = std::mem::replace(
         &mut app.media[0],
         Media::Video {
@@ -363,11 +360,8 @@ fn native_video_stage_paints_real_mp4_pixels_without_owning_the_composer() {
     );
     if let Ok(out) = std::env::var("ANGEL_NATIVE_VIDEO_DUMP") {
         if let Some(png) = native_png {
-            // Exact decoded protocol payload, not a recolored or upscaled
-            // screenshot. Physical terminal display remains unverified.
             png.save(out).unwrap();
         } else {
-            // Actual TestBackend media pixels, not a source-frame substitution.
             let mut raster = image::RgbaImage::new(72, 48);
             let rgb = |color| match color {
                 ratatui::style::Color::Rgb(r, g, b) => [r, g, b, 255],
@@ -471,8 +465,6 @@ fn stage_copy_still_inspector_input_scope_pin_footer_and_cleanup() {
     app.on_mouse(mouse(MouseEventKind::ScrollUp, center.0, center.1));
     assert_eq!(app.viewer.inspector.percent(), 125);
     assert!(app.viewer.inspector.viewport.is_some());
-    // One event batch, no intervening draw or worker completion: every
-    // wheel tick changes the desired view, retaining the old painted map.
     let mut expected = app.viewer.inspector.view;
     let point = app.viewer.inspector.pointer(center.0, center.1);
     for _ in 0..9 {
@@ -488,7 +480,6 @@ fn stage_copy_still_inspector_input_scope_pin_footer_and_cleanup() {
     assert!(app.viewer.inspector.viewport.is_some());
     assert_ne!(app.viewer.inspector.painted, Some(expected));
     assert_eq!(app.viewer.inspector.semantic()["status"], "updating");
-    // Six '+' presses are six steps, not eight (595% is eight steps).
     app.inspect_still(crate::ui::still_inspector::Action::Fit);
     for _ in 0..6 {
         app.on_key(key(KeyCode::Char('+')));
@@ -506,7 +497,6 @@ fn stage_copy_still_inspector_input_scope_pin_footer_and_cleanup() {
     );
     assert_eq!(app.scryglass.media_request_id(), request);
     assert_eq!(app.scryglass.controller.route(), route);
-    // Draft navigation belongs to composer, including slash commands.
     for draft in ["my typed λ", "/model incomplete"] {
         app.input = draft.into();
         app.cursor = app.input.len();
@@ -573,7 +563,6 @@ fn stage_copy_still_inspector_input_scope_pin_footer_and_cleanup() {
     app.on_key(key(KeyCode::Char('+')));
     ready(&mut app, &mut terminal);
     let mut fit_click = mouse(MouseEventKind::Down(MouseButton::Right), center.0, center.1);
-    // Plain right-click now copies the artifact location. Ctrl retains Fit.
     fit_click.modifiers = KeyModifiers::CONTROL;
     app.on_mouse(fit_click);
     assert_eq!(app.viewer.inspector.percent(), 100);
@@ -587,8 +576,6 @@ fn stage_copy_still_inspector_input_scope_pin_footer_and_cleanup() {
     assert_eq!(app.scryglass.controller.route(), route);
     assert!(app.viewer.inspector.source.is_none());
     assert!(app.viewer.inspector.viewport.is_none());
-    // Video/document/world controls retain their own routes; inspector keys
-    // cannot change the still display state once the overlay is dismissed.
     for surface in [
         crate::ui::scryglass::StageSurface::Video(0),
         crate::ui::scryglass::StageSurface::Document(0),
@@ -604,7 +591,6 @@ fn stage_copy_still_inspector_input_scope_pin_footer_and_cleanup() {
     }
     app.input.clear();
     app.cursor = 0;
-    // A nonempty but too-small scene must not retain the preceding hitbox.
     app.scryglass.reveal_media(0, true);
     ready(&mut app, &mut terminal);
     app.viewer.inspector.drag = Some(center);
@@ -614,7 +600,6 @@ fn stage_copy_still_inspector_input_scope_pin_footer_and_cleanup() {
     assert!(app.viewer.inspector.viewport.is_none());
     assert!(app.viewer.inspector.source.is_none());
     assert!(app.viewer.inspector.drag.is_none());
-    // A hidden/root-zero frame clears all input/cache authority too.
     ready(&mut app, &mut terminal);
     app.viewer.inspector.drag = Some(center);
     let mut empty = ratatui::Terminal::new(ratatui::backend::TestBackend::new(0, 0)).unwrap();

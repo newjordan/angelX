@@ -54,7 +54,6 @@ fn rejected_memory_content_and_foreign_or_malformed_store_are_explicit() {
     assert_eq!(std::fs::read(&path).unwrap(), b"unrecognized prior bytes");
 }
 
-// APFS rejects invalid UTF-8 path bytes before this filesystem contract runs.
 #[cfg(target_os = "linux")]
 #[test]
 fn invalid_workspace_save_is_explicit_and_preserves_prior_store() {
@@ -86,7 +85,6 @@ fn invalid_workspace_save_is_explicit_and_preserves_prior_store() {
     assert!(!path.with_extension("json.tmp").exists());
 }
 
-// APFS rejects the raw-byte destination during file creation/rename.
 #[cfg(target_os = "linux")]
 #[test]
 fn non_utf8_destination_preserves_raw_override_and_valid_json_schema() {
@@ -98,8 +96,6 @@ fn non_utf8_destination_preserves_raw_override_and_valid_json_schema() {
     let path = fixture
         .0
         .join(std::ffi::OsString::from_vec(b"store-\xfe.json".to_vec()));
-    // The ordinary guard owns restoration; the scoped raw override remains
-    // protected by the same process-wide environment lock.
     let _env = [
         crate::tests::TestEnvGuard::unset("ANGEL_MEMORY_FILE"),
         crate::tests::TestEnvGuard::set("ANGEL_REPO_IDENTITY", "0"),

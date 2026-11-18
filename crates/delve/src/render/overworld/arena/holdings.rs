@@ -16,10 +16,6 @@ use crate::rules::home::{BUY_HOLD, hold_bar};
 use crate::rules::citizens::{self, Bay, BayState, Citizen, Job};
 use crate::rules::{RoomKind, Run};
 
-// ── Sprites ──────────────────────────────────────────────────────────────
-
-/// The realm's banner: a gold tower on the deep blue, swallow-tailed. It
-/// flies over everything the realm holds.
 pub(super) fn banner() -> Img {
     Img::from_rows(&[
         "bbbbbbbbbbbb",
@@ -39,7 +35,6 @@ pub(super) fn banner() -> Img {
     ])
 }
 
-/// A small banner on a pole, for the map.
 fn pennon() -> Img {
     Img::from_rows(&[
         "h6666..",
@@ -53,10 +48,8 @@ fn pennon() -> Img {
     ])
 }
 
-/// A room's picture: its furniture, side-on, 16 by 14.
 pub(super) fn room_art(id: &str) -> Img {
     Img::from_rows(match id {
-        // A cask on its cradle, tapped.
         "taproom" => &[
             "................",
             "...rrrrrrrrrr...",
@@ -73,7 +66,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "..BB...TT...BB..",
             "..BB...TT...BB..",
         ],
-        // A copper vat with its fire under, and a steam.
         "brewery" => &[
             ".....hh.........",
             "......hh........",
@@ -90,7 +82,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "...g.......g....",
             "..gg.......gg...",
         ],
-        // A bed with a blue coverlet and a pillow.
         "inn" => &[
             "................",
             "................",
@@ -107,7 +98,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "rR............R.",
             "................",
         ],
-        // An anvil on its block, the hammer resting, an ingot glowing.
         "smithy" => &[
             "..........hh....",
             ".........hHh....",
@@ -124,7 +114,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "...rRRRRRRr.....",
             "...rrrrrrrr.....",
         ],
-        // A quiver of fletched shafts, a bow on the peg.
         "fletcher" => &[
             "..7.9.7.........",
             "..7.9.7.....rr..",
@@ -141,7 +130,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "................",
             "................",
         ],
-        // A mail shirt on its stand, a kite shield beside.
         "armory" => &[
             "...hhhhh........",
             "..hiHiHih.......",
@@ -158,7 +146,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "..rrrrrr........",
             "..rrrrrr........",
         ],
-        // An altar with two candles and the Grail's cross.
         "shrine" => &[
             ".......6........",
             "......666.......",
@@ -175,7 +162,6 @@ pub(super) fn room_art(id: &str) -> Img {
             ".JJ.........JJ..",
             ".JJ.........JJ..",
         ],
-        // A cot, a basin and the healer's red cross hung above.
         "infirmary" => &[
             "......777.......",
             "......777.......",
@@ -192,7 +178,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "rR.......Rr.hh..",
             "................",
         ],
-        // The bell in its frame, its rope hanging.
         "belltower" => &[
             "rrrrrrrrrrrrrrrr",
             "rRRRRRRRRRRRRRRr",
@@ -209,7 +194,6 @@ pub(super) fn room_art(id: &str) -> Img {
             ".r......h.....r.",
             "rrr.....P....rrr",
         ],
-        // A striped awning over a trestle of goods.
         "stall" => &[
             "7W7W7W7W7W7W7W7W",
             "7W7W7W7W7W7W7W7W",
@@ -226,7 +210,6 @@ pub(super) fn room_art(id: &str) -> Img {
             ".r............r.",
             "................",
         ],
-        // Stacked coin and the open ledger on a counting board.
         "counting" => &[
             "................",
             "........6.......",
@@ -243,7 +226,6 @@ pub(super) fn room_art(id: &str) -> Img {
             ".B............B.",
             ".B............B.",
         ],
-        // Crates and grain sacks, stacked.
         "warehouse" => &[
             "................",
             "................",
@@ -260,7 +242,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "rRrrRrrRrrRr.$$$",
             "rrrrrrrrrrrr.PPP",
         ],
-        // A bunk and the guards' spear rack.
         "barracks" => &[
             "................",
             "................",
@@ -277,7 +258,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "................",
             "................",
         ],
-        // A dog house with its dark door, and a bowl.
         "kennels" => &[
             "................",
             "................",
@@ -294,7 +274,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "...JJJJJJJJ.oooo",
             "................",
         ],
-        // A straw butt with its painted rings, an arrow in the gold.
         "range" => &[
             ".....PPPPPP.....",
             "....P777777P....",
@@ -311,7 +290,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "....r......r....",
             "................",
         ],
-        // The Great Hall: tall windows, a gold runner, the high table.
         "greathall" => &[
             "....@.......@...",
             "....6.......6...",
@@ -328,7 +306,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "................",
             "................",
         ],
-        // The Great Forge: its fire behind, the anvil before it.
         "greatforge" => &[
             "......rr........",
             "......rR........",
@@ -345,7 +322,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "................",
             "................",
         ],
-        // The Great Nave: a rose window over the columns and the altar.
         "greatnave" => &[
             ".....rrrr.......",
             "....r6ww6r......",
@@ -362,7 +338,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "................",
             "................",
         ],
-        // The Bourse: a balance over the counter, coin on it.
         "bourse" => &[
             "......www.......",
             ".......h........",
@@ -379,7 +354,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "................",
             "................",
         ],
-        // The Waypoint: a stone door, and the way down glowing from it.
         "waypoint" => &[
             "...JJ......JJ...",
             "...JJ......JJ...",
@@ -396,7 +370,6 @@ pub(super) fn room_art(id: &str) -> Img {
             "................",
             "................",
         ],
-        // The Garrison: kite shields on the wall, spears beside.
         "garrison" => &[
             "................",
             "..hhh....hhh....",
@@ -417,8 +390,6 @@ pub(super) fn room_art(id: &str) -> Img {
     })
 }
 
-/// The raiders' banner: a torn black rag with a red claw, flown where
-/// they hold a holding.
 pub(super) fn raider_banner() -> Img {
     Img::from_rows(&[
         "nnnnnnnnnnnn",
@@ -435,13 +406,10 @@ pub(super) fn raider_banner() -> Img {
     ])
 }
 
-/// The raiders' war-horn, 7 by 7: a band is on the road.
 fn horn() -> Img {
     Img::from_rows(&["......7", ".....77", "7777777", "7777777", ".....77", "......7", "......."])
 }
 
-/// The warning over a hall a band is on the road to: plain words, in the
-/// trouble red, under the banners.
 fn muster_chip(cv: &mut Img, run: &Run, key: &str) {
     let Some(m) = run.home.holdings.muster.as_ref().filter(|m| m.key == key) else {
         return;
@@ -459,7 +427,6 @@ fn muster_chip(cv: &mut Img, run: &Run, key: &str) {
     cv.text(x + horn.w + 4, 21, &text, '7');
 }
 
-/// A small arrow, up for a neighbour's help and down for its harm.
 fn pip(up: bool) -> Img {
     if up {
         Img::from_rows(&["..y..", ".yyy.", "yyyyy", "..y..", "..y.."])
@@ -468,7 +435,6 @@ fn pip(up: bool) -> Img {
     }
 }
 
-/// What a bay's room feels from its neighbours, summed: its rent change.
 fn felt(held: &Holding, i: usize) -> i32 {
     held.rooms
         .get(i)
@@ -476,7 +442,6 @@ fn felt(held: &Holding, i: usize) -> i32 {
         .map_or(0, |r| holdings::neighbours(&held.rooms, i, &r.id).iter().map(|&(n, _)| n).sum())
 }
 
-/// Twice the size, for the bays of a steward's hall.
 fn doubled(im: &Img) -> Img {
     let mut out = Img::new(im.w * 2, im.h * 2);
     for y in 0..out.h {
@@ -489,10 +454,8 @@ fn doubled(im: &Img) -> Img {
     out
 }
 
-/// A steward, standing, 12 by 13.
 pub(super) fn steward_art(id: &str) -> Img {
     Img::from_rows(match id {
-        // Wynn the greedy: a fat red coat, a fatter purse.
         "wynn" => &[
             "...IIIII....",
             "...IcccI....",
@@ -508,7 +471,6 @@ pub(super) fn steward_art(id: &str) -> Img {
             "..BB...BB...",
             "..nn...nn...",
         ],
-        // Brother Aled: a monk's brown and a tonsure.
         "aled" => &[
             "...bbbbb....",
             "..bcccccb...",
@@ -524,7 +486,6 @@ pub(super) fn steward_art(id: &str) -> Img {
             ".PPPPPPPPP..",
             "..nn...nn...",
         ],
-        // Gwen the brave: helm, tabard and spear.
         "gwen" => &[
             "..........H.",
             "...hhhh...H.",
@@ -540,7 +501,6 @@ pub(super) fn steward_art(id: &str) -> Img {
             "..JJ..JJ....",
             "..nn..nn....",
         ],
-        // Old Hob the sot: a green jerkin, a red nose, a tankard.
         "hob" => &[
             "...EEEEE....",
             "..EEEEEEE...",
@@ -556,7 +516,6 @@ pub(super) fn steward_art(id: &str) -> Img {
             "..bb..bb....",
             "..nn..nn....",
         ],
-        // Mistress Vell the shrewd: a dark blue gown and her ledger.
         "vell" => &[
             "...kkkkk....",
             "..kkcccck...",
@@ -576,7 +535,6 @@ pub(super) fn steward_art(id: &str) -> Img {
     })
 }
 
-/// The Court's clerk behind his desk: the royal red, a quill.
 fn clerk(tick: u32) -> Img {
     let mut im = Img::from_rows(&[
         "...BBBBB....",
@@ -589,16 +547,12 @@ fn clerk(tick: u32) -> Img {
         ".RRRRRRRR...",
         ".RRRRRRRR...",
     ]);
-    // The quill scratches.
     if (tick / 10).is_multiple_of(2) {
         im.put(9, 3, 'V');
     }
     im
 }
 
-/// The Court of Deeds on the kingdom's map: a dressed-stone counting house,
-/// its sign a sealed deed, the realm's banner on the gable, at dusk like
-/// the map's other landmarks.
 pub fn land_office_building() -> Img {
     let base = kit::house(&House {
         w: 48,
@@ -614,7 +568,6 @@ pub fn land_office_building() -> Img {
     let mut im = Img::new(base.w + 6, base.h + 8);
     im.stamp(&base, 0, 8);
     im.stamp(&pennon(), base.w / 2 - 1, 0);
-    // The hanging sign: a scroll with a red seal.
     let sign = Img::from_rows(&[
         "r........r",
         "r........r",
@@ -628,7 +581,6 @@ pub fn land_office_building() -> Img {
     super::super::light::at_dusk(&im)
 }
 
-/// A plate's mark, 5 wide.
 fn plate_mark(plate: Plate) -> Img {
     Img::from_rows(match plate {
         Plate::Prev => &["..O..", ".OO..", "OOOOO", ".OO..", "..O.."],
@@ -644,7 +596,6 @@ fn plate_mark(plate: Plate) -> Img {
     })
 }
 
-/// A star, lit or not.
 fn star(lit: bool) -> Img {
     let im = Img::from_rows(&[
         "...O...",
@@ -658,7 +609,6 @@ fn star(lit: bool) -> Img {
     im.recolor(&[('O', if lit { '6' } else { 'g' })])
 }
 
-/// The ledger's little pictures, 7 by 7, one per work of angelX's.
 fn op_icon(op: Op) -> Img {
     Img::from_rows(match op {
         Op::Cache => &["..$$...", ".$$$$..", "$$$$$$.", "$$$$$$.", "$$$$$$.", ".PPPP..", "......."],
@@ -672,34 +622,25 @@ fn op_icon(op: Op) -> Img {
     })
 }
 
-// ── The Court of Deeds ───────────────────────────────────────────────────
-
 fn rect_px((c, r, w, h): (i32, i32, i32, i32)) -> (i32, i32, i32, i32) {
     (c * TILE, r * TILE, w * TILE, h * TILE)
 }
 
-/// The Court at rest: dressed flags (painted by the world), the board's
-/// timber, the ledger wall, the clerk's desk, the strongbox, the King's
-/// red runner from the door, and lamps.
 pub(super) fn office_scenery(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
-    // The runner, from the door to the desk.
     for y in 6 * TILE..13 * TILE {
         for x in 11 * TILE + 3..13 * TILE - 3 {
             let edge = x == 11 * TILE + 3 || x == 13 * TILE - 4;
             cv.put(x, y, if edge { '6' } else if (x + y) % 7 == 0 { 'p' } else { '8' });
         }
     }
-    // The great board's timber frame.
     let (bx, by, bw, bh) = rect_px(BOARD);
     cv.rect(bx, by, bw, bh, 'n');
     cv.frame(bx, by, bw, bh, 'B');
     cv.frame(bx + 1, by + 1, bw - 2, bh - 2, 'r');
-    // The ledger wall: a tall board of its own.
     let (lx, ly, lw, lh) = rect_px(LEDGER);
     cv.rect(lx, ly, lw, lh, 'n');
     cv.frame(lx, ly, lw, lh, 'B');
     cv.frame(lx + 1, ly + 1, lw - 2, lh - 2, 'r');
-    // The clerk's desk.
     let (dx, dy, dw, dh) = rect_px(DESK);
     cv.rect(dx, dy + 3, dw, dh - 3, 'r');
     cv.rect(dx, dy + 3, dw, 2, 'R');
@@ -707,18 +648,15 @@ pub(super) fn office_scenery(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
     for k in 0..3 {
         cv.rect(dx + 10 + k * 14, dy + 1, 8, 3, if k == 1 { '9' } else { 'T' });
     }
-    // The Foreman's ledge, its top a plank worn by drawings.
     let (gx, gy, gw, gh) = rect_px(LEDGE);
     cv.rect(gx, gy + 2, gw, gh - 2, 'n');
     cv.frame(gx, gy + 2, gw, gh - 2, 'B');
     cv.rect(gx, gy + 2, gw, 2, 'T');
-    // The strongbox, banded.
     let (cx, cy, cw, ch) = rect_px(CHEST);
     let chest = kit::chest(false);
     for y in [cy + 2, cy + ch - 12] {
         cv.stamp(&chest, cx + (cw - chest.w) / 2, y);
     }
-    // Banners on the east wall, lamps by the door.
     let b = banner();
     cv.stamp(&b, 22 * TILE + 2, 2 * TILE);
     cv.stamp(&b, 22 * TILE + 2, 9 * TILE);
@@ -731,7 +669,6 @@ pub(super) fn office_scenery(cv: &mut Img, lights: &mut Vec<Light>, tick: u32) {
     lights.push(fire(3 * TILE, 8 * TILE, 70.0, 0.25));
 }
 
-/// Where a plate's tag goes and what it says.
 fn plate_tag(plate: Plate) -> &'static str {
     match plate {
         Plate::Prev | Plate::Next => "",
@@ -746,7 +683,6 @@ fn plate_tag(plate: Plate) -> &'static str {
     }
 }
 
-/// A plate: open and lit (a knight on it), open, or shut (dim).
 fn plate(cv: &mut Img, rect: (i32, i32, i32, i32), lit: bool, open: bool, mark: &Img) {
     let (x, y, w, h) = rect_px(rect);
     let (x, y, w, h) = (x + 1, y + 1, w - 2, h - 2);
@@ -769,13 +705,10 @@ fn on(run: &Run, rect: (i32, i32, i32, i32)) -> bool {
     })
 }
 
-/// The Foreman's head petition, and its room's def, if any.
 fn head_petition(h: &holdings::Holdings) -> Option<(&crate::rules::foreman::Petition, Option<&'static holdings::RoomDef>)> {
     h.foreman.queue.first().map(|p| (p, holdings::room_def(&p.room)))
 }
 
-/// The Foreman: a brown coat, a leather apron, a rolled drawing under one
-/// arm.
 fn foreman_art(tick: u32) -> Img {
     let mut im = Img::from_rows(&[
         "..BBBBBB....",
@@ -792,7 +725,6 @@ fn foreman_art(tick: u32) -> Img {
         "..BB..BB....",
         "..nn..nn....",
     ]);
-    // He blinks over his figures.
     if tick % 64 < 4 {
         im.put(4, 2, 'c');
         im.put(6, 2, 'c');
@@ -800,9 +732,6 @@ fn foreman_art(tick: u32) -> Img {
     im
 }
 
-/// The Foreman's sheet: the head petition with its quote and his line,
-/// then the rest of his ledge in the small hand. A relic the purse holds
-/// rides the price; one it lacks gets its own line in the trouble red.
 fn petitions_sheet(cv: &mut Img, h: &holdings::Holdings, treasury: &Spoils) {
     let mut lines: Vec<(String, char)> = Vec::new();
     match head_petition(h) {
@@ -816,7 +745,6 @@ fn petitions_sheet(cv: &mut Img, h: &holdings::Holdings, treasury: &Spoils) {
             if let Some(r) = p.relic.filter(|&r| treasury.get(r) == 0) {
                 lines.push((format!("BRING A {}", r.word().to_uppercase()), '7'));
             }
-            // His line, kept to the sheet's width.
             let says: String = p.says.chars().take(40).collect();
             let says = says.trim_end();
             lines.push((format!("\"{says}\""), 'h'));
@@ -840,7 +768,6 @@ fn petitions_sheet(cv: &mut Img, h: &holdings::Holdings, treasury: &Spoils) {
     }
 }
 
-/// The Court's live things: the board, the ledger, the clerk, the plates.
 pub(super) fn office(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
     let h = &run.home.holdings;
@@ -850,12 +777,10 @@ pub(super) fn office(cv: &mut Img, run: &Run) {
     let c = clerk(tick);
     let (dx, dy, dw, _) = rect_px(DESK);
     cv.stamp(&c, dx + (dw - c.w) / 2, dy - c.h + 4);
-    // The board's holding's steward waits by the desk with its accounts.
     if let Some(s) = h.holding(&deed.key()).and_then(|w| w.steward.as_deref()) {
         let im = steward_art(s);
         cv.stamp(&im, dx + dw + 4, dy - im.h + 12);
     }
-    // Coin on the strongbox when there is rent to collect.
     let waiting: u32 = h.owned.iter().map(|w| w.coffer).sum();
     if waiting > 0 {
         let (cx, cy, _, _) = rect_px(CHEST);
@@ -873,7 +798,6 @@ pub(super) fn office(cv: &mut Img, run: &Run) {
             cv.text(x + (w - tw) / 2, y + h + 1, tag, if open { 'h' } else { 'G' });
         }
     }
-    // The Foreman at his ledge, his petitions above him.
     if !h.foreman.queue.is_empty() || h.owned.iter().any(|w| w.rooms.len() < SLOTS) {
         let f = foreman_art(tick);
         let (lx, ly, _, _) = rect_px(LEDGE);
@@ -882,8 +806,6 @@ pub(super) fn office(cv: &mut Img, run: &Run) {
     }
 }
 
-/// The great board: the deed shown, its stars and state, and its ten bays
-/// side-on.
 fn board(cv: &mut Img, run: &Run, deed: Deed) {
     let h = &run.home.holdings;
     let (bx, by, bw, _) = rect_px(BOARD);
@@ -891,7 +813,6 @@ fn board(cv: &mut Img, run: &Run, deed: Deed) {
     let all = holdings::catalogue();
     let at = all.iter().position(|&d| d == deed).unwrap_or(0) + 1;
     let x0 = bx + 6;
-    // The arrows' count at the left, the name, the stars at the right.
     let count = format!("{at}/{}", all.len());
     cv.text(x0, by + 4, &count, 'G');
     let name = deed.name().to_uppercase();
@@ -900,18 +821,14 @@ fn board(cv: &mut Img, run: &Run, deed: Deed) {
     for k in 0..5u8 {
         cv.stamp(&star(k < stars), bx + bw - 6 - (5 - i32::from(k)) * 9, by + 4);
     }
-    // The King's favour, left of the stars: his crown and the number.
     let favour = format!("{:+}", h.favour);
     let fx = bx + bw - 6 - 5 * 9 - 10 - text_width(&favour);
     let crown = chrome::dusk_icon(&Img::from_rows(&["6.6.6", "66666", "66666", ".....", "66666"]));
     cv.stamp(&crown, fx - 8, by + 5);
     let ink = if h.favour >= holdings::ROYAL { 'O' } else if h.favour <= -holdings::ROYAL { '7' } else { 'h' };
     cv.text(fx, by + 4, &favour, ink);
-    // The second line: pictures and numbers.
     let y = by + 15;
     let mut x = x0;
-    // Most pressing first: what does not fit before the board's edge (and
-    // the favour's word) is left off.
     let edge = bx + bw - 6 - crate::rules::crown::favour_word(h).map_or(0, |w| text_width(w) + 8);
     let mut item = |cv: &mut Img, icon: &Img, text: &str, ink: char| {
         let wide = icon.w + 3 + text_width(text);
@@ -973,10 +890,6 @@ fn tick_of(run: &Run) -> u32 {
     run.tick as u32
 }
 
-/// One citizen of the holding, seven pixels wide: a tunic in their own
-/// hue, a crate on the shoulder for a hauler, a bright tool-tip when a
-/// builder's stroke lands. The legs swap only while walking; at either
-/// end of the walk the figure stands and works.
 fn folk(citizen: &Citizen, working: bool, back: bool, tick: u32) -> Img {
     let stride = !working && (tick / 6 + citizen.id).is_multiple_of(2);
     let mut im = Img::from_rows(if stride {
@@ -1014,15 +927,7 @@ fn key_seed(key: &str) -> u64 {
     hash
 }
 
-/// The holding's citizens, from the shared roster: a worker pacing each
-/// standing room — the SimTower slice, lived in. Pure ambience from
-/// `(holding, tick)`: the picture mints nobody. The building, hauling and
-/// mending is the crew's (`crew`), who do it for real. It does dress a
-/// bay's figure by the temper of the named villager who keeps that room:
-/// grey when they go hungry or glum, a gold cap-dot when content —
-/// so a starving village *looks* starved before anyone walks away.
 fn cross_section_citizens(cv: &mut Img, x: i32, y: i32, held: &Holding, tick: u32) {
-    // Where anyone lives, the ones about are the ledger's own.
     if !held.folk.is_empty() {
         super::holdings_folk::cross_section(cv, x, y, held, tick);
         return;
@@ -1057,7 +962,6 @@ fn cross_section_citizens(cv: &mut Img, x: i32, y: i32, held: &Holding, tick: u3
                 2,
             )
         } else {
-            // A short pace inside one's own bay, slower at restful work.
             let (span, stride) = match citizen.job {
                 Job::Build => (13, 3),
                 Job::Make | Job::Tend => (6, 5),
@@ -1069,7 +973,6 @@ fn cross_section_citizens(cv: &mut Img, x: i32, y: i32, held: &Holding, tick: u3
         let px = if citizen.job == Job::Haul || citizen.job == Job::Build {
             from + phase.step as i32
         } else {
-            // Workers keep mostly to their room's art, at its right shoulder.
             from + 13 + phase.step as i32
         };
         let mut figure = folk(&citizen, phase.working, phase.back, tick);
@@ -1091,10 +994,6 @@ fn cross_section_citizens(cv: &mut Img, x: i32, y: i32, held: &Holding, tick: u3
     }
 }
 
-/// One hand of a holding's crew, eight by nine: a smock in its own hue,
-/// and the load its work carries — a beam to the room going up, a stone to
-/// the walls, a sack to the granary — on the way back from the yard; a
-/// hammer's stroke, a trowel's or a sack set down while it works.
 fn hand_art(work: Option<Work>, leg: Leg, hue: u8, back: bool, tick: u32) -> Img {
     let walking = !leg.working && work.is_some();
     let stride = walking && (tick / 5 + u32::from(hue)).is_multiple_of(2);
@@ -1115,7 +1014,6 @@ fn hand_art(work: Option<Work>, leg: Leg, hue: u8, back: bool, tick: u32) -> Img
     let beat = (tick / 7 + u32::from(hue)).is_multiple_of(2);
     match work {
         Some(Work::Build) if leg.laden && !leg.working => {
-            // A beam on the shoulder, longer than the hand.
             im.line(0, 2, 7, 2, 'O');
             im.put(0, 2, 'B');
             im.put(7, 2, 'B');
@@ -1125,7 +1023,6 @@ fn hand_art(work: Option<Work>, leg: Leg, hue: u8, back: bool, tick: u32) -> Img
             im.put(5, if beat { 2 } else { 3 }, 'r');
         }
         Some(Work::Mend) if leg.laden && !leg.working => {
-            // A dressed stone on the head.
             im.rect(2, 0, 3, 2, 'J');
             im.put(2, 0, 'h');
         }
@@ -1133,7 +1030,6 @@ fn hand_art(work: Option<Work>, leg: Leg, hue: u8, back: bool, tick: u32) -> Img
             im.rect(5, if beat { 2 } else { 4 }, 2, 2, 'J');
         }
         Some(Work::Stock) if leg.laden && !leg.working => {
-            // A sack on the back.
             im.rect(4, 0, 3, 3, 'T');
             im.put(5, 0, 'o');
         }
@@ -1149,19 +1045,13 @@ fn hand_art(work: Option<Work>, leg: Leg, hue: u8, back: bool, tick: u32) -> Img
     im
 }
 
-/// The crew's yard: timber, stone and the granary's sacks, stacked where
-/// they wait for the hands — in the first empty bay, or at the gate once
-/// every bay is built. `stores` sets how many sacks show.
 fn yard_art(stores: u32) -> Img {
     let mut im = Img::new(14, 7);
-    // Beams.
     im.line(0, 6, 7, 6, 'r');
     im.line(1, 5, 6, 5, 'o');
-    // Stones.
     im.rect(8, 4, 3, 3, 'J');
     im.put(8, 4, 'h');
     im.rect(11, 5, 3, 2, 'G');
-    // Sacks, one for each five in the granary, to three.
     for k in 0..(stores.div_ceil(5)).min(3) as i32 {
         im.rect(2 + k * 3, 2 - (k % 2), 3, 3, 'T');
         im.put(3 + k * 3, 2 - (k % 2), 'o');
@@ -1169,12 +1059,6 @@ fn yard_art(stores: u32) -> Img {
     im
 }
 
-/// The crew in a cross-section: each hand on its trip between where its
-/// load waits and the work, the load the work's, landing as the rules land
-/// it (`leg`). Timber waits in the yard (the first empty bay, beside the
-/// room going up); stone and sacks come in at the gate, the stone set on
-/// the gate's walls, the sacks carried into the first bay. Resting, they
-/// stand about the yard; raiders hold it, and they are gone.
 fn cross_section_crew(cv: &mut Img, x: i32, y: i32, h: &Holdings, held: &Holding, tick: u32) {
     let yard = (held.rooms.len() < SLOTS).then_some(held.rooms.len());
     let bay_x = |b: Option<usize>| b.map_or(x + 2, |i| x + 16 + i as i32 * 30);
@@ -1184,7 +1068,6 @@ fn cross_section_crew(cv: &mut Img, x: i32, y: i32, h: &Holdings, held: &Holding
     }
     let hands = h.hands(held);
     let work = h.crew_work(held);
-    // (the work, where the load waits), in pixels.
     let (to, from) = match work {
         Some(Work::Build) => (bay_x(held.rising()) + 2, bay_x(yard) + 8),
         Some(Work::Mend) => (x + 2, x + 30),
@@ -1199,7 +1082,6 @@ fn cross_section_crew(cv: &mut Img, x: i32, y: i32, h: &Holdings, held: &Holding
         let (px, back) = match work {
             Some(_) => {
                 let px = wx as f32 + (fx - wx) as f32 * leg.along;
-                // Facing the way they walk: out to the yard, back to the work.
                 let out = !leg.laden;
                 (px.round() as i32, (fx < wx) == out)
             }
@@ -1210,7 +1092,6 @@ fn cross_section_crew(cv: &mut Img, x: i32, y: i32, h: &Holdings, held: &Holding
     }
 }
 
-/// The crew's line on a board: how many hands, at what, and why fewer.
 pub(super) fn crew_line(h: &Holdings, held: &Holding) -> (String, char) {
     if held.raid > 0 {
         return ("CREW FLED".to_string(), '7');
@@ -1224,11 +1105,8 @@ pub(super) fn crew_line(h: &Holdings, held: &Holding) -> (String, char) {
     (format!("{hands} {doing}"), ink)
 }
 
-/// A holding side-on: the stair (a floor) or the keep's tower (a castle)
-/// at the left, then its ten bays as built, building or empty.
 pub(super) fn cross_section(cv: &mut Img, x: i32, y: i32, deed: Deed, h: &Holdings, tick: u32) {
     let held = h.holding(&deed.key());
-    // The way in: a stair shaft or a tower.
     match deed {
         Deed::Floor(_) => {
             chrome::shaped(cv, (x, y, 12, 22), &[2, 1], chrome::Tone::WELL.rimmed(chrome::COLD_RIM), false);
@@ -1247,11 +1125,9 @@ pub(super) fn cross_section(cv: &mut Img, x: i32, y: i32, deed: Deed, h: &Holdin
     }
     for i in 0..SLOTS as i32 {
         let bx = x + 14 + i * 30;
-        // A bay: a rounded dark well in a stone rim, its floor a step lit.
         chrome::shaped(cv, (bx, y, 28, 22), &[2, 1], chrome::Tone::WELL.rimmed(chrome::COLD_RIM), false);
         cv.line(bx + 2, y + 20, bx + 25, y + 20, 'j');
         let Some(built) = held.and_then(|w| w.rooms.get(i as usize)) else {
-            // An empty bay: just the dark.
             cv.put(bx + 13, y + 10, 'g');
             cv.put(bx + 14, y + 10, 'g');
             continue;
@@ -1264,8 +1140,6 @@ pub(super) fn cross_section(cv: &mut Img, x: i32, y: i32, deed: Deed, h: &Holdin
                 cv.stamp(&pip(near > 0), bx + 22, y + 2);
             }
         } else {
-            // Going up: the room's shape in grey under scaffolding, and the
-            // courses laid so far.
             let ghost = art.recolor(&[
                 ('r', 'g'), ('R', 'g'), ('o', 'g'), ('O', 'g'), ('h', 'g'), ('H', 'g'), ('i', 'g'),
                 ('6', 'g'), ('7', 'g'), ('q', 'g'), ('Q', 'g'), ('T', 'g'), ('9', 'g'), ('W', 'g'),
@@ -1291,8 +1165,6 @@ pub(super) fn cross_section(cv: &mut Img, x: i32, y: i32, deed: Deed, h: &Holdin
     }
 }
 
-/// The works ledger on the west wall: what angelX's own work does for the
-/// holdings, one short label each, with the count.
 fn ledger(cv: &mut Img, h: &holdings::Holdings) {
     let (lx, ly, lw, _) = rect_px(LEDGER);
     let fed = |op: Op| h.feed.get(op.word()).copied().unwrap_or(0);
@@ -1315,11 +1187,8 @@ fn ledger(cv: &mut Img, h: &holdings::Holdings) {
     }
 }
 
-/// The bottom edge's clear stretch (native pixels): right of the tray of
-/// arms and potions, left of the spell buttons.
 const OPEN_FLOOR: (i32, i32) = (142, 328);
 
-/// What the plate under the focused knight does, over their head.
 pub(super) fn office_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     let id = focus.unwrap_or(1);
     let Some((p, _)) = holdings::plate_under(run, id) else {
@@ -1350,7 +1219,6 @@ pub(super) fn office_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
             None => "PETITIONS".to_string(),
         },
         Plate::Nay => "REFUSE THE FOREMAN".to_string(),
-        // The order the crew works down, its first first.
         Plate::Orders => match h.holding(&deed.key()) {
             Some(w) => {
                 let order: Vec<&str> = std::iter::once(w.order)
@@ -1377,8 +1245,6 @@ pub(super) fn office_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
         Err(why) => (why.to_string(), 'h'),
     };
     let mut lines = vec![(title, '9'), last];
-    // A petition's worth: what the room's neighbours would make of it, and
-    // the Foreman's own line for it.
     if let Plate::Aye | Plate::Nay = p
         && let Some((petition, def)) = head_petition(h)
         && let Some(def) = def
@@ -1391,8 +1257,6 @@ pub(super) fn office_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     }
     let w = lines.iter().map(|(s, _)| text_width(s)).max().unwrap_or(0) + 8;
     let bh = lines.len() as i32 * 9 + 5;
-    // On the south wall, under every plate and its name: between the tray
-    // and the spell buttons when it fits there.
     let x = if w <= OPEN_FLOOR.1 - OPEN_FLOOR.0 {
         OPEN_FLOOR.0 + (OPEN_FLOOR.1 - OPEN_FLOOR.0 - w) / 2
     } else {
@@ -1406,10 +1270,6 @@ pub(super) fn office_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     }
 }
 
-// ── A held floor's steward's hall ────────────────────────────────────────
-
-/// The steward's hall below: the realm's banners, the bays as built, the
-/// steward at the table with the coffer, each bay's boon on its plate.
 pub(super) fn hall(cv: &mut Img, run: &Run) {
     let Some(held) = holdings::held_floor(&run.home.holdings, run.dungeon.pack) else {
         return;
@@ -1425,7 +1285,6 @@ pub(super) fn hall(cv: &mut Img, run: &Run) {
         let (sx, sy, sw, sh) = rect_px(solid);
         let built = held.rooms.get(i);
         let Some(built) = built else {
-            // An empty bay: a dim outline on the floor.
             let (c, r) = BAYS[i];
             let (x, y) = (c * TILE + 2, if r < 5 { r * TILE + 2 } else { (r + 1) * TILE + 2 });
             for k in (0..44).step_by(4) {
@@ -1463,13 +1322,11 @@ pub(super) fn hall(cv: &mut Img, run: &Run) {
         let ty = if BAYS[i].1 < 5 { py + ph + 1 } else { py - 9 };
         chrome::chip(cv, (px + (pw - tw) / 2 - 1, ty - 1, tw + 2, 9));
         cv.text(px + (pw - tw) / 2, ty, tag, if open { 'O' } else { 'G' });
-        // A neighbour's help or harm, over the furniture's corner.
         let near = felt(held, i);
         if near != 0 {
             cv.stamp(&pip(near > 0), sx + sw - 7, sy + 1);
         }
     }
-    // The steward behind the table, the coffer at its end.
     let (tx, ty, tw, _) = rect_px(TABLE);
     if let Some(s) = held.steward.as_deref() {
         let im = steward_art(s);
@@ -1494,10 +1351,6 @@ pub(super) fn hall(cv: &mut Img, run: &Run) {
     muster_chip(cv, run, &held.key);
 }
 
-/// The crew in a steward's hall, twice the size: timber from the yard by
-/// the door to a rising bay's plate, stone from the yard to the door's
-/// walls, sacks in at the door to the yard — each hand on the trip the
-/// rules count. Raiders in the hall, and the crew hides.
 fn hall_crew(cv: &mut Img, run: &Run, held: &Holding) {
     if run.holding_raid.is_some() {
         return;
@@ -1510,8 +1363,6 @@ fn hall_crew(cv: &mut Img, run: &Run, held: &Holding) {
         2 => (12 * TILE, 12 * TILE + 8),
         _ => (2 * TILE, 7 * TILE + 8),
     };
-    // The yard stands a few strides in from the door, clear of the bays
-    // and the steward's table.
     let yard = match (0..4).find(|&d| room.doors[d]).unwrap_or(3) {
         0 => (16 * TILE, 4 * TILE + 8),
         1 => (18 * TILE, 7 * TILE + 8),
@@ -1551,7 +1402,6 @@ fn hall_crew(cv: &mut Img, run: &Run, held: &Holding) {
     }
 }
 
-/// What the bay or the steward under the focused knight gives.
 pub(super) fn hall_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     let id = focus.unwrap_or(1);
     let Some(hero) = run.players.get(&id).filter(|h| h.hp > 0) else {
@@ -1575,17 +1425,12 @@ pub(super) fn hall_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
             },
             crew_line(&run.home.holdings, held),
         ];
-        // The going rates: this holding's next room of every family, at
-        // the list — the knowledge a padded quote is caught by.
         for family in Family::ALL {
             if let Some(def) = held.next_of(family) {
                 let relic = def.relic.map_or_else(String::new, |r| format!(" +{}", r.word().to_uppercase()));
                 lines.push((format!("{} {}G{relic}", def.name.to_uppercase(), holdings::room_price(&run.home.holdings, def)), 'i'));
             }
         }
-        // The village roll: who lives here and how the realm is
-        // treating them, then who is merely lodging. The board
-        // names the first eight souls and counts the rest.
         for soul in held.folk.iter().take(8) {
             let temper = if soul.hunger > 0 {
                 "HUNGRY"
@@ -1626,8 +1471,6 @@ pub(super) fn hall_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
         };
         let mut lines = vec![(def.name.to_uppercase(), '9'), last];
         if built.standing() {
-            // The villager who keeps this room, if one of its trade
-            // lives here (the first of them, as the roster keeps them).
             if let Some(soul) = held.folk.iter().find(|f| f.trade.family() == Some(def.family)) {
                 lines.push((format!("{} KEEPS IT", soul.name.to_uppercase()), 'h'));
             }
@@ -1641,8 +1484,6 @@ pub(super) fn hall_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     };
     let w = lines.iter().map(|(s, _)| text_width(s)).max().unwrap_or(0) + 8;
     let bh = lines.len() as i32 * 9 + 5;
-    // On the south wall, like the Court's: under the knight's feet and
-    // clear of the way-on marker and the tray.
     let (px, _, pw, _) = rect_px(plate);
     let x = (px + pw / 2 - w / 2).clamp(24, NATIVE_W - w - 96);
     let y = NATIVE_H - bh - 1;
@@ -1653,7 +1494,6 @@ pub(super) fn hall_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     }
 }
 
-/// The realm's banners in the first hall of a floor it holds.
 pub(super) fn start_banners(cv: &mut Img, run: &Run) {
     let Some(held) = holdings::held_floor(&run.home.holdings, run.dungeon.pack).filter(|_| run.room().kind == RoomKind::Start) else {
         return;
@@ -1665,11 +1505,6 @@ pub(super) fn start_banners(cv: &mut Img, run: &Run) {
     }
 }
 
-// ── A castle's hall ──────────────────────────────────────────────────────
-
-/// A model castle's hall: its house's flags, the realm's banner once it is
-/// ours, its bays on the wall as a cross-section, its steward, and the deed
-/// plate (buy it, or collect).
 pub(super) fn castle(cv: &mut Img, run: &Run) {
     let Some(i) = holdings::castle_here(run) else {
         return;
@@ -1688,7 +1523,6 @@ pub(super) fn castle(cv: &mut Img, run: &Run) {
             cv.stamp(&b, x, 18);
         }
     }
-    // The tapestry: the castle's bays as built.
     let width = 14 + SLOTS as i32 * 30;
     let (x, y) = crate::rules::raids::TAPESTRY;
     chrome::board(cv, (x - 4, y - 6, width + 8, 32), 'B');
@@ -1709,7 +1543,6 @@ pub(super) fn castle(cv: &mut Img, run: &Run) {
     muster_chip(cv, run, &deed.key());
 }
 
-/// The castle's deed plate, read.
 pub(super) fn castle_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     let Some(i) = holdings::castle_here(run) else {
         return;
@@ -1743,7 +1576,6 @@ pub(super) fn castle_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
             vec![("CLAIM THIS CASTLE".to_string(), '9'), last]
         }
     } else if held.is_none() {
-        // Walking in, the deed is for sale: say so once, quietly.
         vec![(match h.offered(deed) {
             Ok(()) => format!("FOR SALE {}G", deed.price(false)),
             Err(why) => why.to_string(),
@@ -1754,7 +1586,6 @@ pub(super) fn castle_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     let w = lines.iter().map(|(s, _)| text_width(s)).max().unwrap_or(0) + 8;
     let bh = lines.len() as i32 * 9 + 5;
     let (px, py, pw, _) = rect_px(CASTLE_PLATE);
-    // Beside the plate, clear of the knight on it and the way out.
     let x = (px + pw + 10).min(NATIVE_W - w - 2);
     let y = py - 2;
     chrome::board(cv, (x, y, w, bh), 'B');
@@ -1764,7 +1595,6 @@ pub(super) fn castle_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     }
 }
 
-/// The realm's pennon over every castle it holds, on the kingdom's map.
 pub(super) fn castle_pennons(cv: &mut Img, run: &Run, origin: (i32, i32)) {
     for w in &run.home.holdings.owned {
         let Some(Deed::Castle(i)) = w.deed() else { continue };
@@ -1777,10 +1607,6 @@ pub(super) fn castle_pennons(cv: &mut Img, run: &Run, origin: (i32, i32)) {
     }
 }
 
-// ── The King's herald, in the kingdom ────────────────────────────────────
-
-/// The King's herald: the royal red and gold, a feathered cap, the card in
-/// his hand.
 fn herald_art(tick: u32) -> Img {
     let mut im = Img::from_rows(&[
         ".......w....",
@@ -1798,14 +1624,12 @@ fn herald_art(tick: u32) -> Img {
         "...hh.hh....",
         "..nnn.nnn...",
     ]);
-    // He lifts the card now and then.
     if (tick / 40).is_multiple_of(3) {
         im.put(10, 5, 'T');
     }
     im
 }
 
-/// An answer post: a timber post with a hanging board.
 fn post_art(pick: usize, lit: bool) -> Img {
     let board = if lit { '6' } else if pick == 0 { 'O' } else { 'h' };
     let mut im = Img::from_rows(&[
@@ -1824,14 +1648,10 @@ fn post_art(pick: usize, lit: bool) -> Img {
     for (x, y) in [(3, 4), (4, 4), (5, 4), (6, 4), (3, 5), (4, 5), (5, 5), (6, 5)] {
         im.put(x, y, board);
     }
-    // The answer's number, A or B, in the board's dark.
     im.put(if pick == 0 { 4 } else { 5 }, 4, 'K');
     im
 }
 
-/// The herald, his posts and, near him, his card: the King's choice with
-/// its two answers and their prices. The rectangles it took, for the
-/// plaques.
 pub(super) fn herald(
     over: &mut Img,
     run: &Run,
@@ -1863,7 +1683,6 @@ pub(super) fn herald(
         let (px, py) = feet(p);
         let lit = on == Some(pick);
         let im = post_art(pick, lit);
-        // In 3D the posts stand up as blocks (`world3d::lots`).
         if !stood {
             over.stamp(&im, px - im.w / 2, py - im.h);
         }
@@ -1882,12 +1701,10 @@ pub(super) fn herald(
             < 12.0 * crate::rules::TILE_UNITS
     });
     if !near {
-        // From afar, only the card's corner shows over his head.
         over.rect(x - 4, y - im.h - 9, 8, 6, 'T');
         over.frame(x - 4, y - im.h - 9, 8, 6, 'o');
         return taken;
     }
-    // The card over his head: who comes, in a few words.
     let lines = [(c.title, '9'), (c.line, 'h')];
     let w = lines.iter().map(|(s, _)| text_width(s)).max().unwrap_or(0) + 10;
     let bh = lines.len() as i32 * 9 + 6;
@@ -1897,7 +1714,6 @@ pub(super) fn herald(
         over.text(cx + (w - text_width(text)) / 2, cy + 4 + i as i32 * 9, text, *ink);
     }
     taken.push((cx, cy, w, bh));
-    // Each answer under its post: its words and price, and the hold.
     for (pick, &p) in posts.iter().enumerate() {
         let choice = &c.picks[pick];
         let (px, py) = feet(p);

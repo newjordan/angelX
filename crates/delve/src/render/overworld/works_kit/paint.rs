@@ -10,12 +10,10 @@ use super::FRAMES;
 use crate::render::overworld::ink::{Img, hash, vnoise};
 use crate::render::overworld::material;
 
-/// Where in its loop step `t` is, 0 up to 1.
 pub fn phase(t: u32) -> f32 {
     (t % FRAMES) as f32 / FRAMES as f32
 }
 
-/// Step `t` as an angle round a full turn.
 pub fn turn(t: u32) -> f32 {
     phase(t) * TAU
 }
@@ -24,8 +22,6 @@ fn round(v: f32) -> i32 {
     v.round() as i32
 }
 
-/// Trampled earth: a ragged patch two tones deep with a dithered edge, the
-/// ground a working place wears bare round itself.
 pub fn earth(im: &mut Img, cx: f32, cy: f32, rx: f32, ry: f32, seed: u32) {
     for y in (cy - ry - 2.0).floor() as i32..=(cy + ry + 2.0).ceil() as i32 {
         for x in (cx - rx - 2.0).floor() as i32..=(cx + rx + 2.0).ceil() as i32 {
@@ -50,7 +46,6 @@ pub fn earth(im: &mut Img, cx: f32, cy: f32, rx: f32, ry: f32, seed: u32) {
     }
 }
 
-/// Short grass tufts on the apron of a yard, so earth is not a sticker.
 pub fn tufts(im: &mut Img, x0: i32, x1: i32, y: i32, seed: u32) {
     for x in x0..x1 {
         if hash(x, y, seed) % 9 == 0 {
@@ -60,13 +55,11 @@ pub fn tufts(im: &mut Img, x0: i32, x1: i32, y: i32, seed: u32) {
     }
 }
 
-/// A dark contact shadow under a mass.
 pub fn shade(im: &mut Img, cx: f32, cy: f32, rx: f32, ry: f32) {
     let keep = |_: i32, _: i32| true;
     material::shadow(im, (cx, cy), (rx, ry), &keep);
 }
 
-/// A timber post, two pixels across, lit on its left.
 pub fn post(im: &mut Img, x: i32, y0: i32, y1: i32) {
     for y in y0..=y1 {
         im.put(x, y, 'o');
@@ -74,7 +67,6 @@ pub fn post(im: &mut Img, x: i32, y0: i32, y1: i32) {
     }
 }
 
-/// A beam along `y` from `x0` to `x1`, two pixels deep.
 pub fn beam(im: &mut Img, x0: i32, x1: i32, y: i32) {
     for x in x0..=x1 {
         im.put(x, y, 'O');
@@ -82,7 +74,6 @@ pub fn beam(im: &mut Img, x0: i32, x1: i32, y: i32) {
     }
 }
 
-/// A rope from `(x0, y0)` to `(x1, y1)` sagging `sag` pixels at its middle.
 pub fn rope(im: &mut Img, x0: i32, y0: i32, x1: i32, y1: i32, sag: f32, ch: char) {
     let n = ((x1 - x0).abs().max((y1 - y0).abs()) * 2).max(2);
     for k in 0..=n {
@@ -93,7 +84,6 @@ pub fn rope(im: &mut Img, x0: i32, y0: i32, x1: i32, y1: i32, sag: f32, ch: char
     }
 }
 
-/// A ring of `ch`, `r` across its middle, round `(cx, cy)`.
 pub fn ring(im: &mut Img, cx: f32, cy: f32, r: f32, ch: char) {
     let n = ((r * TAU) as i32 * 2).max(12);
     for k in 0..n {
@@ -102,8 +92,6 @@ pub fn ring(im: &mut Img, cx: f32, cy: f32, r: f32, ch: char) {
     }
 }
 
-/// A spoked wheel standing in the picture, turned by `a`: a double rim, a
-/// hub, `spokes` spokes, and (when `paddles`) boards round the rim.
 #[allow(clippy::too_many_arguments)]
 pub fn wheel(im: &mut Img, cx: f32, cy: f32, r: f32, a: f32, spokes: u32, paddles: bool, ink: (char, char, char)) {
     let (rim, spoke, hub) = ink;
@@ -117,7 +105,6 @@ pub fn wheel(im: &mut Img, cx: f32, cy: f32, r: f32, a: f32, spokes: u32, paddle
         for k in 0..spokes {
             let s = a + (k as f32 + 0.5) / spokes as f32 * TAU;
             let (px, py) = (cx + s.cos() * (r + 1.0), cy + s.sin() * (r + 1.0));
-            // A board standing out from the rim, across its radius.
             im.line(round(px - s.sin() * 1.6), round(py + s.cos() * 1.6), round(px + s.sin() * 1.6), round(py - s.cos() * 1.6), rim);
             im.put(round(px + s.cos()), round(py + s.sin()), spoke);
         }
@@ -125,9 +112,6 @@ pub fn wheel(im: &mut Img, cx: f32, cy: f32, r: f32, a: f32, spokes: u32, paddle
     im.rect(round(cx) - 1, round(cy) - 1, 3, 3, hub);
 }
 
-/// Rising smoke: `n` puffs spaced evenly up `rise` pixels from `(x, y)`,
-/// growing and thinning as they go, drifting east. `light` is steam or lime
-/// dust, else grey smoke. Loops in `FRAMES`.
 pub fn smoke(im: &mut Img, x: i32, y: i32, t: u32, rise: i32, n: u32, light: bool) {
     for k in 0..n {
         let age = ((phase(t) * n as f32 + k as f32) % n as f32) / n as f32;
@@ -141,7 +125,6 @@ pub fn smoke(im: &mut Img, x: i32, y: i32, t: u32, rise: i32, n: u32, light: boo
                 if dx * dx + dy * dy > r * r {
                     continue;
                 }
-                // Thinner as it climbs: dither away the old smoke.
                 let keep = age < 0.45 || (xx + yy + k as i32) % 2 == 0 && age < 0.8 || (xx + 2 * yy + k as i32).rem_euclid(4) == 0;
                 if !keep {
                     continue;
@@ -154,10 +137,7 @@ pub fn smoke(im: &mut Img, x: i32, y: i32, t: u32, rise: i32, n: u32, light: boo
     }
 }
 
-/// A flame standing on row `foot`, `w` wide at its base, leaning and
-/// flickering with `t`. Fire is a state: it burns in the signal inks.
 pub fn flame(im: &mut Img, x: i32, foot: i32, w: i32, t: u32, seed: u32) {
-    // The tip leaps and falls from step to step.
     let h = (w * 3 / 2).max(3) + (hash((t % FRAMES) as i32, seed as i32, 66) % 2) as i32;
     let flick = turn(t);
     for r in 0..h {
@@ -184,12 +164,9 @@ pub fn flame(im: &mut Img, x: i32, foot: i32, w: i32, t: u32, seed: u32) {
     }
 }
 
-/// The dark arch of a furnace mouth, `w` by `h` with its foot on `y + h`:
-/// cold and sooted, or (`lit`) filled with fire that flickers with `t`.
 pub fn mouth(im: &mut Img, x: i32, y: i32, w: i32, h: i32, lit: bool, t: u32) {
     for yy in 0..h {
         for xx in 0..w {
-            // A rounded top.
             let corner = yy == 0 && (xx == 0 || xx == w - 1);
             if corner {
                 continue;
@@ -215,7 +192,6 @@ pub fn mouth(im: &mut Img, x: i32, y: i32, w: i32, h: i32, lit: bool, t: u32) {
     }
 }
 
-/// Embers glowing in a cold hearth: a few dull red pixels, never flame.
 pub fn embers(im: &mut Img, x: i32, y: i32, w: i32, seed: u32) {
     for k in 0..w {
         if hash(k, seed as i32, 62) % 3 == 0 {
@@ -224,7 +200,6 @@ pub fn embers(im: &mut Img, x: i32, y: i32, w: i32, seed: u32) {
     }
 }
 
-/// A sack standing on row `foot`, `x` its left, six wide and seven high.
 pub fn sack(im: &mut Img, x: i32, foot: i32, body: [char; 3]) {
     let rows = [" .BB. ", " .bb. ", ".hhhh.", "hHHHHj", "hHHHHj", "hhHHjj", ".jjjj."];
     for (r, row) in rows.iter().enumerate() {
@@ -242,8 +217,6 @@ pub fn sack(im: &mut Img, x: i32, foot: i32, body: [char; 3]) {
     }
 }
 
-/// A scaffold against a wall: poles at `xs`, planks at each of `ys`
-/// between the outer poles, a rope lashing at each joint.
 pub fn scaffold(im: &mut Img, xs: &[i32], top: i32, foot: i32, ys: &[i32]) {
     for &x in xs {
         post(im, x, top, foot);
@@ -258,7 +231,6 @@ pub fn scaffold(im: &mut Img, xs: &[i32], top: i32, foot: i32, ys: &[i32]) {
     }
 }
 
-/// A ladder from `(x, y0)` down to `(x, y1)`, leaning a little.
 pub fn ladder(im: &mut Img, x: i32, y0: i32, y1: i32) {
     for y in y0..=y1 {
         let lean = (y - y0) / 8;
@@ -272,7 +244,6 @@ pub fn ladder(im: &mut Img, x: i32, y0: i32, y1: i32) {
     }
 }
 
-/// A banner on a pole waving with `t`: `field` its cloth, `charge` a mark.
 pub fn banner(im: &mut Img, x: i32, top: i32, foot: i32, t: u32, field: char, charge: char) {
     for y in top..=foot {
         im.put(x, y, 'o');
@@ -289,13 +260,10 @@ pub fn banner(im: &mut Img, x: i32, top: i32, foot: i32, t: u32, field: char, ch
     }
 }
 
-/// A heap of cut and rough stone, a stack of timber, whatever a place keeps
-/// piled: delegated to the loads.
 pub fn pile(im: &mut Img, cx: i32, foot: i32, w: i32, h: i32, load: super::Load, seed: u32) {
     super::loads::heap(im, cx, foot, w, h, load, seed);
 }
 
-/// A bucket of `fill` (an ink) hanging or standing, five wide.
 pub fn bucket(im: &mut Img, x: i32, y: i32, fill: char) {
     im.rect(x, y, 5, 1, 'B');
     im.rect(x, y + 1, 5, 3, 'r');
@@ -306,8 +274,6 @@ pub fn bucket(im: &mut Img, x: i32, y: i32, fill: char) {
     im.put(x + 3, y + 2, 'U');
 }
 
-/// Cut shadow from a hanging thing: nothing yet kept; here for the call
-/// sites that darken a rectangle already drawn by one step of its bank.
 pub fn darken(im: &mut Img, x0: i32, y0: i32, w: i32, h: i32) {
     for y in y0..y0 + h {
         for x in x0..x0 + w {
@@ -318,13 +284,11 @@ pub fn darken(im: &mut Img, x0: i32, y0: i32, w: i32, h: i32) {
     }
 }
 
-/// A heap of earth spoil: a mound in the dirt's own tones.
 pub fn spoil(im: &mut Img, cx: i32, foot: i32, rx: f32, ry: f32, seed: u32) {
     let keep = |_: i32, _: i32| true;
     material::lobe(im, (cx as f32, foot as f32 - ry * 0.6), (rx, ry), &['b', 'B', 'P', 'o', 'O'], seed, 1.5, 0.3, &keep);
 }
 
-/// A coursed brick face of the hearth tones, `rect` of it.
 pub fn bricks(im: &mut Img, x0: i32, y0: i32, w: i32, h: i32, seed: u32) {
     for y in y0..y0 + h {
         let row = (y - y0) / 3;
@@ -348,28 +312,22 @@ pub fn bricks(im: &mut Img, x0: i32, y0: i32, w: i32, h: i32, seed: u32) {
     }
 }
 
-/// A shingled or thatched pitched roof seen from the front, `rect` of it:
-/// the shared material, a ridge cap and the eave shadowed.
 pub fn roof(im: &mut Img, x: i32, y: i32, w: i32, h: i32, ramp: &'static [char], seed: u32) {
     material::roof_hip(im, (x, y, w, h), ramp, seed, (h * 2 / 3).min(w / 5));
 }
 
-/// A lean-to roof, one slope toward the viewer, over `rect`.
 pub fn lean_roof(im: &mut Img, x: i32, y: i32, w: i32, h: i32, ramp: &'static [char], seed: u32) {
     material::roof(im, (x, y, w, h), ramp, seed);
 }
 
-/// A boarded wall, `rect` of it, vertical planks.
 pub fn boards(im: &mut Img, x: i32, y: i32, w: i32, h: i32, seed: u32) {
     material::boards(im, (x, y, w, h), true, seed);
 }
 
-/// A coursed stone wall, `rect` of it.
 pub fn stone(im: &mut Img, x: i32, y: i32, w: i32, h: i32, seed: u32) {
     material::ashlar(im, (x, y, w, h), material::ramp::STONE, seed);
 }
 
-/// A dark doorway, `w` by `h`, its foot on `foot`, a lintel above.
 pub fn door(im: &mut Img, x: i32, foot: i32, w: i32, h: i32) {
     im.rect(x, foot - h + 1, w, h, 'k');
     im.rect(x + 1, foot - h + 2, w - 2, h - 2, 'K');
@@ -378,7 +336,6 @@ pub fn door(im: &mut Img, x: i32, foot: i32, w: i32, h: i32) {
     im.line(x + w, foot - h + 1, x + w, foot, 'B');
 }
 
-/// A shuttered window, `w` by `h`, dark; lit from within when `lit`.
 pub fn window(im: &mut Img, x: i32, y: i32, w: i32, h: i32, lit: bool) {
     im.rect(x, y, w, h, 'b');
     im.rect(x + 1, y + 1, w - 2, h - 2, if lit { '5' } else { 'k' });
@@ -387,7 +344,6 @@ pub fn window(im: &mut Img, x: i32, y: i32, w: i32, h: i32, lit: bool) {
     }
 }
 
-/// A chimney stack of coursed stone, `h` high, on row `foot`.
 pub fn chimney(im: &mut Img, x: i32, foot: i32, w: i32, h: i32) {
     for y in foot - h..=foot {
         for dx in 0..w {
@@ -408,9 +364,6 @@ pub fn chimney(im: &mut Img, x: i32, foot: i32, w: i32, h: i32) {
     im.line(x - 1, foot - h - 1, x + w, foot - h - 1, 'i');
 }
 
-/// A solid of rows: from row `y0` to `y1`, the left edge going from `l0`
-/// to `l1` and the right from `r0` to `r1`, each pixel inked by `tex(x, y,
-/// side)` where `side` is -1 on the left edge, 1 on the right, else 0.
 #[allow(clippy::too_many_arguments)]
 pub fn trapezoid(im: &mut Img, y0: i32, y1: i32, (l0, r0): (f32, f32), (l1, r1): (f32, f32), tex: &dyn Fn(i32, i32, i8) -> char) {
     let rows = (y1 - y0).max(1) as f32;
@@ -425,8 +378,6 @@ pub fn trapezoid(im: &mut Img, y0: i32, y1: i32, (l0, r0): (f32, f32), (l1, r1):
     }
 }
 
-/// Running water in a rectangle: bands of blue with pale glints that drift
-/// `dir` (1 right, -1 left) a whole wavelength in one loop. Wavelength 8.
 pub fn stream(im: &mut Img, x0: i32, y0: i32, w: i32, h: i32, t: u32, dir: i32, seed: u32) {
     let shift = (t % FRAMES) as i32 * dir;
     for y in y0..y0 + h {
@@ -444,13 +395,11 @@ pub fn stream(im: &mut Img, x0: i32, y0: i32, w: i32, h: i32, t: u32, dir: i32, 
             im.put(x, y, ch);
         }
     }
-    // The bank's wet edge.
     for x in x0..x0 + w {
         im.put(x, y0, 'u');
     }
 }
 
-/// Still water: a pond, darker at its middle, with a light rim.
 pub fn pond(im: &mut Img, cx: f32, cy: f32, rx: f32, ry: f32, t: u32, seed: u32) {
     for y in (cy - ry - 1.0).floor() as i32..=(cy + ry + 1.0).ceil() as i32 {
         for x in (cx - rx - 1.0).floor() as i32..=(cx + rx + 1.0).ceil() as i32 {
@@ -476,8 +425,6 @@ pub fn pond(im: &mut Img, cx: f32, cy: f32, rx: f32, ry: f32, t: u32, seed: u32)
     }
 }
 
-/// Chips flying from a blow at `(x, y)`: `n` flecks of `ch` on short arcs,
-/// bursting at step 0 of the loop and gone by step 5.
 pub fn chips(im: &mut Img, x: i32, y: i32, t: u32, n: u32, ch: char) {
     let s = (t % FRAMES) as f32;
     if s > 5.0 {
@@ -491,7 +438,6 @@ pub fn chips(im: &mut Img, x: i32, y: i32, t: u32, n: u32, ch: char) {
     }
 }
 
-/// A stone-dust puff low over `(x, y)`: pale specks that rise and thin.
 pub fn dust(im: &mut Img, x: i32, y: i32, t: u32, ch: char) {
     for k in 0..5 {
         let age = ((t + k * 2) % FRAMES) as f32 / FRAMES as f32;
@@ -503,8 +449,6 @@ pub fn dust(im: &mut Img, x: i32, y: i32, t: u32, ch: char) {
     }
 }
 
-/// A square-edged block of stone seen from the front and above, lit from
-/// the north-west: `w` by `h`, its top face a third of it.
 pub fn blockish(im: &mut Img, x: i32, y: i32, w: i32, h: i32, ramp: &'static [char], seed: u32) {
     material_block(im, x, y, w, h, ramp, seed);
 }
@@ -513,7 +457,6 @@ fn material_block(im: &mut Img, x: i32, y: i32, w: i32, h: i32, ramp: &'static [
     material::block(im, (x, y, w, h), ramp, false, seed);
 }
 
-/// What a house's front is built of.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Front {
     Stone,
@@ -521,9 +464,6 @@ pub enum Front {
     Brick,
 }
 
-/// A house front: a roof `roof_h` high from row `y`, its wall `wall_h`
-/// high hard under it (no gap, whatever the sizes), `w` wide, the wall a
-/// little inside the roof's eaves. Returns the row the wall begins on.
 #[allow(clippy::too_many_arguments)]
 pub fn dwelling(im: &mut Img, x: i32, y: i32, w: i32, roof_h: i32, wall_h: i32, front: Front, ramp: &'static [char], seed: u32) -> i32 {
     let wall_y = y + roof_h - 1;
@@ -533,7 +473,6 @@ pub fn dwelling(im: &mut Img, x: i32, y: i32, w: i32, roof_h: i32, wall_h: i32, 
         Front::Brick => bricks(im, x + 2, wall_y, w - 4, wall_h, seed),
     }
     roof(im, x, y, w, roof_h, ramp, seed);
-    // The eave's shadow on the wall.
     for k in 0..w - 4 {
         if let Some(c) = im.get(x + 2 + k, wall_y + 1) {
             im.set(x + 2 + k, wall_y + 1, material::darker(c));

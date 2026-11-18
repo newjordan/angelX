@@ -15,7 +15,6 @@ use std::sync::Mutex;
 
 pub(crate) const SCHEME: &str = "ledger://";
 
-/// Latest evidence per (workspace, route).
 static EVIDENCE: Mutex<BTreeMap<(String, Route), String>> = Mutex::new(BTreeMap::new());
 
 const EVIDENCE_MAX_CHARS: usize = 6_000;
@@ -51,7 +50,6 @@ fn workspace_key(workspace: &Path) -> String {
         .into_owned()
 }
 
-/// Decode a ledger path for `read_file`.
 pub(crate) fn read(workspace: &Path, rest: &str) -> Result<String, String> {
     let rest_trimmed = rest.trim().trim_matches('/');
     if rest_trimmed.is_empty() {
@@ -66,7 +64,6 @@ pub(crate) fn read(workspace: &Path, rest: &str) -> Result<String, String> {
         .ok_or_else(|| unknown(rest))
 }
 
-/// One address: a chapter letter, then an optional section and page digit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Address {
     pub(crate) primary: char,
@@ -74,7 +71,6 @@ pub(crate) struct Address {
     pub(crate) page: Option<char>,
 }
 
-/// Split a run of cells into addresses: a braille letter starts each one.
 pub(crate) fn addresses(cells: &str) -> Option<Vec<Address>> {
     let mut out: Vec<Address> = Vec::new();
     for cell in cells.chars() {
@@ -120,13 +116,10 @@ fn decode(workspace: &Path, address: &Address, depth: usize) -> Option<String> {
     }
 }
 
-/// One page's line in a reading: its address, then the page as rendered.
 pub(crate) fn page_line(route: Route, index: usize, rendered: &str) -> String {
     format!("{}{}  {rendered}", route.cells(), DIGITS[index])
 }
 
-/// A page is a verbatim sentence, or — in a personality type — addresses,
-/// rendered in full.
 fn render_page(workspace: &Path, text: &str, depth: usize) -> Option<String> {
     if !is_warpath_line(text) {
         return Some(text.to_string());
@@ -217,8 +210,6 @@ pub(crate) fn is_cell(ch: char) -> bool {
     ('\u{2800}'..='\u{28FF}').contains(&ch)
 }
 
-/// A line that is nothing but braille: a warpath. A loop route's own turn
-/// leads with the warning sign.
 pub(crate) fn is_warpath_line(line: &str) -> bool {
     let line = line.trim();
     let line = line
@@ -228,10 +219,6 @@ pub(crate) fn is_warpath_line(line: &str) -> bool {
     !line.is_empty() && line.chars().all(is_cell)
 }
 
-/// Text with each braille word it carries — a route, or a run of page
-/// addresses — replaced by the verbatim pages it names: a section's route
-/// reads as all its pages. For the harness's own indexes (tool search), never
-/// for the wire.
 pub(crate) fn expand(text: &str) -> String {
     text.split_whitespace()
         .map(|word| {
@@ -258,13 +245,10 @@ pub(crate) fn expand(text: &str) -> String {
         .join(" ")
 }
 
-/// A harness message that opens with a warpath: the stamps, and any facts
-/// (a failing run's tail, a receipt) beside them as data.
 pub(crate) fn is_warpath_message(content: &str) -> bool {
     content.lines().next().is_some_and(is_warpath_line)
 }
 
-/// Bytes of a trailing `\n<warpath>` line, 0 when there is none.
 pub(crate) fn tail_bytes(content: &str) -> usize {
     match content.rsplit_once('\n') {
         Some((_, last)) if is_warpath_line(last) => last.len() + 1,
@@ -272,8 +256,6 @@ pub(crate) fn tail_bytes(content: &str) -> usize {
     }
 }
 
-/// Content with its warpath lines removed, for summaries: warpaths steer the
-/// live tail only and must never be distilled into durable notes.
 pub(crate) fn without_warpaths(content: &str) -> std::borrow::Cow<'_, str> {
     if !content.lines().any(is_warpath_line) {
         return std::borrow::Cow::Borrowed(content);
@@ -287,7 +269,6 @@ pub(crate) fn without_warpaths(content: &str) -> std::borrow::Cow<'_, str> {
     )
 }
 
-/// Does a read_file path target the ledger?
 pub(crate) fn is_ledger_path(path: &str) -> bool {
     path.trim_start().starts_with(SCHEME)
 }

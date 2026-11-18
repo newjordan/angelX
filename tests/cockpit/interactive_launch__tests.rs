@@ -193,8 +193,6 @@ fn native_cli_rejects_before_terminal_and_does_not_scan_payload_for_doctor() {
     }
 }
 
-// Cargo sets CARGO_BIN_EXE_angel for the gate's copied image; a plain
-// `cargo test` run falls back to the sibling `angel` next to deps/<test-exe>.
 fn angel_binary() -> std::ffi::OsString {
     std::env::var_os("CARGO_BIN_EXE_angel")
         .or_else(|| {
@@ -211,8 +209,6 @@ fn angel_binary() -> std::ffi::OsString {
 fn isolated_native(binary: &OsStr) -> std::process::Command {
     let mut cmd = std::process::Command::new(binary);
     cmd.env_clear();
-    // Never hand the operator's real HOME/Codex/XDG roots to the child: each
-    // spawn gets its own empty fixture home under the test's TMPDIR.
     static SEQ: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let home = std::env::temp_dir().join(format!(
         "angel-native-{}-{}",
@@ -280,7 +276,6 @@ fn native_helpers_use_the_parsed_mode_slice_with_leading_globals_and_opaque_valu
     }
 }
 
-// The Python native-entry fixture inspects `/proc/<pid>/cwd`.
 #[cfg(target_os = "linux")]
 #[test]
 fn native_private_cli_practice_draft_and_literal_prompt_fixture() {

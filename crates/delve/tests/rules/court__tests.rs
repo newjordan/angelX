@@ -39,8 +39,6 @@ fn boss(run: &Run) -> &Boss {
     &run.bosses[run.enemies[0].boss.unwrap() as usize]
 }
 
-/// A blow of `dealt` struck from `from` this tick, through the real hook
-/// and the ward: what it took.
 fn blow(run: &mut Run, dealt: u32, from: (f32, f32)) -> u32 {
     let extra = signatures::rear_bonus(&run.enemies[0], &run.bosses, from, dealt);
     let e = &mut run.enemies[0];
@@ -73,7 +71,6 @@ fn court_turns_toward_the_nearest_knight_no_faster_than_its_rate() {
     }
     assert!(e.dir.1 < -0.999, "faces the knight at last: {:?}", e.dir);
 
-    // Spent after a charge-up it stands as it is.
     e.stage = signatures::DAZED;
     let held = e.dir;
     turn(&mut e, &b, &[(40.0, 14.0)]);
@@ -139,9 +136,6 @@ fn court_its_broken_ward_is_called_out() {
     assert!(run.sounds.contains(&"crack_open"));
 }
 
-/// The Relic Liege's fight, a frame for each of its states, written to
-/// `COURT_SHOTS` (required).
-/// `cargo test court_shots -- --ignored`
 #[test]
 fn court_names_its_ward_the_first_few_times_it_turns_a_blow_from_the_front() {
     let mut run = arena();
@@ -158,7 +152,6 @@ fn court_names_its_ward_the_first_few_times_it_turns_a_blow_from_the_front() {
     }
     assert!(!signatures::hinting(&run.enemies[0]), "for a moment only");
 
-    // A knight already at its back has the lesson.
     run.enemies[0].hint = 0;
     if let Some(h) = run.players.values_mut().next() {
         (h.x, h.y) = back;
@@ -166,7 +159,6 @@ fn court_names_its_ward_the_first_few_times_it_turns_a_blow_from_the_front() {
     blow(&mut run, 40, back);
     assert_eq!(run.enemies[0].hints, 1);
 
-    // Nor does a broken ward teach anything.
     at_share(&mut run, 0.2);
     for h in run.players.values_mut() {
         (h.x, h.y) = front;

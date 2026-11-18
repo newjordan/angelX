@@ -25,7 +25,6 @@ fn the_pigeon_flies_a_loop_over_the_room() {
 fn a_real_arrow_bonks_it_and_the_paper_drops() {
     let mut run = in_the_belfry();
     run.kit_out_for_test();
-    // Knight one stands below the pigeon's path and looses arrows up at it.
     for _ in 0..LAP * 2 {
         let (x, y) = pigeon_at(run.room(), 0, run.tick + 6);
         let h = &run.players[&1];
@@ -35,7 +34,6 @@ fn a_real_arrow_bonks_it_and_the_paper_drops() {
             1,
             Input {
                 fire: true,
-                // Eight ways, as a stick or the keys aim.
                 aim_x: if dx.abs() > 0.4 * len { dx.signum() as i8 } else { 0 },
                 aim_y: if dy.abs() > 0.4 * len { dy.signum() as i8 } else { 0 },
                 ..Default::default()
@@ -99,7 +97,6 @@ fn the_best_bonker_is_crowned_when_the_minutes_go_in() {
     assert!(run.pigeons.is_none());
 }
 
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_pigeon_shots -- --ignored`
 #[test]
 #[ignore]
 fn write_pigeon_shots() {

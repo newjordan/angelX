@@ -13,8 +13,6 @@ use crate::world3d::rooms_lit_look::{Activity, Tone};
 use angel_stage::scene::{MeshData, Props};
 use std::sync::Arc;
 
-/// A spread of places: near and far from the source, every seed, low things
-/// and walls.
 fn places() -> Vec<Place> {
     let mut out = Vec::new();
     for order in [0.0, 0.2, 0.5, 0.8, 1.0] {
@@ -27,13 +25,10 @@ fn places() -> Vec<Place> {
     out
 }
 
-/// Times from before 0 to past `end`, a thousandth of a second apart.
 fn sweep(end: f32) -> impl Iterator<Item = f32> {
     (-200..=((end + 0.5) * 1000.0) as i32).map(|i| i as f32 / 1000.0)
 }
 
-/// The most any number of a move may change in a thousandth of a second (the
-/// quickest is about 12 a second).
 const STEP: f32 = 0.02;
 
 #[test]
@@ -60,9 +55,7 @@ fn every_move_is_flat_at_0_and_lit_at_its_end() {
     for t in [TIP_DURATION, TIP_DURATION + 1.0, f32::INFINITY] {
         assert_eq!(tip(t), Tip::TIPPED, "{t}");
     }
-    // The card is a card: none of its way up, no pool, a spark.
     assert!(Prop::CARD.height == 0.0 && Prop::CARD.flame < 0.1 && Prop::CARD.lamp.strength == 0.0);
-    // The whole climb starts with all three flat and ends with all three done.
     let start = climb(0.0);
     assert!(start.floor <= 0.0 && start.prop < 0.0 && start.tip < 0.0);
     let end = climb(DURATION);
@@ -150,7 +143,6 @@ fn a_stone_climbs_then_locks_past_its_height_and_settles() {
             }
             last = h;
         }
-        // Not yet started: a card. Done: exactly up, past it in between.
         assert_eq!(prop(start - 0.01, place).height, 0.0);
         let over = (0..=100).map(|i| prop(start + rise + LOCK_TIME * i as f32 / 100.0, place).height).fold(0.0, f32::max);
         assert!(over > 1.0 + LOCK_OVER * 0.4 && over <= 1.0 + LOCK_OVER, "the lock goes past: {over}");
@@ -161,10 +153,8 @@ fn a_stone_climbs_then_locks_past_its_height_and_settles() {
 #[test]
 fn a_wall_climbs_slower_than_a_low_stone_and_the_far_after_the_near() {
     let at = |order, tall| Place { order, seed: 0.5, tall };
-    // Half way up the low stone's climb, the wall is behind it.
     let t = PROP_JITTER * 0.5 + RISE_LOW * 0.5;
     assert!(prop(t, at(0.0, 0.0)).height > prop(t, at(0.0, TALL)).height + 0.05);
-    // And what is near the source is up, and burning, before what is far.
     let first = |place: Place, reached: &dyn Fn(Prop) -> bool| sweep(PROP_DURATION).find(|&t| reached(prop(t, place))).expect("it gets there");
     for tall in [0.0, 24.0, 48.0] {
         let (near, far) = (at(0.1, tall), at(0.9, tall));
@@ -182,10 +172,7 @@ fn flames_and_lamps_catch_only_after_every_stone_has_seated() {
             assert_eq!(p.flame, SPARK, "a spark until {IGNITE_AT} (at {t})");
             assert_eq!(p.lamp, Pool::OUT, "no pool until then (at {t})");
         }
-        // Every stone is up and still by then.
         assert!((prop(IGNITE_AT, place).height - 1.0).abs() < 1.0e-5);
-        // A flame flares past its size on the way, then settles; its pool
-        // follows it.
         let catch = IGNITE_AT + IGNITE_SPREAD * place.order + IGNITE_JITTER * place.seed;
         let flare = (0..=100).map(|i| prop(catch + IGNITE_TIME * i as f32 / 100.0, place).flame).fold(0.0, f32::max);
         assert!(flare > 1.0 + FLARE * 0.4, "a flame flares: {flare}");
@@ -205,7 +192,6 @@ fn the_floors_pools_bloom_after_the_sun_is_down() {
     assert!(pool(POOL_AT + BLOOM_TIME * 0.5, place).strength > 0.5);
     let far = Place { order: 1.0, ..place };
     assert!(pool(POOL_AT + BLOOM_TIME * 0.5, far).strength < pool(POOL_AT + BLOOM_TIME * 0.5, place).strength, "door to heart");
-    // A pool flares past its light and its reach, and draws back.
     let peak = (0..=100).map(|i| pool(POOL_AT + BLOOM_TIME * i as f32 / 100.0, place)).fold(Pool::OUT, |a, p| Pool { strength: a.strength.max(p.strength), reach: a.reach.max(p.reach) });
     assert!(peak.strength > 1.1 && peak.reach > 1.02, "{peak:?}");
 }
@@ -237,7 +223,6 @@ fn the_ground_rises_the_sun_comes_down_and_the_room_lands() {
     }
     assert!(tip(TIP_TIME + TIP_SETTLE * 0.3).tilt > 1.0 + TIP_OVER * 0.4, "the room lands past its tilt");
     assert!(tip(TIP_TIME + TIP_SETTLE * 0.3).catch > 1.0 + CATCH * 0.4, "and the lamps flare");
-    // The tip slow in: a slab lifted at an edge.
     assert!(tip(TIP_TIME * 0.25).tilt < 0.1);
 }
 
@@ -250,17 +235,13 @@ fn the_sun_comes_down_from_overhead_and_its_shadows_grow_from_nothing() {
         sun
     };
     let own = Sun { toward: key.0, strength: key.1, ambient: 0.1, shadow: None, rise: 0.0 };
-    // Down: its own, exactly the way it was made, but for rounding.
     let down = sun_at(1.0, 1.0);
     for k in 0..3 {
         assert!((down.toward_unit()[k] - own.toward_unit()[k]).abs() < 1.0e-5, "{down:?}");
     }
     assert!((down.strength - own.strength).abs() < 1.0e-5);
-    // Overhead: nothing's shadow has any length.
     let up = sun_at(0.0, 1.0);
     assert_eq!(up.toward, [0.0, 1.0, 0.0]);
-    // A shadow's length is its height's cotangent of the sun's height: 0 up
-    // there, growing the whole way down.
     let shadow = |p: f32| {
         let t = sun_at(p, 1.0).toward_unit();
         t[0].hypot(t[2]) / t[1]
@@ -274,7 +255,6 @@ fn the_sun_comes_down_from_overhead_and_its_shadows_grow_from_nothing() {
         assert!((s - shadow(1.0) * p).abs() < 1.0e-3 * shadow(1.0), "and grows evenly with the sun's progress ({s} at {p})");
         last = s;
     }
-    // The floor keeps its brightness all the way down; a wall's face grows.
     let floor_light = |p: f32| {
         let s = sun_at(p, 1.0);
         s.strength * s.toward_unit()[1]
@@ -290,7 +270,6 @@ fn the_sun_comes_down_from_overhead_and_its_shadows_grow_from_nothing() {
     };
     assert_eq!(face(0.0), 0.0);
     assert!(face(0.5) > 0.0 && face(1.0) > face(0.5));
-    // With less of the key on, the floor has less of it.
     assert!(sun_at(0.0, FLAT_KEY).strength < sun_at(0.0, 1.0).strength);
 }
 
@@ -315,15 +294,11 @@ fn the_ripple_runs_from_its_source_and_its_seed_is_smooth() {
     assert_eq!(from.order(f32::NAN, 0.0), 0.0, "a point that is not one is the source");
 }
 
-// ------------------------------------------------------- a real room ----
-
 fn crypt_fight() -> crate::rules::Room {
     let floor = layout::floor_party(1, Pack::Crypt, 1, &mut Rng::new(3));
     floor.rooms.iter().find(|r| r.kind == RoomKind::Fight).expect("a fight room").clone()
 }
 
-/// The crypt's fight room as the window stands it: its frame with the
-/// room's floor, blocks, flames and look, scrolled by a few pixels.
 fn frame() -> (Frame, Ripple) {
     frame_of(&crypt_fight(), Pack::Crypt)
 }
@@ -352,7 +327,6 @@ fn a_frame_whose_moves_are_done_is_left_exactly_as_it_is() {
     let mut later = frame.clone();
     apply(&mut later, climb(DURATION), &ripple);
     assert_eq!(later, frame);
-    // And a move not begun leaves its own part alone: the tip alone changes only the tilt and the lamps.
     let mut tipped = frame.clone();
     apply(&mut tipped, Times { tip: 0.0, ..Times::DONE }, &ripple);
     assert_eq!(tipped.tilt, 0.0);
@@ -367,8 +341,6 @@ fn the_flat_plan_is_flat_with_the_sun_overhead_and_the_lamps_out() {
     apply(&mut flat, climb(0.0), &ripple);
     let (before, after) = (world_of(&frame), world_of(&flat));
     assert_eq!(flat.tilt, 0.0, "not tipped");
-    // Every mass is a card of its own footprint: x and z as they were, no
-    // thicker than a card, whatever it was.
     assert!(!after.blocks.is_empty());
     let scale = before.floor.iter().find(|n| is_ground(n)).expect("a ground").transform.scale[0];
     for (a, b) in before.blocks.iter().zip(&after.blocks) {
@@ -379,16 +351,13 @@ fn the_flat_plan_is_flat_with_the_sun_overhead_and_the_lamps_out() {
         assert!(top <= CARD * scale * 1.0001 + 0.01, "a card is {top} thick");
     }
     assert!(after.blocks.iter().any(|n| n.transform.translation[1] + n.transform.scale[1] * 0.5 > CARD * scale * 0.99), "and the tall ones are cards, not nothing");
-    // The ground is flat but for the least a node can be.
     let ground = |w: &World| w.floor.iter().find(|n| is_ground(n)).expect("a ground").transform.scale[1];
     assert_eq!(ground(after), ground(before) * MIN_RELIEF);
-    // The flames are sparks on the cards, riding them down.
     let flames: Vec<_> = before.extra.iter().zip(&after.extra).filter(|(a, _)| is_flame(a)).collect();
     assert!(!flames.is_empty(), "torches and braziers");
     for (a, b) in flames {
         assert!(b.transform.scale[1] < a.transform.scale[1] * 0.1 && b.transform.scale[0] < a.transform.scale[0]);
     }
-    // The sun is overhead and the lamps are out, their pools shrunk.
     let (look, was) = (after.look.as_ref().expect("a look"), before.look.as_ref().expect("a look"));
     let sun = look.sun.expect("a sun");
     assert_eq!(sun.toward, [0.0, 1.0, 0.0]);
@@ -415,7 +384,6 @@ fn the_whole_climb_is_always_a_frame_the_gpu_can_draw() {
             assert!(w.floor.iter().chain(&w.blocks).chain(&w.extra).all(finite), "{times:?}");
             let look = w.look.as_ref().expect("a look");
             assert!(look.validate().is_ok() && look.lights(), "{:?} at {times:?}", look.validate());
-            // Nothing stands taller than it is: a mass never past its lock.
             for (a, b) in world_of(&frame).blocks.iter().zip(&w.blocks) {
                 assert!(b.transform.scale[1] <= a.transform.scale[1] * (1.0 + LOCK_OVER + 1.0e-4));
             }
@@ -443,8 +411,6 @@ fn a_flame_stands_on_its_mass_as_it_rises_and_grows_about_its_foot() {
         let after = world_of(&f);
         for &i in &flames {
             let (a, b) = (&before.extra[i], &after.extra[i]);
-            // Its mass: the tallest thing standing at its middle, and what is
-            // taller still at the middle of that.
             let (x, z) = (a.transform.translation[0], a.transform.translation[2]);
             let tallest = |x: f32, z: f32| {
                 (0..before.blocks.len())
@@ -498,8 +464,6 @@ fn the_ground_field_reads_the_sets_heights() {
 
 #[test]
 fn a_card_stands_on_the_dais_it_is_never_buried_in() {
-    // Blocks of the floor stand on a dais of the ground (3 pixels, as many
-    // tiles across), their masses on it.
     let mut room = crypt_fight();
     let (c, r) = (room.cols as usize / 2 - 1, room.rows as usize / 2 + 2);
     for dc in 0..3 {
@@ -519,20 +483,17 @@ fn a_card_stands_on_the_dais_it_is_never_buried_in() {
         let mut f = frame.clone();
         apply(&mut f, Times { prop: t, ..Times::DONE }, &ripple);
         let after = world_of(&f);
-        // No part of any mass is under the ground it stands on.
         for (a, b) in before.blocks.iter().zip(&after.blocks) {
             if top(a) > base(a) + 1.0e-3 {
                 assert!(top(b) >= base(a) - 1.0e-3, "a mass buried at {t}: top {} under {}", top(b), base(a));
             }
         }
-        // And at the start the tallest of what stands on it is a card on it.
         if t == 0.0 {
             let tallest = on_dais.iter().copied().max_by(|&p, &q| top(&before.blocks[p]).total_cmp(&top(&before.blocks[q]))).expect("some");
             let card = top(&after.blocks[tallest]) - base(&before.blocks[tallest]);
             assert!(card > 0.0 && card <= CARD * g.scale[0] * 1.001, "a card thick: {card}");
         }
     }
-    // A card on no dais is as thick over the floor.
     let mut flat = frame.clone();
     apply(&mut flat, Times { prop: 0.0, ..Times::DONE }, &ripple);
     for (a, b) in before.blocks.iter().zip(&world_of(&flat).blocks) {
@@ -571,13 +532,11 @@ fn a_mass_holds_what_is_under_it_and_not_what_is_near_it() {
         n.transform = Transform { translation, scale, ..Transform::from_rotation_axis_angle([0.0, 1.0, 0.0], yaw) };
         n
     };
-    // A long thin wall holds the ground it covers, not the floor across from it.
     let wall = Column::of(&node([200.0, 20.0, 10.0], [360.0, 40.0, 8.0], 0.0));
     assert!(wall.holds(30.0, 12.0) && wall.holds(370.0, 7.0));
     assert!(!wall.holds(200.0, 40.0), "not the floor 30 pixels off across it");
     assert!(!wall.holds(10.0, 10.0), "nor off its end");
     assert_eq!(wall.top, 40.0);
-    // Turned a quarter, it lies across the other way.
     let turned = Column::of(&node([200.0, 20.0, 10.0], [360.0, 40.0, 8.0], std::f32::consts::FRAC_PI_2));
     assert!(turned.holds(200.0, 150.0) && turned.holds(203.0, -150.0));
     assert!(!turned.holds(30.0, 12.0));
@@ -611,12 +570,9 @@ fn water_lies_on_the_flat_plan_and_goes_down_with_the_ground() {
     apply(&mut mid, Times { floor: 0.3, ..Times::DONE }, &ripple);
     for &i in &pools {
         let (a, f, m) = (top(&before.extra[i]), top(&world_of(&flat).extra[i]), top(&world_of(&mid).extra[i]));
-        // A film over the flat ground, so the pool shows on the plan; then it
-        // goes down with the bed, never above where it ends or the film.
         assert!(f > 0.0 && f <= FILM * 1.2, "a film over the floor: {f}");
         assert!(m <= f + 1.0e-4 && m >= a.min(f) - 1.0e-4, "on its way down: {f} {m} {a}");
     }
-    // Done, the water is untouched.
     let mut done = frame.clone();
     apply(&mut done, Times::DONE, &ripple);
     assert_eq!(world_of(&done).extra, before.extra);

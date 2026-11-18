@@ -1,8 +1,6 @@
 use super::*;
 use crate::render::overworld::{arena, ink, kingdom as geography};
 
-/// The kingdom with two knights side by side at the keep: Friend (seat 1)
-/// and Second (seat 2), both of one class.
 fn kingdom_pair() -> Run {
     let mut r = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
     r.walk_kingdom(Some(geography::keep_stand()));
@@ -18,15 +16,12 @@ fn kingdom_pair() -> Run {
     r
 }
 
-/// Knight `id` holds the second rank of Stilt's wish: the fork questline
-/// is open to them (the teacher waits at the millpond, at 10 3).
 fn take_fork(r: &mut Run, id: u32) {
     let book = phrasebook::book();
     let fork = book.iter().find(|w| w.id == "fork").unwrap();
     r.players.get_mut(&id).unwrap().deck.push(fork.card_id(1));
 }
 
-/// The kingdom door the millpond is reached by.
 fn millpond_door(r: &Run) -> (i32, i32) {
     let geo = geography::geography(&r.kingdom.wishes);
     geo.sites
@@ -55,7 +50,6 @@ fn a_knight_holding_a_questline_is_shown_its_teachers_door_and_another_is_not() 
         r.mission_doors(1)
     );
     assert!(r.mission_doors(2).iter().all(|&(_, at)| at != door));
-    // Walked to its end, it is no longer held.
     let key = Home::knight_key(&r.players[&1]);
     r.home
         .questlines
@@ -114,10 +108,8 @@ fn on_a_floor_a_dares_room_is_marked_on_each_knights_map_and_not_the_partys() {
             .map(|n| n.id)
             .collect()
     };
-    // No dare is kept, so no room is marked as a mission.
     run.dare = None;
     assert!(marked(&run, Some(1)).is_empty(), "{:?}", marked(&run, Some(1)));
-    // Make It Quick names the floor's guardian to every knight who keeps it.
     run.dare = Some(dares::Dare {
         kind: dares::DareKind::MakeItQuick,
         since: run.tick,
@@ -135,7 +127,6 @@ fn on_a_floor_a_dares_room_is_marked_on_each_knights_map_and_not_the_partys() {
 #[test]
 fn every_teacher_but_the_archives_has_a_door_in_the_kingdom() {
     let mut r = kingdom_pair();
-    // Old Carom keeps the tavern's skittle alley: a home that has dug it.
     assert!(layout::dig_tavern_reserved(&mut r.dungeon));
     let geo = geography::geography(&r.kingdom.wishes);
     let lost: Vec<String> = questline::book()
@@ -148,8 +139,6 @@ fn every_teacher_but_the_archives_has_a_door_in_the_kingdom() {
         })
         .map(|q| format!("{} ({:?})", q.teacher, q.kind()))
         .collect();
-    // Maren's file names the Drowned Archive, which the realm reads as a
-    // lair (`Lair`): no room of home is one, so no road leads to her.
     assert_eq!(lost, ["Maren of the Deepwater (Lair)"], "teachers with no way to them");
 }
 
@@ -171,8 +160,6 @@ fn write_mission_shots() {
         )
         .unwrap();
     };
-    // Friend by the millpond's door, Stilt's questline held: the pennant
-    // beside the door; at the keep, the arrowheads toward the places.
     let mut r = kingdom_pair();
     take_fork(&mut r, 1);
     let door = millpond_door(&r);
@@ -183,13 +170,11 @@ fn write_mission_shots() {
     let mut r = kingdom_pair();
     take_fork(&mut r, 1);
     save("mission-kingdom-keep", &arena::frame_for(&r, 384, 224, Some(1)));
-    // In the millpond, over Stilt.
     let mut r = Run::at_home(17, 1, Some("Friend"), Home::default(), Default::default());
     r.come_to_the_gate();
     take_fork(&mut r, 1);
     r.arrive(world::room_of(&r.dungeon, RoomKind::Millpond).unwrap(), (14.0, 7.0));
     save("mission-millpond", &arena::frame_for(&r, 384, 224, Some(1)));
-    // A floor's map: the guardian's room in the pennant's amber.
     let mut run = Run::new(5, 17, None);
     let pack = Pack::at(2, Pack::Crypt);
     run.dungeon = layout::floor_for(fortune::Mode::LongWayDown, 2, pack, &mut run.rng);
@@ -201,7 +186,6 @@ fn write_mission_shots() {
     }
     let map = run.floor_map(Some(1));
     save("mission-floor-map", &arena::dungeon_map::overlay_of(&map).unwrap());
-    // From a room beside the guardian's: its rim in the pennant's amber.
     let guardian = run.boss_gates.as_ref().unwrap().guardian;
     let beside = (0..4).find_map(|d| run.dungeon.neighbour(guardian, d)).unwrap();
     run.enter(beside, None);

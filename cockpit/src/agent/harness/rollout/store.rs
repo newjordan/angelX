@@ -88,7 +88,6 @@ impl Drop for RolloutLease {
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;
-            // SAFETY: the lease owns this descriptor until after unlock.
             unsafe {
                 libc::flock(self.file.as_raw_fd(), libc::LOCK_UN);
             }
@@ -121,10 +120,6 @@ impl RolloutStore {
         }
     }
 
-    // The production constructor records the explicit private base, so it can
-    // migrate that directory without chmodding an arbitrary caller's parent.
-    // File creation, journal digests and sealed-manifest publication stay with
-    // their existing authority checks below.
     fn prepare_directory(&self, leaf: &Path) -> Result<(), String> {
         use crate::platform::workspace_store::private_io::PrivateDirectory;
         for path in self
@@ -156,8 +151,6 @@ impl RolloutStore {
         format!("rol-{:x}-{:x}-{seq:x}", now_ms(), std::process::id())
     }
 
-    /// Discover project-local rollout IDs without opening any manifest. The
-    /// stable sort is part of the offline corpus export contract.
     pub(crate) fn discover_rollout_ids(&self) -> Result<Vec<String>, String> {
         let runs = self.root.join("runs");
         reject_symlink(&self.root)?;
@@ -220,7 +213,6 @@ impl RolloutStore {
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;
-            // SAFETY: `file` remains owned by the returned lease.
             let result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
             if result != 0 {
                 return Err(format!(
@@ -323,8 +315,6 @@ impl RolloutStore {
         cursor: &mut JournalCursor,
         kind: JournalEventKind,
     ) -> Result<JournalEvent, String> {
-        // Fail before building the event hash or opening the journal. Tool
-        // identifiers and other metadata are untrusted text too.
         let material =
             serde_json::to_vec(&kind).map_err(|error| format!("encode event metadata: {error}"))?;
         reject_sensitive_bytes(&material)?;
@@ -423,10 +413,6 @@ impl RolloutStore {
         Ok(events)
     }
 
-    /// Discard only an unterminated final fragment after the complete prefix has
-    /// already passed [`Self::audit_journal`]. Recovery must do this before it
-    /// appends a process-loss terminal event, otherwise the new JSON object
-    /// would be concatenated onto the torn bytes.
     pub(crate) fn discard_torn_tail(&self, rollout_id: &str) -> Result<(), String> {
         let path = self.run_dir(rollout_id)?.join("journal.jsonl");
         reject_symlink(&path)?;

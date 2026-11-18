@@ -13,10 +13,8 @@ use crate::rules::rafterwake::{
     show::{Kind, Mark},
 };
 
-/// Wood chips: pale timber down to dark.
 const CHIPS: Ramp = Ramp(['T', 'O', 'o', 'R', 'p', 'B']);
 
-/// What an effect needs to place itself in the window.
 #[derive(Clone, Copy)]
 pub(super) struct Ctx<'a> {
     pub v: &'a View<'a>,
@@ -24,7 +22,6 @@ pub(super) struct Ctx<'a> {
 }
 
 impl Ctx<'_> {
-    /// A tower point as a window point.
     pub fn at(&self, x: i32, y: i32) -> (f32, f32) {
         ((x + PAD) as f32, (y - self.cam) as f32)
     }
@@ -37,13 +34,11 @@ fn seed(m: &Mark, extra: u32) -> u32 {
     m.born.wrapping_mul(0x9E37_79B1).wrapping_add(extra.wrapping_mul(0x85EB_CA77)) ^ 0x2c1b_3c6d
 }
 
-/// The marks of the viewer's own tower.
 fn marks<'a>(c: &'a Ctx) -> impl Iterator<Item = (&'a Mark, u32)> {
     let now = c.v.now;
     c.v.d.show.marks.iter().map(move |m| (m, m.age(now)))
 }
 
-/// Dust thrown sideways from `(x, y)`: `n` motes each way.
 fn puffs(pen: &mut Pen, at: (f32, f32), n: u32, speed: (f32, f32), life: (f32, f32), age: f32, sd: u32, tick: u64) {
     for (dir, side) in [(0.0, 0u32), (std::f32::consts::PI, 1)] {
         let spray = Spray {
@@ -58,10 +53,6 @@ fn puffs(pen: &mut Pen, at: (f32, f32), n: u32, speed: (f32, f32), life: (f32, f
     }
 }
 
-// ─── under the figures ───────────────────────────────────────────────────────
-
-/// What lies behind the knight: dust at its feet, the shock of a landing and of a slam, a deck
-/// won, debris of a brick.
 pub(super) fn under(im: &mut Img, c: Ctx) {
     for (m, age) in marks(&c) {
         let (x, y) = c.at(m.x, m.y);
@@ -87,7 +78,6 @@ pub(super) fn under(im: &mut Img, c: Ctx) {
                 let mut pen = Pen::new(im, 800);
                 let r = if sweep { 5.0 + a * 8.0 } else { 4.0 + a * 3.2 };
                 pen.shock((x, y), r, 2.0, if sweep { 0.1 } else { 0.3 }, ramps::SMOKE, a / 26.0);
-                // Grit shaken from the beams over it.
                 let grit = Spray { angle: std::f32::consts::FRAC_PI_2, spread: 2.6, gravity: 0.09, drag: 0.05, ..Spray::round(seed(m, 4), 14, (x, y - 70.0), (0.2, 0.9), (16.0, 30.0)) };
                 grit.each(a, |g| pfx::mote(&mut pen, &g, Shape::Dot, ramps::SMOKE, 1, c.tick()));
             }
@@ -103,10 +93,6 @@ pub(super) fn under(im: &mut Img, c: Ctx) {
     }
 }
 
-// ─── over the figures ────────────────────────────────────────────────────────
-
-/// Sparks and rings over the knight and the keeper: a rung caught, the keeper struck, a fall, a
-/// chain, a deck won, the bell's glints at the boots.
 pub(super) fn over(im: &mut Img, c: Ctx) {
     for (m, age) in marks(&c) {
         let (x, y) = c.at(m.x, m.y);
@@ -142,7 +128,6 @@ pub(super) fn over(im: &mut Img, c: Ctx) {
                 }
                 let dust = Spray { gravity: 0.1, drag: 0.1, ..Spray::round(seed(m, 10), 12, (cx, cy), (0.8, 2.8), (12.0, 24.0)) };
                 dust.each(a, |g| pfx::mote(&mut pen, &g, Shape::Smoke, ramps::SMOKE, 2, c.tick()));
-                // Stars wheel over the crumpled knight.
                 if (6..30).contains(&age) {
                     for i in 0..3 {
                         let t = a * 0.34 + i as f32 * 2.1;
@@ -177,10 +162,6 @@ pub(super) fn over(im: &mut Img, c: Ctx) {
     }
 }
 
-// ─── the whole picture ──────────────────────────────────────────────────────
-
-/// The shake of the window now: the heaviest of the tower's marks (`motion::shake` in the kit),
-/// and a little more through a hit-stop so the held frame is not dead.
 pub(super) fn shake(c: Ctx) -> (i32, i32) {
     let blows = marks(&c).filter_map(|(m, age)| {
         let w = m.kind.weight();
@@ -190,12 +171,10 @@ pub(super) fn shake(c: Ctx) -> (i32, i32) {
     juice::shake(blows, c.tick() + held)
 }
 
-/// How a mark should squash the knight's body: `(age, amount)` of the freshest that does.
 pub(super) fn squash(c: Ctx) -> Option<(u32, f32)> {
     marks(&c)
         .filter_map(|(m, age)| match m.kind {
             Kind::Land { hard } if age < 14 => Some((age, if hard { 0.34 } else { 0.2 })),
-            // A hop stretches first: the squash curve a few ticks along.
             Kind::Hop if age < 10 => Some((age + 3, 0.18)),
             Kind::Rise if age < 10 => Some((age + 3, 0.22)),
             _ => None,
@@ -203,7 +182,6 @@ pub(super) fn squash(c: Ctx) -> Option<(u32, f32)> {
         .min_by_key(|&(age, _)| age)
 }
 
-/// Is the knight in its white impact frame?
 pub(super) fn knight_flash(c: Ctx) -> bool {
     marks(&c).any(|(m, age)| match m.kind {
         Kind::Fall { .. } => age < 3,
@@ -211,7 +189,6 @@ pub(super) fn knight_flash(c: Ctx) -> bool {
     })
 }
 
-/// Is the keeper in its white impact frame, and how far through the squash after a strike?
 pub(super) fn keeper_strike(c: Ctx) -> Option<(u32, Weight)> {
     marks(&c)
         .filter_map(|(m, age)| match m.kind {
@@ -221,8 +198,6 @@ pub(super) fn keeper_strike(c: Ctx) -> Option<(u32, Weight)> {
         .min_by_key(|&(age, _)| age)
 }
 
-/// The rim of danger and hurt over the window: red after a fall, pulsing while a tell closes on
-/// the knight, warm gold through the bell.
 pub(super) fn rim(over: &mut Img, c: Ctx, tell_on_knight: bool) {
     let (w, h) = (over.w, over.h);
     let mut k: f32 = 0.0;
@@ -242,7 +217,6 @@ pub(super) fn rim(over: &mut Img, c: Ctx, tell_on_knight: bool) {
     }
 }
 
-/// A flash of gold dither over the window as the keeper falls.
 pub(super) fn flash(over: &mut Img, c: Ctx) {
     for (m, age) in marks(&c) {
         if matches!(m.kind, Kind::Strike { left: 0 }) && age < 5 {
@@ -258,7 +232,6 @@ pub(super) fn flash(over: &mut Img, c: Ctx) {
     }
 }
 
-/// A few motes of dust drifting up through the lamplight, behind everything.
 pub(super) fn motes(im: &mut Img, now: u32, cam: i32) {
     let mut pen = Pen::new(im, 120);
     for i in 0..14u32 {
@@ -275,11 +248,9 @@ pub(super) fn motes(im: &mut Img, now: u32, cam: i32) {
     }
 }
 
-/// An ease for the window's iris at the end of a round.
 pub(super) fn out(t: f32) -> f32 {
     ease::out(t.clamp(0.0, 1.0))
 }
 
-/// The keeper's deck's top, for effects that want to stand on it.
 #[allow(dead_code)]
 pub(super) const DECK: i32 = TOP;

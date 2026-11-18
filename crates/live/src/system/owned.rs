@@ -15,10 +15,6 @@ const MAX_TAIL_EVENTS: usize = 512;
 const MAX_TAIL_BYTES: usize = 8 * 1024 * 1024;
 const MAX_WITNESS_BYTES: usize = 16 * 1024;
 
-/// Hash a caller-selected semantic reply without buffering its JSON encoding.
-/// Callers should serialize a typed ReplayFrame projection (identity, cursor,
-/// and reply), not a view dictionary. Large retained definitions therefore
-/// have a fixed 32-byte recovery witness.
 pub fn semantic_witness(value: &impl serde::Serialize) -> Result<Vec<u8>, String> {
     struct HashWriter(ring::digest::Context);
     impl Write for HashWriter {
@@ -40,8 +36,6 @@ fn guarded<T>(operation: impl FnOnce() -> Result<T, String>) -> Result<T, String
         .unwrap_or_else(|_| Err("owned session validator or worker operation panicked".into()))
 }
 
-// Abort is documented as infallible, but must not prevent retiring a worker
-// whose reply left host staging uncertain if an implementation panics anyway.
 fn abort_safely(validator: &mut impl Validator) {
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| validator.abort()));
 }
@@ -60,12 +54,6 @@ impl Default for Limits {
     }
 }
 
-/// Caller-owned view transaction. `stage_event` sees only accepted live
-/// SessionFrames. Replay calls `validate_replay` and compares semantic witnesses
-/// without producing ordinary view deltas. `stage_baseline` receives the
-/// worker's baseline view Frame. Any failed staged operation calls `abort`
-/// before commit; `commit` must be an infallible, effects-free view swap.
-/// `abort` is also required to be infallible and must discard only staged state.
 pub trait Validator {
     fn validate_checkpoint(&mut self, checkpoint: &Value) -> Result<(), String>;
     fn validate_handoff(&mut self, prior: &Value, next: &Value) -> Result<(), String>;
@@ -89,9 +77,6 @@ struct Accepted {
     witness: Vec<u8>,
 }
 
-/// One owned rules session, supervised by the existing watcher and process
-/// machinery. It stores a checkpoint and bounded accepted inputs, never a
-/// mutable Run or second effect ledger.
 pub struct OwnedSystem {
     inner: System,
     id: String,
@@ -143,8 +128,6 @@ impl OwnedSystem {
         self.pending_event.as_ref()
     }
 
-    /// Restore, publish the worker's real baseline view, privately activate,
-    /// then retain the post-baseline checkpoint as the recovery seed.
     pub fn initialize(
         &mut self,
         initial: Value,
@@ -185,8 +168,6 @@ impl OwnedSystem {
         }
     }
 
-    /// Admit one event. A pending uncertain event permits only exact retry.
-    /// Tail capacity is checkpointed before any new event RPC is issued.
     pub fn event(&mut self, event: Value, validator: &mut impl Validator) -> Result<Value, String> {
         let encoded = serde_json::to_vec(&event).map_err(|e| e.to_string())?.len();
         if encoded.saturating_add(MAX_WITNESS_BYTES) > self.limits.bytes {
@@ -201,8 +182,6 @@ impl OwnedSystem {
             None => false,
         };
         if !retrying {
-            // A candidate can be accepted before a new input exists. If its
-            // active-checkpoint RPC failed, recover the pinned owner before use.
             let refresh_result = self.refresh(validator);
             if refresh_result.is_err() && (self.active_failed() || self.inner.active.is_none()) {
                 self.retire_active();
@@ -233,7 +212,6 @@ impl OwnedSystem {
         if result.is_err() {
             self.retire_active();
             abort_safely(validator);
-            // Preserve the exact pending input and recover only accepted events.
             let _ = self.recover_pinned(validator);
         }
         result
@@ -244,8 +222,6 @@ impl OwnedSystem {
         event: &Value,
         validator: &mut impl Validator,
     ) -> Result<Value, String> {
-        // Allocate bounded tail storage before the mutating RPC; after commit,
-        // pushing the accepted event cannot allocate.
         self.tail.try_reserve(1).map_err(|e| e.to_string())?;
         let retained_event = event.clone();
         let event_bytes = serde_json::to_vec(event).map_err(|e| e.to_string())?.len();
@@ -276,8 +252,6 @@ impl OwnedSystem {
         Ok(frame)
     }
 
-    /// Queries are read-only in the worker. Any transport or caller-validation
-    /// uncertainty retires that process but leaves the accepted recovery tail.
     pub fn query(
         &mut self,
         query: Value,
@@ -299,9 +273,6 @@ impl OwnedSystem {
         result
     }
 
-    /// Restore the pinned executable after an uncertain RPC, replaying only
-    /// the already accepted tail. A pending unaccepted input remains pending
-    /// for its caller's exact retry and is never dispatched here.
     pub fn recover(&mut self, validator: &mut impl Validator) -> Result<(), String> {
         if self.checkpoint.is_none() {
             return Err("owned session is not initialized".into());
@@ -318,8 +289,6 @@ impl OwnedSystem {
         self.recover_pinned(validator)
     }
 
-    /// Checkpointing advances the replay seed without changing the caller's
-    /// already accepted view. The tail is cleared only after both validations.
     pub fn checkpoint_now(&mut self, validator: &mut impl Validator) -> Result<Value, String> {
         if self.pending_event.is_some() {
             return Err("cannot checkpoint while an exact owned event retry is pending".into());
@@ -353,8 +322,6 @@ impl OwnedSystem {
         Ok(checkpoint)
     }
 
-    /// At a quiescent boundary, a new image restores the ACTIVE owner's current
-    /// checkpoint. It gets baseline+activation but never replays old-policy tail.
     pub fn refresh(&mut self, validator: &mut impl Validator) -> Result<bool, String> {
         if self.pending_event.is_some() {
             return Err("cannot refresh while an exact owned event retry is pending".into());
@@ -638,7 +605,6 @@ mod tests {
         }
     }
 
-    // Strict lifecycle: rejects the legacy methods and all invented session.* names.
     const STRICT_WORKER: &str = r##"#!/usr/bin/env python3
 import json, os, struct, sys
 REJECT_RESTORE = False

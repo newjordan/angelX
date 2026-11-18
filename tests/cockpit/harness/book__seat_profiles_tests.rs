@@ -6,8 +6,6 @@ use super::*;
 use crate::agent::club::ChatMsg;
 use crate::agent::harness::book::{self, DIGITS, TOC, connect, introduction, ledger};
 
-/// The source's blocks, in order: the text before the first heading, then each
-/// `#`/`##`/`###` heading with everything up to the next.
 fn blocks(source: &str) -> Vec<&str> {
     let mut starts = vec![0];
     let mut offset = 0;
@@ -21,8 +19,6 @@ fn blocks(source: &str) -> Vec<&str> {
     starts.windows(2).map(|w| &source[w[0]..w[1]]).collect()
 }
 
-/// Whether `pages`, in order, are the block exactly: each page is the next text
-/// of the block, byte for byte, and only whitespace lies between them.
 fn rebuilds(block: &str, pages: &[String]) -> Result<(), String> {
     let mut rest = block;
     for (index, page) in pages.iter().enumerate() {
@@ -45,7 +41,6 @@ fn pages_of(routes: &[Route]) -> Vec<String> {
         .collect()
 }
 
-/// Each block of the base instructions, with the sections that carry it.
 const BASE_BLOCKS: &[&[Route]] = &[
     &[OPENING],
     &[PERMISSION, PERMISSION_MORE],
@@ -68,7 +63,6 @@ const BASE_BLOCKS: &[&[Route]] = &[
     &[HOW_PLUGINS],
 ];
 
-/// Each message of the context-window template, with the sections that carry it.
 const TOKEN_BUDGET_BLOCKS: &[(&str, &[Route])] = &[
     ("reminder_message_template", &[CONTEXT_REMINDER]),
     (
@@ -98,7 +92,6 @@ fn every_heading_block_of_the_base_instructions_is_rebuilt_from_its_pages() {
         BASE_BLOCKS.len(),
         "a block of the source is on no section, or a section has no block"
     );
-    // The headings, in order: what a section follows.
     let headings = source
         .iter()
         .filter_map(|block| block.lines().next().filter(|line| line.starts_with('#')))
@@ -107,12 +100,10 @@ fn every_heading_block_of_the_base_instructions_is_rebuilt_from_its_pages() {
     for (block, routes) in source.iter().zip(BASE_BLOCKS) {
         let pages = pages_of(routes);
         rebuilds(block, &pages).unwrap_or_else(|error| panic!("{}: {error}", routes[0].name()));
-        // A block that opens on a heading carries it on its first page.
         if block.starts_with('#') {
             assert!(pages[0].starts_with(block.lines().next().unwrap()));
         }
     }
-    // The whole prompt: nothing between the blocks is lost.
     let every_page = BASE_BLOCKS
         .iter()
         .flat_map(|routes| pages_of(routes))
@@ -127,7 +118,6 @@ fn every_message_of_the_context_window_template_is_rebuilt_from_its_pages() {
         let text = template[*key].as_str().unwrap_or_else(|| panic!("{key}"));
         rebuilds(text, &pages_of(routes)).unwrap_or_else(|error| panic!("{key}: {error}"));
     }
-    // The reminder's placeholder is the one slot, its value beside the page.
     assert!(CONTEXT_REMINDER.sub().pages[0].contains("{n_remaining}"));
 }
 
@@ -162,7 +152,6 @@ fn the_volume_is_four_eight_dot_cells_in_order_at_the_end_of_the_book() {
         cells
     );
     for cell in cells {
-        // Dot 7 or dot 8 lifts a cell out of the 6-dot alphabet, which is full.
         assert!(ledger::is_cell(cell) && (cell as u32 - 0x2800) >= 0x40);
         assert_eq!(
             TOC.iter().filter(|primary| primary.cell == cell).count(),
@@ -170,7 +159,6 @@ fn the_volume_is_four_eight_dot_cells_in_order_at_the_end_of_the_book() {
             "{cell} is one chapter"
         );
     }
-    // Dot 7 and dot 8 on ⠞, and dot 7 on ⠯.
     assert_eq!(
         cells.map(|cell| cell as u32 - 0x2800),
         [0x5E, 0x9E, 0xDE, 0x6F]
@@ -184,7 +172,6 @@ fn the_volume_is_four_eight_dot_cells_in_order_at_the_end_of_the_book() {
             assert_eq!(sub.route.sub().name, sub.name);
         }
     }
-    // Every section is on a block: 27 for the base, 4 for the context messages.
     assert_eq!(all_routes().len(), 31);
     assert_eq!(all_routes().len(), sizes.iter().sum::<usize>());
 }
@@ -205,7 +192,6 @@ fn a_block_past_ten_pages_continues_in_a_section_named_for_it() {
                 1 => assert_eq!(sub.name, format!("{name}, continued")),
                 _ => assert_eq!(sub.name, format!("{name}, continued again")),
             }
-            // A section is continued only once it is full.
             if index + 1 < routes.len() {
                 assert_eq!(sub.pages.len(), DIGITS.len(), "{} is full", sub.name);
             } else {
@@ -234,10 +220,8 @@ fn the_ledger_and_the_reader_give_every_page() {
             let one = ledger::read(&root, &format!("{}{}", route.cells(), DIGITS[index])).unwrap();
             assert!(one.ends_with(page), "{} page {index}", route.name());
         }
-        // A seat with no tool channel hears the pages themselves, verbatim.
         assert_eq!(connect::recite(&route.cells()), sub.pages.join(" "));
     }
-    // A warpath of these reads like any other.
     let path = ledger::read(&root, "⡞⠃⢞⠁⡯⠁").unwrap();
     assert!(path.contains("When to ask the user for permission"));
     assert!(path.contains("Working with the user"));
@@ -258,7 +242,6 @@ fn a_stamp_of_the_profile_is_introduced_by_its_signal_and_a_page_by_its_sentence
         assert!(!book::is_voiced(route), "{} is a library", route.name());
         assert!(!book::is_warning(route));
         assert_eq!(book::legacy_kind(route), None);
-        // A section: its signal, once.
         let messages = [
             ChatMsg::user("go".to_string()),
             ChatMsg::harness(route.cells()),
@@ -272,7 +255,6 @@ fn a_stamp_of_the_profile_is_introduced_by_its_signal_and_a_page_by_its_sentence
             route.name(),
             intros[0]
         );
-        // A page: its sentence, verbatim, as it is written.
         for (index, page) in sub.pages.iter().enumerate() {
             let stamp = format!("{}{}", route.cells(), DIGITS[index]);
             let intros = legend_of(&[ChatMsg::harness(stamp.clone())]);
@@ -292,7 +274,6 @@ fn a_stamp_of_the_profile_is_introduced_by_its_signal_and_a_page_by_its_sentence
             }
         }
     }
-    // The vendor's literal braces are not read as a value slot.
     let apps = legend_of(&[ChatMsg::harness("⣞⠑⠁".to_string())]);
     assert!(apps[0].contains("app://{{connector_id}})"), "{apps:?}");
 }
@@ -392,7 +373,6 @@ fn the_seat_profile_is_the_catalog_entry() {
         SEAT.include_apps_usage_instructions,
         flag("include_apps_usage_instructions")
     );
-    // The context-window message's settings.
     assert_eq!(
         SEAT.context_reminder_enabled,
         budget["enabled"].as_bool().unwrap()
@@ -413,9 +393,6 @@ fn the_seat_profile_is_the_catalog_entry() {
 
 #[test]
 fn only_the_standing_page_rides_a_seat() {
-    // A library but for one page: no detector throws these routes and no
-    // preamble names them. An OpenAI seat stands on the autonomy page Codex
-    // answers sol's own token budgeting with.
     for route in all_routes() {
         assert!(!book::VOICED.iter().any(|(voiced, _)| *voiced == route));
     }

@@ -44,7 +44,6 @@ impl DotProtocol {
         Self::encode_for(geometry, image, size, id, background, tmux_passthrough())
     }
 
-    /// `tmux` wraps every command for tmux passthrough.
     fn encode_for(
         geometry: DotGeometry,
         image: &ColoredBrailleImage,
@@ -67,8 +66,6 @@ impl DotProtocol {
             None => geometry.rasterize(image),
         }
         .ok_or("invalid generated dot canvas")?;
-        // angelX's own window takes the pixels as they are: no PNG, no
-        // escape codes, no payload cap.
         if crate::ui::glass::active() {
             crate::ui::glass::upload_picture(
                 id,
@@ -95,8 +92,6 @@ impl DotProtocol {
             return Err("dot frame exceeds bounded terminal payload".into());
         }
         let payload = base64::engine::general_purpose::STANDARD.encode(png);
-        // Inside tmux each command rides a DCS passthrough with its escapes
-        // doubled; the Unicode placeholders it pairs with pass through as text.
         let (start, escape, end) = if tmux {
             ("\x1bPtmux;", "\x1b\x1b", "\x1b\\")
         } else {
@@ -148,18 +143,12 @@ impl DotProtocol {
     }
 }
 
-/// Unicode placeholder cells showing image `id` (placed `size` cells big)
-/// over `area`.
 pub(crate) fn placeholders(id: u32, size: Size, area: Rect, buffer: &mut Buffer) {
     let color = Color::Rgb((id >> 16) as u8, (id >> 8) as u8, id as u8);
     let max_span = angel_stage::marks::DIACRITICS.len() as u16;
     let width = area.width.min(size.width).min(max_span);
     let height = area.height.min(size.height).min(max_span);
     let forced_one = CellDiffOption::ForcedWidth(NonZeroU16::new(1).unwrap());
-    // `\u{10eeee}` is `[0xF4, 0x8E, 0xBB, 0xAE]` (4 bytes) plus two combining
-    // marks (2..=4 bytes each) = 8..=12 bytes total. Building on the stack avoids
-    // 2,880 heap `String` allocations per 80x36 frame and lets ratatui's
-    // `CompactString` inline every cell symbol without touching the allocator.
     let mut scratch = [0xF4u8, 0x8E, 0xBB, 0xAE, 0, 0, 0, 0, 0, 0, 0, 0];
     for y in 0..height {
         let y_len = mark(usize::from(y))
@@ -168,8 +157,6 @@ pub(crate) fn placeholders(id: u32, size: Size, area: Rect, buffer: &mut Buffer)
         let row_len = 4 + y_len;
         for x in 0..width {
             if let Some(cell) = buffer.cell_mut((area.x + x, area.y + y)) {
-                // Each cell carries explicit row/column coordinates. Overlays
-                // may replace any cell without a hidden row write erasing them.
                 let x_len = mark(usize::from(x))
                     .encode_utf8(&mut scratch[row_len..])
                     .len();
@@ -183,8 +170,6 @@ pub(crate) fn placeholders(id: u32, size: Size, area: Rect, buffer: &mut Buffer)
     }
 }
 
-/// Whether graphics commands must be wrapped for tmux (read once; tests
-/// never wrap, whatever terminal runs them).
 pub(crate) fn tmux_passthrough() -> bool {
     #[cfg(test)]
     {
@@ -192,7 +177,6 @@ pub(crate) fn tmux_passthrough() -> bool {
     }
     #[cfg(not(test))]
     {
-        // The GPU window reads graphics straight from the cells.
         if crate::ui::glass::active() {
             return false;
         }

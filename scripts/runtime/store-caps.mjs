@@ -1,6 +1,3 @@
-// Read the numeric store limits from the same checked-in manifest embedded by
-// the cockpit. This deliberately supports only the manifest's simple integer
-// assignments, not arbitrary TOML values or configuration overrides.
 import { readFileSync } from 'node:fs'
 const manifest = readFileSync(
   new URL('../../docs/telemetry/store-caps.toml', import.meta.url),

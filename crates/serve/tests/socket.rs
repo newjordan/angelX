@@ -19,8 +19,6 @@ use std::time::{Duration, Instant};
 const KEY: &str = "TALLYKEYTALLYKEYTALLYKEY22";
 const WAIT: Duration = Duration::from_secs(5);
 
-/// Steps pressed this tick (-1, 0 or 1 on the wire). A press: a starved
-/// tick does not repeat it, and a fold keeps every one.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 struct Step(i8);
 
@@ -36,7 +34,6 @@ impl Command for Step {
     }
 }
 
-/// Two seats, each counting its steps.
 #[derive(Default)]
 struct Tally {
     names: [Option<String>; 2],
@@ -63,7 +60,6 @@ impl GameServer for Tally {
     fn decode_cmd(bytes: &[u8]) -> Option<Step> {
         match bytes {
             [b] if (*b as i8).abs() <= 1 => Some(Step(*b as i8)),
-            // A bug in game code, for the test that a panic stays contained.
             [0x55] => panic!("the tally cannot read 0x55"),
             _ => None,
         }
@@ -114,7 +110,6 @@ fn hello_bytes(game: &str, protocol: u32, join: &str, caps: u32) -> Vec<u8> {
     ToServer::Hello { protocol, game, join, resume: "", name: "Gwen", caps }.to_vec()
 }
 
-/// The next binary message, skipping nothing else but pongs.
 fn next_binary(ws: &mut WsClient) -> Vec<u8> {
     let until = Instant::now() + WAIT;
     while Instant::now() < until {
@@ -141,7 +136,6 @@ fn join(server: &Server, caps: u32) -> (WsClient, Option<u32>) {
     }
 }
 
-/// Read until the socket closes; the reject (if any) and the close code.
 fn until_closed(ws: &mut WsClient) -> (Option<Reject>, Option<u16>) {
     until_closed_within(ws, 2 * WAIT)
 }
@@ -173,11 +167,8 @@ fn document_mode_sends_the_tree_whole_then_patches_and_acks_each_command() {
     let mut tree = Value::Unit;
     let mut seq = 0;
     let mut acked = 0;
-    // The newest tick read, said back as a client does (`applied`).
     let mut applied = 0;
     let until = Instant::now() + WAIT;
-    // Every command walked: the tree says 10 (a late one's step may come a
-    // tick after the ack that counted its seq).
     let walked = |tree: &Value| matches!(tree.field("steps"), Some(Value::Seq(s)) if s.get(seat) == Some(&Value::I(10)));
     while (acked < 10 || !walked(&tree)) && Instant::now() < until {
         if seq < 10 {
@@ -196,9 +187,6 @@ fn document_mode_sends_the_tree_whole_then_patches_and_acks_each_command() {
             applied = tick;
         }
     }
-    // A tick the tenth command was late for plays it as guessed and the
-    // ack moves on (`SeatInputs`), so the ack may pass 10; each step is
-    // still walked once.
     assert!(acked >= 10, "{acked}");
     let Some(Value::Seq(steps)) = tree.field("steps") else { panic!("{tree:?}") };
     assert_eq!(steps[seat], Value::I(10), "every command walked one step, once");
@@ -240,21 +228,17 @@ fn a_wrong_protocol_game_or_key_is_told_why() {
 #[test]
 fn frames_that_break_the_rules_close_the_socket_with_their_code() {
     let server = start();
-    // Unmasked.
     let mut ws = WsClient::connect(&url(&server), WAIT).unwrap();
     let mut raw = Vec::new();
     ws::frame(&mut raw, BINARY, &hello_bytes("tally", PROTOCOL, KEY, 0), None);
     ws.stream().write_all(&raw).unwrap();
     assert_eq!(until_closed(&mut ws), (Some(Reject::Abuse), Some(code::PROTOCOL)));
-    // Text.
     let mut ws = WsClient::connect(&url(&server), WAIT).unwrap();
     ws.send_frame(TEXT, b"hello").unwrap();
     assert_eq!(until_closed(&mut ws).1, Some(code::UNSUPPORTED));
-    // Past the message limit, after joining.
     let (mut ws, _) = join(&server, 0);
     ws.send(&vec![0u8; 2000]).unwrap();
     assert_eq!(until_closed(&mut ws), (Some(Reject::Abuse), Some(code::TOO_BIG)));
-    // A message that does not read.
     let (mut ws, _) = join(&server, 0);
     ws.send(&[0x7f, 1, 2]).unwrap();
     assert_eq!(until_closed(&mut ws), (Some(Reject::Abuse), Some(code::POLICY)));
@@ -265,8 +249,6 @@ fn frames_that_break_the_rules_close_the_socket_with_their_code() {
 fn too_many_messages_a_second_is_abuse() {
     let server = start();
     let (mut ws, _) = join(&server, 0);
-    // The played server permits a page's catch-up burst (2026-10-23,
-    // 639972239); exceed its current rate, not the retired 120-message cap.
     for _ in 0..3 * angel_serve::limits::MAX_MESSAGES_PER_SEC {
         if ws.send(&ToServer::Ping { t: 0.0 }.to_vec()).is_err() {
             break;
@@ -292,7 +274,6 @@ fn a_fragmented_hello_reads_and_pings_and_closes_are_answered() {
         }
     }
     ws.stream().write_all(&raw).unwrap();
-    // The ping before the hello was finished is answered.
     assert_eq!(ws.recv(WAIT).unwrap(), Some(Message::Pong(b"between".to_vec())));
     assert!(matches!(ToClient::decode(&next_binary(&mut ws)), Ok(ToClient::Welcome(_))));
     ws.send_frame(PING, b"are you there").unwrap();
@@ -355,7 +336,6 @@ fn http_keeps_alive_answers_head_and_refuses_what_it_does_not_serve() {
     let server = start();
     let two = http(&server, "GET / HTTP/1.1\r\nHost: x\r\n\r\nHEAD / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n");
     assert_eq!(two.matches("HTTP/1.1 200 OK").count(), 2, "{two}");
-    // The HEAD's length is the page's, with no page after it.
     assert_eq!(two.matches("<p>").count(), 1);
     assert!(http(&server, "GET /a/nothing.js HTTP/1.1\r\nConnection: close\r\n\r\n").starts_with("HTTP/1.1 404"));
     assert!(http(&server, "DELETE / HTTP/1.1\r\nConnection: close\r\n\r\n").starts_with("HTTP/1.1 405"));
@@ -383,7 +363,6 @@ fn a_socket_that_never_says_hello_is_closed_after_the_handshake_time() {
 #[test]
 fn a_class_loading_the_page_at_once_leaves_room_to_join_and_idle_pages_are_let_go() {
     let server = start();
-    // 300 page loads, each kept alive after its response.
     let mut pages = Vec::new();
     for _ in 0..300 {
         let mut s = TcpStream::connect(server.addr()).unwrap();
@@ -396,10 +375,8 @@ fn a_class_loading_the_page_at_once_leaves_room_to_join_and_idle_pages_are_let_g
         s.read_exact(&mut head).unwrap();
         assert_eq!(&head, b"HTTP/1.1 200 OK");
     }
-    // Someone joins while they all sit open.
     let (_ws, seat) = join(&server, 0);
     assert!(seat.is_some());
-    // An idle kept-alive page is closed a couple of seconds on.
     let started = Instant::now();
     let mut rest = Vec::new();
     let _ = pages[0].read_to_end(&mut rest);
@@ -412,7 +389,6 @@ fn a_class_loading_the_page_at_once_leaves_room_to_join_and_idle_pages_are_let_g
 fn a_reload_takes_its_seat_back_and_the_old_page_is_told_not_to_return() {
     let server = start();
     let (mut old, seat) = join(&server, 0);
-    // The welcome carried the token; ask again for it the way a page would.
     let mut fresh = WsClient::connect(&url(&server), WAIT).unwrap();
     fresh.send(&hello_bytes("tally", PROTOCOL, KEY, 0)).unwrap();
     let first = next_binary(&mut fresh);
@@ -420,7 +396,6 @@ fn a_reload_takes_its_seat_back_and_the_old_page_is_told_not_to_return() {
     let token = w.seat_token.to_string();
     let other_seat = w.seat;
     assert_ne!(other_seat, seat);
-    // The second page reloads: same token, while its old socket still lives.
     let mut reloaded = WsClient::connect(&url(&server), WAIT).unwrap();
     reloaded
         .send(&ToServer::Hello { protocol: PROTOCOL, game: "tally", join: "", resume: &token, name: "", caps: 0 }.to_vec())
@@ -429,7 +404,6 @@ fn a_reload_takes_its_seat_back_and_the_old_page_is_told_not_to_return() {
     let Ok(ToClient::Welcome(w)) = ToClient::decode(&again) else { panic!() };
     assert_eq!((w.seat, w.seat_token), (other_seat, token.as_str()));
     assert_eq!(until_closed(&mut fresh), (None, Some(code::REPLACED)));
-    // The first page was never disturbed.
     assert!(ToClient::decode(&next_binary(&mut old)).is_ok());
     assert_eq!(server.players().len(), 2);
     server.stop();
@@ -446,13 +420,10 @@ fn a_panic_in_game_code_ends_only_that_connection_and_holds_its_seat() {
         std::thread::sleep(Duration::from_millis(20));
     }
     assert_eq!(server.players(), vec![angel_serve::Player { seat: seat.unwrap(), name: "Gwen".into(), connected: false }]);
-    // Everyone else carries on.
     let (_other, other_seat) = join(&server, 0);
     assert!(other_seat.is_some() && other_seat != seat);
     server.stop();
 }
-
-// ---- in-process connections: the host's own, through the same doors ----
 
 use angel_serve::{Closed, LocalConn};
 
@@ -460,12 +431,10 @@ fn local_hello(conn: &LocalConn, join: &str, resume: &str, name: &str) {
     conn.send(ToServer::Hello { protocol: PROTOCOL, game: "tally", join, resume, name, caps: 0 }.to_vec()).unwrap();
 }
 
-/// The next message on an in-process connection.
 fn next_local(conn: &LocalConn) -> Vec<u8> {
     conn.recv_timeout(WAIT).unwrap().expect("a message in time")
 }
 
-/// Read an in-process connection until it closes: the reject (if any) and the close.
 fn local_until_closed(conn: &LocalConn) -> (Option<Reject>, Closed) {
     let mut why = None;
     loop {
@@ -493,7 +462,6 @@ fn local_join(server: &Server, resume: &str, name: &str) -> (LocalConn, Option<u
     }
 }
 
-/// The newest whole tree an in-process client holds after `wait`.
 fn local_tree(conn: &LocalConn, wait: Duration) -> Value {
     let mut reader = Reader::default();
     let mut tree = Value::Unit;
@@ -519,7 +487,6 @@ fn the_host_in_process_and_a_socket_client_share_one_session() {
     let (host, host_seat, _) = local_join(&server, "", "Host");
     let (ws_seat, host_seat) = (ws_seat.unwrap() as usize, host_seat.unwrap() as usize);
     assert_ne!(ws_seat, host_seat);
-    // The host steps three times; the socket client once.
     host.send(ToServer::Cmds { applied: 0, cmds: vec![(1, &[1u8][..]), (2, &[1u8][..]), (3, &[1u8][..])] }.to_vec()).unwrap();
     ws.send(&ToServer::Cmds { applied: 0, cmds: vec![(1, &[1u8][..])] }.to_vec()).unwrap();
     let tree = local_tree(&host, Duration::from_millis(600));
@@ -528,7 +495,6 @@ fn the_host_in_process_and_a_socket_client_share_one_session() {
     let Some(Value::Seq(names)) = tree.field("names") else { panic!() };
     assert_eq!(names[host_seat], Value::Some(Box::new(Value::Str("Host".into()))));
     assert_eq!(names[ws_seat], Value::Some(Box::new(Value::Str("Gwen".into()))));
-    // The socket client heard the host join, as it hears anyone.
     let mut heard = Vec::new();
     let until = Instant::now() + Duration::from_millis(600);
     while Instant::now() < until {
@@ -566,7 +532,6 @@ fn a_local_connection_resumes_its_seat_after_closing_and_a_goodbye_frees_it() {
     let (host, seat, token) = local_join(&server, "", "Host");
     host.send(ToServer::Cmds { applied: 0, cmds: vec![(1, &[1u8][..]), (2, &[1u8][..])] }.to_vec()).unwrap();
     std::thread::sleep(Duration::from_millis(300));
-    // Closed (or dropped) without a goodbye: the seat waits for its token.
     drop(host);
     let deadline = Instant::now() + WAIT;
     while server.players().iter().any(|p| p.connected) && Instant::now() < deadline {
@@ -575,7 +540,6 @@ fn a_local_connection_resumes_its_seat_after_closing_and_a_goodbye_frees_it() {
     assert_eq!(server.players(), vec![angel_serve::Player { seat: seat.unwrap(), name: "Host".into(), connected: false }]);
     let (again, seat_again, token_again) = local_join(&server, &token, "");
     assert_eq!((seat_again, token_again.as_str()), (seat, token.as_str()));
-    // The same knight: its steps were kept.
     let tree = local_tree(&again, Duration::from_millis(400));
     let Some(Value::Seq(steps)) = tree.field("steps") else { panic!("{tree:?}") };
     assert_eq!(steps[seat.unwrap() as usize], Value::I(2));
@@ -610,7 +574,6 @@ fn a_local_connection_is_never_rate_limited_and_its_pongs_come_back() {
             Err(closed) => panic!("closed: {closed:?}"),
         }
     }
-    // Only the newest pong waits for the writer, so some are folded.
     assert!(pongs >= 1);
     assert!(server.players()[0].connected);
     server.stop();
@@ -632,7 +595,6 @@ fn a_local_connection_hears_the_kick_and_the_stop_with_their_reasons() {
     let (kicked, seat, token) = local_join(&server, "", "Host");
     assert!(server.kick(seat.unwrap()));
     assert_eq!(local_until_closed(&kicked), (Some(Reject::Kicked), Closed { code: Some(code::POLICY) }));
-    // Its token is dead, for the host's connections as for anyone's.
     let conn = server.connect_local().unwrap();
     local_hello(&conn, "", &token, "Host");
     assert_eq!(local_until_closed(&conn).0, Some(Reject::Kicked));
@@ -641,7 +603,6 @@ fn a_local_connection_hears_the_kick_and_the_stop_with_their_reasons() {
     assert_eq!(local_until_closed(&host), (Some(Reject::Stopping), Closed { code: Some(code::GOING_AWAY) }));
 }
 
-/// The first snapshot an in-process client is sent: its tick, and whether it is whole.
 fn first_snapshot(conn: &LocalConn) -> (u32, bool, Value) {
     let until = Instant::now() + WAIT;
     while Instant::now() < until {
@@ -659,13 +620,10 @@ fn a_newcomer_is_sent_the_newest_tick_whole_at_once_and_the_start_is_tick_one() 
     let mut config = ServeConfig::new("127.0.0.1:0".parse::<SocketAddr>().unwrap());
     config.key = Some(KEY.into());
     let (server, mut sim) = Server::start_manual(Tally::default(), config).unwrap();
-    // Nothing stepped yet: the game as it starts is tick 1, sent whole.
     let (first, _, _) = local_join(&server, "", "Host");
     let (tick, whole, tree) = first_snapshot(&first);
     assert_eq!((tick, whole), (1, true));
     assert_eq!(tree.field("tick"), Some(&Value::U(1)));
-    // Six ticks on, at a tick the snapshot beat sends as a patch, a
-    // newcomer is sent it whole, without waiting for the beat's next.
     let step = Duration::from_secs(1) / 20;
     let start = Instant::now();
     sim.run_to(start);
@@ -689,17 +647,13 @@ fn a_sim_stepped_by_hand_takes_each_command_in_the_tick_after_it_was_sent() {
     let seat = seat.unwrap() as usize;
     let step = Duration::from_secs(1) / 20;
     let start = Instant::now();
-    // The beat begins at the first call; its first tick is a step later.
     assert_eq!(sim.run_to(start), 0);
     assert_eq!(sim.next_due(), Some(start + step));
-    // An in-process seat has no cushion (`SeatInputs::set_cushion`).
     for n in 1..=3u32 {
         host.send(ToServer::Cmds { applied: 0, cmds: vec![(n, &[1u8][..])] }.to_vec()).unwrap();
-        // Sent just before the step: the step has it, every time.
         assert_eq!(sim.run_to(start + step * n), 1);
         assert_eq!(sim.game().steps[seat], i64::from(n));
     }
-    // Far behind (a laptop that slept), the beat starts over: one tick, not forty.
     assert_eq!(sim.run_to(start + step * 40), 1);
     assert_eq!(sim.next_due(), Some(start + step * 41));
     assert_eq!(sim.run_to(start + step * 43), 3, "the ticks due at 41, 42 and 43");
@@ -729,7 +683,6 @@ fn paintings_are_served_by_their_hash_and_nothing_else_is() {
     assert!(head.starts_with("HTTP/1.1 200 OK") && !head.contains("not really"));
     let again = http(&server, &format!("GET /paint/{sha}.png HTTP/1.1\r\nIf-None-Match: \"{}\"\r\nConnection: close\r\n\r\n", &sha[..16]));
     assert!(again.starts_with("HTTP/1.1 304"), "{again}");
-    // A seat that joined over the socket fetches it from the same host.
     let fetch = |path: &str| angel_serve::client::http_get(&url(&server), path, &Default::default(), WAIT, 1 << 20);
     assert_eq!(fetch(&format!("/paint/{sha}.png")).unwrap(), png);
     assert!(fetch("/paint/notes.txt").is_err());
@@ -746,7 +699,6 @@ fn paintings_are_served_by_their_hash_and_nothing_else_is() {
         assert!(get(&bad).starts_with("HTTP/1.1 404"), "{bad}");
     }
     server.stop();
-    // A server with no paint store has no paintings.
     let bare = start();
     assert!(http(&bare, &format!("GET /paint/{sha}.png HTTP/1.1\r\nConnection: close\r\n\r\n")).starts_with("HTTP/1.1 404"));
     bare.stop();
@@ -779,7 +731,6 @@ fn an_hd_pack_serves_its_manifest_and_drawings_and_nothing_else() {
         assert!(get(bad).starts_with("HTTP/1.1 404"), "{bad}");
     }
     server.stop();
-    // A server with no pack serves none.
     let bare = start();
     assert!(http(&bare, "GET /hd/pack.json HTTP/1.1\r\nConnection: close\r\n\r\n").starts_with("HTTP/1.1 404"));
     bare.stop();
@@ -842,8 +793,6 @@ fn cold_browser_generation_keeps_http_consistent_and_ws_live() {
         std::thread::spawn(move || { done.send(http(&server, "GET / HTTP/1.1\r\nConnection: close\r\n\r\n")).unwrap(); })
     }).collect();
     assert!(completed.recv_timeout(Duration::from_millis(50)).is_err());
-    // Saturate the separate cold-page budget without filling the 512-slot
-    // pre-hello pool. Extra page requests fail promptly, leaving WS admission.
     let overflow: Vec<_> = (0..34).map(|_| {
         let server = server.clone(); let done = done.clone();
         std::thread::spawn(move || { done.send(http(&server, "GET / HTTP/1.1\r\nConnection: close\r\n\r\n")).unwrap(); })
@@ -870,7 +819,6 @@ fn cold_browser_generation_keeps_http_consistent_and_ws_live() {
         assert!(http(&server, &format!("HEAD {path} HTTP/1.1\r\nConnection: close\r\n\r\n")).starts_with("HTTP/1.1 200"));
     }
     eprintln!("100 immutable warm HEAD requests {:?}", warm.elapsed());
-    // A separate generation cannot change a live page's content identity.
     let mut replacement = ServeConfig::new("127.0.0.1:0".parse().unwrap());
     replacement.prepared_assets = Some(PreparedAssets::start(|_| Ok(ClientBundle { index_html: "new={{asset:song.txt}}".into(), files: vec![("song.txt".into(), b"new sound".to_vec(), "text/plain".into())] })).unwrap());
     let newer = Server::start(Tally::default(), replacement).unwrap();
@@ -895,7 +843,6 @@ fn cold_browser_generation_keeps_http_consistent_and_ws_live() {
     assert!(retained[body..].iter().all(|b| *b == b'z'));
     drop(flight);
 
-    // A failed capture is retained: every page fails explicitly, never recaptured.
     let mut failed = ServeConfig::new("127.0.0.1:0".parse().unwrap());
     failed.key = Some(KEY.into());
     failed.prepared_assets = Some(PreparedAssets::start(|_| Err(std::io::Error::other("private source failure"))).unwrap());
@@ -909,7 +856,6 @@ fn cold_browser_generation_keeps_http_consistent_and_ws_live() {
     other_failed.prepared_assets = Some(PreparedAssets::start(|_| Err(std::io::Error::other("second failed source"))).unwrap());
     let other_failed = Server::start(Tally::default(), other_failed).unwrap();
     assert!(http(&other_failed, "GET / HTTP/1.1\r\nConnection: close\r\n\r\n").starts_with("HTTP/1.1 503"));
-    // Both failure facts remain hosted while their resource slots permit retry.
     assert!(server.browser_failure().is_some());
     assert!(server.take_browser_failure().is_some());
     assert!(server.take_browser_failure().is_none());
@@ -920,8 +866,6 @@ fn cold_browser_generation_keeps_http_consistent_and_ws_live() {
     assert!(http(&server, "GET / HTTP/1.1\r\nConnection: close\r\n\r\n").starts_with("HTTP/1.1 200"));
     assert_eq!(server.addr(), addr); assert_eq!(server.key(), key);
     assert_eq!(server.players().iter().find(|p| p.seat == seat.unwrap()).unwrap().name, "Gwen");
-    // The old large in-flight HTTP reader may still be leaving its existing
-    // close/linger path; its successful generation remains charged until then.
     let until_retired = Instant::now() + Duration::from_secs(2);
     let retry = loop {
         match PreparedAssets::start(|_| Ok(ClientBundle::placeholder())) {
@@ -935,12 +879,9 @@ fn cold_browser_generation_keeps_http_consistent_and_ws_live() {
     other_failed.retry_browser(retry).unwrap();
     assert!(http(&other_failed, "GET / HTTP/1.1\r\nConnection: close\r\n\r\n").starts_with("HTTP/1.1 200"));
     drop(other_failed);
-    // A served generation cannot be replaced: its URLs remain valid.
     assert!(server.retry_browser(PreparedAssets::start(|_| Ok(ClientBundle::placeholder())).unwrap()).is_err());
     ws.close(code::NORMAL); drop(ws); drop(server);
 
-    // A blocked source does not make server stop join the worker. Waiting HTTP
-    // is cancelled, capacity stays charged until that worker actually exits.
     let (release, held) = mpsc::channel();
     let mut pending = ServeConfig::new("127.0.0.1:0".parse().unwrap());
     pending.prepared_assets = Some(PreparedAssets::start(move |_| { held.recv().unwrap(); Ok(ClientBundle::placeholder()) }).unwrap());

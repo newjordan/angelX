@@ -39,7 +39,6 @@ pub const LECTERN: (f32, f32) = (6.0, 9.5);
 pub const BOOKSHELF: (f32, f32) = (5.0, 5.5);
 pub const STAR_MAP: (f32, f32) = (12.0, 5.5);
 pub const FAMILIAR: (f32, f32) = (19.0, 9.5);
-/// Small discoveries in the school itself, separate from the tower mission.
 pub const CLUES: [(RoomKind, (f32, f32), &str, &str); 4] = [
     (
         RoomKind::CollegeGrounds,
@@ -228,7 +227,6 @@ pub const DOORS: [Entrance; 17] = [
     ),
 ];
 
-/// Reuses Wren/Brannoc's pinned-mission record, separate from their boards.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct College {
@@ -377,8 +375,6 @@ pub fn reward(q: &Quest) -> String {
         if q.bond > 0 { " + 1 bond" } else { "" }
     )
 }
-/// Exact names and claims here come from LABYRINTH.md, drive/labyrinth and
-/// together_shooter/{layout,monsters,foes}; research claims grant no game loot.
 pub const TOPICS: [(&str, [&str; 3]); 6] = [
     (
         "What is the Labyrinth?",
@@ -469,7 +465,6 @@ impl Dialogue {
             }
     }
 }
-/// Apply bounded, replay-safe host intents with gold/bond in one realm save.
 pub fn settle(
     c: &mut College,
     t: &mut Spoils,
@@ -608,7 +603,6 @@ pub fn room(kind: RoomKind, cell: (i32, i32)) -> Room {
     }
     r
 }
-/// A deterministic reachable research pickup, shared with the renderer.
 pub fn field_spot(room: &Room) -> Option<(f32, f32)> {
     (2..room.rows as i32 - 2)
         .flat_map(|y| (2..room.cols as i32 - 2).map(move |x| (x, y)))
@@ -623,7 +617,6 @@ fn near(h: &Hero, at: (f32, f32), tiles: f32) -> bool {
         && (h.x - at.0 * TILE_UNITS).hypot(h.y - at.1 * TILE_UNITS) < tiles * TILE_UNITS
 }
 
-/// One target shared by the input handler and the room's single prompt.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Interaction {
     Wizard,
@@ -970,8 +963,6 @@ impl Run {
 #[path = "../../tests/rules/together_college__tests.rs"]
 mod tests;
 
-/// The private checkpoint stores these intents alongside countryside intents.
-/// No general kill counters or arbitrary dialogue strings enter that journal.
 pub fn intent_key(key: &str) -> bool {
     if CLUES.iter().any(|&(_, _, mark, _)| key == mark) {
         return true;

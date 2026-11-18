@@ -7,16 +7,11 @@
 use super::talents::profile_key;
 use super::*;
 
-/// Where Merlin stands in the Undercroft (tiles): west of the stair.
 pub const MERLIN_AT: (f32, f32) = (8.0, 6.0);
-/// The greeting bit Merlin keeps in `greeted`.
 pub(super) const MERLIN_BIT: u8 = 1 << 6;
-/// How close a knight comes before he speaks.
 const MERLIN_REACH: f32 = 3.6;
 
 impl Run {
-    /// What Merlin thinks most worth doing next, as the tip's word: the
-    /// first of his list the realm hasn't done.
     pub fn merlin_tip(&self) -> &'static str {
         let home = &self.home;
         let delved = home.deepest >= 1;
@@ -51,8 +46,6 @@ impl Run {
         }
     }
 
-    /// Merlin speaks as a knight walks up to him, once per approach.
-    /// Returns his bit for `greeted` while someone is near.
     pub(super) fn greet_merlin(&mut self) -> u8 {
         let (mx, my) = (MERLIN_AT.0 * TILE_UNITS, MERLIN_AT.1 * TILE_UNITS);
         let close = self
@@ -65,8 +58,6 @@ impl Run {
         if self.greeted & MERLIN_BIT == 0 {
             let tip = self.merlin_tip();
             self.cues.push(format!("merlin:{tip}"));
-            // And somewhere to go: an open errand, which the gold arrow
-            // points at up in the kingdom.
             if self.kingdom.moments.errand.is_none() {
                 if let Some(&(room, line)) = self.open_errands().iter().find(|&&(room, _)| self.on_the_way(room)) {
                     self.kingdom.moments.errand = Some(room);

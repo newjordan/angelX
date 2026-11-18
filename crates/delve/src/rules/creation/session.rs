@@ -21,7 +21,6 @@ pub enum Step {
 }
 
 impl Step {
-    /// The creature's flow (the first slice's six steps; the Test drive follows Life).
     pub const ALL: [Self; 6] = [
         Self::Role,
         Self::Body,
@@ -30,7 +29,6 @@ impl Step {
         Self::Powers,
         Self::Life,
     ];
-    /// The weapon's flow, SPEC-CREATOR 1b: Type, Parts, Paint, Enchant, Bring to life.
     pub const FORGE: [Self; 6] = [
         Self::Role,
         Self::Type,
@@ -39,7 +37,6 @@ impl Step {
         Self::Enchant,
         Self::Life,
     ];
-    /// Position in its own flow; the Test drive is the seventh stop.
     pub fn index(self) -> usize {
         Self::ALL
             .iter()
@@ -73,7 +70,6 @@ impl Step {
             Self::Drive => "Test drive",
         }
     }
-    /// Rows of the creature's pages; the weapon's depend on its kind (`Session::row_count`).
     pub fn rows(self) -> usize {
         match self {
             Self::Role => Role::ALL.len(),
@@ -97,10 +93,7 @@ pub enum Action {
     Back,
     Close,
     Row(usize),
-    /// T: say a wish to the genie (the shell's text line takes the words).
     Speak,
-    /// Wear the role's `n`th look (the Test drive's 1 to 3 keys flip the looks while the creature
-    /// walks). Nothing happens for a role that has no such look.
     Look(usize),
 }
 
@@ -116,13 +109,11 @@ pub struct ChatLine {
     pub text: String,
 }
 
-/// The genie as the chat window: what was said, and what he answered.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Chat {
     pub open: bool,
     pub lines: Vec<ChatLine>,
     pub turns: Vec<Turn>,
-    /// What the player has typed so far, where the host shows it; the shell's own line otherwise.
     pub draft: String,
     pub said_at: Option<u64>,
     pub quip: String,
@@ -131,14 +122,11 @@ pub struct Chat {
 pub const MAX_WISH_CHARS: usize = 160;
 const KEPT_LINES: usize = 24;
 
-/// A hub row's typed wish on this scroll. The words go out as the genie's
-/// existing request; the reply, or the offline parser, becomes the thing.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Door {
     pub row: Option<u8>,
     pub waiting: bool,
     pub words: String,
-    /// "THE MODEL" or "OFFLINE KEYWORDS". Empty until one of them answers.
     pub answered: String,
     pub ink: Vec<String>,
     pub thing: String,
@@ -148,19 +136,15 @@ pub struct Door {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Session {
     pub open: bool,
-    /// The wish hub is the front of this scroll. The maker's pages stay behind it.
     pub hub: bool,
     pub gate: super::hub::WishGate,
-    /// One line when words named a kind this row cannot make.
     pub note: String,
     pub door: Door,
-    /// A confirmed power, reforge or look row, taken by the client so the existing line opens.
     pub leave: Option<u8>,
     pub creation: Creation,
     pub weapon: WeaponCreation,
     pub step: Step,
     pub row: usize,
-    /// The derived gift being inspected on the Powers page.
     pub gift: usize,
     pub opened: u64,
     pub entered: u64,
@@ -170,10 +154,7 @@ pub struct Session {
     pub issue: Option<String>,
     pub chat: Chat,
     pub drive: Option<Drive>,
-    /// How the art on show times its clips, said by the host each tick it steps the drive (the fixed
-    /// blow, without a cast, hit or death, for any art that has no clips of its own).
     pub timing: Timing,
-    /// Whether the host can stand a fixture floor up for the Test drive (dev builds only).
     pub can_drive: bool,
     started: bool,
 }
@@ -198,7 +179,6 @@ impl Session {
         }
     }
 
-    /// The page's title: a Folk's Powers page is its calling.
     pub fn title(&self) -> &'static str {
         if self.step == Step::Powers && self.creation.role == Role::Folk && !self.forge() {
             "Their calling"
@@ -207,7 +187,6 @@ impl Session {
         }
     }
 
-    /// Whether the recipe in hand is a weapon's.
     pub fn forge(&self) -> bool {
         self.creation.role.is_weapon()
     }
@@ -220,28 +199,23 @@ impl Session {
         if forge { Step::FORGE } else { Step::ALL }
     }
 
-    /// Where this step sits in the flow now (the Test drive is the seventh).
     pub fn position(&self) -> usize {
         self.flow().iter().position(|&s| s == self.step).unwrap_or(6)
     }
 
-    /// Rows of the page, not counting the Wish row pinned under them.
     pub fn row_count(&self) -> usize {
         match (self.step, self.forge()) {
             (Step::Parts, true) => {
                 self.weapon.kind.slots().len() + usize::from(self.weapon.stretch_slot().is_some())
             }
             (Step::Paint, true) => 4,
-            // A creature whose role has looks (a Hero) has a fifth row, its Look.
             (Step::Paint, false) => 4 + usize::from(self.creation.looks().len() > 1),
             (Step::Role, _) => Role::ALL.len(),
-            // A Folk's Powers page is its Calling: post, habit, line.
             (Step::Powers, false) if self.creation.role == Role::Folk => 3,
             (step, _) => step.rows(),
         }
     }
 
-    /// Pages that carry the Wish row.
     pub fn wishing(&self) -> bool {
         !matches!(self.step, Step::Life | Step::Drive)
     }
@@ -250,7 +224,6 @@ impl Session {
         self.wishing() && self.row == self.row_count()
     }
 
-    /// Power spent and the budget it is spent against.
     pub fn power(&self) -> (u16, u16) {
         if self.forge() {
             (self.weapon.spent(), WEAPON_BUDGET)
@@ -283,7 +256,6 @@ impl Session {
         self.sealed_weapon = None;
     }
 
-    /// The front door. `prefer` is the lamp's row, the mirror's, or none for T's fitting row.
     pub fn open_hub(&mut self, tick: u64, maker: &str, gate: super::hub::WishGate, prefer: Option<super::hub::HubRow>) {
         self.open(tick, maker);
         self.hub = true;
@@ -318,8 +290,6 @@ impl Session {
         }
     }
 
-    /// Words typed on the hub's row. A kind this row cannot make is named and kept.
-    /// A power, reforge or look that fits sets `leave` so the existing line opens.
     pub fn hear_wish(&mut self, words: &str) -> bool {
         use super::hub::HubRow;
         if self.door.row.is_some() && self.door.words.is_empty() {
@@ -378,7 +348,6 @@ impl Session {
             text: words.to_string(),
         });
         if !door_live() {
-            // No reply reaches this scroll in play yet, so the keywords answer at once.
             self.give_up(0);
         }
         true
@@ -471,8 +440,6 @@ impl Session {
                 let at = self.position();
                 self.go(self.flow()[(at + 1).min(5)], tick);
             }
-            // A look is a view of the creation, not an edit of the recipe the grant sealed: it may change
-            // in the Test drive, and on the builder pages until the grant.
             Action::Look(n) => {
                 if self.step == Step::Drive || self.granted.is_none() {
                     self.creation.set_look(n);
@@ -503,7 +470,6 @@ impl Session {
         }
     }
 
-    /// One tick of the Test drive: the made creature walks and strikes on a fixture floor.
     pub fn drive_step(&mut self, input: DriveInput, tick: u64, ground: &Ground) -> Vec<drive::Event> {
         if !self.open || self.step != Step::Drive {
             return Vec::new();
@@ -514,15 +480,12 @@ impl Session {
         d.step(input, tick, ground)
     }
 
-    /// Words said to the genie. They are read into a spec and the spec is applied to the same
-    /// recipe the hands edit. Returns whether anything was said (an empty line is not a wish).
     pub fn say(&mut self, words: &str, tick: u64) -> bool {
         let words: String = words.split_whitespace().collect::<Vec<_>>().join(" ");
         let words: String = words.chars().take(MAX_WISH_CHARS).collect();
         if !self.open || words.is_empty() || self.step == Step::Drive {
             return false;
         }
-        // The last turn always reflects the live recipe, so a hand edit between wishes is kept.
         let now = Spec::of(&self.creation, &self.weapon);
         match self.chat.turns.last_mut() {
             Some(last) => last.spec.make = now.make,
@@ -531,7 +494,6 @@ impl Session {
                 spec: now,
             }),
         }
-        // The game's gate: a word it never carries shows as a censor bar, here as everywhere.
         let words = wish::censor(&words, "####").0;
         let spec = wish::wish_to_spec(&words, &self.chat.turns);
         self.apply(&spec, tick);
@@ -578,7 +540,6 @@ impl Session {
         self.issue = None;
         self.entered = tick;
         if was != self.forge() {
-            // A wish crossed from a creature to a weapon (or back): keep the place in the flow.
             self.step = self.flow()[at_old];
         }
         self.row = self.row.min(self.row_count());
@@ -587,7 +548,7 @@ impl Session {
     fn change(&mut self, dir: i32) {
         let count = self.row_count();
         if self.row >= count {
-            return; // the Wish row has nothing to turn
+            return;
         }
         self.row = self.row.min(count - 1);
         if self.forge() && self.step != Step::Role {
@@ -696,7 +657,6 @@ impl Session {
             Step::Parts => {
                 let slots = w.kind.slots();
                 if self.row >= slots.len() {
-                    // The length slider of a haft or a straight blade.
                     if let Some((nat, _, _)) = w.natural_len() {
                         let now = i32::from(w.stretch.unwrap_or(nat as u16));
                         let _ = w.set_stretch(Some((now + dir * 8).clamp(1, 600) as u16));
@@ -894,8 +854,6 @@ impl Session {
         }
     }
 
-    /// The four making rows open a typed line on this scroll. The words are
-    /// the same ones the genie scroll sends; this does not add any.
     pub fn begin_door(&mut self, row: u8) {
         self.door = Door { row: Some(row), ..Door::default() };
         self.chat.open = true;
@@ -905,7 +863,6 @@ impl Session {
         self.row = usize::from(row);
     }
 
-    /// Words waiting to be sent on the genie's existing request. One send.
     pub fn take_ask(&mut self) -> Option<String> {
         if self.door.waiting && !self.door.sent && !self.door.words.is_empty() {
             self.door.sent = true;
@@ -915,8 +872,6 @@ impl Session {
         None
     }
 
-    /// A stub or a live reply. The entry's name and ink become the thing.
-    /// A reply that names nothing is refused, so the fallback can still run.
     pub fn take_reply(&mut self, reply: &str, tick: u64) -> bool {
         let Some(row) = self.door.row else {
             return false;
@@ -932,8 +887,6 @@ impl Session {
         true
     }
 
-    /// No model answered. The offline parser makes the thing, and the scroll
-    /// says so. A row is never bent into another kind here: that was redirected.
     pub fn give_up(&mut self, tick: u64) {
         let Some(row) = self.door.row else {
             return;
@@ -1040,10 +993,6 @@ fn parse_entry(reply: &str) -> Parsed {
     Parsed { name, ink }
 }
 
-/// Whether a wish typed on the Creator scroll waits on the model. In play the
-/// reply is not yet carried back to this scroll, so it is off unless
-/// `ANGEL_WISH_DOOR=live`: a power opens the genie's own line and the other
-/// rows are answered by the keywords.
 fn door_live() -> bool {
     cfg!(test) || std::env::var("ANGEL_WISH_DOOR").ok().as_deref() == Some("live")
 }

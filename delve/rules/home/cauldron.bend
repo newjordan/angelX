@@ -1,10 +1,6 @@
-# crates/delve/src/rules/cauldron.rs — the pot's checks on a brewed spell
-# (`faults` and what it measures with), as the delve.brew policy runs them.
-
 def cauldron.POWER_BUDGET() -> F32:
   29.5
 
-# `power`: what a spell does at once over its recharge
 def cauldron.power(+card: J.Val) -> F32:
   F32.div(cauldron.points(J.items(J.get(card, "effects")), 0.0), U32.to_f32(U32.max(J.u32(J.get(card, "cooldown")), 1)))
 
@@ -39,7 +35,6 @@ def cauldron.points.cast(+shape: String) -> F32:
 def cauldron.points.summon(+n: U32, +b: String) -> F32:
   F32.mul(U32.to_f32(n), Bool.pick(F32, String.eq(b, "swarm"), 30.0, Bool.pick(F32, String.eq(b, "guard"), 25.0, 80.0)))
 
-# `effect_mix`: what a spell does in words, without its numbers, sorted
 def cauldron.effect_mix(+card: J.Val) -> List<&2, String>:
   home.util.dedup_str(home.util.sort_str(cauldron.mix_words(J.items(J.get(card, "effects")))))
 
@@ -58,7 +53,6 @@ def cauldron.mix_word(+fs: List<&2, Sigma<&2, &2, String, _ => J.Val>>) -> Strin
     case Nil{}:
       ""
 
-# `bare`: a name as a brew compares it
 def cauldron.bare(+name: String) -> String:
   cauldron.bare.trim(cauldron.bare.words(home.util.words(name)))
 
@@ -82,7 +76,6 @@ def cauldron.bare.alnum.go(+cs: List<&2, Char>) -> List<&2, Char>:
 def cauldron.bare.keep(+w: String, +t: List<&2, String>) -> List<&2, String>:
   home.util.ite(List<&2, String>, String.is_empty(w), u => cauldron.bare.words(t), u => w <> cauldron.bare.words(t))
 
-# drop a leading potent/perfect and a trailing tier numeral, then join
 def cauldron.bare.trim(+ws: List<&2, String>) -> String:
   String.concat(cauldron.bare.last(cauldron.bare.first(ws)))
 
@@ -116,7 +109,6 @@ def cauldron.has_effect.go(+es: List<&2, J.Val>, +name: String) -> Bool:
     case Con{+e, +t}:
       Bool.or(J.has(e, name), cauldron.has_effect.go(t, name))
 
-# alphabetic runs of ASCII letters
 def cauldron.alpha_words(+s: String) -> List<&2, String>:
   cauldron.alpha_words.go(String.to_list(s), "", Nil{})
 
@@ -146,13 +138,10 @@ def cauldron.creature(+c: J.Val) -> Bool:
 def cauldron.shoots(+c: J.Val) -> Bool:
   Bool.or(cauldron.has_effect(c, "cast"), J.has(J.get(c, "looks"), "shot"))
 
-# A creature and a shot in the pot: the creature card, when one input is a
-# creature and the other shoots (null when none).
 def cauldron.pet_shot(+a: J.Val, +b: J.Val) -> J.Val:
   home.util.ite(J.Val, Bool.and(cauldron.creature(a), Bool.and(cauldron.shoots(b), Bool.not(cauldron.creature(b)))), u => a,
     u => home.util.ite(J.Val, Bool.and(cauldron.creature(b), Bool.and(cauldron.shoots(a), Bool.not(cauldron.creature(a)))), u => b, u => J.JNull{}))
 
-# Why a spell the host's model brewed from `inputs` is turned away.
 def cauldron.faults(+card: J.Val, +a: J.Val, +b: J.Val, +taken: J.Val) -> List<&2, String>:
   List.concat(&2, String, [
     cauldron.fault.kind(card),
@@ -182,7 +171,6 @@ def cauldron.fault.power.of(+p: F32) -> List<&2, String>:
     u => ["it comes to " ++ home.util.fmt1(p) ++ " power a second; a brew may come to at most 29.5: lower its numbers or lengthen its cooldown"],
     u => Nil{})
 
-# the first (id, name) among the inputs and then the taken whose bare name is `name`
 def cauldron.name_hit(+id: String, +name: String, +cands: List<&2, J.Val>) -> J.Val:
   match cands:
     case Nil{}:
@@ -200,7 +188,6 @@ def cauldron.fault.name.hit(+card: J.Val, +same: J.Val) -> List<&2, String>:
     case _:
       ["the name " ++ J.str(J.get(card, "name")) ++ " is taken (" ++ J.str(J.get(same, "name")) ++ "): give it a name of its own"]
 
-# (id, name, mix) of an input card
 def cauldron.mix_of(+c: J.Val) -> J.Val:
   home.util.obj([("id", J.get(c, "id")), ("name", J.get(c, "name")), ("mix", home.util.jstrs(cauldron.effect_mix(c)))])
 

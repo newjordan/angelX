@@ -1,8 +1,5 @@
 use super::*;
 
-// save/load roundtrip mutates the process-global ANGEL_GOAL_FILE, so it lives
-// in the app-level tests under `env_lock`. Here we cover the pure logic.
-
 #[test]
 fn strip_word_matches_subcommands() {
     assert_eq!(
@@ -11,13 +8,12 @@ fn strip_word_matches_subcommands() {
     );
     assert_eq!(strip_word("+ship it", &["+"]), Some("ship it"));
     assert_eq!(strip_word("+ ship it", &["+"]), Some("ship it"));
-    assert_eq!(strip_word("criterion", &["criteria"]), None); // no trailing space
-    assert_eq!(strip_word("note", &["note"]), None); // bare word, no remainder
+    assert_eq!(strip_word("criterion", &["criteria"]), None);
+    assert_eq!(strip_word("note", &["note"]), None);
 }
 
 #[test]
 fn strip_word_handles_every_alias_and_boundary() {
-    // Each refine keyword matches case-insensitively when followed by a space.
     assert_eq!(
         strip_word("ACCEPT it must build", &["accept"]),
         Some("it must build")
@@ -31,19 +27,14 @@ fn strip_word_handles_every_alias_and_boundary() {
         strip_word("note remember this", &["note"]),
         Some("remember this")
     );
-    // The first matching word in the list wins.
     assert_eq!(
         strip_word("cmd lint", &["cmd", "verify", "check"]),
         Some("lint")
     );
-    // `+` shorthand needs no trailing space, but an empty remainder is rejected.
     assert_eq!(strip_word("+", &["+"]), None);
     assert_eq!(strip_word("+   ", &["+"]), None);
-    // A word with no trailing whitespace is not a subcommand (it's the goal text).
     assert_eq!(strip_word("noteworthy idea", &["note"]), None);
-    // Trailing whitespace but empty remainder → None.
     assert_eq!(strip_word("note    ", &["note"]), None);
-    // No word matches → None.
     assert_eq!(
         strip_word("ship the cockpit", &["criteria", "cmd", "note"]),
         None
@@ -85,7 +76,6 @@ fn new_goal_is_active_with_matching_timestamps() {
     assert!(g.acceptance.is_empty());
     assert!(g.accept_cmd.is_none());
     assert!(g.notes.is_empty());
-    // created/updated are stamped together at construction.
     assert_eq!(g.created_ms, g.updated_ms);
     assert!(g.created_ms > 0, "now_ms returned a real epoch time");
 }
@@ -116,7 +106,6 @@ fn goal_limits_reject_oversized_or_overfull_records() {
 
 #[test]
 fn goal_status_serializes_snake_case() {
-    // The `#[serde(rename_all = "snake_case")]` contract the store relies on.
     assert_eq!(
         serde_json::to_string(&GoalStatus::Active).unwrap(),
         "\"active\""
@@ -131,15 +120,10 @@ fn goal_status_serializes_snake_case() {
 
 #[test]
 fn paused_is_the_canonical_write_and_abandoned_still_reads() {
-    // Migration step 1 (docs/plans/goal-mission-conformance.md): the goal
-    // side now speaks the mission vocabulary. New writes emit `paused`;
-    // legacy stores holding `"abandoned"` load as `Paused` via the serde
-    // read alias and are re-written as `paused` on their next save.
     let legacy: GoalStatus = serde_json::from_str("\"abandoned\"").unwrap();
     assert_eq!(legacy, GoalStatus::Paused);
     assert_eq!(serde_json::to_string(&legacy).unwrap(), "\"paused\"");
 
-    // A whole legacy record round-trips through the new vocabulary.
     let raw = r#"{"text":"old store","status":"abandoned"}"#;
     let g: Goal = serde_json::from_str(raw).unwrap();
     assert_eq!(g.status, GoalStatus::Paused);
@@ -153,8 +137,6 @@ fn paused_is_the_canonical_write_and_abandoned_still_reads() {
 
 #[test]
 fn goal_deserializes_with_defaulted_optional_fields() {
-    // A minimal JSON (just `text`) must load, filling defaults — proving the
-    // `#[serde(default)]` annotations on the optional fields.
     let g: Goal = serde_json::from_str(r#"{"text":"only text"}"#).unwrap();
     assert_eq!(g.text, "only text");
     assert_eq!(g.status, GoalStatus::Active);
@@ -167,7 +149,6 @@ fn goal_deserializes_with_defaulted_optional_fields() {
 fn context_block_empty_unless_active() {
     let mut g = Goal::new("ship the cockpit");
     assert!(serde_json::to_string(&g).is_ok());
-    // Active with text → non-empty, well-formed.
     g.acceptance.push("tests green".to_string());
     g.accept_cmd = Some("cargo test".to_string());
     let json = serde_json::to_string(&g).unwrap();
@@ -179,9 +160,6 @@ fn context_block_empty_unless_active() {
 
 #[test]
 fn goal_status_vocabulary_matches_the_conformance_contract() {
-    // docs/plans/goal-mission-conformance.md: the four statuses are the
-    // goal side of the mapping table — renaming or adding one without
-    // updating the contract + the Node side is a drift bug.
     let mut seen = std::collections::HashSet::new();
     for status in [
         GoalStatus::Active,
@@ -205,21 +183,18 @@ fn goal_status_vocabulary_matches_the_conformance_contract() {
 
 #[test]
 fn goal_round_and_blocker_semantics_match_the_shared_rules() {
-    // Rule 1: BLOCKED is earned — the same reason, 3 consecutive rounds.
     let mut g = Goal::new("x");
     g.tick_blocked("gpu down");
-    g.tick_blocked("network down"); // resets the streak
+    g.tick_blocked("network down");
     assert_eq!(g.blocked_streak, 1);
     g.tick_blocked("gpu down");
     g.tick_blocked("gpu down");
     g.tick_blocked("gpu down");
     assert_eq!(g.status, GoalStatus::Blocked);
-    // Rule 2: resume keeps rounds and criteria; done is terminal.
     assert!(g.rearm());
     assert_eq!(g.status, GoalStatus::Active);
     g.status = GoalStatus::Done;
     assert!(!g.rearm(), "done is terminal-by-completion");
-    // Rule 3: a real round clears blocking candidates.
     let mut h = Goal::new("y");
     h.tick_blocked("gpu down");
     h.record_round();
@@ -290,7 +265,6 @@ fn real_rounds_and_done_clear_blocking_candidates() {
 
     g.tick_blocked("gpu down");
     g.status = GoalStatus::Done;
-    // Terminal states absorb blocked ticks without changing anything.
     assert!(!g.tick_blocked("gpu down"));
     assert_eq!(g.status, GoalStatus::Done);
 }
@@ -312,7 +286,6 @@ fn rearm_keeps_state_and_clears_the_blocker() {
     assert_eq!(g.blocked_streak, 0);
     assert!(g.can_continue());
 
-    // Done is terminal-by-completion: no re-arm.
     g.status = GoalStatus::Done;
     assert!(!g.rearm());
     assert_eq!(g.status, GoalStatus::Done);

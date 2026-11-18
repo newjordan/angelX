@@ -20,68 +20,40 @@ use angel_net::codec::{Bytes, put_varint};
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-/// A known wish (the phrasebook's id), for the open Overclass window: `{wish}`.
 pub const BOON: u32 = 1;
-/// A wish the phrasebook doesn't know: the host's angelX teaches it: `{words}`.
 pub const LEARN: u32 = 2;
-/// Reforge one part of the seat's kit, in their words, in a Sanctuary:
-/// `{part, words}`.
 pub const REFORGE: u32 = 3;
-/// A reforged card the seat's own angelX drafted: `{part, card}`.
 pub const REFORGE_CARD: u32 = 4;
-/// A card for the book: its file's text.
 pub const CARD: u32 = 5;
-/// Forged runes for the seat's weapon: the file's text.
 pub const FORGE: u32 = 6;
-/// A wish for the realm, in the seat's own words: plain text.
 pub const WISH: u32 = 7;
-/// Raise a drafted wish the treasury can pay for: its id.
 pub const GRANT: u32 = 8;
-/// A card in the seat's hand dragged onto another slot, 0 the next to
-/// drink (`Run::move_card`): `{from, to}`.
 pub const HAND: u32 = 9;
-/// A thing the seat made in the Creator and brought to life for the realm, a sealed recipe
-/// (`rite::Made`) as JSON: the run checks its budget and ranges again.
 pub const CREATION: u32 = super::together_shooter::rite::ACTION;
-/// One piece of a larger action: its kind, how many pieces, which this is,
-/// then its bytes.
 pub const PIECE: u32 = 100;
 
-/// The bytes a piece carries: the action's framing and the piece's header
-/// still fit in a client message.
 const PIECE_BYTES: usize = 900;
-/// The most an action may be once whole: a card with its sprites as JSON.
 pub const MAX_WHOLE: usize = cards::MAX_FILE_BYTES * 2 + 1024;
-/// A seat sends at most one piece this often: 50 a second, beside its 30
-/// commands, inside the 120 messages a second a socket may send.
 pub const PIECE_EVERY: Duration = Duration::from_millis(20);
 
-/// What a seat's action asks of the host, checked.
 #[derive(Clone, Debug)]
 pub enum Gear {
     Boon(String),
     Learn(String),
     Reforge(Part, String),
-    /// Checked here and again by the host's run before it is equipped.
     ReforgeCard(Part, Card),
     Card(Card),
     Weapon(super::together_forge::Weapon),
     Wish(String),
     Grant(String),
-    /// From slot, to slot: checked against the hand by the run.
     Hand(usize, usize),
-    /// A Creator piece for the realm: well formed here, its budget checked again by the run.
     Creation(super::together_shooter::rite::Made),
 }
 
-/// The messages that carry one action: itself when it fits in one,
-/// else its pieces, in order.
 pub fn pieces(kind: u32, body: &[u8]) -> Vec<(u32, Vec<u8>)> {
-    // The one framing, shared with the seats that send in pieces themselves (`angel_net::client`).
     angel_net::client::pieces(kind, body)
 }
 
-/// One seat's action coming in pieces.
 struct Upload {
     kind: u32,
     count: usize,
@@ -89,16 +61,12 @@ struct Upload {
     next: usize,
 }
 
-/// Each seat's action coming in pieces, put back together.
 #[derive(Default)]
 pub struct Uploads {
     seats: BTreeMap<u32, Upload>,
 }
 
 impl Uploads {
-    /// An action from `seat`: the whole action, once it is (at once for
-    /// one that came whole). A piece out of order, an action grown past
-    /// `MAX_WHOLE`, or a malformed piece drops what the seat had sent.
     pub fn take(&mut self, seat: u32, kind: u32, body: &[u8]) -> Option<(u32, Vec<u8>)> {
         if kind != PIECE {
             self.seats.remove(&seat);
@@ -138,20 +106,16 @@ impl Uploads {
         Some((upload.kind, upload.bytes))
     }
 
-    /// The seat changed hands: what it was sending is dropped.
     pub fn clear(&mut self, seat: u32) {
         self.seats.remove(&seat);
     }
 }
 
-/// A piece's header (the whole's kind, how many pieces, which this is)
-/// and its bytes.
 fn piece(body: &[u8]) -> Option<(u32, usize, usize, &[u8])> {
     let mut b = Bytes::new(body);
     let kind = u32::try_from(b.varint().ok()?).ok()?;
     let count = usize::try_from(b.varint().ok()?).ok()?;
     let index = usize::try_from(b.varint().ok()?).ok()?;
-    // What is left after the header is the piece's own bytes.
     let mut header = Vec::new();
     put_varint(&mut header, u64::from(kind));
     put_varint(&mut header, count as u64);
@@ -160,7 +124,6 @@ fn piece(body: &[u8]) -> Option<(u32, usize, usize, &[u8])> {
     (body.starts_with(&header) && index < count).then_some((kind, count, index, chunk))
 }
 
-/// Text a player typed: no control characters, at most `max` of them.
 fn words(text: &str, max: usize) -> String {
     text.chars()
         .filter(|c| !c.is_control())
@@ -170,8 +133,6 @@ fn words(text: &str, max: usize) -> String {
         .to_string()
 }
 
-/// What an action from knight `knight` asks for, checked as the host's
-/// HTTP routes once checked it, or why not.
 pub fn read(knight: u32, kind: u32, body: &[u8]) -> Result<Gear, String> {
     let json =
         || serde_json::from_slice::<serde_json::Value>(body).map_err(|_| "send JSON".to_string());
@@ -210,7 +171,6 @@ pub fn read(knight: u32, kind: u32, body: &[u8]) -> Result<Gear, String> {
             let part =
                 Part::from_word(&field(&forged, "part")?).ok_or("part is offense or defense")?;
             let mut checked = cards::check("", &field(&forged, "card")?).map_err(|e| e.fix_it())?;
-            // A friend's card never replaces one of the host's.
             checked.card.id = format!("p{knight}-{}", checked.card.id);
             Ok(Gear::ReforgeCard(part, checked.card))
         }

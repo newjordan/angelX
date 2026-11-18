@@ -13,26 +13,10 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::{Host, LockExt, UserEvent};
 
-/// A cell symbol's width in columns. Printable ASCII and the built-in
-/// box-drawing (`U+2500..=U+257F`), block (`U+2580..=U+259F`) and braille
-/// (`U+2800..=U+28FF`) ranges — nearly every cell, nearly every frame —
-/// are one column by definition and never need the Unicode table.
-/// The 2-byte Latin-1-letter / Latin Extended / Greek / Cyrillic block
-/// and the 3-byte CJK-wide block below skip it the same way.
 #[inline]
 pub(crate) fn symbol_width(symbol: &str) -> usize {
     let b = symbol.as_bytes();
     if (b.len() == 1 && b[0] >= 0x20)
-        // Two-byte sequences with these leading bytes decode to block
-        // ranges that hold no zero-width or wide characters (Latin-1
-        // letters, Latin Extended-A/B, phonetic, spacing modifiers,
-        // Greek, Cyrillic, Cyrillic supplement D3..D5, Arabic DA
-        // U+0680..U+06BF): all width 1. This skips the `unicode-width`
-        // table walk for accented Latin, Greek and Cyrillic grids.
-        // Leading bytes like 0xC2 (NBSP/soft-hyphen), 0xCC/0xCD
-        // (combining U+0300..), 0xD2 (combining U+0488..U+0489),
-        // Hebrew and Arabic stay on the table path so the fast path
-        // still agrees with it exactly.
         || (b.len() == 2 && matches!(b[0], 0xC3..=0xCB | 0xCE | 0xCF | 0xD0 | 0xD1 | 0xD3..=0xD5 | 0xDA))
         || (b.len() == 3
             && b[0] == 0xe2
@@ -45,44 +29,22 @@ pub(crate) fn symbol_width(symbol: &str) -> usize {
         && b[0] == 0xF0
         && matches!(b[1], 0x97 | 0xA0..=0xAE | 0xB0..=0xBE)
     {
-        // CJK Extension B tail (`F0 A0..=AE` = `U+20000..=U+2EBEF`),
-        // Extension G/H (`F0 B0..=BE` = `U+30000..=U+323AF`) and the
-        // Tangut-adjacent `F0 97` block (`U+17000..=U+187FF`): exhaustively
-        // all wide, no narrow/noncharacter holes (probed 4096/4096 wide
-        // per second-byte). Byte check only, no decode, no table.
-        // Neighbour blocks (`F0 98`/`9F`/… with 663/1184 narrow, `AF`/`BF`
-        // with `U+2FFFE`/`U+3FFFE`…) stay on the table path.
         2
     } else {
         UnicodeWidthStr::width(symbol)
     }
 }
 
-/// A 3-byte cell symbol (`U+0800..=U+FFFF`) that missed the box/block/
-/// braille path: decode its codepoint and answer from verified ranges
-/// instead of the `unicode-width` multi-level table walk. `U+4000..=U+9FFF`
-/// (CJK Extension A tail + Unified, the bulk of CJK grids) needs only the
-/// lead byte; the rest decode one codepoint with bit ops. Anything outside
-/// the pinned ranges falls through to the table, so agreement is exact.
-/// Every range below is pinned codepoint-by-codepoint by
-/// `the_fast_path_agrees_with_the_table`.
 #[inline]
 fn wide_or_narrow_3(b: &[u8], symbol: &str) -> usize {
     let b0 = b[0];
-    // `E4..=E9` is exactly `U+4000..=U+9FFF`: fully assigned and all
-    // wide, so no decode and no holes to guard.
     if matches!(b0, 0xE4..=0xE9) {
         return 2;
     }
-    // Valid UTF-8 with a 3-byte lead and length 3 is one codepoint.
     let cp =
         (u32::from(b0 & 0x0F) << 12) | (u32::from(b[1] & 0x3F) << 6) | u32::from(b[2] & 0x3F);
     match b0 {
-        // Hangul Jamo (the filler `U+115F` is wide too; `U+1160..` falls
-        // through to the table, which reports it zero-width).
         0xE1 if (0x1100..=0x115F).contains(&cp) => 2,
-        // Everyday punctuation: spaces and dashes. Bidi controls and the
-        // zero-width space stay on the table path.
         0xE2
             if (0x2000..=0x200A).contains(&cp) || (0x2010..=0x2029).contains(&cp) =>
         {
@@ -103,32 +65,19 @@ fn wide_or_narrow_3(b: &[u8], symbol: &str) -> usize {
                   || (0x3250..=0x32FF).contains(&cp)
                 || (0x3400..=0x3FFF).contains(&cp) =>
         {
-            // CJK punctuation, hiragana, katakana, bopomofo, hangul
-            // compatibility jamo, kanbun, CJK strokes, enclosed CJK and
-            // Extension A. The combining marks between them (`U+302A..`,
-            // `U+3099..U+309A`) and the narrow `U+303F`/`U+318F` fall
-            // through to the table.
             2
         }
-        // Yi syllables and radicals (`U+A48D..` and `U+A4C7..` are
-        // narrow and stay on the table path) plus Hangul syllables
-        // `U+AC00..=U+AFFF`.
         0xEA if (0xA000..=0xA48C).contains(&cp)
             || (0xA490..=0xA4C6).contains(&cp)
             || (0xAC00..=0xAFFF).contains(&cp) =>
         {
             2
         }
-        // Hangul syllables `U+B000..=U+CFFF`: the whole `EB`/`EC` lead
-        // blocks lie inside `U+AC00..=U+D7A3`, so no decode is needed.
         0xEB | 0xEC => 2,
-        // Hangul syllables.
         0xED if (0xD000..=0xD7A3).contains(&cp) => 2,
         0xEF if (0xFF01..=0xFF60).contains(&cp) || (0xFFE0..=0xFFE6).contains(&cp) => {
-            // Fullwidth ASCII, kana and symbols.
             2
         }
-        // Halfwidth katakana and punctuation (all narrow, no holes).
         0xEF if (0xFF61..=0xFF9D).contains(&cp) || (0xFFA1..=0xFFDF).contains(&cp) => 1,
         _ => UnicodeWidthStr::width(symbol),
     }
@@ -143,18 +92,12 @@ pub struct GlassBackend {
     cursor_visible: bool,
     flushed_cursor: Option<(u16, u16)>,
     flushed_game: bool,
-    /// The cursor's shape and colour, as the program drawing asked for it.
     cursor_style: crate::CursorStyle,
     flushed_cursor_style: Option<crate::CursorStyle>,
     changed: bool,
-    /// Half-open `[start, end)` cell index span modified since the last flush.
     dirty_curr: Option<(usize, usize)>,
-    /// Half-open `[start, end)` cell index span modified between `revision - 1`
-    /// and `revision`, used when the render thread swaps its `t - 1` snapshot back.
     dirty_prev: Option<(usize, usize)>,
     revision: u64,
-    /// A cell carried terminal escape codes (a picture made for a terminal
-    /// emulator): said once, then such cells stay blank.
     escapes_seen: bool,
 }
 
@@ -168,9 +111,6 @@ fn union_span(a: Option<(usize, usize)>, b: Option<(usize, usize)>) -> Option<(u
 }
 
 impl GlassBackend {
-    /// Set how the cursor is drawn: the shape a program asked for and the
-    /// colour it set. The default block with the palette's colour is what
-    /// the cockpit shows, so nothing changes until someone asks.
     pub fn set_cursor_style(&mut self, style: crate::CursorStyle) {
         if style != self.cursor_style {
             self.changed = true;
@@ -208,7 +148,6 @@ impl GlassBackend {
         self.changed = true;
     }
 
-    /// Match the grid to the window's current size.
     fn fit(&mut self) {
         let grid = *self.host.shared.grid.lock_recover();
         if grid.cols != self.cols || grid.rows != self.rows {
@@ -226,8 +165,6 @@ impl GlassBackend {
         usize::from(y) * usize::from(self.cols) + usize::from(x)
     }
 
-    /// One cell, and the cells a wide symbol covers, as on a terminal:
-    /// ratatui does not send a covered cell again.
     fn put(&mut self, x: u16, y: u16, cell: Cell) -> usize {
         let i = self.index(x, y);
         let width = symbol_width(cell.symbol()).max(1);
@@ -262,8 +199,6 @@ impl Backend for GlassBackend {
                 continue;
             }
             if cell.symbol().contains('\x1b') {
-                // The window draws cells, not escape codes: a cell carrying
-                // them (a picture made for a terminal) shows nothing.
                 if !self.escapes_seen {
                     self.escapes_seen = true;
                     eprintln!("GLASS: a cell carried terminal escape codes; it is drawn blank");
@@ -355,7 +290,6 @@ impl Backend for GlassBackend {
             self.changed = true;
         }
         if !self.changed {
-            // Same cells, new picture: still a frame to present.
             if pictures {
                 self.host.send(UserEvent::Pictures);
             }
@@ -407,8 +341,6 @@ fn sync_into_slot(
         && slot.snapshot.rows == rows
         && slot.snapshot.cells.len() == cells.len();
     if same_dims && *revision > 0 && slot.snapshot.revision == *revision {
-        // The render thread has not swapped `slot.snapshot` since our
-        // previous flush: copy only `dirty_curr` and accumulate into `dirty_prev`.
         if let Some((start, end)) = dirty_curr {
             let end = end.min(cells.len());
             let start = start.min(end);
@@ -416,8 +348,6 @@ fn sync_into_slot(
         }
         *dirty_prev = union_span(*dirty_prev, dirty_curr);
     } else if same_dims && *revision > 1 && slot.snapshot.revision == *revision - 1 {
-        // The render thread swapped its `t - 1` buffer back into `slot.snapshot`:
-        // copy only the union of `dirty_prev` and `dirty_curr`.
         if let Some((start, end)) = union_span(*dirty_prev, dirty_curr) {
             let end = end.min(cells.len());
             let start = start.min(end);
@@ -467,12 +397,10 @@ mod tests {
                 "{symbol:?}"
             );
         }
-        // Every printable ASCII byte, for completeness.
         for byte in 0x20u8..=0x7e {
             let s = (byte as char).to_string();
             assert_eq!(symbol_width(&s), 1, "{s:?}");
         }
-        // Every box-drawing, block and braille character, for completeness.
         for code in (0x2500u32..=0x259f).chain(0x2800u32..=0x28ff) {
             let s = char::from_u32(code).unwrap().to_string();
             assert_eq!(
@@ -482,9 +410,6 @@ mod tests {
             );
             assert_eq!(symbol_width(&s), 1, "U+{code:04X}");
         }
-        // Every character the 2-byte fast path claims (Latin-1 letters,
-        // Latin Extended, Greek, Cyrillic): agreement with the table,
-        // and all width 1.
         for code in (0xc0u32..=0x2ff).chain(0x370..=0x4ff).chain(0x680..=0x6bf) {
             let Some(ch) = char::from_u32(code) else {
                 continue;
@@ -504,8 +429,6 @@ mod tests {
             );
             assert_eq!(symbol_width(&s), 1, "U+{code:04X}");
         }
-        // Combining marks, Hebrew and Arabic stay on the table path and
-        // still agree with it (the fast path must not claim them).
         for symbol in ["e\u{301}", "ע", "م", " ", "­"] {
             assert_eq!(
                 symbol_width(symbol),
@@ -513,9 +436,6 @@ mod tests {
                 "{symbol:?}"
             );
         }
-        // Every character the wide fast path claims: CJK, Hangul,
-        // fullwidth and halfwidth. All must agree with the table and
-        // report the pinned width.
         for code in (0x1100u32..=0x115f)
             .chain(0x2000..=0x2029)
             .chain(0x3000..=0x32ff)
@@ -543,11 +463,6 @@ mod tests {
 
     #[test]
     fn the_fast_path_agrees_with_the_table_supplementary() {
-        // Exhaustive over every 4-byte sequence the fast path claims:
-        // `F0 97` + `F0 A0..=AE` + `F0 B0..=BE` (126_976 codepoints).
-        // All must agree with the table and report width 2. Neighbour
-        // blocks with holes (`F0 98`/`9F`, `AF`/`BF` noncharacters)
-        // stay on the table path and are pinned by sampling below.
         let mut checked = 0u32;
         for b1 in [0x97u8, 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
                    0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE,
@@ -570,10 +485,6 @@ mod tests {
 
     #[test]
     fn the_fast_path_agrees_with_the_table_everywhere() {
-        // Exhaustive: every BMP codepoint. The fast path may only answer
-        // where it matches the table exactly; anything else must fall
-        // through. This pins the whole `E4..=E9` blanket and every range
-        // above against holes the probes did not sample.
         for code in 0u32..=0xffff {
             let Some(ch) = char::from_u32(code) else {
                 continue;

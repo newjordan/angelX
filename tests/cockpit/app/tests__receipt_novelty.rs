@@ -62,8 +62,6 @@ fn with_loop(check: impl FnOnce(&mut App, &std::path::Path)) {
     )
     .unwrap();
     std::fs::write(workspace.join("submission.md"), "fixed baseline\n").unwrap();
-    // Durable loop/goal stores live outside the candidate workspace so saving
-    // the actual App cannot manufacture a workspace-change signal.
     let _file = TestEnvGuard::set("ANGEL_LOOP_FILE", root.join("loop.json").to_str().unwrap());
     let _goal = TestEnvGuard::set("ANGEL_GOAL_FILE", root.join("goal.json").to_str().unwrap());
     let _mirror = TestEnvGuard::unset("ANGEL_LOOP_STATE_DIR");
@@ -111,7 +109,6 @@ fn unchanged_candidate_new_submission_id_is_activity_without_stagnation_reset() 
             .unwrap()
             .content
             .to_string();
-        // `⠘⠙`: the repeat ban and the comparison are the receipt's pages.
         assert!(
             prompt.contains(&crate::agent::harness::book::d45_iteration::RECEIPT.cells()),
             "next action must preserve the repeat ban and request a comparison: {prompt}"
@@ -246,7 +243,6 @@ fn competitive_prompt_preserves_repeat_ban_before_first_receipt() {
             .unwrap()
             .content
             .to_string();
-        // Podrace rides as `⠻⠚`; its rules are the ledger pages.
         let podrace = crate::agent::harness::book::er_loop::PODRACE;
         assert!(prompt.contains(&podrace.cells()), "{prompt}");
         let pages = podrace.sub().pages.join(" ");
@@ -268,8 +264,6 @@ fn periodic_soft_pivot_preserves_objective_staleness_and_continuation() {
         app.loop_ctl.stall_stop = 3;
         app.loop_ctl.pivot = 3;
         let tier = app.loop_ctl.tier;
-        // These are simulated observed receipts, not authorization to repeat
-        // competitive submissions. Neither receipt can erase the prior state.
         app.loop_ctl.stale_count = 2;
         harvest(app, submit(829));
         assert_eq!(app.loop_ctl.stale_count, 3);

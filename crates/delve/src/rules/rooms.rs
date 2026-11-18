@@ -23,22 +23,16 @@ use std::sync::{Mutex, OnceLock};
 
 use super::layout::{self, Room, RoomKind, Tile};
 
-/// The live module that owns the drawn rooms.
 const MODULE: &str = "rooms-rules";
 
-/// The packs `layout::Pack` numbers, in its own order.
 const PACKS: usize = 7;
 
-/// The least share of a room's interior, in percent, left as floor; the
-/// module owns the number and this adapter refuses a room below it once a
-/// room can be laid.
 static CONSTS: OnceLock<Consts> = OnceLock::new();
 
 static SMALL: [OnceLock<&'static [Template]>; PACKS] = [const { OnceLock::new() }; PACKS];
 static GREAT: [OnceLock<&'static [&'static [&'static str]]>; PACKS] =
     [const { OnceLock::new() }; PACKS];
 
-/// The great-room quadrants already asked for, by (pack, width, height).
 static SIZED: Mutex<Vec<((usize, usize, usize), &'static [&'static [&'static str]])>> =
     Mutex::new(Vec::new());
 
@@ -61,7 +55,6 @@ struct Consts {
     least_floor: u32,
 }
 
-/// A pack's hand-drawn one-screen quadrants, eleven by six.
 pub fn small(pack: Pack) -> &'static [Template] {
     SMALL[index(pack)].get_or_init(|| {
         let want = (COLS / 2 - 1, ROWS / 2 - 1);
@@ -75,12 +68,10 @@ pub fn small(pack: Pack) -> &'static [Template] {
     })
 }
 
-/// Every quadrant a pack has drawn for the bigger rooms, of any size.
 pub fn all_great(pack: Pack) -> &'static [&'static [&'static str]] {
     GREAT[index(pack)].get_or_init(|| quadrants(draw(pack, "great", None), pack, None))
 }
 
-/// A pack's hand-drawn quadrants `w` wide and `h` high, in authored order.
 pub fn great(pack: Pack, w: usize, h: usize) -> Vec<&'static [&'static str]> {
     sized(pack, (w, h)).to_vec()
 }
@@ -95,8 +86,6 @@ fn sized(pack: Pack, size: (usize, usize)) -> &'static [&'static [&'static str]]
     }
     let art = quadrants(draw(pack, "sized", Some(size)), pack, Some(size));
     let mut kept = SIZED.lock().unwrap_or_else(|poison| poison.into_inner());
-    // Another thread may have asked for the same size while this one asked the
-    // module; either answer is the module's, so the first one kept stands.
     if let Some((_, art)) = kept.iter().find(|(seen, _)| *seen == key) {
         return art;
     }
@@ -104,9 +93,6 @@ fn sized(pack: Pack, size: (usize, usize)) -> &'static [&'static [&'static str]]
     art
 }
 
-/// The quadrant sizes of the bigger rooms (interior halves less the lanes):
-/// a party's rooms (34x20, 42x24, 48x28) and the great halls the packs lay
-/// (32x20, 36x20, 40x24).
 pub fn sizes() -> Vec<(usize, usize)> {
     consts()
         .sizes
@@ -115,10 +101,8 @@ pub fn sizes() -> Vec<(usize, usize)> {
         .collect()
 }
 
-/// The rule every drawn quadrant keeps, in a line: what [`fault`] checks.
 pub const RULE: &str = "a quadrant keeps its doorway lanes open at their doors, its middle 3x3 open, every floor tile walkable from every door, and at least 55% floor";
 
-/// The room a quadrant makes at its size, every doorway open.
 pub(crate) fn laid(quadrant: &[&str]) -> Room {
     let (w, h) = (quadrant[0].len(), quadrant.len());
     let (cols, rows) = (2 * (w + 1), 2 * (h + 1));
@@ -130,9 +114,6 @@ pub(crate) fn laid(quadrant: &[&str]) -> Room {
     room
 }
 
-/// What is wrong with a drawn quadrant, if anything: rows of one length in
-/// only the three marks, the doorway lanes open at their doors, the middle
-/// open, every floor tile walkable from the doors, enough floor.
 pub fn fault(quadrant: &[&str]) -> Option<String> {
     let w = quadrant.first()?.len();
     if quadrant.iter().any(|r| r.len() != w) {
@@ -141,8 +122,6 @@ pub fn fault(quadrant: &[&str]) -> Option<String> {
     if let Some(c) = quadrant.iter().flat_map(|r| r.chars()).find(|c| !matches!(c, '.' | '#' | '~')) {
         return Some(format!("a mark that is none of . # ~: {c:?}"));
     }
-    // The doorway lanes' far ends: the last column at the top row and the
-    // last row at the left column, where the doorways come in.
     let h = quadrant.len();
     if h < 3 || w < 3 {
         return Some("smaller than the middle it must keep open".into());
@@ -150,8 +129,6 @@ pub fn fault(quadrant: &[&str]) -> Option<String> {
     if quadrant[0].as_bytes()[w - 1] != b'.' || quadrant[h - 1].as_bytes()[0] != b'.' {
         return Some("a doorway lane is shut at its door".into());
     }
-    // The middle of the room (each quadrant's corner by both lanes) stays
-    // open: the stairs and a guardian stand there.
     if quadrant[h - 3..].iter().any(|r| r.as_bytes()[w - 3..].iter().any(|&b| b != b'.')) {
         return Some("the middle of the room is not open (the last 3x3 of the quadrant)".into());
     }
@@ -188,14 +165,10 @@ pub fn fault(quadrant: &[&str]) -> Option<String> {
     None
 }
 
-
-/// How often, in percent, a bigger room of a size someone has drawn is one
-/// of theirs rather than the pillared grid.
 pub fn authored_share() -> u32 {
     consts().share
 }
 
-/// The least share of a room's interior, in percent, left as floor.
 pub fn least_floor() -> usize {
     consts().least_floor as usize
 }
@@ -212,7 +185,6 @@ fn consts() -> &'static Consts {
     })
 }
 
-/// The pack's index in the module's arms.
 fn index(pack: Pack) -> usize {
     match pack {
         Pack::Crypt => 0,
@@ -246,7 +218,6 @@ fn draw(pack: Pack, op: &'static str, size: Option<(usize, usize)>) -> Art {
     art
 }
 
-/// Every quadrant of an answer, checked and kept for the process.
 fn quadrants(
     art: Art,
     pack: Pack,
@@ -260,8 +231,6 @@ fn quadrants(
     Box::leak(out.into_boxed_slice())
 }
 
-/// What is wrong with a drawn quadrant, if anything: the size the module says
-/// it drew, then the marks and the lanes the layout rules rely on.
 fn checked(quad: &Quad, size: Option<(usize, usize)>) -> Result<(), String> {
     let (w, h) = (quad.w as usize, quad.h as usize);
     if w < 4 || h < 4 {
@@ -283,13 +252,9 @@ fn checked(quad: &Quad, size: Option<(usize, usize)>) -> Result<(), String> {
             return Err(format!("a mark that is none of . # ~: {c:?}"));
         }
     }
-    // The doorway lanes' far ends: the last column at the top row and the last
-    // row at the left column, where the doorways come in.
     if quad.rows[0].as_bytes()[w - 1] != b'.' || quad.rows[h - 1].as_bytes()[0] != b'.' {
         return Err("a doorway lane is shut at its door".into());
     }
-    // The middle of the room (each quadrant's corner by both lanes) stays open:
-    // the stairs and a guardian stand there.
     if quad.rows[h - 3..]
         .iter()
         .any(|row| row.as_bytes()[w - 3..].iter().any(|&mark| mark != b'.'))
@@ -303,7 +268,6 @@ fn refuse(pack: Pack, op: &str, error: String) -> ! {
     panic!("{MODULE}: {pack:?} answered no {op} room: {error}")
 }
 
-/// One one-screen quadrant as the layout rules read it.
 fn template(quad: &Quad) -> Template {
     let rows: Vec<&'static str> = quad.rows.iter().map(|row| kept(row)).collect();
     rows.try_into()
@@ -326,10 +290,6 @@ fn answer<T: serde::de::DeserializeOwned>(input: &serde_json::Value) -> T {
         .unwrap_or_else(|error| panic!("{MODULE} refused {input}: {error}"))
 }
 
-/// The Delve carries no JavaScript engine, so its own tests answer from the
-/// module's captured answers, written from the compiled module by
-/// `cockpit/live/rooms-rules/rooms-art.json` and checked against the moved
-/// oracle in the cockpit's rules tests. Only the marshalling lives here.
 #[cfg(test)]
 mod test_engine {
     use std::sync::OnceLock;

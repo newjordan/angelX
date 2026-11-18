@@ -225,7 +225,6 @@ fn settlement_bad_save_and_failed_transaction_never_reset_or_overwrite() {
     store.sync(&facts("A", &[1]), false).unwrap();
     let path = store.path.clone().unwrap();
     let original = std::fs::read(&path).unwrap();
-    // Existing temp is not removed; a failed save publishes no state in memory.
     let temp = path.with_extension(format!("{}.next", std::process::id()));
     std::fs::write(&temp, b"stale owned temp").unwrap();
     assert!(store.sync(&facts("A", &[1, 2]), false).is_err());
@@ -533,8 +532,6 @@ fn settlement_playable_knight_can_walk_out_of_the_hall_into_the_first_cut() {
     let mut run = Run::at_home(77, 1, None, Home::default(), Default::default());
     run.enter_settlement(site.admission()).unwrap();
     let hero = run.players.get_mut(&1).unwrap();
-    // Approach the west wall from inside the hall, crossing the actual
-    // renovated chapel screen. Run::step performs real collision and exits.
     hero.x = 4.5 * TILE_UNITS;
     hero.y = (ROWS / 2) as f32 * TILE_UNITS;
     let input = BTreeMap::from([(
@@ -581,9 +578,6 @@ fn settlement_saved_site_can_be_admitted_with_no_active_loop() {
     store
         .sync(&facts("finished-loop", &[1, 2, 3, 4]), false)
         .unwrap();
-    // Test production admission, not the in-memory generator route. A fresh
-    // loaded Store is installed in this disk-free App preview at the narrow
-    // World's test seam, then /dungeon start does its ordinary refresh/admit.
     let saved = Store::beside(Some(&rewards), seed, &player).unwrap();
     app.realm.world.settlement_restore_for_test(saved);
     assert!(app.loop_ctl.id.is_empty());
@@ -611,7 +605,6 @@ fn settlement_paid_realm_wing_is_not_lost_on_admission_between_loops() {
     store.sync(&facts("completed-loop", &[1]), false).unwrap();
     let resources = store.site.resources.clone();
     app.realm.world.settlement_restore_for_test(store);
-    // Existing realm construction, not a loop reward or free purchase.
     app.economy().home.levels.insert(Station::Wing, 1);
     assert!(app.loop_ctl.id.is_empty());
     app.dungeon_command(Some("start"));
@@ -645,8 +638,6 @@ fn settlement_failed_refresh_cannot_admit_a_cached_site_through_noop_sync() {
     );
     assert!(app.realm.dungeon.shooter.is_none());
     assert!(app.realm.world.settlement_site().is_err());
-    // The ordinary entry can fall back to its standard home, but must not
-    // advertise success or admit cached settlement tiles after a disk failure.
     app.dungeon_command(Some("start"));
     assert!(
         app.realm.dungeon

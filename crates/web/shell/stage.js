@@ -1,18 +1,6 @@
 'use strict';
-// Stage: draw a frame from its parts instead of a finished picture
-// (docs/RENDER_FOUNDATION.md, "The game pipeline"). The module sends
-// `angel-stage`'s wire format (crates/stage/src/wire.rs): the pictures that
-// are new or changed, kept here as textures by id, and quads in the stage's
-// own pixels, drawn back to front at the screen's density. A quad with no
-// alpha adds to what is under it (light). The stage is drawn into a texture
-// of its own, so a new scene can slide in over the last one.
 
-/* exported makeStage */
 function makeStage(gl, fit, screen) {
-  // A quad turns by its angle about its middle, then stands on the stage's
-  // tilted floor as angel-stage's Tilt says (crates/stage/src/lib.rs): the
-  // floor projected (w carries depth, so pictures stay true), what stands
-  // placed on its foot and scaled, the screen's marks untouched.
   const VS = '#version 300 es\n' +
     'in vec2 corner;in vec4 rect;in vec4 source;in vec4 color;in vec2 info;in vec4 turn;\n' +
     'uniform vec2 stage;uniform vec2 picture;uniform vec2 offset;uniform vec4 tilt;uniform float squash;\n' +
@@ -33,23 +21,15 @@ function makeStage(gl, fit, screen) {
     'in vec2 uv;in vec2 local;in vec4 tint;flat in vec2 kind;out vec4 o;\n' +
     'void main(){' +
     'if(kind.y>0.5){float d=min(dot(local,local),1.0);o=tint*(1.0-d)*(1.0-d);return;}' +
-    // kind.x 2 is the blit: the stage's own target, already premultiplied,
-    // handed over as stored — an rgb*a here darkens translucent texels twice.
     'if(kind.x>1.5){o=texture(t,uv)*tint.a;return;}' +
     'if(kind.x>0.5){vec4 c=texture(t,uv);o=vec4(c.rgb*c.a,c.a)*tint.a;return;}' +
     'o=tint;}';
-  // Floats an instance takes: rect, source, colour (4 each), textured,
-  // shape, then its turn: angle, stand (0 floor, 1 upright, 2 screen), foot.
   const STRIDE = 18;
-  // The wire (crates/stage/src/wire.rs): header bytes, bytes a quad takes.
   const HEADER = 56, QUAD = 72;
-  // How long a new scene takes to slide in, in ms.
   const SLIDE_MS = 420;
 
   let prog, loc, quadBuf, instBuf, inst = new Float32Array(STRIDE * 256);
   let pictures = new Map();
-  // The stage's two textures: the scene now, and the last one while the
-  // new one slides in over it.
   const targets = [null, null];
   let tw = 0, th = 0, now = 0, lastScene = null, slide = null;
 
@@ -116,7 +96,6 @@ function makeStage(gl, fit, screen) {
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, heap, at);
   }
 
-  // The instance attributes from `first` floats into the buffer.
   function point(first) {
     const bytes = STRIDE * 4;
     const at = (name, size, offset) => {
@@ -132,8 +111,6 @@ function makeStage(gl, fit, screen) {
     at('turn', 4, 14);
   }
 
-  // `tilt`: the stage's floor [centre x, centre y, near, zoom, squash], or
-  // none (the page, a flat stage).
   function begin(w, h, tilt) {
     gl.useProgram(prog);
     const tl = tilt || [0, 0, 0, 0, 1];
@@ -151,7 +128,6 @@ function makeStage(gl, fit, screen) {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   }
 
-  // Draw `n` instances from `first`, the picture `id` bound (0: none).
   function batch(first, n, id) {
     const p = id ? pictures.get(id) : null;
     if (id && !p) return;
@@ -161,8 +137,6 @@ function makeStage(gl, fit, screen) {
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
   }
 
-  // One texture over the box, flipped as a framebuffer is. Info x=2:
-  // the passthrough kind, for the stage's own premultiplied targets.
   function blit(tex, w, h, x, y) {
     inst.set([x, y, w, h, 0, h, w, -h, 1, 1, 1, 1, 2, 0, 0, 2, 0, 0], 0);
     gl.bindBuffer(gl.ARRAY_BUFFER, instBuf);
@@ -182,22 +156,16 @@ function makeStage(gl, fit, screen) {
 
   return {
     init,
-    // `heap` is a Uint8Array over the module's memory, the frame `len`
-    // bytes at `ptr`; `t` the page's clock in ms.
     draw(heap, ptr, len, t) {
       now = t;
-      // The whole frame is validated before any GL work: a truncated or
-      // lying buffer draws nothing instead of throwing halfway through
-      // its uploads. Sizes cap at the texture limit every host keeps.
       if (len < HEADER) return false;
       const dv = new DataView(heap.buffer, heap.byteOffset + ptr, len);
-      if (dv.getUint32(0, true) !== 0x32475453) return false; // "STG2"
+      if (dv.getUint32(0, true) !== 0x32475453) return false;
       const w = dv.getUint32(4, true), h = dv.getUint32(8, true);
       const npics = dv.getUint32(12, true), nquads = dv.getUint32(16, true);
       const scene = dv.getUint32(20, true);
       const ex = dv.getFloat32(24, true), ey = dv.getFloat32(28, true);
       const tilt = [0, 1, 2, 3, 4].map((k) => dv.getFloat32(32 + k * 4, true));
-      // A tilt that is not finite draws flat.
       const tilted = tilt.every(Number.isFinite) && tilt[3] > 0 ? tilt : null;
       const MAX_SIDE = 8192;
       if (!w || !h || w > MAX_SIDE || h > MAX_SIDE) return false;
@@ -230,7 +198,6 @@ function makeStage(gl, fit, screen) {
       }
       const b = fit(w, h);
       const bw = b[2], bh = b[3];
-      // A new scene through a door slides in over the last.
       if (lastScene !== null && scene !== lastScene && !Number.isNaN(ex) && targets[0]) {
         const kept = targets[0];
         targets[0] = targets[1];
@@ -242,8 +209,6 @@ function makeStage(gl, fit, screen) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, cur.fb);
       gl.viewport(0, 0, bw, bh);
       gl.disable(gl.SCISSOR_TEST);
-      // Transparent, like the glass window's stage targets: a scene
-      // that wants paper paints it, and the page shows through the rest.
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       begin(w, h, tilted);
@@ -256,8 +221,6 @@ function makeStage(gl, fit, screen) {
           first = i;
         }
       }
-      // Onto the page: the stage's box, the page showing through around
-      // and inside it wherever the scene is transparent.
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, screen.w, screen.h);
       gl.clearColor(0, 0, 0, 0);
@@ -274,8 +237,6 @@ function makeStage(gl, fit, screen) {
         blit(cur.tex, bw, bh, 0, 0);
       }
       gl.disable(gl.BLEND);
-      // Leave the context as the frame's presenter expects it (its
-      // letterbox is opaque black; only stage frames are transparent).
       for (const a of ['rect', 'source', 'color', 'info', 'turn']) {
         gl.vertexAttribDivisor(loc[a], 0);
         gl.disableVertexAttribArray(loc[a]);

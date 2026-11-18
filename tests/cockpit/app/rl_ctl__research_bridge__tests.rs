@@ -32,9 +32,6 @@ fn sloptomizer_nonregular_store_fixture() {
     let result = match first {
         Ok(result) => result,
         Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-            // Release the old blocking-open implementation before failing the
-            // regression, so it leaves no stuck worker. The fixture's outer
-            // process deadline also bounds assertion/setup failures.
             cancel.store(true, Ordering::Release);
             let writer = OpenOptions::new()
                 .read(true)
@@ -114,8 +111,6 @@ fn sloptomizer_concurrent_feedback_is_durable_deduplicated_and_failure_preserves
     let root = std::env::temp_dir().join(format!("angel-slop-store-{}", new_run_id()));
     let _env = crate::tests::TestEnvGuard::set("ANGEL_RL_DIR", root.to_str().unwrap());
     let scope = root.join("learning");
-    // Synthetic bridge inputs test storage, not objective verification. Only
-    // the production controller admits observations through physical evidence.
     let event = |i| {
         json!({"action":"observe","task":"fixture objective","observation":{
             "id":format!("synthetic-{i}"),"idea":format!("fixture idea {i}"),"approach":"fixture",
@@ -207,7 +202,6 @@ fn sloptomizer_publishes_coherent_generations_and_retains_last_good() {
     );
     assert_ne!(edited, original);
     std::fs::write(&runner_path, &edited).unwrap();
-    // A partially saved dependency without a commit manifest is not used.
     let before_publish = call();
     assert_eq!(before_publish["runtime_generation"], first_generation);
     publish();
@@ -230,7 +224,6 @@ fn sloptomizer_publishes_coherent_generations_and_retains_last_good() {
         "in-flight generations remain intact"
     );
 
-    // A later partial edit leaves the accepted snapshot active and reports why.
     std::fs::write(&runner_path, "def broken(:\n").unwrap();
     let partial = call();
     assert_eq!(partial["runtime_generation"], accepted_generation);
@@ -304,8 +297,6 @@ fn sloptomizer_generation_manifest_rejects_mixed_or_incomplete_dependencies() {
 
 #[test]
 fn sloptomizer_candidate_validation_does_not_execute_runtime_code() {
-    // The probe spawns `python3` by PATH: hold the env lock, or a test that
-    // swaps PATH or ANGEL_RESEARCH_PYTHON takes the interpreter away mid-spawn.
     let _lock = crate::tests::env_lock();
     let _python = crate::tests::TestEnvGuard::unset("ANGEL_RESEARCH_PYTHON");
     let root = std::env::temp_dir().join(format!("angel-slop-static-{}", new_run_id()));
